@@ -409,8 +409,9 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
         </div>
         <button onclick="demoKirjaudu('9012')" style="width:100%;margin-top:6px;padding:10px;border-radius:10px;border:1px solid rgba(0,229,204,.3);background:rgba(0,229,204,.07);color:var(--teal);font-size:12px;font-weight:700;cursor:pointer">📊 9012 — Valmentajan näkymä</button>
       </div>
-  </div>
-</div>
+    </div><!-- /pinWrap -->
+  </div><!-- /inner wrapper -->
+</div><!-- /sPin -->
 
 <!-- ONBOARDING — näytetään kerran ensimmäisellä avauksella -->
 <div class="screen" id="sOnboard" style="background:var(--bg);padding:28px 24px;overflow-y:auto;">
@@ -3923,7 +3924,11 @@ function go(id,txt){
   var t=document.getElementById(id);if(t)t.classList.add('active');
   if(txt){var el=document.getElementById('loadTxt');if(el)el.textContent=txt;}
 }
-async function goMain(){go('sMain');buildMain();fetchAI();}
+async function goMain(){
+  var onboardingTehty=localStorage.getItem('tm_onboarding_tehty');
+  if(!onboardingTehty){go('sOnboard');return;}
+  go('sMain');buildMain();fetchAI();
+}
 
 // ═══════════ AI INTEGRAATIO ═══════════
 function haePaivanSitaatti(){return SITAATIT[Math.floor(Date.now()/86400000)%SITAATIT.length];}
@@ -6016,15 +6021,8 @@ function suljeOnboarding(){
 
 // ═══════════ INIT ═══════════
 document.addEventListener('DOMContentLoaded',function(){
-  // Näytä onboarding jos ensimmäinen kerta
-  var onboardingTehty=localStorage.getItem('tm_onboarding_tehty');
-  if(!onboardingTehty){
-    go('sOnboard');
-    return;
-  }
-  if(!tarkistaGestallennettu()){
-    // PIN-ruutu pysyy aktiivisena
-  }
+  // PIN-ruutu aina ensin — onboarding näytetään kirjautumisen jälkeen
+  go('sPin');
 });</script>
 </body>
 </html>
