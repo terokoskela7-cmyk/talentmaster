@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>TalentID-Master™ — Seuran Lahjakkuuskartta</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080e18;--bg2:#0d1525;--bg3:#111d2e;--card:#141e30;
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.12);
+  --text:#e4ecf7;--muted:#6b82a0;--muted2:#8fa3be;--dim:#2d4060;
+  --teal:#00e5c0;--blue:#2f8fff;--purple:#a78bfa;--amber:#ffb830;
+  --green:#22c55e;--red:#f04444;--pink:#f472b6;--orange:#fb923c;
+  --gold:#fbbf24;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden}
+
+/* ── LOGIN ── */
+#sLogin{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:radial-gradient(ellipse at 50% 0%,rgba(0,229,192,.07) 0%,transparent 60%)}
+.login-badge{width:64px;height:64px;background:linear-gradient(135deg,var(--teal),var(--blue));border-radius:18px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--bg);margin-bottom:20px;box-shadow:0 0 40px rgba(0,229,192,.3)}
+.login-title{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:2px;color:var(--text);margin-bottom:4px;text-align:center}
+.login-sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:32px;text-align:center}
+.pin-dots{display:flex;gap:12px;margin-bottom:24px}
+.pin-dot{width:14px;height:14px;border-radius:50%;background:var(--dim);transition:background .2s}
+.pin-dot.filled{background:var(--teal);box-shadow:0 0 8px rgba(0,229,192,.5)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;width:100%}
+.pin-btn{padding:16px;border-radius:14px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:22px;cursor:pointer;transition:all .15s;text-align:center}
+.pin-btn:active{transform:scale(.94);background:rgba(0,229,192,.12);border-color:var(--teal)}
+.pin-err{font-size:12px;color:var(--red);margin-top:12px;text-align:center;min-height:18px}
+
+/* ── MAIN ── */
+#sMain{display:none;min-height:100vh}
+
+/* ── HEADER ── */
+.top-bar{background:linear-gradient(135deg,var(--bg2),#0a1520);border-bottom:1px solid var(--border2);padding:14px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:200;backdrop-filter:blur(20px)}
+.tm-badge{width:38px;height:38px;background:linear-gradient(135deg,var(--teal),var(--blue));border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--bg);flex-shrink:0;box-shadow:0 0 16px rgba(0,229,192,.25)}
+.top-titles{flex:1}
+.top-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1.5px;line-height:1}
+.top-sub{font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.top-badge{font-size:10px;padding:3px 10px;border-radius:20px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);color:var(--purple);font-weight:700;letter-spacing:.5px}
+
+/* ── JOHDANTO ── */
+.intro-section{background:linear-gradient(135deg,rgba(0,229,192,.05),rgba(47,143,255,.05));border-bottom:1px solid var(--border);padding:16px}
+.intro-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;margin-bottom:6px}
+.intro-text{font-size:13px;color:var(--muted2);line-height:1.65;margin-bottom:12px}
+.intro-pills{display:flex;flex-wrap:wrap;gap:6px}
+.intro-pill{font-size:11px;padding:5px 11px;border-radius:20px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px}
+.intro-pill:hover,.intro-pill:active{border-color:var(--teal);color:var(--teal);background:rgba(0,229,192,.06)}
+
+/* ── KPI ROW ── */
+.kpi-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:12px 10px;text-align:center;position:relative;overflow:hidden}
+.kpi-val{font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;margin-bottom:3px}
+.kpi-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;line-height:1.3}
+.kpi-card.alert-red{border-color:rgba(240,68,68,.3);background:rgba(240,68,68,.06)}
+.kpi-card.alert-amber{border-color:rgba(255,184,48,.3);background:rgba(255,184,48,.06)}
+.kpi-card.alert-green{border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.06)}
+.kpi-card.alert-teal{border-color:rgba(0,229,192,.3);background:rgba(0,229,192,.06)}
+.kpi-card.alert-purple{border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.06)}
+
+/* ── SECTION ── */
+.section{padding:16px;border-bottom:1px solid var(--border)}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sec-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.sec-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.info-btn{width:22px;height:22px;border-radius:50%;border:1px solid var(--border2);background:var(--bg3);color:var(--muted);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* ── TALENT MAP ── */
+#talentMapWrap{position:relative;background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:8px}
+#talentMapCanvas{display:block;width:100%;touch-action:none}
+.map-quadrant-labels{position:absolute;inset:0;pointer-events:none;font-family:'DM Mono',monospace;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.ql{position:absolute;padding:6px 8px;border-radius:6px}
+
+/* ── PELAAJA TOOLTIP ── */
+#mapTooltip{position:fixed;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 14px;min-width:180px;max-width:220px;z-index:500;display:none;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.tt-name{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;margin-bottom:2px}
+.tt-row{display:flex;justify-content:space-between;font-size:11px;color:var(--muted2);margin-top:4px}
+.tt-val{font-weight:700;color:var(--text)}
+
+/* ── HIDDEN GEM LIST ── */
+.gem-card{background:var(--card);border:1.5px solid;border-radius:14px;padding:13px 14px;margin-bottom:8px;cursor:pointer;transition:all .2s}
+.gem-card:active{transform:scale(.98)}
+.gem-header{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+.gem-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.gem-name{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;line-height:1.1}
+.gem-meta{font-size:11px;color:var(--muted2);margin-top:2px}
+.gem-reason{font-size:12px;color:var(--muted2);line-height:1.5;padding:8px 10px;background:rgba(255,255,255,.03);border-radius:9px;margin-top:6px}
+.gem-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.badge-pill{font-size:10px;padding:3px 9px;border-radius:12px;font-weight:700;border:1px solid}
+
+/* ── RAE CHART ── */
+.rae-bars{display:flex;flex-direction:column;gap:8px}
+.rae-row{display:flex;align-items:center;gap:10px}
+.rae-label{font-size:12px;font-weight:700;width:24px;flex-shrink:0;font-family:'DM Mono',monospace}
+.rae-bar-wrap{flex:1;height:28px;background:var(--bg3);border-radius:8px;overflow:hidden;position:relative}
+.rae-bar{height:100%;border-radius:8px;display:flex;align-items:center;padding-left:10px;font-size:11px;font-weight:700;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.rae-pct{font-family:'DM Mono',monospace;font-size:11px;width:32px;text-align:right;color:var(--muted)}
+.rae-ideal{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.2)}
+.rae-warning{background:rgba(255,184,48,.08);border:1px solid rgba(255,184,48,.25);border-radius:11px;padding:10px 12px;margin-top:10px;font-size:12px;color:var(--amber);line-height:1.5;display:none}
+
+/* ── 5D RADAR ── */
+.radar-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.radar-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center}
+.radar-label{font-size:11px;color:var(--muted2);margin-bottom:4px;font-weight:600}
+.radar-score{font-family:'Bebas Neue',sans-serif;font-size:22px;margin-top:-2px}
+
+/* ── TRACK LIST ── */
+.track-section{margin-bottom:12px}
+.track-header{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:11px;margin-bottom:6px;cursor:pointer}
+.track-count{font-family:'Bebas Neue',sans-serif;font-size:20px;width:30px;flex-shrink:0;text-align:center}
+.track-info{flex:1}
+.track-name{font-size:13px;font-weight:700}
+.track-desc{font-size:11px;color:var(--muted2);margin-top:1px}
+.track-player{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:5px;cursor:pointer;transition:background .15s}
+.track-player:active{background:var(--card)}
+.tp-tid{font-family:'Bebas Neue',sans-serif;font-size:22px;width:38px;text-align:center;flex-shrink:0}
+.tp-info{flex:1}
+.tp-name{font-size:13px;font-weight:700}
+.tp-meta{font-size:11px;color:var(--muted);margin-top:1px}
+.tp-dvi{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;flex-shrink:0}
+
+/* ── DVI TREND ── */
+.dvi-chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;overflow:hidden}
+#dviCanvas{display:block;width:100%}
+
+/* ── POPUP ── */
+#popup{position:fixed;inset:0;z-index:1000;display:none;align-items:flex-end}
+#popupBg{position:absolute;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+#popupBox{position:relative;z-index:1;width:100%;max-height:80vh;overflow-y:auto;background:var(--bg2);border-radius:24px 24px 0 0;padding:20px 16px 40px}
+#popupHandle{width:36px;height:4px;border-radius:2px;background:var(--dim);margin:0 auto 16px}
+
+/* ── PLAYER PROFILE POPUP ── */
+.pp-header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.pp-tid-badge{font-family:'Bebas Neue',sans-serif;font-size:40px;line-height:1;padding:8px 14px;border-radius:14px;flex-shrink:0}
+.pp-name{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;line-height:1.1}
+.pp-meta{font-size:12px;color:var(--muted2);margin-top:4px}
+.dim-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.dim-label{font-size:12px;font-weight:700;width:80px;flex-shrink:0}
+.dim-bar-wrap{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.dim-bar{height:100%;border-radius:4px;transition:width .6s ease}
+.dim-val{font-size:11px;font-family:'DM Mono',monospace;width:36px;text-align:right;color:var(--muted2)}
+
+/* ── TABS ── */
+.tab-row{display:flex;gap:0;background:var(--bg3);border-radius:12px;padding:3px;margin-bottom:14px}
+.tab-btn{flex:1;padding:8px 4px;border-radius:9px;border:none;background:transparent;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;text-align:center}
+.tab-btn.active{background:var(--card);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+
+/* ── FOOTER ── */
+.footer{padding:24px 16px;text-align:center;font-size:10px;color:var(--dim);line-height:1.8}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════ LOGIN ══════════════════════════ -->
+<div id="sLogin">
+  <div class="login-badge">TM</div>
+  <div class="login-title">TalentID-Master™</div>
+  <div class="login-sub">Seuran lahjakkuuskartta · HPP ELITE™</div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-btn" onclick="pinPress(1)">1</button>
+    <button class="pin-btn" onclick="pinPress(2)">2</button>
+    <button class="pin-btn" onclick="pinPress(3)">3</button>
+    <button class="pin-btn" onclick="pinPress(4)">4</button>
+    <button class="pin-btn" onclick="pinPress(5)">5</button>
+    <button class="pin-btn" onclick="pinPress(6)">6</button>
+    <button class="pin-btn" onclick="pinPress(7)">7</button>
+    <button class="pin-btn" onclick="pinPress(8)">8</button>
+    <button class="pin-btn" onclick="pinPress(9)">9</button>
+    <button class="pin-btn" onclick="pinClear()" style="font-size:14px">⌫</button>
+    <button class="pin-btn" onclick="pinPress(0)">0</button>
+    <button class="pin-btn" onclick="pinClear(true)" style="font-size:14px;color:var(--muted)">✕</button>
+  </div>
+  <div class="pin-err" id="pinErr"></div>
+</div>
+
+<!-- ══════════════════════════ MAIN ══════════════════════════ -->
+<div id="sMain">
+
+  <!-- Header -->
+  <div class="top-bar">
+    <div class="tm-badge">TM</div>
+    <div class="top-titles">
+      <div class="top-title">TalentID-Master™</div>
+      <div class="top-sub" id="seuranNimi">FC LAHTI · SEURANÄKYMÄ</div>
+    </div>
+    <div class="top-badge">5D™</div>
+  </div>
+
+  <!-- Johdanto -->
+  <div class="intro-section">
+    <div class="intro-title">Seuran lahjakkuuskartta</div>
+    <div class="intro-text">Perinteinen arviointi näkee kuka on paras <em>tänään</em>. TalentID-Master™ näkee kuka on paras viiden vuoden päästä. Kolme asiaa vääristää perinteistä arviointia systemaattisesti — ja tämä sivu korjaa ne kaikki.</div>
+    <div class="intro-pills">
+      <div class="intro-pill" onclick="openEduPopup('bioika')">🧬 Biologinen ikä</div>
+      <div class="intro-pill" onclick="openEduPopup('rae')">📅 Syntymäkuukausi (RAE)</div>
+      <div class="intro-pill" onclick="openEduPopup('dvi')">📈 Kehitysnopeus DVI™</div>
+      <div class="intro-pill" onclick="openEduPopup('5d')">⭐ 5D-viitekehys</div>
+      <div class="intro-pill" onclick="openEduPopup('flei')">🔗 FLEI™-indeksi</div>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="kpi-strip" id="kpiStrip"></div>
+
+  <!-- Tabs -->
+  <div style="padding:12px 16px 0;border-bottom:1px solid var(--border)">
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="showTab(0)">🗺 Kartta</button>
+      <button class="tab-btn" onclick="showTab(1)">💎 Helmet</button>
+      <button class="tab-btn" onclick="showTab(2)">📊 Analyysi</button>
+      <button class="tab-btn" onclick="showTab(3)">🏆 Polut</button>
+    </div>
+  </div>
+
+  <!-- TAB 0 — Talent Map -->
+  <div id="tab0" class="section">
+    <div class="sec-hdr">
+      <div>
+        <div class="sec-title">Lahjakkuuskartta</div>
+        <div class="sec-sub">X = DVI™ kehitysnopeus · Y = TalentID kokonaispisteet · napauta pelaajaa</div>
+      </div>
+      <button class="info-btn" onclick="openEduPopup('kartta')">ⓘ</button>
+    </div>
+    <div id="talentMapWrap">
+      <canvas id="talentMapCanvas" width="360" height="320"></canvas>
+    </div>
+    <div style="display:flex;justify-content:center;gap:14px;margin-top:8px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:50%;background:var(--teal)"></div>Elite Track</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:50%;background:var(--amber)"></div>Development</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:50%;background:var(--purple)"></div>Hidden Gem</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:50%;background:var(--muted)"></div>Long-term</div>
+    </div>
+  </div>
+
+  <!-- TAB 1 — Hidden Gems -->
+  <div id="tab1" class="section" style="display:none">
+    <div class="sec-hdr">
+      <div>
+        <div class="sec-title">Hidden Gem™ -tunnistus</div>
+        <div class="sec-sub">Automaattinen tunnistus kolmella kriteerillä — kirjan logiikka</div>
+      </div>
+      <button class="info-btn" onclick="openEduPopup('hiddengem')">ⓘ</button>
+    </div>
+    <div id="gemList"></div>
+    <div style="margin-top:14px">
+      <div class="sec-hdr" style="margin-bottom:10px">
+        <div>
+          <div class="sec-title">⚡ X-Factor -pelaajat</div>
+          <div class="sec-sub">Yksi dimensio selvästi erottuu — luontainen vahvuus</div>
+        </div>
+        <button class="info-btn" onclick="openEduPopup('xfactor')">ⓘ</button>
+      </div>
+      <div id="xfactorList"></div>
+    </div>
+  </div>
+
+  <!-- TAB 2 — Analyysi -->
+  <div id="tab2" class="section" style="display:none">
+    <!-- RAE -->
+    <div class="sec-hdr">
+      <div>
+        <div class="sec-title">RAE-jakauma</div>
+        <div class="sec-sub">Syntymäkuukausijakauma · ideaali 25% per kvartaali</div>
+      </div>
+      <button class="info-btn" onclick="openEduPopup('rae')">ⓘ</button>
+    </div>
+    <div class="rae-bars" id="raeBars"></div>
+    <div class="rae-warning" id="raeWarning"></div>
+
+    <div style="height:1px;background:var(--border);margin:16px 0"></div>
+
+    <!-- 5D radar per joukkue -->
+    <div class="sec-hdr">
+      <div>
+        <div class="sec-title">5D-profiili — joukkueet</div>
+        <div class="sec-sub">Joukkueen 5D-dimensiokeskiarvot</div>
+      </div>
+      <button class="info-btn" onclick="openEduPopup('5d')">ⓘ</button>
+    </div>
+    <div class="radar-grid" id="radarGrid"></div>
+
+    <div style="height:1px;background:var(--border);margin:16px 0"></div>
+
+    <!-- DVI trendi -->
+    <div class="sec-hdr">
+      <div>
+        <div class="sec-title">DVI™-trendi</div>
+        <div class="sec-sub">Seuran kehitysnopeus kaudesta toiseen</div>
+      </div>
+      <button class="info-btn" onclick="openEduPopup('dvi')">ⓘ</button>
+    </div>
+    <div class="dvi-chart-wrap">
+      <canvas id="dviCanvas" width="328" height="140"></canvas>
+    </div>
+  </div>
+
+  <!-- TAB 3 — Tracks -->
+  <div id="tab3" class="section" style="display:none">
+    <div class="sec-hdr">
+      <div>
+        <div class="sec-title">Player Talent Profile™</div>
+        <div class="sec-sub">Elite · Development · Long-term Track</div>
+      </div>
+      <button class="info-btn" onclick="openEduPopup('tracks')">ⓘ</button>
+    </div>
+    <div id="trackList"></div>
+  </div>
+
+  <div class="footer">
+    TalentID-Master™ · HPP ELITE™<br>
+    5D-viitekehys · RAE-korjaus · DVI™ · FLEI™ · Biologinen ikä<br>
+    Liikanen & Törmä 2025 · Cobley 2009 · Duckworth 2007 · Myers 2020
+  </div>
+</div>
+
+<!-- ══ TOOLTIP ══ -->
+<div id="mapTooltip">
+  <div class="tt-name" id="ttName"></div>
+  <div style="font-size:10px;color:var(--muted);margin-bottom:4px" id="ttTrack"></div>
+  <div class="tt-row"><span>TalentID</span><span class="tt-val" id="ttTid"></span></div>
+  <div class="tt-row"><span>DVI™</span><span class="tt-val" id="ttDvi"></span></div>
+  <div class="tt-row"><span>FLEI™</span><span class="tt-val" id="ttFlei"></span></div>
+  <div class="tt-row"><span>Joukkue</span><span class="tt-val" id="ttJoukkue"></span></div>
+</div>
+
+<!-- ══ POPUP ══ -->
+<div id="popup" onclick="closePopup(event)">
+  <div id="popupBg"></div>
+  <div id="popupBox">
+    <div id="popupHandle"></div>
+    <div id="popupContent"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DEMO DATA — 24 pelaajaa, 3 joukkuetta, täysi TalentID-data
+// Perustuu kirjan Player Talent Profile™ -rakenteeseen
+// ═══════════════════════════════════════════════════════════
+
+var PELAAJAT=[
+  // ── U13 JOUKKUE ──────────────────────────────────────────
+  {id:1,nimi:'Aleksi Mäkinen',joukkue:'U13',ika:'12v 8kk',phv:'pre',rae:'Q3',
+   d1:72,d2:68,d3:62,d4:78,d5:60, // FYS TEK PSY KOG SOS (0-100 each)
+   flei:74,dvi:0.38,dvilvl:'HIGH',
+   syntymakk:8, // elokuu = Q3
+   bio_krono_ero:0.3},
+  {id:2,nimi:'Eetu Korhonen',joukkue:'U13',ika:'12v 4kk',phv:'pre',rae:'Q2',
+   d1:80,d2:75,d3:74,d4:70,d5:72,flei:81,dvi:0.22,dvilvl:'NORMAL',syntymakk:5,bio_krono_ero:0.1},
+  {id:3,nimi:'Noel Virtanen',joukkue:'U13',ika:'12v 1kk',phv:'pre',rae:'Q1',
+   d1:85,d2:80,d3:65,d4:62,d5:68,flei:78,dvi:0.15,dvilvl:'NORMAL',syntymakk:2,bio_krono_ero:-0.4},
+  {id:4,nimi:'Samu Leinonen',joukkue:'U13',ika:'12v 11kk',phv:'pre',rae:'Q4',
+   d1:55,d2:62,d3:70,d4:74,d5:65,flei:58,dvi:0.42,dvilvl:'HIGH',syntymakk:11,bio_krono_ero:1.2},
+  {id:5,nimi:'Mikko Järvi',joukkue:'U13',ika:'12v 3kk',phv:'pre',rae:'Q1',
+   d1:78,d2:72,d3:68,d4:65,d5:70,flei:75,dvi:0.19,dvilvl:'NORMAL',syntymakk:3,bio_krono_ero:-0.2},
+  {id:6,nimi:'Toni Heikkinen',joukkue:'U13',ika:'12v 7kk',phv:'pre',rae:'Q3',
+   d1:60,d2:58,d3:72,d4:80,d5:74,flei:62,dvi:0.35,dvilvl:'HIGH',syntymakk:9,bio_krono_ero:0.8},
+  {id:7,nimi:'Jani Peltonen',joukkue:'U13',ika:'11v 10kk',phv:'pre',rae:'Q4',
+   d1:48,d2:55,d3:68,d4:76,d5:60,flei:52,dvi:0.45,dvilvl:'HIGH',syntymakk:10,bio_krono_ero:1.5},
+  {id:8,nimi:'Otto Saari',joukkue:'U13',ika:'12v 5kk',phv:'pre',rae:'Q2',
+   d1:74,d2:70,d3:60,d4:58,d5:55,flei:70,dvi:0.08,dvilvl:'LOW',syntymakk:4,bio_krono_ero:-0.1},
+
+  // ── U15 JOUKKUE ──────────────────────────────────────────
+  {id:9,nimi:'Matias Korhonen',joukkue:'U15',ika:'14v 3kk',phv:'peak',rae:'Q3',
+   d1:62,d2:71,d3:69,d4:78,d5:55,flei:52,dvi:0.40,dvilvl:'HIGH',syntymakk:8,bio_krono_ero:-1.6},
+  {id:10,nimi:'Aleksi Virtanen',joukkue:'U15',ika:'14v 8kk',phv:'post',rae:'Q2',
+   d1:84,d2:76,d3:72,d4:70,d5:68,flei:82,dvi:0.28,dvilvl:'NORMAL',syntymakk:5,bio_krono_ero:0.2},
+  {id:11,nimi:'Lauri Mäkinen',joukkue:'U15',ika:'15v 1kk',phv:'post',rae:'Q1',
+   d1:88,d2:82,d3:70,d4:68,d5:72,flei:86,dvi:0.18,dvilvl:'NORMAL',syntymakk:1,bio_krono_ero:0.5},
+  {id:12,nimi:'Henri Salonen',joukkue:'U15',ika:'14v 6kk',phv:'peak',rae:'Q4',
+   d1:58,d2:64,d3:75,d4:72,d5:66,flei:48,dvi:0.44,dvilvl:'HIGH',syntymakk:12,bio_krono_ero:-2.1},
+  {id:13,nimi:'Vili Lähteenmäki',joukkue:'U15',ika:'14v 11kk',phv:'post',rae:'Q3',
+   d1:76,d2:78,d3:68,d4:74,d5:70,flei:77,dvi:0.31,dvilvl:'HIGH',syntymakk:9,bio_krono_ero:0.3},
+  {id:14,nimi:'Kasper Niemelä',joukkue:'U15',ika:'14v 2kk',phv:'peak',rae:'Q1',
+   d1:82,d2:74,d3:62,d4:60,d5:58,flei:55,dvi:0.12,dvilvl:'NORMAL',syntymakk:2,bio_krono_ero:-0.8},
+  {id:15,nimi:'Rasmus Aaltonen',joukkue:'U15',ika:'14v 9kk',phv:'post',rae:'Q4',
+   d1:60,d2:68,d3:78,d4:82,d5:72,flei:65,dvi:0.48,dvilvl:'HIGH',syntymakk:11,bio_krono_ero:-1.8},
+  {id:16,nimi:'Leo Hakanen',joukkue:'U15',ika:'15v 0kk',phv:'post',rae:'Q2',
+   d1:70,d2:66,d3:64,d4:62,d5:60,flei:72,dvi:0.06,dvilvl:'LOW',syntymakk:6,bio_krono_ero:0.1},
+
+  // ── U17 JOUKKUE ──────────────────────────────────────────
+  {id:17,nimi:'Joonas Mäkinen',joukkue:'U17',ika:'16v 5kk',phv:'stable',rae:'Q1',
+   d1:86,d2:84,d3:76,d4:74,d5:70,flei:88,dvi:0.22,dvilvl:'NORMAL',syntymakk:2,bio_krono_ero:0.4},
+  {id:18,nimi:'Santeri Virtanen',joukkue:'U17',ika:'16v 8kk',phv:'stable',rae:'Q4',
+   d1:68,d2:74,d3:80,d4:86,d5:76,flei:70,dvi:0.35,dvilvl:'HIGH',syntymakk:10,bio_krono_ero:1.0},
+  {id:19,nimi:'Anton Korhonen',joukkue:'U17',ika:'16v 3kk',phv:'stable',rae:'Q2',
+   d1:78,d2:80,d3:72,d4:70,d5:68,flei:80,dvi:0.24,dvilvl:'NORMAL',syntymakk:5,bio_krono_ero:0.2},
+  {id:20,nimi:'Mikael Leinonen',joukkue:'U17',ika:'16v 11kk',phv:'stable',rae:'Q1',
+   d1:90,d2:86,d3:70,d4:68,d5:64,flei:92,dvi:0.16,dvilvl:'NORMAL',syntymakk:3,bio_krono_ero:0.6},
+  {id:21,nimi:'Eemil Järvinen',joukkue:'U17',ika:'16v 6kk',phv:'stable',rae:'Q3',
+   d1:72,d2:76,d3:74,d4:78,d5:80,flei:75,dvi:0.29,dvilvl:'NORMAL',syntymakk:7,bio_krono_ero:0.3},
+  {id:22,nimi:'Tomi Hakkarainen',joukkue:'U17',ika:'16v 2kk',phv:'stable',rae:'Q4',
+   d1:62,d2:70,d3:82,d4:80,d5:78,flei:65,dvi:0.38,dvilvl:'HIGH',syntymakk:12,bio_krono_ero:0.9},
+  {id:23,nimi:'Petteri Saarela',joukkue:'U17',ika:'17v 0kk',phv:'stable',rae:'Q1',
+   d1:84,d2:78,d3:68,d4:66,d5:62,flei:85,dvi:0.10,dvilvl:'NORMAL',syntymakk:1,bio_krono_ero:0.2},
+  {id:24,nimi:'Ilmari Mäkinen',joukkue:'U17',ika:'16v 7kk',phv:'stable',rae:'Q2',
+   d1:76,d2:72,d3:70,d4:72,d5:68,flei:78,dvi:0.20,dvilvl:'NORMAL',syntymakk:6,bio_krono_ero:0.1}
+];
+
+// DVI-trendid (kausittain)
+var DVI_TRENDI={
+  kaudet:['S23','K24','S24','K25','S25'],
+  U13:[0.18,0.22,0.28,0.31,0.35],
+  U15:[0.25,0.28,0.32,0.36,0.34],
+  U17:[0.20,0.22,0.24,0.26,0.24]
+};
+
+// ═══════════════════════════════════════════════════════════
+// LASKENTALOGIIKAT — kirjasta suoraan
+// ═══════════════════════════════════════════════════════════
+
+function laskeTID(p){
+  // Painoarvot: FYS 40%, TEK 25%, PSY 15%, KOG 10%, SOS 10%
+  var raw=(p.d1*0.40)+(p.d2*0.25)+(p.d3*0.15)+(p.d4*0.10)+(p.d5*0.10);
+  // RAE-korjaus
+  var raeK={Q1:0.97,Q2:0.98,Q3:1.02,Q4:1.06}[p.rae]||1.0;
+  // PHV-korjaus
+  var phvMod={pre:2,peak:-4,post:0,stable:1}[p.phv]||0;
+  return Math.min(100,Math.max(0,Math.round(raw*raeK+phvMod)));
+}
+
+function laskeTrack(p){
+  var tid=laskeTID(p);
+  if(tid>75&&p.dvilvl==='HIGH'&&p.flei>60)return'elite';
+  if(tid>=50&&(p.dvilvl==='NORMAL'||p.dvilvl==='HIGH'))return'development';
+  if(tid<50&&p.dvilvl==='HIGH')return'longterm';
+  return'development';
+}
+
+// Hidden Gem: kolme kriteeriä (kirja luku 12)
+function laskeGemSyyt(p){
+  var syyt=[];
+  var tid=laskeTID(p);
+  if(tid<65&&p.dvilvl==='HIGH')
+    syyt.push({ikoni:'📈',teksti:'DVI HIGH mutta TalentID alle 65 — kehitysnopeus ylittää nykyisen tason',laji:'dvi'});
+  if(p.bio_krono_ero<=-1.2)
+    syyt.push({ikoni:'🧬',teksti:'Biologinen ikä '+Math.abs(p.bio_krono_ero).toFixed(1)+'v krono-iän jäljessä — kasvupyrähdys tulossa',laji:'bio'});
+  if(p.rae==='Q4'&&tid<72)
+    syyt.push({ikoni:'📅',teksti:'Q4-syntynyt ('+['','tammi','helmi','maalis','huhti','touko','kesä','heinä','elo','syys','loka','marras','joulu'][p.syntymakk]+'). RAE-etu ×1.06 — potentiaali aliarvioitu',laji:'rae'});
+  return syyt;
+}
+
+function laskeXFactor(p){
+  // X-Factor: yksi dimensio ≥ 85 kun kokonais alle 78
+  var dims=[
+    {nimi:'Fyysinen',arvo:p.d1,ikoni:'🏃',vari:'var(--teal)'},
+    {nimi:'Tekninen',arvo:p.d2,ikoni:'⚽',vari:'var(--blue)'},
+    {nimi:'Psykologinen',arvo:p.d3,ikoni:'❤️',vari:'var(--purple)'},
+    {nimi:'Kognitiivinen',arvo:p.d4,ikoni:'🧠',vari:'var(--amber)'},
+    {nimi:'Sosiaalinen',arvo:p.d5,ikoni:'🤝',vari:'var(--green)'}
+  ];
+  var tid=laskeTID(p);
+  if(tid>=85)return null; // Jo Elite — ei tarvitse X-Factor -tunnistusta
+  var xd=dims.filter(function(d){return d.arvo>=85;});
+  if(xd.length===0)return null;
+  return xd[0];
+}
+
+function tidVari(v){
+  if(v>=80)return'var(--teal)';
+  if(v>=65)return'var(--green)';
+  if(v>=50)return'var(--amber)';
+  return'var(--red)';
+}
+
+function dviVari(lvl){
+  return{HIGH:'var(--green)',NORMAL:'var(--teal)',LOW:'var(--amber)',DECLINING:'var(--red)'}[lvl]||'var(--muted)';
+}
+
+function kkKvartaali(kk){
+  if(kk<=3)return'Q1';
+  if(kk<=6)return'Q2';
+  if(kk<=9)return'Q3';
+  return'Q4';
+}
+
+// ═══════════════════════════════════════════════════════════
+// PIN
+// ═══════════════════════════════════════════════════════════
+var PIN_CODE='8888';
+var pinEntry='';
+function pinPress(n){
+  if(pinEntry.length>=4)return;
+  pinEntry+=n;
+  for(var i=0;i<4;i++){
+    document.getElementById('d'+i).classList.toggle('filled',i<pinEntry.length);
+  }
+  if(pinEntry.length===4){
+    setTimeout(function(){
+      if(pinEntry===PIN_CODE){
+        document.getElementById('sLogin').style.display='none';
+        document.getElementById('sMain').style.display='block';
+        buildAll();
+      } else {
+        document.getElementById('pinErr').textContent='Väärä PIN-koodi';
+        pinEntry='';
+        for(var i=0;i<4;i++) document.getElementById('d'+i).classList.remove('filled');
+      }
+    },200);
+  }
+}
+function pinClear(all){
+  if(all){pinEntry='';}
+  else if(pinEntry.length>0){pinEntry=pinEntry.slice(0,-1);}
+  for(var i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('filled',i<pinEntry.length);
+  document.getElementById('pinErr').textContent='';
+}
+
+// ═══════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════
+var currentTab=0;
+function showTab(idx){
+  currentTab=idx;
+  [0,1,2,3].forEach(function(i){
+    document.getElementById('tab'+i).style.display=i===idx?'block':'none';
+    document.querySelectorAll('.tab-btn')[i].classList.toggle('active',i===idx);
+  });
+  if(idx===0)drawTalentMap();
+  if(idx===2){drawRadarGrid();drawDVIChart();}
+}
+
+// ═══════════════════════════════════════════════════════════
+// BUILD ALL
+// ═══════════════════════════════════════════════════════════
+function buildAll(){
+  buildKPI();
+  buildGemList();
+  buildXFactorList();
+  buildRAE();
+  buildTrackList();
+  setTimeout(function(){drawTalentMap();},100);
+}
+
+// ── KPI ──────────────────────────────────────────────────
+function buildKPI(){
+  var total=PELAAJAT.length;
+  var gems=PELAAJAT.filter(function(p){return laskeGemSyyt(p).length>0;}).length;
+  var xf=PELAAJAT.filter(function(p){return laskeXFactor(p)!==null;}).length;
+  var elite=PELAAJAT.filter(function(p){return laskeTrack(p)==='elite';}).length;
+  var riski=PELAAJAT.filter(function(p){return p.flei<40;}).length;
+  var q1count=PELAAJAT.filter(function(p){return p.rae==='Q1';}).length;
+  var raeOk=q1count/total<0.45;
+
+  var kpis=[
+    {v:total,l:'Pelaajaa',cls:''},
+    {v:gems,l:'Hidden Gem',cls:'alert-purple'},
+    {v:xf,l:'X-Factor',cls:'alert-teal'},
+    {v:elite,l:'Elite Track',cls:'alert-green'},
+    {v:riski,l:'FLEI-riski',cls:riski>0?'alert-red':''},
+    {v:raeOk?'OK':'!',l:'RAE-jakauma',cls:raeOk?'':'alert-amber'}
+  ];
+
+  var h='';
+  kpis.forEach(function(k){
+    var col=k.cls.includes('red')?'var(--red)':k.cls.includes('purple')?'var(--purple)':k.cls.includes('teal')?'var(--teal)':k.cls.includes('green')?'var(--green)':k.cls.includes('amber')?'var(--amber)':'var(--text)';
+    h+='<div class="kpi-card '+k.cls+'"><div class="kpi-val" style="color:'+col+'">'+k.v+'</div><div class="kpi-lbl">'+k.l+'</div></div>';
+  });
+  document.getElementById('kpiStrip').innerHTML=h;
+}
+
+// ── TALENT MAP ───────────────────────────────────────────
+var mapPisteet=[];
+function drawTalentMap(){
+  var canvas=document.getElementById('talentMapCanvas');
+  if(!canvas)return;
+  var W=canvas.offsetWidth||360;
+  canvas.width=W;canvas.height=Math.round(W*0.88);
+  var H=canvas.height;
+  var ctx=canvas.getContext('2d');
+  var pad=36,innerW=W-pad*2,innerH=H-pad*2;
+  ctx.clearRect(0,0,W,H);
+
+  // Background quadrants
+  var qops=[
+    {x:pad+innerW/2,y:pad,w:innerW/2,h:innerH/2,color:'rgba(0,229,192,.04)',lbl:'Elite Track',lcol:'rgba(0,229,192,.4)',lx:W-pad-4,ly:pad+14,la:'right'},
+    {x:pad,y:pad,w:innerW/2,h:innerH/2,color:'rgba(255,184,48,.03)',lbl:'Established',lcol:'rgba(255,184,48,.35)',lx:pad+4,ly:pad+14,la:'left'},
+    {x:pad+innerW/2,y:pad+innerH/2,w:innerW/2,h:innerH/2,color:'rgba(167,139,250,.05)',lbl:'Hidden Gem',lcol:'rgba(167,139,250,.5)',lx:W-pad-4,ly:H-pad-6,la:'right'},
+    {x:pad,y:pad+innerH/2,w:innerW/2,h:innerH/2,color:'rgba(255,255,255,.01)',lbl:'Long-term',lcol:'rgba(255,255,255,.2)',lx:pad+4,ly:H-pad-6,la:'left'}
+  ];
+  qops.forEach(function(q){
+    ctx.fillStyle=q.color;
+    ctx.fillRect(q.x,q.y,q.w,q.h);
+    ctx.font='bold 9px "DM Mono",monospace';
+    ctx.textAlign=q.la;ctx.fillStyle=q.lcol;
+    ctx.fillText(q.lbl.toUpperCase(),q.lx,q.ly);
+  });
+
+  // Axes
+  ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;
+  // Vertical center
+  ctx.setLineDash([3,5]);
+  ctx.beginPath();ctx.moveTo(pad+innerW/2,pad);ctx.lineTo(pad+innerW/2,pad+innerH);ctx.stroke();
+  // Horizontal center
+  ctx.beginPath();ctx.moveTo(pad,pad+innerH/2);ctx.lineTo(pad+innerW,pad+innerH/2);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Axis labels
+  ctx.font='9px "DM Sans",sans-serif';ctx.fillStyle='rgba(255,255,255,.25)';
+  ctx.textAlign='center';ctx.fillText('DVI™ kehitysnopeus →',W/2,H-3);
+  ctx.save();ctx.translate(8,H/2);ctx.rotate(-Math.PI/2);
+  ctx.fillText('TalentID pisteet →',0,0);ctx.restore();
+
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=.5;
+  [0.25,0.5,0.75].forEach(function(r){
+    ctx.beginPath();ctx.moveTo(pad+innerW*r,pad);ctx.lineTo(pad+innerW*r,pad+innerH);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(pad,pad+innerH*r);ctx.lineTo(pad+innerW,pad+innerH*r);ctx.stroke();
+  });
+
+  // Plot players
+  mapPisteet=[];
+  var dviMin=0,dviMax=0.55;
+  PELAAJAT.forEach(function(p){
+    var tid=laskeTID(p);
+    var track=laskeTrack(p);
+    var gem=laskeGemSyyt(p).length>0;
+    var xf=laskeXFactor(p)!==null;
+
+    // Position on map
+    var px=pad+((p.dvi-dviMin)/(dviMax-dviMin))*innerW;
+    var py=pad+(1-tid/100)*innerH;
+    px=Math.max(pad+6,Math.min(pad+innerW-6,px));
+    py=Math.max(pad+6,Math.min(pad+innerH-6,py));
+
+    var col=track==='elite'?'var(--teal)':track==='longterm'?'var(--purple)':gem?'rgba(167,139,250,.9)':'var(--amber)';
+    var r=gem||xf?8:6;
+
+    // Glow for special players
+    if(gem||xf||track==='elite'){
+      var grd=ctx.createRadialGradient(px,py,0,px,py,r*2.5);
+      grd.addColorStop(0,col.replace('var(--teal)','rgba(0,229,192,.3)').replace('var(--purple)','rgba(167,139,250,.3)').replace('var(--amber)','rgba(255,184,48,.3)'));
+      grd.addColorStop(1,'transparent');
+      ctx.fillStyle=grd;ctx.beginPath();ctx.arc(px,py,r*2.5,0,Math.PI*2);ctx.fill();
+    }
+
+    ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);
+    ctx.fillStyle=gem?'#a78bfa':track==='elite'?'#00e5c0':track==='longterm'&&p.dvilvl==='HIGH'?'#c084fc':'#ffb830';
+    ctx.fill();
+
+    if(gem){
+      ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1.5;ctx.stroke();
+    }
+
+    // Label for elite and gems
+    if(track==='elite'||gem){
+      ctx.font='bold 8px "DM Sans",sans-serif';
+      ctx.fillStyle='rgba(255,255,255,.75)';ctx.textAlign='center';
+      var nm=p.nimi.split(' ')[0];
+      ctx.fillText(nm,px,py-r-3);
+    }
+
+    mapPisteet.push({p:p,x:px,y:py,r:r,tid:tid,track:track});
+  });
+
+  canvas.ontouchstart=canvas.onmousedown=function(e){
+    var rect=canvas.getBoundingClientRect();
+    var scaleX=canvas.width/rect.width;
+    var scaleY=canvas.height/rect.height;
+    var cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+    var cy=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+    cx*=scaleX;cy*=scaleY;
+    var best=null,bestD=999;
+    mapPisteet.forEach(function(mp){
+      var d=Math.sqrt((mp.x-cx)*(mp.x-cx)+(mp.y-cy)*(mp.y-cy));
+      if(d<mp.r+14&&d<bestD){best=mp;bestD=d;}
+    });
+    if(best){
+      var screenX=(best.x/scaleX)+rect.left;
+      var screenY=(best.y/scaleY)+rect.top;
+      showMapTooltip(best.p,best.tid,best.track,screenX,screenY);
+    } else {
+      hideMapTooltip();
+    }
+  };
+}
+
+var tooltipTimer=null;
+function showMapTooltip(p,tid,track,sx,sy){
+  var tt=document.getElementById('mapTooltip');
+  var trackNimet={elite:'Elite Track',development:'Development Track',longterm:'Long-term Track'};
+  var trackCol={elite:'var(--teal)',development:'var(--amber)',longterm:'var(--purple)'};
+  document.getElementById('ttName').textContent=p.nimi;
+  document.getElementById('ttTrack').style.color=trackCol[track]||'var(--muted)';
+  document.getElementById('ttTrack').textContent=trackNimet[track]||'';
+  document.getElementById('ttTid').textContent=tid+'/100';
+  document.getElementById('ttTid').style.color=tidVari(tid);
+  document.getElementById('ttDvi').textContent=p.dvi.toFixed(2)+' ('+p.dvilvl+')';
+  document.getElementById('ttDvi').style.color=dviVari(p.dvilvl);
+  document.getElementById('ttFlei').textContent=p.flei+' pts';
+  document.getElementById('ttJoukkue').textContent=p.joukkue;
+  tt.style.display='block';
+  var ttw=200,tth=120;
+  var vw=window.innerWidth,vh=window.innerHeight;
+  var left=sx+12;if(left+ttw>vw-8)left=sx-ttw-12;
+  var top=sy-tth/2;if(top<8)top=8;if(top+tth>vh-8)top=vh-tth-8;
+  tt.style.left=left+'px';tt.style.top=top+'px';
+  clearTimeout(tooltipTimer);
+  tooltipTimer=setTimeout(hideMapTooltip,3000);
+}
+function hideMapTooltip(){document.getElementById('mapTooltip').style.display='none';}
+document.addEventListener('click',function(e){if(!e.target.closest('#talentMapCanvas'))hideMapTooltip();});
+
+// ── GEM LIST ──────────────────────────────────────────────
+function buildGemList(){
+  var gems=PELAAJAT.filter(function(p){return laskeGemSyyt(p).length>0;});
+  var h='';
+  if(gems.length===0){h='<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Ei Hidden Gem -tunnistuksia tällä hetkellä</div>';}
+  gems.forEach(function(p){
+    var syyt=laskeGemSyyt(p);
+    var tid=laskeTID(p);
+    h+='<div class="gem-card" style="border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.05)" onclick="openPlayerPopup('+p.id+')">';
+    h+='<div class="gem-header">';
+    h+='<div class="gem-icon" style="background:rgba(167,139,250,.15)">💎</div>';
+    h+='<div style="flex:1"><div class="gem-name">'+p.nimi+'</div>';
+    h+='<div class="gem-meta">'+p.joukkue+' · '+p.ika+' · TalentID '+tid+'/100</div></div>';
+    h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;color:var(--purple)">'+tid+'</div>';
+    h+='</div>';
+    syyt.forEach(function(s){
+      h+='<div class="gem-reason">'+s.ikoni+' '+s.teksti+'</div>';
+    });
+    h+='<div class="gem-badges">';
+    h+='<span class="badge-pill" style="background:rgba(167,139,250,.12);color:var(--purple);border-color:rgba(167,139,250,.3)">DVI '+p.dvi.toFixed(2)+'</span>';
+    h+='<span class="badge-pill" style="background:rgba(255,184,48,.08);color:var(--amber);border-color:rgba(255,184,48,.25)">FLEI '+p.flei+'</span>';
+    h+='<span class="badge-pill" style="background:rgba(0,229,192,.08);color:var(--teal);border-color:rgba(0,229,192,.2)">RAE '+p.rae+'</span>';
+    h+='</div></div>';
+  });
+  document.getElementById('gemList').innerHTML=h;
+}
+
+function buildXFactorList(){
+  var xfPelaajat=PELAAJAT.filter(function(p){return laskeXFactor(p)!==null;});
+  var h='';
+  if(xfPelaajat.length===0){h='<div style="text-align:center;color:var(--muted);padding:16px;font-size:13px">Ei X-Factor -pelaajia</div>';}
+  xfPelaajat.forEach(function(p){
+    var xf=laskeXFactor(p);
+    var tid=laskeTID(p);
+    h+='<div class="gem-card" style="border-color:rgba(0,229,192,.25);background:rgba(0,229,192,.04)" onclick="openPlayerPopup('+p.id+')">';
+    h+='<div style="display:flex;align-items:center;gap:10px">';
+    h+='<div class="gem-icon" style="background:rgba(0,229,192,.12)">⚡</div>';
+    h+='<div style="flex:1"><div class="gem-name">'+p.nimi+'</div>';
+    h+='<div class="gem-meta">'+p.joukkue+' · '+xf.ikoni+' '+xf.nimi+' erottuu</div></div>';
+    h+='<div style="text-align:right"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;color:'+xf.vari+'">'+xf.arvo+'</div>';
+    h+='<div style="font-size:10px;color:var(--muted)">'+xf.nimi+'</div></div>';
+    h+='</div></div>';
+  });
+  document.getElementById('xfactorList').innerHTML=h;
+}
+
+// ── RAE ──────────────────────────────────────────────────
+function buildRAE(){
+  var counts={Q1:0,Q2:0,Q3:0,Q4:0};
+  PELAAJAT.forEach(function(p){counts[p.rae]=(counts[p.rae]||0)+1;});
+  var total=PELAAJAT.length;
+  var colors={Q1:'var(--blue)',Q2:'var(--teal)',Q3:'var(--green)',Q4:'var(--purple)'};
+  var labels={Q1:'tammi–maalis',Q2:'huhti–kesä',Q3:'heinä–syys',Q4:'loka–joulu'};
+  var h='';
+  ['Q1','Q2','Q3','Q4'].forEach(function(q){
+    var pct=Math.round(counts[q]/total*100);
+    var isHigh=q==='Q1'&&pct>40;
+    h+='<div class="rae-row">';
+    h+='<div class="rae-label" style="color:'+colors[q]+'">'+q+'</div>';
+    h+='<div class="rae-bar-wrap">';
+    h+='<div class="rae-bar" style="width:'+pct+'%;background:'+colors[q]+(isHigh?';opacity:.9':'opacity:.7')+'">'+counts[q]+' pelaajaa</div>';
+    h+='<div class="rae-ideal" style="left:25%"></div>';
+    h+='</div>';
+    h+='<div class="rae-pct" style="color:'+(isHigh?'var(--amber)':'var(--muted)')+'">'+pct+'%</div>';
+    h+='</div>';
+  });
+  document.getElementById('raeBars').innerHTML=h;
+
+  var q1pct=counts.Q1/total;
+  var warn=document.getElementById('raeWarning');
+  if(q1pct>0.40){
+    warn.style.display='block';
+    warn.innerHTML='⚠️ Q1-pelaajia '+Math.round(q1pct*100)+'% — ylittää 40% raja-arvon. Cobley 2009 (meta-analyysi, 38 tutkimusta): Q1 yliedustettu eurooppalaisissa akatemioissa systemaattisesti. Suositus: arvioi Q4-pelaajat ('+counts.Q4+' kpl) uudelleen RAE-korjatulla pisteytyksellä.';
+  }
+}
+
+// ── RADAR GRID ───────────────────────────────────────────
+function buildRadarGrid(){
+  var joukkueet=['U13','U15','U17'];
+  var h='';
+  joukkueet.forEach(function(j){
+    var pp=PELAAJAT.filter(function(p){return p.joukkue===j;});
+    var avg=function(f){return Math.round(pp.reduce(function(s,p){return s+p[f];},0)/pp.length);};
+    var d1=avg('d1'),d2=avg('d2'),d3=avg('d3'),d4=avg('d4'),d5=avg('d5');
+    var tid=Math.round(pp.reduce(function(s,p){return s+laskeTID(p);},0)/pp.length);
+    h+='<div class="radar-card"><div class="radar-label">'+j+'</div>';
+    h+='<canvas id="rc'+j+'" width="130" height="130" style="width:130px;height:130px"></canvas>';
+    h+='<div class="radar-score" style="color:'+tidVari(tid)+'">'+tid+'</div>';
+    h+='<div style="font-size:10px;color:var(--muted)">TalentID keskiarvo</div></div>';
+    setTimeout(function(jj,v1,v2,v3,v4,v5){
+      drawMiniRadar('rc'+jj,[v1/100,v2/100,v3/100,v4/100,v5/100]);
+    }.bind(null,j,d1,d2,d3,d4,d5),50);
+  });
+  // Seura kokonaan
+  var allD=[
+    Math.round(PELAAJAT.reduce(function(s,p){return s+p.d1;},0)/PELAAJAT.length),
+    Math.round(PELAAJAT.reduce(function(s,p){return s+p.d2;},0)/PELAAJAT.length),
+    Math.round(PELAAJAT.reduce(function(s,p){return s+p.d3;},0)/PELAAJAT.length),
+    Math.round(PELAAJAT.reduce(function(s,p){return s+p.d4;},0)/PELAAJAT.length),
+    Math.round(PELAAJAT.reduce(function(s,p){return s+p.d5;},0)/PELAAJAT.length)
+  ];
+  var allTid=Math.round(PELAAJAT.reduce(function(s,p){return s+laskeTID(p);},0)/PELAAJAT.length);
+  h+='<div class="radar-card" style="border-color:rgba(0,229,192,.2);background:rgba(0,229,192,.04)"><div class="radar-label">SEURA</div>';
+  h+='<canvas id="rcKAIKKI" width="130" height="130" style="width:130px;height:130px"></canvas>';
+  h+='<div class="radar-score" style="color:var(--teal)">'+allTid+'</div>';
+  h+='<div style="font-size:10px;color:var(--muted)">Seuran keskiarvo</div></div>';
+  setTimeout(function(){drawMiniRadar('rcKAIKKI',allD.map(function(v){return v/100;}));},50);
+  document.getElementById('radarGrid').innerHTML=h;
+  setTimeout(function(){
+    ['U13','U15','U17'].forEach(function(j){
+      var pp=PELAAJAT.filter(function(p){return p.joukkue===j;});
+      var avg=function(f){return pp.reduce(function(s,p){return s+p[f];},0)/pp.length;};
+      drawMiniRadar('rc'+j,[avg('d1')/100,avg('d2')/100,avg('d3')/100,avg('d4')/100,avg('d5')/100]);
+    });
+    drawMiniRadar('rcKAIKKI',allD.map(function(v){return v/100;}));
+  },200);
+}
+
+function drawRadarGrid(){
+  buildRadarGrid();
+}
+
+function drawMiniRadar(canvasId,vals){
+  var el=document.getElementById(canvasId);
+  if(!el)return;
+  var W=130,H=130,cx=65,cy=65,R=50;
+  el.width=W;el.height=H;
+  var ctx=el.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  var lbls=['FYS','TEK','PSY','KOG','SOS'];
+  var cols=['#00e5c0','#2f8fff','#a78bfa','#ffb830','#22c55e'];
+  var n=5;
+  var angs=lbls.map(function(_,i){return Math.PI*2*i/n-Math.PI/2;});
+  // Grid
+  [0.25,0.5,0.75,1.0].forEach(function(r){
+    ctx.beginPath();
+    angs.forEach(function(a,i){
+      var x=cx+Math.cos(a)*R*r,y=cy+Math.sin(a)*R*r;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.closePath();ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=1;ctx.stroke();
+  });
+  angs.forEach(function(a){
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);
+    ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=1;ctx.stroke();
+  });
+  ctx.beginPath();
+  angs.forEach(function(a,i){
+    var v=Math.min(1,Math.max(0,vals[i]));
+    var x=cx+Math.cos(a)*R*v,y=cy+Math.sin(a)*R*v;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.closePath();ctx.fillStyle='rgba(0,229,192,.15)';ctx.fill();
+  ctx.strokeStyle='rgba(0,229,192,.7)';ctx.lineWidth=1.5;ctx.stroke();
+  angs.forEach(function(a,i){
+    var v=Math.min(1,Math.max(0,vals[i]));
+    var x=cx+Math.cos(a)*R*v,y=cy+Math.sin(a)*R*v;
+    ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=cols[i];ctx.fill();
+    var lx=cx+Math.cos(a)*(R+13),ly=cy+Math.sin(a)*(R+13);
+    ctx.font='bold 8px "DM Mono",monospace';ctx.fillStyle='rgba(255,255,255,.5)';
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lbls[i],lx,ly);
+  });
+}
+
+// ── DVI CHART ────────────────────────────────────────────
+function drawDVIChart(){
+  var canvas=document.getElementById('dviCanvas');
+  if(!canvas)return;
+  var W=canvas.offsetWidth||328;
+  canvas.width=W;canvas.height=140;
+  var H=140,ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  var pad={t:16,r:16,b:28,l:40};
+  var iW=W-pad.l-pad.r,iH=H-pad.t-pad.b;
+  var kaudet=DVI_TRENDI.kaudet;
+  var colors={U13:'#00e5c0',U15:'#ffb830',U17:'#a78bfa'};
+  var yMin=0,yMax=0.5;
+
+  // Grid
+  [0,0.1,0.2,0.3,0.4,0.5].forEach(function(v){
+    var y=pad.t+iH*(1-(v-yMin)/(yMax-yMin));
+    ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+iW,y);ctx.stroke();
+    ctx.font='9px "DM Mono",monospace';ctx.fillStyle='rgba(255,255,255,.3)';
+    ctx.textAlign='right';ctx.fillText(v.toFixed(1),pad.l-5,y+3);
+  });
+
+  // Lines
+  ['U13','U15','U17'].forEach(function(j){
+    var data=DVI_TRENDI[j];
+    ctx.beginPath();
+    data.forEach(function(v,i){
+      var x=pad.l+i/(kaudet.length-1)*iW;
+      var y=pad.t+iH*(1-(v-yMin)/(yMax-yMin));
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle=colors[j];ctx.lineWidth=2;ctx.stroke();
+    // Dots
+    data.forEach(function(v,i){
+      var x=pad.l+i/(kaudet.length-1)*iW;
+      var y=pad.t+iH*(1-(v-yMin)/(yMax-yMin));
+      ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);
+      ctx.fillStyle=colors[j];ctx.fill();
+    });
+    // Label at end
+    var lv=data[data.length-1];
+    var lx=pad.l+iW;
+    var ly=pad.t+iH*(1-(lv-yMin)/(yMax-yMin))-5;
+    ctx.font='bold 9px "DM Mono",monospace';ctx.fillStyle=colors[j];
+    ctx.textAlign='left';ctx.fillText(j,lx-22,ly);
+  });
+
+  // X labels
+  kaudet.forEach(function(k,i){
+    var x=pad.l+i/(kaudet.length-1)*iW;
+    ctx.font='9px "DM Sans",sans-serif';ctx.fillStyle='rgba(255,255,255,.3)';
+    ctx.textAlign='center';ctx.fillText(k,x,H-6);
+  });
+
+  // HIGH threshold
+  var hy=pad.t+iH*(1-(0.3-yMin)/(yMax-yMin));
+  ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(34,197,94,.3)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pad.l,hy);ctx.lineTo(pad.l+iW,hy);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font='8px "DM Mono",monospace';ctx.fillStyle='rgba(34,197,94,.5)';
+  ctx.textAlign='right';ctx.fillText('HIGH',pad.l-5,hy+3);
+}
+
+// ── TRACKS ───────────────────────────────────────────────
+function buildTrackList(){
+  var tracks=[
+    {id:'elite',nimi:'Elite Track',ikoni:'🏆',col:'var(--teal)',bg:'rgba(0,229,192,.06)',border:'rgba(0,229,192,.25)',desc:'Kokonaispisteet >75 · DVI HIGH · FLEI >60'},
+    {id:'development',nimi:'Development Track',ikoni:'⚡',col:'var(--amber)',bg:'rgba(255,184,48,.06)',border:'rgba(255,184,48,.2)',desc:'Pisteet 50–75 · DVI NORMAL tai HIGH'},
+    {id:'longterm',nimi:'Long-term Track',ikoni:'🌱',col:'var(--purple)',bg:'rgba(167,139,250,.06)',border:'rgba(167,139,250,.2)',desc:'Pisteet <50 · DVI HIGH · Late bloomer'}
+  ];
+  var h='';
+  tracks.forEach(function(tr){
+    var pp=PELAAJAT.filter(function(p){return laskeTrack(p)===tr.id;});
+    h+='<div class="track-section">';
+    h+='<div class="track-header" style="background:'+tr.bg+';border:1px solid '+tr.border+'">';
+    h+='<div class="track-count" style="color:'+tr.col+'">'+pp.length+'</div>';
+    h+='<div class="track-info"><div class="track-name" style="color:'+tr.col+'">'+tr.ikoni+' '+tr.nimi+'</div>';
+    h+='<div class="track-desc">'+tr.desc+'</div></div>';
+    h+='</div>';
+    pp.forEach(function(p){
+      var tid=laskeTID(p);
+      h+='<div class="track-player" onclick="openPlayerPopup('+p.id+')">';
+      h+='<div class="tp-tid" style="color:'+tidVari(tid)+'">'+tid+'</div>';
+      h+='<div class="tp-info"><div class="tp-name">'+p.nimi+'</div>';
+      h+='<div class="tp-meta">'+p.joukkue+' · '+p.ika+' · FLEI '+p.flei+'</div></div>';
+      h+='<div class="tp-dvi" style="background:'+dviVari(p.dvilvl)+'18;color:'+dviVari(p.dvilvl)+'">'+p.dvilvl+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  });
+  document.getElementById('trackList').innerHTML=h;
+}
+
+// ── PLAYER POPUP ─────────────────────────────────────────
+function openPlayerPopup(pid){
+  var p=PELAAJAT.find(function(x){return x.id===pid;});
+  if(!p)return;
+  var tid=laskeTID(p);
+  var track=laskeTrack(p);
+  var gems=laskeGemSyyt(p);
+  var xf=laskeXFactor(p);
+  var trackNimet={elite:'Elite Track',development:'Development Track',longterm:'Long-term Track'};
+  var trackCol={elite:'var(--teal)',development:'var(--amber)',longterm:'var(--purple)'};
+  var phvNimet={pre:'Pre-PHV',peak:'PHV-huippu ⚠️',post:'Post-PHV',stable:'Vakaa'};
+
+  var h='';
+  // Header
+  h+='<div class="pp-header">';
+  h+='<div class="pp-tid-badge" style="background:'+tidVari(tid)+'18;color:'+tidVari(tid)+'">'+tid+'</div>';
+  h+='<div><div class="pp-name">'+p.nimi+'</div>';
+  h+='<div class="pp-meta">'+p.joukkue+' · '+p.ika+' · '+phvNimet[p.phv]+'</div>';
+  h+='<div class="pp-meta">RAE '+p.rae+' · FLEI '+p.flei+' · DVI '+p.dvi.toFixed(2)+' ('+p.dvilvl+')</div>';
+  h+='</div></div>';
+
+  // Track
+  h+='<div style="padding:8px 10px;border-radius:10px;background:'+trackCol[track]+'18;border:1px solid '+trackCol[track]+'33;margin-bottom:14px;font-size:12px;color:'+trackCol[track]+';font-weight:700">'+trackNimet[track]+'</div>';
+
+  // 5D dimensions
+  h+='<div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">5D-profiili</div>';
+  var dims=[
+    {nimi:'Fyysinen (40%)',arvo:p.d1,col:'var(--teal)',max:100},
+    {nimi:'Tekninen (25%)',arvo:p.d2,col:'var(--blue)',max:100},
+    {nimi:'Psykologinen (15%)',arvo:p.d3,col:'var(--purple)',max:100},
+    {nimi:'Kognitiivinen (10%)',arvo:p.d4,col:'var(--amber)',max:100},
+    {nimi:'Sosiaalinen (10%)',arvo:p.d5,col:'var(--green)',max:100}
+  ];
+  dims.forEach(function(d){
+    h+='<div class="dim-row"><div class="dim-label">'+d.nimi+'</div>';
+    h+='<div class="dim-bar-wrap"><div class="dim-bar" style="width:'+d.arvo+'%;background:'+d.col+'"></div></div>';
+    h+='<div class="dim-val">'+d.arvo+'</div></div>';
+  });
+
+  // Radar canvas
+  h+='<canvas id="ppRadar" width="200" height="200" style="width:200px;height:200px;display:block;margin:14px auto"></canvas>';
+
+  // Flags
+  if(gems.length>0||xf||p.phv==='peak'){
+    h+='<div style="margin-top:12px">';
+    gems.forEach(function(g){
+      h+='<div style="font-size:12px;padding:8px 10px;background:rgba(167,139,250,.07);border:1px solid rgba(167,139,250,.2);border-radius:9px;margin-bottom:6px;color:var(--muted2)">'+g.ikoni+' '+g.teksti+'</div>';
+    });
+    if(xf){
+      h+='<div style="font-size:12px;padding:8px 10px;background:rgba(0,229,192,.06);border:1px solid rgba(0,229,192,.2);border-radius:9px;margin-bottom:6px;color:var(--teal)">⚡ X-Factor: '+xf.ikoni+' '+xf.nimi+' ('+xf.arvo+'/100) — luontainen erottuva vahvuus</div>';
+    }
+    if(p.phv==='peak'){
+      h+='<div style="font-size:12px;padding:8px 10px;background:rgba(240,68,68,.07);border:1px solid rgba(240,68,68,.2);border-radius:9px;color:var(--red)">⚠️ PHV-huippu aktiivinen. Max 60% kuorma. Hamstring + lonkankoukistajat riskissä.</div>';
+    }
+    h+='</div>';
+  }
+
+  h+='<button onclick="closePopup()" style="width:100%;margin-top:16px;padding:14px;border-radius:13px;border:1px solid var(--border2);background:var(--bg3);color:var(--muted2);font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700;cursor:pointer">Sulje</button>';
+
+  document.getElementById('popupContent').innerHTML=h;
+  document.getElementById('popup').style.display='flex';
+  document.body.style.overflow='hidden';
+
+  setTimeout(function(){
+    drawMiniRadar('ppRadar',[p.d1/100,p.d2/100,p.d3/100,p.d4/100,p.d5/100]);
+  },100);
+}
+
+// ── EDU POPUP ────────────────────────────────────────────
+var EDU_CONTENT={
+  bioika:{
+    ikoni:'🧬',otsikko:'Biologinen ikä — piilotettu vaikuttaja',
+    teksti:'Kaksi 13-vuotiasta pelaajaa voi olla fyysisessä kehityksessä jopa 3–4 vuotta erillään. Se iso, dominoiva pelaaja kentällä ei välttämättä ole lahjakkain — hän voi olla vain biologisesti 2 vuotta edellä muita.',
+    faktit:[
+      {ikoni:'📊',teksti:'PHV (Peak Height Velocity): pojat keskimäärin 13.8v ± 1.5v, tytöt 12.1v ± 1.2v'},
+      {ikoni:'⚠️',teksti:'PHV-huipulla maksimaalinen eksentrinen kuormitus on kielletty — luusto haavoittuva'},
+      {ikoni:'🔬',teksti:'TalentID-Master™ laskee biologisen iän Mirwald 2002 -kaavalla (N=1500, tarkkuus ±0.6v)'},
+      {ikoni:'💡',teksti:'Biologinen etu tunnistetaan usein lahjakkuudeksi — tämä on suurin yksittäinen virheen lähde scoutingissa'}
+    ],
+    lahde:'Mirwald et al. 2002 · HPP ELITE™ Bio-ikäprotokolla'
+  },
+  rae:{
+    ikoni:'📅',otsikko:'Suhteellinen ikäefekti (RAE)',
+    teksti:'Tammikuussa syntynyt 12-vuotias on jopa 11 kuukautta vanhempi kuin joulukuussa syntynyt — ja se näkyy fyysisenä, teknisenä ja psykologisena etuna. Tämä vääristymä on systemaattinen ja mitattava.',
+    faktit:[
+      {ikoni:'📊',teksti:'Cobley 2009 meta-analyysi (38 tutkimusta): Q1-pelaajat yliedustettu 40% eurooppalaisissa akatemioissa'},
+      {ikoni:'🌟',teksti:'Ajax, RB Leipzig, Benfica: käyttävät +5–10% TID-bonusta Q4-pelaajille'},
+      {ikoni:'📈',teksti:'HPP ELITE™ RAE-korjaus: Q1 ×0.97 | Q2 ×0.98 | Q3 ×1.02 | Q4 ×1.06'},
+      {ikoni:'💔',teksti:'Q4-pelaajat lopettavat 14–16-vuotiaana 40% todennäköisemmin — juuri kun potentiaali kukoistaisi'}
+    ],
+    lahde:'Cobley et al. 2009, Sports Medicine · Liikanen & Törmä 2025'
+  },
+  dvi:{
+    ikoni:'📈',otsikko:'DVI™ — Development Velocity Index',
+    teksti:'Taso tänään ei ratkaise. Kehittymisnopeus ratkaisee. DVI mittaa kuinka nopeasti pelaaja kehittyy suhteessa omaan lähtötasoonsa — ei suhteessa muihin.',
+    faktit:[
+      {ikoni:'🧮',teksti:'DVI = (T2-pisteet − T1-pisteet) / (T2-aika − T1-aika kuukausina)'},
+      {ikoni:'📊',teksti:'HIGH (>0.3p/kk) | NORMAL (0.1–0.3p/kk) | LOW (<0.1p/kk) | DECLINING (<0)'},
+      {ikoni:'💡',teksti:'40/100 + DVI HIGH ohittaa 70/100 + DVI LOW kuudessa kaudessa'},
+      {ikoni:'🏆',teksti:'"Parhaat akatemiat eivät valitse parasta joukkuetta. He valitsevat parhaiten kehittyvän joukkueen."'}
+    ],
+    lahde:'TalentID-Master™ v2 · HPP ELITE™ DVI-protokolla'
+  },
+  '5d':{
+    ikoni:'⭐',otsikko:'5D-viitekehys — viisi dimensiota',
+    teksti:'Talentin arviointi ei mahdu yhteen numeroon. TalentID-Master™ arvioi pelaajan viidessä dimensiossa, joista jokainen on tieteellisesti perusteltu.',
+    faktit:[
+      {ikoni:'🏃',teksti:'Fyysinen (40%): FLEI™, PHV, voima, nopeus, SSC — korjattu biologisella iällä'},
+      {ikoni:'⚽',teksti:'Tekninen (25%): pallonkäsittely, positiokohtainen matriisi — Liikanen & Törmä 2025'},
+      {ikoni:'🧠',teksti:'Kognitiivinen (10%): Pre-scan, dual-task, pelinluku — Man City, RB Leipzig, Brighton -protokollat'},
+      {ikoni:'❤️',teksti:'Psykologinen (15%): Grit (Duckworth 2007), paineensietokyky — paras ammattilaisuusennustaja'},
+      {ikoni:'🤝',teksti:'Sosiaalinen (10%): joukkuekohesio, katalysaattori — Carron 2002: 15–20% suorituskyvystä'}
+    ],
+    lahde:'Duckworth 2007 · Vestberg 2012 · Carron 2002 · Liikanen & Törmä 2025'
+  },
+  flei:{
+    ikoni:'🔗',otsikko:'FLEI™ — Fascia Load Efficiency Index',
+    teksti:'FLEI™ yhdistää biologisen kypsyyden, kuormituksen, fascia-jännityksen ja RAE-korjauksen yhdeksi kokonaisindeksiksi. Se kertoo voiko pelaaja harjoitella tehokkaasti ilman vammavaaraa.',
+    faktit:[
+      {ikoni:'🔴',teksti:'<25p: Välitön terapia-referral. Ei lisäkuormitusta.'},
+      {ikoni:'🟡',teksti:'25–40p: Korkea riski. Terapeutin arvio viikon sisällä.'},
+      {ikoni:'🟢',teksti:'40–60p: Normaali harjoittelu. Kohdennetut fascia-harjoitteet.'},
+      {ikoni:'⭐',teksti:'60–80p: Hyvä. Lajispesifiä kuormaa voidaan lisätä.'},
+      {ikoni:'💎',teksti:'>80p: Optimaali. Täysi harjoituskapasiteetti.'}
+    ],
+    lahde:'Myers Anatomy Trains 2020 · HPP ELITE™ FLEI-protokolla'
+  },
+  hiddengem:{
+    ikoni:'💎',otsikko:'Hidden Gem™ — piilotettu helmi',
+    teksti:'Hidden Gem on pelaaja jonka potentiaali on suurempi kuin testitulokset osoittavat. Perinteinen scouting hylkää heidät systemaattisesti. TalentID-Master™ tunnistaa heidät automaattisesti kolmella kriteerillä.',
+    faktit:[
+      {ikoni:'📈',teksti:'Kriteeri 1: DVI HIGH (>0.3p/kk) mutta kokonaispisteet alle 65 — kehittyy nopeammin kuin taso nyt kertoo'},
+      {ikoni:'🧬',teksti:'Kriteeri 2: Biologinen ikä yli 1.2v krono-iän jäljessä — kasvupyrähdys tulossa'},
+      {ikoni:'📅',teksti:'Kriteeri 3: Q4-syntynyt ja pisteet alle 72 — RAE-vääristymä selittää eron'},
+      {ikoni:'💡',teksti:'Late bloomer -ilmiö: parhaat pelaajat eivät olleet parhaita 13-vuotiaana. He olivat parhaita 23-vuotiaana.'}
+    ],
+    lahde:'TalentID-Master™ kirja luku 12 · Cobley 2009 · Mirwald 2002'
+  },
+  xfactor:{
+    ikoni:'⚡',otsikko:'X-Factor — luontainen erottuva vahvuus',
+    teksti:'X-Factor on luontainen ominaisuus, joka erottaa pelaajan muista — kun yksi dimensio selvästi ylittää muut. Sitä ei voi luoda tyhjästä, mutta sen voi hioa huipputasolle.',
+    faktit:[
+      {ikoni:'🎯',teksti:'Tunnistus: yksi 5D-dimensio ≥85 kun kokonais-TalentID alle 78'},
+      {ikoni:'⚡',teksti:'Nopeus-X-Factor: Fyysinen ≥85 — räjähtävyys joka erottaa'},
+      {ikoni:'🧠',teksti:'Game IQ X-Factor: Kognitiivinen ≥85 — pelinluku joka on ylivoimainen'},
+      {ikoni:'❤️',teksti:'Grit X-Factor: Psykologinen ≥85 — henkinen kestävyys joka kantaa pitkälle'}
+    ],
+    lahde:'TalentID-Master™ kirja luku 5.2 · Duckworth 2013'
+  },
+  kartta:{
+    ikoni:'🗺',otsikko:'Lahjakkuuskartta — miten luetaan',
+    teksti:'Kartta sijoittaa jokaisen pelaajan kahteen ulottuvuuteen: kehitysnopeus (DVI™) ja nykyinen taso (TalentID). Neljä kvadranttia kertovat välittömästi missä seuran lahjakkuus on.',
+    faktit:[
+      {ikoni:'🟢',teksti:'Oikea ylä: Elite Track — korkeat pisteet + nopea kehitys. Seuran tulevaisuus.'},
+      {ikoni:'🟡',teksti:'Vasen ylä: Established — korkeat pisteet + hidas kehitys. Vakaat pelaajat.'},
+      {ikoni:'💜',teksti:'Oikea ala: Hidden Gem — matalat pisteet + nopea kehitys. KULTAKAIVOS.'},
+      {ikoni:'⚫',teksti:'Vasen ala: Long-term — matalat pisteet + hidas kehitys. Pitkäjänteinen tuki.'}
+    ],
+    lahde:'TalentID-Master™ viitekehys · DVI™ × TalentID -matriisi'
+  },
+  tracks:{
+    ikoni:'🏆',otsikko:'Kolme pelaajapolkua',
+    teksti:'Player Talent Profile™ luokittelee jokaisen pelaajan kolmeen polkuun, jotka ohjaavat kehittämisen resurssit oikein.',
+    faktit:[
+      {ikoni:'🏆',teksti:'Elite Track: Pisteet >75, DVI HIGH, FLEI >60. Akatemian kärkipolku. Täysi panostus.'},
+      {ikoni:'⚡',teksti:'Development Track: Pisteet 50–75, DVI NORMAL tai HIGH. Seurataan tiiviisti.'},
+      {ikoni:'🌱',teksti:'Long-term Track: Pisteet <50, DVI HIGH. Late bloomer -kandidaatti. Pitkäjänteinen tuki.'},
+      {ikoni:'💡',teksti:'"Parhaat akatemiat eivät valitse parasta joukkuetta. He valitsevat parhaiten kehittyvän joukkueen."'}
+    ],
+    lahde:'TalentID-Master™ luku 15.2 · Player Talent Profile™'
+  }
+};
+
+function openEduPopup(key){
+  var c=EDU_CONTENT[key];if(!c)return;
+  var h='';
+  h+='<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">';
+  h+='<div style="width:44px;height:44px;border-radius:12px;background:rgba(167,139,250,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">'+c.ikoni+'</div>';
+  h+='<div><div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;line-height:1.1">'+c.otsikko+'</div></div>';
+  h+='</div>';
+  h+='<div style="font-size:13px;color:var(--muted2);line-height:1.65;margin-bottom:14px;background:rgba(255,255,255,.03);border-radius:10px;padding:12px">'+c.teksti+'</div>';
+  c.faktit.forEach(function(f){
+    h+='<div style="display:flex;gap:10px;padding:9px 0;border-bottom:.5px solid var(--border)">';
+    h+='<span style="font-size:16px;flex-shrink:0;width:22px">'+f.ikoni+'</span>';
+    h+='<span style="font-size:13px;color:var(--text);line-height:1.5">'+f.teksti+'</span>';
+    h+='</div>';
+  });
+  h+='<div style="font-size:10px;color:var(--muted);margin-top:12px;font-style:italic">Lähde: '+c.lahde+'</div>';
+  h+='<button onclick="closePopup()" style="width:100%;margin-top:16px;padding:14px;border-radius:13px;border:none;background:var(--bg3);color:var(--muted2);font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700;cursor:pointer">Sulje</button>';
+  document.getElementById('popupContent').innerHTML=h;
+  document.getElementById('popup').style.display='flex';
+  document.body.style.overflow='hidden';
+}
+
+function closePopup(e){
+  if(e&&e.target!==document.getElementById('popup')&&e.target!==document.getElementById('popupBg'))return;
+  document.getElementById('popup').style.display='none';
+  document.body.style.overflow='';
+}
+
+// Demo-tila: myös PIN 1234 toimii
+window.addEventListener('load',function(){
+  // Auto-login for demo
+  // Comment out for production
+});
+
+window.addEventListener('resize',function(){
+  if(currentTab===0)drawTalentMap();
+  if(currentTab===2){drawRadarGrid&&drawRadarGrid();drawDVIChart&&drawDVIChart();}
+});
+</script>
+</body>
+</html>
