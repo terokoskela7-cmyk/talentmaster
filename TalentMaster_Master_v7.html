@@ -447,6 +447,36 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
   </div>
 </div>
 
+<!-- COACH DASHBOARD -->
+<div class="screen" id="sCoach" style="background:var(--bg);overflow-y:auto;">
+  <div style="background:linear-gradient(135deg,#0A1628,#0D1F35);border-bottom:1px solid rgba(0,229,204,.2);padding:14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;">
+    <div style="width:36px;height:36px;border-radius:10px;background:var(--teal);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:18px;color:#000;flex-shrink:0;">TM</div>
+    <div style="flex:1;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;letter-spacing:.5px;">Valmentajan näkymä</div>
+      <div style="font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:1px;" id="coachJoukkueTxt">P-Iirot</div>
+    </div>
+    <button onclick="naytaKirjautumislomake()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 6px;">⇄</button>
+  </div>
+  <!-- Taso-tabsit -->
+  <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg2);overflow-x:auto;">
+    <div id="cTab0" onclick="goCoachTab(0)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--teal);border-bottom:2px solid var(--teal);cursor:pointer;white-space:nowrap;">⚡ NYT</div>
+    <div id="cTab1" onclick="goCoachTab(1)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;">📊 ANALYYSI</div>
+    <div id="cTab2" onclick="goCoachTab(2)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;">📋 VIIKKO</div>
+    <div id="cTab3" onclick="goCoachTab(3)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;">🏅 MERKINNÄT</div>
+  </div>
+  <div style="padding:14px 16px;" id="coachContent"></div>
+</div>
+
+<!-- COACH PLAYER DETAIL -->
+<div class="screen" id="sCoachPlayer" style="background:var(--bg);overflow-y:auto;">
+  <div style="background:linear-gradient(135deg,#0A1628,#0D1F35);border-bottom:1px solid rgba(0,229,204,.2);padding:14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;">
+    <button onclick="go('sCoach');buildCoachTab(window._coachTab||0)" style="background:none;border:none;color:var(--teal);font-size:20px;cursor:pointer;padding:4px 6px;">←</button>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;flex:1;" id="coachPlayerTitle">Pelaaja</div>
+    <div style="font-size:10px;color:var(--muted);">Yksityiskohdat</div>
+  </div>
+  <div style="padding:14px 16px;" id="coachPlayerContent"></div>
+</div>
+
 <!-- LOADING -->
 <div class="screen" id="sLoad">
   <div class="spinner"></div>
@@ -1143,7 +1173,969 @@ function naytaStreakInfo(){
   document.getElementById('hkOverlay').style.display='flex';
   document.body.style.overflow='hidden';
 }
-function lsg(k){return localStorage.getItem(k);}
+
+// ═══════════════════════════════════════════════════
+// VALMENTAJAN DASHBOARD
+// ═══════════════════════════════════════════════════
+
+function haeJoukkuePelaajat(){
+  return Object.values(DEMO).filter(function(p){return p.id!=='HPP-T001';});
+}
+
+function laskeViikkoAktiivisuus(p){
+  var checked=lsj('tm_checked')||{};
+  var now=new Date();
+  var wd=(now.getDay()+6)%7;
+  var tehty=0;
+  for(var i=0;i<=wd;i++){
+    var d=new Date(now);d.setDate(now.getDate()-(wd-i));
+    var key=d.toISOString().slice(0,10);
+    if(checked[key]&&(checked[key].allDone||Object.keys(checked[key]).some(function(k2){return checked[key][k2]===true;})))tehty++;
+  }
+  return{tehty:tehty,max:wd+1,pct:wd>=0?Math.round(tehty/(wd+1)*100):0};
+}
+
+function ampelVari(pct,streak){
+  if(pct>=70||streak>=5)return{bg:'rgba(31,209,106,.12)',border:'rgba(31,209,106,.35)',dot:'#1FD16A',label:'Aktiivinen'};
+  if(pct>=30||streak>=2)return{bg:'rgba(255,184,48,.09)',border:'rgba(255,184,48,.3)',dot:'#FFB830',label:'Tarkista'};
+  return{bg:'rgba(229,57,53,.09)',border:'rgba(229,57,53,.25)',dot:'#E53935',label:'Tarvitsee huomiota'};
+}
+
+function laskeHalytykset(pelaajat){
+  var halytykset=[];
+  pelaajat.forEach(function(p){
+    var akt=laskeViikkoAktiivisuus(p);
+    var adar=laskeADAR(p);
+    var delta=laskeDelta(p);
+    if(akt.pct===0&&akt.max>=3)halytykset.push({taso:'red',ikoni:'⚠️',teksti:p.etunimi+' '+p.sukunimi+' — ei avauksia tällä viikolla',pid:p.id});
+    else if(akt.pct<30&&akt.max>=3)halytykset.push({taso:'amber',ikoni:'📉',teksti:p.etunimi+' '+p.sukunimi+' — matala aktiivisuus ('+akt.pct+'%)',pid:p.id});
+    if((p.phvTila||'').includes('HUIPPU'))halytykset.push({taso:'blue',ikoni:'📌',teksti:p.etunimi+' '+p.sukunimi+' — kasvupyrähdys käynnissä',pid:p.id});
+    if(delta&&delta.ovDelta<-2)halytykset.push({taso:'amber',ikoni:'📊',teksti:p.etunimi+' '+p.sukunimi+' — OVR laski '+delta.ovDelta+' viimeisessä testissä',pid:p.id});
+    if(adar&&adar.hiddenGem)halytykset.push({taso:'gold',ikoni:'💎',teksti:p.etunimi+' '+p.sukunimi+' — Hidden Gem: korkea peliäly, matala OVR',pid:p.id});
+    var vahv=haeVahvistukset(p);
+    var lv=laskeLevel(0,vahv.yhteensa);
+    if(lv.lukittu)halytykset.push({taso:'teal',ikoni:'🔒',teksti:p.etunimi+' '+p.sukunimi+' — odottaa vahvistustasi tasonousuun',pid:p.id});
+  });
+  return halytykset;
+}
+
+function laskeEnnustus(p){
+  var akt=laskeAktiivisuusJaksolla(p);
+  if(!akt)return null;
+  if(akt.aktiivisuusPct<30&&akt.paiviaKuluu>14)return'Kehitys hidastuu todennäköisesti seuraavassa testissä jos trendi jatkuu.';
+  if(akt.aktiivisuusPct>=70)return'Hyvä kehitysvauhti — seuraava testi tulee todennäköisesti näyttämään nousua.';
+  return null;
+}
+
+function buildCoachNyt(){
+  var pelaajat=haeJoukkuePelaajat();
+  var halytykset=laskeHalytykset(pelaajat);
+  var h='';
+  var tanaan=new Date().toLocaleDateString('fi-FI',{weekday:'long',day:'numeric',month:'long'});
+  h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">'+tanaan+'</div>';
+
+  if(halytykset.length>0){
+    h+='<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🔔 Huomio nyt ('+halytykset.length+')</div>';
+    halytykset.slice(0,4).forEach(function(hal){
+      var col=hal.taso==='red'?'#E53935':hal.taso==='amber'?'#FFB830':hal.taso==='gold'?'#FFD700':hal.taso==='teal'?'var(--teal)':'var(--blue)';
+      var bg=hal.taso==='red'?'rgba(229,57,53,.08)':hal.taso==='amber'?'rgba(255,184,48,.07)':hal.taso==='gold'?'rgba(255,215,0,.07)':hal.taso==='teal'?'rgba(0,229,204,.07)':'rgba(50,120,220,.07)';
+      h+='<div onclick="avaaCoachPelaaja(\''+hal.pid+'\')" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:'+bg+';border:1px solid '+col+'44;border-radius:12px;margin-bottom:6px;cursor:pointer;">';
+      h+='<span style="font-size:18px;flex-shrink:0;">'+hal.ikoni+'</span>';
+      h+='<div style="flex:1;font-size:13px;line-height:1.4;">'+hal.teksti+'</div>';
+      h+='<span style="color:'+col+';font-size:16px;">›</span>';
+      h+='</div>';
+    });
+    if(halytykset.length>4)h+='<div style="font-size:12px;color:var(--muted2);text-align:center;padding:6px;">+'+(halytykset.length-4)+' muuta — katso Analyysi</div>';
+  } else {
+    h+='<div style="background:rgba(31,209,106,.08);border:1px solid rgba(31,209,106,.2);border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;">';
+    h+='<span style="font-size:22px;">✅</span><div style="font-size:13px;color:var(--green);">Kaikki pelaajat aktiivisia tällä hetkellä.</div></div>';
+  }
+
+  h+='<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;">🗺️ Joukkue tällä viikolla</div>';
+  h+='<div style="display:flex;flex-direction:column;gap:6px;">';
+  pelaajat.forEach(function(p){
+    var akt=laskeViikkoAktiivisuus(p);
+    var ampel=ampelVari(akt.pct,0);
+    var latest=p.qs_historia[p.qs_historia.length-1];
+    var ovr=laskeOverall(latest&&latest.results&&latest.results.ketjut);
+    var adar=laskeADAR(p);
+    var ikavaiheNimi=laskeIkavaihe(p).replace('leikkija','7-9v').replace('kilpailija','10-12v').replace('rakentaja','13-14v').replace('itsensa_valmentaja','15-16v').replace('showcase','17-19v');
+    h+='<div onclick="avaaCoachPelaaja(\''+p.id+'\')" style="display:flex;align-items:center;gap:10px;padding:12px 13px;background:'+ampel.bg+';border:1.5px solid '+ampel.border+';border-radius:13px;cursor:pointer;">';
+    h+='<div style="width:10px;height:10px;border-radius:50%;background:'+ampel.dot+';flex-shrink:0;"></div>';
+    h+='<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;">'+p.etunimi+' '+p.sukunimi+'</div>';
+    h+='<div style="font-size:11px;color:var(--muted2);">'+p.joukkue+' · '+ikavaiheNimi+'</div></div>';
+    h+='<div style="text-align:center;flex-shrink:0;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;line-height:1;color:'+overallVari(ovr).text+';">'+ovr+'</div><div style="font-size:9px;color:var(--muted);">OVR</div></div>';
+    if(adar)h+='<div style="text-align:center;flex-shrink:0;"><div style="font-size:13px;">'+adar.taso.ikoni+'</div><div style="font-size:9px;color:var(--muted);">GIQ</div></div>';
+    h+='<div style="text-align:center;flex-shrink:0;"><div style="font-size:14px;font-weight:700;color:'+ampel.dot+';">'+akt.pct+'%</div><div style="font-size:9px;color:var(--muted);">viikko</div></div>';
+    h+='<span style="color:var(--muted);font-size:16px;">›</span></div>';
+  });
+  h+='</div>';
+
+  h+='<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;">✅ Anna + merkintä</div>';
+  h+='<div style="display:flex;flex-direction:column;gap:6px;">';
+  pelaajat.forEach(function(p){
+    var vahv=haeVahvistukset(p);
+    var lv=laskeLevel(0,vahv.yhteensa);
+    var viimeisin=(lsj('tm_coach_plus_'+p.id)||[]);
+    var plusTanaan=viimeisin.length>0&&viimeisin[viimeisin.length-1].date===new Date().toISOString().slice(0,10);
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:12px;">';
+    h+='<div style="flex:1;"><div style="font-size:13px;font-weight:700;">'+p.etunimi+' '+p.sukunimi+'</div>';
+    h+='<div style="font-size:11px;color:var(--muted2);">'+vahv.yhteensa+' vahvistusta · '+lv.ikoni+' '+lv.nimi+(lv.lukittu?' 🔒':'')+'</div></div>';
+    if(plusTanaan)h+='<div style="font-size:12px;color:var(--green);font-weight:700;">✓ Annettu</div>';
+    else h+='<button onclick="avaaCoachPlusPikana(\''+p.id+'\')" style="padding:7px 14px;border-radius:10px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">+ ANNA</button>';
+    h+='</div>';
+  });
+  h+='</div>';
+  document.getElementById('coachContent').innerHTML=h;
+}
+
+function buildCoachAnalyysi(){
+  var pelaajat=haeJoukkuePelaajat();
+  var h='';
+  var ketjuSummat={taka:0,etu:0,sivu:0,kierto:0,syva:0};
+  var ketjuLkm=0;
+  pelaajat.forEach(function(p){
+    var latest=p.qs_historia[p.qs_historia.length-1];
+    if(!latest||!latest.results||!latest.results.ketjut)return;
+    ketjuLkm++;
+    ['taka','etu','sivu','kierto','syva'].forEach(function(k){
+      ketjuSummat[k]+=(latest.results.ketjut[k]&&latest.results.ketjut[k].pisteet)||0;
+    });
+  });
+
+  if(ketjuLkm>0){
+    h+='<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🎯 Liikeketjujen tila — napauta ⓘ koulutukseen</div>';
+    h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px;">';
+    var jarjKetjut=Object.keys(ketjuSummat).sort(function(a,b){return ketjuSummat[a]-ketjuSummat[b];});
+    jarjKetjut.forEach(function(k,ki){
+      var faA=HPP_FASCIA[k];
+      var nimiA=faA?faA.ikoni+' '+faA.valmentajanimi:k;
+      var colA=faA?faA.vari:'var(--teal)';
+      var ka=Math.round(ketjuSummat[k]/ketjuLkm*10)/10;
+      var pct=Math.round(ka/10*100);
+      var col=ka>=7?'var(--green)':ka>=5?'var(--teal)':ka>=3?'var(--amber)':'var(--red)';
+      h+='<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+      h+='<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:13px;font-weight:700;color:'+(ki===0?colA:'var(--text)')+'">'+nimiA+'</span>';
+      h+='<span onclick="avaaKetjuKoulutus(\'' + k + '\')" style="font-size:11px;color:var(--muted);cursor:pointer;padding:1px 6px;border-radius:6px;border:1px solid var(--border);">ⓘ</span>';
+      if(ki===0)h+='<span style="font-size:10px;color:'+colA+';font-weight:700;">⬇ Heikoin</span>';
+      h+='</div>';
+      h+='<span style="font-size:12px;font-weight:700;color:'+col+';">'+ka+'/10</span></div>';
+      h+='<div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;">';
+      h+='<div style="height:8px;width:'+pct+'%;background:'+col+';border-radius:4px;"></div></div>';
+      if(ki===0)h+='<div style="font-size:10px;color:var(--amber);margin-top:3px;">⚠️ Harkitse painottamista yhteisharjoituksissa</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+
+  h+='<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📈 Kehitystrendit</div>';
+  var jarjPelaajat=pelaajat.slice().sort(function(a,b){
+    var ovA=laskeOverall(a.qs_historia[a.qs_historia.length-1]&&a.qs_historia[a.qs_historia.length-1].results&&a.qs_historia[a.qs_historia.length-1].results.ketjut);
+    var ovB=laskeOverall(b.qs_historia[b.qs_historia.length-1]&&b.qs_historia[b.qs_historia.length-1].results&&b.qs_historia[b.qs_historia.length-1].results.ketjut);
+    return ovB-ovA;
+  });
+  jarjPelaajat.forEach(function(p){
+    var latest=p.qs_historia[p.qs_historia.length-1];
+    var ovr=laskeOverall(latest&&latest.results&&latest.results.ketjut);
+    var delta=laskeDelta(p);
+    var adar=laskeADAR(p);
+    var vari=overallVari(ovr);
+    h+='<div onclick="avaaCoachPelaaja(\''+p.id+'\')" style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:12px 14px;margin-bottom:8px;cursor:pointer;">';
+    h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+    h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;line-height:1;color:'+vari.text+';flex-shrink:0;">'+ovr+'</div>';
+    h+='<div style="flex:1;"><div style="font-size:14px;font-weight:700;">'+p.etunimi+' '+p.sukunimi+'</div>';
+    h+='<div style="font-size:11px;color:var(--muted2);">'+p.joukkue;
+    if((p.phvTila||'').includes('HUIPPU'))h+=' · <span style="color:var(--amber);">📌 PHV</span>';
+    if(adar&&adar.hiddenGem)h+=' · <span style="color:#FFD700;">💎 Gem</span>';
+    h+='</div></div>';
+    if(delta){var dc=delta.ovDelta>0?'var(--green)':delta.ovDelta<0?'var(--red)':'var(--muted)';
+      h+='<span style="font-size:14px;font-weight:700;color:'+dc+';">'+(delta.ovDelta>=0?'+':'')+delta.ovDelta+'</span>';}
+    h+='</div>';
+    if(latest&&latest.results&&latest.results.ketjut){
+      var k=latest.results.ketjut;
+      h+='<div style="display:flex;gap:4px;">';
+      [{l:'PAC',k2:'taka'},{l:'SHO',k2:'etu'},{l:'PAS',k2:'kierto'},{l:'DRI',k2:'sivu'},{l:'DEF',k2:'syva'}].forEach(function(attr){
+        var v=k[attr.k2]?k[attr.k2].pisteet:0;
+        var pct2=Math.round(v/10*100);
+        var col2=v>=7?'var(--green)':v>=5?'var(--teal)':v>=3?'var(--amber)':'var(--red)';
+        h+='<div style="flex:1;text-align:center;"><div style="height:24px;background:var(--bg3);border-radius:3px;overflow:hidden;display:flex;align-items:flex-end;"><div style="width:100%;height:'+pct2+'%;background:'+col2+';border-radius:3px;"></div></div><div style="font-size:8px;color:var(--muted);margin-top:2px;">'+attr.l+'</div></div>';
+      });
+      if(adar){var giqPct=Math.round((adar.yht-4)/8*100);var giqCol=adar.taso.id==='eliitti'?'#A78BFA':adar.taso.id==='korkea'?'var(--green)':'var(--amber)';
+        h+='<div style="flex:1;text-align:center;"><div style="height:24px;background:var(--bg3);border-radius:3px;overflow:hidden;display:flex;align-items:flex-end;"><div style="width:100%;height:'+giqPct+'%;background:'+giqCol+';border-radius:3px;"></div></div><div style="font-size:8px;color:var(--muted);margin-top:2px;">GIQ</div></div>';}
+      h+='</div>';}
+    h+='</div>';
+  });
+  document.getElementById('coachContent').innerHTML=h;
+}
+
+function buildCoachMerkinnat(){
+  var pelaajat=haeJoukkuePelaajat();
+  var h='<div style="font-size:13px;color:var(--muted2);margin-bottom:14px;">Anna + merkintä kerran viikossa. Vaatii valmentajan PIN.</div>';
+  pelaajat.forEach(function(p){
+    var vahv=haeVahvistukset(p);
+    var lv=laskeLevel(0,vahv.yhteensa);
+    var merkinnat=lsj('tm_coach_plus_'+p.id)||[];
+    var viimeisinM=merkinnat[merkinnat.length-1];
+    var plusTanaan=viimeisinM&&viimeisinM.date===new Date().toISOString().slice(0,10);
+    h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 14px;margin-bottom:8px;">';
+    h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+    h+='<div style="flex:1;"><div style="font-size:14px;font-weight:700;">'+p.etunimi+' '+p.sukunimi+'</div>';
+    h+='<div style="font-size:11px;color:var(--muted2);">'+lv.ikoni+' '+lv.nimi+' · '+vahv.yhteensa+' vahvistusta</div></div>';
+    if(plusTanaan)h+='<div style="font-size:12px;color:var(--green);font-weight:700;background:rgba(31,209,106,.1);padding:5px 10px;border-radius:8px;">✓ Tänään</div>';
+    else h+='<button onclick="avaaCoachPlusPikana(\''+p.id+'\')" style="padding:8px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--teal),#0EA5E9);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:15px;font-weight:800;cursor:pointer;">✅ ANNA +</button>';
+    h+='</div>';
+    if(merkinnat.length>0){
+      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;">';
+      var tyypit2={treeni:'💪',viikko:'📅',asenne:'🔥',kehitys:'📈',tiimi:'🤝'};
+      merkinnat.slice(-4).forEach(function(m){
+        h+='<div style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(0,229,204,.08);border:1px solid rgba(0,229,204,.2);color:var(--teal);">'+(tyypit2[m.tyyppi]||'✅')+' '+m.date.slice(5)+'</div>';
+      });
+      h+='</div>';
+    }
+    if(lv.lukittu&&lv.seuraava){
+      h+='<div style="margin-top:8px;padding:7px 10px;background:rgba(255,184,48,.07);border-radius:9px;font-size:11px;color:var(--amber);">🔒 '+(lv.seuraava.vahvistus_min-vahv.yhteensa)+' vahvistusta lisää → '+lv.seuraava.ikoni+' '+lv.seuraava.nimi+'</div>';
+    }
+    h+='</div>';
+  });
+  document.getElementById('coachContent').innerHTML=h;
+}
+
+// ── KOULUTUSPOPUP — valmentaja napauttaa ketjua → avautuu ──
+function avaaKetjuKoulutus(ketjuId){
+  var fa=HPP_FASCIA[ketjuId];if(!fa||!fa.koulutus)return;
+  var k=fa.koulutus;
+  var h='<div style="padding-bottom:8px;">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">';
+  h+='<div style="display:flex;align-items:center;gap:10px;">';
+  h+='<div style="width:40px;height:40px;border-radius:12px;background:'+fa.vari+'22;display:flex;align-items:center;justify-content:center;font-size:20px;">'+fa.ikoni+'</div>';
+  h+='<div><div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;color:'+fa.vari+';">'+fa.valmentajanimi+'</div>';
+  h+='<div style="font-size:11px;color:var(--muted2);">'+fa.koodi+' · '+fa.ikonilause+'</div></div>';
+  h+='</div>';
+  h+='<button onclick="suljeHarjoite()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
+  h+='</div>';
+  h+='<div style="background:'+fa.vari+'11;border-left:3px solid '+fa.vari+';border-radius:0 10px 10px 0;padding:12px 14px;margin-bottom:12px;">';
+  h+='<div style="font-size:11px;color:'+fa.vari+';font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Mitä tämä tarkoittaa kentällä?</div>';
+  h+='<div style="font-size:13px;color:var(--text);line-height:1.6;">'+k.mitaKentalla+'</div>';
+  h+='</div>';
+  h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">';
+  h+='<div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Mitkä testit mittaavat tätä?</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:5px;">';
+  k.avaintestit.forEach(function(t){
+    h+='<span style="font-size:12px;padding:3px 10px;border-radius:12px;background:'+fa.vari+'15;border:1px solid '+fa.vari+'33;color:'+fa.vari+';">'+t+'</span>';
+  });
+  h+='</div></div>';
+  h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">';
+  h+='<div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Tavoitetasot ikäluokittain</div>';
+  [['U10–12',k.tavoitetasot.u12],['U13–15',k.tavoitetasot.u15],['U15–17',k.tavoitetasot.u17],['U17–19',k.tavoitetasot.u19]].forEach(function(t){
+    if(!t[1])return;
+    h+='<div style="display:flex;gap:8px;padding:6px 0;border-bottom:.5px solid var(--border);">';
+    h+='<div style="font-size:11px;font-weight:700;color:'+fa.vari+';width:55px;flex-shrink:0;">'+t[0]+'</div>';
+    h+='<div style="font-size:12px;color:var(--muted2);">'+t[1]+'</div></div>';
+  });
+  h+='</div>';
+  h+='<div style="background:rgba(229,57,53,.07);border:1px solid rgba(229,57,53,.2);border-radius:12px;padding:12px 14px;margin-bottom:10px;">';
+  h+='<div style="font-size:11px;color:#E53935;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">🔍 Miten tunnistaa heikkous?</div>';
+  h+='<div style="font-size:13px;color:var(--text);line-height:1.5;">'+k.heikkoMerkki+'</div></div>';
+  if(k.phvHuomio){
+    h+='<div style="background:rgba(255,184,48,.08);border:1px solid rgba(255,184,48,.25);border-radius:12px;padding:12px 14px;margin-bottom:10px;">';
+    h+='<div style="font-size:11px;color:var(--amber);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">⚠️ PHV-huomio</div>';
+    h+='<div style="font-size:13px;color:var(--text);line-height:1.5;">'+k.phvHuomio+'</div></div>';
+  }
+  h+='<div style="background:'+fa.vari+'11;border-radius:11px;padding:10px 12px;font-size:13px;color:'+fa.vari+';font-style:italic;margin-bottom:4px;">'+fa.cue+'</div>';
+  h+='<div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px;">Pelaajan yksityiskohdissa näet täydet harjoitereseptit ikäluokan mukaan ›</div>';
+  h+='</div>';
+  document.getElementById('hkBody').innerHTML=h;
+  document.getElementById('hkOverlay').style.display='flex';
+  document.body.style.overflow='hidden';
+}
+
+function avaaCoachPelaaja(pid){
+  var p=DEMO[pid];if(!p)return;
+  document.getElementById('coachPlayerTitle').textContent=p.etunimi+' '+p.sukunimi;
+  var latest=p.qs_historia[p.qs_historia.length-1];
+  var r=latest&&latest.results||{};
+  var k=r.ketjut||{};
+  var ovr=laskeOverall(k);
+  var vari=overallVari(ovr);
+  var delta=laskeDelta(p);
+  var adar=laskeADAR(p);
+  var akt=laskeAktiivisuusJaksolla(p);
+  var vahv=haeVahvistukset(p);
+  var profiili=laskeProfiili(p);
+  var ennustus=laskeEnnustus(p);
+  var h='';
+
+  // Header
+  h+='<div style="background:linear-gradient(135deg,'+vari.bg2+',#0A0A0A);border:2px solid '+vari.border+';border-radius:16px;padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:14px;">';
+  h+='<div style="text-align:center;flex-shrink:0;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:56px;line-height:1;color:'+vari.text+';">'+ovr+'</div><div style="font-size:10px;letter-spacing:2px;color:'+vari.text+'88;">'+vari.sublbl+'</div></div>';
+  h+='<div style="flex:1;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;">'+p.etunimi.toUpperCase()+' '+p.sukunimi.toUpperCase()+'</div>';
+  h+='<div style="font-size:12px;color:var(--muted2);">'+p.joukkue+' · '+p.bioIka.krono+'v · '+p.phvTila+'</div>';
+  if(profiili&&profiili.profiili)h+='<div style="font-size:12px;color:var(--teal);margin-top:2px;">'+profiili.profiili.ikoni+' '+profiili.profiili.nimi+'</div>';
+  if(r.gem)h+='<div style="font-size:11px;color:#FFD700;">💎 Hidden Gem</div>';
+  if(r.xfactor)h+='<div style="font-size:11px;color:#C084FC;">⚡ X-Factor</div>';
+  h+='</div>';
+  if(delta){var dc=delta.ovDelta>0?'var(--green)':delta.ovDelta<0?'var(--red)':'var(--muted)';
+    h+='<div style="text-align:center;flex-shrink:0;"><div style="font-size:20px;font-weight:700;color:'+dc+';">'+(delta.ovDelta>=0?'+':'')+delta.ovDelta+'</div><div style="font-size:9px;color:var(--muted);">viim. testi</div></div>';}
+  h+='</div>';
+
+  // Ennustava hälytys
+  if(ennustus){
+    var ennCol=akt&&akt.aktiivisuusPct>=70?'var(--green)':'var(--amber)';
+    h+='<div style="background:rgba(255,184,48,.07);border:1px solid '+ennCol+'44;border-radius:12px;padding:11px 13px;margin-bottom:10px;">';
+    h+='<div style="font-size:10px;color:'+ennCol+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Ennuste</div>';
+    h+='<div style="font-size:13px;line-height:1.4;">'+ennustus+'</div></div>';
+  }
+
+  // Aktiivisuus
+  if(akt){
+    h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:12px 14px;margin-bottom:10px;">';
+    h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Harjoitusaktiivisuus</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">';
+    var actCol=akt.aktiivisuusPct>=70?'var(--green)':akt.aktiivisuusPct>=40?'var(--amber)':'var(--red)';
+    h+='<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;color:'+actCol+';">'+akt.aktiivisuusPct+'%</div><div style="font-size:10px;color:var(--muted);">aktiivisuus</div></div>';
+    h+='<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;color:var(--amber);">'+akt.tehdytPaivat+'</div><div style="font-size:10px;color:var(--muted);">päivää tehty</div></div>';
+    h+='<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;color:var(--purple);">'+akt.paiviaKuluu+'</div><div style="font-size:10px;color:var(--muted);">pv viim. testistä</div></div>';
+    h+='</div></div>';
+  }
+
+  // ADAR/GIQ
+  if(adar)h+=buildGIQLaaja(p);
+
+  // Testaushistoria
+  h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;">Testaushistoria</div>';
+  p.qs_historia.slice().reverse().forEach(function(testi,idx){
+    var ovT=laskeOverall(testi.results&&testi.results.ketjut);
+    var edOVR=p.qs_historia.length-2-idx>=0?laskeOverall(p.qs_historia[p.qs_historia.length-2-idx]&&p.qs_historia[p.qs_historia.length-2-idx].results&&p.qs_historia[p.qs_historia.length-2-idx].results.ketjut):null;
+    var dOVR=edOVR!=null&&idx>0?ovT-edOVR:null;
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:11px;margin-bottom:6px;">';
+    h+='<div style="font-size:11px;color:var(--muted2);width:65px;flex-shrink:0;">'+new Date(testi.date).toLocaleDateString('fi-FI',{day:'numeric',month:'short',year:'2-digit'})+'</div>';
+    h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;color:'+overallVari(ovT).text+';flex-shrink:0;">'+ovT+'</div>';
+    if(dOVR!=null)h+='<div style="font-size:13px;font-weight:700;color:'+(dOVR>=0?'var(--green)':'var(--red)')+';">'+(dOVR>=0?'+':'')+dOVR+'</div>';
+    if(testi.results&&testi.results.gem)h+='<div style="font-size:12px;margin-left:auto;">💎</div>';
+    if(testi.results&&testi.results.xfactor)h+='<div style="font-size:12px;">⚡</div>';
+    h+='</div>';
+  });
+
+  h+='<button onclick="avaaCoachPlusPikana(\''+p.id+'\')" style="width:100%;margin-top:10px;padding:14px;border-radius:13px;border:none;background:linear-gradient(135deg,var(--teal),#0EA5E9);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:17px;font-weight:800;cursor:pointer;letter-spacing:.5px;">✅ ANNA + MERKINTÄ</button>';
+  h+='<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">Vaatii valmentajan PIN</div>';
+  document.getElementById('coachPlayerContent').innerHTML=h;
+  go('sCoachPlayer');
+}
+
+function avaaCoachPlusPikana(pid){S.pelaaja=DEMO[pid];avaaValmentajanPlus();}
+
+function buildCoachViikko(){
+  var pelaajat=haeJoukkuePelaajat();
+  var ohjelma=generoiViikonOhjelma(pelaajat);
+  var h='';
+
+  if(!ohjelma){
+    h+='<div style="font-size:14px;color:var(--muted2);text-align:center;padding:40px 20px;">Ei testausdataa saatavilla — lisää testitulokset ensin.</div>';
+    document.getElementById('coachContent').innerHTML=h;
+    return;
+  }
+
+  var hf=ohjelma.heikoinFascia;
+  var vf=ohjelma.vahvinFascia;
+  var il=ohjelma.ikaluokka;
+
+  // Otsikko — viikon fokus
+  h+='<div style="background:linear-gradient(135deg,'+hf.vari+'22,#0A0A0A);border:2px solid '+hf.vari+'44;border-radius:16px;padding:16px;margin-bottom:14px;">';
+  h+='<div style="font-size:10px;color:'+hf.vari+';text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">📋 VIIKON FOKUS — HPP ELITE</div>';
+  h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:28px;color:'+hf.vari+';letter-spacing:1px;line-height:1.1;">'+hf.ikoni+' '+hf.ammatti+'</div>';
+  h+='<div style="font-size:13px;color:var(--muted2);margin-top:4px;">⚽ Peliteema: '+hf.peliteema+'</div>';
+  h+='<div style="font-size:12px;color:var(--muted);margin-top:8px;padding:8px 10px;background:rgba(0,0,0,.3);border-radius:9px;font-style:italic;">'+hf.cue+'</div>';
+  h+='</div>';
+
+  // PHV-varoitus jos joukkueessa kasvupyrähdyspelaajia
+  if(ohjelma.phvPelaajat.length>0){
+    h+='<div style="background:rgba(255,184,48,.08);border:1.5px solid rgba(255,184,48,.35);border-radius:13px;padding:12px 14px;margin-bottom:12px;">';
+    h+='<div style="font-size:11px;color:var(--amber);text-transform:uppercase;font-weight:700;letter-spacing:.5px;margin-bottom:5px;">⚠️ PHV-huomio joukkueessa</div>';
+    var nimet=ohjelma.phvPelaajat.map(function(p){return p.etunimi;}).join(', ');
+    h+='<div style="font-size:13px;line-height:1.5;">'+nimet+' ovat kasvupyrähdysvaiheessa. '+hf.phvHuomio+'</div>';
+    h+='</div>';
+  }
+
+  // Fascia-analyysi — VALMENTAJAN KIELI, koulutuspopup napautuksesta
+  h+='<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📊 Liikeketjuanalyysi — napauta avataksesi koulutuksen</div>';
+  h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px;">';
+  var jarj=Object.keys(ohjelma.fasciaTulokset.keskiarvot).sort(function(a,b){return ohjelma.fasciaTulokset.keskiarvot[a]-ohjelma.fasciaTulokset.keskiarvot[b];});
+  jarj.forEach(function(k2,ki){
+    var fa2=HPP_FASCIA[k2];if(!fa2)return;
+    var ka=ohjelma.fasciaTulokset.keskiarvot[k2];
+    var pct=Math.round(ka/10*100);
+    var col=ka>=7?'var(--green)':ka>=5?'var(--teal)':ka>=3?'var(--amber)':'var(--red)';
+    var isHeikoin=ki===0;
+    h+='<div onclick="avaaKetjuKoulutus(\''+k2+'\')" style="margin-bottom:10px;cursor:pointer;padding:8px;border-radius:10px;background:'+(isHeikoin?fa2.vari+'10':'transparent')+';border:'+(isHeikoin?'1px solid '+fa2.vari+'33':'1px solid transparent')+';">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">';
+    h+='<div style="display:flex;align-items:center;gap:6px;">';
+    h+='<span style="font-size:14px;">'+fa2.ikoni+'</span>';
+    h+='<span style="font-size:13px;font-weight:700;color:'+(isHeikoin?fa2.vari:'var(--text)')+';">'+fa2.valmentajanimi+'</span>';
+    h+='<span style="font-size:10px;color:var(--muted2);">'+fa2.ikonilause+'</span>';
+    if(isHeikoin)h+='<span style="font-size:10px;background:'+fa2.vari+'22;color:'+fa2.vari+';padding:1px 7px;border-radius:8px;font-weight:700;">FOKUS</span>';
+    h+='</div>';
+    h+='<div style="display:flex;align-items:center;gap:6px;">';
+    h+='<span style="font-size:12px;font-weight:700;color:'+col+';">'+ka+'/10</span>';
+    h+='<span style="font-size:10px;color:var(--muted);">ⓘ</span>';
+    h+='</div></div>';
+    h+='<div style="height:7px;background:var(--bg3);border-radius:4px;overflow:hidden;">';
+    h+='<div style="height:7px;width:'+pct+'%;background:'+col+';border-radius:4px;"></div></div>';
+    h+='</div>';
+  });
+  h+='<div style="font-size:11px;color:var(--muted2);margin-top:4px;">Ikäluokka: '+il.nimi+' · Testit joista lasketaan: HPP ELITE harjoitettavuuskartoitus</div>';
+  h+='</div>';
+
+  // 4 harjoituskertaa
+  h+='<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📅 Viikon harjoitusohjelma</div>';
+
+  var vaihevari={
+    yhteinen:'rgba(0,229,204,.08)',  yhteinenBorder:'rgba(0,229,204,.25)',  yhteinenCol:'var(--teal)',
+    tekniikka:'rgba(255,184,48,.08)',tekniikkaBorder:'rgba(255,184,48,.25)',tekniikkaCol:'var(--amber)',
+    voima:'rgba(229,57,53,.08)',     voimaBorder:'rgba(229,57,53,.2)',      voimaCol:'#E53935',
+    yksilö:'rgba(167,139,250,.10)', yksilöBorder:'rgba(167,139,250,.3)',   yksilöCol:'#C084FC',
+    gameiq:'rgba(99,102,241,.10)',   gameiqBorder:'rgba(99,102,241,.3)',    gameiqCol:'#818CF8',
+    ottelu:'rgba(31,209,106,.08)',   otteluBorder:'rgba(31,209,106,.25)',   otteluCol:'var(--green)',
+    palautus:'rgba(100,116,139,.08)',palautusBorder:'rgba(100,116,139,.2)', palautusCol:'var(--muted)',
+    cue:'rgba(0,0,0,.0)',            cueBorder:'rgba(255,255,255,.05)',      cueCol:'var(--muted)',
+    info:'rgba(0,0,0,.0)',           infoBorder:'rgba(255,255,255,.05)',     infoCol:'var(--muted)'
+  };
+
+  ohjelma.harjoituskerrat.forEach(function(hk){
+    h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden;">';
+    // Päivä-header
+    h+='<div style="background:'+hf.vari+'18;border-bottom:1px solid '+hf.vari+'33;padding:11px 14px;display:flex;align-items:center;gap:8px;">';
+    h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:20px;color:'+hf.vari+';width:28px;flex-shrink:0;">'+hk.pv+'</div>';
+    h+='<div style="font-size:13px;font-weight:700;">'+hk.teema+'</div>';
+    h+='</div>';
+    // Vaiheet
+    hk.rakenne.forEach(function(v){
+      var bg=vaihevari[v.tyyppi]||'rgba(0,0,0,0)';
+      var border=vaihevari[v.tyyppi+'Border']||'rgba(255,255,255,.05)';
+      var col=vaihevari[v.tyyppi+'Col']||'var(--muted)';
+      h+='<div style="display:flex;gap:10px;padding:10px 14px;background:'+bg+';border-bottom:1px solid var(--border);">';
+      h+='<div style="flex-shrink:0;width:90px;">';
+      h+='<div style="font-size:11px;font-weight:700;color:'+col+';">'+v.vaihe+'</div>';
+      h+='<div style="font-size:10px;color:var(--muted);">'+v.kesto+'</div>';
+      h+='</div>';
+      h+='<div style="flex:1;font-size:12px;color:var(--text);line-height:1.5;">'+v.sisalto+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  });
+
+  // Yksilöllinen aktivointi -selitys
+  h+='<div style="background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2);border-radius:13px;padding:13px 14px;margin-bottom:10px;">';
+  h+='<div style="font-size:11px;color:#C084FC;text-transform:uppercase;font-weight:700;letter-spacing:.5px;margin-bottom:6px;">💜 Yksilöllinen aktivointi — miten toimii</div>';
+  h+='<div style="font-size:13px;color:var(--muted2);line-height:1.5;">Keskiviikon harjoituksessa pelaajat tekevät ensin yhteisen DFL-aktivoinnin, sitten oman heikoimman fascia-ketjun aktivoinnin (näkyy automaattisesti heidän sovelluksessaan Tänään-välilehdellä). Valmentaja kiertää ja antaa fascia-cuen jokaiselle henkilökohtaisesti.</div>';
+  h+='</div>';
+
+  // Saliohjelma ikäluokan mukaan
+  h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:13px 14px;">';
+  h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.5px;margin-bottom:8px;">💪 Saliohjelma — '+il.nimi+'</div>';
+  h+='<div style="font-size:13px;font-weight:700;margin-bottom:6px;">'+il.saliohjelma+'</div>';
+  h+='<div style="font-size:12px;color:var(--amber);margin-bottom:6px;">Kuormaperiaate: '+il.kuormaperiaate+'</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:5px;">';
+  il.salitehtavat.forEach(function(t){
+    h+='<span style="font-size:11px;padding:3px 9px;border-radius:10px;background:rgba(255,184,48,.1);border:1px solid rgba(255,184,48,.2);color:var(--amber);">'+t+'</span>';
+  });
+  h+='</div></div>';
+
+  document.getElementById('coachContent').innerHTML=h;
+}
+
+function goCoachTab(idx){
+  window._coachTab=idx;
+  [0,1,2,3].forEach(function(i){
+    var t=document.getElementById('cTab'+i);if(!t)return;
+    t.style.color=i===idx?'var(--teal)':'var(--muted)';
+    t.style.borderBottom=i===idx?'2px solid var(--teal)':'2px solid transparent';
+  });
+  buildCoachTab(idx);
+}
+function buildCoachTab(idx){
+  if(idx===0)buildCoachNyt();
+  else if(idx===1)buildCoachAnalyysi();
+  else if(idx===2)buildCoachViikko();
+  else buildCoachMerkinnat();
+}
+function goCoach(){
+  ['sPin','sLoad','sMain','sOnboard','sCoach','sCoachPlayer'].forEach(function(s){
+    var el=document.getElementById(s);if(el)el.classList.remove('active');
+  });
+  document.getElementById('sCoach').classList.add('active');
+  window._coachTab=0;
+  buildCoachNyt();
+}
+
+// ══════════════════════════════════════════════════════
+// HPP ELITE — AMMATTIKIELI & VIIKKO-OHJELMAGENERAATTORI
+// Lähde: HPP_ELITE_v9 / 19_AUTO_OHJELMA + 10_FOOTBALL_DB
+// ══════════════════════════════════════════════════════
+
+// Fascialinjojen ammattiterminologia (HPP ELITE -koodisto)
+// ══════════════════════════════════════════════════════
+// HPP ELITE — VIISI LIIKEKETJUA: VALMENTAJAN KIELI
+// Lähde: TalentMaster Harjoitusohjelmointi v2.2
+// "Ei fascialinjoista — valmentajan kieli kentällä"
+// ══════════════════════════════════════════════════════
+
+const HPP_FASCIA={
+  taka:{
+    id:'taka', koodi:'SBL',
+    // VALMENTAJAN KIELI — tämä näkyy UI:ssa
+    valmentajanimi:'Vauhtiketju',
+    ikonilause:'💨 Maksiminopeus & räjähtävyys',
+    peliteema:'Kiihdytys, sprintit, hypyt, hamstring-voima',
+    ikoni:'🏃', vari:'#E53935',
+
+    // KOULUTUSPOPUP — valmentaja napauttaa → avautuu
+    koulutus:{
+      mitaKentalla:'Vauhtiketju vastaa kaikesta nopeudesta: kiihdytys, maksimijuoksuvauhti, hypyt ja jarruttaminen pystysuunnassa. Kun pelaaja polttaa puolustajan ohi tai lähtee nopeammin kuin muut — se on vauhtiketju.',
+      avaintestit:['30m nopeus', 'CMJ (ponnistuskyky)', 'EI-indeksi (elastisuus)', '5-loikka', 'Naruhypyt 15s', 'Hyvää huomenta'],
+      tavoitetasot:{u12:'Taso 2+ kaikissa', u15:'Taso 3+ CMJ, 30m taso 3', u17:'CMJ ≥taso 4, 30m ≥taso 4', u19:'EI ≥15%, 30m ≥taso 5'},
+      heikkoMerkki:'Lähtee hitaasti, ei pysy vastustajan perässä pitkillä sprinteissä, hyppy matala verrattuna ikätovereihin.',
+      phvHuomio:'⚠️ PHV-huipussa (kasvupyrähdys): vauhtiketjun kuorma max 60%. Hamstring eksentrinen ensin, muuten vammariski kasvaa merkittävästi.'
+    },
+
+    // AKTIVOINTI HPP ELITEstä
+    aktivointi:'Jalkapohjan rullaus 60s/jalka + SLR-flossing 2×10/jalka',
+    cue:'"Nopeus syntyy takaa — anna takaketjun vetää"',
+    phvHuomio:'SBL-kuorma max 60% PHV-huipussa — hamstring eksentrinen ensin',
+
+    // HARJOITERESEPTIT ikäluokittain (dokumentista: "Jos heikko → harjoiteresepti")
+    reseptit:{
+      // PALLOLLISET ENSIN nuorille — "pallon kanssa leikkiminen on avainasemassa"
+      leikkija: [
+        {nimi:'Naruhyppyleikki', kuvaus:'Naruhypyt pareittain — kumpi tekee enemmän 15 sekunnissa?', kesto:'3×15s', pallolla:false, ikoni:'🪢'},
+        {nimi:'Loikkaleikki', kuvaus:'Loikitaan kartioiden yli palloa pompotellen — kuka etenee pisimmälle?', kesto:'3×5 loikkaa', pallolla:true, ikoni:'⚽'},
+        {nimi:'Sammakkohyppy pallolla', kuvaus:'Pallo käsissä, hypätään sammakkohyppy mahdollisimman kauas', kesto:'3×5 hyppyä', pallolla:true, ikoni:'🐸'}
+      ],
+      kilpailija: [
+        {nimi:'Reaktiolähtö pallolla', kuvaus:'Valmentaja heittää pallon — pelaaja lähtee välittömästi hakemaan sen', kesto:'6×10m', pallolla:true, ikoni:'⚽'},
+        {nimi:'Naruhypyt + sprintti', kuvaus:'15s naruhypyt → välitön 10m sprintti. Pohje ja takaketju samassa.', kesto:'3×(15s+10m)', pallolla:false, ikoni:'🪢'},
+        {nimi:'5-loikka kilpailu', kuvaus:'Kumpi pääsee pitemmälle viidellä loikalla? Pallo viimeiseen loikkaan.', kesto:'3×5 loikkaa', pallolla:true, ikoni:'🏆'}
+      ],
+      rakentaja: [
+        {nimi:'Hamstring-eksentrisyys', kuvaus:'Nordic hamstring avustettu 3×4 toistoa + pallollinen reaktiolähtö 5m', kesto:'3×4 + 6×5m', pallolla:false, ikoni:'💪'},
+        {nimi:'Transition-sprintit', kuvaus:'20m sprintit pallon kanssa — vaihda suuntaa valmentajan merkistä', kesto:'4×20m', pallolla:true, ikoni:'⚡'},
+        {nimi:'Flying-sprintti + laukaus', kuvaus:'Flying 20m → pallo + laukaus. Nopeushuippu siirtyy suoraan peliin.', kesto:'5×20m', pallolla:true, ikoni:'⚽'}
+      ],
+      itsensa_valmentaja: [
+        {nimi:'Kontrastiharjoittelu', kuvaus:'Takakyykky 3×5 → kyykkyhyppy 3×5 → sprintti 10m. Voima → nopeus -pari.', kesto:'3 sarjaa', pallolla:false, ikoni:'🏋️'},
+        {nimi:'Pudotushyppy + sprintti', kuvaus:'Pudotushyppy 30cm → välitön 10m sprintti palloon. Elastisuus pelissä.', kesto:'4×(hyppy+10m)', pallolla:true, ikoni:'⚡'},
+        {nimi:'Flying-sprintti 30-40m', kuvaus:'Täyden vauhdin sprintti. Täysi palautus. Laatu > määrä.', kesto:'5×30m', pallolla:false, ikoni:'💨'}
+      ],
+      showcase: [
+        {nimi:'Trap bar maastaveto', kuvaus:'3×5 + RDL 3×8. Takaketjun maksimivoimaperusta.', kesto:'3×5', pallolla:false, ikoni:'🏋️'},
+        {nimi:'Flying 40m + kilpailusimulaatio', kuvaus:'Flying 40m × 5, täysi palautus. Sitten 1v1 laidalla nopeudella.', kesto:'5×40m', pallolla:true, ikoni:'⚽'},
+        {nimi:'EI-progressio', kuvaus:'Naruhypyt 3×30s + pudotushypyt 40cm 4×5. Elastisuusindeksi nousee.', kesto:'3×30s + 4×5', pallolla:false, ikoni:'📈'}
+      ]
+    }
+  },
+
+  etu:{
+    id:'etu', koodi:'SFL',
+    valmentajanimi:'Lähtöketju',
+    ikonilause:'⚡ Kiihdytys & pysähtyminen',
+    peliteema:'5m kiihdytys, lähtö, etukyykkyvoima, pistoolikyykky',
+    ikoni:'🦘', vari:'#FB8C00',
+
+    koulutus:{
+      mitaKentalla:'Lähtöketju ratkaisee ensimmäiset 5–10 metriä. Se on ero hyökkääjän ja puolustajan välillä pallon voittamisessa. Myös jarruttaminen ennen suunnanmuutosta on lähtöketjua — pysähtyminen on oma taito.',
+      avaintestit:['5m nopeus', '10m nopeus', 'Vauhditon pituus', 'Pistoolikyykky', 'Takakyykky 5RM (U15+)'],
+      tavoitetasot:{u12:'Vauhditon pituus taso 2+', u15:'5m taso 3, pistoolikyykky 3p', u17:'5m ≥taso 4, takakyykky ≥1.4×kg', u19:'5m ≥taso 4, 1-jalan kyykky 5RM'},
+      heikkoMerkki:'Häviää pallot joihin pitäisi ehtiä. Ei pysähdy puhtaasti ennen suunnanmuutosta. Kyykkyasento ei mene alas.',
+      phvHuomio:'Hip flexor (lonkan koukistaja) usein kireä PHV:ssä. Avaa aina ennen kuormitusta — Thomas-testi ohjaa.'
+    },
+
+    aktivointi:'90/90 hip flexor passiivinen 2×45s/puoli + Quad rock back 2×10',
+    cue:'"Lonkka taakse ensin — sitten potku lähtee auki"',
+    phvHuomio:'Hip flexor usein kireys PHV:ssä — avaa ennen kuormaa, Thomas-testi ohjaa',
+
+    reseptit:{
+      leikkija: [
+        {nimi:'Sammakkohyppykilpailu', kuvaus:'Kumpi pääsee 10 sammakkohypyllä pisimmälle? Pallo viimeiseen!', kesto:'3×5 hyppyä', pallolla:true, ikoni:'🐸'},
+        {nimi:'Askelkyykky-kävelyleikki', kuvaus:'Kuvitellaan kuljetaan syvässä lumessa — askelkyykky 10m edestakaisin', kesto:'2×10m', pallolla:false, ikoni:'🚶'},
+        {nimi:'Matala kyykkyhyppy + lähtö', kuvaus:'Kyykyssä odotus → valmentaja sanoo GO → lähtö palloon', kesto:'6×5m', pallolla:true, ikoni:'⚽'}
+      ],
+      kilpailija: [
+        {nimi:'Kiihdytysvedot', kuvaus:'6×10m kiihdytysvedot. Täysi palautus. Laatu ensin.', kesto:'6×10m', pallolla:false, ikoni:'💨'},
+        {nimi:'Vauhditon pituus + pallo', kuvaus:'Ponnista kauas → jatka palloon. Räjähtävyys siirtyy peliin.', kesto:'3×3 hyppyä', pallolla:true, ikoni:'⚽'},
+        {nimi:'Kyykkyistunta', kuvaus:'Seisotaan alas kyykkyyn 2×30s. Nilkka, lonkka, selkä — kaikki liikkuu.', kesto:'2×30s', pallolla:false, ikoni:'🧘'}
+      ],
+      rakentaja: [
+        {nimi:'Lähtötekniikka + etukyykky', kuvaus:'Lähtötekniikka 6×5m + etukyykky 3×5. Tekniikka ennen kuormaa.', kesto:'3×5', pallolla:false, ikoni:'💪'},
+        {nimi:'1-jalan seisonta → lähtö', kuvaus:'Seiso yhdellä jalalla 20s → räjähtävä lähtö palloon', kesto:'3×(20s+5m)', pallolla:true, ikoni:'⚽'},
+        {nimi:'Pistoolikyykky progressio', kuvaus:'Avustettu pistoolikyykky 3×6/jalka. Kehon hallinta ensin.', kesto:'3×6/jalka', pallolla:false, ikoni:'🏋️'}
+      ],
+      itsensa_valmentaja: [
+        {nimi:'Takakyykky 3×5', kuvaus:'Tekniikka ensin, kuorma sitten. 5RM-testin tulos määrää painon.', kesto:'3×5', pallolla:false, ikoni:'🏋️'},
+        {nimi:'Askelkyykky kuormilla', kuvaus:'Bulgarialainen kyykky 3×6/jalka + 1-jalan RDL 3×8', kesto:'3×6/jalka', pallolla:false, ikoni:'💪'},
+        {nimi:'Ponnahdukset + pallo', kuvaus:'3×5 ponnahdusta → välitön pallon vastaanotto ja laukaus', kesto:'3×5+laukaus', pallolla:true, ikoni:'⚽'}
+      ],
+      showcase: [
+        {nimi:'Kontrastiharjoittelu etuketju', kuvaus:'Takakyykky 3×3 @85% → kyykkyhyppy 3×5 → kiihdytys 5m', kesto:'3 sarjaa', pallolla:false, ikoni:'⚡'},
+        {nimi:'Reaktiolähtö + viimeistely', kuvaus:'Reaktiolähtö 5m × 5. Pallo lopussa. Pelinomainen kiihdytys.', kesto:'5×5m', pallolla:true, ikoni:'⚽'},
+        {nimi:'1-jalan kyykky 5RM', kuvaus:'Testaa ja progressioi. Puoliero paljastuu.', kesto:'3×5/jalka', pallolla:false, ikoni:'📊'}
+      ]
+    }
+  },
+
+  sivu:{
+    id:'sivu', koodi:'LL',
+    valmentajanimi:'Suunnanmuutosketju',
+    ikonilause:'🦊 Ketteryys & sivuttaisliikkeet',
+    peliteema:'Feintit, puolustusasento, suunnanmuutokset, kasirata',
+    ikoni:'🦊', vari:'#F9A825',
+
+    koulutus:{
+      mitaKentalla:'Suunnanmuutosketju tekee pelaajasta vaikean pysäyttää. Feintit, nopeat käännökset, puolustusasento sivuttaisliikkeessä — kaikki tämä. Myös puolustajan kyky pysyä pelaajan edessä on tätä.',
+      avaintestit:['Kasirata', 'SM-juoksu', 'Luistelijan kyykky', 'SM-pallo', '1v1 havainnointi'],
+      tavoitetasot:{u12:'Kasirata taso 2, luistelijan kyykky 3p', u15:'Kasirata ≥taso 3, SM-juoksu ≥taso 3', u17:'Kasirata ≥taso 3, SM-pallo ≥taso 3', u19:'Kasirata ≥taso 4'},
+      heikkoMerkki:'Kääntyy hitaasti, kaatuu polvilinja sisäänpäin kääntyessä, ei pysty puolustamaan 1v1 sivuttaisliikkeessä.',
+      phvHuomio:'Polvilinja tarkistus jokaisessa harjoituksessa. Vaara-signaali: polvi romahtaa sisään suunnanmuutoksessa → LL välitön motorinen ohjaus.'
+    },
+
+    aktivointi:'Clamshell 2×12 + Lateral hip circle 2×10 + SL wall hold 2×20s',
+    cue:'"3 askeleella jarrutus — polvilinja ei murru sisään"',
+    phvHuomio:'Polvilinja tarkistus jokaisessa testeissä — vaara-signaali: polvi sisään',
+
+    reseptit:{
+      leikkija: [
+        {nimi:'Kartioväistö pallolla', kuvaus:'Kuljeta palloa kartioiden välistä — vaihda suuntaa mahdollisimman nopeasti!', kesto:'3×2min', pallolla:true, ikoni:'⚽'},
+        {nimi:'Pujottelurata kilpailu', kuvaus:'Kumpi kiertää radan nopeammin? Tee rata vähintään 3 käännöksellä.', kesto:'3 kierrosta', pallolla:false, ikoni:'🏆'},
+        {nimi:'Lateraaliloikka + pallo', kuvaus:'Loiki sivulle ja ota pallo vastaan — palaa takaisin ja toista', kesto:'2×8/puoli', pallolla:true, ikoni:'🦘'}
+      ],
+      kilpailija: [
+        {nimi:'Shuttle-rata + pallo', kuvaus:'Shuttle-juoksu + pallo suunnanmuutoksissa. Nopein voittaa.', kesto:'4×', pallolla:true, ikoni:'⚽'},
+        {nimi:'Lateraaliloikka + pysäytys', kuvaus:'Loiki sivulle → pysähdy täydellisesti → takaisin. 3 askeleella jarrutus.', kesto:'3×8/puoli', pallolla:false, ikoni:'🦊'},
+        {nimi:'1v1 sivuttaisjarrutus', kuvaus:'Hyökkääjä yrittää ohi, puolustaja pysyy edessä. Vaihda rooleja.', kesto:'3×2min', pallolla:true, ikoni:'🏆'}
+      ],
+      rakentaja: [
+        {nimi:'Reaktiivinen SM 4×6', kuvaus:'SM-harjoitteet merkistä. Valmentaja osoittaa suunnan — pelaaja reagoi.', kesto:'4×6', pallolla:false, ikoni:'⚡'},
+        {nimi:'Luisteluaskel 2×20m', kuvaus:'Luisteluloikka sivuttain 20m + suunnanmuutos. Polvilinja tarkistus.', kesto:'2×20m', pallolla:false, ikoni:'🏃'},
+        {nimi:'1v1 ahtaassa + pallo', kuvaus:'4×4m alue. 1v1. Ei pakoa — pitää kääntyä ahtaassa. Parhaat harjoitteet.', kesto:'4×3min', pallolla:true, ikoni:'⚽'}
+      ],
+      itsensa_valmentaja: [
+        {nimi:'Bulgarialainen kyykky', kuvaus:'3×6/jalka + 1-jalan RDL 3×8. Puoliero paljastuu → ASI laskenta.', kesto:'3×6/jalka', pallolla:false, ikoni:'💪'},
+        {nimi:'Plyometrinen suunnanmuutos', kuvaus:'Lateral bound → stick landing → välitön suunnanmuutos palloon', kesto:'3×5/puoli', pallolla:true, ikoni:'⚡'},
+        {nimi:'SM-pallo paineen alla', kuvaus:'SM-pallo harjoitus: vastustaja saa painostaa. Mittaa todellista ketteryyttä.', kesto:'3×5', pallolla:true, ikoni:'⚽'}
+      ],
+      showcase: [
+        {nimi:'Nordic hamstring + SM', kuvaus:'Nordic hamstring 3×6 → reaktiivinen SM 4×6. Loukkaantumisehkäisy + ketteryys.', kesto:'3×6 + 4×6', pallolla:false, ikoni:'💪'},
+        {nimi:'1v1 laidalla maksimivauhdilla', kuvaus:'Flying 20m → välitön 1v1. Väsymys paljastaa tekniikan.', kesto:'4×4min', pallolla:true, ikoni:'⚽'},
+        {nimi:'Kasirata kilpailusimulaatio', kuvaus:'Kasirata täydellä vauhdilla. Tulos kirjataan — kehitys näkyy.', kesto:'4 suoritusta', pallolla:false, ikoni:'📊'}
+      ]
+    }
+  },
+
+  kierto:{
+    id:'kierto', koodi:'SL',
+    valmentajanimi:'Pelinteko-ketju',
+    ikonilause:'⚽ Pallonhallinta & rotaatio',
+    peliteema:'Syöttö, laukaus, pujottelu, TSI, pallonhallinta käännöksissä',
+    ikoni:'⚽', vari:'#43A047',
+
+    koulutus:{
+      mitaKentalla:'Pelinteko-ketju on pallollinen pelaaja. Syöttörotaatio, laukaus, käännökset pallon kanssa — kaikki lähtee tästä ketjusta. TSI (pallonkäsittelynopeus) mittaa tätä suoraan: alle 0.5s on erinomainen.',
+      avaintestit:['SM-pallo', 'Pujottelu', 'Syöttöpenkki', 'TSI (SM-aika)', 'Ponnauttelu', 'Kulj-laukaus'],
+      tavoitetasot:{u12:'Ponnauttelu 3p, syöttö 2p', u15:'TSI ≤0.8s, pujottelu ≥taso 3', u17:'TSI ≤0.6s, SM-pallo ≥taso 3', u19:'TSI ≤0.5s, pujottelu ≥taso 4'},
+      heikkoMerkki:'Pallo häviää paineessa, hidas käsittely, syötöt epätarkkoja, ei pysty kääntymään pallon kanssa vastustajaa vastaan.',
+      phvHuomio:'Pelinteko-ketjun pallolliset harjoitteet AINA pallolla. Rotaatiokuorma ok PHV:ssä — liikenopeus voi laskea tilapäisesti, se on normaalia.'
+    },
+
+    aktivointi:'Pallonpompottelu kävellessä 2×20m + thorax rotaatio 2×10',
+    cue:'"Rintakehä ohjaa — jalka seuraa luonnostaan"',
+    phvHuomio:'Rotaatiokuorma ok PHV:ssä — liikenopeus voi laskea tilapäisesti',
+
+    reseptit:{
+      leikkija: [
+        {nimi:'Ponnauttelu 3×1min', kuvaus:'Ponnautellaan palloa maahan vuorotellen oikealla ja vasemmalla jalalla. Laske!', kesto:'3×1min', pallolla:true, ikoni:'⚽'},
+        {nimi:'Seinäsyöttö 3×20', kuvaus:'Syöttö seinään, vastaanotto, uusi syöttö. Molemmilla jaloilla!', kesto:'3×20', pallolla:true, ikoni:'🏟️'},
+        {nimi:'Pujottelukilpailu', kuvaus:'Kuljeta kartioiden välissä niin nopeasti kuin pystyt. Oman ennätyksen rikkominen!', kesto:'3 kierrosta', pallolla:true, ikoni:'🏆'}
+      ],
+      kilpailija: [
+        {nimi:'SM-pallo-harjoitus', kuvaus:'Pallon käsittely mahdollisimman nopeasti — SM-aika kirjataan ylös', kesto:'3×5', pallolla:true, ikoni:'⏱️'},
+        {nimi:'Kuljetus-käännös 3×10', kuvaus:'Kuljeta, käänny 180°, jatka. Cruyff, U-käännös — kaikki käy.', kesto:'3×10', pallolla:true, ikoni:'🔄'},
+        {nimi:'Penkkisyöttö 3×10/jalka', kuvaus:'Syöttö penkiltä vuorotellen oikealla ja vasemmalla. Laatu ensin.', kesto:'3×10/jalka', pallolla:true, ikoni:'⚽'}
+      ],
+      rakentaja: [
+        {nimi:'Dual-Task pallonhallinta', kuvaus:'Ponnautellaan palloa SAMALLA kun ratkaistaan laskutehtävä. Peliäly kehittyy.', kesto:'3×3min', pallolla:true, ikoni:'🧠'},
+        {nimi:'1v1 ahtaassa tilassa', kuvaus:'4×4m. 1v1. Käänny pois puolustajasta. Paras TSI-harjoite.', kesto:'4×3min', pallolla:true, ikoni:'⚽'},
+        {nimi:'Vastaanotto+käännös+syöttö', kuvaus:'Kolmen pelaajan drilli: vastaanotto, käännös, syöttö kolmannelle. Toistetaan.', kesto:'3×10/pelaaja', pallolla:true, ikoni:'🔄'}
+      ],
+      itsensa_valmentaja: [
+        {nimi:'Dual-Task Rondo 5v2', kuvaus:'Rondo + laskutehtävä yhtäaikaa. Mittaa päätöksentekokykyä paineessa.', kesto:'3×3min', pallolla:true, ikoni:'🧠'},
+        {nimi:'SM-pallo paineen alla', kuvaus:'SM-pallo normaalisti, sitten vastustaja saa painostaa. Laatu paineessa.', kesto:'3×5', pallolla:true, ikoni:'⚽'},
+        {nimi:'1-jalan kyykky + tekniikka', kuvaus:'1-jalan kyykky 3×6/jalka — sitten välitön pallollinen tekniikkadrilli', kesto:'3×6+drilli', pallolla:true, ikoni:'🏋️'}
+      ],
+      showcase: [
+        {nimi:'TSI-progressio', kuvaus:'SM-pallo 4×5. Aika kirjataan. Tavoite alle 0.5s. Kehitys näkyy numeroissa.', kesto:'4×5', pallolla:true, ikoni:'⏱️'},
+        {nimi:'Dual-Task Rondo kierros 3', kuvaus:'Kognitiivinen kuorma maksimissa. Pallonhallinta + päätöksenteko + fyysinen paine.', kesto:'3×3min', pallolla:true, ikoni:'🧠'},
+        {nimi:'Video-analyysi + itsereflektio', kuvaus:'Kuvaa oma suoritus → katso → mitä voit parantaa? Paras oppimistyökalu.', kesto:'1×/viikko', pallolla:true, ikoni:'📹'}
+      ]
+    }
+  },
+
+  syva:{
+    id:'syva', koodi:'DFL',
+    valmentajanimi:'Hallintaketju',
+    ikonilause:'🛡️ Stabiilius & tasapaino',
+    peliteema:'Keskivartalon hallinta, tasapaino, lonkan stabiilius, skannaus',
+    ikoni:'🛡️', vari:'#5C6BC0',
+
+    koulutus:{
+      mitaKentalla:'Hallintaketju on perusta jolle kaikki muu rakentuu. Ilman hallintaketjua nopeus hajoaa ja pallonhallinta heikkenee. Se näkyy myös Game IQ:ssa: DFL mahdollistaa skannauksen — pelaaja joka seisoo vakaasti näkee enemmän.',
+      avaintestit:['Valakyykky', 'Lankku 60s', 'SLR (takareisi)', 'Thomas-testi (lonkan koukistaja)', 'Lonkan ojennus', 'Jalkojen nosto/lankku 120s (U13+)'],
+      tavoitetasot:{u12:'Valakyykky 3p, lankku 60s', u15:'Lankku 120s, SLR kireys <5°', u17:'Valakyykky + kuorma, Thomas <10°', u19:'Kaikki liikkuvuustestit vihreällä'},
+      heikkoMerkki:'Asento romahtaa juostessa, ei pysty pitämään palloa paineessa, hidas skannaamaan koska ei ole stabiili.',
+      phvHuomio:'DFL on stabiilius-ankkuri kaikissa PHV-vaiheissa. Tärkein ketju kasvupyrähdyksen aikana — ei kuormita mutta aktivoi.'
+    },
+
+    aktivointi:'360° palleahengitys 3×5 sis. + Dead bug taso 1 3×5/puoli',
+    cue:'"Hengitä ympäri kylkiä — katse ympäriinsä ennen palloa"',
+    phvHuomio:'DFL on stabiilius-ankkuri — tärkeä kaikissa PHV-vaiheissa',
+
+    reseptit:{
+      leikkija: [
+        {nimi:'Yhdellä jalalla seisonta + pallo', kuvaus:'Seiso yhdellä jalalla ja pompota palloa — kumpi pysyy pisimpään?', kesto:'3×20s/jalka', pallolla:true, ikoni:'⚽'},
+        {nimi:'Kyykkyistuntaleikki', kuvaus:'Istuudutaan kyykkyyn (selkä suorana) ja yritetään pysyä siinä 30s. Kuka pystyy?', kesto:'3×30s', pallolla:false, ikoni:'🧘'},
+        {nimi:'Naruhyppy tasajalkaa', kuvaus:'Naruhyppy tasajalkaa — laske jaksot! Koordinaatio + hallinta samassa.', kesto:'3×15s', pallolla:false, ikoni:'🪢'}
+      ],
+      kilpailija: [
+        {nimi:'Lankku 60s + variaatiot', kuvaus:'Lankku 60s → kylkilankku 30s/puoli. Hallintaketjun perusta.', kesto:'3 sarjaa', pallolla:false, ikoni:'💪'},
+        {nimi:'Lantionnosto 3×10', kuvaus:'Lantionnosto rauhallisesti. Tunne pakara — ei selkä. Lannesarana kepillä ensin.', kesto:'3×10', pallolla:false, ikoni:'🧘'},
+        {nimi:'Tasapainoharjoitus pallolla', kuvaus:'Seiso yhdellä jalalla, pompota palloa seinään ja ota kiinni. Progressio!', kesto:'3×10/jalka', pallolla:true, ikoni:'⚽'}
+      ],
+      rakentaja: [
+        {nimi:'Dead bug + pallonhallinta', kuvaus:'Dead bug 3×5/puoli — sitten välitön pallollinen harjoite. Hallinta siirtyy peliin.', kesto:'3×5+drilli', pallolla:true, ikoni:'🧠'},
+        {nimi:'Plank progressio + cue', kuvaus:'Lankku 3×40s + kylkilankku. Cue: "Hengitä ympäri kylkiä — ei rintaan ylös."', kesto:'3×40s', pallolla:false, ikoni:'💪'},
+        {nimi:'Skannausharjoitus', kuvaus:'Vastaanota pallo, mutta ENNEN kosketusta katso kummallekin puolelle. Tämä on DFL kentällä.', kesto:'3×10', pallolla:true, ikoni:'👁️'}
+      ],
+      itsensa_valmentaja: [
+        {nimi:'Anti-rotation plank', kuvaus:'Anti-rotation plank 3×30s + Pallaton rotaatio 3×10. Hallinta + kiertovoima.', kesto:'3×30s', pallolla:false, ikoni:'💪'},
+        {nimi:'Skannaus + vastaanotto avaruuteen', kuvaus:'Valmentaja kertoo suunnan juuri ennen syöttöä. Pelaaja skannaa ja reagoi.', kesto:'3×10', pallolla:true, ikoni:'🧠'},
+        {nimi:'1-jalan lantionnosto', kuvaus:'3×10/jalka. ASI laskenta — ero oikean ja vasemman välillä paljastuu.', kesto:'3×10/jalka', pallolla:false, ikoni:'📊'}
+      ],
+      showcase: [
+        {nimi:'Game IQ ADAR-Scanning', kuvaus:'4v4 pienpeli. Valmentaja näyttää väriä laidalta. Pelaajan on reagoitava ENNEN palloa.', kesto:'3×4min', pallolla:true, ikoni:'🧠'},
+        {nimi:'CFI — Muuttuvat säännöt', kuvaus:'Pienpeli jossa säännöt muuttuvat 2 min välein. Kehittää sopeutumiskykyä.', kesto:'3×2min', pallolla:true, ikoni:'⚡'},
+        {nimi:'Valakyykky + kuorma', kuvaus:'Takakyykky full depth 3×5. Koko hallintaketju yhdessä liikkeessä.', kesto:'3×5', pallolla:false, ikoni:'🏋️'}
+      ]
+    }
+  }
+};
+
+// Ikäluokkaperiaatteet HPP ELITEstä
+const HPP_IKALUOKAT={
+  leikkija:{ // U10 / 7-9v
+    nimi:'U10 (7–9v)', koodi:'U10',
+    saliohjelma:'100% kehonpaino · Liikemallit ensin · Max 15 min/sessio',
+    kuormaperiaate:'Normaali (kehonpaino riittää) · Leikkimuoto kaikessa',
+    fasciaPrioriteetti:['DFL','SBL','LL'],
+    tekniikkaIntensiteetti:1,
+    salitehtavat:['Kehonpaino', 'Leikki', 'Pallolla kaikki'],
+    tekniikkaKategoriat:['tekniikka']
+  },
+  kilpailija:{ // U12 / 10-12v
+    nimi:'U12 (10–12v)', koodi:'U12',
+    saliohjelma:'100% kehonpaino · Liikemallit ensin · Max 20 min/sessio',
+    kuormaperiaate:'Normaali (kehonpaino riittää)',
+    fasciaPrioriteetti:['DFL','SBL','LL'],
+    tekniikkaIntensiteetti:1,
+    salitehtavat:['Kehonpaino', 'Motorinen ohjaus', 'Fascia-cue jokaiseen'],
+    tekniikkaKategoriat:['tekniikka']
+  },
+  rakentaja:{ // U15 / 13-14v
+    nimi:'U15 (13–15v)', koodi:'U15',
+    saliohjelma:'Keho ensin → Eksentrinen ensin · 20–30 min max',
+    kuormaperiaate:'⚠️ PHV-huippu: MAX 60% · Post-PHV: 80% OK',
+    fasciaPrioriteetti:['SBL','SFL','LL'],
+    tekniikkaIntensiteetti:2,
+    salitehtavat:['Eksentrinen ensin', 'SLR-flossing PAKOLLINEN', 'PHV-tarkistus'],
+    tekniikkaKategoriat:['tekniikka','aktivointi/tekniikka']
+  },
+  itsensa_valmentaja:{ // U17 / 15-16v
+    nimi:'U17 (15–16v)', koodi:'U17',
+    saliohjelma:'Voima rakentuu · 5RM testit · Progressio alkaa',
+    kuormaperiaate:'80-90% OK · Kuormaseuranta A:C aktivoituu',
+    fasciaPrioriteetti:['SBL','LL','SL'],
+    tekniikkaIntensiteetti:3,
+    salitehtavat:['Voimaharjoittelu', 'Progressio', 'Lajispesifi'],
+    tekniikkaKategoriat:['tekniikka','SSC','tekniikka/taktiikka']
+  },
+  showcase:{ // U19 / 17-19v
+    nimi:'U19 (17–19v)', koodi:'U19',
+    saliohjelma:'Voimaharjoittelu täysillä · 5RM testit · Progressio lisäkuormilla',
+    kuormaperiaate:'Normaali · A:C seuranta · RTS-protokollat vammoihin',
+    fasciaPrioriteetti:['SBL','LL','SL'],
+    tekniikkaIntensiteetti:3,
+    salitehtavat:['Maksimivoima', 'Räjähtävyys', 'Laji-integraatio'],
+    tekniikkaKategoriat:['SSC','taktiikka','tekniikka/taktiikka']
+  }
+};
+
+// Football DB — teknis-taktiset harjoitteet fascialinjoittain
+const FOOTBALL_DB={
+  taka:[ // SBL
+    {ika:'kaikki', teema:'Kiihdytys & ensimmäiset askeleet', alateema:'Lähtö + askeltiheys', harjoite:'10 m kiihdytys pallo mukana', kesto:'10 min', intensiteetti:1, kategoria:'tekniikka'},
+    {ika:'13-15',  teema:'Kiihdytys & ensimmäiset askeleet', alateema:'Lähtö + askeltiheys', harjoite:'Pallollinen reaktiolähtö (ääni/valo)', kesto:'12 min', intensiteetti:2, kategoria:'tekniikka'},
+    {ika:'15-19',  teema:'Kiihdytys & ensimmäiset askeleet', alateema:'Kiihdytys + viimeistely', harjoite:'Kiihdytys + pallo + laukaus', kesto:'12 min', intensiteetti:3, kategoria:'SSC'},
+    {ika:'kaikki', teema:'Kiihdytys', alateema:'Ensimmäisen kosketuksen suunta', harjoite:'Pallo pysäytys + nopea lähtö', kesto:'10 min', intensiteetti:1, kategoria:'tekniikka'},
+    {ika:'13-15',  teema:'Kiihdytys', alateema:'Ensimmäisen kosketuksen suunta', harjoite:'Skannaus + suuntakosketus', kesto:'12 min', intensiteetti:2, kategoria:'tekniikka'}
+  ],
+  etu:[ // SFL
+    {ika:'kaikki', teema:'Potkutekniikka', alateema:'Laukaukset stabiloidusta asennosta', harjoite:'Osumapisteen harjoitus ilman vastusta', kesto:'12 min', intensiteetti:1, kategoria:'tekniikka'},
+    {ika:'13-15',  teema:'Potkutekniikka', alateema:'Laukaukset stabiloidusta asennosta', harjoite:'Ensimmäinen kosketus + laukaus', kesto:'12 min', intensiteetti:2, kategoria:'tekniikka'},
+    {ika:'15-19',  teema:'Potkutekniikka', alateema:'Voimapotku', harjoite:'Voimapotku linjan takaa + viimeistely', kesto:'15 min', intensiteetti:3, kategoria:'voima/tekniikka'},
+    {ika:'13-15',  teema:'Potkuteknliikka', alateema:'Potkulaatu + kehon hallinta', harjoite:'Kehon linjaus + laatuviimeistely', kesto:'12 min', intensiteetti:2, kategoria:'tekniikka'}
+  ],
+  sivu:[ // LL
+    {ika:'kaikki', teema:'Suunnanmuutos & jarrutus', alateema:'Jarrutus + pallo', harjoite:'Jarruta + vaihda suuntaa', kesto:'10 min', intensiteetti:1, kategoria:'tekniikka'},
+    {ika:'13-15',  teema:'Suunnanmuutos & jarrutus', alateema:'Jarrutus + pallo', harjoite:'Shuttle + pallo + suunnanmuutos', kesto:'12 min', intensiteetti:2, kategoria:'aktivointi/tekniikka'},
+    {ika:'15-19',  teema:'Suunnanmuutos & jarrutus', alateema:'Suunnanmuutos + syöttö', harjoite:'Suunnanmuutos puolinopeudesta + syöttö', kesto:'15 min', intensiteetti:3, kategoria:'SSC/taktiikka'},
+    {ika:'13-15',  teema:'Lateral quickness', alateema:'1v1 sivuttaisjarrutus', harjoite:'1v1 sivuttaisjarrutus', kesto:'12 min', intensiteetti:2, kategoria:'tekniikka/aktivointi'},
+    {ika:'15-19',  teema:'Lateral quickness', alateema:'1v1 + suunnanmuutos', harjoite:'1v1 stopperi + suunnanmuutos + pallo pois', kesto:'15 min', intensiteetti:3, kategoria:'SSC/taktiikka'}
+  ],
+  kierto:[ // SL
+    {ika:'kaikki', teema:'1v1 käännökset & harhautukset', alateema:'Käännökset 180°', harjoite:'Cruyff + U-käännös', kesto:'10 min', intensiteetti:1, kategoria:'tekniikka'},
+    {ika:'13-15',  teema:'1v1 käännökset', alateema:'Käännökset 180°', harjoite:'1v1 takaa tulevaa vastaan', kesto:'12 min', intensiteetti:2, kategoria:'tekniikka/aktivointi'},
+    {ika:'15-19',  teema:'1v1 harhautukset', alateema:'Uhka-harhautus', harjoite:'1v1 suunnanmuutos uhka-harhautus', kesto:'15 min', intensiteetti:3, kategoria:'taktiikka'},
+    {ika:'kaikki', teema:'Harhautukset', alateema:'Lapunosto-harhautukset', harjoite:'Lapunosto-harhautukset', kesto:'10 min', intensiteetti:1, kategoria:'tekniikka'},
+    {ika:'13-15',  teema:'Harhautukset', alateema:'Vartaloharhautus', harjoite:'1v1 vartaloharhautus diagonaaliin', kesto:'12 min', intensiteetti:2, kategoria:'aktivointi/tekniikka'}
+  ],
+  syva:[ // DFL
+    {ika:'kaikki', teema:'Asento & skannaus', alateema:'Ennakkoskannaus', harjoite:'Skannaus ennen kosketusta', kesto:'10 min', intensiteetti:1, kategoria:'tekniikka'},
+    {ika:'13-15',  teema:'Asento & skannaus', alateema:'Ennakkoskannaus', harjoite:'Skannaus + vastaanotto avaruuteen', kesto:'12 min', intensiteetti:2, kategoria:'tekniikka'},
+    {ika:'15-19',  teema:'Asento & skannaus', alateema:'Rytminmuutos', harjoite:'Skannaus + rytminmuutos syöttöön', kesto:'15 min', intensiteetti:3, kategoria:'tekniikka/taktiikka'},
+    {ika:'13-15',  teema:'Rytminvaihto', alateema:'1v1 rytminvaihto + pallo', harjoite:'1v1 rytminvaihto + pallo', kesto:'12 min', intensiteetti:2, kategoria:'tekniikka'}
+  ]
+};
+
+// ADAR-harjoitteet Game IQ:ta varten (Football DB:stä)
+const ADAR_HARJOITTEET=[
+  {osa:'Assess', harjoite:'Pienpeli 4v4 värireaktio', kuvaus:'Valmentaja näyttää väriä laidalta. Pelaaja skannaa ja reagoi ENNEN pallokontaktia.', taso:'Taso 1', rooli:'Kaikki'},
+  {osa:'Decide', harjoite:'Dual-Task Rondo 5v2', kuvaus:'Pelaajalla 2 tehtävää yhtäaikaa (pallonhallinta + laskutehtävä). Mittaa päätöksentekokykyä paineessa.', taso:'Taso 2', rooli:'CAM, CDM'},
+  {osa:'Decide', harjoite:'Honey Trap 3v3+portit', kuvaus:'Valmentaja luo houkutusvirheen (avoin pelaaja joka on huono vaihtoehto). Mittaa inhibitiota.', taso:'Taso 2', rooli:'Kaikki'},
+  {osa:'Act',    harjoite:'1v1 + aikaraja (5s)', kuvaus:'Pelaaja saa pallon ja täytyy ratkaista tilanne ennen aikaa loppuu.', taso:'Taso 2', rooli:'W, ST, CAM'},
+  {osa:'Recover',harjoite:'Error Recovery 4v4', kuvaus:'Joka virhe → valmentaja huutaa RECOVER. Mittaa: luovuttaako vai reagoiko välittömästi?', taso:'Taso 3', rooli:'Kaikki'},
+  {osa:'Recover',harjoite:'CFI — Muuttuvat säännöt', kuvaus:'Pienpeli jossa säännöt muuttuvat 2 min välein. Mittaa sopeutumiskykyä.', taso:'Taso 3', rooli:'Kaikki'}
+];
+
+// Laske joukkueen heikoin ketju HPP ELITE -terminologialla
+function laskeJoukkueFascia(pelaajat){
+  var summat={taka:0,etu:0,sivu:0,kierto:0,syva:0};
+  var lkm=0;
+  pelaajat.forEach(function(p){
+    var latest=p.qs_historia[p.qs_historia.length-1];
+    if(!latest||!latest.results||!latest.results.ketjut)return;
+    lkm++;
+    Object.keys(summat).forEach(function(k){
+      summat[k]+=(latest.results.ketjut[k]&&latest.results.ketjut[k].pisteet)||0;
+    });
+  });
+  if(lkm===0)return null;
+  var keskiarvot={};
+  Object.keys(summat).forEach(function(k){keskiarvot[k]=Math.round(summat[k]/lkm*10)/10;});
+  var heikoin=Object.keys(keskiarvot).reduce(function(a,b){return keskiarvot[b]<keskiarvot[a]?b:a;});
+  var vahvin=Object.keys(keskiarvot).reduce(function(a,b){return keskiarvot[b]>keskiarvot[a]?b:a;});
+  return{keskiarvot:keskiarvot,heikoin:heikoin,vahvin:vahvin,lkm:lkm};
+}
+
+// Laske joukkueen yleisin ikäluokka
+function laskeJoukkuePaaIkavaihe(pelaajat){
+  var laskuri={};
+  pelaajat.forEach(function(p){
+    var v=laskeIkavaihe(p);
+    laskuri[v]=(laskuri[v]||0)+1;
+  });
+  return Object.keys(laskuri).reduce(function(a,b){return laskuri[b]>laskuri[a]?b:a;});
+}
+
+// Hae Football DB:stä sopivat harjoitteet ikäluokan ja ketjun mukaan
+function haeFootballHarjoite(ketju,ikavaihe){
+  var db=FOOTBALL_DB[ketju]||[];
+  var ikaluokkaData=HPP_IKALUOKAT[ikavaihe]||HPP_IKALUOKAT.rakentaja;
+  var tavoiteIntensiteetti=ikaluokkaData.tekniikkaIntensiteetti;
+
+  // Suodata sopivat ikäluokat
+  var ikaStr=ikavaihe==='leikkija'||ikavaihe==='kilpailija'?'kaikki':
+             ikavaihe==='rakentaja'?'13-15':'15-19';
+
+  var sopivat=db.filter(function(h){
+    return h.ika==='kaikki'||h.ika===ikaStr||
+           (ikaStr==='15-19'&&h.ika==='13-15'); // fallback
+  });
+
+  // Suosi oikeaa intensiteettiä
+  var optimaaliset=sopivat.filter(function(h){return h.intensiteetti===tavoiteIntensiteetti;});
+  return optimaaliset.length>0?optimaaliset[0]:sopivat[0]||db[0];
+}
+
+// Generoi viikon harjoitusohjelma
+function generoiViikonOhjelma(pelaajat){
+  var fascia=laskeJoukkueFascia(pelaajat);
+  if(!fascia)return null;
+
+  var paaIkavaihe=laskeJoukkuePaaIkavaihe(pelaajat);
+  var ikaluokka=HPP_IKALUOKAT[paaIkavaihe]||HPP_IKALUOKAT.rakentaja;
+  var heikoinFascia=HPP_FASCIA[fascia.heikoin];
+  var vahvinFascia=HPP_FASCIA[fascia.vahvin];
+  var teknTakt=haeFootballHarjoite(fascia.heikoin,paaIkavaihe);
+
+  // PHV-huomio: onko joukkueessa PHV-huippu-pelaajia
+  var phvPelaajat=pelaajat.filter(function(p){return(p.phvTila||'').includes('HUIPPU');});
+
+  // 4 harjoituskertaa viikossa
+  var harjoituskerrat=[
+    {
+      pv:'MA', teema:'Yhteinen aktivointi + tekninen fokus',
+      rakenne:[
+        {vaihe:'Alkulämmittely', kesto:'10 min', sisalto:'Fascia-aktivointi: '+heikoinFascia.aktivointi, tyyppi:'yhteinen'},
+        {vaihe:'Tekninen harjoite', kesto:teknTakt?teknTakt.kesto:'12 min', sisalto:teknTakt?teknTakt.harjoite:'Pallollinen lähtö + kiihdytys', tyyppi:'tekniikka'},
+        {vaihe:'Cue', kesto:'—', sisalto:heikoinFascia.cue, tyyppi:'cue'}
+      ]
+    },
+    {
+      pv:'KE', teema:'Voima + yksilöllinen aktivointi',
+      rakenne:[
+        {vaihe:'Yhteinen aktivointi', kesto:'8 min', sisalto:'DFL-hengitys + Dead bug 3×5 — stabilisoi koko joukkue', tyyppi:'yhteinen'},
+        {vaihe:'Yksilöllinen aktivointi', kesto:'12 min', sisalto:'Pelaaja tekee oman heikoimman ketjun aktivoinnin (näkyy omassa sovelluksessa)', tyyppi:'yksilö'},
+        {vaihe:'Sali / Voima', kesto:'20 min', sisalto:ikaluokka.saliohjelma, tyyppi:'voima'},
+        {vaihe:'Kuormaperiaate', kesto:'—', sisalto:ikaluokka.kuormaperiaate, tyyppi:'info'}
+      ]
+    },
+    {
+      pv:'TO', teema:'Teknis-taktinen + Game IQ',
+      rakenne:[
+        {vaihe:'Aktivointi', kesto:'8 min', sisalto:heikoinFascia.aktivointi.split('+')[0].trim(), tyyppi:'yhteinen'},
+        {vaihe:'Teknis-taktinen', kesto:'15 min', sisalto:teknTakt?teknTakt.teema+' — '+teknTakt.harjoite:'Pallollinen ketjuharjoite', tyyppi:'tekniikka'},
+        {vaihe:'ADAR / Game IQ', kesto:'10 min', sisalto:ADAR_HARJOITTEET[0].harjoite+' — '+ADAR_HARJOITTEET[0].kuvaus.slice(0,60)+'...', tyyppi:'gameiq'},
+        {vaihe:'Cue kentällä', kesto:'—', sisalto:heikoinFascia.cue, tyyppi:'cue'}
+      ]
+    },
+    {
+      pv:'LA', teema:'Ottelu / Pelikuorma',
+      rakenne:[
+        {vaihe:'Pre-game aktivointi', kesto:'12 min', sisalto:'SBL + LL kevyt aktivointi — ei uutta rasitusta', tyyppi:'yhteinen'},
+        {vaihe:'Ottelu', kesto:'60–90 min', sisalto:'Fascia-cue pelissä: '+heikoinFascia.cue, tyyppi:'ottelu'},
+        {vaihe:'Post-game palautus', kesto:'8 min', sisalto:'Palleahengitys 5 min + SLR-flossing 10/jalka', tyyppi:'palautus'}
+      ]
+    }
+  ];
+
+  return{
+    heikoin:fascia.heikoin,
+    heikoinFascia:heikoinFascia,
+    vahvinFascia:vahvinFascia,
+    fasciaTulokset:fascia,
+    paaIkavaihe:paaIkavaihe,
+    ikaluokka:ikaluokka,
+    harjoituskerrat:harjoituskerrat,
+    phvPelaajat:phvPelaajat,
+    teknTakt:teknTakt
+  };
+}
 function lsn(k){return parseInt(localStorage.getItem(k)||'0');}
 function lsj(k){try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}}
 function sls(k,v){localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v));}
@@ -1955,6 +2947,11 @@ function tarkistaGestallennettu(){
   if(!raw||raw==='null'||raw==='undefined')return false;
   try{
     var tallennettu=JSON.parse(raw);
+    // Valmentajan automaattikirjautuminen
+    if(tallennettu&&tallennettu.rooli==='valmentaja'){
+      goCoach();
+      return true;
+    }
     if(tallennettu&&tallennettu.id&&DEMO[tallennettu.id]){
       S.pelaaja=DEMO[tallennettu.id];
       naytaTervehdys(S.pelaaja);
@@ -1981,12 +2978,20 @@ async function doPin(){
   go('sLoad','Ladataan...');await sleep(500);
   var pid=PIN_KOODIT[S.pin];
   if(!pid){go('sPin');S.pin='';rdots();document.getElementById('pinErr').textContent='Väärä PIN-koodi';for(var i=0;i<4;i++)document.getElementById('pd'+i).className='pin-dot err';return;}
+  // Reititys: valmentaja vs pelaaja
+  if(pid==='HPP-T001'){
+    sls('tm_kirjautunut',{id:'HPP-T001',rooli:'valmentaja'});
+    goCoach();
+    return;
+  }
   S.pelaaja=DEMO[pid]||DEMO['HPP-P001'];
   sls('tm_kirjautunut',{id:S.pelaaja.id});
   goMain();
 }
 function go(id,txt){
-  ['sPin','sLoad','sMain','sOnboard'].forEach(function(s){var el=document.getElementById(s);if(el)el.classList.remove('active');});
+  ['sPin','sLoad','sMain','sOnboard','sCoach','sCoachPlayer'].forEach(function(s){
+    var el=document.getElementById(s);if(el)el.classList.remove('active');
+  });
   var t=document.getElementById(id);if(t)t.classList.add('active');
   if(txt){var el=document.getElementById('loadTxt');if(el)el.textContent=txt;}
 }
