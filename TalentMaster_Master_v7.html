@@ -459,12 +459,18 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
     <div class="tb-logo">TM</div>
     <div style="flex:1">
       <div class="tb-name" id="tbName">—</div>
+      <!-- XP: näytetään "X% matkasta seuraavaan tasoon" ei abstraktia numeroa -->
       <div class="tb-xp-row">
         <div class="tb-level" id="levelNimi">⚽ Aloittelija</div>
         <div class="tb-xp-track"><div class="tb-xp-fill" id="xpBar"></div></div>
+        <div style="font-size:9px;color:var(--muted2);white-space:nowrap;" id="xpPct">0%</div>
       </div>
     </div>
-    <div class="streak-badge">🔥 <span id="streakN">0</span></div>
+    <!-- Streak on pääelementti — isompi kuin ennen -->
+    <div class="streak-badge" id="streakBadge" onclick="naytaStreakInfo()">
+      🔥 <span id="streakN">0</span>
+      <span style="font-size:9px;color:var(--amber);margin-left:2px;" id="streakLabel">pv</span>
+    </div>
     <button onclick="naytaKirjautumislomake()" title="Vaihda käyttäjää" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 6px;margin-left:4px;line-height:1;">⇄</button>
   </div>
   <div class="week-strip" id="weekStrip"></div>
@@ -651,17 +657,256 @@ function haeVideoUrl(ex){
   return'https://www.youtube.com/results?search_query='+encodeURIComponent(ex.n+' exercise');
 }
 
-// ═══════════ XP & LEVELIT ═══════════
+// ═══════════════════════════════════════════════════
+// KAKSIKANAVAINEN TASONOUSUJÄRJESTELMÄ
+// Kanava 1: XP (aktiivisuus) — pelaajan kontrolli
+// Kanava 2: Vahvistus (testi tai valmentajan +) — valmentajan kontrolli
+// Molemmat vaaditaan tasonousuun
+// ═══════════════════════════════════════════════════
+
+// Tasot kaliburoitu näin:
+// - Aloittelija → Treenaaja: ~4 aktiivista päivää (ei vahvistusta tarvita — kaikki pääsevät alkuun)
+// - Treenaaja → Kilpapelaaja: ~2-3 viikkoa + 2 vahvistusta (valmentajan ensikosketus)
+// - Kilpapelaaja → Monitaituri: ~4-8 viikkoa + 3 vahvistusta (yksi testi takana)
+// - Monitaituri → Tähtipelaaja: pitkä jakso + 5 vahvistusta (todistettua kehitystä)
+// - Tähtipelaaja → Mestari: useampi testijakso + 7 vahvistusta
+// - Mestari → Legenda: huipputaso, 3+ virallista testiä käytännössä
 const LEVELIT=[
-  {taso:1,nimi:'Aloittelija',ikoni:'⚽',xp_max:100},
-  {taso:2,nimi:'Treenaaja',ikoni:'🏃',xp_max:250},
-  {taso:3,nimi:'Kilpapelaaja',ikoni:'⚡',xp_max:500},
-  {taso:4,nimi:'Monitaituri',ikoni:'🔥',xp_max:900},
-  {taso:5,nimi:'Tähtipelaaja',ikoni:'⭐',xp_max:1500},
-  {taso:6,nimi:'Mestari',ikoni:'🏆',xp_max:2500},
-  {taso:7,nimi:'Legenda',ikoni:'💎',xp_max:99999}
+  {taso:1,nimi:'Aloittelija',    ikoni:'⚽', xp_max:300,  vahvistus_min:0, kuvaus:'Aloita — pääset eteenpäin harjoittelemalla'},
+  {taso:2,nimi:'Treenaaja',      ikoni:'🏃', xp_max:600,  vahvistus_min:2, kuvaus:'Harjoittele säännöllisesti ja valmentaja vahvistaa'},
+  {taso:3,nimi:'Kilpapelaaja',   ikoni:'⚡', xp_max:1000, vahvistus_min:3, kuvaus:'Näkyvää kehitystä — 3 vahvistusta tarvitaan'},
+  {taso:4,nimi:'Monitaituri',    ikoni:'🔥', xp_max:1500, vahvistus_min:5, kuvaus:'Viralliset testitulokset alkavat näkyä'},
+  {taso:5,nimi:'Tähtipelaaja',   ikoni:'⭐', xp_max:2500, vahvistus_min:7, kuvaus:'Todistettua kehitystä useammassa testissä'},
+  {taso:6,nimi:'Mestari',        ikoni:'🏆', xp_max:4000, vahvistus_min:10,kuvaus:'Huipputaso — pitkä historia vahvistettua kehitystä'},
+  {taso:7,nimi:'Legenda',        ikoni:'💎', xp_max:99999,vahvistus_min:15,kuvaus:'Harvat saavuttavat tämän — oikea näyttö vaaditaan'}
 ];
 const XP={harjoite:20,kaikki:50,streak5:100,streak7:200,streak14:500,liikunta:15};
+
+// Valmentajan + merkinnät — tallennetaan localStorageen
+// Virallinen testi lasketaan automaattisesti qs_historista
+function haeVahvistukset(p){
+  // Viralliset testit — laskee testit joissa OVR parani
+  var historia=p.qs_historia||[];
+  var virallisetNousut=0;
+  for(var i=1;i<historia.length;i++){
+    var nyt=laskeOverall(historia[i].results.ketjut);
+    var edell=laskeOverall(historia[i-1].results.ketjut);
+    if(nyt>edell)virallisetNousut++;
+  }
+  // Valmentajan + merkinnät
+  var plusMerkinnat=lsj('tm_coach_plus_'+p.id)||[];
+  return{
+    viralliset:virallisetNousut,
+    plusMerkinnat:plusMerkinnat,
+    yhteensa:virallisetNousut+plusMerkinnat.length
+  };
+}
+
+// Laske taso kaksikanavaisesti
+function laskeLevel(xp,vahvistukset){
+  // vahvistukset on optionaalinen — jos ei annettu, haetaan pelaajalta
+  var vahv=vahvistukset!=null?vahvistukset:
+    (S.pelaaja?haeVahvistukset(S.pelaaja).yhteensa:0);
+
+  var kertynytXP=0;
+  for(var i=0;i<LEVELIT.length;i++){
+    var l=LEVELIT[i];
+    var seuraava=LEVELIT[i+1];
+    if(!seuraava){
+      // Viimeinen taso
+      return{taso:l.taso,nimi:l.nimi,ikoni:l.ikoni,
+             tason_xp:xp-kertynytXP,tason_max:l.xp_max,
+             pct:Math.min(100,Math.round((xp-kertynytXP)/l.xp_max*100)),
+             xpOk:true,vahvistusOk:true,lukittu:false,
+             vahvistuksia:vahv,vahvistus_min:l.vahvistus_min};
+    }
+    var tasoXP_max=kertynytXP+l.xp_max;
+    if(xp<tasoXP_max){
+      // Ollaan tällä tasolla XP:n perusteella
+      return{taso:l.taso,nimi:l.nimi,ikoni:l.ikoni,
+             tason_xp:xp-kertynytXP,tason_max:l.xp_max,
+             pct:Math.round((xp-kertynytXP)/l.xp_max*100),
+             xpOk:false,vahvistusOk:vahv>=l.vahvistus_min,lukittu:false,
+             vahvistuksia:vahv,vahvistus_min:l.vahvistus_min};
+    }
+    // XP riittäisi seuraavaan — tarkista vahvistus
+    if(vahv<seuraava.vahvistus_min){
+      // XP riittää mutta vahvistus puuttuu — jäädään tälle tasolle
+      return{taso:l.taso,nimi:l.nimi,ikoni:l.ikoni,
+             tason_xp:l.xp_max,tason_max:l.xp_max,
+             pct:100,
+             xpOk:true,vahvistusOk:false,lukittu:true,
+             vahvistuksia:vahv,vahvistus_min:seuraava.vahvistus_min,
+             seuraava:seuraava};
+    }
+    kertynytXP=tasoXP_max;
+  }
+  return{taso:1,nimi:'Aloittelija',ikoni:'⚽',tason_xp:0,tason_max:100,pct:0,
+         xpOk:false,vahvistusOk:false,lukittu:false,vahvistuksia:0,vahvistus_min:0};
+}
+
+// Valmentajan PIN (erillinen pääsy — ei pelaajan PIN)
+const COACH_PIN='9999'; // Demo — tuotannossa seuran oma PIN
+
+function avaaValmentajanPlus(){
+  var h='<div style="padding-bottom:8px;">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+  h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;">🏅 Valmentajan + merkintä</div>';
+  h+='<button onclick="suljeHarjoite()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
+  h+='</div>';
+  h+='<div style="font-size:13px;color:var(--muted2);line-height:1.55;margin-bottom:14px;">Valmentaja antaa + merkinnän harjoituksen tai viikon perusteella. Tämä avaa pelaajalle tasonousumahdollisuuden yhdessä XP:n kanssa.<br><br><strong style="color:var(--text);">Virallinen testi pysyy aina sinun silmiesi alla.</strong></div>';
+  // Coach PIN
+  h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Valmentajan PIN</div>';
+  h+='<div class="pin-dots" style="justify-content:flex-start;gap:8px;margin-bottom:10px;">';
+  h+='<div class="pin-dot" id="cpd0"></div><div class="pin-dot" id="cpd1"></div>';
+  h+='<div class="pin-dot" id="cpd2"></div><div class="pin-dot" id="cpd3"></div>';
+  h+='</div>';
+  h+='<div class="pin-err" id="coachPinErr" style="min-height:16px;margin-bottom:8px;"></div>';
+  h+='<div class="pin-grid" style="max-width:280px;">';
+  [1,2,3,4,5,6,7,8,9,0].forEach(function(n){
+    h+='<button class="pin-btn" onclick="addCoachPin(\''+n+'\')">'+n+'</button>';
+  });
+  h+='<button class="pin-btn" style="font-size:16px" onclick="delCoachPin()">⌫</button>';
+  h+='</div>';
+  h+='</div>';
+  document.getElementById('hkBody').innerHTML=h;
+  document.getElementById('hkOverlay').style.display='flex';
+  document.body.style.overflow='hidden';
+  window._coachPin='';
+}
+
+function addCoachPin(n){
+  if(window._coachPin.length>=4)return;
+  window._coachPin+=n;
+  // Päivitä pisteet
+  for(var i=0;i<4;i++)document.getElementById('cpd'+i).className='pin-dot'+(i<window._coachPin.length?' on':'');
+  if(window._coachPin.length===4)setTimeout(tarkastaCoachPin,150);
+}
+function delCoachPin(){
+  window._coachPin=window._coachPin.slice(0,-1);
+  for(var i=0;i<4;i++)document.getElementById('cpd'+i).className='pin-dot'+(i<window._coachPin.length?' on':'');
+  document.getElementById('coachPinErr').textContent='';
+}
+function tarkastaCoachPin(){
+  if(window._coachPin!==COACH_PIN){
+    document.getElementById('coachPinErr').textContent='Väärä PIN';
+    for(var i=0;i<4;i++)document.getElementById('cpd'+i).className='pin-dot err';
+    window._coachPin='';
+    setTimeout(function(){for(var i=0;i<4;i++)document.getElementById('cpd'+i).className='pin-dot';},1000);
+    return;
+  }
+  // PIN oikein — näytä plusmerkintälomake
+  naytaCoachPlusLomake();
+}
+
+function naytaCoachPlusLomake(){
+  var p=S.pelaaja;
+  var vahv=haeVahvistukset(p);
+  var lv=laskeLevel(S.xp,vahv.yhteensa);
+  var aiemmat=lsj('tm_coach_plus_'+p.id)||[];
+
+  var h='<div style="padding-bottom:8px;">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+  h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;">✅ Vahvistus — '+p.etunimi+'</div>';
+  h+='<button onclick="suljeHarjoite()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
+  h+='</div>';
+
+  // Nykyinen tilanne
+  h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;">';
+  h+='<div style="display:flex;justify-content:space-between;margin-bottom:8px;">';
+  h+='<span style="font-size:13px;color:var(--muted2);">Nykyinen taso</span>';
+  h+='<span style="font-size:13px;font-weight:700;">'+lv.ikoni+' '+lv.nimi+'</span>';
+  h+='</div>';
+  h+='<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
+  h+='<span style="font-size:13px;color:var(--muted2);">Vahvistuksia yhteensä</span>';
+  h+='<span style="font-size:13px;font-weight:700;color:var(--teal);">'+vahv.yhteensa+'</span>';
+  h+='</div>';
+  h+='<div style="display:flex;justify-content:space-between;">';
+  h+='<span style="font-size:12px;color:var(--muted);">· Viralliset testit</span>';
+  h+='<span style="font-size:12px;color:var(--muted);">'+vahv.viralliset+'</span>';
+  h+='</div>';
+  h+='<div style="display:flex;justify-content:space-between;">';
+  h+='<span style="font-size:12px;color:var(--muted);">· Valmentajan + merkinnät</span>';
+  h+='<span style="font-size:12px;color:var(--muted);">'+vahv.plusMerkinnat.length+'</span>';
+  h+='</div>';
+  h+='</div>';
+
+  // Merkintätyyppi
+  h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Merkinnän peruste</div>';
+  var tyypit=[
+    {id:'treeni',teksti:'Hyvä harjoitus tänään',ikoni:'💪'},
+    {id:'viikko',teksti:'Hyvä viikko kokonaisuutena',ikoni:'📅'},
+    {id:'asenne',teksti:'Erinomainen asenne ja yrittäminen',ikoni:'🔥'},
+    {id:'kehitys',teksti:'Näkyvä kehitys harjoituksissa',ikoni:'📈'},
+    {id:'tiimi',teksti:'Tiimipelaaminen ja joukkuehenki',ikoni:'🤝'}
+  ];
+  tyypit.forEach(function(t){
+    h+='<div onclick="valitseCoachTyyppi(\''+t.id+'\')" id="cpt_'+t.id+'" style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:11px;border:1.5px solid var(--border);background:var(--bg3);margin-bottom:6px;cursor:pointer;">';
+    h+='<span style="font-size:18px;">'+t.ikoni+'</span>';
+    h+='<span style="font-size:13px;">'+t.teksti+'</span>';
+    h+='</div>';
+  });
+
+  h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;">Lyhyt kommentti (vapaaehtoinen)</div>';
+  h+='<input id="coachKommentti" class="p-inp" type="text" placeholder="esim. Hyvä skannaus paineessa" style="font-size:14px;letter-spacing:0;text-align:left;margin-bottom:12px;">';
+
+  h+='<button onclick="tallennaPlusMerkinta()" style="width:100%;padding:14px;border-radius:13px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:800;cursor:pointer;letter-spacing:.5px;">✅ ANNA + MERKINTÄ</button>';
+  h+='</div>';
+
+  document.getElementById('hkBody').innerHTML=h;
+  window._coachTyyppi=null;
+}
+
+function valitseCoachTyyppi(id){
+  window._coachTyyppi=id;
+  document.querySelectorAll('[id^="cpt_"]').forEach(function(el){
+    var isSelected=el.id==='cpt_'+id;
+    el.style.borderColor=isSelected?'var(--teal)':'var(--border)';
+    el.style.background=isSelected?'var(--teal-dim)':'var(--bg3)';
+  });
+}
+
+function tallennaPlusMerkinta(){
+  if(!window._coachTyyppi){naytaToast('Valitse merkinnän peruste');return;}
+  var p=S.pelaaja;
+  var kommentti=document.getElementById('coachKommentti').value.trim();
+  var aiemmat=lsj('tm_coach_plus_'+p.id)||[];
+  var uusi={
+    date:new Date().toISOString().slice(0,10),
+    tyyppi:window._coachTyyppi,
+    kommentti:kommentti,
+    id:'plus_'+Date.now()
+  };
+  aiemmat.push(uusi);
+  sls('tm_coach_plus_'+p.id,aiemmat);
+
+  // Tarkista avautuuko tasonousu nyt
+  var vahv=haeVahvistukset(p);
+  var lv=laskeLevel(S.xp,vahv.yhteensa);
+  var lvEnnen=laskeLevel(S.xp,vahv.yhteensa-1);
+
+  suljeHarjoite();
+  naytaToast('✅ + merkintä annettu · '+p.etunimi);
+
+  if(lv.taso>lvEnnen.taso){
+    // Tasonousu avautuu vahvistuksen myötä
+    setTimeout(function(){naytaLevelUpVahvistuksella(lv,uusi);},400);
+  } else if(lv.lukittu===false&&lv.xpOk===true&&lv.vahvistusOk===true){
+    naytaToast('🌟 Taso avautuisi — pelaajalla riittää XP!');
+  }
+
+  buildKehitys();
+  buildTanaan();
+}
+
+function naytaLevelUpVahvistuksella(lv,plusData){
+  var overlay=document.getElementById('levelupOverlay');
+  document.getElementById('luIkoni').textContent=lv.ikoni;
+  document.getElementById('luNimi').textContent=lv.nimi.toUpperCase();
+  document.getElementById('luTaso').textContent='Taso '+lv.taso+' · Valmentaja vahvisti ✅';
+  overlay.style.display='flex';
+  setTimeout(function(){overlay.style.display='none';buildMain();},3500);
+}
 
 const PIN_KOODIT={'1234':'HPP-P001','5678':'HPP-P002','9012':'HPP-T001','3456':'HPP-P003','7890':'HPP-P004'};
 
@@ -768,11 +1013,20 @@ function laskeLevel(xp){
   return{taso:v.taso,nimi:v.nimi,ikoni:v.ikoni,tason_xp:0,tason_max:1,pct:100};
 }
 function lisaaXP(m,syy){
-  var vl=laskeLevel(S.xp);
+  var vahv=S.pelaaja?haeVahvistukset(S.pelaaja).yhteensa:0;
+  var vl=laskeLevel(S.xp,vahv);
   S.xp+=m; sls('tm_xp',String(S.xp));
-  var ul=laskeLevel(S.xp);
-  if(ul.taso>vl.taso)naytaLevelUp(ul);
-  else naytaToast('+'+m+' XP · '+syy);
+  var ul=laskeLevel(S.xp,vahv);
+
+  if(ul.taso>vl.taso){
+    // Oikea tasonousu — molemmat kanavat täynnä
+    naytaLevelUp(ul);
+  } else if(ul.lukittu&&!vl.lukittu){
+    // XP täynnä mutta vahvistus puuttuu — kerro se
+    naytaToast('+'+m+' XP · XP riittää — odottaa valmentajan vahvistusta 🔒');
+  } else {
+    naytaToast('+'+m+' XP · '+syy);
+  }
   paivitaXPBar();
 }
 function naytaLevelUp(lv){
@@ -783,13 +1037,112 @@ function naytaLevelUp(lv){
   setTimeout(function(){document.getElementById('levelupOverlay').style.display='none';},3200);
 }
 function paivitaXPBar(){
-  var lv=laskeLevel(S.xp);
-  var el=document.getElementById('xpBar'),ln=document.getElementById('levelNimi');
-  if(el)el.style.width=lv.pct+'%';
-  if(ln)ln.textContent=lv.ikoni+' '+lv.nimi;
+  var vahv=S.pelaaja?haeVahvistukset(S.pelaaja).yhteensa:0;
+  var lv=laskeLevel(S.xp,vahv);
+  var el=document.getElementById('xpBar');
+  var ln=document.getElementById('levelNimi');
+  var pctEl=document.getElementById('xpPct');
+  var streakEl=document.getElementById('streakN');
+  var streakLabel=document.getElementById('streakLabel');
+  var streakBadge=document.getElementById('streakBadge');
+
+  // XP-palkki — lukittu-tilassa näyttää lukon
+  if(el){
+    el.style.width=lv.pct+'%';
+    el.style.background=lv.lukittu?'var(--amber)':'var(--teal)';
+  }
+  if(ln)ln.textContent=lv.ikoni+' '+lv.nimi+(lv.lukittu?' 🔒':'');
+  if(pctEl)pctEl.textContent=lv.lukittu?'Odottaa ✅':lv.pct+'%';
+
+  // Streak
+  if(streakEl)streakEl.textContent=S.streak;
+  if(streakLabel){
+    streakLabel.textContent=S.streak<3?'pv':S.streak<7?'pv 🔥':S.streak<14?'pv 🔥🔥':'pv 🔥🔥🔥';
+  }
+  if(streakBadge){
+    var fs=S.streak>=14?'17px':S.streak>=7?'16px':S.streak>=3?'15px':'14px';
+    streakBadge.style.fontSize=fs;
+    streakBadge.style.borderColor=S.streak>=7?'rgba(255,184,48,.6)':S.streak>=3?'rgba(255,184,48,.4)':'rgba(255,107,0,.25)';
+  }
 }
 
-// ═══════════ HELPERS ═══════════
+// ═══════════ STREAK & XP SELITYKSET ═══════════
+function naytaStreakInfo(){
+  var lv=laskeLevel(S.xp);
+  var akt=laskeAktiivisuusJaksolla(S.pelaaja);
+  var delta=laskeDelta(S.pelaaja);
+
+  // Rakenna motivoiva selitys putkelle
+  var streakViesti=S.streak===0
+    ?'Aloita tänään — ensimmäinen päivä on tärkein.'
+    :S.streak<3?'Hyvä alku! Kolme päivää putkessa ja rytmi alkaa muodostua.'
+    :S.streak<7?'Rytmi on olemassa. Viikon putki on seuraava virstanpylväs!'
+    :S.streak<14?'Viikon putki — tämä on jo tilastollisesti merkittävä kehitysjakso.'
+    :S.streak<30?'Kaksi viikkoa. Tutkimuksen mukaan tässä kohtaa harjoittelu muuttuu tavaksi.'
+    :'Kuukauden putki. Tämä näkyy seuraavassa testissä — takuulla.';
+
+  var xpSeuraava=lv.tason_max-lv.tason_xp;
+
+  var h='<div style="padding-bottom:8px;">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+  h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;">Sinun rytmisi</div>';
+  h+='<button onclick="suljeHarjoite()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
+  h+='</div>';
+
+  // Streak — iso ja keskeinen
+  h+='<div style="background:linear-gradient(135deg,#1A0800,#0D0400);border:2px solid rgba(255,184,48,.4);border-radius:16px;padding:20px;margin-bottom:12px;text-align:center;">';
+  h+='<div style="font-size:56px;margin-bottom:4px;">🔥</div>';
+  h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:64px;line-height:1;color:var(--amber);">'+S.streak+'</div>';
+  h+='<div style="font-size:14px;color:var(--amber);margin-bottom:10px;">päivän harjoitusputki</div>';
+  h+='<div style="font-size:13px;color:var(--muted2);line-height:1.5;">'+streakViesti+'</div>';
+  // Bonusrajat
+  var seuraavaBonusRaja=S.streak<5?5:S.streak<7?7:S.streak<14?14:S.streak<30?30:99;
+  if(seuraavaBonusRaja<99){
+    var puuttuu=seuraavaBonusRaja-S.streak;
+    var bonusXP=seuraavaBonusRaja===5?100:seuraavaBonusRaja===7?200:seuraavaBonusRaja===14?500:1000;
+    h+='<div style="margin-top:10px;padding:8px 12px;background:rgba(255,184,48,.1);border-radius:10px;font-size:12px;color:var(--amber);">'+puuttuu+' päivää lisää → +'+bonusXP+' bonus-XP 🎁</div>';
+  }
+  h+='</div>';
+
+  // XP-taso: "X% matkasta" ei abstrakti numero
+  h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px;">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+  h+='<div style="font-size:13px;font-weight:700;">'+lv.ikoni+' '+lv.nimi+'</div>';
+  h+='<div style="font-size:12px;color:var(--teal);font-weight:700;">'+lv.pct+'% matkasta</div>';
+  h+='</div>';
+  h+='<div style="height:10px;background:var(--bg3);border-radius:5px;overflow:hidden;margin-bottom:8px;">';
+  h+='<div style="height:10px;width:'+lv.pct+'%;background:var(--teal);border-radius:5px;transition:width .8s;"></div>';
+  h+='</div>';
+  h+='<div style="font-size:12px;color:var(--muted2);">'+xpSeuraava+' XP seuraavaan tasoon</div>';
+  // Tasonousu konteksti
+  var seuraavaLevel=LEVELIT[lv.taso-1+1];
+  if(seuraavaLevel)h+='<div style="font-size:12px;color:var(--muted2);margin-top:3px;">Seuraava: '+seuraavaLevel.ikoni+' '+seuraavaLevel.nimi+'</div>';
+  h+='</div>';
+
+  // Kertymä testiin
+  if(akt){
+    h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">';
+    h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Harjoittelu kertyy seuraavaan testiin</div>';
+    var col=akt.aktiivisuusPct>=75?'var(--green)':akt.aktiivisuusPct>=50?'var(--teal)':akt.aktiivisuusPct>=25?'var(--amber)':'var(--muted2)';
+    h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+    h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:36px;color:'+col+';">'+akt.aktiivisuusPct+'%</div>';
+    h+='<div>';
+    h+='<div style="font-size:13px;font-weight:700;color:'+col+';">aktiivisuus</div>';
+    h+='<div style="font-size:11px;color:var(--muted2);">'+akt.tehdytPaivat+' tehtyä päivää · '+akt.paiviaKuluu+' pv viim. testistä</div>';
+    h+='</div></div>';
+    if(delta&&delta.ovDelta>0){
+      h+='<div style="font-size:12px;color:var(--green);background:var(--green-dim);border-radius:8px;padding:8px 10px;">Viime testissä OVR +'+delta.ovDelta+' — harjoittelu toimi. Jatka.</div>';
+    } else if(akt.aktiivisuusPct>=60){
+      h+='<div style="font-size:12px;color:var(--teal);background:var(--teal-dim);border-radius:8px;padding:8px 10px;">Tämä aktiivisuus tulee näkymään seuraavassa testissä.</div>';
+    }
+    h+='</div>';
+  }
+
+  h+='</div>';
+  document.getElementById('hkBody').innerHTML=h;
+  document.getElementById('hkOverlay').style.display='flex';
+  document.body.style.overflow='hidden';
+}
 function lsg(k){return localStorage.getItem(k);}
 function lsn(k){return parseInt(localStorage.getItem(k)||'0');}
 function lsj(k){try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}}
@@ -974,8 +1327,215 @@ function buildGIQLaaja(p){
 }
 
 // ═══════════════════════════════════════════════════
-// PROFIILITYYPPIMOOTTORI — From Rookie to Identity
+// KEHITTYMISFLOW — testausten välinen kertymälogiikka
 // ═══════════════════════════════════════════════════
+
+// Laske harjoitusaktiivisuus kahden testauksen välillä
+function laskeAktiivisuusJaksolla(p){
+  var historia=p.qs_historia||[];
+  if(historia.length<1)return null;
+
+  var viimeisinTesti=new Date(historia[historia.length-1].date);
+  var edellinenTesti=historia.length>=2?new Date(historia[historia.length-2].date):null;
+  var alku=edellinenTesti||new Date(viimeisinTesti.getTime()-60*24*3600000); // 60pv taaksepäin jos vain 1 testi
+  var tanaan=new Date();
+
+  // Laske päivät välillä
+  var paiviaJaksolla=Math.round((viimeisinTesti-alku)/86400000);
+  var paiviaKuluu=Math.round((tanaan-viimeisinTesti)/86400000);
+
+  // Käy läpi checked-data
+  var checked=lsj('tm_checked')||{};
+  var tehdytPaivat=0,kokonaisPaivat=0;
+  var streakSumma=0,streakPaivat=0;
+  var d=new Date(alku);
+  while(d<=tanaan){
+    var key=d.toISOString().slice(0,10);
+    kokonaisPaivat++;
+    if(checked[key]&&checked[key].allDone){tehdytPaivat++;streakSumma+=1;}
+    d.setDate(d.getDate()+1);
+  }
+  var aktiivisuusPct=kokonaisPaivat>0?Math.round(tehdytPaivat/kokonaisPaivat*100):0;
+  var streakKa=kokonaisPaivat>0?Math.round(streakSumma/kokonaisPaivat*7*10)/10:0; // per viikko
+
+  return{
+    paiviaJaksolla:paiviaJaksolla,
+    paiviaKuluu:paiviaKuluu,
+    tehdytPaivat:tehdytPaivat,
+    kokonaisPaivat:kokonaisPaivat,
+    aktiivisuusPct:aktiivisuusPct,
+    streakKa:streakKa,
+    viimeisinTesti:viimeisinTesti,
+    alku:alku
+  };
+}
+
+// Laske kehitys testausten välillä (delta)
+function laskeDelta(p){
+  var historia=p.qs_historia||[];
+  if(historia.length<2)return null;
+  var uusin=historia[historia.length-1].results;
+  var edell=historia[historia.length-2].results;
+  var ketjut=['taka','etu','sivu','kierto','syva'];
+  var deltat={};
+  ketjut.forEach(function(k){
+    var nyt=uusin.ketjut&&uusin.ketjut[k]?uusin.ketjut[k].pisteet:0;
+    var silloin=edell.ketjut&&edell.ketjut[k]?edell.ketjut[k].pisteet:0;
+    deltat[k]=Math.round((nyt-silloin)*10)/10;
+  });
+  var ovNyt=laskeOverall(uusin.ketjut);
+  var ovEdell=laskeOverall(edell.ketjut);
+  var ovDelta=ovNyt-ovEdell;
+  // Suurin nousu
+  var suurinNousu=Object.keys(deltat).reduce(function(a,b){return deltat[b]>deltat[a]?b:a;});
+  var suurinPct=edell.ketjut&&edell.ketjut[suurinNousu]&&edell.ketjut[suurinNousu].pisteet>0
+    ?Math.round(deltat[suurinNousu]/edell.ketjut[suurinNousu].pisteet*100):0;
+  return{deltat:deltat,ovDelta:ovDelta,suurinNousu:suurinNousu,suurinPct:suurinPct,ovNyt:ovNyt,ovEdell:ovEdell};
+}
+
+// "Tämä kertyy" -viesti päivittäiseen näkymään
+function buildKertymaPalkki(p){
+  var akt=laskeAktiivisuusJaksolla(p);
+  if(!akt)return'';
+  var delta=laskeDelta(p);
+  var pct=akt.aktiivisuusPct;
+  var col=pct>=75?'var(--green)':pct>=50?'var(--teal)':pct>=25?'var(--amber)':'var(--muted2)';
+  var viesti=pct>=75?'Erinomainen aktiivisuus — testi tulee näyttämään sen.':
+             pct>=50?'Hyvä aktiivisuus — jatka samaan malliin ennen testiä.':
+             pct>=25?'Aktiviteetti kasvussa — jokainen päivä lasketaan.':
+                     'Aloita nyt — seuraava testi palkitsee aktiivisuuden.';
+  var h='<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 14px;margin-bottom:12px;">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+  h+='<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">📈 Harjoittelu kertyy</div>';
+  h+='<div style="font-size:12px;font-weight:700;color:'+col+';">'+pct+'% aktiivisuus</div>';
+  h+='</div>';
+  // Progressipalkki
+  h+='<div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:8px;">';
+  h+='<div style="height:8px;width:'+pct+'%;background:'+col+';border-radius:4px;transition:width 1s ease;"></div>';
+  h+='</div>';
+  // Kolme mittaria
+  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;">';
+  h+='<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:7px 4px;">';
+  h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;color:'+col+';">'+akt.tehdytPaivat+'</div>';
+  h+='<div style="font-size:10px;color:var(--muted);">päivää tehty</div></div>';
+  h+='<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:7px 4px;">';
+  h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;color:var(--amber);">'+S.streak+'</div>';
+  h+='<div style="font-size:10px;color:var(--muted);">putki nyt</div></div>';
+  h+='<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:7px 4px;">';
+  h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;color:var(--purple);">'+akt.paiviaKuluu+'</div>';
+  h+='<div style="font-size:10px;color:var(--muted);">pv viim. testistä</div></div>';
+  h+='</div>';
+  // Viesti + delta jos saatavilla
+  if(delta&&delta.ovDelta!==0){
+    var dCol=delta.ovDelta>0?'var(--green)':'var(--red)';
+    h+='<div style="font-size:12px;color:var(--muted2);line-height:1.4;">Viimeisessä testissä OVR '+(delta.ovDelta>0?'+':'')+delta.ovDelta+' — '+viesti+'</div>';
+  } else {
+    h+='<div style="font-size:12px;color:var(--muted2);line-height:1.4;">'+viesti+'</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+// TESTIPÄIVÄN ERITYISNÄKYMÄ — aktivoituu kun valmentaja on lisännyt uuden testauksen
+function buildTestipaivanVahvistus(p){
+  var historia=p.qs_historia||[];
+  if(historia.length<2)return''; // ei vertailua jos vain 1 testi
+  var delta=laskeDelta(p);
+  var akt=laskeAktiivisuusJaksolla(p);
+  if(!delta)return'';
+  var uusin=historia[historia.length-1];
+  var edell=historia[historia.length-2];
+  var pvmNyt=new Date(uusin.date).toLocaleDateString('fi-FI',{day:'numeric',month:'long'});
+  var pvmEdell=new Date(edell.date).toLocaleDateString('fi-FI',{day:'numeric',month:'short'});
+
+  // Rakennetaan kausaliteettilause
+  var syy='';
+  if(akt){
+    var osat=[];
+    if(akt.aktiivisuusPct>=70)osat.push('teit '+akt.aktiivisuusPct+'% harjoitteista');
+    if(S.streak>=5)osat.push(S.streak+' päivän putki');
+    if(akt.tehdytPaivat>=10)osat.push(akt.tehdytPaivat+' aktiivista päivää');
+    if(osat.length>0)syy='Tämä tapahtui koska '+osat.join(', ')+'.';
+  }
+
+  var nousiKetjut=Object.keys(delta.deltat).filter(function(k){return delta.deltat[k]>0;});
+  var laskeKejtut=Object.keys(delta.deltat).filter(function(k){return delta.deltat[k]<0;});
+
+  var h='<div style="background:linear-gradient(135deg,#051A0A,#051808);border:2px solid rgba(31,209,106,.35);border-radius:16px;padding:0;margin-bottom:14px;overflow:hidden;">';
+  // Header
+  h+='<div style="background:var(--green);padding:14px 16px;display:flex;align-items:center;gap:10px;">';
+  h+='<span style="font-size:28px;">🏆</span>';
+  h+='<div style="flex:1;">';
+  h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;letter-spacing:2px;color:#000;">TESTI VAHVISTETTU!</div>';
+  h+='<div style="font-size:11px;color:rgba(0,0,0,.6);">'+pvmNyt+' · Edellinen: '+pvmEdell+'</div>';
+  h+='</div>';
+  h+='<div style="text-align:center;background:rgba(0,0,0,.15);border-radius:10px;padding:6px 12px;">';
+  h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;line-height:1;color:#000;">'+(delta.ovDelta>=0?'+':'')+delta.ovDelta+'</div>';
+  h+='<div style="font-size:10px;color:rgba(0,0,0,.6);">OVR</div>';
+  h+='</div>';
+  h+='</div>';
+
+  h+='<div style="padding:14px 16px;">';
+
+  // Kausaliteetti — tärkeimmät yhteys
+  if(syy){
+    h+='<div style="background:rgba(31,209,106,.1);border-left:3px solid var(--green);border-radius:0 10px 10px 0;padding:10px 12px;margin-bottom:12px;">';
+    h+='<div style="font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Miksi kehitys tapahtui</div>';
+    h+='<div style="font-size:14px;color:var(--text);font-weight:600;line-height:1.5;">'+syy+'</div>';
+    h+='</div>';
+  }
+
+  // Nousseet ketjut
+  if(nousiKetjut.length>0){
+    h+='<div style="font-size:11px;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Nousi ⬆</div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">';
+    nousiKetjut.forEach(function(k){
+      var nimet={taka:'🏃 Sprinttaaja',etu:'🦘 Hyppääjä',sivu:'🦊 Harhautus',kierto:'⚽ Pallotaikuri',syva:'🛡️ Johtaja'};
+      var suurin=k===delta.suurinNousu&&delta.suurinPct>0;
+      h+='<div style="padding:7px 12px;border-radius:20px;background:rgba(31,209,106,.12);border:1px solid rgba(31,209,106,.3);">';
+      h+='<span style="font-size:12px;font-weight:700;color:var(--green);">'+nimet[k]+' +'+delta.deltat[k]+'</span>';
+      if(suurin)h+='<span style="font-size:10px;color:var(--green);margin-left:5px;">(+'+delta.suurinPct+'%)</span>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+
+  // Laskeneet ketjut — freimataan positiivisesti
+  if(laskeKejtut.length>0){
+    h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Kehityskohde ⬇</div>';
+    h+='<div style="flex-wrap:wrap;gap:6px;margin-bottom:10px;display:flex;">';
+    laskeKejtut.forEach(function(k){
+      var nimet={taka:'🏃 Sprinttaaja',etu:'🦘 Hyppääjä',sivu:'🦊 Harhautus',kierto:'⚽ Pallotaikuri',syva:'🛡️ Johtaja'};
+      var phvSelitys=(p.phvTila||'').includes('HUIPPU')?' — normaalia kasvupyrähdyksessä':'';
+      h+='<div style="padding:7px 12px;border-radius:20px;background:rgba(255,184,48,.08);border:1px solid rgba(255,184,48,.2);">';
+      h+='<span style="font-size:12px;color:var(--amber);">'+nimet[k]+' '+delta.deltat[k]+phvSelitys+'</span>';
+      h+='</div>';
+    });
+    h+='</div>';
+    if((p.phvTila||'').includes('HUIPPU')){
+      h+='<div style="font-size:12px;color:var(--amber);background:rgba(255,184,48,.06);border-radius:9px;padding:9px 12px;margin-bottom:10px;">📌 Kasvupyrähdys käynnissä — laskeva luku on biologia, ei taantuminen. Jatka samaan malliin.</div>';
+    }
+  }
+
+  // Seuraava jakso alkaa
+  h+='<div style="background:rgba(0,229,204,.08);border:1px solid rgba(0,229,204,.2);border-radius:12px;padding:12px 14px;">';
+  h+='<div style="font-size:11px;color:var(--teal);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Seuraava jakso</div>';
+  h+='<div style="font-size:13px;color:var(--text);font-weight:600;">Jatka samaa rytmiä — seuraava testi vahvistaa kehityksen.</div>';
+  h+='<div style="font-size:12px;color:var(--muted2);margin-top:4px;">Kehittyminen on jatkumo, ei yksittäinen mittaus.</div>';
+  h+='</div>';
+
+  h+='</div></div>';
+  return h;
+}
+
+// Tunnista onko testipäivä (uusi testi lisätty äskettäin — alle 3pv sitten)
+function onTestipaiva(p){
+  var historia=p.qs_historia||[];
+  if(historia.length<2)return false;
+  var viimeisin=new Date(historia[historia.length-1].date);
+  var paiviasitten=Math.round((new Date()-viimeisin)/86400000);
+  return paiviasitten<=3; // näytetään 3 päivää testauksen jälkeen
+}
 
 // Fasciaketju → profiilityyppi -kytkentä
 const PROFIILIT={
@@ -1858,7 +2418,14 @@ function buildTanaan(){
 
   var h='';
 
-  // ── 1. VALMENTAJAN VIESTI — ylimpänä, henkilökohtaisin ──
+  // ── 0. TESTIPÄIVÄ tai KERTYMÄPALKKI — ensin ──
+  if(onTestipaiva(p)){
+    h+=buildTestipaivanVahvistus(p);
+  } else {
+    h+=buildKertymaPalkki(p);
+  }
+
+  // ── 1. VALMENTAJAN VIESTI ──
   var valmentaja=haeAIValmentaja(p);
   h+='<div style="background:'+valmentaja.varibg+';border:1px solid '+valmentaja.variborder+';border-radius:14px;padding:14px 16px;margin-bottom:12px;">';
   h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">';
@@ -2139,7 +2706,15 @@ function merkitseHarjoite(key,dk){
   var done=S.checked[dk][key];
   var btn=document.querySelector('.hk-done');
   if(btn){btn.textContent=done?'✓ Tehty — hyvää työtä!':'✅ Merkitse tehdyksi';btn.className='hk-done'+(done?' tehty':'');}
-  if(done){lisaaXP(XP.harjoite,'harjoite tehty');setTimeout(suljeHarjoite,800);}
+  if(done){
+    lisaaXP(XP.harjoite,'harjoite tehty');
+    // Kerro pelaajalle mitä XP tarkoittaa
+    var akt=laskeAktiivisuusJaksolla(S.pelaaja);
+    var xpViesti='+'+XP.harjoite+' XP';
+    if(akt&&akt.aktiivisuusPct>=50)xpViesti+=' · Harjoittelu kertyy testiin';
+    naytaToast(xpViesti);
+    setTimeout(suljeHarjoite,800);
+  }
   tarkistaStreak(dk);buildTanaan();buildWeek();
 }
 function tarkistaStreak(dk){
@@ -2269,7 +2844,51 @@ function buildKehitys(){
   }
   h+='</div><div style="font-size:12px;color:var(--muted);margin-top:5px">Putki: <strong style="color:var(--amber)">'+S.streak+' päivää</strong></div>';
 
-  // ── PELAAJAKORTTI — kehitys-tabin osana ──
+  // ── TASONOUSU STATUS ──
+  var vahvKehitys=haeVahvistukset(p);
+  var lvKehitys=laskeLevel(S.xp,vahvKehitys.yhteensa);
+  var seuraavaLv=LEVELIT[lvKehitys.taso]; // taso on 1-pohjainen, array 0-pohjainen
+
+  h+='<div class="sec-ttl" style="margin-top:18px;">🏅 Tasonousu</div>';
+  if(lvKehitys.lukittu&&seuraavaLv){
+    // XP täynnä, vahvistus puuttuu
+    var tarvitaan=seuraavaLv.vahvistus_min-vahvKehitys.yhteensa;
+    h+='<div style="background:rgba(255,184,48,.08);border:1.5px solid rgba(255,184,48,.3);border-radius:14px;padding:14px 16px;margin-bottom:10px;">';
+    h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">';
+    h+='<span style="font-size:24px;">🔒</span>';
+    h+='<div style="flex:1;">';
+    h+='<div style="font-size:14px;font-weight:700;color:var(--amber);">XP riittää — vahvistus puuttuu</div>';
+    h+='<div style="font-size:12px;color:var(--muted2);margin-top:2px;">'+seuraavaLv.ikoni+' '+seuraavaLv.nimi+' on auki kun valmentaja antaa +'+tarvitaan+' merkintää lisää</div>';
+    h+='</div></div>';
+    h+='<div style="display:flex;gap:6px;align-items:center;background:rgba(255,184,48,.08);border-radius:10px;padding:10px 12px;">';
+    h+='<span style="font-size:18px;">✅</span>';
+    h+='<div style="font-size:12px;color:var(--amber);">Vahvistuksia: '+vahvKehitys.yhteensa+' / '+seuraavaLv.vahvistus_min+' tarvitaan</div>';
+    h+='</div></div>';
+  } else if(seuraavaLv){
+    var xpPuuttuu=seuraavaLv.xp_max-(lvKehitys.tason_xp);
+    var vahvPuuttuu=Math.max(0,seuraavaLv.vahvistus_min-vahvKehitys.yhteensa);
+    h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;">';
+    h+='<div style="font-size:13px;font-weight:700;margin-bottom:10px;">Seuraava taso: '+seuraavaLv.ikoni+' '+seuraavaLv.nimi+'</div>';
+    // XP-kanava
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">';
+    h+='<div style="width:20px;height:20px;border-radius:50%;background:'+(lvKehitys.pct>=100?'var(--green)':'var(--bg3)')+';border:2px solid '+(lvKehitys.pct>=100?'var(--green)':'var(--border)')+';display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">'+(lvKehitys.pct>=100?'✓':'')+'</div>';
+    h+='<div style="flex:1;font-size:12px;color:var(--muted2);">XP: '+lvKehitys.tason_xp+' / '+lvKehitys.tason_max+'</div>';
+    h+='<div style="font-size:12px;font-weight:700;color:'+(lvKehitys.pct>=100?'var(--green)':'var(--teal)')+';">'+lvKehitys.pct+'%</div>';
+    h+='</div>';
+    // Vahvistus-kanava
+    h+='<div style="display:flex;align-items:center;gap:8px;">';
+    h+='<div style="width:20px;height:20px;border-radius:50%;background:'+(vahvPuuttuu===0?'var(--green)':'var(--bg3)')+';border:2px solid '+(vahvPuuttuu===0?'var(--green)':'var(--border)')+';display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">'+(vahvPuuttuu===0?'✓':'')+'</div>';
+    h+='<div style="flex:1;font-size:12px;color:var(--muted2);">Vahvistukset: '+vahvKehitys.yhteensa+' / '+seuraavaLv.vahvistus_min+'</div>';
+    h+='<div style="font-size:12px;font-weight:700;color:'+(vahvPuuttuu===0?'var(--green)':'var(--muted2)')+';">'+(vahvPuuttuu===0?'✓':vahvPuuttuu+' puuttuu')+'</div>';
+    h+='</div></div>';
+  }
+
+  // Valmentajan + nappi — selkeästi eri osio
+  h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:4px;">';
+  h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Valmentajalle</div>';
+  h+='<button onclick="avaaValmentajanPlus()" style="width:100%;padding:13px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--teal),#0EA5E9);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:17px;font-weight:800;cursor:pointer;letter-spacing:.5px;">✅ ANNA + MERKINTÄ</button>';
+  h+='<div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px;">Vaatii valmentajan PIN · Viralliset testitulokset pysyvät sinulla</div>';
+  h+='</div>';
   h+='<div class="sec-ttl" style="margin-top:20px;">🃏 Pelaajakortti</div>';
   var latest2=p.qs_historia[p.qs_historia.length-1],r2=latest2&&latest2.results||{},k2=r2.ketjut||{};
   var ov2=laskeOverall(k2),vari2=overallVari(ov2);
