@@ -2698,6 +2698,113 @@ function buildCoachPlayer(p){
       h+='<div style="font-size:9px;color:var(--muted);">'+meta2.lbl+' '+meta2.yks+'</div>'+dHtml+normInfo+'</div>';
     });
     h+='</div>';
+
+    // ── TSI (Technical Speed Index) ──────────────────────────────────────
+    // TSI = SM-pallo - SM ilman palloa. Mittaa kuinka paljon pallo hidastaa pelaajaa.
+    // Dokumentti: TalentMaster Complete v3.0 — kiertoketjun avainmittari
+    // ≤0.5s = kansainvälinen huipputaso | Suomalaiset benchmarkit perustuvat
+    // 2085 pelaajan normitaulukkoon (TM_TSI_NORMIT)
+    (function(){
+      var smP = viimeisin.mittaukset['SM-pallo'];
+      var smJ = viimeisin.mittaukset['SM ilman palloa'];
+      if(smP==null||smJ==null) return;
+
+      var tsi = Math.round((smP - smJ)*100)/100;
+      var ika = Math.floor(Math.min(16,Math.max(10,p.bioIka&&p.bioIka.krono||13)));
+      var sukup = p.sukupuoli||'male';
+
+      // Normitaulukko — laskettu 2085 pelaajan aineistosta ikäluokittain
+      // T5=P10(paras 10%), T4=P25, T3=P50(mediaani), T2=P75, T1=P90+
+      var TSI_NORMIT = {
+        male: {
+          10:{t5:1.31,t4:1.60,t3:1.95,t2:2.35},
+          11:{t5:1.26,t4:1.48,t3:1.79,t2:2.17},
+          12:{t5:1.15,t4:1.41,t3:1.67,t2:2.04},
+          13:{t5:1.12,t4:1.36,t3:1.64,t2:1.96},
+          14:{t5:1.14,t4:1.49,t3:1.69,t2:1.95},
+          15:{t5:1.12,t4:1.40,t3:1.65,t2:1.95},
+          16:{t5:1.10,t4:1.38,t3:1.63,t2:1.93}
+        },
+        female: {
+          10:{t5:1.69,t4:2.11,t3:2.57,t2:3.12},
+          11:{t5:1.65,t4:1.92,t3:2.39,t2:2.93},
+          12:{t5:1.48,t4:1.79,t3:2.13,t2:2.49},
+          13:{t5:1.25,t4:1.66,t3:2.01,t2:2.45},
+          14:{t5:1.29,t4:1.56,t3:1.92,t2:2.36},
+          15:{t5:1.25,t4:1.53,t3:1.88,t2:2.30},
+          16:{t5:1.22,t4:1.50,t3:1.85,t2:2.28}
+        }
+      };
+      var norms = (TSI_NORMIT[sukup]||TSI_NORMIT.male)[ika]||{t5:1.2,t4:1.5,t3:1.8,t2:2.2};
+      var taso = tsi<=norms.t5?5 : tsi<=norms.t4?4 : tsi<=norms.t3?3 : tsi<=norms.t2?2 : 1;
+      var tasoVari = taso>=4?'var(--green)' : taso===3?'var(--teal)' : taso===2?'var(--amber)' : 'var(--red)';
+      var tasoTeksti = ['','Kehityskohde','Alle mediaanin','Mediaani','Hyvä','Erinomainen'][taso];
+
+      // Kansainvälinen vertailu (dokumentin benchmarkit)
+      var kvTaso = tsi<=0.5?'Kv. huippu' : tsi<=1.0?'Kv. hyvä' : tsi<=1.5?'Kv. kehittyy' : 'Kv. tavoite';
+      var kvVari = tsi<=0.5?'var(--green)' : tsi<=1.0?'var(--teal)' : tsi<=1.5?'var(--amber)' : 'var(--red)';
+
+      // Historia — kehittyykö TSI yli testien?
+      var tsiHistoria = [];
+      fysHist.forEach(function(fh){
+        var sp=fh.mittaukset['SM-pallo'], sj=fh.mittaukset['SM ilman palloa'];
+        if(sp!=null&&sj!=null) tsiHistoria.push(Math.round((sp-sj)*100)/100);
+      });
+      var tsiDelta = tsiHistoria.length>=2
+        ? Math.round((tsiHistoria[tsiHistoria.length-1]-tsiHistoria[0])*100)/100
+        : null;
+
+      h+='<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid '+tasoVari+';border-radius:13px;padding:12px 14px;margin-bottom:10px;">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">';
+      h+='<div>';
+      h+='<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">⚽ TSI — Pallonkäsittelynopeus</div>';
+      h+='<div style="font-size:11px;color:var(--muted2);line-height:1.5;">SM-pallo − SM-juoksu · Kiertoketjun avainmittari<br>Pienempi = parempi · Taso '+taso+'/5 suomalaisittain</div>';
+      h+='</div>';
+      h+='<div style="text-align:right">';
+      h+='<div style="font-family:\\"Bebas Neue\\",sans-serif;font-size:36px;line-height:1;color:'+tasoVari+'">'+tsi+'<span style="font-size:14px;color:var(--muted2)">s</span></div>';
+      h+='<div style="font-size:11px;color:'+tasoVari+';font-weight:600;">'+tasoTeksti+'</div>';
+      h+='</div></div>';
+
+      // Kaksi progress-baria: suomalainen ja kansainvälinen
+      var pctFI = Math.max(0,Math.min(100,Math.round((norms.t2-tsi)/(norms.t2-norms.t5)*100)));
+      h+='<div style="margin-bottom:8px;">';
+      h+='<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);margin-bottom:3px;">';
+      h+='<span>Suomalaiset vertaisesi ('+ika+'v)</span><span>Taso '+taso+'/5</span></div>';
+      h+='<div style="height:6px;background:var(--bg);border-radius:3px;overflow:hidden;">';
+      h+='<div style="height:100%;width:'+pctFI+'%;background:'+tasoVari+';border-radius:3px;transition:width .4s;"></div></div>';
+      h+='<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted2);margin-top:2px;">';
+      h+='<span>≥'+norms.t2+'s</span><span>'+norms.t3+'s</span><span>≤'+norms.t5+'s</span></div>';
+      h+='</div>';
+
+      // Kansainvälinen viitelinja
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg3);border-radius:8px;margin-bottom:8px;">';
+      h+='<span style="font-size:11px;color:var(--muted2)">Kansainvälinen vertailu</span>';
+      h+='<span style="font-size:11px;font-weight:600;color:'+kvVari+'">'+kvTaso+' · tavoite ≤0.5s</span>';
+      h+='</div>';
+
+      // Kehitystrendi jos historiaa
+      if(tsiDelta!==null){
+        var deltaCol = tsiDelta<0?'var(--green)':'var(--red)';
+        var deltaLabel = tsiDelta<0
+          ? '↓ '+Math.abs(tsiDelta)+'s parantunut'
+          : '↑ '+tsiDelta+'s heikentynyt';
+        h+='<div style="font-size:11px;color:'+deltaCol+';font-weight:600;">'+deltaLabel+' ('+tsiHistoria.length+' testiä)</div>';
+      }
+
+      // Mitä TSI tarkoittaa kentällä
+      h+='<div style="margin-top:8px;padding:8px 10px;background:rgba(0,0,0,.2);border-radius:8px;">';
+      h+='<div style="font-size:10px;color:var(--muted2);line-height:1.6;">';
+      if(taso<=2){
+        h+='🔴 Pallo hidastaa merkittävästi. Harjoittele SM-pallo-ratoja paineessa — tavoite on pienentää eroa SM-juoksuun. Kiertoketju prioriteetti.';
+      } else if(taso===3){
+        h+='🟡 Suomalaista mediaanitasoa. Hyvä pohja — säännöllisellä dual-task-harjoittelulla taso 4 on saavutettavissa.';
+      } else {
+        h+='🟢 Hyvä pallonkäsittelynopeus. Pallo ei hidasta merkittävästi. Fokus: käsittelytekniikan ylläpito paineessa.';
+      }
+      h+='</div></div>';
+      h+='</div>';
+    })();
+
     if(fysHist.length>1){
       h+='<div style="margin-top:10px;"><div style="font-size:10px;color:var(--muted2);margin-bottom:6px;">Historia ('+fysHist.length+' kertaa)</div>';
       h+='<div style="display:flex;gap:4px;overflow-x:auto;">';
@@ -4146,7 +4253,208 @@ function buildGIQLaaja(p){
   h+='<div style="font-size:12px;color:var(--muted2);">Game IQ -visa — ymmärrä miksi valmentaja arvioi niin</div></div>';
   h+='<span style="color:var(--purple);font-size:18px;">›</span>';
   h+='</div>';
+
+  // ── ADAR-ARVIOINTILOMAKE — valmentajan pikakirjaus ─────────────────────
+  // Protokolla perustuu TalentID-master v2.1:n tutkimusnäyttöön:
+  // Bergkamp 2022: strukturoitu dimensiokohtainen arviointi > kokonaisvaikutelma
+  // Larkin 2023: 3 ennalta valittua kohdetta/peli parantaa reliabiliteettia
+  // Johnston 2025: osittainen arviointi vähentää kognitiivista kuormaa ja biasta
+  //
+  // A-dimensio uudistettu: "Assess" = PRE-SCANNING-protokolla
+  // Triggs 2025: skannaus ennen kosketusta on tärkein yksittäinen havaittava PCS-taito
+  // Savelsbergh: eliitit tekevät 2.7× enemmän skannaustoimintoja ennen kosketusta
+  var pid = p.id||p.palloliitoId||(p.etunimi+p.sukunimi);
+  var tallennettu = (function(){
+    try{ return JSON.parse(localStorage.getItem('adar_'+pid)||'null'); } catch(e){ return null; }
+  })();
+
+  h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-top:12px;">';
+  h += '<div style="font-size:11px;color:var(--teal);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:12px;">';
+  h += '📋 ' + (adar ? 'Päivitä ADAR-arvio' : 'Syötä ensimmäinen ADAR-arvio') + '</div>';
+
+  // Ohjeteksti protokollasta
+  h += '<div style="font-size:11px;color:var(--muted2);line-height:1.7;margin-bottom:14px;padding:8px 10px;background:var(--bg3);border-radius:8px;">';
+  h += 'Arvioi <strong>1–3 dimensiota kerrallaan</strong> yhdestä harjoituksesta tai pelistä. ';
+  h += 'Älä arvioi kokonaisvaikutelmaa — arvioi mitä näit. ';
+  h += 'Pisteet: <strong>1 = Kehitettävää · 2 = Kehittyvä · 3 = Systemaattinen</strong>.';
+  h += '</div>';
+
+  // Neljä dimensiota — A on uudistettu pre-scanning-protokollaksi
+  var adarDimensions = [
+    { avain: 'a',
+      nimi: 'Assess — Pre-scanning',
+      ikoni: '👁️',
+      proto: 'Katsoiko pelaaja ympäristöä ENNEN kuin pallo tuli hänelle?',
+      taso1: '1 — Ei: Katsoo palloa. Kääntyy yllättyneenä vastustajaan.',
+      taso2: '2 — Kehittyvä: Skannaa satunnaisesti. Ei systemaattista.',
+      taso3: '3 — Systemaattinen: Pää liikkuu selvästi ennen kosketusta.',
+      tutkimus: 'Triggs 2025: skannaus ennen kosketusta on TID:n tärkein PCS-taito. Savelsbergh: eliitit 2.7× enemmän skannaustoimintoja.' },
+    { avain: 'd',
+      nimi: 'Decide — Päätösnopeus',
+      ikoni: '💡',
+      proto: 'Tekeekö oikean ratkaisun oikeaan aikaan — ei vain nopeasti?',
+      taso1: '1 — Kehitettävää: Hidas tai toistuvasti väärä valinta paineessa.',
+      taso2: '2 — Kehittyvä: Oikea ratkaisu, mutta ei "ajallaan".',
+      taso3: '3 — Systemaattinen: Anticipoi — toimii ennen kuin tilanne pakottaa.',
+      tutkimus: 'Williams & Ward 2007: eliitit eivät reagoi nopeammin — he anticipoivat aiemmin.' },
+    { avain: 'act',
+      nimi: 'Act — Toteutus paineessa',
+      ikoni: '⚡',
+      proto: 'Pysyykö tekninen laatu kun vastustaja on alle metrin päässä?',
+      taso1: '1 — Kehitettävää: Tekninen laatu romahtaa paineessa.',
+      taso2: '2 — Kehittyvä: Kohtuullinen suoritus paineessa, ei täysin luotettava.',
+      taso3: '3 — Systemaattinen: Laatu säilyy — ensikosketus avaa, ei palaa lähettäjälle.',
+      tutkimus: 'Liikanen & Törmä 2025: SM-pallo +8% erotteli ammattilaisiksi yltäneet.' },
+    { avain: 'r',
+      nimi: 'Recover — Virheestä palautuminen',
+      ikoni: '🔄',
+      proto: 'Mitä pelaaja tekee heti virheen tai pallonmenetyksen jälkeen?',
+      taso1: '1 — Kehitettävää: Pysähtyy tai vaikuttaa lamaantuvan.',
+      taso2: '2 — Kehittyvä: Reagoi, mutta hitaasti tai turhautuneena.',
+      taso3: '3 — Systemaattinen: Välitön positiivinen reaktio — hakee pallon tai aseman.',
+      tutkimus: 'Johnston & Baker 2025: error recovery -nopeus on uusi lupaava potentiaalin indikaattori.' }
+  ];
+
+  adarDimensions.forEach(function(dim) {
+    var nykyVal = adar ? adar[dim.avain] : null;
+    h += '<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;">';
+
+    // Otsikko + nykyinen arvo
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+    h += '<div style="font-size:13px;font-weight:600;">' + dim.ikoni + ' ' + dim.nimi + '</div>';
+    if(nykyVal) {
+      var nv_col = nykyVal===3?'var(--green)':nykyVal===2?'var(--amber)':'var(--red)';
+      h += '<div style="font-size:11px;color:'+nv_col+';font-weight:600;">Nyt: '+nykyVal+'/3</div>';
+    }
+    h += '</div>';
+
+    // Protokollakysymys
+    h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:8px;font-style:italic;">' + dim.proto + '</div>';
+
+    // Kolme nappia 1/2/3
+    h += '<div style="display:flex;gap:6px;margin-bottom:6px;">';
+    [1,2,3].forEach(function(v) {
+      var isActive = nykyVal === v;
+      var activeBg = v===3?'var(--green)':v===2?'var(--amber)':'var(--red)';
+      var bg = isActive ? activeBg : 'var(--bg3)';
+      var col = isActive ? '#000' : 'var(--muted)';
+      h += '<button onclick="adarSetVal(\'' + pid + '\',\'' + dim.avain + '\',' + v + ',this)" ';
+      h += 'data-avain="' + dim.avain + '" data-val="' + v + '" ';
+      h += 'style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid var(--border);';
+      h += 'background:' + bg + ';color:' + col + ';font-size:12px;font-weight:600;';
+      h += 'cursor:pointer;font-family:\\"DM Sans\\";transition:all .15s">';
+      h += v + '</button>';
+    });
+    h += '</div>';
+
+    // Tasoselitykset
+    h += '<div style="font-size:10px;color:var(--muted2);line-height:1.6;">';
+    h += dim.taso1 + '<br>' + dim.taso2 + '<br>' + dim.taso3;
+    h += '</div>';
+
+    // Tutkimusviite
+    h += '<div style="font-size:9px;color:var(--muted);margin-top:4px;font-style:italic;">' + dim.tutkimus + '</div>';
+    h += '</div>';
+  });
+
+  // Vapaa tekstikenttä havainnoille
+  var savedNote = tallennettu ? (tallennettu.huomio||'') : '';
+  h += '<div style="margin-bottom:12px;">';
+  h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:5px;">Valmentajan huomio (vapaaehtoinen)</div>';
+  h += '<textarea id="adarNote_'+pid+'" rows="2" placeholder="Mitä erityistä havaitsit tässä harjoituksessa?" ';
+  h += 'style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;';
+  h += 'padding:8px 10px;color:var(--text);font-family:\\"DM Sans\\";font-size:12px;resize:none;box-sizing:border-box;">';
+  h += savedNote + '</textarea>';
+  h += '</div>';
+
+  // Tallenna-nappi
+  h += '<button onclick="adarTallenna(\'' + pid + '\')" ';
+  h += 'style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--teal);';
+  h += 'color:#000;font-family:\\"DM Sans\\";font-size:14px;font-weight:600;cursor:pointer;">';
+  h += '✓ Tallenna ADAR-arvio</button>';
+
+  // Bias-muistutus
+  h += '<div style="margin-top:10px;padding:8px 10px;background:rgba(245,158,11,.08);border-radius:8px;">';
+  h += '<div style="font-size:10px;color:var(--amber);font-weight:600;margin-bottom:2px;">⚠️ Bias-tarkistus</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);line-height:1.5;">';
+  h += 'Arvioi juuri tämä harjoitus — ei yleistä mielikuvaasi pelaajasta. ';
+  h += 'Q4-syntynyt (heinä–joulu) saa automaattisen RAE-bonuksen tunnistamisessa.';
+  h += '</div></div>';
+
+  h += '</div>'; // ADAR-lomake
+
   return h;
+}
+
+// ── ADAR-LOMAKKEEN APUFUNKTIOT ─────────────────────────────────────────────
+function adarSetVal(pid, avain, val, btn) {
+  // Visuaalinen palaute: aktivoi nappi
+  var container = btn.parentElement;
+  container.querySelectorAll('button').forEach(function(b) {
+    var bVal = parseInt(b.dataset.val);
+    var activeBg = bVal===3?'var(--green)':bVal===2?'var(--amber)':'var(--red)';
+    b.style.background = bVal===val ? activeBg : 'var(--bg3)';
+    b.style.color      = bVal===val ? '#000' : 'var(--muted)';
+  });
+  // Tallenna väliaikaisesti sessiomuistiin
+  try {
+    var draft = JSON.parse(sessionStorage.getItem('adar_draft_'+pid)||'{}');
+    draft[avain] = val;
+    sessionStorage.setItem('adar_draft_'+pid, JSON.stringify(draft));
+  } catch(e) {}
+}
+
+function adarTallenna(pid) {
+  // Lue arvot napin tila + sessionStorage draft
+  var draft = {};
+  try { draft = JSON.parse(sessionStorage.getItem('adar_draft_'+pid)||'{}'); } catch(e) {}
+
+  // Lisää nykyiset ADAR-arvot jos löytyy pelaaja
+  var p = S.pelaaja;
+  if(p && p.adar && p.adar.length > 0) {
+    var viim = p.adar[p.adar.length-1];
+    ['a','d','act','r'].forEach(function(k) {
+      if(draft[k] === undefined && viim[k] !== undefined) draft[k] = viim[k];
+    });
+  }
+
+  if(!draft.a && !draft.d && !draft.act && !draft.r) {
+    alert('Syötä vähintään yksi ADAR-dimensio ennen tallennusta.');
+    return;
+  }
+
+  var note = (document.getElementById('adarNote_'+pid)||{}).value || '';
+  var entry = {
+    date: new Date().toISOString(),
+    a:   draft.a   || 1,
+    d:   draft.d   || 1,
+    act: draft.act || 1,
+    r:   draft.r   || 1,
+    huomio: note,
+    protokolla: 'pre-scanning-v2'  // merkitään uusi protokollaversio
+  };
+
+  // Tallenna pelaajan adar-historiaan
+  if(!p.adar) p.adar = [];
+  p.adar.push(entry);
+
+  // Tallenna myös localStorage-varmuuskopioksi
+  try {
+    var hist = JSON.parse(localStorage.getItem('adar_'+pid)||'[]');
+    hist.push(entry);
+    if(hist.length > 20) hist = hist.slice(-20);
+    localStorage.setItem('adar_'+pid, JSON.stringify(hist));
+  } catch(e) {}
+
+  // Poista draft
+  try { sessionStorage.removeItem('adar_draft_'+pid); } catch(e) {}
+
+  naytaToast('ADAR-arvio tallennettu ✓');
+  // Renderöi Game IQ -osio uudelleen
+  setTimeout(function() {
+    var giqEl = document.getElementById('giqContent');
+    if(giqEl) giqEl.innerHTML = buildGIQLaaja(p);
+  }, 300);
 }
 
 // ═══════════════════════════════════════════════════
