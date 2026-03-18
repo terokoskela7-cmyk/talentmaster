@@ -1552,14 +1552,15 @@ function haePikaKirjaukset(seura, jnimi) {
   } catch(e) { return []; }
 }
 
-function tallennaKirjaus(seura, jnimi, inno, liike, toimenpide) {
+function tallennaKirjaus(seura, jnimi, inno, liike, toimenpide, valmentaja, rooli) {
   var kirjaukset = haePikaKirjaukset(seura, jnimi);
   kirjaukset.unshift({
     pvm: new Date().toISOString(),
     inno: inno,
     liike: liike,
     toimenpide: toimenpide,
-    tekija: 'VP'
+    valmentaja: valmentaja || '',
+    rooli: rooli || 'joukkuevalmentaja'
   });
   // Säilytetään max 20 kirjausta per joukkue
   if (kirjaukset.length > 20) kirjaukset = kirjaukset.slice(0, 20);
@@ -1621,6 +1622,31 @@ function avaaKirjaus(jnimi, event) {
   h += '<div style="font-family:\\"Bebas Neue\\";font-size:24px;margin-bottom:4px">'+jnimi+'</div>';
   h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:20px">';
   h += vika ? 'Edellinen kirjaus: ' + new Date(vika.pvm).toLocaleDateString("fi-FI") : 'Ei aiempia kirjauksia';
+  h += '</div>';
+
+  // ── VALMENTAJAN TIEDOT ──────────────────────────────────────────────
+  var aiempiNimi  = vika && vika.valmentaja ? vika.valmentaja : '';
+  var aiempiRooli = vika && vika.rooli ? vika.rooli : 'joukkuevalmentaja';
+  h += '<div style="margin-bottom:18px">';
+  h += '<div style="font-size:12px;font-weight:600;margin-bottom:10px;color:var(--text)">👤 Kirjaajan tiedot</div>';
+  h += '<div style="margin-bottom:8px">';
+  h += '<label style="font-size:11px;color:var(--muted2);display:block;margin-bottom:4px">Valmentajan nimi</label>';
+  h += '<input type="text" id="valmentajaNimi" placeholder="Etu- ja sukunimi" value="' + aiempiNimi + '" ';
+  h += 'style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;';
+  h += 'padding:8px 10px;color:var(--text);font-family:\\"DM Sans\\";font-size:12px;box-sizing:border-box">';
+  h += '</div>';
+  h += '<label style="font-size:11px;color:var(--muted2);display:block;margin-bottom:4px">Rooli</label>';
+  h += '<div style="display:flex;gap:6px">';
+  [['joukkuevalmentaja','Joukkuevalmentaja'],['talenttivalmentaja','Talenttivalmentaja'],['valmennuspäällikkö','VP-katselmus']].forEach(function(r) {
+    var active = aiempiRooli === r[0];
+    h += '<button onclick="valitseRooli(this,\'' + r[0] + '\')" data-rooli="' + r[0] + '" ';
+    h += 'class="rooli-btn' + (active ? ' rooli-aktiv' : '') + '" ';
+    h += 'style="flex:1;padding:6px 4px;border-radius:7px;border:1px solid ';
+    h += (active ? 'var(--teal);background:rgba(0,212,170,.12);color:var(--teal)' : 'var(--border);background:var(--bg3);color:var(--muted)');
+    h += ';font-family:\\"DM Sans\\";font-size:10px;cursor:pointer">' + r[1] + '</button>';
+  });
+  h += '</div>';
+  h += '<div style="font-size:10px;color:var(--muted);margin-top:5px">VP-katselmus = itsenäinen toinen arvio → inter-rater delta</div>';
   h += '</div>';
 
   // Palloliiton mittarit — kaksi isoa slideria
@@ -1693,8 +1719,8 @@ function avaaKirjaus(jnimi, event) {
       var lCol = k.liike >= 8 ? 'var(--green)' : k.liike >= 6 ? 'var(--amber)' : 'var(--red)';
       h += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)">';
       h += '<div style="display:flex;justify-content:space-between;margin-bottom:3px">';
-      h += '<span style="font-size:11px;color:var(--muted2)">'+d+'</span>';
-      h += '<span style="font-size:11px">Inno <strong style="color:'+iCol+'">'+k.inno+'</strong> · Liike <strong style="color:'+lCol+'">'+k.liike+'</strong></span>';
+      h += '<span style="font-size:11px;color:var(--muted2)">' + d + (k.valmentaja ? ' · <strong>' + k.valmentaja + '</strong>' : '') + (k.rooli && k.rooli !== 'joukkuevalmentaja' ? ' <span style="font-size:9px;color:var(--teal)">(' + k.rooli + ')</span>' : '') + '</span>';
+      h += '<span style="font-size:11px">Inno <strong style="color:' + iCol + '">' + k.inno + '</strong> · Liike <strong style="color:' + lCol + '">' + k.liike + '</strong></span>';
       h += '</div>';
       if (k.toimenpide) h += '<div style="font-size:11px;color:var(--muted2)">'+k.toimenpide+'</div>';
       h += '</div>';
@@ -1706,11 +1732,26 @@ function avaaKirjaus(jnimi, event) {
   document.getElementById('pikaModal').style.display = 'flex';
 }
 
+function valitseRooli(btn, rooliId) {
+  var parent = btn.parentElement;
+  parent.querySelectorAll('button').forEach(function(b) {
+    var isThis = b.dataset.rooli === rooliId;
+    b.style.border = isThis ? '1px solid var(--teal)' : '1px solid var(--border)';
+    b.style.background = isThis ? 'rgba(0,212,170,.12)' : 'var(--bg3)';
+    b.style.color = isThis ? 'var(--teal)' : 'var(--muted)';
+    if (isThis) b.classList.add('rooli-aktiv');
+    else b.classList.remove('rooli-aktiv');
+  });
+}
+
 function tallennaPika(jnimi) {
   var inno = parseInt(document.getElementById('innoSlider').value);
   var liike = parseInt(document.getElementById('liikeSlider').value);
   var toimenpide = document.getElementById('toimenpide').value.trim();
-  tallennaKirjaus(_aktivSeura, jnimi, inno, liike, toimenpide);
+  var valmentaja = (document.getElementById('valmentajaNimi') || {}).value || '';
+  var rooliEl = document.querySelector('.rooli-aktiv');
+  var rooli = rooliEl ? rooliEl.dataset.rooli : 'joukkuevalmentaja';
+  tallennaKirjaus(_aktivSeura, jnimi, inno, liike, toimenpide, valmentaja, rooli);
   suljePika();
   renderJoukkueet(); // päivitä liikennevalot
 }
@@ -2799,14 +2840,98 @@ function renderKetjut() {
   // ── IKÄIKKUNADATA: milloin kukin ketju kehittyy optimaalisesti ───────────
   // Lähde: TalentMaster 5D Framework, Long-Term Athlete Development -malli
   var IKAIKKUNAT = {
-    sm:     { paras: '10–14v', huomio: 'Kriittisin kehitysikkuna. Pysyvä tekninen pohja syntyy nyt.' },
-    kierto: { paras: '10–16v', huomio: 'Hitain ketju kehittyä. Rotaatioharjoittelu jo 10v alkaen.' },
-    taka:   { paras: '12–16v', huomio: 'Räjähtävyys nousee PHV:n jälkeen. Ennen PHV:tä tekniikkaa.' },
-    sivu:   { paras: '11–15v', huomio: 'Nilkan ja lonkan stabiliteetti ratkaisee pitkällä aikavälillä.' },
-    etu:    { paras: '14–18v', huomio: 'PHV-huipussa kuormitus alas. Lihastasapaino ensin.' },
+    sm: {
+      paras: '10–14v',
+      huomio: 'Kriittisin kehitysikkuna. Pysyvä tekninen pohja syntyy nyt.',
+      progressio: [
+        { vaihe: 'Ennen (8–10v)', vari: 'var(--muted)',
+          focus: 'Leikki ja toistot',
+          kuvaus: 'Aivot rakentavat motorisia malleja. Ei mittaamista, ei suorituspaineita — pallollinen leikki vapaasti.',
+          harjoitteet: ['Vapaa pallo', 'Pienpeli', 'Pelimuodot ilman ohjausta'] },
+        { vaihe: 'Ikäikkuna (10–14v)', vari: 'var(--sm)',
+          focus: 'Tekninen perusta + paine',
+          kuvaus: '10–12v: Strukturoidut SM-radat, reaktiolähdöt. 12–14v: Sama tekniikka mutta vastustaja saa painostaa — paineensieto syntyy juuri nyt.',
+          harjoitteet: ['SM-pallo-rata (EX_SM_PALLO)', 'Reaktiolähtö + kosketus (EX_REAKTIO)', 'Dual-task suunnanmuutos (EX_DUAL)', 'SM-pallo paineessa (EX_SM_PAINE)'] },
+        { vaihe: 'Jälkeen (15v+)', vari: 'var(--muted2)',
+          focus: 'Ylläpito + pelisiirto',
+          kuvaus: 'Uuden oppimisen intensiteetti laskee. Taito siirretään toimivaksi väsymyksen alla 11v11-pelissä.',
+          harjoitteet: ['SM-pallo osana peliä', 'Pelitilanteen jälkeen mittaus'] }
+      ]
+    },
+    kierto: {
+      paras: '10–16v',
+      huomio: 'Hitain ketju kehittyä. Rotaatioharjoittelu jo 10v alkaen.',
+      progressio: [
+        { vaihe: 'Ennen (8–10v)', vari: 'var(--muted)',
+          focus: 'Kehon koordinaatio',
+          kuvaus: 'Vartalon kiertoliike kehittyy luonnollisesti pallonkäsittelyssä. Ei tarvita erityisharjoitteita — riittää paljon palloa.',
+          harjoitteet: ['Vapaa kuljetus', 'Syöttöpeli', 'Laukausleikit'] },
+        { vaihe: 'Ikäikkuna (10–16v)', vari: 'var(--kierto)',
+          focus: 'Rotaatiovoima + tarkkuus',
+          kuvaus: '10–13v: Medicinepallot ja rotaatiosyötöt, laukauksen mekaniikka. 13–16v: Volyymi kasvaa, pitkät syötöt, erilaiset laukaustavat. Tämä ketju vaatii eniten toistoja.',
+          harjoitteet: ['Medicinepallo heitot (EX_MED_HEITTO)', 'Rotaatiosyötöt (EX_ROT_SYOTTO)', 'Laukausvolyymiharjoittelu (EX_LAUKAUS)', 'Pitkä syöttö molemmin jaloin'] },
+        { vaihe: 'Jälkeen (17v+)', vari: 'var(--muted2)',
+          focus: 'Laukauksen spesifisyys',
+          kuvaus: 'Yleisestä rotaatiovoimasta siirrytään peliposition mukaisiin tilanteisiin. Laatu korvaa volyymi.',
+          harjoitteet: ['Positiokohtainen laukauskoulutus'] }
+      ]
+    },
+    taka: {
+      paras: '12–16v',
+      huomio: 'Räjähtävyys nousee PHV:n jälkeen. Ennen PHV:tä tekniikkaa.',
+      progressio: [
+        { vaihe: 'Ennen (9–12v)', vari: 'var(--muted)',
+          focus: 'Juoksutekniikka ja koordinaatio',
+          kuvaus: 'Ennen kasvupyrähdystä (PHV) hermosto ei vielä tue räjähtävyyttä optimaalisesti. Kehitetään juoksutekniikkaa — se maksaa takaisin kasvupyrähdyksen jälkeen.',
+          harjoitteet: ['Juoksutekniikka (EX_JUOKSU_TEKN)', 'ABC-koordinaatioradat', 'Liikkuvuusharjoittelu'] },
+        { vaihe: 'Ikäikkuna (12–16v)', vari: 'var(--taka)',
+          focus: 'Räjähtävyys + eksentrinen voima',
+          kuvaus: 'PHV:n jälkeen räjähtävyysharjoittelu tuottaa eniten. 13–15v: Räjähtävät lähdöt, kiihdytysvedot, lonkan ojentajat. PHV-huipussa eksentrinen harjoittelu ensin ennen raskaita kuormia.',
+          harjoitteet: ['Räjähtävät lähdöt (EX_LAHTO)', 'Lonkan ojentajat (EX_LONKKA)', 'Nordic curl (EX_NORDIC)', 'Kiihdytysvedot 5–30m'] },
+        { vaihe: 'Jälkeen (17v+)', vari: 'var(--muted2)',
+          focus: 'Maksiminopeuden ylläpito',
+          kuvaus: 'Volyymi vähenee, intensiteetti kasvaa. Tavoite: räjähtävyyden säilyttäminen kausirasituksessa.',
+          harjoitteet: ['Nopeusmaksimivedot', 'Voimaharjoittelu raskaammilla kuormilla'] }
+      ]
+    },
+    sivu: {
+      paras: '11–15v',
+      huomio: 'Nilkan ja lonkan stabiliteetti ratkaisee pitkällä aikavälillä.',
+      progressio: [
+        { vaihe: 'Ennen (9–11v)', vari: 'var(--muted)',
+          focus: 'Tasapaino ja kehontuntemus',
+          kuvaus: 'Nilkka- ja lonkkanivelen stabiliteetti rakennetaan ennen kuin lisätään lateraalista voimaa. Yksijalkaiset harjoitteet ja tasapainotehtävät.',
+          harjoitteet: ['Tasapainoharjoittelu', 'Yksijalkaiset kyykyt', 'Proprioseptiikka'] },
+        { vaihe: 'Ikäikkuna (11–15v)', vari: 'var(--sivu)',
+          focus: 'Suunnanmuutosvoima + ketteryys',
+          kuvaus: '11–13v: Lateraalinen liike teknisesti oikein, nilkan ja lonkan hallinnan tarkistus. 13–15v: Nopeus mukaan — suunnanmuutos alle 0.5s. 1v1-tilanteiden kautta aitoon paineeseen.',
+          harjoitteet: ['Lateraalijuoksu + suunnanmuutos (EX_LATERAL)', 'Sivuttaishypyt (EX_SIVU_HYPPY)', 'Nilkkaharjoittelu (EX_NILKKA)', '1v1-ketjuharjoitteet'] },
+        { vaihe: 'Jälkeen (16v+)', vari: 'var(--muted2)',
+          focus: '1v1-varmuus paineessa',
+          kuvaus: 'Fyysinen perusta on rakennettu. Fokus siirtyy taktiseen 1v1-lukemiseen — milloin mennä, milloin odottaa.',
+          harjoitteet: ['1v1-pelitilanneharjoittelu', 'Laidan hallintaharjoitteet'] }
+      ]
+    },
+    etu: {
+      paras: '14–18v',
+      huomio: 'PHV-huipussa kuormitus alas. Lihastasapaino ensin.',
+      progressio: [
+        { vaihe: 'Ennen (10–14v)', vari: 'var(--muted)',
+          focus: 'Hyppymekaniikka ilman kuormaa',
+          kuvaus: 'Ennen kasvupyrähdystä opitaan laskeutumiset, ponnistuksen mekaniikka ja polven linja. Ei raskaita hyppysarjoja — luusto ei ole vielä valmis.',
+          harjoitteet: ['Laskeutumistekniikka', 'Kevennyshyppy tekniikkana', 'Polven linjaharjoitteet'] },
+        { vaihe: 'Ikäikkuna (14–18v)', vari: 'var(--etu)',
+          focus: 'Voimaharjoittelu + plyometriikka',
+          kuvaus: 'PHV-huipussa (13–14v pojilla) lonkkien ja polvien kuorma kasvatetaan hitaasti. 15–17v: Täysi plyometriikka, kyykkyvoima ja CMJ. Lihastasapaino (quadriceps/hamstring) tarkistetaan.',
+          harjoitteet: ['Kevennyshypyt (EX_CMJ)', 'Plyometriikka (EX_PLYO)', 'Kyykkyvoima (EX_KYYKKY)', 'Lihastasapainomittaus'] },
+        { vaihe: 'Jälkeen (19v+)', vari: 'var(--muted2)',
+          focus: 'Räjähtävyyden säilyttäminen',
+          kuvaus: 'Korkea voimataso ylläpidetään pienemmällä volyymillä. Vammariski kasvaa väsymyksessä — kuormanhallinnan merkitys korostuu.',
+          harjoitteet: ['Voimaharjoittelu 2x/vko', 'CMJ-seuranta kauden aikana'] }
+      ]
+    }
   };
 
-  // ── HARJOITE-ESIMERKIT per ketju (linkitys HPP ELITE -kirjastoon) ────────
   var HARJOITTEET = {
     sm:     ['SM-pallo-rata (EX_SM_PALLO)', 'Reaktiolähtö + kosketus (EX_REAKTIO)', 'Dual-task suunnanmuutos (EX_DUAL)'],
     kierto: ['Medicinepallo heitot (EX_MED_HEITTO)', 'Rotaatiosyötöt (EX_ROT_SYOTTO)', 'Laukausvolyymiharjoittelu (EX_LAUKAUS)'],
@@ -2934,17 +3059,67 @@ function renderKetjut() {
     }
     h += '</div>'; // ikäluokkapalkit
 
-    // Harjoite-ehdotukset
-    h += '<div style="background:var(--bg3);border-radius:9px;padding:9px 12px">';
-    h += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Harjoituskirjasto — ' + km.plain + '</div>';
-    h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:4px">' + km.train + '</div>';
-    h += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">';
-    harjoitteet.forEach(function(hr) {
-      h += '<div style="font-size:10px;background:rgba(0,0,0,.2);border-radius:6px;padding:3px 8px;color:var(--muted2)">' + hr + '</div>';
-    });
-    h += '</div></div>';
+    // ── PROGRESSIOAIKAJANA ─────────────────────────────────────────────────
+    // Näyttää kolme kehitysvaihetta: ennen / ikäikkuna / jälkeen
+    // Jokainen vaihe avautuu klikattaessa (toggle)
+    if (ik.progressio) {
+      h += '<div style="margin-top:2px">';
+      h += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Harjoittelun progressio ikävaiheittain</div>';
+
+      // Aikajana-viiva taustalla
+      h += '<div style="position:relative">';
+      h += '<div style="position:absolute;top:16px;left:10px;right:10px;height:2px;background:var(--border);z-index:0"></div>';
+
+      // Vaihenappit
+      h += '<div style="display:flex;gap:6px;margin-bottom:10px;position:relative;z-index:1">';
+      var vaiheId = 'prog_' + kn;
+      ik.progressio.forEach(function(vaihe, vi) {
+        var isActive = vi === 1; // ikäikkuna on oletuksena auki
+        h += '<button onclick="toggleProgressio(\'' + vaiheId + '\',' + vi + ',this)" ';
+        h += 'data-vi="' + vi + '" ';
+        h += 'style="flex:1;padding:6px 4px;border-radius:8px;border:1px solid ';
+        h += isActive ? (vaihe.vari + ';background:' + vaihe.vari + '25') : 'var(--border);background:var(--bg3)';
+        h += ';font-family:\\"DM Sans\\";font-size:10px;font-weight:600;cursor:pointer;';
+        h += 'color:' + (isActive ? vaihe.vari : 'var(--muted)') + ';line-height:1.3;text-align:center">';
+        h += vaihe.vaihe + '<br><span style="font-weight:400;font-size:9px">' + vaihe.focus + '</span>';
+        h += '</button>';
+      });
+      h += '</div>';
+
+      // Vaihe-sisällöt
+      ik.progressio.forEach(function(vaihe, vi) {
+        var isActive = vi === 1;
+        h += '<div id="' + vaiheId + '_' + vi + '" ';
+        h += 'style="display:' + (isActive ? 'block' : 'none') + ';';
+        h += 'background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:4px;';
+        h += 'border-left:3px solid ' + vaihe.vari + '">';
+        h += '<div style="font-size:11px;color:' + vaihe.vari + ';font-weight:600;margin-bottom:4px">' + vaihe.focus + '</div>';
+        h += '<div style="font-size:11px;color:var(--muted2);line-height:1.6;margin-bottom:8px">' + vaihe.kuvaus + '</div>';
+        h += '<div style="display:flex;flex-wrap:wrap;gap:4px">';
+        vaihe.harjoitteet.forEach(function(hr) {
+          h += '<div style="font-size:10px;background:rgba(0,0,0,.25);border-radius:6px;padding:3px 9px;color:var(--muted2)">' + hr + '</div>';
+        });
+        h += '</div>';
+        h += '</div>';
+      });
+
+      h += '</div>'; // position:relative
+      h += '</div>'; // progressio-wrap
+    } else {
+      // Fallback: vanha lista
+      h += '<div style="background:var(--bg3);border-radius:9px;padding:9px 12px">';
+      h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:4px">' + km.train + '</div>';
+      h += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">';
+      (HARJOITTEET[kn]||[]).forEach(function(hr) {
+        h += '<div style="font-size:10px;background:rgba(0,0,0,.2);border-radius:6px;padding:3px 8px;color:var(--muted2)">' + hr + '</div>';
+      });
+      h += '</div></div>';
+    }
 
     h += '</div>'; // ketju card
+  });
+
+  document    h += '</div>'; // ketju card
   });
 
   document.getElementById('tabKetjut').innerHTML = h;
@@ -3621,6 +3796,22 @@ function renderSeuratavoitteet() {
   h += '</div>'; // normitaso card
 
   document.getElementById('tabSeuratavoitteet').innerHTML = h;
+}
+
+function toggleProgressio(baseId, activeVi, clickedBtn) {
+  // Piilota kaikki vaihe-sisällöt ja deaktivoi napit
+  var container = clickedBtn.parentElement;
+  var buttons = container.querySelectorAll('button');
+  buttons.forEach(function(btn, bi) {
+    var el = document.getElementById(baseId + '_' + bi);
+    var isNowActive = bi === activeVi;
+    // Päivitä nappi-tyyli
+    btn.style.border = isNowActive ? '' : '1px solid var(--border)';
+    btn.style.background = isNowActive ? '' : 'var(--bg3)';
+    btn.style.color = isNowActive ? '' : 'var(--muted)';
+    // Näytä/piilota sisältö
+    if (el) el.style.display = isNowActive ? 'block' : 'none';
+  });
 }
 
 function vaihdaKori(kori) {
