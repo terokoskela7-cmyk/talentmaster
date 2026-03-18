@@ -232,6 +232,14 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   </div>
 </div>
 
+<!-- PIKAKIRJAUS MODAL -->
+<div class="modal-overlay" id="pikaModal" onclick="if(event.target===this)suljePika()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1001;display:none;align-items:flex-end;justify-content:center">
+  <div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px 20px 32px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto">
+    <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px"></div>
+    <div id="pikaBody"></div>
+  </div>
+</div>
+
 <!-- JOUKKUE MODAL -->
 <div class="modal-overlay" id="joukkueModal" onclick="if(event.target===this)suljeMod()">
   <div class="modal-box">
@@ -1529,6 +1537,188 @@ function laskeNormitasoSeuralle(s) {
 }
 
 
+// ── PIKAKIRJAUS — localStorage-pohjainen kenttähavainnointi ──
+// Tallentaa: seura + joukkue + päivämäärä + innostavuus + liikkuminen + toimenpide
+
+function _pikaKey(seura, jnimi) {
+  return 'pika_' + seura.replace(/\s/g,'_') + '_' + jnimi.replace(/\s/g,'_');
+}
+
+function haePikaKirjaukset(seura, jnimi) {
+  // Palauttaa listan kaikista kirjauksista (max 20 viimeistä)
+  try {
+    var raw = localStorage.getItem(_pikaKey(seura, jnimi));
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function tallennaKirjaus(seura, jnimi, inno, liike, toimenpide) {
+  var kirjaukset = haePikaKirjaukset(seura, jnimi);
+  kirjaukset.unshift({
+    pvm: new Date().toISOString(),
+    inno: inno,
+    liike: liike,
+    toimenpide: toimenpide,
+    tekija: 'VP'
+  });
+  // Säilytetään max 20 kirjausta per joukkue
+  if (kirjaukset.length > 20) kirjaukset = kirjaukset.slice(0, 20);
+  try {
+    localStorage.setItem(_pikaKey(seura, jnimi), JSON.stringify(kirjaukset));
+  } catch(e) { console.warn('localStorage täynnä'); }
+}
+
+function viimeisinKirjaus(seura, jnimi) {
+  var k = haePikaKirjaukset(seura, jnimi);
+  return k.length ? k[0] : null;
+}
+
+function kirjausPaiviatten(pvm) {
+  // Kuinka monta päivää sitten kirjaus tehtiin
+  if (!pvm) return 999;
+  return Math.floor((Date.now() - new Date(pvm).getTime()) / 86400000);
+}
+
+function liikenneValo(seura, jnimi) {
+  // Palauttaa {col, label, paivat} liikennevalo-logiikalla
+  var v = viimeisinKirjaus(seura, jnimi);
+  if (!v) return { col: 'var(--muted)', label: 'Ei kirjauksia', paivat: 999 };
+  var d = kirjausPaiviatten(v.pvm);
+  if (d <= 14)  return { col: 'var(--green)', label: d === 0 ? 'Tänään' : d + 'pv sitten', paivat: d };
+  if (d <= 30)  return { col: 'var(--amber)', label: d + 'pv sitten', paivat: d };
+  return { col: 'var(--red)', label: d + 'pv sitten', paivat: d };
+}
+
+// Avaa pikakirjaus-modal
+function avaaKirjaus(jnimi, event) {
+  if (event) event.stopPropagation(); // ei avaa joukkue-modalia
+  var s = _seuraData[_aktivSeura];
+  var j = s && s.joukkueet[jnimi];
+  if (!j) return;
+
+  var kirjaukset = haePikaKirjaukset(_aktivSeura, jnimi);
+  var vika = kirjaukset[0] || null;
+
+  // Laske automaattiset harjoitusehdotukset pelaajadatasta
+  var ehdotukset = [];
+  if (j.avgFys) {
+    var RAJA_POJAT = { 'SM-pallo': 9.56, 'SM ilman palloa': 8.22, 'Nopeus 30m': 4.65, 'Kevennyshyppy': 29.4 };
+    var HARJ = {
+      'SM-pallo': 'Reaktiolähtö pallon kanssa, nopeat suunnanmuutokset',
+      'SM ilman palloa': 'Ketteryysradat, paineen alla pakeneminen',
+      'Nopeus 30m': 'Kiihdytysvedot, nopeusvoima lämmittelyssä',
+      'Kevennyshyppy': 'Plyometria — hypyt, laskeutumiset, yhden jalan ponnistukset'
+    };
+    Object.entries(j.avgFys).forEach(function(e) {
+      if (RAJA_POJAT[e[0]] && e[1] > RAJA_POJAT[e[0]]) {
+        ehdotukset.push({ testi: e[0], arvo: e[1], raja: RAJA_POJAT[e[0]], harj: HARJ[e[0]] });
+      }
+    });
+  }
+
+  var h = '';
+  h += '<div style="font-size:11px;color:var(--muted);margin-bottom:2px">'+_aktivSeura+'</div>';
+  h += '<div style="font-family:\\"Bebas Neue\\";font-size:24px;margin-bottom:4px">'+jnimi+'</div>';
+  h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:20px">';
+  h += vika ? 'Edellinen kirjaus: ' + new Date(vika.pvm).toLocaleDateString("fi-FI") : 'Ei aiempia kirjauksia';
+  h += '</div>';
+
+  // Palloliiton mittarit — kaksi isoa slideria
+  h += '<div style="margin-bottom:20px">';
+  h += '<div style="font-size:12px;font-weight:600;margin-bottom:12px;color:var(--text)">📋 Palloliiton harjoitteluseuranta</div>';
+
+  // Innostavuus
+  h += '<div style="margin-bottom:16px">';
+  h += '<div style="display:flex;justify-content:space-between;margin-bottom:6px">';
+  h += '<label style="font-size:12px;color:var(--muted2)">Valmentajan innostavuus</label>';
+  h += '<span id="innoVal" style="font-family:\\"Bebas Neue\\";font-size:20px;color:var(--teal)">'+(vika?vika.inno:7)+'</span>';
+  h += '</div>';
+  h += '<input type="range" id="innoSlider" min="1" max="10" value="'+(vika?vika.inno:7)+'" ';
+  h += 'oninput="document.getElementById(\'innoVal\').textContent=this.value" ';
+  h += 'style="width:100%;accent-color:var(--teal)">';
+  h += '<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted2);margin-top:2px">';
+  h += '<span>1 Heikko</span><span style="color:var(--amber)">⚑ 8 Tavoite</span><span>10 Erinomainen</span>';
+  h += '</div></div>';
+
+  // Liikkuminen
+  h += '<div style="margin-bottom:4px">';
+  h += '<div style="display:flex;justify-content:space-between;margin-bottom:6px">';
+  h += '<label style="font-size:12px;color:var(--muted2)">Pelaajat liikkeessä 80% ajasta</label>';
+  h += '<span id="liikeVal" style="font-family:\\"Bebas Neue\\";font-size:20px;color:var(--teal)">'+(vika?vika.liike:7)+'</span>';
+  h += '</div>';
+  h += '<input type="range" id="liikeSlider" min="1" max="10" value="'+(vika?vika.liike:7)+'" ';
+  h += 'oninput="document.getElementById(\'liikeVal\').textContent=this.value" ';
+  h += 'style="width:100%;accent-color:var(--teal)">';
+  h += '<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted2);margin-top:2px">';
+  h += '<span>1 Heikko</span><span style="color:var(--amber)">⚑ 8 Tavoite</span><span>10 Erinomainen</span>';
+  h += '</div></div></div>';
+
+  // Toimenpide valmentajalle
+  h += '<div style="margin-bottom:20px">';
+  h += '<div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text)">⚡ Toimenpide valmentajalle</div>';
+
+  // Automaattiset ehdotukset datasta
+  if (ehdotukset.length) {
+    h += '<div style="margin-bottom:8px">';
+    ehdotukset.slice(0,2).forEach(function(e) {
+      h += '<div onclick="document.getElementById(\'toimenpide\').value=\'' + e.harj.replace(/'/g,"\\'") + '\'" ';
+      h += 'style="background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);border-radius:8px;';
+      h += 'padding:7px 10px;margin-bottom:5px;cursor:pointer;font-size:11px;color:var(--muted2)">';
+      h += '<span style="color:var(--teal);font-size:10px">📊 Data-ehdotus · '+e.testi+' '+e.arvo+' (tavoite '+e.raja+')</span><br>';
+      h += e.harj;
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  h += '<textarea id="toimenpide" rows="3" placeholder="Kirjoita tai valitse ehdotus yllä..." ';
+  h += 'style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;';
+  h += 'padding:10px;color:var(--text);font-family:\\"DM Sans\\";font-size:13px;resize:none;box-sizing:border-box">';
+  h += (vika && vika.toimenpide ? vika.toimenpide : '') + '</textarea>';
+  h += '</div>';
+
+  // Tallennus-nappi
+  h += '<button onclick="tallennaPika(this.dataset.j)" data-j="'+jnimi+'" ';
+  h += 'style="width:100%;padding:14px;border-radius:12px;border:none;background:var(--teal);';
+  h += 'color:#000;font-family:\\"DM Sans\\";font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px">';
+  h += '✓ Tallenna kirjaus</button>';
+
+  // Historia (viimeiset 3)
+  if (kirjaukset.length > 1) {
+    h += '<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">';
+    h += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Historia</div>';
+    kirjaukset.slice(1, 4).forEach(function(k) {
+      var d = new Date(k.pvm).toLocaleDateString("fi-FI");
+      var iCol = k.inno >= 8 ? 'var(--green)' : k.inno >= 6 ? 'var(--amber)' : 'var(--red)';
+      var lCol = k.liike >= 8 ? 'var(--green)' : k.liike >= 6 ? 'var(--amber)' : 'var(--red)';
+      h += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)">';
+      h += '<div style="display:flex;justify-content:space-between;margin-bottom:3px">';
+      h += '<span style="font-size:11px;color:var(--muted2)">'+d+'</span>';
+      h += '<span style="font-size:11px">Inno <strong style="color:'+iCol+'">'+k.inno+'</strong> · Liike <strong style="color:'+lCol+'">'+k.liike+'</strong></span>';
+      h += '</div>';
+      if (k.toimenpide) h += '<div style="font-size:11px;color:var(--muted2)">'+k.toimenpide+'</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  document.getElementById('pikaBody').innerHTML = h;
+  document.getElementById('pikaModal').style.display = 'flex';
+}
+
+function tallennaPika(jnimi) {
+  var inno = parseInt(document.getElementById('innoSlider').value);
+  var liike = parseInt(document.getElementById('liikeSlider').value);
+  var toimenpide = document.getElementById('toimenpide').value.trim();
+  tallennaKirjaus(_aktivSeura, jnimi, inno, liike, toimenpide);
+  suljePika();
+  renderJoukkueet(); // päivitä liikennevalot
+}
+
+function suljePika() {
+  document.getElementById('pikaModal').style.display = 'none';
+}
+
 var _vpPin = '';
 var VP_PINS = { '5555': 'demo', '6666': 'fcl', '7777': 'sjk' };
 
@@ -1961,6 +2151,18 @@ function renderJoukkueet() {
       h += '<div style="font-size:9px;color:var(--muted2)">'+e[1]+'</div>';
       h += '</div>';
     });
+    h += '</div>'; // muut-ketjut
+
+    // Liikennevalo + pikakirjaus-nappi
+    var lv = liikenneValo(_aktivSeura, jnimi);
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">';
+    h += '<div style="display:flex;align-items:center;gap:6px">';
+    h += '<div style="width:8px;height:8px;border-radius:50%;background:'+lv.col+'"></div>';
+    h += '<div style="font-size:10px;color:var(--muted2)">'+lv.label+'</div>';
+    h += '</div>';
+    h += '<button onclick="avaaKirjaus(this.dataset.j,event)" data-j="'+jnimi+'" ';
+    h += 'style="font-size:11px;color:var(--teal);background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.2);';
+    h += 'border-radius:8px;padding:4px 10px;cursor:pointer;font-family:\"DM Sans\"">+ Kirjaus</button>';
     h += '</div>';
 
     h += '</div>'; // kortti
