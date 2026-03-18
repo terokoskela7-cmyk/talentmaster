@@ -1382,7 +1382,12 @@ function naytaStreakInfo(){
 // ═══════════════════════════════════════════════════
 
 function haeJoukkuePelaajat(){
-  return Object.values(DEMO).filter(function(p){return p.id!=='HPP-T001';});
+  // Palauta DEMO-pelaajat — jos TM_DATA löytyy ja valmentajalla on joukkue,
+  // täydennetään TM_DATA:n pelaajilla (tulevaisuuden laajennus)
+  var demo = Object.values(DEMO).filter(function(p){return p.id!=='HPP-T001';});
+  // Jos valmentajalla on asetettu joukkue (window._coachJoukkue), suodata sen mukaan
+  // Toistaiseksi kaikki DEMO-pelaajat näytetään
+  return demo;
 }
 
 function laskeViikkoAktiivisuus(p){
@@ -1437,6 +1442,140 @@ function buildCoachNyt(){
   // ── PÄIVÄMÄÄRÄ ────────────────────────────────────────────────────────
   var tanaan = new Date().toLocaleDateString('fi-FI',{weekday:'long',day:'numeric',month:'long'});
   h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;">' + tanaan + '</div>';
+
+  // ── ADAR-ROTAATIO: "Tänään arvioidaan" ────────────────────────────────
+  // Algoritmi: järjestä pelaajat viimeisimmän ADAR-arvioinnin mukaan
+  // → pisimpään ilman arviointia olevat nousevat kärkeen
+  // → valitaan 3 ensimmäistä = tämän harjoituksen arviointikohteet
+  var _adarKey2 = 'tm_adar_onboarding_' + (window._coachPin || COACH_PIN || 'demo');
+  var _adarTila2 = localStorage.getItem(_adarKey2);
+
+  // Näytetään rotaatio vain jos valmentaja on hyväksynyt ADAR-onboardingin
+  if (_adarTila2 === 'kylla') {
+    // Laske jokaiselle pelaajalle viimeisin ADAR-arviointipäivä
+    var _adarJono = pelaajat.map(function(p) {
+      // Hae ensin p.adar-historiasta, sitten localStorage-varmuuskopiosta
+      var historia = p.adar || [];
+      if (!historia.length) {
+        try {
+          var ls = JSON.parse(localStorage.getItem('adar_' + p.id) || '[]');
+          if (ls.length) historia = ls;
+        } catch(e) {}
+      }
+      // Viimeisin arviointi — jos ei yhtään, päivämäärä = epoch (ikuinen aika sitten)
+      var viimDate = historia.length > 0
+        ? new Date(historia[historia.length-1].date)
+        : new Date(0); // 1.1.1970 — nousee aina kärkeen
+      var paivaasitten = Math.floor((new Date() - viimDate) / 86400000);
+      return {
+        p: p,
+        viimDate: viimDate,
+        paivaasitten: paivaasitten,
+        arviointeja: historia.length,
+        // Valmentajan roolin arvioinnit erikseen VP-arvioinneista
+        // (rooli tallennetaan adar-entryyn tulevaisuudessa — nyt kaikki = valmentaja)
+      };
+    });
+
+    // Järjestä: ei yhtään arviointia ensin, sitten vanhimman mukaan
+    _adarJono.sort(function(a, b) {
+      // Ei arviointeja → kärkeen (epoch = pienin päivämäärä)
+      if (a.arviointeja === 0 && b.arviointeja > 0) return -1;
+      if (b.arviointeja === 0 && a.arviointeja > 0) return 1;
+      // Molemmat ilman: aakkosjärjestys
+      if (a.arviointeja === 0 && b.arviointeja === 0) {
+        return (a.p.sukunimi||'').localeCompare(b.p.sukunimi||'');
+      }
+      // Vanhin arviointi ensin
+      return a.viimDate - b.viimDate;
+    });
+
+    var _tanaanarvioidaan = _adarJono.slice(0, 3);
+
+    // Laske kokonaistilasto — kuinka moni on arvioitu tänä kautena
+    var _arvioituLkm = pelaajat.filter(function(p) {
+      return p.adar && p.adar.length > 0;
+    }).length;
+    var _arvioituPct = pelaajat.length
+      ? Math.round(_arvioituLkm / pelaajat.length * 100) : 0;
+
+    // Renderöi "Tänään arvioidaan" -osio
+    h += '<div style="background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.2);';
+    h += 'border-radius:14px;padding:13px 14px;margin-bottom:16px;">';
+
+    // Otsikkorivi + edistymispalkki
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+    h += '<div style="font-size:12px;font-weight:700;color:#C084FC;text-transform:uppercase;letter-spacing:.5px">🧠 Tänään arvioidaan</div>';
+    h += '<div style="font-size:11px;color:var(--muted2)">' + _arvioituLkm + '/' + pelaajat.length + ' arvioitu</div>';
+    h += '</div>';
+
+    // Edistymispalkki — kuinka suuri osa joukkueesta on arvioitu
+    h += '<div style="height:3px;background:var(--bg3);border-radius:2px;margin-bottom:12px;">';
+    h += '<div style="height:3px;background:#7C3AED;border-radius:2px;width:' + _arvioituPct + '%;transition:width .4s"></div>';
+    h += '</div>';
+
+    // Kolme pelaajaa kortteina
+    h += '<div style="display:flex;flex-direction:column;gap:7px;">';
+    _tanaanarvioidaan.forEach(function(item, idx) {
+      var p = item.p;
+      var initials = ((p.etunimi||'?')[0] + (p.sukunimi||'?')[0]).toUpperCase();
+      var onEnsimmainen = item.arviointeja === 0;
+
+      // Tarkista onko tänään jo arvioitu (sessionStorage-draft tai p.adar viimeisin = tänään)
+      var tanaanStr = new Date().toISOString().slice(0, 10);
+      var arvioituTanaan = p.adar && p.adar.length > 0
+        && p.adar[p.adar.length-1].date.slice(0, 10) === tanaanStr;
+
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;';
+      h += 'background:' + (arvioituTanaan ? 'rgba(31,209,106,.08)' : 'var(--bg3)') + ';';
+      h += 'border:1px solid ' + (arvioituTanaan ? 'rgba(31,209,106,.3)' : 'rgba(124,58,237,.2)') + ';';
+      h += 'border-radius:10px;">';
+
+      // Numero + initiaalit
+      h += '<div style="width:32px;height:32px;border-radius:8px;';
+      h += 'background:' + (arvioituTanaan ? 'rgba(31,209,106,.15)' : 'rgba(124,58,237,.15)') + ';';
+      h += 'display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+      h += '<div style="font-size:12px;font-weight:700;';
+      h += 'color:' + (arvioituTanaan ? 'var(--green)' : '#C084FC') + '">' + initials + '</div>';
+      h += '</div>';
+
+      // Nimi + konteksti
+      h += '<div style="flex:1;min-width:0;">';
+      h += '<div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">';
+      h += p.etunimi + ' ' + p.sukunimi + '</div>';
+      h += '<div style="font-size:11px;color:var(--muted2);">';
+      if (arvioituTanaan) {
+        h += '✓ Arvioitu tänään';
+      } else if (onEnsimmainen) {
+        h += '⭐ Ensimmäinen arviointi';
+      } else {
+        h += item.paivaasitten + ' pv sitten · ' + item.arviointeja + ' arviointia';
+      }
+      h += '</div></div>';
+
+      // Arvioi-nappi tai vihreä checkmark
+      if (arvioituTanaan) {
+        h += '<div style="font-size:18px">✅</div>';
+      } else {
+        h += '<button onclick="avaaCoachPelaaja(\'' + p.id + '\')" ';
+        h += 'style="padding:6px 13px;border-radius:9px;border:none;';
+        h += 'background:#7C3AED;color:#fff;';
+        h += 'font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;';
+        h += 'cursor:pointer;flex-shrink:0">Arvioi →</button>';
+      }
+      h += '</div>';
+    });
+    h += '</div>'; // kolme pelaajaa
+
+    // Alahuomio: yhteistyö VP:n kanssa
+    h += '<div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.55;';
+    h += 'padding-top:9px;border-top:1px solid rgba(124,58,237,.15);">';
+    h += '💡 Arvioi 2–3 pelaajaa per harjoitus. ';
+    h += 'Valmennuspäällikkö tekee itsenäisen vertailuarvioinnin kausittain.';
+    h += '</div>';
+
+    h += '</div>'; // ADAR-rotaatio-kortti
+  }
 
   // ── LUOKITTELE PELAAJAT KOLMEEN TILARYHMÄÄN ───────────────────────────
   // Ryhmä 1 "Tarkkaile nyt"  — kriittinen signaali, vaatii toiminnan
@@ -1862,7 +2001,11 @@ function avaaKetjuKoulutus(ketjuId){
 }
 
 function avaaCoachPelaaja(pid){
-  var p=DEMO[pid];if(!p)return;
+  // Hae ensin DEMO:sta, sitten TM_DATA:sta
+  var p = DEMO[pid]
+    || (window.TM_DATA && window.TM_DATA.lookup && window.TM_DATA.lookup[pid])
+    || null;
+  if(!p) return;
   document.getElementById('coachPlayerTitle').textContent=p.etunimi+' '+p.sukunimi;
   var latest=p.qs_historia[p.qs_historia.length-1];
   var r=latest&&latest.results||{};
@@ -3844,6 +3987,82 @@ function goCoach(){
   go('sCoach');
   window._coachTab=0;
   buildCoachNyt();
+
+  // ── ADAR-ONBOARDING: Viivästetty kysymys ─────────────────────────────
+  // Pedagoginen periaate: ei ensimmäisellä kirjautumisella — valmentaja
+  // oppii ensin järjestelmän perustoiminnot, sitten ADAR esitellään.
+  //
+  // Tila-avaimet per valmentaja (PIN-kohtainen):
+  //   tm_adar_onboarding_<pin>  = 'kylla'/'ei' kun vastattu
+  //   tm_coach_visits_<pin>     = kirjautumiskertojen lukumäärä
+  var _adarKey    = 'tm_adar_onboarding_' + (window._coachPin || COACH_PIN || 'demo');
+  var _visitsKey  = 'tm_coach_visits_'    + (window._coachPin || COACH_PIN || 'demo');
+  var _adarTila   = localStorage.getItem(_adarKey);
+
+  // Laske kirjautumiskerrat ja kasvata laskuria
+  var _visits = parseInt(localStorage.getItem(_visitsKey) || '0') + 1;
+  localStorage.setItem(_visitsKey, String(_visits));
+
+  // Näytetään VASTA toisella käyntikerralla (tai myöhemmin), ja vain kerran
+  // Viive: 5s — valmentaja on ehtinyt katsoa NYT-näkymää rauhassa
+  if (!_adarTila && _visits >= 2) {
+    setTimeout(function() {
+      var sCoach = document.getElementById('sCoach');
+      if (sCoach && sCoach.classList.contains('active')) {
+        naytaAdarOnboarding();
+      }
+    }, 5000);
+  }
+}
+
+// ── ADAR-ONBOARDING MODAL ────────────────────────────────────────────────
+function naytaAdarOnboarding() {
+  var modal = document.getElementById('adarOnboardingModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  // Animaatio: slide-in alhaalta
+  var box = modal.querySelector('.adar-ob-box');
+  if (box) {
+    box.style.transform = 'translateY(40px)';
+    box.style.opacity = '0';
+    setTimeout(function() {
+      box.style.transition = 'transform .35s ease, opacity .35s ease';
+      box.style.transform = 'translateY(0)';
+      box.style.opacity = '1';
+    }, 20);
+  }
+}
+
+function suljeAdarOnboarding(vastaus) {
+  // Tallennetaan vastaus — ei kysytä uudelleen
+  var _adarKey = 'tm_adar_onboarding_' + (window._coachPin || COACH_PIN || 'demo');
+  localStorage.setItem(_adarKey, vastaus); // 'kylla' tai 'ei'
+
+  var modal = document.getElementById('adarOnboardingModal');
+  if (modal) {
+    var box = modal.querySelector('.adar-ob-box');
+    if (box) {
+      box.style.transition = 'transform .25s ease, opacity .25s ease';
+      box.style.transform = 'translateY(40px)';
+      box.style.opacity = '0';
+    }
+    setTimeout(function() {
+      modal.style.display = 'none';
+      // Ohjaus vastauksen mukaan
+      if (vastaus === 'kylla') {
+        // Ohjaa koulutussivulle → ADAR-moduuliin
+        goCoachTab(3); // Koulutus-välilehti
+        setTimeout(function() {
+          avaakoulutusModuuli('gameiq_adar');
+        }, 400);
+        naytaToast('Hienoa! Muista keskustella valmennuspäällikösi kanssa ennen ensimmäistä arviointia. 🤝');
+      } else {
+        // Ohjaa koulutussivulle lukemaan moduuli
+        goCoachTab(3);
+        naytaToast('Game IQ -koulutusmoduuli löytyy alta. Se kestää ~25 min. 📚');
+      }
+    }, 280);
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -8284,5 +8503,81 @@ document.addEventListener('DOMContentLoaded',function(){
   // PIN-ruutu aina ensin — onboarding näytetään kirjautumisen jälkeen
   go('sPin');
 });</script>
+
+<!-- ── ADAR ONBOARDING MODAL ──────────────────────────────────────── -->
+<div id="adarOnboardingModal" style="
+  display:none;
+  position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,.65);
+  align-items:flex-end;
+  justify-content:center;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+">
+  <div class="adar-ob-box" style="
+    width:100%; max-width:420px;
+    background:var(--bg2);
+    border-radius:20px 20px 0 0;
+    padding:24px 20px 32px;
+    border-top:1px solid var(--border);
+  ">
+    <!-- Vetotanko -->
+    <div style="width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 20px;"></div>
+
+    <!-- Ikoni -->
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="
+        display:inline-flex;align-items:center;justify-content:center;
+        width:60px;height:60px;border-radius:18px;
+        background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.25);
+        font-size:28px;
+      ">🧠</div>
+    </div>
+
+    <!-- Otsikko -->
+    <div style="
+      font-family:'Bebas Neue',sans-serif;font-size:24px;
+      text-align:center;margin-bottom:8px;letter-spacing:.5px;
+    ">Game IQ™ — pelaajan taktinen äly</div>
+
+    <!-- Kuvaus -->
+    <div style="
+      font-size:13px;color:var(--muted2);text-align:center;
+      line-height:1.65;margin-bottom:22px;
+    ">
+      TalentMaster voi auttaa sinua arvioimaan pelaajien taktista päätöksentekoa kentällä.<br><br>
+      Tämä on yksi tärkeimmistä pelaajankehityksen osa-alueista — mutta se vaatii lyhyen perehdytyksen ennen kuin arviointi on luotettavaa.<br><br>
+      <strong style="color:var(--text);">Haluatko oppia arvioimaan Game IQ:ta?</strong>
+    </div>
+
+    <!-- Napit -->
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="suljeAdarOnboarding('kylla')" style="
+        width:100%;padding:14px;border-radius:13px;border:none;
+        background:var(--purple);color:#fff;
+        font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;
+        cursor:pointer;letter-spacing:.3px;
+      ">Kyllä — haluun oppia 🎯</button>
+
+      <button onclick="suljeAdarOnboarding('ei')" style="
+        width:100%;padding:13px;border-radius:13px;
+        border:1px solid var(--border);background:transparent;
+        color:var(--muted2);
+        font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;
+        cursor:pointer;
+      ">En juuri nyt — näytä lisätietoa</button>
+    </div>
+
+    <!-- Huomio -->
+    <div style="
+      margin-top:16px;padding:10px 12px;
+      background:rgba(124,58,237,.07);border-radius:10px;
+      font-size:11px;color:var(--muted2);text-align:center;line-height:1.6;
+    ">
+      💡 Ennen ensimmäistä arviointia: keskustele asiasta valmennuspäällikkösi kanssa.
+      Luotettava arviointi vaatii kaksi arvioijaa.
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
