@@ -219,8 +219,8 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
     <div class="nav-tab" onclick="vaihda(3,this)">Seuravertailu</div>
     <div class="nav-tab" onclick="vaihda(4,this)">Palloliiton kriteerit</div>
     <div class="nav-tab" onclick="vaihda(5,this)" style="color:var(--teal)">⭐ Talentit</div>
-    <div class="nav-tab" onclick="vaihda(5,this)">Tavoitetasot</div>
-    <div class="nav-tab" onclick="vaihda(5,this)">Normitasot</div>
+    <div class="nav-tab" onclick="vaihda(6,this)">Tavoitetasot</div>
+    <div class="nav-tab" onclick="vaihda(7,this)">Normitasot</div>
   </div>
   <div class="content">
     <div id="tabYleiskuva"></div>
@@ -2160,7 +2160,7 @@ function ovrFromObj(k) {
 }
 
 // ── NAVIGATION ──
-var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabKriteerit','tabNormitasot'];
+var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabKriteerit','tabTalentit','tabTavoitetasot','tabNormitasot'];
 function vaihda(idx, el) {
   _aktivTab = idx;
   _tabs.forEach(function(t){ document.getElementById(t).style.display='none'; });
@@ -2178,10 +2178,14 @@ function renderAll() {
   // Muut tabit renderöidään tarvittaessa
 }
 function renderTab(idx) {
-  if (idx===0) renderYleiskuva();
+  if      (idx===0) renderYleiskuva();
   else if (idx===1) renderJoukkueet();
   else if (idx===2) renderKetjut();
   else if (idx===3) renderVertailu();
+  else if (idx===4) renderKriteerit();
+  else if (idx===5) renderTalentit();
+  else if (idx===6) renderTavoitetasot();
+  else if (idx===7) renderNormitasot();
 }
 
 // ── KETJU META ──
@@ -2351,7 +2355,143 @@ function renderYleiskuva() {
 
   h += '</div>'; // end two-col
 
-  document.getElementById('tabYleiskuva').innerHTML = h;
+  // ── KANSALLINEN VERTAILU — Palloliiton viralliset taso 3 -normit ──
+  // Lähde: Eerikkilä / Suomen Palloliitto, päivitetty 2024
+  // Normit löytyvät TM_PALLOLIITTO-objektista (tm_normit.js)
+  // Näytetään: per testi per ikäluokka, seuran tulos vs taso 3
+  // Ei lasketa mediaania datasta — käytetään virallisia arvoja suoraan
+
+  var VERTAILU_TESTIT = [
+    { testi: 'Nopeus 10m',       alas: true  },
+    { testi: 'Nopeus 30m',       alas: true  },
+    { testi: 'SM ilman palloa',  alas: true  },
+    { testi: 'SM-pallo',         alas: true  },
+    { testi: 'Kevennyshyppy',    alas: false },
+  ];
+  // Ketteryys jätetty pois: csv-aineiston protokolla ≠ Palloliiton kasirata
+
+  // Kerää seuran 10–15v pelaajien viimeisin tulos per testi per ikäluokka
+  // Rakenne: ikäTulokset[P13][Nopeus 10m] = [arvo1, arvo2, ...]
+  var ikaTulokset = {};
+  ['P10','P11','P12','P13','P14','P15'].forEach(function(ik) { ikaTulokset[ik] = {}; });
+
+  Object.values(s.joukkueet).forEach(function(j) {
+    j.pelaajatLista.forEach(function(p) {
+      var ika = (p.bioIka && p.bioIka.krono) || 0;
+      if (ika < 10 || ika > 15) return;
+      var fys = p.fys_historia || [];
+      if (!fys.length) return;
+      var mitat = fys[fys.length - 1].mittaukset || {};
+      var ikaKey = 'P' + Math.min(15, Math.max(10, Math.floor(ika)));
+
+      VERTAILU_TESTIT.forEach(function(tm) {
+        var v = mitat[tm.testi];
+        if (v == null) return;
+        if (!ikaTulokset[ikaKey][tm.testi]) ikaTulokset[ikaKey][tm.testi] = [];
+        ikaTulokset[ikaKey][tm.testi].push(v);
+      });
+    });
+  });
+
+  // Laske per ikäluokka per testi: seuran mediaani vs Palloliiton taso 3
+  // Näytetään vain ikäluokat joissa on vähintään 3 pelaajaa testissä
+  var ikaRivit = [];
+  ['P10','P11','P12','P13','P14','P15'].forEach(function(ikaKey) {
+    VERTAILU_TESTIT.forEach(function(tm) {
+      var vals = ikaTulokset[ikaKey][tm.testi] || [];
+      if (vals.length < 3) return;
+      var t3 = (TM_PALLOLIITTO['male'][tm.testi] || {})[ikaKey];
+      if (!t3 || t3.t3 == null) return;
+
+      // Laske seuran mediaani tässä ikä+testi -yhdistelmässä
+      var sorted = vals.slice().sort(function(a,b){return a-b;});
+      var med = sorted[Math.floor(sorted.length/2)];
+      var t3val = t3.t3;
+
+      // Kuinka moni on tasolla 3 tai parempi
+      var okN = vals.filter(function(v){ return tm.alas ? v <= t3val : v >= t3val; }).length;
+      var okPct = Math.round(okN / vals.length * 100);
+
+      ikaRivit.push({
+        ika: ikaKey, testi: tm.testi, alas: tm.alas,
+        n: vals.length, med: med, t3: t3val,
+        okN: okN, okPct: okPct
+      });
+    });
+  });
+
+  if (ikaRivit.length > 0) {
+    h += '<div class="card" style="margin-top:14px">';
+    h += '<div style="margin-bottom:6px">';
+    h += '<div class="card-title" style="margin:0">Seuran tulokset vs Palloliiton taso 3</div>';
+    h += '</div>';
+    h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:16px">';
+    h += 'Lähde: Eerikkilä / Suomen Palloliitto 2024 (tm_normit.js) · Seuran mediaani vs kansallinen tavoitetaso (taso 3) · 10–15v pelaajat';
+    h += '</div>';
+
+    // Ryhmittele ikäluokan mukaan
+    var ikaGroups = {};
+    ikaRivit.forEach(function(r) {
+      if (!ikaGroups[r.ika]) ikaGroups[r.ika] = [];
+      ikaGroups[r.ika].push(r);
+    });
+
+    Object.keys(ikaGroups).sort().forEach(function(ikaKey) {
+      var rivit = ikaGroups[ikaKey];
+      var okYhteensa = rivit.reduce(function(a,r){return a+r.okN;},0);
+      var nYhteensa  = rivit.reduce(function(a,r){return a+r.n;},0);
+      var kokonPct   = Math.round(okYhteensa/nYhteensa*100);
+      var headerCol  = kokonPct >= 66 ? 'var(--green)' : kokonPct >= 40 ? 'var(--amber)' : 'var(--red)';
+
+      // Ikäluokan otsikko
+      h += '<div style="display:flex;justify-content:space-between;align-items:center;';
+      h += 'padding:8px 0 6px;border-top:1px solid var(--border);margin-top:4px">';
+      h += '<div style="font-size:12px;font-weight:600;color:var(--text)">'+ikaKey+'</div>';
+      h += '<div style="font-size:11px;color:'+headerCol+';font-weight:600">'+kokonPct+'% tasolla 3+ ('+okYhteensa+'/'+nYhteensa+')</div>';
+      h += '</div>';
+
+      // Testit tässä ikäluokassa
+      rivit.forEach(function(r) {
+        var parMode = r.alas ? r.med <= r.t3 : r.med >= r.t3;
+        var medCol  = parMode ? 'var(--green)' : 'var(--red)';
+        var pctCol  = r.okPct >= 66 ? 'var(--green)' : r.okPct >= 40 ? 'var(--amber)' : 'var(--red)';
+        var arrow   = r.alas
+          ? (r.med <= r.t3 ? '✓' : '✗')
+          : (r.med >= r.t3 ? '✓' : '✗');
+
+        h += '<div style="display:grid;grid-template-columns:130px 50px 50px 1fr 44px;gap:6px;';
+        h += 'align-items:center;padding:5px 0 5px 10px">';
+
+        // Testin nimi
+        h += '<div style="font-size:11px;color:var(--muted2)">'+r.testi+'</div>';
+        // Seuran mediaani
+        h += '<div style="text-align:center">';
+        h += '<div style="font-size:12px;font-weight:600;color:'+medCol+'">'+r.med+'</div>';
+        h += '<div style="font-size:9px;color:var(--muted2)">seura</div>';
+        h += '</div>';
+        // Palloliiton taso 3
+        h += '<div style="text-align:center">';
+        h += '<div style="font-size:12px;color:var(--muted2)">'+r.t3+'</div>';
+        h += '<div style="font-size:9px;color:var(--muted2)">taso 3</div>';
+        h += '</div>';
+        // Progress bar — % pelaajista tasolla 3+
+        h += '<div style="position:relative;height:6px;background:var(--bg);border-radius:3px;overflow:visible">';
+        h += '<div style="height:100%;width:'+r.okPct+'%;background:'+pctCol+';border-radius:3px"></div>';
+        h += '<div style="position:absolute;top:-3px;left:66%;width:2px;height:12px;background:var(--amber);opacity:.7"></div>';
+        h += '</div>';
+        // Prosentti
+        h += '<div style="text-align:right;font-size:11px;font-weight:600;color:'+pctCol+'">'+r.okPct+'%</div>';
+
+        h += '</div>';
+      });
+    });
+
+    h += '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);';
+    h += 'font-size:11px;color:var(--muted2)">⚑ Oranssi viiva = 66% kynnys · ✓/✗ = seuran mediaani suhteessa taso 3:een</div>';
+    h += '</div>';
+  }
+
+    document.getElementById('tabYleiskuva').innerHTML = h;
 }
 
 function metricCard(label, value, sub, color) {
