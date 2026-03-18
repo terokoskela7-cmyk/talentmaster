@@ -378,6 +378,13 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
   };
   s.onload = function(){
     console.log('[TM] tm_data.js ladattu:', window.TM_DATA ? Object.keys(window.TM_DATA.lookup||{}).length + ' pelaajaa' : 'virhe');
+    // Lataa normitaulukot heti tm_data.js:n jälkeen
+    var sn = document.createElement('script');
+    sn.src = 'tm_normit.js';
+    sn.async = false;
+    sn.onload = function(){ console.log('[TM] tm_normit.js ladattu'); };
+    sn.onerror = function(){ console.warn('[TM] tm_normit.js ei ladattu'); };
+    document.head.appendChild(sn);
   };
   document.head.appendChild(s);
 })();
@@ -2642,12 +2649,28 @@ function buildCoachPlayer(p){
 
   // Fyysiset testit
   var fysHist=p.fys_historia||[];
+  // Normitasoanalyysi — käyttää tm_normit.js:n laskeNormitasoProfiili()
+  var normProfiili = (typeof laskeNormitasoProfiili==='function')
+    ? laskeNormitasoProfiili(fysHist, p.sukupuoli, p.bioIka&&p.bioIka.krono||13)
+    : null;
+
   if(fysHist.length>0){
     var FYS_META={'Ketteryys':{lbl:'Ketteryys',yks:'s',ikoni:'⚡',alas:true},'Kevennyshyppy':{lbl:'Kevennysh.',yks:'cm',ikoni:'⬆️',alas:false},'Nopeus 30m':{lbl:'30m',yks:'s',ikoni:'🏃',alas:true},'Nopeus 10m':{lbl:'10m',yks:'s',ikoni:'🏃',alas:true},'SM-pallo':{lbl:'SM-pallo',yks:'s',ikoni:'⚽',alas:true},'Syöttäminen':{lbl:'Syöttö',yks:'p',ikoni:'🎯',alas:false}};
     var viimeisin=fysHist[fysHist.length-1];
     var edellinen=fysHist.length>1?fysHist[fysHist.length-2]:null;
+
+    // Normisummary-badge otsikkoriviin
+    var normBadge='';
+    if(normProfiili){
+      var nbCol=normProfiili.tavoitetasolla?'var(--green)':normProfiili.normi_pct>=50?'var(--amber)':'var(--red)';
+      normBadge='<span style="font-size:11px;color:'+nbCol+';font-weight:600;">'
+        +(normProfiili.tavoitetasolla?'✅ Tavoitetasolla':''+normProfiili.normi_pct+'% norm.')+'</span>';
+    }
+
     h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:12px 14px;margin-bottom:10px;">';
-    h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">📊 Fyysiset testit · '+new Date(viimeisin.date).toLocaleDateString('fi-FI',{day:'numeric',month:'short',year:'2-digit'})+'</div>';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+    h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">📊 Fyysiset testit · '+new Date(viimeisin.date).toLocaleDateString('fi-FI',{day:'numeric',month:'short',year:'2-digit'})+'</div>';
+    h+=normBadge+'</div>';
     h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">';
     Object.keys(FYS_META).forEach(function(k2){
       var meta2=FYS_META[k2];
@@ -2656,10 +2679,23 @@ function buildCoachPlayer(p){
       var vPrev=edellinen&&edellinen.mittaukset[k2];
       var dHtml='';
       if(vPrev!=null){var diff=Math.round((v-vPrev)*100)/100;var parani=meta2.alas?(diff<0):(diff>0);dHtml='<div style="font-size:9px;color:'+(parani?'var(--green)':'var(--red)')+';">'+(diff>0?'+':'')+diff+'</div>';}
-      h+='<div style="background:var(--bg3);border-radius:9px;padding:8px 6px;text-align:center;">';
+
+      // Normitasoväri ja p50-vertailu
+      var normR=(typeof onNormitasolla==='function')?onNormitasolla(k2,v,p.sukupuoli,p.bioIka&&p.bioIka.krono||13):null;
+      var cardBorder='1px solid var(--border)';
+      var normInfo='';
+      if(normR){
+        var dotCol=normR.taso==='hyva'?'#34D399':normR.taso==='normi'?'#34D399':normR.taso==='heikko'?'#F59E0B':'#F87171';
+        cardBorder='1px solid '+(normR.ok?'rgba(52,211,153,.35)':'rgba(248,113,113,.25)');
+        var p50lbl=meta2.alas?('≤'+normR.p50+meta2.yks):('≥'+normR.p50+meta2.yks);
+        normInfo='<div style="font-size:8px;color:var(--muted2);margin-top:1px;">norm: '+p50lbl+'</div>'
+          +'<div style="width:6px;height:6px;border-radius:50%;background:'+dotCol+';margin:2px auto 0;"></div>';
+      }
+
+      h+='<div style="background:var(--bg3);border:'+cardBorder+';border-radius:9px;padding:8px 6px;text-align:center;">';
       h+='<div style="font-size:14px;margin-bottom:2px;">'+meta2.ikoni+'</div>';
       h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:20px;line-height:1;">'+v+'</div>';
-      h+='<div style="font-size:9px;color:var(--muted);">'+meta2.lbl+' '+meta2.yks+'</div>'+dHtml+'</div>';
+      h+='<div style="font-size:9px;color:var(--muted);">'+meta2.lbl+' '+meta2.yks+'</div>'+dHtml+normInfo+'</div>';
     });
     h+='</div>';
     if(fysHist.length>1){
