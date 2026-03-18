@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TalentMaster — Valmennuspäällikkö</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #0B0F17;
+  --bg2:    #111827;
+  --bg3:    #1A2235;
+  --card:   #1E2A3D;
+  --border: #263347;
+  --text:   #E8EDF5;
+  --muted:  #8A9BB5;
+  --muted2: #5A6A82;
+  --teal:   #00D4AA;
+  --blue:   #4B9EFF;
+  --amber:  #F59E0B;
+  --red:    #F87171;
+  --green:  #34D399;
+  --purple: #A78BFA;
+
+  --taka:   #4B9EFF;
+  --etu:    #34D399;
+  --sivu:   #F59E0B;
+  --kierto: #F87171;
+  --sm:     #A78BFA;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; min-height: 100vh; }
+
+/* ── LOGIN ── */
+#sLogin {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+}
+.login-box {
+  width: 340px; text-align: center;
+}
+.login-logo { font-family: 'Bebas Neue'; font-size: 13px; letter-spacing: 3px; color: var(--muted); margin-bottom: 8px; }
+.login-title { font-family: 'Bebas Neue'; font-size: 36px; color: var(--text); margin-bottom: 4px; }
+.login-sub { font-size: 12px; color: var(--muted); margin-bottom: 32px; }
+.pin-dots { display: flex; justify-content: center; gap: 10px; margin-bottom: 24px; }
+.pin-dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--border); transition: all .15s; }
+.pin-dot.filled { background: var(--teal); border-color: var(--teal); }
+.pin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.pin-btn {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 12px;
+  color: var(--text); font-family: 'Bebas Neue'; font-size: 24px; padding: 14px;
+  cursor: pointer; transition: all .1s;
+}
+.pin-btn:active { transform: scale(.94); background: var(--card); }
+.pin-err { font-size: 12px; color: var(--red); height: 18px; }
+.pin-demo { margin-top: 16px; }
+.pin-demo button {
+  background: none; border: 1px solid var(--border); border-radius: 8px;
+  color: var(--teal); font-size: 12px; padding: 8px 16px; cursor: pointer;
+}
+
+/* ── SCREENS ── */
+.screen { display: none; min-height: 100vh; }
+.screen.active { display: block; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 12px 20px; display: flex; align-items: center; gap: 16px;
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar-logo { font-family: 'Bebas Neue'; font-size: 11px; letter-spacing: 2px; color: var(--muted); }
+.topbar-title { font-family: 'Bebas Neue'; font-size: 20px; color: var(--text); flex: 1; }
+.seura-select {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-family: 'DM Sans'; font-size: 13px; padding: 6px 10px;
+  cursor: pointer;
+}
+.logout-btn {
+  background: none; border: 1px solid var(--border); border-radius: 8px;
+  color: var(--muted); font-size: 12px; padding: 6px 12px; cursor: pointer;
+}
+
+/* ── NAV TABS ── */
+.nav-tabs {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  display: flex; padding: 0 20px; overflow-x: auto;
+}
+.nav-tab {
+  padding: 12px 16px; font-size: 13px; color: var(--muted); cursor: pointer;
+  border-bottom: 2px solid transparent; white-space: nowrap; transition: all .15s;
+}
+.nav-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+
+/* ── CONTENT ── */
+.content { padding: 20px; max-width: 1200px; margin: 0 auto; }
+
+/* ── METRIC CARDS ── */
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.metric-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+.metric-value { font-family: 'Bebas Neue'; font-size: 32px; line-height: 1; }
+.metric-sub { font-size: 11px; color: var(--muted2); margin-top: 4px; }
+
+/* ── CARDS ── */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+.card-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 14px; font-weight: 600; }
+
+/* ── TWO COLUMN ── */
+.two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+@media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── JOUKKUE ROW ── */
+.joukkue-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 0;
+  border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s;
+}
+.joukkue-row:last-child { border-bottom: none; }
+.joukkue-row:hover { background: rgba(255,255,255,.02); border-radius: 8px; padding-left: 8px; }
+.joukkue-name { font-size: 13px; font-weight: 500; min-width: 110px; }
+.joukkue-meta { font-size: 11px; color: var(--muted2); min-width: 60px; }
+.mini-bars { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.mini-bar-row { display: flex; align-items: center; gap: 6px; }
+.mini-bar-track { flex: 1; height: 4px; background: var(--bg); border-radius: 2px; overflow: hidden; }
+.mini-bar-fill { height: 100%; border-radius: 2px; transition: width .4s; }
+.mini-bar-label { font-size: 10px; color: var(--muted2); width: 28px; text-align: right; }
+.delta-badge { font-size: 12px; font-weight: 600; min-width: 36px; text-align: right; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── KETJU EXPLAINER ── */
+.ketju-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.ketju-card { background: var(--bg3); border-radius: 12px; padding: 14px; border: 1px solid var(--border); }
+.ketju-code { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; display: inline-block; margin-bottom: 8px; }
+.ketju-plain { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.ketju-field { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 8px; }
+.ketju-bars { display: flex; flex-direction: column; gap: 5px; }
+.ketju-bar-row { display: flex; align-items: center; gap: 8px; }
+.ketju-bar-track { flex: 1; height: 5px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.ketju-bar-fill { height: 100%; border-radius: 3px; }
+.ketju-age { font-size: 10px; color: var(--muted2); min-width: 46px; }
+.ketju-score { font-size: 11px; font-weight: 500; min-width: 24px; text-align: right; }
+
+/* ── INSIGHT BOX ── */
+.insight { background: rgba(0,212,170,.07); border: 1px solid rgba(0,212,170,.2); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 13px; line-height: 1.6; }
+.insight-label { font-size: 10px; font-weight: 600; color: var(--teal); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.insight.warn { background: rgba(245,158,11,.07); border-color: rgba(245,158,11,.2); }
+.insight.warn .insight-label { color: var(--amber); }
+
+/* ── SEURA COMPARISON TABLE ── */
+.comp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.comp-table th { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: .5px; padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 500; }
+.comp-table td { padding: 9px 8px; border-bottom: 1px solid rgba(38,51,71,.5); vertical-align: middle; }
+.comp-table tr:last-child td { border-bottom: none; }
+.comp-table tr:hover td { background: rgba(255,255,255,.02); }
+.chain-pill { display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+
+/* ── ALERT ROWS ── */
+.alert-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+.alert-item:last-child { border-bottom: none; }
+.alert-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+
+/* ── MODAL ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: flex-end; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px 20px 0 0; padding: 20px; width: 100%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
+.modal-drag { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="sLogin" class="screen active">
+  <div class="login-box">
+    <div class="login-logo">TALENTMASTER™</div>
+    <div class="login-title">Valmennuspäällikkö</div>
+    <div class="login-sub">Syötä PIN-koodi</div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-grid">
+      <button class="pin-btn" onclick="addVpPin('1')">1</button>
+      <button class="pin-btn" onclick="addVpPin('2')">2</button>
+      <button class="pin-btn" onclick="addVpPin('3')">3</button>
+      <button class="pin-btn" onclick="addVpPin('4')">4</button>
+      <button class="pin-btn" onclick="addVpPin('5')">5</button>
+      <button class="pin-btn" onclick="addVpPin('6')">6</button>
+      <button class="pin-btn" onclick="addVpPin('7')">7</button>
+      <button class="pin-btn" onclick="addVpPin('8')">8</button>
+      <button class="pin-btn" onclick="addVpPin('9')">9</button>
+      <button class="pin-btn" onclick="clearVpPin()" style="color:var(--muted);font-size:16px">⌫</button>
+      <button class="pin-btn" onclick="addVpPin('0')">0</button>
+      <button class="pin-btn" onclick="clearVpPin()" style="color:var(--muted);font-size:14px">CLR</button>
+    </div>
+    <div class="pin-err" id="pinErr"></div>
+    <div class="pin-demo">
+      <button onclick="addVpPin('5');addVpPin('5');addVpPin('5');addVpPin('5')">Demo: PIN 5555</button>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="sDash" class="screen">
+  <div class="topbar">
+    <div>
+      <div class="topbar-logo">TALENTMASTER™</div>
+      <div class="topbar-title">Valmennuspäällikkö</div>
+    </div>
+    <select class="seura-select" id="seuraSelect" onchange="vaihdaSeura(this.value)"></select>
+    <button class="logout-btn" onclick="kirjauduUlos()">Kirjaudu ulos</button>
+  </div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="vaihda(0,this)">Yleiskuva</div>
+    <div class="nav-tab" onclick="vaihda(1,this)">Joukkueet</div>
+    <div class="nav-tab" onclick="vaihda(2,this)">Ketjuanalyysi</div>
+    <div class="nav-tab" onclick="vaihda(3,this)">Seuravertailu</div>
+  </div>
+  <div class="content">
+    <div id="tabYleiskuva"></div>
+    <div id="tabJoukkueet" style="display:none"></div>
+    <div id="tabKetjut" style="display:none"></div>
+    <div id="tabVertailu" style="display:none"></div>
+  </div>
+</div>
+
+<!-- JOUKKUE MODAL -->
+<div class="modal-overlay" id="joukkueModal" onclick="if(event.target===this)suljeMod()">
+  <div class="modal-box">
+    <div class="modal-drag"></div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script src="tm_data.js"></script>
+<script>
+// ── PIN ──
+var _vpPin = '';
+var VP_PINS = { '5555': 'demo', '6666': 'fcl', '7777': 'sjk' };
+
+function addVpPin(n) {
+  if (_vpPin.length >= 4) return;
+  _vpPin += n;
+  updateDots();
+  if (_vpPin.length === 4) setTimeout(checkPin, 150);
+}
+function clearVpPin() {
+  _vpPin = _vpPin.slice(0,-1);
+  updateDots();
+  document.getElementById('pinErr').textContent = '';
+}
+function updateDots() {
+  for(var i=0;i<4;i++) {
+    document.getElementById('pd'+i).className = 'pin-dot' + (i < _vpPin.length ? ' filled' : '');
+  }
+}
+function checkPin() {
+  if (VP_PINS[_vpPin]) {
+    document.getElementById('sLogin').classList.remove('active');
+    document.getElementById('sDash').classList.add('active');
+    initDash();
+  } else {
+    document.getElementById('pinErr').textContent = 'Väärä PIN-koodi';
+    _vpPin = '';
+    updateDots();
+  }
+}
+function kirjauduUlos() {
+  _vpPin = '';
+  updateDots();
+  document.getElementById('sDash').classList.remove('active');
+  document.getElementById('sLogin').classList.add('active');
+}
+
+// ── DATA PROCESSING ──
+var _seuraData = {};   // aggregated per seura
+var _aktivSeura = '';
+var _aktivTab = 0;
+
+function initDash() {
+  if (!window.TM_DATA) { alert('tm_data.js ei latautunut'); return; }
+  _seuraData = aggregateData(window.TM_DATA.lookup);
+  
+  var sel = document.getElementById('seuraSelect');
+  sel.innerHTML = '';
+  var seurat = Object.keys(_seuraData).sort();
+  seurat.forEach(function(s) {
+    var opt = document.createElement('option');
+    opt.value = s; opt.textContent = s + ' (' + _seuraData[s].pelaajia + 'p)';
+    sel.appendChild(opt);
+  });
+  
+  // Valitse seura PINin mukaan
+  var pinSeura = { '6666':'FC Lahti Juniorit', '7777':'SJK -juniorit' };
+  var defaultSeura = pinSeura[_vpPin] || seurat[0];
+  if (_seuraData[defaultSeura]) sel.value = defaultSeura;
+  
+  _aktivSeura = sel.value;
+  renderAll();
+}
+
+function aggregateData(lookup) {
+  var seurat = {};
+  Object.values(lookup).forEach(function(p) {
+    var s = p.seura || 'Tuntematon';
+    var j = p.joukkue || 'Tuntematon';
+    if (!seurat[s]) seurat[s] = { pelaajia:0, testeja:0, joukkueet:{} };
+    seurat[s].pelaajia++;
+    if (!seurat[s].joukkueet[j]) seurat[s].joukkueet[j] = {
+      pelaajia:0, testeja:0, ketjut:{}, deltat:[], gems:0,
+      fys:{}, pelaajatLista:[]
+    };
+    var jd = seurat[s].joukkueet[j];
+    jd.pelaajia++;
+    jd.pelaajatLista.push(p);
+    var hist = p.qs_historia || [];
+    jd.testeja += hist.length;
+    seurat[s].testeja += hist.length;
+    hist.forEach(function(qs) {
+      var k = (qs.results||{}).ketjut||{};
+      Object.keys(k).forEach(function(kn) {
+        if (!jd.ketjut[kn]) jd.ketjut[kn] = [];
+        jd.ketjut[kn].push(k[kn].pisteet||0);
+      });
+      if ((qs.results||{}).gem) jd.gems++;
+    });
+    if (hist.length >= 2) {
+      var f = ovrFromKetjut((hist[0].results||{}).ketjut||{});
+      var l = ovrFromKetjut((hist[hist.length-1].results||{}).ketjut||{});
+      if (f && l) jd.deltat.push(l-f);
+    }
+    (p.fys_historia||[]).forEach(function(fh) {
+      Object.keys(fh.mittaukset||{}).forEach(function(mk) {
+        var v = fh.mittaukset[mk];
+        if (v != null) {
+          if (!jd.fys[mk]) jd.fys[mk] = [];
+          jd.fys[mk].push(v);
+        }
+      });
+    });
+  });
+  // Laske keskiarvot
+  Object.values(seurat).forEach(function(s) {
+    Object.values(s.joukkueet).forEach(function(j) {
+      j.avgKetjut = {};
+      Object.keys(j.ketjut).forEach(function(k) {
+        var arr = j.ketjut[k];
+        j.avgKetjut[k] = arr.length ? Math.round(avg(arr)*10)/10 : null;
+      });
+      j.avgDelta = j.deltat.length ? Math.round(avg(j.deltat)*100)/100 : null;
+      j.avgFys = {};
+      Object.keys(j.fys).forEach(function(k) {
+        j.avgFys[k] = Math.round(avg(j.fys[k])*100)/100;
+      });
+      j.avgOvr = ovrFromObj(j.avgKetjut);
+    });
+  });
+  return seurat;
+}
+
+function avg(arr) { return arr.reduce(function(a,b){return a+b;},0)/arr.length; }
+function ovrFromKetjut(k) {
+  var vals = Object.values(k).map(function(v){return v.pisteet||0;});
+  return vals.length ? Math.round(avg(vals)*10)/10 : null;
+}
+function ovrFromObj(k) {
+  var vals = Object.values(k).filter(function(v){return v!=null;});
+  return vals.length ? Math.round(avg(vals)*10)/10 : null;
+}
+
+// ── NAVIGATION ──
+var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu'];
+function vaihda(idx, el) {
+  _aktivTab = idx;
+  _tabs.forEach(function(t){ document.getElementById(t).style.display='none'; });
+  document.getElementById(_tabs[idx]).style.display='block';
+  document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.remove('active');});
+  el.classList.add('active');
+  renderTab(idx);
+}
+function vaihdaSeura(s) {
+  _aktivSeura = s;
+  renderAll();
+}
+function renderAll() {
+  renderTab(0);
+  // Muut tabit renderöidään tarvittaessa
+}
+function renderTab(idx) {
+  if (idx===0) renderYleiskuva();
+  else if (idx===1) renderJoukkueet();
+  else if (idx===2) renderKetjut();
+  else if (idx===3) renderVertailu();
+}
+
+// ── KETJU META ──
+var KETJU = {
+  taka:   { nimi:'Takaketju', plain:'Kiihdytys ja jarrutus', vari:'var(--taka)', kentta:'Lähtönopeus, paineen alla pakeneminen, läpäisypassin katkaisu.', train:'Räjähtävät lähdöt, lonkan voima, eksentrinen harjoittelu.' },
+  etu:    { nimi:'Etuketju',  plain:'Hyppy ja ponnistus',    vari:'var(--etu)',  kentta:'Ilmapallot, hypyt maalilla ja puolustuksessa.', train:'Kyykyt, plyometriikka. Huom: PHV-huipussa kuormitus alas.' },
+  sivu:   { nimi:'Sivuketju', plain:'Suunnanmuutos ja 1v1',  vari:'var(--sivu)', kentta:'1v1-puolustus, sivuttainen ketteryys, laidanhallinta.', train:'Sivuttaishypyt, lateraaliset radat, nilkan stabiliteetti.' },
+  kierto: { nimi:'Kiertoketju',plain:'Laukaus ja syöttövoima',vari:'var(--kierto)',kentta:'Laukausnopeus, pitkä syöttö, vartalon kiertoliike.', train:'Rotaatioharjoittelu, medicinepallot. Hitain ketju kehittyä.' },
+  sm:     { nimi:'SM-ketju',  plain:'Pallollinen reaktio',   vari:'var(--sm)',   kentta:'Ensimmäinen kosketus, pallollinen suunnanmuutos alle 1s.', train:'SM-pallo-harjoitteet, reaktiolähdöt. Paras ikäikkuna 10–14v.' }
+};
+
+function ketjuColor(kn) { return (KETJU[kn]||{}).vari || 'var(--muted)'; }
+function statusColor(delta) {
+  if (delta == null) return 'var(--muted2)';
+  if (delta >= 1.5) return 'var(--green)';
+  if (delta >= 0)   return 'var(--amber)';
+  return 'var(--red)';
+}
+function statusLabel(delta) {
+  if (delta == null) return 'Ei dataa';
+  if (delta >= 1.5) return 'Kehittyy';
+  if (delta >= 0)   return 'Tasainen';
+  return 'Laskussa';
+}
+
+// ── YLEISKUVA ──
+function renderYleiskuva() {
+  var s = _seuraData[_aktivSeura];
+  if (!s) return;
+  var joukkueet = Object.values(s.joukkueet);
+  var kokonaisTesteja = s.testeja;
+  var kehittyvat = joukkueet.filter(function(j){return j.avgDelta!=null&&j.avgDelta>=1;}).length;
+  var laskussa   = joukkueet.filter(function(j){return j.avgDelta!=null&&j.avgDelta<0;}).length;
+  var gemsTotal  = joukkueet.reduce(function(a,j){return a+j.gems;},0);
+
+  // Ketjupuutteet seuratasolla
+  var sKetjut = {};
+  joukkueet.forEach(function(j){
+    Object.keys(j.avgKetjut).forEach(function(k){
+      if (!sKetjut[k]) sKetjut[k] = [];
+      if (j.avgKetjut[k] != null) sKetjut[k].push(j.avgKetjut[k]);
+    });
+  });
+  var sAvgKetjut = {};
+  Object.keys(sKetjut).forEach(function(k){
+    sAvgKetjut[k] = sKetjut[k].length ? Math.round(avg(sKetjut[k])*10)/10 : null;
+  });
+
+  // Löydä heikoin ketju
+  var ketjuSorted = Object.entries(sAvgKetjut).filter(function(e){return e[1]!=null;}).sort(function(a,b){return a[1]-b[1];});
+  var heikoin = ketjuSorted[0];
+  var vahvin  = ketjuSorted[ketjuSorted.length-1];
+
+  // Toimenpiteet
+  var toimenpiteet = [];
+  joukkueet.sort(function(a,b){return (a.avgDelta||0)-(b.avgDelta||0);}).forEach(function(j){
+    if (j.avgDelta != null && j.avgDelta < 0)
+      toimenpiteet.push({ vari:'var(--red)',   teksti: j.pelaajatLista[0].joukkue+' — OVR laskussa (Δ'+j.avgDelta.toFixed(1)+'). Tapaa valmentaja.' });
+  });
+  if (heikoin) toimenpiteet.push({ vari:'var(--amber)', teksti: (KETJU[heikoin[0]]||{plain:heikoin[0]}).plain+' on seuran heikoin ketju ('+heikoin[1]+'). Päivitä harjoitusohjelma.' });
+  if (kehittyvat > 0) toimenpiteet.push({ vari:'var(--green)', teksti: kehittyvat+' joukkuetta kehittyy hyvin. Jaa hyvät käytännöt muille valmentajille.' });
+
+  var h = '';
+
+  // Metrics
+  h += '<div class="metrics-grid">';
+  h += metricCard('Pelaajia', s.pelaajia, _aktivSeura);
+  h += metricCard('Joukkueet', joukkueet.length, 'Kaudella');
+  h += metricCard('Testejä', kokonaisTesteja, 'Yhteensä');
+  h += metricCard('Kehittyy', kehittyvat, 'joukkuetta ↑', 'var(--green)');
+  h += metricCard('Laskussa', laskussa, 'joukkuetta ↓', laskussa>0?'var(--red)':'var(--muted)');
+  h += metricCard('Gems', gemsTotal, 'tunnistettua', 'var(--blue)');
+  h += '</div>';
+
+  // Insights
+  if (heikoin) {
+    var km = KETJU[heikoin[0]] || { plain: heikoin[0], train: '' };
+    h += '<div class="insight warn">';
+    h += '<div class="insight-label">Seuran kehitysprioriteetti</div>';
+    h += km.plain + ' on ' + _aktivSeura + ':n heikoin liikeketju (' + heikoin[1] + '/10). ';
+    h += 'Tämä tarkoittaa kentällä: ' + (km.kentta||'') + ' ';
+    h += 'Toimenpide: ' + (km.train||'');
+    h += '</div>';
+  }
+  if (vahvin) {
+    var vm = KETJU[vahvin[0]] || { plain: vahvin[0] };
+    h += '<div class="insight">';
+    h += '<div class="insight-label">Seuran vahvuus</div>';
+    h += vm.plain + ' on vahvin (' + vahvin[1] + '/10). Hyödynnä tätä rekrytoinnissa ja joukkueen identiteetissä.';
+    h += '</div>';
+  }
+
+  // Kaksi saraketta
+  h += '<div class="two-col">';
+
+  // Joukkueet pikayhteenveto
+  h += '<div class="card">';
+  h += '<div class="card-title">Joukkueet — kehitystila</div>';
+  var sortedJ = joukkueet.slice().sort(function(a,b){return (b.avgDelta||0)-(a.avgDelta||0);});
+  sortedJ.forEach(function(j) {
+    var dc = statusColor(j.avgDelta);
+    var dl = statusLabel(j.avgDelta);
+    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '?';
+    h += '<div class="joukkue-row" onclick="avaaJoukkue(\''+jnimi+'\')">';
+    h += '<div class="status-dot" style="background:'+dc+'"></div>';
+    h += '<div class="joukkue-name">'+jnimi+'</div>';
+    h += '<div class="joukkue-meta">'+j.pelaajia+'p · '+j.testeja+'t</div>';
+    h += '<div class="mini-bars">';
+    ['taka','sivu','kierto'].forEach(function(k){
+      var v = j.avgKetjut[k];
+      if (v == null) return;
+      h += '<div class="mini-bar-row">';
+      h += '<div class="mini-bar-track"><div class="mini-bar-fill" style="width:'+Math.round(v*10)+'%;background:'+ketjuColor(k)+'"></div></div>';
+      h += '</div>';
+    });
+    h += '</div>';
+    h += '<div class="delta-badge" style="color:'+dc+'">'+(j.avgDelta!=null?(j.avgDelta>=0?'+':'')+j.avgDelta.toFixed(1):'—')+'</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Toimenpiteet
+  h += '<div>';
+  h += '<div class="card">';
+  h += '<div class="card-title">Toimenpiteet tällä viikolla</div>';
+  toimenpiteet.forEach(function(t) {
+    h += '<div class="alert-item">';
+    h += '<div class="alert-dot" style="background:'+t.vari+'"></div>';
+    h += '<div style="font-size:13px;line-height:1.6;color:var(--text)">'+t.teksti+'</div>';
+    h += '</div>';
+  });
+  if (!toimenpiteet.length) h += '<div style="font-size:13px;color:var(--muted)">Ei kiireellisiä toimenpiteitä.</div>';
+  h += '</div>';
+
+  // Ketjuprofiili kompakti
+  h += '<div class="card">';
+  h += '<div class="card-title">Seuran ketjuprofiili</div>';
+  Object.entries(sAvgKetjut).sort(function(a,b){return b[1]-a[1];}).forEach(function(e){
+    var km2 = KETJU[e[0]] || { plain: e[0] };
+    h += '<div style="margin-bottom:10px">';
+    h += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">';
+    h += '<span style="color:var(--muted)">'+km2.plain+'</span>';
+    h += '<span style="font-weight:500;color:'+ketjuColor(e[0])+'">'+e[1]+'</span>';
+    h += '</div>';
+    h += '<div style="height:5px;background:var(--bg);border-radius:3px;overflow:hidden">';
+    h += '<div style="height:100%;width:'+Math.round(e[1]*10)+'%;background:'+ketjuColor(e[0])+';border-radius:3px"></div>';
+    h += '</div></div>';
+  });
+  h += '</div>';
+  h += '</div>'; // end col 2
+
+  h += '</div>'; // end two-col
+
+  document.getElementById('tabYleiskuva').innerHTML = h;
+}
+
+function metricCard(label, value, sub, color) {
+  return '<div class="metric-card"><div class="metric-label">'+label+'</div>'
+    + '<div class="metric-value" style="color:'+(color||'var(--text)')+'">'+value+'</div>'
+    + '<div class="metric-sub">'+sub+'</div></div>';
+}
+
+// ── JOUKKUEET TAB ──
+function renderJoukkueet() {
+  var s = _seuraData[_aktivSeura];
+  if (!s) return;
+  var joukkueet = Object.entries(s.joukkueet).sort(function(a,b){ return b[1].testeja - a[1].testeja; });
+
+  var h = '';
+  h += '<div class="card">';
+  h += '<div class="card-title">Kaikki joukkueet — '+_aktivSeura+'</div>';
+
+  joukkueet.forEach(function(entry) {
+    var jnimi = entry[0], j = entry[1];
+    var dc = statusColor(j.avgDelta);
+    var dl = statusLabel(j.avgDelta);
+
+    h += '<div class="joukkue-row" onclick="avaaJoukkue(\''+jnimi+'\')" style="padding:12px 0">';
+    h += '<div class="status-dot" style="background:'+dc+'"></div>';
+    h += '<div style="min-width:120px"><div class="joukkue-name">'+jnimi+'</div>';
+    h += '<div class="joukkue-meta">'+j.pelaajia+'p · '+j.testeja+' testejä</div></div>';
+    h += '<div class="mini-bars" style="flex:1">';
+    Object.entries(j.avgKetjut).sort(function(a,b){return b[1]-a[1];}).forEach(function(e) {
+      var km = KETJU[e[0]] || { plain: e[0] };
+      h += '<div class="mini-bar-row">';
+      h += '<span style="font-size:10px;color:var(--muted2);min-width:130px">'+km.plain+'</span>';
+      h += '<div class="mini-bar-track"><div class="mini-bar-fill" style="width:'+Math.round((e[1]||0)*10)+'%;background:'+ketjuColor(e[0])+'"></div></div>';
+      h += '<span class="mini-bar-label" style="color:'+ketjuColor(e[0])+'">'+e[1]+'</span>';
+      h += '</div>';
+    });
+    h += '</div>';
+    h += '<div style="text-align:right;min-width:70px">';
+    h += '<div style="font-family:\'Bebas Neue\';font-size:28px;color:'+(j.avgOvr?'var(--text)':'var(--muted)')+'">'+((j.avgOvr)||'—')+'</div>';
+    h += '<div style="font-size:10px;color:'+dc+'">'+dl+'</div>';
+    h += '</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+  document.getElementById('tabJoukkueet').innerHTML = h;
+}
+
+// ── KETJUANALYYSI ──
+function renderKetjut() {
+  var s = _seuraData[_aktivSeura];
+  if (!s) return;
+
+  // Aggregoi ikäluokittain (P05=~18v, P06=~17v jne.)
+  var ikaryhmät = {};
+  Object.values(s.joukkueet).forEach(function(j) {
+    var jnimi = j.pelaajatLista[0]&&j.pelaajatLista[0].joukkue || '';
+    var match = jnimi.match(/[PT](\d{2})/);
+    if (!match) return;
+    var vuosi = parseInt('20'+match[1]);
+    var ika = new Date().getFullYear() - vuosi;
+    var ikaKey = 'U'+ika;
+    if (!ikaryhmät[ikaKey]) ikaryhmät[ikaKey] = { ketjut: {} };
+    Object.keys(j.avgKetjut).forEach(function(k){
+      if (j.avgKetjut[k] == null) return;
+      if (!ikaryhmät[ikaKey].ketjut[k]) ikaryhmät[ikaKey].ketjut[k] = [];
+      ikaryhmät[ikaKey].ketjut[k].push(j.avgKetjut[k]);
+    });
+  });
+  Object.values(ikaryhmät).forEach(function(ig){
+    ig.avgKetjut = {};
+    Object.keys(ig.ketjut).forEach(function(k){
+      ig.avgKetjut[k] = ig.ketjut[k].length ? Math.round(avg(ig.ketjut[k])*10)/10 : null;
+    });
+  });
+  var ikaJarjestetty = Object.keys(ikaryhmät).sort();
+
+  var h = '';
+
+  // Ketjukortit selityksineen
+  h += '<div class="ketju-grid" style="margin-bottom:20px">';
+  Object.entries(KETJU).forEach(function(entry) {
+    var kn = entry[0], km = entry[1];
+    // Laske seuratasolla
+    var vals = [];
+    Object.values(s.joukkueet).forEach(function(j){
+      if (j.avgKetjut[kn]!=null) vals.push(j.avgKetjut[kn]);
+    });
+    var sAvg = vals.length ? Math.round(avg(vals)*10)/10 : null;
+
+    h += '<div class="ketju-card">';
+    h += '<div class="ketju-code" style="background:'+km.vari+'22;color:'+km.vari+'">'+km.nimi+'</div>';
+    h += '<div class="ketju-plain">'+km.plain+'</div>';
+    h += '<div class="ketju-field">'+km.kentta+'</div>';
+    h += '<div style="font-size:11px;color:var(--muted2);font-style:italic;margin-bottom:10px">'+km.train+'</div>';
+
+    if (sAvg != null) {
+      h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">';
+      h += '<div style="flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden">';
+      h += '<div style="height:100%;width:'+Math.round(sAvg*10)+'%;background:'+km.vari+';border-radius:3px"></div></div>';
+      h += '<span style="font-family:\'Bebas Neue\';font-size:22px;color:'+km.vari+'">'+sAvg+'</span>';
+      h += '</div>';
+    }
+
+    // Ikäluokat
+    if (ikaJarjestetty.length > 1) {
+      h += '<div class="ketju-bars">';
+      ikaJarjestetty.forEach(function(ik){
+        var v = ikaryhmät[ik].avgKetjut[kn];
+        if (v == null) return;
+        h += '<div class="ketju-bar-row">';
+        h += '<span class="ketju-age">'+ik+'</span>';
+        h += '<div class="ketju-bar-track"><div class="ketju-bar-fill" style="width:'+Math.round(v*10)+'%;background:'+km.vari+'"></div></div>';
+        h += '<span class="ketju-score" style="color:'+km.vari+'">'+v+'</span>';
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Systemaattinen löydös
+  var allVals = {};
+  Object.values(s.joukkueet).forEach(function(j){
+    Object.keys(j.avgKetjut).forEach(function(k){
+      if (j.avgKetjut[k]==null) return;
+      if (!allVals[k]) allVals[k]=[];
+      allVals[k].push(j.avgKetjut[k]);
+    });
+  });
+  var sorted = Object.entries(allVals).map(function(e){
+    return { k:e[0], v: Math.round(avg(e[1])*10)/10 };
+  }).sort(function(a,b){return a.v-b.v;});
+
+  if (sorted.length >= 2) {
+    var heikin = sorted[0], vahvin2 = sorted[sorted.length-1];
+    var gap = Math.round((vahvin2.v - heikin.v)*10)/10;
+    h += '<div class="insight warn">';
+    h += '<div class="insight-label">Rakenteellinen havainto</div>';
+    h += (KETJU[heikin.k]||{plain:heikin.k}).plain+' ('+heikin.v+'/10) ja '+(KETJU[vahvin2.k]||{plain:vahvin2.k}).plain+' ('+vahvin2.v+'/10) välinen ero on '+gap+' pistettä. ';
+    h += 'Tämä kertoo, että harjoittelu painottuu selvästi tiettyihin liikeketjuihin. ';
+    h += 'Tasapainoisempi kehitys vaatii tietoisen ohjauksen muutoksen.';
+    h += '</div>';
+  }
+
+  document.getElementById('tabKetjut').innerHTML = h;
+}
+
+// ── SEURAVERTAILU ──
+function renderVertailu() {
+  var seurat = Object.keys(_seuraData).filter(function(s){ return _seuraData[s].testeja > 50; });
+
+  // Laske seuratason ketjukeskiarvot
+  var seuranKetjut = {};
+  seurat.forEach(function(sn) {
+    var s = _seuraData[sn];
+    var vals = {};
+    Object.values(s.joukkueet).forEach(function(j){
+      Object.keys(j.avgKetjut).forEach(function(k){
+        if (j.avgKetjut[k]==null) return;
+        if (!vals[k]) vals[k]=[];
+        vals[k].push(j.avgKetjut[k]);
+      });
+    });
+    seuranKetjut[sn] = {};
+    Object.keys(vals).forEach(function(k){
+      seuranKetjut[sn][k] = Math.round(avg(vals[k])*10)/10;
+    });
+  });
+
+  var ketjuKeys = ['taka','etu','sivu','kierto'];
+  var h = '';
+
+  h += '<div class="card">';
+  h += '<div class="card-title">Seuravertailu — liikeketjukeskiarvot (min. 50 testiä)</div>';
+  h += '<div style="overflow-x:auto">';
+  h += '<table class="comp-table">';
+  h += '<thead><tr><th>Seura</th><th>Pelaajia</th><th>Testejä</th>';
+  ketjuKeys.forEach(function(k){ h += '<th>'+( KETJU[k]||{plain:k}).plain+'</th>'; });
+  h += '<th>OVR</th></tr></thead><tbody>';
+
+  seurat.sort(function(a,b){
+    var ovA = ovrFromObj(seuranKetjut[a]||{})||0;
+    var ovB = ovrFromObj(seuranKetjut[b]||{})||0;
+    return ovB-ovA;
+  }).forEach(function(sn){
+    var s = _seuraData[sn];
+    var kd = seuranKetjut[sn]||{};
+    var ovr = ovrFromObj(kd);
+    var isAktiv = sn === _aktivSeura;
+    h += '<tr style="'+(isAktiv?'background:rgba(0,212,170,.05)':'')+'">';
+    h += '<td style="font-weight:'+(isAktiv?'600':'400')+';color:'+(isAktiv?'var(--teal)':'var(--text)')+'">'+sn+'</td>';
+    h += '<td style="color:var(--muted)">'+s.pelaajia+'</td>';
+    h += '<td style="color:var(--muted)">'+s.testeja+'</td>';
+    ketjuKeys.forEach(function(k){
+      var v = kd[k];
+      var col = v==null?'var(--muted2)': v>=7?'var(--green)':v>=5?'var(--amber)':'var(--red)';
+      h += '<td><span class="chain-pill" style="background:'+ketjuColor(k)+'22;color:'+ketjuColor(k)+'">'+(v!=null?v:'—')+'</span></td>';
+    });
+    h += '<td><span style="font-family:\'Bebas Neue\';font-size:20px;color:var(--text)">'+(ovr||'—')+'</span></td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+  h += '</div>';
+
+  // Insight
+  var kAvg = {};
+  seurat.forEach(function(sn){ Object.keys(seuranKetjut[sn]||{}).forEach(function(k){
+    if (!kAvg[k]) kAvg[k]=[];
+    kAvg[k].push(seuranKetjut[sn][k]);
+  }); });
+  var globalAvg = {};
+  Object.keys(kAvg).forEach(function(k){ globalAvg[k]=Math.round(avg(kAvg[k])*10)/10; });
+  var gSorted = Object.entries(globalAvg).sort(function(a,b){return a[1]-b[1];});
+  if (gSorted.length >= 2) {
+    var gh = gSorted[0], gv = gSorted[gSorted.length-1];
+    h += '<div class="insight">';
+    h += '<div class="insight-label">Kansallinen havainto — '+seurat.length+' seuraa</div>';
+    h += (KETJU[gv[0]]||{plain:gv[0]}).plain+' on kaikkien seurojen vahvin ketju (ka '+gv[1]+'/10). ';
+    h += (KETJU[gh[0]]||{plain:gh[0]}).plain+' on heikoin (ka '+gh[1]+'/10). ';
+    h += 'Tämä on suomalaisen juniorijalkapallon systemaattinen kehityskohde, ei yksittäisen seuran ongelma.';
+    h += '</div>';
+  }
+
+  document.getElementById('tabVertailu').innerHTML = h;
+}
+
+// ── JOUKKUE MODAL ──
+function avaaJoukkue(jnimi) {
+  var s = _seuraData[_aktivSeura];
+  if (!s) return;
+  var j = s.joukkueet[jnimi];
+  if (!j) return;
+
+  var dc = statusColor(j.avgDelta);
+  var h = '';
+  h += '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">'+_aktivSeura+'</div>';
+  h += '<div style="font-family:\'Bebas Neue\';font-size:28px;margin-bottom:12px">'+jnimi+'</div>';
+
+  // Stats
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">';
+  h += metCard('Pelaajia', j.pelaajia);
+  h += metCard('Testejä', j.testeja);
+  h += metCard('Kehitys', j.avgDelta!=null?(j.avgDelta>=0?'+':'')+j.avgDelta.toFixed(1)+' OVR':'—', dc);
+  h += '</div>';
+
+  // Ketjut
+  h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Liikeketjut — kentällä</div>';
+  Object.entries(j.avgKetjut).sort(function(a,b){return b[1]-a[1];}).forEach(function(e){
+    var km = KETJU[e[0]]||{plain:e[0],kentta:'',vari:'var(--muted)'};
+    h += '<div style="margin-bottom:12px">';
+    h += '<div style="display:flex;justify-content:space-between;margin-bottom:3px">';
+    h += '<span style="font-size:13px;font-weight:500">'+km.plain+'</span>';
+    h += '<span style="font-size:14px;font-weight:600;color:'+km.vari+'">'+e[1]+'/10</span>';
+    h += '</div>';
+    h += '<div style="height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-bottom:4px">';
+    h += '<div style="height:100%;width:'+Math.round((e[1]||0)*10)+'%;background:'+km.vari+';border-radius:3px"></div></div>';
+    h += '<div style="font-size:11px;color:var(--muted2)">'+km.kentta+'</div>';
+    h += '</div>';
+  });
+
+  // Fyysiset
+  if (Object.keys(j.avgFys).length > 0) {
+    h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px">Fyysiset testit — joukkuekeskiarvo</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+    var FYS_NAMES = {'Ketteryys':'Ketteryys','Kevennyshyppy':'Kevennyshyppy','Nopeus 30m':'Nopeus 30m','SM-pallo':'SM-pallo','Syöttäminen':'Syöttäminen'};
+    Object.entries(j.avgFys).forEach(function(e){
+      if (!FYS_NAMES[e[0]]) return;
+      h += '<div style="background:var(--bg3);border-radius:8px;padding:8px 10px">';
+      h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:2px">'+e[0]+'</div>';
+      h += '<div style="font-family:\'Bebas Neue\';font-size:22px;color:var(--teal)">'+e[1]+'</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  h += '<button onclick="suljeMod()" style="width:100%;margin-top:16px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:\'DM Sans\';font-size:14px;cursor:pointer">Sulje</button>';
+
+  document.getElementById('modalBody').innerHTML = h;
+  document.getElementById('joukkueModal').classList.add('open');
+}
+function metCard(l,v,col){return '<div class="metric-card"><div class="metric-label">'+l+'</div><div class="metric-value" style="font-size:22px;color:'+(col||'var(--text)')+'">'+v+'</div></div>';}
+function suljeMod(){document.getElementById('joukkueModal').classList.remove('open');}
+</script>
+</body>
+</html>
