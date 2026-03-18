@@ -2610,8 +2610,8 @@ function buildCoachPlayer(p){
   h+='<div style="flex:1;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;">'+p.etunimi.toUpperCase()+' '+p.sukunimi.toUpperCase()+'</div>';
   h+='<div style="font-size:12px;color:var(--muted2);">'+p.joukkue+' · '+(p.bioIka.krono?Math.floor(p.bioIka.krono)+'v':'?v')+' · '+p.phvTila+'</div>';
   if(profiili&&profiili.profiili) h+='<div style="font-size:12px;color:var(--teal);margin-top:2px;">'+profiili.profiili.ikoni+' '+profiili.profiili.nimi+'</div>';
-  if(r.gem) h+='<div style="font-size:11px;color:#FFD700;">💎 Hidden Gem</div>';
-  if(r.xfactor) h+='<div style="font-size:11px;color:#C084FC;">⚡ X-Factor</div>';
+  if(r.gem||(adar&&adar.hiddenGem)) h+='<div style="font-size:11px;color:#FFD700;">💎 Hidden Gem'+(adar&&adar.hiddenGemTaso==='kulta'?' 💛':'')+' </div>';
+  if(r.xfactor||(adar&&adar.xFactor>=7.0)) h+='<div style="font-size:11px;color:#C084FC;">⚡ X-Factor '+(adar?adar.xFactor.toFixed(1)+'/10':'')+' </div>';
   h+='</div>';
   if(delta){var dc=delta.ovDelta>0?'var(--green)':delta.ovDelta<0?'var(--red)':'var(--muted)';
     h+='<div style="text-align:center;flex-shrink:0;"><div style="font-size:20px;font-weight:700;color:'+dc+';">'+(delta.ovDelta>=0?'+':'')+delta.ovDelta+'</div><div style="font-size:9px;color:var(--muted);">viim. testi</div></div>';}
@@ -3822,15 +3822,193 @@ function laskeADAR(p){
     &&p.qs_historia[p.qs_historia.length-1].results
     &&p.qs_historia[p.qs_historia.length-1].results.ketjut;
   var ovr=laskeOverall(viimKetjut);
-  // Hidden Gem: korkea peliäly suhteessa fyysisiin ominaisuuksiin
-  var hiddenGem=yht>=9&&ovr<72;
+
+  // ── X-FACTOR (Ajax/DFB-malli, kalibroitu 2024-data) ──
+  // Teoria: RAE-kompensaatio × normitasokerroin + kehitysnopeus
+  // Lähde: Helsen et al. 2012, Cobley et al. 2009, TalentMaster 2025
+  var xFactor = laskeXFactor(p);
+
+  // ── HIDDEN GEM (kolmikerroshierarkia) ──
+  // Kerros 1 (nyt): RAE Q3/Q4 + normitaso ≥3 → epäsuhta odotukseen
+  // Kerros 2 (tulevaisuus): bio-ikäkorjattu normitasoetu kun phvArvo saatavilla
+  // Kerros 3 (nyt): ADAR-ristiriita — korkea taktinen äly, matala fyysinen OVR
+  var hiddenGem = laskeHiddenGem(p, yht, ovr);
+
   return{
     a:viimeisin.a,d:viimeisin.d,act:viimeisin.act,r:viimeisin.r,
     yht:yht,taso:taso,huomio:viimeisin.huomio||'',
-    hiddenGem:hiddenGem,ovr:ovr,
-    historia:p.adar,pvm:viimeisin.date
+    hiddenGem:hiddenGem.aktiiviinen,hiddenGemTaso:hiddenGem.taso,
+    hiddenGemSyyt:hiddenGem.syyt,
+    xFactor:xFactor.pisteet,xFactorKomponentit:xFactor.komponentit,
+    ovr:ovr,historia:p.adar,pvm:viimeisin.date
   };
 }
+
+// ── X-FACTOR LASKENTA ──────────────────────────────────────────────────────
+// Malli: RAE-bonus * normitasokerroin + kehitysnopeus = pisteet 0-10
+// Kynnys ≥7.0 = X-factor tunnistettu (vastaa ~1.8% pelaajista 2024-datassa)
+//
+// Komponentti A — RAE-kompensaatio × normitasokerroin (max ~6.4p):
+//   Q4 (okt-joulu) = 4.0 * kerroin
+//   Q3 (heinä-syys) = 2.5 * kerroin
+//   Q2 (huhti-kesä) = 1.0 * kerroin
+//   Q1 = 0p (ei bonusta)
+//   Kerroin = avg_normitaso / 3.0 — bonus kasvaa kun suoritustaso nousee
+//   Logiikka: Q4-pelaaja tasolla 4 on merkittävämpi kuin Q4-pelaaja tasolla 1
+//
+// Komponentti B — Kehitysnopeus (max 6p, vaatii 2+ fys-mittausta):
+//   Lasketaan kuinka monta Palloliiton normitasoportaista (1→5) pelaaja
+//   on noussut per testi kahden viimeisimmän mittauksen välillä.
+//   Vaatii ≥2 nousua aktivoituakseen täysimittaisena.
+//   Lähde: "velocity" -mittari, Valentin et al. 2018
+//
+// Komponentti C — PHV-bio-bonus (max 2p, aktivoituu kun phvArvo saatavilla):
+//   PHV < -1.0 tarkoittaa biologisesti jäljessä olevan pelaajan poikkeuksellista
+//   suorituskykyä — keho ei ole vielä kasvanut mutta tulokset ovat jo hyviä.
+function laskeXFactor(p){
+  var TESTIT=['Nopeus 10m','Nopeus 30m','SM-pallo','SM ilman palloa','Kevennyshyppy'];
+  var sukup=p.sukupuoli||'male';
+  var krono=((p.bioIka||{}).krono)||0;
+  var mk=(p.bioIka||{}).syntymakk||0;
+  var fys=p.fys_historia||[];
+  var komponentit={};
+
+  // Komponentti A: RAE-bonus perusarvo
+  var rae_raw = mk>=10?4.0 : mk>=7?2.5 : mk>=4?1.0 : 0.0;
+  komponentit.q = mk>=10?'Q4' : mk>=7?'Q3' : mk>=4?'Q2' : 'Q1';
+  komponentit.syntymakk = mk;
+
+  // Laske nykyinen keskimääräinen normitaso (1-5) — kerroin RAE-bonukselle
+  var normYht=0, normN=0;
+  if(fys.length>0){
+    var mitat=fys[fys.length-1].mittaukset||{};
+    var ikaInt=Math.min(15,Math.max(10,Math.floor(krono)));
+    TESTIT.forEach(function(t){
+      var v=mitat[t]; if(v==null)return;
+      var taso=haePalloliittoNormiTaso(t,v,sukup,ikaInt);
+      if(taso){normYht+=taso;normN++;}
+    });
+  }
+  var avgTaso=normN>0?normYht/normN:0;
+  komponentit.avgNormitaso=Math.round(avgTaso*10)/10;
+
+  // RAE-bonus skaalataan normitasolla: bonus aktivoituu täydellisesti lähellä tasoa 3
+  var raeP = avgTaso>=2.0 ? rae_raw*(avgTaso/3.0) : rae_raw*0.3;
+  komponentit.raeP=Math.round(raeP*10)/10;
+
+  // Komponentti B: kehitysnopeus
+  var velP=0, velNousut=0;
+  if(fys.length>=2){
+    var m1=fys[fys.length-2].mittaukset||{};
+    var m2=fys[fys.length-1].mittaukset||{};
+    var ikaInt=Math.min(15,Math.max(10,Math.floor(krono)));
+    TESTIT.forEach(function(t){
+      var v1=m1[t],v2=m2[t]; if(v1==null||v2==null)return;
+      var t1=haePalloliittoNormiTaso(t,v1,sukup,Math.max(10,ikaInt-1));
+      var t2=haePalloliittoNormiTaso(t,v2,sukup,ikaInt);
+      if(t1&&t2&&t2>t1)velNousut++;
+    });
+    velP = velNousut>=2 ? Math.min(6.0,velNousut*1.5) : velNousut*0.4;
+    komponentit.velNousut=velNousut;
+    komponentit.velP=Math.round(velP*10)/10;
+    komponentit.mittauksia=fys.length;
+  } else {
+    komponentit.mittauksia=fys.length;
+    komponentit.velHuomio='Vaatii 2+ mittausta';
+  }
+
+  // Komponentti C: PHV-bio-bonus (tulevaisuus)
+  var phvArvo=(p.bioIka||{}).phvArvo;
+  var phvP=0;
+  if(phvArvo!=null&&phvArvo<-1.0){
+    phvP=Math.min(2.0,Math.abs(phvArvo)*0.8);
+    komponentit.phvP=Math.round(phvP*10)/10;
+    komponentit.phvArvo=phvArvo;
+  }
+
+  var pisteet=Math.min(10,Math.max(0,raeP+velP+phvP));
+  return{pisteet:Math.round(pisteet*10)/10, komponentit:komponentit};
+}
+
+// Apufunktio: palauttaa tason 1-5 Palloliiton normiston mukaan
+function haePalloliittoNormiTaso(testi,arvo,sukup,ikaInt){
+  if(typeof TM_PALLOLIITTO==='undefined')return null;
+  var prefix=sukup==='male'?'P':'T';
+  var key=prefix+Math.min(19,Math.max(10,ikaInt));
+  var t=((TM_PALLOLIITTO[sukup]||{})[testi]||{})[key];
+  if(!t)return null;
+  var alas=testi!=='Kevennyshyppy';
+  if(alas){
+    if(arvo<=t.t5)return 5; if(arvo<=t.t4)return 4;
+    if(arvo<=t.t3)return 3; if(arvo<=t.t2)return 2; return 1;
+  } else {
+    if(arvo>=t.t5)return 5; if(arvo>=t.t4)return 4;
+    if(arvo>=t.t3)return 3; if(arvo>=t.t2)return 2; return 1;
+  }
+}
+
+// ── HIDDEN GEM LASKENTA ────────────────────────────────────────────────────
+// Kolmitasohierarkia — Valentin et al. 2018, muokattu TalentMaster-kontekstiin
+// Kulta: 2+ kerrosta täyttyy | Hopea: 1 kerros
+function laskeHiddenGem(p,adarYht,ovr){
+  var syyt=[];
+  var sukup=p.sukupuoli||'male';
+  var krono=((p.bioIka||{}).krono)||0;
+  var mk=(p.bioIka||{}).syntymakk||0;
+  var fys=p.fys_historia||[];
+  var TESTIT_NOPEUS=['Nopeus 10m','Nopeus 30m','SM-pallo','SM ilman palloa'];
+
+  // Kerros 1: RAE Q3/Q4 + saavuttaa normitason 3+ silti
+  // Teoria: myöhään syntynyt pelaaja kilpailee fyysisellä epäedulla → taso 3+ on vahva signaali
+  if(mk>=7 && fys.length>0 && krono>=10 && krono<=15){
+    var mitat=fys[fys.length-1].mittaukset||{};
+    var ikaInt=Math.min(15,Math.max(10,Math.floor(krono)));
+    var tasot=[];
+    TESTIT_NOPEUS.forEach(function(t){
+      var v=mitat[t]; if(v==null)return;
+      var taso=haePalloliittoNormiTaso(t,v,sukup,ikaInt);
+      if(taso)tasot.push(taso);
+    });
+    if(tasot.length>=2){
+      var avgTaso=tasot.reduce(function(a,b){return a+b;},0)/tasot.length;
+      if(avgTaso>=3.0){
+        var q=mk>=10?'Q4':'Q3';
+        syyt.push(q+' + norm.taso '+Math.round(avgTaso*10)/10);
+      }
+    }
+  }
+
+  // Kerros 2: Bio-ikäkorjattu etu (aktivoituu kun phvArvo saatavilla)
+  // Teoria: biologisesti jäljessä oleva pelaaja suoriutuu paremmin bio-iän normilla kuin krono-iän normilla
+  var phvArvo=(p.bioIka||{}).phvArvo;
+  if(phvArvo!=null && phvArvo<-1.5 && fys.length>0 && krono>=10 && krono<=15){
+    var bioIka=krono+phvArvo;
+    var mitat=fys[fys.length-1].mittaukset||{};
+    var ikaKrono=Math.min(15,Math.max(10,Math.floor(krono)));
+    var ikaBio=Math.min(15,Math.max(10,Math.floor(bioIka)));
+    var bioOk=0,kronoOk=0,bioN=0;
+    TESTIT_NOPEUS.forEach(function(t){
+      var v=mitat[t]; if(v==null)return;
+      var tb=haePalloliittoNormiTaso(t,v,sukup,ikaBio);
+      var tk=haePalloliittoNormiTaso(t,v,sukup,ikaKrono);
+      if(tb&&tk){if(tb>=3)bioOk++;if(tk>=3)kronoOk++;bioN++;}
+    });
+    if(bioN>=3&&bioOk>kronoOk){
+      syyt.push('Bio-korj: '+Math.round(bioOk/bioN*100)+'% vs krono '+Math.round(kronoOk/bioN*100)+'%');
+    }
+  }
+
+  // Kerros 3: ADAR-ristiriita — korkea taktinen äly, matala fyysinen OVR
+  // Alkuperäinen TalentMaster-logiikka: aivot edellä kehoa (late-bloomer-klassikko)
+  if(adarYht>=9 && ovr<72){
+    syyt.push('ADAR '+adarYht+' vs OVR '+Math.round(ovr));
+  }
+
+  var aktiiviinen=syyt.length>0;
+  var taso=syyt.length>=2?'kulta':'hopea';
+  return{aktiiviinen:aktiiviinen, taso:aktiiviinen?taso:null, syyt:syyt};
+}
+
 
 function laskeADARSelitys(adar){
   var osat=[
@@ -5832,8 +6010,46 @@ function buildKehitys(){
   // ── GAME IQ™ — ADAR-arvio ──
   h+='<div class="sec-ttl">🧠 Game IQ™</div>';
   h+=buildGIQLaaja(p);
-  if(r.gem){h+='<div class="gem-card"><div class="gem-lbl">💎 Piilopotentiaali tunnistettu</div><div class="gem-ttl">Hidden Gem</div><div class="gem-dsc">'+(r.gemReasons&&r.gemReasons.length?r.gemReasons[0]:'Valmentajasi on huomannut potentiaalisi.')+'</div></div>';}
-  if(r.xfactor){h+='<div class="xf-card"><div class="xf-lbl">⚡ Erottuva vahvuus</div><div class="xf-ttl">X-Factor — '+(r.vahvin_ketju?KETJU_NIMET[r.vahvin_ketju]:'Vahvuus')+'</div><div class="xf-dsc">'+(r.xfReasons&&r.xfReasons.length?r.xfReasons[0]:'Sinulla on luontainen etu tässä osa-alueella.')+'</div></div>';}
+  // ── HIDDEN GEM ja X-FACTOR näyttö (uusi laskentamalli 2025) ──
+  // Tiedot tulevat laskeADAR:sta → hiddenGem, hiddenGemTaso, hiddenGemSyyt, xFactor, xFactorKomponentit
+  var adar_r = adar; // laskeADAR(p) — rakennettuna aiemmin tässä funktiossa
+  var gemAktiivinen = adar_r && adar_r.hiddenGem;
+  var xfAktiivinen  = adar_r && adar_r.xFactor >= 7.0;
+  // Yhteensopivuus: tue myös vanhoja r.gem ja r.xfactor kenttiä
+  if(!gemAktiivinen) gemAktiivinen = r.gem;
+  if(!xfAktiivinen)  xfAktiivinen  = r.xfactor;
+
+  if(gemAktiivinen){
+    var gemTaso    = (adar_r && adar_r.hiddenGemTaso) || 'hopea';
+    var gemSyyt    = (adar_r && adar_r.hiddenGemSyyt) || [];
+    var gemIkoni   = gemTaso === 'kulta' ? '💎' : '🔷';
+    var gemVari    = gemTaso === 'kulta' ? '#FFD700' : '#60a5fa';
+    var gemSelitys = gemSyyt.length ? gemSyyt.join(' · ')
+      : 'Korkea peliäly suhteessa fyysisiin ominaisuuksiin';
+    h+='<div class="gem-card" style="border-color:'+gemVari+'44">';
+    h+='<div class="gem-lbl" style="color:'+gemVari+'">'+gemIkoni+' Piilopotentiaali tunnistettu</div>';
+    h+='<div class="gem-ttl" style="color:'+gemVari+'">Hidden Gem'+(gemTaso==='kulta'?' — Kultataso':'')+'</div>';
+    h+='<div class="gem-dsc">'+gemSelitys+'</div>';
+    if(adar_r && adar_r.hiddenGemSyyt && adar_r.hiddenGemSyyt.length){
+      h+='<div style="font-size:10px;color:var(--muted2);margin-top:6px">Miten lasketaan: RAE-syntymäkvartaali + Palloliiton normitaso + peliäly vs OVR</div>';
+    }
+    h+='</div>';
+  }
+
+  if(xfAktiivinen){
+    var xfPisteet  = (adar_r && adar_r.xFactor) || 0;
+    var xfKomp     = (adar_r && adar_r.xFactorKomponentit) || {};
+    var xfSelitys  = [];
+    if(xfKomp.q && xfKomp.q !== 'Q1') xfSelitys.push('Syntymäkvartaali '+xfKomp.q);
+    if(xfKomp.velNousut >= 2) xfSelitys.push(xfKomp.velNousut+' testiä paranivat normitasolla');
+    if(xfKomp.phvP) xfSelitys.push('Bio-ikäetu (PHV '+xfKomp.phvArvo+')');
+    h+='<div class="xf-card">';
+    h+='<div class="xf-lbl">⚡ Kehityspotentiaali tunnistettu</div>';
+    h+='<div class="xf-ttl">X-Factor — '+xfPisteet.toFixed(1)+'/10</div>';
+    h+='<div class="xf-dsc">'+(xfSelitys.length?xfSelitys.join(' · '):'Poikkeuksellinen kehityskulma')+'</div>';
+    h+='<div style="font-size:10px;color:var(--muted2);margin-top:6px">Miten lasketaan: RAE × normitaso + testikehityskulma (Palloliiton taso 1–5)</div>';
+    h+='</div>';
+  }
   if(r.heikoin_ketju&&r.ketjut){
     var hk=r.heikoin_ketju,kd=r.ketjut[hk],nyt=Math.round(kd&&kd.pisteet||0),pct=Math.min(100,Math.round(nyt/10*100)),tPct=70;
     h+='<div class="keh-tile"><div class="keh-tile-hdr"><span style="font-size:24px">'+KETJU_IKONIT[hk]+'</span><div><div style="font-size:15px;font-weight:700;">'+KETJU_NIMET[hk]+'</div><div style="font-size:11px;color:var(--red)">Kehityskohde nyt</div></div><span style="font-size:10px;padding:3px 8px;border-radius:5px;background:var(--red-dim);color:var(--red);font-weight:700">KEHITETTÄVÄÄ</span></div>';
