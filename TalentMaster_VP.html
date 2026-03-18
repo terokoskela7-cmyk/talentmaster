@@ -215,22 +215,20 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   <div class="nav-tabs">
     <div class="nav-tab active" onclick="vaihda(0,this)">Yleiskuva</div>
     <div class="nav-tab" onclick="vaihda(1,this)">Joukkueet</div>
-    <div class="nav-tab" onclick="vaihda(2,this)">Ketjuanalyysi</div>
+    <div class="nav-tab" onclick="vaihda(2,this)">Liikeprofiili</div>
     <div class="nav-tab" onclick="vaihda(3,this)">Seuravertailu</div>
-    <div class="nav-tab" onclick="vaihda(4,this)">Palloliiton kriteerit</div>
-    <div class="nav-tab" onclick="vaihda(5,this)" style="color:var(--teal)">⭐ Talentit</div>
-    <div class="nav-tab" onclick="vaihda(6,this)">Tavoitetasot</div>
-    <div class="nav-tab" onclick="vaihda(7,this)">Normitasot</div>
+    <div class="nav-tab" onclick="vaihda(4,this)" style="color:var(--teal)">⭐ Talentit</div>
+    <div class="nav-tab" onclick="vaihda(5,this)">🎯 Seuratavoitteet</div>
+    <div class="nav-tab" onclick="vaihda(6,this)">📚 Koulutus</div>
   </div>
   <div class="content">
     <div id="tabYleiskuva"></div>
     <div id="tabJoukkueet" style="display:none"></div>
     <div id="tabKetjut" style="display:none"></div>
     <div id="tabVertailu" style="display:none"></div>
-    <div id="tabKriteerit" style="display:none"></div>
     <div id="tabTalentit" style="display:none"></div>
-    <div id="tabTavoitetasot" style="display:none"></div>
-    <div id="tabNormitasot" style="display:none"></div>
+    <div id="tabSeuratavoitteet" style="display:none"></div>
+    <div id="tabKoulutus" style="display:none"></div>
   </div>
 </div>
 
@@ -2160,7 +2158,7 @@ function ovrFromObj(k) {
 }
 
 // ── NAVIGATION ──
-var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabKriteerit','tabTalentit','tabTavoitetasot','tabNormitasot'];
+var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabTalentit','tabSeuratavoitteet','tabKoulutus'];
 function vaihda(idx, el) {
   _aktivTab = idx;
   _tabs.forEach(function(t){ document.getElementById(t).style.display='none'; });
@@ -2182,10 +2180,9 @@ function renderTab(idx) {
   else if (idx===1) renderJoukkueet();
   else if (idx===2) renderKetjut();
   else if (idx===3) renderVertailu();
-  else if (idx===4) renderKriteerit();
-  else if (idx===5) renderTalentit();
-  else if (idx===6) renderTavoitetasot();
-  else if (idx===7) renderNormitasot();
+  else if (idx===4) renderTalentit();
+  else if (idx===5) renderSeuratavoitteet();
+  else if (idx===6) renderKoulutus();
 }
 
 // ── KETJU META ──
@@ -2604,106 +2601,165 @@ function renderJoukkueet() {
 // ── KETJUANALYYSI ──
 
 function renderKetjut() {
+  // Nimetty renderKetjut yhteensopivuuden vuoksi, sisältö on Liikeprofiili
   var s = _seuraData[_aktivSeura];
   if (!s) return;
 
-  // Aggregoi ikäluokittain (P05=~18v, P06=~17v jne.)
+  // ── IKÄIKKUNADATA: milloin kukin ketju kehittyy optimaalisesti ───────────
+  // Lähde: TalentMaster 5D Framework, Long-Term Athlete Development -malli
+  var IKAIKKUNAT = {
+    sm:     { paras: '10–14v', huomio: 'Kriittisin kehitysikkuna. Pysyvä tekninen pohja syntyy nyt.' },
+    kierto: { paras: '10–16v', huomio: 'Hitain ketju kehittyä. Rotaatioharjoittelu jo 10v alkaen.' },
+    taka:   { paras: '12–16v', huomio: 'Räjähtävyys nousee PHV:n jälkeen. Ennen PHV:tä tekniikkaa.' },
+    sivu:   { paras: '11–15v', huomio: 'Nilkan ja lonkan stabiliteetti ratkaisee pitkällä aikavälillä.' },
+    etu:    { paras: '14–18v', huomio: 'PHV-huipussa kuormitus alas. Lihastasapaino ensin.' },
+  };
+
+  // ── HARJOITE-ESIMERKIT per ketju (linkitys HPP ELITE -kirjastoon) ────────
+  var HARJOITTEET = {
+    sm:     ['SM-pallo-rata (EX_SM_PALLO)', 'Reaktiolähtö + kosketus (EX_REAKTIO)', 'Dual-task suunnanmuutos (EX_DUAL)'],
+    kierto: ['Medicinepallo heitot (EX_MED_HEITTO)', 'Rotaatiosyötöt (EX_ROT_SYOTTO)', 'Laukausvolyymiharjoittelu (EX_LAUKAUS)'],
+    taka:   ['Räjähtävät lähdöt (EX_LAHTO)', 'Lonkan ojentajat (EX_LONKKA)', 'Nordic curl (EX_NORDIC)'],
+    sivu:   ['Lateraalijuoksu + suunnanmuutos (EX_LATERAL)', 'Sivuttaishypyt (EX_SIVU_HYPPY)', 'Nilkkaharjoittelu (EX_NILKKA)'],
+    etu:    ['Kevennyshypyt (EX_CMJ)', 'Plyometriikka (EX_PLYO)', 'Kyykkyvoima (EX_KYYKKY)'],
+  };
+
+  // ── AGGREGOI ikäluokittain ────────────────────────────────────────────────
   var ikaryhmät = {};
   Object.values(s.joukkueet).forEach(function(j) {
-    var jnimi = j.pelaajatLista[0]&&j.pelaajatLista[0].joukkue || '';
+    var jnimi = (j.pelaajatLista[0] && j.pelaajatLista[0].joukkue) || '';
     var match = jnimi.match(/[PT](\d{2})/);
     if (!match) return;
-    var vuosi = parseInt('20'+match[1]);
+    var vuosi = parseInt('20' + match[1]);
     var ika = new Date().getFullYear() - vuosi;
-    var ikaKey = 'U'+ika;
-    if (!ikaryhmät[ikaKey]) ikaryhmät[ikaKey] = { ketjut: {} };
-    Object.keys(j.avgKetjut).forEach(function(k){
+    var ikaKey = 'U' + ika;
+    if (!ikaryhmät[ikaKey]) ikaryhmät[ikaKey] = { ketjut: {}, ika: ika };
+    Object.keys(j.avgKetjut).forEach(function(k) {
       if (j.avgKetjut[k] == null) return;
       if (!ikaryhmät[ikaKey].ketjut[k]) ikaryhmät[ikaKey].ketjut[k] = [];
       ikaryhmät[ikaKey].ketjut[k].push(j.avgKetjut[k]);
     });
   });
-  Object.values(ikaryhmät).forEach(function(ig){
+  Object.values(ikaryhmät).forEach(function(ig) {
     ig.avgKetjut = {};
-    Object.keys(ig.ketjut).forEach(function(k){
-      ig.avgKetjut[k] = ig.ketjut[k].length ? Math.round(avg(ig.ketjut[k])*10)/10 : null;
+    Object.keys(ig.ketjut).forEach(function(k) {
+      ig.avgKetjut[k] = ig.ketjut[k].length
+        ? Math.round(avg(ig.ketjut[k]) * 10) / 10 : null;
     });
   });
-  var ikaJarjestetty = Object.keys(ikaryhmät).sort();
 
   var h = '';
 
-  // Ketjukortit selityksineen
-  h += '<div class="ketju-grid" style="margin-bottom:20px">';
-  Object.entries(KETJU).forEach(function(entry) {
-    var kn = entry[0], km = entry[1];
-    // Laske seuratasolla
-    var vals = [];
-    Object.values(s.joukkueet).forEach(function(j){
-      if (j.avgKetjut[kn]!=null) vals.push(j.avgKetjut[kn]);
-    });
-    var sAvg = vals.length ? Math.round(avg(vals)*10)/10 : null;
-
-    h += '<div class="ketju-card">';
-    h += '<div class="ketju-code" style="background:'+km.vari+'22;color:'+km.vari+'">'+km.nimi+'</div>';
-    h += '<div class="ketju-plain">'+km.plain+'</div>';
-    h += '<div class="ketju-field">'+km.kentta+'</div>';
-    h += '<div style="font-size:11px;color:var(--muted2);font-style:italic;margin-bottom:10px">'+km.train+'</div>';
-
-    if (sAvg != null) {
-      h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">';
-      h += '<div style="flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden">';
-      h += '<div style="height:100%;width:'+Math.round(sAvg*10)+'%;background:'+km.vari+';border-radius:3px"></div></div>';
-      h += '<span style="font-family:\'Bebas Neue\';font-size:22px;color:'+km.vari+'">'+sAvg+'</span>';
-      h += '</div>';
-    }
-
-    // Ikäluokat
-    if (ikaJarjestetty.length > 1) {
-      h += '<div class="ketju-bars">';
-      ikaJarjestetty.forEach(function(ik){
-        var v = ikaryhmät[ik].avgKetjut[kn];
-        if (v == null) return;
-        h += '<div class="ketju-bar-row">';
-        h += '<span class="ketju-age">'+ik+'</span>';
-        h += '<div class="ketju-bar-track"><div class="ketju-bar-fill" style="width:'+Math.round(v*10)+'%;background:'+km.vari+'"></div></div>';
-        h += '<span class="ketju-score" style="color:'+km.vari+'">'+v+'</span>';
-        h += '</div>';
-      });
-      h += '</div>';
-    }
-    h += '</div>';
-  });
+  // ── INTRO: mitä liikeprofiili tarkoittaa ─────────────────────────────────
+  h += '<div class="card" style="margin-bottom:14px">';
+  h += '<div class="card-title" style="margin-bottom:6px">Liikeprofiili — 5 liikeketjua</div>';
+  h += '<div style="font-size:12px;color:var(--muted2);line-height:1.7;margin-bottom:12px">';
+  h += 'Jokainen pelaaja liikkuu ja toimii viiden perusliikeketjun kautta. ';
+  h += 'Nämä eivät ole yksittäisiä ominaisuuksia kuten "nopeus" tai "hyppy" — ';
+  h += 'ne ovat liikejärjestelmiä jotka rakentuvat kehonosien yhteistyöstä. ';
+  h += 'Väripalkit kertovat missä seuran eri ikäluokat ovat tällä hetkellä, ';
+  h += 'ja nuoli osoittaa mitkä ketjut ovat kriittisimmässä kehitysiässä juuri nyt.';
   h += '</div>';
 
-  // Systemaattinen löydös
-  var allVals = {};
-  Object.values(s.joukkueet).forEach(function(j){
-    Object.keys(j.avgKetjut).forEach(function(k){
-      if (j.avgKetjut[k]==null) return;
-      if (!allVals[k]) allVals[k]=[];
-      allVals[k].push(j.avgKetjut[k]);
-    });
+  // Ketju-selitysruudukko — viisi ketjua rinnakkain visuaalisesti
+  h += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">';
+  Object.entries(KETJU).forEach(function(entry) {
+    var kn = entry[0], km = entry[1];
+    var ik = IKAIKKUNAT[kn] || {};
+    h += '<div style="background:var(--bg3);border-radius:10px;padding:8px 10px;border-top:3px solid ' + km.vari + '">';
+    h += '<div style="font-size:13px;font-weight:700;color:' + km.vari + ';margin-bottom:2px">' + km.plain + '</div>';
+    h += '<div style="font-size:10px;color:var(--muted2);line-height:1.5;margin-bottom:6px">' + km.kentta + '</div>';
+    h += '<div style="font-size:10px;background:rgba(0,0,0,.2);border-radius:6px;padding:4px 6px">';
+    h += '<span style="color:var(--muted)">Paras ikäikkuna: </span>';
+    h += '<span style="color:' + km.vari + ';font-weight:600">' + (ik.paras || '—') + '</span>';
+    h += '</div></div>';
   });
-  var sorted = Object.entries(allVals).map(function(e){
-    return { k:e[0], v: Math.round(avg(e[1])*10)/10 };
-  }).sort(function(a,b){return a.v-b.v;});
+  h += '</div></div>'; // grid + intro card
 
-  if (sorted.length >= 2) {
-    var heikin = sorted[0], vahvin2 = sorted[sorted.length-1];
-    var gap = Math.round((vahvin2.v - heikin.v)*10)/10;
-    h += '<div class="insight warn">';
-    h += '<div class="insight-label">Rakenteellinen havainto</div>';
-    h += (KETJU[heikin.k]||{plain:heikin.k}).plain+' ('+heikin.v+'/10) ja '+(KETJU[vahvin2.k]||{plain:vahvin2.k}).plain+' ('+vahvin2.v+'/10) välinen ero on '+gap+' pistettä. ';
-    h += 'Tämä kertoo, että harjoittelu painottuu selvästi tiettyihin liikeketjuihin. ';
-    h += 'Tasapainoisempi kehitys vaatii tietoisen ohjauksen muutoksen.';
+  // ── PER KETJU: ikäluokkavertailu + toimenpiteet ───────────────────────────
+  var ikaJarjestetty = Object.keys(ikaryhmät).sort(function(a, b) {
+    return parseInt(a.slice(1)) - parseInt(b.slice(1));
+  });
+
+  Object.entries(KETJU).forEach(function(entry) {
+    var kn = entry[0], km = entry[1];
+    var ik = IKAIKKUNAT[kn] || {};
+    var harjoitteet = HARJOITTEET[kn] || [];
+
+    h += '<div class="card" style="margin-bottom:12px;border-left:3px solid ' + km.vari + '">';
+
+    // Otsikkorivi
+    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">';
+    h += '<div>';
+    h += '<div style="font-size:15px;font-weight:700;color:' + km.vari + '">' + km.plain + '</div>';
+    h += '<div style="font-size:11px;color:var(--muted2)">' + km.nimi + ' · ' + km.kentta + '</div>';
     h += '</div>';
-  }
+    // Ikäikkuna-badge
+    h += '<div style="text-align:right;flex-shrink:0;margin-left:12px">';
+    h += '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Paras ikäikkuna</div>';
+    h += '<div style="font-size:13px;font-weight:700;color:' + km.vari + '">' + (ik.paras || '—') + '</div>';
+    h += '</div></div>';
+
+    // Ikäikkunahuomio
+    if (ik.huomio) {
+      h += '<div style="font-size:11px;color:var(--muted2);padding:6px 10px;background:rgba(0,0,0,.15);border-radius:7px;margin-bottom:10px">';
+      h += '💡 ' + ik.huomio;
+      h += '</div>';
+    }
+
+    // Ikäluokkapalkit
+    h += '<div style="margin-bottom:10px">';
+    var hasMissing = false;
+    ikaJarjestetty.forEach(function(ikaKey) {
+      var ig = ikaryhmät[ikaKey];
+      var arvo = ig.avgKetjut[kn];
+      if (arvo == null) { hasMissing = true; return; }
+      var pct = Math.round((arvo / 100) * 100); // 0-100 asteikko
+      var col = arvo >= 70 ? 'var(--green)' : arvo >= 45 ? 'var(--amber)' : 'var(--red)';
+      var statusTeksti = arvo >= 70 ? 'Hyvä' : arvo >= 45 ? 'Kehittyvä' : 'Kehityskohde';
+
+      // Onko tämä ikäluokka kriittisessä iässä tälle ketjulle?
+      var ikaInt = ig.ika;
+      var ikaParts = (ik.paras || '').match(/(\d+)–(\d+)/);
+      var kriittinen = ikaParts && ikaInt >= parseInt(ikaParts[1]) && ikaInt <= parseInt(ikaParts[2]);
+
+      h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
+      h += '<div style="width:28px;font-size:11px;color:var(--muted2);flex-shrink:0">' + ikaKey + '</div>';
+      h += '<div style="flex:1;height:14px;background:var(--bg);border-radius:7px;overflow:hidden">';
+      h += '<div style="height:100%;width:' + Math.min(100, arvo) + '%;background:' + col + ';border-radius:7px;transition:width .4s"></div>';
+      h += '</div>';
+      h += '<div style="width:32px;font-size:11px;font-weight:600;color:' + col + ';flex-shrink:0">' + arvo + '</div>';
+      if (kriittinen) {
+        h += '<div style="font-size:10px;background:' + km.vari + '25;color:' + km.vari + ';';
+        h += 'border-radius:5px;padding:1px 5px;flex-shrink:0">🔥 nyt</div>';
+      }
+      if (arvo < 45) {
+        h += '<div style="font-size:10px;color:var(--red);flex-shrink:0">⚠️ ' + statusTeksti + '</div>';
+      }
+      h += '</div>';
+    });
+    if (hasMissing) {
+      h += '<div style="font-size:10px;color:var(--muted);font-style:italic">Osalla ikäluokista ei dataa.</div>';
+    }
+    h += '</div>'; // ikäluokkapalkit
+
+    // Harjoite-ehdotukset
+    h += '<div style="background:var(--bg3);border-radius:9px;padding:9px 12px">';
+    h += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Harjoituskirjasto — ' + km.plain + '</div>';
+    h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:4px">' + km.train + '</div>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">';
+    harjoitteet.forEach(function(hr) {
+      h += '<div style="font-size:10px;background:rgba(0,0,0,.2);border-radius:6px;padding:3px 8px;color:var(--muted2)">' + hr + '</div>';
+    });
+    h += '</div></div>';
+
+    h += '</div>'; // ketju card
+  });
 
   document.getElementById('tabKetjut').innerHTML = h;
 }
 
-// ── SEURAVERTAILU ──
+
 function renderVertailu() {
   var seurat = Object.keys(_seuraData).filter(function(s){ return _seuraData[s].testeja > 50; });
 
@@ -2992,381 +3048,415 @@ function laskeNormitasoSeuralle(s) {
            kehitysalueet:ka, heikoimmat:alle.slice(0,5) };
 }
 
-// ── PALLOLIITON KRITEERIT TAB ─────────────────────────────────
-function renderKriteerit() {
-  var s = _seuraData[_aktivSeura];
-  if (!s) return;
-  var joukkueet = Object.values(s.joukkueet);
-  var krit6 = laskeKriteeri6(s);
-  // Normitasoanalyysi — Palloliiton viralliset tavoitetasot
-  var normAnalyysi = (typeof laskeNormitasoSeuralle === 'function') ? laskeNormitasoSeuralle(s) : null;
-  var normData = normAnalyysi ? normAnalyysi.pct : '—';
+// ── SEURATAVOITTEET TAB ────────────────────────────────────────────────────
+// Yhdistää: Palloliiton korikriteerit + normitasoanalyysi + toimenpiteet
+// Korvaa aiemmat: renderKriteerit + renderTavoitetasot + renderNormitasot
 
-  // Ketjukeskiarvot seuratasolla
-  var sKetjut = {};
-  joukkueet.forEach(function(j) {
-    Object.keys(j.avgKetjut).forEach(function(k) {
-      if (!sKetjut[k]) sKetjut[k] = [];
-      if (j.avgKetjut[k] != null) sKetjut[k].push(j.avgKetjut[k]);
-    });
-  });
-  var sAvg = {};
-  Object.keys(sKetjut).forEach(function(k) {
-    sAvg[k] = Math.round(avg(sKetjut[k])*10)/10;
-  });
-
-  // Liikeketjujen hyväksyttävyys Palloliiton testistöön
-  var palloliitonTestit = {
-    'SM-pallo':       { kriteeri: true, lbl: 'SM-pallo' },
-    'SM ilman palloa':{ kriteeri: true, lbl: 'SM ilman palloa' },
-    'Nopeus 5m':      { kriteeri: true, lbl: 'Nopeus 5m' },
-    'Nopeus 10m':     { kriteeri: true, lbl: 'Nopeus 10m' },
-    'Nopeus 30m':     { kriteeri: true, lbl: 'Nopeus 30m' },
-    'Ketteryys':      { kriteeri: true, lbl: 'Ketteryys (kasirata)' },
-    'Kevennyshyppy':  { kriteeri: true, lbl: 'Nopeusvoima (KH)' },
-    'Syöttäminen':    { kriteeri: true, lbl: 'Lajitekniikka (syöttö)' }
-  };
-
-  // Kuinka monella pelaajalla on fys-dataa (Palloliitto-hyväksyttyjä testejä)
-  var fysN = 0;
-  Object.values(s.joukkueet).forEach(function(j) {
-    j.pelaajatLista.forEach(function(p) {
-      if ((p.fys_historia||[]).length > 0) fysN++;
-    });
-  });
-
-  var kriteerit = [
-    {
-      id: '3', nimi: 'Dokumentoitu valmennuslinja', kategoria: 'TOIMINTA',
-      kuvaus: 'Seuralla on ikäkausikohtaiset tavoitteet, sisällöt ja vastaava henkilö.',
-      tm_rooli: 'TalentMaster 5D Framework™ + Pelaajapolku U7–U19 on dokumentoitu metodologia ikäkausikohtaisine ketjutavoitteineen.',
-      status: 'strong', pisteet: '65–85',
-      naytto: 'VP-näkymän ketjuanalyysi per ikäluokka + TalentMaster Method Manual'
-    },
-    {
-      id: '4', nimi: 'Valmennetaan valmennuslinjan mukaisesti', kategoria: 'TOIMINTA',
-      kuvaus: 'Joukkuevalmentajien ymmärrystä seuran linjasta edistetään järjestelmällisesti.',
-      tm_rooli: 'Valmentajan viikkosuunnitelma + ketjudata osoittaa mihin harjoittelu kohdistuu. VP-näkymä paljastaa poikkeamat.',
-      status: 'medium', pisteet: '40–60',
-      naytto: joukkueet.length+' joukkueen ketjudata · '+joukkueet.reduce(function(a,j){return a+j.testeja;},0)+' testiä'
-    },
-    {
-      id: '5', nimi: 'Arvoperusteiset toimintatavat', kategoria: 'TOIMINTA',
-      kuvaus: 'Johtamisjärjestelmä: strateginen, taktinen ja operatiivinen taso jäsenneltynä.',
-      tm_rooli: 'VP-dashboard on seuran johtamisjärjestelmä: seuran ketjuprofiili (strateginen) → joukkueen tila (taktinen) → viikon toimenpiteet (operatiivinen).',
-      status: 'strong', pisteet: '65–85',
-      naytto: 'TalentMaster_VP.html — valmennuspäällikön johtamisnäkymä'
-    },
-    {
-      id: '6', nimi: 'Pelaajien suorituskyky kehittynyt', kategoria: 'TULOKSET',
-      kuvaus: 'Yli 60% seurannan pelaajista (10–15v) kehittyy johdonmukaisesti 3–5 vuoden aikana.',
-      tm_rooli: 'Palloliiton hyväksymät testit (SM-pallo, nopeus, ketteryys) mitattu ja aikasarjat 2017–2020.',
-      status: krit6.pct >= 60 ? 'strong' : krit6.pct >= 45 ? 'medium' : 'weak',
-      pisteet: krit6.pct >= 60 ? '65–85' : krit6.pct >= 45 ? '40–60' : '15–35',
-      naytto: krit6.pct+'% kehittyy OVR · '+(normAnalyysi ? normData+'% kansallisella tavoitetasolla ('+normAnalyysi.n+'p)' : 'normitasodata puuttuu')+'  · '+fysN+' pelaajaa testattu'
-    },
-    {
-      id: '7', nimi: 'Tavoitteet saavutettu, jäsenet tyytyväisiä', kategoria: 'TULOKSET',
-      kuvaus: 'Aikasarjoja 3–5v, graafit joilla mittaustulokset jalostetaan, vertailutieto kilpailijoista.',
-      tm_rooli: 'Seuravertailu 24 seuraa — vertailutieto on se lisäpisteytekijä jonka Palloliitto mainitsee eksplisiittisesti.',
-      status: 'strong', pisteet: '75–85 (lisäpisteet)',
-      naytto: '24 seuran ketjuvertailu · aikasarjat 2017–2020 · graafit VP-näkymässä'
-    }
-  ];
-
-  var statusCol = { strong: 'var(--green)', medium: 'var(--amber)', weak: 'var(--red)' };
-  var statusLbl = { strong: '✅ Vahva näyttö', medium: '⚠️ Osittainen', weak: '❌ Puuttuu' };
-
-  var h = '';
-
-  // Päämetriikka ylhäällä — se yksi luku
-  var k6col = krit6.pct >= 60 ? 'var(--green)' : krit6.pct >= 45 ? 'var(--amber)' : 'var(--red)';
-  h += '<div class="card" style="border-color:'+(krit6.pct>=60?'rgba(52,211,153,.4)':'rgba(248,113,113,.3)')+';margin-bottom:20px">';
-  h += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">';
-  h += '<div><div class="card-title">Palloliiton kriteeri 6 — pelaajien kehittyminen</div>';
-  h += '<div style="font-size:12px;color:var(--muted2)">10–15-vuotiaat · min. 2 testiä · OVR kehittynyt ensimmäisestä viimeiseen testiin</div></div>';
-  h += '<div style="text-align:right">';
-  h += '<div style="font-family:"Bebas Neue";font-size:60px;line-height:1;color:'+k6col+'">'+krit6.pct+'%</div>';
-  h += '<div style="font-size:12px;color:'+k6col+'">'+(krit6.pct>=60?'✅ Täyttää Palloliiton 60% vaatimuksen':'❌ Alle 60% vaatimuksen')+'</div>';
-  h += '</div></div>';
-  // Mini-progress
-  h += '<div style="margin-top:14px">';
-  h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted2);margin-bottom:4px">';
-  h += '<span>0%</span><span style="color:var(--amber)">60% kynnys</span><span>100%</span></div>';
-  h += '<div style="height:10px;background:var(--bg);border-radius:5px;overflow:visible;position:relative">';
-  h += '<div style="height:100%;width:'+krit6.pct+'%;background:'+k6col+';border-radius:5px;transition:width .6s"></div>';
-  h += '<div style="position:absolute;top:-3px;left:60%;width:2px;height:16px;background:var(--amber);border-radius:1px"></div>';
-  h += '</div>';
-  h += '<div style="margin-top:6px;font-size:12px;color:var(--muted2)">'+krit6.kehittyvat+' pelaajaa kehittyy / '+krit6.n+' seurannassa · '+_aktivSeura+'</div>';
-  h += '</div></div>';
-
-  // Kriteerikortit
-  h += '<div class="card-title" style="margin-bottom:12px">TalentMaster ja Palloliiton arviointikriteerit</div>';
-  kriteerit.forEach(function(k) {
-    var sc = statusCol[k.status];
-    var sl = statusLbl[k.status];
-    h += '<div class="card" style="border-left:3px solid '+sc+';border-radius:0 14px 14px 0;margin-bottom:12px">';
-    h += '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px">';
-    h += '<div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">'+k.kategoria+' · Kriteeri '+k.id+'</div>';
-    h += '<div style="font-size:15px;font-weight:600">'+k.nimi+'</div>';
-    h += '<div style="font-size:12px;color:var(--muted2);margin-top:3px">'+k.kuvaus+'</div></div>';
-    h += '<div style="text-align:right;flex-shrink:0">';
-    h += '<div style="font-size:11px;color:'+sc+';font-weight:600">'+sl+'</div>';
-    h += '<div style="font-family:"Bebas Neue";font-size:20px;color:'+sc+'">'+k.pisteet+' p</div>';
-    h += '</div></div>';
-    h += '<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:8px">';
-    h += '<div style="font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">TalentMaster vastaa tähän</div>';
-    h += '<div style="font-size:12px;color:var(--text);line-height:1.6">'+k.tm_rooli+'</div>';
-    h += '</div>';
-    h += '<div style="font-size:11px;color:var(--muted2)">📊 Näyttö: '+k.naytto+'</div>';
-    h += '</div>';
-  });
-
-  // Normitasoanalyysi — uusi kortti talenttipelaajille
-  if(normAnalyysi){
-    var naCol = normAnalyysi.tavoitetasolla ? 'var(--green)' : normAnalyysi.pct>=50 ? 'var(--amber)' : 'var(--red)';
-    h += '<div class="card" style="margin-bottom:12px;border-left:3px solid '+naCol+';border-radius:0 14px 14px 0;">';
-    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">';
-    h += '<div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px;">TULOKSET · Kori 1 & 2 · Ominaisuustestit</div>';
-    h += '<div style="font-size:15px;font-weight:600">Talenttipelaajat kansallisella tavoitetasolla</div>';
-    h += '<div style="font-size:12px;color:var(--muted2);margin-top:2px">12–15v · Palloliiton protokolla: max 2 testiä voi olla alle P50-normin</div></div>';
-    h += '<div style="text-align:right;flex-shrink:0">';
-    h += '<div style="font-family:"Bebas Neue";font-size:48px;line-height:1;color:'+naCol+'">'+normAnalyysi.pct+'%</div>';
-    h += '<div style="font-size:11px;color:'+naCol+'">'+(normAnalyysi.tavoitetasolla?'✅ Täyttää 66% kynnyksen':'❌ Alle 66% kynnyksen')+'</div>';
-    h += '</div></div>';
-
-    // Progress bar 66% kynnys
-    h += '<div style="position:relative;height:8px;background:var(--bg);border-radius:4px;overflow:visible;margin-bottom:10px;">';
-    h += '<div style="height:100%;width:'+normAnalyysi.pct+'%;background:'+naCol+';border-radius:4px;"></div>';
-    h += '<div style="position:absolute;top:-2px;left:66%;width:2px;height:12px;background:var(--amber);border-radius:1px;"></div>';
-    h += '</div>';
-    h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:12px">'+normAnalyysi.tavoite+' / '+normAnalyysi.n+' pelaajaa tavoitetasolla</div>';
-
-    // Kehitysalueet
-    if(normAnalyysi.kehitysalueet.length){
-      h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Useimmin alle normin</div>';
-      h += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
-      var KA_NAMES={'SM-pallo':'SM-pallo','SM ilman palloa':'SM (ilman)','Nopeus 10m':'10m nopeus','Nopeus 30m':'30m nopeus','Ketteryys':'Ketteryys','Kevennyshyppy':'Kevennyshyppy','Syöttäminen':'Syöttäminen'};
-      normAnalyysi.kehitysalueet.forEach(function(ka){
-        h += '<div style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--red)">';
-        h += (KA_NAMES[ka[0]]||ka[0])+' <span style="opacity:.7">('+ka[1]+'p)</span></div>';
-      });
-      h += '</div>';
-    }
-    h += '</div>';
+// ── KORIT-DATAOBJEKTI ─────────────────────────────────────────────────────
+// Palloliiton seuratukimalli 2025-2026
+// Lähde: Suomen Palloliitto, Seuratukimallin kriteeristö
+// Päivitä tänne kun Palloliitto muuttaa kriteereitä — yksi paikka
+var PL_KORIT = {
+  '1': {
+    nimi: 'Kori 1', vari: 'var(--green)', tuki: '100 000€/v',
+    kuvaus: 'Veikkausliiga/Kakkosliiga-taso. 3 seuraa. Kasvattajarahat 65% + Laatu 35%.',
+    kriteerit: [
+      // ── TULOSKRITEERIT (valmennuspäällikkö vaikuttaa suoraan) ──
+      { id: 'K1_1', kategoria: 'TULOKSET', vp_vaikutus: true,
+        nimi: 'Pelaajien kehittyminen',
+        kuvaus: 'Yli 60% ikäluokan pelaajista (10–15v) kehittyy johdonmukaisesti.',
+        tm_mittari: 'krit6',  // laskeKriteeri6 palauttaa pct
+        kynnys_ok: 60, kynnys_hyva: 70,
+        yksikko: '%', icon: '📈' },
+      { id: 'K1_2', kategoria: 'TULOKSET', vp_vaikutus: true,
+        nimi: 'Ominaisuustestit — akatemiataso',
+        kuvaus: '80% akatemia- ja 66% talenttipelaajista kansallisella tavoitetasolla (Palloliiton taso 3).',
+        tm_mittari: 'normitaso_pct',
+        kynnys_ok: 66, kynnys_hyva: 80,
+        yksikko: '%', icon: '🏃' },
+      { id: 'K1_3', kategoria: 'TULOKSET', vp_vaikutus: true,
+        nimi: 'Lapsuusvaiheen liikunta',
+        kuvaus: 'Min 50 pelaajaa seuraa 3pv/vko, 40 viikkoa/v.',
+        tm_mittari: 'harjoitteluseuranta',
+        kynnys_ok: 50, kynnys_hyva: 70,
+        yksikko: 'pelaajaa', icon: '⚽' },
+      // ── TOIMINTAKRITEERIT (valmennuspäällikkö vaikuttaa) ──
+      { id: 'K1_4', kategoria: 'TOIMINTA', vp_vaikutus: true,
+        nimi: 'Talenttipelaajat nimetty',
+        kuvaus: 'Min 20 poikaa + 20 tyttöä nimetyssä talenttiohjelmassa.',
+        tm_mittari: 'talentit',
+        kynnys_ok: 40, kynnys_hyva: 50,
+        yksikko: 'pelaajaa', icon: '⭐' },
+      { id: 'K1_5', kategoria: 'TOIMINTA', vp_vaikutus: true,
+        nimi: 'Harjoitteluseuranta dokumentoitu',
+        kuvaus: 'Min 250 valmentajahavainnointikertaa/v, keskiarvo ≥8/10.',
+        tm_mittari: 'pikakirjaukset',
+        kynnys_ok: 200, kynnys_hyva: 250,
+        yksikko: 'havaintoa', icon: '📋' },
+      // ── SEURATASON KRITEERIT (ei VP:n vastuulla, FYI) ──
+      { id: 'K1_6', kategoria: 'SEURA', vp_vaikutus: false,
+        nimi: 'Kasvattajarahat (65% painotus)',
+        kuvaus: 'Pisteet kasvattajarahoista — määräytyy pelaajasiirroista.',
+        tm_mittari: null, yksikko: 'pistettä', icon: '💰' },
+      { id: 'K1_7', kategoria: 'SEURA', vp_vaikutus: false,
+        nimi: 'Valmentajien lisenssit',
+        kuvaus: 'C- ja B-lisenssivalmentajien lukumäärä ja osuus.',
+        tm_mittari: null, yksikko: '%', icon: '🎓' }
+    ]
+  },
+  '2': {
+    nimi: 'Kori 2', vari: 'var(--teal)', tuki: '65 000€/v',
+    kuvaus: '8 seuraa. Kasvattajarahat 40% + Laatu 30% + Pysyvyys 30%.',
+    kriteerit: [
+      { id: 'K2_1', kategoria: 'TULOKSET', vp_vaikutus: true,
+        nimi: 'Pelaajien kehittyminen',
+        kuvaus: 'Yli 60% ikäluokan pelaajista (10–15v) kehittyy johdonmukaisesti.',
+        tm_mittari: 'krit6', kynnys_ok: 60, kynnys_hyva: 70,
+        yksikko: '%', icon: '📈' },
+      { id: 'K2_2', kategoria: 'TULOKSET', vp_vaikutus: true,
+        nimi: 'Ominaisuustestit — talenttitaso',
+        kuvaus: '66% talenttipelaajista kansallisella tavoitetasolla.',
+        tm_mittari: 'normitaso_pct', kynnys_ok: 66, kynnys_hyva: 80,
+        yksikko: '%', icon: '🏃' },
+      { id: 'K2_3', kategoria: 'TULOKSET', vp_vaikutus: true,
+        nimi: 'Lapsuusvaiheen liikunta',
+        kuvaus: 'Min 50 pelaajaa seuraa 3pv/vko, 40 viikkoa/v.',
+        tm_mittari: 'harjoitteluseuranta', kynnys_ok: 50, kynnys_hyva: 70,
+        yksikko: 'pelaajaa', icon: '⚽' },
+      { id: 'K2_4', kategoria: 'TOIMINTA', vp_vaikutus: true,
+        nimi: 'Talenttipelaajat nimetty',
+        kuvaus: 'Min 20 poikaa + 20 tyttöä talenttiohjelmassa.',
+        tm_mittari: 'talentit', kynnys_ok: 40, kynnys_hyva: 50,
+        yksikko: 'pelaajaa', icon: '⭐' },
+      { id: 'K2_5', kategoria: 'TOIMINTA', vp_vaikutus: true,
+        nimi: 'Harjoitteluseuranta',
+        kuvaus: 'Min 250 valmentajahavainnointikertaa/v.',
+        tm_mittari: 'pikakirjaukset', kynnys_ok: 150, kynnys_hyva: 250,
+        yksikko: 'havaintoa', icon: '📋' },
+      { id: 'K2_6', kategoria: 'SEURA', vp_vaikutus: false,
+        nimi: 'Pelaajien pysyvyys (30% painotus)',
+        kuvaus: 'Seuran kasvattien osuus edustusjoukkueessa.',
+        tm_mittari: null, yksikko: '%', icon: '🔄' },
+      { id: 'K2_7', kategoria: 'SEURA', vp_vaikutus: false,
+        nimi: 'Kasvattajarahat (40% painotus)',
+        tm_mittari: null, yksikko: 'pistettä', icon: '💰' },
+      { id: 'K2_8', kategoria: 'SEURA', vp_vaikutus: false,
+        nimi: 'Valmentajien lisenssit',
+        tm_mittari: null, yksikko: '%', icon: '🎓' }
+    ]
+  },
+  '3': {
+    nimi: 'Kori 3', vari: 'var(--amber)', tuki: '30 000€/v',
+    kuvaus: '20 seuraa. Laatu 50% + Pysyvyys 50%.',
+    kriteerit: [
+      { id: 'K3_1', kategoria: 'TULOKSET', vp_vaikutus: true,
+        nimi: 'Pelaajien kehittyminen',
+        kuvaus: 'Yli 60% ikäluokan pelaajista kehittyy johdonmukaisesti.',
+        tm_mittari: 'krit6', kynnys_ok: 60, kynnys_hyva: 70,
+        yksikko: '%', icon: '📈' },
+      { id: 'K3_2', kategoria: 'TULOKSET', vp_vaikutus: true,
+        nimi: 'Ominaisuustestit',
+        kuvaus: 'Palloliiton hyväksytyt testit dokumentoitu.',
+        tm_mittari: 'normitaso_pct', kynnys_ok: 40, kynnys_hyva: 66,
+        yksikko: '%', icon: '🏃' },
+      { id: 'K3_3', kategoria: 'TOIMINTA', vp_vaikutus: true,
+        nimi: 'Harjoitteluseuranta',
+        kuvaus: 'Perusdokumentointi valmentajien havainnoista.',
+        tm_mittari: 'pikakirjaukset', kynnys_ok: 50, kynnys_hyva: 150,
+        yksikko: 'havaintoa', icon: '📋' },
+      { id: 'K3_4', kategoria: 'SEURA', vp_vaikutus: false,
+        nimi: 'Pelaajien pysyvyys (50% painotus)',
+        tm_mittari: null, yksikko: '%', icon: '🔄' },
+      { id: 'K3_5', kategoria: 'SEURA', vp_vaikutus: false,
+        nimi: 'Laatu (50% painotus)',
+        tm_mittari: null, yksikko: 'pistettä', icon: '🏆' }
+    ]
   }
-
-  // ── NORMITASOANALYYSI-KORTTI ──
-  if (normAnalyysi) {
-    var naCol = normAnalyysi.tavoitetasolla ? 'var(--green)' : normAnalyysi.pct >= 45 ? 'var(--amber)' : 'var(--red)';
-    h += '<div class="card" style="margin-bottom:12px;border-left:3px solid '+naCol+';border-radius:0 14px 14px 0;">';
-    h += '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">';
-    h += '<div>';
-    h += '<div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">TULOKSET · Ominaisuustestit · 12–15v</div>';
-    h += '<div style="font-size:15px;font-weight:600">Kansallisella tavoitetasolla (Palloliiton normit 2024)</div>';
-    h += '<div style="font-size:12px;color:var(--muted2);margin-top:3px">Palloliiton protokolla: max 2 testiä voi olla alle tason 3 · '+normAnalyysi.tavoite+'/'+normAnalyysi.n+' pelaajaa</div>';
-    h += '</div>';
-    h += '<div style="text-align:right;flex-shrink:0">';
-    h += '<div style="font-family:\"Bebas Neue\";font-size:48px;line-height:1;color:'+naCol+'">'+normAnalyysi.pct+'%</div>';
-    h += '<div style="font-size:11px;color:'+naCol+'">'+(normAnalyysi.tavoitetasolla ? '✅ 66% kynnys täyttyy' : '❌ Alle 66% kynnyksen')+'</div>';
-    h += '</div></div>';
-    // Progress bar
-    h += '<div style="position:relative;height:8px;background:var(--bg);border-radius:4px;overflow:visible;margin-bottom:8px">';
-    h += '<div style="height:100%;width:'+normAnalyysi.pct+'%;background:'+naCol+';border-radius:4px"></div>';
-    h += '<div style="position:absolute;top:-3px;left:66%;width:2px;height:14px;background:var(--amber);border-radius:1px"></div>';
-    h += '</div>';
-    // Kehitysalueet
-    if (normAnalyysi.kehitysalueet && normAnalyysi.kehitysalueet.length) {
-      h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">';
-      normAnalyysi.kehitysalueet.forEach(function(ka) {
-        h += '<div style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:3px 10px;font-size:11px;color:var(--red)">';
-        h += (ka[0]||'?')+' <span style="opacity:.7">('+ka[1]+'p)</span></div>';
-      });
-      h += '</div>';
-    }
-    h += '</div>';
-  } else {
-    h += '<div class="card" style="margin-bottom:12px;border-color:rgba(255,255,255,.05)">';
-    h += '<div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">TULOKSET · Ominaisuustestit</div>';
-    h += '<div style="font-size:13px;color:var(--muted2)">Normitasodata ei saatavilla — tarvitaan 12–15v pelaajien fyysisiä testejä</div>';
-    h += '</div>';
-  }
-
-  // Puuttuvat osa-alueet
-  h += '<div class="card" style="border-color:rgba(248,113,113,.2)">';
-  h += '<div class="card-title">Osa-alueet jotka TalentMaster ei vielä kata</div>';
-  var puuttuvat = [
-    {id:'4', asia:'Harjoittelunseurantamalli', selite:'Palloliiton malli: liikkumisen määrä, pallokosketukset, intensiteetti harjoituksessa. Vaatii paikan päällä tehtävän havainnoinnin.'},
-    {id:'7', asia:'Jäsentyytyväisyyskyselyt', selite:'Pelaajien, vanhempien ja valmentajien tyytyväisyyskysely — oma prosessi jota TalentMaster ei tue.'},
-    {id:'7', asia:'H&H-polku (psykososiaalinen)', selite:'Hyvä ihminen & Hyvä pelaaja -kehityspolku. Tulevaisuuden kehityskohde TalentMasteriin.'}
-  ];
-  puuttuvat.forEach(function(p) {
-    h += '<div class="alert-item">';
-    h += '<div class="alert-dot" style="background:var(--red)"></div>';
-    h += '<div><div style="font-size:13px;font-weight:500;color:var(--text)">Kriteeri '+p.id+': '+p.asia+'</div>';
-    h += '<div style="font-size:12px;color:var(--muted2);margin-top:2px">'+p.selite+'</div></div>';
-    h += '</div>';
-  });
-  h += '</div>';
-
-  document.getElementById('tabKriteerit').innerHTML = h;
-}
-
-// ── NORMITASOLASKENTA ─────────────────────────────────────────
-var TESTIT_PALLOLIITON = ['Ketteryys','Nopeus 30m','SM-pallo','Kevennyshyppy','Syöttäminen','SM ilman palloa'];
-var TESTI_NIMET = {
-  'Ketteryys':'Ketteryys','Nopeus 30m':'Nopeus 30m','SM-pallo':'SM-pallo',
-  'Kevennyshyppy':'Kevennyshyppy','Syöttäminen':'Syöttäminen',
-  'SM ilman palloa':'SM (ilman palloa)','Nopeus 5m':'Nopeus 5m'
 };
 
-function laskeNormitilanne(s) {
-  var testiTulokset = {};
-  TESTIT_PALLOLIITON.forEach(function(t){ testiTulokset[t]={saavutti:0,total:0}; });
-  var pelaajaKokonais = [];
+// PIN → oletuskori — vaihdettavissa lennossa
+var PL_PIN_KORI = { '5555': '2', '6666': '1', '7777': '2', '8888': '1' };
+var _aktivKori = '2'; // oletusarvo
 
+function renderSeuratavoitteet() {
+  var s = _seuraData[_aktivSeura];
+  if (!s) return;
+
+  // Aseta aktiviinen kori PIN:n mukaan jos ei ole jo asetettu
+  var pinDefault = PL_PIN_KORI[_vpPin] || '2';
+  if (!localStorage.getItem('kori_' + _aktivSeura)) {
+    _aktivKori = pinDefault;
+  } else {
+    _aktivKori = localStorage.getItem('kori_' + _aktivSeura) || pinDefault;
+  }
+
+  var kori = PL_KORIT[_aktivKori];
+  if (!kori) return;
+
+  // Laske datalähtöiset arvot
+  var krit6     = laskeKriteeri6(s);
+  var normData  = (typeof laskeNormitasoSeuralle === 'function') ? laskeNormitasoSeuralle(s) : null;
+  var talentSet = haeTalentit(_aktivSeura);
+  var nTalentit = talentSet ? talentSet.size : 0;
+
+  // Pikakirjaukset: laske kaikki localStorage-kirjaukset tältä seuralta
+  var pikaLkm = 0;
+  Object.keys(localStorage).forEach(function(k) {
+    if (k.startsWith('pika_' + _aktivSeura.replace(/\s+/g,'_'))) {
+      try {
+        var arr = JSON.parse(localStorage.getItem(k));
+        if (Array.isArray(arr)) pikaLkm += arr.length;
+      } catch(e) {}
+    }
+  });
+
+  // Arvojen resolver — palauttaa {arvo, pct, ok} per mittari
+  function laskeMittari(mittari, kynnys_ok) {
+    if (!mittari) return { arvo: null, pct: null, ok: false, teksti: 'Ei dataa TM:ssä' };
+    if (mittari === 'krit6')
+      return { arvo: krit6.pct, pct: krit6.pct, ok: krit6.pct >= kynnys_ok,
+               teksti: krit6.pct + '% pelaajista kehittyy (' + krit6.n + 'p)' };
+    if (mittari === 'normitaso_pct')
+      return normData
+        ? { arvo: normData.pct, pct: normData.pct, ok: normData.pct >= kynnys_ok,
+            teksti: normData.pct + '% tasolla 3+ (' + normData.n + 'p)' }
+        : { arvo: null, pct: null, ok: false, teksti: 'Ei normidataa' };
+    if (mittari === 'talentit')
+      return { arvo: nTalentit, pct: Math.min(100, Math.round(nTalentit / kynnys_ok * 100)),
+               ok: nTalentit >= kynnys_ok,
+               teksti: nTalentit + ' nimettyä talenttipelaajaa' };
+    if (mittari === 'pikakirjaukset')
+      return { arvo: pikaLkm, pct: Math.min(100, Math.round(pikaLkm / kynnys_ok * 100)),
+               ok: pikaLkm >= kynnys_ok,
+               teksti: pikaLkm + ' kirjattua valmentajahavainnointia' };
+    if (mittari === 'harjoitteluseuranta')
+      return { arvo: null, pct: null, ok: false, teksti: 'Seurataan seuraavassa versiossa' };
+    return { arvo: null, pct: null, ok: false, teksti: '—' };
+  }
+
+  // ── UI RAKENTAMINEN ────────────────────────────────────────────────────
+  var h = '';
+
+  // HEADER: korin valinta ja tietoa korista
+  h += '<div class="card" style="margin-bottom:14px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">';
+  h += '<div>';
+  h += '<div class="card-title" style="margin:0">Palloliiton seuratuki — ' + kori.nimi + '</div>';
+  h += '<div style="font-size:11px;color:var(--muted2);margin-top:3px">' + kori.kuvaus + '</div>';
+  h += '</div>';
+  // Korinvaihto-napit
+  h += '<div style="display:flex;gap:4px">';
+  ['1','2','3'].forEach(function(k) {
+    var active = k === _aktivKori;
+    var kv = PL_KORIT[k];
+    h += '<button onclick="vaihdaKori(\'' + k + '\')" ';
+    h += 'style="padding:5px 12px;border-radius:8px;border:1px solid ' + kv.vari + ';';
+    h += 'background:' + (active ? kv.vari : 'transparent') + ';';
+    h += 'color:' + (active ? '#000' : kv.vari) + ';';
+    h += 'font-family:\\"DM Sans\\";font-size:12px;font-weight:600;cursor:pointer">';
+    h += kv.nimi + '</button>';
+  });
+  h += '</div></div>';
+
+  // Simulaattorikonteksti — eri korille voi simuloida mihin asti täytetään
+  var onNykyKori = (_aktivKori === pinDefault);
+  if (!onNykyKori) {
+    h += '<div style="padding:8px 12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);';
+    h += 'border-radius:10px;margin-bottom:12px;font-size:11px;color:var(--amber)">';
+    h += '🔭 <strong>Simulaatiotila:</strong> Katso kuinka lähellä seuranne on ' + kori.nimi + ':n kriteereitä. ';
+    h += 'Puuttuvat kriteerit näkyvät punaisina — ne ovat kehityspolun seuraavat askeleet.';
+    h += '</div>';
+  }
+
+  // Tukisumma-badge
+  h += '<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;';
+  h += 'background:rgba(0,0,0,.2);border-radius:10px;margin-bottom:16px">';
+  h += '<span style="font-size:11px;color:var(--muted2)">Tukisumma:</span>';
+  h += '<span style="font-family:\\"Bebas Neue\\";font-size:20px;color:' + kori.vari + '">' + kori.tuki + '</span>';
+  h += '</div>';
+
+  // ── VP:N VAIKUTUSALUE — toimintakriteerit ──────────────────────────────
+  var vpKriteerit = kori.kriteerit.filter(function(k2) { return k2.vp_vaikutus; });
+  var okCount = 0, totalVP = vpKriteerit.length;
+
+  h += '<div style="font-size:11px;color:var(--teal);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:10px">';
+  h += '✅ Valmennuspäällikön vastuualue (' + totalVP + ' kriteeriä)</div>';
+
+  vpKriteerit.forEach(function(kr) {
+    var m = laskeMittari(kr.tm_mittari, kr.kynnys_ok);
+    var col = m.ok ? 'var(--green)' : m.pct !== null && m.pct >= 50 ? 'var(--amber)' : 'var(--red)';
+    var bgCol = m.ok ? 'rgba(52,211,153,.06)' : m.pct !== null && m.pct >= 50 ? 'rgba(245,158,11,.06)' : 'rgba(248,113,113,.06)';
+    var statusIcon = m.ok ? '✅' : m.arvo === null ? '⬜' : '❌';
+    if (m.ok) okCount++;
+
+    h += '<div style="background:' + bgCol + ';border-radius:12px;padding:11px 14px;margin-bottom:8px">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">';
+    h += '<div style="display:flex;gap:8px;align-items:center">';
+    h += '<span style="font-size:16px">' + kr.icon + '</span>';
+    h += '<div>';
+    h += '<div style="font-size:12px;font-weight:600">' + kr.nimi + '</div>';
+    h += '<div style="font-size:11px;color:var(--muted2)">' + kr.kuvaus + '</div>';
+    h += '</div></div>';
+    h += '<div style="text-align:right;flex-shrink:0;margin-left:10px">';
+    h += '<div style="font-size:18px">' + statusIcon + '</div>';
+    if (m.arvo !== null) {
+      h += '<div style="font-family:\\"Bebas Neue\\";font-size:20px;line-height:1;color:' + col + '">';
+      h += m.arvo + '<span style="font-size:11px;color:var(--muted2)">' + kr.yksikko + '</span>';
+      h += '</div>';
+    }
+    h += '</div></div>';
+
+    // Progress bar
+    if (m.pct !== null) {
+      h += '<div style="position:relative;height:5px;background:var(--bg);border-radius:3px;overflow:visible;margin-bottom:4px">';
+      h += '<div style="height:100%;width:' + m.pct + '%;background:' + col + ';border-radius:3px"></div>';
+      // Kynnysviiva
+      var kynnysPct = Math.min(100, Math.round(kr.kynnys_ok / (kr.kynnys_hyva || kr.kynnys_ok) * 100));
+      h += '<div style="position:absolute;top:-3px;left:' + Math.min(95,kynnysPct) + '%;width:2px;height:11px;background:var(--amber)"></div>';
+      h += '</div>';
+    }
+    h += '<div style="font-size:11px;color:' + col + ';font-weight:500">' + m.teksti + '</div>';
+    h += '</div>';
+  });
+
+  // Yhteenveto VP-kriteereistä
+  var vpPct = Math.round(okCount / totalVP * 100);
+  var vpCol = vpPct >= 80 ? 'var(--green)' : vpPct >= 50 ? 'var(--amber)' : 'var(--red)';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;';
+  h += 'padding:10px 14px;background:var(--bg3);border-radius:10px;margin-top:4px">';
+  h += '<span style="font-size:12px;color:var(--muted2)">VP-kriteerit täyttynyt</span>';
+  h += '<span style="font-family:\\"Bebas Neue\\";font-size:24px;color:' + vpCol + '">' + okCount + '/' + totalVP + '</span>';
+  h += '</div>';
+  h += '</div>'; // header card
+
+  // ── SEURATASON KRITEERIT — FYI ─────────────────────────────────────────
+  var seuraKrit = kori.kriteerit.filter(function(k2) { return !k2.vp_vaikutus; });
+  if (seuraKrit.length) {
+    h += '<div class="card" style="margin-bottom:14px;border-color:rgba(255,255,255,.06)">';
+    h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">';
+    h += '🏛️ Seuratason kriteerit (hallitus & toiminnanjohtaja)</div>';
+    h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.6">';
+    h += 'Nämä kriteerit ovat hallituksen ja toiminnanjohtajan vastuulla. ';
+    h += 'Valmennuspäällikkö tuottaa evidenssin urheilullisiin kriteereihin, mutta ';
+    h += 'rahoituspäätökseen liittyvät tekijät ovat johdon vastuulla.';
+    h += '</div>';
+    seuraKrit.forEach(function(kr) {
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)">';
+      h += '<span style="font-size:14px;opacity:.6">' + kr.icon + '</span>';
+      h += '<div>';
+      h += '<div style="font-size:12px;color:var(--muted)">' + kr.nimi + '</div>';
+      if (kr.kuvaus) h += '<div style="font-size:10px;color:var(--muted2)">' + kr.kuvaus + '</div>';
+      h += '</div></div>';
+    });
+    h += '</div>';
+  }
+
+  // ── NORMITASOANALYYSI ─────────────────────────────────────────────────
+  // Upotetaan tähän se mitä aiemmin oli renderNormitasot:ssa
+  h += '<div class="card" style="margin-bottom:14px">';
+  h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Normitasoanalyysi — Palloliiton viralliset tasot 1–5</div>';
+  h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:12px">Eerikkilä / Palloliitto 2024 · % pelaajista saavuttaa tason 3 (kansallinen tavoitetaso)</div>';
+
+  // Laske per testi per ikäluokka — kompakti versio
+  var VERT_TESTIT = [
+    { testi: 'Nopeus 10m',       alas: true  },
+    { testi: 'Nopeus 30m',       alas: true  },
+    { testi: 'SM ilman palloa',  alas: true  },
+    { testi: 'SM-pallo',         alas: true  },
+    { testi: 'Kevennyshyppy',    alas: false },
+  ];
+
+  var ikaData = {};
+  ['P10','P11','P12','P13','P14','P15'].forEach(function(ik) { ikaData[ik] = {}; });
   Object.values(s.joukkueet).forEach(function(j) {
     j.pelaajatLista.forEach(function(p) {
-      var ika = (p.bioIka&&p.bioIka.krono)||0;
-      if(ika<12||ika>15) return;
-      var fys = p.fys_historia||[];
-      if(!fys.length) return;
-      var mitt = fys[fys.length-1].mittaukset||{};
-      var ikaInt = String(Math.floor(ika));
-      var pelLapi=0, pelTest=0;
-
-      TESTIT_PALLOLIITON.forEach(function(testi) {
-        var arvo = mitt[testi];
-        if(arvo==null) return;
-        var normi = TM_NORMIT[testi];
-        if(!normi) return;
-        var ikk = normi.ikaryhmät[ikaInt];
-        if(!ikk) return;
-        var raja = ikk['3'];
-        var alas = normi.alas;
-        var ok = alas ? (arvo<=raja) : (arvo>=raja);
-        testiTulokset[testi].total++;
-        if(ok) testiTulokset[testi].saavutti++;
-        pelTest++;
-        if(ok) pelLapi++;
+      var ika = (p.bioIka && p.bioIka.krono) || 0;
+      if (ika < 10 || ika > 15) return;
+      var fys = p.fys_historia || [];
+      if (!fys.length) return;
+      var mitat = fys[fys.length-1].mittaukset || {};
+      var ikaKey = 'P' + Math.min(15, Math.max(10, Math.floor(ika)));
+      VERT_TESTIT.forEach(function(tm2) {
+        var v = mitat[tm2.testi];
+        if (v == null) return;
+        if (!ikaData[ikaKey][tm2.testi]) ikaData[ikaKey][tm2.testi] = [];
+        ikaData[ikaKey][tm2.testi].push(v);
       });
-
-      if(pelTest>=3) pelaajaKokonais.push((pelTest-pelLapi)<=2);
     });
   });
 
-  var testiPct = {};
-  TESTIT_PALLOLIITON.forEach(function(t) {
-    var r=testiTulokset[t];
-    testiPct[t] = r.total>=5 ? Math.round(r.saavutti/r.total*100) : null;
-  });
-  var kokonaisPct = pelaajaKokonais.length>=5
-    ? Math.round(pelaajaKokonais.filter(Boolean).length/pelaajaKokonais.length*100)
-    : null;
+  var hasData = false;
+  ['P10','P11','P12','P13','P14','P15'].forEach(function(ikaKey) {
+    var rivit = [];
+    VERT_TESTIT.forEach(function(tm2) {
+      var vals = ikaData[ikaKey][tm2.testi] || [];
+      if (vals.length < 3) return;
+      var t3obj = (TM_PALLOLIITTO['male'][tm2.testi] || {})[ikaKey];
+      if (!t3obj || t3obj.t3 == null) return;
+      var t3 = t3obj.t3;
+      var sorted = vals.slice().sort(function(a,b){return a-b;});
+      var med = sorted[Math.floor(sorted.length/2)];
+      var okN = vals.filter(function(v){ return tm2.alas ? v<=t3 : v>=t3; }).length;
+      var okPct = Math.round(okN/vals.length*100);
+      rivit.push({ testi: tm2.testi, med: med, t3: t3, okPct: okPct, n: vals.length });
+    });
+    if (!rivit.length) return;
+    hasData = true;
 
-  return {kokonaisPct:kokonaisPct, n:pelaajaKokonais.length,
-          testiPct:testiPct, kori2Ok:(kokonaisPct||0)>=66};
-}
+    var kokonPct = Math.round(rivit.reduce(function(a,r){return a+r.okPct;},0)/rivit.length);
+    var headerCol = kokonPct>=66?'var(--green)':kokonPct>=40?'var(--amber)':'var(--red)';
 
-function renderNormitasot() {
-  var s = _seuraData[_aktivSeura];
-  if(!s) return;
-  var norm = laskeNormitilanne(s);
-  var h = '';
-
-  // Pääkortti — Palloliiton kori 2 kriteeri
-  var mainCol = (norm.kokonaisPct||0)>=66?'var(--green)':(norm.kokonaisPct||0)>=50?'var(--amber)':'var(--red)';
-  var borderCol = (norm.kokonaisPct||0)>=66?'rgba(52,211,153,.35)':'rgba(248,113,113,.25)';
-  h+='<div class="card" style="border-color:'+borderCol+';margin-bottom:20px">';
-  h+='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">';
-  h+='<div>';
-  h+='<div class="card-title">Palloliiton kori 2 — ominaisuustestit</div>';
-  h+='<div style="font-size:12px;color:var(--muted2)">12–15-vuotiaat talenttipelaajat · Palloliitto vaatii 66%</div>';
-  h+='<div style="font-size:12px;color:var(--muted2);margin-top:2px">Max 2 testiä per pelaaja saa jäädä alle T3-tason</div>';
-  h+='</div>';
-  h+='<div style="text-align:center">';
-  h+='<div style="font-family:"Bebas Neue";font-size:64px;line-height:1;color:'+mainCol+'">'+(norm.kokonaisPct!=null?norm.kokonaisPct+'%':'–')+'</div>';
-  h+='<div style="font-size:12px;color:'+mainCol+'">'+(norm.kori2Ok?'✅ Täyttää 66% vaatimuksen':'❌ Alle 66% vaatimuksen')+'</div>';
-  h+='<div style="font-size:11px;color:var(--muted2)">n='+norm.n+' pelaajaa</div>';
-  h+='</div></div>';
-
-  // Progress-palkki 66% kynnyksellä
-  h+='<div style="margin-top:16px">';
-  h+='<div style="height:10px;background:var(--bg);border-radius:5px;overflow:visible;position:relative">';
-  h+='<div style="height:100%;width:'+(norm.kokonaisPct||0)+'%;background:'+mainCol+';border-radius:5px;transition:width .5s"></div>';
-  h+='<div style="position:absolute;top:-3px;left:66%;width:2px;height:16px;background:var(--amber);border-radius:1px"></div>';
-  h+='</div>';
-  h+='<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);margin-top:3px">';
-  h+='<span>0%</span><span style="color:var(--amber)">66% kynnys</span><span>100%</span></div>';
-  h+='</div></div>';
-
-  // Testi-kohtainen analyysi
-  h+='<div class="card">';
-  h+='<div class="card-title">Testi-kohtainen T3-saavutusprosentti</div>';
-  h+='<div style="font-size:12px;color:var(--muted2);margin-bottom:14px">T3 = kansallinen tavoitetaso · palkkien tulisi olla ≥66% kori 2:n täyttämiseksi</div>';
-
-  var testiMeta = {
-    'Ketteryys':      {ikoni:'⚡',ketju:'Takaketju – kiihdytys'},
-    'Nopeus 30m':     {ikoni:'🏃',ketju:'Takaketju – huippunopeus'},
-    'SM-pallo':       {ikoni:'⚽',ketju:'SM-ketju – pallollinen liike'},
-    'SM ilman palloa':{ikoni:'🔄',ketju:'SM-ketju – suunnanmuutos'},
-    'Kevennyshyppy':  {ikoni:'⬆️',ketju:'Etuketju – ponnistusvoima'},
-    'Syöttäminen':    {ikoni:'🎯',ketju:'Kiertoketju – syöttötaito'}
-  };
-
-  // Järjestä tulokset pct:n mukaan
-  var testit = Object.keys(norm.testiPct).filter(function(t){return norm.testiPct[t]!=null;});
-  testit.sort(function(a,b){return (norm.testiPct[b]||0)-(norm.testiPct[a]||0);});
-
-  testit.forEach(function(testi) {
-    var pct = norm.testiPct[testi];
-    if(pct==null) return;
-    var col = pct>=66?'var(--green)':pct>=50?'var(--amber)':'var(--red)';
-    var meta = testiMeta[testi]||{ikoni:'📊',ketju:''};
-    h+='<div style="margin-bottom:12px">';
-    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
-    h+='<div style="display:flex;align-items:center;gap:8px">';
-    h+='<span style="font-size:14px">'+meta.ikoni+'</span>';
-    h+='<div><div style="font-size:13px;font-weight:500">'+testi+'</div>';
-    h+='<div style="font-size:11px;color:var(--muted2)">'+meta.ketju+'</div></div></div>';
-    h+='<span style="font-size:16px;font-weight:600;color:'+col+'">'+pct+'%</span></div>';
-    h+='<div style="height:8px;background:var(--bg);border-radius:4px;overflow:visible;position:relative">';
-    h+='<div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:4px;transition:width .4s"></div>';
-    h+='<div style="position:absolute;top:-2px;left:66%;width:1.5px;height:12px;background:var(--amber)"></div>';
-    h+='</div></div>';
+    h += '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px">';
+    h += '<div style="display:flex;justify-content:space-between;margin-bottom:6px">';
+    h += '<div style="font-size:12px;font-weight:600">' + ikaKey + '</div>';
+    h += '<div style="font-size:11px;color:' + headerCol + ';font-weight:600">' + kokonPct + '% tasolla 3+</div>';
+    h += '</div>';
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:5px">';
+    rivit.forEach(function(r) {
+      var col = r.okPct>=66?'var(--green)':r.okPct>=40?'var(--amber)':'var(--red)';
+      h += '<div style="background:var(--bg3);border-radius:8px;padding:6px 8px">';
+      h += '<div style="font-size:10px;color:var(--muted2);margin-bottom:2px">' + r.testi + '</div>';
+      h += '<div style="display:flex;justify-content:space-between;align-items:center">';
+      h += '<span style="font-size:12px;font-weight:600;color:' + col + '">' + r.okPct + '%</span>';
+      h += '<span style="font-size:10px;color:var(--muted2)">' + r.med + ' / ' + r.t3 + '</span>';
+      h += '</div></div>';
+    });
+    h += '</div></div>';
   });
 
-  // Puuttuvat testit → toimintasuositus
-  var puuttuvat = Object.keys(norm.testiPct).filter(function(t){return norm.testiPct[t]==null;});
-  if(puuttuvat.length>0) {
-    h+='<div style="background:rgba(255,184,48,.07);border:1px solid rgba(255,184,48,.2);border-radius:10px;padding:10px 12px;margin-top:12px">';
-    h+='<div style="font-size:10px;color:var(--amber);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Ei riittävästi dataa</div>';
-    h+='<div style="font-size:12px;color:var(--text)">'+puuttuvat.join(', ')+' — alle 5 mittausta. Lisää testikattavuus.</div>';
-    h+='</div>';
+  if (!hasData) {
+    h += '<div style="font-size:12px;color:var(--muted2);text-align:center;padding:16px">Ei normidataa 10–15v pelaajille</div>';
   }
+  h += '</div>'; // normitaso card
 
-  // Toimintasuositus heikoimman perusteella
-  if(testit.length>0) {
-    var heikin = testit[testit.length-1];
-    var hPct = norm.testiPct[heikin];
-    var ketjuOhje = {
-      'Ketteryys':      'Takaketjuharjoittelu: räjähtävät lähdöt, lonkan voima',
-      'Nopeus 30m':     'Takaketjuharjoittelu: huippunopeusharjoitteet, flyingit',
-      'SM-pallo':       'SM-harjoitteet: pallollinen suunnanmuutos, reaktiolähdöt',
-      'SM ilman palloa':'SM-harjoitteet: ketteryysradat, sivuttaisliike',
-      'Kevennyshyppy':  'Etuketjuharjoittelu: plyometriikka, kyykkyprogressio',
-      'Syöttäminen':    'Kiertoketjuharjoittelu: syöttöpenkki, pitkä syöttö, rotaatio'
-    };
-    h+='<div style="background:rgba(0,229,204,.07);border:1px solid rgba(0,229,204,.2);border-radius:10px;padding:10px 12px;margin-top:12px">';
-    h+='<div style="font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Kehitysprioriteetti</div>';
-    h+='<div style="font-size:13px;color:var(--text)"><strong>'+heikin+'</strong> ('+hPct+'%) on seuran heikoin testi. ';
-    h+=ketjuOhje[heikin]||'Kohdista harjoittelu tähän osa-alueeseen.';
-    h+='</div></div>';
-  }
-  h+='</div>';
-
-  document.getElementById('tabNormitasot').innerHTML=h;
+  document.getElementById('tabSeuratavoitteet').innerHTML = h;
 }
+
+function vaihdaKori(kori) {
+  _aktivKori = kori;
+  localStorage.setItem('kori_' + _aktivSeura, kori);
+  renderSeuratavoitteet();
+}
+
+// ── KOULUTUS TAB (korvaa Tavoitetasot) ────────────────────────────────────
+function renderKoulutus() {
+  // Siirrä sisältö renderTavoitetasot:sta tänne
+  var el = document.getElementById('tabKoulutus');
+  if (el && typeof renderTavoitetasot === 'function') {
+    // Väliaikaisesti: käytä vanhaa renderTavoitetasot-sisältöä
+    var tempDiv = document.createElement('div');
+    document.getElementById('tabTavoitetasot') && (tempDiv.innerHTML = '');
+    renderTavoitetasot_sisalto(el);
+  }
+}
+
+function renderTavoitetasot_sisalto(targetEl) {
+  // Stub — täytetään myöhemmin metodologiadokumentaatiolla
+  targetEl.innerHTML = '<div class="card"><div class="card-title">📚 Koulutusmateriaalit</div>'
+    + '<div style="font-size:12px;color:var(--muted2)">ADAR-protokolla, X-factor, Hidden Gem -metodologia</div></div>';
+}
+
+
 
 
 // ── TAVOITETASOT TAB ─────────────────────────────────────────
