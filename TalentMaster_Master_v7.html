@@ -593,6 +593,14 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
   </div>
 </div>
 
+<!-- TESTI DETAIL MODAL -->
+<div id="testiDetailOverlay" style="display:none" class="hk-overlay" onclick="if(event.target===this)suljeTestiDetail()">
+  <div class="hk-sheet" style="max-height:88vh;overflow-y:auto;">
+    <div class="hk-drag"></div>
+    <div id="testiDetailBody"></div>
+  </div>
+</div>
+
 <!-- HARJOITE SHEET -->
 <div id="hkOverlay" style="display:none" class="hk-overlay" onclick="if(event.target===this)suljeHarjoite()">
   <div class="hk-sheet"><div class="hk-drag"></div><div id="hkBody"></div></div>
@@ -2558,39 +2566,36 @@ function hakuSeurat(q){
 }
 
 function avaaSeuraPerlaaja(pid){
-  var p = (window.TM_DATA&&window.TM_DATA.lookup&&window.TM_DATA.lookup[pid])
-        || Object.values(DEMO).find(function(x){return String(x.palloliitoId)===String(pid);});
+  var p=(window.TM_DATA&&window.TM_DATA.lookup&&window.TM_DATA.lookup[pid])
+      ||Object.values(DEMO).find(function(x){return String(x.palloliitoId)===String(pid);});
   if(!p){naytaToast('Pelaajaa ei löydy: '+pid);return;}
   S.pelaaja=p;
   buildCoachPlayer(p);
 }
 
 function buildCoachPlayer(p){
-  if(!p) p = S.pelaaja;
+  if(!p) p=S.pelaaja;
   if(!p){naytaToast('Ei pelaajaa');return;}
+  if(!p.bioIka) p.bioIka={krono:13,rae:'Q2',syntymakk:6};
+  if(!p.qs_historia) p.qs_historia=[];
+  if(!p.xp) p.xp=0;
+  if(!p.streak) p.streak=0;
+  if(!p.adar) p.adar=[];
+  if(!p.phvTila) p.phvTila='Ei mitattu';
+  if(!p.fys_historia) p.fys_historia=[];
 
-  // Normalisoi CSV-pelaaja DEMO-rakenteen mukaiseksi
-  if(!p.bioIka) p.bioIka = {krono:13, rae:'Q2', syntymakk:6};
-  if(!p.qs_historia) p.qs_historia = [];
-  if(!p.xp) p.xp = 0;
-  if(!p.streak) p.streak = 0;
-  if(!p.adar) p.adar = [];
-  if(!p.phvTila) p.phvTila = 'Ei mitattu';
-
-  document.getElementById('coachPlayerTitle').textContent = p.etunimi + ' ' + p.sukunimi;
-
-  var latest = p.qs_historia[p.qs_historia.length-1];
-  var r = (latest && latest.results) || {};
-  var k = r.ketjut || {};
-  var ovr = laskeOverall(k);
-  var vari = overallVari(ovr);
-  var delta = laskeDelta(p);
-  var adar = laskeADAR(p);
-  var akt = laskeAktiivisuusJaksolla(p);
-  var vahv = haeVahvistukset(p);
-  var profiili = laskeProfiili(p);
-  var ennustus = laskeEnnustus(p);
-  var h = '';
+  document.getElementById('coachPlayerTitle').textContent=p.etunimi+' '+p.sukunimi;
+  var latest=p.qs_historia[p.qs_historia.length-1];
+  var r=(latest&&latest.results)||{};
+  var k=r.ketjut||{};
+  var ovr=laskeOverall(k);
+  var vari=overallVari(ovr);
+  var delta=laskeDelta(p);
+  var adar=laskeADAR(p);
+  var akt=laskeAktiivisuusJaksolla(p);
+  var profiili=laskeProfiili(p);
+  var ennustus=laskeEnnustus(p);
+  var h='';
 
   // Header
   h+='<div style="background:linear-gradient(135deg,'+vari.bg2+',#0A0A0A);border:2px solid '+vari.border+';border-radius:16px;padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:14px;">';
@@ -2605,16 +2610,15 @@ function buildCoachPlayer(p){
     h+='<div style="text-align:center;flex-shrink:0;"><div style="font-size:20px;font-weight:700;color:'+dc+';">'+(delta.ovDelta>=0?'+':'')+delta.ovDelta+'</div><div style="font-size:9px;color:var(--muted);">viim. testi</div></div>';}
   h+='</div>';
 
-  // Seura-badge (CSV-pelaajilla on seura-kenttä)
+  // Seura-badge
   if(p.seura){
     h+='<div style="background:rgba(0,229,204,.07);border:1px solid rgba(0,229,204,.2);border-radius:10px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">';
-    h+='<span style="font-size:16px;">🏟️</span>';
-    h+='<div style="font-size:13px;font-weight:700;">'+p.seura+'</div>';
+    h+='<span style="font-size:16px;">🏟️</span><div style="font-size:13px;font-weight:700;">'+p.seura+'</div>';
     if(p.bioIka&&p.bioIka.rae) h+='<div style="margin-left:auto;font-size:11px;color:var(--muted2);">RAE '+p.bioIka.rae+'</div>';
     h+='</div>';
   }
 
-  // Ennustava hälytys
+  // Ennuste
   if(ennustus){
     h+='<div style="background:rgba(255,184,48,.07);border:1px solid rgba(255,184,48,.3);border-radius:12px;padding:11px 13px;margin-bottom:10px;">';
     h+='<div style="font-size:10px;color:var(--amber);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Ennuste</div>';
@@ -2633,105 +2637,201 @@ function buildCoachPlayer(p){
     h+='</div></div>';
   }
 
-  // ADAR/GIQ — vain jos oikeaa dataa
-  if(adar && p.adar && p.adar.length > 0) h+=buildGIQLaaja(p);
+  // Game IQ — vain jos oikeaa dataa
+  if(adar&&p.adar&&p.adar.length>0) h+=buildGIQLaaja(p);
 
-  // Fyysiset testit (csv2-data)
-  var fysHist = p.fys_historia || [];
-  if(fysHist.length > 0){
-    var FYS_META = {
-      'Ketteryys':     {lbl:'Ketteryys', yks:'s',  ikoni:'⚡', alas:true},
-      'Kevennyshyppy':{lbl:'Kevennysh.',yks:'cm', ikoni:'⬆️', alas:false},
-      'Nopeus 30m':   {lbl:'30m',       yks:'s',  ikoni:'🏃', alas:true},
-      'Nopeus 10m':   {lbl:'10m',       yks:'s',  ikoni:'🏃', alas:true},
-      'SM-pallo':     {lbl:'SM-pallo',  yks:'s',  ikoni:'⚽', alas:true},
-      'Syöttäminen':  {lbl:'Syöttö',   yks:'p',  ikoni:'🎯', alas:false}
-    };
-    var viimeisin = fysHist[fysHist.length-1];
-    var edellinen = fysHist.length>1 ? fysHist[fysHist.length-2] : null;
+  // Fyysiset testit
+  var fysHist=p.fys_historia||[];
+  if(fysHist.length>0){
+    var FYS_META={'Ketteryys':{lbl:'Ketteryys',yks:'s',ikoni:'⚡',alas:true},'Kevennyshyppy':{lbl:'Kevennysh.',yks:'cm',ikoni:'⬆️',alas:false},'Nopeus 30m':{lbl:'30m',yks:'s',ikoni:'🏃',alas:true},'Nopeus 10m':{lbl:'10m',yks:'s',ikoni:'🏃',alas:true},'SM-pallo':{lbl:'SM-pallo',yks:'s',ikoni:'⚽',alas:true},'Syöttäminen':{lbl:'Syöttö',yks:'p',ikoni:'🎯',alas:false}};
+    var viimeisin=fysHist[fysHist.length-1];
+    var edellinen=fysHist.length>1?fysHist[fysHist.length-2]:null;
     h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:12px 14px;margin-bottom:10px;">';
     h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">📊 Fyysiset testit · '+new Date(viimeisin.date).toLocaleDateString('fi-FI',{day:'numeric',month:'short',year:'2-digit'})+'</div>';
     h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">';
-    Object.keys(FYS_META).forEach(function(k){
-      var meta=FYS_META[k];
-      var v=viimeisin.mittaukset[k];
+    Object.keys(FYS_META).forEach(function(k2){
+      var meta2=FYS_META[k2];
+      var v=viimeisin.mittaukset[k2];
       if(v==null) return;
-      var vPrev=edellinen&&edellinen.mittaukset[k];
-      var deltaHtml='';
-      if(vPrev!=null){
-        var diff=Math.round((v-vPrev)*100)/100;
-        var parani=meta.alas?(diff<0):(diff>0);
-        var col=parani?'var(--green)':'var(--red)';
-        deltaHtml='<div style="font-size:9px;color:'+col+';">'+(diff>0?'+':'')+diff+'</div>';
-      }
+      var vPrev=edellinen&&edellinen.mittaukset[k2];
+      var dHtml='';
+      if(vPrev!=null){var diff=Math.round((v-vPrev)*100)/100;var parani=meta2.alas?(diff<0):(diff>0);dHtml='<div style="font-size:9px;color:'+(parani?'var(--green)':'var(--red)')+';">'+(diff>0?'+':'')+diff+'</div>';}
       h+='<div style="background:var(--bg3);border-radius:9px;padding:8px 6px;text-align:center;">';
-      h+='<div style="font-size:14px;margin-bottom:2px;">'+meta.ikoni+'</div>';
+      h+='<div style="font-size:14px;margin-bottom:2px;">'+meta2.ikoni+'</div>';
       h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:20px;line-height:1;">'+v+'</div>';
-      h+='<div style="font-size:9px;color:var(--muted);">'+meta.lbl+' '+meta.yks+'</div>';
-      h+=deltaHtml;
-      h+='</div>';
+      h+='<div style="font-size:9px;color:var(--muted);">'+meta2.lbl+' '+meta2.yks+'</div>'+dHtml+'</div>';
     });
     h+='</div>';
     if(fysHist.length>1){
-      h+='<div style="margin-top:10px;">';
-      h+='<div style="font-size:10px;color:var(--muted2);margin-bottom:6px;">Historia ('+fysHist.length+' testikertaa)</div>';
+      h+='<div style="margin-top:10px;"><div style="font-size:10px;color:var(--muted2);margin-bottom:6px;">Historia ('+fysHist.length+' kertaa)</div>';
       h+='<div style="display:flex;gap:4px;overflow-x:auto;">';
-      fysHist.forEach(function(ft){
-        var kett=ft.mittaukset['Ketteryys']||ft.mittaukset['Nopeus 30m'];
-        h+='<div style="text-align:center;flex-shrink:0;min-width:40px;">';
-        h+='<div style="font-size:9px;color:var(--muted);">'+new Date(ft.date).toLocaleDateString('fi-FI',{month:'numeric',year:'2-digit'})+'</div>';
-        if(kett!=null)h+='<div style="font-size:11px;font-weight:700;color:var(--teal);">'+kett+'</div>';
-        h+='</div>';
-      });
+      fysHist.forEach(function(ft){var v2=ft.mittaukset['Ketteryys']||ft.mittaukset['Nopeus 30m'];
+        h+='<div style="text-align:center;flex-shrink:0;min-width:40px;"><div style="font-size:9px;color:var(--muted);">'+new Date(ft.date).toLocaleDateString('fi-FI',{month:'numeric',year:'2-digit'})+'</div>';
+        if(v2!=null) h+='<div style="font-size:11px;font-weight:700;color:var(--teal);">'+v2+'</div>';
+        h+='</div>';});
       h+='</div></div>';
     }
     h+='</div>';
   }
 
-  // QS-testaushistoria (ketjupisteet)
+  // QS-testaushistoria — klikattava
+  var _pid2=String(p.id||p.palloliitoId||'');
+  window._tmTestiCache=window._tmTestiCache||{};
+  window._tmTestiCache[_pid2]=p.qs_historia;
   if(p.qs_historia.length>0){
-    h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;">QS-historia ('+p.qs_historia.length+')</div>';
+    h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;">Testaushistoria ('+p.qs_historia.length+') <span style="font-size:10px;color:var(--teal);font-weight:400;text-transform:none;">Napauta ›</span></div>';
     p.qs_historia.slice().reverse().forEach(function(testi,idx){
+      var origIdx=p.qs_historia.length-1-idx;
       var ovT=laskeOverall(testi.results&&testi.results.ketjut);
       var edOVR=p.qs_historia.length-2-idx>=0?laskeOverall(p.qs_historia[p.qs_historia.length-2-idx]&&p.qs_historia[p.qs_historia.length-2-idx].results&&p.qs_historia[p.qs_historia.length-2-idx].results.ketjut):null;
       var dOVR=edOVR!=null&&idx>0?ovT-edOVR:null;
-      h+='<div style="padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:11px;margin-bottom:6px;">';
-      h+='<div style="display:flex;align-items:center;gap:10px;">';
+      var hasFys=!!(testi.mittaukset&&Object.keys(testi.mittaukset).length>0);
+      h+='<div onclick="avaaTestiDetailByIdx(''+_pid2+'','+origIdx+')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:11px;margin-bottom:6px;cursor:pointer;">';
       h+='<div style="font-size:11px;color:var(--muted2);width:65px;flex-shrink:0;">'+new Date(testi.date).toLocaleDateString('fi-FI',{day:'numeric',month:'short',year:'2-digit'})+'</div>';
       h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;color:'+overallVari(ovT).text+';flex-shrink:0;">'+ovT+'</div>';
-      if(dOVR!=null)h+='<div style="font-size:13px;font-weight:700;color:'+(dOVR>=0?'var(--green)':'var(--red)')+';">'+(dOVR>=0?'+':'')+dOVR+'</div>';
+      if(dOVR!=null) h+='<div style="font-size:13px;font-weight:700;color:'+(dOVR>=0?'var(--green)':'var(--red)')+';">'+(dOVR>=0?'+':'')+dOVR+'</div>';
       if(testi.results&&testi.results.ketjut){
-        var ketjuNimet={taka:'Taka',etu:'Etu',sivu:'Sivu',kierto:'Kierto',sm:'SM'};
-        h+='<div style="margin-left:auto;display:flex;gap:4px;flex-wrap:wrap;">';
-        Object.keys(testi.results.ketjut).forEach(function(kn){
-          var kp=testi.results.ketjut[kn].pisteet;
-          h+='<div style="font-size:10px;background:var(--bg3);border-radius:5px;padding:2px 5px;color:var(--muted2);">'+(ketjuNimet[kn]||kn)+' '+kp+'</div>';
-        });
+        var KN={taka:'Taka',etu:'Etu',sivu:'Sivu',kierto:'Kierto',sm:'SM'};
+        h+='<div style="margin-left:auto;display:flex;gap:3px;flex-wrap:wrap;">';
+        Object.keys(testi.results.ketjut).forEach(function(kn){h+='<div style="font-size:10px;background:var(--bg3);border-radius:4px;padding:2px 4px;color:var(--muted2);">'+(KN[kn]||kn)+' '+testi.results.ketjut[kn].pisteet+'</div>';});
         h+='</div>';
       }
-      if(testi.results&&testi.results.gem)h+='<div style="font-size:12px;margin-left:4px;">💎</div>';
-      if(testi.results&&testi.results.xfactor)h+='<div style="font-size:12px;">⚡</div>';
-      h+='</div>';
-      if(testi.mittaukset){
-        var FYS_Q={'Ketteryys':{lbl:'Kett.',yks:'s'},'Kevennyshyppy':{lbl:'KH',yks:'cm'},'Nopeus 30m':{lbl:'30m',yks:'s'},'SM-pallo':{lbl:'SM',yks:'s'}};
-        h+='<div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;">';
-        Object.keys(FYS_Q).forEach(function(k){
-          if(testi.mittaukset[k]!=null)
-            h+='<div style="font-size:10px;background:rgba(0,229,204,.08);border:1px solid rgba(0,229,204,.15);border-radius:5px;padding:2px 6px;color:var(--teal);">'+FYS_Q[k].lbl+' '+testi.mittaukset[k]+' '+FYS_Q[k].yks+'</div>';
-        });
-        h+='</div>';
-      }
+      if(hasFys) h+='<div style="font-size:10px;color:var(--teal);flex-shrink:0;">📊</div>';
+      if(testi.results&&testi.results.gem) h+='<div style="font-size:12px;">💎</div>';
+      if(testi.results&&testi.results.xfactor) h+='<div style="font-size:12px;">⚡</div>';
+      h+='<span style="color:var(--muted);font-size:14px;">›</span>';
       h+='</div>';
     });
   } else if(fysHist.length===0){
     h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;margin-top:10px;">';
     h+='<div style="font-size:24px;margin-bottom:6px;">📋</div>';
-    h+='<div style="font-size:13px;color:var(--muted2);">Ei testituloksia vielä</div>';
+    h+='<div style="font-size:13px;color:var(--muted2);">Ei testituloksia vielä</div></div>';
+  }
+
+  document.getElementById('coachPlayerContent').innerHTML=h;
+  go('sCoachPlayer');
+}
+
+// ── TESTI DETAIL MODAL ─────────────────────────────────────────
+function suljeTestiDetail(){document.getElementById('testiDetailOverlay').style.display='none';}
+
+function avaaTestiDetailByIdx(pid,idx){
+  var hist=(window._tmTestiCache&&window._tmTestiCache[pid])||[];
+  var testi=hist[idx];
+  if(!testi){naytaToast('Testitietoja ei löydy');return;}
+  var p=(window.TM_DATA&&window.TM_DATA.lookup&&window.TM_DATA.lookup[pid])
+       ||Object.values(DEMO).find(function(x){return String(x.id||x.palloliitoId)===String(pid);});
+  var k=(testi.results&&testi.results.ketjut)||{};
+  var ovr=laskeOverall(k);
+  var vari=overallVari(ovr);
+  var datum=new Date(testi.date).toLocaleDateString('fi-FI',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  var KVARI={taka:'#3B82F6',etu:'#22C55E',sivu:'#EAB308',kierto:'#F97316',sm:'#EF4444'};
+  var KNIMI={taka:'Takaketju',etu:'Etuketju',sivu:'Sivuketju',kierto:'Kiertoketju',sm:'SM-ketju'};
+  var h='<div style="padding:0 16px 20px;">';
+
+  // Header
+  h+='<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">';
+  h+='<div style="text-align:center;flex-shrink:0;">';
+  h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:52px;line-height:1;color:'+vari.text+';">'+ovr+'</div>';
+  h+='<div style="font-size:9px;letter-spacing:2px;color:'+vari.text+'88;">'+vari.sublbl+'</div></div>';
+  h+='<div><div style="font-size:15px;font-weight:700;">'+datum+'</div>';
+  if(p) h+='<div style="font-size:12px;color:var(--muted2);">'+p.etunimi+' '+p.sukunimi+'</div>';
+  if(testi.results&&testi.results.gem) h+='<div style="font-size:12px;color:#FFD700;margin-top:2px;">💎 Hidden Gem</div>';
+  if(testi.results&&testi.results.xfactor) h+='<div style="font-size:12px;color:#C084FC;">⚡ X-Factor</div>';
+  h+='</div></div>';
+
+  // ── OSA 1: Ketjupisteet palkkigraafina ──
+  if(Object.keys(k).length>0){
+    h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:12px;">';
+    h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Liikeketjupisteet</div>';
+    Object.keys(k).forEach(function(kn){
+      var kp=k[kn].pisteet;
+      var col=KVARI[kn]||'var(--teal)';
+      var pct=Math.min(100,Math.round((kp/10)*100));
+      h+='<div style="margin-bottom:10px;">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+      h+='<div style="font-size:13px;font-weight:600;">'+( KNIMI[kn]||kn)+'</div>';
+      h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;color:'+col+';">'+kp+'</div></div>';
+      h+='<div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;">';
+      h+='<div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:4px;"></div></div></div>';
+    });
     h+='</div>';
   }
 
-  document.getElementById('coachPlayerContent').innerHTML = h;
-  go('sCoachPlayer');
+  // ── OSA 2: Fyysiset mitat ──
+  var mitat=testi.mittaukset||{};
+  if(Object.keys(mitat).length>0){
+    var FM={'Ketteryys':{lbl:'Ketteryys',yks:'s',ikoni:'⚡',selite:'Pienempi = nopeampi'},'Kevennyshyppy':{lbl:'Kevennyshyppy',yks:'cm',ikoni:'⬆️',selite:'Suurempi = parempi'},'Nopeus 10m':{lbl:'Nopeus 10m',yks:'s',ikoni:'🏃',selite:'Kiihdytys'},'Nopeus 20m':{lbl:'Nopeus 20m',yks:'s',ikoni:'🏃',selite:''},'Nopeus 30m':{lbl:'Nopeus 30m',yks:'s',ikoni:'🏃',selite:'Huippunopeus'},'Nopeus 5m':{lbl:'Nopeus 5m',yks:'s',ikoni:'💥',selite:'Räjähtävä lähtö'},'SM ilman palloa':{lbl:'SM (ilman palloa)',yks:'s',ikoni:'🔄',selite:''},'SM-pallo':{lbl:'SM-pallo',yks:'s',ikoni:'⚽',selite:'Pallollinen suunnanmuutos'},'Syöttäminen':{lbl:'Syöttäminen',yks:'p',ikoni:'🎯',selite:'Suurempi = parempi'}};
+    h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:12px;">';
+    h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">📊 Fyysiset mitat</div>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    Object.keys(FM).forEach(function(fk){
+      var fv=mitat[fk];
+      if(fv==null) return;
+      var fm=FM[fk];
+      h+='<div style="background:var(--bg3);border-radius:10px;padding:10px 12px;">';
+      h+='<div style="font-size:11px;color:var(--muted2);margin-bottom:2px;">'+fm.ikoni+' '+fm.lbl+'</div>';
+      h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;line-height:1;color:var(--teal);">'+fv+' <span style="font-size:13px;color:var(--muted);">'+fm.yks+'</span></div>';
+      if(fm.selite) h+='<div style="font-size:10px;color:var(--muted);margin-top:2px;">'+fm.selite+'</div>';
+      h+='</div>';
+    });
+    h+='</div></div>';
+  }
+
+  // ── OSA 3: Kehitystrendi SVG ──
+  if(p&&hist.length>1){
+    var allK={};
+    hist.forEach(function(qt){if(qt.results&&qt.results.ketjut) Object.keys(qt.results.ketjut).forEach(function(kn){allK[kn]=true;});});
+    var ketjuKeys=Object.keys(allK);
+    if(ketjuKeys.length>0){
+      var W=300,H=150,PAD=26;
+      var n=hist.length;
+      var xStep=n>1?(W-PAD*2)/(n-1):0;
+      var allVals=[];
+      hist.forEach(function(qt){if(qt.results&&qt.results.ketjut) Object.values(qt.results.ketjut).forEach(function(v){allVals.push(v.pisteet);});});
+      var minV=allVals.length?Math.max(0,Math.min.apply(null,allVals)-0.5):0;
+      var maxV=allVals.length?Math.min(10,Math.max.apply(null,allVals)+0.5):10;
+      var yRange=maxV-minV||1;
+      function tX(i){return PAD+i*xStep;}
+      function tY(v){return H-PAD-((v-minV)/yRange)*(H-PAD*2);}
+      var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;" xmlns="http://www.w3.org/2000/svg">';
+      [minV,Math.round((minV+maxV)/2),maxV].forEach(function(yv){
+        var yy=tY(yv);
+        svg+='<line x1="'+PAD+'" y1="'+yy+'" x2="'+(W-PAD)+'" y2="'+yy+'" stroke="rgba(255,255,255,.06)" stroke-width="1"/>';
+        svg+='<text x="'+(PAD-3)+'" y="'+(yy+4)+'" text-anchor="end" font-size="8" fill="rgba(255,255,255,.3)">'+Math.round(yv)+'</text>';
+      });
+      ketjuKeys.forEach(function(kn){
+        var col=KVARI[kn]||'#888';
+        var pts=hist.map(function(qt,i){var v=qt.results&&qt.results.ketjut&&qt.results.ketjut[kn]&&qt.results.ketjut[kn].pisteet;return v!=null?{x:tX(i),y:tY(v)}:null;});
+        for(var i=0;i<pts.length-1;i++){if(pts[i]&&pts[i+1]) svg+='<line x1="'+pts[i].x+'" y1="'+pts[i].y+'" x2="'+pts[i+1].x+'" y2="'+pts[i+1].y+'" stroke="'+col+'" stroke-width="1.5" opacity=".8"/>';}
+        pts.forEach(function(pt,i){
+          if(!pt) return;
+          var isActive=(hist[i].date===testi.date);
+          svg+='<circle cx="'+pt.x+'" cy="'+pt.y+'" r="'+(isActive?5:3)+'" fill="'+col+'" stroke="'+(isActive?'#fff':'none')+'" stroke-width="'+(isActive?2:0)+'"/>';
+        });
+      });
+      var step2=Math.max(1,Math.floor(n/3));
+      for(var i2=0;i2<n;i2+=step2){
+        svg+='<text x="'+tX(i2)+'" y="'+(H-4)+'" text-anchor="middle" font-size="7" fill="rgba(255,255,255,.3)">'+new Date(hist[i2].date).toLocaleDateString('fi-FI',{month:'numeric',year:'2-digit'})+'</text>';
+      }
+      svg+='</svg>';
+      h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:12px;">';
+      h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📈 Kehitystrendi</div>';
+      h+=svg;
+      h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">';
+      ketjuKeys.forEach(function(kn){
+        h+='<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted2);">';
+        h+='<div style="width:12px;height:3px;background:'+(KVARI[kn]||'#888')+';border-radius:2px;"></div>';
+        h+=(KNIMI[kn]||kn)+'</div>';
+      });
+      h+='</div></div>';
+    }
+  }
+
+  h+='<button onclick="suljeTestiDetail()" style="width:100%;padding:14px;border-radius:13px;border:none;background:var(--bg3);color:var(--muted2);font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700;cursor:pointer;">Sulje</button>';
+  h+='</div>';
+  document.getElementById('testiDetailBody').innerHTML=h;
+  document.getElementById('testiDetailOverlay').style.display='flex';
 }
 
 // ── KOULUTUS TAB — moduulilistaus ────────────────────────────
