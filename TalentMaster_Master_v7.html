@@ -1431,65 +1431,274 @@ function laskeEnnustus(p){
 }
 
 function buildCoachNyt(){
-  var pelaajat=haeJoukkuePelaajat();
-  var halytykset=laskeHalytykset(pelaajat);
-  var h='';
-  var tanaan=new Date().toLocaleDateString('fi-FI',{weekday:'long',day:'numeric',month:'long'});
-  h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">'+tanaan+'</div>';
+  var pelaajat = haeJoukkuePelaajat();
+  var h = '';
 
-  if(halytykset.length>0){
-    h+='<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🔔 Huomio nyt ('+halytykset.length+')</div>';
-    halytykset.slice(0,4).forEach(function(hal){
-      var col=hal.taso==='red'?'#E53935':hal.taso==='amber'?'#FFB830':hal.taso==='gold'?'#FFD700':hal.taso==='teal'?'var(--teal)':'var(--blue)';
-      var bg=hal.taso==='red'?'rgba(229,57,53,.08)':hal.taso==='amber'?'rgba(255,184,48,.07)':hal.taso==='gold'?'rgba(255,215,0,.07)':hal.taso==='teal'?'rgba(0,229,204,.07)':'rgba(50,120,220,.07)';
-      h+='<div onclick="avaaCoachPelaaja(\''+hal.pid+'\')" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:'+bg+';border:1px solid '+col+'44;border-radius:12px;margin-bottom:6px;cursor:pointer;">';
-      h+='<span style="font-size:18px;flex-shrink:0;">'+hal.ikoni+'</span>';
-      h+='<div style="flex:1;font-size:13px;line-height:1.4;">'+hal.teksti+'</div>';
-      h+='<span style="color:'+col+';font-size:16px;">›</span>';
-      h+='</div>';
+  // ── PÄIVÄMÄÄRÄ ────────────────────────────────────────────────────────
+  var tanaan = new Date().toLocaleDateString('fi-FI',{weekday:'long',day:'numeric',month:'long'});
+  h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;">' + tanaan + '</div>';
+
+  // ── LUOKITTELE PELAAJAT KOLMEEN TILARYHMÄÄN ───────────────────────────
+  // Ryhmä 1 "Tarkkaile nyt"  — kriittinen signaali, vaatii toiminnan
+  // Ryhmä 2 "Kehittyy hyvin" — normaali kehitys, ei kiireellistä
+  // Ryhmä 3 "Seuraa"         — data puuttuu tai epäselvä tila
+
+  var rTarkkaile = [];  // {p, signaalit:[{ikoni,teksti,vari}]}
+  var rKehittyy  = [];  // {p, ovr, delta}
+  var rSeuraa    = [];  // {p, syy}
+
+  pelaajat.forEach(function(p) {
+    var signaalit = [];
+    var akt  = laskeViikkoAktiivisuus(p);
+    var adar = laskeADAR(p);
+    var delta = laskeDelta(p);
+    var vahv = haeVahvistukset(p);
+    var lv   = laskeLevel(0, vahv.yhteensa);
+    var latest = p.qs_historia && p.qs_historia.length > 0
+      ? p.qs_historia[p.qs_historia.length-1] : null;
+    var ketjut = latest && latest.results && latest.results.ketjut || {};
+    var ovr  = laskeOverall(ketjut);
+
+    // ── Kriittiset signaalit jotka vievät "Tarkkaile nyt" -ryhmään ──────
+
+    // 1. Kriittinen ikäikkuna + heikko ketju
+    var IKA_IKKUNAT = {sm:[10,14],kierto:[10,16],taka:[12,16],sivu:[11,15],etu:[14,18]};
+    var ika = p.bioIka && p.bioIka.krono || 0;
+    var KETJU_PLAIN = {sm:'Pelinteko-ketju',kierto:'Hallintaketju',taka:'Vauhtiketju',sivu:'Lähtöketju',etu:'Hypyn ketju'};
+    Object.keys(IKA_IKKUNAT).forEach(function(k) {
+      var ik = IKA_IKKUNAT[k];
+      var v  = ketjut[k] && ketjut[k].pisteet || 0;
+      if (v > 0 && v < 45 && ika >= ik[0] && ika <= ik[1]) {
+        signaalit.push({
+          ikoni:'🔥',
+          teksti:'Kriitt. ikäikkuna — ' + (KETJU_PLAIN[k]||k) + ' heikko (' + v + '/10)',
+          vari:'#E53935'
+        });
+      }
     });
-    if(halytykset.length>4)h+='<div style="font-size:12px;color:var(--muted2);text-align:center;padding:6px;">+'+(halytykset.length-4)+' muuta — katso Analyysi</div>';
+
+    // 2. Hidden Gem
+    if (adar && adar.hiddenGem) {
+      signaalit.push({ikoni:'💎', teksti:'Hidden Gem — korkea peliäly, matala OVR', vari:'#FFD700'});
+    }
+
+    // 3. Kehitys pysähtynyt tai laskenut
+    if (delta && delta.ovDelta <= -3) {
+      signaalit.push({
+        ikoni:'📉',
+        teksti:'OVR laski ' + Math.abs(delta.ovDelta) + ' pist. viimeisessä testissä',
+        vari:'#E53935'
+      });
+    }
+
+    // 4. Kasvupyrähdys käynnissä — erityishuomio
+    if ((p.phvTila||'').includes('HUIPPU')) {
+      signaalit.push({ikoni:'📌', teksti:'Kasvupyrähdys käynnissä — kuorma alas', vari:'#4D9FFF'});
+    }
+
+    // 5. Odottaa vahvistusta tasonousuun
+    if (lv.lukittu) {
+      signaalit.push({ikoni:'🔒', teksti:'Odottaa vahvistustasi tasonousuun', vari:'var(--teal)'});
+    }
+
+    // 6. Ei aktiviteettia kun dataa pitäisi olla
+    if (akt.pct === 0 && akt.max >= 3) {
+      signaalit.push({ikoni:'⚠️', teksti:'Ei avauksia tällä viikolla', vari:'#E53935'});
+    }
+
+    // ── Seuraa-ryhmä: ei fyysistä dataa tai testaus vanhentunutta ────────
+    var eilFysData = !p.fys_historia || p.fys_historia.length === 0;
+    var vanhaTesti = false;
+    if (p.fys_historia && p.fys_historia.length > 0) {
+      var viimPvm = new Date(p.fys_historia[p.fys_historia.length-1].date);
+      vanhaTesti = (new Date() - viimPvm) > 90 * 24 * 3600 * 1000;
+    }
+
+    if (signaalit.length > 0) {
+      rTarkkaile.push({p:p, signaalit:signaalit, ovr:ovr});
+    } else if (eilFysData || vanhaTesti) {
+      rSeuraa.push({
+        p: p,
+        syy: eilFysData ? 'Ei fyysistä dataa' : 'Testaus yli 90pv sitten'
+      });
+    } else {
+      rKehittyy.push({p:p, ovr:ovr, delta:delta});
+    }
+  });
+
+  // Järjestä: tarkkaile-ryhmässä kriittisimmät ensin (eniten signaaleja)
+  rTarkkaile.sort(function(a,b){return b.signaalit.length - a.signaalit.length;});
+  // Kehittyy-ryhmässä OVR:n mukaan laskevasti
+  rKehittyy.sort(function(a,b){return b.ovr - a.ovr;});
+
+  // ── RENDERÖI RYHMÄ 1: TARKKAILE NYT ──────────────────────────────────
+  if (rTarkkaile.length > 0) {
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">';
+    h += '<div style="width:8px;height:8px;border-radius:50%;background:#E53935;flex-shrink:0"></div>';
+    h += '<div style="font-size:11px;font-weight:700;color:#E53935;text-transform:uppercase;letter-spacing:.05em">Tarkkaile nyt</div>';
+    h += '<div style="font-size:11px;color:var(--muted);margin-left:auto">' + rTarkkaile.length + ' pelaajaa</div>';
+    h += '</div>';
+
+    rTarkkaile.forEach(function(item) {
+      var p = item.p;
+      var signaali = item.signaalit[0]; // tärkein signaali ensin
+      var initials = (p.etunimi||'?')[0] + (p.sukunimi||'?')[0];
+      var ovrV = overallVari(item.ovr);
+
+      h += '<div onclick="avaaCoachPelaaja(\'' + p.id + '\')" ';
+      h += 'style="display:flex;align-items:center;gap:10px;padding:11px 12px;';
+      h += 'background:rgba(229,57,53,.07);border:1px solid rgba(229,57,53,.3);';
+      h += 'border-radius:13px;margin-bottom:7px;cursor:pointer;">';
+
+      // Initiaalit-avatar
+      h += '<div style="width:34px;height:34px;border-radius:9px;background:rgba(229,57,53,.15);';
+      h += 'display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;';
+      h += 'color:#E53935;flex-shrink:0">' + initials + '</div>';
+
+      // Nimi + signaali
+      h += '<div style="flex:1;min-width:0;">';
+      h += '<div style="font-size:14px;font-weight:700;">' + p.etunimi + ' ' + p.sukunimi + '</div>';
+      h += '<div style="font-size:11px;color:var(--muted2);">' + p.joukkue + ' · ' + Math.floor(p.bioIka&&p.bioIka.krono||0) + 'v</div>';
+      h += '<div style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;';
+      h += 'background:rgba(229,57,53,.12);border-radius:6px;padding:2px 7px;">';
+      h += '<span style="font-size:12px">' + signaali.ikoni + '</span>';
+      h += '<span style="font-size:11px;color:' + signaali.vari + ';font-weight:500">' + signaali.teksti + '</span>';
+      h += '</div>';
+      if (item.signaalit.length > 1) {
+        h += '<div style="font-size:10px;color:var(--muted);margin-top:2px">+' + (item.signaalit.length-1) + ' muuta signaalia</div>';
+      }
+      h += '</div>';
+
+      // OVR
+      h += '<div style="text-align:center;flex-shrink:0;">';
+      h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;line-height:1;color:' + ovrV.text + '">' + item.ovr + '</div>';
+      h += '<div style="font-size:9px;color:var(--muted)">OVR</div>';
+      h += '</div>';
+      h += '<span style="color:var(--muted);font-size:16px;">›</span>';
+      h += '</div>';
+    });
   } else {
-    h+='<div style="background:rgba(31,209,106,.08);border:1px solid rgba(31,209,106,.2);border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;">';
-    h+='<span style="font-size:22px;">✅</span><div style="font-size:13px;color:var(--green);">Kaikki pelaajat aktiivisia tällä hetkellä.</div></div>';
+    h += '<div style="background:rgba(31,209,106,.07);border:1px solid rgba(31,209,106,.2);border-radius:12px;padding:11px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">';
+    h += '<span style="font-size:18px">✅</span>';
+    h += '<div style="font-size:13px;color:var(--green)">Ei kriittisiä signaaleja tällä hetkellä.</div>';
+    h += '</div>';
   }
 
-  h+='<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;">🗺️ Joukkue tällä viikolla</div>';
-  h+='<div style="display:flex;flex-direction:column;gap:6px;">';
-  pelaajat.forEach(function(p){
-    var akt=laskeViikkoAktiivisuus(p);
-    var ampel=ampelVari(akt.pct,0);
-    var latest=p.qs_historia[p.qs_historia.length-1];
-    var ovr=laskeOverall(latest&&latest.results&&latest.results.ketjut);
-    var adar=laskeADAR(p);
-    var ikavaiheNimi=laskeIkavaihe(p).replace('leikkija','7-9v').replace('kilpailija','10-12v').replace('rakentaja','13-14v').replace('itsensa_valmentaja','15-16v').replace('showcase','17-19v');
-    h+='<div onclick="avaaCoachPelaaja(\''+p.id+'\')" style="display:flex;align-items:center;gap:10px;padding:12px 13px;background:'+ampel.bg+';border:1.5px solid '+ampel.border+';border-radius:13px;cursor:pointer;">';
-    h+='<div style="width:10px;height:10px;border-radius:50%;background:'+ampel.dot+';flex-shrink:0;"></div>';
-    h+='<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;">'+p.etunimi+' '+p.sukunimi+'</div>';
-    h+='<div style="font-size:11px;color:var(--muted2);">'+p.joukkue+' · '+ikavaiheNimi+'</div></div>';
-    h+='<div style="text-align:center;flex-shrink:0;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;line-height:1;color:'+overallVari(ovr).text+';">'+ovr+'</div><div style="font-size:9px;color:var(--muted);">OVR</div></div>';
-    if(adar)h+='<div style="text-align:center;flex-shrink:0;"><div style="font-size:13px;">'+adar.taso.ikoni+'</div><div style="font-size:9px;color:var(--muted);">GIQ</div></div>';
-    h+='<div style="text-align:center;flex-shrink:0;"><div style="font-size:14px;font-weight:700;color:'+ampel.dot+';">'+akt.pct+'%</div><div style="font-size:9px;color:var(--muted);">viikko</div></div>';
-    h+='<span style="color:var(--muted);font-size:16px;">›</span></div>';
-  });
-  h+='</div>';
+  // ── RENDERÖI RYHMÄ 2: KEHITTYY HYVIN ─────────────────────────────────
+  if (rKehittyy.length > 0) {
+    h += '<div style="display:flex;align-items:center;gap:8px;margin:16px 0 10px;">';
+    h += '<div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>';
+    h += '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em">Kehittyy hyvin</div>';
+    h += '<div style="font-size:11px;color:var(--muted);margin-left:auto">' + rKehittyy.length + ' pelaajaa</div>';
+    h += '</div>';
 
-  h+='<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;">✅ Anna + merkintä</div>';
-  h+='<div style="display:flex;flex-direction:column;gap:6px;">';
-  pelaajat.forEach(function(p){
-    var vahv=haeVahvistukset(p);
-    var lv=laskeLevel(0,vahv.yhteensa);
-    var viimeisin=(lsj('tm_coach_plus_'+p.id)||[]);
-    var plusTanaan=viimeisin.length>0&&viimeisin[viimeisin.length-1].date===new Date().toISOString().slice(0,10);
-    h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:12px;">';
-    h+='<div style="flex:1;"><div style="font-size:13px;font-weight:700;">'+p.etunimi+' '+p.sukunimi+'</div>';
-    h+='<div style="font-size:11px;color:var(--muted2);">'+vahv.yhteensa+' vahvistusta · '+lv.ikoni+' '+lv.nimi+(lv.lukittu?' 🔒':'')+'</div></div>';
-    if(plusTanaan)h+='<div style="font-size:12px;color:var(--green);font-weight:700;">✓ Annettu</div>';
-    else h+='<button onclick="avaaCoachPlusPikana(\''+p.id+'\')" style="padding:7px 14px;border-radius:10px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">+ ANNA</button>';
-    h+='</div>';
+    // Korttiruudukko — 2 per rivi
+    var naytettavat = rKehittyy.slice(0, 6); // max 6 näkyy suoraan
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">';
+    naytettavat.forEach(function(item) {
+      var p = item.p;
+      var ovrV = overallVari(item.ovr);
+      var initials = (p.etunimi||'?')[0] + (p.sukunimi||'?')[0];
+      var deltaCol = item.delta && item.delta.ovDelta > 0 ? 'var(--green)' :
+                     item.delta && item.delta.ovDelta < 0 ? 'var(--red)' : 'var(--muted)';
+      var deltaStr = item.delta
+        ? (item.delta.ovDelta > 0 ? '+' : '') + item.delta.ovDelta
+        : '';
+
+      h += '<div onclick="avaaCoachPelaaja(\'' + p.id + '\')" ';
+      h += 'style="background:var(--card);border:1px solid rgba(31,209,106,.15);';
+      h += 'border-radius:12px;padding:10px;cursor:pointer;">';
+
+      // Yläosa: initiaalit + delta
+      h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">';
+      h += '<div style="width:26px;height:26px;border-radius:7px;background:rgba(31,209,106,.12);';
+      h += 'display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--green);">' + initials + '</div>';
+      if (deltaStr) {
+        h += '<div style="font-size:11px;font-weight:700;color:' + deltaCol + '">' + deltaStr + '</div>';
+      }
+      h += '</div>';
+
+      // Nimi
+      h += '<div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.etunimi + ' ' + p.sukunimi + '</div>';
+      h += '<div style="font-size:10px;color:var(--muted2);margin-top:1px">' + Math.floor(p.bioIka&&p.bioIka.krono||0) + 'v</div>';
+
+      // OVR
+      h += '<div style="display:flex;align-items:baseline;gap:4px;margin-top:7px;">';
+      h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;line-height:1;color:' + ovrV.text + '">' + item.ovr + '</div>';
+      h += '<div style="font-size:9px;color:var(--muted)">OVR</div>';
+      h += '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+
+    // "Näytä loput" jos enemmän kuin 6
+    if (rKehittyy.length > 6) {
+      h += '<div style="font-size:12px;color:var(--muted2);text-align:center;padding:8px 0;cursor:pointer" ';
+      h += 'onclick="goCoachTab(2)">+ ' + (rKehittyy.length - 6) + ' pelaajaa lisää — Analyysi →</div>';
+    }
+  }
+
+  // ── RENDERÖI RYHMÄ 3: SEURAA ─────────────────────────────────────────
+  if (rSeuraa.length > 0) {
+    h += '<div style="display:flex;align-items:center;gap:8px;margin:16px 0 10px;">';
+    h += '<div style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25);flex-shrink:0"></div>';
+    h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Seuraa</div>';
+    h += '<div style="font-size:11px;color:var(--muted);margin-left:auto">' + rSeuraa.length + ' pelaajaa</div>';
+    h += '</div>';
+
+    rSeuraa.forEach(function(item) {
+      var p = item.p;
+      var initials = (p.etunimi||'?')[0] + (p.sukunimi||'?')[0];
+      h += '<div onclick="avaaCoachPelaaja(\'' + p.id + '\')" ';
+      h += 'style="display:flex;align-items:center;gap:10px;padding:9px 12px;';
+      h += 'background:var(--card);border:1px solid var(--border);border-radius:11px;';
+      h += 'margin-bottom:5px;cursor:pointer;opacity:.65;">';
+      h += '<div style="width:30px;height:30px;border-radius:8px;background:var(--bg3);';
+      h += 'display:flex;align-items:center;justify-content:center;font-size:11px;';
+      h += 'color:var(--muted);flex-shrink:0">' + initials + '</div>';
+      h += '<div style="flex:1;">';
+      h += '<div style="font-size:13px;font-weight:700;color:var(--muted)">' + p.etunimi + ' ' + p.sukunimi + '</div>';
+      h += '<div style="font-size:11px;color:var(--muted2)">' + item.syy + '</div>';
+      h += '</div>';
+      h += '<span style="color:var(--muted);font-size:14px">›</span>';
+      h += '</div>';
+    });
+  }
+
+  // ── ANNA + MERKINTÄ — kompakti versio ─────────────────────────────────
+  // Näytetään vain ne joille ei ole vielä annettu tänään
+  var tanaanStr = new Date().toISOString().slice(0,10);
+  var annamatta = pelaajat.filter(function(p) {
+    var viimeisin = lsj('tm_coach_plus_' + p.id) || [];
+    return !(viimeisin.length > 0 && viimeisin[viimeisin.length-1].date === tanaanStr);
   });
-  h+='</div>';
-  document.getElementById('coachContent').innerHTML=h;
+
+  if (annamatta.length > 0) {
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 10px;">';
+    h += '<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px">✅ Anna + merkintä</div>';
+    h += '<div style="font-size:11px;color:var(--muted2)">' + annamatta.length + ' odottaa</div>';
+    h += '</div>';
+    h += '<div style="display:flex;flex-direction:column;gap:5px">';
+    annamatta.forEach(function(p) {
+      var vahv = haeVahvistukset(p);
+      var lv   = laskeLevel(0, vahv.yhteensa);
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;';
+      h += 'background:var(--card);border:1px solid var(--border);border-radius:11px;">';
+      h += '<div style="flex:1;">';
+      h += '<div style="font-size:13px;font-weight:700">' + p.etunimi + ' ' + p.sukunimi + '</div>';
+      h += '<div style="font-size:11px;color:var(--muted2)">' + vahv.yhteensa + ' vahvistusta · ' + lv.ikoni + ' ' + lv.nimi + (lv.lukittu?' 🔒':'') + '</div>';
+      h += '</div>';
+      h += '<button onclick="avaaCoachPlusPikana(\'' + p.id + '\')" ';
+      h += 'style="padding:7px 14px;border-radius:10px;border:none;background:var(--teal);';
+      h += 'color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;cursor:pointer">+ ANNA</button>';
+      h += '</div>';
+    });
+    h += '</div>';
+  } else {
+    h += '<div style="margin-top:16px;font-size:12px;color:var(--green);text-align:center;padding:8px">✅ Kaikki merkinnät tehty tänään</div>';
+  }
+
+  document.getElementById('coachContent').innerHTML = h;
 }
 
 function buildCoachAnalyysi(){
