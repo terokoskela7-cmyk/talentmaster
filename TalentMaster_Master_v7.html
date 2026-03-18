@@ -1558,6 +1558,107 @@ function buildCoachViikko(){
   var ohjelma=generoiViikonOhjelma(pelaajat);
   var h='';
 
+  // ── TAPAHTUMAKALENTERI ───────────────────────────────────
+  // Tallennetaan per päivä: {ma:['harjoitus','peli'], ke:['harjoitus'], pe:['testi'], ...}
+  // Peli-/testilisätiedot: tm_coach_tapahtuma_{y}_{wk}_{pvId}_peli, _testi
+  var y=new Date().getFullYear();
+  var d=new Date();
+  var wk=Math.ceil(((d-new Date(y,0,1))/86400000+new Date(y,0,1).getDay()+1)/7);
+  var kalAvain='tm_coach_kalenteri_'+y+'_'+wk;
+  var kalData=lsj(kalAvain)||{ma:[],ti:[],ke:[],to:[],pe:[],la:[],su:[]};
+  // Varmista että jokainen päivä on array (backward compat)
+  ['ma','ti','ke','to','pe','la','su'].forEach(function(p2){if(!Array.isArray(kalData[p2]))kalData[p2]=[];});
+
+  var pvTiedot=[{id:'ma',nimi:'MA'},{id:'ti',nimi:'TI'},{id:'ke',nimi:'KE'},{id:'to',nimi:'TO'},{id:'pe',nimi:'PE'},{id:'la',nimi:'LA'},{id:'su',nimi:'SU'}];
+  var pvNimet=['su','ma','ti','ke','to','pe','la'];
+  var tanaan=pvNimet[new Date().getDay()];
+
+  // Laske viikon tapahtumat yhteenvetoa varten
+  var hvLkm=0,pvLkm=0,tvLkm=0;
+  pvTiedot.forEach(function(pv){
+    var ev=kalData[pv.id]||[];
+    if(ev.indexOf('harjoitus')>=0)hvLkm++;
+    if(ev.indexOf('peli')>=0)pvLkm++;
+    if(ev.indexOf('testi')>=0)tvLkm++;
+  });
+
+  h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:14px;">';
+
+  // Otsikkorivi
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+  h+='<div>';
+  h+='<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;">📅 Viikon tapahtumat</div>';
+  h+='<div style="font-size:11px;color:var(--muted2);margin-top:2px;">Napauta päivää — lisää harjoitus, peli tai testi</div>';
+  h+='</div>';
+  h+='<div style="display:flex;gap:8px;align-items:center;">';
+  if(hvLkm>0)h+='<span style="font-size:10px;font-weight:700;color:var(--teal);">🏃 '+hvLkm+'</span>';
+  if(pvLkm>0)h+='<span style="font-size:10px;font-weight:700;color:var(--green);">⚽ '+pvLkm+'</span>';
+  if(tvLkm>0)h+='<span style="font-size:10px;font-weight:700;color:var(--purple);">🔬 '+tvLkm+'</span>';
+  h+='</div></div>';
+
+  // Päiväruudukko
+  h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;">';
+  pvTiedot.forEach(function(pv){
+    var ev=kalData[pv.id]||[];
+    var hasH=ev.indexOf('harjoitus')>=0;
+    var hasP=ev.indexOf('peli')>=0;
+    var hasT=ev.indexOf('testi')>=0;
+    var onTanaan=pv.id===tanaan;
+    var hasAny=hasH||hasP||hasT;
+
+    // Värit tapahtumatyypin mukaan — priorisoi: testi > peli > harjoitus
+    var bg=hasT?'rgba(167,139,250,.15)':hasP?'rgba(34,197,94,.12)':hasH?'rgba(0,229,204,.12)':'var(--bg3)';
+    var border=hasT?'1.5px solid rgba(167,139,250,.5)':hasP?'1.5px solid rgba(34,197,94,.4)':hasH?'1.5px solid rgba(0,229,204,.4)':'1px solid var(--border)';
+    if(onTanaan)border='2px solid rgba(255,184,48,.6)';
+
+    h+='<button onclick="avaaKalenteriPopup(\''+pv.id+'\',\''+kalAvain+'\')" ';
+    h+='style="padding:8px 3px;border-radius:10px;border:'+border+';background:'+bg+';cursor:pointer;text-align:center;min-height:60px;">';
+    h+='<div style="font-size:10px;font-weight:700;color:'+(onTanaan?'var(--amber)':'var(--muted2)')+';">'+pv.nimi+'</div>';
+    if(onTanaan)h+='<div style="font-size:8px;color:var(--amber);margin-bottom:2px;">tänään</div>';
+    // Tapahtumapallukat
+    if(hasAny){
+      h+='<div style="display:flex;justify-content:center;gap:2px;margin-top:4px;">';
+      if(hasH)h+='<span style="font-size:9px;">🏃</span>';
+      if(hasP)h+='<span style="font-size:9px;">⚽</span>';
+      if(hasT)h+='<span style="font-size:9px;">🔬</span>';
+      h+='</div>';
+    } else {
+      h+='<div style="font-size:11px;color:var(--dim);margin-top:6px;">+</div>';
+    }
+    // Pelidata jos on
+    var peliData=lsj('tm_coach_peli_'+y+'_'+wk+'_'+pv.id);
+    if(hasP&&peliData&&peliData.vastustaja){
+      h+='<div style="font-size:8px;color:var(--green);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+peliData.vastustaja.substring(0,6)+'</div>';
+    }
+    h+='</button>';
+  });
+  h+='</div>';
+
+  // RPE-yhteenveto + tänään-tapahtuma-hälytys
+  var rpeYhteenveto=haeJoukkuenRpeTanaan(pelaajat);
+  var tapahtumaTanaan=kalData[tanaan]||[];
+  h+='<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">';
+
+  // Tänään-tapahtumat pikaisesti
+  if(tapahtumaTanaan.length>0){
+    var tapahtumaNimet={harjoitus:'🏃 Harjoitus',peli:'⚽ Peli',testi:'🔬 Testi'};
+    var tLabels=tapahtumaTanaan.map(function(t){return tapahtumaNimet[t]||t;}).join(' · ');
+    h+='<div style="padding:7px 12px;background:rgba(255,184,48,.07);border-radius:9px;border:1px solid rgba(255,184,48,.2);font-size:12px;color:var(--amber);">⚡ Tänään: '+tLabels+'</div>';
+  }
+
+  // RPE-yhteenveto
+  if(rpeYhteenveto.merkitty>0){
+    h+='<div style="padding:7px 12px;background:rgba(0,229,204,.06);border-radius:9px;border:1px solid rgba(0,229,204,.15);display:flex;align-items:center;gap:8px;">';
+    h+='<span style="font-size:14px;">💪</span>';
+    h+='<div style="flex:1;font-size:12px;color:var(--muted2);">'+rpeYhteenveto.merkitty+'/'+pelaajat.length+' pelaajaa merkinnyt kuormituksen';
+    if(rpeYhteenveto.keskim>0)h+=' · Keskiarvo: <strong style="color:var(--text);">'+rpeYhteenveto.keskim.toFixed(1)+'/10</strong>';
+    h+='</div></div>';
+  }
+  h+='</div>';
+
+  h+='</div>';
+  // ────────────────────────────────────────────────────────
+
   if(!ohjelma){
     h+='<div style="font-size:14px;color:var(--muted2);text-align:center;padding:40px 20px;">Ei testausdataa saatavilla — lisää testitulokset ensin.</div>';
     document.getElementById('coachContent').innerHTML=h;
@@ -4479,6 +4580,30 @@ function buildTanaan(){
     +'<div class="sit-ai" id="sitAITxt" style="opacity:.5">Ladataan selitystä...</div>'
     +'</div>';
 
+  // ── 7. RPE-KORTTI — harjoituksen jälkeen ──
+  var rpeData=haeRpeTanaan(p);
+  var harjoituspaiva=onHarjoituspaiva();
+  if(rpeData){
+    // Tehty — näytä merkitty arvo
+    var rpeVari=rpeData.tyyppi==='liikenne'
+      ? (rpeData.arvo===1?'var(--green)':rpeData.arvo===2?'var(--amber)':'var(--red)')
+      : (rpeData.arvo<=3?'var(--green)':rpeData.arvo<=6?'var(--amber)':'var(--red)');
+    var rpeLabel=rpeData.tyyppi==='liikenne'
+      ? (['','🟢 Helppo','🟡 Kohtalainen','🔴 Raskas'][rpeData.arvo]||'')
+      : ('CR-10: '+rpeData.arvo+'/10');
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:rgba(0,229,204,.05);border:1px solid rgba(0,229,204,.15);border-radius:12px;margin-top:10px;">';
+    h+='<span style="font-size:18px;">💪</span>';
+    h+='<div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--teal);">Kuormitus merkitty</div>';
+    h+='<div style="font-size:12px;color:'+rpeVari+';margin-top:2px;font-weight:700;">'+rpeLabel+'</div></div>';
+    h+='<button onclick="avaaRpePopup()" style="font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--muted2);cursor:pointer;">Muuta</button>';
+    h+='</div>';
+  } else if(harjoituspaiva||isT){
+    // Harjoituspäivä tai tänään — kannusta merkitsemään
+    h+='<button onclick="avaaRpePopup()" style="width:100%;margin-top:12px;padding:14px;border-radius:13px;border:1.5px solid rgba(0,229,204,.3);background:rgba(0,229,204,.07);color:var(--teal);font-family:\'Barlow Condensed\',sans-serif;font-size:17px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">';
+    h+='<span style="font-size:20px;">💪</span> MERKITSE HARJOITUS TEHTY</button>';
+    h+='<div style="font-size:11px;color:var(--muted);text-align:center;margin-top:5px;">Merkitse harjoituksen kuormitus · +10 XP</div>';
+  }
+
   document.getElementById('tTanaan').innerHTML=h;
 }
 
@@ -4670,6 +4795,274 @@ function tarkistaStreak(dk){
   }
 }
 function suljeHarjoite(){document.getElementById('hkOverlay').style.display='none';document.body.style.overflow='';}
+
+// ═══════════ RPE-SEURANTA ═══════════
+// RPE tallennetaan per päivä: {arvo, tyyppi:'liikenne'|'cr10', aika}
+function rpeAvain(p){ return 'tm_rpe_'+p.id+'_'+new Date().toISOString().slice(0,10); }
+function haeRpeTanaan(p){ return lsj(rpeAvain(p))||null; }
+function tallennaRpe(p,arvo,tyyppi){
+  sls(rpeAvain(p),{arvo:arvo,tyyppi:tyyppi,aika:new Date().toISOString()});
+}
+
+// Hae valmentajan merkitsemät harjoituspäivät tälle viikolle
+function haeHarjoituspaivat(){
+  var y=new Date().getFullYear();
+  var d=new Date();
+  var wk=Math.ceil(((d-new Date(y,0,1))/86400000+new Date(y,0,1).getDay()+1)/7);
+  var avain='tm_coach_hpaivat_'+y+'_'+wk;
+  return lsj(avain)||{ma:false,ti:false,ke:false,to:false,pe:false,la:false,su:false};
+}
+
+// Onko tänään harjoituspäivä valmentajan kalenterin mukaan?
+function onHarjoituspaiva(){
+  var pvNimet=['su','ma','ti','ke','to','pe','la'];
+  var tark=pvNimet[new Date().getDay()];
+  var y=new Date().getFullYear();
+  var d2=new Date();
+  var wk=Math.ceil(((d2-new Date(y,0,1))/86400000+new Date(y,0,1).getDay()+1)/7);
+  var kalData=lsj('tm_coach_kalenteri_'+y+'_'+wk)||{};
+  var ev=kalData[tark]||[];
+  return ev.indexOf('harjoitus')>=0||ev.indexOf('peli')>=0||ev.indexOf('testi')>=0;
+}
+
+// RPE-popup — ikäluokan mukainen
+function avaaRpePopup(){
+  var p=S.pelaaja;
+  var vaihe=laskeIkavaihe(p);
+  // U15+ (itsensa_valmentaja, showcase) → CR-10, muut → liikennevalo
+  var isOldEnough=(vaihe==='itsensa_valmentaja'||vaihe==='showcase');
+  var h='';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+  h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;">💪 Harjoituksen kuormitus</div>';
+  h+='<button onclick="suljeRpePopup()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
+  h+='</div>';
+  h+='<div style="font-size:13px;color:var(--muted2);margin-bottom:16px;line-height:1.55;">'+
+    (isOldEnough
+      ? 'Miten raskaalta harjoitus tuntui? Arvioi rehellisesti — tieto auttaa valmentajaa suunnittelemaan seuraavat harjoitukset.'
+      : 'Miltä harjoitus tuntui tänään? Napauta oikeaa väriä.')+
+  '</div>';
+
+  if(isOldEnough){
+    // CR-10 asteikko
+    h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">CR-10 — 0 = ei lainkaan, 10 = maksimaalinen</div>';
+    var cr10=[
+      {v:0,l:'0 — Lepo',col:'#64748b'},
+      {v:1,l:'1 — Hyvin kevyt',col:'#22c55e'},
+      {v:2,l:'2 — Kevyt',col:'#4ade80'},
+      {v:3,l:'3 — Kohtalainen',col:'#84cc16'},
+      {v:4,l:'4 — Hieman raskas',col:'#facc15'},
+      {v:5,l:'5 — Raskas',col:'#f97316'},
+      {v:6,l:'6 — Melko raskas',col:'#fb923c'},
+      {v:7,l:'7 — Erittäin raskas',col:'#ef4444'},
+      {v:8,l:'8 — Hyvin raskas',col:'#dc2626'},
+      {v:9,l:'9 — Lähes maksimi',col:'#b91c1c'},
+      {v:10,l:'10 — Maksimi 🔴',col:'#7f1d1d'},
+    ];
+    h+='<div style="display:flex;flex-direction:column;gap:6px;">';
+    cr10.forEach(function(item){
+      h+='<button onclick="tallennaRpeJaSulje('+item.v+',\'cr10\')" style="padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.2);color:var(--text);font-size:13px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .15s;">';
+      h+='<div style="width:14px;height:14px;border-radius:50%;background:'+item.col+';flex-shrink:0;"></div>';
+      h+=item.l;
+      h+='</button>';
+    });
+    h+='</div>';
+  } else {
+    // Liikennevalo U10–U14
+    h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px;">';
+    var lv=[
+      {v:1,ikoni:'🟢',nimi:'Helppo',kuvaus:'Ei väsymystä',col:'rgba(34,197,94,.15)',border:'rgba(34,197,94,.4)'},
+      {v:2,ikoni:'🟡',nimi:'Kohtalainen',kuvaus:'Hieman hengästyin',col:'rgba(234,179,8,.15)',border:'rgba(234,179,8,.4)'},
+      {v:3,ikoni:'🔴',nimi:'Raskas',kuvaus:'Oli tiukkaa!',col:'rgba(239,68,68,.15)',border:'rgba(239,68,68,.4)'},
+    ];
+    lv.forEach(function(item){
+      h+='<button onclick="tallennaRpeJaSulje('+item.v+',\'liikenne\')" style="padding:16px 10px;border-radius:14px;border:1.5px solid '+item.border+';background:'+item.col+';cursor:pointer;text-align:center;">';
+      h+='<div style="font-size:36px;margin-bottom:8px;">'+item.ikoni+'</div>';
+      h+='<div style="font-size:13px;font-weight:700;color:var(--text);">'+item.nimi+'</div>';
+      h+='<div style="font-size:11px;color:var(--muted2);margin-top:3px;">'+item.kuvaus+'</div>';
+      h+='</button>';
+    });
+    h+='</div>';
+  }
+
+  document.getElementById('hkBody').innerHTML=h;
+  document.getElementById('hkOverlay').style.display='flex';
+  document.body.style.overflow='hidden';
+}
+
+function tallennaRpeJaSulje(arvo,tyyppi){
+  var p=S.pelaaja;
+  tallennaRpe(p,arvo,tyyppi);
+  document.getElementById('hkOverlay').style.display='none';
+  document.body.style.overflow='';
+  lisaaXP(10,'harjoituksen kuormitus merkitty');
+  naytaToast('💪 RPE merkitty — +10 XP');
+  buildTanaan();
+}
+
+function suljeRpePopup(){
+  document.getElementById('hkOverlay').style.display='none';
+  document.body.style.overflow='';
+}
+
+// Valmentaja avaa päivän tapahtumaeditorin
+function avaaKalenteriPopup(pvId,kalAvain){
+  var kalData=lsj(kalAvain)||{ma:[],ti:[],ke:[],to:[],pe:[],la:[],su:[]};
+  ['ma','ti','ke','to','pe','la','su'].forEach(function(p2){if(!Array.isArray(kalData[p2]))kalData[p2]=[];});
+  var ev=kalData[pvId]||[];
+  var pvNimiMap={ma:'Maanantai',ti:'Tiistai',ke:'Keskiviikko',to:'Torstai',pe:'Perjantai',la:'Lauantai',su:'Sunnuntai'};
+  var pvNimi=pvNimiMap[pvId]||pvId.toUpperCase();
+
+  // Peli- ja testitiedot
+  var parts=kalAvain.split('_'); // tm_coach_kalenteri_{y}_{wk}
+  var y=parts[3],wk=parts[4];
+  var peliData=lsj('tm_coach_peli_'+y+'_'+wk+'_'+pvId)||{vastustaja:'',tulos:'',kentta:''};
+  var testiData=lsj('tm_coach_testi_'+y+'_'+wk+'_'+pvId)||{tyyppi:'HPP Quick Scan',muistiinpano:''};
+
+  var hasH=ev.indexOf('harjoitus')>=0;
+  var hasP=ev.indexOf('peli')>=0;
+  var hasT=ev.indexOf('testi')>=0;
+
+  var h='';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">';
+  h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;">📅 '+pvNimi+'</div>';
+  h+='<button onclick="suljeKalenteriPopup()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
+  h+='</div>';
+
+  h+='<div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Valitse mitä tapahtuu — voit valita useamman</div>';
+
+  // Kolme tapahtumakorttia
+  var tapahtumat=[
+    {id:'harjoitus',ikoni:'🏃',nimi:'Harjoitus',kuvaus:'Pelaajat saavat RPE-muistutuksen',col:'var(--teal)',bg:'rgba(0,229,204,.1)',border:'rgba(0,229,204,.4)',active:hasH},
+    {id:'peli',ikoni:'⚽',nimi:'Ottelu',kuvaus:'Kirjaa vastustaja ja tulos',col:'var(--green)',bg:'rgba(34,197,94,.1)',border:'rgba(34,197,94,.35)',active:hasP},
+    {id:'testi',ikoni:'🔬',nimi:'Testipäivä',kuvaus:'Aktivoi TalentID-testauksen',col:'var(--purple)',bg:'rgba(167,139,250,.1)',border:'rgba(167,139,250,.35)',active:hasT},
+  ];
+
+  tapahtumat.forEach(function(t){
+    var activeBorder=t.active?'2px solid '+t.border:'1px solid var(--border)';
+    var activeBg=t.active?t.bg:'var(--bg3)';
+    h+='<div onclick="toggleKalenteriTapahtuma(\''+pvId+'\',\''+t.id+'\',\''+kalAvain+'\')" ';
+    h+='style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:13px;border:'+activeBorder+';background:'+activeBg+';cursor:pointer;margin-bottom:8px;transition:all .15s;">';
+    h+='<div style="width:38px;height:38px;border-radius:10px;background:'+(t.active?t.bg:'var(--bg2)')+';display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">'+t.ikoni+'</div>';
+    h+='<div style="flex:1"><div style="font-size:14px;font-weight:700;color:'+(t.active?t.col:'var(--muted2)')+';">'+t.nimi+'</div>';
+    h+='<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+t.kuvaus+'</div></div>';
+    h+='<div style="width:22px;height:22px;border-radius:50%;border:2px solid '+(t.active?t.col:'var(--dim)')+';background:'+(t.active?t.col:'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+    if(t.active)h+='<span style="font-size:11px;color:#000;font-weight:900;">✓</span>';
+    h+='</div></div>';
+  });
+
+  // Peli-lisätiedot (näytetään jos peli valittuna)
+  h+='<div id="peliExtras" style="display:'+(hasP?'block':'none')+';margin-top:4px;">';
+  h+='<div style="background:var(--bg3);border-radius:12px;padding:12px 14px;border:1px solid var(--border);">';
+  h+='<div style="font-size:11px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">⚽ Ottelun tiedot</div>';
+  h+='<div style="margin-bottom:8px;">';
+  h+='<div style="font-size:11px;color:var(--muted2);margin-bottom:4px;">Vastustaja</div>';
+  h+='<input id="peliVastustaja" type="text" value="'+((peliData.vastustaja)||'')+'" placeholder="esim. FC Inter Helsinki" ';
+  h+='style="width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
+  h+='</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+  h+='<div><div style="font-size:11px;color:var(--muted2);margin-bottom:4px;">Tulos</div>';
+  h+='<input id="peliTulos" type="text" value="'+((peliData.tulos)||'')+'" placeholder="esim. 2-1" ';
+  h+='style="width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;"></div>';
+  h+='<div><div style="font-size:11px;color:var(--muted2);margin-bottom:4px;">Kenttä (koti/vieras)</div>';
+  h+='<select id="peliKentta" style="width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
+  h+='<option value="koti"'+(peliData.kentta==='koti'?' selected':'')+'>Koti</option>';
+  h+='<option value="vieras"'+(peliData.kentta==='vieras'?' selected':'')+'>Vieras</option>';
+  h+='</select></div>';
+  h+='</div></div></div>';
+
+  // Testi-lisätiedot (näytetään jos testi valittuna)
+  h+='<div id="testiExtras" style="display:'+(hasT?'block':'none')+';margin-top:4px;">';
+  h+='<div style="background:var(--bg3);border-radius:12px;padding:12px 14px;border:1px solid var(--border);">';
+  h+='<div style="font-size:11px;color:var(--purple);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">🔬 Testin tiedot</div>';
+  h+='<div style="margin-bottom:8px;">';
+  h+='<div style="font-size:11px;color:var(--muted2);margin-bottom:4px;">Testityyppi</div>';
+  h+='<select id="testiTyyppi" style="width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
+  ['HPP Quick Scan','HPP Full Scan','Tekniikkakilpailu','Harjoitettavuuskartoitus','Game IQ ADAR','Oma testi'].forEach(function(tt){
+    h+='<option value="'+tt+'"'+(testiData.tyyppi===tt?' selected':'')+'>'+tt+'</option>';
+  });
+  h+='</select></div>';
+  h+='<div><div style="font-size:11px;color:var(--muted2);margin-bottom:4px;">Muistiinpano</div>';
+  h+='<input id="testiMuistio" type="text" value="'+((testiData.muistiinpano)||'')+'" placeholder="vapaaehtoinen" ';
+  h+='style="width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
+  h+='</div></div></div>';
+
+  // Tallenna-nappi
+  h+='<button onclick="tallennaKalenteriJaSulje(\''+pvId+'\',\''+kalAvain+'\',\''+y+'\',\''+wk+'\')" ';
+  h+='style="width:100%;margin-top:14px;padding:14px;border-radius:13px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:800;cursor:pointer;letter-spacing:.5px;">TALLENNA →</button>';
+
+  document.getElementById('hkBody').innerHTML=h;
+  document.getElementById('hkOverlay').style.display='flex';
+  document.body.style.overflow='hidden';
+}
+
+function toggleKalenteriTapahtuma(pvId,tapId,kalAvain){
+  var kalData=lsj(kalAvain)||{ma:[],ti:[],ke:[],to:[],pe:[],la:[],su:[]};
+  ['ma','ti','ke','to','pe','la','su'].forEach(function(p2){if(!Array.isArray(kalData[p2]))kalData[p2]=[];});
+  var ev=kalData[pvId]||[];
+  var idx=ev.indexOf(tapId);
+  if(idx>=0){ev.splice(idx,1);}else{ev.push(tapId);}
+  kalData[pvId]=ev;
+  sls(kalAvain,kalData);
+  // Päivitä extras-näkyvyys suoraan
+  if(tapId==='peli'){
+    var pe=document.getElementById('peliExtras');
+    if(pe)pe.style.display=ev.indexOf('peli')>=0?'block':'none';
+  }
+  if(tapId==='testi'){
+    var te=document.getElementById('testiExtras');
+    if(te)te.style.display=ev.indexOf('testi')>=0?'block':'none';
+  }
+  // Päivitä napin tila visuaalisesti
+  avaaKalenteriPopup(pvId,kalAvain);
+}
+
+function tallennaKalenteriJaSulje(pvId,kalAvain,y,wk){
+  // Tallenna peli- ja testitiedot jos kentät löytyvät
+  var vas=document.getElementById('peliVastustaja');
+  var tul=document.getElementById('peliTulos');
+  var ken=document.getElementById('peliKentta');
+  if(vas){
+    sls('tm_coach_peli_'+y+'_'+wk+'_'+pvId,{
+      vastustaja:vas.value||'',
+      tulos:tul?tul.value||'':'',
+      kentta:ken?ken.value||'koti':'koti'
+    });
+  }
+  var ttyy=document.getElementById('testiTyyppi');
+  var tmus=document.getElementById('testiMuistio');
+  if(ttyy){
+    sls('tm_coach_testi_'+y+'_'+wk+'_'+pvId,{
+      tyyppi:ttyy.value||'HPP Quick Scan',
+      muistiinpano:tmus?tmus.value||'':''
+    });
+  }
+  document.getElementById('hkOverlay').style.display='none';
+  document.body.style.overflow='';
+  naytaToast('📅 Kalenteri tallennettu');
+  buildCoachViikko();
+}
+
+function suljeKalenteriPopup(){
+  document.getElementById('hkOverlay').style.display='none';
+  document.body.style.overflow='';
+}
+
+// Hae joukkueen RPE-yhteenveto tänään
+function haeJoukkuenRpeTanaan(pelaajat){
+  var tanaan=new Date().toISOString().slice(0,10);
+  var merkitty=0,summa=0,n=0;
+  pelaajat.forEach(function(p){
+    var avain='tm_rpe_'+p.id+'_'+tanaan;
+    var rpe=lsj(avain);
+    if(rpe){
+      merkitty++;
+      // Normalisoi CR-10 (0-10) ja liikennevalo (1-3 → 0-10) samalle asteikolle
+      var normArvo=rpe.tyyppi==='cr10'?rpe.arvo:((rpe.arvo-1)*5);
+      summa+=normArvo;n++;
+    }
+  });
+  return{merkitty:merkitty,keskim:n>0?summa/n:0};
+}
 
 // ═══════════ KEHITYS TAB ═══════════
 function buildKehitysLeikkija(p,r){
