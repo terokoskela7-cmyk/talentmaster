@@ -1581,13 +1581,73 @@ function kirjausPaiviatten(pvm) {
 }
 
 function liikenneValo(seura, jnimi) {
-  // Palauttaa {col, label, paivat} liikennevalo-logiikalla
   var v = viimeisinKirjaus(seura, jnimi);
   if (!v) return { col: 'var(--muted)', label: 'Ei kirjauksia', paivat: 999 };
   var d = kirjausPaiviatten(v.pvm);
   if (d <= 14)  return { col: 'var(--green)', label: d === 0 ? 'Tänään' : d + 'pv sitten', paivat: d };
   if (d <= 30)  return { col: 'var(--amber)', label: d + 'pv sitten', paivat: d };
   return { col: 'var(--red)', label: d + 'pv sitten', paivat: d };
+}
+
+// Laske kausikohtainen harjoitteluseuranta-aktiivisuus yhdelle joukkueelle
+// Palauttaa: viikot joissa kirjauksia, inno-keskiarvo, liike-keskiarvo,
+//            arvio Palloliiton 3pv/vko-kriteerin suunnasta
+function laskeKausiAktiivisuus(seura, jnimi) {
+  var kirjaukset = haePikaKirjaukset(seura, jnimi);
+  if (!kirjaukset.length) return null;
+
+  // Ryhmitä kirjaukset viikon tarkkuudella (ISO-viikkonumero)
+  function isoViikko(dateStr) {
+    var d = new Date(dateStr);
+    var jan4 = new Date(d.getFullYear(), 0, 4);
+    var startOfWeek = new Date(jan4);
+    startOfWeek.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+    return Math.floor((d - startOfWeek) / (7 * 24 * 3600 * 1000));
+  }
+
+  var viikot = new Set();
+  var innoSumma = 0, liikeSumma = 0, n = 0;
+  kirjaukset.forEach(function(k) {
+    viikot.add(k.pvm.slice(0,4) + '_' + isoViikko(k.pvm)); // vuosi_viikko
+    if (k.inno) { innoSumma += k.inno; liikeSumma += k.liike || 0; n++; }
+  });
+
+  var viikoissa = viikot.size;
+  var innoKa  = n ? Math.round(innoSumma / n * 10) / 10 : null;
+  var liikeKa = n ? Math.round(liikeSumma / n * 10) / 10 : null;
+
+  // Palloliiton 3pv/vko tarkoittaa käytännössä noin 12 viikkoa/kuukausi
+  // Kirjaustiheys on suuntaa-antava indikaattori: ei suora mittaus mutta kertoo
+  // onko valmentaja seurannut aktiivisesti. Kynnys: 3 viikkoa/kuukausi = hyvä.
+  var kuukausia = Math.max(1, Math.round(kirjaukset.length / 2)); // karkea arvio
+  var viikoissaKuussa = Math.round(viikoissa / Math.max(1, kuukausia) * 10) / 10;
+  var aktiivisuusTaso = viikoissa >= 10 ? 'hyvä' : viikoissa >= 5 ? 'kehittyvä' : 'vähäinen';
+
+  return {
+    kirjauksia: kirjaukset.length,
+    viikoissa:  viikoissa,
+    innoKa:     innoKa,
+    liikeKa:    liikeKa,
+    taso:       aktiivisuusTaso
+  };
+}
+
+// Laske koko seuran harjoitteluseuranta-yhteenveto Palloliiton kriteeriä varten
+function laskeSeuranHarjoitteluseuranta(seura) {
+  var s = _seuraData[seura];
+  if (!s) return { lkm: 0, pct: 0, ok: false };
+  var yhteensa = 0, joukkueitaSeurannassa = 0;
+  Object.keys(s.joukkueet).forEach(function(jnimi) {
+    var akt = laskeKausiAktiivisuus(seura, jnimi);
+    if (akt && akt.kirjauksia > 0) {
+      yhteensa += akt.kirjauksia;
+      if (akt.taso !== 'vähäinen') joukkueitaSeurannassa++;
+    }
+  });
+  var joukkueet_n = Object.keys(s.joukkueet).length;
+  var pct = joukkueet_n ? Math.round(joukkueitaSeurannassa / joukkueet_n * 100) : 0;
+  return { lkm: yhteensa, joukkueitaSeurannassa: joukkueitaSeurannassa,
+           joukkueet_n: joukkueet_n, pct: pct, ok: yhteensa >= 150 };
 }
 
 // Avaa pikakirjaus-modal
@@ -1620,9 +1680,43 @@ function avaaKirjaus(jnimi, event) {
   var h = '';
   h += '<div style="font-size:11px;color:var(--muted);margin-bottom:2px">'+_aktivSeura+'</div>';
   h += '<div style="font-family:\\"Bebas Neue\\";font-size:24px;margin-bottom:4px">'+jnimi+'</div>';
-  h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:20px">';
-  h += vika ? 'Edellinen kirjaus: ' + new Date(vika.pvm).toLocaleDateString("fi-FI") : 'Ei aiempia kirjauksia';
-  h += '</div>';
+
+  // Kausiaktiivisuus-yhteenveto
+  var _aktKausi = laskeKausiAktiivisuus(_aktivSeura, jnimi);
+  if (_aktKausi) {
+    var _aktCol = _aktKausi.taso==='hyvä'?'var(--green)':_aktKausi.taso==='kehittyvä'?'var(--amber)':'var(--red)';
+    h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px">';
+    // Kirjauksia yhteensä
+    h += '<div style="background:var(--bg3);border-radius:8px;padding:8px 10px;text-align:center">';
+    h += '<div style="font-family:\\"Bebas Neue\\";font-size:22px;color:'+_aktCol+'">'+_aktKausi.kirjauksia+'</div>';
+    h += '<div style="font-size:10px;color:var(--muted2)">Kirjausta</div></div>';
+    // Aktiiviset viikot
+    h += '<div style="background:var(--bg3);border-radius:8px;padding:8px 10px;text-align:center">';
+    h += '<div style="font-family:\\"Bebas Neue\\";font-size:22px;color:'+_aktCol+'">'+_aktKausi.viikoissa+'</div>';
+    h += '<div style="font-size:10px;color:var(--muted2)">Aktiivista viikkoa</div></div>';
+    // Innostavuus-keskiarvo
+    if (_aktKausi.innoKa) {
+      var _innoCol = _aktKausi.innoKa>=8?'var(--green)':_aktKausi.innoKa>=6?'var(--amber)':'var(--red)';
+      h += '<div style="background:var(--bg3);border-radius:8px;padding:8px 10px;text-align:center">';
+      h += '<div style="font-family:\\"Bebas Neue\\";font-size:22px;color:'+_innoCol+'">'+_aktKausi.innoKa+'</div>';
+      h += '<div style="font-size:10px;color:var(--muted2)">Inno ka.</div></div>';
+    } else {
+      h += '<div style="background:var(--bg3);border-radius:8px;padding:8px 10px;text-align:center">';
+      h += '<div style="font-family:\\"Bebas Neue\\";font-size:22px;color:var(--muted)">—</div>';
+      h += '<div style="font-size:10px;color:var(--muted2)">Inno ka.</div></div>';
+    }
+    h += '</div>';
+    // Palloliiton kriteeri-indikaattori
+    var _palloTeksti = _aktKausi.taso==='hyvä'
+      ? '✓ Seurantakäytäntö aktiivinen'
+      : _aktKausi.taso==='kehittyvä'
+        ? '△ Seurantaa on, lisää säännöllisyyttä'
+        : '○ Seuranta vähäistä — aloitetaan nyt';
+    h += '<div style="font-size:11px;color:'+_aktCol+';margin-bottom:14px;padding:6px 10px;background:rgba(0,0,0,.15);border-radius:7px">';
+    h += _palloTeksti + ' · Palloliiton harjoitteluseurantakriteeri</div>';
+  } else {
+    h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:14px">Ensimmäinen kirjaus tästä joukkueesta — aloita kausikohtainen seuranta.</div>';
+  }
 
   // ── VALMENTAJAN TIEDOT ──────────────────────────────────────────────
   var aiempiNimi  = vika && vika.valmentaja ? vika.valmentaja : '';
@@ -2808,12 +2902,23 @@ function renderJoukkueet() {
     });
     h += '</div>'; // muut-ketjut
 
-    // Liikennevalo + pikakirjaus-nappi
+    // Liikennevalo + kausiaktiivisuus + pikakirjaus-nappi
     var lv = liikenneValo(_aktivSeura, jnimi);
+    var akt = laskeKausiAktiivisuus(_aktivSeura, jnimi);
+
+    // Liikennevalo-rivi
     h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">';
     h += '<div style="display:flex;align-items:center;gap:6px">';
     h += '<div style="width:8px;height:8px;border-radius:50%;background:'+lv.col+'"></div>';
     h += '<div style="font-size:10px;color:var(--muted2)">'+lv.label+'</div>';
+    // Kausiaktiivisuus-badge liikennevalon rinnalla
+    if (akt) {
+      var aktCol = akt.taso==='hyvä'?'var(--green)':akt.taso==='kehittyvä'?'var(--amber)':'var(--muted)';
+      h += '<div style="font-size:10px;color:'+aktCol+';background:rgba(0,0,0,.2);border-radius:5px;padding:2px 6px;margin-left:4px">';
+      h += akt.viikoissa+'vk · '+akt.kirjauksia+'krt';
+      if (akt.innoKa) h += ' · inno '+akt.innoKa;
+      h += '</div>';
+    }
     h += '</div>';
     h += '<button onclick="avaaKirjaus(this.dataset.j,event)" data-j="'+jnimi+'" ';
     h += 'style="font-size:11px;color:var(--teal);background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.2);';
@@ -3584,16 +3689,9 @@ function renderSeuratavoitteet() {
   var talentSet = haeTalentit(_aktivSeura);
   var nTalentit = talentSet ? talentSet.size : 0;
 
-  // Pikakirjaukset: laske kaikki localStorage-kirjaukset tältä seuralta
-  var pikaLkm = 0;
-  Object.keys(localStorage).forEach(function(k) {
-    if (k.startsWith('pika_' + _aktivSeura.replace(/\s+/g,'_'))) {
-      try {
-        var arr = JSON.parse(localStorage.getItem(k));
-        if (Array.isArray(arr)) pikaLkm += arr.length;
-      } catch(e) {}
-    }
-  });
+  // Pikakirjaukset: käytä laskeSeuranHarjoitteluseuranta-funktiota
+  var _hSeuranta = laskeSeuranHarjoitteluseuranta(_aktivSeura);
+  var pikaLkm = _hSeuranta.lkm;
 
   // Arvojen resolver — palauttaa {arvo, pct, ok} per mittari
   function laskeMittari(mittari, kynnys_ok) {
