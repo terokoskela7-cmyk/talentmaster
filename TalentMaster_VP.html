@@ -240,7 +240,28 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
   </div>
 </div>
 
-<script src="tm_data.js"></script>
+<script>
+// Dynaaminen lataus — toimii sekä GitHubissa että paikallisesti
+(function() {
+  var s = document.createElement('script');
+  s.src = 'tm_data.js';
+  s.async = false;
+  s.onload = function() {
+    console.log('[VP] tm_data.js ladattu:', 
+      window.TM_DATA ? Object.keys(window.TM_DATA.lookup||{}).length + ' pelaajaa' : 'virhe');
+    window._tmDataReady = true;
+    // Käynnistä VP heti kun data on valmis
+    if (typeof window._vpInitReady === 'function') window._vpInitReady();
+  };
+  s.onerror = function() {
+    console.warn('[VP] tm_data.js ei ladattu — demo-tilassa');
+    window._tmDataFailed = true;
+    window._tmDataReady = true;
+    if (typeof window._vpInitReady === 'function') window._vpInitReady();
+  };
+  document.head.appendChild(s);
+})();
+</script>
 <script>
 // Eerikkilä 2024 — Jalkapallon fyysteknisten ominaisuustestien tavoitetasot
 // Lähde: Suomen Palloliitto + Eerikkilä Urheiluopisto, päivitetty 2024
@@ -1551,8 +1572,30 @@ var _aktivSeura = '';
 var _aktivTab = 0;
 
 function initDash() {
-  if (!window.TM_DATA) { alert('tm_data.js ei latautunut'); return; }
-  _seuraData = aggregateData(window.TM_DATA.lookup);
+  if (!window._tmDataReady) {
+    // Data latautuu vielä — odota ja yritä uudelleen
+    document.getElementById('pinErr').textContent = 'Data latautuu...';
+    setTimeout(function() { kirjaudu(); }, 500);
+    return;
+  }
+  // Null-safe data-lataus: käytä TM_DATA jos saatavilla, muuten tyhjä lookup
+  var lookup = (window.TM_DATA && window.TM_DATA.lookup) ? window.TM_DATA.lookup : {};
+  if (!Object.keys(lookup).length) {
+    console.warn('[VP] Ei pelaajadataa — artifact-ympäristö tai tm_data.js puuttuu.');
+    // Näytä selkeä viesti käyttäjälle sisällön sijaan
+    document.getElementById('tabYleiskuva').innerHTML =
+      '<div style="padding:40px;text-align:center;color:var(--muted2)">' +
+      '<div style="font-size:48px;margin-bottom:16px">📂</div>' +
+      '<div style="font-size:18px;font-weight:600;margin-bottom:8px">tm_data.js ei löydy</div>' +
+      '<div style="font-size:13px;line-height:1.7">Valmennuspäällikön näkymä vaatii <strong>tm_data.js</strong>-tiedoston.<br>' +
+      'Avaa tiedosto GitHub-sivustolta: <br>' +
+      '<code style="background:var(--bg3);padding:2px 8px;border-radius:4px;font-size:12px">' +
+      'terokoskela7-cmyk.github.io/talentmaster/</code><br><br>' +
+      'Artifact-esikatselu ei tue ulkoisia tiedostoja.</div>' +
+      '</div>';
+    return;
+  }
+  _seuraData = aggregateData(lookup);
   
   var sel = document.getElementById('seuraSelect');
   sel.innerHTML = '';
