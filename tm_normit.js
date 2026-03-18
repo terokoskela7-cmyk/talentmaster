@@ -1,0 +1,1083 @@
+// TalentMaster™ — Palloliiton viralliset fyysisteknisten testien tavoitetasot
+// Lähde: Eerikkilä / Suomen Palloliitto, päivitetty 20.5.2024 (pojat) ja 14.10.2024 (tytöt)
+// Taso 3 = kansallinen tavoitetaso (Palloliiton kriteeri seuratukimallissa)
+// Taso 5 = erinomainen, 4 = hyvä, 3 = tavoite, 2 = kehitettävä, 1 = heikko
+
+var TM_PALLOLIITTO_NORMIT = {
+  male: {
+  "Nopeus 5m": {
+    "P10": {
+      "t5": 1.08,
+      "t4": 1.11,
+      "t3": 1.14,
+      "t2": 1.18
+    },
+    "P11": {
+      "t5": 1.05,
+      "t4": 1.09,
+      "t3": 1.11,
+      "t2": 1.15
+    },
+    "P12": {
+      "t5": 1.02,
+      "t4": 1.05,
+      "t3": 1.08,
+      "t2": 1.12
+    },
+    "P13": {
+      "t5": 0.99,
+      "t4": 1.02,
+      "t3": 1.05,
+      "t2": 1.09
+    },
+    "P14": {
+      "t5": 0.96,
+      "t4": 0.99,
+      "t3": 1.01,
+      "t2": 1.05
+    },
+    "P15": {
+      "t5": 0.94,
+      "t4": 0.97,
+      "t3": 0.99,
+      "t2": 1.03
+    },
+    "P16": {
+      "t5": 0.92,
+      "t4": 0.95,
+      "t3": 0.97,
+      "t2": 1.01
+    },
+    "P17": {
+      "t5": 0.9,
+      "t4": 0.93,
+      "t3": 0.95,
+      "t2": 0.99
+    },
+    "P18": {
+      "t5": 0.88,
+      "t4": 0.91,
+      "t3": 0.93,
+      "t2": 0.97
+    },
+    "P19": {
+      "t5": 0.87,
+      "t4": 0.89,
+      "t3": 0.91,
+      "t2": 0.95
+    }
+  },
+  "Nopeus 10m": {
+    "P10": {
+      "t5": 1.92,
+      "t4": 1.97,
+      "t3": 2.02,
+      "t2": 2.08
+    },
+    "P11": {
+      "t5": 1.88,
+      "t4": 1.93,
+      "t3": 1.97,
+      "t2": 2.02
+    },
+    "P12": {
+      "t5": 1.81,
+      "t4": 1.86,
+      "t3": 1.91,
+      "t2": 1.97
+    },
+    "P13": {
+      "t5": 1.75,
+      "t4": 1.81,
+      "t3": 1.86,
+      "t2": 1.92
+    },
+    "P14": {
+      "t5": 1.69,
+      "t4": 1.74,
+      "t3": 1.78,
+      "t2": 1.84
+    },
+    "P15": {
+      "t5": 1.67,
+      "t4": 1.71,
+      "t3": 1.74,
+      "t2": 1.8
+    },
+    "P16": {
+      "t5": 1.64,
+      "t4": 1.68,
+      "t3": 1.71,
+      "t2": 1.75
+    },
+    "P17": {
+      "t5": 1.62,
+      "t4": 1.65,
+      "t3": 1.67,
+      "t2": 1.73
+    },
+    "P18": {
+      "t5": 1.59,
+      "t4": 1.63,
+      "t3": 1.65,
+      "t2": 1.71
+    },
+    "P19": {
+      "t5": 1.57,
+      "t4": 1.59,
+      "t3": 1.63,
+      "t2": 1.68
+    }
+  },
+  "Nopeus 30m": {
+    "P10": {
+      "t5": 4.88,
+      "t4": 5.01,
+      "t3": 5.15,
+      "t2": 5.31
+    },
+    "P11": {
+      "t5": 4.73,
+      "t4": 4.86,
+      "t3": 4.99,
+      "t2": 5.14
+    },
+    "P12": {
+      "t5": 4.56,
+      "t4": 4.69,
+      "t3": 4.82,
+      "t2": 4.97
+    },
+    "P13": {
+      "t5": 4.37,
+      "t4": 4.52,
+      "t3": 4.65,
+      "t2": 4.81
+    },
+    "P14": {
+      "t5": 4.17,
+      "t4": 4.29,
+      "t3": 4.42,
+      "t2": 4.57
+    },
+    "P15": {
+      "t5": 4.08,
+      "t4": 4.18,
+      "t3": 4.28,
+      "t2": 4.41
+    },
+    "P16": {
+      "t5": 4.02,
+      "t4": 4.13,
+      "t3": 4.18,
+      "t2": 4.31
+    },
+    "P17": {
+      "t5": 3.96,
+      "t4": 4.06,
+      "t3": 4.11,
+      "t2": 4.24
+    },
+    "P18": {
+      "t5": 3.86,
+      "t4": 3.99,
+      "t3": 4.07,
+      "t2": 4.19
+    },
+    "P19": {
+      "t5": 3.81,
+      "t4": 3.93,
+      "t3": 4.0,
+      "t2": 4.14
+    }
+  },
+  "Ketteryys": {
+    "P10": {
+      "t5": 7.05,
+      "t4": 7.18,
+      "t3": 7.32,
+      "t2": 7.44
+    },
+    "P11": {
+      "t5": 6.9,
+      "t4": 7.05,
+      "t3": 7.19,
+      "t2": 7.32
+    },
+    "P12": {
+      "t5": 6.74,
+      "t4": 6.9,
+      "t3": 7.04,
+      "t2": 7.17
+    },
+    "P13": {
+      "t5": 6.58,
+      "t4": 6.74,
+      "t3": 6.91,
+      "t2": 7.03
+    },
+    "P14": {
+      "t5": 6.45,
+      "t4": 6.6,
+      "t3": 6.75,
+      "t2": 6.93
+    },
+    "P15": {
+      "t5": 6.37,
+      "t4": 6.52,
+      "t3": 6.67,
+      "t2": 6.88
+    },
+    "P16": {
+      "t5": 6.3,
+      "t4": 6.46,
+      "t3": 6.58,
+      "t2": 6.8
+    },
+    "P17": {
+      "t5": 6.19,
+      "t4": 6.3,
+      "t3": 6.45,
+      "t2": 6.63
+    },
+    "P18": {
+      "t5": 6.04,
+      "t4": 6.18,
+      "t3": 6.32,
+      "t2": 6.48
+    },
+    "P19": {
+      "t5": 5.95,
+      "t4": 6.1,
+      "t3": 6.23,
+      "t2": 6.37
+    }
+  },
+  "SM ilman palloa": {
+    "P10": {
+      "t5": 8.55,
+      "t4": 8.83,
+      "t3": 9.09,
+      "t2": 9.4
+    },
+    "P11": {
+      "t5": 8.21,
+      "t4": 8.5,
+      "t3": 8.73,
+      "t2": 9.03
+    },
+    "P12": {
+      "t5": 8.0,
+      "t4": 8.21,
+      "t3": 8.45,
+      "t2": 8.73
+    },
+    "P13": {
+      "t5": 7.73,
+      "t4": 7.99,
+      "t3": 8.22,
+      "t2": 8.49
+    },
+    "P14": {
+      "t5": 7.58,
+      "t4": 7.84,
+      "t3": 8.08,
+      "t2": 8.36
+    },
+    "P15": {
+      "t5": 7.45,
+      "t4": 7.64,
+      "t3": 7.82,
+      "t2": 8.03
+    },
+    "P16": {
+      "t5": 7.35,
+      "t4": 7.49,
+      "t3": 7.61,
+      "t2": 7.8
+    },
+    "P17": {
+      "t5": 7.27,
+      "t4": 7.42,
+      "t3": 7.52,
+      "t2": 7.73
+    },
+    "P18": {
+      "t5": 7.19,
+      "t4": 7.36,
+      "t3": 7.45,
+      "t2": 7.66
+    },
+    "P19": {
+      "t5": 7.11,
+      "t4": 7.28,
+      "t3": 7.38,
+      "t2": 7.58
+    }
+  },
+  "SM-pallo": {
+    "P10": {
+      "t5": 9.89,
+      "t4": 10.24,
+      "t3": 10.58,
+      "t2": 11.02
+    },
+    "P11": {
+      "t5": 9.51,
+      "t4": 9.84,
+      "t3": 10.14,
+      "t2": 10.53
+    },
+    "P12": {
+      "t5": 9.27,
+      "t4": 9.58,
+      "t3": 9.86,
+      "t2": 10.18
+    },
+    "P13": {
+      "t5": 8.98,
+      "t4": 9.31,
+      "t3": 9.56,
+      "t2": 9.92
+    },
+    "P14": {
+      "t5": 8.75,
+      "t4": 9.04,
+      "t3": 9.28,
+      "t2": 9.57
+    },
+    "P15": {
+      "t5": 8.57,
+      "t4": 8.83,
+      "t3": 9.02,
+      "t2": 9.31
+    },
+    "P16": {
+      "t5": 8.39,
+      "t4": 8.6,
+      "t3": 8.74,
+      "t2": 8.99
+    },
+    "P17": {
+      "t5": 8.3,
+      "t4": 8.47,
+      "t3": 8.6,
+      "t2": 8.82
+    },
+    "P18": {
+      "t5": 8.21,
+      "t4": 8.41,
+      "t3": 8.52,
+      "t2": 8.74
+    },
+    "P19": {
+      "t5": 8.13,
+      "t4": 8.32,
+      "t3": 8.44,
+      "t2": 8.65
+    }
+  },
+  "Kevennyshyppy": {
+    "P10": {
+      "t5": 27.3,
+      "t4": 25.5,
+      "t3": 23.7,
+      "t2": 22.3
+    },
+    "P11": {
+      "t5": 29.3,
+      "t4": 27.2,
+      "t3": 25.5,
+      "t2": 23.5
+    },
+    "P12": {
+      "t5": 32.2,
+      "t4": 29.1,
+      "t3": 27.2,
+      "t2": 25.2
+    },
+    "P13": {
+      "t5": 35.2,
+      "t4": 31.4,
+      "t3": 29.4,
+      "t2": 27.3
+    },
+    "P14": {
+      "t5": 38.1,
+      "t4": 35.1,
+      "t3": 32.8,
+      "t2": 30.7
+    },
+    "P15": {
+      "t5": 41.3,
+      "t4": 37.5,
+      "t3": 35.4,
+      "t2": 33.0
+    },
+    "P16": {
+      "t5": 43.0,
+      "t4": 39.6,
+      "t3": 37.9,
+      "t2": 35.2
+    },
+    "P17": {
+      "t5": 45.1,
+      "t4": 42.1,
+      "t3": 40.3,
+      "t2": 36.4
+    },
+    "P18": {
+      "t5": 46.6,
+      "t4": 44.2,
+      "t3": 41.9,
+      "t2": 37.9
+    },
+    "P19": {
+      "t5": 48.5,
+      "t4": 46.0,
+      "t3": 44.3,
+      "t2": 39.3
+    }
+  },
+  "Syöttäminen": {
+    "P10": {
+      "t5": 38.7,
+      "t4": 44.9,
+      "t3": null,
+      "t2": null
+    },
+    "P11": {
+      "t5": 36.0,
+      "t4": 41.4,
+      "t3": null,
+      "t2": null
+    },
+    "P12": {
+      "t5": 35.0,
+      "t4": 39.5,
+      "t3": null,
+      "t2": null
+    },
+    "P13": {
+      "t5": 33.0,
+      "t4": 38.0,
+      "t3": null,
+      "t2": null
+    },
+    "P14": {
+      "t5": 31.1,
+      "t4": 35.0,
+      "t3": null,
+      "t2": null
+    },
+    "P15": {
+      "t5": 30.0,
+      "t4": 34.0,
+      "t3": null,
+      "t2": null
+    }
+  }
+},
+  female: {
+  "Nopeus 5m": {
+    "T10": {
+      "t5": 1.1,
+      "t4": 1.13,
+      "t3": 1.16,
+      "t2": 1.2
+    },
+    "T11": {
+      "t5": 1.07,
+      "t4": 1.1,
+      "t3": 1.13,
+      "t2": 1.18
+    },
+    "T12": {
+      "t5": 1.05,
+      "t4": 1.08,
+      "t3": 1.1,
+      "t2": 1.14
+    },
+    "T13": {
+      "t5": 1.03,
+      "t4": 1.06,
+      "t3": 1.08,
+      "t2": 1.12
+    },
+    "T14": {
+      "t5": 1.02,
+      "t4": 1.05,
+      "t3": 1.07,
+      "t2": 1.11
+    },
+    "T15": {
+      "t5": 1.0,
+      "t4": 1.03,
+      "t3": 1.06,
+      "t2": 1.1
+    },
+    "T16": {
+      "t5": 0.99,
+      "t4": 1.02,
+      "t3": 1.05,
+      "t2": 1.09
+    },
+    "T17": {
+      "t5": 0.98,
+      "t4": 1.01,
+      "t3": 1.04,
+      "t2": 1.08
+    },
+    "T18": {
+      "t5": 0.97,
+      "t4": 1.0,
+      "t3": 1.03,
+      "t2": 1.07
+    },
+    "T19": {
+      "t5": 0.96,
+      "t4": 0.99,
+      "t3": 1.02,
+      "t2": 1.06
+    }
+  },
+  "Nopeus 10m": {
+    "T10": {
+      "t5": 1.96,
+      "t4": 2.01,
+      "t3": 2.06,
+      "t2": 2.12
+    },
+    "T11": {
+      "t5": 1.91,
+      "t4": 1.96,
+      "t3": 2.01,
+      "t2": 2.08
+    },
+    "T12": {
+      "t5": 1.85,
+      "t4": 1.91,
+      "t3": 1.95,
+      "t2": 2.01
+    },
+    "T13": {
+      "t5": 1.83,
+      "t4": 1.87,
+      "t3": 1.91,
+      "t2": 1.96
+    },
+    "T14": {
+      "t5": 1.81,
+      "t4": 1.85,
+      "t3": 1.89,
+      "t2": 1.95
+    },
+    "T15": {
+      "t5": 1.78,
+      "t4": 1.83,
+      "t3": 1.87,
+      "t2": 1.93
+    },
+    "T16": {
+      "t5": 1.75,
+      "t4": 1.81,
+      "t3": 1.85,
+      "t2": 1.92
+    },
+    "T17": {
+      "t5": 1.74,
+      "t4": 1.78,
+      "t3": 1.84,
+      "t2": 1.9
+    },
+    "T18": {
+      "t5": 1.72,
+      "t4": 1.77,
+      "t3": 1.83,
+      "t2": 1.89
+    },
+    "T19": {
+      "t5": 1.71,
+      "t4": 1.76,
+      "t3": 1.81,
+      "t2": 1.88
+    }
+  },
+  "Nopeus 30m": {
+    "T10": {
+      "t5": 5.0,
+      "t4": 5.16,
+      "t3": 5.31,
+      "t2": 5.48
+    },
+    "T11": {
+      "t5": 4.84,
+      "t4": 5.0,
+      "t3": 5.14,
+      "t2": 5.36
+    },
+    "T12": {
+      "t5": 4.69,
+      "t4": 4.83,
+      "t3": 4.96,
+      "t2": 5.12
+    },
+    "T13": {
+      "t5": 4.59,
+      "t4": 4.71,
+      "t3": 4.83,
+      "t2": 4.96
+    },
+    "T14": {
+      "t5": 4.52,
+      "t4": 4.63,
+      "t3": 4.75,
+      "t2": 4.88
+    },
+    "T15": {
+      "t5": 4.43,
+      "t4": 4.55,
+      "t3": 4.68,
+      "t2": 4.83
+    },
+    "T16": {
+      "t5": 4.33,
+      "t4": 4.51,
+      "t3": 4.63,
+      "t2": 4.8
+    },
+    "T17": {
+      "t5": 4.31,
+      "t4": 4.44,
+      "t3": 4.61,
+      "t2": 4.75
+    },
+    "T18": {
+      "t5": 4.26,
+      "t4": 4.41,
+      "t3": 4.56,
+      "t2": 4.73
+    },
+    "T19": {
+      "t5": 4.22,
+      "t4": 4.39,
+      "t3": 4.53,
+      "t2": 4.7
+    }
+  },
+  "Ketteryys": {
+    "T10": {
+      "t5": 7.23,
+      "t4": 7.45,
+      "t3": 7.63,
+      "t2": 7.7
+    },
+    "T11": {
+      "t5": 7.15,
+      "t4": 7.26,
+      "t3": 7.38,
+      "t2": 7.51
+    },
+    "T12": {
+      "t5": 6.94,
+      "t4": 7.1,
+      "t3": 7.22,
+      "t2": 7.35
+    },
+    "T13": {
+      "t5": 6.74,
+      "t4": 6.86,
+      "t3": 7.0,
+      "t2": 7.16
+    },
+    "T14": {
+      "t5": 6.7,
+      "t4": 6.8,
+      "t3": 6.94,
+      "t2": 7.08
+    },
+    "T15": {
+      "t5": 6.65,
+      "t4": 6.75,
+      "t3": 6.9,
+      "t2": 7.04
+    },
+    "T16": {
+      "t5": 6.59,
+      "t4": 6.7,
+      "t3": 6.85,
+      "t2": 7.0
+    },
+    "T17": {
+      "t5": 6.55,
+      "t4": 6.65,
+      "t3": 6.8,
+      "t2": 6.96
+    },
+    "T18": {
+      "t5": 6.51,
+      "t4": 6.59,
+      "t3": 6.76,
+      "t2": 6.9
+    },
+    "T19": {
+      "t5": 6.45,
+      "t4": 6.51,
+      "t3": 6.65,
+      "t2": 6.82
+    }
+  },
+  "SM ilman palloa": {
+    "T10": {
+      "t5": 8.77,
+      "t4": 9.05,
+      "t3": 9.3,
+      "t2": 9.6
+    },
+    "T11": {
+      "t5": 8.5,
+      "t4": 8.76,
+      "t3": 8.99,
+      "t2": 9.26
+    },
+    "T12": {
+      "t5": 8.29,
+      "t4": 8.5,
+      "t3": 8.7,
+      "t2": 8.92
+    },
+    "T13": {
+      "t5": 8.11,
+      "t4": 8.32,
+      "t3": 8.51,
+      "t2": 8.73
+    },
+    "T14": {
+      "t5": 7.97,
+      "t4": 8.21,
+      "t3": 8.42,
+      "t2": 8.67
+    },
+    "T15": {
+      "t5": 7.95,
+      "t4": 8.1,
+      "t3": 8.39,
+      "t2": 8.61
+    },
+    "T16": {
+      "t5": 7.9,
+      "t4": 8.05,
+      "t3": 8.28,
+      "t2": 8.45
+    },
+    "T17": {
+      "t5": 7.85,
+      "t4": 7.98,
+      "t3": 8.25,
+      "t2": 8.38
+    },
+    "T18": {
+      "t5": 7.8,
+      "t4": 7.91,
+      "t3": 8.2,
+      "t2": 8.3
+    },
+    "T19": {
+      "t5": 7.75,
+      "t4": 7.86,
+      "t3": 8.15,
+      "t2": 8.25
+    }
+  },
+  "SM-pallo": {
+    "T10": {
+      "t5": 10.49,
+      "t4": 10.9,
+      "t3": 11.39,
+      "t2": 11.96
+    },
+    "T11": {
+      "t5": 9.95,
+      "t4": 10.43,
+      "t3": 10.83,
+      "t2": 11.32
+    },
+    "T12": {
+      "t5": 9.64,
+      "t4": 10.11,
+      "t3": 10.4,
+      "t2": 10.87
+    },
+    "T13": {
+      "t5": 9.41,
+      "t4": 9.86,
+      "t3": 10.12,
+      "t2": 10.46
+    },
+    "T14": {
+      "t5": 9.23,
+      "t4": 9.53,
+      "t3": 9.74,
+      "t2": 10.19
+    },
+    "T15": {
+      "t5": 9.07,
+      "t4": 9.22,
+      "t3": 9.51,
+      "t2": 9.74
+    },
+    "T16": {
+      "t5": 8.95,
+      "t4": 9.1,
+      "t3": 9.35,
+      "t2": 9.56
+    },
+    "T17": {
+      "t5": 8.9,
+      "t4": 9.04,
+      "t3": 9.32,
+      "t2": 9.48
+    },
+    "T18": {
+      "t5": 8.85,
+      "t4": 8.97,
+      "t3": 9.27,
+      "t2": 9.4
+    },
+    "T19": {
+      "t5": 8.8,
+      "t4": 8.92,
+      "t3": 9.22,
+      "t2": 9.35
+    }
+  },
+  "Kevennyshyppy": {
+    "T10": {
+      "t5": 26.2,
+      "t4": 24.0,
+      "t3": 22.5,
+      "t2": 19.8
+    },
+    "T11": {
+      "t5": 27.9,
+      "t4": 25.2,
+      "t3": 23.7,
+      "t2": 21.0
+    },
+    "T12": {
+      "t5": 29.3,
+      "t4": 26.5,
+      "t3": 25.3,
+      "t2": 22.2
+    },
+    "T13": {
+      "t5": 30.5,
+      "t4": 27.7,
+      "t3": 26.3,
+      "t2": 23.2
+    },
+    "T14": {
+      "t5": 32.2,
+      "t4": 29.4,
+      "t3": 28.4,
+      "t2": 25.0
+    },
+    "T15": {
+      "t5": 34.5,
+      "t4": 32.2,
+      "t3": 29.5,
+      "t2": 26.7
+    },
+    "T16": {
+      "t5": 35.4,
+      "t4": 33.2,
+      "t3": 30.0,
+      "t2": 27.4
+    },
+    "T17": {
+      "t5": 36.0,
+      "t4": 34.4,
+      "t3": 30.5,
+      "t2": 27.8
+    },
+    "T18": {
+      "t5": 37.0,
+      "t4": 34.4,
+      "t3": 30.5,
+      "t2": 28.7
+    },
+    "T19": {
+      "t5": 37.8,
+      "t4": 34.8,
+      "t3": 31.5,
+      "t2": 29.2
+    }
+  },
+  "Syöttäminen": {
+    "T10": {
+      "t5": 43.8,
+      "t4": 51.2,
+      "t3": null,
+      "t2": null
+    },
+    "T11": {
+      "t5": 40.2,
+      "t4": 46.9,
+      "t3": null,
+      "t2": null
+    },
+    "T12": {
+      "t5": 37.0,
+      "t4": 42.7,
+      "t3": null,
+      "t2": null
+    },
+    "T13": {
+      "t5": 35.8,
+      "t4": 40.9,
+      "t3": null,
+      "t2": null
+    },
+    "T14": {
+      "t5": 34.0,
+      "t4": 39.3,
+      "t3": null,
+      "t2": null
+    },
+    "T15": {
+      "t5": 32.8,
+      "t4": 38.5,
+      "t3": null,
+      "t2": null
+    }
+  }
+}
+};
+
+var TM_TESTI_SUUNTA = {"Nopeus 5m": true, "Nopeus 10m": true, "Nopeus 30m": true, "Ketteryys": true, "SM ilman palloa": true, "SM-pallo": true, "Kevennyshyppy": false, "Syöttäminen": true};
+
+
+/**
+ * Hakee Palloliiton virallisen tavoitetason yksittäiselle testille.
+ * @param {string} testi - Testin nimi (esim. 'Nopeus 30m')
+ * @param {number} arvo  - Mitattu tulos
+ * @param {string} sukup - 'male' tai 'female'
+ * @param {number} ika   - Kronologinen ikä vuosina
+ * @returns {object|null} - {taso:1-5, tavoitetasolla:bool, t3:number, alas:bool} tai null
+ */
+function haePalloliittoNormi(testi, arvo, sukup, ika) {
+  var data = TM_PALLOLIITTO_NORMIT[sukup];
+  if (!data || !data[testi]) return null;
+
+  // Ikäavain: male → P10-P19, female → T10-T19
+  var prefix = sukup === 'male' ? 'P' : 'T';
+  var v = Math.min(19, Math.max(10, Math.floor(ika)));
+  var key = prefix + v;
+  var t = data[testi][key];
+  if (!t) return null;
+
+  var alas = TM_TESTI_SUUNTA[testi] !== false; // true = pienempi parempi
+
+  // Laske taso (5=paras, 1=heikoin)
+  var taso;
+  if (alas) {
+    if      (arvo <= t.t5) taso = 5;
+    else if (arvo <= t.t4) taso = 4;
+    else if (arvo <= t.t3) taso = 3;
+    else if (arvo <= t.t2) taso = 2;
+    else                   taso = 1;
+  } else {
+    if      (arvo >= t.t5) taso = 5;
+    else if (arvo >= t.t4) taso = 4;
+    else if (arvo >= t.t3) taso = 3;
+    else if (arvo >= t.t2) taso = 2;
+    else                   taso = 1;
+  }
+
+  // Tavoitetasolla = taso 3 tai parempi
+  var tavoitetasolla = taso >= 3;
+  // t3 voi olla null (syöttötesti yli 15v)
+  var t3 = t.t3 !== null ? t.t3 : (alas ? t.t4 : t.t4); // fallback t4
+
+  return {
+    taso: taso,
+    tavoitetasolla: tavoitetasolla,
+    t3: t3,
+    t4: t.t4,
+    t5: t.t5,
+    alas: alas
+  };
+}
+
+/**
+ * Laskee pelaajan kokonaisprofiilin Palloliiton sääntöjen mukaan.
+ * Palloliiton kriteeri: max 2 testiä voi olla alle tavoitetason (taso < 3)
+ * @returns {object|null}
+ */
+function laskeNormitasoProfiili(fys_historia, sukup, ikaKrono) {
+  if (!fys_historia || !fys_historia.length) return null;
+  // HUOM: 'Ketteryys' csv2-datassa ≠ Palloliiton kasirata (eri protokolla, ~0.5s ero)
+  // Ketteryys poistettu normitasovertailusta kunnes protokolla varmistetaan.
+  // Muut 5 testiä ovat täysin vertailukelpoisia.
+  var TESTIT = ['SM-pallo','SM ilman palloa','Nopeus 10m','Nopeus 30m','Kevennyshyppy'];
+  var viimeisin = fys_historia[fys_historia.length - 1].mittaukset || {};
+  var tulokset = [], tavoite_n = 0, tehty_n = 0;
+
+  TESTIT.forEach(function(t) {
+    var v = viimeisin[t];
+    if (v == null) return;
+    var r = haePalloliittoNormi(t, v, sukup, ikaKrono);
+    if (!r) return;
+    tehty_n++;
+    if (r.tavoitetasolla) tavoite_n++;
+    tulokset.push({ testi: t, arvo: v, taso: r.taso,
+                    tavoitetasolla: r.tavoitetasolla,
+                    t3: r.t3, t5: r.t5, alas: r.alas });
+  });
+
+  if (tehty_n < 3) return null;
+  var alle_normin = tehty_n - tavoite_n;
+
+  return {
+    tavoitetasolla: alle_normin <= 2,   // Palloliiton sääntö
+    normi_pct: Math.round(tavoite_n / tehty_n * 100),
+    normi_n: tavoite_n,
+    tehty_n: tehty_n,
+    alle_normin: alle_normin,
+    tulokset: tulokset
+  };
+}
+
+/**
+ * Laskee seuran talenttipelaajien (12-15v) normitasojakauman.
+ * Käytetään VP-dashboardin Palloliiton kriteerit -välilehdellä.
+ */
+function laskeNormitasoSeuralle(s) {
+  var n = 0, tavoite = 0, kehitysalueet = {};
+  var TESTIT = ['SM-pallo','SM ilman palloa','Nopeus 10m','Nopeus 30m','Kevennyshyppy']; // Ketteryys poistettu: eri protokolla kuin Palloliiton kasirata
+
+  Object.values(s.joukkueet).forEach(function(j) {
+    j.pelaajatLista.forEach(function(p) {
+      var ika = (p.bioIka && p.bioIka.krono) || 0;
+      if (ika < 12 || ika > 15) return;
+      var fys = p.fys_historia || [];
+      if (!fys.length) return;
+      var profii = laskeNormitasoProfiili(fys, p.sukupuoli, ika);
+      if (!profii) return;
+      n++;
+      if (profii.tavoitetasolla) tavoite++;
+      profii.tulokset.forEach(function(t) {
+        if (!t.tavoitetasolla)
+          kehitysalueet[t.testi] = (kehitysalueet[t.testi] || 0) + 1;
+      });
+    });
+  });
+
+  if (n < 5) return null;
+  var pct = Math.round(tavoite / n * 100);
+  var ka = Object.entries(kehitysalueet)
+    .sort(function(a,b){return b[1]-a[1];}).slice(0,3);
+
+  return { pct: pct, tavoite: tavoite, n: n,
+           tavoitetasolla: pct >= 66, kehitysalueet: ka };
+}
