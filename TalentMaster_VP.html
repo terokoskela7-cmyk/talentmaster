@@ -2294,48 +2294,239 @@ function renderYleiskuva() {
   // Kaksi saraketta
   h += '<div class="two-col">';
 
-  // Joukkueet pikayhteenveto
-  h += '<div class="card">';
-  h += '<div class="card-title">Joukkueet — kehitystila</div>';
-  var sortedJ = joukkueet.slice().sort(function(a,b){return (b.avgDelta||0)-(a.avgDelta||0);});
-  sortedJ.forEach(function(j) {
-    var dc = statusColor(j.avgDelta);
-    var dl = statusLabel(j.avgDelta);
-    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '?';
-    h += '<div class="joukkue-row" onclick="avaaJoukkue(\''+jnimi+'\')">';
-    h += '<div class="status-dot" style="background:'+dc+'"></div>';
-    h += '<div class="joukkue-name">'+jnimi+'</div>';
-    h += '<div class="joukkue-meta">'+j.pelaajia+'p · '+j.testeja+'t</div>';
-    h += '<div class="mini-bars">';
-    ['taka','sivu','kierto'].forEach(function(k){
+
+  // ── HEATMAP + TOIMENPITEET (2-palsta) ─────────────────────────────────
+  // Vasen: heatmap-ruudukko (nopea skannaus) + klikattava korttilaajennus
+  // Oikea: älykkäät toimenpiteet prioriteettijärjestyksessä
+
+  // Laske älykkäät hälytykset ─────────────────────────────────────────────
+  var alertit = [];
+
+  // 1. KRIITTINEN IKÄIKKUNA + HEIKKO KETJU
+  var IKA_IKKUNAT = {
+    sm:     [10, 14],   // pallollinen reaktio: paras ikkuna 10-14v
+    kierto: [10, 16],   // laukaus/syöttövoima: 10-16v
+    taka:   [12, 16],   // kiihdytys/jarrutus: 12-16v
+    sivu:   [11, 15],   // suunnanmuutos: 11-15v
+    etu:    [14, 18],   // hyppy/ponnistus: 14-18v
+  };
+  joukkueet.forEach(function(j) {
+    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '';
+    var match = jnimi.match(/[PT](\d{2})/);
+    if (!match) return;
+    var vuosi = parseInt('20' + match[1]);
+    var ika = new Date().getFullYear() - vuosi;
+    // Etsi heikoin ketju joka osuu kriittiseen ikäikkunaan
+    var kriittiset = [];
+    Object.keys(j.avgKetjut).forEach(function(k) {
       var v = j.avgKetjut[k];
-      if (v == null) return;
-      h += '<div class="mini-bar-row">';
-      h += '<div class="mini-bar-track"><div class="mini-bar-fill" style="width:'+Math.round(v*10)+'%;background:'+ketjuColor(k)+'"></div></div>';
-      h += '</div>';
+      if (v == null || v >= 50) return; // vain heikot (alle 50)
+      var ik = IKA_IKKUNAT[k];
+      if (ik && ika >= ik[0] && ika <= ik[1]) {
+        kriittiset.push({ ketju: k, arvo: v });
+      }
     });
-    h += '</div>';
-    h += '<div class="delta-badge" style="color:'+dc+'">'+(j.avgDelta!=null?(j.avgDelta>=0?'+':'')+j.avgDelta.toFixed(1):'—')+'</div>';
-    h += '</div>';
+    kriittiset.sort(function(a,b){return a.arvo-b.arvo;});
+    if (kriittiset.length) {
+      var kr = kriittiset[0];
+      var km = KETJU[kr.ketju] || { plain: kr.ketju };
+      alertit.push({
+        prioriteetti: 1,
+        vari: 'var(--red)',
+        ikoni: '🔥',
+        teksti: jnimi + ': ' + km.plain + ' (' + kr.arvo.toFixed(1) + '/10) — kriittinen ikäikkuna ' + ika + 'v. Harjoitteluprioriteetiksi nyt.',
+        joukkue: jnimi
+      });
+    }
   });
+
+  // 2. TESTAUKSEN PUUTTUMINEN / VANHENTUNEET TIEDOT
+  var nyt = new Date();
+  joukkueet.forEach(function(j) {
+    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '';
+    var viimeisin = null;
+    j.pelaajatLista.forEach(function(p) {
+      if (p.fys_historia && p.fys_historia.length) {
+        var pvm = new Date(p.fys_historia[p.fys_historia.length-1].date);
+        if (!viimeisin || pvm > viimeisin) viimeisin = pvm;
+      }
+    });
+    if (!viimeisin) {
+      alertit.push({ prioriteetti: 2, vari: 'var(--amber)', ikoni: '📋',
+        teksti: jnimi + ': Ei yhtään fyysistä testitulosta. Testaus puuttuu kokonaan.',
+        joukkue: jnimi });
+    } else {
+      var paivat = Math.round((nyt - viimeisin) / (1000*60*60*24));
+      if (paivat > 180) {
+        alertit.push({ prioriteetti: 2, vari: 'var(--amber)', ikoni: '⏰',
+          teksti: jnimi + ': Viimeisin testaus ' + paivat + ' päivää sitten — tiedot vanhentuneet. Testaa ennen seuraavaa kehityskeskustelua.',
+          joukkue: jnimi });
+      }
+    }
+  });
+
+  // 3. KEHITYSNOPEUDEN PYSÄHTYMINEN / KÄÄNTYMINEN
+  joukkueet.forEach(function(j) {
+    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '';
+    // Laske per pelaaja: onko viimeisin delta negatiivinen useassa ketjussa
+    var laskevat = 0, seurannat = 0;
+    j.pelaajatLista.forEach(function(p) {
+      if (!p.fys_historia || p.fys_historia.length < 2) return;
+      seurannat++;
+      var edellinen = p.fys_historia[p.fys_historia.length-2].mittaukset || {};
+      var viimeisin = p.fys_historia[p.fys_historia.length-1].mittaukset || {};
+      // Onko kevennyshyppy tai SM laskenut?
+      var kh_e = edellinen['Kevennyshyppy'], kh_v = viimeisin['Kevennyshyppy'];
+      var sm_e = edellinen['SM ilman palloa'], sm_v = viimeisin['SM ilman palloa'];
+      if ((kh_e && kh_v && kh_v < kh_e - 2) || (sm_e && sm_v && sm_v > sm_e + 0.3)) {
+        laskevat++;
+      }
+    });
+    if (seurannat >= 5 && laskevat / seurannat > 0.4) {
+      alertit.push({ prioriteetti: 2, vari: 'var(--red)', ikoni: '📉',
+        teksti: jnimi + ': ' + laskevat + '/' + seurannat + ' pelaajalla suorituskyky laskenut viimeisimmässä mittauksessa. Tutki harjoituskuorma.',
+        joukkue: jnimi });
+    }
+  });
+
+  // 4. RAE-JAKAUMA — molemmat suunnat
+  // Q4-painotus (heinä–joulu): liikaa vanhempia → normitulokset voivat yliarvioida tasoa
+  // Q1-painotus (tammi–kesä):  liikaa nuorempia → normitulokset voivat aliarvioida tasoa
+  //   ja todellisia kehittyjä voi jäädä piiloon
+  joukkueet.forEach(function(j) {
+    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '';
+    var q1 = 0, q4 = 0, total = 0; // Q1 = tammi-kesä, Q4 = heinä-joulu
+    j.pelaajatLista.forEach(function(p) {
+      if (!p.bioIka) return;
+      total++;
+      var kk = p.bioIka.syntymakk || 6;
+      if (kk >= 7) q4++; // heinä–joulukuu
+      else q1++;          // tammikuu–kesäkuu
+    });
+    if (total < 8) return;
+
+    var q4pct = Math.round(q4 / total * 100);
+    var q1pct = Math.round(q1 / total * 100);
+
+    // Q4-ylikuormitus: normitasot saattavat YLIARVIOIDA ryhmän tason
+    if (q4pct > 60) {
+      alertit.push({
+        prioriteetti: 3, vari: 'var(--amber)', ikoni: '⚖️',
+        teksti: jnimi + ': ' + q4pct + '% syntynyt heinä–joulukuussa (myöhäiset ikäluokat). '
+          + 'Normitulokset voivat yliarvioida tason — vanhemmat pelaajat näyttävät paremmilta. '
+          + 'Tarkista Hidden Gem -raportti: onko joukkueessa Q1-pelaajia jotka häviävät tilastoissa?',
+        joukkue: jnimi
+      });
+    }
+    // Q1-ylikuormitus: normitasot saattavat ALIARVIOIDA todellista potentiaalia
+    if (q1pct > 60) {
+      alertit.push({
+        prioriteetti: 3, vari: 'var(--teal)', ikoni: '🔍',
+        teksti: jnimi + ': ' + q1pct + '% syntynyt tammikuu–kesäkuussa (varhaiset ikäluokat). '
+          + 'Normitulokset voivat aliarvioida tason — nuoremmat pelaajat häviävät vertailussa. '
+          + 'Etsi joukkueesta piilossa olevia kehittyjä: Q1-pelaaja tasolla 3 voi olla aidosti parempi kuin Q4-pelaaja tasolla 4.',
+        joukkue: jnimi
+      });
+    }
+  });
+
+  // Lisää vanha heikoin-ketju -toimenpide jos muita ei ole
+  if (alertit.length < 2 && heikoin) {
+    var hm = KETJU[heikoin[0]] || { plain: heikoin[0] };
+    alertit.push({ prioriteetti: 2, vari: 'var(--amber)', ikoni: '🎯',
+      teksti: hm.plain + ' on seuran heikoin liikeketju (' + heikoin[1] + '/10). Päivitä harjoitusohjelma.',
+      joukkue: null });
+  }
+  if (kehittyvat > 0 && alertit.filter(function(a){return a.vari==='var(--green)';}).length===0) {
+    alertit.push({ prioriteetti: 4, vari: 'var(--green)', ikoni: '✅',
+      teksti: kehittyvat + ' joukkuetta kehittyy hyvin. Jaa käytännöt muille valmentajille.',
+      joukkue: null });
+  }
+  alertit.sort(function(a,b){return a.prioriteetti-b.prioriteetti;});
+
+  // ── HEATMAP ─────────────────────────────────────────────────────────────
+  var sortedJ = joukkueet.slice().sort(function(a,b){
+    // Järjestys: eniten kriittistä tarvetta (heikoin + kriittinen ikäikkuna) ensin
+    var aScore = 0, bScore = 0;
+    ['sm','kierto','taka','sivu','etu'].forEach(function(k){
+      if ((a.avgKetjut[k]||100) < 50) aScore++;
+      if ((b.avgKetjut[k]||100) < 50) bScore++;
+    });
+    return bScore - aScore;
+  });
+
+  var KETJU_JARJESTYS = ['sm','kierto','taka','sivu','etu'];
+
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
+
+  // Vasen: Heatmap
+  h += '<div class="card" style="padding:14px">';
+  h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Joukkueet — kehitystila</div>';
+
+  // Heatmap-otsikkorivi
+  h += '<div style="display:grid;grid-template-columns:90px repeat(5,1fr) 28px;gap:3px;margin-bottom:5px">';
+  h += '<div></div>';
+  KETJU_JARJESTYS.forEach(function(k) {
+    var km = KETJU[k] || { plain: k, vari: 'var(--muted)' };
+    h += '<div style="font-size:9px;color:' + km.vari + ';text-align:center;font-weight:600;line-height:1.2">' +
+         km.plain.split(' ')[0] + '</div>';
+  });
+  h += '<div></div>';
   h += '</div>';
 
-  // Toimenpiteet
-  h += '<div>';
-  h += '<div class="card">';
-  h += '<div class="card-title">Toimenpiteet tällä viikolla</div>';
-  toimenpiteet.forEach(function(t) {
-    h += '<div class="alert-item">';
-    h += '<div class="alert-dot" style="background:'+t.vari+'"></div>';
-    h += '<div style="font-size:13px;line-height:1.6;color:var(--text)">'+t.teksti+'</div>';
+  // Heatmap-rivit
+  sortedJ.forEach(function(j) {
+    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '?';
+    var jshort = jnimi.replace(/.*[-–]\s*/, ''); // esim. "EPS – PO7" → "PO7"
+
+    // Tarkista onko tällä joukkueella kriittinen hälytys
+    var hasAlert = alertit.some(function(a){ return a.joukkue === jnimi && a.prioriteetti === 1; });
+
+    h += '<div style="display:grid;grid-template-columns:90px repeat(5,1fr) 28px;gap:3px;margin-bottom:3px;cursor:pointer" onclick="avaaJoukkue(\'' + jnimi + '\')">';
+    h += '<div style="font-size:11px;color:var(--text);display:flex;align-items:center;gap:4px">';
+    if (hasAlert) h += '<span style="font-size:10px">🔥</span>';
+    h += '<span>' + jshort + '</span></div>';
+
+    KETJU_JARJESTYS.forEach(function(k) {
+      var v = j.avgKetjut[k];
+      if (v == null) {
+        h += '<div style="background:var(--bg);border-radius:4px;height:22px"></div>';
+        return;
+      }
+      var col = v >= 70 ? 'rgba(52,211,153,.85)' : v >= 50 ? 'rgba(251,191,36,.75)' : 'rgba(248,113,113,.8)';
+      h += '<div style="background:' + col + ';border-radius:4px;height:22px;display:flex;align-items:center;justify-content:center">';
+      h += '<span style="font-size:10px;font-weight:700;color:#000">' + Math.round(v) + '</span>';
+      h += '</div>';
+    });
+
+    var dc = statusColor(j.avgDelta);
+    var dl = j.avgDelta != null ? (j.avgDelta >= 0 ? '+' : '') + j.avgDelta.toFixed(1) : '—';
+    h += '<div style="font-size:10px;color:' + dc + ';text-align:right;font-weight:700;display:flex;align-items:center;justify-content:flex-end">' + dl + '</div>';
     h += '</div>';
   });
-  if (!toimenpiteet.length) h += '<div style="font-size:13px;color:var(--muted)">Ei kiireellisiä toimenpiteitä.</div>';
-  h += '</div>';
+  h += '</div>'; // heatmap card
+
+  // Oikea: Toimenpiteet
+  h += '<div class="card" style="padding:14px">';
+  h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Toimenpiteet tällä viikolla</div>';
+  var naytettavat = alertit.slice(0, 5);
+  if (naytettavat.length) {
+    naytettavat.forEach(function(a) {
+      h += '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">';
+      h += '<span style="font-size:16px;flex-shrink:0;line-height:1.4">' + a.ikoni + '</span>';
+      h += '<div style="font-size:11px;color:var(--muted2);line-height:1.6">' + a.teksti + '</div>';
+      h += '</div>';
+    });
+  } else {
+    h += '<div style="font-size:12px;color:var(--muted)">Ei kiireellisiä toimenpiteitä tällä viikolla.</div>';
+  }
+  h += '</div>'; // toimenpiteet card
+  h += '</div>'; // 2-palsta grid
+
 
   // Ketjuprofiili kompakti
   h += '<div class="card">';
-  h += '<div class="card-title">Seuran ketjuprofiili</div>';
+  h += '<div class="card-title">Liikeprofiili</div>';
   Object.entries(sAvgKetjut).sort(function(a,b){return b[1]-a[1];}).forEach(function(e){
     var km2 = KETJU[e[0]] || { plain: e[0] };
     h += '<div style="margin-bottom:10px">';
