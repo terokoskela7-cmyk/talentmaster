@@ -938,3 +938,246 @@ if (typeof window !== 'undefined') {
   window.HPP_REHAB_PROTOKOLLAT  = HPP_REHAB_PROTOKOLLAT;
   window.HPP_REHAB_META         = HPP_REHAB_META;
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LAAJENNETUT PROTOKOLLAT — HPP ELITE v9 03_VAMMAKIRJASTO (rivit 40–64)
+// ═══════════════════════════════════════════════════════════════════════════
+// Nämä protokollat perustuvat suoraan HPP ELITE v9 Excel-tiedoston
+// vammakirjastoon. ACL on eriytetty kahteen protokollaan koska akuutti
+// vamma ja leikkauksen jälkeinen kuntoutus ovat täysin eri ohjelmat.
+
+var HPP_REHAB_LAAJENNETUT = {
+
+  // ── ACL (kaksi erillistä protokollaa) ──────────────────────────────────
+  // Lähde: HPP ELITE v9, rivi 40 (akuutti) ja rivi 41 (leikkauksen jälkeen)
+
+  ACL_akuutti: {
+    nimi: 'ACL-vamma (eturistisiteen repeämä)',
+    fasialinja: 'SBL + SFL + DFL',
+    ketju: 'taka',
+    ketju2: 'syva',
+    huomio: 'KRIITTINEN: ACL-vammassa ei pidä painostaa leikkauspäätöstä heti. Konservatiivinen hoito on mahdollinen erityisesti nuorilla. Lääkärikonsultaatio välittömästi.',
+    phv_huomio: 'Kasvuikäisillä ACL-leikkauksen sijaan suositaan konservatiivista hoitoa kasvulevyjen suojelemiseksi. Konsultoi lastenlääkäriä tai ortopedia ennen leikkauspäätöstä.',
+    aikataulut: {
+      vak: { min_pv: 0, max_pv: 14, kuvaus: 'Akuuttivaihe — turvotuksen hallinta, liikelaajuuden palautus ennen mahdollista leikkausta' }
+    },
+    rehab: {
+      akuutti: {
+        vaihe: 'Akuutti (0–2 vk ennen leikkauspäätöstä)',
+        periaate: 'RICE + quadriceps-aktivointi. Tavoite: polvi suoraksi, turvotus alas, kävely ilman ontumista ENNEN leikkausta. Leikkaus tehdään vasta kun polvi on "cool" — ei akuutisti turvonnut.',
+        kielletyt: ['Pivot-liikkeet', 'Juokseminen', 'Hypyt', 'Kontaktitilanteet'],
+        harjoitteet: ['EX_QUAD_SET', 'EX_SLR', 'EX_ANKLE_MOB', 'EX_WALL_SQUAT_ISO'],
+        hpp_phase: 'Acute'
+      },
+      subakuutti: {
+        vaihe: 'Pre-op (2–6 vk) — "prehabilitation"',
+        periaate: 'Prehabilitaatio ennen leikkausta parantaa tuloksia merkittävästi. Tavoite: täysi liikelaajuus, normaali kävely, lihasvoima lähes symmetrinen. Leikkaus siirretään kunnes nämä täyttyvät.',
+        kielletyt: ['Kiertoliikkeet', 'Hyppääminen'],
+        harjoitteet: ['EX_TKE', 'EX_WALL_SQUAT_ISO', 'EX_LONKKA', 'EX_BALANCE_SL_STABLE'],
+        hpp_phase: 'Subacute'
+      },
+      krooninen: {
+        vaihe: 'Konservatiivinen kuntoutus (jos ei leikkausta)',
+        periaate: 'Neuromuskulaarinen harjoittelu, quadriceps- ja hamstring-voima, proprioseptiikka. Stabiliteetti ilman sidevaurion korjausta.',
+        kielletyt: [],
+        harjoitteet: ['EX_NORDIC', 'EX_RDL_SINGLE_LEG', 'EX_LATERAL', 'EX_BALANCE_SL_STABLE'],
+        hpp_phase: 'Chronic'
+      }
+    },
+    paluu_kriteerit: [
+      'Lääkärin lupa paluuseen (aina ACL:ssä)',
+      'Täysi kivuton liikelaajuus',
+      'Kävely ilman ontumista',
+      'Konservatiivinen: hop-testit 90%+ symmetria'
+    ]
+  },
+
+  ACL_leikkaus: {
+    nimi: 'ACL — leikkauksen jälkeinen kuntoutus (9–12 kk)',
+    fasialinja: 'SBL + SFL + DFL',
+    ketju: 'taka',
+    ketju2: 'syva',
+    huomio: 'PITKÄ PROSESSI: ACL-leikkauksen jälkeen return-to-sport on aikaisintaan 9 kuukautta. Ennenaikainen paluu on merkittävin uusintavamman riskitekijä. Ei oikoteitä.',
+    phv_huomio: 'Kasvuikäisillä käytetään kasvulevyt säästäviä tekniikoita. Kuntoutusaikataulu on sama tai pidempi kuin aikuisilla. PHV-vaihe voi muuttaa aikataulua.',
+    aikataulut: {
+      vak: { min_pv: 270, max_pv: 365, kuvaus: 'Leikkauksen jälkeinen kuntoutus — return-to-sport aikaisintaan 9 kk' }
+    },
+    rehab: {
+      akuutti: {
+        vaihe: 'Vaihe 1: Akuutti (0–6 vk leikkauksesta)',
+        periaate: 'Turvotuksen hallinta, täysi ojentuminen prioriteetti, koukistuminen progressiivisesti. Quadriceps-aktivointi HETI. Kävely ilman kyynärsauvoja 2–4 vk.',
+        kielletyt: ['Kyykky alle 90°', 'Hypyt', 'Juokseminen', 'Pivot-liikkeet'],
+        harjoitteet: ['EX_QUAD_SET', 'EX_SLR', 'EX_TKE', 'EX_ANKLE_MOB'],
+        hpp_phase: 'Acute'
+      },
+      subakuutti: {
+        vaihe: 'Vaihe 2–3: Vahvistus (6 vk–4 kk)',
+        periaate: 'Progressiivinen voimaharjoittelu. Pyörä 8 vk, juoksu 12–16 vk. Uiminen 6 vk. Nordic curl vasta 4–6 kk. Quadriceps/hamstring-suhde seurattava.',
+        kielletyt: ['Nordic curl ennen 16 vk', 'Pivot-liikkeet ennen 4 kk', 'Kontaktitilanteet'],
+        harjoitteet: ['EX_WALL_SQUAT_ISO', 'EX_LONKKA', 'EX_STEP_DOWN_ECC', 'EX_RDL_SINGLE_LEG', 'EX_BALANCE_SL_STABLE'],
+        hpp_phase: 'Subacute'
+      },
+      krooninen: {
+        vaihe: 'Vaihe 4–5: Return-to-Sport (4–9 kk)',
+        periaate: 'Plyometriikka 4 kk, juoksu 4–5 kk, sprintti 5–6 kk. Kontaktiharjoittelu 6–7 kk. Return-to-play 9 kk VAIN jos hop-testit 90%+ JA psykologinen valmius.',
+        kielletyt: ['Täysi peli ennen 9 kk'],
+        harjoitteet: ['EX_NORDIC', 'EX_NORDIC_FULL', 'EX_CMJ', 'EX_PLYO', 'EX_LAHTO', 'EX_LATERAL'],
+        hpp_phase: 'Chronic'
+      }
+    },
+    paluu_kriteerit: [
+      'Vähintään 9 kuukautta leikkauksesta',
+      'Quadriceps-voima 90%+ symmetria (dynamometri)',
+      'Hamstring/quadriceps-suhde ≥ 0.6',
+      'Hop-testien nelikko (single hop, triple hop, crossover hop, 6m timed) 90%+ symmetria',
+      'Psykologinen valmius (ACL-RSI pisteet ≥ 65)',
+      'Lääkärin kirjallinen lupa'
+    ]
+  },
+
+  // ── Meniskivamma ─────────────────────────────────────────────────────────
+  Meniskivamma: {
+    nimi: 'Meniskivamma (polven kierukkavamma)',
+    fasialinja: 'SBL + SFL',
+    ketju: 'taka',
+    ketju2: 'syva',
+    huomio: 'Meniskit ovat polven "iskunvaimentimet". Osittainen repeämä voi parantua konservatiivisesti. Täydellinen repeämä tai "bucket handle" vaatii usein leikkauksen.',
+    phv_huomio: 'Kasvuikäisillä lateraalinen diskoidinen menisci on anatominen variantti — ei vamma. Medialinen menisci repeämä on harvinainen lapsilla mutta mahdollinen.',
+    aikataulut: {
+      liev:  { min_pv: 14, max_pv: 42,  kuvaus: 'Konservatiivinen hoito — 2–6 vk' },
+      keski: { min_pv: 42, max_pv: 90,  kuvaus: 'Kirurginen (ompelu) — 6–12 vk' },
+      vak:   { min_pv: 28, max_pv: 56,  kuvaus: 'Kirurginen (osittainen poisto) — 4–8 vk' }
+    },
+    rehab: {
+      akuutti: {
+        vaihe: 'Akuutti (0–2 vk)',
+        periaate: 'Kuormituksen vähennys, turvotuksen hallinta. Täysi liikelaajuus progressiivisesti. Polven napsahtelu tai lukittuminen → lääkäriin kiireellisesti.',
+        kielletyt: ['Täysi kyykky', 'Kiertokuormitus', 'Juokseminen'],
+        harjoitteet: ['EX_QUAD_SET', 'EX_SLR', 'EX_TKE', 'EX_WALL_SQUAT_ISO'],
+        hpp_phase: 'Acute'
+      },
+      subakuutti: {
+        vaihe: 'Subakuutti (2–8 vk)',
+        periaate: 'Quadriceps-voima, polven stabiliteetti. Kyykky progressiivisesti — ei täyteen syvyyteen ennen kuin kivuton.',
+        kielletyt: ['Täysi kyykky alle 90°', 'Kiertoliikkeet täydellä kuormalla'],
+        harjoitteet: ['EX_STEP_DOWN_ECC', 'EX_LONKKA', 'EX_KYYKKY', 'EX_BALANCE_SL_STABLE'],
+        hpp_phase: 'Subacute'
+      },
+      krooninen: {
+        vaihe: 'Return-to-Sport (8 vk+)',
+        periaate: 'Täysi kuormitus progressiivisesti. Plyometriikka kun täysi kyykky on kivuton.',
+        kielletyt: [],
+        harjoitteet: ['EX_BULGARIAN_SPLIT', 'EX_CMJ', 'EX_LAHTO', 'EX_LATERAL'],
+        hpp_phase: 'Chronic'
+      }
+    },
+    paluu_kriteerit: [
+      'Täysi kyykky kivuton',
+      'Kävely ja juoksu kivuton',
+      'Quadriceps-voima symmetrinen',
+      'Kiertoliike kivuton'
+    ]
+  },
+
+  // ── Aivotärähdys (return-to-play) ────────────────────────────────────────
+  Aivotarahdys: {
+    nimi: 'Aivotärähdys (return-to-play)',
+    fasialinja: 'Ei fasialinjaa — neurologinen vamma',
+    ketju: null,
+    ketju2: null,
+    huomio: 'KRIITTINEN TURVALLISUUSASIA: Aivotärähdyksen jälkeen ei koskaan palata samaan peliin tai harjoitukseen. Oireettomana voi aloittaa palautumisportaat — ei ennen täyttä oireettomuutta.',
+    phv_huomio: 'Kasvuikäisillä aivotärähdys paranee hitaammin kuin aikuisilla. Koulussa voi olla oppimisvaikeuksia aivotärähdyksen aikana — tiedota opettajia.',
+    aikataulut: {
+      liev:  { min_pv: 7,  max_pv: 21,  kuvaus: 'Lievä (oireet <1 vk) — return-to-play 7–14 pv' },
+      keski: { min_pv: 14, max_pv: 42,  kuvaus: 'Kohtalainen (oireet 1–4 vk) — 2–6 vk' },
+      vak:   { min_pv: 42, max_pv: 180, kuvaus: 'Post-concussion syndrooma — 6 vk–6 kk' }
+    },
+    rehab: {
+      akuutti: {
+        vaihe: 'Vaihe 1–2: Lepo ja kognitiivinen palautuminen',
+        periaate: 'Täydellinen lepo 24–48h. Sen jälkeen kevyt aerobinen aktiviteetti (kävely) jos oireeton. EI ruudunkatselua, pelejä, meluisia ympäristöjä ennen oireettomuutta.',
+        kielletyt: ['Kontaktitilanteet', 'Harjoittelu', 'Ruutuaika', 'Meluisa ympäristö'],
+        harjoitteet: [],
+        hpp_phase: 'Acute'
+      },
+      subakuutti: {
+        vaihe: 'Vaihe 3–4: Portaittainen palautuminen',
+        periaate: 'GRTP-protokolla (Graduated Return to Play): Vaihe 3 = kevyt aerobinen ilman kontaktia. Vaihe 4 = lajinomainen harjoittelu ilman kontaktia. 24h oireettomana per porras.',
+        kielletyt: ['Kontaktitilanteet', 'Hypyt ennen oireettomuutta'],
+        harjoitteet: [],
+        hpp_phase: 'Subacute'
+      },
+      krooninen: {
+        vaihe: 'Vaihe 5–6: Täysi palautuminen',
+        periaate: 'Vaihe 5 = kontaktiharjoittelu luvalla. Vaihe 6 = täysi palautuminen peliin. Lääkärin lupa AINA ennen kontaktiharjoittelua.',
+        kielletyt: [],
+        harjoitteet: [],
+        hpp_phase: 'Chronic'
+      }
+    },
+    paluu_kriteerit: [
+      '24h oireeton per porras — EI oikotietä',
+      'Lääkärin kirjallinen lupa ennen kontaktiharjoittelua',
+      'Kognitiiviset testit (ImPACT/SCAT5) normaalitasolla',
+      'Koulumenestys palautunut normaalitasolle'
+    ]
+  },
+
+  // ── RED-S (Suhteellinen energiavaje) ─────────────────────────────────────
+  REDS: {
+    nimi: 'RED-S — Relative Energy Deficiency in Sport',
+    fasialinja: 'Systeeminen — kaikki fasialinjat',
+    ketju: null,
+    ketju2: null,
+    huomio: 'KRIITTINEN erityisesti tyttöpelaajilla: RED-S tarkoittaa, että pelaaja syö vähemmän kuin mitä harjoittelu kuluttaa. Oireet: väsymys, stressimurtumat, kuukautishäiriöt, heikentynyt palautuminen. Vaatii ravitsemusterapeutin.',
+    phv_huomio: 'Kasvupyrähdyksessä energiantarve kasvaa merkittävästi. Kilpailupaine + kasvu + riittämätön ravitsemus = korkea RED-S-riski. Tarkkaile erityisesti tyttöpelaajia 12–16v.',
+    aikataulut: {
+      liev:  { min_pv: 14, max_pv: 42,  kuvaus: 'Lievä — ravitsemusterapia, 2–6 vk' },
+      vak:   { min_pv: 42, max_pv: 365, kuvaus: 'Vakava (luuntiheys, sydän) — lääkäri, kuukausia' }
+    },
+    rehab: {
+      akuutti: {
+        vaihe: 'Akuutti: Energiatasapainon korjaus',
+        periaate: 'Ravitsemusterapeutti HETI. Harjoittelumäärää vähennetään kunnes energiatasapaino korjattu. EI liikunnallista rangaistusta — se pahentaa tilannetta.',
+        kielletyt: ['Lisäkuormitus', 'Harjoittelumäärän kasvatus'],
+        harjoitteet: [],
+        hpp_phase: 'Acute'
+      },
+      subakuutti: {
+        vaihe: 'Subakuutti: Ohjattu palautuminen',
+        periaate: 'Progressiivinen harjoittelun palautuminen ravitsemusterapeutin seurannassa. Harjoittelupäiväkirja + ruokapäiväkirja yhdistettynä.',
+        kielletyt: ['Paastopäivät', 'Intensiivinen harjoittelu ilman ravitsemussuunnitelmaa'],
+        harjoitteet: [],
+        hpp_phase: 'Subacute'
+      },
+      krooninen: {
+        vaihe: 'Krooninen: Kestävä energiatasapaino',
+        periaate: 'Seuranta koko kauden ajan. RPE-seuranta erityisen tärkeä — korkea RPE pienellä kuormalla on RED-S-signaali.',
+        kielletyt: [],
+        harjoitteet: [],
+        hpp_phase: 'Chronic'
+      }
+    },
+    paluu_kriteerit: [
+      'Ravitsemusterapeutin hyväksyntä',
+      'Kuukautiskierto palautunut (tytöt)',
+      'Luuntiheys normaalitasolla (jos mitattu)',
+      'RPE vastaa kuormitusta'
+    ]
+  }
+};
+
+// Yhdistä laajennetut protokollat pääkirjastoon
+Object.assign(HPP_REHAB_PROTOKOLLAT, HPP_REHAB_LAAJENNETUT);
+
+// Päivitä metatieto
+HPP_REHAB_META.versio = '1.1';
+HPP_REHAB_META.paivitetty = '2026-03-19';
+HPP_REHAB_META.protokollia = Object.keys(HPP_REHAB_PROTOKOLLAT).length;
+HPP_REHAB_META.huomio = 'v1.1: Lisätty ACL (erikseen akuutti + leikkauksen jälkeinen), meniskivamma, aivotärähdys (GRTP), RED-S. Lähde: HPP ELITE v9 / 03_VAMMAKIRJASTO.';
+
+if (typeof window !== 'undefined') {
+  window.HPP_REHAB_PROTOKOLLAT = HPP_REHAB_PROTOKOLLAT;
+  window.HPP_REHAB_META = HPP_REHAB_META;
+}
