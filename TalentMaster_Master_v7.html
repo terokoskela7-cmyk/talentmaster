@@ -6368,9 +6368,10 @@ function laskeADAR(p){
            :yht>=9?{id:'korkea',   nimi:'Korkea',     ikoni:'🟢',vari:'#1D9E75',variBg:'#E1F5EE'}
            :yht>=6?{id:'kehittyva',nimi:'Kehittyvä',  ikoni:'🟡',vari:'#BA7517',variBg:'#FAEEDA'}
                   :{id:'matala',   nimi:'Matala',     ikoni:'🔴',vari:'#E24B4A',variBg:'#FCEBEB'};
-  var viimKetjut=p.qs_historia[p.qs_historia.length-1]
-    &&p.qs_historia[p.qs_historia.length-1].results
-    &&p.qs_historia[p.qs_historia.length-1].results.ketjut;
+  var qsHist=p.qs_historia||[];
+  var viimKetjut=qsHist.length>0
+    &&qsHist[qsHist.length-1].results
+    &&qsHist[qsHist.length-1].results.ketjut||null;
   var ovr=laskeOverall(viimKetjut);
 
   // ── TESTIPAKETTITARKISTUS ──────────────────────────────────────────────
@@ -6400,9 +6401,6 @@ function laskeADAR(p){
     ? laskeHiddenGem(p, yht, ovr)
     : {aktiiviinen:false, taso:null, syyt:[]};
 
-  // Kirkastuminen lasketaan aina — se ei riipu paketista vaan datasta
-  var kirkastuminen = laskeKirkastuminen(p);
-
   return{
     a:viimeisin.a,d:viimeisin.d,act:viimeisin.act,r:viimeisin.r,
     yht:yht,taso:taso,huomio:viimeisin.huomio||'',
@@ -6410,8 +6408,6 @@ function laskeADAR(p){
     hiddenGemSyyt:hiddenGem.syyt,
     xFactor:xFactor.pisteet,xFactorKomponentit:xFactor.komponentit,
     ovr:ovr,historia:p.adar,pvm:viimeisin.date,
-    // Uudet kentät testipakettiarkkitehtuurista
-    kirkastuminen:kirkastuminen,
     paketti: paketti ? paketti.id : 'taso1',
     xFactorSallittu:xFactorSallittu,
     hiddenGemSallittu:hiddenGemSallittu,
