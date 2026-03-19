@@ -1373,8 +1373,114 @@ function naytaStreakInfo(){
 
   h+='</div>';
   document.getElementById('hkBody').innerHTML=h;
-  document.getElementById('hkOverlay').style.display='flex';
-  document.body.style.overflow='hidden';
+  document.getElementById('hkOverlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  // Näytä ohjekortti heti kun popup aukeaa
+  if (hasT) {
+    setTimeout(function() {
+      paivitaTestiOhje(testiData.tyyppi || 'HPP Quick Scan');
+    }, 50);
+  }
+}
+
+// ── TESTIOHJEEN PÄIVITYS — kutsutaan kun testityyppi vaihdetaan ──────────
+// Näyttää testityyppikohtaisen ohjekortin kalenteri-popupin sisällä.
+// Ohje kertoo: mitä mitataan, miten kirjataan, mihin tulokset menevät.
+function paivitaTestiOhje(tyyppi) {
+  var el = document.getElementById('testiOhjeKortti');
+  if (!el) return;
+
+  // Testiohjeet per tyyppi — sama data kuin avaaKalenteriPopup:ssa
+  var OHJEET = {
+    'HPP Quick Scan': {
+      ikoni:'⚡', vari:'#1D9E75',
+      kuvaus:'Neljä tärkeintä fyysistä testiä · ~20 min / pelaaja',
+      testit:['30m nopeus · paikaltaan lähtö','Kevennyshyppy CMJ · 3 hyppyä paras','SM ilman palloa · kasirata','SM pallo · kasirata'],
+      ohje:'Kirjaa tulokset pelaajan profiiliin. Quick Scan aktivoi normitasovertailun automaattisesti.',
+      minne:'Normitasoprofiili + TSI-laskenta',
+      varoitus: null
+    },
+    'HPP Full Scan': {
+      ikoni:'🔬', vari:'#7C3AED',
+      kuvaus:'Kaikki 14 testiä + biologinen ikä + liikeketjuanalyysi · ~50 min / pelaaja',
+      testit:['Kaikki Quick Scan -testit','Nopeus 10m + 20m','Asymmetria vasen/oikea','Istumakorkeus → PHV-laskelma','5 liikeketjun pisteet'],
+      ohje:'Full Scan kauden alussa ja lopussa. Tarvitset mittanauhan ja vanhempien pituudet etukäteen.',
+      minne:'Kaikki normitasot + PHV + liikeketjuprofiili + Hidden Gem / X-Factor',
+      varoitus: 'Pyydä vanhempien pituudet etukäteen — tarvitaan PHV-laskentaan'
+    },
+    'Tekniikkakilpailu': {
+      ikoni:'🏆', vari:'#BA7517',
+      kuvaus:'Viisi teknistä lajia · pisteytetty · 8–12-vuotiaille · ~12 min / pelaaja',
+      testit:['1. Kuljetus — aika (s)','2. Syöttötarkkuus — pisteet 0–10','3. Laukaus — pisteet 0–10','4. Ilmapallo — toistot','5. Pujottelu — aika (s)'],
+      ohje:'Kirjaa jokainen laji erikseen. VP-dashboardissa tulokset vertautuvat automaattisesti kaikkiin 30 kilpailuseuraan.',
+      minne:'Tekniikkakilpailut VP-dashboardissa + kansallinen ranking',
+      varoitus: null
+    },
+    'Harjoitettavuuskartoitus': {
+      ikoni:'📐', vari:'#4D9FFF',
+      kuvaus:'Laadullinen arviointi harjoiteltavuudesta · ~5 min / pelaaja',
+      testit:['Kuuntelukyky harjoituksessa (1–3)','Virheistä palautuminen (1–3)','Omatoimisen harjoittelun aktiivisuus (1–3)','Palautteen vastaanottaminen (1–3)','Joukkueen etu ensin (1–3)'],
+      ohje:'Arvioi jokainen dimensio TÄSTÄ harjoituksesta — ei koko kaudesta. Muisti vääristää: tee arvio heti.',
+      minne:'Harjoitettavuusprofiili + kehityskäyrä',
+      varoitus: null
+    },
+    'Game IQ ADAR': {
+      ikoni:'🧠', vari:'#C084FC',
+      kuvaus:'Taktisen älyn arviointi · ADAR-protokolla · 2–3 pelaajaa / harjoitus',
+      testit:['A — Assess: Pre-scanning ennen kosketusta (1–3)','D — Decide: Päätösnopeus ja -laatu (1–3)','A — Act: Tekninen laatu paineessa (1–3)','R — Recover: Virheestä palautuminen (1–3)'],
+      ohje:'Valitse 2–3 pelaajaa ENNEN harjoitusta. Seuraa koko harjoitus. Täytä lomake HETI harjoituksen jälkeen.',
+      minne:'Game IQ -profiili + rotaatioseuranta + joukkueen GIQ',
+      varoitus: 'Muista: arvioi vain 2–3 pelaajaa kerrallaan — enemmän heikentää luotettavuutta'
+    },
+    'Oma testi': {
+      ikoni:'📝', vari:'#888780',
+      kuvaus:'Vapaa testipäivä — kirjaa mitä mitataan',
+      testit:['Vapaamuotoinen kirjaus muistiinpanokenttään'],
+      ohje:'Omat testit eivät liity normitasovertailuun. Käytä muistiinpanokenttää.',
+      minne:'Viikkokalenteri (merkintä)',
+      varoitus: null
+    }
+  };
+
+  var ohje = OHJEET[tyyppi] || OHJEET['Oma testi'];
+  var h = '';
+
+  h += '<div style="background:rgba(0,0,0,.15);border-left:3px solid ' + ohje.vari + ';border-radius:0 10px 10px 0;padding:10px 12px;">';
+
+  // Otsikko + kuvaus
+  h += '<div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">';
+  h += '<span style="font-size:16px">' + ohje.ikoni + '</span>';
+  h += '<div>';
+  h += '<div style="font-size:12px;font-weight:700;color:' + ohje.vari + '">' + tyyppi + '</div>';
+  h += '<div style="font-size:10px;color:var(--muted2)">' + ohje.kuvaus + '</div>';
+  h += '</div></div>';
+
+  // Testilista
+  h += '<div style="margin-bottom:8px;">';
+  ohje.testit.forEach(function(t) {
+    h += '<div style="display:flex;gap:6px;align-items:flex-start;padding:2px 0;">';
+    h += '<div style="width:5px;height:5px;border-radius:50%;background:' + ohje.vari + ';flex-shrink:0;margin-top:5px;"></div>';
+    h += '<div style="font-size:11px;color:var(--text)">' + t + '</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Mihin menee
+  h += '<div style="font-size:10px;color:var(--muted);padding:5px 8px;background:rgba(255,255,255,.04);border-radius:6px;margin-bottom:' + (ohje.varoitus ? '6' : '0') + 'px;">';
+  h += '→ ' + ohje.minne;
+  h += '</div>';
+
+  // Varoitus jos on
+  if (ohje.varoitus) {
+    h += '<div style="font-size:10px;color:var(--amber);padding:5px 8px;background:rgba(245,158,11,.07);border-radius:6px;margin-top:5px;">';
+    h += '⚠️ ' + ohje.varoitus;
+    h += '</div>';
+  }
+
+  h += '</div>'; // ohjekortti
+
+  el.innerHTML = h;
 }
 
 // ═══════════════════════════════════════════════════
@@ -1835,6 +1941,84 @@ function buildCoachNyt(){
     h += '</div>';
   } else {
     h += '<div style="margin-top:16px;font-size:12px;color:var(--green);text-align:center;padding:8px">✅ Kaikki merkinnät tehty tänään</div>';
+  }
+
+  // ── TEKNIIKKAKILPAILUT — kansallinen tilannekuva ────────────────────────
+  // Näytetään vain jos joukkueella on TK-tuloksia.
+  // Neljä ryhmää: top 10%, top 25%, yläosa (50-75%), kehittyy (<50%).
+  var _tkKuva = haeTKJoukkueenKansallinenKuva(pelaajat);
+
+  if (_tkKuva.yhteensa > 0) {
+    h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 8px;">🏆 Tekniikkakilpailut — kansallinen tilannekuva</div>';
+    h += '<div style="background:var(--card);border:1px solid rgba(186,117,23,.2);border-radius:14px;padding:14px;margin-bottom:14px;">';
+
+    // Otsikkorivi: kuinka monta pelaajaa on testattu
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">';
+    h += '<div style="font-size:13px;font-weight:700;color:#BA7517">' + _tkKuva.yhteensa + '/' + pelaajat.length + ' pelaajaa testattu</div>';
+    h += '<div style="font-size:11px;color:var(--muted2)">n = ' + (_tkKuva.kaikki[0] ? _tkKuva.kaikki[0].vertailu.n : '—') + ' kansallisessa vertailussa</div>';
+    h += '</div>';
+
+    // Neljä ryhmää visuaalisesti — pylväinä
+    var RYHMAT = [
+      { key:'top10',   label:'Top 10%',    vari:'#FFD700', data:_tkKuva.top10 },
+      { key:'top25',   label:'Top 10–25%', vari:'#1D9E75', data:_tkKuva.top25 },
+      { key:'ylaosa',  label:'25–50%',     vari:'#4D9FFF', data:_tkKuva.ylaosa },
+      { key:'kehittyy',label:'Alle 50%',   vari:'#888780', data:_tkKuva.kehittyy }
+    ];
+
+    // Pylväsnäkymä — leveys suhteessa ryhmän kokoon
+    h += '<div style="margin-bottom:12px;">';
+    RYHMAT.forEach(function(r) {
+      if (!r.data.length) return;
+      var pct = Math.round(r.data.length / _tkKuva.yhteensa * 100);
+      h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">';
+      h += '<div style="font-size:10px;color:var(--muted);width:72px;flex-shrink:0">' + r.label + '</div>';
+      h += '<div style="flex:1;height:22px;background:var(--bg3);border-radius:5px;overflow:hidden;">';
+      h += '<div style="height:22px;width:' + pct + '%;background:' + r.vari + ';border-radius:5px;opacity:0.85;';
+      h += 'display:flex;align-items:center;padding-left:6px;">';
+      if (pct > 15) {
+        h += '<div style="font-size:11px;font-weight:700;color:' + (r.key==='kehittyy'?'var(--text)':'#000') + '">';
+        h += r.data.length + ' pelaajaa</div>';
+      }
+      h += '</div></div>';
+      h += '<div style="font-size:11px;font-weight:700;color:' + r.vari + ';width:28px;text-align:right">' + pct + '%</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+
+    // Top-pelaajat nimilistana (top 10% ja top 25%)
+    var topKaikki = _tkKuva.top10.concat(_tkKuva.top25);
+    if (topKaikki.length > 0) {
+      h += '<div style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;margin-bottom:10px;">';
+      h += '<div style="font-size:10px;color:var(--muted);margin-bottom:6px">Parhaat suorittajat:</div>';
+      h += '<div style="display:flex;flex-wrap:wrap;gap:5px;">';
+      topKaikki.slice(0, 6).forEach(function(item) {
+        var ikoni = item.vertailu.prosenttipiste >= 90 ? '⭐' : '✓';
+        h += '<div onclick="avaaCoachPelaaja(\'' + item.p.id + '\')" ';
+        h += 'style="display:flex;align-items:center;gap:5px;cursor:pointer;';
+        h += 'background:' + (item.vertailu.prosenttipiste >= 90 ? 'rgba(255,215,0,.08)' : 'rgba(29,158,117,.07)') + ';';
+        h += 'border:1px solid ' + (item.vertailu.prosenttipiste >= 90 ? 'rgba(255,215,0,.2)' : 'rgba(29,158,117,.2)') + ';';
+        h += 'border-radius:8px;padding:5px 9px;">';
+        h += '<span style="font-size:11px">' + ikoni + '</span>';
+        h += '<div>';
+        h += '<div style="font-size:11px;font-weight:700;color:' + item.vertailu.vari + '">';
+        h += item.p.etunimi[0] + '. ' + item.p.sukunimi + '</div>';
+        h += '<div style="font-size:9px;color:var(--muted2)">' + item.vertailu.prosenttipiste + '% · ' + item.tulos.kokonaisaika + 's</div>';
+        h += '</div></div>';
+      });
+      h += '</div></div>';
+    }
+
+    // Kehityspotentiaalia -ryhmän luku viestinä valmentajalle
+    if (_tkKuva.kehittyy.length > 0) {
+      var kehLkm = _tkKuva.kehittyy.length;
+      h += '<div style="background:rgba(136,135,128,.07);border-radius:8px;padding:8px 10px;">';
+      h += '<div style="font-size:11px;color:var(--muted2)">';
+      h += kehLkm + ' pelaajalla kehityspotentiaalia — kansallinen mediaani on hyvä tavoite seuraavaksi kilpailukaudeksi.';
+      h += '</div></div>';
+    }
+
+    h += '</div>'; // TK-kansallinen tilannekuva -kortti
   }
 
   document.getElementById('coachContent').innerHTML = h;
@@ -2384,6 +2568,183 @@ function avaaCoachPelaaja(pid){
     }
   }
   h += '</div>'; // loukkaantumiskortti
+
+  // ── TEKNIIKKAKILPAILUT — historia ───────────────────────────────────────
+  var _tkHist = haeTKHistoria(p);
+  if (_tkHist.length > 0) {
+    h += '<div style="background:var(--card);border:1px solid rgba(186,117,23,.2);border-radius:14px;padding:14px;margin-top:10px;">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+    h += '<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;">🏆 Tekniikkakilpailut</div>';
+    h += '<button onclick="avaaTKLomake(\'' + p.id + '\')" ';
+    h += 'style="padding:5px 12px;border-radius:8px;border:1px solid rgba(186,117,23,.3);';
+    h += 'background:rgba(186,117,23,.08);color:#BA7517;font-size:11px;font-weight:700;cursor:pointer;">+ Kirjaa</button>';
+    h += '</div>';
+
+    var _tkViim = _tkHist[_tkHist.length-1];
+    var _tkiCol = _tkViim.tki >= 7 ? 'var(--green)' : _tkViim.tki >= 5 ? 'var(--teal)' : _tkViim.tki >= 3 ? 'var(--amber)' : 'var(--red)';
+
+    // Viimeisin TKI isona lukuna
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:12px;">';
+
+    // Kokonaisaika
+    h += '<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;">';
+    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;line-height:1;color:var(--text)">';
+    h += (_tkViim.kokonaisaika !== null && _tkViim.kokonaisaika !== undefined) ? _tkViim.kokonaisaika + 's' : '—';
+    h += '</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Kokonaisaika</div></div>';
+
+    // Palloliiton merkki K/H/P
+    var _MVET = {K:'#FFD700',H:'#C0C0C0',P:'#CD7F32'};
+    var _MNIMI = {K:'Kulta',H:'Hopea',P:'Pronssi'};
+    var _mVari = _tkViim.merkki ? (_MVET[_tkViim.merkki]||'var(--muted)') : 'var(--muted)';
+    h += '<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;">';
+    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;line-height:1;color:' + _mVari + '">';
+    h += _tkViim.merkki ? _MNIMI[_tkViim.merkki] : '—';
+    h += '</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Merkki</div></div>';
+
+    // TKI
+    h += '<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;">';
+    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;line-height:1;color:' + _tkiCol + '">';
+    h += (_tkViim.tki !== null && _tkViim.tki !== undefined) ? _tkViim.tki.toFixed(1) : '—';
+    h += '</div><div style="font-size:9px;color:var(--muted);margin-top:2px">TKI</div></div>';
+    h += '</div>';
+
+    h += '<div>';
+    h += '<div style="font-size:10px;color:var(--muted2);">' + _tkViim.pvm + ' · ';
+    h += _tkViim.lahde === 'virallinen'
+      ? '<span style="color:#BA7517">⭐ Virallinen</span>'
+      : '<span style="color:var(--muted)">Harjoitus</span>';
+    h += '</div>';
+
+    // Lajitulokset kompaktina ruudukkona
+    var LAJIT = [
+      {id:'ponnauttelu',  label:'Ponnauttelu', yks:'tr'},
+      {id:'syotto',       label:'Syöttö',      yks:'s'},
+      {id:'pujottelu',    label:'Pujottelu',   yks:'s'},
+      {id:'kulj_laukaus', label:'K-laukaus',   yks:'s'},
+      {id:'pituuspotku',  label:'Pituuspotku', yks:'p'}
+    ];
+    h += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">';
+    LAJIT.forEach(function(l) {
+      if (_tkViim[l.id]) {
+        h += '<div style="background:var(--bg3);border-radius:6px;padding:3px 7px;">';
+        h += '<div style="font-size:10px;color:var(--muted)">' + l.label + '</div>';
+        h += '<div style="font-size:12px;font-weight:700">' + _tkViim[l.id] + ' <span style="font-size:9px;color:var(--muted)">' + l.yks + '</span></div>';
+        h += '</div>';
+      }
+    });
+    h += '</div>';
+    h += '</div></div>'; // grid
+
+    // TKI-kehityskäyrä jos 2+ tulosta
+    if (_tkHist.length >= 2) {
+      var _tkPts = _tkHist.filter(function(t) { return t.tki !== null; });
+      if (_tkPts.length >= 2) {
+        var _svgW = 280, _svgH = 36;
+        var _tkMin = 0, _tkMax = 10;
+        var _pts2 = _tkPts.map(function(t, ti) {
+          var x = Math.round(ti / (_tkPts.length-1) * (_svgW-20) + 10);
+          var y = Math.round(_svgH - 4 - (t.tki - _tkMin) / (_tkMax - _tkMin) * (_svgH - 8));
+          return { x:x, y:y, t:t };
+        });
+        var _ptStr2 = _pts2.map(function(pt) { return pt.x + ',' + pt.y; }).join(' ');
+        var _lastPt2 = _pts2[_pts2.length-1];
+        var _first2 = _tkPts[0].tki, _last2 = _tkPts[_tkPts.length-1].tki;
+        var _muutos2 = Math.round((_last2 - _first2) * 10) / 10;
+        var _muutosCol2 = _muutos2 > 0 ? 'var(--green)' : _muutos2 < 0 ? 'var(--red)' : 'var(--muted)';
+
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-size:10px;">';
+        h += '<div style="color:var(--muted)">' + _tkPts.length + ' tulosta</div>';
+        h += '<div style="color:' + _muutosCol2 + ';font-weight:700">' + (_muutos2 > 0 ? '+' : '') + _muutos2 + ' kaudessa</div>';
+        h += '</div>';
+
+        h += '<svg width="100%" viewBox="0 0 ' + _svgW + ' ' + _svgH + '" style="display:block;overflow:visible">';
+        h += '<polyline points="' + _ptStr2 + '" fill="none" stroke="#BA7517" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>';
+        _pts2.forEach(function(pt, pi) {
+          var isLast = pi === _pts2.length - 1;
+          var col2 = pt.t.lahde === 'virallinen' ? '#BA7517' : 'var(--muted)';
+          h += '<circle cx="' + pt.x + '" cy="' + pt.y + '" r="' + (isLast ? 4 : 3) + '" fill="' + (isLast ? col2 : 'var(--bg3)') + '" stroke="' + col2 + '" stroke-width="1.5"/>';
+        });
+        h += '</svg>';
+        h += '<div style="font-size:9px;color:var(--muted);text-align:right">● virallinen  ○ harjoitus</div>';
+      }
+    }
+
+    if (_tkViim.muistio) {
+      h += '<div style="font-size:11px;color:var(--muted2);font-style:italic;margin-top:6px;">' + _tkViim.muistio + '</div>';
+    }
+
+    // ── KANSALLINEN VERTAILU ─────────────────────────────────────────────
+    // Näytetään jos pelaajalla on kokonaisaika ja ikäluokka tallennettuna.
+    // Prosenttipiste + tason kuvaus + lajikeskiarvot suhteessa kansalliseen.
+    if (_tkViim.kokonaisaika && _tkViim.ikaluokka) {
+      var _tkV = haeTKKansallinenVertailu(_tkViim.kokonaisaika, _tkViim.ikaluokka);
+      if (_tkV) {
+        h += '<div style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;margin-top:10px;">';
+        h += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🌍 Kansallinen vertailu — ' + _tkViim.ikaluokka + '</div>';
+
+        // Prosenttipistepalkki
+        h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">';
+        h += '<div style="flex:1;height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;">';
+        h += '<div style="height:8px;width:' + _tkV.prosenttipiste + '%;background:' + _tkV.vari + ';border-radius:4px;"></div>';
+        h += '</div>';
+        h += '<div style="font-size:12px;font-weight:700;color:' + _tkV.vari + ';width:36px;text-align:right">' + _tkV.prosenttipiste + '%</div>';
+        h += '</div>';
+
+        // Tason kuvaus + sijoitus
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+        h += '<div style="font-size:12px;font-weight:700;color:' + _tkV.vari + '">' + _tkV.kuvaus + '</div>';
+        h += '<div style="font-size:11px;color:var(--muted2)">Sij. ' + _tkV.sijoitus + ' / ' + _tkV.n + '</div>';
+        h += '</div>';
+
+        // Lajivertailu — oma vs kansallinen mediaani
+        var LAJIT_KV = [
+          {id:'ponnauttelu', label:'Ponn.'},
+          {id:'syotto',      label:'Syöttö', paino:'×1.13'},
+          {id:'pujottelu',   label:'Pujott.', paino:'×1.09'},
+          {id:'kulj_laukaus',label:'K-laukaus'}
+        ];
+        h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">';
+        LAJIT_KV.forEach(function(laji) {
+          var omaAika  = _tkViim[laji.id]    ? parseFloat(_tkViim[laji.id])    : null;
+          var kansKa   = _tkV.lajiKa[laji.id] || null;
+          if (!omaAika || !kansKa) return;
+          // Pienempi aika = parempi — väri kertoo onko parempi/heikompi kuin kanskakeskiarvo
+          var ero = Math.round((omaAika - kansKa) * 10) / 10;
+          var parempi = ero < 0;
+          var eroCol  = parempi ? '#1D9E75' : ero > 0 ? '#E53935' : 'var(--muted)';
+          h += '<div style="background:var(--bg3);border-radius:7px;padding:5px;text-align:center;">';
+          h += '<div style="font-size:9px;color:var(--muted)">' + laji.label + '</div>';
+          h += '<div style="font-size:12px;font-weight:700">' + omaAika + 's</div>';
+          h += '<div style="font-size:9px;color:' + eroCol + '">' + (parempi?'':'+') + ero + 's</div>';
+          h += '</div>';
+        });
+        h += '</div>';
+
+        // Top 10% raja ja mediaani referenssinä
+        if (_tkV.top10raja && _tkV.mediaani) {
+          h += '<div style="font-size:10px;color:var(--muted);margin-top:6px;">';
+          h += '⭐ Top 10%: alle ' + _tkV.top10raja + 's · Mediaani: ' + _tkV.mediaani + 's';
+          h += '</div>';
+        }
+
+        h += '</div>'; // kansallinen vertailu
+      }
+    }
+
+    h += '</div>'; // TK-kortti
+  } else {
+    // Ei vielä tuloksia — näytä "Kirjaa"-nappi
+    h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:10px;">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;">';
+    h += '<div>';
+    h += '<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">🏆 Tekniikkakilpailut</div>';
+    h += '<div style="font-size:11px;color:var(--muted2)">Ei tuloksia vielä</div>';
+    h += '</div>';
+    h += '<button onclick="avaaTKLomake(\'' + p.id + '\')" ';
+    h += 'style="padding:8px 16px;border-radius:9px;border:none;background:#BA7517;';
+    h += 'color:#fff;font-family:\'Barlow Condensed\';font-size:14px;font-weight:800;cursor:pointer;">+ Kirjaa</button>';
+    h += '</div></div>';
+  }
 
   // ── RPE-KUORMITUSHISTORIA ─────────────────────────────────────────────
   // Näytetään viimeiset 14 päivää sparkline-muodossa
@@ -7571,6 +7932,798 @@ var VAMMA_REHAB_KARTOITUS = {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TEKNIIKKAKILPAILUT — tulostenhallinta
+// ═══════════════════════════════════════════════════════════════════════════
+// Rakenne perustuu HPP ELITE v9 / 27_TEKNIIKKAKILPAILUT
+// Lähde: Liikanen & Törmä 2025 — pallolliset testit ennustavat ammattilaisuutta
+//
+// VIISI LAJIA:
+//   ponnauttelu  — aika (s) tai toistomäärä, laatu K/H/P
+//   syotto       — aika (s), +13% ennustava paino (Liikanen & Törmä 2025)
+//   pujottelu    — aika (s), +9% ennustava paino
+//   kulj_laukaus — aika (s) + bonuspisteet
+//   pituuspotku  — pisteet 0–10 (U12+), ei pakollinen alle 10v
+//
+// TEKNIKKAILPAILU-INDEKSI (TKI):
+//   Painotettu kokonaispisteet normitasoon suhteutettuna.
+//   Kaava: (syotto*1.13 + pujottelu*1.09 + sm_pallo*1.08) / 3
+//   Vertailukelpoinen muiden seurojen kanssa VP-dashboardissa.
+//
+// DATALÄHDE-EROTTELU (kriittinen virallisen datan luotettavuudelle):
+//   'virallinen' = Palloliiton virallinen kilpailu (Torneopol → manuaalinen syöttö)
+//   'harjoitus'  = Valmentajan oma kontrolli harjoituksessa
+//   Vain viralliset tulokset menevät kansalliseen vertailuun.
+
+// Tallenna tekniikkakilpailutulos pelaajalle
+function tallennaTKTulos(pid, tulos) {
+  // tulos = { pvm, ikäluokka, lahde, laji, ponnauttelu, syotto, pujottelu,
+  //           kulj_laukaus, pituuspotku, muistio, tki }
+  var p = DEMO[pid]
+    || (window.TM_DATA && window.TM_DATA.lookup && window.TM_DATA.lookup[pid])
+    || null;
+  if (!p) return;
+
+  // Lisää TKI-laskenta automaattisesti
+  tulos.tki = laskeTKI(tulos);
+
+  // Alusta historia jos ei ole
+  if (!p.tk_historia) p.tk_historia = [];
+  p.tk_historia.push(tulos);
+
+  // localStorage-varmuuskopio
+  try {
+    var hist = JSON.parse(localStorage.getItem('tm_tk_' + pid) || '[]');
+    hist.push(tulos);
+    if (hist.length > 30) hist = hist.slice(-30);
+    localStorage.setItem('tm_tk_' + pid, JSON.stringify(hist));
+  } catch(e) {}
+
+  naytaToast('Tekniikkakilpailutulos tallennettu ✓');
+
+  // ── OPT-IN-KYSYMYS: haluaako valmentaja jakaa kansalliseen tietokantaan? ──
+  // Kysytään vain virallisista kilpailuista, ja vain jos pelaajalla on ikaluokka.
+  // Suostumus tallennetaan localStorage:iin per seura, jotta ei kysytä joka kerta.
+  if (entry.lahde === 'virallinen' && entry.ikaluokka && entry.kokonaisaika) {
+    var optInAvain = 'tm_tk_optin_consent_' + (p.seura || 'default');
+    var aiempiSuostumus = localStorage.getItem(optInAvain);
+
+    if (aiempiSuostumus === 'kylla') {
+      // Suostumus jo annettu — lisätään automaattisesti
+      lisaaTKOptInHavainto(entry, entry.ikaluokka);
+    } else if (!aiempiSuostumus) {
+      // Kysytään ensimmäistä kertaa — näytetään modaali
+      setTimeout(function() { naytaTKOptInKysymys(p, entry); }, 600);
+    }
+    // Jos 'ei' — ei lisätä, ei kysytä uudelleen
+  }
+
+  setTimeout(function() { buildCoachPlayer(p); }, 300);
+}
+
+// Näytä opt-in-kysymys: haluaako seura jakaa kansalliseen tietokantaan?
+// Käyttää olemassa olevaa harjoite-popup-konttia, jotta ei tarvita uutta DOM-elementtiä.
+function naytaTKOptInKysymys(p, entry) {
+  var h = '';
+  h += '<div style="text-align:center;padding:8px 0 14px;">';
+  h += '<div style="font-size:32px;margin-bottom:10px">🏆</div>';
+  h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;margin-bottom:8px">';
+  h += 'Liitytään kansalliseen vertailuun?</div>';
+  h += '<div style="font-size:12px;color:var(--muted2);line-height:1.7;margin-bottom:16px;text-align:left;">';
+  h += 'Voit jakaa tämän joukkueen viralliset tekniikkakilpailutulokset kansalliseen tietokantaan. ';
+  h += 'Tulokset tallennetaan <strong>anonyymisti</strong> — ei nimiä, ei pelaajatunnisteita. ';
+  h += 'Vastineeksi näette ikäluokan kansalliset keskiarvot, top 10% -rajan ja oman sijoittumisenne.<br><br>';
+  h += '<span style="color:var(--amber)">⚠️ Valinta koskee koko seuraa.</span> Voit muuttaa sen milloin tahansa asetuksista.';
+  h += '</div>';
+
+  // Kaksi vaihtoehtoa
+  h += '<div style="display:flex;flex-direction:column;gap:9px;">';
+  var seuraKoodi = p.seura || 'default';
+  h += '<button onclick="tkOptInVastaus(\'kylla\',\'' + seuraKoodi + '\')" ';
+  h += 'style="width:100%;padding:13px;border-radius:12px;border:none;background:var(--teal);';
+  h += 'color:#000;font-family:\'Barlow Condensed\';font-size:16px;font-weight:800;cursor:pointer;">';
+  h += '✓ Kyllä — liitytään kansalliseen vertailuun</button>';
+
+  h += '<button onclick="tkOptInVastaus(\'ei\',\'' + seuraKoodi + '\')" ';
+  h += 'style="width:100%;padding:11px;border-radius:12px;border:1px solid var(--border);';
+  h += 'background:transparent;color:var(--muted2);font-size:13px;cursor:pointer;">';
+  h += 'Ei kiitos — pysytään yksityisenä</button>';
+  h += '</div>';
+  h += '</div>';
+
+  document.getElementById('harjoiteBody').innerHTML = h;
+  document.getElementById('harjoiteOverlay').style.display = 'flex';
+}
+
+function tkOptInVastaus(vastaus, seuraKoodi) {
+  localStorage.setItem('tm_tk_optin_consent_' + seuraKoodi, vastaus);
+  document.getElementById('harjoiteOverlay').style.display = 'none';
+  if (vastaus === 'kylla') {
+    naytaToast('✓ Liitytty kansalliseen vertailuun — tulokset lisätty anonyymisti');
+  } else {
+    naytaToast('Yksityinen tila — tulokset eivät mene kansalliseen vertailuun');
+  }
+}
+
+// Hae pelaajan kaikki TK-tulokset
+function haeTKHistoria(p) {
+  if (p.tk_historia && p.tk_historia.length) return p.tk_historia;
+  try {
+    var ls = JSON.parse(localStorage.getItem('tm_tk_' + p.id) || '[]');
+    return ls;
+  } catch(e) { return []; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEKNIIKKAKILPAILUT — laskenta (Palloliiton viralliset säännöt 2024)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// IKÄLUOKKARAKENNE (säännöt §1):
+//   13–12v : ponnauttelu + syöttö + pujottelu + kulj_laukaus + pituuspotku
+//   11–9v  : ponnauttelu + syöttö + pujottelu + kulj_laukaus  (ei pituuspotku)
+//   8v     : samat neljä, yksinkertaistettuina
+//   Pusku  : erillinen harjoituslaji, ei sisälly viralliseen kokonaisaikaan
+//
+// KOKONAISAIKA (virallinen vertailusuure):
+//   Summa kaikkien lajien parhaista ajoista sekunteina.
+//   Pituuspotku muunnetaan: 5 m = 1 s, maksimivähennys 20 s.
+//   Kokonaisaikaa verrataan K/H/P-merkkirajoihin.
+//
+// KULJETUS-LAUKAUS pisteytys (säännöt §4):
+//   Bruttoaika miinus tarkkuusbonukset per maali:
+//     Ilmassa nurkkaan: −5 s   Maan kautta nurkkaan: −2 s
+//     Ilmassa keskelle: −3 s   Maan kautta keskelle: −1 s
+//   Ennen rangaistusaluetta laukaus: +10 s (rangaistus)
+//   Lomakkeessa kirjataan raakaika + 4 pallon laukausmerkinnät → nettoaika lasketaan
+//
+// TUTKIMUSPAINOT (Liikanen & Törmä 2025) — TKI-laskennassa, ei virallisessa:
+//   Syöttö +13 %, pujottelu +9 %, SM-pallo +8 % — ennustavat ammattilaisuutta
+//   Kevennyshyppy EI ennustanut — siksi CMJ ei ole tässä kilpailussa
+//
+// MERKKISUORITUSLUOKITTELU K/H/P (säännöt §6):
+//   Kokonaisaika sekunteina → vertailu ikä- ja sukupuolikohtaisiin rajoihin
+
+// Viralliset K/H/P-merkkirajat (kokonaisaika sekunteina, pienempi = parempi)
+var TK_MERKKIRAJAT = {
+  P8:  { kulta: 95,  hopea: 105, pronssi: 120 },
+  P9:  { kulta: 85,  hopea: 100, pronssi: 115 },
+  P10: { kulta: 100, hopea: 120, pronssi: 140 },
+  P11: { kulta: 90,  hopea: 110, pronssi: 130 },
+  P12: { kulta: 80,  hopea: 90,  pronssi: 105 },
+  P13: { kulta: 75,  hopea: 85,  pronssi: 100 },
+  T8:  { kulta: 110, hopea: 125, pronssi: 140 },
+  T9:  { kulta: 105, hopea: 120, pronssi: 135 },
+  T10: { kulta: 110, hopea: 135, pronssi: 155 },
+  T11: { kulta: 105, hopea: 125, pronssi: 145 },
+  T12: { kulta: 95,  hopea: 115, pronssi: 135 },
+  T13: { kulta: 90,  hopea: 110, pronssi: 130 }
+};
+
+// Ikäluokkakohtaiset lajit
+var TK_LAJIT_IKA = {
+  '8':  ['ponnauttelu','syotto','pujottelu','kulj_laukaus'],
+  '9':  ['ponnauttelu','syotto','pujottelu','kulj_laukaus'],
+  '10': ['ponnauttelu','syotto','pujottelu','kulj_laukaus'],
+  '11': ['ponnauttelu','syotto','pujottelu','kulj_laukaus'],
+  '12': ['ponnauttelu','syotto','pujottelu','kulj_laukaus','pituuspotku'],
+  '13': ['ponnauttelu','syotto','pujottelu','kulj_laukaus','pituuspotku']
+};
+
+// Laske kuljetus-laukauksen nettoaika virallisen pisteytyksen mukaan
+// raakaika (s) + 4 laukauksen tarkkuusmerkinnät ['nurkkailma','nurkkamaa','kesilma','kesimaa','ohi','ei']
+function laskeKuljLaukausNetto(raakaika, laukaukset) {
+  if (!raakaika) return null;
+  var aika = parseFloat(raakaika);
+  var vahennys = 0;
+  (laukaukset || []).forEach(function(l) {
+    if (l === 'nurkkailma') vahennys += 5;
+    else if (l === 'kesilma')  vahennys += 3;
+    else if (l === 'nurkkamaa')vahennys += 2;
+    else if (l === 'kesimaa')  vahennys += 1;
+    else if (l === 'ennen')    aika     += 10; // rangaistus: laukaus ennen rajaa
+  });
+  return Math.round((aika - vahennys) * 10) / 10;
+}
+
+// Laske pituuspotkun aikavähennys (5 m = 1 s, max 20 s)
+function laskePituuspotkuAika(metrit) {
+  if (!metrit) return null;
+  var m = parseFloat(metrit);
+  return Math.round(Math.min(20, m / 5) * 100) / 100;
+}
+
+// Laske virallinen kokonaisaika kaikista lajeista
+function laskeKokonaisaika(tulos) {
+  var summa = 0;
+  var lkm   = 0;
+
+  // Ponnauttelu — aika sekunteina (pienempi = parempi)
+  if (tulos.ponnauttelu_aika) { summa += parseFloat(tulos.ponnauttelu_aika); lkm++; }
+
+  // Syöttö — aika sekunteina
+  if (tulos.syotto_aika) { summa += parseFloat(tulos.syotto_aika); lkm++; }
+
+  // Pujottelu — aika sekunteina
+  if (tulos.pujottelu_aika) { summa += parseFloat(tulos.pujottelu_aika); lkm++; }
+
+  // Kuljetus-laukaus — nettoaika (raakaika - tarkkuusbonukset)
+  var klNettoY1 = laskeKuljLaukausNetto(tulos.kl_aika1, tulos.kl_laukaukset1);
+  var klNettoY2 = laskeKuljLaukausNetto(tulos.kl_aika2, tulos.kl_laukaukset2);
+  var klParas   = (klNettoY1 !== null && klNettoY2 !== null) ? Math.min(klNettoY1, klNettoY2)
+                : (klNettoY1 !== null ? klNettoY1 : klNettoY2);
+  if (klParas !== null) { summa += klParas; lkm++; }
+
+  // Pituuspotku — muunnetaan ajaksi (5 m = 1 s, max 20 s)
+  var ppMetrit = tulos.pituuspotku_metrit;
+  if (ppMetrit) {
+    var ppAika = laskePituuspotkuAika(ppMetrit);
+    summa -= ppAika; // vähennetään kokonaisajasta
+    lkm++;
+  }
+
+  if (lkm === 0) return null;
+  return Math.round(summa * 10) / 10;
+}
+
+// Laske K/H/P-merkki virallisella kokonaisajalla
+function laskeMerkki(kokonaisaika, ikaluokka, sukupuoli) {
+  if (!kokonaisaika || !ikaluokka) return null;
+  var avain = (sukupuoli === 'T' ? 'T' : 'P') + ikaluokka;
+  var rajat = TK_MERKKIRAJAT[avain];
+  if (!rajat) return null;
+  if (kokonaisaika < rajat.kulta)   return { merkki: 'K', nimi: 'Kulta',   vari: '#FFD700', bg: 'rgba(255,215,0,.12)' };
+  if (kokonaisaika < rajat.hopea)   return { merkki: 'H', nimi: 'Hopea',   vari: '#C0C0C0', bg: 'rgba(192,192,192,.12)' };
+  if (kokonaisaika < rajat.pronssi) return { merkki: 'P', nimi: 'Pronssi', vari: '#CD7F32', bg: 'rgba(205,127,50,.12)' };
+  return { merkki: '-', nimi: 'Ei merkkiä', vari: 'var(--muted)', bg: 'rgba(255,255,255,.04)' };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KANSALLINEN TK-TIETOKANTA — opt-in-pohjainen vertailudata
+// ═══════════════════════════════════════════════════════════════════════════
+// Rakenne: anonymisoituja havaintoja ikäluokittain — ei nimeä, ei pelaajatunnistetta.
+// Tällä hetkellä: simulaatiodata realistisilla jakaumilla.
+// Skaalautuu oikeaan backendiin ilman arkkitehtuurimuutoksia.
+// GDPR-peruste: vapaaehtoinen opt-in suostumus.
+
+(function initSimulaatio() {
+  if (window._TK_SIM_OK) return;
+  window._TK_SIM_OK = true;
+
+  function randNorm(mean, std) {
+    var u = 0, v = 0;
+    while (!u) u = Math.random();
+    while (!v) v = Math.random();
+    return mean + std * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  window.TK_SIMULAATIO = {};
+
+  // Kokonaisajan mediaanit ikäluokittain — perustuvat Palloliiton merkkirajoihin
+  // (mediaani ≈ hopeatason ja pronssitason puolivälissä)
+  var MEDIAANIT = {
+    P8:120, P9:102, P10:130, P11:118, P12:95, P13:88,
+    T8:132, T9:114, T10:143, T11:132, T12:108, T13:100
+  };
+
+  Object.keys(MEDIAANIT).forEach(function(avain) {
+    var med = MEDIAANIT[avain];
+    var std = med * 0.12;
+    var hasPituus = (avain === 'P12' || avain === 'P13' || avain === 'T12' || avain === 'T13');
+    var hav = [];
+    for (var i = 0; i < 150; i++) {
+      var ka = Math.max(med * 0.65, randNorm(med, std));
+      // Lajien aikasuhteet Torneopolin esimerkkidatasta (Atte Niemistö)
+      var ponn = Math.max(8,  Math.round(ka * 0.222 * 10) / 10);
+      var syo  = Math.max(15, Math.round(ka * 0.502 * 10) / 10);
+      var puj  = Math.max(10, Math.round(ka * 0.326 * 10) / 10);
+      var kl   = Math.max(5,  Math.round(ka * 0.104 * 10) / 10);
+      var pp   = hasPituus ? Math.max(4, Math.round(randNorm(10, 3) * 10) / 10) : 0;
+      hav.push({ ponnauttelu:ponn, syotto:syo, pujottelu:puj, kulj_laukaus:kl,
+                 pituuspotku: hasPituus ? pp : null,
+                 kokonaisaika: Math.round((ponn + syo + puj + kl - pp) * 10) / 10 });
+    }
+    hav.sort(function(a, b) { return a.kokonaisaika - b.kokonaisaika; });
+    window.TK_SIMULAATIO[avain] = hav;
+  });
+})();
+
+// ── Opt-in-datan hallinta ────────────────────────────────────────────────
+function _haeTKOptInData(avain) {
+  try { return JSON.parse(localStorage.getItem('tm_tk_optin_' + avain) || '[]'); }
+  catch(e) { return []; }
+}
+
+function lisaaTKOptInHavainto(tulos, avain) {
+  if (!tulos.kokonaisaika) return;
+  var havainto = {
+    kokonaisaika: tulos.kokonaisaika,
+    ponnauttelu:  tulos.ponnauttelu  ? parseFloat(tulos.ponnauttelu)  : null,
+    syotto:       tulos.syotto_aika  ? parseFloat(tulos.syotto_aika)  : null,
+    pujottelu:    tulos.pujottelu_aika ? parseFloat(tulos.pujottelu_aika) : null,
+    kulj_laukaus: tulos.kl_netto     ? parseFloat(tulos.kl_netto)     : null,
+    pvm:          tulos.pvm
+  };
+  try {
+    var data = _haeTKOptInData(avain);
+    data.push(havainto);
+    localStorage.setItem('tm_tk_optin_' + avain, JSON.stringify(data));
+  } catch(e) {}
+}
+
+// ── Prosenttipiste ja taso ──────────────────────────────────────────────
+function haeTKKansallinenVertailu(kokonaisaika, ikaluokkaAvain) {
+  var sim  = window.TK_SIMULAATIO[ikaluokkaAvain] || [];
+  var omat = _haeTKOptInData(ikaluokkaAvain);
+  var kaikki = sim.concat(omat).sort(function(a, b) { return a.kokonaisaika - b.kokonaisaika; });
+  if (!kaikki.length || !kokonaisaika) return null;
+
+  var n = kaikki.length;
+  var parempia = kaikki.filter(function(h) { return h.kokonaisaika < kokonaisaika; }).length;
+  var piste    = Math.round(parempia / n * 100);
+  var sijoitus = parempia + 1;
+
+  var taso, vari, kuvaus;
+  if (piste >= 90)      { taso='top10';    vari='#FFD700'; kuvaus='Top 10% kansallisesti ⭐'; }
+  else if (piste >= 75) { taso='top25';    vari='#1D9E75'; kuvaus='Top 25% kansallisesti'; }
+  else if (piste >= 50) { taso='ylaosa';   vari='#4D9FFF'; kuvaus='Yläpuoliset 50%'; }
+  else if (piste >= 25) { taso='keski';    vari='#BA7517'; kuvaus='Keskitasoa'; }
+  else                  { taso='kehittyy'; vari='#888780'; kuvaus='Kehityspotentiaalia'; }
+
+  // Lajikeskiarvot kansallisesta datasta
+  var lajiKa = {};
+  ['ponnauttelu','syotto','pujottelu','kulj_laukaus'].forEach(function(k) {
+    var arr = kaikki.map(function(h){return h[k];}).filter(function(v){return v;});
+    lajiKa[k] = arr.length ? Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10 : null;
+  });
+
+  return {
+    prosenttipiste: piste,
+    sijoitus:  sijoitus,
+    n:         n,
+    taso:      taso,
+    vari:      vari,
+    kuvaus:    kuvaus,
+    lajiKa:    lajiKa,
+    top10raja: kaikki[Math.floor(n*0.10)] ? kaikki[Math.floor(n*0.10)].kokonaisaika : null,
+    mediaani:  kaikki[Math.floor(n*0.50)] ? kaikki[Math.floor(n*0.50)].kokonaisaika : null
+  };
+}
+
+// ── Joukkueen kansallinen tilannekuva ──────────────────────────────────
+// Ryhmittelee pelaajat neljään ryhmään: top10%, top10-25%, yläosa 25-50%, kehittyy
+function haeTKJoukkueenKansallinenKuva(pelaajat) {
+  var tulokset = [];
+  pelaajat.forEach(function(p) {
+    var hist = haeTKHistoria(p);
+    var viim = hist.length ? hist[hist.length-1] : null;
+    if (!viim || !viim.kokonaisaika || !viim.ikaluokka) return;
+    var v = haeTKKansallinenVertailu(viim.kokonaisaika, viim.ikaluokka);
+    if (v) tulokset.push({ p:p, tulos:viim, vertailu:v });
+  });
+  tulokset.sort(function(a,b) { return b.vertailu.prosenttipiste - a.vertailu.prosenttipiste; });
+  return {
+    yhteensa: tulokset.length,
+    top10:    tulokset.filter(function(t){return t.vertailu.prosenttipiste >= 90;}),
+    top25:    tulokset.filter(function(t){return t.vertailu.prosenttipiste >= 75 && t.vertailu.prosenttipiste < 90;}),
+    ylaosa:   tulokset.filter(function(t){return t.vertailu.prosenttipiste >= 50 && t.vertailu.prosenttipiste < 75;}),
+    kehittyy: tulokset.filter(function(t){return t.vertailu.prosenttipiste < 50;}),
+    kaikki:   tulokset
+  };
+}
+
+// Laske TKI (Tekniikkakilpailu-indeksi) — tutkimuspainotettu, rinnakkainen viralliselle
+// Käytetään kauden sisäiseen kehitysseurantaan, ei viralliseen vertailuun
+// Lähde: Liikanen & Törmä 2025
+function laskeTKI(tulos) {
+  // Muunna ajat pistearvoiksi (pienempi aika = isompi pistemäärä, 0–10)
+  function aikaToP(aika, hyva, heikko) {
+    if (!aika) return null;
+    var a = parseFloat(aika);
+    return Math.max(0, Math.min(10, Math.round((heikko - a) / (heikko - hyva) * 10 * 10) / 10));
+  }
+  var VIITE = {
+    ponnauttelu: { hyva: 8,  heikko: 30 }, // sekunteina
+    syotto:      { hyva: 8,  heikko: 18 },
+    pujottelu:   { hyva: 8,  heikko: 20 },
+    kulj_laukaus:{ hyva: 6,  heikko: 16 }
+  };
+
+  var sP  = aikaToP(tulos.syotto_aika,       VIITE.syotto.hyva,       VIITE.syotto.heikko);
+  var puP = aikaToP(tulos.pujottelu_aika,     VIITE.pujottelu.hyva,    VIITE.pujottelu.heikko);
+  var poP = aikaToP(tulos.ponnauttelu_aika,   VIITE.ponnauttelu.hyva,  VIITE.ponnauttelu.heikko);
+  var klNettoY1 = laskeKuljLaukausNetto(tulos.kl_aika1, tulos.kl_laukaukset1);
+  var klNettoY2 = laskeKuljLaukausNetto(tulos.kl_aika2, tulos.kl_laukaukset2);
+  var klParas   = (klNettoY1 !== null && klNettoY2 !== null) ? Math.min(klNettoY1, klNettoY2)
+                : (klNettoY1 !== null ? klNettoY1 : klNettoY2);
+  var kP  = klParas !== null ? aikaToP(klParas, VIITE.kulj_laukaus.hyva, VIITE.kulj_laukaus.heikko) : null;
+
+  // Liikanen & Törmä 2025 -painotukset
+  var osatSumma = 0, osatLkm = 0;
+  if (sP  !== null) { osatSumma += sP  * 1.13; osatLkm += 1.13; }
+  if (puP !== null) { osatSumma += puP * 1.09; osatLkm += 1.09; }
+  if (poP !== null) { osatSumma += poP * 1.00; osatLkm += 1.00; }
+  if (kP  !== null) { osatSumma += kP  * 1.00; osatLkm += 1.00; }
+  if (osatLkm === 0) return null;
+  return Math.round(osatSumma / osatLkm * 10) / 10;
+}
+
+// Avaa tekniikkakilpailun syöttölomake — virallisen rakenteen mukainen
+function avaaTKLomake(pid) {
+  var p = DEMO[pid]
+    || (window.TM_DATA && window.TM_DATA.lookup && window.TM_DATA.lookup[pid])
+    || null;
+  if (!p) return;
+
+  var hist  = haeTKHistoria(p);
+  var viim  = hist.length > 0 ? hist[hist.length-1] : null;
+  var lahde = viim ? viim.lahde : 'harjoitus';
+
+  // Määritä ikäluokka pelaajasta
+  var ika = p.ika || (p.syntymaVuosi ? new Date().getFullYear() - p.syntymaVuosi : null);
+  var ikaStr = ika ? Math.min(13, Math.max(8, Math.round(ika))) + '' : '10';
+  var sukupuoli = (p.sukupuoli || 'P').toUpperCase()[0] === 'T' ? 'T' : 'P';
+  var lajitIkaan = TK_LAJIT_IKA[ikaStr] || TK_LAJIT_IKA['10'];
+
+  var h = '';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">';
+  h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:22px;font-weight:800;">🏆 Tekniikkakilpailu</div>';
+  h += '<button onclick="suljeHarjoite()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer">✕</button>';
+  h += '</div>';
+
+  // Ikäluokka-info + merkkitaulu
+  var avainM = sukupuoli + ikaStr;
+  var rajat  = TK_MERKKIRAJAT[avainM];
+  if (rajat) {
+    h += '<div style="background:rgba(186,117,23,.07);border-left:3px solid #BA7517;border-radius:0 10px 10px 0;padding:9px 12px;margin-bottom:12px;">';
+    h += '<div style="display:flex;align-items:center;gap:12px;">';
+    h += '<div style="font-size:11px;color:#BA7517;font-weight:700">' + sukupuoli + ikaStr + ' merkkirajat</div>';
+    [
+      {label:'🥇 Kulta',  vari:'#FFD700', arvo: rajat.kulta   },
+      {label:'🥈 Hopea',  vari:'#C0C0C0', arvo: rajat.hopea   },
+      {label:'🥉 Pronssi',vari:'#CD7F32', arvo: rajat.pronssi }
+    ].forEach(function(m) {
+      h += '<div style="font-size:11px;"><span style="color:' + m.vari + ';font-weight:700">' + m.label + '</span>';
+      h += ' <span style="color:var(--muted2)">alle ' + m.arvo + 's</span></div>';
+    });
+    h += '</div>';
+    h += '<div style="font-size:10px;color:var(--muted);margin-top:4px">Kokonaisaika = kaikkien lajien aikojen summa · 5m pituuspotku = 1s vähennys</div>';
+    h += '</div>';
+  }
+
+  // Datalähde
+  h += '<div style="margin-bottom:12px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:6px;">Datalähde</div>';
+  h += '<div style="display:flex;gap:7px;">';
+  [{id:'harjoitus',label:'Harjoituskontrolli',vari:'#1D9E75'},
+   {id:'virallinen',label:'Virallinen kilpailu ⭐',vari:'#BA7517'}].forEach(function(s) {
+    var on = lahde === s.id;
+    h += '<button onclick="tkSetLahde(\'' + s.id + '\',this)" data-lahde="' + s.id + '" ';
+    h += 'style="flex:1;padding:8px;border-radius:9px;border:1.5px solid ';
+    h += on ? (s.vari + ';background:rgba(0,0,0,.2)') : 'var(--border);background:var(--bg3)';
+    h += ';cursor:pointer;font-family:\'DM Sans\';">';
+    h += '<div style="font-size:11px;font-weight:700;color:' + (on ? s.vari : 'var(--muted)') + '">' + s.label + '</div>';
+    h += '</button>';
+  });
+  h += '</div>';
+  h += '<div id="tkVirallinenHuomio" style="display:' + (lahde==='virallinen'?'block':'none') + ';margin-top:5px;font-size:10px;color:#BA7517;padding:4px 8px;background:rgba(186,117,23,.07);border-radius:6px">⭐ Vertautuu kaikkiin seuroihin VP-dashboardissa</div>';
+  h += '</div>';
+
+  // ── LAJIT ────────────────────────────────────────────────────────────────
+
+  // 1. PONNAUTTELU — aika sekunteina (max 40 s)
+  h += buildTKLajiKentta('ponnauttelu', '⚽ Ponnauttelu', 'Aika sekunteina (max 40 s) · Kaksi yritystä, parempi tallennetaan',
+    [{id:'ponnauttelu_aika1', label:'Yritys 1', type:'time'},
+     {id:'ponnauttelu_aika2', label:'Yritys 2', type:'time'}],
+    viim, true);
+
+  // 2. SYÖTTÖ — aika sekunteina
+  h += buildTKLajiKentta('syotto', '🎯 Syöttö', 'Aika sekunteina · 5 syöttöä kumpaankin penkkiin (max 60 s) · Liikanen +13% ⭐',
+    [{id:'syotto_aika1', label:'Yritys 1', type:'time'},
+     {id:'syotto_aika2', label:'Yritys 2', type:'time'}],
+    viim, true);
+
+  // 3. PUJOTTELU — aika sekunteina
+  h += buildTKLajiKentta('pujottelu', '🏃 Pujottelu', 'Aika sekunteina · 8 merkkikepin rata (max 60 s) · Liikanen +9% ⭐',
+    [{id:'pujottelu_aika1', label:'Yritys 1', type:'time'},
+     {id:'pujottelu_aika2', label:'Yritys 2', type:'time'}],
+    viim, true);
+
+  // 4. KULJETUS-LAUKAUS — raakaika + 4 laukauksen tarkkuus
+  h += '<div style="background:var(--bg3);border-radius:12px;padding:12px;margin-bottom:10px;">';
+  h += '<div style="font-size:12px;font-weight:700;margin-bottom:4px">🦵 Kuljetus-laukaus</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);margin-bottom:10px">Raakaika + tarkkuusbonukset · Ilmassa nurk −5s · ilmassa kesk −3s · maan kautta nurk −2s · kesk −1s · ennen alue +10s</div>';
+
+  // Kaksi yritystä
+  [1, 2].forEach(function(yr) {
+    h += '<div style="margin-bottom:10px;">';
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:5px">Yritys ' + yr + '</div>';
+    h += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">';
+    h += '<div style="font-size:11px;color:var(--muted2);width:60px">Raakaika</div>';
+    h += '<input type="number" id="kl_aika' + yr + '" step="0.1" placeholder="s" ';
+    h += 'value="' + (viim && viim['kl_aika'+yr] ? viim['kl_aika'+yr] : '') + '" ';
+    h += 'oninput="paivitaTKPreview()" ';
+    h += 'style="width:70px;padding:6px 8px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px">';
+    h += '<div style="font-size:10px;color:var(--muted)">sekuntia</div>';
+    h += '</div>';
+    // 4 laukausta
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Laukaukset (4 palloa) — napauta oikea tulos:</div>';
+    h += '<div style="display:flex;gap:4px;flex-wrap:wrap;" id="kl_laukaukset' + yr + '_container">';
+    var laukausVaihtoehdot = [
+      {id:'nurkkailma', label:'Nurk ilma', col:'#1D9E75',  bonus:'−5s'},
+      {id:'kesilma',    label:'Kesk ilma', col:'#4D9FFF',  bonus:'−3s'},
+      {id:'nurkkamaa',  label:'Nurk maa',  col:'#BA7517',  bonus:'−2s'},
+      {id:'kesimaa',    label:'Kesk maa',  col:'#888780',  bonus:'−1s'},
+      {id:'ohi',        label:'Ohi/ulkona',col:'var(--red)',bonus:' 0s'},
+      {id:'ennen',      label:'Ennen alue',col:'#E53935',  bonus:'+10s'}
+    ];
+    for (var pallo = 1; pallo <= 4; pallo++) {
+      h += '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">';
+      h += '<div style="font-size:9px;color:var(--muted)">' + pallo + '.</div>';
+      h += '<select id="kl_p' + yr + '_' + pallo + '" onchange="paivitaTKPreview()" ';
+      h += 'style="padding:4px 3px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:10px;width:72px">';
+      laukausVaihtoehdot.forEach(function(v) {
+        var prev = viim && viim['kl_p'+yr+'_'+pallo];
+        h += '<option value="' + v.id + '"' + (prev===v.id?' selected':'') + '>' + v.label + ' (' + v.bonus + ')</option>';
+      });
+      h += '</select>';
+      h += '</div>';
+    }
+    h += '</div>';
+    // Nettoaika-preview per yritys
+    h += '<div id="kl_nettoY' + yr + '" style="font-size:11px;color:var(--teal);margin-top:5px;text-align:right"></div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // 5. PITUUSPOTKU (vain 12–13v)
+  if (lajitIkaan.indexOf('pituuspotku') >= 0) {
+    h += '<div style="background:var(--bg3);border-radius:12px;padding:12px;margin-bottom:10px;">';
+    h += '<div style="font-size:12px;font-weight:700;margin-bottom:4px">💥 Pituuspotku <span style="font-size:10px;color:var(--muted);font-weight:400">(P/T 12–13v)</span></div>';
+    h += '<div style="font-size:10px;color:var(--muted2);margin-bottom:8px">2 yritystä oikealla + 2 vasemmalla · Parempi kummastakin · 5m = 1s vähennys kokonaisajasta (max 20s)</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    ['Oikea jalka', 'Vasen jalka'].forEach(function(jalka) {
+      var jId = jalka === 'Oikea jalka' ? 'oikea' : 'vasen';
+      h += '<div>';
+      h += '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">' + jalka + '</div>';
+      [1,2].forEach(function(yr) {
+        h += '<div style="display:flex;gap:5px;align-items:center;margin-bottom:4px;">';
+        h += '<div style="font-size:10px;color:var(--muted2);width:44px">Yritys ' + yr + '</div>';
+        h += '<input type="number" id="pp_' + jId + '_' + yr + '" step="1" placeholder="m" ';
+        h += 'value="' + (viim && viim['pp_'+jId+'_'+yr] ? viim['pp_'+jId+'_'+yr] : '') + '" ';
+        h += 'oninput="paivitaTKPreview()" ';
+        h += 'style="width:55px;padding:5px 7px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:12px">';
+        h += '<div style="font-size:10px;color:var(--muted)">m</div>';
+        h += '</div>';
+      });
+      h += '</div>';
+    });
+    h += '</div></div>';
+  }
+
+  // 6. PUSKU — harjoituslaji, ei virallisessa kokonaisajassa
+  h += '<div style="background:var(--bg3);border-radius:12px;padding:12px;margin-bottom:10px;opacity:.8;">';
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">';
+  h += '<div style="font-size:12px;font-weight:700">🤜 Pusku</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);background:rgba(255,255,255,.06);border-radius:5px;padding:1px 7px">Harjoituslaji · ei virallisessa kokonaisajassa</div>';
+  h += '</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);margin-bottom:8px">Kolme puskua per yritys · yhteistulos · Kaksi yritystä</div>';
+  h += '<div style="display:flex;gap:8px;">';
+  [1,2].forEach(function(yr) {
+    h += '<div style="flex:1;">';
+    h += '<div style="font-size:10px;color:var(--muted);margin-bottom:3px">Yritys ' + yr + ' (yhteistulos)</div>';
+    h += '<input type="number" id="pusku_' + yr + '" step="1" placeholder="pisteet" ';
+    h += 'value="' + (viim && viim['pusku_'+yr] ? viim['pusku_'+yr] : '') + '" ';
+    h += 'style="width:100%;padding:7px 9px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px">';
+    h += '</div>';
+  });
+  h += '</div></div>';
+
+  // Kokonaisaika-preview
+  h += '<div id="tkPreview" style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:12px;display:none;">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+  h += '<div>';
+  h += '<div style="font-size:11px;color:var(--muted)">Virallinen kokonaisaika</div>';
+  h += '<div id="tkKokonaisaika" style="font-family:\'Bebas Neue\',sans-serif;font-size:28px;line-height:1;color:var(--amber)">—</div>';
+  h += '</div>';
+  h += '<div style="text-align:right;">';
+  h += '<div style="font-size:11px;color:var(--muted)">TKI (kehitysseuranta)</div>';
+  h += '<div id="tkiArvo" style="font-family:\'Bebas Neue\',sans-serif;font-size:28px;line-height:1;color:var(--teal)">—</div>';
+  h += '</div>';
+  h += '</div>';
+  h += '<div id="tkMerkki" style="font-size:13px;font-weight:700;text-align:center;padding:6px;border-radius:8px;display:none;"></div>';
+  h += '</div>';
+
+  // Muistio + tallenna
+  h += '<textarea id="tk_muistio" rows="2" placeholder="Vapaaehtoinen muistio..." ';
+  h += 'style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;';
+  h += 'color:var(--text);font-family:\'DM Sans\';font-size:12px;resize:none;box-sizing:border-box;margin-bottom:12px;">';
+  h += (viim ? viim.muistio || '' : '') + '</textarea>';
+
+  h += '<button onclick="tallennaTKJaSulje(\'' + pid + '\',\'' + ikaStr + '\',\'' + sukupuoli + '\')" ';
+  h += 'style="width:100%;padding:13px;border-radius:12px;border:none;background:#BA7517;';
+  h += 'color:#fff;font-family:\'Barlow Condensed\';font-size:16px;font-weight:800;cursor:pointer;">🏆 Tallenna tulos</button>';
+
+  document.getElementById('harjoiteBody').innerHTML = h;
+  document.getElementById('harjoiteOverlay').style.display = 'flex';
+  window._tkLahde = lahde;
+  window._tkIka   = ikaStr;
+  window._tkSuku  = sukupuoli;
+  setTimeout(paivitaTKPreview, 50);
+}
+
+// Apufunktio: rakenna yksinkertaisen lajin syöttökenttä (2 yritystä, parempi tallentuu)
+function buildTKLajiKentta(id, otsikko, kuvaus, kentat, viim, pakollinen) {
+  var h = '<div style="background:var(--bg3);border-radius:12px;padding:12px;margin-bottom:10px;">';
+  h += '<div style="font-size:12px;font-weight:700;margin-bottom:3px">' + otsikko + '</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);margin-bottom:8px">' + kuvaus + '</div>';
+  h += '<div style="display:flex;gap:8px;align-items:center;">';
+  kentat.forEach(function(k) {
+    h += '<div style="flex:1;">';
+    h += '<div style="font-size:10px;color:var(--muted);margin-bottom:3px">' + k.label + '</div>';
+    h += '<div style="display:flex;gap:4px;align-items:center;">';
+    h += '<input type="number" id="' + k.id + '" step="0.1" placeholder="s" ';
+    var prev = viim ? viim[k.id] : '';
+    h += 'value="' + (prev || '') + '" oninput="paivitaTKPreview()" ';
+    h += 'style="width:100%;padding:7px 9px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px">';
+    h += '<div style="font-size:10px;color:var(--muted);flex-shrink:0">s</div>';
+    h += '</div></div>';
+  });
+  h += '</div></div>';
+  return h;
+}
+
+// Reaaliaikainen preview: kokonaisaika + TKI + merkki
+function paivitaTKPreview() {
+  // Kerää tulos-objekti kaikista kentistä
+  var tulos = haeKentatTKLomakkeelta();
+  var kokonaisaika = laskeKokonaisaika(tulos);
+  var tki          = laskeTKI(tulos);
+  var preview      = document.getElementById('tkPreview');
+  if (!preview) return;
+
+  var kaEl  = document.getElementById('tkKokonaisaika');
+  var tkiEl = document.getElementById('tkiArvo');
+  var mEl   = document.getElementById('tkMerkki');
+
+  var ikaStr = window._tkIka || '10';
+  var suku   = window._tkSuku || 'P';
+
+  if (kokonaisaika !== null || tki !== null) {
+    preview.style.display = 'block';
+    if (kaEl  && kokonaisaika !== null) kaEl.textContent  = kokonaisaika.toFixed(1) + 's';
+    if (tkiEl && tki          !== null) tkiEl.textContent = tki.toFixed(1) + '/10';
+
+    // Merkki
+    if (mEl && kokonaisaika !== null) {
+      var merkki = laskeMerkki(kokonaisaika, ikaStr, suku);
+      if (merkki) {
+        mEl.style.display    = 'block';
+        mEl.style.background = merkki.bg;
+        mEl.style.color      = merkki.vari;
+        mEl.textContent      = merkki.nimi + ' — ' + kokonaisaika.toFixed(1) + 's';
+      }
+    }
+  }
+
+  // Päivitä myös kuljetus-laukaus nettoaikapreview per yritys
+  [1, 2].forEach(function(yr) {
+    var nettoEl = document.getElementById('kl_nettoY' + yr);
+    if (!nettoEl) return;
+    var raakaika = (document.getElementById('kl_aika' + yr) || {}).value;
+    if (!raakaika) { nettoEl.textContent = ''; return; }
+    var laukaukset = [];
+    for (var pallo = 1; pallo <= 4; pallo++) {
+      var sel = document.getElementById('kl_p' + yr + '_' + pallo);
+      if (sel) laukaukset.push(sel.value);
+    }
+    var nettoaika = laskeKuljLaukausNetto(raakaika, laukaukset);
+    if (nettoaika !== null) {
+      var vahennys = (parseFloat(raakaika) - nettoaika).toFixed(1);
+      nettoEl.textContent = 'Nettoaika: ' + nettoaika.toFixed(1) + 's (vähennys −' + vahennys + 's)';
+    }
+  });
+}
+
+// Kerää kaikki kentät lomakkeelta tulos-objektiksi
+function haeKentatTKLomakkeelta() {
+  function val(id) { var el = document.getElementById(id); return el ? el.value || null : null; }
+  function laukaukset(yr) {
+    var arr = [];
+    for (var i = 1; i <= 4; i++) {
+      var sel = document.getElementById('kl_p' + yr + '_' + i);
+      if (sel) arr.push(sel.value);
+    }
+    return arr;
+  }
+  // Parempi kahdesta yrityksestä (aika — pienempi = parempi)
+  function parempi(a, b) {
+    var av = parseFloat(a), bv = parseFloat(b);
+    if (isNaN(av) && isNaN(bv)) return null;
+    if (isNaN(av)) return b;
+    if (isNaN(bv)) return a;
+    return av <= bv ? a : b;
+  }
+  return {
+    ponnauttelu_aika:   parempi(val('ponnauttelu_aika1'), val('ponnauttelu_aika2')),
+    ponnauttelu_aika1:  val('ponnauttelu_aika1'),
+    ponnauttelu_aika2:  val('ponnauttelu_aika2'),
+    syotto_aika:        parempi(val('syotto_aika1'), val('syotto_aika2')),
+    syotto_aika1:       val('syotto_aika1'),
+    syotto_aika2:       val('syotto_aika2'),
+    pujottelu_aika:     parempi(val('pujottelu_aika1'), val('pujottelu_aika2')),
+    pujottelu_aika1:    val('pujottelu_aika1'),
+    pujottelu_aika2:    val('pujottelu_aika2'),
+    kl_aika1:           val('kl_aika1'),
+    kl_laukaukset1:     laukaukset(1),
+    kl_aika2:           val('kl_aika2'),
+    kl_laukaukset2:     laukaukset(2),
+    pituuspotku_metrit: (function() {
+      var o1=parseFloat(val('pp_oikea_1')||0), o2=parseFloat(val('pp_oikea_2')||0);
+      var v1=parseFloat(val('pp_vasen_1')||0), v2=parseFloat(val('pp_vasen_2')||0);
+      var parasOikea=Math.max(o1,o2), parasVasen=Math.max(v1,v2);
+      var yht = parasOikea + parasVasen;
+      return yht > 0 ? yht + '' : null;
+    })(),
+    pp_oikea_1: val('pp_oikea_1'), pp_oikea_2: val('pp_oikea_2'),
+    pp_vasen_1: val('pp_vasen_1'), pp_vasen_2: val('pp_vasen_2'),
+    pusku_1:    val('pusku_1'),    pusku_2:    val('pusku_2')
+  };
+}
+
+// Tallenna TK-tulos
+function tallennaTKJaSulje(pid, ikaStr, sukupuoli) {
+  var tulos = haeKentatTKLomakkeelta();
+
+  // Vähintään yksi aikatulos vaaditaan
+  var onTulos = ['ponnauttelu_aika','syotto_aika','pujottelu_aika','kl_aika1'].some(function(k) {
+    return tulos[k] && parseFloat(tulos[k]) > 0;
+  });
+  if (!onTulos) { naytaToast('Syötä vähintään yksi lajitulos'); return; }
+
+  // Laske kokonaisaika ja merkki
+  tulos.pvm          = new Date().toISOString().slice(0, 10);
+  tulos.lahde        = window._tkLahde || 'harjoitus';
+  tulos.ika          = ikaStr;
+  tulos.sukupuoli    = sukupuoli;
+  tulos.kokonaisaika = laskeKokonaisaika(tulos);
+  tulos.merkki       = laskeMerkki(tulos.kokonaisaika, ikaStr, sukupuoli);
+  tulos.tki          = laskeTKI(tulos);
+  tulos.muistio      = (document.getElementById('tk_muistio') || {}).value || '';
+
+  document.getElementById('harjoiteOverlay').style.display = 'none';
+  tallennaTKTulos(pid, tulos);
+}
+
+
+
+// Hae joukkueen TK-yhteenveto VP-dashboardia varten
+function laskeJoukkueenTKYhteenveto(pelaajat, vainViralliset) {
+  var tkiArvot = [];
+  var lajikeskiarvot = { ponnauttelu: [], syotto: [], pujottelu: [], kulj_laukaus: [], pituuspotku: [] };
+
+  pelaajat.forEach(function(p) {
+    var hist = haeTKHistoria(p);
+    if (!hist.length) return;
+    var suodatettu = vainViralliset ? hist.filter(function(t) { return t.lahde === 'virallinen'; }) : hist;
+    if (!suodatettu.length) return;
+    var viim = suodatettu[suodatettu.length-1];
+    if (viim.tki !== null && viim.tki !== undefined) tkiArvot.push(viim.tki);
+    Object.keys(lajikeskiarvot).forEach(function(k) {
+      if (viim[k]) lajikeskiarvot[k].push(parseFloat(viim[k]));
+    });
+  });
+
+  var lkm = tkiArvot.length;
+  if (!lkm) return null;
+  var tki_ka = Math.round(tkiArvot.reduce(function(a,b){return a+b;},0) / lkm * 10) / 10;
+  var lajiKa = {};
+  Object.keys(lajikeskiarvot).forEach(function(k) {
+    var arr = lajikeskiarvot[k];
+    lajiKa[k] = arr.length ? Math.round(arr.reduce(function(a,b){return a+b;},0) / arr.length * 10) / 10 : null;
+  });
+  return { tki_ka: tki_ka, lajiKa: lajiKa, lkm: lkm, yhteensa: pelaajat.length };
+}
+
 // Hae rehabilitaatiosuositus vamma-alueen ja vakavuuden perusteella
 function haeRehabSuositus(alue, vakavuus) {
   var kartoitus = VAMMA_REHAB_KARTOITUS[alue] || VAMMA_REHAB_KARTOITUS['default'];
@@ -8010,21 +9163,91 @@ function avaaKalenteriPopup(pvId,kalAvain){
   h+='</select></div>';
   h+='</div></div></div>';
 
-  // Testi-lisätiedot (näytetään jos testi valittuna)
-  h+='<div id="testiExtras" style="display:'+(hasT?'block':'none')+';margin-top:4px;">';
-  h+='<div style="background:var(--bg3);border-radius:12px;padding:12px 14px;border:1px solid var(--border);">';
-  h+='<div style="font-size:11px;color:var(--purple);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">🔬 Testin tiedot</div>';
-  h+='<div style="margin-bottom:8px;">';
-  h+='<div style="font-size:11px;color:var(--muted2);margin-bottom:4px;">Testityyppi</div>';
-  h+='<select id="testiTyyppi" style="width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
-  ['HPP Quick Scan','HPP Full Scan','Tekniikkakilpailu','Harjoitettavuuskartoitus','Game IQ ADAR','Oma testi'].forEach(function(tt){
-    h+='<option value="'+tt+'"'+(testiData.tyyppi===tt?' selected':'')+'>'+tt+'</option>';
+  // Testi-lisätiedot — dynaaminen ohjekortti per testityyppi
+  // Jokainen testityyppi kertoo: mitä mitataan, miten kirjataan, mihin menee
+
+  // Testityyppikohtaiset ohjeet — näytetään kun tyyppi valitaan
+  var TESTI_OHJEET = {
+    'HPP Quick Scan': {
+      ikoni: '⚡',
+      vari: '#1D9E75',
+      kuvaus: 'Neljä tärkeintä fyysistä testiä — noin 20 min per pelaaja',
+      testit: ['30m nopeus (tasainen alusta, lähtö paikaltaan)', 'Kevennyshyppy CMJ (3 hyppyä, paras aika)', 'SM ilman palloa (kasirata)', 'SM pallo (kasirata)'],
+      ohje: 'Kirjaa tulokset pelaajan profiiliin → Analyysi → Testitulokset. Quick Scan aktivoi normitasovertailun automaattisesti.',
+      minne: 'Normitasoprofiili + TSI-laskenta',
+      kesto: '20–30 min / pelaaja'
+    },
+    'HPP Full Scan': {
+      ikoni: '🔬',
+      vari: '#7C3AED',
+      kuvaus: 'Kaikki 14 fyysistä testiä + biologinen ikä + liikeketjuanalyysi',
+      testit: ['Kaikki Quick Scan -testit', 'Nopeus 10m + 20m', 'Asymmetria (vasen/oikea)', 'Istumakorkeus + vanhempien pituudet → PHV-laskelma', '5 liikeketjun pisteet'],
+      ohje: 'Full Scan tehdään kauden alussa ja lopussa. Tarvitaan mittanauha (istumakorkeus) ja vanhempien pituudet etukäteen.',
+      minne: 'Kaikki normitasot + PHV-tila + liikeketjuprofiili + Hidden Gem / X-Factor',
+      kesto: '40–60 min / pelaaja'
+    },
+    'Tekniikkakilpailu': {
+      ikoni: '🏆',
+      vari: '#BA7517',
+      kuvaus: 'Viisi teknistä lajia — pisteytetty kilpailumuoto 8–12-vuotiaille',
+      testit: ['1. Kuljetus (aika, sekuntia)', '2. Syöttötarkkuus (pisteet 0–10)', '3. Laukaus (pisteet 0–10)', '4. Ilmapallo (toistot)', '5. Pujottelu (aika, sekuntia)'],
+      ohje: 'Kirjaa jokaisen lajin tulos erikseen. Tekniikkakilpailut VP-näkymässä vertaa tuloksia kaikkiin 30 seuraan automaattisesti.',
+      minne: 'Tekniikkakilpailuosio VP-dashboardissa + kansallinen vertailu',
+      kesto: '10–15 min / pelaaja'
+    },
+    'Harjoitettavuuskartoitus': {
+      ikoni: '📐',
+      vari: '#4D9FFF',
+      kuvaus: 'Laadullinen arviointi pelaajan harjoiteltavuudesta ja itsejohtamisesta',
+      testit: ['1. Kuuntelukyky harjoituksessa (1–3)', '2. Virheistä palautuminen (1–3)', '3. Omatoimisen harjoittelun aktiivisuus (1–3)', '4. Palautteen vastaanottaminen (1–3)', '5. Joukkueen edun asettaminen ensin (1–3)'],
+      ohje: 'Arvioi jokainen dimensio asteikolla 1–3 yhden harjoitusjakson perusteella. Älä arvioi koko kautta — vain tämä hetki.',
+      minne: 'Harjoitettavuusprofiili + kehityskäyrä kauden yli',
+      kesto: '5 min / pelaaja (valmentajan arvio)'
+    },
+    'Game IQ ADAR': {
+      ikoni: '🧠',
+      vari: '#C084FC',
+      kuvaus: 'Taktisen älyn arviointi — ADAR-protokollan mukaisesti',
+      testit: ['A — Assess: Pre-scanning ennen kosketusta (1–3)', 'D — Decide: Päätösnopeus ja -laatu (1–3)', 'A — Act: Tekninen laatu paineessa (1–3)', 'R — Recover: Virheestä palautuminen (1–3)'],
+      ohje: 'Valitse 2–3 pelaajaa ennen harjoitusta. Seuraa heitä koko harjoituksen ajan. Täytä ADAR-lomake heti harjoituksen jälkeen — muisti vääristää.',
+      minne: 'Game IQ -profiili + kehityshistoria + joukkueen GIQ-yhteenveto',
+      kesto: '5 min / pelaaja (valmentajan arvio harjoituksen jälkeen)'
+    },
+    'Oma testi': {
+      ikoni: '📝',
+      vari: '#888780',
+      kuvaus: 'Vapaa testipäivä — kirjaa mitä mitataan',
+      testit: ['Vapaamuotoinen kirjaus muistiinpanokenttään'],
+      ohje: 'Käytä muistiinpanokenttää tulostesi kirjaamiseen. Omat testit eivät liity normitasovertailuun automaattisesti.',
+      minne: 'Viikkokalenteri (merkintä)',
+      kesto: 'Oma arvio'
+    }
+  };
+
+  h += '<div id="testiExtras" style="display:' + (hasT ? 'block' : 'none') + ';margin-top:4px;">';
+  h += '<div style="background:var(--bg3);border-radius:12px;padding:12px 14px;border:1px solid var(--border);">';
+  h += '<div style="font-size:11px;color:var(--purple);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">🔬 Testin tiedot</div>';
+
+  // Dropdown — testityyppi
+  h += '<div style="margin-bottom:10px;">';
+  h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:4px;">Testityyppi</div>';
+  h += '<select id="testiTyyppi" onchange="paivitaTestiOhje(this.value)" ';
+  h += 'style="width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
+  Object.keys(TESTI_OHJEET).forEach(function(tt) {
+    h += '<option value="' + tt + '"' + (testiData.tyyppi === tt ? ' selected' : '') + '>' + tt + '</option>';
   });
-  h+='</select></div>';
-  h+='<div><div style="font-size:11px;color:var(--muted2);margin-bottom:4px;">Muistiinpano</div>';
-  h+='<input id="testiMuistio" type="text" value="'+((testiData.muistiinpano)||'')+'" placeholder="vapaaehtoinen" ';
-  h+='style="width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
-  h+='</div></div></div>';
+  h += '</select></div>';
+
+  // Dynaaminen ohjekortti — päivittyy JavaScriptillä kun tyyppi vaihdetaan
+  h += '<div id="testiOhjeKortti" style="margin-bottom:10px;"></div>';
+
+  // Muistiinpano
+  h += '<div>';
+  h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:4px;">Muistiinpano</div>';
+  h += '<input id="testiMuistio" type="text" value="' + (testiData.muistiinpano || '') + '" placeholder="vapaaehtoinen" ';
+  h += 'style="width:100%;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
+  h += '</div>';
+  h += '</div></div>';
 
   // Tallenna-nappi
   h+='<button onclick="tallennaKalenteriJaSulje(\''+pvId+'\',\''+kalAvain+'\',\''+y+'\',\''+wk+'\')" ';
