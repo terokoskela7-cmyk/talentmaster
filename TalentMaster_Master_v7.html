@@ -540,6 +540,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
     <div id="cTab3" onclick="goCoachTab(3)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;">🏅 MERKINNÄT</div>
     <div id="cTab4" onclick="goCoachTab(4)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;display:none;">🏟️ SEURAT</div>
     <div id="cTab5" onclick="goCoachTab(5)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;background:linear-gradient(135deg,rgba(167,139,250,.08),transparent);">🎓 KOULUTUS</div>
+    <div id="cTab6" onclick="goCoachTab(6)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;">⚙️ ASETUKSET</div>
   </div>
   <div style="padding:14px 16px;" id="coachContent"></div>
 </div>
@@ -4648,7 +4649,7 @@ var KOULUTUS_TILA={
 
 function goCoachTab(idx){
   window._coachTab=idx;
-  [0,1,2,3,4,5].forEach(function(i){
+  [0,1,2,3,4,5,6].forEach(function(i){
     var t=document.getElementById('cTab'+i);if(!t)return;
     t.style.color=i===idx?'var(--teal)':'var(--muted)';
     t.style.borderBottom=i===idx?'2px solid var(--teal)':'2px solid transparent';
@@ -4661,8 +4662,173 @@ function buildCoachTab(idx){
   else if(idx===2)buildCoachViikko();
   else if(idx===3)buildCoachMerkinnat();
   else if(idx===4)buildCoachSeurat();
+  else if(idx===6)buildCoachAsetukset();
   else buildCoachKoulutus();
 }
+
+// ── ASETUKSET TAB — osio 1: testipaketti ja kirkastuminen ────────────────
+function buildCoachAsetukset(){
+  var el = document.getElementById('coachContent');
+  if(!el) return;
+
+  // Haetaan seuran konfiguraatio — fallback demo-seuralle
+  var vpPin = lsj('tm_coach_pin') || '9012';
+  // Päätellään seuraId kirjautuneen valmentajan perusteella
+  var seuraId = 'fc_lahti'; // TODO: korvaa S.coachSeuraId myöhemmin
+  var seura = SEURAT_KONFIGURAATIO[seuraId] || null;
+  var paketti = seura ? (TESTIPAKETIT[seura.paketti] || TESTIPAKETIT['taso1']) : TESTIPAKETIT['taso1'];
+
+  // Lasketaan kirkastumistilanne koko joukkueelle
+  var pelaajat = Object.values(DEMO).filter(function(p){ return p.id !== 'HPP-T001'; });
+  var kirkKeskiarvo = 0;
+  if(pelaajat.length > 0){
+    var yht = pelaajat.reduce(function(sum,p){
+      return sum + laskeKirkastuminen(p).pct;
+    }, 0);
+    kirkKeskiarvo = Math.round(yht / pelaajat.length);
+  }
+
+  // Testien selkokieliset kuvaukset ja vastuutahot
+  var TESTI_META = {
+    tk_kilpailu:    { nimi:'Tekniikkakilpailu',        ikoni:'⚽', vastuu:'Valmentaja',       kuvaus:'Ponnauttelu, syöttö, pujottelu, kuljetus+laukaus, pituuspotku — Palloliiton virallinen formaatti', pisteet:25 },
+    oma_testi:      { nimi:'Oma lisätesti',             ikoni:'📋', vastuu:'VP',              kuvaus:'Seuran itse määrittelemä lisämittaus — voi olla juoksutekniikkahavainto tai valmentajan laadullinen arvio', pisteet:0 },
+    harjoitettavuus:{ nimi:'Harjoitettavuuskartoitus',  ikoni:'🧠', vastuu:'FS-valmentaja',   kuvaus:'Uni, ravinto, RPE-historia, biologinen kapasiteetti — ikäprotokolla U10–U19', pisteet:15 },
+    fys_historia:   { nimi:'H-H ominaisuustestit',      ikoni:'🏃', vastuu:'FS-valmentaja',   kuvaus:'Nopeus 10m/30m, kevennyshyppy (CMJ), SM-pallo ja ilman palloa, kehon asymmetria', pisteet:15 },
+    biologinen_ika: { nimi:'Biologinen ikä (PHV)',       ikoni:'📏', vastuu:'FS-valmentaja',   kuvaus:'Kasvupyrähdyksen ajankohta — Mirwald 2002 (istumakorkeus) tai Khamis-Roche (vanhempien pituudet)', pisteet:10 },
+    adar:           { nimi:'ADAR-peliälyarviointi',      ikoni:'👁️', vastuu:'Valmentaja',     kuvaus:'Arvioi, Päätä, Toimi, Reagoi — aktivoi Hidden Gem kerros 3 ja täyden X-Factor -laskennan', pisteet:15 },
+    grit:           { nimi:'Grit-psykologinen arvio',    ikoni:'💪', vastuu:'Valmentaja',      kuvaus:'U13–15: Grit Short (5 kys.) + valmentajan täydennys. U15+: Duckworth Grit Scale (8 kys.)', pisteet:10 },
+    vsci:           { nimi:'VSCI-urheiluluottamus',      ikoni:'🎯', vastuu:'Valmentaja',      kuvaus:'Vealey Sport Confidence Inventory — aktivoituu U15+. Mittaa luottamusta omiin kykyihin pelissä', pisteet:10 },
+  };
+
+  // Algoritmien selkokieliset kuvaukset
+  var ALGO_META = {
+    tki_profiili:            { nimi:'TKI-profiili',              ikoni:'📊', kuvaus:'Liikeketjuanalyysi TK-tuloksista — ohjaa personoidun viikko-ohjelman automaattisesti' },
+    viikko_ohjelma:          { nimi:'Personoitu viikko-ohjelma', ikoni:'📅', kuvaus:'70-20-10 -periaate: heikoimmat liikeketjut saavat eniten harjoittelua' },
+    hidden_gem:              { nimi:'Hidden Gem -tunnistus',     ikoni:'💎', kuvaus:'Kolmitasoinen algoritmi: RAE-kompensaatio + bio-ikäkorjaus + ADAR-ristiriita' },
+    x_factor:                { nimi:'X-Factor -tunnistus',       ikoni:'⚡', kuvaus:'Kehityspotentiaali: RAE × normitaso + kehitysnopeus + PHV-bio-bonus' },
+    harjoitettavuus_indeksi: { nimi:'Harjoitettavuusindeksi',    ikoni:'🔋', kuvaus:'Liikennevalomalli: vihreä/keltainen/punainen — kertoo voiko pelaaja harjoitella täydellä kuormalla' },
+    psykologinen_profiili:   { nimi:'Psykologinen profiili',     ikoni:'🧬', kuvaus:'Grit + VSCI yhdistettynä — ennustaa pitkäjänteistä kehittymistä paremmin kuin fyysisyys' },
+    talent_id_5d:            { nimi:'TalentMaster 5D Framework™',ikoni:'🏆', kuvaus:'Kaikki viisi dimensiota: FYS + TEK + PSY + KOG + SOS — täysi TalentID-profiili' },
+  };
+
+  var h = '';
+
+  // ── OTSIKKO ──────────────────────────────────────────────────────────
+  h += '<div style="padding:16px 16px 0;">';
+  h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:22px;font-weight:800;letter-spacing:.5px;margin-bottom:4px;">⚙️ Seuran asetukset</div>';
+  h += '<div style="font-size:12px;color:var(--muted2);">' + (seura ? seura.nimi : 'FC Lahti') + ' · Hallinnoi: Valmennuspäällikkö</div>';
+  h += '</div>';
+
+  // ── OSIO 1: TESTIPAKETTI ──────────────────────────────────────────────
+  h += '<div style="margin:14px 14px 0;">';
+
+  // Paketin otsikkokortti
+  var pakVari = paketti.id === 'taso3' ? '#F59E0B' : paketti.id === 'taso2' ? '#7C3AED' : '#0D9488';
+  h += '<div style="background:var(--card);border:1.5px solid ' + pakVari + '44;border-radius:16px;overflow:hidden;margin-bottom:14px;">';
+  // Värillinen yläpalkki
+  h += '<div style="background:' + pakVari + ';padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">';
+  h += '<div>';
+  h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;color:rgba(255,255,255,.7);text-transform:uppercase;">Aktiivinen testipaketti</div>';
+  h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:24px;font-weight:900;color:#fff;letter-spacing:1px;line-height:1.1;">' + paketti.ikoni + ' ' + paketti.nimi + '</div>';
+  h += '</div>';
+  // Kirkastumismaksimi
+  h += '<div style="text-align:right;">';
+  h += '<div style="font-size:10px;color:rgba(255,255,255,.7);margin-bottom:2px;">Profiilin maksimi</div>';
+  h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:36px;font-weight:900;color:#fff;line-height:1;">' + paketti.max_kirkastuminen + '%</div>';
+  h += '</div>';
+  h += '</div>';
+  // Kuvaus
+  h += '<div style="padding:10px 16px 12px;">';
+  h += '<div style="font-size:12px;color:var(--muted2);line-height:1.5;">' + paketti.kuvaus + '</div>';
+  // Joukkueen kirkastuminen
+  h += '<div style="margin-top:10px;">';
+  h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;">';
+  h += '<span>Joukkueen kirkastuminen (ka)</span><span style="color:' + pakVari + ';font-weight:700;">' + kirkKeskiarvo + '%</span>';
+  h += '</div>';
+  h += '<div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;">';
+  h += '<div style="height:5px;width:' + kirkKeskiarvo + '%;background:' + pakVari + ';border-radius:3px;transition:width 1s;"></div>';
+  h += '</div>';
+  h += '</div>';
+  // Pyydä päivitystä -nappi
+  h += '<button onclick="pyydaPakettipaivitysta()" style="margin-top:10px;padding:8px 14px;border-radius:9px;border:1px solid ' + pakVari + '66;background:' + pakVari + '15;color:' + pakVari + ';font-size:11px;font-weight:700;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:.5px;">↑ PYYDÄ PAKETTIPÄIVITYSTÄ</button>';
+  h += '</div></div>';
+
+  // ── AKTIIVISET TESTIT ─────────────────────────────────────────────────
+  h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;">Aktiiviset testit — kuka tekee</div>';
+
+  Object.keys(TESTI_META).forEach(function(testiId){
+    var meta = TESTI_META[testiId];
+    var onAktiivinen = paketti.testit && paketti.testit[testiId];
+    if(!onAktiivinen) return; // Näytetään vain aktiiviset
+
+    var vastuuVari = meta.vastuu === 'FS-valmentaja' ? '#4A9EFF'
+                  : meta.vastuu === 'VP'             ? '#F59E0B'
+                  :                                    'var(--teal)';
+
+    h += '<div style="display:flex;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:11px;margin-bottom:6px;">';
+    h += '<div style="font-size:20px;width:28px;text-align:center;flex-shrink:0;">' + meta.ikoni + '</div>';
+    h += '<div style="flex:1;">';
+    h += '<div style="font-size:13px;font-weight:700;">' + meta.nimi + '</div>';
+    h += '<div style="font-size:11px;color:var(--muted2);margin-top:2px;line-height:1.4;">' + meta.kuvaus + '</div>';
+    h += '</div>';
+    h += '<div style="flex-shrink:0;text-align:right;">';
+    if(meta.pisteet > 0){
+      h += '<div style="font-size:10px;color:var(--muted2);">+' + meta.pisteet + 'p</div>';
+    }
+    h += '<div style="font-size:10px;font-weight:700;color:' + vastuuVari + ';margin-top:2px;padding:2px 7px;border-radius:6px;background:' + vastuuVari + '18;border:1px solid ' + vastuuVari + '33;">' + meta.vastuu + '</div>';
+    h += '</div>';
+    h += '</div>';
+  });
+
+  // Piilotetut testit — näytetään "avautuu pakettitasolla X" -infona
+  var piilotetut = Object.keys(TESTI_META).filter(function(id){
+    return !(paketti.testit && paketti.testit[id]) && id !== 'oma_testi';
+  });
+  if(piilotetut.length > 0){
+    h += '<div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.1);border-radius:11px;">';
+    h += '<div style="font-size:10px;font-weight:700;color:var(--muted2);letter-spacing:.5px;margin-bottom:6px;">EI KÄYTÖSSÄ TÄLLÄ PAKETILLA</div>';
+    piilotetut.forEach(function(id){
+      var m = TESTI_META[id];
+      h += '<div style="font-size:11px;color:var(--muted);padding:3px 0;">' + m.ikoni + ' ' + m.nimi + ' — <span style="color:var(--muted2);">' + m.kuvaus.split('—')[0].trim() + '</span></div>';
+    });
+    h += '</div>';
+  }
+
+  // ── AKTIIVISET ALGORITMIT ─────────────────────────────────────────────
+  h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;margin:14px 0 8px;">Aktivoituvat algoritmit</div>';
+
+  Object.keys(ALGO_META).forEach(function(algoId){
+    var meta = ALGO_META[algoId];
+    var tila = paketti.algoritmit ? paketti.algoritmit[algoId] : false;
+    if(!tila) return;
+
+    var osittain = tila === 'osittain';
+    var tilaTeksti = osittain ? 'OSITTAIN' : 'AKTIIVINEN';
+    var tilaVari = osittain ? '#F59E0B' : 'var(--green)';
+
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:5px;">';
+    h += '<span style="font-size:16px;">' + meta.ikoni + '</span>';
+    h += '<div style="flex:1;">';
+    h += '<div style="font-size:12px;font-weight:700;">' + meta.nimi + '</div>';
+    h += '<div style="font-size:10px;color:var(--muted2);margin-top:1px;">' + meta.kuvaus + '</div>';
+    if(osittain){
+      h += '<div style="font-size:10px;color:var(--amber);margin-top:3px;">⚠️ Täysi versio vaatii ADAR-datan — aktivoituu taso 3:lla</div>';
+    }
+    h += '</div>';
+    h += '<div style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:3px 8px;border-radius:6px;background:' + tilaVari + '18;color:' + tilaVari + ';border:1px solid ' + tilaVari + '33;white-space:nowrap;">' + tilaTeksti + '</div>';
+    h += '</div>';
+  });
+
+  h += '</div>'; // padding-wrapper
+
+  el.innerHTML = h;
+}
+
+// Pyydä pakettipäivitystä — avaa yksinkertaisen vahvistuspopupin
+function pyydaPakettipaivitysta(){
+  naytaToast('📧 Pyyntö lähetetty TalentMaster-tiimille — vastataan 24h sisällä');
+}
+// ── ASETUKSET OSIO 1 PÄÄTTYY ─────────────────────────────────────────────
 
 // ── SEURAT TAB — seurahierarkia + pelaajahaku ────────────────
 function buildCoachSeurat(){
