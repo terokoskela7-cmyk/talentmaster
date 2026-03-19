@@ -364,7 +364,24 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
 .vr-lbl{font-size:9px;color:var(--muted);text-align:right;}
 .haaste-card{background:linear-gradient(135deg,#1A1040,#0D0820);border:1px solid rgba(167,139,250,.3);border-radius:14px;padding:14px 16px;margin-bottom:12px;}
 .haaste-aktiivinen{display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);border-radius:12px;margin-bottom:10px;}
-</style>
+
+/* ── SPECIAL MOMENT — 3D flip-animaatio ── */
+.tm-flip-scene{perspective:900px;width:100%;margin-bottom:16px;}
+.tm-flip-card{position:relative;width:100%;transform-style:preserve-3d;transition:transform 1.2s cubic-bezier(.4,0,.2,1);}
+.tm-flip-card.flipped{transform:rotateY(180deg);}
+.tm-flip-front,.tm-flip-back{width:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
+.tm-flip-back{position:absolute;top:0;left:0;transform:rotateY(180deg);}
+
+/* Erikoistila-teemat — takasivu */
+.tm-special-haaste{background:linear-gradient(145deg,#3D2800,#1A1000,#0A0600);border:2px solid rgba(255,200,50,.6);border-radius:20px;box-shadow:0 0 40px rgba(255,180,0,.35),0 20px 60px rgba(0,0,0,.7);}
+.tm-special-taso{background:linear-gradient(145deg,#2D0A5C,#180530,#0A0220);border:2px solid rgba(167,139,250,.6);border-radius:20px;box-shadow:0 0 40px rgba(124,58,237,.4),0 20px 60px rgba(0,0,0,.7);}
+.tm-special-streak{background:linear-gradient(145deg,#4A0E0E,#220505,#0E0202);border:2px solid rgba(239,68,68,.6);border-radius:20px;box-shadow:0 0 40px rgba(239,68,68,.35),0 20px 60px rgba(0,0,0,.7);}
+.tm-special-tk{background:linear-gradient(145deg,#0A2A3C,#041520,#010A10);border:2px solid rgba(8,145,194,.6);border-radius:20px;box-shadow:0 0 40px rgba(8,145,194,.35),0 20px 60px rgba(0,0,0,.7);}
+
+@keyframes tm-shimmer{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes tm-pulse-border{0%,100%{box-shadow:0 0 40px rgba(255,180,0,.35)}50%{box-shadow:0 0 70px rgba(255,180,0,.6)}}
+.tm-special-haaste{animation:tm-pulse-border 2.5s ease-in-out infinite;}
+
 <!-- TalentMaster seura- ja pelaajatietokanta — ladataan samasta hakemistosta -->
 <script>
 (function(){
@@ -1483,6 +1500,8 @@ function naytaLevelUp(lv){
   document.getElementById('luTaso').textContent='Taso '+lv.taso;
   document.getElementById('levelupOverlay').style.display='flex';
   setTimeout(function(){document.getElementById('levelupOverlay').style.display='none';},3200);
+  // Kirjataan erikoistila — kortti saa special moment seuraavalla avauksella
+  if(S.pelaaja) lisaaErikoistila(S.pelaaja,'tasonousu',lv.nimi,{taso:lv.taso,ikoni:lv.ikoni},7);
 }
 function paivitaXPBar(){
   var vahv=S.pelaaja?haeVahvistukset(S.pelaaja).yhteensa:0;
@@ -6985,11 +7004,16 @@ function buildKetjuVisuaali(pd,pr,blur){
     var ketjuVari=isDom&&pr?pr.vari:'var(--teal)';
     var nimet={taka:'🏃 Sprinttaaja',etu:'🦘 Hyppääjä',sivu:'🦊 Harhautus',kierto:'⚽ Pallotaikuri',syva:'🛡️ Johtaja'};
     h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">';
-    h+='<div style="font-size:12px;color:var(--text);'+(isDom?'font-weight:700;':'')+'width:110px;flex-shrink:0;'+(blur?'filter:blur(3px);':'')+'">'+nimet[id]+'</div>';
-    h+='<div style="flex:1;height:'+(isDom?'7':'5')+'px;background:var(--bg3);border-radius:3px;overflow:hidden;">';
+    // Tekstiväri: profiilikortin sisällä käytetään pr.variDark (tumma, näkyy pr.vari-taustalla)
+    // Muualla (kehitysnäkymä, blur-tila) käytetään var(--muted2) joka on teemaan sopiva
+    var tekstiVari = pr ? pr.variDark : 'var(--muted2)';
+    var pisteetVari = isDom && pr ? pr.variDark : 'var(--muted2)';
+    var bgVari = pr ? pr.variDark+'22' : 'var(--bg3)'; // palkin tausta — hieman teemavärin mukainen
+    h+='<div style="font-size:12px;color:'+tekstiVari+';'+(isDom?'font-weight:700;':'')+'width:110px;flex-shrink:0;'+(blur?'filter:blur(3px);':'')+'">'+nimet[id]+'</div>';
+    h+='<div style="flex:1;height:'+(isDom?'7':'5')+'px;background:'+bgVari+';border-radius:3px;overflow:hidden;">';
     h+='<div style="height:100%;width:'+(blur?'50':pct)+'%;background:'+ketjuVari+';border-radius:3px;transition:width 1s ease;opacity:'+(blur?'.4':'1')+';"></div>';
     h+='</div>';
-    h+='<div style="font-size:12px;font-weight:'+(isDom?'700':'400')+';color:'+(isDom&&pr?pr.vari:'var(--muted2)')+';width:28px;text-align:right;">'+(blur?'?':piste.toFixed(1))+'</div>';
+    h+='<div style="font-size:12px;font-weight:'+(isDom?'700':'400')+';color:'+pisteetVari+';width:28px;text-align:right;">'+(blur?'?':piste.toFixed(1))+'</div>';
     h+='</div>';
   });
   h+='</div>';
@@ -8070,10 +8094,17 @@ function tarkistaStreak(dk){
   if(allKeys.every(function(k){return dc[k];})&&!dc.allDone){
     dc.allDone=true;S.streak++;sls('tm_streak',S.streak);sls('tm_checked',S.checked);
     document.getElementById('streakN').textContent=S.streak;
-    if(S.streak%14===0)lisaaXP(XP.streak14,S.streak+' pv putki!');
-    else if(S.streak%7===0)lisaaXP(XP.streak7,S.streak+' pv putki!');
-    else if(S.streak%5===0)lisaaXP(XP.streak5,S.streak+' pv putki!');
-    else lisaaXP(XP.kaikki,'kaikki tehty!');
+    if(S.streak%14===0){
+      lisaaXP(XP.streak14,S.streak+' pv putki!');
+      lisaaErikoistila(S.pelaaja,'streak',S.streak+' päivän putki!',{pituus:S.streak},14);
+    } else if(S.streak%7===0){
+      lisaaXP(XP.streak7,S.streak+' pv putki!');
+      lisaaErikoistila(S.pelaaja,'streak',S.streak+' päivän putki!',{pituus:S.streak},7);
+    } else if(S.streak%5===0){
+      lisaaXP(XP.streak5,S.streak+' pv putki!');
+    } else {
+      lisaaXP(XP.kaikki,'kaikki tehty!');
+    }
     naytaToast('🔥 Harjoitusputki: '+S.streak+' päivää!');
   }
 }
@@ -9880,19 +9911,254 @@ function buildKehitys(){
 
   document.getElementById('tKehitys').innerHTML=h;
 }
-function naytaTaysiKortti(){
-  var p=S.pelaaja;
-  var latest=p.qs_historia[p.qs_historia.length-1],r=latest&&latest.results||{},k=r.ketjut||{};
-  var h='<div style="padding-bottom:8px;">';
-  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
-  h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;">🃏 Pelaajakortti</div>';
-  h+='<button onclick="suljeHarjoite()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
-  h+='</div>';
-  h+=buildKorttiHTML(p,r,k);
-  h+='</div>';
-  document.getElementById('hkBody').innerHTML=h;
-  document.getElementById('hkOverlay').style.display='flex';
-  document.body.style.overflow='hidden';
+// ── ERIKOISTILAN TUNNISTUS ────────────────────────────────────────────────
+// Palauttaa aktiivisimman erikoistilan tai null jos ei yhtään.
+// Prioriteettijärjestys: haaste_voitto > tasonousu > streak > tk_tulos
+// Kukin erikoistila on voimassa tietyn ajan (tarkistetaan voimassa-kentästä).
+// "unseen"-lippu: animaatio toistetaan vain kerran per erikoistila.
+function haeAktiivisinErikoistila(p) {
+  var kaikki = lsj('tm_erikoistilat_' + p.id) || [];
+  var nyt = new Date();
+
+  // Suodata vanhentuneet pois ja tallenna
+  var voimassa = kaikki.filter(function(e) {
+    return e.voimassa && new Date(e.voimassa) > nyt;
+  });
+  if (voimassa.length !== kaikki.length) {
+    sls('tm_erikoistilat_' + p.id, voimassa);
+  }
+  if (!voimassa.length) return null;
+
+  // Prioriteettijärjestys
+  var prioriteetti = ['haaste_voitto','tasonousu','streak','tk_tulos'];
+  for (var pi = 0; pi < prioriteetti.length; pi++) {
+    var loydetty = voimassa.find(function(e) { return e.tyyppi === prioriteetti[pi]; });
+    if (loydetty) return loydetty;
+  }
+  return voimassa[0];
+}
+
+// Erikoistilan visuaalinen teema — palauttaa CSS-luokan, värit ja tekstit
+function erikoistilaTeema(erikoistila) {
+  var teemat = {
+    haaste_voitto: {
+      luokka: 'tm-special-haaste',
+      ikoni:  '🏆',
+      otsikko:'HAASTE VOITETTU',
+      vari:   '#FFD700',
+      glow:   'rgba(255,180,0,.6)',
+      kuvaus: function(e) { return 'Voitit ' + (e.vastustaja||'') + ' ' + (e.nimi||'') + 'ssa!'; },
+      badge:  'IF'  // In Form — FIFA-terminologia
+    },
+    tasonousu: {
+      luokka: 'tm-special-taso',
+      ikoni:  '⚡',
+      otsikko:'UUSI TASO',
+      vari:   '#A78BFA',
+      glow:   'rgba(167,139,250,.6)',
+      kuvaus: function(e) { return (e.nimi||'Taso') + ' saavutettu!'; },
+      badge:  'RTTF' // Road to the Final
+    },
+    streak: {
+      luokka: 'tm-special-streak',
+      ikoni:  '🔥',
+      otsikko:'PUTKI-ENNÄTYS',
+      vari:   '#EF4444',
+      glow:   'rgba(239,68,68,.6)',
+      kuvaus: function(e) { return (e.pituus||'') + ' päivän harjoitusputki — historiallinen!'; },
+      badge:  'TOTS' // Team of the Season
+    },
+    tk_tulos: {
+      luokka: 'tm-special-tk',
+      ikoni:  '📊',
+      otsikko:'TK-ENNÄTYS',
+      vari:   '#0891B2',
+      glow:   'rgba(8,145,194,.6)',
+      kuvaus: function(e) { return 'Tekniikkakilpailu — ' + (e.nimi||'uusi tulos') + '!'; },
+      badge:  'TOTW' // Team of the Week
+    }
+  };
+  return teemat[erikoistila.tyyppi] || teemat.tasonousu;
+}
+
+// Rakentaa erikoistilan takasivun HTML:n
+function buildErikoistilaTakasivu(p, erikoistila, teema, vari, attrs, tc, posIkoni) {
+  var h = '<div class="tm-flip-back">';
+  h += '<div class="' + teema.luokka + '" style="position:relative;overflow:hidden;padding:0;">';
+
+  // Shimmer-efekti taustalla
+  h += '<div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 20%,' + teema.glow.replace('.6','.25') + ' 0%,transparent 60%);pointer-events:none;"></div>';
+  h += '<div style="position:absolute;inset:0;background:radial-gradient(ellipse at 70% 80%,' + teema.glow.replace('.6','.12') + ' 0%,transparent 50%);pointer-events:none;"></div>';
+  h += '<div style="position:absolute;inset:6px;border-radius:15px;border:1px solid ' + teema.glow.replace('.6','.2') + ';pointer-events:none;"></div>';
+
+  // Yläpalkki: OVR + badge
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px 18px 0;">';
+  h += '<div>';
+  h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:72px;line-height:.9;color:' + teema.vari + ';text-shadow:0 2px 12px rgba(0,0,0,.5);">' + vari.val + '</div>';
+  h += '<div style="font-size:11px;font-weight:800;letter-spacing:3px;color:' + teema.vari + '99;margin-top:2px;">' + teema.badge + '</div>';
+  h += '</div>';
+  // Badge keskellä
+  h += '<div style="text-align:center;">';
+  h += '<div style="font-size:40px;line-height:1;animation:tm-shimmer 2s ease-in-out infinite;">' + teema.ikoni + '</div>';
+  h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:11px;letter-spacing:2px;color:' + teema.vari + '80;margin-top:4px;">SPECIAL</div>';
+  h += '</div>';
+  h += '<div style="text-align:center;">';
+  h += '<div style="font-size:44px;line-height:1;">' + posIkoni + '</div>';
+  h += '<div style="font-size:12px;font-weight:800;color:' + teema.vari + ';letter-spacing:1px;margin-top:2px;">' + (p.positio||'—') + '</div>';
+  h += '</div>';
+  h += '</div>';
+
+  // Erikoistilan otsikko iso — FIFA "IN FORM" -tyylinen
+  h += '<div style="text-align:center;padding:14px 16px 8px;">';
+  h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:36px;letter-spacing:4px;color:' + teema.vari + ';text-shadow:0 0 20px ' + teema.glow + ';">' + teema.otsikko + '</div>';
+  h += '<div style="font-size:13px;color:' + teema.vari + '99;margin-top:4px;line-height:1.4;">' + teema.kuvaus(erikoistila) + '</div>';
+  h += '</div>';
+
+  // Nimi
+  h += '<div style="text-align:center;padding:0 16px 12px;">';
+  h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:28px;letter-spacing:3px;color:' + teema.vari + ';text-shadow:0 2px 8px rgba(0,0,0,.6);">' + p.etunimi.toUpperCase() + ' ' + (p.sukunimi||'').toUpperCase() + '</div>';
+  h += '<div style="font-size:11px;color:' + teema.vari + '70;letter-spacing:1px;margin-top:3px;">' + (p.joukkue||'') + ' · 🇫🇮</div>';
+  h += '</div>';
+
+  // Separator
+  h += '<div style="margin:0 16px;height:1px;background:linear-gradient(90deg,transparent,' + teema.glow + ',transparent);"></div>';
+
+  // Attribuutit — samat kuin etusivulla mutta erikoistilan värein
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;padding:12px 16px 16px;">';
+  attrs.forEach(function(a, i) {
+    var borderR = (i===2||i===5) ? '' : 'border-right:1px solid ' + teema.glow.replace('.6','.15') + ';';
+    var borderB = i < 3 ? 'border-bottom:1px solid ' + teema.glow.replace('.6','.15') + ';' : '';
+    h += '<div style="text-align:center;' + borderR + borderB + 'padding:8px 2px;">';
+    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;line-height:1;color:' + teema.vari + ';text-shadow:0 0 12px ' + teema.glow.replace('.6','.4') + ';">' + a.val + '</div>';
+    h += '<div style="height:2px;background:rgba(255,255,255,.1);border-radius:1px;overflow:hidden;margin:3px 8px;">';
+    h += '<div style="height:2px;width:' + Math.min(100,Math.round((a.val-40)/59*100)) + '%;background:' + teema.vari + ';border-radius:1px;"></div></div>';
+    h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;color:' + teema.vari + '99;letter-spacing:.5px;">' + a.lbl + '</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  h += '</div></div>'; // tm-flip-back
+  return h;
+}
+
+function naytaTaysiKortti() {
+  var p = S.pelaaja;
+  var latest = p.qs_historia[p.qs_historia.length-1], r = latest && latest.results || {}, k = r.ketjut || {};
+  var ov = laskeOverall(k), vari = overallVari(ov);
+  var attrs = [
+    {lbl:'PAC', val:toFifa(k.taka&&k.taka.pisteet)},
+    {lbl:'SHO', val:toFifa(k.etu&&k.etu.pisteet)},
+    {lbl:'PAS', val:toFifa(k.kierto&&k.kierto.pisteet)},
+    {lbl:'DRI', val:toFifa(k.sivu&&k.sivu.pisteet)},
+    {lbl:'DEF', val:toFifa(k.syva&&k.syva.pisteet)},
+    {lbl:'PHY', val:r.flei?Math.round(40+r.flei/100*59):50}
+  ];
+  var posIkonit = {KK:'⚙️',HYK:'⚡',PM:'🛡️',MV:'🧤',HH:'🎯',LP:'🦊'};
+  var posIkoni = posIkonit[p.positio] || '⚽';
+
+  // Tarkista onko aktiivinen näkemätön erikoistila
+  var erikoistila = haeAktiivisinErikoistila(p);
+  var nahtyAvain = erikoistila ? 'tm_sp_nahty_' + p.id + '_' + erikoistila.tyyppi + '_' + (erikoistila.luotu||'') : null;
+  var onUusiErikoistila = erikoistila && !lsj(nahtyAvain);
+  var teema = erikoistila ? erikoistilaTeema(erikoistila) : null;
+
+  // Rakenna sisältö
+  var korttiHTML = buildKorttiHTML(p, r, k);
+  var takasivu = onUusiErikoistila
+    ? buildErikoistilaTakasivu(p, erikoistila, teema, {val:ov}, attrs, {}, posIkoni)
+    : '';
+
+  var h = '<div style="padding-bottom:8px;">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+  h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;">🃏 Pelaajakortti</div>';
+  if (onUusiErikoistila) {
+    h += '<div style="font-size:11px;padding:4px 10px;border-radius:8px;background:' + teema.glow.replace('.6','.15') + ';color:' + teema.vari + ';font-weight:700;animation:tm-shimmer 1.5s ease-in-out infinite;">✨ SPECIAL</div>';
+  }
+  h += '<button onclick="suljeHarjoite()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
+  h += '</div>';
+
+  if (onUusiErikoistila) {
+    // Flip-rakenne: etuside (normaali kortti) + takaside (erikoistila)
+    h += '<div class="tm-flip-scene">';
+    h += '<div class="tm-flip-card" id="tmFlipCard">';
+    // Etuside
+    h += '<div class="tm-flip-front">' + korttiHTML + '</div>';
+    // Takaside
+    h += takasivu;
+    h += '</div></div>';
+    // Nappi joka käynnistää flipin
+    h += '<button id="tmFlipBtn" onclick="kaynnistaSPFlip()" style="width:100%;padding:14px;border-radius:13px;border:none;background:linear-gradient(135deg,' + teema.vari + '33,' + teema.vari + '55);border:1px solid ' + teema.vari + '66;color:' + teema.vari + ';font-family:\'Barlow Condensed\',sans-serif;font-size:17px;font-weight:800;cursor:pointer;letter-spacing:.5px;margin-bottom:8px;animation:tm-shimmer 2s ease-in-out infinite;">';
+    h += teema.ikoni + ' PALJASTA ' + teema.otsikko + ' →</button>';
+    h += '<div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:12px;">Sinulla on uusi erikoistila — napauta paljastaaksesi</div>';
+  } else if (erikoistila && teema) {
+    // Erikoistila aktiivinen mutta jo nähty — näytä pelkästään merkintä
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:' + teema.glow.replace('.6','.1') + ';border:1px solid ' + teema.glow.replace('.6','.3') + ';margin-bottom:12px;">';
+    h += '<span style="font-size:20px;">' + teema.ikoni + '</span>';
+    h += '<div><div style="font-size:13px;font-weight:700;color:' + teema.vari + ';">' + teema.otsikko + '</div>';
+    h += '<div style="font-size:11px;color:var(--muted2);">' + teema.kuvaus(erikoistila) + '</div></div>';
+    var voimassaPv = Math.max(0, Math.ceil((new Date(erikoistila.voimassa)-new Date())/86400000));
+    h += '<div style="margin-left:auto;font-size:10px;color:var(--muted2);">' + voimassaPv + 'pv jäljellä</div>';
+    h += '</div>';
+    h += korttiHTML;
+  } else {
+    h += korttiHTML;
+  }
+
+  h += '</div>';
+  document.getElementById('hkBody').innerHTML = h;
+  document.getElementById('hkOverlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  // Jos uusi erikoistila — käynnistä flip automaattisesti 800ms viiveellä
+  // jotta pelaaja ehtii nähdä normaalin kortin ensin
+  if (onUusiErikoistila) {
+    setTimeout(function() {
+      var btn = document.getElementById('tmFlipBtn');
+      if (btn) btn.classList.add('pulsing');
+    }, 600);
+  }
+}
+
+// Käynnistää flip-animaation kun pelaaja napauttaa nappia
+function kaynnistaSPFlip() {
+  var kortti = document.getElementById('tmFlipCard');
+  var nappi = document.getElementById('tmFlipBtn');
+  if (!kortti) return;
+
+  // Piilota nappi animaation ajaksi
+  if (nappi) nappi.style.display = 'none';
+
+  // Käänny
+  kortti.classList.add('flipped');
+
+  // Merkitse nähtyobjektiksi jotta animaatio ei toistu uudelleen
+  var p = S.pelaaja;
+  var erikoistila = haeAktiivisinErikoistila(p);
+  if (erikoistila) {
+    var nahtyAvain = 'tm_sp_nahty_' + p.id + '_' + erikoistila.tyyppi + '_' + (erikoistila.luotu||'');
+    sls(nahtyAvain, true);
+
+    // XP-bonus erikoistilan ensimmäisestä katselusta
+    var teema = erikoistilaTeema(erikoistila);
+    setTimeout(function() {
+      naytaToast(teema.ikoni + ' ' + teema.otsikko + '! Kortti päivitetty!');
+    }, 1000);
+  }
+}
+
+// Apufunktio erikoistilan lisäämiseen — käytetään tasonoususta ja streakista
+function lisaaErikoistila(p, tyyppi, nimi, lisatiedot, voimassaPaivat) {
+  var erikoistilat = lsj('tm_erikoistilat_' + p.id) || [];
+  // Poista saman tyypin vanha tila ensin
+  erikoistilat = erikoistilat.filter(function(e) { return e.tyyppi !== tyyppi; });
+  var uusi = Object.assign({
+    tyyppi: tyyppi,
+    nimi: nimi,
+    luotu: new Date().toISOString(),
+    voimassa: new Date(Date.now() + (voimassaPaivat||7) * 86400000).toISOString()
+  }, lisatiedot||{});
+  erikoistilat.push(uusi);
+  sls('tm_erikoistilat_' + p.id, erikoistilat);
 }
 
 function buildKorttiHTML(p,r,k){
