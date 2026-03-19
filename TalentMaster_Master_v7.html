@@ -694,6 +694,221 @@ const AKTIVOINTI=[
   {n:'Sivuttaisloikka',d:'2 × 8 / suunta',ohje:'Loiki sivulle yhdellä jalalla, laskeudu toiselle pehmeästi. Pidä matala asento.',cue:'Pehmeä lasku — polvet joustaa, ei töminää.',vid:'https://www.youtube.com/results?search_query=lateral%20hop%20drill%20technique'}
 ];
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TKI-VIIKKO-OHJELMA — jalkapallospesifiset liikeketjut
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ARKKITEHTUURI:
+//   Pelaajalle näytetään jalkapallospesifiset ketjunimet (Hallintaketju jne.)
+//   eikä fasciaalisia nimiä (taka/etu/sivu), koska ne ovat pedagogisesti
+//   selkeitä 10–19-vuotiaille.
+//
+// MAPPING — TK-kilpailulajit → jalkapallospesifiset liikeketjut:
+//   ponnauttelu  → hallinta  (pallonkäsittely, rytmi, koordinaatio)
+//   syotto       → pelinteko (päätöksenteko, tarkkuus, molemmat jalat)
+//   pujottelu    → sm        (suunnanmuutos, jarrutus, kiihdytys)
+//   kulj_laukaus → sm + pelinteko (yhdistetty — lasketaan molempiin)
+//   pituuspotku  → vauhti    (voima + tekniikka siirtyy nopeuteen)
+//
+// FASCIAALINEN FALLBACK:
+//   Jos tk_historia on tyhjä, käytetään QS-historian heikoin_ketju-kenttää
+//   mappattuna jalkapallospesifiseen nimistöön (rivin 8903 logiikka virallisena).
+//
+// 70-20-10 PERIAATE (kv. akatemioiden mukainen):
+//   70 % harjoitteluajasta → heikoimmat ketjut (nopein kehitys)
+//   20 % → vahvimmat ketjut (identiteetti + motivaatio)
+//   10 % → ylläpito / lepo (palautuminen + superkompensointi)
+
+// Virallinen fasciaalinen → jalkapallospesifinen mapping (globaali)
+const FASCIAALI_TO_JP = {
+  taka:   'vauhti',    // Vauhtiketju (nopeus, sprintti)
+  etu:    'lahto',     // Lähtöketju (räjähtävyys, CMJ)
+  sivu:   'sm',        // SM-ketju (suunnanmuutos)
+  kierto: 'hallinta',  // Hallintaketju (pallonhallinta, 1v1)
+  syva:   'pelinteko'  // Pelintekoketju (päätöksenteko, pelinluku)
+};
+
+// Jalkapallospesifiset nimet ja ikonit — käytetään pelaajan näkymässä
+const JP_NIMET = {
+  hallinta:  'Hallintaketju',
+  sm:        'SM-ketju',
+  vauhti:    'Vauhtiketju',
+  lahto:     'Lähtöketju',
+  pelinteko: 'Pelintekoketju'
+};
+const JP_IKONIT = {
+  hallinta:  '⚽',
+  sm:        '↩️',
+  vauhti:    '⚡',
+  lahto:     '🚀',
+  pelinteko: '🧠'
+};
+
+// TK-lajien mapping ketjuihin (TK-kilpailutuloksista laskettava TKI)
+// Jokainen laji vaikuttaa yhteen tai kahteen ketjuun painotetusti
+const TK_LAJI_KETJU = {
+  ponnauttelu:  [{ketju:'hallinta',  paino:1.0}],
+  syotto:       [{ketju:'pelinteko', paino:1.0}],
+  pujottelu:    [{ketju:'sm',        paino:1.0}],
+  kulj_laukaus: [{ketju:'sm',        paino:0.5}, {ketju:'pelinteko', paino:0.5}],
+  pituuspotku:  [{ketju:'vauhti',    paino:1.0}]
+};
+
+// Tekniikkaharjoitteet liikeketjuittain — 3 harjoitetta per ketju, ikäriippumattomat
+// Harjoitteet on valittu Liikanen & Törmä 2025 -tutkimuksen painotuksilla:
+// syöttö (+13%), pujottelu (+9%), SM-pallo (+8%) ennustavat ammattilaisuutta
+const TEKNIIKKAHARJOITTEET = {
+  hallinta: [
+    {n:'Seinäpallo — 1-kosketus', d:'3 × 2 min', ohje:'Syötä seinään ja vastaanota heti takaisin samalla jalalla. Etäisyys 3–4m. Pallo pysyy maassa.',cue:'Ottava jalka pehmentää — ei torjuta kovaa pintaa vasten.',ikoni:'⚽',vid:'https://www.youtube.com/results?search_query=football+wall+pass+first+touch+drill'},
+    {n:'Ponnauttelu — molemmat jalat', d:'2 × 1 min / jalka', ohje:'Pomputtele palloa vuorotellen oikealla ja vasemmalla jalalla. Laske ääneen. Tavoite: 20+ per min.',cue:'Varpaiden sisäosa — ei kärki. Nilkka jäykkänä.',ikoni:'⚽',vid:'https://www.youtube.com/results?search_query=football+juggling+both+feet+beginner'},
+    {n:'Kuljetus + pysäytys', d:'3 × 20 m', ohje:'Kuljeta pallo 10m, pysäytä pohjallaottolla täydelliseen hallintaan. Käänny ja toista.',cue:'Pysäytyksen jälkeen seuraava askel heti — ei odotusta.',ikoni:'⚽',vid:'https://www.youtube.com/results?search_query=football+dribbling+stop+control+drill'}
+  ],
+  sm: [
+    {n:'SM-rata ilman palloa', d:'4 × läpi', ohje:'Aseta 4 merkkiä 2m välein. Juokse zikzak, kosketa jokaista merkkiä kämmenellä. Ajanotto.',cue:'Jarrutus ulkoreunalla — sisäreuna ponnistaa heti takaisin.',ikoni:'↩️',vid:'https://www.youtube.com/results?search_query=agility+ladder+cone+drill+football'},
+    {n:'SM-pallo merkkien välissä', d:'3 × läpi', ohje:'Sama rata kuin yllä mutta pallon kanssa. Pallo pysyy lähellä käänteissä.',cue:'Ensimmäinen askel käännöksen jälkeen on tärkein — ponnista heti.',ikoni:'↩️',vid:'https://www.youtube.com/results?search_query=dribbling+agility+cone+drill+football'},
+    {n:'Reaktio-SM — äänimerkki', d:'6 × lähtö', ohje:'Seiso merkillä. Valmentajan tai kännykän äänimerkistä: juokse 3m sivulle, kosketa, takaisin. Maksimiteho.',cue:'Reagoi ääneen — ei ennakoida. Räjähtävä ensiaskel ratkaisee.',ikoni:'↩️',vid:'https://www.youtube.com/results?search_query=reactive+agility+drill+football+cone'}
+  ],
+  vauhti: [
+    {n:'Pituuspotku — tekniikkaprogressio', d:'6 × potku / jalka', ohje:'Potkaise pallo mahdollisimman kauas suoraan. Mittaa tai arvioi matka. Juokseva vauhtiaskel ennen potkua.',cue:'Lannesarana auki — ei vain jalka. Tuki lähelle palloa.',ikoni:'⚡',vid:'https://www.youtube.com/results?search_query=football+long+kick+technique+instep+drive'},
+    {n:'30m kiihdytys — paikaltaan', d:'4 × 30m täysi palautus', ohje:'Lähtö paikaltaan, ensimmäiset 10m maksimikiihdytys, ylläpidä 30m loppuun. Täysi palautus sarjojen välillä (2+ min).',cue:'Eteen kallistuva asento 0–10m. Pysty sen jälkeen.',ikoni:'⚡',vid:'https://www.youtube.com/results?search_query=sprint+acceleration+technique+football+30m'},
+    {n:'Juoksuloikat', d:'3 × 20m', ohje:'Loiki eteenpäin vuorojaloin isoilla askelilla. Ponnistus takajalan koko jalkapohjasta. Kädet auttavat.',cue:'Ilma-aika pitkä — tunne takareiden vetovoima.',ikoni:'⚡',vid:'https://www.youtube.com/results?search_query=running+bounds+acceleration+power+drill'}
+  ],
+  lahto: [
+    {n:'Reaktiolähtö — käsimerkki', d:'6 × 10m täysi palautus', ohje:'Partneri tai itse: käden liike sivulle = lähtö. Juokse 10m maksimilla. Mitä nopeammin reagoit, sitä parempi.',cue:'Ensimmäinen askel maahan — ei ylös. Matala lähtöasento.',ikoni:'🚀',vid:'https://www.youtube.com/results?search_query=reaction+start+sprint+football+drill'},
+    {n:'Kyykkyhypyt — räjähtävät', d:'3 × 5 toistoa täysi palautus', ohje:'Laske nopeasti puolikyykkyyn ja ponnista ylös mahdollisimman korkealle. Kädet auttavat. Laskeudu pehmeästi.',cue:'Nopea alas = nopea ylös. Elastinen energia — ei pysähdytä alhaalla.',ikoni:'🚀',vid:'https://www.youtube.com/results?search_query=explosive+squat+jump+plyometric+football'},
+    {n:'5m kiihdytys + pallo', d:'6 × lähtö', ohje:'Pallo vieritetään 5m eteen. Lähtöasennosta räjähtävä sprint pallolle, vastaanota ja kuljeta. Ensimmäiset askeleet ratkaisu.',cue:'Pallo laukaisee lähdön — ei odoteta valmiiksi.',ikoni:'🚀',vid:'https://www.youtube.com/results?search_query=first+step+quickness+football+reaction+ball'}
+  ],
+  pelinteko: [
+    {n:'Vuorojalkasyöttö — molemmat jalat', d:'3 × 10 / jalka', ohje:'Syötä seinään tai partnerille vuorotellen oikealla ja vasemmalla. Pysyminen rytmissä tärkeämpää kuin nopeus.',cue:'Heikko jalka saa enemmän toistoja — se ratkaisee tasapainon.',ikoni:'🧠',vid:'https://www.youtube.com/results?search_query=football+passing+both+feet+weak+foot+drill'},
+    {n:'Rondo 3v1 tai seinärondo', d:'2 × 5 min', ohje:'3v1 jos kavereita, muuten syöttö seinään — yksi kosketus, vaihda suuntaa joka syötön jälkeen. Ei kahta kosketusta peräkkäin samaan paikkaan.',cue:'Katso ENNEN kosketusta. Tieto ennen palloa.',ikoni:'🧠',vid:'https://www.youtube.com/results?search_query=football+rondo+3v1+possession+drill'},
+    {n:'Kuljetus + laukaus — tarkkuus', d:'5 × yritys', ohje:'Kuljeta pallo rangaistusalueen reunaan, laukaise maaliin merkkiä kohti. Kirjaa osumakohta: nurkkailma/nurkkamaa/keski/ohi.',cue:'Tukijalka lähelle palloa, katse maaliin viimeinen askel ennen laukausta.',ikoni:'🧠',vid:'https://www.youtube.com/results?search_query=football+dribble+and+shoot+accuracy+drill'}
+  ]
+};
+
+// Laske TKI per jalkapallospesifinen ketju pelaajan tk_historia-datasta.
+// Palauttaa objektin muodossa { hallinta: 0-100, sm: 0-100, vauhti: 0-100, ... }
+// sekä heikoin- ja vahvin-kentät helpottamaan 70-20-10-logiikkaa.
+//
+// Normalisointi: TK-kilpailulajien ajat ovat sekunteina, pienempi = parempi.
+// Käytetään ikä- ja sukupuolikohtaisia K/H/P-merkkirajoja referenssinä:
+//   kulta  = 90–100 pistettä
+//   hopea  = 70–89
+//   pronssi = 50–69
+//   alle pronssin = 0–49
+// Jos tk_historia on tyhjä, fallback QS-historian fasciaalipisteiden mappingiin.
+function laskeTKIKetjut(p) {
+  var ketjuPisteet = {hallinta:0, sm:0, vauhti:0, lahto:0, pelinteko:0};
+  var ketjuPainot  = {hallinta:0, sm:0, vauhti:0, lahto:0, pelinteko:0};
+
+  // ── Ensisijainen lähde: tk_historia ──────────────────────────────────
+  var tkHist = haeTKHistoria ? haeTKHistoria(p) : (p.tk_historia||[]);
+  var viimTK = tkHist.length ? tkHist[tkHist.length-1] : null;
+
+  if (viimTK && viimTK.lajit) {
+    // Haetaan ikäluokan merkkirajat normalisointia varten
+    var ikaluokka = viimTK.ikaluokka || '';
+    var rajat = (typeof TK_MERKKIRAJAT !== 'undefined' && TK_MERKKIRAJAT[ikaluokka]) || null;
+
+    Object.keys(viimTK.lajit).forEach(function(laji) {
+      var mapping = TK_LAJI_KETJU[laji];
+      if (!mapping) return;
+      var aika = viimTK.lajit[laji]; // sekuntia, pienempi = parempi
+      if (!aika || isNaN(aika)) return;
+
+      // Normalisoi 0-100 asteikolla merkkirajoja käyttäen
+      var pisteet = 50; // oletusarvo jos ei rajoja
+      if (rajat) {
+        if      (aika <= rajat.kulta)   pisteet = 90 + Math.round((rajat.kulta - aika) / rajat.kulta * 10);
+        else if (aika <= rajat.hopea)   pisteet = 70 + Math.round((rajat.hopea - aika) / (rajat.hopea - rajat.kulta) * 19);
+        else if (aika <= rajat.pronssi) pisteet = 50 + Math.round((rajat.pronssi - aika) / (rajat.pronssi - rajat.hopea) * 19);
+        else                             pisteet = Math.max(10, Math.round(50 * rajat.pronssi / aika));
+      }
+      pisteet = Math.min(100, Math.max(0, pisteet));
+
+      // Lisää painotettu piste kaikille kyseisen lajin ketjuille
+      mapping.forEach(function(m) {
+        ketjuPisteet[m.ketju] += pisteet * m.paino;
+        ketjuPainot[m.ketju]  += m.paino;
+      });
+    });
+  }
+
+  // ── Fallback: QS-historia fasciaalipisteiden kautta ──────────────────
+  // Täyttää ketjut joihin ei ole TK-dataa (lahto ei tule TK-kilpailusta)
+  var latest = p.qs_historia && p.qs_historia.length
+    ? p.qs_historia[p.qs_historia.length-1] : null;
+  var qsKetjut = latest && latest.results && latest.results.ketjut || {};
+
+  Object.keys(FASCIAALI_TO_JP).forEach(function(fascia) {
+    var jpKetju = FASCIAALI_TO_JP[fascia];
+    if (ketjuPainot[jpKetju] > 0) return; // TK-data on prioriteetti
+    var qsPisteet = qsKetjut[fascia] && qsKetjut[fascia].pisteet;
+    if (!qsPisteet) return;
+    // QS-pisteet ovat asteikolla 0-10 — normalisoidaan 0-100
+    ketjuPisteet[jpKetju] = Math.min(100, Math.round(qsPisteet * 10));
+    ketjuPainot[jpKetju]  = 1;
+  });
+
+  // ── Laske lopulliset pisteet painotettuna keskiarvona ─────────────────
+  var tulos = {};
+  var kaikkiKetjut = ['hallinta','sm','vauhti','lahto','pelinteko'];
+  kaikkiKetjut.forEach(function(k) {
+    tulos[k] = ketjuPainot[k] > 0
+      ? Math.round(ketjuPisteet[k] / ketjuPainot[k])
+      : null; // null = ei dataa tältä ketjulta
+  });
+
+  // ── Etsi heikoin ja vahvin (vain niistä joilla on dataa) ─────────────
+  var dataaOlevat = kaikkiKetjut.filter(function(k){ return tulos[k] !== null; });
+  var heikoin = dataaOlevat.length
+    ? dataaOlevat.reduce(function(a,b){ return tulos[a] <= tulos[b] ? a : b; })
+    : 'hallinta'; // oletusarvo
+  var vahvin = dataaOlevat.length
+    ? dataaOlevat.reduce(function(a,b){ return tulos[a] >= tulos[b] ? a : b; })
+    : 'vauhti';
+
+  return { pisteet: tulos, heikoin: heikoin, vahvin: vahvin, onTKData: !!viimTK };
+}
+
+// Rakenna päiväkohtainen harjoitevalinta 70-20-10-logiikalla.
+// Parametrit: TKI-profiiliobjekti, viikonpäiväindeksi (0=ma ... 6=su),
+//             joukkuetreenipaivat-array (esim. [1,4] = ti+pe).
+// Palauttaa: { tyyppi: 'joukkue'|'kehitys'|'vahvuus'|'lepo', ketju, harjoitteet[] }
+function rakennaPaivanOhjelma(tkiProfiili, paivaNro, joukkuePaivat) {
+  joukkuePaivat = joukkuePaivat || [1, 4]; // Ti + Pe oletuksena (FC Lahti demo)
+
+  // Joukkuetreeni ohittaa yksilöohjelman
+  if (joukkuePaivat.indexOf(paivaNro) !== -1) {
+    return { tyyppi: 'joukkue', ketju: null, harjoitteet: [] };
+  }
+
+  // Su = lepo aina (perinteinen jalkapallojaksotus)
+  if (paivaNro === 6) {
+    return { tyyppi: 'lepo', ketju: null, harjoitteet: [] };
+  }
+
+  var pisteet = tkiProfiili.pisteet;
+  var heikoin = tkiProfiili.heikoin;
+  var vahvin  = tkiProfiili.vahvin;
+
+  // 70-20-10: ma/ke/la = heikoin ketju (kehitys), to = vahvin (vahvuus)
+  // Tällä jaksotuksella heikoin saa 3/5 yksilöpäivistä = 60% (riittävä stimulaatio)
+  var kehitysPaivat = [0, 2, 5]; // Ma, Ke, La
+  var vahvuusPaivat = [3];        // To
+
+  if (kehitysPaivat.indexOf(paivaNro) !== -1) {
+    var harj = TEKNIIKKAHARJOITTEET[heikoin] || [];
+    return { tyyppi: 'kehitys', ketju: heikoin, harjoitteet: harj };
+  }
+  if (vahvuusPaivat.indexOf(paivaNro) !== -1) {
+    var harj2 = TEKNIIKKAHARJOITTEET[vahvin] || [];
+    return { tyyppi: 'vahvuus', ketju: vahvin, harjoitteet: harj2 };
+  }
+
+  // Muu päivä (pitäisi olla joukkue tai lepo — tänne ei pitäisi tulla)
+  return { tyyppi: 'lepo', ketju: null, harjoitteet: [] };
+}
+
 // ═══════════ HPP ELITE — VIDEOLINKIT (05_HARJOITEKIRJASTO) ═══════════
 const HARJOITE_VIDEOT={
   'EX_CALF_ISO_SEATED':'https://www.youtube.com/results?search_query=seated%20calf%20isometric%20exercise',
@@ -7394,9 +7609,26 @@ function buildTanaan(){
   var latest=p.qs_historia[p.qs_historia.length-1];
   var r=latest&&latest.results||{};
   var dk=dayKey(S.selDay),dc=S.checked[dk]||{},isT=S.selDay===TODAY;
-  var heikoin=r.heikoin_ketju||'syva';
-  var hj=HARJOITTEET[heikoin]||HARJOITTEET.syva;
   var aktiv=S.jaksot.find(function(j){return j.status==='active';});
+
+  // ── TKI-VIIKKO-OHJELMA — jalkapallospesifinen liikeketjulogiikka ──────
+  // Lasketaan TKI-profiili (tk_historia ensin, QS-historia fallbackina)
+  // ja rakennetaan päivän ohjelma 70-20-10-periaatteella.
+  var tkiProfiili = laskeTKIKetjut(p);
+  var paivaNro = S.selDay; // 0=Ma ... 6=Su
+  var paivanohjelmaTKI = rakennaPaivanOhjelma(tkiProfiili, paivaNro, null);
+
+  // Yhteensopivuus vanhan koodin kanssa: heikoin fasciaalinen ketju
+  // tarvitaan vielä KETJU_IKONIT/KETJU_NIMET-viittauksiin muualla buildTanaan:ssa.
+  // Mappataan takaisin fasciaalisen järjestelmän avaimeksi ikonikäyttöä varten.
+  var JP_TO_FASCIAALI = {vauhti:'taka',lahto:'etu',sm:'sivu',hallinta:'kierto',pelinteko:'syva'};
+  var heikoin = JP_TO_FASCIAALI[tkiProfiili.heikoin] || (r.heikoin_ketju||'syva');
+
+  // Päivän harjoitteet: TKI-ketjun harjoitteet + aktivointi
+  // Jos joukkuetreeni tai lepo → käytetään yleistä aktivointiharjoitetta
+  var hj = (paivanohjelmaTKI.tyyppi === 'kehitys' || paivanohjelmaTKI.tyyppi === 'vahvuus')
+    ? (TEKNIIKKAHARJOITTEET[paivanohjelmaTKI.ketju] || HARJOITTEET[heikoin] || HARJOITTEET.syva)
+    : AKTIVOINTI;
 
   // Laske päivän tilanne
   var lohkot=[
@@ -7410,6 +7642,72 @@ function buildTanaan(){
   var tanVisaTehty=VS&&VS.paivittainenTehty===new Date().toISOString().slice(0,10);
 
   var h='';
+
+  // ── 0b. TKI-VIIKKOSTRIPPI — jalkapallospesifinen profiili + viikkonäkymä ──
+  // Näytetään vain jos dataa on (tk_historia tai qs_historia).
+  // Pelaaja näkee: omat TKI-pisteet ketjuittain + ma-su viikkokalenteri.
+  (function() {
+    var pt = tkiProfiili.pisteet;
+    var ketjuJarjestys = ['hallinta','sm','vauhti','lahto','pelinteko'];
+    var hasDataa = ketjuJarjestys.some(function(k){ return pt[k] !== null; });
+    if (!hasDataa) return; // ei dataa → ei näytetä
+
+    // Värikoodaus: <50 = punainen, 50-69 = oranssi, 70+ = vihreä
+    function pisteetVari(v) {
+      if (v === null) return 'var(--muted)';
+      if (v < 50) return '#E24B4A';
+      if (v < 70) return '#EF9F27';
+      return '#1FD16A';
+    }
+    function pisteetsBar(v) {
+      if (v === null) return 10;
+      return v;
+    }
+
+    // TKI-profiilikortit
+    h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:12px;">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+    h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">⚽ TKI-profiili</div>';
+    h += '<div style="font-size:10px;color:var(--muted2);">' + (tkiProfiili.onTKData ? 'TK-kilpailu' : 'QS-arvio') + '</div>';
+    h += '</div>';
+
+    ketjuJarjestys.forEach(function(k) {
+      var v = pt[k];
+      var nimi = JP_NIMET[k];
+      var onHeikoin = (k === tkiProfiili.heikoin);
+      var vari = pisteetVari(v);
+      h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">';
+      h += '<span style="font-size:14px;width:20px;text-align:center;">' + JP_IKONIT[k] + '</span>';
+      h += '<span style="font-size:12px;color:var(--muted2);width:110px;flex-shrink:0;">' + nimi + (onHeikoin ? ' 🎯' : '') + '</span>';
+      h += '<div style="flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;">';
+      h += '<div style="height:5px;width:' + pisteetsBar(v) + '%;background:' + vari + ';border-radius:3px;transition:width .6s;"></div>';
+      h += '</div>';
+      h += '<span style="font-size:11px;font-weight:700;color:' + vari + ';width:26px;text-align:right;">' + (v !== null ? v : '—') + '</span>';
+      h += '</div>';
+    });
+
+    // Viikkokalenteri ma-su
+    var VIIKKO_PAIVAT = ['Ma','Ti','Ke','To','Pe','La','Su'];
+    var joukkuePaivat = [1, 4]; // Ti + Pe (FC Lahti demo)
+    h += '<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;">';
+    h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Viikko-ohjelma</div>';
+    h += '<div style="display:flex;gap:5px;">';
+    for (var pi = 0; pi < 7; pi++) {
+      var paivOhj = rakennaPaivanOhjelma(tkiProfiili, pi, joukkuePaivat);
+      var isValittu = (pi === S.selDay);
+      var bgVari, teksti, ikoniPaiva;
+      if (paivOhj.tyyppi === 'joukkue')   { bgVari = 'rgba(0,229,204,.12)'; ikoniPaiva = '🏃'; teksti = 'Joukkue'; }
+      else if (paivOhj.tyyppi === 'kehitys') { bgVari = 'rgba(239,159,39,.12)'; ikoniPaiva = JP_IKONIT[paivOhj.ketju]||'⚽'; teksti = JP_NIMET[paivOhj.ketju]||''; }
+      else if (paivOhj.tyyppi === 'vahvuus') { bgVari = 'rgba(31,209,106,.10)'; ikoniPaiva = JP_IKONIT[paivOhj.ketju]||'⭐'; teksti = JP_NIMET[paivOhj.ketju]||''; }
+      else                                    { bgVari = 'var(--bg3)'; ikoniPaiva = '—'; teksti = 'Lepo'; }
+      h += '<div style="flex:1;text-align:center;background:' + bgVari + ';border:' + (isValittu ? '2px solid var(--teal)' : '1px solid var(--border)') + ';border-radius:9px;padding:6px 2px;cursor:pointer;" onclick="S.selDay=' + pi + ';buildWeek();buildTanaan();">';
+      h += '<div style="font-size:10px;color:var(--muted2);margin-bottom:3px;">' + VIIKKO_PAIVAT[pi] + '</div>';
+      h += '<div style="font-size:14px;">' + ikoniPaiva + '</div>';
+      h += '<div style="font-size:9px;color:var(--muted2);margin-top:2px;line-height:1.2;overflow:hidden;max-height:22px;">' + teksti.replace('ketju','').trim() + '</div>';
+      h += '</div>';
+    }
+    h += '</div></div></div>'; // viikkokalenteri + profiilikortit
+  })();
 
   // ── 0. TESTIPÄIVÄ tai KERTYMÄPALKKI — ensin ──
   if(onTestipaiva(p)){
