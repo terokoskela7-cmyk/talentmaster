@@ -2318,7 +2318,7 @@ function buildCoachNyt(){
   // → pisimpään ilman arviointia olevat nousevat kärkeen
   // → valitaan 3 ensimmäistä = tämän harjoituksen arviointikohteet
   var _adarKey2 = 'tm_adar_onboarding_' + (window._coachPin || COACH_PIN || 'demo');
-  var _adarTila2 = localStorage.getItem(_adarKey2);
+  var _adarTila2 = _lsGet(_adarKey2);
 
   // Näytetään rotaatio vain jos valmentaja on hyväksynyt ADAR-onboardingin
   if (_adarTila2 === 'kylla') {
@@ -2328,7 +2328,7 @@ function buildCoachNyt(){
       var historia = p.adar || [];
       if (!historia.length) {
         try {
-          var ls = JSON.parse(localStorage.getItem('adar_' + p.id) || '[]');
+          var ls = JSON.parse(_lsGet('adar_' + p.id)||'[]');
           if (ls.length) historia = ls;
         } catch(e) {}
       }
@@ -3048,7 +3048,7 @@ function buildCoachAnalyysi(){
     pelaajat.forEach(function(p) {
       var historia = p.adar || [];
       if (!historia.length) {
-        try { var ls = JSON.parse(localStorage.getItem('adar_'+p.id)||'[]'); if (ls.length) historia = ls; } catch(e) {}
+        try { var ls = JSON.parse(_lsGet('adar_'+p.id)||'[]'); if (ls.length) historia = ls; } catch(e) {}
       }
       if (historia.length > 0) {
         arvioituja++;
@@ -5570,11 +5570,11 @@ function goCoach(){
   //   tm_coach_visits_<pin>     = kirjautumiskertojen lukumäärä
   var _adarKey    = 'tm_adar_onboarding_' + (window._coachPin || COACH_PIN || 'demo');
   var _visitsKey  = 'tm_coach_visits_'    + (window._coachPin || COACH_PIN || 'demo');
-  var _adarTila   = localStorage.getItem(_adarKey);
+  var _adarTila   = _lsGet(_adarKey);
 
   // Laske kirjautumiskerrat ja kasvata laskuria
-  var _visits = parseInt(localStorage.getItem(_visitsKey) || '0') + 1;
-  localStorage.setItem(_visitsKey, String(_visits));
+  var _visits = parseInt(_lsGet(_visitsKey) || '0') + 1;
+  _lsSet(_visitsKey, String(_visits));
 
   // Näytetään VASTA toisella käyntikerralla (tai myöhemmin), ja vain kerran
   // Viive: 5s — valmentaja on ehtinyt katsoa NYT-näkymää rauhassa
@@ -5609,7 +5609,7 @@ function naytaAdarOnboarding() {
 function suljeAdarOnboarding(vastaus) {
   // Tallennetaan vastaus — ei kysytä uudelleen
   var _adarKey = 'tm_adar_onboarding_' + (window._coachPin || COACH_PIN || 'demo');
-  localStorage.setItem(_adarKey, vastaus); // 'kylla' tai 'ei'
+  _lsSet(_adarKey, vastaus); // 'kylla' tai 'ei'
 
   var modal = document.getElementById('adarOnboardingModal');
   if (modal) {
@@ -6339,9 +6339,15 @@ function generoiViikonOhjelma(pelaajat){
     rpeVaroitus:          rpeVaroitus
   };
 }
-function lsn(k){return parseInt(localStorage.getItem(k)||'0');}
-function lsj(k){try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}}
-function sls(k,v){localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v));}
+// localStorage-wrapperi — toimii sekä oikeassa selaimessa että artifact-sandboxissa.
+// Sandboxissa localStorage ei ole saatavilla, joten käytetään in-memory fallbackia.
+var _lsMem = {};
+var _lsOk = (function(){ try{ localStorage.setItem('_tm_test','1'); localStorage.removeItem('_tm_test'); return true; }catch(e){ return false; } })();
+function _lsGet(k){ if(_lsOk){ return localStorage.getItem(k); } return _lsMem[k]!==undefined?_lsMem[k]:null; }
+function _lsSet(k,v){ if(_lsOk){ localStorage.setItem(k,v); } else { _lsMem[k]=v; } }
+function lsn(k){ return parseInt(_lsGet(k)||'0'); }
+function lsj(k){ try{ return JSON.parse(_lsGet(k)||'null'); }catch(e){ return null; } }
+function sls(k,v){ _lsSet(k, typeof v==='string'?v:JSON.stringify(v)); }
 function naytaToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2800);}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
 function dayKey(idx){var now=new Date(),wd=(now.getDay()+6)%7,d=new Date(now);d.setDate(now.getDate()+(idx-wd));return d.toISOString().slice(0,10);}
@@ -6728,7 +6734,7 @@ function buildGIQLaaja(p){
   // Savelsbergh: eliitit tekevät 2.7× enemmän skannaustoimintoja ennen kosketusta
   var pid = p.id||p.palloliitoId||(p.etunimi+p.sukunimi);
   var tallennettu = (function(){
-    try{ return JSON.parse(localStorage.getItem('adar_'+pid)||'null'); } catch(e){ return null; }
+    try{ return JSON.parse(_lsGet('adar_'+pid)||'null'); } catch(e){ return null; }
   })();
 
   h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-top:12px;">';
@@ -6827,7 +6833,7 @@ function buildGIQLaaja(p){
   // Täydennä localStorage-varmuuskopiosta jos p.adar on tyhjä
   if (!_historia.length) {
     try {
-      var _lsHist = JSON.parse(localStorage.getItem('adar_'+pid)||'[]');
+      var _lsHist = JSON.parse(_lsGet('adar_'+pid)||'[]');
       if (_lsHist.length) _historia = _lsHist;
     } catch(e) {}
   }
@@ -7063,10 +7069,10 @@ function adarTallenna(pid) {
 
   // Tallenna myös localStorage-varmuuskopioksi
   try {
-    var hist = JSON.parse(localStorage.getItem('adar_'+pid)||'[]');
+    var hist = JSON.parse(_lsGet('adar_'+pid)||'[]');
     hist.push(entry);
     if(hist.length > 20) hist = hist.slice(-20);
-    localStorage.setItem('adar_'+pid, JSON.stringify(hist));
+    _lsSet('adar_'+pid, JSON.stringify(hist));
   } catch(e) {}
 
   // Poista draft
@@ -7671,7 +7677,7 @@ function kirjauduAutomaattisesti(){
 }
 
 function naytaKirjautumislomake(){
-  localStorage.removeItem('tm_kirjautunut');
+  _lsSet('tm_kirjautunut', null);
   S.pelaaja=null;
   S.pin='';
   // Rakenna PIN-ruutu uudelleen ohjelmallisesti
@@ -7710,7 +7716,7 @@ function naytaKirjautumislomake(){
 }
 
 function tarkistaGestallennettu(){
-  var raw=localStorage.getItem('tm_kirjautunut');
+  var raw=_lsGet('tm_kirjautunut');
   if(!raw||raw==='null'||raw==='undefined')return false;
   try{
     var tallennettu=JSON.parse(raw);
@@ -7769,7 +7775,7 @@ function go(id,txt){
   if(txt){var el=document.getElementById('loadTxt');if(el)el.textContent=txt;}
 }
 async function goMain(){
-  var onboardingTehty=localStorage.getItem('tm_onboarding_tehty');
+  var onboardingTehty=_lsGet('tm_onboarding_tehty');
   if(!onboardingTehty){go('sOnboard');return;}
   go('sMain');buildMain();fetchAI();
 }
@@ -8669,8 +8675,8 @@ function haeRpeHistoria(p) {
   var prefix = 'tm_rpe_' + p.id + '_';
   var historia = [];
   try {
-    for (var i = 0; i < localStorage.length; i++) {
-      var key = localStorage.key(i);
+    for (var i = 0; i < (_lsOk ? localStorage.length : Object.keys(_lsMem).length); i++) {
+      var key = (_lsOk ? localStorage.key(i) : Object.keys(_lsMem)[i]);
       if (key && key.startsWith(prefix)) {
         var pvm = key.slice(prefix.length); // 'YYYY-MM-DD'
         var data = lsj(key);
@@ -8691,7 +8697,7 @@ function haeLoukkaantumiset(p) {
   // Ensin tarkistetaan p-objektista, sitten localStorage-varmuuskopiosta
   if (p.loukkaantumiset && p.loukkaantumiset.length) return p.loukkaantumiset;
   try {
-    var ls = JSON.parse(localStorage.getItem('tm_injury_' + p.id) || '[]');
+    var ls = JSON.parse(_lsGet('tm_injury_' + p.id)||'[]');
     return ls;
   } catch(e) { return []; }
 }
@@ -8828,10 +8834,10 @@ function tallennaTKTulos(pid, tulos) {
 
   // localStorage-varmuuskopio
   try {
-    var hist = JSON.parse(localStorage.getItem('tm_tk_' + pid) || '[]');
+    var hist = JSON.parse(_lsGet('tm_tk_' + pid)||'[]');
     hist.push(tulos);
     if (hist.length > 30) hist = hist.slice(-30);
-    localStorage.setItem('tm_tk_' + pid, JSON.stringify(hist));
+    _lsSet('tm_tk_' + pid, JSON.stringify(hist));
   } catch(e) {}
 
   naytaToast('Tekniikkakilpailutulos tallennettu ✓');
@@ -8841,7 +8847,7 @@ function tallennaTKTulos(pid, tulos) {
   // Suostumus tallennetaan localStorage:iin per seura, jotta ei kysytä joka kerta.
   if (entry.lahde === 'virallinen' && entry.ikaluokka && entry.kokonaisaika) {
     var optInAvain = 'tm_tk_optin_consent_' + (p.seura || 'default');
-    var aiempiSuostumus = localStorage.getItem(optInAvain);
+    var aiempiSuostumus = _lsGet(optInAvain);
 
     if (aiempiSuostumus === 'kylla') {
       // Suostumus jo annettu — lisätään automaattisesti
@@ -8891,7 +8897,7 @@ function naytaTKOptInKysymys(p, entry) {
 }
 
 function tkOptInVastaus(vastaus, seuraKoodi) {
-  localStorage.setItem('tm_tk_optin_consent_' + seuraKoodi, vastaus);
+  _lsSet('tm_tk_optin_consent_' + seuraKoodi, vastaus);
   document.getElementById('harjoiteOverlay').style.display = 'none';
   if (vastaus === 'kylla') {
     naytaToast('✓ Liitytty kansalliseen vertailuun — tulokset lisätty anonyymisti');
@@ -8904,7 +8910,7 @@ function tkOptInVastaus(vastaus, seuraKoodi) {
 function haeTKHistoria(p) {
   if (p.tk_historia && p.tk_historia.length) return p.tk_historia;
   try {
-    var ls = JSON.parse(localStorage.getItem('tm_tk_' + p.id) || '[]');
+    var ls = JSON.parse(_lsGet('tm_tk_' + p.id)||'[]');
     return ls;
   } catch(e) { return []; }
 }
@@ -9084,7 +9090,7 @@ function laskeMerkki(kokonaisaika, ikaluokka, sukupuoli) {
 
 // ── Opt-in-datan hallinta ────────────────────────────────────────────────
 function _haeTKOptInData(avain) {
-  try { return JSON.parse(localStorage.getItem('tm_tk_optin_' + avain) || '[]'); }
+  try { return JSON.parse(_lsGet('tm_tk_optin_' + avain)||'[]'); }
   catch(e) { return []; }
 }
 
@@ -9101,7 +9107,7 @@ function lisaaTKOptInHavainto(tulos, avain) {
   try {
     var data = _haeTKOptInData(avain);
     data.push(havainto);
-    localStorage.setItem('tm_tk_optin_' + avain, JSON.stringify(data));
+    _lsSet('tm_tk_optin_' + avain, JSON.stringify(data));
   } catch(e) {}
 }
 
@@ -9608,10 +9614,10 @@ function tallennLoukkaantuminen(pid, entry) {
 
   // Varmuuskopio localStorage:iin
   try {
-    var hist = JSON.parse(localStorage.getItem('tm_injury_' + pid) || '[]');
+    var hist = JSON.parse(_lsGet('tm_injury_' + pid)||'[]');
     hist.push(entry);
     if (hist.length > 30) hist = hist.slice(-30); // max 30 merkintää
-    localStorage.setItem('tm_injury_' + pid, JSON.stringify(hist));
+    _lsSet('tm_injury_' + pid, JSON.stringify(hist));
   } catch(e) {}
 
   naytaToast('Loukkaantuminen kirjattu ✓');
@@ -9637,7 +9643,7 @@ function merkitseParantunut(pid) {
   // Tallenna takaisin
   if (p.loukkaantumiset) p.loukkaantumiset = hist;
   try {
-    localStorage.setItem('tm_injury_' + pid, JSON.stringify(hist));
+    _lsSet('tm_injury_' + pid, JSON.stringify(hist));
   } catch(e) {}
   naytaToast('Merkitty parantuneeksi ✓');
   setTimeout(function() { buildCoachPlayer(p); }, 300);
