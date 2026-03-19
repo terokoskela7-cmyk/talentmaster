@@ -655,6 +655,23 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
 <div class="toast" id="toast"></div>
 
 <script>
+// ── localStorage-wrapperi ────────────────────────────────────────────────
+// TÄRKEÄÄ: Tämä pitää olla ENSIMMÄISENÄ skriptissä.
+// S-tilamuuttuja alustetaan kutsumalla lsn()/lsj() suoraan määrittelyssä,
+// joten nämä funktiot täytyy olla olemassa ennen riviä jolla S = {...}.
+// Toimii sekä oikeassa selaimessa että artifact/sandbox-ympäristössä.
+var _lsMem = {};
+var _lsOk = (function(){
+  try{ localStorage.setItem('_tm_test','1'); localStorage.removeItem('_tm_test'); return true; }
+  catch(e){ return false; }
+})();
+function _lsGet(k){ if(_lsOk){ return localStorage.getItem(k); } return _lsMem[k]!==undefined?_lsMem[k]:null; }
+function _lsSet(k,v){ if(_lsOk){ localStorage.setItem(k,v); } else { _lsMem[k]=v; } }
+function lsn(k){ return parseInt(_lsGet(k)||'0'); }
+function lsj(k){ try{ return JSON.parse(_lsGet(k)||'null'); }catch(e){ return null; } }
+function sls(k,v){ _lsSet(k, typeof v==='string'?v:JSON.stringify(v)); }
+// ─────────────────────────────────────────────────────────────────────────
+
 // ═══════════ SANASTO ═══════════
 const KETJU_NIMET={taka:'Sprinttaaja',etu:'Hyppääjä',sivu:'Harhautustaiteilija',kierto:'Pallotaikuri',syva:'Johtaja'};
 const KETJU_IKONIT={taka:'🏃',etu:'🦘',sivu:'🦊',kierto:'⚽',syva:'🛡️'};
@@ -6350,15 +6367,7 @@ function generoiViikonOhjelma(pelaajat){
     rpeVaroitus:          rpeVaroitus
   };
 }
-// localStorage-wrapperi — toimii sekä oikeassa selaimessa että artifact-sandboxissa.
-// Sandboxissa localStorage ei ole saatavilla, joten käytetään in-memory fallbackia.
-var _lsMem = {};
-var _lsOk = (function(){ try{ localStorage.setItem('_tm_test','1'); localStorage.removeItem('_tm_test'); return true; }catch(e){ return false; } })();
-function _lsGet(k){ if(_lsOk){ return localStorage.getItem(k); } return _lsMem[k]!==undefined?_lsMem[k]:null; }
-function _lsSet(k,v){ if(_lsOk){ localStorage.setItem(k,v); } else { _lsMem[k]=v; } }
-function lsn(k){ return parseInt(_lsGet(k)||'0'); }
-function lsj(k){ try{ return JSON.parse(_lsGet(k)||'null'); }catch(e){ return null; } }
-function sls(k,v){ _lsSet(k, typeof v==='string'?v:JSON.stringify(v)); }
+// [localStorage-wrapperi siirretty skriptin alkuun]
 function naytaToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2800);}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
 function dayKey(idx){var now=new Date(),wd=(now.getDay()+6)%7,d=new Date(now);d.setDate(now.getDate()+(idx-wd));return d.toISOString().slice(0,10);}
