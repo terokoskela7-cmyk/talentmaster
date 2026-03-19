@@ -166,6 +166,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .modal-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px 20px 0 0; padding: 20px; width: 100%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
 .modal-drag { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
 </style>
+<script src="tk_kansallinen.js"></script>
 </head>
 <body>
 
@@ -221,6 +222,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
     <div class="nav-tab" onclick="vaihda(5,this)">🎯 Seuratavoitteet</div>
     <div class="nav-tab" onclick="vaihda(6,this)">📚 Koulutus</div>
   <div class="nav-tab" onclick="vaihda(7,this)">🏆 Tekniikkakilpailut</div>
+  <div class="nav-tab" onclick="vaihda(8,this)">🌍 Kansallinen ranking</div>
   </div>
   <div class="content">
     <div id="tabYleiskuva"></div>
@@ -231,6 +233,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
     <div id="tabSeuratavoitteet" style="display:none"></div>
     <div id="tabKoulutus" style="display:none"></div>
     <div id="tabTekniikkakilpailut" style="display:none"></div>
+    <div id="tabKansallinenRanking" style="display:none"></div>
   </div>
 </div>
 
@@ -2295,7 +2298,7 @@ function ovrFromObj(k) {
 }
 
 // ── NAVIGATION ──
-var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabTalentit','tabSeuratavoitteet','tabKoulutus','tabTekniikkakilpailut'];
+var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabTalentit','tabSeuratavoitteet','tabKoulutus','tabTekniikkakilpailut','tabKansallinenRanking'];
 function vaihda(idx, el) {
   _aktivTab = idx;
   _tabs.forEach(function(t){ document.getElementById(t).style.display='none'; });
@@ -2321,6 +2324,7 @@ function renderTab(idx) {
   else if (idx===5) renderSeuratavoitteet();
   else if (idx===6) renderKoulutus();
   else if (idx===7) renderTekniikkakilpailut();
+  else if (idx===8) renderKansallinenRanking();
 }
 
 // ── KETJU META ──
@@ -4277,6 +4281,305 @@ function renderTekniikkakilpailut() {
 
   h += '</div>'; // padding-wrapper
   el.innerHTML = h;
+}
+
+// ── KANSALLINEN RANKING — täysi näkymä ─────────────────────────────────
+// Lähde: Palloliiton TK Dashboard 2022-2025 (25 seuraa, 379 rekisteriä)
+// Suodattimet: kausi × sukupuoli × ikäluokka
+// Näyttää: kansallinen top-lista, oman seuran sijoitus, kehitystrendit
+
+function renderKansallinenRanking() {
+  var el = document.getElementById('tabKansallinenRanking');
+  if (!el) return;
+
+  // Tarkista onko data ladattu
+  if (typeof TK_KANSALLINEN === 'undefined') {
+    el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted2)">Ladataan kansallista dataa... varmista että tk_kansallinen.js on samassa kansiossa.</div>';
+    return;
+  }
+
+  // Suodatintila — tallennetaan sessionin ajaksi
+  if (!window._tkRankFilter) {
+    window._tkRankFilter = { kausi:'2025', suku:'P', ika:'10' };
+  }
+  var F = window._tkRankFilter;
+
+  var h = '<div style="padding:0 0 32px">';
+
+  // ── OTSIKKO ──────────────────────────────────────────────────────────
+  h += '<div style="margin-bottom:20px;">';
+  h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:28px;font-weight:800;margin-bottom:4px">🌍 Kansallinen ranking</div>';
+  h += '<div style="font-size:12px;color:var(--muted2)">Palloliiton viralliset tekniikkakilpailutulokset 2022–2025 · 25 seuraa · Lähde: Palloliitto TK Dashboard</div>';
+  h += '</div>';
+
+  // ── SUODATTIMET ───────────────────────────────────────────────────────
+  h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:16px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Suodattimet</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">';
+
+  // Kausi
+  h += '<div><div style="font-size:10px;color:var(--muted);margin-bottom:4px">Kausi</div>';
+  h += '<select onchange="tkRankSetFilter(\'kausi\',this.value)" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
+  ['2025','2024','2023','2022'].forEach(function(k) {
+    h += '<option value="' + k + '"' + (F.kausi===k?' selected':'') + '>' + k + '</option>';
+  });
+  h += '</select></div>';
+
+  // Sukupuoli
+  h += '<div><div style="font-size:10px;color:var(--muted);margin-bottom:4px">Sukupuoli</div>';
+  h += '<select onchange="tkRankSetFilter(\'suku\',this.value)" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
+  [['P','Pojat'],['T','Tytöt']].forEach(function(s) {
+    h += '<option value="' + s[0] + '"' + (F.suku===s[0]?' selected':'') + '>' + s[1] + '</option>';
+  });
+  h += '</select></div>';
+
+  // Ikäluokka
+  h += '<div><div style="font-size:10px;color:var(--muted);margin-bottom:4px">Ikäluokka</div>';
+  h += '<select onchange="tkRankSetFilter(\'ika\',this.value)" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
+  ['8','9','10','11','12','13'].forEach(function(ik) {
+    h += '<option value="' + ik + '"' + (F.ika===ik?' selected':'') + '>U' + ik + '</option>';
+  });
+  h += '</select></div>';
+
+  h += '</div></div>'; // suodattimet
+
+  // ── HAETAAN DATA ──────────────────────────────────────────────────────
+  var distKey = F.kausi + '_' + F.suku + '_' + F.ika;
+  var dist    = (TK_KANSALLINEN.ik_dist[distKey] || []).slice();
+  // Järjestä mitaliprosentti laskevasti
+  dist.sort(function(a,b) { return b.pct - a.pct; });
+
+  var omanSeuranNimi = _aktivSeura; // VP:n aktiivinen seura
+  var omaIdx = dist.findIndex(function(d) { return d.seura === omanSeuranNimi; });
+  var omaSijoitus = omaIdx >= 0 ? omaIdx + 1 : null;
+  var kansMediaani = dist.length ? dist[Math.floor(dist.length/2)].pct : null;
+
+  if (!dist.length) {
+    h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:40px;text-align:center;">';
+    h += '<div style="font-size:24px;margin-bottom:12px">📊</div>';
+    h += '<div style="font-size:14px;color:var(--muted2)">Ei dataa valitulle suodattimelle — kokeile toista vuotta tai ikäluokkaa</div>';
+    h += '</div>';
+    el.innerHTML = h + '</div>';
+    return;
+  }
+
+  // ── OMAN SEURAN SIJOITUSKORTTI ────────────────────────────────────────
+  if (omaSijoitus) {
+    var oma = dist[omaIdx];
+    var pp  = Math.round((dist.length - omaSijoitus) / dist.length * 100);
+    var ppCol = pp >= 75 ? '#1D9E75' : pp >= 50 ? '#4D9FFF' : pp >= 25 ? '#BA7517' : '#888780';
+
+    h += '<div style="background:var(--card);border:2px solid ' + ppCol + ';border-radius:14px;padding:16px;margin-bottom:16px;">';
+    h += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📍 ' + omanSeuranNimi + ' — oma sijoitus</div>';
+
+    h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">';
+    // Sijoitus
+    h += '<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:10px 6px;">';
+    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;line-height:1;color:' + ppCol + '">' + omaSijoitus + '.</div>';
+    h += '<div style="font-size:9px;color:var(--muted);margin-top:2px">sija / ' + dist.length + '</div></div>';
+    // Prosenttipiste
+    h += '<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:10px 6px;">';
+    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;line-height:1;color:' + ppCol + '">' + pp + '</div>';
+    h += '<div style="font-size:9px;color:var(--muted);margin-top:2px">prosenttipiste</div></div>';
+    // Mitaliprosentti
+    h += '<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:10px 6px;">';
+    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;line-height:1;color:var(--text)">' + Math.round(oma.pct*100) + '%</div>';
+    h += '<div style="font-size:9px;color:var(--muted);margin-top:2px">mitaliprosentti</div></div>';
+    // Mitalit
+    h += '<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:10px 6px;">';
+    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:20px;line-height:1;color:var(--text);margin-top:4px">';
+    h += '🥇' + oma.kulta + ' 🥈' + oma.hopea + ' 🥉' + oma.pronssi + '</div>';
+    h += '<div style="font-size:9px;color:var(--muted);margin-top:5px">' + oma.suor + ' suoritusta</div></div>';
+    h += '</div>'; // 4-sarake
+
+    // Prosenttipistepalkki
+    h += '<div style="display:flex;align-items:center;gap:10px;">';
+    h += '<div style="font-size:10px;color:var(--muted);width:40px">0%</div>';
+    h += '<div style="flex:1;height:10px;background:var(--bg3);border-radius:5px;position:relative;">';
+    h += '<div style="position:absolute;left:0;top:0;height:10px;width:' + pp + '%;background:' + ppCol + ';border-radius:5px;"></div>';
+    if (kansMediaani !== null) {
+      h += '<div style="position:absolute;top:-4px;left:50%;width:2px;height:18px;background:rgba(255,255,255,.3);"></div>';
+    }
+    h += '</div>';
+    h += '<div style="font-size:10px;color:var(--muted);width:44px;text-align:right">100%</div>';
+    h += '</div>';
+    if (kansMediaani !== null) {
+      h += '<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:4px">';
+      h += 'Kansallinen mediaani: ' + Math.round(kansMediaani*100) + '% · ';
+      h += (oma.pct > kansMediaani ? '<span style="color:#1D9E75">▲ mediaanin yläpuolella</span>' : '<span style="color:#BA7517">▼ mediaanin alapuolella</span>');
+      h += '</div>';
+    }
+
+    h += '</div>'; // oman seuran kortti
+  } else {
+    h += '<div style="background:rgba(186,117,23,.07);border:1px solid rgba(186,117,23,.2);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#BA7517;">';
+    h += '⚠️ ' + omanSeuranNimi + ' ei ole mukana tässä ikäluokka-kausi-yhdistelmässä. Näytetään kansallinen ranking.';
+    h += '</div>';
+  }
+
+  // ── KANSALLINEN RANKING-LISTA ─────────────────────────────────────────
+  h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px;">';
+  h += '<div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.07);">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;">';
+  h += '<div style="font-size:13px;font-weight:700">Kansallinen ranking — ' + (F.suku==='P'?'Pojat':'Tytöt') + ' U' + F.ika + ' · ' + F.kausi + '</div>';
+  h += '<div style="font-size:11px;color:var(--muted2)">' + dist.length + ' seuraa</div>';
+  h += '</div></div>';
+
+  // Sarakeotsikat
+  h += '<div style="display:grid;grid-template-columns:36px 1fr 80px 80px 80px 80px;gap:0;padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.05);">';
+  ['#','Seura','Suorituksia','Mitalit','Mitali%','K/H/P'].forEach(function(col) {
+    h += '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:700;text-align:' + (col==='#'||col==='Seura'?'left':'center') + '">' + col + '</div>';
+  });
+  h += '</div>';
+
+  // Rivit
+  dist.forEach(function(d, idx) {
+    var sija = idx + 1;
+    var isOma = d.seura === omanSeuranNimi;
+    var mPct  = Math.round(d.pct * 100);
+    var mCol  = mPct >= 70 ? '#FFD700' : mPct >= 50 ? '#1D9E75' : mPct >= 30 ? '#4D9FFF' : '#888780';
+
+    // Sijakohtainen korostus
+    var rowBg = isOma ? 'rgba(0,229,204,.06)' : idx < 3 ? 'rgba(255,215,0,.03)' : 'transparent';
+    var rowBorder = isOma ? 'border-left:3px solid var(--teal);' : idx < 3 ? 'border-left:3px solid rgba(255,215,0,.3);' : 'border-left:3px solid transparent;';
+
+    h += '<div style="display:grid;grid-template-columns:36px 1fr 80px 80px 80px 80px;gap:0;padding:10px 14px;';
+    h += 'background:' + rowBg + ';' + rowBorder + 'border-bottom:1px solid rgba(255,255,255,.04);">';
+
+    // Sijoitusnumero / mitali
+    var sijaLabel = sija === 1 ? '🥇' : sija === 2 ? '🥈' : sija === 3 ? '🥉' : sija + '.';
+    h += '<div style="font-size:12px;font-weight:700;color:var(--muted2)">' + sijaLabel + '</div>';
+
+    // Seuran nimi
+    h += '<div style="font-size:13px;font-weight:' + (isOma?'700':'400') + ';color:' + (isOma?'var(--teal)':'var(--text)') + '">';
+    h += d.seura;
+    if (isOma) h += ' ← teidän seura';
+    h += '</div>';
+
+    // Suorituksia
+    h += '<div style="font-size:12px;color:var(--muted2);text-align:center">' + d.suor + '</div>';
+
+    // Mitalit
+    h += '<div style="font-size:12px;font-weight:700;text-align:center;color:' + mCol + '">' + d.mitalit + '</div>';
+
+    // Mitaliprosentti palkki
+    h += '<div style="display:flex;align-items:center;justify-content:center;gap:4px;">';
+    h += '<div style="width:36px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">';
+    h += '<div style="height:6px;width:' + Math.min(100,mPct) + '%;background:' + mCol + ';border-radius:3px;"></div>';
+    h += '</div>';
+    h += '<div style="font-size:11px;font-weight:700;color:' + mCol + ';width:28px">' + mPct + '%</div>';
+    h += '</div>';
+
+    // K/H/P
+    h += '<div style="font-size:10px;text-align:center;color:var(--muted2)">';
+    h += '<span style="color:#FFD700">' + d.kulta + '</span> ';
+    h += '<span style="color:#C0C0C0">' + d.hopea + '</span> ';
+    h += '<span style="color:#CD7F32">' + d.pronssi + '</span>';
+    h += '</div>';
+
+    h += '</div>'; // rivi
+  });
+
+  h += '</div>'; // ranking-lista
+
+  // ── KEHITYSTRENDIKUVA — seuran historia ──────────────────────────────
+  // Näytetään vain jos omalla seuralla on dataa usealta kaudelta
+  if (omanSeuranNimi && TK_KANSALLINEN.seurat[omanSeuranNimi]) {
+    var seuranData = TK_KANSALLINEN.seurat[omanSeuranNimi];
+    var kausiData  = [];
+    ['2022','2023','2024','2025'].forEach(function(kv) {
+      if (!seuranData.kaudet[kv]) return;
+      var kd = seuranData.kaudet[kv][F.suku];
+      if (!kd || !kd.ikaluokat[F.ika]) return;
+      var ikd = kd.ikaluokat[F.ika];
+      if (!ikd.suor) return;
+      var sijoitusData = tkHaeSeuranSijoitus(omanSeuranNimi, kv, F.suku, parseInt(F.ika));
+      kausiData.push({
+        kausi: kv,
+        suor:  ikd.suor,
+        pct:   ikd.pct,
+        sijoitus: sijoitusData ? sijoitusData.sijoitus : null,
+        n: sijoitusData ? sijoitusData.n : null
+      });
+    });
+
+    if (kausiData.length >= 2) {
+      h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:16px;">';
+      h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">';
+      h += '📈 ' + omanSeuranNimi + ' — kehitystrendit ' + (F.suku==='P'?'Pojat':'Tytöt') + ' U' + F.ika + '</div>';
+
+      h += '<div style="display:flex;gap:6px;margin-bottom:12px;">';
+      kausiData.forEach(function(kd) {
+        var pct = Math.round(kd.pct * 100);
+        var col = pct >= 70 ? '#FFD700' : pct >= 50 ? '#1D9E75' : pct >= 30 ? '#4D9FFF' : '#888780';
+        h += '<div style="flex:1;background:var(--bg3);border-radius:10px;padding:10px 8px;text-align:center;">';
+        h += '<div style="font-size:10px;color:var(--muted);margin-bottom:4px">' + kd.kausi + '</div>';
+        h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;line-height:1;color:' + col + '">' + pct + '%</div>';
+        h += '<div style="font-size:9px;color:var(--muted);margin-top:2px">' + kd.suor + ' suor.</div>';
+        if (kd.sijoitus) {
+          h += '<div style="font-size:9px;color:var(--muted2);margin-top:2px">sija ' + kd.sijoitus + '/' + kd.n + '</div>';
+        }
+        h += '</div>';
+      });
+      h += '</div>';
+
+      // Suunta-analyysi
+      var ensimm = kausiData[0].pct, viimeisin = kausiData[kausiData.length-1].pct;
+      var muutos = Math.round((viimeisin - ensimm) * 100);
+      var muutosCol = muutos > 5 ? '#1D9E75' : muutos < -5 ? '#E53935' : '#BA7517';
+      h += '<div style="font-size:12px;color:' + muutosCol + ';font-weight:700">';
+      h += (muutos > 0 ? '▲ ' : muutos < 0 ? '▼ ' : '→ ');
+      h += Math.abs(muutos) + '% muutos kaudelta ' + kausiData[0].kausi + ' kaudelle ' + kausiData[kausiData.length-1].kausi;
+      h += '</div>';
+
+      h += '</div>'; // trendikortti
+    }
+  }
+
+  // ── KAIKKIEN SEUROJEN VERTAILU — scatter ─────────────────────────────
+  h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">';
+  h += 'Mitaliprosentti vs. suoritusmäärä</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);margin-bottom:10px">';
+  h += 'Isompi ympyrä = enemmän suorituksia · Korkea % + paljon suorituksia = vahvin kehitysohjelma</div>';
+
+  // SVG scatter
+  var svgW = 300, svgH = 160;
+  var maxSuor = Math.max.apply(null, dist.map(function(d){return d.suor;}));
+
+  h += '<svg width="100%" viewBox="0 0 ' + svgW + ' ' + svgH + '" style="display:block;overflow:visible">';
+  // Referenssiviivat
+  h += '<line x1="0" y1="' + Math.round(svgH*0.5) + '" x2="' + svgW + '" y2="' + Math.round(svgH*0.5) + '" stroke="rgba(255,255,255,.08)" stroke-dasharray="3,3"/>';
+  h += '<text x="2" y="' + (Math.round(svgH*0.5)-3) + '" font-size="8" fill="rgba(255,255,255,.3)">50%</text>';
+
+  // Pisteet
+  dist.forEach(function(d) {
+    var x = Math.round(d.suor / maxSuor * (svgW - 20) + 10);
+    var y = Math.round((1 - d.pct) * (svgH - 20) + 10);
+    var r = Math.max(4, Math.round(Math.sqrt(d.suor / maxSuor) * 12));
+    var col = Math.round(d.pct*100) >= 70 ? '#FFD700' : Math.round(d.pct*100) >= 50 ? '#1D9E75' : Math.round(d.pct*100) >= 30 ? '#4D9FFF' : '#888780';
+    var isOma = d.seura === omanSeuranNimi;
+
+    h += '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="' + col + '" fill-opacity="' + (isOma?'0.9':'0.5') + '" stroke="' + (isOma?'#fff':'transparent') + '" stroke-width="' + (isOma?'1.5':'0') + '"/>';
+    if (isOma || d.suor > maxSuor * 0.4) {
+      h += '<text x="' + (x + r + 2) + '" y="' + (y + 4) + '" font-size="8" fill="rgba(255,255,255,.7)">' + d.seura.split(' ')[0] + '</text>';
+    }
+  });
+
+  // Akselimerkit
+  h += '<text x="2" y="' + (svgH-2) + '" font-size="8" fill="rgba(255,255,255,.3)">Vähän suorituksia →</text>';
+  h += '<text x="' + (svgW-70) + '" y="' + (svgH-2) + '" font-size="8" fill="rgba(255,255,255,.3)">Paljon</text>';
+  h += '</svg>';
+
+  h += '</div>'; // scatter
+
+  h += '</div>'; // padding-wrapper
+  el.innerHTML = h;
+}
+
+function tkRankSetFilter(key, val) {
+  window._tkRankFilter[key] = val;
+  renderKansallinenRanking();
 }
 
 function renderKoulutus() {
