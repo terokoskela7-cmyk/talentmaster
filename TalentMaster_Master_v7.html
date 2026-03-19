@@ -538,7 +538,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
     <div id="cTab1" onclick="goCoachTab(1)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;">📊 ANALYYSI</div>
     <div id="cTab2" onclick="goCoachTab(2)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;">📋 VIIKKO</div>
     <div id="cTab3" onclick="goCoachTab(3)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;">🏅 MERKINNÄT</div>
-    <div id="cTab4" onclick="goCoachTab(4)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;">🏟️ SEURAT</div>
+    <div id="cTab4" onclick="goCoachTab(4)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;display:none;">🏟️ SEURAT</div>
     <div id="cTab5" onclick="goCoachTab(5)" style="flex:1;text-align:center;padding:11px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;background:linear-gradient(135deg,rgba(167,139,250,.08),transparent);">🎓 KOULUTUS</div>
   </div>
   <div style="padding:14px 16px;" id="coachContent"></div>
@@ -3280,7 +3280,7 @@ function avaaCoachPelaaja(pid){
   }
 
   // ADAR/GIQ
-  if(adar)h+=buildGIQLaaja(p);
+  if(adar)h+=buildGIQLaaja(p,true);
 
   // Testaushistoria
   h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;">Testaushistoria</div>';
@@ -4888,7 +4888,7 @@ function buildCoachPlayer(p){
   }
 
   // Game IQ — vain jos oikeaa dataa
-  if(adar&&p.adar&&p.adar.length>0) h+=buildGIQLaaja(p);
+  if(adar&&p.adar&&p.adar.length>0) h+=buildGIQLaaja(p,true);
 
   // Fyysiset testit
   var fysHist=p.fys_historia||[];
@@ -6658,7 +6658,9 @@ function buildGIQKorttiOsio(p,vari){
 }
 
 // GIQ-laaja — Kehitys-tabiin
-function buildGIQLaaja(p){
+// valmentajaMode=true → näyttää ADAR-lomakkeen (vain valmentaja)
+// valmentajaMode=false (oletus) → näyttää vain tuloksen pelaajanäkymässä
+function buildGIQLaaja(p, valmentajaMode){
   var adar=laskeADAR(p);
   if(!adar)return'<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;color:var(--muted2);font-size:13px;">Game IQ -arvio ei vielä saatavilla. Valmentaja arvioi ADAR-mallin mukaisesti seuraavassa harjoituksessa.</div>';
   var kehityskohde=laskeADARSelitys(adar);
@@ -6743,7 +6745,10 @@ function buildGIQLaaja(p){
   h+='<span style="color:var(--purple);font-size:18px;">›</span>';
   h+='</div>';
 
-  // ── ADAR-ARVIOINTILOMAKE — valmentajan pikakirjaus ─────────────────────
+  // ── ADAR-ARVIOINTILOMAKE — vain valmentajalle ──────────────────────────
+  // Pelaaja näkee vain tuloksen (Game IQ -kortti yllä).
+  // Lomake näytetään kun buildGIQLaaja(p, true) kutsutaan Coach-puolelta.
+  if (valmentajaMode) {
   // Protokolla perustuu TalentID-master v2.1:n tutkimusnäyttöön:
   // Bergkamp 2022: strukturoitu dimensiokohtainen arviointi > kokonaisvaikutelma
   // Larkin 2023: 3 ennalta valittua kohdetta/peli parantaa reliabiliteettia
@@ -7024,6 +7029,7 @@ function buildGIQLaaja(p){
   h += '</div></div>';
 
   h += '</div>'; // ADAR-lomake
+  } // valmentajaMode
 
   return h;
 }
@@ -7102,7 +7108,7 @@ function adarTallenna(pid) {
   // Renderöi Game IQ -osio uudelleen
   setTimeout(function() {
     var giqEl = document.getElementById('giqContent');
-    if(giqEl) giqEl.innerHTML = buildGIQLaaja(p);
+    if(giqEl) giqEl.innerHTML = buildGIQLaaja(p,true);
   }, 300);
 }
 
@@ -8306,7 +8312,10 @@ function buildTanaan(){
       h += '<div style="font-size:9px;color:var(--muted2);margin-top:2px;line-height:1.2;overflow:hidden;max-height:22px;">' + teksti.replace('ketju','').trim() + '</div>';
       h += '</div>';
     }
-    h += '</div></div></div>'; // viikkokalenteri + profiilikortit
+    h += '</div>'; // viikkonäkymä
+    // Kausikalenteri-nappi
+    h += '<button onclick="avaaKausikalenteri()" style="width:100%;margin-top:8px;padding:9px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted2);font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.5px;">📅 KOKO KAUSI →</button>';
+    h += '</div></div>'; // viikkokalenteri + profiilikortit
   })();
 
   // ── 0. TESTIPÄIVÄ tai KERTYMÄPALKKI — ensin ──
@@ -12182,6 +12191,124 @@ function suljeOnboarding(){
   go('sPin');
 }
 
+
+// ═══════════ KAUSIKALENTERI ═══════════
+function avaaKausikalenteri() {
+  var el = document.getElementById('kausikalOverlay');
+  var sisalto = document.getElementById('kausikalSisalto');
+  if (!el || !sisalto) return;
+
+  var p = S.pelaaja;
+  var checked = lsj('tm_checked') || {};
+  var joukkuePaivat = [1, 4]; // Ti + Pe — myöhemmin VP-asetuksista
+
+  // Rakennetaan kuukaudet syyskuusta (8) toukokuuhun (4)
+  var kuukaudet = [
+    {v:2025, k:8,  nimi:'Syyskuu 2025'},
+    {v:2025, k:9,  nimi:'Lokakuu 2025'},
+    {v:2025, k:10, nimi:'Marraskuu 2025'},
+    {v:2025, k:11, nimi:'Joulukuu 2025'},
+    {v:2026, k:0,  nimi:'Tammikuu 2026'},
+    {v:2026, k:1,  nimi:'Helmikuu 2026'},
+    {v:2026, k:2,  nimi:'Maaliskuu 2026'},
+    {v:2026, k:3,  nimi:'Huhtikuu 2026'},
+    {v:2026, k:4,  nimi:'Toukokuu 2026'},
+  ];
+
+  var paivaNimet = ['Ma','Ti','Ke','To','Pe','La','Su'];
+  var tanaan = new Date().toISOString().slice(0,10);
+  var h = '';
+
+  kuukaudet.forEach(function(km) {
+    var ensimmainenPv = new Date(km.v, km.k, 1);
+    var viikonpaiva = (ensimmainenPv.getDay() + 6) % 7; // Ma=0
+    var paiviaKk = new Date(km.v, km.k + 1, 0).getDate();
+
+    h += '<div style="margin-bottom:20px;">';
+    h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:15px;font-weight:800;';
+    h += 'letter-spacing:1px;color:var(--teal);padding:8px 8px 6px;text-transform:uppercase;">' + km.nimi + '</div>';
+
+    // Viikonpäivien otsikkorivi
+    h += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px;">';
+    paivaNimet.forEach(function(pn) {
+      h += '<div style="text-align:center;font-size:9px;color:var(--muted2);font-weight:700;padding:2px 0;">' + pn + '</div>';
+    });
+    h += '</div>';
+
+    // Päiväruudukko
+    h += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">';
+
+    // Tyhjät solut ennen kuukauden alkua
+    for (var t2 = 0; t2 < viikonpaiva; t2++) {
+      h += '<div style="aspect-ratio:1;border-radius:5px;"></div>';
+    }
+
+    for (var pv = 1; pv <= paiviaKk; pv++) {
+      var d = new Date(km.v, km.k, pv);
+      var dk = d.toISOString().slice(0,10);
+      var vp = (d.getDay() + 6) % 7; // Ma=0
+      var onJoukkue = joukkuePaivat.indexOf(vp) >= 0;
+      var onViikonloppu = vp >= 5;
+      var onTanaan = dk === tanaan;
+      var onTehty = checked[dk] && checked[dk].allDone;
+      var onMenneisyys = dk < tanaan;
+
+      var bg, textCol;
+      if (onTehty) {
+        bg = 'rgba(31,209,106,.22)';
+        textCol = '#1FD16A';
+      } else if (onJoukkue && !onMenneisyys) {
+        bg = 'rgba(0,229,204,.18)';
+        textCol = 'var(--teal)';
+      } else if (onViikonloppu) {
+        bg = 'rgba(255,255,255,.04)';
+        textCol = 'var(--muted)';
+      } else if (onMenneisyys && !onTehty) {
+        bg = 'rgba(239,68,68,.1)';
+        textCol = 'rgba(239,68,68,.5)';
+      } else {
+        bg = 'var(--bg3)';
+        textCol = 'var(--text)';
+      }
+
+      var border = onTanaan ? '2px solid var(--teal)' : '1px solid transparent';
+      var ikoni = onTehty ? '✓' : onJoukkue && !onMenneisyys ? '🏃' : '';
+
+      h += '<div style="aspect-ratio:1;border-radius:5px;background:' + bg + ';border:' + border + ';';
+      h += 'display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;" ';
+      h += 'onclick="kausikalPaiva(\'' + dk + '\')">';
+      h += '<div style="font-size:10px;font-weight:700;color:' + textCol + ';line-height:1;">' + pv + '</div>';
+      if (ikoni) h += '<div style="font-size:8px;line-height:1;margin-top:1px;">' + ikoni + '</div>';
+      h += '</div>';
+    }
+    h += '</div></div>';
+  });
+
+  sisalto.innerHTML = h;
+  el.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function suljeKausikalenteri(e) {
+  if (e && e.target !== document.getElementById('kausikalOverlay')) return;
+  var el = document.getElementById('kausikalOverlay');
+  if (el) el.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function kausikalPaiva(dk) {
+  // Napauttamalla päivää valitaan se ja suljetaan popup
+  var now = new Date();
+  var today = now.toISOString().slice(0,10);
+  var d = new Date(dk + 'T12:00:00');
+  var vp = (d.getDay() + 6) % 7;
+  S.selDay = vp;
+  suljeKausikalenteri(null);
+  buildWeek();
+  buildTanaan();
+  naytaToast('📅 ' + d.getDate() + '.' + (d.getMonth()+1) + '.' + d.getFullYear());
+}
+
 // ═══════════ INIT ═══════════
 document.addEventListener('DOMContentLoaded',function(){
   // PIN-ruutu aina ensin — onboarding näytetään kirjautumisen jälkeen
@@ -12260,6 +12387,24 @@ document.addEventListener('DOMContentLoaded',function(){
       💡 Ennen ensimmäistä arviointia: keskustele asiasta valmennuspäällikkösi kanssa.
       Luotettava arviointi vaatii kaksi arvioijaa.
     </div>
+  </div>
+</div>
+
+<!-- ── KAUSIKALENTERI POPUP ─────────────────────────────────────── -->
+<div id="kausikalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;align-items:flex-end;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px);" onclick="suljeKausikalenteri(event)">
+  <div id="kausikalSheet" style="background:var(--bg2);border-radius:20px 20px 0 0;width:100%;max-width:430px;max-height:85vh;overflow-y:auto;padding:0 0 24px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;position:sticky;top:0;background:var(--bg2);border-bottom:1px solid var(--border);z-index:1;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:.5px;">📅 Kausikaenteri 2025–2026</div>
+      <button onclick="suljeKausikalenteri(null)" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>
+    </div>
+    <!-- Selite -->
+    <div style="display:flex;gap:10px;padding:10px 20px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2);"><div style="width:10px;height:10px;border-radius:2px;background:rgba(0,229,204,.3);"></div>Joukkuetreeni</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2);"><div style="width:10px;height:10px;border-radius:2px;background:rgba(255,184,48,.3);"></div>Peli</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2);"><div style="width:10px;height:10px;border-radius:2px;background:rgba(31,209,106,.2);"></div>Harjoiteltu</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2);"><div style="width:10px;height:10px;border-radius:2px;background:rgba(239,68,68,.2);"></div>Lepo</div>
+    </div>
+    <div id="kausikalSisalto" style="padding:0 12px;"></div>
   </div>
 </div>
 
