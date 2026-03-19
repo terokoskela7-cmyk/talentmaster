@@ -3600,7 +3600,7 @@ function buildCoachViikko(){
     // Käydään läpi kaikki viikot tältä kaudelta (w1-w52)
     for(var w=1;w<=52;w++){
       for(var pvI=0;pvI<7;pvI++){
-        var d2=new Date(); d2.setDate(d2.getDate()-d2.getDay()+pvI+(0-getWeekNumber(d2)+w)*7);
+        var d2=new Date(); var _wkNow=(function(d){var y=d.getFullYear();return Math.ceil(((d-new Date(y,0,1))/86400000+new Date(y,0,1).getDay()+1)/7);})(new Date()); d2.setDate(d2.getDate()-d2.getDay()+pvI+(0-_wkNow+w)*7);
         var dk2=d2.toISOString().slice(0,10);
         var ev2=JSON.parse(_lsGet('tm_coach_kalenteri_'+d2.getFullYear()+'_'+w)||'{}')[dk2]||[];
         if(ev2.indexOf('peli')>=0){
@@ -8856,7 +8856,7 @@ function tkSetLahde(lahdeId, btn) {
 // Tallennetaan localStorage:iin per päivä
 function avaaHarjoitusMerkinta(pvId, kalAvain) {
   var y = new Date().getFullYear();
-  var wk = getWeekNumber(new Date());
+  var wk = (function(d){var y=d.getFullYear();return Math.ceil(((d-new Date(y,0,1))/86400000+new Date(y,0,1).getDay()+1)/7);})(new Date());
   var harjData = lsj('tm_coach_harj_' + y + '_' + wk + '_' + pvId) || {
     tyypit: [], rpe: 6, poissaolijat: []
   };
@@ -8965,7 +8965,7 @@ function togglePoissaolija(pid, btn) {
 function tallennaHarjoitusMerkinta(pvId, kalAvain) {
   var rpe = parseInt(document.getElementById('harjRpe').value) || 6;
   var y   = new Date().getFullYear();
-  var wk  = getWeekNumber(new Date());
+  var wk  = (function(d){var y=d.getFullYear();return Math.ceil(((d-new Date(y,0,1))/86400000+new Date(y,0,1).getDay()+1)/7);})(new Date());
   sls('tm_coach_harj_' + y + '_' + wk + '_' + pvId, {
     tyypit:       window._harjTyypit || [],
     rpe:          rpe,
