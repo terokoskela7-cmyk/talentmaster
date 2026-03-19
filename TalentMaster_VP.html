@@ -220,6 +220,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
     <div class="nav-tab" onclick="vaihda(4,this)" style="color:var(--teal)">⭐ Talentit</div>
     <div class="nav-tab" onclick="vaihda(5,this)">🎯 Seuratavoitteet</div>
     <div class="nav-tab" onclick="vaihda(6,this)">📚 Koulutus</div>
+  <div class="nav-tab" onclick="vaihda(7,this)">🏆 Tekniikkakilpailut</div>
   </div>
   <div class="content">
     <div id="tabYleiskuva"></div>
@@ -229,6 +230,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
     <div id="tabTalentit" style="display:none"></div>
     <div id="tabSeuratavoitteet" style="display:none"></div>
     <div id="tabKoulutus" style="display:none"></div>
+    <div id="tabTekniikkakilpailut" style="display:none"></div>
   </div>
 </div>
 
@@ -2293,7 +2295,7 @@ function ovrFromObj(k) {
 }
 
 // ── NAVIGATION ──
-var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabTalentit','tabSeuratavoitteet','tabKoulutus'];
+var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabTalentit','tabSeuratavoitteet','tabKoulutus','tabTekniikkakilpailut'];
 function vaihda(idx, el) {
   _aktivTab = idx;
   _tabs.forEach(function(t){ document.getElementById(t).style.display='none'; });
@@ -2318,6 +2320,7 @@ function renderTab(idx) {
   else if (idx===4) renderTalentit();
   else if (idx===5) renderSeuratavoitteet();
   else if (idx===6) renderKoulutus();
+  else if (idx===7) renderTekniikkakilpailut();
 }
 
 // ── KETJU META ──
@@ -3940,6 +3943,219 @@ function vaihdaKori(kori) {
 }
 
 // ── KOULUTUS TAB (korvaa Tavoitetasot) ────────────────────────────────────
+// ── VP: TK-datahaku ─────────────────────────────────────────────────────
+// Haetaan pelaajan TK-historia joko objektista tai localStorage:sta
+function vpHaeTKHistoria(p) {
+  if (p.tk_historia && p.tk_historia.length) return p.tk_historia;
+  try { return JSON.parse(localStorage.getItem('tm_tk_' + p.id) || '[]'); }
+  catch(e) { return []; }
+}
+
+// Simulaatiodata (pieni versio — vain mediaanit ja top10-rajat per ikäluokka)
+// Perustuu samaan dataan kuin Masterissa
+var VP_TK_REFERENSSIT = {
+  P8:  { mediaani:120, top10:97  }, P9:  { mediaani:102, top10:82  },
+  P10: { mediaani:130, top10:105 }, P11: { mediaani:118, top10:95  },
+  P12: { mediaani:95,  top10:77  }, P13: { mediaani:88,  top10:71  },
+  T8:  { mediaani:132, top10:107 }, T9:  { mediaani:114, top10:92  },
+  T10: { mediaani:143, top10:115 }, T11: { mediaani:132, top10:107 },
+  T12: { mediaani:108, top10:87  }, T13: { mediaani:100, top10:81  }
+};
+
+// Laske prosenttipiste yksinkertaisella lineaarisella interpolaatiolla
+// (tarkempi versio on Masterissa, tässä riittää karkea arvio VP:tä varten)
+function vpProsenttipiste(kokonaisaika, avain) {
+  var ref = VP_TK_REFERENSSIT[avain];
+  if (!ref) return null;
+  if (kokonaisaika <= ref.top10)  return 92; // top 10%
+  if (kokonaisaika <= ref.mediaani) {
+    // Interpoloi top10-rajan ja mediaanin välillä → 50–92%
+    var t = (ref.mediaani - kokonaisaika) / (ref.mediaani - ref.top10);
+    return Math.round(50 + t * 42);
+  }
+  // Alle mediaanin: 0–50%
+  var heikkoRaja = ref.mediaani * 1.35; // karkea arvio pronssitason alapuolesta
+  var t2 = Math.max(0, (heikkoRaja - kokonaisaika) / (heikkoRaja - ref.mediaani));
+  return Math.round(t2 * 50);
+}
+
+// ── VP: Tekniikkakilpailut-välilehti ─────────────────────────────────────
+function renderTekniikkakilpailut() {
+  var s = _seuraData[_aktivSeura];
+  var el = document.getElementById('tabTekniikkakilpailut');
+  if (!s || !el) return;
+
+  // Kerää kaikki joukkueiden TK-tulokset
+  var joukkueTulokset = {}; // { joukkuenNimi: [ {p, viim, prosenttipiste} ] }
+  var kaikki = [];
+
+  Object.keys(s.joukkueet).forEach(function(jnimi) {
+    var jd = s.joukkueet[jnimi];
+    var jTulokset = [];
+
+    (jd.pelaajatLista || []).forEach(function(p) {
+      var hist = vpHaeTKHistoria(p);
+      if (!hist.length) return;
+      var viim = hist[hist.length - 1];
+      if (!viim.kokonaisaika || !viim.ikaluokka) return;
+      var pp = vpProsenttipiste(viim.kokonaisaika, viim.ikaluokka);
+      var item = { p:p, viim:viim, pp: pp !== null ? pp : 50 };
+      jTulokset.push(item);
+      kaikki.push(item);
+    });
+
+    if (jTulokset.length) {
+      // Järjestä prosenttipisteen mukaan
+      jTulokset.sort(function(a,b){ return b.pp - a.pp; });
+      joukkueTulokset[jnimi] = jTulokset;
+    }
+  });
+
+  var h = '';
+  h += '<div style="padding:0 0 24px">';
+
+  // ── OTSIKKO ──────────────────────────────────────────────────────────
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">';
+  h += '<div>';
+  h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:800">🏆 Tekniikkakilpailut</div>';
+  h += '<div style="font-size:12px;color:var(--muted2)">Palloliiton viralliset tulokset · kansallinen vertailu</div>';
+  h += '</div>';
+  // Linkki TalentMaster Masteriin — valmentajan puolelle
+  h += '<a href="TalentMaster_Master_v7.html" style="font-size:11px;color:var(--teal);';
+  h += 'background:rgba(0,229,204,.08);border:1px solid rgba(0,229,204,.2);';
+  h += 'border-radius:8px;padding:6px 12px;text-decoration:none;display:flex;align-items:center;gap:5px;">';
+  h += '↗ Kirjaa tuloksia</a>';
+  h += '</div>';
+
+  if (!kaikki.length) {
+    // Ei TK-dataa — ohje ja linkki
+    h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px;text-align:center;">';
+    h += '<div style="font-size:32px;margin-bottom:12px">🏆</div>';
+    h += '<div style="font-size:16px;font-weight:700;margin-bottom:8px">Ei tekniikkakilpailutuloksia vielä</div>';
+    h += '<div style="font-size:12px;color:var(--muted2);max-width:320px;margin:0 auto 16px;line-height:1.7">';
+    h += 'Valmentaja kirjaa tekniikkakilpailutulokset pelaajan profiiliin TalentMasterissa. ';
+    h += 'Tulokset näkyvät täällä heti tallennuksen jälkeen.</div>';
+    h += '<a href="TalentMaster_Master_v7.html" style="display:inline-block;padding:10px 20px;';
+    h += 'background:var(--teal);color:#000;border-radius:9px;font-weight:700;text-decoration:none;">';
+    h += '↗ Avaa TalentMaster — kirjaa tuloksia</a>';
+    h += '</div>';
+    el.innerHTML = h + '</div>';
+    return;
+  }
+
+  // ── SEURAN YHTEENVETO — neljä ryhmää ────────────────────────────────
+  var top10  = kaikki.filter(function(t){ return t.pp >= 90; });
+  var top25  = kaikki.filter(function(t){ return t.pp >= 75 && t.pp < 90; });
+  var ylaosa = kaikki.filter(function(t){ return t.pp >= 50 && t.pp < 75; });
+  var kehitt = kaikki.filter(function(t){ return t.pp < 50; });
+
+  h += '<div style="background:var(--card);border:1px solid rgba(186,117,23,.2);border-radius:14px;padding:16px;margin-bottom:16px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">';
+  h += 'Seuran tilannekuva — ' + kaikki.length + ' pelaajaa testattu</div>';
+
+  var ryhmat = [
+    { label:'Top 10%',  vari:'#FFD700', data:top10  },
+    { label:'Top 25%',  vari:'#1D9E75', data:top25  },
+    { label:'50–75%',   vari:'#4D9FFF', data:ylaosa },
+    { label:'Alle 50%', vari:'#888780', data:kehitt  }
+  ];
+  ryhmat.forEach(function(r) {
+    if (!r.data.length) return;
+    var pct = Math.round(r.data.length / kaikki.length * 100);
+    h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">';
+    h += '<div style="font-size:11px;color:var(--muted);width:68px;flex-shrink:0">' + r.label + '</div>';
+    h += '<div style="flex:1;height:24px;background:var(--bg3);border-radius:6px;overflow:hidden;">';
+    h += '<div style="height:24px;width:' + pct + '%;background:' + r.vari + ';border-radius:6px;opacity:0.85;';
+    h += 'display:flex;align-items:center;padding-left:8px;">';
+    if (pct > 12) {
+      h += '<span style="font-size:11px;font-weight:700;color:' + (r.label==='Alle 50%'?'var(--text)':'#000') + '">';
+      h += r.data.length + ' pelaajaa</span>';
+    }
+    h += '</div></div>';
+    h += '<div style="font-size:12px;font-weight:700;color:' + r.vari + ';width:32px;text-align:right">' + pct + '%</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // ── JOUKKUEET — jokainen omana korttinan ────────────────────────────
+  h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">';
+  h += 'Tulokset joukkueittain</div>';
+
+  Object.keys(joukkueTulokset).sort().forEach(function(jnimi) {
+    var jTulokset = joukkueTulokset[jnimi];
+    var jtop10 = jTulokset.filter(function(t){ return t.pp >= 90; });
+    var jtop25 = jTulokset.filter(function(t){ return t.pp >= 75; });
+    var jKa    = Math.round(jTulokset.reduce(function(s,t){return s+t.pp;},0) / jTulokset.length);
+
+    h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:10px;">';
+
+    // Joukkueotsikko
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+    h += '<div>';
+    h += '<div style="font-size:14px;font-weight:700">' + jnimi + '</div>';
+    h += '<div style="font-size:11px;color:var(--muted2)">' + jTulokset.length + ' pelaajaa testattu</div>';
+    h += '</div>';
+    // Joukkueen prosenttipiste-keskiarvo
+    var jKaCol = jKa >= 75 ? '#1D9E75' : jKa >= 50 ? '#4D9FFF' : '#888780';
+    h += '<div style="text-align:center;">';
+    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:30px;line-height:1;color:' + jKaCol + '">' + jKa + '</div>';
+    h += '<div style="font-size:9px;color:var(--muted)">joukkueen ka. %</div>';
+    h += '</div>';
+    h += '</div>';
+
+    // Top-suorittajat
+    if (jtop10.length || jtop25.length) {
+      h += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">';
+      jTulokset.slice(0, 5).forEach(function(item) {
+        var ikoni = item.pp >= 90 ? '⭐' : item.pp >= 75 ? '✓' : '';
+        if (!ikoni) return;
+        var vari = item.pp >= 90 ? '#FFD700' : '#1D9E75';
+        h += '<div style="display:flex;align-items:center;gap:4px;';
+        h += 'background:rgba(0,0,0,.15);border-radius:7px;padding:4px 8px;">';
+        h += '<span style="font-size:11px">' + ikoni + '</span>';
+        h += '<div style="font-size:11px;color:' + vari + ';font-weight:700">';
+        h += item.p.etunimi[0] + '. ' + item.p.sukunimi + '</div>';
+        h += '<div style="font-size:10px;color:var(--muted2)">top ' + (100-item.pp) + '%</div>';
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+
+    // Kaikki pelaajat pienenä ruudukkona
+    h += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;">';
+    jTulokset.forEach(function(item) {
+      var ppCol = item.pp >= 90 ? '#FFD700' : item.pp >= 75 ? '#1D9E75' : item.pp >= 50 ? '#4D9FFF' : '#888780';
+      var ref = VP_TK_REFERENSSIT[item.viim.ikaluokka] || {};
+      h += '<div style="background:var(--bg3);border-radius:7px;padding:5px 4px;text-align:center;">';
+      h += '<div style="font-size:9px;color:var(--muted)">' + item.p.etunimi[0] + '.' + item.p.sukunimi.slice(0,5) + '</div>';
+      h += '<div style="font-size:13px;font-weight:700;color:' + ppCol + '">' + item.viim.kokonaisaika + 's</div>';
+      // Merkki jos on
+      if (item.viim.merkki) {
+        var mVari = {K:'#FFD700',H:'#C0C0C0',P:'#CD7F32'}[item.viim.merkki];
+        h += '<div style="font-size:9px;color:' + mVari + '">';
+        h += ({K:'Kulta',H:'Hopea',P:'Pronssi'})[item.viim.merkki] + '</div>';
+      }
+      h += '</div>';
+    });
+    h += '</div>';
+
+    h += '</div>'; // joukkuekortti
+  });
+
+  // ── LIIKANEN & TÖRMÄ 2025 -INFOKORTTI ──────────────────────────────
+  h += '<div style="background:rgba(186,117,23,.07);border-left:3px solid #BA7517;';
+  h += 'border-radius:0 10px 10px 0;padding:12px 14px;margin-top:8px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:#BA7517;margin-bottom:5px">📊 Miksi tekniikkakilpailut ennustavat?</div>';
+  h += '<div style="font-size:11px;color:var(--muted2);line-height:1.7">';
+  h += 'Liikanen & Törmä 2025: syöttötaito (+13%), pujottelutaito (+9%) ja SM-pallotaito (+8%) ';
+  h += 'ennustavat ammattilaisuutta parhaiten 12-vuotiaana. Kevennyshyppy (CMJ) ei ennustanut lainkaan. ';
+  h += 'Tekniikkakilpailut ovat siis paras yksittäinen työkalu talenttitunnistukseen — ei fyysiset testit.';
+  h += '</div></div>';
+
+  h += '</div>'; // padding-wrapper
+  el.innerHTML = h;
+}
+
 function renderKoulutus() {
   // Siirrä sisältö renderTavoitetasot:sta tänne
   var el = document.getElementById('tabKoulutus');
