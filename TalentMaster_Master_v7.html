@@ -7870,52 +7870,6 @@ function buildTanaan(){
     +'<div class="sit-ai" id="sitAITxt" style="opacity:.5">Ladataan selitystä...</div>'
     +'</div>';
 
-  // ── 7. JOUKKUEHARJOITUS-KORTTI — näkyvänä, selitettynä ──
-  var rpeData=haeRpeTanaan(p);
-  var harjoituspaiva=onHarjoituspaiva();
-
-  if(rpeData){
-    // Merkitty — näytä selkeä yhteenveto mitä luku tarkoittaa
-    var rpeVari=rpeData.tyyppi==='liikenne'
-      ? (rpeData.arvo===1?'var(--green)':rpeData.arvo===2?'var(--amber)':'var(--red)')
-      : (rpeData.arvo<=3?'var(--green)':rpeData.arvo<=6?'var(--amber)':'var(--red)');
-    var rpeLabel=rpeData.tyyppi==='liikenne'
-      ? (['','🟢 Kevyt harjoitus','🟡 Kohtalainen harjoitus','🔴 Rankka harjoitus'][rpeData.arvo]||'')
-      : ('CR-10: '+rpeData.arvo+'/10');
-    var rpeSelitys=rpeData.tyyppi==='liikenne'
-      ? (['','Hyvä — voit lisätä tehoa seuraavaan kertaan.','Täydellinen — sopiva kuormitus kehittymiselle.','Muista palautua hyvin — uni ja ravinto tärkeää nyt.'][rpeData.arvo]||'')
-      : (rpeData.arvo<=3?'Kevyt — keho toipuu nopeasti.':rpeData.arvo<=6?'Sopiva kuormitus — kehityt tästä.':rpeData.arvo<=8?'Rankka — priorisoi palautuminen.':'Maksimaalinen — tarvitset täyden palautumispäivän.');
-    h+='<div style="background:rgba(0,229,204,.07);border:1.5px solid rgba(0,229,204,.25);border-radius:14px;padding:14px 16px;margin-bottom:12px;">';
-    h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
-    h+='<span style="font-size:22px;">💪</span>';
-    h+='<div style="flex:1">';
-    h+='<div style="font-size:13px;font-weight:700;color:var(--teal);">Joukkueharjoitus merkitty ✓</div>';
-    h+='<div style="font-size:12px;color:'+rpeVari+';font-weight:700;margin-top:2px;">'+rpeLabel+'</div>';
-    h+='</div>';
-    h+='<button onclick="avaaRpePopup()" style="font-size:11px;padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--muted2);cursor:pointer;flex-shrink:0;">Muuta</button>';
-    h+='</div>';
-    h+='<div style="font-size:12px;color:var(--muted2);line-height:1.5;padding:8px 10px;background:rgba(0,0,0,.2);border-radius:9px;">'+rpeSelitys+'</div>';
-    h+='</div>';
-  } else if(harjoituspaiva||isT){
-    // Harjoituspäivä — näytetään kortti jossa selitetään miksi
-    h+='<div style="background:linear-gradient(135deg,rgba(0,229,204,.1),rgba(0,229,204,.04));border:2px solid rgba(0,229,204,.35);border-radius:16px;padding:16px;margin-bottom:12px;">';
-    // Otsikko
-    h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">';
-    h+='<div style="width:40px;height:40px;border-radius:10px;background:rgba(0,229,204,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">💪</div>';
-    h+='<div>';
-    h+='<div style="font-size:15px;font-weight:800;color:var(--teal);">Oliko joukkueharjoitus tänään?</div>';
-    h+='<div style="font-size:11px;color:var(--muted2);margin-top:2px;">Merkitse 10 sekunnissa — saat +10 XP</div>';
-    h+='</div></div>';
-    // Miksi kysytään — selitys
-    h+='<div style="font-size:12px;color:var(--muted2);line-height:1.6;margin-bottom:12px;padding:10px 12px;background:rgba(0,0,0,.2);border-radius:10px;">';
-    h+='<strong style="color:var(--text);">Miksi tämä kysytään?</strong><br>';
-    h+='Valmentajasi seuraa kuinka rankkoja harjoitukset ovat sinulle. Se auttaa suunnittelemaan sopivan harjoitusmäärän niin että kehityt nopeasti mutta et väsy liikaa.';
-    h+='</div>';
-    // CTA-nappi
-    h+='<button onclick="avaaRpePopup()" style="width:100%;padding:14px;border-radius:12px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:800;cursor:pointer;letter-spacing:.5px;">MERKITSE HARJOITUS →</button>';
-    h+='</div>';
-  }
-
   document.getElementById('tTanaan').innerHTML=h;
 }
 
@@ -8032,8 +7986,16 @@ function buildGhostCard(p){
 // ═══════════ HARJOITE SHEET ═══════════
 function avaaHarjoite(lohkoId,idx,dk){
   var p=S.pelaaja,r=p.qs_historia[p.qs_historia.length-1]&&p.qs_historia[p.qs_historia.length-1].results||{};
-  var heikoin=r.heikoin_ketju||'syva';
-  var harj=lohkoId==='akt'?AKTIVOINTI:(HARJOITTEET[heikoin]||HARJOITTEET.syva);
+  // Käytetään TKI-ketjulogiikkaa jos saatavilla, muuten fasciaalinen fallback
+  var tkiP=laskeTKIKetjut(p);
+  var paivOhj=rakennaPaivanOhjelma(tkiP,S.selDay,null);
+  var heikoin=JP_TO_FASCIAALI[tkiP.heikoin]||(r.heikoin_ketju||'syva');
+  var JP_TO_FASCIAALI_LOC={vauhti:'taka',lahto:'etu',sm:'sivu',hallinta:'kierto',pelinteko:'syva'};
+  heikoin=JP_TO_FASCIAALI_LOC[tkiP.heikoin]||(r.heikoin_ketju||'syva');
+  var harj=lohkoId==='akt'?AKTIVOINTI
+    :(paivOhj.ketju&&TEKNIIKKAHARJOITTEET[paivOhj.ketju]
+      ?TEKNIIKKAHARJOITTEET[paivOhj.ketju]
+      :(HARJOITTEET[heikoin]||HARJOITTEET.syva));
   var ex=harj[idx];if(!ex)return;
   var key=lohkoId+'_'+idx,dc=S.checked[dk]||{},done=!!dc[key];
   var ikoni=lohkoId==='akt'?'⚡':KETJU_IKONIT[heikoin];
@@ -8094,7 +8056,15 @@ function merkitseHarjoite(key,dk){
 }
 function tarkistaStreak(dk){
   var p=S.pelaaja,r=p.qs_historia[p.qs_historia.length-1]&&p.qs_historia[p.qs_historia.length-1].results||{};
-  var heikoin=r.heikoin_ketju||'syva',harjN=(HARJOITTEET[heikoin]||[]).length,dc=S.checked[dk]||{};
+  // Käytetään TKI-pohjaista harjoitemäärää — sama logiikka kuin buildTanaan:ssa
+  var tkiP=laskeTKIKetjut(p);
+  var paivOhj=rakennaPaivanOhjelma(tkiP,S.selDay,null);
+  var JP_TO_FASCIAALI_LOC={vauhti:'taka',lahto:'etu',sm:'sivu',hallinta:'kierto',pelinteko:'syva'};
+  var heikoin=JP_TO_FASCIAALI_LOC[tkiP.heikoin]||(r.heikoin_ketju||'syva');
+  var kehLista=paivOhj.ketju&&TEKNIIKKAHARJOITTEET[paivOhj.ketju]
+    ?TEKNIIKKAHARJOITTEET[paivOhj.ketju]
+    :(HARJOITTEET[heikoin]||HARJOITTEET.syva);
+  var harjN=kehLista.length,dc=S.checked[dk]||{};
   var allKeys=[];for(var i=0;i<3;i++)allKeys.push('akt_'+i);for(var j=0;j<harjN;j++)allKeys.push('keh_'+j);
   if(allKeys.every(function(k){return dc[k];})&&!dc.allDone){
     dc.allDone=true;S.streak++;sls('tm_streak',S.streak);sls('tm_checked',S.checked);
@@ -9742,23 +9712,64 @@ function buildKehitys(){
     h+='<div style="font-size:10px;color:var(--muted2);margin-top:6px">Miten lasketaan: RAE × normitaso + testikehityskulma (Palloliiton taso 1–5)</div>';
     h+='</div>';
   }
-  if(r.heikoin_ketju&&r.ketjut){
-    var hk=r.heikoin_ketju,kd=r.ketjut[hk],nyt=Math.round(kd&&kd.pisteet||0),pct=Math.min(100,Math.round(nyt/10*100)),tPct=70;
-    h+='<div class="keh-tile"><div class="keh-tile-hdr"><span style="font-size:24px">'+KETJU_IKONIT[hk]+'</span><div><div style="font-size:15px;font-weight:700;">'+KETJU_NIMET[hk]+'</div><div style="font-size:11px;color:var(--red)">Kehityskohde nyt</div></div><span style="font-size:10px;padding:3px 8px;border-radius:5px;background:var(--red-dim);color:var(--red);font-weight:700">KEHITETTÄVÄÄ</span></div>';
-    h+='<div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">'+KETJU_SELITYS[hk]+'</div>';
-    h+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;"><span>Nyt</span><span style="color:var(--amber);font-weight:700">'+nyt+' / 10</span></div>';
-    h+='<div class="keh-bar-wrap"><div class="keh-bar-fill" style="width:'+pct+'%;background:var(--amber)"></div><div class="keh-bar-target" style="left:'+tPct+'%"></div></div>';
-    h+='<div style="font-size:10px;color:var(--muted);margin-top:4px">Tavoite: 7/10</div>';
-    h+='<button style="width:100%;margin-top:10px;padding:10px;border-radius:10px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;cursor:pointer;" onclick="goTab(0)">Näytä tänään harjoitteet →</button>';
-    h+='</div>';
-  }
-  if(r.vahvin_ketju&&r.ketjut){
-    var vk=r.vahvin_ketju,kd2=r.ketjut[vk],nyt2=Math.round(kd2&&kd2.pisteet||0),pct2=Math.min(100,Math.round(nyt2/10*100));
-    h+='<div class="keh-tile" style="border-color:#1FD16A33"><div class="keh-tile-hdr"><span style="font-size:24px">'+KETJU_IKONIT[vk]+'</span><div><div style="font-size:15px;font-weight:700;">'+KETJU_NIMET[vk]+'</div><div style="font-size:11px;color:var(--green)">Sinun vahvuutesi</div></div><span style="font-size:10px;padding:3px 8px;border-radius:5px;background:var(--green-dim);color:var(--green);font-weight:700">VAHVUUS ★</span></div>';
-    h+='<div class="keh-bar-wrap"><div class="keh-bar-fill" style="width:'+pct2+'%;background:var(--green)"></div></div>';
-    h+='<div style="font-size:11px;color:var(--muted2);margin-top:6px">'+nyt2+'/10 — Tämä on luontainen vahvuutesi!</div>';
-    h+='</div>';
-  }
+  // ── KETJUTIILET — heikoin + vahvin ──────────────────────────────────
+  // Ensisijainen lähde: QS-historia (fasciaalinen järjestelmä, asteikko 0-10).
+  // Fallback: TKI-profiili tk_historian pohjalta (jalkapallospesifinen, 0-100 → skaalataan 0-10).
+  // Tämä varmistaa että kehitysnäkymä ei ole tyhjä pelkästään tk_historia-datalla olevilla pelaajilla.
+  (function(){
+    var tkiKeh = laskeTKIKetjut(p);
+    var JP_TO_FASCIAALI_K = {vauhti:'taka',lahto:'etu',sm:'sivu',hallinta:'kierto',pelinteko:'syva'};
+
+    if(r.heikoin_ketju&&r.ketjut){
+      // QS-data saatavilla — käytetään fasciaalisia pisteitä suoraan
+      var hk=r.heikoin_ketju,kd=r.ketjut[hk],nyt=Math.round(kd&&kd.pisteet||0),pct=Math.min(100,Math.round(nyt/10*100)),tPct=70;
+      h+='<div class="keh-tile"><div class="keh-tile-hdr"><span style="font-size:24px">'+KETJU_IKONIT[hk]+'</span><div><div style="font-size:15px;font-weight:700;">'+KETJU_NIMET[hk]+'</div><div style="font-size:11px;color:var(--red)">Kehityskohde nyt</div></div><span style="font-size:10px;padding:3px 8px;border-radius:5px;background:var(--red-dim);color:var(--red);font-weight:700">KEHITETTÄVÄÄ</span></div>';
+      h+='<div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">'+KETJU_SELITYS[hk]+'</div>';
+      h+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;"><span>Nyt</span><span style="color:var(--amber);font-weight:700">'+nyt+' / 10</span></div>';
+      h+='<div class="keh-bar-wrap"><div class="keh-bar-fill" style="width:'+pct+'%;background:var(--amber)"></div><div class="keh-bar-target" style="left:'+tPct+'%"></div></div>';
+      h+='<div style="font-size:10px;color:var(--muted);margin-top:4px">Tavoite: 7/10</div>';
+      h+='<button style="width:100%;margin-top:10px;padding:10px;border-radius:10px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;cursor:pointer;" onclick="goTab(0)">Näytä tänään harjoitteet →</button>';
+      h+='</div>';
+    } else if(tkiKeh.pisteet[tkiKeh.heikoin]!==null){
+      // TKI-fallback — ei QS-dataa mutta tk_historia löytyy
+      var hkJP=tkiKeh.heikoin;
+      var hkF=JP_TO_FASCIAALI_K[hkJP]||'syva';
+      var tkiPisteet=tkiKeh.pisteet[hkJP];
+      var nytTKI=Math.round(tkiPisteet/10*10)/10; // 0-100 → näytetään suoraan
+      var pctTKI=Math.min(100,tkiPisteet);
+      h+='<div class="keh-tile"><div class="keh-tile-hdr">';
+      h+='<span style="font-size:24px">'+JP_IKONIT[hkJP]+'</span>';
+      h+='<div><div style="font-size:15px;font-weight:700;">'+JP_NIMET[hkJP]+'</div>';
+      h+='<div style="font-size:11px;color:var(--red)">Kehityskohde nyt — TK-arvio</div></div>';
+      h+='<span style="font-size:10px;padding:3px 8px;border-radius:5px;background:var(--red-dim);color:var(--red);font-weight:700">KEHITETTÄVÄÄ</span></div>';
+      h+='<div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">Tekniikkakilpailutulostesi perusteella tämä ketju kaipaa eniten työtä. Viikko-ohjelma kohdistuu tähän automaattisesti.</div>';
+      h+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;"><span>TKI-pisteet</span><span style="color:var(--amber);font-weight:700">'+tkiPisteet+' / 100</span></div>';
+      h+='<div class="keh-bar-wrap"><div class="keh-bar-fill" style="width:'+pctTKI+'%;background:var(--amber)"></div><div class="keh-bar-target" style="left:70%"></div></div>';
+      h+='<div style="font-size:10px;color:var(--muted);margin-top:4px">Tavoite: 70 / 100</div>';
+      h+='<button style="width:100%;margin-top:10px;padding:10px;border-radius:10px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;cursor:pointer;" onclick="goTab(0)">Näytä tänään harjoitteet →</button>';
+      h+='</div>';
+    }
+
+    if(r.vahvin_ketju&&r.ketjut){
+      var vk=r.vahvin_ketju,kd2=r.ketjut[vk],nyt2=Math.round(kd2&&kd2.pisteet||0),pct2=Math.min(100,Math.round(nyt2/10*100));
+      h+='<div class="keh-tile" style="border-color:#1FD16A33"><div class="keh-tile-hdr"><span style="font-size:24px">'+KETJU_IKONIT[vk]+'</span><div><div style="font-size:15px;font-weight:700;">'+KETJU_NIMET[vk]+'</div><div style="font-size:11px;color:var(--green)">Sinun vahvuutesi</div></div><span style="font-size:10px;padding:3px 8px;border-radius:5px;background:var(--green-dim);color:var(--green);font-weight:700">VAHVUUS ★</span></div>';
+      h+='<div class="keh-bar-wrap"><div class="keh-bar-fill" style="width:'+pct2+'%;background:var(--green)"></div></div>';
+      h+='<div style="font-size:11px;color:var(--muted2);margin-top:6px">'+nyt2+'/10 — Tämä on luontainen vahvuutesi!</div>';
+      h+='</div>';
+    } else if(tkiKeh.pisteet[tkiKeh.vahvin]!==null){
+      var vkJP=tkiKeh.vahvin;
+      var tkiV=tkiKeh.pisteet[vkJP];
+      var pctV=Math.min(100,tkiV);
+      h+='<div class="keh-tile" style="border-color:#1FD16A33"><div class="keh-tile-hdr">';
+      h+='<span style="font-size:24px">'+JP_IKONIT[vkJP]+'</span>';
+      h+='<div><div style="font-size:15px;font-weight:700;">'+JP_NIMET[vkJP]+'</div>';
+      h+='<div style="font-size:11px;color:var(--green)">Sinun vahvuutesi</div></div>';
+      h+='<span style="font-size:10px;padding:3px 8px;border-radius:5px;background:var(--green-dim);color:var(--green);font-weight:700">VAHVUUS ★</span></div>';
+      h+='<div class="keh-bar-wrap"><div class="keh-bar-fill" style="width:'+pctV+'%;background:var(--green)"></div></div>';
+      h+='<div style="font-size:11px;color:var(--muted2);margin-top:6px">'+tkiV+'/100 — Tämä on luontainen vahvuutesi!</div>';
+      h+='</div>';
+    }
+  })();
   // Mittarit
   if(latest&&latest.date){
     var pvm=new Date(latest.date).toLocaleDateString('fi-FI',{day:'numeric',month:'long'});
