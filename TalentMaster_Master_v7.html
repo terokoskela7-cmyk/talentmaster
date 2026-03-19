@@ -4670,8 +4670,263 @@ function buildCoachAsetukset(){
   });
   h += '</div>';
 
-  h += '</div>'; // padding-wrapper
+  h += '</div>'; // osio 1 padding-wrapper
+
+  // ═══════════════════════════════════════════════════════════
+  // OSIO 2 — ROOLIT
+  // ═══════════════════════════════════════════════════════════
+  var roolit = lsj('tm_roolit_' + seuraId) || {};
+  // Oletusroolit — VP on aina olemassa
+  var ROOLI_META = {
+    'vp':             { nimi:'Valmennuspäällikkö', lyhyt:'VP',  vari:'#F59E0B', kuvaus:'Hallinnoi testipakettia, rooleja ja konfiguraatiota' },
+    'fs_valmentaja':  { nimi:'FS-valmentaja',      lyhyt:'FS',  vari:'#4A9EFF', kuvaus:'Vastaa H-H-testauksesta, biologisesta iästä ja kuormitusseurannasta' },
+    'valmentaja':     { nimi:'Valmentaja',          lyhyt:'VAL', vari:'#00E5CC', kuvaus:'Kirjaa ADAR-arvioinnit, RPE:t, loukkaantumiset ja + -merkinnät' },
+  };
+
+  h += '<div style="margin:20px 14px 0;">';
+  h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">Osio 2 — Roolit</div>';
+
+  // Rooliselitteet
+  h += '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">';
+  Object.keys(ROOLI_META).forEach(function(rid) {
+    var rm = ROOLI_META[rid];
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:11px;">';
+    h += '<div style="width:36px;height:36px;border-radius:9px;background:' + rm.vari + '20;border:1.5px solid ' + rm.vari + '44;display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:900;color:' + rm.vari + ';flex-shrink:0;">' + rm.lyhyt + '</div>';
+    h += '<div style="flex:1;"><div style="font-size:13px;font-weight:700;">' + rm.nimi + '</div>';
+    h += '<div style="font-size:10px;color:var(--muted2);margin-top:1px;">' + rm.kuvaus + '</div></div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Lisää valmentaja -osio
+  h += '<div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:8px;">Lisätyt valmentajat</div>';
+
+  // Näytä jo lisätyt
+  var lisatytRoolit = Object.keys(roolit);
+  if (lisatytRoolit.length > 0) {
+    h += '<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px;">';
+    lisatytRoolit.forEach(function(nimi) {
+      var rooli = roolit[nimi];
+      var rm2 = ROOLI_META[rooli] || ROOLI_META['valmentaja'];
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;">';
+      h += '<div style="font-size:13px;font-weight:600;flex:1;">' + nimi + '</div>';
+      h += '<div style="font-size:9px;font-weight:800;padding:3px 8px;border-radius:6px;background:' + rm2.vari + '18;color:' + rm2.vari + ';border:1px solid ' + rm2.vari + '33;">' + rm2.lyhyt + '</div>';
+      h += '<button onclick="poistaValmentaja(\'' + seuraId + '\',\'' + nimi + '\')" style="padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);font-size:11px;cursor:pointer;">✕</button>';
+      h += '</div>';
+    });
+    h += '</div>';
+  } else {
+    h += '<div style="font-size:12px;color:var(--muted2);padding:10px 0;">Ei lisättyjä valmentajia vielä.</div>';
+  }
+
+  // Lisää uusi valmentaja -lomake
+  h += '<div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:8px;">+ Lisää valmentaja</div>';
+  h += '<div style="display:flex;gap:7px;margin-bottom:8px;">';
+  h += '<input id="uusiValmentajaNimi" type="text" placeholder="Etunimi Sukunimi" ';
+  h += 'style="flex:1;padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
+  h += '</div>';
+  h += '<div style="display:flex;gap:6px;margin-bottom:8px;">';
+  Object.keys(ROOLI_META).forEach(function(rid) {
+    var rm3 = ROOLI_META[rid];
+    h += '<button onclick="asetaUusiRooli(\'' + rid + '\',this)" data-rooli="' + rid + '" ';
+    h += 'style="flex:1;padding:7px 3px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);';
+    h += 'cursor:pointer;font-size:9px;font-weight:800;color:var(--muted2);font-family:Barlow Condensed,sans-serif;">';
+    h += rm3.lyhyt + '</button>';
+  });
+  h += '</div>';
+  h += '<button onclick="lisaaValmentaja(\'' + seuraId + '\')" ';
+  h += 'style="width:100%;padding:10px;border-radius:9px;border:none;background:var(--teal);color:#000;';
+  h += 'font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:800;cursor:pointer;">+ LISÄÄ</button>';
+  h += '</div>';
+  h += '</div>'; // osio 2
+
+  // ═══════════════════════════════════════════════════════════
+  // OSIO 3 — JOUKKUEEN KONFIGURAATIO
+  // ═══════════════════════════════════════════════════════════
+  var config = lsj('tm_seura_config_' + seuraId) || {};
+  var treenipaivat = config.treenipaivat || (seura ? seura.treenipaivat : [1,4]);
+  var bioMet = config.bio_metodi || 'mirwald';
+  var kausiAlku = config.kausi_alku || '2025-08-01';
+  var laajuus = config.laajuus || (seura ? seura.laajuus : 'laaja');
+
+  var VIIKONPAIVAT = ['Ma','Ti','Ke','To','Pe','La','Su'];
+
+  h += '<div style="margin:20px 14px 0;">';
+  h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">Osio 3 — Joukkueen konfiguraatio</div>';
+
+  // Treeniajat
+  h += '<div style="margin-bottom:14px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:8px;">Joukkuetreeniajat</div>';
+  h += '<div style="display:flex;gap:5px;">';
+  VIIKONPAIVAT.forEach(function(pn, pi) {
+    var on = treenipaivat.indexOf(pi) >= 0;
+    h += '<button onclick="toggleTreenipaiva(' + pi + ',\'' + seuraId + '\',this)" data-pv="' + pi + '" ';
+    h += 'style="flex:1;padding:9px 3px;border-radius:9px;border:1.5px solid ' + (on ? 'var(--teal)' : 'var(--border)') + ';';
+    h += 'background:' + (on ? 'rgba(0,229,204,.12)' : 'var(--bg3)') + ';cursor:pointer;';
+    h += 'font-size:11px;font-weight:800;color:' + (on ? 'var(--teal)' : 'var(--muted2)') + ';font-family:Barlow Condensed,sans-serif;">';
+    h += pn + '</button>';
+  });
+  h += '</div></div>';
+
+  // Biologinen ikä -metodi
+  h += '<div style="margin-bottom:14px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:8px;">Biologisen iän laskentametodi</div>';
+  h += '<div style="display:flex;gap:6px;">';
+  [['mirwald','Mirwald 2002','Istumakorkeus — yksin riittää'],
+   ['khamis','Khamis-Roche','Vanhempien pituudet — tarkempi'],
+   ['molemmat','Molemmat','Vertailu — suositellaan taso 3']
+  ].forEach(function(m) {
+    var on = bioMet === m[0];
+    h += '<div onclick="asetaBioMetodi(\'' + m[0] + '\',\'' + seuraId + '\',this)" ';
+    h += 'style="flex:1;padding:9px 8px;border-radius:10px;border:1.5px solid ' + (on ? 'var(--teal)' : 'var(--border)') + ';';
+    h += 'background:' + (on ? 'rgba(0,229,204,.08)' : 'var(--bg3)') + ';cursor:pointer;text-align:center;">';
+    h += '<div style="font-size:12px;font-weight:700;color:' + (on ? 'var(--teal)' : 'var(--muted)') + ';">' + m[1] + '</div>';
+    h += '<div style="font-size:9px;color:var(--muted2);margin-top:3px;line-height:1.3;">' + m[2] + '</div>';
+    h += '</div>';
+  });
+  h += '</div></div>';
+
+  // Kauden alkupäivämäärä
+  h += '<div style="margin-bottom:14px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:6px;">Kauden alkupäivämäärä</div>';
+  h += '<input id="kausiAlkuInput" type="date" value="' + kausiAlku + '" ';
+  h += 'onchange="tallennaKausiAlku(\'' + seuraId + '\',this.value)" ';
+  h += 'style="width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">';
+  h += '</div>';
+
+  // Taso 3 laajuus
+  if (paketti && paketti.id === 'taso3') {
+    h += '<div style="margin-bottom:14px;">';
+    h += '<div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:8px;">Taso 3 — laajuus</div>';
+    h += '<div style="display:flex;gap:6px;">';
+    [['laaja','Laaja','VSCI + 5D Framework — täysi TalentID'],
+     ['suppea','Suppea','Ilman VSCI — max 85% kirkastuminen']
+    ].forEach(function(lv) {
+      var on = laajuus === lv[0];
+      h += '<div onclick="asetaLaajuus(\'' + lv[0] + '\',\'' + seuraId + '\',this)" ';
+      h += 'style="flex:1;padding:10px;border-radius:10px;border:1.5px solid ' + (on ? '#F59E0B' : 'var(--border)') + ';';
+      h += 'background:' + (on ? 'rgba(245,158,11,.08)' : 'var(--bg3)') + ';cursor:pointer;text-align:center;">';
+      h += '<div style="font-size:12px;font-weight:700;color:' + (on ? '#F59E0B' : 'var(--muted)') + ';">' + lv[1] + '</div>';
+      h += '<div style="font-size:9px;color:var(--muted2);margin-top:3px;">' + lv[2] + '</div>';
+      h += '</div>';
+    });
+    h += '</div></div>';
+  }
+
+  // Tallenna konfiguraatio -nappi
+  h += '<button onclick="tallennaSeuraConfig(\'' + seuraId + '\')" ';
+  h += 'style="width:100%;padding:12px;border-radius:12px;border:none;background:var(--teal);color:#000;';
+  h += 'font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.5px;margin-bottom:8px;">💾 TALLENNA KONFIGURAATIO</button>';
+
+  h += '</div>'; // osio 3
+  h += '</div>'; // koko asetukset padding-wrapper
   el.innerHTML = h;
+}
+
+// ── ASETUKSET OSIO 2 — APUFUNKTIOT ──────────────────────────────────────
+
+var _uusiRooliValinta = 'valmentaja';
+
+function asetaUusiRooli(rid, btn) {
+  _uusiRooliValinta = rid;
+  var napit = btn.parentElement.querySelectorAll('button');
+  var varit = {vp:'#F59E0B', fs_valmentaja:'#4A9EFF', valmentaja:'#00E5CC'};
+  napit.forEach(function(n) {
+    var nr = n.getAttribute('data-rooli');
+    var vari = varit[nr] || 'var(--teal)';
+    var on = n === btn;
+    n.style.borderColor = on ? vari : 'var(--border)';
+    n.style.background  = on ? vari + '20' : 'var(--bg3)';
+    n.style.color       = on ? vari : 'var(--muted2)';
+  });
+}
+
+function lisaaValmentaja(seuraId) {
+  var input = document.getElementById('uusiValmentajaNimi');
+  var nimi = input ? input.value.trim() : '';
+  if (!nimi) { naytaToast('Syötä valmentajan nimi ensin'); return; }
+  var roolit = lsj('tm_roolit_' + seuraId) || {};
+  roolit[nimi] = _uusiRooliValinta;
+  sls('tm_roolit_' + seuraId, roolit);
+  naytaToast('✅ ' + nimi + ' lisätty — ' + (_uusiRooliValinta === 'vp' ? 'VP' : _uusiRooliValinta === 'fs_valmentaja' ? 'FS-valmentaja' : 'Valmentaja'));
+  buildCoachAsetukset();
+}
+
+function poistaValmentaja(seuraId, nimi) {
+  var roolit = lsj('tm_roolit_' + seuraId) || {};
+  delete roolit[nimi];
+  sls('tm_roolit_' + seuraId, roolit);
+  naytaToast('Poistettu: ' + nimi);
+  buildCoachAsetukset();
+}
+
+// ── ASETUKSET OSIO 3 — APUFUNKTIOT ──────────────────────────────────────
+
+function toggleTreenipaiva(pi, seuraId, btn) {
+  var config = lsj('tm_seura_config_' + seuraId) || {};
+  var tp = config.treenipaivat || [1, 4];
+  var idx = tp.indexOf(pi);
+  if (idx >= 0) { tp.splice(idx, 1); }
+  else          { tp.push(pi); tp.sort(function(a,b){return a-b;}); }
+  config.treenipaivat = tp;
+  sls('tm_seura_config_' + seuraId, config);
+  var on = tp.indexOf(pi) >= 0;
+  btn.style.borderColor = on ? 'var(--teal)' : 'var(--border)';
+  btn.style.background  = on ? 'rgba(0,229,204,.12)' : 'var(--bg3)';
+  btn.style.color       = on ? 'var(--teal)' : 'var(--muted2)';
+}
+
+function asetaBioMetodi(metodi, seuraId, el2) {
+  var config = lsj('tm_seura_config_' + seuraId) || {};
+  config.bio_metodi = metodi;
+  sls('tm_seura_config_' + seuraId, config);
+  var napit = el2.parentElement.querySelectorAll('div[onclick]');
+  napit.forEach(function(n) {
+    var nm = n.getAttribute('onclick').match(/'([^']+)'/);
+    var on = nm && nm[1] === metodi;
+    n.style.borderColor = on ? 'var(--teal)' : 'var(--border)';
+    n.style.background  = on ? 'rgba(0,229,204,.08)' : 'var(--bg3)';
+    n.querySelector('div').style.color = on ? 'var(--teal)' : 'var(--muted)';
+  });
+}
+
+function asetaLaajuus(lv, seuraId, el3) {
+  var config = lsj('tm_seura_config_' + seuraId) || {};
+  config.laajuus = lv;
+  sls('tm_seura_config_' + seuraId, config);
+  var napit = el3.parentElement.querySelectorAll('div[onclick]');
+  napit.forEach(function(n) {
+    var nm = n.getAttribute('onclick').match(/'([^']+)'/);
+    var on = nm && nm[1] === lv;
+    n.style.borderColor = on ? '#F59E0B' : 'var(--border)';
+    n.style.background  = on ? 'rgba(245,158,11,.08)' : 'var(--bg3)';
+    n.querySelector('div').style.color = on ? '#F59E0B' : 'var(--muted)';
+  });
+}
+
+function tallennaKausiAlku(seuraId, arvo) {
+  var config = lsj('tm_seura_config_' + seuraId) || {};
+  config.kausi_alku = arvo;
+  sls('tm_seura_config_' + seuraId, config);
+  naytaToast('Kauden alku tallennettu: ' + arvo);
+}
+
+function tallennaSeuraConfig(seuraId) {
+  // Kausialkupäivä luetaan suoraan inputista jos se on muuttunut
+  var kausiInput = document.getElementById('kausiAlkuInput');
+  if (kausiInput) {
+    var config = lsj('tm_seura_config_' + seuraId) || {};
+    config.kausi_alku = kausiInput.value;
+    sls('tm_seura_config_' + seuraId, config);
+  }
+  naytaToast('💾 Konfiguraatio tallennettu');
+  // Päivitä myös SEURAT_KONFIGURAATIO ajoaikana (ei pysyvä, mutta heijastuu heti)
+  if (SEURAT_KONFIGURAATIO[seuraId]) {
+    var cfg = lsj('tm_seura_config_' + seuraId) || {};
+    if (cfg.treenipaivat) SEURAT_KONFIGURAATIO[seuraId].treenipaivat = cfg.treenipaivat;
+    if (cfg.laajuus)      SEURAT_KONFIGURAATIO[seuraId].laajuus      = cfg.laajuus;
+  }
 }
 
 // ── PAKETTIMODAL — toiminnallinen "Pyydä päivitystä" ─────────────────────
