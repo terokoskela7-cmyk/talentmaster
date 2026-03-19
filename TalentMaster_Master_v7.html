@@ -2485,7 +2485,73 @@ function buildCoachViikko(){
     if(ev.indexOf('testi')>=0)tvLkm++;
   });
 
-  h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:14px;">';
+  // ── LOUKKAANTUMIS- JA RPE-VAROITUKSET ────────────────────────────────
+  // Nämä näytetään heti viikkonäkymän alussa ennen harjoitusohjelmaa.
+  // Valmentaja näkee ensin rajoitteet, sitten ohjelman — ei toisinpäin.
+
+  // RPE-varoitus: korkea kuormitus
+  if (ohjelma.rpeVaroitus) {
+    var _rpeV = ohjelma.rpeVaroitus;
+    h += '<div style="background:rgba(229,57,53,.07);border:1px solid rgba(229,57,53,.25);';
+    h += 'border-radius:12px;padding:11px 14px;margin-bottom:10px;">';
+    h += '<div style="display:flex;align-items:center;gap:8px;">';
+    h += '<span style="font-size:16px">⚠️</span>';
+    h += '<div>';
+    h += '<div style="font-size:12px;font-weight:700;color:var(--red)">Korkea kuormitus — harkitse kevennystä</div>';
+    h += '<div style="font-size:11px;color:var(--muted2);margin-top:2px">' + _rpeV.viesti + '</div>';
+    h += '</div></div></div>';
+  }
+
+  // Loukkaantuneet pelaajat ja kielletyt harjoitteet
+  if (ohjelma.loukkaantuneet && ohjelma.loukkaantuneet.length > 0) {
+    h += '<div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);';
+    h += 'border-radius:12px;padding:11px 14px;margin-bottom:10px;">';
+    h += '<div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px;">🩹 Loukkaantuneet tällä viikolla</div>';
+
+    ohjelma.loukkaantuneet.forEach(function(item) {
+      var p = item.p;
+      var l = item.loukkaantuminen;
+      var s = item.suositus;
+      h += '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);">';
+      // Initiaalit
+      h += '<div style="width:26px;height:26px;border-radius:7px;background:rgba(245,158,11,.15);';
+      h += 'display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;';
+      h += 'color:var(--amber);flex-shrink:0">';
+      h += ((p.etunimi||'?')[0] + (p.sukunimi||'?')[0]).toUpperCase();
+      h += '</div>';
+      // Tiedot
+      h += '<div style="flex:1;">';
+      h += '<div style="font-size:12px;font-weight:700;">' + p.etunimi + ' ' + p.sukunimi + '</div>';
+      h += '<div style="font-size:11px;color:var(--muted2);">' + l.alue + ' · ' + s.rehabVaihe + '</div>';
+      // Harjoittelusuositus
+      if (s.focus) {
+        h += '<div style="font-size:11px;color:var(--amber);margin-top:2px;">💡 ' + s.focus + '</div>';
+      }
+      h += '</div>';
+      // HPP ELITE -linkki
+      h += '<a href="https://docs.google.com/spreadsheets/d/1-UPKKPbibbAguiRsY8RzeRoWQAJBANTthgNy3AA3e5M" ';
+      h += 'target="_blank" style="font-size:10px;color:#C084FC;background:rgba(124,58,237,.1);';
+      h += 'border-radius:6px;padding:3px 7px;text-decoration:none;flex-shrink:0">HPP ↗</a>';
+      h += '</div>';
+    });
+
+    // Kielletyt harjoitteet yhteenvetona jos on
+    var kielletytLista = Object.keys(ohjelma.kielletytHarjoitteet || {});
+    if (kielletytLista.length > 0) {
+      h += '<div style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.07);">';
+      h += '<div style="font-size:10px;color:var(--muted);margin-bottom:5px;">Rajoitetut harjoitteet tällä viikolla:</div>';
+      h += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+      kielletytLista.slice(0, 8).forEach(function(kielto) {
+        var kuka = (ohjelma.kielletytHarjoitteet[kielto] || []).join(', ');
+        h += '<div style="font-size:10px;background:rgba(229,57,53,.1);border-radius:5px;padding:2px 7px;color:var(--red)" ';
+        h += 'title="' + kuka + '">⛔ ' + kielto.replace('EX_','').replace(/_/g,' ') + '</div>';
+      });
+      h += '</div></div>';
+    }
+    h += '</div>';
+  }
+
+  h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:14px;">';
 
   // Otsikkorivi
   h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
@@ -5057,18 +5123,90 @@ function generoiViikonOhjelma(pelaajat){
   });
 
   // PHV-pelaajat — tarvitaan VIIKKO-näkymän varoituksessa
-  var phvPelaajat=pelaajat.filter(function(p){return(p.phvTila||'').includes('HUIPPU');});
+  var phvPelaajat = pelaajat.filter(function(p) {
+    return (p.phvTila||'').includes('HUIPPU');
+  });
 
-  return{
-    heikoin:fascia.heikoin,
-    heikoinFascia:heikoinFascia,
-    vahvinFascia:vahvinFascia,
-    fasciaTulokset:fascia,
-    paaIkavaihe:paaIkavaihe,
-    ikaluokka:ikaluokka,
-    harjoituskerrat:harjoituskerrat,
-    phvPelaajat:phvPelaajat,
-    teknTakt:teknTakt
+  // ── LOUKKAANTUMISFILTTEROINTI ────────────────────────────────────────
+  // Käy läpi kaikki joukkueen loukkaantuneet pelaajat ja kerää kielletyt
+  // harjoitteet heidän aktiivisista vammoistaan rehabilitaatioprotokollista.
+  // Tämä estää viikko-ohjelmageneraattoria suosittelemasta harjoitteita
+  // joita loukkaantuneet pelaajat eivät voi tehdä.
+  var loukkaantuneet = [];
+  var kielletytHarjoitteet = {}; // { 'EX_NORDIC': ['Eetu (reisi)'] }
+
+  pelaajat.forEach(function(p) {
+    var loukk = haeLoukkaantumiset(p);
+    // Etsi avoimet (ei parantuneiksi merkityt) loukkaantumiset
+    var avoimet = loukk.filter(function(l) { return !l.parantunut; });
+    if (!avoimet.length) return;
+
+    avoimet.forEach(function(l) {
+      // Hae rehabilitaatiosuositus kyseiselle vammalle
+      var suositus = haeRehabSuositus(l.alue, l.vakavuus);
+      var nimi = (p.etunimi||'') + ' (' + l.alue + ')';
+
+      loukkaantuneet.push({
+        p: p,
+        loukkaantuminen: l,
+        suositus: suositus
+      });
+
+      // Kerää kielletyt harjoitteet tästä rehabilitaatiovaiheesta
+      // Akuuttivaiheessa kielletyt ovat tiukimmat, kroonisvaiheessa lähes ei rajoituksia
+      var rehab = suositus.hpp_phase === 'Acute'   ? (window.HPP_REHAB_PROTOKOLLAT && window.HPP_REHAB_PROTOKOLLAT[l.alue] ? window.HPP_REHAB_PROTOKOLLAT[l.alue].rehab.akuutti   : null)
+               : suositus.hpp_phase === 'Subacute' ? (window.HPP_REHAB_PROTOKOLLAT && window.HPP_REHAB_PROTOKOLLAT[l.alue] ? window.HPP_REHAB_PROTOKOLLAT[l.alue].rehab.subakuutti : null)
+               : null;
+
+      if (rehab && rehab.kielletyt) {
+        rehab.kielletyt.forEach(function(kielto) {
+          if (!kielletytHarjoitteet[kielto]) kielletytHarjoitteet[kielto] = [];
+          kielletytHarjoitteet[kielto].push(nimi);
+        });
+      }
+    });
+  });
+
+  // RPE-pohjainen kuormansäätö: jos joukkueen RPE-keskiarvo on korkea
+  // (≥7.5 kahdella peräkkäisellä viikolla), suositellaan kevennettyä viikkoa
+  var rpeVaroitus = null;
+  var rpeKeskiarvot = [];
+  pelaajat.forEach(function(p) {
+    var hist = haeRpeHistoria(p);
+    if (!hist.length) return;
+    // Viimeiset 7 päivää
+    var viikko = hist.slice(-7);
+    var ka = viikko.reduce(function(s, r) {
+      var v = r.tyyppi === 'liikenne' ? (r.arvo === 1 ? 3 : r.arvo === 2 ? 6 : 9) : r.arvo;
+      return s + v;
+    }, 0) / viikko.length;
+    rpeKeskiarvot.push(ka);
+  });
+  if (rpeKeskiarvot.length >= 3) {
+    var rpeJoukkueKa = rpeKeskiarvot.reduce(function(a,b){return a+b;},0) / rpeKeskiarvot.length;
+    if (rpeJoukkueKa >= 7.5) {
+      rpeVaroitus = {
+        taso: 'korkea',
+        arvo: Math.round(rpeJoukkueKa * 10) / 10,
+        viesti: 'Joukkueen RPE-keskiarvo on korkea (' + Math.round(rpeJoukkueKa * 10) / 10 + '/10). Harkitse kevyempää viikkoa.'
+      };
+    }
+  }
+
+  return {
+    heikoin:          fascia.heikoin,
+    heikoinFascia:    heikoinFascia,
+    vahvinFascia:     vahvinFascia,
+    fasciaTulokset:   fascia,
+    paaIkavaihe:      paaIkavaihe,
+    ikaluokka:        ikaluokka,
+    harjoituskerrat:  harjoituskerrat,
+    phvPelaajat:      phvPelaajat,
+    teknTakt:         teknTakt,
+    // Uudet kentät: loukkaantumis- ja RPE-data
+    loukkaantuneet:       loukkaantuneet,
+    kielletytHarjoitteet: kielletytHarjoitteet,
+    rpeVaroitus:          rpeVaroitus
   };
 }
 function lsn(k){return parseInt(localStorage.getItem(k)||'0');}
