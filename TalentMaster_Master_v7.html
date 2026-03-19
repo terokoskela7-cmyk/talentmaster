@@ -43,7 +43,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
 .ltab{flex:1;padding:10px 6px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:.5px;}
 .ltab.on{background:var(--teal);color:#000;}
 .ltab.off{background:var(--bg3);color:var(--muted);}
-.p-inp{width:100%;padding:14px;border-radius:12px;border:1.5px solid var(--border);background:var(--bg3);color:var(--text);font-size:22px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-align:center;letter-spacing:2px;margin-bottom:12px;}
+    h+='<div style="font-size:18px;font-weight:900;color:#A78BFA;">'+paiviaJaljella+'pv</div>';
 .p-inp:focus{outline:none;border-color:var(--teal);}
 .p-hint{font-size:11px;color:var(--muted2);text-align:center;line-height:1.6;margin-bottom:16px;}
 .p-btn{width:100%;padding:14px;border-radius:12px;border:none;background:var(--teal);color:#000;font-size:16px;font-weight:800;cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;}
@@ -1737,7 +1737,7 @@ function naytaCoachPlusLomake(){
     h+='<div onclick="valitseCoachTyyppi(\''+t.id+'\')" id="cpt_'+t.id+'" style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:11px;border:1.5px solid var(--border);background:var(--bg3);margin-bottom:6px;cursor:pointer;">';
     h+='<span style="font-size:18px;">'+t.ikoni+'</span>';
     h+='<span style="font-size:13px;">'+t.teksti+'</span>';
-    h+='</div>';
+    h+='<div style="font-size:18px;font-weight:900;color:#A78BFA;">'+paiviaJaljella+'pv</div>';
   });
 
   h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;">Lyhyt kommentti (vapaaehtoinen)</div>';
@@ -2345,8 +2345,9 @@ function buildCoachNyt(){
   var tanaanPv=new Date().toISOString().slice(0,10);
   var aktiivinenTanaan=0;
   pelaajat.forEach(function(p){
-    var akt=laskeAktiivisuus(p);
-    if(akt&&akt.pct>0)aktiivinenTanaan++;
+    // Lasketaan kuluvan viikon avaukset suoraan localStorage:sta
+    var streak=lsn('tm_streak_'+p.id)||0;
+    if(streak>0)aktiivinenTanaan++;
   });
   var adarJonoPituus=pelaajat.filter(function(p){ return !p.adar||p.adar.length===0; }).length;
   var streakYhteensa=pelaajat.reduce(function(s,p){ return s+(lsn('tm_streak_'+p.id)||0); },0);
@@ -2441,11 +2442,11 @@ function buildCoachNyt(){
   // ── HÄLYTYKSET ────────────────────────────────────────────────
   var halytykset=[];
   pelaajat.forEach(function(p){
-    var akt=laskeAktiivisuus(p);
-    if(akt.pct===0&&akt.max>=3)halytykset.push({taso:'red',ikoni:'⚠️',teksti:p.etunimi+' — ei avauksia tällä viikolla',pid:p.id});
-    else if(akt.pct<30&&akt.max>=3)halytykset.push({taso:'amber',ikoni:'📉',teksti:p.etunimi+' — matala aktiivisuus ('+akt.pct+'%)',pid:p.id});
+    var stk=lsn('tm_streak_'+p.id)||0;
+    if(stk===0)halytykset.push({taso:'red',ikoni:'⚠️',teksti:p.etunimi+' — ei avauksia tällä viikolla',pid:p.id});
     if((p.phvTila||'').includes('HUIPPU'))halytykset.push({taso:'blue',ikoni:'📌',teksti:p.etunimi+' — kasvupyrähdys käynnissä',pid:p.id});
-    var lv2=laskeLevel(lsn('tm_xp_'+p.id)||0,(haeVahvistukset(p)||{}).yhteensa||0);
+    var vahv2=haeVahvistukset(p);
+    var lv2=laskeLevel(lsn('tm_xp_'+p.id)||0,vahv2?vahv2.yhteensa:0);
     if(lv2&&lv2.lukittu)halytykset.push({taso:'teal',ikoni:'🔒',teksti:p.etunimi+' — odottaa tasonvahvistusta',pid:p.id});
   });
   if(halytykset.length){
@@ -2791,33 +2792,75 @@ function buildCoachAnalyysi(){
 
 function buildCoachMerkinnat(){
   var pelaajat=haeJoukkuePelaajat();
-  var h='<div style="font-size:13px;color:var(--muted2);margin-bottom:14px;">Anna + merkintä kerran viikossa. Vaatii valmentajan PIN.</div>';
-  pelaajat.forEach(function(p){
+  var tanaan=new Date().toISOString().slice(0,10);
+  var annettu=pelaajat.filter(function(p){
+    var mm=lsj('tm_coach_plus_'+p.id)||[];
+    var v=mm[mm.length-1];
+    return v&&v.date===tanaan;
+  }).length;
+
+  var h='';
+  // Otsikko + laskuri
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">';
+  h+='<div>';
+  h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;">🏅 Päivän merkinnät</div>';
+  h+='<div style="font-size:11px;color:var(--muted2);margin-top:2px;">Yksi + viikossa per pelaaja — valmentajan havainto</div>';
+  h+='</div>';
+  h+='<div style="text-align:right;">';
+  h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:32px;font-weight:900;color:var(--teal);line-height:1;">'+annettu+'/'+pelaajat.length+'</div>';
+  h+='<div style="font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px;">Annettu tänään</div>';
+  h+='</div></div>';
+
+  // Kompakti taulukko
+  h+='<div style="background:var(--bg3);border:1px solid var(--border);border-radius:16px;overflow:hidden;">';
+  // Otsikkorivi
+  h+='<div style="display:grid;grid-template-columns:1fr auto auto;gap:0;padding:7px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);">';
+  h+='<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted2);font-weight:800;">Pelaaja</div>';
+  h+='<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted2);font-weight:800;text-align:center;min-width:80px;">Viimeisin</div>';
+  h+='<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted2);font-weight:800;text-align:right;min-width:80px;">Tänään</div>';
+  h+='</div>';
+
+  pelaajat.forEach(function(p,idx){
     var vahv=haeVahvistukset(p);
     var lv=laskeLevel(0,vahv.yhteensa);
     var merkinnat=lsj('tm_coach_plus_'+p.id)||[];
     var viimeisinM=merkinnat[merkinnat.length-1];
-    var plusTanaan=viimeisinM&&viimeisinM.date===new Date().toISOString().slice(0,10);
-    h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 14px;margin-bottom:8px;">';
-    h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
-    h+='<div style="flex:1;"><div style="font-size:14px;font-weight:700;">'+p.etunimi+' '+p.sukunimi+'</div>';
-    h+='<div style="font-size:11px;color:var(--muted2);">'+lv.ikoni+' '+lv.nimi+' · '+vahv.yhteensa+' vahvistusta</div></div>';
-    if(plusTanaan)h+='<div style="font-size:12px;color:var(--green);font-weight:700;background:rgba(31,209,106,.1);padding:5px 10px;border-radius:8px;">✓ Tänään</div>';
-    else h+='<button onclick="avaaCoachPlusPikana(\''+p.id+'\')" style="padding:8px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--teal),#0EA5E9);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:15px;font-weight:800;cursor:pointer;">✅ ANNA +</button>';
-    h+='</div>';
-    if(merkinnat.length>0){
-      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;">';
-      var tyypit2={treeni:'💪',viikko:'📅',asenne:'🔥',kehitys:'📈',tiimi:'🤝'};
-      merkinnat.slice(-4).forEach(function(m){
-        h+='<div style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(0,229,204,.08);border:1px solid rgba(0,229,204,.2);color:var(--teal);">'+(tyypit2[m.tyyppi]||'✅')+' '+m.date.slice(5)+'</div>';
-      });
-      h+='</div>';
+    var plusTanaan=viimeisinM&&viimeisinM.date===tanaan;
+    var viimPvm=viimeisinM?viimeisinM.date.slice(5).replace('-','/'):'—';
+    var viimTyyppi=viimeisinM?({'treeni':'💪','viikko':'📅','asenne':'🔥','kehitys':'📈','tiimi':'🤝'}[viimeisinM.tyyppi]||'+'):'';
+    var bg=idx%2===0?'transparent':'rgba(255,255,255,.015)';
+
+    h+='<div style="display:grid;grid-template-columns:1fr auto auto;gap:0;padding:10px 14px;background:'+bg+';border-bottom:1px solid rgba(255,255,255,.04);">';
+    // Pelaaja
+    h+='<div style="display:flex;align-items:center;gap:8px;">';
+    h+='<div style="width:30px;height:30px;border-radius:50%;background:rgba(0,229,204,.1);border:1px solid rgba(0,229,204,.2);display:flex;align-items:center;justify-content:center;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:800;color:var(--teal);flex-shrink:0;">';
+    h+=((p.etunimi||'?')[0]+(p.sukunimi||'?')[0]).toUpperCase()+'</div>';
+    h+='<div><div style="font-size:13px;font-weight:600;">'+p.etunimi+' '+(p.sukunimi||'')+'</div>';
+    h+='<div style="font-size:10px;color:var(--muted2);">'+lv.ikoni+' '+lv.nimi+' · '+vahv.yhteensa+' vahv.</div>';
+    // Tasonousu odottaa?
+    if(lv.lukittu){
+      h+='<div style="font-size:9px;color:#FFB830;font-weight:700;">🔒 Vahvistus puuttuu</div>';
     }
-    if(lv.lukittu&&lv.seuraava){
-      h+='<div style="margin-top:8px;padding:7px 10px;background:rgba(255,184,48,.07);border-radius:9px;font-size:11px;color:var(--amber);">🔒 '+(lv.seuraava.vahvistus_min-vahv.yhteensa)+' vahvistusta lisää → '+lv.seuraava.ikoni+' '+lv.seuraava.nimi+'</div>';
+    h+='</div></div>';
+    // Viimeisin merkintä
+    h+='<div style="display:flex;align-items:center;justify-content:center;min-width:80px;gap:4px;">';
+    if(viimeisinM){
+      h+='<span style="font-size:14px;">'+viimTyyppi+'</span>';
+      h+='<span style="font-size:10px;color:var(--muted2);">'+viimPvm+'</span>';
+    } else {
+      h+='<span style="font-size:11px;color:var(--muted);">–</span>';
     }
     h+='</div>';
+    // Tänään-nappi
+    h+='<div style="display:flex;align-items:center;justify-content:flex-end;min-width:80px;">';
+    if(plusTanaan){
+      h+='<div style="font-size:12px;color:var(--green);font-weight:800;padding:5px 10px;background:rgba(31,209,106,.1);border-radius:8px;">✓ Annettu</div>';
+    } else {
+      h+='<button onclick="avaaCoachPlusPikana(\''+p.id+'\')" style="padding:6px 12px;border-radius:8px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">+ ANNA</button>';
+    }
+    h+='</div></div>';
   });
+  h+='</div>';
   document.getElementById('coachContent').innerHTML=h;
 }
 
@@ -3368,8 +3411,14 @@ function buildCoachViikko(){
   h+='</div></div>';
 
   // Päiväruudukko
-  h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;">';
-  pvTiedot.forEach(function(pv){
+  h+='<div style="font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;font-weight:700;display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:3px;">';
+    ['Ma','Ti','Ke','To'].forEach(function(pn){ h+='<div style="text-align:center;">'+pn+'</div>'; });
+    h+='</div>';
+    h+='<div style="font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;font-weight:700;display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:3px;">';
+    ['Pe','La','Su'].forEach(function(pn){ h+='<div style="text-align:center;">'+pn+'</div>'; });
+    h+='</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:5px;">';
+  pvTiedot.slice(0,4).forEach(function(pv){
     var ev=kalData[pv.id]||[];
     var hasH=ev.indexOf('harjoitus')>=0;
     var hasP=ev.indexOf('peli')>=0;
@@ -3400,6 +3449,34 @@ function buildCoachViikko(){
     var peliData=lsj('tm_coach_peli_'+y+'_'+wk+'_'+pv.id);
     if(hasP&&peliData&&peliData.vastustaja){
       h+='<div style="font-size:8px;color:var(--green);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+peliData.vastustaja.substring(0,6)+'</div>';
+    }
+    h+='</button>';
+  });
+  h+='</div>';
+  // Pe-La-Su rivi
+  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:10px;">';
+  pvTiedot.slice(4,7).forEach(function(pv){
+    var ev=kalData[pv.id]||[];
+    var hasH=ev.indexOf('harjoitus')>=0;
+    var hasP=ev.indexOf('peli')>=0;
+    var hasT=ev.indexOf('testi')>=0;
+    var onTanaan=pv.id===tanaan;
+    var hasAny=hasH||hasP||hasT;
+    var bg=hasT?'rgba(167,139,250,.15)':hasP?'rgba(34,197,94,.12)':hasH?'rgba(0,229,204,.12)':'var(--bg3)';
+    var border=hasT?'1.5px solid rgba(167,139,250,.5)':hasP?'1.5px solid rgba(34,197,94,.4)':hasH?'1.5px solid rgba(0,229,204,.4)':'1px solid var(--border)';
+    if(onTanaan)border='2px solid rgba(255,184,48,.6)';
+    h+='<button onclick="avaaKalenteriPopup(\''+pv.id+'\',\''+kalAvain+'\')" ';
+    h+='style="padding:8px 3px;border-radius:10px;border:'+border+';background:'+bg+';cursor:pointer;text-align:center;width:100%;">';
+    h+='<div style="font-size:10px;font-weight:700;color:'+(onTanaan?'var(--amber)':'var(--muted2)')+';">'+pv.nimi+'</div>';
+    if(onTanaan)h+='<div style="font-size:8px;color:var(--amber);margin-bottom:2px;">tänään</div>';
+    if(hasAny){
+      h+='<div style="display:flex;justify-content:center;gap:2px;margin-top:4px;">';
+      if(hasH)h+='<span style="font-size:9px;">🏃</span>';
+      if(hasP)h+='<span style="font-size:9px;">⚽</span>';
+      if(hasT)h+='<span style="font-size:9px;">🔬</span>';
+      h+='</div>';
+    } else {
+      h+='<div style="font-size:11px;color:var(--dim);margin-top:6px;">+</div>';
     }
     h+='</button>';
   });
@@ -8159,6 +8236,27 @@ function buildTanaan(){
   h+='<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted2);margin-top:2px;">🏆 Joukkue</div>';
   h+='</div>';
   h+='</div>';
+
+  // ── TAVOITEMUISTUTUS ────────────────────────────────────────────────
+  var aktiv=S.jaksot&&S.jaksot.find(function(j){return j.status==='active';});
+  if(aktiv){
+    var alku=new Date(aktiv.alku),loppu=new Date(aktiv.loppu),nyt=new Date();
+    var kesto=Math.max(1,(loppu-alku)/86400000);
+    var kulunut=Math.max(0,(nyt-alku)/86400000);
+    var edistyminen=Math.min(100,Math.round(kulunut/kesto*100));
+    var paiviaJaljella=Math.max(0,Math.ceil((loppu-nyt)/86400000));
+    h+='<div onclick="goTab(3)" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);border-radius:12px;margin-bottom:12px;cursor:pointer;">';
+    h+='<span style="font-size:18px;flex-shrink:0;">🎯</span>';
+    h+='<div style="flex:1;min-width:0;">';
+    h+='<div style="font-size:11px;font-weight:700;color:#A78BFA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+aktiv.mittari+'</div>';
+    h+='<div style="height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin-top:5px;">';
+    h+='<div style="height:3px;width:'+edistyminen+'%;background:#A78BFA;border-radius:2px;transition:width 1s;"></div></div>';
+    h+='</div>';
+    h+='<div style="text-align:right;flex-shrink:0;">';
+    h+='<div style="font-size:18px;font-weight:900;color:#A78BFA;">'+paiviaJaljella+'pv</div>';
+    h+='<div style="font-size:9px;color:var(--muted2);">jäljellä</div>';
+    h+='</div></div>';
+  }
 
   // ── VIIKKOKALENTERI (kompakti) ──────────────────────────────────
   var VIIKKO=['Ma','Ti','Ke','To','Pe','La','Su'];
