@@ -8045,6 +8045,7 @@ function merkitseHarjoite(key,dk){
   if(btn){btn.textContent=done?'✓ Tehty — hyvää työtä!':'✅ Merkitse tehdyksi';btn.className='hk-done'+(done?' tehty':'');}
   if(done){
     lisaaXP(XP.harjoite,'harjoite tehty');
+    paivitaHaasteidenEdistyminen(); // päivitä treeni/streak-haasteiden edistyminen reaaliajassa
     // Kerro pelaajalle mitä XP tarkoittaa
     var akt=laskeAktiivisuusJaksolla(S.pelaaja);
     var xpViesti='+'+XP.harjoite+' XP';
@@ -10123,14 +10124,37 @@ function mintNFT(){
 function flipCard(){naytaToast('🃏 Kortti päivittyy seuraavan testauksen jälkeen');}
 
 // ═══════════════════════════════════════════
-// HAASTEJÄRJESTELMÄ — täysi toteutus
+// HAASTEJÄRJESTELMÄ — Sprint 2
 // ═══════════════════════════════════════════
+//
+// ARKKITEHTUURI (kolmivaiheinen):
+//   Vaihe 1 (nyt): localStorage, edistyminen päivittyy automaattisesti,
+//                  vastustajan tulos syötetään manuaalisesti tai simuloidaan.
+//   Vaihe 2 (pohja valmiina): haastekoodi — 6-merkkinen koodi jonka voi
+//                  jakaa WhatsAppilla. Toinen pelaaja syöttää koodin omaan
+//                  sovellukseensa. Synkronointi tapahtuu myöhemmin backendissä.
+//   Vaihe 3 (myöhemmin): täysi backend, reaaliaikainen synkronointi.
+//
+// EDISTYMISEN PÄIVITYSLOGIIKKA:
+//   paivitaHaasteidenEdistyminen() kutsutaan aina kun:
+//   - pelaaja merkitsee harjoitteen tehdyksi (merkitseHarjoite)
+//   - streak kasvaa (tarkistaStreak)
+//   - buildJoukkue() renderöidään
+//   Funktio laskee kulloisenkin arvon tuoreista lähteistä eikä luota
+//   haaste-objektiin tallennettuun vanhaan omatTulos-arvoon.
+//
+// PÄÄTÖSLOGIIKKA:
+//   streak-haaste päättyy 7 päivän kuluttua luonnista.
+//   treeni-haaste päättyy viikon vaihtuessa (ma klo 00:00).
+//   visa-haaste päättyy heti kun vastustajan tulos syötetään.
+//   ovr-haaste päättyy kun valmentaja kirjaa uuden testin.
+//   tarkistaHaasteidenPaattyminen() ajetaan buildJoukkue():ssa.
 
 const HAASTE_TYYPIT={
-  visa:   {id:'visa',   nimi:'Visa-haaste',    ikoni:'🧠', vari:'var(--purple)', kuvaus:'Kumpi saa enemmän oikein samassa kategoriassa?',  kesto:'Heti',      xp_voitto:100},
-  streak: {id:'streak', nimi:'Streak-haaste',  ikoni:'🔥', vari:'var(--amber)',  kuvaus:'Kumpi pitää pitkemmän harjoitusputken 7 päivää?', kesto:'7 päivää',  xp_voitto:150},
-  treeni: {id:'treeni', nimi:'Treeni-haaste',  ikoni:'⚡', vari:'var(--teal)',   kuvaus:'Kumpi tekee enemmän harjoitteita tällä viikolla?', kesto:'Tämä viikko', xp_voitto:120},
-  ovr:    {id:'ovr',    nimi:'OVR-haaste',     ikoni:'👑', vari:'var(--gold)',   kuvaus:'Kummalla on korkeampi overall seuraavassa testauksessa?', kesto:'Seuraava testaus', xp_voitto:200}
+  visa:   {id:'visa',   nimi:'Visa-haaste',    ikoni:'🧠', vari:'var(--purple)', kuvaus:'Kumpi saa enemmän oikein samassa kategoriassa?',  kesto:'Heti',        xp_voitto:100, paiva:0},
+  streak: {id:'streak', nimi:'Streak-haaste',  ikoni:'🔥', vari:'var(--amber)',  kuvaus:'Kumpi pitää pitkemmän harjoitusputken 7 päivää?', kesto:'7 päivää',    xp_voitto:150, paiva:7},
+  treeni: {id:'treeni', nimi:'Treeni-haaste',  ikoni:'⚡', vari:'var(--teal)',   kuvaus:'Kumpi tekee enemmän harjoitteita tällä viikolla?', kesto:'Tämä viikko', xp_voitto:120, paiva:7},
+  ovr:    {id:'ovr',    nimi:'OVR-haaste',     ikoni:'👑', vari:'var(--gold)',   kuvaus:'Kummalla on korkeampi overall seuraavassa testauksessa?', kesto:'Seuraava testaus', xp_voitto:200, paiva:30}
 };
 
 const HAASTE_BADGET=[
@@ -10160,6 +10184,150 @@ var KAVERIT=[
 
 function saveHS(){sls('tm_haasteet_v2',HS.haasteet);sls('tm_haaste_badget',HS.badget);}
 
+// ── HAASTEKOODI — Vaihe 2 pohja ─────────────────────────────────────────
+// Generoi 6-merkkisen koodin jota voi jakaa WhatsAppilla / tekstiviestillä.
+// Toinen pelaaja syöttää koodin avaaHaasteKoodilla(koodi) ja näkee haasteen.
+// Koodi tallennetaan localStorage:en avaimella 'tm_hkoodi_<koodi>'.
+// Kun backend tulee, tämä funktio lähettää koodin palvelimelle ja
+// localStorage toimii vain offline-välimuistina.
+function generoiHaastekoodi(){
+  var merkit='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ei O/0/I/1 sekaannusten vuoksi
+  var koodi='';
+  for(var i=0;i<6;i++) koodi+=merkit[Math.floor(Math.random()*merkit.length)];
+  return koodi;
+}
+
+function avaaHaasteKoodilla(koodi){
+  koodi=(koodi||'').toUpperCase().trim();
+  if(koodi.length!==6){naytaToast('Koodi on 6 merkkiä pitkä.');return;}
+  // Etsi ensin omista haasteista (sama laite)
+  var loydetty=HS.haasteet.find(function(h){return h.koodi===koodi;});
+  if(loydetty){
+    naytaToast('Tämä on sinun oma haasteesi!');
+    return;
+  }
+  // Tarkista localStorage (sama laite, eri profiili — tai demo)
+  var tallessa=lsj('tm_hkoodi_'+koodi);
+  if(tallessa){
+    // Liitytään haasteeseen vastustajana
+    var uusi=JSON.parse(JSON.stringify(tallessa)); // kopio
+    uusi.id='ch'+Date.now();
+    uusi.vastustaja=tallessa.haastajaNimi; // roolit vaihtuvat
+    uusi.haastajaNimi=S.pelaaja.etunimi+' '+(S.pelaaja.sukunimi||'');
+    uusi.haastaja=S.pelaaja.id;
+    uusi.status='active';
+    uusi.omatTulos=undefined;
+    uusi.vastTulos=undefined;
+    uusi.tulos=null;
+    uusi.luotu=new Date().toISOString();
+    HS.haasteet.push(uusi);
+    saveHS();
+    naytaToast('⚔️ Liitytty haasteeseen! '+tallessa.tyyppiNimi+' vs. '+tallessa.haastajaNimi);
+    buildJoukkue();
+    return;
+  }
+  // Koodi ei löydy — myöhemmin backend-haku tässä
+  naytaToast('Koodia ei löydy. Pyydä kaveria tarkistamaan koodi.');
+}
+
+// ── AUTOMAATTINEN EDISTYMISPÄIVITYS ─────────────────────────────────────
+// Lasketaan haasteen omatTulos AINA tuoreesta lähteestä eikä luoteta
+// haaste-objektiin tallennettuun vanhaan arvoon. Tämä kutsutaan aina
+// kun merkitseHarjoite() tai tarkistaStreak() ajetaan.
+function paivitaHaasteidenEdistyminen(){
+  var p=S.pelaaja;
+  if(!p||!HS.haasteet.length) return;
+
+  // Laske viikon treeniä varten tarvittavat päivät
+  var now=new Date(),wd=(now.getDay()+6)%7;
+  var vkoPaivat=[];
+  for(var i=0;i<=wd;i++){
+    var d=new Date(now);d.setDate(now.getDate()-wd+i);
+    vkoPaivat.push(d.toISOString().slice(0,10));
+  }
+  var checked=lsj('tm_checked')||{};
+  var vkoTreenit=vkoPaivat.filter(function(dk){return checked[dk]&&checked[dk].allDone;}).length;
+  var myOv=laskeOverall((p.qs_historia&&p.qs_historia.length&&p.qs_historia[p.qs_historia.length-1].results&&p.qs_historia[p.qs_historia.length-1].results.ketjut)||null);
+
+  var muuttui=false;
+  HS.haasteet.forEach(function(hh){
+    if(hh.status!=='active') return;
+    var uusiTulos;
+    if(hh.tyyppi==='treeni')  uusiTulos=vkoTreenit;
+    else if(hh.tyyppi==='streak') uusiTulos=S.streak;
+    else if(hh.tyyppi==='ovr')    uusiTulos=myOv;
+    else return; // visa ei päivity automaattisesti
+    if(uusiTulos!==hh.omatTulos){ hh.omatTulos=uusiTulos; muuttui=true; }
+  });
+  if(muuttui) saveHS();
+}
+
+// ── HAASTEEN PÄÄTÖSLOGIIKKA ──────────────────────────────────────────────
+// Ajetaan buildJoukkue():ssa. Tarkistaa onko jokin aktiivinen haaste
+// ylittänyt aikarajansa ja päättää sen automaattisesti.
+// Vastustajan tulosta ei tiedetä ellei sitä ole syötetty — siinä tapauksessa
+// haaste merkitään 'vanhentunut' eikä voittoa/tappiota kirjata.
+function tarkistaHaasteidenPaattyminen(){
+  var p=S.pelaaja;
+  var nyt=new Date();
+  var muuttui=false;
+
+  HS.haasteet.forEach(function(hh){
+    if(hh.status!=='active'&&hh.status!=='odottaa') return;
+    var luotu=new Date(hh.luotu);
+    var tyyppi=HAASTE_TYYPIT[hh.tyyppi];
+    if(!tyyppi||tyyppi.paiva===0) return; // visa päättyy manuaalisesti
+
+    // Onko aikaraja ylitetty?
+    var paattyyMs=tyyppi.paiva*24*60*60*1000;
+
+    // Treeni-haaste päättyy viikon vaihtuessa (ma klo 00:00)
+    var paattyy;
+    if(hh.tyyppi==='treeni'){
+      var ma=new Date(luotu);
+      var maWd=(ma.getDay()+6)%7; // 0=ma
+      ma.setDate(ma.getDate()+(7-maWd)); // seuraava ma
+      ma.setHours(0,0,0,0);
+      paattyy=ma;
+    } else {
+      paattyy=new Date(luotu.getTime()+paattyyMs);
+    }
+
+    if(nyt<paattyy) return; // ei vielä
+
+    // Aika loppui — tarkista onko vastustajan tulos saatavilla
+    if(hh.vastTulos===undefined||hh.vastTulos===null){
+      // Ei tulosta — merkitään vanhentuneeksi (ei voittoa/tappiota)
+      hh.status='vanhentunut';
+      hh.tulos=null;
+      muuttui=true;
+      return;
+    }
+
+    // Molemmat tulokset saatavilla — lasketaan voittaja
+    hh.status='done';
+    hh.tulos=hh.omatTulos>=hh.vastTulos?'voitto':'tappio';
+    muuttui=true;
+
+    if(hh.tulos==='voitto'){
+      lisaaXP(tyyppi.xp_voitto,'⚔️ Haaste voitettu automaattisesti!');
+      tarkistaBadget(p);
+      // Kirjataan erikoistila kortille — Sprint 3 käyttää tätä
+      var erikoistilat=lsj('tm_erikoistilat_'+p.id)||[];
+      erikoistilat.push({
+        tyyppi:'haaste_voitto',
+        nimi:tyyppi.nimi,
+        vastustaja:hh.vastustaja,
+        voimassa:new Date(nyt.getTime()+7*24*60*60*1000).toISOString()
+      });
+      sls('tm_erikoistilat_'+p.id, erikoistilat);
+      naytaToast('🏆 '+tyyppi.nimi+' voitettu!');
+    }
+  });
+
+  if(muuttui) saveHS();
+}
+
 function tarkistaBadget(p){
   var lahetetyt=HS.haasteet.filter(function(h){return h.haastaja===p.id;}).length;
   var voitot=HS.haasteet.filter(function(h){return h.tulos==='voitto';}).length;
@@ -10180,6 +10348,9 @@ function tarkistaBadget(p){
 // ── PÄÄRAKENNE ──
 function buildJoukkue(){
   var p=S.pelaaja,joukkue=p.joukkue||'';
+  // Päivitä edistyminen ja tarkista päättyneet haasteet ennen renderöintiä
+  paivitaHaasteidenEdistyminen();
+  tarkistaHaasteidenPaattyminen();
   var now=new Date(),wd=(now.getDay()+6)%7;
   var vkoPaivat=[];for(var i=0;i<=wd;i++){var d2=new Date(now);d2.setDate(now.getDate()-wd+i);vkoPaivat.push(d2.toISOString().slice(0,10));}
   var checked=lsj('tm_checked')||{};
@@ -10313,6 +10484,16 @@ function avaaHaasteenLuonti(kaveriId){
   h+='<button onclick="suljeHaaste()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
   h+='</div>';
 
+  // Koodin syöttökenttä — toisen seuran pelaajan haasteen vastaanottaminen
+  h+='<div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:16px;">';
+  h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🔑 Onko sinulla haastekoodi?</div>';
+  h+='<div style="display:flex;gap:8px;">';
+  h+='<input id="haastekoodiInput" maxlength="6" placeholder="esim. K7RX2P" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:16px;font-family:\'Barlow Condensed\',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:2px;" oninput="this.value=this.value.toUpperCase()">';
+  h+='<button onclick="avaaHaasteKoodilla(document.getElementById(\'haastekoodiInput\').value)" style="padding:9px 16px;border-radius:9px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">LIITY</button>';
+  h+='</div>';
+  h+='<div style="font-size:10px;color:var(--muted2);margin-top:6px;">Saat koodin kun kaveri lähettää haasteen sinulle</div>';
+  h+='</div>';
+
   // Kaverin valinta
   h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">1. Kenet haastaat?</div>';
   h+='<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;" id="kaveriLista">';
@@ -10417,13 +10598,21 @@ function lahetaHaaste(){
     uusiHaaste.status='active';
   }
 
+  var koodi=generoiHaastekoodi();
+  uusiHaaste.koodi=koodi;
+  uusiHaaste.haastajaNimi=p.etunimi+' '+(p.sukunimi||'');
+  uusiHaaste.tyyppiNimi=tyyppi.nimi;
+
+  // Tallenna koodi myös omalla avaimella jotta toinen pelaaja löytää sen
+  sls('tm_hkoodi_'+koodi, uusiHaaste);
+
   HS.haasteet.push(uusiHaaste);
   tarkistaBadget(p);
   saveHS();
   suljeHaaste();
 
-  // Jakoteksti
-  var jakoteksti='⚔️ TalentMaster-haaste!\n\n'+p.etunimi+' haastaa '+kaveri.nimi+' '+tyyppi.nimessä+'!\n\n'+tyyppi.kuvaus+'\n\n+'+tyyppi.xp_voitto+' XP voittajalle 🏆\n\nAva TalentMaster → Joukkue → Haasteet';
+  // Jakoteksti — koodi mukana jotta vastustaja voi liittyä
+  var jakoteksti='⚔️ TalentMaster-haaste!\n\n'+p.etunimi+' haastaa '+kaveri.nimi+' '+tyyppi.nimi+'ssa!\n\n'+tyyppi.kuvaus+'\n\n+'+tyyppi.xp_voitto+' XP voittajalle 🏆\n\nKoodi: '+koodi+'\nAvaa TalentMaster → Joukkue → Syötä koodi';
   if(navigator.clipboard)navigator.clipboard.writeText(jakoteksti).catch(function(){});
   naytaToast('⚔️ Haaste lähetetty! Teksti kopioitu leikepöydälle.');
   setTimeout(function(){buildJoukkue();},400);
