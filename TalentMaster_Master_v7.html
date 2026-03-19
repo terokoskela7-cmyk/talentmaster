@@ -2365,9 +2365,15 @@ function avaaCoachPelaaja(pid){
       h += '</div>';
       // Merkitse parantuneeksi -nappi jos avoin
       if (!l.parantunut) {
+        h += '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">';
         h += '<button onclick="merkitseParantunut(\'' + p.id + '\')" ';
         h += 'style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);';
         h += 'background:transparent;color:var(--muted2);cursor:pointer;">✓ Parantunut</button>';
+        // HPP ELITE -badge per aktiivinen loukkaantuminen
+        var _rehab = haeRehabSuositus(l.alue, l.vakavuus);
+        h += '<div style="font-size:9px;color:#C084FC;background:rgba(124,58,237,.1);';
+        h += 'border-radius:5px;padding:2px 5px;text-align:center">' + _rehab.rehabVaihe.split('(')[0].trim() + '</div>';
+        h += '</div>';
       }
       h += '</div>';
     });
@@ -7336,6 +7342,114 @@ function haeLoukkaantumiset(p) {
   } catch(e) { return []; }
 }
 
+// ── HPP ELITE — VAMMA-ALUE → FASIALINJA → REHABILITAATIO ───────────────────
+// Tämä on silta loukkaantumisdatan ja HPP ELITE -harjoitekirjaston välillä.
+// Tulevaisuudessa: sama kartoitus ohjaa suoraan HPP ELITE -klinikan varauskalenteriin.
+//
+// Lähde: HPP ELITE v9, fascial line anatomy (Myers 2001, Wilke 2016)
+// Vakavuus → rehab-vaihe: vakava=Akuutti (0-3pv), keski=Subakuutti (4-14pv), liev=Krooninen/Ylläpito
+var VAMMA_REHAB_KARTOITUS = {
+  // Nilkka — pääosin lateraalinen + takaketju
+  'Nilkka': {
+    fasialinja: 'LL + SBL',
+    ketju: 'sivu',           // HPP_FASCIA-avain → Lähtöketju
+    ketju2: 'taka',          // toissijainen ketju
+    rehab: {
+      akuutti:   { vaihe: 'Akuutti (0–3 pv)',    focus: 'Kipuohjattu liike, turvotuksen hallinta. EI kuormitusta.',       hpp_phase: 'Acute',    harjoitteet: ['EX_ANKLE_MOB', 'EX_PROP_BALANCE'] },
+      subakuutti:{ vaihe: 'Subakuutti (4–14 pv)', focus: 'Nilkan stabilisaatio, proprioseptiikka. Varhainen kuormitus.',   hpp_phase: 'Subacute', harjoitteet: ['EX_NILKKA', 'EX_SIVU_HYPPY'] },
+      krooninen: { vaihe: 'Krooninen / Ylläpito', focus: 'Täysi kuormitus, suunnanmuutokset, agility.',                   hpp_phase: 'Chronic',  harjoitteet: ['EX_LATERAL', 'EX_1V1'] }
+    }
+  },
+  'Polvi': {
+    fasialinja: 'SBL + DFL',
+    ketju: 'taka',
+    ketju2: 'syva',
+    rehab: {
+      akuutti:   { vaihe: 'Akuutti (0–3 pv)',    focus: 'Immobilisaatio, turvotus alas. Ei painokuormitusta.',            hpp_phase: 'Acute',    harjoitteet: ['EX_QUAD_SET', 'EX_SLR'] },
+      subakuutti:{ vaihe: 'Subakuutti (4–14 pv)', focus: 'Lihasvoima, polven stabiliteetti. Nordic curl VASTA kun ok.',   hpp_phase: 'Subacute', harjoitteet: ['EX_LONKKA', 'EX_KYYKKY'] },
+      krooninen: { vaihe: 'Krooninen / Ylläpito', focus: 'Nordic curl, plyometriikka. PHV-pelaajilla erityishuomio.',     hpp_phase: 'Chronic',  harjoitteet: ['EX_NORDIC', 'EX_CMJ', 'EX_PLYO'] }
+    }
+  },
+  'Reisi': {
+    fasialinja: 'SBL',
+    ketju: 'taka',
+    ketju2: null,
+    rehab: {
+      akuutti:   { vaihe: 'Akuutti (0–3 pv)',    focus: 'Lepo, jää, kompressio. EI venyttelyä akuuttivaiheessa.',        hpp_phase: 'Acute',    harjoitteet: ['EX_ISOMETRIC'] },
+      subakuutti:{ vaihe: 'Subakuutti (4–14 pv)', focus: 'Eksentrinen vahvistus. Nordic curl -progressio.',              hpp_phase: 'Subacute', harjoitteet: ['EX_NORDIC_HS_REGRESSION', 'EX_LONKKA'] },
+      krooninen: { vaihe: 'Krooninen / Ylläpito', focus: 'Täysi räjähtävyysharjoittelu. Nopeusvoimaharjoitteet.',        hpp_phase: 'Chronic',  harjoitteet: ['EX_NORDIC', 'EX_LAHTO'] }
+    }
+  },
+  'Pohje': {
+    fasialinja: 'SBL',
+    ketju: 'taka',
+    ketju2: null,
+    rehab: {
+      akuutti:   { vaihe: 'Akuutti (0–3 pv)',    focus: 'Kohoasento, jää. EI varpaille nousua.',                         hpp_phase: 'Acute',    harjoitteet: [] },
+      subakuutti:{ vaihe: 'Subakuutti (4–14 pv)', focus: 'Eksentrinen pohjeharjoittelu. Alfredson-protokolla.',          hpp_phase: 'Subacute', harjoitteet: ['EX_CALF_RAISE'] },
+      krooninen: { vaihe: 'Krooninen / Ylläpito', focus: 'Plyometriikka, juoksutekniikka.',                              hpp_phase: 'Chronic',  harjoitteet: ['EX_LAHTO', 'EX_PLYO'] }
+    }
+  },
+  'Lonkka': {
+    fasialinja: 'DFL + SFL',
+    ketju: 'syva',
+    ketju2: 'etu',
+    rehab: {
+      akuutti:   { vaihe: 'Akuutti (0–3 pv)',    focus: 'Liikelaajuuden ylläpito. Ei rotaatiokuormaa.',                  hpp_phase: 'Acute',    harjoitteet: ['EX_HIP_MOB'] },
+      subakuutti:{ vaihe: 'Subakuutti (4–14 pv)', focus: 'Lonkan stabilisaatio, syvät lihakset.',                        hpp_phase: 'Subacute', harjoitteet: ['EX_LONKKA', 'EX_GLUTE'] },
+      krooninen: { vaihe: 'Krooninen / Ylläpito', focus: 'Täysi räjähtävyys ja rotaatio.',                               hpp_phase: 'Chronic',  harjoitteet: ['EX_LAHTO', 'EX_KYYKKY'] }
+    }
+  },
+  'Selkä': {
+    fasialinja: 'SBL + DFL',
+    ketju: 'syva',
+    ketju2: 'taka',
+    rehab: {
+      akuutti:   { vaihe: 'Akuutti (0–3 pv)',    focus: 'Aktiivinen lepo. Ei kiertoliikkeitä.',                          hpp_phase: 'Acute',    harjoitteet: ['EX_CORE_MOB'] },
+      subakuutti:{ vaihe: 'Subakuutti (4–14 pv)', focus: 'Syvälihasharjoittelu, stabiliteetti.',                        hpp_phase: 'Subacute', harjoitteet: ['EX_PLANK', 'EX_BIRD_DOG'] },
+      krooninen: { vaihe: 'Krooninen / Ylläpito', focus: 'Toiminnallinen vahvistus. Laukaus- ja rotaatioharjoittelu.',   hpp_phase: 'Chronic',  harjoitteet: ['EX_ROT_SYOTTO', 'EX_MED_HEITTO'] }
+    }
+  },
+  'Olkapää': {
+    fasialinja: 'FL + SFL',
+    ketju: 'kierto',
+    ketju2: null,
+    rehab: {
+      akuutti:   { vaihe: 'Akuutti (0–3 pv)',    focus: 'Lepo, kipu alas. Ei yläraajan kuormitusta.',                   hpp_phase: 'Acute',    harjoitteet: [] },
+      subakuutti:{ vaihe: 'Subakuutti (4–14 pv)', focus: 'Rotator cuff -harjoittelu, liikelaajuus.',                    hpp_phase: 'Subacute', harjoitteet: ['EX_SHOULDER_ROT'] },
+      krooninen: { vaihe: 'Krooninen / Ylläpito', focus: 'Heittovoimaharjoittelu, laukaus.',                             hpp_phase: 'Chronic',  harjoitteet: ['EX_MED_HEITTO', 'EX_LAUKAUS'] }
+    }
+  },
+  // Oletuskartoitus muille alueille
+  'default': {
+    fasialinja: 'Ei määritelty',
+    ketju: null,
+    ketju2: null,
+    rehab: {
+      akuutti:   { vaihe: 'Akuutti',    focus: 'Konsultoi HPP ELITE -klinikkaa.',   hpp_phase: 'Acute',    harjoitteet: [] },
+      subakuutti:{ vaihe: 'Subakuutti', focus: 'Konsultoi HPP ELITE -klinikkaa.',   hpp_phase: 'Subacute', harjoitteet: [] },
+      krooninen: { vaihe: 'Ylläpito',   focus: 'Konsultoi HPP ELITE -klinikkaa.',   hpp_phase: 'Chronic',  harjoitteet: [] }
+    }
+  }
+};
+
+// Hae rehabilitaatiosuositus vamma-alueen ja vakavuuden perusteella
+function haeRehabSuositus(alue, vakavuus) {
+  var kartoitus = VAMMA_REHAB_KARTOITUS[alue] || VAMMA_REHAB_KARTOITUS['default'];
+  // Vakavuus → rehab-vaihe
+  var rehabVaihe = vakavuus === 'vak' ? 'akuutti' : vakavuus === 'keski' ? 'subakuutti' : 'krooninen';
+  var rehab = kartoitus.rehab[rehabVaihe];
+  return {
+    fasialinja:  kartoitus.fasialinja,
+    ketju:       kartoitus.ketju,
+    ketju2:      kartoitus.ketju2,
+    rehabVaihe:  rehab.vaihe,
+    focus:       rehab.focus,
+    hpp_phase:   rehab.hpp_phase,
+    harjoitteet: rehab.harjoitteet
+  };
+}
+
 function tallennLoukkaantuminen(pid, entry) {
   // Hae pelaaja
   var p = DEMO[pid]
@@ -7439,6 +7553,9 @@ function avaaLoukkaantumisLomake(pid) {
   h += 'style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;';
   h += 'padding:8px 10px;color:var(--text);font-family:\'DM Sans\';font-size:12px;resize:none;box-sizing:border-box;margin-bottom:14px;"></textarea>';
 
+  // HPP ELITE -suositus — päivittyy dynaamisesti kun alue ja vakavuus valitaan
+  h += '<div id="hppRehabSuositus" style="display:none;margin-bottom:12px;"></div>';
+
   // Tallenna-nappi
   h += '<button onclick="tallennInjuryJaSulje(\'' + pid + '\')" ';
   h += 'style="width:100%;padding:13px;border-radius:12px;border:none;';
@@ -7457,21 +7574,94 @@ window._injKonteksti = '';
 
 function injSetAlue(alue, btn) {
   window._injAlue = alue;
-  // Deselektoi muut
   btn.closest('div').querySelectorAll('button').forEach(function(b) {
-    b.style.background = b.dataset.alue === alue ? 'rgba(229,57,53,.15)' : 'var(--bg3)';
-    b.style.color = b.dataset.alue === alue ? '#E53935' : 'var(--muted2)';
-    b.style.borderColor = b.dataset.alue === alue ? 'rgba(229,57,53,.4)' : 'var(--border)';
+    b.style.background   = b.dataset.alue === alue ? 'rgba(229,57,53,.15)' : 'var(--bg3)';
+    b.style.color        = b.dataset.alue === alue ? '#E53935'              : 'var(--muted2)';
+    b.style.borderColor  = b.dataset.alue === alue ? 'rgba(229,57,53,.4)'   : 'var(--border)';
   });
+  paivitaHppSuositus(); // päivitä HPP ELITE -suositus heti kun alue valitaan
 }
 
 function injSetVakavuus(vak, btn) {
   window._injVakavuus = vak;
   btn.closest('div').querySelectorAll('button').forEach(function(b) {
     var isThis = b.dataset.vak === vak;
-    b.style.background = isThis ? 'rgba(229,57,53,.08)' : 'var(--bg3)';
-    b.style.borderColor = isThis ? 'rgba(229,57,53,.4)' : 'var(--border)';
+    b.style.background  = isThis ? 'rgba(229,57,53,.08)' : 'var(--bg3)';
+    b.style.borderColor = isThis ? 'rgba(229,57,53,.4)'   : 'var(--border)';
   });
+  paivitaHppSuositus(); // päivitä HPP ELITE -suositus heti kun vakavuus valitaan
+}
+
+// Päivitä HPP ELITE -suositus lomakkeeseen dynaamisesti
+// Kutsutaan aina kun alue tai vakavuus muuttuu
+function paivitaHppSuositus() {
+  var el = document.getElementById('hppRehabSuositus');
+  if (!el) return;
+
+  if (!window._injAlue || !window._injVakavuus) {
+    el.style.display = 'none';
+    return;
+  }
+
+  var suositus = haeRehabSuositus(window._injAlue, window._injVakavuus);
+  var KETJU_NIMET = {taka:'Vauhtiketju',etu:'Hypyn ketju',sivu:'Lähtöketju',kierto:'Hallintaketju',syva:'Syväketju'};
+  var ketjuNimi   = suositus.ketju ? (KETJU_NIMET[suositus.ketju] || suositus.ketju) : null;
+
+  // HPP ELITE -url: linkki suoraan HPP ELITE spreadsheetin harjoitevälilehteen
+  // Tulevaisuudessa: klinikkaohjaus suoraan tähän
+  var hppUrl  = 'https://docs.google.com/spreadsheets/d/1-UPKKPbibbAguiRsY8RzeRoWQAJBANTthgNy3AA3e5M';
+  var hppText = 'HPP ELITE: ' + suositus.hpp_phase + ' — avaa harjoitekirjasto';
+
+  var h = '';
+  h += '<div style="border-top:1px solid rgba(255,255,255,.07);padding-top:12px;margin-top:4px;">';
+
+  // Otsikko
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">';
+  h += '<div style="width:6px;height:6px;border-radius:50%;background:#7C3AED;flex-shrink:0"></div>';
+  h += '<div style="font-size:12px;font-weight:700;color:#C084FC;">HPP ELITE — Rehabilitaatiosuositus</div>';
+  h += '</div>';
+
+  // Rehab-vaihe + fokus
+  h += '<div style="background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);';
+  h += 'border-radius:10px;padding:10px 12px;margin-bottom:8px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:#C084FC;margin-bottom:3px">';
+  h += suositus.rehabVaihe + '</div>';
+  h += '<div style="font-size:12px;color:var(--muted2);line-height:1.55">' + suositus.focus + '</div>';
+  if (suositus.fasialinja && suositus.fasialinja !== 'Ei määritelty') {
+    h += '<div style="font-size:10px;color:var(--muted);margin-top:5px;">';
+    h += 'Fasialinja: <span style="color:#C084FC">' + suositus.fasialinja + '</span>';
+    if (ketjuNimi) h += ' · TM-ketju: <span style="color:#C084FC">' + ketjuNimi + '</span>';
+    h += '</div>';
+  }
+  h += '</div>';
+
+  // Suositellut harjoitteet
+  if (suositus.harjoitteet && suositus.harjoitteet.length > 0) {
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:5px;">Suositellut harjoitteet:</div>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">';
+    suositus.harjoitteet.forEach(function(ex) {
+      h += '<div style="font-size:10px;background:rgba(124,58,237,.1);border-radius:5px;';
+      h += 'padding:2px 7px;color:#C084FC">' + ex + '</div>';
+    });
+    h += '</div>';
+  }
+
+  // HPP ELITE -linkki — tulevaisuudessa klinikkaohjaus
+  h += '<a href="' + hppUrl + '" target="_blank" style="display:flex;align-items:center;gap:7px;';
+  h += 'padding:8px 11px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.25);';
+  h += 'border-radius:9px;text-decoration:none;">';
+  h += '<span style="font-size:14px">📋</span>';
+  h += '<div style="flex:1;">';
+  h += '<div style="font-size:12px;font-weight:700;color:#C084FC">' + hppText + '</div>';
+  h += '<div style="font-size:10px;color:var(--muted2)">Tulevaisuudessa: suora klinikkaohjaus tästä →</div>';
+  h += '</div>';
+  h += '<span style="color:var(--muted);font-size:14px">↗</span>';
+  h += '</a>';
+
+  h += '</div>'; // HPP-suositus
+
+  el.innerHTML = h;
+  el.style.display = 'block';
 }
 
 function injSetKonteksti(ctx, btn) {
