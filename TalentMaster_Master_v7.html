@@ -1245,49 +1245,166 @@ const KIRKASTUMIS_PISTEET = {
 // Myöhemmin tämä siirtyy tm_data.js:n SEURAT-objektiin ekosysteemin
 // datalayer-suunnittelussa. Tällä hetkellä pidetään samassa tiedostossa
 // jotta kaikki toimii ilman ulkoisia riippuvuuksia.
+// ═══════════════════════════════════════════════════════════════════════
+// SEURAT_KONFIGURAATIO — Admin-kerros (sinä hallitset)
+//
+// JAKO KAHTEEN KERROKSEEN:
+//   1. Tämä objekti = staattinen sopimustaso (muuttuu vain kun sopimus muuttuu)
+//      → paketti, akkreditointi, vp_pin, valmentaja_pin
+//   2. localStorage 'tm_seura_config_[id]' = dynaaminen VP-kerros
+//      → treenipaivat, bio_metodi, kausi_alku, laajuus, roolit
+//
+// VP näkee molemmat kerrokset, valmentaja näkee vain dynaamisen.
+// ═══════════════════════════════════════════════════════════════════════
 const SEURAT_KONFIGURAATIO = {
+
+  // ── FC LAHTI — Pilottiseura, taso 3 ─────────────────────────────────
   'fc_lahti': {
     id: 'fc_lahti',
     nimi: 'FC Lahti',
+    lyhenne: 'FCL',
     paketti: 'taso3',
     laajuus: 'laaja',
-    treenipaivat: [1, 4],     // Ti + Pe (0=Ma ... 6=Su)
+    sopimus_alku: '2026-01-01',
+    sopimus_loppu: '2026-12-31',
+    // PIN-koodit — VP saa oman, valmentajat jakavat yhteisen
+    vp_pin: '6666',
+    valmentaja_pin: '9012',
+    // Palloliiton akkreditointi — sinä asetat tämän
     palloliitto_akkreditointi: {
       status: 'akkreditoitu',
       taso: 'kulta',
       viimeksi_tarkistettu: '2026-01-15',
     },
-    // Override-testit: yksittäiset poikkeukset paketin oletuksista.
-    // Esimerkiksi taso2-seura joka haluaa myös ADAR:in:
-    // testi_overridet: { adar: true }
+    // Oletusasetukset — VP voi ylikirjoittaa nämä omasta dashboardistaan
+    // Tallennetaan localStorage:iin avaimella tm_seura_config_fc_lahti
+    oletukset: {
+      treenipaivat: [1, 4],   // Ti + Pe
+      bio_metodi: 'mirwald',
+      kausi_alku: '2025-08-01',
+    },
     testi_overridet: null,
   },
-  'sjk': {
-    id: 'sjk',
-    nimi: 'SJK Akatemia',
-    paketti: 'taso3',
-    laajuus: 'suppea',
-    treenipaivat: [1, 3, 5],  // Ti + To + La
+
+  // ── KPV — Taso 2, harjoitettavuus + H-H testit ──────────────────────
+  'kpv': {
+    id: 'kpv',
+    nimi: 'KPV Kokkola',
+    lyhenne: 'KPV',
+    paketti: 'taso2',
+    laajuus: null,
+    sopimus_alku: '2026-02-01',
+    sopimus_loppu: '2026-12-31',
+    vp_pin: '7771',
+    valmentaja_pin: '7772',
     palloliitto_akkreditointi: {
       status: 'akkreditoitu',
       taso: 'hopea',
       viimeksi_tarkistettu: '2026-02-01',
     },
+    oletukset: {
+      treenipaivat: [1, 3],   // Ti + To
+      bio_metodi: 'mirwald',
+      kausi_alku: '2025-08-01',
+    },
     testi_overridet: null,
   },
-  'demo_seura': {
-    id: 'demo_seura',
-    nimi: 'Demo-seura',
-    paketti: 'taso1',
+
+  // ── PALLO-IIROT — Taso 2 ────────────────────────────────────────────
+  'pallo_iirot': {
+    id: 'pallo_iirot',
+    nimi: 'Pallo-Iirot',
+    lyhenne: 'PIR',
+    paketti: 'taso2',
     laajuus: null,
-    treenipaivat: [1, 4],
+    sopimus_alku: '2026-02-01',
+    sopimus_loppu: '2026-12-31',
+    vp_pin: '4441',
+    valmentaja_pin: '4442',
+    palloliitto_akkreditointi: {
+      status: 'haettu',
+      taso: null,
+      viimeksi_tarkistettu: '2026-02-01',
+    },
+    oletukset: {
+      treenipaivat: [1, 4],   // Ti + Pe
+      bio_metodi: 'mirwald',
+      kausi_alku: '2025-08-01',
+    },
+    testi_overridet: null,
+  },
+
+  // ── YLÖJÄRVEN ILVES — Taso 2 ─────────────────────────────────────────
+  'ylojarven_ilves': {
+    id: 'ylojarven_ilves',
+    nimi: 'Ylöjärven Ilves',
+    lyhenne: 'YIL',
+    paketti: 'taso2',
+    laajuus: null,
+    sopimus_alku: '2026-03-01',
+    sopimus_loppu: '2026-12-31',
+    vp_pin: '5551',
+    valmentaja_pin: '5552',
     palloliitto_akkreditointi: {
       status: 'ei_haettu',
       taso: null,
       viimeksi_tarkistettu: null,
     },
+    oletukset: {
+      treenipaivat: [1, 3],   // Ti + To
+      bio_metodi: 'mirwald',
+      kausi_alku: '2025-08-01',
+    },
     testi_overridet: null,
-  }
+  },
+
+  // ── SJK AKATEMIA — Taso 3, suppea ───────────────────────────────────
+  'sjk': {
+    id: 'sjk',
+    nimi: 'SJK Akatemia',
+    lyhenne: 'SJK',
+    paketti: 'taso3',
+    laajuus: 'suppea',
+    sopimus_alku: '2026-01-01',
+    sopimus_loppu: '2026-12-31',
+    vp_pin: '8881',
+    valmentaja_pin: '8882',
+    palloliitto_akkreditointi: {
+      status: 'akkreditoitu',
+      taso: 'hopea',
+      viimeksi_tarkistettu: '2026-02-01',
+    },
+    oletukset: {
+      treenipaivat: [1, 3, 5], // Ti + To + La
+      bio_metodi: 'molemmat',
+      kausi_alku: '2025-07-01',
+    },
+    testi_overridet: null,
+  },
+
+  // ── DEMO — Esittelykäyttöön ──────────────────────────────────────────
+  'demo_seura': {
+    id: 'demo_seura',
+    nimi: 'Demo-seura',
+    lyhenne: 'DEM',
+    paketti: 'taso1',
+    laajuus: null,
+    sopimus_alku: null,
+    sopimus_loppu: null,
+    vp_pin: '5555',
+    valmentaja_pin: '9999',
+    palloliitto_akkreditointi: {
+      status: 'ei_haettu',
+      taso: null,
+      viimeksi_tarkistettu: null,
+    },
+    oletukset: {
+      treenipaivat: [1, 4],
+      bio_metodi: 'mirwald',
+      kausi_alku: '2025-08-01',
+    },
+    testi_overridet: null,
+  },
 };
 
 // ── APUFUNKTIOT — testipakettiarkkitehtuuri ───────────────────────────────
@@ -1295,9 +1412,39 @@ const SEURAT_KONFIGURAATIO = {
 // Palauttaa seuran konfiguraation pelaajaobjektin perusteella.
 // Jos seuraId puuttuu tai seuraa ei löydy, palautetaan null ja
 // kutsuja käyttää oletusasetuksia (taso1-käyttäytyminen).
+// haeSeuranKonfiguraatio — yhdistää kaksi kerrosta:
+//   Kerros 1 (staattinen): SEURAT_KONFIGURAATIO — paketti, PIN, akkreditointi
+//   Kerros 2 (dynaaminen): localStorage tm_seura_config_[id] — VP:n asetukset
 function haeSeuranKonfiguraatio(p) {
-  if (!p || !p.seuraId) return null;
-  return SEURAT_KONFIGURAATIO[p.seuraId] || null;
+  var seuraId = p && p.seuraId;
+  if (!seuraId) return null;
+  var staattinen = SEURAT_KONFIGURAATIO[seuraId];
+  if (!staattinen) return null;
+  var dynaaminen = lsj('tm_seura_config_' + seuraId) || {};
+  // Yhdistä: oletukset pohjana, dynaaminen päälle
+  var yhdistetty = Object.assign({}, staattinen, staattinen.oletukset || {}, dynaaminen);
+  // Kriittiset kentät aina staattisesta — VP ei voi muuttaa näitä
+  yhdistetty.id      = staattinen.id;
+  yhdistetty.nimi    = staattinen.nimi;
+  yhdistetty.paketti = staattinen.paketti;
+  yhdistetty.vp_pin  = staattinen.vp_pin;
+  yhdistetty.valmentaja_pin = staattinen.valmentaja_pin;
+  yhdistetty.palloliitto_akkreditointi = staattinen.palloliitto_akkreditointi;
+  return yhdistetty;
+}
+
+// haeSeuraByPin — tunnistaa seuran PIN-koodin perusteella
+// Palauttaa {seura, rooli, seuraId} tai null
+function haeSeuraByPin(pin) {
+  var tulos = null;
+  Object.values(SEURAT_KONFIGURAATIO).forEach(function(seura) {
+    if (seura.vp_pin === pin) {
+      tulos = { seura: seura, rooli: 'vp', seuraId: seura.id };
+    } else if (seura.valmentaja_pin === pin) {
+      tulos = { seura: seura, rooli: 'valmentaja', seuraId: seura.id };
+    }
+  });
+  return tulos;
 }
 
 // Palauttaa testipaketin pelaajalle. Jos seuraa ei löydy,
@@ -1684,14 +1831,18 @@ function delCoachPin(){
   document.getElementById('coachPinErr').textContent='';
 }
 function tarkastaCoachPin(){
-  if(window._coachPin!==COACH_PIN){
+  var seuraMatch = haeSeuraByPin(window._coachPin);
+  var isLegacyPin = window._coachPin === COACH_PIN;
+  if (!seuraMatch && !isLegacyPin) {
     document.getElementById('coachPinErr').textContent='Väärä PIN';
     for(var i=0;i<4;i++)document.getElementById('cpd'+i).className='pin-dot err';
     window._coachPin='';
-    setTimeout(function(){for(var i=0;i<4;i++)document.getElementById('cpd'+i).className='pin-dot';},1000);
+    setTimeout(function(){for(var i=0;i<4;i++)document.getElementById('cpd'+i).className='pin-dot';},800);
     return;
   }
-  // PIN oikein — näytä plusmerkintälomake
+  // Tallennetaan rooli ja seura globaalisti käyttöä varten
+  window._coachRooli   = seuraMatch ? seuraMatch.rooli   : 'valmentaja';
+  window._coachSeuraId = seuraMatch ? seuraMatch.seuraId : 'demo_seura';
   naytaCoachPlusLomake();
 }
 
