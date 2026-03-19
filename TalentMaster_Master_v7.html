@@ -366,11 +366,13 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
 .haaste-aktiivinen{display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);border-radius:12px;margin-bottom:10px;}
 
 /* ── SPECIAL MOMENT — 3D flip-animaatio ── */
-.tm-flip-scene{perspective:900px;width:100%;margin-bottom:16px;}
-.tm-flip-card{position:relative;width:100%;transform-style:preserve-3d;transition:transform 1.2s cubic-bezier(.4,0,.2,1);}
-.tm-flip-card.flipped{transform:rotateY(180deg);}
-.tm-flip-front,.tm-flip-back{width:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
-.tm-flip-back{position:absolute;top:0;left:0;transform:rotateY(180deg);}
+.tm-flip-scene{width:100%;margin-bottom:16px;}
+.tm-flip-front{display:block;width:100%;}
+.tm-flip-back{display:none;width:100%;}
+@keyframes tm-flip-out{0%{opacity:1;transform:rotateY(0deg) scale(1);}40%{opacity:0;transform:rotateY(90deg) scale(.95);}100%{opacity:0;transform:rotateY(90deg) scale(.95);}}
+@keyframes tm-flip-in{0%{opacity:0;transform:rotateY(-90deg) scale(.95);}60%{opacity:0;transform:rotateY(-90deg) scale(.95);}100%{opacity:1;transform:rotateY(0deg) scale(1);}}
+.tm-flipping-out{animation:tm-flip-out 0.6s ease-in forwards;}
+.tm-flipping-in{animation:tm-flip-in 0.6s ease-out forwards;}
 
 /* Erikoistila-teemat — takasivu */
 .tm-special-haaste{background:linear-gradient(145deg,#3D2800,#1A1000,#0A0600);border:2px solid rgba(255,200,50,.6);border-radius:20px;box-shadow:0 0 40px rgba(255,180,0,.35),0 20px 60px rgba(0,0,0,.7);}
@@ -1016,6 +1018,534 @@ const LEVELIT=[
 ];
 const XP={harjoite:20,kaikki:50,streak5:100,streak7:200,streak14:500,liikunta:15};
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TESTIPAKETTIARKKITEHTUURI — v1.0
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Filosofia: Jokainen seura kuuluu yhteen kolmesta tasosta. Taso määrää
+// mitä testejä VP-dashboardissa näytetään ja mitä algoritmeja voidaan
+// laskea. Algoritmit (Hidden Gem, X-Factor) aktivoituvat AUTOMAATTISESTI
+// kun riittävästi dataa on kerätty — valmentajan ei tarvitse tehdä mitään
+// erikoista. Pelaajan profiili "kirkastuu" sitä mukaa kuin dataa kertyy.
+//
+// Kolme tasoa:
+//   taso1 — Tekniikkapolku (sisäänheitto, max 25% kirkastuminen)
+//   taso2 — Kehityspolku (systemaattinen, max 60% kirkastuminen)
+//   taso3 — Huuhkaja/Helmari-polku (täydellinen, max 100% kirkastuminen)
+//
+// Räätälöinti ei ole erillinen taso — se toteutuu taso2:n tai taso3:n
+// päälle lisättävinä override-valintoina VP-asetuksissa.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const TESTIPAKETIT = {
+
+  // ── TASO 1: Tekniikkapolku ────────────────────────────────────────────
+  // Tarkoitus: Matalan kynnyksen sisäänheitto. Seura tuntee jo TK-kilpailun
+  // Palloliiton kautta — TalentMaster digitalisoi sen ja lisää päälle
+  // personoidun harjoitusohjelman ja kansallisen vertailun.
+  //
+  // Mitä aktivoituu automaattisesti:
+  //   - TKI-profiili (5 liikeketjua, heikoin/vahvin)
+  //   - Personoitu viikko-ohjelma TKI-pohjainen
+  //   - Kansallinen ranking (TKI-pisteet)
+  //   - Pelaajan kortti perustaso
+  //
+  // Mitä EI aktivoidu (data puuttuu):
+  //   - Hidden Gem (vaatii fys_historia + bioIka)
+  //   - X-Factor (vaatii fys_historia)
+  //   - Harjoitettavuusindeksi
+  //   - Psykologinen profiili
+  taso1: {
+    id: 'taso1',
+    nimi: 'Tekniikkapolku',
+    kuvaus: 'Palloliiton TK-kilpailu + personoitu harjoitusohjelma + kansallinen ranking',
+    vari: '#0D9488',       // teal — tuore, matala kynnys
+    ikoni: '⚽',
+    max_kirkastuminen: 25,
+
+    // testit-objekti määrää mitä lomakkeita VP-dashboardissa näytetään.
+    // true = näytetään aina, false = piilotettu tällä tasolla
+    testit: {
+      tk_kilpailu:      true,   // 5 virallista TK-lajia
+      oma_testi:        true,   // Seuran vapaavalintainen lisäkenttä
+      harjoitettavuus:  false,
+      fys_historia:     false,  // Palloliiton normitestit (nopeus, CMJ, SM)
+      biologinen_ika:   false,  // PHV-laskelma
+      adar:             false,  // ADAR-peliälyarviointi
+      grit:             false,
+      vsci:             false,
+    },
+
+    // algoritmit-objekti kertoo mitä voidaan laskea tällä tasolla.
+    // true  = aina aktiivinen
+    // false = ei koskaan (data rakenteellisesti puuttuu)
+    // 'auto' = aktivoituu automaattisesti jos data löytyy (taso4-overridet)
+    algoritmit: {
+      tki_profiili:             true,
+      viikko_ohjelma:           true,
+      hidden_gem:               false,
+      x_factor:                 false,
+      harjoitettavuus_indeksi:  false,
+      psykologinen_profiili:    false,
+      talent_id_5d:             false,
+    }
+  },
+
+  // ── TASO 2: Kehityspolku ──────────────────────────────────────────────
+  // Tarkoitus: Systemaattinen kehitysseura. Sopii Palloliiton
+  // 30-40 kehitysseuralle jotka tekevät dokumentoitua pelaajakehitystyötä.
+  //
+  // Mitä lisätään taso1:n päälle:
+  //   - Harjoitettavuuskartoitus ikäprotokollalla
+  //   - H-H ominaisuustestit (nopeus, CMJ, asymmetria)
+  //   - Biologinen ikä (PHV Mirwald/Khamis-Roche)
+  //   - Grit-psykologinen profiili (U13+)
+  //
+  // Algoritmit jotka heräävät:
+  //   - Hidden Gem OSITTAIN: kerrokset 1+2 (RAE-kompensaatio + bio-ikäkorjaus)
+  //     Kerros 3 (ADAR-ristiriita) jää 'auto'-tilaan — aktivoituu jos ADAR
+  //     kerätään myöhemmin taso4-overridella
+  //   - X-Factor OSITTAIN: komponentit A+B (RAE-bonus + kehitysnopeus)
+  //     Komponentti C (PHV-bio-bonus) aktivoituu koska biologinen_ika: true
+  taso2: {
+    id: 'taso2',
+    nimi: 'Kehityspolku',
+    kuvaus: 'TK + harjoitettavuus + H-H testit + biologinen ikä + Grit',
+    vari: '#7C3AED',       // purppura — syvempi, ammattimainen
+    ikoni: '📊',
+    max_kirkastuminen: 60,
+
+    testit: {
+      tk_kilpailu:      true,
+      oma_testi:        true,
+      harjoitettavuus:  true,   // Uni, ravinto, RPE-historia, kapasiteetti
+      fys_historia:     true,   // Nopeus 10m/30m, CMJ, SM-pallo/ilman, asymmetria
+      biologinen_ika:   true,   // Istumakorkeus → Mirwald; vanhempien pituudet → Khamis-Roche
+      adar:             false,  // Ei vielä — aktivoituu taso4-overridella
+      grit:             true,   // U13-15: Grit Short (5 kys.); U15+: Grit Scale (8 kys.)
+      vsci:             false,
+    },
+
+    algoritmit: {
+      tki_profiili:             true,
+      viikko_ohjelma:           true,
+      // 'osittain' tarkoittaa: kerrokset 1+2 lasketaan, kerros 3 odottaa ADARia
+      hidden_gem:               'osittain',
+      // 'osittain' tarkoittaa: komponentit A+B+C lasketaan, täydet pisteet vaativat ADARin
+      x_factor:                 'osittain',
+      harjoitettavuus_indeksi:  true,
+      psykologinen_profiili:    'osittain', // Grit ilman VSCI:ta
+      talent_id_5d:             false,
+    }
+  },
+
+  // ── TASO 3: Huuhkaja/Helmari-polku ───────────────────────────────────
+  // Tarkoitus: Täydellinen profilointi. Integroituu Palloliiton
+  // maajoukkuepolkuun. Kaikki algoritmit täysimittaisina.
+  //
+  // Mitä lisätään taso2:n päälle:
+  //   - ADAR-peliälyarviointi → aktivoi Hidden Gem kerros 3
+  //   - VSCI (Vealey Sport Confidence Inventory) U15+
+  //   - TalentMaster 5D Framework™ kokonaisuudessaan
+  //   - Game IQ™ -arviointi
+  //   - IDP (Individual Development Plan) — tämä on se mitä huippuseurat haluavat
+  //
+  // Lisäksi taso3 avaa Bridge-integraation:
+  //   - XPS Network / Catapult / Polar kuormitusseuranta
+  //   - Videokoulutuskirjasto pelaaja- ja valmentajatasolla
+  //   - Showcase Pro™ CV-paketti (U17-19)
+  taso3: {
+    id: 'taso3',
+    nimi: 'Huuhkaja/Helmari-polku',
+    kuvaus: 'Täydellinen profilointi: TK + H-H + biologinen ikä + ADAR + VSCI + 5D + IDP',
+    vari: '#F59E0B',       // kulta — eliitti, täydellinen
+    ikoni: '🏆',
+    max_kirkastuminen: 100,
+
+    // Laajuus-kenttä erottaa laajan ja suppean version seuran asetuksissa.
+    // Tämä ei ole erillinen tuotetaso — se on saman tason sisäinen asetus.
+    // 'laaja'   = VSCI + 5D + täysi psykologinen profiili
+    // 'suppea'  = ilman VSCI:ta ja 5D:tä (max_kirkastuminen rajoittuu 85%:iin)
+    laajuus: 'laaja',      // seuran VP-asetuksissa voidaan vaihtaa 'suppea':ksi
+
+    testit: {
+      tk_kilpailu:      true,
+      oma_testi:        true,
+      harjoitettavuus:  true,
+      fys_historia:     true,
+      biologinen_ika:   true,
+      adar:             true,   // Avainero taso2:een — aktivoi Hidden Gem kerros 3
+      grit:             true,   // Täysi Grit Scale + valmentajan täydennys
+      vsci:             true,   // Vealey Sport Confidence Inventory (U15+)
+    },
+
+    algoritmit: {
+      tki_profiili:             true,
+      viikko_ohjelma:           true,
+      hidden_gem:               true,   // Kaikki 3 kerrosta täysimittaisina
+      x_factor:                 true,   // Kaikki 3 komponenttia täysimittaisina
+      harjoitettavuus_indeksi:  true,
+      psykologinen_profiili:    true,   // Grit + VSCI + valmentajan havainnot
+      talent_id_5d:             true,   // TalentMaster 5D Framework™
+    }
+  }
+};
+
+// ── KIRKASTUMISPISTEET ────────────────────────────────────────────────────
+// Painotukset heijastavat datan arvoa tunnistusalgoritmeille — ei aikaa
+// tai vaivaa. ADAR saa korkean painon koska se on se yksittäinen testi
+// joka aktivoi Hidden Gem kerros 3:n (ADAR-ristiriita).
+// Yhteensä 100 pistettä täydellä taso3-datalla.
+const KIRKASTUMIS_PISTEET = {
+  tk_kilpailu:      25,  // Perusta — ilman tätä ei ole profiilia
+  fys_historia:     15,  // H-H normitestit
+  biologinen_ika:   10,  // PHV-laskelma — avaa Hidden Gem kerros 2
+  harjoitettavuus:  15,  // Kapasiteettiprofiili
+  adar:             15,  // Peliäly — avaa Hidden Gem kerros 3 (tärkein yksittäinen)
+  grit:             10,  // Psykologinen profiili
+  vsci:             10,  // Urheiluluottamus (vain U15+, muilla 0)
+};
+
+// ── SEUROJEN KONFIGURAATIO ────────────────────────────────────────────────
+// Jokainen seura viittaa yhteen testipakettitasoon. Tämä on se piste
+// jossa seuratason hallinta kytkeytyy pelaajadataan.
+//
+// Myöhemmin tämä siirtyy tm_data.js:n SEURAT-objektiin ekosysteemin
+// datalayer-suunnittelussa. Tällä hetkellä pidetään samassa tiedostossa
+// jotta kaikki toimii ilman ulkoisia riippuvuuksia.
+const SEURAT_KONFIGURAATIO = {
+  'fc_lahti': {
+    id: 'fc_lahti',
+    nimi: 'FC Lahti',
+    paketti: 'taso3',
+    laajuus: 'laaja',
+    treenipaivat: [1, 4],     // Ti + Pe (0=Ma ... 6=Su)
+    palloliitto_akkreditointi: {
+      status: 'akkreditoitu',
+      taso: 'kulta',
+      viimeksi_tarkistettu: '2026-01-15',
+    },
+    // Override-testit: yksittäiset poikkeukset paketin oletuksista.
+    // Esimerkiksi taso2-seura joka haluaa myös ADAR:in:
+    // testi_overridet: { adar: true }
+    testi_overridet: null,
+  },
+  'sjk': {
+    id: 'sjk',
+    nimi: 'SJK Akatemia',
+    paketti: 'taso3',
+    laajuus: 'suppea',
+    treenipaivat: [1, 3, 5],  // Ti + To + La
+    palloliitto_akkreditointi: {
+      status: 'akkreditoitu',
+      taso: 'hopea',
+      viimeksi_tarkistettu: '2026-02-01',
+    },
+    testi_overridet: null,
+  },
+  'demo_seura': {
+    id: 'demo_seura',
+    nimi: 'Demo-seura',
+    paketti: 'taso1',
+    laajuus: null,
+    treenipaivat: [1, 4],
+    palloliitto_akkreditointi: {
+      status: 'ei_haettu',
+      taso: null,
+      viimeksi_tarkistettu: null,
+    },
+    testi_overridet: null,
+  }
+};
+
+// ── APUFUNKTIOT — testipakettiarkkitehtuuri ───────────────────────────────
+
+// Palauttaa seuran konfiguraation pelaajaobjektin perusteella.
+// Jos seuraId puuttuu tai seuraa ei löydy, palautetaan null ja
+// kutsuja käyttää oletusasetuksia (taso1-käyttäytyminen).
+function haeSeuranKonfiguraatio(p) {
+  if (!p || !p.seuraId) return null;
+  return SEURAT_KONFIGURAATIO[p.seuraId] || null;
+}
+
+// Palauttaa testipaketin pelaajalle. Jos seuraa ei löydy,
+// palataan taso1:een — matalan kynnyksen oletus.
+function haePaketti(p) {
+  var seura = haeSeuranKonfiguraatio(p);
+  if (!seura) return TESTIPAKETIT['taso1'];
+  var paketti = TESTIPAKETIT[seura.paketti] || TESTIPAKETIT['taso1'];
+  return paketti;
+}
+
+// Tarkistaa onko yksittäinen testi aktiivinen tälle pelaajalle/seuralle.
+// Huomioi sekä paketin oletukset että mahdolliset override-asetukset.
+function onTestiAktiivinen(p, testiId) {
+  var seura = haeSeuranKonfiguraatio(p);
+  var paketti = haePaketti(p);
+
+  // Override-asetus ajaa paketin oletuksen yli
+  if (seura && seura.testi_overridet && seura.testi_overridet[testiId] !== undefined) {
+    return !!seura.testi_overridet[testiId];
+  }
+  if (!paketti || !paketti.testit) return false;
+  return !!paketti.testit[testiId];
+}
+
+// Laskee profiilinkirkastumisen prosenttiluvuksi 0-100.
+// Rajoittaa tuloksen seuran paketin max_kirkastuminen-arvoon.
+// Näin taso1-seuralla profiili ei voi näyttää "100% valmis"
+// vaikka kaikki taso1-data olisi täytetty — se motivoi päivittämään tasoa.
+function laskeKirkastuminen(p) {
+  var paketti = haePaketti(p);
+  var pisteet = 0;
+
+  // TK-kilpailu — perusta
+  if ((p.qs_historia || []).length > 0) pisteet += KIRKASTUMIS_PISTEET.tk_kilpailu;
+
+  // H-H ominaisuustestit
+  if ((p.fys_historia || []).length > 0) pisteet += KIRKASTUMIS_PISTEET.fys_historia;
+
+  // Biologinen ikä — PHV-laskelma tehty
+  if (p.bioIka && p.bioIka.phvArvo != null) pisteet += KIRKASTUMIS_PISTEET.biologinen_ika;
+
+  // Harjoitettavuuskartoitus
+  if ((p.harjoitettavuus_historia || []).length > 0)
+    pisteet += KIRKASTUMIS_PISTEET.harjoitettavuus;
+
+  // ADAR-peliälyarviointi — kriittisin yksittäinen testi
+  if ((p.adar || []).length > 0) pisteet += KIRKASTUMIS_PISTEET.adar;
+
+  // Grit-psykologinen profiili
+  if ((p.grit_historia || []).length > 0) pisteet += KIRKASTUMIS_PISTEET.grit;
+
+  // VSCI — relevantti vain U15+
+  var ika = ((p.bioIka || {}).krono) || 0;
+  if (ika >= 15 && (p.vsci_historia || []).length > 0)
+    pisteet += KIRKASTUMIS_PISTEET.vsci;
+
+  // Rajoitetaan paketin maksimiin
+  var max = (paketti && paketti.max_kirkastuminen) ? paketti.max_kirkastuminen : 25;
+  var rajoitettu = Math.min(max, pisteet);
+
+  return {
+    pisteet: rajoitettu,
+    max: max,
+    // Prosentti suhteessa paketin maksimiin — tämä on se luku joka
+    // näytetään pelaajalle ja valmentajalle
+    pct: max > 0 ? Math.round((rajoitettu / max) * 100) : 0,
+    // Prosentti suhteessa absoluuttiseen 100:aan — käytetään kansallisessa
+    // vertailussa jossa tasot pitää olla vertailukelpoisia
+    abs_pct: Math.round(pisteet)
+  };
+}
+
+// Palauttaa kirkastumisen visuaalisen tilan — käytetään kortilla,
+// profiilissa ja VP-dashboardissa.
+function kirkastumisVisuaali(kirkastuminen) {
+  var pct = kirkastuminen.pct;
+  if (pct >= 90) return { taso: 'taysi',     label: 'Täysi profiili',  vari: '#0D9488', ikoni: '✨' };
+  if (pct >= 60) return { taso: 'selva',     label: 'Selvä profiili',  vari: '#F59E0B', ikoni: '🔆' };
+  if (pct >= 30) return { taso: 'kehittyva', label: 'Kehittyvä',       vari: '#7C3AED', ikoni: '🔷' };
+  return               { taso: 'alku',       label: 'Aloitettu',       vari: '#64748B', ikoni: '○'  };
+}
+
+// Palauttaa listan puuttuvista testeistä — käytetään "seuraava askel"
+// -ohjauksessa sekä pelaajan kortilla että VP-dashboardissa.
+// Järjestys heijastaa prioriteettia: suurimmat vaikutukset ensin.
+function puuttuvatTestit(p) {
+  var paketti = haePaketti(p);
+  var puuttuvat = [];
+
+  if (!paketti) return puuttuvat;
+
+  // Tarkistetaan jokainen testi paketin sallimassa järjestyksessä
+  if (paketti.testit.fys_historia && (p.fys_historia || []).length === 0)
+    puuttuvat.push({ id: 'fys_historia', nimi: 'H-H ominaisuustestit', pisteet: 15, ikoni: '🏃' });
+
+  if (paketti.testit.biologinen_ika && !(p.bioIka && p.bioIka.phvArvo != null))
+    puuttuvat.push({ id: 'biologinen_ika', nimi: 'Biologinen ikä (PHV)', pisteet: 10, ikoni: '📏' });
+
+  if (paketti.testit.harjoitettavuus && (p.harjoitettavuus_historia || []).length === 0)
+    puuttuvat.push({ id: 'harjoitettavuus', nimi: 'Harjoitettavuuskartoitus', pisteet: 15, ikoni: '🧠' });
+
+  if (paketti.testit.adar && (p.adar || []).length === 0)
+    puuttuvat.push({ id: 'adar', nimi: 'ADAR-peliälyarviointi', pisteet: 15, ikoni: '👁️' });
+
+  if (paketti.testit.grit && (p.grit_historia || []).length === 0)
+    puuttuvat.push({ id: 'grit', nimi: 'Grit-psykologinen arvio', pisteet: 10, ikoni: '💪' });
+
+  var ika = ((p.bioIka || {}).krono) || 0;
+  if (paketti.testit.vsci && ika >= 15 && (p.vsci_historia || []).length === 0)
+    puuttuvat.push({ id: 'vsci', nimi: 'VSCI-urheiluluottamus', pisteet: 10, ikoni: '🎯' });
+
+  return puuttuvat;
+}
+
+// ── PALLOLIITON AKKREDITOINTIKRITEERIT ───────────────────────────────────
+// Tarkistetaan VP-dashboardissa automaattisesti.
+// Kultataso = systemaattinen kehitysseura (30-40 Palloliiton seuraa).
+// Hopeataso = perusdokumentointi kunnossa.
+const AKKREDITOINTI_KRITEERIT = {
+  kulta: [
+    {
+      id: 'testaus_kattavuus',
+      teksti: '90% U10-U19 pelaajista testattu vähintään 2× kaudessa',
+      tarkista: function(pelaajat) {
+        var kohde = pelaajat.filter(function(p) {
+          var ika = ((p.bioIka||{}).krono)||0;
+          return ika >= 10 && ika <= 19;
+        });
+        if (kohde.length === 0) return false;
+        var testattu = kohde.filter(function(p) {
+          return (p.qs_historia||[]).length >= 2;
+        });
+        return (testattu.length / kohde.length) >= 0.9;
+      }
+    },
+    {
+      id: 'biologinen_ika_kattavuus',
+      teksti: 'Biologinen ikä laskettu kaikille U13-U16 pelaajille',
+      tarkista: function(pelaajat) {
+        var kohde = pelaajat.filter(function(p) {
+          var ika = ((p.bioIka||{}).krono)||0;
+          return ika >= 13 && ika <= 16;
+        });
+        if (kohde.length === 0) return true; // Ei ko. ikäluokkia = ei vaatimusta
+        var laskettu = kohde.filter(function(p) {
+          return p.bioIka && p.bioIka.phvArvo != null;
+        });
+        return (laskettu.length / kohde.length) >= 1.0;
+      }
+    },
+    {
+      id: 'harjoitettavuus_kattavuus',
+      teksti: 'Harjoitettavuuskartoitus tehty U13+ pelaajille kauden alussa',
+      tarkista: function(pelaajat) {
+        var kohde = pelaajat.filter(function(p) {
+          var ika = ((p.bioIka||{}).krono)||0;
+          return ika >= 13;
+        });
+        if (kohde.length === 0) return true;
+        var kartoitettu = kohde.filter(function(p) {
+          return (p.harjoitettavuus_historia||[]).length > 0;
+        });
+        return (kartoitettu.length / kohde.length) >= 0.9;
+      }
+    },
+  ],
+  hopea: [
+    {
+      id: 'tk_perustaso',
+      teksti: '80% U10-U15 pelaajista vähintään 1 TK-kilpailu kaudessa',
+      tarkista: function(pelaajat) {
+        var kohde = pelaajat.filter(function(p) {
+          var ika = ((p.bioIka||{}).krono)||0;
+          return ika >= 10 && ika <= 15;
+        });
+        if (kohde.length === 0) return false;
+        var testattu = kohde.filter(function(p) {
+          return (p.qs_historia||[]).length >= 1;
+        });
+        return (testattu.length / kohde.length) >= 0.8;
+      }
+    },
+  ]
+};
+
+// Laskee akkreditointistatus seuralle pelaajadatan perusteella.
+// Palauttaa tason ('kulta'|'hopea'|'ei_tayta') ja kriteeritaulun
+// jossa näkyy mitkä kohdat täyttyvät ja mitkä eivät.
+function laskeAkkreditointi(pelaajat) {
+  var kultaOk = AKKREDITOINTI_KRITEERIT.kulta.every(function(k) {
+    return k.tarkista(pelaajat);
+  });
+  var hopeaOk = AKKREDITOINTI_KRITEERIT.hopea.every(function(k) {
+    return k.tarkista(pelaajat);
+  });
+  return {
+    taso: kultaOk ? 'kulta' : hopeaOk ? 'hopea' : 'ei_tayta',
+    kulta: AKKREDITOINTI_KRITEERIT.kulta.map(function(k) {
+      return { id: k.id, teksti: k.teksti, tayttyy: k.tarkista(pelaajat) };
+    }),
+    hopea: AKKREDITOINTI_KRITEERIT.hopea.map(function(k) {
+      return { id: k.id, teksti: k.teksti, tayttyy: k.tarkista(pelaajat) };
+    }),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// HUIPPUSEUROJEN IDP-ARKKITEHTUURI (taso3)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// IDP = Individual Development Plan. Tämä on se mitä huippuseurat
+// oikeasti haluavat: pelaajalle räätälöity, kerrostettu harjoitussuunnitelma
+// joka yhdistää TKI-heikkoudet, harjoitettavuuden, kuormitushistorian
+// ja Bridge-datan (XPS/Catapult/Polar) yhdeksi koherentiksi ohjelmaksi.
+//
+// IDP-kerrokset (vastaavat Bridge-prototyypin rakennetta):
+//   kerros1 — HPP ELITE™ kuntoutus- ja aktivointiharjoitteet (faskialinjat)
+//   kerros2 — Suorituskykyharjoitteet (nopeus, voima, räjähtävyys)
+//   kerros3 — Pallolliset teknisharjoitteet (liikeketjukohtainen)
+//   kerros4 — Kognitiiviset harjoitteet (ADAR, Game IQ, Pre-scan)
+//
+// Tämä rakenne on tällä hetkellä kovakoodattu Bridge-prototyypissä.
+// Datalayer-suunnittelussa se siirtyy tm_data.js:n rakenteeseen.
+// ─────────────────────────────────────────────────────────────────────────
+
+// IDP-kerrosmäärittely — käytetään rakentamisessa ja visualisoinnissa
+const IDP_KERROKSET = {
+  hpp:   { id: 'hpp',  nimi: 'HPP ELITE™',       vari: '#A78BFA', kuvaus: 'Kuntoutus- ja aktivointiharjoitteet' },
+  perf:  { id: 'perf', nimi: 'Suorituskyky',      vari: '#0D9488', kuvaus: 'Nopeus, voima, räjähtävyys' },
+  ball:  { id: 'ball', nimi: 'Pallollinen',        vari: '#F59E0B', kuvaus: 'Tekniikka- ja liikeketjuharjoitteet' },
+  kog:   { id: 'kog',  nimi: 'Kognitiivinen',      vari: '#3B82F6', kuvaus: 'ADAR, Game IQ, Pre-scan' },
+};
+
+// Rakentaa pelaajalle IDP-harjoitesuunnitelman käytettävissä olevan datan perusteella.
+// Taso3-seuralla tämä on täysimittainen nelikerroksinen suunnitelma.
+// Taso1-seuralla tämä tuottaa vain pallolliset harjoitteet TKI-pohjaisesti.
+function rakennaPelaajIDP(p) {
+  var paketti = haePaketti(p);
+  var kirkastuminen = laskeKirkastuminen(p);
+  var idp = { pelaaja: p.id, pvm: new Date().toISOString().split('T')[0], kerrokset: {} };
+
+  // Kerros 3 (pallollinen) on aina käytössä — se tulee TKI-profiilista
+  // ja on sama logiikka kuin nykyinen rakennaPaivanOhjelma()-funktio
+  idp.kerrokset.ball = {
+    kerros: IDP_KERROKSET.ball,
+    lahde: 'tki_profiili',
+    aktiivinen: true,
+  };
+
+  // Kerros 1 (HPP ELITE) aktivoituu kun harjoitettavuusdata on saatavilla
+  // tai kun loukkaantuminen on kirjattu
+  var onVamma = (p.loukkaantumiset || []).some(function(l) { return l.aktiivinen; });
+  var onHarj = (p.harjoitettavuus_historia || []).length > 0;
+  idp.kerrokset.hpp = {
+    kerros: IDP_KERROKSET.hpp,
+    lahde: 'hpp_elite',
+    aktiivinen: onTestiAktiivinen(p, 'harjoitettavuus') && (onVamma || onHarj),
+  };
+
+  // Kerros 2 (suorituskyky) aktivoituu kun fys_historia on saatavilla
+  idp.kerrokset.perf = {
+    kerros: IDP_KERROKSET.perf,
+    lahde: 'fys_historia',
+    aktiivinen: onTestiAktiivinen(p, 'fys_historia') && (p.fys_historia||[]).length > 0,
+  };
+
+  // Kerros 4 (kognitiivinen) aktivoituu kun ADAR-data on saatavilla (taso3)
+  idp.kerrokset.kog = {
+    kerros: IDP_KERROKSET.kog,
+    lahde: 'adar',
+    aktiivinen: onTestiAktiivinen(p, 'adar') && (p.adar||[]).length > 0,
+  };
+
+  idp.kirkastuminen = kirkastuminen;
+  idp.paketti = paketti ? paketti.id : 'taso1';
+  return idp;
+}
+// ── TESTIPAKETTIARKKITEHTUURI PÄÄTTYY ────────────────────────────────────
+
 // Valmentajan + merkinnät — tallennetaan localStorageen
 // Virallinen testi lasketaan automaattisesti qs_historista
 function haeVahvistukset(p){
@@ -1257,7 +1787,7 @@ const PIN_KOODIT={
 const DEMO={
   'HPP-P001':{
     id:'HPP-P001',etunimi:'Matias',sukunimi:'Korhonen',
-    joukkue:'P13',positio:'KK',palloliitoId:'123456',
+    joukkue:'P13',positio:'KK',palloliitoId:'123456',seuraId:'fc_lahti',
     phvTila:'PHV-HUIPPU',
     bioIka:{krono:13.2,bio:12.1,phvEst:14.1,aikuisPit:182,nytPit:155,tannerVaihe:'T2',rae:'Q1'},
     adar:[
@@ -1276,7 +1806,7 @@ const DEMO={
   },
   'HPP-P002':{
     id:'HPP-P002',etunimi:'Aleksi',sukunimi:'Virtanen',
-    joukkue:'P15',positio:'HYK',palloliitoId:'654321',
+    joukkue:'P15',positio:'HYK',palloliitoId:'654321',seuraId:'fc_lahti',
     phvTila:'Post-PHV',
     bioIka:{krono:15.1,bio:15.8,phvEst:13.5,aikuisPit:186,nytPit:176,tannerVaihe:'T4',rae:'Q2'},
     adar:[
@@ -1295,7 +1825,7 @@ const DEMO={
   },
   'HPP-P003':{
     id:'HPP-P003',etunimi:'Lauri',sukunimi:'Mäkinen',
-    joukkue:'P16',positio:'LH',palloliitoId:'999888',
+    joukkue:'P16',positio:'LH',palloliitoId:'999888',seuraId:'fc_lahti',
     phvTila:'Post-PHV',
     bioIka:{krono:16.2,bio:16.5,phvEst:13.8,aikuisPit:179,nytPit:177,tannerVaihe:'T5',rae:'Q3'},
     adar:[
@@ -1317,7 +1847,7 @@ const DEMO={
   },
   'HPP-P004':{
     id:'HPP-P004',etunimi:'Eetu',sukunimi:'Salonen',
-    joukkue:'P8',positio:null,palloliitoId:'111222',
+    joukkue:'P8',positio:null,palloliitoId:'111222',seuraId:'fc_lahti',
     ikavaihe:'leikkija',
     phvTila:'Pre-PHV',
     bioIka:{krono:8.3,bio:7.9,phvEst:12.8,aikuisPit:172,nytPit:128,tannerVaihe:'T1',rae:'Q2'},
@@ -1331,7 +1861,7 @@ const DEMO={
   // ── SJK P2014 — Huuhkajapolku testit 20.1.2026 ──────────────────────
   'SJK-P2014-001':{
     id:'SJK-P2014-001',etunimi:'Eino',sukunimi:'Asumus',
-    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,seuraId:'sjk',
     phvTila:'Post-PHV',
     bioIka:{krono:12.1,bio:12.1,phvEst:9.7,aikuisPit:null,nytPit:147.6,tannerVaihe:'T2',rae:null},
     adar:[],
@@ -1339,7 +1869,7 @@ const DEMO={
   },
   'SJK-P2014-002':{
     id:'SJK-P2014-002',etunimi:'Peetu',sukunimi:'Järvelä',
-    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,seuraId:'sjk',
     phvTila:'Post-PHV',
     bioIka:{krono:12.1,bio:12.1,phvEst:9.9,aikuisPit:null,nytPit:148.5,tannerVaihe:'T2',rae:null},
     adar:[],
@@ -5843,16 +6373,35 @@ function laskeADAR(p){
     &&p.qs_historia[p.qs_historia.length-1].results.ketjut;
   var ovr=laskeOverall(viimKetjut);
 
+  // ── TESTIPAKETTITARKISTUS ──────────────────────────────────────────────
+  // Tarkistetaan seuran paketti ennen algoritmien laskemista.
+  // Tämä on se kohta jossa testipakettiarkkitehtuuri kytkeytyy laskentaan.
+  //
+  // Logiikka: algoritmi lasketaan jos JOMPIKUMPI ehto täyttyy:
+  //   a) paketin algoritmit-kenttä on true tai 'osittain'
+  //   b) ADAR-data löytyy (p.adar.length > 0) riippumatta paketista
+  //      — tämä varmistaa taaksepäinyhteensopivuuden vanhoille pelaajille
+  //      joilla ei ole seuraId:tä vielä kirjattuna
+  var paketti = haePaketti(p);
+  var xFactorSallittu = !paketti || paketti.algoritmit.x_factor !== false;
+  var hiddenGemSallittu = !paketti || paketti.algoritmit.hidden_gem !== false;
+
   // ── X-FACTOR (Ajax/DFB-malli, kalibroitu 2024-data) ──
   // Teoria: RAE-kompensaatio × normitasokerroin + kehitysnopeus
   // Lähde: Helsen et al. 2012, Cobley et al. 2009, TalentMaster 2025
-  var xFactor = laskeXFactor(p);
+  var xFactor = xFactorSallittu ? laskeXFactor(p) : {pisteet:0, komponentit:{rajattu:true}};
 
   // ── HIDDEN GEM (kolmikerroshierarkia) ──
-  // Kerros 1 (nyt): RAE Q3/Q4 + normitaso ≥3 → epäsuhta odotukseen
-  // Kerros 2 (tulevaisuus): bio-ikäkorjattu normitasoetu kun phvArvo saatavilla
-  // Kerros 3 (nyt): ADAR-ristiriita — korkea taktinen äly, matala fyysinen OVR
-  var hiddenGem = laskeHiddenGem(p, yht, ovr);
+  // Kerros 1: RAE Q3/Q4 + normitaso ≥3 → epäsuhta odotukseen
+  // Kerros 2: bio-ikäkorjattu normitasoetu (aktivoituu taso2+)
+  // Kerros 3: ADAR-ristiriita — korkea taktinen äly, matala fyysinen OVR
+  //           (aktivoituu täysimittaisena vain taso3:ssa)
+  var hiddenGem = hiddenGemSallittu
+    ? laskeHiddenGem(p, yht, ovr)
+    : {aktiiviinen:false, taso:null, syyt:[]};
+
+  // Kirkastuminen lasketaan aina — se ei riipu paketista vaan datasta
+  var kirkastuminen = laskeKirkastuminen(p);
 
   return{
     a:viimeisin.a,d:viimeisin.d,act:viimeisin.act,r:viimeisin.r,
@@ -5860,7 +6409,12 @@ function laskeADAR(p){
     hiddenGem:hiddenGem.aktiiviinen,hiddenGemTaso:hiddenGem.taso,
     hiddenGemSyyt:hiddenGem.syyt,
     xFactor:xFactor.pisteet,xFactorKomponentit:xFactor.komponentit,
-    ovr:ovr,historia:p.adar,pvm:viimeisin.date
+    ovr:ovr,historia:p.adar,pvm:viimeisin.date,
+    // Uudet kentät testipakettiarkkitehtuurista
+    kirkastuminen:kirkastuminen,
+    paketti: paketti ? paketti.id : 'taso1',
+    xFactorSallittu:xFactorSallittu,
+    hiddenGemSallittu:hiddenGemSallittu,
   };
 }
 
@@ -9744,6 +10298,46 @@ function buildKehitys(){
     h+='<div style="font-size:10px;color:var(--muted2);margin-top:6px">Miten lasketaan: RAE × normitaso + testikehityskulma (Palloliiton taso 1–5)</div>';
     h+='</div>';
   }
+  // ── PROFIILINKIRKASTUMINEN ───────────────────────────────────────────
+  // Näytetään vain jos kirkastuminen on alle 90% — täydellä profiililla
+  // tämä osio häviää eikä vie turhaa tilaa.
+  (function(){
+    var kirk = laskeKirkastuminen(p);
+    var visuaali = kirkastumisVisuaali(kirk);
+    var paketti = haePaketti(p);
+    var puuttuvat = puuttuvatTestit(p);
+
+    // Kirkastumispalkki aina näkyvissä
+    var palkkinenVari = visuaali.vari;
+    h += '<div style="margin:12px 0 8px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+    h += '<div style="font-size:11px;font-weight:700;color:var(--muted2);letter-spacing:.5px;text-transform:uppercase">Profiilinkirkastuminen</div>';
+    h += '<div style="font-size:12px;font-weight:700;color:' + palkkinenVari + '">' + visuaali.ikoni + ' ' + visuaali.label + ' — ' + kirk.pct + '%</div>';
+    h += '</div>';
+    // Palkki
+    h += '<div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-bottom:8px;">';
+    h += '<div style="height:6px;width:' + kirk.pct + '%;background:' + palkkinenVari + ';border-radius:3px;transition:width 1s ease;"></div>';
+    h += '</div>';
+    // Pakettitaso
+    if(paketti){
+      h += '<div style="font-size:10px;color:var(--muted2);">';
+      h += paketti.ikoni + ' ' + paketti.nimi;
+      if(kirk.pisteet < kirk.max){
+        h += ' · Maksimi tällä paketilla: ' + kirk.max + ' / 100';
+      }
+      h += '</div>';
+    }
+    // Seuraava askel — näytetään vain jos puuttuvia testejä on
+    if(puuttuvat.length > 0 && kirk.pct < 90){
+      var seuraava = puuttuvat[0]; // Tärkein puuttuva ensin
+      h += '<div style="margin-top:8px;padding:7px 10px;background:rgba(13,148,136,.08);border:1px solid rgba(13,148,136,.2);border-radius:8px;">';
+      h += '<div style="font-size:11px;font-weight:700;color:#14B8A6;">Seuraava askel — +' + seuraava.pisteet + ' pistettä</div>';
+      h += '<div style="font-size:11px;color:var(--muted2);margin-top:2px;">' + seuraava.ikoni + ' ' + seuraava.nimi + '</div>';
+      h += '</div>';
+    }
+    h += '</div>';
+  })();
+
   // ── KETJUTIILET — heikoin + vahvin ──────────────────────────────────
   // Ensisijainen lähde: QS-historia (fasciaalinen järjestelmä, asteikko 0-10).
   // Fallback: TKI-profiili tk_historian pohjalta (jalkapallospesifinen, 0-100 → skaalataan 0-10).
@@ -10042,8 +10636,10 @@ function buildErikoistilaTakasivu(p, erikoistila, teema, vari, attrs, tc, posIko
 }
 
 function naytaTaysiKortti() {
+  try {
   var p = S.pelaaja;
-  var latest = p.qs_historia[p.qs_historia.length-1], r = latest && latest.results || {}, k = r.ketjut || {};
+  var latest = (p.qs_historia&&p.qs_historia.length) ? p.qs_historia[p.qs_historia.length-1] : null;
+  var r = latest && latest.results || {}, k = r.ketjut || {};
   var ov = laskeOverall(k), vari = overallVari(ov);
   var attrs = [
     {lbl:'PAC', val:toFifa(k.taka&&k.taka.pisteet)},
@@ -10072,26 +10668,20 @@ function naytaTaysiKortti() {
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
   h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;">🃏 Pelaajakortti</div>';
   if (onUusiErikoistila) {
-    h += '<div style="font-size:11px;padding:4px 10px;border-radius:8px;background:' + teema.glow.replace('.6','.15') + ';color:' + teema.vari + ';font-weight:700;animation:tm-shimmer 1.5s ease-in-out infinite;">✨ SPECIAL</div>';
+    h += '<div style="font-size:11px;padding:4px 10px;border-radius:8px;background:' + teema.glow.replace('.6','.15') + ';color:' + teema.vari + ';font-weight:700;">✨ SPECIAL</div>';
   }
   h += '<button onclick="suljeHarjoite()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
   h += '</div>';
 
   if (onUusiErikoistila) {
-    // Flip-rakenne: etuside (normaali kortti) + takaside (erikoistila)
     h += '<div class="tm-flip-scene">';
-    h += '<div class="tm-flip-card" id="tmFlipCard">';
-    // Etuside
     h += '<div class="tm-flip-front">' + korttiHTML + '</div>';
-    // Takaside
     h += takasivu;
-    h += '</div></div>';
-    // Nappi joka käynnistää flipin
-    h += '<button id="tmFlipBtn" onclick="kaynnistaSPFlip()" style="width:100%;padding:14px;border-radius:13px;border:none;background:linear-gradient(135deg,' + teema.vari + '33,' + teema.vari + '55);border:1px solid ' + teema.vari + '66;color:' + teema.vari + ';font-family:\'Barlow Condensed\',sans-serif;font-size:17px;font-weight:800;cursor:pointer;letter-spacing:.5px;margin-bottom:8px;animation:tm-shimmer 2s ease-in-out infinite;">';
+    h += '</div>';
+    h += '<button id="tmFlipBtn" onclick="kaynnistaSPFlip()" style="width:100%;padding:14px;border-radius:13px;border:none;background:' + teema.vari + '33;border:1px solid ' + teema.vari + '66;color:' + teema.vari + ';font-family:\'Barlow Condensed\',sans-serif;font-size:17px;font-weight:800;cursor:pointer;letter-spacing:.5px;margin-bottom:8px;">';
     h += teema.ikoni + ' PALJASTA ' + teema.otsikko + ' →</button>';
     h += '<div style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:12px;">Sinulla on uusi erikoistila — napauta paljastaaksesi</div>';
   } else if (erikoistila && teema) {
-    // Erikoistila aktiivinen mutta jo nähty — näytä pelkästään merkintä
     h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:' + teema.glow.replace('.6','.1') + ';border:1px solid ' + teema.glow.replace('.6','.3') + ';margin-bottom:12px;">';
     h += '<span style="font-size:20px;">' + teema.ikoni + '</span>';
     h += '<div><div style="font-size:13px;font-weight:700;color:' + teema.vari + ';">' + teema.otsikko + '</div>';
@@ -10109,40 +10699,55 @@ function naytaTaysiKortti() {
   document.getElementById('hkOverlay').style.display = 'flex';
   document.body.style.overflow = 'hidden';
 
-  // Jos uusi erikoistila — käynnistä flip automaattisesti 800ms viiveellä
-  // jotta pelaaja ehtii nähdä normaalin kortin ensin
   if (onUusiErikoistila) {
     setTimeout(function() {
       var btn = document.getElementById('tmFlipBtn');
-      if (btn) btn.classList.add('pulsing');
+      if (btn) btn.style.opacity = '1';
     }, 600);
+  }
+
+  } catch(e) {
+    // Näytä virhe näytöllä debuggausta varten
+    document.getElementById('hkBody').innerHTML =
+      '<div style="padding:20px;color:#ff6b6b;font-size:13px;">' +
+      '<div style="font-weight:700;margin-bottom:8px;">⚠️ Kortti-virhe:</div>' +
+      '<div style="font-family:monospace;font-size:11px;word-break:break-all;">' + e.message + '</div>' +
+      '<div style="margin-top:12px;font-size:11px;color:#888;">' + (e.stack||'').slice(0,200) + '</div>' +
+      '<button onclick="suljeHarjoite()" style="margin-top:16px;width:100%;padding:12px;border-radius:10px;border:none;background:#333;color:#fff;cursor:pointer;">Sulje</button>' +
+      '</div>';
+    document.getElementById('hkOverlay').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
   }
 }
 
-// Käynnistää flip-animaation kun pelaaja napauttaa nappia
 function kaynnistaSPFlip() {
-  var kortti = document.getElementById('tmFlipCard');
   var nappi = document.getElementById('tmFlipBtn');
-  if (!kortti) return;
+  var etuside = document.querySelector('.tm-flip-front');
+  var takasivu = document.querySelector('.tm-flip-back');
+  if (!etuside || !takasivu) return;
 
-  // Piilota nappi animaation ajaksi
   if (nappi) nappi.style.display = 'none';
 
-  // Käänny
-  kortti.classList.add('flipped');
+  // Vaihe 1: etuside pyörähtää ulos
+  etuside.classList.add('tm-flipping-out');
 
-  // Merkitse nähtyobjektiksi jotta animaatio ei toistu uudelleen
+  setTimeout(function() {
+    // Vaihe 2: etuside piilotetaan, takasivu tulee näkyviin ja pyörähtää sisään
+    etuside.style.display = 'none';
+    takasivu.style.display = 'block';
+    takasivu.classList.add('tm-flipping-in');
+  }, 500);
+
+  // Merkitse nähtyobjektiksi
   var p = S.pelaaja;
   var erikoistila = haeAktiivisinErikoistila(p);
   if (erikoistila) {
     var nahtyAvain = 'tm_sp_nahty_' + p.id + '_' + erikoistila.tyyppi + '_' + (erikoistila.luotu||'');
     sls(nahtyAvain, true);
-
-    // XP-bonus erikoistilan ensimmäisestä katselusta
     var teema = erikoistilaTeema(erikoistila);
     setTimeout(function() {
       naytaToast(teema.ikoni + ' ' + teema.otsikko + '! Kortti päivitetty!');
-    }, 1000);
+    }, 900);
   }
 }
 
