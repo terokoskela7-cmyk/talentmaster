@@ -3936,6 +3936,87 @@ function toggleProgressio(baseId, activeVi, clickedBtn, activeVari) {
   });
 }
 
+// ── TK opt-in modaalit VP:ssä ────────────────────────────────────────────
+// Kaksi erillistä opt-inia koska ne tarkoittavat eri asiaa:
+//   'anonyymi' = tilastodata ilman seuran nimeä
+//   'nimetty'  = seuran nimi julkisessa top-listassa
+
+function vpTKOptInMuuta(tyyppi, seuraKoodi) {
+  var onAnonyymi = tyyppi === 'anonyymi';
+  var avain      = onAnonyymi ? 'tm_tk_optin_consent_' + seuraKoodi
+                              : 'tm_tk_ranking_consent_' + seuraKoodi;
+  var nykyinen   = localStorage.getItem(avain);
+
+  var h = '';
+  h += '<div style="padding:8px 0;">';
+  h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;margin-bottom:8px;">';
+  h += onAnonyymi ? '📊 Anonyymi tilastodata' : '⭐ Nimetty ranking';
+  h += '</div>';
+
+  h += '<div style="font-size:12px;color:var(--muted2);line-height:1.7;margin-bottom:16px;">';
+  if (onAnonyymi) {
+    h += 'Viralliset tekniikkakilpailutulokset lisätään kansalliseen vertailutietokantaan <strong>ilman seuran nimeä</strong>. ';
+    h += 'Tallennetaan vain kokonaisaika ja lajitulokset — ei pelaajatunnisteita, ei seurakoodia.<br><br>';
+    h += 'Vastineeksi seura näkee ikäluokan kansalliset keskiarvot, top 10% -rajan ja oman sijoittumisensa.';
+  } else {
+    h += '<strong>Tämä on vapaaehtoinen tunnustus.</strong> Seuran nimi näkyy kansallisessa top-listassa jos joukkueella on erityisen hyviä tuloksia.<br><br>';
+    h += 'Tämä on eri asia kuin anonyymi tilastodata — tässä nimenomaan haluatte, että hyvä kehitystyö tunnistetaan. ';
+    h += 'Seuran nimi näkyy vain kun tulokset ovat top 25% tasolla.';
+  }
+  h += '</div>';
+
+  if (nykyinen === 'kylla') {
+    h += '<div style="font-size:11px;color:var(--green);background:rgba(29,158,117,.08);border-radius:8px;padding:8px 12px;margin-bottom:12px;">';
+    h += '✓ Tällä hetkellä ' + (onAnonyymi ? 'päällä' : 'näkyy') + ' — voit sammuttaa alla.</div>';
+  } else if (nykyinen === 'ei') {
+    h += '<div style="font-size:11px;color:var(--muted);background:var(--bg3);border-radius:8px;padding:8px 12px;margin-bottom:12px;">';
+    h += '— Tällä hetkellä pois käytöstä.</div>';
+  }
+
+  h += '<div style="display:flex;flex-direction:column;gap:8px;">';
+  // Kyllä-nappi
+  h += '<button onclick="vpTKOptInAseta(\'' + avain + '\',\'kylla\')" ';
+  h += 'style="padding:12px;border-radius:10px;border:none;';
+  h += 'background:' + (onAnonyymi ? 'var(--teal)' : '#BA7517') + ';';
+  h += 'color:' + (onAnonyymi ? '#000' : '#fff') + ';';
+  h += 'font-family:\'Barlow Condensed\';font-size:15px;font-weight:800;cursor:pointer;">';
+  h += onAnonyymi ? '✓ Päällä — osallistutaan kansalliseen tilastoon' : '⭐ Näkyy — haluamme olla ranking-listalla';
+  h += '</button>';
+  // Ei-nappi
+  h += '<button onclick="vpTKOptInAseta(\'' + avain + '\',\'ei\')" ';
+  h += 'style="padding:10px;border-radius:10px;border:1px solid var(--border);';
+  h += 'background:transparent;color:var(--muted2);font-size:13px;cursor:pointer;">';
+  h += onAnonyymi ? 'Pois — emme osallistu' : 'Piilotettu — emme halua näkyä';
+  h += '</button>';
+  // Peruuta
+  h += '<button onclick="suljePika()" ';
+  h += 'style="padding:8px;border-radius:8px;border:none;background:transparent;color:var(--dim);font-size:12px;cursor:pointer;">';
+  h += 'Peruuta — ei muutoksia</button>';
+  h += '</div>';
+  h += '</div>';
+
+  // Käytä pikakirjaus-popupia (on olemassa VP:ssä)
+  var body = document.getElementById('pikaBody');
+  var overlay = document.getElementById('pikaOverlay');
+  if (body && overlay) {
+    body.innerHTML = h;
+    overlay.style.display = 'flex';
+  }
+}
+
+function vpTKOptInAseta(avain, arvo) {
+  localStorage.setItem(avain, arvo);
+  var overlay = document.getElementById('pikaOverlay');
+  if (overlay) overlay.style.display = 'none';
+  // Päivitä näkymä
+  renderTab(_aktivTab);
+  var viesti = arvo === 'kylla'
+    ? '✓ Asetus tallennettu — käytössä'
+    : 'Asetus tallennettu — pois käytöstä';
+  // Yksinkertainen toast jos pikakirjauksen toast-funktio olemassa
+  if (typeof naytaToast === 'function') naytaToast(viesti);
+}
+
 function vaihdaKori(kori) {
   _aktivKori = kori;
   localStorage.setItem('kori_' + _aktivSeura, kori);
@@ -4026,6 +4107,48 @@ function renderTekniikkakilpailut() {
   h += 'border-radius:8px;padding:6px 12px;text-decoration:none;display:flex;align-items:center;gap:5px;">';
   h += '↗ Kirjaa tuloksia</a>';
   h += '</div>';
+
+  // ── JAKAMISASETUKSET — kaksi erillistä opt-inia ───────────────────────
+  // Näytetään aina valmennuspäällikölle — voidaan muuttaa milloin tahansa.
+  //
+  // TÄRKEÄ ERO:
+  //   Anonyymi data  = pelkkä numero kansalliseen tilastoon, seuran nimi EI näy
+  //   Nimetty ranking = seuran nimi näkyy julkisessa top-listassa — tunnustus
+  var _tkOptInNimetty  = localStorage.getItem('tm_tk_ranking_consent_' + _aktivSeura) || null;
+  var _tkOptInAnonyymi = localStorage.getItem('tm_tk_optin_consent_'   + _aktivSeura) || null;
+
+  h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:16px;">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">⚙️ Jakamisasetukset</div>';
+
+  // Asetus 1: Anonymisoitu data
+  var _anonCol = _tkOptInAnonyymi === 'kylla' ? '#1D9E75' : _tkOptInAnonyymi === 'ei' ? '#888780' : '#BA7517';
+  var _anonLbl = _tkOptInAnonyymi === 'kylla' ? '✓ päällä' : _tkOptInAnonyymi === 'ei' ? 'pois' : '— ei valittu';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);">';
+  h += '<div style="flex:1;margin-right:12px;">';
+  h += '<div style="font-size:12px;font-weight:700">Anonyymi tilastodata</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);margin-top:2px">Tulokset kansalliseen vertailutietokantaan — seuran nimi ei näy missään</div>';
+  h += '</div>';
+  h += '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">';
+  h += '<span style="font-size:11px;color:' + _anonCol + ';font-weight:700">' + _anonLbl + '</span>';
+  h += '<button onclick="vpTKOptInMuuta(\'anonyymi\',\'' + _aktivSeura + '\')" ';
+  h += 'style="padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);font-size:11px;cursor:pointer;color:var(--muted2)">Muuta</button>';
+  h += '</div></div>';
+
+  // Asetus 2: Nimetty ranking
+  var _nimettyCol = _tkOptInNimetty === 'kylla' ? '#FFD700' : _tkOptInNimetty === 'ei' ? '#888780' : '#BA7517';
+  var _nimettyLbl = _tkOptInNimetty === 'kylla' ? '✓ näkyy' : _tkOptInNimetty === 'ei' ? 'piilotettu' : '— ei valittu';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">';
+  h += '<div style="flex:1;margin-right:12px;">';
+  h += '<div style="font-size:12px;font-weight:700">Nimetty ranking ⭐</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);margin-top:2px">Seurasi nimi näkyy kansallisessa top-listassa — tunnustus hyvästä kehitystyöstä</div>';
+  h += '</div>';
+  h += '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">';
+  h += '<span style="font-size:11px;color:' + _nimettyCol + ';font-weight:700">' + _nimettyLbl + '</span>';
+  h += '<button onclick="vpTKOptInMuuta(\'nimetty\',\'' + _aktivSeura + '\')" ';
+  h += 'style="padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);font-size:11px;cursor:pointer;color:var(--muted2)">Muuta</button>';
+  h += '</div></div>';
+
+  h += '</div>'; // jakamisasetukset
 
   if (!kaikki.length) {
     // Ei TK-dataa — ohje ja linkki
