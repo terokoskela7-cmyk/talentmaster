@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster™ — Pelaaja · Konsepti 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+/* ── CSS VARIABLES PER IKÄ ── */
+:root {
+  --bg:#0A0F1C; --bg2:#111827; --bg3:#1A2235; --card:#1E2D45;
+  --border:rgba(255,255,255,.08);
+  --text:#F0F4FF; --muted:rgba(240,244,255,.45); --muted2:rgba(240,244,255,.28);
+  /* Ikäryhmän värit — vaihtuvat JS:llä */
+  --ika-prim:#00E5CC;
+  --ika-sec:#A78BFA;
+  --ika-acc:#FFB830;
+  --ika-glow:rgba(0,229,204,.15);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;line-height:1.5;transition:background .3s;}
+
+/* ── TOGGLE PALKKI ── */
+.ika-toggle{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;}
+.ika-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2);flex-shrink:0;}
+.ika-napit{display:flex;gap:4px;flex:1;}
+.ika-nappi{flex:1;padding:8px 10px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted2);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:center;transition:all .2s;white-space:nowrap;}
+.ika-nappi.active{border-color:var(--ika-prim);background:var(--ika-glow);color:var(--ika-prim);}
+.ika-badge{font-size:10px;display:block;opacity:.65;margin-top:1px;font-weight:400;}
+
+.top-header{background:linear-gradient(135deg,#0D1A2E,#0A1628);border-bottom:1px solid rgba(255,255,255,.06);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;letter-spacing:1px;}
+.header-right{font-size:11px;color:var(--muted);text-align:right;line-height:1.8;}
+.header-right strong{color:var(--ika-prim);}
+
+.banner{padding:14px 24px;display:flex;align-items:flex-start;gap:14px;border-bottom:1px solid var(--border);}
+.banner h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;margin-bottom:3px;}
+.banner p{font-size:13px;color:var(--muted);max-width:700px;}
+
+.main{padding:16px 24px;display:flex;flex-direction:column;gap:16px;}
+
+/* ── HERO-KORTTI ── */
+.hero-kortti{border-radius:20px;padding:22px;position:relative;overflow:hidden;}
+
+/* ── FIILINKIVALITSIN ── */
+.fiili-valitsin{display:flex;gap:8px;justify-content:center;padding:12px 0;}
+.fiili-nappi{font-size:28px;padding:8px 14px;border-radius:12px;border:2px solid transparent;background:rgba(255,255,255,.04);cursor:pointer;transition:all .2s;line-height:1;}
+.fiili-nappi.valittu{border-color:var(--ika-prim);background:var(--ika-glow);}
+
+/* ── STREAK ── */
+.streak-rivi{display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(255,255,255,.03);border-radius:12px;border:1px solid rgba(255,255,255,.06);}
+.streak-num{font-family:'Bebas Neue',sans-serif;font-size:52px;line-height:1;color:var(--ika-prim);}
+.streak-fire{font-size:36px;line-height:1;}
+
+/* ── XP PROGRESSI ── */
+.xp-palkki-bg{height:12px;background:rgba(255,255,255,.07);border-radius:6px;overflow:hidden;margin:8px 0;}
+.xp-palkki-fill{height:12px;border-radius:6px;transition:width 1s ease;}
+
+/* ── HAASTEET ── */
+.haaste-kortti{padding:14px 16px;border-radius:14px;border:1px solid;margin-bottom:8px;cursor:pointer;}
+.haaste-otsikko{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;margin-bottom:3px;}
+.haaste-meta{font-size:11px;opacity:.7;margin-bottom:8px;}
+.haaste-palkki-bg{height:7px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;}
+.haaste-palkki-fill{height:7px;border-radius:4px;}
+
+/* ── KETJUT ── */
+.ketju-rivi{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.ketju-nimi{font-size:11px;font-weight:600;color:var(--muted);width:80px;flex-shrink:0;}
+.ketju-bg{flex:1;height:10px;background:rgba(255,255,255,.06);border-radius:5px;overflow:hidden;}
+.ketju-fill{height:10px;border-radius:5px;transition:width .8s ease;}
+.ketju-num{font-size:12px;font-weight:700;width:26px;text-align:right;flex-shrink:0;}
+
+/* ── KALENTERI ── */
+.kal-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.kal-pv{width:100%;aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;}
+.kal-pv.tehty{background:var(--ika-glow);color:var(--ika-prim);}
+.kal-pv.tyhja{background:rgba(255,255,255,.03);color:var(--muted2);}
+.kal-pv.tanaan{border:2px solid var(--ika-prim);}
+
+/* ── CARD ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;}
+.card-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted2);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* ── FIFA-KORTTI (10-12) ── */
+.fifa-kortti{background:linear-gradient(135deg,#1A2A4A,#0D1A30);border:2px solid var(--ika-prim);border-radius:20px;padding:20px;text-align:center;position:relative;overflow:hidden;max-width:220px;margin:0 auto;}
+.fifa-ovr{font-family:'Bebas Neue',sans-serif;font-size:64px;line-height:1;margin-bottom:0;}
+.fifa-pos{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;opacity:.6;margin-bottom:8px;}
+.fifa-nimi{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;letter-spacing:1px;margin-bottom:12px;}
+.fifa-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;}
+.fifa-stat-val{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;line-height:1;}
+.fifa-stat-lbl{font-size:9px;opacity:.6;text-transform:uppercase;letter-spacing:.5px;}
+
+/* ── SHOWCASE (16-19) ── */
+.showcase-header{background:linear-gradient(135deg,rgba(255,215,0,.1),rgba(255,215,0,.03));border:1px solid rgba(255,215,0,.2);border-radius:14px;padding:16px;margin-bottom:12px;}
+.mastery-badge{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;padding:4px 12px;border-radius:7px;background:rgba(255,215,0,.15);color:#FFD700;border:1px solid rgba(255,215,0,.3);}
+
+/* ── KYSYMYKSET ── */
+.kysymykset-section{border-radius:16px;padding:22px;}
+.kysymykset-section h3{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;margin-bottom:6px;}
+.kysymykset-section .intro{font-size:13px;color:var(--muted);margin-bottom:18px;max-width:600px;}
+.q-list{display:flex;flex-direction:column;gap:10px;}
+.q-item{display:flex;gap:12px;align-items:flex-start;padding:13px 15px;background:rgba(255,255,255,.025);border-radius:10px;border:1px solid rgba(255,255,255,.05);}
+.q-num{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;flex-shrink:0;line-height:1;min-width:22px;}
+.q-text{font-size:13px;color:var(--text);line-height:1.6;}
+.q-text em{color:var(--muted);font-style:normal;display:block;font-size:12px;margin-top:3px;}
+
+.footer{background:var(--bg2);border-top:1px solid var(--border);padding:14px 24px;text-align:center;font-size:12px;color:var(--muted2);margin-top:8px;}
+</style>
+</head>
+<body>
+
+<div class="top-header">
+  <div class="logo" style="color:var(--ika-prim);">TalentMaster™ <span style="color:var(--muted);font-weight:400;font-size:13px;margin-left:6px;">Pelaaja · Konsepti</span></div>
+  <div class="header-right"><strong id="hdr-nimi">Matias Korhonen</strong><br><span id="hdr-meta">P13 · 13.2v</span></div>
+</div>
+
+<!-- IKÄRYHMÄ TOGGLE -->
+<div class="ika-toggle">
+  <div class="ika-label">Ikäryhmä</div>
+  <div class="ika-napit">
+    <button class="ika-nappi" onclick="vaihdaIka('A')">
+      10–12v
+      <span class="ika-badge">Leikkijä / Kilpailija</span>
+    </button>
+    <button class="ika-nappi active" onclick="vaihdaIka('B')">
+      13–15v
+      <span class="ika-badge">Rakentaja</span>
+    </button>
+    <button class="ika-nappi" onclick="vaihdaIka('C')">
+      16–19v
+      <span class="ika-badge">Showcase Pro</span>
+    </button>
+  </div>
+</div>
+
+<!-- BANNER -->
+<div class="banner" id="banner">
+  <div style="font-size:22px;flex-shrink:0;">💡</div>
+  <div>
+    <h2 id="banner-h2" style="color:var(--ika-prim);">Tämä on konseptikuva — haluamme sinun mielipiteesi</h2>
+    <p id="banner-p">Suunnittelemme sovellusta joka on sinun oma — ei valmentajan tai vanhempien. Alla näet miltä se voisi näyttää sinulle. Kysymykset sivun lopussa.</p>
+  </div>
+</div>
+
+<div class="main" id="main-content">
+<!-- Sisältö rakentuu JS:llä ikäryhmän mukaan -->
+</div>
+
+<div class="footer">
+  <strong style="color:var(--ika-prim);">TalentMaster™</strong> — Pelaajan oma kehitystyökalu · Konseptiprototyyppi 2026<br>
+  <span style="font-size:11px;margin-top:4px;display:block;">Kaikki data on esimerkkidata. Rakennamme tätä yhdessä pelaajien kanssa.</span>
+</div>
+
+<script>
+var IKARYHMA = 'B'; // Oletuksena 13–15v
+
+var TEEMAT = {
+  A: {
+    prim:'#FFB830', sec:'#FF6B35', acc:'#FFD700',
+    glow:'rgba(255,184,48,.15)',
+    nimi:'Matias Korhonen', meta:'P12 · 11.4v',
+    taso:'Kilpailija', ikoni:'⚡',
+    banneri:'Tässä on sinun FIFA-korttisi — se muuttuu kun kehityt!',
+    bannerip:'Sovellus on kuin oma pelikorttisi. Mitä enemmän harjoittelet, sitä parempi korttisi on. Onko tämä siistiä?'
+  },
+  B: {
+    prim:'#00E5CC', sec:'#A78BFA', acc:'#FFB830',
+    glow:'rgba(0,229,204,.15)',
+    nimi:'Matias Korhonen', meta:'P13 · 13.2v',
+    taso:'Rakentaja', ikoni:'🔥',
+    banneri:'Tämä on konseptikuva — haluamme sinun mielipiteesi',
+    bannerip:'Suunnittelemme sovellusta joka on sinun oma — ei valmentajan tai vanhempien. Kysymykset sivun lopussa.'
+  },
+  C: {
+    prim:'#FFD700', sec:'#A78BFA', acc:'#4A9EFF',
+    glow:'rgba(255,215,0,.12)',
+    nimi:'Aleksi Virtanen', meta:'P17 · 17.1v',
+    taso:'Sharp', ikoni:'⭐',
+    banneri:'Showcase Pro — sinun kehitystarinaasi',
+    bannerip:'Tämä on sinun urheiluportfoliosi. Seurat, valmentajat ja sinä itse näette kehityksesi koko historiasi. Kysymykset sivun lopussa.'
+  }
+};
+
+function css(prop, val){
+  document.documentElement.style.setProperty(prop, val);
+}
+
+function vaihdaIka(ryhma){
+  IKARYHMA = ryhma;
+  var t = TEEMAT[ryhma];
+  // Päivitä CSS-muuttujat
+  css('--ika-prim', t.prim);
+  css('--ika-sec', t.sec);
+  css('--ika-acc', t.acc);
+  css('--ika-glow', t.glow);
+  // Päivitä napit
+  document.querySelectorAll('.ika-nappi').forEach(function(n,i){
+    n.classList.toggle('active', ['A','B','C'][i]===ryhma);
+  });
+  // Päivitä header
+  document.getElementById('hdr-nimi').textContent = t.nimi;
+  document.getElementById('hdr-meta').textContent = t.meta;
+  // Päivitä banner
+  document.getElementById('banner-h2').textContent = t.banneri;
+  document.getElementById('banner-p').textContent = t.bannerip;
+  // Rakenna sisältö
+  rakennaSisalto(ryhma);
+}
+
+function rakennaSisalto(ryhma){
+  var el = document.getElementById('main-content');
+  if(ryhma==='A') el.innerHTML = rakennaA();
+  else if(ryhma==='B') el.innerHTML = rakennaB();
+  else el.innerHTML = rakennaC();
+}
+
+/* ══════════════════════════════════════════
+   MALLI A — 10–12v — LEIKKIJÄ / KILPAILIJA
+   Filosofia: välitön palaute, FIFA-kortti,
+   yksinkertainen, leikkisä
+══════════════════════════════════════════ */
+function rakennaA(){
+  return `
+  <!-- FIFA-KORTTI -->
+  <div style="text-align:center;margin-bottom:4px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted2);text-transform:uppercase;margin-bottom:12px;">⚽ Sinun pelaajasi</div>
+    <div class="fifa-kortti">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--ika-prim),var(--ika-sec));"></div>
+      <div class="fifa-ovr" style="color:var(--ika-prim);">71</div>
+      <div class="fifa-pos">HYÖKKÄÄJÄ</div>
+      <div class="fifa-nimi">MATIAS</div>
+      <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;">P12 · ⚡ Kilpailija</div>
+      <div class="fifa-stats">
+        <div>
+          <div class="fifa-stat-val" style="color:#FF4060;">74</div>
+          <div class="fifa-stat-lbl">Vauhti</div>
+        </div>
+        <div>
+          <div class="fifa-stat-val" style="color:var(--ika-prim);">68</div>
+          <div class="fifa-stat-lbl">SM-ketju</div>
+        </div>
+        <div>
+          <div class="fifa-stat-val" style="color:var(--ika-sec);">71</div>
+          <div class="fifa-stat-lbl">Peliäly</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:10px;color:var(--muted2);">Kortti paranee kun harjoittelet! 🚀</div>
+    </div>
+  </div>
+
+  <!-- STREAK -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2);margin-bottom:10px;">🔥 Treenausstrike</div>
+    <div class="streak-rivi">
+      <div class="streak-fire">🔥</div>
+      <div>
+        <div class="streak-num" style="color:var(--ika-prim);">8</div>
+        <div style="font-size:11px;color:var(--muted);">päivää putkeen — jatka niin!</div>
+      </div>
+      <div style="flex:1;text-align:right;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--ika-acc);">+25 XP</div>
+        <div style="font-size:10px;color:var(--muted2);">tänään</div>
+      </div>
+    </div>
+    <!-- Tämän viikon kalenteri -->
+    <div style="margin-top:10px;">
+      <div style="font-size:10px;color:var(--muted2);margin-bottom:6px;display:flex;justify-content:space-between;">
+        <span>MA</span><span>TI</span><span>KE</span><span>TO</span><span>PE</span><span>LA</span><span>SU</span>
+      </div>
+      <div class="kal-mini">
+        <div class="kal-pv tehty">✓</div>
+        <div class="kal-pv tehty">✓</div>
+        <div class="kal-pv tehty">✓</div>
+        <div class="kal-pv tehty">✓</div>
+        <div class="kal-pv tanaan tehty">✓</div>
+        <div class="kal-pv tyhja">—</div>
+        <div class="kal-pv tyhja">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HAASTE -->
+  <div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);margin-bottom:10px;">🎯 Tämän viikon haaste</div>
+    <div class="haaste-kortti" style="background:rgba(255,184,48,.08);border-color:rgba(255,184,48,.3);">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="font-size:32px;flex-shrink:0;">⚡</div>
+        <div style="flex:1;">
+          <div class="haaste-otsikko" style="color:var(--ika-acc);">Vauhtihaaste — 5 päivää</div>
+          <div class="haaste-meta">Tee Vauhtiketju-harjoite 5 kertaa tällä viikolla</div>
+          <div class="haaste-palkki-bg">
+            <div class="haaste-palkki-fill" style="width:60%;background:var(--ika-acc);"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;">
+            <div style="font-size:10px;color:var(--muted2);">3 / 5 suoritettu</div>
+            <div style="font-size:10px;font-weight:700;color:var(--ika-acc);">+50 XP palkkio</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIILINKI -->
+  <div class="card">
+    <div class="card-title" style="color:var(--ika-prim);">Miten fiilaat tänään?</div>
+    <div class="fiili-valitsin">
+      <div class="fiili-nappi">😫</div>
+      <div class="fiili-nappi">😕</div>
+      <div class="fiili-nappi valittu">😐</div>
+      <div class="fiili-nappi">🙂</div>
+      <div class="fiili-nappi">🔥</div>
+    </div>
+    <div style="text-align:center;font-size:11px;color:var(--muted2);margin-top:4px;">Valmentaja näkee joukkueen yhteisen fiilinkijakauman — ei sinun nimeäsi</div>
+  </div>
+
+  <!-- KYSYMYKSET A -->
+  <div class="kysymykset-section" style="background:rgba(255,184,48,.06);border:1px solid rgba(255,184,48,.2);">
+    <h3 style="color:var(--ika-acc);">🎯 Mitä mieltä olet?</h3>
+    <p class="intro">Näit miltä sovellus voisi näyttää sinulle (10–12v). Haluamme tietää mikä tuntuu siistiltä ja mikä ei.</p>
+    <div class="q-list">
+      <div class="q-item">
+        <div class="q-num" style="color:var(--ika-acc);">1</div>
+        <div class="q-text">Onko FIFA-tyylinen pelaajasi cool — vai haluaisitko jonkin muun tavan nähdä miten hyvä olet?
+        <em>Esim. pelaajakortti, tähdet, tasomittari, joku muu...</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:var(--ika-acc);">2</div>
+        <div class="q-text">8 päivän treenausstreak näkyy isona numerona. Motivoiko se sinua — vai onko se sama jos se ei näy?
+        <em>Mitä tapahtuisi jos streak katkeaisi?</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:var(--ika-acc);">3</div>
+        <div class="q-text">Haluaisitko nähdä kavereittesi pisteet vai pelkästään omasi?
+        <em>Kilpailisitko kaverin kanssa streakistä tai XP:stä?</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:var(--ika-acc);">4</div>
+        <div class="q-text">Järjestelmä ehdottaa harjoitusohjelmaa <strong>70/30-mallilla</strong>: tekninen pääharjoite kiertää kahta heikointa ketjua viikottain, yksilöllinen oma liike kohdistuu aina heikoimpaan. Onko tämä mielekästä — vai haluaisitko muuta?
+        <em>A) pelkästään heikoin aina · B) 70/30-kierto · C) vahvuuslähtöinen · D) valmentaja päättää</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:var(--ika-acc);">5</div>
+        <div class="q-text">Mitä sovelluksessa pitää ehdottomasti olla — mitä ilman et käyttäisi sitä?
+        <em>Vapaa sana.</em></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ══════════════════════════════════════════
+   MALLI B — 13–15v — RAKENTAJA
+   Filosofia: autonomia, oma kehitys,
+   data kiinnostaa mutta omilla ehdoilla
+══════════════════════════════════════════ */
+function rakennaB(){
+  return `
+  <!-- HERO: oma tila -->
+  <div class="hero-kortti" style="background:linear-gradient(135deg,rgba(0,229,204,.1),rgba(167,139,250,.06));border:1px solid rgba(0,229,204,.2);">
+    <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:16px;">
+      <div style="width:52px;height:52px;border-radius:50%;background:rgba(0,229,204,.12);border:2px solid rgba(0,229,204,.3);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:var(--ika-prim);flex-shrink:0;">MK</div>
+      <div style="flex:1;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;line-height:1;">Matias Korhonen</div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:2px;">P13 · 13.2v · 🔥 Maestro-profiili</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:3px 9px;border-radius:5px;background:rgba(0,229,204,.12);color:var(--ika-prim);">↑ Kehittyy</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:3px 9px;border-radius:5px;background:rgba(167,139,250,.1);color:var(--ika-sec);">🧠 PHV-vaihe</div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:56px;line-height:1;color:var(--ika-prim);">75</div>
+        <div style="font-size:9px;color:var(--muted2);">OVR</div>
+      </div>
+    </div>
+
+    <!-- XP progressi -->
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);margin-bottom:4px;">
+        <span>🔥 Treenaaja → Kilpapelaaja</span>
+        <span>600 / 1000 XP</span>
+      </div>
+      <div class="xp-palkki-bg">
+        <div class="xp-palkki-fill" style="width:60%;background:linear-gradient(90deg,var(--ika-prim),var(--ika-sec));"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted2);margin-top:3px;">+25 XP viimeksi · 400 XP tavoitteeseen</div>
+    </div>
+
+    <!-- Streak ja fiilinki rinnakkain -->
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;padding:10px 12px;background:rgba(255,255,255,.04);border-radius:10px;text-align:center;">
+        <div style="font-size:20px;">🔥</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;line-height:1;color:var(--ika-prim);">8</div>
+        <div style="font-size:10px;color:var(--muted2);">päivän streak</div>
+      </div>
+      <div style="flex:2;">
+        <div style="font-size:11px;color:var(--muted2);margin-bottom:6px;font-weight:600;">Miten fiilaat tänään?</div>
+        <div style="display:flex;gap:5px;">
+          <div class="fiili-nappi" style="font-size:22px;padding:6px 10px;">😫</div>
+          <div class="fiili-nappi" style="font-size:22px;padding:6px 10px;">😕</div>
+          <div class="fiili-nappi valittu" style="font-size:22px;padding:6px 10px;">😐</div>
+          <div class="fiili-nappi" style="font-size:22px;padding:6px 10px;">🙂</div>
+          <div class="fiili-nappi" style="font-size:22px;padding:6px 10px;">🔥</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEHITYS + HAASTEET -->
+  <div class="two-col">
+    <!-- Liikeketjut -->
+    <div class="card">
+      <div class="card-title"><span style="width:6px;height:6px;border-radius:50%;background:var(--ika-prim);display:inline-block;"></span>Oma kehitys</div>
+      <div class="ketju-rivi">
+        <div class="ketju-nimi">Vauhtiketju</div>
+        <div class="ketju-bg"><div class="ketju-fill" style="width:82%;background:#FF4060;"></div></div>
+        <div class="ketju-num" style="color:#FF4060;">82</div>
+      </div>
+      <div class="ketju-rivi">
+        <div class="ketju-nimi">Lähtöketju</div>
+        <div class="ketju-bg"><div class="ketju-fill" style="width:76%;background:var(--ika-acc);"></div></div>
+        <div class="ketju-num" style="color:var(--ika-acc);">76</div>
+      </div>
+      <div class="ketju-rivi">
+        <div class="ketju-nimi">SM-ketju</div>
+        <div class="ketju-bg"><div class="ketju-fill" style="width:71%;background:var(--ika-sec);"></div></div>
+        <div class="ketju-num" style="color:var(--ika-sec);">71</div>
+      </div>
+      <div class="ketju-rivi">
+        <div class="ketju-nimi" style="color:var(--ika-prim);">Hallintaketju</div>
+        <div class="ketju-bg"><div class="ketju-fill" style="width:54%;background:var(--ika-prim);"></div></div>
+        <div class="ketju-num" style="color:var(--ika-prim);">54</div>
+      </div>
+      <div class="ketju-rivi">
+        <div class="ketju-nimi">Peliälyketju</div>
+        <div class="ketju-bg"><div class="ketju-fill" style="width:79%;background:#4A9EFF;"></div></div>
+        <div class="ketju-num" style="color:#4A9EFF;">79</div>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--ika-prim);font-weight:700;">↑ Hallintaketju nousee — 70/30-harjoittelu toimii</div>
+    </div>
+
+    <!-- Haasteet -->
+    <div class="card">
+      <div class="card-title"><span style="width:6px;height:6px;border-radius:50%;background:var(--ika-acc);display:inline-block;"></span>Haasteet</div>
+      <div class="haaste-kortti" style="background:rgba(0,229,204,.06);border-color:rgba(0,229,204,.2);padding:10px 12px;">
+        <div class="haaste-otsikko" style="color:var(--ika-prim);font-size:13px;">🛡️ Hallintaviikko</div>
+        <div class="haaste-meta" style="font-size:10px;">Tee Hallintaharjoite 3× tällä viikolla</div>
+        <div class="haaste-palkki-bg"><div class="haaste-palkki-fill" style="width:67%;background:var(--ika-prim);"></div></div>
+        <div style="font-size:10px;color:var(--muted2);margin-top:3px;">2 / 3 · +40 XP</div>
+      </div>
+      <div class="haaste-kortti" style="background:rgba(167,139,250,.06);border-color:rgba(167,139,250,.2);padding:10px 12px;">
+        <div class="haaste-otsikko" style="color:var(--ika-sec);font-size:13px;">🧠 Game IQ -visa</div>
+        <div class="haaste-meta" style="font-size:10px;">Vastaa 5 pelitilannekysymykseen</div>
+        <div class="haaste-palkki-bg"><div class="haaste-palkki-fill" style="width:40%;background:var(--ika-sec);"></div></div>
+        <div style="font-size:10px;color:var(--muted2);margin-top:3px;">2 / 5 · +30 XP</div>
+      </div>
+      <div style="padding:8px 10px;background:rgba(255,255,255,.02);border-radius:8px;border:1px dashed rgba(255,255,255,.1);text-align:center;font-size:11px;color:var(--muted2);cursor:pointer;">+ Katso kaikki haasteet</div>
+    </div>
+  </div>
+
+  <!-- TÄNÄÄN -->
+  <div class="card" style="border-color:rgba(0,229,204,.2);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div class="card-title" style="margin-bottom:0;"><span style="width:6px;height:6px;border-radius:50%;background:var(--ika-prim);display:inline-block;margin-right:6px;"></span>Tänään — harjoitteesi</div>
+      <div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:7px;background:var(--ika-glow);color:var(--ika-prim);cursor:pointer;">▶ ALOITA</div>
+    </div>
+    <div style="padding:12px 14px;background:rgba(0,229,204,.06);border-radius:10px;border-left:3px solid var(--ika-prim);margin-bottom:8px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--ika-prim);margin-bottom:2px;">🛡️ Hallintaketju — oma liike</div>
+      <div style="font-size:12px;color:var(--muted);">Lankku 60s + variaatiot — Hallintaketjun perusta</div>
+      <div style="font-size:11px;color:var(--ika-prim);font-style:italic;margin-top:4px;">Kehittää: keskivartalon hallinta, tasapaino, lonkan stabillius</div>
+    </div>
+    <div style="padding:8px 12px;background:rgba(255,184,48,.05);border-radius:8px;border-left:2px solid var(--ika-acc);">
+      <div style="font-size:11px;color:var(--ika-acc);font-style:italic;">"Hengitä ympäri kylkiä — katse ympäriinsä ennen palloa"</div>
+    </div>
+  </div>
+
+  <!-- KYSYMYKSET B -->
+  <div class="kysymykset-section" style="background:rgba(0,229,204,.05);border:1px solid rgba(0,229,204,.18);">
+    <h3 style="color:var(--ika-prim);">🎯 Mitä mieltä olet?</h3>
+    <p class="intro">Näit miltä sovellus voisi näyttää sinulle (13–15v). Haluamme tietää mikä tuntuu hyvältä ja mikä ärsyttää.</p>
+    <div class="q-list">
+      <div class="q-item">
+        <div class="q-num" style="color:var(--ika-prim);">1</div>
+        <div class="q-text">Sovellus näyttää sinulle omat liikeketjusi pisteineen. Onko se motivoivaa — vai tuntuuko se siltä kuin vanhemmat tai valmentaja seuraisivat sinua?
+        <em>Kenelle tämä data kuuluu — sinulle, valmentajalle vai molemmille?</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:var(--ika-prim);">2</div>
+        <div class="q-text">Streak ja XP-tasot — onko niissä tarpeeksi "pelimäisyyttä" vai haluaisitko lisää? Tai onko se liikaa?
+        <em>Pelaatko pelejä joissa on samanlaisia systeemejä?</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:var(--ika-prim);">3</div>
+        <div class="q-text">Sovellus ehdottaa tänään yhden harjoitteen. Haluaisitko itse valita harjoitteesi — vai onko mukavampaa kun järjestelmä kertoo mitä tehdä?
+        <em>Miten paljon autonomiaa haluaisit omaan harjoitteluusi?</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:var(--ika-prim);">4</div>
+        <div class="q-text">Järjestelmä ehdottaa harjoitusohjelmaa <strong>70/30-mallilla</strong>: tekninen pääharjoite kiertää kahta heikointa ketjua viikottain, yksilöllinen oma liike kohdistuu aina heikoimpaan. Onko tämä mielekästä — vai haluaisitko muuta?
+        <em>A) pelkästään heikoin aina · B) 70/30-kierto · C) vahvuuslähtöinen · D) itse päätät</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:var(--ika-prim);">5</div>
+        <div class="q-text">Mitä et missään nimessä haluaisi tähän sovellukseen?
+        <em>Mikä tekisi siitä epämukavan tai ärsyttävän käyttää?</em></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ══════════════════════════════════════════
+   MALLI C — 16–19v — SHOWCASE PRO
+   Filosofia: portfolio, ura, tunnustus,
+   ammatillinen mutta persoonallinen
+══════════════════════════════════════════ */
+function rakennaC(){
+  return `
+  <!-- SHOWCASE HERO -->
+  <div class="showcase-header">
+    <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:14px;">
+      <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,215,0,.12);border:2px solid rgba(255,215,0,.3);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#FFD700;flex-shrink:0;">AV</div>
+      <div style="flex:1;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;line-height:1;">Aleksi Virtanen</div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:2px;">P17 · 17.1v · Hyökkääjä</div>
+        <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap;">
+          <span class="mastery-badge">⭐ Sharp</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:3px 9px;border-radius:5px;background:rgba(74,158,255,.12);color:#4A9EFF;">Railgun-profiili</span>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:60px;line-height:1;color:#FFD700;">79</div>
+        <div style="font-size:9px;color:var(--muted2);">OVR</div>
+      </div>
+    </div>
+    <!-- Kehitysaikajana -->
+    <div style="font-size:10px;color:var(--muted2);margin-bottom:6px;">Kehitys kauden aikana</div>
+    <div style="position:relative;height:40px;background:rgba(255,255,255,.03);border-radius:8px;overflow:hidden;">
+      <div style="position:absolute;bottom:0;left:0;right:0;height:2px;background:rgba(255,255,255,.1);"></div>
+      <svg width="100%" height="40" viewBox="0 0 300 40" preserveAspectRatio="none">
+        <polyline points="0,32 50,28 100,25 150,22 180,20 220,16 260,12 300,8"
+          fill="none" stroke="#FFD700" stroke-width="2" opacity="0.8"/>
+        <circle cx="300" cy="8" r="4" fill="#FFD700"/>
+      </svg>
+      <div style="position:absolute;top:4px;left:6px;font-size:9px;color:var(--muted2);">Syys 2025 → nyt</div>
+      <div style="position:absolute;top:4px;right:6px;font-size:9px;color:#FFD700;font-weight:700;">OVR +7.4</div>
+    </div>
+  </div>
+
+  <!-- VAHVUUDET + HARJOITTELU -->
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title"><span style="width:6px;height:6px;border-radius:50%;background:#FFD700;display:inline-block;"></span>Profiilisi vahvuudet</div>
+      <div class="ketju-rivi">
+        <div class="ketju-nimi" style="color:#FF4060;">Vauhtiketju</div>
+        <div class="ketju-bg"><div class="ketju-fill" style="width:89%;background:#FF4060;"></div></div>
+        <div class="ketju-num" style="color:#FF4060;">89</div>
+      </div>
+      <div class="ketju-rivi">
+        <div class="ketju-nimi">Lähtöketju</div>
+        <div class="ketju-bg"><div class="ketju-fill" style="width:84%;background:#FFD700;"></div></div>
+        <div class="ketju-num" style="color:#FFD700;">84</div>
+      </div>
+      <div class="ketju-rivi">
+        <div class="ketju-nimi">SM-ketju</div>
+        <div class="ketju-bg"><div class="ketju-fill" style="width:77%;background:var(--ika-sec);"></div></div>
+        <div class="ketju-num" style="color:var(--ika-sec);">77</div>
+      </div>
+      <div class="ketju-rivi">
+        <div class="ketju-nimi">Hallintaketju</div>
+        <div class="ketju-bg"><div class="ketju-fill" style="width:71%;background:#4A9EFF;"></div></div>
+        <div class="ketju-num" style="color:#4A9EFF;">71</div>
+      </div>
+      <div class="ketju-rivi">
+        <div class="ketju-nimi">Peliälyketju</div>
+        <div class="ketju-bg"><div class="ketju-fill" style="width:74%;background:var(--ika-acc);"></div></div>
+        <div class="ketju-num" style="color:var(--ika-acc);">74</div>
+      </div>
+      <div style="margin-top:8px;padding:6px 10px;background:rgba(255,64,96,.07);border-radius:7px;font-size:10px;color:#FF4060;font-weight:700;">⚡ Railgun-profiili — nopeus on sinun aseesi</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span style="width:6px;height:6px;border-radius:50%;background:var(--ika-acc);display:inline-block;"></span>Tämä viikko</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+        <div style="padding:8px 10px;background:rgba(255,255,255,.02);border-radius:8px;text-align:center;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:var(--ika-acc);">4</div>
+          <div style="font-size:9px;color:var(--muted2);">Harjoitusta</div>
+        </div>
+        <div style="padding:8px 10px;background:rgba(255,255,255,.02);border-radius:8px;text-align:center;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:#FF4060;">🔥 18</div>
+          <div style="font-size:9px;color:var(--muted2);">Streak</div>
+        </div>
+      </div>
+      <div style="padding:10px 12px;background:rgba(255,215,0,.06);border-radius:9px;border-left:2px solid #FFD700;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;color:#FFD700;margin-bottom:2px;">🏆 Sharp → Elite</div>
+        <div style="font-size:11px;color:var(--muted);">2 vahvistusta puuttuu tasolle Elite</div>
+        <div style="height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;margin-top:6px;">
+          <div style="height:5px;width:80%;background:#FFD700;border-radius:3px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHOWCASE CV-PAKETTI -->
+  <div class="card" style="border-color:rgba(255,215,0,.2);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div class="card-title" style="margin-bottom:0;"><span style="width:6px;height:6px;border-radius:50%;background:#FFD700;display:inline-block;margin-right:6px;"></span>Showcase — sinun CV-pakettisi</div>
+      <span class="mastery-badge" style="font-size:9px;">BETA</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;">Tämä on sinun kehitystarinasi jonka voit jakaa kiinnostuneille seuroille ja valmentajille. Se sisältää kaikki testitulosten kehityksen, valmentajien havainnot ja saavutuksesi.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="padding:8px 14px;border-radius:9px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);font-size:12px;font-weight:700;color:#FFD700;cursor:pointer;">📄 Luo CV-raportti</div>
+      <div style="padding:8px 14px;border-radius:9px;background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.2);font-size:12px;font-weight:700;color:#4A9EFF;cursor:pointer;">📤 Jaa seuralle</div>
+      <div style="padding:8px 14px;border-radius:9px;background:rgba(255,255,255,.03);border:1px solid var(--border);font-size:12px;font-weight:700;color:var(--muted2);cursor:pointer;">🔒 Pidä yksityisenä</div>
+    </div>
+  </div>
+
+  <!-- FIILINKI + ADAR-PALAUTE -->
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title"><span style="width:6px;height:6px;border-radius:50%;background:var(--ika-acc);display:inline-block;"></span>Oma fiilaus tänään</div>
+      <div class="fiili-valitsin" style="padding:6px 0;">
+        <div class="fiili-nappi" style="font-size:22px;">😫</div>
+        <div class="fiili-nappi" style="font-size:22px;">😕</div>
+        <div class="fiili-nappi" style="font-size:22px;">😐</div>
+        <div class="fiili-nappi valittu" style="font-size:22px;">🙂</div>
+        <div class="fiili-nappi" style="font-size:22px;">🔥</div>
+      </div>
+      <div style="font-size:10px;color:var(--muted2);text-align:center;margin-top:4px;">Valmentaja näkee joukkueen jakauman — ei nimeäsi</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span style="width:6px;height:6px;border-radius:50%;background:var(--ika-sec);display:inline-block;"></span>Valmentajan havainto</div>
+      <div style="padding:9px 12px;background:rgba(167,139,250,.06);border-left:2px solid var(--ika-sec);border-radius:0 8px 8px 0;">
+        <div style="font-size:10px;font-weight:700;color:var(--ika-sec);margin-bottom:3px;">Skannaus — 15.3.2026</div>
+        <div style="font-size:11px;color:var(--muted);font-style:italic;line-height:1.5;">"Katse ylös ennen vastaanottoa — selkeä kehitys viimeisen kuukauden aikana."</div>
+      </div>
+      <div style="margin-top:6px;font-size:10px;color:var(--muted2);">Nämä havainnot näkyvät sinulle — ne ovat osa CV-pakettiasi.</div>
+    </div>
+  </div>
+
+  <!-- KYSYMYKSET C -->
+  <div class="kysymykset-section" style="background:rgba(255,215,0,.05);border:1px solid rgba(255,215,0,.18);">
+    <h3 style="color:#FFD700;">🎯 Mitä mieltä olet?</h3>
+    <p class="intro">Näit miltä sovellus voisi näyttää sinulle (16–19v). Haluamme tietää mikä on oikeasti hyödyllistä uraasi ajatellen.</p>
+    <div class="q-list">
+      <div class="q-item">
+        <div class="q-num" style="color:#FFD700;">1</div>
+        <div class="q-text">Showcase CV-paketti — haluaisitko oikeasti jakaa kehitystietojasi seuroille? Vai tuntuu se yksityisyyden loukkaukselta?
+        <em>Onko sinulla kokemusta siitä että seura on pyytänyt jotain dataa sinusta?</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:#FFD700;">2</div>
+        <div class="q-text">Valmentajan havainnot ("skannaus parantunut") näkyvät sinulle suoraan. Onko se motivoivaa — vai haluaisitko valita itse mitä palautetta näet?
+        <em>Miten suhteesi valmentajan palautteeseen toimii nykyisin?</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:#FFD700;">3</div>
+        <div class="q-text">Mastery-tasot (Basic → Sharp → Elite → Signature) — onko tällainen progressio motivoiva vielä 17–19-vuotiaana vai kuulostaako se liian lapselliselta?
+        <em>Mikä pitäisi olla se tunne kun saavutat korkeimman tason?</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:#FFD700;">4</div>
+        <div class="q-text">Järjestelmä ehdottaa harjoitusohjelmaa <strong>70/30-mallilla</strong>: tekninen pääharjoite kiertää kahta heikointa ketjua viikottain, yksilöllinen oma liike kohdistuu aina heikoimpaan. Onko tämä mielekästä — vai haluaisitko muuta?
+        <em>A) pelkästään heikoin aina · B) 70/30-kierto · C) vahvuuslähtöinen (Railgun = nopeus) · D) itse päätät</em></div>
+      </div>
+      <div class="q-item">
+        <div class="q-num" style="color:#FFD700;">5</div>
+        <div class="q-text">Mitä muuta haluaisit sovelluksen tekevän uraasi ajatellen — mitä et vielä nähnyt?
+        <em>Vapaa sana.</em></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Alustus — renderöidään B heti
+vaihdaIka('B');
+</script>
+
+</body>
+</html>
