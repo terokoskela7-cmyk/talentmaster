@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lista · TalentMaster™</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0F0C14;
+  --bg2: #161220;
+  --bg3: #1E1828;
+  --ink: #EDE8F5;
+  --ink2: rgba(237,232,245,.65);
+  --ink3: rgba(237,232,245,.35);
+  --purple: #A78BFA;
+  --purple-d: #7C5FD6;
+  --purple-l: rgba(167,139,250,.07);
+  --amber: #F0A830;
+  --amber-l: rgba(240,168,48,.07);
+  --red: #E06060;
+  --green: #5CB880;
+  --border: rgba(237,232,245,.07);
+  --border2: rgba(237,232,245,.13);
+  --w: 660px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px; line-height: 1.78;
+  overflow-x: hidden;
+}
+
+#progress {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  height: 2px; background: var(--purple); width: 0%;
+  transition: width .12s linear;
+}
+
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: 18px 44px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(to bottom, var(--bg) 50%, transparent);
+}
+.logo { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 700; color: var(--ink); }
+.logo em { font-style: normal; color: var(--purple); }
+.topbar-tag { font-size: 11px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--ink3); }
+
+.w { max-width: var(--w); margin: 0 auto; padding: 0 44px; }
+
+/* HERO */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 130px 44px 90px;
+  max-width: var(--w); margin: 0 auto;
+}
+.hero-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--purple);
+  margin-bottom: 28px; display: flex; align-items: center; gap: 14px;
+}
+.hero-eyebrow::before { content: ''; width: 28px; height: 1px; background: var(--purple); }
+.hero-h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(46px, 8vw, 80px);
+  font-weight: 900; line-height: .98; letter-spacing: -.5px;
+  margin-bottom: 12px;
+}
+.hero-sub {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(16px, 2.5vw, 22px);
+  font-weight: 400; font-style: italic;
+  color: var(--ink2); margin-bottom: 32px;
+}
+.hero-lead {
+  font-size: 17px; color: var(--ink2);
+  line-height: 1.8; max-width: 510px; margin-bottom: 44px;
+}
+.hero-scroll {
+  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--ink3); display: flex; align-items: center; gap: 10px;
+}
+.hero-scroll::after {
+  content: '↓'; font-size: 15px; color: var(--purple);
+  animation: bob 2s infinite;
+}
+@keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(5px)} }
+
+/* SCENE */
+.scene {
+  padding: 72px 0; border-top: 1px solid var(--border);
+  opacity: 0; transform: translateY(22px);
+  transition: opacity .65s ease, transform .65s ease;
+}
+.scene.visible { opacity: 1; transform: none; }
+
+.scene-n {
+  font-size: 10px; font-weight: 700; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--ink3);
+  margin-bottom: 24px; display: flex; align-items: center; gap: 10px;
+}
+.scene-n span {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--bg3); border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--ink2);
+}
+
+.pull {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(20px, 3.2vw, 29px);
+  font-weight: 700; line-height: 1.2; letter-spacing: -.2px;
+  margin-bottom: 24px;
+}
+.pull em { font-style: italic; font-weight: 400; color: var(--purple); }
+.pull .muted { color: var(--ink3); font-weight: 400; }
+
+.prose {
+  font-size: 16px; color: var(--ink2); line-height: 1.82; margin-bottom: 18px;
+}
+.prose strong { color: var(--ink); font-weight: 500; }
+.prose em { font-style: italic; color: var(--ink); }
+
+/* Ajatus — sisäinen ääni */
+.ajatus {
+  border-left: 2px solid var(--border2);
+  padding: 12px 20px; margin: 22px 0;
+  font-family: 'Playfair Display', serif;
+  font-size: 15px; font-style: italic;
+  color: var(--ink2); line-height: 1.65;
+}
+.ajatus.ep { border-left-color: var(--amber); }
+.ajatus.vaikea { border-left-color: var(--purple); }
+.ajatus.helpotus { border-left-color: var(--green); }
+
+/* Kokoushuone — kaksi ihmistä puhuva */
+.dialogi {
+  margin: 28px 0;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.vuoro {
+  display: grid; grid-template-columns: 44px 1fr;
+  gap: 0 14px; align-items: flex-start;
+}
+.vuoro-nimi {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+  text-transform: uppercase; padding-top: 3px; text-align: right;
+  line-height: 1.3;
+}
+.vuoro-nimi.mikko { color: var(--purple); }
+.vuoro-nimi.tiina { color: var(--amber); }
+.vuoro-teksti {
+  font-size: 14px; color: var(--ink2); line-height: 1.68;
+  padding: 10px 14px; border-radius: 0 8px 8px 8px;
+  background: var(--bg2); border: 1px solid var(--border);
+}
+.vuoro-teksti em { font-style: italic; color: var(--ink); }
+
+/* Pelaaja-kortti — nimettömänä */
+.pelaaja-rivi {
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 10px; align-items: center;
+  padding: 14px 16px; background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px; margin-bottom: 8px;
+  opacity: 0; transform: translateX(-12px);
+  transition: opacity .4s ease, transform .4s ease;
+}
+.pelaaja-rivi.visible { opacity: 1; transform: none; }
+.pelaaja-rivi.sisalla { border-left: 3px solid var(--green); }
+.pelaaja-rivi.ulkona { border-left: 3px solid var(--red); opacity: .55; }
+.pelaaja-rivi.epaselvä { border-left: 3px solid var(--amber); }
+.pr-nimi { font-size: 14px; font-weight: 500; color: var(--ink); }
+.pr-kuvaus { font-size: 12px; color: var(--ink3); margin-top: 3px; line-height: 1.4; }
+.pr-merkki {
+  font-size: 11px; font-weight: 700; letter-spacing: .5px;
+  padding: 3px 10px; border-radius: 20px; white-space: nowrap;
+}
+.pr-merkki.s { background: rgba(92,184,128,.12); color: var(--green); }
+.pr-merkki.e { background: rgba(224,96,96,.1); color: var(--red); }
+.pr-merkki.k { background: rgba(240,168,48,.1); color: var(--amber); }
+
+/* Hetki */
+.hetki {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px; margin: 22px 0;
+}
+.hetki-aika {
+  font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--ink3); margin-bottom: 10px;
+}
+.hetki-teksti { font-size: 15px; color: var(--ink2); line-height: 1.7; }
+.hetki-teksti strong { color: var(--ink); }
+
+/* Divider */
+.divider {
+  padding: 56px 0; text-align: center;
+  border-top: 1px solid var(--border);
+  opacity: 0; transform: translateY(16px);
+  transition: opacity .65s ease, transform .65s ease;
+}
+.divider.visible { opacity: 1; transform: none; }
+.divider-q {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(17px, 2.8vw, 24px);
+  font-style: italic; color: var(--ink2);
+  max-width: 460px; margin: 0 auto 12px; line-height: 1.5;
+}
+.divider-attr { font-size: 11px; color: var(--ink3); letter-spacing: 1px; text-transform: uppercase; }
+
+/* CTA */
+.cta-alue {
+  padding: 90px 44px 110px;
+  max-width: var(--w); margin: 0 auto; text-align: center;
+  opacity: 0; transform: translateY(22px);
+  transition: opacity .75s ease, transform .75s ease;
+}
+.cta-alue.visible { opacity: 1; transform: none; }
+.cta-pre { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--purple); margin-bottom: 20px; }
+.cta-h {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(26px, 5vw, 44px);
+  font-weight: 900; line-height: 1.1; letter-spacing: -.3px; margin-bottom: 18px;
+}
+.cta-h em { font-style: italic; font-weight: 400; color: var(--purple); }
+.cta-lead { font-size: 15px; color: var(--ink2); line-height: 1.8; max-width: 460px; margin: 0 auto 36px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 15px 34px; background: var(--purple); color: var(--bg);
+  font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
+  border: none; border-radius: 6px; cursor: pointer; text-decoration: none;
+  transition: all .2s;
+}
+.btn:hover { background: var(--purple-d); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(167,139,250,.22); }
+.btn-2 { display: block; margin-top: 14px; font-size: 13px; color: var(--ink3); text-decoration: none; transition: color .15s; }
+.btn-2:hover { color: var(--ink2); }
+
+footer {
+  padding: 26px 44px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; color: var(--ink3);
+}
+.footer-logo { font-family: 'Playfair Display', serif; font-size: 15px; color: var(--ink2); }
+.footer-logo em { font-style: normal; color: var(--purple); }
+
+@media (max-width: 640px) {
+  .topbar, .hero, .w, .cta-alue { padding-left: 20px; padding-right: 20px; }
+  footer { flex-direction: column; gap: 8px; padding: 20px; text-align: center; }
+  .vuoro { grid-template-columns: 36px 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<nav class="topbar">
+  <div class="logo">Talent<em>Master™</em></div>
+  <div class="topbar-tag">Tarina</div>
+</nav>
+
+<!-- ════════════ HERO ════════════ -->
+<section class="hero">
+  <div class="hero-eyebrow">Talenttipäätöksen tarina</div>
+  <h1 class="hero-h1">Lista.</h1>
+  <p class="hero-sub">Ketkä saavat erityistä tukea kehittymiseen?<br>Ketkä eivät?</p>
+  <p class="hero-lead">Joka kausi se hetki tulee. Mikko ja Tiina istuvat alas ja tekevät päätöksen — nimien lista jotka otetaan mukaan talenttiohjelmaan. Se on yksi kauden tärkeimmistä päätöksistä. Ja se on myös yksi kauden vaikeimmista.</p>
+  <div class="hero-scroll">Lue tarina</div>
+</section>
+
+<div class="w">
+
+<!-- ════════════ KOHTAUS 1 ════════════ -->
+<section class="scene" id="s1">
+  <div class="scene-n"><span>1</span> Torstai-iltapäivä — kokoushuone</div>
+
+  <div class="pull">
+    Mikko ja Tiina.<br>
+    <em>Kahvi. Läppäri. Lista.</em><br>
+    <span class="muted">Kolme tuntia aikaa.</span>
+  </div>
+
+  <p class="prose">Mikko on valmennuspäällikkö. Tiina on talenttivalmentaja — hän näkee pelaajia useammassa joukkueessa kuin kukaan muu, hän on se henkilö joka kulkee ikäluokasta toiseen ja näkee kokonaiskuvan. Yhdessä he päättävät kuka saa enemmän.</p>
+
+  <p class="prose">Enemmän valmennusaikaa. Enemmän yksilöllisiä harjoitteita. Enemmän huomiota kehityssuunnittelussa. Enemmän mahdollisuuksia.</p>
+
+  <p class="prose">Lista ei ole pitkä — heillä on resursseja seurata tiiviisti kahtakymmentä pelaajaa koko seurasta. Hakijoita on kymmeniä. Jokainen nimetty pelaaja tarkoittaa, että joku muu ei tule mukaan.</p>
+
+  <div class="ajatus vaikea">"Tämä on se päätös jota en tee kevyesti. Koska jokainen nimi on lapsi jonka vanhemmat ovat antaneet kaikkensa — aika, raha, matkat, viikonloput. Miten minä pystyn sanomaan, että juuri tämä lapsi ei kuulu joukkoon?"</div>
+</section>
+
+<!-- ════════════ KOHTAUS 2 ════════════ -->
+<section class="scene" id="s2">
+  <div class="scene-n"><span>2</span> Miten päätös on tehty ennen</div>
+
+  <div class="pull">
+    <em>Tunne.</em><br>
+    Kokemus.<br>
+    <span class="muted">Ja se kuka muistetaan.</span>
+  </div>
+
+  <p class="prose">Mikko on tehnyt tätä seitsemän vuotta. Hän tietää mitä hän etsii — pelaajan jonka silmissä on jotain, joka osaa reagoida paineessa, joka haluaa enemmän kuin muut. Tiina näkee samoja asioita, mutta hän näkee myös asioita joita Mikko ei näe, koska hän on eri harjoituksissa.</p>
+
+  <p class="prose">He ovat hyviä siinä mitä tekevät. Mutta vuosi toisensa jälkeen sama epäilys palaa:</p>
+
+  <div class="dialogi">
+    <div class="vuoro">
+      <div class="vuoro-nimi mikko">Mikko</div>
+      <div class="vuoro-teksti">"Tiina, onko meillä varmuus siitä, että nämä ovat oikeasti parhaat valinnat? Vai onko se niin, että nämä ovat ne jotka me parhaiten muistamme?"</div>
+    </div>
+    <div class="vuoro">
+      <div class="vuoro-nimi tiina">Tiina</div>
+      <div class="vuoro-teksti">"Se on se kysymys joka minua vaivaa joka kerta. Miten monta kertaa on käynyt niin, että valittu pelaaja oli se joka teki viime viikolla jotain poikkeuksellista — ei se joka on koko kauden kehittynyt johdonmukaisimmin?"</div>
+    </div>
+    <div class="vuoro">
+      <div class="vuoro-nimi mikko">Mikko</div>
+      <div class="vuoro-teksti">"Ja se hiljaisin, se joka tulee joka treeniin, ei koskaan valita, ei koskaan pyydä mitään — hän on aina se joka jää listan ulkopuolelle. Koska hän ei koskaan muistuta meitä olemassaolostaan."</div>
+    </div>
+  </div>
+
+  <p class="prose">He tietävät tämän. He ovat puhuneet siitä ennenkin. Mutta tietäminen ei ratkaise ongelmaa jos heillä ei ole parempaa välinettä kuin oma muisti.</p>
+</section>
+
+<!-- ════════════ KOHTAUS 3 ════════════ -->
+<section class="scene" id="s3">
+  <div class="scene-n"><span>3</span> Neljä pelaajaa — neljä päätöstä</div>
+
+  <div class="pull">
+    Jokainen nimi on<br>
+    <em>ihminen.</em><br>
+    Ei datasettiä.
+  </div>
+
+  <p class="prose">He käyvät listan läpi yksi kerrallaan. Tässä neljä nimeä joiden kohdalla päätös ei ole selvä.</p>
+
+  <div class="pelaaja-rivi epaselvä" id="pr1">
+    <div>
+      <div class="pr-nimi">Aleksi, 13 v.</div>
+      <div class="pr-kuvaus">Syntynyt tammikuussa. Iso, nopea, näkyvä. Pelaa hyvin — mutta onko se hän vai se, että hän on fyysisesti muita edellä? Kukaan ei ole varma kumpi vastaa enemmän siitä mitä kentällä näkyy.</div>
+    </div>
+    <div class="pr-merkki k">Epäselvä</div>
+  </div>
+
+  <div class="pelaaja-rivi epaselvä" id="pr2">
+    <div>
+      <div class="pr-nimi">Veeti, 13 v.</div>
+      <div class="pr-kuvaus">Syntynyt marraskuussa. Pienempi, teknisesti taitava, mutta tällä hetkellä fyysisesti selvästi muita jäljessä. Tiina on nähnyt jotain hänen pelinlukutaidossaan. Mikko ei ole nähnyt sitä — hän on katsellut eri harjoituksia.</div>
+    </div>
+    <div class="pr-merkki k">Epäselvä</div>
+  </div>
+
+  <div class="pelaaja-rivi epaselvä" id="pr3">
+    <div>
+      <div class="pr-nimi">Roope, 14 v.</div>
+      <div class="pr-kuvaus">Teki syksyllä neljä maalia putkeen. Sen jälkeen ei juuri mitään. Viime kuukaudella Tiina näki hänet harjoituksessa jossa hän oli poikkeuksellinen. Onko se kehitys vai kohennunut päivä?</div>
+    </div>
+    <div class="pr-merkki k">Epäselvä</div>
+  </div>
+
+  <div class="pelaaja-rivi epaselvä" id="pr4">
+    <div>
+      <div class="pr-nimi">Otto, 13 v.</div>
+      <div class="pr-kuvaus">Ei mainintoja. Ei muistettavia hetkiä. Tulee joka treeniin, tekee kaikkensa, ei aiheuta ongelmia. Sami on maininnut hänet kerran ohimennen — "hyvä poika." Enempää ei tiedetä.</div>
+    </div>
+    <div class="pr-merkki k">Epäselvä</div>
+  </div>
+
+  <div class="hetki">
+    <div class="hetki-aika">Tunnin kuluttua</div>
+    <div class="hetki-teksti">He ovat päässeet yhteisymmärrykseen Aleksista ja Roopestakin. Mutta Veeti ja Otto — siinä he juuttuvat. <strong>Heillä ei ole tarpeeksi tietoa kummastakaan.</strong> Ja kun tietoa ei ole, päätös tehdään sillä mitä muistetaan. Veeti muistetaan teknisesti taitavaksi. Otto ei muisteta oikeastaan mitään.</div>
+  </div>
+
+  <div class="ajatus ep">"Tämä ei ole oikein. Me puhumme lapsen tulevaisuudesta. Ja me teemme päätöksen sen perusteella, kumpi sattui olemaan harjoituksessa jota me seurasimme."</div>
+</section>
+
+<!-- ════════════ DIVIDER ════════════ -->
+<div class="divider" id="div1">
+  <div class="divider-q">"Paras talenttipäätös ei ole se jonka varmimmin muistetaan. Se on se jonka tekemiseen on käytetty paras tieto."</div>
+  <div class="divider-attr">TalentMaster™ · Kehitysfilosofia</div>
+</div>
+
+<!-- ════════════ KOHTAUS 4 ════════════ -->
+<section class="scene" id="s4">
+  <div class="scene-n"><span>4</span> Sama kokous — toisin päin</div>
+
+  <div class="pull">
+    Mikko avaa<br>
+    <em>yhteisen näkymän.</em><br>
+    Tiina katsoo samaa.
+  </div>
+
+  <p class="prose">Tällä kertaa he eivät aloita muistoista. He aloittavat datasta — kauden ajalta kertyneistä havainnoista, kehitystrendeistä, valmentajien kirjauksista. Ei numeroita taulukoissa. Tarinoita pelaajista.</p>
+
+  <div class="dialogi">
+    <div class="vuoro">
+      <div class="vuoro-nimi tiina">Tiina</div>
+      <div class="vuoro-teksti">"Katsotaan ensin ne pelaajat jotka ovat kehittyneet eniten kauden aikana — riippumatta siitä millä tasolla he tällä hetkellä ovat."</div>
+    </div>
+    <div class="vuoro">
+      <div class="vuoro-nimi mikko">Mikko</div>
+      <div class="vuoro-teksti">"Otto nousee esiin. En olisi uskonut. Sami on kirjannut hänestä kuusi havaintoa viimeisen kolmen kuukauden aikana. Kehitys on ollut tasaista ja nousevaa — ei huomattavaa, mutta johdonmukaista. Johdonmukaisempaa kuin kenelläkään muulla tässä ikäryhmässä."</div>
+    </div>
+    <div class="vuoro">
+      <div class="vuoro-nimi tiina">Tiina</div>
+      <div class="vuoro-teksti">"Minä muistan nyt. Näin hänet lokakuussa. Hän teki jotain pelinlukemisessa joka jäi mieleeni — mutta en koskaan kirjannut sitä minnekään. Se katosi."</div>
+    </div>
+    <div class="vuoro">
+      <div class="vuoro-nimi mikko">Mikko</div>
+      <div class="vuoro-teksti">"Ilman tätä me olisimme jättäneet hänet listan ulkopuolelle. Koska hän ei muistuta meitä olemassaolostaan."</div>
+    </div>
+  </div>
+
+  <p class="prose">He katsovat Veetiä. Tiina on kirjannut hänestä kolme havaintoa — joka kerta pelinlukemisesta. Mikko ei ole nähnyt näitä havaintoja ennen tänään. Nyt hän näkee ne. Hän ymmärtää mitä Tiina on nähnyt ja miksi.</p>
+
+  <div class="dialogi">
+    <div class="vuoro">
+      <div class="vuoro-nimi mikko">Mikko</div>
+      <div class="vuoro-teksti">"Tämä muuttaa Veetin kohdalla kaiken. Ennen tätä minulla oli vain se, mitä olin itse nähnyt. Nyt minulla on myös se mitä sinä olet nähnyt — ja yhdessä ne kertovat aivan eri tarinan."</div>
+    </div>
+    <div class="vuoro">
+      <div class="vuoro-nimi tiina">Tiina</div>
+      <div class="vuoro-teksti">"Ja Aleksin kohdalla näen jotain mikä minua mietityttää. Hän on syntynyt tammikuussa. Ikätoverinsa joukossa hän on fyysisesti selvästi muita edellä. Mutta kun verrataan kehitystä kauden alusta tähän hetkeen — kehitystahti ei ole se nopein. Hän on hyvä nyt. Mutta kehittyykö hän nopeimmin?"</div>
+    </div>
+    <div class="vuoro">
+      <div class="vuoro-nimi mikko">Mikko</div>
+      <div class="vuoro-teksti">"Tämä on se kysymys jonka me olemme välttäneet vuosia. Koska meillä ei ole ollut vastausta. Nyt meillä on data joka auttaa meitä sen kysymään."</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ KOHTAUS 5 ════════════ -->
+<section class="scene" id="s5">
+  <div class="scene-n"><span>5</span> Lista syntyy</div>
+
+  <div class="pull">
+    He eivät ole varmoja<br>
+    kaikista nimistä.<br>
+    <em>He eivät koskaan ole.</em>
+  </div>
+
+  <p class="prose">Kahdentoistatunnin kuluttua lista on valmis. Se on erilainen kuin viime vuonna. Otto on mukana — hän ei olisi ollut mukana ilman kirjattua dataa. Veeti on mukana — Tiina olisi halunnut hänet, mutta ilman yhteistä näkymää se olisi jäänyt Tiinan yksittäiseksi mielipiteeksi eikä yhteiseksi päätökseksi.</p>
+
+  <div class="pelaaja-rivi sisalla" id="pr5">
+    <div>
+      <div class="pr-nimi">Otto</div>
+      <div class="pr-kuvaus">Johdonmukaisin kehitys koko ikäryhmässä kauden aikana. Kuusi valmentajan havaintoa — kaikki samansuuntaisia. Tiina muistaa lokakuun pelinlukemistilanteen. Yhdessä nämä riittävät.</div>
+    </div>
+    <div class="pr-merkki s">Mukana</div>
+  </div>
+
+  <div class="pelaaja-rivi sisalla" id="pr6">
+    <div>
+      <div class="pr-nimi">Veeti</div>
+      <div class="pr-kuvaus">Tiinan kolme havaintoa pelinlukemisesta avasivat Mikolle sen minkä Tiina oli nähnyt. Yhteinen näkymä teki yksilöllisestä havainnosta jaetun päätöksen.</div>
+    </div>
+    <div class="pr-merkki s">Mukana</div>
+  </div>
+
+  <div class="pelaaja-rivi ulkona" id="pr7">
+    <div>
+      <div class="pr-nimi">Aleksi</div>
+      <div class="pr-kuvaus">Tällä hetkellä hyvä — mutta kehitystahdissa ei ole ollut samaa nousua kuin muilla. Fyysinen etu tasaantuu ensi kaudella. Seurataan tiiviisti — voi olla listalla ensi vuonna.</div>
+    </div>
+    <div class="pr-merkki e">Ei nyt</div>
+  </div>
+
+  <div class="ajatus helpotus">"Ensimmäistä kertaa pystyn selittämään jokaisesta nimestä miksi hän on mukana tai miksi ei. En tuntemuksena — vaan konkreettisesti. Se ei tee päätöksestä helpompaa. Mutta se tekee siitä oikeudenmukaisempaa."</div>
+</section>
+
+<!-- ════════════ KOHTAUS 6 ════════════ -->
+<section class="scene" id="s6">
+  <div class="scene-n"><span>6</span> Puhelin soi — Aleksin äiti</div>
+
+  <div class="pull">
+    Vaikein puhelu.<br>
+    <em>Miksi ei Aleksi?</em>
+  </div>
+
+  <p class="prose">Kaksi päivää myöhemmin Aleksin äiti soittaa. Hän on kuullut että Aleksi ei päässyt mukaan. Hän on järkyttynyt — hän tietää poikansa potentiaalin, hän on seurannut jokaista harjoitusta, hän on uhrannut viikonloppunsa vuosien ajan.</p>
+
+  <p class="prose">Mikko ottaa puhelun. Ennen tätä kautta hänellä ei olisi ollut vastausta — vain epämääräinen "katsotaan ensi kausi" ja toivo, että äiti hyväksyy sen. Tällä kertaa hänellä on vastaus.</p>
+
+  <div class="dialogi">
+    <div class="vuoro">
+      <div class="vuoro-nimi mikko">Mikko</div>
+      <div class="vuoro-teksti">"Aleksi on hyvä pelaaja — siitä ei ole epäilystä. Mutta tässä päätöksessä katsoimme ennen kaikkea sitä, kuinka paljon pelaaja kehittyy suhteessa omaan lähtötasoonsa kauden aikana. Aleksin kohdalla kasvuvauhti ei ollut yhtä nopea kuin niillä pelaajilla jotka valitsimme. Tämä ei tarkoita, ettei hän kuulu joukkoon ensi kaudella — uskon että kuuluu. Tänä vuonna haluamme tukea niitä jotka ovat kehittymässä nopeimmin juuri nyt."</div>
+    </div>
+  </div>
+
+  <p class="prose">Linja on hiljaa hetken. Sitten äiti sanoo: "Okei. Ymmärrän." Se ei tarkoita, että hän on tyytyväinen. Mutta hän ymmärtää. Sillä on väliä.</p>
+
+  <div class="ajatus helpotus">"En voi tehdä päätöksestä kivutonta. Mutta voin tehdä siitä selitettävän. Se on kaikki mitä vanhempi oikeasti pyytää — ei lopputulosta, vaan reilua prosessia."</div>
+</section>
+
+<!-- ════════════ KOHTAUS 7 ════════════ -->
+<section class="scene" id="s7">
+  <div class="scene-n"><span>7</span> Mikä muuttui</div>
+
+  <div class="pull">
+    Mikko ja Tiina<br>
+    tekevät edelleen<br>
+    <em>vaikean päätöksen.</em>
+  </div>
+
+  <p class="prose">Järjestelmä ei tee päätöstä heidän puolestaan. Se ei anna heille valmista listaa eikä poista epävarmuutta. Talenttipäätös on edelleen vaikea — ja sen pitääkin olla, koska kyseessä ovat ihmiset.</p>
+
+  <p class="prose">Se mitä muuttuu on kolme asiaa.</p>
+
+  <p class="prose"><strong>Ensinnäkin he näkevät enemmän.</strong> Tiina näkee asioita joita Mikko ei näe. Mikko näkee asioita joita Tiina ei näe. Kirjatut havainnot tekevät näistä yhteisen tiedon sen sijaan, että ne häviävät muistin syvyyksiin.</p>
+
+  <p class="prose"><strong>Toiseksi he muistavat hiljaisimmat.</strong> Otto ei muistuta olemassaolostaan. Hän ei koskaan muistuta. Järjestelmä muistuttaa hänen puolestaan — jos kehitys on siellä, se näkyy riippumatta siitä kuinka hiljaa se tapahtuu.</p>
+
+  <p class="prose"><strong>Kolmanneksi he pystyvät selittämään.</strong> Jokaiselle pelaajalle. Jokaiselle vanhemmalle. Jokaiselle valmentajalle. Ei tuntemuksena — konkreettisesti. Se on se asia joka tekee päätöksestä oikeudenmukaisen — ei se, että kaikki ovat tyytyväisiä, vaan se, että kaikki ymmärtävät.</p>
+
+  <div class="ajatus helpotus">"Minä teen edelleen vaikean päätöksen. Mutta nyt teen sen parhaalla mahdollisella tiedolla — eikä paras mahdollinen tieto enää häviä kenttien laidoilla tai kahvikuppeihin unohdetuissa keskusteluissa."</div>
+</section>
+
+</div><!-- /w -->
+
+<div class="w">
+<div class="divider" id="div2">
+  <div class="divider-q">"Oikeudenmukainen päätös ei tarkoita, että kaikki ovat tyytyväisiä. Se tarkoittaa, että kaikki ymmärtävät."</div>
+  <div class="divider-attr">TalentMaster™</div>
+</div>
+</div>
+
+<!-- ════════════ CTA ════════════ -->
+<section class="cta-alue" id="cta">
+  <div class="cta-pre">Seuraava askel</div>
+  <h2 class="cta-h">
+    Mikko ja Tiina<br>
+    ovat seurassasi.<br>
+    <em>Ja Otto. Ja Aleksin äiti.</em>
+  </h2>
+  <p class="cta-lead">TalentMaster antaa talenttipäätökselle sen minkä se tarvitsee — yhteisen muistin, yhteisen näkymän ja yhteisen kielen. Päätös pysyy teillä. Tieto ei enää häviä.</p>
+  <a href="https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Kayttajatutkimus.html" class="btn" target="_blank">
+    Katso miten järjestelmä toimii →
+  </a>
+  <a href="https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Kysely.html" class="btn-2" target="_blank">
+    Tai vastaa lyhyeen mielipidekyselyyn
+  </a>
+</section>
+
+<footer>
+  <div class="footer-logo">Talent<em>Master™</em></div>
+  <div>Forsman 2013 · Carling 2009</div>
+  <div>© 2026 · TalentMaster™</div>
+</footer>
+
+<script>
+window.addEventListener('scroll', function() {
+  var pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+  document.getElementById('progress').style.width = Math.round(pct) + '%';
+});
+
+var io = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) {
+    if (!e.isIntersecting) return;
+    e.target.classList.add('visible');
+    // Pelaaja-rivit staggered
+    e.target.querySelectorAll('.pelaaja-rivi').forEach(function(r, i) {
+      setTimeout(function() { r.classList.add('visible'); }, 120 + i * 130);
+    });
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.scene, .divider, .cta-alue').forEach(function(el) {
+  io.observe(el);
+});
+</script>
+</body>
+</html>
