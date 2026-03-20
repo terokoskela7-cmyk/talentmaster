@@ -3838,7 +3838,7 @@ function buildCoachViikko(){
     return;
   }
 
-  var hf=ohjelma.heikoinFascia;
+  var hf=ohjelma.teknFascia||ohjelma.heikoinFascia; // 70/30: tekninen fokus tällä viikolla
   var vf=ohjelma.vahvinFascia;
   var il=ohjelma.ikaluokka;
 
@@ -3851,6 +3851,13 @@ function buildCoachViikko(){
   h+='</div>';
 
   // PHV-varoitus jos joukkueessa kasvupyrähdyspelaajia
+  // 70/30-rotaatioinfo — näytetään valmentajalle viikkokortin alla
+  if(ohjelma.rotaatioTeksti){
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid rgba(255,255,255,.06);margin-top:8px;">';
+    h+='<div style="font-size:11px;color:var(--muted2);flex:1;">📅 <strong style="color:var(--muted);">70/30-kiertoharjoittelu:</strong> '+ohjelma.rotaatioTeksti+'</div>';
+    h+='<div style="font-size:9px;color:var(--muted2);font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,.05);">Viikko '+ohjelma.viikonNumero+'</div>';
+    h+='</div>';
+  }
   if(ohjelma.phvPelaajat.length>0){
     h+='<div style="background:rgba(255,184,48,.08);border:1.5px solid rgba(255,184,48,.35);border-radius:13px;padding:12px 14px;margin-bottom:12px;">';
     h+='<div style="font-size:11px;color:var(--amber);text-transform:uppercase;font-weight:700;letter-spacing:.5px;margin-bottom:5px;">⚠️ PHV-huomio joukkueessa</div>';
@@ -6567,7 +6574,9 @@ function laskeJoukkueFascia(pelaajat){
   Object.keys(summat).forEach(function(k){keskiarvot[k]=Math.round(summat[k]/lkm*10)/10;});
   var heikoin=Object.keys(keskiarvot).reduce(function(a,b){return keskiarvot[b]<keskiarvot[a]?b:a;});
   var vahvin=Object.keys(keskiarvot).reduce(function(a,b){return keskiarvot[b]>keskiarvot[a]?b:a;});
-  return{keskiarvot:keskiarvot,heikoin:heikoin,vahvin:vahvin,lkm:lkm};
+  // Kaikki ketjut järjestettynä heikoimmmasta vahvimpaan — 70/30-mallia varten
+  var jarjestys=Object.keys(keskiarvot).sort(function(a,b){return keskiarvot[a]-keskiarvot[b];});
+  return{keskiarvot:keskiarvot,heikoin:heikoin,vahvin:vahvin,jarjestys:jarjestys,lkm:lkm};
 }
 
 // Laske joukkueen yleisin ikäluokka
@@ -6609,15 +6618,37 @@ function generoiViikonOhjelma(pelaajat){
   var ikaluokka=HPP_IKALUOKAT[paaIkavaihe]||HPP_IKALUOKAT.rakentaja;
   var heikoinFascia=HPP_FASCIA[fascia.heikoin];
   var vahvinFascia=HPP_FASCIA[fascia.vahvin];
-  var teknTakt=haeFootballHarjoite(fascia.heikoin,paaIkavaihe);
+
+  // ── 70/30-HYBRIDIMALLI ─────────────────────────────────────────────────
+  // Tekninen pääharjoite kiertää kaksi heikointa ketjua viikottain:
+  //   Parillinen viikko  → heikoin ketju  (= "30%" kohdistettu kehitys)
+  //   Pariton viikko     → toiseksi heikoin (= "70%" laaja-alainen kehitys)
+  // Yksilöllinen oma liike pysyy AINA heikoimmassa ketjussa.
+  // Alkulämmittely aktivoi kaikki ketjut — muuttumaton joka harjoituksessa.
+  var _vk = (function(d){
+    var y=d.getFullYear();
+    return Math.ceil(((d-new Date(y,0,1))/86400000+new Date(y,0,1).getDay()+1)/7);
+  })(new Date());
+  // Tekninen pääharjoite: parillinen viikko → heikoin, pariton → toiseksi heikoin
+  var _teknKetju = (_vk % 2 === 0)
+    ? fascia.heikoin                           // parillinen: heikoin
+    : (fascia.jarjestys[1] || fascia.heikoin); // pariton: toiseksi heikoin
+  var _teknFascia = HPP_FASCIA[_teknKetju] || heikoinFascia;
+  var teknTakt = haeFootballHarjoite(_teknKetju, paaIkavaihe);
+  // ──────────────────────────────────────────────────────────────────────
 
 
   // Valmentajan kielellä — ei anatomisia termejä
-  // Rakenne: id (muokattava), vaihe, kesto, sisalto, miksi, tyyppi, vaihtoehdot[]
-  var hfN=heikoinFascia.valmentajanimi;
-  var hfCue=heikoinFascia.cue;
-  var hfIkoni=heikoinFascia.ikoni;
-  var resR=heikoinFascia.reseptit[paaIkavaihe]||heikoinFascia.reseptit.rakentaja;
+  // hfN/hfCue/hfIkoni viittaavat tekniseen pääharjoitteen ketjuun (_teknFascia)
+  // resR viittaa AINA heikoimpaan ketjuun — yksilöllinen osa ei rotoi
+  var hfN   = _teknFascia.valmentajanimi;
+  var hfCue = _teknFascia.cue;
+  var hfIkoni = _teknFascia.ikoni;
+  var resR  = heikoinFascia.reseptit[paaIkavaihe] || heikoinFascia.reseptit.rakentaja;
+  // Viikkorotaatio-info näytettäväksi valmentajalle
+  var _rotaatioTeksti = (_vk % 2 === 0)
+    ? 'Tällä viikolla: ' + heikoinFascia.valmentajanimi + ' (heikoin)'
+    : 'Tällä viikolla: ' + _teknFascia.valmentajanimi + ' (kehityskierto) · ensi viikolla: ' + heikoinFascia.valmentajanimi;
 
   // Universaali alkuverryttely (dokumentista: "3 harjoitetta jotka aktivoivat KAIKKI liikeketjut")
   var univAktiv=[
@@ -6629,7 +6660,7 @@ function generoiViikonOhjelma(pelaajat){
   // Tekninen pääharjoite — ketjun mukaan valittuna
   var teknHarj=teknTakt?{
     nimi:teknTakt.harjoite,
-    miksi:'Kehittää '+hfN+'a pelissä: '+heikoinFascia.peliteema.toLowerCase()+'.',
+    miksi:'Kehittää '+hfN+'a pelissä: '+_teknFascia.peliteema.toLowerCase()+'.',
     kesto:teknTakt.kesto,
     pallolla:true
   }:{nimi:'Pallollinen reaktioharjoite',miksi:'Siirtää ketjutyö suoraan pallolliseen peliin.',kesto:'12 min',pallolla:true};
@@ -6890,7 +6921,12 @@ function generoiViikonOhjelma(pelaajat){
     harjoituskerrat:  harjoituskerrat,
     phvPelaajat:      phvPelaajat,
     teknTakt:         teknTakt,
-    // Uudet kentät: loukkaantumis- ja RPE-data
+    // 70/30-hybridimallin lisäkentät
+    teknKetju:        _teknKetju,       // teknisen pääharjoitteen ketju tällä viikolla
+    teknFascia:       _teknFascia,      // teknisen pääharjoitteen fascia-objekti
+    rotaatioTeksti:   _rotaatioTeksti,  // selite valmentajalle
+    viikonNumero:     _vk,
+    // Loukkaantumis- ja RPE-data
     loukkaantuneet:       loukkaantuneet,
     kielletytHarjoitteet: kielletytHarjoitteet,
     rpeVaroitus:          rpeVaroitus
