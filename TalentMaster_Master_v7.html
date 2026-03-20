@@ -8851,10 +8851,9 @@ function buildTanaan(){
 // Visa-pikatehtävä Tänään-ruudusta — avaa satunnaisen kysymyksen
 function avaaVisaPikatehtava(){
   var katId=VISA_KATEGORIAT[Math.floor(Math.random()*VISA_KATEGORIAT.length)].id;
-  goTab(3); // Tavoite-välilehti jossa visa on
-  // Käynnistä visa suoraan
+  goTab(3); // Tavoite-välilehti
   setTimeout(function(){
-    buildVisa();
+    avaaVisaErillaan(); // Renderöi visa tTavoite:lle
     setTimeout(function(){aloitaVisa(katId);},80);
   },100);
 }
@@ -12004,6 +12003,30 @@ function suljeHaaste(){
 }
 
 // ═══════════ TAVOITE ═══════════
+
+// ── Tavoite-sivun apufunktiot ────────────────────────────────────────────
+function avaaJaksoModal(){
+  // TODO: Avaa tavoitteen luontilomake
+  naytaToast('Tavoitteen asettaminen — tulossa pian');
+}
+function paataJakso(jaksoId){
+  var jaksot = S.jaksot;
+  var j = jaksot.find(function(x){return x.id===jaksoId;});
+  if(j){ j.status='valmis'; sls('tm_jaksot',jaksot); buildTavoite(); }
+}
+function tallennFiilis(arvo){
+  var tanaan = new Date().toISOString().slice(0,10);
+  sls('tm_fiilis_'+(S.pelaaja?S.pelaaja.id:'x')+'_'+tanaan,{arvo:arvo,pvm:tanaan});
+  naytaToast('Fiilis tallennettu ' + ['😫','😕','😐','🙂','🔥'][parseInt(arvo)-1]);
+  buildTavoite();
+}
+function avaaHaasteKirjaus(haasteId){
+  naytaToast('Tuloksen kirjaus — tulossa pian');
+}
+function avaaHaasteModal(){
+  naytaToast('Haasteen luonti — tulossa pian');
+}
+// ─────────────────────────────────────────────────────────────────────────
 function buildTavoite(){
   var p=S.pelaaja;var h='';
   var aktiv=S.jaksot.find(function(j){return j.status==='active';});
@@ -12286,19 +12309,22 @@ var VS={
 };
 const VISA_XP={oikein:10,aika_bonus:5,kaikki_oikein:50,viikko_bonus:30};
 
-function buildVisa(){
-  // Visa rendataan nyt Tavoite-välilehden sisällä
-  var el=document.getElementById('tTavoite');
-  if(!el)return;
-  goTab(3);
-  setTimeout(function(){
-    var h='<div style="padding:0 0 24px;">';
-    h+='<button onclick="buildTavoite()" style="background:none;border:none;color:var(--teal);font-size:13px;cursor:pointer;padding:4px 0 12px;display:block;">← Takaisin tavoitteeseen</button>';
-    h+=buildVisaHTML();
-    h+='</div>';
-    document.getElementById('tTavoite').innerHTML=h;
-  },50);
+function buildVisa(p){
+  // Palauttaa visa-HTML suoraan — buildTavoite renderöi sen omaan virtaansa
+  // (goTab(3) poistettiin rekursion välttämiseksi)
+  return buildVisaHTML ? buildVisaHTML() : '';
 }
+
+function avaaVisaErillaan(){
+  var el = document.getElementById('tTavoite');
+  if(!el) return;
+  var h = '<div style="padding:0 0 24px;">';
+  h += '<button onclick="buildTavoite()" style="background:none;border:none;color:var(--teal);font-size:13px;cursor:pointer;padding:4px 0 12px;display:block;">← Takaisin</button>';
+  h += buildVisaHTML ? buildVisaHTML() : '';
+  h += '</div>';
+  el.innerHTML = h;
+}
+
 
 function buildVisaHTML(){
   var h='';
