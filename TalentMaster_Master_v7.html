@@ -11478,6 +11478,131 @@ function buildKehitys(){
   var kirkVisuaali=kirkastumisVisuaali(kirk);
   var h='';
 
+  // ── PROFIILIKORTTI + FIFA-KORTTI ──────────────────────────────────────
+  (function(){
+    var profiiliData = laskeProfiili(p);
+    var ov = laskeOverall(k);
+    var vari2 = overallVari(ov);
+
+    // Neljä tieriä
+    var TIERIT2=[
+      {nimi:'Kehittyjä',cls:'card-dev',   vari:'#4A9EFF',min:0, max:64,ikoni:'🔵'},
+      {nimi:'Pronssi',  cls:'card-bronze',vari:'#CD7F32',min:65,max:74,ikoni:'🟤'},
+      {nimi:'Hopea',    cls:'card-silver',vari:'#C0C0C0',min:75,max:84,ikoni:'⚪'},
+      {nimi:'Kulta',    cls:'card-gold',  vari:'#FFD700',min:85,max:100,ikoni:'🟡'},
+    ];
+    var nykyTierIdx=TIERIT2.findIndex(function(t){return ov>=t.min&&ov<=t.max;});
+    if(nykyTierIdx<0)nykyTierIdx=0;
+
+    // 1. OMA FIFA-KORTTI isona
+    h+='<div style="text-align:center;margin-bottom:10px;">';
+    h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);margin-bottom:10px;">⚽ Sinun pelaajasi</div>';
+    h+=buildKorttiHTML(p,r,k);
+    h+='</div>';
+
+    // 2. TIERIPROGRESSIO
+    h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;">';
+    h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2);margin-bottom:10px;">🏆 Korttiprogressio — missä olen, mihin menen</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">';
+    TIERIT2.forEach(function(tier,i){
+      var onNyt=(i===nykyTierIdx);
+      var onSaav=(i<=nykyTierIdx);
+      var puuttuu=onNyt?(tier.max-ov+1):0;
+      h+='<div style="border-radius:12px;padding:10px 6px;text-align:center;border:2px solid '
+        +(onNyt?tier.vari:onSaav?tier.vari+'55':'rgba(255,255,255,.06)')
+        +';background:'+(onNyt?tier.vari+'18':onSaav?tier.vari+'0A':'rgba(255,255,255,.02)')
+        +';position:relative;transition:all .2s;">';
+      if(onNyt)h+='<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-size:8px;font-weight:900;padding:2px 6px;border-radius:5px;background:'+tier.vari+';color:#000;white-space:nowrap;">NYT</div>';
+      h+='<div style="font-size:18px;margin-bottom:3px;">'+tier.ikoni+'</div>';
+      h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:900;color:'+(onSaav?tier.vari:'var(--muted2)')+';">'+tier.nimi+'</div>';
+      h+='<div style="font-size:9px;color:var(--muted2);margin-top:1px;">OVR '+tier.min+'–'+tier.max+'</div>';
+      if(onNyt&&tier.max<100){
+        h+='<div style="margin-top:5px;height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;">';
+        h+='<div style="height:3px;width:'+Math.round((ov-tier.min)/(tier.max-tier.min)*100)+'%;background:'+tier.vari+';border-radius:2px;"></div></div>';
+        h+='<div style="font-size:9px;color:'+tier.vari+';font-weight:700;margin-top:3px;">'+puuttuu+' OVR →</div>';
+      } else if(onNyt){
+        h+='<div style="font-size:9px;color:'+tier.vari+';font-weight:700;margin-top:3px;">Huipputaso ✓</div>';
+      } else if(!onSaav){
+        h+='<div style="font-size:9px;color:var(--muted2);margin-top:3px;">'+tier.min+' OVR</div>';
+      } else {
+        h+='<div style="font-size:9px;color:'+tier.vari+';font-weight:700;margin-top:3px;">✓</div>';
+      }
+      h+='</div>';
+    });
+    h+='</div></div>';
+
+    // 3. PROFIILITYYPPIKORTTI
+    if(profiiliData&&profiiliData.profiili&&profiiliData.ikaUnlock){
+      var prf=profiiliData.profiili;
+      var mastery=profiiliData.masteryTaso;
+      var MLOC=[
+        {id:'basic',nimi:'Basic',ikoni:'🔰',pisteet:0,vari:'#888'},
+        {id:'sharp',nimi:'Sharp',ikoni:'⚡',pisteet:25,vari:'#4A9EFF'},
+        {id:'elite',nimi:'Elite',ikoni:'🏆',pisteet:60,vari:'#1FD16A'},
+        {id:'signature',nimi:'Signature',ikoni:'💎',pisteet:100,vari:'#FFD700'},
+      ];
+      var seurM=MLOC.find(function(t){return t.pisteet>profiiliData.masteryPisteet;});
+      var domVahv=profiiliData.profiiliVahva?'Vahva':profiiliData.profiiliSelva?'Selkeä':'Kehittyvä';
+
+      h+='<div style="background:linear-gradient(135deg,'+prf.vari+'18,'+prf.vari+'06);border:2px solid '+prf.vari+'44;border-radius:14px;padding:16px;margin-bottom:10px;">';
+      // Header
+      h+='<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">';
+      h+='<div style="width:52px;height:52px;border-radius:14px;background:'+prf.vari+'22;border:2px solid '+prf.vari+'55;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;">'+prf.ikoni+'</div>';
+      h+='<div style="flex:1;">';
+      h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:24px;font-weight:900;color:'+prf.vari+';line-height:1;">'+prf.nimi+'</div>';
+      h+='<div style="font-size:11px;color:var(--muted2);margin-top:2px;">'+prf.ketjuNimi+' · '+domVahv+' profiili</div>';
+      h+='<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:5px;line-height:1.4;">'+prf.tagline+'</div>';
+      h+='</div>';
+      h+='<div style="text-align:center;flex-shrink:0;">';
+      h+='<div style="font-size:22px;">'+mastery.ikoni+'</div>';
+      h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:900;color:'+prf.vari+';">'+mastery.nimi+'</div>';
+      h+='</div></div>';
+
+      // Mastery-portaat
+      h+='<div style="display:flex;gap:4px;margin-bottom:8px;">';
+      MLOC.forEach(function(mt){
+        var onNytM=(mt.id===mastery.id);
+        var onSaavM=(profiiliData.masteryPisteet>=mt.pisteet);
+        h+='<div style="flex:1;text-align:center;padding:6px 2px;border-radius:9px;border:1px solid '
+          +(onNytM?mt.vari:onSaavM?mt.vari+'55':'rgba(255,255,255,.06)')
+          +';background:'+(onNytM?mt.vari+'15':'transparent')+';">';
+        h+='<div style="font-size:13px;">'+mt.ikoni+'</div>';
+        h+='<div style="font-size:9px;font-weight:700;color:'+(onSaavM?mt.vari:'var(--muted2)')+';">'+mt.nimi+'</div>';
+        h+='</div>';
+      });
+      h+='</div>';
+      // Progresspalkki
+      h+='<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted2);margin-bottom:3px;"><span>Mastery-pisteet</span><span>'+profiiliData.masteryPisteet+'/100</span></div>';
+      h+='<div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-bottom:6px;">';
+      h+='<div style="height:5px;width:'+profiiliData.masteryPisteet+'%;background:'+prf.vari+';border-radius:3px;transition:width .8s;"></div></div>';
+      if(seurM){
+        h+='<div style="font-size:10px;color:'+prf.vari+';font-weight:700;margin-bottom:10px;">'+(seurM.pisteet-profiiliData.masteryPisteet)+' pistettä → '+seurM.nimi+' '+seurM.ikoni+'</div>';
+      } else {
+        h+='<div style="font-size:10px;color:#FFD700;font-weight:700;margin-bottom:10px;">💎 Signature-taso saavutettu</div>';
+      }
+      // Showcase + pelipaikat
+      h+='<div style="padding:9px 12px;background:rgba(255,255,255,.03);border-radius:9px;font-size:12px;color:var(--muted);font-style:italic;margin-bottom:8px;line-height:1.5;">"'+prf.showcase_teksti+'"</div>';
+      h+='<div style="display:flex;gap:5px;flex-wrap:wrap;">';
+      prf.pelipaikat.forEach(function(pp){
+        h+='<div style="font-size:10px;padding:3px 8px;border-radius:5px;background:'+prf.vari+'15;color:'+prf.vari+';font-weight:700;">'+pp+'</div>';
+      });
+      h+='</div></div>';
+
+    } else if(profiiliData&&!profiiliData.ikaUnlock){
+      h+='<div style="padding:14px;background:rgba(255,255,255,.02);border:1px dashed rgba(255,255,255,.1);border-radius:14px;text-align:center;margin-bottom:10px;">';
+      h+='<div style="font-size:22px;margin-bottom:6px;">🔒</div>';
+      h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:800;color:var(--muted);">Profiilityyppi aukeaa 14v</div>';
+      h+='<div style="font-size:11px;color:var(--muted2);margin-top:4px;">Railgun · Maestro · Shadowstep · Titan — selviää kun testidataa kertyy kahdelta kaudelta.</div>';
+      h+='</div>';
+    } else {
+      h+='<div style="padding:14px;background:rgba(255,255,255,.02);border:1px dashed rgba(255,255,255,.1);border-radius:14px;text-align:center;margin-bottom:10px;">';
+      h+='<div style="font-size:22px;margin-bottom:6px;">📊</div>';
+      h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:800;color:var(--muted);">Profiili muodostuu testidatasta</div>';
+      h+='<div style="font-size:11px;color:var(--muted2);margin-top:4px;">Tee ainakin kaksi testikierrosta — profiilisi alkaa näkyä.</div>';
+      h+='</div>';
+    }
+  })();
+
   // ── KIRKASTUMINEN HERO ────────────────────────────────────────
   var kirkVari=kirkVisuaali.vari;
   h+='<div style="background:linear-gradient(135deg,'+kirkVari+'18,'+kirkVari+'08);border:1.5px solid '+kirkVari+'40;border-radius:18px;padding:14px 16px;margin-bottom:12px;">';
