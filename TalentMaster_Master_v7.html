@@ -9014,18 +9014,25 @@ function buildGhostCard(p){
 
 // ═══════════ HARJOITE SHEET ═══════════
 function avaaHarjoite(lohkoId,idx,dk){
+  // Taaksepäin yhteensopivuus: buildTanaan kutsuu (nimi, dk) ilman idx:ää
+  // Jos dk on undefined, idx on oikeasti dk ja idx = 0
+  if(dk===undefined){dk=idx;idx=0;}
+
   var p=S.pelaaja,r=p.qs_historia[p.qs_historia.length-1]&&p.qs_historia[p.qs_historia.length-1].results||{};
   // Käytetään TKI-ketjulogiikkaa jos saatavilla, muuten fasciaalinen fallback
   var tkiP=laskeTKIKetjut(p);
   var paivOhj=rakennaPaivanOhjelma(tkiP,S.selDay,null);
-  var heikoin=JP_TO_FASCIAALI[tkiP.heikoin]||(r.heikoin_ketju||'syva');
+  // JP → fasciaalinen mapping (paikallinen, ei globaali)
   var JP_TO_FASCIAALI_LOC={vauhti:'taka',lahto:'etu',sm:'sivu',hallinta:'kierto',pelinteko:'syva'};
-  heikoin=JP_TO_FASCIAALI_LOC[tkiP.heikoin]||(r.heikoin_ketju||'syva');
+  var heikoin=JP_TO_FASCIAALI_LOC[tkiP.heikoin]||(r.heikoin_ketju||'syva');
   var harj=lohkoId==='akt'?AKTIVOINTI
     :(paivOhj.ketju&&TEKNIIKKAHARJOITTEET[paivOhj.ketju]
       ?TEKNIIKKAHARJOITTEET[paivOhj.ketju]
       :(HARJOITTEET[heikoin]||HARJOITTEET.syva));
-  var ex=harj[idx];if(!ex)return;
+  var ex=harj[idx];
+  // Jos harjoite ei löydy indeksillä, käytetään ensimmäistä
+  if(!ex&&harj&&harj.length>0)ex=harj[0];
+  if(!ex)return;
   var key=lohkoId+'_'+idx,dc=S.checked[dk]||{},done=!!dc[key];
   var ikoni=lohkoId==='akt'?'⚡':KETJU_IKONIT[heikoin];
   var vidUrl=haeVideoUrl(ex);
