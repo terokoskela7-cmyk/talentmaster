@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster™ — Valmentaja · Malli B · Konsepti 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0A0F1C; --bg2:#111827; --bg3:#1A2235; --card:#1E2D45;
+  --border:rgba(255,255,255,.08);
+  --teal:#00E5CC; --amber:#FFB830; --red:#FF4060;
+  --green:#1FD16A; --purple:#A78BFA; --blue:#4A9EFF; --gold:#FFD700;
+  --text:#F0F4FF; --muted:rgba(240,244,255,.45); --muted2:rgba(240,244,255,.28);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;line-height:1.5;}
+
+.top-header{background:linear-gradient(135deg,#0D1A2E,#0A1628);border-bottom:1px solid rgba(255,184,48,.2);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--amber);letter-spacing:1px;}
+.logo span{color:var(--muted);font-weight:400;font-size:13px;margin-left:8px;}
+.header-right{font-size:11px;color:var(--muted);text-align:right;line-height:1.8;}
+.header-right strong{color:var(--amber);}
+
+.banner{background:linear-gradient(90deg,rgba(255,184,48,.1),rgba(255,184,48,.03));border:1px solid rgba(255,184,48,.25);padding:14px 24px;display:flex;align-items:flex-start;gap:14px;}
+.banner h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--amber);margin-bottom:3px;}
+.banner p{font-size:13px;color:var(--muted);max-width:700px;}
+
+/* Filosofia-badge */
+.filosofia-banner{background:rgba(255,184,48,.06);border:1px solid rgba(255,184,48,.18);border-radius:12px;padding:14px 18px;margin:16px 24px 0;display:flex;gap:14px;align-items:flex-start;}
+.f-ikoni{font-size:24px;flex-shrink:0;}
+.f-otsikko{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:900;color:var(--amber);margin-bottom:4px;}
+.f-teksti{font-size:12px;color:var(--muted);line-height:1.6;max-width:600px;}
+.f-vs{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(255,184,48,.12);color:var(--amber);margin-left:6px;vertical-align:middle;}
+
+.main{padding:16px 24px;display:flex;flex-direction:column;gap:16px;}
+
+/* ── Nopea toimintopalkki ── */
+.pikavalikko{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;}
+.pika-nappi{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:var(--card);cursor:pointer;flex-shrink:0;transition:border-color .15s;}
+.pika-nappi:hover{border-color:var(--amber);}
+.pika-ikoni{font-size:20px;}
+.pika-lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--muted2);white-space:nowrap;}
+.pika-nappi.active .pika-lbl{color:var(--amber);}
+.pika-nappi.active{border-color:var(--amber);background:rgba(255,184,48,.06);}
+
+/* ── Pelaajalista ── */
+.haku-rivi{display:flex;gap:8px;align-items:center;margin-bottom:10px;}
+.haku-input{flex:1;padding:9px 14px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Barlow',sans-serif;font-size:13px;outline:none;}
+.haku-input::placeholder{color:var(--muted2);}
+.suodatin{padding:8px 14px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--muted2);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+
+.pelaaja-rivi{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:5px;background:var(--card);border:1px solid var(--border);cursor:pointer;transition:border-color .15s;}
+.pelaaja-rivi:hover{border-color:rgba(255,184,48,.3);}
+.pelaaja-rivi.aktiivinen{border-color:var(--amber);background:rgba(255,184,48,.04);}
+.pr-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:900;flex-shrink:0;}
+.pr-nimi{font-size:13px;font-weight:600;flex:1;}
+.pr-meta{font-size:10px;color:var(--muted2);}
+.pr-ovr{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:var(--teal);flex-shrink:0;line-height:1;}
+.pr-tagit{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;}
+.pr-tag{font-size:9px;padding:1px 6px;border-radius:4px;font-weight:700;}
+
+/* ── Pelaajan profiilikortit ── */
+.profiilikortit{display:flex;flex-direction:column;gap:0;}
+
+.profiili-paa{background:linear-gradient(135deg,rgba(255,184,48,.08),rgba(255,184,48,.02));border:1px solid rgba(255,184,48,.2);border-radius:14px 14px 0 0;padding:16px;}
+.profiili-ylaosa{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px;}
+.iso-avatar{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;flex-shrink:0;}
+.profiili-nimi{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;line-height:1;}
+.profiili-sub{font-size:11px;color:var(--muted2);margin-top:3px;line-height:1.5;}
+.profiili-ovr{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:900;line-height:1;flex-shrink:0;}
+
+/* Suunta-indikaattori */
+.suunta{display:inline-flex;align-items:center;gap:4px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;padding:3px 9px;border-radius:6px;}
+.suunta.nousee{background:rgba(31,209,106,.12);color:var(--green);}
+.suunta.laskee{background:rgba(255,64,96,.1);color:var(--red);}
+.suunta.tasainen{background:rgba(255,184,48,.1);color:var(--amber);}
+
+/* Liikeketju-palkit isommat */
+.ketju-rivi{display:flex;align-items:center;gap:10px;margin-bottom:7px;}
+.ketju-nimi{font-size:11px;font-weight:600;color:var(--muted);width:72px;flex-shrink:0;}
+.ketju-bg{flex:1;height:10px;background:rgba(255,255,255,.06);border-radius:5px;overflow:hidden;}
+.ketju-fill{height:10px;border-radius:5px;}
+.ketju-num{font-size:12px;font-weight:700;width:26px;text-align:right;flex-shrink:0;}
+
+/* Osiot kortissa */
+.kortti-osio{background:var(--card);border:1px solid var(--border);border-top:none;padding:14px 16px;}
+.kortti-osio:last-child{border-radius:0 0 14px 14px;}
+.kortti-osio-otsikko{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+
+/* ADAR tiivis */
+.adar-mini{padding:9px 12px;background:rgba(167,139,250,.06);border-left:2px solid var(--purple);border-radius:0 8px 8px 0;margin-bottom:6px;}
+.adar-mini-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
+.adar-dimensio{font-size:10px;font-weight:700;color:var(--purple);}
+.adar-pvm{font-size:9px;color:var(--muted2);}
+.adar-kommentti{font-size:11px;color:var(--muted);font-style:italic;line-height:1.5;}
+
+/* Pikamerkintä */
+.pikamerkinta{display:flex;flex-wrap:wrap;gap:6px;}
+.pm-nappi{padding:8px 13px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;}
+.pm-nappi.valittu{border-color:var(--amber);background:rgba(255,184,48,.08);color:var(--amber);}
+
+/* ── Nopea RPE-kirjaus ── */
+.rpe-nopea{display:flex;gap:6px;margin-top:10px;}
+.rpe-nappi{flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;cursor:pointer;text-align:center;transition:all .15s;}
+.rpe-nappi:hover{border-color:var(--teal);color:var(--teal);}
+.rpe-nappi.valittu{border-color:var(--teal);background:rgba(0,229,204,.08);color:var(--teal);}
+
+/* ── Harjoitusviikko kompakti ── */
+.viikko-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+.vk-solu{border-radius:8px;padding:8px 4px;text-align:center;border:1px solid var(--border);background:var(--bg3);cursor:pointer;}
+.vk-solu.on-harj{background:rgba(0,229,204,.1);border-color:rgba(0,229,204,.25);}
+.vk-solu.on-peli{background:rgba(31,209,106,.1);border-color:rgba(31,209,106,.25);}
+.vk-solu.on-testi{background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.25);}
+.vk-solu.tanaan{border:2px solid var(--amber);}
+.vk-pv{font-size:9px;color:var(--muted2);font-weight:700;text-transform:uppercase;}
+.vk-pvm{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;line-height:1.2;}
+.vk-ikoni{font-size:11px;margin-top:2px;}
+
+/* ── Kysymykset ── */
+.kysymykset-section{background:linear-gradient(135deg,rgba(255,184,48,.07),rgba(255,184,48,.02));border:1px solid rgba(255,184,48,.18);border-radius:16px;padding:22px;}
+.kysymykset-section h3{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:var(--amber);margin-bottom:6px;}
+.kysymykset-section .intro{font-size:13px;color:var(--muted);margin-bottom:18px;max-width:600px;}
+.q-list{display:flex;flex-direction:column;gap:10px;}
+.q-item{display:flex;gap:12px;align-items:flex-start;padding:13px 15px;background:rgba(255,255,255,.025);border-radius:10px;border:1px solid rgba(255,255,255,.05);}
+.q-num{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--amber);flex-shrink:0;line-height:1;min-width:22px;}
+.q-text{font-size:13px;color:var(--text);line-height:1.6;}
+.q-text em{color:var(--muted);font-style:normal;display:block;font-size:12px;margin-top:3px;}
+
+.footer{background:var(--bg2);border-top:1px solid var(--border);padding:16px 24px;text-align:center;font-size:12px;color:var(--muted2);margin-top:8px;}
+.footer strong{color:var(--amber);}
+
+/* Vertailupalkki sivun yläreunassa */
+.vs-bar{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);}
+.vs-tab{flex:1;padding:12px 16px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--muted2);border-bottom:2px solid transparent;cursor:pointer;}
+.vs-tab.a{color:var(--teal);border-bottom-color:var(--teal);}
+.vs-tab.b{color:var(--amber);border-bottom-color:var(--amber);}
+.vs-tab-label{font-size:10px;opacity:.7;display:block;margin-top:1px;}
+
+@media(max-width:640px){
+  .viikko-grid{grid-template-columns:repeat(4,1fr);}
+  .pikavalikko{gap:5px;}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="top-header">
+  <div>
+    <div class="logo">TalentMaster™ <span>Valmentaja · Malli B</span></div>
+  </div>
+  <div class="header-right">
+    <strong>Pelaajaohjautuva malli</strong><br>
+    Kausi 2025–2026 · Konseptiprototyyppi
+  </div>
+</div>
+
+<!-- VERTAILUNAUHA -->
+<div class="vs-bar">
+  <div class="vs-tab">
+    Malli A — Neljän hetken malli
+    <span class="vs-tab-label">Aikaan sidottu · aamu / ennen / aikana / jälkeen</span>
+  </div>
+  <div class="vs-tab b">
+    Malli B — Pelaajaohjautuva malli
+    <span class="vs-tab-label">Tietoon sidottu · avaa kun tarvitset</span>
+  </div>
+</div>
+
+<!-- BANNER -->
+<div class="banner">
+  <div style="font-size:22px;flex-shrink:0;margin-top:1px;">⚡</div>
+  <div>
+    <h2>Malli B — Avaa, katso, kirjaa, sulje</h2>
+    <p>Ei rakennetta, ei hetki-jakoa. Sovellus toimii kuten hyvä muistikirja — avaat kun sinulla on tarve, löydät mitä etsit nopeasti, kirjaat havaintosi, ja suljet. Filosofia: valmentaja tietää mitä hän etsii.</p>
+  </div>
+</div>
+
+<!-- FILOSOFIA -->
+<div class="filosofia-banner">
+  <div class="f-ikoni">🔍</div>
+  <div>
+    <div class="f-otsikko">Minimal friction — vähemmän rakennetta, enemmän nopeutta <span class="f-vs">vs. Malli A</span></div>
+    <div class="f-teksti">Malli A ohjaa sinua: "nyt on aamu, katso nämä asiat". Malli B ei ohjaa — se vastaa. Haetko pelaajaa? Löydät heti. Haluatko kirjata RPE:n? Yksi nappi. Haluatko katsoa viikon ohjelman? Etusivulla. Inspiraatiolähteet: Wyscout Coach (Italia), Playermaker (Israel), PepitaCoach (Espanja) — kaikki rakentuvat "avaa ja toimi" -logiikalle.</div>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ── PIKAVALIKKO ── -->
+<div>
+  <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);margin-bottom:8px;">Mitä teet tänään?</div>
+  <div class="pikavalikko">
+    <div class="pika-nappi active">
+      <div class="pika-ikoni">👤</div>
+      <div class="pika-lbl">Pelaaja</div>
+    </div>
+    <div class="pika-nappi">
+      <div class="pika-ikoni">📋</div>
+      <div class="pika-lbl">Ohjelma</div>
+    </div>
+    <div class="pika-nappi">
+      <div class="pika-ikoni">✅</div>
+      <div class="pika-lbl">Läsnäolot</div>
+    </div>
+    <div class="pika-nappi">
+      <div class="pika-ikoni">📊</div>
+      <div class="pika-lbl">RPE</div>
+    </div>
+    <div class="pika-nappi">
+      <div class="pika-ikoni">🏅</div>
+      <div class="pika-lbl">Merkinnät</div>
+    </div>
+    <div class="pika-nappi">
+      <div class="pika-ikoni">📅</div>
+      <div class="pika-lbl">Kalenteri</div>
+    </div>
+    <div class="pika-nappi">
+      <div class="pika-ikoni">⚠️</div>
+      <div class="pika-lbl">Hälytykset</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PELAAJALISTA + AKTIIVINEN PROFIILI ── -->
+<div style="display:grid;grid-template-columns:260px 1fr;gap:14px;">
+
+  <!-- Lista -->
+  <div>
+    <div class="haku-rivi">
+      <input class="haku-input" placeholder="🔍  Hae pelaajaa...">
+      <div class="suodatin">⬇ Suodata</div>
+    </div>
+
+    <!-- Huomio-ryhmä -->
+    <div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px;margin-bottom:4px;">⚠️ Tarvitsee huomiota</div>
+
+    <div class="pelaaja-rivi aktiivinen">
+      <div class="pr-avatar" style="background:rgba(255,64,96,.12);color:var(--red);">MK</div>
+      <div style="flex:1;">
+        <div class="pr-nimi">Matias Korhonen</div>
+        <div class="pr-meta">P13 · PHV-huippu</div>
+        <div class="pr-tagit">
+          <span class="pr-tag" style="background:rgba(167,139,250,.12);color:var(--purple);">PHV nyt</span>
+          <span class="pr-tag" style="background:rgba(255,64,96,.1);color:var(--red);">19 pv palaute</span>
+        </div>
+      </div>
+      <div class="pr-ovr">75</div>
+    </div>
+
+    <div class="pelaaja-rivi">
+      <div class="pr-avatar" style="background:rgba(255,215,0,.12);color:var(--gold);">OL</div>
+      <div style="flex:1;">
+        <div class="pr-nimi">Oscar Lehtonen</div>
+        <div class="pr-meta">P14 · Hidden Gem</div>
+        <div class="pr-tagit">
+          <span class="pr-tag" style="background:rgba(255,215,0,.1);color:var(--gold);">💎 HG</span>
+          <span class="pr-tag" style="background:rgba(31,209,106,.1);color:var(--green);">+4.2</span>
+        </div>
+      </div>
+      <div class="pr-ovr">73</div>
+    </div>
+
+    <!-- Kaikki pelaajat -->
+    <div style="font-size:10px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px;margin:8px 0 4px;">Kaikki pelaajat</div>
+
+    <div class="pelaaja-rivi">
+      <div class="pr-avatar" style="background:rgba(0,229,204,.1);color:var(--teal);">AV</div>
+      <div style="flex:1;">
+        <div class="pr-nimi">Aleksi Virtanen</div>
+        <div class="pr-meta">P13 · Treenaaja</div>
+      </div>
+      <div class="pr-ovr" style="color:var(--muted2);font-size:16px;">71</div>
+    </div>
+
+    <div class="pelaaja-rivi">
+      <div class="pr-avatar" style="background:rgba(74,158,255,.1);color:var(--blue);">ES</div>
+      <div style="flex:1;">
+        <div class="pr-nimi">Eetu Salonen</div>
+        <div class="pr-meta">P13 · ⚡ Rajoite</div>
+      </div>
+      <div class="pr-ovr" style="color:var(--muted2);font-size:16px;">68</div>
+    </div>
+
+    <div class="pelaaja-rivi">
+      <div class="pr-avatar" style="background:rgba(167,139,250,.1);color:var(--purple);">LM</div>
+      <div style="flex:1;">
+        <div class="pr-nimi">Lauri Mäkinen</div>
+        <div class="pr-meta">P13 · Aloittelija</div>
+        <div class="pr-tagit">
+          <span class="pr-tag" style="background:rgba(255,184,48,.1);color:var(--amber);">⭐ X Factor</span>
+        </div>
+      </div>
+      <div class="pr-ovr" style="color:var(--muted2);font-size:16px;">67</div>
+    </div>
+
+    <div class="pelaaja-rivi">
+      <div class="pr-avatar" style="background:rgba(31,209,106,.1);color:var(--green);">PJ</div>
+      <div style="flex:1;">
+        <div class="pr-nimi">Peetu Järvelä</div>
+        <div class="pr-meta">P13 · Treenaaja</div>
+      </div>
+      <div class="pr-ovr" style="color:var(--muted2);font-size:16px;">70</div>
+    </div>
+
+    <div style="text-align:center;padding:8px;font-size:11px;color:var(--muted2);">+ 7 pelaajaa lisää</div>
+  </div>
+
+  <!-- Profiilikortti — Matias Korhonen avattu -->
+  <div class="profiilikortit">
+
+    <!-- Yläosa: hero -->
+    <div class="profiili-paa">
+      <div class="profiili-ylaosa">
+        <div class="iso-avatar" style="background:rgba(255,64,96,.12);color:var(--red);border:2px solid rgba(255,64,96,.3);">MK</div>
+        <div style="flex:1;">
+          <div class="profiili-nimi">Matias Korhonen</div>
+          <div class="profiili-sub">P13 · 13.2v · PHV-HUIPPU · Maestro-profiili<br>Palloid: 123456 · Streak 🔥 8 pv</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+            <span class="suunta nousee">↑ +2.4 (30 pv)</span>
+            <span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;background:rgba(167,139,250,.12);color:var(--purple);">PHV-huippu nyt</span>
+            <span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;background:rgba(255,64,96,.1);color:var(--red);">Palaute 19 pv sitten</span>
+          </div>
+        </div>
+        <div>
+          <div class="profiili-ovr" style="color:var(--teal);">75</div>
+          <div style="font-size:9px;color:var(--muted2);text-align:center;">OVR</div>
+        </div>
+      </div>
+
+      <!-- Liikeketjut -->
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Liikeketjut</div>
+        <div class="ketju-rivi">
+          <div class="ketju-nimi">Vauhtiketju</div>
+          <div class="ketju-bg"><div class="ketju-fill" style="width:82%;background:var(--teal);"></div></div>
+          <div class="ketju-num" style="color:var(--teal);">82</div>
+        </div>
+        <div class="ketju-rivi">
+          <div class="ketju-nimi">Lähtöketju</div>
+          <div class="ketju-bg"><div class="ketju-fill" style="width:76%;background:var(--blue);"></div></div>
+          <div class="ketju-num" style="color:var(--blue);">76</div>
+        </div>
+        <div class="ketju-rivi">
+          <div class="ketju-nimi">SM-ketju</div>
+          <div class="ketju-bg"><div class="ketju-fill" style="width:71%;background:var(--amber);"></div></div>
+          <div class="ketju-num" style="color:var(--amber);">71</div>
+        </div>
+        <div class="ketju-rivi">
+          <div class="ketju-nimi" style="color:var(--red);">Hallintaketju</div>
+          <div class="ketju-bg"><div class="ketju-fill" style="width:54%;background:var(--red);"></div></div>
+          <div class="ketju-num" style="color:var(--red);">54 ↓</div>
+        </div>
+        <div class="ketju-rivi">
+          <div class="ketju-nimi">Peliälyketju</div>
+          <div class="ketju-bg"><div class="ketju-fill" style="width:79%;background:var(--purple);"></div></div>
+          <div class="ketju-num" style="color:var(--purple);">79</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADAR-havainnot -->
+    <div class="kortti-osio">
+      <div class="kortti-osio-otsikko">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--purple);display:inline-block;"></span>
+        Omat havaintosi — ADAR
+      </div>
+      <div class="adar-mini">
+        <div class="adar-mini-top">
+          <div class="adar-dimensio">Skannaus (Assess)</div>
+          <div class="adar-pvm">15.3.2026</div>
+        </div>
+        <div class="adar-kommentti">"Skannaus parantunut — katse ylös ennen vastaanottoa. Paineessa palaa vanhaan malliin. Tarvitsee nopeita tilanteita."</div>
+      </div>
+      <div class="adar-mini">
+        <div class="adar-mini-top">
+          <div class="adar-dimensio">Päätös (Decide)</div>
+          <div class="adar-pvm">2.3.2026</div>
+        </div>
+        <div class="adar-kommentti">"Tarvitsee rohkaisua — epävarma omasta tasostaan vaikka taidot ovat riittävät."</div>
+      </div>
+      <div style="margin-top:8px;padding:8px 12px;background:rgba(167,139,250,.05);border:1px dashed rgba(167,139,250,.2);border-radius:8px;font-size:11px;color:var(--purple);cursor:pointer;">+ Lisää havainto tänään</div>
+    </div>
+
+    <!-- Pikamerkintä + RPE -->
+    <div class="kortti-osio">
+      <div class="kortti-osio-otsikko">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>
+        Nopea kirjaus
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:10px;color:var(--muted2);margin-bottom:6px;">Anna merkintä</div>
+          <div class="pikamerkinta">
+            <div class="pm-nappi valittu">💪 Treeni</div>
+            <div class="pm-nappi">🔥 Asenne</div>
+            <div class="pm-nappi">📈 Kehitys</div>
+            <div class="pm-nappi">🤝 Tiimi</div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:160px;">
+          <div style="font-size:10px;color:var(--muted2);margin-bottom:6px;">RPE tänään — napauta</div>
+          <div class="rpe-nopea">
+            <div class="rpe-nappi">1</div>
+            <div class="rpe-nappi">2</div>
+            <div class="rpe-nappi">3</div>
+            <div class="rpe-nappi">4</div>
+            <div class="rpe-nappi">5</div>
+            <div class="rpe-nappi valittu">6</div>
+            <div class="rpe-nappi">7</div>
+            <div class="rpe-nappi">8</div>
+            <div class="rpe-nappi">9</div>
+            <div class="rpe-nappi">10</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;text-align:right;">
+        <div style="display:inline-block;padding:9px 20px;border-radius:9px;background:var(--amber);color:#000;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:900;cursor:pointer;">💾 TALLENNA</div>
+      </div>
+    </div>
+
+  </div><!-- /profiilikortit -->
+</div><!-- /grid -->
+
+<!-- ── VIIKON OHJELMA KOMPAKTI ── -->
+<div>
+  <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);margin-bottom:8px;">📅 Tämä viikko — napauta päivää</div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;">
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:10px;text-align:center;">
+      <div style="font-size:9px;color:var(--muted2);font-weight:700;">MA</div>
+      <div style="font-size:9px;color:var(--muted2);font-weight:700;">TI</div>
+      <div style="font-size:9px;color:var(--muted2);font-weight:700;">KE</div>
+      <div style="font-size:9px;color:var(--muted2);font-weight:700;">TO</div>
+      <div style="font-size:9px;color:var(--muted2);font-weight:700;">PE</div>
+      <div style="font-size:9px;color:var(--muted2);font-weight:700;">LA</div>
+      <div style="font-size:9px;color:var(--muted2);font-weight:700;">SU</div>
+    </div>
+    <div class="viikko-grid">
+      <div class="vk-solu on-harj tanaan">
+        <div class="vk-pv">tänään</div>
+        <div class="vk-pvm">20</div>
+        <div class="vk-ikoni" style="color:var(--teal);">🏃</div>
+      </div>
+      <div class="vk-solu">
+        <div class="vk-pv">ti</div>
+        <div class="vk-pvm">21</div>
+        <div class="vk-ikoni" style="opacity:.2;">—</div>
+      </div>
+      <div class="vk-solu on-harj">
+        <div class="vk-pv">ke</div>
+        <div class="vk-pvm">22</div>
+        <div class="vk-ikoni" style="color:var(--teal);">🏃</div>
+      </div>
+      <div class="vk-solu on-harj">
+        <div class="vk-pv">to</div>
+        <div class="vk-pvm">23</div>
+        <div class="vk-ikoni" style="color:var(--teal);">🏃</div>
+      </div>
+      <div class="vk-solu on-peli">
+        <div class="vk-pv">pe</div>
+        <div class="vk-pvm">24</div>
+        <div class="vk-ikoni" style="color:var(--green);">⚽</div>
+      </div>
+      <div class="vk-solu on-peli">
+        <div class="vk-pv">la</div>
+        <div class="vk-pvm">25</div>
+        <div class="vk-ikoni" style="color:var(--green);">⚽</div>
+      </div>
+      <div class="vk-solu">
+        <div class="vk-pv">su</div>
+        <div class="vk-pvm">26</div>
+        <div class="vk-ikoni" style="opacity:.2;">—</div>
+      </div>
+    </div>
+
+    <!-- Tänään lyhyesti -->
+    <div style="margin-top:12px;padding:12px 14px;background:rgba(0,229,204,.06);border-radius:9px;border-left:3px solid var(--teal);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--teal);">🛡️ Hallintaketju — tänään</div>
+        <div style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;background:rgba(0,229,204,.1);color:var(--teal);cursor:pointer;">↕ Vaihda</div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);">Skannaus ennen kosketusta · Lankku + variaatiot · Yhteinen alkulämmittely</div>
+      <div style="font-size:11px;color:var(--teal);font-style:italic;margin-top:4px;">"Hengitä ympäri kylkiä — katse ympäriinsä ennen palloa"</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── HÄLYTYKSET TIIVIS ── -->
+<div style="background:var(--card);border:1px solid rgba(255,64,96,.2);border-radius:14px;padding:14px;">
+  <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--red);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+    <span style="width:6px;height:6px;border-radius:50%;background:var(--red);display:inline-block;"></span>
+    Hälytykset — 2 tänään
+    <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(0,229,204,.1);color:var(--teal);margin-left:auto;font-weight:700;">Näytä kaikki →</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(255,64,96,.06);border:1px solid rgba(255,64,96,.15);margin-bottom:5px;font-size:12px;">
+    <span>⚠️</span>
+    <span style="flex:1;color:var(--text);">Matias Korhonen — palaute 19 pv sitten · PHV-huippu käynnissä</span>
+    <span style="font-size:10px;font-weight:700;color:var(--red);">KRIITTINEN</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(255,184,48,.05);border:1px solid rgba(255,184,48,.15);font-size:12px;">
+    <span>💎</span>
+    <span style="flex:1;color:var(--text);">Oscar Lehtonen — Hidden Gem, ADAR 24 pv sitten</span>
+    <span style="font-size:10px;font-weight:700;color:var(--amber);">TARKKAILE</span>
+  </div>
+</div>
+
+<!-- KYSYMYKSET -->
+<div class="kysymykset-section">
+  <h3>🎯 Kumpi malli sopii sinulle?</h3>
+  <p class="intro">Tässä näit <strong>Mallin B</strong> — pelaajaohjautuvan lähestymistavan jossa ei ole päivärakenetta. Malli A:ssa on neljä hetkeä (aamu, ennen, aikana, jälkeen). Haluamme tietää kumpi tuntuu luontevammalta sinun arjessasi.</p>
+
+  <div class="q-list">
+    <div class="q-item">
+      <div class="q-num">1</div>
+      <div class="q-text">
+        Kumpi tapa tuntuu luontevammalta — <strong>Malli A</strong> joka ohjaa sinua oikeaan tietoon oikeaan aikaan, vai <strong>Malli B</strong> jossa avaat sovelluksen kun sinulla on tarve?
+        <em>Ei ole väärää vastausta — molemmat ovat perusteltuja filosofioita.</em>
+      </div>
+    </div>
+    <div class="q-item">
+      <div class="q-num">2</div>
+      <div class="q-text">
+        Malli B:ssä pelaajan koko profiili — ketjupisteet, ADAR-havainnot, merkintä ja RPE — on yhdessä korttinäkymässä. Onko tämä selkeämpi kuin Mallin A eri hetket erikseen?
+        <em>Vai haluatko mieluummin eri näkymän harjoituksen aikana kuin sen jälkeen?</em>
+      </div>
+    </div>
+    <div class="q-item">
+      <div class="q-num">3</div>
+      <div class="q-text">
+        RPE-kirjaus on Mallissa B yksittäisinä nappuloina (1–10), Mallissa A liu'utettavana palkkina. Kumpi tuntuu nopeammalta kentän reunalla?
+        <em>Kuinka kauan sinulla realistisesti on aikaa kirjaukseen harjoituksen jälkeen?</em>
+      </div>
+    </div>
+    <div class="q-item">
+      <div class="q-num">4</div>
+      <div class="q-text">
+        Molemmissa malleissa järjestelmä nostaa esiin pelaajat jotka tarvitsevat huomiota. Onko sinulle tärkeämpää saada tämä <strong>aamulla etukäteen</strong> (Malli A) vai <strong>heti kun avaat sovelluksen</strong> (Malli B)?
+        <em>Missä tilanteessa tyypillisesti avaat puhelimen ennen harjoitusta?</em>
+      </div>
+    </div>
+          <div class="q-item">
+        <div class="q-num">★</div>
+        <div class="q-text">
+          Järjestelmä ehdottaa harjoitusohjelmaa <strong>70/30-mallilla</strong>: tekninen pääharjoite kiertää kahta heikointa ketjua viikottain (parillinen viikko = heikoin, pariton = toiseksi heikoin), ja yksilöllinen oma liike kohdistuu aina heikoimpaan. Alkulämmittely aktivoi kaikki ketjut joka harjoituksessa. Onko tämä mielekästä — vai pitäisikö mallin olla jokin muu?
+          <em>Esim. A) pelkästään heikoin aina · B) 70/30 kuten yllä · C) vahvuuslähtöinen (pelaajan profiili ohjaa, ei heikoin) · D) valmentaja päättää itse ilman ehdotusta</em>
+        </div>
+      </div>
+      <div class="q-item">
+      <div class="q-num">5</div>
+      <div class="q-text">
+        Onko jotain mitä toisessa mallissa on mutta toisessa ei — ja haluaisit molempiin?
+        <em>Vapaa sana — olet suunnittelemassa tätä kanssamme.</em>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<div class="footer">
+  <strong>TalentMaster™</strong> — Valmentajan sparrauskumppani · Malli B · Konseptiprototyyppi 2026<br>
+  <span style="font-size:11px;margin-top:4px;display:block;">Kaikki data on esimerkkidata. Kehitämme tätä yhdessä valmentajien kanssa.</span>
+</div>
+
+</body>
+</html>
