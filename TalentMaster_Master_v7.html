@@ -3148,390 +3148,343 @@ function avaaKetjuKoulutus(ketjuId){
 }
 
 function avaaCoachPelaaja(pid){
-  // Hae ensin DEMO:sta, sitten TM_DATA:sta
   var p = DEMO[pid]
     || (window.TM_DATA && window.TM_DATA.lookup && window.TM_DATA.lookup[pid])
     || null;
   if(!p) return;
-  document.getElementById('coachPlayerTitle').textContent=p.etunimi+' '+p.sukunimi;
-  var latest=p.qs_historia[p.qs_historia.length-1];
-  var r=latest&&latest.results||{};
-  var k=r.ketjut||{};
-  var ovr=laskeOverall(k);
-  var vari=overallVari(ovr);
-  var delta=laskeDelta(p);
-  var adar=laskeADAR(p);
-  var akt=laskeAktiivisuusJaksolla(p);
-  var vahv=haeVahvistukset(p);
-  var profiili=laskeProfiili(p);
-  var ennustus=laskeEnnustus(p);
-  var h='';
 
-  // Header
-  h+='<div style="background:linear-gradient(135deg,'+vari.bg2+',#0A0A0A);border:2px solid '+vari.border+';border-radius:16px;padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:14px;">';
-  h+='<div style="text-align:center;flex-shrink:0;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:56px;line-height:1;color:'+vari.text+';">'+ovr+'</div><div style="font-size:10px;letter-spacing:2px;color:'+vari.text+'88;">'+vari.sublbl+'</div></div>';
-  h+='<div style="flex:1;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;">'+p.etunimi.toUpperCase()+' '+p.sukunimi.toUpperCase()+'</div>';
-  h+='<div style="font-size:12px;color:var(--muted2);">'+p.joukkue+' · '+p.bioIka.krono+'v · '+p.phvTila+'</div>';
-  if(profiili&&profiili.profiili)h+='<div style="font-size:12px;color:var(--teal);margin-top:2px;">'+profiili.profiili.ikoni+' '+profiili.profiili.nimi+'</div>';
-  if(r.gem)h+='<div style="font-size:11px;color:#FFD700;">💎 Hidden Gem</div>';
-  if(r.xfactor)h+='<div style="font-size:11px;color:#C084FC;">⚡ X-Factor</div>';
-  h+='</div>';
-  if(delta){var dc=delta.ovDelta>0?'var(--green)':delta.ovDelta<0?'var(--red)':'var(--muted)';
-    h+='<div style="text-align:center;flex-shrink:0;"><div style="font-size:20px;font-weight:700;color:'+dc+';">'+(delta.ovDelta>=0?'+':'')+delta.ovDelta+'</div><div style="font-size:9px;color:var(--muted);">viim. testi</div></div>';}
-  h+='</div>';
+  document.getElementById('coachPlayerTitle').textContent = p.etunimi + ' ' + p.sukunimi;
 
-  // Ennustava hälytys
-  if(ennustus){
-    var ennCol=akt&&akt.aktiivisuusPct>=70?'var(--green)':'var(--amber)';
-    h+='<div style="background:rgba(255,184,48,.07);border:1px solid '+ennCol+'44;border-radius:12px;padding:11px 13px;margin-bottom:10px;">';
-    h+='<div style="font-size:10px;color:'+ennCol+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Ennuste</div>';
-    h+='<div style="font-size:13px;line-height:1.4;">'+ennustus+'</div></div>';
+  var latest  = p.qs_historia && p.qs_historia.length ? p.qs_historia[p.qs_historia.length-1] : null;
+  var r       = latest && latest.results || {};
+  var k       = r.ketjut || {};
+  var ovr     = laskeOverall(k);
+  var vari    = overallVari(ovr);
+  var delta   = laskeDelta(p);
+  var adar    = laskeADAR(p);
+  var akt     = laskeAktiivisuusJaksolla(p);
+  var vahv    = haeVahvistukset(p);
+  var profiili = laskeProfiili(p);
+  var ennustus = laskeEnnustus(p);
+  var kirk    = laskeKirkastuminen(p);
+  var kirkV   = kirkastumisVisuaali(kirk);
+  var h = '';
+
+  // ── HERO HEADER ─────────────────────────────────────────────────────────
+  h += '<div style="background:linear-gradient(135deg,' + vari.bg2 + ',#080808);border:1.5px solid ' + vari.border + ';border-radius:18px;padding:14px 16px;margin-bottom:12px;">';
+  h += '<div style="display:flex;align-items:center;gap:12px;">';
+  // OVR iso numero
+  h += '<div style="text-align:center;flex-shrink:0;">';
+  h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:54px;line-height:1;color:' + vari.text + ';">' + Math.round(ovr || 0) + '</div>';
+  h += '<div style="font-size:9px;font-weight:800;color:' + vari.text + ';opacity:.7;text-transform:uppercase;letter-spacing:1px;">' + vari.sublbl + '</div>';
+  h += '</div>';
+  // Nimi + tunnisteet
+  h += '<div style="flex:1;">';
+  h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;letter-spacing:1px;line-height:1.1;">' + p.etunimi + ' ' + (p.sukunimi || '') + '</div>';
+  h += '<div style="font-size:11px;color:var(--muted2);margin-top:3px;">' + (p.joukkue || '') + ' · ' + (p.bioIka && p.bioIka.krono ? p.bioIka.krono + 'v' : '') + (p.phvTila ? ' · ' + p.phvTila : '') + '</div>';
+  if(profiili && profiili.profiili) h += '<div style="font-size:11px;color:var(--teal);margin-top:2px;">🧬 ' + profiili.profiili.nimi + '</div>';
+  if(adar && adar.hiddenGem) h += '<div style="font-size:11px;color:#FFD700;">💎 Hidden Gem' + (adar.hiddenGemTaso === 'kulta' ? ' — Kulta' : '') + '</div>';
+  if(adar && adar.xFactor >= 7) h += '<div style="font-size:11px;color:#C084FC;">⚡ X-Factor ' + adar.xFactor.toFixed(1) + '/10</div>';
+  h += '</div>';
+  // Kehityssuunta + delta
+  if(delta) {
+    var dc = delta.ovDelta > 0 ? '#1FD16A' : delta.ovDelta < 0 ? '#FF4060' : 'var(--muted)';
+    h += '<div style="text-align:center;flex-shrink:0;">';
+    h += '<div style="font-size:20px;font-weight:700;color:' + dc + ';">' + (delta.ovDelta > 0 ? '+' : '') + delta.ovDelta.toFixed(1) + '</div>';
+    h += '<div style="font-size:9px;color:var(--muted2);">viim. testi</div>';
+    h += '</div>';
   }
-
-  // Aktiivisuus
-  if(akt){
-    h+='<div style="background:var(--card);border:1px solid var(--border);border-radius:13px;padding:12px 14px;margin-bottom:10px;">';
-    h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Harjoitusaktiivisuus</div>';
-    h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">';
-    var actCol=akt.aktiivisuusPct>=70?'var(--green)':akt.aktiivisuusPct>=40?'var(--amber)':'var(--red)';
-    h+='<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;color:'+actCol+';">'+akt.aktiivisuusPct+'%</div><div style="font-size:10px;color:var(--muted);">aktiivisuus</div></div>';
-    h+='<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;color:var(--amber);">'+akt.tehdytPaivat+'</div><div style="font-size:10px;color:var(--muted);">päivää tehty</div></div>';
-    h+='<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;color:var(--purple);">'+akt.paiviaKuluu+'</div><div style="font-size:10px;color:var(--muted);">pv viim. testistä</div></div>';
-    h+='</div></div>';
-  }
-
-  // ADAR/GIQ
-  if(adar)h+=buildGIQLaaja(p,true);
-
-  // Testaushistoria
-  h+='<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;">Testaushistoria</div>';
-  p.qs_historia.slice().reverse().forEach(function(testi,idx){
-    var ovT=laskeOverall(testi.results&&testi.results.ketjut);
-    var edOVR=p.qs_historia.length-2-idx>=0?laskeOverall(p.qs_historia[p.qs_historia.length-2-idx]&&p.qs_historia[p.qs_historia.length-2-idx].results&&p.qs_historia[p.qs_historia.length-2-idx].results.ketjut):null;
-    var dOVR=edOVR!=null&&idx>0?ovT-edOVR:null;
-    h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:11px;margin-bottom:6px;">';
-    h+='<div style="font-size:11px;color:var(--muted2);width:65px;flex-shrink:0;">'+new Date(testi.date).toLocaleDateString('fi-FI',{day:'numeric',month:'short',year:'2-digit'})+'</div>';
-    h+='<div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;color:'+overallVari(ovT).text+';flex-shrink:0;">'+ovT+'</div>';
-    if(dOVR!=null)h+='<div style="font-size:13px;font-weight:700;color:'+(dOVR>=0?'var(--green)':'var(--red)')+';">'+(dOVR>=0?'+':'')+dOVR+'</div>';
-    if(testi.results&&testi.results.gem)h+='<div style="font-size:12px;margin-left:auto;">💎</div>';
-    if(testi.results&&testi.results.xfactor)h+='<div style="font-size:12px;">⚡</div>';
-    h+='</div>';
-  });
-
-  h+='<button onclick="avaaCoachPlusPikana(\''+p.id+'\')" style="width:100%;margin-top:10px;padding:14px;border-radius:13px;border:none;background:linear-gradient(135deg,var(--teal),#0EA5E9);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:17px;font-weight:800;cursor:pointer;letter-spacing:.5px;">✅ ANNA + MERKINTÄ</button>';
-  h+='<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">Vaatii valmentajan PIN</div>';
-  // ── LOUKKAANTUMISHISTORIA + RPE-HISTORIA ─────────────────────────────
-  // Molemmat näytetään pelaajan profiilin alaosassa — kontekstuaalista dataa
-  // joka selittää testituloksissa näkyvät poikkeamat
-
-  var _loukkaantumiset = haeLoukkaantumiset(p);
-  var _rpeHistoria     = haeRpeHistoria(p);
-
-  // ── LOUKKAANTUMISOSIO ────────────────────────────────────────────────
-  h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:12px;">';
-  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
-  h += '<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;">🩹 Loukkaantumishistoria</div>';
-  h += '<button onclick="avaaLoukkaantumisLomake(\'' + p.id + '\')" ';
-  h += 'style="padding:5px 12px;border-radius:8px;border:1px solid rgba(229,57,53,.3);';
-  h += 'background:rgba(229,57,53,.08);color:#E53935;font-size:11px;font-weight:700;cursor:pointer;">+ Kirjaa</button>';
   h += '</div>';
 
-  if (_loukkaantumiset.length === 0) {
-    h += '<div style="font-size:12px;color:var(--muted2);text-align:center;padding:10px 0;">';
-    h += '✓ Ei kirjattuja loukkaantumisia</div>';
-  } else {
-    // Näytä max 4, uusimmat ensin
-    var _viimLoukk = _loukkaantumiset.slice().reverse().slice(0, 4);
-    var _avoinLkm  = _loukkaantumiset.filter(function(l) { return !l.parantunut; }).length;
+  // Kirkastuminen kompaktina palkkina headerin sisällä
+  h += '<div style="margin-top:10px;">';
+  h += '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);margin-bottom:4px;">';
+  h += '<span>' + kirkV.ikoni + ' Profiilinkirkastuminen</span><span style="color:' + kirkV.vari + ';font-weight:700;">' + kirk.pct + '% / ' + kirk.max + '%</span>';
+  h += '</div>';
+  h += '<div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;">';
+  h += '<div style="height:4px;width:' + kirk.pct + '%;background:' + kirkV.vari + ';border-radius:2px;transition:width 1s;"></div>';
+  h += '</div></div>';
+  h += '</div>'; // hero header
 
-    if (_avoinLkm > 0) {
-      h += '<div style="background:rgba(229,57,53,.08);border:1px solid rgba(229,57,53,.2);';
-      h += 'border-radius:8px;padding:7px 10px;margin-bottom:8px;font-size:11px;color:#E53935;">';
-      h += '⚠️ ' + _avoinLkm + ' avoin loukkaantuminen — harjoittelu rajoitettu';
-      h += '</div>';
-    }
-
-    var VAK_LABEL = { liev: {label:'Lievä',    col:'#1D9E75'}, keski: {label:'Koht.',   col:'#BA7517'}, vak:  {label:'Vakava',  col:'#E53935'} };
-    _viimLoukk.forEach(function(l) {
-      var vak = VAK_LABEL[l.vakavuus] || {label: l.vakavuus, col:'var(--muted)'};
-      h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);">';
-      // Väripiste vakavuuden mukaan
-      h += '<div style="width:8px;height:8px;border-radius:50%;background:' + vak.col + ';flex-shrink:0"></div>';
-      // Alue + konteksti
-      h += '<div style="flex:1;">';
-      h += '<div style="font-size:12px;font-weight:700;color:' + (l.parantunut?'var(--muted)':'var(--text)') + '">';
-      h += l.alue + (l.parantunut ? ' ✓' : '') + '</div>';
-      h += '<div style="font-size:10px;color:var(--muted2);">' + l.date + ' · ' + l.konteksti.replace('_',' ') + ' · ';
-      h += '<span style="color:' + vak.col + '">' + vak.label + '</span></div>';
-      if (l.kuvaus) h += '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-style:italic">' + l.kuvaus + '</div>';
-      h += '</div>';
-      // Merkitse parantuneeksi -nappi jos avoin
-      if (!l.parantunut) {
-        h += '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">';
-        h += '<button onclick="merkitseParantunut(\'' + p.id + '\')" ';
-        h += 'style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);';
-        h += 'background:transparent;color:var(--muted2);cursor:pointer;">✓ Parantunut</button>';
-        // HPP ELITE -badge per aktiivinen loukkaantuminen
-        var _rehab = haeRehabSuositus(l.alue, l.vakavuus);
-        h += '<div style="font-size:9px;color:#C084FC;background:rgba(124,58,237,.1);';
-        h += 'border-radius:5px;padding:2px 5px;text-align:center">' + _rehab.rehabVaihe.split('(')[0].trim() + '</div>';
-        h += '</div>';
-      }
-      h += '</div>';
-    });
-
-    if (_loukkaantumiset.length > 4) {
-      h += '<div style="font-size:11px;color:var(--muted2);text-align:center;padding:6px 0;">';
-      h += '+ ' + (_loukkaantumiset.length - 4) + ' vanhempaa kirjausta</div>';
-    }
-  }
-  h += '</div>'; // loukkaantumiskortti
-
-  // ── TEKNIIKKAKILPAILUT — historia ───────────────────────────────────────
-  var _tkHist = haeTKHistoria(p);
-  if (_tkHist.length > 0) {
-    h += '<div style="background:var(--card);border:1px solid rgba(186,117,23,.2);border-radius:14px;padding:14px;margin-top:10px;">';
-    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
-    h += '<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;">🏆 Tekniikkakilpailut</div>';
-    h += '<button onclick="avaaTKLomake(\'' + p.id + '\')" ';
-    h += 'style="padding:5px 12px;border-radius:8px;border:1px solid rgba(186,117,23,.3);';
-    h += 'background:rgba(186,117,23,.08);color:#BA7517;font-size:11px;font-weight:700;cursor:pointer;">+ Kirjaa</button>';
-    h += '</div>';
-
-    var _tkViim = _tkHist[_tkHist.length-1];
-    var _tkiCol = _tkViim.tki >= 7 ? 'var(--green)' : _tkViim.tki >= 5 ? 'var(--teal)' : _tkViim.tki >= 3 ? 'var(--amber)' : 'var(--red)';
-
-    // Viimeisin TKI isona lukuna
+  // ── STAT-RIVI: aktiivisuus kompaktina ──────────────────────────────────
+  if(akt) {
+    var actCol = akt.aktiivisuusPct >= 70 ? '#1FD16A' : akt.aktiivisuusPct >= 40 ? '#FFB830' : '#FF4060';
     h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:12px;">';
-
-    // Kokonaisaika
-    h += '<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;">';
-    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;line-height:1;color:var(--text)">';
-    h += (_tkViim.kokonaisaika !== null && _tkViim.kokonaisaika !== undefined) ? _tkViim.kokonaisaika + 's' : '—';
-    h += '</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Kokonaisaika</div></div>';
-
-    // Palloliiton merkki K/H/P
-    var _MVET = {K:'#FFD700',H:'#C0C0C0',P:'#CD7F32'};
-    var _MNIMI = {K:'Kulta',H:'Hopea',P:'Pronssi'};
-    var _mVari = _tkViim.merkki ? (_MVET[_tkViim.merkki]||'var(--muted)') : 'var(--muted)';
-    h += '<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;">';
-    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;line-height:1;color:' + _mVari + '">';
-    h += _tkViim.merkki ? _MNIMI[_tkViim.merkki] : '—';
-    h += '</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Merkki</div></div>';
-
-    // TKI
-    h += '<div style="text-align:center;background:var(--bg3);border-radius:9px;padding:8px 4px;">';
-    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;line-height:1;color:' + _tkiCol + '">';
-    h += (_tkViim.tki !== null && _tkViim.tki !== undefined) ? _tkViim.tki.toFixed(1) : '—';
-    h += '</div><div style="font-size:9px;color:var(--muted);margin-top:2px">TKI</div></div>';
+    [
+      [akt.aktiivisuusPct + '%', 'aktiivisuus', actCol],
+      [akt.tehdytPaivat,         'päivää tehty', '#FFB830'],
+      [akt.paiviaKuluu,          'pv viim. testistä', '#A78BFA'],
+    ].forEach(function(s) {
+      h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:9px 6px;text-align:center;">';
+      h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:26px;font-weight:900;color:' + s[2] + ';line-height:1;">' + s[0] + '</div>';
+      h += '<div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted2);margin-top:2px;">' + s[1] + '</div>';
+      h += '</div>';
+    });
     h += '</div>';
+  }
 
-    h += '<div>';
-    h += '<div style="font-size:10px;color:var(--muted2);">' + _tkViim.pvm + ' · ';
-    h += _tkViim.lahde === 'virallinen'
-      ? '<span style="color:#BA7517">⭐ Virallinen</span>'
-      : '<span style="color:var(--muted)">Harjoitus</span>';
-    h += '</div>';
+  // ── SPIDER CHART: liikeketjut + ADAR rinnakkain ─────────────────────────
+  // Vasen puoli: liikeketjuprofiili (TKI/QS-data)
+  // Oikea puoli: ADAR-dimensiot (jos dataa)
+  h += '<div style="display:grid;grid-template-columns:' + (adar ? '1fr 1fr' : '1fr') + ';gap:8px;margin-bottom:12px;">';
 
-    // Lajitulokset kompaktina ruudukkona
-    var LAJIT = [
-      {id:'ponnauttelu',  label:'Ponnauttelu', yks:'tr'},
-      {id:'syotto',       label:'Syöttö',      yks:'s'},
-      {id:'pujottelu',    label:'Pujottelu',   yks:'s'},
-      {id:'kulj_laukaus', label:'K-laukaus',   yks:'s'},
-      {id:'pituuspotku',  label:'Pituuspotku', yks:'p'}
+  // ── LIIKEKETJU SPIDER ──
+  var KETJUT = [
+    {id:'taka',  jp:'vauhti',   nimi:'Vauhti',   vari:'#FF4060'},
+    {id:'etu',   jp:'lahto',    nimi:'Lähtö',    vari:'#FFB830'},
+    {id:'sivu',  jp:'sm',       nimi:'SM',       vari:'#A78BFA'},
+    {id:'kierto',jp:'hallinta', nimi:'Hallinta', vari:'#00E5CC'},
+    {id:'syva',  jp:'pelinteko',nimi:'Peliäly',  vari:'#4A9EFF'},
+  ];
+  var tkiP = laskeTKIKetjut(p);
+  var ketjuArvot = KETJUT.map(function(kt) {
+    var arvo = tkiP.onTKData ? (tkiP.pisteet[kt.jp] || 0)
+      : (k[kt.id] ? Math.round(k[kt.id].pisteet / 10 * 100) : 0);
+    return Math.min(100, Math.max(0, arvo));
+  });
+
+  h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:8px;">';
+  h += '<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;font-weight:800;color:var(--muted2);margin-bottom:6px;">Liikeketjut</div>';
+
+  // SVG pentagon
+  var CX = 70, CY = 68, R = 52;
+  var angles = KETJUT.map(function(_, i) { return (i * 72 - 90) * Math.PI / 180; });
+  function pt(val, i) { var rv = R * val / 100; return [CX + rv * Math.cos(angles[i]), CY + rv * Math.sin(angles[i])]; }
+  function ptF(i) { return [CX + R * Math.cos(angles[i]), CY + R * Math.sin(angles[i])]; }
+
+  var svg = '';
+  [0.25, 0.5, 0.75, 1.0].forEach(function(f) {
+    var pts = angles.map(function(_, i) { var rv = R * f; return (CX + rv * Math.cos(angles[i])) + ',' + (CY + rv * Math.sin(angles[i])); });
+    svg += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="1"/>';
+  });
+  angles.forEach(function(_, i) { var p2 = ptF(i); svg += '<line x1="' + CX + '" y1="' + CY + '" x2="' + p2[0] + '" y2="' + p2[1] + '" stroke="rgba(255,255,255,.07)" stroke-width="1"/>'; });
+  var dataPts = ketjuArvot.map(function(v, i) { return pt(v, i).join(','); });
+  svg += '<polygon points="' + dataPts.join(' ') + '" fill="rgba(0,229,204,.12)" stroke="#00E5CC" stroke-width="1.5"/>';
+  ketjuArvot.forEach(function(v, i) { var pp = pt(v, i); svg += '<circle cx="' + pp[0] + '" cy="' + pp[1] + '" r="3" fill="' + KETJUT[i].vari + '" stroke="var(--bg3)" stroke-width="1"/>'; });
+  KETJUT.forEach(function(kt, i) {
+    var lx = CX + (R + 12) * Math.cos(angles[i]), ly = CY + (R + 12) * Math.sin(angles[i]);
+    var anch = lx < CX - 4 ? 'end' : lx > CX + 4 ? 'start' : 'middle';
+    svg += '<text x="' + lx + '" y="' + (ly + 3) + '" text-anchor="' + anch + '" font-size="8" font-weight="700" fill="' + kt.vari + '">' + kt.nimi + '</text>';
+    svg += '<text x="' + lx + '" y="' + (ly + 12) + '" text-anchor="' + anch + '" font-size="8" fill="rgba(255,255,255,.4)">' + ketjuArvot[i] + '</text>';
+  });
+  h += '<svg width="100%" viewBox="0 0 140 136">' + svg + '</svg>';
+  h += '</div>';
+
+  // ── ADAR SPIDER (jos dataa) ──
+  if(adar) {
+    var ADAR_D = [
+      {key:'a',   nimi:'Assess', vari:'#4A9EFF'},
+      {key:'d',   nimi:'Decide', vari:'#FFB830'},
+      {key:'act', nimi:'Act',    vari:'#00E5CC'},
+      {key:'r',   nimi:'Recover',vari:'#A78BFA'},
     ];
-    h += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">';
-    LAJIT.forEach(function(l) {
-      if (_tkViim[l.id]) {
-        h += '<div style="background:var(--bg3);border-radius:6px;padding:3px 7px;">';
-        h += '<div style="font-size:10px;color:var(--muted)">' + l.label + '</div>';
-        h += '<div style="font-size:12px;font-weight:700">' + _tkViim[l.id] + ' <span style="font-size:9px;color:var(--muted)">' + l.yks + '</span></div>';
-        h += '</div>';
-      }
+    var adarMax = 3;
+    var adarArvot = ADAR_D.map(function(d) { return Math.min(adarMax, adar[d.key] || 0); });
+
+    // Nelikulmainen spider (4 dimensiota = neliö tai vinoneliö)
+    var CX2 = 70, CY2 = 68, R2 = 50;
+    var ang2 = ADAR_D.map(function(_, i) { return (i * 90 - 45) * Math.PI / 180; });
+    function pt2(val, i) { var rv = R2 * val / adarMax; return [CX2 + rv * Math.cos(ang2[i]), CY2 + rv * Math.sin(ang2[i])]; }
+    function ptF2(i) { return [CX2 + R2 * Math.cos(ang2[i]), CY2 + R2 * Math.sin(ang2[i])]; }
+
+    var svg2 = '';
+    [0.33, 0.67, 1.0].forEach(function(f) {
+      var pts2 = ang2.map(function(_, i) { var rv = R2 * f; return (CX2 + rv * Math.cos(ang2[i])) + ',' + (CY2 + rv * Math.sin(ang2[i])); });
+      svg2 += '<polygon points="' + pts2.join(' ') + '" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="1"/>';
     });
+    ang2.forEach(function(_, i) { var p3 = ptF2(i); svg2 += '<line x1="' + CX2 + '" y1="' + CY2 + '" x2="' + p3[0] + '" y2="' + p3[1] + '" stroke="rgba(255,255,255,.07)" stroke-width="1"/>'; });
+    var dp2 = adarArvot.map(function(v, i) { return pt2(v, i).join(','); });
+    svg2 += '<polygon points="' + dp2.join(' ') + '" fill="rgba(124,58,237,.18)" stroke="#A78BFA" stroke-width="1.5"/>';
+    adarArvot.forEach(function(v, i) { var pp2 = pt2(v, i); svg2 += '<circle cx="' + pp2[0] + '" cy="' + pp2[1] + '" r="3" fill="' + ADAR_D[i].vari + '" stroke="var(--bg3)" stroke-width="1"/>'; });
+    ADAR_D.forEach(function(d, i) {
+      var lx2 = CX2 + (R2 + 14) * Math.cos(ang2[i]), ly2 = CY2 + (R2 + 14) * Math.sin(ang2[i]);
+      var anch2 = lx2 < CX2 - 4 ? 'end' : lx2 > CX2 + 4 ? 'start' : 'middle';
+      svg2 += '<text x="' + lx2 + '" y="' + (ly2 + 3) + '" text-anchor="' + anch2 + '" font-size="8" font-weight="700" fill="' + d.vari + '">' + d.nimi + '</text>';
+      svg2 += '<text x="' + lx2 + '" y="' + (ly2 + 12) + '" text-anchor="' + anch2 + '" font-size="8" fill="rgba(255,255,255,.4)">' + adarArvot[i] + '/' + adarMax + '</text>';
+    });
+    // Game IQ -luku keskellä
+    var giqVal = adar.yht ? Math.round(40 + adar.yht / 12 * 59) : 0;
+    svg2 += '<text x="' + CX2 + '" y="' + (CY2 + 5) + '" text-anchor="middle" font-family="Bebas Neue,sans-serif" font-size="20" font-weight="900" fill="#A78BFA">' + giqVal + '</text>';
+    svg2 += '<text x="' + CX2 + '" y="' + (CY2 + 16) + '" text-anchor="middle" font-size="7" fill="rgba(167,139,250,.6)">Game IQ</text>';
+
+    h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:8px;cursor:pointer;" onclick="' + "document.getElementById('coachPlayerContent').querySelector('.adar-details').style.display=document.getElementById('coachPlayerContent').querySelector('.adar-details').style.display==='none'?'block':'none'" + '">';
+    h += '<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;font-weight:800;color:var(--muted2);margin-bottom:6px;">ADAR / Game IQ™ <span style="font-size:8px;color:var(--muted);">▾ details</span></div>';
+    h += '<svg width="100%" viewBox="0 0 140 136">' + svg2 + '</svg>';
+    // ADAR taso-badge
+    h += '<div style="display:flex;justify-content:center;margin-top:4px;">';
+    h += '<div style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:' + adar.taso.variBg + ';color:' + adar.taso.vari + ';border:1px solid ' + adar.taso.vari + '44;">' + adar.taso.ikoni + ' ' + adar.taso.nimi + '</div>';
     h += '</div>';
-    h += '</div></div>'; // grid
+    h += '</div>'; // ADAR chart
 
-    // TKI-kehityskäyrä jos 2+ tulosta
-    if (_tkHist.length >= 2) {
-      var _tkPts = _tkHist.filter(function(t) { return t.tki !== null; });
-      if (_tkPts.length >= 2) {
-        var _svgW = 280, _svgH = 36;
-        var _tkMin = 0, _tkMax = 10;
-        var _pts2 = _tkPts.map(function(t, ti) {
-          var x = Math.round(ti / (_tkPts.length-1) * (_svgW-20) + 10);
-          var y = Math.round(_svgH - 4 - (t.tki - _tkMin) / (_tkMax - _tkMin) * (_svgH - 8));
-          return { x:x, y:y, t:t };
-        });
-        var _ptStr2 = _pts2.map(function(pt) { return pt.x + ',' + pt.y; }).join(' ');
-        var _lastPt2 = _pts2[_pts2.length-1];
-        var _first2 = _tkPts[0].tki, _last2 = _tkPts[_tkPts.length-1].tki;
-        var _muutos2 = Math.round((_last2 - _first2) * 10) / 10;
-        var _muutosCol2 = _muutos2 > 0 ? 'var(--green)' : _muutos2 < 0 ? 'var(--red)' : 'var(--muted)';
-
-        h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-size:10px;">';
-        h += '<div style="color:var(--muted)">' + _tkPts.length + ' tulosta</div>';
-        h += '<div style="color:' + _muutosCol2 + ';font-weight:700">' + (_muutos2 > 0 ? '+' : '') + _muutos2 + ' kaudessa</div>';
-        h += '</div>';
-
-        h += '<svg width="100%" viewBox="0 0 ' + _svgW + ' ' + _svgH + '" style="display:block;overflow:visible">';
-        h += '<polyline points="' + _ptStr2 + '" fill="none" stroke="#BA7517" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>';
-        _pts2.forEach(function(pt, pi) {
-          var isLast = pi === _pts2.length - 1;
-          var col2 = pt.t.lahde === 'virallinen' ? '#BA7517' : 'var(--muted)';
-          h += '<circle cx="' + pt.x + '" cy="' + pt.y + '" r="' + (isLast ? 4 : 3) + '" fill="' + (isLast ? col2 : 'var(--bg3)') + '" stroke="' + col2 + '" stroke-width="1.5"/>';
-        });
-        h += '</svg>';
-        h += '<div style="font-size:9px;color:var(--muted);text-align:right">● virallinen  ○ harjoitus</div>';
-      }
+    // ADAR dimensiot — piilossa, avautuu klikkaamalla
+    h += '<div class="adar-details" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:-4px;">';
+    ADAR_D.forEach(function(d, i) {
+      var v = adarArvot[i];
+      var label = v === 3 ? 'Systemaattisesti' : v === 2 ? 'Kehittyvä' : 'Kehitettävää';
+      var lVari = v === 3 ? '#1FD16A' : v === 2 ? '#FFB830' : '#FF4060';
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);">';
+      h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:18px;font-weight:900;color:' + d.vari + ';width:20px;text-align:center;">' + v + '</div>';
+      h += '<div style="flex:1;">';
+      h += '<div style="font-size:11px;font-weight:700;color:' + d.vari + ';">' + d.nimi + '</div>';
+      h += '</div>';
+      h += '<div style="font-size:10px;font-weight:700;color:' + lVari + ';">' + label + '</div>';
+      h += '</div>';
+    });
+    if(adar.huomio) {
+      h += '<div style="font-size:10px;color:var(--muted2);margin-top:6px;font-style:italic;">"' + adar.huomio + '"</div>';
     }
-
-    if (_tkViim.muistio) {
-      h += '<div style="font-size:11px;color:var(--muted2);font-style:italic;margin-top:6px;">' + _tkViim.muistio + '</div>';
-    }
-
-    // ── KANSALLINEN VERTAILU ─────────────────────────────────────────────
-    // Näytetään jos pelaajalla on kokonaisaika ja ikäluokka tallennettuna.
-    // Prosenttipiste + tason kuvaus + lajikeskiarvot suhteessa kansalliseen.
-    if (_tkViim.kokonaisaika && _tkViim.ikaluokka) {
-      var _tkV = haeTKKansallinenVertailu(_tkViim.kokonaisaika, _tkViim.ikaluokka);
-      if (_tkV) {
-        h += '<div style="border-top:1px solid rgba(255,255,255,.07);padding-top:10px;margin-top:10px;">';
-        h += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🌍 Kansallinen vertailu — ' + _tkViim.ikaluokka + '</div>';
-
-        // Prosenttipistepalkki
-        h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">';
-        h += '<div style="flex:1;height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;">';
-        h += '<div style="height:8px;width:' + _tkV.prosenttipiste + '%;background:' + _tkV.vari + ';border-radius:4px;"></div>';
-        h += '</div>';
-        h += '<div style="font-size:12px;font-weight:700;color:' + _tkV.vari + ';width:36px;text-align:right">' + _tkV.prosenttipiste + '%</div>';
-        h += '</div>';
-
-        // Tason kuvaus + sijoitus
-        h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
-        h += '<div style="font-size:12px;font-weight:700;color:' + _tkV.vari + '">' + _tkV.kuvaus + '</div>';
-        h += '<div style="font-size:11px;color:var(--muted2)">Sij. ' + _tkV.sijoitus + ' / ' + _tkV.n + '</div>';
-        h += '</div>';
-
-        // Lajivertailu — oma vs kansallinen mediaani
-        var LAJIT_KV = [
-          {id:'ponnauttelu', label:'Ponn.'},
-          {id:'syotto',      label:'Syöttö', paino:'×1.13'},
-          {id:'pujottelu',   label:'Pujott.', paino:'×1.09'},
-          {id:'kulj_laukaus',label:'K-laukaus'}
-        ];
-        h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">';
-        LAJIT_KV.forEach(function(laji) {
-          var omaAika  = _tkViim[laji.id]    ? parseFloat(_tkViim[laji.id])    : null;
-          var kansKa   = _tkV.lajiKa[laji.id] || null;
-          if (!omaAika || !kansKa) return;
-          // Pienempi aika = parempi — väri kertoo onko parempi/heikompi kuin kanskakeskiarvo
-          var ero = Math.round((omaAika - kansKa) * 10) / 10;
-          var parempi = ero < 0;
-          var eroCol  = parempi ? '#1D9E75' : ero > 0 ? '#E53935' : 'var(--muted)';
-          h += '<div style="background:var(--bg3);border-radius:7px;padding:5px;text-align:center;">';
-          h += '<div style="font-size:9px;color:var(--muted)">' + laji.label + '</div>';
-          h += '<div style="font-size:12px;font-weight:700">' + omaAika + 's</div>';
-          h += '<div style="font-size:9px;color:' + eroCol + '">' + (parempi?'':'+') + ero + 's</div>';
-          h += '</div>';
-        });
-        h += '</div>';
-
-        // Top 10% raja ja mediaani referenssinä
-        if (_tkV.top10raja && _tkV.mediaani) {
-          h += '<div style="font-size:10px;color:var(--muted);margin-top:6px;">';
-          h += '⭐ Top 10%: alle ' + _tkV.top10raja + 's · Mediaani: ' + _tkV.mediaani + 's';
-          h += '</div>';
-        }
-
-        h += '</div>'; // kansallinen vertailu
-      }
-    }
-
-    h += '</div>'; // TK-kortti
+    h += '<button onclick="event.stopPropagation();' + "document.getElementById('coachPlayerContent').querySelector('.adar-details').style.display='none'" + ';buildGIQLaaja_popup(\'' + p.id + '\')" style="width:100%;margin-top:8px;padding:8px;border-radius:9px;border:none;background:#A78BFA;color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✏️ PÄIVITÄ ARVIO</button>';
+    h += '</div>';
   } else {
-    // Ei vielä tuloksia — näytä "Kirjaa"-nappi
-    h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:10px;">';
-    h += '<div style="display:flex;align-items:center;justify-content:space-between;">';
-    h += '<div>';
-    h += '<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">🏆 Tekniikkakilpailut</div>';
-    h += '<div style="font-size:11px;color:var(--muted2)">Ei tuloksia vielä</div>';
+    // Ei ADAR-dataa — kehotus arvioida
+    h += '<div style="background:rgba(167,139,250,.06);border:1px dashed rgba(167,139,250,.2);border-radius:14px;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">';
+    h += '<div style="font-size:24px;">👁️</div>';
+    h += '<div style="font-size:12px;font-weight:700;color:#A78BFA;text-align:center;">Game IQ ei arvioitu</div>';
+    h += '<div style="font-size:10px;color:var(--muted2);text-align:center;line-height:1.5;">ADAR-arvio avaa Hidden Gem -tunnistuksen ja Game IQ -pisteet</div>';
+    h += '<button onclick="buildGIQLaaja_popup(\'' + p.id + '\')" style="padding:8px 16px;border-radius:9px;border:none;background:#A78BFA;color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">+ TEE ARVIO</button>';
     h += '</div>';
-    h += '<button onclick="avaaTKLomake(\'' + p.id + '\')" ';
-    h += 'style="padding:8px 16px;border-radius:9px;border:none;background:#BA7517;';
-    h += 'color:#fff;font-family:\'Barlow Condensed\';font-size:14px;font-weight:800;cursor:pointer;">+ Kirjaa</button>';
-    h += '</div></div>';
   }
 
-  // ── RPE-KUORMITUSHISTORIA ─────────────────────────────────────────────
-  // Näytetään viimeiset 14 päivää sparkline-muodossa
-  if (_rpeHistoria.length > 0) {
-    h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:10px;">';
+  h += '</div>'; // grid liikeketjut + ADAR
+
+  // ── ENNUSTAVA HÄLYTYS ─────────────────────────────────────────────────
+  if(ennustus) {
+    var ennCol = akt && akt.aktiivisuusPct >= 70 ? '#1FD16A' : '#FFB830';
+    h += '<div style="background:' + ennCol + '10;border:1px solid ' + ennCol + '44;border-radius:12px;padding:10px 14px;margin-bottom:12px;">';
+    h += '<div style="font-size:9px;color:' + ennCol + ';text-transform:uppercase;font-weight:800;letter-spacing:.5px;margin-bottom:4px;">Ennuste</div>';
+    h += '<div style="font-size:12px;line-height:1.5;">' + ennustus + '</div>';
+    h += '</div>';
+  }
+
+  // ── ADAR SYÖTTÖLOMAKE (valmentajalle) ────────────────────────────────
+  h += '<div id="adarPopupArea"></div>';
+
+  // ── PLUS-MERKINTÄ ─────────────────────────────────────────────────────
+  h += '<button onclick="avaaCoachPlusPikana(\'' + p.id + '\')" style="width:100%;margin-bottom:8px;padding:12px;border-radius:12px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:.5px;">🏅 ANNA + MERKINTÄ</button>';
+
+  // ── TESTAUSHISTORIA ───────────────────────────────────────────────────
+  if(p.qs_historia && p.qs_historia.length > 0) {
+    h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;">Testaushistoria</div>';
+    h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:12px;">';
+    p.qs_historia.slice().reverse().forEach(function(testi, idx) {
+      var ovT  = laskeOverall(testi.results && testi.results.ketjut);
+      var prev = p.qs_historia.length - 2 - idx >= 0 ? laskeOverall(p.qs_historia[p.qs_historia.length - 2 - idx] && p.qs_historia[p.qs_historia.length - 2 - idx].results && p.qs_historia[p.qs_historia.length - 2 - idx].results.ketjut) : null;
+      var dOVR = prev != null && idx > 0 ? ovT - prev : null;
+      var bg   = idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,.015)';
+      h += '<div style="display:grid;grid-template-columns:70px 50px 1fr auto;gap:8px;align-items:center;padding:9px 12px;background:' + bg + ';border-bottom:1px solid rgba(255,255,255,.04);">';
+      h += '<div style="font-size:10px;color:var(--muted2);">' + new Date(testi.date).toLocaleDateString('fi-FI', {day:'numeric',month:'short'}) + '</div>';
+      h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;color:' + overallVari(ovT).text + ';line-height:1;">' + Math.round(ovT || 0) + '</div>';
+      // Mini-palkki liikeketjuille
+      h += '<div style="display:flex;gap:2px;align-items:flex-end;height:16px;">';
+      var kk2 = testi.results && testi.results.ketjut || {};
+      ['taka','etu','sivu','kierto','syva'].forEach(function(kid, ki) {
+        var val = kk2[kid] ? Math.round(kk2[kid].pisteet / 10 * 100) : 0;
+        var h2  = Math.max(2, Math.round(val / 100 * 16));
+        var vc  = ['#FF4060','#FFB830','#A78BFA','#00E5CC','#4A9EFF'][ki];
+        h += '<div style="width:6px;height:' + h2 + 'px;background:' + vc + ';border-radius:1px;"></div>';
+      });
+      h += '</div>';
+      h += '<div style="text-align:right;">';
+      if(dOVR != null) h += '<div style="font-size:12px;font-weight:700;color:' + (dOVR >= 0 ? '#1FD16A' : '#FF4060') + ';">' + (dOVR > 0 ? '+' : '') + dOVR.toFixed(1) + '</div>';
+      if(testi.results && testi.results.gem) h += '<span style="font-size:10px;">💎</span>';
+      if(testi.results && testi.results.xfactor) h += '<span style="font-size:10px;">⚡</span>';
+      h += '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  // ── TK-KILPAILU ───────────────────────────────────────────────────────
+  var _tkHist = haeTKHistoria(p);
+  if(_tkHist.length > 0) {
+    var _tkViim = _tkHist[_tkHist.length - 1];
+    var _tkiCol = _tkViim.tki >= 7 ? '#1FD16A' : _tkViim.tki >= 4 ? '#FFB830' : '#FF4060';
+    h += '<div style="background:var(--bg3);border:1px solid rgba(186,117,23,.25);border-radius:14px;padding:12px 14px;margin-bottom:12px;">';
     h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
-    h += '<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;">💪 RPE-kuormitushistoria</div>';
-    // Viimeisin arvo isona
-    var _viimRpe = _rpeHistoria[_rpeHistoria.length-1];
-    var _rpeCol  = _viimRpe.tyyppi === 'liikenne'
-      ? (_viimRpe.arvo === 1 ? '#1FD16A' : _viimRpe.arvo === 2 ? '#BA7517' : '#E53935')
-      : (_viimRpe.arvo <= 4 ? '#1FD16A' : _viimRpe.arvo <= 6 ? '#BA7517' : '#E53935');
-    h += '<div style="font-size:11px;color:var(--muted2);">Viimeisin: <span style="font-weight:700;color:' + _rpeCol + '">';
-    if (_viimRpe.tyyppi === 'liikenne') {
-      h += ['','🟢 Kevyt','🟡 Kohtalainen','🔴 Rankka'][_viimRpe.arvo] || _viimRpe.arvo;
-    } else {
-      h += _viimRpe.arvo + '/10';
+    h += '<div style="font-size:10px;font-weight:800;color:#BA7517;text-transform:uppercase;letter-spacing:1px;">⚽ Tekniikkakilpailu</div>';
+    h += '<button onclick="avaaTKLomake(\'' + p.id + '\')" style="padding:5px 12px;border-radius:8px;border:1px solid rgba(186,117,23,.3);background:rgba(186,117,23,.08);color:#BA7517;font-size:11px;font-weight:700;cursor:pointer;">+ Kirjaa tulos</button>';
+    h += '</div>';
+    // Viimeisin tulos kompaktina
+    h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">';
+    [['TKI', (_tkViim.tki || 0).toFixed(1), _tkiCol],
+     ['Aika', (_tkViim.kokonaisaika || '—') + 's', 'var(--text)'],
+     ['Merkki', _tkViim.merkki || '—', _tkViim.merkki === 'K' ? '#FFD700' : _tkViim.merkki === 'H' ? '#C0C0C0' : '#CD7F32'],
+    ].forEach(function(s) {
+      h += '<div style="text-align:center;background:rgba(255,255,255,.03);border-radius:8px;padding:7px 4px;">';
+      h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:22px;color:' + s[2] + ';line-height:1;">' + s[1] + '</div>';
+      h += '<div style="font-size:9px;color:var(--muted2);margin-top:2px;">' + s[0] + '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+    if(_tkHist.length > 1) {
+      h += '<div style="font-size:10px;color:var(--muted2);text-align:center;margin-top:6px;">' + _tkHist.length + ' tulosta kirjattu · ' + _tkViim.pvm + '</div>';
     }
-    h += '</span></div>';
     h += '</div>';
-
-    // Sparkline viimeisistä 14 merkinnästä
-    var _rpe14    = _rpeHistoria.slice(-14);
-    var _svgW2    = 280, _svgH2 = 40;
-    var _rpeN     = _rpe14.length;
-    var _rpeMax   = 10; // CR-10 max
-    // Muunna liikennearvo 1–3 → 3/7/10
-    var _rpePts   = _rpe14.map(function(r, ri) {
-      var v = r.tyyppi === 'liikenne' ? (r.arvo === 1 ? 3 : r.arvo === 2 ? 6 : 9) : r.arvo;
-      var x = _rpeN === 1 ? _svgW2/2 : Math.round(ri / (_rpeN-1) * (_svgW2-20) + 10);
-      var y = Math.round(_svgH2 - 4 - v / _rpeMax * (_svgH2 - 8));
-      return { x:x, y:y, v:v };
-    });
-
-    var _ptStr = _rpePts.map(function(pt) { return pt.x + ',' + pt.y; }).join(' ');
-    var _lastPt = _rpePts[_rpePts.length-1];
-    var _avgRpe = Math.round(_rpePts.reduce(function(s,pt){return s+pt.v;},0) / _rpePts.length * 10) / 10;
-    var _avgCol = _avgRpe <= 4 ? '#1FD16A' : _avgRpe <= 6 ? '#BA7517' : '#E53935';
-
-    // Referenssiviiva: taso 7 (korkea kuormitus)
-    var _yRef = Math.round(_svgH2 - 4 - 7 / _rpeMax * (_svgH2 - 8));
-
-    h += '<svg width="100%" viewBox="0 0 ' + _svgW2 + ' ' + _svgH2 + '" style="display:block;margin-bottom:8px;overflow:visible">';
-    h += '<line x1="0" y1="' + _yRef + '" x2="' + _svgW2 + '" y2="' + _yRef + '" stroke="rgba(229,57,53,.2)" stroke-width="1" stroke-dasharray="3,3"/>';
-    // Täyttöalue
-    var _areaStr = 'M ' + _rpePts[0].x + ',' + _rpePts[0].y + ' L ' + _ptStr + ' L ' + _lastPt.x + ',' + _svgH2 + ' L ' + _rpePts[0].x + ',' + _svgH2 + ' Z';
-    h += '<path d="' + _areaStr + '" fill="#4D9FFF" fill-opacity="0.08"/>';
-    h += '<polyline points="' + _ptStr + '" fill="none" stroke="#4D9FFF" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>';
-    // Pisteet
-    _rpePts.forEach(function(pt, pi) {
-      var isLast = pi === _rpePts.length - 1;
-      var col = pt.v <= 4 ? '#1FD16A' : pt.v <= 6 ? '#BA7517' : '#E53935';
-      h += '<circle cx="' + pt.x + '" cy="' + pt.y + '" r="' + (isLast ? 4 : 2.5) + '" fill="' + (isLast ? col : 'var(--bg3)') + '" stroke="' + col + '" stroke-width="1.5"/>';
-    });
-    h += '</svg>';
-
-    // Tilasto-rivi
-    h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted2);">';
-    h += '<span>' + _rpeN + ' merkintää</span>';
-    h += '<span>Keskiarvo: <strong style="color:' + _avgCol + '">' + _avgRpe + '/10</strong></span>';
-    h += '<span>' + _rpe14[0].pvm + ' → ' + _rpe14[_rpe14.length-1].pvm + '</span>';
-    h += '</div>';
-
-    h += '</div>'; // RPE-kortti
+  } else {
+    h += '<button onclick="avaaTKLomake(\'' + p.id + '\')" style="width:100%;margin-bottom:8px;padding:10px;border-radius:12px;border:1px solid rgba(186,117,23,.3);background:rgba(186,117,23,.06);color:#BA7517;font-family:\'Barlow Condensed\',sans-serif;font-size:15px;font-weight:800;cursor:pointer;">⚽ KIRJAA TK-KILPAILUTULOS</button>';
   }
 
-  document.getElementById('coachPlayerContent').innerHTML=h;
-  go('sCoachPlayer');
+  // ── LOUKKAANTUMISET ───────────────────────────────────────────────────
+  var _loukk = haeLoukkaantumiset(p);
+  h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:12px;">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+  h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;">🩹 Loukkaantumiset</div>';
+  h += '<button onclick="avaaLoukkaantumisLomake(\'' + p.id + '\')" style="padding:5px 12px;border-radius:8px;border:1px solid rgba(229,57,53,.3);background:rgba(229,57,53,.08);color:#E53935;font-size:11px;font-weight:700;cursor:pointer;">+ Kirjaa</button>';
+  h += '</div>';
+  if(_loukk.length === 0) {
+    h += '<div style="font-size:12px;color:var(--muted2);">✓ Ei kirjattuja loukkaantumisia</div>';
+  } else {
+    var avoinLkm = _loukk.filter(function(l) { return !l.parantunut; }).length;
+    if(avoinLkm > 0) h += '<div style="background:rgba(229,57,53,.08);border:1px solid rgba(229,57,53,.2);border-radius:8px;padding:7px 10px;margin-bottom:8px;font-size:11px;color:#E53935;">⚠️ ' + avoinLkm + ' avoin loukkaantuminen</div>';
+    _loukk.slice().reverse().slice(0, 3).forEach(function(l) {
+      var vc2 = l.vakavuus === 'liev' ? '#1D9E75' : l.vakavuus === 'keski' ? '#BA7517' : '#E53935';
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);">';
+      h += '<div style="width:7px;height:7px;border-radius:50%;background:' + vc2 + ';flex-shrink:0;"></div>';
+      h += '<div style="flex:1;"><div style="font-size:12px;font-weight:600;color:' + (l.parantunut ? 'var(--muted)' : 'var(--text)') + ';">' + l.alue + (l.parantunut ? ' ✓' : '') + '</div>';
+      h += '<div style="font-size:10px;color:var(--muted2);">' + l.date + '</div></div>';
+      if(!l.parantunut) h += '<button onclick="merkitseParantunut(\'' + p.id + '\')" style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;">✓</button>';
+      h += '</div>';
+    });
+  }
+  h += '</div>';
+
+  // ── RPE-HISTORIA ──────────────────────────────────────────────────────
+  var _rpe = haeRpeHistoria(p);
+  if(_rpe && _rpe.length > 0) {
+    h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:12px;">';
+    h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">💪 RPE-historia</div>';
+    h += '<div style="display:flex;gap:3px;align-items:flex-end;height:32px;">';
+    var rpeMax = Math.max.apply(null, _rpe.map(function(r) { return r.rpe || 0; })) || 10;
+    _rpe.slice(-14).forEach(function(entry) {
+      var rpeH = Math.max(2, Math.round((entry.rpe || 0) / rpeMax * 32));
+      var rpeC = entry.rpe >= 8 ? '#FF4060' : entry.rpe >= 6 ? '#FFB830' : '#1FD16A';
+      h += '<div style="flex:1;height:' + rpeH + 'px;background:' + rpeC + ';border-radius:2px;min-width:4px;" title="RPE ' + entry.rpe + '"></div>';
+    });
+    h += '</div>';
+    var rpeKa = Math.round(_rpe.reduce(function(s, r) { return s + (r.rpe || 0); }, 0) / _rpe.length * 10) / 10;
+    h += '<div style="font-size:10px;color:var(--muted2);margin-top:4px;">Ka: ' + rpeKa + '/10 · ' + _rpe.length + ' merkintää</div>';
+    h += '</div>';
+  }
+
+  document.getElementById('coachPlayerContent').innerHTML = h;
+
+  // Näytä Coach-pelaaja-screen
+  ['sPin','sLoad','sMain','sOnboard','sCoach','sCoachEdu'].forEach(function(s) {
+    var el = document.getElementById(s); if(el) el.classList.remove('active');
+  });
+  document.getElementById('sCoachPlayer').classList.add('active');
 }
+
+// buildGIQLaaja_popup — avaa ADAR-lomakkeen adarPopupArea-diviin
+function buildGIQLaaja_popup(pid) {
+  var p = DEMO[pid] || (window.TM_DATA && window.TM_DATA.lookup && window.TM_DATA.lookup[pid]);
+  if(!p) return;
+  var area = document.getElementById('adarPopupArea');
+  if(!area) return;
+  area.innerHTML = '<div style="background:var(--bg3);border:1px solid rgba(167,139,250,.3);border-radius:14px;padding:14px;margin-bottom:12px;">' + buildGIQLaaja(p, true) + '</div>';
+  area.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
 
 function avaaCoachPlusPikana(pid){S.pelaaja=DEMO[pid];avaaValmentajanPlus();}
 
