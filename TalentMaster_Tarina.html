@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eemeli · TalentMaster™</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0C0C0F;
+  --bg2: #141418;
+  --ink: #F2EDE6;
+  --ink2: rgba(242,237,230,.65);
+  --ink3: rgba(242,237,230,.38);
+  --teal: #00C9A7;
+  --teal-d: #009980;
+  --amber: #F5A623;
+  --red: #E8514A;
+  --border: rgba(242,237,230,.08);
+  --w: 680px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: 18px 40px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(to bottom, var(--bg) 60%, transparent);
+}
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px; font-weight: 700;
+  color: var(--ink); letter-spacing: .3px;
+}
+.logo em { font-style: normal; color: var(--teal); }
+.topbar-tag {
+  font-size: 11px; font-weight: 500; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--ink3);
+}
+
+/* ── PROGRESS BAR ── */
+#progress {
+  position: fixed; top: 0; left: 0; z-index: 200;
+  height: 2px; background: var(--teal);
+  width: 0%; transition: width .1s linear;
+}
+
+/* ── LAYOUT ── */
+.w { max-width: var(--w); margin: 0 auto; padding: 0 40px; }
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: flex-start;
+  padding: 120px 40px 80px;
+  max-width: var(--w); margin: 0 auto;
+  position: relative;
+}
+.hero-pre {
+  font-size: 11px; font-weight: 500; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--teal);
+  margin-bottom: 28px;
+  display: flex; align-items: center; gap: 12px;
+}
+.hero-pre::before {
+  content: ''; width: 32px; height: 1px;
+  background: var(--teal);
+}
+.hero-h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(42px, 7vw, 72px);
+  font-weight: 900; line-height: 1.0;
+  letter-spacing: -.5px;
+  margin-bottom: 28px;
+}
+.hero-h1 .year {
+  display: block;
+  font-style: italic; font-weight: 400;
+  color: var(--ink2); font-size: .65em;
+  letter-spacing: 0;
+}
+.hero-lead {
+  font-size: 17px; color: var(--ink2);
+  line-height: 1.75; max-width: 520px;
+  margin-bottom: 48px;
+}
+.hero-scroll {
+  font-size: 12px; color: var(--ink3);
+  display: flex; align-items: center; gap: 10px;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.hero-scroll::after {
+  content: '↓';
+  font-size: 16px; color: var(--teal);
+  animation: bounce 1.8s infinite;
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(5px); }
+}
+
+/* ── SCENE BLOCKS ── */
+.scene {
+  padding: 80px 0;
+  border-top: 1px solid var(--border);
+  opacity: 0; transform: translateY(30px);
+  transition: opacity .7s ease, transform .7s ease;
+}
+.scene.visible { opacity: 1; transform: none; }
+
+.scene-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--ink3);
+  margin-bottom: 32px;
+  display: flex; align-items: center; gap: 10px;
+}
+.scene-label span {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--border); display: flex;
+  align-items: center; justify-content: center;
+  font-size: 10px; color: var(--ink2);
+  flex-shrink: 0;
+}
+
+/* Pull quote — iso lainaus */
+.pull {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(22px, 3.5vw, 32px);
+  font-weight: 700; line-height: 1.25;
+  letter-spacing: -.2px;
+  margin-bottom: 28px; color: var(--ink);
+}
+.pull em {
+  font-style: italic; font-weight: 400;
+  color: var(--teal);
+}
+.pull .strike {
+  text-decoration: line-through;
+  color: var(--ink3);
+}
+
+/* Prose */
+.prose {
+  font-size: 16px; color: var(--ink2);
+  line-height: 1.8; margin-bottom: 20px;
+}
+.prose strong { color: var(--ink); font-weight: 500; }
+
+/* Stat — numero + selitys */
+.stat-row {
+  display: flex; gap: 40px; margin: 32px 0;
+  flex-wrap: wrap;
+}
+.stat {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.stat-n {
+  font-family: 'Playfair Display', serif;
+  font-size: 52px; font-weight: 900;
+  line-height: 1; letter-spacing: -2px;
+}
+.stat-n.teal { color: var(--teal); }
+.stat-n.amber { color: var(--amber); }
+.stat-n.red { color: var(--red); }
+.stat-txt {
+  font-size: 13px; color: var(--ink3);
+  max-width: 180px; line-height: 1.5;
+}
+
+/* Timeline — kolme henkilöä */
+.timeline { margin: 32px 0; display: flex; flex-direction: column; gap: 0; }
+.tl-item {
+  display: grid; grid-template-columns: 48px 1fr;
+  gap: 0 20px; padding: 24px 0;
+  border-bottom: 1px solid var(--border);
+  opacity: 0; transform: translateX(-20px);
+  transition: opacity .5s ease, transform .5s ease;
+}
+.tl-item.visible { opacity: 1; transform: none; }
+.tl-item:last-child { border-bottom: none; }
+.tl-dot {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; margin-top: 2px; flex-shrink: 0;
+  border: 1.5px solid var(--border);
+  background: var(--bg2);
+}
+.tl-body {}
+.tl-who {
+  font-size: 11px; font-weight: 600; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--ink3);
+  margin-bottom: 6px;
+}
+.tl-what {
+  font-size: 15px; color: var(--ink2); line-height: 1.65;
+}
+.tl-what strong { color: var(--ink); }
+.tl-what .good { color: var(--teal); font-weight: 500; }
+.tl-what .bad { color: var(--red); }
+
+/* Divider quote */
+.divider-quote {
+  padding: 60px 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  opacity: 0; transform: translateY(20px);
+  transition: opacity .7s ease, transform .7s ease;
+}
+.divider-quote.visible { opacity: 1; transform: none; }
+.dq-text {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(18px, 3vw, 26px);
+  font-style: italic; font-weight: 400;
+  color: var(--ink2); line-height: 1.5;
+  max-width: 500px; margin: 0 auto 16px;
+}
+.dq-attr {
+  font-size: 12px; color: var(--ink3);
+  letter-spacing: 1px; text-transform: uppercase;
+}
+
+/* ── BEFORE / AFTER ── */
+.ba-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 2px; margin: 32px 0; border-radius: 10px; overflow: hidden;
+}
+.ba-col {
+  padding: 24px 22px;
+  background: var(--bg2);
+}
+.ba-col.after { background: rgba(0,201,167,.07); border: 1px solid rgba(0,201,167,.15); }
+.ba-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 16px;
+}
+.ba-label.before { color: var(--ink3); }
+.ba-label.after { color: var(--teal); }
+.ba-item {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin-bottom: 12px; font-size: 13px;
+  color: var(--ink2); line-height: 1.55;
+}
+.ba-item:last-child { margin-bottom: 0; }
+.ba-icon { flex-shrink: 0; margin-top: 1px; font-size: 14px; }
+
+/* ── MIKAEL'S CARD ── */
+.card-showcase {
+  background: linear-gradient(135deg, #0f1f3d 0%, #0a1525 100%);
+  border: 1px solid rgba(0,201,167,.2);
+  border-radius: 14px; padding: 28px;
+  margin: 32px 0;
+  box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  position: relative; overflow: hidden;
+}
+.card-showcase::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--teal), transparent);
+}
+.cs-row { display: flex; align-items: flex-start; gap: 20px; }
+.cs-left { flex: 1; }
+.cs-ovr {
+  font-family: 'Playfair Display', serif;
+  font-size: 58px; font-weight: 900;
+  line-height: 1; color: var(--amber);
+  letter-spacing: -2px; margin-bottom: 4px;
+}
+.cs-ovr-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: rgba(245,166,35,.6);
+  margin-bottom: 14px;
+}
+.cs-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 19px; font-weight: 700;
+  letter-spacing: .3px; margin-bottom: 3px;
+}
+.cs-meta { font-size: 11px; color: var(--ink3); letter-spacing: .5px; }
+.cs-right { display: flex; flex-direction: column; gap: 6px; min-width: 120px; }
+.cs-chain {
+  display: flex; align-items: center; gap: 8px; font-size: 11px;
+}
+.cs-chain-label { color: var(--ink3); width: 70px; flex-shrink: 0; font-size: 10px; }
+.cs-chain-bar { flex: 1; height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; overflow: hidden; }
+.cs-chain-fill { height: 100%; border-radius: 2px; }
+.cs-chain-val { font-size: 11px; font-weight: 600; width: 22px; text-align: right; }
+.cs-bottom {
+  margin-top: 20px; padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  display: flex; gap: 20px; align-items: center;
+}
+.cs-badge {
+  font-size: 10px; padding: 3px 10px; border-radius: 20px;
+  font-weight: 600; letter-spacing: .5px;
+}
+.cs-badge.phv { background: rgba(232,81,74,.12); color: var(--red); border: 1px solid rgba(232,81,74,.25); }
+.cs-badge.rae { background: rgba(0,201,167,.1); color: var(--teal); border: 1px solid rgba(0,201,167,.2); }
+.cs-badge.gem { background: rgba(245,166,35,.1); color: var(--amber); border: 1px solid rgba(245,166,35,.2); }
+.cs-streak { font-size: 12px; color: var(--ink3); margin-left: auto; }
+
+/* ── FINAL CTA ── */
+.final {
+  padding: 100px 40px 120px;
+  max-width: var(--w); margin: 0 auto;
+  text-align: center;
+  opacity: 0; transform: translateY(30px);
+  transition: opacity .8s ease, transform .8s ease;
+}
+.final.visible { opacity: 1; transform: none; }
+.final-pre {
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--teal); margin-bottom: 20px;
+}
+.final-h {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(28px, 5vw, 46px);
+  font-weight: 900; line-height: 1.1;
+  letter-spacing: -.3px; margin-bottom: 20px;
+}
+.final-h em { font-style: italic; font-weight: 400; color: var(--teal); }
+.final-lead {
+  font-size: 16px; color: var(--ink2);
+  line-height: 1.75; max-width: 480px;
+  margin: 0 auto 40px;
+}
+.cta-nappi {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 16px 36px;
+  background: var(--teal); color: var(--bg);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px; font-weight: 600;
+  border: none; border-radius: 6px; cursor: pointer;
+  text-decoration: none;
+  transition: all .2s;
+  letter-spacing: .3px;
+}
+.cta-nappi:hover {
+  background: var(--teal-d);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0,201,167,.25);
+}
+.cta-sekundaari {
+  display: block; margin-top: 16px;
+  font-size: 13px; color: var(--ink3);
+  text-decoration: none;
+  transition: color .15s;
+}
+.cta-sekundaari:hover { color: var(--ink2); }
+
+/* ── FOOTER ── */
+footer {
+  padding: 28px 40px;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center;
+  justify-content: space-between;
+  font-size: 11px; color: var(--ink3);
+  max-width: 100%;
+}
+.footer-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px; color: var(--ink2);
+}
+.footer-logo em { font-style: normal; color: var(--teal); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 640px) {
+  .topbar { padding: 16px 20px; }
+  .hero { padding: 100px 20px 60px; }
+  .w { padding: 0 20px; }
+  .ba-grid { grid-template-columns: 1fr; }
+  .stat-row { gap: 24px; }
+  .cs-row { flex-direction: column; gap: 16px; }
+  .final { padding: 70px 20px 80px; }
+  footer { padding: 20px; flex-direction: column; gap: 8px; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<nav class="topbar">
+  <div class="logo">Talent<em>Master™</em></div>
+  <div class="topbar-tag">Tarina</div>
+</nav>
+
+<!-- ════════════════════════════
+     HERO
+════════════════════════════ -->
+<section class="hero">
+  <div class="hero-pre">Oikea tarina</div>
+  <h1 class="hero-h1">
+    Eemeli.<br>
+    <span class="year">Syntynyt joulukuussa, 2011.</span>
+  </h1>
+  <p class="hero-lead">Hän ei ole poikkeus. Hän on se pelaaja jonka jokainen suomalainen jalkapallovalmentaja tunnistaa — ja jonka useimmat menettävät ennen kuin ymmärtävät mitä tapahtui.</p>
+  <div class="hero-scroll">Lue tarina</div>
+</section>
+
+<!-- ════════════════════════════
+     KOHTAUS 1 — 10-vuotias
+════════════════════════════ -->
+<div class="w">
+<section class="scene" id="s1">
+  <div class="scene-label"><span>1</span> 10-vuotiaana</div>
+
+  <div class="pull">
+    Eemeli rakastaa jalkapalloa.<br>
+    <em>Täysin, ehdoitta, joka päivä.</em>
+  </div>
+
+  <p class="prose">Hän on 10-vuotias. Hän harjoittelee kolme kertaa viikossa ja pelaa viikonloppuisin. Perhe on mukana — vanhemmat kuskaavat, sisarukset katsovat. Eemeli on joukkueessaan yksi parhaista. Valmentaja pitää häntä lupaavana.</p>
+
+  <p class="prose">Kaikki on hyvin.</p>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-n teal">3×</div>
+      <div class="stat-txt">viikossa kentällä, joka viikko, vuosi toisensa jälkeen</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n amber">Q4</div>
+      <div class="stat-txt">syntymäkvartaali — joulukuussa syntynyt</div>
+    </div>
+  </div>
+
+  <p class="prose">Syntymäkuukausi ei vielä merkitse mitään 10-vuotiaana. Mutta se alkaa merkitä hyvin pian.</p>
+</section>
+
+<!-- ════════════════════════════
+     KOHTAUS 2 — 13-vuotias
+════════════════════════════ -->
+<section class="scene" id="s2">
+  <div class="scene-label"><span>2</span> 13-vuotiaana — kasvupyrähdys</div>
+
+  <div class="pull">
+    Keho kasvaa.<br>
+    <span class="strike">Koordinaatio ei pysy perässä.</span>
+  </div>
+
+  <p class="prose">Eemeli kasvaa 9 senttiä kahdessa vuodessa. Se on normaalia — se on biologiaa. Mutta kasvun nopein vaihe tarkoittaa, että luukudos kasvaa nopeammin kuin lihas- ja jännekudos. Motorinen koordinaatio heikkenee tilapäisesti. Eemeli tuntuu tökerömmältä kuin ennen.</p>
+
+  <p class="prose">Hän tietää sen itse ennen kuin kukaan kertoo hänelle. Hän yrittää kovemmin. Se ei auta.</p>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-n red">−3p</div>
+      <div class="stat-txt">TalentMaster antaa suojakertoimella — biologinen arviointi, ei rangaistus</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n amber">6–12</div>
+      <div class="stat-txt">kuukautta kestää kasvun kriittisin vaihe — tämä ikkuna tulee vain kerran</div>
+    </div>
+  </div>
+
+  <p class="prose"><strong>Eemeli ei kuitenkaan ole huonontunut pelaajana.</strong> Hänen peliälynsä on kasvanut. Hänen päätöksentekonsa paineessa on parantunut merkittävästi. Hänen potentiaalinsa on kasvanut — vaikka mittaustulokset näyttävät laskua.</p>
+
+  <p class="prose">Mutta kukaan ei näe tätä. Koska kukaan ei mittaa sitä.</p>
+</section>
+
+<!-- ════════════════════════════
+     KOHTAUS 3 — kolme aikuista
+════════════════════════════ -->
+<section class="scene" id="s3">
+  <div class="scene-label"><span>3</span> Kolme aikuista — kolme hetkeä</div>
+
+  <div class="pull">
+    Kaikki heistä haluavat<br>hyvää Eemeliille.<br>
+    <em>Kukaan heistä ei tiedä tarpeeksi.</em>
+  </div>
+
+  <p class="prose">Sama tilanne — kaksi versiota. Ensimmäinen tapahtuu joka päivä Suomalaisessa jalkapallossa tällä hetkellä. Toinen on se mitä TalentMaster tekee.</p>
+
+  <div class="timeline" id="timeline1">
+    <div class="tl-item" id="tl1">
+      <div class="tl-dot">🏛️</div>
+      <div class="tl-body">
+        <div class="tl-who">Valmennuspäällikkö — nykyisin</div>
+        <div class="tl-what">Hän näkee joukkueiden tulokset. Kuulee satunnaisesti valmentajilta. Eemelin biologinen kasvuvaihe on hänelle näkymätön — järjestelmä ei kerro siitä mitään. <span class="bad">Hänellä ei ole tarpeeksi tietoa, joten hän ei voi tehdä oikeaa päätöstä.</span></div>
+      </div>
+    </div>
+    <div class="tl-item" id="tl2">
+      <div class="tl-dot">⚽</div>
+      <div class="tl-body">
+        <div class="tl-who">Valmentaja — nykyisin</div>
+        <div class="tl-what">Hän muistaa, että Eemeli oli ennen parempi. Harjoituksissa hän jakaa peliaikaa tasaisesti — <span class="bad">Eemeli saa vähemmän vaativia rooleja koska "menee huonommin kuin ennen."</span> Kukaan ei kerro Eemeliille miksi.</div>
+      </div>
+    </div>
+    <div class="tl-item" id="tl3">
+      <div class="tl-dot">⭐</div>
+      <div class="tl-body">
+        <div class="tl-who">Eemeli — nykyisin</div>
+        <div class="tl-what">Hän yrittää kovemmin. Hän ei ymmärrä miksi tulokset eivät parane. Itseluottamus laskee vähitellen. <span class="bad">Hän alkaa miettimään, onko jalkapallo hänelle oikea laji.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════
+     KOHTAUS 4 — toisin päin
+════════════════════════════ -->
+<section class="scene" id="s4">
+  <div class="scene-label"><span>4</span> Sama tilanne — toisin päin</div>
+
+  <div class="pull">
+    Kolme pientä päätöstä.<br>
+    <em>Kolme oikeaa hetkeä.</em>
+  </div>
+
+  <div class="timeline" id="timeline2">
+    <div class="tl-item" id="tl4">
+      <div class="tl-dot">🏛️</div>
+      <div class="tl-body">
+        <div class="tl-who">Valmennuspäällikkö — TalentMasterin kanssa</div>
+        <div class="tl-what">Hän avaa aamulla dashboardin. Eemeliin nimi on P2-listalla: <em>"PHV-huippu — arvioi biologisella iällä, ei kronologisella. Peliäly-ketju noussut 4p kahdessa kuukaudessa."</em> <span class="good">Hän ymmärtää. Hän soittaa valmentajalle.</span></div>
+      </div>
+    </div>
+    <div class="tl-item" id="tl5">
+      <div class="tl-dot">⚽</div>
+      <div class="tl-body">
+        <div class="tl-who">Valmentaja — TalentMasterin kanssa</div>
+        <div class="tl-what">Hän näkee, että Eemeliille ei ole annettu henkilökohtaista palautetta 18 päivään. Hän pysähtyy harjoituksessa: <em>"Eemeli, peliälysi on kasvanut eniten koko joukkueessa. Keho seuraa perässä — se vie vielä hetken."</em> <span class="good">Eemeli kuulee tämän ensimmäistä kertaa.</span></div>
+      </div>
+    </div>
+    <div class="tl-item" id="tl6">
+      <div class="tl-dot">⭐</div>
+      <div class="tl-body">
+        <div class="tl-who">Eemeli — TalentMasterin kanssa</div>
+        <div class="tl-what">Hän avaa korttinsa illalla. OVR on 71 — sama kuin kuukausi sitten. Mutta Peliälyketju näyttää <span class="good">+4</span>. Streak on 14 päivää. Hän ajattelee: <em>"Minä kehityn. Se vain vie aikaa."</em> <span class="good">Hän ei lopeta.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════
+     KOHTAUS 5 — Eemeli's card
+════════════════════════════ -->
+<section class="scene" id="s5">
+  <div class="scene-label"><span>5</span> Eemeli — oma kortti</div>
+
+  <div class="pull">
+    Tämä on hänen.<br>
+    <em>Ei valmentajan muistiinpano.<br>Ei taulukko.</em>
+  </div>
+
+  <div class="card-showcase">
+    <div class="cs-row">
+      <div class="cs-left">
+        <div class="cs-ovr">71</div>
+        <div class="cs-ovr-label">OVR · Overall</div>
+        <div class="cs-name">Eemeli H.</div>
+        <div class="cs-meta">U14 · Syntynyt Q4 2011</div>
+      </div>
+      <div class="cs-right">
+        <div class="cs-chain">
+          <div class="cs-chain-label">Vauhti</div>
+          <div class="cs-chain-bar"><div class="cs-chain-fill" style="width:68%;background:#4B9EFF;"></div></div>
+          <div class="cs-chain-val" style="color:#4B9EFF;">68</div>
+        </div>
+        <div class="cs-chain">
+          <div class="cs-chain-label">Lähtö</div>
+          <div class="cs-chain-bar"><div class="cs-chain-fill" style="width:65%;background:#34D399;"></div></div>
+          <div class="cs-chain-val" style="color:#34D399;">65</div>
+        </div>
+        <div class="cs-chain">
+          <div class="cs-chain-label">SM</div>
+          <div class="cs-chain-bar"><div class="cs-chain-fill" style="width:73%;background:#A78BFA;"></div></div>
+          <div class="cs-chain-val" style="color:#A78BFA;">73</div>
+        </div>
+        <div class="cs-chain">
+          <div class="cs-chain-label">Hallinta</div>
+          <div class="cs-chain-bar"><div class="cs-chain-fill" style="width:70%;background:#F59E0B;"></div></div>
+          <div class="cs-chain-val" style="color:#F59E0B;">70</div>
+        </div>
+        <div class="cs-chain">
+          <div class="cs-chain-label">Peliäly</div>
+          <div class="cs-chain-bar"><div class="cs-chain-fill" style="width:82%;background:#00C9A7;"></div></div>
+          <div class="cs-chain-val" style="color:#00C9A7;font-weight:700;">82 ↑</div>
+        </div>
+      </div>
+    </div>
+    <div class="cs-bottom">
+      <div class="cs-badge phv">⚠️ PHV-huippu</div>
+      <div class="cs-badge rae">Q4-korjaus +6%</div>
+      <div class="cs-badge gem">💎 Hidden Gem</div>
+      <div class="cs-streak">🔥 14 pv putki</div>
+    </div>
+  </div>
+
+  <p class="prose" style="margin-top:24px;">Peliälyketju 82 — nousut 4 pistettä kahdessa kuukaudessa. PHV-huippu suojaa häntä virheelliseltä arvioinnilta. Q4-korjaus tunnistaa, että hän kilpailee epätasa-arvoisesti tammikuussa syntyneitä vastaan. Hidden Gem -tunnistus nostaa hänet valmennuspäällikön P2-listalle.</p>
+
+  <p class="prose">Ilman näitä <strong>kukaan ei olisi koskaan tiennyt.</strong> Eemeli olisi vain yksi niistä — yksi Q4-pelaajista jotka katoavat ennen kuin kukaan ehtii huomata mitä he olisivat voineet olla.</p>
+</section>
+
+<!-- ════════════════════════════
+     KOHTAUS 6 — Isompi kuva
+════════════════════════════ -->
+<section class="scene" id="s6">
+  <div class="scene-label"><span>6</span> Eemeli ei ole yksin</div>
+
+  <div class="pull">
+    <em>Jokaisessa suomalaisessa<br>juniorijoukkueessa</em><br>
+    on useita Eemeliiä.
+  </div>
+
+  <p class="prose">Forsman tutki 509 suomalaista 11–14-vuotiasta pelaajaa kymmenestä Sami Hyypiä Akatemian seurasta. Valmentajien lahjakkaimmiksi nimeämistä pelaajista <strong>75–85% oli syntynyt tammi–kesäkuun välillä</strong>. Loppuvuodesta syntyneet pelaajat — kuten Eemeli — eivät ole lahjattomampia. Heitä ei koskaan arvioida oikeudenmukaisesti.</p>
+
+  <div class="ba-grid">
+    <div class="ba-col">
+      <div class="ba-label before">Ilman järjestelmää</div>
+      <div class="ba-item"><div class="ba-icon">❌</div><div>Valmentaja arvioi päivän tunnelman perusteella — ei kehitysdatan</div></div>
+      <div class="ba-item"><div class="ba-icon">❌</div><div>PHV-vaihe näyttää taantumalta — kukaan ei selitä miksi</div></div>
+      <div class="ba-item"><div class="ba-icon">❌</div><div>Q4-pelaaja häviää vertailussa tammikuussa syntyneille vuosittain</div></div>
+      <div class="ba-item"><div class="ba-icon">❌</div><div>Peliälyn kasvu on näkymätöntä — ei mitata, ei näytetä</div></div>
+      <div class="ba-item"><div class="ba-icon">❌</div><div>Palaute on satunnaista — tai puuttuu kokonaan viikoiksi</div></div>
+    </div>
+    <div class="ba-col after">
+      <div class="ba-label after">TalentMasterin kanssa</div>
+      <div class="ba-item"><div class="ba-icon">✓</div><div>Kehitystrendi näkyy — nouseva DVI nostaa pelaajan esille</div></div>
+      <div class="ba-item"><div class="ba-icon">✓</div><div>PHV-modifikaattori suojaa virheelliseltä arviolta automaattisesti</div></div>
+      <div class="ba-item"><div class="ba-icon">✓</div><div>RAE-korjaus tasaa kentän — Q4 saa oikeudenmukaisen vertailutason</div></div>
+      <div class="ba-item"><div class="ba-icon">✓</div><div>Peliälyketju mitataan ja näytetään pelaajalle omistettavana datana</div></div>
+      <div class="ba-item"><div class="ba-icon">✓</div><div>Valmentaja saa herätteen kun palaute on puuttunut yli 14 päivää</div></div>
+    </div>
+  </div>
+</section>
+</div><!-- /w -->
+
+<!-- ════════════════════════════
+     DIVIDER QUOTE
+════════════════════════════ -->
+<div class="w">
+<div class="divider-quote" id="dq1">
+  <div class="dq-text">"Oikeudenmukainen arviointi ei ole vain hyvä asia lapsille — se on seuran strateginen etu. Se löytää pelaajat joita muut eivät löydä."</div>
+  <div class="dq-attr">TalentMaster™ · Kehitysfilosofia</div>
+</div>
+</div>
+
+<!-- ════════════════════════════
+     FINAL CTA
+════════════════════════════ -->
+<section class="final" id="final">
+  <div class="final-pre">Seuraava askel</div>
+  <h2 class="final-h">
+    Eemeli on seurassasi.<br>
+    <em>Löydätkö hänet?</em>
+  </h2>
+  <p class="final-lead">TalentMaster on johtamisjärjestelmä joka antaa valmentajalle, valmennuspäällikölle ja urheilujohtajalle työkalut parempiin pelaajapäätöksiin — systemaattisesti, oikeudenmukaisesti, kehitysdata edellä.</p>
+  <a href="https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Kayttajatutkimus.html" class="cta-nappi" target="_blank">
+    Katso miten järjestelmä toimii →
+  </a>
+  <a href="https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Kysely.html" class="cta-sekundaari" target="_blank">
+    Tai vastaa lyhyeen mielipidekyselyyn
+  </a>
+</section>
+
+<footer>
+  <div class="footer-logo">Talent<em>Master™</em></div>
+  <div>Forsman 2013 · N=509 · Jyväskylän yliopisto</div>
+  <div>© 2026 · Anonyymi pilottiseura</div>
+</footer>
+
+<script>
+// ── SCROLL PROGRESS ──────────────────────────────────────────
+window.addEventListener('scroll', function() {
+  var scrolled = window.scrollY;
+  var total = document.body.scrollHeight - window.innerHeight;
+  var pct = Math.round(scrolled / total * 100);
+  document.getElementById('progress').style.width = pct + '%';
+});
+
+// ── INTERSECTION OBSERVER — reveal on scroll ─────────────────
+var observer = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      // Timeline items — staggered
+      if (e.target.classList.contains('scene')) {
+        var items = e.target.querySelectorAll('.tl-item');
+        items.forEach(function(item, i) {
+          setTimeout(function() {
+            item.classList.add('visible');
+          }, 200 + i * 180);
+        });
+      }
+    }
+  });
+}, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+
+document.querySelectorAll('.scene, .divider-quote, .final').forEach(function(el) {
+  observer.observe(el);
+});
+
+// ── STAT COUNTER ANIMATION ────────────────────────────────────
+var statsObserver = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) {
+    if (e.isIntersecting && !e.target.dataset.counted) {
+      e.target.dataset.counted = '1';
+      // Ei numeraalinen animaatio — pelkästään fade-in riittää
+    }
+  });
+}, { threshold: 0.5 });
+
+document.querySelectorAll('.stat-n').forEach(function(el) {
+  statsObserver.observe(el);
+});
+</script>
+</body>
+</html>
