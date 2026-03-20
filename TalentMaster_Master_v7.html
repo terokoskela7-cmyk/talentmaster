@@ -3682,6 +3682,7 @@ function buildCoachViikko(){
   if(hvLkm>0)h+='<span style="font-size:10px;font-weight:700;color:var(--teal);">🏃 '+hvLkm+'</span>';
   if(pvLkm>0)h+='<span style="font-size:10px;font-weight:700;color:var(--green);">⚽ '+pvLkm+'</span>';
   if(tvLkm>0)h+='<span style="font-size:10px;font-weight:700;color:var(--purple);">🔬 '+tvLkm+'</span>';
+  h+='<button onclick="avaaCoachKuukausinakyma()" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--muted2);font-size:11px;font-weight:700;cursor:pointer;">📅 Kuukausi</button>';
   h+='</div></div>';
 
   // Päiväruudukko
@@ -10752,8 +10753,8 @@ function avaaKalenteriPopup(pvId,kalAvain){
   h+='<div style="display:flex;gap:8px;margin-top:14px;">';
   // Kopioi viikkoon vain tulevaisuuden/nykyisen viikon harjoituksille
   if(hasH){
-    h+='<button onclick="kopioiKaikkiinViikkoihin(\'harjoitus\',\''+kalAvain+'\',\''+y+'\',\''+wk+'\')" ';
-    h+='style="flex:1;padding:12px 6px;border-radius:13px;border:1.5px solid var(--border);background:var(--bg3);color:var(--muted2);font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📋 Kopioi viikkoon</button>';
+    h+='<button onclick="avaaKopioiJaksoValinta(\'harjoitus\',\''+kalAvain+'\',\''+y+'\',\''+wk+'\')" ';
+    h+='style="flex:1;padding:12px 6px;border-radius:13px;border:1.5px solid var(--border);background:var(--bg3);color:var(--muted2);font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📋 Kopioi jaksolle</button>';
   }
   h+='<button onclick="tallennaKalenteriJaSulje(\''+pvId+'\',\''+kalAvain+'\',\''+y+'\',\''+wk+'\')" ';
   h+='style="flex:2;padding:12px;border-radius:13px;border:none;background:var(--teal);color:#000;font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:800;cursor:pointer;">💾 TALLENNA</button>';
@@ -10802,6 +10803,184 @@ function setPeliTaso(taso, btn) {
 
 
 // ── Kopioi harjoitustapahtuma kaikkiin viikon treenipaiviin ──────────────
+
+// ── Coach kuukausinäkymä ─────────────────────────────────────────────────
+function avaaCoachKuukausinakyma() {
+  var nyt = new Date();
+  var PAIVAT_LYHYT = ['Su','Ma','Ti','Ke','To','Pe','La'];
+  var PAIVAT_ID    = ['su','ma','ti','ke','to','pe','la'];
+  var KK_NIMET = ['Tammikuu','Helmikuu','Maaliskuu','Huhtikuu','Toukokuu','Kesäkuu',
+                  'Heinäkuu','Elokuu','Syyskuu','Lokakuu','Marraskuu','Joulukuu'];
+
+  // Näytä 3 kuukautta: kuluva + 2 seuraavaa
+  var kuukaudet = [];
+  for (var ki = 0; ki < 3; ki++) {
+    var d = new Date(nyt.getFullYear(), nyt.getMonth() + ki, 1);
+    kuukaudet.push({ v: d.getFullYear(), k: d.getMonth() });
+  }
+
+  var h = '';
+  h += '<div style="padding:14px 14px 0;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">';
+  h += '<div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:900;">📅 Kausikaavio</div>';
+  h += '<button onclick="suljeHarjoite()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
+  h += '</div>';
+
+  // Legenda
+  h += '<div style="display:flex;gap:10px;padding:0 14px 12px;flex-wrap:wrap;">';
+  [['🏃','Harjoitus','var(--teal)'],['⚽','Ottelu','var(--green)'],['🔬','Testi','var(--purple)']].forEach(function(leg){
+    h += '<div style="display:flex;align-items:center;gap:4px;font-size:10px;color:'+leg[2]+';">'+leg[0]+' '+leg[1]+'</div>';
+  });
+  h += '</div>';
+
+  h += '<div style="padding:0 14px 20px;overflow-y:auto;">';
+
+  kuukaudet.forEach(function(kk) {
+    var kkAlku = new Date(kk.v, kk.k, 1);
+    var kkLoppu = new Date(kk.v, kk.k + 1, 0); // kuukauden viimeinen päivä
+    var tanaan = nyt.toISOString().slice(0, 10);
+
+    h += '<div style="margin-bottom:20px;">';
+    h += '<div style="font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:800;color:var(--teal);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">';
+    h += KK_NIMET[kk.k] + ' ' + kk.v + '</div>';
+
+    // Viikonpäivä-otsikot
+    h += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:3px;">';
+    ['Ma','Ti','Ke','To','Pe','La','Su'].forEach(function(pn) {
+      h += '<div style="text-align:center;font-size:9px;font-weight:700;color:var(--muted2);">'+pn+'</div>';
+    });
+    h += '</div>';
+
+    // Päiväruudukko — täytetään tyhjillä soluilla kuun alun sijainnin mukaan
+    // JS:ssä 0=Su, 1=Ma → muunnetaan Ma=0 järjestykseen
+    var ensimmainenPv = (kkAlku.getDay() + 6) % 7; // Ma=0
+    h += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">';
+
+    // Tyhjät solut ennen 1. päivää
+    for (var blank = 0; blank < ensimmainenPv; blank++) {
+      h += '<div></div>';
+    }
+
+    // Jokainen päivä
+    for (var pv = 1; pv <= kkLoppu.getDate(); pv++) {
+      var pvDate = new Date(kk.v, kk.k, pv);
+      var pvIso  = pvDate.toISOString().slice(0, 10);
+      var pvWk   = Math.ceil(((pvDate - new Date(kk.v, 0, 1)) / 86400000 + new Date(kk.v, 0, 1).getDay() + 1) / 7);
+      var pvId   = PAIVAT_ID[pvDate.getDay()];
+      var kalAvain2 = 'tm_coach_kalenteri_' + kk.v + '_' + pvWk;
+      var kalData2  = lsj(kalAvain2) || {};
+      var ev2 = kalData2[pvId] || [];
+      var hasH2 = ev2.indexOf('harjoitus') >= 0;
+      var hasP2 = ev2.indexOf('peli') >= 0;
+      var hasT2 = ev2.indexOf('testi') >= 0;
+      var onTanaan2 = pvIso === tanaan;
+      var onMennyt  = pvDate < nyt && !onTanaan2;
+
+      // Väri tapahtumatyypin mukaan — peli yliajaa harjoituksen
+      var soluvari = hasT2 ? 'rgba(167,139,250,.25)' : hasP2 ? 'rgba(34,197,94,.2)' : hasH2 ? 'rgba(0,229,204,.15)' : 'var(--bg3)';
+      var reunavari = onTanaan2 ? '2px solid #FFB830' : hasT2 ? '1px solid rgba(167,139,250,.4)' : hasP2 ? '1px solid rgba(34,197,94,.35)' : hasH2 ? '1px solid rgba(0,229,204,.25)' : '1px solid var(--border)';
+      var tekstivari = onTanaan2 ? '#FFB830' : onMennyt ? 'var(--muted2)' : 'var(--text)';
+      var opacity = onMennyt ? '0.5' : '1';
+
+      h += '<button onclick="avaaKalenteriPopupKuukausi(\'' + pvId + '\', \'' + kalAvain2 + '\')" ';
+      h += 'style="padding:4px 2px;border-radius:6px;border:'+reunavari+';background:'+soluvari+';cursor:pointer;';
+      h += 'text-align:center;opacity:'+opacity+';min-height:36px;">';
+      h += '<div style="font-size:10px;font-weight:700;color:'+tekstivari+';">'+pv+'</div>';
+      if (hasH2 || hasP2 || hasT2) {
+        h += '<div style="display:flex;justify-content:center;gap:1px;margin-top:2px;">';
+        if (hasH2) h += '<span style="font-size:8px;">🏃</span>';
+        if (hasP2) h += '<span style="font-size:8px;">⚽</span>';
+        if (hasT2) h += '<span style="font-size:8px;">🔬</span>';
+        h += '</div>';
+      }
+      h += '</button>';
+    }
+    h += '</div></div>'; // grid + kuukausi
+  });
+
+  h += '</div>'; // padding-wrapper
+
+  document.getElementById('hkBody').innerHTML = h;
+  document.getElementById('hkOverlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+// Kuukausinäkymästä avautuu sama kalenteripopup
+function avaaKalenteriPopupKuukausi(pvId, kalAvain) {
+  suljeHarjoite(); // sulje kuukausinäkymä ensin
+  setTimeout(function() { avaaKalenteriPopup(pvId, kalAvain); }, 50);
+}
+
+// ── Kopioi harjoitustapahtuma valitulle jaksolle ─────────────────────────
+// jakso = 'viikko'|'2viikkoa'|'kuukausi'|'kausi'
+function avaaKopioiJaksoValinta(tapId, kalAvain, y, wk) {
+  var h = '';
+  h += '<div style="padding:14px 14px 0;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">';
+  h += '<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:900;">📋 Kopioi jaksolle</div>';
+  h += '<button onclick="suljeHarjoite()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
+  h += '</div>';
+  h += '<div style="padding:0 14px 20px;">';
+  h += '<div style="font-size:12px;color:var(--muted2);margin-bottom:12px;">Kopioidaan <strong style="color:var(--teal);">'+tapId+'</strong> kaikille treenipaivilla valitulla jaksolla.</div>';
+  h += '<div style="display:flex;flex-direction:column;gap:7px;">';
+  [
+    {id:'viikko',    nimi:'Tämä viikko',        kuvaus:'Vain kuluvan viikon treenipaivat',    ikoni:'7️⃣'},
+    {id:'2viikkoa',  nimi:'2 viikkoa eteenpäin', kuvaus:'Tämä + ensi viikko',                 ikoni:'📆'},
+    {id:'kuukausi',  nimi:'Tämä kuukausi',       kuvaus:'Kaikki treenipaivat tässä kuussa',   ikoni:'📅'},
+    {id:'kausi',     nimi:'Koko kausi',           kuvaus:'Kaikki treenipaivat kauteen loppuun', ikoni:'🏆'},
+  ].forEach(function(j) {
+    h += '<button onclick="kopioiJaksolle(\'' + tapId + '\',\'' + kalAvain + '\',\'' + y + '\',\'' + wk + '\',\'' + j.id + '\')" ';
+    h += 'style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);';
+    h += 'cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;">';
+    h += '<span style="font-size:22px;">'+j.ikoni+'</span>';
+    h += '<div><div style="font-size:14px;font-weight:700;color:var(--text);">'+j.nimi+'</div>';
+    h += '<div style="font-size:11px;color:var(--muted2);margin-top:2px;">'+j.kuvaus+'</div></div>';
+    h += '</button>';
+  });
+  h += '</div></div>';
+  document.getElementById('hkBody').innerHTML = h;
+  document.getElementById('hkOverlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function kopioiJaksolle(tapId, kalAvain, y, wk, jakso) {
+  var nyt = new Date();
+  var PAIVAT_ID = ['su','ma','ti','ke','to','pe','la'];
+  var seuraConf = lsj('tm_seura_config_'+(window._coachSeuraId||'fc_lahti'))||{};
+  var treeniPvt = seuraConf.treenipaivat || [1, 4]; // Ma=0, Ti=1 ...
+  var kausiLoppu = new Date(lsj('tm_seura_config_'+(window._coachSeuraId||'fc_lahti')||{}).kausi_alku||nyt);
+
+  // Laske jakson pituus päivissä
+  var paiviaEteenpain = jakso==='viikko' ? 7 : jakso==='2viikkoa' ? 14 : jakso==='kuukausi' ? 30 : 180;
+  var loppu = new Date(nyt);
+  loppu.setDate(nyt.getDate() + paiviaEteenpain);
+
+  var muutoksia = 0;
+  var paiva = new Date(nyt);
+  paiva.setDate(paiva.getDate() - paiva.getDay() + 1); // Aloita tämän viikon maanantaista
+
+  while (paiva <= loppu) {
+    var pvJsDay = paiva.getDay(); // 0=Su, 1=Ma...
+    var pvMaFirst = (pvJsDay + 6) % 7; // Ma=0 järjestys
+    if (treeniPvt.indexOf(pvMaFirst) >= 0) {
+      var pvYear = paiva.getFullYear();
+      var pvWk2 = Math.ceil(((paiva - new Date(pvYear,0,1))/86400000 + new Date(pvYear,0,1).getDay() + 1) / 7);
+      var pvId2 = PAIVAT_ID[pvJsDay];
+      var kal2 = 'tm_coach_kalenteri_' + pvYear + '_' + pvWk2;
+      var kalData2 = lsj(kal2) || {};
+      ['su','ma','ti','ke','to','pe','la'].forEach(function(p2){if(!Array.isArray(kalData2[p2]))kalData2[p2]=[];});
+      if (kalData2[pvId2].indexOf(tapId) < 0) {
+        kalData2[pvId2].push(tapId);
+        sls(kal2, kalData2);
+        muutoksia++;
+      }
+    }
+    paiva.setDate(paiva.getDate() + 1);
+  }
+
+  suljeHarjoite();
+  naytaToast('📅 '+tapId+' kopioitu '+muutoksia+' treenipaivalle');
+  buildCoachViikko();
+}
+
 function kopioiKaikkiinViikkoihin(tapId, kalAvain, y, wk){
   var PAIVAT = ['ma','ti','ke','to','pe','la','su'];
   var seuraConf = lsj('tm_seura_config_'+(window._coachSeuraId||'fc_lahti'))||{};
