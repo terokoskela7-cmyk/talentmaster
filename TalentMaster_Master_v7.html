@@ -2546,6 +2546,60 @@ function buildCoachNyt(){
   });
   h+='</div>';
 
+  // ── JOUKKUEEN FIILINKI TÄNÄÄN ─────────────────────────────────
+  var tanaan2=new Date().toISOString().slice(0,10);
+  var fiiliData={1:0,2:0,3:0,4:0,5:0};
+  var fiiliMerkittyjä=0;
+  pelaajat.forEach(function(p){
+    var f=lsj('tm_fiilis_'+p.id+'_'+tanaan2);
+    if(f&&f.arvo){
+      fiiliData[parseInt(f.arvo)]=(fiiliData[parseInt(f.arvo)]||0)+1;
+      fiiliMerkittyjä++;
+    }
+  });
+  if(fiiliMerkittyjä>0){
+    var fiiliKa=0;
+    var fiiliYht=0;
+    [1,2,3,4,5].forEach(function(v){fiiliKa+=v*(fiiliData[v]||0);fiiliYht+=(fiiliData[v]||0);});
+    fiiliKa=Math.round(fiiliKa/fiiliYht*10)/10;
+    var fiiliVari=fiiliKa>=4?'#1FD16A':fiiliKa>=3?'#FFB830':'#FF4060';
+    var FIILI_EMOJIT={1:'😫',2:'😕',3:'😐',4:'🙂',5:'🔥'};
+    var fiiliDomKa=Math.round(fiiliKa);
+    h+='<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:14px;">';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+    h+='<div style="font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:1.5px;">Joukkueen fiilinki</div>';
+    h+='<div style="display:flex;align-items:center;gap:6px;">';
+    h+='<span style="font-size:20px;">'+(FIILI_EMOJIT[fiiliDomKa]||'😐')+'</span>';
+    h+='<span style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:900;color:'+fiiliVari+';">'+fiiliKa+'/5</span>';
+    h+='<span style="font-size:10px;color:var(--muted2);">'+fiiliMerkittyjä+'/'+pelaajat.length+' merkinnyt</span>';
+    h+='</div></div>';
+    // Palkkijakauma anonymisoituina
+    h+='<div style="display:flex;gap:4px;align-items:flex-end;height:32px;">';
+    var maxCount=Math.max.apply(null,[1,2,3,4,5].map(function(v){return fiiliData[v]||0;}));
+    [1,2,3,4,5].forEach(function(v){
+      var cnt=fiiliData[v]||0;
+      var barH=maxCount>0?Math.max(3,Math.round(cnt/maxCount*28)):3;
+      var barVari=v>=4?'#1FD16A':v>=3?'#FFB830':'#FF4060';
+      h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">';
+      h+='<div style="font-size:9px;color:var(--muted2);">'+(cnt>0?cnt:'')+'</div>';
+      h+='<div style="width:100%;height:'+barH+'px;background:'+barVari+';border-radius:3px;opacity:'+(cnt>0?'1':'.2')+'"></div>';
+      h+='<div style="font-size:12px;">'+(FIILI_EMOJIT[v])+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+    // Valmentajan vihje jos alhainen fiilis
+    if(fiiliKa<3){
+      h+='<div style="margin-top:8px;padding:6px 10px;background:rgba(255,64,96,.06);border-radius:8px;border-left:2px solid #FF4060;">';
+      h+='<div style="font-size:11px;color:#FF4060;">💡 Joukkueen vireys matala — harkitse kevyempää harjoitusta</div>';
+      h+='</div>';
+    } else if(fiiliKa>=4.5){
+      h+='<div style="margin-top:8px;padding:6px 10px;background:rgba(31,209,106,.06);border-radius:8px;border-left:2px solid #1FD16A;">';
+      h+='<div style="font-size:11px;color:#1FD16A;">🔥 Joukkue virkeänä — hyvä päivä kovalle harjoitukselle</div>';
+      h+='</div>';
+    }
+    h+='</div>';
+  }
+
   // ── ADAR-ARVIOINTIJONO ────────────────────────────────────────
   var _adarKey2='tm_adar_onboarding_'+(window._coachPin||COACH_PIN||'demo');
   var _adarTila2=_lsGet(_adarKey2);
@@ -10530,13 +10584,24 @@ function avaaKalenteriPopup(pvId,kalAvain){
   var hasT=ev.indexOf('testi')>=0;
 
   var h='';
-  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">';
-  h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;">📅 '+pvNimi+'</div>';
-  h+='<button onclick="suljeKalenteriPopup()" style="background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:5px 13px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
+  // Lasketaan onko päivä menneisyydessä, tänään vai tulevaisuudessa
+  var pvDate2=new Date(); // lasketaan tarkka päivä
+  var PAIVAINDEKSIT={ma:1,ti:2,ke:3,to:4,pe:5,la:6,su:0};
+  var pvDayIdx=PAIVAINDEKSIT[pvId];
+  var tanaan2b=new Date(); var tanaan2bDay=tanaan2b.getDay();
+  var isTulevaisuus=(pvDayIdx!==undefined)&&(pvDayIdx>tanaan2bDay||(pvDayIdx<tanaan2bDay&&pvDayIdx===0));
+  var isTanaan=(pvDayIdx===tanaan2bDay);
+  var tilaTeksti=isTulevaisuus?'Suunnittele etukäteen':isTanaan?'Tänään — kirjaa päivän päätteeksi':'Mennyt päivä';
+  var tilaVari=isTulevaisuus?'#4A9EFF':isTanaan?'#FFB830':'var(--muted2)';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+  h+='<div>';
+  h+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:22px;font-weight:900;">📅 '+pvNimi+'</div>';
+  h+='<div style="font-size:10px;font-weight:700;color:'+tilaVari+';margin-top:2px;">'+tilaTeksti+'</div>';
+  h+='</div>';
+  h+='<button onclick="suljeKalenteriPopup()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:5px 12px;color:var(--muted2);font-size:13px;cursor:pointer;">✕</button>';
   h+='</div>';
 
-  h+='<div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Valitse mitä tapahtuu — voit valita useamman</div>';
-
+  h+='<div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Valitse mitä tapahtuu — voit valita useita</div>';
   // Kolme tapahtumakorttia
   var tapahtumat=[
     {id:'harjoitus',ikoni:'🏃',nimi:'Harjoitus',kuvaus:'Pelaajat saavat RPE-muistutuksen',col:'var(--teal)',bg:'rgba(0,229,204,.1)',border:'rgba(0,229,204,.4)',active:hasH},
@@ -10682,10 +10747,17 @@ function avaaKalenteriPopup(pvId,kalAvain){
   h += '</div>';
   h += '</div></div>';
 
-  // Tallenna-nappi
-  h+='<button onclick="tallennaKalenteriJaSulje(\''+pvId+'\',\''+kalAvain+'\',\''+y+'\',\''+wk+'\')" ';
-  h+='style="width:100%;margin-top:14px;padding:14px;border-radius:13px;border:none;background:var(--teal);color:#000;font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:800;cursor:pointer;letter-spacing:.5px;">TALLENNA →</button>';
 
+  // Tallenna-nappi + Kopioi viikkoon
+  h+='<div style="display:flex;gap:8px;margin-top:14px;">';
+  // Kopioi viikkoon vain tulevaisuuden/nykyisen viikon harjoituksille
+  if(hasH){
+    h+='<button onclick="kopioiKaikkiinViikkoihin(\'harjoitus\',\''+kalAvain+'\',\''+y+'\',\''+wk+'\')" ';
+    h+='style="flex:1;padding:12px 6px;border-radius:13px;border:1.5px solid var(--border);background:var(--bg3);color:var(--muted2);font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📋 Kopioi viikkoon</button>';
+  }
+  h+='<button onclick="tallennaKalenteriJaSulje(\''+pvId+'\',\''+kalAvain+'\',\''+y+'\',\''+wk+'\')" ';
+  h+='style="flex:2;padding:12px;border-radius:13px;border:none;background:var(--teal);color:#000;font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:800;cursor:pointer;">💾 TALLENNA</button>';
+  h+='</div>';
   document.getElementById('hkBody').innerHTML=h;
   document.getElementById('hkOverlay').style.display='flex';
   document.body.style.overflow='hidden';
@@ -10726,6 +10798,28 @@ function setPeliTaso(taso, btn) {
     if (txt) txt.style.color = on ? vari : 'var(--muted2)';
   });
   window._peliTasoValinta = taso;
+}
+
+
+// ── Kopioi harjoitustapahtuma kaikkiin viikon treenipaiviin ──────────────
+function kopioiKaikkiinViikkoihin(tapId, kalAvain, y, wk){
+  var PAIVAT = ['ma','ti','ke','to','pe','la','su'];
+  var seuraConf = lsj('tm_seura_config_'+(window._coachSeuraId||'fc_lahti'))||{};
+  var treeniPvt = seuraConf.treenipaivat||[1,4]; // Ti+Pe oletuksena
+  var muutoksia = 0;
+  treeniPvt.forEach(function(pvIdx){
+    var pvId2 = PAIVAT[pvIdx];
+    var kalData2 = lsj(kalAvain)||{};
+    PAIVAT.forEach(function(p2){if(!Array.isArray(kalData2[p2]))kalData2[p2]=[];});
+    if(kalData2[pvId2].indexOf(tapId)<0){
+      kalData2[pvId2].push(tapId);
+      sls(kalAvain, kalData2);
+      muutoksia++;
+    }
+  });
+  naytaToast('📅 '+tapId+' lisätty '+muutoksia+' treenipaivalle');
+  suljeKalenteriPopup();
+  buildCoachViikko();
 }
 
 function tallennaKalenteriJaSulje(pvId,kalAvain,y,wk){
