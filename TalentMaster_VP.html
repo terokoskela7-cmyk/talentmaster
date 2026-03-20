@@ -2355,474 +2355,261 @@ function renderYleiskuva() {
   var s = _seuraData[_aktivSeura];
   if (!s) return;
   var joukkueet = Object.values(s.joukkueet);
-  var kokonaisTesteja = s.testeja;
-  var kehittyvat = joukkueet.filter(function(j){return j.avgDelta!=null&&j.avgDelta>=1;}).length;
-  var laskussa   = joukkueet.filter(function(j){return j.avgDelta!=null&&j.avgDelta<0;}).length;
-  var gemsTotal  = joukkueet.reduce(function(a,j){return a+j.gems;},0);
+  var krit6 = laskeKriteeri6(s);
+  var gemsTotal = joukkueet.reduce(function(a,j){return a+j.gems;},0);
+  var nyt = new Date();
 
-  // Ketjupuutteet seuratasolla
+  // Ketjukeskiarvot seuratasolla
   var sKetjut = {};
   joukkueet.forEach(function(j){
     Object.keys(j.avgKetjut).forEach(function(k){
-      if (!sKetjut[k]) sKetjut[k] = [];
-      if (j.avgKetjut[k] != null) sKetjut[k].push(j.avgKetjut[k]);
+      if(!sKetjut[k]) sKetjut[k]=[];
+      if(j.avgKetjut[k]!=null) sKetjut[k].push(j.avgKetjut[k]);
     });
   });
   var sAvgKetjut = {};
   Object.keys(sKetjut).forEach(function(k){
     sAvgKetjut[k] = sKetjut[k].length ? Math.round(avg(sKetjut[k])*10)/10 : null;
   });
-
-  // Löydä heikoin ketju
-  var ketjuSorted = Object.entries(sAvgKetjut).filter(function(e){return e[1]!=null;}).sort(function(a,b){return a[1]-b[1];});
+  var ketjuSorted = Object.entries(sAvgKetjut).filter(function(e){return e[1]!=null;})
+    .sort(function(a,b){return a[1]-b[1];});
   var heikoin = ketjuSorted[0];
   var vahvin  = ketjuSorted[ketjuSorted.length-1];
 
-  // Toimenpiteet
-  var toimenpiteet = [];
-  joukkueet.sort(function(a,b){return (a.avgDelta||0)-(b.avgDelta||0);}).forEach(function(j){
-    if (j.avgDelta != null && j.avgDelta < 0)
-      toimenpiteet.push({ vari:'var(--red)',   teksti: j.pelaajatLista[0].joukkue+' — OVR laskussa (Δ'+j.avgDelta.toFixed(1)+'). Tapaa valmentaja.' });
+  // Älykkäät hälytykset
+  var alertit = [];
+  var IKA_IKKUNAT = { sm:[10,14], kierto:[10,16], taka:[12,16], sivu:[11,15], etu:[14,18] };
+  joukkueet.forEach(function(j){
+    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '';
+    var match = jnimi.match(/[PT](\d{2})/);
+    if(!match) return;
+    var ika = new Date().getFullYear() - parseInt('20'+match[1]);
+    var kriittiset = [];
+    Object.keys(j.avgKetjut).forEach(function(k){
+      var v = j.avgKetjut[k];
+      if(v==null||v>=50) return;
+      var ik = IKA_IKKUNAT[k];
+      if(ik&&ika>=ik[0]&&ika<=ik[1]) kriittiset.push({ketju:k,arvo:v});
+    });
+    kriittiset.sort(function(a,b){return a.arvo-b.arvo;});
+    if(kriittiset.length){
+      var kr=kriittiset[0], km=KETJU[kr.ketju]||{plain:kr.ketju};
+      alertit.push({p:1,vari:'#FF4060',ikoni:'🔥',
+        teksti:jnimi+' — '+km.plain+' ('+kr.arvo.toFixed(1)+'/10) kriittisessä ikäikkunassa ('+ika+'v)',
+        joukkue:jnimi});
+    }
+    // Testaus puuttuu
+    var viimeisin=null;
+    j.pelaajatLista.forEach(function(p){
+      if(p.fys_historia&&p.fys_historia.length){
+        var pvm=new Date(p.fys_historia[p.fys_historia.length-1].date);
+        if(!viimeisin||pvm>viimeisin) viimeisin=pvm;
+      }
+    });
+    if(!viimeisin){
+      alertit.push({p:2,vari:'#FFB830',ikoni:'📋',teksti:jnimi+' — Ei fyysisiä testituloksia. Testaus puuttuu kokonaan.',joukkue:jnimi});
+    } else {
+      var paivat=Math.round((nyt-viimeisin)/86400000);
+      if(paivat>180) alertit.push({p:2,vari:'#FFB830',ikoni:'⏰',teksti:jnimi+' — Viimeisin testi '+paivat+' pv sitten. Päivitys tarpeen.',joukkue:jnimi});
+    }
+    // Hidden Gems löydetty
+    if(j.gems>0) alertit.push({p:3,vari:'#00E5CC',ikoni:'💎',teksti:jnimi+' — '+j.gems+' Hidden Gem tunnistettu. Tarkista kehityspolku.',joukkue:jnimi});
   });
-  if (heikoin) toimenpiteet.push({ vari:'var(--amber)', teksti: (KETJU[heikoin[0]]||{plain:heikoin[0]}).plain+' on seuran heikoin ketju ('+heikoin[1]+'). Päivitä harjoitusohjelma.' });
-  if (kehittyvat > 0) toimenpiteet.push({ vari:'var(--green)', teksti: kehittyvat+' joukkuetta kehittyy hyvin. Jaa hyvät käytännöt muille valmentajille.' });
+  alertit.sort(function(a,b){return a.p-b.p;});
 
   var h = '';
 
-  // Metrics
-  // Laske Palloliiton kriteeri 6: kehittyvien % (10-15v, min 2 testiä)
-  var krit6 = laskeKriteeri6(s);
-  var normAnalyysi = (typeof laskeNormitasoSeuralle==='function') ? laskeNormitasoSeuralle(s) : null;
-  var normData = normAnalyysi ? normAnalyysi.pct : '—';
+  // ── HERO SECTION: kolme pääindikaattoria ───────────────────────────────
+  var k6col  = krit6.pct >= 60 ? '#00E5CC' : krit6.pct >= 45 ? '#FFB830' : '#FF4060';
+  var k6icon = krit6.pct >= 60 ? '✅' : krit6.pct >= 45 ? '⚠️' : '❌';
 
-  h += '<div class="metrics-grid">';
-  h += metricCard('Pelaajia', s.pelaajia, _aktivSeura);
-  h += metricCard('Joukkueet', joukkueet.length, 'Kaudella');
-  h += metricCard('Testejä', kokonaisTesteja, 'Yhteensä');
-  // Palloliiton kriteeri 6 — kehittyvien % isoimpana metriikkakorttina
-  var k6border = krit6.pct >= 60 ? "rgba(52,211,153,.3)" : "rgba(248,113,113,.3)";
-  var k6col = krit6.pct >= 60 ? "var(--green)" : krit6.pct >= 45 ? "var(--amber)" : "var(--red)";
-  var k6label = krit6.pct >= 60 ? "\u2705 T\u00e4ytt\u00e4\u00e4 60% kynnyksen" : "\u274c Alle 60% kynnyksen";
-  h += '<div class="metric-card" style="grid-column:span 2;border:1px solid ' + k6border + '">';
-  h += '<div class="metric-label">Kehittyy — Palloliiton kriteeri 6</div>';
-  h += '<div style="display:flex;align-items:baseline;gap:8px">';
-  h += '<div class="metric-value" style="font-size:44px;color:' + k6col + '">' + krit6.pct + '%</div>';
-  h += '<div style="font-size:13px;color:var(--muted2)">pelaajista (' + krit6.kehittyvat + '/' + krit6.n + ')</div>';
+  h += '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:16px;">';
+
+  // Kriteeri 6 — iso pääindikaattori
+  h += '<div style="background:linear-gradient(135deg,'+k6col+'18,'+k6col+'06);border:1.5px solid '+k6col+'44;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between;">';
+  h += '<div style="font-size:10px;font-weight:800;color:'+k6col+';text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;">Palloliiton Kriteeri 6</div>';
+  h += '<div style="display:flex;align-items:baseline;gap:8px;">';
+  h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:58px;line-height:1;color:'+k6col+';">'+krit6.pct+'%</div>';
+  h += '<div style="font-size:13px;color:var(--muted2);">pelaajista kehittyy</div>';
   h += '</div>';
-  h += '<div class="metric-sub" style="color:' + k6col + '">' + k6label + ' · 10–15v pelaajat</div>';
+  h += '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">';
+  h += '<div style="flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;">';
+  h += '<div style="height:4px;width:'+krit6.pct+'%;background:'+k6col+';border-radius:2px;"></div>';
   h += '</div>';
-    h += metricCard('Kehittyy', kehittyvat, 'joukkuetta ↑', 'var(--green)');
-  h += metricCard('Gems', gemsTotal, 'tunnistettua', 'var(--blue)');
+  h += '<div style="font-size:10px;font-weight:700;color:'+k6col+';">'+k6icon+' '+krit6.kehittyvat+'/'+krit6.kokonais+'</div>';
+  h += '</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);margin-top:4px;">Kynnys: 60% · 10–15v pelaajat</div>';
   h += '</div>';
 
-  // Insights
-  if (heikoin) {
-    var km = KETJU[heikoin[0]] || { plain: heikoin[0], train: '' };
-    h += '<div class="insight warn">';
-    h += '<div class="insight-label">Seuran kehitysprioriteetti</div>';
-    h += km.plain + ' on ' + _aktivSeura + ':n heikoin liikeketju (' + heikoin[1] + '/10). ';
-    h += 'Tämä tarkoittaa kentällä: ' + (km.kentta||'') +
-    'Toimenpide: ' + (km.train||'');
+  // Joukkueet kehitystila
+  var kehittyvat = joukkueet.filter(function(j){return j.avgDelta!=null&&j.avgDelta>=1;}).length;
+  var laskussa   = joukkueet.filter(function(j){return j.avgDelta!=null&&j.avgDelta<0;}).length;
+  var stabiili   = joukkueet.length - kehittyvat - laskussa;
+  h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:16px;">';
+  h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Joukkueet</div>';
+  h += '<div style="display:flex;flex-direction:column;gap:6px;">';
+  [['↑ Kehittyy','#00E5CC',kehittyvat],['→ Stabiili','#FFB830',stabiili],['↓ Laskussa','#FF4060',laskussa]].forEach(function(r){
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;">';
+    h += '<div style="font-size:11px;color:'+r[1]+';">'+r[0]+'</div>';
+    h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;color:'+r[1]+';line-height:1;">'+r[2]+'</div>';
+    h += '</div>';
+  });
+  h += '</div></div>';
+
+  // Gems + testejä
+  h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:16px;">';
+  h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Tunnistettu</div>';
+  h += '<div style="text-align:center;margin-bottom:8px;">';
+  h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:42px;color:#FFD700;line-height:1;">'+gemsTotal+'</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);">💎 Hidden Gem</div>';
+  h += '</div>';
+  h += '<div style="border-top:1px solid var(--border);padding-top:8px;text-align:center;">';
+  h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:28px;color:var(--teal);line-height:1;">'+s.testeja+'</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);">testejä yhteensä</div>';
+  h += '</div></div>';
+
+  h += '</div>'; // hero grid
+
+  // ── SEURAN PROFIILI (heikoin / vahvin) ──────────────────────────────────
+  if(heikoin||vahvin) {
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">';
+    if(heikoin){
+      var hm = KETJU[heikoin[0]]||{plain:heikoin[0],train:'',kentta:''};
+      h += '<div style="background:rgba(255,64,96,.07);border:1px solid rgba(255,64,96,.25);border-radius:13px;padding:12px 14px;">';
+      h += '<div style="font-size:9px;font-weight:800;color:#FF4060;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">⬇ Kehitysprioriteetti</div>';
+      h += '<div style="font-size:15px;font-weight:700;color:#FF4060;margin-bottom:4px;">'+hm.plain+'</div>';
+      h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;color:#FF4060;line-height:1;margin-bottom:6px;">'+heikoin[1]+'/10</div>';
+      if(hm.train) h += '<div style="font-size:10px;color:var(--muted2);line-height:1.5;">→ '+hm.train+'</div>';
+      h += '</div>';
+    }
+    if(vahvin){
+      var vm = KETJU[vahvin[0]]||{plain:vahvin[0]};
+      h += '<div style="background:rgba(0,229,204,.06);border:1px solid rgba(0,229,204,.2);border-radius:13px;padding:12px 14px;">';
+      h += '<div style="font-size:9px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">⬆ Seuran vahvuus</div>';
+      h += '<div style="font-size:15px;font-weight:700;color:var(--teal);margin-bottom:4px;">'+vm.plain+'</div>';
+      h += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;color:var(--teal);line-height:1;margin-bottom:6px;">'+vahvin[1]+'/10</div>';
+      h += '<div style="font-size:10px;color:var(--muted2);line-height:1.5;">→ Hyödynnä rekrytoinnissa</div>';
+      h += '</div>';
+    }
     h += '</div>';
   }
-  if (vahvin) {
-    var vm = KETJU[vahvin[0]] || { plain: vahvin[0] };
-    h += '<div class="insight">';
-    h += '<div class="insight-label">Seuran vahvuus</div>';
-    h += vm.plain + ' on vahvin (' + vahvin[1] + '/10). Hyödynnä tätä rekrytoinnissa ja joukkueen identiteetissä.';
-    h += '</div>';
-  }
 
-  // Kaksi saraketta
-  h += '<div class="two-col">';
-
-
-  // ── HEATMAP + TOIMENPITEET (2-palsta) ─────────────────────────────────
-  // Vasen: heatmap-ruudukko (nopea skannaus) + klikattava korttilaajennus
-  // Oikea: älykkäät toimenpiteet prioriteettijärjestyksessä
-
-  // Laske älykkäät hälytykset ─────────────────────────────────────────────
-  var alertit = [];
-
-  // 1. KRIITTINEN IKÄIKKUNA + HEIKKO KETJU
-  var IKA_IKKUNAT = {
-    sm:     [10, 14],   // pallollinen reaktio: paras ikkuna 10-14v
-    kierto: [10, 16],   // laukaus/syöttövoima: 10-16v
-    taka:   [12, 16],   // kiihdytys/jarrutus: 12-16v
-    sivu:   [11, 15],   // suunnanmuutos: 11-15v
-    etu:    [14, 18],   // hyppy/ponnistus: 14-18v
-  };
-  joukkueet.forEach(function(j) {
-    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '';
-    var match = jnimi.match(/[PT](\d{2})/);
-    if (!match) return;
-    var vuosi = parseInt('20' + match[1]);
-    var ika = new Date().getFullYear() - vuosi;
-    // Etsi heikoin ketju joka osuu kriittiseen ikäikkunaan
-    var kriittiset = [];
-    Object.keys(j.avgKetjut).forEach(function(k) {
-      var v = j.avgKetjut[k];
-      if (v == null || v >= 50) return; // vain heikot (alle 50)
-      var ik = IKA_IKKUNAT[k];
-      if (ik && ika >= ik[0] && ika <= ik[1]) {
-        kriittiset.push({ ketju: k, arvo: v });
-      }
-    });
-    kriittiset.sort(function(a,b){return a.arvo-b.arvo;});
-    if (kriittiset.length) {
-      var kr = kriittiset[0];
-      var km = KETJU[kr.ketju] || { plain: kr.ketju };
-      alertit.push({
-        prioriteetti: 1,
-        vari: 'var(--red)',
-        ikoni: '🔥',
-        teksti: jnimi + ': ' + km.plain + ' (' + kr.arvo.toFixed(1) + '/10) — kriittinen ikäikkuna ' + ika + 'v. Harjoitteluprioriteetiksi nyt.',
-        joukkue: jnimi
-      });
-    }
-  });
-
-  // 2. TESTAUKSEN PUUTTUMINEN / VANHENTUNEET TIEDOT
-  var nyt = new Date();
-  joukkueet.forEach(function(j) {
-    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '';
-    var viimeisin = null;
-    j.pelaajatLista.forEach(function(p) {
-      if (p.fys_historia && p.fys_historia.length) {
-        var pvm = new Date(p.fys_historia[p.fys_historia.length-1].date);
-        if (!viimeisin || pvm > viimeisin) viimeisin = pvm;
-      }
-    });
-    if (!viimeisin) {
-      alertit.push({ prioriteetti: 2, vari: 'var(--amber)', ikoni: '📋',
-        teksti: jnimi + ': Ei yhtään fyysistä testitulosta. Testaus puuttuu kokonaan.',
-        joukkue: jnimi });
-    } else {
-      var paivat = Math.round((nyt - viimeisin) / (1000*60*60*24));
-      if (paivat > 180) {
-        alertit.push({ prioriteetti: 2, vari: 'var(--amber)', ikoni: '⏰',
-          teksti: jnimi + ': Viimeisin testaus ' + paivat + ' päivää sitten — tiedot vanhentuneet. Testaa ennen seuraavaa kehityskeskustelua.',
-          joukkue: jnimi });
-      }
-    }
-  });
-
-  // 3. KEHITYSNOPEUDEN PYSÄHTYMINEN / KÄÄNTYMINEN
-  joukkueet.forEach(function(j) {
-    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '';
-    // Laske per pelaaja: onko viimeisin delta negatiivinen useassa ketjussa
-    var laskevat = 0, seurannat = 0;
-    j.pelaajatLista.forEach(function(p) {
-      if (!p.fys_historia || p.fys_historia.length < 2) return;
-      seurannat++;
-      var edellinen = p.fys_historia[p.fys_historia.length-2].mittaukset || {};
-      var viimeisin = p.fys_historia[p.fys_historia.length-1].mittaukset || {};
-      // Onko kevennyshyppy tai SM laskenut?
-      var kh_e = edellinen['Kevennyshyppy'], kh_v = viimeisin['Kevennyshyppy'];
-      var sm_e = edellinen['SM ilman palloa'], sm_v = viimeisin['SM ilman palloa'];
-      if ((kh_e && kh_v && kh_v < kh_e - 2) || (sm_e && sm_v && sm_v > sm_e + 0.3)) {
-        laskevat++;
-      }
-    });
-    if (seurannat >= 5 && laskevat / seurannat > 0.4) {
-      alertit.push({ prioriteetti: 2, vari: 'var(--red)', ikoni: '📉',
-        teksti: jnimi + ': ' + laskevat + '/' + seurannat + ' pelaajalla suorituskyky laskenut viimeisimmässä mittauksessa. Tutki harjoituskuorma.',
-        joukkue: jnimi });
-    }
-  });
-
-  // 4. RAE-JAKAUMA — molemmat suunnat
-  // Q4-painotus (heinä–joulu): liikaa vanhempia → normitulokset voivat yliarvioida tasoa
-  // Q1-painotus (tammi–kesä):  liikaa nuorempia → normitulokset voivat aliarvioida tasoa
-  //   ja todellisia kehittyjä voi jäädä piiloon
-  joukkueet.forEach(function(j) {
-    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '';
-    var q1 = 0, q4 = 0, total = 0; // Q1 = tammi-kesä, Q4 = heinä-joulu
-    j.pelaajatLista.forEach(function(p) {
-      if (!p.bioIka) return;
-      total++;
-      var kk = p.bioIka.syntymakk || 6;
-      if (kk >= 7) q4++; // heinä–joulukuu
-      else q1++;          // tammikuu–kesäkuu
-    });
-    if (total < 8) return;
-
-    var q4pct = Math.round(q4 / total * 100);
-    var q1pct = Math.round(q1 / total * 100);
-
-    // Q4-ylikuormitus: normitasot saattavat YLIARVIOIDA ryhmän tason
-    if (q4pct > 60) {
-      alertit.push({
-        prioriteetti: 3, vari: 'var(--amber)', ikoni: '⚖️',
-        teksti: jnimi + ': ' + q4pct + '% syntynyt heinä–joulukuussa (myöhäiset ikäluokat). '
-          + 'Normitulokset voivat yliarvioida tason — vanhemmat pelaajat näyttävät paremmilta. '
-          + 'Tarkista Hidden Gem -raportti: onko joukkueessa Q1-pelaajia jotka häviävät tilastoissa?',
-        joukkue: jnimi
-      });
-    }
-    // Q1-ylikuormitus: normitasot saattavat ALIARVIOIDA todellista potentiaalia
-    if (q1pct > 60) {
-      alertit.push({
-        prioriteetti: 3, vari: 'var(--teal)', ikoni: '🔍',
-        teksti: jnimi + ': ' + q1pct + '% syntynyt tammikuu–kesäkuussa (varhaiset ikäluokat). '
-          + 'Normitulokset voivat aliarvioida tason — nuoremmat pelaajat häviävät vertailussa. '
-          + 'Etsi joukkueesta piilossa olevia kehittyjä: Q1-pelaaja tasolla 3 voi olla aidosti parempi kuin Q4-pelaaja tasolla 4.',
-        joukkue: jnimi
-      });
-    }
-  });
-
-  // Lisää vanha heikoin-ketju -toimenpide jos muita ei ole
-  if (alertit.length < 2 && heikoin) {
-    var hm = KETJU[heikoin[0]] || { plain: heikoin[0] };
-    alertit.push({ prioriteetti: 2, vari: 'var(--amber)', ikoni: '🎯',
-      teksti: hm.plain + ' on seuran heikoin liikeketju (' + heikoin[1] + '/10). Päivitä harjoitusohjelma.',
-      joukkue: null });
-  }
-  if (kehittyvat > 0 && alertit.filter(function(a){return a.vari==='var(--green)';}).length===0) {
-    alertit.push({ prioriteetti: 4, vari: 'var(--green)', ikoni: '✅',
-      teksti: kehittyvat + ' joukkuetta kehittyy hyvin. Jaa käytännöt muille valmentajille.',
-      joukkue: null });
-  }
-  alertit.sort(function(a,b){return a.prioriteetti-b.prioriteetti;});
-
-  // ── HEATMAP ─────────────────────────────────────────────────────────────
-  var sortedJ = joukkueet.slice().sort(function(a,b){
-    // Järjestys: eniten kriittistä tarvetta (heikoin + kriittinen ikäikkuna) ensin
-    var aScore = 0, bScore = 0;
-    ['sm','kierto','taka','sivu','etu'].forEach(function(k){
-      if ((a.avgKetjut[k]||100) < 50) aScore++;
-      if ((b.avgKetjut[k]||100) < 50) bScore++;
-    });
-    return bScore - aScore;
-  });
-
-  var KETJU_JARJESTYS = ['sm','kierto','taka','sivu','etu'];
-
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
-
-  // Vasen: Heatmap
-  h += '<div class="card" style="padding:14px">';
-  h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Joukkueet — kehitystila</div>';
-
-  // Heatmap-otsikkorivi
-  h += '<div style="display:grid;grid-template-columns:90px repeat(5,1fr) 28px;gap:3px;margin-bottom:5px">';
-  h += '<div></div>';
-  KETJU_JARJESTYS.forEach(function(k) {
-    var km = KETJU[k] || { plain: k, vari: 'var(--muted)' };
-    h += '<div style="font-size:9px;color:' + km.vari + ';text-align:center;font-weight:600;line-height:1.2">' +
-         km.plain.split(' ')[0] + '</div>';
-  });
-  h += '<div></div>';
-  h += '</div>';
-
-  // Heatmap-rivit
-  sortedJ.forEach(function(j) {
-    var jnimi = j.pelaajatLista[0] ? j.pelaajatLista[0].joukkue : '?';
-    var jshort = jnimi.replace(/.*[-–]\s*/, ''); // esim. "EPS – PO7" → "PO7"
-
-    // Tarkista onko tällä joukkueella kriittinen hälytys
-    var hasAlert = alertit.some(function(a){ return a.joukkue === jnimi && a.prioriteetti === 1; });
-
-    h += '<div style="display:grid;grid-template-columns:90px repeat(5,1fr) 28px;gap:3px;margin-bottom:3px;cursor:pointer" onclick="avaaJoukkue(\'' + jnimi + '\')">';
-    h += '<div style="font-size:11px;color:var(--text);display:flex;align-items:center;gap:4px">';
-    if (hasAlert) h += '<span style="font-size:10px">🔥</span>';
-    h += '<span>' + jshort + '</span></div>';
-
-    KETJU_JARJESTYS.forEach(function(k) {
-      var v = j.avgKetjut[k];
-      if (v == null) {
-        h += '<div style="background:var(--bg);border-radius:4px;height:22px"></div>';
-        return;
-      }
-      var col = v >= 70 ? 'rgba(52,211,153,.85)' : v >= 50 ? 'rgba(251,191,36,.75)' : 'rgba(248,113,113,.8)';
-      h += '<div style="background:' + col + ';border-radius:4px;height:22px;display:flex;align-items:center;justify-content:center">';
-      h += '<span style="font-size:10px;font-weight:700;color:#000">' + Math.round(v) + '</span>';
+  // ── ÄLYKKÄÄT HÄLYTYKSET ───────────────────────────────────────────────
+  if(alertit.length > 0) {
+    h += '<div style="margin-bottom:16px;">';
+    h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;">Toimenpiteet nyt ('+alertit.length+')</div>';
+    h += '<div style="display:flex;flex-direction:column;gap:5px;">';
+    alertit.slice(0,5).forEach(function(a,idx){
+      var priobg = a.p===1?'rgba(255,64,96,.08)':a.p===2?'rgba(255,184,48,.06)':'rgba(0,229,204,.05)';
+      var prioborder = a.p===1?'rgba(255,64,96,.25)':a.p===2?'rgba(255,184,48,.2)':'rgba(0,229,204,.15)';
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+priobg+';border:1px solid '+prioborder+';border-radius:11px;">';
+      h += '<span style="font-size:16px;flex-shrink:0;">'+a.ikoni+'</span>';
+      h += '<div style="flex:1;font-size:12px;line-height:1.4;">'+a.teksti+'</div>';
+      h += '<div style="font-size:9px;font-weight:800;padding:3px 7px;border-radius:6px;background:'+a.vari+'18;color:'+a.vari+';flex-shrink:0;">P'+(idx+1)+'</div>';
       h += '</div>';
     });
-
-    var dc = statusColor(j.avgDelta);
-    var dl = j.avgDelta != null ? (j.avgDelta >= 0 ? '+' : '') + j.avgDelta.toFixed(1) : '—';
-    h += '<div style="font-size:10px;color:' + dc + ';text-align:right;font-weight:700;display:flex;align-items:center;justify-content:flex-end">' + dl + '</div>';
-    h += '</div>';
-  });
-  h += '</div>'; // heatmap card
-
-  // Oikea: Toimenpiteet
-  h += '<div class="card" style="padding:14px">';
-  h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Toimenpiteet tällä viikolla</div>';
-  var naytettavat = alertit.slice(0, 5);
-  if (naytettavat.length) {
-    naytettavat.forEach(function(a) {
-      h += '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">';
-      h += '<span style="font-size:16px;flex-shrink:0;line-height:1.4">' + a.ikoni + '</span>';
-      h += '<div style="font-size:11px;color:var(--muted2);line-height:1.6">' + a.teksti + '</div>';
-      h += '</div>';
-    });
-  } else {
-    h += '<div style="font-size:12px;color:var(--muted)">Ei kiireellisiä toimenpiteitä tällä viikolla.</div>';
-  }
-  h += '</div>'; // toimenpiteet card
-  h += '</div>'; // 2-palsta grid
-
-
-  // Ketjuprofiili kompakti
-  h += '<div class="card">';
-  h += '<div class="card-title">Liikeprofiili</div>';
-  Object.entries(sAvgKetjut).sort(function(a,b){return b[1]-a[1];}).forEach(function(e){
-    var km2 = KETJU[e[0]] || { plain: e[0] };
-    h += '<div style="margin-bottom:10px">';
-    h += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">';
-    h += '<span style="color:var(--muted)">'+km2.plain+'</span>';
-    h += '<span style="font-weight:500;color:'+ketjuColor(e[0])+'">'+e[1]+'</span>';
-    h += '</div>';
-    h += '<div style="height:5px;background:var(--bg);border-radius:3px;overflow:hidden">';
-    h += '<div style="height:100%;width:'+Math.round(e[1]*10)+'%;background:'+ketjuColor(e[0])+';border-radius:3px"></div>';
+    if(alertit.length > 5) {
+      h += '<div style="font-size:11px;color:var(--muted2);text-align:center;padding:6px;">+ '+(alertit.length-5)+' muuta havaintoa</div>';
+    }
     h += '</div></div>';
-  });
-  h += '</div>';
-  h += '</div>'; // end col 2
-
-  h += '</div>'; // end two-col
-
-  // ── KANSALLINEN VERTAILU — Palloliiton viralliset taso 3 -normit ──
-  // Lähde: Eerikkilä / Suomen Palloliitto, päivitetty 2024
-  // Normit löytyvät TM_PALLOLIITTO-objektista (tm_normit.js)
-  // Näytetään: per testi per ikäluokka, seuran tulos vs taso 3
-  // Ei lasketa mediaania datasta — käytetään virallisia arvoja suoraan
-
-  var VERTAILU_TESTIT = [
-    { testi: 'Nopeus 10m',       alas: true  },
-    { testi: 'Nopeus 30m',       alas: true  },
-    { testi: 'SM ilman palloa',  alas: true  },
-    { testi: 'SM-pallo',         alas: true  },
-    { testi: 'Kevennyshyppy',    alas: false },
-  ];
-  // Ketteryys jätetty pois: csv-aineiston protokolla ≠ Palloliiton kasirata
-
-  // Kerää seuran 10–15v pelaajien viimeisin tulos per testi per ikäluokka
-  // Rakenne: ikäTulokset[P13][Nopeus 10m] = [arvo1, arvo2, ...]
-  var ikaTulokset = {};
-  ['P10','P11','P12','P13','P14','P15'].forEach(function(ik) { ikaTulokset[ik] = {}; });
-
-  Object.values(s.joukkueet).forEach(function(j) {
-    j.pelaajatLista.forEach(function(p) {
-      var ika = (p.bioIka && p.bioIka.krono) || 0;
-      if (ika < 10 || ika > 15) return;
-      var fys = p.fys_historia || [];
-      if (!fys.length) return;
-      var mitat = fys[fys.length - 1].mittaukset || {};
-      var ikaKey = 'P' + Math.min(15, Math.max(10, Math.floor(ika)));
-
-      VERTAILU_TESTIT.forEach(function(tm) {
-        var v = mitat[tm.testi];
-        if (v == null) return;
-        if (!ikaTulokset[ikaKey][tm.testi]) ikaTulokset[ikaKey][tm.testi] = [];
-        ikaTulokset[ikaKey][tm.testi].push(v);
-      });
-    });
-  });
-
-  // Laske per ikäluokka per testi: seuran mediaani vs Palloliiton taso 3
-  // Näytetään vain ikäluokat joissa on vähintään 3 pelaajaa testissä
-  var ikaRivit = [];
-  ['P10','P11','P12','P13','P14','P15'].forEach(function(ikaKey) {
-    VERTAILU_TESTIT.forEach(function(tm) {
-      var vals = ikaTulokset[ikaKey][tm.testi] || [];
-      if (vals.length < 3) return;
-      var t3 = (TM_PALLOLIITTO['male'][tm.testi] || {})[ikaKey];
-      if (!t3 || t3.t3 == null) return;
-
-      // Laske seuran mediaani tässä ikä+testi -yhdistelmässä
-      var sorted = vals.slice().sort(function(a,b){return a-b;});
-      var med = sorted[Math.floor(sorted.length/2)];
-      var t3val = t3.t3;
-
-      // Kuinka moni on tasolla 3 tai parempi
-      var okN = vals.filter(function(v){ return tm.alas ? v <= t3val : v >= t3val; }).length;
-      var okPct = Math.round(okN / vals.length * 100);
-
-      ikaRivit.push({
-        ika: ikaKey, testi: tm.testi, alas: tm.alas,
-        n: vals.length, med: med, t3: t3val,
-        okN: okN, okPct: okPct
-      });
-    });
-  });
-
-  if (ikaRivit.length > 0) {
-    h += '<div class="card" style="margin-top:14px">';
-    h += '<div style="margin-bottom:6px">';
-    h += '<div class="card-title" style="margin:0">Seuran tulokset vs Palloliiton taso 3</div>';
-    h += '</div>';
-    h += '<div style="font-size:11px;color:var(--muted2);margin-bottom:16px">';
-    h += 'Lähde: Eerikkilä / Suomen Palloliitto 2024 (tm_normit.js) · Seuran mediaani vs kansallinen tavoitetaso (taso 3) · 10–15v pelaajat';
-    h += '</div>';
-
-    // Ryhmittele ikäluokan mukaan
-    var ikaGroups = {};
-    ikaRivit.forEach(function(r) {
-      if (!ikaGroups[r.ika]) ikaGroups[r.ika] = [];
-      ikaGroups[r.ika].push(r);
-    });
-
-    Object.keys(ikaGroups).sort().forEach(function(ikaKey) {
-      var rivit = ikaGroups[ikaKey];
-      var okYhteensa = rivit.reduce(function(a,r){return a+r.okN;},0);
-      var nYhteensa  = rivit.reduce(function(a,r){return a+r.n;},0);
-      var kokonPct   = Math.round(okYhteensa/nYhteensa*100);
-      var headerCol  = kokonPct >= 66 ? 'var(--green)' : kokonPct >= 40 ? 'var(--amber)' : 'var(--red)';
-
-      // Ikäluokan otsikko
-      h += '<div style="display:flex;justify-content:space-between;align-items:center;';
-      h += 'padding:8px 0 6px;border-top:1px solid var(--border);margin-top:4px">';
-      h += '<div style="font-size:12px;font-weight:600;color:var(--text)">'+ikaKey+'</div>';
-      h += '<div style="font-size:11px;color:'+headerCol+';font-weight:600">'+kokonPct+'% tasolla 3+ ('+okYhteensa+'/'+nYhteensa+')</div>';
-      h += '</div>';
-
-      // Testit tässä ikäluokassa
-      rivit.forEach(function(r) {
-        var parMode = r.alas ? r.med <= r.t3 : r.med >= r.t3;
-        var medCol  = parMode ? 'var(--green)' : 'var(--red)';
-        var pctCol  = r.okPct >= 66 ? 'var(--green)' : r.okPct >= 40 ? 'var(--amber)' : 'var(--red)';
-        var arrow   = r.alas
-          ? (r.med <= r.t3 ? '✓' : '✗')
-          : (r.med >= r.t3 ? '✓' : '✗');
-
-        h += '<div style="display:grid;grid-template-columns:130px 50px 50px 1fr 44px;gap:6px;';
-        h += 'align-items:center;padding:5px 0 5px 10px">';
-
-        // Testin nimi
-        h += '<div style="font-size:11px;color:var(--muted2)">'+r.testi+'</div>';
-        // Seuran mediaani
-        h += '<div style="text-align:center">';
-        h += '<div style="font-size:12px;font-weight:600;color:'+medCol+'">'+r.med+'</div>';
-        h += '<div style="font-size:9px;color:var(--muted2)">seura</div>';
-        h += '</div>';
-        // Palloliiton taso 3
-        h += '<div style="text-align:center">';
-        h += '<div style="font-size:12px;color:var(--muted2)">'+r.t3+'</div>';
-        h += '<div style="font-size:9px;color:var(--muted2)">taso 3</div>';
-        h += '</div>';
-        // Progress bar — % pelaajista tasolla 3+
-        h += '<div style="position:relative;height:6px;background:var(--bg);border-radius:3px;overflow:visible">';
-        h += '<div style="height:100%;width:'+r.okPct+'%;background:'+pctCol+';border-radius:3px"></div>';
-        h += '<div style="position:absolute;top:-3px;left:66%;width:2px;height:12px;background:var(--amber);opacity:.7"></div>';
-        h += '</div>';
-        // Prosentti
-        h += '<div style="text-align:right;font-size:11px;font-weight:600;color:'+pctCol+'">'+r.okPct+'%</div>';
-
-        h += '</div>';
-      });
-    });
-
-    h += '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);';
-    h += 'font-size:11px;color:var(--muted2)">⚑ Oranssi viiva = 66% kynnys · ✓/✗ = seuran mediaani suhteessa taso 3:een</div>';
+  } else {
+    h += '<div style="background:rgba(0,229,204,.06);border:1px solid rgba(0,229,204,.2);border-radius:13px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">';
+    h += '<span style="font-size:20px;">✅</span>';
+    h += '<div style="font-size:13px;font-weight:600;color:var(--teal);">Kaikki joukkueet kehittyvät normaalisti — ei kriittisiä toimenpiteitä</div>';
     h += '</div>';
   }
 
-    document.getElementById('tabYleiskuva').innerHTML = h;
+  // ── JOUKKUETAULUKKO ───────────────────────────────────────────────────
+  h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;">Joukkueet — kehitystila</div>';
+  h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;overflow:hidden;">';
+
+  // Taulukon otsikkorivi
+  h += '<div style="display:grid;grid-template-columns:1fr 48px 48px 48px 56px 50px;gap:0;padding:7px 12px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);">';
+  ['Joukkue','OVR','Δ','Testejä','Ketju','Gems'].forEach(function(lbl){
+    h += '<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted2);text-align:center;">'+lbl+'</div>';
+  });
+  h += '</div>';
+
+  joukkueet.sort(function(a,b){return (b.avgOvr||0)-(a.avgOvr||0);}).forEach(function(j,idx){
+    var jnimi = j.pelaajatLista[0]?j.pelaajatLista[0].joukkue:'?';
+    var ovr = j.avgOvr!=null?Math.round(j.avgOvr):'—';
+    var delta = j.avgDelta!=null?(j.avgDelta>=0?'+':'')+j.avgDelta.toFixed(1):'—';
+    var dc = j.avgDelta==null?'var(--muted)':j.avgDelta>=1?'#00E5CC':j.avgDelta<0?'#FF4060':'#FFB830';
+    var testeja = j.pelaajatLista.reduce(function(s,p){return s+(p.fys_historia?p.fys_historia.length:0);},0);
+    // Heikoin liikeketju tässä joukkueessa
+    var jKetjut = Object.entries(j.avgKetjut).filter(function(e){return e[1]!=null;}).sort(function(a,b){return a[1]-b[1];});
+    var jHeikoin = jKetjut[0];
+    var jHm = jHeikoin?(KETJU[jHeikoin[0]]||{lyhyt:jHeikoin[0]}):null;
+    var bg = idx%2===0?'transparent':'rgba(255,255,255,.015)';
+
+    h += '<div style="display:grid;grid-template-columns:1fr 48px 48px 48px 56px 50px;gap:0;padding:10px 12px;background:'+bg+';border-bottom:1px solid rgba(255,255,255,.04);align-items:center;">';
+    // Joukkue
+    h += '<div style="display:flex;align-items:center;gap:7px;">';
+    h += '<div style="width:6px;height:6px;border-radius:50%;background:'+dc+';flex-shrink:0;"></div>';
+    h += '<div style="font-size:13px;font-weight:700;">'+jnimi+'</div>';
+    if(j.gems>0) h += '<div style="font-size:10px;color:#FFD700;">💎'+j.gems+'</div>';
+    h += '</div>';
+    // OVR
+    h += '<div style="text-align:center;font-family:\'Bebas Neue\',sans-serif;font-size:20px;color:var(--teal);">'+ovr+'</div>';
+    // Delta
+    h += '<div style="text-align:center;font-size:12px;font-weight:700;color:'+dc+';">'+delta+'</div>';
+    // Testejä
+    h += '<div style="text-align:center;font-size:12px;color:var(--muted2);">'+testeja+'</div>';
+    // Heikoin ketju
+    if(jHm){
+      var kVari = jHeikoin[1]<4?'#FF4060':jHeikoin[1]<6?'#FFB830':'var(--muted2)';
+      h += '<div style="text-align:center;font-size:9px;font-weight:800;color:'+kVari+';padding:2px 4px;background:'+kVari+'18;border-radius:5px;">'+jHm.lyhyt+'</div>';
+    } else {
+      h += '<div style="text-align:center;font-size:10px;color:var(--muted);">—</div>';
+    }
+    // Gems
+    h += '<div style="text-align:center;font-size:12px;color:'+(j.gems>0?'#FFD700':'var(--muted)')+';">'+(j.gems>0?'💎'+j.gems:'—')+'</div>';
+    h += '</div>';
+  });
+  h += '</div>'; // taulukko
+
+  // ── KAUSIMERKINNÄT (uusi!) ────────────────────────────────────────────
+  // VP näkee harjoitus- ja otteludata yhteenvedon joka tallennettiin Master-sovelluksesta
+  var VIIKONPAIVAT = ['Ma','Ti','Ke','To','Pe','La','Su'];
+  var wkNum = (function(d){var y=d.getFullYear();return Math.ceil(((d-new Date(y,0,1))/86400000+new Date(y,0,1).getDay()+1)/7);})(nyt);
+  var y = nyt.getFullYear();
+
+  // Kerää harjoitusdataa tältä viikolta eri joukkueilta
+  var harjYhteenveto = [];
+  joukkueet.forEach(function(j){
+    var jnimi = j.pelaajatLista[0]?j.pelaajatLista[0].joukkue:'';
+    if(!jnimi) return;
+    for(var pvi=0;pvi<7;pvi++){
+      var d2=new Date(nyt); d2.setDate(nyt.getDate()-nyt.getDay()+pvi);
+      var dk=d2.toISOString().slice(0,10);
+      var harj=JSON.parse(localStorage.getItem('tm_coach_harj_'+y+'_'+wkNum+'_'+dk)||'null');
+      if(harj&&harj.tyypit&&harj.tyypit.length>0){
+        harjYhteenveto.push({pv:VIIKONPAIVAT[pvi],dk:dk,jnimi:jnimi,tyypit:harj.tyypit,rpe:harj.rpe,poissa:harj.poissaolijat?harj.poissaolijat.length:0});
+      }
+    }
+  });
+
+  if(harjYhteenveto.length > 0) {
+    h += '<div style="margin-top:14px;">';
+    h += '<div style="font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;">Tämän viikon harjoitusmerkin nät</div>';
+    h += '<div style="display:flex;flex-direction:column;gap:5px;">';
+    var HARJ_NIMET = {tekniikka:'Tekniikka',taktiikka:'Taktiikka',fysiikka:'Fysiikka',pelinteko:'Peliäly',peli:'Pelisimulaatio',palautuminen:'Palautuminen'};
+    harjYhteenveto.forEach(function(hj){
+      var rpeCol = hj.rpe>=8?'#FF4060':hj.rpe>=6?'#FFB830':'#00E5CC';
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;">';
+      h += '<div style="font-size:11px;font-weight:700;color:var(--muted2);width:20px;">'+hj.pv+'</div>';
+      h += '<div style="flex:1;font-size:11px;">'+hj.tyypit.map(function(t){return HARJ_NIMET[t]||t;}).join(' · ')+'</div>';
+      h += '<div style="font-size:10px;font-weight:700;color:'+rpeCol+';background:'+rpeCol+'18;padding:2px 7px;border-radius:6px;">RPE '+hj.rpe+'</div>';
+      if(hj.poissa>0) h += '<div style="font-size:10px;color:var(--amber);">-'+hj.poissa+' poissa</div>';
+      h += '</div>';
+    });
+    h += '</div></div>';
+  }
+
+  document.getElementById('vContent').innerHTML = h;
 }
+
+
 
 function metricCard(label, value, sub, color) {
   return '<div class="metric-card"><div class="metric-label">'+label+'</div>'
