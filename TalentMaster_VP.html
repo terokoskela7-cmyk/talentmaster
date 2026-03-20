@@ -271,7 +271,12 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
     s2.async = false;
     s2.onload = onDataLoaded;
     s2.onerror = function() {
-      console.warn('[VP] GitHub-lataus epäonnistui');
+      console.warn('[VP] GitHub-lataus epäonnistui — käytetään demo-dataa');
+      // Fallback: käytä sisäänrakennettua demo-dataa
+      if (window._VP_DEMO_LOOKUP) {
+        window.TM_DATA = { lookup: window._VP_DEMO_LOOKUP };
+        console.log('[VP] Demo-data aktivoitu:', Object.keys(window._VP_DEMO_LOOKUP).length, 'pelaajaa');
+      }
       window._tmDataFailed = true;
       window._tmDataReady = true;
       if (typeof window._vpInitReady === 'function') window._vpInitReady();
@@ -519,6 +524,217 @@ function laskeKansallinenTavoitetaso(mittaukset, ikavuosi, sukupuoli) {
 
 </script>
 <script>
+
+// ── VP DEMO-DATA (sisäänrakennettu fallback) ─────────────────────────────
+(function() {
+const DEMO={
+  'HPP-P001':{
+    id:'HPP-P001',etunimi:'Matias',sukunimi:'Korhonen',
+    joukkue:'P13',positio:'KK',palloliitoId:'123456',seuraId:'fc_lahti',
+    phvTila:'PHV-HUIPPU',
+    bioIka:{krono:13.2,bio:12.1,phvEst:14.1,aikuisPit:182,nytPit:155,tannerVaihe:'T2',rae:'Q1'},
+    adar:[
+      {date:'2025-10-12',a:2,d:2,act:1,r:1,huomio:'Skannaa satunnaisesti, päätös epävarma paineessa'},
+      {date:'2026-03-15',a:3,d:2,act:2,r:2,huomio:'Skannaus parantunut selkeästi — päätös edelleen hidas'}
+    ],
+    qs_historia:[
+      {date:'2025-10-12',results:{tsi:0.8,flei:55,heikoin_ketju:'syva',vahvin_ketju:'kierto',
+        gem:false,gemReasons:[],xfactor:false,xfReasons:[],
+        ketjut:{taka:{pisteet:5.1},etu:{pisteet:4.8},sivu:{pisteet:4.5},kierto:{pisteet:6.8},syva:{pisteet:3.2}}}},
+      {date:'2026-03-15',results:{tsi:0.4,flei:68,heikoin_ketju:'syva',vahvin_ketju:'kierto',
+        gem:true,gemReasons:['Pallonkäsittelykyky erinomainen — TSI 0.4s'],
+        xfactor:false,xfReasons:[],
+        ketjut:{taka:{pisteet:6.2},etu:{pisteet:5.8},sivu:{pisteet:5.5},kierto:{pisteet:8.1},syva:{pisteet:4.2}}}}
+    ]
+  },
+  'HPP-P002':{
+    id:'HPP-P002',etunimi:'Aleksi',sukunimi:'Virtanen',
+    joukkue:'P15',positio:'HYK',palloliitoId:'654321',seuraId:'fc_lahti',
+    phvTila:'Post-PHV',
+    bioIka:{krono:15.1,bio:15.8,phvEst:13.5,aikuisPit:186,nytPit:176,tannerVaihe:'T4',rae:'Q2'},
+    adar:[
+      {date:'2025-09-20',a:2,d:2,act:3,r:1,huomio:'Toteutus vahva, skannaus puutteellinen'},
+      {date:'2026-03-10',a:2,d:3,act:3,r:2,huomio:'Päätöksenteko nopeutunut merkittävästi'}
+    ],
+    qs_historia:[
+      {date:'2025-09-20',results:{tsi:1.6,flei:44,heikoin_ketju:'kierto',vahvin_ketju:'taka',
+        gem:false,gemReasons:[],xfactor:false,xfReasons:[],
+        ketjut:{taka:{pisteet:6.8},etu:{pisteet:5.9},sivu:{pisteet:4.8},kierto:{pisteet:2.5},syva:{pisteet:4.2}}}},
+      {date:'2026-03-10',results:{tsi:1.2,flei:52,heikoin_ketju:'kierto',vahvin_ketju:'taka',
+        gem:false,gemReasons:[],
+        xfactor:true,xfReasons:['Ponnistusvoima poikkeuksellinen — EI 18%'],
+        ketjut:{taka:{pisteet:8.4},etu:{pisteet:7.2},sivu:{pisteet:6.1},kierto:{pisteet:3.8},syva:{pisteet:5.5}}}}
+    ]
+  },
+  'HPP-P003':{
+    id:'HPP-P003',etunimi:'Lauri',sukunimi:'Mäkinen',
+    joukkue:'P16',positio:'LH',palloliitoId:'999888',seuraId:'fc_lahti',
+    phvTila:'Post-PHV',
+    bioIka:{krono:16.2,bio:16.5,phvEst:13.8,aikuisPit:179,nytPit:177,tannerVaihe:'T5',rae:'Q3'},
+    adar:[
+      {date:'2025-04-10',a:2,d:2,act:2,r:1,huomio:'Perussuoritukset hallinnassa'},
+      {date:'2025-10-15',a:3,d:3,act:3,r:2,huomio:'Skannaus ja päätöksenteko eliittitasolla — palautuminen kehittyy'},
+      {date:'2026-03-01',a:3,d:3,act:3,r:3,huomio:'Kaikki osa-alueet eliittisuorituksessa — Showcase-kandidaatti'}
+    ],
+    qs_historia:[
+      {date:'2025-04-10',results:{tsi:1.1,flei:58,heikoin_ketju:'syva',vahvin_ketju:'taka',
+        gem:false,gemReasons:[],xfactor:false,xfReasons:[],
+        ketjut:{taka:{pisteet:7.8},etu:{pisteet:5.9},sivu:{pisteet:6.4},kierto:{pisteet:5.1},syva:{pisteet:3.8}}}},
+      {date:'2025-10-15',results:{tsi:0.9,flei:64,heikoin_ketju:'syva',vahvin_ketju:'taka',
+        gem:false,gemReasons:[],xfactor:true,xfReasons:['Kiihdytys poikkeuksellinen — SBL-dominanssi selkeä'],
+        ketjut:{taka:{pisteet:8.6},etu:{pisteet:6.2},sivu:{pisteet:6.8},kierto:{pisteet:5.4},syva:{pisteet:4.1}}}},
+      {date:'2026-03-01',results:{tsi:0.8,flei:67,heikoin_ketju:'syva',vahvin_ketju:'taka',
+        gem:false,gemReasons:[],xfactor:true,xfReasons:['Kiihdytys poikkeuksellinen'],
+        ketjut:{taka:{pisteet:9.1},etu:{pisteet:6.5},sivu:{pisteet:7.0},kierto:{pisteet:5.6},syva:{pisteet:4.3}}}}
+    ]
+  },
+  'HPP-P004':{
+    id:'HPP-P004',etunimi:'Eetu',sukunimi:'Salonen',
+    joukkue:'P8',positio:null,palloliitoId:'111222',seuraId:'fc_lahti',
+    ikavaihe:'leikkija',
+    phvTila:'Pre-PHV',
+    bioIka:{krono:8.3,bio:7.9,phvEst:12.8,aikuisPit:172,nytPit:128,tannerVaihe:'T1',rae:'Q2'},
+    qs_historia:[
+      {date:'2026-02-20',results:{tsi:1.8,flei:38,heikoin_ketju:'syva',vahvin_ketju:'sivu',
+        gem:false,gemReasons:[],xfactor:false,xfReasons:[],
+        ketjut:{taka:{pisteet:4.2},etu:{pisteet:3.8},sivu:{pisteet:5.1},kierto:{pisteet:3.5},syva:{pisteet:2.9}}}}
+    ]
+  },
+
+  // ── SJK P2014 — Huuhkajapolku testit 20.1.2026 ──────────────────────
+  'SJK-P2014-001':{
+    id:'SJK-P2014-001',etunimi:'Eino',sukunimi:'Asumus',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,seuraId:'sjk',
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:9.7,aikuisPit:null,nytPit:147.6,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'taka',vahvin_ketju:'etu',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:4.0},etu:{pisteet:6.0},sivu:{pisteet:4.0},kierto:{pisteet:4.0}}}}]
+  },
+  'SJK-P2014-002':{
+    id:'SJK-P2014-002',etunimi:'Peetu',sukunimi:'Järvelä',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,seuraId:'sjk',
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:9.9,aikuisPit:null,nytPit:148.5,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'sivu',vahvin_ketju:'etu',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:7.0},etu:{pisteet:10.0},sivu:{pisteet:6.0},kierto:{pisteet:4.0}}}}]
+  },
+  'SJK-P2014-003':{
+    id:'SJK-P2014-003',etunimi:'Lauri',sukunimi:'Kanto',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:10.0,aikuisPit:null,nytPit:147.3,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'sivu',vahvin_ketju:'etu',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:7.0},etu:{pisteet:10.0},sivu:{pisteet:6.0},kierto:{pisteet:4.0}}}}]
+  },
+  'SJK-P2014-004':{
+    id:'SJK-P2014-004',etunimi:'Verneri',sukunimi:'Katajamäki',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:null,aikuisPit:null,nytPit:null,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[]
+  },
+  'SJK-P2014-005':{
+    id:'SJK-P2014-005',etunimi:'Vertti',sukunimi:'Kirjonen',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:9.7,aikuisPit:null,nytPit:151.8,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'taka',vahvin_ketju:'kierto',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:7.0},etu:{pisteet:10.0},sivu:{pisteet:8.0},kierto:{pisteet:8.0}}}}]
+  },
+  'SJK-P2014-006':{
+    id:'SJK-P2014-006',etunimi:'Preston',sukunimi:'Kukk',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:9.9,aikuisPit:null,nytPit:148.5,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'taka',vahvin_ketju:'etu',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:4.0},etu:{pisteet:4.0},sivu:{pisteet:6.0},kierto:{pisteet:4.0}}}}]
+  },
+  'SJK-P2014-007':{
+    id:'SJK-P2014-007',etunimi:'Noel',sukunimi:'Latvala',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:9.8,aikuisPit:null,nytPit:149.9,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'taka',vahvin_ketju:'etu',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:6.0},etu:{pisteet:8.0},sivu:{pisteet:6.0},kierto:{pisteet:4.0}}}}]
+  },
+  'SJK-P2014-008':{
+    id:'SJK-P2014-008',etunimi:'Oscar',sukunimi:'Lehtonen',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:10.5,aikuisPit:null,nytPit:139.9,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'taka',vahvin_ketju:'kierto',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:6.0},etu:{pisteet:8.0},sivu:{pisteet:6.0},kierto:{pisteet:6.0}}}}]
+  },
+  'SJK-P2014-009':{
+    id:'SJK-P2014-009',etunimi:'Eino',sukunimi:'Lähdesmäki',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:9.6,aikuisPit:null,nytPit:157.6,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'taka',vahvin_ketju:'kierto',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:6.0},etu:{pisteet:8.0},sivu:{pisteet:6.0},kierto:{pisteet:8.0}}}}]
+  },
+  'SJK-P2014-010':{
+    id:'SJK-P2014-010',etunimi:'Oiva',sukunimi:'Lähdesmäki',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:9.7,aikuisPit:null,nytPit:158.3,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'etu',vahvin_ketju:'taka',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:8.0},etu:{pisteet:6.0},sivu:{pisteet:6.0},kierto:{pisteet:8.0}}}}]
+  },
+  'SJK-P2014-011':{
+    id:'SJK-P2014-011',etunimi:'Daniel',sukunimi:'Potila',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:9.9,aikuisPit:null,nytPit:150.7,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'taka',vahvin_ketju:'etu',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:4.0},etu:{pisteet:6.0},sivu:{pisteet:4.0},kierto:{pisteet:4.0}}}}]
+  },
+  'SJK-P2014-012':{
+    id:'SJK-P2014-012',etunimi:'Oliver',sukunimi:'Shulgin',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:9.5,aikuisPit:null,nytPit:null,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[]
+  },
+  'SJK-P2014-013':{
+    id:'SJK-P2014-013',etunimi:'Paulus',sukunimi:'Siikala',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:9.8,aikuisPit:null,nytPit:150.9,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'sivu',vahvin_ketju:'kierto',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:6.0},etu:{pisteet:6.0},sivu:{pisteet:4.0},kierto:{pisteet:8.0}}}}]
+  },
+  'SJK-P2014-014':{
+    id:'SJK-P2014-014',etunimi:'Feetu',sukunimi:'Silver',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:10.1,aikuisPit:null,nytPit:149.9,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'sivu',vahvin_ketju:'etu',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:6.0},etu:{pisteet:6.0},sivu:{pisteet:4.0},kierto:{pisteet:4.0}}}}]
+  },
+  'SJK-P2014-015':{
+    id:'SJK-P2014-015',etunimi:'Vilho',sukunimi:'Ylihärsilä',
+    joukkue:'SJK P2014',positio:null,palloliitoId:null,
+    phvTila:'Post-PHV',
+    bioIka:{krono:12.1,bio:12.1,phvEst:9.9,aikuisPit:null,nytPit:149.9,tannerVaihe:'T2',rae:null},
+    adar:[],
+    qs_historia:[{date:'2026-01-20',results:{tsi:null,flei:null,heikoin_ketju:'sivu',vahvin_ketju:'etu',gem:false,gemReasons:[],xfactor:false,xfReasons:[],ketjut:{taka:{pisteet:6.0},etu:{pisteet:6.0},sivu:{pisteet:4.0},kierto:{pisteet:2.0}}}}]
+  }
+};
+  // Rakennetaan lookup-formaatti
+  var lookup = {};
+  Object.keys(DEMO).forEach(function(pid) { lookup[pid] = DEMO[pid]; });
+  window._VP_DEMO_LOOKUP = lookup;
+  // Jos tm_data.js ei ole vielä ladattu, käytetään demoa heti
+  if (!window.TM_DATA || !Object.keys(window.TM_DATA.lookup||{}).length) {
+    window.TM_DATA = { lookup: lookup };
+    console.log('[VP] Demo-data esialustettu:', Object.keys(lookup).length, 'pelaajaa');
+  }
+})();
+// ─────────────────────────────────────────────────────────────────────────
+
 // TalentMaster™ — Palloliiton viralliset ominaisuustestien tavoitetasot
 // Lähde: Eerikkilä / Suomen Palloliitto, päivitetty 2024
 // Taso 3 = kansallinen tavoitetaso (Palloliiton seuratukimallin kriteeri)
@@ -2133,10 +2349,19 @@ function vaihdaTalentti(pid) {
 }
 
 var _vpPin = '';
-var VP_PINS = { '5555': 'demo', '6666': 'fcl', '7777': 'sjk', '8888': 'uj_demo' };
+var VP_PINS = {
+  '5555': 'demo_seura',      // Demo VP
+  '6666': 'fc_lahti',        // FC Lahti VP
+  '7771': 'kpv',             // KPV VP
+  '4441': 'pallo_iirot',     // Pallo-Iirot VP
+  '5551': 'ylojarven_ilves', // Ylöjärven Ilves VP
+  '8881': 'sjk',             // SJK VP
+  '7777': 'sjk',             // SJK vanha PIN (taaksepäinyhteensopivuus)
+  '8888': 'demo_seura'       // UJ demo
+};
 // Roolit: 'vp' = valmennuspäällikkö, 'uj' = urheilujohtaja
 // UJ näkee kaikki seurat ja talenttikansion muttei kirjaa pikakirjauksia
-var VP_ROOLIT = { '5555': 'vp', '6666': 'vp', '7777': 'vp', '8888': 'uj' };
+var VP_ROOLIT = { '5555':'vp','6666':'vp','7771':'vp','4441':'vp','5551':'vp','8881':'vp','7777':'vp','8888':'uj' };
 var _vpRooli = 'vp'; // oletusrooli
 
 function addVpPin(n) {
@@ -2183,7 +2408,7 @@ function initDash() {
   if (!window._tmDataReady) {
     // Data latautuu vielä — odota ja yritä uudelleen
     document.getElementById('pinErr').textContent = 'Data latautuu...';
-    setTimeout(function() { kirjaudu(); }, 500);
+    setTimeout(function() { initDash(); }, 300);
     return;
   }
   // Null-safe data-lataus: käytä TM_DATA jos saatavilla, muuten tyhjä lookup
