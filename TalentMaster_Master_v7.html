@@ -392,26 +392,50 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
 
 <!-- TalentMaster seura- ja pelaajatietokanta — ladataan samasta hakemistosta -->
 <script>
-(function(){
-  var s = document.createElement('script');
-  // Suhteellinen polku — toimii sekä GitHubissa että paikallisesti
-  s.src = 'tm_data.js'; // Kokeillaan ensin lokaalia
-  s.onerror = function() { var s2=document.createElement('script');s2.src='https://terokoskela7-cmyk.github.io/talentmaster/tm_data.js';s2.async=false;s2.onload=s.onload;document.head.appendChild(s2); };
-  s.async = false; // Ladataan synkronisesti ennen muita skriptejä
-  s.onerror = function(){
-    console.warn('[TM] tm_data.js ei ladattu — käytetään vain DEMO-dataa');
-    window._tmDataFailed = true;
-  };
-  s.onload = function(){
-    console.log('[TM] tm_data.js ladattu:', window.TM_DATA ? Object.keys(window.TM_DATA.lookup||{}).length + ' pelaajaa' : 'virhe');
-    // Lataa normitaulukot heti tm_data.js:n jälkeen
+// tm_data.js + tm_normit.js lataus — lokaali ensin, fallback GitHub
+(function() {
+  var GITHUB_DATA   = 'https://terokoskela7-cmyk.github.io/talentmaster/tm_data.js';
+  var GITHUB_NORMIT = 'https://terokoskela7-cmyk.github.io/talentmaster/tm_normit.js';
+
+  function loadNormit() {
     var sn = document.createElement('script');
     sn.src = 'tm_normit.js';
     sn.async = false;
     sn.onload = function(){ console.log('[TM] tm_normit.js ladattu'); };
-    sn.onerror = function(){ console.warn('[TM] tm_normit.js ei ladattu'); };
+    sn.onerror = function(){
+      // Fallback normiteille
+      var sn2 = document.createElement('script');
+      sn2.src = GITHUB_NORMIT;
+      sn2.async = false;
+      sn2.onload = function(){ console.log('[TM] tm_normit.js ladattu GitHubista'); };
+      document.head.appendChild(sn2);
+    };
     document.head.appendChild(sn);
-  };
+  }
+
+  function onDataLoaded() {
+    console.log('[TM] tm_data.js ladattu:', window.TM_DATA ? Object.keys(window.TM_DATA.lookup||{}).length + ' pelaajaa' : 'virhe');
+    loadNormit();
+  }
+
+  function loadFromGithub() {
+    console.log('[TM] Lokaali ei löydy — ladataan GitHubista');
+    var s2 = document.createElement('script');
+    s2.src = GITHUB_DATA;
+    s2.async = false;
+    s2.onload = onDataLoaded;
+    s2.onerror = function() {
+      console.warn('[TM] GitHub-lataus epäonnistui — DEMO-tilassa');
+      window._tmDataFailed = true;
+    };
+    document.head.appendChild(s2);
+  }
+
+  var s = document.createElement('script');
+  s.src = 'tm_data.js';
+  s.async = false;
+  s.onload = onDataLoaded;
+  s.onerror = loadFromGithub;
   document.head.appendChild(s);
 })();
 </script>

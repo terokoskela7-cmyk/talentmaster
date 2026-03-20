@@ -254,25 +254,36 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 </div>
 
 <script>
-// Dynaaminen lataus — toimii sekä GitHubissa että paikallisesti
+// tm_data.js lataus — kokeillaan ensin lokaalia, fallback GitHubiin
 (function() {
+  var GITHUB_URL = 'https://terokoskela7-cmyk.github.io/talentmaster/tm_data.js';
+
+  function onDataLoaded() {
+    console.log('[VP] tm_data.js ladattu:', window.TM_DATA ? Object.keys(window.TM_DATA.lookup||{}).length + ' pelaajaa' : 'virhe');
+    window._tmDataReady = true;
+    if (typeof window._vpInitReady === 'function') window._vpInitReady();
+  }
+
+  function loadFromGithub() {
+    console.log('[VP] Lokaali ei löydy — ladataan GitHubista');
+    var s2 = document.createElement('script');
+    s2.src = GITHUB_URL;
+    s2.async = false;
+    s2.onload = onDataLoaded;
+    s2.onerror = function() {
+      console.warn('[VP] GitHub-lataus epäonnistui');
+      window._tmDataFailed = true;
+      window._tmDataReady = true;
+      if (typeof window._vpInitReady === 'function') window._vpInitReady();
+    };
+    document.head.appendChild(s2);
+  }
+
   var s = document.createElement('script');
-  s.src = 'tm_data.js'; // Kokeillaan ensin lokaalia
-  s.onerror = function() { var s2=document.createElement('script');s2.src='https://terokoskela7-cmyk.github.io/talentmaster/tm_data.js';s2.async=false;s2.onload=s.onload;document.head.appendChild(s2); };
+  s.src = 'tm_data.js';
   s.async = false;
-  s.onload = function() {
-    console.log('[VP] tm_data.js ladattu:', 
-      window.TM_DATA ? Object.keys(window.TM_DATA.lookup||{}).length + ' pelaajaa' : 'virhe');
-    window._tmDataReady = true;
-    // Käynnistä VP heti kun data on valmis
-    if (typeof window._vpInitReady === 'function') window._vpInitReady();
-  };
-  s.onerror = function() {
-    console.warn('[VP] tm_data.js ei ladattu — demo-tilassa');
-    window._tmDataFailed = true;
-    window._tmDataReady = true;
-    if (typeof window._vpInitReady === 'function') window._vpInitReady();
-  };
+  s.onload = onDataLoaded;
+  s.onerror = loadFromGithub;
   document.head.appendChild(s);
 })();
 </script>
