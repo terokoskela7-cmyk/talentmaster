@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster™ — IDP-kortti</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0A0F1C; --bg2:#111827; --bg3:#1A2235; --card:#1E2D45;
+  --border:rgba(255,255,255,.08);
+  --teal:#00E5CC; --amber:#FFB830; --red:#FF4060;
+  --green:#1FD16A; --purple:#A78BFA; --blue:#4A9EFF;
+  --gold:#FFD700; --orange:#FF8C35;
+  --text:#F0F4FF; --muted:rgba(240,244,255,.45); --muted2:rgba(240,244,255,.28);
+  --rp:#4A9EFF; --rg:rgba(74,158,255,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;line-height:1.5;}
+
+.header{background:linear-gradient(135deg,#0D1A2E,#0A1628);border-bottom:1px solid rgba(255,215,0,.15);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:var(--gold);letter-spacing:1px;}
+.logo span{color:var(--muted);font-weight:400;font-size:13px;margin-left:6px;}
+
+/* Toggle */
+.toggle-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:10px;position:sticky;top:53px;z-index:99;}
+.tgl-lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--muted2);flex-shrink:0;text-transform:uppercase;}
+.tgl-napit{display:flex;gap:4px;flex:1;}
+.tgl-nappi{flex:1;padding:8px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted2);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:all .18s;white-space:nowrap;}
+.tgl-nappi.on{border-color:var(--rp);background:var(--rg);color:var(--rp);}
+.tgl-sub{font-size:9px;opacity:.65;display:block;margin-top:1px;}
+
+/* Demo-valinta */
+.demo-bar{background:var(--bg3);border-bottom:1px solid var(--border);padding:8px 24px;display:flex;align-items:center;gap:8px;}
+.demo-lbl{font-size:11px;color:var(--muted2);}
+.demo-nappi{padding:5px 12px;border-radius:7px;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;}
+.demo-nappi.on{border-color:var(--gold);color:var(--gold);background:rgba(255,215,0,.07);}
+
+.main{padding:16px 24px;display:flex;flex-direction:column;gap:16px;}
+
+/* Pelaaja hero */
+.hero{border-radius:16px;padding:18px;position:relative;overflow:hidden;}
+.hero-ylaosa{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px;}
+.p-avatar{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:900;border:2px solid rgba(255,215,0,.4);background:rgba(255,215,0,.1);color:var(--gold);flex-shrink:0;}
+.p-nimi{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;line-height:1;}
+.p-sub{font-size:11px;color:var(--muted2);margin-top:3px;line-height:1.6;}
+.tid-iso{font-family:'Bebas Neue',sans-serif;font-size:64px;line-height:1;flex-shrink:0;}
+.tid-lbl{font-size:9px;color:var(--muted2);text-align:center;}
+.p-tagit{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
+.p-tag{font-size:10px;padding:3px 8px;border-radius:5px;font-weight:700;}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;}
+.card-title{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted2);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+
+/* Dimensio-palkit */
+.dim-rivi{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.dim-nimi{font-size:11px;font-weight:600;color:var(--muted);width:90px;flex-shrink:0;}
+.dim-bg{flex:1;height:10px;background:rgba(255,255,255,.06);border-radius:5px;overflow:hidden;}
+.dim-fill{height:10px;border-radius:5px;transition:width .7s ease;}
+.dim-num{font-size:12px;font-weight:700;width:32px;text-align:right;flex-shrink:0;}
+.dim-max{font-size:9px;color:var(--muted2);width:22px;flex-shrink:0;}
+
+/* Liikeketju-spider */
+.spider-wrap{display:flex;align-items:center;gap:16px;}
+.spider-svg{flex-shrink:0;}
+.ketju-lista{flex:1;display:flex;flex-direction:column;gap:5px;}
+.ketju-rivi{display:flex;align-items:center;gap:7px;}
+.ketju-nm{font-size:10px;color:var(--muted);width:80px;flex-shrink:0;}
+.ketju-bg{flex:1;height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;}
+.ketju-fill{height:8px;border-radius:4px;}
+.ketju-v{font-size:11px;font-weight:700;width:22px;text-align:right;flex-shrink:0;}
+
+/* Kehityspolku */
+.polku-rivi{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:12px;margin-bottom:8px;border-left:3px solid;}
+.polku-aika{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:900;white-space:nowrap;flex-shrink:0;width:80px;}
+.polku-sisalto{flex:1;}
+.polku-tavoite{font-size:13px;font-weight:600;margin-bottom:3px;}
+.polku-kuvaus{font-size:11px;color:var(--muted);line-height:1.5;}
+.polku-mittari{font-size:10px;font-weight:700;margin-top:4px;}
+
+/* Radar-spider */
+.radar-container{display:flex;flex-direction:column;align-items:center;}
+
+/* IDP-päätös */
+.paatos-kortti{border-radius:14px;padding:16px;border:2px solid;}
+.paatos-tila{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;margin-bottom:4px;}
+.paatos-kuvaus{font-size:12px;color:var(--muted);line-height:1.6;}
+
+/* Arviointi */
+.arvio-rivi{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;margin-bottom:6px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04);}
+.arvio-pvm{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;flex-shrink:0;width:80px;}
+.arvio-teksti{flex:1;font-size:12px;color:var(--muted);}
+.arvio-tila{font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;flex-shrink:0;}
+
+/* Siirtosuositus */
+.siirto-badge{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;padding:8px 14px;border-radius:9px;margin-bottom:8px;}
+
+/* Stat-minis */
+.stat-mini-row{display:flex;gap:8px;margin-bottom:12px;}
+.stat-mini{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 12px;text-align:center;}
+.stat-mini-v{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;line-height:1;}
+.stat-mini-l{font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}
+
+/* ADAR-kommentti */
+.adar-k{padding:9px 12px;background:rgba(167,139,250,.06);border-left:2px solid var(--purple);border-radius:0 8px 8px 0;margin-bottom:7px;}
+.adar-dim{font-size:10px;font-weight:700;color:var(--purple);margin-bottom:2px;}
+.adar-txt{font-size:11px;color:var(--muted);font-style:italic;line-height:1.5;}
+.adar-pvm{font-size:9px;color:var(--muted2);margin-top:2px;}
+
+/* Potentiaalipolku aikajana */
+.aikajana{position:relative;padding-left:24px;margin-top:8px;}
+.aikajana::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:1px;background:rgba(255,215,0,.2);}
+.aj-piste{position:relative;margin-bottom:16px;}
+.aj-piste::before{content:'';position:absolute;left:-21px;top:4px;width:8px;height:8px;border-radius:50%;background:var(--gold);border:2px solid var(--bg);}
+.aj-vuosi{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:900;color:var(--gold);margin-bottom:2px;}
+.aj-kuvaus{font-size:12px;color:var(--muted);line-height:1.5;}
+.aj-piste.nyt::before{background:var(--teal);box-shadow:0 0 0 3px rgba(0,229,204,.2);}
+.aj-piste.nyt .aj-vuosi{color:var(--teal);}
+
+/* Footer */
+.footer{background:var(--bg2);border-top:1px solid var(--border);padding:14px 24px;text-align:center;font-size:11px;color:var(--muted2);margin-top:8px;}
+
+@media(max-width:640px){
+  .two-col,.three-col{grid-template-columns:1fr;}
+  .spider-wrap{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">TalentMaster™ <span>IDP-kortti · Yksilöllinen kehityssuunnitelma</span></div>
+  <div style="font-size:11px;color:var(--muted);text-align:right;line-height:1.8;"><strong style="color:var(--gold);">Luottamuksellinen</strong><br>Seuran sisäinen dokumentti</div>
+</div>
+
+<!-- ROOLI-TOGGLE -->
+<div class="toggle-bar">
+  <div class="tgl-lbl">Näkymä</div>
+  <div class="tgl-napit">
+    <button class="tgl-nappi" onclick="vaihdaRooli('UJ')">
+      Urheilujohtaja
+      <span class="tgl-sub">Strateginen päätös</span>
+    </button>
+    <button class="tgl-nappi on" onclick="vaihdaRooli('TV')">
+      Talenttivalmentaja
+      <span class="tgl-sub">Kehityssuunnitelma</span>
+    </button>
+    <button class="tgl-nappi" onclick="vaihdaRooli('EJ')">
+      Edustusjoukkue
+      <span class="tgl-sub">Siirtovalmius</span>
+    </button>
+  </div>
+</div>
+
+<!-- DEMO-PELAAJAT -->
+<div class="demo-bar">
+  <span class="demo-lbl">Demo-pelaaja:</span>
+  <button class="demo-nappi on" onclick="lataaDemo('eetu')">Eetu Mäkinen · U15</button>
+  <button class="demo-nappi" onclick="lataaDemo('aino')">Aino Virtanen · U12</button>
+  <button class="demo-nappi" onclick="lataaDemo('mikael')">Mikael Berg · U19</button>
+</div>
+
+<div class="main" id="idp-main">
+<!-- Sisältö rakentuu JS:llä -->
+</div>
+
+<div class="footer">
+  <strong style="color:var(--gold);">TalentMaster™ IDP</strong> — Perustuu HPP TalentID -pisteytysmalliin · Liikanen & Törmä 2025 (N=1843)<br>
+  <span style="margin-top:3px;display:block;">Kaikki data on esimerkkidata. IDP-kortti on seuran sisäinen strateginen dokumentti.</span>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// PISTEYTYSMALLI — HPP TalentID (Liikanen & Törmä 2025)
+// ════════════════════════════════════════════════════════
+
+const TID_RAE_K  = {Q1:.92, Q2:.96, Q3:1.02, Q4:1.06};
+const TID_PHV_MOD = {pre:1, peak:-3, post:0, stable:2};
+const TID_ROOLI_MOD = {1:-2, 2:-.5, 3:0, 4:1.5, 5:3};
+
+const TID_INTERP = [
+  {min:0,  max:40,  label:'Kehitettävää',     color:'#FF4060', icon:'🔴'},
+  {min:41, max:60,  label:'Lupaava',           color:'#FFB830', icon:'🟡'},
+  {min:61, max:75,  label:'Merkittävä talentti',color:'#00E5CC', icon:'🟢'},
+  {min:76, max:90,  label:'Huippulahjakkuus',  color:'#A78BFA', icon:'💜'},
+  {min:91, max:110, label:'Kansainvälinen taso',color:'#FFD700', icon:'⭐'},
+];
+
+const TID_D2 = [
+  {key:'pujottelu', label:'Pujottelu',     w12:.28, w15:.25, w19:.20},
+  {key:'syotto',    label:'Syöttötaito',   w12:.22, w15:.22, w19:.20},
+  {key:'sm_pallo',  label:'SM pallolla',   w12:.20, w15:.20, w19:.20},
+  {key:'paatos2',   label:'Päätös 2v',     w12:.15, w15:.18, w19:.22},
+  {key:'puol',      label:'Puolustuspeli', w12:.15, w15:.15, w19:.18},
+];
+
+const TID_PSYK = [
+  {q:'Sitkeys — jatkan vaikka menee huonosti'},
+  {q:'Resilienssi — vastoinkäymiset motivoivat'},
+  {q:'Kasvumindset — uskon kehittyväni'},
+  {q:'Itsesäätely — hallitsen tunteeni paineessa'},
+  {q:'Sisäinen motivaatio — haluan kehittyä itseni takia'},
+  {q:'Vertailuorientaatio — oma kehitys tärkeämpi kuin muiden'},
+  {q:'Harjoittelulaatu — teen harjoitteet laadukkaasti'},
+  {q:'Koachattavuus — vastaanottavainen palautteelle'},
+  {q:'Tavoitteellisuus — asetan ja seuraan tavoitteitani'},
+  {q:'Sosiaalinen rohkeus — uskallan pyytää apua'},
+];
+
+const TID_KOGN = [
+  {key:'pre',     label:'Pre-scanning',        w12:.40, w15:.35, w19:.30},
+  {key:'paatos',  label:'Päätös paineessa',    w12:.25, w15:.28, w19:.30},
+  {key:'inhibit', label:'Inhibitiokyky',       w12:.20, w15:.20, w19:.20},
+  {key:'palaut',  label:'Palautteenkäsittely', w12:.15, w15:.17, w19:.20},
+];
+
+const TID_SOS = [
+  {key:'komm',    label:'Kenttäkommunikaatio', w12:.35, w15:.30, w19:.25},
+  {key:'energia', label:'Energiavaikutus',     w12:.30, w15:.28, w19:.25},
+  {key:'konflikti',label:'Konfliktinhallinta', w12:.15, w15:.17, w19:.20},
+  {key:'valm2',   label:'Valmentautuvuus',     w12:.20, w15:.20, w19:.20},
+  {key:'vertais', label:'Vertaisjohtajuus',    w12:.00, w15:.05, w19:.10},
+];
+
+const FYS_PROFILES = {
+  U12:{wkey:'w12', sliders:[
+    {key:'koordinaatio',  label:'Koordinaatio',  w:.30},
+    {key:'ketteryys',     label:'Ketteryys',     w:.28},
+    {key:'reaktiivisuus', label:'Reaktiivisuus', w:.22},
+    {key:'nopeuslaatu',   label:'Nopeus laatu',  w:.20},
+  ]},
+  U15:{wkey:'w15', sliders:[
+    {key:'ketteryys',      label:'Ketteryys',      w:.25},
+    {key:'nopeus2030',     label:'Nopeus 20–30m',  w:.28},
+    {key:'kehonpainovoi',  label:'Kehonpainovoima',w:.22},
+    {key:'elastisuus',     label:'Elastisuus',     w:.25},
+  ]},
+  U19:{wkey:'w19', sliders:[
+    {key:'suhtvoi',   label:'Suhteellinen voima', w:.28},
+    {key:'elastisuus',label:'Elastisuus',          w:.22},
+    {key:'nopeus',    label:'Nopeus',              w:.28},
+    {key:'liikkuvuus',label:'Liikkuvuus',          w:.22},
+  ]},
+};
+
+// ── Demo-pelaajat ───────────────────────────────────────
+const DEMOS = {
+  eetu:{
+    nimi:'Eetu Mäkinen', ika:'U15', phv:'peak', rae:'Q3',
+    pos:'Keskikenttä', rooli:'4', syntvuosi:2010,
+    fys:{ketteryys:2.3, nopeus2030:2.5, kehonpainovoi:2.0, elastisuus:2.8},
+    d2:{pujottelu:3.5, syotto:3.0, sm_pallo:2.5, paatos2:3.5, puol:2.0},
+    psyk:[4,4,5,3,4,4,5,3,4,4],
+    kogn:{pre:3.5, paatos:3.0, inhibit:4.0, palaut:3.0},
+    sos:{komm:3.5, energia:4.0, konflikti:3.0, valm2:4.0, vertais:3.5},
+    // Liikeketjut suoraan (0–100)
+    ketjut:{vauhti:71, lahto:74, sm:68, hallinta:54, pelialy:79},
+    // ADAR-havainnot
+    adar:[
+      {dim:'Skannaus',  pvm:'15.3.2026', txt:'Katse ylös ennen vastaanottoa — selkeä kehitys. Paineessa palaa vanhaan malliin.'},
+      {dim:'Päätös',    pvm:'2.3.2026',  txt:'Epävarma omasta tasostaan vaikka taidot riittävät. Tarvitsee rohkaisua.'},
+    ],
+    // TK-tulokset
+    tk:{tki:6.2, pujottelu:'9.4s', syotto:'11.2s', delta:'+0.8'},
+    // IDP-suunnitelma
+    idp:{
+      resurssit:'FS-valmentajan yksilöaika +1h/vko · TK-testaus 4×/kausi · Psykologinen tuki saatavilla',
+      paatos:'IDP-seuranta aktiivinen',
+      paatosTila:'aktiivinen',
+      lyhyt:[
+        {ketju:'Hallintaketju', tavoite:'Lankku + variaatiot 3×/vko', mittari:'Hallintaketju 54 → 62', viikot:'0–12 vko'},
+        {ketju:'Psykologinen', tavoite:'Kasvumindset-keskustelu valmentajan kanssa', mittari:'D3 3.8 → 4.2', viikot:'0–8 vko'},
+        {ketju:'SM-ketju', tavoite:'Tekninen pääharjoite SM-fokuksella joka 2. viikko', mittari:'SM-ketju 68 → 74', viikot:'0–12 vko'},
+      ],
+      keski:[
+        {aika:'Syksy 2026', tavoite:'Siirretään P16-ryhmään harjoittelemaan', mittari:'OVR ≥ 78, D3 ≥ 4.0'},
+        {aika:'Kevät 2027', tavoite:'Ensimmäinen A-ryhmän harjoitusviikko', mittari:'TK-tulos top-3 ikäryhmässä'},
+      ],
+      polku:[
+        {vuosi:'2026', kuvaus:'P16 harjoitusryhmä — haastaa itseään isommassa joukossa', vari:'#00E5CC'},
+        {vuosi:'2027', kuvaus:'Ensimmäiset peliminuutit P17-sarjassa', vari:'#4A9EFF'},
+        {vuosi:'2028', kuvaus:'Vakituinen P17/U18 — kauden ensimmäinen maalintekomahdollisuus', vari:'#A78BFA'},
+        {vuosi:'2029–30', kuvaus:'Edustusjoukkueen harjoitusryhmä — ammattilaissopimus mahdollinen', vari:'#FFD700'},
+      ],
+    },
+  },
+  aino:{
+    nimi:'Aino Virtanen', ika:'U12', phv:'pre', rae:'Q1',
+    pos:'Hyökkääjä', rooli:'5', syntvuosi:2013,
+    fys:{koordinaatio:2.8, ketteryys:3.0, reaktiivisuus:2.5, nopeuslaatu:2.0},
+    d2:{pujottelu:4.0, syotto:4.5, sm_pallo:3.5, paatos2:4.0, puol:2.5},
+    psyk:[5,5,5,4,5,5,4,4,5,5],
+    kogn:{pre:4.5, paatos:3.5, inhibit:4.0, palaut:4.0},
+    sos:{komm:4.0, energia:5.0, konflikti:3.5, valm2:4.5, vertais:0},
+    ketjut:{vauhti:62, lahto:58, sm:77, hallinta:65, pelialy:82},
+    adar:[
+      {dim:'Peliäly', pvm:'18.3.2026', txt:'Poikkeuksellinen pelinlukutaito — näkee tilaa jota muut eivät. RAE Q1 muttei silti aina saa huomiota jonka ansaitsee.'},
+    ],
+    tk:{tki:7.8, pujottelu:'8.1s', syotto:'9.8s', delta:'+1.4'},
+    idp:{
+      resurssit:'Erityinen seuranta RAE Q1 -vinouman takia · TK-testaus 3×/kausi',
+      paatos:'IDP-seuranta aktiivinen — RAE-korjattu potentiaali erittäin korkea',
+      paatosTila:'aktiivinen',
+      lyhyt:[
+        {ketju:'Vauhtiketju', tavoite:'Lähtönopeusharjoittelu 2×/vko', mittari:'Vauhtiketju 62 → 70', viikot:'0–12 vko'},
+        {ketju:'Lähtöketju',  tavoite:'Reaktiolähdöt parin kanssa', mittari:'Lähtöketju 58 → 66', viikot:'0–8 vko'},
+      ],
+      keski:[
+        {aika:'Syksy 2026', tavoite:'Varmistetaan ettei RAE-vaikutus aiheuta aliedustusta', mittari:'Peliaika ikäluokassa oikeassa suhteessa'},
+        {aika:'Kevät 2027', tavoite:'P14-kokeilu — arvioidaan valmius', mittari:'TKI ≥ 8.0 ikäluokkakorjattuna'},
+      ],
+      polku:[
+        {vuosi:'2026', kuvaus:'P12/P13 — vahvistetaan tekninen perusta ennen PHV-huippua', vari:'#00E5CC'},
+        {vuosi:'2027', kuvaus:'PHV alkaa — erityinen seuranta, ei ylikuormiteta', vari:'#FFB830'},
+        {vuosi:'2028', kuvaus:'P15 — takaisin täyteen harjoitteluun, tekniikka kukoistaa', vari:'#A78BFA'},
+        {vuosi:'2029–30', kuvaus:'P17/P19 maajoukkuepotentiaali — kansainvälinen ikäluokkatasolle', vari:'#FFD700'},
+      ],
+    },
+  },
+  mikael:{
+    nimi:'Mikael Berg', ika:'U19', phv:'stable', rae:'Q2',
+    pos:'Puolustaja', rooli:'3', syntvuosi:2006,
+    fys:{suhtvoi:2.5, elastisuus:2.0, nopeus:3.0, liikkuvuus:1.5},
+    d2:{pujottelu:2.5, syotto:3.0, sm_pallo:2.8, paatos2:3.0, puol:3.5},
+    psyk:[3,3,3,4,3,3,4,4,3,3],
+    kogn:{pre:3.0, paatos:3.5, inhibit:3.0, palaut:3.5},
+    sos:{komm:4.0, energia:3.0, konflikti:3.5, valm2:3.5, vertais:4.0},
+    ketjut:{vauhti:78, lahto:72, sm:65, hallinta:71, pelialy:68},
+    adar:[
+      {dim:'Toteutus', pvm:'12.3.2026', txt:'Puolustuspelissä varma ja ennakoiva. Hyökkäyspelissä liian konservatiivinen — ei uskalla ottaa riskiä.'},
+      {dim:'Päätös',   pvm:'1.3.2026',  txt:'Paineen alla hyvä — viileys kriittisissä tilanteissa poikkeuksellinen 19-vuotiaalle.'},
+    ],
+    tk:{tki:5.8, pujottelu:'10.2s', syotto:'12.1s', delta:'+0.3'},
+    idp:{
+      resurssit:'Siirtoneuvottelut käynnissä · Agenttiyhteistyö harkittava · Videoscouting',
+      paatos:'Siirtovalmius arvioitava kauden lopussa',
+      paatosTila:'arviointi',
+      lyhyt:[
+        {ketju:'SM-ketju', tavoite:'Hyökkäystilanteiden rohkeusharjoittelu', mittari:'SM-ketju 65 → 71', viikot:'0–16 vko'},
+        {ketju:'Peliälyketju', tavoite:'Videopalaute offensiivisista päätöksistä', mittari:'Päätös D4 3.5 → 4.0', viikot:'0–12 vko'},
+      ],
+      keski:[
+        {aika:'Kesä 2026', tavoite:'Lainasopimus 2. divisioona -seuraan', mittari:'50+ peliminuuttia kaudessa'},
+        {aika:'Syksy 2026', tavoite:'Päätös jatkosopimuksesta tai vapautuksesta', mittari:'OVR ≥ 76, TKI ≥ 6.5'},
+      ],
+      polku:[
+        {vuosi:'Nyt', kuvaus:'Edustusjoukkueen harjoitusryhmä — lainasopimus suositeltu', vari:'#00E5CC'},
+        {vuosi:'2026', kuvaus:'Laina 2. tai 3. divisioonaan — peliaika ratkaisevaa', vari:'#4A9EFF'},
+        {vuosi:'2027', kuvaus:'Ammattilaissopimus kotiseuraan tai vapautetaan', vari:'#FFD700'},
+      ],
+    },
+  },
+};
+
+// ════════════════════════════════════════════════════════
+// PISTEYTYSLASKENTA
+// ════════════════════════════════════════════════════════
+function laskaTID(d) {
+  var prof = FYS_PROFILES[d.ika] || FYS_PROFILES.U15;
+  var wk   = prof.wkey;
+  var raeK = TID_RAE_K[d.rae]  || 1.0;
+  var phvM = TID_PHV_MOD[d.phv] || 0;
+
+  // D1 Fyysinen (max 40)
+  var d1r=0, d1w=0;
+  prof.sliders.forEach(function(s){
+    d1r += (d.fys[s.key]||2.0) * s.w;
+    d1w += s.w;
+  });
+  var d1 = d1w>0 ? (d1r/d1w/3)*40*raeK : 0;
+
+  // D2 Tekninen (max 25)
+  var d2r=0;
+  TID_D2.forEach(function(q){ d2r += (d.d2[q.key]||3.0) * (q[wk]||0.2); });
+  var d2 = (d2r/5)*25;
+
+  // D3 Psykologinen (max 15)
+  var d3r=0;
+  d.psyk.forEach(function(v){ d3r+=v; });
+  var d3 = (d3r/(d.psyk.length*5))*15;
+
+  // D4 Kognitiivinen (max 10)
+  var d4r=0;
+  TID_KOGN.forEach(function(q){ d4r += (d.kogn[q.key]||3.0)*(q[wk]||0.25); });
+  var d4 = (d4r/5)*10;
+
+  // D5 Sosiaalinen (max 10)
+  var d5r=0;
+  TID_SOS.forEach(function(q){ d5r += (d.sos[q.key]||3.0)*(q[wk]||0.2); });
+  var d5 = (d5r/5)*10;
+
+  var rooliM = TID_ROOLI_MOD[d.rooli] || 0;
+  var total = Math.max(0, Math.min(110, d1+d2+d3+d4+d5+rooliM+phvM));
+  var interp = TID_INTERP.find(function(t){ return total>=t.min && total<=t.max; }) || TID_INTERP[0];
+  return {d1,d2,d3,d4,d5,total,interp,raeK,phvM,rooliM};
+}
+
+// ════════════════════════════════════════════════════════
+// SPIDER-KAAVIO (SVG, liikeketjut)
+// ════════════════════════════════════════════════════════
+function piirraSpider(ketjut, w, h, vari1, vari2, nayta_toinen) {
+  var ketjuNimet = ['Vauhti', 'Lähtö', 'SM', 'Hallinta', 'Peliäly'];
+  var arvot = [ketjut.vauhti, ketjut.lahto, ketjut.sm, ketjut.hallinta, ketjut.pelialy];
+  var CX=w/2, CY=h/2, R=Math.min(w,h)/2-22;
+  var angles = arvot.map(function(_,i){ return (i*72-90)*Math.PI/180; });
+
+  function pt(v,i){
+    var r=(v/100)*R;
+    return [CX+r*Math.cos(angles[i]), CY+r*Math.sin(angles[i])];
+  }
+  function ptR(r,i){
+    return [CX+r*Math.cos(angles[i]), CY+r*Math.sin(angles[i])];
+  }
+
+  var svg = '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible;">';
+
+  // Grid rings
+  [0.25,0.5,0.75,1.0].forEach(function(pct){
+    var pts=angles.map(function(_,i){ return ptR(R*pct,i); });
+    var d=pts.map(function(p,i){ return (i===0?'M':'L')+p[0]+' '+p[1]; }).join(' ')+'Z';
+    svg += '<path d="'+d+'" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="0.5"/>';
+  });
+  // Akselit
+  angles.forEach(function(_,i){
+    var p=ptR(R,i);
+    svg += '<line x1="'+CX+'" y1="'+CY+'" x2="'+p[0]+'" y2="'+p[1]+'" stroke="rgba(255,255,255,.06)" stroke-width="0.5"/>';
+  });
+
+  // Täyttöalue
+  var pts = arvot.map(function(v,i){ return pt(v,i); });
+  var d = pts.map(function(p,i){ return (i===0?'M':'L')+p[0]+' '+p[1]; }).join(' ')+'Z';
+  svg += '<path d="'+d+'" fill="'+vari1+'33" stroke="'+vari1+'" stroke-width="1.5"/>';
+  // Pisteet
+  pts.forEach(function(p){
+    svg += '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3" fill="'+vari1+'"/>';
+  });
+
+  // Nimet — sijoitus CX=w/2, label_R=R+16
+  var labelR = R+16;
+  ketjuNimet.forEach(function(nimi,i){
+    var lx = CX+labelR*Math.cos(angles[i]);
+    var ly = CY+labelR*Math.sin(angles[i]);
+    var anch = lx<CX-4?'end':lx>CX+4?'start':'middle';
+    svg += '<text x="'+lx+'" y="'+(ly+3)+'" text-anchor="'+anch+'"'
+         + ' font-size="9" font-weight="700" font-family="Barlow Condensed,sans-serif"'
+         + ' fill="rgba(240,244,255,.6)">'+nimi+'</text>';
+    svg += '<text x="'+lx+'" y="'+(ly+13)+'" text-anchor="'+anch+'"'
+         + ' font-size="9" font-family="Barlow Condensed,sans-serif"'
+         + ' fill="rgba(240,244,255,.35)">'+arvot[i]+'</text>';
+  });
+
+  svg += '</svg>';
+  return svg;
+}
+
+// ════════════════════════════════════════════════════════
+// RADAR D1–D5 (viisi dimensiota)
+// ════════════════════════════════════════════════════════
+function piirraRadar(scores, w, h) {
+  // scores = [d1/40, d2/25, d3/15, d4/10, d5/10] normalisoituina 0–1
+  var nimet=['Fyysinen','Tekninen','Psyko','Kognitio','Sosiaalinen'];
+  var VARIT=['#00E5CC','#4A9EFF','#A78BFA','#FFB830','#1FD16A'];
+  var CX=w/2, CY=h/2, R=Math.min(w,h)/2-22;
+  var angles = scores.map(function(_,i){ return (i*72-90)*Math.PI/180; });
+  function pt(v,i){ return [CX+v*R*Math.cos(angles[i]), CY+v*R*Math.sin(angles[i])]; }
+  function ptR(r,i){ return [CX+r*Math.cos(angles[i]), CY+r*Math.sin(angles[i])]; }
+
+  var svg='<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible;">';
+  [0.25,0.5,0.75,1.0].forEach(function(p){
+    var pts=angles.map(function(_,i){ return ptR(R*p,i); });
+    var d=pts.map(function(q,i){ return (i===0?'M':'L')+q[0]+' '+q[1]; }).join(' ')+'Z';
+    svg+='<path d="'+d+'" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="0.5"/>';
+  });
+  angles.forEach(function(_,i){
+    var p=ptR(R,i);
+    svg+='<line x1="'+CX+'" y1="'+CY+'" x2="'+p[0]+'" y2="'+p[1]+'" stroke="rgba(255,255,255,.06)" stroke-width="0.5"/>';
+  });
+  var pts=scores.map(function(v,i){ return pt(v,i); });
+  var d=pts.map(function(p,i){ return (i===0?'M':'L')+p[0]+' '+p[1]; }).join(' ')+'Z';
+  svg+='<path d="'+d+'" fill="rgba(0,229,204,.12)" stroke="var(--teal)" stroke-width="1.5"/>';
+  pts.forEach(function(p,i){
+    svg+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3.5" fill="'+VARIT[i]+'"/>';
+  });
+  var labelR=R+16;
+  nimet.forEach(function(nm,i){
+    var lx=CX+labelR*Math.cos(angles[i]);
+    var ly=CY+labelR*Math.sin(angles[i]);
+    var anch=lx<CX-4?'end':lx>CX+4?'start':'middle';
+    svg+='<text x="'+lx+'" y="'+(ly+3)+'" text-anchor="'+anch+'" font-size="9" font-weight="700" font-family="Barlow Condensed,sans-serif" fill="'+VARIT[i]+'">'+nm+'</text>';
+  });
+  svg+='</svg>';
+  return svg;
+}
+
+// ════════════════════════════════════════════════════════
+// TILA
+// ════════════════════════════════════════════════════════
+var ROOLI = 'TV';
+var PELAAJA = DEMOS.eetu;
+
+function vaihdaRooli(r){
+  ROOLI = r;
+  document.querySelectorAll('.tgl-nappi').forEach(function(n,i){
+    n.classList.toggle('on', ['UJ','TV','EJ'][i]===r);
+  });
+  rakenna();
+}
+
+function lataaDemo(key){
+  PELAAJA = DEMOS[key];
+  document.querySelectorAll('.demo-nappi').forEach(function(n,i){
+    n.classList.toggle('on', ['eetu','aino','mikael'][i]===key);
+  });
+  rakenna();
+}
+
+// ════════════════════════════════════════════════════════
+// PÄÄRAKENNIN
+// ════════════════════════════════════════════════════════
+function rakenna(){
+  var p = PELAAJA;
+  var tid = laskaTID(p);
+  var el = document.getElementById('idp-main');
+
+  var phvTeksti = {pre:'Pre-PHV',peak:'PHV-HUIPPU',post:'Post-PHV',stable:'PHV-vakaa'}[p.phv]||p.phv;
+  var phvVari   = {pre:'#4A9EFF',peak:'#FF4060',post:'#00E5CC',stable:'#1FD16A'}[p.phv]||'#888';
+  var raeVari   = {Q1:'#FFB830',Q2:'#888',Q3:'#A78BFA',Q4:'#00E5CC'}[p.rae]||'#888';
+
+  var h = '';
+
+  // ── YHTEINEN HERO ──────────────────────────────────────
+  h += '<div class="hero" style="background:linear-gradient(135deg,rgba(255,215,0,.08),rgba(255,215,0,.02));border:1px solid rgba(255,215,0,.2);">';
+  h += '<div class="hero-ylaosa">';
+  h += '<div class="p-avatar">'+p.nimi.split(' ').map(function(n){return n[0];}).join('')+'</div>';
+  h += '<div style="flex:1;">';
+  h += '<div class="p-nimi">'+p.nimi+'</div>';
+  h += '<div class="p-sub">'+p.pos+' · '+p.ika+' · Syntynyt '+p.syntvuosi+'<br>RAE '+p.rae+' · '+phvTeksti+'</div>';
+  h += '<div class="p-tagit">';
+  h += '<span class="p-tag" style="background:rgba(255,215,0,.12);color:var(--gold);">⭐ IDP-pelaaja</span>';
+  h += '<span class="p-tag" style="background:'+phvVari+'22;color:'+phvVari+';">'+phvTeksti+'</span>';
+  h += '<span class="p-tag" style="background:'+raeVari+'22;color:'+raeVari+';">RAE '+p.rae+'</span>';
+  h += '<span class="p-tag" style="background:rgba(0,229,204,.1);color:var(--teal);">TK '+p.tk.tki+'</span>';
+  h += '</div></div>';
+  h += '<div style="text-align:right;flex-shrink:0;">';
+  h += '<div class="tid-iso" style="color:'+tid.interp.color+';">'+Math.round(tid.total)+'</div>';
+  h += '<div class="tid-lbl">TalentID</div>';
+  h += '<div style="font-size:11px;font-weight:700;color:'+tid.interp.color+';margin-top:2px;">'+tid.interp.icon+' '+tid.interp.label+'</div>';
+  h += '</div></div>';
+
+  // Progresspalkki
+  h += '<div style="height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;">';
+  h += '<div style="height:6px;width:'+Math.min(100,tid.total)+'%;background:'+tid.interp.color+';border-radius:3px;transition:width .8s;"></div>';
+  h += '</div>';
+  h += '<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--muted2);">';
+  h += '<span>0</span><span>40 Kehitettävää</span><span>60 Lupaava</span><span>75 Merkittävä</span><span>90 Huippu</span><span>110</span>';
+  h += '</div></div>';
+
+  // ── ROOLIN MUKAINEN SISÄLTÖ ────────────────────────────
+  if (ROOLI === 'UJ') h += rakennaUJ(p, tid, phvVari, raeVari);
+  else if (ROOLI === 'TV') h += rakennaTV(p, tid, phvVari);
+  else h += rakennaEJ(p, tid);
+
+  el.innerHTML = h;
+}
+
+// ════════════════════════════════════════════════════════
+// NÄKYMÄ 1 — URHEILUJOHTAJA
+// ════════════════════════════════════════════════════════
+function rakennaUJ(p, tid, phvVari, raeVari){
+  var h = '';
+
+  // Investointipäätös
+  var pt = p.idp.paatosTila;
+  var ptConf = {
+    aktiivinen: {vari:'#1FD16A', bg:'rgba(31,209,106,.08)', border:'rgba(31,209,106,.2)', ikoni:'✅', teksti:'IDP aktiivinen — resurssit kohdistettu'},
+    arviointi:  {vari:'#FFB830', bg:'rgba(255,184,48,.08)',  border:'rgba(255,184,48,.2)',  ikoni:'⏳', teksti:'Arviointi käynnissä — päätös kauden lopussa'},
+    keskeyta:   {vari:'#FF4060', bg:'rgba(255,64,96,.08)',   border:'rgba(255,64,96,.2)',   ikoni:'⏸', teksti:'IDP keskeytetty — seuranta jatkuu'},
+  }[pt] || {vari:'#888',bg:'transparent',border:'var(--border)',ikoni:'?',teksti:'Ei päätöstä'};
+
+  h += '<div class="paatos-kortti" style="background:'+ptConf.bg+';border-color:'+ptConf.border+';">';
+  h += '<div class="paatos-tila" style="color:'+ptConf.vari+';">'+ptConf.ikoni+' '+ptConf.teksti+'</div>';
+  h += '<div class="paatos-kuvaus">'+p.idp.resurssit+'</div>';
+  h += '</div>';
+
+  // Kaksi spideria rinnakkain
+  h += '<div class="two-col">';
+
+  // Spider 1: liikeketjut
+  h += '<div class="card">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--teal);"></span>Liikeketjut nyt</div>';
+  h += piirraSpider(p.ketjut, 170, 160, '#00E5CC', '#A78BFA', false);
+  h += '</div>';
+
+  // Radar: dimensiot
+  h += '<div class="card">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--blue);"></span>TalentID dimensiot</div>';
+  var normit = [tid.d1/40, tid.d2/25, tid.d3/15, tid.d4/10, tid.d5/10];
+  h += piirraRadar(normit, 170, 160);
+  h += '</div>';
+  h += '</div>';
+
+  // Potentiaalipolku
+  h += '<div class="card" style="border-color:rgba(255,215,0,.2);">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--gold);"></span>Potentiaalipolku</div>';
+  h += '<div class="aikajana">';
+  p.idp.polku.forEach(function(askel, i){
+    h += '<div class="aj-piste'+(i===0?' nyt':'')+'">';
+    h += '<div class="aj-vuosi" style="color:'+askel.vari+';">'+askel.vuosi+'</div>';
+    h += '<div class="aj-kuvaus">'+askel.kuvaus+'</div>';
+    h += '</div>';
+  });
+  h += '</div></div>';
+
+  // TID-komponentit
+  h += '<div class="card">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--amber);"></span>Pistemäärän rakenne</div>';
+  var dims = [
+    {nimi:'Fyysinen D1',  v:tid.d1, max:40, c:'#00E5CC'},
+    {nimi:'Tekninen D2',  v:tid.d2, max:25, c:'#4A9EFF'},
+    {nimi:'Psyko D3',     v:tid.d3, max:15, c:'#A78BFA'},
+    {nimi:'Kognitio D4',  v:tid.d4, max:10, c:'#FFB830'},
+    {nimi:'Sosiaalinen D5',v:tid.d5, max:10, c:'#1FD16A'},
+  ];
+  dims.forEach(function(d){
+    h += '<div class="dim-rivi">';
+    h += '<div class="dim-nimi">'+d.nimi+'</div>';
+    h += '<div class="dim-bg"><div class="dim-fill" style="width:'+(d.v/d.max*100).toFixed(1)+'%;background:'+d.c+';"></div></div>';
+    h += '<div class="dim-num" style="color:'+d.c+';">'+d.v.toFixed(1)+'</div>';
+    h += '<div class="dim-max">/'+d.max+'</div>';
+    h += '</div>';
+  });
+  var modTxt = '';
+  if(tid.raeK !== 1.0) modTxt += 'RAE '+(tid.raeK>1?'+':'')+(((tid.raeK-1)*100).toFixed(0))+'% fyysiseen  ·  ';
+  if(tid.phvM !== 0) modTxt += 'PHV '+(tid.phvM>0?'+':'')+tid.phvM+'p  ·  ';
+  if(tid.rooliM !== 0) modTxt += 'Rooli '+(tid.rooliM>0?'+':'')+tid.rooliM.toFixed(1)+'p';
+  if(modTxt) h += '<div style="margin-top:8px;font-size:10px;color:var(--muted2);border-top:1px solid var(--border);padding-top:6px;">'+modTxt+'</div>';
+  h += '</div>';
+
+  return h;
+}
+
+// ════════════════════════════════════════════════════════
+// NÄKYMÄ 2 — TALENTTIVALMENTAJA
+// ════════════════════════════════════════════════════════
+function rakennaTV(p, tid, phvVari){
+  var h = '';
+
+  // Kolme stat-minit
+  h += '<div class="stat-mini-row">';
+  h += '<div class="stat-mini"><div class="stat-mini-v" style="color:var(--teal);">'+p.tk.tki+'</div><div class="stat-mini-l">TK-tulos</div></div>';
+  h += '<div class="stat-mini"><div class="stat-mini-v" style="color:var(--green);">'+p.tk.delta+'</div><div class="stat-mini-l">Delta ed. testi</div></div>';
+  h += '<div class="stat-mini"><div class="stat-mini-v" style="color:var(--amber);">'+Math.round(tid.total)+'</div><div class="stat-mini-l">TalentID</div></div>';
+  h += '</div>';
+
+  // Kaksi spideria
+  h += '<div class="two-col">';
+
+  // Liikeketjut
+  h += '<div class="card">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--teal);"></span>Liikeketjuprofiili</div>';
+  h += piirraSpider(p.ketjut, 180, 170, '#00E5CC', '#4A9EFF', false);
+  var k = p.ketjut;
+  var arr = [{n:'Vauhtiketju',v:k.vauhti,c:'#FF4060'},{n:'Lähtöketju',v:k.lahto,c:'#FFB830'},{n:'SM-ketju',v:k.sm,c:'#A78BFA'},{n:'Hallintaketju',v:k.hallinta,c:'#00E5CC'},{n:'Peliälyketju',v:k.pelialy,c:'#4A9EFF'}];
+  arr.sort(function(a,b){return a.v-b.v;});
+  h += '<div style="margin-top:8px;padding:6px 10px;background:rgba(255,64,96,.06);border-radius:7px;font-size:10px;color:var(--red);font-weight:700;">↓ Heikoin: '+arr[0].n+' ('+arr[0].v+')</div>';
+  h += '<div style="margin-top:4px;padding:6px 10px;background:rgba(31,209,106,.05);border-radius:7px;font-size:10px;color:var(--green);font-weight:700;">↑ Vahvin: '+arr[4].n+' ('+arr[4].v+')</div>';
+  h += '</div>';
+
+  // Dimensiot
+  h += '<div class="card">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--blue);"></span>TID dimensiot</div>';
+  var normit=[tid.d1/40,tid.d2/25,tid.d3/15,tid.d4/10,tid.d5/10];
+  h += piirraRadar(normit, 180, 170);
+  var dimArr=[
+    {nimi:'Fyysinen',v:tid.d1,max:40,c:'#00E5CC'},
+    {nimi:'Tekninen',v:tid.d2,max:25,c:'#4A9EFF'},
+    {nimi:'Psykologinen',v:tid.d3,max:15,c:'#A78BFA'},
+  ];
+  dimArr.sort(function(a,b){return a.v/a.max-b.v/b.max;});
+  h += '<div style="margin-top:8px;padding:6px 10px;background:rgba(255,184,48,.06);border-radius:7px;font-size:10px;color:var(--amber);font-weight:700;">Kehitysfokus: '+dimArr[0].nimi+' ('+dimArr[0].v.toFixed(1)+'/'+dimArr[0].max+')</div>';
+  h += '</div>';
+  h += '</div>';
+
+  // Kehityssuunnitelma 0–12 viikkoa
+  h += '<div class="card" style="border-color:rgba(0,229,204,.2);">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--teal);"></span>Kehityssuunnitelma — seuraavat 12 viikkoa</div>';
+  p.idp.lyhyt.forEach(function(t){
+    var vari = {Vauhtiketju:'#FF4060',Lähtöketju:'#FFB830','SM-ketju':'#A78BFA',Hallintaketju:'#00E5CC',Peliälyketju:'#4A9EFF',Psykologinen:'#A78BFA'}[t.ketju]||'#888';
+    h += '<div class="polku-rivi" style="background:'+vari+'0D;border-left-color:'+vari+';">';
+    h += '<div class="polku-aika" style="color:'+vari+';">'+t.viikot+'</div>';
+    h += '<div class="polku-sisalto">';
+    h += '<div class="polku-tavoite">'+t.ketju+' — '+t.tavoite+'</div>';
+    h += '<div class="polku-mittari" style="color:'+vari+';">🎯 '+t.mittari+'</div>';
+    h += '</div></div>';
+  });
+  h += '</div>';
+
+  // 12 kuukautta
+  h += '<div class="card" style="border-color:rgba(255,184,48,.2);">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--amber);"></span>Kehitysaskeleet — 12 kuukautta</div>';
+  p.idp.keski.forEach(function(t){
+    h += '<div class="polku-rivi" style="background:rgba(255,184,48,.06);border-left-color:var(--amber);">';
+    h += '<div class="polku-aika" style="color:var(--amber);">'+t.aika+'</div>';
+    h += '<div class="polku-sisalto">';
+    h += '<div class="polku-tavoite">'+t.tavoite+'</div>';
+    h += '<div class="polku-mittari" style="color:var(--amber);">📏 '+t.mittari+'</div>';
+    h += '</div></div>';
+  });
+  h += '</div>';
+
+  // ADAR-havainnot
+  h += '<div class="card">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--purple);"></span>Valmentajahavainnot — ADAR</div>';
+  p.adar.forEach(function(a){
+    h += '<div class="adar-k">';
+    h += '<div class="adar-dim">'+a.dim+'</div>';
+    h += '<div class="adar-txt">"'+a.txt+'"</div>';
+    h += '<div class="adar-pvm">'+a.pvm+'</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // PHV-huomio jos peak
+  if(p.phv==='peak'){
+    h += '<div style="padding:12px 14px;background:rgba(255,64,96,.07);border:1px solid rgba(255,64,96,.25);border-radius:12px;">';
+    h += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;color:var(--red);margin-bottom:4px;">⚠️ PHV-HUIPPU — Erityinen seuranta</div>';
+    h += '<div style="font-size:12px;color:var(--muted);line-height:1.6;">PHV-modifikaattori −3p (tilapäinen). Hallintaketju ja SM-ketju erityisessä seurannassa. Ei maksimivoimatestiä. Hamstring + akillesjänne viikoittainen tarkistus. Tämä vaihe kestää tyypillisesti 6–12 kuukautta.</div>';
+    h += '</div>';
+  }
+
+  return h;
+}
+
+// ════════════════════════════════════════════════════════
+// NÄKYMÄ 3 — EDUSTUSJOUKKUE
+// ════════════════════════════════════════════════════════
+function rakennaEJ(p, tid){
+  var h = '';
+
+  // Siirtosuositus
+  var siirto = p.ika==='U19'
+    ? {ikoni:'🟢', tila:'Siirtovalmius arvioitavissa', vari:'#FFB830', bg:'rgba(255,184,48,.08)', border:'rgba(255,184,48,.25)', selite:'Ikäluokka ja TalentID-taso mahdollistaa siirtoarvioinnin. TKI ja psykologinen valmius ratkaisevia.'}
+    : {ikoni:'⏳', tila:'Ei vielä — kehitysikkunassa', vari:'#4A9EFF', bg:'rgba(74,158,255,.07)', border:'rgba(74,158,255,.2)', selite:'Pelaaja on vielä kehitysvaiheessa. Seuranta jatkuu — arvioidaan uudelleen '+p.idp.keski[p.idp.keski.length-1].aika+'.'};
+
+  h += '<div style="background:'+siirto.bg+';border:2px solid '+siirto.border+';border-radius:14px;padding:16px;">';
+  h += '<div class="siirto-badge" style="background:'+siirto.border+';color:'+siirto.vari+';">'+siirto.ikoni+' '+siirto.tila+'</div>';
+  h += '<div style="font-size:12px;color:var(--muted);line-height:1.6;">'+siirto.selite+'</div>';
+  h += '</div>';
+
+  // Spider peliasema-profiili
+  h += '<div class="two-col">';
+  h += '<div class="card">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--teal);"></span>Liikeketjuprofiili</div>';
+  h += piirraSpider(p.ketjut, 175, 165, '#00E5CC', '#4A9EFF', false);
+  h += '</div>';
+
+  // Tekninen + Kognitiivinen yhteenveto
+  h += '<div class="card">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--blue);"></span>Edustustasovalmius</div>';
+  var valmiusData = [
+    {nimi:'Tekninen taso', v:tid.d2, max:25, c:'#4A9EFF', kynnys:16},
+    {nimi:'Psykologinen',  v:tid.d3, max:15, c:'#A78BFA', kynnys:9},
+    {nimi:'Kognitiivinen', v:tid.d4, max:10, c:'#FFB830', kynnys:6},
+    {nimi:'Sosiaalinen',   v:tid.d5, max:10, c:'#1FD16A', kynnys:6},
+  ];
+  valmiusData.forEach(function(d){
+    var pct = d.v/d.max*100;
+    var kynnysPct = d.kynnys/d.max*100;
+    var ok = d.v >= d.kynnys;
+    h += '<div style="margin-bottom:10px;">';
+    h += '<div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:4px;">';
+    h += '<span style="font-weight:600;color:'+d.c+';">'+d.nimi+'</span>';
+    h += '<span style="color:'+(ok?'var(--green)':'var(--red)')+';">'+(ok?'✓ Riittävä':'✗ Kehitettävä')+' ('+d.v.toFixed(1)+'/'+d.max+')</span>';
+    h += '</div>';
+    h += '<div style="position:relative;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;">';
+    h += '<div style="height:8px;width:'+pct.toFixed(1)+'%;background:'+d.c+';border-radius:4px;"></div>';
+    h += '<div style="position:absolute;top:0;bottom:0;left:'+kynnysPct+'%;width:1px;background:rgba(255,255,255,.4);"></div>';
+    h += '</div></div>';
+  });
+  h += '<div style="font-size:9px;color:var(--muted2);">Pystyviiva = edustustasokynnys</div>';
+  h += '</div>';
+  h += '</div>';
+
+  // ADAR-havainnot edustusvalmentajalle
+  h += '<div class="card">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--purple);"></span>Valmentajahavainnot</div>';
+  p.adar.forEach(function(a){
+    h += '<div class="adar-k">';
+    h += '<div class="adar-dim">'+a.dim+'</div>';
+    h += '<div class="adar-txt">"'+a.txt+'"</div>';
+    h += '<div class="adar-pvm">'+a.pvm+'</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Potentiaalipolku tiiviisti
+  h += '<div class="card" style="border-color:rgba(255,215,0,.18);">';
+  h += '<div class="card-title"><span class="dot" style="background:var(--gold);"></span>Kehityspolku</div>';
+  h += '<div class="aikajana">';
+  p.idp.polku.forEach(function(askel,i){
+    h += '<div class="aj-piste'+(i===0?' nyt':'')+'">';
+    h += '<div class="aj-vuosi" style="color:'+askel.vari+';">'+askel.vuosi+'</div>';
+    h += '<div class="aj-kuvaus">'+askel.kuvaus+'</div>';
+    h += '</div>';
+  });
+  h += '</div></div>';
+
+  // Seuraava IDP-katsaus
+  var seurKatsaus = p.idp.keski[0];
+  h += '<div style="padding:12px 14px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;gap:12px;">';
+  h += '<div style="font-size:28px;">📅</div>';
+  h += '<div><div style="font-size:13px;font-weight:600;">Seuraava IDP-katsaus: '+seurKatsaus.aika+'</div>';
+  h += '<div style="font-size:11px;color:var(--muted);">Osallistujat: valmentaja · talenttivalmentaja · urheilujohtaja</div></div>';
+  h += '</div>';
+
+  return h;
+}
+
+// Käynnistys
+rakenna();
+</script>
+</body>
+</html>
