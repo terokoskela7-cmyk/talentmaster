@@ -171,6 +171,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 <!-- Compat-versio sopii VP-dashboardin perinteiseen JS-rakenteeseen -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
 <script>
 // ── FIREBASE KONFIGURAATIO & ALUSTUS ──────────────────────────────
@@ -178,6 +179,8 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 // mistä tahansa syystä, sovellus jatkaa normaalisti LocalStoragella.
 // Tämä on tärkeää: Firebase ei saa koskaan kaataa pääsovellusta.
 var _fbDb     = null;   // null = ei yhteyttä vielä
+var _fbAuth   = null;   // Firebase Authentication -viite
+var _fbUser   = null;   // Kirjautunut käyttäjä (null = ei kirjautunut)
 var _fbOnline = false;  // false kunnes yhteys on varmistettu
 
 try {
@@ -198,6 +201,7 @@ try {
 
   // Saadaan viite Firestore-tietokantaan
   _fbDb     = firebase.firestore();
+  _fbAuth   = firebase.auth();   // Authentication-viite
   _fbOnline = true;
   console.log('[FB] Firebase alustettu onnistuneesti');
 
@@ -229,31 +233,81 @@ try {
   <div class="login-box">
     <div class="login-logo">TALENTMASTER™</div>
     <div class="login-title">Valmennuspäällikkö</div>
-    <div class="login-sub">Syötä PIN-koodi</div>
-    <div class="pin-dots">
-      <div class="pin-dot" id="pd0"></div>
-      <div class="pin-dot" id="pd1"></div>
-      <div class="pin-dot" id="pd2"></div>
-      <div class="pin-dot" id="pd3"></div>
+
+    <!-- Kirjautumistavan valinta -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;background:var(--bg3);border-radius:10px;padding:4px">
+      <button id="btnTabEmail" onclick="vaihdaLoginTapa('email')"
+        style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--teal);color:#fff;font-size:13px;font-weight:600;cursor:pointer">
+        ✉️ Sähköposti
+      </button>
+      <button id="btnTabPin" onclick="vaihdaLoginTapa('pin')"
+        style="flex:1;padding:8px;border:none;border-radius:8px;background:transparent;color:var(--muted);font-size:13px;cursor:pointer">
+        🔢 PIN (demo)
+      </button>
     </div>
-    <div class="pin-grid">
-      <button class="pin-btn" onclick="addVpPin('1')">1</button>
-      <button class="pin-btn" onclick="addVpPin('2')">2</button>
-      <button class="pin-btn" onclick="addVpPin('3')">3</button>
-      <button class="pin-btn" onclick="addVpPin('4')">4</button>
-      <button class="pin-btn" onclick="addVpPin('5')">5</button>
-      <button class="pin-btn" onclick="addVpPin('6')">6</button>
-      <button class="pin-btn" onclick="addVpPin('7')">7</button>
-      <button class="pin-btn" onclick="addVpPin('8')">8</button>
-      <button class="pin-btn" onclick="addVpPin('9')">9</button>
-      <button class="pin-btn" onclick="clearVpPin()" style="color:var(--muted);font-size:16px">⌫</button>
-      <button class="pin-btn" onclick="addVpPin('0')">0</button>
-      <button class="pin-btn" onclick="clearVpPin()" style="color:var(--muted);font-size:14px">CLR</button>
+
+    <!-- Sähköpostikirjautuminen -->
+    <div id="loginEmail">
+      <div style="margin-bottom:12px">
+        <input id="emailInput" type="email" placeholder="vp.fcl@talentmaster.fi"
+          style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);
+                 border-radius:10px;color:var(--text);font-size:14px;box-sizing:border-box;outline:none"
+          onkeydown="if(event.key==='Enter')kirjauduEmaililla()"
+        />
+      </div>
+      <div style="margin-bottom:16px;position:relative">
+        <input id="passwordInput" type="password" placeholder="Salasana"
+          style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);
+                 border-radius:10px;color:var(--text);font-size:14px;box-sizing:border-box;outline:none"
+          onkeydown="if(event.key==='Enter')kirjauduEmaililla()"
+        />
+        <button onclick="toggleSalasana()" 
+          style="position:absolute;right:12px;top:50%;transform:translateY(-50%);
+                 background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px"
+          id="togglePwBtn">👁</button>
+      </div>
+      <button onclick="kirjauduEmaililla()"
+        style="width:100%;padding:13px;background:var(--teal);border:none;border-radius:10px;
+               color:#fff;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.3px">
+        Kirjaudu sisään
+      </button>
+      <div style="text-align:center;margin-top:12px">
+        <button onclick="unohditkoSalasanan()"
+          style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">
+          Unohditko salasanan?
+        </button>
+      </div>
     </div>
+
+    <!-- PIN-kirjautuminen (demo) -->
+    <div id="loginPin" style="display:none">
+      <div class="login-sub" style="margin-bottom:12px">Syötä PIN-koodi</div>
+      <div class="pin-dots">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+      <div class="pin-grid">
+        <button class="pin-btn" onclick="addVpPin('1')">1</button>
+        <button class="pin-btn" onclick="addVpPin('2')">2</button>
+        <button class="pin-btn" onclick="addVpPin('3')">3</button>
+        <button class="pin-btn" onclick="addVpPin('4')">4</button>
+        <button class="pin-btn" onclick="addVpPin('5')">5</button>
+        <button class="pin-btn" onclick="addVpPin('6')">6</button>
+        <button class="pin-btn" onclick="addVpPin('7')">7</button>
+        <button class="pin-btn" onclick="addVpPin('8')">8</button>
+        <button class="pin-btn" onclick="addVpPin('9')">9</button>
+        <button class="pin-btn" onclick="clearVpPin()" style="color:var(--muted);font-size:16px">⌫</button>
+        <button class="pin-btn" onclick="addVpPin('0')">0</button>
+        <button class="pin-btn" onclick="clearVpPin()" style="color:var(--muted);font-size:14px">CLR</button>
+      </div>
+      <div class="pin-demo">
+        <button onclick="addVpPin('5');addVpPin('5');addVpPin('5');addVpPin('5')">Demo: PIN 5555</button>
+      </div>
+    </div>
+
     <div class="pin-err" id="pinErr"></div>
-    <div class="pin-demo">
-      <button onclick="addVpPin('5');addVpPin('5');addVpPin('5');addVpPin('5')">Demo: PIN 5555</button>
-    </div>
   </div>
 </div>
 
@@ -2398,10 +2452,177 @@ function checkPin() {
   }
 }
 function kirjauduUlos() {
+  // Kirjataan ulos sekä Firebase että PIN
+  if (_fbAuth && _fbUser) {
+    _fbAuth.signOut().catch(function(e) {
+      console.warn('[AUTH] Uloskirjautuminen epäonnistui:', e.message);
+    });
+    _fbUser = null;
+  }
   _vpPin = '';
   updateDots();
+  // Tyhjennetään sähköpostikentät
+  var ei = document.getElementById('emailInput');
+  var pi = document.getElementById('passwordInput');
+  if (ei) ei.value = '';
+  if (pi) pi.value = '';
+  document.getElementById('pinErr').textContent = '';
   document.getElementById('sDash').classList.remove('active');
   document.getElementById('sLogin').classList.add('active');
+}
+
+// ── SÄHKÖPOSTIKIRJAUTUMINEN ────────────────────────────────────────
+
+// Vaihtaa kirjautumistavan email/pin välillä
+function vaihdaLoginTapa(tapa) {
+  var emailDiv = document.getElementById('loginEmail');
+  var pinDiv   = document.getElementById('loginPin');
+  var btnEmail = document.getElementById('btnTabEmail');
+  var btnPin   = document.getElementById('btnTabPin');
+  if (tapa === 'email') {
+    emailDiv.style.display = '';
+    pinDiv.style.display   = 'none';
+    btnEmail.style.background = 'var(--teal)';
+    btnEmail.style.color      = '#fff';
+    btnPin.style.background   = 'transparent';
+    btnPin.style.color        = 'var(--muted)';
+    setTimeout(function(){ document.getElementById('emailInput').focus(); }, 100);
+  } else {
+    emailDiv.style.display = 'none';
+    pinDiv.style.display   = '';
+    btnPin.style.background   = 'var(--teal)';
+    btnPin.style.color        = '#fff';
+    btnEmail.style.background = 'transparent';
+    btnEmail.style.color      = 'var(--muted)';
+  }
+}
+
+// Salasanan näyttö/piilotus
+function toggleSalasana() {
+  var input = document.getElementById('passwordInput');
+  var btn   = document.getElementById('togglePwBtn');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+  }
+}
+
+// Pääfunktio — kirjautuu sähköpostilla ja salasanalla
+function kirjauduEmaililla() {
+  var email    = (document.getElementById('emailInput').value || '').trim();
+  var password = document.getElementById('passwordInput').value || '';
+  var errDiv   = document.getElementById('pinErr');
+
+  if (!email) { errDiv.textContent = 'Syötä sähköpostiosoite'; return; }
+  if (!password) { errDiv.textContent = 'Syötä salasana'; return; }
+  if (!_fbAuth) { errDiv.textContent = 'Firebase ei ole valmis — yritä uudelleen'; return; }
+
+  errDiv.textContent = 'Kirjaudutaan...';
+  errDiv.style.color = 'var(--teal)';
+
+  _fbAuth.signInWithEmailAndPassword(email, password)
+    .then(function(userCredential) {
+      _fbUser = userCredential.user;
+      errDiv.style.color = '';
+      console.log('[AUTH] Kirjautuminen onnistui:', _fbUser.email);
+
+      // Haetaan käyttäjän seura Firestore-dokumentista
+      // custom claims eivät välttämättä ole heti saatavilla
+      // joten luetaan seura suoraan seurat-kokoelmasta VP:n UID:n perusteella
+      _fbDb.collection('seurat')
+        .where('vp_uid', '==', _fbUser.uid)
+        .get()
+        .then(function(snap) {
+          if (!snap.empty) {
+            var seuraDoc = snap.docs[0].data();
+            var seuraId  = seuraDoc.id;
+            var rooli    = 'vp';
+
+            console.log('[AUTH] Seura tunnistettu:', seuraId);
+
+            // Asetetaan aktiviinen seura VP:n seuran mukaan
+            // Tämä ohittaa PIN-pohjaisen seuravalinnan
+            _vpRooli = rooli;
+
+            // Päivitetään topbarin käyttäjätiedot
+            var rooliLabel = document.getElementById('vpRooliLabel');
+            if (rooliLabel) {
+              rooliLabel.textContent = '👤 ' + _fbUser.email.split('@')[0].replace('vp.','').toUpperCase();
+            }
+
+            // Siirrytään dashboardiin
+            document.getElementById('sLogin').classList.remove('active');
+            document.getElementById('sDash').classList.add('active');
+
+            // Alustetaan dashboard ja pakota seuran valinta oikeaksi
+            initDash();
+
+            // Vaihdetaan oikeaan seuraan kun seuraSelect on renderöity
+            setTimeout(function() {
+              var sel = document.getElementById('seuraSelect');
+              if (sel) {
+                // Etsitään oikea seura nimellä
+                var opts = Array.from(sel.options);
+                var oikea = opts.find(function(o) {
+                  return o.value.toLowerCase().includes(seuraId) ||
+                         seuraDoc.nimi.toLowerCase().includes(o.value.toLowerCase().split(' ')[0]);
+                });
+                if (oikea) {
+                  sel.value = oikea.value;
+                  vaihdaSeura(oikea.value);
+                }
+              }
+            }, 500);
+
+          } else {
+            // Käyttäjä löytyy Firebasesta mutta ei seurat-kokoelmasta
+            // Tämä ei pitäisi tapahtua normaalisti
+            errDiv.style.color = 'var(--red)';
+            errDiv.textContent = 'Käyttäjätili ei ole liitetty seuraan. Ota yhteyttä TalentMaster-tukeen.';
+            _fbAuth.signOut();
+          }
+        })
+        .catch(function(e) {
+          errDiv.style.color = 'var(--red)';
+          errDiv.textContent = 'Seurahaun virhe: ' + e.message;
+        });
+    })
+    .catch(function(error) {
+      errDiv.style.color = 'var(--red)';
+      // Näytetään käyttäjäystävällinen virheilmoitus
+      var viesti = 'Kirjautuminen epäonnistui';
+      if (error.code === 'auth/user-not-found')     viesti = 'Sähköpostiosoitetta ei löydy';
+      if (error.code === 'auth/wrong-password')      viesti = 'Väärä salasana';
+      if (error.code === 'auth/invalid-email')       viesti = 'Virheellinen sähköpostiosoite';
+      if (error.code === 'auth/too-many-requests')   viesti = 'Liian monta yritystä — odota hetki';
+      if (error.code === 'auth/invalid-credential')  viesti = 'Väärä sähköposti tai salasana';
+      if (error.code === 'auth/network-request-failed') viesti = 'Verkkovirhe — tarkista yhteys';
+      errDiv.textContent = viesti;
+      console.warn('[AUTH] Virhe:', error.code, error.message);
+    });
+}
+
+// Salasanan palautus sähköpostitse
+function unohditkoSalasanan() {
+  var email = (document.getElementById('emailInput').value || '').trim();
+  var errDiv = document.getElementById('pinErr');
+  if (!email) {
+    errDiv.style.color = 'var(--amber)';
+    errDiv.textContent = 'Syötä ensin sähköpostiosoite';
+    return;
+  }
+  _fbAuth.sendPasswordResetEmail(email)
+    .then(function() {
+      errDiv.style.color = 'var(--teal)';
+      errDiv.textContent = '✅ Salasanan palautuslinkki lähetetty: ' + email;
+    })
+    .catch(function(e) {
+      errDiv.style.color = 'var(--red)';
+      errDiv.textContent = 'Virhe: ' + e.message;
+    });
 }
 
 // ── DATA PROCESSING ──
