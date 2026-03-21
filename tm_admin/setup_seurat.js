@@ -1,3 +1,13 @@
+console.log('Skripti käynnistyi');
+console.log('Node versio:', process.version);
+try {
+  const key = require('./serviceAccountKey.json');
+  console.log('Service account projekti:', key.project_id);
+  console.log('Client email:', key.client_email ? 'OK' : 'PUUTTUU');
+} catch(e) {
+  console.error('serviceAccountKey.json virhe:', e.message);
+  process.exit(1);
+}
 // TalentMaster — Seurojen alustus
 // Tämä skripti:
 // 1. Luo seura-dokumentit Firestoreen oikealla rakenteella
