@@ -2564,44 +2564,9 @@ function kirjauduEmaililla() {
             // Alustetaan dashboard ja pakota seuran valinta oikeaksi
             initDash();
 
-            // DEBUG: tulostetaan kaikki tiedot konsoliin
+            // Tallennetaan seuraDoc — initDash lukee sen ja valitsee oikean seuran
             window._fbSeuraDoc = seuraDoc;
-            console.log('[AUTH DEBUG] seuraDoc:', JSON.stringify(seuraDoc));
-            console.log('[AUTH DEBUG] seuraDoc.nimi:', seuraDoc.nimi);
-            console.log('[AUTH DEBUG] seuraId:', seuraId);
-
-            setTimeout(function() {
-              var sel = document.getElementById('seuraSelect');
-              if (!sel) { console.warn('[AUTH] seuraSelect ei löydy'); return; }
-              var opts = Array.from(sel.options);
-              console.log('[AUTH DEBUG] Kaikki seurat selectissä:', 
-                opts.map(function(o){ return '"' + o.value + '"'; }).join(', '));
-              console.log('[AUTH DEBUG] Haetaan:', '"' + seuraDoc.nimi + '"');
-
-              // Etsitään täsmälleen
-              var oikea = opts.find(function(o) { return o.value === seuraDoc.nimi; });
-              console.log('[AUTH DEBUG] Täsmällinen löytyi:', oikea ? oikea.value : 'EI');
-
-              if (oikea) {
-                sel.value = oikea.value;
-                vaihdaSeura(oikea.value);
-                console.log('[AUTH] ✅ Seura vaihdettu:', oikea.value);
-              } else {
-                console.warn('[AUTH] ⚠️ Täsmällistä ei löydy — käytetään seuraId:', seuraId);
-                // Kokeillaan seuraId:llä suoraan
-                var idOikea = opts.find(function(o) {
-                  return o.value.toLowerCase().replace(/\s/g,'').includes(seuraId.toLowerCase()) ||
-                         seuraId.toLowerCase().includes(o.value.toLowerCase().replace(/\s/g,'').substring(0,4));
-                });
-                if (idOikea) {
-                  sel.value = idOikea.value;
-                  vaihdaSeura(idOikea.value);
-                  console.log('[AUTH] ✅ Seura vaihdettu ID:llä:', idOikea.value);
-                } else {
-                  console.warn('[AUTH] ❌ Seuraa ei löydy lainkaan');
-                }
-              }
-            }, 1000);
+            console.log('[AUTH] Seura tunnistettu Firebasesta:', seuraDoc.nimi, '(id:', seuraDoc.id, ')');
 
           } else {
             // Käyttäjä löytyy Firebasesta mutta ei seurat-kokoelmasta
@@ -2692,7 +2657,34 @@ function initDash() {
   });
   
   // Valitse seura PINin mukaan
+  // Jos kirjauduttu sähköpostilla, käytetään Firebasen seuradataa
+  // Muuten käytetään PIN-pohjaista oletusseuraa
   var pinSeura = { '6666':'FC Lahti Juniorit', '7777':'SJK -juniorit', '8888': seurat[0] };
+  if (window._fbSeuraDoc) {
+    console.log('[AUTH] initDash käyttää FB-seuraa:', window._fbSeuraDoc.nimi);
+    console.log('[AUTH] Saatavilla tm_data.js:ssä:', seurat);
+    // Etsitään täsmällinen nimi tm_data.js:n seuroista
+    var fbNimi = window._fbSeuraDoc.nimi;
+    var fbId   = window._fbSeuraDoc.id;
+    // Kokeillaan täsmällistä nimeä ensin
+    var loydetty = seurat.find(function(s) { return s === fbNimi; });
+    // Jos ei löydy, kokeillaan osajono FC Lahti → etsitään "FC Lahti"
+    if (!loydetty) {
+      loydetty = seurat.find(function(s) {
+        return s.toLowerCase().replace(/\s/g,'').includes(fbId.toLowerCase()) ||
+               fbId.toLowerCase().includes(s.toLowerCase().replace(/\s/g,'').substring(0,4));
+      });
+    }
+    if (loydetty) {
+      pinSeura['__fb__'] = loydetty;
+      _vpPin = '__fb__';
+      console.log('[AUTH] ✅ Seura löytyi:', loydetty);
+    } else {
+      console.warn('[AUTH] ❌ Seuraa ei löydy tm_data.js:stä, käytetään ensimmäistä');
+      pinSeura['__fb__'] = seurat[0];
+      _vpPin = '__fb__';
+    }
+  }
   // Näytä roolitunniste header:issa
   var rooliLabel = document.getElementById('vpRooliLabel');
   if (rooliLabel) {
