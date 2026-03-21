@@ -2659,33 +2659,33 @@ function initDash() {
   });
   
   // Valitse seura PINin mukaan
-  // Jos kirjauduttu sähköpostilla, käytetään Firebasen seuradataa
-  // Muuten käytetään PIN-pohjaista oletusseuraa
   var pinSeura = { '6666':'FC Lahti Juniorit', '7777':'SJK -juniorit', '8888': seurat[0] };
+
+  // Jos kirjauduttu sähköpostilla Firebase-tunnuksella
   if (window._fbSeuraDoc) {
-    console.log('[AUTH] initDash käyttää FB-seuraa:', window._fbSeuraDoc.nimi);
-    console.log('[AUTH] Saatavilla tm_data.js:ssä:', seurat);
-    // Etsitään täsmällinen nimi tm_data.js:n seuroista
     var fbNimi = window._fbSeuraDoc.nimi;
     var fbId   = window._fbSeuraDoc.id;
-    // Kokeillaan täsmällistä nimeä ensin
-    var loydetty = seurat.find(function(s) { return s === fbNimi; });
-    // Jos ei löydy, kokeillaan osajono FC Lahti → etsitään "FC Lahti"
-    if (!loydetty) {
-      loydetty = seurat.find(function(s) {
-        return s.toLowerCase().replace(/\s/g,'').includes(fbId.toLowerCase()) ||
-               fbId.toLowerCase().includes(s.toLowerCase().replace(/\s/g,'').substring(0,4));
-      });
+    console.log('[AUTH] initDash käyttää FB-seuraa:', fbNimi);
+
+    // Jos seura ei ole tm_data.js:ssä, lisätään se listaan
+    // Tämä mahdollistaa pilottiseurojen käytön vaikka niillä ei ole historiadataa
+    if (!seurat.includes(fbNimi)) {
+      console.log('[AUTH] Seura ei ole tm_data.js:ssä — lisätään listaan:', fbNimi);
+      seurat.push(fbNimi);
+      // Lisätään myös _seuraData:an tyhjällä rakenteella
+      _seuraData[fbNimi] = {
+        pelaajia:  0,
+        testeja:   0,
+        joukkueet: {},
+        // Merkitään Firebase-seuraksi myöhempää käyttöä varten
+        _firebaseSeura: true,
+        _seuraId: fbId
+      };
     }
-    if (loydetty) {
-      pinSeura['__fb__'] = loydetty;
-      _vpPin = '__fb__';
-      console.log('[AUTH] ✅ Seura löytyi:', loydetty);
-    } else {
-      console.warn('[AUTH] ❌ Seuraa ei löydy tm_data.js:stä, käytetään ensimmäistä');
-      pinSeura['__fb__'] = seurat[0];
-      _vpPin = '__fb__';
-    }
+
+    pinSeura['__fb__'] = fbNimi;
+    _vpPin = '__fb__';
+    console.log('[AUTH] ✅ Seura asetettu:', fbNimi);
   }
   // Näytä roolitunniste header:issa
   var rooliLabel = document.getElementById('vpRooliLabel');
