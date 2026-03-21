@@ -1837,13 +1837,48 @@ function avaaKirjaus(jnimi, event) {
   // Käytetään ensin LocalStorage-dataa (nopea) ja haetaan Firebase taustalla
   var kirjaukset = haePikaKirjaukset(_aktivSeura, jnimi);
   var vika = kirjaukset[0] || null;
-  // Päivitetään Firebase-datalla taustalla kun se saapuu
+  // Stale-while-revalidate: päivitetään historia Firebasesta taustalla
+  // Modal näyttää ensin LocalStorage-datan (nopea) ja päivittyy
+  // automaattisesti jos Firebasessa on tuoreempaa dataa
   haePikaKirjauksetFB(_aktivSeura, jnimi, function(fbKirjaukset) {
-    if (fbKirjaukset.length > kirjaukset.length) {
-      // Firebase:ssa on enemmän dataa — päivitetään modal jos se on vielä auki
-      var pikaBody = document.getElementById('pikaBody');
-      if (pikaBody && pikaBody.innerHTML) {
-        console.log('[FB] Päivitetään modal Firebase-datalla');
+    if (!fbKirjaukset || !fbKirjaukset.length) return;
+    // Verrataan onko Firebase-datassa uudempia kirjauksia
+    var onUudempaa = fbKirjaukset.length !== kirjaukset.length ||
+      (fbKirjaukset[0] && kirjaukset[0] &&
+       fbKirjaukset[0].pvm !== kirjaukset[0].pvm);
+    if (onUudempaa) {
+      console.log('[FB] Päivitetään pikakirjaus-modal tuoreella datalla');
+      // Rakennetaan modal uudelleen tuoreimmalla datalla
+      // Tarkistetaan että modal on vielä auki ennen päivitystä
+      var pikaModal = document.getElementById('pikaModal');
+      var onAuki = pikaModal && pikaModal.style.display !== 'none';
+      if (onAuki) {
+        // Päivitetään historia-osio modalin alaosassa
+        var historiaDiv = document.getElementById('pikaHistoria');
+        if (historiaDiv) {
+          var h = '';
+          fbKirjaukset.slice(1, 5).forEach(function(k) {
+            var d = new Date(k.pvm).toLocaleDateString('fi-FI');
+            var iCol = k.inno>=8?'var(--green)':k.inno>=6?'var(--amber)':'var(--red)';
+            h += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)">';
+            h += '<div style="display:flex;justify-content:space-between;margin-bottom:3px">';
+            h += '<span style="font-size:11px;color:var(--muted2)">' + d;
+            if (k.valmentaja) h += ' · <strong>' + k.valmentaja + '</strong>';
+            h += '</span>';
+            h += '<span style="font-size:11px">Inno <strong style="color:'+iCol+'">'+k.inno+'</strong></span>';
+            h += '</div>';
+            if (k.toimenpide) h += '<div style="font-size:11px;color:var(--muted2)">'+k.toimenpide+'</div>';
+            h += '</div>';
+          });
+          historiaDiv.innerHTML = h;
+          // Näytetään pieni indikaattori että data päivittyi
+          var ind = document.getElementById('fbSyncIndikaattori');
+          if (ind) {
+            ind.textContent = '🔄 Päivitetty Firebasesta';
+            ind.style.color = 'var(--teal)';
+            setTimeout(function(){ ind.textContent = ''; }, 2000);
+          }
+        }
       }
     }
   });
@@ -2001,11 +2036,15 @@ function avaaKirjaus(jnimi, event) {
   h += 'color:#000;font-family:\\"DM Sans\\";font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px">';
   h += '✓ Tallenna kirjaus</button>';
 
-  // Historia (viimeiset 3)
+  // Historia (viimeiset 3) — päivittyy Firebasesta taustalla
   if (kirjaukset.length > 1) {
     h += '<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">';
-    h += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Historia</div>';
-    kirjaukset.slice(1, 4).forEach(function(k) {
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    h += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Historia</div>';
+    h += '<div id="fbSyncIndikaattori" style="font-size:10px;color:var(--teal)"></div>';
+    h += '</div>';
+    h += '<div id="pikaHistoria">';
+    kirjaukset.slice(1, 5).forEach(function(k) {
       var d = new Date(k.pvm).toLocaleDateString("fi-FI");
       var iCol = k.inno >= 8 ? 'var(--green)' : k.inno >= 6 ? 'var(--amber)' : 'var(--red)';
       var lCol = k.liike >= 8 ? 'var(--green)' : k.liike >= 6 ? 'var(--amber)' : 'var(--red)';
@@ -2017,6 +2056,7 @@ function avaaKirjaus(jnimi, event) {
       if (k.toimenpide) h += '<div style="font-size:11px;color:var(--muted2)">'+k.toimenpide+'</div>';
       h += '</div>';
     });
+    h += '</div>'; // pikaHistoria
     h += '</div>';
   }
 
@@ -2418,7 +2458,69 @@ function initDash() {
   if (_seuraData[defaultSeura]) sel.value = defaultSeura;
   
   _aktivSeura = sel.value;
+
+  // ── SESSION-LOAD: Hae Firebase-data taustalla ─────────────────────
+  // Haetaan kaikki aktiivisen seuran joukkueiden kirjaukset Firebasesta
+  // heti kirjautumisen jälkeen. UI renderöidään ensin LocalStoragesta
+  // (nopea), Firebase päivittää välimuistin taustalla (tarkka).
+  if (_fbOnline && _fbDb) {
+    lataaSeuraFirebasesta(_aktivSeura, function(lkm) {
+      if (lkm > 0) {
+        console.log('[FB] Session-load: ' + lkm + ' joukkuetta päivitetty');
+        // Päivitetään liikennevalot uudella datalla hiljaisesti
+        renderTab(_aktivTab);
+      }
+    });
+  }
+
   renderAll();
+}
+
+// Hakee kaikki seuran joukkueiden kirjaukset Firebasesta kerralla
+// ja päivittää LocalStorage-välimuistin. Kutsutaan kerran per istunto.
+function lataaSeuraFirebasesta(seura, callback) {
+  if (!_fbOnline || !_fbDb) { if(callback) callback(0); return; }
+
+  // Haetaan kaikki dokumentit joiden seura-kenttä täsmää
+  // kirjaukset_joukkue-kokoelmasta — yksi dokumentti per joukkue
+  _fbDb.collection('kirjaukset_joukkue')
+    .where('seura', '==', seura)
+    .get()
+    .then(function(snapshot) {
+      var paivitetty = 0;
+      snapshot.forEach(function(doc) {
+        var data = doc.data();
+        var jnimi = data.joukkue;
+        var kirjaukset = data.kirjaukset || [];
+        if (jnimi && kirjaukset.length > 0) {
+          // Päivitetään LocalStorage välimuisti Firebasen datalla
+          // Firebasen data voittaa aina — se on aina tuorein
+          try {
+            var avain = 'pika_' + seura.replace(/\s/g,'_') + '_' + jnimi.replace(/\s/g,'_');
+            var nykyinen = localStorage.getItem(avain);
+            var nykyinenData = nykyinen ? JSON.parse(nykyinen) : [];
+            // Yhdistetään: Firebase-kirjaukset ensin, lisätään paikalliset
+            // kirjaukset jotka eivät vielä ole Firebasessa
+            var fbPvmSet = new Set(kirjaukset.map(function(k){ return k.pvm; }));
+            var vainPaikalliset = nykyinenData.filter(function(k){
+              return !fbPvmSet.has(k.pvm);
+            });
+            var yhdistetty = kirjaukset.concat(vainPaikalliset)
+              .sort(function(a,b){ return b.pvm > a.pvm ? 1 : -1; })
+              .slice(0, 30);
+            localStorage.setItem(avain, JSON.stringify(yhdistetty));
+            paivitetty++;
+          } catch(e) {
+            console.warn('[FB] LocalStorage-päivitys epäonnistui:', e.message);
+          }
+        }
+      });
+      if (callback) callback(paivitetty);
+    })
+    .catch(function(e) {
+      console.warn('[FB] Session-load epäonnistui:', e.message);
+      if (callback) callback(0);
+    });
 }
 
 function aggregateData(lookup) {
@@ -2514,6 +2616,15 @@ function vaihda(idx, el) {
 }
 function vaihdaSeura(s) {
   _aktivSeura = s;
+  // Ladataan uuden seuran Firebase-data taustalla
+  if (_fbOnline && _fbDb) {
+    lataaSeuraFirebasesta(s, function(lkm) {
+      if (lkm > 0) {
+        console.log('[FB] Seura vaihdettu, ' + lkm + ' joukkuetta päivitetty');
+        renderTab(_aktivTab); // Päivitetään näkymä uudella datalla
+      }
+    });
+  }
   renderAll();
 }
 function renderAll() {
