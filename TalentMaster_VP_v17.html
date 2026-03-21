@@ -2468,7 +2468,9 @@ function kirjauduUlos() {
   if (pi) pi.value = '';
   document.getElementById('pinErr').textContent = '';
   document.getElementById('sDash').classList.remove('active');
-  document.getElementById('sLogin').classList.add('active');
+  var loginEl = document.getElementById('sLogin');
+  loginEl.style.display = '';
+  loginEl.classList.add('active');
 }
 
 // ── SÄHKÖPOSTIKIRJAUTUMINEN ────────────────────────────────────────
@@ -2553,29 +2555,47 @@ function kirjauduEmaililla() {
               rooliLabel.textContent = '👤 ' + _fbUser.email.split('@')[0].replace('vp.','').toUpperCase();
             }
 
-            // Siirrytään dashboardiin
-            document.getElementById('sLogin').classList.remove('active');
+            // Siirrytään dashboardiin — piilotetaan login kokonaan
+            var loginEl = document.getElementById('sLogin');
+            loginEl.classList.remove('active');
+            loginEl.style.display = 'none';
             document.getElementById('sDash').classList.add('active');
 
             // Alustetaan dashboard ja pakota seuran valinta oikeaksi
             initDash();
 
             // Vaihdetaan oikeaan seuraan kun seuraSelect on renderöity
+            // Tallennetaan seuraDoc globaalisti initDash-käyttöä varten
+            window._fbSeuraDoc = seuraDoc;
             setTimeout(function() {
               var sel = document.getElementById('seuraSelect');
-              if (sel) {
-                // Etsitään oikea seura nimellä
-                var opts = Array.from(sel.options);
-                var oikea = opts.find(function(o) {
-                  return o.value.toLowerCase().includes(seuraId) ||
-                         seuraDoc.nimi.toLowerCase().includes(o.value.toLowerCase().split(' ')[0]);
+              if (!sel) return;
+              // Etsitään täsmälleen oikea seura seuraDoc.nimi-kentällä
+              // tm_data.js:ssä seuran nimi on esim. "FC Lahti Juniorit"
+              var opts = Array.from(sel.options);
+              // Kokeillaan ensin täsmällistä nimeä
+              var oikea = opts.find(function(o) {
+                return o.value === seuraDoc.nimi;
+              });
+              // Jos ei löydy täsmälleen, kokeillaan osajono-vertailua
+              if (!oikea) {
+                var nimiLower = seuraDoc.nimi.toLowerCase();
+                oikea = opts.find(function(o) {
+                  var oLower = o.value.toLowerCase();
+                  // Vertaa molempiin suuntiin
+                  return nimiLower.includes(oLower.split(' ')[0]) ||
+                         oLower.includes(nimiLower.split(' ')[0]);
                 });
-                if (oikea) {
-                  sel.value = oikea.value;
-                  vaihdaSeura(oikea.value);
-                }
               }
-            }, 500);
+              if (oikea) {
+                sel.value = oikea.value;
+                vaihdaSeura(oikea.value);
+                console.log('[AUTH] Seura vaihdettu:', oikea.value);
+              } else {
+                console.warn('[AUTH] Seuraa ei löydy selectistä:', seuraDoc.nimi);
+                console.log('[AUTH] Saatavilla:', opts.map(function(o){return o.value;}));
+              }
+            }, 800);
 
           } else {
             // Käyttäjä löytyy Firebasesta mutta ei seurat-kokoelmasta
