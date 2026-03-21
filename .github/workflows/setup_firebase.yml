@@ -4,35 +4,32 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Kirjoita KYLLÄ vahvistaaksesi seurojen alustuksen'
+        description: 'Kirjoita KYLLÄ'
         required: true
-        default: ''
 
 jobs:
   setup-seurat:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout koodi
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Asenna Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: npm install
-        working-directory: tm_admin
+      - name: Install
         run: npm install
-
-      - name: Luo serviceAccountKey.json
         working-directory: tm_admin
+
+      - name: Create key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > serviceAccountKey.json
-
-      - name: Alusta seurat Firebaseen
         working-directory: tm_admin
+
+      - name: Run setup
         run: node setup_seurat.js
-
-      - name: Siivoa avaintiedosto
-        if: always()
         working-directory: tm_admin
+
+      - name: Cleanup
+        if: always()
         run: rm -f serviceAccountKey.json
+        working-directory: tm_admin
