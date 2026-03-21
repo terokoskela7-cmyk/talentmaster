@@ -174,33 +174,52 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 
 <script>
 // ── FIREBASE KONFIGURAATIO & ALUSTUS ──────────────────────────────
-// Projekti: talentmaster-pilot (Spark plan — ilmainen)
-// Tietokanta: europe-west1
-var _fbConfig = {
-  apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
-  authDomain:        "talentmaster-pilot.firebaseapp.com",
-  projectId:         "talentmaster-pilot",
-  storageBucket:     "talentmaster-pilot.firebasestorage.app",
-  messagingSenderId: "872561784446",
-  appId:             "1:872561784446:web:05c4c7996dfd46ddd14a2f"
-};
+// Koko alustus on try/catch-lohkossa — jos Firebase epäonnistuu
+// mistä tahansa syystä, sovellus jatkaa normaalisti LocalStoragella.
+// Tämä on tärkeää: Firebase ei saa koskaan kaataa pääsovellusta.
+var _fbDb     = null;   // null = ei yhteyttä vielä
+var _fbOnline = false;  // false kunnes yhteys on varmistettu
 
-// Alustetaan Firebase — tarkistetaan ensin ettei ole jo alustettu
-if (!firebase.apps.length) {
-  firebase.initializeApp(_fbConfig);
+try {
+  var _fbConfig = {
+    apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+    authDomain:        "talentmaster-pilot.firebaseapp.com",
+    projectId:         "talentmaster-pilot",
+    storageBucket:     "talentmaster-pilot.firebasestorage.app",
+    messagingSenderId: "872561784446",
+    appId:             "1:872561784446:web:05c4c7996dfd46ddd14a2f"
+  };
+
+  // Alustetaan vain kerran — Firebase heittää virheen jos yritetään
+  // alustaa uudelleen, joten tarkistetaan ensin
+  if (!firebase.apps.length) {
+    firebase.initializeApp(_fbConfig);
+  }
+
+  // Saadaan viite Firestore-tietokantaan
+  _fbDb     = firebase.firestore();
+  _fbOnline = true;
+  console.log('[FB] Firebase alustettu onnistuneesti');
+
+  // Testataan todellinen verkkoyhteys hiljaisesti taustalla
+  // Tämä ei estä sovelluksen käynnistymistä — se tapahtuu rinnalla
+  _fbDb.collection('_ping').limit(1).get()
+    .then(function()  {
+      _fbOnline = true;
+      console.log('[FB] Verkkoyhteys Firebaseen OK');
+    })
+    .catch(function(e) {
+      _fbOnline = false;
+      console.warn('[FB] Verkkoyhteys epäonnistui — käytetään LocalStoragea:', e.message);
+    });
+
+} catch(e) {
+  // Firebase ei latautunut (esim. verkkoyhteys poikki tai skripti ei latautunut)
+  // Sovellus toimii normaalisti LocalStoragen varassa
+  _fbDb     = null;
+  _fbOnline = false;
+  console.warn('[FB] Firebase-alustus epäonnistui — LocalStorage-tila:', e.message);
 }
-
-// db = viite Firestore-tietokantaan
-// Kaikki tallennukset ja haut tehdään tämän kautta
-var _fbDb = firebase.firestore();
-
-// Firebase-tila — true jos yhteys toimii
-var _fbOnline = true;
-
-// Testataan yhteys hiljaisesti taustalla
-_fbDb.collection('_ping').limit(1).get()
-  .then(function()  { _fbOnline = true;  console.log('[FB] Yhteys OK'); })
-  .catch(function() { _fbOnline = false; console.warn('[FB] Offline — käytetään LocalStoragea'); });
 </script>
 </head>
 <body>
