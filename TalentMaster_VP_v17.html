@@ -2555,18 +2555,20 @@ function kirjauduEmaililla() {
               rooliLabel.textContent = '👤 ' + _fbUser.email.split('@')[0].replace('vp.','').toUpperCase();
             }
 
-            // Siirrytään dashboardiin — piilotetaan login kokonaan
+            // KRIITTINEN JÄRJESTYS:
+            // 1. Aseta _fbSeuraDoc ENSIN
+            // 2. Sitten initDash — se lukee _fbSeuraDoc ja valitsee oikean seuran
+            window._fbSeuraDoc = seuraDoc;
+            console.log('[AUTH] Seura asetettu:', seuraDoc.nimi, '(id:', seuraDoc.id, ')');
+
+            // Siirrytään dashboardiin
             var loginEl = document.getElementById('sLogin');
             loginEl.classList.remove('active');
             loginEl.style.display = 'none';
             document.getElementById('sDash').classList.add('active');
 
-            // Alustetaan dashboard ja pakota seuran valinta oikeaksi
+            // Alustetaan dashboard — _fbSeuraDoc on nyt valmis
             initDash();
-
-            // Tallennetaan seuraDoc — initDash lukee sen ja valitsee oikean seuran
-            window._fbSeuraDoc = seuraDoc;
-            console.log('[AUTH] Seura tunnistettu Firebasesta:', seuraDoc.nimi, '(id:', seuraDoc.id, ')');
 
           } else {
             // Käyttäjä löytyy Firebasesta mutta ei seurat-kokoelmasta
