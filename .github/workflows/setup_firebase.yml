@@ -1,47 +1,41 @@
-// TalentMaster — Super-admin custom claims
-// Tämä skripti asettaa superAdmin: true claim talentmasterid@gmail.com tunnukselle
+name: TalentMaster — Firebase Setup
 
-const admin = require('firebase-admin');
-const serviceAccount = require('./serviceAccountKey.json');
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Toiminto: setup_seurat / setup_admin / setup_all'
+        required: true
+        default: 'setup_admin'
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
-}
+jobs:
+  setup-seurat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-const auth = admin.auth();
-const db   = admin.firestore();
+      - name: npm install
+        working-directory: tm_admin
+        run: npm install
 
-const SUPER_ADMIN_UID   = 'VERZxR7dQ9Qmnms1Aw1GV5nffcf1';
-const SUPER_ADMIN_EMAIL = 'talentmasterid@gmail.com';
+      - name: Luo serviceAccountKey.json
+        working-directory: tm_admin
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > serviceAccountKey.json
 
-async function asetaSuperAdmin() {
-  console.log('TalentMaster — Super-admin setup\n');
+      - name: Setup seurat
+        if: inputs.action == 'setup_seurat' || inputs.action == 'setup_all'
+        working-directory: tm_admin
+        run: node setup_seurat.js
 
-  // Aseta custom claims
-  await auth.setCustomUserClaims(SUPER_ADMIN_UID, {
-    superAdmin: true,
-    rooli:      'super_admin',
-    paketti:    'huipputaso'
-  });
-  console.log('✅ Super-admin custom claims asetettu:', SUPER_ADMIN_EMAIL);
+      - name: Setup super-admin
+        if: inputs.action == 'setup_admin' || inputs.action == 'setup_all'
+        working-directory: tm_admin
+        run: node setup_admin.js
 
-  // Luo super-admin dokumentti Firestoreen
-  await db.collection('admins').doc(SUPER_ADMIN_UID).set({
-    email:      SUPER_ADMIN_EMAIL,
-    rooli:      'super_admin',
-    superAdmin: true,
-    luotu:      admin.firestore.FieldValue.serverTimestamp()
-  });
-  console.log('✅ Admin-dokumentti luotu Firestoreen');
-
-  console.log('\n✅ Super-admin setup valmis!');
-  console.log('Kirjaudu sisään:', SUPER_ADMIN_EMAIL);
-  process.exit(0);
-}
-
-asetaSuperAdmin().catch(function(e) {
-  console.error('Virhe:', e);
-  process.exit(1);
-});
+      - name: Siivoa
+        if: always()
+        working-directory: tm_admin
+        run: rm -f serviceAccountKey.json
