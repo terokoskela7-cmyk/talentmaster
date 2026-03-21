@@ -668,20 +668,19 @@ function kirjaudu() {
   _auth.signInWithEmailAndPassword(email, pw)
     .then(function(cred) {
       _user = cred.user;
-      // Tarkistetaan super-admin status Firestorestä
-      return _db.collection('admins').doc(_user.uid).get();
-    })
-    .then(function(doc) {
-      if (doc.exists && doc.data().superAdmin === true) {
-        // Super-admin — pääsy sallittu
+      // Tarkistetaan super-admin sähköpostilla — yksinkertainen ja luotettava
+      var ADMIN_EMAILS = ['talentmasterid@gmail.com'];
+      if (ADMIN_EMAILS.indexOf(_user.email) !== -1) {
         document.getElementById('sLogin').style.display = 'none';
         document.getElementById('sDash').style.display  = 'block';
         document.getElementById('topbarUser').textContent = _user.email;
         lataaDashboard();
+        return Promise.resolve();
       } else {
         err.style.color = 'var(--red)';
         err.textContent = '⛔ Ei admin-oikeuksia';
         _auth.signOut();
+        return Promise.resolve();
       }
     })
     .catch(function(e) {
