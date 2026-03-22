@@ -332,6 +332,7 @@ try {
     <div class="nav-tab" onclick="vaihda(6,this)">📚 Koulutus</div>
   <div class="nav-tab" onclick="vaihda(7,this)" style="display:none">🏆 Tekniikkakilpailut</div>
   <div class="nav-tab" id="navUJStrategia" onclick="vaihda(8,this)" style="display:none;color:var(--purple)">🏛️ UJ-Strategia</div>
+  <div class="nav-tab" onclick="vaihda(9,this)" style="color:var(--green)">🏋️ Kartoitukset</div>
   </div>
   <div class="content">
     <div id="tabYleiskuva"></div>
@@ -343,6 +344,7 @@ try {
     <div id="tabKoulutus" style="display:none"></div>
     <div id="tabTekniikkakilpailut" style="display:none"></div>
     <div id="tabUJStrategia" style="display:none"></div>
+    <div id="tabKartoitukset" style="display:none"></div>
   </div>
 </div>
 
@@ -2846,7 +2848,7 @@ function ovrFromObj(k) {
 }
 
 // ── NAVIGATION ──
-var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabTalentit','tabSeuratavoitteet','tabKoulutus','tabTekniikkakilpailut','tabUJStrategia'];
+var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabTalentit','tabSeuratavoitteet','tabKoulutus','tabTekniikkakilpailut','tabUJStrategia','tabKartoitukset'];
 function vaihda(idx, el) {
   _aktivTab = idx;
   _tabs.forEach(function(t){ document.getElementById(t).style.display='none'; });
@@ -2882,6 +2884,7 @@ function renderTab(idx) {
   else if (idx===6) renderKoulutus();
   else if (idx===7) renderTekniikkakilpailut();
   else if (idx===8) renderUJStrategia();
+  else if (idx===9) renderKartoitukset();
 }
 
 // ── KETJU META ──
@@ -5364,6 +5367,1094 @@ function renderUJStrategia() {
 
 function metCard(l,v,col){return '<div class="metric-card"><div class="metric-label">'+l+'</div><div class="metric-value" style="font-size:22px;color:'+(col||'var(--text)')+'">'+v+'</div></div>';}
 function suljeMod(){document.getElementById('joukkueModal').classList.remove('open');}
+
+// ============================================================
+// HARJOITETTAVUUSKARTOITUS — JS alkaa tässä (2026-03-22)
+// ============================================================
+
+// ── VIITEARVOT (sama kuin kartoitus_schema.js, kopioitu selaimelle) ──────────
+
+var KRT_VIITEARVOT = {
+  U12: {
+    valakyykky:        { tyyppi:'laatu' },
+    luistelijanKyykky: { tyyppi:'laatu' },
+    askelkyykky:       { tyyppi:'laatu' },
+    hyvaaHuomenta:     { tyyppi:'laatu' },
+    etunojapunnerrus:  { tyyppi:'laatu' },
+    lankku60s:         { tyyppi:'aika_s',  T:[30,50],    P:[30,50] },
+    naruhypyt15s:      { tyyppi:'toistot', T:[26,36],    P:[26,36] },
+    pituushyppy:       { tyyppi:'matka_m', T:[1.75,1.85],P:[1.80,1.95] },
+    loikka5:           { tyyppi:'matka_m', T:[8.75,9.25],P:[9.00,9.75] },
+  },
+  U15: {
+    pistoolikyykky:    { tyyppi:'toistot', T:[5,8],    P:[6,10] },
+    etunojapunnerrus:  { tyyppi:'toistot', T:[12,20],  P:[24,34] },
+    leuanveto:         { tyyppi:'toistot', T:[4,6],    P:[7,10] },
+    jalkojenNosto:     { tyyppi:'toistot', T:[5,10],   P:[8,13] },
+    lankku120s:        { tyyppi:'aika_s',  T:[60,90],  P:[60,90] },
+    sivulankku60s:     { tyyppi:'aika_s',  T:[40,50],  P:[40,50] },
+    lantionnosto:      { tyyppi:'toistot', T:[29,40],  P:[37,46] },
+    naruhypyt30s:      { tyyppi:'toistot', T:[57,68],  P:[62,72] },
+    pakianousu:        { tyyppi:'toistot', T:[15,20],  P:[15,20] },
+    slr:               { tyyppi:'laatu' },
+    thomasTesti:       { tyyppi:'laatu' },
+    pituushyppy:       { tyyppi:'matka_m', T:[1.95,2.10],P:[2.20,2.45] },
+    loikka5:           { tyyppi:'matka_m', T:[9.75,10.50],P:[11.00,12.25] },
+  },
+  U19: {
+    leuanveto:         { tyyppi:'toistot', T:[8,15],   P:[5,8] },
+    jalkojenNosto:     { tyyppi:'toistot', T:[12,20],  P:[9,16] },
+    pakianousu:        { tyyppi:'toistot', T:[15,20],  P:[15,20] },
+    lonkanOjennus:     { tyyppi:'laatu' },
+    slr:               { tyyppi:'laatu' },
+    thomasTesti:       { tyyppi:'laatu' },
+    pituushyppy:       { tyyppi:'matka_m', T:[2.45,2.75],P:[2.10,2.30] },
+    loikka5:           { tyyppi:'matka_m', T:[12.25,13.75],P:[10.50,11.50] },
+  },
+  VOIMA_RAJAT: {
+    takakyykky:     { T:{16:[1.2,1.3],17:[1.3,1.4],18:[1.4,1.5],19:[1.5,1.6]}, P:{16:[1.3,1.4],17:[1.4,1.5],18:[1.5,1.6],19:[1.6,1.8]} },
+    maastaveto:     { T:{16:[1.5,1.7],17:[1.7,1.8],18:[1.8,1.9],19:[1.9,2.0]}, P:{16:[1.8,2.0],17:[1.8,2.0],18:[2.0,2.2],19:[2.1,2.3]} },
+    rinnalleveto:   { T:{16:[0.75,0.80],17:[0.80,0.85],18:[0.85,0.90],19:[0.90,0.95]}, P:{16:[0.90,0.95],17:[0.95,1.00],18:[1.00,1.05],19:[1.05,1.10]} },
+    yhdenJalanKyykky:{ T:{16:[0.80,0.90],17:[0.90,1.00],18:[1.00,1.10],19:[1.10,1.20]}, P:{16:[0.90,1.00],17:[1.00,1.10],18:[1.10,1.20],19:[1.20,1.40]} },
+    penkkipunnerrus: { T:{16:[0.70,0.75],17:[0.75,0.80],18:[0.80,0.85],19:[0.85,0.90]}, P:{16:[0.85,0.90],17:[0.90,0.95],18:[0.95,1.00],19:[1.00,1.05]} },
+  }
+};
+
+// Testien suomenkieliset nimet näyttöä varten
+var KRT_NIMET = {
+  valakyykky:'Valakyykky', luistelijanKyykky:'Luistelijan kyykky',
+  askelkyykky:'Askelkyykky', hyvaaHuomenta:'Hyvää huomenta',
+  etunojapunnerrus:'Etunojapunnerrus', lankku60s:'Lankku 60s',
+  naruhypyt15s:'Naruhypyt 15s', pituushyppy:'Pituushyppy',
+  pistoolikyykky:'Pistoolikyykky', leuanveto:'Leuanveto',
+  jalkojenNosto:'Jalkojen nosto', lankku120s:'Lankku 120s',
+  sivulankku60s:'Sivulankku 60s', lantionnosto:'Lantionnosto',
+  naruhypyt30s:'Naruhypyt 30s', pakianousu:'Päkiänousu',
+  slr:'SLR', thomasTesti:'Thomas-testi', loikka5:'5-loikka',
+  takakyykky:'Takakyykky', maastaveto:'Maastanosto',
+  rinnalleveto:'Rinnalleveto', yhdenJalanKyykky:'Yhden jalan kyykky',
+  penkkipunnerrus:'Penkkipunnerrus', lonkanOjennus:'Lonkan ojennus'
+};
+
+// Testin yksikkö näyttöä varten
+var KRT_YKSIKOT = {
+  lankku60s:'s', lankku120s:'s', sivulankku60s:'s',
+  naruhypyt15s:'toistoa', naruhypyt30s:'toistoa',
+  pistoolikyykky:'toistoa/jalka', etunojapunnerrus:'toistoa (U15)',
+  leuanveto:'toistoa', jalkojenNosto:'toistoa', lantionnosto:'toistoa/jalka',
+  pakianousu:'toistoa/jalka', pituushyppy:'m', loikka5:'m'
+};
+
+// ── PISTEYTYSFUNKTIO ─────────────────────────────────────────────────────────
+
+/**
+ * Laskee testin pisteet (1-3) viitearvoista.
+ * Laadullisille testeille (valakyykky jne.) palautetaan null — käyttäjä valitsee itse.
+ * Numeerisille: arvo < raja1 → 1, raja1 ≤ arvo < raja2 → 2, arvo ≥ raja2 → 3
+ */
+function krtLaskePisteet(testiNimi, arvo, sukupuoli, ikäluokka, testi4valinta, testi6valinta) {
+  if (arvo === null || arvo === undefined || arvo === '') return null;
+
+  var vl = KRT_VIITEARVOT[ikäluokka];
+  if (!vl) return null;
+
+  // U15:n vaihtoehtoistestien käsittely — testi4 ja testi6 ratkeavat valinnan mukaan
+  var avain = testiNimi;
+  if (testiNimi === 'testi4') avain = testi4valinta;
+  if (testiNimi === 'testi6') avain = testi6valinta;
+
+  var ref = vl[avain];
+  if (!ref) return null;
+  if (ref.tyyppi === 'laatu') return null; // Laadulliset: käyttäjä valitsee
+
+  var sukKey = (sukupuoli === 'T') ? 'T' : 'P';
+  var rajat = ref[sukKey];
+  if (!rajat) return null;
+
+  var n = parseFloat(arvo);
+  if (isNaN(n)) return null;
+  if (n < rajat[0]) return 1;
+  if (n < rajat[1]) return 2;
+  return 3;
+}
+
+/**
+ * Brzycki 1RM-laskenta: 1RM = kg5rm / (1.0278 - 0.0278 * toistot)
+ * Suhteellinen 1RM = 1RM / kehonpaino
+ */
+function krtBrzycki(kg5rm, toistot) {
+  toistot = toistot || 5;
+  return kg5rm / (1.0278 - (0.0278 * toistot));
+}
+function krtSuhteellinen1RM(kg5rm, kehonpaino, toistot) {
+  var rm1 = krtBrzycki(kg5rm, toistot || 5);
+  return parseFloat((rm1 / kehonpaino).toFixed(3));
+}
+
+/**
+ * U19 voimatestin pisteet suhteellisesta 1RM-arvosta.
+ * Ikä rajataan 16-19 välille viitearvojen puitteissa.
+ */
+function krtVoimaPisteet(testiNimi, rel1rm, sukupuoli, ika) {
+  var vr = KRT_VIITEARVOT.VOIMA_RAJAT[testiNimi];
+  if (!vr) return null;
+  var sukKey = (sukupuoli === 'T') ? 'T' : 'P';
+  var ikaKey = Math.min(Math.max(parseInt(ika), 16), 19);
+  var rajat = vr[sukKey][ikaKey];
+  if (!rajat) return null;
+  if (rel1rm < rajat[0]) return 1;
+  if (rel1rm < rajat[1]) return 2;
+  return 3;
+}
+
+// ── FLEI-LASKENTA ────────────────────────────────────────────────────────────
+
+/**
+ * FLEI = Functional Load & Exercise Index
+ * Pisteet lasketaan suhteellisena prosenttina maksimista.
+ * Tasoluokitus: ≥75% = hyvä, 60-74% = kehitys, <60% = prioriteetti
+ * Kuormarajoitin: PHV-huippu saa aina 60pct riippumatta pisteistä.
+ */
+function krtLaskeFlei(pisteetYhteensa, pisteetMaksimi, phvTila) {
+  var pct = Math.round((pisteetYhteensa / pisteetMaksimi) * 100);
+  var taso, kuorma;
+
+  if (phvTila === 'PHV-huippu') {
+    // PHV-huippu = kasvupyrähdyksen huippu → kuormarajoitus aina
+    kuorma = '⚠️ 60% — PHV-huippu';
+    taso = pct >= 75 ? 'hyvä' : pct >= 60 ? 'kehitys' : 'prioriteetti';
+  } else {
+    taso = pct >= 75 ? 'hyvä' : pct >= 60 ? 'kehitys' : 'prioriteetti';
+    kuorma = taso === 'hyvä'    ? '✅ Normaali'
+           : taso === 'kehitys'  ? '🟡 80% — Kehitysohjelma'
+           : '🔴 60% — Prioriteetti';
+  }
+
+  return { fleiProsentti: pct, fleiTaso: taso, kuormaRajoitin: kuorma };
+}
+
+// ── LOMAKKEEN TILA ───────────────────────────────────────────────────────────
+
+// Tämä objekti pitää kaikkien lomakekenttien arvot muistissa
+// kun käyttäjä täyttää lomaketta askel askeleelta.
+var _krtData = {};
+
+function krtNollaa() {
+  _krtData = {
+    // Pelaajan tiedot
+    nimi: '', pelaajaId: '', sukupuoli: 'P', ika: '', syntymavuosi: '',
+    ikäluokka: 'U12', joukkue: '', phvTila: 'Ei tiedossa',
+    // Testin meta
+    testauspvm: new Date().toISOString().slice(0,10),
+    arvioija: '', kausi: 'kevat_2026',
+    // Testit — täytetään dynaamisesti
+    testit: {},
+    // U15-valinnat
+    testi4valinta: 'jalkojenNosto',
+    testi6valinta: 'naruhypyt30s',
+    // Lomakkeen tila
+    vaihe: 1  // 1=pelaajatiedot, 2=testit, 3=yhteenveto
+  };
+}
+krtNollaa(); // Alustetaan heti
+
+// ── KARTOITUS-TAB RENDERÖINTI ────────────────────────────────────────────────
+
+/**
+ * Renderöi kartoitusten listausnäkymä.
+ * Hakee Firestoresta seuran kartoitukset ja näyttää ne kortteina.
+ */
+function renderKartoitukset() {
+  var el = document.getElementById('tabKartoitukset');
+  if (!el) return;
+
+  // Haetaan seuran Firestore-id luotettavasti samalla logiikalla kuin muuallakin dashboardissa.
+  // window._fbSeuraDoc.id on paras lähde (asetettu Firebase-kirjautumisessa),
+  // _seuraData._seuraId on varavalinta (tallennettu initDash():ssa dynaamista seuraa varten).
+  var seuraId = (window._fbSeuraDoc && window._fbSeuraDoc.id)
+             || ((_seuraData[_aktivSeura] || {})._seuraId)
+             || null;
+  if (!seuraId) {
+    el.innerHTML = '<div style="color:var(--red);padding:20px">⚠️ Seuran tunnistetta ei löydy. Kirjaudu sisään sähköpostilla.</div>';
+    return;
+  }
+
+  var h = '<div class="card" style="margin-bottom:16px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">';
+  h += '<div class="card-title" style="margin:0">🏋️ Harjoitettavuuskartoitukset — ' + _aktivSeura + '</div>';
+  h += '<button onclick="avaaTyhjäKartoitus()" style="background:var(--teal);color:var(--bg);border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">+ Uusi kartoitus</button>';
+  h += '</div>';
+  h += '<div style="font-size:12px;color:var(--muted)">FLEI = Functional Load & Exercise Index | U12 / U15 / U19 | Eerikkilä-protokolla 2026</div>';
+  h += '</div>';
+
+  h += '<div id="kartoitusLista"><div style="color:var(--muted);padding:20px;text-align:center">Ladataan kartoituksia...</div></div>';
+
+  el.innerHTML = h;
+
+  // Haetaan Firestoresta
+  if (_fbOnline && _fbDb) {
+    _fbDb.collection('seurat').doc(seuraId)
+      .collection('kartoitukset')
+      .orderBy('luotu', 'desc')
+      .limit(50)
+      .get()
+      .then(function(snap) {
+        var lista = document.getElementById('kartoitusLista');
+        if (!lista) return;
+
+        if (snap.empty) {
+          lista.innerHTML = '<div style="color:var(--muted);padding:32px;text-align:center">'
+            + '<div style="font-size:32px;margin-bottom:8px">📋</div>'
+            + '<div>Ei vielä kartoituksia.<br>Aloita klikkaamalla + Uusi kartoitus.</div>'
+            + '</div>';
+          return;
+        }
+
+        // Ryhmitellään ikäluokan mukaan
+        var ryhmät = { U12:[], U15:[], U19:[] };
+        snap.forEach(function(doc) {
+          var d = doc.data();
+          d._docId = doc.id;
+          var ikl = d.ikäluokka || 'U12';
+          if (ryhmät[ikl]) ryhmät[ikl].push(d);
+        });
+
+        var out = '';
+        ['U12','U15','U19'].forEach(function(ikl) {
+          if (ryhmät[ikl].length === 0) return;
+          out += '<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px">'
+               + ikl + ' — ' + ryhmät[ikl].length + ' kartoitusta</div>';
+          out += '<div style="display:grid;gap:8px">';
+          ryhmät[ikl].forEach(function(d) {
+            var yh = d.yhteenveto || {};
+            var fleiPct = yh.fleiProsentti || 0;
+            var fleiTaso = yh.fleiTaso || '—';
+            var fleiVäri = fleiTaso === 'hyvä' ? 'var(--green)'
+                         : fleiTaso === 'kehitys' ? 'var(--amber)' : 'var(--red)';
+            var pvmStr = d.testauspvm
+              ? (d.testauspvm.toDate ? d.testauspvm.toDate().toLocaleDateString('fi-FI') : d.testauspvm.slice(0,10))
+              : '—';
+
+            out += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;'
+                 + 'display:flex;align-items:center;justify-content:space-between;cursor:pointer" '
+                 + 'onclick="avaaKartoitusYhteenveto(\'' + d._docId + '\',\'' + seuraId + '\')">';
+            out += '<div>';
+            out += '<div style="font-weight:600;font-size:13px">' + (d.nimi || '—') + '</div>';
+            out += '<div style="font-size:11px;color:var(--muted);margin-top:2px">'
+                 + (d.joukkue || '—') + ' · ' + pvmStr + ' · ' + (d.sukupuoli === 'T' ? '♀' : '♂') + '</div>';
+            out += '</div>';
+            out += '<div style="text-align:right">';
+            out += '<div style="font-family:\'Bebas Neue\';font-size:22px;color:' + fleiVäri + '">' + fleiPct + '%</div>';
+            out += '<div style="font-size:10px;color:' + fleiVäri + '">' + fleiTaso.toUpperCase() + '</div>';
+            out += '</div>';
+            out += '</div>';
+          });
+          out += '</div>';
+        });
+
+        lista.innerHTML = out;
+      })
+      .catch(function(err) {
+        document.getElementById('kartoitusLista').innerHTML =
+          '<div style="color:var(--red);padding:20px">Virhe ladattaessa: ' + err.message + '</div>';
+      });
+  } else {
+    document.getElementById('kartoitusLista').innerHTML =
+      '<div style="color:var(--amber);padding:20px">⚠️ Ei Firebase-yhteyttä. Kirjaudu sisään sähköpostilla.</div>';
+  }
+}
+
+// ── MODAL: AVAUS JA SULKEMINEN ───────────────────────────────────────────────
+
+function avaaTyhjäKartoitus() {
+  krtNollaa();
+  var modal = document.getElementById('kartoitusModal');
+  modal.classList.add('open');
+  krtRenderöiVaihe();
+}
+
+function suljeKartoitusModal() {
+  document.getElementById('kartoitusModal').classList.remove('open');
+}
+
+// ── LOMAKE: VAIHEISTUS ───────────────────────────────────────────────────────
+
+/**
+ * Lomake on jaettu kolmeen vaiheeseen selkeyden vuoksi:
+ * Vaihe 1: Pelaajan perustiedot (nimi, syntymävuosi, sukupuoli jne.)
+ * Vaihe 2: Testisuoritukset (dynaamiset kentät ikäluokan mukaan)
+ * Vaihe 3: Yhteenveto + tallennus
+ */
+function krtRenderöiVaihe() {
+  var body = document.getElementById('kartoitusModalBody');
+  if (!body) return;
+
+  if (_krtData.vaihe === 1) body.innerHTML = krtVaihe1HTML();
+  else if (_krtData.vaihe === 2) body.innerHTML = krtVaihe2HTML();
+  else if (_krtData.vaihe === 3) body.innerHTML = krtVaihe3HTML();
+}
+
+// ── VAIHE 1: PELAAJAN TIEDOT ─────────────────────────────────────────────────
+
+function krtVaihe1HTML() {
+  var h = '';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">';
+  h += '<div style="font-family:\'Bebas Neue\';font-size:22px">Uusi kartoitus</div>';
+  h += '<div style="font-size:11px;color:var(--muted)">Vaihe 1/3 — Pelaajan tiedot</div>';
+  h += '</div>';
+
+  // Nimi + PalloID
+  h += krtKenttäRivi('Pelaajan nimi *', '<input id="krt_nimi" type="text" value="' + (_krtData.nimi||'') + '" placeholder="Etunimi Sukunimi" ' + krtInputStyle() + ' oninput="_krtData.nimi=this.value">');
+  h += krtKenttäRivi('PalloID / pelaajatunnus', '<input id="krt_pid" type="text" value="' + (_krtData.pelaajaId||'') + '" placeholder="esim. 34650191" ' + krtInputStyle() + ' oninput="_krtData.pelaajaId=this.value">');
+
+  // Sukupuoli
+  h += krtKenttäRivi('Sukupuoli *',
+    '<div style="display:flex;gap:8px">'
+    + krtToggleBtn('krt_suk_P', 'Poika', '_krtData.sukupuoli="P";krtPäivitäIkäluokka();krtToggle("krt_suk",["P","T"])','P',_krtData.sukupuoli)
+    + krtToggleBtn('krt_suk_T', 'Tyttö', '_krtData.sukupuoli="T";krtPäivitäIkäluokka();krtToggle("krt_suk",["P","T"])','T',_krtData.sukupuoli)
+    + '</div>');
+
+  // Syntymävuosi → ikäluokka lasketaan automaattisesti
+  var tänäVuosi = new Date().getFullYear();
+  h += krtKenttäRivi('Syntymävuosi *',
+    '<div style="display:flex;align-items:center;gap:12px">'
+    + '<input id="krt_syntyma" type="number" min="2005" max="2018" value="' + (_krtData.syntymavuosi||'') + '" placeholder="esim. 2013" '
+    + krtInputStyle('width:120px') + ' oninput="_krtData.syntymavuosi=parseInt(this.value);krtPäivitäIkäluokka()">'
+    + '<div id="krt_ikäluokka_tag" style="font-family:\'Bebas Neue\';font-size:16px;color:var(--teal)">'
+    + (krtLaskeIkäluokka(_krtData.syntymavuosi) || '') + '</div>'
+    + '</div>');
+
+  // PHV-tila
+  h += krtKenttäRivi('PHV-tila',
+    '<select id="krt_phv" ' + krtInputStyle() + ' onchange="_krtData.phvTila=this.value">'
+    + ['Varhainen','PHV-huippu','Post-PHV','Ei tiedossa'].map(function(v){
+        return '<option value="' + v + '"' + (v===_krtData.phvTila?' selected':'') + '>' + v + '</option>';
+      }).join('')
+    + '</select>');
+
+  // Joukkue
+  h += krtKenttäRivi('Joukkue',
+    '<input id="krt_joukkue" type="text" value="' + (_krtData.joukkue||'') + '" placeholder="esim. KPV U13" '
+    + krtInputStyle() + ' oninput="_krtData.joukkue=this.value">');
+
+  // Testauspvm + arvioija
+  h += krtKenttäRivi('Testauspäivä *',
+    '<input id="krt_pvm" type="date" value="' + _krtData.testauspvm + '" '
+    + krtInputStyle() + ' onchange="_krtData.testauspvm=this.value">');
+  h += krtKenttäRivi('Arvioija',
+    '<input id="krt_arvioija" type="text" value="' + (_krtData.arvioija||'') + '" placeholder="Nimi tai nimimerkki" '
+    + krtInputStyle() + ' oninput="_krtData.arvioija=this.value">');
+
+  // Kausi
+  h += krtKenttäRivi('Kausi',
+    '<select id="krt_kausi" ' + krtInputStyle() + ' onchange="_krtData.kausi=this.value">'
+    + ['kevat_2026','syksy_2026','kevat_2027'].map(function(v){
+        return '<option value="' + v + '"' + (v===_krtData.kausi?' selected':'') + '>' + v.replace('_',' ') + '</option>';
+      }).join('')
+    + '</select>');
+
+  h += '<button onclick="krtSiirrySuorituksiin()" style="width:100%;margin-top:20px;'
+     + 'background:var(--teal);color:var(--bg);border:none;border-radius:10px;padding:14px;'
+     + 'font-family:\'Bebas Neue\';font-size:18px;cursor:pointer">Jatka → Testit</button>';
+
+  return h;
+}
+
+/**
+ * Laskee ikäluokan syntymävuodesta.
+ * Logiikka: ikä = tänäVuosi - syntymävuosi, ja:
+ *   ika <= 12 → U12, 13 ≤ ika ≤ 15 → U15, ika >= 16 → U19
+ */
+function krtLaskeIkäluokka(syntymavuosi) {
+  if (!syntymavuosi) return null;
+  var ika = new Date().getFullYear() - parseInt(syntymavuosi);
+  if (ika <= 12) return 'U12';
+  if (ika <= 15) return 'U15';
+  return 'U19';
+}
+
+function krtPäivitäIkäluokka() {
+  var ikl = krtLaskeIkäluokka(_krtData.syntymavuosi);
+  if (ikl) {
+    _krtData.ikäluokka = ikl;
+    _krtData.ika = new Date().getFullYear() - _krtData.syntymavuosi;
+    var tag = document.getElementById('krt_ikäluokka_tag');
+    if (tag) tag.textContent = ikl;
+  }
+}
+
+function krtSiirrySuorituksiin() {
+  // Validointi ennen siirtymistä
+  if (!_krtData.nimi.trim()) { alert('Syötä pelaajan nimi.'); return; }
+  if (!_krtData.syntymavuosi) { alert('Syötä syntymävuosi.'); return; }
+  if (!_krtData.testauspvm) { alert('Syötä testauspäivä.'); return; }
+
+  // Lasketaan lopullinen ikä ja ikäluokka
+  krtPäivitäIkäluokka();
+  _krtData.vaihe = 2;
+  krtRenderöiVaihe();
+}
+
+// ── VAIHE 2: TESTIT ──────────────────────────────────────────────────────────
+
+function krtVaihe2HTML() {
+  var ikl = _krtData.ikäluokka;
+  var h = '';
+
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  h += '<div style="font-family:\'Bebas Neue\';font-size:22px">' + (KRT_NIMET[ikl]||ikl) + ' — Testit</div>';
+  h += '<div style="font-size:11px;color:var(--muted)">Vaihe 2/3</div>';
+  h += '</div>';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:16px">'
+     + _krtData.nimi + ' · ' + ikl + ' · ' + (_krtData.sukupuoli==='T'?'♀ Tyttö':'♂ Poika')
+     + '</div>';
+
+  if (ikl === 'U12')      h += krtU12HTML();
+  else if (ikl === 'U15') h += krtU15HTML();
+  else                    h += krtU19HTML();
+
+  h += '<div style="display:flex;gap:8px;margin-top:20px">';
+  h += '<button onclick="_krtData.vaihe=1;krtRenderöiVaihe()" style="flex:1;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:14px;cursor:pointer">← Takaisin</button>';
+  h += '<button onclick="krtSiiryYhteenvetoon()" style="flex:2;background:var(--teal);color:var(--bg);border:none;border-radius:10px;padding:14px;font-family:\'Bebas Neue\';font-size:18px;cursor:pointer">Laske FLEI →</button>';
+  h += '</div>';
+
+  return h;
+}
+
+// U12-testit: 9 testiä, kaikki yksinkertaisia (laatu 1-3 tai numero)
+function krtU12HTML() {
+  var testit = [
+    'valakyykky','luistelijanKyykky','askelkyykky','hyvaaHuomenta',
+    'etunojapunnerrus','lankku60s','naruhypyt15s','pituushyppy','loikka5'
+  ];
+  return testit.map(function(t) {
+    return krtTestiRivi(t, 'U12', _krtData.sukupuoli);
+  }).join('');
+}
+
+// U15-testit: 10 testiä, joista testi4 ja testi6 vaihtoehtoisia
+function krtU15HTML() {
+  var h = '';
+  // Kiinteät testit 1-3
+  ['pistoolikyykky','etunojapunnerrus','leuanveto'].forEach(function(t) {
+    h += krtTestiRivi(t, 'U15', _krtData.sukupuoli);
+  });
+
+  // Testi 4 — vaihtoehtoinen
+  h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">';
+  h += '<div style="font-size:11px;color:var(--amber);margin-bottom:8px">TESTI 4 — Vaihtoehtoinen (valitse yksi)</div>';
+  h += '<select onchange="_krtData.testi4valinta=this.value;document.getElementById(\'krt_testi4_yksikko\').textContent=krtYksikkö(this.value)" '
+     + krtInputStyle('margin-bottom:8px') + '>';
+  ['jalkojenNosto','lankku120s','sivulankku60s'].forEach(function(v) {
+    h += '<option value="' + v + '"' + (v===_krtData.testi4valinta?' selected':'') + '>' + KRT_NIMET[v] + '</option>';
+  });
+  h += '</select>';
+  h += '<div style="display:flex;gap:8px;align-items:center">';
+  h += '<input id="krt_testi4_tulos" type="number" step="0.1" placeholder="Tulos" '
+     + krtInputStyle('flex:1') + ' value="' + ((_krtData.testit['testi4']||{}).tulos||'') + '" '
+     + 'oninput="krtTallennaTestiTulos(\'testi4\',this.value,\'testi4\',null)">';
+  h += '<span id="krt_testi4_yksikko" style="font-size:12px;color:var(--muted);width:60px">' + krtYksikkö(_krtData.testi4valinta) + '</span>';
+  h += '</div>';
+  h += krtPisteetValinta('testi4');
+  h += krtHuomioKenttä('testi4');
+  h += '</div>';
+
+  // Kiinteät testit 5 (lantionnosto)
+  h += krtTestiRivi('lantionnosto', 'U15', _krtData.sukupuoli);
+
+  // Testi 6 — vaihtoehtoinen
+  h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">';
+  h += '<div style="font-size:11px;color:var(--amber);margin-bottom:8px">TESTI 6 — Vaihtoehtoinen (valitse yksi)</div>';
+  h += '<select onchange="_krtData.testi6valinta=this.value;document.getElementById(\'krt_testi6_yksikko\').textContent=krtYksikkö(this.value)" '
+     + krtInputStyle('margin-bottom:8px') + '>';
+  ['naruhypyt30s','pakianousu'].forEach(function(v) {
+    h += '<option value="' + v + '"' + (v===_krtData.testi6valinta?' selected':'') + '>' + KRT_NIMET[v] + '</option>';
+  });
+  h += '</select>';
+  h += '<div style="display:flex;gap:8px;align-items:center">';
+  h += '<input id="krt_testi6_tulos" type="number" step="0.1" placeholder="Tulos" '
+     + krtInputStyle('flex:1') + ' value="' + ((_krtData.testit['testi6']||{}).tulos||'') + '" '
+     + 'oninput="krtTallennaTestiTulos(\'testi6\',this.value,\'testi6\',null)">';
+  h += '<span id="krt_testi6_yksikko" style="font-size:12px;color:var(--muted);width:60px">' + krtYksikkö(_krtData.testi6valinta) + '</span>';
+  h += '</div>';
+  h += krtPisteetValinta('testi6');
+  h += krtHuomioKenttä('testi6');
+  h += '</div>';
+
+  // Kiinteät testit 7-10
+  ['slr','thomasTesti','pituushyppy','loikka5'].forEach(function(t) {
+    h += krtTestiRivi(t, 'U15', _krtData.sukupuoli);
+  });
+
+  return h;
+}
+
+// U19-testit: voimatestit Brzycki-laskennalla + loput normaalisti
+function krtU19HTML() {
+  var h = '';
+
+  // Voimatestit — erityinen käsittely
+  var voimatestit = ['takakyykky','maastaveto','rinnalleveto','yhdenJalanKyykky','penkkipunnerrus'];
+  h += '<div style="font-size:11px;color:var(--blue);margin:4px 0 8px;font-weight:600">VOIMATESTIT — 5RM (syötä kuorma + kehonpaino)</div>';
+
+  voimatestit.forEach(function(t) {
+    var td = _krtData.testit[t] || {};
+    h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">';
+    h += '<div style="font-weight:600;font-size:13px;margin-bottom:8px">' + KRT_NIMET[t] + '</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">';
+    h += '<div><div style="font-size:10px;color:var(--muted);margin-bottom:4px">5RM (kg)</div>'
+       + '<input type="number" step="0.5" placeholder="kg" ' + krtInputStyle()
+       + ' value="' + (td.kg5rm||'') + '" '
+       + 'oninput="krtTallennaVoima(\'' + t + '\',\'kg5rm\',this.value)">'
+       + '</div>';
+    h += '<div><div style="font-size:10px;color:var(--muted);margin-bottom:4px">Kehonpaino (kg)</div>'
+       + '<input type="number" step="0.5" placeholder="kg" ' + krtInputStyle()
+       + ' value="' + (td.kehonpaino||'') + '" '
+       + 'oninput="krtTallennaVoima(\'' + t + '\',\'kehonpaino\',this.value)">'
+       + '</div>';
+    h += '<div><div style="font-size:10px;color:var(--muted);margin-bottom:4px">Rel. 1RM</div>'
+       + '<div id="krt_rel_' + t + '" style="padding:8px;background:var(--card);border-radius:6px;font-family:\'DM Mono\';font-size:13px;color:var(--teal)">'
+       + (td.rel1rm ? td.rel1rm.toFixed(2) : '—')
+       + '</div></div>';
+    h += '</div>';
+    h += krtPisteetValinta(t);
+    h += '</div>';
+  });
+
+  // Loput U19-testit normaalisti
+  h += '<div style="font-size:11px;color:var(--blue);margin:12px 0 8px;font-weight:600">MUUT TESTIT</div>';
+  ['leuanveto','jalkojenNosto','pakianousu','lonkanOjennus','slr','thomasTesti','pituushyppy','loikka5'].forEach(function(t) {
+    h += krtTestiRivi(t, 'U19', _krtData.sukupuoli);
+  });
+
+  return h;
+}
+
+// ── TESTIRIVIT JA APUKOMPONENTIT ─────────────────────────────────────────────
+
+/**
+ * Rakentaa yhden testirivin HTML:n.
+ * Laadulliset testit (tyyppi:'laatu') näyttävät 1/2/3-painikkeet suoraan.
+ * Numeeriset testit näyttävät syöttökentän + pisteet.
+ */
+function krtTestiRivi(testiNimi, ikäluokka, sukupuoli) {
+  var ref = (KRT_VIITEARVOT[ikäluokka] || {})[testiNimi];
+  var onLaatu = !ref || ref.tyyppi === 'laatu';
+  var td = _krtData.testit[testiNimi] || {};
+  var yksikkö = krtYksikkö(testiNimi);
+
+  var h = '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  h += '<div style="font-weight:600;font-size:13px">' + (KRT_NIMET[testiNimi]||testiNimi) + '</div>';
+
+  // Viitearvot tooltipinä jos numeerinen
+  if (!onLaatu && ref) {
+    var sukKey = sukupuoli === 'T' ? 'T' : 'P';
+    var rajat = ref[sukKey] || ref.T;
+    if (rajat) {
+      h += '<div style="font-size:10px;color:var(--muted2)">< ' + rajat[0] + ' · ' + rajat[0] + '–' + rajat[1] + ' · ≥' + rajat[1] + '</div>';
+    }
+  }
+  h += '</div>';
+
+  if (onLaatu) {
+    // Laadullinen: suora 1/2/3-valinta
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Laadullinen arvio (1=kehitettävä, 2=ok, 3=hyvä)</div>';
+    h += krtPisteetValinta(testiNimi);
+  } else {
+    // Numeerinen: syöttökenttä + automaattinen pisteytys
+    h += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">';
+    h += '<input type="number" step="0.01" placeholder="Tulos" ' + krtInputStyle('flex:1')
+       + ' value="' + (td.tulos !== undefined && td.tulos !== null ? td.tulos : '') + '" '
+       + 'oninput="krtTallennaTestiTulos(\'' + testiNimi + '\',this.value,\'' + testiNimi + '\',\'' + ikäluokka + '\')">';
+    h += '<span style="font-size:12px;color:var(--muted);width:60px">' + yksikkö + '</span>';
+    h += '<div id="krt_pisteet_auto_' + testiNimi + '" style="font-family:\'Bebas Neue\';font-size:20px;color:var(--teal);width:24px;text-align:center">'
+       + (td.pisteet || '—') + '</div>';
+    h += '</div>';
+    h += krtPisteetValinta(testiNimi);
+  }
+
+  h += krtHuomioKenttä(testiNimi);
+  h += '</div>';
+  return h;
+}
+
+// Pisteet-valintapainikkeet (1/2/3) — käyttäjä voi korjata automaattisen pisteet
+// Container saa id="krt_pisteet_{avain}" jotta krtPäivitäPistePainikkeet löytää sen DOM:ista
+function krtPisteetValinta(avain) {
+  var nykyinen = (_krtData.testit[avain] || {}).pisteet;
+  var h = '<div id="krt_pisteet_' + avain + '" style="display:flex;gap:6px;margin-top:4px">';
+  [1,2,3].forEach(function(p) {
+    var aktiivi = nykyinen === p;
+    var väri = p===1 ? 'var(--red)' : p===2 ? 'var(--amber)' : 'var(--green)';
+    h += '<button onclick="krtAsetaPisteet(\'' + avain + '\',' + p + ')" '
+       + 'style="flex:1;padding:6px;border-radius:6px;border:1px solid '
+       + (aktiivi ? väri : 'var(--border)') + ';background:'
+       + (aktiivi ? väri + '33' : 'var(--bg)') + ';color:'
+       + (aktiivi ? väri : 'var(--muted)') + ';font-weight:600;cursor:pointer;font-size:13px">'
+       + p + '</button>';
+  });
+  h += '</div>';
+  return h;
+}
+
+// Huomio-tekstikenttä jokaiselle testille
+function krtHuomioKenttä(avain) {
+  var nykyinen = (_krtData.testit[avain] || {}).huomio || '';
+  return '<input type="text" placeholder="Huomio (valinnainen)" '
+    + krtInputStyle('margin-top:6px;font-size:11px') + ' value="' + nykyinen + '" '
+    + 'oninput="if(!_krtData.testit[\'' + avain + '\'])_krtData.testit[\'' + avain + '\']={}; _krtData.testit[\'' + avain + '\'].huomio=this.value">';
+}
+
+// ── TIETOJEN TALLENNUS MUISTIIN ───────────────────────────────────────────────
+
+function krtAsetaPisteet(avain, pisteet) {
+  if (!_krtData.testit[avain]) _krtData.testit[avain] = {};
+  _krtData.testit[avain].pisteet = pisteet;
+  // Päivitä vain pistepainikkeiden visuaalinen tila — ei full re-render
+  // jotta fokus ei katoa muista kentistä
+  krtPäivitäPistePainikkeet(avain, pisteet);
+}
+
+function krtTallennaTestiTulos(avain, arvo, viiteavain, ikäluokka) {
+  if (!_krtData.testit[avain]) _krtData.testit[avain] = {};
+  var n = arvo === '' ? null : parseFloat(arvo);
+  _krtData.testit[avain].tulos = n;
+
+  // Automaattinen pisteytys numeerisille testeille
+  var autoPisteet = krtLaskePisteet(
+    viiteavain, n, _krtData.sukupuoli, ikäluokka || _krtData.ikäluokka,
+    _krtData.testi4valinta, _krtData.testi6valinta
+  );
+  if (autoPisteet !== null) {
+    _krtData.testit[avain].pisteet = autoPisteet;
+    // Päivitä vain pisteindikaattori ja painikkeet DOM:issa suoraan
+    // — ei krtRenderöiVaihe() joka nollaisi käyttäjän kirjoittaman tekstin
+    var indiEl = document.getElementById('krt_pisteet_auto_' + avain);
+    if (indiEl) {
+      indiEl.textContent = autoPisteet;
+      indiEl.style.color = autoPisteet===3?'var(--green)':autoPisteet===2?'var(--amber)':'var(--red)';
+    }
+    krtPäivitäPistePainikkeet(avain, autoPisteet);
+  }
+}
+
+function krtTallennaVoima(testiNimi, kenttä, arvo) {
+  if (!_krtData.testit[testiNimi]) _krtData.testit[testiNimi] = {};
+  _krtData.testit[testiNimi][kenttä] = parseFloat(arvo) || null;
+
+  var td = _krtData.testit[testiNimi];
+  if (td.kg5rm && td.kehonpaino) {
+    // Lasketaan rel1rm automaattisesti kun molemmat kentät täytetty
+    var rel = krtSuhteellinen1RM(td.kg5rm, td.kehonpaino, 5);
+    td.rel1rm = rel;
+
+    // Päivitä rel1rm-näyttö suoraan DOM:iin — ei re-render
+    var relEl = document.getElementById('krt_rel_' + testiNimi);
+    if (relEl) relEl.textContent = rel.toFixed(2);
+
+    // Laske ja päivitä pisteet
+    var pisteet = krtVoimaPisteet(testiNimi, rel, _krtData.sukupuoli, _krtData.ika);
+    if (pisteet) {
+      td.pisteet = pisteet;
+      krtPäivitäPistePainikkeet(testiNimi, pisteet);
+    }
+  }
+}
+
+/**
+ * Päivittää pistepainikkeiden (1/2/3) visuaalisen tilan DOM:issa suoraan
+ * ilman koko vaihe-renderöintiä. Käytetään aina kun pisteet muuttuvat
+ * kirjoitustilanteessa — näin fokus ei katoa syöttökentistä.
+ */
+function krtPäivitäPistePainikkeet(avain, aktiviPisteet) {
+  // Pistepainikkeiden container tunnistetaan data-attribuutilla
+  var containerId = 'krt_pisteet_' + avain;
+  var container = document.getElementById(containerId);
+  if (!container) return; // Container ei löydy — ei hätää, re-render hoitaa
+
+  var napit = container.querySelectorAll('button');
+  napit.forEach(function(btn, i) {
+    var p = i + 1; // 1, 2, 3
+    var aktiivi = p === aktiviPisteet;
+    var väri = p===1 ? 'var(--red)' : p===2 ? 'var(--amber)' : 'var(--green)';
+    btn.style.borderColor = aktiivi ? väri : 'var(--border)';
+    btn.style.background  = aktiivi ? väri.replace(')', ',0.2)').replace('var(','rgba(').replace('--red','244,113,113').replace('--amber','245,158,11').replace('--green','52,211,153') : 'var(--bg)';
+    btn.style.color       = aktiivi ? väri : 'var(--muted)';
+  });
+}
+
+// ── VAIHE 3: YHTEENVETO JA TALLENNUS ────────────────────────────────────────
+
+function krtSiiryYhteenvetoon() {
+  // Lasketaan pisteet yhteen
+  var pisteetYhteensa = 0;
+  var testattujaTestejä = 0;
+
+  Object.values(_krtData.testit).forEach(function(t) {
+    if (t && t.pisteet) {
+      pisteetYhteensa += t.pisteet;
+      testattujaTestejä++;
+    }
+  });
+
+  // Maksimipisteet ikäluokan mukaan
+  var maksimit = { U12: 27, U15: 30, U19: 39 };
+  var pisteetMaksimi = maksimit[_krtData.ikäluokka] || 27;
+
+  if (testattujaTestejä === 0) {
+    alert('Syötä vähintään yksi testitulos ennen yhteenvetoa.');
+    return;
+  }
+
+  _krtData._pisteetYhteensa = pisteetYhteensa;
+  _krtData._pisteetMaksimi = pisteetMaksimi;
+  _krtData.vaihe = 3;
+  krtRenderöiVaihe();
+}
+
+function krtVaihe3HTML() {
+  var ps = _krtData._pisteetYhteensa || 0;
+  var pm = _krtData._pisteetMaksimi || 27;
+  var flei = krtLaskeFlei(ps, pm, _krtData.phvTila);
+
+  var fleiVäri = flei.fleiTaso === 'hyvä' ? 'var(--green)'
+               : flei.fleiTaso === 'kehitys' ? 'var(--amber)' : 'var(--red)';
+
+  var h = '';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">';
+  h += '<div style="font-family:\'Bebas Neue\';font-size:22px">Yhteenveto</div>';
+  h += '<div style="font-size:11px;color:var(--muted)">Vaihe 3/3</div>';
+  h += '</div>';
+
+  // FLEI-kortti
+  h += '<div style="background:var(--card);border:2px solid ' + fleiVäri + ';border-radius:14px;padding:20px;margin-bottom:16px;text-align:center">';
+  h += '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">FLEI-INDEKSI</div>';
+  h += '<div style="font-family:\'Bebas Neue\';font-size:56px;color:' + fleiVäri + ';line-height:1">' + flei.fleiProsentti + '%</div>';
+  h += '<div style="font-family:\'Bebas Neue\';font-size:20px;color:' + fleiVäri + ';margin-bottom:8px">' + flei.fleiTaso.toUpperCase() + '</div>';
+  h += '<div style="font-size:13px;color:var(--muted)">' + ps + ' / ' + pm + ' pistettä</div>';
+  h += '<div style="margin-top:12px;font-size:13px;font-weight:600">' + flei.kuormaRajoitin + '</div>';
+  h += '</div>';
+
+  // Pelaajan tiedot tiivistelmä
+  h += '<div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:16px">';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">PELAAJA</div>';
+  h += '<div style="font-weight:600">' + _krtData.nimi + '</div>';
+  h += '<div style="font-size:12px;color:var(--muted);margin-top:4px">'
+     + _krtData.ikäluokka + ' · ' + (_krtData.sukupuoli==='T'?'Tyttö':'Poika') + ' · s.' + _krtData.syntymavuosi
+     + ' · PHV: ' + _krtData.phvTila + '</div>';
+  h += '<div style="font-size:12px;color:var(--muted)">' + (_krtData.joukkue||'—') + ' · ' + _krtData.testauspvm + '</div>';
+  h += '</div>';
+
+  // Testitulosten tiivistelmä
+  h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Testit</div>';
+  h += '<div style="display:grid;gap:4px;margin-bottom:16px">';
+  Object.entries(_krtData.testit).forEach(function(kv) {
+    var avain = kv[0], td = kv[1];
+    if (!td || !td.pisteet) return;
+    var pVäri = td.pisteet===3?'var(--green)':td.pisteet===2?'var(--amber)':'var(--red)';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">';
+    h += '<div style="font-size:12px">' + (KRT_NIMET[avain]||avain) + '</div>';
+    h += '<div style="display:flex;align-items:center;gap:8px">';
+    if (td.tulos !== null && td.tulos !== undefined) {
+      h += '<div style="font-size:11px;color:var(--muted)">' + td.tulos + ' ' + (krtYksikkö(avain)||'') + '</div>';
+    }
+    h += '<div style="font-family:\'Bebas Neue\';font-size:18px;color:' + pVäri + '">' + td.pisteet + '</div>';
+    h += '</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Tallennus-painikkeet
+  h += '<div style="display:flex;gap:8px">';
+  h += '<button onclick="_krtData.vaihe=2;krtRenderöiVaihe()" style="flex:1;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:14px;cursor:pointer">← Korjaa</button>';
+  h += '<button onclick="krtTallenna()" id="krtTallennaNappi" style="flex:2;background:var(--teal);color:var(--bg);border:none;border-radius:10px;padding:14px;font-family:\'Bebas Neue\';font-size:18px;cursor:pointer">💾 Tallenna Firestoreen</button>';
+  h += '</div>';
+
+  return h;
+}
+
+// ── FIREBASE-TALLENNUS ───────────────────────────────────────────────────────
+
+/**
+ * Tallentaa kartoituksen Firestoreen.
+ * Polku: seurat/{seuraId}/kartoitukset/{auto-id}
+ * Schema vastaa täsmälleen kartoitus_schema.js:n määrittelyä.
+ */
+function krtTallenna() {
+  if (!_fbOnline || !_fbDb) {
+    alert('Ei Firebase-yhteyttä. Tarkista kirjautuminen.');
+    return;
+  }
+
+  // Haetaan seuran Firestore-id samalla luotettavalla logiikalla kuin renderKartoitukset:ssa
+  var seuraId = (window._fbSeuraDoc && window._fbSeuraDoc.id)
+             || ((_seuraData[_aktivSeura] || {})._seuraId)
+             || null;
+  if (!seuraId) {
+    alert('Seuran tunnistetta ei löydy. Kirjaudu sisään sähköpostilla.');
+    if (nappi) { nappi.disabled = false; nappi.textContent = '💾 Tallenna Firestoreen'; }
+    return;
+  }
+
+  // Estä tuplaklikkaus
+  var nappi = document.getElementById('krtTallennaNappi');
+  if (nappi) { nappi.disabled = true; nappi.textContent = 'Tallennetaan...'; }
+
+  var ikl = _krtData.ikäluokka;
+  var ps = _krtData._pisteetYhteensa || 0;
+  var pm = _krtData._pisteetMaksimi || 27;
+  var flei = krtLaskeFlei(ps, pm, _krtData.phvTila);
+
+  // Rakennetaan Firestore-dokumentti schemaa noudattaen
+  var doc = {
+    seuraId:      seuraId,
+    luotu:        firebase.firestore.FieldValue.serverTimestamp(),
+    muokattu:     firebase.firestore.FieldValue.serverTimestamp(),
+    luonutUid:    (_fbUser && _fbUser.uid) || 'pin_user',
+
+    // Pelaajan tiedot
+    pelaajaId:    _krtData.pelaajaId || '',
+    nimi:         _krtData.nimi.trim(),
+    sukupuoli:    _krtData.sukupuoli,
+    ika:          _krtData.ika || (new Date().getFullYear() - (_krtData.syntymavuosi||0)),
+    syntymavuosi: _krtData.syntymavuosi || null,
+    ikäluokka:    ikl,
+    joukkue:      _krtData.joukkue || '',
+    phvTila:      _krtData.phvTila,
+
+    // Testin meta
+    testauspvm:   _krtData.testauspvm
+                    ? firebase.firestore.Timestamp.fromDate(new Date(_krtData.testauspvm))
+                    : firebase.firestore.FieldValue.serverTimestamp(),
+    arvioija:     _krtData.arvioija || '',
+    kausi:        _krtData.kausi,
+
+    // Yhteenveto
+    yhteenveto: {
+      pisteetYhteensa: ps,
+      pisteetMaksimi:  pm,
+      fleiProsentti:   flei.fleiProsentti,
+      fleiTaso:        flei.fleiTaso,
+      kuormaRajoitin:  flei.kuormaRajoitin,
+      asiHuomio:       ''
+    },
+
+    // Tyhjät ikäluokat (null jos ei tämä ikäluokka)
+    u12: null,
+    u15: null,
+    u19: null
+  };
+
+  // Lisätään testit oikeaan ikäluokka-mapiin
+  doc[ikl.toLowerCase()] = krtRakennaTestiMap(ikl);
+
+  // Tallennetaan Firestoreen
+  _fbDb.collection('seurat').doc(seuraId)
+    .collection('kartoitukset')
+    .add(doc)
+    .then(function(ref) {
+      console.log('[KRT] Tallennettu:', ref.id);
+      suljeKartoitusModal();
+      // Päivitä lista
+      renderKartoitukset();
+      // Näytä onnistumisviesti
+      krtNaytaToast('✅ Kartoitus tallennettu! FLEI: ' + flei.fleiProsentti + '%');
+    })
+    .catch(function(err) {
+      console.error('[KRT] Tallennusvirhe:', err);
+      if (nappi) { nappi.disabled = false; nappi.textContent = '💾 Tallenna Firestoreen'; }
+      alert('Tallennusvirhe: ' + err.message);
+    });
+}
+
+/**
+ * Rakentaa ikäluokkakohtaisen testimapin Firestore-dokumenttiin.
+ * U12 ja U15: { testiNimi: { tulos, pisteet, huomio } }
+ * U19 voimatestit: { testiNimi: { kg5rm, kehonpaino, rel1rm, pisteet } }
+ */
+function krtRakennaTestiMap(ikl) {
+  var testit = _krtData.testit;
+  var map = {};
+
+  if (ikl === 'U12') {
+    ['valakyykky','luistelijanKyykky','askelkyykky','hyvaaHuomenta',
+     'etunojapunnerrus','lankku60s','naruhypyt15s','pituushyppy','loikka5'].forEach(function(t) {
+      map[t] = krtTestiArvo(testit[t]);
+    });
+  }
+
+  else if (ikl === 'U15') {
+    ['pistoolikyykky','etunojapunnerrus','leuanveto'].forEach(function(t) {
+      map[t] = krtTestiArvo(testit[t]);
+    });
+    map['testi4_valinta'] = _krtData.testi4valinta;
+    map['testi4_tulos']   = krtTestiArvo(testit['testi4']);
+    map['lantionnosto']   = krtTestiArvo(testit['lantionnosto']);
+    map['testi6_valinta'] = _krtData.testi6valinta;
+    map['testi6_tulos']   = krtTestiArvo(testit['testi6']);
+    ['slr','thomasTesti','pituushyppy','loikka5'].forEach(function(t) {
+      map[t] = krtTestiArvo(testit[t]);
+    });
+  }
+
+  else if (ikl === 'U19') {
+    // Voimatestit — erityinen rakenne
+    ['takakyykky','maastaveto','rinnalleveto','yhdenJalanKyykky','penkkipunnerrus'].forEach(function(t) {
+      var td = testit[t] || {};
+      map[t] = {
+        kg5rm:      td.kg5rm || null,
+        kehonpaino: td.kehonpaino || null,
+        rel1rm:     td.rel1rm || null,
+        pisteet:    td.pisteet || null
+      };
+    });
+    ['leuanveto','jalkojenNosto','pakianousu','lonkanOjennus','slr',
+     'thomasTesti','pituushyppy','loikka5'].forEach(function(t) {
+      map[t] = krtTestiArvo(testit[t]);
+    });
+  }
+
+  return map;
+}
+
+// Muodostaa testiobjektin Firestore-rakenteeseen
+function krtTestiArvo(td) {
+  if (!td) return { tulos: null, pisteet: null, huomio: '' };
+  return {
+    tulos:   td.tulos !== undefined ? td.tulos : null,
+    pisteet: td.pisteet || null,
+    huomio:  td.huomio || ''
+  };
+}
+
+// ── TOAST-ILMOITUS ───────────────────────────────────────────────────────────
+
+function krtNaytaToast(viesti) {
+  var toast = document.createElement('div');
+  toast.textContent = viesti;
+  toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);'
+    + 'background:var(--bg2);border:1px solid var(--teal);border-radius:10px;'
+    + 'padding:12px 20px;font-size:13px;color:var(--teal);z-index:9999;'
+    + 'white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.4)';
+  document.body.appendChild(toast);
+  setTimeout(function() { toast.remove(); }, 3500);
+}
+
+// ── APUFUNKTIOT ───────────────────────────────────────────────────────────────
+
+function krtInputStyle(lisä) {
+  return 'style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;'
+       + 'color:var(--text);padding:10px 12px;font-family:\'DM Sans\';font-size:13px;'
+       + (lisä ? lisä + ';' : '') + '"';
+}
+
+function krtKenttäRivi(label, kenttä) {
+  return '<div style="margin-bottom:14px">'
+    + '<div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:500">' + label + '</div>'
+    + kenttä + '</div>';
+}
+
+function krtToggleBtn(id, teksti, onclick, arvo, nykyinen) {
+  var aktiivi = nykyinen === arvo;
+  return '<button id="' + id + '" onclick="' + onclick + '" '
+    + 'style="flex:1;padding:10px;border-radius:8px;border:1px solid '
+    + (aktiivi ? 'var(--teal)' : 'var(--border)') + ';background:'
+    + (aktiivi ? 'rgba(0,212,170,.15)' : 'var(--bg3)') + ';color:'
+    + (aktiivi ? 'var(--teal)' : 'var(--muted)') + ';font-weight:600;cursor:pointer">'
+    + teksti + '</button>';
+}
+
+function krtToggle(prefix, arvot) {
+  // Päivitä toggle-painikkeiden visuaalinen tila
+  krtRenderöiVaihe();
+}
+
+function krtYksikkö(avain) {
+  return KRT_YKSIKOT[avain] || '';
+}
+
+// ── KARTOITUKSEN YHTEENVETONÄKYMÄ (listasta avattaessa) ─────────────────────
+
+/**
+ * Avaa tallennetun kartoituksen yhteenvetonäkymän modalissa.
+ * Hakee dokumentin Firestoresta doc-id:llä.
+ */
+function avaaKartoitusYhteenveto(docId, seuraId) {
+  var modal = document.getElementById('kartoitusModal');
+  var body  = document.getElementById('kartoitusModalBody');
+  modal.classList.add('open');
+  body.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted)">Ladataan...</div>';
+
+  _fbDb.collection('seurat').doc(seuraId)
+    .collection('kartoitukset').doc(docId)
+    .get()
+    .then(function(snap) {
+      if (!snap.exists) {
+        body.innerHTML = '<div style="color:var(--red);padding:20px">Dokumenttia ei löydy.</div>';
+        return;
+      }
+      var d = snap.data();
+      var yh = d.yhteenveto || {};
+      var fleiVäri = yh.fleiTaso==='hyvä'?'var(--green)':yh.fleiTaso==='kehitys'?'var(--amber)':'var(--red)';
+      var pvmStr = d.testauspvm ? (d.testauspvm.toDate ? d.testauspvm.toDate().toLocaleDateString('fi-FI') : d.testauspvm.slice(0,10)) : '—';
+
+      var h = '';
+      h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">';
+      h += '<div style="font-family:\'Bebas Neue\';font-size:22px">' + d.nimi + '</div>';
+      h += '<button onclick="suljeKartoitusModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>';
+      h += '</div>';
+
+      // FLEI-banneri
+      h += '<div style="background:var(--card);border:2px solid ' + fleiVäri + ';border-radius:14px;padding:16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">';
+      h += '<div>'
+         + '<div style="font-size:11px;color:var(--muted)">FLEI · ' + d.ikäluokka + ' · ' + pvmStr + '</div>'
+         + '<div style="font-family:\'Bebas Neue\';font-size:36px;color:' + fleiVäri + ';line-height:1">' + (yh.fleiProsentti||'—') + '%</div>'
+         + '<div style="font-size:12px;color:' + fleiVäri + '">' + (yh.fleiTaso||'—').toUpperCase() + '</div>'
+         + '</div>';
+      h += '<div style="text-align:right">'
+         + '<div style="font-size:12px">' + (yh.pisteetYhteensa||0) + ' / ' + (yh.pisteetMaksimi||'—') + ' p.</div>'
+         + '<div style="font-size:12px;margin-top:4px">' + (yh.kuormaRajoitin||'—') + '</div>'
+         + '</div>';
+      h += '</div>';
+
+      // Pelaajatiedot
+      h += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">'
+         + d.joukkue + ' · s.' + d.syntymavuosi + ' · PHV: ' + (d.phvTila||'—')
+         + ' · Arvioija: ' + (d.arvioija||'—') + '</div>';
+
+      // Testit
+      var testiMap = d[d.ikäluokka ? d.ikäluokka.toLowerCase() : 'u12'] || {};
+      h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Testit</div>';
+      h += '<div style="display:grid;gap:4px">';
+      Object.entries(testiMap).forEach(function(kv) {
+        var avain = kv[0], td = kv[1];
+        if (!td || typeof td !== 'object' || !td.pisteet) return;
+        var pVäri = td.pisteet===3?'var(--green)':td.pisteet===2?'var(--amber)':'var(--red)';
+        h += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">';
+        h += '<div style="font-size:12px">' + (KRT_NIMET[avain]||avain) + '</div>';
+        h += '<div style="display:flex;gap:8px;align-items:center">';
+        if (td.tulos !== null && td.tulos !== undefined) h += '<div style="font-size:11px;color:var(--muted)">' + td.tulos + '</div>';
+        h += '<div style="font-family:\'Bebas Neue\';font-size:18px;color:' + pVäri + '">' + td.pisteet + '</div>';
+        h += '</div></div>';
+      });
+      h += '</div>';
+
+      body.innerHTML = h;
+    })
+    .catch(function(err) {
+      body.innerHTML = '<div style="color:var(--red);padding:20px">Virhe: ' + err.message + '</div>';
+    });
+}
 </script>
+
+<!-- KARTOITUS MODAL — lisätty 2026-03-22 -->
+<div class="modal-overlay" id="kartoitusModal" onclick="if(event.target===this)suljeKartoitusModal()">
+  <div class="modal-box" style="max-width:600px;max-height:92vh">
+    <div class="modal-drag"></div>
+    <div id="kartoitusModalBody"></div>
+  </div>
+</div>
+
 </body>
 </html>
