@@ -7316,12 +7316,18 @@ function tuontiNaytaEsikatselu(rivit, tyyppi, seuraId, tiedostoNimi) {
   });
   h += '</table></div>';
 
-  // Tuontinappi
+  // Tuontinappi — tallennetaan data globaaliin muuttujaan onclick-attribuutin sijaan.
+  // JSON.stringify HTML-attribuutissa aiheuttaa SyntaxError kun data sisältää
+  // erikoismerkkejä tai lainausmerkkejä.
   var virheellisia = ongelmat.filter(function(o) { return o.indexOf('VIRHE') === 0; }).length;
   if (virheellisia > 0) {
     h += '<div style="color:var(--red);font-size:12px;padding:8px">❌ Korjaa virheet Excel-pohjassa ennen tuontia.</div>';
   } else {
-    h += '<button onclick="tuontiAloita(' + JSON.stringify(rivit).replace(/</g,'\\u003c') + ', \'' + tyyppi + '\', \'' + seuraId + '\')" '
+    // Tallennetaan data globaaleihin muuttujiin joita tuontinappi käyttää
+    window._tuontiRivit  = rivit;
+    window._tuontiTyyppi = tyyppi;
+    window._tuontiSeura  = seuraId;
+    h += '<button onclick="tuontiAloita(window._tuontiRivit, window._tuontiTyyppi, window._tuontiSeura)" '
        + 'id="tuontiNappi" style="width:100%;background:var(--teal);color:var(--bg);border:none;border-radius:10px;'
        + 'padding:14px;font-family:\'Bebas Neue\';font-size:18px;cursor:pointer">'
        + '📥 Tuo ' + rivit.length + ' ' + meta.nimi.toLowerCase() + ' Firestoreen'
