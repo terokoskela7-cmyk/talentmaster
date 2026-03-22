@@ -7706,52 +7706,61 @@ function rakennaPelaajaPohja(joukkueet, seuraId) {
   var wb = XLSX.utils.book_new();
 
   // ── OHJESIVU ────────────────────────────────────────────────────────────────
-  var ohjeet = [
+  var ohjeetData = [
     ['TalentMaster\u2122 \u2014 Pelaajatietolomake'],
     ['Generoitu: ' + new Date().toLocaleDateString('fi-FI') + ' | Seura: ' + seuraId.toUpperCase()],
     [''],
     ['T\u00c4YTT\u00d6OHJE'],
     [''],
     ['1. Siirry Pelaajat-v\u00e4lilehdelle.'],
-    ['2. PalloID l\u00f6ytyy Palloliiton pelipassista. Pakollinen \u2014 toimii tunnisteena.'],
-    ['3. Syntym\u00e4aika muodossa pp.kk.vvvv (esim. 15.3.2013).'],
+    ['2. PalloID l\u00f6ytyy Palloliiton pelipassista. Pakollinen \u2014 tunniste.'],
+    ['3. Syntym\u00e4aika: kirjoita muodossa pp.kk.vvvv (esim. 15.3.2013).'],
+    ['   HUOM: solu on tekstimuotoinen \u2014 \u00e4l\u00e4 anna Excelin muuttaa muotoa.'],
     ['4. Sukupuoli: P = Poika, T = Tytt\u00f6.'],
-    ['5. Joukkue: kirjoita t\u00e4sm\u00e4lleen alla oleva nimi (dropdown n\u00e4kyy solussa).'],
+    ['5. Joukkue: valitse solussa n\u00e4kyv\u00e4st\u00e4 alasvetovalikosta.'],
     ['6. Huoltajan s\u00e4hk\u00f6posti: t\u00e4h\u00e4n l\u00e4hetet\u00e4\u00e4n suostumuslomake.'],
     [''],
     ['SEURAN JOUKKUEET \u2014 k\u00e4yt\u00e4 n\u00e4it\u00e4 TARKKAAN Pelaajat-v\u00e4lilehdell\u00e4:'],
     [''],
   ];
   joukkueet.forEach(function(j, i) {
-    ohjeet.push([
-      '  ' + (i + 1) + '. ' + j.nimi +
+    ohjeetData.push([
+      '  ' + (i+1) + '. ' + j.nimi +
       (j.ikl ? ' (' + j.ikl + ')' : '') +
       (j.sukup === 'T' ? ' \u2014 Tyt\u00f6t' : ' \u2014 Pojat')
     ]);
   });
-
-  var wsOhjeet = XLSX.utils.aoa_to_sheet(ohjeet);
-  wsOhjeet['!cols'] = [{ wch: 60 }];
+  var wsOhjeet = XLSX.utils.aoa_to_sheet(ohjeetData);
+  wsOhjeet['!cols'] = [{ wch: 65 }];
   XLSX.utils.book_append_sheet(wb, wsOhjeet, 'Ohjeet');
 
-  // ── PELAAJAT-VÄLILEHTI ──────────────────────────────────────────────────────
-  // Mirwald poistettu — tehdään kentällä erikseen.
-  // Huoltajan sähköposti lisätty — se käynnistää suostumusprosessin.
+  // ── JOUKKUEET-PIILOLEHTI (validoinnin lähde) ─────────────────────────────
+  // Excel data validation toimii luotettavimmin kun lista tulee toiselta
+  // välilehdeltä kaavalla =Joukkueet!$A$1:$A$N.
+  // Tallennetaan joukkuenimet omalle piilolehdelle.
+  var joukkueetData = joukkueet.map(function(j) { return [j.nimi, j.id]; });
+  var wsJoukkueet = XLSX.utils.aoa_to_sheet(joukkueetData);
+  wsJoukkueet['!cols'] = [{ wch: 20 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, wsJoukkueet, 'JoukkueetLista');
 
+  // ── PELAAJAT-VÄLILEHTI ────────────────────────────────────────────────────
   var SARAKKEET = [
-    ['PalloID *',                   12],  // A
-    ['Sukunimi *',                  14],  // B
-    ['Etunimi *',                   12],  // C
-    ['Syntymäaika *',               14],  // D
-    ['Sukupuoli *',                  9],  // E  P tai T
-    ['Joukkue *',                   16],  // F  dropdown
-    ['JoukkueId',                   18],  // G  automaattinen
-    ['Huoltajan sähköposti *',      26],  // H  tärkeä — suostumusprosessi
-    ['Huomio',                      20],  // I  vapaaehtoinen
+    ['PalloID *',              12],  // A
+    ['Sukunimi *',             14],  // B
+    ['Etunimi *',              12],  // C
+    ['Syntymäaika *',          14],  // D  — tekstimuoto
+    ['Sukupuoli *',             9],  // E  — P tai T
+    ['Joukkue *',              18],  // F  — dropdown
+    ['JoukkueId',              20],  // G  — automaattinen
+    ['Huoltajan sähköposti *', 28],  // H  — suostumusprosessi
+    ['Huomio',                 20],  // I
   ];
 
   var otsikot = SARAKKEET.map(function(s) { return s[0]; });
-  var data    = [otsikot];
+  var data = [otsikot];
+
+  // 60 tyhjää datariviä — syntymäaika-sarake (D) merkitään tekstimuotoon
+  // '@' = text format code Excelissä
   for (var i = 0; i < 60; i++) {
     data.push(new Array(SARAKKEET.length).fill(''));
   }
@@ -7759,42 +7768,62 @@ function rakennaPelaajaPohja(joukkueet, seuraId) {
   var wsPelaajat = XLSX.utils.aoa_to_sheet(data);
   wsPelaajat['!cols'] = SARAKKEET.map(function(s) { return { wch: s[1] }; });
 
-  // ── DROPDOWN OOXML-RAKENTEELLA ──────────────────────────────────────────────
-  // SheetJS !dataValidation ei tuota toimivaa dropdownia kaikissa Excel-versioissa.
-  // Kirjoitetaan validointi suoraan XML-rakenteeseen — tämä on 100% luotettava.
-  // showDropDown="0" tarkoittaa "näytä nuoli" (Excelin XML on käänteinen).
+  // Merkitään D-sarake (syntymäaika) tekstimuotoiseksi
+  // jotta Excel ei muuta pp.kk.vvvv muotoa automaattisesti
+  for (var r = 2; r <= 61; r++) {
+    var dAddr = 'D' + r;
+    if (!wsPelaajat[dAddr]) wsPelaajat[dAddr] = { t: 's', v: '' };
+    wsPelaajat[dAddr].z = '@';  // @ = text format
+    wsPelaajat[dAddr].t = 's';  // s = string type
+  }
 
-  var joukkueLista = joukkueet.map(function(j) { return j.nimi; }).join(',');
+  // ── DATA VALIDATION: joukkue-dropdown ────────────────────────────────────
+  // SheetJS 0.18.5:ssä toimivin tapa on käyttää !dataValidation-arrayta
+  // yhdistettynä formula1-kaavaan joka viittaa JoukkueetLista-välilehteen.
+  // Tämä tuottaa oikean OOXML-rakenteen kun XLSX.writeFile ajaa.
 
-  var validointiXML =
-    '<dataValidations count="2">' +
-      '<dataValidation type="list" allowBlank="1" showDropDown="0" ' +
-        'showErrorMessage="1" ' +
-        'errorTitle="Virheellinen joukkue" ' +
-        'error="Valitse joukkue listalta." ' +
-        'sqref="F2:F61">' +
-        '<formula1>&quot;' + joukkueLista + '&quot;</formula1>' +
-      '</dataValidation>' +
-      '<dataValidation type="list" allowBlank="1" showDropDown="0" ' +
-        'showErrorMessage="1" ' +
-        'errorTitle="Virheellinen sukupuoli" ' +
-        'error="K&amp;#228;yt&amp;#228; P tai T." ' +
-        'sqref="E2:E61">' +
-        '<formula1>&quot;P,T&quot;</formula1>' +
-      '</dataValidation>' +
-    '</dataValidations>';
+  var jLkm = joukkueet.length;
+  var validoinnit = [];
 
-  if (!wsPelaajat['!sheetxml']) wsPelaajat['!sheetxml'] = '';
-  wsPelaajat['!sheetxml'] += validointiXML;
+  // Joukkue-dropdown: viittaa JoukkueetLista-välilehteen
+  validoinnit.push({
+    type:             'list',
+    allowBlank:       true,
+    sqref:            'F2:F61',
+    formula1:         'JoukkueetLista!$A$1:$A$' + jLkm,
+    showErrorMessage: true,
+    errorStyle:       'stop',
+    errorTitle:       'Virheellinen joukkue',
+    error:            'Valitse joukkue listalta.'
+  });
+
+  // Sukupuoli-dropdown
+  validoinnit.push({
+    type:             'list',
+    allowBlank:       true,
+    sqref:            'E2:E61',
+    formula1:         '"P,T"',
+    showErrorMessage: true,
+    errorStyle:       'stop',
+    errorTitle:       'Virheellinen sukupuoli',
+    error:            'Käytä P (Poika) tai T (Tyttö).'
+  });
+
+  wsPelaajat['!dataValidation'] = validoinnit;
 
   XLSX.utils.book_append_sheet(wb, wsPelaajat, 'Pelaajat');
 
-  wb.Workbook = { Sheets: [
-    { name: 'Ohjeet',   Hidden: 0 },
-    { name: 'Pelaajat', Hidden: 0 },
-  ]};
-  wb.Workbook.active = 1;
+  // Piilotetaan JoukkueetLista-välilehti
+  wb.Workbook = {
+    Sheets: [
+      { name: 'Ohjeet',         Hidden: 0 },
+      { name: 'JoukkueetLista', Hidden: 1 }, // 1 = piilotettu
+      { name: 'Pelaajat',       Hidden: 0 },
+    ]
+  };
+  wb.Workbook.active = 2; // Pelaajat avautuu ensin
 
+  // ── LATAUS ──────────────────────────────────────────────────────────────────
   var pvm  = new Date().toISOString().slice(0, 10);
   var nimi = 'TM_Pelaajat_' + seuraId.toUpperCase() + '_' + pvm + '.xlsx';
   XLSX.writeFile(wb, nimi);
@@ -7806,7 +7835,8 @@ function rakennaPelaajaPohja(joukkueet, seuraId) {
       + '<div style="color:var(--green);padding:12px;font-weight:600">'
       + '\u2705 ' + nimi + ' ladattu!</div>'
       + '<div style="padding:0 12px 12px;font-size:12px;color:var(--muted);line-height:1.6">'
-      + 'Pohja sis\u00e4lt\u00e4\u00e4 ' + joukkueet.length + ' joukkuetta. '
+      + 'Pohja sis\u00e4lt\u00e4\u00e4 ' + jLkm + ' joukkuetta. '
+      + 'Joukkue-sarake (F) n\u00e4ytt\u00e4\u00e4 alasvetovalikon kun solun valitsee. '
       + 'T\u00e4yt\u00e4 pelaajien tiedot ja lataa takaisin kohdasta 2.'
       + '</div></div>';
   }
