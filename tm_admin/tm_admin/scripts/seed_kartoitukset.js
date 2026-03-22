@@ -14,8 +14,8 @@ const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 // const serviceAccount = require("./serviceAccountKey.json");
 // initializeApp({ credential: cert(serviceAccount) });
 
-// Vaihtoehto B: GOOGLE_APPLICATION_CREDENTIALS -ympäristömuuttuja
-initializeApp();
+const serviceAccount = require("../../serviceAccountKey.json");
+initializeApp({ credential: cert(serviceAccount) });
 
 const db = getFirestore();
 const SEURA_ID = "kpv";
