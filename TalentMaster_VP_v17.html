@@ -7136,7 +7136,7 @@ function tuontiLueTiedosto(input, seuraId) {
 // ── POHJATYPIN TUNNISTUS ─────────────────────────────────────────────────────
 
 function tuontiTunnistaTyyppi(sheets) {
-  // Harjoitettavuus tunnistetaan välilehtinimistä
+  // Harjoitettavuus
   var onHarjoitettavuus = sheets.some(function(s) {
     return s.indexOf('Harjoitettavuus_') === 0;
   });
@@ -7146,11 +7146,15 @@ function tuontiTunnistaTyyppi(sheets) {
   var onHH = sheets.some(function(s) { return s === 'H-H Testit'; });
   if (onHH) return 'hh_testit';
 
-  // Pelaajapohja: välilehdet U12, U15, U19
-  var onPelaajat = sheets.some(function(s) {
+  // Uusi pelaajapohja: "Pelaajat"-välilehti (dynaaminen seuran pohja)
+  var onPelaajatUusi = sheets.some(function(s) { return s === 'Pelaajat'; });
+  if (onPelaajatUusi) return 'pelaajat';
+
+  // Vanha pelaajapohja: U12/U15/U19-välilehdet (yhteensopivuus)
+  var onPelaajatVanha = sheets.some(function(s) {
     return s === 'U12' || s === 'U15' || s === 'U19';
   });
-  if (onPelaajat) return 'pelaajat';
+  if (onPelaajatVanha) return 'pelaajat';
 
   return null;
 }
@@ -7161,20 +7165,36 @@ function tuontiLueRivit(workbook, tyyppi) {
   var kaikki = [];
 
   if (tyyppi === 'pelaajat') {
+
+    // ── UUSI POHJA: "Pelaajat"-välilehti ─────────────────────────────────────
+    // Rakenne: rivi 1 = sarakeotsikot, rivi 2 = esimerkkirivi, data alkaa riviltä 3
+    if (workbook.SheetNames.indexOf('Pelaajat') !== -1) {
+      var ws = workbook.Sheets['Pelaajat'];
+      var rivit = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+      var otsikot = rivit[0] || [];  // Rivi 1 = otsikot (indeksi 0)
+
+      for (var i = 1; i < rivit.length; i++) {
+        var rivi = rivit[i];
+        var palloId = String(rivi[0] || '').trim();
+        // Ohitetaan tyhjät rivit ja esimerkkirivin (sisältää "esim.")
+        if (!palloId || palloId.toLowerCase().indexOf('esim') === 0) continue;
+        var obj = { _tyyppi: 'pelaaja' };
+        otsikot.forEach(function(ots, j) {
+          if (ots) obj[String(ots).trim()] = rivi[j] !== undefined ? rivi[j] : '';
+        });
+        kaikki.push(obj);
+      }
+      return kaikki;
+    }
+
+    // ── VANHA POHJA: U12/U15/U19-välilehdet (yhteensopivuus) ─────────────────
     ['U12','U15','U19'].forEach(function(ikl) {
       if (workbook.SheetNames.indexOf(ikl) === -1) return;
       var ws = workbook.Sheets[ikl];
-      // header:1 = käytetään ensimmäistä riviä avaimina
-      // defval:'': tyhjät solut saavat tyhjän merkkijonon
-      var rivit = XLSX.utils.sheet_to_json(ws, {
-        header: 1, defval: '', raw: false
-      });
-      // Rivi 0 = otsikko, rivi 1 = ohje1, rivi 2 = ohje2, rivi 3 = sarakeotsikot
-      // Data alkaa riviltä 4 (indeksi 4)
-      var otsikot = rivit[3] || [];
+      var rivit = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+      var otsikot = rivit[3] || [];  // Vanhassa pohjassa otsikot rivillä 4 (indeksi 3)
       for (var i = 4; i < rivit.length; i++) {
         var rivi = rivit[i];
-        // Ohitetaan tyhjät rivit (PalloID puuttuu)
         if (!rivi[0] || String(rivi[0]).trim() === '') continue;
         var obj = { _ikäluokka: ikl, _tyyppi: 'pelaaja' };
         otsikot.forEach(function(ots, j) {
