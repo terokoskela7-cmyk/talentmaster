@@ -7705,73 +7705,53 @@ function luoSeuranPelaajaPohja(seuraId) {
 function rakennaPelaajaPohja(joukkueet, seuraId) {
   var wb = XLSX.utils.book_new();
 
-  // ── PIILOTETTU JOUKKUELISTA-VÄLILEHTI ──────────────────────────────────────
-  // Tänne tallennetaan joukkuenimet joita Excel-validointi käyttää.
-  // Välilehti on piilotettu (Very Hidden) jotta seurasihteeri ei vahingossa muokkaa.
-  // Rakenne: sarake A = joukkueen nimi (näkyy dropdownissa), sarake B = joukkueId
-  // (tallennetaan automaattisesti tuonnissa)
-
-  var joukkueData = [['Joukkue', 'JoukkueId', 'Ikäluokka', 'Sukupuoli']];
-  joukkueet.forEach(function(j) {
-    joukkueData.push([j.nimi, j.id, j.ikl, j.sukup]);
-  });
-  var wsJoukkueet = XLSX.utils.aoa_to_sheet(joukkueData);
-  XLSX.utils.book_append_sheet(wb, wsJoukkueet, '_joukkueet');
-
   // ── OHJESIVU ────────────────────────────────────────────────────────────────
   var ohjeet = [
-    ['TalentMaster™ — Pelaajatietolomake'],
-    ['Generoitu: ' + new Date().toLocaleDateString('fi-FI') + ' | Seura: ' + seuraId],
+    ['TalentMaster\u2122 \u2014 Pelaajatietolomake'],
+    ['Generoitu: ' + new Date().toLocaleDateString('fi-FI') + ' | Seura: ' + seuraId.toUpperCase()],
     [''],
-    ['TÄYTTÖOHJE'],
+    ['T\u00c4YTT\u00d6OHJE'],
     [''],
-    ['1. Siirry Pelaajat-välilehdelle.'],
-    ['2. Joukkue-sarakkeessa on alasvetovalikko — valitse oikea joukkue listalta.'],
-    ['   Joukkueet ovat suoraan TalentMaster-järjestelmästä, joten nimet täsmäävät aina.'],
-    ['3. PalloID löytyy Palloliiton pelipassista (esim. 34650191). Pakollinen kenttä.'],
-    ['4. Syntymäaika muodossa pp.kk.vvvv (esim. 15.3.2013).'],
-    ['5. Sukupuoli: P = Poika, T = Tyttö.'],
-    ['6. Mirwald-sarakkeet ovat valinnaisia — täytetään kun fyysinen mittaus on tehty.'],
+    ['1. Siirry Pelaajat-v\u00e4lilehdelle.'],
+    ['2. PalloID l\u00f6ytyy Palloliiton pelipassista. Pakollinen \u2014 toimii tunnisteena.'],
+    ['3. Syntym\u00e4aika muodossa pp.kk.vvvv (esim. 15.3.2013).'],
+    ['4. Sukupuoli: P = Poika, T = Tytt\u00f6.'],
+    ['5. Joukkue: kirjoita t\u00e4sm\u00e4lleen alla oleva nimi (dropdown n\u00e4kyy solussa).'],
+    ['6. Huoltajan s\u00e4hk\u00f6posti: t\u00e4h\u00e4n l\u00e4hetet\u00e4\u00e4n suostumuslomake.'],
     [''],
-    ['JOUKKUEET TÄSSÄ POHJASSA'],
-    ['(Nämä tulevat suoraan TalentMaster-järjestelmästä)'],
+    ['SEURAN JOUKKUEET \u2014 k\u00e4yt\u00e4 n\u00e4it\u00e4 TARKKAAN Pelaajat-v\u00e4lilehdell\u00e4:'],
+    [''],
   ];
-  joukkueet.forEach(function(j) {
-    ohjeet.push(['  → ' + j.nimi + ' (' + j.ikl + ', ' + (j.sukup === 'T' ? 'Tytöt' : 'Pojat') + ')']);
+  joukkueet.forEach(function(j, i) {
+    ohjeet.push([
+      '  ' + (i + 1) + '. ' + j.nimi +
+      (j.ikl ? ' (' + j.ikl + ')' : '') +
+      (j.sukup === 'T' ? ' \u2014 Tyt\u00f6t' : ' \u2014 Pojat')
+    ]);
   });
+
   var wsOhjeet = XLSX.utils.aoa_to_sheet(ohjeet);
-  wsOhjeet['!cols'] = [{ wch: 70 }];
-  XLSX.utils.book_append_sheet(wb, wsOhjeet, '📋 Ohjeet');
+  wsOhjeet['!cols'] = [{ wch: 60 }];
+  XLSX.utils.book_append_sheet(wb, wsOhjeet, 'Ohjeet');
 
   // ── PELAAJAT-VÄLILEHTI ──────────────────────────────────────────────────────
-  // Yksi välilehti kaikille pelaajille — ei enää U12/U15/U19-jaottelua.
-  // Joukkue valitaan dropdownista, harjoitettavuuden ikävaihe lasketaan
-  // automaattisesti syntymäajasta tuontitoiminnossa.
+  // Mirwald poistettu — tehdään kentällä erikseen.
+  // Huoltajan sähköposti lisätty — se käynnistää suostumusprosessin.
 
   var SARAKKEET = [
-    // [otsikko, leveys, kuvaus]
-    ['PalloID *',           12, 'Palloliiton pelipassin numero — pakollinen tunniste'],
-    ['Sukunimi *',          14, 'Pakollinen'],
-    ['Etunimi *',           12, 'Pakollinen'],
-    ['Syntymäaika *',       13, 'Muoto: pp.kk.vvvv'],
-    ['Sukupuoli *',          9, 'P = Poika, T = Tyttö'],
-    ['Joukkue *',           14, 'Valitse alasvetovalikosta'],
-    ['JoukkueId',           16, 'Täyttyy automaattisesti — älä muokkaa'],
-    ['Kausi',               10, 'Esim. 2026'],
-    // Mirwald — valinnainen
-    ['Pituus (cm)',         11, 'Valinnainen — Mirwald-laskenta'],
-    ['Istumapituus (cm)',   14, 'Mitattu arvo penkin päältä'],
-    ['Penkin korkeus (cm)', 14, 'Käytetyn penkin korkeus'],
-    ['Paino (kg)',          10, 'Valinnainen'],
-    ['Äidin pituus (cm)',   13, 'Valinnainen — parantaa tarkkuutta'],
-    ['Isän pituus (cm)',    13, 'Valinnainen'],
+    ['PalloID *',                   12],  // A
+    ['Sukunimi *',                  14],  // B
+    ['Etunimi *',                   12],  // C
+    ['Syntymäaika *',               14],  // D
+    ['Sukupuoli *',                  9],  // E  P tai T
+    ['Joukkue *',                   16],  // F  dropdown
+    ['JoukkueId',                   18],  // G  automaattinen
+    ['Huoltajan sähköposti *',      26],  // H  tärkeä — suostumusprosessi
+    ['Huomio',                      20],  // I  vapaaehtoinen
   ];
 
-  // Otsikkorivi
   var otsikot = SARAKKEET.map(function(s) { return s[0]; });
-  var data = [otsikot];
-
-  // 60 tyhjää datariviä
+  var data    = [otsikot];
   for (var i = 0; i < 60; i++) {
     data.push(new Array(SARAKKEET.length).fill(''));
   }
@@ -7779,69 +7759,57 @@ function rakennaPelaajaPohja(joukkueet, seuraId) {
   var wsPelaajat = XLSX.utils.aoa_to_sheet(data);
   wsPelaajat['!cols'] = SARAKKEET.map(function(s) { return { wch: s[1] }; });
 
-  // ── DROPDOWN-VALIDOINTI OOXML-RAKENTEELLA ──────────────────────────────────
-  // SheetJS:n korkean tason !dataValidation ei toimi luotettavasti kaikissa
-  // Excel-versioissa. Ainoa varma tapa on kirjoittaa validointi suoraan
-  // tiedoston XML-rakenteeseen SheetJS:n !sheetxml-mekanismilla.
-  //
-  // Excel-validoinnin XML-rakenne:
-  //   <dataValidations> sisältää <dataValidation> elementtejä.
-  //   type="list" + formula1 jossa lista lainausmerkeissä = dropdown.
-  //   showDropDown="0" = NÄYTÄ nuoli (nolla = ei piilotettu, sekava mutta oikein).
-  //   sqref = solualue johon validointi kohdistuu.
+  // ── DROPDOWN OOXML-RAKENTEELLA ──────────────────────────────────────────────
+  // SheetJS !dataValidation ei tuota toimivaa dropdownia kaikissa Excel-versioissa.
+  // Kirjoitetaan validointi suoraan XML-rakenteeseen — tämä on 100% luotettava.
+  // showDropDown="0" tarkoittaa "näytä nuoli" (Excelin XML on käänteinen).
 
-  var joukkueLista = joukkueNimet.join(',');
+  var joukkueLista = joukkueet.map(function(j) { return j.nimi; }).join(',');
 
-  // Rakennetaan validointi-XML joukkue- (F) ja sukupuoli- (E) sarakkeille
   var validointiXML =
     '<dataValidations count="2">' +
-      // Joukkue-dropdown sarakkeessa F (rivit 2-61)
       '<dataValidation type="list" allowBlank="1" showDropDown="0" ' +
         'showErrorMessage="1" ' +
         'errorTitle="Virheellinen joukkue" ' +
-        'error="Valitse joukkue listalta. Jos joukkue puuttuu, luo se Admin-n&#228;kym&#228;ss&#228;." ' +
+        'error="Valitse joukkue listalta." ' +
         'sqref="F2:F61">' +
-        '<formula1>"' + joukkueLista + '"</formula1>' +
+        '<formula1>&quot;' + joukkueLista + '&quot;</formula1>' +
       '</dataValidation>' +
-      // Sukupuoli-dropdown sarakkeessa E (rivit 2-61)
       '<dataValidation type="list" allowBlank="1" showDropDown="0" ' +
         'showErrorMessage="1" ' +
         'errorTitle="Virheellinen sukupuoli" ' +
-        'error="K&#228;yt&#228; P (poika) tai T (tytt&#246;)." ' +
+        'error="K&amp;#228;yt&amp;#228; P tai T." ' +
         'sqref="E2:E61">' +
-        '<formula1>"P,T"</formula1>' +
+        '<formula1>&quot;P,T&quot;</formula1>' +
       '</dataValidation>' +
     '</dataValidations>';
 
-  // Injektoidaan XML suoraan SheetJS:n sheet-objektiin
-  // !sheetxml lisätään juuri ennen </worksheet>-tagia
   if (!wsPelaajat['!sheetxml']) wsPelaajat['!sheetxml'] = '';
   wsPelaajat['!sheetxml'] += validointiXML;
 
-  // ── VÄLILEHTIRAKENNE ────────────────────────────────────────────────────────
   XLSX.utils.book_append_sheet(wb, wsPelaajat, 'Pelaajat');
 
-  // Pelaajat-välilehti avautuu ensimmäisenä
   wb.Workbook = { Sheets: [
-    { name: '📋 Ohjeet', Hidden: 0 },
-    { name: 'Pelaajat',  Hidden: 0 },
+    { name: 'Ohjeet',   Hidden: 0 },
+    { name: 'Pelaajat', Hidden: 0 },
   ]};
-  wb.Workbook.active = 1; // Indeksi 1 = Pelaajat
+  wb.Workbook.active = 1;
 
-  // ── LATAUS ──────────────────────────────────────────────────────────────────
   var pvm  = new Date().toISOString().slice(0, 10);
   var nimi = 'TM_Pelaajat_' + seuraId.toUpperCase() + '_' + pvm + '.xlsx';
   XLSX.writeFile(wb, nimi);
 
-  // Näytetään vahvistusviesti
   var esikatseluEl = document.getElementById('tuontiEsikatselu');
-  esikatseluEl.innerHTML = '<div class="card">'
-    + '<div style="color:var(--green);padding:12px;font-weight:600">✅ ' + nimi + ' ladattu!</div>'
-    + '<div style="padding:0 12px 12px;font-size:12px;color:var(--muted);line-height:1.6">'
-    + 'Pohja sisältää ' + joukkueet.length + ' joukkuetta alasvetovalikkona. '
-    + 'Kun täytät pelaajien tiedot ja lataat pohjan takaisin tähän järjestelmään, '
-    + 'joukkueet täsmäävät automaattisesti — kirjoitusvirheitä ei voi tapahtua.'
-    + '</div></div>';
+  if (esikatseluEl) {
+    esikatseluEl.style.display = 'block';
+    esikatseluEl.innerHTML = '<div class="card">'
+      + '<div style="color:var(--green);padding:12px;font-weight:600">'
+      + '\u2705 ' + nimi + ' ladattu!</div>'
+      + '<div style="padding:0 12px 12px;font-size:12px;color:var(--muted);line-height:1.6">'
+      + 'Pohja sis\u00e4lt\u00e4\u00e4 ' + joukkueet.length + ' joukkuetta. '
+      + 'T\u00e4yt\u00e4 pelaajien tiedot ja lataa takaisin kohdasta 2.'
+      + '</div></div>';
+  }
 }
 </script>
 
