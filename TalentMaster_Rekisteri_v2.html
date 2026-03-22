@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster™ — Pelaajareristeri</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=DM+Mono&display=swap" rel="stylesheet">
+<!-- Firebase SDK — sama versio kuin VP-dashboardissa -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --bg:     #0b1118;
+  --ink1:   #121b26;
+  --ink2:   #18253a;
+  --ink3:   #1e2f48;
+  --ink4:   #263855;
+  --line:   rgba(255,255,255,.06);
+  --line2:  rgba(255,255,255,.11);
+  --text:   #e4edf8;
+  --muted:  #5e7a96;
+  --dim:    #2e4460;
+  --teal:   #00d4aa;
+  --blue:   #3b9fff;
+  --gold:   #f5c842;
+  --green:  #22c55e;
+  --red:    #f04444;
+  --amber:  #ffb830;
+  --purple: #a78bfa;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+header {
+  background: var(--ink1);
+  border-bottom: 1px solid var(--line2);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 2px;
+  color: var(--teal);
+}
+.logo span { color: var(--muted); font-size: 13px; letter-spacing: 1px; margin-left: 10px; }
+.hdr-right { display: flex; gap: 10px; align-items: center; }
+.badge-count {
+  background: var(--ink3);
+  border: 1px solid var(--line2);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.badge-count strong { color: var(--teal); }
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  padding: 0 20px;
+  background: var(--ink1);
+}
+.tab {
+  padding: 12px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+.tab:hover { color: var(--text); }
+
+/* ── LAYOUT ── */
+.main { padding: 20px; max-width: 900px; margin: 0 auto; }
+
+/* ── SEARCH BAR ── */
+.search-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.search-wrap {
+  flex: 1;
+  position: relative;
+}
+.search-wrap input {
+  width: 100%;
+  background: var(--ink2);
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  padding: 10px 12px 10px 38px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color .2s;
+}
+.search-wrap input:focus { border-color: var(--teal); }
+.search-wrap::before {
+  content: '⌕';
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 16px;
+  pointer-events: none;
+}
+.btn {
+  background: var(--teal);
+  color: #0b1118;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .2s;
+}
+.btn:hover { opacity: .85; }
+.btn-ghost {
+  background: var(--ink2);
+  color: var(--text);
+  border: 1px solid var(--line2);
+}
+.btn-ghost:hover { border-color: var(--teal); color: var(--teal); }
+.btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 6px; }
+
+/* ── FILTER CHIPS ── */
+.filter-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.chip {
+  background: var(--ink2);
+  border: 1px solid var(--line2);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .2s;
+}
+.chip.active { background: var(--teal); color: #0b1118; border-color: var(--teal); font-weight: 600; }
+.chip:hover { border-color: var(--teal); color: var(--text); }
+
+/* ── PLAYER GRID ── */
+.player-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.player-card {
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+}
+.player-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--teal);
+  opacity: 0;
+  transition: opacity .2s;
+}
+.player-card:hover { border-color: var(--line2); transform: translateY(-1px); }
+.player-card:hover::before { opacity: 1; }
+.player-card.selected { border-color: var(--teal); background: var(--ink3); }
+.player-card.selected::before { opacity: 1; }
+
+.pc-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.avatar {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.pc-name { font-weight: 600; font-size: 14px; line-height: 1.2; }
+.pc-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+.pc-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.tag {
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.tag-phv { background: rgba(255,184,48,.15); color: var(--amber); }
+.tag-phv-red { background: rgba(240,68,68,.15); color: var(--red); }
+.tag-phv-green { background: rgba(34,197,94,.15); color: var(--green); }
+.tag-pos { background: var(--ink4); color: var(--muted); }
+.tag-gem { background: rgba(0,212,170,.15); color: var(--teal); }
+.tag-rts { background: rgba(240,68,68,.12); color: #ff8080; }
+
+.pc-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.metric {
+  background: var(--ink1);
+  border-radius: 5px;
+  padding: 5px 6px;
+  text-align: center;
+}
+.metric-val { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text); font-weight: 500; }
+.metric-key { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+.pc-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.pc-id { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); }
+.pc-actions { display: flex; gap: 6px; }
+
+/* ── ADD FORM ── */
+.form-card {
+  background: var(--ink2);
+  border: 1px solid var(--line2);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 600px;
+}
+.form-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: var(--teal);
+  margin-bottom: 20px;
+}
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid.full { grid-template-columns: 1fr; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.field input, .field select, .field textarea {
+  background: var(--ink3);
+  border: 1px solid var(--line2);
+  border-radius: 7px;
+  padding: 9px 12px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition: border-color .2s;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--teal); }
+.field select option { background: var(--ink3); }
+.field textarea { resize: vertical; min-height: 70px; }
+.form-section {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: 12px 0 6px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+  grid-column: 1 / -1;
+}
+.form-actions { display: flex; gap: 10px; margin-top: 20px; }
+
+/* ── DETAIL PANEL ── */
+.detail-panel {
+  background: var(--ink2);
+  border: 1px solid var(--line2);
+  border-radius: 12px;
+  padding: 20px;
+}
+.dp-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.dp-avatar {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+}
+.dp-name { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 1px; }
+.dp-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.dp-id { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); margin-top: 3px; }
+
+.dp-section { margin-bottom: 18px; }
+.dp-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  margin-bottom: 10px;
+}
+.dp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dp-metric {
+  background: var(--ink1);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.dp-metric-val { font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 500; }
+.dp-metric-key { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.app-links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 16px; }
+.app-link {
+  background: var(--ink3);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.app-link:hover { border-color: var(--teal); }
+.app-link-icon { font-size: 20px; }
+.app-link-text { font-size: 12px; font-weight: 500; }
+.app-link-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+/* ── EMPTY / LOADING ── */
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+}
+.empty-icon { font-size: 40px; margin-bottom: 12px; opacity: .4; }
+.empty h3 { font-size: 16px; color: var(--text); margin-bottom: 6px; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--ink3);
+  border: 1px solid var(--teal);
+  color: var(--teal);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transition: all .3s;
+  pointer-events: none;
+  z-index: 999;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── PHV INDICATOR ── */
+.phv-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+  margin-top: 8px;
+  overflow: hidden;
+}
+.phv-fill { height: 100%; border-radius: 2px; transition: width .5s; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .dp-grid { grid-template-columns: repeat(2, 1fr); }
+  .app-links { grid-template-columns: 1fr; }
+  .player-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── KIRJAUTUMISOVERLAY ── -->
+<!-- Näytetään kun käyttäjä ei ole kirjautunut. Piiloutuu automaattisesti
+     kun Firebase Auth tunnistaa olemassa olevan session. -->
+<div id="loginOverlay" style="display:none;position:fixed;inset:0;background:var(--bg);
+     z-index:999;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--ink2);border:1px solid var(--line2);border-radius:14px;
+       padding:32px;width:100%;max-width:380px">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;
+         color:var(--teal);text-align:center;margin-bottom:4px">TALENTMASTER™</div>
+    <div style="color:var(--muted);font-size:13px;text-align:center;margin-bottom:24px">
+      Pelaajareristeri — kirjaudu sisään</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input id="loginEmail" type="email" placeholder="Sähköposti"
+        style="background:var(--ink3);border:1px solid var(--line2);border-radius:8px;
+               padding:11px 14px;color:var(--text);font-family:'DM Sans',sans-serif;
+               font-size:14px;outline:none;width:100%"
+        onkeydown="if(event.key==='Enter')kirjauduSisaan()">
+      <input id="loginPassword" type="password" placeholder="Salasana"
+        style="background:var(--ink3);border:1px solid var(--line2);border-radius:8px;
+               padding:11px 14px;color:var(--text);font-family:'DM Sans',sans-serif;
+               font-size:14px;outline:none;width:100%"
+        onkeydown="if(event.key==='Enter')kirjauduSisaan()">
+      <div id="loginError" style="color:var(--red);font-size:12px;min-height:16px"></div>
+      <button id="loginBtn" onclick="kirjauduSisaan()"
+        style="background:var(--teal);color:#0b1118;border:none;border-radius:8px;
+               padding:12px;font-family:'Bebas Neue',sans-serif;font-size:18px;
+               letter-spacing:1px;cursor:pointer;width:100%">
+        Kirjaudu sisään
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── PÄÄSISÄLTÖ — piilotetaan kirjautumisen ajaksi ── -->
+<div id="mainContent" style="display:none">
+
+<header>
+  <div>
+    <span class="logo">TALENTMASTER™ <span>REKISTERI</span></span>
+  </div>
+  <div class="hdr-right">
+    <div class="badge-count">Pelaajia: <strong id="totalCount">0</strong></div>
+    <div class="badge-count" id="seuraNimiHeader" style="color:var(--teal)"></div>
+    <button onclick="kirjauduUlos()"
+      style="background:var(--ink3);border:1px solid var(--line2);color:var(--muted);
+             border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;
+             font-family:'DM Sans',sans-serif">Kirjaudu ulos</button>
+    <button class="btn btn-sm" onclick="showTab('add')">+ Uusi pelaaja</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" id="tab-list" onclick="showTab('list')">Rekisteri</div>
+  <div class="tab" id="tab-add" onclick="showTab('add')">Lisää pelaaja</div>
+  <div class="tab" id="tab-detail" id="tab-detail" onclick="showTab('detail')" style="display:none">Pelaajan tiedot</div>
+</div>
+
+<div class="main">
+
+  <!-- ── LIST VIEW ── -->
+  <div id="view-list">
+    <div class="search-row">
+      <div class="search-wrap">
+        <input type="text" id="searchInput" placeholder="Hae nimellä, ID:llä tai seuralla..." oninput="filterPlayers()">
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">↓ CSV</button>
+    </div>
+
+    <div class="filter-row">
+      <div class="chip active" onclick="setFilter('all',this)">Kaikki</div>
+      <div class="chip" onclick="setFilter('U12',this)">U12</div>
+      <div class="chip" onclick="setFilter('U15',this)">U15</div>
+      <div class="chip" onclick="setFilter('U17',this)">U17</div>
+      <div class="chip" onclick="setFilter('U19',this)">U19</div>
+      <div class="chip" onclick="setFilter('gem',this)">⬥ Hidden Gem</div>
+      <div class="chip" onclick="setFilter('rts',this)">🔴 RTS</div>
+      <div class="chip" onclick="setFilter('phv',this)">⚠️ PHV</div>
+    </div>
+
+    <div class="player-grid" id="playerGrid"></div>
+    <div class="empty" id="emptyState" style="display:none">
+      <div class="empty-icon">👥</div>
+      <h3>Ei pelaajia</h3>
+      <p>Lisää ensimmäinen pelaaja rekisteriin</p>
+    </div>
+  </div>
+
+  <!-- ── ADD VIEW ── -->
+  <div id="view-add" style="display:none">
+    <div class="form-card">
+      <div class="form-title">LISÄÄ UUSI PELAAJA</div>
+      <div class="form-grid">
+        <div class="form-section">Perustiedot</div>
+        <div class="field">
+          <label>Etunimi *</label>
+          <input id="f_etunimi" placeholder="esim. Mikael" required>
+        </div>
+        <div class="field">
+          <label>Sukunimi *</label>
+          <input id="f_sukunimi" placeholder="esim. Korhonen" required>
+        </div>
+        <div class="field">
+          <label>Syntymäaika *</label>
+          <input id="f_syntyma" type="date" required>
+        </div>
+        <div class="field">
+          <label>Sukupuoli</label>
+          <select id="f_sukupuoli">
+            <option value="P">Poika / Mies</option>
+            <option value="T">Tyttö / Nainen</option>
+            <option value="M">Muu / En halua kertoa</option>
+          </select>
+        </div>
+
+        <div class="form-section">Seura & Positio</div>
+        <div class="field">
+          <label>Seura *</label>
+          <input id="f_seura" placeholder="esim. FC Ilves">
+        </div>
+        <div class="field">
+          <label>Joukkue / Ikäluokka</label>
+          <input id="f_joukkue" placeholder="esim. KPV U13">
+        </div>
+        <div class="form-group">
+          <label>PalloID</label>
+          <input id="f_palloid" placeholder="esim. 34650191">
+          <div class="form-hint">Palloliiton pelipassin numero — toimii pelaajan tunnisteena järjestelmässä</div>
+        </div>
+        <div class="field">
+          <label>Positio</label>
+          <select id="f_positio">
+            <option value="">— valitse —</option>
+            <option>Maalivahti</option>
+            <option>Pakki</option>
+            <option>Laitapakki</option>
+            <option>Keskikenttä</option>
+            <option>Laitahyökkääjä</option>
+            <option>Hyökkääjä</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Valmentaja</label>
+          <input id="f_valmentaja" placeholder="esim. Tero Koskela">
+        </div>
+
+        <div class="form-section">Fysiikka (valinnainen)</div>
+        <div class="field">
+          <label>Pituus (cm)</label>
+          <input id="f_pituus" type="number" placeholder="esim. 168">
+        </div>
+        <div class="field">
+          <label>Paino (kg)</label>
+          <input id="f_paino" type="number" placeholder="esim. 58">
+        </div>
+        <div class="field">
+          <label>Istumapituus (cm)</label>
+          <input id="f_istuma" type="number" placeholder="esim. 88">
+        </div>
+        <div class="field">
+          <label>Vanhemman pituus (cm)</label>
+          <input id="f_vanhem" type="number" placeholder="esim. 178">
+        </div>
+
+        <div class="form-section">Tila & Huomiot</div>
+        <div class="field">
+          <label>RTS-tila</label>
+          <select id="f_rts">
+            <option value="">Ei aktiivinen</option>
+            <option value="rts1">Vaihe 1 / Akuutti</option>
+            <option value="rts2">Vaihe 2 / Korjaava</option>
+            <option value="rts3">Vaihe 3 / Paluu</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Laji</label>
+          <select id="f_laji">
+            <option>Jalkapallo</option>
+            <option>Jääkiekko</option>
+            <option>Koripallo</option>
+            <option>Salibandy</option>
+            <option>Muu</option>
+          </select>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>Huomiot</label>
+          <textarea id="f_huomiot" placeholder="Vammahistoria, seurantahuomiot..."></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn" onclick="addPlayer()">Lisää rekisteriin</button>
+        <button class="btn btn-ghost" onclick="showTab('list')">Peruuta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DETAIL VIEW ── -->
+  <div id="view-detail" style="display:none">
+    <div id="detailContent"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// TALENTMASTER™ — PELAAJARERISTERI v2
+// Firebase-integraatio lisätty 2026-03-22
+//
+// Arkkitehtuurimuutos v1 → v2:
+//   v1: localStorage (selainmuisti, katoaa laitteen vaihtuessa)
+//   v2: Firestore (pilvi, synkronoituu kaikkiin laitteisiin reaaliajassa)
+//
+// Pelaajat haetaan polusta: seurat/{seuraId}/pelaajat/
+// SeuraId tunnistetaan kirjautuneen käyttäjän UID:n perusteella —
+// sama logiikka kuin VP-dashboardissa (vp_uid-kenttä seura-dokumentissa).
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── FIREBASE-KONFIGURAATIO ────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+  authDomain:        "talentmaster-pilot.firebaseapp.com",
+  projectId:         "talentmaster-pilot",
+  storageBucket:     "talentmaster-pilot.firebasestorage.app",
+  messagingSenderId: "872561784446",
+  appId:             "1:872561784446:web:05c4c7996dfd46ddd14a2f"
+};
+
+// Alustetaan Firebase — tarkistetaan ettei se ole jo alustettu
+const _app  = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+const _auth = firebase.auth();
+const _db   = firebase.firestore();
+
+// ── SOVELLUKSEN TILA ──────────────────────────────────────────────────────────
+let players       = [];         // Kaikki pelaajat muistissa hakua ja suodatusta varten
+let currentFilter = 'all';
+let selectedId    = null;
+let _seuraId      = null;       // Kirjautuneen käyttäjän seura, esim. "kpv"
+let _seuraDoc     = null;       // Koko seura-dokumentti Firestoresta
+let _unsubscribe  = null;       // Firestore realtime-kuuntelijan peruutusfunktio
+
+// ── KIRJAUTUMINEN ─────────────────────────────────────────────────────────────
+// Rekisteri vaatii kirjautumisen — ilman sitä ei tiedetä minkä seuran
+// pelaajia näytetään. Kirjautuminen toimii samalla logiikalla kuin
+// VP-dashboardissa: sähköposti + salasana → haetaan seura vp_uid:llä.
+
+function naytaKirjautuminen() {
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('mainContent').style.display = 'none';
+}
+
+function piilotaKirjautuminen() {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('mainContent').style.display = '';
+}
+
+function kirjauduSisaan() {
+  const email    = document.getElementById('loginEmail').value.trim();
+  const salasana = document.getElementById('loginPassword').value;
+  const nappi    = document.getElementById('loginBtn');
+  const virhe    = document.getElementById('loginError');
+
+  if (!email || !salasana) {
+    virhe.textContent = 'Syötä sähköposti ja salasana.';
+    return;
+  }
+
+  nappi.disabled    = true;
+  nappi.textContent = 'Kirjaudutaan...';
+  virhe.textContent = '';
+
+  _auth.signInWithEmailAndPassword(email, salasana)
+    .then(function(cred) {
+      // Haetaan seura käyttäjän UID:n perusteella — sama kuin VP-dashboardissa
+      return _db.collection('seurat')
+        .where('vp_uid', '==', cred.user.uid)
+        .limit(1)
+        .get()
+        .then(function(snap) {
+          if (!snap.empty) {
+            _seuraDoc = snap.docs[0];
+            _seuraId  = snap.docs[0].id;
+          } else {
+            // Super Admin tai Seuran Admin — etsitään kayttajat-kokoelmasta
+            return _db.collectionGroup('kayttajat')
+              .where('uid', '==', cred.user.uid)
+              .limit(1)
+              .get()
+              .then(function(kSnap) {
+                if (!kSnap.empty) {
+                  _seuraId = kSnap.docs[0].data().seuraId;
+                }
+              });
+          }
+        });
+    })
+    .then(function() {
+      if (!_seuraId) {
+        // Super Admin — näyttää kaikki seurat, käytetään ensimmäistä oletuksena
+        // Tulevaisuudessa: seuravalitsin
+        return _db.collection('seurat').limit(1).get().then(function(s) {
+          if (!s.empty) { _seuraId = s.docs[0].id; _seuraDoc = s.docs[0]; }
+        });
+      }
+    })
+    .then(function() {
+      piilotaKirjautuminen();
+      paivitaOtsikko();
+      lataaFirestoresta();
+    })
+    .catch(function(err) {
+      virhe.textContent = 'Kirjautuminen epäonnistui: ' + (err.message || err.code);
+      nappi.disabled    = false;
+      nappi.textContent = 'Kirjaudu sisään';
+    });
+}
+
+function kirjauduUlos() {
+  if (_unsubscribe) _unsubscribe();   // Lopetetaan realtime-kuuntelu
+  _auth.signOut().then(function() {
+    players  = [];
+    _seuraId = null;
+    renderGrid();
+    naytaKirjautuminen();
+  });
+}
+
+function paivitaOtsikko() {
+  const seuraNimi = _seuraDoc ? (_seuraDoc.data().nimi || _seuraId) : _seuraId || '—';
+  const el = document.getElementById('seuraNimiHeader');
+  if (el) el.textContent = seuraNimi;
+}
+
+// ── DATAN LATAUS FIRESTORESTA ─────────────────────────────────────────────────
+// Käytetään Firestore realtime-kuuntelijaa (onSnapshot) pelkän get():n sijaan.
+// Tämä tarkoittaa, että kun suostumuslomakkeella rekisteröidään uusi pelaaja,
+// hän ilmestyy rekisteriin automaattisesti ilman sivun päivitystä.
+
+function lataaFirestoresta() {
+  if (!_seuraId) return;
+
+  const ref = document.getElementById('playerGrid');
+  if (ref) ref.innerHTML = '<div style="color:var(--muted);padding:32px;text-align:center">Ladataan pelaajia...</div>';
+
+  // Peruutetaan edellinen kuuntelu jos oli
+  if (_unsubscribe) _unsubscribe();
+
+  _unsubscribe = _db
+    .collection('seurat').doc(_seuraId)
+    .collection('pelaajat')
+    .orderBy('sukunimi')
+    .onSnapshot(function(snap) {
+      // Muunnetaan Firestore-dokumentit rekisterin käyttämään muotoon
+      players = snap.docs.map(function(doc) {
+        const d = doc.data();
+        return {
+          // Firestore käyttää doc.id PalloID:nä
+          id:         doc.id,
+          palloID:    doc.id,
+          etunimi:    d.etunimi   || d.nimi?.split(' ')[0] || '',
+          sukunimi:   d.sukunimi  || d.nimi?.split(' ').slice(1).join(' ') || '',
+          // Muunnetaan Firestore Timestamp JS Date-muotoon
+          syntyma:    d.syntymaaika
+                        ? (d.syntymaaika.toDate
+                            ? d.syntymaaika.toDate().toISOString().slice(0,10)
+                            : d.syntymaaika)
+                        : '',
+          sukupuoli:  d.sukupuoli  || '',
+          seura:      d.seura      || '',
+          joukkue:    d.joukkue    || '',
+          joukkueId:  d.joukkueId  || '',
+          positio:    d.positio    || '',
+          valmentaja: d.valmentaja || '',
+          // Mirwald-mittaukset biologisen iän laskentaa varten
+          pituus:  d.biologinenIka?.mirwald?.pituus  || d.pituus  || null,
+          paino:   d.biologinenIka?.mirwald?.paino   || d.paino   || null,
+          istuma:  d.biologinenIka?.mirwald?.istumapituus
+                     ? d.biologinenIka.mirwald.istumapituus + (d.biologinenIka.mirwald.penkinkorkeus || 0)
+                     : d.istuma || null,
+          vanhem:  d.biologinenIka?.mirwald?.isanPituus || d.vanhem || null,
+          // PHV suoraan Firestoresta jos laskettu aiemmin
+          phvTila:    d.biologinenIka?.phvTila    || '',
+          phvOffset:  d.biologinenIka?.maturityOffset || null,
+          bioIka:     d.biologinenIka?.bio        || null,
+          // Muut kentät
+          laji:       d.laji       || 'Jalkapallo',
+          rts:        d.rts        || '',
+          huomiot:    d.vammahistoria || d.huomiot || '',
+          gem:        d.gem        || false,
+          suostumus:  d.suostumus  || null,
+          created:    d.luotu?.toDate?.()?.getTime() || Date.now()
+        };
+      });
+
+      document.getElementById('totalCount').textContent = players.length;
+      renderGrid();
+
+      // Päivitetään avoimena oleva pelaajan näkymä jos data muuttui
+      if (selectedId) {
+        const p = players.find(function(x) { return x.id === selectedId; });
+        if (p) document.getElementById('detailContent').innerHTML = renderDetail(p);
+      }
+    }, function(err) {
+      console.error('[REKISTERI] Firestore-virhe:', err);
+      toast('Latausvirhe: ' + err.message);
+    });
+}
+
+// ── TALLENNA FIRESTOREEN ──────────────────────────────────────────────────────
+// Tämä funktio muuntaa rekisterin pelaajaobjektin Firestore-dokumentiksi
+// ja tallentaa sen. PalloID toimii dokumentti-ID:nä jos se on syötetty.
+
+function tallennaPelaaja(p, dokumenttiId) {
+  if (!_seuraId || !_db) {
+    toast('Ei Firebase-yhteyttä — tarkista kirjautuminen');
+    return Promise.reject('Ei yhteyttä');
+  }
+
+  const nyt = firebase.firestore.FieldValue.serverTimestamp();
+  const syntymaTimestamp = p.syntyma
+    ? firebase.firestore.Timestamp.fromDate(new Date(p.syntyma))
+    : null;
+
+  const doc = {
+    etunimi:    p.etunimi,
+    sukunimi:   p.sukunimi,
+    nimi:       p.etunimi + ' ' + p.sukunimi,
+    syntymaaika: syntymaTimestamp,
+    sukupuoli:  p.sukupuoli,
+    seura:      p.seura || (_seuraDoc?.data().nimi || _seuraId),
+    seuraId:    _seuraId,
+    joukkue:    p.joukkue,
+    positio:    p.positio || '',
+    valmentaja: p.valmentaja || '',
+    laji:       p.laji || 'Jalkapallo',
+    rts:        p.rts || '',
+    vammahistoria: p.huomiot || '',
+    gem:        p.gem || false,
+    muokattu:   nyt,
+  };
+
+  // Mirwald-mittaukset tallennetaan biologinenIka-objektiin jos syötetty
+  if (p.pituus || p.paino || p.istuma) {
+    doc.biologinenIka = {
+      mirwald: {
+        pituus:       p.pituus  || null,
+        paino:        p.paino   || null,
+        istumapituus: p.istuma  || null,
+        isanPituus:   p.vanhem  || null,
+      }
+    };
+  }
+
+  const ref = _db.collection('seurat').doc(_seuraId)
+                 .collection('pelaajat').doc(dokumenttiId);
+
+  return ref.get().then(function(snap) {
+    if (!snap.exists) doc.luotu = nyt;  // Lisätään luontiaika vain uusille
+    return ref.set(doc, { merge: true });
+  });
+}
+
+// ── YHTEENSOPIVUUS: load() ja save() ─────────────────────────────────────────
+// Pidetään vanhat funktiot olemassa jotta muualle koodiin ei tarvitse tehdä
+// muutoksia. load() käynnistää Firebase-kuuntelun, save() ei tee enää mitään
+// (Firestore päivittyy suoraan tallenna*-funktioiden kautta).
+
+function load() {
+  // Tarkistetaan onko käyttäjä jo kirjautuneena (esim. session jatkuu)
+  _auth.onAuthStateChanged(function(user) {
+    if (user) {
+      // Käyttäjä on kirjautunut — haetaan seura ja ladataan data
+      _db.collection('seurat')
+        .where('vp_uid', '==', user.uid)
+        .limit(1)
+        .get()
+        .then(function(snap) {
+          if (!snap.empty) {
+            _seuraDoc = snap.docs[0];
+            _seuraId  = snap.docs[0].id;
+            piilotaKirjautuminen();
+            paivitaOtsikko();
+            lataaFirestoresta();
+          } else {
+            naytaKirjautuminen();
+          }
+        })
+        .catch(function() { naytaKirjautuminen(); });
+    } else {
+      naytaKirjautuminen();
+    }
+  });
+}
+
+function save() {
+  // Firestore-versiossa ei tehdä mitään — data tallennetaan suoraan
+  // tallennaPelaaja()-funktiolla. Päivitetään vain laskuri.
+  document.getElementById('totalCount').textContent = players.length;
+}
+
+// ── PHV CALCULATION (Mirwald 2002) ────────────────────────────────────────
+function calcPHV(p) {
+  if (!p.pituus || !p.paino || !p.istuma || !p.syntyma) return null;
+  const age = (Date.now() - new Date(p.syntyma)) / (365.25*24*3600*1000);
+  const sit = p.istuma;
+  const leg = p.pituus - sit;
+  let offset;
+  if (p.sukupuoli === 'P') {
+    offset = -9.236 + 0.0002708*(leg*sit) - 0.001663*(age*leg) + 0.007216*(age*sit) + 0.02292*(p.paino/p.pituus*100);
+  } else {
+    offset = -9.376 + 0.0001882*(leg*sit) + 0.0022*(age*leg) + 0.005841*(age*sit) - 0.002658*(age*p.paino) + 0.07693*(p.paino/p.pituus*100);
+  }
+  const aphv = age - offset;
+  return { age: Math.round(age*10)/10, aphv: Math.round(aphv*100)/100, offset: Math.round(offset*100)/100 };
+}
+
+function phvStatus(offset) {
+  if (offset === null) return { label:'—', cls:'tag-pos' };
+  if (offset < -0.5) return { label:'Pre-PHV', cls:'tag-phv' };
+  if (offset <= 0.5) return { label:'🔴 PHV-HUIPPU', cls:'tag-phv-red' };
+  if (offset <= 1.5) return { label:'Post-PHV', cls:'tag-phv' };
+  return { label:'Vakaa', cls:'tag-phv-green' };
+}
+
+function getAge(syntyma) {
+  if (!syntyma) return '—';
+  const y = Math.floor((Date.now() - new Date(syntyma)) / (365.25*24*3600*1000));
+  return y + 'v';
+}
+
+function getIkaluokka(syntyma) {
+  if (!syntyma) return '—';
+  const y = new Date(syntyma).getFullYear();
+  const cur = new Date().getFullYear();
+  const age = cur - y;
+  if (age <= 12) return 'U12';
+  if (age <= 13) return 'U13';
+  if (age <= 15) return 'U15';
+  if (age <= 17) return 'U17';
+  return 'U19';
+}
+
+function avatarColor(id) {
+  const colors = ['#00d4aa','#3b9fff','#a78bfa','#f5c842','#22c55e','#ffb830'];
+  const idx = (id.charCodeAt(id.length-1) + id.charCodeAt(id.length-2)) % colors.length;
+  return colors[idx];
+}
+
+function initials(p) {
+  return (p.etunimi[0]||'') + (p.sukunimi[0]||'');
+}
+
+// ── GENERATE ID ───────────────────────────────────────────────────────────
+function genId() {
+  const max = players.reduce((m, p) => {
+    const n = parseInt(p.id.replace('HPP-',''));
+    return isNaN(n) ? m : Math.max(m, n);
+  }, 0);
+  return 'HPP-' + String(max + 1).padStart(3, '0');
+}
+
+// ── RENDER PLAYER CARD ────────────────────────────────────────────────────
+function renderCard(p) {
+  const phv = calcPHV(p);
+  const st = phv ? phvStatus(phv.offset) : { label:'—', cls:'tag-pos' };
+  const col = avatarColor(p.id);
+  const ika = getIkaluokka(p.syntyma);
+  const isSelected = p.id === selectedId;
+
+  let tagsHtml = `<span class="tag ${st.cls}">${st.label}</span>`;
+  if (p.joukkue) tagsHtml += `<span class="tag tag-pos">${p.joukkue || ika}</span>`;
+  if (p.gem) tagsHtml += `<span class="tag tag-gem">⬥ Hidden Gem</span>`;
+  if (p.rts) tagsHtml += `<span class="tag tag-rts">RTS</span>`;
+
+  return `<div class="player-card ${isSelected?'selected':''}" onclick="selectPlayer('${p.id}')">
+    <div class="pc-top">
+      <div class="avatar" style="background:${col}22;color:${col}">${initials(p)}</div>
+      <div>
+        <div class="pc-name">${p.etunimi} ${p.sukunimi}</div>
+        <div class="pc-sub">${p.seura || '—'} · ${getAge(p.syntyma)}</div>
+      </div>
+    </div>
+    <div class="pc-tags">${tagsHtml}</div>
+    <div class="pc-metrics">
+      <div class="metric">
+        <div class="metric-val">${p.pituus || '—'}</div>
+        <div class="metric-key">cm</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val">${phv ? phv.offset.toFixed(1) : '—'}</div>
+        <div class="metric-key">PHV offset</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val">${p.positio ? p.positio.substring(0,4) : '—'}</div>
+        <div class="metric-key">positio</div>
+      </div>
+    </div>
+    <div class="pc-footer">
+      <span class="pc-id">${p.id}</span>
+      <div class="pc-actions">
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editPlayer('${p.id}')">Muokkaa</button>
+        <button class="btn btn-sm" onclick="event.stopPropagation();selectPlayer('${p.id}')">Avaa →</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── RENDER DETAIL ─────────────────────────────────────────────────────────
+function renderDetail(p) {
+  const phv = calcPHV(p);
+  const st = phv ? phvStatus(phv.offset) : { label:'—', cls:'tag-pos' };
+  const col = avatarColor(p.id);
+
+  return `<div class="detail-panel">
+    <div class="dp-header">
+      <div class="dp-avatar" style="background:${col}22;color:${col}">${initials(p)}</div>
+      <div>
+        <div class="dp-name">${p.etunimi} ${p.sukunimi}</div>
+        <div class="dp-sub">${p.seura || '—'} · ${p.joukkue || ''} · ${p.positio || '—'}</div>
+        <div class="dp-id">${p.id} · ${getAge(p.syntyma)} · ${p.sukupuoli==='P'?'Poika':'Tyttö'}</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        ${p.gem ? '<span class="tag tag-gem" style="padding:6px 12px;font-size:12px">⬥ Hidden Gem™</span>' : ''}
+        ${p.rts ? '<span class="tag tag-rts" style="padding:6px 12px;font-size:12px">🔴 RTS</span>' : ''}
+      </div>
+    </div>
+
+    <div class="dp-section">
+      <div class="dp-section-title">Fysiikka & Biologinen ikä</div>
+      <div class="dp-grid">
+        <div class="dp-metric">
+          <div class="dp-metric-val" style="color:var(--teal)">${p.pituus || '—'} cm</div>
+          <div class="dp-metric-key">Pituus</div>
+        </div>
+        <div class="dp-metric">
+          <div class="dp-metric-val">${p.paino || '—'} kg</div>
+          <div class="dp-metric-key">Paino</div>
+        </div>
+        <div class="dp-metric">
+          <div class="dp-metric-val">${p.istuma || '—'} cm</div>
+          <div class="dp-metric-key">Istumapituus</div>
+        </div>
+        <div class="dp-metric">
+          <div class="dp-metric-val" style="color:${phv && Math.abs(phv.offset) <= 0.5 ? 'var(--red)' : 'var(--text)'}">${phv ? phv.aphv : '—'} v</div>
+          <div class="dp-metric-key">APHV (Mirwald)</div>
+        </div>
+        <div class="dp-metric">
+          <div class="dp-metric-val">${phv ? (phv.offset > 0 ? '+' : '') + phv.offset.toFixed(1) : '—'}</div>
+          <div class="dp-metric-key">PHV offset</div>
+        </div>
+        <div class="dp-metric">
+          <div class="dp-metric-val"><span class="tag ${st.cls}" style="font-size:11px">${st.label}</span></div>
+          <div class="dp-metric-key">PHV-tila</div>
+        </div>
+      </div>
+      ${phv && Math.abs(phv.offset) <= 0.5 ? '<div style="background:rgba(240,68,68,.1);border:1px solid rgba(240,68,68,.3);border-radius:6px;padding:8px 12px;margin-top:10px;font-size:12px;color:#ff8080">⚠️ PHV-HUIPPU aktiivinen — kuormarajoitin MAX 60%</div>' : ''}
+    </div>
+
+    <div class="dp-section">
+      <div class="dp-section-title">Huomiot</div>
+      <div style="color:${p.huomiot ? 'var(--text)' : 'var(--muted)'};font-size:13px;line-height:1.6;background:var(--ink1);border-radius:8px;padding:12px">
+        ${p.huomiot || 'Ei huomioita'}
+      </div>
+    </div>
+
+    <div class="dp-section">
+      <div class="dp-section-title">Avaa sovelluksessa</div>
+      <div class="app-links">
+        <div class="app-link" onclick="openApp('quickscan','${p.id}')">
+          <div class="app-link-icon">⚡</div>
+          <div>
+            <div class="app-link-text">Quick Scan™</div>
+            <div class="app-link-sub">Fyysiset testit → EI · FVP · TSI</div>
+          </div>
+        </div>
+        <div class="app-link" onclick="openApp('talentid','${p.id}')">
+          <div class="app-link-icon">🎯</div>
+          <div>
+            <div class="app-link-text">TalentID</div>
+            <div class="app-link-sub">5D-arviointi · Hidden Gem™</div>
+          </div>
+        </div>
+        <div class="app-link" onclick="openApp('harjoitettavuus','${p.id}')">
+          <div class="app-link-icon">📐</div>
+          <div>
+            <div class="app-link-text">Harjoitettavuus</div>
+            <div class="app-link-sub">KPV-kartoitus · FLEI</div>
+          </div>
+        </div>
+        <div class="app-link" onclick="openApp('klinikka','${p.id}')">
+          <div class="app-link-icon">🏥</div>
+          <div>
+            <div class="app-link-text">Klinikka</div>
+            <div class="app-link-sub">Käyntikirjaus · RTS</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-ghost btn-sm" onclick="editPlayer('${p.id}')">Muokkaa tietoja</button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--teal);border-color:var(--teal)" onclick="toggleGem('${p.id}')">
+        ${p.gem ? '⬥ Poista Hidden Gem' : '⬥ Merkitse Hidden Gem™'}
+      </button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:rgba(240,68,68,.3);margin-left:auto" onclick="deletePlayer('${p.id}')">Poista</button>
+    </div>
+  </div>`;
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────────────
+function addPlayer() {
+  const e = id => document.getElementById(id).value.trim();
+  if (!e('f_etunimi') || !e('f_sukunimi')) {
+    toast('Etunimi ja sukunimi ovat pakollisia');
+    return;
+  }
+
+  const p = {
+    etunimi:   e('f_etunimi'),
+    sukunimi:  e('f_sukunimi'),
+    syntyma:   e('f_syntyma'),
+    sukupuoli: e('f_sukupuoli'),
+    seura:     e('f_seura'),
+    joukkue:   e('f_joukkue'),
+    positio:   e('f_positio'),
+    valmentaja:e('f_valmentaja'),
+    pituus:    parseFloat(e('f_pituus'))  || null,
+    paino:     parseFloat(e('f_paino'))   || null,
+    istuma:    parseFloat(e('f_istuma'))  || null,
+    vanhem:    parseFloat(e('f_vanhem'))  || null,
+    laji:      e('f_laji'),
+    rts:       e('f_rts'),
+    huomiot:   e('f_huomiot'),
+    gem:       false,
+  };
+
+  // PalloID dokumentti-ID:nä jos syötetty, muuten auto-id
+  const palloId = e('f_palloid');
+  const docId   = palloId || _db.collection('_').doc().id;
+
+  tallennaPelaaja(p, docId)
+    .then(function() {
+      clearForm();
+      toast('✓ ' + p.etunimi + ' ' + p.sukunimi + ' lisätty');
+      showTab('list');
+      // Realtime-kuuntelija päivittää listan automaattisesti
+    })
+    .catch(function(err) {
+      toast('Tallennus epäonnistui: ' + err.message);
+    });
+}
+
+function editPlayer(id) {
+  const p = players.find(x => x.id === id);
+  if (!p) return;
+  const set = (fid, val) => {
+    const el = document.getElementById(fid);
+    if (el) el.value = val || '';
+  };
+  set('f_etunimi',   p.etunimi);
+  set('f_sukunimi',  p.sukunimi);
+  set('f_syntyma',   p.syntyma);
+  set('f_sukupuoli', p.sukupuoli);
+  set('f_seura',     p.seura);
+  set('f_joukkue',   p.joukkue);
+  set('f_positio',   p.positio);
+  set('f_valmentaja',p.valmentaja);
+  set('f_pituus',    p.pituus);
+  set('f_paino',     p.paino);
+  set('f_istuma',    p.istuma);
+  set('f_vanhem',    p.vanhem);
+  set('f_laji',      p.laji);
+  set('f_rts',       p.rts);
+  set('f_huomiot',   p.huomiot);
+  // PalloID-kenttä jos se on lomakkeessa
+  const pidEl = document.getElementById('f_palloid');
+  if (pidEl) pidEl.value = p.palloID || p.id || '';
+
+  const btn = document.querySelector('#view-add .form-actions .btn');
+  btn.textContent = 'Tallenna muutokset';
+  btn.onclick = () => updatePlayer(id);
+  showTab('add');
+}
+
+function updatePlayer(id) {
+  const e = fid => document.getElementById(fid).value.trim();
+  const p = players.find(x => x.id === id);
+  if (!p) return;
+
+  const paivitys = {
+    etunimi:   e('f_etunimi'),  sukunimi: e('f_sukunimi'),
+    syntyma:   e('f_syntyma'),  sukupuoli: e('f_sukupuoli'),
+    seura:     e('f_seura'),    joukkue: e('f_joukkue'),
+    positio:   e('f_positio'),  valmentaja: e('f_valmentaja'),
+    pituus:    parseFloat(e('f_pituus'))  || null,
+    paino:     parseFloat(e('f_paino'))   || null,
+    istuma:    parseFloat(e('f_istuma'))  || null,
+    vanhem:    parseFloat(e('f_vanhem'))  || null,
+    laji:      e('f_laji'),     rts: e('f_rts'),
+    huomiot:   e('f_huomiot'),  gem: p.gem,
+  };
+
+  tallennaPelaaja(paivitys, id)
+    .then(function() {
+      toast('✓ Tiedot päivitetty');
+      showTab('detail');
+      // Realtime-kuuntelija päivittää automaattisesti
+    })
+    .catch(function(err) {
+      toast('Päivitys epäonnistui: ' + err.message);
+    });
+}
+
+function deletePlayer(id) {
+  if (!confirm('Poistetaanko pelaaja rekisteristä?')) return;
+  _db.collection('seurat').doc(_seuraId)
+     .collection('pelaajat').doc(id)
+     .delete()
+     .then(function() {
+       selectedId = null;
+       toast('Pelaaja poistettu');
+       showTab('list');
+       // Realtime-kuuntelija päivittää automaattisesti
+     })
+     .catch(function(err) {
+       toast('Poisto epäonnistui: ' + err.message);
+     });
+}
+
+function toggleGem(id) {
+  const p = players.find(x => x.id === id);
+  if (!p) return;
+  const uusiArvo = !p.gem;
+  _db.collection('seurat').doc(_seuraId)
+     .collection('pelaajat').doc(id)
+     .update({ gem: uusiArvo, muokattu: firebase.firestore.FieldValue.serverTimestamp() })
+     .then(function() {
+       toast(uusiArvo ? '⬥ Hidden Gem™ merkitty' : 'Hidden Gem™ poistettu');
+       // Realtime-kuuntelija päivittää automaattisesti
+     });
+}
+
+function openApp(app, playerId) {
+  // Tallentaa pelaajan ID localStorageen jotta muut applikaatiot voivat hakea sen
+  localStorage.setItem('tm_active_player', playerId);
+  toast(`Avaa ${app} — pelaaja ${playerId} aktiivinen`);
+  // Tuotantokäytössä: window.open(`${app}.html?id=${playerId}`)
+}
+
+function clearForm() {
+  ['f_etunimi','f_sukunimi','f_syntyma','f_sukupuoli','f_seura','f_joukkue',
+   'f_positio','f_valmentaja','f_pituus','f_paino','f_istuma','f_vanhem',
+   'f_laji','f_rts','f_huomiot','f_palloid'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = el.tagName === 'SELECT' ? el.options[0].value : '';
+  });
+  const btn = document.querySelector('#view-add .form-actions .btn');
+  if (btn) { btn.textContent = 'Lisää rekisteriin'; btn.onclick = addPlayer; }
+}
+
+// ── FILTER & SEARCH ───────────────────────────────────────────────────────
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid();
+}
+
+function filterPlayers() { renderGrid(); }
+
+function getFiltered() {
+  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  return players.filter(p => {
+    const matchSearch = !q ||
+      `${p.etunimi} ${p.sukunimi}`.toLowerCase().includes(q) ||
+      p.id.toLowerCase().includes(q) ||
+      (p.seura||'').toLowerCase().includes(q);
+    let matchFilter = true;
+    if (currentFilter === 'gem') matchFilter = p.gem;
+    else if (currentFilter === 'rts') matchFilter = !!p.rts;
+    else if (currentFilter === 'phv') {
+      const phv = calcPHV(p);
+      matchFilter = phv && Math.abs(phv.offset) <= 0.5;
+    }
+    else if (currentFilter !== 'all') {
+      matchFilter = getIkaluokka(p.syntyma) === currentFilter;
+    }
+    return matchSearch && matchFilter;
+  });
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────
+function renderGrid() {
+  const filtered = getFiltered();
+  const grid = document.getElementById('playerGrid');
+  const empty = document.getElementById('emptyState');
+  if (filtered.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    grid.innerHTML = filtered.map(renderCard).join('');
+  }
+}
+
+function selectPlayer(id) {
+  selectedId = id;
+  const p = players.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('tab-detail').style.display = '';
+  document.getElementById('tab-detail').textContent = `${p.etunimi} ${p.sukunimi}`;
+  document.getElementById('detailContent').innerHTML = renderDetail(p);
+  showTab('detail');
+  renderGrid();
+}
+
+function renderDetail_update(id) {
+  const p = players.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('detailContent').innerHTML = renderDetail(p);
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  const headers = ['ID','Etunimi','Sukunimi','Syntymäaika','Sukupuoli','Seura','Joukkue','Positio','Pituus','Paino','Istumapituus','PHV-tila','Hidden Gem','RTS','Huomiot'];
+  const rows = players.map(p => {
+    const phv = calcPHV(p);
+    const st = phv ? phvStatus(phv.offset).label : '—';
+    return [p.id, p.etunimi, p.sukunimi, p.syntyma, p.sukupuoli==='P'?'Poika':'Tyttö',
+            p.seura, p.joukkue, p.positio, p.pituus||'', p.paino||'', p.istuma||'',
+            st, p.gem?'Kyllä':'', p.rts||'', p.huomiot||''].join(',');
+  });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = `TalentMaster_Rekisteri_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('✓ CSV ladattu');
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────
+function showTab(t) {
+  ['list','add','detail'].forEach(v => {
+    document.getElementById(`view-${v}`).style.display = v === t ? '' : 'none';
+    const tab = document.getElementById(`tab-${v}`);
+    if (tab) tab.classList.toggle('active', v === t);
+  });
+  if (t === 'list') renderGrid();
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+load();
+document.getElementById('totalCount').textContent = players.length;
+renderGrid();
+</script>
+</div><!-- /mainContent -->
+</body>
+</html>
