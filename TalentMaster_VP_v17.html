@@ -5558,6 +5558,49 @@ function krtNollaa() {
 }
 krtNollaa(); // Alustetaan heti
 
+// ── SARJAKONTEKSTI ───────────────────────────────────────────────────────────
+// Muistaa testisession pysyvät tiedot (joukkue, ikäluokka, kausi jne.)
+// kun siirrytään pelaajalta toiselle sarjakirjauksessa.
+// Nollataan vasta kun koko modal suljetaan.
+var _krtSarja = {
+  aktiivinen: false,        // true kun sarjakirjaus on käynnissä
+  testatut: [],             // [{ nimi, fleiProsentti, fleiTaso }] — jo testatut tällä sessiolla
+  // Pysyvät kentät jotka kopioidaan seuraavalle pelaajalle:
+  joukkue: '',
+  ikäluokka: 'U12',
+  testauspvm: '',
+  arvioija: '',
+  kausi: 'kevat_2026',
+  testi4valinta: 'jalkojenNosto',
+  testi6valinta: 'naruhypyt30s'
+};
+
+/**
+ * Nollaa lomakkeen seuraavaa pelaajaa varten sarjakirjauksessa.
+ * Säilyttää joukkueen, ikäluokan, päivämäärän, arvioijan ja kauden.
+ * Nollaa vain pelaajan henkilötiedot ja testitulokset.
+ */
+function krtNollaaSeuraavalle() {
+  _krtData = {
+    // Pelaajan tiedot — nollataan
+    nimi: '', pelaajaId: '', sukupuoli: 'P', ika: '', syntymavuosi: '',
+    phvTila: 'Ei tiedossa',
+    // Kontekstikenttät — säilytetään sarjakontekstista
+    ikäluokka:      _krtSarja.ikäluokka,
+    joukkue:        _krtSarja.joukkue,
+    testauspvm:     _krtSarja.testauspvm,
+    arvioija:       _krtSarja.arvioija,
+    kausi:          _krtSarja.kausi,
+    testi4valinta:  _krtSarja.testi4valinta,
+    testi6valinta:  _krtSarja.testi6valinta,
+    // Testit — nollataan
+    testit: {},
+    // Palataan vaiheeseen 1 (pelaajan tiedot), ei vaiheeseen 2
+    // koska sukupuoli ja syntymävuosi vaihtuvat joka pelaajalla
+    vaihe: 1
+  };
+}
+
 // ── KARTOITUS-TAB RENDERÖINTI ────────────────────────────────────────────────
 
 /**
@@ -5668,6 +5711,9 @@ function renderKartoitukset() {
 
 function avaaTyhjäKartoitus() {
   krtNollaa();
+  // Nollataan myös sarjakonteksti — uusi testisessio alkaa
+  _krtSarja.aktiivinen = false;
+  _krtSarja.testatut = [];
   var modal = document.getElementById('kartoitusModal');
   modal.classList.add('open');
   krtRenderöiVaihe();
@@ -5791,6 +5837,17 @@ function krtSiirrySuorituksiin() {
 
   // Lasketaan lopullinen ikä ja ikäluokka
   krtPäivitäIkäluokka();
+
+  // Tallennetaan sarjakonteksti — nämä säilyvät koko testisession ajan
+  _krtSarja.aktiivinen  = true;
+  _krtSarja.joukkue     = _krtData.joukkue;
+  _krtSarja.ikäluokka   = _krtData.ikäluokka;
+  _krtSarja.testauspvm  = _krtData.testauspvm;
+  _krtSarja.arvioija    = _krtData.arvioija;
+  _krtSarja.kausi       = _krtData.kausi;
+  _krtSarja.testi4valinta = _krtData.testi4valinta;
+  _krtSarja.testi6valinta = _krtData.testi6valinta;
+
   _krtData.vaihe = 2;
   krtRenderöiVaihe();
 }
@@ -6255,11 +6312,20 @@ function krtTallenna() {
     .add(doc)
     .then(function(ref) {
       console.log('[KRT] Tallennettu:', ref.id);
-      suljeKartoitusModal();
-      // Päivitä lista
+
+      // Lisätään pelaaja sarjakontekstin testattujen listaan
+      _krtSarja.testatut.push({
+        nimi:          _krtData.nimi,
+        fleiProsentti: flei.fleiProsentti,
+        fleiTaso:      flei.fleiTaso
+      });
+
+      // Näytetään sarjakirjauksen onnistumisnäkymä modaalin sisällä
+      // — ei suljeta modaalia, vaan tarjotaan kaksi vaihtoehtoa
+      krtNaytaSarjaOnnistuminen(flei);
+
+      // Päivitetään taustalla lista (ei häiritse käyttäjää)
       renderKartoitukset();
-      // Näytä onnistumisviesti
-      krtNaytaToast('✅ Kartoitus tallennettu! FLEI: ' + flei.fleiProsentti + '%');
     })
     .catch(function(err) {
       console.error('[KRT] Tallennusvirhe:', err);
@@ -6269,7 +6335,84 @@ function krtTallenna() {
 }
 
 /**
- * Rakentaa ikäluokkakohtaisen testimapin Firestore-dokumenttiin.
+ * Näyttää tallennuksen jälkeisen sarjakirjausnäkymän modaalin sisällä.
+ * Käyttäjällä on kaksi vaihtoehtoa: siirtyä seuraavaan pelaajaan
+ * (konteksti säilyy) tai sulkea modal ja palata listaan.
+ * Lista testatuista pelaajista näytetään alla — valmentaja näkee
+ * yhdellä silmäyksellä ketä on jo testattu tällä sessiolla.
+ */
+function krtNaytaSarjaOnnistuminen(flei) {
+  var body = document.getElementById('kartoitusModalBody');
+  if (!body) return;
+
+  var fleiVäri = flei.fleiTaso === 'hyvä' ? 'var(--green)'
+               : flei.fleiTaso === 'kehitys' ? 'var(--amber)' : 'var(--red)';
+  var lkm = _krtSarja.testatut.length;
+
+  var h = '';
+
+  // Onnistumisbanneri
+  h += '<div style="text-align:center;padding:24px 0 16px">';
+  h += '<div style="font-size:32px;margin-bottom:8px">✅</div>';
+  h += '<div style="font-family:\'Bebas Neue\';font-size:28px;color:var(--teal)">Tallennettu!</div>';
+  h += '<div style="font-size:13px;color:var(--muted);margin-top:4px">'
+     + _krtData.nimi + ' — FLEI '
+     + '<span style="color:' + fleiVäri + ';font-weight:600">' + flei.fleiProsentti + '%</span>'
+     + '</div>';
+  h += '</div>';
+
+  // Toimintopainikkeet — pääosassa
+  h += '<div style="display:flex;gap:8px;margin-bottom:20px">';
+  h += '<button onclick="suljeKartoitusModal()" '
+     + 'style="flex:1;background:var(--bg3);color:var(--muted);border:1px solid var(--border);'
+     + 'border-radius:10px;padding:14px;font-size:13px;cursor:pointer">Sulje lista</button>';
+  h += '<button onclick="krtSeuraavaPelaaja()" '
+     + 'style="flex:2;background:var(--teal);color:var(--bg);border:none;'
+     + 'border-radius:10px;padding:14px;font-family:\'Bebas Neue\';font-size:18px;cursor:pointer">'
+     + 'Seuraava pelaaja → (' + lkm + ' testattu)</button>';
+  h += '</div>';
+
+  // Lista tällä sessiolla testatuista pelaajista
+  h += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;'
+     + 'letter-spacing:1px;margin-bottom:8px">Tällä sessiolla testattu</div>';
+  h += '<div style="display:grid;gap:4px">';
+
+  // Näytetään lista käänteisessä järjestyksessä — viimeisin ensin
+  var testatutKaanteinen = _krtSarja.testatut.slice().reverse();
+  testatutKaanteinen.forEach(function(p, i) {
+    var pVäri = p.fleiTaso === 'hyvä' ? 'var(--green)'
+              : p.fleiTaso === 'kehitys' ? 'var(--amber)' : 'var(--red)';
+    var onViimeisin = i === 0; // Viimeisin pelaaja korostetaan
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;'
+       + 'padding:8px 10px;border-radius:8px;background:'
+       + (onViimeisin ? 'var(--card)' : 'var(--bg3)') + ';'
+       + 'border:1px solid ' + (onViimeisin ? 'var(--teal)' : 'var(--border)') + '">';
+    h += '<div style="font-size:12px' + (onViimeisin ? ';font-weight:600' : '') + '">'
+       + p.nimi + '</div>';
+    h += '<div style="font-family:\'Bebas Neue\';font-size:16px;color:' + pVäri + '">'
+       + p.fleiProsentti + '%</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Kontekstimuistutus — valmentaja näkee millä joukkueella ja ikäluokalla mennään
+  h += '<div style="margin-top:16px;padding:10px;background:var(--bg3);border-radius:8px;'
+     + 'font-size:11px;color:var(--muted);text-align:center">';
+  h += '📋 ' + _krtSarja.joukkue + ' · ' + _krtSarja.ikäluokka
+     + ' · ' + _krtSarja.testauspvm;
+  h += '</div>';
+
+  body.innerHTML = h;
+}
+
+/**
+ * Siirtyy seuraavaan pelaajaan sarjakirjauksessa.
+ * Nollaa henkilötiedot ja testit, säilyttää kontekstin.
+ */
+function krtSeuraavaPelaaja() {
+  krtNollaaSeuraavalle();
+  krtRenderöiVaihe();
+}
  * U12 ja U15: { testiNimi: { tulos, pisteet, huomio } }
  * U19 voimatestit: { testiNimi: { kg5rm, kehonpaino, rel1rm, pisteet } }
  */
