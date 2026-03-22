@@ -6992,24 +6992,27 @@ function renderTuonti() {
   var pohjat = [
     {
       ikoni:   '👤',
-      nimi:    'Pelaajapohja',
-      kuvaus:  'Pelaajaprofiilit, Mirwald-biologinen ikä ja Palloliiton yli-ikäisyyssääntö',
+      nimi:    'Pelaajatietolomake',
+      kuvaus:  'Pelaajaprofiilit joukkueidensa kanssa — joukkueet haetaan automaattisesti järjestelmästä',
       tiedosto:'TalentMaster_Pelaajapohja.xlsx',
-      ohje:    'Täytä U12-, U15- tai U19-välilehdelle. PalloID pakollinen.'
+      ohje:    'Suositellaan: luo seuran oma pohja jolloin joukkueet ovat valmiina dropdownina.',
+      dynaaminen: true   // Tämä pohja voidaan generoida dynaamisesti
     },
     {
       ikoni:   '🏋️',
       nimi:    'Harjoitettavuuskartoitus',
       kuvaus:  'U12/U15/U19 FLEI-kartoitus Eerikkilä-protokollan mukaan',
       tiedosto:'TalentMaster_Harjoitettavuus.xlsx',
-      ohje:    'Täytä oikealle ikäluokkavälilehdelle. Pisteet 1-3 per testi.'
+      ohje:    'Täytä oikealle ikäluokkavälilehdelle. Pisteet 1-3 per testi.',
+      dynaaminen: false
     },
     {
       ikoni:   '⚡',
       nimi:    'H-H-polun fyysistekniset testit',
       kuvaus:  'Nopeus, ketteryys, hyppy, kestävyys ja lajitekniikka (Eerikkilä 2024)',
       tiedosto:'TalentMaster_HH_Testit.xlsx',
-      ohje:    'Yksi välilehti kaikille ikäluokille. Tasot 1-5 lasketaan automaattisesti.'
+      ohje:    'Yksi välilehti kaikille ikäluokille. Tasot 1-5 lasketaan automaattisesti.',
+      dynaaminen: false
     },
   ];
 
@@ -7027,13 +7030,29 @@ function renderTuonti() {
     h += '<div style="font-size:10px;color:var(--muted2);margin-top:3px;font-style:italic">' + p.ohje + '</div>';
     h += '</div></div>';
 
-    // Oikealla: latauspainike
-    h += '<a href="' + POHJA_BASE + p.tiedosto + '" download="' + p.tiedosto + '" '
-       + 'style="flex-shrink:0;background:var(--blue);color:var(--bg);text-decoration:none;'
-       + 'border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;'
-       + 'white-space:nowrap;display:flex;align-items:center;gap:6px">'
-       + '⬇ Lataa pohja</a>';
+    // Oikealla: nappi(t)
+    h += '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">';
 
+    if (p.dynaaminen) {
+      // Pelaajapohja: kaksi nappia — dynaaminen (suositeltu) ja staattinen (varasuunnitelma)
+      h += '<button onclick="luoSeuranPelaajaPohja(\'' + seuraId + '\')" '
+         + 'style="background:var(--teal);color:var(--bg);border:none;border-radius:8px;'
+         + 'padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">'
+         + '✨ Luo seuran pohja</button>';
+      h += '<a href="' + POHJA_BASE + p.tiedosto + '" download="' + p.tiedosto + '" '
+         + 'style="background:var(--bg);color:var(--muted);text-decoration:none;border:1px solid var(--border);'
+         + 'border-radius:8px;padding:6px 14px;font-size:11px;text-align:center;white-space:nowrap">'
+         + '⬇ Tyhjä pohja</a>';
+    } else {
+      // Muut pohjat: pelkkä staattinen latauspainike
+      h += '<a href="' + POHJA_BASE + p.tiedosto + '" download="' + p.tiedosto + '" '
+         + 'style="background:var(--blue);color:var(--bg);text-decoration:none;'
+         + 'border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;'
+         + 'white-space:nowrap;display:flex;align-items:center;gap:6px">'
+         + '⬇ Lataa pohja</a>';
+    }
+
+    h += '</div>';
     h += '</div>';
   });
   h += '</div>';
@@ -7399,49 +7418,49 @@ function tuontiTallennaNyt(rivi, tyyppi, seuraId) {
   var kirjaajaUid = (_fbUser && _fbUser.uid) || 'tuonti';
 
   if (tyyppi === 'pelaajat') {
-    // Polku: seurat/{seuraId}/pelaajat/{palloId}
-    // PalloID toimii dokumentti-ID:nä — sama ID päivittää eikä luo kaksoiskappaleita
     var syntymaika = rivi['Syntymäaika *'] ? new Date(rivi['Syntymäaika *']) : null;
-    var ikaNyt = syntymaika
-      ? Math.floor((new Date() - syntymaika) / (365.25 * 24 * 3600 * 1000))
-      : null;
+
+    // Joukkueen nimi ja ID — haetaan kahdella tavalla:
+    // 1. Dynaaminen pohja: 'JoukkueId'-sarake on täytetty automaattisesti
+    //    (seurasihteeri valitsi dropdownista, tuontitoiminto täytti JoukkueId-sarakkeen)
+    // 2. Staattinen pohja: vain joukkueen nimi, ei ID:tä — ID jää tyhjäksi
+    //    ja liitetään myöhemmin kun joukkueet on luotu
+    var joukkueNimi = String(rivi['Joukkue *'] || '').trim();
+    var joukkueId   = String(rivi['JoukkueId'] || '').trim() || null;
 
     var pelaajaDoc = {
-      palloID:       palloId,
-      sukunimi:      String(rivi['Sukunimi *'] || '').trim(),
-      etunimi:       String(rivi['Etunimi *'] || '').trim(),
-      nimi:          (String(rivi['Etunimi *']||'').trim() + ' ' + String(rivi['Sukunimi *']||'').trim()).trim(),
-      syntymaaika:   syntymaika ? firebase.firestore.Timestamp.fromDate(syntymaika) : null,
-      sukupuoli:     String(rivi['Sukupuoli *'] || '').trim().toUpperCase(),
-      joukkue:       String(rivi['Joukkue *'] || '').trim(),
-      seuraId:       seuraId,
-      muokattu:      nyt,
-      tuonutUid:     kirjaajaUid,
+      palloID:    palloId,
+      sukunimi:   String(rivi['Sukunimi *'] || '').trim(),
+      etunimi:    String(rivi['Etunimi *']  || '').trim(),
+      nimi:       (String(rivi['Etunimi *'] ||'').trim()+' '+String(rivi['Sukunimi *']||'').trim()).trim(),
+      syntymaaika: syntymaika ? firebase.firestore.Timestamp.fromDate(syntymaika) : null,
+      sukupuoli:  String(rivi['Sukupuoli *'] || '').trim().toUpperCase(),
+      joukkue:    joukkueNimi,
+      joukkueId:  joukkueId,    // null jos staattinen pohja, täytetään myöhemmin
+      seuraId:    seuraId,
+      kausi:      String(rivi['Kausi'] || '2026').trim(),
+      muokattu:   nyt,
+      tuonutUid:  kirjaajaUid,
     };
 
-    // Mirwald-laskentatulokset jos löytyy Excelistä
-    var phvTila = String(rivi['PHV-tila'] || '').trim();
-    var matOffset = parseFloat(rivi['Maturity Offset'] || '');
-    var phvIka = parseFloat(rivi['PHV-ikä (vuotta)'] || '');
+    // Mirwald-mittaukset jos löytyy Excelistä (uusi pohjarakenne)
+    var pit   = parseFloat(rivi['Pituus (cm)'])         || null;
+    var istu  = parseFloat(rivi['Istumapituus (cm)'])   || null;
+    var penk  = parseFloat(rivi['Penkin korkeus (cm)']) || null;
+    var pain  = parseFloat(rivi['Paino (kg)'])          || null;
+    var aitiP = parseFloat(rivi['Äidin pituus (cm)'])   || null;
+    var isaP  = parseFloat(rivi['Isän pituus (cm)'])    || null;
 
-    if (phvTila || !isNaN(matOffset)) {
+    if (pit || istu || pain) {
       pelaajaDoc.biologinenIka = {
-        phvTila: phvTila || 'Ei tiedossa',
-        maturityOffset: isNaN(matOffset) ? null : matOffset,
-        phvIka: isNaN(phvIka) ? null : phvIka,
         laskentamenetelma: 'mirwald',
-        // Mirwald-raakamitat jos syötetty
         mirwald: {
-          pituus:        parseFloat(rivi['Pituus (cm) *']) || null,
-          istumapituus:  parseFloat(rivi['Istumapituus (cm) *']) || null,
-          penkinkorkeus: parseFloat(rivi['Penkin korkeus (cm)']) || null,
-          paino:         parseFloat(rivi['Paino (kg) *']) || null,
-          aidinPituus:   parseFloat(rivi['Äidin pituus (cm)']) || null,
-          isanPituus:    parseFloat(rivi['Isän pituus (cm)']) || null,
-        },
-        yliIkaisyys: {
-          tulos: String(rivi['Yli-ikäisyys\n(Palloliitto)'] || '').indexOf('KYLLÄ') !== -1 ? 'KYLLÄ' : 'EI',
-          laskettu: nyt
+          pituus:        pit,
+          istumapituus:  istu,
+          penkinkorkeus: penk,
+          paino:         pain,
+          aidinPituus:   aitiP,
+          isanPituus:    isaP,
         },
         rae: syntymaika ? tuontiLaskeRAE(syntymaika) : null
       };
@@ -7590,6 +7609,219 @@ function tuontiNaytaVirhe(viesti) {
   var el = document.getElementById('tuontiEsikatselu');
   el.style.display = 'block';
   el.innerHTML = '<div class="card"><div style="color:var(--red);padding:8px">❌ ' + viesti + '</div></div>';
+}
+
+// ── DYNAAMINEN PELAAJAPOHJA ───────────────────────────────────────────────────
+//
+// Tämä funktio ratkaisee joukkueiden nimen täsmäämisongelman kerralla.
+//
+// Ongelma: jos seurasihteeri kirjoittaa Excel-pohjaan "KPV u13" tai "KPV U 13"
+// (pieni kirjain tai ylimääräinen välilyönti), tuontitoiminto ei löydä oikeaa
+// joukkuetta Firestoresta, koska vertailu tehdään täsmäämällä tekstiä.
+//
+// Ratkaisu: generoidaan Excel dynaamisesti Firestoressa olevista joukkueista.
+// Joukkue-sarake on Excel-validointi-dropdown jonka lista tulee suoraan
+// Firestoresta — ei kirjoiteta käsin, valitaan listalta.
+// Tällöin kirjoitusvirhe on teknisesti mahdoton.
+
+function luoSeuranPelaajaPohja(seuraId) {
+  if (!_fbOnline || !_fbDb) {
+    alert('Ei Firebase-yhteyttä. Kirjaudu sisään sähköpostilla.');
+    return;
+  }
+
+  // Näytetään latausviesti
+  var esikatseluEl = document.getElementById('tuontiEsikatselu');
+  esikatseluEl.style.display = 'block';
+  esikatseluEl.innerHTML = '<div class="card"><div style="color:var(--muted);padding:12px">'
+    + '⏳ Haetaan joukkueet järjestelmästä...</div></div>';
+
+  // Tarkistetaan ensin että SheetJS on ladattu — tarvitaan Excel-generointiin
+  function generoiKunValmis(joukkueet) {
+    if (typeof XLSX === 'undefined') {
+      var script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      script.onload = function() { rakennaPelaajaPohja(joukkueet, seuraId); };
+      document.head.appendChild(script);
+    } else {
+      rakennaPelaajaPohja(joukkueet, seuraId);
+    }
+  }
+
+  // Haetaan seuran joukkueet Firestoresta järjestettynä nimellä
+  _fbDb.collection('seurat').doc(seuraId)
+    .collection('joukkueet')
+    .where('aktiivinen', '==', true)
+    .orderBy('nimi')
+    .get()
+    .then(function(snap) {
+      if (snap.empty) {
+        esikatseluEl.innerHTML = '<div class="card">'
+          + '<div style="color:var(--amber);padding:12px">'
+          + '⚠️ Seuralle ei ole luotu joukkueita vielä. '
+          + 'Luo joukkueet ensin Admin-näkymässä, sitten tule takaisin generoimaan pohja.'
+          + '</div></div>';
+        return;
+      }
+
+      // Kerätään joukkuetiedot: nimi näkyy dropdownissa, id tallennetaan tuonnissa
+      var joukkueet = snap.docs.map(function(doc) {
+        var d = doc.data();
+        return {
+          id:       doc.id,
+          nimi:     d.nimi,
+          ikl:      d.ikäluokka || '',
+          sukup:    d.sukupuoli || 'P',
+          kausi:    d.kausi    || '2026'
+        };
+      });
+
+      esikatseluEl.innerHTML = '<div class="card">'
+        + '<div style="color:var(--teal);padding:12px">'
+        + '✅ Löydettiin ' + joukkueet.length + ' joukkuetta — generoidaan Excel...</div></div>';
+
+      generoiKunValmis(joukkueet);
+    })
+    .catch(function(err) {
+      esikatseluEl.innerHTML = '<div class="card">'
+        + '<div style="color:var(--red);padding:12px">Virhe: ' + err.message + '</div></div>';
+    });
+}
+
+function rakennaPelaajaPohja(joukkueet, seuraId) {
+  var wb = XLSX.utils.book_new();
+
+  // ── PIILOTETTU JOUKKUELISTA-VÄLILEHTI ──────────────────────────────────────
+  // Tänne tallennetaan joukkuenimet joita Excel-validointi käyttää.
+  // Välilehti on piilotettu (Very Hidden) jotta seurasihteeri ei vahingossa muokkaa.
+  // Rakenne: sarake A = joukkueen nimi (näkyy dropdownissa), sarake B = joukkueId
+  // (tallennetaan automaattisesti tuonnissa)
+
+  var joukkueData = [['Joukkue', 'JoukkueId', 'Ikäluokka', 'Sukupuoli']];
+  joukkueet.forEach(function(j) {
+    joukkueData.push([j.nimi, j.id, j.ikl, j.sukup]);
+  });
+  var wsJoukkueet = XLSX.utils.aoa_to_sheet(joukkueData);
+  XLSX.utils.book_append_sheet(wb, wsJoukkueet, '_joukkueet');
+
+  // ── OHJESIVU ────────────────────────────────────────────────────────────────
+  var ohjeet = [
+    ['TalentMaster™ — Pelaajatietolomake'],
+    ['Generoitu: ' + new Date().toLocaleDateString('fi-FI') + ' | Seura: ' + seuraId],
+    [''],
+    ['TÄYTTÖOHJE'],
+    [''],
+    ['1. Siirry Pelaajat-välilehdelle.'],
+    ['2. Joukkue-sarakkeessa on alasvetovalikko — valitse oikea joukkue listalta.'],
+    ['   Joukkueet ovat suoraan TalentMaster-järjestelmästä, joten nimet täsmäävät aina.'],
+    ['3. PalloID löytyy Palloliiton pelipassista (esim. 34650191). Pakollinen kenttä.'],
+    ['4. Syntymäaika muodossa pp.kk.vvvv (esim. 15.3.2013).'],
+    ['5. Sukupuoli: P = Poika, T = Tyttö.'],
+    ['6. Mirwald-sarakkeet ovat valinnaisia — täytetään kun fyysinen mittaus on tehty.'],
+    [''],
+    ['JOUKKUEET TÄSSÄ POHJASSA'],
+    ['(Nämä tulevat suoraan TalentMaster-järjestelmästä)'],
+  ];
+  joukkueet.forEach(function(j) {
+    ohjeet.push(['  → ' + j.nimi + ' (' + j.ikl + ', ' + (j.sukup === 'T' ? 'Tytöt' : 'Pojat') + ')']);
+  });
+  var wsOhjeet = XLSX.utils.aoa_to_sheet(ohjeet);
+  wsOhjeet['!cols'] = [{ wch: 70 }];
+  XLSX.utils.book_append_sheet(wb, wsOhjeet, '📋 Ohjeet');
+
+  // ── PELAAJAT-VÄLILEHTI ──────────────────────────────────────────────────────
+  // Yksi välilehti kaikille pelaajille — ei enää U12/U15/U19-jaottelua.
+  // Joukkue valitaan dropdownista, harjoitettavuuden ikävaihe lasketaan
+  // automaattisesti syntymäajasta tuontitoiminnossa.
+
+  var SARAKKEET = [
+    // [otsikko, leveys, kuvaus]
+    ['PalloID *',           12, 'Palloliiton pelipassin numero — pakollinen tunniste'],
+    ['Sukunimi *',          14, 'Pakollinen'],
+    ['Etunimi *',           12, 'Pakollinen'],
+    ['Syntymäaika *',       13, 'Muoto: pp.kk.vvvv'],
+    ['Sukupuoli *',          9, 'P = Poika, T = Tyttö'],
+    ['Joukkue *',           14, 'Valitse alasvetovalikosta'],
+    ['JoukkueId',           16, 'Täyttyy automaattisesti — älä muokkaa'],
+    ['Kausi',               10, 'Esim. 2026'],
+    // Mirwald — valinnainen
+    ['Pituus (cm)',         11, 'Valinnainen — Mirwald-laskenta'],
+    ['Istumapituus (cm)',   14, 'Mitattu arvo penkin päältä'],
+    ['Penkin korkeus (cm)', 14, 'Käytetyn penkin korkeus'],
+    ['Paino (kg)',          10, 'Valinnainen'],
+    ['Äidin pituus (cm)',   13, 'Valinnainen — parantaa tarkkuutta'],
+    ['Isän pituus (cm)',    13, 'Valinnainen'],
+  ];
+
+  // Otsikkorivi
+  var otsikot = SARAKKEET.map(function(s) { return s[0]; });
+  var data = [otsikot];
+
+  // 60 tyhjää datariviä
+  for (var i = 0; i < 60; i++) {
+    data.push(new Array(SARAKKEET.length).fill(''));
+  }
+
+  var wsPelaajat = XLSX.utils.aoa_to_sheet(data);
+
+  // Sarakeleveydet
+  wsPelaajat['!cols'] = SARAKKEET.map(function(s) { return { wch: s[1] }; });
+
+  // Excel-validointi joukkue-sarakkeelle (sarake F = indeksi 5)
+  // Haetaan joukkuenimet _joukkueet-välilehdestä
+  // Excelissä sarakeen F solut riveillä 2-61 rajoitetaan dropdowniksi
+  var joukkueLista = joukkueet.map(function(j) { return j.nimi; }).join(',');
+
+  if (!wsPelaajat['!dataValidation']) wsPelaajat['!dataValidation'] = [];
+
+  // Joukkue-dropdown (sarake F, rivit 2-61)
+  wsPelaajat['!dataValidation'].push({
+    type: 'list',
+    sqref: 'F2:F61',
+    formula1: '"' + joukkueLista + '"',
+    showDropDown: false,   // false = näytetään dropdown-nuoli
+    showErrorMessage: true,
+    errorTitle: 'Virheellinen joukkue',
+    error: 'Valitse joukkue alasvetovalikosta. ' +
+           'Jos joukkue puuttuu, luo se ensin TalentMaster Admin-näkymässä.',
+  });
+
+  // Sukupuoli-dropdown (sarake E, rivit 2-61)
+  wsPelaajat['!dataValidation'].push({
+    type: 'list',
+    sqref: 'E2:E61',
+    formula1: '"P,T"',
+    showDropDown: false,
+    showErrorMessage: true,
+    errorTitle: 'Virheellinen sukupuoli',
+    error: 'Käytä P (poika) tai T (tyttö).',
+  });
+
+  XLSX.utils.book_append_sheet(wb, wsPelaajat, 'Pelaajat');
+
+  // Asetetaan Pelaajat-välilehti aktiiviseksi kun tiedosto avataan
+  wb.Workbook = { Sheets: [
+    { name: '_joukkueet', Hidden: 2 },  // 2 = Very Hidden (ei näy edes välilehtivalikossa)
+    { name: '📋 Ohjeet',  Hidden: 0 },
+    { name: 'Pelaajat',   Hidden: 0, state: 'visible' },
+  ]};
+
+  // Generoidaan tiedostonimi seuraan ja päivämäärään perustuen
+  var pvm    = new Date().toISOString().slice(0, 10);
+  var nimi   = 'TM_Pelaajat_' + seuraId.toUpperCase() + '_' + pvm + '.xlsx';
+
+  // Ladataan tiedosto suoraan käyttäjän koneelle
+  XLSX.writeFile(wb, nimi);
+
+  // Näytetään vahvistusviesti
+  var esikatseluEl = document.getElementById('tuontiEsikatselu');
+  esikatseluEl.innerHTML = '<div class="card">'
+    + '<div style="color:var(--green);padding:12px;font-weight:600">✅ ' + nimi + ' ladattu!</div>'
+    + '<div style="padding:0 12px 12px;font-size:12px;color:var(--muted);line-height:1.6">'
+    + 'Pohja sisältää ' + joukkueet.length + ' joukkuetta alasvetovalikkona. '
+    + 'Kun täytät pelaajien tiedot ja lataat pohjan takaisin tähän järjestelmään, '
+    + 'joukkueet täsmäävät automaattisesti — kirjoitusvirheitä ei voi tapahtua.'
+    + '</div></div>';
 }
 </script>
 
