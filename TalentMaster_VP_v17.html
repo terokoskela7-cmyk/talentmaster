@@ -6596,7 +6596,354 @@ function avaaKartoitusYhteenveto(docId, seuraId) {
 }
 
 // ============================================================
-// EXCEL-TUONTITOIMINTO — lisätty 2026-03-22
+// H-H TESTIEN VIITEARVOT JA KEHITYSINDEKSILASKENTA
+// Eerikkilä / Palloliitto 2024
+// ============================================================
+
+// H-H viitearvot tiivistetyssä muodossa: {ikäluokka+testi: [t5,t4,t3,t2]}
+// Rakenne: avain = "P13lin5m", arvo = [raja5, raja4, raja3, raja2]
+// Pienempi parempi -testeissä: tulos <= raja5 → taso 5
+// Suurempi parempi -testeissä (cmj, bronco): tulos >= raja5 → taso 5
+
+var HH_VIITEARVOT = {
+  // ── POJAT: LINEAARINOPEUS (pienempi parempi) ──
+  P10:{lin5m:[1.08,1.11,1.14,1.18],lin10m:[1.92,1.97,2.02,2.08],lin20m:[3.42,3.51,3.60,3.70],lin30m:[4.88,5.01,5.15,5.31],kasirata:[7.05,7.18,7.32,7.44],smjuoksu:[8.55,8.83,9.09,9.40],smpallo:[9.89,10.24,10.58,11.02],cmj:[27.3,25.5,23.7,22.3],bronco:[4.00,3.90,3.80,3.70]},
+  P11:{lin5m:[1.05,1.09,1.11,1.15],lin10m:[1.88,1.93,1.97,2.02],lin20m:[3.34,3.42,3.50,3.60],lin30m:[4.73,4.86,4.99,5.14],kasirata:[6.90,7.05,7.19,7.32],smjuoksu:[8.21,8.50,8.73,9.03],smpallo:[9.51,9.84,10.14,10.53],cmj:[29.3,27.2,25.5,23.5],bronco:[4.20,4.10,4.00,3.90]},
+  P12:{lin5m:[1.02,1.05,1.08,1.12],lin10m:[1.81,1.86,1.91,1.97],lin20m:[3.22,3.31,3.39,3.49],lin30m:[4.56,4.69,4.82,4.97],kasirata:[6.74,6.90,7.04,7.17],smjuoksu:[8.00,8.21,8.45,8.73],smpallo:[9.27,9.58,9.86,10.18],cmj:[32.2,29.1,27.2,25.2],bronco:[4.40,4.31,4.20,4.00]},
+  P13:{lin5m:[0.99,1.02,1.05,1.09],lin10m:[1.75,1.81,1.86,1.92],lin20m:[3.09,3.19,3.28,3.38],lin30m:[4.37,4.52,4.65,4.81],kasirata:[6.58,6.74,6.91,7.03],smjuoksu:[7.73,7.99,8.22,8.49],smpallo:[8.98,9.31,9.56,9.92],cmj:[35.2,31.4,29.4,27.3],bronco:[4.50,4.40,4.30,4.16]},
+  P14:{lin5m:[0.96,0.99,1.01,1.05],lin10m:[1.69,1.74,1.78,1.84],lin20m:[2.97,3.06,3.14,3.24],lin30m:[4.17,4.29,4.42,4.57],kasirata:[6.45,6.60,6.75,6.93],smjuoksu:[7.58,7.84,8.08,8.36],smpallo:[8.75,9.04,9.28,9.57],cmj:[38.1,35.1,32.8,30.7],bronco:[4.60,4.50,4.40,4.24]},
+  P15:{lin5m:[0.94,0.97,0.99,1.03],lin10m:[1.67,1.71,1.74,1.80],lin20m:[2.91,3.00,3.06,3.14],lin30m:[4.08,4.18,4.28,4.41],kasirata:[6.37,6.52,6.67,6.88],smjuoksu:[7.45,7.64,7.82,8.03],smpallo:[8.57,8.83,9.02,9.31],cmj:[41.3,37.5,35.4,33.0],bronco:[4.70,4.60,4.50,4.35]},
+  P16:{lin5m:[0.92,0.95,0.97,1.01],lin10m:[1.64,1.68,1.71,1.75],lin20m:[2.87,2.96,2.99,3.09],lin30m:[4.02,4.13,4.18,4.31],kasirata:[6.30,6.46,6.58,6.80],smjuoksu:[7.35,7.49,7.61,7.80],smpallo:[8.39,8.60,8.74,8.99],cmj:[43.0,39.6,37.9,35.2],bronco:[4.80,4.70,4.60,4.45]},
+  P17:{lin5m:[0.90,0.93,0.95,0.99],lin10m:[1.62,1.65,1.67,1.73],lin20m:[2.82,2.91,2.94,3.04],lin30m:[3.96,4.06,4.11,4.24],kasirata:[6.19,6.30,6.45,6.63],smjuoksu:[7.27,7.42,7.52,7.73],smpallo:[8.30,8.47,8.60,8.82],cmj:[45.1,42.1,40.3,36.4],bronco:[4.90,4.79,4.60,4.45]},
+  P18:{lin5m:[0.88,0.91,0.93,0.97],lin10m:[1.59,1.63,1.65,1.71],lin20m:[2.79,2.86,2.91,3.00],lin30m:[3.86,3.99,4.07,4.19],kasirata:[6.04,6.18,6.32,6.48],smjuoksu:[7.19,7.36,7.45,7.66],smpallo:[8.21,8.41,8.52,8.74],cmj:[46.6,44.2,41.9,37.9],bronco:[5.00,4.90,4.70,4.55]},
+  P19:{lin5m:[0.87,0.89,0.91,0.95],lin10m:[1.57,1.59,1.63,1.68],lin20m:[2.74,2.80,2.86,2.96],lin30m:[3.81,3.93,4.00,4.14],kasirata:[5.95,6.10,6.23,6.37],smjuoksu:[7.11,7.28,7.38,7.58],smpallo:[8.13,8.32,8.44,8.65],cmj:[48.5,46.0,44.3,39.3],bronco:[5.10,4.90,4.70,4.55]},
+  // ── TYTÖT ──
+  T10:{lin5m:[1.10,1.13,1.16,1.20],lin10m:[1.96,2.01,2.06,2.12],lin20m:[3.50,3.61,3.71,3.82],lin30m:[5.00,5.16,5.31,5.48],kasirata:[7.23,7.45,7.63,7.70],smjuoksu:[8.77,9.05,9.30,9.60],smpallo:[10.49,10.90,11.39,11.96],cmj:[26.2,24.0,22.5,19.8],bronco:[3.80,3.69,3.54,3.40]},
+  T11:{lin5m:[1.07,1.10,1.13,1.18],lin10m:[1.91,1.96,2.01,2.08],lin20m:[3.40,3.50,3.59,3.74],lin30m:[4.84,5.00,5.14,5.36],kasirata:[7.15,7.26,7.38,7.51],smjuoksu:[8.50,8.76,8.99,9.26],smpallo:[9.95,10.43,10.83,11.32],cmj:[27.9,25.2,23.7,21.0],bronco:[3.90,3.77,3.64,3.50]},
+  T12:{lin5m:[1.05,1.08,1.10,1.14],lin10m:[1.85,1.91,1.95,2.01],lin20m:[3.31,3.40,3.48,3.58],lin30m:[4.69,4.83,4.96,5.12],kasirata:[6.94,7.10,7.22,7.35],smjuoksu:[8.29,8.50,8.70,8.92],smpallo:[9.64,10.11,10.40,10.87],cmj:[29.3,26.5,25.3,22.2],bronco:[4.00,3.87,3.72,3.60]},
+  T13:{lin5m:[1.03,1.06,1.08,1.12],lin10m:[1.83,1.87,1.91,1.96],lin20m:[3.24,3.32,3.39,3.49],lin30m:[4.59,4.71,4.83,4.96],kasirata:[6.74,6.86,7.00,7.16],smjuoksu:[8.11,8.32,8.51,8.73],smpallo:[9.41,9.86,10.12,10.46],cmj:[30.5,27.7,26.3,23.2],bronco:[4.10,3.97,3.80,3.70]},
+  T14:{lin5m:[1.02,1.05,1.07,1.11],lin10m:[1.81,1.85,1.89,1.95],lin20m:[3.20,3.27,3.34,3.44],lin30m:[4.52,4.63,4.75,4.88],kasirata:[6.70,6.80,6.94,7.08],smjuoksu:[7.97,8.21,8.42,8.67],smpallo:[9.23,9.53,9.74,10.19],cmj:[32.2,29.4,28.4,25.0],bronco:[4.20,4.06,3.90,3.80]},
+  T15:{lin5m:[1.00,1.03,1.06,1.10],lin10m:[1.78,1.83,1.87,1.93],lin20m:[3.12,3.21,3.28,3.40],lin30m:[4.43,4.55,4.68,4.83],kasirata:[6.65,6.75,6.90,7.04],smjuoksu:[7.95,8.10,8.39,8.61],smpallo:[9.07,9.22,9.51,9.74],cmj:[34.5,32.2,29.5,26.7],bronco:[4.25,4.11,3.95,3.85]},
+  T16:{lin5m:[0.99,1.02,1.05,1.09],lin10m:[1.75,1.81,1.85,1.92],lin20m:[3.08,3.19,3.27,3.37],lin30m:[4.33,4.51,4.63,4.80],kasirata:[6.59,6.70,6.85,7.00],smjuoksu:[7.90,8.05,8.28,8.45],smpallo:[8.95,9.10,9.35,9.56],cmj:[35.4,33.2,30.0,27.4],bronco:[4.30,4.16,4.05,3.90]},
+  T17:{lin5m:[0.98,1.01,1.04,1.08],lin10m:[1.74,1.78,1.84,1.90],lin20m:[3.06,3.15,3.26,3.36],lin30m:[4.31,4.44,4.61,4.75],kasirata:[6.55,6.65,6.80,6.96],smjuoksu:[7.85,7.98,8.25,8.38],smpallo:[8.90,9.04,9.32,9.48],cmj:[36.0,34.4,30.5,27.8],bronco:[4.35,4.21,4.10,3.95]},
+  T18:{lin5m:[0.97,1.00,1.03,1.07],lin10m:[1.72,1.77,1.83,1.89],lin20m:[3.04,3.13,3.23,3.34],lin30m:[4.26,4.41,4.56,4.73],kasirata:[6.51,6.59,6.76,6.90],smjuoksu:[7.80,7.91,8.20,8.30],smpallo:[8.85,8.97,9.27,9.40],cmj:[37.0,34.4,30.5,28.7],bronco:[4.40,4.26,4.15,4.00]},
+  T19:{lin5m:[0.96,0.99,1.02,1.06],lin10m:[1.71,1.76,1.81,1.88],lin20m:[3.00,3.12,3.20,3.32],lin30m:[4.22,4.39,4.53,4.70],kasirata:[6.45,6.51,6.65,6.82],smjuoksu:[7.75,7.86,8.15,8.25],smpallo:[8.80,8.92,9.22,9.35],cmj:[37.8,34.8,31.5,29.2],bronco:[4.45,4.31,4.20,4.05]},
+};
+
+// Testit joissa SUUREMPI on parempi
+var HH_SUUREMPI = { cmj: true, bronco: true };
+
+/**
+ * Laskee yksittäisen testituloksen tason (1-5) viitearvoista.
+ *
+ * Ikä rajataan 10-19 välille koska viitearvoja ei ole alle 10-vuotiaille.
+ * Jos ikä on yli 19, käytetään P19/T19 arvoja (lähimmät saatavilla olevat).
+ * Jos tulos on tyhjä tai ikä ei löydy taulukosta, palautetaan null.
+ *
+ * @param {string} testi    - Testin avain, esim. "lin5m", "cmj"
+ * @param {number} tulos    - Mitattu tulos
+ * @param {string} sukup    - "P" tai "T"
+ * @param {number} ika      - Ikä vuosina (desimaalitarkkuudella ok, pyöristetään)
+ * @returns {number|null}   - Taso 1-5 tai null jos ei voida laskea
+ */
+function hhLaskeTaso(testi, tulos, sukup, ika) {
+  if (tulos === null || tulos === undefined || tulos === '') return null;
+  if (!ika || isNaN(ika)) return null;
+
+  // Pyöristetään ikä kokonaisluvuksi ja rajataan 10-19 välille
+  var ikaInt = Math.min(19, Math.max(10, Math.round(ika)));
+  var avain  = (sukup === 'T' ? 'T' : 'P') + ikaInt;
+  var ref    = HH_VIITEARVOT[avain];
+  if (!ref || !ref[testi]) return null;
+
+  var rajat = ref[testi]; // [raja5, raja4, raja3, raja2]
+  var n = parseFloat(tulos);
+  if (isNaN(n)) return null;
+
+  // Kasvavat testit (cmj, bronco): suurempi on parempi
+  if (HH_SUUREMPI[testi]) {
+    if (n >= rajat[0]) return 5;
+    if (n >= rajat[1]) return 4;
+    if (n >= rajat[2]) return 3;
+    if (n >= rajat[3]) return 2;
+    return 1;
+  }
+  // Laskevat testit (nopeus, ketteryys): pienempi on parempi
+  if (n <= rajat[0]) return 5;
+  if (n <= rajat[1]) return 4;
+  if (n <= rajat[2]) return 3;
+  if (n <= rajat[3]) return 2;
+  return 1;
+}
+
+/**
+ * Laskee pelaajan kaikkien testien keskitason sekä kronologisen
+ * että biologisen iän mukaan.
+ *
+ * Tätä käytetään sekä yksittäisen pelaajan profiilissa
+ * että joukkueen kehitysindeksin laskennassa.
+ *
+ * @param {Object} testitulokset - { lin5m: 3.28, cmj: 35.0, ... }
+ * @param {string} sukup         - "P" tai "T"
+ * @param {number} kronoIka      - Kronologinen ikä
+ * @param {number|null} bioIka   - Biologinen ikä (null jos ei mitattu)
+ * @returns {Object} { kronoTasot, kronoKa, bioTasot, bioKa, tasero }
+ */
+function hhLaskePelaajanTasot(testitulokset, sukup, kronoIka, bioIka) {
+  var testit = ['lin5m','lin10m','lin20m','lin30m','kasirata',
+                'smjuoksu','smpallo','cmj','bronco'];
+
+  var kronoTasot = {}, bioTasot = {};
+  var kronoSumma = 0, kronoN = 0;
+  var bioSumma   = 0, bioN   = 0;
+
+  testit.forEach(function(t) {
+    var tulos = testitulokset[t];
+    if (tulos === null || tulos === undefined || tulos === '') return;
+
+    // Kronologinen taso
+    var kt = hhLaskeTaso(t, tulos, sukup, kronoIka);
+    if (kt !== null) {
+      kronoTasot[t] = kt;
+      kronoSumma += kt;
+      kronoN++;
+    }
+
+    // Biologinen taso (vain jos bio-ikä on saatavilla)
+    if (bioIka !== null && bioIka !== undefined) {
+      var bt = hhLaskeTaso(t, tulos, sukup, bioIka);
+      if (bt !== null) {
+        bioTasot[t] = bt;
+        bioSumma += bt;
+        bioN++;
+      }
+    }
+  });
+
+  var kronoKa = kronoN > 0 ? Math.round((kronoSumma / kronoN) * 10) / 10 : null;
+  var bioKa   = bioN   > 0 ? Math.round((bioSumma   / bioN)   * 10) / 10 : null;
+  var tasero  = (kronoKa !== null && bioKa !== null)
+                ? Math.round((bioKa - kronoKa) * 10) / 10 : null;
+
+  return {
+    kronoTasot: kronoTasot,   // testi → taso kronologisen iän mukaan
+    kronoKa:    kronoKa,      // kaikkien testien keskiarvo (krono)
+    bioTasot:   bioTasot,     // testi → taso biologisen iän mukaan
+    bioKa:      bioKa,        // kaikkien testien keskiarvo (bio)
+    tasero:     tasero        // bioKa - kronoKa (positiivinen = yli ikätason)
+  };
+}
+
+/**
+ * Laskee joukkueen kehitysindeksin kaikista joukkueen testituloksista.
+ *
+ * Kehitysindeksi on joukkueen kaikkien pelaajien tasojen keskiarvo.
+ * Lasketaan erikseen kronologisen ja biologisen iän mukaan.
+ * Erotus kertoo kuinka paljon biologinen kypsyysjakauma vaikuttaa.
+ *
+ * Tyypillinen tilanne: joukkue jossa on biologisesti nuoria pelaajia
+ * näyttää kronologisesti heikolta mutta biologisesti vahvalta.
+ * Tämä on tärkeä tieto VP:lle — pelaajat eivät ole "huonoja"
+ * vaan vasta kehityksensä alkuvaiheessa.
+ *
+ * @param {Array} pelaajat - Array pelaajadokumenteista Firestoresta
+ * @param {Array} testit   - Array testituloksista Firestoresta
+ * @returns {Object} Kehitysindeksiraportti
+ */
+function hhLaskeJoukkuenKehitysindeksi(pelaajat, testit) {
+  // Indeksoidaan pelaajat PalloID:llä nopeaa hakua varten
+  var pelaajaMap = {};
+  pelaajat.forEach(function(p) {
+    pelaajaMap[p.pelaajaId || p.palloID] = p;
+  });
+
+  var kronoSummat = {}, bioSummat = {}, kronoN = {}, bioN = {};
+  var testiAvaimet = ['lin5m','lin10m','lin20m','lin30m','kasirata',
+                      'smjuoksu','smpallo','cmj','bronco'];
+  testiAvaimet.forEach(function(t) {
+    kronoSummat[t] = 0; bioSummat[t] = 0; kronoN[t] = 0; bioN[t] = 0;
+  });
+
+  var pelaajaRaportit = [];
+
+  testit.forEach(function(testi) {
+    var pelaaja = pelaajaMap[testi.pelaajaId];
+    if (!pelaaja) return;
+
+    // Laske ikä testituloksesta
+    var testipvm = testi.testauspvm
+      ? (testi.testauspvm.toDate ? testi.testauspvm.toDate() : new Date(testi.testauspvm))
+      : new Date();
+    var syntyma = pelaaja.syntymaaika
+      ? (pelaaja.syntymaaika.toDate ? pelaaja.syntymaaika.toDate() : new Date(pelaaja.syntymaaika))
+      : null;
+
+    if (!syntyma) return;
+
+    var kronoIka = (testipvm - syntyma) / (365.25 * 24 * 3600 * 1000);
+    var bioIka   = (pelaaja.biologinenIka && pelaaja.biologinenIka.bio)
+                   ? pelaaja.biologinenIka.bio : null;
+
+    var tulokset = {
+      lin5m:    testi.lin5m,    lin10m:   testi.lin10m,
+      lin20m:   testi.lin20m,   lin30m:   testi.lin30m,
+      kasirata: testi.kasirata, smjuoksu: testi.smjuoksu,
+      smpallo:  testi.smpallo,  cmj:      testi.cmj,
+      bronco:   testi.bronco
+    };
+
+    var tasot = hhLaskePelaajanTasot(
+      tulokset, pelaaja.sukupuoli, kronoIka, bioIka
+    );
+
+    // Kumuloidaan joukkueen summiin
+    testiAvaimet.forEach(function(t) {
+      if (tasot.kronoTasot[t] !== undefined) {
+        kronoSummat[t] += tasot.kronoTasot[t]; kronoN[t]++;
+      }
+      if (tasot.bioTasot[t] !== undefined) {
+        bioSummat[t] += tasot.bioTasot[t]; bioN[t]++;
+      }
+    });
+
+    pelaajaRaportit.push({
+      nimi:      pelaaja.nimi,
+      kronoIka:  Math.round(kronoIka * 10) / 10,
+      bioIka:    bioIka ? Math.round(bioIka * 10) / 10 : null,
+      kronoKa:   tasot.kronoKa,
+      bioKa:     tasot.bioKa,
+      tasero:    tasot.tasero
+    });
+  });
+
+  // Laske joukkueen keskiarvot per testi
+  var kronoIndeksi = {}, bioIndeksi = {};
+  testiAvaimet.forEach(function(t) {
+    kronoIndeksi[t] = kronoN[t] > 0
+      ? Math.round(kronoSummat[t] / kronoN[t] * 10) / 10 : null;
+    bioIndeksi[t]   = bioN[t]   > 0
+      ? Math.round(bioSummat[t]  / bioN[t]   * 10) / 10 : null;
+  });
+
+  // Kokonaisindeksit (kaikkien testien ka)
+  var kronoKokonais = hhKeskiarvo(Object.values(kronoIndeksi).filter(function(v) { return v !== null; }));
+  var bioKokonais   = hhKeskiarvo(Object.values(bioIndeksi).filter(function(v) { return v !== null; }));
+
+  return {
+    // Joukkuetason luvut
+    kronoIndeksi:   kronoIndeksi,    // per testi, kronologinen
+    bioIndeksi:     bioIndeksi,      // per testi, biologinen
+    kronoKokonais:  kronoKokonais,   // kaikkien testien ka, kronologinen
+    bioKokonais:    bioKokonais,     // kaikkien testien ka, biologinen
+    tasero:         (kronoKokonais !== null && bioKokonais !== null)
+                    ? Math.round((bioKokonais - kronoKokonais) * 10) / 10 : null,
+    // Pelaajatason raportit
+    pelaajat:       pelaajaRaportit,
+    // Metatieto
+    pelaajaMaara:   pelaajaRaportit.length,
+    bioIkaMitattu:  pelaajaRaportit.filter(function(p) { return p.bioIka !== null; }).length
+  };
+}
+
+// Apufunktio: laskee taulukon keskiarvon
+function hhKeskiarvo(arvot) {
+  if (!arvot || arvot.length === 0) return null;
+  var summa = arvot.reduce(function(a, b) { return a + b; }, 0);
+  return Math.round(summa / arvot.length * 10) / 10;
+}
+
+/**
+ * Renderöi joukkueen kehitysindeksikortin VP-dashboardiin.
+ * Näyttää molemmat indeksit rinnakkain selityksineen.
+ *
+ * @param {Object} indeksi - hhLaskeJoukkuenKehitysindeksi():n tulos
+ * @param {string} joukkueNimi
+ * @returns {string} HTML-merkkijono
+ */
+function hhRenderKehitysindeksi(indeksi, joukkueNimi) {
+  if (!indeksi || indeksi.pelaajaMaara === 0) {
+    return '<div style="color:var(--muted);padding:16px;text-align:center">'
+         + 'Ei testituloksia tällä joukkueella.</div>';
+  }
+
+  var h = '';
+  h += '<div style="background:var(--card);border:1px solid var(--border);'
+     + 'border-radius:12px;padding:16px;margin-bottom:12px">';
+  h += '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">'
+     + joukkueNimi + ' — ' + indeksi.pelaajaMaara + ' pelaajaa testattu'
+     + (indeksi.bioIkaMitattu < indeksi.pelaajaMaara
+        ? ' · Bio-ikä mitattu ' + indeksi.bioIkaMitattu + '/' + indeksi.pelaajaMaara
+        : '') + '</div>';
+
+  // Kaksi isoa lukua rinnakkain
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">';
+
+  // Kronologinen indeksi
+  var kronoVari = hhTasoVari(indeksi.kronoKokonais);
+  h += '<div style="text-align:center;padding:12px;background:var(--bg3);border-radius:10px">';
+  h += '<div style="font-size:10px;color:var(--muted);margin-bottom:4px">KRONO-INDEKSI</div>';
+  h += '<div style="font-family:\'Bebas Neue\';font-size:36px;line-height:1;color:' + kronoVari + '">'
+     + (indeksi.kronoKokonais || '—') + '</div>';
+  h += '<div style="font-size:10px;color:var(--muted2);margin-top:4px">/ 5.0</div>';
+  h += '</div>';
+
+  // Biologinen indeksi
+  var bioVari = hhTasoVari(indeksi.bioKokonais);
+  h += '<div style="text-align:center;padding:12px;background:var(--bg3);border-radius:10px">';
+  h += '<div style="font-size:10px;color:var(--muted);margin-bottom:4px">BIO-INDEKSI</div>';
+  if (indeksi.bioKokonais !== null) {
+    h += '<div style="font-family:\'Bebas Neue\';font-size:36px;line-height:1;color:' + bioVari + '">'
+       + indeksi.bioKokonais + '</div>';
+    h += '<div style="font-size:10px;color:var(--muted2);margin-top:4px">/ 5.0</div>';
+  } else {
+    h += '<div style="font-size:13px;color:var(--muted2);padding-top:8px">Ei mitattu</div>';
+  }
+  h += '</div>';
+
+  // Taso-ero
+  h += '<div style="text-align:center;padding:12px;background:var(--bg3);border-radius:10px">';
+  h += '<div style="font-size:10px;color:var(--muted);margin-bottom:4px">TASERO (bio-krono)</div>';
+  if (indeksi.tasero !== null) {
+    var eroVari = indeksi.tasero > 0 ? 'var(--green)' : indeksi.tasero < 0 ? 'var(--red)' : 'var(--muted)';
+    var eroMerkki = indeksi.tasero > 0 ? '+' : '';
+    h += '<div style="font-family:\'Bebas Neue\';font-size:36px;line-height:1;color:' + eroVari + '">'
+       + eroMerkki + indeksi.tasero + '</div>';
+    h += '<div style="font-size:10px;color:var(--muted2);margin-top:4px">'
+       + (indeksi.tasero > 0 ? 'yli ikätason' : indeksi.tasero < 0 ? 'alla ikätason' : 'ikätasolla')
+       + '</div>';
+  } else {
+    h += '<div style="font-size:13px;color:var(--muted2);padding-top:8px">—</div>';
+  }
+  h += '</div>';
+  h += '</div>';
+
+  // Tulkinta-teksti
+  if (indeksi.tasero !== null) {
+    var tulkinta = '';
+    if (indeksi.tasero >= 0.5) {
+      tulkinta = '📈 Joukkueessa on biologisesti nuorempia pelaajia jotka suoriutuvat hyvin suhteessa kehitysvaiheeseen. Kronologinen indeksi aliarvioi joukkueen potentiaalia.';
+    } else if (indeksi.tasero <= -0.5) {
+      tulkinta = '📉 Joukkueessa on biologisesti kypsempiä pelaajia. Kronologinen indeksi yliarvioi joukkueen pitkän aikavälin potentiaalia.';
+    } else {
+      tulkinta = '✅ Biologinen ja kronologinen ikäjakauma ovat tasapainossa joukkueessa.';
+    }
+    h += '<div style="font-size:11px;color:var(--muted);line-height:1.5;padding:8px 12px;'
+       + 'background:var(--bg3);border-radius:8px">' + tulkinta + '</div>';
+  }
+
+  h += '</div>';
+  return h;
+}
+
+// Palauttaa värin tason perusteella (1-5)
+function hhTasoVari(taso) {
+  if (taso === null || taso === undefined) return 'var(--muted)';
+  if (taso >= 4.0) return 'var(--green)';
+  if (taso >= 3.0) return 'var(--teal)';
+  if (taso >= 2.0) return 'var(--amber)';
+  return 'var(--red)';
+}
+
 // Lukee TalentMaster Excel-pohjat selaimessa (SheetJS)
 // ja tallentaa datan Firestoreen oikeisiin polkuihin.
 // ============================================================
