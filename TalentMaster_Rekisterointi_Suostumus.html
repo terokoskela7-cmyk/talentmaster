@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster - Rekisterointi</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Firebase SDK — sama versio kuin VP-dashboardissa -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root{--bg:#0b1118;--ink1:#121b26;--ink2:#18253a;--ink3:#1e2f48;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.13);--text:#e4edf8;--muted:#5e7a96;--teal:#00d4aa;--amber:#ffb830;--red:#f04444;--green:#22c55e;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;}
+.header{background:var(--ink1);border-bottom:1px solid var(--line2);padding:24px;text-align:center;}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:3px;color:var(--teal);}
+.logo-sub{font-size:13px;color:var(--muted);margin-top:4px;}
+.steps{display:flex;justify-content:center;background:var(--ink1);border-bottom:1px solid var(--line);padding:16px;}
+.step{display:flex;align-items:center;gap:8px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--muted);}
+.step-n{width:24px;height:24px;border-radius:50%;background:var(--ink3);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+.step.on{color:var(--teal);}.step.on .step-n{background:var(--teal);color:#0b1118;border-color:var(--teal);}
+.step.done{color:var(--green);}.step.done .step-n{background:rgba(34,197,94,.15);color:var(--green);border-color:var(--green);}
+.step-line{width:20px;height:1px;background:var(--line2);}
+.bar{height:3px;background:var(--line);}.bar-fill{height:3px;background:var(--teal);transition:width .4s;}
+.wrap{max-width:620px;margin:0 auto;padding:20px 16px 60px;}
+.card{background:var(--ink2);border:1px solid var(--line2);border-radius:10px;margin-bottom:16px;overflow:hidden;}
+.card-head{background:var(--ink3);padding:12px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);}
+.card-icon{font-size:16px;}.card-title{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px;color:var(--teal);}
+.card-body{padding:18px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}.grid.one{grid-template-columns:1fr;}.span2{grid-column:1/-1;}
+.f{display:flex;flex-direction:column;gap:5px;}
+.f label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.f label .r{color:var(--teal);}
+.f input,.f select,.f textarea{background:var(--ink3);border:1px solid var(--line2);border-radius:7px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;width:100%;}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:var(--teal);}
+.f input.err,.f select.err{border-color:var(--red)!important;}
+.f select option{background:var(--ink3);}.f textarea{resize:vertical;min-height:80px;}
+.hint{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5;}
+.info{background:rgba(255,184,48,.08);border:1px solid rgba(255,184,48,.25);border-radius:7px;padding:12px 14px;margin-bottom:14px;}
+.info-t{font-size:12px;font-weight:700;color:var(--amber);margin-bottom:4px;}
+.info p{font-size:13px;color:#c8a86a;line-height:1.6;}
+.warn{background:rgba(240,68,68,.08);border:1px solid rgba(240,68,68,.25);border-radius:7px;padding:12px 14px;margin-bottom:14px;}
+.warn-t{font-size:12px;font-weight:700;color:var(--red);margin-bottom:4px;}
+.warn p{font-size:13px;color:#c87070;line-height:1.6;}
+.hide{display:none!important;}
+.cg-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+.ci{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:var(--ink3);border-radius:7px;margin-bottom:6px;cursor:pointer;}
+.ci input[type=checkbox]{width:18px;height:18px;flex-shrink:0;margin-top:2px;accent-color:var(--teal);cursor:pointer;}
+.ci-text{font-size:13px;line-height:1.5;flex:1;}
+.ci-text strong{display:block;margin-bottom:2px;}
+.ci-text span{color:var(--muted);font-size:12px;}
+.req-b{color:var(--teal);font-size:11px;font-weight:700;margin-left:6px;}
+.opt-b{color:var(--muted);font-size:11px;margin-left:6px;}
+.nav{display:flex;gap:10px;margin-top:20px;}
+.btn{padding:11px 22px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:opacity .2s;}
+.btn-p{background:var(--teal);color:#0b1118;flex:1;}.btn-p:hover{opacity:.85;}.btn-p:disabled{opacity:.35;cursor:not-allowed;}
+.btn-g{background:var(--ink3);color:var(--text);border:1px solid var(--line2);}.btn-g:hover{border-color:var(--teal);}
+.receipt{background:var(--ink2);border:1px solid var(--line2);border-radius:10px;padding:18px;margin-bottom:16px;text-align:left;}
+.rrow{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;}.rrow:last-child{border:none;}
+.rk{color:var(--muted);}.rv{color:var(--text);font-weight:500;}
+.success-wrap{text-align:center;padding:30px 16px;}
+.success-icon{font-size:56px;margin-bottom:16px;}
+.success-title{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:2px;color:var(--teal);margin-bottom:10px;}
+.success-sub{color:var(--muted);font-size:14px;line-height:1.7;margin-bottom:20px;}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;pointer-events:none;z-index:999;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+@media(max-width:520px){.grid{grid-template-columns:1fr;}.span2{grid-column:1;}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">TALENTMASTER&#8482;</div>
+  <div class="logo-sub">Rekisterointi ja Tietosuojasuostumus</div>
+</div>
+<div class="steps">
+  <div class="step on" id="s1"><div class="step-n">1</div>Perustiedot</div>
+  <div class="step-line"></div>
+  <div class="step" id="s2"><div class="step-n">2</div>Suostumus</div>
+  <div class="step-line"></div>
+  <div class="step" id="s3"><div class="step-n">3</div>Valmis</div>
+</div>
+<div class="bar"><div class="bar-fill" id="bar" style="width:33%"></div></div>
+<div class="wrap">
+
+<div id="v1">
+  <div class="card">
+    <div class="card-head"><div class="card-icon">&#128100;</div><div class="card-title">Pelaajan tiedot</div></div>
+    <div class="card-body">
+      <div class="grid">
+        <div class="f"><label>Etunimi <span class="r">*</span></label><input id="i_etu" placeholder="esim. Mikael"></div>
+        <div class="f"><label>Sukunimi <span class="r">*</span></label><input id="i_suku" placeholder="esim. Korhonen"></div>
+        <div class="f"><label>Syntymaaika <span class="r">*</span></label><input id="i_syn" type="date" onchange="onAge()"></div>
+        <div class="f">
+          <label>Sukupuoli</label>
+          <select id="i_sp">
+            <option value="">-- valitse --</option>
+            <option value="P">Poika / Mies</option>
+            <option value="T">Tytto / Nainen</option>
+            <option value="M">Muu / En halua kertoa</option>
+          </select>
+        </div>
+        <div class="f span2">
+          <label>Sahkoposti (yli 18v)</label>
+          <input id="i_email" type="email" placeholder="oma.sahkoposti@email.fi">
+          <div class="hint">Raportit toimitetaan tahan — alle 18v kaytetaan huoltajan osoitetta</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card hide" id="hcard">
+    <div class="card-head"><div class="card-icon">&#128106;</div><div class="card-title">Huoltajan tiedot</div></div>
+    <div class="card-body">
+      <div class="info"><div class="info-t">Alaikainen pelaaja -- huoltajan tiedot vaaditaan</div><p>GDPR edellyttaa huoltajan suostumusta alle 18-vuotiaan tietojen kasittelyyn.</p></div>
+      <div class="grid">
+        <div class="f"><label>Huoltajan etunimi <span class="r">*</span></label><input id="h_etu" placeholder="esim. Pekka"></div>
+        <div class="f"><label>Huoltajan sukunimi <span class="r">*</span></label><input id="h_suku" placeholder="esim. Korhonen"></div>
+        <div class="f span2"><label>Huoltajan sahkoposti <span class="r">*</span></label><input id="h_email" type="email" placeholder="huoltaja@email.fi"><div class="hint">Raportit lahetetaan tahan osoitteeseen</div></div>
+        <div class="f span2"><label>Huoltajan puhelin</label><input id="h_puh" type="tel" placeholder="040 123 4567"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-icon">&#9917;</div><div class="card-title">Seura ja Laji</div></div>
+    <div class="card-body">
+      <div class="grid">
+        <div class="f"><label>Seura</label><input id="i_seura" placeholder="esim. FC Ilves"></div>
+        <div class="f"><label>Joukkue</label><input id="i_jou" placeholder="esim. U15"></div>
+        <div class="f">
+          <label>Laji</label>
+          <select id="i_laji" onchange="onLaji()">
+            <option value="Jalkapallo">Jalkapallo</option>
+            <option value="Jaakiekko">Jaakiekko</option>
+            <option value="Koripallo">Koripallo</option>
+            <option value="Salibandy">Salibandy</option>
+            <option value="Muu">Muu</option>
+          </select>
+        </div>
+        <div class="f hide" id="pos_f">
+          <label>Pelipaikka</label>
+          <select id="i_pos">
+            <option value="">-- valitse --</option>
+            <option>Maalivahti</option><option>Pakki</option><option>Laitapakki</option>
+            <option>Keskikentta</option><option>Laitahyokkaaja</option><option>Hyokkaaja</option>
+          </select>
+          <div class="hint">Maaritetaan vasta U15-iassa</div>
+        </div>
+        <div class="f span2 hide" id="pid_f">
+          <label>PalloID</label>
+          <input id="i_pid" placeholder="esim. 123456">
+          <div class="hint">Loytyy Palloliiton pelipassista</div>
+        </div>
+        <div class="f span2">
+          <label>Asiakastyyppi</label>
+          <select id="i_tyy">
+            <option value="pelaaja">Pelaaja / Urheilija</option>
+            <option value="klinikka">Klinikka-asiakas</option>
+            <option value="molemmat">Molemmat</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-icon">&#128221;</div><div class="card-title">Vammahistoria</div></div>
+    <div class="card-body">
+      <div class="info"><div class="info-t">Miksi tama kysytaan?</div><p>Tieto auttaa varmistamaan etta testit ovat turvallisia. Luottamuksellinen.</p></div>
+      <div class="f">
+        <label>Aiemmat vammat, leikkaukset tai rajoitteet</label>
+        <textarea id="i_vam" placeholder="esim. Oikea nilkka leikattu 2023&#10;Jos ei vammoja, jata tyhjaksii."></textarea>
+        <div class="hint">Vapaaehtoinen</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav"><div></div><button class="btn btn-p" id="btn1" onclick="toStep2()">Seuraava</button></div>
+</div>
+
+<div id="v2" class="hide">
+  <div class="card">
+    <div class="card-head"><div class="card-icon">&#128274;</div><div class="card-title">Suostumukset</div></div>
+    <div class="card-body">
+
+      <!-- Lyhyt selitys mitä tapahtuu — ennen rasteja, ei lakitekstiä -->
+      <div class="info" style="margin-bottom:20px">
+        <div class="info-t">Mitä tämä tarkoittaa käytännössä?</div>
+        <p>Seura seuraa lapsesi fyysistä kehitystä kauden aikana. Tähän kuuluu mittauksia kuten nopeus, voima ja kestävyys sekä harjoitettavuuden arviointi. Tulokset tallennetaan TalentMaster-järjestelmään, josta valmentaja ja sinä huoltajana voitte seurata kehitystä. Tiedot ovat luottamuksellisia.</p>
+      </div>
+
+      <!-- TASO 1: Pakolliset — rekisteröityminen ei onnistu ilman näitä -->
+      <div class="cg-title">Pakolliset</div>
+
+      <label class="ci">
+        <input type="checkbox" id="c1" onchange="chkConsent()">
+        <div class="ci-text">
+          <strong>Tietojen tallentaminen rekisteriin <span class="req-b">PAKOLLINEN</span></strong>
+          <span>Lapseni nimi, syntymäaika, seura ja yhteystiedot tallennetaan TalentMaster-kehitysjärjestelmään seuran käyttöön.</span>
+        </div>
+      </label>
+
+      <label class="ci">
+        <input type="checkbox" id="c2" onchange="chkConsent()">
+        <div class="ci-text">
+          <strong>Tietosuojaseloste luettu <span class="req-b">PAKOLLINEN</span></strong>
+          <span>Olen tutustunut <span onclick="showPrivacy()" style="color:var(--teal);cursor:pointer;text-decoration:underline">TalentMaster-tietosuojaselosteeseen</span>. Tiedän että minulla on oikeus nähdä, oikaista ja poistaa lapseni tiedot milloin tahansa.</span>
+        </div>
+      </label>
+
+      <!-- TASO 2: Testaaminen ja kehitysseuranta — yksi valinta koko pakettiin -->
+      <div class="cg-title" style="margin-top:20px">Testaaminen ja kehitysseuranta</div>
+
+      <label class="ci">
+        <input type="checkbox" id="c3">
+        <div class="ci-text">
+          <strong>Fyysinen testaaminen ja kehitysseuranta <span class="opt-b">VAPAAEHTOINEN</span></strong>
+          <span>Annan luvan mitata lapseni fyysistä kehitystä (nopeus, voima, kestävyys, ketteryys) ja tallentaa tulokset järjestelmään. Tuloksia verrataan saman ikäisten viitearvoihin kehityspalautteen antamiseksi. Tulokset näkyvät valmentajalle ja minulle huoltajana.</span>
+        </div>
+      </label>
+
+      <label class="ci">
+        <input type="checkbox" id="c4">
+        <div class="ci-text">
+          <strong>Biologisen iän arviointi <span class="opt-b">VAPAAEHTOINEN</span></strong>
+          <span>Annan luvan arvioida lapseni kasvun vaihetta kehomittausten avulla (pituus, paino, istumapituus). Tätä käytetään harjoituskuorman mitoittamiseen turvallisesti erityisesti nopean kasvun vaiheessa. Kyseessä on fysiologinen mittaus, ei lääkinnällinen toimenpide.</span>
+        </div>
+      </label>
+
+      <!-- TASO 3: Tietojen jakaminen — erillinen päätös -->
+      <div class="cg-title" style="margin-top:20px">Tietojen jakaminen</div>
+
+      <label class="ci">
+        <input type="checkbox" id="c5">
+        <div class="ci-text">
+          <strong>Kehitystiedot seuran valmentajille <span class="opt-b">VAPAAEHTOINEN</span></strong>
+          <span>Lapseni testitulokset ja kehitysdata jaetaan seuran muille valmentajille, ei vain omalle valmentajalle. Tämä mahdollistaa esimerkiksi talenttiohjelmien koordinoinnin.</span>
+        </div>
+      </label>
+
+      <label class="ci">
+        <input type="checkbox" id="c6">
+        <div class="ci-text">
+          <strong>Anonymisoitu data palvelun kehittämiseen <span class="opt-b">VAPAAEHTOINEN</span></strong>
+          <span>Lapseni tunnisteetonta, anonymisoitua kehitysdataa voidaan käyttää TalentMaster-palvelun kehittämiseen ja tutkimukseen. Yksittäistä henkilöä ei voi tunnistaa tästä datasta.</span>
+        </div>
+      </label>
+
+      <!-- Piilotettu kenttä yhteensopivuutta varten (c7 poistettiin) -->
+      <input type="checkbox" id="c7" style="display:none">
+
+    </div>
+  </div>
+  <div class="nav">
+    <button class="btn btn-g" onclick="toStep1()">Takaisin</button>
+    <button class="btn btn-p" id="btnok" onclick="toStep3()" disabled>Vahvista ja lähetä</button>
+  </div>
+</div>
+
+<div id="v3" class="hide">
+  <div class="success-wrap">
+    <div class="success-icon">&#9989;</div>
+    <div class="success-title">Rekisterointi onnistui!</div>
+    <div class="success-sub">Tiedot on tallennettu TalentMaster-rekisteriin.</div>
+    <div class="receipt" id="receipt"></div>
+    <div class="info"><div class="info-t">Seuraavat askeleet</div><p>Valmentaja ottaa yhteytta ja sopii ensimmaisen testausajankohdan.</p></div>
+  </div>
+</div>
+
+</div>
+<div id="toast"></div>
+
+<div id="pmodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;overflow-y:auto;padding:20px">
+  <div style="background:var(--ink2);border:1px solid var(--line2);border-radius:12px;max-width:580px;margin:0 auto;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--teal)">TIETOSUOJASELOSTE</div>
+      <button onclick="el('pmodal').style.display='none'" style="background:var(--ink3);border:1px solid var(--line2);color:var(--text);border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px">Sulje</button>
+    </div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.9">
+      <p><strong style="color:var(--text)">Rekisterinpitäjä:</strong> TalentMaster / Tero Koskela</p>
+      <p style="margin-top:8px"><strong style="color:var(--text)">Käsittelyn tarkoitus:</strong> Jalkapalloilijoiden pelaajakehityspalvelujen tuottaminen — fyysisen kehityksen seuranta, biologisen iän arviointi ja kehitysraporttien generointi seuran valmennustoiminnan tueksi.</p>
+      <p style="margin-top:8px"><strong style="color:var(--text)">Säilytysaika:</strong> Asiakassuhteen päättymiseen + 2 vuotta. Terveystieto + 5 vuotta.</p>
+      <p style="margin-top:8px"><strong style="color:var(--text)">Tietojen sijainti:</strong> Google Firebase (EU-alue, Frankfurt). Tietoja ei siirretä EU:n ulkopuolelle.</p>
+      <p style="margin-top:8px"><strong style="color:var(--text)">Oikeutesi:</strong> Sinulla on oikeus nähdä kaikki lapsestasi tallennetut tiedot, pyytää niiden oikaisua tai poistoa, ja peruuttaa suostumus milloin tahansa. Suostumuksen peruuttaminen ei vaikuta aiemmin tehtyyn käsittelyyn. Voit tehdä valituksen tietosuojavaltuutetulle (tietosuoja.fi).</p>
+      <p style="margin-top:8px"><strong style="color:var(--text)">Yhteydenotot:</strong> <span id="pm_email" style="color:var(--teal)"></span></p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── FIREBASE-KONFIGURAATIO ────────────────────────────────────────────────────
+// Sama konfiguraatio kuin VP-dashboardissa
+var firebaseConfig = {
+  apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+  authDomain:        "talentmaster-pilot.firebaseapp.com",
+  projectId:         "talentmaster-pilot",
+  storageBucket:     "talentmaster-pilot.firebasestorage.app",
+  messagingSenderId: "872561784446",
+  appId:             "1:872561784446:web:05c4c7996dfd46ddd14a2f"
+};
+
+// Alustetaan Firebase — tarkistetaan ensin ettei se ole jo alustettu
+var _fbDb = null;
+try {
+  var app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+  _fbDb = firebase.firestore();
+} catch(e) {
+  console.warn('[SUOSTUMUS] Firebase-alustus epäonnistui:', e);
+}
+
+// ── URL-PARAMETRIT ─────────────────────────────────────────────────────────────
+// Seurasihteeri luo kutsulinkin Admin-näkymässä. Linkki sisältää esitäytetyt
+// tiedot parametreina, esim:
+// ?kutsuId=abc123&seuraId=kpv&seura=KPV&joukkue=KPV%20U13&etunimi=Matti&sukunimi=Korhonen&hEmail=huoltaja@email.fi
+//
+// Kun huoltaja avaa linkin, luetaan parametrit ja esitäytetään lomake.
+// Tämä säästää huoltajalta ylimääräistä kirjoittamista ja vähentää virheitä.
+
+var _urlParams = {};
+var _kutsuId   = null;   // kutsu-dokumentin ID Firestoressa
+var _seuraId   = null;   // seura johon pelaaja kuuluu
+
+(function luePoistoParams() {
+  var params = new URLSearchParams(window.location.search);
+  params.forEach(function(arvo, avain) {
+    _urlParams[avain] = decodeURIComponent(arvo);
+  });
+  _kutsuId  = _urlParams.kutsuId  || null;
+  _seuraId  = _urlParams.seuraId  || null;
+})();
+
+// ── LOMAKKEEN ALUSTUS ─────────────────────────────────────────────────────────
+var step = 1;
+
+// Ajetaan sivun latauksen jälkeen: esitäytetään parametreista saadut tiedot
+window.addEventListener('DOMContentLoaded', function() {
+  // Esitäytetään tiedot URL-parametreista
+  if (_urlParams.etunimi)  { el('i_etu').value  = _urlParams.etunimi;  }
+  if (_urlParams.sukunimi) { el('i_suku').value = _urlParams.sukunimi; }
+  if (_urlParams.seura)    { el('i_seura').value = _urlParams.seura;   }
+  if (_urlParams.joukkue)  { el('i_jou').value  = _urlParams.joukkue;  }
+  if (_urlParams.hEmail)   { el('h_email').value = _urlParams.hEmail;  }
+  if (_urlParams.palloid)  { el('i_pid').value   = _urlParams.palloid; }
+
+  // Jos joukkue on esitäytetty, näytetään se lukittuna (ei muokattavissa)
+  // jotta seurasihteererin valinta pysyy oikeana
+  if (_urlParams.joukkue) {
+    el('i_jou').setAttribute('readonly', 'true');
+    el('i_jou').style.opacity = '0.7';
+    el('i_jou').style.cursor  = 'not-allowed';
+  }
+  if (_urlParams.seura) {
+    el('i_seura').setAttribute('readonly', 'true');
+    el('i_seura').style.opacity = '0.7';
+    el('i_seura').style.cursor  = 'not-allowed';
+  }
+
+  // Näytetään infopalkki jos tulee kutsulinkin kautta
+  if (_kutsuId) {
+    var infoDiv = document.createElement('div');
+    infoDiv.className = 'info';
+    infoDiv.style.margin = '0 0 16px 0';
+    infoDiv.innerHTML = '<div class="info-t">✉️ Kutsu ' + (_urlParams.seura || 'seuralta') + '</div>'
+      + '<p>Seura on esitäyttänyt osan tiedoista puolestasi. Tarkista tiedot ja täydennä puuttuvat kentät.</p>';
+    var wrap = document.querySelector('.wrap');
+    var v1   = el('v1');
+    wrap.insertBefore(infoDiv, v1);
+  }
+
+  // Oletuksena PalloID näkyy jalkapallossa
+  el('pid_f').style.display = 'flex';
+});
+
+// ── APUFUNKTIOT ────────────────────────────────────────────────────────────────
+
+function showPrivacy() {
+  var e = el('pm_email');
+  if (e) e.textContent = ['talentmasterid', 'gmail.com'].join('@');
+  el('pmodal').style.display = 'block';
+}
+
+function el(id)  { return document.getElementById(id); }
+function val(id) { return el(id) ? el(id).value.trim() : ''; }
+
+function setStep(n) {
+  [1, 2, 3].forEach(function(i) {
+    var v = el('v' + i);
+    if (i === n) { v.classList.remove('hide'); v.style.display = 'block'; }
+    else         { v.style.display = 'none';  v.classList.add('hide');   }
+    var s = el('s' + i);
+    s.className = 'step' + (i < n ? ' done' : i === n ? ' on' : '');
+  });
+  var pct = { 1: '33%', 2: '66%', 3: '100%' };
+  el('bar').style.width = pct[n];
+  step = n;
+  window.scrollTo(0, 0);
+}
+
+function onAge() {
+  var d = el('i_syn').value;
+  if (!d) return;
+  var age = (Date.now() - new Date(d)) / (365.25 * 24 * 3600 * 1000);
+  el('hcard').style.display = age < 18 ? 'block' : 'none';
+  el('pos_f').style.display = age >= 15 ? 'flex' : 'none';
+}
+
+function onLaji() {
+  el('pid_f').style.display = el('i_laji').value === 'Jalkapallo' ? 'flex' : 'none';
+}
+
+function chkConsent() {
+  el('btnok').disabled = !(el('c1').checked && el('c2').checked);
+}
+
+function toast(msg, err) {
+  var t = el('toast');
+  t.textContent = msg;
+  t.style.background = err ? 'rgba(240,68,68,.95)' : 'rgba(0,212,170,.95)';
+  t.style.color = err ? '#fff' : '#0b1118';
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2800);
+}
+
+// ── VAIHE 1 → 2 ───────────────────────────────────────────────────────────────
+
+function toStep2() {
+  var ok = true;
+  ['i_etu', 'i_suku', 'i_syn'].forEach(function(id) {
+    var e = el(id);
+    if (!e.value.trim()) { e.classList.add('err'); ok = false; }
+    else                 { e.classList.remove('err'); }
+  });
+  if (!ok) { toast('Täytä pakolliset kentät (merkitty *)', true); return; }
+
+  var d = el('i_syn').value;
+  if (d) {
+    var age = (Date.now() - new Date(d)) / (365.25 * 24 * 3600 * 1000);
+    el('hcard').style.display = age < 18 ? 'block' : 'none';
+    el('pos_f').style.display = age >= 15 ? 'flex' : 'none';
+  }
+  setStep(2);
+}
+
+function toStep1() { setStep(1); }
+
+// ── VAIHE 2 → 3: TALLENNUS FIRESTOREEN ────────────────────────────────────────
+// Tämä on koko integraation ydin. Kun huoltaja painaa "Vahvista ja lähetä",
+// rakennetaan pelaajan profiili ja tallennetaan Firestoreen kahdessa paikassa:
+//
+// 1. seurat/{seuraId}/pelaajat/{palloId tai auto-id}
+//    → Pelaajan varsinainen profiili jota VP-dashboard lukee
+//
+// 2. seurat/{seuraId}/kutsut/{kutsuId}  (vain jos kutsu löytyy URL:sta)
+//    → Merkitään kutsu käytetyksi jotta sama linkki ei toimi uudelleen
+
+function toStep3() {
+  // Kerätään suostumukset
+  var suostumusKoodit = [
+    { id: 'c1', avain: 'rekisteri',        pakollinen: true  },
+    { id: 'c2', avain: 'tietosuoja',       pakollinen: true  },
+    { id: 'c3', avain: 'testaaminen',      pakollinen: false },
+    { id: 'c4', avain: 'biologinen_ika',   pakollinen: false },
+    { id: 'c5', avain: 'valmentajajako',   pakollinen: false },
+    { id: 'c6', avain: 'anon_data',        pakollinen: false },
+    { id: 'c7', avain: 'ei_kaytossa',      pakollinen: false },
+  ];
+
+  var suostumusMap = {};
+  var suostumusNimet = [];
+  suostumusKoodit.forEach(function(s) {
+    var hyväksytty = el(s.id) && el(s.id).checked;
+    suostumusMap[s.avain] = hyväksytty;
+    if (hyväksytty) suostumusNimet.push(s.avain);
+  });
+
+  var syntyma    = el('i_syn').value;
+  var age        = syntyma
+    ? Math.floor((Date.now() - new Date(syntyma)) / (365.25 * 24 * 3600 * 1000))
+    : 0;
+  var raporttiEmail = val('h_email') || val('i_email') || '';
+  var nyt        = firebase.firestore.FieldValue.serverTimestamp();
+  var aikaleima  = new Date().toLocaleString('fi-FI');
+  var rid        = 'TM-' + Date.now().toString(36).toUpperCase();
+
+  // PalloID toimii dokumentti-ID:nä jos syötetty.
+  // Jos ei, generoidaan väliaikainen ID — päivitetään myöhemmin kun PalloID saadaan.
+  var palloId     = val('i_pid') || null;
+  var dokumenttiId = palloId || ('tmp_' + Date.now().toString(36));
+
+  // ── PELAAJAN PROFIILI ──────────────────────────────────────────────────────
+  var pelaajaDoc = {
+    // Perustiedot
+    etunimi:       val('i_etu'),
+    sukunimi:      val('i_suku'),
+    nimi:          val('i_etu') + ' ' + val('i_suku'),
+    syntymaaika:   syntyma ? firebase.firestore.Timestamp.fromDate(new Date(syntyma)) : null,
+    sukupuoli:     el('i_sp').value || '',
+    seura:         val('i_seura'),
+    seuraId:       _seuraId || val('i_seura').toLowerCase().replace(/\s+/g, '_').substring(0, 10),
+    joukkue:       val('i_jou'),
+    laji:          el('i_laji').value,
+    positio:       val('i_pos') || '',
+    palloID:       palloId || '',
+    asiakastyyppi: el('i_tyy').value,
+    vammahistoria: val('i_vam') || '',
+
+    // Yhteystiedot
+    email:         val('i_email') || '',
+    raportteihin:  raporttiEmail,
+
+    // Huoltajan tiedot (tallennetaan vain jos alaikäinen)
+    huoltaja: age < 18 ? {
+      etunimi:    val('h_etu'),
+      sukunimi:   val('h_suku'),
+      email:      val('h_email'),
+      puhelin:    val('h_puh') || ''
+    } : null,
+
+    // GDPR-suostumus — juridisesti kriittinen kenttä
+    // Tallennetaan täsmälleen mitä hyväksyttiin ja milloin
+    suostumus: {
+      annettu:       nyt,
+      antaja:        age < 18 ? (val('h_etu') + ' ' + val('h_suku')).trim() : (val('i_etu') + ' ' + val('i_suku')).trim(),
+      antajaRooli:   age < 18 ? 'huoltaja' : 'itse',
+      versio:        '2026-v1',
+      hyväksytyt:    suostumusMap,
+      aikaleima:     aikaleima,
+      ip:            '',    // ei kerätä yksityisyyden vuoksi
+    },
+
+    // Kutsutieto — mistä rekisteröityminen tuli
+    kutsuId:       _kutsuId || null,
+    rekisterointiId: rid,
+
+    // Metatiedot
+    aktiivinen:    true,
+    luotu:         nyt,
+    muokattu:      nyt,
+    tila:          'aktiivinen',
+  };
+
+  // Näytetään latausanimaatio
+  var nappi = el('btnok');
+  if (nappi) { nappi.disabled = true; nappi.textContent = 'Tallennetaan...'; }
+
+  // ── TALLENNETAAN FIRESTOREEN ───────────────────────────────────────────────
+  var tallennusPromise;
+
+  if (_fbDb && _seuraId) {
+    // Täydellinen Firebase-tallennus: seurat/{seuraId}/pelaajat/{dokumenttiId}
+    var pelaajatRef = _fbDb
+      .collection('seurat').doc(_seuraId)
+      .collection('pelaajat').doc(dokumenttiId);
+
+    tallennusPromise = pelaajatRef
+      .set(pelaajaDoc, { merge: true })
+      .then(function() {
+        // Merkitään kutsu käytetyksi jos kutsuId löytyy
+        if (_kutsuId) {
+          return _fbDb
+            .collection('seurat').doc(_seuraId)
+            .collection('kutsut').doc(_kutsuId)
+            .update({
+              tila:           'hyvaksytty',
+              hyvaksyttyPvm:  nyt,
+              pelaajaId:      dokumenttiId,
+            });
+        }
+      });
+
+  } else {
+    // Varasuunnitelma: Firebase ei saatavilla tai seuraId puuttuu.
+    // Tallennetaan localStorageen niin kuin ennen — data ei häviä.
+    console.warn('[SUOSTUMUS] Firebase ei käytössä, tallennetaan localStorageen');
+    try {
+      var reg = JSON.parse(localStorage.getItem('tm_rekisteri_v1') || '[]');
+      reg.unshift(Object.assign({}, pelaajaDoc, { id: dokumenttiId, created: Date.now() }));
+      localStorage.setItem('tm_rekisteri_v1', JSON.stringify(reg));
+    } catch(e) { console.error('localStorage-tallennus epäonnistui:', e); }
+    tallennusPromise = Promise.resolve();
+  }
+
+  tallennusPromise
+    .then(function() {
+      // ── NÄYTETÄÄN KUITTI ─────────────────────────────────────────────────
+      el('receipt').innerHTML =
+        '<div class="rrow"><span class="rk">Rekisterointitunnus</span>'
+          + '<span class="rv">' + rid + '</span></div>'
+        + '<div class="rrow"><span class="rk">Nimi</span>'
+          + '<span class="rv">' + val('i_etu') + ' ' + val('i_suku') + '</span></div>'
+        + '<div class="rrow"><span class="rk">Seura</span>'
+          + '<span class="rv">' + (val('i_seura') || '—') + '</span></div>'
+        + '<div class="rrow"><span class="rk">Joukkue</span>'
+          + '<span class="rv">' + (val('i_jou') || '—') + '</span></div>'
+        + '<div class="rrow"><span class="rk">Ikä</span>'
+          + '<span class="rv">' + age + ' vuotta</span></div>'
+        + '<div class="rrow"><span class="rk">Raportit lähetetään</span>'
+          + '<span class="rv">' + (raporttiEmail || '—') + '</span></div>'
+        + '<div class="rrow"><span class="rk">Suostumukset</span>'
+          + '<span class="rv" style="color:var(--green)">'
+          + suostumusNimet.length + ' kpl hyväksytty ✓</span></div>'
+        + '<div class="rrow"><span class="rk">Aikaleima</span>'
+          + '<span class="rv">' + aikaleima + '</span></div>'
+        + (_seuraId
+          ? '<div class="rrow"><span class="rk">Tallennettu</span>'
+            + '<span class="rv" style="color:var(--teal)">✅ TalentMaster-rekisteriin</span></div>'
+          : '<div class="rrow"><span class="rk">Tila</span>'
+            + '<span class="rv" style="color:var(--amber)">⏳ Odottaa synkronointia</span></div>');
+
+      setStep(3);
+    })
+    .catch(function(err) {
+      console.error('[SUOSTUMUS] Tallennus epäonnistui:', err);
+      toast('Tallennus epäonnistui: ' + err.message + ' — yritä uudelleen', true);
+      if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja lähetä'; }
+    });
+}
+</script>
+</body>
+</html>
