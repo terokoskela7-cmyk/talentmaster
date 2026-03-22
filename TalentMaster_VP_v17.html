@@ -7648,11 +7648,12 @@ function luoSeuranPelaajaPohja(seuraId) {
     }
   }
 
-  // Haetaan seuran joukkueet Firestoresta järjestettynä nimellä
+  // Haetaan seuran joukkueet Firestoresta
+  // Huom: ei käytetä .where('aktiivinen'...).orderBy('nimi') yhdistelmää
+  // koska se vaatii Firestore-indeksin jota ei ole luotu.
+  // Suodatus ja järjestys tehdään JavaScriptissä.
   _fbDb.collection('seurat').doc(seuraId)
     .collection('joukkueet')
-    .where('aktiivinen', '==', true)
-    .orderBy('nimi')
     .get()
     .then(function(snap) {
       if (snap.empty) {
@@ -7664,17 +7665,23 @@ function luoSeuranPelaajaPohja(seuraId) {
         return;
       }
 
-      // Kerätään joukkuetiedot: nimi näkyy dropdownissa, id tallennetaan tuonnissa
-      var joukkueet = snap.docs.map(function(doc) {
-        var d = doc.data();
-        return {
-          id:       doc.id,
-          nimi:     d.nimi,
-          ikl:      d.ikäluokka || '',
-          sukup:    d.sukupuoli || 'P',
-          kausi:    d.kausi    || '2026'
-        };
-      });
+      // Suodatetaan aktiiviset ja järjestetään nimen mukaan JavaScriptissä
+      var joukkueet = snap.docs
+        .filter(function(doc) {
+          var d = doc.data();
+          return d.aktiivinen !== false; // undefined tai true = aktiivinen
+        })
+        .map(function(doc) {
+          var d = doc.data();
+          return {
+            id:    doc.id,
+            nimi:  d.nimi,
+            ikl:   d.ikäluokka || '',
+            sukup: d.sukupuoli || 'P',
+            kausi: d.kausi    || '2026'
+          };
+        })
+        .sort(function(a, b) { return a.nimi.localeCompare(b.nimi, 'fi'); });
 
       esikatseluEl.innerHTML = '<div class="card">'
         + '<div style="color:var(--teal);padding:12px">'
