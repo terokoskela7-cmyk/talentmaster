@@ -6416,6 +6416,8 @@ function krtSeuraavaPelaaja() {
   krtNollaaSeuraavalle();
   krtRenderöiVaihe();
 }
+/**
+ * Rakentaa ikäluokkakohtaisen testimapin Firestore-dokumenttiin.
  * U12 ja U15: { testiNimi: { tulos, pisteet, huomio } }
  * U19 voimatestit: { testiNimi: { kg5rm, kehonpaino, rel1rm, pisteet } }
  */
@@ -6632,31 +6634,76 @@ function renderTuonti() {
 
   // Tiedoston valinta
   h += '<div class="card" style="margin-bottom:16px">';
-  h += '<div class="card-title">1. Valitse Excel-tiedosto</div>';
-  h += '<div style="display:grid;gap:12px">';
+  h += '<div class="card-title">1. Lataa oikea pohja</div>';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">'
+     + 'Lataa pohja, täytä Excelissä, ja tuo takaisin tähän järjestelmään.'
+     + '</div>';
 
-  // Tuetut pohjaformaatit kortteina
+  // GitHub Pages -base URL — päivitä tähän jos repositorio vaihtuu
+  var POHJA_BASE = 'https://terokoskela7-cmyk.github.io/talentmaster/';
+
   var pohjat = [
-    { ikoni:'👤', nimi:'Pelaajapohja', kuvaus:'TalentMaster_Pelaajapohja.xlsx — Pelaajaprofiilit + Mirwald + Yli-ikäisyys', vali:'U12|U15|U19' },
-    { ikoni:'🏋️', nimi:'Harjoitettavuus', kuvaus:'TalentMaster_Harjoitettavuus.xlsx — U12/U15/U19 FLEI-kartoitus', vali:'Harjoitettavuus_' },
-    { ikoni:'⚡', nimi:'H-H-testit', kuvaus:'TalentMaster_HH_Testit.xlsx — Fyysistekniset testit (Eerikkilä 2024)', vali:'H-H Testit' },
+    {
+      ikoni:   '👤',
+      nimi:    'Pelaajapohja',
+      kuvaus:  'Pelaajaprofiilit, Mirwald-biologinen ikä ja Palloliiton yli-ikäisyyssääntö',
+      tiedosto:'TalentMaster_Pelaajapohja.xlsx',
+      ohje:    'Täytä U12-, U15- tai U19-välilehdelle. PalloID pakollinen.'
+    },
+    {
+      ikoni:   '🏋️',
+      nimi:    'Harjoitettavuuskartoitus',
+      kuvaus:  'U12/U15/U19 FLEI-kartoitus Eerikkilä-protokollan mukaan',
+      tiedosto:'TalentMaster_Harjoitettavuus.xlsx',
+      ohje:    'Täytä oikealle ikäluokkavälilehdelle. Pisteet 1-3 per testi.'
+    },
+    {
+      ikoni:   '⚡',
+      nimi:    'H-H-polun fyysistekniset testit',
+      kuvaus:  'Nopeus, ketteryys, hyppy, kestävyys ja lajitekniikka (Eerikkilä 2024)',
+      tiedosto:'TalentMaster_HH_Testit.xlsx',
+      ohje:    'Yksi välilehti kaikille ikäluokille. Tasot 1-5 lasketaan automaattisesti.'
+    },
   ];
+
+  h += '<div style="display:grid;gap:10px">';
   pohjat.forEach(function(p) {
-    h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;gap:12px;align-items:center">';
-    h += '<div style="font-size:24px">' + p.ikoni + '</div>';
-    h += '<div><div style="font-weight:600;font-size:13px">' + p.nimi + '</div>';
-    h += '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + p.kuvaus + '</div></div>';
+    h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;'
+       + 'padding:12px;display:flex;align-items:center;justify-content:space-between;gap:12px">';
+
+    // Vasemmalla: ikoni + tekstit
+    h += '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">';
+    h += '<div style="font-size:22px;flex-shrink:0">' + p.ikoni + '</div>';
+    h += '<div style="min-width:0">';
+    h += '<div style="font-weight:600;font-size:13px">' + p.nimi + '</div>';
+    h += '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + p.kuvaus + '</div>';
+    h += '<div style="font-size:10px;color:var(--muted2);margin-top:3px;font-style:italic">' + p.ohje + '</div>';
+    h += '</div></div>';
+
+    // Oikealla: latauspainike
+    h += '<a href="' + POHJA_BASE + p.tiedosto + '" download="' + p.tiedosto + '" '
+       + 'style="flex-shrink:0;background:var(--blue);color:var(--bg);text-decoration:none;'
+       + 'border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;'
+       + 'white-space:nowrap;display:flex;align-items:center;gap:6px">'
+       + '⬇ Lataa pohja</a>';
+
     h += '</div>';
   });
   h += '</div>';
+  h += '</div>';
 
-  h += '<div style="margin-top:16px">';
-  h += '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:8px">Valitse .xlsx-tiedosto</label>';
+  // Tiedoston lataus järjestelmään
+  h += '<div class="card" style="margin-bottom:16px">';
+  h += '<div class="card-title">2. Tuo täytetty pohja järjestelmään</div>';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">'
+     + 'Täytettyäsi pohjan Excelissä, valitse se alta. '
+     + 'Järjestelmä tunnistaa tiedostotyypin automaattisesti ja näyttää esikatselun ennen tallennusta.'
+     + '</div>';
+  h += '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:8px">Valitse täytetty .xlsx-tiedosto</label>';
   h += '<input type="file" id="tuontiTiedosto" accept=".xlsx,.xls" '
      + 'style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;'
      + 'color:var(--text);padding:10px 12px;font-size:13px;cursor:pointer" '
      + 'onchange="tuontiLueTiedosto(this, \'' + seuraId + '\')">';
-  h += '</div>';
   h += '</div>';
 
   // Esikatselu- ja tulosalueet
