@@ -7777,54 +7777,60 @@ function rakennaPelaajaPohja(joukkueet, seuraId) {
   }
 
   var wsPelaajat = XLSX.utils.aoa_to_sheet(data);
-
-  // Sarakeleveydet
   wsPelaajat['!cols'] = SARAKKEET.map(function(s) { return { wch: s[1] }; });
 
-  // Excel-validointi joukkue-sarakkeelle (sarake F = indeksi 5)
-  // Haetaan joukkuenimet _joukkueet-välilehdestä
-  // Excelissä sarakeen F solut riveillä 2-61 rajoitetaan dropdowniksi
-  var joukkueLista = joukkueet.map(function(j) { return j.nimi; }).join(',');
+  // ── DROPDOWN-VALIDOINTI OOXML-RAKENTEELLA ──────────────────────────────────
+  // SheetJS:n korkean tason !dataValidation ei toimi luotettavasti kaikissa
+  // Excel-versioissa. Ainoa varma tapa on kirjoittaa validointi suoraan
+  // tiedoston XML-rakenteeseen SheetJS:n !sheetxml-mekanismilla.
+  //
+  // Excel-validoinnin XML-rakenne:
+  //   <dataValidations> sisältää <dataValidation> elementtejä.
+  //   type="list" + formula1 jossa lista lainausmerkeissä = dropdown.
+  //   showDropDown="0" = NÄYTÄ nuoli (nolla = ei piilotettu, sekava mutta oikein).
+  //   sqref = solualue johon validointi kohdistuu.
 
-  if (!wsPelaajat['!dataValidation']) wsPelaajat['!dataValidation'] = [];
+  var joukkueLista = joukkueNimet.join(',');
 
-  // Joukkue-dropdown (sarake F, rivit 2-61)
-  wsPelaajat['!dataValidation'].push({
-    type: 'list',
-    sqref: 'F2:F61',
-    formula1: '"' + joukkueLista + '"',
-    showDropDown: false,   // false = näytetään dropdown-nuoli
-    showErrorMessage: true,
-    errorTitle: 'Virheellinen joukkue',
-    error: 'Valitse joukkue alasvetovalikosta. ' +
-           'Jos joukkue puuttuu, luo se ensin TalentMaster Admin-näkymässä.',
-  });
+  // Rakennetaan validointi-XML joukkue- (F) ja sukupuoli- (E) sarakkeille
+  var validointiXML =
+    '<dataValidations count="2">' +
+      // Joukkue-dropdown sarakkeessa F (rivit 2-61)
+      '<dataValidation type="list" allowBlank="1" showDropDown="0" ' +
+        'showErrorMessage="1" ' +
+        'errorTitle="Virheellinen joukkue" ' +
+        'error="Valitse joukkue listalta. Jos joukkue puuttuu, luo se Admin-n&#228;kym&#228;ss&#228;." ' +
+        'sqref="F2:F61">' +
+        '<formula1>"' + joukkueLista + '"</formula1>' +
+      '</dataValidation>' +
+      // Sukupuoli-dropdown sarakkeessa E (rivit 2-61)
+      '<dataValidation type="list" allowBlank="1" showDropDown="0" ' +
+        'showErrorMessage="1" ' +
+        'errorTitle="Virheellinen sukupuoli" ' +
+        'error="K&#228;yt&#228; P (poika) tai T (tytt&#246;)." ' +
+        'sqref="E2:E61">' +
+        '<formula1>"P,T"</formula1>' +
+      '</dataValidation>' +
+    '</dataValidations>';
 
-  // Sukupuoli-dropdown (sarake E, rivit 2-61)
-  wsPelaajat['!dataValidation'].push({
-    type: 'list',
-    sqref: 'E2:E61',
-    formula1: '"P,T"',
-    showDropDown: false,
-    showErrorMessage: true,
-    errorTitle: 'Virheellinen sukupuoli',
-    error: 'Käytä P (poika) tai T (tyttö).',
-  });
+  // Injektoidaan XML suoraan SheetJS:n sheet-objektiin
+  // !sheetxml lisätään juuri ennen </worksheet>-tagia
+  if (!wsPelaajat['!sheetxml']) wsPelaajat['!sheetxml'] = '';
+  wsPelaajat['!sheetxml'] += validointiXML;
 
+  // ── VÄLILEHTIRAKENNE ────────────────────────────────────────────────────────
   XLSX.utils.book_append_sheet(wb, wsPelaajat, 'Pelaajat');
 
-  // Asetetaan Pelaajat-välilehti aktiiviseksi kun tiedosto avataan
+  // Pelaajat-välilehti avautuu ensimmäisenä
   wb.Workbook = { Sheets: [
-    { name: '_joukkueet', Hidden: 2 },  // 2 = Very Hidden (ei näy edes välilehtivalikossa)
-    { name: '📋 Ohjeet',  Hidden: 0 },
-    { name: 'Pelaajat',   Hidden: 0, state: 'visible' },
+    { name: '📋 Ohjeet', Hidden: 0 },
+    { name: 'Pelaajat',  Hidden: 0 },
   ]};
+  wb.Workbook.active = 1; // Indeksi 1 = Pelaajat
 
-  // Generoidaan tiedostonimi seuraan ja päivämäärään perustuen
-  var pvm    = new Date().toISOString().slice(0, 10);
-  var nimi   = 'TM_Pelaajat_' + seuraId.toUpperCase() + '_' + pvm + '.xlsx';
-
-  // Ladataan tiedosto suoraan käyttäjän koneelle
+  // ── LATAUS ──────────────────────────────────────────────────────────────────
+  var pvm  = new Date().toISOString().slice(0, 10);
+  var nimi = 'TM_Pelaajat_' + seuraId.toUpperCase() + '_' + pvm + '.xlsx';
   XLSX.writeFile(wb, nimi);
 
   // Näytetään vahvistusviesti
