@@ -3,7 +3,7 @@
 
 ## Projektin tila (päivitetty 2026-03-22)
 
-TalentMaster on jalkapallon talenttiarviointialusta jossa on 4 aktiivista pilottiseuraa tulossa. Firebase-backend on rakennettu ja toimii. Kehitys on vaiheessa jossa pelaajadata pitää tuoda Firebaseen ja admin-näkymää laajentaa.
+TalentMaster on jalkapallon talenttiarviointialusta jossa on 6 pilottiseuraa. Firebase-backend on rakennettu ja toimii. Harjoitettavuuskartoituslomake (U12/U15/U19) on rakennettu VP-dashboardiin ja toimii tuotannossa — KPV:llä on 6 testipelaajaa Firestoressä ja lomake tallentaa oikein. Sarjakirjaus (usean pelaajan testaus peräkkäin) on lisätty. Seuraava iso kehitysvaihe on pelaajaprofiilit CSV-tuonnilla ja testipäiväkalenteri.
 
 ---
 
@@ -18,13 +18,14 @@ https://terokoskela7-cmyk.github.io/talentmaster/
 
 | Tiedosto | Kuvaus |
 |---|---|
-| `TalentMaster_VP_v17.html` | VP-dashboard — AKTIIVINEN versio |
-| `TalentMaster_Admin.html` | Admin-näkymä — UUSI |
+| `TalentMaster_VP_v17.html` | VP-dashboard — AKTIIVINEN versio (6603 riviä) |
+| `TalentMaster_Admin.html` | Admin-näkymä |
 | `TalentMaster_Master_v7.html` | Valmentajan näkymä |
 | `tm_data.js` | 2417 pelaajaa, 30 seuraa (historia) |
 | `tm_admin/setup_seurat.js` | Seurojen Firebase-alustus |
 | `tm_admin/setup_admin.js` | Super-admin setup |
 | `tm_admin/firestore.rules` | Security Rules |
+| `tm_admin/scripts/kartoitus_schema.js` | Harjoitettavuuskartoituksen Firestore-schema |
 
 ---
 
@@ -34,7 +35,7 @@ https://terokoskela7-cmyk.github.io/talentmaster/
 - **Tietokanta:** Firestore, europe-west1
 - **Auth:** Email/Password käytössä
 
-### Konfiguraatio (VP-dashboardissa ja Admin-näkymässä)
+### Konfiguraatio
 ```javascript
 const firebaseConfig = {
   apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
@@ -58,10 +59,199 @@ const firebaseConfig = {
 | vp.sjk@talentmaster.fi | 1eHyfKsuTSRAAsPu9kRZ22E4hwo2 | VP | SJK Juniorit |
 | vp.grifk@talentmaster.fi | lBCx0ivDYVWLmxD9TGKsvYrFrlo1 | VP | GrIFK |
 
+### Firestore Security Rules — tärkeä korjaus 2026-03-22
+Seurat-kokoelman read-sääntöön lisättiin `resource.data.vp_uid == request.auth.uid`
+jotta VP voi hakea oman seuransa dokumentin kirjautumisen yhteydessä.
+Ilman tätä query `.where('vp_uid', '==', uid)` epäonnistui permission denied -virheellä
+koska Firestore ei voi evaluoida `onSeuranVP(seuraId)` ennen kuin seuraId tiedetään.
+
+```javascript
+match /seurat/{seuraId} {
+  allow read: if onSuperAdmin()
+              || onSeuranVP(seuraId)
+              || (onKirjautunut() && resource.data.vp_uid == request.auth.uid);
+  allow write: if onSuperAdmin();
+  // ... alikokoelmat ennallaan
+}
+```
+
 ### Firestore-kokoelmat
 - `seurat/` — 6 pilottiseuraa (fcl, kpv, palloiirot, yvies, sjk, grifk)
+- `seurat/kpv/kartoitukset/` — 6 testipelaajaa (poistetaan kun oikea data tulee)
 - `admins/` — super-admin dokumentti
 - `kirjaukset/`, `kirjaukset_joukkue/`, `kirjaukset_tapahtumat/` — vanha rakenne
+
+---
+
+## Harjoitettavuuskartoitus — VALMIS ✅
+
+Rakennettu VP-dashboardiin (TalentMaster_VP_v17.html). Toimii tuotannossa.
+
+### Ominaisuudet
+- U12 (9 testiä), U15 (10 testiä, 2 vaihtoehtoista), U19 (13 testiä + Brzycki 1RM)
+- Ikäluokka lasketaan automaattisesti syntymävuodesta
+- Numeeriset testit pisteyttyvät automaattisesti viitearvoista (1-3)
+- Laadulliset testit (valakyykky jne.) valitaan manuaalisesti 1/2/3-painikkeilla
+- U19 voimatestit: Brzycki-kaavalla lasketaan rel. 1RM automaattisesti
+- FLEI-prosentti ja kuormarajoitin lasketaan yhteenvedossa
+- PHV-huippu saa aina 60% kuormarajoituksen
+- Tallennus: `seurat/{seuraId}/kartoitukset/{auto-id}`
+- Lista-näkymässä kortit ryhmitellään ikäluokittain, FLEI värikoodattuna
+
+### Sarjakirjaus — VALMIS ✅
+Kun pelaaja tallennetaan, modal ei sulkeudu vaan näyttää:
+- Onnistumisbanneri + FLEI-tulos
+- "Seuraava pelaaja →" -nappi (säilyttää joukkueen, ikäluokan, päivämäärän, arvioijan)
+- "Sulje lista" -nappi
+- Lista tällä sessiolla testatuista pelaajista FLEI-väreineen
+- Kontekstimuistutus (joukkue · ikäluokka · päivämäärä)
+
+### Sarjakirjauksen arkkitehtuuri
+`_krtSarja`-objekti on täysin yleinen eikä sisällä harjoitettavuuskartoitukselle
+spesifistä logiikkaa. Sama rakenne toimii tulevissa testityypeissä
+(tekniikkakilpailut, H-H-polku) ilman muutoksia.
+
+---
+
+## Käyttäjäflow — onboarding uudelle seuralle
+
+Tunnistettu tämän session aikana. Kuusi vaihetta ja niiden väliset puuttuvat askeleet:
+
+1. **Seura tulee mukaan** → Admin luo seuran Firestore-dokumentin
+2. **Käyttäjät ja roolit** → VP:lle luodaan tunnukset, valmentajatunnukset (puuttuu vielä)
+3. **⚠️ PUUTTUU: Seuran konfigurointi** → Joukkueet, paketti, onboarding-prosessi Admin-näkymässä
+4. **Suostumuslomake** → Tehty, mutta GDPR-dokumentointi Firestoreen puuttuu
+5. **⚠️ PUUTTUU: Suostumuksen tallennus** → Milloin, kuka, mitä dataa saa käsitellä
+6. **Pelaajat tuodaan CSV:llä** → Luo pelaajaprofiilit joukkueen alle
+7. **⚠️ PUUTTUU: Pelaajan aktivointi** → Miten pelaaja/vanhempi saa omat tunnuksensa
+
+---
+
+## Pelaajaprofiilin arkkitehtuuri — SUUNNITELTU, EI TOTEUTETTU
+
+### Perusperiaate (päätetty 2026-03-22)
+PalloID on se "avain" jolla kaikki lomakkeet tunnistavat pelaajan.
+Kun pelaaja valitaan testilomakkeeseen, **kaikki tiedot täyttyvät automaattisesti**
+profiilista — nimi, syntymävuosi, joukkue, kehonpaino, PHV-tila.
+Valmentaja ei kirjoita samoja tietoja uudelleen. Tämä on koko järjestelmän
+tärkein käytettävyysperiaate kentällä.
+
+### Firestore-rakenne (suunniteltu)
+```
+seurat/{seuraId}/pelaajat/{palloId}/
+  palloID:        "34650191"
+  nimi:           "Matti Meikäläinen"
+  syntymavuosi:   2011
+  sukupuoli:      "P"
+  joukkue:        "KPV U15"
+  kehonpaino:     58.5          // kg, viimeisin mitattu
+  kehonpainoPvm:  timestamp
+  biologinenIka:  {             // Mirwald / Khamis-Roche tulokset
+    menetelma:    "mirwald",
+    maturityOffset: -0.8,       // kk kasvupyrähdyksen huipusta
+    phvTila:      "PHV-huippu",
+    mitattu:      timestamp,
+    arvioija:     "uid"
+  }
+  suostumus: {
+    annettu:      timestamp,
+    huoltaja:     "Etunimi Sukunimi",
+    versio:       "2026-v1"
+  }
+```
+
+### PHV-tila ja biologinen ikä (päätetty 2026-03-22)
+PHV-tila EI ole manuaalinen dropdown — se lasketaan tieteellisesti
+Mirwald- tai Khamis-Roche-menetelmällä (pituus, paino, istumapituus,
+vanhempien pituudet). Tulos tallennetaan pelaajan profiiliin.
+Kun harjoitettavuuskartoituslomake avataan ja pelaaja tunnistetaan PalloID:llä,
+lomake hakee PHV-tilan profiilista automaattisesti ja näyttää milloin
+mittaus on tehty ("PHV-huippu — mitattu 15.1.2026, Mirwald").
+
+### Kehonpaino-automaatti (päätetty 2026-03-22)
+U19 voimatesteissä kehonpaino täyttyy automaattisesti profiilista.
+Valmentaja voi ylikirjoittaa jos paino on muuttunut.
+Uusi paino tallentuu profiiliin mittauspäivämäärällä.
+
+---
+
+## Testipäiväkalenteri — SUUNNITELTU, EI TOTEUTETTU
+
+### Konsepti (päätetty 2026-03-22)
+Testipäiväkalenteri on työnkulun alku. Se yhdistää:
+- Testipäivän luominen (päivämäärä, joukkue, ikäluokka, testityyppi)
+- Osallistujalistan hallinta (ketkä pelaajat osallistuvat)
+- Tulostettava osallistujalista kentälle (PDF, tyhjät rivit tulosten kirjaamiseen)
+- Linkitys kartoitusdokumentteihin (tulokset kiinnittyvät testipäivään)
+
+### Firestore-rakenne (suunniteltu)
+```
+seurat/{seuraId}/testipaivat/{testipaivaId}/
+  pvm:          timestamp
+  joukkue:      "KPV U15"
+  ikäluokka:    "U15"
+  tyyppi:       "harjoitettavuus" | "tekniikkakilpailu" | "hh_polku"
+  arvioija:     "uid"
+  osallistujat: ["palloId1", "palloId2", ...]
+  kartoitukset: ["kartoitusId1", "kartoitusId2", ...]  // linkit tuloksiin
+  tila:         "suunniteltu" | "kaynnissa" | "valmis"
+```
+
+---
+
+## Yleinen testauslogiikka — arkkitehtuuriperiaate
+
+Kaikki testilajit (harjoitettavuuskartoitus, tekniikkakilpailut, H-H-polku)
+ovat pohjimmiltaan sama asia: strukturoitu testaustapahtuma.
+Sarjakirjaus, testipäiväkalenteri ja osallistujalista toimivat
+täsmälleen samalla logiikalla testityypistä riippumatta.
+"Mitä mitataan" on konfiguraatio, ei erillinen järjestelmä.
+
+---
+
+## Seuraavat tehtävät (tärkeysjärjestyksessä)
+
+1. **CSV-tuonti pelaajille** — Excel-pohja + tuontiskripti Admin-näkymään
+   - Yksi Excel-pohja, eri välilehdet ikäluokittain (U12/U15/U19)
+   - PalloID on pelaajan tunniste
+   - Luo `seurat/{seuraId}/pelaajat/`-kokoelman
+
+2. **Pelaajaprofiilin automaattitäyttö lomakkeisiin**
+   - Kun PalloID syötetään kartoituslomakkeeseen, haetaan profiili Firestoresta
+   - Täytetään automaattisesti: nimi, syntymävuosi, joukkue, kehonpaino, PHV-tila
+   - Sama logiikka kaikille testilomakkeille
+
+3. **Mirwald/Khamis-Roche-laskenta**
+   - Oma syöttölomake biologisen iän mittaukselle
+   - Tallennetaan pelaajan profiiliin
+   - PHV-tila poistuu manuaalisesta dropdownista → lasketaan automaattisesti
+
+4. **Testipäiväkalenteri**
+   - VP luo testipäivän, valitsee joukkueen ja pelaajat
+   - Tulostettava osallistujalista PDF-muodossa
+   - Sarjakirjaus käynnistyy testipäivästä — pelaajat valmiina listalla
+
+5. **Admin-näkymän laajennus**
+   - VP:n kutsuminen sähköpostitse
+   - Seuran onboarding-prosessi (joukkueet, paketti, käyttäjät)
+   - CSV-tuonti pelaajille
+
+6. **GDPR-suostumuksen tallennus**
+   - Suostumuspäivämäärä, huoltaja, versio tallennetaan pelaajan profiiliin
+   - Audit trail: kuka muutti mitä milloin
+
+7. **IDP-kortti (pelaajakortti) Firebase-integraatio**
+   - TalentMaster_IDP_Kortti.html — prototyyppi valmiina
+   - Lisätään Firebase-auth ja pelaajaprofiilin haku
+   - Harjoitettavuuskartoituksen FLEI-trendi näkyy kortissa
+
+---
+
+## Tunnettuja ongelmia
+
+- Super-admin ei näe kaikkia seuroja VP-dashboardissa (näyttää vain tm_data.js:n seurat)
+- LocalStorage ja Firebase voivat olla epäsynkronissa eri laitteilla
+- Testipelaajat KPV:llä pitää poistaa kun oikea data tulee
 
 ---
 
@@ -74,37 +264,6 @@ const firebaseConfig = {
 | 7777 | VP | SJK Juniorit |
 | 8888 | UJ | Demo |
 | 9012 | Valmentaja | Master v7 |
-
----
-
-## Seuraavat tehtävät (tärkeysjärjestyksessä)
-
-1. **Pilottidatan tuonti Firebaseen**
-   - KPV: harjoitettavuuskartoitukset (HPP ELITE Excel)
-   - Pallo-Iirot: 3 joukkueen data
-   - Ylöjärven Ilves: testidata + tekniikkakilpailut
-   - Tarvitaan Excel→Firebase tuontiskripti
-
-2. **Admin-näkymän laajennus**
-   - VP:n kutsuminen sähköpostitse (Firebase createUser + reset password)
-   - Seuran tietojen muokkaus
-   - Data-tuonti Excel/CSV → Firestore
-
-3. **VP-dashboard: musta ruutu -ongelma**
-   - Kun seura ei ole tm_data.js:ssä, näytetään tervetuloa-näkymä
-   - Super-admin näkee kaikki seurat
-
-4. **Tietosuoja**
-   - GDPR-suostumuslomake ennen pilottia
-   - Dokumentoitu suostumus Firestoreen
-
----
-
-## Tunnettuja ongelmia
-
-- VP kirjautuu sähköpostilla → seura tunnistetaan oikein → mutta jos seura ei ole tm_data.js:ssä, dashboard on musta. Korjattu dynaamisella seuralisäyksellä mutta tervetuloa-näkymä puuttuu.
-- Super-admin ei näe kaikkia seuroja VP-dashboardissa — se näyttää vain tm_data.js:n seurat + oman seuransa.
-- LocalStorage ja Firebase voivat olla epäsynkronissa eri laitteilla — ratkeaa kun siirrytään kokonaan Firebase-pohjaiseen dataan.
 
 ---
 
@@ -128,60 +287,32 @@ HPP ELITE on erillinen Excel-pohjainen kuntoutus- ja harjoitekirjasto.
 
 ## Identiteetti-arkkitehtuuri (PalloID / SporttiID)
 
-### Nykytila
-- `tm_data.js`:ssä jokaisella pelaajalla on `palloID`-kenttä (Palloliiton tunniste)
-- Firestoren pelaajadokumenteissa tulee olla sama kenttä
-- Käyttäjätaulun rakenne tukee useita identiteettejä
-
-### Suunniteltu rakenne Firestoressä
-```javascript
-kayttajat/{firebase_uid}/
-  email:     "pelaaja@gmail.com"
-  palloID:   "34650191"          // Palloliiton tunniste
-  sporttiID: null                // Tulossa — universaali urheilija-ID
-  rooli:     "pelaaja"
-  seura:     "fcl"
-```
+PalloID on kaiken perusta — se on se tunniste jolla eri lomakkeet,
+testit ja raportit linkittyvät samaan pelaajaan. Firebase UID on
+tekninen ankkuri, PalloID on urheilullinen identiteetti.
 
 ### Identiteetin federaatio (tuleva)
-- **Vaihe 1 (nyt):** Sähköposti + manuaalinen PalloID-syöttö profiilissa
-- **Vaihe 2 (Palloliitto-yhteistyö):** "Kirjaudu PalloID:llä" -nappi → OAuth
-- **Vaihe 3 (SporttiID):** Universaali urheilija-ID yli lajirajojen
-
-### Lajilaajennus
-Kun salibandy, jääkiekko tai koripallo tulee mukaan:
-- Seuradokumenttiin `laji`-kenttä (jo olemassa)
-- Liiton ID-tunniste per laji (salibandyliitto, jääkiekkoliitto, koripalloliitto)
-- SporttiID yhdistää kaikki lajit yhteen tunnisteeseen
-
-### Huomio arkkitehtuurissa
-PalloID ja SporttiID eivät korvaa Firebase UID:ta — ne ovat lisätunnisteet
-jotka linkitetään Firebase UID:hin. Firebase UID on aina se "ankkuri"
-johon kaikki muu data kiinnittyy.
+- **Vaihe 1 (nyt):** Sähköposti + manuaalinen PalloID-syöttö
+- **Vaihe 2:** "Kirjaudu PalloID:llä" → Palloliiton OAuth
+- **Vaihe 3:** SporttiID — universaali urheilija-ID yli lajirajojen
 
 ---
 
 ## Muut tiedostot — tila ja suunnitelma
 
 ### TalentMaster_TalentID_v1.html
-- **Mitä on:** Seuran lahjakkuuskartta-näkymä, PIN 1234, 2284 riviä
-- **Tila:** Toimiva mutta ei Firebase-integraatiota
-- **Seuraava askel:** Lisää Firebase-auth samalla tavalla kuin VP v17:ään
-- **Prioriteetti:** Keskisuuri — tärkeä seuratasolla mutta ei kriittinen pilotille
+- Seuran lahjakkuuskartta-näkymä, PIN 1234, 2284 riviä
+- Toimiva mutta ei Firebase-integraatiota
+- Prioriteetti: Keskisuuri
 
 ### TalentMaster_IDP_Kortti.html ⭐ Strategisesti tärkeä
-- **Mitä on:** Pelaajan Individual Development Plan -kortti, 827 riviä
-- **Sisältö:** Rooli-toggle (pelaaja/valmentaja/vanhempi), demo-pelaajat, kehityskortti
-- **Tila:** Prototyyppi, ei Firebase-integraatiota
-- **Merkitys:** Tämä on se näkymä jonka pelaaja ja vanhempi tulevat käyttämään
-  - Pelaaja näkee oman kehityspolkunsa
-  - Vanhempi näkee lapsen kehityksen selkokielellä
-  - Valmentaja voi tehdä merkintöjä
-- **Kytkös permission matriisiin:** Pelaaja R*, Vanhempi R*, Valmentaja RW
-- **Seuraava askel:** Integroitava Firebase-autentikointiin kun pelaajatunnukset rakennetaan
-- **Prioriteetti:** Korkea — tarvitaan pilottien laajentamiseen pelaajatasolle
+- Pelaajan Individual Development Plan -kortti, 827 riviä
+- Rooli-toggle (pelaaja/valmentaja/vanhempi), demo-pelaajat
+- Prototyyppi, ei Firebase-integraatiota
+- Tämä on se näkymä jonka pelaaja ja vanhempi tulevat käyttämään
+- Prioriteetti: Korkea — tarvitaan kun pelaajatunnukset rakennetaan
+- Harjoitettavuuskartoituksen FLEI-trendi tulee näkymään tässä
 
 ### TalentMaster_VP.html
-- **Mitä on:** VP-dashboardin vanhempi versio ilman Firebasea
-- **Tila:** Korvattu v17:llä
-- **Toimenpide:** Voidaan poistaa GitHubista tai siirtää arkistoon
+- VP-dashboardin vanhempi versio ilman Firebasea
+- Korvattu v17:llä — voidaan poistaa GitHubista
