@@ -333,6 +333,7 @@ try {
   <div class="nav-tab" onclick="vaihda(7,this)" style="display:none">🏆 Tekniikkakilpailut</div>
   <div class="nav-tab" id="navUJStrategia" onclick="vaihda(8,this)" style="display:none;color:var(--purple)">🏛️ UJ-Strategia</div>
   <div class="nav-tab" onclick="vaihda(9,this)" style="color:var(--green)">🏋️ Kartoitukset</div>
+  <div class="nav-tab" onclick="vaihda(10,this)" style="color:var(--blue)">📥 Tuo dataa</div>
   </div>
   <div class="content">
     <div id="tabYleiskuva"></div>
@@ -345,6 +346,7 @@ try {
     <div id="tabTekniikkakilpailut" style="display:none"></div>
     <div id="tabUJStrategia" style="display:none"></div>
     <div id="tabKartoitukset" style="display:none"></div>
+    <div id="tabTuonti" style="display:none"></div>
   </div>
 </div>
 
@@ -2848,7 +2850,7 @@ function ovrFromObj(k) {
 }
 
 // ── NAVIGATION ──
-var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabTalentit','tabSeuratavoitteet','tabKoulutus','tabTekniikkakilpailut','tabUJStrategia','tabKartoitukset'];
+var _tabs = ['tabYleiskuva','tabJoukkueet','tabKetjut','tabVertailu','tabTalentit','tabSeuratavoitteet','tabKoulutus','tabTekniikkakilpailut','tabUJStrategia','tabKartoitukset','tabTuonti'];
 function vaihda(idx, el) {
   _aktivTab = idx;
   _tabs.forEach(function(t){ document.getElementById(t).style.display='none'; });
@@ -2885,6 +2887,7 @@ function renderTab(idx) {
   else if (idx===7) renderTekniikkakilpailut();
   else if (idx===8) renderUJStrategia();
   else if (idx===9) renderKartoitukset();
+  else if (idx===10) renderTuonti();
 }
 
 // ── KETJU META ──
@@ -6588,6 +6591,611 @@ function avaaKartoitusYhteenveto(docId, seuraId) {
     .catch(function(err) {
       body.innerHTML = '<div style="color:var(--red);padding:20px">Virhe: ' + err.message + '</div>';
     });
+}
+
+// ============================================================
+// EXCEL-TUONTITOIMINTO — lisätty 2026-03-22
+// Lukee TalentMaster Excel-pohjat selaimessa (SheetJS)
+// ja tallentaa datan Firestoreen oikeisiin polkuihin.
+// ============================================================
+
+// ── TUONTI-TAB RENDERÖINTI ───────────────────────────────────────────────────
+
+function renderTuonti() {
+  var el = document.getElementById('tabTuonti');
+  if (!el) return;
+
+  var seuraObj = _seuraData[_aktivSeura] || {};
+  var seuraId = (window._fbSeuraDoc && window._fbSeuraDoc.id)
+             || seuraObj._seuraId || null;
+
+  var h = '';
+
+  // Otsikkokortti
+  h += '<div class="card" style="margin-bottom:16px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  h += '<div class="card-title" style="margin:0">📥 Tuo dataa Excel-pohjasta</div>';
+  h += '</div>';
+  h += '<div style="font-size:12px;color:var(--muted);line-height:1.6">';
+  h += 'Lataa TalentMaster-pohja (pelaajat, H-H-testit tai harjoitettavuus). ';
+  h += 'PalloID tunnistaa pelaajan automaattisesti — sama PalloID päivittää olemassa olevan eikä luo kaksoiskappaleita.';
+  h += '</div>';
+  h += '</div>';
+
+  if (!seuraId) {
+    h += '<div style="background:var(--card);border:1px solid var(--red);border-radius:10px;padding:16px;color:var(--red)">';
+    h += '⚠️ Kirjaudu sisään sähköpostilla jotta tuonti toimii oikein.';
+    h += '</div>';
+    el.innerHTML = h;
+    return;
+  }
+
+  // Tiedoston valinta
+  h += '<div class="card" style="margin-bottom:16px">';
+  h += '<div class="card-title">1. Valitse Excel-tiedosto</div>';
+  h += '<div style="display:grid;gap:12px">';
+
+  // Tuetut pohjaformaatit kortteina
+  var pohjat = [
+    { ikoni:'👤', nimi:'Pelaajapohja', kuvaus:'TalentMaster_Pelaajapohja.xlsx — Pelaajaprofiilit + Mirwald + Yli-ikäisyys', vali:'U12|U15|U19' },
+    { ikoni:'🏋️', nimi:'Harjoitettavuus', kuvaus:'TalentMaster_Harjoitettavuus.xlsx — U12/U15/U19 FLEI-kartoitus', vali:'Harjoitettavuus_' },
+    { ikoni:'⚡', nimi:'H-H-testit', kuvaus:'TalentMaster_HH_Testit.xlsx — Fyysistekniset testit (Eerikkilä 2024)', vali:'H-H Testit' },
+  ];
+  pohjat.forEach(function(p) {
+    h += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;gap:12px;align-items:center">';
+    h += '<div style="font-size:24px">' + p.ikoni + '</div>';
+    h += '<div><div style="font-weight:600;font-size:13px">' + p.nimi + '</div>';
+    h += '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + p.kuvaus + '</div></div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  h += '<div style="margin-top:16px">';
+  h += '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:8px">Valitse .xlsx-tiedosto</label>';
+  h += '<input type="file" id="tuontiTiedosto" accept=".xlsx,.xls" '
+     + 'style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;'
+     + 'color:var(--text);padding:10px 12px;font-size:13px;cursor:pointer" '
+     + 'onchange="tuontiLueTiedosto(this, \'' + seuraId + '\')">';
+  h += '</div>';
+  h += '</div>';
+
+  // Esikatselu- ja tulosalueet
+  h += '<div id="tuontiEsikatselu" style="display:none"></div>';
+  h += '<div id="tuontiTulokset" style="display:none"></div>';
+
+  el.innerHTML = h;
+
+  // Ladataan SheetJS dynaamisesti jos ei vielä ladattu
+  if (typeof XLSX === 'undefined') {
+    var script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload = function() {
+      console.log('[TUONTI] SheetJS ladattu');
+    };
+    document.head.appendChild(script);
+  }
+}
+
+// ── TIEDOSTON LUKEMINEN ───────────────────────────────────────────────────────
+
+function tuontiLueTiedosto(input, seuraId) {
+  var tiedosto = input.files[0];
+  if (!tiedosto) return;
+
+  // Tarkistetaan että SheetJS on ladattu
+  if (typeof XLSX === 'undefined') {
+    document.getElementById('tuontiEsikatselu').innerHTML =
+      '<div style="color:var(--amber);padding:16px">⏳ Ladataan Excel-kirjastoa, yritä hetken päästä uudelleen...</div>';
+    document.getElementById('tuontiEsikatselu').style.display = 'block';
+    setTimeout(function() { tuontiLueTiedosto(input, seuraId); }, 1500);
+    return;
+  }
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = new Uint8Array(e.target.result);
+      var workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      var sheets = workbook.SheetNames;
+
+      // Tunnistetaan pohjatyyppi välilehtien nimistä
+      var tyyppi = tuontiTunnistaTyyppi(sheets);
+
+      if (!tyyppi) {
+        tuontiNaytaVirhe('Tiedostoa ei tunnistettu TalentMaster-pohjaksi. '
+          + 'Välilehtien nimien pitää olla U12/U15/U19, Harjoitettavuus_U12 jne. tai H-H Testit.');
+        return;
+      }
+
+      // Luetaan ja validoidaan data
+      var rivit = tuontiLueRivit(workbook, tyyppi);
+      tuontiNaytaEsikatselu(rivit, tyyppi, seuraId, tiedosto.name);
+
+    } catch(err) {
+      tuontiNaytaVirhe('Tiedoston lukeminen epäonnistui: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(tiedosto);
+}
+
+// ── POHJATYPIN TUNNISTUS ─────────────────────────────────────────────────────
+
+function tuontiTunnistaTyyppi(sheets) {
+  // Harjoitettavuus tunnistetaan välilehtinimistä
+  var onHarjoitettavuus = sheets.some(function(s) {
+    return s.indexOf('Harjoitettavuus_') === 0;
+  });
+  if (onHarjoitettavuus) return 'harjoitettavuus';
+
+  // H-H testit
+  var onHH = sheets.some(function(s) { return s === 'H-H Testit'; });
+  if (onHH) return 'hh_testit';
+
+  // Pelaajapohja: välilehdet U12, U15, U19
+  var onPelaajat = sheets.some(function(s) {
+    return s === 'U12' || s === 'U15' || s === 'U19';
+  });
+  if (onPelaajat) return 'pelaajat';
+
+  return null;
+}
+
+// ── RIVIEN LUKEMINEN ─────────────────────────────────────────────────────────
+
+function tuontiLueRivit(workbook, tyyppi) {
+  var kaikki = [];
+
+  if (tyyppi === 'pelaajat') {
+    ['U12','U15','U19'].forEach(function(ikl) {
+      if (workbook.SheetNames.indexOf(ikl) === -1) return;
+      var ws = workbook.Sheets[ikl];
+      // header:1 = käytetään ensimmäistä riviä avaimina
+      // defval:'': tyhjät solut saavat tyhjän merkkijonon
+      var rivit = XLSX.utils.sheet_to_json(ws, {
+        header: 1, defval: '', raw: false
+      });
+      // Rivi 0 = otsikko, rivi 1 = ohje1, rivi 2 = ohje2, rivi 3 = sarakeotsikot
+      // Data alkaa riviltä 4 (indeksi 4)
+      var otsikot = rivit[3] || [];
+      for (var i = 4; i < rivit.length; i++) {
+        var rivi = rivit[i];
+        // Ohitetaan tyhjät rivit (PalloID puuttuu)
+        if (!rivi[0] || String(rivi[0]).trim() === '') continue;
+        var obj = { _ikäluokka: ikl, _tyyppi: 'pelaaja' };
+        otsikot.forEach(function(ots, j) {
+          if (ots) obj[String(ots).trim()] = rivi[j] !== undefined ? rivi[j] : '';
+        });
+        kaikki.push(obj);
+      }
+    });
+  }
+
+  else if (tyyppi === 'harjoitettavuus') {
+    ['Harjoitettavuus_U12','Harjoitettavuus_U15','Harjoitettavuus_U19'].forEach(function(lehti) {
+      if (workbook.SheetNames.indexOf(lehti) === -1) return;
+      var ikl = lehti.replace('Harjoitettavuus_', '');
+      var ws = workbook.Sheets[lehti];
+      var rivit = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+      var otsikot = rivit[2] || [];
+      for (var i = 3; i < rivit.length; i++) {
+        var rivi = rivit[i];
+        if (!rivi[0] || String(rivi[0]).trim() === '') continue;
+        var obj = { _ikäluokka: ikl, _tyyppi: 'harjoitettavuus' };
+        otsikot.forEach(function(ots, j) {
+          if (ots) obj[String(ots).trim()] = rivi[j] !== undefined ? rivi[j] : '';
+        });
+        kaikki.push(obj);
+      }
+    });
+  }
+
+  else if (tyyppi === 'hh_testit') {
+    var ws = workbook.Sheets['H-H Testit'];
+    var rivit = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+    var otsikot = rivit[3] || [];
+    for (var i = 4; i < rivit.length; i++) {
+      var rivi = rivit[i];
+      if (!rivi[0] || String(rivi[0]).trim() === '') continue;
+      var obj = { _tyyppi: 'hh_testit' };
+      otsikot.forEach(function(ots, j) {
+        if (ots) obj[String(ots).trim()] = rivi[j] !== undefined ? rivi[j] : '';
+      });
+      kaikki.push(obj);
+    }
+  }
+
+  return kaikki;
+}
+
+// ── ESIKATSELU ────────────────────────────────────────────────────────────────
+
+function tuontiNaytaEsikatselu(rivit, tyyppi, seuraId, tiedostoNimi) {
+  var esikatseluEl = document.getElementById('tuontiEsikatselu');
+  esikatseluEl.style.display = 'block';
+
+  if (rivit.length === 0) {
+    esikatseluEl.innerHTML = '<div class="card"><div style="color:var(--amber);padding:8px">'
+      + '⚠️ Tiedostossa ei ole täytettyjä rivejä (PalloID puuttuu kaikilta riveiltä).'
+      + '</div></div>';
+    return;
+  }
+
+  // Tyyppikohtaiset ikonit ja nimet
+  var tyypit = {
+    pelaajat: { ikoni:'👤', nimi:'Pelaajaprofiileja', polku:'seurat/' + seuraId + '/pelaajat/' },
+    harjoitettavuus: { ikoni:'🏋️', nimi:'Harjoitettavuuskartoituksia', polku:'seurat/' + seuraId + '/kartoitukset/' },
+    hh_testit: { ikoni:'⚡', nimi:'H-H testituloksia', polku:'seurat/' + seuraId + '/testit/' }
+  };
+  var meta = tyypit[tyyppi] || { ikoni:'📄', nimi:'Tietueita', polku:'' };
+
+  // Validointiongelmat
+  var ongelmat = tuontiValidoi(rivit, tyyppi);
+
+  var h = '<div class="card" style="margin-bottom:16px">';
+  h += '<div class="card-title">2. Esikatselu — tarkista ennen tuontia</div>';
+
+  // Yhteenveto
+  h += '<div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  h += '<div><div style="font-size:11px;color:var(--muted)">TIEDOSTO</div>'
+     + '<div style="font-weight:600;font-size:13px">' + tiedostoNimi + '</div></div>';
+  h += '<div><div style="font-size:11px;color:var(--muted)">TYYPPI</div>'
+     + '<div style="font-weight:600;font-size:13px">' + meta.ikoni + ' ' + meta.nimi + '</div></div>';
+  h += '<div><div style="font-size:11px;color:var(--muted)">RIVEJÄ</div>'
+     + '<div style="font-family:\'Bebas Neue\';font-size:20px;color:var(--teal)">' + rivit.length + '</div></div>';
+  h += '<div><div style="font-size:11px;color:var(--muted)">KOHDE</div>'
+     + '<div style="font-size:11px;color:var(--muted2);font-family:\'DM Mono\'">' + meta.polku + '</div></div>';
+  h += '</div>';
+
+  // Validointivaroitukset
+  if (ongelmat.length > 0) {
+    h += '<div style="background:rgba(248,113,113,0.1);border:1px solid var(--red);border-radius:8px;padding:10px;margin-bottom:12px">';
+    h += '<div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:6px">⚠️ Huomioita (' + ongelmat.length + ' kpl)</div>';
+    ongelmat.slice(0, 5).forEach(function(o) {
+      h += '<div style="font-size:11px;color:var(--red);margin-top:2px">• ' + o + '</div>';
+    });
+    if (ongelmat.length > 5) {
+      h += '<div style="font-size:11px;color:var(--muted);margin-top:4px">...ja ' + (ongelmat.length - 5) + ' muuta.</div>';
+    }
+    h += '</div>';
+  }
+
+  // Ensimmäiset 5 riviä esikatselu
+  h += '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Ensimmäiset rivit:</div>';
+  h += '<div style="overflow-x:auto;margin-bottom:12px"><table style="width:100%;border-collapse:collapse;font-size:11px">';
+
+  // Otsikot taulukkoon (näytetään vain tärkeimmät kentät)
+  var nakyvat = tuontiNakyvat(rivit[0], tyyppi);
+  h += '<tr>';
+  nakyvat.forEach(function(k) {
+    h += '<th style="background:var(--bg3);color:var(--muted);padding:4px 8px;text-align:left;border:1px solid var(--border);white-space:nowrap">' + k + '</th>';
+  });
+  h += '</tr>';
+
+  rivit.slice(0, 5).forEach(function(rivi, i) {
+    h += '<tr style="background:' + (i%2===0 ? 'var(--card)' : 'var(--bg3)') + '">';
+    nakyvat.forEach(function(k) {
+      var arvo = rivi[k] !== undefined ? String(rivi[k]) : '';
+      h += '<td style="padding:4px 8px;border:1px solid var(--border);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + arvo + '</td>';
+    });
+    h += '</tr>';
+  });
+  h += '</table></div>';
+
+  // Tuontinappi
+  var virheellisia = ongelmat.filter(function(o) { return o.indexOf('VIRHE') === 0; }).length;
+  if (virheellisia > 0) {
+    h += '<div style="color:var(--red);font-size:12px;padding:8px">❌ Korjaa virheet Excel-pohjassa ennen tuontia.</div>';
+  } else {
+    h += '<button onclick="tuontiAloita(' + JSON.stringify(rivit).replace(/</g,'\\u003c') + ', \'' + tyyppi + '\', \'' + seuraId + '\')" '
+       + 'id="tuontiNappi" style="width:100%;background:var(--teal);color:var(--bg);border:none;border-radius:10px;'
+       + 'padding:14px;font-family:\'Bebas Neue\';font-size:18px;cursor:pointer">'
+       + '📥 Tuo ' + rivit.length + ' ' + meta.nimi.toLowerCase() + ' Firestoreen'
+       + '</button>';
+  }
+
+  h += '</div>';
+  esikatseluEl.innerHTML = h;
+}
+
+// ── VALIDOINTI ────────────────────────────────────────────────────────────────
+
+function tuontiValidoi(rivit, tyyppi) {
+  var ongelmat = [];
+  var palloidSet = {};
+
+  rivit.forEach(function(rivi, i) {
+    var riviNro = i + 1;
+    var palloId = String(rivi['PalloID *'] || rivi['PalloID'] || '').trim();
+
+    if (!palloId) {
+      ongelmat.push('VIRHE rivi ' + riviNro + ': PalloID puuttuu');
+      return;
+    }
+    if (palloidSet[palloId]) {
+      ongelmat.push('Varoitus rivi ' + riviNro + ': PalloID ' + palloId + ' esiintyy kahdesti');
+    }
+    palloidSet[palloId] = true;
+
+    if (tyyppi === 'pelaajat') {
+      var nimi = String(rivi['Sukunimi *'] || rivi['Nimi *'] || '').trim();
+      if (!nimi) ongelmat.push('Varoitus rivi ' + riviNro + ': Nimi puuttuu (PalloID: ' + palloId + ')');
+    }
+  });
+
+  return ongelmat;
+}
+
+// ── NÄYTETTÄVÄT KENTÄT ESIKATSELUSSA ─────────────────────────────────────────
+
+function tuontiNakyvat(rivi, tyyppi) {
+  if (!rivi) return [];
+  var kaikki = Object.keys(rivi).filter(function(k) { return k.indexOf('_') !== 0; });
+
+  // Näytetään vain oleellisimmat kentät tiiviisti
+  var prioriteetti = {
+    pelaajat:        ['PalloID *','Sukunimi *','Etunimi *','Syntymäaika *','Sukupuoli *','Joukkue *','PHV-tila','Yli-ikäisyys\n(Palloliitto)'],
+    harjoitettavuus: ['PalloID *','Nimi *','Syntymäaika *','Sukupuoli *','Joukkue *','Kausi *','PHV-tila'],
+    hh_testit:       ['PalloID *','Nimi *','Syntymäaika *','Sukupuoli *','Joukkue *','Testauspvm *','5m (s)','CMJ (cm)','Bronco (m/s)']
+  };
+
+  var prio = prioriteetti[tyyppi] || [];
+  var nakyy = [];
+  prio.forEach(function(k) { if (kaikki.indexOf(k) !== -1) nakyy.push(k); });
+  // Lisätään loput joita ei vielä listassa (max 12)
+  kaikki.forEach(function(k) { if (nakyy.indexOf(k) === -1 && nakyy.length < 12) nakyy.push(k); });
+  return nakyy;
+}
+
+// ── FIRESTORE-TALLENNUS ───────────────────────────────────────────────────────
+
+function tuontiAloita(rivit, tyyppi, seuraId) {
+  if (!_fbOnline || !_fbDb) {
+    alert('Ei Firebase-yhteyttä. Kirjaudu sisään sähköpostilla.');
+    return;
+  }
+
+  var nappi = document.getElementById('tuontiNappi');
+  if (nappi) { nappi.disabled = true; nappi.textContent = 'Tuodaan...'; }
+
+  var tuloksetEl = document.getElementById('tuontiTulokset');
+  tuloksetEl.style.display = 'block';
+  tuloksetEl.innerHTML = '<div class="card"><div style="color:var(--muted);padding:8px">⏳ Tallennetaan Firestoreen...</div></div>';
+
+  var onnistui = 0, paivitetty = 0, virheet = 0;
+  var promises = rivit.map(function(rivi) {
+    return tuontiTallennaNyt(rivi, tyyppi, seuraId)
+      .then(function(tulos) {
+        if (tulos === 'uusi') onnistui++;
+        else if (tulos === 'päivitys') paivitetty++;
+      })
+      .catch(function(err) {
+        virheet++;
+        console.error('[TUONTI] Virhe rivillä:', err);
+      });
+  });
+
+  Promise.all(promises).then(function() {
+    var h = '<div class="card">';
+    h += '<div class="card-title">✅ Tuonti valmis</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">';
+    h += '<div style="text-align:center"><div style="font-family:\'Bebas Neue\';font-size:32px;color:var(--green)">' + onnistui + '</div><div style="font-size:11px;color:var(--muted)">Uutta</div></div>';
+    h += '<div style="text-align:center"><div style="font-family:\'Bebas Neue\';font-size:32px;color:var(--amber)">' + paivitetty + '</div><div style="font-size:11px;color:var(--muted)">Päivitetty</div></div>';
+    h += '<div style="text-align:center"><div style="font-family:\'Bebas Neue\';font-size:32px;color:var(--red)">' + virheet + '</div><div style="font-size:11px;color:var(--muted)">Virheitä</div></div>';
+    h += '</div>';
+
+    if (tyyppi === 'harjoitettavuus') {
+      h += '<button onclick="vaihda(9,document.querySelectorAll(\'.nav-tab\')[9])" '
+         + 'style="width:100%;background:var(--teal);color:var(--bg);border:none;border-radius:8px;padding:10px;cursor:pointer;font-size:13px">'
+         + '→ Siirry Kartoitukset-välilehdelle</button>';
+    }
+    h += '</div>';
+    tuloksetEl.innerHTML = h;
+
+    if (nappi) { nappi.disabled = false; nappi.textContent = '📥 Tuo uudelleen'; }
+  });
+}
+
+// ── YKSITTÄISEN RIVIN TALLENNUS ───────────────────────────────────────────────
+
+function tuontiTallennaNyt(rivi, tyyppi, seuraId) {
+  var palloId = String(rivi['PalloID *'] || rivi['PalloID'] || '').trim();
+  if (!palloId) return Promise.resolve('ohitettu');
+
+  var nyt = firebase.firestore.FieldValue.serverTimestamp();
+  var kirjaajaUid = (_fbUser && _fbUser.uid) || 'tuonti';
+
+  if (tyyppi === 'pelaajat') {
+    // Polku: seurat/{seuraId}/pelaajat/{palloId}
+    // PalloID toimii dokumentti-ID:nä — sama ID päivittää eikä luo kaksoiskappaleita
+    var syntymaika = rivi['Syntymäaika *'] ? new Date(rivi['Syntymäaika *']) : null;
+    var ikaNyt = syntymaika
+      ? Math.floor((new Date() - syntymaika) / (365.25 * 24 * 3600 * 1000))
+      : null;
+
+    var pelaajaDoc = {
+      palloID:       palloId,
+      sukunimi:      String(rivi['Sukunimi *'] || '').trim(),
+      etunimi:       String(rivi['Etunimi *'] || '').trim(),
+      nimi:          (String(rivi['Etunimi *']||'').trim() + ' ' + String(rivi['Sukunimi *']||'').trim()).trim(),
+      syntymaaika:   syntymaika ? firebase.firestore.Timestamp.fromDate(syntymaika) : null,
+      sukupuoli:     String(rivi['Sukupuoli *'] || '').trim().toUpperCase(),
+      joukkue:       String(rivi['Joukkue *'] || '').trim(),
+      seuraId:       seuraId,
+      muokattu:      nyt,
+      tuonutUid:     kirjaajaUid,
+    };
+
+    // Mirwald-laskentatulokset jos löytyy Excelistä
+    var phvTila = String(rivi['PHV-tila'] || '').trim();
+    var matOffset = parseFloat(rivi['Maturity Offset'] || '');
+    var phvIka = parseFloat(rivi['PHV-ikä (vuotta)'] || '');
+
+    if (phvTila || !isNaN(matOffset)) {
+      pelaajaDoc.biologinenIka = {
+        phvTila: phvTila || 'Ei tiedossa',
+        maturityOffset: isNaN(matOffset) ? null : matOffset,
+        phvIka: isNaN(phvIka) ? null : phvIka,
+        laskentamenetelma: 'mirwald',
+        // Mirwald-raakamitat jos syötetty
+        mirwald: {
+          pituus:        parseFloat(rivi['Pituus (cm) *']) || null,
+          istumapituus:  parseFloat(rivi['Istumapituus (cm) *']) || null,
+          penkinkorkeus: parseFloat(rivi['Penkin korkeus (cm)']) || null,
+          paino:         parseFloat(rivi['Paino (kg) *']) || null,
+          aidinPituus:   parseFloat(rivi['Äidin pituus (cm)']) || null,
+          isanPituus:    parseFloat(rivi['Isän pituus (cm)']) || null,
+        },
+        yliIkaisyys: {
+          tulos: String(rivi['Yli-ikäisyys\n(Palloliitto)'] || '').indexOf('KYLLÄ') !== -1 ? 'KYLLÄ' : 'EI',
+          laskettu: nyt
+        },
+        rae: syntymaika ? tuontiLaskeRAE(syntymaika) : null
+      };
+    }
+
+    // set() merge:true = päivittää olemassa olevan tai luo uuden
+    var ref = _fbDb.collection('seurat').doc(seuraId)
+                   .collection('pelaajat').doc(palloId);
+    return ref.get().then(function(snap) {
+      var isNew = !snap.exists;
+      var writeData = Object.assign({}, pelaajaDoc);
+      if (isNew) writeData.luotu = nyt;
+      return ref.set(writeData, { merge: true }).then(function() {
+        return isNew ? 'uusi' : 'päivitys';
+      });
+    });
+  }
+
+  else if (tyyppi === 'harjoitettavuus') {
+    // Harjoitettavuuskartoitukset tallennetaan add():lla (uusi dokumentti per rivi)
+    // Koska sama pelaaja voi olla testattu useaan kertaan eri kausilla
+    var ikl = rivi['_ikäluokka'] || 'U12';
+    var testipvm = rivi['Testauspvm *'] ? new Date(rivi['Testauspvm *']) : new Date();
+
+    var kartoitusDoc = {
+      seuraId:      seuraId,
+      pelaajaId:    palloId,
+      nimi:         String(rivi['Nimi *'] || '').trim(),
+      sukupuoli:    String(rivi['Sukupuoli *'] || '').trim().toUpperCase(),
+      syntymavuosi: rivi['Syntymäaika *'] ? new Date(rivi['Syntymäaika *']).getFullYear() : null,
+      ikäluokka:    ikl,
+      joukkue:      String(rivi['Joukkue *'] || '').trim(),
+      kausi:        String(rivi['Kausi *'] || 'kevat_2026').trim(),
+      phvTila:      String(rivi['PHV-tila'] || 'Ei tiedossa').trim(),
+      arvioija:     String(rivi['Arvioija'] || '').trim(),
+      testauspvm:   firebase.firestore.Timestamp.fromDate(testipvm),
+      luotu:        nyt,
+      luonutUid:    kirjaajaUid,
+    };
+
+    // Testit ikäluokan mukaan — rakennetaan testimap
+    var testiMap = {};
+    var pisteetYhteensa = 0;
+    var pisteetMaksimi = ikl === 'U12' ? 27 : ikl === 'U15' ? 30 : 39;
+
+    // Käydään läpi kaikki rivikentät ja kerätään testien tulokset
+    Object.keys(rivi).forEach(function(key) {
+      if (key.indexOf('_') === 0) return;
+      var arvo = String(rivi[key] || '').trim();
+      if (!arvo || arvo === '') return;
+      // Poimitaan pisteet-sarakkeet (format: "1", "2" tai "3")
+      var pisteet = parseInt(arvo);
+      if (pisteet >= 1 && pisteet <= 3) {
+        var testiNimi = key.replace(' *','').replace(/\n.*/,'').trim().toLowerCase()
+          .replace(/\s+/g,'_');
+        if (!testiMap[testiNimi]) testiMap[testiNimi] = {};
+        testiMap[testiNimi].pisteet = pisteet;
+        pisteetYhteensa += pisteet;
+      }
+    });
+
+    var fleiPct = pisteetMaksimi > 0 ? Math.round(pisteetYhteensa / pisteetMaksimi * 100) : 0;
+    var fleiTaso = fleiPct >= 75 ? 'hyvä' : fleiPct >= 60 ? 'kehitys' : 'prioriteetti';
+
+    kartoitusDoc[ikl.toLowerCase()] = testiMap;
+    kartoitusDoc.yhteenveto = {
+      pisteetYhteensa: pisteetYhteensa,
+      pisteetMaksimi:  pisteetMaksimi,
+      fleiProsentti:   fleiPct,
+      fleiTaso:        fleiTaso,
+      kuormaRajoitin:  kartoitusDoc.phvTila === 'PHV-huippu' ? '⚠️ 60% — PHV-huippu'
+                       : fleiTaso === 'hyvä' ? '✅ Normaali'
+                       : fleiTaso === 'kehitys' ? '🟡 80% — Kehitysohjelma'
+                       : '🔴 60% — Prioriteetti',
+      asiHuomio: ''
+    };
+
+    return _fbDb.collection('seurat').doc(seuraId)
+                .collection('kartoitukset').add(kartoitusDoc)
+                .then(function() { return 'uusi'; });
+  }
+
+  else if (tyyppi === 'hh_testit') {
+    // H-H testit tallennetaan testit-kokoelmaan
+    var testipvm2 = rivi['Testauspvm *'] ? new Date(rivi['Testauspvm *']) : new Date();
+    var syntymaika2 = rivi['Syntymäaika *'] ? new Date(rivi['Syntymäaika *']) : null;
+
+    var testiDoc = {
+      seuraId:     seuraId,
+      pelaajaId:   palloId,
+      nimi:        String(rivi['Nimi *'] || '').trim(),
+      sukupuoli:   String(rivi['Sukupuoli *'] || '').trim().toUpperCase(),
+      syntymaaika: syntymaika2 ? firebase.firestore.Timestamp.fromDate(syntymaika2) : null,
+      joukkue:     String(rivi['Joukkue *'] || '').trim(),
+      testauspvm:  firebase.firestore.Timestamp.fromDate(testipvm2),
+      arvioija:    String(rivi['Arvioija'] || '').trim(),
+      tyyppi:      'hh_fyysistekniset',
+      luotu:       nyt,
+      luonutUid:   kirjaajaUid,
+      // Fyysistekniset tulokset
+      lin5m:    parseFloat(rivi['5m (s)'])         || null,
+      lin10m:   parseFloat(rivi['10m (s)'])        || null,
+      lin20m:   parseFloat(rivi['20m (s)'])        || null,
+      lin30m:   parseFloat(rivi['30m (s)'])        || null,
+      kasirata: parseFloat(rivi['Kasirata (s)'])   || null,
+      smjuoksu: parseFloat(rivi['SM-juoksu (s)'])  || null,
+      smpallo:  parseFloat(rivi['SM-pallo (s)'])   || null,
+      cmj:      parseFloat(rivi['CMJ (cm)'])       || null,
+      bronco:   parseFloat(rivi['Bronco (m/s)'])   || null,
+      pujottelu:parseFloat(rivi['Pujottelu (s)'])  || null,
+      syotto:   parseFloat(rivi['Syöttö (s)'])     || null,
+      // Tasot (jos laskettu Excelissä)
+      tasot: {
+        lin5m:    parseInt(rivi['Taso\n5m'])      || null,
+        lin10m:   parseInt(rivi['Taso\n10m'])     || null,
+        lin20m:   parseInt(rivi['Taso\n20m'])     || null,
+        lin30m:   parseInt(rivi['Taso\n30m'])     || null,
+        kasirata: parseInt(rivi['Taso\nKasi'])    || null,
+        smjuoksu: parseInt(rivi['Taso\nSM-j'])    || null,
+        smpallo:  parseInt(rivi['Taso\nSM-p'])    || null,
+        cmj:      parseInt(rivi['Taso\nCMJ'])     || null,
+        bronco:   parseInt(rivi['Taso\nBronco'])  || null,
+      }
+    };
+
+    return _fbDb.collection('seurat').doc(seuraId)
+                .collection('testit').add(testiDoc)
+                .then(function() { return 'uusi'; });
+  }
+
+  return Promise.resolve('ohitettu');
+}
+
+// ── APUFUNKTIOT ───────────────────────────────────────────────────────────────
+
+// Laskee syntymäpäivämäärästä syntymäkvartaalin (Q1-Q4)
+function tuontiLaskeRAE(syntymaaika) {
+  var kk = syntymaaika.getMonth() + 1; // 1-12
+  if (kk <= 3) return 'Q1';
+  if (kk <= 6) return 'Q2';
+  if (kk <= 9) return 'Q3';
+  return 'Q4';
+}
+
+function tuontiNaytaVirhe(viesti) {
+  var el = document.getElementById('tuontiEsikatselu');
+  el.style.display = 'block';
+  el.innerHTML = '<div class="card"><div style="color:var(--red);padding:8px">❌ ' + viesti + '</div></div>';
 }
 </script>
 
