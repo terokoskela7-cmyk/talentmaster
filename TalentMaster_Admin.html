@@ -890,18 +890,25 @@ window.tallennaKayttaja=async()=>{
   const boxes=document.querySelectorAll('#kutsuRoolit input:checked');
   const roolit=Array.from(boxes).map(b=>b.value);
   if(!email||!seuraId){showAlert('kutsuAlert','err','Täytä sähköposti ja seura');return;}
-  if(!roolit.length){showAlert('kutsuAlert','err','Valitse vähintään yksi rooli');return;}
+  if(!roolit.length){showAlert('kutsuAlert','err','⚠️ Valitse vähintään yksi rooli klikkaamalla roolitkorttia');return;}
   const btn=document.getElementById('kutsuBtn');
   btn.disabled=true;btn.innerHTML='<span class="spin"></span> Tallennetaan...';
   try{
     const docId=uid||email.replace(/[@.]/g,'_');
     await setDoc(doc(db,'seurat',seuraId,'kayttajat',docId),{email,roolit,aktiivinen:true,luotu:serverTimestamp(),paivitetty:serverTimestamp()});
-    toast('Käyttäjä tallennettu','ok');await loadAllUsers();closeModal('modalKutsuKayttaja');
+    // Jos VP-rooli, päivitä seura-dokumentti
+    if(roolit.includes('vp') && uid) {
+      await updateDoc(doc(db,'seurat',seuraId),{vp_uid:uid, vp_email:email});
+    }
+    toast('✅ Käyttäjä tallennettu Firestoreen!','ok');await loadAllUsers();closeModal('modalKutsuKayttaja');
     // Reset
     document.getElementById('kutsuEmail').value='';
     document.getElementById('kutsuUid').value='';
     document.querySelectorAll('#kutsuRoolit input').forEach(b=>b.checked=false);
-  }catch(ex){showAlert('kutsuAlert','err','Virhe: '+ex.message);}
+  }catch(ex){
+    showAlert('kutsuAlert','err','⚠️ Virhe tallennuksessa: '+ex.message);
+    console.error('tallennaKayttaja virhe:', ex);
+  }
   finally{btn.disabled=false;btn.innerHTML='Tallenna Firestoreen';}
 };
 
