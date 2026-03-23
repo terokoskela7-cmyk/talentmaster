@@ -218,6 +218,40 @@ try {
     }
   } catch(e) {}
 
+  // ── SESSION RESTORE: kuuntele autentikaatiotilan muutoksia ──────────────────
+  // Tämä on se mekanismi joka palauttaa kirjautumistilan refreshin jälkeen.
+  // Firebase Auth tallentaa session automaattisesti, mutta ilman tätä kuuntelijaa
+  // sovellus ei koskaan tiedä kirjautumistilasta sivun latautuessa.
+  _fbAuth.onAuthStateChanged(function(user) {
+    if (!user) return; // Ei kirjautunut — jää login-näkymään
+    console.log('[AUTH] onAuthStateChanged: käyttäjä löytyi:', user.email);
+    // Jos seuraDoc on jo tiedossa (localStorage:sta), voidaan mennä suoraan dashboardiin
+    if (window._fbSeuraDoc) {
+      console.log('[AUTH] SeuraDoc tiedossa — siirrytään dashboardiin');
+      document.getElementById('sLogin').classList.remove('active');
+      document.getElementById('sDash').classList.add('active');
+      _lataaPilottiDashboard();
+    } else {
+      // SeuraDoc ei tiedossa — haetaan Firestoresta UID:n perusteella
+      console.log('[AUTH] SeuraDoc ei tiedossa — haetaan Firestoresta');
+      _fbDb.collection('seurat')
+        .where('vp_uid', '==', user.uid)
+        .limit(1)
+        .get()
+        .then(function(snap) {
+          if (snap.empty) { console.warn('[AUTH] Seuraa ei löydy UID:llä:', user.uid); return; }
+          var seuraDoc = snap.docs[0].data();
+          seuraDoc.id = snap.docs[0].id;
+          window._fbSeuraDoc = seuraDoc;
+          try { localStorage.setItem('tm_seuraDoc', JSON.stringify({id: seuraDoc.id, nimi: seuraDoc.nimi})); } catch(e) {}
+          document.getElementById('sLogin').classList.remove('active');
+          document.getElementById('sDash').classList.add('active');
+          _lataaPilottiDashboard();
+        })
+        .catch(function(e) { console.warn('[AUTH] Seura-haku epäonnistui:', e.message); });
+    }
+  });
+
 } catch(e) {
   // Firebase ei latautunut (esim. verkkoyhteys poikki tai skripti ei latautunut)
   // Sovellus toimii normaalisti LocalStoragen varassa
