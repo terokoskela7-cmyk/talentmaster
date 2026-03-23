@@ -561,7 +561,7 @@ service cloud.firestore {
 
 <script type="module">
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import{getAuth,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,onAuthStateChanged}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import{getFirestore,collection,getDocs,doc,getDoc,setDoc,updateDoc,addDoc,deleteDoc,serverTimestamp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 const cfg={apiKey:"AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",authDomain:"talentmaster-pilot.firebaseapp.com",projectId:"talentmaster-pilot",storageBucket:"talentmaster-pilot.firebasestorage.app",messagingSenderId:"872561784446",appId:"1:872561784446:web:05c4c7996dfd46ddd14a2f"};
@@ -835,6 +835,46 @@ window.luoFirebaseKayttaja = async function() {
     btn.disabled = false;
     btn.textContent = '⚡ Luo käyttäjä';
     status.style.color = 'var(--danger)';
+    if (e.code === 'auth/email-already-in-use') {
+      status.textContent = '⚠️ Sähköposti on jo käytössä — syötä UID manuaalisesti Firebase Consolesta.';
+    } else {
+      status.textContent = '⚠️ Virhe: ' + e.message;
+    }
+  }
+};
+
+window.luoFirebaseKayttaja = async function() {
+  const email = document.getElementById('kutsuEmail').value.trim();
+  const btn = document.getElementById('luoUidBtn');
+  const status = document.getElementById('uidStatus');
+  if (!email) {
+    status.style.color = 'var(--danger)';
+    status.textContent = '⚠️ Syötä sähköpostiosoite ensin.';
+    return;
+  }
+  const seuraVal = (document.getElementById('kutsuSeura').value || 'seura').toUpperCase();
+  const salasana = 'TM_' + seuraVal + '_2026!';
+  btn.disabled = true;
+  btn.textContent = '⏳ Luodaan...';
+  status.style.color = 'var(--muted)';
+  status.textContent = 'Luodaan Firebase Auth -käyttäjää...';
+  try {
+    // V9 modular: createUserWithEmailAndPassword on importattu
+    const cred = await createUserWithEmailAndPassword(auth, email, salasana);
+    const uid = cred.user.uid;
+    document.getElementById('kutsuUid').value = uid;
+    btn.textContent = '✅ Luotu';
+    btn.style.background = 'var(--success, #22c55e)';
+    status.style.color = 'var(--success, #22c55e)';
+    status.innerHTML = '✅ Käyttäjä luotu!<br>' +
+      'UID: <code style="font-family:monospace;font-size:11px">' + uid + '</code><br>' +
+      'Salasana: <strong>' + salasana + '</strong> — lähetä VP:lle.';
+    // Kirjaudu takaisin super-adminina
+    await signInWithEmailAndPassword(auth, 'talentmasterid@gmail.com', 'TerKos#76');
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '⚡ Luo käyttäjä';
+    status.style.color = 'var(--danger, #ef4444)';
     if (e.code === 'auth/email-already-in-use') {
       status.textContent = '⚠️ Sähköposti on jo käytössä — syötä UID manuaalisesti Firebase Consolesta.';
     } else {
