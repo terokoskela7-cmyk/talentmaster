@@ -225,32 +225,54 @@ try {
   _fbAuth.onAuthStateChanged(function(user) {
     if (!user) return; // Ei kirjautunut — jää login-näkymään
     console.log('[AUTH] onAuthStateChanged: käyttäjä löytyi:', user.email);
-    // Jos seuraDoc on jo tiedossa (localStorage:sta), voidaan mennä suoraan dashboardiin
-    if (window._fbSeuraDoc) {
-      console.log('[AUTH] SeuraDoc tiedossa — siirrytään dashboardiin');
-      document.getElementById('sLogin').classList.remove('active');
-      document.getElementById('sDash').classList.add('active');
-      _lataaPilottiDashboard();
-    } else {
-      // SeuraDoc ei tiedossa — haetaan Firestoresta UID:n perusteella
-      console.log('[AUTH] SeuraDoc ei tiedossa — haetaan Firestoresta');
-      _fbDb.collection('seurat')
-        .where('vp_uid', '==', user.uid)
-        .limit(1)
-        .get()
-        .then(function(snap) {
-          if (snap.empty) { console.warn('[AUTH] Seuraa ei löydy UID:llä:', user.uid); return; }
-          var seuraDoc = snap.docs[0].data();
-          seuraDoc.id = snap.docs[0].id;
-          window._fbSeuraDoc = seuraDoc;
-          try { localStorage.setItem('tm_seuraDoc', JSON.stringify({id: seuraDoc.id, nimi: seuraDoc.nimi})); } catch(e) {}
-          document.getElementById('sLogin').classList.remove('active');
-          document.getElementById('sDash').classList.add('active');
-          _lataaPilottiDashboard();
-        })
-        .catch(function(e) { console.warn('[AUTH] Seura-haku epäonnistui:', e.message); });
-    }
+
+    // AJOITUSKORJAUS: onAuthStateChanged laukeaa ennen kuin tm_data.js ja
+    // _lataaPilottiDashboard() ovat valmiita. Tallennetaan käyttäjä muistiin
+    // ja odotetaan kunnes kaikki on ladattu ennen kuin siirrytään dashboardiin.
+    window._pendingAuthUser = user;
+    _kaynnistaSessionPalattuessa();
   });
+
+// Käynnistä session palautus kun kaikki on valmis
+// Kutsutaan sekä onAuthStateChanged:sta että tm_data.js:n latauksen jälkeen
+function _kaynnistaSessionPalattuessa() {
+  var user = window._pendingAuthUser;
+  if (!user) return; // Ei odottavaa käyttäjää
+
+  // Odotetaan kunnes _lataaPilottiDashboard on määritelty ja tm_data.js ladattu
+  if (typeof _lataaPilottiDashboard !== 'function' || !window._tmDataReady) {
+    console.log('[AUTH] Odotetaan latautumista... (funktio:', typeof _lataaPilottiDashboard, '| tmData:', !!window._tmDataReady, ')');
+    setTimeout(_kaynnistaSessionPalattuessa, 200);
+    return;
+  }
+
+  // Kaikki on valmis — voidaan siirtyä dashboardiin
+  window._pendingAuthUser = null; // Estetään tupla-ajo
+
+  if (window._fbSeuraDoc) {
+    console.log('[AUTH] Session palautus: SeuraDoc tiedossa →', window._fbSeuraDoc.nimi);
+    document.getElementById('sLogin').classList.remove('active');
+    document.getElementById('sDash').classList.add('active');
+    _lataaPilottiDashboard();
+  } else {
+    console.log('[AUTH] Session palautus: haetaan seura Firestoresta');
+    _fbDb.collection('seurat')
+      .where('vp_uid', '==', user.uid)
+      .limit(1)
+      .get()
+      .then(function(snap) {
+        if (snap.empty) { console.warn('[AUTH] Seuraa ei löydy UID:llä:', user.uid); return; }
+        var seuraDoc = snap.docs[0].data();
+        seuraDoc.id = snap.docs[0].id;
+        window._fbSeuraDoc = seuraDoc;
+        try { localStorage.setItem('tm_seuraDoc', JSON.stringify({id: seuraDoc.id, nimi: seuraDoc.nimi})); } catch(e) {}
+        document.getElementById('sLogin').classList.remove('active');
+        document.getElementById('sDash').classList.add('active');
+        _lataaPilottiDashboard();
+      })
+      .catch(function(e) { console.warn('[AUTH] Seura-haku epäonnistui:', e.message); });
+  }
+}
 
 } catch(e) {
   // Firebase ei latautunut (esim. verkkoyhteys poikki tai skripti ei latautunut)
