@@ -209,6 +209,14 @@ try {
   // joka asettaisi _fbOnline = false vaikka Firebase toimii
   _fbOnline = true;
   console.log('[FB] Firebase online');
+  // Palauta seuraDoc localStorage:sta jos on — tukee refreshia
+  try {
+    var _savedSeura = localStorage.getItem('tm_seuraDoc');
+    if (_savedSeura && !window._fbSeuraDoc) {
+      window._fbSeuraDoc = JSON.parse(_savedSeura);
+      console.log('[FB] SeuraDoc palautettu localStorage:sta:', window._fbSeuraDoc.nimi);
+    }
+  } catch(e) {}
 
 } catch(e) {
   // Firebase ei latautunut (esim. verkkoyhteys poikki tai skripti ei latautunut)
@@ -2456,6 +2464,9 @@ function kirjauduUlos() {
     });
     _fbUser = null;
   }
+  // Tyhjennä tallennettu seuraDoc jotta refresh ei palauta vanhaa sessiota
+  try { localStorage.removeItem('tm_seuraDoc'); } catch(e) {}
+  window._fbSeuraDoc = null;
   _vpPin = '';
   updateDots();
   // Tyhjennetään sähköpostikentät
@@ -2557,6 +2568,8 @@ function kirjauduEmaililla() {
             // 1. Aseta _fbSeuraDoc ENSIN
             // 2. Sitten initDash — se lukee _fbSeuraDoc ja valitsee oikean seuran
             window._fbSeuraDoc = seuraDoc;
+            // Tallenna seuraDoc localStorage:een — palautetaan refreshissa
+            try { localStorage.setItem('tm_seuraDoc', JSON.stringify({id: seuraDoc.id, nimi: seuraDoc.nimi})); } catch(e) {}
             console.log('[AUTH] Seura asetettu:', seuraDoc.nimi, '(id:', seuraDoc.id, ')');
 
             // Siirrytään dashboardiin
@@ -2719,9 +2732,10 @@ function _lataaPilottiDashboard() {
 
 function initDash() {
   if (!window._tmDataReady) {
-    // Data latautuu vielä — odota ja yritä uudelleen
-    document.getElementById('pinErr').textContent = 'Data latautuu...';
-    setTimeout(function() { kirjaudu(); }, 500);
+    // Data latautuu vielä — odota ja yritä uudelleen ilman kirjaudu()-kutsua
+    // kirjaudu() näyttäisi login-näkymän, mikä kirjaisi käyttäjän ulos refreshissa
+    console.log('[VP] Odotetaan tm_data.js latautumista...');
+    setTimeout(function() { initDash(); }, 300);
     return;
   }
   // Null-safe data-lataus: käytä TM_DATA jos saatavilla, muuten tyhjä lookup
