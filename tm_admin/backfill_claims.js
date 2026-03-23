@@ -50,11 +50,13 @@ const db = admin.firestore();
 // ─────────────────────────────────────────────────────────────────
 const KAYTTAJAT = [
   // ── SUPER-ADMIN ──
+  // UID haetaan sähköpostista ajon aikana — ei kovakoodata
+  // jotta väärä UID ei voi aiheuttaa ongelmia
   {
-    uid:     'dqUzvJA61Wb9fgj5UiK0riSA4NI2',
+    uid:     null,
     email:   'talentmasterid@gmail.com',
     rooli:   'superadmin',
-    seuraId: null,      // Super-admin näkee kaiken — ei seurajäykistystä
+    seuraId: null,
     joukkue: null,
     superAdmin: true,
     kuvaus:  'TalentMaster Super Admin',
@@ -149,6 +151,14 @@ async function ajaBbackfill() {
     const claims = rakennaClaims(kayttaja);
 
     try {
+      // Jos UID puuttuu, haetaan se sähköpostiosoitteen perusteella.
+      // Tämä on turvallisempi tapa kuin kovakoodata UID joka voi vanhentua.
+      if (!kayttaja.uid) {
+        const authUser = await admin.auth().getUserByEmail(kayttaja.email);
+        kayttaja.uid = authUser.uid;
+        console.log(`   UID haettu sähköpostista: ${kayttaja.uid}`);
+      }
+
       // Asetetaan Custom Claims Firebase Authiin
       await admin.auth().setCustomUserClaims(kayttaja.uid, claims);
 
