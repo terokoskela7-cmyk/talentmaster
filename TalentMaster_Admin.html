@@ -565,16 +565,17 @@ let seurat=[],allUsers=[],currentEditSeuraId=null,csvData=null,importLog=[];
 
 onAuthStateChanged(auth,async user=>{
   if(!user){showLogin();return;}
-  let isSA=false;
-  try{
-    const snap=await getDoc(doc(db,'admins',user.uid));
-    isSA=snap.exists()&&snap.data().superAdmin===true;
-  }catch(e){
-    // Permission denied tai verkkovirhe — tarkistetaan sähköpostilla
-    isSA=user.email==='talentmasterid@gmail.com';
-    console.warn('admins-luku epäonnistui, fallback email-tarkistukseen:',e.code);
+  // Super-admin tarkistus: ensin sähköposti, sitten Firestore (jos rules sallii)
+  const SUPER_ADMIN_EMAIL='talentmasterid@gmail.com';
+  if(user.email!==SUPER_ADMIN_EMAIL){
+    // Tarkista Firestoresta muille mahdollisille super-admineille
+    let isSA=false;
+    try{
+      const snap=await getDoc(doc(db,'admins',user.uid));
+      isSA=snap.exists()&&snap.data().superAdmin===true;
+    }catch(e){ isSA=false; }
+    if(!isSA){toast('Ei super-admin oikeuksia','err');await signOut(auth);return;}
   }
-  if(!isSA){toast('Ei super-admin oikeuksia','err');await signOut(auth);return;}
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('navUser').innerHTML=`<strong>${user.email}</strong>`;
