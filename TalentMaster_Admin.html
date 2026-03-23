@@ -1,971 +1,931 @@
 <!DOCTYPE html>
 <html lang="fi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TalentMaster™ Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-
-  <style>
-    :root {
-      --bg:      #07080A;
-      --bg2:     #0D0F14;
-      --bg3:     #131720;
-      --card:    #181D27;
-      --border:  #252D3D;
-      --text:    #E8EDF5;
-      --muted:   #5A6A82;
-      --muted2:  #3A4A62;
-      --teal:    #00D4AA;
-      --amber:   #F59E0B;
-      --red:     #F87171;
-      --green:   #34D399;
-      --blue:    #60A5FA;
-      --purple:  #A78BFA;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Syne', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-    }
-
-    /* ── LOGIN ─────────────────────────────────────────────── */
-    #sLogin {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: radial-gradient(ellipse at 20% 50%, rgba(0,212,170,.06) 0%, transparent 60%),
-                  radial-gradient(ellipse at 80% 20%, rgba(96,165,250,.04) 0%, transparent 50%);
-    }
-
-    .login-box {
-      width: 380px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 40px;
-    }
-
-    .login-logo {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 3px;
-      color: var(--teal);
-      margin-bottom: 8px;
-    }
-
-    .login-title {
-      font-size: 26px;
-      font-weight: 800;
-      margin-bottom: 4px;
-    }
-
-    .login-sub {
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 28px;
-    }
-
-    .field {
-      margin-bottom: 14px;
-    }
-
-    .field label {
-      display: block;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      color: var(--muted);
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-
-    .field input {
-      width: 100%;
-      padding: 12px 14px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 14px;
-      font-family: 'JetBrains Mono', monospace;
-      outline: none;
-      transition: border-color .2s;
-    }
-
-    .field input:focus { border-color: var(--teal); }
-
-    .btn-primary {
-      width: 100%;
-      padding: 13px;
-      background: var(--teal);
-      border: none;
-      border-radius: 8px;
-      color: #000;
-      font-family: 'Syne', sans-serif;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      letter-spacing: .5px;
-      transition: opacity .2s;
-      margin-top: 8px;
-    }
-
-    .btn-primary:hover { opacity: .85; }
-
-    .err-msg {
-      font-size: 12px;
-      color: var(--red);
-      margin-top: 10px;
-      min-height: 18px;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* ── DASHBOARD ─────────────────────────────────────────── */
-    #sDash { display: none; }
-
-    .topbar {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 0 28px;
-      height: 56px;
-      background: var(--bg2);
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .topbar-logo {
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 3px;
-      color: var(--teal);
-    }
-
-    .topbar-badge {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      background: rgba(167,139,250,.15);
-      color: var(--purple);
-      border: 1px solid rgba(167,139,250,.3);
-      padding: 3px 8px;
-      border-radius: 4px;
-    }
-
-    .topbar-user {
-      margin-left: auto;
-      font-size: 12px;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .btn-logout {
-      padding: 6px 14px;
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--muted);
-      font-size: 12px;
-      cursor: pointer;
-      font-family: 'Syne', sans-serif;
-      transition: all .2s;
-    }
-
-    .btn-logout:hover { border-color: var(--red); color: var(--red); }
-
-    /* ── TABS ──────────────────────────────────────────────── */
-    .nav-tabs {
-      display: flex;
-      gap: 2px;
-      padding: 0 28px;
-      background: var(--bg2);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .nav-tab {
-      padding: 12px 18px;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--muted);
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all .2s;
-    }
-
-    .nav-tab:hover { color: var(--text); }
-    .nav-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
-
-    /* ── CONTENT ───────────────────────────────────────────── */
-    .content {
-      padding: 28px;
-      max-width: 1200px;
-    }
-
-    /* ── STATS ROW ─────────────────────────────────────────── */
-    .stats-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 14px;
-      margin-bottom: 28px;
-    }
-
-    .stat-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
-    }
-
-    .stat-label {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      color: var(--muted);
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-
-    .stat-value {
-      font-size: 32px;
-      font-weight: 800;
-      color: var(--teal);
-      line-height: 1;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .stat-sub {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 4px;
-    }
-
-    /* ── SECTION ───────────────────────────────────────────── */
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-    }
-
-    .section-title {
-      font-size: 16px;
-      font-weight: 700;
-    }
-
-    .btn-add {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      background: var(--teal);
-      border: none;
-      border-radius: 8px;
-      color: #000;
-      font-family: 'Syne', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity .2s;
-    }
-
-    .btn-add:hover { opacity: .85; }
-
-    /* ── SEURAT TABLE ──────────────────────────────────────── */
-    .seura-grid {
-      display: grid;
-      gap: 12px;
-    }
-
-    .seura-row {
-      display: grid;
-      grid-template-columns: 1fr 120px 140px 100px 80px;
-      align-items: center;
-      gap: 12px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px 18px;
-      transition: border-color .2s;
-    }
-
-    .seura-row:hover { border-color: var(--muted2); }
-
-    .seura-nimi {
-      font-weight: 700;
-      font-size: 14px;
-    }
-
-    .seura-id {
-      font-size: 11px;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-      margin-top: 2px;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .5px;
-    }
-
-    .badge-kehitys  { background: rgba(0,212,170,.1);  color: var(--teal);   border: 1px solid rgba(0,212,170,.2); }
-    .badge-perustaso { background: rgba(96,165,250,.1); color: var(--blue);  border: 1px solid rgba(96,165,250,.2); }
-    .badge-huippu   { background: rgba(167,139,250,.1); color: var(--purple); border: 1px solid rgba(167,139,250,.2); }
-    .badge-aktiivinen { background: rgba(52,211,153,.1); color: var(--green); border: 1px solid rgba(52,211,153,.2); }
-
-    .seura-vp {
-      font-size: 12px;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .btn-edit {
-      padding: 5px 12px;
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--muted);
-      font-size: 12px;
-      cursor: pointer;
-      font-family: 'Syne', sans-serif;
-      transition: all .15s;
-    }
-
-    .btn-edit:hover { border-color: var(--teal); color: var(--teal); }
-
-    /* ── MODAL ─────────────────────────────────────────────── */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.7);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .modal-overlay.open { display: flex; }
-
-    .modal {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 32px;
-      width: 460px;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    .modal-title {
-      font-size: 18px;
-      font-weight: 800;
-      margin-bottom: 24px;
-    }
-
-    .modal-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 24px;
-    }
-
-    .btn-cancel {
-      flex: 1;
-      padding: 11px;
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      font-family: 'Syne', sans-serif;
-      font-size: 13px;
-      cursor: pointer;
-    }
-
-    .btn-save {
-      flex: 2;
-      padding: 11px;
-      background: var(--teal);
-      border: none;
-      border-radius: 8px;
-      color: #000;
-      font-family: 'Syne', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    select.field-input {
-      width: 100%;
-      padding: 12px 14px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 14px;
-      font-family: 'Syne', sans-serif;
-      outline: none;
-    }
-
-    .modal-err {
-      font-size: 12px;
-      color: var(--red);
-      margin-top: 8px;
-      font-family: 'JetBrains Mono', monospace;
-      min-height: 16px;
-    }
-
-    /* ── KAYTTAJAT ─────────────────────────────────────────── */
-    .kayttaja-row {
-      display: grid;
-      grid-template-columns: 1fr 100px 100px;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .kayttaja-email {
-      font-size: 13px;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .kayttaja-rooli {
-      font-size: 11px;
-      color: var(--muted);
-    }
-
-    /* ── LOADING ───────────────────────────────────────────── */
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .spinner {
-      width: 24px; height: 24px;
-      border: 2px solid var(--border);
-      border-top-color: var(--teal);
-      border-radius: 50%;
-      animation: spin .8s linear infinite;
-      margin: 0 auto 12px;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster™ Admin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+:root{--bg:#080b0f;--s1:#0f1318;--s2:#151a22;--s3:#1c2330;--border:#1e2836;--border2:#253040;--accent:#00d4ff;--purple:#7c3aed;--green:#10b981;--orange:#f59e0b;--red:#ef4444;--text:#dde4ef;--text2:#8595ae;--text3:#3d4d60;--mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+#loginScreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;background:var(--bg)}
+.login-card{width:400px;background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:48px;position:relative;overflow:hidden}
+.login-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--purple),var(--accent))}
+.login-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
+.login-title{font-size:30px;font-weight:700;color:var(--text);line-height:1;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--text2);margin-bottom:36px}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px}
+.field input,.field select,.field textarea{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:11px 14px;color:var(--text);font-family:var(--sans);font-size:14px;outline:none;transition:border-color .15s;appearance:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.field select option{background:var(--s2)}
+.field textarea{resize:vertical;min-height:72px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 22px;border-radius:8px;border:none;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;text-decoration:none;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#000;width:100%}
+.btn-primary:hover{background:#00bcdf;transform:translateY(-1px)}
+.btn-success{background:var(--green);color:#000}
+.btn-success:hover{background:#059669}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:transparent;color:var(--red);border:1px solid var(--red)}
+.btn-danger:hover{background:rgba(239,68,68,.1)}
+.btn-sm{padding:6px 14px;font-size:12px}
+.btn-xs{padding:4px 10px;font-size:11px;border-radius:6px}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none!important}
+.login-err{margin-top:14px;padding:11px 14px;border-radius:8px;font-size:13px;color:var(--red);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);display:none}
+#app{display:none;position:relative;z-index:1;min-height:100vh}
+.topnav{position:fixed;top:0;left:0;right:0;height:58px;background:rgba(8,11,15,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;z-index:50;gap:16px}
+.tn-brand{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);letter-spacing:2px}
+.tn-badge{font-family:var(--mono);font-size:9px;padding:3px 8px;background:rgba(124,58,237,.18);border:1px solid rgba(124,58,237,.4);border-radius:4px;color:#a78bfa;letter-spacing:1px}
+.tn-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.tn-user{font-size:12px;color:var(--text2)}
+.tn-user strong{color:var(--accent)}
+.sidebar{position:fixed;left:0;top:58px;bottom:0;width:210px;background:var(--s1);border-right:1px solid var(--border);padding:16px 0;overflow-y:auto;z-index:40}
+.sb-section{padding:0 12px}
+.sb-label{font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--text3);padding:14px 8px 7px}
+.sb-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--text2);transition:all .12s;border:1px solid transparent;margin-bottom:2px;user-select:none}
+.sb-item:hover{background:var(--s2);color:var(--text)}
+.sb-item.active{background:rgba(0,212,255,.07);border-color:rgba(0,212,255,.18);color:var(--accent)}
+.sb-icon{font-size:15px;width:18px;text-align:center}
+.main{margin-left:210px;margin-top:58px;padding:28px 32px;min-height:calc(100vh - 58px)}
+.page{display:none}
+.page.active{display:block}
+.ph{margin-bottom:28px}
+.ph-title{font-size:24px;font-weight:700;margin-bottom:4px}
+.ph-sub{font-size:13px;color:var(--text2)}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:28px}
+.stat{background:var(--s1);border:1px solid var(--border);border-radius:11px;padding:18px 20px;position:relative;overflow:hidden}
+.stat::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
+.stat.c-blue::after{background:var(--accent)}
+.stat.c-green::after{background:var(--green)}
+.stat.c-purple::after{background:var(--purple)}
+.stat.c-orange::after{background:var(--orange)}
+.stat-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:6px}
+.stat-val{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--text);line-height:1}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:22px}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.card-title{font-size:15px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px}
+.card-title .ico{color:var(--accent)}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{font-size:9.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);padding:7px 12px;text-align:left;border-bottom:1px solid var(--border)}
+tbody tr{border-bottom:1px solid rgba(30,40,54,.7);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.018)}
+tbody td{padding:11px 12px;color:var(--text2);vertical-align:middle}
+tbody td:first-child{color:var(--text);font-weight:500}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:600;letter-spacing:.3px}
+.b-green{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.25)}
+.b-orange{background:rgba(245,158,11,.12);color:var(--orange);border:1px solid rgba(245,158,11,.25)}
+.b-gray{background:rgba(100,116,139,.12);color:var(--text2);border:1px solid rgba(100,116,139,.25)}
+.b-purple{background:rgba(124,58,237,.12);color:#a78bfa;border:1px solid rgba(124,58,237,.3);font-family:var(--mono);font-size:9.5px}
+.b-red{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.b-blue{background:rgba(0,212,255,.08);color:var(--accent);border:1px solid rgba(0,212,255,.2)}
+.role-chips{display:flex;flex-wrap:wrap;gap:4px}
+.rc{font-family:var(--mono);font-size:9.5px;padding:2px 7px;border-radius:4px;border:1px solid}
+.rc-vp{color:#5eead4;border-color:#5eead4;background:rgba(94,234,212,.08)}
+.rc-sihteeri{color:var(--accent);border-color:var(--accent);background:rgba(0,212,255,.06)}
+.rc-valmentaja{color:#a78bfa;border-color:#a78bfa;background:rgba(167,139,250,.08)}
+.rc-testi{color:#86efac;border-color:#86efac;background:rgba(134,239,172,.08)}
+.rc-fysiikka{color:var(--orange);border-color:var(--orange);background:rgba(245,158,11,.08)}
+.rc-fysio{color:#f9a8d4;border-color:#f9a8d4;background:rgba(249,168,212,.08)}
+.rc-default{color:var(--text2);border-color:var(--border2);background:transparent}
+.actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+hr{border:none;border-top:1px solid var(--border);margin:20px 0}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(5px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--s1);border:1px solid var(--border2);border-radius:16px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:30px;position:relative;transform:translateY(14px);transition:transform .2s}
+.overlay.open .modal{transform:translateY(0)}
+.modal-title{font-size:19px;font-weight:700;margin-bottom:3px}
+.modal-sub{font-size:13px;color:var(--text2);margin-bottom:24px}
+.modal-close{position:absolute;top:18px;right:18px;background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:4px;border-radius:4px;transition:color .12s;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border)}
+.alert{padding:11px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none}
+.a-ok{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--green)}
+.a-err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.a-inf{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.18);color:var(--accent)}
+.dropzone{border:2px dashed var(--border2);border-radius:10px;padding:36px;text-align:center;cursor:pointer;transition:all .15s;background:rgba(255,255,255,.01);margin-bottom:14px}
+.dropzone:hover,.dropzone.over{border-color:var(--accent);background:rgba(0,212,255,.03)}
+.dz-icon{font-size:32px;margin-bottom:10px}
+.dz-text{font-size:13px;color:var(--text2);margin-bottom:4px}
+.dz-hint{font-size:11px;color:var(--text3)}
+.prog-wrap{height:5px;background:var(--s3);border-radius:3px;overflow:hidden;margin:10px 0;display:none}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--purple),var(--accent));border-radius:3px;width:0%;transition:width .25s}
+.spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .55s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.seura-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.seura-card{background:var(--s2);border:1px solid var(--border);border-radius:11px;padding:18px;cursor:pointer;transition:all .14s;position:relative;overflow:hidden}
+.seura-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);transform:scaleY(0);transition:transform .14s;transform-origin:center}
+.seura-card:hover::before{transform:scaleY(1)}
+.seura-card:hover{border-color:var(--border2);transform:translateX(2px)}
+.sc-name{font-size:15px;font-weight:700;margin-bottom:3px}
+.sc-id{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:12px}
+.sc-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.code{font-family:var(--mono);font-size:11px;color:var(--text2);background:var(--bg);border-radius:7px;padding:14px;border:1px solid var(--border);overflow-x:auto;white-space:pre;line-height:1.6}
+#toast{position:fixed;bottom:28px;right:28px;z-index:999;background:var(--s1);border:1px solid var(--border2);border-radius:10px;padding:14px 18px;font-size:13px;color:var(--text);transform:translateY(80px);opacity:0;transition:all .28s;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.ok{border-left:3px solid var(--green)}
+#toast.err{border-left:3px solid var(--red)}
+#toast.inf{border-left:3px solid var(--accent)}
+.preview-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;display:none}
+.preview-title{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+.info-box{background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.2);border-radius:10px;padding:16px;font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:22px}
+.info-box strong{color:var(--accent)}
+.warn-box{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--text2);line-height:1.6}
+.warn-box strong{color:var(--orange)}
+</style>
 </head>
 <body>
 
 <!-- LOGIN -->
-<div id="sLogin">
-  <div class="login-box">
-    <div class="login-logo">TALENTMASTER™</div>
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-eyebrow">TalentMaster™</div>
     <div class="login-title">Admin</div>
-    <div class="login-sub">Järjestelmänhallinta</div>
-
-    <div class="field">
-      <label>Sähköposti</label>
-      <input id="emailInput" type="email" placeholder="talentmasterid@gmail.com"
-        onkeydown="if(event.key==='Enter')kirjaudu()">
-    </div>
-    <div class="field">
-      <label>Salasana</label>
-      <input id="pwInput" type="password" placeholder="••••••••"
-        onkeydown="if(event.key==='Enter')kirjaudu()">
-    </div>
-
-    <button class="btn-primary" onclick="kirjaudu()">Kirjaudu sisään</button>
-    <div class="err-msg" id="errMsg"></div>
+    <div class="login-sub">Järjestelmähallinta — super-admin tunnuksilla</div>
+    <div class="field"><label>Sähköposti</label><input type="email" id="loginEmail" placeholder="talentmasterid@gmail.com" autocomplete="username"></div>
+    <div class="field"><label>Salasana</label><input type="password" id="loginPw" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">Kirjaudu sisään</button>
+    <div class="login-err" id="loginErr"></div>
   </div>
 </div>
 
-<!-- DASHBOARD -->
-<div id="sDash">
-  <div class="topbar">
-    <div class="topbar-logo">TALENTMASTER™</div>
-    <div class="topbar-badge">⚡ SUPER ADMIN</div>
-    <div class="topbar-user" id="topbarUser"></div>
-    <button class="btn-logout" onclick="kirjauduUlos()">Kirjaudu ulos</button>
-  </div>
+<!-- APP -->
+<div id="app">
+  <nav class="topnav">
+    <div class="tn-brand">TM™</div>
+    <div class="tn-badge">SUPER ADMIN</div>
+    <div class="tn-right">
+      <div class="tn-user" id="navUser">–</div>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Kirjaudu ulos</button>
+    </div>
+  </nav>
 
-  <div class="nav-tabs">
-    <div class="nav-tab active" onclick="vaihda(0,this)">🏟️ Seurat</div>
-    <div class="nav-tab" onclick="vaihda(1,this)">👥 Käyttäjät</div>
-    <div class="nav-tab" onclick="vaihda(2,this)">📊 Tilastot</div>
-  </div>
+  <aside class="sidebar">
+    <div class="sb-section">
+      <div class="sb-label">Hallinta</div>
+      <div class="sb-item active" id="nav-overview"   onclick="nav('overview')">  <span class="sb-icon">📊</span>Yleiskatsaus</div>
+      <div class="sb-item"        id="nav-seurat"     onclick="nav('seurat')">    <span class="sb-icon">🏟️</span>Seurat</div>
+      <div class="sb-item"        id="nav-kayttajat"  onclick="nav('kayttajat')"> <span class="sb-icon">👥</span>Käyttäjät</div>
+      <div class="sb-item"        id="nav-joukkueet"  onclick="nav('joukkueet')"> <span class="sb-icon">⚽</span>Joukkueet</div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-label">Työkalut</div>
+      <div class="sb-item" id="nav-import" onclick="nav('import')"><span class="sb-icon">📥</span>Data-import</div>
+      <div class="sb-item" id="nav-gdpr"   onclick="nav('gdpr')">  <span class="sb-icon">🔒</span>GDPR</div>
+      <div class="sb-item" id="nav-rules"  onclick="nav('rules')"> <span class="sb-icon">🛡️</span>Security Rules</div>
+    </div>
+  </aside>
 
-  <div class="content">
-    <!-- TAB 0: SEURAT -->
-    <div id="tab0">
-      <div class="stats-row" id="statsRow">
-        <div class="stat-card">
-          <div class="stat-label">Seuroja</div>
-          <div class="stat-value" id="statSeuroja">—</div>
-          <div class="stat-sub">aktiivisia pilotteja</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Käyttäjiä</div>
-          <div class="stat-value" id="statKayttajia">—</div>
-          <div class="stat-sub">kaikki roolit</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Kirjauksia</div>
-          <div class="stat-value" id="statKirjauksia">—</div>
-          <div class="stat-sub">harjoitteluseuranta</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Laji</div>
-          <div class="stat-value" style="font-size:24px">⚽</div>
-          <div class="stat-sub">jalkapallo</div>
-        </div>
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <div class="page active" id="page-overview">
+      <div class="ph"><div class="ph-title">Yleiskatsaus</div><div class="ph-sub">TalentMaster™ pilottivaihe</div></div>
+      <div class="stats-row">
+        <div class="stat c-blue">  <div class="stat-label">Pilottiseuroja</div><div class="stat-val" id="s-seurat">–</div></div>
+        <div class="stat c-green"> <div class="stat-label">Käyttäjiä</div>    <div class="stat-val" id="s-users">–</div></div>
+        <div class="stat c-purple"><div class="stat-label">Joukkueita</div>   <div class="stat-val" id="s-joukkueet">–</div></div>
+        <div class="stat c-orange"><div class="stat-label">Kirjauksia</div>   <div class="stat-val" id="s-kirjaukset">–</div></div>
       </div>
-
-      <div class="section-header">
-        <div class="section-title">Pilottiseurat</div>
-        <button class="btn-add" onclick="avaaUusiSeura()">+ Lisää seura</button>
-      </div>
-
-      <div class="seura-grid" id="seuraGrid">
-        <div class="loading">
-          <div class="spinner"></div>
-          Ladataan seurat Firebasesta...
-        </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="ico">🏟️</span>Pilottiseurat</div></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Seura</th><th>ID</th><th>Paketti</th><th>VP-sähköposti</th><th>Joukkueita</th><th>Status</th><th></th></tr></thead>
+          <tbody id="overviewTable"><tr><td colspan="7" style="color:var(--text3);padding:24px;text-align:center">Ladataan...</td></tr></tbody>
+        </table></div>
       </div>
     </div>
 
-    <!-- TAB 1: KÄYTTÄJÄT -->
-    <div id="tab1" style="display:none">
-      <div class="section-header">
-        <div class="section-title">Käyttäjät</div>
+    <!-- SEURAT -->
+    <div class="page" id="page-seurat">
+      <div class="ph"><div class="ph-title">Seurat</div><div class="ph-sub">Pilottiseurojen tiedot ja asetukset</div></div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <button class="btn btn-success" onclick="openModal('modalNewSeura')">+ Lisää seura</button>
       </div>
-      <div id="kayttajatContent">
-        <div class="loading">
-          <div class="spinner"></div>
-          Valitse seura nähdäksesi käyttäjät...
+      <div class="seura-grid" id="seuratGrid"><div style="color:var(--text3);font-size:13px">Ladataan...</div></div>
+    </div>
+
+    <!-- KÄYTTÄJÄT -->
+    <div class="page" id="page-kayttajat">
+      <div class="ph"><div class="ph-title">Käyttäjät & roolit</div><div class="ph-sub">Roolit ovat oikeuksia — yksi henkilö voi kantaa useita rooleja</div></div>
+      <div class="info-box">
+        <strong>⚡ Arkkitehtuuriperiaate:</strong> Yksi käyttäjä voi kantaa useita rooleja.
+        Firestoreen tallentuu <code style="font-family:var(--mono);font-size:11px;color:var(--accent)">roolit: ["vp", "sihteeri"]</code>.
+        Pienessä seurassa VP saa automaattisesti myös sihteerin oikeudet.
+        Isossa seurassa VP kutsuu erillisen sihteerin.
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><span class="ico">👤</span>Kaikki käyttäjät</div>
+          <button class="btn btn-success btn-sm" onclick="openModal('modalKutsuKayttaja')">+ Kutsu käyttäjä</button>
         </div>
+        <div class="field" style="max-width:220px;margin-bottom:16px">
+          <label>Suodata seuralla</label>
+          <select id="filterSeura" onchange="filterKayttajat()"><option value="">– Kaikki seurat –</option></select>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Sähköposti</th><th>Roolit</th><th>Seura</th><th>Status</th><th>Toiminnot</th></tr></thead>
+          <tbody id="kayttajatTable"><tr><td colspan="5" style="color:var(--text3);padding:24px;text-align:center">Ladataan...</td></tr></tbody>
+        </table></div>
       </div>
     </div>
 
-    <!-- TAB 2: TILASTOT -->
-    <div id="tab2" style="display:none">
-      <div class="section-header">
-        <div class="section-title">Firebase-tilastot</div>
+    <!-- JOUKKUEET -->
+    <div class="page" id="page-joukkueet">
+      <div class="ph"><div class="ph-title">Joukkuehallinta</div><div class="ph-sub">Luo ja hallinnoi joukkueita — Sihteerin työkalu</div></div>
+      <div class="field" style="max-width:240px;margin-bottom:20px">
+        <label>Valitse seura</label>
+        <select id="joukkueetSeura" onchange="loadJoukkueet()"><option value="">– Valitse seura –</option></select>
       </div>
-      <div id="tilastotContent">
-        <div class="loading">
-          <div class="spinner"></div>
-          Ladataan tilastoja...
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><span class="ico">⚽</span>Joukkueet</div>
+          <button class="btn btn-success btn-sm" onclick="openModal('modalNewJoukkue')">+ Lisää joukkue</button>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Joukkue</th><th>Ikäluokka</th><th>Vuosiluokka</th><th>Valmentaja</th><th>Toiminnot</th></tr></thead>
+          <tbody id="joukkueetTable"><tr><td colspan="5" style="color:var(--text3);padding:24px;text-align:center">Valitse ensin seura</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- DATA-IMPORT -->
+    <div class="page" id="page-import">
+      <div class="ph"><div class="ph-title">Data-import</div><div class="ph-sub">Tuo pelaajadata CSV-tiedostosta Firebaseen</div></div>
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="ico">⚙️</span>Import-asetukset</div></div>
+        <div class="two-col">
+          <div class="field"><label>Kohdaseura</label><select id="importSeura"><option value="">– Valitse seura –</option></select></div>
+          <div class="field"><label>Datatyyppi</label>
+            <select id="importType">
+              <option value="pelaajat">Pelaajat (perusdata)</option>
+              <option value="kartoitukset">Harjoitettavuuskartoitukset</option>
+              <option value="testit">Testitulokset</option>
+              <option value="tekniikka">Tekniikkakilpailut</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>Joukkue (valinnainen)</label><input type="text" id="importJoukkue" placeholder="esim. U15/2 — jätä tyhjäksi jos koskee koko seuraa"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="ico">📄</span>CSV-tiedosto</div></div>
+        <div class="dropzone" id="dropzone" onclick="document.getElementById('csvFile').click()">
+          <div class="dz-icon">📁</div>
+          <div class="dz-text">Pudota CSV-tiedosto tähän tai klikkaa valitaksesi</div>
+          <div class="dz-hint">Tuettu: .csv — merkistö UTF-8, erotin pilkku tai puolipiste</div>
+        </div>
+        <input type="file" id="csvFile" accept=".csv,.txt" style="display:none" onchange="handleCSV(event)">
+        <div class="preview-box" id="previewBox"><div class="preview-title">Esikatselu — 5 ensimmäistä riviä</div><div id="previewContent"></div></div>
+        <div id="importAlert" class="alert"></div>
+        <div class="prog-wrap" id="importProg"><div class="prog-bar" id="importProgBar"></div></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+          <button class="btn btn-ghost" onclick="downloadTemplate()">⬇ Lataa CSV-malli</button>
+          <button class="btn btn-success" id="importBtn" onclick="runImport()" disabled>🚀 Tuo Firebaseen</button>
+          <button class="btn btn-ghost" id="clearImportBtn" onclick="clearImport()" style="display:none">✕ Tyhjennä</button>
         </div>
       </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="ico">📜</span>Import-loki</div></div>
+        <div id="importLog" class="code" style="max-height:180px;overflow-y:auto">Ei import-toimintoja tässä sessiossa.</div>
+      </div>
+    </div>
+
+    <!-- GDPR -->
+    <div class="page" id="page-gdpr">
+      <div class="ph"><div class="ph-title">GDPR & Tietosuoja</div><div class="ph-sub">Suostumusten hallinta pilottiseuroille</div></div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><span class="ico">📋</span>Suostumuslomake</div>
+          <button class="btn btn-ghost btn-sm" onclick="openModal('modalGdpr')">Muokkaa</button>
+        </div>
+        <div style="background:var(--bg);border-radius:8px;padding:20px;font-size:13px;line-height:1.75;color:var(--text2)">
+          <p style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:14px">TalentMaster™ — Tietosuojailmoitus ja suostumus</p>
+          <p style="margin-bottom:10px">TalentMaster tallentaa pelaajan urheilusuorituksiin liittyviä tietoja jalkapalloseuran valmennustoiminnan kehittämiseksi.</p>
+          <p style="margin-bottom:6px"><strong style="color:var(--text)">Tallennettavat tiedot:</strong></p>
+          <ul style="padding-left:18px;margin-bottom:10px"><li>Nimi, syntymäaika, seura ja joukkue</li><li>Fyysiset testitulokset (nopeus, ketteryys, hyppy)</li><li>Harjoitteluseurantakirjaukset (SPL 7 kriteeriä)</li><li>Biologinen ikä ja kasvuvaihetieto ⚠️</li><li>Pelitaidolliset arvioinnit (ADAR / Game IQ)</li></ul>
+          <p style="margin-bottom:6px"><strong style="color:var(--text)">Oikeutesi:</strong> Voit milloin tahansa tarkastaa, oikaista tai pyytää poistamaan tietosi.</p>
+          <p><strong style="color:var(--text)">Säilytysaika:</strong> Enintään 5 vuotta tai seurajäsenyyden ajan.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="ico">✅</span>Tallennetut suostumukset</div></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Pelaaja</th><th>Seura</th><th>Suostumuksen antaja</th><th>Päivämäärä</th><th>Tila</th></tr></thead>
+          <tbody id="gdprTable"><tr><td colspan="5" style="color:var(--text3);padding:24px;text-align:center">Ei tallennettuja suostumuksia vielä.</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- SECURITY RULES -->
+    <div class="page" id="page-rules">
+      <div class="ph"><div class="ph-title">Firestore Security Rules</div><div class="ph-sub">Ajantasaiset säännöt sihteeri-arkkitehtuurilla — kopioi Firebase Consoleen</div></div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><span class="ico">🛡️</span>firestore.rules</div>
+          <button class="btn btn-ghost btn-sm" onclick="copyRules()">📋 Kopioi</button>
+        </div>
+        <pre id="rulesCode" class="code" style="max-height:520px;overflow-y:auto">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Apufunktiot ──────────────────────────────
+    function isAuth() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+
+    function isSuperAdmin() {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/admins/$(uid()));
+    }
+
+    // Tarkistaa onko käyttäjällä rooli tietyssä seurassa
+    // Roolit on taulukko: roolit: ["vp", "sihteeri"]
+    function hasRole(seuraId, rooli) {
+      return isAuth() && rooli in
+        get(/databases/$(database)/documents/seurat/$(seuraId)/kayttajat/$(uid())).data.roolit;
+    }
+
+    function isVP(s)       { return hasRole(s, 'vp'); }
+    function isSihteeri(s) { return hasRole(s, 'sihteeri'); }
+    function isValmentaja(s){ return hasRole(s, 'valmentaja'); }
+
+    // VP tai Sihteeri — molemmat voivat hallita käyttäjiä
+    function canManageUsers(s) {
+      return isSuperAdmin() || isVP(s) || isSihteeri(s);
+    }
+
+    // ── Super Admin ───────────────────────────────
+    match /admins/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // ── Seurat ────────────────────────────────────
+    match /seurat/{seuraId} {
+      allow read:  if isSuperAdmin() || isVP(seuraId) || isSihteeri(seuraId) || isValmentaja(seuraId);
+      allow write: if isSuperAdmin();
+
+      // Joukkueet — Sihteeri ja VP hallinnoi
+      match /joukkueet/{joukkueId} {
+        allow read:  if isSuperAdmin() || isVP(seuraId) || isSihteeri(seuraId) || isValmentaja(seuraId);
+        allow write: if isSuperAdmin() || isSihteeri(seuraId) || isVP(seuraId);
+      }
+
+      // Käyttäjät — roolit taulukkona
+      match /kayttajat/{kayttajaId} {
+        allow read:  if isSuperAdmin() || isVP(seuraId) || isSihteeri(seuraId);
+        allow write: if canManageUsers(seuraId);
+      }
+
+      // Harjoitteluseurantakirjaukset
+      match /kirjaukset/{kirjausId} {
+        allow read:  if isSuperAdmin() || isVP(seuraId) || isValmentaja(seuraId);
+        allow write: if isSuperAdmin() || isVP(seuraId) || isValmentaja(seuraId);
+      }
+
+      // Testitulokset
+      match /testit/{testiId} {
+        allow read:  if isSuperAdmin() || isVP(seuraId) || isValmentaja(seuraId);
+        allow write: if isSuperAdmin() || isVP(seuraId)
+                     || hasRole(seuraId,'testi') || hasRole(seuraId,'fysiikka');
+      }
+
+      // Harjoitettavuuskartoitukset + Tekniikkakilpailut
+      match /kartoitukset/{id} {
+        allow read:  if isSuperAdmin() || isVP(seuraId) || isValmentaja(seuraId);
+        allow write: if isSuperAdmin() || isVP(seuraId) || isSihteeri(seuraId);
+      }
+      match /tekniikka/{id} {
+        allow read:  if isSuperAdmin() || isVP(seuraId) || isValmentaja(seuraId);
+        allow write: if isSuperAdmin() || isVP(seuraId) || isSihteeri(seuraId);
+      }
+
+      // Vammadata — arkaluonteinen
+      match /vammat/{id} {
+        allow read:  if isSuperAdmin() || isVP(seuraId) || hasRole(seuraId,'fysio');
+        allow write: if isSuperAdmin() || hasRole(seuraId,'fysio');
+      }
+
+      // GDPR-suostumukset
+      match /suostumukset/{id} {
+        allow read, write: if canManageUsers(seuraId);
+      }
+    }
+
+    // ── Vanha rakenne (yhteensopivuus) ────────────
+    match /kirjaukset/{doc} { allow read, write: if isAuth(); }
+    match /kirjaukset_joukkue/{doc} { allow read, write: if isAuth(); }
+    match /kirjaukset_tapahtumat/{doc} { allow read, write: if isAuth(); }
+  }
+}</pre>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<!-- MODAL: Kutsu käyttäjä -->
+<div class="overlay" id="modalKutsuKayttaja">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modalKutsuKayttaja')">✕</button>
+    <div class="modal-title">✉️ Kutsu käyttäjä</div>
+    <div class="modal-sub">Luo Firestore-kirjaus seuran käyttäjälle</div>
+    <div id="kutsuAlert" class="alert"></div>
+    <div class="field"><label>Sähköpostiosoite</label><input type="email" id="kutsuEmail" placeholder="vp.seura@talentmaster.fi"></div>
+    <div class="field"><label>Seura</label><select id="kutsuSeura"><option value="">– Valitse –</option></select></div>
+    <div class="field">
+      <label>Roolit — valitse kaikki sopivat</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px" id="kutsuRoolit">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer"><input type="checkbox" value="vp" style="accent-color:var(--accent)"> Valmennuspäällikkö (vp)</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer"><input type="checkbox" value="sihteeri" style="accent-color:var(--accent)"> Seurasihteeri</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer"><input type="checkbox" value="valmentaja" style="accent-color:var(--accent)"> Valmentaja</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer"><input type="checkbox" value="testi" style="accent-color:var(--accent)"> Testivastaava</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer"><input type="checkbox" value="fysiikka" style="accent-color:var(--accent)"> Fysiikkavalmentaja</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer"><input type="checkbox" value="fysio" style="accent-color:var(--accent)"> Fysioterapeutti</label>
+      </div>
+    </div>
+    <div class="warn-box" style="margin:12px 0">
+      <strong>Huom:</strong> Firebase Auth -käyttäjä luodaan erikseen:
+      Firebase Console → Authentication → Add User <em>tai</em>
+      <code style="font-family:var(--mono);font-size:11px;color:var(--accent)">tm_admin/setup_admin.js</code>
+    </div>
+    <div class="field"><label>Firebase Auth UID (täytä luonnin jälkeen)</label><input type="text" id="kutsuUid" placeholder="esim. dpYcfa154ZOHshZzHrVaTZ2iTHE3" style="font-family:var(--mono);font-size:12px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalKutsuKayttaja')">Peruuta</button>
+      <button class="btn btn-success" onclick="tallennaKayttaja()" id="kutsuBtn">Tallenna Firestoreen</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Muokkaa seuraa -->
+<div class="overlay" id="modalEditSeura">
+  <div class="modal" style="width:560px">
+    <button class="modal-close" onclick="closeModal('modalEditSeura')">✕</button>
+    <div class="modal-title" id="editSeuraTitle">Muokkaa seuraa</div>
+    <div class="modal-sub" id="editSeuraSub">–</div>
+    <div id="editSeuraAlert" class="alert"></div>
+    <div class="two-col">
+      <div class="field"><label>Seuran nimi</label><input type="text" id="eNimi"></div>
+      <div class="field"><label>Seura-ID</label><input type="text" id="eId" disabled style="opacity:.4"></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Kaupunki</label><input type="text" id="eKaupunki"></div>
+      <div class="field"><label>Laji</label><select id="eLaji"><option value="jalkapallo">Jalkapallo</option><option value="salibandy">Salibandy</option><option value="jaakiekko">Jääkiekko</option><option value="koripallo">Koripallo</option></select></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Paketti</label><select id="ePaketti"><option value="perustaso">Perustaso</option><option value="kehitystaso">Kehitystaso</option><option value="huipputaso">Huipputaso</option></select></div>
+      <div class="field"><label>Max pelaajia</label><input type="text" id="eMaxPelaajat"></div>
+    </div>
+    <div class="field"><label>VP:n sähköposti</label><input type="email" id="eVpEmail"></div>
+    <div class="field"><label>VP:n UID</label><input type="text" id="eVpUid" style="font-family:var(--mono);font-size:12px"></div>
+    <div class="field"><label>Aktiivinen</label><select id="eAktiivinen"><option value="true">Kyllä — aktiivinen pilotti</option><option value="false">Ei — passiivinen</option></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalEditSeura')">Peruuta</button>
+      <button class="btn btn-success" onclick="saveSeura()" id="saveSeuraBtn">💾 Tallenna</button>
     </div>
   </div>
 </div>
 
 <!-- MODAL: Uusi seura -->
-<div class="modal-overlay" id="modalUusiSeura" onclick="if(event.target===this)suljeModal()">
+<div class="overlay" id="modalNewSeura">
   <div class="modal">
-    <div class="modal-title">➕ Lisää uusi seura</div>
-
-    <div class="field">
-      <label>Seuran nimi</label>
-      <input class="field" id="mNimi" type="text" placeholder="FC Esimerkkiseura"
-        style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;font-family:'Syne',sans-serif">
+    <button class="modal-close" onclick="closeModal('modalNewSeura')">✕</button>
+    <div class="modal-title">+ Lisää pilottiseura</div>
+    <div class="modal-sub">Luo uusi seura Firebaseen</div>
+    <div id="newSeuraAlert" class="alert"></div>
+    <div class="two-col">
+      <div class="field"><label>Seuran nimi</label><input type="text" id="nsNimi" placeholder="FC Esimerkki"></div>
+      <div class="field"><label>Seura-ID</label><input type="text" id="nsId" placeholder="fce" style="font-family:var(--mono)"></div>
     </div>
-
-    <div class="field" style="margin-top:14px">
-      <label>Seura-ID (lyhyt, ei välilyöntejä)</label>
-      <input id="mId" type="text" placeholder="fcl"
-        style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;font-family:'JetBrains Mono',monospace"
-        oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9]/g,'')">
+    <div class="two-col">
+      <div class="field"><label>Kaupunki</label><input type="text" id="nsKaupunki" placeholder="Helsinki"></div>
+      <div class="field"><label>Paketti</label><select id="nsPaketti"><option value="perustaso">Perustaso</option><option value="kehitystaso">Kehitystaso</option><option value="huipputaso">Huipputaso</option></select></div>
     </div>
-
-    <div class="field" style="margin-top:14px">
-      <label>Paketti</label>
-      <select id="mPaketti" class="field-input">
-        <option value="perustaso">Perustaso</option>
-        <option value="kehitystaso" selected>Kehitystaso</option>
-        <option value="huipputaso">Huipputaso</option>
-      </select>
-    </div>
-
-    <div class="field" style="margin-top:14px">
-      <label>Laji</label>
-      <select id="mLaji" class="field-input">
-        <option value="jalkapallo" selected>⚽ Jalkapallo</option>
-        <option value="salibandy">🏑 Salibandy</option>
-        <option value="jaakiekko">🏒 Jääkiekko</option>
-        <option value="koripallo">🏀 Koripallo</option>
-      </select>
-    </div>
-
-    <div class="field" style="margin-top:14px">
-      <label>VP:n sähköposti</label>
-      <input id="mVpEmail" type="email" placeholder="vp.seura@talentmaster.fi"
-        style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;font-family:'JetBrains Mono',monospace">
-    </div>
-
-    <div class="field" style="margin-top:14px">
-      <label>Kaupunki</label>
-      <input id="mKaupunki" type="text" placeholder="Helsinki"
-        style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;font-family:'Syne',sans-serif">
-    </div>
-
-    <div class="modal-err" id="modalErr"></div>
-
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="suljeModal()">Peruuta</button>
-      <button class="btn-save" onclick="tallennaUusiSeura()">💾 Tallenna Firebaseen</button>
+    <div class="field"><label>VP:n sähköposti</label><input type="email" id="nsVpEmail" placeholder="vp.seura@talentmaster.fi"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalNewSeura')">Peruuta</button>
+      <button class="btn btn-success" onclick="luoSeura()">Luo seura</button>
     </div>
   </div>
 </div>
 
-<script>
-// ── FIREBASE ────────────────────────────────────────────────────
-var _fbConfig = {
-  apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
-  authDomain:        "talentmaster-pilot.firebaseapp.com",
-  projectId:         "talentmaster-pilot",
-  storageBucket:     "talentmaster-pilot.firebasestorage.app",
-  messagingSenderId: "872561784446",
-  appId:             "1:872561784446:web:05c4c7996dfd46ddd14a2f"
-};
+<!-- MODAL: Uusi joukkue -->
+<div class="overlay" id="modalNewJoukkue">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modalNewJoukkue')">✕</button>
+    <div class="modal-title">⚽ Lisää joukkue</div>
+    <div class="modal-sub" id="newJoukkueSub">Valitse seura joukkueet-välilehdellä ensin</div>
+    <div id="newJoukkueAlert" class="alert"></div>
+    <div class="field"><label>Joukkueen nimi</label><input type="text" id="njNimi" placeholder="esim. U15/1"></div>
+    <div class="two-col">
+      <div class="field"><label>Ikäluokka</label><input type="text" id="njIka" placeholder="U15"></div>
+      <div class="field"><label>Vuosiluokka</label><input type="text" id="njVuosi" placeholder="2010"></div>
+    </div>
+    <div class="field"><label>Päävalmentaja</label><input type="text" id="njValmentaja" placeholder="Matti Virtanen"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalNewJoukkue')">Peruuta</button>
+      <button class="btn btn-success" onclick="luoJoukkue()">Luo joukkue</button>
+    </div>
+  </div>
+</div>
 
-var _db, _auth, _user;
+<!-- MODAL: GDPR -->
+<div class="overlay" id="modalGdpr">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modalGdpr')">✕</button>
+    <div class="modal-title">🔒 GDPR-asetukset</div>
+    <div class="modal-sub">Tallennetaan Firestoreen</div>
+    <div class="field"><label>Organisaation nimi</label><input type="text" id="gdprOrg" value="TalentMaster™ / [Seuran nimi]"></div>
+    <div class="field"><label>Rekisterinpitäjä</label><input type="text" id="gdprRek" placeholder="Seuran nimi, Kaupunki"></div>
+    <div class="field"><label>Yhteyshenkilö (tietosuoja)</label><input type="text" id="gdprYh" placeholder="tietosuoja@seura.fi"></div>
+    <div class="field"><label>Lisätietoja</label><textarea id="gdprLisaa" placeholder="Erityishuomiot..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalGdpr')">Peruuta</button>
+      <button class="btn btn-success" onclick="saveGdpr()">💾 Tallenna</button>
+    </div>
+  </div>
+</div>
 
-try {
-  if (!firebase.apps.length) firebase.initializeApp(_fbConfig);
-  _db   = firebase.firestore();
-  _auth = firebase.auth();
-} catch(e) {
-  console.error('Firebase init error:', e);
-}
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import{getFirestore,collection,getDocs,doc,getDoc,setDoc,updateDoc,addDoc,deleteDoc,serverTimestamp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-// ── AUTH ────────────────────────────────────────────────────────
-function kirjaudu() {
-  var email = document.getElementById('emailInput').value.trim();
-  var pw    = document.getElementById('pwInput').value;
-  var err   = document.getElementById('errMsg');
+const cfg={apiKey:"AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",authDomain:"talentmaster-pilot.firebaseapp.com",projectId:"talentmaster-pilot",storageBucket:"talentmaster-pilot.firebasestorage.app",messagingSenderId:"872561784446",appId:"1:872561784446:web:05c4c7996dfd46ddd14a2f"};
+const app=initializeApp(cfg);
+const auth=getAuth(app);
+const db=getFirestore(app);
 
-  if (!email || !pw) { err.textContent = 'Täytä kaikki kentät'; return; }
-  err.textContent = 'Kirjaudutaan...';
-  err.style.color = 'var(--teal)';
+let seurat=[],allUsers=[],currentEditSeuraId=null,csvData=null,importLog=[];
 
-  _auth.signInWithEmailAndPassword(email, pw)
-    .then(function(cred) {
-      _user = cred.user;
-      // Tarkistetaan super-admin sähköpostilla — yksinkertainen ja luotettava
-      var ADMIN_EMAILS = ['talentmasterid@gmail.com'];
-      if (ADMIN_EMAILS.indexOf(_user.email) !== -1) {
-        document.getElementById('sLogin').style.display = 'none';
-        document.getElementById('sDash').style.display  = 'block';
-        document.getElementById('topbarUser').textContent = _user.email;
-        lataaDashboard();
-        return Promise.resolve();
-      } else {
-        err.style.color = 'var(--red)';
-        err.textContent = '⛔ Ei admin-oikeuksia';
-        _auth.signOut();
-        return Promise.resolve();
-      }
-    })
-    .catch(function(e) {
-      err.style.color = 'var(--red)';
-      var viesti = 'Kirjautuminen epäonnistui';
-      if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential')
-        viesti = 'Väärä sähköposti tai salasana';
-      if (e.code === 'auth/user-not-found')
-        viesti = 'Käyttäjää ei löydy';
-      err.textContent = viesti;
-    });
-}
-
-function kirjauduUlos() {
-  _auth.signOut();
-  _user = null;
-  document.getElementById('sDash').style.display  = 'none';
-  document.getElementById('sLogin').style.display = 'flex';
-  document.getElementById('errMsg').textContent   = '';
-  document.getElementById('emailInput').value     = '';
-  document.getElementById('pwInput').value        = '';
-}
-
-// ── DASHBOARD ───────────────────────────────────────────────────
-var _aktivTab = 0;
-var _seurat   = [];
-
-function vaihda(idx, el) {
-  _aktivTab = idx;
-  document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
-  el.classList.add('active');
-  document.querySelectorAll('[id^="tab"]').forEach(function(t) { t.style.display = 'none'; });
-  document.getElementById('tab' + idx).style.display = '';
-  if (idx === 1) lataaKayttajat();
-  if (idx === 2) lataaTilastot();
-}
-
-function lataaDashboard() {
-  lataaSeurat();
-}
-
-// ── SEURAT ──────────────────────────────────────────────────────
-function lataaSeurat() {
-  _db.collection('seurat').get()
-    .then(function(snap) {
-      _seurat = [];
-      snap.forEach(function(doc) { _seurat.push(doc.data()); });
-
-      // Päivitä stats
-      document.getElementById('statSeuroja').textContent = _seurat.length;
-
-      // Renderöi seurat
-      var grid = document.getElementById('seuraGrid');
-      if (_seurat.length === 0) {
-        grid.innerHTML = '<div class="loading">Ei seuroja vielä. Lisää ensimmäinen seura.</div>';
-        return;
-      }
-
-      var html = '';
-      _seurat.sort(function(a,b) { return a.nimi > b.nimi ? 1 : -1; });
-      _seurat.forEach(function(s) {
-        var pakettiBadge = s.paketti === 'kehitystaso'
-          ? '<span class="badge badge-kehitys">KEHITYS</span>'
-          : s.paketti === 'huipputaso'
-          ? '<span class="badge badge-huippu">HUIPPU</span>'
-          : '<span class="badge badge-perustaso">PERUS</span>';
-
-        html += '<div class="seura-row">';
-        html +=   '<div>';
-        html +=     '<div class="seura-nimi">' + s.nimi + '</div>';
-        html +=     '<div class="seura-id">id: ' + s.id + ' · ' + (s.laji || 'jalkapallo') + ' · ' + (s.kaupunki || '') + '</div>';
-        html +=   '</div>';
-        html +=   pakettiBadge;
-        html +=   '<div class="seura-vp">' + (s.vp_email || '—') + '</div>';
-        html +=   '<span class="badge badge-aktiivinen">AKTIIVINEN</span>';
-        html +=   '<button class="btn-edit" onclick="avaaSeura(\'' + s.id + '\')">Hallitse</button>';
-        html += '</div>';
-      });
-      grid.innerHTML = html;
-    })
-    .catch(function(e) {
-      document.getElementById('seuraGrid').innerHTML =
-        '<div class="loading">Virhe: ' + e.message + '</div>';
-    });
-}
-
-// ── KÄYTTÄJÄT ───────────────────────────────────────────────────
-function lataaKayttajat() {
-  var html = '<div style="margin-bottom:16px">';
-  html += '<label style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:8px">Valitse seura</label>';
-  html += '<select onchange="lataaSeuraKayttajat(this.value)" style="padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:\'Syne\',sans-serif;width:300px">';
-  html += '<option value="">-- Valitse --</option>';
-  _seurat.forEach(function(s) {
-    html += '<option value="' + s.id + '">' + s.nimi + '</option>';
-  });
-  html += '</select></div>';
-  html += '<div id="kayttajaLista"></div>';
-  document.getElementById('kayttajatContent').innerHTML = html;
-}
-
-function lataaSeuraKayttajat(seuraId) {
-  if (!seuraId) return;
-  var lista = document.getElementById('kayttajaLista');
-  lista.innerHTML = '<div class="loading"><div class="spinner"></div>Ladataan...</div>';
-
-  var seura = _seurat.find(function(s) { return s.id === seuraId; });
-
-  var html = '<div class="kayttaja-row" style="font-weight:700;color:var(--muted);font-size:11px;letter-spacing:1px;text-transform:uppercase">';
-  html += '<div>Sähköposti</div><div>Rooli</div><div></div></div>';
-
-  // VP aina ensimmäisenä
-  if (seura && seura.vp_email) {
-    html += '<div class="kayttaja-row">';
-    html += '<div class="kayttaja-email">' + seura.vp_email + '</div>';
-    html += '<div><span class="badge badge-kehitys">VP</span></div>';
-    html += '<div style="font-size:11px;color:var(--muted)">UID: ' + (seura.vp_uid || '—').substring(0,12) + '...</div>';
-    html += '</div>';
-  }
-
-  // Haetaan muut käyttäjät alikokoelmasta
-  _db.collection('seurat').doc(seuraId).collection('kayttajat').get()
-    .then(function(snap) {
-      snap.forEach(function(doc) {
-        var k = doc.data();
-        html += '<div class="kayttaja-row">';
-        html += '<div class="kayttaja-email">' + (k.email || doc.id) + '</div>';
-        html += '<div class="kayttaja-rooli">' + (k.rooli || '—') + '</div>';
-        html += '<div></div>';
-        html += '</div>';
-      });
-
-      if (snap.empty && !seura.vp_email) {
-        html += '<div style="padding:20px;color:var(--muted);font-size:13px">Ei käyttäjiä vielä.</div>';
-      }
-
-      lista.innerHTML = html;
-    })
-    .catch(function(e) {
-      lista.innerHTML = html + '<div class="loading">Virhe: ' + e.message + '</div>';
-    });
-}
-
-// ── TILASTOT ────────────────────────────────────────────────────
-function lataaTilastot() {
-  var el = document.getElementById('tilastotContent');
-  el.innerHTML = '<div class="loading"><div class="spinner"></div>Ladataan tilastoja...</div>';
-
-  Promise.all([
-    _db.collection('kirjaukset_tapahtumat').get(),
-    _db.collection('kirjaukset_joukkue').get(),
-    _db.collection('seurat').get()
-  ]).then(function(results) {
-    var tapahtumat = results[0].size;
-    var joukkueet  = results[1].size;
-    var seuroja    = results[2].size;
-
-    document.getElementById('statKirjauksia').textContent = tapahtumat;
-    document.getElementById('statKayttajia').textContent  = seuroja * 1; // placeholder
-
-    var html = '<div class="stats-row" style="grid-template-columns:repeat(3,1fr)">';
-    html += stat('Kirjauksia yhteensä', tapahtumat, 'harjoitteluseuranta-tapahtumat');
-    html += stat('Joukkuetta datassa', joukkueet, 'joilla kirjauksia');
-    html += stat('Seuroja', seuroja, 'Firestoressä');
-    html += '</div>';
-
-    html += '<div class="section-header" style="margin-top:24px"><div class="section-title">Seurakohtaiset tilastot</div></div>';
-    html += '<div class="seura-grid">';
-    results[2].forEach(function(doc) {
-      var s = doc.data();
-      var tilastot = s.tilastot || {};
-      html += '<div class="seura-row">';
-      html += '<div><div class="seura-nimi">' + s.nimi + '</div><div class="seura-id">' + s.id + '</div></div>';
-      html += '<div style="font-size:13px">' + (tilastot.pelaajia || 0) + ' pelaajaa</div>';
-      html += '<div style="font-size:13px">' + (tilastot.kirjauksia || 0) + ' kirjausta</div>';
-      html += '<div></div><div></div>';
-      html += '</div>';
-    });
-    html += '</div>';
-
-    el.innerHTML = html;
-  }).catch(function(e) {
-    el.innerHTML = '<div class="loading">Virhe: ' + e.message + '</div>';
-  });
-}
-
-function stat(label, value, sub) {
-  return '<div class="stat-card"><div class="stat-label">' + label + '</div>' +
-    '<div class="stat-value" style="font-size:28px">' + value + '</div>' +
-    '<div class="stat-sub">' + sub + '</div></div>';
-}
-
-// ── UUSI SEURA ──────────────────────────────────────────────────
-function avaaUusiSeura() {
-  document.getElementById('modalUusiSeura').classList.add('open');
-  document.getElementById('modalErr').textContent = '';
-  document.getElementById('mNimi').value     = '';
-  document.getElementById('mId').value       = '';
-  document.getElementById('mVpEmail').value  = '';
-  document.getElementById('mKaupunki').value = '';
-}
-
-function suljeModal() {
-  document.getElementById('modalUusiSeura').classList.remove('open');
-}
-
-// Auto-generoi ID nimestä
-document.addEventListener('DOMContentLoaded', function() {
-  var nimiInput = document.getElementById('mNimi');
-  if (nimiInput) {
-    nimiInput.addEventListener('input', function() {
-      var id = this.value.toLowerCase()
-        .replace(/ä/g,'a').replace(/ö/g,'o').replace(/å/g,'a')
-        .replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')
-        .substring(0,20);
-      document.getElementById('mId').value = id;
-    });
-  }
+onAuthStateChanged(auth,async user=>{
+  if(!user){showLogin();return;}
+  const snap=await getDoc(doc(db,'admins',user.uid));
+  if(!snap.exists()||!snap.data().superAdmin){toast('Ei super-admin oikeuksia','err');await signOut(auth);return;}
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('navUser').innerHTML=`<strong>${user.email}</strong>`;
+  await loadAll();
 });
 
-function tallennaUusiSeura() {
-  var nimi     = document.getElementById('mNimi').value.trim();
-  var id       = document.getElementById('mId').value.trim();
-  var paketti  = document.getElementById('mPaketti').value;
-  var laji     = document.getElementById('mLaji').value;
-  var vpEmail  = document.getElementById('mVpEmail').value.trim();
-  var kaupunki = document.getElementById('mKaupunki').value.trim();
-  var errEl    = document.getElementById('modalErr');
+window.doLogin=async()=>{
+  const e=document.getElementById('loginEmail').value.trim();
+  const p=document.getElementById('loginPw').value;
+  const btn=document.getElementById('loginBtn');
+  const err=document.getElementById('loginErr');
+  err.style.display='none';btn.disabled=true;
+  btn.innerHTML='<span class="spin"></span> Kirjaudutaan...';
+  try{await signInWithEmailAndPassword(auth,e,p);}
+  catch(ex){err.style.display='block';err.textContent='Virhe: '+(ex.code==='auth/invalid-credential'?'Väärä sähköposti tai salasana':ex.message);btn.disabled=false;btn.innerHTML='Kirjaudu sisään';}
+};
 
-  if (!nimi)    { errEl.textContent = 'Seuran nimi puuttuu'; return; }
-  if (!id)      { errEl.textContent = 'Seura-ID puuttuu'; return; }
-  if (!vpEmail) { errEl.textContent = 'VP:n sähköposti puuttuu'; return; }
+window.doLogout=async()=>{await signOut(auth);showLogin();};
+function showLogin(){document.getElementById('loginScreen').style.display='flex';document.getElementById('app').style.display='none';}
+document.getElementById('loginPw').addEventListener('keydown',e=>{if(e.key==='Enter')window.doLogin();});
 
-  errEl.textContent = 'Tallennetaan...';
-  errEl.style.color = 'var(--teal)';
+async function loadAll(){await loadSeurat();await loadAllUsers();renderStats();}
 
-  // Tarkistetaan ettei ID ole jo käytössä
-  _db.collection('seurat').doc(id).get()
-    .then(function(doc) {
-      if (doc.exists) {
-        errEl.style.color = 'var(--red)';
-        errEl.textContent = 'Seura-ID "' + id + '" on jo käytössä';
-        return;
-      }
-
-      // Tallennetaan Firestoreen
-      return _db.collection('seurat').doc(id).set({
-        id:          id,
-        nimi:        nimi,
-        laji:        laji,
-        paketti:     paketti,
-        vp_email:    vpEmail,
-        vp_uid:      '',  // Asetetaan kun VP kirjautuu ensimmäisen kerran
-        kaupunki:    kaupunki,
-        maa:         'FI',
-        aktiivinen:  true,
-        luotu:       firebase.firestore.FieldValue.serverTimestamp(),
-        ominaisuudet: ['kirjaukset','testit','pelaajaprofiilit','adar','biologinen_ika'],
-        roolit:      ['vp','valmentaja','testivastaava'],
-        max_pelaajia: paketti === 'huipputaso' ? 999 : paketti === 'kehitystaso' ? 300 : 100,
-        tilastot:    { pelaajia:0, joukkueita:0, kirjauksia:0 }
-      });
-    })
-    .then(function() {
-      if (!errEl.textContent.includes('käytössä')) {
-        errEl.style.color = 'var(--green)';
-        errEl.textContent = '✅ Seura "' + nimi + '" luotu!';
-        setTimeout(function() {
-          suljeModal();
-          lataaSeurat();
-        }, 1200);
-      }
-    })
-    .catch(function(e) {
-      errEl.style.color = 'var(--red)';
-      errEl.textContent = 'Virhe: ' + e.message;
-    });
+async function loadSeurat(){
+  const snap=await getDocs(collection(db,'seurat'));
+  seurat=[];snap.forEach(d=>seurat.push({id:d.id,...d.data()}));
+  renderOverviewTable();renderSeuratGrid();populateSelects();
 }
 
-function avaaSeura(seuraId) {
-  // Vaihda käyttäjät-välilehdelle ja valitse seura
-  vaihda(1, document.querySelectorAll('.nav-tab')[1]);
-  setTimeout(function() {
-    var sel = document.querySelector('#kayttajatContent select');
-    if (sel) { sel.value = seuraId; lataaSeuraKayttajat(seuraId); }
-  }, 100);
+async function loadAllUsers(){
+  allUsers=[];
+  for(const s of seurat){
+    try{const snap=await getDocs(collection(db,'seurat',s.id,'kayttajat'));
+      snap.forEach(d=>allUsers.push({uid:d.id,seuraId:s.id,seuraNimi:s.nimi||s.id,...d.data()}));
+    }catch(e){}
+  }
+  renderUsers(allUsers);
+  document.getElementById('s-users').textContent=allUsers.length;
+}
+
+function renderStats(){
+  document.getElementById('s-seurat').textContent=seurat.length;
+  document.getElementById('s-kirjaukset').textContent='–';
+  countJoukkueet();
+}
+
+async function countJoukkueet(){
+  let tot=0;
+  for(const s of seurat){try{const snap=await getDocs(collection(db,'seurat',s.id,'joukkueet'));tot+=snap.size;}catch(e){}}
+  document.getElementById('s-joukkueet').textContent=tot;
+}
+
+function renderOverviewTable(){
+  const tb=document.getElementById('overviewTable');
+  if(!seurat.length){tb.innerHTML='<tr><td colspan="7" style="color:var(--text3);padding:24px;text-align:center">Ei seuroja</td></tr>';return;}
+  tb.innerHTML=seurat.map(s=>`
+    <tr>
+      <td>${s.nimi||s.id}</td>
+      <td><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${s.id}</span></td>
+      <td><span class="badge b-purple">${s.paketti||'–'}</span></td>
+      <td style="font-size:12px">${s.vp_email||'–'}</td>
+      <td><span id="jc-${s.id}">–</span></td>
+      <td>${s.aktiivinen!==false?'<span class="badge b-green">Aktiivinen</span>':'<span class="badge b-gray">Passiivinen</span>'}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="openEditSeura('${s.id}')">Muokkaa</button></td>
+    </tr>`).join('');
+  seurat.forEach(async s=>{
+    try{const snap=await getDocs(collection(db,'seurat',s.id,'joukkueet'));const el=document.getElementById('jc-'+s.id);if(el)el.textContent=snap.size;}catch(e){}
+  });
+}
+
+function renderSeuratGrid(){
+  const g=document.getElementById('seuratGrid');
+  if(!seurat.length){g.innerHTML='<div style="color:var(--text3);font-size:13px">Ei seuroja</div>';return;}
+  g.innerHTML=seurat.map(s=>`
+    <div class="seura-card" onclick="openEditSeura('${s.id}')">
+      <div class="sc-name">${s.nimi||s.id}</div>
+      <div class="sc-id">${s.id} · ${s.kaupunki||'–'}</div>
+      <div class="sc-meta">
+        <span class="badge b-purple">${s.paketti||'–'}</span>
+        ${s.aktiivinen!==false?'<span class="badge b-green">Aktiivinen</span>':'<span class="badge b-gray">Passiivinen</span>'}
+        <span style="font-size:11px;color:var(--text3)">${s.laji||'jalkapallo'}</span>
+      </div>
+    </div>`).join('');
+}
+
+function populateSelects(){
+  ['kutsuSeura','filterSeura','joukkueetSeura','importSeura'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const first=el.options[0];el.innerHTML='';el.appendChild(first);
+    seurat.forEach(s=>{const o=new Option(s.nimi||s.id,s.id);el.appendChild(o);});
+  });
+}
+
+function renderUsers(list){
+  const tb=document.getElementById('kayttajatTable');
+  if(!list.length){tb.innerHTML='<tr><td colspan="5" style="color:var(--text3);padding:24px;text-align:center">Ei käyttäjiä</td></tr>';return;}
+  tb.innerHTML=list.map(k=>{
+    const roolit=Array.isArray(k.roolit)?k.roolit:(k.rooli?[k.rooli]:[]);
+    const chips=roolit.map(r=>`<span class="rc rc-${r}">${r}</span>`).join('');
+    return`<tr>
+      <td>${k.email||'–'}</td>
+      <td><div class="role-chips">${chips||'<span style="color:var(--text3);font-size:11px">–</span>'}</div></td>
+      <td>${k.seuraNimi||k.seuraId||'–'}</td>
+      <td>${k.aktiivinen!==false?'<span class="badge b-green">Aktiivinen</span>':'<span class="badge b-gray">Passiivinen</span>'}</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-xs" onclick="deaktivoi('${k.seuraId}','${k.uid}')">Deaktivoi</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+window.filterKayttajat=()=>{
+  const v=document.getElementById('filterSeura').value;
+  renderUsers(v?allUsers.filter(k=>k.seuraId===v):allUsers);
+};
+
+window.loadJoukkueet=async()=>{
+  const seuraId=document.getElementById('joukkueetSeura').value;
+  const tb=document.getElementById('joukkueetTable');
+  const sub=document.getElementById('newJoukkueSub');
+  if(!seuraId){tb.innerHTML='<tr><td colspan="5" style="color:var(--text3);padding:24px;text-align:center">Valitse ensin seura</td></tr>';return;}
+  const s=seurat.find(x=>x.id===seuraId);
+  if(sub&&s)sub.textContent=s.nimi||seuraId;
+  tb.innerHTML='<tr><td colspan="5" style="color:var(--text3);padding:20px;text-align:center">Ladataan...</td></tr>';
+  try{
+    const snap=await getDocs(collection(db,'seurat',seuraId,'joukkueet'));
+    if(snap.empty){tb.innerHTML='<tr><td colspan="5" style="color:var(--text3);padding:24px;text-align:center">Ei joukkueita — lisää ensimmäinen</td></tr>';return;}
+    tb.innerHTML='';
+    snap.forEach(d=>{
+      const j=d.data();
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${j.nimi||d.id}</td><td>${j.ikaluokka||'–'}</td><td>${j.vuosiluokka||'–'}</td><td>${j.valmentaja||'–'}</td>
+        <td><div class="actions">
+          <button class="btn btn-danger btn-xs" onclick="poistaJoukkue('${seuraId}','${d.id}')">Poista</button>
+        </div></td>`;
+      tb.appendChild(tr);
+    });
+  }catch(ex){tb.innerHTML=`<tr><td colspan="5" style="color:var(--red);padding:20px">${ex.message}</td></tr>`;}
+};
+
+window.nav=(page)=>{
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('page-'+page)?.classList.add('active');
+  document.getElementById('nav-'+page)?.classList.add('active');
+};
+
+window.openModal=(id)=>document.getElementById(id)?.classList.add('open');
+window.closeModal=(id)=>document.getElementById(id)?.classList.remove('open');
+document.querySelectorAll('.overlay').forEach(ov=>ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('open');}));
+
+window.openEditSeura=(id)=>{
+  const s=seurat.find(x=>x.id===id);if(!s)return;
+  currentEditSeuraId=id;
+  document.getElementById('editSeuraTitle').textContent=s.nimi||id;
+  document.getElementById('editSeuraSub').textContent=`Seura-ID: ${id}`;
+  document.getElementById('eNimi').value=s.nimi||'';
+  document.getElementById('eId').value=s.id||'';
+  document.getElementById('eKaupunki').value=s.kaupunki||'';
+  document.getElementById('eLaji').value=s.laji||'jalkapallo';
+  document.getElementById('ePaketti').value=s.paketti||'perustaso';
+  document.getElementById('eMaxPelaajat').value=s.max_pelaajia||'';
+  document.getElementById('eVpEmail').value=s.vp_email||'';
+  document.getElementById('eVpUid').value=s.vp_uid||'';
+  document.getElementById('eAktiivinen').value=s.aktiivinen===false?'false':'true';
+  document.getElementById('editSeuraAlert').style.display='none';
+  openModal('modalEditSeura');
+};
+
+window.saveSeura=async()=>{
+  if(!currentEditSeuraId)return;
+  const btn=document.getElementById('saveSeuraBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span> Tallennetaan...';
+  try{
+    await updateDoc(doc(db,'seurat',currentEditSeuraId),{
+      nimi:document.getElementById('eNimi').value,
+      kaupunki:document.getElementById('eKaupunki').value,
+      laji:document.getElementById('eLaji').value,
+      paketti:document.getElementById('ePaketti').value,
+      max_pelaajia:parseInt(document.getElementById('eMaxPelaajat').value)||100,
+      vp_email:document.getElementById('eVpEmail').value,
+      vp_uid:document.getElementById('eVpUid').value,
+      aktiivinen:document.getElementById('eAktiivinen').value==='true',
+      paivitetty:serverTimestamp()
+    });
+    showAlert('editSeuraAlert','ok','Tallennettu!');
+    toast('Seuran tiedot tallennettu','ok');
+    await loadSeurat();
+    setTimeout(()=>closeModal('modalEditSeura'),1200);
+  }catch(ex){showAlert('editSeuraAlert','err','Virhe: '+ex.message);}
+  finally{btn.disabled=false;btn.innerHTML='💾 Tallenna';}
+};
+
+window.luoSeura=async()=>{
+  const nimi=document.getElementById('nsNimi').value.trim();
+  const id=document.getElementById('nsId').value.trim().toLowerCase().replace(/\s+/g,'');
+  if(!nimi||!id){showAlert('newSeuraAlert','err','Täytä nimi ja ID');return;}
+  try{
+    await setDoc(doc(db,'seurat',id),{id,nimi,kaupunki:document.getElementById('nsKaupunki').value,paketti:document.getElementById('nsPaketti').value,vp_email:document.getElementById('nsVpEmail').value,laji:'jalkapallo',aktiivinen:true,max_pelaajia:100,luotu:serverTimestamp()});
+    toast('Seura '+nimi+' luotu!','ok');await loadSeurat();closeModal('modalNewSeura');
+  }catch(ex){showAlert('newSeuraAlert','err','Virhe: '+ex.message);}
+};
+
+window.tallennaKayttaja=async()=>{
+  const email=document.getElementById('kutsuEmail').value.trim();
+  const seuraId=document.getElementById('kutsuSeura').value;
+  const uid=document.getElementById('kutsuUid').value.trim();
+  const boxes=document.querySelectorAll('#kutsuRoolit input:checked');
+  const roolit=Array.from(boxes).map(b=>b.value);
+  if(!email||!seuraId){showAlert('kutsuAlert','err','Täytä sähköposti ja seura');return;}
+  if(!roolit.length){showAlert('kutsuAlert','err','Valitse vähintään yksi rooli');return;}
+  const btn=document.getElementById('kutsuBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span> Tallennetaan...';
+  try{
+    const docId=uid||email.replace(/[@.]/g,'_');
+    await setDoc(doc(db,'seurat',seuraId,'kayttajat',docId),{email,roolit,aktiivinen:true,luotu:serverTimestamp(),paivitetty:serverTimestamp()});
+    toast('Käyttäjä tallennettu','ok');await loadAllUsers();closeModal('modalKutsuKayttaja');
+    // Reset
+    document.getElementById('kutsuEmail').value='';
+    document.getElementById('kutsuUid').value='';
+    document.querySelectorAll('#kutsuRoolit input').forEach(b=>b.checked=false);
+  }catch(ex){showAlert('kutsuAlert','err','Virhe: '+ex.message);}
+  finally{btn.disabled=false;btn.innerHTML='Tallenna Firestoreen';}
+};
+
+window.deaktivoi=async(seuraId,uid)=>{
+  if(!confirm('Deaktivoidaanko käyttäjä?'))return;
+  try{await updateDoc(doc(db,'seurat',seuraId,'kayttajat',uid),{aktiivinen:false});toast('Käyttäjä deaktivoitu','ok');await loadAllUsers();}
+  catch(ex){toast('Virhe: '+ex.message,'err');}
+};
+
+window.luoJoukkue=async()=>{
+  const seuraId=document.getElementById('joukkueetSeura').value;
+  const nimi=document.getElementById('njNimi').value.trim();
+  if(!seuraId){showAlert('newJoukkueAlert','err','Valitse seura ensin joukkueet-välilehdeltä');return;}
+  if(!nimi){showAlert('newJoukkueAlert','err','Anna joukkueen nimi');return;}
+  try{
+    await addDoc(collection(db,'seurat',seuraId,'joukkueet'),{nimi,ikaluokka:document.getElementById('njIka').value,vuosiluokka:document.getElementById('njVuosi').value,valmentaja:document.getElementById('njValmentaja').value,pelaajia:0,luotu:serverTimestamp()});
+    toast('Joukkue '+nimi+' luotu!','ok');closeModal('modalNewJoukkue');await window.loadJoukkueet();
+  }catch(ex){showAlert('newJoukkueAlert','err','Virhe: '+ex.message);}
+};
+
+window.poistaJoukkue=async(seuraId,jId)=>{
+  if(!confirm('Poistetaanko joukkue?'))return;
+  try{await deleteDoc(doc(db,'seurat',seuraId,'joukkueet',jId));toast('Joukkue poistettu','ok');await window.loadJoukkueet();}
+  catch(ex){toast('Virhe: '+ex.message,'err');}
+};
+
+// CSV IMPORT
+const TEMPLATES={
+  pelaajat:'etunimi,sukunimi,syntymaaika,joukkue,palloID\nMatti,Virtanen,2010-05-12,U15/1,34650191\nEmma,Korhonen,2010-08-23,U15/1,34650192',
+  kartoitukset:'etunimi,sukunimi,syntymaaika,joukkue,harjoitettavuus_fyysinen,harjoitettavuus_taidollinen,harjoitettavuus_henkinen,arvioija,pvm\nMatti,Virtanen,2010-05-12,U15/1,4,3,4,Valmentaja Mäkinen,2025-03-01',
+  testit:'etunimi,sukunimi,syntymaaika,joukkue,nopeus_10m,nopeus_20m,kevennyshyppy,ketteryys_10x5m,pvm\nMatti,Virtanen,2010-05-12,U15/1,1.82,3.11,38,17.4,2025-03-15',
+  tekniikka:'etunimi,sukunimi,syntymaaika,joukkue,pisteet,sija,kilpailu,pvm\nMatti,Virtanen,2010-05-12,U15/1,142,3,Tekniikkakilpailu 2025,2025-03-20'
+};
+
+window.downloadTemplate=()=>{
+  const type=document.getElementById('importType').value;
+  const blob=new Blob(['\uFEFF'+TEMPLATES[type]],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`TM_malli_${type}.csv`;a.click();
+  toast('CSV-malli ladattu','ok');
+};
+
+const dz=document.getElementById('dropzone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');const f=e.dataTransfer.files[0];if(f)processCSV(f);});
+
+window.handleCSV=e=>{const f=e.target.files[0];if(f)processCSV(f);};
+
+function processCSV(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const text=e.target.result;
+    const sep=text.includes(';')?';':',';
+    const rows=text.trim().split('\n').map(r=>r.split(sep).map(c=>c.trim().replace(/^"|"$/g,'')));
+    if(rows.length<2){showAlert('importAlert','err','CSV on tyhjä tai virheellinen');return;}
+    csvData={headers:rows[0],rows:rows.slice(1),sep};
+    // preview
+    const box=document.getElementById('previewBox');box.style.display='block';
+    const heads=rows[0].map(h=>`<th style="color:var(--accent);font-family:var(--mono);font-size:10px;padding:4px 8px;white-space:nowrap">${h}</th>`).join('');
+    const dataRows=rows.slice(1,6).map(r=>`<tr>${r.map(c=>`<td style="padding:4px 8px;font-size:11px;color:var(--text2);white-space:nowrap">${c}</td>`).join('')}</tr>`).join('');
+    document.getElementById('previewContent').innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse"><thead><tr>${heads}</tr></thead><tbody>${dataRows}</tbody></table></div>`;
+    document.getElementById('importBtn').disabled=false;
+    document.getElementById('clearImportBtn').style.display='inline-flex';
+    showAlert('importAlert','inf',`✓ ${rows.length-1} riviä ladattu — tarkista esikatselu`);
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+window.runImport=async()=>{
+  if(!csvData)return;
+  const seuraId=document.getElementById('importSeura').value;
+  const type=document.getElementById('importType').value;
+  const joukkue=document.getElementById('importJoukkue').value.trim();
+  if(!seuraId){showAlert('importAlert','err','Valitse kohdaseura');return;}
+  const btn=document.getElementById('importBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span> Tuodaan...';
+  const pw=document.getElementById('importProg');pw.style.display='block';
+  const pb=document.getElementById('importProgBar');pb.style.width='0%';
+  let ok=0,fail=0;
+  try{
+    const coll=collection(db,'seurat',seuraId,type);
+    for(let i=0;i<csvData.rows.length;i++){
+      const row=csvData.rows[i];const obj={};
+      csvData.headers.forEach((h,j)=>{obj[h]=row[j]||'';});
+      if(joukkue)obj.joukkue=joukkue;
+      obj.tuotu=serverTimestamp();obj.tuontiSessio=new Date().toISOString();
+      try{await addDoc(coll,obj);ok++;}
+      catch(ex){fail++;logImport(`❌ Rivi ${i+2}: ${ex.message}`);}
+      pb.style.width=Math.round((i+1)/csvData.rows.length*100)+'%';
+    }
+    logImport(`✅ Import valmis: ${ok} onnistui, ${fail} epäonnistui — seura:${seuraId} tyyppi:${type}`);
+    toast(`Import valmis — ${ok}/${csvData.rows.length} riviä tuotu`,'ok');
+    showAlert('importAlert','ok',`✅ ${ok} riviä tuotu Firebaseen`);
+  }catch(ex){showAlert('importAlert','err','Import epäonnistui: '+ex.message);logImport('❌ '+ex.message);}
+  finally{btn.disabled=false;btn.innerHTML='🚀 Tuo Firebaseen';}
+};
+
+window.clearImport=()=>{
+  csvData=null;
+  document.getElementById('previewBox').style.display='none';
+  document.getElementById('importBtn').disabled=true;
+  document.getElementById('clearImportBtn').style.display='none';
+  document.getElementById('importAlert').style.display='none';
+  document.getElementById('importProg').style.display='none';
+  document.getElementById('csvFile').value='';
+};
+
+function logImport(msg){
+  importLog.push(`[${new Date().toLocaleTimeString('fi')}] ${msg}`);
+  const el=document.getElementById('importLog');
+  el.textContent=importLog.join('\n');el.scrollTop=el.scrollHeight;
+}
+
+window.saveGdpr=async()=>{
+  try{
+    await setDoc(doc(db,'admins','gdpr_settings'),{organisaatio:document.getElementById('gdprOrg').value,rekisterinpitaja:document.getElementById('gdprRek').value,yhteyshenkilo:document.getElementById('gdprYh').value,lisatiedot:document.getElementById('gdprLisaa').value,paivitetty:serverTimestamp()});
+    toast('GDPR-asetukset tallennettu','ok');closeModal('modalGdpr');
+  }catch(ex){toast('Virhe: '+ex.message,'err');}
+};
+
+window.copyRules=()=>{
+  navigator.clipboard.writeText(document.getElementById('rulesCode').textContent)
+    .then(()=>toast('Security Rules kopioitu','ok'))
+    .catch(()=>toast('Kopioi manuaalisesti (Ctrl+A, Ctrl+C)','inf'));
+};
+
+function showAlert(id,type,msg){
+  const el=document.getElementById(id);if(!el)return;
+  el.className='alert '+(type==='ok'?'a-ok':type==='err'?'a-err':'a-inf');
+  el.textContent=msg;el.style.display='block';
+}
+
+function toast(msg,type='inf'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='show '+type;
+  clearTimeout(window._tt);window._tt=setTimeout(()=>{t.className='';},3500);
 }
 </script>
 </body>
