@@ -2467,6 +2467,7 @@ function kirjauduUlos() {
   // Tyhjennä tallennettu seuraDoc jotta refresh ei palauta vanhaa sessiota
   try { localStorage.removeItem('tm_seuraDoc'); } catch(e) {}
   window._fbSeuraDoc = null;
+  window._pilottiAlustettu = false; // Sallii uudelleenalustus seuraavalla kirjautumisella
   _vpPin = '';
   updateDots();
   // Tyhjennetään sähköpostikentät
@@ -2678,6 +2679,13 @@ function _renderJoukkueetLista(snap, seuraNimi, container) {
 function _lataaPilottiDashboard() {
   var seura = window._fbSeuraDoc;
   if (!seura) return;
+  // Estetään toistuvat alustukset — onAuthStateChanged voi laukaista tämän useasti
+  // mutta onSnapshot-kuuntelijaa ei pidä avata uudelleen jos se on jo aktiivinen
+  if (window._pilottiAlustettu && window._joukkueetUnsubscribe) {
+    console.log('[VP] Pilotti jo alustettu — ohitetaan uudelleenalustus');
+    return;
+  }
+  window._pilottiAlustettu = true;
   var seuraId  = seura.id;
   var seuraNimi = seura.nimi || seuraId;
 
