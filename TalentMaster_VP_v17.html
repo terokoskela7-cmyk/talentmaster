@@ -3067,7 +3067,6 @@ function renderJoukkueet() {
   h += '<div style="font-size:11px;color:var(--muted2)">Naputa joukkuetta → analyysi</div>';
   h += '</div>';
 
-  // Korttiruudukko — 2 saraketta mobiilissa, 3 leveällä
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">';
 
   joukkueet.forEach(function(entry) {
@@ -3077,41 +3076,63 @@ function renderJoukkueet() {
     var ovr = j.avgOvr ? j.avgOvr.toFixed(1) : '—';
     var ovrCol = j.avgOvr >= 7 ? 'var(--green)' : j.avgOvr >= 5 ? 'var(--amber)' : 'var(--red)';
 
-    // Löydä pääketju (vahvin)
     var ketjuEntries = Object.entries(j.avgKetjut).sort(function(a,b){return b[1]-a[1];});
-    var paak = ketjuEntries[0];  // vahvin
-    var muut = ketjuEntries.slice(1); // loput
+    var paak = ketjuEntries[0];
+    var muut = ketjuEntries.slice(1);
+
+    // Haetaan painopiste välimuistista jos saatavilla
+    var pp = (_joukkuePainopisteet && _joukkuePainopisteet[jnimi]) || null;
 
     h += '<div onclick="avaaJoukkue(\''+jnimi+'\')" ';
     h += 'style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:14px 16px;';
-    h += 'cursor:pointer;transition:border-color .2s;hover:border-color:var(--teal)" ';
+    h += 'cursor:pointer;transition:border-color .2s" ';
     h += 'onmouseenter="this.style.borderColor=\'var(--teal)\'" onmouseleave="this.style.borderColor=\'var(--border)\'">';
 
-    // Otsikkorivi: nimi + delta-badge
+    // Otsikkorivi
     h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">';
     h += '<div>';
     var syntymaLabel = j.syntymaVuosi ? ' <span style="font-size:10px;color:var(--muted2);font-weight:400">('+j.syntymaVuosi+')</span>' : '';
     h += '<div style="font-size:13px;font-weight:600;color:var(--text)">'+jnimi+syntymaLabel+'</div>';
     h += '<div style="font-size:11px;color:var(--muted2)">'+j.pelaajia+'p · '+j.testeja+' testiä</div>';
-    // Testausvuosikello
     var st = seuraavaTesti(_aktivSeura, jnimi);
     if (st) {
       var stCol = st.paiviaJaljella<=7?'var(--red)':st.paiviaJaljella<=30?'var(--amber)':'var(--muted2)';
       h += '<div style="font-size:10px;color:'+stCol+';margin-top:2px">&#128197; Testipäivä: '+st.label+'</div>';
     }
     h += '</div>';
-    // Delta-badge
     h += '<div style="font-size:11px;color:'+dc+';font-weight:600;background:rgba(0,0,0,.3);';
     h += 'border-radius:6px;padding:2px 7px">'+dl+'</div>';
     h += '</div>';
 
-    // OVR iso numero
+    // ── PAINOPISTE-RIVI ──────────────────────────────────────────────────────
+    if (pp && pp.teksti) {
+      h += '<div onclick="avaaPainopisteModaali(\'' + jnimi + '\',event)" '
+         + 'style="background:rgba(0,212,170,.07);border-left:2px solid var(--teal);'
+         + 'border-radius:0 6px 6px 0;padding:6px 10px;margin-bottom:10px;'
+         + 'font-size:11px;color:var(--teal);line-height:1.4;cursor:pointer">';
+      h += '🎯 ' + pp.teksti;
+      if (pp.linkki) {
+        h += ' <a href="' + pp.linkki + '" target="_blank" '
+           + 'onclick="event.stopPropagation()" '
+           + 'style="color:var(--muted);font-size:10px;margin-left:4px">→ jaksosuunnitelma</a>';
+      }
+      h += '</div>';
+    } else {
+      h += '<div onclick="avaaPainopisteModaali(\'' + jnimi + '\',event)" '
+         + 'style="border-left:2px solid var(--border);padding:5px 10px;margin-bottom:10px;'
+         + 'font-size:10px;color:var(--muted2);font-style:italic;cursor:pointer">'
+         + '+ Aseta kehitystavoite'
+         + '</div>';
+    }
+    // ── / PAINOPISTE-RIVI ────────────────────────────────────────────────────
+
+    // OVR
     h += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:12px">';
     h += '<div style="font-family:\\"Bebas Neue\\";font-size:48px;line-height:1;color:'+ovrCol+'">'+ovr+'</div>';
     h += '<div style="font-size:12px;color:var(--muted2)">OVR</div>';
     h += '</div>';
 
-    // Pääketju — vahvin, isompi bari
+    // Pääketju
     if (paak) {
       var pkm = KETJU[paak[0]] || { plain: paak[0], vari: 'var(--muted)' };
       var pkCol = paak[1] >= 7 ? pkm.vari : paak[1] >= 5 ? 'var(--amber)' : 'var(--red)';
@@ -3126,7 +3147,7 @@ function renderJoukkueet() {
       h += '</div>';
     }
 
-    // Muut ketjut — väripisteet rivillä
+    // Muut ketjut
     h += '<div style="display:flex;gap:6px;align-items:center">';
     muut.forEach(function(e) {
       var km = KETJU[e[0]] || { vari: 'var(--muted)' };
@@ -3136,25 +3157,21 @@ function renderJoukkueet() {
       h += '<div style="font-size:9px;color:var(--muted2)">'+e[1]+'</div>';
       h += '</div>';
     });
-    h += '</div>'; // muut-ketjut
+    h += '</div>';
 
-    // Liikennevalo + kausiaktiivisuus + pikakirjaus-nappi
+    // Liikennevalo + kirjausnappi
     var lv = liikenneValo(_aktivSeura, jnimi);
     var akt = laskeKausiAktiivisuus(_aktivSeura, jnimi);
-
-    // Liikennevalo-rivi
     h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">';
     h += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
     h += '<div style="width:8px;height:8px;border-radius:50%;background:'+lv.col+';flex-shrink:0"></div>';
     h += '<div style="font-size:10px;color:var(--muted2)">'+lv.label+'</div>';
-    // 4-komponenttipisteet pienillä ikonilla
     if (lv.signaali) {
       var sg = lv.signaali.komp;
       h += '<div style="font-size:9px;color:var(--muted2);opacity:.7">';
       h += '&#128203;'+sg.kirj.n+' &#128295;'+sg.qs.n+' &#128065;'+sg.vpKat.n;
       h += '</div>';
     }
-    // Kausiaktiivisuus-badge liikennevalon rinnalla
     if (akt) {
       var aktCol = akt.taso==='hyvä'?'var(--green)':akt.taso==='kehittyvä'?'var(--amber)':'var(--muted)';
       h += '<div style="font-size:10px;color:'+aktCol+';background:rgba(0,0,0,.2);border-radius:5px;padding:2px 6px;margin-left:4px">';
@@ -3174,9 +3191,127 @@ function renderJoukkueet() {
   h += '</div>'; // grid
   h += '</div>'; // card
   document.getElementById('tabJoukkueet').innerHTML = h;
+
+  // Haetaan painopisteet Firestoresta asynkronisesti
+  // ja päivitetään kortit kun data saapuu
+  lataaJoukkuePainopisteet();
 }
 
-// ── KETJUANALYYSI ──
+// ── JOUKKUEEN KEHITYSTAVOITE / PAINOPISTE ────────────────────────────────────
+
+var _joukkuePainopisteet = {};
+
+function joukkueNimiToId(seuraId, jnimi) {
+  return (seuraId + '_' + jnimi).toLowerCase()
+    .replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+}
+
+function lataaJoukkuePainopisteet() {
+  var fbDb = _fbDb || (typeof firebase !== 'undefined' && firebase.firestore ? firebase.firestore() : null);
+  var seuraId = (window._fbSeuraDoc && window._fbSeuraDoc.id) || null;
+  if (!fbDb || !seuraId) return;
+
+  fbDb.collection('seurat').doc(seuraId)
+    .collection('joukkueet')
+    .get()
+    .then(function(snap) {
+      var paivitetty = false;
+      snap.forEach(function(doc) {
+        var d = doc.data();
+        if (d.painopiste && d.painopiste.teksti) {
+          _joukkuePainopisteet[doc.id] = d.painopiste;
+          if (d.nimi) _joukkuePainopisteet[d.nimi] = d.painopiste;
+          paivitetty = true;
+        }
+      });
+      if (paivitetty) {
+        var el = document.getElementById('tabJoukkueet');
+        if (el && el.style.display !== 'none') renderJoukkueet();
+      }
+    })
+    .catch(function() {});
+}
+
+function avaaPainopisteModaali(jnimi, event) {
+  if (event) event.stopPropagation();
+  var pp = _joukkuePainopisteet[jnimi] || {};
+  var seuraId = (window._fbSeuraDoc && window._fbSeuraDoc.id) || null;
+  var modal = document.getElementById('kartoitusModal');
+  var body  = document.getElementById('kartoitusModalBody');
+  if (!modal || !body) return;
+
+  body.innerHTML =
+    '<div style="padding:24px">'
+    + '<div style="font-family:\'Bebas Neue\';font-size:22px;letter-spacing:1px;margin-bottom:4px">🎯 Kehitystavoite</div>'
+    + '<div style="font-size:13px;color:var(--muted);margin-bottom:20px">' + jnimi + '</div>'
+    + '<div style="margin-bottom:16px">'
+    + '<label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Kauden painopiste</label>'
+    + '<textarea id="ppTeksti" rows="3" placeholder="esim. Intensiivisyys ja aloitteellisuus pelissä ilman palloa" '
+    + 'style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;'
+    + 'padding:10px 12px;color:var(--text);font-family:\'DM Sans\';font-size:13px;resize:vertical;outline:none;box-sizing:border-box">'
+    + (pp.teksti || '') + '</textarea>'
+    + '</div>'
+    + '<div style="margin-bottom:24px">'
+    + '<label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Linkki jaksosuunnitelmaan (valinnainen)</label>'
+    + '<input id="ppLinkki" type="url" placeholder="https://docs.google.com/..." '
+    + 'value="' + (pp.linkki || '') + '" '
+    + 'style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;'
+    + 'padding:10px 12px;color:var(--text);font-family:\'DM Sans\';font-size:13px;outline:none;box-sizing:border-box">'
+    + '</div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button onclick="tallennaPainopiste(\'' + jnimi + '\',\'' + seuraId + '\')" '
+    + 'style="flex:1;background:var(--teal);color:var(--bg);border:none;border-radius:8px;'
+    + 'padding:12px;font-family:\'Bebas Neue\';font-size:18px;cursor:pointer">Tallenna</button>'
+    + '<button onclick="document.getElementById(\'kartoitusModal\').style.display=\'none\'" '
+    + 'style="background:var(--bg3);color:var(--muted);border:1px solid var(--border);'
+    + 'border-radius:8px;padding:12px 20px;cursor:pointer;font-family:\'DM Sans\'">Peruuta</button>'
+    + '</div>'
+    + '</div>';
+
+  modal.style.display = 'flex';
+}
+
+function tallennaPainopiste(jnimi, seuraId) {
+  var teksti = (document.getElementById('ppTeksti').value || '').trim();
+  var linkki = (document.getElementById('ppLinkki').value || '').trim();
+  var fbDb   = _fbDb || (typeof firebase !== 'undefined' && firebase.firestore ? firebase.firestore() : null);
+  var fbUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+  if (!fbDb || !seuraId) { alert('Ei Firebase-yhteyttä.'); return; }
+
+  fbDb.collection('seurat').doc(seuraId)
+    .collection('joukkueet')
+    .where('nimi', '==', jnimi)
+    .limit(1)
+    .get()
+    .then(function(snap) {
+      var ref = snap.empty
+        ? fbDb.collection('seurat').doc(seuraId).collection('joukkueet').doc(joukkueNimiToId(seuraId, jnimi))
+        : snap.docs[0].ref;
+      return ref.set({
+        nimi: jnimi,
+        painopiste: {
+          teksti:    teksti,
+          linkki:    linkki || null,
+          paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
+          paivittaja: fbUser ? fbUser.email : 'VP'
+        }
+      }, { merge: true });
+    })
+    .then(function() {
+      _joukkuePainopisteet[jnimi] = { teksti: teksti, linkki: linkki };
+      document.getElementById('kartoitusModal').style.display = 'none';
+      renderJoukkueet();
+      var t = document.getElementById('toast');
+      if (t) {
+        t.textContent = '✅ Painopiste tallennettu — ' + jnimi;
+        t.classList.add('show');
+        setTimeout(function() { t.classList.remove('show'); }, 2500);
+      }
+    })
+    .catch(function(err) { alert('Tallennus epäonnistui: ' + err.message); });
+}
+
+// ── / JOUKKUEEN KEHITYSTAVOITE ───────────────────────────────────────────────
 
 // ── KETJUANALYYSI ──
 
