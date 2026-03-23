@@ -563,23 +563,40 @@ const db=getFirestore(app);
 
 let seurat=[],allUsers=[],currentEditSeuraId=null,csvData=null,importLog=[];
 
+const SUPER_ADMIN_EMAIL='talentmasterid@gmail.com';
+let _authHandled=false;
+
 onAuthStateChanged(auth,async user=>{
-  if(!user){showLogin();return;}
-  // Super-admin tarkistus: ensin sähköposti, sitten Firestore (jos rules sallii)
-  const SUPER_ADMIN_EMAIL='talentmasterid@gmail.com';
-  if(user.email!==SUPER_ADMIN_EMAIL){
-    // Tarkista Firestoresta muille mahdollisille super-admineille
-    let isSA=false;
+  if(!user){
+    // Vain jos oltiin jo sisällä — ei heti alussa
+    if(_authHandled){
+      _authHandled=false;
+      showLogin();
+    }
+    return;
+  }
+  // Estä tupla-laukaisu
+  if(_authHandled) return;
+
+  // Super-admin tarkistus
+  let isSA = user.email===SUPER_ADMIN_EMAIL;
+  if(!isSA){
     try{
       const snap=await getDoc(doc(db,'admins',user.uid));
       isSA=snap.exists()&&snap.data().superAdmin===true;
     }catch(e){ isSA=false; }
-    if(!isSA){toast('Ei super-admin oikeuksia','err');await signOut(auth);return;}
   }
+  if(!isSA){
+    toast('Ei super-admin oikeuksia','err');
+    setTimeout(()=>signOut(auth),1500);
+    return;
+  }
+
+  _authHandled=true;
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('navUser').innerHTML=`<strong>${user.email}</strong>`;
-  await loadAll();
+  try{ await loadAll(); }catch(e){ console.error('loadAll virhe:',e); }
 });
 
 window.doLogin=async()=>{
