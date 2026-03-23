@@ -7423,11 +7423,12 @@ function tuontiNakyvat(rivi, tyyppi) {
 // seurasihteeri saa selkeän virheilmoituksen jos nimi on väärin kirjoitettu.
 
 function tuontiHaeJoukkueetJaNaytaEsikatselu(rivit, tyyppi, seuraId, tiedostoNimi) {
-  if (tyyppi !== 'pelaajat' || !_fbDb) {
-    // Muille tyypeille (harjoitettavuus, HH-testit) ei tarvita joukkuevalidointia
+  var fbDb = _fbDb || (typeof firebase !== 'undefined' && firebase.firestore ? firebase.firestore() : null);
+  if (tyyppi !== 'pelaajat' || !fbDb) {
     tuontiNaytaEsikatselu(rivit, tyyppi, seuraId, tiedostoNimi);
     return;
   }
+  if (!_fbDb) _fbDb = fbDb;
 
   // Haetaan joukkueet Firestoresta
   _fbDb.collection('seurat').doc(seuraId)
@@ -7479,10 +7480,18 @@ function tuontiHaeJoukkueetJaNaytaEsikatselu(rivit, tyyppi, seuraId, tiedostoNim
 // ── FIRESTORE-TALLENNUS ───────────────────────────────────────────────────────
 
 function tuontiAloita(rivit, tyyppi, seuraId) {
-  if (!_fbOnline || !_fbDb) {
-    alert('Ei Firebase-yhteyttä. Kirjaudu sisään sähköpostilla.');
+  // Tarkistetaan Firebase-yhteys useammalla tavalla koska _fbOnline
+  // saattaa olla false vaikka kirjautuminen on onnistunut
+  var fbDb = _fbDb || (typeof firebase !== 'undefined' && firebase.firestore ? firebase.firestore() : null);
+  var fbUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+
+  if (!fbDb || !fbUser) {
+    alert('Ei Firebase-yhteyttä. Kirjaudu sisään sähköpostilla ennen tuontia.');
     return;
   }
+
+  // Päivitetään _fbDb jos se oli null
+  if (!_fbDb) _fbDb = fbDb;
 
   var nappi = document.getElementById('tuontiNappi');
   if (nappi) { nappi.disabled = true; nappi.textContent = 'Tuodaan...'; }
@@ -7816,10 +7825,12 @@ function tuontiNaytaVirhe(viesti) {
 // Tällöin kirjoitusvirhe on teknisesti mahdoton.
 
 function luoSeuranPelaajaPohja(seuraId) {
-  if (!_fbOnline || !_fbDb) {
+  var fbDb = _fbDb || (typeof firebase !== 'undefined' && firebase.firestore ? firebase.firestore() : null);
+  if (!fbDb) {
     alert('Ei Firebase-yhteyttä. Kirjaudu sisään sähköpostilla.');
     return;
   }
+  if (!_fbDb) _fbDb = fbDb;
 
   // Näytetään latausviesti
   var esikatseluEl = document.getElementById('tuontiEsikatselu');
