@@ -259,3 +259,177 @@ exports.asetaSupeAdminClaims = functions
 
     return null;
   });
+
+// ─────────────────────────────────────────────────────────────────
+// CALLABLE FUNCTION: luoKayttaja
+//
+// Tätä kutsutaan suoraan Admin-näkymän selaimesta.
+// Se eroaa Firestore-triggereistä siten, että se on
+// "pyydettävä" funktio — VP painaa nappia, selain kutsuu
+// tätä, ja funktio tekee kolme asiaa atomisesti:
+//
+//   1. Luo Firebase Auth -tilin (createUser)
+//   2. Lähettää salasananvaihtosähköpostin uudelle käyttäjälle
+//   3. Kirjoittaa Firestore kayttajat-dokumentin
+//      → tämä triggeröi asetaClaimsUudelle automaattisesti
+//
+// TURVALLISUUS: Vain kirjautunut VP tai super-admin voi
+// kutsua tätä. Tarkistetaan kutsujän Custom Claims ennen
+// mitään toimenpiteitä — jos rooli ei ole "vp" tai
+// "superadmin", heitetään permission-denied -virhe.
+//
+// CALLABLE vs TRIGGER: Trigger reagoi automaattisesti kun
+// jotain tapahtuu Firestoressä. Callable-funktio taas
+// on kuin API-endpoint jota kutsutaan tietoisesti.
+// ─────────────────────────────────────────────────────────────────
+exports.luoKayttaja = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+
+    // ── AUTENTIKOINTI: Varmistetaan kutsuja on kirjautunut ──
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        'unauthenticated',
+        'Kirjaudu sisään ennen käyttäjän luontia.'
+      );
+    }
+
+    // ── AUTORISAATIO: Vain VP tai super-admin voi luoda käyttäjiä ──
+    const kutsujaClaims = context.auth.token;
+    const sallitutRoolit = ['vp', 'superadmin', 'seurasihteeri', 'urheilutoimenjohtaja'];
+
+    if (!sallitutRoolit.includes(kutsujaClaims.rooli)) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Sinulla ei ole oikeutta luoda käyttäjiä.'
+      );
+    }
+
+    // VP voi luoda käyttäjiä vain omaan seuraan.
+    // Super-admin voi luoda käyttäjiä mihin seuraan tahansa.
+    const kohdeSeura = data.seuraId;
+    if (kutsujaClaims.rooli !== 'superadmin' &&
+        kutsujaClaims.seuraId !== kohdeSeura) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Voit luoda käyttäjiä vain omaan seuraan.'
+      );
+    }
+
+    // ── VALIDOINTI ──
+    const { email, rooli, joukkue, joukkueNimi, etunimi, sukunimi } = data;
+
+    if (!email || !rooli || !kohdeSeura) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Sähköposti, rooli ja seura ovat pakollisia.'
+      );
+    }
+
+    const sallitutUudetRoolit = [
+      'valmentaja', 'testivastaava', 'talenttivalmentaja',
+      'fysiikkavalmentaja', 'fysioterapeutti',
+      'vp', 'seurasihteeri', 'urheilutoimenjohtaja',
+    ];
+
+    if (!sallitutUudetRoolit.includes(rooli)) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        `Tuntematon rooli: ${rooli}`
+      );
+    }
+
+    functions.logger.info('Luodaan uusi käyttäjä', {
+      email, rooli, seuraId: kohdeSeura, joukkue,
+      kutsuja: context.auth.uid,
+    });
+
+    try {
+      // ── VAIHE 1: Luo Firebase Auth -tili ──
+      // Generoidaan väliaikainen satunnainen salasana.
+      // Käyttäjä ei koskaan näe tätä — hän saa heti
+      // salasananvaihtosähköpostin jonka kautta asettaa oman.
+      const valiaikainenSalasana =
+        Math.random().toString(36).slice(-10) +
+        Math.random().toString(36).toUpperCase().slice(-4) +
+        '!9';
+
+      const authUser = await admin.auth().createUser({
+        email:         email,
+        password:      valiaikainenSalasana,
+        emailVerified: false,
+        displayName:   etunimi && sukunimi
+                         ? `${etunimi} ${sukunimi}`
+                         : email,
+      });
+
+      const uid = authUser.uid;
+      functions.logger.info('Auth-tili luotu', { uid, email });
+
+      // ── VAIHE 2: Kirjoita Firestore-dokumentti ──
+      // Tämä triggeröi asetaClaimsUudelle automaattisesti —
+      // ei tarvita manuaalista claims-asetusta tässä.
+      const kayttajaDoc = {
+        uid,
+        email,
+        rooli,
+        seuraId:      kohdeSeura,
+        joukkue:      joukkue      || null,
+        joukkueNimi:  joukkueNimi  || joukkue || null,
+        etunimi:      etunimi      || null,
+        sukunimi:     sukunimi     || null,
+        aktiivinen:   true,
+        luotu:        admin.firestore.FieldValue.serverTimestamp(),
+        luojaUid:     context.auth.uid,
+        claimsAsetettu: false,  // Cloud Function päivittää tämän
+      };
+
+      await admin.firestore()
+        .collection('seurat').doc(kohdeSeura)
+        .collection('kayttajat').doc(uid)
+        .set(kayttajaDoc);
+
+      functions.logger.info('Firestore-dokumentti luotu', { uid });
+
+      // ── VAIHE 3: Lähetä salasananvaihtosähköposti ──
+      // generatePasswordResetLink luo linkin jonka voimassaolo
+      // on oletuksena 1 tunti. Käyttäjä klikkaa linkkiä ja
+      // asettaa oman salasanansa — hän ei tarvitse väliaikaista.
+      const resetLinkki = await admin.auth()
+        .generatePasswordResetLink(email, {
+          url: 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Master_v8.html',
+        });
+
+      functions.logger.info('Salasananvaihtolinkki luotu', { email });
+
+      // Palautetaan frontendille onnistumisviesti ja UID.
+      // HUOM: Salasananvaihtolinkki ei palauteta frontendille
+      // vaan se lähetetään sähköpostitse Firebase Authin
+      // omalla sähköpostijärjestelmällä.
+      return {
+        ok:    true,
+        uid,
+        email,
+        resetLinkki, // Palautetaan linkki jotta VP näkee sen varmuudeksi
+        viesti: `Käyttäjä ${email} luotu. Salasananvaihtolinkki lähetetty.`,
+      };
+
+    } catch (virhe) {
+      functions.logger.error('Käyttäjänluonti epäonnistui', {
+        email, virhe: virhe.message,
+      });
+
+      // Muutetaan Firebase Auth -virhekoodit käyttäjäystävällisiksi
+      if (virhe.code === 'auth/email-already-exists') {
+        throw new functions.https.HttpsError(
+          'already-exists',
+          `Sähköpostiosoite ${email} on jo käytössä.`
+        );
+      }
+
+      throw new functions.https.HttpsError(
+        'internal',
+        `Käyttäjänluonti epäonnistui: ${virhe.message}`
+      );
+    }
+  });
