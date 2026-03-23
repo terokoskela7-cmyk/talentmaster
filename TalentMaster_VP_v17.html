@@ -2973,6 +2973,47 @@ function vaihda(tabIdx, el) {
             var nimi = j.nimi || doc.id;
             var ikaryhma = j.ikaryhma || '';
             var pelaajia = j.pelaajia || j.pelaaja_lkm || 0;
+            var valmentaja = j.valmentaja || j.paivalmentaja || '-';
+            h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:16px">';
+            h += '<div style="background:var(--teal);color:#000;border-radius:8px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;flex-shrink:0">' + (ikaryhma || nimi.substring(0,4).toUpperCase()) + '</div>';
+            h += '<div style="flex:1"><div style="font-weight:700;font-size:14px">' + nimi + '</div>';
+            h += '<div style="font-size:12px;color:var(--muted);margin-top:2px">Valmentaja: ' + valmentaja + '</div></div>';
+            h += '<div style="text-align:right"><div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--teal)">' + (pelaajia || '-') + '</div>';
+            h += '<div style="font-size:10px;color:var(--muted2)">pelaajaa</div></div></div>';
+          });
+          h += '</div></div>';
+          container.innerHTML = h;
+        })
+        .catch(function (err) {
+          container.innerHTML = '<div style="padding:30px;text-align:center;color:var(--red)">⚠️ ' + err.message + '</div>';
+          console.error('[VP] Joukkueet-haku epäonnistui:', err);
+        });
+    }, 150);
+  }
+  // ── FIREBASE JOUKKUEET-HAU (pilottiseurat) ──────────────────────
+  if (tabIdx === 1 && window._fbSeuraDoc && window._fbDb) {
+    var _seuraId = window._fbSeuraDoc.id || window._fbSeuraDoc.seuraId;
+    var _seuraNimi = window._fbSeuraDoc.nimi || window._aktivSeura;
+    setTimeout(function () {
+      var container = document.getElementById('tabJoukkueet');
+      if (!container || container.dataset.fbLoaded === _seuraId) return;
+      container.dataset.fbLoaded = _seuraId;
+      container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:12px">⏳</div><div>Ladataan joukkueita...</div></div>';
+      window._fbDb.collection('seurat').doc(_seuraId).collection('joukkueet')
+        .orderBy('nimi').get()
+        .then(function (snap) {
+          if (snap.empty) {
+            container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:600;margin-bottom:8px">Ei joukkueita vielä</div><div style="font-size:13px;color:var(--muted2)">Luo joukkueet Admin-näkymässä.</div></div>';
+            return;
+          }
+          var h = '<div style="padding:16px">';
+          h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px">⚽ ' + _seuraNimi + ' — Joukkueet (' + snap.size + ' kpl)</div>';
+          h += '<div style="display:grid;gap:10px">';
+          snap.docs.forEach(function (doc) {
+            var j = doc.data();
+            var nimi = j.nimi || doc.id;
+            var ikaryhma = j.ikaryhma || '';
+            var pelaajia = j.pelaajia || j.pelaaja_lkm || 0;
             var valmentaja = j.valmentaja || j.paivalmentaja || '–';
             h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:16px">';
             h += '<div style="background:var(--teal);color:#000;border-radius:8px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;flex-shrink:0">' + (ikaryhma || nimi.substring(0, 4).toUpperCase()) + '</div>';
