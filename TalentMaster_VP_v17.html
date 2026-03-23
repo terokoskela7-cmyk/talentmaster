@@ -222,13 +222,24 @@ try {
   // Tämä on se mekanismi joka palauttaa kirjautumistilan refreshin jälkeen.
   // Firebase Auth tallentaa session automaattisesti, mutta ilman tätä kuuntelijaa
   // sovellus ei koskaan tiedä kirjautumistilasta sivun latautuessa.
-  _fbAuth.onAuthStateChanged(function(user) {
-    if (!user) return; // Ei kirjautunut — jää login-näkymään
-    console.log('[AUTH] onAuthStateChanged: käyttäjä löytyi:', user.email);
+  // _authInitDone: estää ensimmäisen null-kutsun kirjaamasta käyttäjän ulos
+  // Firebase laukeaa ENSIN null:lla ja sitten oikealla käyttäjällä refreshissa
+  var _authInitDone = false;
 
-    // AJOITUSKORJAUS: onAuthStateChanged laukeaa ennen kuin tm_data.js ja
-    // _lataaPilottiDashboard() ovat valmiita. Tallennetaan käyttäjä muistiin
-    // ja odotetaan kunnes kaikki on ladattu ennen kuin siirrytään dashboardiin.
+  _fbAuth.onAuthStateChanged(function(user) {
+    if (!user) {
+      // Ensimmäinen kutsu on aina null — ei tehdä mitään, odotetaan oikeaa käyttäjää
+      if (!_authInitDone) {
+        console.log('[AUTH] onAuthStateChanged: null (alustus) — odotetaan sessiota');
+        _authInitDone = true;
+        return;
+      }
+      // Myöhempi null = oikea uloskirjautuminen käyttäjän toimesta
+      console.log('[AUTH] onAuthStateChanged: käyttäjä kirjautui ulos');
+      return;
+    }
+    _authInitDone = true;
+    console.log('[AUTH] onAuthStateChanged: käyttäjä löytyi:', user.email);
     window._pendingAuthUser = user;
     _kaynnistaSessionPalattuessa();
   });
@@ -2520,10 +2531,11 @@ function kirjauduUlos() {
     });
     _fbUser = null;
   }
-  // Tyhjennä tallennettu seuraDoc jotta refresh ei palauta vanhaa sessiota
+  // Tyhjennä localStorage kun käyttäjä kirjautuu ulos manuaalisesti
   try { localStorage.removeItem('tm_seuraDoc'); } catch(e) {}
   window._fbSeuraDoc = null;
-  window._pilottiAlustettu = false; // Sallii uudelleenalustus seuraavalla kirjautumisella
+  window._pilottiAlustettu = false;
+  window._pendingAuthUser = null;
   _vpPin = '';
   updateDots();
   // Tyhjennetään sähköpostikentät
