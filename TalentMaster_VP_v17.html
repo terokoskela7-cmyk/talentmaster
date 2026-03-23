@@ -2813,11 +2813,18 @@ function initDash() {
     });
   }
 
-  // Firebase-pilottiseura (ei historiadataa tm_data.js:ssä) → pilotti-dashboard
-  if (window._fbSeuraDoc && _seuraData[_aktivSeura] && _seuraData[_aktivSeura]._firebaseSeura) {
-    console.log('[VP] Firebase-pilottiseura — käynnistetään pilotti-dashboard');
-    _lataaPilottiDashboard();
-    return;
+  // Firebase-pilottiseura: jos kirjauduttu Firebasella eikä seura ole tm_data.js:ssä → pilotti-dashboard
+  // Tarkistetaan _fbSeuraDoc suoraan, ei _aktivSeura:n kautta (voi olla tyhjä tässä vaiheessa)
+  if (window._fbSeuraDoc) {
+    var _fbNimiCheck = window._fbSeuraDoc.nimi;
+    var _onTmData = seurat.some(function(s) { 
+      return s === _fbNimiCheck && !(_seuraData[s] && _seuraData[s]._firebaseSeura); 
+    });
+    if (!_onTmData) {
+      console.log('[VP] Firebase-pilottiseura — käynnistetään pilotti-dashboard:', _fbNimiCheck);
+      _lataaPilottiDashboard();
+      return;
+    }
   }
 
   renderAll();
