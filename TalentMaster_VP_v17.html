@@ -199,90 +199,68 @@ try {
     firebase.initializeApp(_fbConfig);
   }
 
-  // Saadaan viite Firestore-tietokantaan
-  _fbDb     = firebase.firestore();
-  _fbAuth   = firebase.auth();   // Authentication-viite
+  // Firebase-viitteet
+  _fbDb   = firebase.firestore();
+  _fbAuth = firebase.auth();
   _fbOnline = true;
-  console.log('[FB] Firebase alustettu onnistuneesti');
+  console.log('[FB] Firebase OK');
 
-  // Asetetaan Firebase online suoraan — _ping-testi hylätään ennen kirjautumista
-  // joka asettaisi _fbOnline = false vaikka Firebase toimii
-  _fbOnline = true;
-  console.log('[FB] Firebase online');
-  // Palauta seuraDoc localStorage:sta jos on — tukee refreshia
-  try {
-    var _savedSeura = localStorage.getItem('tm_seuraDoc');
-    if (_savedSeura && !window._fbSeuraDoc) {
-      window._fbSeuraDoc = JSON.parse(_savedSeura);
-      console.log('[FB] SeuraDoc palautettu localStorage:sta:', window._fbSeuraDoc.nimi);
-    }
-  } catch(e) {}
-
-  // ── SESSION RESTORE: kuuntele autentikaatiotilan muutoksia ──────────────────
-  // Tämä on se mekanismi joka palauttaa kirjautumistilan refreshin jälkeen.
-  // Firebase Auth tallentaa session automaattisesti, mutta ilman tätä kuuntelijaa
-  // sovellus ei koskaan tiedä kirjautumistilasta sivun latautuessa.
-  // _authInitDone: estää ensimmäisen null-kutsun kirjaamasta käyttäjän ulos
-  // Firebase laukeaa ENSIN null:lla ja sitten oikealla käyttäjällä refreshissa
-  var _authInitDone = false;
+  // ── AUTH STATE HANDLER ─────────────────────────────────────────────────────
+  // Firebase Auth kutsuu tätä kahdessa tilanteessa:
+  // 1) Sivun latautuessa — palauttaa tallennetun session (tai null jos ei sessiota)
+  // 2) Kirjautumisen/uloskirjautumisen jälkeen
+  //
+  // Firebase takaa: jos sessio on olemassa, user != null.
+  // Meidän tehtävä: kun user löytyy, näytä dashboard. Muuten näytä login.
+  //
+  // KRIITTINEN: Ei kutsuta kirjauduUlos() tässä koskaan.
+  // kirjauduUlos() kutsutaan VAIN käyttäjän napista.
 
   _fbAuth.onAuthStateChanged(function(user) {
     if (!user) {
-      // Ensimmäinen kutsu on aina null — ei tehdä mitään, odotetaan oikeaa käyttäjää
-      if (!_authInitDone) {
-        console.log('[AUTH] onAuthStateChanged: null (alustus) — odotetaan sessiota');
-        _authInitDone = true;
-        return;
-      }
-      // Myöhempi null = oikea uloskirjautuminen käyttäjän toimesta
-      console.log('[AUTH] onAuthStateChanged: käyttäjä kirjautui ulos');
+      // Ei sessiota — login-näkymä on jo oletuksena näkyvissä (class="screen active")
+      // Ei tehdä mitään ylimääräistä
+      console.log('[AUTH] Ei sessiota — login-näkymä');
       return;
     }
-    _authInitDone = true;
-    console.log('[AUTH] onAuthStateChanged: käyttäjä löytyi:', user.email);
-    window._pendingAuthUser = user;
-    _kaynnistaSessionPalattuessa();
-  });
 
-// Käynnistä session palautus kun kaikki on valmis
-// Kutsutaan sekä onAuthStateChanged:sta että tm_data.js:n latauksen jälkeen
-function _kaynnistaSessionPalattuessa() {
-  var user = window._pendingAuthUser;
-  if (!user) return; // Ei odottavaa käyttäjää
+    // Sessio löytyy — haetaan seura ja siirrytään dashboardiin
+    console.log('[AUTH] Sessio löytyi:', user.email);
 
-  // Odotetaan kunnes _lataaPilottiDashboard on määritelty ja tm_data.js ladattu
-  if (typeof _lataaPilottiDashboard !== 'function' || !window._tmDataReady) {
-    console.log('[AUTH] Odotetaan latautumista... (funktio:', typeof _lataaPilottiDashboard, '| tmData:', !!window._tmDataReady, ')');
-    setTimeout(_kaynnistaSessionPalattuessa, 200);
-    return;
-  }
-
-  // Kaikki on valmis — voidaan siirtyä dashboardiin
-  window._pendingAuthUser = null; // Estetään tupla-ajo
-
-  if (window._fbSeuraDoc) {
-    console.log('[AUTH] Session palautus: SeuraDoc tiedossa →', window._fbSeuraDoc.nimi);
-    document.getElementById('sLogin').classList.remove('active');
-    document.getElementById('sDash').classList.add('active');
-    _lataaPilottiDashboard();
-  } else {
-    console.log('[AUTH] Session palautus: haetaan seura Firestoresta');
+    // Haetaan seura Firestoresta UID:n perusteella
     _fbDb.collection('seurat')
       .where('vp_uid', '==', user.uid)
       .limit(1)
       .get()
       .then(function(snap) {
-        if (snap.empty) { console.warn('[AUTH] Seuraa ei löydy UID:llä:', user.uid); return; }
-        var seuraDoc = snap.docs[0].data();
-        seuraDoc.id = snap.docs[0].id;
-        window._fbSeuraDoc = seuraDoc;
-        try { localStorage.setItem('tm_seuraDoc', JSON.stringify({id: seuraDoc.id, nimi: seuraDoc.nimi})); } catch(e) {}
-        document.getElementById('sLogin').classList.remove('active');
-        document.getElementById('sDash').classList.add('active');
-        _lataaPilottiDashboard();
+        if (snap.empty) {
+          console.warn('[AUTH] Seuraa ei löydy UID:llä:', user.uid);
+          return;
+        }
+        var data = snap.docs[0].data();
+        data.id = snap.docs[0].id;
+        window._fbSeuraDoc = data;
+        console.log('[AUTH] Seura:', data.nimi, '— odotetaan tm_data.js');
+
+        // Odotetaan tm_data.js + _lataaPilottiDashboard ennen näkymänvaihtoa
+        _odotaJaSiirryDashboardiin();
       })
-      .catch(function(e) { console.warn('[AUTH] Seura-haku epäonnistui:', e.message); });
+      .catch(function(e) {
+        console.warn('[AUTH] Seura-haku virhe:', e.message);
+      });
+  });
+
+function _odotaJaSiirryDashboardiin() {
+  // Tarkistetaan 100ms välein kunnes kaikki on ladattu
+  if (!window._tmDataReady || typeof _lataaPilottiDashboard !== 'function') {
+    setTimeout(_odotaJaSiirryDashboardiin, 100);
+    return;
   }
+  // Kaikki valmis — vaihda näkymä
+  console.log('[AUTH] Kaikki ladattu — siirrytään dashboardiin:', window._fbSeuraDoc.nimi);
+  document.getElementById('sLogin').classList.remove('active');
+  document.getElementById('sDash').classList.add('active');
+  _lataaPilottiDashboard();
 }
 
 } catch(e) {
@@ -2531,11 +2509,9 @@ function kirjauduUlos() {
     });
     _fbUser = null;
   }
-  // Tyhjennä localStorage kun käyttäjä kirjautuu ulos manuaalisesti
-  try { localStorage.removeItem('tm_seuraDoc'); } catch(e) {}
+  // Nollaa session tila
   window._fbSeuraDoc = null;
   window._pilottiAlustettu = false;
-  window._pendingAuthUser = null;
   _vpPin = '';
   updateDots();
   // Tyhjennetään sähköpostikentät
