@@ -142,10 +142,10 @@ jobs:
           # Luodaan .env-tiedosto functions-kansioon
           # Firebase Functions lukee ympäristömuuttujat tästä
           # automaattisesti deployauksen yhteydessä
-          cat > functions/.env << ENVEOF
-GMAIL_EMAIL=${GMAIL_EMAIL}
-GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
-ENVEOF
+          # Kirjoitetaan .env tiedosto printf:llä
+          # heredoc + ${} aiheuttaa YAML-syntaksivirheen
+          printf "GMAIL_EMAIL=%s\nGMAIL_APP_PASSWORD=%s\n" \
+            "$GMAIL_EMAIL" "$GMAIL_APP_PASSWORD" > functions/.env
 
           # Deploytaan Functions
           firebase deploy --only functions \
@@ -190,7 +190,6 @@ ENVEOF
       - name: Aja backfill_claims.js
         working-directory: tm_admin
         run: node backfill_claims.js
-
 
       - name: Siivoa serviceAccountKey.json
         # always() varmistaa että siivous tehdään vaikka
