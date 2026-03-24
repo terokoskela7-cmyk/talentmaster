@@ -552,6 +552,27 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   </div>
 </div>
 
+<!-- ══ JOUKKUEEN VAIHTO -MODAL ══ -->
+<div class="modalTausta" id="joukkueMuutosModal">
+  <div class="modalKortti" style="max-width:400px;">
+    <button class="modalSuljeNappi" onclick="suljeModal('joukkueMuutosModal')">✕ Sulje</button>
+    <div class="modalOtsikko" id="joukkueMuutosOtsikko">Muuta joukkue</div>
+    <div class="modalKuvaus">
+      Valitse henkilölle uusi joukkue. Muutos päivittää myös Custom Claims:in
+      automaattisesti — valmentaja näkee uuden joukkueen kirjautuessaan uudelleen.
+    </div>
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel">Joukkue</label>
+      <select class="kenttaInput" id="muutos_joukkue">
+        <option value="">— Ei joukkuetta —</option>
+      </select>
+    </div>
+    <button class="nappi" id="tallennaJoukkueMuutosNappi" onclick="tallennaJoukkueMuutos()" style="margin-top:8px;">
+      Tallenna
+    </button>
+  </div>
+</div>
+
 <!-- ══ TOAST ══ -->
 <div id="toastPalkki"></div>
 
@@ -1098,6 +1119,10 @@ async function renderHenkilosto(alue) {
               <td><span class="badge ${h.claimsAsetettu?'ok':'odottaa'}">${h.claimsAsetettu?'✓ OK':'⏳'}</span></td>
               <td>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button class="toimNappi sininen"
+                    onclick="avaaJoukkueMuutos('${h.id}','${(h.email||'').replace(/'/g,"\\'")}','${(h.joukkue||'')}')">
+                    Joukkue
+                  </button>
                   <button class="toimNappi" onclick="lahetaSalasana('${h.email}')">Salasana</button>
                   <button class="toimNappi vaara" onclick="deaktivoiKayttaja('${h.id}','${(h.email||'').replace(/'/g,"\\'")}')">Deaktivoi</button>
                 </div>
@@ -1546,6 +1571,73 @@ function naytaPelaajaTiedot(pelaajaId) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// JOUKKUEEN VAIHTO HENKILÖLLE
+// PERMISSION_MATRIX: VP ja super-admin voivat muokata käyttäjien tietoja
+// ─────────────────────────────────────────────────────────────────
+let _muokattavaUid   = null;
+let _muokattavaEmail = null;
+
+function avaaJoukkueMuutos(uid, email, nykyinenJoukkue) {
+  _muokattavaUid   = uid;
+  _muokattavaEmail = email;
+
+  // Täytetään valitsin nykyisellä joukkueella
+  const select = document.getElementById('muutos_joukkue');
+  if (select) {
+    select.innerHTML = '<option value="">— Ei joukkuetta —</option>' +
+      tila.joukkueet.map(j =>
+        `<option value="${j.id}" ${j.id === nykyinenJoukkue ? 'selected' : ''}>
+          ${j.nimi || j.id}
+        </option>`
+      ).join('');
+  }
+
+  const otsikko = document.getElementById('joukkueMuutosOtsikko');
+  if (otsikko) otsikko.textContent = `Muuta joukkue: ${email}`;
+
+  document.getElementById('joukkueMuutosModal').classList.add('auki');
+}
+
+async function tallennaJoukkueMuutos() {
+  if (!_muokattavaUid) return;
+
+  const select     = document.getElementById('muutos_joukkue');
+  const joukkueId  = select?.value || null;
+  const joukkueObj = tila.joukkueet.find(j => j.id === joukkueId);
+  const joukkueNimi = joukkueObj?.nimi || joukkueId || '';
+
+  const nappi = document.getElementById('tallennaJoukkueMuutosNappi');
+  nappi.disabled    = true;
+  nappi.textContent = 'Tallennetaan...';
+
+  try {
+    // Päivitetään Firestore-dokumentti
+    await db.collection('seurat').doc(tila.seuraId)
+      .collection('kayttajat').doc(_muokattavaUid)
+      .update({
+        joukkue:     joukkueId,
+        joukkueNimi: joukkueNimi,
+        muokattu:    firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+    // Jos käyttäjällä on Claims, ne pitää päivittää Cloud Functionsin kautta
+    // (tapahtuu automaattisesti paivitaClaimsRoolimuutoksessa-triggerillä)
+    nappi.disabled    = false;
+    nappi.textContent = 'Tallenna';
+    suljeModal('joukkueMuutosModal');
+    naytaToast(`${_muokattavaEmail} siirretty joukkueeseen ${joukkueNimi || 'ei joukkuetta'}`, 'ok');
+
+    // Päivitetään henkilöstölista
+    renderHenkilosto(document.getElementById('nakymaAlue'));
+
+  } catch (e) {
+    nappi.disabled    = false;
+    nappi.textContent = 'Tallenna';
+    naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
 // KIRJAUTUMINEN
 // ─────────────────────────────────────────────────────────────────
 async function kirjauduSisaan() {
@@ -1629,10 +1721,10 @@ function naytaToast(teksti, tyyppi = 'ok') {
 // Esc sulkee modalit
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['rekisteriModal','joukkueModal'].forEach(id => suljeModal(id));
+    ['rekisteriModal','joukkueModal','joukkueMuutosModal'].forEach(id => suljeModal(id));
   }
 });
-['rekisteriModal','joukkueModal'].forEach(id => {
+['rekisteriModal','joukkueModal','joukkueMuutosModal'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) {
     if (e.target === this) suljeModal(id);
   });
