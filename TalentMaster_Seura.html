@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster™ — Seurahallinta</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+
+<style>
+/* ─────────────────────────────────────────────
+   DESIGN TOKENS — yhtenäinen koko TalentMasterin kanssa
+   ───────────────────────────────────────────── */
+:root {
+  --bg:      #06090F;
+  --bg2:     #0C1018;
+  --bg3:     #121824;
+  --bg4:     #181F2C;
+  --ink:     #E8EEF8;
+  --ink2:    rgba(232,238,248,.65);
+  --ink3:    rgba(232,238,248,.35);
+  --blue:    #4A7ED9;
+  --blue-d:  #3A6EC9;
+  --teal:    #3EC9A7;
+  --amber:   #E0A040;
+  --red:     #D96060;
+  --green:   #5EC97A;
+  --border:  rgba(232,238,248,.07);
+  --bord2:   rgba(232,238,248,.14);
+  --r:       10px;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─────────────────────────────────────────────
+   KIRJAUTUMISNÄKYMÄ
+   ───────────────────────────────────────────── */
+#kirjautumisNakyma {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 85%, rgba(74,126,217,.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 15%, rgba(62,201,167,.04) 0%, transparent 50%),
+    var(--bg);
+}
+.kirjKortti {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 48px 40px 40px;
+  animation: sisaan .5s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes sisaan {
+  from { opacity: 0; transform: translateY(18px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+.kirjLogo { font-family:'Playfair Display',serif; font-size:22px; font-weight:900; margin-bottom:4px; }
+.kirjLogo span { color: var(--teal); }
+.kirjSub {
+  font-size:11px; font-weight:600; letter-spacing:2px;
+  text-transform:uppercase; color:var(--ink3); margin-bottom:32px;
+}
+.kenttaRyhma { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+.kenttaLabel { font-size:11px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink3); }
+.kenttaInput {
+  background:var(--bg3); border:1px solid var(--bord2); border-radius:8px;
+  padding:11px 14px; font-size:14px; font-family:'DM Sans',sans-serif;
+  color:var(--ink); outline:none; transition:border-color .2s; width:100%;
+}
+.kenttaInput:focus { border-color:var(--blue); background:var(--bg4); }
+.kenttaInput::placeholder { color:var(--ink3); }
+select.kenttaInput { cursor:pointer; }
+.nappi {
+  width:100%; margin-top:6px; padding:13px; background:var(--blue);
+  border:none; border-radius:8px; font-size:14px; font-weight:600;
+  font-family:'DM Sans',sans-serif; color:#fff; cursor:pointer;
+  transition:background .2s, transform .1s;
+}
+.nappi:hover { background:var(--blue-d); }
+.nappi:active { transform:scale(.98); }
+.nappi:disabled { opacity:.5; cursor:not-allowed; }
+.nappi.teal { background:var(--teal); }
+.nappi.teal:hover { background:#32b898; }
+.virheDiv {
+  display:none; margin-top:12px; padding:10px 14px;
+  background:rgba(217,96,96,.12); border:1px solid rgba(217,96,96,.3);
+  border-radius:8px; font-size:13px; color:#e88080; text-align:center;
+}
+.virheDiv.nakyvilla { display:block; }
+
+/* ─────────────────────────────────────────────
+   LATAUSNÄKYMÄ
+   ───────────────────────────────────────────── */
+#latausNakyma {
+  display:none; align-items:center; justify-content:center;
+  min-height:100vh; flex-direction:column; gap:14px;
+  color:var(--ink3); font-size:13px;
+}
+.spinner {
+  width:28px; height:28px; border:2px solid var(--border);
+  border-top-color:var(--blue); border-radius:50%;
+  animation:pyori .7s linear infinite;
+}
+@keyframes pyori { to { transform:rotate(360deg); } }
+
+/* ─────────────────────────────────────────────
+   PÄÄSOVELLUS
+   ───────────────────────────────────────────── */
+#sovellus { display:none; }
+
+/* TOPBAR */
+.topbar {
+  position:fixed; top:0; left:0; right:0; z-index:100; height:54px;
+  background:rgba(6,9,15,.96); backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; padding:0 24px; gap:0;
+}
+.topbarLogo {
+  font-family:'Playfair Display',serif; font-size:16px; font-weight:900;
+  padding-right:18px; border-right:1px solid var(--border); flex-shrink:0;
+}
+.topbarLogo span { color:var(--teal); }
+
+/* Seuravalitsin — näkyy vain super-adminille */
+.seuraValitsinWrap {
+  padding-left:18px;
+  display:none; /* piilotettu oletuksena — näytetään JS:ssä super-adminille */
+}
+.seuraValitsin {
+  background:var(--bg3); border:1px solid var(--bord2); border-radius:7px;
+  padding:5px 12px; font-size:13px; font-family:'DM Sans',sans-serif;
+  color:var(--ink); cursor:pointer; outline:none;
+  transition:border-color .2s; min-width:180px;
+}
+.seuraValitsin:focus { border-color:var(--blue); }
+
+/* Seuran nimi normaalikäyttäjälle */
+.topbarSeuraNimi {
+  padding-left:18px; font-size:13px; font-weight:600; color:var(--teal);
+  display:none;
+}
+
+.topbarKayttaja { display:flex; align-items:center; gap:10px; margin-left:auto; }
+.topbarEmail { font-size:12px; color:var(--ink3); }
+.topbarRooli {
+  font-size:10px; font-weight:700; letter-spacing:1.2px;
+  text-transform:uppercase; padding:3px 8px; border-radius:4px;
+}
+.topbarRooli.vp       { background:rgba(224,160,64,.15); color:var(--amber); }
+.topbarRooli.sihteeri { background:rgba(74,126,217,.15);  color:var(--blue); }
+.topbarRooli.admin    { background:rgba(62,201,167,.15);  color:var(--teal); }
+.ulosNappi {
+  background:none; border:1px solid var(--border); border-radius:6px;
+  padding:5px 12px; font-size:11px; font-weight:600; letter-spacing:.5px;
+  text-transform:uppercase; color:var(--ink3); cursor:pointer;
+  font-family:'DM Sans',sans-serif; transition:all .2s;
+}
+.ulosNappi:hover { color:var(--ink2); border-color:var(--bord2); }
+
+/* SIVUPALKKI */
+.sivupalkki {
+  position:fixed; top:54px; bottom:0; left:0; width:210px;
+  background:var(--bg2); border-right:1px solid var(--border);
+  padding:20px 0; z-index:50; overflow-y:auto;
+}
+.sivupalkkiSeura {
+  padding:0 20px 18px; border-bottom:1px solid var(--border); margin-bottom:10px;
+}
+.sivupalkkiSeuraLabel {
+  font-size:10px; font-weight:600; letter-spacing:1.5px;
+  text-transform:uppercase; color:var(--ink3); margin-bottom:4px;
+}
+.sivupalkkiSeuraNimi { font-size:14px; font-weight:600; color:var(--ink); }
+.sivupalkkiPaketti { font-size:11px; color:var(--amber); margin-top:2px; }
+
+.navNappi {
+  display:flex; align-items:center; gap:10px; padding:10px 20px;
+  cursor:pointer; color:var(--ink3); font-size:13px; font-weight:500;
+  border-left:2px solid transparent; transition:all .15s; user-select:none;
+}
+.navNappi:hover { color:var(--ink); background:rgba(255,255,255,.02); }
+.navNappi.aktiivinen { color:var(--blue); border-left-color:var(--blue); background:rgba(74,126,217,.07); }
+.navIkoni { font-size:15px; width:20px; text-align:center; flex-shrink:0; }
+
+/* SISÄLTÖ */
+.sisalto { margin-left:210px; margin-top:54px; padding:28px 32px; min-height:calc(100vh - 54px); }
+
+/* SIVUOTSIKKO */
+.sivuOtsikko { margin-bottom:22px; }
+.sivuEyebrow {
+  font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase;
+  color:var(--blue); margin-bottom:5px; display:flex; align-items:center; gap:10px;
+}
+.sivuEyebrow::before { content:''; width:18px; height:1px; background:var(--blue); flex-shrink:0; }
+.sivuH1 { font-family:'Playfair Display',serif; font-size:28px; font-weight:900; letter-spacing:-.3px; }
+.sivuH1 small { font-size:14px; font-weight:400; color:var(--ink3); font-family:'DM Sans',sans-serif; margin-left:10px; }
+
+/* KPI-KORTIT */
+.kpiRivi { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:24px; }
+.kpiKortti {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--r); padding:18px 20px; position:relative; overflow:hidden;
+}
+.kpiKortti::before {
+  content:''; position:absolute; top:0; bottom:0; left:0; width:3px;
+}
+.kpiKortti.sininen::before { background:var(--blue); }
+.kpiKortti.teal::before    { background:var(--teal); }
+.kpiKortti.amber::before   { background:var(--amber); }
+.kpiKortti.vihrea::before  { background:var(--green); }
+.kpiLabel { font-size:10px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink3); margin-bottom:5px; }
+.kpiArvo  { font-family:'Playfair Display',serif; font-size:30px; font-weight:700; line-height:1; }
+.kpiAla   { font-size:11px; color:var(--ink3); margin-top:3px; }
+
+/* KORTIT */
+.kortti { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; margin-bottom:20px; }
+.korttiHeader {
+  padding:16px 20px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+}
+.korttiOtsikko { font-size:13px; font-weight:600; }
+.korttiMaara { font-size:12px; color:var(--ink3); }
+
+/* TAULUKKO */
+table { width:100%; border-collapse:collapse; }
+thead th {
+  padding:9px 14px; text-align:left; font-size:10px; font-weight:700;
+  letter-spacing:1.2px; text-transform:uppercase; color:var(--ink3);
+  border-bottom:1px solid var(--border); background:rgba(255,255,255,.02);
+}
+tbody tr { border-bottom:1px solid var(--border); transition:background .12s; }
+tbody tr:last-child { border-bottom:none; }
+tbody tr:hover { background:rgba(74,126,217,.04); }
+tbody td { padding:11px 14px; font-size:13px; color:var(--ink2); vertical-align:middle; }
+tbody td:first-child { font-weight:600; color:var(--ink); }
+
+/* BADGE */
+.badge {
+  display:inline-block; padding:2px 8px; border-radius:4px;
+  font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
+}
+.badge.vp        { background:rgba(224,160,64,.15); color:var(--amber); }
+.badge.valmentaja{ background:rgba(74,126,217,.15);  color:var(--blue); }
+.badge.sihteeri  { background:rgba(62,201,167,.15);  color:var(--teal); }
+.badge.muu       { background:rgba(255,255,255,.06); color:var(--ink3); }
+.badge.ok        { background:rgba(94,201,122,.12);  color:var(--green); }
+.badge.odottaa   { background:rgba(224,160,64,.12);  color:var(--amber); }
+
+/* TOIMINTANAPIT */
+.toimNappi {
+  background:none; border:1px solid var(--border); border-radius:5px;
+  padding:4px 10px; font-size:11px; font-weight:600; color:var(--ink3);
+  cursor:pointer; font-family:'DM Sans',sans-serif; transition:all .15s;
+}
+.toimNappi:hover { color:var(--ink); border-color:var(--bord2); }
+.toimNappi.sininen { border-color:rgba(74,126,217,.3); color:var(--blue); }
+.toimNappi.sininen:hover { background:rgba(74,126,217,.1); }
+.toimNappi.vaara { border-color:rgba(217,96,96,.3); color:var(--red); }
+.toimNappi.vaara:hover { background:rgba(217,96,96,.1); }
+
+/* LISÄÄ-NAPPI */
+.lisaaNappi {
+  display:flex; align-items:center; gap:6px; padding:7px 14px;
+  background:var(--blue); border:none; border-radius:7px;
+  font-size:12px; font-weight:600; font-family:'DM Sans',sans-serif;
+  color:#fff; cursor:pointer; transition:background .2s; white-space:nowrap;
+}
+.lisaaNappi:hover { background:var(--blue-d); }
+.lisaaNappi.teal { background:var(--teal); }
+.lisaaNappi.teal:hover { background:#32b898; }
+
+/* TYHJÄ TILA */
+.tyhjaAlue {
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; min-height:40vh; text-align:center; gap:14px; padding:40px;
+}
+.tyhjaIkoni { font-size:40px; opacity:.3; }
+.tyhjaOtsikko { font-family:'Playfair Display',serif; font-size:22px; font-weight:700; color:var(--ink2); }
+.tyhjaTeksti { font-size:14px; color:var(--ink3); max-width:400px; line-height:1.7; }
+
+/* ─────────────────────────────────────────────
+   REKISTERÖINTILINKKI-MODAL
+   ───────────────────────────────────────────── */
+.modalTausta {
+  display:none; position:fixed; inset:0; z-index:200;
+  background:rgba(6,9,15,.85); backdrop-filter:blur(6px);
+  align-items:center; justify-content:center; padding:20px;
+}
+.modalTausta.auki { display:flex; }
+.modalKortti {
+  background:var(--bg2); border:1px solid var(--bord2);
+  border-radius:16px; width:100%; max-width:540px;
+  max-height:90vh; overflow-y:auto; padding:32px;
+  animation:sisaan .25s cubic-bezier(.16,1,.3,1) both;
+}
+.modalSuljeNappi {
+  float:right; background:none; border:1px solid var(--border);
+  border-radius:6px; padding:5px 12px; font-size:11px; color:var(--ink3);
+  cursor:pointer; font-family:'DM Sans',sans-serif; transition:all .2s; margin-bottom:8px;
+}
+.modalSuljeNappi:hover { color:var(--ink2); border-color:var(--bord2); }
+.modalOtsikko { font-family:'Playfair Display',serif; font-size:22px; font-weight:900; clear:both; margin-bottom:6px; }
+.modalKuvaus { font-size:13px; color:var(--ink3); margin-bottom:22px; line-height:1.6; }
+.formDivider { border:none; border-top:1px solid var(--border); margin:18px 0; }
+
+/* Linkki-näyttö modalissa */
+.linkkiBoksi {
+  display:none;
+  background:var(--bg3); border:1px solid rgba(62,201,167,.3);
+  border-radius:8px; padding:16px; margin-top:16px;
+}
+.linkkiBoksi.nakyvilla { display:block; }
+.linkkiBoksiOtsikko { font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--teal); margin-bottom:8px; }
+.linkkiTeksti {
+  font-size:12px; color:var(--ink2); word-break:break-all;
+  background:var(--bg4); padding:10px; border-radius:6px; margin-bottom:10px;
+  font-family:monospace;
+}
+.linkkiNapit { display:flex; gap:8px; flex-wrap:wrap; }
+.linkkiNappi {
+  padding:7px 14px; border:1px solid var(--bord2); border-radius:6px;
+  font-size:12px; font-weight:600; color:var(--ink2); cursor:pointer;
+  background:none; font-family:'DM Sans',sans-serif; transition:all .15s;
+}
+.linkkiNappi:hover { background:rgba(255,255,255,.04); }
+.linkkiNappi.teal { background:var(--teal); border-color:var(--teal); color:#000; }
+.linkkiNappi.teal:hover { background:#32b898; }
+
+/* TOAST */
+#toastPalkki { position:fixed; bottom:20px; right:20px; z-index:300; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+.toast {
+  padding:11px 16px; border-radius:8px; font-size:13px; font-weight:500;
+  max-width:300px; animation:sisaan .25s cubic-bezier(.16,1,.3,1) both; pointer-events:auto;
+}
+.toast.ok    { background:rgba(62,201,167,.15); border:1px solid rgba(62,201,167,.3); color:var(--teal); }
+.toast.virhe { background:rgba(217,96,96,.15);  border:1px solid rgba(217,96,96,.3);  color:#e88080; }
+
+@media (max-width:768px) {
+  .sivupalkki { display:none; }
+  .sisalto { margin-left:0; padding:16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ KIRJAUTUMISNÄKYMÄ ══ -->
+<div id="kirjautumisNakyma">
+  <div class="kirjKortti">
+    <div class="kirjLogo">Talent<span>Master</span>™</div>
+    <div class="kirjSub">Seurahallinta</div>
+
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel" for="emailInput">Sähköposti</label>
+      <input class="kenttaInput" type="email" id="emailInput"
+        placeholder="vp@seura.fi" autocomplete="email" autocapitalize="none">
+    </div>
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel" for="salasanaInput">Salasana</label>
+      <input class="kenttaInput" type="password" id="salasanaInput"
+        placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="nappi" id="kirjauduNappi" onclick="kirjauduSisaan()">
+      Kirjaudu sisään
+    </button>
+    <div class="virheDiv" id="kirjautumisVirhe"></div>
+  </div>
+</div>
+
+<!-- ══ LATAUSNÄKYMÄ ══ -->
+<div id="latausNakyma">
+  <div class="spinner"></div>
+  <span>Ladataan seuran tietoja...</span>
+</div>
+
+<!-- ══ PÄÄSOVELLUS ══ -->
+<div id="sovellus">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbarLogo">Talent<span>Master</span>™</div>
+
+    <!-- Super-adminin seuravalitsin -->
+    <div class="seuraValitsinWrap" id="seuraValitsinWrap">
+      <select class="seuraValitsin" id="seuraValitsin" onchange="vaihdaSeura(this.value)">
+        <option value="">— Valitse seura —</option>
+      </select>
+    </div>
+
+    <!-- Normaalikäyttäjän seuran nimi -->
+    <div class="topbarSeuraNimi" id="topbarSeuraNimi">—</div>
+
+    <div class="topbarKayttaja">
+      <span class="topbarEmail" id="topbarEmail">—</span>
+      <span class="topbarRooli" id="topbarRooli">—</span>
+      <button class="ulosNappi" onclick="kirjauduUlos()">Kirjaudu ulos</button>
+    </div>
+  </div>
+
+  <!-- SIVUPALKKI -->
+  <div class="sivupalkki">
+    <div class="sivupalkkiSeura">
+      <div class="sivupalkkiSeuraLabel">Seura</div>
+      <div class="sivupalkkiSeuraNimi" id="sivupalkkiSeuraNimi">—</div>
+      <div class="sivupalkkiPaketti" id="sivupalkkiPaketti">—</div>
+    </div>
+
+    <div class="navNappi aktiivinen" onclick="vaihdaNakyma('yhteenveto',this)">
+      <span class="navIkoni">🏠</span>Yhteenveto
+    </div>
+    <div class="navNappi" onclick="vaihdaNakyma('pelaajat',this)">
+      <span class="navIkoni">👥</span>Pelaajat
+    </div>
+    <div class="navNappi" onclick="vaihdaNakyma('joukkueet',this)">
+      <span class="navIkoni">⚽</span>Joukkueet
+    </div>
+    <div class="navNappi" onclick="vaihdaNakyma('henkilosto',this)">
+      <span class="navIkoni">🧑‍🏫</span>Henkilöstö
+    </div>
+    <div class="navNappi" onclick="vaihdaNakyma('sopimukset',this)">
+      <span class="navIkoni">📋</span>Sopimukset
+    </div>
+  </div>
+
+  <!-- PÄÄSISÄLTÖ -->
+  <div class="sisalto">
+    <div id="nakymaAlue"></div>
+  </div>
+</div>
+
+<!-- ══ REKISTERÖINTILINKKI-MODAL ══ -->
+<div class="modalTausta" id="rekisteriModal">
+  <div class="modalKortti">
+    <button class="modalSuljeNappi" onclick="suljeModal('rekisteriModal')">✕ Sulje</button>
+    <div class="modalOtsikko">Lähetä rekisteröintikutsu</div>
+    <div class="modalKuvaus">
+      Luo kutsulink​ki vanhemmalle. Vanhempi täyttää pelaajan tiedot ja antaa
+      GDPR-suostumuksen. Pelaaja tallentuu automaattisesti järjestelmään.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div class="kenttaRyhma" style="margin:0;">
+        <label class="kenttaLabel">Pelaajan etunimi</label>
+        <input class="kenttaInput" type="text" id="rek_etunimi" placeholder="Mikko">
+      </div>
+      <div class="kenttaRyhma" style="margin:0;">
+        <label class="kenttaLabel">Pelaajan sukunimi</label>
+        <input class="kenttaInput" type="text" id="rek_sukunimi" placeholder="Korhonen">
+      </div>
+    </div>
+
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel">Huoltajan sähköposti *</label>
+      <input class="kenttaInput" type="email" id="rek_hEmail"
+        placeholder="huoltaja@email.fi" autocapitalize="none">
+      <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
+        Rekisteröintilinkki lähetetään tähän osoitteeseen
+      </span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div class="kenttaRyhma" style="margin:0;">
+        <label class="kenttaLabel">Joukkue *</label>
+        <select class="kenttaInput" id="rek_joukkue">
+          <option value="">— Valitse joukkue —</option>
+        </select>
+      </div>
+      <div class="kenttaRyhma" style="margin:0;">
+        <label class="kenttaLabel">PalloID (valinnainen)</label>
+        <input class="kenttaInput" type="text" id="rek_palloId"
+          placeholder="34650191">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+      <button class="nappi" id="luoLinkkiNappi" onclick="luoRekisteriLinkki()"
+        style="flex:1;min-width:180px;">
+        Luo kutsulink​ki
+      </button>
+      <button class="nappi" id="lahetaSpostNappi" onclick="lahetaRekisteriSahkoposti()"
+        style="flex:1;min-width:180px;background:var(--teal);" disabled>
+        Lähetä sähköpostilla
+      </button>
+    </div>
+
+    <div class="virheDiv" id="rekisteriVirhe"></div>
+
+    <!-- Linkki näytetään luonnin jälkeen -->
+    <div class="linkkiBoksi" id="linkkiBoksi">
+      <div class="linkkiBoksiOtsikko">✅ Kutsulink​ki valmis</div>
+      <div class="linkkiTeksti" id="linkkiTekstiEl"></div>
+      <div class="linkkiNapit">
+        <button class="linkkiNappi teal" onclick="kopioriLinkki()">📋 Kopioi linkki</button>
+        <button class="linkkiNappi" onclick="avaaLinkki()">↗ Avaa selaimessa</button>
+        <button class="linkkiNappi" onclick="lahetaWhatsApp()">📱 WhatsApp</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ JOUKKUE-MODAL ══ -->
+<div class="modalTausta" id="joukkueModal">
+  <div class="modalKortti">
+    <button class="modalSuljeNappi" onclick="suljeModal('joukkueModal')">✕ Sulje</button>
+    <div class="modalOtsikko" id="joukkueModalOtsikko">Lisää joukkue</div>
+    <div class="modalKuvaus">Joukkueen tiedot tallennetaan Firestoreen ja ne näkyvät heti valmentajille.</div>
+
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel">Joukkueen nimi *</label>
+      <input class="kenttaInput" type="text" id="jouk_nimi" placeholder="KPV U15">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="kenttaRyhma" style="margin:0;">
+        <label class="kenttaLabel">Ikäluokka *</label>
+        <input class="kenttaInput" type="text" id="jouk_ika" placeholder="U15">
+      </div>
+      <div class="kenttaRyhma" style="margin:0;">
+        <label class="kenttaLabel">Joukkue-ID *</label>
+        <input class="kenttaInput" type="text" id="jouk_id"
+          placeholder="kpv_u15" style="text-transform:lowercase;">
+        <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
+          Pieni, ei välejä (esim. kpv_u15)
+        </span>
+      </div>
+    </div>
+    <div class="kenttaRyhma" style="margin-top:14px;">
+      <label class="kenttaLabel">Vuosi (syntymävuosi)</label>
+      <input class="kenttaInput" type="number" id="jouk_vuosi" placeholder="2010">
+    </div>
+
+    <button class="nappi" id="tallennaJoukkueNappi" onclick="tallennaJoukkue()" style="margin-top:8px;">
+      Tallenna joukkue
+    </button>
+    <div class="virheDiv" id="joukkueVirhe"></div>
+  </div>
+</div>
+
+<!-- ══ TOAST ══ -->
+<div id="toastPalkki"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// FIREBASE INIT — double-init estetty (kriittinen)
+// ─────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:            'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo',
+  authDomain:        'talentmaster-pilot.firebaseapp.com',
+  projectId:         'talentmaster-pilot',
+  storageBucket:     'talentmaster-pilot.firebasestorage.app',
+  messagingSenderId: '872561784446',
+  appId:             '1:872561784446:web:05c4c7996dfd46ddd14a2f',
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const auth      = firebase.auth();
+const db        = firebase.firestore();
+const functions = firebase.app().functions('europe-west1');
+
+// Sessio säilyy sivujen välillä
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+  .catch(e => console.warn('Persistence:', e.message));
+db.enablePersistence({ synchronizeTabs: true })
+  .catch(e => console.warn('Offline-tuki:', e.code));
+
+// ─────────────────────────────────────────────────────────────────
+// SOVELLUKSEN TILA
+// ─────────────────────────────────────────────────────────────────
+const tila = {
+  kayttaja:    null,
+  claims:      null,
+  seuraId:     null,   // aktiivinen seura (super-admin voi vaihtaa)
+  seuraNimi:   null,
+  seuraPaketti:null,
+  rooli:       null,
+  seurat:      [],     // kaikki seurat (super-admin) tai oma seura
+  joukkueet:   [],     // valitun seuran joukkueet
+  pelaajat:    [],     // valitun seuran pelaajat
+  henkilosto:  [],     // valitun seuran käyttäjät
+  aktiivNakyma:'yhteenveto',
+  // Rekisterilinkin väliaikaiset tiedot
+  _rekLinkki:  null,
+  _rekHEmail:  null,
+};
+
+// ─────────────────────────────────────────────────────────────────
+// SALLITUT ROOLIT — kenellä on pääsy tähän näkymään
+// PERMISSION_MATRIX: Taso 2 (seuran hallinto) + super-admin
+// ─────────────────────────────────────────────────────────────────
+const SALLITUT_ROOLIT = ['superadmin', 'vp', 'seurasihteeri', 'urheilutoimenjohtaja'];
+
+// ─────────────────────────────────────────────────────────────────
+// AUTH-KUUNTELIJA
+// ─────────────────────────────────────────────────────────────────
+auth.onAuthStateChanged(async (kayttaja) => {
+  if (kayttaja) {
+    nayta('lataus');
+    await lataaProfiili(kayttaja);
+  } else {
+    // Nollataan tila uloskirjautuessa
+    if (tila._joukkueetKuuntelija) { tila._joukkueetKuuntelija(); }
+    nayta('kirjautuminen');
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// PROFIILIN LATAUS — Custom Claims ensin, collectionGroup fallbackina
+// ─────────────────────────────────────────────────────────────────
+async function lataaProfiili(kayttaja) {
+  tila.kayttaja = kayttaja;
+  try {
+    const token  = await kayttaja.getIdTokenResult(true);
+    const claims = token.claims;
+    tila.claims  = claims;
+
+    const rooli = claims.rooli || '';
+    if (!SALLITUT_ROOLIT.includes(rooli)) {
+      nayta('kirjautuminen');
+      naytaVirhe('kirjautumisVirhe',
+        'Tämä näkymä on seuran hallinnolle. ' +
+        'Valmentajat kirjautuvat valmentajan näkymään.');
+      await auth.signOut();
+      return;
+    }
+
+    tila.rooli = rooli;
+
+    // Super-admin: ladataan kaikki seurat ja näytetään valitsin
+    if (rooli === 'superadmin') {
+      await lataaKaikkiSeurat();
+      // Oletuksena valitaan ensimmäinen seura listalta
+      if (tila.seurat.length > 0) {
+        await asetaAktiivinenSeura(tila.seurat[0].id);
+      }
+    } else {
+      // VP / sihteeri / UTJ: oma seura claims:ista
+      const seuraId = claims.seuraId;
+      if (!seuraId) {
+        nayta('kirjautuminen');
+        naytaVirhe('kirjautumisVirhe',
+          'Seuraa ei löydy. Ota yhteyttä TalentMaster-ylläpitoon.');
+        await auth.signOut();
+        return;
+      }
+      await asetaAktiivinenSeura(seuraId);
+    }
+
+    alustaTopbar();
+    nayta('sovellus');
+    renderoi('yhteenveto');
+
+  } catch (virhe) {
+    console.error('Profiilin latausvirhe:', virhe);
+    nayta('kirjautuminen');
+    naytaVirhe('kirjautumisVirhe',
+      'Latausvirhe: ' + (virhe.message || 'tuntematon') + ' — päivitä sivu.');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SEUROJEN LATAUS (super-admin)
+// ─────────────────────────────────────────────────────────────────
+async function lataaKaikkiSeurat() {
+  const snap = await db.collection('seurat').get();
+  tila.seurat = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a,b) => (a.nimi || a.id).localeCompare(b.nimi || b.id));
+
+  // Täytetään seuravalitsin
+  const select = document.getElementById('seuraValitsin');
+  select.innerHTML = tila.seurat.map(s =>
+    `<option value="${s.id}">${s.nimi || s.id}</option>`
+  ).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// AKTIIVISEN SEURAN ASETTAMINEN
+// ─────────────────────────────────────────────────────────────────
+async function asetaAktiivinenSeura(seuraId) {
+  tila.seuraId = seuraId;
+
+  // Haetaan seuran tiedot
+  const seuraSnap = await db.collection('seurat').doc(seuraId).get();
+  if (seuraSnap.exists) {
+    const data = seuraSnap.data();
+    tila.seuraNimi    = data.nimi    || seuraId;
+    tila.seuraPaketti = data.paketti || 'Perustaso';
+  } else {
+    tila.seuraNimi    = seuraId;
+    tila.seuraPaketti = '—';
+  }
+
+  // Ladataan joukkueet reaaliaikaisesti
+  if (tila._joukkueetKuuntelija) tila._joukkueetKuuntelija();
+  tila._joukkueetKuuntelija = db
+    .collection('seurat').doc(seuraId)
+    .collection('joukkueet')
+    .orderBy('jarjestys')
+    .onSnapshot(snap => {
+      tila.joukkueet = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Päivitä joukkuevalitsin modalissa
+      paivitaJoukkueValitsin();
+      // Päivitä näkymä jos joukkueet-välilehti auki
+      if (tila.aktiivNakyma === 'joukkueet') renderoi('joukkueet');
+      if (tila.aktiivNakyma === 'yhteenveto') renderoi('yhteenveto');
+    }, err => {
+      console.warn('Joukkueet:', err.message);
+      tila.joukkueet = [];
+    });
+
+  // Päivitetään sivupalkin tieto
+  document.getElementById('sivupalkkiSeuraNimi').textContent = tila.seuraNimi;
+  document.getElementById('sivupalkkiPaketti').textContent   = tila.seuraPaketti;
+  document.getElementById('topbarSeuraNimi').textContent     = tila.seuraNimi;
+}
+
+// Super-adminin seuravalitsin vaihtaa seuran
+async function vaihdaSeura(seuraId) {
+  if (!seuraId) return;
+  nayta('lataus');
+  await asetaAktiivinenSeura(seuraId);
+  nayta('sovellus');
+  renderoi(tila.aktiivNakyma);
+}
+
+function paivitaJoukkueValitsin() {
+  const select = document.getElementById('rek_joukkue');
+  if (!select) return;
+  select.innerHTML = '<option value="">— Valitse joukkue —</option>' +
+    tila.joukkueet.map(j =>
+      `<option value="${j.id}">${j.nimi || j.id}</option>`
+    ).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TOPBAR ALUSTUS
+// ─────────────────────────────────────────────────────────────────
+function alustaTopbar() {
+  document.getElementById('topbarEmail').textContent = tila.kayttaja.email || '—';
+
+  const rooliNimet = {
+    superadmin: 'Super Admin', vp: 'VP',
+    seurasihteeri: 'Seurasihteeri', urheilutoimenjohtaja: 'UTJ',
+  };
+  const rooliLuokat = {
+    superadmin: 'admin', vp: 'vp',
+    seurasihteeri: 'sihteeri', urheilutoimenjohtaja: 'vp',
+  };
+  const rooliEl = document.getElementById('topbarRooli');
+  rooliEl.textContent  = rooliNimet[tila.rooli] || tila.rooli;
+  rooliEl.className    = 'topbarRooli ' + (rooliLuokat[tila.rooli] || 'muu');
+
+  // Super-admin: näytetään seuravalitsin
+  if (tila.rooli === 'superadmin') {
+    document.getElementById('seuraValitsinWrap').style.display = 'block';
+    document.getElementById('seuraValitsin').value = tila.seuraId || '';
+  } else {
+    // Normaali käyttäjä: näytetään seuran nimi
+    document.getElementById('topbarSeuraNimi').style.display = 'block';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// NAVIGOINTI
+// ─────────────────────────────────────────────────────────────────
+function vaihdaNakyma(nakyma, nappiEl) {
+  document.querySelectorAll('.navNappi').forEach(n => n.classList.remove('aktiivinen'));
+  if (nappiEl) nappiEl.classList.add('aktiivinen');
+  tila.aktiivNakyma = nakyma;
+  renderoi(nakyma);
+}
+
+function renderoi(nakyma) {
+  const alue = document.getElementById('nakymaAlue');
+  switch (nakyma) {
+    case 'yhteenveto':  alue.innerHTML = renderYhteenveto();  break;
+    case 'pelaajat':    renderPelaajat(alue);                 break;
+    case 'joukkueet':   alue.innerHTML = renderJoukkueet();   break;
+    case 'henkilosto':  renderHenkilosto(alue);               break;
+    case 'sopimukset':  alue.innerHTML = renderSopimukset();  break;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// NÄKYMÄ: YHTEENVETO
+// ─────────────────────────────────────────────────────────────────
+function renderYhteenveto() {
+  return `
+    <div class="sivuOtsikko">
+      <div class="sivuEyebrow">Seurahallinta</div>
+      <div class="sivuH1">${tila.seuraNimi || '—'}
+        <small>${tila.seuraPaketti}</small>
+      </div>
+    </div>
+
+    <div class="kpiRivi">
+      <div class="kpiKortti sininen">
+        <div class="kpiLabel">Joukkueita</div>
+        <div class="kpiArvo" id="kpiJoukkueet">${tila.joukkueet.length}</div>
+        <div class="kpiAla">aktiivista</div>
+      </div>
+      <div class="kpiKortti teal">
+        <div class="kpiLabel">Pelaajia</div>
+        <div class="kpiArvo" id="kpiPelaajat">—</div>
+        <div class="kpiAla">rekisteröityä</div>
+      </div>
+      <div class="kpiKortti amber">
+        <div class="kpiLabel">Henkilöstöä</div>
+        <div class="kpiArvo" id="kpiHenkilosto">—</div>
+        <div class="kpiAla">tunnusta</div>
+      </div>
+      <div class="kpiKortti vihrea">
+        <div class="kpiLabel">Kutsuja lähetetty</div>
+        <div class="kpiArvo" id="kpiKutsut">—</div>
+        <div class="kpiAla">tänä kautena</div>
+      </div>
+    </div>
+
+    <div class="kortti">
+      <div class="korttiHeader">
+        <span class="korttiOtsikko">Nopeat toiminnot</span>
+      </div>
+      <div style="padding:20px;display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="lisaaNappi teal" onclick="avaaRekisteriModal()">
+          ✉️ Lähetä rekisteröintikutsu
+        </button>
+        <button class="lisaaNappi" onclick="vaihdaNakyma('joukkueet', document.querySelector('[data-nakyma=joukkueet]'))">
+          ⚽ Hallinnoi joukkueita
+        </button>
+        <button class="lisaaNappi" onclick="vaihdaNakyma('henkilosto', null)">
+          🧑‍🏫 Kutsu valmentaja
+        </button>
+      </div>
+    </div>
+
+    <div class="kortti">
+      <div class="korttiHeader">
+        <span class="korttiOtsikko">Joukkueet</span>
+        <button class="lisaaNappi" onclick="avaaJoukkueModal()">+ Lisää joukkue</button>
+      </div>
+      ${tila.joukkueet.length === 0
+        ? `<div class="tyhjaAlue" style="min-height:20vh;">
+            <div class="tyhjaIkoni">⚽</div>
+            <div class="tyhjaOtsikko">Ei joukkueita</div>
+            <div class="tyhjaTeksti">Lisää ensimmäinen joukkue yllä olevalla napilla.</div>
+          </div>`
+        : `<table>
+            <thead><tr><th>Joukkue</th><th>Ikäluokka</th><th>Vuosi</th><th>Toiminnot</th></tr></thead>
+            <tbody>
+              ${tila.joukkueet.map(j => `
+                <tr>
+                  <td>${j.nimi || j.id}</td>
+                  <td>${j.ikaryhma || '—'}</td>
+                  <td>${j.vuosi || '—'}</td>
+                  <td>
+                    <div style="display:flex;gap:6px;">
+                      <button class="toimNappi sininen" onclick="avaaRekisteriModalJoukkueella('${j.id}','${j.nimi || j.id}')">
+                        ✉️ Kutsu pelaaja
+                      </button>
+                    </div>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>`
+      }
+    </div>
+  `;
+  // Ladataan KPI-luvut asynkronisesti
+  setTimeout(lataaYhteenvetoKPIt, 0);
+}
+
+async function lataaYhteenvetoKPIt() {
+  try {
+    const [pelaajatSnap, henkilostoSnap, kutsutSnap] = await Promise.all([
+      db.collection('seurat').doc(tila.seuraId).collection('pelaajat').get(),
+      db.collection('seurat').doc(tila.seuraId).collection('kayttajat').get(),
+      db.collection('seurat').doc(tila.seuraId).collection('kutsut').get(),
+    ]);
+    const p = document.getElementById('kpiPelaajat');
+    const h = document.getElementById('kpiHenkilosto');
+    const k = document.getElementById('kpiKutsut');
+    if (p) p.textContent = pelaajatSnap.size;
+    if (h) h.textContent = henkilostoSnap.size;
+    if (k) k.textContent = kutsutSnap.size;
+  } catch (e) { /* Ei kriittinen */ }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// NÄKYMÄ: PELAAJAT
+// ─────────────────────────────────────────────────────────────────
+async function renderPelaajat(alue) {
+  alue.innerHTML = `
+    <div class="sivuOtsikko">
+      <div class="sivuEyebrow">Pelaajat</div>
+      <div class="sivuH1">Pelaajahallinta</div>
+    </div>
+    <div class="kortti">
+      <div class="korttiHeader">
+        <span class="korttiOtsikko">Kaikki pelaajat</span>
+        <button class="lisaaNappi teal" onclick="avaaRekisteriModal()">
+          ✉️ Lähetä rekisteröintikutsu
+        </button>
+      </div>
+      <div id="pelaajaListaAlue" style="padding:20px;color:var(--ink3);font-size:13px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="spinner"></div> Ladataan pelaajia...
+        </div>
+      </div>
+    </div>
+  `;
+
+  try {
+    const snap = await db
+      .collection('seurat').doc(tila.seuraId)
+      .collection('pelaajat')
+      .get();
+
+    const alueEl = document.getElementById('pelaajaListaAlue');
+    if (!alueEl) return;
+
+    if (snap.empty) {
+      alueEl.innerHTML = `
+        <div class="tyhjaAlue">
+          <div class="tyhjaIkoni">👥</div>
+          <div class="tyhjaOtsikko">Ei vielä pelaajia</div>
+          <div class="tyhjaTeksti">
+            Lähetä rekisteröintikutsu vanhemmalle yllä olevalla napilla.
+            Pelaaja ilmestyy tähän listaan kun vanhempi on täyttänyt suostumuslomakkeen.
+          </div>
+        </div>`;
+      return;
+    }
+
+    const pelaajat = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a,b) => (a.sukunimi || '').localeCompare(b.sukunimi || ''));
+
+    alueEl.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Nimi</th><th>Joukkue</th><th>Synt.</th><th>Suostumus</th><th>Toiminnot</th>
+        </tr></thead>
+        <tbody>
+          ${pelaajat.map(p => {
+            const nimi = p.nimi || `${p.etunimi||''} ${p.sukunimi||''}`.trim() || p.id;
+            const suostumus = p.suostumus?.annettu ? 'ok' : 'odottaa';
+            return `
+              <tr>
+                <td>${nimi}</td>
+                <td>${p.joukkue || '—'}</td>
+                <td>${p.syntymaaika ? new Date(p.syntymaaika.seconds*1000).getFullYear() : '—'}</td>
+                <td><span class="badge ${suostumus}">${suostumus === 'ok' ? '✓ Annettu' : '⏳ Odottaa'}</span></td>
+                <td>
+                  <button class="toimNappi" onclick="naytaPelaajaTiedot('${p.id}')">Tiedot</button>
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    console.error('Pelaajat:', e);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// NÄKYMÄ: JOUKKUEET
+// ─────────────────────────────────────────────────────────────────
+function renderJoukkueet() {
+  return `
+    <div class="sivuOtsikko">
+      <div class="sivuEyebrow">Joukkueet</div>
+      <div class="sivuH1">Joukkuehallinta</div>
+    </div>
+    <div class="kortti">
+      <div class="korttiHeader">
+        <span class="korttiOtsikko">Seuran joukkueet</span>
+        <button class="lisaaNappi" onclick="avaaJoukkueModal()">+ Lisää joukkue</button>
+      </div>
+      ${tila.joukkueet.length === 0
+        ? `<div class="tyhjaAlue"><div class="tyhjaIkoni">⚽</div>
+            <div class="tyhjaOtsikko">Ei joukkueita</div>
+            <div class="tyhjaTeksti">Lisää seuran joukkueet ennen pelaajien rekisteröintiä.</div>
+          </div>`
+        : `<table>
+            <thead><tr>
+              <th>Joukkue</th><th>Ikäluokka</th><th>Vuosi</th><th>ID</th><th>Toiminnot</th>
+            </tr></thead>
+            <tbody>
+              ${tila.joukkueet.map(j => `
+                <tr>
+                  <td>${j.nimi || j.id}</td>
+                  <td>${j.ikaryhma || '—'}</td>
+                  <td>${j.vuosi || '—'}</td>
+                  <td style="font-family:monospace;font-size:12px;color:var(--ink3);">${j.id}</td>
+                  <td>
+                    <div style="display:flex;gap:6px;">
+                      <button class="toimNappi sininen"
+                        onclick="avaaRekisteriModalJoukkueella('${j.id}','${(j.nimi||j.id).replace(/'/g,"\\'")}')">
+                        ✉️ Kutsu
+                      </button>
+                      <button class="toimNappi vaara"
+                        onclick="poistaJoukkue('${j.id}','${(j.nimi||j.id).replace(/'/g,"\\'")}')">
+                        Poista
+                      </button>
+                    </div>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>`}
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// NÄKYMÄ: HENKILÖSTÖ
+// ─────────────────────────────────────────────────────────────────
+async function renderHenkilosto(alue) {
+  alue.innerHTML = `
+    <div class="sivuOtsikko">
+      <div class="sivuEyebrow">Henkilöstö</div>
+      <div class="sivuH1">Käyttäjähallinta</div>
+    </div>
+    <div class="kortti">
+      <div class="korttiHeader">
+        <span class="korttiOtsikko">Seuran henkilöstö</span>
+        <button class="lisaaNappi" onclick="avaaKayttajaModal()">+ Kutsu uusi käyttäjä</button>
+      </div>
+      <div id="henkilostoListaAlue" style="padding:20px;color:var(--ink3);font-size:13px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="spinner"></div> Ladataan...
+        </div>
+      </div>
+    </div>`;
+
+  try {
+    const snap = await db
+      .collection('seurat').doc(tila.seuraId)
+      .collection('kayttajat')
+      .get();
+
+    const alueEl = document.getElementById('henkilostoListaAlue');
+    if (!alueEl) return;
+
+    if (snap.empty) {
+      alueEl.innerHTML = `
+        <div class="tyhjaAlue">
+          <div class="tyhjaIkoni">🧑‍🏫</div>
+          <div class="tyhjaOtsikko">Ei henkilöstöä</div>
+          <div class="tyhjaTeksti">Kutsu valmentajia, testivastaavia tai muuta henkilöstöä.</div>
+        </div>`;
+      return;
+    }
+
+    const rooliNimet = {
+      vp:'VP', seurasihteeri:'Seurasihteeri', urheilutoimenjohtaja:'UTJ',
+      valmentaja:'Valmentaja', talenttivalmentaja:'Talent.val.',
+      fysiikkavalmentaja:'Fysiikkaval.', testivastaava:'Testivastaava',
+      fysioterapeutti:'Fysioterapeutti',
+    };
+    const rooliLuokat = {
+      vp:'vp', seurasihteeri:'sihteeri', urheilutoimenjohtaja:'vp',
+      valmentaja:'valmentaja',
+    };
+
+    const henkilot = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a,b) => (a.sukunimi||a.email||'').localeCompare(b.sukunimi||b.email||''));
+
+    alueEl.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Nimi / Sähköposti</th><th>Rooli</th><th>Joukkue</th><th>Claims</th><th>Toiminnot</th>
+        </tr></thead>
+        <tbody>
+          ${henkilot.map(h => `
+            <tr>
+              <td>
+                <div>${h.etunimi||''} ${h.sukunimi||''}</div>
+                <div style="font-size:11px;color:var(--ink3);">${h.email||h.id}</div>
+              </td>
+              <td><span class="badge ${rooliLuokat[h.rooli]||'muu'}">${rooliNimet[h.rooli]||h.rooli||'—'}</span></td>
+              <td style="font-size:12px;color:var(--ink3);">${h.joukkueNimi||h.joukkue||'—'}</td>
+              <td><span class="badge ${h.claimsAsetettu?'ok':'odottaa'}">${h.claimsAsetettu?'✓ OK':'⏳'}</span></td>
+              <td>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button class="toimNappi" onclick="lahetaSalasana('${h.email}')">Salasana</button>
+                  <button class="toimNappi vaara" onclick="deaktivoiKayttaja('${h.id}','${(h.email||'').replace(/'/g,"\\'")}')">Deaktivoi</button>
+                </div>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    console.error('Henkilöstö:', e);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// NÄKYMÄ: SOPIMUKSET
+// ─────────────────────────────────────────────────────────────────
+function renderSopimukset() {
+  return `
+    <div class="sivuOtsikko">
+      <div class="sivuEyebrow">Sopimukset & kriteerit</div>
+      <div class="sivuH1">Dokumentaatio</div>
+    </div>
+    <div class="kortti">
+      <div class="korttiHeader">
+        <span class="korttiOtsikko">Palloliiton kriteerit</span>
+      </div>
+      <div style="padding:20px;color:var(--ink3);font-size:14px;line-height:1.7;">
+        Palloliiton kriteerien seuranta ja kausisuunnittelu tulevat tähän.
+        Tämä osio rakennetaan kun pilottiseurojen ensimmäiset kriteeristöt on määritelty.
+      </div>
+    </div>
+    <div class="kortti">
+      <div class="korttiHeader">
+        <span class="korttiOtsikko">Seuran sopimukset</span>
+        <button class="lisaaNappi" onclick="naytaToast('Tulossa pian!','ok')">+ Lisää sopimus</button>
+      </div>
+      <div style="padding:20px;color:var(--ink3);font-size:14px;line-height:1.7;">
+        Valmentajasopimukset, kausisuunnitelmat ja muut seuran dokumentit.
+        Rakennetaan kun pilottiseurat ovat toiminnassa.
+      </div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// REKISTERÖINTILINKKI — ydin toiminto
+// PERMISSION_MATRIX: VP, seurasihteeri, UTJ, super-admin voivat lähettää
+// ─────────────────────────────────────────────────────────────────
+function avaaRekisteriModal() {
+  // Nollataan lomake
+  ['rek_etunimi','rek_sukunimi','rek_hEmail','rek_palloId']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('rek_joukkue').value = '';
+  document.getElementById('rekisteriVirhe').classList.remove('nakyvilla');
+  document.getElementById('linkkiBoksi').classList.remove('nakyvilla');
+  document.getElementById('lahetaSpostNappi').disabled = true;
+  tila._rekLinkki  = null;
+  tila._rekHEmail  = null;
+  paivitaJoukkueValitsin();
+  document.getElementById('rekisteriModal').classList.add('auki');
+}
+
+function avaaRekisteriModalJoukkueella(joukkueId, joukkueNimi) {
+  avaaRekisteriModal();
+  setTimeout(() => {
+    const select = document.getElementById('rek_joukkue');
+    if (select) select.value = joukkueId;
+  }, 50);
+}
+
+function luoRekisteriLinkki() {
+  const hEmail   = document.getElementById('rek_hEmail').value.trim();
+  const joukkue  = document.getElementById('rek_joukkue').value;
+  const etunimi  = document.getElementById('rek_etunimi').value.trim();
+  const sukunimi = document.getElementById('rek_sukunimi').value.trim();
+  const palloId  = document.getElementById('rek_palloId').value.trim();
+
+  if (!hEmail) {
+    naytaModalVirhe('rekisteriVirhe', 'Huoltajan sähköposti on pakollinen.');
+    return;
+  }
+  if (!joukkue) {
+    naytaModalVirhe('rekisteriVirhe', 'Valitse joukkue.');
+    return;
+  }
+
+  document.getElementById('rekisteriVirhe').classList.remove('nakyvilla');
+
+  // Rakennetaan kutsulink​ki
+  // Linkki vie suostumuslomakkeelle valmiiksi täytetyillä tiedoilla
+  const joukkueObj = tila.joukkueet.find(j => j.id === joukkue);
+  const joukkueNimi = joukkueObj?.nimi || joukkue;
+
+  const params = new URLSearchParams({
+    seuraId:  tila.seuraId,
+    seura:    tila.seuraNimi,
+    joukkue:  joukkueNimi,
+    ...(etunimi  && { etunimi }),
+    ...(sukunimi && { sukunimi }),
+    ...(hEmail   && { hEmail }),
+    ...(palloId  && { palloid: palloId }),
+  });
+
+  const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+  const linkki  = `${baseUrl}?${params.toString()}`;
+
+  tila._rekLinkki = linkki;
+  tila._rekHEmail = hEmail;
+
+  // Näytetään linkki
+  document.getElementById('linkkiTekstiEl').textContent = linkki;
+  document.getElementById('linkkiBoksi').classList.add('nakyvilla');
+  document.getElementById('lahetaSpostNappi').disabled = false;
+
+  naytaToast('Kutsulink​ki luotu!', 'ok');
+}
+
+async function lahetaRekisteriSahkoposti() {
+  if (!tila._rekLinkki || !tila._rekHEmail) return;
+
+  const nappi = document.getElementById('lahetaSpostNappi');
+  nappi.disabled    = true;
+  nappi.textContent = 'Lähetetään...';
+
+  try {
+    // Kutsutaan Cloud Functionsia sähköpostin lähettämiseen
+    const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
+    await lahetaFn({
+      hEmail:    tila._rekHEmail,
+      linkki:    tila._rekLinkki,
+      seura:     tila.seuraNimi,
+      etunimi:   document.getElementById('rek_etunimi').value.trim(),
+      sukunimi:  document.getElementById('rek_sukunimi').value.trim(),
+      joukkue:   document.getElementById('rek_joukkue').options[
+                   document.getElementById('rek_joukkue').selectedIndex
+                 ]?.text || '',
+    });
+
+    nappi.textContent = 'Lähetetty! ✓';
+    naytaToast(`Kutsu lähetetty: ${tila._rekHEmail}`, 'ok');
+
+    // Tallennetaan kutsu Firestoreen seurantaa varten
+    await db.collection('seurat').doc(tila.seuraId)
+      .collection('kutsut').add({
+        hEmail:    tila._rekHEmail,
+        linkki:    tila._rekLinkki,
+        joukkue:   document.getElementById('rek_joukkue').value,
+        lahetetty: firebase.firestore.FieldValue.serverTimestamp(),
+        tila:      'lahetetty',
+        lahettaja: tila.kayttaja.uid,
+      });
+
+  } catch (virhe) {
+    nappi.disabled    = false;
+    nappi.textContent = 'Lähetä sähköpostilla';
+    naytaToast('Sähköposti epäonnistui: ' + virhe.message, 'virhe');
+  }
+}
+
+function kopioriLinkki() {
+  if (!tila._rekLinkki) return;
+  navigator.clipboard.writeText(tila._rekLinkki)
+    .then(() => naytaToast('Linkki kopioitu leikepöydälle!', 'ok'))
+    .catch(() => naytaToast('Kopioi linkki manuaalisesti', 'virhe'));
+}
+
+function avaaLinkki() {
+  if (tila._rekLinkki) window.open(tila._rekLinkki, '_blank');
+}
+
+function lahetaWhatsApp() {
+  if (!tila._rekLinkki) return;
+  const viesti = `Hei! Tässä on rekisteröintilinkki TalentMaster-järjestelmään. Ole hyvä ja täytä pelaajan tiedot: ${tila._rekLinkki}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(viesti)}`, '_blank');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// JOUKKUEEN LISÄYS
+// ─────────────────────────────────────────────────────────────────
+function avaaJoukkueModal() {
+  ['jouk_nimi','jouk_ika','jouk_id','jouk_vuosi']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('joukkueVirhe').classList.remove('nakyvilla');
+  document.getElementById('joukkueModalOtsikko').textContent = 'Lisää joukkue';
+  document.getElementById('joukkueModal').classList.add('auki');
+}
+
+// Joukkue-ID generoidaan automaattisesti nimestä
+document.addEventListener('DOMContentLoaded', () => {
+  const nimiInput = document.getElementById('jouk_nimi');
+  const idInput   = document.getElementById('jouk_id');
+  if (nimiInput && idInput) {
+    nimiInput.addEventListener('input', () => {
+      const autoId = (tila.seuraId || 'seura') + '_' +
+        nimiInput.value.toLowerCase()
+          .replace(/\s+/g, '_')
+          .replace(/[^a-z0-9_]/g, '')
+          .substring(0, 15);
+      idInput.value = autoId;
+    });
+  }
+});
+
+async function tallennaJoukkue() {
+  const nimi  = document.getElementById('jouk_nimi').value.trim();
+  const ika   = document.getElementById('jouk_ika').value.trim();
+  const id    = document.getElementById('jouk_id').value.trim().toLowerCase();
+  const vuosi = document.getElementById('jouk_vuosi').value.trim();
+
+  if (!nimi || !ika || !id) {
+    naytaModalVirhe('joukkueVirhe', 'Nimi, ikäluokka ja ID ovat pakollisia.');
+    return;
+  }
+
+  const nappi = document.getElementById('tallennaJoukkueNappi');
+  nappi.disabled    = true;
+  nappi.textContent = 'Tallennetaan...';
+
+  try {
+    // Järjestysnumero ikäluokan perusteella (U10=10, U15=15 jne.)
+    const jarjestys = parseInt(ika.replace(/\D/g, '')) || 99;
+
+    await db.collection('seurat').doc(tila.seuraId)
+      .collection('joukkueet').doc(id)
+      .set({
+        nimi, ikaryhma: ika, vuosi: vuosi || null,
+        jarjestys, luotu: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+    nappi.disabled    = false;
+    nappi.textContent = 'Tallenna joukkue';
+    suljeModal('joukkueModal');
+    naytaToast(`Joukkue ${nimi} lisätty!`, 'ok');
+    // onSnapshot päivittää tila.joukkueet automaattisesti
+
+  } catch (virhe) {
+    nappi.disabled    = false;
+    nappi.textContent = 'Tallenna joukkue';
+    naytaModalVirhe('joukkueVirhe', 'Tallennus epäonnistui: ' + virhe.message);
+  }
+}
+
+async function poistaJoukkue(id, nimi) {
+  if (!confirm(`Poistetaanko joukkue "${nimi}"? Tämä ei poista joukkueen pelaajia.`)) return;
+  try {
+    await db.collection('seurat').doc(tila.seuraId)
+      .collection('joukkueet').doc(id).delete();
+    naytaToast(`Joukkue ${nimi} poistettu.`, 'ok');
+  } catch (e) {
+    naytaToast('Poisto epäonnistui: ' + e.message, 'virhe');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// HENKILÖSTÖN TOIMINNOT
+// ─────────────────────────────────────────────────────────────────
+function avaaKayttajaModal() {
+  // Ohjataan Admin-näkymään käyttäjänluontia varten
+  // Admin-näkymässä on jo täysi luontiflow Gmail-kutsulla
+  const adminUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Admin.html';
+  if (confirm('Käyttäjien luonti tapahtuu Admin-näkymässä. Avataanko se?')) {
+    window.open(adminUrl, '_blank');
+  }
+}
+
+async function lahetaSalasana(email) {
+  if (!email) return;
+  try {
+    await auth.sendPasswordResetEmail(email);
+    naytaToast(`Salasanalinkki lähetetty: ${email}`, 'ok');
+  } catch (e) {
+    naytaToast('Lähetys epäonnistui.', 'virhe');
+  }
+}
+
+async function deaktivoiKayttaja(uid, email) {
+  if (!confirm(`Deaktivoidaanko ${email}? Käyttäjä ei voi enää kirjautua.`)) return;
+  try {
+    await db.collection('seurat').doc(tila.seuraId)
+      .collection('kayttajat').doc(uid)
+      .update({ aktiivinen: false });
+    naytaToast(`${email} deaktivoitu.`, 'ok');
+    renderHenkilosto(document.getElementById('nakymaAlue'));
+  } catch (e) {
+    naytaToast('Deaktivointi epäonnistui: ' + e.message, 'virhe');
+  }
+}
+
+function naytaPelaajaTiedot(pelaajaId) {
+  naytaToast('Pelaajan tarkempi profiilisivu tulossa!', 'ok');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// KIRJAUTUMINEN
+// ─────────────────────────────────────────────────────────────────
+async function kirjauduSisaan() {
+  const email    = document.getElementById('emailInput').value.trim();
+  const salasana = document.getElementById('salasanaInput').value;
+  const nappi    = document.getElementById('kirjauduNappi');
+
+  if (!email || !salasana) {
+    naytaVirhe('kirjautumisVirhe', 'Syötä sähköposti ja salasana.'); return;
+  }
+  nappi.disabled    = true;
+  nappi.textContent = 'Kirjaudutaan...';
+  document.getElementById('kirjautumisVirhe').classList.remove('nakyvilla');
+
+  try {
+    await auth.signInWithEmailAndPassword(email, salasana);
+  } catch (e) {
+    nappi.disabled    = false;
+    nappi.textContent = 'Kirjaudu sisään';
+    const koodit = {
+      'auth/user-not-found':     'Sähköpostia ei löydy.',
+      'auth/wrong-password':     'Väärä salasana.',
+      'auth/invalid-credential': 'Väärä sähköposti tai salasana.',
+      'auth/too-many-requests':  'Liian monta yritystä. Odota hetki.',
+    };
+    naytaVirhe('kirjautumisVirhe', koodit[e.code] || e.message);
+  }
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('kirjautumisNakyma').style.display !== 'none') {
+    kirjauduSisaan();
+  }
+});
+
+async function kirjauduUlos() {
+  if (tila._joukkueetKuuntelija) tila._joukkueetKuuntelija();
+  await auth.signOut();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// UI-APUFUNKTIOT
+// ─────────────────────────────────────────────────────────────────
+function nayta(nakyma) {
+  document.getElementById('kirjautumisNakyma').style.display =
+    nakyma === 'kirjautuminen' ? 'flex'  : 'none';
+  document.getElementById('latausNakyma').style.display =
+    nakyma === 'lataus'        ? 'flex'  : 'none';
+  document.getElementById('sovellus').style.display =
+    nakyma === 'sovellus'      ? 'block' : 'none';
+  if (nakyma === 'kirjautuminen') {
+    const n = document.getElementById('kirjauduNappi');
+    if (n) { n.disabled = false; n.textContent = 'Kirjaudu sisään'; }
+  }
+}
+
+function naytaVirhe(elId, teksti) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.textContent = teksti;
+  el.classList.add('nakyvilla');
+}
+
+function naytaModalVirhe(elId, teksti) {
+  naytaVirhe(elId, teksti);
+}
+
+function suljeModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('auki');
+}
+
+function naytaToast(teksti, tyyppi = 'ok') {
+  const palkki = document.getElementById('toastPalkki');
+  const toast  = document.createElement('div');
+  toast.className = `toast ${tyyppi}`;
+  toast.textContent = teksti;
+  palkki.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}
+
+// Esc sulkee modalit
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    ['rekisteriModal','joukkueModal'].forEach(id => suljeModal(id));
+  }
+});
+['rekisteriModal','joukkueModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) suljeModal(id);
+  });
+});
+</script>
+</body>
+</html>
