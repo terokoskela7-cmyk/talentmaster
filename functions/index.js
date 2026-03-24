@@ -23,6 +23,7 @@
  */
 
 const functions  = require('firebase-functions');
+const { defineString } = require('firebase-functions/params');
 const admin      = require('firebase-admin');
 const nodemailer = require('nodemailer');
 
@@ -31,17 +32,16 @@ admin.initializeApp();
 // ─────────────────────────────────────────────────────────────────
 // GMAIL-TRANSPORT — Nodemailer
 //
-// Käyttää Gmail App Password -salasanaa (ei tavallista salasanaa).
-// Salasana haetaan Firebase Runtime Config:sta jotta se ei ole
-// kovakoodattuna koodissa.
-//
-// Asetus: firebase functions:config:set gmail.email="..." gmail.password="..."
-// TAI GitHub Actionsin kautta (setup_firebase.yml deploy-vaiheessa)
+// Käytetään Firebase Functions params -APIa (uusi tapa).
+// Arvot haetaan ympäristömuuttujista jotka asetetaan
+// GitHub Secretseissä: GMAIL_EMAIL ja GMAIL_APP_PASSWORD
 // ─────────────────────────────────────────────────────────────────
+
+// Määritellään parametrit — haetaan process.env:stä
+// joka toimii sekä GitHub Actionsissa että Firebase Consolessa
 function luoGmailTransport() {
-  const config = functions.config();
-  const email  = config.gmail?.email    || process.env.GMAIL_EMAIL;
-  const pass   = config.gmail?.password || process.env.GMAIL_APP_PASSWORD;
+  const email = process.env.GMAIL_EMAIL;
+  const pass  = process.env.GMAIL_APP_PASSWORD;
 
   if (!email || !pass) {
     functions.logger.warn('Gmail-konfiguraatio puuttuu — sähköpostit eivät toimi');
