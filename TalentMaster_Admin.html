@@ -351,16 +351,22 @@ const tila = {
   claims:      null,
   seurat:      [],    // kaikki seurat (super-admin) tai oma seura (VP)
   aktiivNakyma: 'seurat',
+  _tokenTimer: null,
 };
 
 // ─────────────────────────────────────────
 // AUTH-KUUNTELIJA
+// KORJAUS: virheenkäsittely + token-päivitys 50min välein
 // ─────────────────────────────────────────
 auth.onAuthStateChanged(async (kayttaja) => {
   if (kayttaja) {
     nayta('lataus');
     await lataaProfiili(kayttaja);
   } else {
+    if (tila._tokenTimer) {
+      clearInterval(tila._tokenTimer);
+      tila._tokenTimer = null;
+    }
     nayta('kirjautuminen');
   }
 });
@@ -368,28 +374,47 @@ auth.onAuthStateChanged(async (kayttaja) => {
 async function lataaProfiili(kayttaja) {
   tila.kayttaja = kayttaja;
 
-  // Haetaan Custom Claims — rooli ja seuraId JWT-tokenista
-  const token  = await kayttaja.getIdTokenResult(true);
-  tila.claims  = token.claims;
+  try {
+    const token  = await kayttaja.getIdTokenResult(true);
+    tila.claims  = token.claims;
 
-  const rooli = tila.claims.rooli || '';
-  const sallitut = ['superadmin', 'vp', 'seurasihteeri', 'urheilutoimenjohtaja'];
+    const rooli = tila.claims.rooli || '';
+    const sallitut = ['superadmin', 'vp', 'seurasihteeri', 'urheilutoimenjohtaja'];
 
-  if (!sallitut.includes(rooli)) {
+    if (!sallitut.includes(rooli)) {
+      nayta('kirjautuminen');
+      naytaVirhe('kirjautumisVirhe',
+        'Ei admin-oikeuksia. Tämä näkymä on valmennuspäälliköille ja super-adminille.');
+      await auth.signOut();
+      return;
+    }
+
+    document.getElementById('topbarEmail').textContent = kayttaja.email;
+    await lataaSeurat();
+    nayta('sovellus');
+    renderoi('seurat');
+
+    // Token-päivitys automaattisesti 50 min välein
+    // Firebase token vanhenee tunnissa — päivitetään ennakoivasti
+    if (tila._tokenTimer) clearInterval(tila._tokenTimer);
+    tila._tokenTimer = setInterval(async () => {
+      try {
+        if (auth.currentUser) await auth.currentUser.getIdToken(true);
+      } catch (e) { console.warn('Token-päivitys epäonnistui:', e.message); }
+    }, 50 * 60 * 1000);
+
+  } catch (virhe) {
+    console.error('Profiilin latausvirhe:', virhe);
+    // EI kirjata ulos — näytetään virhe ja annetaan yrittää uudelleen
     nayta('kirjautuminen');
-    naytaVirhe('kirjautumisVirhe',
-      'Ei admin-oikeuksia. Tämä näkymä on valmennuspäälliköille ja super-adminille.');
-    await auth.signOut();
-    return;
+    if (virhe.code === 'unavailable' || (virhe.message || '').includes('network')) {
+      naytaVirhe('kirjautumisVirhe', 'Verkkoyhteysvirhe — yritetään uudelleen...');
+      setTimeout(() => lataaProfiili(kayttaja), 3000);
+    } else {
+      naytaVirhe('kirjautumisVirhe',
+        'Latausvirhe: ' + (virhe.message || 'tuntematon') + ' — päivitä sivu.');
+    }
   }
-
-  document.getElementById('topbarEmail').textContent = kayttaja.email;
-
-  // Ladataan seurat dropdown-valikkoa varten
-  await lataaSeurat();
-
-  nayta('sovellus');
-  renderoi('seurat');
 }
 
 // ─────────────────────────────────────────
