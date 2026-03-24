@@ -616,21 +616,33 @@ async function lataaKayttajaLista() {
     let kaikkiKayttajat = [];
 
     for (const seura of tila.seurat) {
-      const snap = await db
-        .collection('seurat').doc(seura.id)
-        .collection('kayttajat')
-        .orderBy('luotu', 'desc')
-        .get();
+      try {
+        // orderBy('luotu') poistettu — vaatii Firestore-indeksin
+        // Järjestetään JavaScriptissä
+        const snap = await db
+          .collection('seurat').doc(seura.id)
+          .collection('kayttajat')
+          .get();
 
-      snap.docs.forEach(doc => {
-        kaikkiKayttajat.push({
-          id: doc.id,
-          seuraId: seura.id,
-          seuraNimi: seura.nimi || seura.id,
-          ...doc.data(),
+        snap.docs.forEach(doc => {
+          kaikkiKayttajat.push({
+            id: doc.id,
+            seuraId: seura.id,
+            seuraNimi: seura.nimi || seura.id,
+            ...doc.data(),
+          });
         });
-      });
+      } catch (seuraVirhe) {
+        // Yksittäisen seuran virhe ei kaada koko listaa
+        console.warn(`Seura ${seura.id} käyttäjät: ${seuraVirhe.message}`);
+      }
     }
+    
+    // Järjestetään JavaScriptissä luontiajan mukaan
+    kaikkiKayttajat.sort((a, b) => {
+      const aika = (t) => t?.seconds || 0;
+      return aika(b.luotu) - aika(a.luotu);
+    });
 
     if (kaikkiKayttajat.length === 0) {
       alue.innerHTML = `
