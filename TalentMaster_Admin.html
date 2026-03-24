@@ -340,8 +340,28 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth      = firebase.auth();
 const db        = firebase.firestore();
-// Functions-alue täsmää Cloud Functionsin region-asetukseen (europe-west1)
 const functions = firebase.app().functions('europe-west1');
+
+// KRIITTINEN: Asetetaan LOCAL persistence eksplisiittisesti
+// Tämä varmistaa että sessio säilyy kun käyttäjä navigoi
+// toiselle sivulle ja palaa takaisin.
+// Ilman tätä Firebase saattaa kirjata ulos kun sivu
+// palaa taustatilasta.
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+  .catch(e => console.warn('Persistence-asetus epäonnistui:', e.message));
+
+// Firestore offline-tuki — kirjaukset tallentuvat vaikka
+// verkko katkeaa hetkeksi (valmentajat kentällä)
+db.enablePersistence({ synchronizeTabs: true })
+  .catch(e => {
+    if (e.code === 'failed-precondition') {
+      // Useampi välilehti auki — ei kriittinen
+      console.warn('Offline-tuki: useampi välilehti auki');
+    } else if (e.code === 'unimplemented') {
+      // Selain ei tue — ei kriittinen
+      console.warn('Offline-tuki: selain ei tue');
+    }
+  });
 
 // ─────────────────────────────────────────
 // TILA
