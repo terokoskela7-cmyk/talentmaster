@@ -1869,6 +1869,56 @@ async function lataaRekisteriPohja() {
     // Kiinnitetään otsikkorivi (freeze panes) — rivit 1-4 pysyvät näkyvissä
     wsPelaajat['!freeze'] = { xSplit: 0, ySplit: 4 };
 
+    // ── DROPDOWN-VALIDOINTI (Data Validation) ────────────────────
+    // SheetJS ei tue dropdowneja suoraan API:ssa, mutta voimme
+    // kirjoittaa Excel XML:n suoraan '!dataValidation'-kentän kautta.
+    //
+    // Excel Data Validation XML-rakenne:
+    //   <dataValidation type="list" ...>
+    //     <formula1>"Arvo1,Arvo2,Arvo3"</formula1>
+    //   </dataValidation>
+    //
+    // Joukkueet kirjoitetaan suoraan XML:ään merkkijonona koska
+    // Asetukset-välilehteen viittaaminen (=Asetukset!$A$2:$A$10)
+    // ei toimi kaikissa Excel-versioissa eri selaimissa ladatuissa tiedostoissa.
+    // Suora arvolista on luotettavampi.
+
+    const joukkueetXml = joukkueetNimet
+      .map(j => j.replace(/&/g,'&amp;').replace(/"/g,'&quot;'))
+      .join(',');
+
+    const rooliXml = 'Pelaaja,Maalivahti';
+
+    // Data validation kohdistuu riveille 5-104 (otsikkorivi on rivi 4)
+    const dvAlkuRivi = 5;
+    const dvLoppuRivi = 5 + MAX_RIVIT - 1;
+
+    // SheetJS lukee '!dataValidations' -kenttää kun kirjoittaa tiedostoa.
+    // Tämä on dokumentoimaton mutta toimiva ominaisuus.
+    wsPelaajat['!dataValidations'] = [
+      {
+        // Joukkue-dropdown — sarake F (indeksi 5, 0-pohjainen)
+        type: 'list',
+        sqref: `F${dvAlkuRivi}:F${dvLoppuRivi}`,
+        formula1: `"${joukkueetXml}"`,
+        showErrorMessage: true,
+        errorTitle: 'Virheellinen joukkue',
+        error: 'Valitse joukkue listalta.',
+        showInputMessage: true,
+        promptTitle: 'Joukkue',
+        prompt: 'Valitse joukkue pudotusvalikosta.',
+      },
+      {
+        // Rooli-dropdown — sarake G (indeksi 6, 0-pohjainen)
+        type: 'list',
+        sqref: `G${dvAlkuRivi}:G${dvLoppuRivi}`,
+        formula1: `"${rooliXml}"`,
+        showErrorMessage: true,
+        errorTitle: 'Virheellinen rooli',
+        error: 'Valitse Pelaaja tai Maalivahti.',
+      },
+    ];
+
     // Lisätään välilehti workbookiin — Pelaajat ensin
     XLSX.utils.book_append_sheet(wb, wsPelaajat, 'Pelaajat');
 
