@@ -827,6 +827,11 @@ function renderoi(nakyma) {
 // NÄKYMÄ: YHTEENVETO
 // ─────────────────────────────────────────────────────────────────
 function renderYhteenveto() {
+  // KRIITTINEN: requestAnimationFrame varmistaa että DOM on renderöity
+  // ennen kuin yritetään päivittää KPI-elementtejä.
+  // Ilman tätä getElementById palauttaa null koska HTML ei ole vielä DOMissa.
+  requestAnimationFrame(() => lataaYhteenvetoKPIt());
+
   return `
     <div class="sivuOtsikko">
       <div class="sivuEyebrow">Seurahallinta</div>
@@ -907,8 +912,6 @@ function renderYhteenveto() {
       }
     </div>
   `;
-  // Ladataan KPI-luvut asynkronisesti
-  setTimeout(lataaYhteenvetoKPIt, 0);
 }
 
 async function lataaYhteenvetoKPIt() {
@@ -1125,7 +1128,10 @@ async function renderHenkilosto(alue) {
               <td>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
                   <button class="toimNappi sininen"
-                    onclick="avaaJoukkueMuutos('${h.id}','${(h.email||'').replace(/'/g,"\\'")}',${JSON.stringify(h.joukkueet||[h.joukkue].filter(Boolean))})">
+                    data-uid="${h.id}"
+                    data-email="${(h.email||'').replace(/"/g,'&quot;')}"
+                    data-joukkueet="${JSON.stringify(h.joukkueet||[h.joukkue].filter(Boolean)).replace(/"/g,'&quot;')}"
+                    onclick="avaaJoukkueMuutosNapista(this)">
                     Joukkueet
                   </button>
                   <button class="toimNappi" onclick="lahetaSalasana('${h.email}')">Salasana</button>
@@ -1347,9 +1353,17 @@ function avaaRekisteriModal() {
 
 function avaaRekisteriModalJoukkueella(joukkueId, joukkueNimi) {
   avaaRekisteriModal();
+  // Asetetaan joukkue valikkoon ja näytetään nimi modalin otsikossa
   setTimeout(() => {
     const select = document.getElementById('rek_joukkue');
     if (select) select.value = joukkueId;
+    // Lisähyöty: kerrotaan käyttäjälle mille joukkueelle kutsu menee
+    const kuvaus = document.querySelector('#rekisteriModal .modalKuvaus');
+    if (kuvaus && joukkueNimi) {
+      kuvaus.innerHTML = `Luo kutsulink​ki vanhemmalle joukkueelle <strong style="color:var(--teal)">${joukkueNimi}</strong>.
+        Vanhempi täyttää pelaajan tiedot ja antaa GDPR-suostumuksen.
+        Pelaaja tallentuu automaattisesti järjestelmään.`;
+    }
   }, 50);
 }
 
@@ -1584,6 +1598,20 @@ function naytaPelaajaTiedot(pelaajaId) {
 // ─────────────────────────────────────────────────────────────────
 let _muokattavaUid   = null;
 let _muokattavaEmail = null;
+
+// Apufunktio joka lukee data-attribuuteista turvallisesti
+// Välttää JSON.stringify-ongelmat onclick-attribuuteissa
+function avaaJoukkueMuutosNapista(nappi) {
+  const uid     = nappi.dataset.uid;
+  const email   = nappi.dataset.email;
+  let joukkueet = [];
+  try {
+    joukkueet = JSON.parse(nappi.dataset.joukkueet || '[]');
+  } catch (e) {
+    joukkueet = [];
+  }
+  avaaJoukkueMuutos(uid, email, joukkueet);
+}
 
 function avaaJoukkueMuutos(uid, email, nykyisetJoukkueet) {
   _muokattavaUid   = uid;
