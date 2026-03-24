@@ -921,13 +921,37 @@ async function lataaYhteenvetoKPIt() {
       db.collection('seurat').doc(tila.seuraId).collection('kayttajat').get(),
       db.collection('seurat').doc(tila.seuraId).collection('kutsut').get(),
     ]);
+
     const p = document.getElementById('kpiPelaajat');
     const h = document.getElementById('kpiHenkilosto');
     const k = document.getElementById('kpiKutsut');
+
     if (p) p.textContent = pelaajatSnap.size;
-    if (h) h.textContent = henkilostoSnap.size;
     if (k) k.textContent = kutsutSnap.size;
-  } catch (e) { /* Ei kriittinen */ }
+
+    // Henkilöstö-KPI: lasketaan vain operatiiviset roolit (valmentajat jne.)
+    // erikseen hallinnollisista rooleista (VP, sihteeri, UTJ).
+    // Tämä antaa selkeämmän kuvan kentällä toimivasta henkilöstöstä.
+    const operatiivisetRoolit = ['valmentaja', 'talenttivalmentaja',
+      'fysiikkavalmentaja', 'testivastaava', 'fysioterapeutti'];
+    const hallinnollisetRoolit = ['vp', 'seurasihteeri', 'urheilutoimenjohtaja'];
+
+    let operatiiviset = 0;
+    let hallinnolliset = 0;
+    henkilostoSnap.forEach(doc => {
+      const rooli = doc.data().rooli || '';
+      if (operatiivisetRoolit.includes(rooli)) operatiiviset++;
+      else if (hallinnollisetRoolit.includes(rooli)) hallinnolliset++;
+    });
+
+    // Näytetään molemmat luvut selkeästi
+    if (h) {
+      h.textContent = operatiiviset;
+      const ala = h.closest('.kpiKortti')?.querySelector('.kpiAla');
+      if (ala) ala.textContent = `+ ${hallinnolliset} hallinto`;
+    }
+
+  } catch (e) { /* Ei kriittinen — KPI-luvut pysyvät — -tilassa */ }
 }
 
 // ─────────────────────────────────────────────────────────────────
