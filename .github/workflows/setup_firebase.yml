@@ -139,13 +139,13 @@ jobs:
           echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > /tmp/sa_key.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa_key.json
 
-          # Asetetaan Gmail-tunnukset Firebase Runtime Configiin
-          # jotta Cloud Functions voi käyttää niitä turvallisesti
-          firebase functions:config:set \
-            gmail.email="$GMAIL_EMAIL" \
-            gmail.password="$GMAIL_APP_PASSWORD" \
-            --project talentmaster-pilot \
-            --non-interactive
+          # Luodaan .env-tiedosto functions-kansioon
+          # Firebase Functions lukee ympäristömuuttujat tästä
+          # automaattisesti deployauksen yhteydessä
+          cat > functions/.env << ENVEOF
+GMAIL_EMAIL=${GMAIL_EMAIL}
+GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+ENVEOF
 
           # Deploytaan Functions
           firebase deploy --only functions \
@@ -153,7 +153,8 @@ jobs:
             --non-interactive \
             --force
 
-          rm -f /tmp/sa_key.json
+          # Siivotaan sensitiiviset tiedostot
+          rm -f /tmp/sa_key.json functions/.env
 
   # ─────────────────────────────────────────────────────────────
   # JOB 3: Backfill — Custom Claims olemassa oleville käyttäjille
