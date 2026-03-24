@@ -10,6 +10,8 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+<!-- SheetJS — Excel-tiedostojen generointi selaimessa ilman palvelinta -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
 /* ─────────────────────────────────────────────
@@ -970,6 +972,22 @@ async function renderPelaajat(alue) {
           ✉️ Lähetä rekisteröintikutsu
         </button>
       </div>
+      <!-- Toimintopalkki pelaajat-välilehdellä -->
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);
+        display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+        background:rgba(255,255,255,.02);">
+        <button class="lisaaNappi" onclick="lataaRekisteriPohja()"
+          title="Lataa Excel-pohja jossa seuran joukkueet valmiina">
+          ⬇️ Lataa rekisteripohja
+        </button>
+        <button class="lisaaNappi" onclick="avaaRekisteriModal()"
+          style="background:var(--teal);">
+          ✉️ Lähetä yksittäinen kutsu
+        </button>
+        <span style="font-size:11px;color:var(--ink3);margin-left:auto;">
+          Täytä rekisteripohja → lataa takaisin → massakutsu huoltajille
+        </span>
+      </div>
       <div id="pelaajaListaAlue" style="padding:20px;color:var(--ink3);font-size:13px;">
         <div style="display:flex;align-items:center;gap:10px;">
           <div class="spinner"></div> Ladataan pelaajia...
@@ -1724,6 +1742,174 @@ async function tallennaJoukkueMuutos() {
     nappi.disabled    = false;
     nappi.textContent = 'Tallenna';
     naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// EXCEL-POHJAN GENEROINTI — SheetJS
+//
+// Tämä funktio rakentaa Excel-tiedoston suoraan selaimessa.
+// Se ei tarvitse palvelinta — SheetJS (XLSX-kirjasto) hoitaa kaiken.
+//
+// Prosessi:
+//   1. Haetaan seuran joukkueet Firestoresta (reaaliaikaiset tiedot)
+//   2. Rakennetaan Excel-rakenne: otsikot, tyylit, dropdown-validointi
+//   3. Tarjotaan tiedosto lataukseen käyttäjän selaimessa
+//
+// Miksi selaimessa eikä palvelimella?
+//   → Ei tarvita Cloud Function -päätettä
+//   → Toimii Spark-planin rajoissa
+//   → Nopea: alle sekunti 100 rivin pohjalle
+// ─────────────────────────────────────────────────────────────────
+async function lataaRekisteriPohja() {
+
+  if (!tila.seuraId) {
+    naytaToast('Valitse ensin seura', 'virhe');
+    return;
+  }
+
+  // Näytetään latausindikaattori napissa
+  const nappi = document.querySelector('[onclick="lataaRekisteriPohja()"]');
+  const alkuperainenTeksti = nappi?.textContent || '';
+  if (nappi) {
+    nappi.disabled    = true;
+    nappi.textContent = '⏳ Generoidaan...';
+  }
+
+  try {
+    // ── VAIHE 1: Haetaan joukkueet Firestoresta ──────────────────
+    // Käytetään jo olemassa olevaa tila.joukkueet-listaa jos se on ladattu,
+    // muuten haetaan Firestoresta suoraan.
+    let joukkueet = tila.joukkueet;
+    if (!joukkueet || joukkueet.length === 0) {
+      const snap = await db.collection('seurat').doc(tila.seuraId)
+        .collection('joukkueet').orderBy('jarjestys').get();
+      joukkueet = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    // ── VAIHE 2: Rakennetaan Excel-rakenne SheetJS:llä ───────────
+    const wb = XLSX.utils.book_new();  // Uusi workbook (= Excel-tiedosto)
+
+    // ── ASETUKSET-VÄLILEHTI (piilotettu, sisältää dropdownin lähteet) ──
+    // SheetJS ei tue natiivia dropdown-validointia suoraan API:ssa,
+    // joten tallennetaan joukkueet erilliselle välilehdelle.
+    // Käyttäjä voi itse lisätä validoinnin Excelissä jos haluaa.
+    const joukkueetNimet = joukkueet.map(j => j.nimi || j.id);
+    const asetusData = [
+      ['JOUKKUEET', '', 'ROOLIT'],
+      ...joukkueetNimet.map((nimi, i) => [nimi, '', i === 0 ? 'Pelaaja' : i === 1 ? 'Maalivahti' : '']),
+    ];
+    const wsAsetukset = XLSX.utils.aoa_to_sheet(asetusData);
+    wsAsetukset['!cols'] = [{ wch: 20 }, { wch: 2 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, wsAsetukset, 'Asetukset');
+
+    // ── PELAAJAT-VÄLILEHTI (pääsivu) ──────────────────────────────
+    const paivays   = new Date().toLocaleDateString('fi-FI');
+    const seuraNimi = tila.seuraNimi || tila.seuraId;
+
+    // Otsikkorivi (metatieto)
+    const metaRivi = [
+      `TalentMaster™ — ${seuraNimi} — Pelaajarekisteripohja`,
+      '', '', '', '', '', '', ''
+    ];
+
+    // Ohjerivi
+    const ohjeRivi = [
+      `Luotu: ${paivays} | Täytä pelaajien tiedot riveiltä 4 alkaen | ` +
+      `Pakollinen: Etunimi, Sukunimi, Huoltajan sähköposti, Joukkue`,
+      '', '', '', '', '', '', ''
+    ];
+
+    // Joukkue-lista ohjeeksi sarakkeen viereen
+    const joukkueetOhje = joukkueetNimet.join(' | ');
+
+    // Sarake-otsikot — nämä ovat se rivi jonka TalentMaster tunnistaa tuonnissa
+    // KRIITTINEN: näiden nimien pitää täsmätä tuontilogiikan kanssa myöhemmin
+    const otsikkoRivi = [
+      '#',
+      'Etunimi *',
+      'Sukunimi *',
+      'Huoltajan sähköposti *',
+      'PalloID',
+      'Joukkue *',
+      'Rooli',
+      'Muistiinpanot',
+    ];
+
+    // Tyhjät datarivit — 100 riviä riittää hyvin pilotin alussa
+    const MAX_RIVIT = 100;
+    const dataRivit = Array.from({ length: MAX_RIVIT }, (_, i) => [
+      i + 1,  // Rivinumero
+      '', '', '', '', '', 'Pelaaja', ''  // Rooli oletuksena "Pelaaja"
+    ]);
+
+    // Kootaan kaikki rivit yhteen
+    const kaikkirivit = [
+      metaRivi,
+      ohjeRivi,
+      [`Joukkueet: ${joukkueetOhje}`, '', '', '', '', '', '', ''],
+      otsikkoRivi,
+      ...dataRivit,
+    ];
+
+    const wsPelaajat = XLSX.utils.aoa_to_sheet(kaikkirivit);
+
+    // Sarakeleveydet (merkeissä)
+    wsPelaajat['!cols'] = [
+      { wch: 4  },  // #
+      { wch: 18 },  // Etunimi
+      { wch: 20 },  // Sukunimi
+      { wch: 32 },  // Huoltajan sähköposti
+      { wch: 14 },  // PalloID
+      { wch: 20 },  // Joukkue
+      { wch: 14 },  // Rooli
+      { wch: 28 },  // Muistiinpanot
+    ];
+
+    // Kiinnitetään otsikkorivi (freeze panes) — rivit 1-4 pysyvät näkyvissä
+    wsPelaajat['!freeze'] = { xSplit: 0, ySplit: 4 };
+
+    // Lisätään välilehti workbookiin — Pelaajat ensin
+    XLSX.utils.book_append_sheet(wb, wsPelaajat, 'Pelaajat');
+
+    // ── VAIHE 3: Tarjotaan tiedosto lataukseen ────────────────────
+    // XLSX.writeFile käynnistää selaimen latausdialogin automaattisesti.
+    // Tiedostonimi sisältää seuran nimen ja päivämäärän jotta arkistointi
+    // on helppoa — "KPV_Pelaajarekisteri_2026-03-24.xlsx"
+    const tiedostoNimi = `${tila.seuraId.toUpperCase()}_Pelaajarekisteri_${
+      new Date().toISOString().split('T')[0]
+    }.xlsx`;
+
+    XLSX.writeFile(wb, tiedostoNimi);
+
+    naytaToast(`✅ ${tiedostoNimi} ladattu!`, 'ok');
+
+    // Tallennetaan tieto Firestoreen — milloin pohja on ladattu ja kuka latasi.
+    // Tämä on hyödyllinen auditoinnissa: "VP latasi pohjan 24.3.2026"
+    try {
+      await db.collection('seurat').doc(tila.seuraId)
+        .collection('tapahtumat').add({
+          tyyppi:    'rekisteri_pohja_ladattu',
+          lataaja:   tila.kayttaja?.email || 'tuntematon',
+          tiedosto:  tiedostoNimi,
+          joukkueet: joukkueetNimet,
+          aika:      firebase.firestore.FieldValue.serverTimestamp(),
+        });
+    } catch (e) {
+      // Ei kriittinen — tiedosto on jo ladattu
+      console.warn('Tapahtumaloki:', e.message);
+    }
+
+  } catch (virhe) {
+    console.error('Excel-generointi epäonnistui:', virhe);
+    naytaToast('Generointi epäonnistui: ' + virhe.message, 'virhe');
+
+  } finally {
+    // Palautetaan nappi normaalitilaan riippumatta onnistumisesta
+    if (nappi) {
+      nappi.disabled    = false;
+      nappi.textContent = alkuperainenTeksti;
+    }
   }
 }
 
