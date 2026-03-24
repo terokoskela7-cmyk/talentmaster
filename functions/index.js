@@ -22,10 +22,37 @@
  * VAATII: Firebase Blaze plan + firebase-admin + firebase-functions
  */
 
-const functions = require('firebase-functions');
-const admin     = require('firebase-admin');
+const functions  = require('firebase-functions');
+const admin      = require('firebase-admin');
+const nodemailer = require('nodemailer');
 
 admin.initializeApp();
+
+// ─────────────────────────────────────────────────────────────────
+// GMAIL-TRANSPORT — Nodemailer
+//
+// Käyttää Gmail App Password -salasanaa (ei tavallista salasanaa).
+// Salasana haetaan Firebase Runtime Config:sta jotta se ei ole
+// kovakoodattuna koodissa.
+//
+// Asetus: firebase functions:config:set gmail.email="..." gmail.password="..."
+// TAI GitHub Actionsin kautta (setup_firebase.yml deploy-vaiheessa)
+// ─────────────────────────────────────────────────────────────────
+function luoGmailTransport() {
+  const config = functions.config();
+  const email  = config.gmail?.email    || process.env.GMAIL_EMAIL;
+  const pass   = config.gmail?.password || process.env.GMAIL_APP_PASSWORD;
+
+  if (!email || !pass) {
+    functions.logger.warn('Gmail-konfiguraatio puuttuu — sähköpostit eivät toimi');
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: email, pass },
+  });
+}
 
 // ─────────────────────────────────────────────────────────────────
 // APUFUNKTIO: claims-objektin rakentaminen roolin perusteella
@@ -391,10 +418,10 @@ exports.luoKayttaja = functions
 
       functions.logger.info('Firestore-dokumentti luotu', { uid });
 
-      // ── VAIHE 3: Lähetä salasananvaihtosähköposti ──
-      // generatePasswordResetLink luo linkin jonka voimassaolo
-      // on oletuksena 1 tunti. Käyttäjä klikkaa linkkiä ja
-      // asettaa oman salasanansa — hän ei tarvitse väliaikaista.
+      // ── VAIHE 3: Generoi salasananvaihtolinkki ──
+      // Linkki on voimassa 1 tunnin. Käyttäjä klikkaa linkkiä
+      // ja asettaa oman salasanansa — väliaikaista salasanaa
+      // ei tarvita.
       const resetLinkki = await admin.auth()
         .generatePasswordResetLink(email, {
           url: 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Master_v8.html',
@@ -402,16 +429,135 @@ exports.luoKayttaja = functions
 
       functions.logger.info('Salasananvaihtolinkki luotu', { email });
 
-      // Palautetaan frontendille onnistumisviesti ja UID.
-      // HUOM: Salasananvaihtolinkki ei palauteta frontendille
-      // vaan se lähetetään sähköpostitse Firebase Authin
-      // omalla sähköpostijärjestelmällä.
+      // ── VAIHE 4: Lähetä sähköposti Gmaililla ──
+      // Nodemailer + Gmail App Password — luotettava,
+      // ei mene roskapostiin kuten Firebasen oma lähetys.
+      const etunimiTai = etunimi || email.split('@')[0];
+      const koko_nimi  = etunimi && sukunimi ? `${etunimi} ${sukunimi}` : etunimiTai;
+
+      // Haetaan seuran nimi Firestoresta sähköpostia varten
+      let seuraNimiEmail = kohdeSeura;
+      try {
+        const seuraDoc = await admin.firestore()
+          .collection('seurat').doc(kohdeSeura).get();
+        if (seuraDoc.exists) seuraNimiEmail = seuraDoc.data().nimi || kohdeSeura;
+      } catch (e) { /* Ei kriittinen */ }
+
+      const rooliNimet = {
+        valmentaja: 'Valmentaja', vp: 'Valmennuspäällikkö',
+        testivastaava: 'Testivastaava', talenttivalmentaja: 'Talenttivalmentaja',
+        fysiikkavalmentaja: 'Fysiikkavalmentaja', fysioterapeutti: 'Fysioterapeutti',
+        seurasihteeri: 'Seurasihteeri', urheilutoimenjohtaja: 'Urheilutoimenjohtaja',
+      };
+      const rooliNimi = rooliNimet[rooli] || rooli;
+
+      let sahkopostiLahetetty = false;
+      const transport = luoGmailTransport();
+
+      if (transport) {
+        try {
+          await transport.sendMail({
+            from:    '"TalentMaster™" <talentmasterid@gmail.com>',
+            to:      email,
+            subject: `Tervetuloa TalentMaster™ — ${seuraNimiEmail}`,
+            html: `
+<!DOCTYPE html>
+<html lang="fi">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#06090F;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#06090F;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0"
+        style="background:#0C1018;border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;">
+
+        <!-- Header -->
+        <tr>
+          <td style="padding:32px 40px 24px;border-bottom:1px solid rgba(255,255,255,.07);">
+            <span style="font-size:22px;font-weight:900;color:#E8EEF8;letter-spacing:-.5px;">
+              Talent<span style="color:#3EC9A7;">Master</span>™
+            </span>
+            <span style="display:block;font-size:11px;font-weight:600;letter-spacing:2px;
+              text-transform:uppercase;color:rgba(232,238,248,.35);margin-top:4px;">
+              ${seuraNimiEmail}
+            </span>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px 40px;">
+            <p style="font-size:15px;color:rgba(232,238,248,.65);margin:0 0 20px;">
+              Hei ${koko_nimi},
+            </p>
+            <p style="font-size:15px;color:rgba(232,238,248,.65);margin:0 0 24px;line-height:1.6;">
+              Sinut on lisätty <strong style="color:#E8EEF8;">${seuraNimiEmail}</strong>
+              TalentMaster-järjestelmään roolilla
+              <strong style="color:#3EC9A7;">${rooliNimi}</strong>
+              ${joukkueNimi ? `(${joukkueNimi})` : ''}.
+            </p>
+            <p style="font-size:14px;color:rgba(232,238,248,.45);margin:0 0 28px;">
+              Paina alla olevaa nappia asettaaksesi oman salasanasi ja
+              kirjautuaksesi järjestelmään. Linkki on voimassa 1 tunnin.
+            </p>
+
+            <!-- CTA-nappi -->
+            <table cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+              <tr>
+                <td style="background:#4A7ED9;border-radius:8px;">
+                  <a href="${resetLinkki}"
+                    style="display:inline-block;padding:14px 32px;font-size:14px;
+                    font-weight:600;color:#fff;text-decoration:none;letter-spacing:.3px;">
+                    Aseta salasana ja kirjaudu →
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="font-size:12px;color:rgba(232,238,248,.3);margin:0;line-height:1.6;">
+              Jos nappi ei toimi, kopioi tämä linkki selaimeesi:<br>
+              <a href="${resetLinkki}" style="color:#4A7ED9;word-break:break-all;">
+                ${resetLinkki}
+              </a>
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:20px 40px;border-top:1px solid rgba(255,255,255,.07);">
+            <p style="font-size:11px;color:rgba(232,238,248,.2);margin:0;">
+              TalentMaster™ — Jalkapallon kehitysalusta<br>
+              Tämä viesti on lähetetty automaattisesti. Älä vastaa tähän sähköpostiin.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+          });
+          sahkopostiLahetetty = true;
+          functions.logger.info('Gmail-sähköposti lähetetty', { email });
+        } catch (mailVirhe) {
+          // Sähköpostin lähetys epäonnistui — käyttäjä on silti luotu
+          // Palautetaan linkki frontendille varmuudeksi
+          functions.logger.error('Gmail-lähetys epäonnistui', {
+            email, virhe: mailVirhe.message
+          });
+        }
+      }
+
       return {
         ok:    true,
         uid,
         email,
-        resetLinkki, // Palautetaan linkki jotta VP näkee sen varmuudeksi
-        viesti: `Käyttäjä ${email} luotu. Salasananvaihtolinkki lähetetty.`,
+        resetLinkki,
+        sahkopostiLahetetty,
+        viesti: sahkopostiLahetetty
+          ? `Käyttäjä ${email} luotu. Kutsu lähetetty sähköpostitse.`
+          : `Käyttäjä ${email} luotu. Kopioi kutsu linkki alla.`,
       };
 
     } catch (virhe) {
