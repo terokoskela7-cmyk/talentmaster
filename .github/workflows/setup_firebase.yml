@@ -131,25 +131,28 @@ jobs:
           EOF
 
       - name: Deployaa Cloud Functions
-        # FIREBASE_SERVICE_ACCOUNT on jo asetettu GitHub Secretsiin.
-        # firebase-tools osaa lukea sen GOOGLE_APPLICATION_CREDENTIALS
-        # -ympäristömuuttujan kautta.
         env:
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GMAIL_EMAIL:        ${{ secrets.GMAIL_EMAIL }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: |
-          # Kirjoitetaan credentials väliaikaiseen tiedostoon
           echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > /tmp/sa_key.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa_key.json
 
-          # Deploytaan vain Functions — ei kosketa muihin Firebase-palveluihin
-          # --force asettaa Artifact Registry cleanup policyn automaattisesti
-          # ilman erillistä lupapyyntöä (korjaa "cleanup policy" -varoituksen)
+          # Asetetaan Gmail-tunnukset Firebase Runtime Configiin
+          # jotta Cloud Functions voi käyttää niitä turvallisesti
+          firebase functions:config:set \
+            gmail.email="$GMAIL_EMAIL" \
+            gmail.password="$GMAIL_APP_PASSWORD" \
+            --project talentmaster-pilot \
+            --non-interactive
+
+          # Deploytaan Functions
           firebase deploy --only functions \
             --project talentmaster-pilot \
             --non-interactive \
             --force
 
-          # Siivotaan credentials heti käytön jälkeen
           rm -f /tmp/sa_key.json
 
   # ─────────────────────────────────────────────────────────────
