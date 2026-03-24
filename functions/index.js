@@ -71,33 +71,55 @@ function rakennaClaims(data, seuraId) {
     seuraId:  seuraId || data.seuraId || null,
   };
 
+  // Rakennetaan joukkueet-lista molemmista lähteistä.
+  // data.joukkueet on uusi taulukkomuoto (["u14", "u12"]).
+  // data.joukkue on vanha yksittäinen merkkijono ("u14").
+  // Tuetaan molempia jotta vanha data ei hajoa.
+  const joukkueetLista = Array.isArray(data.joukkueet) && data.joukkueet.length > 0
+    ? data.joukkueet
+    : (data.joukkue ? [data.joukkue] : []);
+
   // Roolitärkeyttä vaativat lisäkentät
   switch (rooli) {
     case 'valmentaja':
     case 'testivastaava':
-    case 'talenttivalmentaja':
     case 'fysiikkavalmentaja':
     case 'fysioterapeutti':
-      // Valmentajatasoilla joukkue rajaa näkyvyyttä
-      claims.joukkue = data.joukkue || null;
+      // Näillä rooleilla joukkue(et) rajaavat mitä pelaajia näkee.
+      // Tallennetaan JWT:hen molemmat muodot yhteensopivuuden vuoksi:
+      // joukkue = ensimmäinen joukkue (Master v8 lukee tätä vielä)
+      // joukkueet = kaikki joukkueet (uusi rakenne)
+      claims.joukkue   = joukkueetLista[0] || null;
+      claims.joukkueet = joukkueetLista;
+      break;
+
+    case 'talenttivalmentaja':
+      // Talenttivalmentaja näkee kaikki seuran pelaajat roolinsa
+      // perusteella — ei joukkuerajausta tarvita.
+      claims.joukkue   = null;
+      claims.joukkueet = [];
       break;
 
     case 'vp':
     case 'seurasihteeri':
     case 'urheilutoimenjohtaja':
       // Seura-tason roolit näkevät koko seuran — ei joukkuerajausta
-      claims.joukkue = null;
+      claims.joukkue   = null;
+      claims.joukkueet = [];
       break;
 
     case 'superadmin':
+    case 'super_admin':
       // Super-admin näkee kaiken — ei seura- eikä joukkuerajausta
-      claims.seuraId  = null;
-      claims.joukkue  = null;
+      claims.seuraId   = null;
+      claims.joukkue   = null;
+      claims.joukkueet = [];
       claims.superAdmin = true;
       break;
 
     default:
-      claims.joukkue = data.joukkue || null;
+      claims.joukkue   = joukkueetLista[0] || null;
+      claims.joukkueet = joukkueetLista;
   }
 
   return claims;
@@ -174,9 +196,11 @@ exports.paivitaClaimsRoolimuutoksessa = functions
 
     // Tarkistetaan onko jokin oikeuksiin vaikuttava kenttä muuttunut.
     // Ei triggeröidä turhaan jos vain muistiinpanot muuttuivat.
+    // Tarkistetaan muutos sekä vanhalla (joukkue) että uudella (joukkueet) kentällä
     const muuttui =
       ennen.rooli    !== jalkeen.rooli    ||
       ennen.joukkue  !== jalkeen.joukkue  ||
+      JSON.stringify(ennen.joukkueet) !== JSON.stringify(jalkeen.joukkueet) ||
       ennen.aktiivinen !== jalkeen.aktiivinen;
 
     if (!muuttui) {
