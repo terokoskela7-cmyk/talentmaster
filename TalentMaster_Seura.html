@@ -1114,30 +1114,187 @@ async function renderHenkilosto(alue) {
 // NÄKYMÄ: SOPIMUKSET
 // ─────────────────────────────────────────────────────────────────
 function renderSopimukset() {
+
+  // Palloliiton kolme koria — kriteeristö seuran kehitystoiminnan arviointiin
+  const korit = [
+    {
+      id: 'kori1',
+      nimi: 'Kori 1 — Pelaajakehitys',
+      vari: '--blue',
+      kuvaus: 'Pelaajien yksilöllinen kehitys ja seuranta',
+      kriteerit: [
+        'Pelaajille on laadittu yksilölliset kehityssuunnitelmat (IDP)',
+        'Kehitystä seurataan säännöllisesti kauden aikana',
+        'Pelaajille annetaan yksilöllistä palautetta vähintään kerran kaudessa',
+        'Biologinen ikä huomioidaan harjoittelun suunnittelussa',
+        'Tekniikkakilpailut tai vastaavat mittaukset toteutetaan kaudessa',
+        'Harjoitteludata tallennetaan järjestelmällisesti',
+      ]
+    },
+    {
+      id: 'kori2',
+      nimi: 'Kori 2 — Valmennustoiminta',
+      vari: '--teal',
+      kuvaus: 'Valmentajien osaaminen ja toiminnan laatu',
+      kriteerit: [
+        'Valmentajilla on vähintään C-lisenssi tai vastaava koulutus',
+        'Valmentajien kehittymistä seurataan ja tuetaan aktiivisesti',
+        'Harjoitussuunnitelmat laaditaan kirjallisesti etukäteen',
+        'Valmennustoiminnalla on kirjattu valmennuslinja',
+        'Valmentajat saavat säännöllistä mentorointia VP:ltä tai UTJ:lta',
+        'Valmentajien välistä yhteistyötä tuetaan rakenteellisesti',
+      ]
+    },
+    {
+      id: 'kori3',
+      nimi: 'Kori 3 — Seuran rakenteet',
+      vari: '--amber',
+      kuvaus: 'Seuran hallinnolliset rakenteet ja johtaminen',
+      kriteerit: [
+        'Seuralla on dokumentoitu strategia vähintään 3 vuodeksi',
+        'Valmennuspäällikkö johtaa kokonaisuutta aktiivisesti',
+        'Seuralla on toimiva viestintä vanhempien suuntaan',
+        'Pelaajatiedot tallennetaan GDPR-vaatimusten mukaisesti',
+        'Seura seuraa systemaattisesti pelaajamäärän kehitystä',
+        'Pelaajapolku on kuvattu U7:stä edustusjoukkueeseen',
+      ]
+    }
+  ];
+
+  const koriHTML = korit.map(kori => {
+    const kriteeriHTML = kori.kriteerit.map((k, i) => `
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;
+        border-bottom:1px solid var(--border);"
+        data-kori="${kori.id}" data-idx="${i}">
+        <div onclick="toggleKriteeri('${kori.id}',${i},this)"
+          id="${kori.id}-cb-${i}"
+          style="width:20px;height:20px;border:2px solid var(--border);border-radius:4px;
+          flex-shrink:0;cursor:pointer;margin-top:2px;display:flex;align-items:center;
+          justify-content:center;font-size:11px;transition:all .2s;">
+        </div>
+        <span style="font-size:13px;color:var(--ink2);line-height:1.5;">${k}</span>
+      </div>`).join('');
+
+    return `
+      <div class="kortti">
+        <div class="korttiHeader">
+          <div>
+            <span class="korttiOtsikko">${kori.nimi}</span>
+            <div style="font-size:11px;color:var(--ink3);margin-top:2px;">${kori.kuvaus}</div>
+          </div>
+          <span id="${kori.id}-ed" style="font-size:12px;color:var(--ink3);">
+            0 / ${kori.kriteerit.length}
+          </span>
+        </div>
+        <div style="padding:0 20px 4px;">
+          <div style="height:3px;background:var(--border);border-radius:2px;margin:12px 0 4px;">
+            <div id="${kori.id}-palkki"
+              style="height:100%;width:0%;background:var(${kori.vari});
+              border-radius:2px;transition:width .4s ease;"></div>
+          </div>
+          ${kriteeriHTML}
+        </div>
+      </div>`;
+  }).join('');
+
+  // Ladataan tallennettu tila Firestoresta pienen viiveen jälkeen
+  setTimeout(lataaKriteeritTila, 200);
+
   return `
     <div class="sivuOtsikko">
-      <div class="sivuEyebrow">Sopimukset & kriteerit</div>
-      <div class="sivuH1">Dokumentaatio</div>
+      <div class="sivuEyebrow">Palloliiton kriteerit</div>
+      <div class="sivuH1">Seuran kehitystoiminta</div>
     </div>
-    <div class="kortti">
-      <div class="korttiHeader">
-        <span class="korttiOtsikko">Palloliiton kriteerit</span>
-      </div>
-      <div style="padding:20px;color:var(--ink3);font-size:14px;line-height:1.7;">
-        Palloliiton kriteerien seuranta ja kausisuunnittelu tulevat tähän.
-        Tämä osio rakennetaan kun pilottiseurojen ensimmäiset kriteeristöt on määritelty.
-      </div>
+    <div style="background:rgba(62,201,167,.08);border:1px solid rgba(62,201,167,.2);
+      border-radius:10px;padding:14px 18px;margin-bottom:22px;
+      font-size:13px;color:var(--ink2);line-height:1.6;">
+      <strong style="color:var(--teal);">ℹ️ Miten kriteerit toimivat</strong><br>
+      Palloliiton kolme koria mittaavat seuran kehitystoiminnan tasoa.
+      Merkitse täytetyt kriteerit — tila tallentuu automaattisesti Firestoreen
+      ja näkyy kaikille seuran käyttäjille.
     </div>
+    ${koriHTML}
     <div class="kortti">
       <div class="korttiHeader">
         <span class="korttiOtsikko">Seuran sopimukset</span>
-        <button class="lisaaNappi" onclick="naytaToast('Tulossa pian!','ok')">+ Lisää sopimus</button>
+        <button class="lisaaNappi" onclick="naytaToast('Tulossa pian!','ok')">
+          + Lisää sopimus
+        </button>
       </div>
       <div style="padding:20px;color:var(--ink3);font-size:14px;line-height:1.7;">
         Valmentajasopimukset, kausisuunnitelmat ja muut seuran dokumentit.
         Rakennetaan kun pilottiseurat ovat toiminnassa.
       </div>
     </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// KRITEERIN TOGGLAUS
+// Tallentuu Firestoreen: seurat/{seuraId}/sopimukset/kriteerit
+// Merge:true — ei ylikirjoita muita kriteerejä
+// ─────────────────────────────────────────────────────────────────
+const kriteeritTila = {};
+
+async function toggleKriteeri(koriId, idx, el) {
+  const avain = koriId + '_' + idx;
+  kriteeritTila[avain] = !kriteeritTila[avain];
+  renderKriteeriUI(koriId, idx, el, kriteeritTila[avain]);
+  paivitaKoriPalkki(koriId);
+  try {
+    await db.collection('seurat').doc(tila.seuraId)
+      .collection('sopimukset').doc('kriteerit')
+      .set({ [avain]: kriteeritTila[avain],
+             paivitetty: firebase.firestore.FieldValue.serverTimestamp() },
+           { merge: true });
+  } catch (e) { console.warn('Kriteerin tallennus:', e.message); }
+}
+
+function renderKriteeriUI(koriId, idx, el, taytetty) {
+  if (!el) el = document.getElementById(koriId + '-cb-' + idx);
+  if (!el) return;
+  if (taytetty) {
+    el.style.background  = 'var(--teal)';
+    el.style.borderColor = 'var(--teal)';
+    el.textContent       = '✓';
+    el.style.color       = '#000';
+    el.style.fontWeight  = '700';
+  } else {
+    el.style.background  = 'transparent';
+    el.style.borderColor = 'var(--border)';
+    el.textContent       = '';
+  }
+}
+
+function paivitaKoriPalkki(koriId) {
+  const cbs = document.querySelectorAll(`[data-kori="${koriId}"]`);
+  const yht = cbs.length;
+  const tay = Object.keys(kriteeritTila)
+    .filter(k => k.startsWith(koriId + '_') && kriteeritTila[k]).length;
+  const edEl = document.getElementById(koriId + '-ed');
+  const palkki = document.getElementById(koriId + '-palkki');
+  if (edEl)   edEl.textContent    = `${tay} / ${yht}`;
+  if (palkki) palkki.style.width  = yht > 0 ? `${(tay/yht)*100}%` : '0%';
+}
+
+async function lataaKriteeritTila() {
+  if (!tila.seuraId) return;
+  try {
+    const snap = await db.collection('seurat').doc(tila.seuraId)
+      .collection('sopimukset').doc('kriteerit').get();
+    if (!snap.exists) return;
+    const data = snap.data();
+    Object.keys(data).forEach(avain => {
+      if (avain === 'paivitetty') return;
+      kriteeritTila[avain] = data[avain];
+      // Puretaan koriId ja idx avaimesta (esim. "kori1_3")
+      const osat = avain.split('_');
+      const idx  = parseInt(osat[osat.length - 1]);
+      const koriId = osat.slice(0, -1).join('_');
+      if (!isNaN(idx)) renderKriteeriUI(koriId, idx, null, data[avain]);
+    });
+    // Päivitä kaikki palkit
+    ['kori1','kori2','kori3'].forEach(paivitaKoriPalkki);
+  } catch (e) { console.warn('Kriteerien lataus:', e.message); }
 }
 
 // ─────────────────────────────────────────────────────────────────
