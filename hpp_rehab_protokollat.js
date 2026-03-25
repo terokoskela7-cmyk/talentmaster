@@ -933,11 +933,6 @@ var HPP_REHAB_META = {
 };
 
 // Tee protokollat saataville globaalisti (käytettävissä TalentMasterissa)
-if (typeof window !== 'undefined') {
-  window.HPP_EXERCISES          = HPP_EXERCISES;
-  window.HPP_REHAB_PROTOKOLLAT  = HPP_REHAB_PROTOKOLLAT;
-  window.HPP_REHAB_META         = HPP_REHAB_META;
-}
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1180,4 +1175,371 @@ HPP_REHAB_META.huomio = 'v1.1: Lisätty ACL (erikseen akuutti + leikkauksen jäl
 if (typeof window !== 'undefined') {
   window.HPP_REHAB_PROTOKOLLAT = HPP_REHAB_PROTOKOLLAT;
   window.HPP_REHAB_META = HPP_REHAB_META;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HPP_REHAB_PROTOKOLLAT_EXCEL — HPP ELITE v9 klinikka-DB laajennus
+// Lähde: 09_KLINIKKA_DB-välilehti, 13 oirekuvaa × 3 vaihetta
+// Lisätty automaattisesti — älä muokkaa käsin
+// ═══════════════════════════════════════════════════════════════════════════
+
+var HPP_REHAB_PROTOKOLLAT_EXCEL = {
+
+  Osgood_Schlatter: {
+    "nimi": "Osgood-Schlatter",
+    "fasialinja": "LL",
+    "kategoria": "Polvikipu",
+    "phv_huomio": "🔴 KRIITTINEN — kasvulevyt auki. PHV-kasvupyrähdyksessä jänne-luuliitos herkimmillään.",
+    "aikataulut": {
+        "liev": "2–4vk",
+        "keski": "4–8vk",
+        "vak": "8–16vk"
+    },
+    "rehab": {
+        "akuutti": {
+            "vaihe": "Akuutti (0–72h)",
+            "periaate": "Akuutti: kuorma 0%. Ei hyppyjä, ei juoksua",
+            "kielletyt": [],
+            "harjoite": "Eksentrinen quad step-down korokkeelta — 3×10 toistoa (Max 3/10 kipua)",
+            "hpp_phase": "Acute"
+        },
+        "krooninen": {
+            "vaihe": "Return-to-Sport",
+            "periaate": "Krooninen: progressiivinen voima",
+            "kielletyt": [],
+            "harjoite": "Hyppynaruhyppy progressio — 2×30 sek (Max 2/10 kipua)",
+            "hpp_phase": "Chronic"
+        }
+    },
+    "paluu_kriteerit": [
+        "Kivuton hyppy ja juoksu",
+        "Ei kipua tuberositas tibiaan painettaessa"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  Penikkatauti: {
+    "nimi": "Penikkatauti",
+    "fasialinja": "SBL",
+    "kategoria": "Muu",
+    "phv_huomio": "⚠️ PHV+: nopea kasvuvaihe lisää SBL-kuormaa. Alaraajan pituuskasvu kiristää koko takaketjun.",
+    "aikataulut": {
+        "liev": "3–7pv",
+        "keski": "2–4vk",
+        "vak": "4–8vk"
+    },
+    "rehab": {
+        "akuutti": {
+            "vaihe": "Akuutti (0–72h)",
+            "periaate": "Akuutti: lepoa + kylmä + kompressio",
+            "kielletyt": [],
+            "harjoite": "Eksentrinen pohjelasku korokkeella — 3×15 toistoa (Lievä kipu ok (max 4/10))",
+            "hpp_phase": "Acute"
+        },
+        "krooninen": {
+            "vaihe": "Return-to-Sport",
+            "periaate": "Krooninen: juoksuprogressio vasta kivuton",
+            "kielletyt": [],
+            "harjoite": "Nordic hamstring + pohje eksentrinen — 3×5-8 toistoa (Lihasten polte ok)",
+            "hpp_phase": "Chronic"
+        }
+    },
+    "paluu_kriteerit": [
+        "Kivuton juoksu suoralla",
+        "Eksentrinen pohjelasku 15 toistoa kivuttomasti"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  Epäspesifi_polvikipu: {
+    "nimi": "Epäspesifi polvikipu",
+    "fasialinja": "LL",
+    "kategoria": "Polvikipu",
+    "phv_huomio": "⚠️ Polven valgus nuorilla = DFL + LL yhteisheikkous. Tarkista lantion hallinta.",
+    "aikataulut": {
+        "liev": "3–14pv",
+        "keski": "2–6vk",
+        "vak": "4–12vk"
+    },
+    "rehab": {},
+    "paluu_kriteerit": [
+        "Kivuton harjoittelu",
+        "Fysioterapeutin lupa"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  Alaselkäkipu__akuutti: {
+    "nimi": "Alaselkäkipu (akuutti)",
+    "fasialinja": "DFL",
+    "kategoria": "Selkä",
+    "phv_huomio": "⚠️ Hengitys AINA ENSIN. PHV: nopea kasvuvaihe + istumakoulu = DFL heikkous.",
+    "aikataulut": {
+        "liev": "3–7pv",
+        "keski": "1–3vk",
+        "vak": "2–8vk"
+    },
+    "rehab": {
+        "akuutti": {
+            "vaihe": "Akuutti (0–72h)",
+            "periaate": "Akuutti: VAIN hengitysharjoitteet + kevyt mobil",
+            "kielletyt": [],
+            "harjoite": "Dead bug regressio — 3×8 toistoa/puoli (Kivuton)",
+            "hpp_phase": "Acute"
+        },
+        "krooninen": {
+            "vaihe": "Return-to-Sport",
+            "periaate": "Krooninen: McGill Big 3",
+            "kielletyt": [],
+            "harjoite": "McGill Big 3 (bird dog + sivulankku + modified crunch) — 3×10 toistoa/puoli (Kivuton)",
+            "hpp_phase": "Chronic"
+        }
+    },
+    "paluu_kriteerit": [
+        "Kivuton harjoittelu",
+        "Fysioterapeutin lupa"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  Lihaskireydet__hamstring: {
+    "nimi": "Lihaskireydet (hamstring)",
+    "fasialinja": "SBL",
+    "kategoria": "Alaraaja",
+    "phv_huomio": "⚠️ PHV: femurin kasvu → hamstring-pituus jää jälkeen. Neuraalinen komponentti usein mukana.",
+    "aikataulut": {
+        "liev": "3–7pv",
+        "keski": "1–2vk",
+        "vak": "2–4vk"
+    },
+    "rehab": {
+        "akuutti": {
+            "vaihe": "Akuutti (0–72h)",
+            "periaate": "Akuutti: EI venytystä — lisää mikrovaurioita",
+            "kielletyt": [],
+            "harjoite": "SLR-flossing kuminauhalla — 3×10 toistoa/jalka (Lievä venytys ok)",
+            "hpp_phase": "Acute"
+        },
+        "krooninen": {
+            "vaihe": "Return-to-Sport",
+            "periaate": "Krooninen: Nordic + progressiivinen",
+            "kielletyt": [],
+            "harjoite": "Nordic hamstring täysi — 3×5-8 toistoa (Lihasten polte)",
+            "hpp_phase": "Chronic"
+        }
+    },
+    "paluu_kriteerit": [
+        "Nordic kivuton 3 sarjaa",
+        "Jogging kivuton"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  Lihaskireydet__lonkka_vasikka: {
+    "nimi": "Lihaskireydet (lonkka/vasikka)",
+    "fasialinja": "SFL",
+    "kategoria": "Lonkka/Nivus",
+    "phv_huomio": "⚠️ PHV: femurin kasvu → hip flexor lyhentyminen. Iliopsoas kireys = DFL heikkous.",
+    "aikataulut": {
+        "liev": "3–14pv",
+        "keski": "2–6vk",
+        "vak": "4–12vk"
+    },
+    "rehab": {},
+    "paluu_kriteerit": [
+        "Kivuton harjoittelu",
+        "Fysioterapeutin lupa"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  Patellofemoraalinen_kipu: {
+    "nimi": "Patellofemoraalinen kipu",
+    "fasialinja": "LL",
+    "kategoria": "Polvikipu",
+    "phv_huomio": "⚠️ Klassinen PHV-kipu. Femurin kasvu → VMO jää jälkeen → patellan lateralisoituminen.",
+    "aikataulut": {
+        "liev": "1–2vk",
+        "keski": "3–6vk",
+        "vak": "6–12vk"
+    },
+    "rehab": {
+        "akuutti": {
+            "vaihe": "Akuutti (0–72h)",
+            "periaate": "Akuutti: kompressio pois, isometriat ok",
+            "kielletyt": [],
+            "harjoite": "Clamshell + lateral walk + single leg squat — 3×15 toistoa/puoli (Lihasten polte)",
+            "hpp_phase": "Acute"
+        },
+        "krooninen": {
+            "vaihe": "Return-to-Sport",
+            "periaate": "Krooninen: koko alaraajaketju",
+            "kielletyt": [],
+            "harjoite": "Bulgarian split squat VMO-linjaus — 3×8-10 toistoa/jalka (Kivuton)",
+            "hpp_phase": "Chronic"
+        }
+    },
+    "paluu_kriteerit": [
+        "YJ-kyykky kivuton",
+        "Hyppy ja lasku kivuton"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  Akillesjänteen_tendinopatia: {
+    "nimi": "Akillesjänteen tendinopatia",
+    "fasialinja": "SBL",
+    "kategoria": "Muu",
+    "phv_huomio": "⚠️ Reaktiivinen vs. degeneratiivinen — eri protokolla. Kompressio pahentaa reaktiivista.",
+    "aikataulut": {
+        "liev": "2–4vk",
+        "keski": "4–8vk",
+        "vak": "3–6kk"
+    },
+    "rehab": {
+        "akuutti": {
+            "vaihe": "Akuutti (0–72h)",
+            "periaate": "Akuutti/Reaktiivinen: isometrinen kuorma",
+            "kielletyt": [],
+            "harjoite": "Eksentrinen pohjelasku korokkeelta progressio — 3×15 toistoa (Lievä kipu ok (max 3/10))",
+            "hpp_phase": "Acute"
+        }
+    },
+    "paluu_kriteerit": [
+        "Isometrinen pohjelasku kivuton",
+        "Yksijalkahyppy 80%+ symmetria"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  Nilkan_nyrjähdys__lateraalinen: {
+    "nimi": "Nilkan nyrjähdys (lateraalinen)",
+    "fasialinja": "LL",
+    "kategoria": "Muu",
+    "phv_huomio": "⚠️ Toistuvat nyrjähdykset = LL + SL yhteisheikkous. Neuraalinen uudelleenohjelmointi tärkeä.",
+    "aikataulut": {
+        "liev": "3–7pv",
+        "keski": "1–3vk",
+        "vak": "3–12vk"
+    },
+    "rehab": {
+        "akuutti": {
+            "vaihe": "Akuutti (0–72h)",
+            "periaate": "Akuutti: RICE + peroneus-isometrinen",
+            "kielletyt": [],
+            "harjoite": "Single leg balance + lateral hop reaktiivinen — 3×30 sek/jalka (Lihasten polte + tasapaino)",
+            "hpp_phase": "Acute"
+        }
+    },
+    "paluu_kriteerit": [
+        "YJ-tasapaino 30s silmät kiinni",
+        "Yksijalkahyppy 80%+ symmetria"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  Nivuskipu___adduktori: {
+    "nimi": "Nivuskipu / adduktori",
+    "fasialinja": "DFL",
+    "kategoria": "Lonkka/Nivus",
+    "phv_huomio": "⚠️ Jalkapalloilijoilla yleinen. DFL: iliopsoas + lantionpohja + adduktori yhteisheikkous.",
+    "aikataulut": {
+        "liev": "1–2vk",
+        "keski": "3–6vk",
+        "vak": "6–12vk"
+    },
+    "rehab": {
+        "akuutti": {
+            "vaihe": "Akuutti (0–72h)",
+            "periaate": "Akuutti: lepoa + isometrinen adduktori",
+            "kielletyt": [],
+            "harjoite": "Copenhagen plank progressio — 3×20-30 sek (Lihasten polte)",
+            "hpp_phase": "Acute"
+        }
+    },
+    "paluu_kriteerit": [
+        "Copenhagen plank kivuton",
+        "Sivuaskel ja potku kivuton"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  IT_band_syndrooma__ITBS: {
+    "nimi": "IT-band-syndrooma (ITBS)",
+    "fasialinja": "LL",
+    "kategoria": "Alaraaja",
+    "phv_huomio": "⚠️ Ylikuormitusvamma juoksijoilla + jalkapalloilijoilla. TFL-lihas syynä — EI IT-band itse.",
+    "aikataulut": {
+        "liev": "1–2vk",
+        "keski": "2–4vk",
+        "vak": "4–8vk"
+    },
+    "rehab": {
+        "akuutti": {
+            "vaihe": "Akuutti (0–72h)",
+            "periaate": "Akuutti: kuorma pois + TFL käsittely",
+            "kielletyt": [],
+            "harjoite": "TFL myofaskiaalinen vapautus — 2×2 min/puoli (Kivuton)",
+            "hpp_phase": "Acute"
+        }
+    },
+    "paluu_kriteerit": [
+        "Juoksu kivuton",
+        "Single leg squat kivuton 10 toistoa"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  Olkapää___rotator_cuff: {
+    "nimi": "Olkapää / rotator cuff",
+    "fasialinja": "SL",
+    "kategoria": "Yläraaja",
+    "phv_huomio": "⚠️ Heittolajeissa SL-kiertokomponentti kriittinen. Skapula-stabiliteetti ennen RC-vahvistusta.",
+    "aikataulut": {
+        "liev": "3–14pv",
+        "keski": "2–6vk",
+        "vak": "4–12vk"
+    },
+    "rehab": {},
+    "paluu_kriteerit": [
+        "Kivuton harjoittelu",
+        "Fysioterapeutin lupa"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+  ACL_riski___polven_valgus: {
+    "nimi": "ACL-riski / polven valgus",
+    "fasialinja": "LL",
+    "kategoria": "Polvikipu",
+    "phv_huomio": "⚠️ Laskeutumismekaniikka + valgus = korkein riski. Ennaltaehkäisy > kuntoutus.",
+    "aikataulut": {
+        "liev": "Ennaltaehk.",
+        "keski": "2–4vk",
+        "vak": "6–12vk"
+    },
+    "rehab": {},
+    "paluu_kriteerit": [
+        "Kivuton harjoittelu",
+        "Fysioterapeutin lupa"
+    ],
+    "lahde": "HPP_ELITE_v9_klinikka_db"
+},
+
+};
+
+// Yhdistä Excel-protokollat pääkirjastoon
+if (typeof HPP_REHAB_PROTOKOLLAT !== 'undefined') {
+  Object.assign(HPP_REHAB_PROTOKOLLAT, HPP_REHAB_PROTOKOLLAT_EXCEL);
+  if (typeof HPP_REHAB_META !== 'undefined') {
+    HPP_REHAB_META.protokollia = Object.keys(HPP_REHAB_PROTOKOLLAT).length;
+    HPP_REHAB_META.versio = '2.0';
+    HPP_REHAB_META.paivitetty = '2026-03-26';
+    HPP_REHAB_META.huomio = 'v2.0: Lisätty 13 oirekuvaa HPP ELITE v9 klinikka-DB:stä. Yhteensä ' + Object.keys(HPP_REHAB_PROTOKOLLAT).length + ' protokollaa.';
+  }
+}
+if (typeof window !== 'undefined') {
+  window.HPP_REHAB_PROTOKOLLAT = HPP_REHAB_PROTOKOLLAT;
+  window.HPP_REHAB_META         = HPP_REHAB_META;
 }
