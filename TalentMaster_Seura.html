@@ -533,7 +533,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 
     <div class="kenttaRyhma">
       <label class="kenttaLabel">Joukkueen nimi *</label>
-      <input class="kenttaInput" type="text" id="jouk_nimi" placeholder="KPV U15">
+      <input class="kenttaInput" type="text" id="jouk_nimi" placeholder="esim. KPV U15">
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="kenttaRyhma" style="margin:0;">
@@ -543,7 +543,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       <div class="kenttaRyhma" style="margin:0;">
         <label class="kenttaLabel">Joukkue-ID *</label>
         <input class="kenttaInput" type="text" id="jouk_id"
-          id="jouk_id_input" placeholder="esim. fcl_u13" style="text-transform:lowercase;">
+          placeholder="esim. fcl_u13" style="text-transform:lowercase;">
         <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
           Pieni, ei välejä — ID lukitaan luonnin jälkeen
         </span>
@@ -2138,11 +2138,20 @@ function avaaJoukkueModal() {
   // ID-kenttä editoitavissa uutta luodessa, lukittu muokatessa
   document.getElementById('jouk_id').readOnly = false;
   document.getElementById('jouk_id').style.opacity = '1';
-  // Korjaus 2c: Placeholder näyttää seuran oman ID-esimerkin, ei kovakoodattua "kpv_u15"
-  const idKentta = document.getElementById('jouk_id');
+  // Päivitetään molemmat placeholder-tekstit seuran nimen mukaan —
+  // poistetaan kovakoodatut esimerkit (aiemmin "KPV U15", "kpv_u15")
+  // jotka näyttivät väärältä muiden seurojen käyttäjille.
+  const seuraLyhenne = (tila.seuraId || 'seura').toUpperCase();
+  const nimiKentta = document.getElementById('jouk_nimi');
+  const idKentta   = document.getElementById('jouk_id');
+  if (nimiKentta) {
+    // Nimi-placeholder: "esim. KPV U13" tai "esim. FCL U13" jne.
+    nimiKentta.placeholder = 'esim. ' + seuraLyhenne + ' U13';
+  }
   if (idKentta) {
-    const esimerkki = (tila.seuraId || 'seura') + '_u13';
-    idKentta.placeholder = 'esim. ' + esimerkki;
+    // ID-placeholder: "esim. kpv_u13" tai "esim. fcl_u13" jne.
+    const idEsimerkki = (tila.seuraId || 'seura') + '_u13';
+    idKentta.placeholder = 'esim. ' + idEsimerkki;
   }
   document.getElementById('joukkueModal').classList.add('auki');
 }
