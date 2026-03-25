@@ -852,8 +852,9 @@ async function lataaProfiili(kayttaja) {
     }
 
     alustaTopbar();
-    nayta('sovellus');
-    renderoi('yhteenveto');
+    // KORJAUS: nayta('sovellus') siirretty asetaAktiivinenSeura-funktioon
+    // onSnapshot-kuuntelijan ensimmäiseen vastaukseen (tai turvaverkkoon).
+    // Tämä estää latausnäkymään jumiin jäämisen hitaalla yhteydellä.
 
   } catch (virhe) {
     console.error('Profiilin latausvirhe:', virhe);
@@ -897,19 +898,43 @@ async function asetaAktiivinenSeura(seuraId) {
   }
 
   // Ladataan joukkueet reaaliaikaisesti
+  // KORJAUS: onSnapshot ei ole await-lupaus — mobiililla hidas yhteys jätti
+  // sovelluksen latausnäkymään ikuisesti. Ratkaisu: turvaverkko-timeout joka
+  // näyttää sovelluksen viimeistään 5 sekunnin kuluttua vaikka data ei tulisi.
   if (tila._joukkueetKuuntelija) tila._joukkueetKuuntelija();
+
+  let ensimmainenVastaus = false;
+  const turvaverkko = setTimeout(() => {
+    if (!ensimmainenVastaus) {
+      console.warn('Joukkueet: timeout — näytetään sovellus ilman dataa');
+      tila.joukkueet = [];
+      nayta('sovellus');
+      renderoi(tila.aktiivNakyma || 'yhteenveto');
+    }
+  }, 5000); // 5 sekuntia — riittää myös hitaalle mobiiliyhteydelle
+
   tila._joukkueetKuuntelija = db
     .collection('seurat').doc(seuraId)
     .collection('joukkueet')
     .orderBy('jarjestys')
     .onSnapshot(snap => {
+      clearTimeout(turvaverkko);         // perutaan turvaverkko kun data saapuu
+      const onEnsimmainen = !ensimmainenVastaus;
+      ensimmainenVastaus = true;
       tila.joukkueet = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       // Päivitä joukkuevalitsin modalissa
       paivitaJoukkueValitsin();
-      // Päivitä näkymä jos joukkueet-välilehti auki
-      if (tila.aktiivNakyma === 'joukkueet') renderoi('joukkueet');
-      if (tila.aktiivNakyma === 'yhteenveto') renderoi('yhteenveto');
+      // Ensimmäisellä vastauksella näytetään sovellus (kirjautumistilanteessa)
+      if (onEnsimmainen) {
+        nayta('sovellus');
+        renderoi('yhteenveto');
+      } else {
+        // Myöhemmät päivitykset päivittävät vain aktiivisen näkymän
+        if (tila.aktiivNakyma === 'joukkueet') renderoi('joukkueet');
+        if (tila.aktiivNakyma === 'yhteenveto') renderoi('yhteenveto');
+      }
     }, err => {
+      clearTimeout(turvaverkko);         // perutaan myös virheen sattuessa
       console.warn('Joukkueet:', err.message);
       tila.joukkueet = [];
     });
