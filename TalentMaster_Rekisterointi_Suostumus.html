@@ -434,7 +434,19 @@ function toStep2() {
 
   var d = el('i_syn').value;
   if (d) {
-    var age = (Date.now() - new Date(d)) / (365.25 * 24 * 3600 * 1000);
+    // Tarkistetaan syntymävuosi ennen laskentaa —
+    // estää Timestamp out of range -virheen tallennusvaiheessa
+    var synOsat = d.split('-');
+    var synVuosi = synOsat.length === 3 ? parseInt(synOsat[0], 10) : 0;
+    if (synVuosi < 1990 || synVuosi > 2025) {
+      el('i_syn').classList.add('err');
+      toast('Tarkista syntymäaika — vuoden pitää olla 1990–2025', true);
+      return;
+    }
+    // Parsitaan päivämäärä käsin UTC:nä — vältetään selainkohtaiset
+    // erot new Date(merkkijono) -tulkinnassa
+    var pvm = new Date(Date.UTC(synVuosi, parseInt(synOsat[1],10)-1, parseInt(synOsat[2],10)));
+    var age  = (Date.now() - pvm) / (365.25 * 24 * 3600 * 1000);
     el('hcard').style.display = age < 18 ? 'block' : 'none';
     el('pos_f').style.display = age >= 15 ? 'flex' : 'none';
   }
@@ -493,7 +505,25 @@ function toStep3() {
     etunimi:       val('i_etu'),
     sukunimi:      val('i_suku'),
     nimi:          val('i_etu') + ' ' + val('i_suku'),
-    syntymaaika:   syntyma ? firebase.firestore.Timestamp.fromDate(new Date(syntyma)) : null,
+    syntymaaika:   (function() {
+      // Turvallinen päivämäärämuunnos — ei käytetä new Date(merkkijono)
+      // koska selaimet tulkitsevat merkkijonoja eri tavoin.
+      // HTML date-input antaa aina "YYYY-MM-DD" muodon — parsitaan käsin.
+      if (!syntyma) return null;
+      var osat = syntyma.split('-');
+      if (osat.length !== 3) return null;
+      var vuosi = parseInt(osat[0], 10);
+      var kuukausi = parseInt(osat[1], 10) - 1; // JS: kuukaudet 0-11
+      var paiva = parseInt(osat[2], 10);
+      // Järkevyystarkistus: pelaaja on syntynyt 1990–2025
+      if (vuosi < 1990 || vuosi > 2025 || kuukausi < 0 || kuukausi > 11 || paiva < 1 || paiva > 31) {
+        console.warn('[SUOSTUMUS] Syntymäaika epävalidi:', syntyma);
+        return null;
+      }
+      // Käytetään UTC-aikaa aikavyöhykeongelmien välttämiseksi
+      var pvm = new Date(Date.UTC(vuosi, kuukausi, paiva));
+      return firebase.firestore.Timestamp.fromDate(pvm);
+    })(),
     sukupuoli:     el('i_sp').value || '',
     seura:         val('i_seura'),
     seuraId:       _seuraId || val('i_seura').toLowerCase().replace(/\s+/g, '_').substring(0, 10),
