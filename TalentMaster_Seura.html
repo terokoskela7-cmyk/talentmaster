@@ -2498,74 +2498,98 @@ async function aloitaLataaminenOhjeesta() {
 }
 
 async function lataaRekisteriPohja() {
-  if (!tila.seuraId) {
-    naytaToast('Valitse ensin seura', 'virhe');
-    return;
-  }
+  if (!tila.seuraId) { naytaToast('Valitse ensin seura', 'virhe'); return; }
 
   const nappi = document.querySelector('[onclick="lataaRekisteriPohja()"]');
   const alkuperainenTeksti = nappi?.textContent || '';
-  if (nappi) {
-    nappi.disabled    = true;
-    nappi.textContent = '⏳ Ladataan...';
-  }
+  if (nappi) { nappi.disabled = true; nappi.textContent = '⏳ Ladataan...'; }
 
   try {
-    // Ladataan valmis Excel-pohja suoraan GitHubista.
-    // Pohja on rakennettu openpyxl:lla joten siinä on täydelliset
-    // dropdown-validoinnit (joukkue, rooli) — SheetJS ei tue näitä.
-    //
-    // Sihteerin ohje: täytä joukkueet Asetukset-välilehdelle,
-    // jonka jälkeen Joukkue-dropdown toimii automaattisesti.
-    const pohjaNimi = 'TalentMaster_Pelaajarekisteri_Pohja.xlsx';
-    const pohjaUrl  = `https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/${pohjaNimi}`;
+    // ── Vaihe 1: Haetaan staattinen pohja GitHubista ──────────────────
+    // Pohja sisältää valmiit sarakerakenteet, dropdown-validoinnit ja
+    // Asetukset-välilehden jossa on esimerkkirivejä.
+    const pohjaUrl = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_Pelaajarekisteri_Pohja.xlsx';
+    const vastaus  = await fetch(pohjaUrl);
+    if (!vastaus.ok) throw new Error(`Pohja ei löydy (${vastaus.status})`);
 
-    // Haetaan tiedosto fetch:llä ja tarjotaan se lataukseen
-    // käyttäen <a>-elementtiä ja Blob-URL:ia.
-    // Tämä tapa toimii kaikissa selaimissa ilman popup-estoja.
-    const vastaus = await fetch(pohjaUrl);
-    if (!vastaus.ok) {
-      throw new Error(`Pohja ei löydy GitHubista (${vastaus.status})`);
+    const arrayBuffer = await vastaus.arrayBuffer();
+
+    // ── Vaihe 2: Avataan Excel SheetJS:llä selaimessa ─────────────────
+    // Tämä ei vaadi palvelinta — kaikki tapahtuu käyttäjän selaimessa.
+    // SheetJS on jo ladattu sivun head-osiossa (xlsx.full.min.js).
+    const wb = XLSX.read(arrayBuffer, { type: 'array', cellStyles: true });
+
+    // ── Vaihe 3: Kirjoitetaan seuran joukkueet Asetukset-välilehdelle ─
+    // Tämä on se kriittinen ero staattiseen pohjaan verrattuna:
+    // sihteerin ei tarvitse koskaan avata Asetukset-välilehteä käsin.
+    // Joukkueet haetaan suoraan Firestoresta (tila.joukkueet on jo ladattu).
+    const asetWs = wb.Sheets['Asetukset'];
+    if (asetWs && tila.joukkueet && tila.joukkueet.length > 0) {
+      // Kirjoitetaan joukkueet riveille 2–30 (A2:A30)
+      // Järjestetään ikäluokittain — pienimmästä suurimpaan
+      const jarjestetyt = [...tila.joukkueet].sort((a, b) =>
+        (a.jarjestys || 99) - (b.jarjestys || 99)
+      );
+      jarjestetyt.forEach((joukkue, i) => {
+        if (i >= 29) return; // max 29 joukkuetta (rivit 2–30)
+        const solunOsoite = `A${i + 2}`;
+        // SheetJS cell-objekti: type 's' = string
+        asetWs[solunOsoite] = { t: 's', v: joukkue.nimi || joukkue.id };
+      });
+      // Poistetaan vanhat esimerkit rivien jälkeen
+      for (let i = jarjestetyt.length + 2; i <= 30; i++) {
+        asetWs[`A${i}`] = { t: 's', v: '' };
+      }
+      // Päivitetään välilehden laajuus (range) jotta Excel lukee kaikki rivit
+      const viimRivi = Math.min(jarjestetyt.length + 1, 30);
+      asetWs['!ref'] = `A1:B${viimRivi + 2}`;
     }
 
-    const blob     = await vastaus.blob();
-    const blobUrl  = URL.createObjectURL(blob);
+    // ── Vaihe 4: Kirjoitetaan seuran nimi otsikkoriviin ───────────────
+    const pelaajatWs = wb.Sheets['Pelaajat'];
+    if (pelaajatWs && pelaajatWs['A1']) {
+      pelaajatWs['A1'].v = `TalentMaster™ — ${tila.seuraNimi || tila.seuraId} — Pelaajarekisteri`;
+    }
 
-    // Luodaan väliaikainen latauslinkki ja klikataan sitä ohjelmallisesti.
-    // Tiedostonimi sisältää seuran nimen jotta arkistointi on helppoa.
+    // ── Vaihe 5: Generoidaan muokattu tiedosto ja tarjotaan lataukseen ─
+    // XLSX.write palauttaa ArrayBufferin muokatusta työkirjasta.
+    // Huom: SheetJS kirjoittaa vain datan — alkuperäiset tyylit säilyvät
+    // koska luimme tiedoston cellStyles:true -asetuksella.
+    const uusiBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    const blob    = new Blob([uusiBuffer],
+      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const blobUrl = URL.createObjectURL(blob);
+
     const a = document.createElement('a');
     a.href     = blobUrl;
-    a.download = `${tila.seuraId.toUpperCase()}_Pelaajarekisteri_${
+    a.download = `${(tila.seuraNimi || tila.seuraId).replace(/\s+/g,'_')}_Rekisteri_${
       new Date().toISOString().split('T')[0]
     }.xlsx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-
-    // Vapautetaan muisti heti latauksen jälkeen
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
-    naytaToast(`✅ Rekisteripohja ladattu!`, 'ok');
+    const joukkueidLkm = tila.joukkueet?.length || 0;
+    naytaToast(
+      `✅ Rekisteripohja ladattu — ${joukkueidLkm} joukkuetta lisätty dropdowniin!`,
+      'ok'
+    );
 
-    // Tapahtumaloki Firestoreen — kuka latasi ja milloin
+    // Tapahtumaloki
     try {
-      await db.collection('seurat').doc(tila.seuraId)
-        .collection('tapahtumat').add({
-          tyyppi:   'rekisteri_pohja_ladattu',
-          lataaja:  tila.kayttaja?.email || 'tuntematon',
-          aika:     firebase.firestore.FieldValue.serverTimestamp(),
-        });
+      await db.collection('seurat').doc(tila.seuraId).collection('tapahtumat').add({
+        tyyppi: 'rekisteri_pohja_ladattu', joukkueita: joukkueidLkm,
+        lataaja: tila.kayttaja?.email || 'tuntematon',
+        aika: firebase.firestore.FieldValue.serverTimestamp(),
+      });
     } catch (e) { /* Ei kriittinen */ }
 
   } catch (virhe) {
     console.error('Pohjan lataus epäonnistui:', virhe);
     naytaToast('Lataus epäonnistui: ' + virhe.message, 'virhe');
-
   } finally {
-    if (nappi) {
-      nappi.disabled    = false;
-      nappi.textContent = alkuperainenTeksti;
-    }
+    if (nappi) { nappi.disabled = false; nappi.textContent = alkuperainenTeksti; }
   }
 }
 
