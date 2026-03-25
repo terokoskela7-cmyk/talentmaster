@@ -613,19 +613,20 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
           </div>
           <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
             Paina <strong style="color:var(--teal);">Lataa nyt</strong> alla.
-            Järjestelmä täyttää seuran joukkueet automaattisesti Excel-pohjaan —
-            sinun ei tarvitse avata Asetukset-välilehteä tai kirjoittaa mitään.
-            Avaa ladattu tiedosto ja siirry suoraan
-            <strong style="color:var(--ink2);">Pelaajat</strong>-välilehdelle.
+            Pohja latautuu ja seuran joukkueet kopioituvat automaattisesti leikepöydälle.
+            Avaa ladattu tiedosto, siirry
+            <strong style="color:var(--ink2);">Asetukset</strong>-välilehdelle
+            ja liitä joukkueet soluun A2 (Ctrl+V / Cmd+V) — yksi joukkue per rivi.
+            Tämän jälkeen dropdown toimii heti <strong style="color:var(--ink2);">Pelaajat</strong>-välilehdellä.
           </div>
           <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
             <span style="background:rgba(62,201,167,.12);border:1px solid rgba(62,201,167,.25);
               border-radius:5px;padding:3px 10px;font-size:11px;color:var(--teal);font-weight:600;">
-              ✓ Joukkueet täytetty automaattisesti
+              📋 Joukkueet kopioitu leikepöydälle
             </span>
             <span style="background:rgba(74,126,217,.12);border:1px solid rgba(74,126,217,.25);
               border-radius:5px;padding:3px 10px;font-size:11px;color:var(--blue);font-weight:600;">
-              Dropdown toimii heti
+              Liitä Asetukset-välilehdelle → dropdown toimii
             </span>
           </div>
         </div>
@@ -2510,61 +2511,17 @@ async function lataaRekisteriPohja() {
   if (nappi) { nappi.disabled = true; nappi.textContent = '⏳ Ladataan...'; }
 
   try {
-    // ── Vaihe 1: Haetaan staattinen pohja GitHubista ──────────────────
-    // Pohja sisältää valmiit sarakerakenteet, dropdown-validoinnit ja
-    // Asetukset-välilehden jossa on esimerkkirivejä.
+    // Ladataan pohja GitHubista SELLAISENAAN — ilman SheetJS-muokkausta.
+    // SheetJS ei tue tyylien kirjoittamista (vaatisi Pro-lisenssin), joten
+    // tiedosto tarjotaan lataukseen suoraan binäärimuodossa. Tyylit säilyvät.
     const pohjaUrl = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_Pelaajarekisteri_Pohja.xlsx';
     const vastaus  = await fetch(pohjaUrl);
     if (!vastaus.ok) throw new Error(`Pohja ei löydy (${vastaus.status})`);
 
-    const arrayBuffer = await vastaus.arrayBuffer();
-
-    // ── Vaihe 2: Avataan Excel SheetJS:llä selaimessa ─────────────────
-    // Tämä ei vaadi palvelinta — kaikki tapahtuu käyttäjän selaimessa.
-    // SheetJS on jo ladattu sivun head-osiossa (xlsx.full.min.js).
-    const wb = XLSX.read(arrayBuffer, { type: 'array', cellStyles: true });
-
-    // ── Vaihe 3: Kirjoitetaan seuran joukkueet Asetukset-välilehdelle ─
-    // Tämä on se kriittinen ero staattiseen pohjaan verrattuna:
-    // sihteerin ei tarvitse koskaan avata Asetukset-välilehteä käsin.
-    // Joukkueet haetaan suoraan Firestoresta (tila.joukkueet on jo ladattu).
-    const asetWs = wb.Sheets['Asetukset'];
-    if (asetWs && tila.joukkueet && tila.joukkueet.length > 0) {
-      // Kirjoitetaan joukkueet riveille 2–30 (A2:A30)
-      // Järjestetään ikäluokittain — pienimmästä suurimpaan
-      const jarjestetyt = [...tila.joukkueet].sort((a, b) =>
-        (a.jarjestys || 99) - (b.jarjestys || 99)
-      );
-      jarjestetyt.forEach((joukkue, i) => {
-        if (i >= 29) return; // max 29 joukkuetta (rivit 2–30)
-        const solunOsoite = `A${i + 2}`;
-        // SheetJS cell-objekti: type 's' = string
-        asetWs[solunOsoite] = { t: 's', v: joukkue.nimi || joukkue.id };
-      });
-      // Poistetaan vanhat esimerkit rivien jälkeen
-      for (let i = jarjestetyt.length + 2; i <= 30; i++) {
-        asetWs[`A${i}`] = { t: 's', v: '' };
-      }
-      // Päivitetään välilehden laajuus (range) jotta Excel lukee kaikki rivit
-      const viimRivi = Math.min(jarjestetyt.length + 1, 30);
-      asetWs['!ref'] = `A1:B${viimRivi + 2}`;
-    }
-
-    // ── Vaihe 4: Kirjoitetaan seuran nimi otsikkoriviin ───────────────
-    const pelaajatWs = wb.Sheets['Pelaajat'];
-    if (pelaajatWs && pelaajatWs['A1']) {
-      pelaajatWs['A1'].v = `TalentMaster™ — ${tila.seuraNimi || tila.seuraId} — Pelaajarekisteri`;
-    }
-
-    // ── Vaihe 5: Generoidaan muokattu tiedosto ja tarjotaan lataukseen ─
-    // XLSX.write palauttaa ArrayBufferin muokatusta työkirjasta.
-    // Huom: SheetJS kirjoittaa vain datan — alkuperäiset tyylit säilyvät
-    // koska luimme tiedoston cellStyles:true -asetuksella.
-    const uusiBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
-    const blob    = new Blob([uusiBuffer],
-      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const blob    = await vastaus.blob();
     const blobUrl = URL.createObjectURL(blob);
 
+    // Tiedostonimi sisältää seuran nimen ja päivämäärän
     const a = document.createElement('a');
     a.href     = blobUrl;
     a.download = `${(tila.seuraNimi || tila.seuraId).replace(/\s+/g,'_')}_Rekisteri_${
@@ -2575,16 +2532,29 @@ async function lataaRekisteriPohja() {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
-    const joukkueidLkm = tila.joukkueet?.length || 0;
+    // Kopioidaan joukkueet leikepöydälle — sihteeri liittää ne
+    // Asetukset-välilehdelle yksi per rivi (ks. ohjemodaali vaihe 1)
+    const joukkueet = [...tila.joukkueet]
+      .sort((a,b) => (a.jarjestys||99) - (b.jarjestys||99))
+      .map(j => j.nimi || j.id)
+      .join('\n');
+
+    if (joukkueet && navigator.clipboard) {
+      await navigator.clipboard.writeText(joukkueet).catch(() => {});
+    }
+
+    const lkm = tila.joukkueet?.length || 0;
     naytaToast(
-      `✅ Rekisteripohja ladattu — ${joukkueidLkm} joukkuetta lisätty dropdowniin!`,
+      lkm > 0
+        ? `✅ Pohja ladattu! Joukkueet (${lkm} kpl) kopioitu leikepöydälle.`
+        : '✅ Rekisteripohja ladattu!',
       'ok'
     );
 
     // Tapahtumaloki
     try {
       await db.collection('seurat').doc(tila.seuraId).collection('tapahtumat').add({
-        tyyppi: 'rekisteri_pohja_ladattu', joukkueita: joukkueidLkm,
+        tyyppi: 'rekisteri_pohja_ladattu', joukkueita: lkm,
         lataaja: tila.kayttaja?.email || 'tuntematon',
         aika: firebase.firestore.FieldValue.serverTimestamp(),
       });
