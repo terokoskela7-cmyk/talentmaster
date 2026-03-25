@@ -711,3 +711,217 @@ exports.lahetaRekisteriKutsu = functions
       viesti: `Kutsu lähetetty osoitteeseen ${hEmail}`,
     };
   });
+
+// ─────────────────────────────────────────────────────────────────
+// 6. lahetaHuoltajaKutsu — Excel-massakutsun sähköpostilähetys
+//
+// Kutsuja: tm_import.js (Seura-näkymän Excel-tuontiprosessi)
+// Data:    { seuraId, etunimi, sukunimi, hEmail, joukkue, joukkueNimi }
+//
+// Tämä on massakutsun vastaava lahetaRekisteriKutsu-funktiolle.
+// Rakentaa kutsulinkki itse seuraId:n ja pelaajan tietojen perusteella
+// jotta tm_import.js ei tarvitse tuntea linkkirakennetta.
+// Käyttää samaa Gmail-transportia ja HTML-sähköpostipohjaa.
+// ─────────────────────────────────────────────────────────────────
+exports.lahetaHuoltajaKutsu = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+
+    // ── Autentikointi ────────────────────────────────────────────
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        'unauthenticated',
+        'Kirjaudu sisään ennen kutsun lähettämistä.'
+      );
+    }
+
+    // ── Autorisaatio ─────────────────────────────────────────────
+    const claims = context.auth.token;
+    const sallitut = ['vp', 'superadmin', 'super_admin', 'seurasihteeri', 'urheilutoimenjohtaja'];
+    if (!sallitut.includes(claims.rooli)) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Sinulla ei ole oikeutta lähettää massakutsuja.'
+      );
+    }
+
+    // ── Validointi ───────────────────────────────────────────────
+    const { seuraId, etunimi, sukunimi, hEmail, joukkue, joukkueNimi } = data;
+    if (!hEmail || !seuraId || !etunimi) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Pakolliset kentät puuttuvat: hEmail, seuraId, etunimi.'
+      );
+    }
+
+    // ── Rakenna kutsulinkkki ─────────────────────────────────────
+    // Sama rakenne kuin manuaalisessa lahetaRekisteriKutsu-funktiossa.
+    // Suostumuslomake hakee tiedot URL-parametreista.
+    const pohjaUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+    const linkki = `${pohjaUrl}?seuraId=${encodeURIComponent(seuraId)}`
+      + `&joukkue=${encodeURIComponent(joukkue || '')}`
+      + `&joukkueNimi=${encodeURIComponent(joukkueNimi || joukkue || '')}`
+      + `&etunimi=${encodeURIComponent(etunimi)}`
+      + `&sukunimi=${encodeURIComponent(sukunimi || '')}`
+      + `&hEmail=${encodeURIComponent(hEmail)}`;
+
+    functions.logger.info('Massakutsu — lähetetään', {
+      hEmail, seuraId, joukkue, kutsuja: context.auth.uid
+    });
+
+    // ── Hae seuran nimi Firestoresta viestiin ────────────────────
+    let seuraNimi = seuraId;
+    try {
+      const seuraDoc = await admin.firestore()
+        .collection('seurat').doc(seuraId).get();
+      if (seuraDoc.exists) seuraNimi = seuraDoc.data().nimi || seuraId;
+    } catch (_) { /* Ei kriittinen — käytetään seuraId:tä */ }
+
+    const pelaajanNimi = `${etunimi} ${sukunimi || ''}`.trim();
+    const joukkueTeksti = joukkueNimi || joukkue || '';
+
+    // ── Gmail-transport ──────────────────────────────────────────
+    const transport = luoGmailTransport();
+    if (!transport) {
+      throw new functions.https.HttpsError(
+        'internal',
+        'Sähköpostipalvelu ei ole käytettävissä. Tarkista Gmail-asetukset.'
+      );
+    }
+
+    // ── Lähetä sähköposti ────────────────────────────────────────
+    // Käytetään samaa HTML-pohjaa kuin lahetaRekisteriKutsu-funktiossa.
+    try {
+      await transport.sendMail({
+        from:    '"TalentMaster™" <talentmasterid@gmail.com>',
+        to:      hEmail,
+        subject: `Rekisteröintikutsu — ${pelaajanNimi} / ${seuraNimi}`,
+        html: `
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#f4f6fa;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"
+  style="background:#f4f6fa;padding:40px 20px;">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0"
+  style="background:#ffffff;border-radius:12px;overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);">
+
+  <tr>
+    <td style="background:#1E3A5F;padding:28px 40px;">
+      <span style="font-size:20px;font-weight:900;color:#ffffff;letter-spacing:-.5px;">
+        Talent<span style="color:#3EC9A7;">Master</span>™
+      </span>
+      <span style="display:block;font-size:11px;font-weight:600;letter-spacing:2px;
+        text-transform:uppercase;color:rgba(255,255,255,.5);margin-top:4px;">
+        ${seuraNimi}
+      </span>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:36px 40px;">
+      <p style="font-size:16px;font-weight:600;color:#1E3A5F;margin:0 0 16px;">
+        Hyvä huoltaja,
+      </p>
+      <p style="font-size:14px;color:#444;margin:0 0 16px;line-height:1.7;">
+        ${seuraNimi} käyttää TalentMaster™-kehitysseurantajärjestelmää
+        pelaajien yksilölliseen kehitykseen. Pyydämme sinua rekisteröimään
+        <strong>${pelaajanNimi}</strong>${joukkueTeksti ? ` (${joukkueTeksti})` : ''}
+        järjestelmään ja antamaan suostumuksen pelaajadatan käsittelyyn.
+      </p>
+      <p style="font-size:14px;color:#444;margin:0 0 28px;line-height:1.7;">
+        Rekisteröinti kestää noin <strong>2 minuuttia</strong> ja sisältää
+        pelaajan perustiedot sekä GDPR-suostumuksen.
+      </p>
+
+      <table cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+        <tr>
+          <td style="background:#4A7ED9;border-radius:8px;">
+            <a href="${linkki}"
+              style="display:inline-block;padding:14px 32px;font-size:14px;
+              font-weight:600;color:#fff;text-decoration:none;">
+              Rekisteröi pelaaja →
+            </a>
+          </td>
+        </tr>
+      </table>
+
+      <div style="background:#FFF8E7;border-left:3px solid #E0A040;
+        border-radius:0 6px 6px 0;padding:12px 16px;margin-bottom:24px;">
+        <p style="font-size:12px;color:#7A5800;margin:0;line-height:1.6;">
+          📬 <strong>Jos et löydä tätä viestiä,</strong> tarkista myös
+          <strong>roskaposti- tai Promootiot-kansio</strong>.
+        </p>
+      </div>
+
+      <p style="font-size:12px;color:#999;margin:0;line-height:1.6;">
+        Jos nappi ei toimi, kopioi tämä osoite selaimeen:<br>
+        <a href="${linkki}" style="color:#4A7ED9;word-break:break-all;font-size:11px;">
+          ${linkki}
+        </a>
+      </p>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:20px 40px;background:#f9fafb;border-top:1px solid #eee;">
+      <p style="font-size:11px;color:#aaa;margin:0;line-height:1.6;">
+        TalentMaster™ — Jalkapallon kehitysalusta<br>
+        Tämä viesti on lähetetty automaattisesti ${seuraNimi}:n toimesta.
+        Älä vastaa tähän viestiin.
+      </p>
+    </td>
+  </tr>
+</table>
+</td></tr></table>
+</body>
+</html>`,
+      });
+
+      functions.logger.info('Massakutsu lähetetty', { hEmail });
+
+    } catch (mailVirhe) {
+      functions.logger.error('Massakutsun lähetys epäonnistui', {
+        hEmail, virhe: mailVirhe.message,
+      });
+      throw new functions.https.HttpsError(
+        'internal',
+        'Sähköpostilähetys epäonnistui: ' + mailVirhe.message
+      );
+    }
+
+    // ── Tallenna Firestoreen (kutsut-kokoelma) ───────────────────
+    // Sama rakenne kuin lahetaRekisteriKutsu — mahdollistaa
+    // myöhemmin "Kutsu lähetetty 7 pv sitten" -muistutukset.
+    try {
+      await admin.firestore()
+        .collection('seurat').doc(seuraId)
+        .collection('kutsut').add({
+          hEmail,
+          pelaajanNimi,
+          joukkue:        joukkue || null,
+          joukkueNimi:    joukkueNimi || joukkue || null,
+          linkki,
+          lahetetty:      admin.firestore.FieldValue.serverTimestamp(),
+          tila:           'lahetetty',
+          lahde:          'excel_massakutsu',
+          lahettajaUid:   context.auth.uid,
+          lahettajaEmail: context.auth.token.email || null,
+        });
+    } catch (e) {
+      // Ei kriittinen — sähköposti meni jo perille
+      functions.logger.warn('Massakutsun Firestore-kirjaus epäonnistui', {
+        virhe: e.message
+      });
+    }
+
+    return {
+      ok:     true,
+      viesti: `Kutsu lähetetty osoitteeseen ${hEmail}`,
+    };
+  });
