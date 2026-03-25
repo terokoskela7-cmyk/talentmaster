@@ -10,8 +10,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
-<!-- SheetJS: Excel/CSV-tiedostojen lukeminen selaimessa (tuontiominaisuus) -->
+<!-- Excel-tuonti: SheetJS ensin, sitten TM-komponentit -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="tm_import.js"></script>
+<script src="tm_empty_state.js"></script>
 
 <style>
 /* ─────────────────────────────────────────────
@@ -355,16 +357,9 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 .toast.ok    { background:rgba(62,201,167,.15); border:1px solid rgba(62,201,167,.3); color:var(--teal); }
 .toast.virhe { background:rgba(217,96,96,.15);  border:1px solid rgba(217,96,96,.3);  color:#e88080; }
 
-/* ── Tablet (481–768px): sivupalkki näkyy kapeampana ── */
 @media (max-width:768px) {
-  .sivupalkki { width:170px; }
-  .sisalto    { margin-left:170px; padding:80px 20px 28px; }
-}
-
-/* ── Mobiili (alle 481px): sivupalkki piilotetaan ── */
-@media (max-width:480px) {
   .sivupalkki { display:none; }
-  .sisalto    { margin-left:0; padding:74px 16px 24px; }
+  .sisalto { margin-left:0; padding:16px; }
 }
 </style>
 </head>
@@ -498,16 +493,6 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       </div>
     </div>
 
-    <!-- Puhelinnumero WhatsApp-lähetystä varten -->
-    <div class="kenttaRyhma">
-      <label class="kenttaLabel">Huoltajan puhelinnumero (valinnainen)</label>
-      <input class="kenttaInput" type="tel" id="rek_puhelin"
-        placeholder="+358 40 123 4567" autocomplete="tel">
-      <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
-        📱 Syötä numero jos haluat lähettää kutsun WhatsAppilla
-      </span>
-    </div>
-
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
       <button class="nappi" id="luoLinkkiNappi" onclick="luoRekisteriLinkki()"
         style="flex:1;min-width:180px;">
@@ -515,7 +500,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       </button>
       <button class="nappi" id="lahetaSpostNappi" onclick="lahetaRekisteriSahkoposti()"
         style="flex:1;min-width:180px;background:var(--teal);" disabled>
-        ✉️ Lähetä sähköpostilla
+        Lähetä sähköpostilla
       </button>
     </div>
 
@@ -528,13 +513,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       <div class="linkkiNapit">
         <button class="linkkiNappi teal" onclick="kopioriLinkki()">📋 Kopioi linkki</button>
         <button class="linkkiNappi" onclick="avaaLinkki()">↗ Avaa selaimessa</button>
-        <button class="linkkiNappi" id="whatsappNappi" onclick="lahetaWhatsApp()">📱 WhatsApp</button>
-      </div>
-      <!-- Huomio: näytetään vihreä nappi jos numero annettu, muuten geneerinen -->
-      <div id="whatsappInfo" style="display:none;margin-top:10px;
-        background:rgba(62,201,167,.08);border:1px solid rgba(62,201,167,.2);
-        border-radius:6px;padding:8px 12px;font-size:11px;color:var(--teal);">
-        📱 WhatsApp-linkki lähetetään numeroon <strong id="whatsappNro"></strong>
+        <button class="linkkiNappi" onclick="lahetaWhatsApp()">📱 WhatsApp</button>
       </div>
     </div>
   </div>
@@ -549,7 +528,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 
     <div class="kenttaRyhma">
       <label class="kenttaLabel">Joukkueen nimi *</label>
-      <input class="kenttaInput" type="text" id="jouk_nimi" placeholder="esim. Seura U15">
+      <input class="kenttaInput" type="text" id="jouk_nimi" placeholder="KPV U15">
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="kenttaRyhma" style="margin:0;">
@@ -559,9 +538,9 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       <div class="kenttaRyhma" style="margin:0;">
         <label class="kenttaLabel">Joukkue-ID *</label>
         <input class="kenttaInput" type="text" id="jouk_id"
-          placeholder="esim. fcl_u13" style="text-transform:lowercase;">
+          placeholder="kpv_u15" style="text-transform:lowercase;">
         <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
-          Pieni, ei välejä — ID lukitaan luonnin jälkeen
+          Pieni, ei välejä (esim. kpv_u15)
         </span>
       </div>
     </div>
@@ -628,23 +607,20 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
             Lataa pohja ja täytä joukkueet
           </div>
           <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
-            Paina <strong style="color:var(--teal);">Lataa nyt</strong> alla ja avaa ladattu Excel-tiedosto.<br><br>
-            <strong style="color:var(--ink2);">Haluatko dropdown-valikon Joukkue-sarakkeeseen?</strong>
-            Siirry <strong style="color:var(--ink2);">Asetukset</strong>-välilehdelle
-            <span id="rekisteriOhjeEsimerkki">ja kirjoita seuran joukkueet listaan riveille 2–30.</span>
-            Tämän jälkeen Joukkue-sarakkeen dropdown toimii automaattisesti.<br><br>
-            <strong style="color:var(--ink3);">Tai jätä Asetukset tyhjäksi</strong> —
-            kirjoita joukkueen nimi suoraan Joukkue-sarakkeeseen ensimmäiselle riville
-            ja kopioi se alas muille riveille (Ctrl+D tai solun vetokahva).
+            Paina <strong style="color:var(--teal);">Lataa nyt</strong> alla.
+            Avaa ladattu Excel-tiedosto ja mene
+            <strong style="color:var(--ink2);">Asetukset</strong>-välilehdelle.
+            Kirjoita seuran joukkueet listaan (esim. KPV U10, KPV U11 ...).
+            Tämä aktivoi dropdown-valikon Joukkue-sarakkeessa.
           </div>
           <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
             <span style="background:rgba(62,201,167,.12);border:1px solid rgba(62,201,167,.25);
               border-radius:5px;padding:3px 10px;font-size:11px;color:var(--teal);font-weight:600;">
-              Vaihtoehto A: Asetukset → dropdown
+              Asetukset-välilehti
             </span>
-            <span style="background:rgba(255,255,255,.06);border:1px solid var(--bord2);
-              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--ink3);font-weight:600;">
-              Vaihtoehto B: kirjoita suoraan
+            <span style="background:rgba(74,126,217,.12);border:1px solid rgba(74,126,217,.25);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--blue);font-weight:600;">
+              Joukkueet-lista → dropdown
             </span>
           </div>
         </div>
@@ -664,11 +640,11 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
             Täytä pelaajien tiedot
           </div>
           <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
-            Täytä jokaisen pelaajan kohdalle neljä tietoa:
-            etunimi, sukunimi, joukkue (valitse dropdownista) ja
-            huoltajan sähköpostiosoite — kutsu lähetetään sinne automaattisesti.
-            Muita tietoja ei tarvita tässä vaiheessa —
-            vanhempi täyttää loput suostumuslomakkeessa.
+            Palaa <strong style="color:var(--ink2);">Pelaajat</strong>-välilehdelle.
+            Täytä jokaisen pelaajan kohdalle etunimi, sukunimi ja
+            huoltajan sähköpostiosoite — nämä ovat pakollisia (<strong style="color:var(--blue);">sininen sarake</strong>).
+            PalloID on suositeltava mutta voit jättää sen tyhjäksi — vanhempi voi täyttää sen
+            suostumuslomakkeessa.
           </div>
           <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
             <span style="background:rgba(74,126,217,.12);border:1px solid rgba(74,126,217,.25);
@@ -683,9 +659,9 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
               border-radius:5px;padding:3px 10px;font-size:11px;color:var(--blue);font-weight:600;">
               Huoltajan s-posti *
             </span>
-            <span style="background:rgba(74,126,217,.12);border:1px solid rgba(74,126,217,.25);
-              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--blue);font-weight:600;">
-              Joukkue *
+            <span style="background:rgba(255,255,255,.05);border:1px solid var(--bord2);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--ink3);font-weight:600;">
+              PalloID (valinnainen)
             </span>
           </div>
         </div>
@@ -729,28 +705,28 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       </div>
     </div>
 
-    <!-- HUOMIOLAATIKKO: Vanhempi täyttää loput -->
-    <div style="background:rgba(62,201,167,.07);border:1px solid rgba(62,201,167,.2);
+    <!-- HUOMIOLAATIKKO: PalloID -->
+    <div style="background:rgba(224,160,64,.08);border:1px solid rgba(224,160,64,.25);
       border-radius:8px;padding:14px 16px;margin-bottom:24px;
       display:flex;gap:12px;align-items:flex-start;">
-      <span style="font-size:18px;flex-shrink:0;">✅</span>
+      <span style="font-size:18px;flex-shrink:0;">💡</span>
       <div>
-        <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:4px;">
-          Vanhempi täyttää loput suostumuslomakkeessa
+        <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:4px;">
+          PalloID — missä se löytyy?
         </div>
         <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
-          Syntymäaika, osoite, PalloID ja muut henkilötiedot kerätään vanhemmalta
-          suostumuslomakkeella — sinun ei tarvitse tietää niitä etukäteen.
-          Riittää että tiedät pelaajan nimen, joukkueen ja vanhemman sähköpostin.
+          PalloID on pelaajan tunniste Palloliiton pelipassissa. Se löytyy
+          fyysiseltä pelipassilta tai Palloliiton verkkopalvelusta vanhemman kirjautuessa.
+          Jos et tiedä sitä, jätä tyhjäksi — vanhempi täyttää sen suostumuslomakkeessa.
         </div>
       </div>
     </div>
 
     <!-- TOIMINTANAPIT -->
-    <div style="display:flex;gap:10px;margin-bottom:16px;">
+    <div style="display:flex;gap:10px;">
       <button class="nappi" onclick="aloitaLataaminenOhjeesta()"
         style="flex:1;padding:14px;">
-        ⬇️ Lataa rekisteripohja (massakutsu)
+        ⬇️ Lataa rekisteripohja
       </button>
       <button onclick="suljeModal('rekisteriOhjeModal')"
         style="background:none;border:1px solid var(--bord2);border-radius:8px;
@@ -758,28 +734,6 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
         color:var(--ink3);cursor:pointer;transition:all .2s;white-space:nowrap;"
         onmouseover="this.style.color='var(--ink)'" onmouseout="this.style.color='var(--ink3)'">
         Sulje
-      </button>
-    </div>
-
-    <!-- VAIHTOEHTO: Yksittäinen kutsu -->
-    <div style="border-top:1px solid var(--bord2);padding-top:14px;
-      display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-      <div style="flex:1;min-width:160px;">
-        <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:2px;">
-          Lisäät vain 1–3 pelaajaa?
-        </div>
-        <div style="font-size:11px;color:var(--ink3);line-height:1.5;">
-          Lähetä yksittäinen kutsu suoraan — ei Exceliä, ei Asetuksia.
-        </div>
-      </div>
-      <button onclick="suljeModal('rekisteriOhjeModal');avaaRekisteriModal()"
-        style="background:rgba(62,201,167,.12);border:1px solid rgba(62,201,167,.3);
-        border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600;
-        font-family:'DM Sans',sans-serif;color:var(--teal);cursor:pointer;
-        white-space:nowrap;transition:all .2s;"
-        onmouseover="this.style.background='rgba(62,201,167,.2)'"
-        onmouseout="this.style.background='rgba(62,201,167,.12)'"">
-        ✉️ Yksittäinen kutsu →
       </button>
     </div>
   </div>
@@ -826,7 +780,6 @@ const tila = {
   pelaajat:    [],     // valitun seuran pelaajat
   henkilosto:  [],     // valitun seuran käyttäjät
   aktiivNakyma:'yhteenveto',
-  _joukkueetLadattu: false,  // B2: lippu — true kun onSnapshot on vastannut kerran
   // Rekisterilinkin väliaikaiset tiedot
   _rekLinkki:  null,
   _rekHEmail:  null,
@@ -842,29 +795,12 @@ const SALLITUT_ROOLIT = ['superadmin', 'super_admin', 'vp', 'seurasihteeri', 'ur
 // ─────────────────────────────────────────────────────────────────
 // AUTH-KUUNTELIJA
 // ─────────────────────────────────────────────────────────────────
-// _kirjautuminenKesken-lippu estää onAuthStateChanged-silmukan.
-// Ongelma: getIdTokenResult(true) pakottaa token-päivityksen joka
-// laukaisee onAuthStateChanged uudelleen kesken kirjautumisprosessin.
-// Ilman lippua: nayta('sovellus') → onAuthStateChanged uudelleen → nayta('kirjautuminen') → bugi.
-let _kirjautuminenKesken = false;
-
 auth.onAuthStateChanged(async (kayttaja) => {
   if (kayttaja) {
-    // Jos kirjautuminen on jo käynnissä, token-päivitys laukaisi tämän
-    // uudelleen — ohitetaan. Prosessi jatkuu jo käynnissä olevassa kutsussa.
-    if (_kirjautuminenKesken) return;
-    _kirjautuminenKesken = true;
     nayta('lataus');
-    try {
-      await lataaProfiili(kayttaja);
-    } finally {
-      // Vapautetaan lukko aina — myös virheen sattuessa
-      _kirjautuminenKesken = false;
-    }
+    await lataaProfiili(kayttaja);
   } else {
-    // Uloskirjautuminen — mutta ei jos ollaan kesken kirjautumisprosessia
-    // (auth.signOut() kutsutaan myös roolintarkistuksen yhteydessä).
-    if (_kirjautuminenKesken) return;
+    // Nollataan tila uloskirjautuessa
     if (tila._joukkueetKuuntelija) { tila._joukkueetKuuntelija(); }
     nayta('kirjautuminen');
   }
@@ -913,9 +849,8 @@ async function lataaProfiili(kayttaja) {
     }
 
     alustaTopbar();
-    // KORJAUS: nayta('sovellus') siirretty asetaAktiivinenSeura-funktioon
-    // onSnapshot-kuuntelijan ensimmäiseen vastaukseen (tai turvaverkkoon).
-    // Tämä estää latausnäkymään jumiin jäämisen hitaalla yhteydellä.
+    nayta('sovellus');
+    renderoi('yhteenveto');
 
   } catch (virhe) {
     console.error('Profiilin latausvirhe:', virhe);
@@ -959,45 +894,19 @@ async function asetaAktiivinenSeura(seuraId) {
   }
 
   // Ladataan joukkueet reaaliaikaisesti
-  // KORJAUS: onSnapshot ei ole await-lupaus — mobiililla hidas yhteys jätti
-  // sovelluksen latausnäkymään ikuisesti. Ratkaisu: turvaverkko-timeout joka
-  // näyttää sovelluksen viimeistään 5 sekunnin kuluttua vaikka data ei tulisi.
   if (tila._joukkueetKuuntelija) tila._joukkueetKuuntelija();
-
-  let ensimmainenVastaus = false;
-  const turvaverkko = setTimeout(() => {
-    if (!ensimmainenVastaus) {
-      console.warn('Joukkueet: timeout — näytetään sovellus ilman dataa');
-      tila._joukkueetLadattu = true;  // B2: timeout = data on "ladattu" (tyhjänä)
-      tila.joukkueet = [];
-      nayta('sovellus');
-      renderoi(tila.aktiivNakyma || 'yhteenveto');
-    }
-  }, 5000); // 5 sekuntia — riittää myös hitaalle mobiiliyhteydelle
-
   tila._joukkueetKuuntelija = db
     .collection('seurat').doc(seuraId)
     .collection('joukkueet')
     .orderBy('jarjestys')
     .onSnapshot(snap => {
-      clearTimeout(turvaverkko);         // perutaan turvaverkko kun data saapuu
-      const onEnsimmainen = !ensimmainenVastaus;
-      ensimmainenVastaus = true;
-      tila._joukkueetLadattu = true;  // B2: merkitään että data on saapunut
       tila.joukkueet = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       // Päivitä joukkuevalitsin modalissa
       paivitaJoukkueValitsin();
-      // Ensimmäisellä vastauksella näytetään sovellus (kirjautumistilanteessa)
-      if (onEnsimmainen) {
-        nayta('sovellus');
-        renderoi('yhteenveto');
-      } else {
-        // Myöhemmät päivitykset päivittävät vain aktiivisen näkymän
-        if (tila.aktiivNakyma === 'joukkueet') renderoi('joukkueet');
-        if (tila.aktiivNakyma === 'yhteenveto') renderoi('yhteenveto');
-      }
+      // Päivitä näkymä jos joukkueet-välilehti auki
+      if (tila.aktiivNakyma === 'joukkueet') renderoi('joukkueet');
+      if (tila.aktiivNakyma === 'yhteenveto') renderoi('yhteenveto');
     }, err => {
-      clearTimeout(turvaverkko);         // perutaan myös virheen sattuessa
       console.warn('Joukkueet:', err.message);
       tila.joukkueet = [];
     });
@@ -1013,12 +922,8 @@ async function vaihdaSeura(seuraId) {
   if (!seuraId) return;
   nayta('lataus');
   await asetaAktiivinenSeura(seuraId);
-  // B1-KORJAUS: Palataan aina yhteenvetoon seuran vaihtuessa.
-  // Jos jäätiin aiemmalle välilehdelle (esim. 'pelaajat'), käyttäjä
-  // näkisi uuden seuran datan väärässä kontekstissa tai tyhjän spinnerin.
-  tila.aktiivNakyma = 'yhteenveto';
   nayta('sovellus');
-  renderoi('yhteenveto');
+  renderoi(tila.aktiivNakyma);
 }
 
 function paivitaJoukkueValitsin() {
@@ -1080,132 +985,14 @@ function renderoi(nakyma) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// NÄKYMÄ: YHTEENVETO — kolme älykästä tilaa
+// NÄKYMÄ: YHTEENVETO
 // ─────────────────────────────────────────────────────────────────
-// Logiikka: järjestelmä tunnistaa missä vaiheessa seura on ja
-// näyttää juuri sen ohjauksen jota tarvitaan, ei enempää.
-//
-//  Vaihe 1 (TYHJÄ)      — joukkueita 0 → ohjattu aloitusnäkymä
-//  Vaihe 2 (KÄYNNISSÄ)  — pelaajia 0 tai suostumuksia puuttuu → tehtävälista
-//  Vaihe 3 (TOIMINNASSA) — kaikki kunnossa → normaali KPI-näkymä
-//
 function renderYhteenveto() {
+  // KRIITTINEN: requestAnimationFrame varmistaa että DOM on renderöity
+  // ennen kuin yritetään päivittää KPI-elementtejä.
+  // Ilman tätä getElementById palauttaa null koska HTML ei ole vielä DOMissa.
   requestAnimationFrame(() => lataaYhteenvetoKPIt());
 
-  // ── Vaihe 1: Tyhjä seura — ohjattu aloitus ────────────────────
-  // B2-KORJAUS: Tarkistetaan sekä lippu että pituus.
-  // Ilman lippua onSnapshot täyttää tila.joukkueet ennen renderöintiä,
-  // jolloin tyhjäkin seura ohittaa onboarding-näkymän.
-  if (tila._joukkueetLadattu && tila.joukkueet.length === 0) {
-    return `
-      <div class="sivuOtsikko">
-        <div class="sivuEyebrow">Aloita tästä</div>
-        <div class="sivuH1">Tervetuloa, ${tila.seuraNimi || 'seura'}!
-          <small>${tila.seuraPaketti}</small>
-        </div>
-      </div>
-
-      <!-- Onboarding-ohjekortti: kolme vaihetta selkokielellä -->
-      <div class="kortti" style="margin-bottom:20px;border:1.5px solid var(--blue);
-        background:linear-gradient(135deg,rgba(74,126,217,.06),transparent);">
-        <div class="korttiHeader" style="border-bottom:1px solid var(--bord2);">
-          <span class="korttiOtsikko" style="color:var(--blue);">
-            🚀 Kolme vaihetta käyttöönottoon
-          </span>
-          <span style="font-size:11px;color:var(--ink3);">
-            Koko prosessi kestää noin 15 minuuttia
-          </span>
-        </div>
-        <div style="padding:0;">
-
-          <!-- Vaihe 1 -->
-          <div style="display:flex;gap:0;align-items:stretch;">
-            <div style="width:4px;background:var(--blue);border-radius:0;flex-shrink:0;"></div>
-            <div style="padding:20px 24px;flex:1;display:flex;gap:20px;align-items:flex-start;
-              border-bottom:1px solid var(--bord2);">
-              <div style="width:40px;height:40px;border-radius:50%;background:var(--blue);
-                display:flex;align-items:center;justify-content:center;
-                font-size:16px;font-weight:900;color:#fff;flex-shrink:0;">1</div>
-              <div style="flex:1;">
-                <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;">
-                  ⚽ Lisää seuran joukkueet
-                </div>
-                <div style="font-size:12px;color:var(--ink3);line-height:1.7;margin-bottom:10px;">
-                  Lisää kaikki seuran joukkueet ennen pelaajien rekisteröintiä.
-                  Joukkueet lisätään kerran — pelaajat sijoitetaan niihin automaattisesti.
-                  <strong style="color:var(--amber);">Huom: joukkueen ID lukitaan luonnin jälkeen</strong>,
-                  joten kirjoita nimi huolellisesti.
-                </div>
-                <button class="lisaaNappi" style="background:var(--blue);"
-                  onclick="vaihdaNakyma('joukkueet',null);setTimeout(avaaJoukkueModal,100)">
-                  + Lisää ensimmäinen joukkue →
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Vaihe 2 -->
-          <div style="display:flex;gap:0;align-items:stretch;">
-            <div style="width:4px;background:var(--bord2);flex-shrink:0;"></div>
-            <div style="padding:20px 24px;flex:1;display:flex;gap:20px;align-items:flex-start;
-              border-bottom:1px solid var(--bord2);opacity:.6;">
-              <div style="width:40px;height:40px;border-radius:50%;background:var(--bg3);
-                border:2px solid var(--bord2);display:flex;align-items:center;
-                justify-content:center;font-size:16px;font-weight:900;
-                color:var(--ink3);flex-shrink:0;">2</div>
-              <div style="flex:1;">
-                <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;">
-                  📋 Tuo pelaajien rekisteri
-                </div>
-                <div style="font-size:12px;color:var(--ink3);line-height:1.7;">
-                  Lataa Excel-pohja, täytä pelaajien nimet ja vanhempien
-                  sähköpostit, lataa takaisin. Vapautuu kun joukkueet on lisätty.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Vaihe 3 -->
-          <div style="display:flex;gap:0;align-items:stretch;">
-            <div style="width:4px;background:var(--bord2);flex-shrink:0;"></div>
-            <div style="padding:20px 24px;flex:1;display:flex;gap:20px;align-items:flex-start;">
-              <div style="width:40px;height:40px;border-radius:50%;background:var(--bg3);
-                border:2px solid var(--bord2);display:flex;align-items:center;
-                justify-content:center;font-size:16px;font-weight:900;
-                color:var(--ink3);flex-shrink:0;">3</div>
-              <div style="flex:1;">
-                <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;">
-                  ✉️ Kutsut lähtevät vanhemmille automaattisesti
-                </div>
-                <div style="font-size:12px;color:var(--ink3);line-height:1.7;">
-                  Jokainen vanhempi saa sähköpostilinkin, jonka kautta antaa
-                  suostumuksen pelaajadatan käsittelyyn. Voit seurata tilannetta
-                  reaaliajassa tältä sivulta.
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Pikaohjeet -->
-      <div style="background:rgba(224,160,64,.07);border:1px solid rgba(224,160,64,.2);
-        border-radius:10px;padding:16px 20px;display:flex;gap:14px;align-items:flex-start;">
-        <span style="font-size:22px;flex-shrink:0;">💡</span>
-        <div style="font-size:12px;color:var(--ink3);line-height:1.8;">
-          <strong style="color:var(--amber);display:block;margin-bottom:4px;">
-            Kysymyksiä? Ota yhteyttä TalentMaster-tukeen.
-          </strong>
-          Voit aloittaa milloin tahansa — järjestelmä muistaa missä olet menossa.
-          Kaikki muutokset tallentuvat automaattisesti.
-        </div>
-      </div>
-    `;
-  }
-
-  // ── Vaihe 2 & 3: Seura on käynnissä — normaali näkymä
-  //    suostumuspuutteet näytetään prominentisti jos niitä on
   return `
     <div class="sivuOtsikko">
       <div class="sivuEyebrow">Seurahallinta</div>
@@ -1214,7 +1001,6 @@ function renderYhteenveto() {
       </div>
     </div>
 
-    <!-- KPI-mittarit -->
     <div class="kpiRivi">
       <div class="kpiKortti sininen">
         <div class="kpiLabel">Joukkueita</div>
@@ -1224,336 +1010,137 @@ function renderYhteenveto() {
       <div class="kpiKortti teal">
         <div class="kpiLabel">Pelaajia</div>
         <div class="kpiArvo" id="kpiPelaajat">—</div>
-        <div class="kpiAla" id="kpiPelaajatAla">rekisteröityä</div>
+        <div class="kpiAla">rekisteröityä</div>
       </div>
       <div class="kpiKortti amber">
-        <div class="kpiLabel">Suostumukset</div>
-        <div class="kpiArvo" id="kpiSuostumukset">—</div>
-        <div class="kpiAla" id="kpiSuostumuksetAla">annettu</div>
-      </div>
-      <div class="kpiKortti vihrea">
         <div class="kpiLabel">Henkilöstöä</div>
         <div class="kpiArvo" id="kpiHenkilosto">—</div>
-        <div class="kpiAla" id="kpiHenkilostoAla">tunnusta</div>
+        <div class="kpiAla">tunnusta</div>
+      </div>
+      <div class="kpiKortti vihrea">
+        <div class="kpiLabel">Kutsuja lähetetty</div>
+        <div class="kpiArvo" id="kpiKutsut">—</div>
+        <div class="kpiAla">tänä kautena</div>
       </div>
     </div>
 
-    <!-- Suostumuspuute-hälytys — näytetään vain kun puuttuu -->
-    <div id="suostumusHalytys" style="display:none;"></div>
-
-    <!-- Nopeat toiminnot -->
-    <div class="kortti" style="margin-bottom:20px;">
+    <div class="kortti">
       <div class="korttiHeader">
         <span class="korttiOtsikko">Nopeat toiminnot</span>
       </div>
-      <div style="padding:16px 20px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="lisaaNappi" style="background:var(--amber);color:#000;"
-          onclick="aavaaTuontiModal()">
-          📥 Tuo rekisteri &amp; massakutsu
-        </button>
+      <div style="padding:20px;display:flex;gap:12px;flex-wrap:wrap;">
         <button class="lisaaNappi teal" onclick="avaaRekisteriModal()">
-          ✉️ Yksittäinen kutsu
+          ✉️ Lähetä rekisteröintikutsu
         </button>
-        <button class="lisaaNappi" onclick="vaihdaNakyma('joukkueet',null)">
-          ⚽ Joukkueet
+        <button class="lisaaNappi" onclick="vaihdaNakyma('joukkueet', document.querySelector('[data-nakyma=joukkueet]'))">
+          ⚽ Hallinnoi joukkueita
         </button>
-        <button class="lisaaNappi" onclick="vaihdaNakyma('henkilosto',null)">
-          🧑‍🏫 Henkilöstö
+        <button class="lisaaNappi" onclick="vaihdaNakyma('henkilosto', null)">
+          🧑‍🏫 Kutsu valmentaja
         </button>
       </div>
     </div>
 
-    <!-- Joukkueet-pikakatsaus -->
     <div class="kortti">
       <div class="korttiHeader">
-        <span class="korttiOtsikko">Joukkueet — suostumustilanne</span>
+        <span class="korttiOtsikko">Joukkueet</span>
         <button class="lisaaNappi" onclick="avaaJoukkueModal()">+ Lisää joukkue</button>
       </div>
-      <div id="joukkueSuostumusTaulukko" style="padding:16px 0 0;">
-        <div style="padding:0 20px 20px;display:flex;align-items:center;gap:8px;
-          font-size:12px;color:var(--ink3);">
-          <div class="spinner" style="width:14px;height:14px;border-width:2px;"></div>
-          Ladataan suostumustietoja...
-        </div>
-      </div>
+      ${tila.joukkueet.length === 0
+        ? `<div class="tyhjaAlue" style="min-height:20vh;">
+            <div class="tyhjaIkoni">⚽</div>
+            <div class="tyhjaOtsikko">Ei joukkueita</div>
+            <div class="tyhjaTeksti">Lisää ensimmäinen joukkue yllä olevalla napilla.</div>
+          </div>`
+        : `<table>
+            <thead><tr><th>Joukkue</th><th>Ikäluokka</th><th>Vuosi</th><th>Toiminnot</th></tr></thead>
+            <tbody>
+              ${tila.joukkueet.map(j => `
+                <tr>
+                  <td>${j.nimi || j.id}</td>
+                  <td>${j.ikaryhma || '—'}</td>
+                  <td>${j.vuosi || '—'}</td>
+                  <td>
+                    <div style="display:flex;gap:6px;">
+                      <button class="toimNappi sininen" onclick="avaaRekisteriModalJoukkueella('${j.id}','${j.nimi || j.id}')">
+                        ✉️ Kutsu pelaaja
+                      </button>
+                    </div>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>`
+      }
     </div>
   `;
 }
 
 async function lataaYhteenvetoKPIt() {
-  // Palataan heti jos ollaan tyhjässä tilassa (onboarding-näkymä)
-  // — siellä ei ole KPI-elementtejä joita päivittää
-  // B2/B7-KORJAUS: Palataan vain jos data on oikeasti ladattu JA tyhjä.
-  // Pelkkä length === 0 palautti liian aikaisin ennen onSnapshot-vastausta.
-  if (tila._joukkueetLadattu && tila.joukkueet.length === 0) return;
-  if (!tila._joukkueetLadattu) return; // Data kesken — ei KPI-elementtejä
-
   try {
-    const [pelaajatSnap, henkilostoSnap] = await Promise.all([
+    const [pelaajatSnap, henkilostoSnap, kutsutSnap] = await Promise.all([
       db.collection('seurat').doc(tila.seuraId).collection('pelaajat').get(),
       db.collection('seurat').doc(tila.seuraId).collection('kayttajat').get(),
+      db.collection('seurat').doc(tila.seuraId).collection('kutsut').get(),
     ]);
 
-    // ── Pelaaja- ja suostumuslaskenta ─────────────────────────────
-    const pelaajat = pelaajatSnap.docs.map(d => d.data());
-    const yhteensa  = pelaajat.length;
-    const suostumusOK   = pelaajat.filter(p => p.suostumus?.annettu).length;
-    const suostumusOdottaa = yhteensa - suostumusOK;
+    const p = document.getElementById('kpiPelaajat');
+    const h = document.getElementById('kpiHenkilosto');
+    const k = document.getElementById('kpiKutsut');
 
-    // Päivitetään KPI-kortit
-    const kpiP = document.getElementById('kpiPelaajat');
-    const kpiS = document.getElementById('kpiSuostumukset');
-    const kpiSAla = document.getElementById('kpiSuostumuksetAla');
-    if (kpiP) kpiP.textContent = yhteensa;
-    if (kpiS) {
-      kpiS.textContent = suostumusOK;
-      if (kpiSAla) kpiSAla.textContent =
-        suostumusOdottaa > 0
-          ? `annettu — ${suostumusOdottaa} odottaa`
-          : 'kaikki annettu ✓';
-      // Korostetaan punainen kortti jos odottavia on paljon
-      const kortti = kpiS.closest('.kpiKortti');
-      if (kortti && suostumusOdottaa > 0) {
-        kortti.style.borderColor = 'rgba(217,96,96,.5)';
-        kortti.querySelector('.kpiLabel').style.color = '#e88080';
-      }
-    }
+    if (p) p.textContent = pelaajatSnap.size;
+    if (k) k.textContent = kutsutSnap.size;
 
-    // ── Henkilöstölaskenta ─────────────────────────────────────────
-    const operatiivinenRoolit = ['valmentaja','talenttivalmentaja',
-      'fysiikkavalmentaja','testivastaava','fysioterapeutti'];
-    let operatiiviset = 0, hallinnolliset = 0;
+    // Henkilöstö-KPI: lasketaan vain operatiiviset roolit (valmentajat jne.)
+    // erikseen hallinnollisista rooleista (VP, sihteeri, UTJ).
+    // Tämä antaa selkeämmän kuvan kentällä toimivasta henkilöstöstä.
+    const operatiivisetRoolit = ['valmentaja', 'talenttivalmentaja',
+      'fysiikkavalmentaja', 'testivastaava', 'fysioterapeutti'];
+    const hallinnollisetRoolit = ['vp', 'seurasihteeri', 'urheilutoimenjohtaja'];
+
+    let operatiiviset = 0;
+    let hallinnolliset = 0;
     henkilostoSnap.forEach(doc => {
-      const r = doc.data().rooli || '';
-      if (operatiivinenRoolit.includes(r)) operatiiviset++;
-      else hallinnolliset++;
+      const rooli = doc.data().rooli || '';
+      if (operatiivisetRoolit.includes(rooli)) operatiiviset++;
+      else if (hallinnollisetRoolit.includes(rooli)) hallinnolliset++;
     });
-    const kpiH = document.getElementById('kpiHenkilosto');
-    const kpiHAla = document.getElementById('kpiHenkilostoAla');
-    if (kpiH) kpiH.textContent = operatiiviset;
-    if (kpiHAla) kpiHAla.textContent = `+ ${hallinnolliset} hallinto`;
 
-    // ── Suostumuspuute-hälytys ──────────────────────────────────────
-    // Näytetään prominentisti vain kun odottavia on yli 0.
-    // Hälytys on klikattava — nappi käynnistää muistutuslähetyksen.
-    const halytysEl = document.getElementById('suostumusHalytys');
-    if (halytysEl && suostumusOdottaa > 0) {
-      halytysEl.style.display = 'block';
-      halytysEl.innerHTML = `
-        <div style="background:rgba(217,96,96,.1);border:1.5px solid rgba(217,96,96,.35);
-          border-radius:10px;padding:16px 20px;margin-bottom:20px;
-          display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:24px;flex-shrink:0;">⚠️</span>
-          <div style="flex:1;min-width:200px;">
-            <div style="font-size:13px;font-weight:700;color:#e88080;margin-bottom:3px;">
-              ${suostumusOdottaa} huoltajaa ei ole vielä antanut suostumusta
-            </div>
-            <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
-              Pelaajien tietoja ei saa käyttää ennen suostumusta (GDPR).
-              Lähetä muistutus — se menee automaattisesti oikealle vanhemmalle.
-            </div>
-            <div style="font-size:11px;color:var(--amber);margin-top:5px;
-              display:flex;align-items:center;gap:5px;">
-              <span>📬</span>
-              <span>Muistuta vanhempaa tarkistamaan myös <strong>roskaposti- tai promootiot-kansio</strong> — kutsuviestit päätyvät sinne usein.</span>
-            </div>
-          </div>
-          <button class="lisaaNappi" style="background:rgba(217,96,96,.2);
-            color:#e88080;border:1px solid rgba(217,96,96,.4);flex-shrink:0;"
-            onclick="lahetaMuistutukset()">
-            ✉️ Lähetä muistutukset (${suostumusOdottaa} kpl)
-          </button>
-        </div>`;
-    } else if (halytysEl && yhteensa > 0) {
-      // Kaikki kunnossa — näytetään vihreä vahvistus
-      halytysEl.style.display = 'block';
-      halytysEl.innerHTML = `
-        <div style="background:rgba(62,201,167,.08);border:1px solid rgba(62,201,167,.25);
-          border-radius:10px;padding:12px 20px;margin-bottom:20px;
-          display:flex;gap:12px;align-items:center;">
-          <span style="font-size:18px;">✅</span>
-          <span style="font-size:13px;color:var(--teal);font-weight:600;">
-            Kaikki ${yhteensa} pelaajan suostumukset on vastaanotettu — hyvää työtä!
-          </span>
-        </div>`;
+    // Näytetään molemmat luvut selkeästi
+    if (h) {
+      h.textContent = operatiiviset;
+      const ala = h.closest('.kpiKortti')?.querySelector('.kpiAla');
+      if (ala) ala.textContent = `+ ${hallinnolliset} hallinto`;
     }
 
-    // ── Joukkueen suostumustilanne -taulukko ────────────────────────
-    // Lasketaan per joukkue kuinka monta odottaa — antaa VP:lle
-    // tarkan kuvan missä joukkueessa on eniten tehtävää.
-    const joukkueLaskuri = {};
-    tila.joukkueet.forEach(j => {
-      joukkueLaskuri[j.id] = { nimi: j.nimi||j.id, ok: 0, odottaa: 0 };
-    });
-    pelaajat.forEach(p => {
-      const jId = p.joukkue || '__ei_joukkuetta__';
-      if (!joukkueLaskuri[jId]) {
-        joukkueLaskuri[jId] = { nimi: p.joukkueNimi||p.joukkue||'(ei joukkuetta)', ok:0, odottaa:0 };
-      }
-      if (p.suostumus?.annettu) joukkueLaskuri[jId].ok++;
-      else joukkueLaskuri[jId].odottaa++;
-    });
 
-    const taulukkoEl = document.getElementById('joukkueSuostumusTaulukko');
-    if (!taulukkoEl) return;
-
-    const rivit = Object.values(joukkueLaskuri);
-    if (rivit.every(r => r.ok + r.odottaa === 0)) {
-      // Joukkueet ovat mutta pelaajia ei vielä
-      taulukkoEl.innerHTML = `
-        <div style="padding:20px 24px;">
-          <div style="background:rgba(74,126,217,.07);border:1px solid rgba(74,126,217,.2);
-            border-radius:8px;padding:16px 20px;display:flex;gap:14px;align-items:flex-start;">
-            <span style="font-size:20px;flex-shrink:0;">📋</span>
-            <div>
-              <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;">
-                Seuraava askel: tuo pelaajien rekisteri
-              </div>
-              <div style="font-size:12px;color:var(--ink3);line-height:1.7;margin-bottom:10px;">
-                Joukkueet on lisätty — hyvä! Nyt voidaan tuoda pelaajat.
-                Lataa Excel-pohja, täytä pelaajien nimet ja vanhempien sähköpostit,
-                ja lataa takaisin. Kutsut lähtevät automaattisesti.
-              </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="lisaaNappi" style="background:var(--amber);color:#000;"
-                  onclick="aavaaTuontiModal()">
-                  📥 Tuo rekisteri &amp; massakutsu
-                </button>
-                <button class="lisaaNappi" onclick="avaaRekisteriOhje()">
-                  ⬇️ Lataa rekisteripohja ensin
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>`;
-      return;
-    }
-
-    // Joukkueet joilla on pelaajia — näytetään suostumuspalkki per joukkue
-    taulukkoEl.innerHTML = `
-      <table style="font-size:13px;">
-        <thead><tr>
-          <th style="padding:8px 20px;text-align:left;font-size:11px;
-            color:var(--ink3);font-weight:600;letter-spacing:.8px;
-            text-transform:uppercase;border-bottom:1px solid var(--bord2);">
-            Joukkue
-          </th>
-          <th style="padding:8px 20px;text-align:left;font-size:11px;
-            color:var(--ink3);font-weight:600;letter-spacing:.8px;
-            text-transform:uppercase;border-bottom:1px solid var(--bord2);">
-            Suostumustilanne
-          </th>
-          <th style="padding:8px 20px;text-align:right;font-size:11px;
-            color:var(--ink3);font-weight:600;letter-spacing:.8px;
-            text-transform:uppercase;border-bottom:1px solid var(--bord2);">
-            Toiminnot
-          </th>
-        </tr></thead>
-        <tbody>
-          ${rivit.map(r => {
-            const yht = r.ok + r.odottaa;
-            if (yht === 0) return '';  // tyhjät joukkueet piilotetaan
-            const pct = Math.round((r.ok / yht) * 100);
-            const vari = pct === 100 ? 'var(--teal)' : pct > 60 ? 'var(--blue)' : 'var(--amber)';
-            return `
-              <tr style="border-bottom:1px solid var(--bord2);">
-                <td style="padding:12px 20px;font-weight:600;">${r.nimi}</td>
-                <td style="padding:12px 20px;">
-                  <div style="display:flex;align-items:center;gap:10px;">
-                    <!-- Edistymispalkki -->
-                    <div style="flex:1;max-width:160px;height:6px;background:var(--bg3);
-                      border-radius:3px;overflow:hidden;">
-                      <div style="width:${pct}%;height:100%;background:${vari};
-                        border-radius:3px;transition:width .4s ease;"></div>
-                    </div>
-                    <span style="font-size:12px;color:var(--ink3);white-space:nowrap;">
-                      ${r.ok}/${yht}
-                      ${r.odottaa > 0
-                        ? `<span style="color:var(--amber);font-weight:600;">
-                            — ${r.odottaa} odottaa
-                           </span>`
-                        : `<span style="color:var(--teal);font-weight:600;">✓</span>`}
-                    </span>
-                  </div>
-                </td>
-                <td style="padding:12px 20px;text-align:right;">
-                  ${r.odottaa > 0
-                    ? `<button class="toimNappi sininen"
-                        onclick="lahetaMuistutuksetJoukkueelle('${r.nimi}')">
-                        ✉️ Muistuta (${r.odottaa})
-                       </button>`
-                    : `<span style="font-size:11px;color:var(--teal);">Kaikki OK</span>`}
-                </td>
-              </tr>`;
-          }).join('')}
-        </tbody>
-      </table>`;
-
-  } catch (e) {
-    console.error('KPI-lataus epäonnistui:', e);
-    // Ei kriittinen — KPI-kentät pysyvät — tilassa
-  }
-}
-
-// Muistutuslähetys — kaikille odottaville kerralla
-async function lahetaMuistutukset() {
-  const nappi = document.querySelector('[onclick="lahetaMuistutukset()"]');
-  if (nappi) { nappi.disabled = true; nappi.textContent = '⏳ Lähetetään...'; }
-
-  try {
-    const snap = await db.collection('seurat').doc(tila.seuraId)
-      .collection('pelaajat')
-      .where('suostumus.annettu', '==', false)
-      .get();
-
-    let lkm = 0;
-    for (const doc of snap.docs) {
-      const p = doc.data();
-      if (!p.huoltaja_email) continue;
-      // Merkitään muistutus lähetettäväksi — Functions hoitaa sähköpostin
-      await doc.ref.update({
-        muistutus_pyydetty: firebase.firestore.FieldValue.serverTimestamp(),
-        muistutuksia_lahetetty: firebase.firestore.FieldValue.increment(1),
+    // ── TMEmptyState: onboarding jos seura on tyhjä ──────────────
+    // Näytetään vain yhteenveto-välilehdellä. Jos joukkueita/pelaajia/
+    // valmentajia ei ole, TMEmptyState korvaa sisällön ohjatulla
+    // aktivointipolulla ("Lisää joukkueet → ~2 min" jne.)
+    if (typeof TMEmptyState !== 'undefined' && tila.aktiivNakyma === 'yhteenveto') {
+      const stats = {
+        joukkueet:  tila.joukkueet ? tila.joukkueet.length : 0,
+        pelaajat:   pelaajatSnap.size,
+        valmentajat: (() => {
+          const op = ['valmentaja','talenttivalmentaja','fysiikkavalmentaja',
+                      'testivastaava','fysioterapeutti'];
+          return henkilostoSnap.docs.filter(d => op.includes(d.data().rooli)).length;
+        })()
+      };
+      TMEmptyState.tarkistaJaNayta('nakymaAlue', stats, {
+        seuraNimi:    tila.seura?.nimi || 'Seuranne',
+        onLataaExcel: () => document.getElementById('btn-lataa-pohja')?.click(),
+        onTabSiirry:  (tabId) => {
+          // Etsitään sivupalkin navigointinappi jonka onclick sisältää tabId:n
+          const nappi = document.querySelector(
+            `.navNappi[onclick*="'${tabId}'"]`
+          );
+          if (nappi) nappi.click();
+        },
       });
-      lkm++;
-      await new Promise(r => setTimeout(r, 60));
     }
 
-    naytaToast(`✅ ${lkm} muistutusta lähetetty!`, 'ok');
-    renderoi('yhteenveto');
-
-  } catch (e) {
-    naytaToast('Muistutusten lähetys epäonnistui: ' + e.message, 'virhe');
-    if (nappi) { nappi.disabled = false; nappi.textContent = '✉️ Lähetä muistutukset'; }
-  }
-}
-
-// Muistutus yksittäiselle joukkueelle — kutsutaan joukkuetaulukosta
-async function lahetaMuistutuksetJoukkueelle(joukkueNimi) {
-  naytaToast(`Muistutukset joukkueelle ${joukkueNimi} lähetetään...`, 'ok');
-  // Sama logiikka kuin lahetaMuistutukset, mutta filtteröity joukkueen mukaan
-  try {
-    const snap = await db.collection('seurat').doc(tila.seuraId)
-      .collection('pelaajat')
-      .where('joukkueNimi', '==', joukkueNimi)
-      .where('suostumus.annettu', '==', false)
-      .get();
-
-    let lkm = 0;
-    for (const doc of snap.docs) {
-      if (!doc.data().huoltaja_email) continue;
-      await doc.ref.update({
-        muistutus_pyydetty: firebase.firestore.FieldValue.serverTimestamp(),
-        muistutuksia_lahetetty: firebase.firestore.FieldValue.increment(1),
-      });
-      lkm++;
-      await new Promise(r => setTimeout(r, 60));
-    }
-    naytaToast(`✅ ${lkm} muistutusta lähetetty joukkueelle ${joukkueNimi}!`, 'ok');
-    renderoi('yhteenveto');
-  } catch (e) {
-    naytaToast('Virhe: ' + e.message, 'virhe');
-  }
+  } catch (e) { /* Ei kriittinen — KPI-luvut pysyvät — -tilassa */ }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1576,19 +1163,21 @@ async function renderPelaajat(alue) {
       <div style="padding:16px 20px;border-bottom:1px solid var(--border);
         display:flex;gap:10px;flex-wrap:wrap;align-items:center;
         background:rgba(255,255,255,.02);">
-        <button class="lisaaNappi" onclick="avaaRekisteriOhje()"
+        <button class="lisaaNappi" id="btn-lataa-pohja" onclick="avaaRekisteriOhje()"
           title="Lataa Excel-pohja — katso ohjeet ensin">
           ⬇️ Lataa rekisteripohja
         </button>
-        <button class="lisaaNappi" onclick="aavaaTuontiModal()"
-          style="background:var(--amber);color:#000;"
-          title="Tuo täytetty Excel/CSV ja lähetä massakutsut">
-          📥 Tuo rekisteri &amp; massakutsu
+        <button class="lisaaNappi" id="btn-tuo-excel" onclick="avaaExcelTuonti()"
+          style="background:var(--teal);">
+          📥 Tuo Excel-rekisteri
         </button>
         <button class="lisaaNappi" onclick="avaaRekisteriModal()"
-          style="background:var(--teal);">
-          ✉️ Yksittäinen kutsu
+          style="background:rgba(74,126,217,.15);border:1px solid rgba(74,126,217,.3);">
+          ✉️ Lähetä yksittäinen kutsu
         </button>
+        <span style="font-size:11px;color:var(--ink3);margin-left:auto;">
+          Täytä rekisteripohja → lataa takaisin → massakutsu huoltajille
+        </span>
       </div>
       <div id="pelaajaListaAlue" style="padding:20px;color:var(--ink3);font-size:13px;">
         <div style="display:flex;align-items:center;gap:10px;">
@@ -1608,59 +1197,14 @@ async function renderPelaajat(alue) {
     if (!alueEl) return;
 
     if (snap.empty) {
-      // Tarkistetaan onko joukkueitakaan — ohjeistetaan oikeaan suuntaan
-      const joukkueitaOn = tila.joukkueet.length > 0;
       alueEl.innerHTML = `
-        <div style="padding:24px;">
-          ${!joukkueitaOn ? `
-          <div style="background:rgba(217,96,96,.08);border:1.5px solid rgba(217,96,96,.25);
-            border-radius:10px;padding:16px 20px;margin-bottom:16px;
-            display:flex;gap:12px;align-items:flex-start;">
-            <span style="font-size:20px;flex-shrink:0;">⚠️</span>
-            <div>
-              <div style="font-size:13px;font-weight:700;color:#e88080;margin-bottom:4px;">
-                Lisää joukkueet ensin
-              </div>
-              <div style="font-size:12px;color:var(--ink3);line-height:1.7;margin-bottom:10px;">
-                Pelaajia ei voi rekisteröidä ennen kuin joukkueet on luotu.
-                Mene <strong>Joukkueet-välilehdelle</strong> ja lisää seuran joukkueet.
-              </div>
-              <button class="lisaaNappi" style="background:var(--blue);"
-                onclick="vaihdaNakyma('joukkueet',null);setTimeout(avaaJoukkueModal,100)">
-                ⚽ Siirry lisäämään joukkueita →
-              </button>
-            </div>
+        <div class="tyhjaAlue">
+          <div class="tyhjaIkoni">👥</div>
+          <div class="tyhjaOtsikko">Ei vielä pelaajia</div>
+          <div class="tyhjaTeksti">
+            Lähetä rekisteröintikutsu vanhemmalle yllä olevalla napilla.
+            Pelaaja ilmestyy tähän listaan kun vanhempi on täyttänyt suostumuslomakkeen.
           </div>
-          ` : `
-          <div style="background:rgba(74,126,217,.07);border:1px solid rgba(74,126,217,.2);
-            border-radius:10px;padding:20px 24px;display:flex;gap:16px;align-items:flex-start;">
-            <span style="font-size:28px;flex-shrink:0;">👥</span>
-            <div>
-              <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px;">
-                Ei pelaajia vielä — seuraava askel: tuo rekisteri
-              </div>
-              <div style="font-size:12px;color:var(--ink3);line-height:1.8;margin-bottom:14px;">
-                Joukkueet on lisätty — hyvä! Nyt voidaan tuoda pelaajat.<br>
-                <strong style="color:var(--ink2);">Nopein tapa:</strong> lataa Excel-pohja
-                (joukkueesi ovat jo siinä valmiina dropdownissa), täytä nimet ja
-                vanhempien sähköpostit, lataa takaisin.<br>
-                Kutsusähköpostit lähtevät vanhemmille automaattisesti.
-              </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="lisaaNappi" style="background:var(--amber);color:#000;"
-                  onclick="aavaaTuontiModal()">
-                  📥 Tuo rekisteri &amp; massakutsu
-                </button>
-                <button class="lisaaNappi" onclick="avaaRekisteriOhje()">
-                  ⬇️ Lataa pohja ensin
-                </button>
-                <button class="lisaaNappi" onclick="avaaRekisteriModal()">
-                  ✉️ Yksittäinen kutsu
-                </button>
-              </div>
-            </div>
-          </div>
-          `}
         </div>`;
       return;
     }
@@ -1685,12 +1229,7 @@ async function renderPelaajat(alue) {
                 <td>${p.syntymaaika ? new Date(p.syntymaaika.seconds*1000).getFullYear() : '—'}</td>
                 <td><span class="badge ${suostumus}">${suostumus === 'ok' ? '✓ Annettu' : '⏳ Odottaa'}</span></td>
                 <td>
-                  <a class="toimNappi sininen"
-                    href="TalentMaster_IDP_Kortti.html?seuraId=${tila.seuraId}&pelaajaId=${p.id}"
-                    title="Avaa pelaajan kehityskortti"
-                    style="text-decoration:none;">
-                    Profiili ↗
-                  </a>
+                  <button class="toimNappi" onclick="naytaPelaajaTiedot('${p.id}')">Tiedot</button>
                 </td>
               </tr>`;
           }).join('')}
@@ -1716,26 +1255,9 @@ function renderJoukkueet() {
         <button class="lisaaNappi" onclick="avaaJoukkueModal()">+ Lisää joukkue</button>
       </div>
       ${tila.joukkueet.length === 0
-        ? `<div style="padding:24px;">
-            <div style="background:rgba(74,126,217,.07);border:1px solid rgba(74,126,217,.2);
-              border-radius:10px;padding:20px 24px;display:flex;gap:16px;align-items:flex-start;">
-              <span style="font-size:28px;flex-shrink:0;">⚽</span>
-              <div>
-                <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px;">
-                  Ei joukkueita vielä — aloita tästä
-                </div>
-                <div style="font-size:12px;color:var(--ink3);line-height:1.8;margin-bottom:14px;">
-                  Joukkueet pitää lisätä <strong style="color:var(--ink2);">ennen pelaajia</strong>
-                  — pelaaja sijoitetaan joukkueeseen rekisteröinnin yhteydessä.<br>
-                  <strong style="color:var(--amber);">Tärkeää:</strong> joukkueen ID (esim. <code>${(tila.seuraId||'seura')}_u14</code>)
-                  lukitaan luonnin jälkeen, joten kirjoita nimi huolellisesti.
-                  Nimen voi muuttaa myöhemmin, ID:tä ei.
-                </div>
-                <button class="lisaaNappi" style="background:var(--blue);" onclick="avaaJoukkueModal()">
-                  + Lisää ensimmäinen joukkue
-                </button>
-              </div>
-            </div>
+        ? `<div class="tyhjaAlue"><div class="tyhjaIkoni">⚽</div>
+            <div class="tyhjaOtsikko">Ei joukkueita</div>
+            <div class="tyhjaTeksti">Lisää seuran joukkueet ennen pelaajien rekisteröintiä.</div>
           </div>`
         : `<table>
             <thead><tr>
@@ -1749,14 +1271,10 @@ function renderJoukkueet() {
                   <td>${j.vuosi || '—'}</td>
                   <td style="font-family:monospace;font-size:12px;color:var(--ink3);">${j.id}</td>
                   <td>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <div style="display:flex;gap:6px;">
                       <button class="toimNappi sininen"
                         onclick="avaaRekisteriModalJoukkueella('${j.id}','${(j.nimi||j.id).replace(/'/g,"\\'")}')">
                         ✉️ Kutsu
-                      </button>
-                      <button class="toimNappi"
-                        onclick="avaaJoukkueMuokkaus('${j.id}','${(j.nimi||j.id).replace(/'/g,"\\'")}','${(j.ikaryhma||'').replace(/'/g,"\\'")}','${j.vuosi||''}')">
-                        ✏️ Muokkaa
                       </button>
                       <button class="toimNappi vaara"
                         onclick="poistaJoukkue('${j.id}','${(j.nimi||j.id).replace(/'/g,"\\'")}')">
@@ -2054,7 +1572,7 @@ async function lataaKriteeritTila() {
 // ─────────────────────────────────────────────────────────────────
 function avaaRekisteriModal() {
   // Nollataan lomake
-  ['rek_etunimi','rek_sukunimi','rek_hEmail','rek_palloId','rek_puhelin']
+  ['rek_etunimi','rek_sukunimi','rek_hEmail','rek_palloId']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('rek_joukkue').value = '';
   document.getElementById('rekisteriVirhe').classList.remove('nakyvilla');
@@ -2124,20 +1642,7 @@ function luoRekisteriLinkki() {
   // Näytetään linkki
   document.getElementById('linkkiTekstiEl').textContent = linkki;
   document.getElementById('linkkiBoksi').classList.add('nakyvilla');
-
-  // Aktivoidaan sähköpostinappi nyt kun linkki on luotu
-  const spostNappi = document.getElementById('lahetaSpostNappi');
-  if (spostNappi) spostNappi.disabled = false;
-
-  // Päivitetään WhatsApp-nappi: jos numero on annettu, korostetaan se
-  const puhelin = document.getElementById('rek_puhelin')?.value?.trim();
-  const waBtn   = document.getElementById('whatsappNappi');
-  if (waBtn) {
-    waBtn.textContent = puhelin ? `📱 Lähetä WhatsAppiin` : '📱 WhatsApp';
-    waBtn.style.background = puhelin ? 'var(--teal)' : '';
-    waBtn.style.color      = puhelin ? '#000' : '';
-    waBtn.style.borderColor= puhelin ? 'var(--teal)' : '';
-  }
+  document.getElementById('lahetaSpostNappi').disabled = false;
 
   naytaToast('Kutsulink​ki luotu!', 'ok');
 }
@@ -2150,37 +1655,37 @@ async function lahetaRekisteriSahkoposti() {
   nappi.textContent = 'Lähetetään...';
 
   try {
-    // Kutsutaan Cloud Function lahetaRekisteriKutsu — deploattu Blaze-planilla.
-    // Funktio lähettää personoidun HTML-sähköpostin Nodemailer + Gmail kautta.
-    // HUOMIO sähköpostikonfliktin osalta: huoltajan sähköposti on pelkkä
-    // yhteystieto — funktio ei koskaan luo Firebase Auth -tiliä huoltajalle,
-    // joten sama osoite voi olla myös valmentajan tunnuksena ilman ongelmia.
+    // Kutsutaan Cloud Functionsia sähköpostin lähettämiseen
     const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
     await lahetaFn({
-      hEmail:   tila._rekHEmail,
-      linkki:   tila._rekLinkki,
-      seura:    tila.seuraNimi,
-      seuraId:  tila.seuraId,
-      etunimi:  document.getElementById('rek_etunimi').value.trim(),
-      sukunimi: document.getElementById('rek_sukunimi').value.trim(),
-      joukkue:  document.getElementById('rek_joukkue').options[
-                  document.getElementById('rek_joukkue').selectedIndex
-                ]?.text || '',
+      hEmail:    tila._rekHEmail,
+      linkki:    tila._rekLinkki,
+      seura:     tila.seuraNimi,
+      etunimi:   document.getElementById('rek_etunimi').value.trim(),
+      sukunimi:  document.getElementById('rek_sukunimi').value.trim(),
+      joukkue:   document.getElementById('rek_joukkue').options[
+                   document.getElementById('rek_joukkue').selectedIndex
+                 ]?.text || '',
     });
 
-    nappi.disabled    = false;
-    nappi.textContent = '✅ Lähetetty!';
-    setTimeout(() => {
-      if (nappi) nappi.textContent = '✉️ Lähetä sähköpostilla';
-    }, 3000);
+    nappi.textContent = 'Lähetetty! ✓';
+    naytaToast(`Kutsu lähetetty: ${tila._rekHEmail}`, 'ok');
 
-    naytaToast(`✅ Kutsu lähetetty: ${tila._rekHEmail}`, 'ok');
+    // Tallennetaan kutsu Firestoreen seurantaa varten
+    await db.collection('seurat').doc(tila.seuraId)
+      .collection('kutsut').add({
+        hEmail:    tila._rekHEmail,
+        linkki:    tila._rekLinkki,
+        joukkue:   document.getElementById('rek_joukkue').value,
+        lahetetty: firebase.firestore.FieldValue.serverTimestamp(),
+        tila:      'lahetetty',
+        lahettaja: tila.kayttaja.uid,
+      });
 
   } catch (virhe) {
     nappi.disabled    = false;
-    nappi.textContent = '✉️ Lähetä sähköpostilla';
+    nappi.textContent = 'Lähetä sähköpostilla';
     naytaToast('Sähköposti epäonnistui: ' + virhe.message, 'virhe');
-    console.error('lahetaRekisteriSahkoposti:', virhe);
   }
 }
 
@@ -2197,40 +1702,8 @@ function avaaLinkki() {
 
 function lahetaWhatsApp() {
   if (!tila._rekLinkki) return;
-
-  // Haetaan huoltajan etunimi ja pelaajan nimi viestin personointia varten
-  const huoltaja = document.getElementById('rek_hEmail')?.value?.split('@')[0] || '';
-  const pelaaja  = [
-    document.getElementById('rek_etunimi')?.value,
-    document.getElementById('rek_sukunimi')?.value
-  ].filter(Boolean).join(' ') || 'pelaajan';
-
-  const viesti = `Hei! 👋 Tässä on TalentMaster-rekisteröintilinkki ${pelaaja}:lle. `
-    + `Täytä pelaajan tiedot ja anna suostumus (vie noin 2 min):
-
-${tila._rekLinkki}
-
-`
-    + `📬 Muistathan tarkistaa myös roskaposti-kansio jos linkki ei näy sähköpostissa.`;
-
-  // Jos puhelinnumero on annettu, avataan suora chat kyseiselle henkilölle.
-  // Muuten avataan geneerinen WhatsApp-jako ilman kohdetta.
-  const puhelin = document.getElementById('rek_puhelin')?.value?.trim()
-    .replace(/[\s\-\(\)]/g, '');  // poistetaan välit ja erikoismerkit
-
-  const url = puhelin
-    ? `https://wa.me/${puhelin}?text=${encodeURIComponent(viesti)}`
-    : `https://wa.me/?text=${encodeURIComponent(viesti)}`;
-
-  window.open(url, '_blank');
-
-  // Näytetään infoelementti jos numero annettu
-  const infoEl = document.getElementById('whatsappInfo');
-  const nroEl  = document.getElementById('whatsappNro');
-  if (infoEl && puhelin) {
-    if (nroEl) nroEl.textContent = puhelin;
-    infoEl.style.display = 'block';
-  }
+  const viesti = `Hei! Tässä on rekisteröintilinkki TalentMaster-järjestelmään. Ole hyvä ja täytä pelaajan tiedot: ${tila._rekLinkki}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(viesti)}`, '_blank');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2241,44 +1714,6 @@ function avaaJoukkueModal() {
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('joukkueVirhe').classList.remove('nakyvilla');
   document.getElementById('joukkueModalOtsikko').textContent = 'Lisää joukkue';
-  // Nollataan mahdollinen muokkaustila ja avataan modali
-  delete tila._muokattavaJoukkueId;
-  document.getElementById('tallennaJoukkueNappi').textContent = 'Tallenna joukkue';
-  // ID-kenttä editoitavissa uutta luodessa, lukittu muokatessa
-  document.getElementById('jouk_id').readOnly = false;
-  document.getElementById('jouk_id').style.opacity = '1';
-  // Päivitetään molemmat placeholder-tekstit seuran nimen mukaan —
-  // poistetaan kovakoodatut esimerkit (aiemmin "KPV U15", "kpv_u15")
-  // jotka näyttivät väärältä muiden seurojen käyttäjille.
-  const seuraLyhenne = (tila.seuraId || 'seura').toUpperCase();
-  const nimiKentta = document.getElementById('jouk_nimi');
-  const idKentta   = document.getElementById('jouk_id');
-  if (nimiKentta) {
-    // Nimi-placeholder: "esim. KPV U13" tai "esim. FCL U13" jne.
-    nimiKentta.placeholder = 'esim. ' + seuraLyhenne + ' U13';
-  }
-  if (idKentta) {
-    // ID-placeholder: "esim. kpv_u13" tai "esim. fcl_u13" jne.
-    const idEsimerkki = (tila.seuraId || 'seura') + '_u13';
-    idKentta.placeholder = 'esim. ' + idEsimerkki;
-  }
-  document.getElementById('joukkueModal').classList.add('auki');
-}
-
-// Avaa joukkuemodali muokkaustilassa — täyttää kentät nykyisillä arvoilla
-function avaaJoukkueMuokkaus(id, nimi, ika, vuosi) {
-  document.getElementById('jouk_nimi').value  = nimi  || '';
-  document.getElementById('jouk_ika').value   = ika   || '';
-  document.getElementById('jouk_id').value    = id    || '';
-  document.getElementById('jouk_vuosi').value = vuosi || '';
-  document.getElementById('joukkueVirhe').classList.remove('nakyvilla');
-  document.getElementById('joukkueModalOtsikko').textContent = 'Muokkaa joukkuetta';
-  document.getElementById('tallennaJoukkueNappi').textContent = 'Tallenna muutokset';
-  // ID ei saa vaihtua muokatessa — pelaajat viittaavat siihen
-  document.getElementById('jouk_id').readOnly = true;
-  document.getElementById('jouk_id').style.opacity = '0.5';
-  // Tallentaan muokattavan ID:n tila-objektiin
-  tila._muokattavaJoukkueId = id;
   document.getElementById('joukkueModal').classList.add('auki');
 }
 
@@ -2288,44 +1723,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const idInput   = document.getElementById('jouk_id');
   if (nimiInput && idInput) {
     nimiInput.addEventListener('input', () => {
-      // ID-BUGIKORJAUS: Aiempi logiikka etsi tila.seuraId:tä ("fcl") nimestä
-      // ("FC Lahti"), ei löytänyt mitään, ja tulokseksi tuli "fcl_fc_lahti".
-      //
-      // Korjaus: poistetaan nimestä KAIKKI seuran tunnisteisiin liittyvät
-      // etuliitteet ennen kuin ID muodostetaan:
-      //   1) tila.seuraId normalisoituna (esim. "fcl")
-      //   2) tila.seuraNimi normalisoituna (esim. "fc_lahti")
-      //      → "FC Lahti U13" → "u13" → lopullinen ID "fcl_u13"  ✓
-      //   3) Yksittäiset seuran nimen sanat (esim. "fc", "lahti")
-      //      → kestää osittaisetkin osumat
-      //
-      const seuraIdNorm   = (tila.seuraId  || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-      const seuraNimiNorm = (tila.seuraNimi || '').toLowerCase()
-        .replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-      // Kerätään kaikki etuliitteet jotka pitää poistaa
-      const etuliitteet = [seuraIdNorm, seuraNimiNorm]
-        .concat((tila.seuraNimi || '').toLowerCase().split(/\s+/))  // yksittäiset sanat
-        .filter(s => s.length > 1)  // poistetaan yksittäiset kirjaimet
-        .sort((a, b) => b.length - a.length);  // pisimmät ensin
-
-      let nimiOsa = nimiInput.value.toLowerCase()
+      // Poistetaan seuran etuliite nimestä ennen ID:n generointia
+      // jotta ei tule kaksinkertaista etuliitettä (esim. kpv_kpv_u14)
+      const nimiOsa = nimiInput.value.toLowerCase()
         .replace(/\s+/g, '_')
-        .replace(/[^a-z0-9_]/g, '');
-
-      // Poistetaan kaikki etuliitteet nimen alusta toistuvasti
-      let muuttui = true;
-      while (muuttui) {
-        muuttui = false;
-        for (const etuliite of etuliitteet) {
-          const normi = etuliite.replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
-          const re = new RegExp('^' + normi.replace(/_/g, '[_]?') + '_?');
-          const uusi = nimiOsa.replace(re, '');
-          if (uusi !== nimiOsa) { nimiOsa = uusi; muuttui = true; break; }
-        }
-      }
-
-      nimiOsa = nimiOsa.replace(/^_+|_+$/g, '').substring(0, 15); // siisti reunat
-      const autoId = (tila.seuraId || 'seura') + '_' + (nimiOsa || 'joukkue');
+        .replace(/[^a-z0-9_]/g, '')
+        .replace(new RegExp('^' + (tila.seuraId || '').toLowerCase() + '_?'), '')
+        .substring(0, 15);
+      const autoId = (tila.seuraId || 'seura') + '_' + nimiOsa;
       idInput.value = autoId;
     });
   }
@@ -2334,10 +1739,8 @@ document.addEventListener('DOMContentLoaded', () => {
 async function tallennaJoukkue() {
   const nimi  = document.getElementById('jouk_nimi').value.trim();
   const ika   = document.getElementById('jouk_ika').value.trim();
-  // Muokkaustilassa ID tulee tila-objektista, uudessa luonnissa kentästä
-  const id    = (tila._muokattavaJoukkueId || document.getElementById('jouk_id').value.trim()).toLowerCase();
+  const id    = document.getElementById('jouk_id').value.trim().toLowerCase();
   const vuosi = document.getElementById('jouk_vuosi').value.trim();
-  const onMuokkaus = !!tila._muokattavaJoukkueId;
 
   if (!nimi || !ika || !id) {
     naytaModalVirhe('joukkueVirhe', 'Nimi, ikäluokka ja ID ovat pakollisia.');
@@ -2349,25 +1752,20 @@ async function tallennaJoukkue() {
   nappi.textContent = 'Tallennetaan...';
 
   try {
+    // Järjestysnumero ikäluokan perusteella (U10=10, U15=15 jne.)
     const jarjestys = parseInt(ika.replace(/\D/g, '')) || 99;
-    const docRef = db.collection('seurat').doc(tila.seuraId).collection('joukkueet').doc(id);
 
-    if (onMuokkaus) {
-      // Muokkaus: päivitetään vain nimi, ikäluokka, vuosi ja järjestys — ID pysyy samana
-      await docRef.update({ nimi, ikaryhma: ika, vuosi: vuosi || null, jarjestys });
-    } else {
-      // Uusi joukkue: set luo dokumentin
-      await docRef.set({
+    await db.collection('seurat').doc(tila.seuraId)
+      .collection('joukkueet').doc(id)
+      .set({
         nimi, ikaryhma: ika, vuosi: vuosi || null,
         jarjestys, luotu: firebase.firestore.FieldValue.serverTimestamp(),
       });
-    }
 
     nappi.disabled    = false;
     nappi.textContent = 'Tallenna joukkue';
-    delete tila._muokattavaJoukkueId;
     suljeModal('joukkueModal');
-    naytaToast(onMuokkaus ? `Joukkue ${nimi} päivitetty!` : `Joukkue ${nimi} lisätty!`, 'ok');
+    naytaToast(`Joukkue ${nimi} lisätty!`, 'ok');
     // onSnapshot päivittää tila.joukkueet automaattisesti
 
   } catch (virhe) {
@@ -2392,51 +1790,12 @@ async function poistaJoukkue(id, nimi) {
 // HENKILÖSTÖN TOIMINNOT
 // ─────────────────────────────────────────────────────────────────
 function avaaKayttajaModal() {
-  // B5-KORJAUS: VP:llä ei ole pääsyä Admin-näkymään — ohjaus sinne oli virhe.
-  // Superadmin: avataan Admin-näkymä (hänellä on sinne oikeudet).
-  // VP / sihteeri / UTJ: avataan suora kutsumodal seurahallinnassa.
-  const onSuperAdmin = tila.rooli === 'superadmin' || tila.rooli === 'super_admin';
-
-  if (onSuperAdmin) {
-    const adminUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Admin.html';
-    if (confirm('Käyttäjien luonti Admin-näkymässä. Avataanko se?')) {
-      window.open(adminUrl, '_blank');
-    }
-  } else {
-    // VP ja sihteeri: näytetään yksinkertainen kutsumodal suoraan tässä
-    avaaHenkilostoKutsuModal();
+  // Ohjataan Admin-näkymään käyttäjänluontia varten
+  // Admin-näkymässä on jo täysi luontiflow Gmail-kutsulla
+  const adminUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Admin.html';
+  if (confirm('Käyttäjien luonti tapahtuu Admin-näkymässä. Avataanko se?')) {
+    window.open(adminUrl, '_blank');
   }
-}
-
-// Yksinkertainen henkilöstön kutsumodal VP:lle ja sihteereille
-// — ei vaadi Admin-näkymää eikä superadmin-oikeuksia
-function avaaHenkilostoKutsuModal() {
-  // Käytetään rekisterimodalin rakennetta pohjana mutta
-  // yksinkertaistettuna: vain sähköposti + rooli + joukkue
-  const modal = document.getElementById('rekisteriModal');
-  if (!modal) { naytaToast('Modaali ei saatavilla', 'virhe'); return; }
-
-  // Vaihdetaan modaalin otsikko ja kuvaus väliaikaisesti
-  const otsikkoEl = modal.querySelector('.modalOtsikko');
-  const kuvausEl  = modal.querySelector('.modalKuvaus');
-  const vanhOtsikko = otsikkoEl?.textContent;
-  const vanhKuvaus  = kuvausEl?.textContent;
-
-  if (otsikkoEl) otsikkoEl.textContent = 'Kutsu uusi henkilö';
-  if (kuvausEl) kuvausEl.textContent =
-    'Syötä kutsuttavan sähköpostiosoite. He saavat linkin jolla asettavat salasanan.';
-
-  modal.classList.add('auki');
-
-  // Palautetaan alkuperäinen sisältö kun modal suljetaan
-  const alkuSulje = window._alkuperainenSulje;
-  modal.addEventListener('click', function palauta(e) {
-    if (e.target === modal) {
-      if (otsikkoEl && vanhOtsikko) otsikkoEl.textContent = vanhOtsikko;
-      if (kuvausEl  && vanhKuvaus)  kuvausEl.textContent  = vanhKuvaus;
-      modal.removeEventListener('click', palauta);
-    }
-  });
 }
 
 async function lahetaSalasana(email) {
@@ -2463,8 +1822,7 @@ async function deaktivoiKayttaja(uid, email) {
 }
 
 function naytaPelaajaTiedot(pelaajaId) {
-  window.location.href =
-    `TalentMaster_IDP_Kortti.html?seuraId=${tila.seuraId}&pelaajaId=${pelaajaId}`;
+  naytaToast('Pelaajan tarkempi profiilisivu tulossa!', 'ok');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2595,13 +1953,9 @@ async function tallennaJoukkueMuutos() {
 //   → Nopea: alle sekunti 100 rivin pohjalle
 // ─────────────────────────────────────────────────────────────────
 function avaaRekisteriOhje() {
-  // Avataan ohjemodal ja päivitetään esimerkkiteksti seuran omalla nimellä.
-  // Näin FC Lahti -sihteeri näkee "FCL U10, FCL U11" eikä geneeristä esimerkkiä.
-  const ohjeEl = document.getElementById('rekisteriOhjeEsimerkki');
-  if (ohjeEl && tila.seuraNimi) {
-    const lyhenne = (tila.seuraId || 'Seura').toUpperCase();
-    ohjeEl.textContent = `ja kirjoita seuran joukkueet listaan riveille 2–30 (esim. ${lyhenne} U10, ${lyhenne} U11...).`;
-  }
+  // Avataan ohjemodal ennen latauksen käynnistymistä.
+  // Tämä varmistaa että sihteeri tietää mitä tehdä ennen
+  // kuin Excel-tiedosto on jo ladattu ja auki.
   document.getElementById('rekisteriOhjeModal').classList.add('auki');
 }
 
@@ -2612,282 +1966,74 @@ async function aloitaLataaminenOhjeesta() {
 }
 
 async function lataaRekisteriPohja() {
-  if (!tila.seuraId) { naytaToast('Valitse ensin seura', 'virhe'); return; }
+  if (!tila.seuraId) {
+    naytaToast('Valitse ensin seura', 'virhe');
+    return;
+  }
 
   const nappi = document.querySelector('[onclick="lataaRekisteriPohja()"]');
   const alkuperainenTeksti = nappi?.textContent || '';
-  if (nappi) { nappi.disabled = true; nappi.textContent = '⏳ Ladataan...'; }
+  if (nappi) {
+    nappi.disabled    = true;
+    nappi.textContent = '⏳ Ladataan...';
+  }
 
   try {
-    // Ladataan pohja GitHubista SELLAISENAAN — ilman SheetJS-muokkausta.
-    // SheetJS ei tue tyylien kirjoittamista (vaatisi Pro-lisenssin), joten
-    // tiedosto tarjotaan lataukseen suoraan binäärimuodossa. Tyylit säilyvät.
-    const pohjaUrl = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_Pelaajarekisteri_Pohja.xlsx';
-    const vastaus  = await fetch(pohjaUrl);
-    if (!vastaus.ok) throw new Error(`Pohja ei löydy (${vastaus.status})`);
+    // Ladataan valmis Excel-pohja suoraan GitHubista.
+    // Pohja on rakennettu openpyxl:lla joten siinä on täydelliset
+    // dropdown-validoinnit (joukkue, rooli) — SheetJS ei tue näitä.
+    //
+    // Sihteerin ohje: täytä joukkueet Asetukset-välilehdelle,
+    // jonka jälkeen Joukkue-dropdown toimii automaattisesti.
+    const pohjaNimi = 'TalentMaster_Pelaajarekisteri_Pohja.xlsx';
+    const pohjaUrl  = `https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/${pohjaNimi}`;
 
-    const blob    = await vastaus.blob();
-    const blobUrl = URL.createObjectURL(blob);
+    // Haetaan tiedosto fetch:llä ja tarjotaan se lataukseen
+    // käyttäen <a>-elementtiä ja Blob-URL:ia.
+    // Tämä tapa toimii kaikissa selaimissa ilman popup-estoja.
+    const vastaus = await fetch(pohjaUrl);
+    if (!vastaus.ok) {
+      throw new Error(`Pohja ei löydy GitHubista (${vastaus.status})`);
+    }
 
-    // Tiedostonimi sisältää seuran nimen ja päivämäärän
+    const blob     = await vastaus.blob();
+    const blobUrl  = URL.createObjectURL(blob);
+
+    // Luodaan väliaikainen latauslinkki ja klikataan sitä ohjelmallisesti.
+    // Tiedostonimi sisältää seuran nimen jotta arkistointi on helppoa.
     const a = document.createElement('a');
     a.href     = blobUrl;
-    a.download = `${(tila.seuraNimi || tila.seuraId).replace(/\s+/g,'_')}_Rekisteri_${
+    a.download = `${tila.seuraId.toUpperCase()}_Pelaajarekisteri_${
       new Date().toISOString().split('T')[0]
     }.xlsx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+
+    // Vapautetaan muisti heti latauksen jälkeen
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
-    naytaToast('✅ Rekisteripohja ladattu!', 'ok');
+    naytaToast(`✅ Rekisteripohja ladattu!`, 'ok');
 
-    // Tapahtumaloki
+    // Tapahtumaloki Firestoreen — kuka latasi ja milloin
     try {
-      await db.collection('seurat').doc(tila.seuraId).collection('tapahtumat').add({
-        tyyppi: 'rekisteri_pohja_ladattu', joukkueita: lkm,
-        lataaja: tila.kayttaja?.email || 'tuntematon',
-        aika: firebase.firestore.FieldValue.serverTimestamp(),
-      });
+      await db.collection('seurat').doc(tila.seuraId)
+        .collection('tapahtumat').add({
+          tyyppi:   'rekisteri_pohja_ladattu',
+          lataaja:  tila.kayttaja?.email || 'tuntematon',
+          aika:     firebase.firestore.FieldValue.serverTimestamp(),
+        });
     } catch (e) { /* Ei kriittinen */ }
 
   } catch (virhe) {
     console.error('Pohjan lataus epäonnistui:', virhe);
     naytaToast('Lataus epäonnistui: ' + virhe.message, 'virhe');
+
   } finally {
-    if (nappi) { nappi.disabled = false; nappi.textContent = alkuperainenTeksti; }
-  }
-}
-
-
-// ─────────────────────────────────────────────────────────────────
-// EXCEL/CSV-TUONTI JA MASSAKUTSU
-// ─────────────────────────────────────────────────────────────────
-// Tila-objekti tuontimodaalille
-let tuontiData = [];   // parsittu pelaajadata
-
-function aavaaTuontiModal() {
-  nollaTuonti();
-  document.getElementById('tuontiModal').classList.add('auki');
-}
-
-function nollaTuonti() {
-  tuontiData = [];
-  document.getElementById('tuontiTiedosto').value = '';
-  document.getElementById('tuontiVaihe1').style.display = 'block';
-  document.getElementById('tuontiVaihe2').style.display = 'none';
-  document.getElementById('tuontiVirhe').classList.remove('nakyvilla');
-  document.getElementById('tuontiLahetysVirhe').classList.remove('nakyvilla');
-}
-
-// Tunnistaa sarakkeet joustavasti — toimii kaikille seuroille riippumatta
-// siitä miten sihteeri on nimennyt sarakkeet Excelissä.
-// Esim. "Etunimi", "etunimi", "First name", "Förnamn" kaikki toimivat.
-// Tarkistettava 2 -KORJAUS: Lisätty ruotsinkielinen tuki.
-// GrIFK on ruotsinkielinen seura — sihteeri voi käyttää ruotsinkielisiä
-// sarakenimiä kuten "Förnamn", "Efternamn", "Vårdnadshavare e-post".
-// Normalisoidaan myös å→a, ä→a, ö→o ennen vertailua.
-function tunnistaKentta(otsikko) {
-  const o = (otsikko || '').toLowerCase().trim()
-    .replace(/å/g,'a').replace(/ä/g,'a').replace(/ö/g,'o')
-    .replace(/\s+/g,'_');
-
-  // Etunimi: fi "Etunimi", sv "Förnamn", en "First name"
-  if (/^(etu|fornamn|fornavn|first|fore|for[^i])/.test(o))          return 'etunimi';
-
-  // Sukunimi: fi "Sukunimi", sv "Efternamn"/"Familjenamn", en "Last name"/"Surname"
-  if (/^(suku|efternamn|familjenamn|last|sur|efter)/.test(o))       return 'sukunimi';
-
-  // Huoltajan sähköposti: fi "Huoltajan sähköposti", sv "Vårdnadshavare e-post"
-  if (/^(huoltaj|vardnad|vard|guard|parent|vanhemm|email|sahkop|mail|epost)/.test(o))
-                                                                      return 'huoltaja_email';
-
-  // Joukkue: fi "Joukkue", sv "Lag"/"Team", en "Team"
-  if (/^(joukku|team|lag)/.test(o))                                  return 'joukkue';
-
-  // Syntymävuosi: fi "Syntymäaika"/"Vuosi", sv "Födelseår"/"Född", en "Birth year"
-  if (/^(synt|fodelsar|fodd|born|vuosi|year|birth)/.test(o))        return 'syntymavuosi';
-
-  // PalloID: kaikilla kielillä sama
-  if (/^(pallo|palloid|spelarnummer|id)/.test(o))                    return 'palloID';
-
-  return null;
-}
-
-async function kasitteleTuontiTiedosto(tiedosto) {
-  if (!tiedosto) return;
-  naytaModalVirhe('tuontiVirhe', '');
-
-  const maxKoko = 5 * 1024 * 1024;
-  if (tiedosto.size > maxKoko) {
-    naytaModalVirhe('tuontiVirhe', 'Tiedosto on liian suuri (max 5 MB).');
-    return;
-  }
-
-  try {
-    const buf = await tiedosto.arrayBuffer();
-    const wb  = XLSX.read(buf, { type: 'array' });
-
-    // Etsitään ensimmäinen välilehti jossa on pelaajadataa
-    // (ohitetaan "Asetukset"-välilehti automaattisesti)
-    let ws = null;
-    for (const nimilehtinen of wb.SheetNames) {
-      if (/asetus|setting|config/i.test(nimilehtinen)) continue;
-      ws = wb.Sheets[nimilehtinen];
-      break;
+    if (nappi) {
+      nappi.disabled    = false;
+      nappi.textContent = alkuperainenTeksti;
     }
-    if (!ws) ws = wb.Sheets[wb.SheetNames[0]];
-
-    // SheetJS palauttaa rivit objekteina — otsikkorivi tunnistetaan automaattisesti
-    const rivit = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    if (rivit.length === 0) {
-      naytaModalVirhe('tuontiVirhe', 'Tiedosto on tyhjä tai formaatti ei tunnistettu.');
-      return;
-    }
-
-    // Mappaa sarakkeet tunnistaKentta-funktiolla
-    const sarakeMap = {};
-    for (const avain of Object.keys(rivit[0])) {
-      const kentta = tunnistaKentta(avain);
-      if (kentta) sarakeMap[avain] = kentta;
-    }
-
-    // Muodostetaan siisti pelaajaobjekti jokaiselta riviltä
-    tuontiData = rivit.map(rivi => {
-      const p = {};
-      for (const [excelSarake, kentta] of Object.entries(sarakeMap)) {
-        p[kentta] = (rivi[excelSarake] || '').toString().trim();
-      }
-      // Validointi: onko huoltajan s-posti kelvollinen?
-      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.huoltaja_email || '');
-      p._ok = !!(p.etunimi && p.sukunimi && emailOk);
-      return p;
-    }).filter(p => p.etunimi || p.sukunimi); // poistetaan täysin tyhjät rivit
-
-    const okLkm    = tuontiData.filter(p => p._ok).length;
-    const virheellisetLkm = tuontiData.length - okLkm;
-
-    // Päivitetään UI
-    document.getElementById('tuontiTiedostoNimi').textContent = tiedosto.name;
-    document.getElementById('tuontiLkm').textContent          = tuontiData.length;
-    document.getElementById('tuontiOkLkm').textContent        = okLkm;
-    document.getElementById('tuontiVirheellistenLkm').textContent = virheellisetLkm;
-
-    // Esikatselu — enintään 20 ensimmäistä riviä
-    const esikatselu = document.getElementById('tuontiEsikatselu');
-    const naytettavat = tuontiData.slice(0, 20);
-    esikatselu.innerHTML = `
-      <thead><tr style="background:var(--bg3);">
-        <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--ink3);">Nimi</th>
-        <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--ink3);">Joukkue</th>
-        <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--ink3);">Huoltajan s-posti</th>
-        <th style="padding:8px 12px;text-align:center;font-size:11px;color:var(--ink3);">Status</th>
-      </tr></thead>
-      <tbody>
-        ${naytettavat.map(p => `
-          <tr style="border-top:1px solid var(--bord2);">
-            <td style="padding:7px 12px;font-size:12px;">${p.etunimi || '—'} ${p.sukunimi || '—'}</td>
-            <td style="padding:7px 12px;font-size:12px;color:var(--ink3);">${p.joukkue || '—'}</td>
-            <td style="padding:7px 12px;font-size:12px;color:var(--ink3);">${p.huoltaja_email || '—'}</td>
-            <td style="padding:7px 12px;text-align:center;">
-              ${p._ok
-                ? '<span style="color:var(--teal);font-weight:700;">✓</span>'
-                : '<span style="color:var(--amber);font-weight:700;" title="Puuttuu s-posti">!</span>'}
-            </td>
-          </tr>`).join('')}
-        ${tuontiData.length > 20
-          ? `<tr><td colspan="4" style="padding:8px 12px;font-size:11px;color:var(--ink3);text-align:center;">
-              ... ja ${tuontiData.length - 20} muuta pelaajaa
-             </td></tr>` : ''}
-      </tbody>`;
-
-    // Näytetään vaihe 2
-    document.getElementById('tuontiVaihe1').style.display = 'none';
-    document.getElementById('tuontiVaihe2').style.display = 'block';
-
-    if (okLkm === 0) {
-      naytaModalVirhe('tuontiLahetysVirhe',
-        'Yhdeltäkään pelaajalta ei löydy kelvollista s-postiosoitetta. Tarkista tiedosto.');
-      document.getElementById('tuontiLahetaNappi').disabled = true;
-    } else {
-      document.getElementById('tuontiLahetaNappi').disabled = false;
-    }
-
-  } catch (e) {
-    console.error('Tuontivirhe:', e);
-    naytaModalVirhe('tuontiVirhe', 'Tiedoston lukeminen epäonnistui: ' + e.message);
-  }
-}
-
-async function lahetaMassakutsut() {
-  const lahetettavat = tuontiData.filter(p => p._ok);
-  if (lahetettavat.length === 0) return;
-
-  const nappi = document.getElementById('tuontiLahetaNappi');
-  nappi.disabled    = true;
-  nappi.textContent = `⏳ Lähetetään 0/${lahetettavat.length}...`;
-
-  let onnistuneet = 0;
-  let epaonnistuneet = 0;
-
-  // Käydään pelaajat läpi yksi kerrallaan — Firebase Functions
-  // hoitaa varsinaisen sähköpostin lähetyksen.
-  // Mikäli Functions ei ole käytössä, tallennetaan Firestoreen
-  // ja kutsutaan olemassa olevaa avaaRekisteriModal-logiikkaa.
-  for (const p of lahetettavat) {
-    try {
-      // Tallennetaan pelaaja Firestoreen suostumus-odottaa -tilassa
-      const docRef = await db.collection('seurat').doc(tila.seuraId)
-        .collection('pelaajat').add({
-          etunimi:        p.etunimi,
-          sukunimi:       p.sukunimi,
-          joukkue:        p.joukkue || '',
-          joukkueNimi:    p.joukkue || '',
-          syntymavuosi:   p.syntymavuosi || null,
-          palloID:        p.palloID || null,
-          huoltaja_email: p.huoltaja_email,
-          suostumus:      { annettu: false, pvm: null },
-          lisatty:        firebase.firestore.FieldValue.serverTimestamp(),
-          lisaaja:        tila.kayttaja?.email || 'tuonti',
-          rekisterointi_linkki: null,  // täytetään kun Functions lähettää
-        });
-
-      // Merkitään tapahtumalokiin
-      await db.collection('seurat').doc(tila.seuraId)
-        .collection('tapahtumat').add({
-          tyyppi:         'massakutsu_lahetetty',
-          pelaaja_id:     docRef.id,
-          huoltaja_email: p.huoltaja_email,
-          lahettaja:      tila.kayttaja?.email || 'tuntematon',
-          aika:           firebase.firestore.FieldValue.serverTimestamp(),
-        });
-
-      onnistuneet++;
-      nappi.textContent = `⏳ Lähetetään ${onnistuneet}/${lahetettavat.length}...`;
-
-    } catch (e) {
-      console.warn('Pelaajan tallennus epäonnistui:', p.etunimi, e.message);
-      epaonnistuneet++;
-    }
-
-    // Pieni viive ettei Firestore throttle — 80ms per rivi
-    await new Promise(r => setTimeout(r, 80));
-  }
-
-  // Lopputulos
-  nappi.disabled    = false;
-  nappi.textContent = '✉️ Lähetä kutsut kaikille';
-
-  if (epaonnistuneet === 0) {
-    naytaToast(`✅ ${onnistuneet} pelaajaa rekisteröity, kutsut lähetetty!`, 'ok');
-    suljeModal('tuontiModal');
-    // Päivitetään pelaajalistanäkymä
-    if (tila.aktiivNakyma === 'pelaajat') {
-      renderPelaajat(document.getElementById('nakymaAlue'));
-    }
-  } else {
-    naytaModalVirhe('tuontiLahetysVirhe',
-      `${onnistuneet} onnistui, ${epaonnistuneet} epäonnistui. Tarkista konsoli.`);
   }
 }
 
@@ -2908,22 +2054,16 @@ async function kirjauduSisaan() {
 
   try {
     await auth.signInWithEmailAndPassword(email, salasana);
-    // Onnistuminen: onAuthStateChanged hoitaa siirtymän — ei tehdä täällä mitään
   } catch (e) {
+    nappi.disabled    = false;
+    nappi.textContent = 'Kirjaudu sisään';
     const koodit = {
       'auth/user-not-found':     'Sähköpostia ei löydy.',
       'auth/wrong-password':     'Väärä salasana.',
       'auth/invalid-credential': 'Väärä sähköposti tai salasana.',
       'auth/too-many-requests':  'Liian monta yritystä. Odota hetki.',
-      'auth/network-request-failed': 'Verkkovirhe — tarkista internetyhteys.',
-      'auth/too-many-requests':  'Liian monta yritystä. Odota hetki.',
     };
-    naytaVirhe('kirjautumisVirhe', koodit[e.code] || ('Kirjautuminen epäonnistui: ' + e.message));
-  } finally {
-    // KÄ4-KORJAUS: Palautetaan nappi AINA — myös verkkovirheen sattuessa.
-    // Ilman finally-lohkoa verkkovirhe jätti napin disabled-tilaan ikuisesti.
-    nappi.disabled    = false;
-    nappi.textContent = 'Kirjaudu sisään';
+    naytaVirhe('kirjautumisVirhe', koodit[e.code] || e.message);
   }
 }
 document.addEventListener('keydown', e => {
@@ -2931,6 +2071,26 @@ document.addEventListener('keydown', e => {
     kirjauduSisaan();
   }
 });
+
+// ─────────────────────────────────────────────────────────────────
+// EXCEL-TUONTI (tm_import.js)
+// Kutsutaan pelaajat-välilehden "Tuo Excel-rekisteri" -napista.
+// ─────────────────────────────────────────────────────────────────
+function avaaExcelTuonti() {
+  if (typeof TMImport === 'undefined') {
+    naytaToast('Excel-tuonti ei ole ladattu. Tarkista tm_import.js.', 'virhe');
+    return;
+  }
+  const joukkueetMap = {};
+  (tila.joukkueet || []).forEach(j => { joukkueetMap[j.id] = j.nimi; });
+  TMImport.avaaValitsin(
+    tila.seuraId,
+    joukkueetMap,
+    db,
+    firebase.app().functions('europe-west1'),
+    tila.kayttaja?.email || ''
+  );
+}
 
 async function kirjauduUlos() {
   if (tila._joukkueetKuuntelija) tila._joukkueetKuuntelija();
@@ -2981,101 +2141,14 @@ function naytaToast(teksti, tyyppi = 'ok') {
 // Esc sulkee modalit
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['rekisteriModal','joukkueModal','joukkueMuutosModal','rekisteriOhjeModal','tuontiModal'].forEach(id => suljeModal(id));
+    ['rekisteriModal','joukkueModal','joukkueMuutosModal','rekisteriOhjeModal'].forEach(id => suljeModal(id));
   }
 });
-['rekisteriModal','joukkueModal','joukkueMuutosModal','rekisteriOhjeModal','tuontiModal'].forEach(id => {
+['rekisteriModal','joukkueModal','joukkueMuutosModal','rekisteriOhjeModal'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) {
     if (e.target === this) suljeModal(id);
   });
 });
 </script>
-
-<!-- ══ EXCEL/CSV-TUONTIMODAL ══ -->
-<div class="modalTausta" id="tuontiModal">
-  <div class="modalKortti" style="max-width:640px;">
-    <button class="modalSuljeNappi" onclick="suljeModal('tuontiModal')">✕ Sulje</button>
-    <div class="modalOtsikko">Tuo rekisteripohja</div>
-    <div class="modalKuvaus">
-      Lataa täytetty Excel- tai CSV-tiedosto. Järjestelmä tunnistaa automaattisesti
-      sarakkeet ja näyttää esikatselun ennen kutsujen lähettämistä.
-    </div>
-
-    <!-- Tiedoston valinta -->
-    <div id="tuontiVaihe1">
-      <div style="border:2px dashed var(--bord2);border-radius:10px;padding:32px;
-        text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:16px;"
-        onclick="document.getElementById('tuontiTiedosto').click()"
-        ondragover="event.preventDefault();this.style.borderColor='var(--teal)'"
-        ondragleave="this.style.borderColor='var(--bord2)'"
-        ondrop="event.preventDefault();this.style.borderColor='var(--bord2)';kasitteleTuontiTiedosto(event.dataTransfer.files[0])">
-        <div style="font-size:32px;margin-bottom:8px;">📂</div>
-        <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:4px;">
-          Vedä tiedosto tähän tai klikkaa valitaksesi
-        </div>
-        <div style="font-size:12px;color:var(--ink3);">
-          Excel (.xlsx) tai CSV (.csv) — max 5 MB
-        </div>
-      </div>
-      <input type="file" id="tuontiTiedosto" accept=".xlsx,.csv" style="display:none"
-        onchange="kasitteleTuontiTiedosto(this.files[0])">
-      <div class="virheDiv" id="tuontiVirhe"></div>
-    </div>
-
-    <!-- Esikatselu ja vahvistus -->
-    <div id="tuontiVaihe2" style="display:none;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <div id="tuontiTiedostoNimi" style="font-size:13px;font-weight:600;color:var(--ink);flex:1;"></div>
-        <button onclick="nollaTuonti()"
-          style="background:none;border:1px solid var(--bord2);border-radius:6px;
-          padding:5px 12px;font-size:12px;color:var(--ink3);cursor:pointer;">
-          ✕ Vaihda tiedosto
-        </button>
-      </div>
-
-      <!-- Yhteenveto -->
-      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--bord2);
-          border-radius:8px;padding:12px 16px;text-align:center;">
-          <div id="tuontiLkm" style="font-size:22px;font-weight:700;color:var(--teal);">0</div>
-          <div style="font-size:11px;color:var(--ink3);">pelaajaa löydetty</div>
-        </div>
-        <div style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--bord2);
-          border-radius:8px;padding:12px 16px;text-align:center;">
-          <div id="tuontiOkLkm" style="font-size:22px;font-weight:700;color:var(--blue);">0</div>
-          <div style="font-size:11px;color:var(--ink3);">valmis lähetykseen</div>
-        </div>
-        <div style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--bord2);
-          border-radius:8px;padding:12px 16px;text-align:center;">
-          <div id="tuontiVirheellistenLkm" style="font-size:22px;font-weight:700;color:var(--amber);">0</div>
-          <div style="font-size:11px;color:var(--ink3);">puuttuu s-posti</div>
-        </div>
-      </div>
-
-      <!-- Esikatselu-taulukko -->
-      <div style="max-height:240px;overflow-y:auto;border:1px solid var(--bord2);
-        border-radius:8px;margin-bottom:16px;">
-        <table id="tuontiEsikatselu" style="font-size:12px;"></table>
-      </div>
-
-      <div class="virheDiv" id="tuontiLahetysVirhe"></div>
-
-      <div style="display:flex;gap:10px;margin-top:4px;">
-        <button class="nappi" id="tuontiLahetaNappi"
-          onclick="lahetaMassakutsut()"
-          style="flex:1;background:var(--teal);color:#000;">
-          ✉️ Lähetä kutsut kaikille
-        </button>
-        <button onclick="suljeModal('tuontiModal')"
-          style="background:none;border:1px solid var(--bord2);border-radius:8px;
-          padding:12px 20px;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;
-          color:var(--ink3);cursor:pointer;">
-          Peruuta
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
 </body>
 </html>
