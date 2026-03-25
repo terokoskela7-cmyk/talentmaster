@@ -498,6 +498,16 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       </div>
     </div>
 
+    <!-- Puhelinnumero WhatsApp-lähetystä varten -->
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel">Huoltajan puhelinnumero (valinnainen)</label>
+      <input class="kenttaInput" type="tel" id="rek_puhelin"
+        placeholder="+358 40 123 4567" autocomplete="tel">
+      <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
+        📱 Syötä numero jos haluat lähettää kutsun WhatsAppilla
+      </span>
+    </div>
+
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
       <button class="nappi" id="luoLinkkiNappi" onclick="luoRekisteriLinkki()"
         style="flex:1;min-width:180px;">
@@ -505,7 +515,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       </button>
       <button class="nappi" id="lahetaSpostNappi" onclick="lahetaRekisteriSahkoposti()"
         style="flex:1;min-width:180px;background:var(--teal);" disabled>
-        Lähetä sähköpostilla
+        ✉️ Lähetä sähköpostilla
       </button>
     </div>
 
@@ -518,7 +528,13 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       <div class="linkkiNapit">
         <button class="linkkiNappi teal" onclick="kopioriLinkki()">📋 Kopioi linkki</button>
         <button class="linkkiNappi" onclick="avaaLinkki()">↗ Avaa selaimessa</button>
-        <button class="linkkiNappi" onclick="lahetaWhatsApp()">📱 WhatsApp</button>
+        <button class="linkkiNappi" id="whatsappNappi" onclick="lahetaWhatsApp()">📱 WhatsApp</button>
+      </div>
+      <!-- Huomio: näytetään vihreä nappi jos numero annettu, muuten geneerinen -->
+      <div id="whatsappInfo" style="display:none;margin-top:10px;
+        background:rgba(62,201,167,.08);border:1px solid rgba(62,201,167,.2);
+        border-radius:6px;padding:8px 12px;font-size:11px;color:var(--teal);">
+        📱 WhatsApp-linkki lähetetään numeroon <strong id="whatsappNro"></strong>
       </div>
     </div>
   </div>
@@ -2020,7 +2036,7 @@ async function lataaKriteeritTila() {
 // ─────────────────────────────────────────────────────────────────
 function avaaRekisteriModal() {
   // Nollataan lomake
-  ['rek_etunimi','rek_sukunimi','rek_hEmail','rek_palloId']
+  ['rek_etunimi','rek_sukunimi','rek_hEmail','rek_palloId','rek_puhelin']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('rek_joukkue').value = '';
   document.getElementById('rekisteriVirhe').classList.remove('nakyvilla');
@@ -2090,7 +2106,20 @@ function luoRekisteriLinkki() {
   // Näytetään linkki
   document.getElementById('linkkiTekstiEl').textContent = linkki;
   document.getElementById('linkkiBoksi').classList.add('nakyvilla');
-  document.getElementById('lahetaSpostNappi').disabled = false;
+
+  // Aktivoidaan sähköpostinappi nyt kun linkki on luotu
+  const spostNappi = document.getElementById('lahetaSpostNappi');
+  if (spostNappi) spostNappi.disabled = false;
+
+  // Päivitetään WhatsApp-nappi: jos numero on annettu, korostetaan se
+  const puhelin = document.getElementById('rek_puhelin')?.value?.trim();
+  const waBtn   = document.getElementById('whatsappNappi');
+  if (waBtn) {
+    waBtn.textContent = puhelin ? `📱 Lähetä WhatsAppiin` : '📱 WhatsApp';
+    waBtn.style.background = puhelin ? 'var(--teal)' : '';
+    waBtn.style.color      = puhelin ? '#000' : '';
+    waBtn.style.borderColor= puhelin ? 'var(--teal)' : '';
+  }
 
   naytaToast('Kutsulink​ki luotu!', 'ok');
 }
@@ -2103,37 +2132,37 @@ async function lahetaRekisteriSahkoposti() {
   nappi.textContent = 'Lähetetään...';
 
   try {
-    // Kutsutaan Cloud Functionsia sähköpostin lähettämiseen
+    // Kutsutaan Cloud Function lahetaRekisteriKutsu — deploattu Blaze-planilla.
+    // Funktio lähettää personoidun HTML-sähköpostin Nodemailer + Gmail kautta.
+    // HUOMIO sähköpostikonfliktin osalta: huoltajan sähköposti on pelkkä
+    // yhteystieto — funktio ei koskaan luo Firebase Auth -tiliä huoltajalle,
+    // joten sama osoite voi olla myös valmentajan tunnuksena ilman ongelmia.
     const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
     await lahetaFn({
-      hEmail:    tila._rekHEmail,
-      linkki:    tila._rekLinkki,
-      seura:     tila.seuraNimi,
-      etunimi:   document.getElementById('rek_etunimi').value.trim(),
-      sukunimi:  document.getElementById('rek_sukunimi').value.trim(),
-      joukkue:   document.getElementById('rek_joukkue').options[
-                   document.getElementById('rek_joukkue').selectedIndex
-                 ]?.text || '',
+      hEmail:   tila._rekHEmail,
+      linkki:   tila._rekLinkki,
+      seura:    tila.seuraNimi,
+      seuraId:  tila.seuraId,
+      etunimi:  document.getElementById('rek_etunimi').value.trim(),
+      sukunimi: document.getElementById('rek_sukunimi').value.trim(),
+      joukkue:  document.getElementById('rek_joukkue').options[
+                  document.getElementById('rek_joukkue').selectedIndex
+                ]?.text || '',
     });
 
-    nappi.textContent = 'Lähetetty! ✓';
-    naytaToast(`Kutsu lähetetty: ${tila._rekHEmail}`, 'ok');
+    nappi.disabled    = false;
+    nappi.textContent = '✅ Lähetetty!';
+    setTimeout(() => {
+      if (nappi) nappi.textContent = '✉️ Lähetä sähköpostilla';
+    }, 3000);
 
-    // Tallennetaan kutsu Firestoreen seurantaa varten
-    await db.collection('seurat').doc(tila.seuraId)
-      .collection('kutsut').add({
-        hEmail:    tila._rekHEmail,
-        linkki:    tila._rekLinkki,
-        joukkue:   document.getElementById('rek_joukkue').value,
-        lahetetty: firebase.firestore.FieldValue.serverTimestamp(),
-        tila:      'lahetetty',
-        lahettaja: tila.kayttaja.uid,
-      });
+    naytaToast(`✅ Kutsu lähetetty: ${tila._rekHEmail}`, 'ok');
 
   } catch (virhe) {
     nappi.disabled    = false;
-    nappi.textContent = 'Lähetä sähköpostilla';
+    nappi.textContent = '✉️ Lähetä sähköpostilla';
     naytaToast('Sähköposti epäonnistui: ' + virhe.message, 'virhe');
+    console.error('lahetaRekisteriSahkoposti:', virhe);
   }
 }
 
@@ -2150,8 +2179,40 @@ function avaaLinkki() {
 
 function lahetaWhatsApp() {
   if (!tila._rekLinkki) return;
-  const viesti = `Hei! Tässä on rekisteröintilinkki TalentMaster-järjestelmään. Ole hyvä ja täytä pelaajan tiedot: ${tila._rekLinkki}`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(viesti)}`, '_blank');
+
+  // Haetaan huoltajan etunimi ja pelaajan nimi viestin personointia varten
+  const huoltaja = document.getElementById('rek_hEmail')?.value?.split('@')[0] || '';
+  const pelaaja  = [
+    document.getElementById('rek_etunimi')?.value,
+    document.getElementById('rek_sukunimi')?.value
+  ].filter(Boolean).join(' ') || 'pelaajan';
+
+  const viesti = `Hei! 👋 Tässä on TalentMaster-rekisteröintilinkki ${pelaaja}:lle. `
+    + `Täytä pelaajan tiedot ja anna suostumus (vie noin 2 min):
+
+${tila._rekLinkki}
+
+`
+    + `📬 Muistathan tarkistaa myös roskaposti-kansio jos linkki ei näy sähköpostissa.`;
+
+  // Jos puhelinnumero on annettu, avataan suora chat kyseiselle henkilölle.
+  // Muuten avataan geneerinen WhatsApp-jako ilman kohdetta.
+  const puhelin = document.getElementById('rek_puhelin')?.value?.trim()
+    .replace(/[\s\-\(\)]/g, '');  // poistetaan välit ja erikoismerkit
+
+  const url = puhelin
+    ? `https://wa.me/${puhelin}?text=${encodeURIComponent(viesti)}`
+    : `https://wa.me/?text=${encodeURIComponent(viesti)}`;
+
+  window.open(url, '_blank');
+
+  // Näytetään infoelementti jos numero annettu
+  const infoEl = document.getElementById('whatsappInfo');
+  const nroEl  = document.getElementById('whatsappNro');
+  if (infoEl && puhelin) {
+    if (nroEl) nroEl.textContent = puhelin;
+    infoEl.style.display = 'block';
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────
