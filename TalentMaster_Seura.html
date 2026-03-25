@@ -842,12 +842,29 @@ const SALLITUT_ROOLIT = ['superadmin', 'super_admin', 'vp', 'seurasihteeri', 'ur
 // ─────────────────────────────────────────────────────────────────
 // AUTH-KUUNTELIJA
 // ─────────────────────────────────────────────────────────────────
+// _kirjautuminenKesken-lippu estää onAuthStateChanged-silmukan.
+// Ongelma: getIdTokenResult(true) pakottaa token-päivityksen joka
+// laukaisee onAuthStateChanged uudelleen kesken kirjautumisprosessin.
+// Ilman lippua: nayta('sovellus') → onAuthStateChanged uudelleen → nayta('kirjautuminen') → bugi.
+let _kirjautuminenKesken = false;
+
 auth.onAuthStateChanged(async (kayttaja) => {
   if (kayttaja) {
+    // Jos kirjautuminen on jo käynnissä, token-päivitys laukaisi tämän
+    // uudelleen — ohitetaan. Prosessi jatkuu jo käynnissä olevassa kutsussa.
+    if (_kirjautuminenKesken) return;
+    _kirjautuminenKesken = true;
     nayta('lataus');
-    await lataaProfiili(kayttaja);
+    try {
+      await lataaProfiili(kayttaja);
+    } finally {
+      // Vapautetaan lukko aina — myös virheen sattuessa
+      _kirjautuminenKesken = false;
+    }
   } else {
-    // Nollataan tila uloskirjautuessa
+    // Uloskirjautuminen — mutta ei jos ollaan kesken kirjautumisprosessia
+    // (auth.signOut() kutsutaan myös roolintarkistuksen yhteydessä).
+    if (_kirjautuminenKesken) return;
     if (tila._joukkueetKuuntelija) { tila._joukkueetKuuntelija(); }
     nayta('kirjautuminen');
   }
