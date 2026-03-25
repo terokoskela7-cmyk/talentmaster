@@ -533,7 +533,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 
     <div class="kenttaRyhma">
       <label class="kenttaLabel">Joukkueen nimi *</label>
-      <input class="kenttaInput" type="text" id="jouk_nimi" placeholder="esim. KPV U15">
+      <input class="kenttaInput" type="text" id="jouk_nimi" placeholder="esim. Seura U15">
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="kenttaRyhma" style="margin:0;">
@@ -615,7 +615,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
             Paina <strong style="color:var(--teal);">Lataa nyt</strong> alla ja avaa ladattu Excel-tiedosto.<br><br>
             <strong style="color:var(--ink2);">Haluatko dropdown-valikon Joukkue-sarakkeeseen?</strong>
             Siirry <strong style="color:var(--ink2);">Asetukset</strong>-välilehdelle
-            ja kirjoita seuran joukkueet listaan riveille 2–30 (esim. KPV U10, KPV U11...).
+            <span id="rekisteriOhjeEsimerkki">ja kirjoita seuran joukkueet listaan riveille 2–30.</span>
             Tämän jälkeen Joukkue-sarakkeen dropdown toimii automaattisesti.<br><br>
             <strong style="color:var(--ink3);">Tai jätä Asetukset tyhjäksi</strong> —
             kirjoita joukkueen nimi suoraan Joukkue-sarakkeeseen ensimmäiselle riville
@@ -1693,7 +1693,7 @@ function renderJoukkueet() {
                 <div style="font-size:12px;color:var(--ink3);line-height:1.8;margin-bottom:14px;">
                   Joukkueet pitää lisätä <strong style="color:var(--ink2);">ennen pelaajia</strong>
                   — pelaaja sijoitetaan joukkueeseen rekisteröinnin yhteydessä.<br>
-                  <strong style="color:var(--amber);">Tärkeää:</strong> joukkueen ID (esim. <code>kpv_u14</code>)
+                  <strong style="color:var(--amber);">Tärkeää:</strong> joukkueen ID (esim. <code>${(tila.seuraId||'seura')}_u14</code>)
                   lukitaan luonnin jälkeen, joten kirjoita nimi huolellisesti.
                   Nimen voi muuttaa myöhemmin, ID:tä ei.
                 </div>
@@ -2515,9 +2515,13 @@ async function tallennaJoukkueMuutos() {
 //   → Nopea: alle sekunti 100 rivin pohjalle
 // ─────────────────────────────────────────────────────────────────
 function avaaRekisteriOhje() {
-  // Avataan ohjemodal ennen latauksen käynnistymistä.
-  // Tämä varmistaa että sihteeri tietää mitä tehdä ennen
-  // kuin Excel-tiedosto on jo ladattu ja auki.
+  // Avataan ohjemodal ja päivitetään esimerkkiteksti seuran omalla nimellä.
+  // Näin FC Lahti -sihteeri näkee "FCL U10, FCL U11" eikä geneeristä esimerkkiä.
+  const ohjeEl = document.getElementById('rekisteriOhjeEsimerkki');
+  if (ohjeEl && tila.seuraNimi) {
+    const lyhenne = (tila.seuraId || 'Seura').toUpperCase();
+    ohjeEl.textContent = `ja kirjoita seuran joukkueet listaan riveille 2–30 (esim. ${lyhenne} U10, ${lyhenne} U11...).`;
+  }
   document.getElementById('rekisteriOhjeModal').classList.add('auki');
 }
 
