@@ -543,9 +543,9 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       <div class="kenttaRyhma" style="margin:0;">
         <label class="kenttaLabel">Joukkue-ID *</label>
         <input class="kenttaInput" type="text" id="jouk_id"
-          placeholder="kpv_u15" style="text-transform:lowercase;">
+          id="jouk_id_input" placeholder="esim. fcl_u13" style="text-transform:lowercase;">
         <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
-          Pieni, ei välejä (esim. kpv_u15)
+          Pieni, ei välejä — ID lukitaan luonnin jälkeen
         </span>
       </div>
     </div>
@@ -2138,6 +2138,12 @@ function avaaJoukkueModal() {
   // ID-kenttä editoitavissa uutta luodessa, lukittu muokatessa
   document.getElementById('jouk_id').readOnly = false;
   document.getElementById('jouk_id').style.opacity = '1';
+  // Korjaus 2c: Placeholder näyttää seuran oman ID-esimerkin, ei kovakoodattua "kpv_u15"
+  const idKentta = document.getElementById('jouk_id');
+  if (idKentta) {
+    const esimerkki = (tila.seuraId || 'seura') + '_u13';
+    idKentta.placeholder = 'esim. ' + esimerkki;
+  }
   document.getElementById('joukkueModal').classList.add('auki');
 }
 
@@ -2164,14 +2170,44 @@ document.addEventListener('DOMContentLoaded', () => {
   const idInput   = document.getElementById('jouk_id');
   if (nimiInput && idInput) {
     nimiInput.addEventListener('input', () => {
-      // Poistetaan seuran etuliite nimestä ennen ID:n generointia
-      // jotta ei tule kaksinkertaista etuliitettä (esim. kpv_kpv_u14)
-      const nimiOsa = nimiInput.value.toLowerCase()
+      // ID-BUGIKORJAUS: Aiempi logiikka etsi tila.seuraId:tä ("fcl") nimestä
+      // ("FC Lahti"), ei löytänyt mitään, ja tulokseksi tuli "fcl_fc_lahti".
+      //
+      // Korjaus: poistetaan nimestä KAIKKI seuran tunnisteisiin liittyvät
+      // etuliitteet ennen kuin ID muodostetaan:
+      //   1) tila.seuraId normalisoituna (esim. "fcl")
+      //   2) tila.seuraNimi normalisoituna (esim. "fc_lahti")
+      //      → "FC Lahti U13" → "u13" → lopullinen ID "fcl_u13"  ✓
+      //   3) Yksittäiset seuran nimen sanat (esim. "fc", "lahti")
+      //      → kestää osittaisetkin osumat
+      //
+      const seuraIdNorm   = (tila.seuraId  || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const seuraNimiNorm = (tila.seuraNimi || '').toLowerCase()
+        .replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      // Kerätään kaikki etuliitteet jotka pitää poistaa
+      const etuliitteet = [seuraIdNorm, seuraNimiNorm]
+        .concat((tila.seuraNimi || '').toLowerCase().split(/\s+/))  // yksittäiset sanat
+        .filter(s => s.length > 1)  // poistetaan yksittäiset kirjaimet
+        .sort((a, b) => b.length - a.length);  // pisimmät ensin
+
+      let nimiOsa = nimiInput.value.toLowerCase()
         .replace(/\s+/g, '_')
-        .replace(/[^a-z0-9_]/g, '')
-        .replace(new RegExp('^' + (tila.seuraId || '').toLowerCase() + '_?'), '')
-        .substring(0, 15);
-      const autoId = (tila.seuraId || 'seura') + '_' + nimiOsa;
+        .replace(/[^a-z0-9_]/g, '');
+
+      // Poistetaan kaikki etuliitteet nimen alusta toistuvasti
+      let muuttui = true;
+      while (muuttui) {
+        muuttui = false;
+        for (const etuliite of etuliitteet) {
+          const normi = etuliite.replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
+          const re = new RegExp('^' + normi.replace(/_/g, '[_]?') + '_?');
+          const uusi = nimiOsa.replace(re, '');
+          if (uusi !== nimiOsa) { nimiOsa = uusi; muuttui = true; break; }
+        }
+      }
+
+      nimiOsa = nimiOsa.replace(/^_+|_+$/g, '').substring(0, 15); // siisti reunat
+      const autoId = (tila.seuraId || 'seura') + '_' + (nimiOsa || 'joukkue');
       idInput.value = autoId;
     });
   }
