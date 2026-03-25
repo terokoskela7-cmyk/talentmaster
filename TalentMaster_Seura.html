@@ -612,24 +612,23 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
             Lataa pohja ja täytä joukkueet
           </div>
           <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
-            Paina <strong style="color:var(--teal);">Lataa nyt</strong> alla —
-            seuran joukkueet kopioituvat samalla automaattisesti leikepöydälle.<br><br>
-            Avaa ladattu Excel-tiedosto ja siirry
-            <strong style="color:var(--ink2);">Asetukset</strong>-välilehdelle.
-            Klikkaa solu <strong style="color:var(--amber);">A2</strong> ja paina
-            <strong style="color:var(--amber);">Ctrl+V</strong> (Mac: Cmd+V) —
-            joukkueet liittyvät listaan, yksi per rivi.
-            Siirry sen jälkeen <strong style="color:var(--ink2);">Pelaajat</strong>-välilehdelle:
-            Joukkue-dropdown toimii nyt automaattisesti.
+            Paina <strong style="color:var(--teal);">Lataa nyt</strong> alla ja avaa ladattu Excel-tiedosto.<br><br>
+            <strong style="color:var(--ink2);">Haluatko dropdown-valikon Joukkue-sarakkeeseen?</strong>
+            Siirry <strong style="color:var(--ink2);">Asetukset</strong>-välilehdelle
+            ja kirjoita seuran joukkueet listaan riveille 2–30 (esim. KPV U10, KPV U11...).
+            Tämän jälkeen Joukkue-sarakkeen dropdown toimii automaattisesti.<br><br>
+            <strong style="color:var(--ink3);">Tai jätä Asetukset tyhjäksi</strong> —
+            kirjoita joukkueen nimi suoraan Joukkue-sarakkeeseen ensimmäiselle riville
+            ja kopioi se alas muille riveille (Ctrl+D tai solun vetokahva).
           </div>
           <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
             <span style="background:rgba(62,201,167,.12);border:1px solid rgba(62,201,167,.25);
               border-radius:5px;padding:3px 10px;font-size:11px;color:var(--teal);font-weight:600;">
-              1. Lataa pohja
+              Vaihtoehto A: Asetukset → dropdown
             </span>
-            <span style="background:rgba(74,126,217,.12);border:1px solid rgba(74,126,217,.25);
-              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--blue);font-weight:600;">
-              2. Avaa Asetukset → Ctrl+V → dropdown toimii
+            <span style="background:rgba(255,255,255,.06);border:1px solid var(--bord2);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--ink3);font-weight:600;">
+              Vaihtoehto B: kirjoita suoraan
             </span>
           </div>
         </div>
@@ -2557,24 +2556,7 @@ async function lataaRekisteriPohja() {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
-    // Kopioidaan joukkueet leikepöydälle — sihteeri liittää ne
-    // Asetukset-välilehdelle yksi per rivi (ks. ohjemodaali vaihe 1)
-    const joukkueet = [...tila.joukkueet]
-      .sort((a,b) => (a.jarjestys||99) - (b.jarjestys||99))
-      .map(j => j.nimi || j.id)
-      .join('\n');
-
-    if (joukkueet && navigator.clipboard) {
-      await navigator.clipboard.writeText(joukkueet).catch(() => {});
-    }
-
-    const lkm = tila.joukkueet?.length || 0;
-    naytaToast(
-      lkm > 0
-        ? `✅ Pohja ladattu! Joukkueet (${lkm} kpl) kopioitu leikepöydälle.`
-        : '✅ Rekisteripohja ladattu!',
-      'ok'
-    );
+    naytaToast('✅ Rekisteripohja ladattu!', 'ok');
 
     // Tapahtumaloki
     try {
