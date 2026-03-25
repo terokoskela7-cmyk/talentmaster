@@ -6,7 +6,102 @@
 //          käyttäjän roolin (get()/exists() -kutsut)
 //   Nyt:   Roolit luetaan suoraan JWT Custom Claims -kentistä
 //          → nopeampaa, halvempaa, turvallisempaa
-//
+//rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function kirjautunut() {
+      return request.auth != null;
+    }
+
+    function onSeuraHallinto(seuraId) {
+      return kirjautunut()
+        && request.auth.token.get('seuraId', '') == seuraId
+        && request.auth.token.get('rooli', '') in ['vp', 'seurasihteeri', 'urheilutoimenjohtaja'];
+    }
+
+    function onSuperAdmin() {
+      return kirjautunut()
+        && request.auth.token.get('superAdmin', false) == true;
+    }
+
+    function onSeuraJasen(seuraId) {
+      return kirjautunut()
+        && request.auth.token.get('seuraId', '') == seuraId;
+    }
+
+    match /{document=**} {
+      allow read, write: if onSuperAdmin();
+    }
+
+    match /admins/{uid} {
+      allow read, write: if onSuperAdmin();
+    }
+
+    match /seurat/{seuraId} {
+      allow read: if kirjautunut();
+      allow write: if onSeuraHallinto(seuraId) || onSuperAdmin();
+
+      match /joukkueet/{joukkueId} {
+        allow read: if onSeuraJasen(seuraId) || onSuperAdmin();
+        allow write: if onSeuraHallinto(seuraId) || onSuperAdmin();
+      }
+
+      match /pelaajat/{pelaajaId} {
+        allow read: if onSeuraJasen(seuraId) || onSuperAdmin();
+        allow write: if onSeuraHallinto(seuraId) || onSuperAdmin();
+
+        allow create: if
+          request.auth == null
+          && request.resource.data.keys().hasAll(['etunimi', 'sukunimi', 'huoltaja_email', 'seuraId'])
+          && request.resource.data.seuraId == seuraId
+          && (
+            !request.resource.data.keys().hasAny(['suostumus'])
+            || request.resource.data.get('suostumus', {}).get('annettu', false) == false
+          )
+          && !request.resource.data.keys().hasAny(['rooli', 'claims', 'uid', 'claimsAsetettu']);
+      }
+
+      match /kayttajat/{kayttajaId} {
+        allow read: if onSeuraJasen(seuraId) || onSuperAdmin();
+        allow write: if onSeuraHallinto(seuraId) || onSuperAdmin();
+      }
+
+      match /kirjaukset/{kirjausId} {
+        allow read, write: if onSeuraJasen(seuraId) || onSuperAdmin();
+      }
+
+      match /kutsut/{kutsuId} {
+        allow read, write: if onSeuraHallinto(seuraId) || onSuperAdmin();
+      }
+
+      match /tapahtumat/{tapahtumaId} {
+        allow read: if onSeuraHallinto(seuraId) || onSuperAdmin();
+        allow create: if onSeuraJasen(seuraId) || onSuperAdmin();
+      }
+
+      match /sopimukset/{sopimusId} {
+        allow read, write: if onSeuraHallinto(seuraId) || onSuperAdmin();
+      }
+
+      match /vammat/{vammaId} {
+        allow read, write: if onSeuraHallinto(seuraId) || onSuperAdmin();
+      }
+    }
+
+    match /kirjaukset/{kirjausId} {
+      allow read, write: if kirjautunut();
+    }
+    match /kirjaukset_joukkue/{kirjausId} {
+      allow read, write: if kirjautunut();
+    }
+    match /kirjaukset_tapahtumat/{tapahtumaId} {
+      allow read, write: if kirjautunut();
+    }
+  }
+}
+
 // MITEN CLAIMS-TARKISTUS TOIMII:
 //   request.auth.token.rooli   → "vp", "valmentaja", "superadmin" jne.
 //   request.auth.token.seuraId → "fcl", "kpv", "palloiirot" jne.
