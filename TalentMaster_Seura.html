@@ -10,8 +10,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
-<!-- SheetJS — Excel-tiedostojen generointi selaimessa ilman palvelinta -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
 /* ─────────────────────────────────────────────
@@ -580,6 +578,163 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   </div>
 </div>
 
+<!-- ══ REKISTERIPOHJA-OHJEMODAL ══ -->
+<div class="modalTausta" id="rekisteriOhjeModal">
+  <div class="modalKortti" style="max-width:580px;">
+    <button class="modalSuljeNappi" onclick="suljeModal('rekisteriOhjeModal')">✕ Sulje</button>
+    <div class="modalOtsikko" style="margin-bottom:4px;">Lataa rekisteripohja</div>
+    <div class="modalKuvaus" style="margin-bottom:24px;">
+      Excel-pohja jossa seuran joukkueet valmiina dropdownissa.
+      Seuraa kolmea vaihetta — koko prosessi kestää alle 10 minuuttia.
+    </div>
+
+    <!-- KOLMIVAIHEINEN PROSESSIKUVA -->
+    <div style="display:flex;flex-direction:column;gap:0;margin-bottom:28px;">
+
+      <!-- Vaihe 1 -->
+      <div style="display:flex;gap:16px;align-items:flex-start;padding:18px 20px;
+        background:var(--bg3);border:1px solid var(--bord2);border-radius:10px 10px 0 0;
+        border-bottom:none;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--blue);
+          display:flex;align-items:center;justify-content:center;
+          font-size:15px;font-weight:700;color:#fff;flex-shrink:0;margin-top:2px;">1</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;">
+            Lataa pohja ja täytä joukkueet
+          </div>
+          <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
+            Paina <strong style="color:var(--teal);">Lataa nyt</strong> alla.
+            Avaa ladattu Excel-tiedosto ja mene
+            <strong style="color:var(--ink2);">Asetukset</strong>-välilehdelle.
+            Kirjoita seuran joukkueet listaan (esim. KPV U10, KPV U11 ...).
+            Tämä aktivoi dropdown-valikon Joukkue-sarakkeessa.
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <span style="background:rgba(62,201,167,.12);border:1px solid rgba(62,201,167,.25);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--teal);font-weight:600;">
+              Asetukset-välilehti
+            </span>
+            <span style="background:rgba(74,126,217,.12);border:1px solid rgba(74,126,217,.25);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--blue);font-weight:600;">
+              Joukkueet-lista → dropdown
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Yhdistävä viiva -->
+      <div style="width:2px;background:var(--bord2);height:12px;margin-left:37px;"></div>
+
+      <!-- Vaihe 2 -->
+      <div style="display:flex;gap:16px;align-items:flex-start;padding:18px 20px;
+        background:var(--bg3);border:1px solid var(--bord2);border-radius:0;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--blue);
+          display:flex;align-items:center;justify-content:center;
+          font-size:15px;font-weight:700;color:#fff;flex-shrink:0;margin-top:2px;">2</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;">
+            Täytä pelaajien tiedot
+          </div>
+          <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
+            Palaa <strong style="color:var(--ink2);">Pelaajat</strong>-välilehdelle.
+            Täytä jokaisen pelaajan kohdalle etunimi, sukunimi ja
+            huoltajan sähköpostiosoite — nämä ovat pakollisia (<strong style="color:var(--blue);">sininen sarake</strong>).
+            PalloID on suositeltava mutta voit jättää sen tyhjäksi — vanhempi voi täyttää sen
+            suostumuslomakkeessa.
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <span style="background:rgba(74,126,217,.12);border:1px solid rgba(74,126,217,.25);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--blue);font-weight:600;">
+              Etunimi *
+            </span>
+            <span style="background:rgba(74,126,217,.12);border:1px solid rgba(74,126,217,.25);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--blue);font-weight:600;">
+              Sukunimi *
+            </span>
+            <span style="background:rgba(74,126,217,.12);border:1px solid rgba(74,126,217,.25);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--blue);font-weight:600;">
+              Huoltajan s-posti *
+            </span>
+            <span style="background:rgba(255,255,255,.05);border:1px solid var(--bord2);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--ink3);font-weight:600;">
+              PalloID (valinnainen)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Yhdistävä viiva -->
+      <div style="width:2px;background:var(--bord2);height:12px;margin-left:37px;"></div>
+
+      <!-- Vaihe 3 -->
+      <div style="display:flex;gap:16px;align-items:flex-start;padding:18px 20px;
+        background:var(--bg3);border:1px solid var(--bord2);border-radius:0 0 10px 10px;
+        border-top:none;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--teal);
+          display:flex;align-items:center;justify-content:center;
+          font-size:15px;font-weight:700;color:#000;flex-shrink:0;margin-top:2px;">3</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px;">
+            Lataa täytetty pohja takaisin järjestelmään
+          </div>
+          <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
+            Tallenna Excel-tiedosto. Palaa TalentMaster-seuranäkymään ja paina
+            <strong style="color:var(--teal);">Tuo rekisteripohja</strong>.
+            Järjestelmä näyttää esikatselun — tarkistat listan ja vahvistat.
+            Kutsusähköpostit lähtevät huoltajille automaattisesti.
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <span style="background:rgba(62,201,167,.12);border:1px solid rgba(62,201,167,.25);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--teal);font-weight:600;">
+              ✓ Esikatselu
+            </span>
+            <span style="background:rgba(62,201,167,.12);border:1px solid rgba(62,201,167,.25);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--teal);font-weight:600;">
+              ✓ Vahvistus
+            </span>
+            <span style="background:rgba(62,201,167,.12);border:1px solid rgba(62,201,167,.25);
+              border-radius:5px;padding:3px 10px;font-size:11px;color:var(--teal);font-weight:600;">
+              ✓ Massakutsu automaattisesti
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HUOMIOLAATIKKO: PalloID -->
+    <div style="background:rgba(224,160,64,.08);border:1px solid rgba(224,160,64,.25);
+      border-radius:8px;padding:14px 16px;margin-bottom:24px;
+      display:flex;gap:12px;align-items:flex-start;">
+      <span style="font-size:18px;flex-shrink:0;">💡</span>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:4px;">
+          PalloID — missä se löytyy?
+        </div>
+        <div style="font-size:12px;color:var(--ink3);line-height:1.6;">
+          PalloID on pelaajan tunniste Palloliiton pelipassissa. Se löytyy
+          fyysiseltä pelipassilta tai Palloliiton verkkopalvelusta vanhemman kirjautuessa.
+          Jos et tiedä sitä, jätä tyhjäksi — vanhempi täyttää sen suostumuslomakkeessa.
+        </div>
+      </div>
+    </div>
+
+    <!-- TOIMINTANAPIT -->
+    <div style="display:flex;gap:10px;">
+      <button class="nappi" onclick="aloitaLataaminenOhjeesta()"
+        style="flex:1;padding:14px;">
+        ⬇️ Lataa rekisteripohja
+      </button>
+      <button onclick="suljeModal('rekisteriOhjeModal')"
+        style="background:none;border:1px solid var(--bord2);border-radius:8px;
+        padding:14px 20px;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;
+        color:var(--ink3);cursor:pointer;transition:all .2s;white-space:nowrap;"
+        onmouseover="this.style.color='var(--ink)'" onmouseout="this.style.color='var(--ink3)'">
+        Sulje
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ TOAST ══ -->
 <div id="toastPalkki"></div>
 
@@ -976,8 +1131,8 @@ async function renderPelaajat(alue) {
       <div style="padding:16px 20px;border-bottom:1px solid var(--border);
         display:flex;gap:10px;flex-wrap:wrap;align-items:center;
         background:rgba(255,255,255,.02);">
-        <button class="lisaaNappi" onclick="lataaRekisteriPohja()"
-          title="Lataa Excel-pohja jossa seuran joukkueet valmiina">
+        <button class="lisaaNappi" onclick="avaaRekisteriOhje()"
+          title="Lataa Excel-pohja — katso ohjeet ensin">
           ⬇️ Lataa rekisteripohja
         </button>
         <button class="lisaaNappi" onclick="avaaRekisteriModal()"
@@ -1761,201 +1916,84 @@ async function tallennaJoukkueMuutos() {
 //   → Toimii Spark-planin rajoissa
 //   → Nopea: alle sekunti 100 rivin pohjalle
 // ─────────────────────────────────────────────────────────────────
-async function lataaRekisteriPohja() {
+function avaaRekisteriOhje() {
+  // Avataan ohjemodal ennen latauksen käynnistymistä.
+  // Tämä varmistaa että sihteeri tietää mitä tehdä ennen
+  // kuin Excel-tiedosto on jo ladattu ja auki.
+  document.getElementById('rekisteriOhjeModal').classList.add('auki');
+}
 
+async function aloitaLataaminenOhjeesta() {
+  // Suljetaan ohjemodal ja käynnistetään lataus
+  suljeModal('rekisteriOhjeModal');
+  await lataaRekisteriPohja();
+}
+
+async function lataaRekisteriPohja() {
   if (!tila.seuraId) {
     naytaToast('Valitse ensin seura', 'virhe');
     return;
   }
 
-  // Näytetään latausindikaattori napissa
   const nappi = document.querySelector('[onclick="lataaRekisteriPohja()"]');
   const alkuperainenTeksti = nappi?.textContent || '';
   if (nappi) {
     nappi.disabled    = true;
-    nappi.textContent = '⏳ Generoidaan...';
+    nappi.textContent = '⏳ Ladataan...';
   }
 
   try {
-    // ── VAIHE 1: Haetaan joukkueet Firestoresta ──────────────────
-    // Käytetään jo olemassa olevaa tila.joukkueet-listaa jos se on ladattu,
-    // muuten haetaan Firestoresta suoraan.
-    let joukkueet = tila.joukkueet;
-    if (!joukkueet || joukkueet.length === 0) {
-      const snap = await db.collection('seurat').doc(tila.seuraId)
-        .collection('joukkueet').orderBy('jarjestys').get();
-      joukkueet = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Ladataan valmis Excel-pohja suoraan GitHubista.
+    // Pohja on rakennettu openpyxl:lla joten siinä on täydelliset
+    // dropdown-validoinnit (joukkue, rooli) — SheetJS ei tue näitä.
+    //
+    // Sihteerin ohje: täytä joukkueet Asetukset-välilehdelle,
+    // jonka jälkeen Joukkue-dropdown toimii automaattisesti.
+    const pohjaNimi = 'TalentMaster_Pelaajarekisteri_Pohja.xlsx';
+    const pohjaUrl  = `https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/${pohjaNimi}`;
+
+    // Haetaan tiedosto fetch:llä ja tarjotaan se lataukseen
+    // käyttäen <a>-elementtiä ja Blob-URL:ia.
+    // Tämä tapa toimii kaikissa selaimissa ilman popup-estoja.
+    const vastaus = await fetch(pohjaUrl);
+    if (!vastaus.ok) {
+      throw new Error(`Pohja ei löydy GitHubista (${vastaus.status})`);
     }
 
-    // ── VAIHE 2: Rakennetaan Excel-rakenne SheetJS:llä ───────────
-    const wb = XLSX.utils.book_new();  // Uusi workbook (= Excel-tiedosto)
+    const blob     = await vastaus.blob();
+    const blobUrl  = URL.createObjectURL(blob);
 
-    // ── ASETUKSET-VÄLILEHTI (piilotettu, sisältää dropdownin lähteet) ──
-    // SheetJS ei tue natiivia dropdown-validointia suoraan API:ssa,
-    // joten tallennetaan joukkueet erilliselle välilehdelle.
-    // Käyttäjä voi itse lisätä validoinnin Excelissä jos haluaa.
-    const joukkueetNimet = joukkueet.map(j => j.nimi || j.id);
-    const asetusData = [
-      ['JOUKKUEET', '', 'ROOLIT'],
-      ...joukkueetNimet.map((nimi, i) => [nimi, '', i === 0 ? 'Pelaaja' : i === 1 ? 'Maalivahti' : '']),
-    ];
-    const wsAsetukset = XLSX.utils.aoa_to_sheet(asetusData);
-    wsAsetukset['!cols'] = [{ wch: 20 }, { wch: 2 }, { wch: 15 }];
-    XLSX.utils.book_append_sheet(wb, wsAsetukset, 'Asetukset');
-
-    // ── PELAAJAT-VÄLILEHTI (pääsivu) ──────────────────────────────
-    const paivays   = new Date().toLocaleDateString('fi-FI');
-    const seuraNimi = tila.seuraNimi || tila.seuraId;
-
-    // Otsikkorivi (metatieto)
-    const metaRivi = [
-      `TalentMaster™ — ${seuraNimi} — Pelaajarekisteripohja`,
-      '', '', '', '', '', '', ''
-    ];
-
-    // Ohjerivi
-    const ohjeRivi = [
-      `Luotu: ${paivays} | Täytä pelaajien tiedot riveiltä 4 alkaen | ` +
-      `Pakollinen: Etunimi, Sukunimi, Huoltajan sähköposti, Joukkue`,
-      '', '', '', '', '', '', ''
-    ];
-
-    // Joukkue-lista ohjeeksi sarakkeen viereen
-    const joukkueetOhje = joukkueetNimet.join(' | ');
-
-    // Sarake-otsikot — nämä ovat se rivi jonka TalentMaster tunnistaa tuonnissa
-    // KRIITTINEN: näiden nimien pitää täsmätä tuontilogiikan kanssa myöhemmin
-    const otsikkoRivi = [
-      '#',
-      'Etunimi *',
-      'Sukunimi *',
-      'Huoltajan sähköposti *',
-      'PalloID',
-      'Joukkue *',
-      'Rooli',
-      'Muistiinpanot',
-    ];
-
-    // Tyhjät datarivit — 100 riviä riittää hyvin pilotin alussa
-    const MAX_RIVIT = 100;
-    const dataRivit = Array.from({ length: MAX_RIVIT }, (_, i) => [
-      i + 1,  // Rivinumero
-      '', '', '', '', '', 'Pelaaja', ''  // Rooli oletuksena "Pelaaja"
-    ]);
-
-    // Kootaan kaikki rivit yhteen
-    const kaikkirivit = [
-      metaRivi,
-      ohjeRivi,
-      [`Joukkueet: ${joukkueetOhje}`, '', '', '', '', '', '', ''],
-      otsikkoRivi,
-      ...dataRivit,
-    ];
-
-    const wsPelaajat = XLSX.utils.aoa_to_sheet(kaikkirivit);
-
-    // Sarakeleveydet (merkeissä)
-    wsPelaajat['!cols'] = [
-      { wch: 4  },  // #
-      { wch: 18 },  // Etunimi
-      { wch: 20 },  // Sukunimi
-      { wch: 32 },  // Huoltajan sähköposti
-      { wch: 14 },  // PalloID
-      { wch: 20 },  // Joukkue
-      { wch: 14 },  // Rooli
-      { wch: 28 },  // Muistiinpanot
-    ];
-
-    // Kiinnitetään otsikkorivi (freeze panes) — rivit 1-4 pysyvät näkyvissä
-    wsPelaajat['!freeze'] = { xSplit: 0, ySplit: 4 };
-
-    // ── DROPDOWN-VALIDOINTI (Data Validation) ────────────────────
-    // SheetJS ei tue dropdowneja suoraan API:ssa, mutta voimme
-    // kirjoittaa Excel XML:n suoraan '!dataValidation'-kentän kautta.
-    //
-    // Excel Data Validation XML-rakenne:
-    //   <dataValidation type="list" ...>
-    //     <formula1>"Arvo1,Arvo2,Arvo3"</formula1>
-    //   </dataValidation>
-    //
-    // Joukkueet kirjoitetaan suoraan XML:ään merkkijonona koska
-    // Asetukset-välilehteen viittaaminen (=Asetukset!$A$2:$A$10)
-    // ei toimi kaikissa Excel-versioissa eri selaimissa ladatuissa tiedostoissa.
-    // Suora arvolista on luotettavampi.
-
-    const joukkueetXml = joukkueetNimet
-      .map(j => j.replace(/&/g,'&amp;').replace(/"/g,'&quot;'))
-      .join(',');
-
-    const rooliXml = 'Pelaaja,Maalivahti';
-
-    // Data validation kohdistuu riveille 5-104 (otsikkorivi on rivi 4)
-    const dvAlkuRivi = 5;
-    const dvLoppuRivi = 5 + MAX_RIVIT - 1;
-
-    // SheetJS lukee '!dataValidations' -kenttää kun kirjoittaa tiedostoa.
-    // Tämä on dokumentoimaton mutta toimiva ominaisuus.
-    wsPelaajat['!dataValidations'] = [
-      {
-        // Joukkue-dropdown — sarake F (indeksi 5, 0-pohjainen)
-        type: 'list',
-        sqref: `F${dvAlkuRivi}:F${dvLoppuRivi}`,
-        formula1: `"${joukkueetXml}"`,
-        showErrorMessage: true,
-        errorTitle: 'Virheellinen joukkue',
-        error: 'Valitse joukkue listalta.',
-        showInputMessage: true,
-        promptTitle: 'Joukkue',
-        prompt: 'Valitse joukkue pudotusvalikosta.',
-      },
-      {
-        // Rooli-dropdown — sarake G (indeksi 6, 0-pohjainen)
-        type: 'list',
-        sqref: `G${dvAlkuRivi}:G${dvLoppuRivi}`,
-        formula1: `"${rooliXml}"`,
-        showErrorMessage: true,
-        errorTitle: 'Virheellinen rooli',
-        error: 'Valitse Pelaaja tai Maalivahti.',
-      },
-    ];
-
-    // Lisätään välilehti workbookiin — Pelaajat ensin
-    XLSX.utils.book_append_sheet(wb, wsPelaajat, 'Pelaajat');
-
-    // ── VAIHE 3: Tarjotaan tiedosto lataukseen ────────────────────
-    // XLSX.writeFile käynnistää selaimen latausdialogin automaattisesti.
-    // Tiedostonimi sisältää seuran nimen ja päivämäärän jotta arkistointi
-    // on helppoa — "KPV_Pelaajarekisteri_2026-03-24.xlsx"
-    const tiedostoNimi = `${tila.seuraId.toUpperCase()}_Pelaajarekisteri_${
+    // Luodaan väliaikainen latauslinkki ja klikataan sitä ohjelmallisesti.
+    // Tiedostonimi sisältää seuran nimen jotta arkistointi on helppoa.
+    const a = document.createElement('a');
+    a.href     = blobUrl;
+    a.download = `${tila.seuraId.toUpperCase()}_Pelaajarekisteri_${
       new Date().toISOString().split('T')[0]
     }.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
-    XLSX.writeFile(wb, tiedostoNimi);
+    // Vapautetaan muisti heti latauksen jälkeen
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
-    naytaToast(`✅ ${tiedostoNimi} ladattu!`, 'ok');
+    naytaToast(`✅ Rekisteripohja ladattu!`, 'ok');
 
-    // Tallennetaan tieto Firestoreen — milloin pohja on ladattu ja kuka latasi.
-    // Tämä on hyödyllinen auditoinnissa: "VP latasi pohjan 24.3.2026"
+    // Tapahtumaloki Firestoreen — kuka latasi ja milloin
     try {
       await db.collection('seurat').doc(tila.seuraId)
         .collection('tapahtumat').add({
-          tyyppi:    'rekisteri_pohja_ladattu',
-          lataaja:   tila.kayttaja?.email || 'tuntematon',
-          tiedosto:  tiedostoNimi,
-          joukkueet: joukkueetNimet,
-          aika:      firebase.firestore.FieldValue.serverTimestamp(),
+          tyyppi:   'rekisteri_pohja_ladattu',
+          lataaja:  tila.kayttaja?.email || 'tuntematon',
+          aika:     firebase.firestore.FieldValue.serverTimestamp(),
         });
-    } catch (e) {
-      // Ei kriittinen — tiedosto on jo ladattu
-      console.warn('Tapahtumaloki:', e.message);
-    }
+    } catch (e) { /* Ei kriittinen */ }
 
   } catch (virhe) {
-    console.error('Excel-generointi epäonnistui:', virhe);
-    naytaToast('Generointi epäonnistui: ' + virhe.message, 'virhe');
+    console.error('Pohjan lataus epäonnistui:', virhe);
+    naytaToast('Lataus epäonnistui: ' + virhe.message, 'virhe');
 
   } finally {
-    // Palautetaan nappi normaalitilaan riippumatta onnistumisesta
     if (nappi) {
       nappi.disabled    = false;
       nappi.textContent = alkuperainenTeksti;
@@ -2047,10 +2085,10 @@ function naytaToast(teksti, tyyppi = 'ok') {
 // Esc sulkee modalit
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['rekisteriModal','joukkueModal','joukkueMuutosModal'].forEach(id => suljeModal(id));
+    ['rekisteriModal','joukkueModal','joukkueMuutosModal','rekisteriOhjeModal'].forEach(id => suljeModal(id));
   }
 });
-['rekisteriModal','joukkueModal','joukkueMuutosModal'].forEach(id => {
+['rekisteriModal','joukkueModal','joukkueMuutosModal','rekisteriOhjeModal'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) {
     if (e.target === this) suljeModal(id);
   });
