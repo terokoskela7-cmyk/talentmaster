@@ -1,13 +1,24 @@
 # TalentMaster™ — Järjestelmäarkkitehtuuri
-# Päivitetty 2026-03-22
+# Päivitetty: 2026-03-25
+# Muutokset edelliseen versioon:
+#   - Blaze-plan (ei enää Spark)
+#   - Cloud Functions lisätty tekniseen stackiin
+#   - Kolmitasoinen hallintamalli dokumentoitu
+#   - TalentMaster_Seura.html lisätty URL-listaan
+#   - Firestore-rakenne päivitetty (pelaajat, kutsut, sopimukset, tapahtumat)
+#   - Custom Claims -arkkitehtuuri kirjattu
+#   - Joukkueet-taulukko (useampi joukkue per valmentaja) kirjattu
+#   - Käyttäjälista päivitetty (7 VP + HJK)
+#   - Datavirta päivitetty Custom Claims -arkkitehtuurille
 
 ---
 
 ## Yleiskuva
 
-TalentMaster on multi-tenant SaaS-alusta jalkapallon (ja tulevaisuudessa muiden lajien)
-talenttiarviointiin ja pelaajien kehitysseurantaan. Asiakas on seura, ei yksittäinen valmentaja.
-Järjestelmä rakentuu Palloliiton virallisen Huippusuoritusmallin (Huuhkaja-Helmaripolku) varaan.
+TalentMaster on multi-tenant SaaS-alusta jalkapallon (ja tulevaisuudessa muiden
+lajien) talenttiarviointiin ja pelaajien kehitysseurantaan. Asiakas on seura,
+ei yksittäinen valmentaja. Järjestelmä noudattaa kolmitasoista hallintamallia:
+TalentMaster Platform → Seuran hallinto → Operatiivinen työ.
 
 ---
 
@@ -18,16 +29,76 @@ Järjestelmä rakentuu Palloliiton virallisen Huippusuoritusmallin (Huuhkaja-Hel
 | Frontend | HTML/CSS/JavaScript (vanilla) | GitHub Pages |
 | Tietokanta | Firebase Firestore | europe-west1 |
 | Autentikointi | Firebase Authentication | Email/Password |
-| Pelaajadata (historia) | tm_data.js (staattinen) | GitHub Pages |
-| Admin-skriptit | Node.js + Firebase Admin SDK | GitHub Actions |
+| Palvelinlogiikka | Firebase Cloud Functions (Node.js) | europe-west1 |
+| Sähköposti | Gmail + Nodemailer (Cloud Functionsin kautta) | — |
+| Excel-käsittely | openpyxl (Python, pohjan luonti) | GitHub Actions |
+| Mobiili | Responsiivinen HTML/CSS (390px+) | Kaikki näkymät |
+| Deploy-putki | GitHub Actions | — |
+| Historiallinen data | tm_data.js (staattinen, väistyvä) | GitHub Pages |
 
 ---
 
 ## Firebase-projekti
 
-- **Projekti:** `talentmaster-pilot`
-- **Spark plan** (ilmainen) — riittää pilottivaiheeseen
-- **Firestore sijainti:** europe-west1 (Frankfurt)
+Projekti: talentmaster-pilot — Blaze plan (pay-as-you-go)
+Tietokanta: Firestore, europe-west1 (Frankfurt)
+Auth: Email/Password käytössä
+
+Blaze-plan mahdollistaa: Cloud Functions, collectionGroup-kyselyt,
+ulkoiset verkkopalvelut (Gmail), rajattomat Firestore-lukukirjoitukset.
+
+---
+
+## Kolmitasoinen hallintamalli
+
+Kolmitasoinen rakenne vastaa alan standardia (PlayMetrics, 360Player).
+Se on suunniteltu niin, että seurat voivat toimia täysin itsenäisesti
+ilman TalentMaster-ylläpitäjän apua kaikkien perustoimintojen osalta.
+
+Taso 1 — TalentMaster Platform (TalentMaster_Admin.html):
+  Super-admin hallinnoi seuroja, paketteja ja laskutusta. Näkee kaikkien
+  seurojen aggregoidun datan. Pilotin aikana voi toimia minkä tahansa
+  seuran kontekstissa seuravalitsimella.
+
+Taso 2 — Seuran hallinto (TalentMaster_Seura.html):
+  VP, sihteeri ja UTJ hallinnoivat kaiken seuraan liittyvän: pelaajien
+  rekisteröinti, joukkueet, valmentajien kutsuminen, sopimukset,
+  Palloliiton kriteerit. Toimii itsenäisesti ilman Tason 1 apua.
+
+Taso 3 — Operatiivinen työ (TalentMaster_Master_v8.html):
+  Valmentajat, testivastaavat, fysiikkavalmentajat jne. Päivittäinen
+  kirjaaminen, testitulokset, kehitysseuranta. Ei hallinnoi mitään.
+
+---
+
+## GitHub Pages URL:t
+
+```
+https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Admin.html
+https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Seura.html
+https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Master_v8.html
+https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_VP_v17.html
+https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html
+```
+
+---
+
+## Firebase Authentication -käyttäjät
+
+| Sähköposti | Rooli (Firestore) | Seura |
+|---|---|---|
+| talentmasterid@gmail.com | super_admin | Kaikki |
+| vp.fcl@talentmaster.fi | vp | FC Lahti Juniorit |
+| vp.kpv@talentmaster.fi | vp | KPV |
+| vp.palloiirot@talentmaster.fi | vp | Pallo-Iirot |
+| vp.yvies@talentmaster.fi | vp | Ylöjärven Ilves |
+| vp.sjk@talentmaster.fi | vp | SJK Juniorit |
+| vp.grifk@talentmaster.fi | vp | GrIFK |
+| vp.hjk@talentmaster.fi | vp | HJK Juniorit |
+
+Huomio: super-adminin rooli Firestoressä on "super_admin" (alaviivalla).
+Kaikki SALLITUT_ROOLIT-tarkistukset hyväksyvät molemmat muodot.
+VP-salasanojen kaava: TM_[SEURA]_2026! — vaihdetaan ennen pilottia.
 
 ---
 
@@ -36,282 +107,148 @@ Järjestelmä rakentuu Palloliiton virallisen Huippusuoritusmallin (Huuhkaja-Hel
 ```
 admins/
   {uid}/
-    email, rooli, superAdmin, luotu
+    email, rooli ("super_admin"), superAdmin (true), luotu
 
 seurat/
-  {seuraId}/                        ← fcl, kpv, palloiirot, yvies, sjk, grifk
-    id, nimi, laji, paketti
+  {seuraId}/              ← fcl, kpv, palloiirot, yvies, sjk, grifk, hjk
+    nimi, laji, paketti
     vp_uid, vp_email
     kaupunki, maa, aktiivinen
-    ominaisuudet[], roolit[]
-    max_pelaajia, tilastot{}
     luotu
 
-    pelaajat/{palloId}              ← UUSI — pelaajaprofiilit (kts. rakenne alla)
-    joukkueet/{joukkueId}
-    kirjaukset/{kirjausId}          ← VP:n harjoitteluseurantakirjaukset
-    testit/{testiId}                ← Mittaustulokset
-    kartoitukset/{kartoitusId}      ← Harjoitettavuuskartoitukset U12/U15/U19
-    tekniikka/{kilpailuId}          ← Tekniikkakilpailutulokset
-    adar/{adarId}                   ← Game IQ / ADAR-arvioinnit
-    kuorma/{kuormaId}               ← RPE ja kuormaseuranta
-    vammat/{vammaId}                ← Kuntoutusdata (arkaluonteinen)
-    kayttajat/{kayttajaId}          ← Seuran käyttäjät ja roolit
+    joukkueet/{joukkueId}/
+      nimi, ikaryhma, vuosi, jarjestys, aktiivinen
 
-kirjaukset/                         ← Vanha rakenne (yhteensopivuus)
-kirjaukset_joukkue/                 ← Vanha rakenne (yhteensopivuus)
-kirjaukset_tapahtumat/              ← Vanha rakenne (yhteensopivuus)
+    kayttajat/{uid}/
+      email, rooli, etunimi, sukunimi
+      joukkue: "u14"              ← vanha kenttä (yhteensopivuus Master v8)
+      joukkueet: ["u14", "u12"]   ← uusi kenttä (useampi joukkue)
+      joukkueNimi, joukkueetNimet
+      aktiivinen, claimsAsetettu, luotu
+
+    pelaajat/{pelaajaId}/
+      etunimi, sukunimi, nimi, syntymaaika, joukkue, palloID, laji, positio
+      suostumus: { annettu, antaja, antajaRooli, versio, hyväksytyt, aikaleima }
+      huoltaja: { etunimi, sukunimi, email, puhelin }
+      aktiivinen, luotu
+
+    kirjaukset/{kirjausId}/       ← Harjoituskirjaukset (valmentaja)
+    testit/{testiId}/             ← Mittaustulokset
+      d1_fyysinen: {}, d2_tekninen: {}, d3_psykologinen: {}
+      d4_kognitiivinen: {}, d5_sosiaalinen: {}
+      ovr, kehitysvauhti, phv_vaihe, rae_korjaus, flei
+      profiilityyppi (railgun/maestro/shadowstep/titan)
+      mastery (basic/sharp/elite/signature)
+    kartoitukset/{kartoitusId}/   ← Harjoitettavuuskartoitukset
+    tekniikka/{kilpailuId}/       ← Tekniikkakilpailutulokset
+    adar/{adarId}/                ← Game IQ / ADAR-arvioinnit
+    kuorma/{kuormaId}/            ← RPE ja kuormaseuranta
+    vammat/{vammaId}/             ← Kuntoutusdata (arkaluonteinen)
+    kutsut/{kutsuId}/             ← Rekisteröintikutsut vanhemmille
+      hEmail, linkki, joukkue, lahetetty, tila ("lahetetty"/"hyvaksytty"), lahettaja
+    sopimukset/kriteerit          ← Palloliiton kori-kriteerit
+      kori1_0: true/false, kori1_1: true/false ... kori3_5: true/false, paivitetty
+    tapahtumat/{id}/              ← Auditointi
+      tyyppi, lataaja/lahettaja, aika
+
+kirjaukset/                       ← Vanha rakenne (yhteensopivuus)
+kirjaukset_joukkue/
+kirjaukset_tapahtumat/
 ```
 
 ---
 
-## Pelaajaprofiilin Firestore-rakenne
+## Custom Claims -arkkitehtuuri
 
-Polku: `seurat/{seuraId}/pelaajat/{palloId}`
+Custom Claims on JWT-tokeniin tallennettu tieto käyttäjän roolista ja seurasta.
+Se on TalentMasterin autorisoinnin ydin — jokainen Firestore-pyyntö tarkistaa
+tokenin ennen kuin antaa pääsyn dataan.
 
-PalloID on dokumentin avain — se on Palloliiton pelaajatunniste ja koko järjestelmän
-universaali pelaajatunniste. Sama PalloID linkittää pelaajan kaikkiin testeihin,
-kartoituksiin ja kehitysdataan yli kausien.
-
+Tokenin rakenne:
 ```javascript
 {
-  // ── PERUSTIEDOT ──────────────────────────────────────────────────────────
-  palloID:        "34650191",       // Palloliiton tunniste = dokumentin id
-  nimi:           "Matti Meikäläinen",
-  etunimi:        "Matti",
-  sukunimi:       "Meikäläinen",
-  syntymaaika:    timestamp,        // Tarkkuus päivä — lasketaan ikä ja RAE tästä
-  sukupuoli:      "P",              // "P" | "T"
-  joukkue:        "KPV U15",
-  seuraId:        "kpv",
-  aktiivinen:     true,
+  // Kaikille rooleille
+  rooli:    "valmentaja",          // tai "vp", "super_admin" jne.
+  seuraId:  "kpv",                 // null super-adminille
 
-  // ── SUOSTUMUS (GDPR) ─────────────────────────────────────────────────────
-  suostumus: {
-    annettu:      timestamp,
-    huoltaja:     "Etunimi Sukunimi",
-    versio:       "2026-v1",
-    ip:           null              // ei tallenneta
-  },
+  // Valmentajatasoille (valmentaja, testivastaava, fysiikkavalmentaja, fysioterapeutti)
+  joukkue:   "kpv_u14",            // ensimmäinen joukkue (yhteensopivuus)
+  joukkueet: ["kpv_u14","kpv_u12"],// kaikki joukkueet (uusi rakenne)
 
-  // ── BIOLOGINEN IKÄ ───────────────────────────────────────────────────────
-  // Koko biologinenIka-osio on arkaluonteinen (GDPR erityissuoja alaikäisillä).
-  // Pääsy Permission Matrixin mukaan.
-  biologinenIka: {
+  // Talenttivalmentajalla ei joukkuerajausta — näkee kaikki seuran pelaajat
 
-    // Mirwald-raakamitat — tallennetaan AINA mittauksesta
-    // Raakamitat säilytetään vaikka laskentamenetelmä muuttuisi tulevaisuudessa
-    mirwald: {
-      pituus:         163.0,        // cm, seisomapituus ilman kenkiä
-      istumapituus:   77.1,         // cm, mitattu arvo (penkin päältä)
-      penkinkorkeus:  40.0,         // cm, käytetyn penkin korkeus lattiasta
-      // Kokonaisistumapituus = istumapituus + penkinkorkeus (lasketaan automaattisesti)
-      paino:          50.0,         // kg
-      aidinPituus:    165.0,        // cm, vapaaehtoinen — parantaa tarkkuutta
-      isanPituus:     178.0,        // cm, vapaaehtoinen — parantaa tarkkuutta
-      mittauspvm:     timestamp,
-      arvioija:       "uid"
-    },
-
-    // Lasketut arvot — johdetaan raakamittoista automaattisesti
-    maturityOffset: -1.34,          // Mirwald-kaavan tulos (vuotta)
-                                    // Negatiivinen = ennen PHV-huippua
-                                    // 0 = PHV-huippu
-                                    // Positiivinen = kasvupyrähdyksen jälkeen
-
-    phvIka:   14.6,                 // Age at PHV = kronologinen ikä - maturityOffset
-                                    // Tämä on se arvo jonka Palloliitto tarkistaa
-                                    // yli-ikäisyyssäännössä
-
-    phvTila:  "PHV-huippu",         // "Varhainen" (offset < -1.0)
-                                    // "PHV-huippu" (offset -1.0 – 0.5)
-                                    // "Post-PHV" (offset > 0.5)
-
-    krono:    13.2,                 // Kronologinen ikä mittaushetkellä (vuotta desimaalina)
-    bio:      11.86,                // Biologinen ikä = krono + maturityOffset
-                                    // HUOM: bio ja phvIka ovat ERI asioita:
-                                    // bio kertoo miten "vanha" pelaaja ON NYT biologisesti
-                                    // phvIka kertoo MILLOIN kasvupyrähdys tapahtuu
-
-    rae:      "Q1",                 // Relative Age Effect — syntymäkvartaali
-                                    // Lasketaan automaattisesti syntymäajasta:
-                                    // Q1 = tammikuu–maaliskuu (ikäluokan "vanhimmat")
-                                    // Q2 = huhtikuu–kesäkuu
-                                    // Q3 = heinäkuu–syyskuu
-                                    // Q4 = lokakuu–joulukuu (ikäluokan "nuorimmat")
-
-    aikuisPit: 182,                 // Ennustettu aikuispituus (cm), Khamis-Roche
-    nytPit:    155,                 // Nykyinen pituus mittaushetkellä (cm)
-
-    // Palloliiton yli-ikäisyyssääntö — lasketaan automaattisesti phvIka:sta
-    yliIkaisyys: {
-      tulos:    "KYLLÄ",            // "KYLLÄ" = saa pelata alemmassa ikäluokassa
-                                    // "EI" = ei täytä sääntöä
-                                    // "Ei tietoja" = mittauksia ei ole tehty
-      raja:     14.30,              // Käytetty kuukausikohtainen raja (Palloliiton taulukko)
-      laskettu: timestamp
-    },
-
-    // ── TANNERIN KEHITYSVAIHE — ERITYISTAPAUKSET ─────────────────────────
-    // ⚠️ Tanner-tieto on kliininen terveystieto.
-    //
-    // MIKSI PIILOTETTU:
-    // Tannerin kehitysvaihe (T1–T5) vaatii asiantuntijan arvion —
-    // lääkärin tai terveydenhoitajan fyysisen tutkimuksen. Sitä EI
-    // voi laskea kaavalla eikä valmentaja voi sitä kirjata.
-    // Normaalissa valmennustyössä Mirwald + PHV-tila riittää täysin.
-    //
-    // MILLOIN KÄYTETÄÄN:
-    // Vain erityistapauksissa, esim. urheilulääkärin lausunnon yhteydessä,
-    // tai kun pelaajalla on epätyypillinen kasvukäyrä ja tarkempi kliininen
-    // arvio on tarpeen. Aktivoidaan UI:ssa erillisestä
-    // "Näytä kliiniset tiedot" -valinnasta (vain VP ja Fysioterapeutti).
-    //
-    // GDPR: Tanner-kenttä on erityisen arkaluonteinen terveystieto.
-    // Tallennusoikeus: vain Fysioterapeutti tai VP erityisluvalla.
-    // Audit trail pakollinen: kuka kirjasi, milloin, millä perusteella.
-    tannerVaihe:    null,           // T1–T5 | null (useimmiten null)
-    tannerArvioija: null,           // Firebase UID — kuka on arvioinut
-    tannerPvm:      null            // Milloin arvioitu
-  },
-
-  // ── METATIEDOT ───────────────────────────────────────────────────────────
-  luotu:      timestamp,
-  muokattu:   timestamp,
-  luonutUid:  "uid",
-  tuontitapa: "excel"               // "excel" | "manuaalinen" | "api"
+  // Super-adminille
+  superAdmin: true,
+  seuraId:    null,                // ei seurarajausta
+  joukkue:    null,
+  joukkueet:  []
 }
 ```
 
----
-
-## Biologisen iän käsitteiden selitykset
-
-Nämä käsitteet sekoitetaan helposti keskenään. Tässä tarkat määritelmät.
-
-**Maturity Offset** on Mirwald-kaavan raakulos, joka kertoo kuinka monta vuotta pelaaja
-on kasvupyrähdyksensä huipusta. Negatiivinen arvo tarkoittaa että huippu on vielä edessä,
-positiivinen että se on jo ohitettu. Se on se "perusluku" josta kaikki muu lasketaan.
-
-**PHV-ikä (age at PHV)** kertoo missä iässä pelaajan kasvupyrähdys tapahtuu.
-Laskukaava on `kronologinen ikä − maturity offset`. Tätä lukua Palloliitto käyttää
-yli-ikäisyyssäännössä. Jos 13,3-vuotiaan offset on −1,3, hänen PHV-ikänsä on 14,6 —
-eli hän saavuttaa kasvupyrähdyksensä 14,6-vuotiaana.
-
-**Biologinen ikä** kertoo miten "vanha" pelaaja on biologisesti tällä hetkellä.
-Laskukaava on `kronologinen ikä + maturity offset`. Jos offset on −1,3, pelaaja on
-biologisesti 1,3 vuotta nuorempi kuin kronologinen ikä antaa ymmärtää. Tätä käyttää
-valmentaja harjoituksen kuorman suunnittelussa.
-
-**RAE (Relative Age Effect)** kuvaa sitä epätasa-arvoa, joka syntyy kun tammikuussa
-syntynyt pelaaja on lähes vuoden "vanhempi" kuin joulukuussa syntynyt samassa
-ikäluokassa. Q1-pelaajat ovat yliedustettuja huippujoukkueissa juuri siksi, että
-he näyttävät paremmilta nuorina — ei siksi, että he olisivat lahjakkaampia.
-TalentMaster näyttää tämän tiedon valmentajalle jotta piilotettuja talenteja tunnistetaan.
-
-**Tannerin kehitysvaihe (T1–T5)** on kliininen arvio fyysisestä kypsyydestä.
-Se vaatii asiantuntijan arvion eikä sitä voi laskea kaavalla. Käytetään vain
-erityistapauksissa ja tallennetaan vain kun asiantuntija on arvion tehnyt.
+Cloud Functions asettaa Claims automaattisesti:
+  asetaClaimsUudelle: triggeröityy kun uusi kayttajat-dokumentti luodaan
+  paivitaClaimsRoolimuutoksessa: triggeröityy kun rooli tai joukkueet muuttuu
+  asetaSuperAdminClaims: triggeröityy kun admins/-kokoelmaan lisätään dokumentti
 
 ---
 
-## Palloliiton yli-ikäisyyssääntö — laskentalogiikka
-
-Sääntö mahdollistaa biologisesti nuoremmalle pelaajalle luvan pelata alemmassa
-ikäluokassa. Tarkistus perustuu PHV-ikään ja syntymäkuukauteen.
-
-Raja vaihtelee kuukausittain siksi, että tammikuussa syntynyt on kalenterivuoden
-perusteella lähes vuoden "vanhempi" kuin joulukuussa syntynyt samassa ikäluokassa.
-Sääntö kompensoi tätä epätasa-arvoa — joulukuussa syntyneellä on matalampi kynnys.
-
-```
-Tulos = "KYLLÄ" jos PHV-ikä >= raja(syntymäkuukausi, sukupuoli)
-
-Pojat:  Tammikuu=14.97, Helmikuu=14.88, ..., Joulukuu=14.05
-Tytöt:  Tammikuu=13.07, Helmikuu=12.98, ..., Joulukuu=12.15
-(Raja laskee n. 0.083 vuotta per kuukausi)
-```
-
-Lähde: Palloliiton virallinen Mirwald-PHV-Yli-ikäisyyssääntö -taulukko (2025).
-Taulukko on tallennettu TalentMaster_Pelaajapohja.xlsx Ohjeet-välilehdelle
-referenssisoluihin (rivit 50–61) ja lasketaan automaattisesti VLOOKUP-kaavalla.
-
----
-
-## Firebase Authentication -käyttäjät
-
-| Sähköposti | Rooli | Seura |
-|---|---|---|
-| talentmasterid@gmail.com | Super Admin | Kaikki |
-| vp.fcl@talentmaster.fi | Valmennuspäällikkö | FC Lahti Juniorit |
-| vp.kpv@talentmaster.fi | Valmennuspäällikkö | KPV |
-| vp.palloiirot@talentmaster.fi | Valmennuspäällikkö | Pallo-Iirot |
-| vp.yvies@talentmaster.fi | Valmennuspäällikkö | Ylöjärven Ilves |
-| vp.sjk@talentmaster.fi | Valmennuspäällikkö | SJK Juniorit |
-| vp.grifk@talentmaster.fi | Valmennuspäällikkö | GrIFK |
-
-Salasanat: `TM_[SEURA]_2026!` — vaihdetaan oikeisiin ennen pilottia
-
----
-
-## GitHub Pages URL:t
-
-```
-https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_VP_v17.html
-https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Admin.html
-https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Master_v7.html
-```
-
----
-
-## Pelaajadata: kaksi lähdettä
-
-**Historiallinen data (tm_data.js)** sisältää 2417 pelaajaa 30 seurasta kausilta
-2017–2020. Se on staattinen tiedosto joka latautuu selaimeen. Se ei sisällä
-pilottiseuroja eikä biologisen iän dataa.
-
-**Reaaliaikainen data (Firebase)** sisältää pilottiseurojen uuden datan:
-harjoitteluseurantakirjaukset, testit, kartoitukset ja pelaajaprofiilit
-biologisine ikineen. Tämä on järjestelmän tulevaisuus — tm_data.js migroi
-vähitellen Firestoreen.
-
----
-
-## Datavirta: kirjautuminen
+## Datavirta: kirjautuminen (Custom Claims -arkkitehtuurilla)
 
 ```
 Käyttäjä syöttää sähköpostin + salasanan
-  → Firebase Auth tunnistaa käyttäjän
-  → Firestore hakee seura-dokumentin (resource.data.vp_uid == user.uid)
-  → initDash() asettaa oikean seuran
-  → Session-load hakee seuran kirjaukset Firebasesta
-  → LocalStorage päivittyy välimuistina
+  → Firebase Auth kirjaa käyttäjän sisään
+  → onAuthStateChanged laukeaa
+  → getIdTokenResult(true) hakee tuoreen JWT-tokenin Custom Claimeineen
+  → Claims sisältää: rooli, seuraId, joukkue(et)
+  → Jos rooli on "super_admin": haetaan kaikki seurat Firestoresta
+  → Jos rooli on "vp"/"sihteeri": haetaan oma seura seuraId:n perusteella
+  → Jos rooli on "valmentaja": haetaan omat joukkueet joukkueet[]:n perusteella
+  → Näytetään oikea näkymä — käyttäjä ei koskaan pääse väärään dataan
 ```
 
----
-
-## Datavirta: pelaajan tunnistaminen lomakkeessa
-
-```
-Valmentaja syöttää PalloID:n testilomakkeeseen
-  → Firestore hakee seurat/{seuraId}/pelaajat/{palloId}
-  → Lomake täyttää automaattisesti: nimi, syntymäaika, joukkue,
-    kehonpaino, PHV-tila, yli-ikäisyyssääntötulos
-  → Valmentaja voi ylikirjoittaa kehonpainon jos se on muuttunut
-  → Uusi paino tallentuu profiiliin mittauspäivämäärällä
-```
+Vanha datavirta (VP-dashboard v17) käyttää Firestore-kyselyä (vp_uid == user.uid)
+löytääkseen seuran. Custom Claims -arkkitehtuuri on nopeampi — seura löytyy
+suoraan tokenista ilman Firestore-lukuja.
 
 ---
 
 ## Security Rules -logiikka
 
-**Super-admin** lukee kaiken. **Seuran VP** lukee ja kirjoittaa oman seuransa
-kaiken datan. **Seuran jäsen** lukee oman seuransa datan ja kirjoittaa rajoitetusti.
-**Ei kirjautunut** ei pääse mihinkään.
+```javascript
+// Esimerkki — valmentajan pääsy omaan joukkueeseensa
+match /seurat/{seuraId}/pelaajat/{pelaajaId} {
+  allow read: if request.auth != null
+    && request.auth.token.seuraId == seuraId
+    && (
+      // Seura-tason roolit näkevät kaiken
+      request.auth.token.rooli in ["vp", "seurasihteeri", "urheilutoimenjohtaja"]
+      ||
+      // Talenttivalmentaja näkee kaikki
+      request.auth.token.rooli == "talenttivalmentaja"
+      ||
+      // Valmentaja näkee vain omat joukkueensa
+      (request.auth.token.rooli == "valmentaja"
+       && resource.data.joukkue in request.auth.token.joukkueet)
+    );
+}
+```
 
-Tärkeä korjaus (2026-03-22): Seurat-kokoelman read-sääntöön lisätty
-`resource.data.vp_uid == request.auth.uid` jotta VP:n kirjautumisessa tehtävä
-seurahaun kysely toimii oikein.
+Super-admin ohittaa kaikki seura- ja joukkuerajaukset superAdmin: true -kentän avulla.
+
+---
+
+## Pelaajadata: kaksi lähdettä
+
+### 1. Historiallinen data (tm_data.js) — väistyvä
+2417 pelaajaa, 30 seuraa, kaudet 2017-2020. Staattinen tiedosto, latautuu
+selaimeen. Ei sisällä pilottiseuroja (FC Lahti, KPV jne.). Korvautuu
+vähitellen Firestore-datalla — pidetään yhteensopivuuden vuoksi.
+
+### 2. Reaaliaikainen data (Firebase Firestore) — pääroolissa
+Pilottiseurojen uusi data. Harjoitteluseurantakirjaukset, testitulokset,
+kartoitukset. Käyttäjän seura tunnistetaan Custom Claims -tokenista. Päivittyy
+reaaliaikaisesti onSnapshot-kuuntelijan kautta — valmentaja näkee heti uudet
+pelaajat ilman sivunlatausta.
 
 ---
 
@@ -319,21 +256,109 @@ seurahaun kysely toimii oikein.
 
 | Paketti | Roolit | Max pelaajia | Ominaisuudet |
 |---|---|---|---|
-| Perustaso | VP, valmentaja, testivastaava | 100 | Kirjaukset, testit, profiilit |
-| Kehitystaso | + talenttivalmentaja, fysiikkavalmentaja | 300 | + ADAR, biologinen ikä, talenttiohjelma |
-| Huipputaso | Kaikki roolit | Rajaton | Kaikki ominaisuudet + Tanner (erityistapaukset) |
+| Perustaso | VP, sihteeri, valmentaja, testivastaava | 100 | Rekisteröinti, kirjaukset, testit, profiilit |
+| Kehitystaso | + talenttivalmentaja, fysiikkavalmentaja, UTJ | 300 | + ADAR, biologinen ikä, talenttiohjelma |
+| Huipputaso | Kaikki roolit | Rajaton | Kaikki ominaisuudet |
 
 ---
 
-## Roolit (10 kpl)
+## Roolit
 
-1. Super Admin (TalentMaster)
-2. Valmennuspäällikkö (VP)
-3. Urheilutoimenjohtaja
-4. Talenttivalmentaja
-5. Fysiikkavalmentaja
-6. Fysioterapeutti
-7. Testivastaava
-8. Valmentaja
-9. Pelaaja
-10. Vanhempi
+Super Admin (TalentMaster), Valmennuspäällikkö (VP), Seurasihteeri,
+Urheilutoimenjohtaja (UTJ), Talenttivalmentaja, Fysiikkavalmentaja,
+Fysioterapeutti, Testivastaava, Valmentaja, Pelaaja, Vanhempi.
+
+Yhteensä 11 roolia — Seurasihteeri lisätty tänään 2026-03-25.
+
+---
+
+## Excel-rekisteripohja
+
+Rakennettu openpyxl:lla Python-skriptillä (GitHub Actions tai lokaali).
+SheetJS (JavaScript) ei tue DataValidation-dropdowneja luotettavasti.
+
+Lataus selaimessa: fetch(GitHubista raw URL) → Blob → a.click()
+Tiedostonimi: {SEURAID}_Pelaajarekisteri_{PÄIVÄMÄÄRÄ}.xlsx
+
+Sihteerin prosessi:
+  1. Lataa pohja Seura-näkymän Pelaajat-välilehdeltä
+  2. Täytä Asetukset-välilehdelle seuran joukkueet → dropdown aktivoituu
+  3. Täytä pelaajat Pelaajat-välilehdelle
+  4. Lataa täytetty pohja takaisin → TULOSSA: tuontilogiikka + massakutsu
+
+---
+
+## TalentMaster-filosofia — tutkimuspohja arkkitehtuuripäätöksille
+
+Jokainen tekninen rakennepäätös seuraa tutkimusevidenssiä. Tämä osio selittää
+miksi järjestelmä on rakennettu niin kuin se on rakennettu.
+
+70/30-malli koskee VAIN alkurutiinia (20-30 min ennen kenttäharjoitusta).
+Kenttäharjoitus on täysin valmentajan — järjestelmä ei koske siihen.
+Firestoreen kirjataan: joukkueen heikoin liikeketju (70%) ja pelaajan
+henkilökohtaisesti heikoin (30%). Neljän hetken malli (KNVB-pohjainen)
+ohjaa valmentajan päivää — aamu, ennen harjoitusta, aikana, jälkeen.
+
+5D Framework Firestore-rakenteessa: jokainen testitulos tallennetaan
+dimensioittain (D1-D5) erillisiin kenttiin jotta kehitysvauhti voidaan
+laskea dimensiokohtaisesti. Kehitysvauhti = muutos suhteessa omaan
+ikään, harjoitusmäärään ja aikaan — ei vertailu muihin.
+
+PHV-modifikaattori (-3p kasvupyrähdyksen huipulla) on automaattinen
+suoja ylikuormitukselta ja realistinen arviointi kriittisessä ikkunassa
+(Philippaerts 2006: ylikuormitus PHV-huipulla lisää loukkaantumisriskiä 2,8×).
+
+RAE-korjaus (Q1: ×0.92, Q4: ×1.06) tasoittaa syntymäkuukauden vinoutuman.
+Forsman 2013: 75-85% valmentajien lahjakkaimmiksi nimeämistä 11-vuotiaista
+oli syntynyt tammi-kesäkuussa — ilman korjausta arvioinnit ovat systemaattisesti
+epäreiluja Q4-pelaajille.
+
+FLEI™ (Fascia Load Efficiency Index): harjoitettavuusindeksi tallennetaan
+erillisenä kenttänä Firestoreen. Yhdistyy automaattisesti PHV-vaiheeseen
+loukkaantumisriskin ennustamisessa.
+
+## Pelaajan mobiilietusivu — arkkitehtuuri
+
+Pelaajan näkymä on TalentMasterin strategisesti tärkein yksittäinen osa.
+Se ratkaisee sen, käyttääkö pelaaja järjestelmää vapaaehtoisesti vai pakosta.
+Koko suunnitteluperiaate noudattaa "päivittäinen kehityksen ohjaussivu" -mallia —
+ei analytiikkaraporttia.
+
+Näkymän tekninen rakenne noudattaa samaa Firebase-arkkitehtuuria kuin muutkin
+näkymät: Custom Claims autorisointi, Firestore reaaliaikaisena tietolähteenä,
+onSnapshot-kuuntelijat jotka päivittävät UI:n automaattisesti kun valmentaja
+lisää tehtävän tai kommenttia.
+
+Pelaajan data Firestoressä:
+  seurat/{seuraId}/pelaajat/{pelaajaId}/
+    tehtavat/{id}/      — päivän tehtävä, tavoitejakso, deadline, tila
+    kehitysdata/{id}/   — kehityssignaalit, trendipisteet
+    valmentajaviestit/{id}/ — valmentajan kommentit, palautteet
+    streak/             — aktiivisuuspäivät, level, XP
+
+Onboarding-logiikka (ensimmäinen käyttökerta):
+  1. Onboarding-kortit (Tämä ei ole arvosana → Kortti kehittyy → Yksityisyys)
+  2. Ensimmäisen tavoitejakson valinta
+  3. Etusivu muuttuu toiminnalliseksi — ei enää selittävä
+
+V1 rakennettava komponenttijärjestys:
+  Header (nimi + taso + streak) → Hero-kortti (päivän tehtävä, 1 CTA) →
+  Tavoitejakso-kortti (edistyminen) → Kehityssignaali → Etenemiskortti
+
+Navigaatio: Tänään | Kehitys | Joukkue | Tavoite
+Visa integroituna Tänään- tai Tavoite-osioon — ei omaa tabbia.
+
+Kriittisin suunnittelusääntö:
+  Pelaajan pitää pystyä avaamaan etusivu ja tietää 3 sekunnissa,
+  mikä hänen seuraava kehitysaskelensa on.
+
+## Tulevaisuuden arkkitehtuurisuunta
+
+Pilotin jälkeen kun maksavia asiakkaita on 20+ seuraa:
+  Frontend: kirjoitetaan React-sovelluksena (yksi SPA kaikille rooleille)
+  Backend: Firebase pysyy samana — Firestore, Auth, Cloud Functions
+  Navigaatio: yhteinen tm_nav.js -komponentti jo ennen React-siirtymää
+
+Kaikki nyt tehdyt arkkitehtuuripäätökset (Custom Claims, kolmitasoinen malli,
+joukkueet-taulukko, Security Rules) toimivat React-sovelluksessa täsmälleen
+samalla tavalla — vain frontend-kerros muuttuu.
