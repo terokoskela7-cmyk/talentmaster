@@ -13846,7 +13846,26 @@ async function tmHaeKayttajaFirestoresta(user){
     }
   }catch(e){}
 
-  // 2. Hae seuran kayttajat-alikokoelmasta
+  // 2. VP-tarkistus ENSIN — vp_uid seuradokumentissa (prioriteetti!)
+  // Tämä täytyy olla ennen kayttajat-hakua koska VP ei välttämättä ole
+  // kayttajat-alikokoelmassa mutta saattaa löytyä sieltä muun seuran alta
+  for(var j=0;j<seurat.length;j++){
+    var sid2=seurat[j];
+    try{
+      var sdoc=await db.collection('seurat').doc(sid2).get();
+      if(sdoc.exists&&sdoc.data().vp_uid===user.uid){
+        var vpData=sdoc.data();
+        console.log('[TM] VP löydetty seurasta: '+sid2);
+        tmAsetaKayttaja(user,{rooli:'vp',nimi:vpData.vp_nimi||user.email,joukkueet:[]},sid2,vpData);
+        tmEmailOk('✅ VP kirjautunut: '+(vpData.nimi||sid2.toUpperCase()));
+        tmEmailLoad(false);
+        go('sCoach');goCoach();
+        return;
+      }
+    }catch(e){}
+  }
+
+  // 3. Hae seuran kayttajat-alikokoelmasta (valmentajat, testivastaavat jne.)
   for(var i=0;i<seurat.length;i++){
     var sid=seurat[i];
     try{
@@ -13856,6 +13875,7 @@ async function tmHaeKayttajaFirestoresta(user){
         var kdata=kdoc.data();
         var seuraDoc=await db.collection('seurat').doc(sid).get();
         var seuraData=seuraDoc.exists?seuraDoc.data():null;
+        console.log('[TM] Käyttäjä löydetty kayttajat-kokoelmasta: '+sid+' / '+kdata.rooli);
         tmAsetaKayttaja(user,kdata,sid,seuraData);
         tmEmailOk('✅ Kirjautunut: '+(kdata.nimi||user.email));
         tmEmailLoad(false);
@@ -13865,25 +13885,9 @@ async function tmHaeKayttajaFirestoresta(user){
     }catch(e){}
   }
 
-  // 3. Fallback: VP-tarkistus (vp_uid seuradokumentissa)
-  for(var j=0;j<seurat.length;j++){
-    var sid2=seurat[j];
-    try{
-      var sdoc=await db.collection('seurat').doc(sid2).get();
-      if(sdoc.exists&&sdoc.data().vp_uid===user.uid){
-        var vpData=sdoc.data();
-        tmAsetaKayttaja(user,{rooli:'vp',nimi:user.email,joukkueet:[]},sid2,vpData);
-        tmEmailOk('✅ VP kirjautunut: '+(vpData.nimi||sid2.toUpperCase()));
-        tmEmailLoad(false);
-        go('sCoach');goCoach();
-        return;
-      }
-    }catch(e){}
-  }
-
-  // Ei löydy mistään
+  // 4. Ei löydy mistään — näytä virhe
   tmEmailLoad(false);
-  tmEmailErr('Käyttäjätiliä ei löydy. Ota yhteyttä valmennuspäällikköön.');
+  tmEmailErr('Käyttäjätiliä ei löydy järjestelmästä. Ota yhteyttä valmennuspäällikköön.');
   if(window._tmAuth)window._tmAuth.signOut();
 }
 
