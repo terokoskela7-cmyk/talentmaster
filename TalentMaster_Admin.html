@@ -704,6 +704,10 @@ async function lataaKayttajaLista() {
       }
     }
     
+    // Suodatetaan epäaktiiviset pois — ne on poistettu käytöstä
+    // mutta data säilyy Firestoressa audit-trailille
+    kaikkiKayttajat = kaikkiKayttajat.filter(k => k.aktiivinen !== false);
+
     // Järjestetään JavaScriptissä luontiajan mukaan
     kaikkiKayttajat.sort((a, b) => {
       const aika = (t) => t?.seconds || 0;
@@ -767,10 +771,21 @@ async function lataaKayttajaLista() {
                     onclick="lahetaSalasananVaihto('${k.email}')">
                     Salasana
                   </button>
+                  <!-- Deaktivointi: VP ja seura_admin voivat deaktivoida,
+                       super-admin voi myös poistaa kokonaan.
+                       Deaktivointi on pehmeä poisto — data säilyy,
+                       käyttäjä vain menettää kirjautumisoikeuden. -->
                   <button class="toimintaNappi vaara"
                     onclick="deaktivoi('${k.id}','${k.seuraId}','${k.email}')">
-                    Poista käytöstä
+                    ⛔ Deaktivoi
                   </button>
+                  ${tila.claims && tila.claims.rooli === 'superadmin' ? `
+                  <button class="toimintaNappi vaara"
+                    style="background:rgba(140,0,0,.18);border-color:rgba(180,0,0,.5);font-size:11px;"
+                    onclick="poistaKokonaan('${k.id}','${k.seuraId}','${k.email}')"
+                    title="Vain super-admin — poistaa Firestore-dokumentin pysyvästi">
+                    🗑 Poista pysyvästi
+                  </button>` : ''}
                 </div>
               </td>
             </tr>
@@ -945,18 +960,51 @@ async function lahetaSalasananVaihto(email) {
 // Cloud Function reagoi tähän ja poistaa Claims
 // ─────────────────────────────────────────
 async function deaktivoi(uid, seuraId, email) {
-  if (!confirm(`Poistetaanko käyttäjä ${email} käytöstä? Hän ei voi enää kirjautua.`)) return;
+  if (!confirm(
+    `Deaktivoidaanko ${email}?\n\n` +
+    `Käyttäjä ei voi enää kirjautua sisään, mutta\n` +
+    `hänen datansa säilyy järjestelmässä tallessa.\n\n` +
+    `Deaktivoinnin voi perua ottamalla yhteyttä Super Adminiin.`
+  )) return;
 
   try {
     await db
       .collection('seurat').doc(seuraId)
       .collection('kayttajat').doc(uid)
-      .update({ aktiivinen: false });
+      .update({
+        aktiivinen: false,
+        deaktivoitu: firebase.firestore.FieldValue.serverTimestamp(),
+        deaktivoija_uid: tila.kayttaja?.uid || 'tuntematon',
+      });
 
-    naytaToast(`${email} poistettu käytöstä.`, 'ok');
-    lataaKayttajaLista(); // Päivitä lista
+    naytaToast(`${email} deaktivoitu. Data säilyy tallessa.`, 'ok');
+    lataaKayttajaLista();
   } catch (virhe) {
     naytaToast(`Epäonnistui: ${virhe.message}`, 'virhe');
+  }
+}
+
+// ─────────────────────────────────────────
+// POISTA KOKONAAN — vain super-admin
+// Poistaa Firestore-dokumentin pysyvästi.
+// Firebase Auth -tili säilyy (Admin SDK tarvitaan sen poistoon).
+// ─────────────────────────────────────────
+async function poistaKokonaan(uid, seuraId, email) {
+  if (!confirm(
+    `PYSYVÄ POISTO\n\n${email}\n\nPoistaako Firestore-dokumentin kokonaan?\n` +
+    `Firebase Auth -tili jää — sen voi poistaa Firebase Consolesta.`
+  )) return;
+
+  try {
+    await db
+      .collection('seurat').doc(seuraId)
+      .collection('kayttajat').doc(uid)
+      .delete();
+
+    naytaToast(`${email} poistettu kokonaan.`, 'ok');
+    lataaKayttajaLista();
+  } catch (virhe) {
+    naytaToast(`Poisto epäonnistui: ${virhe.message}`, 'virhe');
   }
 }
 
