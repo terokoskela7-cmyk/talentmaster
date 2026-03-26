@@ -452,6 +452,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
     <div class="login-tabs">
       <div class="ltab off" id="lt1" onclick="loginMode('palloid')">⚽ Pelipassi</div>
       <div class="ltab on" id="lt2" onclick="loginMode('pin')">🔢 PIN-koodi</div>
+      <div class="ltab off" id="lt3" onclick="loginMode('email')">📧 Sähköposti</div>
     </div>
     <div id="palloidWrap" style="display:none;">
       <div style="font-size:12px;color:var(--muted2);margin-bottom:10px;text-align:center">Syötä pelipassinumerosi</div>
@@ -494,6 +495,35 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);max-
         </div>
       </div>
     </div><!-- /pinWrap -->
+
+    <!-- ── SÄHKÖPOSTIKIRJAUTUMINEN (Firebase) ────────────────────────── -->
+    <div id="emailWrap" style="display:none;flex-direction:column;align-items:center;width:100%;">
+      <div id="emailErr" style="width:100%;background:rgba(255,64,96,.12);border:1px solid rgba(255,64,96,.3);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:12px;display:none;"></div>
+      <div id="emailOk" style="width:100%;background:rgba(31,209,106,.1);border:1px solid rgba(31,209,106,.25);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--green);margin-bottom:12px;display:none;"></div>
+      <div id="emailLoad" style="font-size:13px;color:var(--muted2);margin-bottom:12px;display:none;">Kirjaudutaan...</div>
+      <div style="width:100%;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--muted2);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Sähköposti</div>
+        <input id="emailInp" type="email" inputmode="email" autocomplete="email"
+          placeholder="valmentaja@seura.fi"
+          style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;outline:none;font-family:'Barlow',sans-serif;"
+          onkeydown="if(event.key==='Enter')document.getElementById('passInp').focus()" />
+      </div>
+      <div style="width:100%;margin-bottom:20px;">
+        <div style="font-size:11px;color:var(--muted2);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Salasana</div>
+        <input id="passInp" type="password" autocomplete="current-password"
+          placeholder="••••••••"
+          style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;outline:none;font-family:'Barlow',sans-serif;"
+          onkeydown="if(event.key==='Enter')tmDoEmailLogin()" />
+      </div>
+      <button onclick="tmDoEmailLogin()"
+        style="width:100%;padding:14px;border-radius:12px;border:none;background:var(--teal);color:#000;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;cursor:pointer;letter-spacing:.5px;margin-bottom:10px;">
+        KIRJAUDU SISÄÄN →
+      </button>
+      <div style="font-size:11px;color:var(--muted);text-align:center;line-height:1.6;">
+        Kirjaudu seuran tunnuksilla.<br>Tunnukset saat valmennuspäälliköltä.
+      </div>
+    </div><!-- /emailWrap -->
+
   </div><!-- /inner wrapper -->
 </div><!-- /sPin -->
 
@@ -1952,6 +1982,30 @@ function tallennaPlusMerkinta(){
   aiemmat.push(uusi);
   sls('tm_coach_plus_'+p.id,aiemmat);
 
+  // ── Firebase-tallennus (sähköpostikirjautuminen) ──────────────────────
+  if(window.TM && window.TM.auth && window.TM.auth.kirjautumistapa==='email' && window._tmDb){
+    try{
+      var seuraId=window.TM.auth.seuraId;
+      window._tmDb.collection('seurat').doc(seuraId)
+        .collection('kirjaukset').add({
+          pelaajaId: p.id,
+          pelaajaNimi: (p.etunimi||'')+' '+(p.sukunimi||''),
+          joukkue: p.joukkue||null,
+          tyyppi: window._coachTyyppi,
+          kommentti: kommentti,
+          date: new Date().toISOString().slice(0,10),
+          tekija_uid: window.TM.auth.user.uid,
+          tekija_nimi: (window.TM.auth.kayttaja&&window.TM.auth.kayttaja.nimi)||window.TM.auth.user.email,
+          tekija_rooli: window.TM.auth.rooli||'valmentaja',
+          seuraId: seuraId,
+          luotu: firebase.firestore.FieldValue.serverTimestamp()
+        })
+        .then(function(ref){console.log('[TM] Kirjaus Firestoreen: '+ref.id);})
+        .catch(function(e){console.warn('[TM] Firestore-kirjaus epäonnistui (localStorage OK):',e);});
+    }catch(e){console.warn('[TM] Firestore-kirjaus virhe:',e);}
+  }
+  // ─────────────────────────────────────────────────────────────────────
+
   // Tarkista avautuuko tasonousu nyt
   var vahv=haeVahvistukset(p);
   var lv=laskeLevel(S.xp,vahv.yhteensa);
@@ -2460,12 +2514,62 @@ function paivitaTestiOhje(tyyppi) {
 // ═══════════════════════════════════════════════════
 
 function haeJoukkuePelaajat(){
-  // Palauta DEMO-pelaajat — jos TM_DATA löytyy ja valmentajalla on joukkue,
-  // täydennetään TM_DATA:n pelaajilla (tulevaisuuden laajennus)
+  // ── Firebase-pelaajat (sähköpostikirjautuminen) ───────────────────────
+  // Jos kirjautunut sähköpostilla ja Firebase-pelaajat on ladattu,
+  // käytetään niitä. haeJoukkuePelaajatFirebase() lataa asynkronisesti
+  // ja dispatchaa 'tm:pelaajatLadattu'-eventin joka triggeröi buildCoachNyt()
+  if(window.TM && window.TM.auth && window.TM.auth.kirjautumistapa==='email'){
+    if(window.TM.pelaajat && window.TM.pelaajat.length>0){
+      return window.TM.pelaajat; // Ladattu Firestoresta
+    }
+    // Käynnistä lataus — palautetaan DEMO välillä
+    if(!window._tmPelaajatLadataan){
+      window._tmPelaajatLadataan=true;
+      haeJoukkuePelaajatFirebase();
+    }
+  }
+  // ── Fallback: DEMO-pelaajat (PIN-kirjautuminen tai Firestore tyhjä) ───
   var demo = Object.values(DEMO).filter(function(p){return p.id!=='HPP-T001';});
   // Jos valmentajalla on asetettu joukkue (window._coachJoukkue), suodata sen mukaan
   // Toistaiseksi kaikki DEMO-pelaajat näytetään
   return demo;
+}
+
+// Asynkroninen Firebase-pelaajahaku — triggeroi buildCoachNyt() kun valmis
+async function haeJoukkuePelaajatFirebase(){
+  if(!window._tmDb||!window.TM||!window.TM.auth.seuraId)return;
+  try{
+    var seuraId=window.TM.auth.seuraId;
+    var joukkueet=window.TM.auth.joukkueet||[];
+    var snap;
+    var ref=window._tmDb.collection('seurat').doc(seuraId).collection('pelaajat');
+
+    if(joukkueet.length>0){
+      // Valmentaja — vain omat joukkueet
+      snap=await ref.where('joukkue','in',joukkueet).where('aktiivinen','==',true).get();
+    } else {
+      // VP tai ei joukkuerajoitusta — kaikki aktiiviset
+      snap=await ref.where('aktiivinen','==',true).get();
+    }
+
+    var pelaajat=[];
+    snap.forEach(function(doc){pelaajat.push(Object.assign({},doc.data(),{id:doc.id}));});
+
+    if(pelaajat.length>0){
+      window.TM.pelaajat=pelaajat;
+      window._tmPelaajatLadataan=false;
+      console.log('[TM] Firebase-pelaajat ladattu: '+pelaajat.length+' pelaajaa');
+      // Päivitä coach-näkymä automaattisesti
+      if(typeof buildCoachNyt==='function') buildCoachNyt();
+      if(typeof buildCoachAnalyysi==='function') buildCoachAnalyysi();
+    } else {
+      console.log('[TM] Firestoressa ei pelaajia — käytetään DEMO-dataa');
+      window._tmPelaajatLadataan=false;
+    }
+  }catch(e){
+    console.warn('[TM] Firebase-pelaajahaku epäonnistui:',e);
+    window._tmPelaajatLadataan=false;
+  }
 }
 
 function laskeViikkoAktiivisuus(p){
@@ -8533,11 +8637,14 @@ function toggleChallengeDay(profiiliId,idx){
   buildKehitys();
 }
 function loginMode(m){
-  S.mode=m;var isP=m==='palloid';
+  S.mode=m;
+  var isP=m==='palloid', isE=m==='email';
   document.getElementById('lt1').className='ltab '+(isP?'on':'off');
-  document.getElementById('lt2').className='ltab '+(isP?'off':'on');
+  document.getElementById('lt2').className='ltab '+((!isP&&!isE)?'on':'off');
+  if(document.getElementById('lt3'))document.getElementById('lt3').className='ltab '+(isE?'on':'off');
   document.getElementById('palloidWrap').style.display=isP?'block':'none';
-  document.getElementById('pinWrap').style.display=isP?'none':'flex';
+  document.getElementById('pinWrap').style.display=(!isP&&!isE)?'flex':'none';
+  var ew=document.getElementById('emailWrap');if(ew)ew.style.display=isE?'flex':'none';
 }
 
 // Tarkista tallennettu käyttäjä — "Muista minut"
@@ -13500,6 +13607,8 @@ function kausikalPaiva(dk) {
 document.addEventListener('DOMContentLoaded',function(){
   // PIN-ruutu aina ensin — onboarding näytetään kirjautumisen jälkeen
   go('sPin');
+  // Firebase-alustus (ei häiritse PIN-flowa)
+  tmInitFirebaseMaster();
 });</script>
 
 <!-- ── ADAR ONBOARDING MODAL ──────────────────────────────────────── -->
@@ -13594,6 +13703,241 @@ document.addEventListener('DOMContentLoaded',function(){
     <div id="kausikalSisalto" style="padding:0 12px;"></div>
   </div>
 </div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     TalentMaster™ — Firebase Auth Integration
+     Master v7 · Versio 1.0 · 2026-03-26
+     ═══════════════════════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────
+var TM_FB_CONFIG={
+  apiKey:"AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+  authDomain:"talentmaster-pilot.firebaseapp.com",
+  projectId:"talentmaster-pilot",
+  storageBucket:"talentmaster-pilot.firebasestorage.app",
+  messagingSenderId:"872561784446",
+  appId:"1:872561784446:web:05c4c7996dfd46ddd14a2f"
+};
+
+// ── GLOBAALI TILA ─────────────────────────────────────────────────────────
+window.TM = window.TM || {
+  auth: {user:null,kayttaja:null,seura:null,seuraId:null,
+         rooli:null,joukkueet:[],kirjautumistapa:null},
+  pelaajat: []
+};
+
+// ── ALUSTUS ───────────────────────────────────────────────────────────────
+function tmInitFirebaseMaster(){
+  try{
+    if(firebase.apps&&firebase.apps.length>0){
+      window._tmApp=firebase.apps[0];
+    }else{
+      window._tmApp=firebase.initializeApp(TM_FB_CONFIG);
+    }
+    window._tmDb=firebase.firestore();
+    window._tmAuth=firebase.auth();
+    console.log('[TM Firebase] Alustettu ✓');
+    tmKuunteleAuthTilaa();
+  }catch(e){console.error('[TM Firebase] Alustusvirhe:',e);}
+}
+
+// ── AUTH STATE LISTENER — sessiopersistenssi ──────────────────────────────
+var _authKesken=false;
+function tmKuunteleAuthTilaa(){
+  if(!window._tmAuth)return;
+  window._tmAuth.onAuthStateChanged(function(user){
+    if(_authKesken)return;
+    if(!user)return; // Ei kirjautunut — PIN-flow hoitaa
+    // Tarkista ettei sama käyttäjä jo asetettu
+    if(window.TM.auth.user&&window.TM.auth.user.uid===user.uid)return;
+    // Yritä palauttaa sessio cachesta (nopea — ei Firestore-kyselyä)
+    var raw=localStorage.getItem('tm_email_sessio');
+    if(raw){
+      try{
+        var s=JSON.parse(raw);
+        // Max 8h sessio
+        if(Date.now()-s.timestamp<8*60*60*1000&&s.uid===user.uid){
+          window.TM.auth.user=user;
+          window.TM.auth.kirjautumistapa='email';
+          window.TM.auth.seuraId=s.seuraId;
+          window.TM.auth.rooli=s.rooli;
+          window.TM.auth.joukkueet=s.joukkueet||[];
+          window.TM.auth.kayttaja=s.kayttaja||{};
+          console.log('[TM Firebase] Sessio palautettu cachesta ('+s.seuraId+')');
+          // Navigoi suoraan valmentajan näkymään
+          go('sCoach');
+          goCoach();
+          return;
+        }
+      }catch(e){}
+    }
+    // Ei cachea tai vanhentunut — hae Firestoresta
+    _authKesken=true;
+    tmHaeKayttajaFirestoresta(user).finally(function(){_authKesken=false;});
+  });
+}
+
+// ── SÄHKÖPOSTIKIRJAUTUMINEN (kutsutaan lomakkeelta) ───────────────────────
+async function tmDoEmailLogin(){
+  var email=(document.getElementById('emailInp')||{}).value||'';
+  var pass=(document.getElementById('passInp')||{}).value||'';
+  email=email.trim();
+
+  if(!email){tmEmailErr('Syötä sähköpostiosoite.');return;}
+  if(!pass){tmEmailErr('Syötä salasana.');return;}
+  if(!window._tmAuth){tmEmailErr('Firebase ei ole alustunut. Yritä päivittää sivu.');return;}
+
+  tmEmailLoad(true);
+
+  try{
+    var cred=await window._tmAuth.signInWithEmailAndPassword(email,pass);
+    await tmHaeKayttajaFirestoresta(cred.user);
+  }catch(e){
+    tmEmailLoad(false);
+    var koodit={
+      'auth/user-not-found':'Sähköpostia ei löydy järjestelmästä.',
+      'auth/wrong-password':'Väärä salasana.',
+      'auth/invalid-credential':'Väärä sähköposti tai salasana.',
+      'auth/invalid-email':'Virheellinen sähköpostiosoite.',
+      'auth/too-many-requests':'Liian monta yritystä. Odota hetki.',
+      'auth/network-request-failed':'Verkkoyhteysongelma. Tarkista internet.'
+    };
+    tmEmailErr(koodit[e.code]||('Kirjautuminen epäonnistui: '+e.message));
+  }
+}
+
+// ── KÄYTTÄJÄDATAN HAKU FIRESTORESTA ──────────────────────────────────────
+async function tmHaeKayttajaFirestoresta(user){
+  if(!window._tmDb)return;
+  var db=window._tmDb;
+  var seurat=['fcl','kpv','palloiirot','yvies','sjk','grifk'];
+
+  // 1. Super-admin?
+  try{
+    var adminDoc=await db.collection('admins').doc(user.uid).get();
+    if(adminDoc.exists&&adminDoc.data().superAdmin){
+      tmAsetaKayttaja(user,{rooli:'superadmin',nimi:'Super Admin',joukkueet:[]},'',null);
+      tmEmailOk('✅ Super Admin kirjautunut');
+      tmEmailLoad(false);
+      go('sCoach');goCoach();
+      return;
+    }
+  }catch(e){}
+
+  // 2. Hae seuran kayttajat-alikokoelmasta
+  for(var i=0;i<seurat.length;i++){
+    var sid=seurat[i];
+    try{
+      var kdoc=await db.collection('seurat').doc(sid)
+                       .collection('kayttajat').doc(user.uid).get();
+      if(kdoc.exists){
+        var kdata=kdoc.data();
+        var seuraDoc=await db.collection('seurat').doc(sid).get();
+        var seuraData=seuraDoc.exists?seuraDoc.data():null;
+        tmAsetaKayttaja(user,kdata,sid,seuraData);
+        tmEmailOk('✅ Kirjautunut: '+(kdata.nimi||user.email));
+        tmEmailLoad(false);
+        go('sCoach');goCoach();
+        return;
+      }
+    }catch(e){}
+  }
+
+  // 3. Fallback: VP-tarkistus (vp_uid seuradokumentissa)
+  for(var j=0;j<seurat.length;j++){
+    var sid2=seurat[j];
+    try{
+      var sdoc=await db.collection('seurat').doc(sid2).get();
+      if(sdoc.exists&&sdoc.data().vp_uid===user.uid){
+        var vpData=sdoc.data();
+        tmAsetaKayttaja(user,{rooli:'vp',nimi:user.email,joukkueet:[]},sid2,vpData);
+        tmEmailOk('✅ VP kirjautunut: '+(vpData.nimi||sid2.toUpperCase()));
+        tmEmailLoad(false);
+        go('sCoach');goCoach();
+        return;
+      }
+    }catch(e){}
+  }
+
+  // Ei löydy mistään
+  tmEmailLoad(false);
+  tmEmailErr('Käyttäjätiliä ei löydy. Ota yhteyttä valmennuspäällikköön.');
+  if(window._tmAuth)window._tmAuth.signOut();
+}
+
+// ── TILAN ASETUS + SESSIO-CACHE ───────────────────────────────────────────
+function tmAsetaKayttaja(user,kdata,seuraId,seuraDoc){
+  window.TM.auth.user=user;
+  window.TM.auth.kayttaja=kdata;
+  window.TM.auth.seura=seuraDoc;
+  window.TM.auth.seuraId=seuraId;
+  window.TM.auth.rooli=kdata.rooli||'valmentaja';
+  window.TM.auth.joukkueet=kdata.joukkueet||[];
+  window.TM.auth.kirjautumistapa='email';
+
+  // Synkronoi Master v7:n globaalit
+  window._coachSeuraId=seuraId||'demo_seura';
+  window._coachRooli=kdata.rooli||'valmentaja';
+  window.kirjautunutKayttaja={
+    uid:user.uid, email:user.email,
+    nimi:kdata.nimi||user.email,
+    rooli:kdata.rooli||'valmentaja',
+    seura:seuraId, joukkueet:kdata.joukkueet||[],
+    kirjautumistapa:'email'
+  };
+
+  // Cache sessionStorage + localStorage (max 8h)
+  var sessio=JSON.stringify({
+    uid:user.uid, seuraId:seuraId,
+    rooli:kdata.rooli||'valmentaja',
+    joukkueet:kdata.joukkueet||[],
+    kayttaja:kdata,
+    timestamp:Date.now()
+  });
+  localStorage.setItem('tm_email_sessio',sessio);
+  // Aseta myös Master v7:n oma kirjautumisavain
+  sls('tm_kirjautunut',{id:'HPP-T001',rooli:'valmentaja',email:user.email});
+  console.log('[TM Firebase] Käyttäjä asetettu:',seuraId,kdata.rooli);
+}
+
+// ── ULOSKIRJAUTUMINEN ─────────────────────────────────────────────────────
+function tmKirjauduUlos(){
+  if(!confirm('Kirjaudutaanko ulos?'))return;
+  if(window._tmAuth)window._tmAuth.signOut();
+  localStorage.removeItem('tm_email_sessio');
+  localStorage.removeItem('tm_kirjautunut');
+  window.TM.auth={user:null,kayttaja:null,seura:null,seuraId:null,
+                  rooli:null,joukkueet:[],kirjautumistapa:null};
+  window.TM.pelaajat=[];
+  window._tmPelaajatLadataan=false;
+  go('sPin');
+  naytaToast('Kirjauduttu ulos');
+}
+
+// ── UI-APUFUNKTIOT ────────────────────────────────────────────────────────
+function tmEmailErr(teksti){
+  var el=document.getElementById('emailErr');
+  if(!el)return;
+  el.textContent=teksti; el.style.display='block';
+  setTimeout(function(){el.style.display='none';},6000);
+}
+function tmEmailOk(teksti){
+  var el=document.getElementById('emailOk');
+  if(!el)return;
+  el.textContent=teksti; el.style.display='block';
+  setTimeout(function(){el.style.display='none';},3000);
+}
+function tmEmailLoad(on){
+  var el=document.getElementById('emailLoad');
+  if(el)el.style.display=on?'block':'none';
+  var btn=document.querySelector('#emailWrap button');
+  if(btn){btn.disabled=on;btn.style.opacity=on?'0.6':'1';}
+}
+</script>
 
 </body>
 </html>
