@@ -355,18 +355,10 @@ const functions = firebase.app().functions('europe-west1');
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
   .catch(e => console.warn('Persistence-asetus epäonnistui:', e.message));
 
-// Firestore offline-tuki — kirjaukset tallentuvat vaikka
-// verkko katkeaa hetkeksi (valmentajat kentällä)
-db.enablePersistence({ synchronizeTabs: true })
-  .catch(e => {
-    if (e.code === 'failed-precondition') {
-      // Useampi välilehti auki — ei kriittinen
-      console.warn('Offline-tuki: useampi välilehti auki');
-    } else if (e.code === 'unimplemented') {
-      // Selain ei tue — ei kriittinen
-      console.warn('Offline-tuki: selain ei tue');
-    }
-  });
+// Firestore offline-tuki — poistettu enablePersistence() koska se on
+// vanhentunut v9 SDK:ssa ja häiritsee Auth-session IndexedDB-tallennusta.
+// Offline-tuki lisätään myöhemmin FirestoreSettings.cache-asetuksella.
+console.log('[TM Admin] Firebase alustettu ✓');
 
 // ─────────────────────────────────────────
 // TILA
@@ -383,10 +375,19 @@ const tila = {
 // AUTH-KUUNTELIJA
 // KORJAUS: virheenkäsittely + token-päivitys 50min välein
 // ─────────────────────────────────────────
+// _kirjautuminenKesken-lippu estää onAuthStateChanged-silmukan:
+// signOut() lataaProfiilissa laukaisi onAuthStateChanged → null →
+// kirjautumisruutu, mutta myös uuden lataaProfiili-kutsun jos
+// käyttäjä oli vielä hetken voimassa. Lippu katkaisee tämän.
+let _kirjautuminenKesken = false;
+
 auth.onAuthStateChanged(async (kayttaja) => {
+  if (_kirjautuminenKesken) return; // estetään silmukka
   if (kayttaja) {
     nayta('lataus');
+    _kirjautuminenKesken = true;
     await lataaProfiili(kayttaja);
+    _kirjautuminenKesken = false;
   } else {
     if (tila._tokenTimer) {
       clearInterval(tila._tokenTimer);
