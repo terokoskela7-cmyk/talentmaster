@@ -582,6 +582,78 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   </div>
 </div>
 
+
+<!-- ══ VALMENTAJAKUTSU-MODAL ══════════════════════════════════════ -->
+<!-- VP tai sihteeri kutsuu uuden valmentajan / henkilöstön jäsenen -->
+<!-- luoKayttaja Cloud Function luo Firebase Auth -tilin +           -->
+<!-- custom claims ja lähettää salasanavaihtolinkin sähköpostiin     -->
+<div class="modalTausta" id="kutsuModal">
+  <div class="modalKortti" style="max-width:480px;">
+    <button class="modalSuljeNappi" onclick="suljeModal('kutsuModal')">✕ Sulje</button>
+    <div class="modalOtsikko">Kutsu uusi käyttäjä</div>
+    <div class="modalKuvaus">
+      Käyttäjä saa sähköpostiin kirjautumislinkin. Hän voi kirjautua
+      valmentajan näkymään heti salasanan asettamisen jälkeen.
+    </div>
+
+    <!-- Etunimi + Sukunimi rinnakkain -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="kenttaRyhma" style="margin:0;">
+        <label class="kenttaLabel">Etunimi *</label>
+        <input class="kenttaInput" type="text" id="kutsu_etunimi"
+          placeholder="Mikko" autocomplete="off">
+      </div>
+      <div class="kenttaRyhma" style="margin:0;">
+        <label class="kenttaLabel">Sukunimi *</label>
+        <input class="kenttaInput" type="text" id="kutsu_sukunimi"
+          placeholder="Virtanen" autocomplete="off">
+      </div>
+    </div>
+
+    <!-- Sähköposti -->
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel">Sähköposti *</label>
+      <input class="kenttaInput" type="email" id="kutsu_email"
+        placeholder="mikko.virtanen@seura.fi" autocomplete="off">
+    </div>
+
+    <!-- Rooli -->
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel">Rooli *</label>
+      <select class="kenttaInput" id="kutsu_rooli">
+        <option value="">— Valitse rooli —</option>
+        <option value="valmentaja">Valmentaja</option>
+        <option value="talenttivalmentaja">Talenttivalmentaja</option>
+        <option value="fysiikkavalmentaja">Fysiikkavalmentaja</option>
+        <option value="testivastaava">Testivastaava</option>
+        <option value="fysioterapeutti">Fysioterapeutti</option>
+        <option value="seurasihteeri">Seurasihteeri</option>
+      </select>
+    </div>
+
+    <!-- Joukkueet — haetaan Firestoresta, näytetään checkboxeina -->
+    <div class="kenttaRyhma" id="kutsuJoukkueetRyhma">
+      <label class="kenttaLabel">Joukkueet</label>
+      <div id="kutsuJoukkueetLista"
+        style="display:flex;flex-direction:column;gap:8px;
+          background:var(--bg3);border:1px solid var(--bord2);
+          border-radius:8px;padding:12px;max-height:200px;overflow-y:auto;">
+        <div style="font-size:12px;color:var(--ink3);">Ladataan joukkueita...</div>
+      </div>
+      <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
+        Rastita kaikki joukkueet joita henkilö vetää tai joissa hän toimii
+      </span>
+    </div>
+
+    <!-- Tallenna -->
+    <button class="nappi" id="kutsuNappi" onclick="tallennaKutsu()"
+      style="margin-top:8px;">
+      Kutsu ja lähetä sähköposti
+    </button>
+    <div class="virheDiv" id="kutsuVirhe"></div>
+  </div>
+</div>
+
 <!-- ══ REKISTERIPOHJA-OHJEMODAL ══ -->
 <div class="modalTausta" id="rekisteriOhjeModal">
   <div class="modalKortti" style="max-width:580px;">
@@ -1790,11 +1862,158 @@ async function poistaJoukkue(id, nimi) {
 // HENKILÖSTÖN TOIMINNOT
 // ─────────────────────────────────────────────────────────────────
 function avaaKayttajaModal() {
-  // Ohjataan Admin-näkymään käyttäjänluontia varten
-  // Admin-näkymässä on jo täysi luontiflow Gmail-kutsulla
-  const adminUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Admin.html';
-  if (confirm('Käyttäjien luonti tapahtuu Admin-näkymässä. Avataanko se?')) {
-    window.open(adminUrl, '_blank');
+  // Avataan kutsumodal suoraan — ei enää ohjata Admin-näkymään
+  const modal = document.getElementById('kutsuModal');
+  if (!modal) return;
+
+  // Nollataan kentät
+  ['kutsu_etunimi','kutsu_sukunimi','kutsu_email'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const rooli = document.getElementById('kutsu_rooli');
+  if (rooli) rooli.value = '';
+  const virhe = document.getElementById('kutsuVirhe');
+  if (virhe) virhe.textContent = '';
+  const nappi = document.getElementById('kutsuNappi');
+  if (nappi) { nappi.disabled = false; nappi.textContent = 'Kutsu ja lähetä sähköposti'; }
+
+  // Hae joukkueet Firestoresta
+  lataaKutsuJoukkueet();
+
+  // Avaa modal
+  modal.classList.add('auki');
+}
+
+async function lataaKutsuJoukkueet() {
+  const lista = document.getElementById('kutsuJoukkueetLista');
+  if (!lista) return;
+  lista.innerHTML = '<div style="font-size:12px;color:var(--ink3);">Ladataan...</div>';
+  try {
+    const snap = await db.collection('seurat').doc(tila.seuraId)
+      .collection('joukkueet').orderBy('nimi').get();
+    if (snap.empty) {
+      lista.innerHTML = '<div style="font-size:12px;color:var(--ink3);">Ei joukkueita — lisää ensin joukkueet.</div>';
+      return;
+    }
+    lista.innerHTML = snap.docs.map(d => {
+      const j = d.data();
+      return `
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;
+          padding:7px 8px;border-radius:7px;transition:background .15s;"
+          onmouseover="this.style.background='rgba(255,255,255,.04)'"
+          onmouseout="this.style.background='transparent'">
+          <input type="checkbox" value="${d.id}"
+            data-nimi="${(j.nimi||d.id).replace(/"/g,'&quot;')}"
+            style="width:16px;height:16px;accent-color:var(--orange);cursor:pointer;">
+          <span style="font-size:13px;">${j.nimi||d.id}</span>
+          <span style="font-size:11px;color:var(--ink3);margin-left:auto;">${j.ikaluokka||''}</span>
+        </label>`;
+    }).join('');
+  } catch(e) {
+    lista.innerHTML = `<div style="font-size:12px;color:var(--red);">Virhe: ${e.message}</div>`;
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// VALMENTAJAKUTSU — tallennaKutsu()
+// 1. Validoi lomake
+// 2. Kutsuu luoKayttaja Cloud Functionia (Firebase Functions)
+// 3. Tallentaa käyttäjätiedot Firestoreen kayttajat-kokoelmaan
+// 4. Lähettää salasananvaihtolinkin sähköpostiin
+// ─────────────────────────────────────────────────────────────────
+async function tallennaKutsu() {
+  const etunimi  = (document.getElementById('kutsu_etunimi')?.value || '').trim();
+  const sukunimi = (document.getElementById('kutsu_sukunimi')?.value || '').trim();
+  const email    = (document.getElementById('kutsu_email')?.value || '').trim().toLowerCase();
+  const rooli    = document.getElementById('kutsu_rooli')?.value || '';
+  const virheEl  = document.getElementById('kutsuVirhe');
+  const nappi    = document.getElementById('kutsuNappi');
+
+  // Validointi
+  const naytaVirhe = (t) => { if (virheEl) virheEl.textContent = t; };
+  naytaVirhe('');
+
+  if (!etunimi) return naytaVirhe('Kirjoita etunimi.');
+  if (!sukunimi) return naytaVirhe('Kirjoita sukunimi.');
+  if (!email || !email.includes('@')) return naytaVirhe('Kirjoita kelvollinen sähköpostiosoite.');
+  if (!rooli) return naytaVirhe('Valitse rooli.');
+
+  // Kerää valitut joukkueet
+  const joukkueetCheckboxes = document.querySelectorAll('#kutsuJoukkueetLista input[type=checkbox]:checked');
+  const joukkueet = Array.from(joukkueetCheckboxes).map(cb => ({
+    id:   cb.value,
+    nimi: cb.dataset.nimi || cb.value
+  }));
+
+  // UI — lataus
+  if (nappi) { nappi.disabled = true; nappi.textContent = 'Lähetetään...'; }
+
+  try {
+    // ── Kutsutaan luoKayttaja Cloud Functionia ──────────────────
+    // Funktio luo Firebase Auth -tilin, asettaa custom claims
+    // ja palauttaa uuden käyttäjän UID:n
+    const luoFn = firebase.functions().httpsCallable('luoKayttaja');
+    const tulos = await luoFn({
+      email,
+      etunimi,
+      sukunimi,
+      rooli,
+      seuraId:   tila.seuraId,
+      joukkueet: joukkueet.map(j => j.id)
+    });
+
+    const uid = tulos.data?.uid;
+    if (!uid) throw new Error('Cloud Function ei palauttanut UID:ta');
+
+    // ── Tallennetaan kayttajat-kokoelmaan ───────────────────────
+    // Tämä on se dokumentti jonka henkilöstö-välilehti näyttää
+    await db.collection('seurat').doc(tila.seuraId)
+      .collection('kayttajat').doc(uid).set({
+        uid,
+        email,
+        etunimi,
+        sukunimi,
+        rooli,
+        seuraId:       tila.seuraId,
+        joukkueet:     joukkueet.map(j => j.id),
+        joukkueNimet:  joukkueet.map(j => j.nimi),
+        joukkueNimi:   joukkueet[0]?.nimi || '',
+        claimsAsetettu: true,
+        aktiivinen:    true,
+        luotu:         firebase.firestore.FieldValue.serverTimestamp(),
+        kutsuttu:      firebase.firestore.FieldValue.serverTimestamp(),
+        kutsuja:       tila.kayttajaEmail || ''
+      });
+
+    // ── Lähetetään salasanalinkki ────────────────────────────────
+    try {
+      await auth.sendPasswordResetEmail(email);
+    } catch(sErr) {
+      // Ei kriittinen — käyttäjä voi pyytää linkin myöhemmin
+      console.warn('Salasanalinkki epäonnistui:', sErr.message);
+    }
+
+    // ── Onnistui ─────────────────────────────────────────────────
+    suljeModal('kutsuModal');
+    naytaToast(
+      `${etunimi} ${sukunimi} kutsuttu — salasanalinkki lähetetty osoitteeseen ${email}`,
+      'ok'
+    );
+
+    // Päivitä henkilöstölista
+    renderHenkilosto(document.getElementById('nakymaAlue'));
+
+  } catch(e) {
+    console.error('Kutsu epäonnistui:', e);
+    const virheViesti = e.code === 'already-exists' || e.message?.includes('already exists')
+      ? 'Sähköpostiosoite on jo käytössä.'
+      : e.message?.includes('permission')
+      ? 'Ei oikeuksia — tarkista että olet kirjautunut VP:nä tai sihteerinä.'
+      : `Virhe: ${e.message}`;
+    naytaVirhe(virheViesti);
+    if (nappi) { nappi.disabled = false; nappi.textContent = 'Kutsu ja lähetä sähköposti'; }
   }
 }
 
