@@ -403,8 +403,37 @@ async function lataaProfiili(kayttaja) {
     const token  = await kayttaja.getIdTokenResult(true);
     tila.claims  = token.claims;
 
-    const rooli = tila.claims.rooli || '';
-    const sallitut = ['superadmin', 'vp', 'seurasihteeri', 'urheilutoimenjohtaja'];
+    let rooli = tila.claims.rooli || '';
+
+    // ── FALLBACK: Custom claim puuttuu → tarkista Firestoresta ───────────
+    // Custom claimsit asetetaan Cloud Functionilla ja voivat olla
+    // vanhentuneita tai puuttua kokonaan uusilla tileillä.
+    // Firestoren admins-kokoelma on auktoritatiivinen lähde super-adminille.
+    if (!rooli) {
+      try {
+        const adminDoc = await db.collection('admins').doc(kayttaja.uid).get();
+        if (adminDoc.exists && adminDoc.data().superAdmin) {
+          rooli = 'superadmin';
+          tila.claims = { ...tila.claims, rooli: 'superadmin' };
+        }
+      } catch(e) { console.warn('Admin-tarkistus epäonnistui:', e.message); }
+    }
+
+    // ── VP-fallback: tarkista vp_uid seuradokumenteista ──────────────────
+    if (!rooli) {
+      try {
+        const seuratSnap = await db.collection('seurat').get();
+        for (const doc of seuratSnap.docs) {
+          if (doc.data().vp_uid === kayttaja.uid) {
+            rooli = 'vp';
+            tila.claims = { ...tila.claims, rooli: 'vp', seuraId: doc.id };
+            break;
+          }
+        }
+      } catch(e) { console.warn('VP-tarkistus epäonnistui:', e.message); }
+    }
+
+    const sallitut = ['superadmin', 'vp', 'seurasihteeri', 'urheilutoimenjohtaja', 'seura_admin'];
 
     if (!sallitut.includes(rooli)) {
       nayta('kirjautuminen');
