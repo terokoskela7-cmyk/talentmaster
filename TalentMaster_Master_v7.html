@@ -13759,6 +13759,35 @@ function tmInitFirebaseMaster(){
     window._tmDb=firebase.firestore();
     window._tmAuth=firebase.auth();
     console.log('[TM Firebase] Alustettu ✓');
+
+    // ── SUPER ADMIN BYPASS ─────────────────────────────────────────────
+    // Tarkistetaan onko Super Admin avannut tämän näkymän Admin-paneelista.
+    // sessionStorage häviää kun välilehti suljetaan — ei pitkäaikainen riski.
+    var saKontekstiRaw = sessionStorage.getItem('tm_superadmin_konteksti');
+    if(saKontekstiRaw){
+      try{
+        var saK = JSON.parse(saKontekstiRaw);
+        // Varmistetaan että konteksti on tuore (max 10 min) ja sisältää tarvittavat tiedot
+        if(saK.superadmin && saK.seuraId && (Date.now()-saK.timestamp < 10*60*1000)){
+          console.log('[TM Firebase] Super Admin bypass: '+saK.seuraId);
+          window.TM.auth.kirjautumistapa = 'email';
+          window.TM.auth.seuraId = saK.seuraId;
+          window.TM.auth.rooli = 'superadmin';
+          window.TM.auth.joukkueet = [];
+          window._coachSeuraId = saK.seuraId;
+          window._coachRooli = 'superadmin';
+          // Päivitä topbarin seuranimi
+          var el = document.getElementById('coachJoukkueTxt');
+          if(el) el.textContent = saK.seuraNimi + ' · Super Admin';
+          // Lataa pelaajat heti
+          window._tmPelaajatLadataan = false;
+          haeJoukkuePelaajatFirebase();
+          go('sCoach'); goCoach();
+          return; // Ei tarvita normaalia auth-kuuntelua
+        }
+      }catch(e){ console.warn('[TM Firebase] SA bypass virhe:',e); }
+    }
+    // ─────────────────────────────────────────────────────────────────
     tmKuunteleAuthTilaa();
   }catch(e){console.error('[TM Firebase] Alustusvirhe:',e);}
 }
