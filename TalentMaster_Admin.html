@@ -484,6 +484,44 @@ async function lataaProfiili(kayttaja) {
 }
 
 // ─────────────────────────────────────────
+// SUPER ADMIN — SEURANÄKYMIEN AVAUS
+// Tallentaa Super Adminin kontekstin sessionStorageen
+// ja avaa halutun näkymän uudessa välilehdessä.
+// VP-dashboard ja Master v7 tarkastavat tämän käynnistyessään.
+// ─────────────────────────────────────────
+function tallennaSuperAdminKonteksti(seuraId, seuraNimi) {
+  // sessionStorage — häviää kun välilehti suljetaan, ei jää roikkumaan
+  const konteksti = JSON.stringify({
+    superadmin: true,
+    uid: tila.kayttaja?.uid,
+    email: tila.kayttaja?.email,
+    seuraId,
+    seuraNimi,
+    timestamp: Date.now(),
+  });
+  sessionStorage.setItem('tm_superadmin_konteksti', konteksti);
+}
+
+function avaaSeuraVP(seuraId, seuraNimi) {
+  tallennaSuperAdminKonteksti(seuraId, seuraNimi);
+  // Avataan uudessa välilehdessä — Super Admin pysyy Admin-näkymässä
+  window.open(
+    `https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_VP_v17.html?seura=${seuraId}`,
+    '_blank'
+  );
+  naytaToast(`Avataan ${seuraNimi} VP-näkymä...`, 'ok');
+}
+
+function avaaSeuraValmentaja(seuraId, seuraNimi) {
+  tallennaSuperAdminKonteksti(seuraId, seuraNimi);
+  window.open(
+    `https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Master_v7.html?seura=${seuraId}`,
+    '_blank'
+  );
+  naytaToast(`Avataan ${seuraNimi} valmentajanäkymä...`, 'ok');
+}
+
+// ─────────────────────────────────────────
 // SEUROJEN LATAUS
 // Super-admin näkee kaikki, VP näkee vain oman
 // ─────────────────────────────────────────
@@ -611,15 +649,31 @@ function renderSeurat(alue) {
       <table>
         <thead><tr>
           <th>Seura</th><th>ID</th><th>Paketti</th><th>Laji</th><th>Status</th>
+          ${tila.claims && tila.claims.rooli === 'superadmin' ? '<th>Avaa näkymä</th>' : ''}
         </tr></thead>
         <tbody>
           ${seurat.map(s => `
             <tr>
-              <td>${s.nimi || s.id}</td>
+              <td style="font-weight:600;">${s.nimi || s.id}</td>
               <td style="font-family:monospace;font-size:12px;color:var(--ink3);">${s.id}</td>
               <td>${s.paketti || '—'}</td>
               <td>${s.laji || 'jalkapallo'}</td>
               <td><span class="badge aktiivinen">${s.aktiivinen !== false ? 'Aktiivinen' : 'Ei aktiivinen'}</span></td>
+              ${tila.claims && tila.claims.rooli === 'superadmin' ? `
+              <td>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button class="toimintaNappi"
+                    onclick="avaaSeuraVP('${s.id}','${s.nimi || s.id}')"
+                    title="Avaa VP-dashboard tämän seuran kontekstissa">
+                    📊 VP
+                  </button>
+                  <button class="toimintaNappi"
+                    onclick="avaaSeuraValmentaja('${s.id}','${s.nimi || s.id}')"
+                    title="Avaa valmentajan näkymä tämän seuran kontekstissa">
+                    ⚽ Valmentaja
+                  </button>
+                </div>
+              </td>` : ''}
             </tr>
           `).join('')}
         </tbody>
