@@ -491,6 +491,45 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
         <div class="sk-h" id="skH">Analysoidaan...</div>
         <div class="sk-p" id="skP">—</div>
         <div class="sk-toimet" id="skToimet"></div>
+        <!-- Valmentajan viimeisin havainto — täyttää renderSeuraavaksi -->
+        <div id="skHavBanneri" style="display:none;margin-top:10px;padding:10px 12px;
+          background:var(--bg3);border-radius:9px;border-left:3px solid var(--teal);">
+        </div>
+      </div>
+      <!-- Pelaajan oma tavoitelause — "omistajuus" -->
+      <!-- Näkyy aina, mutta muokattava vain pelaaja/valmentaja-roolissa -->
+      <div id="omaTavoiteKortti" style="margin-top:10px;padding:12px 14px;
+        background:var(--bg2);border:1px solid var(--line2);border-radius:12px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;
+          text-transform:uppercase;color:var(--ink3);margin-bottom:8px;">
+          🎯 Minun kauteni
+        </div>
+        <div id="omaTavoiteTeksti" style="font-size:13px;color:var(--ink2);
+          line-height:1.6;font-style:italic;min-height:36px;">
+          —
+        </div>
+        <textarea id="omaTavoiteInput" placeholder="Kirjoita omin sanoin — mitä haluat tällä kaudella parantaa?"
+          style="display:none;width:100%;background:var(--bg3);border:1px solid var(--line);
+          border-radius:8px;padding:9px 11px;color:var(--ink);font-family:'DM Sans',sans-serif;
+          font-size:12px;resize:none;outline:none;line-height:1.55;min-height:60px;
+          margin-top:6px;" rows="3"></textarea>
+        <div id="omaTavoiteNapit" style="display:none;margin-top:8px;display:flex;gap:6px;">
+          <button onclick="tallennaTavoitelause()"
+            style="flex:1;padding:7px;background:var(--teal);border:none;border-radius:8px;
+            color:#000;font-size:11px;font-weight:700;cursor:pointer;">
+            Tallenna
+          </button>
+          <button onclick="peruutaTavoitelause()"
+            style="padding:7px 12px;background:var(--bg3);border:1px solid var(--line);
+            border-radius:8px;color:var(--ink3);font-size:11px;cursor:pointer;">
+            Peruuta
+          </button>
+        </div>
+        <div id="omaTavoiteMuokkaa" style="display:none;margin-top:6px;">
+          <button onclick="avaaOmaTavoite()"
+            style="background:none;border:none;color:var(--ink3);font-size:11px;
+            cursor:pointer;padding:0;">✏️ Muokkaa</button>
+        </div>
       </div>
       <div class="hal-lista" id="halLista"></div>
     </div>
@@ -729,12 +768,13 @@ function render(p,hav,testit){
   renderDVI(p);
   renderRAE(p);
   renderHalytykset(p,phv,tid,gems);
-  renderSeuraavaksi(p,phv,tid,track,gems,xf);
+  renderSeuraavaksi(p,phv,tid,track,gems,xf,hav);
   renderD5(p,tid);
   renderErikois(gems,xf);
   renderTestit(testit);
   renderLas(p.lasnaolo);
   renderHav(hav);
+  renderOmaTavoite(p, rooli);  // Pelaajan oma tavoitelause
   renderTav(p.tavoitteet||[]);
 
   // Klinikka-automaatti: FLEI < 40
@@ -1102,7 +1142,53 @@ function renderHalytykset(p,phv,tid,gems){
   $('halLista').innerHTML=al.map(a=>`<div class="hal ${a.k}"><span class="h-ik">${a.ik}</span><span>${a.t}</span></div>`).join('');
 }
 
-function renderSeuraavaksi(p,phv,tid,track,gems,xf){
+
+// ═══ VIIKKOHARJOITTEET PER KETJU ═══════════════════════════════
+// Nämä ovat se konkreettinen seuraava askel — ei suositus vaan
+// toimintaohje. Rakentuu vahvimman ketjun + ikäluokan mukaan.
+// Lähde: HPP ELITE Football DB + käyttäjätutkimus 70/30-filosofia.
+const VIIKKOHARJOITE={
+  SBL:{  // Vauhtiketju
+    u12:'Loikkaleikki 3×5 + naruhypyt 3×15s',
+    u15:'Reaktiolähtö 6×10m + pallollinen kiihdytys',
+    u19:'Flying 30–40m ×5 + 1v1 laidalla'
+  },
+  SFL:{  // Lähtöketju
+    u12:'Tasapainoharjoittelu yhdellä jalalla 3×30s',
+    u15:'Lateraalijuoksu + suunnanmuutos 4×10m',
+    u19:'Kasirata ×6 + 1v1 tiukassa tilassa'
+  },
+  LL:{   // Suunnanmuutosketju
+    u12:'Sivuttainen askelkyykky 3×8/jalka',
+    u15:'SM-rata + jarrutustekniikka 5×',
+    u19:'Kasirata kilpailu + 1v1 laidalla 6×'
+  },
+  SL:{   // Kiertoketju
+    u12:'Seinäsyöttö 3×10 molemmilla jaloilla',
+    u15:'1v1 ahtaassa tilassa 4×3min',
+    u19:'Dual-Task Rondo 5v2 + 1v1 seinäsyöttö'
+  },
+  DFL:{  // Hallintaketju
+    u12:'Lankku 3×20s + kyykkyistunta 3×30s',
+    u15:'McGill Big 3 + dead bug 3×8/puoli',
+    u19:'RDL yhdellä jalalla 3×8 + Copenhagen plank 3×20s'
+  },
+  FL:{   // Yhdistelmäketju
+    u12:'Seinäsyöttö + juoksu + vastaanotto 3×8',
+    u15:'Diagonaalikombo: syöttö + liike + vastaanotto',
+    u19:'Pienpeli: vaadi 2 kosketusta + kombinaatio ennen laukausta'
+  }
+};
+
+function haeViikkoharjoite(ketjuAvain, ika) {
+  const harj = VIIKKOHARJOITE[ketjuAvain];
+  if (!harj) return null;
+  if (ika < 13) return harj.u12;
+  if (ika < 16) return harj.u15;
+  return harj.u19;
+}
+
+function renderSeuraavaksi(p,phv,tid,track,gems,xf,hav){
   const sk=$('skKortti');
   let col='var(--teal)',h,kuvaus,toimet=[];
   const las=p.lasnaolo;const lasPr=las?.pito>0?Math.round(las.paikalla/las.pito*100):null;
@@ -1137,15 +1223,54 @@ function renderSeuraavaksi(p,phv,tid,track,gems,xf){
     kuvaus=`Pelaaja on seuran kärkipolulla. Vahvuus: ${vk?vk.nimi:'—'}. ${vk?'Cue: '+vk.cue:''}`;
     toimet=[{t:'📝 Kirjaa viikkohavainto',p:true,fn:()=>scrollHav()}];
   } else {
-    col='var(--teal)';h='Jatka kehityspolkua';
-    kuvaus=`${p.etunimi||'Pelaaja'} kehittyy normaalisti. 70% panostus vahvuuksiin, 30% heikoimman ketjun kehitykseen.`;
-    toimet=[{t:'📝 Kirjaa havainto',p:false,fn:()=>scrollHav()}];
+    // Lasketaan vahvin ketju konkreettista viikkoharjoitetta varten
+    const ketjuEntries = Object.entries(p.ketjut||{}).filter(([,v])=>v>0);
+    const vahvinEntry = ketjuEntries.sort((a,b)=>b[1]-a[1])[0];
+    const vahvinAvain = vahvinEntry?.[0] || 'SBL';
+    const ika2 = Math.floor(ikaTark(p.syntymaaika)||14);
+    const viikkoH = haeViikkoharjoite(vahvinAvain, ika2);
+    const ketjuNimi = KETJU_DATA[vahvinAvain]?.nimi || vahvinAvain;
+    const heikinEntry = ketjuEntries.sort((a,b)=>a[1]-b[1])[0];
+    const heikinNimi = KETJU_DATA[heikinEntry?.[0]]?.nimi || '—';
+
+    col='var(--teal)';
+    h=`Tällä viikolla: ${ketjuNimi}`;
+    kuvaus = viikkoH
+      ? `70% → ${viikkoH}
+30% → harjoita ${heikinNimi}-ketjua`
+      : `70% panostus ${ketjuNimi}-vahvuuteen, 30% ${heikinNimi}-kehitykseen.`;
+    toimet=[
+      {t:'📝 Kirjaa havainto',p:true,fn:()=>scrollHav()},
+      {t:'🏥 Aktivoi klinikka',p:false,fn:()=>toggleKlinikka()}
+    ];
   }
   sk.style.setProperty('--sk-c',col);
   $('skH').textContent=h;$('skP').textContent=kuvaus;
   $('skToimet').innerHTML=toimet.map(t=>`<button class="sk-btn ${t.p?'sk-prim':'sk-sek'}">${t.t}</button>`).join('');
-  // Lisätään click-handlerit
   $('skToimet').querySelectorAll('.sk-btn').forEach((btn,i)=>{if(toimet[i]?.fn)btn.onclick=toimet[i].fn;});
+
+  // ── Valmentajan viimeisin havainto — näytetään kortin alaosassa ──
+  // Tämä muuttaa kortin monologista dialogiksi: valmentajan ääni
+  // on läsnä joka kerta kun kortti avataan.
+  const havBanneri=document.getElementById('skHavBanneri');
+  const viimHav=Array.isArray(hav)&&hav.length>0?hav[0]:null;
+  if(viimHav&&havBanneri){
+    const pvm=viimHav.luotu?.seconds
+      ?new Date(viimHav.luotu.seconds*1000).toLocaleDateString('fi-FI',{day:'numeric',month:'numeric'})
+      :'äskettäin';
+    const tunVari={tekninen:'var(--teal)',fyysinen:'var(--blue)',taktinen:'var(--purple)',henkinen:'var(--amber)'}[viimHav.tunnus]||'var(--teal)';
+    havBanneri.style.display='block';
+    havBanneri.innerHTML=`
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+        color:${tunVari};margin-bottom:5px;">
+        Valmentajasi kirjasi ${pvm}
+      </div>
+      <div style="font-size:12px;color:var(--ink2);line-height:1.55;font-style:italic;">
+        "${viimHav.teksti||viimHav.kommentti||'—'}"
+      </div>`;
+  } else if(havBanneri){
+    havBanneri.style.display='none';
+  }
 }
 
 // ═══ 5D, ERIKOIS, TESTIT, LÄSNÄOLO, HAV, TAV, VAN ════════════
@@ -1219,6 +1344,104 @@ function pvm(ts){const d=ts?.toDate?ts.toDate():new Date((ts?.seconds||0)*1000||
 function scrollHav(){const t=$('havTa');if(t){t.scrollIntoView({behavior:'smooth'});setTimeout(()=>t.focus(),400);}}
 function virhe(msg){$('lataaja').innerHTML=`<div style="text-align:center;max-width:320px;padding:32px"><div style="font-size:36px;margin-bottom:14px">🔒</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:8px">Pääsy estetty</div><div style="font-size:13px;color:var(--ink3);line-height:1.6">${msg}</div></div>`;}
 function toast(t,k='ok'){const e=$('toast');e.textContent=t;e.className=`vis ${k}-t`;clearTimeout(e._t);e._t=setTimeout(()=>e.className='',3200);}
+
+// ═══ PELAAJAN OMA TAVOITELAUSE ═══════════════════════════════
+// Tallentuu Firestoreen seurat/{id}/pelaajat/{id}-dokumentin
+// idp_kausi-kenttään. Näkyy kortilla aina — muokattavissa
+// vain pelaaja- ja valmentajanäkymässä.
+
+function renderOmaTavoite(p, rooli) {
+  const kortti = document.getElementById('omaTavoiteKortti');
+  const teksti = document.getElementById('omaTavoiteTeksti');
+  const muokkaa = document.getElementById('omaTavoiteMuokkaa');
+  if (!kortti) return;
+
+  // Hae tallennettua lausetta — ensin idp_kausi, sitten tavoitteet
+  const lause = p.idp_oma_lause || p.oma_lause || '';
+
+  if (lause) {
+    teksti.textContent = '"' + lause + '"';
+    teksti.style.fontStyle = 'italic';
+  } else {
+    teksti.textContent = rooli === 'pelaaja'
+      ? 'Mitä haluat tällä kaudella parantaa? Kirjoita se omin sanoin.'
+      : 'Pelaaja ei ole vielä kirjoittanut kausitavoitettaan.';
+    teksti.style.fontStyle = 'normal';
+    teksti.style.color = 'var(--ink3)';
+  }
+
+  // Muokkausnappuli näkyy vain pelaajalle ja valmentajalle
+  if (['pelaaja', 'valmentaja'].includes(rooli)) {
+    muokkaa.style.display = 'block';
+  } else {
+    muokkaa.style.display = 'none';
+  }
+}
+
+function avaaOmaTavoite() {
+  const input = document.getElementById('omaTavoiteInput');
+  const napit = document.getElementById('omaTavoiteNapit');
+  const muokkaa = document.getElementById('omaTavoiteMuokkaa');
+  const teksti = document.getElementById('omaTavoiteTeksti');
+  // Esitäytä nykyisellä lauseella
+  const nykyinen = T.p?.idp_oma_lause || T.p?.oma_lause || '';
+  input.value = nykyinen;
+  input.style.display = 'block';
+  napit.style.display = 'flex';
+  muokkaa.style.display = 'none';
+  teksti.style.display = 'none';
+  input.focus();
+}
+
+function peruutaTavoitelause() {
+  document.getElementById('omaTavoiteInput').style.display = 'none';
+  document.getElementById('omaTavoiteNapit').style.display = 'none';
+  document.getElementById('omaTavoiteTeksti').style.display = 'block';
+  document.getElementById('omaTavoiteMuokkaa').style.display = 'block';
+}
+
+async function tallennaTavoitelause() {
+  const input = document.getElementById('omaTavoiteInput');
+  const lause = input.value.trim();
+  if (!lause) { toast('Kirjoita ensin tavoitelauseesi', 'virhe'); return; }
+  if (lause.length > 200) { toast('Lause on liian pitkä (max 200 merkkiä)', 'virhe'); return; }
+
+  try {
+    // Tallennetaan suoraan pelaajadokumenttiin idp_oma_lause-kenttään
+    // ja samalla idp_kausi-kenttään jotta Master v7 voi lukea sen
+    await db.collection('seurat').doc(T.seuraId)
+      .collection('pelaajat').doc(T.pelaajaId)
+      .update({
+        idp_oma_lause: lause,
+        idp_kausi: {
+          ...(T.p.idp_kausi || {}),
+          oma_lause: lause,
+          paivitetty: firebase.firestore.FieldValue.serverTimestamp()
+        }
+      });
+
+    // Päivitä paikallinen tila
+    if (T.p) {
+      T.p.idp_oma_lause = lause;
+      if (!T.p.idp_kausi) T.p.idp_kausi = {};
+      T.p.idp_kausi.oma_lause = lause;
+    }
+
+    // Näytä päivitetty teksti
+    const teksti = document.getElementById('omaTavoiteTeksti');
+    teksti.textContent = '"' + lause + '"';
+    teksti.style.fontStyle = 'italic';
+    teksti.style.color = 'var(--ink2)';
+    teksti.style.display = 'block';
+
+    peruutaTavoitelause();
+    toast('Tavoitelause tallennettu ✓', 'ok');
+  } catch(e) {
+    console.error('Tavoitelause tallennus epäonnistui:', e);
+    toast('Tallennus epäonnistui — tarkista yhteys', 'virhe');
+  }
+}
+
 </script>
 </body>
 </html>
