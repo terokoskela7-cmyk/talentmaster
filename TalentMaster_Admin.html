@@ -375,20 +375,27 @@ const tila = {
 // AUTH-KUUNTELIJA
 // KORJAUS: virheenkäsittely + token-päivitys 50min välein
 // ─────────────────────────────────────────
-// _kirjautuminenKesken-lippu estää onAuthStateChanged-silmukan:
-// signOut() lataaProfiilissa laukaisi onAuthStateChanged → null →
-// kirjautumisruutu, mutta myös uuden lataaProfiili-kutsun jos
-// käyttäjä oli vielä hetken voimassa. Lippu katkaisee tämän.
-let _kirjautuminenKesken = false;
+// _profiiliLadataan estää päällekkäiset lataaProfiili-kutsut
+// (esim. jos onAuthStateChanged laukeaa kahdesti nopeasti).
+// TÄRKEÄÄ: lippu EI estä NULL-tilaa — uloskirjautuminen
+// saa aina näyttää kirjautumisruudun.
+let _profiiliLadataan = false;
 
 auth.onAuthStateChanged(async (kayttaja) => {
-  if (_kirjautuminenKesken) return; // estetään silmukka
   if (kayttaja) {
+    if (_profiiliLadataan) return; // estetään päällekkäinen kutsu
+    _profiiliLadataan = true;
     nayta('lataus');
-    _kirjautuminenKesken = true;
-    await lataaProfiili(kayttaja);
-    _kirjautuminenKesken = false;
+    try {
+      await lataaProfiili(kayttaja);
+    } catch(e) {
+      console.error('[TM Admin] lataaProfiili virhe:', e);
+      nayta('kirjautuminen');
+    } finally {
+      _profiiliLadataan = false; // vapautetaan AINA — myös virhetilanteessa
+    }
   } else {
+    _profiiliLadataan = false; // varmistetaan lipun nollaus uloskirjautuessa
     if (tila._tokenTimer) {
       clearInterval(tila._tokenTimer);
       tila._tokenTimer = null;
@@ -437,10 +444,14 @@ async function lataaProfiili(kayttaja) {
     const sallitut = ['superadmin', 'vp', 'seurasihteeri', 'urheilutoimenjohtaja', 'seura_admin'];
 
     if (!sallitut.includes(rooli)) {
-      nayta('kirjautuminen');
+      // Heitetään virhe ylöspäin — onAuthStateChanged catch-lohko
+      // näyttää kirjautumisruudun ja finally nollaa lipun.
+      // auth.signOut() kutsutaan VASTA catch-lohkon jälkeen jotta
+      // se ei sekoita onAuthStateChanged-silmukkaa.
       naytaVirhe('kirjautumisVirhe',
-        'Ei admin-oikeuksia. Tämä näkymä on valmennuspäälliköille ja super-adminille.');
-      await auth.signOut();
+        `Ei admin-oikeuksia (rooli: "${rooli || 'ei asetettu'}"). ` +
+        'Tämä näkymä on valmennuspäälliköille ja super-adminille.');
+      await auth.signOut(); // tämä laukaisee onAuthStateChanged → null → kirjautumisruutu
       return;
     }
 
