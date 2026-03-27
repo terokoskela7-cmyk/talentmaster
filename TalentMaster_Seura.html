@@ -834,7 +834,7 @@ const functions = firebase.app().functions('europe-west1');
 // Sessio säilyy sivujen välillä
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
   .catch(e => console.warn('Persistence:', e.message));
-db.enablePersistence({ synchronizeTabs: true })
+  // enablePersistence poistettu — bugfix 2026-03-27: aiheutti IndexedDB-konfliktin Auth-sessionin kanssa
   .catch(e => console.warn('Offline-tuki:', e.code));
 
 // ─────────────────────────────────────────────────────────────────
@@ -867,7 +867,11 @@ const SALLITUT_ROOLIT = ['superadmin', 'super_admin', 'vp', 'seurasihteeri', 'ur
 // ─────────────────────────────────────────────────────────────────
 // AUTH-KUUNTELIJA
 // ─────────────────────────────────────────────────────────────────
+let _seuraLadataan = false; // bugfix 2026-03-27 — estää päällekkäiset lataukset
 auth.onAuthStateChanged(async (kayttaja) => {
+  if (_seuraLadataan && kayttaja) return;
+  if (!kayttaja) _seuraLadataan = false;
+  _seuraLadataan = !!kayttaja;
   if (kayttaja) {
     nayta('lataus');
     await lataaProfiili(kayttaja);
@@ -970,6 +974,7 @@ async function asetaAktiivinenSeura(seuraId) {
   tila._joukkueetKuuntelija = db
     .collection('seurat').doc(seuraId)
     .collection('joukkueet')
+    // Huom: orderBy vaatii Firestore-indeksin (jarjestys-kenttä joukkueet-kokoelmassa)
     .orderBy('jarjestys')
     .onSnapshot(snap => {
       tila.joukkueet = snap.docs.map(d => ({ id: d.id, ...d.data() }));
