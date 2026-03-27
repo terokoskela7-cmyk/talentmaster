@@ -1,106 +1,353 @@
 rules_version = '2';
+
+// TalentMaster™ — Firestore Security Rules
+// Päivitetty: 2026-03-27
+//
+// ROOLIARKKITEHTUURI (kolme kerrosta):
+//
+// HALLINTAKERROS
+//   Super Admin   — TalentMaster-taso, näkee kaiken
+//   Seuran Admin  — sihteeri/TJ, hallitsee rekisteriä
+//   VP            — Adminin varamies + operatiivinen + strateginen johtaja
+//
+// JOHTAMISKERROS
+//   UTJ           — vain strateginen näkymä, ei operatiivisia kirjoitusoikeuksia
+//                   null jos seurassa ei ole UTJ:tä — VP kattaa silloin molemmat
+//
+// KENTTÄKERROS (tallennetaan kayttajat-alikokoelmaan)
+//   valmentaja / testivastaava / talenttivalmentaja
+//   fysiikkavalmentaja / fysioterapeutti
+//
+// PELAAJA- JA HUOLTAJAKERROS
+//   pelaaja       — näkee vain oman profiilинsa
+//   huoltaja      — näkee lapsensa profiilin huoltaja_uid-kentän kautta
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Apufunktiot ────────────────────────────────────────────────────
-    
-    // Onko käyttäjä super-admin?
-    function isSuperAdmin() {
-      return request.auth != null && 
-             request.auth.token.email == 'talentmasterid@gmail.com';
-    }
-    
-    // Onko käyttäjä kirjautunut?
-    function isSignedIn() {
+    // ════════════════════════════════════════════════════════════
+    // APUFUNKTIOT
+    // Nämä ovat sääntörakenteen ydin. Jokainen funktio vastaa
+    // täsmälleen yhteen kysymykseen: "onko tämä käyttäjä X?"
+    // Apufunktioita käyttämällä jokainen sääntö pysyy lyhyenä
+    // ja muutokset tehdään vain yhteen paikkaan.
+    // ════════════════════════════════════════════════════════════
+
+    // Perusehto kaikelle — käyttäjä on kirjautunut sisään
+    function onKirjautunut() {
       return request.auth != null;
     }
-    
-    // Onko käyttäjällä VP-custom-claim tälle seuralle?
-    function isVP(seuraId) {
-      return request.auth != null && (
-        // Tapa 1: custom claim seuraId täsmää (uusi tapa, setup_demo_fc.js)
-        (request.auth.token.seuraId == seuraId && request.auth.token.rooli == 'vp') ||
-        // Tapa 2: super-admin näkee kaiken
-        isSuperAdmin()
-      );
-    }
-    
-    // Onko käyttäjä tämän seuran jäsen (VP tai valmentaja)?
-    function isSeuraJasen(seuraId) {
-      return isVP(seuraId) || isSuperAdmin();
+
+    // Super Admin tunnistetaan admins/{uid}-dokumentin olemassaolosta.
+    // Tämä on nopea exists()-tarkistus eikä vaadi get()-kutsua.
+    function onSuperAdmin() {
+      return onKirjautunut() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // ── Super-admin: lukee ja kirjoittaa kaiken ─────────────────────────
-    match /{document=**} {
-      allow read, write: if isSuperAdmin();
+    // ── Hallintakerros ───────────────────────────────────────────
+    // Nämä kolme funktiota hakevat seuradokumentin get()-kutsulla.
+    // Firestore välimuistittaa saman dokumentin saman evaluoinnin
+    // aikana, joten get() laskutetaan vain kerran per pyyntö
+    // vaikka funktioita kutsuttaisiin useita kertoja.
+
+    function onSeuranAdmin(seuraId) {
+      return onKirjautunut() &&
+        get(/databases/$(database)/documents/seurat/$(seuraId))
+          .data.admin_uid == request.auth.uid;
     }
 
-    // ── Admins-kokoelma ─────────────────────────────────────────────────
+    function onVP(seuraId) {
+      return onKirjautunut() &&
+        get(/databases/$(database)/documents/seurat/$(seuraId))
+          .data.vp_uid == request.auth.uid;
+    }
+
+    // Hallintaoikeus = Admin TAI VP TAI Super Admin.
+    // Käytetään aina kun tarvitaan rekisterin hallintaoikeus.
+    // VP:llä on nämä oikeudet varalta — myös pienissä seuroissa
+    // joissa erillistä Adminia ei ole.
+    function onHallinta(seuraId) {
+      return onSuperAdmin() || onSeuranAdmin(seuraId) || onVP(seuraId);
+    }
+
+    // ── Johtamiskerros ───────────────────────────────────────────
+
+    // UTJ: vain strateginen näkymä.
+    // Jos utj_uid on null (seurassa ei ole UTJ:tä), tämä
+    // palauttaa false ja VP kattaa strategisen tason yksin.
+    function onUTJ(seuraId) {
+      return onKirjautunut() &&
+        get(/databases/$(database)/documents/seurat/$(seuraId))
+          .data.utj_uid == request.auth.uid;
+    }
+
+    // Johtamisoikeus = VP TAI UTJ TAI hallinta.
+    // Sekä VP että UTJ näkevät strategisen aggregoidun datan.
+    function onJohtaminen(seuraId) {
+      return onHallinta(seuraId) || onUTJ(seuraId);
+    }
+
+    // ── Kenttäkerros ─────────────────────────────────────────────
+    // Kenttäkerroksen roolit tallennetaan kayttajat-alikokoelmaan
+    // koska niitä voi olla kymmeniä per seura.
+
+    // Onko käyttäjä seuran aktiivinen kenttäkerroksen jäsen?
+    function onSeuranJasen(seuraId) {
+      return onKirjautunut() &&
+        exists(/databases/$(database)/documents/seurat/$(seuraId)/kayttajat/$(request.auth.uid));
+    }
+
+    // Onko käyttäjällä tietty rooli tässä seurassa?
+    // Käytetään tarkkaan roolikohtaiseen oikeustarkistukseen —
+    // esim. vain fysioterapeutti kirjoittaa vammadataan.
+    function onRooli(seuraId, rooli) {
+      return onKirjautunut() &&
+        get(/databases/$(database)/documents/seurat/$(seuraId)/kayttajat/$(request.auth.uid))
+          .data.rooli == rooli;
+    }
+
+    // Kaikki seuran käyttäjät yhteensä — kaikki kolme kerrosta.
+    // Käytetään peruslukuoikeuksiin jotka koskevat kaikkia seuran jäseniä.
+    function onSeuranKayttaja(seuraId) {
+      return onJohtaminen(seuraId) || onSeuranJasen(seuraId);
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // KOKOELMAKOHTAISET SÄÄNNÖT
+    // "Deny by default" — kaikki on oletuksena kiellettyä.
+    // Jokainen sallittu operaatio pitää erikseen mainita.
+    // ════════════════════════════════════════════════════════════
+
+    // ── Super Admin -kokoelma ────────────────────────────────────
+    // Vain Super Admin pääsee tähän kokoelmaan.
+    // Tavallinen käyttäjä ei edes tiedä sen olemassaolosta.
     match /admins/{uid} {
-      allow read: if isSuperAdmin();
-      allow write: if isSuperAdmin();
+      allow read, write: if onSuperAdmin();
     }
 
-    // ── Seurat-kokoelma ─────────────────────────────────────────────────
+
+    // ── Seuradokumentit ──────────────────────────────────────────
     match /seurat/{seuraId} {
-      // VP lukee oman seuransa perustiedot
-      allow read: if isVP(seuraId);
-      // Vain super-admin luo/muokkaa seura-dokumentteja
-      allow write: if isSuperAdmin();
 
-      // ── Alikokoelmat — VP:llä täysi pääsy oman seuran dataan ────────
-      
-      match /pelaajat/{pelaajaId} {
-        allow read, write: if isVP(seuraId);
-      }
+      // Kaikki seuran käyttäjät lukevat seuran perustiedot.
+      // Tarvitaan mm. kirjautumislogiikassa joka hakee seuran
+      // käyttäjän uid:n perusteella.
+      allow read: if onSuperAdmin() || onSeuranKayttaja(seuraId);
 
-      match /kartoitukset/{kartoitusId} {
-        allow read, write: if isVP(seuraId);
-      }
+      // Uusia seuroja luo vain Super Admin Admin-näkymässä.
+      allow create: if onSuperAdmin();
 
-      match /kirjaukset/{kirjausId} {
-        allow read, write: if isVP(seuraId);
-      }
+      // Seuran tietoja (nimi, paketti, admin_uid jne.) muokkaa
+      // vain hallintakerros. UTJ ja kenttäkerros ei muokkaa
+      // seuradokumenttia suoraan.
+      allow update: if onSuperAdmin() || onHallinta(seuraId);
 
-      match /joukkueet/{joukkueId} {
-        allow read, write: if isVP(seuraId);
-      }
+      // Seuran poisto on estetty käyttöliittymästä kokonaan —
+      // vain Super Admin voi poistaa seuran Firestore-konsolista.
+      // Tämä estää vahingossa tapahtuvan koko seuran datan poiston.
+      allow delete: if onSuperAdmin();
 
-      match /testit/{testiId} {
-        allow read, write: if isVP(seuraId);
-      }
 
-      match /tekniikka/{tekniikkaId} {
-        allow read, write: if isVP(seuraId);
-      }
-
-      match /adar/{adarId} {
-        allow read, write: if isVP(seuraId);
-      }
-
-      match /kuorma/{kuormaId} {
-        allow read, write: if isVP(seuraId);
-      }
-
-      // Vammat — arkaluonteinen terveystieto, vain VP ja super-admin
-      match /vammat/{vammaId} {
-        allow read, write: if isVP(seuraId);
-      }
-
+      // ── Käyttäjärekisteri (kenttäkerroksen roolit) ─────────────
       match /kayttajat/{kayttajaId} {
-        allow read, write: if isVP(seuraId);
+
+        // Johtamiskerros näkee kaikki seuran käyttäjät.
+        // Kenttäkerroksen jäsen näkee vain oman dokumenttinsa
+        // (tarvitaan omien tietojen muokkaukseen).
+        allow read: if onSuperAdmin() ||
+                       onJohtaminen(seuraId) ||
+                       request.auth.uid == kayttajaId;
+
+        // Hallintakerros lisää uusia käyttäjiä.
+        allow create: if onHallinta(seuraId);
+
+        // Käyttäjä voi päivittää omia yhteystietojaan,
+        // mutta EI omaa rooliaan, joukkueitaan tai pakettitasoaan.
+        // Näitä muuttaa vain hallintakerros.
+        allow update: if onHallinta(seuraId) ||
+                         (request.auth.uid == kayttajaId &&
+                          !request.resource.data.diff(resource.data)
+                            .affectedKeys()
+                            .hasAny(['rooli', 'joukkueet', 'paketti', 'aktiivinen']));
+
+        allow delete: if onHallinta(seuraId);
+      }
+
+
+      // ── Pelaajat ──────────────────────────────────────────────
+      match /pelaajat/{pelaajaId} {
+
+        // Lukuoikeus laajalti kaikille seuran jäsenille.
+        // Joukkuekohtainen suodatus tehdään UI:ssa Security Rulesien
+        // sijaan — tämä on tietoinen valinta joka välttää hitaat
+        // get()-kutsut jokaiselle pelaajadokumentille.
+        // Pelaaja näkee oman profiilинsa, huoltaja lapsensa.
+        allow read: if onSuperAdmin() ||
+                       onSeuranKayttaja(seuraId) ||
+                       request.auth.uid == pelaajaId ||
+                       request.auth.uid == resource.data.huoltaja_uid;
+
+        // Perustietojen luonti kuuluu hallintakerrokselle.
+        allow create: if onHallinta(seuraId);
+
+        // Mittauskenttien päivittäminen sallittu myös
+        // testivastaavalle ja fysiikkavalmentajalle.
+        // Perusdataa (nimi, syntymäaika) muokkaa vain hallintakerros.
+        allow update: if onHallinta(seuraId) ||
+                         onRooli(seuraId, 'testivastaava') ||
+                         onRooli(seuraId, 'fysiikkavalmentaja');
+
+        allow delete: if onHallinta(seuraId);
+      }
+
+
+      // ── Joukkueet ─────────────────────────────────────────────
+      match /joukkueet/{joukkueId} {
+        allow read:  if onSuperAdmin() || onSeuranKayttaja(seuraId);
+        allow write: if onSuperAdmin() || onHallinta(seuraId);
+      }
+
+
+      // ── Testitapahtumat (uusi rakenne) ────────────────────────
+      match /tapahtumat/{tapahtumaId} {
+
+        allow read: if onSuperAdmin() || onSeuranKayttaja(seuraId);
+
+        // Uusi tapahtuma saa alkaa VAIN "suunniteltu"-tilasta.
+        // Tämä estää sen että joku luo suoraan "valmis"-tapahtuman
+        // ja ohittaa koko mittausprosessin.
+        allow create: if (onSuperAdmin() || onSeuranKayttaja(seuraId)) &&
+                         request.resource.data.tila == 'suunniteltu';
+
+        // Tapahtuman tietojen ja tilan päivitys:
+        // hallintakerros tai tapahtuman nimetty vastuuhenkilö.
+        allow update: if onSuperAdmin() ||
+                         onHallinta(seuraId) ||
+                         request.auth.uid == resource.data.vastuuUid;
+
+        allow delete: if onSuperAdmin() || onHallinta(seuraId);
+
+
+        // ── Testitulokset (tapahtuman alikokoelma) ──────────────
+        // Jokainen pelaaja on oma dokumenttinsa, PalloID on
+        // dokumentin ID — estää automaattisesti duplikaatit.
+        match /tulokset/{pelaajaId} {
+
+          allow read: if onSuperAdmin() || onSeuranKayttaja(seuraId);
+
+          // Tulosten kirjaus: testivastaava, fysiikkavalmentaja
+          // ja valmentaja (pienissä seuroissa valmentaja tekee kaiken).
+          allow create, update: if onSuperAdmin() ||
+                                    onHallinta(seuraId) ||
+                                    onRooli(seuraId, 'testivastaava') ||
+                                    onRooli(seuraId, 'fysiikkavalmentaja') ||
+                                    onRooli(seuraId, 'valmentaja');
+
+          allow delete: if onSuperAdmin() || onHallinta(seuraId);
+        }
+      }
+
+
+      // ── Harjoitettavuuskartoitukset ───────────────────────────
+      match /kartoitukset/{kartoitusId} {
+        allow read:   if onSuperAdmin() || onSeuranKayttaja(seuraId);
+        allow create: if onSuperAdmin() ||
+                         onHallinta(seuraId) ||
+                         onRooli(seuraId, 'testivastaava') ||
+                         onRooli(seuraId, 'valmentaja');
+        // Valmiin kartoituksen muokkaus vain hallintakerrokselle
+        // — estää jälkikäteen tapahtuvan tulosten muuttamisen.
+        allow update: if onSuperAdmin() || onHallinta(seuraId);
+        allow delete: if onSuperAdmin() || onHallinta(seuraId);
+      }
+
+
+      // ── H-H polun fyysiset testit ─────────────────────────────
+      match /testit/{testiId} {
+        allow read:   if onSuperAdmin() || onSeuranKayttaja(seuraId);
+        allow create: if onSuperAdmin() ||
+                         onHallinta(seuraId) ||
+                         onRooli(seuraId, 'testivastaava') ||
+                         onRooli(seuraId, 'fysiikkavalmentaja') ||
+                         onRooli(seuraId, 'valmentaja');
+        allow update: if onSuperAdmin() || onHallinta(seuraId);
+        allow delete: if onSuperAdmin() || onHallinta(seuraId);
+      }
+
+
+      // ── Tekniikkakilpailut ────────────────────────────────────
+      match /tekniikka/{kilpailuId} {
+        allow read:   if onSuperAdmin() || onSeuranKayttaja(seuraId);
+        allow write:  if onSuperAdmin() ||
+                         onHallinta(seuraId) ||
+                         onRooli(seuraId, 'testivastaava') ||
+                         onRooli(seuraId, 'valmentaja');
+      }
+
+
+      // ── ADAR / Game IQ ────────────────────────────────────────
+      // Kognitiivinen arviointi — kirjoitusoikeus talenttivalmentajalla
+      // ja valmentajalla. Johtamiskerros lukee mutta ei muokkaa.
+      match /adar/{adarId} {
+        allow read:  if onSuperAdmin() || onSeuranKayttaja(seuraId);
+        allow write: if onSuperAdmin() ||
+                        onHallinta(seuraId) ||
+                        onRooli(seuraId, 'talenttivalmentaja') ||
+                        onRooli(seuraId, 'valmentaja');
+      }
+
+
+      // ── Vammadata ⚠️ Arkaluonteinen terveystieto ──────────────
+      // Tiukin suoja järjestelmässä — kirjoitusoikeus VAIN
+      // fysioterapeutilla. Valmentaja näkee anonymisoidun
+      // "ei kontaktia tällä viikolla" -tason, minkä UI hoitaa.
+      match /vammat/{vammaId} {
+        allow read:  if onSuperAdmin() ||
+                        onJohtaminen(seuraId) ||
+                        onRooli(seuraId, 'fysioterapeutti') ||
+                        onRooli(seuraId, 'fysiikkavalmentaja') ||
+                        onRooli(seuraId, 'valmentaja');
+        allow write: if onSuperAdmin() ||
+                        onRooli(seuraId, 'fysioterapeutti');
+      }
+
+
+      // ── Kuormaseuranta (RPE) ──────────────────────────────────
+      match /kuorma/{kuormaId} {
+        allow read:   if onSuperAdmin() || onSeuranKayttaja(seuraId);
+        allow write:  if onSuperAdmin() ||
+                         onHallinta(seuraId) ||
+                         onRooli(seuraId, 'fysiikkavalmentaja') ||
+                         onRooli(seuraId, 'valmentaja');
+      }
+
+
+      // ── VP:n harjoitteluseurantakirjaukset ────────────────────
+      match /kirjaukset/{kirjausId} {
+        allow read:  if onSuperAdmin() || onSeuranKayttaja(seuraId);
+        allow write: if onSuperAdmin() || onJohtaminen(seuraId);
       }
     }
 
-    // ── Vanha rakenne (yhteensopivuus) ──────────────────────────────────
+
+    // ════════════════════════════════════════════════════════════
+    // VANHAT KOKOELMAT — yhteensopivuus
+    // Nämä ovat vanhaa rakennetta. Uutta dataa ei enää kirjoiteta
+    // näihin. Lukuoikeus vain Super Adminille migraatiota varten.
+    // ════════════════════════════════════════════════════════════
+
     match /kirjaukset/{doc} {
-      allow read, write: if isSignedIn();
+      allow read, write: if onSuperAdmin();
     }
+
     match /kirjaukset_joukkue/{doc} {
-      allow read, write: if isSignedIn();
+      allow read, write: if onSuperAdmin();
     }
+
     match /kirjaukset_tapahtumat/{doc} {
-      allow read, write: if isSignedIn();
+      allow read, write: if onSuperAdmin();
     }
   }
 }
