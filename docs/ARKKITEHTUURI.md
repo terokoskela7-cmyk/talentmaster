@@ -1,11 +1,12 @@
 # TalentMaster™ — Järjestelmäarkkitehtuuri
-## Päivitetty 2026-03-27
-
----
+# Päivitetty: 2026-03-27
 
 ## Yleiskuva
 
-TalentMaster on multi-tenant SaaS-alusta jalkapallon talenttiarviointiin ja pelaajien kehitysseurantaan. Asiakas on seura, ei yksittäinen valmentaja. Filosofia: *"Pelaaja ensin, hallinto vahvistaa."*
+TalentMaster on multi-tenant SaaS-alusta jalkapallon (ja tulevaisuudessa muiden
+lajien) talenttiarviointiin ja pelaajien kehitysseurantaan. Asiakas on seura,
+ei yksittäinen valmentaja. Järjestelmä rakentuu "pelaaja ensin" -filosofialle:
+Master v7/v8 motivaatiomoottori tulee ensin, VP-hallinto vahvistaa sitä.
 
 ---
 
@@ -18,254 +19,202 @@ TalentMaster on multi-tenant SaaS-alusta jalkapallon talenttiarviointiin ja pela
 | Autentikointi | Firebase Authentication | Email/Password |
 | Cloud Functions | Node.js (europe-west1) | Firebase |
 | Sähköposti | Gmail/Nodemailer | Cloud Functions |
-| Admin-skriptit | Node.js + Firebase Admin SDK | GitHub Actions |
-| CI/CD | GitHub Actions (`FIREBASE_SERVICE_ACCOUNT` secret) | GitHub |
 | Pelaajadata (historia) | tm_data.js (staattinen) | GitHub Pages |
+| Admin-skriptit | Node.js + Firebase Admin SDK | GitHub Actions |
+| CI/CD | GitHub Actions | workflow_dispatch |
 
-**Firebase plan:** Blaze (maksullinen) — tarvitaan Cloud Functions ja sähköpostilähetys
-
----
-
-## Firestore-tietokantarakenne
-
-```
-admins/
-  {uid}/
-    email, rooli, superAdmin, luotu
-
-seurat/
-  {seuraId}/                        ← fcl, kpv, palloiirot, yvies, sjk, grifk, hjk, demo-fc
-    id, nimi, laji, paketti
-    vp_uid, vp_email
-    kaupunki, maa, aktiivinen
-    ominaisuudet[], roolit[]
-    max_pelaajia, tilastot{}
-    luotu
-
-    joukkueet/{joukkueId}
-    kirjaukset/{kirjausId}          ← VP:n harjoitteluseurantakirjaukset
-    kartoitukset/{kartoitusId}      ← Harjoitettavuuskartoitukset U12/U15/U19 + bio-ikä
-    testit/{testiId}                ← H-H-testit, tekniikkakilpailut
-    havainnot/{havaintoId}          ← Valmentajan kenttähavainnot (TULOSSA)
-    adar/{adarId}                   ← Game IQ / ADAR-arvioinnit (TULOSSA Firebase-integraatio)
-    kuorma/{kuormaId}               ← RPE ja kuormaseuranta
-    vammat/{vammaId}                ← Kuntoutusdata (arkaluonteinen)
-    kayttajat/{kayttajaId}          ← Seuran käyttäjät ja roolit
-
-    pelaajat/{pelaajaId}            ← PalloID on dokumentin ID
-      nimi, syntymäaika, joukkue
-      flei_viimeisin                ← Päivittyy kartoituksen tuonnin yhteydessä
-      phv_ika, phv_tila             ← Bio-ikä-kartoituksesta
-      bio_ika, yliikaisyys_ok       ← Yli-ikäisyyssäännön tulos
-      streak, havainnot             ← Master v7 motivaatiomoottori
-      idp_kausi, adar               ← IDP ja Game IQ
-      idp_taso, ketjut              ← IDP-aktivointi ja hallintaketjut
-      arviointi_tyyppi              ← 'quick_scan' / 'deep_assessment' per dimensio (TULEVA)
-
-kirjaukset/                         ← Vanha rakenne (yhteensopivuus)
-kirjaukset_joukkue/                 ← Vanha rakenne (yhteensopivuus)
-kirjaukset_tapahtumat/              ← Vanha rakenne (yhteensopivuus)
-```
+Huom: Paikallinen terminaali on palomuurin takana — kaikki deploymentit
+tapahtuvat GitHub Actionsin kautta FIREBASE_SERVICE_ACCOUNT-secretillä.
+Ei koskaan committata serviceAccountKey.json-tiedostoa repoon.
 
 ---
 
-## Datavirrat
+## Firebase-projekti
 
-### Kirjautuminen
-```
-Käyttäjä syöttää sähköpostin + salasanan
-  → Firebase Auth tunnistaa käyttäjän
-  → Firestore hakee seura-dokumentin (vp_uid == user.uid)
-  → initDash() asettaa oikean seuran
-  → Session-load hakee seuran kirjaukset Firebasesta
-  → LocalStorage päivittyy välimuistina
-```
-
-### Testipaketti-datavirta (kaksi polkua)
-```
-POLKU A — Harjoitettavuuskartoitus
-  Valmentaja/testivastaava täyttää TalentMaster_Harjoitettavuus.xlsx
-    → U12/U15/U19 välilehti → pisteet 1-3 per testi
-    → FLEI-%, FLEI-taso, kuormarajoitin laskevat automaattisesti
-  VP lataa Excel VP-dashboardin tuonti-tabiin
-    → SheetJS lukee tiedoston
-    → Tunnistaa ikäluokan välilehden nimestä
-    → Kirjoittaa kartoitukset/-kokoelmaan
-    → Päivittää pelaajan flei_viimeisin-kentän
-
-POLKU B — Bio-ikä-kartoitus (erillinen, yksittäinen pelaaja)
-  Fysiikkavalmentaja/valmentaja mittaa harjoituksen yhteydessä (5 min):
-    pituus × 2, paino × 2, istumapituus, syntymäpäivä
-    → TalentMaster_BioIka.xlsx laskee Mirwald-kaavalla PHV-iän
-    → Yli-ikäisyyssääntö tarkistetaan automaattisesti (VLOOKUP)
-  Tulos tallennetaan pelaajan profiiliin:
-    phv_ika, phv_tila, bio_ika, yliikaisyys_ok
-  VP näkee signaalin dashboardissa:
-    yliikaisyys_ok === true → "Poikkeuslupa mahdollinen" -kortti
-```
-
-### Onboarding-ketju
-```
-Super Admin luo seura + joukkueet
-  → Seuran Admin täyttää Excel-pohja pelaajilla
-  → Järjestelmä tuo pelaajat (PalloID = dokumentin ID)
-  → Huoltaja saa suostumuslomake-linkin sähköpostilla (Cloud Function)
-  → Pelaajan profiili aktivoituu suostumuksen jälkeen
-```
+- Projekti: talentmaster-pilot (Blaze plan)
+- Firestore sijainti: europe-west1 (Frankfurt)
 
 ---
 
-## Security Rules — kolmitasoinen tunnistus
+## Rooliarkkitehtuuri (uudistettu 2026-03-27)
 
-```javascript
-// VP tunnistetaan kolmella tavalla (tärkeysjärjestyksessä):
-// 1. Super-admin (talentmasterid@gmail.com) — lukee kaiken
-// 2. Custom claim: request.auth.token.seuraId + rooli
-// 3. vp_uid seura-dokumentissa: resource.data.vp_uid == request.auth.uid
-```
+Roolimalli on kolmikerroksinen. Sama henkilö voi kantaa useita rooleja —
+pienessä seurassa VP on usein samaan aikaan hallintakerroksen varamies,
+operatiivinen ja strateginen johtaja. Isossa seurassa nämä ovat eri henkilöitä.
 
-Tiedosto: `tm_admin/firestore.rules` (Security Rules v2)
+### Hallintakerros — rekisterin hallinta
 
----
+Super Admin on TalentMaster-tason rooli joka näkee kaikkien seurojen datan.
+Tunnistetaan admins/{uid}-dokumentin olemassaolosta.
 
-## GitHub Pages URL:t
+Seuran Admin (käytännössä sihteeri tai TJ) hallitsee seuran rekisteriä —
+lisää pelaajia, valmentajia ja muita käyttäjiä järjestelmään. Tallennetaan
+seuradokumenttiin admin_uid-kenttään.
 
-```
-https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_VP_v17.html
-https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Seura.html
-https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Admin.html
-https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Master_v7.html
-https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_IDP_Kortti_v3.html
-https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html
-https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Harjoitettavuus.xlsx
-https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_BioIka.xlsx
-```
+VP on Seuran Adminin varamies ja hänellä on aina admin-oikeudet varalta.
+Pienissä seuroissa joissa erillistä sihteetriä ei ole, VP hoitaa kaiken.
 
----
+### Johtamiskerros — urheilutoiminnan johtaminen
 
-## Pelaajadata: kaksi lähdettä
+VP on sekä operatiivinen että strateginen johtaja. Operatiivisella tasolla
+hän tekee päätöksiä yksittäisistä pelaajista — IDP-aktivoinnit, talenttiohjelma,
+klinikan käynnistys. Strategisella tasolla hän näkee koko seuran kehityskuvan,
+trendit ja Palloliiton benchmarkin. Jos seurassa ei ole UTJ:tä, VP kattaa
+strategisen tason yksin.
 
-### 1. Historiallinen data (tm_data.js)
-- 2417 pelaajaa, 30 seuraa, kaudet 2017-2020
-- Staattinen tiedosto, latautuu selaimeen
-- Ei sisällä pilottiseuroja
+UTJ (Urheilutoiminnanjohtaja) näkee vain strategisen kokonaiskuvan —
+seuran kehitysindeksit, testausasteet, ikäluokkarakenne — mutta ei tee
+operatiivisia kirjoituksia. UTJ:n utj_uid-kenttä on null jos seurassa
+ei ole UTJ:tä nimetty.
 
-### 2. Reaaliaikainen data (Firebase)
-- Pilottiseurojen data — PalloID on Firestore-dokumentin ID
-- Kartoitukset, bio-ikä, havainnot, kirjaukset
-- Kirjautuneen käyttäjän seura tunnistetaan automaattisesti
+### Kenttäkerros — päivittäinen työ pelaajien kanssa
 
----
+Kenttäkerroksen roolit tallennetaan seurat/{seuraId}/kayttajat/{uid}/
+alikokoelmaan koska niitä voi olla kymmeniä per seura. Joukkuesidonnnaisuus
+määräytyy joukkueet-taulukosta — tyhjä taulukko tarkoittaa, että käyttäjä
+näkee kaikki seuran joukkueet.
 
-## 7-kerrosinen järjestelmäarkkitehtuuri
+Roolit ovat: valmentaja, testivastaava, talenttivalmentaja,
+fysiikkavalmentaja ja fysioterapeutti.
 
-```
-1. Pelaaja / Master v7          ← motivaatiomoottori (streak, havainnot)
-2. Valmentaja / kenttähavainto  ← ADAR + 10s havaintomalli (TULOSSA)
-3. Game IQ / D4 / koulutus      ← ADAR-protokolla ikäluokittain (Firebase TULOSSA)
-4. IDP-kortti v3                ← 70% vahvuudet / 30% heikkoudet
-5. IDP-aktivointi               ← 3 reittiä: manuaalinen / auto-signaali / KORI
-6. VP / johtamisjärjestelmä     ← tiedolla johtaminen
-7. Fyysinen → teknis-taktinen   ← FLEI + bio-ikä + kehityskaari
-```
+### Pelaaja- ja huoltajakerros
 
-Kaikki kerrokset yhdistyvät Firestore-kenttiin:
-`streak`, `havainnot`, `idp_kausi`, `adar`, `idp_taso`, `ketjut`
+Pelaaja näkee vain oman profiilинsa. Huoltaja näkee lapsensa profiilin
+huoltaja_uid-kentän kautta. Molemmat saavat selkokielisen version
+teknisestä datasta.
 
----
+### Raportointikerros (tuleva)
 
-## Testipaketti-Excel-pohjaksi
+Hallitus ja puheenjohtaja saavat aggregoidun kuukausiraportin ilman pääsyä
+yksittäisiin pelaajatietoihin. Ei vielä rakennettu.
 
-| Tiedosto | Kuvaus | Tila |
+### Pakettitasot
+
+| Paketti | Roolit | Max pelaajia |
 |---|---|---|
-| `TalentMaster_Harjoitettavuus.xlsx` | U12/U15/U19 kartoituslomake, FLEI-kaavat | ✅ Valmis |
-| `TalentMaster_BioIka.xlsx` | Mirwald + yli-ikäisyyssääntö | ✅ Valmis |
-| `TalentMaster_HH_Testit.xlsx` | H-H-testimanuaalin testit | ⚠️ Ei vielä rakennettu |
-| `TalentMaster_Pelaajapohja.xlsx` | Pelaajatietolomake (dynaaminen) | ⚠️ Ei vielä rakennettu |
-
-VP_v17.html hakee pohjat GitHubista, lukee SheetJS:llä ja kirjoittaa Firestoreen.
-**Tuontilogiikka Firestoreen puuttuu** — seuraavan sprintin tehtävä.
+| Perustaso | VP, seuran_admin, valmentaja, testivastaava, pelaaja, huoltaja | 100 |
+| Kehitystaso | + utj, talenttivalmentaja, fysiikkavalmentaja | 300 |
+| Huipputaso | Kaikki roolit | Rajaton |
 
 ---
 
-## Pakettitasot
+## Firestore-tietokantarakenne (päivitetty 2026-03-27)
 
-| Paketti | Roolit | Max pelaajia | Ominaisuudet |
-|---|---|---|---|
-| Perustaso | VP, valmentaja, testivastaava | 100 | Kirjaukset, kartoitukset, profiilit |
-| Kehitystaso | + talenttivalmentaja, fysiikkavalmentaja | 300 | + bio-ikä, Game IQ, talenttiohjelma |
-| Huipputaso | Kaikki roolit | Rajaton | Kaikki + delta-analyysi, DVI |
+admins/{uid}/
+  email, rooli, superAdmin, luotu
+
+seurat/{seuraId}/
+  id, nimi, laji, paketti, kaupunki, aktiivinen
+  admin_uid, admin_email          (Seuran Admin)
+  vp_uid, vp_email                (VP — varamies adminille)
+  utj_uid, utj_email              (null jos ei UTJ:tä)
+  roolit[], ominaisuudet[], max_pelaajia
+  tilastot {
+    pelaajia, joukkueita, kartoituksia,
+    testattuMirwald, testattuHH, aktiivisiaIdp,
+    viimeisinTapahtuma, kausi
+  }
+  luotu, paivitetty
+
+  kayttajat/{uid}/
+    uid, email, nimi, rooli, joukkueet[], paketti, aktiivinen, luotu, kutsunutUid
+
+  pelaajat/{palloId}/             (PalloID = dokumentin ID)
+    etunimi, sukunimi, syntymapaivamaara (Timestamp)
+    syntymavuosi, sukupuoli, joukkue, joukkueId
+    palloId, huoltaja_uid
+    biologinenIka { krono, bio, maturityOffset, phvIka, phvTila, mirwald{} }
+    phvTila, phvIka, fleiProsentti
+    viimeisinMirwald, viimeisinKartoitus
+
+  joukkueet/{joukkueId}/
+    nimi, ikaryhma, valmentaja, pelaajia
+
+  tapahtumat/{tapahtumaId}/       (UUSI — schema suunniteltu 2026-03-27)
+    seuraId, joukkueId, joukkueNimi
+    tyyppi (mirwald|khamis_roche|harjoitettavuus|hh_testit|tekniikkakilpailu)
+    ikaLuokka (U12|U15|U19 — harjoitettavuudelle)
+    paiva (Timestamp — testipäivä, ei luontipäivä)
+    tila (suunniteltu|kaynnissa|odottaa_tarkistusta|valmis)
+    pelaajat[], pelaajaMaara, tuloksiaTallennettu
+    vastuuUid, vastuuNimi, luonutUid, luonutNimi
+    luotu, paivitetty, huomiot
+
+    tulokset/{palloId}/           (Yksi dokumentti per pelaaja)
+      pelaajaId, tapahtumaId, seuraId
+      etunimi, sukunimi, syntymapaivamaara, sukupuoli
+      pituus_1, pituus_2, pituus_ka
+      istumapituus_1, istumapituus_2, istumapituus_ka
+      paino_1, paino_2, paino_ka
+      aidinPituus, isanPituus     (Khamis-Roche)
+      testit{}                    (harjoitettavuus ja H-H — dynaaminen map)
+      kronoIka, maturityOffset, phvIka, phvTila
+      phvIka_kr, phvTila_kr       (Khamis-Roche rinnakkaisarvio)
+      poikkeuslupa, poikkuuslupaKynnys, poikkeuslupaerotus
+      yhteenveto{}, tallennettu, tallennettuUid, tila
+
+  kartoitukset/{id}/              (Harjoitettavuuskartoitukset)
+  testit/{id}/                    (H-H polun fyysiset testit)
+  tekniikka/{id}/                 (Tekniikkakilpailutulokset)
+  adar/{id}/                      (Game IQ / ADAR-arvioinnit)
+  vammat/{id}/                    (Kuntoutusdata — arkaluonteinen)
+  kuorma/{id}/                    (RPE-kuormaseuranta)
+  kirjaukset/{id}/                (VP:n harjoitteluseurantakirjaukset)
+
+kirjaukset/                       (Vanha rakenne — yhteensopivuus)
+kirjaukset_joukkue/
+kirjaukset_tapahtumat/
 
 ---
 
-## Roolit (10 kpl)
+## Security Rules -logiikka (uudistettu 2026-03-27)
 
-1. Super Admin (TalentMaster)
-2. Valmennuspäällikkö (VP)
-3. Urheilutoimenjohtaja
-4. Talenttivalmentaja
-5. Fysiikkavalmentaja
-6. Fysioterapeutti
-7. Testivastaava
-8. Valmentaja
-9. Pelaaja
-10. Vanhempi
+Säännöt on kirjoitettu apufunktiopohjaisesti — jokainen funktio vastaa
+täsmälleen yhteen kysymykseen. Apufunktiot: onKirjautunut(), onSuperAdmin(),
+onSeuranAdmin(seuraId), onVP(seuraId), onHallinta(seuraId) (= Admin TAI VP TAI
+Super Admin), onUTJ(seuraId), onJohtaminen(seuraId) (= VP TAI UTJ TAI hallinta),
+onSeuranJasen(seuraId), onRooli(seuraId, rooli), onSeuranKayttaja(seuraId).
 
----
-
-## 5D-viitekehys
-
-| Dimensio | Paino | Mittarit |
-|---|---|---|
-| D1 Fyysinen | 40% | Harjoitettavuuskartoitus + bio-ikä (Mirwald) |
-| D2 Tekninen | 25% | H-H-testit + tekniikkakilpailut |
-| D3 Kognitiivinen (Game IQ) | 15% | ADAR-arvioinnit (Firebase TULOSSA) |
-| D4 Psykologinen | 10% | Valmentajan arvio + kyselyt |
-| D5 Sosiaalinen | 10% | Peer review + havainnointi |
-
-**Huom:** Painotukset oikeat KUN D1 on biologisesti normalisoitu Mirwald-kaavalla.
-Quick Scan™ tuottaa alustavat arvot, Deep Assessment vahvistaa.
+"Deny by default" — kaikki on oletuksena kiellettyä. Vammadata on
+erityissuojattu: kirjoitusoikeus VAIN fysioterapeutilla. Tapahtuman
+luonti pakottaa tila: "suunniteltu" — estää ohitetun mittausprosessin.
+Käyttäjä ei voi muuttaa omaa rooliaan, joukkueitaan tai pakettitasoaan.
 
 ---
 
-## Bio-ikä ja yli-ikäisyyssääntö
+## Kirjautumislogiikka
 
-### Mirwald 2002 -kaava
-```
-Pojat: Maturity offset = -9.236 + 0.0002708*(jalka*istuma)
-       - 0.001663*(ika*jalka) + 0.007216*(ika*istuma) + 0.02292*(paino/pituus*100)
-Tyto: Maturity offset = -9.376 + 0.0001882*(jalka*istuma)
-       + 0.0022*(ika*jalka) + 0.005841*(ika*istuma)
-       - 0.002658*(ika*paino) + 0.07693*(paino/pituus*100)
-PHV-ika = kronologinen ika - maturity offset
-```
-
-### Yli-ikäisyyssääntö (Palloliitto)
-- Kynnys = APHV − 0.75 vuotta per syntymäkuukausi
-- Pojat: tammikuu 14.97 → joulukuu 14.05
-- Tytöt: tammikuu 13.07 → joulukuu 12.15
-- Jos PHV-ikä ≥ kynnys → `yliikaisyys_ok: true` → VP-signaali
+Käyttäjä kirjautuu sähköpostilla. Firebase Auth tunnistaa, jonka jälkeen
+Firestore hakee seuradokumentin hierarkkisesti: (1) admin_uid tai vp_uid,
+(2) utj_uid, (3) kayttajat-alikokoelma. Jos ei löydy mistään, kirjautuminen
+epäonnistuu. VP_v17:ssä on kaksi käynnistyspolkua: initDash() historiadatalle
+ja _lataaPilottiDashboard() pilottiseuroille.
 
 ---
 
-## Navigaatiostrategia
+## Pelaajan tunnistus ja datamalli
 
-- `tm_import.js` + `tm_empty_state.js` integroitu NYT
-- `tm_nav.js` siirretty myöhemmäksi — lisätään VASTA kun Master v8 + Pelaaja-näkymä valmis
-  - Syy: tm_nav lisää oman topbarin body-alkuun → konflikti olemassa olevien topbarien kanssa
-  - ja kaksinkertaiset `onAuthStateChanged`-kuuntelijat
+PalloID on Firestoren dokumentin ID — pysyvä ankkuri. Data kertyy palasina
+ajan kuluessa (harjoitettavuus ja Mirwald otetaan eri päivinä). Tuontikoodi
+käyttää set({...}, {merge:true}). Raakamittaukset tallennetaan tapahtuman
+tulokset-alikokoelmaan (historia). Johdetut arvot kirjoitetaan pelaajan
+perusprofiiliin kun tapahtuma merkitään valmiiksi.
 
 ---
 
-## Deployment-prosessi
+## tm_ylaikaisyys.js (rakennettu 2026-03-27)
 
-```
-1. Muutos tehty paikallisesti / GitHub web-editorissa
-2. Commit + push → main-branch
-3. GitHub Actions käynnistyy automaattisesti
-4. Firebase Functions deploy: setup_firebase.yml → deploy_functions
-5. GitHub Pages: automaattinen deploy main-branchista
-6. Muistettava: GitHub Pages käyttää Fastly CDN → Ctrl+Shift+R hard reload
-```
+Itsenäinen moduuli joka liitetään VP_v17:ään script-tagilla.
+Sisältää Mirwald 2002 -kaavan, Palloliiton kuukausittaiset kynnysarvot,
+RAE-laskennan ja yhdistetyn UI-kortin. Julkinen API: tmYlaikaisyysAlusta(pelaajat)
+ja tmLaskeMirwaldPelaajaDoc(mittaukset, syntymapvm).
 
-**Palomuuri:** Työkoneella palomuuri estää Git/CLI-komennot → kaikki deployments GitHub Actionsin kautta `FIREBASE_SERVICE_ACCOUNT`-secretillä. Ei koskaan committoi `serviceAccountKey.json` julkiseen repoon.
+---
+
+## GitHub Pages ja kehityshuomioita
+
+GitHub Pages käyttää Fastly CDN -välimuistia — vaatii Ctrl+Shift+R.
+Älä testaa VP-dashboardia ja Admin-näkymää samassa selaimessa.
+Firebase v9 modular SDK skoupaa db:n ES-moduuleihin — bulk-kirjoitukset
+tehdään v8 compat SDK:lla. Syntymäpäivä parsitaan Date.UTC():lla.
+SheetJS ei tue tyylejä ilman Pro-lisenssiä — käytetään openpyxl:ää.

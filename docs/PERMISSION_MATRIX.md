@@ -1,122 +1,137 @@
 # TalentMaster™ — Permission Matrix
-# Päivitetty: 2026-03-25
-# Muutokset edelliseen versioon:
-#   - Seurasihteeri lisätty omana roolinaan (Perustasolta alkaen)
-#   - Rekisteröintiprosessi lisätty omana datatyyppinään
-#   - Deaktivointi vs. poisto selvennetty
-#   - Joukkueet-taulukko (useampi joukkue per valmentaja) kirjattu
-#   - Talenttivalmentajan joukkueeton näkyvyys selvennetty
-
----
+# Päivitetty: 2026-03-27
 
 ## Merkinnät
 
-RW  = Luku + kirjoitus
-R   = Vain luku
-R*  = Rajoitettu luku (yksinkertaistettu tai suodatettu näkymä)
-D   = Poisto-oikeus (delete — peruuttamaton toimenpide)
-–   = Ei pääsyä
+RW = Luku + kirjoitus
+R  = Vain luku
+R* = Rajoitettu luku (yksinkertaistettu tai anonymisoitu näkymä)
+–  = Ei pääsyä
 
 ---
 
-## Kolmitasoinen hallintamalli
+## Roolit, kerrokset ja pakettitasot
 
-### Taso 1 — TalentMaster Platform
-Super Admin (Tero / TalentMaster-ylläpitäjä) on ainoa rooli joka näkee kaikkien
-seurojen datan. Hän hallinnoi seuroja, paketteja ja laskutusta. Pilotin aikana hän
-toimii minkä tahansa seuran kontekstissa seuravalitsimella auttaakseen käyttöönotossa.
-Tunniste Firestoressä: rooli = "super_admin" (alaviivalla).
+Roolimalli on kolmikerroksinen. Sama henkilö voi kantaa useita rooleja
+pienemmissä seuroissa.
 
-### Taso 2 — Seuran hallinto
-Valmennuspäällikkö (VP) johtaa seuran valmennustoimintaa. Hänellä on laajat
-kirjoitusoikeudet ja hän vastaa valmentajien kutsumisesta ja pelaajien rekisteröinnistä.
+### Hallintakerros
+Super Admin (TalentMaster-taso), Seuran Admin (sihteeri/TJ), VP (Adminin varamies)
 
-Urheilutoimenjohtaja (UTJ) vastaa seuran operatiivisesta kokonaisuudesta.
-Käyttäjähallintaoikeudet kuten VP:llä mutta hänellä on myös poisto-oikeus (D).
+### Johtamiskerros
+VP (operatiivinen + strateginen), UTJ (vain strateginen — ei operatiivisia kirjoitusoikeuksia)
+Jos seurassa ei ole UTJ:tä, VP kattaa strategisen tason yksin.
 
-Seurasihteeri hoitaa pelaajien rekisteröinnin, sopimusdokumentaation ja viestinnän
-vanhemmille. Hänellä EI ole pääsyä valmennukselliseen kehitysdataan (testit, biologinen
-ikä, ADAR) — ainoastaan rekisteröintiin ja perustietoihin. Tämä on GDPR:n minimaalisen
-tietotarpeen periaate käytännössä.
+### Kenttäkerros
+Valmentaja, Testivastaava, Talenttivalmentaja, Fysiikkavalmentaja, Fysioterapeutti
 
-### Taso 3 — Operatiivinen työ
-Valmentaja, talenttivalmentaja, fysiikkavalmentaja, fysioterapeutti, testivastaava.
-Käyttävät järjestelmää päivittäin. Eivät hallinnoi käyttäjiä eivätkä näe muiden
-seurojen dataa. Valmentajalla voi olla useita joukkueita (joukkueet[]-taulukko).
+### Pelaaja- ja huoltajakerros
+Pelaaja, Vanhempi/Huoltaja
 
-### Käyttäjät ilman sisäänkirjautumistunnuksia
-Pelaaja ja vanhempi käyttävät järjestelmää omien tunnustensa kautta — pelaaja näkee
-oman kehityspolkunsa, vanhempi näkee lapsensa datan. Tunnukset luodaan kun
-rekisteröinti- ja GDPR-prosessi on valmistunut.
+### Raportointikerros (tuleva)
+Hallitus/Puheenjohtaja — aggregoitu kuukausiraportti, ei yksittäisiä pelaajatietoja
 
 ---
 
-## Roolit ja pakettitasot
+## Pakettitasot ja roolien saatavuus
 
 | Rooli | Perustaso | Kehitystaso | Huipputaso |
 |---|---|---|---|
+| Super Admin | ✅ | ✅ | ✅ |
+| Seuran Admin | ✅ | ✅ | ✅ |
 | Valmennuspäällikkö (VP) | ✅ | ✅ | ✅ |
-| Seurasihteeri | ✅ | ✅ | ✅ |
+| UTJ | – | ✅ | ✅ |
 | Valmentaja | ✅ | ✅ | ✅ |
 | Testivastaava | ✅ | ✅ | ✅ |
 | Talenttivalmentaja | – | ✅ | ✅ |
 | Fysiikkavalmentaja | – | ✅ | ✅ |
 | Fysioterapeutti | – | – | ✅ |
-| Urheilutoimenjohtaja | – | ✅ | ✅ |
 | Pelaaja | ✅ | ✅ | ✅ |
-| Vanhempi | ✅ | ✅ | ✅ |
-
-Seurasihteeri on lisätty Perustasolta alkaen koska rekisteröinti on seuran perustarve.
+| Vanhempi/Huoltaja | ✅ | ✅ | ✅ |
 
 ---
 
-## Datatyypit ja oikeudet
-
-### Pelaajadata (nimi, syntymäaika, seura, joukkue, PalloID)
+## Käyttäjähallinta (kutsut, roolit, paketit)
 
 | Rooli | Oikeus | Huomio |
 |---|---|---|
-| Super Admin | RW | Kaikki seurat |
+| Super Admin | RWD kaikki seurat | Luo uudet seurat |
+| Seuran Admin | RWD oma seura | Kutsuu valmentajia ja muita |
+| VP | RW oma seura | Varamies — täydet admin-oikeudet varalta |
+| UTJ | – | Ei käyttäjähallintaoikeuksia |
+| Kaikki muut | – | |
+
+Käyttäjä ei voi muuttaa omaa rooliaan, joukkueitaan tai pakettitasoaan —
+Security Rules estää tämän vaikka käyttäjä muokkaisi omaa dokumenttiaan.
+
+---
+
+## Pelaajadata (nimi, syntymäaika, seura, joukkue)
+
+| Rooli | Oikeus | Huomio |
+|---|---|---|
+| Super Admin | RW | |
+| Seuran Admin | RW | Oma seura |
 | VP | RW | Oma seura |
-| Seurasihteeri | RW | Oma seura — rekisteröinti ja perustietojen ylläpito |
-| Valmentaja | R | Vain omat joukkueet (joukkueet[]-listan mukaan) |
-| Talenttivalmentaja | R | Kaikki seuran pelaajat — ei joukkuerajausta |
-| Fysiikkavalmentaja | R | Kaikki seuran pelaajat |
-| Fysioterapeutti | R | Kaikki seuran pelaajat |
-| Testivastaava | R | Kaikki seuran pelaajat |
+| UTJ | R | Oma seura — vain aggregoitu kuva |
+| Valmentaja | R | Vain oma joukkue (UI-rajoitus) |
+| Talenttivalmentaja | R | Kaikki seuran pelaajat |
+| Fysiikkavalmentaja | R | |
+| Fysioterapeutti | R | |
+| Testivastaava | R | |
 | Pelaaja | R | Vain oma profiili |
 | Vanhempi | R | Vain lapsen profiili |
 
-Joukkueet-arkkitehtuuri: valmentajalla voi olla useita joukkueita.
-Firestoressä: joukkue: "u14" (vanha, yhteensopivuus) + joukkueet: ["u14","u12"] (uusi).
-Custom Claims JWT:ssä: joukkue + joukkueet molemmat — Security Rules tarkistaa molemmat.
-Talenttivalmentajalla ei joukkuerajausta lainkaan — rooli antaa laajan näkyvyyden.
+---
 
-### Testitulokset (nopeus, ketteryys, kevennyshyppy, PHV)
+## Testitapahtumat (kalenteri, luonti, tilan hallinta)
 
 | Rooli | Oikeus | Huomio |
 |---|---|---|
 | Super Admin | RW | |
+| Seuran Admin | RW | Oma seura |
+| VP | RW | Kaikki joukkueet seurassa |
+| UTJ | R | Näkee tapahtumakalenterin |
+| Valmentaja | RW | Voi luoda oman joukkueensa tapahtumia |
+| Testivastaava | RW | Voi luoda ja täyttää tapahtumia |
+| Fysiikkavalmentaja | RW | |
+| Talenttivalmentaja | R | |
+| Fysioterapeutti | R | |
+| Pelaaja | – | |
+| Vanhempi | – | |
+
+Uusi tapahtuma saa alkaa vain tilasta "suunniteltu" — Security Rules pakottaa tämän.
+Tapahtuman vastuuhenkilö voi päivittää tapahtumaa vaikka ei olisi hallintakerros.
+
+---
+
+## Testitulokset (Mirwald, Khamis-Roche, H-H testit, harjoitettavuus)
+
+| Rooli | Oikeus | Huomio |
+|---|---|---|
+| Super Admin | RW | |
+| Seuran Admin | RW | |
 | VP | RW | |
-| Seurasihteeri | – | Ei valmennuksellista tarvetta |
-| Valmentaja | R | Omat joukkueet |
-| Talenttivalmentaja | R | Kaikki seuran pelaajat |
-| Fysiikkavalmentaja | RW | Omistaa tämän data-alueen |
-| Testivastaava | RW | |
+| UTJ | R | Vain aggregoitu — ei yksittäisiä tuloksia |
+| Valmentaja | RW | Voi kirjata tuloksia |
+| Testivastaava | RW | Pääasiallinen tulosten kirjaaja |
+| Fysiikkavalmentaja | RW | |
+| Talenttivalmentaja | R | |
+| Fysioterapeutti | R | |
 | Pelaaja | R | Omat tulokset |
-| Vanhempi | R* | Yksinkertaistettu — "hyvä / kehittyy / tavoite" |
+| Vanhempi | R* | Yksinkertaistettu |
 
-### Biologinen ikä ja PHV-data ⚠️ Arkaluonteinen
+---
 
-Fysiologinen mittaus joka kertoo pelaajan kasvun vaiheen. Erityinen suoja
-alle 18-vuotiaille (GDPR erityiskategoria). Vaatii erillisen vapaaehtoisen suostumuksen.
+## Biologinen ikä ja PHV-data (arkaluonteinen)
 
 | Rooli | Oikeus | Huomio |
 |---|---|---|
 | Super Admin | RW | |
+| Seuran Admin | RW | |
 | VP | RW | |
-| Seurasihteeri | – | Ei tarvetta — hallinnollinen rooli |
-| Valmentaja | R | Omat joukkueet |
+| UTJ | R | Vain seuratason aggregoitu — ei yksittäisiä |
+| Valmentaja | R | Oma joukkue |
 | Talenttivalmentaja | R | |
 | Fysiikkavalmentaja | RW | |
 | Fysioterapeutti | R | |
@@ -124,166 +139,114 @@ alle 18-vuotiaille (GDPR erityiskategoria). Vaatii erillisen vapaaehtoisen suost
 | Pelaaja | R* | Selkokielinen: "kasvupyrähdyksen loppuvaihe" |
 | Vanhempi | R* | Selkokielinen + kuormitusrajoitukset |
 
-### ADAR-pisteet ja Game IQ
+---
 
-Psykologinen arviointimenetelmä — ammattilaisten välinen tieto.
-Pelaajalle näytetään vain selkokielinen palaute, ei numeroita.
+## RAE-analyysi (syntymäkuukausijakauma)
 
 | Rooli | Oikeus | Huomio |
 |---|---|---|
-| Super Admin | RW | |
-| VP | R | Ei kirjoitusoikeutta |
-| Seurasihteeri | – | |
-| Valmentaja | R | Omat joukkueet |
-| Talenttivalmentaja | RW | Omistaa tämän data-alueen |
-| Fysiikkavalmentaja | R* | Vain fyysiseen kehitykseen liittyvä osuus |
-| Fysioterapeutti | R* | Vain kuntoutukseen liittyvä osuus |
-| Testivastaava | – | |
-| Pelaaja | R* | Selkokielinen palaute, ei numeroita |
-| Vanhempi | – | |
+| Super Admin | R | |
+| Seuran Admin | R | |
+| VP | R | Koko seura + talenttiryhmävertailu |
+| UTJ | R | Seuratason aggregoitu kuva |
+| Valmentaja | R | Oma joukkue |
+| Kaikki muut | – | |
 
-### Harjoitteluseuranta (SPL 7 kriteeriä)
+---
 
-Valmentaja tekee kirjaukset (RW omiin kirjauksiin) mutta ei muokkaa
-toisten kirjauksia (R muiden kirjauksiin). Security Rules toteuttaa tämän.
-
-| Rooli | Oikeus |
-|---|---|
-| Super Admin | RW |
-| VP | RW |
-| Seurasihteeri | – |
-| Valmentaja | R muiden + RW omat kirjaukset |
-| Talenttivalmentaja | R |
-| Fysiikkavalmentaja | R* (fyysinen osuus) |
-| Fysioterapeutti | – |
-| Testivastaava | – |
-| Pelaaja | – |
-| Vanhempi | – |
-
-### Vamma- ja kuntoutusdata ⚠️ Terveystieto
-
-GDPR:n erityiskategoria. Vaatii erillisen suostumuksen. Käsittelijällä
-pitää olla ammatillinen peruste.
+## ADAR-pisteet ja Game IQ
 
 | Rooli | Oikeus | Huomio |
 |---|---|---|
 | Super Admin | RW | |
 | VP | R | |
-| Seurasihteeri | – | |
-| Valmentaja | R* | Vain "ei kontaktia tällä viikolla" -taso, ei diagnooseja |
-| Talenttivalmentaja | R* | Vain kuormitusrajoitukset |
-| Fysiikkavalmentaja | R | |
-| Fysioterapeutti | RW | Omistaa tämän data-alueen |
+| Valmentaja | RW | Kirjaa ADAR-pisteitä kentällä |
+| Talenttivalmentaja | RW | Pääasiallinen arvioija |
+| Fysiikkavalmentaja | R* | |
+| Fysioterapeutti | R* | |
 | Testivastaava | – | |
-| Pelaaja | R | Oma kuntoutussuunnitelma |
-| Vanhempi | R | Lapsen kuntoutustiedot |
+| Pelaaja | R* | Selkokielinen palaute |
+| Vanhempi | – | |
+| UTJ | – | |
 
-### Talenttiohjelma ja nimeämiset
+---
+
+## Harjoitteluseuranta (SPL 7 kriteeriä)
 
 | Rooli | Oikeus | Huomio |
 |---|---|---|
 | Super Admin | RW | |
 | VP | RW | |
-| Seurasihteeri | – | |
-| Valmentaja | R* | Vain tieto onko pelaaja ohjelmassa |
-| Talenttivalmentaja | RW | Omistaa tämän prosessin |
-| Muut operatiiviset | – | |
-| Pelaaja | – | Tieto tulee IDP-kortin kautta selkokielisenä |
-| Vanhempi | – | |
-
-### Rekisteröintiprosessi ja kutsulinkki
-
-Sisältää: kutsulinkin luominen, Excel-pohjan lataus, suostumusten keräys,
-massakutsujen lähettäminen, suostumusseuranta.
-
-| Rooli | Oikeus | Huomio |
-|---|---|---|
-| Super Admin | RWD | Kaikki seurat — pilotin aikana auttaa seuroja |
-| VP | RW | Oma seura |
-| Seurasihteeri | RW | Oma seura — tämä on hänen päätehtävänsä |
-| Urheilutoimenjohtaja | RWD | Oma seura |
-| Valmentaja | – | |
-| Muut operatiiviset | – | |
-| Pelaaja / Vanhempi | R | Oma suostumusstatus |
-
-Kutsulinkin rakenne:
-/TalentMaster_Rekisterointi_Suostumus.html?seuraId=kpv&seura=KPV&joukkue=U14&etunimi=Matti&hEmail=huoltaja@email.fi
-
-### Käyttäjähallinta (tunnusten luonti, roolit, paketit)
-
-Tärkeä erottelu: DEAKTIVOINTI vs. POISTO.
-
-Deaktivointi (aktiivinen: false) on turvallinen toimenpide — käyttäjä ei voi
-kirjautua mutta tiedot säilyvät. VP voi tehdä tämän.
-
-Poisto (Firebase Auth + Firestore) on peruuttamaton. Tehdään vain rekisteröidyn
-nimenomaisesta pyynnöstä (GDPR right to erasure). Vain Super Admin ja UTJ voivat poistaa.
-
-| Rooli | Oikeus | Huomio |
-|---|---|---|
-| Super Admin | RWD | Luo, muokkaa, deaktivoi, poistaa — kaikki seurat |
-| Urheilutoimenjohtaja | RWD | Oma seura |
-| VP | RW | Luo ja muokkaa — voi deaktivoida, ei poisto-oikeutta |
-| Seurasihteeri | R | Näkee käyttäjälistan, ei luo tunnuksia |
+| Valmentaja | R | Oma joukkue |
+| Talenttivalmentaja | R | |
+| Fysiikkavalmentaja | R* | Vain fyysinen osuus |
+| UTJ | R | Aggregoitu |
 | Kaikki muut | – | |
 
-### Sopimukset ja Palloliiton kriteerit
+---
+
+## Vamma- ja kuntoutusdata (terveystieto — erityinen suoja)
 
 | Rooli | Oikeus | Huomio |
 |---|---|---|
 | Super Admin | RW | |
-| VP | RW | Omistaa seuran kriteeriseurannan |
-| Seurasihteeri | RW | Hallinnoi sopimusdokumentaatiota |
-| Urheilutoimenjohtaja | RW | |
-| Valmentaja | R | Näkee kriteerit ja omat sopimuksensa |
-| Muut operatiiviset | R | |
-| Pelaaja / Vanhempi | – | |
+| VP | R | |
+| UTJ | R | |
+| Valmentaja | R* | Vain "ei kontaktia tällä viikolla" -taso |
+| Talenttivalmentaja | R* | |
+| Fysiikkavalmentaja | R | |
+| Fysioterapeutti | RW | Ainoa joka kirjoittaa vammadataan |
+| Testivastaava | – | |
+| Pelaaja | R | Oma kuntoutussuunnitelma |
+| Vanhempi | R | Lapsen kuntoutustiedot |
 
 ---
 
-## Pelaajan etusivun oikeudet
+## Talenttiohjelma ja nimeämiset (IDP-aktivointi, KORI)
 
-Pelaajan etusivu on rakennettu niin, että jokainen elementti vaatii
-eri oikeustason. Tämä on tärkeä ymmärtää arkkitehtuurin kannalta.
-
-Päivän tehtävä: valmentaja kirjoittaa (RW), pelaaja lukee ja kuittaa (R + kuittaus).
-Kehityssignaali: järjestelmä generoi testituloksista automaattisesti, pelaaja lukee (R*).
-Valmentajan viesti: valmentaja kirjoittaa (RW), pelaaja lukee (R), vanhempi lukee (R).
-Streak ja eteneminen: järjestelmä laskee automaattisesti pelaajan toiminnasta.
-Tavoitejakso: talenttivalmentaja tai VP asettaa (RW), pelaaja lukee ja edistyy (R + toiminta).
-
-Pelaajan kirjoitusoikeudet ovat rajoitetut mutta tärkeät:
-  Tehtävän kuittaus tehdyksi, päivän viesti valmentajalle, oma treenikirjaus.
-  Pelaaja ei muokkaa omia testituloksiaan, kehityssignaalejaan eikä tasonsa laskentaa.
-
-Vanhemman näkymä on yksinkertaistettu versio pelaajan näkymästä (R*):
-  Näkee kehityssuunnan, tavoitejakson edistymisen ja valmentajan viestit.
-  Ei näe raakadataa (testituloksia numeroina) vaan selkokielisen version.
-
-## Suostumushierarkia (GDPR)
-
-Pakollinen suostumus (kaikki tarvitsevat):
-  tietojen tallentaminen rekisteriin + tietosuojaselosteen lukeminen.
-  Ilman näitä pelaajaa ei voi lisätä järjestelmään.
-
-Vapaaehtoinen suostumus (erikseen pyydettävä):
-  fyysinen testaaminen + biologisen iän arviointi + kehitystietojen jakaminen
-  seuran valmentajille + anonymisoitu data palvelun kehittämiseen.
-  Kieltäytyminen ei estä peruskäyttöä.
-
-Huoltajan oikeudet alaikäisen osalta:
-  Kaikki data vaatii huoltajan suostumuksen. Huoltajalla on oikeus milloin
-  tahansa nähdä, oikaista ja pyytää poistamaan lapsen tiedot. Suostumuksen
-  voi peruuttaa — tämä ei vaikuta aiemmin tehtyyn käsittelyyn mutta estää
-  uuden datan keräämisen. Kaikki suostumukset tallennetaan Firestoreen
-  aikaleimalla ja antajan nimellä.
+| Rooli | Oikeus | Huomio |
+|---|---|---|
+| Super Admin | RW | |
+| VP | RW | |
+| Valmentaja | R* | Näkee onko pelaaja ohjelmassa |
+| Talenttivalmentaja | RW | |
+| UTJ | R | Kokonaiskuva ohjelman laajuudesta |
+| Fysiikkavalmentaja | – | |
+| Fysioterapeutti | – | |
+| Testivastaava | – | |
+| Pelaaja | – | |
+| Vanhempi | – | |
 
 ---
 
-## Seurojen välinen eristys
+## Strateginen raportointi (UTJ ja hallitus)
 
-Firestore Security Rules rakentaa rakenteellisen esteen seurojen välille.
-Jokainen seura on oma "saarekkeensa" seurat/{seuraId}-polun alla. VP tai
-valmentaja ei voi edes vahingossa lukea toisen seuran dataa, koska Security
-Rules tarkistaa request.auth.token.seuraId-kentän jokaisessa pyynnössä.
-Super Admin on ainoa poikkeus — hänellä ei ole seuraId-rajausta.
+| Rooli | Oikeus | Sisältö |
+|---|---|---|
+| Super Admin | R kaikki seurat | Täysi näkymä |
+| VP | R oma seura | Operatiivinen + strateginen |
+| UTJ | R oma seura | Vain aggregoitu — ei yksittäisiä pelaajatietoja |
+| Hallitus/Puheenjohtaja | R* | Kuukausiraportti (tuleva ominaisuus) |
+| Kaikki muut | – | |
+
+Strateginen data luetaan seuradokumentin tilastot-kentästä joka päivitetään
+automaattisesti tapahtumien valmistuessa. Tämä estää kalliit reaaliaikaiset
+kyselyt jokaisen raporttinäkymän latauksen yhteydessä.
+
+---
+
+## Tietosuojahuomiot (GDPR)
+
+GDPR-kriittiset datatyypit ovat pelaajien henkilötiedot (nimi, syntymäaika —
+vaativat suostumuksen), biologinen ikä (fysiologinen tieto, erityinen suoja
+alaikäisillä), vammadata (terveystieto, vaatii erillisen suostumuksen) ja
+ADAR-pisteet (psykologinen arviointi, ammattilaisten välinen tieto).
+
+Huoltajan oikeudet: alaikäisen pelaajan data vaatii huoltajan suostumuksen.
+Huoltajalla on oikeus nähdä lapsensa data, pyytää datan poistoa, ja
+suostumus dokumentoidaan Firestoreen.
+
+Seurojen välinen eristys: Firestore Security Rules estää seurojen
+ristiinluvun rakenteellisesti. Jokainen seura on oma saarekkeensa
+seurat/{seuraId}-polun alla. Super Admin on ainoa käyttäjä joka
+näkee kaikkien seurojen datan.
