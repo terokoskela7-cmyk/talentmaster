@@ -5746,6 +5746,53 @@ var KRT_VIITEARVOT = {
   }
 };
 
+// ── FASCIA-LINJA MAPPAUS (HPP ELITE 14_TESTIPATTERISTO) ─────────────────────
+// Kertoo mihin fascia-linjaan kukin testi kuuluu.
+// SBL=Vauhtiketju, SFL=Lähtöketju, LL=Suunnanmuutosketju,
+// SL=Kiertoketju, DFL=Hallintaketju, FL=Yhdistelmäketju
+var KRT_FASCIA_LINJAT = {
+  // U12
+  valakyykky:        'DFL',   // deep squat = DFL-mobiliteetti
+  luistelijanKyykky: 'LL',    // yhden jalan kyykky = lateraalinen hallinta
+  askelkyykky:       'SFL',   // askelkyykky = etuketju + räjähtävyys
+  hyvaaHuomenta:     'SBL',   // hip hinge = takaketju (pakarat + takareidet)
+  etunojapunnerrus:  'FL',    // push = toiminnalliset linjat (ylävartalon työntö)
+  lankku60s:         'DFL',   // stabiliteetti = syvä etuketju
+  naruhypyt15s:      'SBL',   // jatkuvat hypyt = SBL elastisuus + nilkan jousitus
+  pituushyppy:       'SBL',   // horisontaalinen räjähtävyys = takaketju
+  loikka5:           'SBL',   // jatkuvat ponnistukset = SBL räjähtävyys
+
+  // U15
+  pistoolikyykky:    'LL',    // yhden jalan kyykky = lateraalilinja
+  leuanveto:         'FL',    // pull = toiminnalliset linjat
+  jalkojenNosto:     'DFL',   // core = syvä etuketju
+  lankku120s:        'DFL',
+  sivulankku60s:     'LL',    // sivulankku = lateraalilinja
+  lantionnosto:      'SBL',   // takareisi + pakara = takaketju
+  naruhypyt30s:      'SBL',
+  pakianousu:        'SBL',   // pohje = SBL (akillesjänne + pohje)
+  slr:               'SBL',   // straight leg raise = takaketjun neuraalinen
+  thomasTesti:       'SFL',   // hip flexor = etuketju
+  // pituushyppy + loikka5 = SBL (sama kuin U12)
+
+  // U19 voimatestit
+  takakyykky:        'SBL',   // takakyykky = SBL + DFL
+  maastaveto:        'SBL',   // maastaveto = takaketju
+  rinnalleveto:      'SL',    // rinnalleveto = kiertovoima + koko ketju
+  yhdenJalanKyykky:  'LL',    // bulgarian split squat = lateraalilinja
+  penkkipunnerrus:   'FL',    // penkkipunnerrus = toiminnalliset linjat
+  lonkanOjennus:     'SBL',   // lonkan aktiivinen ojennus = takaketju
+  // leuanveto, jalkojenNosto, pakianousu, slr, thomasTesti = sama kuin yllä
+  // pituushyppy + loikka5 = SBL
+};
+
+// Palauttaa fascia-linjan testille — putoaa 'DFL':ään jos tuntematon
+function krtFasciaLinja(testiNimi) {
+  return KRT_FASCIA_LINJAT[testiNimi] || 'DFL';
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+
 // Testien suomenkieliset nimet näyttöä varten
 var KRT_NIMET = {
   valakyykky:'Valakyykky', luistelijanKyykky:'Luistelijan kyykky',
@@ -6565,6 +6612,110 @@ function krtVaihe3HTML() {
  * Polku: seurat/{seuraId}/kartoitukset/{auto-id}
  * Schema vastaa täsmälleen kartoitus_schema.js:n määrittelyä.
  */
+
+// ── FASCIA-KETJUPISTEET — lasketaan kartoituksen testeistä ───────────────────
+// Ryhmittää testipisteet fascia-linjoittain ja laskee kunkin linjan keskiarvon
+function krtLaskeKetjupisteet(ikl) {
+  var testit = _krtData.testit || {};
+  var ketjut = { SBL: [], SFL: [], LL: [], SL: [], DFL: [], FL: [] };
+
+  // Käydään kaikki testit läpi ja ryhmitellään fascia-linjoittain
+  Object.keys(testit).forEach(function(nimi) {
+    var td = testit[nimi];
+    if (!td || td.pisteet == null) return;
+    var linja = krtFasciaLinja(nimi);
+    if (ketjut[linja]) {
+      ketjut[linja].push(Number(td.pisteet));
+    }
+  });
+
+  // Lasketaan kunkin linjan keskiarvo (1 desimaalin tarkkuudella)
+  var tulos = {};
+  var heikoin = { linja: null, ka: 99 };
+  var vahvin  = { linja: null, ka: 0 };
+
+  Object.keys(ketjut).forEach(function(linja) {
+    var arr = ketjut[linja];
+    if (arr.length === 0) { tulos[linja] = null; return; }
+    var ka = arr.reduce(function(s,v){ return s+v; }, 0) / arr.length;
+    tulos[linja] = Math.round(ka * 10) / 10;
+    if (tulos[linja] < heikoin.ka) { heikoin = { linja: linja, ka: tulos[linja] }; }
+    if (tulos[linja] > vahvin.ka)  { vahvin  = { linja: linja, ka: tulos[linja] }; }
+  });
+
+  tulos.heikoin = heikoin.linja;
+  tulos.vahvin  = vahvin.linja;
+  tulos.paivitetty = new Date().toISOString();
+  return tulos;
+}
+
+// ── AUTO-OHJELMA — 1p → fascia-linja → harjoite (HPP ELITE 19_AUTO_OHJELMA) ─
+// Tunnistaa heikoimman ketjun ja palauttaa valmentajalle toimenpide-ehdotuksen
+function krtLaskeAutoOhjelma(ikl, flei) {
+  var ketjut = krtLaskeKetjupisteet(ikl);
+  var heikoin = ketjut.heikoin || 'DFL';
+
+  // Ikäluokkakohtainen kuormaperiaate
+  var phv = _krtData.phvTila || '';
+  var kuormaperiaate = 'Normaali progressio';
+  if (ikl === 'U12') kuormaperiaate = 'Kehonpaino — liikemallit ensin, max 20 min/sessio';
+  else if (ikl === 'U15' && phv === 'PHV-huippu') kuormaperiaate = 'MAX 60% kuorma — PHV-kriittinen! SLR-flossing pakollinen';
+  else if (ikl === 'U15') kuormaperiaate = 'Eksentrinen ensin — 20-30 min max';
+
+  // Aktivointi + taso 1 harjoite + kenttäcue per linja (HPP ELITE 19_AUTO_OHJELMA)
+  var ohjelmat = {
+    DFL: {
+      aktivointi: '360° palleahengitys 3×5 min + Dead bug taso 1 3×5/puoli',
+      taso1:      'Plank 2×20s + Dead bug polvi 3×5/puoli',
+      kenttacue:  'Hengitä ympäri kylkiä — ei rintaan ylös. Skannaus ennen palloa.',
+      klinikka:   'DFL-mobilisointi, pallea aktivointi, thorax mob'
+    },
+    SBL: {
+      aktivointi: 'Jalkapohjan rullaus 60s/jalka + SLR-flossing 2×10/jalka',
+      taso1:      'SL lantionnosto koroke 3×8/jalka + pohje eksentrinen 3×10 hidas',
+      kenttacue:  'Nopeus syntyy takaa — takaketju vetää. Anna takaketjun vetää, älä ponnista eteen.',
+      klinikka:   'SLR-flossing pakollinen, hamstring neuraalinen vapautus, Nordic asteittain'
+    },
+    SFL: {
+      aktivointi: '90/90 hip flexor passiivinen 2×45s/puoli + Quad rock back 2×10',
+      taso1:      'Hip hinge kepillä 3×10 + Anterior chain isometria 3×30s',
+      kenttacue:  'Lonkka auki — sitten lähetä potku. Potku alkaa lonkasta — SFL auki ennen laukaisua.',
+      klinikka:   '90/90 vapautus, hip flexor progressio, Couch stretch kotona'
+    },
+    LL: {
+      aktivointi: 'Clamshell 2×12 + Lateral hip circle 2×10 + SL wall hold 2×20s',
+      taso1:      'Lateral band walk 3×15 + SL squat tuella 3×6',
+      kenttacue:  '3 askeleella jarrutus — polvilinja ei murru. Jarrutus LL:n kautta, ei polvesta.',
+      klinikka:   'Gluteus medius aktivointi, polvi-valgus korjaus, TFL käsittely'
+    },
+    SL: {
+      aktivointi: 'Thorax rotaatio 2×10 + pallonheitto seinään ristikkäin 2×10',
+      taso1:      'Anti-rotation plank 3×30s + Pallaton rotaatio 3×10',
+      kenttacue:  'Harhautus lähtee rintakehästä — SL-kierto ensin, jalka seuraa. Kääntele rintakehää.',
+      klinikka:   'Thorax rotaatio mobilisointi, QL vapautus, rotaatioharjoittelu'
+    },
+    FL: {
+      aktivointi: 'Adductor rock 2×10 + Diagonal arm swing 2×10/puoli',
+      taso1:      'Dead bug vastakk. käsi+jalka 3×5/puoli + Diagonaali throw 2kg',
+      kenttacue:  'Seinäsyöttö = FL-diagonaali. Latissimus rentona — käsi seuraa luonnostaan.',
+      klinikka:   'Adduktori vapautus, diagonal mob, latissimus käsittely'
+    }
+  };
+
+  var ohj = ohjelmat[heikoin] || ohjelmat['DFL'];
+  return {
+    heikoin_ketju:    heikoin,
+    flei_pct:         flei.fleiProsentti,
+    aktivointi:       ohj.aktivointi,
+    taso1_harjoite:   ohj.taso1,
+    kenttacue:        ohj.kenttacue,
+    klinikka_trigger: flei.fleiProsentti < 40,
+    klinikka_toimet:  flei.fleiProsentti < 40 ? ohj.klinikka : null,
+    PHV_kuormaperiaate: kuormaperiaate,
+    ikäluokka:        ikl
+  };
+}
+// ─────────────────────────────────────────────────────────────────────────────
 function krtTallenna() {
   // bugfix 2026-03-27: nappi määritellään heti funktion alussa
   var nappi = document.getElementById('krtTallennaNappi');
@@ -6628,7 +6779,13 @@ function krtTallenna() {
     // Tyhjät ikäluokat (null jos ei tämä ikäluokka)
     u12: null,
     u15: null,
-    u19: null
+    u19: null,
+
+    // Fascia-linjojen ketjupisteet (lasketaan yhteenvetona) — 2026-03-27
+    ketjupisteet_yhteenveto: krtLaskeKetjupisteet(ikl),
+
+    // Automaattinen harjoitusohjelma heikoimman ketjun perusteella — 2026-03-27
+    auto_ohjelma: krtLaskeAutoOhjelma(ikl, flei)
   };
 
   // Lisätään testit oikeaan ikäluokka-mapiin
@@ -6753,21 +6910,21 @@ function krtRakennaTestiMap(ikl) {
   if (ikl === 'U12') {
     ['valakyykky','luistelijanKyykky','askelkyykky','hyvaaHuomenta',
      'etunojapunnerrus','lankku60s','naruhypyt15s','pituushyppy','loikka5'].forEach(function(t) {
-      map[t] = krtTestiArvo(testit[t]);
+      map[t] = krtTestiArvo(testit[t], t);  // fascia_linja tunnistetaan testiNimen avulla
     });
   }
 
   else if (ikl === 'U15') {
     ['pistoolikyykky','etunojapunnerrus','leuanveto'].forEach(function(t) {
-      map[t] = krtTestiArvo(testit[t]);
+      map[t] = krtTestiArvo(testit[t], t);
     });
     map['testi4_valinta'] = _krtData.testi4valinta;
     map['testi4_tulos']   = krtTestiArvo(testit['testi4']);
-    map['lantionnosto']   = krtTestiArvo(testit['lantionnosto']);
+    map['lantionnosto']   = krtTestiArvo(testit['lantionnosto'], 'lantionnosto');
     map['testi6_valinta'] = _krtData.testi6valinta;
     map['testi6_tulos']   = krtTestiArvo(testit['testi6']);
     ['slr','thomasTesti','pituushyppy','loikka5'].forEach(function(t) {
-      map[t] = krtTestiArvo(testit[t]);
+      map[t] = krtTestiArvo(testit[t], t);
     });
   }
 
@@ -6784,20 +6941,21 @@ function krtRakennaTestiMap(ikl) {
     });
     ['leuanveto','jalkojenNosto','pakianousu','lonkanOjennus','slr',
      'thomasTesti','pituushyppy','loikka5'].forEach(function(t) {
-      map[t] = krtTestiArvo(testit[t]);
+      map[t] = krtTestiArvo(testit[t], t);
     });
   }
 
   return map;
 }
 
-// Muodostaa testiobjektin Firestore-rakenteeseen
-function krtTestiArvo(td) {
-  if (!td) return { tulos: null, pisteet: null, huomio: '' };
+// Muodostaa testiobjektin Firestore-rakenteeseen — fascia_linja lisätty 2026-03-27
+function krtTestiArvo(td, testiNimi) {
+  if (!td) return { tulos: null, pisteet: null, huomio: '', fascia_linja: krtFasciaLinja(testiNimi || '') };
   return {
-    tulos:   td.tulos !== undefined ? td.tulos : null,
-    pisteet: td.pisteet || null,
-    huomio:  td.huomio || ''
+    tulos:        td.tulos !== undefined ? td.tulos : null,
+    pisteet:      td.pisteet || null,
+    huomio:       td.huomio || '',
+    fascia_linja: krtFasciaLinja(testiNimi || '')  // HPP ELITE 14_TESTIPATTERISTO
   };
 }
 
