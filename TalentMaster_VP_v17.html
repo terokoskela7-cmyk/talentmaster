@@ -2602,7 +2602,7 @@ function kirjauduEmaililla() {
         .where('vp_uid', '==', _fbUser.uid)
         .get()
         .then(function(snap) {
-          if (!snap.empty) {
+          if (snap && !snap.empty) {
             var seuraDoc = snap.docs[0].data();
             var seuraId  = snap.docs[0].id;  // KORJATTU: .id tulee dokumentilta, ei datalta
             var rooli    = 'vp';
@@ -3463,6 +3463,7 @@ function lataaJoukkuePainopisteet() {
     .collection('joukkueet')
     .get()
     .then(function(snap) {
+      if (!snap) return;  // null-guard: orderBy saattaa epäonnistua
       var paivitetty = false;
       snap.forEach(function(doc) {
         var d = doc.data();
@@ -6078,7 +6079,16 @@ function renderKartoitukset() {
       .then(function(snap) {
         var lista = document.getElementById('kartoitusLista');
         if (!lista) return;
-
+        // null-guard: orderBy epäonnistuu jos indeksi puuttuu → snap on null
+        if (!snap) {
+          lista.innerHTML = '<div style="color:var(--amber);padding:32px;text-align:center">'
+            + '<div style="font-size:28px;margin-bottom:8px">⚠️</div>'
+            + '<div style="font-size:14px;font-weight:600;margin-bottom:6px">Firestore-indeksi puuttuu</div>'
+            + '<div style="font-size:12px;color:var(--muted)">Lisää <code>kartoitukset</code>-kokoelmaan composiitti-indeksi:<br>'
+            + '<code>luotu DESC</code> — katso konsolin virheviesti linkistä.</div>'
+            + '</div>';
+          return;
+        }
         if (snap.empty) {
           lista.innerHTML = '<div style="color:var(--muted);padding:32px;text-align:center">'
             + '<div style="font-size:32px;margin-bottom:8px">📋</div>'
@@ -7978,6 +7988,7 @@ function tuontiHaeJoukkueetJaNaytaEsikatselu(rivit, tyyppi, seuraId, tiedostoNim
     .collection('joukkueet')
     .get()
     .then(function(snap) {
+      if (!snap) return {};  // null-guard
       // Rakennetaan hakurakenne: avain on joukkueen nimi normalisoituna
       // (pienet kirjaimet, ylimääräiset välilyönnit poistettu)
       var joukkueMap = {};
@@ -8052,6 +8063,7 @@ function tuontiAloita(rivit, tyyppi, seuraId) {
       .collection('seurat').doc(seuraId)
       .collection('joukkueet').get()
       .then(function(snap) {
+        if (!snap) return;  // null-guard
         var joukkueMap = {};
         snap.forEach(function(doc) {
           var nimi = (doc.data().nimi || '').trim();
@@ -8402,6 +8414,7 @@ function luoSeuranPelaajaPohja(seuraId) {
     .get()
       .catch(function(e) { console.warn("[VP] orderBy FAILED_PRECONDITION:", e.message); })
     .then(function(snap) {
+      if (!snap) { esikatseluEl.style.display = 'block'; return; }  // null-guard
       // Varmistetaan että elementti on näkyvissä ennen kirjoittamista
       esikatseluEl.style.display = 'block';
 
