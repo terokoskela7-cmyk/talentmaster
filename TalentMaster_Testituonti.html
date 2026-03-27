@@ -348,6 +348,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
           <select id="yksiPelaaja" onchange="rakennaSyottoLomake()">
             <option value="">— Valitse —</option>
           </select>
+          <!-- Fallback kun pelaajia ei ole Firestoressa -->
+          <input type="text" id="yksiPelaajaNimi" placeholder="Tai kirjoita nimi"
+            style="display:none;margin-top:6px;width:100%;padding:10px 12px;
+            background:var(--bg3);border:1px solid var(--amber);border-radius:8px;
+            color:var(--text);font-size:13px;font-family:'Barlow',sans-serif;outline:none;">
         </div>
       </div>
       <div class="grid2">
@@ -713,8 +718,12 @@ function lueTiedosto(file) {
     const haettavat = sheetMap[ika] || [];
     let sheetNimi = null;
     for (const kandidaatti of haettavat) {
-      const loydetty = wb.SheetNames.find(function(n) { return n.includes(kandidaatti); });
-      if (loydetty) { sheetNimi = loydetty; break; }
+      // 1. Ensin tarkka match
+      const tarkka = wb.SheetNames.find(function(n) { return n === kandidaatti; });
+      if (tarkka) { sheetNimi = tarkka; break; }
+      // 2. Sitten includes-match (emoji-prefix tai muu variaatio)
+      const osuma = wb.SheetNames.find(function(n) { return n.includes(kandidaatti); });
+      if (osuma) { sheetNimi = osuma; break; }
     }
     if (!sheetNimi) {
       // Yritetään löytää joku sopiva välilehti
@@ -836,8 +845,13 @@ async function tuoFirebaseen() {
         phvTila:    String(rivi['PHV-\ntila'] || ''),
         joukkue:    String(rivi['Joukkue'] || ''),
         ikäluokkaKilpailu: String(rivi['Ikäluokka'] || ''),
-        // Kaikki raakadata talteen
-        raakaData:  rivi,
+        // Puhdistetaan raakaData: undefined/NaN → null, Date → ISO-string
+        // Firestore heittää virheen jos objektissa on undefined tai natiivi Date
+        raakaData: JSON.parse(JSON.stringify(rivi, function(k, v) {
+          if (v === undefined || v !== v) return null; // undefined ja NaN → null
+          if (v instanceof Date) return v.toISOString().slice(0,10);
+          return v;
+        })),
         // Testit (kaikki numerosarakkeet)
         testit:     {},
         pisteet:    {},
@@ -866,8 +880,18 @@ async function tuoFirebaseen() {
       if (rivi['FLEI-taso'] !== undefined) dok.fleiTaso = rivi['FLEI-taso'];
       if (rivi['Huomiot'] !== undefined) dok.huomiot = String(rivi['Huomiot'] || '');
 
+      // Puhdistetaan koko dokumentti ennen tallennusta:
+      // 1. undefined → null (Firestore ei hyväksy undefined-arvoja)
+      // 2. Date-objektit → ISO-string (Excel palauttaa Date-objekteja)
+      // 3. NaN → null
+      const puhdas = JSON.parse(JSON.stringify(dok, function(key, val) {
+        if (val === undefined || val !== val) return null; // undefined ja NaN → null
+        if (val instanceof Date) return val.toISOString().slice(0,10);
+        return val;
+      }));
+
       await db.collection('seurat').doc(seuraId)
-               .collection(kokoelma).add(dok);
+               .collection(kokoelma).add(puhdas);
       onnistuneet++;
     } catch(e) {
       console.error('Tuontivirhe rivi ' + i + ':', e);
@@ -912,10 +936,16 @@ async function lataaSeuraanPelaajat() {
       sel.appendChild(opt);
     });
     if (snap.empty) {
-      sel.innerHTML = '<option value="">Ei pelaajia (tai kirjoita nimi alla)</option>';
+      sel.innerHTML = '<option value="">Ei pelaajia Firestoressa</option>';
+      // Näytetään manuaalinen nimi-kenttä kun pelaajia ei löydy
+      naytaManuaalinenNimiKentta(true);
+    } else {
+      naytaManuaalinenNimiKentta(false);
     }
   } catch(e) {
-    sel.innerHTML = '<option value="">Virhe — kirjoita nimi</option>';
+    console.warn('Pelaajahaku epäonnistui:', e.message);
+    sel.innerHTML = '<option value="">Virhe haussa — kirjoita nimi</option>';
+    naytaManuaalinenNimiKentta(true);
   }
 }
 
@@ -1027,11 +1057,16 @@ async function tallennaYksittainen() {
   const fleiPct = flei ? parseFloat(flei) : (pistettujaTesteja > 0 ?
     Math.round((kokonaisPisteet / (pistettujaTesteja * 3)) * 100) : null);
 
+  const maxTesteja = conf.testit.length;
+  const osittainen = pistettujaTesteja > 0 && pistettujaTesteja < maxTesteja;
+  
   let fleiTaso = '';
   if (fleiPct !== null) {
     if (fleiPct >= 80) fleiTaso = '🟢 Erinomainen';
     else if (fleiPct >= 60) fleiTaso = '🟡 Kehitettävää';
     else fleiTaso = '🔴 Prioriteetti';
+    // Merkitään jos FLEI on laskettu osittaisesta datasta
+    if (osittainen) fleiTaso += ' (osittainen: ' + pistettujaTesteja + '/' + maxTesteja + ')';
   }
 
   try {
@@ -1059,6 +1094,11 @@ async function tallennaYksittainen() {
   } catch(e) {
     naytaVirhe('yksiVirhe','Tallennus epäonnistui: ' + e.message);
   }
+}
+
+function naytaManuaalinenNimiKentta(nayta) {
+  const el = document.getElementById('yksiPelaajaNimi');
+  if (el) el.style.display = nayta ? 'block' : 'none';
 }
 
 function nollaaYksiLomake() {
@@ -1098,13 +1138,19 @@ function rakennaTkLajit() {
   document.getElementById('tkLajit').innerHTML = html;
 }
 
+// Globaali objekti merkkien tallentamiseen — yksinkertaisin ja luotettavin ratkaisu
+var _tkMerkit = {};
+
 function valitseMerkki(lajiId, merkki, el) {
+  // 1. Nollaa visuaalinen valinta kaikista napeit tässä lajissa
   const vanhempi = el.closest('.tk-laji');
   vanhempi.querySelectorAll('.merkki-btn').forEach(function(b) {
     b.classList.remove('on');
   });
+  // 2. Aktivoi klikattu nappi
   el.classList.add('on');
-  el.dataset.valittu = merkki;
+  // 3. Tallenna merkki globaaliin objektiin (lajiId → merkki)
+  _tkMerkit[lajiId] = merkki;
 }
 
 async function tallennaTkTulos() {
@@ -1122,13 +1168,11 @@ async function tallennaTkTulos() {
   const lajit = {};
   const merkit = {};
   TK_LAJIT.forEach(function(laji) {
+    // Lue tulos-kenttä suoraan id:llä
     const el = document.getElementById('tk_' + laji.id);
     if (el && el.value !== '') lajit[laji.id] = el.value;
-    const merkki = document.querySelector('.tk-laji input#tk_' + laji.id)
-      ?.closest('.tk-laji')
-      ?.querySelector('.merkki-btn.on')
-      ?.dataset?.valittu || '';
-    if (merkki) merkit[laji.id] = merkki;
+    // Lue merkki globaalista objektista — luotettava ja yksinkertainen
+    if (_tkMerkit[laji.id]) merkit[laji.id] = _tkMerkit[laji.id];
   });
 
   try {
@@ -1161,6 +1205,8 @@ function nollaaTkLomake() {
     const el = document.getElementById('tk_' + laji.id); if(el) el.value='';
   });
   document.querySelectorAll('.merkki-btn.on').forEach(function(b) { b.classList.remove('on'); });
+  // Tyhjennä myös globaali merkki-objekti
+  _tkMerkit = {};
 }
 
 function handleTkDrop(e) {
@@ -1245,8 +1291,18 @@ async function lataaHistoria() {
                       ['kartoitukset','tekniikkakilpailut'];
 
     for (const kok of kokoelmat) {
-      const snap = await db.collection('seurat').doc(seuraId)
-                            .collection(kok).orderBy('luotu','desc').limit(20).get();
+      // orderBy('luotu') vaatii Firestore-indeksin - käytetään try/catch
+      // ja fallback ilman järjestystä jos indeksi puuttuu
+      let snap;
+      try {
+        snap = await db.collection('seurat').doc(seuraId)
+                        .collection(kok).orderBy('luotu','desc').limit(20).get();
+      } catch(orderErr) {
+        // Indeksi puuttuu - haetaan ilman järjestystä
+        console.warn('orderBy epäonnistui, haetaan ilman järjestystä:', orderErr.message);
+        snap = await db.collection('seurat').doc(seuraId)
+                        .collection(kok).limit(20).get();
+      }
       if (snap.empty) continue;
 
       html += '<div style="font-size:11px;color:var(--muted2);text-transform:uppercase;' +
