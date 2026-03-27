@@ -2195,7 +2195,7 @@ function tallennaPika(jnimi) {
   var liike = parseInt(document.getElementById('liikeSlider').value);
   var toimenpide = document.getElementById('toimenpide').value.trim();
   var valmentaja = (document.getElementById('valmentajaNimi')||{}).value||'';
-  var rooliEl = document.querySelector('.rooli-aktiv');
+  var rooliEl = document.querySelector('#pikaBody .rooli-aktiv'); // bugfix 2026-03-27
   var rooli = rooliEl ? rooliEl.dataset.rooli : 'joukkuevalmentaja';
   function sv(id){ var e=document.getElementById(id); return e?parseInt(e.value):null; }
   var ekstra = {
@@ -2231,7 +2231,7 @@ function haeTalentit(seura) {
   } catch(e) { return new Set(); }
 }
 
-function tallennaталентit(seura, idSet) {
+function tallennaTalentit(seura, idSet) {
   try {
     localStorage.setItem(_talentKey(seura), JSON.stringify([...idSet]));
   } catch(e) { console.warn('localStorage virhe'); }
@@ -2248,7 +2248,7 @@ function merkitseTalentti(seura, pid) {
   } else {
     set.add(pid);
   }
-  tallennaталентit(seura, set);
+  tallennaTalentit(seura, set);
 }
 
 // ── RENDER: Talentit-välilehti ──
@@ -5967,6 +5967,7 @@ function renderKartoitukset() {
       .orderBy('luotu', 'desc')
       .limit(50)
       .get()
+      .catch(function(e) { console.warn("[VP] orderBy FAILED_PRECONDITION:", e.message); })
       .then(function(snap) {
         var lista = document.getElementById('kartoitusLista');
         if (!lista) return;
@@ -6565,6 +6566,9 @@ function krtVaihe3HTML() {
  * Schema vastaa täsmälleen kartoitus_schema.js:n määrittelyä.
  */
 function krtTallenna() {
+  // bugfix 2026-03-27: nappi määritellään heti funktion alussa
+  var nappi = document.getElementById('krtTallennaNappi');
+
   if (!_fbOnline || !_fbDb) {
     alert('Ei Firebase-yhteyttä. Tarkista kirjautuminen.');
     return;
@@ -6580,8 +6584,6 @@ function krtTallenna() {
     return;
   }
 
-  // Estä tuplaklikkaus
-  var nappi = document.getElementById('krtTallennaNappi');
   if (nappi) { nappi.disabled = true; nappi.textContent = 'Tallennetaan...'; }
 
   var ikl = _krtData.ikäluokka;
@@ -8180,6 +8182,7 @@ function luoSeuranPelaajaPohja(seuraId) {
   _fbDb.collection('seurat').doc(seuraId)
     .collection('joukkueet')
     .get()
+      .catch(function(e) { console.warn("[VP] orderBy FAILED_PRECONDITION:", e.message); })
     .then(function(snap) {
       // Varmistetaan että elementti on näkyvissä ennen kirjoittamista
       esikatseluEl.style.display = 'block';
