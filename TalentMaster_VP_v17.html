@@ -225,34 +225,65 @@ try {
       return;
     }
 
-    // Sessio löytyy — haetaan seura ja siirrytään dashboardiin
+    // Sessio löytyy — tarkistetaan ensin onko Super Admin
     console.log('[AUTH] Sessio löytyi:', user.email);
 
-    // Haetaan seura Firestoresta UID:n perusteella
-    _fbDb.collection('seurat')
-      .where('vp_uid', '==', user.uid)
-      .limit(1)
-      .get()
-      .then(function(snap) {
-        if (snap.empty) {
-          console.warn('[AUTH] Seuraa ei löydy UID:llä:', user.uid);
-          // Jos super-admin tai tuntematon käyttäjä — kirjaa ulos VP-dashboardista
-          // VP-dashboard ei ole tarkoitettu super-adminille
-          // Näytetään login-näkymä normaalisti (ei jäädä jumiin)
-          console.log('[AUTH] Ei VP-tunnusta — näytetään login');
-          _fbAuth.signOut();
+    // ── SUPER ADMIN -TARKISTUS (onAuthStateChanged) ────────────────────────
+    // Super Admin pääsee aina kaikkeen. Tarkistetaan admins-kokoelmasta ENNEN
+    // seurahakua — muuten signOut() kirjaisi Super Adminin ulos heti session
+    // palautuksen yhteydessä koska hänen uid:ään ei löydy vp_uid-kentästä.
+    _fbDb.collection('admins').doc(user.uid).get()
+      .then(function(adminSnap) {
+        if (adminSnap.exists && adminSnap.data().superAdmin === true) {
+          console.log('[AUTH] Super Admin sessio palautettu');
+          _vpRooli = 'superadmin';
+          _fbUser  = user;
+          _fbOnline = true;
+          var rooliLabel = document.getElementById('vpRooliLabel');
+          if (rooliLabel) rooliLabel.textContent = '\uD83D\uDC51 Super Admin';
+          _odotaJaSiirryDashboardiin();
           return;
         }
-        var data = snap.docs[0].data();
-        data.id = snap.docs[0].id;
-        window._fbSeuraDoc = data;
-        console.log('[AUTH] Seura:', data.nimi, '— odotetaan tm_data.js');
-
-        // Odotetaan tm_data.js + _lataaPilottiDashboard ennen näkymänvaihtoa
-        _odotaJaSiirryDashboardiin();
+        // Ei Super Admin — haetaan seura vp_uid:llä normaalisti
+        _fbDb.collection('seurat')
+          .where('vp_uid', '==', user.uid)
+          .limit(1)
+          .get()
+          .then(function(snap) {
+            if (snap.empty) {
+              console.warn('[AUTH] Seuraa ei löydy UID:llä:', user.uid);
+              console.log('[AUTH] Ei VP- eikä Admin-tunnusta — näytetään login');
+              _fbAuth.signOut();
+              return;
+            }
+            var data = snap.docs[0].data();
+            data.id = snap.docs[0].id;
+            window._fbSeuraDoc = data;
+            _fbUser   = user;
+            _fbOnline = true;
+            console.log('[AUTH] Seura:', data.nimi, '— odotetaan tm_data.js');
+            _odotaJaSiirryDashboardiin();
+          })
+          .catch(function(e) {
+            console.warn('[AUTH] Seura-haku virhe:', e.message);
+          });
       })
-      .catch(function(e) {
-        console.warn('[AUTH] Seura-haku virhe:', e.message);
+      .catch(function() {
+        // admins-haku epäonnistui — jatketaan seurahakuun varmuuden vuoksi
+        _fbDb.collection('seurat')
+          .where('vp_uid', '==', user.uid)
+          .limit(1)
+          .get()
+          .then(function(snap) {
+            if (snap.empty) { _fbAuth.signOut(); return; }
+            var data = snap.docs[0].data();
+            data.id = snap.docs[0].id;
+            window._fbSeuraDoc = data;
+            _fbUser   = user;
+            _fbOnline = true;
+            _odotaJaSiirryDashboardiin();
+          })
+          .catch(function(e) { console.warn('[AUTH] Seura-haku virhe:', e.message); });
       });
   });
 
@@ -2581,9 +2612,9 @@ function kirjauduEmaililla() {
   var password = document.getElementById('passwordInput').value || '';
   var errDiv   = document.getElementById('pinErr');
 
-  if (!email) { errDiv.textContent = 'Syötä sähköpostiosoite'; return; }
+  if (!email)    { errDiv.textContent = 'Syötä sähköpostiosoite'; return; }
   if (!password) { errDiv.textContent = 'Syötä salasana'; return; }
-  if (!_fbAuth) { errDiv.textContent = 'Firebase ei ole valmis — yritä uudelleen'; return; }
+  if (!_fbAuth)  { errDiv.textContent = 'Firebase ei ole valmis — yritä uudelleen'; return; }
 
   errDiv.textContent = 'Kirjaudutaan...';
   errDiv.style.color = 'var(--teal)';
@@ -2593,110 +2624,84 @@ function kirjauduEmaililla() {
       _fbUser = userCredential.user;
       errDiv.style.color = '';
       console.log('[AUTH] Kirjautuminen onnistui:', _fbUser.email);
-      _fbOnline = true; // Kirjautuminen onnistui — Firebase on käytettävissä
+      _fbOnline = true;
 
-      // ── SUPER ADMIN -TARKISTUS ─────────────────────────────────
-      // Super Admin pääsee aina kaikkeen — tarkistetaan ENSIN
-      // admins-kokoelmasta ennen seurahakua. Jos Super Admin,
-      // hypätään suoraan dashboardiin ilman seurasidontaa.
-      // Super Admin näkee kaikkien seurojen datan initDash():ssa.
+      // ── SUPER ADMIN -TARKISTUS ──────────────────────────────────────────────
+      // Super Admin pääsee aina kaikkeen — tarkistetaan ENSIN admins-kokoelmasta.
+      // Jos Super Admin → dashboardiin suoraan ilman seurasidontaa.
+      // Jos ei → _jatkaSeuraHakuun() hakee seuran vp_uid:llä normaalisti.
       _fbDb.collection('admins').doc(_fbUser.uid).get()
         .then(function(adminSnap) {
           if (adminSnap.exists && adminSnap.data().superAdmin === true) {
             console.log('[AUTH] Super Admin tunnistettu — ohitetaan seurahaku');
             _vpRooli = 'superadmin';
             var rooliLabel = document.getElementById('vpRooliLabel');
-            if (rooliLabel) rooliLabel.textContent = '👑 Super Admin';
+            if (rooliLabel) rooliLabel.textContent = '\u{1F451} Super Admin';
             var loginEl = document.getElementById('sLogin');
             loginEl.classList.remove('active');
             loginEl.style.display = 'none';
             document.getElementById('sDash').classList.add('active');
             initDash();
-            return; // Ei jatketa seurahakuun
+            return;
           }
-          // Ei Super Admin — jatketaan normaaliin seurahakuun
+          // Ei Super Admin — haetaan seura vp_uid:llä
           _jatkaSeuraHakuun();
         })
         .catch(function() {
-          // admins-haku epäonnistui — jatketaan silti seurahakuun
+          // admins-haku epäonnistui verkkovirheestä — jatketaan silti
           _jatkaSeuraHakuun();
         });
-      });
-
-      // Siirretty erilliseen funktioon jotta Super Admin -polku
-      // voi ohittaa tämän ja VP-polku kutsuu sen normaalisti
-      function _jatkaSeuraHakuun() {
-      // Haetaan käyttäjän seura Firestore-dokumentista
-      // custom claims eivät välttämättä ole heti saatavilla
-      // joten luetaan seura suoraan seurat-kokoelmasta VP:n UID:n perusteella
-      _fbDb.collection('seurat')
-        .where('vp_uid', '==', _fbUser.uid)
-        .get()
-        .then(function(snap) {
-          if (snap && !snap.empty) {
-            var seuraDoc = snap.docs[0].data();
-            var seuraId  = snap.docs[0].id;  // KORJATTU: .id tulee dokumentilta, ei datalta
-            var rooli    = 'vp';
-
-            console.log('[AUTH] Seura tunnistettu:', seuraId);
-
-            // Asetetaan aktiviinen seura VP:n seuran mukaan
-            // Tämä ohittaa PIN-pohjaisen seuravalinnan
-            _vpRooli = rooli;
-
-            // Päivitetään topbarin käyttäjätiedot
-            var rooliLabel = document.getElementById('vpRooliLabel');
-            if (rooliLabel) {
-              rooliLabel.textContent = '👤 ' + _fbUser.email.split('@')[0].replace('vp.','').toUpperCase();
-            }
-
-            // KRIITTINEN JÄRJESTYS:
-            // 1. Aseta _fbSeuraDoc ENSIN
-            // 2. Sitten initDash — se lukee _fbSeuraDoc ja valitsee oikean seuran
-            window._fbSeuraDoc = seuraDoc;
-            // Tallenna seuraDoc localStorage:een — palautetaan refreshissa
-            try { localStorage.setItem('tm_seuraDoc', JSON.stringify({id: seuraDoc.id, nimi: seuraDoc.nimi})); } catch(e) {}
-            console.log('[AUTH] Seura asetettu:', seuraDoc.nimi, '(id:', seuraDoc.id, ')');
-
-            // Siirrytään dashboardiin
-            var loginEl = document.getElementById('sLogin');
-            loginEl.classList.remove('active');
-            loginEl.style.display = 'none';
-            document.getElementById('sDash').classList.add('active');
-
-            // Alustetaan dashboard — _fbSeuraDoc on nyt valmis
-            initDash();
-
-          } else {
-            // Käyttäjä löytyy Firebasesta mutta ei seurat-kokoelmasta
-            // Tämä ei pitäisi tapahtua normaalisti
-            errDiv.style.color = 'var(--red)';
-            errDiv.textContent = 'Käyttäjätili ei ole liitetty seuraan. Ota yhteyttä TalentMaster-tukeen.';
-            _fbAuth.signOut();
-          }
-        })
-        .catch(function(e) {
-          errDiv.style.color = 'var(--red)';
-          errDiv.textContent = 'Seurahaun virhe: ' + e.message;
-        });
-      } // end _jatkaSeuraHakuun
-
+    })
     .catch(function(error) {
       errDiv.style.color = 'var(--red)';
-      // Näytetään käyttäjäystävällinen virheilmoitus
       var viesti = 'Kirjautuminen epäonnistui';
-      if (error.code === 'auth/user-not-found')     viesti = 'Sähköpostiosoitetta ei löydy';
-      if (error.code === 'auth/wrong-password')      viesti = 'Väärä salasana';
-      if (error.code === 'auth/invalid-email')       viesti = 'Virheellinen sähköpostiosoite';
-      if (error.code === 'auth/too-many-requests')   viesti = 'Liian monta yritystä — odota hetki';
-      if (error.code === 'auth/invalid-credential')  viesti = 'Väärä sähköposti tai salasana';
-      if (error.code === 'auth/network-request-failed') viesti = 'Verkkovirhe — tarkista yhteys';
+      if (error.code === 'auth/user-not-found')         viesti = 'Sähköpostiosoitetta ei löydy';
+      if (error.code === 'auth/wrong-password')          viesti = 'Väärä salasana';
+      if (error.code === 'auth/invalid-email')           viesti = 'Virheellinen sähköpostiosoite';
+      if (error.code === 'auth/too-many-requests')       viesti = 'Liian monta yritystä — odota hetki';
+      if (error.code === 'auth/invalid-credential')      viesti = 'Väärä sähköposti tai salasana';
+      if (error.code === 'auth/network-request-failed')  viesti = 'Verkkovirhe — tarkista yhteys';
       errDiv.textContent = viesti;
       console.warn('[AUTH] Virhe:', error.code, error.message);
     });
 }
 
-// Salasanan palautus sähköpostitse
+// VP:n seurahakulogiikka — erillinen funktio jotta Super Admin voi ohittaa sen
+function _jatkaSeuraHakuun() {
+  var errDiv = document.getElementById('pinErr');
+  _fbDb.collection('seurat')
+    .where('vp_uid', '==', _fbUser.uid)
+    .get()
+    .then(function(snap) {
+      if (snap && !snap.empty) {
+        var seuraDoc = snap.docs[0].data();
+        var seuraId  = snap.docs[0].id;
+        console.log('[AUTH] Seura tunnistettu:', seuraId);
+        _vpRooli = 'vp';
+        var rooliLabel = document.getElementById('vpRooliLabel');
+        if (rooliLabel) {
+          rooliLabel.textContent = '\u{1F464} ' + _fbUser.email.split('@')[0].replace('vp.','').toUpperCase();
+        }
+        window._fbSeuraDoc = seuraDoc;
+        try { localStorage.setItem('tm_seuraDoc', JSON.stringify({id: seuraDoc.id, nimi: seuraDoc.nimi})); } catch(e) {}
+        console.log('[AUTH] Seura asetettu:', seuraDoc.nimi, '(id:', seuraDoc.id, ')');
+        var loginEl = document.getElementById('sLogin');
+        loginEl.classList.remove('active');
+        loginEl.style.display = 'none';
+        document.getElementById('sDash').classList.add('active');
+        initDash();
+      } else {
+        errDiv.style.color = 'var(--red)';
+        errDiv.textContent = 'Käyttäjätili ei ole liitetty seuraan. Ota yhteyttä TalentMaster-tukeen.';
+        _fbAuth.signOut();
+      }
+    })
+    .catch(function(e) {
+      errDiv.style.color = 'var(--red)';
+      errDiv.textContent = 'Seurahaun virhe: ' + e.message;
+    });
+}
+
 function unohditkoSalasanan() {
   var email = (document.getElementById('emailInput').value || '').trim();
   var errDiv = document.getElementById('pinErr');
@@ -2865,6 +2870,43 @@ function _lataaPilottiDashboard() {
         'style="padding:12px 20px;background:var(--purple);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer">' +
         '🏋️ Kartoitukset</button>' +
       '</div></div>';
+
+    // Signaalikortin kontti lisätään dynaamisesti yleiskuvan alle.
+    // tm_ylaikaisyys.js piirtää siihen RAE + biologinen ikä -kortin
+    // heti kun pelaajadata on haettu Firestoresta alla.
+    var bioKorttiEl = document.createElement('div');
+    bioKorttiEl.id = 'tm-ylaikaisyys-kortti';
+    bioKorttiEl.style.padding = '0 32px 24px';
+    yleiskuva.appendChild(bioKorttiEl);
+  }
+
+  // ── RAE + biologinen ikä: haetaan pelaajat ja alustetaan signaalikortti ──
+  // Haetaan seurat/{seuraId}/pelaajat — syntymapaivamaara (Timestamp) RAE:lle,
+  // biologinenIka.mirwald Mirwaldille, fleiProsentti FLEI-talenttiryhmälle.
+  // Kutsutaan vasta kun yleiskuva-tab on renderöity jotta #tm-ylaikaisyys-kortti on DOM:issa.
+  if (_fbOnline && _fbDb && seuraId) {
+    _fbDb.collection('seurat').doc(seuraId)
+      .collection('pelaajat')
+      .limit(300)
+      .get()
+      .then(function(pelSnap) {
+        if (!pelSnap || pelSnap.empty) {
+          console.log('[VP] Ei pelaajia RAE-analyysiin — kortti näyttää tyhjän tilan');
+        }
+        var pelaajat = [];
+        if (pelSnap) {
+          pelSnap.forEach(function(doc) { pelaajat.push(doc.data()); });
+        }
+        // tmYlaikaisyysAlusta on määritelty tm_ylaikaisyys.js:ssä
+        if (typeof tmYlaikaisyysAlusta === 'function') {
+          tmYlaikaisyysAlusta(pelaajat);
+        } else {
+          console.warn('[VP] tm_ylaikaisyys.js ei ladattu — RAE-signaalikortti ei toimi');
+        }
+      })
+      .catch(function(e) {
+        console.warn('[VP] Pelaajadata RAE-analyysiin epäonnistui:', e.message);
+      });
   }
 
   // Joukkueet-tab: käynnistä realtime listener
@@ -8619,5 +8661,7 @@ function rakennaPelaajaPohja(joukkueet, seuraId) {
   </div>
 </div>
 
+<!-- tm_ylaikaisyys.js: RAE-analyysi + biologinen ikä (Mirwald 2002) VP-signaalikortti -->
+<script src="tm_ylaikaisyys.js"></script>
 </body>
 </html>
