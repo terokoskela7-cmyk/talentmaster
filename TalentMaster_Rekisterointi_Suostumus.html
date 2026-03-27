@@ -583,7 +583,12 @@ function toStep3() {
       .collection('pelaajat').doc(dokumenttiId);
 
     tallennusPromise = pelaajatRef
-      .set(pelaajaDoc)
+// bugfix 2026-03-27: pelaajaId validointi ennen tallennusta
+      if (!dokumenttiId || !String(dokumenttiId).trim()) {
+        console.warn('[REKIS] PalloID (dokumenttiId) on tyhja — tallennus estetty');
+        return;
+      }
+            .set(pelaajaDoc)
       .then(function() {
         // Merkitään kutsu käytetyksi jos kutsuId löytyy
         if (_kutsuId) {
@@ -593,7 +598,7 @@ function toStep3() {
             .update({
               tila:           'hyvaksytty',
               hyvaksyttyPvm:  nyt,
-              pelaajaId:      dokumenttiId,
+              pelaajaId:      (dokumenttiId || '').trim(),
             });
         }
       });
