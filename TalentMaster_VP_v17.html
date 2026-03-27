@@ -2595,6 +2595,37 @@ function kirjauduEmaililla() {
       console.log('[AUTH] Kirjautuminen onnistui:', _fbUser.email);
       _fbOnline = true; // Kirjautuminen onnistui — Firebase on käytettävissä
 
+      // ── SUPER ADMIN -TARKISTUS ─────────────────────────────────
+      // Super Admin pääsee aina kaikkeen — tarkistetaan ENSIN
+      // admins-kokoelmasta ennen seurahakua. Jos Super Admin,
+      // hypätään suoraan dashboardiin ilman seurasidontaa.
+      // Super Admin näkee kaikkien seurojen datan initDash():ssa.
+      _fbDb.collection('admins').doc(_fbUser.uid).get()
+        .then(function(adminSnap) {
+          if (adminSnap.exists && adminSnap.data().superAdmin === true) {
+            console.log('[AUTH] Super Admin tunnistettu — ohitetaan seurahaku');
+            _vpRooli = 'superadmin';
+            var rooliLabel = document.getElementById('vpRooliLabel');
+            if (rooliLabel) rooliLabel.textContent = '👑 Super Admin';
+            var loginEl = document.getElementById('sLogin');
+            loginEl.classList.remove('active');
+            loginEl.style.display = 'none';
+            document.getElementById('sDash').classList.add('active');
+            initDash();
+            return; // Ei jatketa seurahakuun
+          }
+          // Ei Super Admin — jatketaan normaaliin seurahakuun
+          _jatkaSeuraHakuun();
+        })
+        .catch(function() {
+          // admins-haku epäonnistui — jatketaan silti seurahakuun
+          _jatkaSeuraHakuun();
+        });
+      });
+
+      // Siirretty erilliseen funktioon jotta Super Admin -polku
+      // voi ohittaa tämän ja VP-polku kutsuu sen normaalisti
+      function _jatkaSeuraHakuun() {
       // Haetaan käyttäjän seura Firestore-dokumentista
       // custom claims eivät välttämättä ole heti saatavilla
       // joten luetaan seura suoraan seurat-kokoelmasta VP:n UID:n perusteella
@@ -2648,7 +2679,8 @@ function kirjauduEmaililla() {
           errDiv.style.color = 'var(--red)';
           errDiv.textContent = 'Seurahaun virhe: ' + e.message;
         });
-    })
+      } // end _jatkaSeuraHakuun
+
     .catch(function(error) {
       errDiv.style.color = 'var(--red)';
       // Näytetään käyttäjäystävällinen virheilmoitus
