@@ -275,12 +275,23 @@ try {
       .then(function(adminSnap) {
         if (adminSnap.exists && adminSnap.data().superAdmin === true) {
           console.log('[AUTH] Super Admin sessio palautettu');
-          _vpRooli = 'superadmin';
-          _fbUser  = user;
+          _vpRooli  = 'superadmin';
+          _fbUser   = user;
           _fbOnline = true;
           var rooliLabel = document.getElementById('vpRooliLabel');
           if (rooliLabel) rooliLabel.textContent = '\uD83D\uDC51 Super Admin';
-          _odotaJaSiirryDashboardiin();
+          // Super Admin kirjautuu suoraan — ei sessionStorage-kontekstia.
+          // initDash() osaa käsitellä tilanteen ilman _fbSeuraDoc:ia
+          // ja näyttää kaikki seurat valikossa.
+          var sl = document.getElementById('sLogin');
+          var sd = document.getElementById('sDash');
+          if (sl) { sl.classList.remove('active'); sl.style.display = 'none'; }
+          if (sd) { sd.classList.add('active'); sd.style.display = ''; }
+          if (typeof initDash === 'function') {
+            initDash();
+          } else {
+            _odotaJaSiirryDashboardiin();
+          }
           return;
         }
         // Ei Super Admin — haetaan seura vp_uid:llä normaalisti
@@ -335,7 +346,8 @@ function _odotaJaSiirryDashboardiin() {
   // Kaikki valmis — vaihda näkymä
   // HUOM: #sLogin CSS-sääntö (display:flex) ylikirjoittaa .screen-luokan
   // Siksi käytetään style.display suoraan — se voittaa kaiken muun
-  console.log('[AUTH] Kaikki ladattu — siirrytään dashboardiin:', window._fbSeuraDoc.nimi);
+  var seuraInfo = (window._fbSeuraDoc && window._fbSeuraDoc.nimi) ? window._fbSeuraDoc.nimi : 'Super Admin';
+  console.log('[AUTH] Kaikki ladattu — siirrytään dashboardiin:', seuraInfo);
   var _sl = document.getElementById('sLogin');
   var _sd = document.getElementById('sDash');
   if (_sl) { _sl.classList.remove('active'); _sl.style.display = 'none'; }
@@ -2592,6 +2604,9 @@ function kirjauduUlos() {
   // Nollaa session tila
   window._fbSeuraDoc = null;
   window._pilottiAlustettu = false;
+  // Tyhjennetään Super Admin -konteksti sessionStoragesta
+  // Ilman tätä seuraava sivulataus yrittää käyttää vanhaa kontekstia
+  try { sessionStorage.removeItem('tm_superadmin_konteksti'); } catch(e) {}
   _vpPin = '';
   updateDots();
   // Tyhjennetään sähköpostikentät
@@ -2708,6 +2723,12 @@ function kirjauduEmaililla() {
 // VP:n seurahakulogiikka — erillinen funktio jotta Super Admin voi ohittaa sen
 function _jatkaSeuraHakuun() {
   var errDiv = document.getElementById('pinErr');
+  // Null-turva: _fbUser pitää olla asetettu ennen tätä kutsua
+  if (!_fbUser || !_fbUser.uid) {
+    console.warn('[AUTH] _jatkaSeuraHakuun: _fbUser on null — näytetään login');
+    if (errDiv) { errDiv.style.color = 'var(--red)'; errDiv.textContent = 'Istunto vanhentunut — kirjaudu uudelleen.'; }
+    return;
+  }
   _fbDb.collection('seurat')
     .where('vp_uid', '==', _fbUser.uid)
     .get()
@@ -2804,6 +2825,86 @@ function _renderJoukkueetLista(snap, seuraNimi, container) {
   });
   h += '</div></div>';
   container.innerHTML = h;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPER ADMIN DASHBOARD — kirjautunut suoraan ilman seurakontekstia
+// Näyttää kaikki seurat listana joista Super Admin valitsee
+// ─────────────────────────────────────────────────────────────────────────────
+function _lataaSuperAdminDashboard() {
+  var yleiskuva = document.getElementById('tabYleiskuva');
+  if (!yleiskuva) return;
+
+  var loginEl = document.getElementById('sLogin');
+  var dashEl  = document.getElementById('sDash');
+  if (loginEl) { loginEl.classList.remove('active'); loginEl.style.display = 'none'; }
+  if (dashEl)  { dashEl.classList.add('active'); dashEl.style.display = ''; }
+
+  var rooliLabel = document.getElementById('vpRooliLabel');
+  if (rooliLabel) rooliLabel.textContent = '\uD83D\uDC51 Super Admin';
+
+  yleiskuva.innerHTML =
+    '<div style="padding:32px">' +
+    '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:28px;color:var(--teal);margin-bottom:4px">Super Admin</div>' +
+    '<div style="font-size:13px;color:var(--muted);margin-bottom:24px">Valitse seura jonka dashboardiin siirryt</div>' +
+    '<div id="saSeuraLista"><div style="color:var(--muted)">Ladataan seurojen listaa...</div></div>' +
+    '</div>';
+
+  // Haetaan kaikki seurat Firestoresta
+  if (!_fbDb) return;
+  _fbDb.collection('seurat').get()
+    .then(function(snap) {
+      var lista = document.getElementById('saSeuraLista');
+      if (!lista) return;
+      if (snap.empty) {
+        lista.innerHTML = '<div style="color:var(--muted)">Ei seuroja järjestelmässä.</div>';
+        return;
+      }
+      var seurat = snap.docs.map(function(d) {
+        return Object.assign({ id: d.id }, d.data());
+      }).sort(function(a, b) { return (a.nimi||a.id).localeCompare(b.nimi||b.id); });
+
+      lista.innerHTML = '<div style="display:grid;gap:10px;">' +
+        seurat.map(function(s) {
+          return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;' +
+            'padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px">' +
+            '<div>' +
+            '<div style="font-weight:700;font-size:15px">' + (s.nimi || s.id) + '</div>' +
+            '<div style="font-size:12px;color:var(--muted);margin-top:2px">' + s.id + ' · ' + (s.paketti||'—') + '</div>' +
+            '</div>' +
+            '<button onclick="_saAvaaSeura('' + s.id + '','' + (s.nimi||s.id).replace(/'/g,"\\'") + '')" ' +
+            'style="padding:8px 18px;background:var(--teal);color:#000;border:none;border-radius:8px;' +
+            'font-weight:700;font-size:13px;cursor:pointer">Avaa →</button>' +
+            '</div>';
+        }).join('') +
+        '</div>';
+    })
+    .catch(function(e) {
+      var lista = document.getElementById('saSeuraLista');
+      if (lista) lista.innerHTML = '<div style="color:var(--red)">Virhe: ' + e.message + '</div>';
+    });
+}
+
+// Super Admin valitsee seuran listasta — asettaa _fbSeuraDoc ja siirtyy dashboardiin
+function _saAvaaSeura(seuraId, seuraNimi) {
+  _fbDb.collection('seurat').doc(seuraId).get()
+    .then(function(snap) {
+      if (!snap.exists) return;
+      var data = snap.data();
+      data.id = seuraId;
+      window._fbSeuraDoc = data;
+      // Nollataan _pilottiAlustettu-lippu jotta uusi seura latautuu uudelleen
+      window._pilottiAlustettu = false;
+      if (window._joukkueetUnsubscribe) {
+        window._joukkueetUnsubscribe();
+        window._joukkueetUnsubscribe = null;
+      }
+      var rooliLabel = document.getElementById('vpRooliLabel');
+      if (rooliLabel) rooliLabel.textContent = '\uD83D\uDC51 SA \u2192 ' + seuraNimi;
+      _lataaPilottiDashboard();
+    })
+    .catch(function(e) { console.error('Seuran lataus epäonnistui:', e.message); });
 }
 
 function _lataaPilottiDashboard() {
@@ -2987,6 +3088,12 @@ function initDash() {
   if (!Object.keys(lookup).length) {
     if (window._fbSeuraDoc) {
       _lataaPilottiDashboard();
+      return;
+    }
+    // Super Admin ilman _fbSeuraDoc — näytetään kaikkien seurojen lista
+    // josta hän voi valita minkä seuran dashboardiin menee
+    if (_vpRooli === 'superadmin') {
+      _lataaSuperAdminDashboard();
       return;
     }
     console.warn('[VP] Ei pelaajadataa — tm_data.js puuttuu.');
