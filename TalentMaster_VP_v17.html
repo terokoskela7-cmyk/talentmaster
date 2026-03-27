@@ -217,8 +217,47 @@ try {
   // kirjauduUlos() kutsutaan VAIN käyttäjän napista.
 
   _fbAuth.onAuthStateChanged(function(user) {
+
+    // ── SUPER ADMIN SESSIONSTORAGE -KONTEKSTI ─────────────────────────────────
+    // Admin-näkymä tallentaa Super Adminin kontekstin sessionStorageen
+    // kun hän avaa seuran VP-näkymän "VP"-napista. Tarkistetaan tämä
+    // ENSIN — ennen kaikkea muuta — jotta Super Admin pääsee suoraan
+    // haluamansa seuran dashboardiin ilman kirjautumislomaketta.
+    // Konteksti on selaimen sessionStoragessa — häviää kun välilehti suljetaan.
+    try {
+      var saKontekstiRaw = sessionStorage.getItem('tm_superadmin_konteksti');
+      if (saKontekstiRaw) {
+        var saKonteksti = JSON.parse(saKontekstiRaw);
+        var ika = Date.now() - (saKonteksti.timestamp || 0);
+        // Konteksti on kelvollinen 30 minuuttia — estää vanhan kontekstin käytön
+        if (saKonteksti.superadmin === true && ika < 30 * 60 * 1000 && saKonteksti.seuraId) {
+          console.log('[AUTH] Super Admin sessionStorage-konteksti löytyi:', saKonteksti.seuraId);
+          _vpRooli  = 'superadmin';
+          _fbOnline = true;
+          // Asetetaan seura suoraan kontekstista — ei tarvita Firestore-hakua
+          window._fbSeuraDoc = {
+            id:   saKonteksti.seuraId,
+            nimi: saKonteksti.seuraNimi || saKonteksti.seuraId,
+            _superAdminKonteksti: true
+          };
+          var rooliLabel = document.getElementById('vpRooliLabel');
+          if (rooliLabel) rooliLabel.textContent = '\uD83D\uDC51 Super Admin \u2192 ' + (saKonteksti.seuraNimi || saKonteksti.seuraId);
+          // Piilotetaan login ja näytetään dashboard
+          var sl = document.getElementById('sLogin');
+          var sd = document.getElementById('sDash');
+          if (sl) { sl.classList.remove('active'); sl.style.display = 'none'; }
+          if (sd) { sd.classList.add('active'); sd.style.display = ''; }
+          // Odotetaan tm_data.js ja siirrytään dashboardiin
+          _odotaJaSiirryDashboardiin();
+          return; // Lopetetaan tähän — ei jatketa auth-tarkistukseen
+        }
+      }
+    } catch(e) {
+      console.warn('[AUTH] sessionStorage-luku epäonnistui:', e.message);
+    }
+
     if (!user) {
-      // Ei sessiota — näytä login-näkymä
+      // Ei sessiota eikä Super Admin -kontekstia — näytä login
       console.log('[AUTH] Ei sessiota — näytetään login');
       var sl = document.getElementById('sLogin');
       if (sl) { sl.style.display = ''; sl.classList.add('active'); }
