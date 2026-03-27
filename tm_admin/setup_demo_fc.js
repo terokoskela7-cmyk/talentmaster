@@ -8,12 +8,27 @@
 const admin = require('firebase-admin');
 
 // Alustetaan Firebase Admin SDK
-// GitHub Actionsissa FIREBASE_SERVICE_ACCOUNT on base64-enkoodattu JSON
+// Secret voi olla joko suora JSON-string tai base64-enkoodattu — kokeillaan molemmat
 let serviceAccount;
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-  serviceAccount = JSON.parse(
-    Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT, 'base64').toString('utf8')
-  );
+const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+if (raw) {
+  try {
+    // Kokeillaan ensin suoraan JSON-parsinta (GitHub tallentaa usein näin)
+    serviceAccount = JSON.parse(raw);
+    console.log('[AUTH] Service account: suora JSON ✅');
+  } catch (e1) {
+    try {
+      // Jos ei onnistu, kokeillaan base64-dekoodaus
+      serviceAccount = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+      console.log('[AUTH] Service account: base64 decoded ✅');
+    } catch (e2) {
+      console.error('[AUTH] Service account parsinta epäonnistui.');
+      console.error('  Suora JSON-virhe:', e1.message);
+      console.error('  Base64-virhe:', e2.message);
+      console.error('  Secretin ensimmäiset 20 merkkiä:', raw.substring(0, 20));
+      process.exit(1);
+    }
+  }
 } else {
   // Lokaalikehitys: käytä tiedostoa (ei commitoida!)
   serviceAccount = require('./serviceAccountKey.json');
