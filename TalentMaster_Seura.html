@@ -892,7 +892,20 @@ async function lataaProfiili(kayttaja) {
     const claims = token.claims;
     tila.claims  = claims;
 
-    const rooli = claims.rooli || '';
+    let rooli = claims.rooli || '';
+
+    // Super Admin -fallback: jos custom claim puuttuu, tarkistetaan admins-kokoelmasta.
+    // Custom claims päivitetään Cloud Functionilla ja voivat olla vanhentuneita.
+    if (!rooli) {
+      try {
+        const adminSnap = await db.collection('admins').doc(kayttaja.uid).get();
+        if (adminSnap.exists && adminSnap.data().superAdmin === true) {
+          rooli = 'superadmin';
+          tila.claims = { ...claims, rooli: 'superadmin' };
+        }
+      } catch(e) { console.warn('[Seura] admins-fallback epäonnistui:', e.message); }
+    }
+
     if (!SALLITUT_ROOLIT.includes(rooli)) {
       nayta('kirjautuminen');
       naytaVirhe('kirjautumisVirhe',
