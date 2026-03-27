@@ -2775,8 +2775,8 @@ function _lataaPilottiDashboard() {
     // Haetaan joukkueet Firestoresta ja täytetään rakenne
     _fbDb.collection('seurat').doc(seuraId)
       .collection('kartoitukset')
-      .orderBy('luotu','desc').limit(100).get()
-      .catch(function(e){ console.warn('[VP] Kartoitukset-orderBy failed:', e.message); return null; })
+      .limit(100).get()  // orderBy poistettu — alikokoelmat eivät tarvitse composiitti-indeksiä
+      .catch(function(e){ console.warn('[VP] Kartoitukset-haku virhe:', e.message); return null; })
       .then(function(snap) {
         if (!snap) return;
         var joukkueetSet = {};
@@ -6072,13 +6072,14 @@ function renderKartoitukset() {
   if (_fbOnline && _fbDb) {
     _fbDb.collection('seurat').doc(seuraId)
       .collection('kartoitukset')
-      .orderBy('luotu', 'desc')
-      .limit(50)
+      .limit(100)
       .get()
-      .catch(function(e) { console.warn("[VP] orderBy FAILED_PRECONDITION:", e.message); })
+      .catch(function(e) { console.warn('[VP] Kartoitukset-haku virhe:', e.message); return null; })
       .then(function(snap) {
         var lista = document.getElementById('kartoitusLista');
         if (!lista) return;
+        // null-guard: kysely saattaa epäonnistua verkkovirheellä
+        // Järjestetään tulokset JS:ssä (ei tarvita Firestore-indeksiä)
         // null-guard: orderBy epäonnistuu jos indeksi puuttuu → snap on null
         if (!snap) {
           lista.innerHTML = '<div style="color:var(--amber);padding:32px;text-align:center">'
@@ -6104,6 +6105,20 @@ function renderKartoitukset() {
           d._docId = doc.id;
           var ikl = d.ikäluokka || 'U12';
           if (ryhmät[ikl]) ryhmät[ikl].push(d);
+        });
+
+        // Järjestetään jokainen ryhmä JS:ssä uusimmasta vanhimpaan
+        // (orderBy poistettiin Firestore-kyselystä indeksiongelman takia)
+        ['U12','U15','U19'].forEach(function(ikl) {
+          ryhmät[ikl].sort(function(a, b) {
+            var ta = a.luotu && a.luotu.toDate ? a.luotu.toDate().getTime()
+                   : a.testauspvm ? new Date(a.testauspvm.seconds ? a.testauspvm.seconds*1000 : a.testauspvm).getTime()
+                   : 0;
+            var tb = b.luotu && b.luotu.toDate ? b.luotu.toDate().getTime()
+                   : b.testauspvm ? new Date(b.testauspvm.seconds ? b.testauspvm.seconds*1000 : b.testauspvm).getTime()
+                   : 0;
+            return tb - ta;  // uusin ensin
+          });
         });
 
         var out = '';
