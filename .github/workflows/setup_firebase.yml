@@ -1,29 +1,10 @@
-# TalentMaster™ — Firebase GitHub Actions
-#
-# Tämä tiedosto korvaa vanhan setup_firebase.yml:n.
-# Kaikki vanhat toiminnot toimivat edelleen täsmälleen
-# samalla tavalla — lisätty kaksi uutta toimintoa:
-#
-#   deploy_functions  → Deployaa Cloud Functions Firestoreen
-#   backfill_claims   → Asettaa Custom Claims olemassa oleville käyttäjille
-#
-# MITEN KÄYTETÄÄN:
-#   GitHub → Actions-välilehti → "TalentMaster — Firebase Setup"
-#   → "Run workflow" → valitse toiminto → "Run workflow"
-#
-# SECRETS (jo asetettu, ei tarvitse muuttaa):
-#   FIREBASE_SERVICE_ACCOUNT — palvelutilin avain JSON-muodossa
-
 name: TalentMaster — Firebase Setup
 
 on:
   workflow_dispatch:
     inputs:
-      action:
-        description: >
-          Toiminto:
-          setup_seurat / setup_admin / setup_all /
-          deploy_functions / backfill_claims
+      toiminto:
+        description: 'Toiminto: setup_seurat / setup_admin / setup_all / deploy_functions / backfill_claims / setup_demo_fc'
         required: true
         default: 'setup_admin'
         type: choice
@@ -33,167 +14,29 @@ on:
           - setup_all
           - deploy_functions
           - backfill_claims
+          - setup_demo_fc
 
 jobs:
-  # ─────────────────────────────────────────────────────────────
-  # JOB 1: Seurat ja admin-setup (vanha toiminnallisuus säilyy)
-  # ─────────────────────────────────────────────────────────────
-  setup-firebase:
+  firebase-setup:
     runs-on: ubuntu-latest
-    # Ajetaan vain kun toiminto on setup_* tai setup_all
-    if: >
-      inputs.action == 'setup_seurat' ||
-      inputs.action == 'setup_admin'  ||
-      inputs.action == 'setup_all'
-
     steps:
-      - name: Hae koodi GitHubista
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Asenna Node.js 20
-        uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '18'
 
-      - name: Asenna tm_admin-riippuvuudet
-        working-directory: tm_admin
-        run: npm install
-
-      - name: Luo serviceAccountKey.json secretistä
-        working-directory: tm_admin
-        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > serviceAccountKey.json
-
-      - name: Setup seurat
-        if: inputs.action == 'setup_seurat' || inputs.action == 'setup_all'
-        working-directory: tm_admin
-        run: node setup_seurat.js
-
-      - name: Setup super-admin
-        if: inputs.action == 'setup_admin' || inputs.action == 'setup_all'
-        working-directory: tm_admin
-        run: node setup_admin.js
-
-      - name: Siivoa serviceAccountKey.json
-        if: always()
-        working-directory: tm_admin
-        run: rm -f serviceAccountKey.json
-
-  # ─────────────────────────────────────────────────────────────
-  # JOB 2: Cloud Functions deploy
-  #
-  # Tämä deployaa functions/index.js Googlen palvelimille.
-  # Kolme Cloud Function -triggeriä aktivoituvat:
-  #   - asetaClaimsUudelle (uusi kayttajat-dokumentti)
-  #   - paivitaClaimsRoolimuutoksessa (rooli/joukkue muuttuu)
-  #   - asetaSuperAdminClaims (admins/-dokumentti)
-  #
-  # Kesto: noin 2-4 minuuttia.
-  # ─────────────────────────────────────────────────────────────
-  deploy-functions:
-    runs-on: ubuntu-latest
-    if: inputs.action == 'deploy_functions'
-
-    steps:
-      - name: Hae koodi GitHubista
-        uses: actions/checkout@v4
-
-      - name: Asenna Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Asenna Functions-riippuvuudet
-        working-directory: functions
-        run: npm install
-
-      - name: Asenna Firebase CLI
-        # Asennetaan Firebase CLI globaalisti GitHub Actionsin
-        # Ubuntu-ympäristöön. Tämä on turvallista koska ympäristö
-        # on väliaikainen — se luodaan joka ajoa varten erikseen
-        # ja tuhotaan ajon jälkeen automaattisesti.
-        run: npm install -g firebase-tools
-
-      - name: Luo firebase.json jos puuttuu
-        # firebase.json kertoo CLI:lle missä Functions-koodi sijaitsee.
-        # Jos sinulla on jo firebase.json repossa, tämä step ylikirjoittaa
-        # sen — voit poistaa tämän stepin jos sinulla on oma firebase.json.
+      - name: Install dependencies
         run: |
-          cat > firebase.json << 'EOF'
-          {
-            "functions": {
-              "source": "functions",
-              "runtime": "nodejs20"
-            },
-            "firestore": {
-              "rules": "tm_admin/firestore.rules"
-            }
-          }
-          EOF
+          cd tm_admin
+          npm install firebase-admin
 
-      - name: Deployaa Cloud Functions
+      - name: Run selected action
         env:
-          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          GMAIL_EMAIL:        ${{ secrets.GMAIL_EMAIL }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > /tmp/sa_key.json
-          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa_key.json
-
-          # Luodaan .env-tiedosto functions-kansioon
-          # Firebase Functions lukee ympäristömuuttujat tästä
-          # automaattisesti deployauksen yhteydessä
-          # Kirjoitetaan .env tiedosto printf:llä
-          # heredoc + ${} aiheuttaa YAML-syntaksivirheen
-          printf "GMAIL_EMAIL=%s\nGMAIL_APP_PASSWORD=%s\n" \
-            "$GMAIL_EMAIL" "$GMAIL_APP_PASSWORD" > functions/.env
-
-          # Deploytaan Functions
-          firebase deploy --only functions \
-            --project talentmaster-pilot \
-            --non-interactive \
-            --force
-
-          # Siivotaan sensitiiviset tiedostot
-          rm -f /tmp/sa_key.json functions/.env
-
-  # ─────────────────────────────────────────────────────────────
-  # JOB 3: Backfill — Custom Claims olemassa oleville käyttäjille
-  #
-  # Ajetaan KERRAN kun Functions on deployttu.
-  # Asettaa Custom Claims 7 olemassa olevalle käyttäjälle
-  # (6 VP + super-admin) jotka on luotu manuaalisesti.
-  #
-  # Jatkossa uudet käyttäjät saavat Claims:it automaattisesti
-  # Cloud Functionsin kautta — tätä ei tarvitse ajaa uudelleen.
-  # ─────────────────────────────────────────────────────────────
-  backfill-claims:
-    runs-on: ubuntu-latest
-    if: inputs.action == 'backfill_claims'
-
-    steps:
-      - name: Hae koodi GitHubista
-        uses: actions/checkout@v4
-
-      - name: Asenna Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Asenna tm_admin-riippuvuudet
-        working-directory: tm_admin
-        run: npm install
-
-      - name: Luo serviceAccountKey.json secretistä
-        working-directory: tm_admin
-        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > serviceAccountKey.json
-
-      - name: Aja backfill_claims.js
-        working-directory: tm_admin
-        run: node backfill_claims.js
-
-      - name: Siivoa serviceAccountKey.json
-        # always() varmistaa että siivous tehdään vaikka
-        # backfill epäonnistuisi — credentials ei jää levylle
-        if: always()
-        working-directory: tm_admin
-        run: rm -f serviceAccountKey.json
+          cd tm_admin
+          echo "Ajetaan toiminto: ${{ github.event.inputs.toiminto }}"
+          node ${{ github.event.inputs.toiminto }}.js
