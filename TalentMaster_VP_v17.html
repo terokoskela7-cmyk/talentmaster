@@ -2757,14 +2757,74 @@ function _lataaPilottiDashboard() {
   if (sel) sel.innerHTML = '<option value="' + seuraId + '">' + seuraNimi + '</option>';
   window._aktivSeura = seuraId;
 
+  // ── Firebase-only seurat (ei tm_data.js:ssä) ──────────────────────
+  // Rekisteröidään seura _seuraData:han niin että kaikki dashboard-tabsit
+  // toimivat — ne odottavat löytävänsä seuran tästä rakenteesta.
+  // Joukkueet haetaan Firestoresta erikseen onSnapshot-kuuntelijalla.
+  if (!_seuraData[seuraId]) {
+    _seuraData[seuraId] = {
+      nimi:       seuraNimi,
+      _seuraId:   seuraId,
+      _fbOnly:    true,          // merkitään: ei tm_data.js -dataa
+      joukkueet:  {},            // täytetään Firestoresta alla
+      pelaajia:   seura.tilastot && seura.tilastot.pelaajia  || 0,
+      kirjauksia: seura.tilastot && seura.tilastot.kartoituksia || 0
+    };
+    console.log('[VP] Firebase-only seura rekisteröity _seuraData:han:', seuraId);
+
+    // Haetaan joukkueet Firestoresta ja täytetään rakenne
+    _fbDb.collection('seurat').doc(seuraId)
+      .collection('kartoitukset')
+      .orderBy('luotu','desc').limit(100).get()
+      .catch(function(e){ console.warn('[VP] Kartoitukset-orderBy failed:', e.message); return null; })
+      .then(function(snap) {
+        if (!snap) return;
+        var joukkueetSet = {};
+        snap.forEach(function(doc) {
+          var d = doc.data();
+          var jNimi = d.joukkue || 'Joukkue';
+          if (!joukkueetSet[jNimi]) {
+            joukkueetSet[jNimi] = { nimi: jNimi, pelaajia: 0, kartoituksia: 0 };
+          }
+          joukkueetSet[jNimi].kartoituksia++;
+        });
+        _seuraData[seuraId].joukkueet = joukkueetSet;
+        console.log('[VP] Joukkueet haettu Firestoresta:', Object.keys(joukkueetSet));
+        // Päivitetään joukkueet-tab jos se on auki
+        if (typeof renderJoukkueet === 'function') renderJoukkueet();
+      });
+  }
+  // ─────────────────────────────────────────────────────────────────────
+
   // Yleiskuva-tab
   var yleiskuva = document.getElementById('tabYleiskuva');
   if (yleiskuva) {
+    // Rakennetaan KPI-kortit Firestoren tilastot-kentästä
+    var til = seura.tilastot || {};
+    var nPelaajia    = til.pelaajia    || 0;
+    var nJoukkueita  = til.joukkueita  || 0;
+    var nKartoituksia= til.kartoituksia|| 0;
+    var kpiHtml = '';
+    if (nPelaajia || nJoukkueita || nKartoituksia) {
+      kpiHtml =
+        '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:20px">' +
+          '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 22px;text-align:center">' +
+            '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;color:var(--teal)">' + nPelaajia + '</div>' +
+            '<div style="font-size:11px;color:var(--muted)">Pelaajaa</div></div>' +
+          '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 22px;text-align:center">' +
+            '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;color:var(--teal)">' + nJoukkueita + '</div>' +
+            '<div style="font-size:11px;color:var(--muted)">Joukkuetta</div></div>' +
+          '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 22px;text-align:center">' +
+            '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:32px;color:var(--gold)">' + nKartoituksia + '</div>' +
+            '<div style="font-size:11px;color:var(--muted)">Kartoitusta</div></div>' +
+        '</div>';
+    }
     yleiskuva.innerHTML =
       '<div style="padding:32px;text-align:center">' +
       '<div style="font-size:40px;margin-bottom:12px">🏟️</div>' +
       '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:28px;color:var(--teal);margin-bottom:4px">' + seuraNimi + '</div>' +
-      '<div style="font-size:13px;color:var(--muted);margin-bottom:24px">TalentMaster™ — Pilottivaihe</div>' +
+      '<div style="font-size:13px;color:var(--muted);margin-bottom:20px">TalentMaster™ — Pilottivaihe</div>' +
+      kpiHtml +
       '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">' +
       '<button onclick="vaihda(1,document.querySelectorAll(\'.nav-tab\')[1])" ' +
         'style="padding:12px 20px;background:var(--teal);color:#000;border:none;border-radius:10px;font-weight:700;cursor:pointer">' +
