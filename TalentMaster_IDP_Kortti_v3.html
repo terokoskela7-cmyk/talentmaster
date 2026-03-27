@@ -706,8 +706,10 @@ async function lataa(){
     if(!s.exists){renderDemo();return;}
     T.p={id:s.id,...s.data()};
     const[hS,tS]=await Promise.all([
-      db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId).collection('havainnot').orderBy('luotu','desc').limit(10).get(),
+      db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId).collection('havainnot').orderBy('luotu','desc').limit(10).get()
+      .catch(function(e) { console.warn("[IDP] orderBy FAILED_PRECONDITION:", e.message); }),
       db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId).collection('testit').orderBy('pvm','desc').limit(1).get()
+      .catch(function(e) { console.warn("[IDP] orderBy FAILED_PRECONDITION:", e.message); })
     ]);
     render(T.p,hS.docs.map(d=>({id:d.id,...d.data()})),tS.docs.map(d=>({id:d.id,...d.data()})));
   }catch(e){console.error(e);renderDemo();}
@@ -1334,7 +1336,8 @@ async function tallennaHav(){
     const u=auth.currentUser;
     await db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId).collection('havainnot').add({teksti,tunniste:T.tun,kirjaaja:u?.displayName||u?.email||'Valmentaja',kirjaajaUid:u?.uid||null,julkinen:T.tun!=='taktinen',luotu:firebase.firestore.FieldValue.serverTimestamp()});
     $('havTa').value='';toast('Tallennettu! ✓','ok');
-    const s=await db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId).collection('havainnot').orderBy('luotu','desc').limit(10).get();
+    const s=await db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId).collection('havainnot').orderBy('luotu','desc').limit(10).get()
+      .catch(function(e) { console.warn("[IDP] orderBy FAILED_PRECONDITION:", e.message); });
     renderHav(s.docs.map(d=>({id:d.id,...d.data()})));
   }catch(e){toast('Virhe: '+e.message,'err');}
   finally{btn.disabled=false;btn.textContent='Tallenna →';}
