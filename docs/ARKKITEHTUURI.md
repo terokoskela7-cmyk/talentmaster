@@ -1,4 +1,267 @@
 # TalentMaster™ — Järjestelmäarkkitehtuuri
+*Päivitetty 2026-03-27 — sisältää fascia-linjat, pelaajan identiteettiprofiili, 70/30-malli, kotitehtävät, seuran identiteetti*
+
+---
+
+## Yleiskuva ja filosofia
+
+TalentMaster on multi-tenant SaaS-alusta jalkapallon (ja tulevaisuudessa muiden lajien) talenttiarviointiin ja pelaajien kehitysseurantaan. Asiakas on seura, ei yksittäinen valmentaja. Perusfilosofia: **"Pelaaja ensin, hallinto vahvistaa."**
+
+Järjestelmä perustuu kolmeen tutkimusankkuriin:
+- Forsman 2013 (JY, N=509): ponnauttelu + pujottelu + päätöksenteko erottelivat lahjakkaita U11–U14
+- Liikanen & Törmä 2025 (N=1843): ketteryys erotteli ammattilaiset (p=0.001), CMJ ei
+- Philippaerts 2006: PHV-huipulla motorinen koordinaatio heikkenee, ylikuormitusriski 2.8×
+
+**Yksinkertaistusperiaate:** Taustalla pyörii monimutkainen järjestelmä (FLEI, fascia-linjat, PHV, RAE, 70/30, auto-ohjelma), mutta asiakkaalle näytetään aina yksinkertainen toimenpide:
+- VP: "Kolme pelaajaa tarvitsee huomiotasi tänään"
+- Valmentaja: "Tee tämä harjoite. Näin. Nyt."
+- Pelaaja: "OVR nousi. Streak jatkuu. Yksi tehtävä kotiin."
+- Vanhempi: "Lapsesi kehittyy. Tässä yksi asia kotiin."
+
+---
+
+## Tekninen stack
+
+| Kerros | Teknologia | Sijainti |
+|---|---|---|
+| Frontend | HTML/CSS/JavaScript (vanilla) | GitHub Pages |
+| Tietokanta | Firebase Firestore | europe-west1 |
+| Autentikointi | Firebase Authentication | Email/Password |
+| Pelaajadata (historia) | tm_data.js (staattinen) | GitHub Pages |
+| Admin-skriptit | Node.js + Firebase Admin SDK | GitHub Actions |
+
+---
+
+## Firestore-tietokantarakenne (päivitetty)
+
+```
+admins/
+  {uid}/
+    email, rooli, superAdmin, luotu
+
+seurat/
+  {seuraId}/                          ← fcl, kpv, palloiirot, yvies, sjk, grifk
+    id, nimi, laji, paketti
+    vp_uid, vp_email
+    kaupunki, maa, aktiivinen
+    max_pelaajia, tilastot{}
+    luotu
+
+    ─── SEURAN IDENTITEETTI JA VALMENNUSLINJA (UUSI) ──────────────────────
+    identiteetti/
+      pelitapa: string              ← "nopea, tekninen, proaktiivinen"
+      prioriteettiominaisuudet: []  ← ["nopeus", "1v1-taito", "peliäly"]
+      valmennuslinja/
+        ydinlause: string           ← "Kehitämme älykkäitä, nopeita ja taitavia pelaajia"
+        prioriteettiketjut: []      ← ["SBL", "SL", "DFL"] — mihin seuran harjoittelu painottuu
+        ikäluokkakohtainen: {
+          U12: { painopiste, paaharjoite, mittari }
+          U15: { painopiste, paaharjoite, mittari }
+          U19: { painopiste, paaharjoite, mittari }
+        }
+      tavoitemittarit: {
+        nopeus:    { mittari: "10m sprint", tavoite_U15: "<1.78s", tavoite_U19: "<1.72s" }
+        tekniikka: { mittari: "TSI", tavoite: "≤0.3s" }
+        pelialy:   { mittari: "ADAR", tavoite_U15: "≥8/12", tavoite_U19: "≥10/12" }
+      }
+      pelaajapolustaValmistuneet: []  ← seurataan millaisia pelaajia tuotetaan
+    ────────────────────────────────────────────────────────────────────────
+
+    joukkueet/{joukkueId}
+    kirjaukset/{kirjausId}            ← VP:n harjoitteluseurantakirjaukset
+
+    pelaajat/{pelaajaId}/             ← PELAAJAN IDENTITEETTIPROFIILI (UUSI)
+      palloID: string                 ← Palloliiton tunniste
+      firebase_uid: string
+      nimi, syntymäaika, sukupuoli
+      joukkue, positio
+      biologinen_ika: number          ← Mirwald 2002
+      PHV_vaihe: string               ← "pre-PHV" | "PHV-huippu" | "post-PHV" | "vakaa"
+      RAE_kvartiili: string           ← Q1 | Q2 | Q3 | Q4
+      FLEI_pct: number                ← 0-100, harjoitettavuusindeksi
+      flei_viimeisin: { pct, taso, pvm, ikäluokka }
+      flei_historia: []               ← [{pct, pvm, kausi}]
+      ketjupisteet: {                 ← FASCIA-LINJAT (UUSI - KRIITTINEN)
+        SBL: number                   ← Vauhtiketju 0-3
+        SFL: number                   ← Lähtöketju 0-3
+        LL:  number                   ← Suunnanmuutosketju 0-3
+        SL:  number                   ← Kiertoketju 0-3
+        DFL: number                   ← Hallintaketju 0-3
+        FL:  number                   ← Yhdistelmäketju 0-3
+        heikoin: string               ← automaattisesti laskettu
+        vahvin: string                ← automaattisesti laskettu
+        paivitetty: timestamp
+      }
+      TSI: number                     ← Tekniikkaindeksi (SM-pallo - SM-juoksu, sekunteina)
+      ADAR_pisteet: number            ← 0-12
+      IDP_taso: string                ← "perus" | "laajennettu" | "talenttikortti"
+      X_Factor_signaali: boolean
+      X_Factor_tyyppi: string         ← "Nopeus-XF" | "Räjähtävyys-XF" | "Tekniikka-XF" | "GameIQ-XF"
+      profiilityyppi: string          ← "Railgun" | "Maestro" | "Shadowstep" | "Titan"
+      profiili_mastery: string        ← "Basic" | "Sharp" | "Elite" | "Signature"
+      D1_fyysinen: number             ← max 40p
+      D2_tekninen: number             ← max 25p
+      D3_psykologinen: number         ← max 15p
+      D4_kognitiivinen: number        ← max 10p
+      D5_sosiaalinen: number          ← max 10p
+      D_yhteensa: number              ← D1+D2+D3+D4+D5 + PHV-mod + RAE-korjaus
+      harjoitettavuus_historia: []
+      hh_historia: []
+      tekniikka_historia: []
+      kotitehtava_streak: number      ← päivien putki
+      kotitehtava_viimeisin: timestamp
+
+    kartoitukset/{kartoitusId}/       ← Harjoitettavuuskartoitukset U12/U15/U19
+      pelaajaId, joukkueId
+      pvm, ikäluokka, sukupuoli
+      testit: {
+        [testiNimi]: {
+          tulos: number
+          pisteet: number             ← 1-3
+          fascia_linja: string        ← UUSI: "SBL" | "SFL" | "LL" | "SL" | "DFL" | "FL"
+          viitearvo_alaraja: number
+          viitearvo_yläraja: number
+        }
+      }
+      FLEI_pct: number
+      FLEI_taso: string               ← "hyvä" | "kehitys" | "prioriteetti"
+      ketjupisteet_yhteenveto: {}     ← lasketaan kartoituksesta
+      auto_ohjelma: {                 ← UUSI: automaattinen harjoitesuositus
+        heikoin_ketju: string
+        aktivointi: string
+        taso1_harjoite: string
+        kenttacue: string
+        PHV_kuormaperiaate: string
+      }
+
+    testit/{testiId}/                 ← H-H polku -mittaukset
+      pelaajaId, joukkueId
+      pvm, testaaja
+      mittaukset: {
+        sprint_10m, sprint_30m       ← fascia_linja: "SBL"
+        CMJ, SJ                      ← fascia_linja: "SBL"/"SFL"
+        kasirata                     ← fascia_linja: "LL"
+        SM_juoksu                    ← fascia_linja: "LL"/"SL"
+        SM_pallo                     ← fascia_linja: "SL" (fyys.) + TSI (tekn.)
+        pujottelu                    ← fascia_linja: "SL"/"FL"
+        syotto                       ← fascia_linja: "FL"
+        MAS_1200m                    ← kestävyys
+      }
+      TSI: number                     ← laskettu: SM_pallo - SM_juoksu
+      fascia_profiilit: {}            ← testit ryhmiteltynä linjoittain
+
+    tekniikka/{kilpailuId}/
+      TSI_indeksi: number
+      tekniikka_XF: boolean
+
+    adar/{adarId}/                    ← Game IQ / ADAR-arvioinnit
+    kuorma/{kuormaId}/                ← RPE ja kuormaseuranta
+    vammat/{vammaId}/                 ← arkaluonteinen
+
+kirjaukset/                           ← Vanha rakenne (yhteensopivuus)
+kirjaukset_joukkue/
+kirjaukset_tapahtumat/
+```
+
+---
+
+## Pelaajan identiteettiprofiili — 7-kerroksinen arkkitehtuuri
+
+Kerros 1 — Raakadata: harjoitettavuus (FLEI), H-H testit, SM-pallo/tekniikka, ADAR/Game IQ → Firestore
+
+Kerros 2 — Fascia-linjat (HPP ELITE -viitekehys): testit tulkitaan 6 fascia-linjan kautta. SBL=Vauhtiketju, SFL=Lähtöketju, LL=Suunnanmuutosketju, SL=Kiertoketju, DFL=Hallintaketju, FL=Yhdistelmäketju
+
+Kerros 3 — Identiteettiprofiili (Firestore-ankkuri): PalloID + Firebase UID + ikä + biologinen ikä + PHV + positio + RAE + FLEI + ketjupisteet + TSI + ADAR + IDP-taso + X-Factor + D1-D5
+
+Kerros 4 — Toimenpide-ohjaus:
+- Auto-ohjelma: 1p → fascia-linja → harjoite + kenttäcue valmentajalle
+- IDP-aktivointi: 3 reittiä (manuaalinen / FLEI<40% klinikka / X-Factor)
+- X-Factor/Talenttiohjelma: kaikki ketjut ≥2 → signaali → KORI-kriteerit
+
+Kerros 5 — Kotitehtävät (UUSI): pallollinen tekninen + fyysinen liikkuvuus per liikeketju, streak-mekaniikka
+
+Kerros 6 — Näkymät: pelaaja/vanhempi/valmentaja/VP eri kielellä
+
+Kerros 7 — Seuran identiteetti: valmennuslinja + tavoitemittarit → tuottaako seura millaisia pelaajia
+
+---
+
+## 70/30-harjoitteluohjelmointi
+
+70/30 koskee **alkurutiinia** — ei koko harjoitusta. Alkurutiini = 20-30 min ennen kenttäharjoitusta.
+
+70% yhteinen: kaikki 5 liikeketjua aktivoidaan joka harjoituksessa. Tekninen pääharjoite kiertää joukkueen 2 heikointa ketjua viikottain.
+
+30% yksilöllinen: pelaajan HEIKOIN liikeketju (FLEI 1p-tulos) → 1p → fascia-linja → aktivointi + taso 1 harjoite + kenttäcue. Neurofysiologinen peruste: siirtovaikutus heikosta osaamisesta peliin vaatii integraatiota, ei eristystä.
+
+Kenttäharjoitus on täysin valmentajan suunnittelema — TalentMaster ei koske siihen.
+
+Ikäluokkakohtaiset kuormaperiaatteet:
+- U12: 100% kehonpaino, DFL ensin, kaikki pallolla, deliberate play
+- U15: MAX 60% kuorma PHV-huipulla, SLR-flossing pakollinen, SBL+SFL ensin
+- U19: normaali progressio, 5RM voimatestit, positiokohtainen fascia-painotus
+
+---
+
+## SM-pallo — kaksoismerkitys
+
+H-H testi (fyysinen): SL-ketjun räjähtävyys + suunnanmuutos pallon kanssa. Rata 10m, 2 hyväksyttyä suoritusta.
+
+Tekniikkaindeksi (TSI): `TSI = SM-pallo-aika − SM-juoksu-aika`. TSI ≤ 0.3s = pallo ei hidastu = Tekniikka-XF.
+
+---
+
+## Seuran identiteetti ja valmennuslinja — uusi moduuli
+
+Ajattelun perusta: Ajax/FCN/Benfica kaikki kertovat selkeästi "millainen seura olemme ja millaisia pelaajia tuotamme". TalentMaster mahdollistaa tämän mittauksella:
+
+1. Seura määrittelee tavoitteensa: "kehitämme nopeita, teknisiä, älykkäitä pelaajia"
+2. Järjestelmä mittaa automaattisesti: miten joukkueen ketjupisteet, TSI ja ADAR kehittyvät yli ajan
+3. VP näkee: "ovatko tulokset linjassa tavoitteemme kanssa?"
+4. Kehityskaari: millaisia pelaajia on lähdössä pelaajapolulta — vastaavatko he seuran identiteettiä?
+
+Mittarit tavoitteille:
+- "Nopea" → 10m sprint -jakauma ikäluokittain, kehitysvauhti
+- "Taitava" → TSI-jakauma, pujottelu, SM-pallo
+- "Älykäs" → ADAR-pistetaso, pre-scanning -havainnot
+
+---
+
+## Kansainvälinen vertailu — TalentMasterin asemointi
+
+| Malli | Vahvuus | Miksi TM eroaa |
+|---|---|---|
+| Ajax TIPS | 4D-malli, identiteetti | Vain ammattilaisille, ei seuratyökalua |
+| FCN Right to Dream | Kehitysvauhti, peliminuutit | Ei pienille seuroille, ei vanhemmille |
+| Benfica 360° | IDP + lab + data | 200 henkilöstöä, ei skaalaudu |
+| TalentMaster | VP+valmentaja+pelaaja+vanhempi samassa | UNIIKKI: toimii pienelle seuralle |
+
+TalentMasterin kilpailuetu: maailmassa ei ole järjestelmää joka yhdistää kaikki neljä roolia samaan alustaan pienelle seuralle suomalaisella evidenssipohjalla.
+
+---
+
+## Firebase Authentication -käyttäjät
+
+| Sähköposti | Rooli | Seura |
+|---|---|---|
+| talentmasterid@gmail.com | Super Admin | Kaikki |
+| vp.fcl@talentmaster.fi | Valmennuspäällikkö | FC Lahti Juniorit |
+| vp.kpv@talentmaster.fi | Valmennuspäällikkö | KPV |
+| vp.palloiirot@talentmaster.fi | Valmennuspäällikkö | Pallo-Iirot |
+| vp.yvies@talentmaster.fi | Valmennuspäällikkö | Ylöjärven Ilves |
+| vp.sjk@talentmaster.fi | Valmennuspäällikkö | SJK Juniorit |
+| vp.grifk@talentmaster.fi | Valmennuspäällikkö | GrIFK |
+
+---
+
+## Tunnetut ratkaisut ja bugit (2026-03-27)
+
+1. Firestore Rules pelaajille vaatii allow create JA allow update
+2. Suostumuslomakkeen syntymäaika parsitaan Date.UTC:llä ei new Date(string):llä
+3. onAuthStateChanged-silmukka estetään _kirjautuminenKesken-lipulla
+4. enablePersistence poistettu — aiheutti IndexedDB-konfliktin
+5. SheetJS ei kirjoita Excel-tyylejä ilman Pro-lisenssiä
+6. tm_nav.js lisätään VASTA kun Master_v8 + Pelaaja-näkymä valmis (topbar-konflikti)# TalentMaster™ — Järjestelmäarkkitehtuuri
 # Päivitetty: 2026-03-25
 # Muutokset edelliseen versioon:
 #   - Blaze-plan (ei enää Spark)
