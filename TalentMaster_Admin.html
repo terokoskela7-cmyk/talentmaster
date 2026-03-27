@@ -533,6 +533,13 @@ async function lataaSeurat() {
 
     // VP näkee vain oman seuransa
     if (tila.claims.rooli !== 'superadmin') {
+      // Varmistetaan että seuraId on asetettu — muuten kysely palauttaa tyhjän äänettömästi
+      if (!tila.claims.seuraId) {
+        console.error('lataaSeurat: VP:n seuraId puuttuu claims-objektista');
+        naytaVirhe('kirjautumisVirhe', 'Seuraa ei löydy järjestelmästä — ota yhteyttä Super Adminiin.');
+        tila.seurat = [];
+        return;
+      }
       kysely = db.collection('seurat')
         .where(firebase.firestore.FieldPath.documentId(), '==', tila.claims.seuraId);
     }
@@ -594,7 +601,9 @@ document.getElementById('salasanaInput')
 
 async function kirjauduUlos() {
   await auth.signOut();
-  Object.assign(tila, { kayttaja: null, claims: null, seurat: [] });
+  // Nollataan kaikki tila — myös timer ja navigointitila
+  if (tila._tokenTimer) { clearInterval(tila._tokenTimer); tila._tokenTimer = null; }
+  Object.assign(tila, { kayttaja: null, claims: null, seurat: [], aktiivNakyma: 'seurat' });
 }
 
 // ─────────────────────────────────────────
@@ -663,12 +672,14 @@ function renderSeurat(alue) {
               <td>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
                   <button class="toimintaNappi"
-                    onclick="avaaSeuraVP('${s.id}','${s.nimi || s.id}')"
+                    data-sid="${s.id}" data-snimi="${(s.nimi || s.id).replace(/"/g,'&quot;')}"
+                    onclick="avaaSeuraVP(this.dataset.sid, this.dataset.snimi)"
                     title="Avaa VP-dashboard tämän seuran kontekstissa">
                     📊 VP
                   </button>
                   <button class="toimintaNappi"
-                    onclick="avaaSeuraValmentaja('${s.id}','${s.nimi || s.id}')"
+                    data-sid="${s.id}" data-snimi="${(s.nimi || s.id).replace(/"/g,'&quot;')}"
+                    onclick="avaaSeuraValmentaja(this.dataset.sid, this.dataset.snimi)"
                     title="Avaa valmentajan näkymä tämän seuran kontekstissa">
                     ⚽ Valmentaja
                   </button>
@@ -883,6 +894,9 @@ function avaaKayttajaModal() {
   document.getElementById('luoKayttajaNappi').disabled = false;
   document.getElementById('luoKayttajaNappi').textContent = 'Luo tunnus ja lähetä kutsu';
   document.getElementById('joukkueSektio').classList.remove('nakyvilla');
+  // Nollataan resetLinkki-elementti — muuten style.display='none' jää edelliseltä kerralta
+  const linkNollaus = document.getElementById('kayttajaOnniLinkki');
+  if (linkNollaus) { linkNollaus.style.display = ''; linkNollaus.href = '#'; linkNollaus.textContent = ''; }
 
   // Jos VP (ei super-admin), esitäytetään seura
   if (tila.claims.rooli !== 'superadmin' && tila.seurat.length === 1) {
@@ -1105,7 +1119,7 @@ function naytaToast(teksti, tyyppi = 'ok') {
 
 // Sulje modal Esc-näppäimellä tai taustaa klikkaamalla
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') suljeModal('kayttajaModal');
+  if (e.key === 'Escape') document.querySelectorAll('.modalTausta.auki').forEach(m => m.classList.remove('auki'));
 });
 document.getElementById('kayttajaModal').addEventListener('click', function(e) {
   if (e.target === this) suljeModal('kayttajaModal');
