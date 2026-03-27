@@ -319,6 +319,21 @@ async function setupDemoFC() {
     console.log(`   → ${k.nimi} (${id}) ✅`);
   }
 
+  // ── VAIHE 4b: Joukkuedokumentti ─────────────────────────────────
+  console.log('\n4b/5 Luodaan joukkue Demo U13...');
+  await db.collection('seurat').doc('demo-fc')
+    .collection('joukkueet').doc('demo-u13')
+    .set({
+      nimi:         'Demo U13',
+      ikäluokka:    'U13',
+      kausi:        '2026',
+      pelaajia:     3,
+      kartoituksia: 3,
+      valmentaja:   'Mikko Laakso',
+      luotu:        admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  console.log('   → Demo U13 luotu ✅');
+
   // ── VAIHE 5: Valmentajan havainto ────────────────────────────────
   console.log('\n5/5 Luodaan valmentajan havainto...');
   await db.collection('seurat').doc('demo-fc')
