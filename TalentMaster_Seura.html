@@ -847,8 +847,9 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;
       padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--ink3);line-height:1.7;">
-      <strong style="color:var(--ink2);">Excel-pohjan sarakkeet:</strong><br>
-      PalloID · Etunimi · Sukunimi · Syntymaaika · Sukupuoli · Joukkue · HuoltajaEmail · HuoltajaPuhelin
+      <strong style="color:var(--ink2);">Tarvittavat sarakkeet:</strong><br>
+      Etunimi · Sukunimi · Joukkue · Huoltajan sähköposti<br>
+      <span style="font-size:11px;">Muut tiedot täytetään suostumuslomakkeella</span>
     </div>
 
     <input type="file" id="excelTuontiFile" accept=".xlsx,.csv"
@@ -2887,47 +2888,62 @@ function kasitteleExcelTuonti(event) {
       let rivit = [];
       const data = new Uint8Array(e.target.result);
 
-      if (file.name.toLowerCase().endsWith('.csv')) {
-        // CSV-parsinta — tukee pilkku, puolipiste ja tabulaattori
-        const teksti = new TextDecoder('utf-8').decode(data);
-        const lines  = teksti.split('\n').map(r => r.trim()).filter(r => r && r.length > 2);
-        if (lines.length < 2) throw new Error('CSV-tiedostossa pitää olla otsikkorivi ja vähintään yksi datarivi');
-        const otsikot = lines[0].split(/[,;\t]/).map(o => o.trim().toLowerCase().replace(/[^a-zäöåA-ZÄÖÅ0-9]/g, ''));
-        rivit = lines.slice(1).map((line, idx) => {
-          const arvot = line.split(/[,;\t]/);
-          const obj = { _rivi: idx + 2 };
-          otsikot.forEach((o, i) => { obj[o] = (arvot[i] || '').trim().replace(/^"|"$/g, ''); });
-          return obj;
-        });
-      } else {
-        // Excel-parsinta SheetJS:llä
-        if (typeof XLSX === 'undefined') throw new Error('Excel-lukija ei ole ladattu. Kokeile CSV-muotoa.');
-        const wb   = XLSX.read(data, { type: 'array', cellDates: true });
-        const ws   = wb.Sheets[wb.SheetNames[0]];
-        rivit = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
-      }
+      // Kaikki tuonti SheetJS:llä — tukee sekä .xlsx että .csv
+      if (typeof XLSX === 'undefined') throw new Error('Excel-lukija ei ole ladattu — päivitä sivu ja yritä uudelleen.');
+      const wb = XLSX.read(data, { type: 'array' });
+      // Käytetään ensimmäistä välilehteä (Pelaajat)
+      const ws = wb.Sheets[wb.SheetNames[0]];
 
-      // Normalisoidaan kenttänimet — hyväksytään useita muotoja
-      _excelData = rivit.map((r, idx) => {
-        const hae = (...avaimet) => {
-          for (const a of avaimet) {
-            const val = r[a] || r[a.toLowerCase()] || r[a.toUpperCase()] || '';
-            if (val && val.toString().trim()) return val.toString().trim();
-          }
-          return '';
-        };
-        return {
-          _rivi:         r._rivi || idx + 2,
-          palloId:       hae('PalloID', 'palloid', 'palloId', 'PALLOID'),
-          etunimi:       hae('Etunimi', 'etunimi', 'ETUNIMI', 'First name'),
-          sukunimi:      hae('Sukunimi', 'sukunimi', 'SUKUNIMI', 'Last name'),
-          syntymaaika:   hae('Syntymaaika', 'syntymäaika', 'Syntymäaika', 'SYNTYMAAIKA', 'Birthdate'),
-          sukupuoli:     hae('Sukupuoli', 'sukupuoli', 'SUKUPUOLI', 'Gender'),
-          joukkue:       hae('Joukkue', 'joukkue', 'JOUKKUE', 'Team'),
-          huoltajaEmail: hae('HuoltajaEmail', 'huoltajaemail', 'Email', 'email', 'HUOLTAJAEMAIL'),
-          huoltajaPuh:   hae('HuoltajaPuhelin', 'huoltajapuhelin', 'Puhelin', 'puhelin', 'Phone'),
-        };
-      }).filter(r => r.etunimi || r.sukunimi || r.palloId);
+      // Muutetaan sheet 2D-taulukoksi jotta voimme etsiä otsikkorivin
+      const kaikki = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+      // Etsitään se rivi jossa on 'Etunimi' — pohja voi alkaa info-riveillä
+      let otsikkoRiviIdx = -1;
+      for (let i = 0; i < kaikki.length; i++) {
+        const rivi = kaikki[i].map(v => String(v || '').toLowerCase());
+        if (rivi.some(v => v.includes('etunimi'))) {
+          otsikkoRiviIdx = i;
+          break;
+        }
+      }
+      if (otsikkoRiviIdx === -1) throw new Error('Otsikkorivejä ei löydy. Varmista että tiedosto on TalentMaster-pohja ja Pelaajat-välilehti on auki.');
+
+      // Normalisoidaan otsikot: poistetaan *, välilyönnit, emojit
+      const normOtsikot = kaikki[otsikkoRiviIdx].map(v =>
+        String(v || '').toLowerCase()
+          .replace(/\*/g, '')        // poistetaan tähdet
+          .replace(/[^a-zäöå0-9]/g, '') // vain kirjaimet ja numerot
+          .trim()
+      );
+
+      // Yksinkertainen kenttähaku normalisoiduilla otsikoilla
+      const etsiSarake = (...hakusanat) => {
+        for (const haku of hakusanat) {
+          const norm = haku.toLowerCase().replace(/[^a-zäöå0-9]/g, '');
+          const idx = normOtsikot.indexOf(norm);
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      };
+
+      const iEtu    = etsiSarake('Etunimi', 'etunimi');
+      const iSuku   = etsiSarake('Sukunimi', 'sukunimi');
+      const iJouk   = etsiSarake('Joukkue', 'joukkue');
+      const iEmail  = etsiSarake('Huoltajansähköposti', 'HuoltajaEmail', 'email', 'sähköposti');
+
+      // Muutetaan datarivit objekteiksi
+      rivit = kaikki.slice(otsikkoRiviIdx + 1)
+        .filter(r => r.some(v => v !== '' && v !== null && v !== undefined))
+        .map((r, idx) => ({
+          etunimi:       iEtu   >= 0 ? String(r[iEtu]   || '').trim() : '',
+          sukunimi:      iSuku  >= 0 ? String(r[iSuku]  || '').trim() : '',
+          joukkue:       iJouk  >= 0 ? String(r[iJouk]  || '').trim() : '',
+          huoltajaEmail: iEmail >= 0 ? String(r[iEmail] || '').trim() : '',
+          _rivi: otsikkoRiviIdx + idx + 2,
+        }));
+
+      // _excelData on jo oikeassa muodossa
+      _excelData = rivit.filter(r => r.etunimi || r.sukunimi);
 
       if (_excelData.length === 0) {
         throw new Error('Tiedostosta ei löytynyt pelaajia. Tarkista että sarakeotsikoiden nimet täsmäävät pohjaan.');
@@ -3008,43 +3024,20 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
 
     try {
       // Dokumentti-ID: PalloID jos saatavilla, muuten auto-ID
-      const docId = p.palloId || null;
-
-      // Parsitaan syntymäaika Timestamp:ksi
-      let syntymaTs = null;
-      let syntymavuosi = null;
-      if (p.syntymaaika) {
-        const pvm = new Date(p.syntymaaika);
-        if (!isNaN(pvm.getTime())) {
-          syntymaTs    = firebase.firestore.Timestamp.fromDate(pvm);
-          syntymavuosi = pvm.getFullYear();
-        }
-      }
-
+      // Minimaalinen pelaajadata — muut tiedot täytetään suostumuslomakkeella
       const pelaajadata = {
-        palloId:              p.palloId || null,
-        etunimi:              p.etunimi || '',
-        sukunimi:             p.sukunimi || '',
-        syntymapaivamaara:    syntymaTs,
-        syntymavuosi:         syntymavuosi,
-        sukupuoli:            p.sukupuoli || '',
-        joukkue:              p.joukkue || '',
-        seuraId:              tila.seuraId,
-        huoltajaEmail:        p.huoltajaEmail || null,
-        huoltajaPuhelin:      p.huoltajaPuh || null,
-        tuotu:                nyt,
-        tuoja:                tila.kayttaja?.email || 'tuntematon',
-        // Suostumus ei ole vielä annettu — huoltaja antaa rekisteröintilomakkeella
-        suostumukset:          [],
+        etunimi:       p.etunimi || '',
+        sukunimi:      p.sukunimi || '',
+        joukkue:       p.joukkue || '',
+        seuraId:       tila.seuraId,
+        huoltajaEmail: p.huoltajaEmail || null,
+        tuotu:         nyt,
+        tuoja:         tila.kayttaja?.email || 'tuntematon',
       };
 
-      // Tallennetaan Firestoreen
-      const kokoelmaRef = db.collection('seurat').doc(tila.seuraId).collection('pelaajat');
-      if (docId) {
-        await kokoelmaRef.doc(docId).set(pelaajadata, { merge: true });
-      } else {
-        await kokoelmaRef.add(pelaajadata);
-      }
+      // Tallennetaan Firestoreen — käytetään aina auto-ID:tä
+      await db.collection('seurat').doc(tila.seuraId)
+        .collection('pelaajat').add(pelaajadata);
       tuotu++;
 
       // Lähetetään kutsu jos pyydetty ja email löytyy
