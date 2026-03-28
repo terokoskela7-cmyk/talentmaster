@@ -517,7 +517,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
         Luo kutsulink​ki
       </button>
       <button class="nappi" id="lahetaSpostNappi" onclick="lahetaRekisteriSahkoposti()"
-        style="flex:1;min-width:180px;background:var(--teal);" disabled>
+        style="flex:1;min-width:180px;background:var(--teal);">
         📧 Lähetä sähköpostilla
       </button>
       <button class="nappi" id="lahetaWhatsAppNappi"
@@ -1894,15 +1894,33 @@ function luoRekisteriLinkki() {
 }
 
 async function lahetaRekisteriSahkoposti() {
-  // Jos linkkiä ei ole vielä luotu, luodaan se ensin automaattisesti
-  if (!tila._rekLinkki || !tila._rekHEmail) {
+  // Haetaan arvot suoraan kentistä — ei riippuvuutta luoRekisteriLinkki():sta
+  const hEmail     = document.getElementById('rek_hEmail')?.value?.trim() || tila._rekHEmail;
+  const _etu       = document.getElementById('rek_etunimi')?.value?.trim()  || '';
+  const _suku      = document.getElementById('rek_sukunimi')?.value?.trim() || '';
+  const _joukkueEl = document.getElementById('rek_joukkue');
+  const _joukkue   = _joukkueEl?.options?.[_joukkueEl?.selectedIndex]?.text || _joukkueEl?.value || '';
+
+  if (!hEmail || !hEmail.includes('@')) {
+    naytaToast('Täytä huoltajan sähköpostiosoite ensin.', 'virhe');
+    return;
+  }
+
+  // Rakennetaan linkki jos sitä ei vielä ole
+  if (!tila._rekLinkki) {
     luoRekisteriLinkki();
-    // Odotetaan että luoRekisteriLinkki asettaa arvot
-    await new Promise(r => setTimeout(r, 200));
-    if (!tila._rekLinkki || !tila._rekHEmail) {
-      naytaToast('Täytä ensin huoltajan sähköposti ja joukkue.', 'virhe');
-      return;
-    }
+    await new Promise(r => setTimeout(r, 150));
+  }
+
+  // Jos linkki yhä puuttuu, rakennetaan se suoraan
+  if (!tila._rekLinkki) {
+    const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+    const params  = new URLSearchParams({
+      seuraId: tila.seuraId, seura: tila.seuraNimi || tila.seuraId,
+      etunimi: _etu, sukunimi: _suku, joukkue: _joukkue, hEmail,
+    });
+    tila._rekLinkki = baseUrl + '?' + params.toString();
+    tila._rekHEmail = hEmail;
   }
 
   const nappi = document.getElementById('lahetaSpostNappi');
@@ -2198,7 +2216,7 @@ async function tallennaKutsu() {
     // ── Onnistui ─────────────────────────────────────────────────
     suljeModal('kutsuModal');
     naytaToast(
-      `${etunimi} ${sukunimi} kutsuttu — salasanalinkki lähetetty osoitteeseen ${email}`,
+      `${etunimi} ${sukunimi} lisätty! Tarkista sähköposti ${email} heti — linkki vanhenee tunnissa.`,
       'ok'
     );
 
