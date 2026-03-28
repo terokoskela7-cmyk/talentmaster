@@ -6,6 +6,7 @@
 <title>TalentMaster™ — Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -217,6 +218,15 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
     </div>
     <div class="navNappi" onclick="vaihdaNakyma('tilastot',this)">
       <span class="navIkoni">📊</span>Tilastot
+    </div>
+    <div class="navNappi" onclick="vaihdaNakyma('pelaajat',this)">
+      <span class="navIkoni">👤</span>Pelaajat
+    </div>
+    <div class="navNappi" onclick="vaihdaNakyma('joukkueet',this)">
+      <span class="navIkoni">⚽</span>Joukkueet
+    </div>
+    <div class="navNappi" onclick="vaihdaNakyma('massakutsu',this)">
+      <span class="navIkoni">📨</span>Massakutsu
     </div>
   </div>
 
@@ -650,7 +660,10 @@ function renderoi(nakyma) {
   switch (nakyma) {
     case 'seurat':    renderSeurat(alue);    break;
     case 'kayttajat': renderKayttajat(alue); break;
-    case 'tilastot':  renderTilastot(alue);  break;
+    case 'tilastot':   renderTilastot(alue);   break;
+    case 'pelaajat':   renderPelaajat(alue);   break;
+    case 'joukkueet':  renderJoukkueet(alue);  break;
+    case 'massakutsu': renderMassakutsu(alue); break;
   }
 }
 
@@ -1153,6 +1166,415 @@ document.addEventListener('keydown', e => {
 document.getElementById('kayttajaModal').addEventListener('click', function(e) {
   if (e.target === this) suljeModal('kayttajaModal');
 });
+
+
+// ═══════════════════════════════════════════════════════════════
+// PELAAJAT — Super Admin näkee kaikkien seurojen pelaajat
+// ═══════════════════════════════════════════════════════════════
+async function renderPelaajat(alue) {
+  alue.innerHTML = `
+    <div class="sivuOtsikko">
+      <div class="sivuEyebrow">Hallinta</div>
+      <div class="sivuH1">Pelaajat</div>
+    </div>
+    <div class="taulukkoKortti">
+      <div class="taulukkoHeader">
+        <span class="taulukkoOtsikko">Valitse seura</span>
+      </div>
+      <div style="padding:16px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <select id="pelSeuraValinta" onchange="lataaPelaajat()"
+          style="background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
+          padding:9px 13px;font-size:13px;color:var(--ink);outline:none;min-width:200px;">
+          <option value="">— Valitse seura —</option>
+          ${tila.seurat.map(s => `<option value="${s.id}">${s.nimi || s.id}</option>`).join('')}
+        </select>
+        <button class="lisaaNappi" onclick="lataaPelaajat()">🔄 Päivitä</button>
+        <button class="lisaaNappi" onclick="lataaMassakutsuSivu()"
+          style="background:rgba(62,201,167,.15);border:1px solid rgba(62,201,167,.3);color:var(--teal);">
+          📨 Massakutsu tälle seuralle
+        </button>
+      </div>
+      <div id="pelaajaAlue" style="padding:20px;color:var(--ink3);font-size:13px;">
+        Valitse seura nähdäksesi pelaajat.
+      </div>
+    </div>`;
+}
+
+async function lataaPelaajat() {
+  const seuraId = document.getElementById('pelSeuraValinta')?.value;
+  const alue = document.getElementById('pelaajaAlue');
+  if (!alue) return;
+  if (!seuraId) { alue.innerHTML = '<div style="color:var(--ink3);">Valitse ensin seura.</div>'; return; }
+
+  alue.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div class="spinner"></div> Ladataan pelaajia...</div>';
+
+  try {
+    const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat').get();
+    if (snap.empty) {
+      alue.innerHTML = `
+        <div style="text-align:center;padding:40px 20px;">
+          <div style="font-size:32px;margin-bottom:12px;opacity:.3;">👤</div>
+          <div style="font-size:14px;color:var(--ink2);margin-bottom:6px;">Ei vielä pelaajia</div>
+          <div style="font-size:13px;color:var(--ink3);">
+            Lähetä rekisteröintikutsut tai tuo pelaajat massakutsun kautta.
+          </div>
+        </div>`;
+      return;
+    }
+
+    const pelaajat = snap.docs.map(d => ({id: d.id, ...d.data()}))
+      .sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
+
+    alue.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Nimi</th><th>PalloID</th><th>Joukkue</th><th>Syntymävuosi</th><th>Suostumus</th>
+        </tr></thead>
+        <tbody>
+          ${pelaajat.map(p => `
+            <tr>
+              <td>${p.etunimi||''} ${p.sukunimi||''}</td>
+              <td style="font-family:monospace;font-size:12px;color:var(--ink3);">${p.palloId||p.id||'—'}</td>
+              <td>${p.joukkue||'—'}</td>
+              <td>${p.syntymavuosi||p.syntymäVuosi||'—'}</td>
+              <td>
+                <span class="badge ${(p.suostumus||p.suostumusAnnettu||p.gdprSuostumus) ? 'aktiivinen' : 'ei'}">
+                  ${(p.suostumus||p.suostumusAnnettu||p.gdprSuostumus) ? '✓ OK' : '⏳ Puuttuu'}
+                </span>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="padding:12px 14px;font-size:12px;color:var(--ink3);">
+        ${pelaajat.length} pelaajaa yhteensä
+      </div>`;
+  } catch(e) {
+    alue.innerHTML = `<div style="color:var(--red);padding:20px;">Virhe: ${e.message}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// JOUKKUEET — Super Admin näkee ja hallinnoi kaikkien seurojen joukkueita
+// ═══════════════════════════════════════════════════════════════
+async function renderJoukkueet(alue) {
+  alue.innerHTML = `
+    <div class="sivuOtsikko">
+      <div class="sivuEyebrow">Hallinta</div>
+      <div class="sivuH1">Joukkueet</div>
+    </div>
+    <div class="taulukkoKortti">
+      <div class="taulukkoHeader">
+        <span class="taulukkoOtsikko">Valitse seura</span>
+        <button class="lisaaNappi" onclick="avaaUusiJoukkueModalAdmin()">+ Lisää joukkue</button>
+      </div>
+      <div style="padding:16px 20px;">
+        <select id="jouSeuraValinta" onchange="lataaJoukkueetAdmin()"
+          style="background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
+          padding:9px 13px;font-size:13px;color:var(--ink);outline:none;min-width:200px;">
+          <option value="">— Valitse seura —</option>
+          ${tila.seurat.map(s => `<option value="${s.id}">${s.nimi || s.id}</option>`).join('')}
+        </select>
+      </div>
+      <div id="joukkueetAlue" style="padding:0 20px 20px;color:var(--ink3);font-size:13px;">
+        Valitse seura nähdäksesi joukkueet.
+      </div>
+    </div>`;
+}
+
+async function lataaJoukkueetAdmin() {
+  const seuraId = document.getElementById('jouSeuraValinta')?.value;
+  const alue = document.getElementById('joukkueetAlue');
+  if (!alue || !seuraId) return;
+
+  alue.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div class="spinner"></div> Ladataan...</div>';
+
+  try {
+    const snap = await db.collection('seurat').doc(seuraId).collection('joukkueet').get();
+    if (snap.empty) {
+      alue.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink3);">Ei joukkueita — lisää ensimmäinen yllä.</div>';
+      return;
+    }
+    const joukkueet = snap.docs.map(d => ({id: d.id, ...d.data()}))
+      .sort((a,b) => (a.nimi||'').localeCompare(b.nimi||''));
+
+    alue.innerHTML = `
+      <table>
+        <thead><tr><th>Joukkue</th><th>Ikäryhmä</th><th>Vuosi</th><th>Valmentaja</th><th>Pelaajia</th><th>Toiminnot</th></tr></thead>
+        <tbody>
+          ${joukkueet.map(j => `
+            <tr>
+              <td style="font-weight:600;">${j.nimi||j.id}</td>
+              <td>${j.ikaryhma||'—'}</td>
+              <td>${j.vuosi||'—'}</td>
+              <td>${j.valmentaja||'—'}</td>
+              <td>${j.pelaajia||0}</td>
+              <td>
+                <button class="toimintaNappi vaara" onclick="poistaJoukkueAdmin('${seuraId}','${j.id}','${(j.nimi||j.id).replace(/'/g,"\'")}')">
+                  🗑 Poista
+                </button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    alue.innerHTML = `<div style="color:var(--red);">Virhe: ${e.message}</div>`;
+  }
+}
+
+function avaaUusiJoukkueModalAdmin() {
+  const seuraId = document.getElementById('jouSeuraValinta')?.value;
+  if (!seuraId) { naytaToast('Valitse ensin seura', 'virhe'); return; }
+  const nimi = prompt('Joukkueen nimi (esim. U14 pojat):');
+  if (!nimi) return;
+  const ikaryhma = prompt('Ikäryhmä (esim. U14):') || '';
+  const vuosi = prompt('Vuosi (esim. 2026):') || new Date().getFullYear().toString();
+  db.collection('seurat').doc(seuraId).collection('joukkueet').add({
+    nimi, ikaryhma, vuosi: parseInt(vuosi)||new Date().getFullYear(),
+    pelaajia: 0, luotu: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => { naytaToast('Joukkue luotu!', 'ok'); lataaJoukkueetAdmin(); })
+    .catch(e => naytaToast('Virhe: ' + e.message, 'virhe'));
+}
+
+async function poistaJoukkueAdmin(seuraId, joukkueId, nimi) {
+  if (!confirm(`Poistetaanko joukkue "${nimi}"?`)) return;
+  try {
+    await db.collection('seurat').doc(seuraId).collection('joukkueet').doc(joukkueId).delete();
+    naytaToast('Joukkue poistettu', 'ok');
+    lataaJoukkueetAdmin();
+  } catch(e) { naytaToast('Virhe: ' + e.message, 'virhe'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MASSAKUTSU — Super Admin lähettää rekisteröintikutsut kaikille
+// ═══════════════════════════════════════════════════════════════
+function renderMassakutsu(alue) {
+  alue.innerHTML = `
+    <div class="sivuOtsikko">
+      <div class="sivuEyebrow">Rekisteröinti</div>
+      <div class="sivuH1">Massakutsu</div>
+    </div>
+    <div class="taulukkoKortti">
+      <div class="taulukkoHeader">
+        <span class="taulukkoOtsikko">📨 Lähetä rekisteröintikutsut huoltajille</span>
+      </div>
+      <div style="padding:20px;">
+        <div style="margin-bottom:16px;">
+          <label style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:6px;">Kohdaseura</label>
+          <select id="massaSeuraValinta"
+            style="background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
+            padding:9px 13px;font-size:13px;color:var(--ink);outline:none;min-width:240px;">
+            <option value="">— Valitse seura —</option>
+            ${tila.seurat.map(s => `<option value="${s.id}" data-nimi="${s.nimi||s.id}">${s.nimi||s.id}</option>`).join('')}
+          </select>
+        </div>
+
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-bottom:8px;">CSV / EXCEL -TIEDOSTON RAKENNE</div>
+          <div style="font-family:monospace;font-size:12px;color:var(--teal);">
+            PalloID | Etunimi | Sukunimi | HuoltajaEmail | Joukkue
+          </div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:6px;">
+            HuoltajaEmail pakollinen. PalloID suositellaan — ilman sitä pelaaja rekisteröidään nimellä.
+          </div>
+          <button onclick="lataaAdminExcelMalli()"
+            style="margin-top:10px;background:none;border:1px solid var(--border);
+            border-radius:6px;padding:5px 12px;font-size:12px;color:var(--ink3);cursor:pointer;">
+            ⬇ Lataa Excel-malli
+          </button>
+        </div>
+
+        <input type="file" id="adminMassaFile" accept=".xlsx,.csv"
+          style="display:none" onchange="kasitteleAdminMassaTiedosto(event)">
+        <button onclick="document.getElementById('adminMassaFile').click()"
+          style="width:100%;padding:12px;background:var(--bg3);border:2px dashed var(--border);
+          border-radius:8px;color:var(--ink3);cursor:pointer;font-size:13px;margin-bottom:12px;">
+          📁 Valitse Excel tai CSV -tiedosto
+        </button>
+
+        <div id="adminMassaEsikatselu" style="display:none;margin-bottom:14px;">
+          <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-bottom:8px;" id="adminMassaLkm"></div>
+          <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+            <table style="width:100%">
+              <thead><tr style="background:var(--bg3);">
+                <th style="padding:8px;font-size:11px;text-align:left;">Nimi</th>
+                <th style="padding:8px;font-size:11px;text-align:left;">Joukkue</th>
+                <th style="padding:8px;font-size:11px;text-align:left;">HuoltajaEmail</th>
+                <th style="padding:8px;font-size:11px;text-align:left;">Status</th>
+              </tr></thead>
+              <tbody id="adminMassaTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="adminMassaProgress" style="display:none;margin-bottom:12px;">
+          <div style="background:var(--bg3);border-radius:6px;height:6px;overflow:hidden;">
+            <div id="adminMassaBar" style="height:100%;background:var(--teal);width:0%;transition:width .3s;"></div>
+          </div>
+          <div id="adminMassaStatus" style="font-size:12px;color:var(--ink3);margin-top:6px;text-align:center;"></div>
+        </div>
+
+        <button id="adminMassaLahetaNappi" onclick="lahetaAdminMassakutsu()" disabled
+          style="width:100%;padding:13px;background:var(--teal);border:none;border-radius:10px;
+          color:#000;font-size:15px;font-weight:700;cursor:pointer;opacity:.5;">
+          📨 Lähetä kaikille huoltajille
+        </button>
+        <div id="adminMassaVirhe" style="color:var(--red);font-size:13px;margin-top:8px;text-align:center;"></div>
+      </div>
+    </div>`;
+}
+
+let _adminMassaData = [];
+
+function kasitteleAdminMassaTiedosto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      let rivit = [];
+      const data = new Uint8Array(ev.target.result);
+      if (file.name.endsWith('.csv')) {
+        const teksti = new TextDecoder('utf-8').decode(data);
+        const lines = teksti.split('\n').map(r=>r.trim()).filter(r=>r);
+        const otsikot = lines[0].split(/[,;\t]/).map(o=>o.trim().toLowerCase());
+        rivit = lines.slice(1).map(line => {
+          const arvot = line.split(/[,;\t]/);
+          const obj = {};
+          otsikot.forEach((o,i) => obj[o] = (arvot[i]||'').trim().replace(/^"|"$/g,''));
+          return obj;
+        });
+      } else {
+        const wb = XLSX.read(data, {type:'array'});
+        rivit = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {raw:false});
+      }
+
+      _adminMassaData = rivit.map(r => ({
+        palloId:       r['palloid']||r['PalloID']||r['palloID']||'',
+        etunimi:       r['etunimi']||r['Etunimi']||'',
+        sukunimi:      r['sukunimi']||r['Sukunimi']||'',
+        huoltajaEmail: r['huoltajaemail']||r['HuoltajaEmail']||r['email']||r['Email']||'',
+        joukkue:       r['joukkue']||r['Joukkue']||'',
+      })).filter(r => r.huoltajaEmail || r.etunimi);
+
+      const tbody = document.getElementById('adminMassaTbody');
+      const lkm   = document.getElementById('adminMassaLkm');
+      const esi   = document.getElementById('adminMassaEsikatselu');
+      const nappi = document.getElementById('adminMassaLahetaNappi');
+
+      if (tbody) tbody.innerHTML = _adminMassaData.map(r => `
+        <tr>
+          <td style="padding:7px 8px;font-size:12px;">${r.etunimi} ${r.sukunimi}</td>
+          <td style="padding:7px 8px;font-size:12px;color:var(--ink3);">${r.joukkue||'—'}</td>
+          <td style="padding:7px 8px;font-size:12px;color:var(--teal);">${r.huoltajaEmail||'⚠️ puuttuu'}</td>
+          <td style="padding:7px 8px;font-size:11px;color:var(--ink3);">⏳ Odottaa</td>
+        </tr>`).join('');
+
+      if (lkm) lkm.textContent = _adminMassaData.length + ' pelaajaa tunnistettu';
+      if (esi) esi.style.display = '';
+      if (nappi) { nappi.disabled = _adminMassaData.length === 0; nappi.style.opacity = _adminMassaData.length > 0 ? '1' : '.5'; }
+    } catch(err) {
+      const virhe = document.getElementById('adminMassaVirhe');
+      if (virhe) virhe.textContent = 'Tiedoston luku epäonnistui: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function lahetaAdminMassakutsu() {
+  if (!_adminMassaData.length) return;
+  const seuraValinta = document.getElementById('massaSeuraValinta');
+  const seuraId = seuraValinta?.value;
+  const seuraNimi = seuraValinta?.options[seuraValinta.selectedIndex]?.dataset?.nimi || seuraId;
+
+  if (!seuraId) {
+    document.getElementById('adminMassaVirhe').textContent = 'Valitse kohdaseura.';
+    return;
+  }
+
+  const nappi    = document.getElementById('adminMassaLahetaNappi');
+  const progress = document.getElementById('adminMassaProgress');
+  const bar      = document.getElementById('adminMassaBar');
+  const status   = document.getElementById('adminMassaStatus');
+  const tbody    = document.getElementById('adminMassaTbody');
+
+  if (nappi) { nappi.disabled = true; nappi.textContent = 'Lähetetään...'; }
+  if (progress) progress.style.display = '';
+
+  const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+  let onnistui = 0, epaonnistui = 0;
+
+  for (let i = 0; i < _adminMassaData.length; i++) {
+    const p = _adminMassaData[i];
+    if (bar)    bar.style.width = Math.round((i+1)/_adminMassaData.length*100) + '%';
+    if (status) status.textContent = `${i+1}/${_adminMassaData.length} — ${p.etunimi} ${p.sukunimi}`;
+
+    if (!p.huoltajaEmail) { epaonnistui++; continue; }
+
+    try {
+      const params = new URLSearchParams({
+        seuraId, seura: seuraNimi,
+        ...(p.palloId && {palloid: p.palloId}),
+        ...(p.etunimi && {etunimi: p.etunimi}),
+        ...(p.sukunimi && {sukunimi: p.sukunimi}),
+        ...(p.joukkue && {joukkue: p.joukkue}),
+        ...(p.huoltajaEmail && {hEmail: p.huoltajaEmail}),
+      });
+      const linkki = `${baseUrl}?${params.toString()}`;
+
+      await db.collection('seurat').doc(seuraId).collection('kutsut').add({
+        tyyppi: 'massakutsu_admin',
+        hEmail: p.huoltajaEmail,
+        pelaajaNimi: `${p.etunimi} ${p.sukunimi}`.trim(),
+        palloId: p.palloId || null,
+        joukkue: p.joukkue || null,
+        linkki, tila: 'luotu',
+        luotu: firebase.firestore.FieldValue.serverTimestamp(),
+        lahettaja: tila.kayttaja?.uid || 'superadmin',
+      });
+
+      if (tbody?.rows[i]) {
+        tbody.rows[i].cells[3].innerHTML = '<span style="color:var(--teal);">✅ Linkki luotu</span>';
+      }
+      onnistui++;
+    } catch(err) {
+      if (tbody?.rows[i]) {
+        tbody.rows[i].cells[3].innerHTML = `<span style="color:var(--red);">❌ ${err.message}</span>`;
+      }
+      epaonnistui++;
+    }
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  if (status) status.textContent = `Valmis! ${onnistui} linkkiä luotu, ${epaonnistui} epäonnistui.`;
+  if (nappi) nappi.textContent = '✅ Valmis';
+  naytaToast(`Massakutsu valmis: ${onnistui}/${_adminMassaData.length} linkkiä luotu`,
+    onnistui === _adminMassaData.length ? 'ok' : 'virhe');
+}
+
+function lataaAdminExcelMalli() {
+  const otsikot = ['PalloID','Etunimi','Sukunimi','HuoltajaEmail','Joukkue'];
+  const esimerkit = [
+    ['34650191','Topias','Koskela','huoltaja@email.fi','U14'],
+    ['34650192','Mikael','Virtanen','toinen@email.fi','U14'],
+    ['','Pelaaja','IlmanPalloID','kolmas@email.fi','U12'],
+  ];
+  const csv = [otsikot,...esimerkit].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8;'})),
+    download: 'TalentMaster_rekisteripohja.csv'
+  });
+  a.click();
+  naytaToast('Excel-malli ladattu!', 'ok');
+}
+
+function lataaMassakutsuSivu() {
+  vaihdaNakyma('massakutsu', document.querySelector('[onclick*="massakutsu"]'));
+  // Asetetaan sama seura valintaan
+  const pelSel = document.getElementById('pelSeuraValinta');
+  const massSel = document.getElementById('massaSeuraValinta');
+  if (pelSel && massSel) massSel.value = pelSel.value;
+}
+
 </script>
 </body>
 </html>
