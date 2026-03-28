@@ -472,6 +472,15 @@ function toStep3() {
 
   tallennusPromise
     .then(function() {
+      // Merkitään kutsu käytetyksi jos kutsuId löytyy URL:sta
+      if (_kutsuId && _fbDb && _seuraId) {
+        _fbDb.collection('seurat').doc(_seuraId)
+          .collection('kutsut').doc(_kutsuId)
+          .update({ tila: 'hyvaksytty', hyvaksyttyPvm: firebase.firestore.FieldValue.serverTimestamp() })
+          .catch(function(e) { console.warn('Kutsun päivitys epäonnistui:', e.message); });
+      }
+    })
+    .then(function() {
       el('receipt').innerHTML =
         '<div class="rrow"><span class="rk">Rekisterointitunnus</span><span class="rv">' + rid + '</span></div>'
         + '<div class="rrow"><span class="rk">Nimi</span><span class="rv">' + val('i_etu') + ' ' + val('i_suku') + '</span></div>'
