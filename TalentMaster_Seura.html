@@ -835,6 +835,82 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 </div>
 
 <!-- ══ TOAST ══ -->
+
+<!-- ══ EXCEL-TUONTI MODAL ══ -->
+<div class="modalTausta" id="excelTuontiModal">
+  <div class="modalKortti" style="max-width:620px;">
+    <button class="modalSuljeNappi" onclick="suljeModal('excelTuontiModal')">✕ Sulje</button>
+    <div class="modalOtsikko" style="clear:both;">📥 Tuo pelaajat Excelistä</div>
+    <div class="modalKuvaus">
+      Valitse täytetty Excel-pohja. Järjestelmä tuo pelaajat ja lähettää rekisteröintilinkit huoltajille.
+    </div>
+
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+      padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--ink3);line-height:1.7;">
+      <strong style="color:var(--ink2);">Excel-pohjan sarakkeet:</strong><br>
+      PalloID · Etunimi · Sukunimi · Syntymaaika · Sukupuoli · Joukkue · HuoltajaEmail · HuoltajaPuhelin
+    </div>
+
+    <input type="file" id="excelTuontiFile" accept=".xlsx,.csv"
+      style="display:none" onchange="kasitteleExcelTuonti(event)">
+
+    <button onclick="document.getElementById('excelTuontiFile').click()"
+      id="valitseTiedostoNappi"
+      style="width:100%;padding:14px;background:var(--bg3);
+      border:2px dashed var(--bord2);border-radius:10px;
+      color:var(--ink3);cursor:pointer;font-size:14px;margin-bottom:14px;
+      font-family:inherit;">
+      📁 Valitse Excel- tai CSV-tiedosto
+    </button>
+
+    <div id="excelEsikatselu" style="display:none;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:12px;font-weight:600;color:var(--ink2);" id="excelLkm"></span>
+        <span style="font-size:11px;color:var(--ink3);">Tarkista tiedot ennen tuontia</span>
+      </div>
+      <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg3);">
+              <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Nimi</th>
+              <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Joukkue</th>
+              <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Synt.</th>
+              <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">HuoltajaEmail</th>
+              <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Status</th>
+            </tr>
+          </thead>
+          <tbody id="excelEsikatseluTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="excelProgress" style="display:none;margin-bottom:14px;">
+      <div style="background:var(--bg3);border-radius:6px;height:6px;overflow:hidden;margin-bottom:6px;">
+        <div id="excelProgressBar" style="height:100%;background:var(--teal);width:0%;transition:width .3s;"></div>
+      </div>
+      <div id="excelProgressTeksti" style="font-size:12px;color:var(--ink3);text-align:center;"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button id="excelTuoNappi" onclick="ajaExcelTuonti()" disabled
+        style="flex:1;padding:13px;background:var(--teal);border:none;border-radius:10px;
+        color:#000;font-size:14px;font-weight:700;cursor:pointer;opacity:.5;font-family:inherit;">
+        📥 Tuo Firestoreen
+      </button>
+      <button id="excelTuoJaLahetaNappi" onclick="ajaExcelTuonti(true)" disabled
+        style="flex:1;padding:13px;background:rgba(74,126,217,.15);border:1px solid rgba(74,126,217,.3);
+        border-radius:10px;color:var(--blue);font-size:14px;font-weight:700;cursor:pointer;
+        opacity:.5;font-family:inherit;">
+        📥 Tuo + lähetä kutsut
+      </button>
+    </div>
+    <div id="excelVirhe" style="color:var(--red);font-size:13px;margin-top:10px;text-align:center;"></div>
+    <div id="excelOnnistui" style="display:none;margin-top:12px;padding:12px 16px;
+      background:rgba(62,201,167,.1);border:1px solid rgba(62,201,167,.3);
+      border-radius:8px;font-size:13px;color:var(--teal);"></div>
+  </div>
+</div>
+
 <div id="toastPalkki"></div>
 
 <script>
@@ -2682,6 +2758,33 @@ function avaaExcelTuonti() {
 // Yhdistää TMImport-tuonnin ja massakutsu-lähetyksen yhdeksi poluksi
 // ─────────────────────────────────────────────────────────────────────────────
 function avaaTuoJaLahetaModal() {
+  // Näytetään ensin ohjemodaali — siellä on ohjeet excelin täyttämiseen
+  // Ohjemodaalista käyttäjä jatkaa lataamaan pohjan tai avaamaan tuontimodaalin
+  const ohjeModal = document.getElementById('rekisteriOhjeModal');
+  if (ohjeModal) {
+    // Lisätään "Minulla on täytetty Excel" -nappi ohjemodaaliin jos ei vielä ole
+    if (!document.getElementById('aloitaTuontiNappi')) {
+      const btn = document.createElement('button');
+      btn.id        = 'aloitaTuontiNappi';
+      btn.className = 'nappi';
+      btn.style.cssText = 'margin-top:10px;background:var(--teal);color:#000;';
+      btn.textContent   = '📥 Minulla on täytetty Excel → Tuo järjestelmään';
+      btn.onclick = function() {
+        suljeModal('rekisteriOhjeModal');
+        avaaExcelTuontiModal();
+      };
+      const aloitaNappi = document.getElementById('aloitaLataaminenNappi');
+      if (aloitaNappi?.parentNode) aloitaNappi.parentNode.appendChild(btn);
+      else ohjeModal.querySelector('.modalKortti')?.appendChild(btn);
+    }
+    ohjeModal.classList.add('auki');
+  } else {
+    // Ohjemodaalia ei löydy — avataan suoraan tuontimodaali
+    avaaExcelTuontiModal();
+  }
+}
+
+function _avaaTuoJaLahetaModal_vanha() {
   // Näytetään ENSIN ohjemodaali — sama kuin "Lataa rekisteripohja" -napissa.
   // Ohjemodaalissa on selitys mitä Excel sisältää ja miten se täytetään.
   // Sieltä käyttäjä jatkaa joko lataamaan pohjan tai tuomaan täytetyn Excelin.
@@ -2736,6 +2839,270 @@ function avaaTuoJaLahetaModal() {
     }
   }
 }
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXCEL-TUONTI — suora toteutus ilman TMImport-riippuvuutta
+// Toimii sekä .xlsx että .csv tiedostoilla
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _excelData = []; // Parsittu data muistissa
+
+function avaaExcelTuontiModal() {
+  // Nollataan tila
+  _excelData = [];
+  const esi   = document.getElementById('excelEsikatselu');
+  const prog  = document.getElementById('excelProgress');
+  const onni  = document.getElementById('excelOnnistui');
+  const virhe = document.getElementById('excelVirhe');
+  const tuoN  = document.getElementById('excelTuoNappi');
+  const tuoLN = document.getElementById('excelTuoJaLahetaNappi');
+  const fileI = document.getElementById('excelTuontiFile');
+
+  if (esi)   esi.style.display   = 'none';
+  if (prog)  prog.style.display  = 'none';
+  if (onni)  onni.style.display  = 'none';
+  if (virhe) virhe.textContent   = '';
+  if (tuoN)  { tuoN.disabled = true;  tuoN.style.opacity  = '.5'; }
+  if (tuoLN) { tuoLN.disabled = true; tuoLN.style.opacity = '.5'; }
+  if (fileI) fileI.value = '';
+
+  document.getElementById('excelTuontiModal').classList.add('auki');
+}
+
+function kasitteleExcelTuonti(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const virheEl = document.getElementById('excelVirhe');
+  if (virheEl) virheEl.textContent = '';
+
+  const nappiTeksti = document.getElementById('valitseTiedostoNappi');
+  if (nappiTeksti) nappiTeksti.textContent = '⏳ Luetaan tiedostoa...';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      let rivit = [];
+      const data = new Uint8Array(e.target.result);
+
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        // CSV-parsinta — tukee pilkku, puolipiste ja tabulaattori
+        const teksti = new TextDecoder('utf-8').decode(data);
+        const lines  = teksti.split('\n').map(r => r.trim()).filter(r => r && r.length > 2);
+        if (lines.length < 2) throw new Error('CSV-tiedostossa pitää olla otsikkorivi ja vähintään yksi datarivi');
+        const otsikot = lines[0].split(/[,;\t]/).map(o => o.trim().toLowerCase().replace(/[^a-zäöåA-ZÄÖÅ0-9]/g, ''));
+        rivit = lines.slice(1).map((line, idx) => {
+          const arvot = line.split(/[,;\t]/);
+          const obj = { _rivi: idx + 2 };
+          otsikot.forEach((o, i) => { obj[o] = (arvot[i] || '').trim().replace(/^"|"$/g, ''); });
+          return obj;
+        });
+      } else {
+        // Excel-parsinta SheetJS:llä
+        if (typeof XLSX === 'undefined') throw new Error('Excel-lukija ei ole ladattu. Kokeile CSV-muotoa.');
+        const wb   = XLSX.read(data, { type: 'array', cellDates: true });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        rivit = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
+      }
+
+      // Normalisoidaan kenttänimet — hyväksytään useita muotoja
+      _excelData = rivit.map((r, idx) => {
+        const hae = (...avaimet) => {
+          for (const a of avaimet) {
+            const val = r[a] || r[a.toLowerCase()] || r[a.toUpperCase()] || '';
+            if (val && val.toString().trim()) return val.toString().trim();
+          }
+          return '';
+        };
+        return {
+          _rivi:         r._rivi || idx + 2,
+          palloId:       hae('PalloID', 'palloid', 'palloId', 'PALLOID'),
+          etunimi:       hae('Etunimi', 'etunimi', 'ETUNIMI', 'First name'),
+          sukunimi:      hae('Sukunimi', 'sukunimi', 'SUKUNIMI', 'Last name'),
+          syntymaaika:   hae('Syntymaaika', 'syntymäaika', 'Syntymäaika', 'SYNTYMAAIKA', 'Birthdate'),
+          sukupuoli:     hae('Sukupuoli', 'sukupuoli', 'SUKUPUOLI', 'Gender'),
+          joukkue:       hae('Joukkue', 'joukkue', 'JOUKKUE', 'Team'),
+          huoltajaEmail: hae('HuoltajaEmail', 'huoltajaemail', 'Email', 'email', 'HUOLTAJAEMAIL'),
+          huoltajaPuh:   hae('HuoltajaPuhelin', 'huoltajapuhelin', 'Puhelin', 'puhelin', 'Phone'),
+        };
+      }).filter(r => r.etunimi || r.sukunimi || r.palloId);
+
+      if (_excelData.length === 0) {
+        throw new Error('Tiedostosta ei löytynyt pelaajia. Tarkista että sarakeotsikoiden nimet täsmäävät pohjaan.');
+      }
+
+      // Näytetään esikatselu
+      const tbody = document.getElementById('excelEsikatseluTbody');
+      const lkm   = document.getElementById('excelLkm');
+      const esi   = document.getElementById('excelEsikatselu');
+      const tuoN  = document.getElementById('excelTuoNappi');
+      const tuoLN = document.getElementById('excelTuoJaLahetaNappi');
+
+      if (tbody) tbody.innerHTML = _excelData.map(p => {
+        const nimiOk    = p.etunimi || p.sukunimi;
+        const emailOk   = p.huoltajaEmail && p.huoltajaEmail.includes('@');
+        const joukkueOk = p.joukkue;
+        const status    = !nimiOk ? '⚠️ Nimi puuttuu'
+          : !joukkueOk ? '⚠️ Joukkue?'
+          : !emailOk   ? '⚠️ Email?'
+          : '✓ Valmis';
+        const statusVari = status.startsWith('⚠') ? 'var(--amber)' : 'var(--teal)';
+        return `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:7px 10px;font-size:12px;font-weight:600;">${p.etunimi} ${p.sukunimi}</td>
+          <td style="padding:7px 10px;font-size:12px;color:var(--ink3);">${p.joukkue || '—'}</td>
+          <td style="padding:7px 10px;font-size:12px;color:var(--ink3);">${p.syntymaaika || '—'}</td>
+          <td style="padding:7px 10px;font-size:12px;color:var(--teal);">${p.huoltajaEmail || '—'}</td>
+          <td style="padding:7px 10px;font-size:11px;color:${statusVari};">${status}</td>
+        </tr>`;
+      }).join('');
+
+      if (lkm) lkm.textContent = _excelData.length + ' pelaajaa tunnistettu';
+      if (esi) esi.style.display = '';
+      if (tuoN)  { tuoN.disabled = false;  tuoN.style.opacity  = '1'; }
+      if (tuoLN) { tuoLN.disabled = false; tuoLN.style.opacity = '1'; }
+
+      if (nappiTeksti) nappiTeksti.textContent = '📁 ' + file.name + ' (' + _excelData.length + ' pelaajaa)';
+
+    } catch(err) {
+      if (nappiTeksti) nappiTeksti.textContent = '📁 Valitse Excel- tai CSV-tiedosto';
+      const virheEl = document.getElementById('excelVirhe');
+      if (virheEl) virheEl.textContent = 'Virhe: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function ajaExcelTuonti(lahetaKutsut = false) {
+  if (!_excelData.length) { return; }
+  if (!tila.seuraId) {
+    document.getElementById('excelVirhe').textContent = 'Seura ei ole valittuna.';
+    return;
+  }
+
+  const tuoN   = document.getElementById('excelTuoNappi');
+  const tuoLN  = document.getElementById('excelTuoJaLahetaNappi');
+  const prog   = document.getElementById('excelProgress');
+  const bar    = document.getElementById('excelProgressBar');
+  const teksti = document.getElementById('excelProgressTeksti');
+  const onni   = document.getElementById('excelOnnistui');
+  const virhe  = document.getElementById('excelVirhe');
+
+  if (tuoN)  { tuoN.disabled  = true; tuoN.style.opacity  = '.5'; }
+  if (tuoLN) { tuoLN.disabled = true; tuoLN.style.opacity = '.5'; }
+  if (prog)  prog.style.display = '';
+  if (virhe) virhe.textContent = '';
+
+  const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+  const seuraNimi = tila.seuraNimi || tila.seuraId;
+  const nyt = firebase.firestore.FieldValue.serverTimestamp();
+
+  let tuotu = 0, virheet = 0, kutsut = 0;
+
+  for (let i = 0; i < _excelData.length; i++) {
+    const p = _excelData[i];
+    const pct = Math.round((i + 1) / _excelData.length * 100);
+    if (bar)    bar.style.width = pct + '%';
+    if (teksti) teksti.textContent = (i + 1) + '/' + _excelData.length + ' — ' + p.etunimi + ' ' + p.sukunimi;
+
+    try {
+      // Dokumentti-ID: PalloID jos saatavilla, muuten auto-ID
+      const docId = p.palloId || null;
+
+      // Parsitaan syntymäaika Timestamp:ksi
+      let syntymaTs = null;
+      let syntymavuosi = null;
+      if (p.syntymaaika) {
+        const pvm = new Date(p.syntymaaika);
+        if (!isNaN(pvm.getTime())) {
+          syntymaTs    = firebase.firestore.Timestamp.fromDate(pvm);
+          syntymavuosi = pvm.getFullYear();
+        }
+      }
+
+      const pelaajadata = {
+        palloId:              p.palloId || null,
+        etunimi:              p.etunimi || '',
+        sukunimi:             p.sukunimi || '',
+        syntymapaivamaara:    syntymaTs,
+        syntymavuosi:         syntymavuosi,
+        sukupuoli:            p.sukupuoli || '',
+        joukkue:              p.joukkue || '',
+        seuraId:              tila.seuraId,
+        huoltajaEmail:        p.huoltajaEmail || null,
+        huoltajaPuhelin:      p.huoltajaPuh || null,
+        tuotu:                nyt,
+        tuoja:                tila.kayttaja?.email || 'tuntematon',
+        // Suostumus ei ole vielä annettu — huoltaja antaa rekisteröintilomakkeella
+        suostumukset:          [],
+      };
+
+      // Tallennetaan Firestoreen
+      const kokoelmaRef = db.collection('seurat').doc(tila.seuraId).collection('pelaajat');
+      if (docId) {
+        await kokoelmaRef.doc(docId).set(pelaajadata, { merge: true });
+      } else {
+        await kokoelmaRef.add(pelaajadata);
+      }
+      tuotu++;
+
+      // Lähetetään kutsu jos pyydetty ja email löytyy
+      if (lahetaKutsut && p.huoltajaEmail && p.huoltajaEmail.includes('@')) {
+        const params = new URLSearchParams({
+          seuraId:  tila.seuraId,
+          seura:    seuraNimi,
+          etunimi:  p.etunimi,
+          sukunimi: p.sukunimi,
+          joukkue:  p.joukkue,
+          hEmail:   p.huoltajaEmail,
+          ...(p.palloId && { palloid: p.palloId }),
+        });
+        const linkki = baseUrl + '?' + params.toString();
+
+        await db.collection('seurat').doc(tila.seuraId).collection('kutsut').add({
+          tyyppi:      'excel_tuonti_kutsu',
+          hEmail:      p.huoltajaEmail,
+          pelaajaNimi: (p.etunimi + ' ' + p.sukunimi).trim(),
+          palloId:     p.palloId || null,
+          joukkue:     p.joukkue || null,
+          linkki,
+          tila:        'luotu',
+          luotu:       nyt,
+          lahettaja:   tila.kayttaja?.uid || 'tuntematon',
+        });
+        kutsut++;
+      }
+
+    } catch(err) {
+      virheet++;
+      console.warn('Rivi ' + (i + 2) + ' virhe:', err.message);
+    }
+
+    // Pieni viive ettei Firestore ylikuormitu
+    if (i < _excelData.length - 1) await new Promise(r => setTimeout(r, 80));
+  }
+
+  // Päivitetään progress-teksti lopuksi
+  if (bar)    bar.style.width = '100%';
+  if (teksti) teksti.textContent = 'Valmis!';
+
+  // Näytetään tulokset
+  const msg = [
+    tuotu + ' pelaajaa tuotu Firestoreen',
+    lahetaKutsut ? kutsut + ' rekisteröintikutsua luotu' : null,
+    virheet > 0 ? virheet + ' riviä epäonnistui (katso konsoli)' : null,
+  ].filter(Boolean).join(' · ');
+
+  if (onni) { onni.textContent = '✅ ' + msg; onni.style.display = 'block'; }
+  if (virhe && virheet > 0) virhe.textContent = virheet + ' riviä epäonnistui — tarkista konsoli.';
+
+  naytaToast(tuotu + ' pelaajaa tuotu!', virheet === 0 ? 'ok' : 'varoitus');
+
+  // Päivitetään pelaajalistaus
+  setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 1000);
+}
+
 
 async function kirjauduUlos() {
   if (tila._joukkueetKuuntelija) tila._joukkueetKuuntelija();
