@@ -1,308 +1,277 @@
 # TalentMaster™ — Session Summary
-# Briefingi uusia Claude-sessioita varten
-
-## Projektin tila (päivitetty 2026-03-27)
-
-TalentMaster on jalkapallon talenttiarviointialusta jossa on 8 aktiivista pilottiseuraa.
-Firebase-backend on rakennettu ja toimii. Tässä sessiossa uudistettiin koko
-rooliarkkitehtuuri kolmikerroksiseksi, kirjoitettiin Security Rules täysin uudelleen,
-suunniteltiin testitapahtuma-schema ja rakennettiin RAE + biologinen ikä
--signaalimoduuli VP-näkymään.
+# Päivitetty: 2026-03-28 (ilta) — yhdistetty 27.3. + 28.3. sessiot
 
 ---
 
-## GitHub-repositorio
+## Projektin tila
 
-```
-https://github.com/terokoskela7-cmyk/talentmaster
-https://terokoskela7-cmyk.github.io/talentmaster/
-```
+TalentMaster on jalkapallon talenttiarviointialusta 7 pilottiseuralle + demo-fc.
+Firebase-backend toimii (Blaze). Tänään (28.3.) rakennettiin koko rekisteröintipolku:
+seurahallinta → Excel-tuonti → sähköpostikutsu → huoltajan suostumuslomake.
 
-### Tärkeimmät tiedostot
+Strateginen avaus: Palloliiton koulutusyhteistyöesittely valmis.
 
-| Tiedosto | Kuvaus | Tila |
-|---|---|---|
-| `TalentMaster_VP_v17.html` | VP-dashboard — AKTIIVINEN versio | Toimii, tm_ylaikaisyys integrointi KESKEN |
-| `TalentMaster_Admin.html` | Super Admin -näkymä | Toimii |
-| `TalentMaster_Seura.html` | Seuran hallintanäkymä | Toimii |
-| `TalentMaster_Master_v7.html` | Valmentajan näkymä (vanha) | Toimii |
-| `TalentMaster_Master_v8.html` | Valmentajan näkymä (uusi) | Kehitysvaihe |
-| `TalentMaster_IDP_Kortti_v3.html` | Pelaajan kehityskortti | Toimii (KPV/Topias testattu) |
-| `TalentMaster_Rekisterointi_Suostumus.html` | GDPR-suostumuslomake | Toimii |
-| `tm_ylaikaisyys.js` | RAE + biologinen ikä signaalimoduuli | UUSI — ei vielä integroitu VP:hen |
-| `tm_admin/firestore.rules` | Security Rules | UUDISTETTU 2026-03-27 |
-| `tm_admin/setup_seurat.js` | Seurojen Firebase-alustus | UUDISTETTU 2026-03-27 |
-| `tm_admin/setup_admin.js` | Super-admin setup | Toimii |
-| `tm_data.js` | 2417 pelaajaa, 30 seuraa (historia) | Staattinen |
-| `hpp_rehab_protokollat.js` | 25 kuntoutusprotokollaa | Toimii |
+---
 
-### GitHub Actions -workflowt
+## GitHub & hosting
 
-| Workflow | Kuvaus | Tila |
-|---|---|---|
-| `.github/workflows/setup_firebase.yml` | Firebase-toiminnot | Päivitetty Node 20 + @v4 |
-| `.github/workflows/seed_kartoitukset.yml` | Testidatan lisäys/poisto | Toimii (@v4 jo valmiiksi) |
+  Repo:   https://github.com/terokoskela7-cmyk/talentmaster
+  Pages:  https://terokoskela7-cmyk.github.io/talentmaster/
+
+### Tiedostot
+
+  TalentMaster_Seura.html                    Seura-admin näkymä             AKTIIVINEN
+  TalentMaster_Admin.html                    Super Admin, kaikki seurat     AKTIIVINEN
+  TalentMaster_Rekisterointi_Suostumus.html  Huoltajan suostumuslomake      AKTIIVINEN (Security Rules fix puuttuu)
+  TalentMaster_VP_v17.html                   VP-dashboard, analytiikka      AKTIIVINEN
+  TalentMaster_IDP_Kortti_v3.html            Pelaajan kehityskortti         AKTIIVINEN
+  TalentMaster_Master_v7.html                Valmentajan näkymä             AKTIIVINEN, ei Firebase-int.
+  TalentMaster_Koulutuskokonaisuus_Palloliitto.html  Palloliiton esittely   AKTIIVINEN
+  TalentMaster_Harjoitettavuus.xlsx          U12/U15/U19 kartoituslomake    VIE GITHUBIIN jos ei vielä
+  TalentMaster_BioIka.xlsx                   Mirwald + yli-ikäisyyssääntö   VIE GITHUBIIN jos ei vielä
+  TalentMaster_HH_Testit.xlsx                H+H-testipaketti               SUUNNITELTU
+  hpp_rehab_protokollat.js                   25 kuntoutusprotokollaa        AKTIIVINEN
+  functions/index.js                         Cloud Functions, Nodemailer    DEPLOYTTU 28.3.
+  firebase.json                              Firebase projektin config       LUOTU 28.3.
+  tm_admin/firestore.rules                   Security Rules v2              AKTIIVINEN
+  .github/workflows/deploy_functions.yml     GitHub Actions, CF deploy      TOIMII
 
 ---
 
 ## Firebase
 
-- **Projekti:** `talentmaster-pilot` (Blaze plan)
-- **Tietokanta:** Firestore, europe-west1
-- **Auth:** Email/Password käytössä
+  Projekti:   talentmaster-pilot (Blaze)
+  Firestore:  europe-west1 / eur3 (multi-region)
+  Auth:       Email/Password + Custom Claims
+  Functions:  Node.js 20, europe-west1
 
-### Konfiguraatio
-```javascript
-const firebaseConfig = {
-  apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
-  authDomain: "talentmaster-pilot.firebaseapp.com",
-  projectId: "talentmaster-pilot",
-  storageBucket: "talentmaster-pilot.firebasestorage.app",
-  messagingSenderId: "872561784446",
-  appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
-};
-```
+  firebaseConfig:
+    apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo"
+    authDomain:        "talentmaster-pilot.firebaseapp.com"
+    projectId:         "talentmaster-pilot"
+    storageBucket:     "talentmaster-pilot.firebasestorage.app"
+    messagingSenderId: "872561784446"
+    appId:             "1:872561784446:web:05c4c7996dfd46ddd14a2f"
 
-### Firebase-käyttäjät
+### Käyttäjät
 
-| Sähköposti | UID | Rooli | Seura |
-|---|---|---|---|
-| talentmasterid@gmail.com | dqUzvJA61Wb9fgj5UiK0riSA4NI2 | Super Admin | Kaikki |
-| vp.fcl@talentmaster.fi | dpYcfa154ZOHshZzHrVaTZ2iTHE3 | VP | FC Lahti Juniorit |
-| vp.kpv@talentmaster.fi | jIbW7q8nLggswTjefkYuSvtneH92 | VP | KPV |
-| vp.palloiirot@talentmaster.fi | fBf1c60rjXTPxYlsV03EfrHZ2xM2 | VP | Pallo-Iirot |
-| vp.yvies@talentmaster.fi | U21RwOm7OYdrAQB8wTXXlDQksEk2 | VP | Ylöjärven Ilves |
-| vp.sjk@talentmaster.fi | 1eHyfKsuTSRAAsPu9kRZ22E4hwo2 | VP | SJK Juniorit |
-| vp.grifk@talentmaster.fi | lBCx0ivDYVWLmxD9TGKsvYrFrlo1 | VP | GrIFK |
+  talentmasterid@gmail.com     dqUzvJA61Wb9fgj5UiK0riSA4NI2   Super Admin   Kaikki
+  vp.kpv@talentmaster.fi       jIbW7q8nLggswTjefkYuSvtneH92   VP            KPV
+  vp.fcl@talentmaster.fi       dpYcfa154ZOHshZzHrVaTZ2iTHE3   VP            FC Lahti Juniorit
+  vp.palloiirot@talentmaster.fi fBf1c60rjXTPxYlsV03EfrHZ2xM2  VP            Pallo-Iirot
+  vp.yvies@talentmaster.fi     U21RwOm7OYdrAQB8wTXXlDQksEk2   VP            Ylöjärven Ilves
+  vp.sjk@talentmaster.fi       1eHyfKsuTSRAAsPu9kRZ22E4hwo2   VP            SJK Juniorit
+  vp.grifk@talentmaster.fi     lBCx0ivDYVWLmxD9TGKsvYrFrlo1   VP            GrIFK
+  vp.demo@talentmaster.fi      (demo-fc)                       VP            Demo FC
 
-### Pilottiseurat Firestoressä (8 kpl — ajettu setup_seurat 2026-03-27)
+  Demo FC kirjautuminen: vp.demo@talentmaster.fi / TM_Demo_2026!
+  IDP-linkit:
+    Aleksi: ...IDP_Kortti_v3.html?seuraId=demo-fc&pelaajaId=demo-p001
+    Eeli:   ...?seuraId=demo-fc&pelaajaId=demo-p002
+    Matias: ...?seuraId=demo-fc&pelaajaId=demo-p003
 
-| seuraId | Nimi | Paketti |
-|---|---|---|
-| fcl | FC Lahti Juniorit | kehitystaso |
-| kpv | KPV | kehitystaso |
-| palloiirot | Pallo-Iirot | perustaso |
-| yvies | Ylöjärven Ilves | perustaso |
-| sjk | SJK Juniorit | kehitystaso |
-| grifk | GrIFK | perustaso |
-| hjk | HJK Juniorit | huipputaso |
-| demo-fc | Demo FC | kehitystaso |
+### Cloud Functions (deployttu 28.3.)
 
-### Firestore-kokoelmarakenne (päivitetty 2026-03-27)
+  lahetaRekisteriKutsu   Lähettää suostumuslinkin huoltajalle (Nodemailer)   TOIMII
+  luoKayttaja            Luo Auth-tilin + salasanasähköposti                 TOIMII
+  lahetaHuoltajaKutsu    Legacy, yhteensopivuus                              OLEMASSA
+  deaktivioiKayttaja     Deaktivoi käyttäjätilin                             OLEMASSA
 
-```
-admins/{uid}                         — Super Admin -tunnistus
+  Gmail App Password → GitHub Secret: GMAIL_APP_PASSWORD
+  Sähköposti lähetetään: talentmasterid@gmail.com
 
-seurat/{seuraId}/                    — Seuradokumentti (uusi rakenne)
-  kayttajat/{uid}/                   — Kenttäkerroksen roolit
-  joukkueet/{joukkueId}/             — Joukkueet
-  pelaajat/{palloId}/                — Pelaajaprofiilit (PalloID = doc ID)
-  tapahtumat/{tapahtumaId}/          — Testitapahtumat (uusi schema, ei vielä UI)
-    tulokset/{palloId}/              — Testitulokset per pelaaja
-  kartoitukset/{id}/                 — Harjoitettavuuskartoitukset
-  testit/{id}/                       — H-H polun fyysiset testit
-  tekniikka/{id}/                    — Tekniikkakilpailut
-  adar/{id}/                         — Game IQ / ADAR
-  vammat/{id}/                       — Kuntoutusdata (arkaluonteinen)
-  kuorma/{id}/                       — RPE-kuormaseuranta
-  kirjaukset/{id}/                   — VP:n harjoitteluseurantakirjaukset
-
-kirjaukset/                          — Vanha rakenne (yhteensopivuus, ei enää kirjoiteta)
-kirjaukset_joukkue/                  — Vanha rakenne
-kirjaukset_tapahtumat/               — Vanha rakenne
-```
+  GitHub Actions workflow:
+    .github/workflows/deploy_functions.yml
+    Käynnistys: Actions → "TalentMaster — Deploy Functions" → Run workflow
+    Secrets: FIREBASE_SERVICE_ACCOUNT, GMAIL_EMAIL, GMAIL_APP_PASSWORD
 
 ---
 
-## Rooliarkkitehtuuri (uudistettu 2026-03-27)
+## Firestore-rakenne
 
-Kolmikerroksinen malli jossa sama henkilö voi kantaa useita rooleja
-(pienessä seurassa VP on usein myös Admin ja strateginen johtaja).
+  seurat/{seuraId}/
+    pelaajat/{autoId}/      etunimi, sukunimi, joukkue, huoltajaEmail,
+                            vammahistoria, suostumus, kutsuId, tuotu
+                            (tulevaisuudessa: flei_viimeisin, phv_ika, phv_tila)
+    kutsut/{kutsuId}/       tyyppi, hEmail, pelaajaNimi, linkki, tila, luotu
+    kayttajat/{uid}/        valmentajat, VP, henkilöstö
+    joukkueet/{id}/         joukkueen tiedot
+    kartoitukset/{id}/      harjoitettavuuskartoitukset (TULOSSA)
+    tapahtumat/{id}/        audit-trail
 
-**Hallintakerros** vastaa rekisterin hallinnasta. Seuran Admin (sihteeri/TJ)
-lisää käyttäjiä ja hallitsee pelaajadataa. VP on Adminin varamies ja hänellä
-on aina admin-oikeudet varalta. Super Admin näkee kaikkien seurojen datan.
-
-**Johtamiskerros** vastaa urheilutoiminnan johtamisesta. VP:llä on sekä
-operatiivinen että strateginen johtamisnäkymä — jos seurassa ei ole UTJ:tä,
-VP kattaa strategisen tason yksin. UTJ (Urheilutoiminnanjohtaja) näkee vain
-strategisen kokonaiskuvan ilman operatiivisia kirjoitusoikeuksia.
-
-**Kenttäkerros** hoitaa päivittäisen työn pelaajien kanssa. Roolit tallennetaan
-`kayttajat`-alikokoelmaan: valmentaja, testivastaava, talenttivalmentaja,
-fysiikkavalmentaja ja fysioterapeutti. Joukkuesidonnnaisuus määräytyy
-`joukkueet`-taulukosta (tyhjä = näkee kaikki seuran joukkueet).
-
-**Pelaaja- ja huoltajakerros**: pelaaja näkee oman profiilинsa, huoltaja
-lapsensa profiilin `huoltaja_uid`-kentän kautta.
-
-**Raportointikerros** (tuleva): hallitus/puheenjohtaja saa aggregoidun
-kuukausiraportin — ei pääsyä yksittäisiin pelaajatietoihin.
-
-### Seuradokumentin uudet kentät
-
-```javascript
-{
-  admin_uid:   null | "uid",   // Seuran Admin — null jos sama kuin VP
-  admin_email: null | "email",
-  vp_uid:      "uid",
-  vp_email:    "email",
-  utj_uid:     null | "uid",   // null = VP kattaa strategisen tason
-  utj_email:   null | "email",
-  tilastot: {                  // Aggregoitu — päivitetään tapahtumien yhteydessä
-    pelaajia, joukkueita, kartoituksia,
-    testattuMirwald, testattuHH, aktiivisiaIdp,
-    viimeisinTapahtuma, kausi
-  }
-}
-```
+  admins/{uid}/             Super Admin -dokumentit
+  audit/{id}/               järjestelmätason tapahtumat
 
 ---
 
-## tm_ylaikaisyys.js — RAE + biologinen ikä (rakennettu 2026-03-27)
+## Rekisteröintipolku (rakennettu 28.3.)
 
-### Kaksi signaalipolkua
-
-**RAE-analyysi** aktivoituu kaikille pelaajille joilla on `syntymapaivamaara`
-Firestore Timestampina. Laskee Q1–Q4-jakautuman (Q1=tammi-maaliskuu...
-Q4=loka-joulukuu), Q1/Q4-suhdeluvun ja vinouma-asteen. Vertaa koko joukkueen
-RAE:ta FLEI ≥ 75 talenttiryhmän RAE:hen — jos talenttiryhmässä Q1-painotus on
-merkittävästi vahvempi, järjestelmä hälyttää biologisen edun vaikutuksesta
-valintaan.
-
-**Mirwald-biologinen ikä** aktivoituu VAIN kun `biologinenIka.mirwald`-
-mittaukset löytyvät pelaajan Firestore-dokumentista (pituus + istumapituus +
-paino). Laskee maturity offset -arvon Mirwald 2002 -kaavalla ja vertaa
-Palloliiton kuukausittaisiin kynnysarvoihin. Poikkeuslupa-signaali laukeaa
-kun PHV-ikä ≥ kynnysarvo — VP voi hakea Palloliitolta lupaa pelaajan
-siirtämiseksi biologisesti sopivampaan ikäluokkaan (tuleva 2027-sääntö).
-
-Palloliiton kynnysarvot: pojat 14.05–14.97 ja tytöt 12.15–13.07 syntymäkuukauden
-mukaan (tammikuussa syntyneen kynnys korkein, joulukuussa matalin).
-
-### Integrointi VP_v17:ään — TEKEMÄTTÄ
-
-Lisätään `_lataaPilottiDashboard()`-funktion loppuun:
-
-```html
-<script src="tm_ylaikaisyys.js"></script>
-```
-
-```html
-<div id="tm-ylaikaisyys-kortti" style="padding:0 32px 20px"></div>
-```
-
-```javascript
-// _lataaPilottiDashboard()-funktion loppuun, heti ennen sulkevaa }
-if (_fbOnline && _fbDb && seuraId) {
-  _fbDb.collection('seurat').doc(seuraId)
-    .collection('pelaajat').limit(200).get()
-    .then(function(pelSnap) {
-      if (!pelSnap || pelSnap.empty) return;
-      var pelaajat = [];
-      pelSnap.forEach(function(doc) { pelaajat.push(doc.data()); });
-      if (typeof tmYlaikaisyysAlusta === 'function') tmYlaikaisyysAlusta(pelaajat);
-    })
-    .catch(function(e) { console.warn('[VP] RAE-analyysi epäonnistui:', e.message); });
-}
-```
+  1. VP kirjautuu Seura-näkymään
+  2. Onboarding: "Lataa rekisteripohja"
+       → Excel latautuu + tuontimodaali aukeaa automaattisesti
+  3. VP täyttää Excel: Etunimi, Sukunimi, Joukkue, HuoltajanEmail
+  4. "Tuo + lähetä kutsut"
+       → Pelaajat → seurat/{id}/pelaajat/
+       → lahetaRekisteriKutsu lähettää HTML-sähköpostin per huoltaja
+  5. Huoltaja saa sähköpostin, henkilökohtainen linkki
+  6. Huoltaja täyttää TalentMaster_Rekisterointi_Suostumus.html
+       → Perustiedot (syntymäaika, sukupuoli, vammahistoria)
+       → Suostumukset (pakolliset + vapaaehtoiset)
+  7. Suostumus + tiedot → seurat/{id}/pelaajat/{id}/ → pelaaja aktivoituu
 
 ---
 
-## Testitapahtuma-schema (suunniteltu, UI rakentamatta)
+## Testipaketit (rakennettu 27.3.)
 
-Tapahtumalla on kolmiportainen rakenne ja elinkaari:
-`suunniteltu → kaynnissa → odottaa_tarkistusta → valmis`.
-Vain `valmis`-tila vaikuttaa analyyseihin. Security Rules pakottaa
-uuden tapahtuman alkamaan aina `suunniteltu`-tilasta.
+### TalentMaster_Harjoitettavuus.xlsx
+  U12: 9 testiä, 27p max
+  U15: 13 testiä, 39p max, PHV-varoitus
+  U19: 8 testiä, 24p max
+  Laskee: FLEI-%, FLEI-taso, kuormarajoitin, auto-ohjelma (fascia → harjoitekirjasto)
+  VP_v17 hakee: .../TalentMaster_Harjoitettavuus.xlsx
 
-Tuetut testityypit: `mirwald`, `khamis_roche`, `harjoitettavuus`,
-`hh_testit`, `tekniikkakilpailu` (tulossa).
+### TalentMaster_BioIka.xlsx
+  Mirwald 2002 -kaava: pojat JA tytöt (eri kertoimet, IF-haara D{r}="P")
+  Syötteet: pituus×2, paino×2, istumapituus, syntymäpäivä, testipäivä
+  Laskee: ikä, jalkojen pituus, maturity offset, PHV-ikä, PHV-tila
+  Yli-ikäisyyssääntö: VLOOKUP syntymäkuukauden mukaan → KYLLA/EI
+    Pojat: tammikuu 14.97 → joulukuu 14.05
+    Tytöt: tammikuu 13.07 → joulukuu 12.15
+  Validointi: Person 1 (poika, 163cm, 50kg, istuma 117.1cm) → PHV-ikä ~14.60
+  VP_v17 hakee: .../TalentMaster_BioIka.xlsx
 
-Kaksi syöttötapaa: suora monisyöttö järjestelmässä (pelaajat valmiiksi
-listalla) ja Excel-pohja joka generoidaan tapahtumasta (PalloID:t mukana).
-Molemmat johtavat samaan tapahtumadokumenttiin.
-
----
-
-## Pelaajan tunnistuslogiikka
-
-PalloID on Firestoren dokumentin ID (`seurat/{seuraId}/pelaajat/{palloId}`).
-Koska kenttäolosuhteet ovat epätäydelliset (Mirwald otetaan usein eri
-kerralla kuin harjoitettavuuskartoitus), data kertyy palasina.
-Tuontikoodi käyttää `set({...}, {merge:true})` joka päivittää olemassa olevan
-dokumentin tai luo uuden — duplikaatteja ei synny.
-
-Fallback-logiikka: jos PalloID puuttuu Excel-riviltä, haetaan syntymäajan
-ja nimen yhdistelmällä. Jos ei löydy, luodaan väliaikainen dokumentti
-merkinnällä `palloIdPuuttuu: true` — järjestelmä ei hylkää dataa.
-
-### PHV-termistön epäyhtenäisyys (korjattava)
-
-VP_v17 käyttää: `'Varhainen'` / `'PHV-huippu'` / `'Post-PHV'`
-Excel-pohja käyttää: `'Pre-PHV'` / `'PHV'` / `'Post-PHV'`
-Tuontikoodin pitää normalisoida termi Firestoreen kirjoitettaessa.
+### Arkkitehtuuripäätös
+  Bio-ikä = erillinen kartoitus (eri rytmi, tekijä, käyttötarkoitus kuin harjoitettavuus)
+  Firestore-kentät: phv_ika, phv_tila, bio_ika, yliikaisyys_ok
+  Testipaketti:
+    Polku A — harjoitettavuus (koko joukkue)
+    Polku B — bio-ikä (yksittäinen pelaaja)
+  Painotukset (40/25/15/10/10) pysyvät — fyysinen biologisesti normalisoitu
 
 ---
 
-## Bisnesmalli
+## Palloliiton koulutusyhteistyö (27.3.)
 
-Kiinteä seuralisenssi 200–400€/kausi (MRR), per-pelaaja raportti
-(skaalautuva), klinikka kertamaksuna. Paketit: Perustaso (max 100p) /
-Kehitystaso (max 300p) / Huipputaso (rajaton).
+  TalentMaster_Koulutuskokonaisuus_Palloliitto.html — valmis esittely
 
----
+  Rakenne (4 kohtausta):
+    Lähtökohta → Koulutus → TalentID → Yhteistyöehdotus
 
-## PIN-koodit (demo-käyttö)
+  Koulutustasot:
+    Taso 1: Pelaajan kehityksen arviointi
+    Taso 2: Oikeudenmukainen arviointi
+    Taso 3: Kehityksen johtaminen tiedolla (VEAT-loppunäyttö instrumentoituna)
+    Moduuli A: Pelin ymmärtäminen (Game IQ)
+    Moduuli B: Talentin tunnistaminen (TalentID/Hidden Gem)
 
-| PIN | Rooli | Seura |
-|---|---|---|
-| 5555 | Demo VP | — |
-| 6666 | VP | FC Lahti Juniorit |
-| 7777 | VP | SJK Juniorit |
-| 8888 | UJ | Demo |
-| 9012 | Valmentaja | Master v7 |
-
----
-
-## Tunnettuja ongelmia
-
-`TalentMaster_Admin.html` tunnistaa käyttäjät `admins`-kokoelmasta eikä
-vielä hyödynnä seuradokumentin uusia kenttiä (`admin_uid`, `utj_uid`) —
-toimii edelleen mutta ei tue uutta rooliarkkitehtuuria täysin.
-LocalStorage ja Firebase voivat olla epäsynkronissa eri laitteilla —
-ratkeaa kun siirrytään kokonaan Firebase-pohjaiseen dataan.
+  Pilottiehdotus: 3 seuraa, 1 kausi, VEAT-välitehtävät
+  Suomessa ei vastaavaa rakennetta → strateginen mahdollisuus
 
 ---
 
-## Seuraavat tehtävät (tärkeysjärjestyksessä)
+## KRIITTINEN BUGI — KORJAA ENSIN
 
-1. `tm_ylaikaisyys.js` integrointi VP_v17:ään — kolme koodimuutosta, ohjeet yllä
-2. Testitapahtuman luontinäkymä VP-näkymään tai Seura-näkymään
-3. Monisyöttölomake testivastaavalle (Mirwald + Khamis-Roche reaaliaikainen laskenta)
-4. Testivastaajan oma kirjautumispolku ja näkymä
-5. UTJ-näkymä — strateginen koontinäkymä aggregoidulla datalla
-6. Pelaajan ja huoltajan kirjautumispolut
-7. Hallitusraportointi — kuukausiraportti ilman yksilötietoja
+### Security Rules: huoltajan tallennus estetty
+
+  Ongelma:
+    Huoltaja (ei kirjautunut) yrittää kirjoittaa seurat/kpv/pelaajat/
+    Security Rules vaatii kirjautumisen → Missing or insufficient permissions
+
+  Ratkaisu — Firebase Console → Firestore → Rules:
+
+    // MUUTA:
+    allow create: if onHallinta(seuraId);
+
+    // TÄHÄN:
+    allow create: if onHallinta(seuraId) || request.auth == null;
+
+  Paina Publish.
 
 ---
 
-## Avaintiedot muihin sessioihin
+## Toimivat asiat (28.3. lopussa)
 
-### VP_v17:n kaksi käynnistyspolkua
-`initDash()` käynnistää tm_data.js-pohjaisen näkymän historiadatalle.
-`_lataaPilottiDashboard()` käynnistää Firebase-pohjaisen näkymän
-pilottiseuroille. Signaalimoduuli lisätään jälkimmäiseen (ohjeet yllä).
+  VP kirjautuu Seura-näkymään sähköpostilla
+  Super Admin näkee kaikki seurat
+  Henkilöstön kutsu — 1 sähköposti, ei duplikaattia
+  Salasana-nappi lähettää uuden reset-linkin
+  Excel-tuonti tunnistaa otsikkorivin dynaamisesti (rivi 5 pohja-tiedostossa)
+  Onboarding: lataa pohja + avaa tuontimodaali automaattisesti
+  lahetaRekisteriKutsu lähettää HTML-sähköpostin
+  WhatsApp-numero muodostuu oikein (+358...)
+  Rekisteröintilomake: toStep2, toStep3 toimivat
+  Vammahistoria-kenttä lomakkeessa
+  Biologisen iän info-teksti suostumuslomakkeessa
+  "Tuo Firestoreen" -nappi poistettu (jäljellä vain "Tuo + lähetä kutsut")
 
-### VP_v17 käyttää bioIka.krono-kenttää yli 8 kohdassa
-`biologinenIka`-objekti tallennetaan Firestoreen raakamittauksina mutta
-PHV-ikää ei lasketa automaattisesti. `tmLaskeMirwaldPelaajaDoc()` (tm_ylaikaisyys.js)
-hoitaa laskennan — kutsutaan Excel-tuonnin yhteydessä.
+---
 
-### HPP ELITE -yhteys
-Google Sheets ID: `1-UPKKPbibbAguiRsY8RzeRoWQAJBANTthgNy3AA3e5M`
-28 välilehteä. Integrointi TalentMasteriin fysioterapeutin näkymän kautta.
+## Prioriteettijärjestys — seuraavat sessiot
 
-### Palloliiton Power BI benchmark
-`https://app.powerbi.com/view?r=eyJrIjoiOWZhZGExZTMtODRhMC00NmI1LTk2N2QtNGU5OThkNjg2Mjk1IiwidCI6IjQ2OTM4YzQyLTk2MDgtNDU4ZC1iMjVlLTg3MTMzNjJhOTk5MSIsImMiOjh9`
-Seuran passinomistajat vs. TalentMasteriin rekisteröityneet.
+### Sprint 1 — heti (ennen pilottia)
+
+  1. Security Rules fix (yllä, 5 min, KRIITTINEN)
+  2. Testaa koko polku uudelleen KPV:llä
+  3. Kutsu-statusseuranta Sopimukset-välilehdelle
+       → Lista: "Odottaa" / "Suostumus annettu" / "Vanhentunut"
+       → Lähetä uudelleen -toiminto
+  4. Vie GitHubiin jos puuttuu: Harjoitettavuus.xlsx, BioIka.xlsx
+
+### Sprint 2 — huhtikuu (ennen KORI-deadlinea 20.4.)
+
+  5. Valmentajan kenttähavainto → Firestore
+       → 10 sek kirjaus kentällä, 3 tyyppiä:
+         vahvistus / kehityshavainto / erityinen hetki
+  6. VP-näkymä: yli-ikäisyyssignaalikortti
+       → pelaajat joilla yliikaisyys_ok === true
+  7. KORI-kriteerit VP-dashboardiin (julki 20.4. jälkeen)
+  8. Tuontilogiikka: SheetJS → kartoitukset-kokoelma + pelaajan flei_viimeisin
+
+### Sprint 3 — kesäkuu (ennen KORI-nimeämisiä)
+
+  9.  Master v8 — valmentajan mobiilnäkymä
+  10. VP:n vuosikello — tavoitteet + seuranta
+  11. Palloliiton koulutusyhteistyö — tapaaminen + neuvottelu
+
+### Myöhemmin
+
+  12. Game IQ Firebase-integraatio (adar/-kokoelma olemassa)
+  13. TalentMaster_HH_Testit.xlsx — kolmas testipaketti
+  14. Pelaaja-näkymä
+  15. Excel-pohjan automaattinen joukkuetäyttö (openpyxl Cloud Function)
+  16. tm_nav.js integrointi (vasta Master v8 + Pelaaja-näkymä valmis)
+
+---
+
+## Tekniset muistiinpanot
+
+### Kriittiset ratkaisut
+
+  1.  Firestore Rules: allow create JA allow update molemmat tarvitaan
+  2.  Syntymäaika: Date.UTC() — ei new Date(string)
+  3.  onAuthStateChanged-silmukka: _kirjautuminenKesken-lippu
+  4.  GitHub Pages CDN: Ctrl+Shift+R hard reload tai incognito
+  5.  Firebase custom claims: kirjaudu ulos+sisään aktivoinnin jälkeen
+  6.  Firebase functions region: AINA europe-west1, EI us-central1
+        firebase.functions() → us-central1 (VÄÄRÄ)
+        firebase.app().functions('europe-west1') → OIKEA
+  7.  Firestore alikokoelmat: poista orderBy, järjestele JS:ssä
+  8.  Security Rules VP: kolme tunnistustapaa (super-admin / custom claim / vp_uid)
+  9.  FIREBASE_SERVICE_ACCOUNT: kokeile JSON.parse, sitten base64
+  10. Syntaksivirhe: .catch() irrallaan puolipisteisen lauseen jälkeen → kaataa koko JS
+  11. GitHub-editori + äöå → rikkoo UTF-8 → kirjoita tiedostot Claudella, ei editorissa
+  12. Firestore eur3 → Firebase Email Extension ei tue → käytä Nodemailer
+  13. sendPasswordResetEmail: älä kutsu erikseen jos Cloud Function lähettää jo
+  14. Mirwald-kaava Excelissä: pojat/tytöt IF-haara D{r}="P"
+  15. Yli-ikäisyys VLOOKUP: MONTH(syntymäpäivä) → kynnysarvo-taulukko
+  16. VP_v17 KRT-tab: krtLaskeKetjupisteet() + krtLaskeAutoOhjelma() tallentavat automaattisesti
+  17. tm_nav.js: lisätään VASTA Master_v8 + Pelaaja-näkymä valmis
+
+### Arkkitehtuuriperiaatteet
+
+  "Pelaaja ensin, hallinto vahvistaa"
+  Minimaalinen data rekisteröinnissä — muut tiedot huoltaja täyttää
+  Kutsu aina henkilökohtainen linkki — ei yleistä rekisteröintisivua
+  Super Admin (talentmasterid@gmail.com) näkee aina kaiken — absoluuttinen periaate
+  Bio-ikä ja harjoitettavuus ovat erilliset kartoituspolut (eri rytmi, tekijä)
+  Painotukset (40/25/15/10/10) pysyvät — fyysinen normalisoitu biologisesti
