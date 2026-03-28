@@ -3071,7 +3071,12 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
     if (teksti) teksti.textContent = (i + 1) + '/' + _excelData.length + ' — ' + p.etunimi + ' ' + p.sukunimi;
 
     try {
-      // Dokumentti-ID: PalloID jos saatavilla, muuten auto-ID
+      // Luodaan dokumenttiviite ENSIN jotta saadaan ID → välitetään kutsulinkkiin
+      // Näin suostumuslomake kirjoittaa SAMAAN dokumenttiin eikä luo duplikaattia
+      const pelaajaRef = db.collection('seurat').doc(tila.seuraId)
+        .collection('pelaajat').doc(); // auto-ID ilman tallennusta
+      const pelaajaId = pelaajaRef.id;
+
       // Minimaalinen pelaajadata — muut tiedot täytetään suostumuslomakkeella
       const pelaajadata = {
         etunimi:       p.etunimi || '',
@@ -3079,24 +3084,26 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         joukkue:       p.joukkue || '',
         seuraId:       tila.seuraId,
         huoltajaEmail: p.huoltajaEmail || null,
+        pelaajaId:     pelaajaId,
+        suostumusTila: 'odottaa', // 'odottaa' → 'annettu' kun huoltaja täyttää lomakkeen
         tuotu:         nyt,
         tuoja:         tila.kayttaja?.email || 'tuntematon',
       };
 
-      // Tallennetaan Firestoreen — käytetään aina auto-ID:tä
-      await db.collection('seurat').doc(tila.seuraId)
-        .collection('pelaajat').add(pelaajadata);
+      // Tallennetaan Firestoreen tunnetulla ID:llä
+      await pelaajaRef.set(pelaajadata);
       tuotu++;
 
       // Lähetetään kutsu jos pyydetty ja email löytyy
       if (lahetaKutsut && p.huoltajaEmail && p.huoltajaEmail.includes('@')) {
         const params = new URLSearchParams({
-          seuraId:  tila.seuraId,
-          seura:    seuraNimi,
-          etunimi:  p.etunimi,
-          sukunimi: p.sukunimi,
-          joukkue:  p.joukkue,
-          hEmail:   p.huoltajaEmail,
+          seuraId:   tila.seuraId,
+          pelaajaId: pelaajaId,   // ← KRIITTINEN: suostumuslomake käyttää tätä
+          seura:     seuraNimi,
+          etunimi:   p.etunimi,
+          sukunimi:  p.sukunimi,
+          joukkue:   p.joukkue,
+          hEmail:    p.huoltajaEmail,
           ...(p.palloId && { palloid: p.palloId }),
         });
         const linkki = baseUrl + '?' + params.toString();
@@ -3105,6 +3112,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
           tyyppi:      'excel_tuonti_kutsu',
           hEmail:      p.huoltajaEmail,
           pelaajaNimi: (p.etunimi + ' ' + p.sukunimi).trim(),
+          pelaajaId:   pelaajaId,   // linkki pelaajadokumenttiin
           palloId:     p.palloId || null,
           joukkue:     p.joukkue || null,
           linkki,
