@@ -1948,21 +1948,21 @@ async function lahetaRekisteriSahkoposti() {
         lahettaja:   tila.kayttaja?.uid || 'tuntematon',
       });
 
-    // VAIHE 2: Yritetään lahetaHuoltajaKutsu Cloud Functionia
-    // (olemassa oleva funktio — tallentaa linkin muttei lähetä sähköpostia vielä)
-    try {
-      const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
-      await lahetaFn({
-        hEmail:   tila._rekHEmail,
-        linkki:   tila._rekLinkki,
-        seura:    tila.seuraNimi || tila.seuraId,
-        etunimi:  etunimi,
-        sukunimi: sukunimi,
-        joukkue:  joukkue,
-      });
-    } catch(fnErr) {
-      // Cloud Function epäonnistui — ei kriittinen, linkki on jo tallennettu
-      console.warn('[Kutsu] Cloud Function epäonnistui:', fnErr.message);
+    // VAIHE 2: Lähetetään sähköposti lahetaRekisteriKutsu Cloud Functionilla
+    if (p.huoltajaEmail && p.huoltajaEmail.includes('@')) {
+      try {
+        const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
+        await lahetaFn({
+          hEmail:   p.huoltajaEmail,
+          linkki:   linkki,
+          seura:    seuraNimi,
+          etunimi:  p.etunimi,
+          sukunimi: p.sukunimi,
+          joukkue:  p.joukkue,
+        });
+      } catch(fnErr) {
+        console.warn('[Kutsu] Sähköposti epäonnistui:', fnErr.message);
+      }
     }
 
     nappi.textContent = 'Tallennettu ✓';
@@ -2210,13 +2210,7 @@ async function tallennaKutsu() {
         kutsuja:       tila.kayttajaEmail || ''
       });
 
-    // ── Lähetetään salasanalinkki ────────────────────────────────
-    try {
-      await auth.sendPasswordResetEmail(email);
-    } catch(sErr) {
-      // Ei kriittinen — käyttäjä voi pyytää linkin myöhemmin
-      console.warn('Salasanalinkki epäonnistui:', sErr.message);
-    }
+    // Cloud Function (luoKayttaja) lähettää reset-linkin automaattisesti
 
     // ── Onnistui ─────────────────────────────────────────────────
     suljeModal('kutsuModal');
