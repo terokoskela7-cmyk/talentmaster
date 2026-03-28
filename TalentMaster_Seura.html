@@ -267,6 +267,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 .badge.muu       { background:rgba(255,255,255,.06); color:var(--ink3); }
 .badge.ok        { background:rgba(94,201,122,.12);  color:var(--green); }
 .badge.odottaa   { background:rgba(224,160,64,.12);  color:var(--amber); }
+.badge.harmaa    { background:rgba(255,255,255,.06);  color:var(--ink3); }
 
 /* TOIMINTANAPIT */
 .toimNappi {
@@ -1429,21 +1430,59 @@ async function renderPelaajat(alue) {
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a,b) => (a.sukunimi || '').localeCompare(b.sukunimi || ''));
 
+    // Lasketaan yhteenvetoluvut
+    const annettu  = pelaajat.filter(p => p.suostumusTila === 'annettu' || p.suostumus?.annettu).length;
+    const odottaa  = pelaajat.filter(p => (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu') && !p.suostumus?.annettu).length;
+    const eiLahetetty = pelaajat.length - annettu - odottaa;
+
     alueEl.innerHTML = `
+      <!-- Yhteenveto-palkki -->
+      <div style="display:flex;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);
+        background:rgba(255,255,255,.02);flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:7px;font-size:12px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--teal);display:inline-block;"></span>
+          <span style="color:var(--ink3);">Rekisteröity:</span>
+          <strong style="color:var(--ink1);">${annettu}</strong>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;font-size:12px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--amber);display:inline-block;"></span>
+          <span style="color:var(--ink3);">Kutsu lähetetty:</span>
+          <strong style="color:var(--ink1);">${odottaa}</strong>
+        </div>
+        ${eiLahetetty > 0 ? `
+        <div style="display:flex;align-items:center;gap:7px;font-size:12px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--border);display:inline-block;"></span>
+          <span style="color:var(--ink3);">Ei kutsua:</span>
+          <strong style="color:var(--ink1);">${eiLahetetty}</strong>
+        </div>` : ''}
+      </div>
       <table>
         <thead><tr>
-          <th>Nimi</th><th>Joukkue</th><th>Synt.</th><th>Suostumus</th><th>Toiminnot</th>
+          <th>Nimi</th><th>Joukkue</th><th>Synt.</th><th>Tila</th><th>Toiminnot</th>
         </tr></thead>
         <tbody>
           ${pelaajat.map(p => {
             const nimi = p.nimi || `${p.etunimi||''} ${p.sukunimi||''}`.trim() || p.id;
-            const suostumus = p.suostumus?.annettu ? 'ok' : 'odottaa';
+            const syntVuosi = p.syntymaaika
+              ? new Date(p.syntymaaika.seconds*1000).getFullYear()
+              : (p.syntymaaika_vuosi || '—');
+
+            // Tila-logiikka: suostumusTila (uusi kenttä) tai suostumus.annettu (vanha)
+            const onAnnettu = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
+            const onOdottaa = !onAnnettu && (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu' || p.tuotu);
+
+            const [tilaLuokka, tilaIkoni, tilaTeksti] = onAnnettu
+              ? ['ok',      '✓', 'Rekisteröity']
+              : onOdottaa
+              ? ['odottaa', '⏳', 'Kutsu lähetetty']
+              : ['harmaa',  '—', 'Ei kutsua'];
+
             return `
               <tr>
-                <td>${nimi}</td>
+                <td style="font-weight:600;">${nimi}</td>
                 <td>${p.joukkue || '—'}</td>
-                <td>${p.syntymaaika ? new Date(p.syntymaaika.seconds*1000).getFullYear() : '—'}</td>
-                <td><span class="badge ${suostumus}">${suostumus === 'ok' ? '✓ Annettu' : '⏳ Odottaa'}</span></td>
+                <td>${syntVuosi}</td>
+                <td><span class="badge ${tilaLuokka}">${tilaIkoni} ${tilaTeksti}</span></td>
                 <td>
                   <button class="toimNappi" onclick="naytaPelaajaTiedot('${p.id}')">Tiedot</button>
                 </td>
@@ -1930,16 +1969,52 @@ async function lahetaRekisteriSahkoposti() {
   const joukkue  = document.getElementById('rek_joukkue')?.value || '';
 
   try {
-    // VAIHE 1: Tallennetaan kutsu Firestoreen
+    // VAIHE 1: Luodaan pelaajadokumentti jos nimi on annettu
+    // → antaa pelaajaId:n joka kulkee kutsulinkkiin → estää duplikaatin suostumuslomakkeella
+    let pelaajaId = null;
+    if (etunimi || sukunimi) {
+      const pelaajaRef = db.collection('seurat').doc(tila.seuraId)
+        .collection('pelaajat').doc();
+      pelaajaId = pelaajaRef.id;
+      await pelaajaRef.set({
+        etunimi:       etunimi || '',
+        sukunimi:      sukunimi || '',
+        joukkue:       joukkue || '',
+        seuraId:       tila.seuraId,
+        huoltajaEmail: tila._rekHEmail || null,
+        pelaajaId:     pelaajaId,
+        suostumusTila: 'odottaa',
+        tuotu:         firebase.firestore.FieldValue.serverTimestamp(),
+        tuoja:         tila.kayttaja?.email || 'tuntematon',
+      });
+
+      // Päivitetään kutsulinkkiin pelaajaId
+      const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+      const params = new URLSearchParams({
+        seuraId:   tila.seuraId,
+        pelaajaId: pelaajaId,
+        seura:     tila.seuraNimi || tila.seuraId,
+        etunimi, sukunimi, joukkue,
+        hEmail:    tila._rekHEmail,
+      });
+      tila._rekLinkki = baseUrl + '?' + params.toString();
+      // Päivitetään myös UI:hin näkyvä linkki
+      const linkkiEl = document.getElementById('linkkiTekstiEl');
+      if (linkkiEl) linkkiEl.textContent = tila._rekLinkki;
+    }
+
+    // VAIHE 2: Tallennetaan kutsu Firestoreen
     await db.collection('seurat').doc(tila.seuraId)
       .collection('kutsut').add({
         tyyppi:      'yksittainen_kutsu',
         hEmail:      tila._rekHEmail,
         pelaajaNimi: (etunimi + ' ' + sukunimi).trim(),
+        pelaajaId:   pelaajaId,   // linkki pelaajadokumenttiin
         joukkue,
         linkki:      tila._rekLinkki,
         lahetetty:   firebase.firestore.FieldValue.serverTimestamp(),
-        tila:        'odottaa',   // Firebase Email Extension päivittää → 'lahetetty'
+        luotu:       firebase.firestore.FieldValue.serverTimestamp(),
+        tila:        'odottaa',
         lahettaja:   tila.kayttaja?.uid || 'tuntematon',
       });
 
@@ -2252,13 +2327,175 @@ async function deaktivoiKayttaja(uid, email) {
   }
 }
 
-function naytaPelaajaTiedot(pelaajaId) {
-  // Avaa IDP-kortti v3 — seuraId ja pelaajaId URL-parametreina
-  // jotta kortti hakee oikean pelaajan oikeasta seurasta Firestoresta
-  const url = 'TalentMaster_IDP_Kortti_v3.html'
-    + '?seuraId=' + encodeURIComponent(tila.seuraId)
-    + '&pelaajaId=' + encodeURIComponent(pelaajaId);
-  window.location.href = url;
+async function naytaPelaajaTiedot(pelaajaId) {
+  // Haetaan pelaajan data Firestoresta
+  let p = null;
+  let kutsut = [];
+  try {
+    const pSnap = await db.collection('seurat').doc(tila.seuraId)
+      .collection('pelaajat').doc(pelaajaId).get();
+    if (pSnap.exists) p = { id: pSnap.id, ...pSnap.data() };
+
+    // Haetaan pelaajaan liittyvät kutsut
+    const kSnap = await db.collection('seurat').doc(tila.seuraId)
+      .collection('kutsut')
+      .where('pelaajaId', '==', pelaajaId)
+      .get();
+    kutsut = kSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) {
+    console.warn('[Profiili] Haku epäonnistui:', e.message);
+  }
+
+  if (!p) { naytaToast('Pelaajan tietoja ei löydy.', 'virhe'); return; }
+
+  const nimi = p.nimi || `${p.etunimi||''} ${p.sukunimi||''}`.trim();
+  const onAnnettu = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
+  const syntVuosi = p.syntymaaika
+    ? new Date(p.syntymaaika.seconds*1000).getFullYear() : '—';
+
+  // Suostumukset eriteltynä
+  const suostumukset = p.suostumus?.hyvaksytyt || {};
+  const suostumusRivit = Object.entries(suostumukset).map(([k, v]) =>
+    `<div style="display:flex;justify-content:space-between;padding:5px 0;
+      border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;">
+      <span style="color:var(--ink3);">${k}</span>
+      <span style="${v ? 'color:var(--teal)' : 'color:var(--amber)'}">${v ? '✓ Hyväksytty' : '✗ Ei hyväksytty'}</span>
+    </div>`
+  ).join('') || '<div style="color:var(--ink3);font-size:12px;">Ei suostumustietoja</div>';
+
+  // Kutsuhistoria
+  const kutsuRivit = kutsut.length > 0
+    ? kutsut.map(k => {
+        const pvm = k.luotu?.seconds
+          ? new Date(k.luotu.seconds*1000).toLocaleDateString('fi-FI') : '—';
+        const tila_k = k.tila === 'hyvaksytty' ? '✓ Hyväksytty'
+          : k.tila === 'odottaa' ? '⏳ Odottaa'
+          : k.tila || '—';
+        const vari = k.tila === 'hyvaksytty' ? 'var(--teal)'
+          : k.tila === 'odottaa' ? 'var(--amber)' : 'var(--ink3)';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;
+          padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;">
+          <div>
+            <span style="color:var(--ink1);">${k.hEmail || '—'}</span>
+            <span style="color:var(--ink3);margin-left:8px;">${pvm}</span>
+          </div>
+          <span style="color:${vari};">${tila_k}</span>
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--ink3);font-size:12px;">Ei kutsuhistoriaa</div>';
+
+  // Huoltajan tiedot
+  const huoltaja = p.huoltaja;
+  const huoltajaHtml = huoltaja
+    ? `<div style="font-size:13px;color:var(--ink2);">
+        ${huoltaja.etunimi || ''} ${huoltaja.sukunimi || ''}
+        ${huoltaja.email ? `<span style="color:var(--ink3);margin-left:8px;">${huoltaja.email}</span>` : ''}
+        ${huoltaja.puhelin ? `<span style="color:var(--ink3);margin-left:8px;">${huoltaja.puhelin}</span>` : ''}
+       </div>`
+    : `<div style="color:var(--ink3);font-size:12px;">—</div>`;
+
+  // Suostumuksen antaja + aika
+  const antaja = p.suostumus?.antaja || '—';
+  const antajaPvm = p.suostumus?.annettu?.seconds
+    ? new Date(p.suostumus.annettu.seconds*1000).toLocaleString('fi-FI') : '—';
+
+  // Rakennetaan modaali
+  const modalId = 'pelaajaProfiiliModal';
+  let modal = document.getElementById(modalId);
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = modalId;
+    modal.className = 'modalTausta';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div class="modalSisalto" style="max-width:560px;max-height:85vh;overflow-y:auto;">
+      <button class="modalSuljeNappi" onclick="document.getElementById('${modalId}').classList.remove('auki')">✕ Sulje</button>
+
+      <!-- Otsikko -->
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--primary-dim);
+          display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">
+          ⚽
+        </div>
+        <div>
+          <div style="font-size:18px;font-weight:700;color:var(--ink1);">${nimi}</div>
+          <div style="font-size:13px;color:var(--ink3);">${p.joukkue || '—'} · ${syntVuosi}</div>
+        </div>
+        <span class="badge ${onAnnettu ? 'ok' : 'odottaa'}" style="margin-left:auto;">
+          ${onAnnettu ? '✓ Rekisteröity' : '⏳ Kutsu lähetetty'}
+        </span>
+      </div>
+
+      <!-- Perustiedot -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;
+          color:var(--ink3);text-transform:uppercase;margin-bottom:8px;">Perustiedot</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          ${[
+            ['Etunimi', p.etunimi || '—'],
+            ['Sukunimi', p.sukunimi || '—'],
+            ['Syntymävuosi', syntVuosi],
+            ['Sukupuoli', p.sukupuoli || '—'],
+            ['Joukkue', p.joukkue || '—'],
+            ['PalloID', p.palloID || p.palloId || '—'],
+          ].map(([k,v]) => `
+            <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 12px;">
+              <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">${k}</div>
+              <div style="font-size:13px;color:var(--ink1);font-weight:500;">${v}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Huoltaja -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;
+          color:var(--ink3);text-transform:uppercase;margin-bottom:8px;">Huoltaja</div>
+        ${huoltajaHtml}
+      </div>
+
+      <!-- Suostumukset -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;
+          color:var(--ink3);text-transform:uppercase;margin-bottom:8px;">Suostumukset</div>
+        ${onAnnettu
+          ? `<div style="font-size:12px;color:var(--ink3);margin-bottom:8px;">
+              Antaja: <strong style="color:var(--ink2);">${antaja}</strong> · ${antajaPvm}
+             </div>`
+          : ''}
+        <div style="background:rgba(255,255,255,.03);border-radius:8px;padding:10px 14px;">
+          ${suostumusRivit}
+        </div>
+      </div>
+
+      <!-- Kutsuhistoria -->
+      <div style="margin-bottom:20px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;
+          color:var(--ink3);text-transform:uppercase;margin-bottom:8px;">Kutsuhistoria</div>
+        <div style="background:rgba(255,255,255,.03);border-radius:8px;padding:10px 14px;">
+          ${kutsuRivit}
+        </div>
+      </div>
+
+      <!-- Toiminnot -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="lisaaNappi" style="background:var(--primary-dim);flex:1;"
+          onclick="
+            document.getElementById('${modalId}').classList.remove('auki');
+            window.open('TalentMaster_IDP_Kortti_v3.html?seuraId=${encodeURIComponent(tila.seuraId)}&pelaajaId=${encodeURIComponent(pelaajaId)}', '_blank');
+          ">
+          📋 Avaa kehityskortti (IDP)
+        </button>
+        ${!onAnnettu ? `
+        <button class="lisaaNappi" style="background:rgba(74,126,217,.15);flex:1;"
+          onclick="document.getElementById('${modalId}').classList.remove('auki'); avaaRekisteriModal();">
+          ✉️ Lähetä kutsu uudelleen
+        </button>` : ''}
+      </div>
+    </div>`;
+
+  modal.classList.add('auki');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -3071,12 +3308,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
     if (teksti) teksti.textContent = (i + 1) + '/' + _excelData.length + ' — ' + p.etunimi + ' ' + p.sukunimi;
 
     try {
-      // Luodaan dokumenttiviite ENSIN jotta saadaan ID → välitetään kutsulinkkiin
-      // Näin suostumuslomake kirjoittaa SAMAAN dokumenttiin eikä luo duplikaattia
-      const pelaajaRef = db.collection('seurat').doc(tila.seuraId)
-        .collection('pelaajat').doc(); // auto-ID ilman tallennusta
-      const pelaajaId = pelaajaRef.id;
-
+      // Dokumentti-ID: PalloID jos saatavilla, muuten auto-ID
       // Minimaalinen pelaajadata — muut tiedot täytetään suostumuslomakkeella
       const pelaajadata = {
         etunimi:       p.etunimi || '',
@@ -3084,26 +3316,24 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         joukkue:       p.joukkue || '',
         seuraId:       tila.seuraId,
         huoltajaEmail: p.huoltajaEmail || null,
-        pelaajaId:     pelaajaId,
-        suostumusTila: 'odottaa', // 'odottaa' → 'annettu' kun huoltaja täyttää lomakkeen
         tuotu:         nyt,
         tuoja:         tila.kayttaja?.email || 'tuntematon',
       };
 
-      // Tallennetaan Firestoreen tunnetulla ID:llä
-      await pelaajaRef.set(pelaajadata);
+      // Tallennetaan Firestoreen — käytetään aina auto-ID:tä
+      await db.collection('seurat').doc(tila.seuraId)
+        .collection('pelaajat').add(pelaajadata);
       tuotu++;
 
       // Lähetetään kutsu jos pyydetty ja email löytyy
       if (lahetaKutsut && p.huoltajaEmail && p.huoltajaEmail.includes('@')) {
         const params = new URLSearchParams({
-          seuraId:   tila.seuraId,
-          pelaajaId: pelaajaId,   // ← KRIITTINEN: suostumuslomake käyttää tätä
-          seura:     seuraNimi,
-          etunimi:   p.etunimi,
-          sukunimi:  p.sukunimi,
-          joukkue:   p.joukkue,
-          hEmail:    p.huoltajaEmail,
+          seuraId:  tila.seuraId,
+          seura:    seuraNimi,
+          etunimi:  p.etunimi,
+          sukunimi: p.sukunimi,
+          joukkue:  p.joukkue,
+          hEmail:   p.huoltajaEmail,
           ...(p.palloId && { palloid: p.palloId }),
         });
         const linkki = baseUrl + '?' + params.toString();
@@ -3112,7 +3342,6 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
           tyyppi:      'excel_tuonti_kutsu',
           hEmail:      p.huoltajaEmail,
           pelaajaNimi: (p.etunimi + ' ' + p.sukunimi).trim(),
-          pelaajaId:   pelaajaId,   // linkki pelaajadokumenttiin
           palloId:     p.palloId || null,
           joukkue:     p.joukkue || null,
           linkki,
