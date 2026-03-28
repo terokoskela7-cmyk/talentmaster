@@ -2682,20 +2682,58 @@ function avaaExcelTuonti() {
 // Yhdistää TMImport-tuonnin ja massakutsu-lähetyksen yhdeksi poluksi
 // ─────────────────────────────────────────────────────────────────────────────
 function avaaTuoJaLahetaModal() {
-  // Tarkistetaan onko TMImport käytettävissä
-  if (typeof TMImport !== 'undefined') {
-    // TMImport hoitaa tuonnin — massakutsut lähetetään tuonnin jälkeen
-    const joukkueetMap = {};
-    (tila.joukkueet || []).forEach(j => { joukkueetMap[j.id] = j.nimi; });
-    naytaToast('Avataan Excel-tuonti. Kutsut lähetetään tuonnin jälkeen.', 'ok');
-    TMImport.avaaValitsin(
-      tila.seuraId, joukkueetMap, db,
-      firebase.app().functions('europe-west1'),
-      tila.kayttaja?.email || ''
-    );
+  // Näytetään ENSIN ohjemodaali — sama kuin "Lataa rekisteripohja" -napissa.
+  // Ohjemodaalissa on selitys mitä Excel sisältää ja miten se täytetään.
+  // Sieltä käyttäjä jatkaa joko lataamaan pohjan tai tuomaan täytetyn Excelin.
+  const ohjeModal = document.getElementById('rekisteriOhjeModal');
+  if (ohjeModal) {
+    // Muutetaan ohjemodaalin jatkonappi viemään tuontiin eikä pelkkään lataukseen
+    const jatkoNappi = document.getElementById('aloitaLataaminenNappi');
+    if (jatkoNappi) {
+      jatkoNappi.textContent = '⬇ Lataa pohja ensin';
+    }
+    // Lisätään "Minulla on jo täytetty Excel" -nappi jos ei vielä ole
+    let tuontiNappi = document.getElementById('aloitaTuontiNappi');
+    if (!tuontiNappi) {
+      tuontiNappi = document.createElement('button');
+      tuontiNappi.id = 'aloitaTuontiNappi';
+      tuontiNappi.className = 'nappi';
+      tuontiNappi.style.cssText = 'margin-top:10px;background:var(--teal);';
+      tuontiNappi.textContent = '📥 Minulla on täytetty Excel → Tuo ja lähetä kutsut';
+      tuontiNappi.onclick = function() {
+        suljeModal('rekisteriOhjeModal');
+        // Avaa TMImport tai massakutsu-modal
+        if (typeof TMImport !== 'undefined') {
+          const joukkueetMap = {};
+          (tila.joukkueet || []).forEach(j => { joukkueetMap[j.id] = j.nimi; });
+          TMImport.avaaValitsin(
+            tila.seuraId, joukkueetMap, db,
+            firebase.app().functions('europe-west1'),
+            tila.kayttaja?.email || ''
+          );
+        } else {
+          avaaMassakutsuModal();
+        }
+      };
+      // Lisätään nappi ohjemodaalin footer-alueelle
+      const footer = ohjeModal.querySelector('.modalFooter') ||
+                     ohjeModal.querySelector('[id="aloitaLataaminenNappi"]')?.parentNode;
+      if (footer) footer.appendChild(tuontiNappi);
+    }
+    ohjeModal.classList.add('auki');
   } else {
-    // Fallback: massakutsu-modal
-    avaaMassakutsuModal();
+    // Ohjemodaalia ei löydy — mennään suoraan tuontiin
+    if (typeof TMImport !== 'undefined') {
+      const joukkueetMap = {};
+      (tila.joukkueet || []).forEach(j => { joukkueetMap[j.id] = j.nimi; });
+      TMImport.avaaValitsin(
+        tila.seuraId, joukkueetMap, db,
+        firebase.app().functions('europe-west1'),
+        tila.kayttaja?.email || ''
+      );
+    } else {
+      avaaMassakutsuModal();
+    }
   }
 }
 
