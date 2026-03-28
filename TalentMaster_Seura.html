@@ -1894,44 +1894,70 @@ function luoRekisteriLinkki() {
 }
 
 async function lahetaRekisteriSahkoposti() {
-  if (!tila._rekLinkki || !tila._rekHEmail) return;
+  // Jos linkkiä ei ole vielä luotu, luodaan se ensin automaattisesti
+  if (!tila._rekLinkki || !tila._rekHEmail) {
+    luoRekisteriLinkki();
+    // Odotetaan että luoRekisteriLinkki asettaa arvot
+    await new Promise(r => setTimeout(r, 200));
+    if (!tila._rekLinkki || !tila._rekHEmail) {
+      naytaToast('Täytä ensin huoltajan sähköposti ja joukkue.', 'virhe');
+      return;
+    }
+  }
 
   const nappi = document.getElementById('lahetaSpostNappi');
   nappi.disabled    = true;
-  nappi.textContent = 'Lähetetään...';
+  nappi.textContent = 'Tallennetaan...';
+
+  const etunimi  = document.getElementById('rek_etunimi')?.value.trim() || '';
+  const sukunimi = document.getElementById('rek_sukunimi')?.value.trim() || '';
+  const joukkue  = document.getElementById('rek_joukkue')?.value || '';
 
   try {
-    // Kutsutaan Cloud Functionsia sähköpostin lähettämiseen
-    const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
-    await lahetaFn({
-      hEmail:    tila._rekHEmail,
-      linkki:    tila._rekLinkki,
-      seura:     tila.seuraNimi,
-      etunimi:   document.getElementById('rek_etunimi').value.trim(),
-      sukunimi:  document.getElementById('rek_sukunimi').value.trim(),
-      joukkue:   document.getElementById('rek_joukkue').options[
-                   document.getElementById('rek_joukkue').selectedIndex
-                 ]?.text || '',
-    });
-
-    nappi.textContent = 'Lähetetty! ✓';
-    naytaToast(`Kutsu lähetetty: ${tila._rekHEmail}`, 'ok');
-
-    // Tallennetaan kutsu Firestoreen seurantaa varten
+    // VAIHE 1: Tallennetaan kutsu Firestoreen
     await db.collection('seurat').doc(tila.seuraId)
       .collection('kutsut').add({
-        hEmail:    tila._rekHEmail,
-        linkki:    tila._rekLinkki,
-        joukkue:   document.getElementById('rek_joukkue').value,
-        lahetetty: firebase.firestore.FieldValue.serverTimestamp(),
-        tila:      'lahetetty',
-        lahettaja: tila.kayttaja.uid,
+        tyyppi:      'yksittainen_kutsu',
+        hEmail:      tila._rekHEmail,
+        pelaajaNimi: (etunimi + ' ' + sukunimi).trim(),
+        joukkue,
+        linkki:      tila._rekLinkki,
+        lahetetty:   firebase.firestore.FieldValue.serverTimestamp(),
+        tila:        'odottaa',   // Firebase Email Extension päivittää → 'lahetetty'
+        lahettaja:   tila.kayttaja?.uid || 'tuntematon',
       });
+
+    // VAIHE 2: Yritetään lahetaHuoltajaKutsu Cloud Functionia
+    // (olemassa oleva funktio — tallentaa linkin muttei lähetä sähköpostia vielä)
+    try {
+      const lahetaFn = functions.httpsCallable('lahetaHuoltajaKutsu');
+      await lahetaFn({
+        huoltajaEmail: tila._rekHEmail,
+        pelaajaId:     etunimi.toLowerCase() + '_' + sukunimi.toLowerCase(),
+        seuraId:       tila.seuraId,
+        pelaajaNimi:   etunimi + ' ' + sukunimi,
+      });
+    } catch(fnErr) {
+      // Cloud Function epäonnistui — ei kriittinen, linkki on jo tallennettu
+      console.warn('[Kutsu] Cloud Function epäonnistui:', fnErr.message);
+    }
+
+    nappi.textContent = 'Tallennettu ✓';
+    naytaToast(`Kutsu tallennettu: ${tila._rekHEmail}`, 'ok');
+
+    // Näytetään linkki kopioitavaksi — huoltaja voi saada sen myös manuaalisesti
+    const linkkiBoksi = document.getElementById('linkkiBoksi');
+    if (linkkiBoksi) linkkiBoksi.classList.add('nakyvilla');
+
+    // HUOM: Automaattinen sähköpostilähetys aktivoituu kun
+    // Firebase Email Extension asennetaan Firebase Consolesta.
+    // Siihen asti lähetä linkki manuaalisesti tai WhatsAppilla.
 
   } catch (virhe) {
     nappi.disabled    = false;
     nappi.textContent = 'Lähetä sähköpostilla';
-    naytaToast('Sähköposti epäonnistui: ' + virhe.message, 'virhe');
+    naytaToast('Tallennus epäonnistui: ' + virhe.message, 'virhe');
+    console.error('[Kutsu] Virhe:', virhe);
   }
 }
 
@@ -2128,7 +2154,7 @@ async function tallennaKutsu() {
     // ── Kutsutaan luoKayttaja Cloud Functionia ──────────────────
     // Funktio luo Firebase Auth -tilin, asettaa custom claims
     // ja palauttaa uuden käyttäjän UID:n
-    const luoFn = firebase.functions().httpsCallable('luoKayttaja');
+    const luoFn = firebase.app().functions('europe-west1').httpsCallable('luoKayttaja');
     const tulos = await luoFn({
       email,
       etunimi,
