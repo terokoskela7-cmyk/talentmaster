@@ -3594,69 +3594,84 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
     if (teksti) teksti.textContent = (i + 1) + '/' + _excelData.length + ' — ' + p.etunimi + ' ' + p.sukunimi;
 
     try {
-      // Dokumentti-ID: PalloID jos saatavilla, muuten auto-ID
-      // Minimaalinen pelaajadata — muut tiedot täytetään suostumuslomakkeella
-      const pelaajadata = {
+      // VAIHE 1: Luodaan dokumenttiviite ensin → ID välitetään kutsulinkkiin
+      // Näin suostumuslomake kirjoittaa SAMAAN dokumenttiin eikä luo duplikaattia
+      const pelaajaRef = db.collection('seurat').doc(tila.seuraId)
+        .collection('pelaajat').doc();
+      const pelaajaId = pelaajaRef.id;
+
+      await pelaajaRef.set({
         etunimi:       p.etunimi || '',
         sukunimi:      p.sukunimi || '',
         joukkue:       p.joukkue || '',
         seuraId:       tila.seuraId,
         huoltajaEmail: p.huoltajaEmail || null,
+        pelaajaId:     pelaajaId,
+        suostumusTila: 'odottaa',
         tuotu:         nyt,
         tuoja:         tila.kayttaja?.email || 'tuntematon',
-      };
-
-      // Tallennetaan Firestoreen — käytetään aina auto-ID:tä
-      await db.collection('seurat').doc(tila.seuraId)
-        .collection('pelaajat').add(pelaajadata);
+      });
       tuotu++;
 
-      // Lähetetään kutsu jos pyydetty ja email löytyy
+      // VAIHE 2: Lähetetään kutsu jos pyydetty ja email löytyy
       if (lahetaKutsut && p.huoltajaEmail && p.huoltajaEmail.includes('@')) {
         const params = new URLSearchParams({
-          seuraId:  tila.seuraId,
-          seura:    seuraNimi,
-          etunimi:  p.etunimi,
-          sukunimi: p.sukunimi,
-          joukkue:  p.joukkue,
-          hEmail:   p.huoltajaEmail,
+          seuraId:   tila.seuraId,
+          pelaajaId: pelaajaId,   // ← estää duplikaatin suostumuslomakkeella
+          seura:     seuraNimi,
+          etunimi:   p.etunimi,
+          sukunimi:  p.sukunimi,
+          joukkue:   p.joukkue,
+          hEmail:    p.huoltajaEmail,
           ...(p.palloId && { palloid: p.palloId }),
         });
         const linkki = baseUrl + '?' + params.toString();
 
-        await db.collection('seurat').doc(tila.seuraId).collection('kutsut').add({
-          tyyppi:      'excel_tuonti_kutsu',
-          hEmail:      p.huoltajaEmail,
-          pelaajaNimi: (p.etunimi + ' ' + p.sukunimi).trim(),
-          palloId:     p.palloId || null,
-          joukkue:     p.joukkue || null,
-          linkki,
-          tila:        'luotu',
-          luotu:       nyt,
-          lahettaja:   tila.kayttaja?.uid || 'tuntematon',
-        });
+        // Tallennetaan kutsu Firestoreen
+        const kutsuRef = await db.collection('seurat').doc(tila.seuraId)
+          .collection('kutsut').add({
+            tyyppi:      'excel_tuonti_kutsu',
+            hEmail:      p.huoltajaEmail,
+            pelaajaNimi: (p.etunimi + ' ' + p.sukunimi).trim(),
+            pelaajaId:   pelaajaId,
+            palloId:     p.palloId || null,
+            joukkue:     p.joukkue || null,
+            linkki,
+            tila:        'odottaa',
+            luotu:       nyt,
+            lahettaja:   tila.kayttaja?.uid || 'tuntematon',
+          });
 
         // Lähetetään sähköposti Cloud Functionin kautta
+        let mailOk = false;
         try {
           const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
           await lahetaFn({
             hEmail:   p.huoltajaEmail,
-            linkki:   linkki,
+            linkki,
             seura:    seuraNimi,
             etunimi:  p.etunimi,
             sukunimi: p.sukunimi,
             joukkue:  p.joukkue,
           });
+          mailOk = true;
+          // Merkitään kutsu lähetetyksi
+          await kutsuRef.update({ tila: 'lahetetty', lahetetty: nyt });
         } catch(mailErr) {
           console.warn('[Excel] Sähköposti epäonnistui rivillä', i+2, ':', mailErr.message);
+          if (virhe) virhe.textContent = `Sähköposti epäonnistui (rivi ${i+2}): ${mailErr.message}`;
         }
 
         kutsut++;
+        // Päivitetään progress-teksti kertomaan sähköpostin tila
+        if (teksti) teksti.textContent =
+          `${i+1}/${_excelData.length} — ${p.etunimi} ${p.sukunimi} ${mailOk ? '✉️ lähetetty' : '⚠️ sähköposti epäonnistui'}`;
       }
 
     } catch(err) {
       virheet++;
       console.warn('Rivi ' + (i + 2) + ' virhe:', err.message);
+      if (virhe) virhe.textContent = `Rivi ${i+2} epäonnistui: ${err.message}`;
     }
 
     // Pieni viive ettei Firestore ylikuormitu
@@ -3667,17 +3682,26 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   if (bar)    bar.style.width = '100%';
   if (teksti) teksti.textContent = 'Valmis!';
 
-  // Näytetään tulokset
+  // Näytetään tulokset selkeästi
+  const mailVirheitaOli = virheet > 0;
   const msg = [
-    tuotu + ' pelaajaa tuotu Firestoreen',
-    lahetaKutsut ? kutsut + ' rekisteröintikutsua luotu' : null,
-    virheet > 0 ? virheet + ' riviä epäonnistui (katso konsoli)' : null,
+    `${tuotu} pelaajaa tuotu Firestoreen`,
+    lahetaKutsut ? `${kutsut} kutsua käsitelty` : null,
+    virheet > 0 ? `${virheet} riviä epäonnistui` : null,
   ].filter(Boolean).join(' · ');
 
-  if (onni) { onni.textContent = '✅ ' + msg; onni.style.display = 'block'; }
-  if (virhe && virheet > 0) virhe.textContent = virheet + ' riviä epäonnistui — tarkista konsoli.';
+  if (onni) {
+    onni.textContent = `✅ ${msg}`;
+    onni.style.display = 'block';
+  }
+  if (virhe && virheet === 0) virhe.textContent = ''; // tyhjennä virheviesti jos kaikki ok
 
-  naytaToast(tuotu + ' pelaajaa tuotu!', virheet === 0 ? 'ok' : 'varoitus');
+  naytaToast(
+    lahetaKutsut
+      ? `${tuotu} pelaajaa tuotu · ${kutsut} kutsua lähetetty`
+      : `${tuotu} pelaajaa tuotu`,
+    virheet === 0 ? 'ok' : 'varoitus'
+  );
 
   // Päivitetään pelaajalistaus
   setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 1000);
