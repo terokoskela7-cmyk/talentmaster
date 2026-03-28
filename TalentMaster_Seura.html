@@ -1949,24 +1949,24 @@ async function lahetaRekisteriSahkoposti() {
       });
 
     // VAIHE 2: Lähetetään sähköposti lahetaRekisteriKutsu Cloud Functionilla
-    if (p.huoltajaEmail && p.huoltajaEmail.includes('@')) {
-      try {
-        const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
-        await lahetaFn({
-          hEmail:   p.huoltajaEmail,
-          linkki:   linkki,
-          seura:    seuraNimi,
-          etunimi:  p.etunimi,
-          sukunimi: p.sukunimi,
-          joukkue:  p.joukkue,
-        });
-      } catch(fnErr) {
-        console.warn('[Kutsu] Sähköposti epäonnistui:', fnErr.message);
-      }
+    // Käytetään yksittäisen kutsun muuttujia (ei Excel-tuonnin p-objektia)
+    try {
+      const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
+      await lahetaFn({
+        hEmail:   tila._rekHEmail,
+        linkki:   tila._rekLinkki,
+        seura:    tila.seuraNimi || tila.seuraId,
+        etunimi:  etunimi,
+        sukunimi: sukunimi,
+        joukkue:  joukkue,
+      });
+      nappi.textContent = 'Lähetetty ✓';
+      naytaToast(`Kutsu lähetetty: ${tila._rekHEmail}`, 'ok');
+    } catch(fnErr) {
+      console.warn('[Kutsu] Sähköposti epäonnistui:', fnErr.message);
+      nappi.textContent = 'Tallennettu ✓';
+      naytaToast(`Kutsu tallennettu: ${tila._rekHEmail}`, 'ok');
     }
-
-    nappi.textContent = 'Tallennettu ✓';
-    naytaToast(`Kutsu tallennettu: ${tila._rekHEmail}`, 'ok');
 
     // Näytetään linkki kopioitavaksi — huoltaja voi saada sen myös manuaalisesti
     const linkkiBoksi = document.getElementById('linkkiBoksi');
@@ -3107,6 +3107,22 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
           luotu:       nyt,
           lahettaja:   tila.kayttaja?.uid || 'tuntematon',
         });
+
+        // Lähetetään sähköposti Cloud Functionin kautta
+        try {
+          const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
+          await lahetaFn({
+            hEmail:   p.huoltajaEmail,
+            linkki:   linkki,
+            seura:    seuraNimi,
+            etunimi:  p.etunimi,
+            sukunimi: p.sukunimi,
+            joukkue:  p.joukkue,
+          });
+        } catch(mailErr) {
+          console.warn('[Excel] Sähköposti epäonnistui rivillä', i+2, ':', mailErr.message);
+        }
+
         kutsut++;
       }
 
