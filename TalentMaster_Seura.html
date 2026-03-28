@@ -479,6 +479,24 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       </span>
     </div>
 
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel">Huoltajan puhelinnumero (WhatsApp)</label>
+      <div style="display:flex;gap:8px;">
+        <select class="kenttaInput" id="rek_suuntakoodi" style="max-width:90px;">
+          <option value="+358">🇫🇮 +358</option>
+          <option value="+46">🇸🇪 +46</option>
+          <option value="+47">🇳🇴 +47</option>
+          <option value="+45">🇩🇰 +45</option>
+          <option value="+372">🇪🇪 +372</option>
+        </select>
+        <input class="kenttaInput" type="tel" id="rek_puhelin"
+          placeholder="040 123 4567" style="flex:1;">
+      </div>
+      <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
+        Valinnainen — mahdollistaa WhatsApp-jaon henkilökohtaisesti
+      </span>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
       <div class="kenttaRyhma" style="margin:0;">
         <label class="kenttaLabel">Joukkue *</label>
@@ -1292,21 +1310,17 @@ async function renderPelaajat(alue) {
       <div style="padding:16px 20px;border-bottom:1px solid var(--border);
         display:flex;gap:10px;flex-wrap:wrap;align-items:center;
         background:rgba(255,255,255,.02);">
-        <button class="lisaaNappi" id="btn-lataa-pohja" onclick="avaaRekisteriOhje()"
-          title="Lataa Excel-pohja — katso ohjeet ensin">
-          ⬇️ Lataa rekisteripohja
-        </button>
-        <button class="lisaaNappi" id="btn-tuo-excel" onclick="avaaExcelTuonti()"
-          style="background:var(--teal);">
-          📥 Tuo Excel-rekisteri
-        </button>
         <button class="lisaaNappi" onclick="avaaRekisteriModal()"
-          style="background:rgba(74,126,217,.15);border:1px solid rgba(74,126,217,.3);">
+          style="background:var(--teal);color:#000;">
           ✉️ Yksittäinen kutsu
         </button>
-        <button class="lisaaNappi" onclick="avaaMassakutsuModal()"
-          style="background:rgba(62,201,167,.15);border:1px solid rgba(62,201,167,.3);color:var(--teal);">
-          📨 Massakutsu
+        <button class="lisaaNappi" onclick="avaaTuoJaLahetaModal()"
+          style="background:rgba(74,126,217,.15);border:1px solid rgba(74,126,217,.3);">
+          📨 Tuo Excel → lähetä kutsut
+        </button>
+        <button class="lisaaNappi" id="btn-lataa-pohja" onclick="avaaRekisteriOhje()"
+          style="background:none;border:1px solid var(--border);font-size:11px;color:var(--ink3);">
+          ⬇ Lataa Excel-pohja
         </button>
       </div>
       <div id="pelaajaListaAlue" style="padding:20px;color:var(--ink3);font-size:13px;">
@@ -1782,8 +1796,21 @@ function luoRekisteriLinkki() {
       `Hei! 👋 ${tila.seuraNimi} kutsuu teidät rekisteröimään ${nimi} TalentMaster-järjestelmään.\n\n` +
       `Täyttäkää tiedot ja antakaa GDPR-suostumus tästä linkistä:\n${linkki}`
     );
-    waBtn.onclick = () => window.open(`https://wa.me/?text=${waViesti}`, '_blank');
+    // Jos puhelinnumero on annettu, avataan suora WhatsApp-chat sille numerolle
+    // Muuten avataan yleinen WhatsApp-jako josta voi valita vastaanottajan
+    const suuntakoodi = document.getElementById('rek_suuntakoodi')?.value || '+358';
+    const puhelinRaaka = (document.getElementById('rek_puhelin')?.value || '').replace(/\D/g, '');
+    const puhelinKv = puhelinRaaka
+      ? suuntakoodi.replace('+','') + puhelinRaaka.replace(/^0/, '')
+      : null;
+    const waUrl = puhelinKv
+      ? `https://wa.me/${puhelinKv}?text=${waViesti}`
+      : `https://wa.me/?text=${waViesti}`;
+    waBtn.onclick = () => window.open(waUrl, '_blank');
     waBtn.disabled = false;
+    waBtn.textContent = puhelinKv
+      ? `💬 Lähetä WhatsApp (${document.getElementById('rek_puhelin').value})`
+      : '💬 Jaa WhatsAppissa';
   }
 
   naytaToast('Kutsulink​ki luotu!', 'ok');
@@ -2646,6 +2673,30 @@ function avaaExcelTuonti() {
     firebase.app().functions('europe-west1'),
     tila.kayttaja?.email || ''
   );
+}
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// YHDISTELMÄTOIMINTO: Tuo Excel + lähetä kutsut yhdellä toimenpiteellä
+// Yhdistää TMImport-tuonnin ja massakutsu-lähetyksen yhdeksi poluksi
+// ─────────────────────────────────────────────────────────────────────────────
+function avaaTuoJaLahetaModal() {
+  // Tarkistetaan onko TMImport käytettävissä
+  if (typeof TMImport !== 'undefined') {
+    // TMImport hoitaa tuonnin — massakutsut lähetetään tuonnin jälkeen
+    const joukkueetMap = {};
+    (tila.joukkueet || []).forEach(j => { joukkueetMap[j.id] = j.nimi; });
+    naytaToast('Avataan Excel-tuonti. Kutsut lähetetään tuonnin jälkeen.', 'ok');
+    TMImport.avaaValitsin(
+      tila.seuraId, joukkueetMap, db,
+      firebase.app().functions('europe-west1'),
+      tila.kayttaja?.email || ''
+    );
+  } else {
+    // Fallback: massakutsu-modal
+    avaaMassakutsuModal();
+  }
 }
 
 async function kirjauduUlos() {
