@@ -1353,7 +1353,7 @@ async function lataaYhteenvetoKPIt() {
       };
       TMEmptyState.tarkistaJaNayta('nakymaAlue', stats, {
         seuraNimi:    tila.seura?.nimi || 'Seuranne',
-        onLataaExcel: () => lataaRekisteriPohja(),
+        onLataaExcel: () => lataaJaAvaaExcelTuonti(),
         onTabSiirry:  (tabId) => {
           // Etsitään sivupalkin navigointinappi jonka onclick sisältää tabId:n
           const nappi = document.querySelector(
@@ -2660,6 +2660,17 @@ function avaaRekisteriOhje() {
   // Tämä varmistaa että sihteeri tietää mitä tehdä ennen
   // kuin Excel-tiedosto on jo ladattu ja auki.
   document.getElementById('rekisteriOhjeModal').classList.add('auki');
+}
+
+
+// Onboarding: lataa Excel-pohja JA avaa tuontimodaali suoraan sen jälkeen
+async function lataaJaAvaaExcelTuonti() {
+  // Ensin ladataan pohja
+  await lataaRekisteriPohja();
+  // Pieni viive jotta lataus ehtii käynnistyä
+  await new Promise(r => setTimeout(r, 800));
+  // Sitten avataan tuontimodaali suoraan ilman ohjemodaalia
+  avaaExcelTuontiModal();
 }
 
 async function aloitaLataaminenOhjeesta() {
