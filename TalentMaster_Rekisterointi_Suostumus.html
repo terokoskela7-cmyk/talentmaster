@@ -267,17 +267,19 @@ try {
   console.warn('[SUOSTUMUS] Firebase-alustus epäonnistui:', e);
 }
 
-var _urlParams = {};
-var _kutsuId   = null;
-var _seuraId   = null;
+var _urlParams  = {};
+var _kutsuId    = null;
+var _seuraId    = null;
+var _pelaajaId  = null;  // Seura.html välittää tämän — estää duplikaatin
 
 (function luePoistoParams() {
   var params = new URLSearchParams(window.location.search);
   params.forEach(function(arvo, avain) {
     _urlParams[avain] = decodeURIComponent(arvo);
   });
-  _kutsuId  = _urlParams.kutsuId  || null;
-  _seuraId  = _urlParams.seuraId  || null;
+  _kutsuId   = _urlParams.kutsuId   || null;
+  _seuraId   = _urlParams.seuraId   || null;
+  _pelaajaId = _urlParams.pelaajaId || null;  // tunnettu Firestore-dokumentin ID
 })();
 
 var step = 1;
@@ -407,7 +409,7 @@ function toStep3() {
   var aikaleima     = new Date().toLocaleString('fi-FI');
   var rid           = 'TM-' + Date.now().toString(36).toUpperCase();
   var palloId       = val('i_pid') || null;
-  var dokumenttiId  = palloId || ('tmp_' + Date.now().toString(36));
+  var dokumenttiId  = _pelaajaId || palloId || null; // _pelaajaId tulee URL:sta (Seura.html), ei enaa tmp_
 
   var pelaajaDoc = {
     etunimi:      val('i_etu'),
@@ -457,10 +459,18 @@ function toStep3() {
   var tallennusPromise;
 
   if (_fbDb && _seuraId) {
-    tallennusPromise = _fbDb
-      .collection('seurat').doc(_seuraId)
-      .collection('pelaajat').doc(dokumenttiId)
-      .set(pelaajaDoc)
+    // Käytetään tunnettua dokumenttiId:tä jos saatavilla (Excel-polku)
+    // → merge:true säilyttää tuonnin tiedot ja lisää suostumustiedot päälle
+    // Jos dokumenttiId on null (suora linkki ilman Excel-tuontia) → Firestore luo uuden
+    var pelaajaColRef = _fbDb.collection('seurat').doc(_seuraId).collection('pelaajat');
+    var pelaajaRef    = dokumenttiId ? pelaajaColRef.doc(dokumenttiId) : pelaajaColRef.doc();
+    var tallennettuId = pelaajaRef.id;
+
+    tallennusPromise = pelaajaRef
+      .set(Object.assign({}, pelaajaDoc, {
+        suostumusTila: 'annettu',  // päivittää Seura.html:n asettaman 'odottaa'
+        pelaajaId:     tallennettuId,
+      }), { merge: true })         // merge: true — ei ylikirjoita tuontikenttiä
       .then(function() {
         if (_kutsuId) {
           return _fbDb
@@ -469,7 +479,7 @@ function toStep3() {
             .update({
               tila:          'hyvaksytty',
               hyvaksyttyPvm: nyt,
-              pelaajaId:     dokumenttiId,
+              pelaajaId:     tallennettuId,
             });
         }
       });
@@ -485,8 +495,9 @@ function toStep3() {
 
   tallennusPromise
     .then(function() {
-      // Merkitään kutsu käytetyksi jos kutsuId löytyy URL:sta
-      if (_kutsuId && _fbDb && _seuraId) {
+      // Kutsun päivitys tapahtuu jo tallennusPromise-ketjussa ylempänä.
+      // Tämä fallback varmistaa päivityksen jos kutsuId puuttui Firebase-polulta.
+      if (_kutsuId && _fbDb && _seuraId && !dokumenttiId) {
         _fbDb.collection('seurat').doc(_seuraId)
           .collection('kutsut').doc(_kutsuId)
           .update({ tila: 'hyvaksytty', hyvaksyttyPvm: firebase.firestore.FieldValue.serverTimestamp() })
