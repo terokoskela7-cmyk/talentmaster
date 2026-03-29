@@ -1796,15 +1796,21 @@ function tallennaKentta(input) {
 function asetaPisteet(btn, idx, kentta, arvo) {
   if (!pelaajat[idx]) return;
   const nykyinen = pelaajat[idx].tulokset[kentta];
-  const uusi = nykyinen === arvo ? 0 : arvo; // toggle
+  const uusi = nykyinen === arvo ? 0 : arvo; // toggle: sama arvo uudelleen = nollaus
   pelaajat[idx].tulokset[kentta] = uusi;
 
-  // Päivitä visuaalisesti
-  const solu = btn.closest('td');
-  solu.querySelectorAll('.p-btn').forEach(b => b.classList.remove('active'));
-  if (uusi > 0) {
-    solu.querySelector(`.p${uusi}`)?.classList.add('active');
+  // Päivitä visuaalisesti normaalissa taulukkonäkymässä
+  // btn voi olla null testipistemoodissa — siksi null-tarkistus
+  if (btn) {
+    const solu = btn.closest('td');
+    if (solu) {
+      solu.querySelectorAll('.p-btn').forEach(b => b.classList.remove('active'));
+      if (uusi > 0) solu.querySelector(`.p${uusi}`)?.classList.add('active');
+    }
   }
+
+  // merkkaaLikainen täytyy kutsua aina — myös testipistemoodissa
+  // Ilman tätä dirtyRows jää tyhjäksi ja tallennaKaikki() sanoo "Ei tallennettavaa"
   merkkaaLikainen(idx);
   laskeFlei(idx);
 }
