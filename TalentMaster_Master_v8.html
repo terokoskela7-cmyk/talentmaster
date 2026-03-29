@@ -1035,7 +1035,20 @@ async function lataaKayttajanProfiili(kayttaja) {
     let seuraId      = null;
     let seuraNimi    = null;
 
-    if (claims.seuraId && claims.rooli) {
+    // Super admin: pääsee kaikkiin seuroihin
+    // Näyttää seuranvalintanäkymän jos ei ole valittu seuraa
+    if (claims.super_admin || claims.superAdmin) {
+      console.log('Super Admin kirjautui Master v8:aan');
+      seuraId = 'kpv'; // Oletusseura — voidaan muuttaa UI:sta
+      seuraNimi = 'KPV (Super Admin)';
+      kayttajaData = { rooli: 'super_admin', email: kayttaja.email, seuraId };
+      const seuraSnap0 = await db.collection('seurat').limit(1).get();
+      if (!seuraSnap0.empty) {
+        seuraId = seuraSnap0.docs[0].id;
+        seuraNimi = seuraSnap0.docs[0].data().nimi || seuraId;
+        kayttajaData.seuraId = seuraId;
+      }
+    } else if (claims.seuraId && claims.rooli) {
       // ✅ Custom Claims löytyivät — nopein polku.
       // Ei tarvita collectionGroup-kyselyä.
       // Haetaan silti Firestore-dokumentti täydentämään
@@ -1130,10 +1143,14 @@ async function lataaKayttajanProfiili(kayttaja) {
 
     // Tarkistetaan että rooli on valmentajatason rooli.
     // VP:t ohjataan omaan dashboardiinsa.
-    const sallitutRoolit = ['valmentaja', 'testivastaava', 'talenttivalmentaja', 'fysiikkavalmentaja'];
-    const rooli = claims.rooli || kayttajaData.rooli || 'valmentaja';
+    // VP ja super_admin pääsevät myös valmentajan näkymään
+    // VP voi tarkastella joukkueensa tilannetta valmentajaperspektiivistä
+    const sallitutRoolit = ['valmentaja', 'testivastaava', 'talenttivalmentaja',
+                            'fysiikkavalmentaja', 'vp', 'super_admin', 'superAdmin'];
+    const rooli = claims.rooli || claims.super_admin && 'super_admin'
+               || kayttajaData.rooli || 'valmentaja';
 
-    if (!sallitutRoolit.includes(rooli)) {
+    if (!sallitutRoolit.includes(rooli) && rooli !== 'vp') {
       naytaNakyma('kirjautuminen');
       naytaVirhe(`Tämä näkymä on valmentajille. Olet kirjautunut roolilla: ${rooli}.`);
       await auth.signOut();
