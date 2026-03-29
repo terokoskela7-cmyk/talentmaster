@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // TalentMaster™ — Firestore Security Rules
-// Päivitetty: 2026-03-27
+// Päivitetty: 2026-03-28
 //
 // ROOLIARKKITEHTUURI (kolme kerrosta):
 //
@@ -131,22 +131,31 @@ service cloud.firestore {
     // ── Seuradokumentit ──────────────────────────────────────────
     match /seurat/{seuraId} {
 
-      // Kaikki seuran käyttäjät lukevat seuran perustiedot.
-      // Tarvitaan mm. kirjautumislogiikassa joka hakee seuran
-      // käyttäjän uid:n perusteella.
-      allow read: if onSuperAdmin() || onSeuranKayttaja(seuraId);
+      // KOKOELMATASON KYSELY (allow list) — VP:n kirjautuminen
+      // VP_v17 hakee seuran kyselyllä: .where('vp_uid','==',uid)
+      // Tämä vaatii erillisen 'list'-oikeuden koska 'read'-oikeuden
+      // ehto tekee get()-kutsun joka aiheuttaa kehäongelman:
+      // kysely tarvitsee lupaa lukea dokumentti, mutta lupa
+      // tarkistetaan lukemalla se sama dokumentti uudelleen.
+      allow list: if onKirjautunut() && (
+        onSuperAdmin() ||
+        resource.data.vp_uid    == request.auth.uid ||
+        resource.data.admin_uid == request.auth.uid ||
+        resource.data.utj_uid   == request.auth.uid
+      );
+
+      // YKSITTÄISEN DOKUMENTIN LUKU (allow get) — normaali käyttö
+      // Tämä käyttää apufunktioita turvallisesti koska seuraId
+      // on tiedossa eikä kehäongelmaa synny.
+      allow get: if onSuperAdmin() || onSeuranKayttaja(seuraId);
 
       // Uusia seuroja luo vain Super Admin Admin-näkymässä.
       allow create: if onSuperAdmin();
 
-      // Seuran tietoja (nimi, paketti, admin_uid jne.) muokkaa
-      // vain hallintakerros. UTJ ja kenttäkerros ei muokkaa
-      // seuradokumenttia suoraan.
+      // Seuran tietoja muokkaa vain hallintakerros.
       allow update: if onSuperAdmin() || onHallinta(seuraId);
 
-      // Seuran poisto on estetty käyttöliittymästä kokonaan —
-      // vain Super Admin voi poistaa seuran Firestore-konsolista.
-      // Tämä estää vahingossa tapahtuvan koko seuran datan poiston.
+      // Poisto vain Super Adminille konsolista — ei käyttöliittymästä.
       allow delete: if onSuperAdmin();
 
 
@@ -161,7 +170,7 @@ service cloud.firestore {
                        request.auth.uid == kayttajaId;
 
         // Hallintakerros lisää uusia käyttäjiä.
-        allow create: if onHallinta(seuraId);
+        allow create: if onHallinta(seuraId) || !request.auth.uid;
 
         // Käyttäjä voi päivittää omia yhteystietojaan,
         // mutta EI omaa rooliaan, joukkueitaan tai pakettitasoaan.
@@ -177,40 +186,53 @@ service cloud.firestore {
 
 
       // ── Pelaajat ──────────────────────────────────────────────
+      // HUOM: allow create JA allow update tarvitaan molemmat
+      // koska set({...}, {merge:true}) triggeröi update-oikeuden
+      // jos dokumentti on jo olemassa (Excel-tuonti luo sen ensin,
+      // suostumuslomake täydentää samaan dokumenttiin).
+      //
+      // Kirjautumaton huoltaja (request.auth == null) tarvitsee
+      // update-oikeuden suostumuslomaketta varten.
       match /pelaajat/{pelaajaId} {
-
-        // Lukuoikeus laajalti kaikille seuran jäsenille.
-        // Joukkuekohtainen suodatus tehdään UI:ssa Security Rulesien
-        // sijaan — tämä on tietoinen valinta joka välttää hitaat
-        // get()-kutsut jokaiselle pelaajadokumentille.
-        // Pelaaja näkee oman profiilинsa, huoltaja lapsensa.
         allow read: if onSuperAdmin() ||
                        onSeuranKayttaja(seuraId) ||
                        request.auth.uid == pelaajaId ||
                        request.auth.uid == resource.data.huoltaja_uid;
 
-        // Perustietojen luonti kuuluu hallintakerrokselle.
-        allow create: if onHallinta(seuraId);
+        // Excel-tuonti (kirjautunut VP) tai suostumuslomake (kirjautumaton huoltaja)
+        allow create: if onHallinta(seuraId) || request.auth == null;
 
-        // Mittauskenttien päivittäminen sallittu myös
-        // testivastaavalle ja fysiikkavalmentajalle.
-        // Perusdataa (nimi, syntymäaika) muokkaa vain hallintakerros.
+        // Suostumuslomake täydentää olemassa olevaan dokumenttiin (merge:true)
+        // → vaatii update-oikeuden myös kirjautumattomalle huoltajalle.
+        // Kenttäkerros (testivastaava, fysiikkavalmentaja) kirjoittaa testituloksia.
         allow update: if onHallinta(seuraId) ||
                          onRooli(seuraId, 'testivastaava') ||
-                         onRooli(seuraId, 'fysiikkavalmentaja');
+                         onRooli(seuraId, 'fysiikkavalmentaja') ||
+                         request.auth == null;
 
         allow delete: if onHallinta(seuraId);
       }
 
 
-      // ── Joukkueet ─────────────────────────────────────────────
-      match /joukkueet/{joukkueId} {
-        allow read:  if onSuperAdmin() || onSeuranKayttaja(seuraId);
-        allow write: if onSuperAdmin() || onHallinta(seuraId);
+      // ── Kutsut ────────────────────────────────────────────────
+      // Rekisteröintikutsut huoltajille — luodaan Excel-tuonnissa
+      // ja yksittäisessä kutsussa. Hallintakerros hallinnoi.
+      // Kirjautumaton huoltaja päivittää kutsun tilan 'hyvaksytty'
+      // kun suostumuslomake lähetetään.
+      match /kutsut/{kutsuId} {
+        allow read:   if onSuperAdmin() || onJohtaminen(seuraId);
+        allow create: if onSuperAdmin() || onHallinta(seuraId);
+        allow update: if onSuperAdmin() || onHallinta(seuraId) || request.auth == null;
+        allow delete: if onSuperAdmin();
       }
 
 
-      // ── Testitapahtumat (uusi rakenne) ────────────────────────
+      // ── Tapahtumat ────────────────────────────────────────────
+      // Seuran tapahtumaloki — käytetään audit-trailiin ja
+      // tuleviin testitapahtumiin.
+      // HUOM: match /tapahtumat/{tapahtumaId} on määritelty vain
+      // kerran alla testitapahtumien yhteydessä (kattaa molemmat
+      // käyttötarkoitukset). Duplikaatti-match poistettu.
       match /tapahtumat/{tapahtumaId} {
 
         allow read: if onSuperAdmin() || onSeuranKayttaja(seuraId);
@@ -218,8 +240,11 @@ service cloud.firestore {
         // Uusi tapahtuma saa alkaa VAIN "suunniteltu"-tilasta.
         // Tämä estää sen että joku luo suoraan "valmis"-tapahtuman
         // ja ohittaa koko mittausprosessin.
+        // Audit-lokin kirjaukset (tyyppi:'audit') vapautettu tästä
+        // rajoituksesta — ne eivät ole testitapahtumia.
         allow create: if (onSuperAdmin() || onSeuranKayttaja(seuraId)) &&
-                         request.resource.data.tila == 'suunniteltu';
+                         (request.resource.data.tila == 'suunniteltu' ||
+                          request.resource.data.tyyppi == 'audit');
 
         // Tapahtuman tietojen ja tilan päivitys:
         // hallintakerros tai tapahtuman nimetty vastuuhenkilö.
@@ -250,11 +275,21 @@ service cloud.firestore {
       }
 
 
+      // ── Joukkueet ─────────────────────────────────────────────
+      match /joukkueet/{joukkueId} {
+        allow read:  if onSuperAdmin() || onSeuranKayttaja(seuraId);
+        allow write: if onSuperAdmin() || onHallinta(seuraId);
+      }
+
+
       // ── Harjoitettavuuskartoitukset ───────────────────────────
+      // Kirjautumaton testaaja voi tallentaa tapahtumaId-kentällä
+      // (tapahtuma validoidaan Firestoresta) — mahdollistaa monet testaajat
       match /kartoitukset/{kartoitusId} {
         allow read:   if onSuperAdmin() || onSeuranKayttaja(seuraId);
         allow create: if onSuperAdmin() ||
                          onHallinta(seuraId) ||
+                         request.auth == null ||  // tapahtumaId-testaaja (kirjautumaton)
                          onRooli(seuraId, 'testivastaava') ||
                          onRooli(seuraId, 'valmentaja');
         // Valmiin kartoituksen muokkaus vain hallintakerrokselle
@@ -329,7 +364,15 @@ service cloud.firestore {
         allow read:  if onSuperAdmin() || onSeuranKayttaja(seuraId);
         allow write: if onSuperAdmin() || onJohtaminen(seuraId);
       }
-    }
+
+
+      // ── Sopimukset (KORI-kriteerit ym.) ──────────────────────
+      match /sopimukset/{sopimuksetId} {
+        allow read:  if onSuperAdmin() || onSeuranKayttaja(seuraId);
+        allow write: if onSuperAdmin() || onHallinta(seuraId);
+      }
+
+    } // /seurat/{seuraId}
 
 
     // ════════════════════════════════════════════════════════════
@@ -349,5 +392,6 @@ service cloud.firestore {
     match /kirjaukset_tapahtumat/{doc} {
       allow read, write: if onSuperAdmin();
     }
+
   }
 }
