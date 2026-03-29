@@ -360,6 +360,42 @@ tbody td.col-synt { font-size: 11px; color: var(--teksti2); }
 .yh-stat { text-align: center; }
 .yh-arvo { font-size: 22px; font-weight: 700; }
 .yh-nimi { font-size: 10px; color: var(--teksti2); text-transform: uppercase; letter-spacing: .6px; }
+
+/* ── Tooltip — testiohje sarakkeen otsikossa ── */
+.th-tooltip { position: relative; cursor: help; }
+.th-tooltip .tooltip-sisalto {
+  display: none; position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%);
+  background: #0a1628; border: 1px solid var(--sininen);
+  border-radius: 8px; padding: 10px 12px;
+  min-width: 230px; max-width: 290px;
+  font-size: 11px; line-height: 1.5; color: var(--teksti);
+  z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,.6);
+  white-space: normal; text-align: left;
+  font-weight: 400; text-transform: none; letter-spacing: 0;
+  pointer-events: none;
+}
+.th-tooltip .tooltip-sisalto::before {
+  content: ''; position: absolute; bottom: 100%; left: 50%;
+  transform: translateX(-50%); border: 5px solid transparent;
+  border-bottom-color: var(--sininen);
+}
+.th-tooltip:hover .tooltip-sisalto { display: block; }
+.tooltip-mittaa { color: var(--teksti2); font-size: 10px; margin-bottom: 6px; }
+.tooltip-pisteet { display: flex; flex-direction: column; gap: 3px; }
+.tooltip-p { display: flex; gap: 6px; align-items: flex-start; }
+.tooltip-piste {
+  min-width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+}
+.tp1 { background: var(--punainen); color: #fff; }
+.tp2 { background: var(--keltainen); color: #000; }
+.tp3 { background: var(--vihrea); color: #fff; }
+.raja-ohje {
+  font-size: 9px; color: var(--teksti2); text-align: center;
+  margin-top: 2px; line-height: 1.3; white-space: nowrap;
+}
 </style>
 </head>
 <body>
@@ -461,9 +497,9 @@ tbody td.col-synt { font-size: 11px; color: var(--teksti2); }
       </select>
     </div>
     <div class="asetus-rivi">
-      <label class="asetus-label">Ikäluokka</label>
+      <label class="asetus-label">Näytä ikäluokka <span style="color:var(--teksti2);font-weight:400">(valinnainen)</span></label>
       <select id="ikäluokkaSelect">
-        <option value="">— valitse —</option>
+        <option value="">— kaikki —</option>
         <option value="U12">U12 (10–12-vuotiaat)</option>
         <option value="U15">U15 (13–15-vuotiaat)</option>
         <option value="U19">U19 (16–19-vuotiaat)</option>
@@ -538,6 +574,139 @@ const db   = firebase.firestore();
 /* ═══════════════════════════════════════════════════════
    TESTIDEFINITIOT — kolme ikäluokkaa
 ═══════════════════════════════════════════════════════ */
+
+const TESTIT_META = {
+  // ── U12 ──────────────────────────────────────────────────────────────────
+  valakyykky: {
+    mittaa: "Nilkan liikkuvuus, lantion hallinta, rintarangan liikkuvuus",
+    p1: "Merkittäviä rajoitteita — kantapäät nousevat tai rintakehä kaatuu",
+    p2: "Lievää rajoittuneisuutta — tekniikka kärsii väsymyksen alla",
+    p3: "Hyvä liikkuvuus ja hallinta"
+  },
+  luistelijan_kyykky: {
+    mittaa: "Yhden jalan hallinta, lonkan loitontajien voima",
+    p1: "Polvilinja ei pysy — vaipuu sisään selvästi",
+    p2: "Lievää heilumista — kehittyy harjoittelulla",
+    p3: "Vakaa ja kontrolloitu"
+  },
+  askelkyykky: {
+    mittaa: "Dynaaminen alaraajojen hallinta, tasapaino liikkeessä",
+    p1: "Selkeä kompensaatio tai epätasapaino",
+    p2: "Pientä heilumista tai lyhyt askel",
+    p3: "Sujuva ja symmetrinen"
+  },
+  hyvaa_huomenta: {
+    mittaa: "Takareisien liikkuvuus, lonkan saranaliike",
+    p1: "Selkä pyöristyy tai takareidet erittäin kireät",
+    p2: "Lievää pyöristymistä",
+    p3: "Puhdas saranaliike, selkä suorana"
+  },
+  etunojapunnerrus: {
+    mittaa: "Ylävartalon voima, keskivartalon stabiliteetti",
+    p1: "Lantio vajoaa tai lapaluut siipiasennossa",
+    p2: "Pientä vajoamista",
+    p3: "Jäykkä plank-asento läpi liikkeen"
+  },
+  lankku_60s: {
+    mittaa: "Keskivartalon kestävyysvoima, DFL-ketju",
+    p1: "Alle 30 s tai lantio vajoaa selvästi",
+    p2: "30–59 s tai lievää vajoamista",
+    p3: "60 s puhtaalla asennolla"
+  },
+  naruhypyt_15s: {
+    mittaa: "SSC-sykli, jalkapohjan jousto, rytmiikka",
+    p1: "Alle 20 hyppyä tai kantakontakti selkeä",
+    p2: "20–29 hyppyä tai epäpuhdas päkiäkontakti",
+    p3: "30+ hyppyä puhtaasti päkiäkontaktilla"
+  },
+  pituushyppy: {
+    mittaa: "Alaraajojen räjähtävä voima, SSC-sykli",
+    p1: "Heikko ponnistus tai epästabiili laskeutuminen",
+    p2: "Kohtalainen tulos tai laskeutuminen horjuva",
+    p3: "Vahva ponnistus ja stabiili laskeutuminen"
+  },
+  viisi_loikka: {
+    mittaa: "SSC jatkuvassa kuormituksessa, elastinen voima",
+    p1: "Lyhyt matka tai selkeä epäsymmetria",
+    p2: "Kohtalainen tai pieni epäsymmetria",
+    p3: "Pitkä matka, symmetrinen rytmi"
+  },
+  // ── U15 ──────────────────────────────────────────────────────────────────
+  pistoolikyykky: {
+    mittaa: "Yhden jalan voima, nilkan liikkuvuus, lantion hallinta",
+    p1: "Alle 3 toistoa tai selkeä kompensaatio",
+    p2: "3–5 toistoa tai kompensaatiota",
+    p3: "6+ toistoa puhtaasti"
+  },
+  leuanveto: {
+    mittaa: "Ylävartalon vetävä voima (U15)",
+    p1: "Alle 3 toistoa",
+    p2: "3–5 toistoa",
+    p3: "6+ toistoa"
+  },
+  jalkojen_nosto: {
+    mittaa: "Lonkan koukistajien voima, vatsalihasten hallinta",
+    p1: "Alle 5 toistoa tai koukistus puuttuu",
+    p2: "5–9 toistoa",
+    p3: "10+ toistoa puhtaasti"
+  },
+  lankku_120s: {
+    mittaa: "DFL-ketjun kestävyysvoima",
+    p1: "Alle 60 s",
+    p2: "60–119 s",
+    p3: "120 s puhtaalla asennolla"
+  },
+  sivulankku_60s: {
+    mittaa: "LL-ketjun kestävyys, lonkan loitontajat",
+    p1: "Alle 30 s tai lantio vajoaa",
+    p2: "30–59 s",
+    p3: "60 s puhtaasti"
+  },
+  lantionnosto: {
+    mittaa: "Takareisien ja pakaralihasten voima (SBL)",
+    p1: "Alle 15 toistoa tai selkeä epäsymmetria",
+    p2: "15–29 toistoa",
+    p3: "30+ toistoa symmetrisesti"
+  },
+  naruhypyt_30s: {
+    mittaa: "SSC yhdellä jalalla, nilkan stabiliteetti",
+    p1: "Alle 20 hyppyä tai selkeä epäsymmetria",
+    p2: "20–29 hyppyä",
+    p3: "30+ hyppyä symmetrisesti"
+  },
+  pakianousu: {
+    mittaa: "Pohkeiden voima ja kestävyys (SBL-alaosa)",
+    p1: "Alle 15 toistoa tai selkeä epäsymmetria",
+    p2: "15–24 toistoa",
+    p3: "25+ toistoa symmetrisesti"
+  },
+  slr_neuraalinen: {
+    mittaa: "Hermokudoksen liikkuvuus, takareisien neuraalinen jännitys",
+    p1: "Alle 60° tai selkeä epäsymmetria (>10°)",
+    p2: "60–74°",
+    p3: "75°+ symmetrisesti"
+  },
+  thomas_testi: {
+    mittaa: "Lonkankoukistajien liikkuvuus (SFL-ketju)",
+    p1: "Reisi selvästi yli vaakatason — kireät lonkankoukistajat",
+    p2: "Reisi lähellä vaakatasoa",
+    p3: "Reisi vaakatasoa alempana"
+  },
+  // ── U19 ──────────────────────────────────────────────────────────────────
+  jalkojen_nosto: {
+    mittaa: "Lonkan koukistajien voima, vatsalihasten hallinta (U19)",
+    p1: "Alle 5 toistoa",
+    p2: "5–9 toistoa",
+    p3: "10+ toistoa puhtaasti"
+  },
+  lonkan_akt_oj: {
+    mittaa: "Lonkankoukistajien liikkuvuus, SFL–SBL-tasapaino",
+    p1: "Erittäin rajoittunut — lanneranka notkahtaa",
+    p2: "Kohtalainen ojennus",
+    p3: "Täysi ojennus, lanneranka neutraalina"
+  },
+};
+
 // ── Testidefinitiot — täsmälleen Palloliiton harjoitettavuuskartoitus 2026 -protokollan mukaan ──
 //
 // Tyypit:
@@ -626,6 +795,74 @@ const TESTIT = {
     { id:'flei',             label:'FLEI\n%',                  tyyppi:'flei', w:65 },
   ],
 };
+
+
+/* ═══════════════════════════════════════════════════════
+   IKÄLUOKKALASKENTA — sydän koko logiikalle
+   
+   Palloliiton protokolla jakaa testit kolmeen ikäväliin:
+   10–12v = U12, 13–15v = U15, 16–19v = U19
+   
+   Laskenta tehdään testipäivää vasten, ei kalenterivuotta
+   vasten — 12-vuotias joka täyttää 13 ensi kuussa saa
+   vielä U12-testit tänään. Tämä on metodologisesti oikein
+   koska harjoitettavuus on biologinen tila, ei paperilla
+   oleva ikäluokkasijoittelu.
+   
+   Syntymäpäivä voi tulla Firestoresta useassa muodossa:
+   - Firestore Timestamp-objekti (.seconds)
+   - ISO-merkkijono "2013-03-15"
+   - Suomalainen merkkijono "15.03.2013"
+   Kaikki käsitellään turvallisesti.
+═══════════════════════════════════════════════════════ */
+function laskeIkäluokka(syntymapaiva, testipvmStr) {
+  if (!syntymapaiva || !testipvmStr) return null;
+
+  // Muutetaan syntymäpäivä Date-objektiksi
+  let syntyma;
+  if (syntymapaiva && syntymapaiva.seconds) {
+    // Firestore Timestamp
+    syntyma = new Date(syntymapaiva.seconds * 1000);
+  } else if (typeof syntymapaiva === 'string') {
+    if (syntymapaiva.includes('.')) {
+      // Suomalainen muoto: "15.03.2013"
+      const [d, m, y] = syntymapaiva.split('.');
+      syntyma = new Date(Date.UTC(parseInt(y), parseInt(m)-1, parseInt(d)));
+    } else {
+      // ISO: "2013-03-15"
+      const [y, m, d] = syntymapaiva.split('-');
+      syntyma = new Date(Date.UTC(parseInt(y), parseInt(m)-1, parseInt(d)));
+    }
+  } else {
+    return null;
+  }
+
+  // Testipäivä
+  const [ty, tm, td] = testipvmStr.split('-').map(Number);
+  const testipvm = new Date(Date.UTC(ty, tm-1, td));
+
+  // Ikä testipäivänä täysinä vuosina
+  let ikä = ty - syntyma.getUTCFullYear();
+  const kuukausiEro = (tm - 1) - syntyma.getUTCMonth();
+  const päiväEro    = td - syntyma.getUTCDate();
+  if (kuukausiEro < 0 || (kuukausiEro === 0 && päiväEro < 0)) ikä--;
+
+  // Palloliiton ikävälit
+  if (ikä >= 10 && ikä <= 12) return 'U12';
+  if (ikä >= 13 && ikä <= 15) return 'U15';
+  if (ikä >= 16 && ikä <= 19) return 'U19';
+  return null; // alle 10 tai yli 19 — ei kuulu protokollaan
+}
+
+/* Laske MAX_PISTEET dynaamisesti testilistan perusteella */
+function laskeMaxPisteet(testit) {
+  return testit.reduce((s, t) => s + (t.tyyppi === 'pisteet' ? 3 : 0), 0);
+}
+
+/* Palauttaa oikean testilistan pelaajan ikäluokan mukaan */
+function haeTestit(ikäluokka) {
+  return TESTIT[ikäluokka] || [];
+}
 
 /* ═══════════════════════════════════════════════════════
    TILA
@@ -741,8 +978,8 @@ async function generoi() {
   const ikäluokka = document.getElementById('ikäluokkaSelect').value;
   const pvm       = document.getElementById('testipaiva').value;
 
-  if (!seuraId || !joukkueId || !ikäluokka || !pvm) {
-    naytaNotif('Valitse seura, joukkue, ikäluokka ja testipäivä', 'err');
+  if (!seuraId || !joukkueId || !pvm) {
+    naytaNotif('Valitse seura, joukkue ja testipäivä', 'err');
     return;
   }
 
@@ -800,24 +1037,81 @@ async function generoi() {
 /* ═══════════════════════════════════════════════════════
    LOMAKKEEN RENDERÖINTI
 ═══════════════════════════════════════════════════════ */
-function renderLomake(seuraId, joukkueId, ikäluokka, pvm) {
-  const testit    = TESTIT[ikäluokka] || [];
-  const seuranimi = document.getElementById('seuraSelect').selectedOptions[0]?.textContent || seuraId;
+function renderLomake(seuraId, joukkueId, ikäluokkaFilter, pvm) {
+  const seuranimi     = document.getElementById('seuraSelect').selectedOptions[0]?.textContent || seuraId;
   const joukkuenimiEl = document.getElementById('joukkueSelect').selectedOptions[0];
   const joukkuenimiText = joukkuenimiEl ? joukkuenimiEl.textContent : joukkueId;
-  const pvmFmt    = pvm ? new Date(pvm).toLocaleDateString('fi-FI') : '';
-  const maxPisteet = testit.reduce((s, t) => s + (t.tyyppi === 'pisteet' ? 3 : 0), 0);
+  const pvmFmt = pvm ? new Date(pvm).toLocaleDateString('fi-FI') : '';
+
+  // ── Laske jokaisen pelaajan ikäluokka automaattisesti ──────────────────
+  // Tämä on koko uudistuksen ydin: jokainen pelaaja saa oikeat testit
+  // syntymäpäivänsä perusteella, ei joukkueen nimen tai käyttäjän
+  // manuaalisen valinnan perusteella. Palloliiton protokolla: 10–12v = U12,
+  // 13–15v = U15, 16–19v = U19.
+  pelaajat.forEach(p => {
+    const synt = p.syntymapaiva || p.syntymäpäivä || p.syntymaaika || '';
+    p._ikäluokka = laskeIkäluokka(synt, pvm);
+  });
+
+  // Suodata ikäluokan mukaan jos käyttäjä on valinnut suodattimen
+  const naytettavat = ikäluokkaFilter
+    ? pelaajat.filter(p => p._ikäluokka === ikäluokkaFilter)
+    : pelaajat;
+
+  // ── Kerää kaikkien näytettävien pelaajien testisarakkeet ───────────────
+  // Koska eri ikäluokilla on eri testit, taulukossa pitää näyttää
+  // kaikkien ikäluokkien testien unioni. Järjestys on U12 → U15 → U19.
+  // Tämä mahdollistaa mixed-age-joukkueet yhden taulukon sisällä.
+  const ikäluokatNäkyvissä = [...new Set(naytettavat.map(p => p._ikäluokka).filter(Boolean))];
+  const järjestys = ['U12','U15','U19'];
+  ikäluokatNäkyvissä.sort((a,b) => järjestys.indexOf(a) - järjestys.indexOf(b));
+
+  // Yhdistetty testilista: kerää testit kaikista ikäluokista, poista duplikaatit
+  const testisarakkeet = [];
+  const nähtyTestiId = new Set();
+  järjestys.forEach(ikl => {
+    if (!ikäluokatNäkyvissä.includes(ikl)) return;
+    (TESTIT[ikl] || []).forEach(t => {
+      if (!nähtyTestiId.has(t.id)) {
+        nähtyTestiId.add(t.id);
+        testisarakkeet.push({ ...t, _ikäluokka: ikl });
+      }
+    });
+  });
+
+  // ── Otsikkoalue ───────────────────────────────────────────────────────
+  const ikäluokkaOtsikko = ikäluokatNäkyvissä.length > 1
+    ? ikäluokatNäkyvissä.join(' + ')
+    : ikäluokatNäkyvissä[0] || '—';
+
+  // PHV-varoitus jos joukkueessa on PHV-huipulla olevia pelaajia
+  const phvHuippu = naytettavat.filter(p =>
+    p.tulokset?.phv_tila === 'PH' || p._phvTila === 'PH'
+  ).length;
 
   let html = `
   <div class="lomake-header">
     <div>
-      <div class="lomake-otsikko">Harjoitettavuuskartoitus ${ikäluokka} — ${ikäluokka === 'U12' ? '10–12' : ikäluokka === 'U15' ? '13–15' : '16–19'}-vuotiaat</div>
-      <div class="lomake-alaotsikko">${seuranimi} | ${joukkuenimiText} | ${pvmFmt}</div>
+      <div class="lomake-otsikko">Harjoitettavuuskartoitus — ${joukkuenimiText}</div>
+      <div class="lomake-alaotsikko">
+        ${seuranimi} | ${pvmFmt}
+        ${ikäluokatNäkyvissä.length > 1
+          ? `<span style="color:var(--keltainen);margin-left:8px;">
+               ⚡ Sekalohko: ${ikäluokatNäkyvissä.join(' + ')} — testit valitaan automaattisesti syntymäpäivän mukaan
+             </span>`
+          : `<span style="margin-left:8px;color:var(--teksti2)">${ikäluokkaOtsikko}</span>`
+        }
+      </div>
     </div>
-    <div class="lomake-meta">
-      ${pelaajat.length} pelaajaa &nbsp;·&nbsp; Max ${maxPisteet}p
-    </div>
+    <div class="lomake-meta">${naytettavat.length} pelaajaa</div>
   </div>
+
+  ${phvHuippu > 0 ? `
+  <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);
+    border-radius:6px;padding:8px 14px;margin:8px 0;font-size:12px;color:var(--keltainen);">
+    ⚠️ <strong>${phvHuippu} pelaajalla PHV-huippu</strong> — kuorma MAX 60% ikäluokan normista.
+    Tarkista ennen testauksen aloittamista.
+  </div>` : ''}
 
   <div class="lomake-toolbar">
     <button class="btn btn-success btn-sm" onclick="tallennaKaikki()">💾 Tallenna kaikki</button>
@@ -831,94 +1125,196 @@ function renderLomake(seuraId, joukkueId, ikäluokka, pvm) {
       <tr>
         <th class="col-pelaaja">PELAAJA</th>
         <th class="col-synt">SYNT.</th>
-        <th style="width:28px">S</th>
+        <th style="min-width:45px;font-size:8px;">IKÄ-<br>LUOKKA</th>
   `;
 
-  // Sarakkeiden otsikot
-  testit.forEach(t => {
+  // Sarakkeiden otsikot — näytetään kaikkien ikäluokkien testit
+  // Ikäluokkakohtaiset otsikot ryhmitellään väripalkeilla
+  let edellIkl = null;
+  testisarakkeet.forEach(t => {
+    // Ikäluokkaraja — visuaalinen erotin eri ikäluokkien testien välissä
+    const reunaVasen = t._ikäluokka !== edellIkl && edellIkl !== null
+      ? 'border-left:2px solid var(--reuna);'
+      : '';
+    edellIkl = t._ikäluokka;
+
     if (t.tyyppi === 'flei') {
-      html += `<th style="min-width:${t.w}px; color:var(--sininen);">${t.label}</th>`;
+      html += `<th style="min-width:${t.w}px;color:var(--sininen);${reunaVasen}">${t.label}</th>`;
     } else {
-      html += `<th style="min-width:${t.w}px">${t.label}</th>`;
+      // Tooltip pisteytysrajoineen
+      const meta = TESTIT_META[t.id];
+      if (meta) {
+        const tt = `<div class="tooltip-sisalto">
+          <div class="tooltip-mittaa">📐 ${meta.mittaa}</div>
+          <div class="tooltip-pisteet">
+            <div class="tooltip-p"><span class="tooltip-piste tp1">1</span><span>${meta.p1}</span></div>
+            <div class="tooltip-p"><span class="tooltip-piste tp2">2</span><span>${meta.p2}</span></div>
+            <div class="tooltip-p"><span class="tooltip-piste tp3">3</span><span>${meta.p3}</span></div>
+          </div>
+        </div>`;
+        html += `<th class="th-tooltip" style="min-width:${t.w}px;${reunaVasen}">${t.label}${tt}</th>`;
+      } else {
+        html += `<th style="min-width:${t.w}px;${reunaVasen}">${t.label}</th>`;
+      }
     }
   });
-  html += `<th style="width:32px">💾</th></tr></thead><tbody>`;
+  html += `<th style="width:32px">💾</th><th style="width:28px">📱</th></tr>
 
-  // Rivit
-  pelaajat.forEach((p, idx) => {
-    const syntymapaiva = p.syntymapaiva || p.syntymäpäivä || '';
-    const syntvFmt = syntymapaiva ? syntymapaiva.substring(0, 10).split('-').reverse().join('.') : '—';
+  <!-- Ikäluokkarivi: kertoo selkeästi mitkä testit kuuluvat mihinkin ikäluokkaan -->
+  <tr style="background:#080e1a;">
+    <td colspan="3" style="font-size:9px;color:var(--teksti2);padding:2px 8px;">Ikäluokka / testit:</td>`;
+
+  // Merkitään ikäluokkakohtaiset alueet väripalkeilla alarivillä
+  edellIkl = null;
+  testisarakkeet.forEach(t => {
+    if (t.tyyppi === 'flei') {
+      html += `<td style="background:rgba(74,126,217,.1);border-top:2px solid var(--sininen);"></td>`;
+      return;
+    }
+    const ikl = t._ikäluokka;
+    const vari = ikl === 'U12' ? '#22C55E' : ikl === 'U15' ? '#F59E0B' : '#4A7ED9';
+    const teksti = ikl !== edellIkl ? ikl : '';
+    edellIkl = ikl;
+    html += `<td style="border-top:2px solid ${vari};font-size:8px;color:${vari};
+      text-align:center;padding:1px 0;">${teksti}</td>`;
+  });
+  html += `<td></td><td></td></tr>`;
+
+  html += `</thead><tbody>`;
+
+  // ── Rivit — per-pelaaja renderöinti ───────────────────────────────────
+  naytettavat.forEach((p, idx) => {
+    const alkIdx = pelaajat.indexOf(p); // Alkuperäinen indeksi tallennusta varten
+    const syntymapaiva = p.syntymapaiva || p.syntymäpäivä || p.syntymaaika || '';
+    let syntvFmt = '—';
+    if (syntymapaiva) {
+      if (syntymapaiva.seconds) {
+        syntvFmt = new Date(syntymapaiva.seconds*1000).toLocaleDateString('fi-FI');
+      } else if (typeof syntymapaiva === 'string') {
+        syntvFmt = syntymapaiva.substring(0,10).split('-').reverse().join('.');
+      }
+    }
     const sukupuoli = (p.sukupuoli || p.s || 'P')[0].toUpperCase();
+    const pelaajanIkl = p._ikäluokka;
+    const pelaajanTestit = pelaajanIkl ? new Set((TESTIT[pelaajanIkl]||[]).map(t=>t.id)) : new Set();
 
-    html += `<tr id="rivi-${idx}" data-idx="${idx}">
-      <td class="col-pelaaja">${p.sukunimi || ''}, ${p.etunimi || ''}</td>
+    // PHV-huippu: näytetään varoitus suoraan rivillä
+    const phvTila = p.tulokset?.phv_tila || '';
+    const phvVaroitus = phvTila === 'PH'
+      ? `<span style="color:var(--keltainen);font-size:9px;display:block;margin-top:2px;">⚠️ MAX 60%</span>`
+      : '';
+
+    // Ikäluokkabadge
+    const iklVari = pelaajanIkl === 'U12' ? '#22C55E' : pelaajanIkl === 'U15' ? '#F59E0B' : '#4A7ED9';
+    const iklBadge = pelaajanIkl
+      ? `<span style="font-size:9px;padding:1px 5px;border-radius:3px;
+           background:${iklVari}22;color:${iklVari};font-weight:700;">${pelaajanIkl}</span>`
+      : `<span style="font-size:9px;color:var(--punainen)">?</span>`;
+
+    html += `<tr id="rivi-${alkIdx}" data-idx="${alkIdx}" ${pelaajanIkl ? '' : 'style="opacity:.5"'}>
+      <td class="col-pelaaja">
+        ${p.sukunimi || ''}, ${p.etunimi || ''}
+        ${phvVaroitus}
+      </td>
       <td class="col-synt">${syntvFmt}</td>
-      <td style="text-align:center; color:var(--teksti2); font-size:11px;">${sukupuoli}</td>
+      <td style="text-align:center;">${iklBadge}</td>
     `;
 
-    testit.forEach(t => {
-      // Lohkojen visuaalinen erottelu — ensimmäinen voima-lohkon solu saa vasemman reunan
+    // Renderöi testisarakkeet — jos testi ei kuulu tämän pelaajan ikäluokkaan,
+    // näytetään harmaa "—" solu jota ei voi editoida
+    testisarakkeet.forEach(t => {
+      if (t.tyyppi === 'flei') {
+        // FLEI lasketaan pelaajan oman ikäluokan testeistä
+        if (pelaajanTestit.has('flei') || t._ikäluokka === pelaajanIkl) {
+          html += `<td id="flei-${alkIdx}" style="border-left:2px solid var(--sininen)">
+            <span class="flei-cell flei-0">—</span></td>`;
+        } else {
+          html += `<td style="border-left:2px solid var(--sininen);"></td>`;
+        }
+        return;
+      }
+
+      // Testi ei kuulu tämän pelaajan ikäluokkaan — harmaa solu
+      if (!pelaajanTestit.has(t.id)) {
+        html += `<td style="background:rgba(0,0,0,.15);"></td>`;
+        return;
+      }
+
+      // Testi kuuluu — renderöi normaali syöttösolu
       const lohkoVari = t.lohko === 'voima' ? 'background:rgba(245,158,11,.06);' : '';
 
-      if (t.tyyppi === 'flei') {
-        html += `<td id="flei-${idx}" style="border-left:2px solid var(--sininen)"><span class="flei-cell flei-0">—</span></td>`;
-      } else if (t.tyyppi === 'valinta') {
+      if (t.tyyppi === 'valinta') {
         const val = p.tulokset[t.id] || '';
-        html += `<td><select class="td-select" data-idx="${idx}" data-kentta="${t.id}" onchange="merkkaaLikainen(${idx}); laskeFlei(${idx})">
+        html += `<td><select class="td-select" data-idx="${alkIdx}" data-kentta="${t.id}"
+          onchange="merkkaaLikainen(${alkIdx}); laskeFlei(${alkIdx}); tarkistaPhv(${alkIdx},this.value,'${t.id}')">
           <option value=""></option>
           ${t.opts.map(o => `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
         </select></td>`;
       } else if (t.tyyppi === 'pisteet') {
         const val = parseInt(p.tulokset[t.id]) || 0;
-        html += `<td style="${lohkoVari}"><div class="pisteet-cell">
-          <button type="button" class="p-btn p1 ${val===1?'active':''}" data-idx="${idx}" data-kentta="${t.id}" data-arvo="1" onclick="asetaPisteet(this,${idx},'${t.id}',1)">1</button>
-          <button type="button" class="p-btn p2 ${val===2?'active':''}" data-idx="${idx}" data-kentta="${t.id}" data-arvo="2" onclick="asetaPisteet(this,${idx},'${t.id}',2)">2</button>
-          <button type="button" class="p-btn p3 ${val===3?'active':''}" data-idx="${idx}" data-kentta="${t.id}" data-arvo="3" onclick="asetaPisteet(this,${idx},'${t.id}',3)">3</button>
-        </div></td>`;
+        const meta = TESTIT_META[t.id];
+        const rajaOhje = meta
+          ? `<div class="raja-ohje" title="${meta.p1} | ${meta.p2} | ${meta.p3}">
+               <span style="color:var(--punainen)">🔴</span>
+               <span style="color:var(--keltainen)">🟡</span>
+               <span style="color:var(--vihrea)">🟢</span>
+             </div>`
+          : '';
+        html += `<td style="${lohkoVari}">
+          <div class="pisteet-cell">
+            <button type="button" class="p-btn p1 ${val===1?'active':''}" data-idx="${alkIdx}" data-kentta="${t.id}" data-arvo="1"
+              onclick="asetaPisteet(this,${alkIdx},'${t.id}',1)"
+              title="${meta?.p1||'1p — rajoitteita'}">1</button>
+            <button type="button" class="p-btn p2 ${val===2?'active':''}" data-idx="${alkIdx}" data-kentta="${t.id}" data-arvo="2"
+              onclick="asetaPisteet(this,${alkIdx},'${t.id}',2)"
+              title="${meta?.p2||'2p — kehitettävää'}">2</button>
+            <button type="button" class="p-btn p3 ${val===3?'active':''}" data-idx="${alkIdx}" data-kentta="${t.id}" data-arvo="3"
+              onclick="asetaPisteet(this,${alkIdx},'${t.id}',3)"
+              title="${meta?.p3||'3p — hyvä'}">3</button>
+          </div>
+          ${rajaOhje}
+        </td>`;
       } else if (t.tyyppi === 'luku_kg') {
-        // Voimatesti 5RM — syötetään kilogrammoina, keltainen/oranssi tausta erottaa selvästi
         const val = p.tulokset[t.id] || '';
-        html += `<td style="background:rgba(245,158,11,.08); border-left:${t.id.endsWith('takakyykky_5rm') ? '2px solid var(--keltainen)' : 'none'}">
+        html += `<td style="background:rgba(245,158,11,.08);">
           <div style="display:flex;align-items:center;gap:2px;">
             <input type="text" class="td-input" inputmode="decimal"
-              value="${val}"
-              data-idx="${idx}" data-kentta="${t.id}"
-              onchange="tallennaKentta(this); laskeFlei(${idx})"
-              onfocus="this.select()"
-              placeholder="—"
+              value="${val}" data-idx="${alkIdx}" data-kentta="${t.id}"
+              onchange="tallennaKentta(this); laskeFlei(${alkIdx})"
+              onfocus="this.select()" placeholder="—"
               style="color:var(--keltainen);">
             <span style="font-size:9px;color:var(--keltainen);opacity:.7">kg</span>
           </div>
         </td>`;
       } else {
-        // luku-syöttö (toistomäärä, sekuntia jne.)
         const val = p.tulokset[t.id] || '';
-        html += `<td style="${lohkoVari}"><input type="text" class="td-input" inputmode="decimal"
-          value="${val}"
-          data-idx="${idx}" data-kentta="${t.id}"
-          onchange="tallennaKentta(this)"
-          onfocus="this.select()"
-          onkeydown="siirrySeuraan(event,${idx},'${t.id}')"
-          placeholder="—"></td>`;
+        html += `<td style="${lohkoVari}">
+          <input type="text" class="td-input" inputmode="decimal"
+            value="${val}" data-idx="${alkIdx}" data-kentta="${t.id}"
+            onchange="tallennaKentta(this)"
+            onfocus="this.select()"
+            onkeydown="siirrySeuraan(event,${alkIdx},'${t.id}')"
+            placeholder="—">
+        </td>`;
       }
     });
 
-    html += `<td><button class="row-save-btn" id="savebtn-${idx}" title="Tallenna tämä rivi" onclick="tallennaRivi(${idx})">💾</button></td>`;
-    html += `<td><button class="row-save-btn" title="Avaa mobiilisyötössä 📱" onclick="avaaRiviMobiilissa(${idx})" style="font-size:13px;">📱</button></td>`;
-    html += `</tr>`;
+    html += `
+      <td><button class="row-save-btn" id="savebtn-${alkIdx}" title="Tallenna" onclick="tallennaRivi(${alkIdx})">💾</button></td>
+      <td><button class="row-save-btn" title="Mobiilisyöttö" onclick="avaaRiviMobiilissa(${alkIdx})" style="font-size:13px;">📱</button></td>
+    </tr>`;
   });
 
   html += `</tbody></table></div>`;
 
-  // Tallenna renderöintitiedot
+  // Tallenna renderöintitiedot — ikäluokka on nyt "mixed" jos useampi ikäluokka
   html += `<script>
     window._renderState = {
       seuraId: '${seuraId}',
       joukkueId: '${joukkueId}',
-      ikäluokka: '${ikäluokka}',
+      ikäluokka: '${ikäluokkaFilter || "mixed"}',
       pvm: '${pvm}'
     };
-    // Laske FLEI kaikille riveille renderöinnin jälkeen
     setTimeout(() => {
       for (let i = 0; i < ${pelaajat.length}; i++) { laskeFlei(i); }
     }, 100);
@@ -926,6 +1322,31 @@ function renderLomake(seuraId, joukkueId, ikäluokka, pvm) {
 
   document.getElementById('lomakeAlue').innerHTML = html;
 }
+
+/* PHV-huippu: päivitä varoitus reaaliaikaisesti kun testaaja valitsee tilan */
+function tarkistaPhv(idx, arvo, kentta) {
+  if (kentta !== 'phv_tila') return;
+  // Tallenna valinta muistiin
+  if (pelaajat[idx]) pelaajat[idx]._phvTila = arvo;
+  // Näytä tai piilota PHV-varoitus suoraan rivillä
+  const rivi = document.getElementById(\`rivi-\${idx}\`);
+  if (!rivi) return;
+  const nimisolu = rivi.querySelector('.col-pelaaja');
+  if (!nimisolu) return;
+  let varoitus = nimisolu.querySelector('.phv-varoitus-live');
+  if (arvo === 'PH') {
+    if (!varoitus) {
+      varoitus = document.createElement('span');
+      varoitus.className = 'phv-varoitus-live';
+      varoitus.style.cssText = 'color:var(--keltainen);font-size:9px;display:block;margin-top:2px;';
+      nimisolu.appendChild(varoitus);
+    }
+    varoitus.textContent = '⚠️ MAX 60% kuorma';
+  } else if (varoitus) {
+    varoitus.remove();
+  }
+}
+
 
 /* ═══════════════════════════════════════════════════════
    KENTÄN TALLENNUS MUISTIIN
