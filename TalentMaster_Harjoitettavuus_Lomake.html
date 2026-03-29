@@ -5,554 +5,622 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalentMaster™ — Harjoitettavuuskartoitus</title>
 
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-/* ─── Fontit ─────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-
-/* ─── CSS-muuttujat ──────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   DESIGN SYSTEM — TalentMaster tumma teema
+═══════════════════════════════════════════════════════ */
 :root {
   --bg:        #06090F;
   --bg2:       #0D1117;
-  --bg3:       #141B24;
-  --border:    rgba(255,255,255,.08);
-  --border2:   rgba(255,255,255,.14);
-  --ink1:      #E8EEF8;
-  --ink2:      #9DAFC8;
-  --ink3:      #5A6E8A;
-  --primary:   #4A7ED9;
-  --teal:      #2DD4BF;
-  --amber:     #F59E0B;
-  --red:       #EF4444;
-  --green:     #22C55E;
-  --font:      'DM Sans', sans-serif;
-  --mono:      'DM Mono', monospace;
+  --bg3:       #131920;
+  --sininen:   #4A7ED9;
+  --sininen2:  #2D5BA6;
+  --teal:      #00A896;
+  --teksti:    #E8EEF8;
+  --teksti2:   #9AAAC4;
+  --reuna:     #1E2D42;
+  --vihrea:    #22C55E;
+  --keltainen: #F59E0B;
+  --punainen:  #EF4444;
+  --radius:    8px;
+  --shadow:    0 4px 24px rgba(0,0,0,.4);
 }
 
-/* ─── Reset ──────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 14px; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
 body {
-  font-family: var(--font);
+  font-family: 'DM Sans', system-ui, sans-serif;
   background: var(--bg);
-  color: var(--ink1);
+  color: var(--teksti);
+  font-size: 13px;
   min-height: 100vh;
 }
 
-/* ─── Kirjautuminen ──────────────────────────────────── */
-#kirjLogin {
-  display: flex; align-items: center; justify-content: center;
-  min-height: 100vh; flex-direction: column; gap: 20px;
-  padding: 24px;
-}
-.loginKortti {
+/* ── Topbar ── */
+#topbar {
   background: var(--bg2);
-  border: 1px solid var(--border2);
-  border-radius: 16px;
-  padding: 40px;
-  width: 100%; max-width: 400px;
-  text-align: center;
-}
-.loginLogo {
-  font-size: 13px; font-weight: 700; letter-spacing: .12em;
-  color: var(--primary); text-transform: uppercase; margin-bottom: 8px;
-}
-.loginOtsikko {
-  font-size: 22px; font-weight: 700; color: var(--ink1); margin-bottom: 24px;
-}
-.loginInput {
-  width: 100%; background: var(--bg3); border: 1px solid var(--border2);
-  border-radius: 8px; padding: 12px 14px; color: var(--ink1);
-  font-family: var(--font); font-size: 14px; margin-bottom: 12px;
-  outline: none; transition: border-color .2s;
-}
-.loginInput:focus { border-color: var(--primary); }
-.loginNappi {
-  width: 100%; background: var(--primary); color: #fff;
-  border: none; border-radius: 8px; padding: 13px;
-  font-family: var(--font); font-size: 14px; font-weight: 600;
-  cursor: pointer; transition: opacity .2s;
-}
-.loginNappi:hover { opacity: .85; }
-.loginVirhe { color: var(--red); font-size: 13px; margin-top: 8px; }
-
-/* ─── Pääsovellus ────────────────────────────────────── */
-#sovellus { display: none; }
-
-/* ─── Topbar ─────────────────────────────────────────── */
-.topbar {
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-  padding: 14px 24px;
-  display: flex; align-items: center; gap: 16px;
+  border-bottom: 1px solid var(--reuna);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   position: sticky; top: 0; z-index: 100;
 }
-.topbarLogo {
-  font-size: 13px; font-weight: 700; letter-spacing: .1em;
-  color: var(--primary); text-transform: uppercase;
-}
-.topbarErottaja { flex: 1; }
-.topbarUlos {
-  background: none; border: 1px solid var(--border2); border-radius: 6px;
-  padding: 6px 14px; color: var(--ink3); font-family: var(--font);
-  font-size: 12px; cursor: pointer; transition: all .2s;
-}
-.topbarUlos:hover { color: var(--ink1); border-color: var(--border2); }
+.topbar-logo { font-weight: 700; font-size: 15px; color: var(--sininen); letter-spacing: .3px; }
+.topbar-sub  { font-size: 11px; color: var(--teksti2); margin-top: 1px; }
+#userInfo    { font-size: 12px; color: var(--teksti2); display: flex; align-items: center; gap: 12px; }
 
-/* ─── Sisältö ────────────────────────────────────────── */
-.sisalto { padding: 32px 24px; max-width: 1400px; margin: 0 auto; }
+/* ── Kirjautuminen ── */
+#loginSection {
+  max-width: 380px; margin: 80px auto;
+  background: var(--bg2); border: 1px solid var(--reuna);
+  border-radius: 12px; padding: 32px;
+}
+.login-title { font-size: 18px; font-weight: 700; color: var(--sininen); margin-bottom: 6px; }
+.login-sub   { color: var(--teksti2); font-size: 12px; margin-bottom: 24px; }
 
-/* ─── Valintatkortti ─────────────────────────────────── */
-.valintaKortti {
-  background: var(--bg2); border: 1px solid var(--border2);
-  border-radius: 16px; padding: 28px 32px; margin-bottom: 28px;
+/* ── Pääsisältö ── */
+#mainSection { display: none; padding: 20px; max-width: 1600px; margin: 0 auto; }
+
+/* ── Asetuspaneeli ── */
+#asetukset {
+  background: var(--bg2); border: 1px solid var(--reuna);
+  border-radius: var(--radius); padding: 16px 20px; margin-bottom: 16px;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
 }
-.valintaOtsikko {
-  font-size: 11px; font-weight: 700; letter-spacing: .1em;
-  color: var(--ink3); text-transform: uppercase; margin-bottom: 16px;
+.asetus-rivi { display: flex; flex-direction: column; gap: 4px; }
+.asetus-label { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--teksti2); font-weight: 600; }
+
+select, input[type=date], input[type=text], input[type=password], input[type=email] {
+  background: var(--bg3);
+  border: 1px solid var(--reuna);
+  color: var(--teksti);
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  min-width: 160px;
 }
-.valintaRivi {
-  display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;
+select:focus, input:focus { outline: 2px solid var(--sininen); border-color: transparent; }
+
+/* ── Painikkeet ── */
+.btn {
+  padding: 8px 16px; border-radius: 6px; font-size: 13px;
+  font-weight: 600; border: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all .15s;
 }
-.valintaRyhma { display: flex; flex-direction: column; gap: 6px; }
-.valintaLabel { font-size: 12px; color: var(--ink3); font-weight: 500; }
-.valintaSelect, .valintaInput {
-  background: var(--bg3); border: 1px solid var(--border2);
-  border-radius: 8px; padding: 9px 14px; color: var(--ink1);
-  font-family: var(--font); font-size: 13px; outline: none;
-  min-width: 200px; transition: border-color .2s;
+.btn-primary  { background: var(--sininen); color: #fff; }
+.btn-primary:hover  { background: var(--sininen2); }
+.btn-success  { background: var(--teal); color: #fff; }
+.btn-success:hover  { background: #008a7b; }
+.btn-ghost    { background: transparent; color: var(--teksti2); border: 1px solid var(--reuna); }
+.btn-ghost:hover    { background: var(--bg3); color: var(--teksti); }
+.btn-danger   { background: var(--punainen); color: #fff; }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Lomakealue ── */
+#lomakeAlue { margin-top: 8px; }
+
+.lomake-header {
+  background: var(--bg2); border: 1px solid var(--reuna);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 12px 16px;
+  display: flex; justify-content: space-between; align-items: center;
 }
-.valintaSelect:focus, .valintaInput:focus { border-color: var(--primary); }
-.valintaInput { min-width: 260px; }
-.genNappi {
-  background: var(--primary); color: #fff; border: none;
-  border-radius: 8px; padding: 10px 24px; font-family: var(--font);
-  font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .2s;
+.lomake-otsikko  { font-size: 16px; font-weight: 700; color: var(--teksti); }
+.lomake-alaotsikko { font-size: 11px; color: var(--teksti2); margin-top: 2px; }
+.lomake-meta     { font-size: 11px; color: var(--teksti2); text-align: right; }
+
+/* ── Toolbar ── */
+.lomake-toolbar {
+  background: var(--bg3); border: 1px solid var(--reuna); border-top: none;
+  padding: 8px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.tallenna-status {
+  font-size: 11px; padding: 4px 10px; border-radius: 20px;
+  font-weight: 600; letter-spacing: .3px;
+}
+.tallenna-status.tallennettu { background: rgba(34,197,94,.15); color: var(--vihrea); }
+.tallenna-status.virhe       { background: rgba(239,68,68,.15); color: var(--punainen); }
+.tallenna-status.tallentaa   { background: rgba(74,126,217,.15); color: var(--sininen); }
+
+/* ── Excel-tuonti paneeli ── */
+#tuontiPaneeli {
+  background: var(--bg3); border: 1px solid var(--sininen);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
+  display: none;
+}
+.tuonti-otsikko { font-weight: 700; color: var(--sininen); margin-bottom: 10px; font-size: 13px; }
+.drop-zone {
+  border: 2px dashed var(--reuna); border-radius: var(--radius);
+  padding: 24px; text-align: center; cursor: pointer;
+  transition: all .2s; color: var(--teksti2);
+}
+.drop-zone:hover, .drop-zone.drag-over { border-color: var(--sininen); color: var(--teksti); background: rgba(74,126,217,.05); }
+.drop-zone .drop-icon { font-size: 28px; margin-bottom: 8px; }
+.drop-zone p { font-size: 12px; }
+
+/* ── Taulukko ── */
+.taulukko-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--reuna); border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+table {
+  width: 100%; border-collapse: collapse; font-size: 11px;
+}
+thead th {
+  background: #0a1628; color: var(--teksti2);
+  padding: 6px 4px; font-weight: 700;
+  font-size: 9px; text-transform: uppercase; letter-spacing: .5px;
+  text-align: center; border: 1px solid var(--reuna);
+  white-space: pre-line; line-height: 1.3;
+  vertical-align: bottom;
+  position: sticky; top: 0;
+}
+thead th.col-pelaaja { text-align: left; padding-left: 10px; min-width: 150px; position: sticky; left: 0; z-index: 2; background: #0a1628; }
+thead th.col-synt    { min-width: 68px; }
+
+tbody tr:nth-child(even) { background: rgba(255,255,255,.02); }
+tbody tr:hover { background: rgba(74,126,217,.06); }
+tbody tr.dirty { background: rgba(74,126,217,.08); }
+tbody tr.tallennettu-row { background: rgba(34,197,94,.04); }
+
+tbody td {
+  border: 1px solid var(--reuna); padding: 3px 2px;
+  text-align: center; vertical-align: middle;
+}
+tbody td.col-pelaaja {
+  text-align: left; padding: 4px 10px;
+  font-weight: 600; font-size: 12px;
+  position: sticky; left: 0; background: var(--bg2); z-index: 1;
   white-space: nowrap;
 }
-.genNappi:hover { opacity: .85; }
-.genNappi:disabled { opacity: .4; cursor: not-allowed; }
-.tulostaNappi {
-  background: none; color: var(--teal); border: 1px solid var(--teal);
-  border-radius: 8px; padding: 10px 24px; font-family: var(--font);
-  font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s;
-  white-space: nowrap; display: none;
-}
-.tulostaNappi:hover { background: rgba(45,212,191,.08); }
-.tulostaNappi.nakyvilla { display: inline-block; }
+tbody td.col-synt { font-size: 11px; color: var(--teksti2); }
 
-/* ─── Lomakealue ─────────────────────────────────────── */
-#lomakeAlue { /* tyhjä ennen generointia */ }
-.lomakeOtsikko {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  margin-bottom: 20px; gap: 20px;
+/* ── Syöttökentät taulukossa ── */
+.td-input {
+  width: 100%; background: transparent; border: none;
+  color: var(--teksti); text-align: center; font-size: 11px;
+  padding: 2px 3px; outline: none;
 }
-.lomakeH1 { font-size: 20px; font-weight: 700; color: var(--ink1); }
-.lomakeMeta { font-size: 13px; color: var(--ink3); margin-top: 4px; }
+.td-input:focus {
+  background: rgba(74,126,217,.15);
+  border-radius: 3px;
+}
 
-/* ─── Taulukko ───────────────────────────────────────── */
-.tauluKehys { overflow-x: auto; }
-.harjTable {
-  width: 100%; border-collapse: collapse;
-  font-size: 12px; min-width: 900px;
+.td-select {
+  width: 100%; background: transparent; border: none;
+  color: var(--teksti); text-align: center; font-size: 11px;
+  cursor: pointer; padding: 2px;
 }
-.harjTable thead tr {
-  background: var(--bg3);
-  border-bottom: 2px solid var(--primary);
-}
-.harjTable th {
-  padding: 10px 8px; text-align: center;
-  font-size: 10px; font-weight: 700; letter-spacing: .06em;
-  color: var(--ink3); text-transform: uppercase;
-  white-space: nowrap; border-right: 1px solid var(--border);
-}
-.harjTable th.vasen { text-align: left; }
-.harjTable th.prim { color: var(--primary); }
-.harjTable tbody tr {
-  border-bottom: 1px solid var(--border);
-  transition: background .15s;
-}
-.harjTable tbody tr:hover { background: rgba(74,126,217,.04); }
-.harjTable td {
-  padding: 8px; text-align: center;
-  border-right: 1px solid var(--border);
-  font-size: 12px; vertical-align: middle;
-}
-.harjTable td.nimisolu {
-  text-align: left; font-weight: 600; color: var(--ink1);
-  padding-left: 14px; min-width: 160px;
-}
-.harjTable td.syntsolu {
-  font-family: var(--mono); font-size: 11px; color: var(--ink3);
-  min-width: 70px;
-}
-.harjTable td.phvsolu {
-  font-size: 11px; min-width: 80px;
-}
-/* PHV-tila-badget */
-.phvHuippu { color: var(--red); font-weight: 700; font-size: 10px; }
-.phvNopea  { color: var(--amber); font-weight: 600; font-size: 10px; }
-.phvNormaali { color: var(--green); font-size: 10px; }
-.phvTyhjä  { color: var(--ink3); font-size: 11px; }
+.td-select:focus { background: rgba(74,126,217,.15); }
 
-/* Tulossolut — valmentaja kirjoittaa tähän */
-.harjTable td.tulos {
-  min-width: 52px; position: relative;
-}
-.tuloskehys {
-  border: 1px solid var(--border2); border-radius: 4px;
-  height: 28px; display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,.02);
-}
-/* Pisteytyssolu vierekkäin tulos + pisteet */
-.harjTable td.tulos2 { min-width: 90px; }
-.tulos2kehys {
-  display: grid; grid-template-columns: 1fr 38px;
-  border: 1px solid var(--border2); border-radius: 4px;
-  height: 28px; overflow: hidden; background: rgba(255,255,255,.02);
-}
-.tulos2kehys .tulosapu { border-right: 1px solid var(--border2); }
-.tulos2kehys .pisteaspu {
-  background: rgba(74,126,217,.06);
+/* Ampelimäinen pisteytys */
+.pisteet-cell { display: flex; gap: 2px; justify-content: center; align-items: center; }
+.p-btn {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--reuna);
+  cursor: pointer; font-size: 9px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
-  font-size: 9px; color: var(--ink3); font-weight: 700;
+  transition: all .1s; color: var(--teksti2);
+  background: transparent;
 }
+.p-btn.p1.active { background: var(--punainen); border-color: var(--punainen); color: #fff; }
+.p-btn.p2.active { background: var(--keltainen); border-color: var(--keltainen); color: #000; }
+.p-btn.p3.active { background: var(--vihrea); border-color: var(--vihrea); color: #fff; }
+.p-btn:hover { transform: scale(1.15); }
 
-/* FLEI-sarake */
-.harjTable td.fleisolu { min-width: 60px; background: rgba(45,212,191,.03); }
-.harjTable td.kuormasolu { min-width: 60px; background: rgba(245,158,11,.03); }
+/* ── FLEI-indikaattori ── */
+.flei-cell {
+  font-weight: 700; font-size: 13px; text-align: center;
+  border-radius: 4px; padding: 2px 4px;
+}
+.flei-0  { color: var(--teksti2); }
+.flei-vihrea  { color: var(--vihrea); }
+.flei-kelt    { color: var(--keltainen); }
+.flei-oranssi { color: #f97316; }
+.flei-puna    { color: var(--punainen); }
 
-/* ─── Viitearvoselite ────────────────────────────────── */
-.seliteKortti {
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 20px; margin-top: 20px;
-  display: flex; gap: 24px; flex-wrap: wrap;
+/* ── Tallenna-painike per rivi ── */
+.row-save-btn {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--teksti2); padding: 2px 4px; border-radius: 3px;
+  font-size: 14px; transition: all .1s;
 }
-.seliteRivi { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-.selitePallo {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-}
-.seliteIkoni { font-size: 11px; font-weight: 700; width: 16px; text-align: center; }
+.row-save-btn:hover { color: var(--vihrea); transform: scale(1.2); }
+.row-save-btn.dirty { color: var(--sininen); }
+.row-save-btn.saving { color: var(--keltainen); animation: pulse .5s infinite; }
+.row-save-btn.saved  { color: var(--vihrea); }
 
-/* ─── Latausviesti ───────────────────────────────────── */
-.latausViesti {
-  text-align: center; padding: 60px 20px;
-  color: var(--ink3); font-size: 14px;
-}
-.spinner {
-  width: 24px; height: 24px; border: 2px solid var(--border2);
-  border-top-color: var(--primary); border-radius: 50%;
-  animation: spin .7s linear infinite; display: inline-block;
-  margin-right: 10px; vertical-align: middle;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
 
-.virheViesti {
-  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
-  border-radius: 8px; padding: 12px 16px; color: var(--red);
-  font-size: 13px; margin-top: 12px;
-}
-
-/* ─── TULOSTUS @media print ──────────────────────────── */
+/* ── Tulostusnäkymä ── */
 @media print {
-  /* Piilotetaan kaikki UI-elementit */
-  .topbar, .valintaKortti, .seliteKortti,
-  .tulostaNappi, .genNappi { display: none !important; }
-
-  body {
-    background: #fff !important; color: #000 !important;
-    font-family: Arial, sans-serif; font-size: 10pt;
-  }
-  .sisalto { padding: 0; max-width: 100%; }
-  #lomakeAlue { display: block !important; }
-
-  .lomakeH1 { font-size: 14pt; color: #000 !important; }
-  .lomakeMeta { font-size: 9pt; color: #555 !important; }
-  .lomakePrintOtsikko {
-    display: flex !important; justify-content: space-between;
-    border-bottom: 2pt solid #000; padding-bottom: 8pt; margin-bottom: 12pt;
-  }
-
-  .harjTable {
-    font-size: 8pt; page-break-inside: auto;
-    border-collapse: collapse; width: 100%;
-  }
-  .harjTable th {
-    background: #f0f0f0 !important; color: #333 !important;
-    border: 1pt solid #999; padding: 4pt 3pt;
-    font-size: 7pt; font-weight: bold;
-  }
-  .harjTable td {
-    border: 1pt solid #ccc; padding: 3pt;
-    color: #000 !important;
-  }
-  .harjTable td.nimisolu { font-weight: bold; }
-  .harjTable td.syntsolu { color: #555 !important; }
-  .harjTable thead { display: table-header-group; }
-  .harjTable tbody tr { page-break-inside: avoid; }
-
-  /* Tuloslaatikot tulostuksessa: tyhjä valkoinen tila */
-  .tuloskehys, .tulos2kehys {
-    border: 1pt solid #aaa !important;
-    background: #fff !important; height: 20pt;
-  }
-  .tulos2kehys .pisteaspu {
-    background: #f5f5f5 !important; color: #999 !important;
-    border-left: 1pt solid #aaa !important;
-  }
-  .phvHuippu { color: #c00 !important; }
-  .phvNopea  { color: #b60 !important; }
-  .phvNormaali { color: #060 !important; }
-  .phvTyhjä  { color: #999 !important; }
-
-  .tauluKehys { overflow: visible !important; }
-
-  /* Ylätunniste per sivu */
-  .printYlatunniste {
-    display: flex !important; justify-content: space-between;
-    font-size: 8pt; color: #555; margin-bottom: 6pt;
-  }
-  .printViivat { font-size: 8pt; color: #555; margin-top: 8pt; }
+  body { background: white; color: black; font-size: 9pt; }
+  #topbar, #asetukset, .lomake-toolbar, #tuontiPaneeli,
+  .row-save-btn, #loginSection { display: none !important; }
+  #mainSection { display: block !important; padding: 0; }
+  .taulukko-wrapper { overflow: visible; border: none; }
+  table { font-size: 8pt; }
+  thead th { background: #e8eef8 !important; color: black !important;
+    border: 1px solid #ccc !important; -webkit-print-color-adjust: exact; }
+  tbody td { border: 1px solid #ccc !important; }
+  tbody td.col-pelaaja { background: #f5f7fa !important; position: static; }
+  .td-input { color: black; }
+  .td-select { color: black; }
+  .p-btn { border-color: #999 !important; }
+  .p-btn.p1.active { background: #ef4444 !important; -webkit-print-color-adjust: exact; }
+  .p-btn.p2.active { background: #f59e0b !important; -webkit-print-color-adjust: exact; }
+  .p-btn.p3.active { background: #22c55e !important; -webkit-print-color-adjust: exact; }
+  @page { size: A4 landscape; margin: 10mm; }
+  .lomake-header { background: #e8eef8 !important; color: black !important; border-radius: 0; }
 }
-/* Piilotettuna ruudulla, näkyvissä tulostuksessa */
-.printYlatunniste, .printViivat { display: none; }
+
+/* ── Prosessin vaiheindikaattori ── */
+.vaihe-askel {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 8px; border-radius: 20px;
+  font-size: 11px; color: var(--teksti2);
+  white-space: nowrap; transition: all .2s; cursor: default;
+}
+.vaihe-askel.aktiivinen {
+  background: rgba(74,126,217,.15);
+  color: var(--sininen); font-weight: 700;
+}
+.vaihe-askel.valmis {
+  color: var(--vihrea);
+}
+.vaihe-askel.tuleva {
+  opacity: .4;
+}
+.vaihe-num {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--reuna); display: flex; align-items: center;
+  justify-content: center; font-size: 10px; font-weight: 700;
+  flex-shrink: 0;
+}
+.vaihe-askel.aktiivinen .vaihe-num { background: var(--sininen); color: #fff; }
+.vaihe-askel.valmis .vaihe-num { background: var(--vihrea); color: #fff; }
+.vaihe-nuoli { color: var(--reuna); padding: 0 2px; line-height: 28px; font-size: 14px; }
+
+/* ── Mobiilisyöttönäkymä ── */
+.mob-kortti {
+  background: var(--bg2); border: 1px solid var(--reuna);
+  border-radius: 12px; padding: 16px; margin-bottom: 12px;
+}
+.mob-pelaaja-nimi { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.mob-pelaaja-meta { font-size: 12px; color: var(--teksti2); margin-bottom: 16px; }
+.mob-testi-rivi {
+  display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px;
+}
+.mob-testi-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+  color: var(--teksti2); font-weight: 600;
+}
+.mob-testi-input {
+  background: var(--bg3); border: 1px solid var(--reuna);
+  color: var(--teksti); padding: 12px 14px; border-radius: 8px;
+  font-size: 18px; text-align: center; width: 100%;
+}
+.mob-testi-input:focus { outline: 2px solid var(--sininen); border-color: transparent; }
+.mob-pisteet-rivi {
+  display: flex; gap: 10px; justify-content: center;
+}
+.mob-p-btn {
+  flex: 1; padding: 14px; border-radius: 8px; border: 2px solid var(--reuna);
+  background: transparent; color: var(--teksti2); font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: all .15s;
+}
+.mob-p-btn.p1.active { background: var(--punainen); border-color: var(--punainen); color: #fff; }
+.mob-p-btn.p2.active { background: var(--keltainen); border-color: var(--keltainen); color: #000; }
+.mob-p-btn.p3.active { background: var(--vihrea); border-color: var(--vihrea); color: #fff; }
+.mob-navigaatio {
+  display: flex; gap: 10px; margin-top: 16px;
+}
+.mob-flei-bar {
+  background: var(--bg3); border-radius: 8px; padding: 10px 14px;
+  margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;
+}
+
+/* Mobiilipainike lomaketyökalurivillä */
+@media (max-width: 768px) {
+  #asetukset { flex-direction: column; }
+  #asetukset select, #asetukset input[type=date] { min-width: 100%; }
+  .taulukko-wrapper { display: none; } /* Mobiilissa näkyy mob-näkymä */
+  #mobNappi { display: inline-flex !important; }
+}
+#notif {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--bg2); border: 1px solid var(--reuna);
+  border-radius: var(--radius); padding: 12px 16px;
+  font-size: 13px; z-index: 9999; max-width: 320px;
+  transform: translateY(80px); opacity: 0;
+  transition: all .3s; pointer-events: none;
+}
+#notif.show { transform: translateY(0); opacity: 1; }
+#notif.ok   { border-color: var(--vihrea); color: var(--vihrea); }
+#notif.err  { border-color: var(--punainen); color: var(--punainen); }
+#notif.info { border-color: var(--sininen); color: var(--sininen); }
+
+/* ── Yhteenveto-palkki ── */
+#yhteenveto {
+  background: var(--bg2); border: 1px solid var(--reuna);
+  border-radius: var(--radius); padding: 12px 16px; margin-top: 12px;
+  display: none; flex-wrap: wrap; gap: 20px; align-items: center;
+}
+.yh-stat { text-align: center; }
+.yh-arvo { font-size: 22px; font-weight: 700; }
+.yh-nimi { font-size: 10px; color: var(--teksti2); text-transform: uppercase; letter-spacing: .6px; }
 </style>
 </head>
 <body>
 
-<!-- ════════════════════════════════════════════════════
-     KIRJAUTUMINEN
-═════════════════════════════════════════════════════ -->
-<div id="kirjLogin">
-  <div class="loginKortti">
-    <div class="loginLogo">TalentMaster™</div>
-    <div class="loginOtsikko">Harjoitettavuuskartoitus</div>
-    <input id="loginEmail" class="loginInput" type="email"
-           placeholder="Sähköposti" autocomplete="username">
-    <input id="loginSalasana" class="loginInput" type="password"
-           placeholder="Salasana" autocomplete="current-password"
-           onkeydown="if(event.key==='Enter')kirjaudu()">
-    <button class="loginNappi" onclick="kirjaudu()">Kirjaudu sisään</button>
-    <div id="loginVirhe" class="loginVirhe"></div>
+<!-- Topbar -->
+<div id="topbar">
+  <div>
+    <div class="topbar-logo">TalentMaster™</div>
+    <div class="topbar-sub">Harjoitettavuuskartoitus</div>
+  </div>
+  <div id="userInfo">
+    <span id="userEmail" style="display:none"></span>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" style="display:none" onclick="kirjauduUlos()">Kirjaudu ulos</button>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════
-     PÄÄSOVELLUS
-═════════════════════════════════════════════════════ -->
-<div id="sovellus">
-  <div class="topbar">
-    <span class="topbarLogo">TalentMaster™</span>
-    <span style="font-size:12px;color:var(--ink3);">— Harjoitettavuuskartoitus-lomake</span>
-    <div class="topbarErottaja"></div>
-    <span id="topbarKayttaja" style="font-size:12px;color:var(--ink3);margin-right:12px;"></span>
-    <button class="topbarUlos" onclick="kirjauduUlos()">Kirjaudu ulos</button>
-  </div>
-
-  <div class="sisalto">
-    <!-- Valinnat -->
-    <div class="valintaKortti">
-      <div class="valintaOtsikko">Lomakkeen asetukset</div>
-      <div class="valintaRivi">
-        <div class="valintaRyhma">
-          <label class="valintaLabel">Seura</label>
-          <select id="valSeura" class="valintaSelect" onchange="lataaSeuranJoukkueet()">
-            <option value="">— valitse seura —</option>
-          </select>
-        </div>
-        <div class="valintaRyhma">
-          <label class="valintaLabel">Joukkue</label>
-          <select id="valJoukkue" class="valintaSelect" onchange="paivitaNappi()">
-            <option value="">— valitse joukkue —</option>
-          </select>
-        </div>
-        <div class="valintaRyhma">
-          <label class="valintaLabel">Ikäluokka</label>
-          <select id="valIkaluokka" class="valintaSelect" onchange="paivitaNappi()">
-            <option value="">— valitse —</option>
-            <option value="U12">U12  (10–12-vuotiaat)</option>
-            <option value="U15">U15  (13–15-vuotiaat)</option>
-            <option value="U19">U19  (16–19-vuotiaat)</option>
-          </select>
-        </div>
-        <div class="valintaRyhma">
-          <label class="valintaLabel">Testipäivä</label>
-          <input id="valPvm" class="valintaInput" type="date"
-                 style="min-width:160px;"
-                 value="">
-        </div>
-        <div class="valintaRyhma" style="justify-content:flex-end;">
-          <label class="valintaLabel">&nbsp;</label>
-          <div style="display:flex;gap:10px;">
-            <button id="genNappi" class="genNappi" onclick="generoiLomake()" disabled>
-              📋 Generoi lomake
-            </button>
-            <button id="tulostaNappi" class="tulostaNappi" onclick="window.print()">
-              🖨️ Tulosta
-            </button>
-          </div>
-        </div>
-      </div>
-      <div id="valintaVirhe"></div>
+<!-- Kirjautuminen -->
+<div id="loginSection">
+  <div class="login-title">🔐 Kirjaudu sisään</div>
+  <div class="login-sub">TalentMaster™ — Harjoitettavuuskartoitus-lomake</div>
+  <div style="display:flex; flex-direction:column; gap:10px; margin-top:16px;">
+    <div class="asetus-rivi">
+      <label class="asetus-label">Sähköposti</label>
+      <input type="email" id="loginEmail" placeholder="vp.kpv@talentmaster.fi">
     </div>
-
-    <!-- Lomakealue -->
-    <div id="lomakeAlue"></div>
+    <div class="asetus-rivi">
+      <label class="asetus-label">Salasana</label>
+      <input type="password" id="loginSalasana" placeholder="••••••••">
+    </div>
+    <button class="btn btn-primary" onclick="kirjauduSisaan()" style="margin-top:6px;">Kirjaudu sisään</button>
+    <div id="loginVirhe" style="color:var(--punainen); font-size:12px; display:none;"></div>
   </div>
 </div>
+
+<!-- Prosessin vaiheindikaattori -->
+<div id="prosessiPalkki" style="
+  background: var(--bg2); border-bottom: 1px solid var(--reuna);
+  padding: 8px 20px; display: flex; gap: 0; overflow-x: auto;
+">
+  <div class="vaihe-askel aktiivinen" data-vaihe="1">
+    <span class="vaihe-num">1</span>
+    <span class="vaihe-nimi">Suunnittelu</span>
+  </div>
+  <div class="vaihe-nuoli">›</div>
+  <div class="vaihe-askel" data-vaihe="2">
+    <span class="vaihe-num">2</span>
+    <span class="vaihe-nimi">Kalenteri</span>
+  </div>
+  <div class="vaihe-nuoli">›</div>
+  <div class="vaihe-askel" data-vaihe="3">
+    <span class="vaihe-num">3</span>
+    <span class="vaihe-nimi">Osallistujat</span>
+  </div>
+  <div class="vaihe-nuoli">›</div>
+  <div class="vaihe-askel" data-vaihe="4">
+    <span class="vaihe-num">4</span>
+    <span class="vaihe-nimi">Lomake</span>
+  </div>
+  <div class="vaihe-nuoli">›</div>
+  <div class="vaihe-askel" data-vaihe="5">
+    <span class="vaihe-num">5</span>
+    <span class="vaihe-nimi">Testipäivä</span>
+  </div>
+  <div class="vaihe-nuoli">›</div>
+  <div class="vaihe-askel" data-vaihe="6">
+    <span class="vaihe-num">6</span>
+    <span class="vaihe-nimi">Tallennus</span>
+  </div>
+  <div class="vaihe-nuoli">›</div>
+  <div class="vaihe-askel" data-vaihe="7">
+    <span class="vaihe-num">7</span>
+    <span class="vaihe-nimi">Tarkastelu</span>
+  </div>
+  <div class="vaihe-nuoli">›</div>
+  <div class="vaihe-askel" data-vaihe="8">
+    <span class="vaihe-num">8</span>
+    <span class="vaihe-nimi">Palaute</span>
+  </div>
+</div>
+
+<!-- Mobiilisyöttönäkymä (yksi pelaaja kerrallaan) -->
+<div id="mobiilinäkymä" style="display:none; padding: 12px;"></div>
+
+<!-- Pääsisältö -->
+<div id="mainSection">
+
+  <!-- Asetuspaneeli -->
+  <div id="asetukset">
+    <div class="asetus-rivi">
+      <label class="asetus-label">Seura</label>
+      <select id="seuraSelect" onchange="paivitaJoukkueet()">
+        <option value="">— valitse seura —</option>
+      </select>
+    </div>
+    <div class="asetus-rivi">
+      <label class="asetus-label">Joukkue</label>
+      <select id="joukkueSelect">
+        <option value="">— valitse joukkue —</option>
+      </select>
+    </div>
+    <div class="asetus-rivi">
+      <label class="asetus-label">Ikäluokka</label>
+      <select id="ikäluokkaSelect">
+        <option value="">— valitse —</option>
+        <option value="U12">U12 (10–12-vuotiaat)</option>
+        <option value="U15">U15 (13–15-vuotiaat)</option>
+        <option value="U19">U19 (16–19-vuotiaat)</option>
+      </select>
+    </div>
+    <div class="asetus-rivi">
+      <label class="asetus-label">Testipäivä</label>
+      <input type="date" id="testipaiva">
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="generoi()">📋 Generoi lomake</button>
+      <button class="btn btn-ghost" id="tuontiBtn" onclick="toggleTuonti()" style="display:none;">📥 Tuo Excel</button>
+      <button class="btn btn-ghost" onclick="tulostaLomake()">🖨️ Tulosta</button>
+    </div>
+  </div>
+
+  <!-- Excel-tuontipaneeli -->
+  <div id="tuontiPaneeli">
+    <div class="tuonti-otsikko">📥 Tuo testituokset Excel-tiedostosta</div>
+    <p style="color:var(--teksti2); font-size:11px; margin-bottom:12px;">
+      Lataa HPP ELITE -Excel tai TalentMaster-pohja, täytä siellä tulokset ja tuo ne tänne yhdellä klikkauksella.
+      Pelaajat tunnistetaan nimellä + syntymäpäivällä.
+    </p>
+    <div class="drop-zone" id="dropZone"
+      ondragover="event.preventDefault(); this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="handleDrop(event)"
+      onclick="document.getElementById('excelInput').click()">
+      <div class="drop-icon">📊</div>
+      <p><strong>Vedä Excel-tiedosto tähän</strong> tai klikkaa valitaksesi</p>
+      <p style="margin-top:4px; font-size:10px; color:var(--teksti2);">Tuetut formaatit: .xlsx, .xls, .csv</p>
+    </div>
+    <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this.files[0])">
+    <div id="tuontiTulos" style="margin-top:10px; font-size:12px;"></div>
+  </div>
+
+  <!-- Lomakealue -->
+  <div id="lomakeAlue"></div>
+
+  <!-- Yhteenveto -->
+  <div id="yhteenveto">
+    <div class="yh-stat"><div class="yh-arvo" id="yhPelaajia">0</div><div class="yh-nimi">Pelaajaa</div></div>
+    <div class="yh-stat"><div class="yh-arvo" id="yhTaytetty">0</div><div class="yh-nimi">Täytetty</div></div>
+    <div class="yh-stat"><div class="yh-arvo" id="yhFleiKeski" style="color:var(--sininen)">—</div><div class="yh-nimi">FLEI keskim.</div></div>
+    <div class="yh-stat"><div class="yh-arvo" id="yhRiskiPelaajia" style="color:var(--punainen)">0</div><div class="yh-nimi">Korkea riski</div></div>
+    <div style="margin-left:auto;">
+      <button class="btn btn-success" onclick="tallennaKaikki()">💾 Tallenna kaikki Firestoreen</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Notifikaatio -->
+<div id="notif"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════
-// FIREBASE-ALUSTUS
-// ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════
+   FIREBASE CONFIG
+═══════════════════════════════════════════════════════ */
 const firebaseConfig = {
-  apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
-  authDomain:        "talentmaster-pilot.firebaseapp.com",
-  projectId:         "talentmaster-pilot",
-  storageBucket:     "talentmaster-pilot.firebasestorage.app",
+  apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+  authDomain: "talentmaster-pilot.firebaseapp.com",
+  projectId: "talentmaster-pilot",
+  storageBucket: "talentmaster-pilot.firebasestorage.app",
   messagingSenderId: "872561784446",
-  appId:             "1:872561784446:web:05c4c7996dfd46ddd14a2f"
+  appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
-// ═══════════════════════════════════════════════════════════════
-// TILA
-// ═══════════════════════════════════════════════════════════════
-const tila = {
-  kayttaja:  null,
-  rooli:     null,
-  seurat:    [],
-  seuraId:   null,
-};
-
-// ═══════════════════════════════════════════════════════════════
-// TESTIMÄÄRITTELYT — kaikki kolme ikäluokkaa täydellisinä
-// Lähde: Palloliiton/Eerikkilän harjoitettavuuskartoitus 2026
-// ═══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════
+   TESTIDEFINITIOT — kolme ikäluokkaa
+═══════════════════════════════════════════════════════ */
 const TESTIT = {
-
-  // ── U12 (10–12-vuotiaat) ────────────────────────────────────
-  // 9 testiä, 27p max
-  // Testit 1-6: laadullinen pisteytys 1-3p
-  // Testit 7-9: numeerinen kynnysarvo pisteytykseen
-  U12: {
-    otsikko: 'Harjoitettavuuskartoitus U12 — 10–12-vuotiaat',
-    alaotsikko: 'Liiketaito + Perusvoima + SSC | Pisteet 1–3 per testi | Max 27p',
-    maxPisteet: 27,
-    testit: [
-      { id:'valakyykky',       nimi:'Valakyykky',              yksikko:'1–3p', tyyppi:'laatu',  leveys:52 },
-      { id:'luistelukyykky',   nimi:'Luistelijan kyykky',      yksikko:'1–3p', tyyppi:'laatu',  leveys:52 },
-      { id:'askelkyykky',      nimi:'Askelkyykky',             yksikko:'1–3p', tyyppi:'laatu',  leveys:52 },
-      { id:'hyvaahuomenta',    nimi:'Hyvää huomenta',          yksikko:'1–3p', tyyppi:'laatu',  leveys:52 },
-      { id:'punnerrus_arv',    nimi:'Etunojapunnerrus arv.',   yksikko:'1–3p', tyyppi:'laatu',  leveys:52 },
-      { id:'lankku60',         nimi:'Lankku 60s',              yksikko:'sek',  tyyppi:'numero', leveys:65,
-        viitearvot:{ p1:'<30s', p2:'30–49s', p3:'≥50s' } },
-      { id:'naruhypyt15',      nimi:'Naruhypyt 15s',           yksikko:'tst',  tyyppi:'numero', leveys:65,
-        viitearvot:{ p1:'<26', p2:'26–35', p3:'≥36' } },
-      { id:'pituushyppy',      nimi:'Pituushyppy',             yksikko:'cm',   tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<175', p2:'175–184', p3:'≥185' },
-                     tyto:{ p1:'<180', p2:'180–194', p3:'≥195' } } },
-      { id:'viisiloikka',      nimi:'5-loikka',                yksikko:'cm',   tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<875', p2:'875–924', p3:'≥925' },
-                     tyto:{ p1:'<900', p2:'900–974', p3:'≥975' } } },
-    ]
-  },
-
-  // ── U15 (13–15-vuotiaat) ────────────────────────────────────
-  // 13 testiä (10 protokollaa + 3 vaihtoehtotestiä), 39p max
-  // ⚠️ PHV-huippu → MAX 60% kuorma
-  U15: {
-    otsikko: 'Harjoitettavuuskartoitus U15 — 13–15-vuotiaat',
-    alaotsikko: '⚠️ Kriittinen PHV-ikäluokka | Tarkista PHV-tila ennen testausta | Max 39p',
-    maxPisteet: 39,
-    phvVaroitus: true,
-    testit: [
-      { id:'pistoolikyykky',   nimi:'Pistoolikyykky',          yksikko:'tst',  tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<5', p2:'5–7', p3:'≥8' },
-                     tyto:{ p1:'<6', p2:'6–9', p3:'≥10' } } },
-      { id:'punnerrus_tst',    nimi:'*Etunojapunnerrus tst',   yksikko:'tst',  tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<12', p2:'12–19', p3:'≥20' },
-                     tyto:{ p1:'<24', p2:'24–33', p3:'≥34' } } },
-      { id:'leuanveto',        nimi:'Leuanveto',               yksikko:'tst',  tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<4', p2:'4–5', p3:'≥6' },
-                     tyto:{ p1:'<7', p2:'7–9', p3:'≥10' } } },
-      { id:'jalkojenNosto',    nimi:'Jalkojen nosto / Lankku 120s / Sivulankku 60s',
-                                                               yksikko:'tst/s', tyyppi:'numero', leveys:80,
-        viitearvot:{ pojat:{ p1:'<5tst/<60s/<40s', p2:'5–9/<60–89/40–49', p3:'≥10/≥90/≥50' },
-                     tyto:{ p1:'<8/<60s/<40s', p2:'8–12/60–90/40–50', p3:'≥13/≥90/≥50' } } },
-      { id:'lantionnosto',     nimi:'1-jalan lantionnosto',    yksikko:'tst',  tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<29', p2:'29–39', p3:'≥40' },
-                     tyto:{ p1:'<37', p2:'37–45', p3:'≥46' } } },
-      { id:'naruhypyt1j',      nimi:'1-jalan naruhypyt 30s / Päkiänousu',
-                                                               yksikko:'tst',  tyyppi:'numero', leveys:80,
-        viitearvot:{ pojat:{ p1:'<57/<15', p2:'57–67/>15', p3:'≥68/20' },
-                     tyto:{ p1:'<62/<15', p2:'62–71/>15', p3:'≥72/20' } } },
-      { id:'slr',              nimi:'Aktiiv. suoran jalan nosto', yksikko:'1–3p', tyyppi:'laatu', leveys:52 },
-      { id:'thomas',           nimi:'Thomas-testi',            yksikko:'1–3p', tyyppi:'laatu',  leveys:52 },
-      { id:'pituushyppy',      nimi:'Pituushyppy',             yksikko:'cm',   tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<195', p2:'195–210', p3:'>210' },
-                     tyto:{ p1:'<220', p2:'220–244', p3:'≥245' } } },
-      { id:'viisiloikka',      nimi:'5-loikka',                yksikko:'cm',   tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<975', p2:'975–1050', p3:'>1050' },
-                     tyto:{ p1:'<1100', p2:'1100–1224', p3:'≥1225' } } },
-    ]
-  },
-
-  // ── U19 (16–19-vuotiaat) ────────────────────────────────────
-  // 13 testiä + 5RM voimatestit suhteellisella voimalla
-  // Voimatestit: kuorma (kg) + paino (kg) → 1RM-laskenta Brzycki 1993
-  U19: {
-    otsikko: 'Harjoitettavuuskartoitus U19 — 16–19-vuotiaat',
-    alaotsikko: 'Voimatestit 5RM + Liikkuvuus + Hypyt | Suhteellinen voima kg/kg',
-    maxPisteet: 24,
-    testit: [
-      // 5RM-voimatestit — kuorma + paino → laskennallinen 1RM
-      { id:'takakyykky5rm',   nimi:'Takakyykky 5RM',          yksikko:'kg',   tyyppi:'voima5rm', leveys:90 },
-      { id:'trapbar5rm',      nimi:'Trap bar maastaveto 5RM', yksikko:'kg',   tyyppi:'voima5rm', leveys:90 },
-      { id:'rinnalleveto5rm', nimi:'Rinnalleveto 5RM',        yksikko:'kg',   tyyppi:'voima5rm', leveys:90 },
-      { id:'yj_kyykky5rm',    nimi:'1-jalan kyykky 5RM',      yksikko:'kg',   tyyppi:'voima5rm', leveys:90 },
-      { id:'penkki5rm',       nimi:'Penkkipunnerrus 5RM',     yksikko:'kg',   tyyppi:'voima5rm', leveys:90 },
-      // Laadulliset + numeeriset testit
-      { id:'leuanveto',       nimi:'Leuanvedot',              yksikko:'tst',  tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<5', p2:'5–7', p3:'≥8' },
-                     tyto:{ p1:'<8', p2:'8–14', p3:'≥15' } } },
-      { id:'jalkojenNosto',   nimi:'Jalkojennosto riipunnasta', yksikko:'tst', tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<9', p2:'9–15', p3:'≥16' },
-                     tyto:{ p1:'<12', p2:'12–19', p3:'≥20' } } },
-      { id:'pakianousu',      nimi:'1-jalan päkiänousu',      yksikko:'tst',  tyyppi:'numero', leveys:65,
-        viitearvot:{ p1:'<15', p2:'≥15', p3:'20' } },
-      { id:'lonkkaOjennus',   nimi:'Lonkan aktiiv. ojennus',  yksikko:'1–3p', tyyppi:'laatu',  leveys:52 },
-      { id:'slr',             nimi:'Aktiiv. suoran jalan nosto', yksikko:'1–3p', tyyppi:'laatu', leveys:52 },
-      { id:'thomas',          nimi:'Thomas-testi',            yksikko:'1–3p', tyyppi:'laatu',  leveys:52 },
-      { id:'pituushyppy',     nimi:'Pituushyppy',             yksikko:'cm',   tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<210', p2:'210–229', p3:'≥230' },
-                     tyto:{ p1:'<245', p2:'245–274', p3:'≥275' } } },
-      { id:'viisiloikka',     nimi:'5-loikka',                yksikko:'cm',   tyyppi:'numero', leveys:65,
-        viitearvot:{ pojat:{ p1:'<1050', p2:'1050–1149', p3:'≥1150' },
-                     tyto:{ p1:'<1225', p2:'1225–1374', p3:'≥1375' } } },
-    ]
-  }
+  U12: [
+    { id:'phv_tila',             label:'PHV-TILA',           tyyppi:'valinta', opts:['AN','PH','VA'], w:68 },
+    { id:'lantionojennustoisto', label:'LANTIONNOJENNUSTOISTO\nTST', tyyppi:'luku', w:90 },
+    { id:'kyykkyistunta',        label:'KYYKKYISTUNTA\nSEK',  tyyppi:'luku', w:80 },
+    { id:'leuanveto',            label:'LEUANVETO\nTST',      tyyppi:'luku', w:75 },
+    { id:'lankku',               label:'LANKKU\nSEK',         tyyppi:'luku', w:70 },
+    { id:'sivulankku',           label:'SIVULANKKU\nSEK',     tyyppi:'luku', w:75 },
+    { id:'valakyykky',           label:'VALAKYYKKY\nPISTOT',  tyyppi:'pisteet', w:75 },
+    { id:'slr',                  label:'SLR\nAST',            tyyppi:'luku', w:65 },
+    { id:'lonkan_aktiivinen',    label:'LONKAN AKT.\nPISTOT', tyyppi:'pisteet', w:70 },
+    { id:'flei',                 label:'FLEI\n%',             tyyppi:'flei', w:60 },
+  ],
+  U15: [
+    { id:'phv_tila',             label:'PHV-TILA',            tyyppi:'valinta', opts:['AN','PH','VA'], w:68 },
+    { id:'lantionojennustoisto', label:'LANTIONOJENNUSTOISTO\nTST', tyyppi:'luku', w:90 },
+    { id:'pistoolikyykky',       label:'PISTOOLIKYYKKY\nTST', tyyppi:'luku', w:85 },
+    { id:'leuanveto',            label:'LEUANVETO\nTST',       tyyppi:'luku', w:75 },
+    { id:'nordic_curl',          label:'NORDIC CURL\nTST',    tyyppi:'luku', w:80 },
+    { id:'lankku',               label:'LANKKU\nSEK',          tyyppi:'luku', w:70 },
+    { id:'sivulankku',           label:'SIVULANKKU\nSEK',      tyyppi:'luku', w:75 },
+    { id:'slr',                  label:'SLR\nAST',             tyyppi:'luku', w:65 },
+    { id:'thomas',               label:'THOMAS\nPISTOT',       tyyppi:'pisteet', w:65 },
+    { id:'fms_squat',            label:'FMS SQUAT\nPISTOT',    tyyppi:'pisteet', w:75 },
+    { id:'sebt_ant',             label:'SEBT ANT\n%',          tyyppi:'luku', w:70 },
+    { id:'lonkan_aktiivinen',    label:'LONKAN AKT.\nPISTOT',  tyyppi:'pisteet', w:70 },
+    { id:'lonkan_passiivinen',   label:'LONKAN PAS.\nPISTOT',  tyyppi:'pisteet', w:70 },
+    { id:'flei',                 label:'FLEI\n%',              tyyppi:'flei', w:60 },
+  ],
+  U19: [
+    { id:'phv_tila',                label:'PHV-TILA\nAN/PH/VA',            tyyppi:'valinta', opts:['AN','PH','VA'], w:68 },
+    { id:'takakyykky_srm',          label:'TAKAKYYKKY SRM\nKG / KG/KG',    tyyppi:'luku', w:90 },
+    { id:'trap_bar_srm',            label:'TRAP BAR MAASTAVETO\nKG / KG/KG', tyyppi:'luku', w:90 },
+    { id:'rinnalleveto_srm',        label:'RINNALLEVETO SRM\nKG / KG/KG',  tyyppi:'luku', w:85 },
+    { id:'yhden_jalan_kyykky',      label:'1-JALAN KYYKKY SRM\nKG / KG/KG', tyyppi:'luku', w:85 },
+    { id:'penkkipunnerrus_srm',     label:'PENKKIPUNNERRUS SRM\nKG / KG/KG', tyyppi:'luku', w:90 },
+    { id:'leuanvedot',              label:'LEUANVEDOT\nTST',                tyyppi:'luku', w:70 },
+    { id:'jalkojenojennusripunnasta', label:'JALKOJENOJENNUSRIPUNNASTA\nTST', tyyppi:'luku', w:95 },
+    { id:'yhden_jalan_pakianouu',   label:'1-JALAN PÄKIÄNOUSU\nTST',       tyyppi:'luku', w:80 },
+    { id:'lonkan_aktiivinen',       label:'LONKAN AKT.\nPISTOT',           tyyppi:'pisteet', w:70 },
+    { id:'flei',                    label:'FLEI\n%',                        tyyppi:'flei', w:60 },
+  ],
 };
 
-// ═══════════════════════════════════════════════════════════════
-// KIRJAUTUMINEN
-// ═══════════════════════════════════════════════════════════════
-async function kirjaudu() {
+/* ═══════════════════════════════════════════════════════
+   TILA
+═══════════════════════════════════════════════════════ */
+let nykyinenKayttaja = null;
+let nykyinenSeura    = null;
+let pelaajat         = [];  // [{id, etunimi, sukunimi, syntymapaiva, ...tulokset}]
+let dirtyRows        = new Set();
+
+/* ═══════════════════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════════════════ */
+auth.onAuthStateChanged(user => {
+  if (user) {
+    nykyinenKayttaja = user;
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('mainSection').style.display  = 'block';
+    document.getElementById('userEmail').textContent = user.email;
+    document.getElementById('userEmail').style.display = 'inline';
+    document.getElementById('logoutBtn').style.display  = 'inline-flex';
+    alustaSeurat();
+    // Aseta tämä päivä oletuksena
+    document.getElementById('testipaiva').value = new Date().toISOString().split('T')[0];
+  } else {
+    nykyinenKayttaja = null;
+    document.getElementById('loginSection').style.display = 'block';
+    document.getElementById('mainSection').style.display  = 'none';
+  }
+});
+
+async function kirjauduSisaan() {
   const email = document.getElementById('loginEmail').value.trim();
-  const sala  = document.getElementById('loginSalasana').value;
-  const virheEl = document.getElementById('loginVirhe');
-  virheEl.textContent = '';
-  if (!email || !sala) { virheEl.textContent = 'Täytä sähköposti ja salasana.'; return; }
+  const pass  = document.getElementById('loginSalasana').value;
+  const virhe = document.getElementById('loginVirhe');
+  virhe.style.display = 'none';
   try {
-    await auth.signInWithEmailAndPassword(email, sala);
+    await auth.signInWithEmailAndPassword(email, pass);
   } catch(e) {
-    virheEl.textContent = 'Kirjautuminen epäonnistui: ' + e.message;
+    virhe.textContent = 'Kirjautuminen epäonnistui: ' + e.message;
+    virhe.style.display = 'block';
   }
 }
 
@@ -560,319 +628,670 @@ async function kirjauduUlos() {
   await auth.signOut();
 }
 
-// Auth-tila — odottaa kirjautumista
-auth.onAuthStateChanged(async kayttaja => {
-  if (!kayttaja) {
-    document.getElementById('kirjLogin').style.display = 'flex';
-    document.getElementById('sovellus').style.display  = 'none';
-    return;
-  }
-  tila.kayttaja = kayttaja;
-  document.getElementById('topbarKayttaja').textContent = kayttaja.email;
-
-  // Tunnista rooli
-  const token = await kayttaja.getIdTokenResult();
-  const claims = token.claims;
-  let rooli = claims.rooli || '';
-  if (!rooli) {
-    try {
-      const adminSnap = await db.collection('admins').doc(kayttaja.uid).get();
-      if (adminSnap.exists && adminSnap.data().superAdmin) rooli = 'superadmin';
-    } catch(e) {}
-  }
-  tila.rooli = rooli;
-
-  document.getElementById('kirjLogin').style.display  = 'none';
-  document.getElementById('sovellus').style.display   = 'block';
-
-  await lataaSeuratValikkoon();
-  // Aseta tänään oletukseksi testipäivään
-  document.getElementById('valPvm').value = new Date().toISOString().slice(0,10);
-});
-
-// ═══════════════════════════════════════════════════════════════
-// SEURA-/JOUKKUELATAUSTOIMINNOT
-// ═══════════════════════════════════════════════════════════════
-async function lataaSeuratValikkoon() {
-  const sel = document.getElementById('valSeura');
+/* ═══════════════════════════════════════════════════════
+   SEURAT JA JOUKKUEET
+═══════════════════════════════════════════════════════ */
+async function alustaSeurat() {
   try {
-    if (tila.rooli === 'superadmin') {
-      // Super Admin: kaikki seurat
+    const claims = (await nykyinenKayttaja.getIdTokenResult()).claims;
+    const seuraSelect = document.getElementById('seuraSelect');
+    seuraSelect.innerHTML = '<option value="">— valitse seura —</option>';
+
+    if (claims.super_admin || claims.superAdmin) {
+      // Super admin näkee kaikki seurat
       const snap = await db.collection('seurat').get();
-      tila.seurat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      snap.forEach(doc => {
+        const opt = document.createElement('option');
+        opt.value = doc.id;
+        opt.textContent = doc.data().nimi || doc.id;
+        seuraSelect.appendChild(opt);
+      });
     } else {
-      // VP: vain oma seura
-      const snap = await db.collection('seurat')
-        .where('vp_uid', '==', tila.kayttaja.uid).get();
-      tila.seurat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    }
-    sel.innerHTML = '<option value="">— valitse seura —</option>';
-    tila.seurat.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s.id; opt.textContent = s.nimi || s.id;
-      sel.appendChild(opt);
-    });
-    // Jos vain yksi seura → valitse automaattisesti
-    if (tila.seurat.length === 1) {
-      sel.value = tila.seurat[0].id;
-      await lataaSeuranJoukkueet();
+      // Muut näkevät vain oman seuransa
+      const seura = claims.seura;
+      if (seura) {
+        const doc = await db.collection('seurat').doc(seura).get();
+        if (doc.exists) {
+          const opt = document.createElement('option');
+          opt.value = doc.id;
+          opt.textContent = doc.data().nimi || doc.id;
+          seuraSelect.appendChild(opt);
+          seuraSelect.value = doc.id;
+          await paivitaJoukkueet();
+        }
+      }
     }
   } catch(e) {
-    console.error('Seurojen lataus:', e);
+    console.error('Seurojen lataus epäonnistui:', e);
+    naytaNotif('Seurojen lataus epäonnistui', 'err');
   }
 }
 
-async function lataaSeuranJoukkueet() {
-  const seuraId = document.getElementById('valSeura').value;
-  const jSel    = document.getElementById('valJoukkue');
-  jSel.innerHTML = '<option value="">— valitse joukkue —</option>';
+async function paivitaJoukkueet() {
+  const seuraId = document.getElementById('seuraSelect').value;
+  const joukkueSelect = document.getElementById('joukkueSelect');
+  joukkueSelect.innerHTML = '<option value="">— valitse joukkue —</option>';
+  nykyinenSeura = seuraId;
   if (!seuraId) return;
-  tila.seuraId = seuraId;
   try {
     const snap = await db.collection('seurat').doc(seuraId)
       .collection('joukkueet').orderBy('nimi').get();
-    if (snap.empty) {
-      // Fallback: hae joukkueet pelaajadatasta
-      const pSnap = await db.collection('seurat').doc(seuraId)
-        .collection('pelaajat').get();
-      const joukkueet = [...new Set(pSnap.docs.map(d => d.data().joukkue).filter(Boolean))].sort();
-      joukkueet.forEach(j => {
-        const opt = document.createElement('option');
-        opt.value = j; opt.textContent = j; jSel.appendChild(opt);
-      });
-    } else {
-      snap.docs.forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d.id; opt.textContent = d.data().nimi || d.id;
-        jSel.appendChild(opt);
-      });
-    }
-  } catch(e) { console.error('Joukkueet:', e); }
-  paivitaNappi();
+    snap.forEach(doc => {
+      const opt = document.createElement('option');
+      opt.value = doc.id;
+      opt.textContent = doc.data().nimi || doc.id;
+      joukkueSelect.appendChild(opt);
+    });
+  } catch(e) {
+    console.error('Joukkueiden lataus:', e);
+  }
 }
 
-function paivitaNappi() {
-  const seura = document.getElementById('valSeura').value;
-  const jouk  = document.getElementById('valJoukkue').value;
-  const ika   = document.getElementById('valIkaluokka').value;
-  document.getElementById('genNappi').disabled = !(seura && jouk && ika);
-}
+/* ═══════════════════════════════════════════════════════
+   LOMAKKEEN GENEROINTI
+═══════════════════════════════════════════════════════ */
+async function generoi() {
+  const seuraId   = document.getElementById('seuraSelect').value;
+  const joukkueId = document.getElementById('joukkueSelect').value;
+  const ikäluokka = document.getElementById('ikäluokkaSelect').value;
+  const pvm       = document.getElementById('testipaiva').value;
 
-// ═══════════════════════════════════════════════════════════════
-// LOMAKKEEN GENEROINTI
-// ═══════════════════════════════════════════════════════════════
-async function generoiLomake() {
-  const seuraId   = document.getElementById('valSeura').value;
-  const joukkueId = document.getElementById('valJoukkue').value;
-  const ikaluokka = document.getElementById('valIkaluokka').value;
-  const pvmArvo   = document.getElementById('valPvm').value;
-  const alue      = document.getElementById('lomakeAlue');
+  if (!seuraId || !joukkueId || !ikäluokka || !pvm) {
+    naytaNotif('Valitse seura, joukkue, ikäluokka ja testipäivä', 'err');
+    return;
+  }
 
-  // Seura- ja joukkuenimi näyttöä varten
-  const seuraNimi = tila.seurat.find(s => s.id === seuraId)?.nimi || seuraId;
-  const joukkueNimi = document.getElementById('valJoukkue')
-    .options[document.getElementById('valJoukkue').selectedIndex]?.text || joukkueId;
-  const pvmNakytto = pvmArvo
-    ? new Date(pvmArvo).toLocaleDateString('fi-FI') : '___.___.______';
-
-  alue.innerHTML = '<div class="latausViesti"><span class="spinner"></span>Haetaan pelaajia...</div>';
-  document.getElementById('tulostaNappi').classList.remove('nakyvilla');
+  naytaNotif('Ladataan pelaajia...', 'info');
 
   try {
-    // Haetaan pelaajat — ensin suoraan joukkue-ID:llä, sitten nimellä
-    let pelaajaDocs = [];
-    const snap1 = await db.collection('seurat').doc(seuraId)
-      .collection('pelaajat').where('joukkue', '==', joukkueId).get();
-    if (!snap1.empty) {
-      pelaajaDocs = snap1.docs;
-    } else {
-      // Fallback: yritä joukkuenimellä
-      const snap2 = await db.collection('seurat').doc(seuraId)
-        .collection('pelaajat').where('joukkue', '==', joukkueNimi).get();
-      pelaajaDocs = snap2.docs;
+    // Hae joukkueen pelaajat + mahdolliset aiemmat tulokset
+    const pelaajaSnap = await db.collection('seurat').doc(seuraId)
+      .collection('joukkueet').doc(joukkueId)
+      .collection('pelaajat').orderBy('sukunimi').get();
+
+    pelaajat = [];
+    for (const doc of pelaajaSnap.docs) {
+      const p = { id: doc.id, ...doc.data(), tulokset: {} };
+      // Hae viimeisin kartoitus jos on
+      try {
+        const kartSnap = await db.collection('seurat').doc(seuraId)
+          .collection('joukkueet').doc(joukkueId)
+          .collection('kartoitukset')
+          .where('pelaajaId', '==', doc.id)
+          .where('ikäluokka', '==', ikäluokka)
+          .orderBy('testipvm', 'desc').limit(1).get();
+        if (!kartSnap.empty) {
+          p.tulokset = kartSnap.docs[0].data().tulokset || {};
+          p.kartId   = kartSnap.docs[0].id;
+        }
+      } catch(_) {}
+      pelaajat.push(p);
     }
 
-    // Järjestetään sukunimen mukaan
-    const pelaajat = pelaajaDocs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
+    // Jos ei joukkueen omia pelaajia, hae seuran pelaajat
+    if (pelaajat.length === 0) {
+      const seuraPelaajaSnap = await db.collection('seurat').doc(seuraId)
+        .collection('pelaajat')
+        .where('joukkue', '==', joukkueId)
+        .orderBy('sukunimi').get();
+      for (const doc of seuraPelaajaSnap.docs) {
+        pelaajat.push({ id: doc.id, ...doc.data(), tulokset: {} });
+      }
+    }
 
-    const maaritelma = TESTIT[ikaluokka];
-    if (!maaritelma) { alue.innerHTML = '<div class="virheViesti">Tuntematon ikäluokka.</div>'; return; }
-
-    alue.innerHTML = renderLomake(pelaajat, maaritelma, ikaluokka,
-      seuraNimi, joukkueNimi, pvmNakytto);
-    document.getElementById('tulostaNappi').classList.add('nakyvilla');
-
+    dirtyRows.clear();
+    renderLomake(seuraId, joukkueId, ikäluokka, pvm);
+    document.getElementById('tuontiBtn').style.display = 'inline-flex';
+    document.getElementById('yhteenveto').style.display = 'flex';
+    paivitaYhteenveto();
+    asetaVaihe(5); // Vaihe 5: testipäivä — lomake generoitu, valmis syöttämään
+    naytaNotif(`${pelaajat.length} pelaajaa ladattu`, 'ok');
   } catch(e) {
-    alue.innerHTML = `<div class="virheViesti">Virhe: ${e.message}</div>`;
     console.error(e);
+    naytaNotif('Virhe pelaajien latauksessa: ' + e.message, 'err');
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// HTML-RENDERÖINTI
-// ═══════════════════════════════════════════════════════════════
-function renderLomake(pelaajat, maaritelma, ikaluokka, seuraNimi, joukkueNimi, pvm) {
-  const testit = maaritelma.testit;
-  const onVoima5rm = testit.some(t => t.tyyppi === 'voima5rm');
+/* ═══════════════════════════════════════════════════════
+   LOMAKKEEN RENDERÖINTI
+═══════════════════════════════════════════════════════ */
+function renderLomake(seuraId, joukkueId, ikäluokka, pvm) {
+  const testit    = TESTIT[ikäluokka] || [];
+  const seuranimi = document.getElementById('seuraSelect').selectedOptions[0]?.textContent || seuraId;
+  const joukkuenimiEl = document.getElementById('joukkueSelect').selectedOptions[0];
+  const joukkuenimiText = joukkuenimiEl ? joukkuenimiEl.textContent : joukkueId;
+  const pvmFmt    = pvm ? new Date(pvm).toLocaleDateString('fi-FI') : '';
+  const maxPisteet = testit.reduce((s, t) => s + (t.tyyppi === 'pisteet' ? 3 : 0), 0);
 
-  // ── Otsikkorivi ──────────────────────────────────────────────
   let html = `
-  <div class="printYlatunniste">
-    <span><strong>TalentMaster™</strong> — Harjoitettavuuskartoitus</span>
-    <span>${seuraNimi} | ${joukkueNimi} | ${pvm}</span>
-  </div>
-  <div class="lomakeOtsikko">
+  <div class="lomake-header">
     <div>
-      <div class="lomakeH1">${maaritelma.otsikko}</div>
-      <div class="lomakeMeta">${seuraNimi} · ${joukkueNimi} · ${pvm}
-        &nbsp;·&nbsp; ${pelaajat.length} pelaajaa
-        &nbsp;·&nbsp; Max ${maaritelma.maxPisteet}p
-      </div>`;
+      <div class="lomake-otsikko">Harjoitettavuuskartoitus ${ikäluokka} — ${ikäluokka === 'U12' ? '10–12' : ikäluokka === 'U15' ? '13–15' : '16–19'}-vuotiaat</div>
+      <div class="lomake-alaotsikko">${seuranimi} | ${joukkuenimiText} | ${pvmFmt}</div>
+    </div>
+    <div class="lomake-meta">
+      ${pelaajat.length} pelaajaa &nbsp;·&nbsp; Max ${maxPisteet}p
+    </div>
+  </div>
 
-  if (maaritelma.phvVaroitus) {
-    html += `<div style="margin-top:8px;padding:8px 12px;background:rgba(239,68,68,.08);
-      border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:12px;color:var(--red);
-      display:inline-flex;align-items:center;gap:6px;">
-      ⚠️ Tarkista PHV-tila ennen testausta — PHV-huippu → MAX 60% kuorma
-    </div>`;
-  }
+  <div class="lomake-toolbar">
+    <button class="btn btn-success btn-sm" onclick="tallennaKaikki()">💾 Tallenna kaikki</button>
+    <button class="btn btn-ghost btn-sm" onclick="tyhjennaNakyvat()">🗑️ Tyhjennä</button>
+    <span id="globalStatus"></span>
+  </div>
 
-  html += `</div></div>
-  <div class="tauluKehys"><table class="harjTable">`;
+  <div class="taulukko-wrapper">
+  <table id="kartoitusTaulu">
+    <thead>
+      <tr>
+        <th class="col-pelaaja">PELAAJA</th>
+        <th class="col-synt">SYNT.</th>
+        <th style="width:28px">S</th>
+  `;
 
-  // ── Sarakkeiden otsikot ───────────────────────────────────────
-  html += '<thead><tr>';
-  html += '<th class="vasen" style="min-width:160px;">Pelaaja</th>';
-  html += '<th style="min-width:55px;">Synt.</th>';
-  html += '<th style="min-width:28px;">S</th>';  // sukupuoli P/T
-  html += '<th class="prim" style="min-width:70px;">PHV-tila<br><span style="font-size:8px;font-weight:400;color:var(--ink3);">H/N/Nr</span></th>';
-
+  // Sarakkeiden otsikot
   testit.forEach(t => {
-    const w = t.leveys || 65;
-    if (t.tyyppi === 'voima5rm') {
-      // Voimatesti: kaksi saraketta — kuorma ja suhteellinen voima
-      html += `<th style="min-width:${w}px;" colspan="2">${t.nimi}<br>
-        <span style="font-size:8px;font-weight:400;">${t.yksikko} / kg/kg</span></th>`;
-    } else if (t.tyyppi === 'laatu') {
-      html += `<th style="min-width:${w}px;">${t.nimi}<br>
-        <span style="font-size:8px;font-weight:400;">pisteet 1–3</span></th>`;
+    if (t.tyyppi === 'flei') {
+      html += `<th style="min-width:${t.w}px; color:var(--sininen);">${t.label}</th>`;
     } else {
-      html += `<th style="min-width:${w}px;">${t.nimi}<br>
-        <span style="font-size:8px;font-weight:400;">${t.yksikko}</span></th>`;
+      html += `<th style="min-width:${t.w}px">${t.label}</th>`;
     }
   });
+  html += `<th style="width:32px">💾</th></tr></thead><tbody>`;
 
-  html += '<th class="prim" style="min-width:55px;">Pisteet<br><span style="font-size:8px;">/${maaritelma.maxPisteet}</span></th>';
-  html += '<th style="min-width:55px;">FLEI-%</th>';
-  html += '<th class="prim" style="min-width:65px;">Kuorma-<br>rajoitin</th>';
-  html += '<th style="min-width:100px;">Huomiot</th>';
-  html += '</tr></thead><tbody>';
+  // Rivit
+  pelaajat.forEach((p, idx) => {
+    const syntymapaiva = p.syntymapaiva || p.syntymäpäivä || '';
+    const syntvFmt = syntymapaiva ? syntymapaiva.substring(0, 10).split('-').reverse().join('.') : '—';
+    const sukupuoli = (p.sukupuoli || p.s || 'P')[0].toUpperCase();
 
-  // ── Pelaajariviit ─────────────────────────────────────────────
-  // Jos ei pelaajia, näytetään tyhjiä rivejä tulostettavaksi
-  const rivit = pelaajat.length > 0 ? pelaajat : Array(16).fill(null);
+    html += `<tr id="rivi-${idx}" data-idx="${idx}">
+      <td class="col-pelaaja">${p.sukunimi || ''}, ${p.etunimi || ''}</td>
+      <td class="col-synt">${syntvFmt}</td>
+      <td style="text-align:center; color:var(--teksti2); font-size:11px;">${sukupuoli}</td>
+    `;
 
-  rivit.forEach((p, idx) => {
-    const nimi  = p ? `${p.sukunimi || ''}, ${p.etunimi || ''}`.replace(/^, |, $/, '') : '';
-    const syntv = p?.syntymaaika?.seconds
-      ? new Date(p.syntymaaika.seconds*1000).toLocaleDateString('fi-FI',{day:'2-digit',month:'2-digit',year:'2-digit'})
-      : (p ? '—' : '');
-    const spuoli = p?.sukupuoli
-      ? (p.sukupuoli.toLowerCase().startsWith('p') ? 'P' : 'T') : '';
-    const phvTila = p?.phv_tila || p?.phvTila || null;
-
-    html += `<tr>`;
-    html += `<td class="nimisolu">${nimi}</td>`;
-    html += `<td class="syntsolu">${syntv}</td>`;
-    html += `<td class="syntsolu">${spuoli}</td>`;
-
-    // PHV-tila-solu:
-    // • Jos bio-ikä on mitattu → näytetään tila badgena (lukittu tieto)
-    // • Jos ei ole mitattu → näytetään tyhjä kirjoitettava kenttä
-    //   jotta valmentaja voi täyttää sen itse kentällä
-    let phvHtml;
-    if (phvTila) {
-      const pt = phvTila.toLowerCase();
-      if (pt.includes('huippu'))
-        phvHtml = '<span class="phvHuippu">⚠️ HUIPPU</span>';
-      else if (pt.includes('nopea'))
-        phvHtml = '<span class="phvNopea">↑ Nopea</span>';
-      else if (pt.includes('normaali'))
-        phvHtml = '<span class="phvNormaali">✓ Normaali</span>';
-      else
-        phvHtml = `<span class="phvTyhjä">${phvTila}</span>`;
-    } else {
-      // Ei tietoa järjestelmässä — valmentaja täyttää kentällä
-      phvHtml = '<div class="tuloskehys" style="min-width:64px;"></div>';
-    }
-    html += `<td class="phvsolu">${phvHtml}</td>`;
-
-    // Testisarakkeet
     testit.forEach(t => {
-      if (t.tyyppi === 'voima5rm') {
-        // Kaksi solua: kuorma (kg) ja rel.voima (kg/kg)
-        html += `<td class="tulos"><div class="tuloskehys"></div></td>`;
-        html += `<td class="tulos"><div class="tuloskehys" style="background:rgba(74,126,217,.04);"></div></td>`;
-      } else if (t.tyyppi === 'laatu') {
-        // Yksi solu, valmentaja kirjoittaa 1/2/3
-        html += `<td class="tulos2"><div class="tulos2kehys">
-          <div class="tulosapu"></div>
-          <div class="pisteaspu">p</div>
+      if (t.tyyppi === 'flei') {
+        html += `<td id="flei-${idx}"><span class="flei-cell flei-0">—</span></td>`;
+      } else if (t.tyyppi === 'valinta') {
+        const val = p.tulokset[t.id] || '';
+        html += `<td><select class="td-select" data-idx="${idx}" data-kentta="${t.id}" onchange="merkkaaLikainen(${idx}); laskeFlei(${idx})">
+          <option value=""></option>
+          ${t.opts.map(o => `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
+        </select></td>`;
+      } else if (t.tyyppi === 'pisteet') {
+        const val = parseInt(p.tulokset[t.id]) || 0;
+        html += `<td><div class="pisteet-cell">
+          <button type="button" class="p-btn p1 ${val===1?'active':''}" data-idx="${idx}" data-kentta="${t.id}" data-arvo="1" onclick="asetaPisteet(this,${idx},'${t.id}',1)">1</button>
+          <button type="button" class="p-btn p2 ${val===2?'active':''}" data-idx="${idx}" data-kentta="${t.id}" data-arvo="2" onclick="asetaPisteet(this,${idx},'${t.id}',2)">2</button>
+          <button type="button" class="p-btn p3 ${val===3?'active':''}" data-idx="${idx}" data-kentta="${t.id}" data-arvo="3" onclick="asetaPisteet(this,${idx},'${t.id}',3)">3</button>
         </div></td>`;
       } else {
-        // Numeerinen: tulos + pisteet vierekkäin
-        html += `<td class="tulos2"><div class="tulos2kehys">
-          <div class="tulosapu"></div>
-          <div class="pisteaspu">p</div>
-        </div></td>`;
+        // luku-syöttö
+        const val = p.tulokset[t.id] || '';
+        html += `<td><input type="text" class="td-input" inputmode="decimal"
+          value="${val}"
+          data-idx="${idx}" data-kentta="${t.id}"
+          onchange="tallennaKentta(this)"
+          onfocus="this.select()"
+          onkeydown="siirrySeuraan(event,${idx},'${t.id}')"
+          placeholder="—"></td>`;
       }
     });
 
-    // Yhteensä-sarakkeet
-    html += `<td class="tulos"><div class="tuloskehys"></div></td>`;   // pisteet
-    html += `<td class="fleisolu tulos"><div class="tuloskehys"></div></td>`;  // FLEI-%
-    html += `<td class="kuormasolu tulos"><div class="tuloskehys"></div></td>`; // kuormarajoitin
-    html += `<td class="tulos" style="min-width:100px;"><div class="tuloskehys"></div></td>`; // huomiot
+    html += `<td><button class="row-save-btn" id="savebtn-${idx}" title="Tallenna tämä rivi" onclick="tallennaRivi(${idx})">💾</button></td>`;
+    html += `<td><button class="row-save-btn" title="Avaa mobiilisyötössä 📱" onclick="avaaRiviMobiilissa(${idx})" style="font-size:13px;">📱</button></td>`;
     html += `</tr>`;
   });
 
-  html += '</tbody></table></div>';
+  html += `</tbody></table></div>`;
 
-  // ── Viitearvoselite ───────────────────────────────────────────
-  html += `
-  <div class="seliteKortti">
-    <div style="font-size:11px;font-weight:700;color:var(--ink3);margin-right:8px;">PISTEYTYS:</div>
-    <div class="seliteRivi">
-      <span class="seliteIkoni" style="color:var(--red);">●</span>
-      <span style="color:var(--ink2);">1p = rajoitteita / kehitettävää kriittisesti</span>
-    </div>
-    <div class="seliteRivi">
-      <span class="seliteIkoni" style="color:var(--amber);">●</span>
-      <span style="color:var(--ink2);">2p = kehitettävää</span>
-    </div>
-    <div class="seliteRivi">
-      <span class="seliteIkoni" style="color:var(--green);">●</span>
-      <span style="color:var(--ink2);">3p = hallitsee hyvin</span>
-    </div>
-    <div style="width:1px;background:var(--border);margin:0 8px;"></div>
-    <div style="font-size:11px;font-weight:700;color:var(--ink3);margin-right:4px;">PHV:</div>
-    <div class="seliteRivi"><span class="phvHuippu">H</span><span style="color:var(--ink2);font-size:11px;">= Huippu (MAX 60%)</span></div>
-    <div class="seliteRivi"><span class="phvNopea">N</span><span style="color:var(--ink2);font-size:11px;">= Nopea kasvu</span></div>
-    <div class="seliteRivi"><span class="phvNormaali">Nr</span><span style="color:var(--ink2);font-size:11px;">= Normaali</span></div>
-    ${onVoima5rm ? `
-    <div style="width:1px;background:var(--border);margin:0 8px;"></div>
-    <div class="seliteRivi" style="gap:4px;">
-      <span style="color:var(--ink3);font-size:11px;">Suh.voima =</span>
-      <span style="color:var(--ink2);font-size:11px;">kuorma / (1.0278 − 0.0278×5) / paino</span>
-    </div>` : ''}
+  // Tallenna renderöintitiedot
+  html += `<script>
+    window._renderState = {
+      seuraId: '${seuraId}',
+      joukkueId: '${joukkueId}',
+      ikäluokka: '${ikäluokka}',
+      pvm: '${pvm}'
+    };
+    // Laske FLEI kaikille riveille renderöinnin jälkeen
+    setTimeout(() => {
+      for (let i = 0; i < ${pelaajat.length}; i++) { laskeFlei(i); }
+    }, 100);
+  <\/script>`;
+
+  document.getElementById('lomakeAlue').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════
+   KENTÄN TALLENNUS MUISTIIN
+═══════════════════════════════════════════════════════ */
+function tallennaKentta(input) {
+  const idx    = parseInt(input.dataset.idx);
+  const kentta = input.dataset.kentta;
+  const arvo   = input.value.trim().replace(',', '.');
+  if (!pelaajat[idx]) return;
+  pelaajat[idx].tulokset[kentta] = arvo ? parseFloat(arvo) || arvo : '';
+  merkkaaLikainen(idx);
+  laskeFlei(idx);
+}
+
+function asetaPisteet(btn, idx, kentta, arvo) {
+  if (!pelaajat[idx]) return;
+  const nykyinen = pelaajat[idx].tulokset[kentta];
+  const uusi = nykyinen === arvo ? 0 : arvo; // toggle
+  pelaajat[idx].tulokset[kentta] = uusi;
+
+  // Päivitä visuaalisesti
+  const solu = btn.closest('td');
+  solu.querySelectorAll('.p-btn').forEach(b => b.classList.remove('active'));
+  if (uusi > 0) {
+    solu.querySelector(`.p${uusi}`)?.classList.add('active');
+  }
+  merkkaaLikainen(idx);
+  laskeFlei(idx);
+}
+
+function merkkaaLikainen(idx) {
+  dirtyRows.add(idx);
+  const rivi = document.getElementById(`rivi-${idx}`);
+  if (rivi) rivi.classList.add('dirty');
+  const btn = document.getElementById(`savebtn-${idx}`);
+  if (btn) btn.classList.add('dirty');
+}
+
+/* ═══════════════════════════════════════════════════════
+   FLEI-LASKENTA (yksinkertainen pistelasku)
+═══════════════════════════════════════════════════════ */
+function laskeFlei(idx) {
+  const ikäluokka = document.getElementById('ikäluokkaSelect').value;
+  const testit = TESTIT[ikäluokka] || [];
+  const tulokset = pelaajat[idx]?.tulokset || {};
+
+  let pisteet = 0, maxP = 0;
+  testit.forEach(t => {
+    if (t.tyyppi === 'pisteet') {
+      maxP += 3;
+      pisteet += parseInt(tulokset[t.id]) || 0;
+    }
+  });
+
+  const solu = document.getElementById(`flei-${idx}`);
+  if (!solu) return;
+
+  if (maxP === 0) { solu.innerHTML = '<span class="flei-cell flei-0">—</span>'; return; }
+
+  // Laske prosentti (100% = kaikki 3p, käännetty: matala pisteet = korkea riski)
+  // FLEI-logiikka: matala prosentti = paljon 1-pisteitä = korkea riski
+  const pct = Math.round((pisteet / maxP) * 100);
+
+  let cls = 'flei-vihrea';
+  if (pct < 40)      cls = 'flei-puna';
+  else if (pct < 60) cls = 'flei-oranssi';
+  else if (pct < 75) cls = 'flei-kelt';
+
+  solu.innerHTML = `<span class="flei-cell ${cls}">${pct}%</span>`;
+  paivitaYhteenveto();
+}
+
+function paivitaYhteenveto() {
+  const n = pelaajat.length;
+  document.getElementById('yhPelaajia').textContent = n;
+  let taytetty = 0, fleiSumma = 0, fleikount = 0, riskipelaajia = 0;
+
+  pelaajat.forEach((p, i) => {
+    const kenttia = Object.values(p.tulokset || {}).filter(v => v !== '' && v !== undefined && v !== null).length;
+    if (kenttia > 0) taytetty++;
+
+    const fleiEl = document.querySelector(`#flei-${i} .flei-cell`);
+    if (fleiEl && fleiEl.textContent !== '—') {
+      const pct = parseInt(fleiEl.textContent);
+      if (!isNaN(pct)) { fleiSumma += pct; fleikount++; }
+      if (pct < 40) riskipelaajia++;
+    }
+  });
+
+  document.getElementById('yhTaytetty').textContent = taytetty;
+  document.getElementById('yhFleiKeski').textContent = fleikount > 0 ? Math.round(fleiSumma/fleikount) + '%' : '—';
+  document.getElementById('yhRiskiPelaajia').textContent = riskipelaajia;
+}
+
+/* ═══════════════════════════════════════════════════════
+   PROSESSIN VAIHEINDIKAATTORI
+═══════════════════════════════════════════════════════ */
+function asetaVaihe(vaihe) {
+  document.querySelectorAll('.vaihe-askel').forEach(el => {
+    const v = parseInt(el.dataset.vaihe);
+    el.classList.remove('aktiivinen', 'valmis', 'tuleva');
+    if (v < vaihe)        el.classList.add('valmis');
+    else if (v === vaihe) el.classList.add('aktiivinen');
+    else                  el.classList.add('tuleva');
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   MOBIILISYÖTTÖNÄKYMÄ — kaavio vaihe 5B "Digitaalinen syöttö"
+   Testaaja valitsee pelaajan, syöttää isolla näytöllä,
+   tallentaa — siirtyy seuraavaan. Toimii puhelimella.
+═══════════════════════════════════════════════════════ */
+let mobiiliIdx = 0;
+
+function avaaRiviMobiilissa(idx) {
+  mobiiliIdx = idx;
+  document.getElementById('mobiilinäkymä').style.display = 'block';
+  document.getElementById('lomakeAlue').style.display    = 'none';
+  renderMobiiliKortti();
+  asetaVaihe(5);
+}
+
+function sulkeMobiili() {
+  document.getElementById('mobiilinäkymä').style.display = 'none';
+  document.getElementById('lomakeAlue').style.display    = 'block';
+  asetaVaihe(5);
+}
+
+function renderMobiiliKortti() {
+  const { ikäluokka } = window._renderState || {};
+  const testit = TESTIT[ikäluokka] || [];
+  const p = pelaajat[mobiiliIdx];
+  if (!p) return;
+  const syntvFmt = (p.syntymapaiva||p.syntymäpäivä||'').substring(0,10).split('-').reverse().join('.');
+
+  let pisteet = 0, maxP = 0;
+  testit.forEach(t => { if (t.tyyppi==='pisteet'){maxP+=3; pisteet+=parseInt(p.tulokset[t.id])||0;}});
+  const fleiPct = maxP > 0 ? Math.round((pisteet/maxP)*100) : null;
+  let fleiVari = '#9AAAC4';
+  if (fleiPct!==null){if(fleiPct<40)fleiVari='#EF4444'; else if(fleiPct<60)fleiVari='#f97316'; else if(fleiPct<75)fleiVari='#F59E0B'; else fleiVari='#22C55E';}
+
+  let html = `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <button class="btn btn-ghost btn-sm" onclick="sulkeMobiili()">← Taulukko</button>
+    <span style="font-size:11px;color:var(--teksti2)">${mobiiliIdx+1} / ${pelaajat.length}</span>
   </div>
-  <div class="printViivat">
-    Arvioija: _________________________ &nbsp;&nbsp; Päivämäärä: ___.___._______ &nbsp;&nbsp; Allekirjoitus: _________________________
-  </div>`;
+  <div class="mob-kortti">
+    <div class="mob-pelaaja-nimi">${p.sukunimi||''}, ${p.etunimi||''}</div>
+    <div class="mob-pelaaja-meta">${syntvFmt} · ${(p.sukupuoli||'P')[0]}</div>
+    ${fleiPct!==null?`<div class="mob-flei-bar"><span style="font-size:12px;color:var(--teksti2)">FLEI</span><span style="font-size:20px;font-weight:700;color:${fleiVari}">${fleiPct}%</span></div>`:''}
+  `;
 
-  return html;
+  testit.forEach(t => {
+    if (t.tyyppi==='flei') return;
+    html += `<div class="mob-testi-rivi"><label class="mob-testi-label">${t.label.replace('\n',' — ')}</label>`;
+    if (t.tyyppi==='valinta') {
+      const val = p.tulokset[t.id]||'';
+      html += `<div style="display:flex;gap:8px;">${t.opts.map(o=>`
+        <button type="button" style="flex:1;padding:12px;border-radius:8px;border:2px solid ${val===o?'var(--sininen)':'var(--reuna)'};background:${val===o?'rgba(74,126,217,.2)':'transparent'};color:${val===o?'var(--sininen)':'var(--teksti2)'};font-weight:700;font-size:15px;cursor:pointer;" onclick="asetaMobValinta(${mobiiliIdx},'${t.id}','${o}')">${o}</button>`).join('')}</div>`;
+    } else if (t.tyyppi==='pisteet') {
+      const val = parseInt(p.tulokset[t.id])||0;
+      html += `<div class="mob-pisteet-rivi">
+        <button type="button" class="mob-p-btn p1 ${val===1?'active':''}" onclick="asetaMobPisteet(${mobiiliIdx},'${t.id}',1)">🔴 1</button>
+        <button type="button" class="mob-p-btn p2 ${val===2?'active':''}" onclick="asetaMobPisteet(${mobiiliIdx},'${t.id}',2)">🟡 2</button>
+        <button type="button" class="mob-p-btn p3 ${val===3?'active':''}" onclick="asetaMobPisteet(${mobiiliIdx},'${t.id}',3)">🟢 3</button>
+      </div>`;
+    } else {
+      const val = p.tulokset[t.id]||'';
+      html += `<input type="text" inputmode="decimal" class="mob-testi-input" value="${val}" placeholder="—" onchange="asetaMobLuku(${mobiiliIdx},'${t.id}',this.value)">`;
+    }
+    html += `</div>`;
+  });
+
+  html += `<div class="mob-navigaatio">
+    <button class="btn btn-ghost" style="flex:1" onclick="mobEdellinen()" ${mobiiliIdx===0?'disabled':''}>← Ed.</button>
+    <button class="btn btn-success" style="flex:2" onclick="tallennaRiviJaSiirry(${mobiiliIdx})">💾 Tallenna</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="mobSeuraava()" ${mobiiliIdx===pelaajat.length-1?'disabled':''}>Seur. →</button>
+  </div></div>`;
+
+  document.getElementById('mobiilinäkymä').innerHTML = html;
+}
+
+function asetaMobValinta(idx,kentta,arvo){pelaajat[idx].tulokset[kentta]=arvo;merkkaaLikainen(idx);renderMobiiliKortti();}
+function asetaMobPisteet(idx,kentta,arvo){const n=pelaajat[idx].tulokset[kentta];pelaajat[idx].tulokset[kentta]=n===arvo?0:arvo;merkkaaLikainen(idx);renderMobiiliKortti();}
+function asetaMobLuku(idx,kentta,arvo){pelaajat[idx].tulokset[kentta]=arvo.trim().replace(',','.')||'';merkkaaLikainen(idx);}
+
+async function tallennaRiviJaSiirry(idx) {
+  await tallennaRivi(idx);
+  if (idx < pelaajat.length-1) { mobiiliIdx=idx+1; renderMobiiliKortti(); }
+  else { naytaNotif('Kaikki pelaajat tallennettu! ✓','ok'); sulkeMobiili(); asetaVaihe(7); }
+}
+function mobSeuraava(){if(mobiiliIdx<pelaajat.length-1){mobiiliIdx++;renderMobiiliKortti();}}
+function mobEdellinen(){if(mobiiliIdx>0){mobiiliIdx--;renderMobiiliKortti();}}
+
+/* ═══════════════════════════════════════════════════════
+   TALLENNUS FIRESTOREEN
+═══════════════════════════════════════════════════════ */
+async function tallennaRivi(idx) {
+  const { seuraId, joukkueId, ikäluokka, pvm } = window._renderState || {};
+  if (!seuraId || !nykyinenKayttaja) { naytaNotif('Kirjaudu ensin sisään', 'err'); return; }
+
+  const p = pelaajat[idx];
+  if (!p) return;
+
+  const btn = document.getElementById(`savebtn-${idx}`);
+  if (btn) btn.classList.add('saving');
+
+  try {
+    // ── Laske FLEI-prosentti tallennusta varten ──
+    const testit = TESTIT[ikäluokka] || [];
+    let pisteet = 0, maxP = 0;
+    testit.forEach(t => {
+      if (t.tyyppi === 'pisteet') {
+        maxP += 3;
+        pisteet += parseInt(p.tulokset[t.id]) || 0;
+      }
+    });
+    const fleiPct = maxP > 0 ? Math.round((pisteet / maxP) * 100) : null;
+
+    const data = {
+      pelaajaId:   p.id,
+      pelaajaNimi: `${p.etunimi || ''} ${p.sukunimi || ''}`.trim(),
+      syntymapaiva: p.syntymapaiva || p.syntymäpäivä || '',
+      seuraId, joukkueId, ikäluokka,
+      testipvm:    pvm,
+      tulokset:    p.tulokset || {},
+      flei_pct:    fleiPct,
+      tallennettu: firebase.firestore.FieldValue.serverTimestamp(),
+      tallensiUid: nykyinenKayttaja.uid,
+    };
+
+    const ref = db.collection('seurat').doc(seuraId)
+      .collection('joukkueet').doc(joukkueId)
+      .collection('kartoitukset');
+
+    if (p.kartId) {
+      await ref.doc(p.kartId).set(data, { merge: true });
+    } else {
+      const uusi = await ref.add(data);
+      pelaajat[idx].kartId = uusi.id;
+    }
+
+    // ── KRIITTINEN: Päivitä pelaajan profiili Firestoreen (kaavio vaihe 6→7) ──
+    // Tämä kytkös tekee VP:n dashboardin reaaliaikaiseksi ilman manuaalista työtä.
+    // flei_viimeisin → VP näkee sen heti ilman erillistä hakua.
+    if (p.id) {
+      const pelaajaRef = db.collection('seurat').doc(seuraId)
+        .collection('pelaajat').doc(p.id);
+      const profiiliPaivitys = {
+        flei_viimeisin: fleiPct,
+        flei_pvm:       pvm,
+        flei_ikäluokka: ikäluokka,
+      };
+      // Lisää liikeketjupisteet jos on (MTI-komponentti)
+      if (p.tulokset.slr !== undefined)   profiiliPaivitys['ketjut.hallintaketju_slr']   = p.tulokset.slr;
+      if (p.tulokset.thomas !== undefined) profiiliPaivitys['ketjut.lahtöketju_thomas'] = p.tulokset.thomas;
+      if (p.tulokset.fms_squat !== undefined) profiiliPaivitys['ketjut.hallintaketju_fms'] = p.tulokset.fms_squat;
+      if (p.tulokset.phv_tila !== undefined) profiiliPaivitys['phv_tila'] = p.tulokset.phv_tila;
+
+      // set merge: true — ei ylikirjoita muita profiilitietoja
+      await pelaajaRef.set(profiiliPaivitys, { merge: true }).catch(e => {
+        // Ei kriittinen virhe — kartoitus tallennettu jo, profiilipäivitys epäonnistui
+        console.warn('Profiilipäivitys epäonnistui (ei kriittinen):', e.message);
+      });
+    }
+
+    dirtyRows.delete(idx);
+    const rivi = document.getElementById(`rivi-${idx}`);
+    if (rivi) { rivi.classList.remove('dirty'); rivi.classList.add('tallennettu-row'); }
+    if (btn) { btn.classList.remove('saving', 'dirty'); btn.classList.add('saved'); btn.textContent = '✅'; }
+    naytaNotif(`${p.sukunimi || 'Pelaaja'} tallennettu${fleiPct !== null ? ` · FLEI ${fleiPct}%` : ''}`, 'ok');
+
+    setTimeout(() => {
+      if (btn) { btn.textContent = '💾'; btn.classList.remove('saved'); }
+    }, 3000);
+  } catch(e) {
+    console.error(e);
+    if (btn) btn.classList.remove('saving');
+    naytaNotif('Tallennus epäonnistui: ' + e.message, 'err');
+  }
+}
+
+async function tallennaKaikki() {
+  if (dirtyRows.size === 0) { naytaNotif('Ei tallennettavaa', 'info'); return; }
+  const status = document.getElementById('globalStatus');
+  if (status) { status.className = 'tallenna-status tallentaa'; status.textContent = `Tallennetaan ${dirtyRows.size} pelaajaa...`; }
+
+  const idx_lista = [...dirtyRows];
+  let ok = 0, virhe = 0;
+  for (const idx of idx_lista) {
+    try { await tallennaRivi(idx); ok++; } catch(_) { virhe++; }
+  }
+  if (status) {
+    status.className = virhe > 0 ? 'tallenna-status virhe' : 'tallenna-status tallennettu';
+    status.textContent = virhe > 0 ? `${ok} tallennettu, ${virhe} virheitä` : `✓ Kaikki ${ok} tallennettu`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   EXCEL-TUONTI
+═══════════════════════════════════════════════════════ */
+function toggleTuonti() {
+  const p = document.getElementById('tuontiPaneeli');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  const file = event.dataTransfer.files[0];
+  if (file) handleFile(file);
+}
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      let yhdistetty = 0, uusi = 0;
+      data.forEach(rivi => {
+        // Etsitään pelaaja nimellä tai syntymäpäivällä
+        const nimi = (rivi['PELAAJA'] || rivi['Pelaaja'] || rivi['pelaaja'] || '').toString().toLowerCase();
+        const synt = (rivi['SYNT'] || rivi['Syntymäpäivä'] || rivi['synt'] || '').toString();
+
+        const pIdx = pelaajat.findIndex(p => {
+          const pNimi = `${p.sukunimi || ''} ${p.etunimi || ''}`.toLowerCase();
+          const pNimi2 = `${p.etunimi || ''} ${p.sukunimi || ''}`.toLowerCase();
+          return pNimi.includes(nimi.split(',')[0]?.trim()) ||
+                 pNimi2.includes(nimi.split(',')[0]?.trim()) ||
+                 (synt && (p.syntymapaiva || '').includes(synt));
+        });
+
+        if (pIdx >= 0) {
+          // Yhdistä tulokset
+          const testit = TESTIT[document.getElementById('ikäluokkaSelect').value] || [];
+          testit.forEach(t => {
+            const sarake = Object.keys(rivi).find(k =>
+              k.toLowerCase().includes(t.id.replace(/_/g,' ').toLowerCase()) ||
+              k.toLowerCase().includes(t.label.split('\n')[0].toLowerCase().substring(0,10))
+            );
+            if (sarake && rivi[sarake] !== '') {
+              pelaajat[pIdx].tulokset[t.id] = rivi[sarake];
+            }
+          });
+          merkkaaLikainen(pIdx);
+          laskeFlei(pIdx);
+          yhdistetty++;
+        }
+      });
+
+      document.getElementById('tuontiTulos').innerHTML =
+        `<span style="color:var(--vihrea)">✓ ${yhdistetty} pelaajaa yhdistetty</span>
+         ${uusi > 0 ? `<span style="color:var(--keltainen)"> · ${uusi} uutta pelaajaa</span>` : ''}`;
+
+      // Päivitä näyttö
+      const ikäluokka = document.getElementById('ikäluokkaSelect').value;
+      const testit = TESTIT[ikäluokka] || [];
+      pelaajat.forEach((p, idx) => {
+        testit.forEach(t => {
+          if (t.tyyppi === 'luku') {
+            const input = document.querySelector(`input[data-idx="${idx}"][data-kentta="${t.id}"]`);
+            if (input && p.tulokset[t.id] !== undefined) input.value = p.tulokset[t.id];
+          }
+        });
+      });
+      naytaNotif(`Excel tuotu: ${yhdistetty} pelaajaa päivitetty`, 'ok');
+    } catch(e) {
+      document.getElementById('tuontiTulos').innerHTML =
+        `<span style="color:var(--punainen)">Virhe: ${e.message}</span>`;
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+/* ═══════════════════════════════════════════════════════
+   TAB-NAVIGAATIO SARAKKEIDEN VÄLILLÄ
+═══════════════════════════════════════════════════════ */
+function siirrySeuraan(event, idx, kentta) {
+  if (event.key !== 'Tab' && event.key !== 'Enter') return;
+  // Tallenna nykyinen
+  const current = document.querySelector(`input[data-idx="${idx}"][data-kentta="${kentta}"]`);
+  if (current) tallennaKentta(current);
+  // Siirry seuraavaan inputiin
+  // (selain hoitaa Tab-navigaation automaattisesti tabindex-järjestyksessä)
+}
+
+/* ═══════════════════════════════════════════════════════
+   TULOSTUS
+═══════════════════════════════════════════════════════ */
+function tulostaLomake() {
+  window.print();
+}
+
+function tyhjennaNakyvat() {
+  if (!confirm('Tyhjennätäänkö kaikki täytetyt kentät? Tallennettuja tuloksia ei poisteta Firestoresta.')) return;
+  pelaajat.forEach((p, idx) => {
+    p.tulokset = {};
+    const ikäluokka = document.getElementById('ikäluokkaSelect').value;
+    const testit = TESTIT[ikäluokka] || [];
+    testit.forEach(t => {
+      if (t.tyyppi === 'luku') {
+        const input = document.querySelector(`input[data-idx="${idx}"][data-kentta="${t.id}"]`);
+        if (input) input.value = '';
+      } else if (t.tyyppi === 'pisteet') {
+        document.querySelectorAll(`#rivi-${idx} .p-btn`).forEach(b => b.classList.remove('active'));
+      } else if (t.tyyppi === 'valinta') {
+        const sel = document.querySelector(`select[data-idx="${idx}"][data-kentta="${t.id}"]`);
+        if (sel) sel.value = '';
+      }
+    });
+    laskeFlei(idx);
+  });
+  dirtyRows.clear();
+}
+
+/* ═══════════════════════════════════════════════════════
+   NOTIFIKAATIOT
+═══════════════════════════════════════════════════════ */
+let notifTimer = null;
+function naytaNotif(teksti, tyyppi = 'ok') {
+  const el = document.getElementById('notif');
+  el.textContent = teksti;
+  el.className = `show ${tyyppi}`;
+  if (notifTimer) clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => el.classList.remove('show'), 3000);
 }
 </script>
 </body>
