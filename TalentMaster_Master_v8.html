@@ -7,6 +7,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- Firebase v9 compat (sama kuin VP v17:ssä) -->
+<!-- TalentMaster tapahtumamoduuli -->
+<script src="tm_tapahtumat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -901,6 +903,10 @@ tbody td:first-child {
       <span class="navIkoni">📊</span>
       Testitulokset
     </div>
+    <div class="navNappi" onclick="vaihdaNakyma('kalenteri', this)" data-nakyma="kalenteri">
+      <span class="navIkoni">📅</span>
+      Kalenteri
+    </div>
     <div class="navNappi" onclick="vaihdaNakyma('profiili', this)" data-nakyma="profiili">
       <span class="navIkoni">⚙️</span>
       Oma profiili
@@ -1354,6 +1360,7 @@ function renderoi(nakyma) {
     case 'pelaajat':    alue.innerHTML = renderPelaajat();   break;
     case 'kirjaukset':  alue.innerHTML = renderKirjaukset(); break;
     case 'testit':      alue.innerHTML = renderTestit();     break;
+      case 'kalenteri':   renderKalenteri(alue);               break;
     case 'profiili':    alue.innerHTML = renderProfiili();   break;
     default:            alue.innerHTML = renderPelaajat();
   }
@@ -1998,3 +2005,621 @@ document.addEventListener('keydown', (e) => {
 </script>
 </body>
 </html>
+  // ─────────────────────────────────────────
+  // NÄKYMÄ: KALENTERI JA TAPAHTUMAT
+  // ─────────────────────────────────────────
+  // Valmentaja näkee oman joukkueensa tapahtumat
+  // kuukausinäkymässä. Tapahtumien tyyppi värikoodattuna:
+  // 🔵 Harjoitus  🟢 Peli  📋 Harjoitettavuus  🏃 HH-testit  ⚽ Tekniikka  🧠 ADAR
+
+  let _kalTapahtumat = [];     // välimuisti
+  let _kalKuukausi = null;     // { vuosi, kuukausi } — null = tämä kuukausi
+  let _kalLuoModal = false;    // näytetäänkö luontimodaali
+
+  async function renderKalenteri(alue) {
+    alue.innerHTML = `<div style="padding:20px;color:var(--ink3);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div style="width:32px;height:32px;border:3px solid var(--blue);
+          border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></div>
+        Ladataan kalenteria...
+      </div>
+    </div>`;
+
+    try {
+      // Määritetään näytettävä kuukausi
+      const nyt = new Date();
+      if (!_kalKuukausi) _kalKuukausi = { vuosi: nyt.getFullYear(), kuukausi: nyt.getMonth() };
+      const { vuosi, kuukausi } = _kalKuukausi;
+
+      // Hae tapahtumat tältä kuukaudelta (+edellinen ja seuraava viikko marginaaleilla)
+      const pvmAlku = `${vuosi}-${String(kuukausi+1).padStart(2,'0')}-01`;
+      const pvmLoppu = `${vuosi}-${String(kuukausi+1).padStart(2,'0')}-31`;
+
+      _kalTapahtumat = await TmTapahtumat.haeTapahtumat(
+        db, tila.seuraId,
+        { joukkueId: tila.joukkueId, pvmAlku, pvmLoppu }
+      );
+
+      alue.innerHTML = _renderKalenteriSisalto(vuosi, kuukausi);
+      _kiinnitaKalenteriHandlerit();
+
+    } catch(e) {
+      console.error('Kalenteri lataus:', e);
+      alue.innerHTML = `<div style="padding:20px;">
+        <div style="color:var(--red);font-size:13px;">
+          ⚠️ Kalenterin lataus epäonnistui: ${e.message}
+          ${e.message.includes('index') ? '<br><a href="' + e.message.match(/https?:\/\/[^\s]+/)?.[0] + '" target="_blank" style="color:var(--blue)">Luo puuttuva Firestore-indeksi ↗</a>' : ''}
+        </div>
+      </div>`;
+    }
+  }
+
+  function _renderKalenteriSisalto(vuosi, kuukausi) {
+    const { tilaBadge, tyyppiBadge, formatPvm, onLahipvm, TAPAHTUMATYYPIT } = TmTapahtumat;
+
+    const kuukaudetFi = ['Tammikuu','Helmikuu','Maaliskuu','Huhtikuu','Toukokuu','Kesäkuu',
+                         'Heinäkuu','Elokuu','Syyskuu','Lokakuu','Marraskuu','Joulukuu'];
+    const paivat = ['Ma','Ti','Ke','To','Pe','La','Su'];
+
+    // Kuukauden päivät
+    const ensimmainenPv = new Date(vuosi, kuukausi, 1);
+    const viimeinenPv   = new Date(vuosi, kuukausi + 1, 0);
+    const aloitusPv     = (ensimmainenPv.getDay() + 6) % 7; // Ma=0, Su=6
+    const tanaanStr     = new Date().toISOString().split('T')[0];
+
+    // Järjestä tapahtumat päivämäärän mukaan hakemistoon
+    const tapahtumatPerPv = {};
+    _kalTapahtumat.forEach(t => {
+      if (!tapahtumatPerPv[t.pvm]) tapahtumatPerPv[t.pvm] = [];
+      tapahtumatPerPv[t.pvm].push(t);
+    });
+
+    // Seuraava testitapahtuma
+    const seuraavaTesti = _kalTapahtumat
+      .filter(t => ['harjoitettavuus','hh_testit','tekniikka','adar'].includes(t.tyyppi)
+              && t.pvm >= tanaanStr)
+      .sort((a,b) => a.pvm.localeCompare(b.pvm))[0];
+
+    let h = '';
+
+    // ── HEADER ─────────────────────────────────────────────────────
+    h += `<div style="padding:16px 20px 0;">
+
+      <!-- Kuukausinavi + Luo tapahtuma -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <button onclick="_kalEdKuukausi()" style="background:none;border:1px solid var(--border);
+          color:var(--ink2);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;">◀</button>
+        <div style="font-size:18px;font-weight:800;flex:1;">
+          ${kuukaudetFi[kuukausi]} ${vuosi}
+        </div>
+        <button onclick="_kalSeKuukausi()" style="background:none;border:1px solid var(--border);
+          color:var(--ink2);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;">▶</button>
+        <button onclick="_kalTanaanKuukausi()" style="background:none;border:1px solid var(--border);
+          color:var(--ink3);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:11px;">Tänään</button>
+        <button id="kalLuoNappi" onclick="_avaaLuoTapahtuma()"
+          style="background:var(--blue);color:#fff;border:none;border-radius:8px;
+          padding:8px 16px;cursor:pointer;font-size:13px;font-weight:700;">
+          + Uusi tapahtuma
+        </button>
+      </div>
+
+      <!-- Seuraava testitapahtuma -kortti -->
+      ${seuraavaTesti ? `<div style="background:linear-gradient(135deg,#0D1B2A,#1a2d45);
+        border:1px solid var(--blue);border-radius:10px;padding:12px 16px;
+        margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <div style="font-size:24px">${TmTapahtumat.TAPAHTUMATYYPIT[seuraavaTesti.tyyppi]?.emoji||'📌'}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;">${seuraavaTesti.nimi}</div>
+          <div style="font-size:11px;color:var(--ink2);margin-top:2px;">
+            ${formatPvm(seuraavaTesti.pvm)}${seuraavaTesti.alkuAika?' klo '+seuraavaTesti.alkuAika:''}
+            &nbsp;·&nbsp; ${seuraavaTesti.joukkueNimi||seuraavaTesti.joukkueId}
+            &nbsp;·&nbsp; ${seuraavaTesti.pelaajat?.filter(p=>p.paikalla!==false).length||0} pelaajaa
+          </div>
+        </div>
+        ${tilaBadge(seuraavaTesti.tila)}
+        <button onclick="_avaaTestiTapahtuma('${seuraavaTesti.id}')"
+          style="background:var(--blue);color:#fff;border:none;border-radius:7px;
+          padding:7px 14px;cursor:pointer;font-size:12px;font-weight:700;">
+          Avaa →
+        </button>
+      </div>` : ''}
+    </div>`;
+
+    // ── KUUKAUSIKAAVIO ──────────────────────────────────────────────
+    h += `<div style="padding:0 20px 20px;">
+    <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+
+      <!-- Päivien otsikot -->
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);
+        background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);">
+        ${paivat.map(p => `<div style="text-align:center;padding:8px 4px;
+          font-size:10px;font-weight:700;color:var(--ink3);
+          text-transform:uppercase;letter-spacing:.5px;">${p}</div>`).join('')}
+      </div>
+
+      <!-- Päiväruudukko -->
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);">`;
+
+    // Tyhjät solut kuukauden alussa
+    for (let i = 0; i < aloitusPv; i++) {
+      h += `<div style="min-height:80px;border-right:1px solid var(--border);
+        border-bottom:1px solid var(--border);background:rgba(0,0,0,.1);"></div>`;
+    }
+
+    // Päiväsolut
+    for (let pv = 1; pv <= viimeinenPv.getDate(); pv++) {
+      const pvStr = `${vuosi}-${String(kuukausi+1).padStart(2,'0')}-${String(pv).padStart(2,'0')}`;
+      const onTanaan = pvStr === tanaanStr;
+      const tapahtumatTana = tapahtumatPerPv[pvStr] || [];
+      const onViikonloppu = ((aloitusPv + pv - 1) % 7) >= 5; // La=5, Su=6
+
+      h += `<div onclick="_kalPaivaKlikkaus('${pvStr}')"
+        style="min-height:80px;padding:6px;cursor:pointer;
+          border-right:1px solid var(--border);
+          border-bottom:1px solid var(--border);
+          background:${onTanaan?'rgba(74,126,217,.12)':onViikonloppu?'rgba(0,0,0,.08)':'transparent'};
+          transition:background .1s;"
+        onmouseover="this.style.background='rgba(74,126,217,.06)'"
+        onmouseout="this.style.background='${onTanaan?'rgba(74,126,217,.12)':onViikonloppu?'rgba(0,0,0,.08)':'transparent'}'">
+
+        <!-- Päivänumero -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:12px;font-weight:${onTanaan?800:600};
+            color:${onTanaan?'var(--blue)':'var(--ink2)'};
+            ${onTanaan?'background:var(--blue);color:#fff;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;':''}">${pv}</span>
+          ${tapahtumatTana.length > 2 ? `<span style="font-size:9px;color:var(--ink3)">+${tapahtumatTana.length-2}</span>` : ''}
+        </div>
+
+        <!-- Tapahtumat tänä päivänä (max 2) -->
+        ${tapahtumatTana.slice(0,2).map(t => {
+          const tyyppi = TmTapahtumat.TAPAHTUMATYYPIT[t.tyyppi] || {emoji:'📌',vari:'#9AAAC4'};
+          return `<div onclick="event.stopPropagation();_avaaTestiTapahtuma('${t.id}')"
+            style="background:${tyyppi.vari}22;border-left:2px solid ${tyyppi.vari};
+              border-radius:3px;padding:2px 5px;margin-bottom:2px;
+              font-size:9px;font-weight:600;color:${tyyppi.vari};
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;"
+            title="${t.nimi}">
+            ${tyyppi.emoji} ${t.nimi}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    // Täyttösolut kuukauden loppuun
+    const kokonaissolut = aloitusPv + viimeinenPv.getDate();
+    const tayttoja = (7 - (kokonaissolut % 7)) % 7;
+    for (let i = 0; i < tayttoja; i++) {
+      h += `<div style="min-height:80px;border-right:1px solid var(--border);
+        border-bottom:1px solid var(--border);background:rgba(0,0,0,.1);"></div>`;
+    }
+
+    h += `</div></div></div>`;
+
+    // ── TULEVAT TAPAHTUMAT -LISTA ───────────────────────────────────
+    const tulevat = _kalTapahtumat
+      .filter(t => t.pvm >= tanaanStr)
+      .sort((a,b) => a.pvm.localeCompare(b.pvm))
+      .slice(0, 8);
+
+    if (tulevat.length > 0) {
+      h += `<div style="padding:0 20px 20px;">
+        <div style="font-size:12px;font-weight:700;color:var(--ink3);
+          text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">
+          Tulevat tapahtumat
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          ${tulevat.map(t => {
+            const tyyppi = TmTapahtumat.TAPAHTUMATYYPIT[t.tyyppi] || {emoji:'📌',vari:'#9AAAC4'};
+            const onLahi = onLahipvm(t.pvm, 3);
+            return `<div onclick="_avaaTestiTapahtuma('${t.id}')"
+              style="background:var(--bg3);border:1px solid ${onLahi?tyyppi.vari:'var(--border)'};
+                border-radius:8px;padding:10px 14px;cursor:pointer;
+                display:flex;align-items:center;gap:12px;
+                transition:border-color .15s;"
+              onmouseover="this.style.borderColor='${tyyppi.vari}'"
+              onmouseout="this.style.borderColor='${onLahi?tyyppi.vari:'var(--border)'}'">
+              <div style="font-size:20px;width:32px;text-align:center;">${tyyppi.emoji}</div>
+              <div style="flex:1;">
+                <div style="font-size:13px;font-weight:700;">${t.nimi}</div>
+                <div style="font-size:11px;color:var(--ink2);margin-top:2px;">
+                  ${formatPvm(t.pvm)}${t.alkuAika?' klo '+t.alkuAika:''}
+                  &nbsp;·&nbsp; ${t.joukkueNimi||t.joukkueId}
+                  &nbsp;·&nbsp; ${t.pelaajat?.filter(p=>p.paikalla!==false).length||0} pelaajaa
+                </div>
+              </div>
+              ${tilaBadge(t.tila)}
+              <span style="color:var(--ink3);font-size:16px;">›</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }
+
+    // ── LUO TAPAHTUMA MODAALI ───────────────────────────────────────
+    h += `<div id="kalLuoModaali" style="display:none;position:fixed;inset:0;
+      background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:300;
+      align-items:center;justify-content:center;padding:20px;">
+      <div style="background:var(--bg2);border:1px solid var(--bord2);
+        border-radius:14px;padding:24px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;">
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <div style="font-size:17px;font-weight:800;">+ Uusi tapahtuma</div>
+          <button onclick="_suljeKalLuoModaali()"
+            style="background:none;border:none;color:var(--ink3);font-size:20px;cursor:pointer;">✕</button>
+        </div>
+
+        <!-- Tapahtumatyyppi -->
+        <div style="margin-bottom:14px;">
+          <label style="font-size:11px;font-weight:700;color:var(--ink3);
+            text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">
+            Tyyppi
+          </label>
+          <div id="kalTyyppiValinta" style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${Object.entries(TmTapahtumat.TAPAHTUMATYYPIT).map(([id, t]) =>
+              `<button onclick="_valitseTyyppi('${id}',this)"
+                data-tyyppi="${id}"
+                style="padding:6px 12px;border-radius:20px;
+                  border:2px solid var(--border);background:transparent;
+                  color:var(--ink2);cursor:pointer;font-size:12px;font-weight:600;
+                  transition:all .15s;">
+                ${t.emoji} ${t.nimi}
+              </button>`
+            ).join('')}
+          </div>
+          <input type="hidden" id="kalTyyppi" value="harjoitettavuus">
+        </div>
+
+        <!-- Nimi -->
+        <div style="margin-bottom:14px;">
+          <label style="font-size:11px;font-weight:700;color:var(--ink3);
+            text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">
+            Nimi (valinnainen)
+          </label>
+          <input id="kalNimi" type="text" placeholder="esim. Kevään harjoitettavuuskartoitus"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border);
+              color:var(--ink);padding:9px 12px;border-radius:8px;font-size:13px;outline:none;">
+        </div>
+
+        <!-- Päivämäärä + aika -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--ink3);
+              text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">
+              Päivämäärä *
+            </label>
+            <input id="kalPvm" type="date"
+              style="width:100%;background:var(--bg3);border:1px solid var(--border);
+                color:var(--ink);padding:9px 12px;border-radius:8px;font-size:13px;outline:none;">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--ink3);
+              text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">
+              Kellonaika
+            </label>
+            <input id="kalAika" type="time"
+              style="width:100%;background:var(--bg3);border:1px solid var(--border);
+                color:var(--ink);padding:9px 12px;border-radius:8px;font-size:13px;outline:none;">
+          </div>
+        </div>
+
+        <!-- Muistiinpanot -->
+        <div style="margin-bottom:20px;">
+          <label style="font-size:11px;font-weight:700;color:var(--ink3);
+            text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">
+            Muistiinpanot
+          </label>
+          <textarea id="kalMuistiinpanot" rows="3"
+            placeholder="esim. Paikka: Kokkolan urheilutalo, Halli B"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border);
+              color:var(--ink);padding:9px 12px;border-radius:8px;font-size:13px;
+              outline:none;resize:vertical;"></textarea>
+        </div>
+
+        <div id="kalLuoVirhe" style="color:var(--red);font-size:12px;
+          margin-bottom:10px;display:none;"></div>
+
+        <button id="kalLuoBtn" onclick="_tallennaTapahtuma()"
+          style="width:100%;background:var(--blue);color:#fff;border:none;
+            border-radius:9px;padding:12px;font-size:14px;font-weight:800;
+            cursor:pointer;transition:background .15s;"
+          onmouseover="this.style.background='var(--blue-d)'"
+          onmouseout="this.style.background='var(--blue)'">
+          Luo tapahtuma
+        </button>
+      </div>
+    </div>`;
+
+    // ── TAPAHTUMADETAILI MODAALI ────────────────────────────────────
+    h += `<div id="kalDetModaali" style="display:none;position:fixed;inset:0;
+      background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:300;
+      align-items:center;justify-content:center;padding:20px;">
+      <div id="kalDetSisalto" style="background:var(--bg2);border:1px solid var(--bord2);
+        border-radius:14px;padding:24px;max-width:500px;width:100%;
+        max-height:90vh;overflow-y:auto;">
+        Ladataan...
+      </div>
+    </div>`;
+
+    return h;
+  }
+
+  /* ── Kalenterin toiminnot ───────────────────────────────────────── */
+  function _kiinnitaKalenteriHandlerit() {
+    // Esivalitse harjoitettavuus-tyyppi
+    setTimeout(() => {
+      const btn = document.querySelector('[data-tyyppi="harjoitettavuus"]');
+      if (btn) _valitseTyyppi('harjoitettavuus', btn);
+
+      // Aseta tänään oletuspäiväksi
+      const pvmInput = document.getElementById('kalPvm');
+      if (pvmInput && !pvmInput.value) {
+        pvmInput.value = new Date().toISOString().split('T')[0];
+      }
+    }, 50);
+  }
+
+  function _kalEdKuukausi() {
+    const { vuosi, kuukausi } = _kalKuukausi;
+    _kalKuukausi = kuukausi === 0
+      ? { vuosi: vuosi - 1, kuukausi: 11 }
+      : { vuosi, kuukausi: kuukausi - 1 };
+    renderKalenteri(document.getElementById('nakymaAlue'));
+  }
+
+  function _kalSeKuukausi() {
+    const { vuosi, kuukausi } = _kalKuukausi;
+    _kalKuukausi = kuukausi === 11
+      ? { vuosi: vuosi + 1, kuukausi: 0 }
+      : { vuosi, kuukausi: kuukausi + 1 };
+    renderKalenteri(document.getElementById('nakymaAlue'));
+  }
+
+  function _kalTanaanKuukausi() {
+    const nyt = new Date();
+    _kalKuukausi = { vuosi: nyt.getFullYear(), kuukausi: nyt.getMonth() };
+    renderKalenteri(document.getElementById('nakymaAlue'));
+  }
+
+  function _kalPaivaKlikkaus(pvmStr) {
+    // Avaa luontimodaali esitäytettynä klikkaus-päivämäärällä
+    _avaaLuoTapahtuma();
+    setTimeout(() => {
+      const pvmInput = document.getElementById('kalPvm');
+      if (pvmInput) pvmInput.value = pvmStr;
+    }, 50);
+  }
+
+  function _valitseTyyppi(tyyppiId, nappiEl) {
+    const { TAPAHTUMATYYPIT } = TmTapahtumat;
+    // Poista kaikki active-tyylit
+    document.querySelectorAll('[data-tyyppi]').forEach(b => {
+      b.style.background = 'transparent';
+      b.style.borderColor = 'var(--border)';
+      b.style.color = 'var(--ink2)';
+    });
+    // Aktivoi valittu
+    const tyyppi = TAPAHTUMATYYPIT[tyyppiId];
+    if (tyyppi && nappiEl) {
+      nappiEl.style.background = tyyppi.vari + '22';
+      nappiEl.style.borderColor = tyyppi.vari;
+      nappiEl.style.color = tyyppi.vari;
+    }
+    const inp = document.getElementById('kalTyyppi');
+    if (inp) inp.value = tyyppiId;
+
+    // Esitäytä nimi jos tyhjä
+    const nimiInp = document.getElementById('kalNimi');
+    if (nimiInp && !nimiInp.value && tyyppi) {
+      nimiInp.value = tyyppi.nimi;
+    }
+  }
+
+  function _avaaLuoTapahtuma() {
+    const m = document.getElementById('kalLuoModaali');
+    if (m) m.style.display = 'flex';
+  }
+
+  function _suljeKalLuoModaali() {
+    const m = document.getElementById('kalLuoModaali');
+    if (m) m.style.display = 'none';
+    // Nollaa virhe
+    const v = document.getElementById('kalLuoVirhe');
+    if (v) { v.textContent = ''; v.style.display = 'none'; }
+  }
+
+  async function _tallennaTapahtuma() {
+    const btn = document.getElementById('kalLuoBtn');
+    const virhe = document.getElementById('kalLuoVirhe');
+    const tyyppi = document.getElementById('kalTyyppi')?.value;
+    const nimi = document.getElementById('kalNimi')?.value.trim();
+    const pvm = document.getElementById('kalPvm')?.value;
+    const aika = document.getElementById('kalAika')?.value;
+    const muistiinpanot = document.getElementById('kalMuistiinpanot')?.value.trim();
+
+    if (!pvm) {
+      virhe.textContent = 'Valitse päivämäärä';
+      virhe.style.display = 'block';
+      return;
+    }
+
+    btn.textContent = '⏳ Tallennetaan...';
+    btn.disabled = true;
+
+    try {
+      const uusi = await TmTapahtumat.luoTapahtuma(db, tila.seuraId, {
+        tyyppi,
+        nimi: nimi || TmTapahtumat.TAPAHTUMATYYPIT[tyyppi]?.nimi || 'Tapahtuma',
+        pvm,
+        alkuAika: aika,
+        joukkueId: tila.joukkueId,
+        joukkueNimi: document.getElementById('sivupalkkiJoukkue')?.textContent || tila.joukkueId,
+        muistiinpanot,
+      }, tila.kayttajaUid);
+
+      _suljeKalLuoModaali();
+      // Päivitä kalenteri
+      await renderKalenteri(document.getElementById('nakymaAlue'));
+
+    } catch(e) {
+      console.error('Tapahtuman luonti:', e);
+      virhe.textContent = 'Virhe: ' + e.message;
+      virhe.style.display = 'block';
+      btn.textContent = 'Luo tapahtuma';
+      btn.disabled = false;
+    }
+  }
+
+  async function _avaaTestiTapahtuma(tapahtumaId) {
+    const { tilaBadge, tyyppiBadge, formatPvm, TAPAHTUMATYYPIT, TAPAHTUMATILAT } = TmTapahtumat;
+    const modaali = document.getElementById('kalDetModaali');
+    const sisalto = document.getElementById('kalDetSisalto');
+    if (!modaali || !sisalto) return;
+
+    modaali.style.display = 'flex';
+    sisalto.innerHTML = '<div style="color:var(--ink3);">Ladataan...</div>';
+
+    try {
+      // Hae tapahtuma
+      const snap = await db.collection('seurat').doc(tila.seuraId)
+        .collection('tapahtumat').doc(tapahtumaId).get();
+      if (!snap.exists) throw new Error('Tapahtumaa ei löydy');
+      const t = { id: snap.id, ...snap.data() };
+      const tyyppi = TAPAHTUMATYYPIT[t.tyyppi] || { emoji:'📌', vari:'#9AAAC4', nimi: t.tyyppi };
+      const tila_obj = TAPAHTUMATILAT[t.tila] || TAPAHTUMATILAT.suunniteltu;
+
+      const pelaajatLista = (t.pelaajat || []);
+
+      sisalto.innerHTML = `
+        <!-- Otsikko -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span style="font-size:24px">${tyyppi.emoji}</span>
+              <div>
+                <div style="font-size:16px;font-weight:800;">${t.nimi}</div>
+                <div style="font-size:11px;color:var(--ink2);">
+                  ${formatPvm(t.pvm)}${t.alkuAika?' klo '+t.alkuAika:''}
+                  &nbsp;·&nbsp; ${t.joukkueNimi||t.joukkueId}
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              ${tyyppiBadge(t.tyyppi)}
+              ${tilaBadge(t.tila)}
+            </div>
+          </div>
+          <button onclick="document.getElementById('kalDetModaali').style.display='none'"
+            style="background:none;border:none;color:var(--ink3);font-size:20px;cursor:pointer;">✕</button>
+        </div>
+
+        <!-- Pelaajat — läsnäolomerkintä -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:700;color:var(--ink3);
+            text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
+            Pelaajat (${pelaajatLista.length})
+            <span style="color:var(--ink3);font-weight:400;font-size:10px;margin-left:8px;">
+              Merkitse ketkä ovat paikalla testipäivänä
+            </span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;">
+            ${pelaajatLista.map((p, i) => `
+              <div style="display:flex;align-items:center;gap:10px;
+                background:var(--bg3);border-radius:7px;padding:7px 10px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">
+                  <input type="checkbox" id="kal-pel-${i}"
+                    ${p.paikalla !== false ? 'checked' : ''}
+                    onchange="_kalPaivitaPaikalla('${tapahtumaId}',${i},this.checked)"
+                    style="width:16px;height:16px;cursor:pointer;">
+                  <span style="font-size:12px;font-weight:600;">${p.nimi}</span>
+                </label>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <!-- Toimintopainikkeet tilan mukaan -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${t.tila !== 'valmis' && tila_obj.nappi ? `
+          <button onclick="_paivitaTapahtumaTila('${tapahtumaId}','${_seuraavaTila(t.tila)}')"
+            style="flex:1;background:var(--blue);color:#fff;border:none;
+              border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">
+            ${tila_obj.nappi}
+          </button>` : ''}
+
+          ${['harjoitettavuus','hh_testit','tekniikka','adar'].includes(t.tyyppi) ? `
+          <button onclick="_avaaTestauslomake('${tapahtumaId}')"
+            style="flex:1;background:var(--teal);color:#000;border:none;
+              border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">
+            📋 Avaa testauslomake
+          </button>` : ''}
+
+          <button onclick="_poistaTapahtuma('${tapahtumaId}')"
+            style="background:none;border:1px solid rgba(217,96,96,.4);
+              color:var(--red);border-radius:8px;padding:10px 14px;
+              font-size:12px;cursor:pointer;">
+            🗑️
+          </button>
+        </div>
+
+        ${t.muistiinpanot ? `
+        <div style="margin-top:12px;padding:10px;background:var(--bg3);
+          border-radius:8px;font-size:12px;color:var(--ink2);">
+          💬 ${t.muistiinpanot}
+        </div>` : ''}
+      `;
+
+    } catch(e) {
+      sisalto.innerHTML = `<div style="color:var(--red);">Virhe: ${e.message}</div>`;
+    }
+  }
+
+  function _seuraavaTila(nykyinen) {
+    const jarjestys = ['suunniteltu','vahvistettu','kaynnissa','valmis'];
+    const idx = jarjestys.indexOf(nykyinen);
+    return jarjestys[Math.min(idx + 1, jarjestys.length - 1)];
+  }
+
+  async function _paivitaTapahtumaTila(tapahtumaId, uusiTila) {
+    try {
+      await TmTapahtumat.paivitaTila(db, tila.seuraId, tapahtumaId, uusiTila);
+      // Päivitä detailmodaali
+      await _avaaTestiTapahtuma(tapahtumaId);
+      // Päivitä myös taustalla oleva kalenteri
+      const idx = _kalTapahtumat.findIndex(t => t.id === tapahtumaId);
+      if (idx >= 0) _kalTapahtumat[idx].tila = uusiTila;
+    } catch(e) {
+      alert('Tilanpäivitys epäonnistui: ' + e.message);
+    }
+  }
+
+  async function _kalPaivitaPaikalla(tapahtumaId, pelaajaIdx, paikalla) {
+    try {
+      const snap = await db.collection('seurat').doc(tila.seuraId)
+        .collection('tapahtumat').doc(tapahtumaId).get();
+      const pelaajat = snap.data()?.pelaajat || [];
+      if (pelaajat[pelaajaIdx]) pelaajat[pelaajaIdx].paikalla = paikalla;
+      await db.collection('seurat').doc(tila.seuraId)
+        .collection('tapahtumat').doc(tapahtumaId)
+        .update({ pelaajat });
+    } catch(e) {
+      console.error('Paikalla-päivitys:', e);
+    }
+  }
+
+  async function _poistaTapahtuma(tapahtumaId) {
+    if (!confirm('Poistetaanko tapahtuma? Tätä ei voi peruuttaa.')) return;
+    try {
+      await TmTapahtumat.poistaTapahtuma(db, tila.seuraId, tapahtumaId);
+      document.getElementById('kalDetModaali').style.display = 'none';
+      await renderKalenteri(document.getElementById('nakymaAlue'));
+    } catch(e) {
+      alert('Poisto epäonnistui: ' + e.message);
+    }
+  }
+
+  function _avaaTestauslomake(tapahtumaId) {
+    // Avaa harjoitettavuuslomake tapahtuma-parametrilla
+    const url = `TalentMaster_Harjoitettavuus_Lomake.html?tapahtumaId=${tapahtumaId}&seuraId=${tila.seuraId}`;
+    window.open(url, '_blank');
+  }
+
+
