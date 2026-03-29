@@ -7993,12 +7993,23 @@ function renderVPKalenteri() {
   var pvmAlku  = vuosi + '-' + String(kuukausi + 1).padStart(2, '0') + '-01';
   var pvmLoppu = vuosi + '-' + String(kuukausi + 1).padStart(2, '0') + '-31';
 
-  TmTapahtumat.haeTapahtumat(_fbDb, seuraId, { pvmAlku: pvmAlku, pvmLoppu: pvmLoppu })
-    .then(function(tapahtumat) {
-      _vpKalTapahtumat = tapahtumat;
-      _vpKalRenderoi(el, seuraId, vuosi, kuukausi, tapahtumat);
-    })
-    .catch(function(e) {
+  // onSnapshot korvaa .then()-pohjaisen get():n.
+  // Firestore kuuntelee muutoksia reaaliajassa — kun VP tai valmentaja
+  // luo, vahvistaa tai poistaa tapahtuman, kalenteri päivittyy ilman
+  // sivun latausta. Vanha kuuntelija puretaan aina ennen uuden luomista
+  // jotta ei synny kahta rinnakkaista kuuntelijaa saman kalenterin kuulle.
+  if (window._vpKalUnsubscribe) window._vpKalUnsubscribe();
+  window._vpKalUnsubscribe = _fbDb
+    .collection('seurat').doc(seuraId)
+    .collection('tapahtumat')
+    .where('pvm', '>=', pvmAlku)
+    .where('pvm', '<=', pvmLoppu)
+    .onSnapshot(function(snap) {
+      _vpKalTapahtumat = snap.docs.map(function(d) {
+        return Object.assign({ id: d.id }, d.data());
+      });
+      _vpKalRenderoi(el, seuraId, vuosi, kuukausi, _vpKalTapahtumat);
+    }, function(e) {
       el.innerHTML = '<div style="color:var(--red);padding:20px">Virhe: ' + e.message + '</div>';
     });
 }
@@ -8418,6 +8429,13 @@ async function _vpTallennaTapahtuma(seuraId) {
     }, kayttajaUid);
     var luoModaali = document.getElementById('vpKalLuoModaali');
     if (luoModaali) luoModaali.style.display = 'none';
+    // Infokortti 300ms viiveellä jotta kalenteri ehtii päivittyä ensin
+    setTimeout(function() {
+      var jSel = document.getElementById('vpLuoJoukkue');
+      var jTxt = jSel ? (jSel.selectedOptions[0] && jSel.selectedOptions[0].textContent || joukkue) : joukkue;
+      var tNimi = nimi || ((TmTapahtumat.TAPAHTUMATYYPIT || {})[tyyppi] || {}).nimi || tyyppi;
+      _vpNaytaMitaSeuraavaksi(sId, joukkue, jTxt, tNimi, pvm);
+    }, 300);
   } catch(e) {
     if (virhe) { virhe.textContent = 'Virhe: ' + e.message; virhe.style.display = 'block'; }
     if (btn) { btn.textContent = 'Luo tapahtuma'; btn.disabled = false; }
