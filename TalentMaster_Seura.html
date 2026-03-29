@@ -1435,6 +1435,13 @@ async function renderPelaajat(alue) {
     const odottaa  = pelaajat.filter(p => (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu') && !p.suostumus?.annettu).length;
     const eiLahetetty = pelaajat.length - annettu - odottaa;
 
+    // PalloID-puuttuminen: rekisteröity mutta PalloID puuttuu.
+    // Ei estä mitään toimintaa — näytetään huomiona sihteereille.
+    const ilmanPalloId = pelaajat.filter(p =>
+      (p.suostumusTila === 'annettu' || p.suostumus?.annettu) &&
+      !p.palloID && !p.palloid && !p.palloId
+    ).length;
+
     alueEl.innerHTML = `
       <!-- Yhteenveto-palkki -->
       <div style="display:flex;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);
@@ -1455,10 +1462,18 @@ async function renderPelaajat(alue) {
           <span style="color:var(--ink3);">Ei kutsua:</span>
           <strong style="color:var(--ink1);">${eiLahetetty}</strong>
         </div>` : ''}
+        ${ilmanPalloId > 0 ? `
+        <div style="display:flex;align-items:center;gap:7px;font-size:12px;margin-left:auto;
+          background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);
+          border-radius:6px;padding:4px 10px;">
+          <span style="font-size:13px;">⚠️</span>
+          <span style="color:var(--amber);">${ilmanPalloId} pelaajaa ilman PalloID:tä</span>
+          <span style="color:var(--ink3);font-size:10px;">— vanhempi tai sihteeri täyttää</span>
+        </div>` : ''}
       </div>
       <table>
         <thead><tr>
-          <th>Nimi</th><th>Joukkue</th><th>Synt.</th><th>Tila</th><th>Toiminnot</th>
+          <th>Nimi</th><th>Joukkue</th><th>Synt.</th><th>PalloID</th><th>Tila</th><th>Toiminnot</th>
         </tr></thead>
         <tbody>
           ${pelaajat.map(p => {
@@ -1477,11 +1492,29 @@ async function renderPelaajat(alue) {
               ? ['odottaa', '⏳', 'Kutsu lähetetty']
               : ['harmaa',  '—', 'Ei kutsua'];
 
+            // Normalisoi joukkue-kenttä näyttöä varten
+            const joukkueNakymassa = p.joukkue || '—';
+
+            // PalloID — tarkistetaan kaikki mahdolliset kenttänimet
+            // (järjestelmässä on historiallisesti käytetty eri muotoja)
+            const palloIdArvo = p.palloID || p.palloid || p.palloId || '';
+            const onRekisteroity = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
+
+            // PalloID-solu: näytetään arvo jos on, huomio jos puuttuu rekisteröidyltä
+            const palloIdSolu = palloIdArvo
+              ? `<td style="font-family:monospace;font-size:11px;color:var(--ink2);">${palloIdArvo}</td>`
+              : onRekisteroity
+              ? `<td title="Vanhempi voi lisätä PalloID:n suostumuslomakkeessa tai sihteeri Tiedot-näkymässä">
+                   <span style="color:var(--amber);font-size:11px;font-weight:600;">⚠️ Puuttuu</span>
+                 </td>`
+              : `<td style="color:var(--ink3);font-size:11px;">—</td>`;
+
             return `
               <tr>
                 <td style="font-weight:600;">${nimi}</td>
-                <td>${p.joukkue || '—'}</td>
+                <td>${joukkueNakymassa}</td>
                 <td>${syntVuosi}</td>
+                ${palloIdSolu}
                 <td><span class="badge ${tilaLuokka}">${tilaIkoni} ${tilaTeksti}</span></td>
                 <td>
                   <button class="toimNappi" onclick="naytaPelaajaTiedot('${p.id}')">Tiedot</button>
@@ -3511,7 +3544,7 @@ function kasitteleExcelTuonti(event) {
         .map((r, idx) => ({
           etunimi:       iEtu   >= 0 ? String(r[iEtu]   || '').trim() : '',
           sukunimi:      iSuku  >= 0 ? String(r[iSuku]  || '').trim() : '',
-          joukkue:       iJouk  >= 0 ? String(r[iJouk]  || '').trim() : '',
+          joukkue:       iJouk  >= 0 ? String(r[iJouk]  || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_\-]/g, '') : '',
           huoltajaEmail: iEmail >= 0 ? String(r[iEmail] || '').trim() : '',
           _rivi: otsikkoRiviIdx + idx + 2,
         }));
