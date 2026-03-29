@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster™ — Videopankki Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc, getDocs, collection, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+// ── Firebase config ──
+const firebaseConfig = {
+  apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+  authDomain: "talentmaster-pilot.firebaseapp.com",
+  projectId: "talentmaster-pilot",
+  storageBucket: "talentmaster-pilot.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
+
+// ── Exercise master list (key → display name + category + search term) ──
+const EXERCISES = [
+  // Alaraaja — molemmat
+  { key:'sq1', cat:'Alaraaja (molemmat)', name:'Istumasta seisomaan + käsien ojennus', search:'sit to stand squat exercise tutorial' },
+  { key:'sq2', cat:'Alaraaja (molemmat)', name:'TRX-avustettu kyykky', search:'TRX assisted squat tutorial' },
+  { key:'sq3', cat:'Alaraaja (molemmat)', name:'Kehonpainokyykky', search:'bodyweight squat technique tutorial' },
+  { key:'sq4', cat:'Alaraaja (molemmat)', name:'Levytyöntökyykky (goblet)', search:'goblet squat plate tutorial' },
+  { key:'sq5', cat:'Alaraaja (molemmat)', name:'Levy edessä -kyykky', search:'front loaded squat plate tutorial' },
+  // Alaraaja — yksi jalka
+  { key:'ss1', cat:'Alaraaja (yksi jalka)', name:'Hajarinta-asento lattialta', search:'split squat from floor tutorial' },
+  { key:'ss2', cat:'Alaraaja (yksi jalka)', name:'Hajarinta-asento', search:'split squat bodyweight tutorial technique' },
+  { key:'ss3', cat:'Alaraaja (yksi jalka)', name:'Levytyöntö-hajarinta', search:'split squat plate push tutorial' },
+  { key:'ss4', cat:'Alaraaja (yksi jalka)', name:'Levy edessä -hajarinta', search:'front loaded split squat tutorial' },
+  { key:'ss5', cat:'Alaraaja (yksi jalka)', name:'Maljikkohaarakyykky', search:'goblet split squat kettlebell tutorial' },
+  // Lonkkavoima — molemmat
+  { key:'ht1', cat:'Lonkkavoima (molemmat)', name:'Lantionnosto lattialta — pito', search:'hip bridge hold isometric floor tutorial' },
+  { key:'ht2', cat:'Lonkkavoima (molemmat)', name:'Lantionnosto lattialta', search:'glute bridge floor tutorial technique' },
+  { key:'ht3', cat:'Lonkkavoima (molemmat)', name:'Nauha-lantionnosto', search:'banded glute bridge resistance band tutorial' },
+  { key:'ht4', cat:'Lonkkavoima (molemmat)', name:'Hartiat korot. nauha-lantionnosto', search:'shoulder elevated hip thrust band tutorial' },
+  { key:'ht5', cat:'Lonkkavoima (molemmat)', name:'Hartiat korot. tanko-lantionnosto', search:'barbell hip thrust shoulder elevated tutorial' },
+  // Lonkkavoima — yksi jalka
+  { key:'sh2', cat:'Lonkkavoima (yksi jalka)', name:'YJ-lantionnosto — pito', search:'single leg hip bridge hold isometric tutorial' },
+  { key:'sh3', cat:'Lonkkavoima (yksi jalka)', name:'YJ-lantionnosto dynaamisesti', search:'single leg glute bridge tutorial' },
+  { key:'sh4', cat:'Lonkkavoima (yksi jalka)', name:'Nauha + YJ-lantionnosto', search:'single leg hip thrust band tutorial' },
+  { key:'sh5', cat:'Lonkkavoima (yksi jalka)', name:'Hartiat korot. nauha-YJ-lantionnosto', search:'single leg shoulder elevated hip thrust tutorial' },
+  // Polvivoima
+  { key:'rp1', cat:'Polvivoima', name:'Käänteislauta — hengitys', search:'reverse plank hold tutorial hamstring' },
+  { key:'rp2', cat:'Polvivoima', name:'Käänteislauta + varvasrullaus', search:'reverse plank toe rock tutorial' },
+  { key:'rp3', cat:'Polvivoima', name:'Käänteislauta + seinäkosketus', search:'reverse plank wall touch hamstring tutorial' },
+  { key:'rp4', cat:'Polvivoima', name:'Käänteislauta — vuorojalka pito', search:'reverse plank single leg hold tutorial' },
+  { key:'rp5', cat:'Polvivoima', name:'Käänteislauta YJ-varvasrullaus', search:'reverse plank single leg toe curl tutorial' },
+  // Yläraaja — työntö
+  { key:'pu1', cat:'Yläraaja — työntö', name:'Korotettu punnerrus', search:'incline push up elevated tutorial beginner' },
+  { key:'pu2', cat:'Yläraaja — työntö', name:'Täysi kehonpainopunnerrus', search:'push up perfect form tutorial' },
+  { key:'pu3', cat:'Yläraaja — työntö', name:'Vastuskuminauhapunnerrus', search:'resistance band push up tutorial' },
+  { key:'pu4', cat:'Yläraaja — työntö', name:'KP-lattiapenkkipunnerrus', search:'dumbbell floor press tutorial technique' },
+  { key:'pu5', cat:'Yläraaja — työntö', name:'Vuorotahtinen KP-lattiapenkkipunnerrus', search:'alternating dumbbell floor press tutorial' },
+  // Yläraaja — veto
+  { key:'ro1', cat:'Yläraaja — veto', name:'TRX-soutuveto (kalteva)', search:'TRX row inverted tutorial technique' },
+  { key:'ro2', cat:'Yläraaja — veto', name:'Tangon alhainen siltasoutuveto', search:'barbell inverted row low bridge tutorial' },
+  { key:'ro3', cat:'Yläraaja — veto', name:'Tangon korkea siltasoutuveto', search:'barbell inverted row high hips tutorial' },
+  { key:'ro4', cat:'Yläraaja — veto', name:'Tangon jalat korot. soutuveto', search:'inverted row feet elevated tutorial' },
+  { key:'ro5', cat:'Yläraaja — veto', name:'TRX jalat korot. soutuveto', search:'TRX row feet elevated tutorial' },
+  // Hartia
+  { key:'sh3b', cat:'Hartia', name:'Puolipolvi-kasvonveto + pito', search:'half kneeling face pull band pause tutorial' },
+  { key:'sh4b', cat:'Hartia', name:'Kaiser puolipolvi-kasvonveto', search:'half kneeling cable face pull tutorial' },
+  { key:'sh5b', cat:'Hartia', name:'Kaiser haara-kasvonveto', search:'split stance cable face pull tutorial' },
+  // Keskikeho
+  { key:'cr1', cat:'Keskikeho', name:'Karhukävely (eteen/sivulle)', search:'bear crawl tutorial core exercise' },
+  { key:'cr2', cat:'Keskikeho', name:'Hämähäkkikävely (korkea)', search:'spiderman crawl high tutorial' },
+  { key:'cr3', cat:'Keskikeho', name:'Hämähäkkikävely (matala)', search:'spiderman crawl low tutorial' },
+  { key:'cr4', cat:'Keskikeho', name:'Matokävely (kyynärpäillä)', search:'reptile crawl forearm tutorial' },
+  { key:'cr5', cat:'Keskikeho', name:'Matokävely (käsillä)', search:'reptile crawl hands tutorial' },
+  // Laskeutuminen — molemmat
+  { key:'dj1', cat:'Laskeutuminen (molemmat)', name:'Syväpudotushyppy 30 cm', search:'depth jump drop landing 12 inch tutorial' },
+  { key:'dj2', cat:'Laskeutuminen (molemmat)', name:'Syväpudotus 45 cm — eteen laskeutuminen', search:'depth jump forward landing tutorial' },
+  { key:'dj3', cat:'Laskeutuminen (molemmat)', name:'Syväpudotus 45 cm — 90° käännös', search:'depth jump 90 degree rotation landing tutorial' },
+  { key:'dj4', cat:'Laskeutuminen (molemmat)', name:'Syväpudotus 45 cm — 180° käännös', search:'depth jump 180 rotation landing tutorial' },
+  { key:'dj5', cat:'Laskeutuminen (molemmat)', name:'Syväpudotus 52 cm — eteen laskeutuminen', search:'depth jump advanced forward landing tutorial' },
+  // Laskeutuminen — yksi jalka
+  { key:'sl1', cat:'Laskeutuminen (yksi jalka)', name:'YJ-askellasku 30 cm', search:'single leg step down box tutorial' },
+  { key:'sl2', cat:'Laskeutuminen (yksi jalka)', name:'YJ-hyppy alas 30 cm', search:'single leg hop down landing tutorial' },
+  { key:'sl3', cat:'Laskeutuminen (yksi jalka)', name:'YJ-hyppy alas 45 cm', search:'single leg drop landing 18 inch tutorial' },
+  { key:'sl4', cat:'Laskeutuminen (yksi jalka)', name:'YJ-hyppy alas 45 cm + käsikuviot', search:'single leg landing dual task perturbation tutorial' },
+  { key:'sl5', cat:'Laskeutuminen (yksi jalka)', name:'YJ-hyppy alas 90° käännöksellä', search:'single leg landing 90 degree rotation tutorial' },
+  // Hyppääminen
+  { key:'bj1', cat:'Hyppääminen', name:'Laattahyppy 45 cm', search:'box jump 18 inch tutorial technique' },
+  { key:'bj2', cat:'Hyppääminen', name:'Laattahyppy 52 cm', search:'box jump 21 inch tutorial' },
+  { key:'bj3', cat:'Hyppääminen', name:'Laattahyppy 60 cm', search:'box jump 24 inch tutorial' },
+  { key:'bj4', cat:'Hyppääminen', name:'Laattahyppy 45 cm → aitahyppy', search:'box jump hurdle jump reactive plyometric tutorial' },
+  { key:'bj5', cat:'Hyppääminen', name:'Lattiahyppy → laattahyppy', search:'consecutive reactive box jump tutorial' },
+  // Loikkaaminen
+  { key:'hp3', cat:'Loikkaaminen', name:'YJ-aitaloikka eteenpäin + pito', search:'single leg hurdle hop stick forward tutorial' },
+  { key:'hp4', cat:'Loikkaaminen', name:'YJ-aitaloikka sivulle + pito', search:'single leg lateral hurdle hop stick tutorial' },
+  { key:'hp5', cat:'Loikkaaminen', name:'YJ tasapainolauta-loikka eteen/sivulle', search:'single leg balance board hop stick tutorial' },
+];
+
+// ── State ──
+let currentUser = null;
+let videoBank   = {};   // key → { yt, notes, updatedAt }
+let filterText  = '';
+let previewKey  = null;
+
+// ── Auth ──
+onAuthStateChanged(auth, user => {
+  currentUser = user;
+  if (user) {
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('appSection').style.display  = 'block';
+    document.getElementById('userEmail').textContent = user.email;
+    loadVideos();
+  } else {
+    document.getElementById('loginSection').style.display = 'flex';
+    document.getElementById('appSection').style.display  = 'none';
+  }
+});
+
+window.login = async function() {
+  const email = document.getElementById('emailIn').value.trim();
+  const pass  = document.getElementById('passIn').value;
+  const btn   = document.getElementById('loginBtn');
+  const err   = document.getElementById('loginErr');
+  btn.textContent = 'Kirjaudutaan...';
+  btn.disabled = true;
+  err.textContent = '';
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e) {
+    err.textContent = 'Kirjautuminen epäonnistui: ' + e.message;
+    btn.textContent = 'Kirjaudu sisään';
+    btn.disabled = false;
+  }
+};
+
+window.logout = async function() {
+  await signOut(auth);
+};
+
+// ── Load videos from Firestore ──
+async function loadVideos() {
+  setStatus('Ladataan videopankkia...', 'loading');
+  try {
+    const snap = await getDocs(collection(db, 'videoBank'));
+    videoBank = {};
+    snap.forEach(d => { videoBank[d.id] = d.data(); });
+    renderTable();
+    updateStats();
+    setStatus('Videopankki ladattu ✓', 'ok');
+  } catch(e) {
+    setStatus('Latausvirhe: ' + e.message, 'error');
+  }
+}
+
+// ── Save single video ──
+window.saveVideo = async function(key) {
+  const ytVal   = document.getElementById('yt_' + key)?.value.trim() || '';
+  const notes   = document.getElementById('notes_' + key)?.value.trim() || '';
+  const row     = document.getElementById('row_' + key);
+  const saveBtn = document.getElementById('savebtn_' + key);
+
+  // Extract YT ID from full URL if needed
+  let ytId = ytVal;
+  const m = ytVal.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
+  if (m) ytId = m[1];
+
+  if (ytId && ytId.length !== 11) {
+    showToast('⚠️ YouTube-ID täytyy olla 11 merkkiä pitkä', 'error');
+    return;
+  }
+
+  saveBtn.textContent = '...';
+  saveBtn.disabled = true;
+
+  try {
+    const data = { yt: ytId, notes, updatedAt: serverTimestamp(), updatedBy: currentUser.email };
+    await setDoc(doc(db, 'videoBank', key), data);
+    videoBank[key] = { ...data, updatedAt: new Date() };
+
+    // Update UI
+    if (ytId) {
+      row?.classList.add('has-video');
+      row?.classList.remove('no-video');
+    } else {
+      row?.classList.remove('has-video');
+      row?.classList.add('no-video');
+    }
+    updateStats();
+    showToast('✓ Tallennettu: ' + key, 'ok');
+    // Update preview if open
+    if (previewKey === key) showPreview(key);
+  } catch(e) {
+    showToast('Virhe: ' + e.message, 'error');
+  } finally {
+    saveBtn.textContent = 'Tallenna';
+    saveBtn.disabled = false;
+  }
+};
+
+// ── Preview ──
+window.showPreview = function(key) {
+  previewKey = key;
+  const v   = videoBank[key];
+  const ytId = v?.yt || '';
+  const ex  = EXERCISES.find(e => e.key === key);
+  const pane = document.getElementById('previewPane');
+  const ptitle = document.getElementById('previewTitle');
+  ptitle.textContent = ex?.name || key;
+
+  if (ytId) {
+    pane.innerHTML = `
+      <div class="preview-video">
+        <iframe src="https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>
+      </div>
+      <div class="preview-meta">
+        <span class="pmeta-label">VIDEO ID</span>
+        <span class="pmeta-val">${ytId}</span>
+        <a class="yt-link" href="https://www.youtube.com/watch?v=${ytId}" target="_blank">Avaa YouTubessa →</a>
+      </div>`;
+  } else {
+    const q = encodeURIComponent(ex?.search || ex?.name || key);
+    pane.innerHTML = `
+      <div class="preview-empty">
+        <div class="pe-icon">▶</div>
+        <div class="pe-text">Ei videota tallennettu</div>
+        <a class="yt-search-btn" href="https://www.youtube.com/results?search_query=${q}" target="_blank">
+          🔍 Hae YouTubesta: "${ex?.name}"
+        </a>
+      </div>`;
+  }
+};
+
+window.openYTSearch = function(key) {
+  const ex = EXERCISES.find(e => e.key === key);
+  const q  = encodeURIComponent(ex?.search || ex?.name || key);
+  window.open('https://www.youtube.com/results?search_query=' + q, '_blank');
+};
+
+// ── Filter ──
+window.applyFilter = function(val) {
+  filterText = val.toLowerCase();
+  renderTable();
+};
+
+window.filterCat = function(cat) {
+  filterText = cat.toLowerCase();
+  document.getElementById('searchIn').value = cat;
+  renderTable();
+};
+
+// ── Render table ──
+function renderTable() {
+  const cats = {};
+  EXERCISES.forEach(ex => {
+    if (filterText && !ex.name.toLowerCase().includes(filterText) && !ex.cat.toLowerCase().includes(filterText)) return;
+    if (!cats[ex.cat]) cats[ex.cat] = [];
+    cats[ex.cat].push(ex);
+  });
+
+  let html = '';
+  for (const [cat, exList] of Object.entries(cats)) {
+    html += `<tr class="cat-hdr"><td colspan="4">${cat}</td></tr>`;
+    exList.forEach(ex => {
+      const v     = videoBank[ex.key] || {};
+      const ytId  = v.yt || '';
+      const notes = v.notes || '';
+      const hasV  = ytId.length === 11;
+      const ts    = v.updatedAt ? (v.updatedAt.toDate ? v.updatedAt.toDate().toLocaleDateString('fi') : new Date(v.updatedAt).toLocaleDateString('fi')) : '';
+
+      html += `
+      <tr class="ex-row ${hasV ? 'has-video' : 'no-video'}" id="row_${ex.key}">
+        <td class="ex-status">${hasV ? '<span class="dot green"></span>' : '<span class="dot grey"></span>'}</td>
+        <td class="ex-name-cell">
+          <div class="ex-name">${ex.name}</div>
+          ${ts ? `<div class="ex-ts">Päivitetty ${ts} · ${v.updatedBy||''}</div>` : ''}
+        </td>
+        <td class="ex-controls">
+          <div class="ctrl-row">
+            <input class="yt-input" id="yt_${ex.key}" type="text"
+              placeholder="YouTube URL tai ID (11 merkkiä)"
+              value="${ytId}"
+              onkeydown="if(event.key==='Enter')saveVideo('${ex.key}')">
+            <button class="search-btn" onclick="openYTSearch('${ex.key}')" title="Hae YouTubesta">🔍</button>
+            <button class="save-btn" id="savebtn_${ex.key}" onclick="saveVideo('${ex.key}')">Tallenna</button>
+            <button class="prev-btn ${hasV?'active':''}" onclick="showPreview('${ex.key}')" title="Esikatsele">▶</button>
+          </div>
+          <textarea class="notes-input" id="notes_${ex.key}"
+            placeholder="Muistiinpanot (valinnainen)..."
+            rows="1">${notes}</textarea>
+        </td>
+      </tr>`;
+    });
+  }
+
+  document.getElementById('exTable').innerHTML = html || '<tr><td colspan="4" style="text-align:center;padding:20px;color:#4a5878">Ei tuloksia hakusanalla "' + filterText + '"</td></tr>';
+}
+
+// ── Stats ──
+function updateStats() {
+  const total   = EXERCISES.length;
+  const filled  = EXERCISES.filter(e => videoBank[e.key]?.yt?.length === 11).length;
+  const missing = total - filled;
+  document.getElementById('statTotal').textContent  = total;
+  document.getElementById('statFilled').textContent = filled;
+  document.getElementById('statMissing').textContent = missing;
+  document.getElementById('statPct').textContent = Math.round(filled/total*100) + '%';
+  document.getElementById('progressBar').style.width = Math.round(filled/total*100) + '%';
+}
+
+// ── Toast ──
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function setStatus(msg, type) {
+  const s = document.getElementById('statusBar');
+  s.textContent = msg;
+  s.className = 'status-bar ' + type;
+}
+</script>
+
+<style>
+:root {
+  --bg:      #080f1a;
+  --surf:    #0d1625;
+  --surf2:   #111e30;
+  --border:  rgba(255,255,255,0.06);
+  --green:   #00e676;
+  --teal:    #00bcd4;
+  --gold:    #ffd740;
+  --red:     #ff5252;
+  --white:   #e8f0fe;
+  --grey:    #8899bb;
+  --grey2:   #4a5878;
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--white); font-family:'Barlow',sans-serif; font-size:14px; min-height:100vh; }
+
+/* ── HEADER ── */
+.hdr {
+  background:linear-gradient(135deg,#040d1f,#060f22,#040a18);
+  border-bottom:2px solid var(--green);
+  padding:16px 28px;
+  display:flex; align-items:center; gap:14px;
+}
+.hdr-logo { display:flex; align-items:center; gap:10px; }
+.hdr-icon { width:40px;height:40px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;color:#040d1f;box-shadow:0 0 16px rgba(0,230,118,0.3); }
+.hdr-brand { font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;letter-spacing:1px; }
+.hdr-brand span { color:var(--green); }
+.hdr-sub { font-size:0.62rem;color:var(--grey);letter-spacing:2px;text-transform:uppercase;margin-top:2px; }
+.hdr-right { margin-left:auto;display:flex;align-items:center;gap:10px;font-size:0.7rem;color:var(--grey); }
+.logout-btn { background:rgba(255,82,82,0.12);border:1px solid rgba(255,82,82,0.25);color:var(--red);padding:5px 12px;border-radius:5px;cursor:pointer;font-size:0.68rem;font-weight:600;transition:all .12s; }
+.logout-btn:hover { background:rgba(255,82,82,0.2); }
+
+/* ── LOGIN ── */
+#loginSection { display:flex;align-items:center;justify-content:center;min-height:80vh; }
+.login-box { background:var(--surf);border:1px solid rgba(0,230,118,0.15);border-radius:12px;padding:32px 36px;width:340px; }
+.login-box h2 { font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:700;letter-spacing:1px;margin-bottom:20px;color:var(--green); }
+.form-group { margin-bottom:14px; }
+.form-group label { font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);display:block;margin-bottom:5px; }
+.form-group input { width:100%;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--white);font-family:'JetBrains Mono',monospace;font-size:0.8rem;outline:none; }
+.form-group input:focus { border-color:rgba(0,230,118,0.4); }
+.login-btn { width:100%;background:var(--green);border:none;color:#040d1f;padding:10px;border-radius:6px;font-weight:700;font-size:0.85rem;cursor:pointer;margin-top:4px;transition:background .12s; }
+.login-btn:hover { background:#00c462; }
+.login-btn:disabled { opacity:.6;cursor:not-allowed; }
+.login-err { color:var(--red);font-size:0.7rem;margin-top:8px;min-height:18px; }
+
+/* ── APP LAYOUT ── */
+#appSection { display:none; }
+.app-layout { display:grid;grid-template-columns:1fr 340px;gap:0;height:calc(100vh - 58px); }
+
+/* ── LEFT: TABLE ── */
+.left-pane { overflow-y:auto;border-right:1px solid var(--border); }
+
+/* Stats bar */
+.stats-bar { background:var(--surf);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap; }
+.stat-item { text-align:center; }
+.stat-val { font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:800;display:block;line-height:1; }
+.stat-val.green { color:var(--green); }
+.stat-val.red   { color:var(--red); }
+.stat-val.gold  { color:var(--gold); }
+.stat-lbl { font-size:0.55rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--grey);display:block;margin-top:1px; }
+.progress-wrap { flex:1;min-width:120px; }
+.progress-track { background:rgba(255,255,255,0.06);border-radius:4px;height:8px;overflow:hidden; }
+.progress-bar { background:var(--green);height:100%;border-radius:4px;transition:width .3s;width:0%; }
+
+/* Search */
+.search-wrap { padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center; }
+.search-input { flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--white);font-size:0.75rem;outline:none;font-family:'Barlow',sans-serif; }
+.search-input:focus { border-color:rgba(0,188,212,0.4); }
+.search-input::placeholder { color:var(--grey2); }
+.clear-btn { background:none;border:1px solid var(--border);color:var(--grey);padding:6px 10px;border-radius:5px;cursor:pointer;font-size:0.7rem; }
+
+/* Category quick filters */
+.cat-filters { padding:8px 16px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px; }
+.cf-btn { background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--grey);padding:3px 9px;border-radius:12px;cursor:pointer;font-size:0.62rem;font-weight:600;transition:all .12s; }
+.cf-btn:hover { background:rgba(0,188,212,0.1);color:var(--teal);border-color:rgba(0,188,212,0.3); }
+
+/* Table */
+.ex-table { width:100%;border-collapse:collapse; }
+.cat-hdr td { padding:5px 16px;background:rgba(0,0,0,0.45);font-family:'Barlow Condensed',sans-serif;font-size:0.65rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--grey2); }
+.ex-row { border-bottom:1px solid rgba(255,255,255,0.03);transition:background .1s; }
+.ex-row:hover { background:rgba(255,255,255,0.025); }
+.ex-row.has-video { }
+.ex-row.no-video { }
+.ex-status { width:28px;text-align:center;padding:10px 6px; }
+.dot { display:inline-block;width:8px;height:8px;border-radius:50%; }
+.dot.green { background:var(--green);box-shadow:0 0 6px rgba(0,230,118,0.5); }
+.dot.grey  { background:var(--grey2); }
+.ex-name-cell { padding:8px 10px 8px 4px;width:220px; }
+.ex-name { font-weight:600;font-size:0.74rem;color:var(--white);line-height:1.3; }
+.ex-ts { font-size:0.58rem;color:var(--grey2);margin-top:2px;font-family:'JetBrains Mono',monospace; }
+.ex-controls { padding:7px 16px 7px 4px; }
+.ctrl-row { display:flex;gap:5px;align-items:center;margin-bottom:5px; }
+.yt-input { flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--white);font-family:'JetBrains Mono',monospace;font-size:0.68rem;outline:none;min-width:0; }
+.yt-input:focus { border-color:rgba(0,230,118,0.4); }
+.yt-input::placeholder { color:var(--grey2); }
+.search-btn { background:rgba(0,188,212,0.1);border:1px solid rgba(0,188,212,0.2);color:var(--teal);padding:5px 8px;border-radius:5px;cursor:pointer;font-size:0.75rem;flex-shrink:0;transition:all .12s; }
+.search-btn:hover { background:rgba(0,188,212,0.2); }
+.save-btn { background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.25);color:var(--green);padding:5px 10px;border-radius:5px;cursor:pointer;font-size:0.65rem;font-weight:700;flex-shrink:0;transition:all .12s;white-space:nowrap; }
+.save-btn:hover { background:rgba(0,230,118,0.22); }
+.save-btn:disabled { opacity:.5;cursor:not-allowed; }
+.prev-btn { background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--grey);padding:5px 8px;border-radius:5px;cursor:pointer;font-size:0.7rem;flex-shrink:0;transition:all .12s; }
+.prev-btn:hover,.prev-btn.active { background:rgba(255,215,64,0.1);border-color:rgba(255,215,64,0.3);color:var(--gold); }
+.notes-input { width:100%;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.04);border-radius:5px;padding:4px 7px;color:var(--grey);font-family:'Barlow',sans-serif;font-size:0.65rem;outline:none;resize:none; }
+.notes-input:focus { border-color:var(--border); }
+.notes-input::placeholder { color:var(--grey2); }
+
+/* ── RIGHT: PREVIEW ── */
+.right-pane { background:var(--surf);display:flex;flex-direction:column;overflow:hidden; }
+.preview-header { padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px; }
+.preview-header .ph-icon { font-size:1rem; }
+.preview-header h3 { font-family:'Barlow Condensed',sans-serif;font-size:0.9rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--white); }
+#previewTitle { font-size:0.75rem;font-weight:500;color:var(--grey);margin-top:2px; }
+.preview-body { flex:1;overflow-y:auto;padding:14px; }
+.preview-video { border-radius:8px;overflow:hidden;border:1px solid var(--border);margin-bottom:10px; }
+.preview-video iframe { display:block;width:100%;height:200px;border:none; }
+.preview-meta { display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:0.68rem; }
+.pmeta-label { color:var(--grey2);font-family:'JetBrains Mono',monospace;font-size:0.6rem;letter-spacing:1px; }
+.pmeta-val { color:var(--green);font-family:'JetBrains Mono',monospace; }
+.yt-link { color:var(--teal);text-decoration:none;margin-left:auto; }
+.yt-link:hover { text-decoration:underline; }
+.preview-empty { display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 16px;gap:10px;text-align:center; }
+.pe-icon { font-size:2.5rem;color:var(--grey2); }
+.pe-text { font-size:0.8rem;color:var(--grey); }
+.yt-search-btn { background:rgba(255,0,0,0.15);border:1px solid rgba(255,0,0,0.3);color:#ff6060;padding:8px 14px;border-radius:6px;text-decoration:none;font-size:0.72rem;font-weight:600;transition:all .12s;margin-top:4px; }
+.yt-search-btn:hover { background:rgba(255,0,0,0.25); }
+.preview-hint { padding:40px 16px;text-align:center;color:var(--grey2);font-size:0.75rem;line-height:1.6; }
+
+/* ── STATUS / TOAST ── */
+.status-bar { padding:6px 20px;font-size:0.65rem;font-family:'JetBrains Mono',monospace;border-bottom:1px solid var(--border);letter-spacing:.5px; }
+.status-bar.loading { color:var(--gold); }
+.status-bar.ok      { color:var(--green); }
+.status-bar.error   { color:var(--red); }
+.toast { position:fixed;bottom:20px;right:20px;background:var(--surf2);border:1px solid var(--border);padding:10px 16px;border-radius:8px;font-size:0.75rem;font-weight:600;transform:translateY(60px);opacity:0;transition:all .2s;z-index:999;pointer-events:none; }
+.toast.show { transform:translateY(0);opacity:1; }
+.toast.ok    { border-color:rgba(0,230,118,0.3);color:var(--green); }
+.toast.error { border-color:rgba(255,82,82,0.3);color:var(--red); }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-logo">
+    <div class="hdr-icon">TM</div>
+    <div>
+      <div class="hdr-brand">Talent<span>Master</span>™</div>
+      <div class="hdr-sub">Videopankki — Admin</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <span id="userEmail"></span>
+    <button class="logout-btn" onclick="logout()">Kirjaudu ulos</button>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginSection">
+  <div class="login-box">
+    <h2>🎬 Videopankki Admin</h2>
+    <div class="form-group">
+      <label>Sähköposti</label>
+      <input id="emailIn" type="email" placeholder="admin@talentmaster.fi"
+        onkeydown="if(event.key==='Enter')document.getElementById('passIn').focus()">
+    </div>
+    <div class="form-group">
+      <label>Salasana</label>
+      <input id="passIn" type="password" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter')login()">
+    </div>
+    <button id="loginBtn" class="login-btn" onclick="login()">Kirjaudu sisään</button>
+    <div id="loginErr" class="login-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appSection">
+  <div id="statusBar" class="status-bar loading">Yhdistetään Firebaseen...</div>
+  <div class="app-layout">
+
+    <!-- LEFT -->
+    <div class="left-pane">
+      <div class="stats-bar">
+        <div class="stat-item">
+          <span class="stat-val" id="statTotal">—</span>
+          <span class="stat-lbl">Harjoitteet</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-val green" id="statFilled">—</span>
+          <span class="stat-lbl">Videota OK</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-val red" id="statMissing">—</span>
+          <span class="stat-lbl">Puuttuu</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-val gold" id="statPct">—</span>
+          <span class="stat-lbl">Valmis</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-track">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-wrap">
+        <input id="searchIn" class="search-input" type="text"
+          placeholder="Hae harjoitteen tai kategorian nimellä..."
+          oninput="applyFilter(this.value)">
+        <button class="clear-btn" onclick="document.getElementById('searchIn').value='';applyFilter('')">✕ Tyhjennä</button>
+      </div>
+
+      <div class="cat-filters">
+        <span style="font-size:0.6rem;color:var(--grey2);font-weight:700;letter-spacing:1px;align-self:center">KATEGORIA:</span>
+        <button class="cf-btn" onclick="filterCat('Alaraaja (molemmat)')">Alaraaja ×2</button>
+        <button class="cf-btn" onclick="filterCat('Alaraaja (yksi jalka)')">Alaraaja ×1</button>
+        <button class="cf-btn" onclick="filterCat('Lonkkavoima')">Lonkka</button>
+        <button class="cf-btn" onclick="filterCat('Polvivoima')">Polvi</button>
+        <button class="cf-btn" onclick="filterCat('Yläraaja')">Yläraaja</button>
+        <button class="cf-btn" onclick="filterCat('Hartia')">Hartia</button>
+        <button class="cf-btn" onclick="filterCat('Keskikeho')">Core</button>
+        <button class="cf-btn" onclick="filterCat('Laskeutuminen')">Laskeutuminen</button>
+        <button class="cf-btn" onclick="filterCat('Hyppääminen')">Hyppy</button>
+        <button class="cf-btn" onclick="filterCat('Loikkaaminen')">Loikka</button>
+        <button class="cf-btn" onclick="applyFilter('');document.getElementById('searchIn').value=''">Kaikki</button>
+      </div>
+
+      <table class="ex-table">
+        <tbody id="exTable">
+          <tr><td colspan="4" style="padding:20px;text-align:center;color:var(--grey2)">Ladataan...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- RIGHT: PREVIEW -->
+    <div class="right-pane">
+      <div class="preview-header">
+        <span class="ph-icon">▶</span>
+        <div>
+          <h3>Esikatselu</h3>
+          <div id="previewTitle" style="font-size:0.7rem;color:var(--grey);margin-top:2px;">
+            Valitse harjoite vasemmalta
+          </div>
+        </div>
+      </div>
+      <div class="preview-body">
+        <div id="previewPane">
+          <div class="preview-hint">
+            Paina <strong style="color:var(--gold)">▶</strong> -nappia harjoitteen vierestä nähdäksesi videon esikatselun.<br><br>
+            Käyttöohje:<br>
+            1. Paina 🔍 etsiäksesi sopivan videon YouTubesta<br>
+            2. Kopioi video-ID URL-osoitteesta (11 merkkiä)<br>
+            3. Liitä kenttään ja paina <strong style="color:var(--green)">Tallenna</strong><br>
+            4. Video tallentuu Firestoreen ja näkyy automaattisesti liiketaitomatriisissa
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+</body>
+</html>

@@ -1118,18 +1118,61 @@ const CAT = {
     cues:['Ponnistus jäntevästä jalasta','Laskeudu yhdelle jalalle pehmeästi','Pito laskeutuessa','Rytmi tärkeämpää kuin nopeus aluksi'] }
 };
 
-// ─── CUSTOM VIDEO STORAGE (persists in sessionStorage) ───
-// Keys match EX keys, values are YouTube video IDs or full URLs
-const customVideos = JSON.parse(sessionStorage.getItem('tm_videos') || '{}');
+// ─── VIDEO BANK: Firebase + session fallback ───
+// Priority: sessionOverride > Firestore videoBank > built-in EX.yt
+const customVideos    = {};   // session-only quick edits
+let   firestoreVideos = {};   // loaded async from Firestore
 
-function saveCustomVideo(key, val) {
+(async function loadFirebaseVideos() {
+  try {
+    const { initializeApp, getApps } =
+      await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+    const { getFirestore, getDocs, collection } =
+      await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const cfg = {
+      apiKey:    "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+      authDomain:"talentmaster-pilot.firebaseapp.com",
+      projectId: "talentmaster-pilot"
+    };
+    const existingApps = getApps();
+    const app = existingApps.find(a => a.name === 'matrix') ||
+                initializeApp(cfg, 'matrix');
+    const db  = getFirestore(app);
+    const snap = await getDocs(collection(db, 'videoBank'));
+    snap.forEach(d => { if (d.data().yt) firestoreVideos[d.id] = d.data().yt; });
+    console.log('[TM Videopankki] Ladattu', Object.keys(firestoreVideos).length, 'videota Firestoresta');
+  } catch(e) {
+    console.warn('[TM Videopankki] Firebase ei saatavilla, käytetään sisäänrakennettuja videoita.', e.message);
+  }
+})();
+
+function getVideoId(key, builtInYt) {
+  return customVideos[key] || firestoreVideos[key] || builtInYt || '';
+}
+
+async function saveCustomVideo(key, val) {
   val = val.trim();
-  // Accept full YouTube URLs and extract the ID automatically
-  const ytMatch = val.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
-  if (ytMatch) val = ytMatch[1];
+  const m = val.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
+  if (m) val = m[1];
   customVideos[key] = val;
-  sessionStorage.setItem('tm_videos', JSON.stringify(customVideos));
-  // Re-open the popup to refresh video block
+  // Try to persist to Firestore if Firebase is available
+  try {
+    const { initializeApp, getApps } =
+      await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+    const { getFirestore, doc, setDoc, serverTimestamp } =
+      await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const existingApps = getApps();
+    const app = existingApps.find(a => a.name === 'matrix') ||
+                initializeApp({apiKey:"AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",authDomain:"talentmaster-pilot.firebaseapp.com",projectId:"talentmaster-pilot"}, 'matrix');
+    const db = getFirestore(app);
+    await setDoc(doc(db, 'videoBank', key), { yt: val, updatedAt: serverTimestamp(), source: 'matrix-popup' }, { merge: true });
+    firestoreVideos[key] = val;
+    // Show brief save confirmation in popup
+    const savedMsg = document.getElementById('vidSaved_' + key);
+    if (savedMsg) { savedMsg.style.display = 'inline'; setTimeout(() => savedMsg.style.display='none', 2000); }
+  } catch(e) {
+    console.warn('[TM] Video save to Firestore failed:', e.message);
+  }
   showEx(key);
 }
 
@@ -1347,7 +1390,7 @@ function showCat(key) {
 function buildVideoBlock(key, d) {
   // Priority: custom user video > built-in yt > search fallback
   const customId = customVideos[key] || '';
-  const ytId = customId || d.yt || '';
+  const ytId = getVideoId(key, d.yt);
 
   // Build the search query for YouTube fallback
   const searchQ = encodeURIComponent(d.n + ' exercise technique');
@@ -1380,9 +1423,8 @@ function buildVideoBlock(key, d) {
   }
 
   // Always show the "add your own link" editor below
-  const placeholder = customId
-    ? customId
-    : (d.yt ? d.yt : 'Liitä YouTube-linkki tai video-ID');
+  const displayId = customId || firestoreVideos[key] || d.yt || '';
+  const placeholder = displayId || 'Liitä YouTube-linkki tai video-ID';
   const customArea = `
     <div class="vid-custom">
       <span class="vid-custom-label">📎 Oma videoinkki (YouTube URL tai ID)</span>
@@ -1390,10 +1432,11 @@ function buildVideoBlock(key, d) {
         <input class="vid-custom-input" id="vidInput_${key}"
           type="text"
           placeholder="${placeholder}"
-          value="${customId}">
+          value="${displayId}">
         <button class="vid-save-btn" onclick="saveCustomVideo('${key}', document.getElementById('vidInput_${key}').value)">
           Tallenna
         </button>
+        <span id="vidSaved_${key}" style="display:none;font-size:0.62rem;color:var(--tm-green);font-weight:700;font-family:'JetBrains Mono',monospace;margin-left:4px;">✓ Tallennettu</span>
       </div>
     </div>`;
 
