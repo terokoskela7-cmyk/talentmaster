@@ -538,47 +538,92 @@ const db   = firebase.firestore();
 /* ═══════════════════════════════════════════════════════
    TESTIDEFINITIOT — kolme ikäluokkaa
 ═══════════════════════════════════════════════════════ */
+// ── Testidefinitiot — täsmälleen Palloliiton harjoitettavuuskartoitus 2026 -protokollan mukaan ──
+//
+// Tyypit:
+//   'pisteet'  → liikelaatutesti, arvio 1–3p (ampelipainikkeet)
+//   'valinta'  → pudotusvalikko (PHV-tila: AN/PH/VA)
+//   'luku_kg'  → voimatesti 5RM kilogrammoina — absoluuttinen luku, ei pisteytetä samoin
+//   'luku'     → numeerinen tulos (toistomäärä, senttimetri, sekuntia)
+//   'flei'     → lasketaan automaattisesti, ei syötetä käsin
+//
+// U19 FLEI-logiikka on jaettu kahteen:
+//   flei_kehonpaino = pisteytystesteistä (8 testiä, max 24p)
+//   flei_voima      = voimatesteistä suhteellisena voimana (kg/kehonpaino)
+// Jos voimatestit puuttuvat (erillinen päivä), FLEI-kehonpaino lasketaan silti.
+
 const TESTIT = {
+
+  // ── U12: 9 testiä, max 27 pistettä ─────────────────────────────────
+  // Painopiste: liiketaito + SSC + perusvoima kehonpainolla
+  // Lähde: Palloliiton harjoitettavuuskartoitus 2026, s. 22
   U12: [
-    { id:'phv_tila',             label:'PHV-TILA',           tyyppi:'valinta', opts:['AN','PH','VA'], w:68 },
-    { id:'lantionojennustoisto', label:'LANTIONNOJENNUSTOISTO\nTST', tyyppi:'luku', w:90 },
-    { id:'kyykkyistunta',        label:'KYYKKYISTUNTA\nSEK',  tyyppi:'luku', w:80 },
-    { id:'leuanveto',            label:'LEUANVETO\nTST',      tyyppi:'luku', w:75 },
-    { id:'lankku',               label:'LANKKU\nSEK',         tyyppi:'luku', w:70 },
-    { id:'sivulankku',           label:'SIVULANKKU\nSEK',     tyyppi:'luku', w:75 },
-    { id:'valakyykky',           label:'VALAKYYKKY\nPISTOT',  tyyppi:'pisteet', w:75 },
-    { id:'slr',                  label:'SLR\nAST',            tyyppi:'luku', w:65 },
-    { id:'lonkan_aktiivinen',    label:'LONKAN AKT.\nPISTOT', tyyppi:'pisteet', w:70 },
-    { id:'flei',                 label:'FLEI\n%',             tyyppi:'flei', w:60 },
+    { id:'phv_tila',         label:'PHV-\ntila',              tyyppi:'valinta', opts:['AN','PH','VA'], w:65 },
+    { id:'valakyykky',       label:'Valakyykky\n(1-3p)',       tyyppi:'pisteet', w:80 },
+    { id:'luistelijan_kyykky',label:'Luistelijan kyykky\n(1-3p)',tyyppi:'pisteet', w:92 },
+    { id:'askelkyykky',      label:'Askelkyykky\n(1-3p)',      tyyppi:'pisteet', w:80 },
+    { id:'hyvaa_huomenta',   label:'Hyvää huomenta\n(1-3p)',   tyyppi:'pisteet', w:88 },
+    { id:'etunojapunnerrus', label:'Etunojapunnerrus\n(1-3p)', tyyppi:'pisteet', w:92 },
+    { id:'lankku_60s',       label:'Lankku 60s\n(1-3p)',       tyyppi:'pisteet', w:80 },
+    { id:'naruhypyt_15s',    label:'Naruhypyt 15s\n(1-3p)',    tyyppi:'pisteet', w:85 },
+    { id:'pituushyppy',      label:'Pituushyppy\n(1-3p)',      tyyppi:'pisteet', w:80 },
+    { id:'viisi_loikka',     label:'5-loikka\n(1-3p)',         tyyppi:'pisteet', w:75 },
+    { id:'flei',             label:'FLEI\n%',                  tyyppi:'flei', w:60 },
   ],
+
+  // ── U15: 13 testiä, max 39 pistettä ────────────────────────────────
+  // Painopiste: fyysinen kapasiteetti + PHV-sensitiivisyys
+  // ⚠️ Tarkista PHV-tila ENNEN testausta — PHV-huippu → MAX 60% kuorma
+  // Lähde: Palloliiton harjoitettavuuskartoitus 2026, s. 23
   U15: [
-    { id:'phv_tila',             label:'PHV-TILA',            tyyppi:'valinta', opts:['AN','PH','VA'], w:68 },
-    { id:'lantionojennustoisto', label:'LANTIONOJENNUSTOISTO\nTST', tyyppi:'luku', w:90 },
-    { id:'pistoolikyykky',       label:'PISTOOLIKYYKKY\nTST', tyyppi:'luku', w:85 },
-    { id:'leuanveto',            label:'LEUANVETO\nTST',       tyyppi:'luku', w:75 },
-    { id:'nordic_curl',          label:'NORDIC CURL\nTST',    tyyppi:'luku', w:80 },
-    { id:'lankku',               label:'LANKKU\nSEK',          tyyppi:'luku', w:70 },
-    { id:'sivulankku',           label:'SIVULANKKU\nSEK',      tyyppi:'luku', w:75 },
-    { id:'slr',                  label:'SLR\nAST',             tyyppi:'luku', w:65 },
-    { id:'thomas',               label:'THOMAS\nPISTOT',       tyyppi:'pisteet', w:65 },
-    { id:'fms_squat',            label:'FMS SQUAT\nPISTOT',    tyyppi:'pisteet', w:75 },
-    { id:'sebt_ant',             label:'SEBT ANT\n%',          tyyppi:'luku', w:70 },
-    { id:'lonkan_aktiivinen',    label:'LONKAN AKT.\nPISTOT',  tyyppi:'pisteet', w:70 },
-    { id:'lonkan_passiivinen',   label:'LONKAN PAS.\nPISTOT',  tyyppi:'pisteet', w:70 },
-    { id:'flei',                 label:'FLEI\n%',              tyyppi:'flei', w:60 },
+    { id:'phv_tila',         label:'PHV-\ntila',               tyyppi:'valinta', opts:['AN','PH','VA'], w:65 },
+    { id:'pistoolikyykky',   label:'Pistoolikyykky\n(1-3p)',   tyyppi:'pisteet', w:86 },
+    { id:'etunojapunnerrus', label:'Etunojapunnerrus\n(1-3p)', tyyppi:'pisteet', w:92 },
+    { id:'leuanveto',        label:'Leuanveto\n(1-3p)',        tyyppi:'pisteet', w:80 },
+    { id:'jalkojen_nosto',   label:'Jalkojen nosto\n(1-3p)',   tyyppi:'pisteet', w:86 },
+    { id:'lankku_120s',      label:'Lankku 120s\n(1-3p)',      tyyppi:'pisteet', w:82 },
+    { id:'sivulankku_60s',   label:'Sivulankku 60s\n(1-3p)',   tyyppi:'pisteet', w:88 },
+    { id:'lantionnosto',     label:'Lantionnosto\n(1-3p)',     tyyppi:'pisteet', w:82 },
+    { id:'naruhypyt_30s',    label:'Naruhypyt 30s\n(1-3p)',    tyyppi:'pisteet', w:85 },
+    { id:'pakianousu',       label:'Päkiänousu\n(1-3p)',       tyyppi:'pisteet', w:80 },
+    { id:'slr_neuraalinen',  label:'SLR neuraalinen\n(1-3p)',  tyyppi:'pisteet', w:90 },
+    { id:'thomas_testi',     label:'Thomas-testi\n(1-3p)',     tyyppi:'pisteet', w:84 },
+    { id:'pituushyppy',      label:'Pituushyppy\n(1-3p)',      tyyppi:'pisteet', w:80 },
+    { id:'viisi_loikka',     label:'5-loikka\n(1-3p)',         tyyppi:'pisteet', w:75 },
+    { id:'flei',             label:'FLEI\n%',                  tyyppi:'flei', w:60 },
   ],
+
+  // ── U19: 13 testiä — Palloliiton protokollan täydellinen versio ─────
+  // Lähde: Palloliiton harjoitettavuuskartoitus 2026, s. 24
+  //
+  // Rakenne on jaettu kahteen lohkoon:
+  //
+  // LOHKO A — Voimatestit 5RM (6 testiä, luku_kg-tyyppi)
+  //   Syötetään kilogrammoina. Voidaan tehdä samana tai eri päivänä.
+  //   Jos eri päivänä: avaa sama pelaaja uudelleen ja täydennä.
+  //   FLEI-voima lasketaan suhteellisena voimana (kg / kehonpaino).
+  //
+  // LOHKO B — Kehonpainotestit (7 testiä, pisteet-tyyppi, max 21p)
+  //   Voidaan tehdä kenttäolosuhteissa ilman salivälineitä.
+  //   FLEI-kehonpaino lasketaan näistä heti kun lohko on täytetty.
   U19: [
-    { id:'phv_tila',                label:'PHV-TILA\nAN/PH/VA',            tyyppi:'valinta', opts:['AN','PH','VA'], w:68 },
-    { id:'takakyykky_srm',          label:'TAKAKYYKKY SRM\nKG / KG/KG',    tyyppi:'luku', w:90 },
-    { id:'trap_bar_srm',            label:'TRAP BAR MAASTAVETO\nKG / KG/KG', tyyppi:'luku', w:90 },
-    { id:'rinnalleveto_srm',        label:'RINNALLEVETO SRM\nKG / KG/KG',  tyyppi:'luku', w:85 },
-    { id:'yhden_jalan_kyykky',      label:'1-JALAN KYYKKY SRM\nKG / KG/KG', tyyppi:'luku', w:85 },
-    { id:'penkkipunnerrus_srm',     label:'PENKKIPUNNERRUS SRM\nKG / KG/KG', tyyppi:'luku', w:90 },
-    { id:'leuanvedot',              label:'LEUANVEDOT\nTST',                tyyppi:'luku', w:70 },
-    { id:'jalkojenojennusripunnasta', label:'JALKOJENOJENNUSRIPUNNASTA\nTST', tyyppi:'luku', w:95 },
-    { id:'yhden_jalan_pakianouu',   label:'1-JALAN PÄKIÄNOUSU\nTST',       tyyppi:'luku', w:80 },
-    { id:'lonkan_aktiivinen',       label:'LONKAN AKT.\nPISTOT',           tyyppi:'pisteet', w:70 },
-    { id:'flei',                    label:'FLEI\n%',                        tyyppi:'flei', w:60 },
+    { id:'phv_tila',         label:'PHV-\ntila',               tyyppi:'valinta', opts:['AN','PH','VA'], w:65 },
+    // ── Lohko A: Voimatestit 5RM ──
+    { id:'takakyykky_5rm',   label:'Takakyykky 5RM\n(kg)',     tyyppi:'luku_kg', w:92, lohko:'voima' },
+    { id:'trap_bar_5rm',     label:'Trap bar maastaveto 5RM\n(kg)', tyyppi:'luku_kg', w:105, lohko:'voima' },
+    { id:'rinnalleveto_5rm', label:'Rinnalleveto 5RM\n(kg)',   tyyppi:'luku_kg', w:92, lohko:'voima' },
+    { id:'yh_jalan_kyykky_5rm',label:'1-jalan kyykky 5RM\n(kg)',tyyppi:'luku_kg', w:92, lohko:'voima' },
+    { id:'leuanvedot',       label:'Leuanvedot\n(tst)',        tyyppi:'luku', w:80, lohko:'voima' },
+    { id:'penkkipunnerrus_5rm',label:'Penkkipunnerrus 5RM\n(kg)',tyyppi:'luku_kg', w:100, lohko:'voima' },
+    // ── Lohko B: Kehonpainotestit 1–3p ──
+    { id:'jalkojen_nosto',   label:'Jalkojennosto riipunnasta\n(1-3p)', tyyppi:'pisteet', w:105, lohko:'kehonpaino' },
+    { id:'lonkan_akt_oj',    label:'Lonkan aktiivinen ojennus\n(1-3p)', tyyppi:'pisteet', w:105, lohko:'kehonpaino' },
+    { id:'pakianousu',       label:'Yhden jalan päkiänousu\n(1-3p)',    tyyppi:'pisteet', w:100, lohko:'kehonpaino' },
+    { id:'slr_neuraalinen',  label:'SLR neuraalinen\n(1-3p)',  tyyppi:'pisteet', w:90, lohko:'kehonpaino' },
+    { id:'thomas_testi',     label:'Thomas-testi\n(1-3p)',     tyyppi:'pisteet', w:84, lohko:'kehonpaino' },
+    { id:'pituushyppy',      label:'Pituushyppy\n(1-3p)',      tyyppi:'pisteet', w:80, lohko:'kehonpaino' },
+    { id:'viisi_loikka',     label:'5-loikka\n(1-3p)',         tyyppi:'pisteet', w:75, lohko:'kehonpaino' },
+    { id:'flei',             label:'FLEI\n%',                  tyyppi:'flei', w:65 },
   ],
 };
 
@@ -812,8 +857,11 @@ function renderLomake(seuraId, joukkueId, ikäluokka, pvm) {
     `;
 
     testit.forEach(t => {
+      // Lohkojen visuaalinen erottelu — ensimmäinen voima-lohkon solu saa vasemman reunan
+      const lohkoVari = t.lohko === 'voima' ? 'background:rgba(245,158,11,.06);' : '';
+
       if (t.tyyppi === 'flei') {
-        html += `<td id="flei-${idx}"><span class="flei-cell flei-0">—</span></td>`;
+        html += `<td id="flei-${idx}" style="border-left:2px solid var(--sininen)"><span class="flei-cell flei-0">—</span></td>`;
       } else if (t.tyyppi === 'valinta') {
         const val = p.tulokset[t.id] || '';
         html += `<td><select class="td-select" data-idx="${idx}" data-kentta="${t.id}" onchange="merkkaaLikainen(${idx}); laskeFlei(${idx})">
@@ -822,15 +870,30 @@ function renderLomake(seuraId, joukkueId, ikäluokka, pvm) {
         </select></td>`;
       } else if (t.tyyppi === 'pisteet') {
         const val = parseInt(p.tulokset[t.id]) || 0;
-        html += `<td><div class="pisteet-cell">
+        html += `<td style="${lohkoVari}"><div class="pisteet-cell">
           <button type="button" class="p-btn p1 ${val===1?'active':''}" data-idx="${idx}" data-kentta="${t.id}" data-arvo="1" onclick="asetaPisteet(this,${idx},'${t.id}',1)">1</button>
           <button type="button" class="p-btn p2 ${val===2?'active':''}" data-idx="${idx}" data-kentta="${t.id}" data-arvo="2" onclick="asetaPisteet(this,${idx},'${t.id}',2)">2</button>
           <button type="button" class="p-btn p3 ${val===3?'active':''}" data-idx="${idx}" data-kentta="${t.id}" data-arvo="3" onclick="asetaPisteet(this,${idx},'${t.id}',3)">3</button>
         </div></td>`;
-      } else {
-        // luku-syöttö
+      } else if (t.tyyppi === 'luku_kg') {
+        // Voimatesti 5RM — syötetään kilogrammoina, keltainen/oranssi tausta erottaa selvästi
         const val = p.tulokset[t.id] || '';
-        html += `<td><input type="text" class="td-input" inputmode="decimal"
+        html += `<td style="background:rgba(245,158,11,.08); border-left:${t.id.endsWith('takakyykky_5rm') ? '2px solid var(--keltainen)' : 'none'}">
+          <div style="display:flex;align-items:center;gap:2px;">
+            <input type="text" class="td-input" inputmode="decimal"
+              value="${val}"
+              data-idx="${idx}" data-kentta="${t.id}"
+              onchange="tallennaKentta(this); laskeFlei(${idx})"
+              onfocus="this.select()"
+              placeholder="—"
+              style="color:var(--keltainen);">
+            <span style="font-size:9px;color:var(--keltainen);opacity:.7">kg</span>
+          </div>
+        </td>`;
+      } else {
+        // luku-syöttö (toistomäärä, sekuntia jne.)
+        const val = p.tulokset[t.id] || '';
+        html += `<td style="${lohkoVari}"><input type="text" class="td-input" inputmode="decimal"
           value="${val}"
           data-idx="${idx}" data-kentta="${t.id}"
           onchange="tallennaKentta(this)"
@@ -909,6 +972,7 @@ function laskeFlei(idx) {
   const testit = TESTIT[ikäluokka] || [];
   const tulokset = pelaajat[idx]?.tulokset || {};
 
+  // Laske pisteytystesteistä (kaikki ikäluokat)
   let pisteet = 0, maxP = 0;
   testit.forEach(t => {
     if (t.tyyppi === 'pisteet') {
@@ -922,16 +986,24 @@ function laskeFlei(idx) {
 
   if (maxP === 0) { solu.innerHTML = '<span class="flei-cell flei-0">—</span>'; return; }
 
-  // Laske prosentti (100% = kaikki 3p, käännetty: matala pisteet = korkea riski)
-  // FLEI-logiikka: matala prosentti = paljon 1-pisteitä = korkea riski
   const pct = Math.round((pisteet / maxP) * 100);
+
+  // U19: tarkista onko voimatestit täytetty — jos on, näytä molemmat
+  let u19VoimaHTML = '';
+  if (ikäluokka === 'U19') {
+    const voimaTestit = testit.filter(t => t.tyyppi === 'luku_kg');
+    const taytetty = voimaTestit.filter(t => tulokset[t.id] && tulokset[t.id] !== '').length;
+    if (taytetty > 0) {
+      u19VoimaHTML = `<span style="font-size:9px;color:var(--keltainen);display:block;line-height:1">⚡${taytetty}/${voimaTestit.length} voima</span>`;
+    }
+  }
 
   let cls = 'flei-vihrea';
   if (pct < 40)      cls = 'flei-puna';
   else if (pct < 60) cls = 'flei-oranssi';
   else if (pct < 75) cls = 'flei-kelt';
 
-  solu.innerHTML = `<span class="flei-cell ${cls}">${pct}%</span>`;
+  solu.innerHTML = `<span class="flei-cell ${cls}">${pct}%</span>${u19VoimaHTML}`;
   paivitaYhteenveto();
 }
 
@@ -1226,10 +1298,10 @@ function handleFile(file) {
       const testit = TESTIT[ikäluokka] || [];
       pelaajat.forEach((p, idx) => {
         testit.forEach(t => {
-          if (t.tyyppi === 'luku') {
-            const input = document.querySelector(`input[data-idx="${idx}"][data-kentta="${t.id}"]`);
-            if (input && p.tulokset[t.id] !== undefined) input.value = p.tulokset[t.id];
-          }
+      if (t.tyyppi === 'luku' || t.tyyppi === 'luku_kg') {
+        const input = document.querySelector(`input[data-idx="${idx}"][data-kentta="${t.id}"]`);
+        if (input && p.tulokset[t.id] !== undefined) input.value = p.tulokset[t.id];
+      }
         });
       });
       naytaNotif(`Excel tuotu: ${yhdistetty} pelaajaa päivitetty`, 'ok');
@@ -1267,7 +1339,7 @@ function tyhjennaNakyvat() {
     const ikäluokka = document.getElementById('ikäluokkaSelect').value;
     const testit = TESTIT[ikäluokka] || [];
     testit.forEach(t => {
-      if (t.tyyppi === 'luku') {
+      if (t.tyyppi === 'luku' || t.tyyppi === 'luku_kg') {
         const input = document.querySelector(`input[data-idx="${idx}"][data-kentta="${t.id}"]`);
         if (input) input.value = '';
       } else if (t.tyyppi === 'pisteet') {
