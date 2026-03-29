@@ -7877,9 +7877,20 @@ function renderVPKalenteri() {
     + '<div style="width:28px;height:28px;border:3px solid var(--blue);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></div>'
     + 'Ladataan kalenteria...</div>';
 
+  // Etsitään seuraId useasta lähteestä varmuuden vuoksi
   var seuraId = (window._fbSeuraDoc && window._fbSeuraDoc.id)
              || ((_seuraData[_aktivSeura] || {})._seuraId)
              || null;
+
+  // Lisäyrityks: jos _fbSeuraDoc on objekti jossa on id suoraan
+  if (!seuraId && window._fbSeuraDoc) {
+    seuraId = window._fbSeuraDoc.id || window._fbSeuraDoc._seuraId || null;
+  }
+
+  // Debug: näytetään mitä löydettiin
+  console.log('[Kalenteri] seuraId:', seuraId,
+    '| _fbSeuraDoc:', window._fbSeuraDoc && window._fbSeuraDoc.id,
+    '| _aktivSeura:', _aktivSeura);
 
   if (!seuraId) {
     el.innerHTML = '<div style="color:var(--red);padding:20px">⚠️ Seuran tunnistetta ei löydy.</div>';
@@ -8133,6 +8144,7 @@ function _vpRakennaMOdaalit(container, seuraId) {
   var joukkueOpt = '<option value="">Ladataan joukkueita...</option>';
 
   // Haetaan joukkueet Firestoresta heti kun modaali on luotu
+  console.log('[KalModaali] seuraId:', seuraId, '| _fbDb:', !!_fbDb);
   if (_fbDb && seuraId) {
     _fbDb.collection('seurat').doc(seuraId)
       .collection('joukkueet').orderBy('nimi').get()
