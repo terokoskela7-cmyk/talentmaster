@@ -1078,13 +1078,15 @@ async function lataaKayttajanProfiili(kayttaja) {
       // HUOM: Vaatii Firestoressa collectionGroup-indeksin.
       // Firebase Console → Firestore → Indexes → Composite
       // Collection group: kauttajat, Query scope: Collection group
-      console.log('Custom Claims puuttuvat — etsitään sähköpostilla seuroista');
+      console.log('Custom Claims puuttuvat — etsitään käyttäjää usealla tavalla');
 
-      // collectionGroup + documentId() ei toimi kun UID on 1 segmentti.
-      // Ratkaisu: hae ensin seurat joissa vp_uid tai vp_email täsmää,
-      // sitten kayttajat-alikokoelmasta sähköpostilla.
-      //
-      // Vaihe A: Tarkista onko käyttäjä VP (vp_uid-kenttä seuradokumentissa)
+      // Strategia ilman custom claims:
+      // 1. Onko käyttäjä VP? (vp_uid seuradokumentissa)
+      // 2. Onko kayttajat-alikokoelmassa dokumentti? (tiedossa seurat)
+      // 3. Päätellään seura email-osoitteesta
+      // CollectionGroup-kyselyä EI käytetä — vaatii erityisen indeksin
+
+      // ── Vaihe 1: VP-tarkistus ──
       const seuraSnap1 = await db.collection('seurat')
         .where('vp_uid', '==', kayttaja.uid).limit(1).get();
 
@@ -1092,42 +1094,50 @@ async function lataaKayttajanProfiili(kayttaja) {
         const seuraDoc = seuraSnap1.docs[0];
         seuraId   = seuraDoc.id;
         seuraNimi = seuraDoc.data().nimi || seuraId;
-        kayttajaData = {
-          rooli:   'vp',
-          email:   kayttaja.email,
-          seuraId: seuraId,
-          nimi:    kayttaja.displayName || kayttaja.email,
-        };
+        kayttajaData = { rooli: 'vp', email: kayttaja.email, seuraId };
         console.log('VP löytyi vp_uid:llä:', seuraId);
-      } else {
-        // Vaihe B: Hae collectionGroup email-kentällä (toimii Firestoressä)
-        try {
-          const cgSnap = await db.collectionGroup('kayttajat')
-            .where('email', '==', kayttaja.email).limit(1).get();
 
-          if (!cgSnap.empty) {
-            const doc = cgSnap.docs[0];
-            kayttajaData   = doc.data();
-            const polunOsat = doc.ref.path.split('/');
-            seuraId = polunOsat[1];
-            const seuraDoc2 = await db.collection('seurat').doc(seuraId).get();
-            seuraNimi = seuraDoc2.exists ? seuraDoc2.data().nimi : seuraId;
-            console.log('Käyttäjä löytyi email-haulla:', seuraId);
+      } else {
+        // ── Vaihe 2: Hae kayttajat-dokumentti tunnetuista seuroista ──
+        // Haetaan ensin kaikki seurat (max 20) ja tarkistetaan jokaisesta
+        let loydetty = false;
+        try {
+          const seuraLista = await db.collection('seurat').limit(20).get();
+          for (const seuraDoc of seuraLista.docs) {
+            try {
+              const kayttajaSnap = await db
+                .collection('seurat').doc(seuraDoc.id)
+                .collection('kayttajat').doc(kayttaja.uid).get();
+              if (kayttajaSnap.exists) {
+                kayttajaData = kayttajaSnap.data();
+                seuraId   = seuraDoc.id;
+                seuraNimi = seuraDoc.data().nimi || seuraId;
+                loydetty  = true;
+                console.log('Käyttäjä löytyi seurakokoelmasta:', seuraId);
+                break;
+              }
+            } catch(_) { /* tällä seuralla ei oikeuksia tai ei dokumenttia */ }
           }
-        } catch(cgErr) {
-          console.warn('CollectionGroup-haku epäonnistui:', cgErr.message);
-          // Viimeinen yritys: hae suoraan jos seuraId on tunnettavissa emailista
-          // esim. vp.kpv@talentmaster.fi → kpv
-          const emailOsat = kayttaja.email.split('@')[0].split('.');
+        } catch(e) {
+          console.warn('Seurojen listaus epäonnistui:', e.message);
+        }
+
+        // ── Vaihe 3: Päättele seura email-osoitteesta ──
+        if (!loydetty) {
+          const emailOsat = (kayttaja.email || '').split('@')[0].split('.');
+          // vp.kpv@talentmaster.fi → ['vp','kpv'] → seuraId = 'kpv'
+          // koskela76@hotmail.com → ei voida päätellä
           if (emailOsat.length >= 2) {
-            const arvattуSeura = emailOsat[1]; // "kpv" emailista "vp.kpv@..."
-            const kokeilu = await db.collection('seurat').doc(arvattуSeura).get();
-            if (kokeilu.exists) {
-              seuraId   = arvattуSeura;
-              seuraNimi = kokeilu.data().nimi || seuraId;
-              kayttajaData = { rooli: 'vp', email: kayttaja.email, seuraId };
-              console.log('Seura pääteltiin emailista:', seuraId);
-            }
+            const arvioSeura = emailOsat[emailOsat.length - 1];
+            try {
+              const kokeilu = await db.collection('seurat').doc(arvioSeura).get();
+              if (kokeilu.exists) {
+                seuraId   = arvioSeura;
+                seuraNimi = kokeilu.data().nimi || seuraId;
+                kayttajaData = { rooli: 'vp', email: kayttaja.email, seuraId };
+                console.log('Seura pääteltiin emailista:', seuraId);
+              }
+            } catch(_) {}
           }
         }
       }
@@ -1180,11 +1190,20 @@ async function lataaKayttajanProfiili(kayttaja) {
     tila.kayttajaDoc = kayttajaData;
     tila.seuraId     = seuraId;
     tila.seuraNimi   = seuraNimi;
-    // joukkue-kenttä voi olla 'kpv_u13' tai joukkueen nimi — normalisoidaan
-    const joukkueRaaka = kayttajaData.joukkue || kayttajaData.joukkueId || null;
+    // joukkue voi olla string-kenttä tai joukkueet-array — tuetaan molempia
+    // Uusi rakenne: joukkueet: ['kpv_u13'], joukkueNimet: ['KPV U13']
+    // Vanha rakenne: joukkue: 'kpv_u13', joukkueNimi: 'KPV U13'
+    const joukkueRaaka = kayttajaData.joukkue
+                      || kayttajaData.joukkueId
+                      || (Array.isArray(kayttajaData.joukkueet) && kayttajaData.joukkueet[0])
+                      || null;
+    const joukkueNimiRaaka = kayttajaData.joukkueNimi
+                          || (Array.isArray(kayttajaData.joukkueNimet) && kayttajaData.joukkueNimet[0])
+                          || joukkueRaaka
+                          || '—';
     tila.joukkueId   = joukkueRaaka;
-    tila.joukkueNimi = kayttajaData.joukkueNimi || joukkueRaaka || '—';
-    console.log('Joukkue:', tila.joukkueId, '| Seura:', tila.seuraId);
+    tila.joukkueNimi = joukkueNimiRaaka;
+    console.log('Joukkue:', tila.joukkueId, '/', tila.joukkueNimi, '| Seura:', tila.seuraId);
     tila.rooli       = rooli;
 
     alustaTopbar();
