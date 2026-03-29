@@ -1208,6 +1208,7 @@ async function alustaSeurat() {
           opt.textContent = doc.data().nimi || doc.id;
           seuraSelect.appendChild(opt);
           seuraSelect.value = doc.id;
+          nykyinenSeura = doc.id;  // varmista että nykyinenSeura on asetettu
           await paivitaJoukkueet();
         }
       } else {
@@ -1221,6 +1222,7 @@ async function alustaSeurat() {
           opt.textContent = seuraDoc.data().nimi || seuraDoc.id;
           seuraSelect.appendChild(opt);
           seuraSelect.value = seuraDoc.id;
+          nykyinenSeura = seuraDoc.id;
           await paivitaJoukkueet();
         } else {
           naytaNotif('Seuraa ei löydy. Tarkista kirjautumistunnus.', 'err');
@@ -1269,12 +1271,21 @@ async function tarkistaUrlParametrit() {
       nykyinenSeura = seuraIdUrl;
     }
 
-    // Lataa joukkueet
+    // Lataa joukkueet ja odota että ne ovat DOM:issa
     await paivitaJoukkueet();
 
-    // Aseta joukkue
+    // Aseta joukkue — tarkista että optio on olemassa
     if (joukkueSelect && tap.joukkueId) {
+      // Jos joukkuetta ei löydy dropdownista, lisää se
+      let jOpt = joukkueSelect.querySelector(`option[value="${tap.joukkueId}"]`);
+      if (!jOpt) {
+        jOpt = document.createElement('option');
+        jOpt.value = tap.joukkueId;
+        jOpt.textContent = tap.joukkueNimi || tap.joukkueId;
+        joukkueSelect.appendChild(jOpt);
+      }
       joukkueSelect.value = tap.joukkueId;
+      nykyinenJoukkue = tap.joukkueId;
     }
 
     // Aseta testipäivä
@@ -1283,10 +1294,26 @@ async function tarkistaUrlParametrit() {
       if (pvmEl) pvmEl.value = tap.pvm;
     }
 
-    naytaNotif(`Tapahtuma: ${tap.nimi} — ${tap.joukkueNimi || tap.joukkueId}`, 'ok');
+    // Ikäluokka joukkueesta
+    if (tap.joukkueId) {
+      const ikaSel = document.getElementById('ikäluokkaSelect');
+      if (ikaSel && typeof laskeIkäluokkaJoukkueesta === 'function') {
+        const ika = laskeIkäluokkaJoukkueesta(tap.joukkueId);
+        if (ika) ikaSel.value = ika;
+      }
+    }
 
-    // Generoi lomake automaattisesti
-    setTimeout(() => generoi(), 500);
+    naytaNotif(`Tapahtuma: ${tap.nimi} — ${tap.joukkueNimi || tap.joukkueId}`, 'ok');
+    console.log('[Lomake] Generoidaan lomake joukkueelle:', tap.joukkueId, 'seura:', seuraIdUrl);
+
+    // Generoi lomake automaattisesti — pieni viive varmuuden vuoksi
+    setTimeout(() => {
+      if (!document.getElementById('joukkueSelect').value) {
+        console.warn('[Lomake] joukkueSelect tyhjä ennen generointia!');
+        document.getElementById('joukkueSelect').value = tap.joukkueId;
+      }
+      generoi();
+    }, 300);
   } catch(e) {
     console.error('tapahtumaId-lataus:', e);
     naytaNotif('Tapahtuman lataus epäonnistui: ' + e.message, 'err');
@@ -1294,14 +1321,21 @@ async function tarkistaUrlParametrit() {
 }
 
 async function paivitaJoukkueet() {
-  const seuraId = document.getElementById('seuraSelect').value;
+  const seuraId = document.getElementById('seuraSelect').value || nykyinenSeura;
   const joukkueSelect = document.getElementById('joukkueSelect');
   joukkueSelect.innerHTML = '<option value="">— valitse joukkue —</option>';
   nykyinenSeura = seuraId;
-  if (!seuraId) return;
+  if (!seuraId) { console.warn('paivitaJoukkueet: seuraId puuttuu'); return; }
+
+  console.log('[Lomake] Haetaan joukkueet seuraId:', seuraId);
   try {
     const snap = await db.collection('seurat').doc(seuraId)
       .collection('joukkueet').orderBy('nimi').get();
+    console.log('[Lomake] Joukkueita löytyi:', snap.size);
+    if (snap.empty) {
+      naytaNotif('Seuralla ei ole joukkueita Firestoressa', 'err');
+      return;
+    }
     snap.forEach(doc => {
       const opt = document.createElement('option');
       opt.value = doc.id;
@@ -1309,7 +1343,8 @@ async function paivitaJoukkueet() {
       joukkueSelect.appendChild(opt);
     });
   } catch(e) {
-    console.error('Joukkueiden lataus:', e);
+    console.error('[Lomake] Joukkueiden lataus epäonnistui:', e.message);
+    naytaNotif('Joukkueiden lataus epäonnistui: ' + e.message, 'err');
   }
 }
 
