@@ -2802,33 +2802,134 @@ function _renderJoukkueetLista(snap, seuraNimi, container) {
       '<div style="padding:40px;text-align:center;color:var(--muted)">' +
       '<div style="font-size:32px;margin-bottom:12px">📋</div>' +
       '<div style="font-weight:600;margin-bottom:8px">Ei joukkueita vielä</div>' +
-      '<div style="font-size:12px;color:var(--muted2)">Luo joukkueet Admin-näkymässä.</div></div>';
+      '<div style="font-size:12px;color:var(--muted2)">Luo joukkueet Joukkueet-välilehdeltä.</div></div>';
     return;
   }
+
+  var seuraId = (window._fbSeuraDoc && window._fbSeuraDoc.id)
+             || ((_seuraData[_aktivSeura] || {})._seuraId) || null;
+
   var h = '<div style="padding:16px">';
   h += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;' +
        'letter-spacing:1px;margin-bottom:14px">⚽ ' + seuraNimi + ' — Joukkueet (' + snap.size + ' kpl)</div>';
-  h += '<div style="display:grid;gap:10px">';
+  h += '<div style="display:grid;gap:10px" id="vpJoukkueetGrid">';
+
   snap.docs.forEach(function(doc) {
-    var j = doc.data();
+    var j    = doc.data();
     var nimi = j.nimi || doc.id;
-    var ika  = j.ikaryhma || '';
-    var pel  = j.pelaajia || 0;
+    var ika  = j.ikaryhma || j.ikäluokka || '';
     var val  = j.valmentaja || '–';
-    h += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;' +
-         'padding:14px 16px;display:flex;align-items:center;gap:16px">';
+    var jId  = doc.id;
+
+    h += '<div id="jkortti-' + jId + '" style="background:var(--card);border:1px solid var(--border);' +
+         'border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:16px">';
     h += '<div style="background:var(--teal);color:#000;border-radius:8px;width:42px;height:42px;' +
-         'display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">' +
-         (ika || nimi.substring(0,4).toUpperCase()) + '</div>';
+         'display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;' +
+         'flex-shrink:0;text-align:center">' + (ika || doc.id.replace(/[^0-9]/g,'') || '?') + '</div>';
     h += '<div style="flex:1">' +
          '<div style="font-weight:700;font-size:14px">' + nimi + '</div>' +
          '<div style="font-size:12px;color:var(--muted);margin-top:2px">Valmentaja: ' + val + '</div></div>';
-    h += '<div style="text-align:right">' +
-         '<div style="font-size:22px;font-weight:700;color:var(--teal)">' + (pel || '–') + '</div>' +
-         '<div style="font-size:10px;color:var(--muted2)">pelaajaa</div></div></div>';
+    // Pelaajamäärä — täytetään asynkronisesti alle
+    h += '<div style="text-align:right" id="jlkm-' + jId + '">' +
+         '<div style="font-size:18px;font-weight:700;color:var(--teal)">...</div>' +
+         '<div style="font-size:10px;color:var(--muted2)">pelaajaa</div></div>';
+    h += '<button data-joukkue="' + jId + '" data-nimi="' + nimi + '" ' +
+         'onclick="vpAvaaJoukkuePelaajat(this.dataset.joukkue, this.dataset.nimi)" ' +
+         'style="background:rgba(62,201,167,.15);border:1px solid var(--teal);color:var(--teal);' +
+         'border-radius:8px;padding:6px 12px;cursor:pointer;font-size:11px;font-weight:700;">👥 Pelaajat</button>';
+    h += '</div>';
   });
+
   h += '</div></div>';
   container.innerHTML = h;
+
+  // Haetaan pelaajamäärät asynkronisesti
+  if (_fbDb && seuraId) {
+    snap.docs.forEach(function(doc) {
+      var jId = doc.id;
+      // Hae pelaajat joukkueen alikokoelmasta
+      _fbDb.collection('seurat').doc(seuraId).collection('joukkueet').doc(jId)
+        .collection('pelaajat').get()
+        .then(function(pelSnap) {
+          var el = document.getElementById('jlkm-' + jId);
+          if (el) {
+            el.innerHTML = '<div style="font-size:22px;font-weight:700;color:var(--teal)">' +
+              pelSnap.size + '</div><div style="font-size:10px;color:var(--muted2)">pelaajaa</div>';
+          }
+        })
+        .catch(function() {
+          // Kokeile seuran pelaajat-kokoelmaa joukkue-kentällä
+          _fbDb.collection('seurat').doc(seuraId).collection('pelaajat')
+            .where('joukkue', '==', jId).get()
+            .then(function(pelSnap2) {
+              var el = document.getElementById('jlkm-' + jId);
+              if (el) {
+                el.innerHTML = '<div style="font-size:22px;font-weight:700;color:var(--teal)">' +
+                  pelSnap2.size + '</div><div style="font-size:10px;color:var(--muted2)">pelaajaa</div>';
+              }
+            }).catch(function(){});
+        });
+    });
+  }
+}
+
+// Avaa joukkueen pelaajat modaalissa
+function vpAvaaJoukkuePelaajat(joukkueId, joukkueNimi) {
+  var seuraId = (window._fbSeuraDoc && window._fbSeuraDoc.id)
+             || ((_seuraData[_aktivSeura] || {})._seuraId) || null;
+  if (!seuraId || !_fbDb) return;
+
+  // Luo tai päivitä modaali
+  var mod = document.getElementById('vpPelaajaModaali');
+  if (!mod) {
+    mod = document.createElement('div');
+    mod.id = 'vpPelaajaModaali';
+    mod.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);' +
+      'backdrop-filter:blur(4px);z-index:300;align-items:center;justify-content:center;padding:20px;';
+    document.body.appendChild(mod);
+  }
+  mod.style.display = 'flex';
+  mod.innerHTML = '<div style="background:var(--bg2);border:1px solid rgba(255,255,255,.12);' +
+    'border-radius:14px;padding:24px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+    '<div style="font-size:16px;font-weight:800;">👥 ' + joukkueNimi + ' — Pelaajat</div>' +
+    '<button onclick="_vpSuljeModaali(\'vpPelaajaModaali\')" ' +
+    'style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button></div>' +
+    '<div id="vpPelaajaLista">Ladataan...</div></div>';
+
+  // Hae pelaajat — ensin joukkueen alikokoelmasta
+  Promise.all([
+    _fbDb.collection('seurat').doc(seuraId).collection('joukkueet').doc(joukkueId).collection('pelaajat').orderBy('sukunimi').get(),
+    _fbDb.collection('seurat').doc(seuraId).collection('pelaajat').where('joukkue', '==', joukkueId).orderBy('sukunimi').get()
+  ]).then(function(results) {
+    var snap1 = results[0], snap2 = results[1];
+    var docs  = snap1.size > 0 ? snap1.docs : snap2.docs;
+    var lista = document.getElementById('vpPelaajaLista');
+    if (!lista) return;
+    if (docs.length === 0) {
+      lista.innerHTML = '<div style="color:var(--muted);text-align:center;padding:24px;">Joukkueella ei pelaajia.</div>';
+      return;
+    }
+    var h = '<div style="display:flex;flex-direction:column;gap:6px;">';
+    docs.forEach(function(doc) {
+      var p = doc.data();
+      var palloId = p.palloID || p.palloid || p.palloId || '';
+      h += '<div style="background:var(--bg3);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px;">';
+      h += '<div style="flex:1;">';
+      h += '<div style="font-size:13px;font-weight:700;">' + (p.sukunimi||'') + ', ' + (p.etunimi||'') + '</div>';
+      h += '<div style="font-size:11px;color:var(--muted2);">' + (p.joukkue||joukkueId) + '</div>';
+      h += '</div>';
+      h += palloId
+        ? '<span style="font-size:10px;font-family:monospace;color:var(--teal);">' + palloId + '</span>'
+        : '<span style="font-size:10px;color:var(--amber);">⚠️ PalloID puuttuu</span>';
+      h += '</div>';
+    });
+    h += '</div>';
+    lista.innerHTML = h;
+  }).catch(function(e) {
+    var lista = document.getElementById('vpPelaajaLista');
+    if (lista) lista.innerHTML = '<div style="color:var(--red);">Virhe: ' + e.message + '</div>';
+  });
 }
 
 
@@ -8027,13 +8128,41 @@ function _vpRakennaMOdaalit(container, seuraId) {
       + entry[1].emoji + ' ' + entry[1].nimi + '</button>';
   }).join('');
 
-  // Joukkueet VP:n seuraData:sta
-  var seura = _seuraData[_aktivSeura] || {};
-  var joukkueet = seura._joukkueet || seura.joukkueet || {};
-  var joukkueOpt = '<option value="">— valitse joukkue —</option>';
-  Object.entries(joukkueet).forEach(function(e) {
-    joukkueOpt += '<option value="' + e[0] + '">' + ((e[1]||{}).nimi||e[0]) + '</option>';
-  });
+  // Joukkueet haetaan Firestoresta — _seuraData ei välttämättä sisällä niitä
+  // Rakennetaan select ensin tyhjänä, täytetään asynkronisesti
+  var joukkueOpt = '<option value="">Ladataan joukkueita...</option>';
+
+  // Haetaan joukkueet Firestoresta heti kun modaali on luotu
+  if (_fbDb && seuraId) {
+    _fbDb.collection('seurat').doc(seuraId)
+      .collection('joukkueet').orderBy('nimi').get()
+      .then(function(snap) {
+        var sel = document.getElementById('vpKalJoukkue');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">— valitse joukkue —</option>';
+        snap.forEach(function(d) {
+          var opt = document.createElement('option');
+          opt.value = d.id;
+          opt.textContent = d.data().nimi || d.id;
+          sel.appendChild(opt);
+        });
+      })
+      .catch(function(e) {
+        console.warn('Joukkueiden haku kalenteriin epäonnistui:', e.message);
+        // Fallback: _seuraData
+        var seura = _seuraData[_aktivSeura] || {};
+        var joukkueet = seura._joukkueet || seura.joukkueet || {};
+        var sel = document.getElementById('vpKalJoukkue');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">— valitse joukkue —</option>';
+        Object.entries(joukkueet).forEach(function(e) {
+          var opt = document.createElement('option');
+          opt.value = e[0];
+          opt.textContent = (e[1]||{}).nimi || e[0];
+          sel.appendChild(opt);
+        });
+      });
+  }
 
   luoModaali.innerHTML = '<div style="background:var(--bg2);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:24px;max-width:440px;width:100%;max-height:90vh;overflow-y:auto;">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">'
