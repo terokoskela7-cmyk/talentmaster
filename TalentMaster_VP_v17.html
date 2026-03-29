@@ -7943,6 +7943,10 @@ function _vpAvaaLomakeBtn(btn) {
 
 var _vpKalKuukausi = null;
 var _vpKalTapahtumat = [];
+// Kalenterin tyyppifiltteri — 'testit' näyttää vain testit, 'kaikki' näyttää kaiken
+// VP:n kalenterissa oletuksena vain testit jotta 10 joukkueen arki ei ruuhkauta näkymää
+var _vpKalFiltteri = 'testit';
+var _vpKalTESTITYYPIT = ['harjoitettavuus', 'hh_testit', 'tekniikka', 'adar'];
 
 function renderVPKalenteri() {
   var el = document.getElementById('tabKalenteri');
@@ -8008,14 +8012,24 @@ function _vpKalRenderoi(el, seuraId, vuosi, kuukausi, tapahtumat) {
   var pvLkm       = new Date(vuosi, kuukausi + 1, 0).getDate();
   var tanaanStr   = new Date().toISOString().split('T')[0];
 
+  // Filtteröidään tapahtumat tyypin mukaan ennen renderöintiä
+  // 'testit' = vain testit/arvioinnit, 'kaikki' = kaikki tapahtumat
+  var TESTIT_TYYPIT = ['harjoitettavuus','hh_testit','tekniikka','adar'];
+  var naytettavat = tapahtumat.filter(function(t) {
+    if (typeof _vpKalFiltteri === 'undefined' || _vpKalFiltteri === 'testit') {
+      return TESTIT_TYYPIT.indexOf(t.tyyppi) >= 0;
+    }
+    return true;
+  });
+
   // Tapahtumat per päivä
   var tapPerPv = {};
-  tapahtumat.forEach(function(t) {
+  naytettavat.forEach(function(t) {
     if (!tapPerPv[t.pvm]) tapPerPv[t.pvm] = [];
     tapPerPv[t.pvm].push(t);
   });
 
-  // Seuraava testitapahtuma
+  // Seuraava testitapahtuma (aina vain testeistä riippumatta filttteristä)
   var seuraavaTesti = tapahtumat
     .filter(function(t) {
       return ['harjoitettavuus','hh_testit','tekniikka','adar'].indexOf(t.tyyppi) >= 0
@@ -8023,8 +8037,8 @@ function _vpKalRenderoi(el, seuraId, vuosi, kuukausi, tapahtumat) {
     })
     .sort(function(a, b) { return a.pvm.localeCompare(b.pvm); })[0];
 
-  // Tulevat tapahtumat
-  var tulevat = tapahtumat
+  // Tulevat tapahtumat — käytetään naytettavat eikä tapahtumat
+  var tulevat = naytettavat
     .filter(function(t) { return t.pvm >= tanaanStr; })
     .sort(function(a, b) { return a.pvm.localeCompare(b.pvm); })
     .slice(0, 10);
@@ -8063,8 +8077,29 @@ function _vpKalRenderoi(el, seuraId, vuosi, kuukausi, tapahtumat) {
   btnLuo.dataset.seuraId = seuraId;
   btnLuo.onclick = function() { _vpAvaaLuoModal(this.dataset.seuraId); };
 
+  // ── Tyyppifiltteri — estää 10 joukkueen arjen ruuhkauttamasta kalenteria ──
+  var filtDiv = document.createElement('div');
+  filtDiv.style.cssText = 'display:flex;gap:4px;background:var(--bg3);border-radius:8px;padding:3px;';
+
+  ['testit','kaikki'].forEach(function(filt) {
+    var fb = document.createElement('button');
+    fb.textContent = filt === 'testit' ? '📋 Testit' : '📅 Kaikki';
+    fb.dataset.filt = filt;
+    var onAktiivinen = _vpKalFiltteri === filt;
+    fb.style.cssText = 'padding:5px 10px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;transition:.15s;'
+      + (onAktiivinen
+        ? 'background:var(--teal);color:#000;'
+        : 'background:none;color:var(--muted);');
+    fb.onclick = function() {
+      _vpKalFiltteri = this.dataset.filt;
+      renderVPKalenteri();
+    };
+    filtDiv.appendChild(fb);
+  });
+
   header.appendChild(btnEd);
   header.appendChild(otsikko);
+  header.appendChild(filtDiv);
   header.appendChild(btnSe);
   header.appendChild(btnTanaan);
   header.appendChild(btnLuo);
