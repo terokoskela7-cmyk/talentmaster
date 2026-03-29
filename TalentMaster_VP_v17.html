@@ -2356,7 +2356,7 @@ function renderTalentit() {
 
   // Kerää kaikki 12-15v pelaajat kaikista joukkueista
   var kaikki1215 = [];
-  Object.entries(s.joukkueet).forEach(function(entry) {
+  Object.entries(s.joukkueet || {}).forEach(function(entry) {
     var jnimi = entry[0], j = entry[1];
     (j.pelaajatLista || []).forEach(function(p) {
       var ika = (p.bioIka && p.bioIka.krono) || 0;
@@ -3708,7 +3708,10 @@ function metricCard(label, value, sub, color) {
 function renderJoukkueet() {
   var s = _seuraData[_aktivSeura];
   if (!s) return;
-  var joukkueet = Object.entries(s.joukkueet).sort(function(a,b){
+  // null-guard: Firebase-only seuralla joukkueet voi olla {} tai null
+  var joukkueetData = s.joukkueet || {};
+  if (!joukkueetData || Object.keys(joukkueetData).length === 0) return;
+  var joukkueet = Object.entries(joukkueetData).sort(function(a,b){
     return (b[1].avgOvr||0) - (a[1].avgOvr||0);
   });
 
@@ -3727,7 +3730,7 @@ function renderJoukkueet() {
     var ovr = j.avgOvr ? j.avgOvr.toFixed(1) : '—';
     var ovrCol = j.avgOvr >= 7 ? 'var(--green)' : j.avgOvr >= 5 ? 'var(--amber)' : 'var(--red)';
 
-    var ketjuEntries = Object.entries(j.avgKetjut).sort(function(a,b){return b[1]-a[1];});
+    var ketjuEntries = Object.entries(j.avgKetjut || {}).sort(function(a,b){return b[1]-a[1];});
     var paak = ketjuEntries[0];
     var muut = ketjuEntries.slice(1);
 
@@ -8378,8 +8381,8 @@ async function _vpTallennaTapahtuma(seuraId) {
       tyyppi: tyyppi, nimi: nimi || TmTapahtumat.TAPAHTUMATYYPIT[tyyppi].nimi,
       pvm: pvm, alkuAika: aika, joukkueId: jId, joukkueNimi: jNimi,
     }, kayttajaUid);
-    if (m) m.style.display = 'none';
-    renderVPKalenteri();
+    var luoModaali = document.getElementById('vpKalLuoModaali');
+    if (luoModaali) luoModaali.style.display = 'none';
   } catch(e) {
     if (virhe) { virhe.textContent = 'Virhe: ' + e.message; virhe.style.display = 'block'; }
     if (btn) { btn.textContent = 'Luo tapahtuma'; btn.disabled = false; }
