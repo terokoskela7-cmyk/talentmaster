@@ -275,7 +275,8 @@ try {
     // palautuksen yhteydessä koska hänen uid:ään ei löydy vp_uid-kentästä.
     _fbDb.collection('admins').doc(user.uid).get()
       .then(function(adminSnap) {
-        if (adminSnap.exists && adminSnap.data().superAdmin === true) {
+        // Tunnistus pelkän dokumentin olemassaololla — kentät vaihtelevat
+        if (adminSnap.exists) {
           console.log('[AUTH] Super Admin sessio palautettu');
           _vpRooli  = 'superadmin';
           _fbUser   = user;
@@ -2690,7 +2691,8 @@ function kirjauduEmaililla() {
       // Jos ei → _jatkaSeuraHakuun() hakee seuran vp_uid:llä normaalisti.
       _fbDb.collection('admins').doc(_fbUser.uid).get()
         .then(function(adminSnap) {
-          if (adminSnap.exists && adminSnap.data().superAdmin === true) {
+          // Tunnistus pelkän dokumentin olemassaololla
+          if (adminSnap.exists) {
             console.log('[AUTH] Super Admin tunnistettu — ohitetaan seurahaku');
             _vpRooli = 'superadmin';
             var rooliLabel = document.getElementById('vpRooliLabel');
