@@ -1134,11 +1134,24 @@ async function lataaKayttajanProfiili(kayttaja) {
     }
 
     // ── VALIDOINTI ──
+    // Jos kayttajaData puuttuu mutta claims on olemassa (esim. VP ilman
+    // kayttajat-dokumenttia), rakennetaan profiili claimsista
     if (!kayttajaData) {
-      naytaNakyma('kirjautuminen');
-      naytaVirhe('Käyttäjäprofiilia ei löydy. Ota yhteyttä seuran valmennuspäällikköön.');
-      await auth.signOut();
-      return;
+      if (claims.seuraId && claims.rooli) {
+        console.log('Ei kayttajat-dokumenttia — rakennetaan profiili claimsista');
+        kayttajaData = {
+          rooli:    claims.rooli,
+          seuraId:  claims.seuraId,
+          email:    kayttaja.email,
+          joukkue:  claims.joukkue || null,
+          nimi:     kayttaja.displayName || kayttaja.email,
+        };
+      } else {
+        naytaNakyma('kirjautuminen');
+        naytaVirhe('Käyttäjäprofiilia ei löydy. Ota yhteyttä seuran valmennuspäällikköön.');
+        await auth.signOut();
+        return;
+      }
     }
 
     // Tarkistetaan että rooli on valmentajatason rooli.
@@ -1200,8 +1213,22 @@ async function lataaKayttajanProfiili(kayttaja) {
 // välttämiseksi).
 // ─────────────────────────────────────────
 async function lataaJoukkuePelaajat() {
-  if (!tila.seuraId || !tila.joukkueId) {
+  if (!tila.seuraId) {
     tila.pelaajat = [];
+    return;
+  }
+
+  // VP-rooli: ei joukkuetta — haetaan kaikki seuran pelaajat
+  if (!tila.joukkueId) {
+    try {
+      const snap = await db.collection('seurat').doc(tila.seuraId)
+        .collection('pelaajat').orderBy('sukunimi').limit(200).get();
+      tila.pelaajat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      console.log('VP-näkymä: kaikki seuran pelaajat ladattu:', tila.pelaajat.length);
+    } catch(e) {
+      console.warn('VP pelaajat:', e.message);
+      tila.pelaajat = [];
+    }
     return;
   }
 
