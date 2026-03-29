@@ -3053,7 +3053,7 @@ function _lataaPilottiDashboard() {
 
   // Päivitä seuravalikko
   var sel = document.getElementById('seuraSelect');
-  if (sel) sel.innerHTML = '<option value="' + seuraId + '">' + seuraNimi + '</option>';
+  if (sel) { sel.innerHTML = ''; var o = document.createElement('option'); o.value = seuraId; o.textContent = seuraNimi; sel.appendChild(o); }
   window._aktivSeura = seuraId;
 
   // ── Firebase-only seurat (ei tm_data.js:ssä) ──────────────────────
@@ -3234,7 +3234,7 @@ function initDash() {
   var seurat = Object.keys(_seuraData).sort();
   seurat.forEach(function(s) {
     var opt = document.createElement('option');
-    opt.value = s; opt.textContent = s + ' (' + _seuraData[s].pelaajia + 'p)';
+    opt.value = s; opt.textContent = (_seuraData[s].nimi || s) + ' (' + (_seuraData[s].pelaajia || 0) + 'p)';
     sel.appendChild(opt);
   });
   
@@ -3247,25 +3247,33 @@ function initDash() {
     var fbId   = window._fbSeuraDoc.id;
     console.log('[AUTH] initDash käyttää FB-seuraa:', fbNimi);
 
-    // Jos seura ei ole tm_data.js:ssä, lisätään se listaan
-    // Tämä mahdollistaa pilottiseurojen käytön vaikka niillä ei ole historiadataa
-    if (!seurat.includes(fbNimi)) {
-      console.log('[AUTH] Seura ei ole tm_data.js:ssä — lisätään listaan:', fbNimi);
-      seurat.push(fbNimi);
-      // Lisätään myös _seuraData:an tyhjällä rakenteella
-      _seuraData[fbNimi] = {
-        pelaajia:  0,
-        testeja:   0,
-        joukkueet: {},
-        // Merkitään Firebase-seuraksi myöhempää käyttöä varten
+    // Pilottiseurat käyttävät Firestore-ID:tä avaimena (esim. "kpv")
+    // eikä seuran nimeä — tämä varmistaa että _lataaPilottiDashboard
+    // ja initDash käyttävät samaa avainta _seuraData:ssa
+    var avain = fbId; // "kpv" eikä "KPV Juniorit"
+    if (!seurat.includes(avain)) {
+      console.log('[AUTH] Lisätään pilottiseura listaan ID:llä:', avain);
+      seurat.push(avain);
+    }
+    // Tallenna tai päivitä _seuraData avaimella fbId
+    if (!_seuraData[avain]) {
+      _seuraData[avain] = {
+        nimi:          fbNimi,
+        pelaajia:      0,
+        testeja:       0,
+        joukkueet:     {},
         _firebaseSeura: true,
-        _seuraId: fbId
+        _seuraId:      fbId
       };
+    } else {
+      // Päivitä nimi jos jo olemassa
+      _seuraData[avain].nimi    = fbNimi;
+      _seuraData[avain]._seuraId = fbId;
     }
 
-    pinSeura['__fb__'] = fbNimi;
+    pinSeura['__fb__'] = avain;  // osoittaa ID:hen
     _vpPin = '__fb__';
-    console.log('[AUTH] ✅ Seura asetettu:', fbNimi);
+    console.log('[AUTH] ✅ Seura asetettu ID:llä:', avain, '| nimi:', fbNimi);
   }
   // Näytä roolitunniste header:issa
   var rooliLabel = document.getElementById('vpRooliLabel');
