@@ -80,21 +80,24 @@
       console.warn('Pelaajien haku esitäyttöön epäonnistui:', e);
     }
 
+    // Kootaan tapahtuma-objekti — poistetaan undefined-arvot
+    // Firestore hylkää dokumentin jos se sisältää undefined-kenttiä
+    const uid = kayttajaUid || null;
     const tapahtuma = {
       tyyppi:       data.tyyppi       || 'harjoitettavuus',
       tila:         'suunniteltu',
-      joukkueId:    data.joukkueId,
-      joukkueNimi:  data.joukkueNimi  || data.joukkueId,
+      joukkueId:    data.joukkueId    || '',
+      joukkueNimi:  data.joukkueNimi  || data.joukkueId || '',
       nimi:         data.nimi         || TAPAHTUMATYYPIT[data.tyyppi]?.nimi || 'Tapahtuma',
-      pvm:          data.pvm,
+      pvm:          data.pvm          || '',
       alkuAika:     data.alkuAika     || '',
-      vastuuUid:    data.vastuuUid    || kayttajaUid,
-      luonutUid:    kayttajaUid,
       luotu:        firebase.firestore.FieldValue.serverTimestamp(),
       pelaajat:     pelaajat,
       osallistujat: [],
-      muistiinpanot: '',
+      muistiinpanot: data.muistiinpanot || '',
     };
+    // Lisätään UID-kentät vain jos ne ovat olemassa
+    if (uid) { tapahtuma.vastuuUid = uid; tapahtuma.luonutUid = uid; }
 
     const ref = await db.collection('seurat').doc(seuraId)
       .collection('tapahtumat').add(tapahtuma);
