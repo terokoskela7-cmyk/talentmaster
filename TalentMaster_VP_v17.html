@@ -2986,12 +2986,15 @@ function _lataaSuperAdminDashboard() {
 
   // Haetaan kaikki seurat Firestoresta
   if (!_fbDb) return;
+  console.log('[SA] Haetaan seurat Firestoresta, _fbDb:', !!_fbDb);
   _fbDb.collection('seurat').get()
     .then(function(snap) {
+      console.log('[SA] Seurat haettu:', snap.size, 'kpl, empty:', snap.empty);
       var lista = document.getElementById('saSeuraLista');
-      if (!lista) return;
+      if (!lista) { console.warn('[SA] saSeuraLista-elementtiä ei löydy!'); return; }
       if (snap.empty) {
         lista.innerHTML = '<div style="color:var(--muted)">Ei seuroja järjestelmässä.</div>';
+        console.warn('[SA] Firestore palautti tyhjän kokoelman — tarkista Security Rules');
         return;
       }
       var seurat = snap.docs.map(function(d) {
@@ -3014,8 +3017,9 @@ function _lataaSuperAdminDashboard() {
         '</div>';
     })
     .catch(function(e) {
+      console.error('[SA] Seurojen haku epäonnistui:', e.code, e.message);
       var lista = document.getElementById('saSeuraLista');
-      if (lista) lista.innerHTML = '<div style="color:var(--red)">Virhe: ' + e.message + '</div>';
+      if (lista) lista.innerHTML = '<div style="color:var(--red)">⚠️ ' + e.message + '<br><small>' + e.code + '</small></div>';
     });
 }
 
