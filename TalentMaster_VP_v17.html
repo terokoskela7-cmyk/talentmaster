@@ -8313,11 +8313,12 @@ async function _vpTallennaTapahtuma(seuraId) {
   var joukkueet  = seura._joukkueet || seura.joukkueet || {};
   var jNimi      = ((joukkueet[jId] || {}).nimi) || jId;
   try {
+    var kayttajaUid = null;
+    try { kayttajaUid = firebase.auth().currentUser && firebase.auth().currentUser.uid; } catch(e2) {}
     await TmTapahtumat.luoTapahtuma(_fbDb, seuraId, {
       tyyppi: tyyppi, nimi: nimi || TmTapahtumat.TAPAHTUMATYYPIT[tyyppi].nimi,
       pvm: pvm, alkuAika: aika, joukkueId: jId, joukkueNimi: jNimi,
-    }, firebase.auth().currentUser && firebase.auth().currentUser.uid);
-    var m = document.getElementById('vpKalLuoModaali');
+    }, kayttajaUid);
     if (m) m.style.display = 'none';
     renderVPKalenteri();
   } catch(e) {
