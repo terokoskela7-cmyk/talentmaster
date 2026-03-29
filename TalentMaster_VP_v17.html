@@ -3018,6 +3018,15 @@ function _saAvaaSeura(seuraId, seuraNimi) {
       var data = snap.data();
       data.id = seuraId;
       window._fbSeuraDoc = data;
+      // Päivitä seuraSelect näyttämään valittu seura
+      var sel = document.getElementById('seuraSelect');
+      if (sel) {
+        sel.innerHTML = '';
+        var o = document.createElement('option');
+        o.value = seuraId; o.textContent = seuraNimi;
+        sel.appendChild(o);
+        sel.value = seuraId;
+      }
       // Nollataan _pilottiAlustettu-lippu jotta uusi seura latautuu uudelleen
       window._pilottiAlustettu = false;
       if (window._joukkueetUnsubscribe) {
@@ -3230,15 +3239,36 @@ function initDash() {
     return;
   }
   _seuraData = aggregateData(lookup);
-  
+
   var sel = document.getElementById('seuraSelect');
   sel.innerHTML = '';
-  var seurat = Object.keys(_seuraData).sort();
-  seurat.forEach(function(s) {
+
+  // ── Dropdown-logiikka roolin mukaan ──────────────────────────────────────
+  // Super Admin ja VP näkevät VAIN Firestore-seurat — ei tm_data.js-historiadata.
+  // Historiadata on vain analytiikkakäyttöön, ei operatiiviseen näkymään.
+  if (_vpRooli === 'superadmin') {
+    // Super admin: näyttää kaikki Firestore-seurat dynaamisesti
+    // seuraSelect täytetään _lataaSuperAdminDashboard:issa erikseen
+    // Ei lisätä tm_data.js-seuroja tähän listaan
+    sel.innerHTML = '<option value="">Lataa seura alta →</option>';
+  } else if (window._fbSeuraDoc) {
+    // VP tai muu kirjautunut: näyttää VAIN oman seuransa
+    var fbId   = window._fbSeuraDoc.id;
+    var fbNimi = window._fbSeuraDoc.nimi || fbId;
     var opt = document.createElement('option');
-    opt.value = s; opt.textContent = (_seuraData[s].nimi || s) + ' (' + (_seuraData[s].pelaajia || 0) + 'p)';
+    opt.value = fbId;
+    opt.textContent = fbNimi;
     sel.appendChild(opt);
-  });
+  } else {
+    // Fallback: ei Firebase-seuraa — näytä tm_data.js-seurat (legacy)
+    var seurat = Object.keys(_seuraData).sort();
+    seurat.forEach(function(s) {
+      var opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = (_seuraData[s].nimi || s) + ' (' + (_seuraData[s].pelaajia || 0) + 'p)';
+      sel.appendChild(opt);
+    });
+  }
   
   // Valitse seura PINin mukaan
   var pinSeura = { '6666':'FC Lahti Juniorit', '7777':'SJK -juniorit', '8888': seurat[0] };
