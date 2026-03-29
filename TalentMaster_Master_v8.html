@@ -1478,7 +1478,19 @@ function renderPelaajat() {
   const rivit = pelaajat.map(p => {
     const positioluokka = (p.positio || 'MF').toLowerCase();
     const nimi = `${p.sukunimi || ''}, ${p.etunimi || ''}`.trim().replace(/^,\s*/, '') || p.nimi || '—';
-    const syntyma = p.syntymavuosi || p.syntymaaika || '—';
+    // Formatoi syntymäpäivä — voi olla Firestore Timestamp, string tai vuosi
+    let syntyma = '—';
+    const sa = p.syntymaaika || p.syntymavuosi || p.syntymapaiva;
+    if (sa) {
+      if (sa.seconds) {
+        // Firestore Timestamp → vuosi
+        syntyma = new Date(sa.seconds * 1000).getFullYear();
+      } else if (typeof sa === 'string' && sa.length >= 4) {
+        syntyma = sa.substring(0, 4); // ISO-string → vuosi
+      } else if (typeof sa === 'number') {
+        syntyma = sa;
+      }
+    }
 
     // Kehitystasopisteet (0-5) → värilliset pisteet
     const kehitys = parseInt(p.kehitystaso) || 0;
@@ -2079,9 +2091,7 @@ document.addEventListener('keydown', (e) => {
    Field: __name__
    Query scope: Collection group
    ═══════════════════════════════════════════════════════════════ */
-</script>
-</body>
-</html>
+
   // ─────────────────────────────────────────
   // NÄKYMÄ: KALENTERI JA TAPAHTUMAT
   // ─────────────────────────────────────────
@@ -2698,5 +2708,6 @@ document.addEventListener('keydown', (e) => {
     const url = `TalentMaster_Harjoitettavuus_Lomake.html?tapahtumaId=${tapahtumaId}&seuraId=${tila.seuraId}`;
     window.open(url, '_blank');
   }
-
-
+</script>
+</body>
+</html>
