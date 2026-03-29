@@ -2781,83 +2781,136 @@ ${rajaArvoTooltip(testiId)}`,
    joka toimii ilman internetyhteyttä kentällä.
 ═══════════════════════════════════════════════════════ */
 function lataaExcelPohja() {
-  // Jos pelaajat on ladattu — generoidaan esitäytetty CSV pelaajilla
-  // Testaaja saa pelaajat valmiina, täyttää vain testitulosrivit
-  if (pelaajat && pelaajat.length > 0 && window._renderState) {
-    var rs = window._renderState;
-    var joukkueNimi = document.getElementById('joukkueSelect')?.selectedOptions[0]?.textContent || rs.joukkueId;
-    var seuraNimi   = document.getElementById('seuraSelect')?.selectedOptions[0]?.textContent  || rs.seuraId;
-    var pvm         = rs.pvm || document.getElementById('testipaiva')?.value || '';
-    var ikl         = rs.ikäluokka || 'U15';
+  // ── SheetJS-pohjainen xlsx-generaattori ───────────────────────────────
+  // Tuottaa oikean .xlsx-tiedoston (ei CSV:tä) joka avautuu Excelissä
+  // oikein myös suomalaisilla koneilla. Pelaajat esitäytetään automaattisesti
+  // kun lomake on generoitu — valmentaja täyttää vain testitulossolut.
 
-    // Otsikko + metatiedot
-    var rivit = [];
-    rivit.push('TalentMaster - Harjoitettavuuskartoitus,,,,,,Seura: ' + seuraNimi + ',,Joukkue: ' + joukkueNimi);
-    rivit.push('Palloliiton protokolla 2026,,,,,,Testipäivä: ' + pvm + ',,');
-    rivit.push('PHV-tila: AN = Pre-PHV | PH = PHV-huippu (MAX 60% kuorma!) | VA = Post-PHV');
-    rivit.push('');
+  var rs  = window._renderState        || {};
+  var tk  = window._tapahtumaKonteksti || {};
+  var ikl = rs.ikäluokka || tk.ikäluokka || 'U15';
+  if (ikl === 'mixed') ikl = 'U15';
 
-    // Testisarakkeiden otsikot ikäluokan mukaan
-    var testit = (TESTIT && TESTIT[ikl !== 'mixed' ? ikl : 'U15']) || [];
-    var testiOtsikot = testit
-      .filter(function(t) { return t.tyyppi !== 'flei'; })
-      .map(function(t) { return t.label.replace(/[\n,]/g, ' ').trim(); });
+  var seuraId    = rs.seuraId    || tk.seuraId    || document.getElementById('seuraSelect')?.value  || '';
+  var joukkueId  = rs.joukkueId  || tk.joukkueId  || document.getElementById('joukkueSelect')?.value || '';
+  var pvm        = rs.pvm        || tk.pvm        || document.getElementById('testipaiva')?.value   || '';
+  var seuraTxt   = document.getElementById('seuraSelect')?.selectedOptions[0]?.textContent   || seuraId;
+  var joukkueTxt = document.getElementById('joukkueSelect')?.selectedOptions[0]?.textContent || joukkueId;
 
-    var otsikkoRivi = ['PelaajaID','Sukunimi','Etunimi','Syntymäpäivä','S','Ikäluokka','Testipäivä','PHV-tila']
-      .concat(testiOtsikot).concat(['FLEI %','Huomiot']);
-    rivit.push(otsikkoRivi.join(','));
+  // Testisarakkeet ikäluokan mukaan
+  var testit = (TESTIT && TESTIT[ikl]) || [];
+  var testiSarakkeet = testit.filter(function(t) {
+    return t.tyyppi !== 'flei';
+  });
 
-    // Pelaajat esitäytettyinä
-    pelaajat.forEach(function(p) {
-      var synt = '';
-      if (p.syntymapaiva) {
-        if (p.syntymapaiva.seconds) synt = new Date(p.syntymapaiva.seconds*1000).toLocaleDateString('fi-FI');
-        else if (typeof p.syntymapaiva === 'string') synt = p.syntymapaiva.substring(0,10).split('-').reverse().join('.');
+  // ── Rakennetaan data taulukkona (array of arrays) ─────────────────────
+  // SheetJS muuntaa tämän suoraan Excelin soluiksi.
+  var pvmFmt = pvm ? pvm.split('-').reverse().join('.') : '';
+
+  // Otsikkorivit (metatieto)
+  var rows = [
+    ['TalentMaster™ — Harjoitettavuuskartoitus', '', '', '', '', '',
+     'Seura:', seuraTxt, '', 'Joukkue:', joukkueTxt],
+    ['Palloliiton protokolla 2026', '', '', '', '', '',
+     'Testipäivä:', pvmFmt, '', 'Ikäluokka:', ikl],
+    ['PHV: AN = Pre-PHV  |  PH = PHV-huippu (kuorma MAX 60%!)  |  VA = Post-PHV'],
+    [],  // tyhjä erotusrivi
+  ];
+
+  // Sarakeotsikot
+  var otsikot = ['PelaajaID', 'Sukunimi', 'Etunimi', 'Syntymäpäivä', 'S', 'Ikäluokka',
+                 'Testipäivä', 'PHV-tila'];
+  testiSarakkeet.forEach(function(t) {
+    // Poistetaan rivinvaihdot labelista
+    otsikot.push(t.label.replace(/\n/g, ' ').trim());
+  });
+  otsikot.push('FLEI %', 'Huomiot');
+  rows.push(otsikot);
+
+  // Pelaajadatarivit
+  var pelaajatLomakkeella = (typeof pelaajat !== 'undefined' && pelaajat.length > 0)
+    ? pelaajat
+    : [];
+
+  pelaajatLomakkeella.forEach(function(p) {
+    var synt = '';
+    if (p.syntymapaiva) {
+      if (p.syntymapaiva.seconds) {
+        synt = new Date(p.syntymapaiva.seconds * 1000).toLocaleDateString('fi-FI');
+      } else if (typeof p.syntymapaiva === 'string') {
+        synt = p.syntymapaiva.substring(0, 10).split('-').reverse().join('.');
       }
-      var rivi = [
-        p.id || '',
-        p.sukunimi || '',
-        p.etunimi || '',
-        synt,
-        (p.sukupuoli || 'P')[0],
-        p._ikäluokka || ikl,
-        pvm,
-        '',  // PHV-tila — testaaja täyttää
-      ];
-      // Tyhjät testisarakkeet — testaaja täyttää
-      testiOtsikot.forEach(function() { rivi.push(''); });
-      rivi.push('', '');  // FLEI ja Huomiot
-      rivit.push(rivi.map(function(s) {
-        s = String(s || '');
-        return s.indexOf(',') >= 0 ? '"' + s + '"' : s;
-      }).join(','));
-    });
+    }
 
-    rivit.push('');
-    rivit.push('PISTEYTYS: 1p = rajoitteita | 2p = kehitettävää | 3p = hallitsee hyvin');
+    var rivi = [
+      p.id        || '',
+      p.sukunimi  || '',
+      p.etunimi   || '',
+      synt,
+      (p.sukupuoli || 'P')[0],
+      p._ikäluokka || ikl,
+      pvmFmt,
+      '',  // PHV-tila — testaaja täyttää
+    ];
 
-    var csv = rivit.join(String.fromCharCode(13,10));
-    var slug = joukkueNimi.toLowerCase().replace(/[^a-z0-9]+/gi, '_');
-    var pvmSlug = (pvm || new Date().toISOString().split('T')[0]).replace(/-/g, '');
-    var tiedosto = 'TM_Harjoitettavuus_' + slug + '_' + pvmSlug + '.csv';
+    // Tyhjät testisarakkeet — testaaja täyttää
+    testiSarakkeet.forEach(function() { rivi.push(''); });
+    rivi.push('', ''); // FLEI% ja Huomiot
+    rows.push(rivi);
+  });
 
-    var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    var url  = URL.createObjectURL(blob);
-    var a    = document.createElement('a');
-    a.href = url; a.download = tiedosto;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    naytaNotif('Excel-pohja ladattu — ' + pelaajat.length + ' pelaajaa valmiina ✓', 'ok');
-    return;
+  // Jos ei pelaajia, lisätään 20 tyhjää riviä
+  if (pelaajatLomakkeella.length === 0) {
+    for (var i = 0; i < 20; i++) {
+      var tyhjä = ['', '', '', '', '', '', pvmFmt, ''];
+      testiSarakkeet.forEach(function() { tyhjä.push(''); });
+      tyhjä.push('', '');
+      rows.push(tyhjä);
+    }
   }
 
-  // Ilman pelaajia — lataa tyhjä GitHubin pohja
-  var POHJA_URL = 'https://github.com/terokoskela7-cmyk/talentmaster/raw/main/TalentMaster_Harjoitettavuus.xlsx';
-  var a = document.createElement('a');
-  a.href = POHJA_URL; a.download = 'TalentMaster_Harjoitettavuus_pohja.xlsx'; a.target = '_blank';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  naytaNotif('Excel-pohja avattu GitHubista', 'ok');
+  // Pisteytysohje loppuun
+  rows.push([]);
+  rows.push(['PISTEYTYS:', '1p = rajoitteita', '2p = kehitettävää', '3p = hallitsee hyvin']);
+  rows.push(['FLEI-laskenta:', 'pisteet yhteensä / max pisteet × 100']);
+
+  // ── SheetJS: muunnetaan taulukko Excel-tiedostoksi ────────────────────
+  var ws   = XLSX.utils.aoa_to_sheet(rows);
+
+  // Sarakeleveydet — leveämpi pelaaja- ja testisarakkeet
+  var wscols = [
+    { wch: 20 }, // PelaajaID
+    { wch: 18 }, // Sukunimi
+    { wch: 14 }, // Etunimi
+    { wch: 14 }, // Syntymäpäivä
+    { wch: 4  }, // S
+    { wch: 10 }, // Ikäluokka
+    { wch: 12 }, // Testipäivä
+    { wch: 10 }, // PHV-tila
+  ];
+  testiSarakkeet.forEach(function() { wscols.push({ wch: 14 }); });
+  wscols.push({ wch: 8 }, { wch: 30 }); // FLEI%, Huomiot
+  ws['!cols'] = wscols;
+
+  // Jäädytä ylärivit (4 metarivit + otsikkorivi = 5 riviä)
+  ws['!freeze'] = { xSplit: 0, ySplit: 5 };
+
+  // Workbook
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Kartoitus');
+
+  // Tiedostonimi
+  var slug    = joukkueTxt.toLowerCase().replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
+  var pvmSlug = pvm.replace(/-/g, '') || new Date().toISOString().split('T')[0].replace(/-/g, '');
+  var tiedosto = 'TM_Harjoitettavuus_' + (slug || 'pohja') + '_' + pvmSlug + '.xlsx';
+
+  // Lataa tiedosto
+  XLSX.writeFile(wb, tiedosto);
+
+  var msg = pelaajatLomakkeella.length > 0
+    ? 'Excel ladattu — ' + pelaajatLomakkeella.length + ' pelaajaa valmiina ✓'
+    : 'Excel-pohja ladattu (tyhjä) ✓';
+  naytaNotif(msg, 'ok');
 }
 
 
