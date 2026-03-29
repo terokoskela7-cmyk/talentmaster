@@ -1065,25 +1065,58 @@ async function lataaKayttajanProfiili(kayttaja) {
       // HUOM: Vaatii Firestoressa collectionGroup-indeksin.
       // Firebase Console → Firestore → Indexes → Composite
       // Collection group: kauttajat, Query scope: Collection group
-      console.log('Custom Claims puuttuvat — käytetään collectionGroup-kyselyä');
+      console.log('Custom Claims puuttuvat — etsitään sähköpostilla seuroista');
 
-      const collectionGroupSnap = await db
-        .collectionGroup('kayttajat')
-        .where(firebase.firestore.FieldPath.documentId(), '==', kayttaja.uid)
-        .limit(1)
-        .get();
+      // collectionGroup + documentId() ei toimi kun UID on 1 segmentti.
+      // Ratkaisu: hae ensin seurat joissa vp_uid tai vp_email täsmää,
+      // sitten kayttajat-alikokoelmasta sähköpostilla.
+      //
+      // Vaihe A: Tarkista onko käyttäjä VP (vp_uid-kenttä seuradokumentissa)
+      const seuraSnap1 = await db.collection('seurat')
+        .where('vp_uid', '==', kayttaja.uid).limit(1).get();
 
-      if (!collectionGroupSnap.empty) {
-        const doc = collectionGroupSnap.docs[0];
-        kayttajaData = doc.data();
+      if (!seuraSnap1.empty) {
+        const seuraDoc = seuraSnap1.docs[0];
+        seuraId   = seuraDoc.id;
+        seuraNimi = seuraDoc.data().nimi || seuraId;
+        kayttajaData = {
+          rooli:   'vp',
+          email:   kayttaja.email,
+          seuraId: seuraId,
+          nimi:    kayttaja.displayName || kayttaja.email,
+        };
+        console.log('VP löytyi vp_uid:llä:', seuraId);
+      } else {
+        // Vaihe B: Hae collectionGroup email-kentällä (toimii Firestoressä)
+        try {
+          const cgSnap = await db.collectionGroup('kayttajat')
+            .where('email', '==', kayttaja.email).limit(1).get();
 
-        // Puretaan seuraId dokumentin polusta:
-        // "seurat/fcl/kayttajat/uid" → osat[1] = "fcl"
-        const polunOsat = doc.ref.path.split('/');
-        seuraId = polunOsat[1];
-
-        const seuraSnap = await db.collection('seurat').doc(seuraId).get();
-        seuraNimi = seuraSnap.exists ? seuraSnap.data().nimi : seuraId;
+          if (!cgSnap.empty) {
+            const doc = cgSnap.docs[0];
+            kayttajaData   = doc.data();
+            const polunOsat = doc.ref.path.split('/');
+            seuraId = polunOsat[1];
+            const seuraDoc2 = await db.collection('seurat').doc(seuraId).get();
+            seuraNimi = seuraDoc2.exists ? seuraDoc2.data().nimi : seuraId;
+            console.log('Käyttäjä löytyi email-haulla:', seuraId);
+          }
+        } catch(cgErr) {
+          console.warn('CollectionGroup-haku epäonnistui:', cgErr.message);
+          // Viimeinen yritys: hae suoraan jos seuraId on tunnettavissa emailista
+          // esim. vp.kpv@talentmaster.fi → kpv
+          const emailOsat = kayttaja.email.split('@')[0].split('.');
+          if (emailOsat.length >= 2) {
+            const arvattуSeura = emailOsat[1]; // "kpv" emailista "vp.kpv@..."
+            const kokeilu = await db.collection('seurat').doc(arvattуSeura).get();
+            if (kokeilu.exists) {
+              seuraId   = arvattуSeura;
+              seuraNimi = kokeilu.data().nimi || seuraId;
+              kayttajaData = { rooli: 'vp', email: kayttaja.email, seuraId };
+              console.log('Seura pääteltiin emailista:', seuraId);
+            }
+          }
+        }
       }
     }
 
