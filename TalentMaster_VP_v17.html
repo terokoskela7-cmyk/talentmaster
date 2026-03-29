@@ -2844,31 +2844,33 @@ function _renderJoukkueetLista(snap, seuraNimi, container) {
   container.innerHTML = h;
 
   // Haetaan pelaajamäärät asynkronisesti
+  // Strategia: hae ensin joukkueen alikokoelmasta, jos 0 → hae seuran
+  // pelaajat-kokoelmasta joukkue-kentällä. Pelaajat voivat olla kummassa
+  // tahansa riippuen siitä miten he on rekisteröity.
   if (_fbDb && seuraId) {
     snap.docs.forEach(function(doc) {
       var jId = doc.id;
-      // Hae pelaajat joukkueen alikokoelmasta
-      _fbDb.collection('seurat').doc(seuraId).collection('joukkueet').doc(jId)
-        .collection('pelaajat').get()
-        .then(function(pelSnap) {
-          var el = document.getElementById('jlkm-' + jId);
-          if (el) {
-            el.innerHTML = '<div style="font-size:22px;font-weight:700;color:var(--teal)">' +
-              pelSnap.size + '</div><div style="font-size:10px;color:var(--muted2)">pelaajaa</div>';
-          }
-        })
-        .catch(function() {
-          // Kokeile seuran pelaajat-kokoelmaa joukkue-kentällä
-          _fbDb.collection('seurat').doc(seuraId).collection('pelaajat')
-            .where('joukkue', '==', jId).get()
-            .then(function(pelSnap2) {
-              var el = document.getElementById('jlkm-' + jId);
-              if (el) {
-                el.innerHTML = '<div style="font-size:22px;font-weight:700;color:var(--teal)">' +
-                  pelSnap2.size + '</div><div style="font-size:10px;color:var(--muted2)">pelaajaa</div>';
-              }
-            }).catch(function(){});
-        });
+
+      function naytaLkm(lkm) {
+        var el = document.getElementById('jlkm-' + jId);
+        if (el) el.innerHTML = '<div style="font-size:22px;font-weight:700;color:var(--teal)">'
+          + lkm + '</div><div style="font-size:10px;color:var(--muted2)">pelaajaa</div>';
+      }
+
+      // Hae MOLEMMISTA poluista rinnakkain — näytetään summa
+      Promise.all([
+        _fbDb.collection('seurat').doc(seuraId)
+          .collection('joukkueet').doc(jId).collection('pelaajat').get()
+          .catch(function() { return { size: 0, docs: [] }; }),
+        _fbDb.collection('seurat').doc(seuraId)
+          .collection('pelaajat').where('joukkue', '==', jId).get()
+          .catch(function() { return { size: 0, docs: [] }; })
+      ]).then(function(results) {
+        var lkm1 = results[0].size;
+        var lkm2 = results[1].size;
+        // Käytä suurempaa — ne ovat todennäköisesti samat pelaajat eri poluissa
+        naytaLkm(Math.max(lkm1, lkm2));
+      }).catch(function() { naytaLkm('?'); });
     });
   }
 }
@@ -2897,13 +2899,28 @@ function vpAvaaJoukkuePelaajat(joukkueId, joukkueNimi) {
     'style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button></div>' +
     '<div id="vpPelaajaLista">Ladataan...</div></div>';
 
-  // Hae pelaajat — ensin joukkueen alikokoelmasta
-  Promise.all([
-    _fbDb.collection('seurat').doc(seuraId).collection('joukkueet').doc(joukkueId).collection('pelaajat').orderBy('sukunimi').get(),
-    _fbDb.collection('seurat').doc(seuraId).collection('pelaajat').where('joukkue', '==', joukkueId).orderBy('sukunimi').get()
-  ]).then(function(results) {
+  // Hae pelaajat MOLEMMISTA poluista ja yhdistä
+  // Polku 1: seurat/kpv/joukkueet/kpv_u13/pelaajat (joukkueen alikokoelma)
+  // Polku 2: seurat/kpv/pelaajat where joukkue == kpv_u13 (seuran kokoelma)
+  var haku1 = _fbDb.collection('seurat').doc(seuraId)
+    .collection('joukkueet').doc(joukkueId).collection('pelaajat')
+    .orderBy('sukunimi').get().catch(function() { return {docs:[]}; });
+  var haku2 = _fbDb.collection('seurat').doc(seuraId)
+    .collection('pelaajat').where('joukkue', '==', joukkueId)
+    .orderBy('sukunimi').get().catch(function() { return {docs:[]}; });
+
+  Promise.all([haku1, haku2]).then(function(results) {
     var snap1 = results[0], snap2 = results[1];
-    var docs  = snap1.size > 0 ? snap1.docs : snap2.docs;
+    // Yhdistä tulokset, poista duplikaatit PalloID:n tai nimen perusteella
+    var nahdyt = new Set();
+    var docs = [];
+    [snap1.docs, snap2.docs].forEach(function(lista) {
+      (lista || []).forEach(function(d) {
+        var p = d.data();
+        var avain = p.palloID || p.palloid || (p.sukunimi + p.etunimi);
+        if (!nahdyt.has(avain)) { nahdyt.add(avain); docs.push(d); }
+      });
+    });
     var lista = document.getElementById('vpPelaajaLista');
     if (!lista) return;
     if (docs.length === 0) {
@@ -7877,20 +7894,25 @@ function renderVPKalenteri() {
     + '<div style="width:28px;height:28px;border:3px solid var(--blue);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></div>'
     + 'Ladataan kalenteria...</div>';
 
-  // Etsitään seuraId useasta lähteestä varmuuden vuoksi
-  var seuraId = (window._fbSeuraDoc && window._fbSeuraDoc.id)
-             || ((_seuraData[_aktivSeura] || {})._seuraId)
-             || null;
+  // Etsitään seuraId useasta lähteestä — VP:llä _fbSeuraDoc on asetettu
+  // kirjautumisessa ja sen .id-kenttä on Firestore-dokumentin ID (esim. "kpv")
+  var seuraId = null;
 
-  // Lisäyrityks: jos _fbSeuraDoc on objekti jossa on id suoraan
-  if (!seuraId && window._fbSeuraDoc) {
-    seuraId = window._fbSeuraDoc.id || window._fbSeuraDoc._seuraId || null;
+  if (window._fbSeuraDoc) {
+    seuraId = window._fbSeuraDoc.id || window._fbSeuraDoc._seuraId;
+  }
+  if (!seuraId && _seuraData && _aktivSeura) {
+    seuraId = (_seuraData[_aktivSeura] || {})._seuraId || null;
+  }
+  // Viimeinen yritys: päättele VP:n emailista (vp.kpv@talentmaster.fi → kpv)
+  if (!seuraId && _fbUser && _fbUser.email) {
+    var emailOsat = _fbUser.email.split('@')[0].split('.');
+    if (emailOsat.length >= 2) seuraId = emailOsat[1];
   }
 
-  // Debug: näytetään mitä löydettiin
   console.log('[Kalenteri] seuraId:', seuraId,
-    '| _fbSeuraDoc:', window._fbSeuraDoc && window._fbSeuraDoc.id,
-    '| _aktivSeura:', _aktivSeura);
+    '| _fbSeuraDoc.id:', window._fbSeuraDoc && window._fbSeuraDoc.id,
+    '| _fbUser.email:', _fbUser && _fbUser.email);
 
   if (!seuraId) {
     el.innerHTML = '<div style="color:var(--red);padding:20px">⚠️ Seuran tunnistetta ei löydy.</div>';
