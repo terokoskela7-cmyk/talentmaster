@@ -1160,8 +1160,13 @@ async function lataaKayttajanProfiili(kayttaja) {
     // VP voi tarkastella joukkueensa tilannetta valmentajaperspektiivistä
     const sallitutRoolit = ['valmentaja', 'testivastaava', 'talenttivalmentaja',
                             'fysiikkavalmentaja', 'vp', 'super_admin', 'superAdmin'];
-    const rooli = claims.rooli || claims.super_admin && 'super_admin'
-               || kayttajaData.rooli || 'valmentaja';
+    const rooli = claims.rooli || (claims.super_admin ? 'super_admin' : null)
+               || (kayttajaData && kayttajaData.rooli) || 'valmentaja';
+    console.log('Kirjautuminen —',
+      'rooli:', rooli,
+      '| claims:', JSON.stringify(claims),
+      '| kayttajaData:', kayttajaData ? JSON.stringify(kayttajaData) : 'NULL'
+    );
 
     if (!sallitutRoolit.includes(rooli) && rooli !== 'vp') {
       naytaNakyma('kirjautuminen');
@@ -1175,8 +1180,11 @@ async function lataaKayttajanProfiili(kayttaja) {
     tila.kayttajaDoc = kayttajaData;
     tila.seuraId     = seuraId;
     tila.seuraNimi   = seuraNimi;
-    tila.joukkueId   = kayttajaData.joukkue      || null;
-    tila.joukkueNimi = kayttajaData.joukkueNimi  || kayttajaData.joukkue || '—';
+    // joukkue-kenttä voi olla 'kpv_u13' tai joukkueen nimi — normalisoidaan
+    const joukkueRaaka = kayttajaData.joukkue || kayttajaData.joukkueId || null;
+    tila.joukkueId   = joukkueRaaka;
+    tila.joukkueNimi = kayttajaData.joukkueNimi || joukkueRaaka || '—';
+    console.log('Joukkue:', tila.joukkueId, '| Seura:', tila.seuraId);
     tila.rooli       = rooli;
 
     alustaTopbar();
@@ -2541,7 +2549,7 @@ document.addEventListener('keydown', (e) => {
         joukkueId: tila.joukkueId,
         joukkueNimi: document.getElementById('sivupalkkiJoukkue')?.textContent || tila.joukkueId,
         muistiinpanot,
-      }, tila.kayttajaUid);
+      }, tila.kayttaja && tila.kayttaja.uid);
 
       _suljeKalLuoModaali();
       // Päivitä kalenteri
