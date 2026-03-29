@@ -181,6 +181,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 // mistä tahansa syystä, sovellus jatkaa normaalisti LocalStoragella.
 // Tämä on tärkeää: Firebase ei saa koskaan kaataa pääsovellusta.
 var _fbDb     = null;   // null = ei yhteyttä vielä
+var _superAdminTunnistettu = false; // estää kaksoislaukaisun kirjautumisessa
 var _fbAuth   = null;   // Firebase Authentication -viite
 var _fbUser   = null;   // Kirjautunut käyttäjä (null = ei kirjautunut)
 var _fbOnline = false;  // false kunnes yhteys on varmistettu
@@ -259,6 +260,12 @@ try {
     }
 
     if (!user) {
+      // Tarkista onko super admin jo tunnistettu — Firebase voi laukaista
+      // onAuthStateChanged kahdesti ja toinen laukaisu voi tulla null-käyttäjällä
+      if (_superAdminTunnistettu) {
+        console.log('[AUTH] null-laukaisu ohitetaan — super admin jo tunnistettu');
+        return;
+      }
       // Ei sessiota eikä Super Admin -kontekstia — näytä login
       console.log('[AUTH] Ei sessiota — näytetään login');
       var sl = document.getElementById('sLogin');
@@ -278,6 +285,7 @@ try {
         // Tunnistus pelkän dokumentin olemassaololla — kentät vaihtelevat
         if (adminSnap.exists) {
           console.log('[AUTH] Super Admin sessio palautettu');
+          _superAdminTunnistettu = true;  // esto kaksoislaukaisulle
           _vpRooli  = 'superadmin';
           _fbUser   = user;
           _fbOnline = true;
@@ -2599,6 +2607,7 @@ function checkPin() {
   }
 }
 function kirjauduUlos() {
+  _superAdminTunnistettu = false;  // nollataan lippu
   // Kirjataan ulos sekä Firebase että PIN
   if (_fbAuth && _fbUser) {
     _fbAuth.signOut().catch(function(e) {
