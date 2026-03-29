@@ -1151,7 +1151,7 @@ auth.onAuthStateChanged(user => {
     document.getElementById('userEmail').textContent = user.email;
     document.getElementById('userEmail').style.display = 'inline';
     document.getElementById('logoutBtn').style.display  = 'inline-flex';
-    alustaSeurat();
+    alustaSeurat().then(() => tarkistaUrlParametrit());
     // Aseta tämä päivä oletuksena
     document.getElementById('testipaiva').value = new Date().toISOString().split('T')[0];
   } else {
@@ -1198,7 +1198,8 @@ async function alustaSeurat() {
       });
     } else {
       // Muut näkevät vain oman seuransa
-      const seura = claims.seura;
+      // VP:llä on claims.seuraId, joillakin claims.seura — kokeillaan molempia
+      const seura = claims.seuraId || claims.seura;
       if (seura) {
         const doc = await db.collection('seurat').doc(seura).get();
         if (doc.exists) {
@@ -1207,7 +1208,24 @@ async function alustaSeurat() {
           opt.textContent = doc.data().nimi || doc.id;
           seuraSelect.appendChild(opt);
           seuraSelect.value = doc.id;
+          nykyinenSeura = doc.id;  // varmista että nykyinenSeura on asetettu
           await paivitaJoukkueet();
+        }
+      } else {
+        // Ei claims.seuraId eikä claims.seura — yritetään hakea vp_uid:llä
+        const vpSnap = await db.collection('seurat')
+          .where('vp_uid', '==', nykyinenKayttaja.uid).limit(1).get();
+        if (!vpSnap.empty) {
+          const seuraDoc = vpSnap.docs[0];
+          const opt = document.createElement('option');
+          opt.value = seuraDoc.id;
+          opt.textContent = seuraDoc.data().nimi || seuraDoc.id;
+          seuraSelect.appendChild(opt);
+          seuraSelect.value = seuraDoc.id;
+          nykyinenSeura = seuraDoc.id;
+          await paivitaJoukkueet();
+        } else {
+          naytaNotif('Seuraa ei löydy. Tarkista kirjautumistunnus.', 'err');
         }
       }
     }
@@ -1217,15 +1235,107 @@ async function alustaSeurat() {
   }
 }
 
+/* Tarkistaa URL-parametrit kirjautumisen jälkeen.
+   Kun lomake avataan kalenteritapahtumasta, URL sisältää:
+   ?tapahtumaId=xxx&seuraId=yyy
+   Tällöin pelaajat haetaan tapahtumasta joukkueen sijaan. */
+async function tarkistaUrlParametrit() {
+  const params = new URLSearchParams(window.location.search);
+  const tapahtumaId = params.get('tapahtumaId');
+  const seuraIdUrl  = params.get('seuraId');
+  if (!tapahtumaId || !seuraIdUrl) return;
+
+  console.log('URL-parametrit: tapahtumaId=', tapahtumaId, 'seuraId=', seuraIdUrl);
+  naytaNotif('Ladataan tapahtumaa...', 'info');
+
+  try {
+    const tapSnap = await db.collection('seurat').doc(seuraIdUrl)
+      .collection('tapahtumat').doc(tapahtumaId).get();
+    if (!tapSnap.exists) { naytaNotif('Tapahtumaa ei löydy', 'err'); return; }
+
+    const tap = tapSnap.data();
+    // Esitäytä valinnat tapahtuman tiedoilla
+    const seuraSelect = document.getElementById('seuraSelect');
+    const joukkueSelect = document.getElementById('joukkueSelect');
+
+    // Aseta seura
+    if (seuraSelect) {
+      let opt = seuraSelect.querySelector(`option[value="${seuraIdUrl}"]`);
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = seuraIdUrl;
+        opt.textContent = tap.seuraNimi || seuraIdUrl;
+        seuraSelect.appendChild(opt);
+      }
+      seuraSelect.value = seuraIdUrl;
+      nykyinenSeura = seuraIdUrl;
+    }
+
+    // Lataa joukkueet ja odota että ne ovat DOM:issa
+    await paivitaJoukkueet();
+
+    // Aseta joukkue — tarkista että optio on olemassa
+    if (joukkueSelect && tap.joukkueId) {
+      // Jos joukkuetta ei löydy dropdownista, lisää se
+      let jOpt = joukkueSelect.querySelector(`option[value="${tap.joukkueId}"]`);
+      if (!jOpt) {
+        jOpt = document.createElement('option');
+        jOpt.value = tap.joukkueId;
+        jOpt.textContent = tap.joukkueNimi || tap.joukkueId;
+        joukkueSelect.appendChild(jOpt);
+      }
+      joukkueSelect.value = tap.joukkueId;
+      nykyinenJoukkue = tap.joukkueId;
+    }
+
+    // Aseta testipäivä
+    if (tap.pvm) {
+      const pvmEl = document.getElementById('testipaiva');
+      if (pvmEl) pvmEl.value = tap.pvm;
+    }
+
+    // Ikäluokka joukkueesta
+    if (tap.joukkueId) {
+      const ikaSel = document.getElementById('ikäluokkaSelect');
+      if (ikaSel && typeof laskeIkäluokkaJoukkueesta === 'function') {
+        const ika = laskeIkäluokkaJoukkueesta(tap.joukkueId);
+        if (ika) ikaSel.value = ika;
+      }
+    }
+
+    naytaNotif(`Tapahtuma: ${tap.nimi} — ${tap.joukkueNimi || tap.joukkueId}`, 'ok');
+    console.log('[Lomake] Generoidaan lomake joukkueelle:', tap.joukkueId, 'seura:', seuraIdUrl);
+
+    // Generoi lomake automaattisesti — pieni viive varmuuden vuoksi
+    setTimeout(() => {
+      if (!document.getElementById('joukkueSelect').value) {
+        console.warn('[Lomake] joukkueSelect tyhjä ennen generointia!');
+        document.getElementById('joukkueSelect').value = tap.joukkueId;
+      }
+      generoi();
+    }, 300);
+  } catch(e) {
+    console.error('tapahtumaId-lataus:', e);
+    naytaNotif('Tapahtuman lataus epäonnistui: ' + e.message, 'err');
+  }
+}
+
 async function paivitaJoukkueet() {
-  const seuraId = document.getElementById('seuraSelect').value;
+  const seuraId = document.getElementById('seuraSelect').value || nykyinenSeura;
   const joukkueSelect = document.getElementById('joukkueSelect');
   joukkueSelect.innerHTML = '<option value="">— valitse joukkue —</option>';
   nykyinenSeura = seuraId;
-  if (!seuraId) return;
+  if (!seuraId) { console.warn('paivitaJoukkueet: seuraId puuttuu'); return; }
+
+  console.log('[Lomake] Haetaan joukkueet seuraId:', seuraId);
   try {
     const snap = await db.collection('seurat').doc(seuraId)
       .collection('joukkueet').orderBy('nimi').get();
+    console.log('[Lomake] Joukkueita löytyi:', snap.size);
+    if (snap.empty) {
+      naytaNotif('Seuralla ei ole joukkueita Firestoressa', 'err');
+      return;
+    }
     snap.forEach(doc => {
       const opt = document.createElement('option');
       opt.value = doc.id;
@@ -1233,7 +1343,8 @@ async function paivitaJoukkueet() {
       joukkueSelect.appendChild(opt);
     });
   } catch(e) {
-    console.error('Joukkueiden lataus:', e);
+    console.error('[Lomake] Joukkueiden lataus epäonnistui:', e.message);
+    naytaNotif('Joukkueiden lataus epäonnistui: ' + e.message, 'err');
   }
 }
 
