@@ -2985,7 +2985,12 @@ function _lataaSuperAdminDashboard() {
     '</div>';
 
   // Haetaan kaikki seurat Firestoresta
-  if (!_fbDb) return;
+  // Käytetään setTimeout jotta DOM on varmasti renderöity ennen hakua
+  if (!_fbDb) {
+    console.error('[SA] _fbDb ei ole alustettu!');
+    setTimeout(function() { _lataaSuperAdminDashboard(); }, 500);
+    return;
+  }
   console.log('[SA] Haetaan seurat Firestoresta, _fbDb:', !!_fbDb);
   _fbDb.collection('seurat').get()
     .then(function(snap) {
@@ -2993,28 +2998,29 @@ function _lataaSuperAdminDashboard() {
       var lista = document.getElementById('saSeuraLista');
       if (!lista) { console.warn('[SA] saSeuraLista-elementtiä ei löydy!'); return; }
       if (snap.empty) {
-        lista.innerHTML = '<div style="color:var(--muted)">Ei seuroja järjestelmässä.</div>';
-        console.warn('[SA] Firestore palautti tyhjän kokoelman — tarkista Security Rules');
+        console.warn('[SA] Firestore palautti tyhjän kokoelman — kokeillaan tunnettuja ID:itä');
+        // Kokeillaan hakea tunnetuilla pilottiseura-ID:illä
+        var tunnetutSeurat = ['kpv','fcl','palloiirot','yvies','sjk','grifk','hjk'];
+        var promises = tunnetutSeurat.map(function(id) {
+          return _fbDb.collection('seurat').doc(id).get();
+        });
+        Promise.all(promises).then(function(snaps) {
+          var loydetyt = snaps.filter(function(s) { return s.exists; })
+            .map(function(s) { return Object.assign({id: s.id}, s.data()); });
+          if (loydetyt.length === 0) {
+            lista.innerHTML = '<div style="color:var(--muted)">Ei seuroja löydy. Tarkista Firestore Security Rules.</div>';
+            return;
+          }
+          console.log('[SA] Löydettiin', loydetyt.length, 'seuraa suorilla hauilla');
+          _renderSASeuraLista(lista, loydetyt);
+        });
         return;
       }
       var seurat = snap.docs.map(function(d) {
         return Object.assign({ id: d.id }, d.data());
       }).sort(function(a, b) { return (a.nimi||a.id).localeCompare(b.nimi||b.id); });
-
-      lista.innerHTML = '<div style="display:grid;gap:10px;">' +
-        seurat.map(function(s) {
-          return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;' +
-            'padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px">' +
-            '<div>' +
-            '<div style="font-weight:700;font-size:15px">' + (s.nimi || s.id) + '</div>' +
-            '<div style="font-size:12px;color:var(--muted);margin-top:2px">' + s.id + ' · ' + (s.paketti||'—') + '</div>' +
-            '</div>' +
-            '<button data-seura-id="' + s.id + '" data-seura-nimi="' + (s.nimi||s.id).replace(/"/g,'&quot;') + '" onclick="_saAvaaSeuraBtn(this)" ' +
-            'style="padding:8px 18px;background:var(--teal);color:#000;border:none;border-radius:8px;' +
-            'font-weight:700;font-size:13px;cursor:pointer">Avaa →</button>' +
-            '</div>';
-        }).join('') +
-        '</div>';
+      console.log('[SA] Renderöidään', seurat.length, 'seuraa');
+      _renderSASeuraLista(lista, seurat);
     })
     .catch(function(e) {
       console.error('[SA] Seurojen haku epäonnistui:', e.code, e.message);
@@ -8051,7 +8057,8 @@ function _vpKalRenderoi(el, seuraId, vuosi, kuukausi, tapahtumat) {
   var btnLuo = document.createElement('button');
   btnLuo.textContent = '+ Uusi tapahtuma';
   btnLuo.style.cssText = 'background:var(--teal);color:#000;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:13px;font-weight:700;';
-  btnLuo.onclick = function() { _vpAvaaLuoModal(seuraId); };
+  btnLuo.dataset.seuraId = seuraId;
+  btnLuo.onclick = function() { _vpAvaaLuoModal(this.dataset.seuraId); };
 
   header.appendChild(btnEd);
   header.appendChild(otsikko);
@@ -8203,6 +8210,12 @@ function _vpKalRenderoi(el, seuraId, vuosi, kuukausi, tapahtumat) {
 
 // ── Modaalien rakentaminen ───────────────────────────────────────
 function _vpRakennaMOdaalit(container, seuraId) {
+  // Poistetaan vanhat modaalit ennen uusien lisäämistä — estää duplikaatit
+  ['vpKalLuoModaali','vpKalDetModaali'].forEach(function(id) {
+    var vanha = document.getElementById(id);
+    if (vanha) vanha.parentNode.removeChild(vanha);
+  });
+
   // Luo tapahtuma -modaali
   var luoModaali = document.createElement('div');
   luoModaali.id = 'vpKalLuoModaali';
@@ -8465,6 +8478,32 @@ async function _vpAvaaDetModal(tapahtumaId, seuraId) {
     }
     s.appendChild(toimDiv);
 
+    // ── Muokkaa + Poista ──────────────────────────────────────────────
+    var alaDivEl = document.createElement('div');
+    alaDivEl.style.cssText = 'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;';
+
+    // Muokkaa-nappi — avaa muokkausnäkymän
+    var muokkaaBtn = document.createElement('button');
+    muokkaaBtn.textContent = '✏️ Muokkaa';
+    muokkaaBtn.style.cssText = 'background:rgba(255,255,255,.07);color:var(--ink2);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;';
+    muokkaaBtn.dataset.tapId   = tapahtumaId;
+    muokkaaBtn.dataset.seuraId = seuraId;
+    muokkaaBtn.onclick = function() { _vpAvaaDetMuokkaus(this.dataset.tapId, this.dataset.seuraId, t); };
+    alaDivEl.appendChild(muokkaaBtn);
+
+    // Poista-nappi
+    var poistaBtn = document.createElement('button');
+    poistaBtn.textContent = '🗑️ Poista';
+    poistaBtn.style.cssText = 'background:rgba(217,96,96,.1);color:var(--red);border:1px solid rgba(217,96,96,.3);border-radius:8px;padding:9px 14px;font-size:12px;cursor:pointer;';
+    poistaBtn.dataset.tapId   = tapahtumaId;
+    poistaBtn.dataset.seuraId = seuraId;
+    poistaBtn.onclick = function() {
+      if (!confirm('Poistetaanko tapahtuma "' + t.nimi + '"? Tätä ei voi peruuttaa.')) return;
+      _vpPoistaTapahtuma(this.dataset.tapId, this.dataset.seuraId);
+    };
+    alaDivEl.appendChild(poistaBtn);
+    s.appendChild(alaDivEl);
+
     if (t.muistiinpanot) {
       var mDiv = document.createElement('div');
       mDiv.style.cssText = 'margin-top:12px;padding:10px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--muted2);';
@@ -8474,6 +8513,90 @@ async function _vpAvaaDetModal(tapahtumaId, seuraId) {
   } catch(e) {
     s.innerHTML = '<div style="color:var(--red)">Virhe: ' + e.message + '</div>';
   }
+}
+
+// ── Tapahtuman poisto ─────────────────────────────────────────────
+async function _vpPoistaTapahtuma(tapahtumaId, seuraId) {
+  try {
+    await _fbDb.collection('seurat').doc(seuraId)
+      .collection('tapahtumat').doc(tapahtumaId).delete();
+    document.getElementById('vpKalDetModaali').style.display = 'none';
+    renderVPKalenteri();
+  } catch(e) { alert('Poisto epäonnistui: ' + e.message); }
+}
+
+// ── Tapahtuman muokkaus ───────────────────────────────────────────
+async function _vpAvaaDetMuokkaus(tapahtumaId, seuraId, t) {
+  var s = document.getElementById('vpKalDetSisalto');
+  if (!s) return;
+
+  s.innerHTML = '';
+
+  var otsDiv = document.createElement('div');
+  otsDiv.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;';
+  otsDiv.innerHTML = '<div style="font-size:15px;font-weight:800">✏️ Muokkaa tapahtumaa</div>';
+  var suljeBtn = document.createElement('button');
+  suljeBtn.textContent = '✕';
+  suljeBtn.style.cssText = 'background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;';
+  suljeBtn.onclick = function() { _vpAvaaDetModal(tapahtumaId, seuraId); };
+  otsDiv.appendChild(suljeBtn);
+  s.appendChild(otsDiv);
+
+  // Nimi
+  var nimiDiv = document.createElement('div');
+  nimiDiv.style.marginBottom = '12px';
+  nimiDiv.innerHTML = '<label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Nimi</label>';
+  var nimiInp = document.createElement('input');
+  nimiInp.type = 'text'; nimiInp.value = t.nimi || '';
+  nimiInp.id = 'vpMuokkaaaNimi';
+  nimiInp.style.cssText = 'width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:13px;outline:none;';
+  nimiDiv.appendChild(nimiInp);
+  s.appendChild(nimiDiv);
+
+  // Päivämäärä + aika
+  var pvDiv = document.createElement('div');
+  pvDiv.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;';
+  pvDiv.innerHTML = '<div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Päivämäärä</label>'
+    + '<input type="date" id="vpMuokkaaPvm" value="' + (t.pvm||'') + '" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:13px;outline:none;"></div>'
+    + '<div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Kellonaika</label>'
+    + '<input type="time" id="vpMuokkaaAika" value="' + (t.alkuAika||'') + '" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:13px;outline:none;"></div>';
+  s.appendChild(pvDiv);
+
+  // Muistiinpanot
+  var muistiDiv = document.createElement('div');
+  muistiDiv.style.marginBottom = '16px';
+  muistiDiv.innerHTML = '<label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Muistiinpanot</label>';
+  var muistiInp = document.createElement('textarea');
+  muistiInp.id = 'vpMuokkaaMuistiinpanot'; muistiInp.rows = 3;
+  muistiInp.value = t.muistiinpanot || '';
+  muistiInp.style.cssText = 'width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:13px;outline:none;resize:vertical;';
+  muistiDiv.appendChild(muistiInp);
+  s.appendChild(muistiDiv);
+
+  // Tallenna-nappi
+  var tallennaBtn = document.createElement('button');
+  tallennaBtn.textContent = 'Tallenna muutokset';
+  tallennaBtn.style.cssText = 'width:100%;background:var(--teal);color:#000;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:800;cursor:pointer;';
+  tallennaBtn.dataset.tapId   = tapahtumaId;
+  tallennaBtn.dataset.seuraId = seuraId;
+  tallennaBtn.onclick = async function() {
+    var tid = this.dataset.tapId; var sid = this.dataset.seuraId;
+    this.textContent = '⏳ Tallennetaan...'; this.disabled = true;
+    try {
+      await _fbDb.collection('seurat').doc(sid).collection('tapahtumat').doc(tid).update({
+        nimi:           document.getElementById('vpMuokkaaNimi').value.trim() || t.nimi,
+        pvm:            document.getElementById('vpMuokkaaPvm').value || t.pvm,
+        alkuAika:       document.getElementById('vpMuokkaaAika').value,
+        muistiinpanot:  document.getElementById('vpMuokkaaMuistiinpanot').value.trim(),
+      });
+      renderVPKalenteri();
+      document.getElementById('vpKalDetModaali').style.display = 'none';
+    } catch(e) {
+      alert('Tallennus epäonnistui: ' + e.message);
+      this.textContent = 'Tallenna muutokset'; this.disabled = false;
+    }
+  };
+  s.appendChild(tallennaBtn);
 }
 function _vpSeuraavaTila(nykyinen) {
   var j = ['suunniteltu','vahvistettu','kaynnissa','valmis'];
@@ -9558,6 +9681,23 @@ function rakennaPelaajaPohja(joukkueet, seuraId) {
 function _vpSuljeModaali(id) {
   var m = document.getElementById(id);
   if (m) m.style.display = 'none';
+}
+
+function _renderSASeuraLista(lista, seurat) {
+  lista.innerHTML = '<div style="display:grid;gap:10px;">' +
+    seurat.map(function(s) {
+      return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;' +
+        'padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px">' +
+        '<div>' +
+        '<div style="font-weight:700;font-size:15px">' + (s.nimi || s.id) + '</div>' +
+        '<div style="font-size:12px;color:var(--muted);margin-top:2px">' + s.id + ' · ' + (s.paketti||'—') + '</div>' +
+        '</div>' +
+        '<button data-seura-id="' + s.id + '" data-seura-nimi="' + (s.nimi||s.id).replace(/"/g,'&quot;') + '" onclick="_saAvaaSeuraBtn(this)" ' +
+        'style="padding:8px 18px;background:var(--teal);color:#000;border:none;border-radius:8px;' +
+        'font-weight:700;font-size:13px;cursor:pointer">Avaa →</button>' +
+        '</div>';
+    }).join('') +
+    '</div>';
 }
 
 function _saAvaaSeuraBtn(btn) {
