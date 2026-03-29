@@ -1971,8 +1971,22 @@ function mobEdellinen(){if(mobiiliIdx>0){mobiiliIdx--;renderMobiiliKortti();}}
    TALLENNUS FIRESTOREEN
 ═══════════════════════════════════════════════════════ */
 async function tallennaRivi(idx) {
-  const { seuraId, joukkueId, ikäluokka, pvm } = window._renderState || {};
-  if (!seuraId || !nykyinenKayttaja) { naytaNotif('Kirjaudu ensin sisään', 'err'); return; }
+  const { seuraId: rsSeuraId, joukkueId, ikäluokka, pvm } = window._renderState || {};
+  const seuraId = rsSeuraId || new URLSearchParams(window.location.search).get('seuraId');
+  // Salli tallennus jos:
+  // 1) Kirjautunut käyttäjä (VP tai testaaja)
+  // 2) TAI tapahtumaId löytyy URL:sta (testaaja kentällä ilman kirjautumista)
+  const urlParams = new URLSearchParams(window.location.search);
+  const tapahtumaIdUrl = urlParams.get('tapahtumaId');
+  const seuraIdUrl = urlParams.get('seuraId');
+  const onKirjautunut = !!nykyinenKayttaja;
+  const onTapahtumaKonteksti = !!(tapahtumaIdUrl && (seuraId || seuraIdUrl));
+  if (!onKirjautunut && !onTapahtumaKonteksti) {
+    naytaNotif('Kirjaudu ensin sisään tai avaa lomake tapahtumasta', 'err');
+    return;
+  }
+  // Jos seuraId puuttuu renderStatesta mutta löytyy URL:sta, käytetään sitä
+  const efektiivinenSeuraId = seuraId || seuraIdUrl;
 
   const p = pelaajat[idx];
   if (!p) return;
@@ -2728,6 +2742,20 @@ ${rajaArvoTooltip(testiId)}`,
    joka toimii ilman internetyhteyttä kentällä.
 ═══════════════════════════════════════════════════════ */
 function lataaExcelPohja() {
+  // Lataa valmis Excel-pohja suoraan GitHubista
+  var POHJA_URL = 'https://github.com/terokoskela7-cmyk/talentmaster/raw/main/TalentMaster_Harjoitettavuus.xlsx';
+  var a = document.createElement('a');
+  a.href = POHJA_URL;
+  a.download = 'TalentMaster_Harjoitettavuus_pohja.xlsx';
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  naytaNotif('Excel-pohja ladattu GitHubista ✓', 'ok');
+}
+
+
+function lataaExcelPohjaCsv() {
   const seuraId   = document.getElementById('seuraSelect').value;
   const joukkueId = document.getElementById('joukkueSelect').value;
   const ikäFilter = document.getElementById('ikäluokkaSelect').value;
