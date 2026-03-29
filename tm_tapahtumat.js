@@ -91,7 +91,10 @@
       nimi:         data.nimi         || TAPAHTUMATYYPIT[data.tyyppi]?.nimi || 'Tapahtuma',
       pvm:          data.pvm          || '',
       alkuAika:     data.alkuAika     || '',
-      luotu:        firebase.firestore.FieldValue.serverTimestamp(),
+      luotu:        (function() {
+        try { return firebase.firestore.FieldValue.serverTimestamp(); }
+        catch(e) { return new Date(); }
+      })(),
       pelaajat:     pelaajat,
       osallistujat: [],
       muistiinpanot: data.muistiinpanot || '',
