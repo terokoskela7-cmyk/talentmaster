@@ -53,29 +53,36 @@
    * Esitäyttää pelaajat-listan koko joukkueesta.
    */
   async function luoTapahtuma(db, seuraId, data, kayttajaUid) {
-    // Hae joukkueen pelaajat esitäyttöä varten
+    // Hae joukkueen pelaajat MOLEMMISTA poluista esitäyttöä varten
+    // Polku 1: seurat/{id}/joukkueet/{jId}/pelaajat/  (joukkueen alikokoelma)
+    // Polku 2: seurat/{id}/pelaajat/ where joukkue == jId  (seuran kokoelma)
     let pelaajat = [];
     try {
-      const snap = await db.collection('seurat').doc(seuraId)
-        .collection('joukkueet').doc(data.joukkueId)
-        .collection('pelaajat').orderBy('sukunimi').get();
-      pelaajat = snap.docs.map(d => ({
-        pelaajaId: d.id,
-        nimi: `${d.data().sukunimi||''}, ${d.data().etunimi||''}`.trim(),
-        paikalla: true,  // Oletus: kaikki paikalla
-      }));
-      // Fallback: hae seuran pelaajat joukkue-kentällä
-      if (pelaajat.length === 0) {
-        const snap2 = await db.collection('seurat').doc(seuraId)
+      const [snap1, snap2] = await Promise.all([
+        db.collection('seurat').doc(seuraId)
+          .collection('joukkueet').doc(data.joukkueId)
+          .collection('pelaajat').orderBy('sukunimi').get()
+          .catch(() => ({ docs: [] })),
+        db.collection('seurat').doc(seuraId)
           .collection('pelaajat')
           .where('joukkue', '==', data.joukkueId)
-          .orderBy('sukunimi').get();
-        pelaajat = snap2.docs.map(d => ({
+          .orderBy('sukunimi').get()
+          .catch(() => ({ docs: [] })),
+      ]);
+
+      // Yhdistä, poista duplikaatit ID:n perusteella
+      const nahdyt = new Set();
+      const kaikki = [...snap1.docs, ...snap2.docs];
+      pelaajat = kaikki
+        .filter(d => { if (nahdyt.has(d.id)) return false; nahdyt.add(d.id); return true; })
+        .map(d => ({
           pelaajaId: d.id,
-          nimi: `${d.data().sukunimi||''}, ${d.data().etunimi||''}`.trim(),
+          nimi: `${d.data().sukunimi||''}, ${d.data().etunimi||''}`.trim().replace(/^,\s*/, '') || d.id,
           paikalla: true,
         }));
-      }
+
+      console.log('[TmTapahtumat] Pelaajia löydetty:', pelaajat.length,
+        '(polku1:', snap1.docs.length, ', polku2:', snap2.docs.length, ')');
     } catch(e) {
       console.warn('Pelaajien haku esitäyttöön epäonnistui:', e);
     }
