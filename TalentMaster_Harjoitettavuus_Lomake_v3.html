@@ -1151,7 +1151,7 @@ auth.onAuthStateChanged(user => {
     document.getElementById('userEmail').textContent = user.email;
     document.getElementById('userEmail').style.display = 'inline';
     document.getElementById('logoutBtn').style.display  = 'inline-flex';
-    alustaSeurat();
+    alustaSeurat().then(() => tarkistaUrlParametrit());
     // Aseta tämä päivä oletuksena
     document.getElementById('testipaiva').value = new Date().toISOString().split('T')[0];
   } else {
@@ -1230,6 +1230,66 @@ async function alustaSeurat() {
   } catch(e) {
     console.error('Seurojen lataus epäonnistui:', e);
     naytaNotif('Seurojen lataus epäonnistui', 'err');
+  }
+}
+
+/* Tarkistaa URL-parametrit kirjautumisen jälkeen.
+   Kun lomake avataan kalenteritapahtumasta, URL sisältää:
+   ?tapahtumaId=xxx&seuraId=yyy
+   Tällöin pelaajat haetaan tapahtumasta joukkueen sijaan. */
+async function tarkistaUrlParametrit() {
+  const params = new URLSearchParams(window.location.search);
+  const tapahtumaId = params.get('tapahtumaId');
+  const seuraIdUrl  = params.get('seuraId');
+  if (!tapahtumaId || !seuraIdUrl) return;
+
+  console.log('URL-parametrit: tapahtumaId=', tapahtumaId, 'seuraId=', seuraIdUrl);
+  naytaNotif('Ladataan tapahtumaa...', 'info');
+
+  try {
+    const tapSnap = await db.collection('seurat').doc(seuraIdUrl)
+      .collection('tapahtumat').doc(tapahtumaId).get();
+    if (!tapSnap.exists) { naytaNotif('Tapahtumaa ei löydy', 'err'); return; }
+
+    const tap = tapSnap.data();
+    // Esitäytä valinnat tapahtuman tiedoilla
+    const seuraSelect = document.getElementById('seuraSelect');
+    const joukkueSelect = document.getElementById('joukkueSelect');
+
+    // Aseta seura
+    if (seuraSelect) {
+      let opt = seuraSelect.querySelector(`option[value="${seuraIdUrl}"]`);
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = seuraIdUrl;
+        opt.textContent = tap.seuraNimi || seuraIdUrl;
+        seuraSelect.appendChild(opt);
+      }
+      seuraSelect.value = seuraIdUrl;
+      nykyinenSeura = seuraIdUrl;
+    }
+
+    // Lataa joukkueet
+    await paivitaJoukkueet();
+
+    // Aseta joukkue
+    if (joukkueSelect && tap.joukkueId) {
+      joukkueSelect.value = tap.joukkueId;
+    }
+
+    // Aseta testipäivä
+    if (tap.pvm) {
+      const pvmEl = document.getElementById('testipaiva');
+      if (pvmEl) pvmEl.value = tap.pvm;
+    }
+
+    naytaNotif(`Tapahtuma: ${tap.nimi} — ${tap.joukkueNimi || tap.joukkueId}`, 'ok');
+
+    // Generoi lomake automaattisesti
+    setTimeout(() => generoi(), 500);
+  } catch(e) {
+    console.error('tapahtumaId-lataus:', e);
+    naytaNotif('Tapahtuman lataus epäonnistui: ' + e.message, 'err');
   }
 }
 
