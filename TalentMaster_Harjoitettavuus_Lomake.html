@@ -706,7 +706,7 @@ tbody td.col-synt { font-size: 11px; color: var(--teksti2); }
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="generoi()">📋 Generoi lomake</button>
       <button class="btn btn-ghost" id="tuontiBtn" onclick="toggleTuonti()" style="display:none;">📥 Tuo Excel</button>
-      <button class="btn btn-ghost" id="lataaPohjaNappi" onclick="lataaExcelPohja()" style="display:none;" title="Lataa esitäytetty CSV-pohja — täytä tulokset ja tuo takaisin">⬇️ Lataa pohja</button>
+      <button class="btn btn-ghost" id="lataaPohjaNappi" onclick="lataaExcelPohja()" style="display:none;" title="Lataa virallinen Palloliiton Excel-pohja (U12/U15/U19 välilehdet, FLEI-kaavat). Jos pelaajat ladattu, generoidaan esitäytetty versio.">⬇️ Lataa pohja</button>
       <button class="btn btn-ghost" onclick="tulostaLomake()">🖨️ Tulosta</button>
       <button class="btn btn-primary" id="testipisteNappi" onclick="avaaTestipistemoodi()" style="display:none;" title="Kiertoharjoittelumalli — yksi testaaja per piste">⚡ Testipisteet</button>
     </div>
@@ -2142,65 +2142,169 @@ function handleDrop(event) {
 function handleFile(file) {
   if (!file) return;
   const reader = new FileReader();
+
   reader.onload = e => {
     try {
-      const wb = XLSX.read(e.target.result, { type: 'binary' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      const wb   = XLSX.read(e.target.result, { type: 'binary' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
 
-      let yhdistetty = 0, uusi = 0;
-      data.forEach(rivi => {
-        // Etsitään pelaaja nimellä tai syntymäpäivällä
-        const nimi = (rivi['PELAAJA'] || rivi['Pelaaja'] || rivi['pelaaja'] || '').toString().toLowerCase();
-        const synt = (rivi['SYNT'] || rivi['Syntymäpäivä'] || rivi['synt'] || '').toString();
+      // Muunnetaan kaikki rivit — header: 1 tarkoittaa että 1. rivi on otsikkorivi.
+      // Meidän pohjassamme on 4 metarivit ennen otsikkoriviä (rivi 5 on header).
+      // Etsitään otsikkorivi automaattisesti — se on se jossa on "PelaajaID" tai "Sukunimi".
+      const kaikki = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      let headerRivi = -1;
+      for (let i = 0; i < Math.min(kaikki.length, 10); i++) {
+        const r = kaikki[i].map(s => String(s).trim());
+        if (r.includes('PelaajaID') || r.includes('Sukunimi') || r.includes('PELAAJA')) {
+          headerRivi = i;
+          break;
+        }
+      }
+      if (headerRivi < 0) {
+        document.getElementById('tuontiTulos').innerHTML =
+          '<span style="color:var(--punainen)">Virhe: otsikkoriviä ei löydy. Käytä TalentMaster-pohjaa.</span>';
+        return;
+      }
 
-        const pIdx = pelaajat.findIndex(p => {
-          const pNimi = `${p.sukunimi || ''} ${p.etunimi || ''}`.toLowerCase();
-          const pNimi2 = `${p.etunimi || ''} ${p.sukunimi || ''}`.toLowerCase();
-          return pNimi.includes(nimi.split(',')[0]?.trim()) ||
-                 pNimi2.includes(nimi.split(',')[0]?.trim()) ||
-                 (synt && (p.syntymapaiva || '').includes(synt));
+      // Rakennetaan data otsikkorivin perusteella
+      const headers = kaikki[headerRivi].map(s => String(s).trim());
+      const data = kaikki.slice(headerRivi + 1)
+        .filter(r => r.some(c => c !== ''))  // poistetaan tyhjät rivit
+        .map(r => {
+          const obj = {};
+          headers.forEach((h, i) => { obj[h] = r[i] !== undefined ? String(r[i]).trim() : ''; });
+          return obj;
         });
 
-        if (pIdx >= 0) {
-          // Yhdistä tulokset
-          const testit = TESTIT[document.getElementById('ikäluokkaSelect').value] || [];
-          testit.forEach(t => {
-            const sarake = Object.keys(rivi).find(k =>
-              k.toLowerCase().includes(t.id.replace(/_/g,' ').toLowerCase()) ||
-              k.toLowerCase().includes(t.label.split('\n')[0].toLowerCase().substring(0,10))
-            );
-            if (sarake && rivi[sarake] !== '') {
-              pelaajat[pIdx].tulokset[t.id] = rivi[sarake];
-            }
+      // Rakennetaan hakemisto: sarakenimi → testi-id
+      // Käytetään samoja labeleja kuin lataaExcelPohja() generoi
+      const ikl   = window._renderState?.ikäluokka || window._tapahtumaKonteksti?.ikäluokka || 'U15';
+      const testit = (TESTIT[ikl !== 'mixed' ? ikl : 'U15']) || [];
+      const sarakeTesti = {};  // "Lantionnosto (1-3p)" → "lantionnosto"
+      testit.forEach(t => {
+        if (t.tyyppi === 'flei') return;
+        const label = t.label.replace(/\n/g, ' ').trim();
+        sarakeTesti[label] = t.id;
+        // Myös lyhyt versio ilman "(1-3p)" yms
+        const lyhyt = label.replace(/\s*\(.*?\)\s*/g, '').trim();
+        if (lyhyt) sarakeTesti[lyhyt] = t.id;
+        // Myös testi-id suoraan
+        sarakeTesti[t.id] = t.id;
+      });
+
+      let yhdistetty = 0, eiLoydy = 0;
+
+      data.forEach(rivi => {
+        // ── Tunnista pelaaja ──────────────────────────────────────────────────
+        // Prioriteetti: PelaajaID > Sukunimi+Etunimi > nimi yhtenä sarakkeena
+        const pelaajaId = (rivi['PelaajaID'] || '').trim();
+        const sukunimi  = (rivi['Sukunimi']  || '').toLowerCase().trim();
+        const etunimi   = (rivi['Etunimi']   || '').toLowerCase().trim();
+
+        let pIdx = -1;
+
+        if (pelaajaId) {
+          // Luotettavin tapa — Firestore doc ID
+          pIdx = pelaajat.findIndex(p => p.id === pelaajaId);
+        }
+
+        if (pIdx < 0 && (sukunimi || etunimi)) {
+          // Vaihtoehto: nimi-matching
+          pIdx = pelaajat.findIndex(p => {
+            const ps = (p.sukunimi || '').toLowerCase().trim();
+            const pe = (p.etunimi  || '').toLowerCase().trim();
+            return ps === sukunimi && pe === etunimi;
           });
+        }
+
+        if (pIdx < 0) {
+          // Kokeillaan vielä yhtenä sarakkeena "Pelaaja", "PELAAJA" jne
+          const nimi = (rivi['PELAAJA'] || rivi['Pelaaja'] || rivi['pelaaja'] || '').toLowerCase();
+          if (nimi) {
+            pIdx = pelaajat.findIndex(p => {
+              const pNimi  = `${p.sukunimi || ''} ${p.etunimi || ''}`.toLowerCase();
+              const pNimi2 = `${p.etunimi  || ''} ${p.sukunimi || ''}`.toLowerCase();
+              return pNimi.includes(nimi.split(',')[0]?.trim()) ||
+                     pNimi2.includes(nimi.split(',')[0]?.trim());
+            });
+          }
+        }
+
+        if (pIdx < 0) { eiLoydy++; return; }
+
+        // ── Siirretään testitulokset ──────────────────────────────────────────
+        let muutettu = false;
+        Object.keys(rivi).forEach(sarake => {
+          const arvo = rivi[sarake];
+          if (!arvo || arvo === '') return;
+
+          // PHV-tila erikoiskäsittely
+          if (sarake === 'PHV-tila' || sarake === 'PHV tila') {
+            pelaajat[pIdx].tulokset['phv_tila'] = arvo;
+            muutettu = true;
+            return;
+          }
+
+          // Etsi testiId sarakkeen nimestä
+          const testiId = sarakeTesti[sarake];
+          if (!testiId) return;
+
+          const luku = parseFloat(String(arvo).replace(',', '.'));
+          // Pisteet 1-3 tai raakamäärät
+          if (!isNaN(luku)) {
+            pelaajat[pIdx].tulokset[testiId] = luku;
+            muutettu = true;
+          }
+        });
+
+        if (muutettu) {
           merkkaaLikainen(pIdx);
           laskeFlei(pIdx);
           yhdistetty++;
         }
       });
 
-      document.getElementById('tuontiTulos').innerHTML =
-        `<span style="color:var(--vihrea)">✓ ${yhdistetty} pelaajaa yhdistetty</span>
-         ${uusi > 0 ? `<span style="color:var(--keltainen)"> · ${uusi} uutta pelaajaa</span>` : ''}`;
+      // ── Päivitä visuaalisesti molemmat näkymät ───────────────────────────
+      // Normaali taulukkonäkymä: päivitä input-kentät
+      testit.forEach(t => {
+        pelaajat.forEach((p, pidx) => {
+          const arvo = p.tulokset[t.id];
+          if (arvo === undefined || arvo === '') return;
 
-      // Päivitä näyttö
-      const ikäluokka = document.getElementById('ikäluokkaSelect').value;
-      const testit = TESTIT[ikäluokka] || [];
-      pelaajat.forEach((p, idx) => {
-        testit.forEach(t => {
-      if (t.tyyppi === 'luku' || t.tyyppi === 'luku_kg') {
-        const input = document.querySelector(`input[data-idx="${idx}"][data-kentta="${t.id}"]`);
-        if (input && p.tulokset[t.id] !== undefined) input.value = p.tulokset[t.id];
-      }
+          if (t.tyyppi === 'luku' || t.tyyppi === 'luku_kg') {
+            const inp = document.querySelector(`input[data-idx="${pidx}"][data-kentta="${t.id}"]`);
+            if (inp) inp.value = arvo;
+          } else if (t.tyyppi === 'pisteet') {
+            // Päivitä painikkeet
+            const solut = document.querySelectorAll(`button[data-idx="${pidx}"][data-kentta="${t.id}"]`);
+            solut.forEach(btn => {
+              btn.classList.remove('active');
+              if (parseInt(btn.dataset.arvo) === parseInt(arvo)) btn.classList.add('active');
+            });
+          }
         });
       });
+
+      // Jos testipistemoodi on päällä, renderöidään se uudelleen
+      if (typeof _testipisteAktiivinen !== 'undefined' && _testipisteAktiivinen) {
+        const ikäluokka = window._renderState?.ikäluokka || ikl;
+        renderTestipiste(ikäluokka);
+      }
+
+      const tulos = yhdistetty > 0
+        ? `<span style="color:var(--vihrea)">✓ ${yhdistetty} pelaajan tulokset tuotu</span>`
+          + (eiLoydy > 0 ? ` <span style="color:var(--keltainen)">· ${eiLoydy} riviä ei yhdistetty</span>` : '')
+        : `<span style="color:var(--punainen)">⚠️ Yhtään pelaajaa ei tunnistettu — tarkista että käytät TalentMaster-pohjaa</span>`;
+      document.getElementById('tuontiTulos').innerHTML = tulos;
       naytaNotif(`Excel tuotu: ${yhdistetty} pelaajaa päivitetty`, 'ok');
+
     } catch(e) {
+      console.error('[tuoExcel]', e);
       document.getElementById('tuontiTulos').innerHTML =
         `<span style="color:var(--punainen)">Virhe: ${e.message}</span>`;
     }
   };
+
   reader.readAsBinaryString(file);
 }
 
