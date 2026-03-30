@@ -646,12 +646,20 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       <label class="kenttaLabel">Rooli *</label>
       <select class="kenttaInput" id="kutsu_rooli">
         <option value="">— Valitse rooli —</option>
-        <option value="valmentaja">Valmentaja</option>
-        <option value="talenttivalmentaja">Talenttivalmentaja</option>
-        <option value="fysiikkavalmentaja">Fysiikkavalmentaja</option>
-        <option value="testivastaava">Testivastaava</option>
-        <option value="fysioterapeutti">Fysioterapeutti</option>
-        <option value="seurasihteeri">Seurasihteeri</option>
+        <optgroup label="Johto">
+          <option value="vp">Valmennuspäällikkö (VP)</option>
+          <option value="urheilutoimenjohtaja">Urheilutoimenjohtaja (UTJ)</option>
+          <option value="seurasihteeri">Seurasihteeri</option>
+        </optgroup>
+        <optgroup label="Valmennus">
+          <option value="valmentaja">Valmentaja</option>
+          <option value="talenttivalmentaja">Talenttivalmentaja</option>
+          <option value="fysiikkavalmentaja">Fysiikkavalmentaja</option>
+        </optgroup>
+        <optgroup label="Tuki">
+          <option value="testivastaava">Testivastaava</option>
+          <option value="fysioterapeutti">Fysioterapeutti</option>
+        </optgroup>
       </select>
     </div>
 
@@ -1003,43 +1011,6 @@ async function lataaProfiili(kayttaja) {
       } catch(e) { console.warn('[Seura] admins-fallback epäonnistui:', e.message); }
     }
 
-    // VP/sihteeri-fallback: jos rooli puuttuu Claims:ista kokonaan,
-    // yritetään tunnistaa käyttäjä Firestoresta ennen hylkäystä.
-    // Tämä kattaa tilanteet jossa Custom Claims ei ole vielä asetettu
-    // (esim. juuri luotu käyttäjä jonka Claims-triggeri ei ole lauennut).
-    if (!rooli) {
-      try {
-        // 1. Tarkistetaan onko käyttäjä VP jossakin seurassa (vp_uid-kenttä)
-        const seuratSnap = await db.collection('seurat').get();
-        for (const doc of seuratSnap.docs) {
-          const d = doc.data();
-          if (d.vp_uid === kayttaja.uid) {
-            rooli = 'vp';
-            tila.claims = { ...claims, rooli: 'vp', seuraId: doc.id };
-            console.log('[Seura] VP tunnistettu vp_uid-fallbackilla:', doc.id);
-            break;
-          }
-        }
-        // 2. Jos ei löydy vp_uid:llä, kokeillaan kayttajat-alikokoelmasta
-        if (!rooli) {
-          const kSnap = await db.collectionGroup('kayttajat')
-            .where('uid', '==', kayttaja.uid)
-            .where('aktiivinen', '==', true)
-            .limit(1).get();
-          if (!kSnap.empty) {
-            const kData = kSnap.docs[0].data();
-            if (SALLITUT_ROOLIT.includes(kData.rooli)) {
-              rooli = kData.rooli;
-              tila.claims = { ...claims, rooli: kData.rooli, seuraId: kData.seuraId };
-              console.log('[Seura] Rooli tunnistettu kayttajat-fallbackilla:', kData.rooli, kData.seuraId);
-            }
-          }
-        }
-      } catch(e) {
-        console.warn('[Seura] Rooli-fallback epäonnistui:', e.message);
-      }
-    }
-
     if (!SALLITUT_ROOLIT.includes(rooli)) {
       nayta('kirjautuminen');
       naytaVirhe('kirjautumisVirhe',
@@ -1272,12 +1243,39 @@ function renderYhteenveto() {
       <div class="kpiKortti amber">
         <div class="kpiLabel">Henkilöstöä</div>
         <div class="kpiArvo" id="kpiHenkilosto">—</div>
-        <div class="kpiAla">tunnusta</div>
+        <div class="kpiAla">+ hallinto</div>
       </div>
       <div class="kpiKortti vihrea">
         <div class="kpiLabel">Kutsuja lähetetty</div>
         <div class="kpiArvo" id="kpiKutsut">—</div>
         <div class="kpiAla">tänä kautena</div>
+      </div>
+    </div>
+
+    <!-- ── Strategiset mittarit ────────────────────────────────── -->
+    <div style="font-size:10px;font-weight:600;letter-spacing:1.5px;
+                text-transform:uppercase;color:var(--ink3);
+                margin:20px 0 10px;">Kehitystoiminta</div>
+    <div class="kpiRivi">
+      <div class="kpiKortti" style="border-left:3px solid var(--blue);">
+        <div class="kpiLabel">Kartoituksia</div>
+        <div class="kpiArvo" id="kpiKartoitukset">—</div>
+        <div class="kpiAla">tänä kautena</div>
+      </div>
+      <div class="kpiKortti" style="border-left:3px solid var(--teal);">
+        <div class="kpiLabel">FLEI keskiarvo</div>
+        <div class="kpiArvo" id="kpiFLEI">—</div>
+        <div class="kpiAla">% harjoitettavuus</div>
+      </div>
+      <div class="kpiKortti" style="border-left:3px solid var(--amber);">
+        <div class="kpiLabel">Tapahtumat</div>
+        <div class="kpiArvo" id="kpiTapahtumat">—</div>
+        <div class="kpiAla">suunniteltu/valmis</div>
+      </div>
+      <div class="kpiKortti" style="border-left:3px solid var(--green);">
+        <div class="kpiLabel">Palloliiton korit</div>
+        <div class="kpiArvo" id="kpiKorit">—</div>
+        <div class="kpiAla">/ 18 kriteeriä</div>
       </div>
     </div>
 
@@ -1397,7 +1395,59 @@ async function lataaYhteenvetoKPIt() {
       });
     }
 
+    // ── Strategiset mittarit ──────────────────────────────────────
+    // Haetaan asynkronisesti — ei kaada sivua jos epäonnistuu
+    lataaStrategisetKPIt().catch(() => {});
+
   } catch (e) { /* Ei kriittinen — KPI-luvut pysyvät — -tilassa */ }
+}
+
+async function lataaStrategisetKPIt() {
+  if (!tila.seuraId) return;
+  const db2 = firebase.firestore();
+
+  // 1. Kartoituksia — lasketaan kaikista joukkueista
+  let kartoitusLkm = 0;
+  let fleiSumma = 0;
+  let fleiLkm = 0;
+  try {
+    for (const j of tila.joukkueet) {
+      const kSnap = await db2.collection('seurat').doc(tila.seuraId)
+        .collection('joukkueet').doc(j.id)
+        .collection('kartoitukset').get();
+      kartoitusLkm += kSnap.size;
+      kSnap.forEach(doc => {
+        const flei = doc.data().flei ?? doc.data().flei_pisteet;
+        if (flei != null && !isNaN(flei)) { fleiSumma += flei; fleiLkm++; }
+      });
+    }
+    const kEl = document.getElementById('kpiKartoitukset');
+    if (kEl) kEl.textContent = kartoitusLkm;
+    const fEl = document.getElementById('kpiFLEI');
+    if (fEl) fEl.textContent = fleiLkm > 0 ? Math.round(fleiSumma / fleiLkm) + '%' : '—';
+  } catch(e) {}
+
+  // 2. Tapahtumat
+  try {
+    const tSnap = await db2.collection('seurat').doc(tila.seuraId)
+      .collection('tapahtumat').get();
+    const valmiit = tSnap.docs.filter(d => d.data().tila === 'valmis').length;
+    const tEl = document.getElementById('kpiTapahtumat');
+    if (tEl) {
+      tEl.textContent = valmiit;
+      const ala = tEl.closest('.kpiKortti')?.querySelector('.kpiAla');
+      if (ala) ala.textContent = `/ ${tSnap.size} suunniteltu`;
+    }
+  } catch(e) {}
+
+  // 3. Palloliiton korit — lasketaan täytetyt kriteerit Firestoresta
+  try {
+    const koriSnap = await db2.collection('seurat').doc(tila.seuraId)
+      .collection('kriteerit').get();
+    const taytetty = koriSnap.docs.filter(d => d.data().taytetty === true).length;
+    const kEl2 = document.getElementById('kpiKorit');
+    if (kEl2) kEl2.textContent = taytetty;
+  } catch(e) {}
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2351,6 +2401,25 @@ async function tallennaKutsu() {
       });
 
     // Cloud Function (luoKayttaja) lähettää reset-linkin automaattisesti
+
+    // ── Jos rooli on VP, päivitetään seuran vp_uid ──────────────
+    // Tämä varmistaa että fallback-tunnistus toimii heti ilman Claims:ia
+    if (rooli === 'vp' && uid) {
+      try {
+        const seuraSnap = await db.collection('seurat').doc(tila.seuraId).get();
+        if (seuraSnap.exists && !seuraSnap.data().vp_uid) {
+          // Seuralla ei vielä ole VP:tä — asetetaan tämä
+          await db.collection('seurat').doc(tila.seuraId).update({
+            vp_uid: uid, vp_email: email
+          });
+          console.log('[Seura] vp_uid päivitetty:', uid);
+        }
+        // Jos vp_uid on jo olemassa, lisätään apuvp_uid varmuudeksi
+        // (pienillä seuroilla voi olla useampi VP)
+      } catch(e) {
+        console.warn('[Seura] vp_uid päivitys epäonnistui:', e.message);
+      }
+    }
 
     // ── Onnistui ─────────────────────────────────────────────────
     suljeModal('kutsuModal');
