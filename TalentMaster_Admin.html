@@ -357,6 +357,43 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
   </div>
 </div>
 
+<!-- ══ SEURA-MUOKKAUSMODAALI ══ -->
+<div class="modalTausta" id="seuraModal">
+  <div class="modalSisa" style="max-width:480px;">
+    <button class="modalSuljeNappi" onclick="suljeModal('seuraModal')">✕ Sulje</button>
+    <div class="modalOtsikko">Muokkaa seuraa</div>
+    <input type="hidden" id="muokkaaSeuraId">
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel">Seuran nimi *</label>
+      <input class="kenttaInput" type="text" id="muokkaaSeuraNimi" placeholder="esim. HJK Juniorit">
+    </div>
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel">Pakettitaso</label>
+      <select class="kenttaInput" id="muokkaaPaketti">
+        <option value="perustaso">Perustaso — VP + valmentaja + testaaja (max 100 pelaajaa)</option>
+        <option value="kehitystaso">Kehitystaso — + talenttivalmentaja + fysiikka (max 300)</option>
+        <option value="huipputaso">Huipputaso — Kaikki roolit, rajaton pelaajamäärä</option>
+      </select>
+    </div>
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel">Status</label>
+      <select class="kenttaInput" id="muokkaaAktiivinen">
+        <option value="true">✅ Aktiivinen</option>
+        <option value="false">⛔ Ei aktiivinen</option>
+      </select>
+    </div>
+    <div style="background:rgba(255,200,0,.06);border:1px solid rgba(255,200,0,.2);border-radius:8px;padding:12px 14px;margin-bottom:16px;">
+      <div style="font-size:12px;color:var(--amber);font-weight:600;margin-bottom:4px;">⚠️ Huomio pakettitason muutoksessa</div>
+      <div style="font-size:12px;color:var(--ink3);line-height:1.5;">Pakettitason lasku voi estää olemassa olevien käyttäjien kirjautumisen.</div>
+    </div>
+    <button class="nappi" onclick="tallennaSeuraaMuokkaus()">Tallenna muutokset</button>
+    <div class="virheViesti" id="seuraModalVirhe"></div>
+    <div class="modalOnnistui" id="seuraModalOnnistui" style="display:none;">
+      <div class="modalOnniOtsikko">✅ Seura päivitetty!</div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ TOAST ══ -->
 <div id="toastPalkki"></div>
 
@@ -756,14 +793,14 @@ function renderSeurat(alue) {
                     data-paketti="${s.paketti || 'perustaso'}"
                     data-aktiivinen="${s.aktiivinen !== false ? 'true' : 'false'}"
                     onclick="avaaMuokkaaSeura(this.dataset)"
-                    title="Muokkaa seuran nimeä, pakettia ja tilaa">
+                    title="Muokkaa seuran tietoja">
                     ✏️ Muokkaa
                   </button>
                   <button class="toimintaNappi vaara"
                     data-sid="${s.id}"
                     data-snimi="${(s.nimi || s.id).replace(/"/g,'&quot;')}"
                     onclick="vahvistaPoistaSeura(this.dataset.sid, this.dataset.snimi)"
-                    title="Poista seura pysyvästi — vaatii ID-vahvistuksen">
+                    title="Poista seura pysyvästi">
                     🗑 Poista
                   </button>
                 </div>
@@ -1183,23 +1220,18 @@ async function tallennaSeuraaMuokkaus() {
   const aktiivinen = document.getElementById('muokkaaAktiivinen').value === 'true';
   const virheEl    = document.getElementById('seuraModalVirhe');
   const onniEl     = document.getElementById('seuraModalOnnistui');
-
   if (!nimi) {
     if (virheEl) { virheEl.textContent = 'Seuran nimi on pakollinen.'; virheEl.classList.add('nakyvilla'); }
     return;
   }
   if (virheEl) virheEl.classList.remove('nakyvilla');
-
   try {
     await db.collection('seurat').doc(seuraId).update({
       nimi, paketti, aktiivinen,
       paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
     });
-
-    // Päivitä muistissa oleva tila ilman sivulatausta
     const idx = tila.seurat.findIndex(s => s.id === seuraId);
     if (idx >= 0) tila.seurat[idx] = { ...tila.seurat[idx], nimi, paketti, aktiivinen };
-
     if (onniEl) onniEl.style.display = '';
     naytaToast(`✅ ${nimi} päivitetty!`, 'ok');
     setTimeout(() => {
@@ -1208,28 +1240,14 @@ async function tallennaSeuraaMuokkaus() {
     }, 1200);
   } catch (e) {
     if (virheEl) { virheEl.textContent = 'Tallennus epäonnistui: ' + e.message; virheEl.classList.add('nakyvilla'); }
-    console.error('[tallennaSeuraaMuokkaus]', e);
   }
 }
 
 function vahvistaPoistaSeura(seuraId, seuraNimi) {
-  // Ensimmäinen vahvistus — confirm-dialogi
-  const vahvistus = confirm(
-    `⚠️ POISTA SEURA: "${seuraNimi}"\n\n` +
-    `Tämä poistaa seuran Firestore-dokumentin pysyvästi.\n` +
-    `Seuran käyttäjät, joukkueet ja data EIVÄT poistu automaattisesti.\n\n` +
-    `Haluatko varmasti jatkaa?`
-  );
-  if (!vahvistus) return;
-
-  // Toinen vahvistus — kirjoita ID
-  const kirjoitettu = prompt(
-    `Kirjoita seuran ID vahvistaaksesi poiston:\n(ID: ${seuraId})`
-  );
-  if (kirjoitettu !== seuraId) {
-    naytaToast('Poisto peruttu — ID ei täsmää.', 'virhe');
-    return;
-  }
+  const ok = confirm(`⚠️ POISTA SEURA: "${seuraNimi}"\n\nTämä poistaa seuradokumentin pysyvästi.\nKäyttäjät ja joukkueet eivät poistu automaattisesti.\n\nJatketaanko?`);
+  if (!ok) return;
+  const id = prompt(`Kirjoita seuran ID vahvistaaksesi:\n(ID: ${seuraId})`);
+  if (id !== seuraId) { naytaToast('Poisto peruttu — ID ei täsmää.', 'virhe'); return; }
   suoritaPoistaSeura(seuraId, seuraNimi);
 }
 
@@ -1238,12 +1256,9 @@ async function suoritaPoistaSeura(seuraId, seuraNimi) {
     await db.collection('seurat').doc(seuraId).delete();
     tila.seurat = tila.seurat.filter(s => s.id !== seuraId);
     naytaToast(`🗑 ${seuraNimi} poistettu.`, 'ok');
-    if (tila.aktiivNakyma === 'seurat') {
-      renderSeurat(document.getElementById('nakymaAlue'));
-    }
+    if (tila.aktiivNakyma === 'seurat') renderSeurat(document.getElementById('nakymaAlue'));
   } catch (e) {
     naytaToast('Poisto epäonnistui: ' + e.message, 'virhe');
-    console.error('[suoritaPoistaSeura]', e);
   }
 }
 
