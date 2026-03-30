@@ -2122,6 +2122,30 @@ async function tallennaKaikki() {
     status.className = virhe > 0 ? 'tallenna-status virhe' : 'tallenna-status tallennettu';
     status.textContent = virhe > 0 ? `${ok} tallennettu, ${virhe} virheitä` : `✓ Kaikki ${ok} tallennettu`;
   }
+
+  // ── Päivitä tapahtuman tila "valmis" Firestoreen ──────────────────────────
+  // Ajetaan vain jos tallennettiin ilman virheitä ja tapahtumaKonteksti on asetettu
+  if (virhe === 0) {
+    const _ctx = window._tapahtumaKonteksti;
+    if (_ctx && _ctx.tapahtumaId && _ctx.seuraId) {
+      try {
+        await firebase.firestore()
+          .collection('seurat').doc(_ctx.seuraId)
+          .collection('tapahtumat').doc(_ctx.tapahtumaId)
+          .update({
+            tila: 'valmis',
+            paattyi: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        console.log('✅ Tapahtuma merkitty valmiiksi:', _ctx.tapahtumaId);
+        if (status) {
+          status.textContent = `✓ Kaikki ${ok} tallennettu · Tapahtuma valmis`;
+        }
+      } catch (tilaErr) {
+        // Ei kaada onnistunutta tallennusta — vain varoitus konsoliin
+        console.warn('⚠️ Tapahtuman tilapäivitys epäonnistui:', tilaErr.message);
+      }
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
