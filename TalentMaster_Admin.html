@@ -291,7 +291,7 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
       </div>
       <div class="kenttaRyhma" style="margin:0;">
         <label class="kenttaLabel">Seura *</label>
-        <select class="kenttaInput" id="uusiSeura">
+        <select class="kenttaInput" id="uusiSeura" onchange="paivitaJoukkueSektio()">
           <!-- Täytetään JS:ssä kirjautumisen jälkeen -->
         </select>
       </div>
@@ -312,6 +312,31 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
           <label class="kenttaLabel">Joukkueen nimi</label>
           <input class="kenttaInput" type="text" id="uusiJoukkueNimi"
             placeholder="U15">
+        </div>
+      </div>
+    </div>
+
+    <!-- UUSI SEURA -kenttäpari (näytetään vain johtorooleille jos seura puuttuu) -->
+    <div id="uusiSeuraSektio" style="display:none;">
+      <div style="background:rgba(74,126,217,.08);border:1px solid rgba(74,126,217,.25);
+                  border-radius:8px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:12px;color:var(--blue);font-weight:600;margin-bottom:10px;">
+          ➕ Luo uusi seura samalla kertaa
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="kenttaRyhma" style="margin:0;">
+            <label class="kenttaLabel">Seuran nimi *</label>
+            <input class="kenttaInput" type="text" id="uusiSeuraNimi"
+              placeholder="HJK Juniorit">
+          </div>
+          <div class="kenttaRyhma" style="margin:0;">
+            <label class="kenttaLabel">Seura-ID *</label>
+            <input class="kenttaInput" type="text" id="uusiSeuraID"
+              placeholder="hjk" style="text-transform:lowercase;">
+            <span style="font-size:11px;color:var(--ink3);margin-top:3px;display:block;">
+              Pieni kirjain, ei välejä (esim. hjk, fcl, kpv)
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -544,7 +569,7 @@ function avaaSeuraVP(seuraId, seuraNimi) {
   tallennaSuperAdminKonteksti(seuraId, seuraNimi);
   // Avataan uudessa välilehdessä — Super Admin pysyy Admin-näkymässä
   window.open(
-    `https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_VP_v17.html?seura=${seuraId}`,
+    `https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Seura.html?seura=${seuraId}`,
     '_blank'
   );
   naytaToast(`Avataan ${seuraNimi} VP-näkymä...`, 'ok');
@@ -959,6 +984,9 @@ function paivitaJoukkueSektio() {
     'valmentaja', 'testivastaava', 'talenttivalmentaja',
     'fysiikkavalmentaja', 'fysioterapeutti',
   ];
+  const johtoroolit = ['vp', 'seurasihteeri', 'urheilutoimenjohtaja'];
+
+  // Joukkuekentät: vain valmentajatasoille
   const sektio = document.getElementById('joukkueSektio');
   if (joukkueeseenSidotut.includes(rooli)) {
     sektio.classList.add('nakyvilla');
@@ -966,6 +994,26 @@ function paivitaJoukkueSektio() {
     sektio.classList.remove('nakyvilla');
     document.getElementById('uusiJoukkue').value = '';
     document.getElementById('uusiJoukkueNimi').value = '';
+  }
+
+  // Uusi seura -kenttäpari: johtoroolille jos dropdown on "uusi" tai tyhjä
+  const seuraSektio = document.getElementById('uusiSeuraSektio');
+  const seuraSelect = document.getElementById('uusiSeura');
+  if (johtoroolit.includes(rooli)) {
+    // Lisätään "Luo uusi seura..." -vaihtoehto dropdowniin jos ei jo ole
+    if (!seuraSelect.querySelector('option[value="__uusi__"]')) {
+      const opt = document.createElement('option');
+      opt.value = '__uusi__';
+      opt.textContent = '➕ Luo uusi seura...';
+      seuraSelect.appendChild(opt);
+    }
+  }
+
+  // Näytetään/piilotetaan uuden seuran kentät
+  if (seuraSelect.value === '__uusi__') {
+    seuraSektio.style.display = '';
+  } else {
+    seuraSektio.style.display = 'none';
   }
 }
 
@@ -1000,6 +1048,50 @@ async function luoUusiKayttaja() {
   if (!rooli)   { naytaModalVirhe('Valitse rooli.'); return; }
   if (!seuraId) { naytaModalVirhe('Valitse seura.'); return; }
 
+  // ── Uuden seuran luonti Firestoreen (jos valittu "Luo uusi seura") ──
+  // Tehdään ennen käyttäjän luontia, jotta Cloud Function löytää seuran
+  let lopullinenSeuraId = seuraId;
+  if (seuraId === '__uusi__') {
+    const uusiNimi = (document.getElementById('uusiSeuraNimi')?.value || '').trim();
+    const uusiID   = (document.getElementById('uusiSeuraID')?.value || '').trim().toLowerCase()
+                       .replace(/[^a-z0-9_-]/g, '');  // salli vain turvalliset merkit
+    if (!uusiNimi) { naytaModalVirhe('Kirjoita seuran nimi.'); return; }
+    if (!uusiID)   { naytaModalVirhe('Kirjoita seura-ID (esim. hjk).'); return; }
+    if (uusiID.length < 2) { naytaModalVirhe('Seura-ID on liian lyhyt.'); return; }
+
+    // Tarkistetaan ettei ID ole jo käytössä (idempotenttisuus)
+    const olemassa = await db.collection('seurat').doc(uusiID).get();
+    if (olemassa.exists) {
+      // Seura löytyy jo — käytetään sitä, ei luoda duplikaattia
+      lopullinenSeuraId = uusiID;
+      naytaToast(`Seura "${uusiNimi}" löytyi jo järjestelmästä — käytetään sitä.`, 'ok');
+    } else {
+      // Luodaan uusi seura-dokumentti
+      await db.collection('seurat').doc(uusiID).set({
+        id:        uusiID,
+        nimi:      uusiNimi,
+        laji:      'jalkapallo',
+        paketti:   'perustaso',
+        aktiivinen: true,
+        luotu:     firebase.firestore.FieldValue.serverTimestamp(),
+        luoja:     tila.kayttaja?.email || 'super-admin',
+      });
+      lopullinenSeuraId = uusiID;
+      naytaToast(`✅ Seura "${uusiNimi}" luotu Firestoreen!`, 'ok');
+
+      // Päivitetään seura-dropdown heti niin käyttäjä näkee uuden seuran
+      const opt = document.createElement('option');
+      opt.value       = uusiID;
+      opt.textContent = uusiNimi;
+      const sel = document.getElementById('uusiSeura');
+      // Poistetaan "Luo uusi seura..." -vaihtoehto ja lisätään oikea
+      const uusiOpt = sel.querySelector('option[value="__uusi__"]');
+      if (uusiOpt) uusiOpt.remove();
+      sel.appendChild(opt);
+      sel.value = uusiID;
+    }
+  }
+
   nappi.disabled    = true;
   nappi.textContent = 'Luodaan tunnusta...';
 
@@ -1008,7 +1100,7 @@ async function luoUusiKayttaja() {
     const luoKayttajaFn = functions.httpsCallable('luoKayttaja');
 
     const tulos = await luoKayttajaFn({
-      email, rooli, seuraId, joukkue, joukkueNimi, etunimi, sukunimi,
+      email, rooli, seuraId: lopullinenSeuraId, joukkue, joukkueNimi, etunimi, sukunimi,
     });
 
     const data = tulos.data;
