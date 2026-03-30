@@ -35,7 +35,22 @@ function luoTransporter() {
 // ─────────────────────────────────────────────────────────────────────────────
 async function tarkistaOikeus(kutsujaUid, kohdeSeuraId) {
   const adminDoc = await db.collection('admins').doc(kutsujaUid).get();
-  if (adminDoc.exists && adminDoc.data().superAdmin) {
+  // Tuetaan kaikkia super-admin-kenttämuotoja:
+  //   superAdmin: true   (camelCase, vanha rakenne)
+  //   rooli: 'super_admin'   (underscore, uusi rakenne)
+  //   rooli: 'superadmin'    (yhteen kirjoitettu)
+  // Tämä korjaa 403-virheen kun Admin-sivu kutsuu luoKayttaja-funktiota.
+  const adminData = adminDoc.exists ? adminDoc.data() : null;
+  const onSuperAdmin = adminData && (
+    adminData.superAdmin === true ||
+    adminData.rooli === 'super_admin' ||
+    adminData.rooli === 'superadmin'
+  );
+  console.log('[tarkistaOikeus] uid:', kutsujaUid,
+    '| seura:', kohdeSeuraId,
+    '| adminDoc.exists:', adminDoc.exists,
+    '| isSuperAdmin:', onSuperAdmin);
+  if (onSuperAdmin) {
     return { sallittu: true, rooli: 'superadmin' };
   }
   const seuraDoc = await db.collection('seurat').doc(kohdeSeuraId).get();
@@ -203,9 +218,25 @@ exports.luoKayttaja = functions
     if (!rooli)   throw new functions.https.HttpsError('invalid-argument', 'Rooli on pakollinen.');
     if (!seuraId) throw new functions.https.HttpsError('invalid-argument', 'Seura on pakollinen.');
 
+    // Logataan kriittiset parametrit — näkyy Cloud Loggingissa heti
+    console.log('[luoKayttaja] Kutsu vastaanotettu:',
+      '| kutsujaUid:', kutsujaUid,
+      '| seuraId:', seuraId,
+      '| rooli:', rooli,
+      '| email:', email);
+
     const oikeus = await tarkistaOikeus(kutsujaUid, seuraId);
+    console.log('[luoKayttaja] tarkistaOikeus tulos:', JSON.stringify(oikeus));
+
     if (!oikeus.sallittu) {
-      throw new functions.https.HttpsError('permission-denied', 'Sinulla ei ole oikeutta lisätä käyttäjiä tälle seuralle.');
+      // Tarkka virheviesti helpottaa debuggausta Cloud Loggingissa
+      console.error('[luoKayttaja] HYLÄTTY — ei oikeuksia.',
+        '| seuraId:', seuraId,
+        '| kutsujaUid:', kutsujaUid,
+        '| oikeus:', JSON.stringify(oikeus));
+      throw new functions.https.HttpsError('permission-denied',
+        `Ei oikeuksia lisätä käyttäjiä seuralle "${seuraId}". ` +
+        `Tarkista että olet super-admin tai VP tässä seurassa.`);
     }
 
     try {
@@ -298,7 +329,11 @@ exports.luoKayttaja = functions
         `,
       });
     } catch (e) {
-      console.warn('Salasanalinkki/sähköposti epäonnistui:', e.message);
+      // Tämä ei kaada käyttäjän luomista — kirjataan vain varoitus
+      console.warn('[luoKayttaja] Salasanalinkki/sähköposti epäonnistui:',
+        e.message,
+        '| email:', email,
+        '| Tarkista Gmail App Password: firebase functions:config:get gmail');
     }
 
     await db.collection('audit').add({
