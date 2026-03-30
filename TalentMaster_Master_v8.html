@@ -911,6 +911,10 @@ tbody td:first-child {
       <span class="navIkoni">⚙️</span>
       Oma profiili
     </div>
+    <div class="navNappi" onclick="vaihdaNakyma('kartoitukset', this)" data-nakyma="kartoitukset">
+      <span class="navIkoni">📊</span>
+      Kartoitukset
+    </div>
   </div>
 
   <!-- PÄÄSISÄLTÖ -->
@@ -1466,6 +1470,7 @@ function renderoi(nakyma) {
     case 'testit':      alue.innerHTML = renderTestit();     break;
       case 'kalenteri':   renderKalenteri(alue);               break;
     case 'profiili':    alue.innerHTML = renderProfiili();   break;
+    case 'kartoitukset': alue.innerHTML = renderKartoitukset(); setTimeout(lataaPelaajaKartoitukset, 50); break;
     default:            alue.innerHTML = renderPelaajat();
   }
 
@@ -2129,6 +2134,155 @@ document.addEventListener('keydown', (e) => {
   let _kalTapahtumat = [];     // välimuisti
   let _kalKuukausi = null;     // { vuosi, kuukausi } — null = tämä kuukausi
   let _kalLuoModal = false;    // näytetäänkö luontimodaali
+
+function renderKartoitukset() {
+  const joukkueNimi = tila.joukkueNimi || 'Joukkue';
+  return `
+    <div class="sivuOtsikko">
+      <div class="sivuOtsikkoEyebrow">📊 Tulokset</div>
+      <div class="sivuOtsikkoH1">Kartoitukset — ${joukkueNimi}</div>
+    </div>
+    <div id="kartoituksetLista" style="margin-top:16px;">
+      <div style="color:var(--ink3);text-align:center;padding:40px 16px;">
+        ⏳ Ladataan kartoituksia...
+      </div>
+    </div>
+  `;
+}
+
+async function lataaPelaajaKartoitukset() {
+  const lista = document.getElementById('kartoituksetLista');
+  if (!lista) return;
+
+  // Tunnisteet tulevat tila-objektista (asetetaan kirjautumisen yhteydessä)
+  const seuraId   = tila.seuraId   || tila.seura;
+  const joukkueId = tila.joukkueId || tila.joukkue;
+
+  if (!seuraId || !joukkueId) {
+    lista.innerHTML = '<div style="color:var(--oranssi);padding:16px;">⚠️ Joukkuetta ei tunnistettu — kirjaudu uudelleen</div>';
+    return;
+  }
+
+  try {
+    // Haetaan kaikki tämän joukkueen kartoitukset, uusimmat ensin
+    const snap = await firebase.firestore()
+      .collection('seurat').doc(seuraId)
+      .collection('joukkueet').doc(joukkueId)
+      .collection('kartoitukset')
+      .orderBy('pvm', 'desc')
+      .limit(200)
+      .get();
+
+    if (snap.empty) {
+      lista.innerHTML = `
+        <div style="color:var(--ink3);text-align:center;padding:40px 16px;">
+          Ei vielä kartoituksia tallennettuna.<br>
+          <button onclick="vaihdaNakyma('testit',null)" 
+                  style="margin-top:12px;background:var(--sininen);color:#fff;border:none;
+                         border-radius:8px;padding:8px 18px;cursor:pointer;">
+            Avaa testauslomake
+          </button>
+        </div>`;
+      return;
+    }
+
+    // Ryhmittele pelaajittain — säilytä vain viimeisin kartoitus per pelaaja
+    const pelaajaMap = {};
+    snap.forEach(doc => {
+      const d   = doc.data();
+      // Käytetään pelaaja_id:tä ensisijaisesti, nimeä varana
+      const pid = d.pelaaja_id || d.pelaajaId || d.nimi || d.sukunimi;
+      if (!pid) return;
+      if (!pelaajaMap[pid] || (d.pvm && (!pelaajaMap[pid].pvm || d.pvm > pelaajaMap[pid].pvm))) {
+        pelaajaMap[pid] = { ...d, docId: doc.id };
+      }
+    });
+
+    // Järjestä FLEI-pisteiden mukaan (paras ensin)
+    const pelaajat = Object.values(pelaajaMap)
+      .sort((a, b) => (b.flei ?? b.flei_pisteet ?? 0) - (a.flei ?? a.flei_pisteet ?? 0));
+
+    // ── Tilastopalkit ──────────────────────────────────────────────────────
+    const fleiFull = pelaajat.map(p => p.flei ?? p.flei_pisteet ?? null).filter(v => v !== null);
+    const fleiKeski = fleiFull.length ? Math.round(fleiFull.reduce((a,b) => a+b, 0) / fleiFull.length) : null;
+    const klinikkaLkm = pelaajat.filter(p => (p.flei ?? p.flei_pisteet ?? 100) < 40).length;
+    const fleiKeskiVari = fleiKeski === null ? 'var(--ink3)' : fleiKeski < 40 ? 'var(--punainen)' : fleiKeski < 60 ? 'var(--oranssi)' : 'var(--vihrea)';
+
+    let html = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+        <div class="kirjausKortti" style="text-align:center;padding:14px;">
+          <div style="font-size:22px;font-weight:700;color:var(--sininen);">${pelaajat.length}</div>
+          <div style="font-size:12px;color:var(--ink3);margin-top:2px;">Pelaajaa</div>
+        </div>
+        <div class="kirjausKortti" style="text-align:center;padding:14px;">
+          <div style="font-size:22px;font-weight:700;color:${fleiKeskiVari};">${fleiKeski !== null ? fleiKeski + '%' : '—'}</div>
+          <div style="font-size:12px;color:var(--ink3);margin-top:2px;">FLEI keskiarvo</div>
+        </div>
+        <div class="kirjausKortti" style="text-align:center;padding:14px;">
+          <div style="font-size:22px;font-weight:700;color:${klinikkaLkm > 0 ? 'var(--punainen)' : 'var(--vihrea)'};">${klinikkaLkm}</div>
+          <div style="font-size:12px;color:var(--ink3);margin-top:2px;">Klinikkasuositus</div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <button onclick="vaihdaNakyma('testit',null)" 
+                style="background:var(--sininen);color:#fff;border:none;border-radius:8px;
+                       padding:7px 16px;cursor:pointer;font-size:13px;">
+          + Uusi kartoitus
+        </button>
+      </div>
+
+      <div class="kirjausKortti" style="padding:0;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <thead>
+            <tr style="background:rgba(255,255,255,.04);color:var(--ink3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;">
+              <th style="padding:10px 12px;text-align:left;">Pelaaja</th>
+              <th style="padding:10px 8px;text-align:center;">FLEI</th>
+              <th style="padding:10px 8px;text-align:center;">Profiili</th>
+              <th style="padding:10px 8px;text-align:center;">Pvm</th>
+              <th style="padding:10px 8px;text-align:center;">Klinikka</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+    pelaajat.forEach(p => {
+      const flei     = p.flei ?? p.flei_pisteet;
+      const fleiNum  = flei != null ? Math.round(flei) : null;
+      const fleiTxt  = fleiNum !== null ? fleiNum + '%' : '–';
+      const fleiVari = fleiNum === null ? 'var(--ink3)' : fleiNum < 40 ? 'var(--punainen)' : fleiNum < 60 ? 'var(--oranssi)' : 'var(--vihrea)';
+      const klinikka = fleiNum !== null && fleiNum < 40;
+      const nimi     = (p.sukunimi && p.etunimi) ? p.sukunimi + ' ' + p.etunimi : (p.nimi || p.pelaajaId || '?');
+      const pvmStr   = p.pvm?.toDate ? p.pvm.toDate().toLocaleDateString('fi-FI') : (typeof p.pvm === 'string' ? p.pvm.slice(0,10) : '–');
+      const profiili = p.profiili || p.pelaaja_tyyppi || '–';
+
+      html += `
+            <tr style="border-top:1px solid rgba(255,255,255,.06);">
+              <td style="padding:10px 12px;font-weight:500;">${nimi}</td>
+              <td style="padding:10px 8px;text-align:center;">
+                <span style="color:${fleiVari};font-weight:700;font-size:15px;">${fleiTxt}</span>
+              </td>
+              <td style="padding:10px 8px;text-align:center;color:var(--ink3);font-size:12px;">${profiili}</td>
+              <td style="padding:10px 8px;text-align:center;color:var(--ink3);font-size:12px;">${pvmStr}</td>
+              <td style="padding:10px 8px;text-align:center;font-size:12px;">
+                ${klinikka ? '<span style="color:var(--punainen);">⚠️ Suositeltu</span>' : '<span style="color:var(--ink3);">–</span>'}
+              </td>
+            </tr>`;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>`;
+
+    lista.innerHTML = html;
+
+  } catch (err) {
+    lista.innerHTML = `<div style="color:var(--punainen);padding:16px;">❌ Virhe: ${err.message}</div>`;
+    console.error('[Kartoitukset] latausvirhe:', err);
+  }
+}
+
+
 
   async function renderKalenteri(alue) {
     alue.innerHTML = `<div style="padding:20px;color:var(--ink3);">
