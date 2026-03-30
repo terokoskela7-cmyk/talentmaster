@@ -1161,6 +1161,93 @@ async function luoUusiKayttaja() {
 }
 
 // ─────────────────────────────────────────
+// SEURAN MUOKKAUS JA POISTO
+// ─────────────────────────────────────────
+
+function avaaMuokkaaSeura(dataset) {
+  document.getElementById('muokkaaSeuraId').value    = dataset.sid;
+  document.getElementById('muokkaaSeuraNimi').value  = dataset.snimi || '';
+  document.getElementById('muokkaaPaketti').value    = dataset.paketti || 'perustaso';
+  document.getElementById('muokkaaAktiivinen').value = dataset.aktiivinen || 'true';
+  const virheEl = document.getElementById('seuraModalVirhe');
+  const onniEl  = document.getElementById('seuraModalOnnistui');
+  if (virheEl) virheEl.classList.remove('nakyvilla');
+  if (onniEl)  onniEl.style.display = 'none';
+  document.getElementById('seuraModal').classList.add('auki');
+}
+
+async function tallennaSeuraaMuokkaus() {
+  const seuraId    = document.getElementById('muokkaaSeuraId').value;
+  const nimi       = document.getElementById('muokkaaSeuraNimi').value.trim();
+  const paketti    = document.getElementById('muokkaaPaketti').value;
+  const aktiivinen = document.getElementById('muokkaaAktiivinen').value === 'true';
+  const virheEl    = document.getElementById('seuraModalVirhe');
+  const onniEl     = document.getElementById('seuraModalOnnistui');
+
+  if (!nimi) {
+    if (virheEl) { virheEl.textContent = 'Seuran nimi on pakollinen.'; virheEl.classList.add('nakyvilla'); }
+    return;
+  }
+  if (virheEl) virheEl.classList.remove('nakyvilla');
+
+  try {
+    await db.collection('seurat').doc(seuraId).update({
+      nimi, paketti, aktiivinen,
+      paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Päivitä muistissa oleva tila ilman sivulatausta
+    const idx = tila.seurat.findIndex(s => s.id === seuraId);
+    if (idx >= 0) tila.seurat[idx] = { ...tila.seurat[idx], nimi, paketti, aktiivinen };
+
+    if (onniEl) onniEl.style.display = '';
+    naytaToast(`✅ ${nimi} päivitetty!`, 'ok');
+    setTimeout(() => {
+      suljeModal('seuraModal');
+      if (tila.aktiivNakyma === 'seurat') renderSeurat(document.getElementById('nakymaAlue'));
+    }, 1200);
+  } catch (e) {
+    if (virheEl) { virheEl.textContent = 'Tallennus epäonnistui: ' + e.message; virheEl.classList.add('nakyvilla'); }
+    console.error('[tallennaSeuraaMuokkaus]', e);
+  }
+}
+
+function vahvistaPoistaSeura(seuraId, seuraNimi) {
+  // Ensimmäinen vahvistus — confirm-dialogi
+  const vahvistus = confirm(
+    `⚠️ POISTA SEURA: "${seuraNimi}"\n\n` +
+    `Tämä poistaa seuran Firestore-dokumentin pysyvästi.\n` +
+    `Seuran käyttäjät, joukkueet ja data EIVÄT poistu automaattisesti.\n\n` +
+    `Haluatko varmasti jatkaa?`
+  );
+  if (!vahvistus) return;
+
+  // Toinen vahvistus — kirjoita ID
+  const kirjoitettu = prompt(
+    `Kirjoita seuran ID vahvistaaksesi poiston:\n(ID: ${seuraId})`
+  );
+  if (kirjoitettu !== seuraId) {
+    naytaToast('Poisto peruttu — ID ei täsmää.', 'virhe');
+    return;
+  }
+  suoritaPoistaSeura(seuraId, seuraNimi);
+}
+
+async function suoritaPoistaSeura(seuraId, seuraNimi) {
+  try {
+    await db.collection('seurat').doc(seuraId).delete();
+    tila.seurat = tila.seurat.filter(s => s.id !== seuraId);
+    naytaToast(`🗑 ${seuraNimi} poistettu.`, 'ok');
+    if (tila.aktiivNakyma === 'seurat') {
+      renderSeurat(document.getElementById('nakymaAlue'));
+    }
+  } catch (e) {
+    naytaToast('Poisto epäonnistui: ' + e.message, 'virhe');
+    console.error('[suoritaPoistaSeura]', e);
+  }
+}
+
+// ─────────────────────────────────────────
 // SALASANANVAIHTO — olemassa olevalle käyttäjälle
 // ─────────────────────────────────────────
 async function lahetaSalasananVaihto(email) {
