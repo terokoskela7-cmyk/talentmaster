@@ -942,6 +942,9 @@ const RAJA_ARVOT = {
   pakianousu:      { tyyppi:"tst", ohje:"toistoa",   p1:[0,14],   p2:[15,24],  p3:[25,999]  },
   slr_neuraalinen: { tyyppi:"ast", ohje:"astetta",   p1:[0,59],   p2:[60,74],  p3:[75,999]  },
   leuanvedot:      { tyyppi:"tst", ohje:"toistoa",   p1:[0,4],    p2:[5,9],    p3:[10,999]  },
+  // U15 etunojapunnerrus toistotesti — Palloliiton viitearvot T13-15 / P13-15
+  // Käytetään T13-15 (pojat) raja-arvoja: <12 / 12-19 / 20+
+  etunojapunnerrus: { tyyppi:"tst", ohje:"toistoa",   p1:[0,11],   p2:[12,19],  p3:[20,999] },
 };
 
 /* Laske pisteet raakamäärästä raja-arvojen perusteella.
@@ -987,7 +990,7 @@ const TESTIT = {
     { id:'luistelijan_kyykky',label:'Luistelijan kyykky\n(1-3p)',tyyppi:'pisteet', w:92 },
     { id:'askelkyykky',      label:'Askelkyykky\n(1-3p)',      tyyppi:'pisteet', w:80 },
     { id:'hyvaa_huomenta',   label:'Hyvää huomenta\n(1-3p)',   tyyppi:'pisteet', w:88 },
-    { id:'etunojapunnerrus', label:'Etunojapunnerrus\n(1-3p)', tyyppi:'pisteet', w:92 },
+    { id:'etunojapunnerrus', label:'Etunojapunnerrus\n(tst)',   tyyppi:'luku',    w:92 },
     { id:'lankku_60s',       label:'Lankku 60s\n(1-3p)',       tyyppi:'pisteet', w:80 },
     { id:'naruhypyt_15s',    label:'Naruhypyt 15s\n(1-3p)',    tyyppi:'pisteet', w:85 },
     { id:'pituushyppy',      label:'Pituushyppy\n(1-3p)',      tyyppi:'pisteet', w:80 },
@@ -2073,7 +2076,9 @@ async function tallennaPalauteJaMerkitseValmis() {
 
   try {
     if (tapahtumaId) {
-      await db.collection('tapahtumat').doc(tapahtumaId)
+      const seuraId = window._tapahtumaKonteksti?.seuraId || '';
+      await db.collection('seurat').doc(seuraId)
+        .collection('tapahtumat').doc(tapahtumaId)
         .collection('palautteet').add({
           kuormittavuus: kuorma,
           havainto,
@@ -2082,7 +2087,8 @@ async function tallennaPalauteJaMerkitseValmis() {
           tallentajaUid: firebase.auth().currentUser?.uid || null,
         });
       // Merkitään tapahtuma valmiiksi
-      await db.collection('tapahtumat').doc(tapahtumaId).update({ tila: 'valmis' });
+      await db.collection('seurat').doc(seuraId)
+        .collection('tapahtumat').doc(tapahtumaId).update({ tila: 'valmis' });
     }
     if (statusEl) {
       statusEl.textContent = '✅ Tallennettu! Testipäivä merkitty valmiiksi.';
