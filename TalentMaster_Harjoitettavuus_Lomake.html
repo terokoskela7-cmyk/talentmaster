@@ -2576,6 +2576,10 @@ async function tallennaKaikki() {
     status.className = virhe > 0 ? 'tallenna-status virhe' : 'tallenna-status tallennettu';
     status.textContent = virhe > 0 ? `${ok} tallennettu, ${virhe} virheitä` : `✓ Kaikki ${ok} tallennettu`;
   }
+  // ── Siirry tarkasteluun automaattisesti jos kaikki onnistui ──
+  if (virhe === 0 && ok > 0) {
+    setTimeout(() => asetaVaihe(7), 400);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -3181,8 +3185,8 @@ function renderTestipiste(ikäluokka) {
              Seuraava piste →
            </button>`
         : `<button class="btn" style="background:var(--vihrea);color:#fff;"
-             onclick="suljeTestipistemoodi()">
-             ✓ Kaikki pisteet valmiit
+             onclick="tpTallennaKaikkiPiste()">
+             ✓ Tallenna ja tarkastele tuloksia
            </button>`}
     </div>
   </div>`;
@@ -3235,10 +3239,27 @@ async function tpTallennaRivi(idx) {
 
 async function tpTallennaKaikkiPiste() {
   const dirty = [...dirtyRows];
-  for (const idx of dirty) {
-    await tpTallennaRivi(idx);
+  if (dirty.length === 0) {
+    naytaNotif('Ei muutoksia tallennettavana', 'info');
+    // Silti siirrytään tarkasteluun jos kaikki on jo tallennettu
+    suljeTestipistemoodi();
+    asetaVaihe(7);
+    return;
   }
-  naytaNotif('Kaikki tallennettu ✓', 'ok');
+  let ok = 0, virhe = 0;
+  for (const idx of dirty) {
+    try { await tpTallennaRivi(idx); ok++; }
+    catch(e) { virhe++; console.error('[tpTallennaKaikkiPiste]', e.message); }
+  }
+  const viesti = virhe > 0
+    ? `${ok} tallennettu, ${virhe} epäonnistui`
+    : `✓ Kaikki ${ok} pelaajaa tallennettu`;
+  naytaNotif(viesti, virhe > 0 ? 'err' : 'ok');
+
+  // ── Kriittinen: sulje testipistemoodi ja siirry tarkasteluun ──
+  suljeTestipistemoodi();
+  // Pieni viive jotta sulkeminen ehtii renderöityä
+  setTimeout(() => asetaVaihe(7), 150);
 }
 
 
