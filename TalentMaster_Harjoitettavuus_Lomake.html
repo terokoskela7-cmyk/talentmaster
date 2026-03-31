@@ -1699,6 +1699,19 @@ function renderLomake(seuraId, joukkueId, ikäluokkaFilter, pvm) {
                </div>`
             : '';
           html += `<td style="${lohkoVari}">
+            ${meta?.tyyppi === 'toisto' ? `
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="number" min="0" max="200"
+                value="${val > 0 ? val : ''}"
+                placeholder="toistoa"
+                style="width:72px;padding:6px 8px;border-radius:6px;border:1px solid var(--reuna);
+                  background:var(--tausta2);color:var(--teksti);font-size:14px;font-weight:700;text-align:center;"
+                onchange="tallennaKentta(this)"
+                data-idx="${alkIdx}" data-kentta="${t.id}">
+              <span style="font-size:11px;color:var(--teksti2);">${meta?.yksikko||'tst'}</span>
+            </div>
+            <div style="font-size:10px;color:var(--teksti2);margin-top:3px;">${meta?.p1||''}</div>
+            ` : `
             <div class="pisteet-cell">
               <button type="button" class="p-btn p1 ${val===1?'active':''}" data-idx="${alkIdx}" data-kentta="${t.id}" data-arvo="1"
                 onclick="asetaPisteet(this,${alkIdx},'${t.id}',1)"
@@ -1710,6 +1723,7 @@ function renderLomake(seuraId, joukkueId, ikäluokkaFilter, pvm) {
                 onclick="asetaPisteet(this,${alkIdx},'${t.id}',3)"
                 title="${meta?.p3||'3p — hyvä'}">3</button>
             </div>
+            `}
             ${rajaOhje}
           </td>`;
         }
@@ -1924,21 +1938,44 @@ function renderVaihe7() {
   const ctx = window._tapahtumaKonteksti || {};
   const ikl = window._renderState?.ikäluokka || ctx.ikäluokka || 'U15';
 
+  // Laske pisteet suoraan tuloksista (ei DOM-riippuvuutta)
+  function _laskeYhteenveto(p, ikl) {
+    const tulokset = p.tulokset || {};
+    const testit = (typeof TESTIT !== 'undefined' ? TESTIT[ikl] : null) || [];
+    let pisteet = 0, maxP = 0, taytetty = 0;
+    testit.forEach(t => {
+      const v = tulokset[t.id];
+      if (t.tyyppi === 'pisteet' || !t.tyyppi) {
+        maxP += 3;
+        const n = parseInt(v);
+        if (n > 0) { pisteet += n; taytetty++; }
+      } else if (t.tyyppi === 'toisto') {
+        const n = parseFloat(v);
+        if (n > 0) { taytetty++; pisteet += n >= (t.viiteT?.p2||20) ? 3 : n >= (t.viiteT?.p1||12) ? 2 : 1; maxP += 3; }
+      }
+    });
+    const pct = maxP > 0 ? Math.round(pisteet / maxP * 100) : null;
+    return { pisteet, maxP, pct, taytetty };
+  }
+
   const yhteenveto = (typeof pelaajat !== "undefined" ? pelaajat : []).map(p => {
     const t = p.tulokset || {};
-    const fleiFn = window.laskeFlei || window.laskeHarjoitettavuus;
-    const flei = fleiFn ? fleiFn(t, ikl) : null;
-    const fleipct = flei?.pct ?? flei ?? null;
+    const t = p.tulokset || {};
     const phv = t.phv_tila || p.phv_tila || '—';
     const nimi = (p.sukunimi || '') + ', ' + (p.etunimi || '');
-    const warni = phv === 'PH' ? '⚠️ Kasvupyrähdys' : '';
+    const yht = _laskeYhteenveto(p, ikl);
+    const fleipct = yht.pct;
+    const fleiC = fleipct >= 75 ? '#2ED573' : fleipct >= 55 ? '#FFA502' : '#FF4757';
+    const phvTxt = phv === 'PH' ? '⚠️ Kasvupyrähdys' : phv === 'VA' ? '✅ Kasvu ohitse' : phv === 'AN' ? '📍 Ennen kasvua' : '—';
+    const phvC = phv === 'PH' ? '#FF4757' : phv === 'VA' ? '#2ED573' : 'var(--teksti2)';
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--reuna);flex-wrap:wrap;">
-      <div style="font-weight:600;min-width:160px;">${nimi}</div>
-      <div style="font-size:12px;color:var(--teksti2);">PHV: <strong>${phv}</strong></div>
-      ${fleipct !== null ? `<div style="font-size:13px;font-weight:700;color:${fleipct >= 75 ? 'var(--vihrea)' : fleipct >= 55 ? 'var(--amber)' : 'var(--punainen)'};">FLEI ${Math.round(fleipct)}%</div>` : ''}
-      ${warni ? `<div style="font-size:11px;color:var(--punainen);font-weight:600;">${warni}</div>` : ''}
-    </div>`;
-  }).join('');
+      <div style="font-weight:600;min-width:150px;">${nimi}</div>
+      <div style="font-size:12px;color:${phvC};font-weight:600;">${phvTxt}</div>
+      ${fleipct !== null
+        ? `<div style="font-size:13px;font-weight:700;color:${fleiC};">FLEI ${fleipct}%</div>
+           <div style="font-size:11px;color:var(--teksti2);">${yht.pisteet}/${yht.maxP}p · ${yht.taytetty} testiä</div>`
+        : `<div style="font-size:12px;color:var(--teksti2);">Ei pisteitä</div>`}
+    </div>`;.join('');
 
   el.innerHTML = `
     <div style="background:var(--pinta);border:1px solid var(--reuna);border-radius:10px;overflow:hidden;margin-bottom:16px;">
