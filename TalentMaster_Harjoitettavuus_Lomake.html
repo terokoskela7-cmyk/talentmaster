@@ -686,7 +686,7 @@ tbody td.col-synt { font-size: 11px; color: var(--teksti2); }
     </div>
     <div class="asetus-rivi">
       <label class="asetus-label">Joukkue</label>
-      <select id="joukkueSelect" onchange="autoIkaluokka(this.value)">
+      <select id="joukkueSelect">
         <option value="">— valitse joukkue —</option>
       </select>
     </div>
@@ -706,13 +706,7 @@ tbody td.col-synt { font-size: 11px; color: var(--teksti2); }
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="generoi()">📋 Generoi lomake</button>
       <button class="btn btn-ghost" id="tuontiBtn" onclick="toggleTuonti()" style="display:none;">📥 Tuo Excel</button>
-      <button class="btn btn-ghost" id="lisaaPelaajaNappi"
-  onclick="avaaLisaaPelaaja()"
-  style="display:none;"
-  title="Lisää yksittäinen pelaaja toisesta joukkueesta tai ikäluokasta">
-  👤 Lisää pelaaja
-</button>
-<button class="btn btn-ghost" id="lataaPohjaNappi" onclick="lataaExcelPohja()" style="display:none;" title="Lataa virallinen Palloliiton Excel-pohja (U12/U15/U19 välilehdet, FLEI-kaavat). Jos pelaajat ladattu, generoidaan esitäytetty versio.">⬇️ Lataa pohja</button>
+      <button class="btn btn-ghost" id="lataaPohjaNappi" onclick="lataaExcelPohja()" style="display:none;" title="Lataa virallinen Palloliiton Excel-pohja (U12/U15/U19 välilehdet, FLEI-kaavat). Jos pelaajat ladattu, generoidaan esitäytetty versio.">⬇️ Lataa pohja</button>
       <button class="btn btn-ghost" onclick="tulostaLomake()">🖨️ Tulosta</button>
       <button class="btn btn-primary" id="testipisteNappi" onclick="avaaTestipistemoodi()" style="display:none;" title="Kiertoharjoittelumalli — yksi testaaja per piste">⚡ Testipisteet</button>
     </div>
@@ -756,6 +750,14 @@ tbody td.col-synt { font-size: 11px; color: var(--teksti2); }
 
 <!-- Notifikaatio -->
 <div id="notif"></div>
+
+
+<!-- VAIHE 7: Tarkastelu -->
+<div id="vaihe7-alue" style="max-width:900px;margin:24px auto;padding:0 16px;display:none;"></div>
+
+<!-- VAIHE 8: Palaute -->
+<div id="vaihe8-alue" style="max-width:900px;margin:24px auto;padding:0 16px;display:none;"></div>
+
 
 <script>
 /* ═══════════════════════════════════════════════════════
@@ -1075,24 +1077,6 @@ const TESTIT = {
    
    Tämä on ensisijainen tapa. Joukkue määrää testivaihe,
    ei pelaajan kronologinen ikä testipäivänä. */
-function autoIkaluokka(joukkueId) {
-  if (!joukkueId) return;
-  // Haetaan joukkueen nimi valitun option-elementin tekstistä
-  const sel = document.getElementById('joukkueSelect');
-  const opt = sel?.options[sel.selectedIndex];
-  const joukkueNimi = opt?.textContent || joukkueId;
-  const ikl = laskeIkäluokkaJoukkueesta(joukkueNimi) || laskeIkäluokkaJoukkueesta(joukkueId);
-  if (ikl) {
-    const ikaSelect = document.getElementById('ikäluokkaSelect');
-    if (ikaSelect) {
-      ikaSelect.value = ikl;
-      // Visuaalinen palaute — korostetaan hetken
-      ikaSelect.style.borderColor = 'var(--sininen)';
-      setTimeout(() => { ikaSelect.style.borderColor = ''; }, 1500);
-    }
-  }
-}
-
 function laskeIkäluokkaJoukkueesta(joukkueNimiTaiId) {
   if (!joukkueNimiTaiId) return null;
   const s = joukkueNimiTaiId.toLowerCase();
@@ -1403,79 +1387,38 @@ async function generoi() {
   naytaNotif('Ladataan pelaajia...', 'info');
 
   try {
-    // ── Haetaan pelaajat kolmella fallback-tasolla ──────────────────
-    // Taso 1: joukkueen oma alikokoelma (oikea rakenne)
-    // Taso 2: seuran juurikokoelma joukkue-kentällä suodatettuna
-    // Taso 3: kaikki seuran pelaajat (viimesijainen)
+    // Hae joukkueen pelaajat + mahdolliset aiemmat tulokset
     const pelaajaSnap = await db.collection('seurat').doc(seuraId)
       .collection('joukkueet').doc(joukkueId)
       .collection('pelaajat').orderBy('sukunimi').get();
 
     pelaajat = [];
-
-    async function haeKartoitus(pid) {
+    for (const doc of pelaajaSnap.docs) {
+      const p = { id: doc.id, ...doc.data(), tulokset: {} };
+      // Hae viimeisin kartoitus jos on
       try {
         const kartSnap = await db.collection('seurat').doc(seuraId)
           .collection('joukkueet').doc(joukkueId)
           .collection('kartoitukset')
-          .where('pelaajaId', '==', pid)
+          .where('pelaajaId', '==', doc.id)
           .where('ikäluokka', '==', ikäluokka)
           .orderBy('testipvm', 'desc').limit(1).get();
-        if (!kartSnap.empty) return {
-          tulokset: kartSnap.docs[0].data().tulokset || {},
-          kartId:   kartSnap.docs[0].id
-        };
+        if (!kartSnap.empty) {
+          p.tulokset = kartSnap.docs[0].data().tulokset || {};
+          p.kartId   = kartSnap.docs[0].id;
+        }
       } catch(_) {}
-      return null;
-    }
-
-    // Taso 1: joukkueen alikokoelma
-    for (const doc of pelaajaSnap.docs) {
-      const p = { id: doc.id, ...doc.data(), tulokset: {} };
-      const k = await haeKartoitus(doc.id);
-      if (k) { p.tulokset = k.tulokset; p.kartId = k.kartId; }
       pelaajat.push(p);
     }
 
-    // Taso 2: seuran juurikokoelma — joukkueId tai joukkueNimi
+    // Jos ei joukkueen omia pelaajia, hae seuran pelaajat
     if (pelaajat.length === 0) {
-      console.log('[generoi] Taso1 tyhjä — yritetään juurikokoelmaa joukkue-kentällä');
-      let juuriSnap = null;
-      try {
-        juuriSnap = await db.collection('seurat').doc(seuraId)
-          .collection('pelaajat')
-          .where('joukkueId', '==', joukkueId)
-          .orderBy('sukunimi').get();
-      } catch(_) {}
-      // Fallback ilman orderBy jos indeksi puuttuu
-      if (!juuriSnap || juuriSnap.empty) {
-        try {
-          juuriSnap = await db.collection('seurat').doc(seuraId)
-            .collection('pelaajat')
-            .where('joukkue', '==', joukkueId).get();
-        } catch(_) {}
-      }
-      if (juuriSnap && !juuriSnap.empty) {
-        for (const doc of juuriSnap.docs) {
-          const p = { id: doc.id, ...doc.data(), tulokset: {} };
-          pelaajat.push(p);
-        }
-        console.log(`[generoi] Taso2: ${pelaajat.length} pelaajaa juurikokoelmasta`);
-      }
-    }
-
-    // Taso 3: kaikki seuran pelaajat (jos joukkue ei ole suodatettavissa)
-    if (pelaajat.length === 0) {
-      console.warn('[generoi] Taso2 tyhjä — haetaan kaikki seuran pelaajat');
-      try {
-        const kaikkiSnap = await db.collection('seurat').doc(seuraId)
-          .collection('pelaajat').orderBy('sukunimi').get();
-        for (const doc of kaikkiSnap.docs) {
-          pelaajat.push({ id: doc.id, ...doc.data(), tulokset: {} });
-        }
-        console.log(`[generoi] Taso3: ${pelaajat.length} pelaajaa`);
-      } catch(e) {
-        console.error('[generoi] Taso3 virhe:', e.message);
+      const seuraPelaajaSnap = await db.collection('seurat').doc(seuraId)
+        .collection('pelaajat')
+        .where('joukkue', '==', joukkueId)
+        .orderBy('sukunimi').get();
+      for (const doc of seuraPelaajaSnap.docs) {
+        pelaajat.push({ id: doc.id, ...doc.data(), tulokset: {} });
       }
     }
 
@@ -1484,8 +1427,6 @@ async function generoi() {
     document.getElementById('tuontiBtn').style.display = 'inline-flex';
     document.getElementById('lataaPohjaNappi').style.display = 'inline-flex';
     document.getElementById('testipisteNappi').style.display = 'inline-flex';
-    const lpn = document.getElementById('lisaaPelaajaNappi');
-    if (lpn) lpn.style.display = 'inline-flex';
     document.getElementById('yhteenveto').style.display = 'flex';
     paivitaYhteenveto();
     asetaVaihe(5); // Vaihe 5: testipäivä — lomake generoitu, valmis syöttämään
@@ -1966,392 +1907,166 @@ function asetaVaihe(vaihe) {
     else if (v === vaihe) el.classList.add('aktiivinen');
     else                  el.classList.add('tuleva');
   });
-  // Vaihe 7: tarkastelu — renderöi FLEI-yhteenveto
-  if (vaihe === 7) renderTarkastelu();
-  // Vaihe 8: palaute — renderöi palautelomake
-  if (vaihe === 8) renderPalaute();
+  // Renderöi vaihe 7 ja 8 kun niihin siirrytään
+  // Näytä/piilota vaihe 7/8 alueet
+  const v7 = document.getElementById('vaihe7-alue');
+  const v8 = document.getElementById('vaihe8-alue');
+  if (v7) v7.style.display = vaihe === 7 ? 'block' : 'none';
+  if (v8) v8.style.display = vaihe === 8 ? 'block' : 'none';
+  if (vaihe === 7) renderVaihe7();
+  if (vaihe === 8) renderVaihe8();
 }
 
-/* ════════════════════════════════════════════════════════════
-   VAIHE 7 — TARKASTELU
-   Näyttää jokaisen pelaajan FLEI-tuloksen, ketjupisteet
-   ja PHV-huomiot. VP:n dashboard päivittyy reaaliajassa.
-════════════════════════════════════════════════════════════ */
-function renderTarkastelu() {
-  const tk = window._tapahtumaKonteksti || {};
-  const rs = window._renderState || {};
-  const ikl = tk.ikäluokka || rs.ikäluokka || 'U15';
-  const testit = TESTIT[ikl] || [];
+// ── VAIHE 7: Tarkastelu ──────────────────────────────────
+function renderVaihe7() {
+  const el = document.getElementById('vaihe7-alue');
+  if (!el) return;
+  const ctx = window._tapahtumaKonteksti || {};
+  const ikl = window._renderState?.ikäluokka || ctx.ikäluokka || 'U15';
 
-  // Laske FLEI per pelaaja
-  const tulokset = pelaajat.map(p => {
-    let pisteet = 0, maxP = 0;
-    testit.forEach(t => {
-      if (t.tyyppi === 'pisteet') {
-        maxP += 3;
-        pisteet += parseInt(p.tulokset?.[t.id]) || 0;
-      }
-    });
-    const flei = maxP > 0 ? Math.round(pisteet / maxP * 100) : null;
-    const fleiVari = flei == null ? 'var(--teksti2)'
-      : flei < 40 ? 'var(--punainen)'
-      : flei < 60 ? '#f97316'
-      : flei < 75 ? 'var(--keltainen)'
-      : 'var(--vihrea)';
-    const fleiLabel = flei == null ? '—'
-      : flei < 40 ? 'Kriittinen' : flei < 60 ? 'Tarvitsee tukea'
-      : flei < 75 ? 'Kehitysvaihe' : 'Hyvä';
-
-    // Ketjut
-    const ketjut = [
-      { id:'sbl',  nimi:'⚡ Vauhti',   arvo: p.tulokset?.sbl   || null },
-      { id:'sfl',  nimi:'🦵 Lähtö',    arvo: p.tulokset?.sfl   || null },
-      { id:'ll',   nimi:'↔️ Suunta',   arvo: p.tulokset?.ll    || null },
-      { id:'sl',   nimi:'🔄 Kierto',   arvo: p.tulokset?.sl    || null },
-      { id:'dfl',  nimi:'🏗️ Hallinta', arvo: p.tulokset?.dfl   || null },
-    ].filter(k => k.arvo != null);
-
-    return { p, flei, fleiVari, fleiLabel, ketjut };
-  });
-
-  // Järjestä: kriittiset ensin
-  tulokset.sort((a, b) => (a.flei ?? 999) - (b.flei ?? 999));
-
-  // Laske seuratason yhteenveto
-  const fleillaNäkyvät = tulokset.filter(t => t.flei != null);
-  const ka = fleillaNäkyvät.length > 0
-    ? Math.round(fleillaNäkyvät.reduce((s, t) => s + t.flei, 0) / fleillaNäkyvät.length) : null;
-  const hyvia  = fleillaNäkyvät.filter(t => t.flei >= 75).length;
-  const kehitys = fleillaNäkyvät.filter(t => t.flei >= 60 && t.flei < 75).length;
-  const tuki   = fleillaNäkyvät.filter(t => t.flei < 60).length;
-
-  let html = `
-  <div style="background:var(--bg2);border:1px solid var(--reuna);border-radius:12px;
-    padding:20px;margin-top:16px;" id="tarkasteluAlue">
-
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-      <div style="font-size:16px;font-weight:700;">📊 Tulokset — ${tk.joukkueNimi || rs.joukkueNimi || 'joukkue'}</div>
-      <button class="btn btn-primary" onclick="asetaVaihe(8)">Seuraava: Palaute →</button>
-    </div>
-
-    <!-- Yhteenveto-kortit -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:18px;">
-      <div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center;">
-        <div style="font-size:26px;font-weight:900;color:${ka != null ? (ka >= 75 ? 'var(--vihrea)' : ka >= 60 ? 'var(--keltainen)' : 'var(--punainen)') : 'var(--teksti2)'};">
-          ${ka != null ? ka + '%' : '—'}
-        </div>
-        <div style="font-size:11px;color:var(--teksti2);margin-top:3px;">FLEI keskiarvo</div>
-      </div>
-      <div style="background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:12px;text-align:center;">
-        <div style="font-size:26px;font-weight:900;color:var(--vihrea);">${hyvia}</div>
-        <div style="font-size:11px;color:var(--teksti2);">Hyvä taso (≥75%)</div>
-      </div>
-      <div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:12px;text-align:center;">
-        <div style="font-size:26px;font-weight:900;color:var(--keltainen);">${kehitys}</div>
-        <div style="font-size:11px;color:var(--teksti2);">Kehitysvaihe</div>
-      </div>
-      <div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:12px;text-align:center;">
-        <div style="font-size:26px;font-weight:900;color:var(--punainen);">${tuki}</div>
-        <div style="font-size:11px;color:var(--teksti2);">Tarvitsee tukea</div>
-      </div>
-    </div>
-
-    <!-- Pelaajakohtaiset tulokset -->
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      ${tulokset.map(({ p, flei, fleiVari, fleiLabel, ketjut }) => {
-        const phv = p.tulokset?.phv_tila === 'PH';
-        const tallennettu = !!p.kartId;
-        return `
-        <div style="background:var(--bg3);border:1px solid var(--reuna);border-radius:8px;
-          padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <div style="flex:1;min-width:120px;">
-            <div style="font-size:13px;font-weight:600;">${p.sukunimi||''} ${p.etunimi||''}</div>
-            <div style="font-size:11px;color:var(--teksti2);margin-top:2px;">
-              ${phv ? '<span style="color:var(--punainen);font-weight:600;">⚠️ Kasvupyrähdys</span> · ' : ''}
-              ${p.syntymapaiva || p.syntymäpäivä ? 's. ' + (p.syntymapaiva || p.syntymäpäivä).toString().substring(0,4) : ''}
-            </div>
-          </div>
-          <div style="text-align:center;min-width:70px;">
-            <div style="font-size:24px;font-weight:900;color:${fleiVari};">${flei != null ? flei + '%' : '—'}</div>
-            <div style="font-size:10px;color:${fleiVari};">${fleiLabel}</div>
-          </div>
-          ${ketjut.length > 0 ? `
-          <div style="display:flex;gap:4px;flex-wrap:wrap;">
-            ${ketjut.map(k => {
-              const v = parseFloat(k.arvo);
-              const c = v >= 2.5 ? 'var(--vihrea)' : v >= 1.5 ? 'var(--keltainen)' : 'var(--punainen)';
-              return `<span style="font-size:10px;background:rgba(255,255,255,.05);
-                border-radius:5px;padding:2px 6px;color:${c};">${k.nimi} ${v.toFixed(1)}</span>`;
-            }).join('')}
-          </div>` : ''}
-          <div style="font-size:11px;color:${tallennettu ? 'var(--vihrea)' : 'var(--teksti2)'};">
-            ${tallennettu ? '✓ Tallennettu' : '⏳ Ei tallennettu'}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-
-    <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
-      <button class="btn btn-ghost" onclick="asetaVaihe(6)">← Takaisin tuloksiin</button>
-      <button class="btn btn-primary" onclick="asetaVaihe(8)">Kirjoita palaute →</button>
-    </div>
-  </div>`;
-
-  let el = document.getElementById('tarkasteluAlue');
-  if (!el) {
-    // Lisätään yhteenveto-elementin perään
-    const yht = document.getElementById('yhteenveto');
-    if (yht) {
-      el = document.createElement('div');
-      el.id = 'tarkasteluAlue';
-      yht.parentNode.insertBefore(el, yht.nextSibling);
-    }
-  }
-  if (el) el.outerHTML = html;
-}
-
-/* ════════════════════════════════════════════════════════════
-   PELAAJAN HAKU SEURASTA — lisää yksittäinen toisesta joukkueesta
-════════════════════════════════════════════════════════════ */
-function avaaLisaaPelaaja() {
-  const seuraId = window._tapahtumaKonteksti?.seuraId
-    || window._renderState?.seuraId
-    || document.getElementById('seuraSelect')?.value;
-  if (!seuraId) { naytaNotif('Generoi lomake ensin', 'err'); return; }
-
-  const modaali = document.createElement('div');
-  modaali.id = 'lisaaPelaajaModaali';
-  modaali.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;
-    display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);`;
-  modaali.innerHTML = `
-    <div style="background:var(--bg2);border:1px solid var(--reuna);border-radius:14px;
-      padding:22px 24px;max-width:440px;width:100%;max-height:85vh;overflow-y:auto;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div style="font-size:15px;font-weight:700;">👤 Lisää pelaaja</div>
-        <button onclick="document.getElementById('lisaaPelaajaModaali').remove()"
-          style="background:none;border:none;color:var(--teksti2);font-size:18px;cursor:pointer;">✕</button>
-      </div>
-      <div style="font-size:12px;color:var(--teksti2);margin-bottom:12px;line-height:1.5;">
-        Hae seuran pelaaja nimellä tai syntymävuodella. Pelaajalle asetetaan oikea ikäluokka automaattisesti.
-      </div>
-      <input type="text" id="pelaajaHakuInput" placeholder="Hae nimellä tai syntymävuodella..."
-        style="width:100%;background:var(--bg3);border:1px solid var(--reuna);border-radius:8px;
-          color:var(--teksti);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;
-          outline:none;margin-bottom:8px;"
-        oninput="hakePelaajat(this.value, '${seuraId}')">
-      <div id="pelaajaHakuTulokset" style="min-height:60px;"></div>
+  const yhteenveto = (window.pelaajat || []).map(p => {
+    const t = p.tulokset || {};
+    const fleiFn = window.laskeFlei || window.laskeHarjoitettavuus;
+    const flei = fleiFn ? fleiFn(t, ikl) : null;
+    const fleipct = flei?.pct ?? flei ?? null;
+    const phv = t.phv_tila || p.phv_tila || '—';
+    const nimi = (p.sukunimi || '') + ', ' + (p.etunimi || '');
+    const warni = phv === 'PH' ? '⚠️ Kasvupyrähdys' : '';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--reuna);flex-wrap:wrap;">
+      <div style="font-weight:600;min-width:160px;">${nimi}</div>
+      <div style="font-size:12px;color:var(--teksti2);">PHV: <strong>${phv}</strong></div>
+      ${fleipct !== null ? `<div style="font-size:13px;font-weight:700;color:${fleipct >= 75 ? 'var(--vihrea)' : fleipct >= 55 ? 'var(--amber)' : 'var(--punainen)'};">FLEI ${Math.round(fleipct)}%</div>` : ''}
+      ${warni ? `<div style="font-size:11px;color:var(--punainen);font-weight:600;">${warni}</div>` : ''}
     </div>`;
-  document.body.appendChild(modaali);
-  setTimeout(() => document.getElementById('pelaajaHakuInput')?.focus(), 100);
-}
+  }).join('');
 
-let _hakuTimeout = null;
-async function hakePelaajat(haku, seuraId) {
-  clearTimeout(_hakuTimeout);
-  const el = document.getElementById('pelaajaHakuTulokset');
-  if (!haku || haku.length < 2) {
-    el.innerHTML = '<div style="color:var(--teksti2);font-size:12px;padding:8px;">Kirjoita vähintään 2 merkkiä...</div>';
-    return;
-  }
-  el.innerHTML = '<div style="color:var(--teksti2);font-size:12px;padding:8px;">Haetaan...</div>';
-  _hakuTimeout = setTimeout(async () => {
-    try {
-      // Haetaan kaikista pelaajista seuras tasolta
-      const snap = await db.collection('seurat').doc(seuraId)
-        .collection('pelaajat').get();
-      const hakuL = haku.toLowerCase();
-      const loydetyt = snap.docs.filter(doc => {
-        const d = doc.data();
-        const nimi = `${d.etunimi||''} ${d.sukunimi||''} ${d.sukunimi||''} ${d.etunimi||''}`.toLowerCase();
-        const synt = (d.syntymapaiva || d.syntymäpäivä || '').toString();
-        return nimi.includes(hakuL) || synt.includes(haku);
-      }).map(doc => ({ id: doc.id, ...doc.data() }));
-
-      if (loydetyt.length === 0) {
-        el.innerHTML = '<div style="color:var(--teksti2);font-size:12px;padding:8px;">Ei tuloksia</div>';
-        return;
-      }
-
-      el.innerHTML = loydetyt.slice(0, 10).map(p => {
-        const jo = pelaajat.some(ep => ep.id === p.id);
-        const synt = (p.syntymapaiva || p.syntymäpäivä || '').toString().substring(0,10);
-        return `<div style="display:flex;align-items:center;justify-content:space-between;
-          padding:9px 10px;background:var(--bg3);border:1px solid var(--reuna);
-          border-radius:7px;margin-bottom:5px;">
-          <div>
-            <div style="font-size:13px;font-weight:600;">${p.sukunimi||''} ${p.etunimi||''}</div>
-            <div style="font-size:11px;color:var(--teksti2);">${synt || '—'}</div>
-          </div>
-          ${jo
-            ? '<span style="font-size:11px;color:var(--vihrea);">✓ Jo mukana</span>'
-            : `<button onclick="lisaaPelaajaLomakkeelle('${p.id}', '${seuraId}')"
-                style="background:var(--sininen);color:#fff;border:none;border-radius:6px;
-                  padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;">
-                Lisää
-              </button>`}
-        </div>`;
-      }).join('');
-    } catch(e) {
-      el.innerHTML = `<div style="color:var(--punainen);font-size:12px;padding:8px;">Virhe: ${e.message}</div>`;
-    }
-  }, 300);
-}
-
-async function lisaaPelaajaLomakkeelle(pelaajaId, seuraId) {
-  try {
-    const doc = await db.collection('seurat').doc(seuraId)
-      .collection('pelaajat').doc(pelaajaId).get();
-    if (!doc.exists) { naytaNotif('Pelaajaa ei löydy', 'err'); return; }
-    const p = { id: doc.id, ...doc.data(), tulokset: {} };
-    // Laske ikäluokka syntymävuodesta
-    const synt = p.syntymapaiva || p.syntymäpäivä || '';
-    const syntYear = synt ? parseInt(synt.toString().substring(0,4)) : null;
-    if (syntYear) {
-      const testYear = new Date().getFullYear();
-      const ika = testYear - syntYear;
-      p._ikäluokka = ika <= 12 ? 'U12' : ika <= 15 ? 'U15' : 'U19';
-    }
-    pelaajat.push(p);
-    // Re-renderöi lomake
-    const rs = window._renderState || {};
-    renderLomake(rs.seuraId, rs.joukkueId, rs.ikäluokka, rs.pvm);
-    paivitaYhteenveto();
-    naytaNotif(`${p.sukunimi} ${p.etunimi} lisätty lomakkeelle`, 'ok');
-    document.getElementById('lisaaPelaajaModaali')?.remove();
-  } catch(e) {
-    naytaNotif('Virhe: ' + e.message, 'err');
-  }
-}
-
-
-/* ════════════════════════════════════════════════════════════
-   VAIHE 8 — PALAUTE
-   Valmentaja kirjaa havainnon. Tallentuu Firestoreen
-   tapahtuman yhteyteen. Voidaan lähettää vanhemmille.
-════════════════════════════════════════════════════════════ */
-function renderPalaute() {
-  const tk = window._tapahtumaKonteksti || {};
-  const rs = window._renderState || {};
-
-  let html = `
-  <div style="background:var(--bg2);border:1px solid var(--reuna);border-radius:12px;
-    padding:20px;margin-top:16px;" id="palauteAlue">
-
-    <div style="font-size:16px;font-weight:700;margin-bottom:4px;">💬 Valmentajan palaute</div>
-    <div style="font-size:13px;color:var(--teksti2);margin-bottom:16px;line-height:1.5;">
-      Kirjaa lyhyt yhteenveto testipäivästä. Tallentuu tapahtumaan Firestoreen.
-      Kaksi lausetta riittää täysin — tämä on sinulle itsellesi ja VP:lle.
-    </div>
-
-    <!-- Kuormittavuus-slider -->
-    <div style="background:var(--bg3);border-radius:8px;padding:14px;margin-bottom:12px;">
-      <div style="font-size:12px;color:var(--teksti2);margin-bottom:8px;font-weight:600;">
-        Kuinka raskas testipäivä oli pelaajille? (1 = helppo — 10 = erittäin raskas)
+  el.innerHTML = `
+    <div style="background:var(--pinta);border:1px solid var(--reuna);border-radius:10px;overflow:hidden;margin-bottom:16px;">
+      <div style="background:var(--sininen);color:#fff;padding:12px 16px;font-weight:700;font-size:15px;">
+        📊 Testauksen yhteenveto — ${ctx.joukkueNimi || ctx.joukkueId || ''} · ${ctx.pvm || ''}
       </div>
-      <input type="range" id="palauteKuorma" min="1" max="10" value="5"
-        style="width:100%;accent-color:var(--sininen);"
-        oninput="document.getElementById('kuormaArvo').textContent=this.value">
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--teksti2);margin-top:4px;">
-        <span>Helppo</span>
-        <span id="kuormaArvo" style="font-weight:700;color:var(--teksti);">5</span>
-        <span>Erittäin raskas</span>
+      <div style="padding:4px 0;">
+        <div style="display:flex;gap:12px;padding:10px 14px;border-bottom:1px solid var(--reuna);font-size:11px;font-weight:700;color:var(--teksti2);text-transform:uppercase;letter-spacing:.05em;">
+          <div style="min-width:160px;">Pelaaja</div>
+          <div>PHV-tila</div>
+          <div>FLEI</div>
+          <div>Huomio</div>
+        </div>
+        ${yhteenveto || '<div style="padding:16px;color:var(--teksti2);">Ei tallennettuja tuloksia</div>'}
       </div>
     </div>
-
-    <!-- Havainto -->
-    <div style="margin-bottom:12px;">
-      <div style="font-size:12px;color:var(--teksti2);margin-bottom:6px;font-weight:600;">
-        Yksi havainto päivästä — mikä yllätti, mikä ilostutti, mikä huolestuttaa?
-      </div>
-      <textarea id="palauteHavainto" placeholder="Esim: Aleksi kehittyi selvästi edellisestä kerrasta. Eelin kasvupyrähdys näkyy selvästi koordinaatiossa."
-        style="width:100%;background:var(--bg3);border:1px solid var(--reuna);border-radius:8px;
-          color:var(--teksti);padding:12px;font-family:'DM Sans',sans-serif;font-size:13px;
-          resize:vertical;min-height:80px;outline:none;line-height:1.6;"
-        onfocus="this.style.borderColor='var(--sininen)'"
-        onblur="this.style.borderColor='var(--reuna)'"></textarea>
-    </div>
-
-    <!-- Seuraava testipäivä -->
-    <div style="background:var(--bg3);border-radius:8px;padding:14px;margin-bottom:16px;">
-      <div style="font-size:12px;color:var(--teksti2);margin-bottom:6px;font-weight:600;">
-        Milloin seuraava kartoitus? (valinnainen)
-      </div>
-      <input type="date" id="palauteSeuraavaPvm"
-        style="background:transparent;border:1px solid var(--reuna);border-radius:6px;
-          color:var(--teksti);padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;">
-    </div>
-
-    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
-      <button class="btn btn-ghost" onclick="asetaVaihe(7)">← Takaisin tuloksiin</button>
-      <button class="btn btn-primary" id="tallennaPalaute"
-        onclick="tallennaPalaute()" style="min-width:160px;">
-        ✓ Tallenna palaute
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button onclick="asetaVaihe(8)" style="background:var(--sininen);color:#fff;border:none;border-radius:8px;padding:11px 24px;font-size:14px;font-weight:700;cursor:pointer;">
+        Jatka palautteeseen →
       </button>
-    </div>
-
-    <div id="palauteTulos" style="margin-top:10px;font-size:13px;"></div>
-  </div>`;
-
-  let el = document.getElementById('palauteAlue');
-  const tarkasteluEl = document.getElementById('tarkasteluAlue');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'palauteAlue';
-    if (tarkasteluEl) {
-      tarkasteluEl.parentNode.insertBefore(el, tarkasteluEl.nextSibling);
-    } else {
-      const yht = document.getElementById('yhteenveto');
-      if (yht) yht.parentNode.insertBefore(el, yht.nextSibling);
-    }
-  }
-  el.outerHTML = html;
+      <button onclick="asetaVaihe(5)" style="background:var(--pinta);color:var(--teksti);border:1px solid var(--reuna);border-radius:8px;padding:11px 20px;font-size:13px;cursor:pointer;">
+        ← Takaisin lomakkeelle
+      </button>
+    </div>`;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-async function tallennaPalaute() {
-  const tk = window._tapahtumaKonteksti || {};
-  const kuorma = document.getElementById('palauteKuorma')?.value || '5';
-  const havainto = document.getElementById('palauteHavainto')?.value?.trim() || '';
-  const seuraava = document.getElementById('palauteSeuraavaPvm')?.value || '';
-  const btn = document.getElementById('tallennaPalaute');
-  const tulos = document.getElementById('palauteTulos');
+// ── VAIHE 8: Palaute ─────────────────────────────────────
+function renderVaihe8() {
+  const el = document.getElementById('vaihe8-alue');
+  if (!el) return;
+  const ctx = window._tapahtumaKonteksti || {};
+  const tapahtumaId = ctx.tapahtumaId;
 
-  if (!havainto) {
-    if (tulos) { tulos.style.color = 'var(--punainen)'; tulos.textContent = 'Kirjoita lyhyt havainto ennen tallentamista.'; }
-    return;
-  }
+  el.innerHTML = `
+    <div style="background:var(--pinta);border:1px solid var(--reuna);border-radius:10px;padding:20px;margin-bottom:16px;">
+      <div style="font-size:16px;font-weight:700;margin-bottom:16px;">✅ Testipäivä valmis</div>
 
-  if (btn) { btn.disabled = true; btn.textContent = 'Tallennetaan...'; }
+      <label style="font-size:12px;font-weight:700;color:var(--teksti2);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;">
+        Harjoituksen kuormittavuus (1–10)
+      </label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;" id="kuormSliderit">
+        ${[1,2,3,4,5,6,7,8,9,10].map(n => `
+          <button onclick="valitseKuorma(${n},this)"
+            style="width:38px;height:38px;border-radius:8px;border:1px solid var(--reuna);
+              background:var(--tausta2);color:var(--teksti);font-weight:700;cursor:pointer;
+              transition:all .15s;" data-k="${n}">${n}</button>`).join('')}
+      </div>
+
+      <label style="font-size:12px;font-weight:700;color:var(--teksti2);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;">
+        Testivalmentajan havainto (vapaa teksti)
+      </label>
+      <textarea id="havaintoTeksti" placeholder="Esim. Kalle Keskikenttä kehittyy nopeasti — skannaus parantunut. PHV-vaihe vaatii kuorman seurantaa..."
+        style="width:100%;min-height:80px;background:var(--tausta2);border:1px solid var(--reuna);
+          border-radius:8px;padding:10px 12px;color:var(--teksti);font-family:inherit;font-size:13px;
+          resize:vertical;outline:none;margin-bottom:16px;"></textarea>
+
+      <label style="font-size:12px;font-weight:700;color:var(--teksti2);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;">
+        Seuraava testipäivä (valinnainen)
+      </label>
+      <input type="date" id="seuraavaPvm"
+        style="padding:9px 12px;border-radius:8px;border:1px solid var(--reuna);
+          background:var(--tausta2);color:var(--teksti);font-size:13px;margin-bottom:20px;display:block;">
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button onclick="tallennaPalauteJaMerkitseValmis()"
+          id="tallennaValmisNappi"
+          style="background:var(--vihrea);color:#000;border:none;border-radius:8px;
+            padding:12px 28px;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:.3px;">
+          💾 Tallenna ja merkitse valmis
+        </button>
+        <button onclick="asetaVaihe(7)"
+          style="background:var(--pinta);color:var(--teksti);border:1px solid var(--reuna);
+            border-radius:8px;padding:12px 20px;font-size:13px;cursor:pointer;">
+          ← Tarkastelu
+        </button>
+      </div>
+      <div id="palauteStatus" style="margin-top:10px;font-size:13px;color:var(--teksti2);"></div>
+    </div>`;
+
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+window._valittuKuorma = 5;
+function valitseKuorma(n, btn) {
+  window._valittuKuorma = n;
+  document.querySelectorAll('#kuormSliderit button').forEach(b => {
+    const k = parseInt(b.dataset.k);
+    b.style.background = k <= n ? 'var(--sininen)' : 'var(--tausta2)';
+    b.style.color = k <= n ? '#fff' : 'var(--teksti)';
+    b.style.borderColor = k <= n ? 'var(--sininen)' : 'var(--reuna)';
+  });
+}
+
+async function tallennaPalauteJaMerkitseValmis() {
+  const ctx = window._tapahtumaKonteksti || {};
+  const tapahtumaId = ctx.tapahtumaId;
+  const havainto = document.getElementById('havaintoTeksti')?.value?.trim() || '';
+  const kuorma = window._valittuKuorma || 5;
+  const seuraava = document.getElementById('seuraavaPvm')?.value || '';
+  const statusEl = document.getElementById('palauteStatus');
+
+  const nappi = document.getElementById('tallennaValmisNappi');
+  if (nappi) { nappi.disabled = true; nappi.textContent = 'Tallennetaan...'; }
 
   try {
-    const data = {
-      kuormittavuus: parseInt(kuorma),
-      havainto,
-      seuraavaPvm: seuraava || null,
-      tallennettu: firebase.firestore.FieldValue.serverTimestamp(),
-      tallensiUid: nykyinenKayttaja?.uid || 'anon',
-    };
-
-    if (tk.tapahtumaId && tk.seuraId) {
-      // Tallennetaan tapahtuman alle
-      await db.collection('seurat').doc(tk.seuraId)
-        .collection('tapahtumat').doc(tk.tapahtumaId)
-        .collection('palautteet').add(data);
+    if (tapahtumaId) {
+      await db.collection('tapahtumat').doc(tapahtumaId)
+        .collection('palautteet').add({
+          kuormittavuus: kuorma,
+          havainto,
+          seuraavaPvm: seuraava || null,
+          tallennettu: firebase.firestore.FieldValue.serverTimestamp(),
+          tallentajaUid: firebase.auth().currentUser?.uid || null,
+        });
       // Merkitään tapahtuma valmiiksi
-      await db.collection('seurat').doc(tk.seuraId)
-        .collection('tapahtumat').doc(tk.tapahtumaId)
-        .update({ tila: 'valmis', valmistuiPvm: firebase.firestore.FieldValue.serverTimestamp() });
+      await db.collection('tapahtumat').doc(tapahtumaId).update({ tila: 'valmis' });
     }
-
-    if (tulos) {
-      tulos.style.color = 'var(--vihrea)';
-      tulos.textContent = '✓ Palaute tallennettu! Tapahtuma merkitty valmiiksi.';
+    if (statusEl) {
+      statusEl.textContent = '✅ Tallennettu! Testipäivä merkitty valmiiksi.';
+      statusEl.style.color = 'var(--vihrea)';
     }
-    if (btn) { btn.textContent = '✓ Tallennettu'; btn.style.background = 'var(--vihrea)'; }
-    asetaVaihe(8); // Pysyy vaiheessa 8
-
+    if (nappi) { nappi.textContent = '✅ Tallennettu!'; nappi.style.background = 'var(--vihrea)'; }
+    naytaNotif('Testipäivä valmis ✓', 'ok');
   } catch(e) {
-    if (tulos) { tulos.style.color = 'var(--punainen)'; tulos.textContent = 'Tallennus epäonnistui: ' + e.message; }
-    if (btn) { btn.disabled = false; btn.textContent = '✓ Tallenna palaute'; }
+    if (statusEl) { statusEl.textContent = 'Virhe: ' + e.message; statusEl.style.color = 'var(--punainen)'; }
+    if (nappi) { nappi.disabled = false; nappi.textContent = '💾 Tallenna ja merkitse valmis'; }
+    naytaNotif('Tallennus epäonnistui: ' + e.message, 'err');
   }
 }
 
@@ -2576,9 +2291,9 @@ async function tallennaKaikki() {
     status.className = virhe > 0 ? 'tallenna-status virhe' : 'tallenna-status tallennettu';
     status.textContent = virhe > 0 ? `${ok} tallennettu, ${virhe} virheitä` : `✓ Kaikki ${ok} tallennettu`;
   }
-  // ── Siirry tarkasteluun automaattisesti jos kaikki onnistui ──
+  // Siirry tarkasteluun jos kaikki onnistui
   if (virhe === 0 && ok > 0) {
-    setTimeout(() => asetaVaihe(7), 400);
+    setTimeout(() => asetaVaihe(7), 600);
   }
 }
 
@@ -3185,8 +2900,8 @@ function renderTestipiste(ikäluokka) {
              Seuraava piste →
            </button>`
         : `<button class="btn" style="background:var(--vihrea);color:#fff;"
-             onclick="tpTallennaKaikkiPiste()">
-             ✓ Tallenna ja tarkastele tuloksia
+             onclick="suljeTestipistemoodi()">
+             ✓ Kaikki pisteet valmiit
            </button>`}
     </div>
   </div>`;
@@ -3239,27 +2954,12 @@ async function tpTallennaRivi(idx) {
 
 async function tpTallennaKaikkiPiste() {
   const dirty = [...dirtyRows];
-  if (dirty.length === 0) {
-    naytaNotif('Ei muutoksia tallennettavana', 'info');
-    // Silti siirrytään tarkasteluun jos kaikki on jo tallennettu
-    suljeTestipistemoodi();
-    asetaVaihe(7);
-    return;
-  }
-  let ok = 0, virhe = 0;
   for (const idx of dirty) {
-    try { await tpTallennaRivi(idx); ok++; }
-    catch(e) { virhe++; console.error('[tpTallennaKaikkiPiste]', e.message); }
+    try { await tpTallennaRivi(idx); } catch(e) { console.warn('tp tallennusvirhe:', e); }
   }
-  const viesti = virhe > 0
-    ? `${ok} tallennettu, ${virhe} epäonnistui`
-    : `✓ Kaikki ${ok} pelaajaa tallennettu`;
-  naytaNotif(viesti, virhe > 0 ? 'err' : 'ok');
-
-  // ── Kriittinen: sulje testipistemoodi ja siirry tarkasteluun ──
+  naytaNotif('Kaikki tallennettu ✓', 'ok');
   suljeTestipistemoodi();
-  // Pieni viive jotta sulkeminen ehtii renderöityä
-  setTimeout(() => asetaVaihe(7), 150);
+  setTimeout(() => asetaVaihe(7), 400);
 }
 
 
