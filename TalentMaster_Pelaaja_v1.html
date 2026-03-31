@@ -288,6 +288,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         <span>🔥</span>
         <span class="header-streak-n" id="headerStreak">0</span>
       </div>
+      <button class="header-btn" onclick="window.open('TalentMaster_VP_v18.html','_blank')" title="VP Dashboard" style="font-size:14px;">📊</button>
+      <button class="header-btn" onclick="window.open('TalentMaster_Master_v9.html','_blank')" title="Valmentaja" style="font-size:14px;">👨‍💼</button>
       <button class="header-btn" onclick="kirjauduUlos()">↩</button>
     </div>
   </header>
@@ -382,7 +384,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     <div id="havaintoAlue"></div>
 
   </div>
+  
+<div style="margin-top:20px;">
+  <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">
+    📅 Tulevat harjoitukset
   </div>
+  <div id="tulevatTapahtumat">
+    <div style="color:var(--ink3);font-size:13px;text-align:center;padding:16px 0;">Ladataan...</div>
+  </div>
+</div></div>
 
   <!-- ══ KORTTI ══ -->
   <div class="view" id="view-kortti">
@@ -774,6 +784,8 @@ let _pelaaja = null;
 let _isDemoUser = false;
 let _demoKey = null;
 let _tehdytTehtavat = new Set();
+let _tapahtumat = [];          // Valmentajan Firestoresta haetut tapahtumat
+let _tapahtumatLadattu = false;
 let _kysely = null;
 let _kyselyVastattu = false;
 let _kirjautuminenKesken = false;
@@ -882,7 +894,8 @@ async function kirjauduUlos() {
 /* ══ UI-ALUSTUS ══ */
 async function _alustaUI() {
   const p = _pelaaja;
-  nayta('sDash');
+  nayta('sDash')
+  lataaValmentajanTapahtumat();;
 
   // Header
   document.getElementById('headerNimi').textContent = p.etunimi || p.nimi || '—';
@@ -913,6 +926,171 @@ async function _alustaUI() {
   // Näytä ensimmäinen tabi
   naytaTabi('tanaan', document.querySelector('.tab-btn.active'));
 }
+
+// ── VALMENTAJAN TAPAHTUMAT FIRESTORESTA ────────────────────────────
+// Hakee tulevat harjoitukset, ottelut ja kotitehtävät pelaajan joukkueelle
+async function lataaValmentajanTapahtumat() {
+  if (!_pelaaja?.seuraId || !_pelaaja?.joukkueId) return;
+  try {
+    const tanaan = new Date();
+    tanaan.setHours(0,0,0,0);
+    const tanaanStr = tanaan.toISOString().split('T')[0];
+
+    const snap = await _db.collection('seurat').doc(_pelaaja.seuraId)
+      .collection('tapahtumat')
+      .where('joukkueId', '==', _pelaaja.joukkueId)
+      .where('pvm', '>=', tanaanStr)
+      .orderBy('pvm', 'asc')
+      .limit(20)
+      .get();
+
+    _tapahtumat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _tapahtumatLadattu = true;
+
+    // Päivitä viikkostrip ja tehtävät uusilla tiedoilla
+    _renderWeekStrip();
+    renderTehtavat();
+    _renderTulevatTapahtumat();
+  } catch(e) {
+    console.warn('[Pelaaja] Tapahtumat:', e.message);
+  }
+}
+
+// ── TULEVAT TAPAHTUMAT -NÄKYMÄ ─────────────────────────────────────
+
+// ── SUORITUKSEN TALLENNUS FIRESTOREEN ─────────────────────────────
+async function _tallennaSuoritus(tehtavaId, xp, tapahtumaId) {
+  if (!_pelaaja?.seuraId || !_pelaaja?.joukkueId) return;
+  try {
+    const tanaan = new Date().toISOString().split('T')[0];
+    const docId = (_pelaaja.id || _pelaaja.uid || 'anon') + '_' + tehtavaId + '_' + tanaan;
+
+    await _db.collection('seurat').doc(_pelaaja.seuraId)
+      .collection('joukkueet').doc(_pelaaja.joukkueId)
+      .collection('pelaajat').doc(_pelaaja.id || 'anon')
+      .collection('suoritukset').doc(docId).set({
+        tehtavaId,
+        tapahtumaId:  tapahtumaId || null,
+        pelaajaId:    _pelaaja.id || null,
+        pelaajaNimi:  (_pelaaja.etunimi || '') + ' ' + (_pelaaja.sukunimi || ''),
+        joukkueId:    _pelaaja.joukkueId,
+        seuraId:      _pelaaja.seuraId,
+        xp,
+        pvm:          tanaan,
+        tallennettu:  firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+    console.log('[Pelaaja] Suoritus tallennettu:', tehtavaId);
+  } catch(e) {
+    console.warn('[Pelaaja] Suorituksen tallennus:', e.message);
+  }
+}
+
+// ── KOTITEHTÄVÄN KUITTAUS (Firestoresta tulleet valmentajan tehtävät) ──
+async function kuitataKotitehtava(tapahtumaId, tehtavaIdx, tehtavaTeksti) {
+  const kuittausId = 'kuittaus_' + tapahtumaId + '_' + tehtavaIdx;
+  if (_tehdytTehtavat.has(kuittausId)) return;
+  _tehdytTehtavat.add(kuittausId);
+
+  // UI-päivitys heti
+  const btn = document.getElementById('kt-' + tapahtumaId + '-' + tehtavaIdx);
+  if (btn) {
+    btn.innerHTML = '✓ Tehty!';
+    btn.style.background = '#2ED573';
+    btn.style.color = '#000';
+    btn.disabled = true;
+  }
+
+  // XP + streak
+  _pelaaja.xp = (_pelaaja.xp || 0) + 15;
+  _renderXP();
+  naytaToast('✓ Kotitehtävä tehty! +15 XP', 'ok');
+
+  // Tallennus Firestoreen
+  await _tallennaSuoritus(kuittausId, 15, tapahtumaId);
+
+  // Päivitä myös tapahtuman suorituslaskuri
+  if (_pelaaja?.seuraId && tapahtumaId) {
+    try {
+      await _db.collection('seurat').doc(_pelaaja.seuraId)
+        .collection('tapahtumat').doc(tapahtumaId)
+        .collection('palautteet').doc('kotitehtavat_' + (_pelaaja.id || 'anon')).set({
+          pelaajaId:   _pelaaja.id || null,
+          pelaajaNimi: (_pelaaja.etunimi || '') + ' ' + (_pelaaja.sukunimi || ''),
+          tehtavaIdx,
+          tehtavaTeksti,
+          kuitattu:    true,
+          pvm:         new Date().toISOString().split('T')[0],
+          tallennettu: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+    } catch(e) { console.warn('[Pelaaja] Kotitehtävä kuittaus:', e.message); }
+  }
+}
+function _renderTulevatTapahtumat() {
+  const el = document.getElementById('tulevatTapahtumat');
+  if (!el) return;
+
+  if (_tapahtumat.length === 0) {
+    el.innerHTML = '<div style="color:var(--ink3);font-size:13px;text-align:center;padding:16px 0;">Ei tulevia tapahtumia.</div>';
+    return;
+  }
+
+  const TYYPPI_IKONI = { harjoitus:'🏃', ottelu:'⚽', testi:'📊', fyysinen:'💪',
+                         tekninen:'🎯', taktinen:'🧠', tauko:'😴', kotitehtava:'📝' };
+  const TYYPPI_VARI = { harjoitus:'#3EC9A7', ottelu:'#E0A040', testi:'#4A7ED9',
+                        fyysinen:'#E0A040', tekninen:'#9B7FD4', taktinen:'#5EC97A',
+                        tauko:'#6B7A8D', kotitehtava:'#4A7ED9' };
+
+  const rivit = _tapahtumat.slice(0, 5).map(t => {
+    const pvm = t.pvm || t.pvmStr || '';
+    const pvmObj = pvm ? new Date(pvm + 'T00:00:00') : null;
+    const pvmTxt = pvmObj ? pvmObj.toLocaleDateString('fi-FI', {weekday:'short', day:'numeric', month:'short'}) : '';
+    const vari = TYYPPI_VARI[t.tyyppi] || '#4A7ED9';
+    const ikoni = TYYPPI_IKONI[t.tyyppi] || '📅';
+    const kotitehtavat = Array.isArray(t.kotitehtavat) ? t.kotitehtavat : [];
+
+    let ktHtml = '';
+    if (kotitehtavat.length > 0) {
+      ktHtml = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.07);">';
+      kotitehtavat.forEach(function(kt, idx) {
+        const teksti = typeof kt === 'string' ? kt : (kt.teksti || 'Kotitehtävä');
+        const kuittausId = 'kuittaus_' + t.id + '_' + idx;
+        const onKuitattu = _tehdytTehtavat.has(kuittausId);
+        const btnId = 'kt-' + t.id + '-' + idx;
+        ktHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">';
+        ktHtml += '<button id="' + btnId + '"';
+        ktHtml += ' onclick="kuitataKotitehtava(\'' + t.id + '\',' + idx + ',\'' + teksti.replace(/'/g,"\'") + '\')"';
+        if (onKuitattu) {
+          ktHtml += ' style="flex-shrink:0;padding:3px 10px;border-radius:20px;border:none;font-size:11px;font-weight:700;background:#2ED573;color:#000;cursor:default;" disabled>';
+          ktHtml += '✓ Tehty!</button>';
+        } else {
+          ktHtml += ' style="flex-shrink:0;padding:3px 10px;border-radius:20px;border:none;font-size:11px;font-weight:700;background:' + vari + ';color:#fff;cursor:pointer;">';
+          ktHtml += 'Kuittaa</button>';
+        }
+        ktHtml += '<span style="font-size:12px;color:var(--ink2);">' + teksti + '</span>';
+        ktHtml += '</div>';
+      });
+      ktHtml += '</div>';
+    }
+
+    return '<div style="padding:12px 0;border-bottom:1px solid var(--border);">' +
+      '<div style="display:flex;gap:12px;">' +
+      '<div style="width:36px;height:36px;border-radius:10px;background:' + vari + '22;' +
+        'display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;">' + ikoni + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-weight:700;font-size:13px;">' + (t.nimi || t.tyyppi || 'Harjoitus') + '</div>' +
+        '<div style="font-size:11px;color:var(--ink2);margin-top:2px;">' + pvmTxt + (t.aika ? ' · ' + t.aika : '') + '</div>' +
+      '</div>' +
+      '<div style="width:4px;border-radius:4px;background:' + vari + ';flex-shrink:0;align-self:stretch;"></div>' +
+      '</div>' +
+      ktHtml +
+      '</div>';
+  });
+
+  el.innerHTML = rivit.join('');
+}
+
+
 
 function _renderXP() {
   const p = _pelaaja;
@@ -959,9 +1137,11 @@ function naytaTabi(nimi, btn) {
 /* ══ TÄNÄÄN ══ */
 function renderTanaan() {
   renderStreak();
+  _renderWeekStrip();
   renderTehtavat();
   renderKysely();
   renderHavainto();
+  _renderTulevatTapahtumat();
 }
 
 function renderStreak() {
@@ -1048,9 +1228,12 @@ function renderTehtavat() {
   }).join('');
 }
 
-function merkitseTehdyksi(tehtavaId, xp) {
+function merkitseTehdyksi(tehtavaId, xp, tapahtumaId) {
   if (_tehdytTehtavat.has(tehtavaId)) return;
   _tehdytTehtavat.add(tehtavaId);
+
+  // ── Tallennetaan Firestoreen ──
+  _tallennaSuoritus(tehtavaId, xp, tapahtumaId);
 
   // UI päivitys
   const btn = document.getElementById('doneBtn-' + tehtavaId);
