@@ -806,6 +806,8 @@ tbody td:first-child {
    RESPONSIIVISUUS
    ───────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .kirjauksetGrid { grid-template-columns: 1fr !important; }
+
   .sivupalkki { display: none; }
   .paaSisalto { margin-left: 0; padding: 16px; }
   .tilastoArvo { font-size: 28px; }
@@ -1468,7 +1470,14 @@ function renderoi(nakyma) {
 
   switch (nakyma) {
     case 'pelaajat':    alue.innerHTML = renderPelaajat();   break;
-    case 'kirjaukset':  alue.innerHTML = renderKirjaukset(); break;
+    case 'kirjaukset':
+      alue.innerHTML = renderKirjaukset();
+      requestAnimationFrame(() => {
+        _renderKalenteri();
+        _paivitaAlkurutiiniEhdotus();
+        lataaAiemmatKirjaukset();
+      });
+      break;
     case 'testit':      renderTestit(alue);                  break;
     case 'kartoitukset': renderKartoitukset(alue);             break;
     case 'kalenteri':   renderKalenteri(alue);                 break;
@@ -1599,86 +1608,486 @@ function renderPelaajat() {
 // kirjauksiin (PERMISSION_MATRIX: R (oma joukkue))
 // ─────────────────────────────────────────
 function renderKirjaukset() {
-  // SPL 7 harjoitettavuuskriteeriä (lähde: VEAT-dokumentti)
-  const kriteerit = [
-    'Tekninen osaaminen',
-    'Taktinen ymmärrys',
-    'Fyysinen suorituskyky',
-    'Psyykkinen vahvuus',
-    'Sosiaaliset taidot',
-    'Luovuus ja pelinlukeminen',
-    'Harjoitettavuus',
-  ];
+  // Nollataan tahtiarviot (säilytetään yhteensopivuus)
+  window.tahtiarviot = window.tahtiarviot || {};
 
-  const kriteerHTML = kriteerit.map((k, i) => `
-    <div class="kriteerRivi">
-      <div class="kriteerLabel">${k}</div>
-      <div class="tahtiRivi" data-kriteeri="${i}">
-        ${[1,2,3,4,5].map(n =>
-          `<span class="tahti" data-arvo="${n}" onclick="asetaTahtiArvo(${i}, ${n})">★</span>`
-        ).join('')}
-      </div>
-    </div>
-  `).join('');
+  // Määritetään alkurutiini FLEI-datan perusteella
+  window._kirjausFlei = window._kirjausFlei || null;
 
+  // Kuukausinäkymä
+  const nyt = new Date();
+  if (!window._kalVuosi) window._kalVuosi = nyt.getFullYear();
+  if (!window._kalKkIdx) window._kalKkIdx = nyt.getMonth();
+
+  return _renderKirjauksetHTML();
+}
+
+function _renderKirjauksetHTML() {
   return `
     <div class="sivuOtsikko">
-      <div class="sivuOtsikkoEyebrow">Harjoituskirjaukset</div>
-      <div class="sivuOtsikkoH1">${tila.joukkueNimi}</div>
+      <div class="sivuOtsikkoEyebrow">Harjoituskalenteri</div>
+      <div class="sivuOtsikkoH1">${tila.joukkueNimi || tila.joukkueId || 'Joukkue'}</div>
     </div>
 
-    <div class="kirjausKortti">
-      <div class="kirjausKorttiOtsikko">Uusi harjoituskirjaus — ${paivamaaraFormaatti(new Date())}</div>
+    <!-- ── KALENTERI + UUSI HARJOITUS ── -->
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;">
 
-      <div class="kenttaRyhma" style="margin-bottom:16px;">
-        <label class="kenttaLabel">Harjoituspäivämäärä</label>
-        <input class="kenttaInput" type="date" id="kirjausPvm" value="${new Date().toISOString().split('T')[0]}">
+      <!-- Kalenteri vasen -->
+      <div>
+        <div style="background:var(--pinta);border:1px solid var(--reuna);border-radius:12px;overflow:hidden;">
+          <!-- Kuukausinavigointi -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--reuna);">
+            <button onclick="_kalEdKk()" style="background:none;border:none;color:var(--teksti2);cursor:pointer;font-size:18px;padding:4px 8px;border-radius:6px;transition:background .15s;" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='none'">‹</button>
+            <div style="font-weight:700;font-size:15px;" id="kalOtsikko"></div>
+            <button onclick="_kalSeurKk()" style="background:none;border:none;color:var(--teksti2);cursor:pointer;font-size:18px;padding:4px 8px;border-radius:6px;transition:background .15s;" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='none'">›</button>
+          </div>
+          <!-- Viikonpäivät -->
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;padding:8px 12px 4px;">
+            ${['Ma','Ti','Ke','To','Pe','La','Su'].map(p =>
+              `<div style="font-size:10px;font-weight:700;color:var(--teksti2);letter-spacing:.5px;padding:4px 0;">${p}</div>`
+            ).join('')}
+          </div>
+          <!-- Päivät -->
+          <div id="kalPaivat" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:4px 12px 12px;"></div>
+        </div>
+
+        <!-- Kirjausloki -->
+        <div style="margin-top:16px;background:var(--pinta);border:1px solid var(--reuna);border-radius:12px;overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--reuna);">
+            <div style="font-weight:700;font-size:14px;">📋 Viimeisimmät kirjaukset</div>
+            <span style="font-size:11px;color:var(--teksti2);" id="kirjaustenMaara"></span>
+          </div>
+          <div id="kirjausLista" style="max-height:280px;overflow-y:auto;"></div>
+        </div>
       </div>
 
-      <div class="kenttaRyhma" style="margin-bottom:20px;">
-        <label class="kenttaLabel">Harjoituksen tyyppi</label>
-        <select class="kenttaInput" id="kirjausTyyppi" style="cursor:pointer;">
-          <option value="harjoitus">Harjoitus</option>
-          <option value="ottelu">Ottelu</option>
-          <option value="testi">Testitilaisuus</option>
-          <option value="leiri">Leiri</option>
-        </select>
-      </div>
+      <!-- Oikea: uusi harjoitus -->
+      <div style="position:sticky;top:80px;">
+        <div style="background:var(--pinta);border:1px solid var(--reuna);border-radius:12px;overflow:hidden;">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--reuna);background:linear-gradient(135deg,var(--sininen-bg),transparent);">
+            <div style="font-weight:700;font-size:14px;">➕ Uusi harjoitus</div>
+            <div style="font-size:11px;color:var(--teksti2);margin-top:2px;" id="tallennusKohde">Tallennetaan: ${tila.joukkueId || '—'}</div>
+          </div>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
 
-      <div class="kirjausKorttiOtsikko" style="margin-top:4px;">SPL-kriteerit — arvio tämän harjoituksen perusteella</div>
-      <div class="kriteerGrid" id="kriteerGrid">${kriteerHTML}</div>
+            <!-- Päivämäärä -->
+            <div>
+              <label style="font-size:10px;font-weight:700;color:var(--teksti2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:5px;">Harjoituspäivämäärä</label>
+              <input id="kirjausPvm" type="date" value="${new Date().toISOString().split('T')[0]}"
+                style="width:100%;background:var(--bg3);border:1px solid var(--reuna);border-radius:8px;padding:9px 12px;color:var(--teksti);font-family:inherit;font-size:13px;outline:none;"
+                onchange="_paivitaAlkurutiiniEhdotus()">
+            </div>
 
-      <div class="kenttaRyhma">
-        <label class="kenttaLabel">Muistiinpanot</label>
-        <textarea class="kirjausTextarea" id="kirjausMuistiinpanot"
-          placeholder="Avaa harjoituksen kulku, erityishuomiot, kehitystarpeet..."></textarea>
-      </div>
+            <!-- Tyyppi -->
+            <div>
+              <label style="font-size:10px;font-weight:700;color:var(--teksti2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:5px;">Harjoituksen tyyppi</label>
+              <select id="kirjausTyyppi"
+                style="width:100%;background:var(--bg3);border:1px solid var(--reuna);border-radius:8px;padding:9px 12px;color:var(--teksti);font-family:inherit;font-size:13px;outline:none;cursor:pointer;"
+                onchange="_paivitaAlkurutiiniEhdotus()">
+                <option value="harjoitus">🏃 Harjoitus</option>
+                <option value="ottelu">⚽ Ottelu</option>
+                <option value="tauko">😴 Tauko / lepopäivä</option>
+                <option value="fyysinen">💪 Fyysinen harjoitus</option>
+                <option value="tekninen">🎯 Tekninen harjoitus</option>
+                <option value="taktinen">🧠 Taktinen harjoitus</option>
+              </select>
+            </div>
 
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:4px;">
-        <button class="tallennaKirjausNappi" onclick="tallennaKirjaus()">
-          Tallenna kirjaus
-        </button>
-        <span style="font-size:12px;color:var(--ink3);">
-          Tallennetaan: ${tila.seuraNimi} / ${tila.joukkueNimi}
-        </span>
-      </div>
+            <!-- Kuormittavuus RPE -->
+            <div>
+              <label style="font-size:10px;font-weight:700;color:var(--teksti2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">Kuormittavuus (RPE 1–10)</label>
+              <div style="display:flex;gap:4px;" id="rpeNapit">
+                ${[1,2,3,4,5,6,7,8,9,10].map(n => `
+                  <button onclick="_asetaRpe(${n})" data-rpe="${n}"
+                    style="flex:1;padding:7px 0;border-radius:6px;border:1px solid var(--reuna);
+                      background:var(--bg3);color:var(--teksti2);font-size:12px;font-weight:600;
+                      cursor:pointer;transition:all .15s;">${n}</button>
+                `).join('')}
+              </div>
+              <input type="hidden" id="kirjausRpe" value="">
+            </div>
 
-      <div class="tallennusViesti" id="tallennusViesti">
-        ✓ Kirjaus tallennettu onnistuneesti Firestoreen!
+            <!-- Alkurutiini-ehdotus -->
+            <div id="alkurutiiniAlue" style="display:none;background:linear-gradient(135deg,rgba(74,126,217,.08),rgba(62,201,167,.06));border:1px solid rgba(74,126,217,.2);border-radius:10px;padding:12px;">
+              <div style="font-size:11px;font-weight:700;color:var(--sininen);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">⚡ Alkurutiiniehdotus</div>
+              <div id="alkurutiiniSisalto"></div>
+              <button onclick="_kaynnistaNaytaAlkurutiini()" style="margin-top:8px;width:100%;background:var(--sininen);color:#fff;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;">
+                ▶ Käynnistä ajastettu rutiini
+              </button>
+            </div>
+
+            <!-- Muistiinpanot -->
+            <div>
+              <label style="font-size:10px;font-weight:700;color:var(--teksti2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:5px;">Muistiinpanot</label>
+              <textarea id="kirjausMuistiinpanot" rows="3" placeholder="Harjoituksen kulku, erityishuomiot, kehitystarpeet..."
+                style="width:100%;background:var(--bg3);border:1px solid var(--reuna);border-radius:8px;padding:9px 12px;color:var(--teksti);font-family:inherit;font-size:13px;outline:none;resize:vertical;"></textarea>
+            </div>
+
+            <!-- Tallenna -->
+            <button class="tallennaKirjausNappi" onclick="tallennaKirjaus()"
+              style="width:100%;background:var(--sininen);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;">
+              💾 Tallenna kirjaus
+            </button>
+            <div id="tallennusViesti" style="text-align:center;font-size:12px;color:var(--vihrea);display:none;">✓ Tallennettu!</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="taulukkoKortti" id="aiemmatKirjauksetAlue">
-      <div class="taulukkoOtsikko">
-        <span class="taulukkoOtsikkoTeksti">Viimeisimmät kirjaukset</span>
-        <span class="taulukkoMaara" id="kirjaustenMaara">Ladataan...</span>
-      </div>
-      <div id="kirjausLista" style="padding:20px 24px;color:var(--ink3);font-size:13px;">
-        Ladataan kirjauksia...
+    <!-- Ajastettu alkurutiini -overlay -->
+    <div id="alkurutiiniOverlay" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.85);
+      backdrop-filter:blur(8px);align-items:center;justify-content:center;flex-direction:column;">
+      <div style="background:var(--pinta);border:1px solid var(--reuna);border-radius:16px;padding:32px;
+        width:100%;max-width:440px;margin:16px;text-align:center;">
+        <div style="font-size:11px;font-weight:700;color:var(--teksti2);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;" id="arOsioLabel">Alkurutiini</div>
+        <div style="font-size:20px;font-weight:700;margin-bottom:16px;" id="arHarjoiteNimi">—</div>
+        <div style="font-size:64px;font-weight:800;color:var(--sininen);line-height:1;margin-bottom:8px;" id="arAika">—</div>
+        <div style="font-size:13px;color:var(--teksti2);margin-bottom:20px;" id="arSeuraava">—</div>
+        <div style="background:var(--bg3);border-radius:8px;height:6px;overflow:hidden;margin-bottom:24px;">
+          <div id="arProgressBar" style="height:100%;background:var(--sininen);border-radius:8px;transition:width .5s;width:0%;"></div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button onclick="_arEdellinen()" style="background:var(--bg3);border:1px solid var(--reuna);border-radius:8px;padding:10px 18px;color:var(--teksti);cursor:pointer;font-size:13px;">‹ Edellinen</button>
+          <button onclick="_arPausa()" id="arPausaNappi" style="background:var(--sininen);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer;font-size:13px;">⏸ Tauko</button>
+          <button onclick="_arSeuraava()" style="background:var(--bg3);border:1px solid var(--reuna);border-radius:8px;padding:10px 18px;color:var(--teksti);cursor:pointer;font-size:13px;">Seuraava ›</button>
+        </div>
+        <button onclick="_suljeAlkurutiini()" style="margin-top:12px;background:none;border:none;color:var(--teksti2);cursor:pointer;font-size:12px;">✕ Sulje</button>
       </div>
     </div>
   `;
 }
+
+// ── KALENTERIFUNKTIOT ─────────────────────────────────────────────────────
+function _renderKalenteri() {
+  const vuosi = window._kalVuosi;
+  const kkIdx = window._kalKkIdx;
+  const kkNimet = ['Tammikuu','Helmikuu','Maaliskuu','Huhtikuu','Toukokuu','Kesäkuu',
+                   'Heinäkuu','Elokuu','Syyskuu','Lokakuu','Marraskuu','Joulukuu'];
+
+  const otsEl = document.getElementById('kalOtsikko');
+  const paivEl = document.getElementById('kalPaivat');
+  if (!otsEl || !paivEl) return;
+
+  otsEl.textContent = kkNimet[kkIdx] + ' ' + vuosi;
+
+  // Ensimmäinen päivä kuusta (0=su, 1=ma...)
+  const ekaPaiva = new Date(vuosi, kkIdx, 1);
+  // Muunna maanantai-alkuiseksi (0=ma)
+  let alkuSiirto = ekaPaiva.getDay() - 1;
+  if (alkuSiirto < 0) alkuSiirto = 6;
+
+  const pvLkm = new Date(vuosi, kkIdx + 1, 0).getDate();
+  const tanaan = new Date();
+  const tanaanStr = tanaan.toISOString().split('T')[0];
+
+  let html = '';
+
+  // Tyhjät solut ennen kuun alkua
+  for (let i = 0; i < alkuSiirto; i++) {
+    html += '<div></div>';
+  }
+
+  // Päivät
+  for (let pv = 1; pv <= pvLkm; pv++) {
+    const pvStr = `${vuosi}-${String(kkIdx+1).padStart(2,'0')}-${String(pv).padStart(2,'0')}`;
+    const onTanaan = pvStr === tanaanStr;
+    const kirjaukset = (window._kalKirjaukset || {})[pvStr] || [];
+    const hasKirjaus = kirjaukset.length > 0;
+    const vkonPaivaIdx = (new Date(vuosi, kkIdx, pv).getDay() + 6) % 7; // 0=ma
+    const onVkl = vkonPaivaIdx >= 5;
+
+    const tyyppiVari = hasKirjaus ? {
+      harjoitus: '#4A7ED9', ottelu: '#3EC9A7', tauko: '#9AAAC4',
+      fyysinen: '#E0A040', tekninen: '#9B7FD4', taktinen: '#5EC97A',
+    }[kirjaukset[0]?.tyyppi] || '#4A7ED9' : null;
+
+    html += `<div onclick="_valitsePaiva('${pvStr}')"
+      style="aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        border-radius:8px;cursor:pointer;position:relative;transition:background .15s;
+        ${onTanaan ? 'background:var(--sininen);color:#fff;font-weight:700;' :
+          onVkl ? 'color:var(--teksti2);' : ''}
+        ${!onTanaan ? 'hover:background:var(--bg4);' : ''}"
+      onmouseover="if(!this.dataset.today)this.style.background='var(--bg4)'"
+      onmouseout="if(!this.dataset.today)this.style.background=''"
+      ${onTanaan ? 'data-today="1"' : ''}>
+        <span style="font-size:13px;font-weight:${onTanaan?'700':'500'}">${pv}</span>
+        ${hasKirjaus ? `<div style="width:5px;height:5px;border-radius:50%;background:${tyyppiVari};margin-top:2px;"></div>` : ''}
+      </div>`;
+  }
+
+  paivEl.innerHTML = html;
+
+  // Lataa kirjaukset kalenteriin
+  _lataaKalKirjaukset(vuosi, kkIdx);
+}
+
+async function _lataaKalKirjaukset(vuosi, kkIdx) {
+  try {
+    const alku = new Date(vuosi, kkIdx, 1).toISOString().split('T')[0];
+    const loppu = new Date(vuosi, kkIdx + 1, 0).toISOString().split('T')[0];
+    const snap = await db.collection('seurat').doc(tila.seuraId)
+      .collection('kirjaukset')
+      .where('joukkueId', '==', tila.joukkueId)
+      .where('pvm', '>=', alku)
+      .where('pvm', '<=', loppu)
+      .get();
+
+    window._kalKirjaukset = {};
+    snap.docs.forEach(d => {
+      const data = d.data();
+      const pvm = data.pvm;
+      if (!window._kalKirjaukset[pvm]) window._kalKirjaukset[pvm] = [];
+      window._kalKirjaukset[pvm].push(data);
+    });
+
+    // Re-render kalenteri päivitetyllä datalla
+    _renderKalenteri();
+  } catch(e) { console.warn('Kalenteridatan lataus:', e.message); }
+}
+
+function _kalEdKk() {
+  window._kalKkIdx--;
+  if (window._kalKkIdx < 0) { window._kalKkIdx = 11; window._kalVuosi--; }
+  _renderKalenteri();
+}
+function _kalSeurKk() {
+  window._kalKkIdx++;
+  if (window._kalKkIdx > 11) { window._kalKkIdx = 0; window._kalVuosi++; }
+  _renderKalenteri();
+}
+
+function _valitsePaiva(pvStr) {
+  // Aseta päivä harjoituslomakkeeseen
+  const pvInput = document.getElementById('kirjausPvm');
+  if (pvInput) {
+    pvInput.value = pvStr;
+    _paivitaAlkurutiiniEhdotus();
+  }
+  // Highlight valittu päivä
+  document.querySelectorAll('#kalPaivat > div').forEach(el => {
+    el.style.outline = '';
+  });
+}
+
+// ── RPE-NAPIT ──────────────────────────────────────────────────────────────
+function _asetaRpe(arvo) {
+  document.getElementById('kirjausRpe').value = arvo;
+  document.querySelectorAll('#rpeNapit button').forEach((btn, i) => {
+    const n = i + 1;
+    const fc = n <= 3 ? '#5EC97A' : n <= 6 ? '#E0A040' : n <= 8 ? '#D96060' : '#B91C1C';
+    if (n <= arvo) {
+      btn.style.background = fc;
+      btn.style.color = '#fff';
+      btn.style.borderColor = fc;
+    } else {
+      btn.style.background = 'var(--bg3)';
+      btn.style.color = 'var(--teksti2)';
+      btn.style.borderColor = 'var(--reuna)';
+    }
+  });
+}
+
+// ── ALKURUTIINIT — FLEI-pohjainen ehdotus ─────────────────────────────────
+async function _paivitaAlkurutiiniEhdotus() {
+  const alue = document.getElementById('alkurutiiniAlue');
+  const sisalto = document.getElementById('alkurutiiniSisalto');
+  if (!alue || !sisalto) return;
+
+  const tyyppi = document.getElementById('kirjausTyyppi')?.value || 'harjoitus';
+  if (tyyppi === 'tauko') { alue.style.display = 'none'; return; }
+  alue.style.display = 'block';
+
+  // Haetaan joukkueen viimeisin FLEI-data
+  let fleiKeskim = null;
+  let phvPelaajia = 0;
+  try {
+    const snap = await db.collection('seurat').doc(tila.seuraId)
+      .collection('joukkueet').doc(tila.joukkueId)
+      .collection('kartoitukset')
+      .orderBy('tallennettu', 'desc').limit(20).get();
+
+    if (!snap.empty) {
+      const pisteet = snap.docs.map(d => d.data().flei_pct || 0).filter(f => f > 0);
+      fleiKeskim = pisteet.length ? Math.round(pisteet.reduce((a,b)=>a+b,0)/pisteet.length) : null;
+      phvPelaajia = snap.docs.filter(d => d.data().tulokset?.phv_tila === 'PH').length;
+    }
+  } catch(e) {}
+
+  // Valitse rutiini FLEI:n perusteella
+  const rutiini = _valitseAlkurutiini(fleiKeskim, phvPelaajia, tyyppi);
+  window._aktiivineRutiini = rutiini;
+
+  let html = `<div style="font-size:12px;color:var(--teksti2);margin-bottom:8px;">${rutiini.kuvaus}</div>`;
+  rutiini.harjoitteet.forEach((h, i) => {
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;">
+      <span style="background:var(--sininen-bg);color:var(--sininen);border-radius:50%;width:18px;height:18px;
+        display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${i+1}</span>
+      <span style="flex:1;">${h.nimi}</span>
+      <span style="color:var(--teksti2);font-size:11px;">${h.kesto}s</span>
+    </div>`;
+  });
+  sisalto.innerHTML = html;
+}
+
+function _valitseAlkurutiini(flei, phv, tyyppi) {
+  // PHV-pelaajia → erityinen kasvupyrähdysprotokolla
+  if (phv > 0) {
+    return {
+      kuvaus: `⚠️ ${phv} pelaajaa kasvupyrähdyksessä — kevennetty mobiliteetti`,
+      harjoitteet: [
+        { nimi: 'Rauhallinen juoksu', kesto: 120 },
+        { nimi: 'Lonkan mobiliteetti (seisten)', kesto: 60 },
+        { nimi: 'Olkapää + rintaranka kierto', kesto: 45 },
+        { nimi: 'Kevyt polvennosto kävelyssä', kesto: 60 },
+        { nimi: 'Pallokosketus pareittain', kesto: 90 },
+      ]
+    };
+  }
+  // Korkea riski (FLEI < 40)
+  if (flei !== null && flei < 40) {
+    return {
+      kuvaus: `🔴 FLEI ${flei}% — liikkuvuuspainotteinen rutiini`,
+      harjoitteet: [
+        { nimi: 'Hidas aktivoiva kävely', kesto: 90 },
+        { nimi: 'Lonkankoukistajien venytys', kesto: 60 },
+        { nimi: 'Nilkkojen mobilisointi', kesto: 45 },
+        { nimi: 'Etunoja → laskeutuminen', kesto: 60 },
+        { nimi: 'Pallokosketus matala intensiteetti', kesto: 120 },
+      ]
+    };
+  }
+  // Normaali tai FLEI >= 55 → tyyppikohtainen
+  const rutiinit = {
+    harjoitus: {
+      kuvaus: `✅ FLEI ${flei || '—'}% — standardirutiini`,
+      harjoitteet: [
+        { nimi: 'Aktivoiva juoksu + suunnanmuutokset', kesto: 90 },
+        { nimi: 'Lonkan avaus + kierto', kesto: 45 },
+        { nimi: 'Hyppelyharjoitus (kaksi jalkaa)', kesto: 45 },
+        { nimi: 'Lateraali askeleet', kesto: 45 },
+        { nimi: 'Pallokosketus + nopeat kontaktit', kesto: 120 },
+      ]
+    },
+    fyysinen: {
+      kuvaus: `💪 Fyysinen harjoitus — aktivoiva voima-alku`,
+      harjoitteet: [
+        { nimi: 'Dynaaminen venytys', kesto: 60 },
+        { nimi: 'Kyykky-aktivointi (kehonpaino)', kesto: 45 },
+        { nimi: 'Penkkivoimistelu / syväkyykky liike', kesto: 60 },
+        { nimi: 'Sprintti-aktivointi 50%', kesto: 60 },
+        { nimi: 'Raketti-hypyt', kesto: 30 },
+      ]
+    },
+    tekninen: {
+      kuvaus: `🎯 Tekninen harjoitus — pallohallintarutiini`,
+      harjoitteet: [
+        { nimi: 'Pallokosketus yksin (kaikki pinnat)', kesto: 90 },
+        { nimi: 'Syöttö pareittain lyhyt', kesto: 90 },
+        { nimi: 'Pallon hallinta liikkeessä', kesto: 60 },
+        { nimi: 'Rondo 3v1 pienet', kesto: 120 },
+      ]
+    },
+    taktinen: {
+      kuvaus: `🧠 Taktinen harjoitus — positiointi-aktivointi`,
+      harjoitteet: [
+        { nimi: 'Aktivoiva juoksu', kesto: 60 },
+        { nimi: 'Pallokosketus siirtymässä', kesto: 60 },
+        { nimi: 'Positiointiharjoitus kävelyvauhti', kesto: 90 },
+        { nimi: 'Muuttuva 4v4 rakenne', kesto: 120 },
+      ]
+    },
+    ottelu: {
+      kuvaus: `⚽ Ottelupäivä — aktivoiva ottelurutiini`,
+      harjoitteet: [
+        { nimi: 'Hidas lenkki + suunnanmuutokset', kesto: 120 },
+        { nimi: 'Dynaaminen venytys pareittain', kesto: 60 },
+        { nimi: 'Pallokosketus ryhmissä', kesto: 90 },
+        { nimi: 'Lyhyet sprintit 70%', kesto: 60 },
+        { nimi: 'Maalivahti aktivointi + pelikuva', kesto: 60 },
+      ]
+    },
+  };
+  return rutiinit[tyyppi] || rutiinit.harjoitus;
+}
+
+// ── AJASTETTU ALKURUTIINI ──────────────────────────────────────────────────
+let _arIndex = 0;
+let _arAjastin = null;
+let _arJaella = false;
+let _arJaljellaAika = 0;
+
+function _kaynnistaNaytaAlkurutiini() {
+  const overlay = document.getElementById('alkurutiiniOverlay');
+  if (!overlay) return;
+  overlay.style.display = 'flex';
+  _arIndex = 0;
+  _arJaella = false;
+  _arNaytaHarjoite();
+}
+
+function _arNaytaHarjoite() {
+  const rutiini = window._aktiivineRutiini;
+  if (!rutiini) return;
+  const harjoitteet = rutiini.harjoitteet;
+  if (_arIndex >= harjoitteet.length) {
+    _suljeAlkurutiini();
+    naytaToast('✅ Alkurutiini valmis!', 'onnistui');
+    return;
+  }
+  const h = harjoitteet[_arIndex];
+  document.getElementById('arOsioLabel').textContent = `${_arIndex+1}/${harjoitteet.length} — Alkurutiini`;
+  document.getElementById('arHarjoiteNimi').textContent = h.nimi;
+  const seuraava = harjoitteet[_arIndex+1];
+  document.getElementById('arSeuraava').textContent = seuraava ? `Seuraava: ${seuraava.nimi}` : 'Viimeinen osio!';
+
+  _arJaljellaAika = h.kesto;
+  _arJaella = false;
+  document.getElementById('arPausaNappi').textContent = '⏸ Tauko';
+
+  if (_arAjastin) clearInterval(_arAjastin);
+  _arAjastin = setInterval(() => {
+    if (_arJaella) return;
+    _arJaljellaAika--;
+    const mins = Math.floor(_arJaljellaAika / 60);
+    const secs = _arJaljellaAika % 60;
+    document.getElementById('arAika').textContent =
+      mins > 0 ? `${mins}:${String(secs).padStart(2,'0')}` : `${_arJaljellaAika}`;
+    const pct = 100 - (_arJaljellaAika / h.kesto * 100);
+    const pb = document.getElementById('arProgressBar');
+    if (pb) pb.style.width = pct + '%';
+    if (_arJaljellaAika <= 0) {
+      clearInterval(_arAjastin);
+      _arIndex++;
+      setTimeout(_arNaytaHarjoite, 500);
+    }
+  }, 1000);
+  // Aseta alkuarvo
+  document.getElementById('arAika').textContent = h.kesto >= 60
+    ? `${Math.floor(h.kesto/60)}:${String(h.kesto%60).padStart(2,'0')}`
+    : `${h.kesto}`;
+  if (document.getElementById('arProgressBar')) document.getElementById('arProgressBar').style.width = '0%';
+}
+
+function _arPausa() {
+  _arJaella = !_arJaella;
+  document.getElementById('arPausaNappi').textContent = _arJaella ? '▶ Jatka' : '⏸ Tauko';
+}
+function _arSeuraava() {
+  if (_arAjastin) clearInterval(_arAjastin);
+  _arIndex++;
+  _arNaytaHarjoite();
+}
+function _arEdellinen() {
+  if (_arAjastin) clearInterval(_arAjastin);
+  _arIndex = Math.max(0, _arIndex - 1);
+  _arNaytaHarjoite();
+}
+function _suljeAlkurutiini() {
+  if (_arAjastin) clearInterval(_arAjastin);
+  const overlay = document.getElementById('alkurutiiniOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
 
 // ─────────────────────────────────────────
 // NÄKYMÄ: TESTITULOKSET (vain luku)
