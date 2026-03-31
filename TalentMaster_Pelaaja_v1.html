@@ -216,6 +216,21 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .fiili-btn:hover{transform:scale(1.15);}
 .fiili-btn.valittu{border-color:var(--gold);background:rgba(245,183,0,.08);transform:scale(1.15);}
 
+/* ── WEEK-STRIP KALENTERI ── */
+.week-strip{display:flex;gap:5px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
+.week-strip::-webkit-scrollbar{display:none;}
+.day-chip{flex-shrink:0;width:40px;border-radius:10px;padding:6px 4px;text-align:center;cursor:pointer;border:1.5px solid var(--border);background:var(--bg3);transition:all .15s;}
+.day-chip.done{border-color:var(--amber);background:rgba(255,165,2,.1);}
+.day-chip.today{border-color:var(--gold);background:rgba(245,183,0,.08);}
+.day-chip.missed{opacity:.4;}
+.dc-d{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.3px;}
+.dc-n{font-size:16px;font-weight:700;color:var(--text);margin:2px 0;line-height:1;}
+.day-chip.done .dc-n{color:var(--amber);}
+.day-chip.today .dc-n{color:var(--gold);}
+.dc-dot{width:5px;height:5px;border-radius:50%;margin:0 auto;background:var(--border);}
+.day-chip.done .dc-dot{background:var(--amber);}
+.day-chip.today .dc-dot{background:var(--gold);}
+
 /* ── SPINNER ── */
 .loading{display:flex;align-items:center;justify-content:center;padding:32px;color:var(--ink3);}
 .spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;}
@@ -272,7 +287,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     </div>
   </header>
 
-  <nav class="tabs">
+  <!-- WEEK-STRIP -->
+<div class="week-strip" id="weekStripMain"></div>
+
+<nav class="tabs">
     <div class="tabs-inner">
       <button class="tab-btn active" onclick="naytaTabi('tanaan',this)">⚽ Tänään</button>
       <button class="tab-btn" onclick="naytaTabi('kortti',this)">⭐ Korttini</button>
@@ -410,6 +428,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     <!-- Profiilikortti -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;" id="profiiliKortti"></div>
 
+    <!-- Kehityskortti lunastus -->
+    <div id="nftLunastus" style="margin-top:14px;"></div>
+
   </div>
   </div>
 
@@ -417,7 +438,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <div class="view" id="view-haasteet">
   <div class="inner fadeup">
 
-    <!-- Aktiiviset haasteet -->
+    <!-- Kaverihaaste -->
+    <div id="haasteSect"></div>
+
+    <!-- Viikon haasteet -->
     <div class="stitle">Viikon haasteet</div>
     <div id="haasteetLista"></div>
 
@@ -462,6 +486,8 @@ const _fbCfg = {
   appId:             '1:872561784446:web:05c4c7996dfd46ddd14a2f',
 };
 if (!firebase.apps.length) firebase.initializeApp(_fbCfg);
+// Expose TEKNIIKKAHARJOITTEET globaalisti template literal -käyttöä varten
+setTimeout(() => { if (typeof TEKNIIKKAHARJOITTEET !== 'undefined') window.TEKNIIKKAHARJOITTEET = TEKNIIKKAHARJOITTEET; }, 0);
 const _auth = firebase.auth();
 const _db   = firebase.firestore();
 
@@ -496,21 +522,188 @@ const DEMO_PELAAJAT = {
   }
 };
 
+/* ══ HARJOITELOGIIKKA — profiilipohjainen + kultaikkuna ══
+ *
+ * T-harjoite: KAIKILLE — daily touches, Ajax/Benfica/La Masia -filosofia
+ *             Hermostollinen automatisoituminen, ei tavoitetta, ei mittausta
+ *             Kriittisin U8-U15 (kultaikkuna), mutta kaikille ikäluokille
+ *
+ * D-harjoite: Heikoin ketju — 5 min ylläpito, viesti: "pohjahuolto"
+ *             Ei "sinä olet heikko tässä" — vaan "tämä pitää sinut terveenä"
+ *             PHV-vaiheessa automaattisesti kevyempi versio
+ *
+ * S-harjoite: PROFIILIN mukaan (vahvuus) — Ajax/Barcelona logiikka
+ *             Railgun   → ⚡ Vauhti/nopeus
+ *             Maestro   → 🧠 Peliäly/kognitiivinen
+ *             Titan     → 🛡️ Hallinta/voima
+ *             Shadowstep→ 🔄 Tekniikka/kierto
+ *             Motivaatiotutkimus: vahvuuden kehittäminen → enemmän harjoittelua
+ *
+ * Ikäluokka-porrastus (Côté 2007 + Nevanlinna 2014):
+ *   U8-U12:  T + D (ei S-harjoitetta — pelillisyys ja pallokosketus edellä)
+ *   U13-U15: T + D + S (profiilipohjainen)
+ *   U16+:    T + D + S + P-vihje (pelipaikkakohtainen)
+ */
+
+// HARJOITEKIRJASTO — 3 harjoitetta per profiili + D-harjoitteet ketjuittain
+const HARJOITE_KIRJASTO = {
+
+  // ── T-HARJOITE: universaali, kaikille, ikäluokittain skaalattu ──
+  T: {
+    U12: {
+      nimi: 'Pallokosketus — leiki pallolla',
+      ohje: 'Ota pallo ulos ja leiki sillä 15–20 min. Ponnauttele, seinäsyöttö, kuljeta pihalla. Ei tavoitetta — tärkeintä on että pallo koskee jalkaan joka päivä.',
+      ketju: '⭐ Kultaikkuna',
+      kesto: '15–20 min',
+      cue: 'Ajax, Benfica ja La Masia antavat pelaajille pallon kotiin. Jokainen kosketus rakentaa hermostollisia automaatioratoja jotka eivät myöhemmin rakennu yhtä helposti.',
+      xp: 20,
+    },
+    U15: {
+      nimi: 'Tekniikkapallo — puolistrukturoitu',
+      ohje: 'Valitse yksi: ponnauttelu 3 min molemmilla jaloilla, seinäsyöttö 100 kosketusta, tai pujottelu kartioilla. 15–20 min. Vaihtelee päivittäin.',
+      ketju: '⭐ Kultaikkuna',
+      kesto: '15–20 min',
+      cue: 'Taitavuus automatisoituu päivittäisellä toistolla. Harjoite voi olla sama kuin eilen — se on tarkoitus.',
+      xp: 20,
+    },
+    U19: {
+      nimi: 'Pelipaikkakohtainen tekniikka',
+      ohje: 'Tee 20 min pelipaikkasi teknistä ydinliikettä: laitahyökkääjä → 1v1-siirtoja ja kuljetusta, KK → syöttötarkkuus molemmin jaloin, KV → jalkaterätekniikka.',
+      ketju: '⭐ Kultaikkuna',
+      kesto: '20 min',
+      cue: 'Tekniikka siirtyy peliin automaation kautta. La Masia: pelipaikka on identiteetti.',
+      xp: 20,
+    },
+  },
+
+  // ── D-HARJOITE: heikoin ketju, kevyt ylläpito, ei "sinä olet heikko" -viesti ──
+  D: {
+    sbl: { nimi: 'Takaketjun aktivointi', ohje: 'Naruhypyt 3×15s päkiäkontaktilla + pohjeeksentrinen 3×10 tolpan reunalla. Pehmeä lasku joka hypyssä.', ketju: '⚡ Vauhtiketju', kesto: '5–7 min', xp: 15, cue: 'Takaketju on nopeutesi lähde. Päivittäinen aktivointi estää kireydet.' },
+    sfl: { nimi: 'Lähtöketjun avaus', ohje: 'Hip flexor 90/90 2×45s per puoli + askelkyykky-kävely 2×10m. Lonkka auki ennen harjoitusta.', ketju: '🦵 Lähtöketju', kesto: '5 min', xp: 15, cue: 'Lonkka ohjaa ponnistuksen — jos se ei aukea, lähtö jää puolitiehen.' },
+    ll:  { nimi: 'Lateraaliketjun stabilointi', ohje: 'Clamshell 2×12 per puoli + sivulankku 2×20s per puoli. Hidas ja hallittu.', ketju: '↔️ Suunnanmuutos', kesto: '5 min', xp: 15, cue: 'Sivuttainen vakaus pitää polven linjassa suunnanmuutoksissa.' },
+    sl:  { nimi: 'Kiertoketjun lämmitys', ohje: 'Seinäsyöttörutiini 3×20 vuorojaloilla. Pallo maassa, 1-kosketus takaisin.', ketju: '🔄 Kiertoketju', kesto: '5 min', xp: 15, cue: 'Rintakehä ohjaa — jalka seuraa. Tätä ei voi aloittaa kylmänä.' },
+    dfl: { nimi: 'Hallintaketjun aktivointi', ohje: '360° palleahengitys 3×5 + dead bug 3×5 per puoli. Hengitä ulos laskiessa, alaselkä maassa.', ketju: '🏗️ Hallintaketju', kesto: '5 min', xp: 15, cue: 'Syvä core on pohja kaikelle. Ilman tätä muut harjoitteet kuormittavat väärin.' },
+  },
+
+  // ── S-HARJOITE: vahvuus profiilin mukaan — Ajax/Barcelona logiikka ──
+  // Pelaaja kehittyy siinä missä on jo hyvä → motivaatio kasvaa
+  S: {
+    Railgun: { // Nopeus on identiteetti
+      nimi: 'Reaktiolähtö + sprintti',
+      ohje: 'Heitetään pallo lattiaan, lähde heti kun se koskettaa maata. 5×3 lähtöä, täysi vauhti 10–15m. Palautus kävellen takaisin.',
+      ketju: '⚡ Vauhtiketju',
+      kesto: '10 min',
+      xp: 25,
+      cue: 'Ajax: nopeus on sinun aseesi — vahvista sitä. Ensimmäinen askel on reaktio, ei suunnitelma.',
+      ikaBio: { PH: { ohje: 'Kasvupyrähdys käynnissä — tee vain 3 lähtöä per sarja, max 70% teholla. Kuorma alas nyt.', kesto: '6 min', xp: 15 } }
+    },
+    Maestro: { // Peliäly on identiteetti
+      nimi: 'Skannausharjoite — katse ylös',
+      ohje: 'Seinäpallo: syötä ja ENNEN kuin pallo tulee takaisin, katso ylös ja nimeä 3 asiaa mitä näet ympärillä. Sitten vastaanota. 5 min.',
+      ketju: '🧠 Peliälyketju',
+      kesto: '10 min',
+      xp: 25,
+      cue: 'Vaeyens 2007: pre-scanning erottaa eliitit. Barcelonassa tätä harjoitellaan joka päivä — katse ylös ennen kosketusta.',
+      ikaBio: { PH: { ohje: 'Kognitiiviset harjoitteet sopivat hyvin kasvupyrähdykseen — keho lepää, pää työskentelee. Normaali teholla.', kesto: '10 min', xp: 25 } }
+    },
+    Titan: { // Hallinta ja voima on identiteetti
+      nimi: 'Lankku + jalkojen ojentaminen',
+      ohje: 'Lankku 3×30s + vastapoinen käsi-jalka-laajennus 3×8 per puoli. Pidä asento joka toistolla.',
+      ketju: '🏗️ Hallintaketju',
+      kesto: '10 min',
+      xp: 25,
+      cue: 'Titan-pelaajaa ei kaadeta. Hallintaketjun voima tekee sinusta joukkueen ankkurin.',
+      ikaBio: { PH: { ohje: 'Isometriset harjoitteet ovat turvallisia kasvupyrähdyksessä. Pidä asento — älä lisää toistoja.', kesto: '10 min', xp: 20 } }
+    },
+    Shadowstep: { // Tekniikka on identiteetti
+      nimi: 'SM-pallo — kiertoharjoite',
+      ohje: 'Kiertoheitto seinälle molemmilta puolilta 3×5 min. Rintakehä ohjaa, jalka seuraa. Vauhti kasvaa progressiivisesti.',
+      ketju: '🔄 Kiertoketju',
+      kesto: '10 min',
+      xp: 25,
+      cue: 'La Masia: tekniikka on identiteetti. Shadowstep-pelaaja on vaikein puolustaa koska liike on ennalta-arvaamaton.',
+      ikaBio: { PH: { ohje: 'Pallolliset harjoitteet ovat turvallisia — tekninen harjoittelu ei ylikuormita kasvavia jänteitä.', kesto: '10 min', xp: 25 } }
+    },
+  },
+};
+
+// ── PÄÄFUNKTIO: generoi pelaajan päivän tehtävät ──
+function generoimTehtavat(pelaaja) {
+  if (!pelaaja) return [];
+
+  const ikä = pelaaja.ika || 13;
+  const profiili = pelaaja.pelaajaProfiili || 'Maestro';
+  const phv = pelaaja.phv_tila || 'AN';
+
+  // Laske heikoin ketju (D-harjoitteelle)
+  const ketjut = {sbl: pelaaja.sbl||1.5, sfl: pelaaja.sfl||1.5, ll: pelaaja.ll||1.5, sl: pelaaja.sl||1.5, dfl: pelaaja.dfl||1.5};
+  const heikoinkid = Object.entries(ketjut).sort(([,a],[,b]) => a-b)[0][0];
+
+  // Ikäluokka-porrastus
+  const ikaKategoria = ikä <= 12 ? 'U12' : ikä <= 15 ? 'U15' : 'U19';
+
+  const tehtavat = [];
+
+  // 1. T-HARJOITE: aina ensimmäinen — kultaikkuna, kaikille
+  const tHarj = HARJOITE_KIRJASTO.T[ikaKategoria];
+  tehtavat.push({
+    id: 't_pallo',
+    tyyppi: 'T',
+    nimi: tHarj.nimi,
+    ohje: tHarj.ohje,
+    ketju: tHarj.ketju,
+    kesto: tHarj.kesto,
+    xp: tHarj.xp,
+    cue: tHarj.cue,
+    yt: 'football daily touches technique training',
+  });
+
+  // 2. D-HARJOITE: heikoin ketju, ylläpito
+  const dHarj = HARJOITE_KIRJASTO.D[heikoinkid];
+  tehtavat.push({
+    id: 'd_aktivointi',
+    tyyppi: 'D',
+    nimi: dHarj.nimi,
+    ohje: phv === 'PH'
+      ? dHarj.ohje + ' ⚠️ Kasvupyrähdys: tee rauhassa, ei kipuun asti.'
+      : dHarj.ohje,
+    ketju: dHarj.ketju,
+    kesto: dHarj.kesto,
+    xp: dHarj.xp,
+    cue: dHarj.cue,
+    yt: 'football ' + heikoinkid + ' activation drill',
+  });
+
+  // 3. S-HARJOITE: profiilipohjainen (vain U13+)
+  if (ikä >= 13) {
+    const sBase = HARJOITE_KIRJASTO.S[profiili];
+    if (sBase) {
+      // PHV-muutos jos kasvupyrähdys käynnissä
+      const sHarj = (phv === 'PH' && sBase.ikaBio?.PH)
+        ? { ...sBase, ...sBase.ikaBio.PH }
+        : sBase;
+      tehtavat.push({
+        id: 's_profiili',
+        tyyppi: 'S',
+        nimi: sHarj.nimi,
+        ohje: sHarj.ohje,
+        ketju: sHarj.ketju,
+        kesto: sHarj.kesto,
+        xp: sHarj.xp,
+        cue: sHarj.cue,
+        yt: 'football ' + profiili.toLowerCase() + ' training drill',
+      });
+    }
+  }
+
+  return tehtavat;
+}
+
+// Demo-tehtävät generoidaan nyt dynaamisesti
 const DEMO_TEHTAVAT = {
-  aleksi:[
-    {id:'t1',tyyppi:'D',nimi:'Dead bug -rutiini',ohje:'3×5 toistoa per jalka lattialla. Hengitä ensin ympäri kylkiä.',ketju:'🏗️ Hallintaketju',kesto:'5 min',xp:15},
-    {id:'t2',tyyppi:'T',nimi:'Pallokosketus päivä',ohje:'15 min vapaata pallottelua. Ponnauttelu, seinäsyöttö tai kuljetus pihalla. Ei tavoitetta — leiki.',ketju:'⭐ Kultaikkuna',kesto:'15 min',xp:20},
-    {id:'t3',tyyppi:'S',nimi:'Naruhypyt + pohje',ohje:'Naruhypyt 3×15 sekuntia + pohjeeksentrinen 3×10. Vauhtiketjun huolto.',ketju:'⚡ Vauhtiketju',kesto:'10 min',xp:25},
-  ],
-  eeli:[
-    {id:'t1',tyyppi:'D',nimi:'360° palleahengitys',ohje:'3×5 hengitystä lattialla. Tunne kylkien laajeneminen sivuille. Tärkeä kasvupyrähdyksessä.',ketju:'🏗️ Hallintaketju',kesto:'5 min',xp:15},
-    {id:'t2',tyyppi:'T',nimi:'Pallokosketus päivä',ohje:'15 min vapaata pallottelua. Muista: ei pakoteta, ei mitata — pallo tutuksi.',ketju:'⭐ Kultaikkuna',kesto:'15 min',xp:20},
-  ],
-  mikko:[
-    {id:'t1',tyyppi:'D',nimi:'Lankku + sivulankku',ohje:'Lankku 20 sekuntia + sivulankku 15 sekuntia per puoli. Hallintaketjun peruspilari.',ketju:'🏗️ Hallintaketju',kesto:'6 min',xp:15},
-    {id:'t2',tyyppi:'S',nimi:'Lateraaliloikat',ohje:'3×8 per puoli hitaasti ja hallitusti. Suunnanmuutosketju tarvitsee huomiota.',ketju:'↔️ Suunnanmuutos',kesto:'10 min',xp:25},
-    {id:'t3',tyyppi:'T',nimi:'Pallokosketus päivä',ohje:'15 min vapaata pallottelua. Vaihtelee vaikka kuljetus, seinäsyöttö, ponnauttelu.',ketju:'⭐ Kultaikkuna',kesto:'15 min',xp:20},
-  ],
+  aleksi: null, // generoidaan _pelaajadatasta
+  eeli:   null,
+  mikko:  null,
 };
 
 const DEMO_HAASTEET = [
@@ -523,6 +716,30 @@ const DEMO_HAASTEET_VALMIS = [
   {id:'v1',nimi:'Ensimmäinen päivä',kuvaus:'Kirjautunut sovellukseen ensimmäistä kertaa',xp:25,pvm:'15.3.2026'},
   {id:'v2',nimi:'3 päivän putki',kuvaus:'Kolme peräkkäistä kotitehtävää tehty',xp:30,pvm:'18.3.2026'},
 ];
+
+/* ══ TEKNIIKKAHARJOITTEET (v7-logiikka) ══ */
+const TEKNIIKKAHARJOITTEET = {
+  sbl: [ // Vauhtiketju
+    {n:'Naruhypyt + pohje',d:'3×15s + 3×10',ohje:'Naruhypyt kevyesti jalkapäällä, sitten pohjeeksentrinen tolpan reunalla. Takaketjun perushuolto.',cue:'Kantapää alas — ei koskaan kokonaan maahan. Jänne elää.',yt:'football sprint training hamstring'},
+    {n:'Reaktiolähtö pallosta',d:'5×3 lähtöä',ohje:'Heitetään pallo, lähde heti kun se koskettaa maata. 10m sprintti täysivauhtia.',cue:'Ensimmäinen askel on reaktio — ei ajatus.',yt:'football reaction sprint drill'},
+  ],
+  sfl: [ // Lähtöketju
+    {n:'Sammakkohypyt + hip hinge',d:'3×5 + 3×10',ohje:'Sammakkohypyt paikalta molemmin jaloin, sitten hip hinge kepillä.',cue:'Ponnistus lähtee lonkasta — polvi seuraa, ei johda.',yt:'football explosive jumping drills'},
+    {n:'Pistoolikyykky seinällä',d:'3×5 per jalka',ohje:'Seinä tukena, laske hitaasti yhden jalan kyykkyyn. Polvi ei ylitä varpaita.',cue:'Paino kantapäällä koko ajan.',yt:'pistol squat progression football'},
+  ],
+  ll: [ // Suunnanmuutosketju
+    {n:'Lateraaliloikat',d:'3×8 per puoli',ohje:'Sivuttaishyppy jalalta jalalle hitaasti. Hallittu lasku, stabiloi ennen seuraavaa.',cue:'Kolme askelta jarrutuksessa — ei yhdellä.',yt:'lateral agility drills football'},
+    {n:'T-drill omatoiminen',d:'3 kertaa ajanoton kanssa',ohje:'Konen/merkki T-muodossa: eteen, sivu, sivu, taakse. Paranna aikaa 0.1s per viikko.',cue:'Katso suuntaan mihin menet — ei alas.',yt:'T drill agility football'},
+  ],
+  sl: [ // Kiertoketju
+    {n:'Seinäsyöttö 1-kosketus',d:'3×2 min',ohje:'Syötä seinään, vastaanota takaisin samalla jalalla. 3-4m etäisyys. Pallo maassa.',cue:'Ottava jalka pehmentää — ei torjuta kovaa pintaa vasten.',yt:'football wall pass first touch drill'},
+    {n:'SM-pallo seinään',d:'3×5 min',ohje:'Kiertoheitto seinälle molemmilta puolilta. Rintakehä ohjaa — jalka seuraa.',cue:'Heitto alkaa lonkasta, ei kädestä.',yt:'rotational power football training'},
+  ],
+  dfl: [ // Hallintaketju
+    {n:'Dead bug',d:'3×5 per puoli',ohje:'Selällään, kädet kattoon, polvet 90°. Laske yhtä kättä + vastakkaista jalkaa samaan aikaan.',cue:'Alaselkä maassa koko ajan — hengitä ulos laskiessa.',yt:'dead bug exercise football core'},
+    {n:'Lankku + sivulankku',d:'20s + 15s per puoli',ohje:'Lankku kyynärpäillä, sitten sivulankku molemmille puolille.',cue:'Pakarat samassa linjassa — ei kumarrusta eikä kohotusta.',yt:'plank side plank football stability'},
+  ],
+};
 
 const KYSELYT = [
   {q:'Mitä "pre-scanning" tarkoittaa jalkapallossa?',
@@ -657,6 +874,9 @@ async function _alustaUI() {
     heroBadget.innerHTML = `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.05);color:${phvC};">${phvTxt}</span>`;
   }
 
+  // Week-strip
+  _renderWeekStrip();
+
   // XP
   _renderXP();
 
@@ -753,9 +973,8 @@ function renderStreak() {
 
 function renderTehtavat() {
   const p = _pelaaja;
-  const tehtavat = _isDemoUser ? (DEMO_TEHTAVAT[_demoKey] || []) :
-    [{id:'t1',tyyppi:'D',nimi:'Päivittäinen aktivointi',ohje:'5 min liikkuvuutta ja hengitystä hermoston aktivoimiseksi.',ketju:'🏗️ Hallintaketju',kesto:'5 min',xp:15},
-     {id:'t2',tyyppi:'T',nimi:'Pallokosketus',ohje:'15 min vapaata pallottelua. Leiki pallolla — ei tavoitetta.',ketju:'⭐ Kultaikkuna',kesto:'15 min',xp:20}];
+  // Generoidaan tehtävät profiilipohjaisen logiikan mukaan
+  const tehtavat = generoimTehtavat(_pelaaja);
 
   const el = document.getElementById('tehtavatLista');
   if (tehtavat.length === 0) {
@@ -767,23 +986,34 @@ function renderTehtavat() {
     const tehty = _tehdytTehtavat.has(t.id);
     const badgeCls = {D:'tb-d',S:'tb-s',T:'tb-t',P:'tb-d'}[t.tyyppi] || 'tb-d';
     const badgeTxt = {D:'Päivittäinen',S:'Täydentävä',T:'Tekniikka',P:'Progressiivinen'}[t.tyyppi] || t.tyyppi;
+    // Tyypin selite
+    const tyyppiSelite = {
+      T:'Kultaikkuna — joka päivä, myös lepopäivät. Ajax/Benfica/La Masia: daily touches.',
+      D:'Pohjahuolto — 5 min ylläpito estää kireydet ja valmistaa muuhun harjoitteluun.',
+      S:'Profiiliharjoite — vahvistaa sitä missä olet jo hyvä. Barcelona: identiteetti ensin.',
+      P:'Progressiivinen — 6 viikon jaksossa nousujohteinen kehitys.',
+    }[t.tyyppi] || '';
+
     return `<div class="tehtava-card" id="tehtava-${t.id}">
       <div class="tehtava-header">
-        <div class="tehtava-badge ${badgeCls}">${badgeTxt}</div>
+        <div class="tehtava-badge ${badgeCls}" title="${tyyppiSelite}">${badgeTxt}</div>
         <div class="tehtava-nimi">${t.nimi}</div>
         <div class="tehtava-xp">+${t.xp} XP</div>
       </div>
       <div class="tehtava-ohje">${t.ohje}</div>
+      ${t.cue ? `<div style="font-size:11px;color:var(--teal);background:rgba(0,212,170,.06);border-left:2px solid var(--teal);border-radius:0 6px 6px 0;padding:5px 10px;margin-bottom:8px;line-height:1.5;font-style:italic;">${t.cue}</div>` : ''}
       <div class="tehtava-ketju">
         <span>${t.ketju}</span>
         <span style="color:var(--border)">·</span>
         <span>${t.kesto}</span>
       </div>
-      <button class="done-btn ${tehty ? 'tehty' : ''}" id="doneBtn-${t.id}"
-        onclick="merkitseTehdyksi('${t.id}',${t.xp})">
-        ${tehty ? '✓ Tehty! ' : ''}${tehty ? '' : '↗ Merkitse tehty'}
-        ${tehty ? '' : ''}
-      </button>
+      <div style="display:flex;gap:6px;margin-top:0;">
+        <button class="done-btn ${tehty ? 'tehty' : ''}" id="doneBtn-${t.id}"
+          onclick="merkitseTehdyksi('${t.id}',${t.xp})" style="flex:1;">
+          ${tehty ? '✓ Tehty!' : '↗ Merkitse tehty'}
+        </button>
+        ${_haeVideoNappi(t.ketju)}
+      </div>
     </div>`;
   }).join('');
 }
@@ -962,6 +1192,9 @@ function renderKortti() {
     </div>`
   ).join('');
 
+  // NFT lunastus
+  renderNFT();
+
   // Profiilikortti
   const profiilikuvaukset = {
     Railgun:'Nopeus on sinun aseesi. Ensimmäinen askel ratkaisee tilanteen. Räjähtävyytesi ja kiihdytyksesi ovat poikkeuksellisia — kehitä niitä entisestään.',
@@ -969,13 +1202,26 @@ function renderKortti() {
     Titan:'Voima ja hallinta tekevät sinusta luotettavan. Joukkue luottaa sinuun — kehon hallintasi on perusta jonka päälle rakennetaan.',
     Shadowstep:'Tekniikka erottaa sinut muista. Pallonkäsittelysi on silmiinpistävää — kehitä sitä päivittäin ja se siirtyy peliin.',
   };
+  // Harjoitelogiikan selite profiilikorttiin
+  const harjLogiikka = {
+    Railgun:    '⚡ S-harjoite: Reaktiolähtö ja sprintti — nopeus on identiteettisi.',
+    Maestro:    '🧠 S-harjoite: Skannausharjoite — peliäly erottaa eliitit.',
+    Titan:      '🛡️ S-harjoite: Lankku ja hallinta — olet joukkueen ankkuri.',
+    Shadowstep: '🔄 S-harjoite: SM-pallokierto — tekniikka tekee sinusta arvaamattoman.',
+  };
+  const phvTxt = p.phv_tila === 'PH'
+    ? '⚠️ Kasvupyrähdys käynnissä — S-harjoitteen kuorma automaattisesti 60%'
+    : p.phv_tila === 'VA'
+    ? '✅ Kasvun jälkeen — harjoitteluhyöty on nyt maksimaalinen'
+    : '📍 Ennen kasvupyrähdystä — koordinaation kultaikkuna auki';
+
   document.getElementById('profiiliKortti').innerHTML = `
     <div class="stitle" style="font-size:14px;margin-bottom:8px;">${pr.emoji} ${pr.nimi}-profiili</div>
-    <div style="font-size:13px;color:var(--ink2);line-height:1.6;margin-bottom:10px;">${profiilikuvaukset[p.pelaajaProfiili] || ''}</div>
-    <div style="font-size:11px;color:var(--ink3);">
-      ${p.phv_tila === 'PH' ? '⚠️ Kasvupyrähdys käynnissä — harjoittelukuorma max 60%' :
-        p.phv_tila === 'VA' ? '✅ Kasvun jälkeen — harjoitteluhyöty maksimaalinen' :
-        '📍 Ennen kasvupyrähdystä — koordinaation kultaikkuna auki'}
+    <div style="font-size:13px;color:var(--ink2);line-height:1.6;margin-bottom:8px;">${profiilikuvaukset[p.pelaajaProfiili] || ''}</div>
+    <div style="font-size:12px;color:var(--teal);margin-bottom:6px;">${harjLogiikka[p.pelaajaProfiili] || ''}</div>
+    <div style="font-size:11px;color:var(--ink3);border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
+      ${phvTxt}<br>
+      <span style="color:var(--ink3);margin-top:4px;display:block;">⭐ T-harjoite (daily touches) on aina kaikille — Ajax/Benfica/La Masia -filosofia.</span>
     </div>`;
 }
 
@@ -989,7 +1235,54 @@ function laskeRating(p) {
 
 /* ══ HAASTEET ══ */
 function renderHaasteet() {
+  // Generoi haastekoodin (v7-logiikka)
+  if (!window._haasteKoodit) window._haasteKoodit = {};
+
   const aktEl = document.getElementById('haasteetLista');
+
+  // ── Kaverihaaste-osio
+  const haasteTyypit = [
+    {id:'visa',   ikoni:'🧠', nimi:'Visa-haaste',    kuvaus:'Kumpi saa enemmän oikein?',          kesto:'Heti',    xp:100},
+    {id:'streak', ikoni:'🔥', nimi:'Streak-haaste',  kuvaus:'Kumpi pitää pitkemmän putken 7 pv?', kesto:'7 pv',    xp:150},
+    {id:'treeni', ikoni:'⚡', nimi:'Treeni-haaste',  kuvaus:'Kumpi tekee enemmän tällä viikolla?',kesto:'Viikko',  xp:120},
+    {id:'ovr',    ikoni:'👑', nimi:'OVR-haaste',     kuvaus:'Kumpi nousee enemmän testauksessa?', kesto:'Testaus', xp:200},
+  ];
+
+  // Aktiivinen haaste-koodi
+  const aktiivisetKoodit = Object.entries(window._haasteKoodit || {});
+
+  const haasteSectEl = document.getElementById('haasteSect');
+  if (haasteSectEl) {
+    haasteSectEl.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;">⚔️ Haasta kaveri</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;">
+        \${haasteTyypit.map(h => {
+          const aktiivinen = aktiivisetKoodit.find(([,v]) => v.tyyppi === h.id);
+          return \`<div onclick="luoHaasteKoodi('\${h.id}')"
+            style="background:var(--bg3);border:1px solid \${aktiivinen ? 'var(--gold)' : 'var(--border)'};border-radius:9px;padding:10px;cursor:pointer;transition:all .15s;"
+            onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='\${aktiivinen ? 'var(--gold)' : 'var(--border)'}'">
+            <div style="font-size:18px;margin-bottom:3px;">\${h.ikoni}</div>
+            <div style="font-size:12px;font-weight:700;">\${h.nimi}</div>
+            <div style="font-size:10px;color:var(--ink3);line-height:1.3;margin-top:2px;">\${h.kuvaus}</div>
+            <div style="font-size:10px;color:var(--gold);font-weight:600;margin-top:4px;">+\${h.xp} XP · \${h.kesto}</div>
+            \${aktiivinen ? \`<div style="font-size:10px;color:var(--teal);margin-top:4px;">Koodi: \${aktiivinen[0]}</div>\` : ''}
+          </div>\`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:6px;">
+        <input id="haasteKoodiInput" type="text" placeholder="Syötä kaverin koodi (6 merkkiä)"
+          style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+            padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+            outline:none;text-transform:uppercase;"
+          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6)"
+          onkeydown="if(event.key==='Enter')liityHaasteeseen()">
+        <button onclick="liityHaasteeseen()" style="background:var(--accent);color:#fff;border:none;
+          border-radius:8px;padding:9px 14px;font-weight:600;font-size:13px;cursor:pointer;">Liity</button>
+      </div>
+    </div>`;
+  }
+
   aktEl.innerHTML = DEMO_HAASTEET.map(h => `
     <div class="haaste-card">
       <div class="haaste-badge">${h.kategoria}</div>
@@ -1203,6 +1496,129 @@ function valitseFiili(btn, emoji) {
   naytaToast(`${emoji} Fiilis kirjattu — +5 XP`, 'ok');
   _pelaaja.xp = (_pelaaja.xp || 0) + 5;
   _renderXP();
+}
+
+/* ══ WEEK-STRIP ══ */
+function _haeVideoNappi(ketju) {
+  const map = {'Vauhtiketju':'sbl','Lähtöketju':'sfl','Suunnanmuutos':'ll','Suunta':'ll','Kiertoketju':'sl','Hallintaketju':'dfl'};
+  const key = Object.keys(map).find(k => ketju && ketju.includes(k));
+  if (!key) return '';
+  const harjoitteet = TEKNIIKKAHARJOITTEET[map[key]];
+  if (!harjoitteet || !harjoitteet[0]) return '';
+  const ytUrl = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(harjoitteet[0].yt);
+  return '<a href="' + ytUrl + '" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);border-radius:8px;padding:0 12px;color:#FF4757;font-size:11px;font-weight:600;text-decoration:none;min-height:42px;white-space:nowrap;">▶ Video</a>';
+}
+
+function _renderWeekStrip() {
+  const el = document.getElementById('weekStripMain');
+  if (!el) return;
+  const p = _pelaaja;
+  const streak = p?.streak || 0;
+  const now = new Date();
+  const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=Ma
+  const dayNames = ['MA','TI','KE','TO','PE','LA','SU'];
+  const chips = dayNames.map((d,i) => {
+    const date = new Date(now);
+    date.setDate(now.getDate() - todayIdx + i);
+    const dayNum = date.getDate();
+    const done = i < todayIdx && i >= Math.max(0, todayIdx - streak);
+    const today = i === todayIdx;
+    const missed = i < todayIdx && !done;
+    const cls = done ? 'day-chip done' : today ? 'day-chip today' : missed ? 'day-chip missed' : 'day-chip';
+    return `<div class="${cls}">
+      <div class="dc-d">${d}</div>
+      <div class="dc-n">${dayNum}</div>
+      <div class="dc-dot"></div>
+    </div>`;
+  }).join('');
+  el.innerHTML = chips;
+}
+
+/* ══ KAVERIHAASTEET (v7-logiikka) ══ */
+const _HAASTE_MERKIT = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function _genKoodi() {
+  let k = '';
+  for (let i = 0; i < 6; i++) k += _HAASTE_MERKIT[Math.floor(Math.random() * _HAASTE_MERKIT.length)];
+  return k;
+}
+
+function luoHaasteKoodi(tyyppi) {
+  const tyypit = {visa:'🧠 Visa-haaste',streak:'🔥 Streak-haaste',treeni:'⚡ Treeni-haaste',ovr:'👑 OVR-haaste'};
+  if (!window._haasteKoodit) window._haasteKoodit = {};
+  // Peruuta vanha sama tyyppi
+  for (const [k,v] of Object.entries(window._haasteKoodit)) {
+    if (v.tyyppi === tyyppi) delete window._haasteKoodit[k];
+  }
+  const koodi = _genKoodi();
+  window._haasteKoodit[koodi] = {
+    tyyppi, tyyppiNimi: tyypit[tyyppi],
+    haastajaNimi: _pelaaja?.nimi || '—',
+    luotu: new Date().toISOString(),
+  };
+  naytaToast(`Koodi: ${koodi} — jaa kaverille!`, 'gold');
+  // Kopioi leikepöydälle
+  navigator.clipboard?.writeText(koodi).catch(() => {});
+  if (_ladattu.haasteet) { _ladattu.haasteet = false; renderHaasteet(); }
+}
+
+function liityHaasteeseen() {
+  const koodi = (document.getElementById('haasteKoodiInput')?.value || '').toUpperCase().trim();
+  if (koodi.length !== 6) { naytaToast('Koodi on 6 merkkiä!', 'err'); return; }
+  const oma = window._haasteKoodit?.[koodi];
+  if (oma) { naytaToast('Tämä on sinun oma koodisi!', 'err'); return; }
+  // Demo: simuloidaan liittyminen
+  naytaToast(`⚔️ Liitytty haasteeseen ${koodi}!`, 'gold');
+  _pelaaja.xp = (_pelaaja.xp || 0) + 10;
+  _renderXP();
+  document.getElementById('haasteKoodiInput').value = '';
+}
+
+/* ══ KEHITYSKORTTI LUNASTUS ══ */
+function renderNFT() {
+  const el = document.getElementById('nftLunastus');
+  if (!el || !_pelaaja) return;
+  const p = _pelaaja;
+  const rating = laskeRating(p);
+  const mintKey = 'nft_' + (p.id || _demoKey || 'demo');
+  const minted = JSON.parse(localStorage.getItem(mintKey) || 'null');
+  const rarity = rating >= 85 ? 'Kultainen' : rating >= 75 ? 'Hopea' : rating >= 65 ? 'Pronssi' : 'Kehittyjä';
+  const rarityPct = Math.round(100 - rating * 0.8);
+  const rarityColor = rarity === 'Kultainen' ? 'var(--gold)' : rarity === 'Hopea' ? '#C0C0C0' : rarity === 'Pronssi' ? '#CD7F32' : 'var(--teal)';
+
+  if (minted) {
+    el.innerHTML = `<div style="background:rgba(245,183,0,.05);border:1px solid rgba(245,183,0,.2);border-radius:12px;padding:14px;text-align:center;">
+      <div style="font-size:13px;font-weight:600;color:var(--gold);margin-bottom:4px;">🃏 Kortti #${minted.tokenId} lunastettu</div>
+      <div style="font-size:11px;color:var(--ink3);">Lunastettu ${new Date(minted.ts).toLocaleDateString('fi-FI')} · OVR ${minted.ovr} · ${minted.rarity}</div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:6px;">Kortti päivittyy automaattisesti seuraavan kartoituksen jälkeen.</div>
+    </div>`;
+  } else {
+    el.innerHTML = `<div style="background:linear-gradient(135deg,rgba(245,183,0,.06),rgba(255,107,43,.04));border:1px solid rgba(245,183,0,.2);border-radius:12px;padding:16px;text-align:center;">
+      <div style="font-size:22px;margin-bottom:6px;">🃏</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px;">Lunasta kehityskortti</div>
+      <div style="font-size:12px;color:var(--ink2);margin-bottom:10px;line-height:1.5;">
+        Tallenna tämänhetkinen kehitysvaiheesi kortiksi.<br>
+        <span style="color:${rarityColor};font-weight:600;">${rarity} · Harvinaisuus ${rarityPct}%</span>
+      </div>
+      <button onclick="mintKehityskortti()" style="background:linear-gradient(135deg,var(--gold),var(--amber));color:#000;border:none;border-radius:8px;padding:11px 24px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:.5px;">
+        LUNASTA #${Math.floor(1000 + Math.random() * 9000)}
+      </button>
+      <div style="font-size:10px;color:var(--ink3);margin-top:8px;">Kortti päivittyy jokaisen kartoituksen jälkeen</div>
+    </div>`;
+  }
+}
+
+function mintKehityskortti() {
+  if (!_pelaaja) return;
+  const rating = laskeRating(_pelaaja);
+  const rarity = rating >= 85 ? 'Kultainen' : rating >= 75 ? 'Hopea' : rating >= 65 ? 'Pronssi' : 'Kehittyjä';
+  const tokenId = Math.floor(1000 + Math.random() * 9000) + '' + rating;
+  const mintKey = 'nft_' + (_pelaaja.id || _demoKey || 'demo');
+  const data = {tokenId, ts: Date.now(), ovr: rating, rarity};
+  try { localStorage.setItem(mintKey, JSON.stringify(data)); } catch(e) {}
+  naytaToast(`🃏 Kortti #${tokenId} lunastettu! ${rarity}`, 'gold');
+  _pelaaja.xp = (_pelaaja.xp || 0) + 30;
+  _renderXP();
+  renderNFT();
 }
 
 /* ══ POPUP ══ */
