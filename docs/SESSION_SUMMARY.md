@@ -1,48 +1,53 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
+## Projektin tila (päivitetty 2026-03-31)
 
-## Projektin tila (päivitetty 2026-03-30)
+TalentMaster on jalkapallon talenttiarviointialusta. 7 aktiivista pilottiseuraa:
+FC Lahti Juniorit, KPV, Pallo-Iirot, Ylöjärven Ilves, SJK Juniorit, GrIFK, HJK Juniorit.
+Lisäksi luotu testiseuroja: FC Vaasa, FC Kokkola, Demo FC.
 
-TalentMaster on jalkapallon talenttiarviointialusta jossa on 7 pilottiseuraa. Tänään rakennettiin ja testattiin **koko testitapahtuman user flow** ensimmäistä kertaa alusta loppuun — VP loi tapahtuman, valmentaja vahvisti osallistujat, testaajat syöttivät tulokset testipisteillä, ja tulokset tallentuivat Firestoreen. Pilottikontakti Topias Koskela (KPV) voi käyttää järjestelmää.
+Tässä sessiossa rakennettu VP v18, korjattu Admin.html ja Seura.html,
+testattu onboarding-virta läpi, analysoitu SJK-demo ja tehty integraatiopäätös.
 
 ---
 
-## GitHub-repositorio
+## GitHub
 
 ```
 https://github.com/terokoskela7-cmyk/talentmaster
 https://terokoskela7-cmyk.github.io/talentmaster/
 ```
 
-### Tärkeimmät tiedostot (kaikki GitHubissa)
+### Tärkeimmät tiedostot
 
 | Tiedosto | Kuvaus | Tila |
 |---|---|---|
-| `TalentMaster_VP_v17.html` | VP-dashboard | ✅ Päivitetty 30.3. |
-| `TalentMaster_Master_v8.html` | Valmentajan näkymä | ✅ Toimii |
-| `TalentMaster_Harjoitettavuus_Lomake.html` | Testauslomake (v3) | ✅ Päivitetty 30.3. |
-| `TalentMaster_Valmentajakortti.html` | Valmentajakortti tulostettavaksi | ✅ Valmis |
-| `TalentMaster_Harjoitettavuus.xlsx` | Virallinen Palloliiton Excel-pohja | ✅ Lisätty 30.3. |
-| `tm_tapahtumat.js` | Jaettu tapahtumamoduuli | ✅ Toimii |
-| `tm_admin/firestore.rules` | Security Rules | ⚠️ Päivitetty, ei deployta |
+| TalentMaster_VP_v17.html | VP-dashboard VANHA, pysyy rinnalla | Toimii |
+| TalentMaster_VP_v18.html | VP-dashboard UUSI, tässä sessiossa | GitHubissa |
+| TalentMaster_Admin.html | Admin super adminille | Korjattu |
+| TalentMaster_Seura.html | Seura-hallinta VP:lle | Korjattu |
+| TalentMaster_Master_v8.html | Valmentajan näkymä | GitHubissa |
+| TalentMaster_IDP_Kortti_v3.html | Pelaajan IDP | GitHubissa |
+| TalentMaster_SJK_Demo_v2.html | SJK-myyntidemo kovakoodatulla datalla | GitHubissa |
+| functions/index.js | Cloud Functions 6 kpl | Deploy #6 |
+| tm_admin/firestore.rules | Security Rules | Deployattu |
 
 ---
 
 ## Firebase
 
-- **Projekti:** `talentmaster-pilot` (Blaze plan, eur3 multi-region)
-- **Tietokanta:** Firestore, europe-west1
-- **Auth:** Email/Password
+- Projekti: talentmaster-pilot (Blaze plan)
+- Firestore: eur3 multi-region
+- Cloud Functions: europe-west1, Node.js
 
-### Konfiguraatio
 ```javascript
 const firebaseConfig = {
-  apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
-  authDomain: "talentmaster-pilot.firebaseapp.com",
-  projectId: "talentmaster-pilot",
-  storageBucket: "talentmaster-pilot.firebasestorage.app",
+  apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+  authDomain:        "talentmaster-pilot.firebaseapp.com",
+  projectId:         "talentmaster-pilot",
+  storageBucket:     "talentmaster-pilot.firebasestorage.app",
   messagingSenderId: "872561784446",
-  appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
+  appId:             "1:872561784446:web:05c4c7996dfd46ddd14a2f"
 };
 ```
 
@@ -50,127 +55,237 @@ const firebaseConfig = {
 
 | Sähköposti | UID | Rooli | Seura |
 |---|---|---|---|
-| talentmasterid@gmail.com | dqUzvJA61Wb9fgj5UiK0riSA4NI2 | Super Admin | Kaikki |
+| talentmasterid@gmail.com | pvKJoVywWfTouQQgoxggUmGYD0E2 | Super Admin | Kaikki |
+| vp.fcl@talentmaster.fi | dpYcfa154ZOHshZzHrVaTZ2iTHE3 | VP | FC Lahti Juniorit |
 | vp.kpv@talentmaster.fi | jIbW7q8nLggswTjefkYuSvtneH92 | VP | KPV |
-| koskela76@hotmail.com | — | Valmentaja | KPV U13 |
+| vp.palloiirot@talentmaster.fi | fBf1c60rjXTPxYlsV03EfrHZ2xM2 | VP | Pallo-Iirot |
+| vp.yvies@talentmaster.fi | U21RwOm7OYdrAQB8wTXXlDQksEk2 | VP | Ylöjärven Ilves |
+| vp.sjk@talentmaster.fi | 1eHyfKsuTSRAAsPu9kRZ22E4hwo2 | VP | SJK Juniorit |
+| vp.grifk@talentmaster.fi | lBCx0ivDYVWLmxD9TGKsvYrFrlo1 | VP | GrIFK |
+| TeroKoskela7@gmail.com | 9cdMBpObEZg575Rth3vgSBPpliA2 | VP | FC Kokkola (testitunnus) |
 
-### Firestore — tärkeät kokoelmat
-- `seurat/kpv/tapahtumat/` — testitapahtumat (tila: suunniteltu → vahvistettu → kaynnissa → valmis)
-- `seurat/kpv/joukkueet/kpv_u13/pelaajat/` — Kalle Keskikenttä, Toppari Teppo
-- `seurat/kpv/joukkueet/kpv_u13/kartoitukset/` — tallennetut testitulokset + FLEI
-- `admins/` — super-admin tunnistus olemassaololla (ei kenttien arvoilla)
-
-### KRIITTINEN: Firestore Rules -deploy tekemättä
-`kartoitukset`-kokoelmaan lisätty `request.auth == null` sallimaan kirjautumaton
-testaaja tapahtumaId-kontekstilla. Muutos on tiedostossa mutta EI vielä Firestoressä.
-**Tee ennen pilottia:** Firebase Console → Firestore → Rules → liitä rules → Publish.
+TÄRKEÄÄ: Super Admin UID muuttui — uusi UID on pvKJoVywWfTouQQgoxggUmGYD0E2.
+admins-dokumentissa on nyt superAdmin: true JA rooli: "super_admin" — molemmat tarvitaan.
 
 ---
 
-## Tänään rakennettu ja korjattu (2026-03-30)
+## Tässä sessiossa tehdyt työt (2026-03-31)
 
-### VP v17 — kalenterin tyyppifiltteri
-Lisätty `📋 Testit` ja `📅 Kaikki` -suodatinnapit. Oletuksena vain testit ja
-arvioinnit (`harjoitettavuus`, `hh_testit`, `tekniikka`, `adar`) — estää 10 joukkueen
-arjen ruuhkauttamasta VP:n näkymää. Muuttujat: `_vpKalFiltteri` ja `_vpKalTESTITYYPIT`.
+### Admin.html — korjaukset
 
-### VP v17 — kalenteri päivittyy reaaliajassa (onSnapshot)
-Vaihdettu kertaluonteinen `get()` → `onSnapshot()`. Uusi tapahtuma ilmestyy kalenteriin
-ilman sivun latausta. `window._vpKalUnsubscribe` purkaa vanhan kuuntelijan ennen uutta.
+- Muokkaa/poista-funktiot lisätty JS-globaaliin scopeen (puuttuivat kokonaan)
+- avaaSeuraVP ohjaa Seura.html:ään (ei enää VP v17)
+- Uuden seuran luonti samassa modalissa VP:n kanssa (lopullinenSeuraId-logiikka)
+- Roolivalikko optgroup-ryhmillä: Johto / Valmennus / Tuki
+- VP:n kutsu asettaa automaattisesti vp_uid + vp_email seuradokumenttiin
 
-### VP v17 — "Mitä seuraavaksi" -infokortti
-Tapahtuman luomisen jälkeen näytetään modaali kolmella askeleella: vahvista osallistujat
-→ avaa testauslomake ja jaa URL → tulokset Kartoitukset-tabilla. Katoaa klikattaessa
-tai 30s kuluttua. Toteutettu funktiona `_vpNaytaMitaSeuraavaksi()`.
+### Seura.html — auth-fallback
 
-### Master v8 — vahvistus toimii täydellisesti
-Valmentaja avaa tapahtuman kalenteri-tabista → näkee Kallen ja Tepon checkboxeilla →
-vahvistaa. Tila muuttuu `suunniteltu → kaynnissa` ja kirjautuu Firestoreen. Testattu live.
+Ongelma: !SALLITUT_ROOLIT.includes(rooli) hylkäsi VP:n ennen fallback-koodia.
+Korjaus — 2-tasoinen fallback ENNEN hylkäystarkistusta:
+1. vp_uid === user.uid seuradokumentissa
+2. kayttajat collectionGroup (kattaa sihteeri, UTJ, useampi VP)
 
-### Harjoitettavuuslomake — kriittiset korjaukset
+Uudet KPI-kortit yhteenvetoon: kartoituksia, FLEI-ka, tapahtumat, Palloliiton korit.
 
-**_tapahtumaKonteksti** (uusi muuttuja): kun lomake avataan URL-parametrilla
-`?tapahtumaId=xxx&seuraId=kpv`, tapahtuman tiedot haetaan Firestoresta ja tallennetaan
-`window._tapahtumaKonteksti = { tapahtumaId, seuraId, joukkueId, ikäluokka, pvm }`.
-Tämä on luotettavin lähde — dropdown voi olla tyhjä ajoitusongelmien takia.
+### VP v18 — rakennettu alusta
 
-**tallennaRivi()** lukee kolmesta lähteestä prioriteettijärjestyksessä:
-1. `_tapahtumaKonteksti` (tapahtumaId-URL → luotettavin)
-2. `_renderState` (manuaalinen generointi)
-3. URL-parametrit (fallback)
+Auth — 5 bugia korjattu:
 
-**asetaPisteet(btn=null)** korjattu: testipistemoodi kutsuu `asetaPisteet(null, ...)`.
-Vanha koodi teki `btn.closest('td')` → TypeError → `merkkaaLikainen()` ei ajanut →
-`dirtyRows` tyhjäksi → "Ei tallennettavaa". Korjaus: `if (btn) { ... }` null-tarkistus.
+B1: kirjauduSisaan rekisteröi uuden onAuthStateChanged -> kutsui asetaSeura(null)
+    Korjaus: _tunnistaudu(cred.user) suoraan, ei uutta kuuntelijaa
 
-**_renderState** asetetaan suoraan JS:ssä eikä `<script>`-tagissa innerHTML:ssä
-(selain ei aja innerHTML:n script-tageja turvallisuussyistä).
+B2: asetaSeura(null) kaatui Firestoreen
+    Korjaus: null-guard funktion alussa
 
-**Undefined-guard** ennen Firestorea: jos `joukkueId` on tyhjä, näytetään selvä
-virheilmoitus eikä anneta Fireblasen kaatua mystiseen `Unsupported field value: undefined`.
+B3: Super admin jumittui ensimmäiseen seuraan
+    Korjaus: seura-dropdown headeriin, _kaikki_seurat-lista
 
-### Harjoitettavuuslomake — Excel-pohja (oikea .xlsx)
-Vaihdettu CSV-generaattori → SheetJS XLSX-generaattoriksi. Kun pelaajat on ladattu,
-"Lataa pohja" generoi oikean `.xlsx`:n pelaajilla esitäytettynä. Kun pelaajia ei ole,
-ladataan virallinen Palloliiton pohja GitHubista (5 välilehteä, kaavat, Auto-ohjelma).
+B4: orderBy('jarjestys') kaatui puuttuvaan kenttään
+    Korjaus: .get() + JS-sort (fallback 99)
 
-Excel-pohjan kaavat korjattu: `calcMode="auto"` + `fullCalcOnLoad=True` + LibreOffice-
-konversio jotta FLEI-kaavat laskevat automaattisesti Excelissä avattaessa.
+B5: _kirjautuminenKesken asetettiin liian myöhään
+    Korjaus: asetetaan ennen signInWithEmailAndPassword
+
+3-tasoinen VP-tunnistus:
+1. vp_uid seuradokumentissa (nopein)
+2. kayttajat-alikokoelma collectionGroup
+3. Custom Claims tokenista
+
+7 tabia ja niiden sisältö:
+
+Tilanne nyt: Banner, KPI-kortit (pelaajat/FLEI/IDP/X-Factor), automaattiset alertit,
+             FLEI-jakauma ikäluokittain, valmennuslinja-toteutuma
+
+Kartoitukset: Taulukko FLEI-badgeineen, klinikkasuositus jos FLEI < 40
+
+Kalenteri: onSnapshot-tapahtumat tila-badgeineen
+
+Henkilöstö: Valmentajat rooleineen ja claimsAsetettu-tiloineen
+
+Tavoitteet: Palloliiton 3 koria, 18 kriteeriä, tallentuvat Firestoreen per kriteeri
+
+Valmennus: Mentor-kortit (käyntihistoria per valmentaja, VP merkitsee käynnin)
+           + Hyvinvointiyhteenveto joukkueittain (energia/mieliala/motivaatio/palautuminen)
+
+Pelaajapolut: Suodatettava lista — IDP puuttuu / talenttisuositus / erityistuki / siirtopäätös
+              Ohjetekstit viittauksilla Côté 2007, Forsman 2013
+
+Kausirakenne: Koko kausi tammikuusta marraskuuhun avaintapahtumineen
+              (kartoitukset, IDP-päivitykset, talenttisuositukset, mentoroinnit, siirtopäätökset)
+              Tapahtumat merkittävissä tehdyksi → tallentuu Firestoreen
+
+Automaattiset alertit:
+- Punainen: PHV-varoitus (phv_tila: 'PH' joukkueen pelaajista)
+- Keltainen: Matala FLEI (>30% joukkueen pelaajista FLEI < 50, heikoin ketju lasketaan)
+- Vihreä: X-Factor/Hidden Gem (FLEI noussut >=15p + arvo >=70)
+- Sininen: Ei kartoituksia → ohjataan kalenteriin
+
+Ohjetekstit (info-box) kaikissa uusissa osioissa:
+- Valmentajien seuranta: "Valmentaja selittää 40% kehityserosta..."
+- Hyvinvointi: "Jos >30% pelaajista matala → kevennä harjoittelua"
+- Pelaajapolut: tutkimusviittaukset Côté 2007, Forsman 2013
+- Kausirakenne: "Kehitys tapahtuu rakenteellisesti, ei sattumanvaraisesti"
+
+22 visuaalista korjausta:
+- Kaikki 10px-badget -> 11px (luettavuusminimum tummalla taustalla)
+- Tab-napit min-height 44px (Apple/Google mobiilisuositus)
+- Banner: vasemmalle sininen korostusviiva
+- Info-box: vasemmalle 3px sininen viiva (erottaa ohjeen datasta)
+- KPI hover: sininen box-shadow
+- Myöhässä/kiireinen aikajana: taustaväri reunan lisäksi
+- Mobiili <500px: gstatus ja ae-kuvaus piilotetaan
+
+Uudet Firestore-kokoelmat VP v18:lle:
+- seurat/{id}/mentoroinnit/ — VP:n käyntimuistiinpanot valmentajista
+- seurat/{id}/hyvinvointi/ — valmentajan viikoittainen joukkuetila-arvio
+- seurat/{id}/kausirakenne/ — kauden avaintapahtumat tehdyksi-merkintöineen
+
+### Onboarding-virta testattu
+
+FC Kokkola testiseuralla dokumentoitu toimivaksi:
+Admin luo seuran + VP -> Cloud Function luo Auth-tilin -> salasanavaihto onnistui
+-> VP kirjautuu Seura.html -> fallback tunnistaa vp_uid:llä -> pääsee sisään.
+
+"Odottaa"-tila näkyy Admin-näkymässä (Custom Claims puuttuu) mutta ei estä kirjautumista v18:ssa.
+
+### admins-dokumentti korjattu
+
+Super Admin UID muuttui. Lisätty kentät superAdmin: true ja rooli: "super_admin".
+Cloud Function tarkistaa molemmat — pelkkä dokumentin olemassaolo ei riitä luoKayttaja-kutsussa.
+
+### SJK-demo analysoitu + integraatiopäätös
+
+Demo esitelty SJK:lle 2026-03-31. Päätetty integroida tuotantoon 4 sprintin suunnitelmalla.
+
+Kansainväliset parhaat käytännöt analysoitu: Ajax TIPS-malli, KNVB, KINEXON,
+GPS-kuormatutkimus (Frontiers 2025). Tunnistettu 5 puuttuvaa ominaisuutta jotka
+kaikki rakennettiin v18:aan: valmentajienseuranta, hyvinvointi, pelaajapolut,
+kausirakenne, ohjetekstit selityksineen.
+
+Sprint-suunnitelma:
+- Sprint 1: VP v18 (valmis)
+- Sprint 2: Pelaaja-näkymä + FIFA-kortti Firestoresta
+- Sprint 3: Valmentaja Master v8:ssa (harjoitussuunnitelma joukkueen datasta)
+- Sprint 4: Vanhempi-näkymä (selkokielinen, huoltajille)
 
 ---
 
-## User flow — tila 30.3.2026
+## Avoimet ongelmat
 
-Koko flow toimi ensimmäistä kertaa onnistuneesti:
-
-1. VP luo tapahtuman kalenterista ✅
-2. "Mitä seuraavaksi" -infokortti näytetään ✅
-3. Valmentaja vahvistaa osallistujat Master v8:sta ✅
-4. Tila päivittyy automaattisesti (onSnapshot) ✅
-5. Testaaja avaa lomakkeen URL:lla `?tapahtumaId=xxx&seuraId=kpv` ✅
-6. Pelaajat esitäytetty automaattisesti ✅
-7. Testipistemoodi — useampi testaaja samanaikaisesti ✅
-8. Tallennus Firestoreen toimii ✅
-9. VP näkee tulokset Kartoitukset-tabilla ✅
-
-### Puuttuu / testaamatta
-- Tapahtuman tila ei päivity automaattisesti `valmis`-tilaan kun TST tallentaa
-- Firestore Rules -deploy tekemättä (kirjautumaton testaaja ei pysty tallentamaan)
-- Valmentaja ei näe tuloksia suoraan Master v8:ssa (pitää avata Valmentajakortti erikseen)
+| Ongelma | Prioriteetti | Ratkaisu |
+|---|---|---|
+| Gmail App Password saattaa olla vanhentunut | Korkea | Tarkista Functions Logs / vaihda SendGridiin |
+| Custom Claims ei asetu automaattisesti | Korkea | onDocumentCreated-triggeri functions/index.js:ään |
+| VP v18 ei testattu live-datalla | Korkea | Testaa super admin + KPV:n VP ensi sessiossa |
+| FC Vaasa ja HJK ilman VP:tä | Matala | Testiseuroja, voidaan poistaa |
 
 ---
 
-## Seuraavat askeleet prioriteettijärjestyksessä
+## Firestore-rakenne
 
-### Kriittinen ennen pilottia (Topias Koskela)
-1. **Firestore Rules deploy** — Firebase Console → Firestore → Rules → Publish (5 min)
-2. **Tapahtuman tila → valmis** — `tallennaKaikki()`:hin lisätään `tapahtumat/{id}.update({ tila: 'valmis' })`
-3. **Testaa koko flow** Topias Koskela -tunnuksilla puhtaassa sessiossa
+```
+seurat/{seuraId}/
+  id, nimi, laji, paketti, aktiivinen, vp_uid, vp_email, luotu
 
-### Sprint seuraava — "Valmentaja täysivaltaiseksi"
-4. **Valmentajan Kartoitukset-tabi** Master v8:aan — joukkueen FLEI-taulukko suoraan
-5. **onSnapshot kalenteriin** Master v8:ssa — ei sivun latausta
-6. **Valmentaja luo tapahtumia** Master v8:n kalenterista
+  tapahtumat/{id}
+    nimi, tyyppi, joukkueId, joukkueNimi, pvm, tila
 
-### Sprint +2 — "Tiedolla johtaminen"
-7. **VP Seura-näkymä: testausaikataulu** — bulk-asetus kaikille joukkueille kerralla
-8. **IDP-kortti v3 Firebase-integraatio** — pelaaja näkee FLEI-tuloksensa
-9. **Pelaajan kirjautumisnäkymä**
+  joukkueet/{id}/
+    nimi, jarjestys, ikäluokka, siirtymisvuosi
 
-### Sprint +3 — "Skaalaus"
-10. **Cloud Function Excel-generaattori** — pohja täytetään palvelimella openpyxl:llä
-11. **ADAR Firestore-integraatio** — Game IQ -arviointi `adar`-kokoelmaan
-12. **Valmentajan kenttähavainto** → Firestore
+    pelaajat/{id}
+      etunimi, sukunimi, syntymaVuosi, phv_tila (AN/PH/VA),
+      idp_aktiivinen, talenttisuositus, uid
+
+    kartoitukset/{id}
+      pelaaja_id, nimi, flei (tai flei_pisteet), profiili,
+      pvm, sbl, sfl, ll, sl, dfl, flei_nousu
+
+  kayttajat/{uid}
+    etunimi, sukunimi, email, rooli, joukkueNimi, seuraId,
+    aktiivinen, claimsAsetettu, uid, lisenssi, kehitystavoite
+
+  kriteerit/{key}           kori1_0 ... kori3_5 (18 kpl)
+    taytetty: bool, paivitetty: timestamp
+
+  mentoroinnit/{id}         UUSI v18
+    valmentajaUid, valmentajaNimi, muistiinpano, kirjaaja, pvm
+
+  hyvinvointi/{id}          UUSI v18
+    joukkueId, joukkueNimi, energia, mieliala,
+    motivaatio, palautuminen (1-5), pvm
+
+  kausirakenne/{key}        UUSI v18
+    tehty: bool, paivitetty: timestamp
+
+admins/{uid}
+  superAdmin: true, rooli: "super_admin",
+  claimsAsetettu: true, backfillAjettu: true
+```
 
 ---
 
-## Tekninen muistilista — kriittiset opit
+## Seuraavat tehtävät prioriteettijärjestyksessä
 
-- `asetaPisteet(null, idx, ...)` — btn voi olla null testipistemoodissa, tarkista aina
-- `_tapahtumaKonteksti` > `_renderState` > URL-parametrit — luotettavuusjärjestys
-- `window._renderState` asetetaan JS:ssä, ei innerHTML:n `<script>`-tagissa
-- `onSnapshot` + `window._vpKalUnsubscribe` — purkaa aina vanha ennen uutta
-- `fullCalcOnLoad=True` openpyxlissa + LibreOffice-konversio → Excel-kaavat laskevat
-- Fastly CDN: cache-busting `?v=N` URL-parametrilla tai odota ~10 min
-- Firestore Rules: `allow create: if request.auth == null` kartoitukset-kokoelmassa
-- Super-admin tunnistus: `adminSnap.exists` riittää, ei kenttien arvoja tarvita
+Heti ensi sessiossa:
+1. Testaa VP v18 live — super admin + KPV:n VP
+2. Tarkista Gmail App Password (Functions Logs)
+3. Custom Claims -triggeri functions/index.js:ään
+
+Sprint 2:
+4. Pelaaja-näkymä + FIFA-kortti
+5. IDP-kortti v3 pelaajatunnuksilla
+6. FLEI yli ajan -kehityskaari
+
+Sprint 3:
+7. Valmentajan harjoitussuunnitelma heikoimman ketjun mukaan
+8. Hyvinvointikysely Master-näkymään
+9. ADAR-pisteet Firestoreen
+
+Infrastruktuuri:
+10. tm_nav.js integrointi VP v18:aan
+11. Excel -> Firestore tuonti Admin-näkymään
+
+---
+
+## Arkkitehtuuriperiaatteet (kriittiset)
+
+1. onAuthStateChanged rekisteröidään VAIN kerran — ei uutta kuuntelijaa per login
+2. _kirjautuminenKesken asetetaan ENNEN async-operaatiota
+3. admins/{uid} tunnistus .exists-kentällä — Cloud Function tarvitsee myös superAdmin: true
+4. Joukkueet: .get() + JS-sort — EI orderBy('jarjestys') (kenttä voi puuttua)
+5. VP-tunnistus 3 tasolla: vp_uid -> kayttajat collectionGroup -> Claims
+6. Seura.html: VP-rooli haetaan ENNEN hylkäystarkistusta
+7. Seura-vaihto: lazy-load flagit nollataan, _unsubKal() kutsutaan
+8. Cache-busting: ?v=N URL-parametri (Fastly CDN)
+9. Super Admin dropdown: _kaikki_seurat lista + header replaceWith(select)
+
+---
+
+## Design-system (v18)
+
+Pääväri: #4A7ED9 (sininen), tausta: #06090F, kortit: #161D27
+Fonttikoot: 32px KPI / 26px h1 / 19px stitle / 13-14px body / min 11px
+Mobiili breakpointit: 800px / 700px / 500px
+Kosketusalueet: tab min-height 44px, napit min 36px
