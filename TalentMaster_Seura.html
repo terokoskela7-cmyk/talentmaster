@@ -208,7 +208,7 @@ tbody tr:hover{background:var(--bg3);}
 
 /* Responsiivisuus */
 @media(max-width:768px){
-  :root{--nav-w:0px;}
+  :root{--nav-w:220px;}
   #sivupalkki{transform:translateX(-220px);width:220px;}
   #sivupalkki.auki{transform:translateX(0);box-shadow:4px 0 40px rgba(0,0,0,.5);}
   #sisaltoAlue{margin-left:0;padding:16px 12px;}
@@ -228,6 +228,13 @@ tbody tr:hover{background:var(--bg3);}
 </style>
 <body>
 <div id="overlay" onclick="suljeMobiiliNav()"></div>
+
+<!-- Alias-elementit JS-yhteensopivuutta varten -->
+<div id="latausNakyma" style="display:none;position:fixed;inset:0;z-index:300;
+  background:var(--bg);align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+  <div class="spinner" style="width:32px;height:32px;border-width:3px;"></div>
+  <div style="color:var(--ink2);font-size:14px;">Ladataan...</div>
+</div>
 
 <!-- KIRJAUTUMISNÄKYMÄ -->
 <div id="kirjautumisNakyma">
@@ -258,7 +265,7 @@ tbody tr:hover{background:var(--bg3);}
 </div>
 
 <!-- SOVELLUS -->
-<div id="appNakyma">
+<div id="appNakyma" data-alias="sovellus">
 
   <!-- TOPBAR -->
   <header id="topbar">
@@ -769,6 +776,18 @@ tbody tr:hover{background:var(--bg3);}
 </div>
 
 <script>
+// ── ID-aliakset JS-yhteensopivuutta varten ──────────────────
+// Alkuperäinen JS hakee 'sovellus' mutta HTML käyttää 'appNakyma'
+(function() {
+  const aliakset = {
+    'sovellus': 'appNakyma',
+  };
+  const origGetById = document.getElementById.bind(document);
+  document.getElementById = function(id) {
+    return origGetById(aliakset[id] || id);
+  };
+})();
+
 
 // ─────────────────────────────────────────────────────────────────
 // FIREBASE INIT — double-init estetty (kriittinen)
@@ -3972,6 +3991,18 @@ window.naytaToast = function(teksti, tyyppi = 'ok') {
   if (typeof _alkNaytaToast === 'function') _alkNaytaToast(teksti, tyyppi);
 };
 
+
+// ── suljeModal — korjattu: tukee sekä 'auki'-luokkaa että display-style ──
+function suljeModal(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  // Uusi tyyli: poista 'auki'-luokka
+  el.classList.remove('auki');
+  // Vanha tyyli: modalTausta käyttää display:none
+  if (el.classList.contains('modalTausta') || el.style.display === 'flex' || el.style.display === 'block') {
+    el.style.display = 'none';
+  }
+}
 </script>
 </body>
 </html>
