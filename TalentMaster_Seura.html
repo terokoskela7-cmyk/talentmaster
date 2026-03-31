@@ -1038,7 +1038,11 @@ function paivitaJoukkueValitsin() {
 // TOPBAR ALUSTUS
 // ─────────────────────────────────────────────────────────────────
 function alustaTopbar() {
-  const _e_topbarEmail=document.getElementById('topbarEmail');if(_e_topbarEmail)_e_topbarEmail.textContent=tila.kayttaja.email || '—';
+  // Kaikki getElementById-kutsut null-safena
+  const _get = (id) => document.getElementById(id);
+
+  const _topbarEmail = _get('topbarEmail');
+  if (_topbarEmail) _topbarEmail.textContent = (tila.kayttaja && tila.kayttaja.email) || '—';
 
   const rooliNimet = {
     superadmin: 'Super Admin', vp: 'VP',
@@ -1048,17 +1052,22 @@ function alustaTopbar() {
     superadmin: 'admin', vp: 'vp',
     seurasihteeri: 'sihteeri', urheilutoimenjohtaja: 'vp',
   };
-  const rooliEl = document.getElementById('topbarRooli');
-  rooliEl.textContent  = rooliNimet[tila.rooli] || tila.rooli;
-  rooliEl.className    = 'topbarRooli ' + (rooliLuokat[tila.rooli] || 'muu');
+
+  const rooliEl = _get('topbarRooli');
+  if (rooliEl) {
+    rooliEl.textContent = rooliNimet[tila.rooli] || tila.rooli || '—';
+    rooliEl.className   = 'topbarRooli ' + (rooliLuokat[tila.rooli] || 'muu');
+  }
 
   // Super-admin: näytetään seuravalitsin
   if (tila.rooli === 'superadmin' || tila.rooli === 'super_admin') {
-    document.getElementById('seuraValitsinWrap').style.display = 'block';
-    document.getElementById('seuraValitsin').value = tila.seuraId || '';
+    const wrap = _get('seuraValitsinWrap');
+    const val  = _get('seuraValitsin');
+    if (wrap) wrap.style.display = 'block';
+    if (val)  val.value = tila.seuraId || '';
   } else {
-    // Normaali käyttäjä: näytetään seuran nimi
-    document.getElementById('topbarSeuraNimi').style.display = 'block';
+    const seuraNimi = _get('topbarSeuraNimi');
+    if (seuraNimi) seuraNimi.style.display = 'block';
   }
 }
 
