@@ -3,11 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="TalentMaster™ — Pelaajan kehityskortti">
+<meta name="theme-color" content="#06090F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>TalentMaster™ — Pelaaja</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_auth.js"></script>
 <style>
 :root{
   --accent:#4A7ED9;--accent2:#6B9EF0;
@@ -783,6 +788,30 @@ _auth.onAuthStateChanged(async user => {
 
 async function _lataaFirebasePelaaja(user) {
   try {
+    // ── Super admin: pääsee katselemaan demo-pelaajanäkymää ──
+    const tokenTulos = await user.getIdTokenResult(true);
+    const claims = tokenTulos.claims || {};
+
+    if (claims.super_admin || claims.superAdmin) {
+      console.log('[TalentMaster] Super Admin Pelaaja-näkymässä — ladataan demo');
+      // Super admin näkee demo-pelaajan
+      _isDemoUser = false;
+      _pelaaja = {
+        id: 'super_admin_view',
+        etunimi: 'Super', sukunimi: 'Admin',
+        seuraId: 'kpv', joukkueId: 'kpv_u15',
+        syntymaVuosi: 2010, positio: 'KM',
+        flei_pct: 75, streak: 0,
+        rooli: 'super_admin',
+      };
+      await _alustaUI();
+      return;
+    }
+
+    // ── Normaali pelaaja: haetaan Firestoresta ──
+    // HUOM: collectionGroup vaatii Firestore-indeksin:
+    // Firebase Console → Firestore → Indexes → Composite
+    // Collection: kayttajat, Field: uid (Ascending)
     const kSnap = await _db.collectionGroup('kayttajat')
       .where('uid','==',user.uid).limit(1).get();
     if (!kSnap.empty) {
@@ -817,6 +846,7 @@ async function _lataaFirebasePelaaja(user) {
 }
 
 function demoKirjaudu(avain) {
+  console.warn("[TalentMaster] Demo-tila aktiivinen — ei tuotantokäyttöön");
   _isDemoUser = true;
   _demoKey = avain;
   _pelaaja = {...DEMO_PELAAJAT[avain]};
