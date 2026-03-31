@@ -1938,67 +1938,57 @@ function renderVaihe7() {
   const ctx = window._tapahtumaKonteksti || {};
   const ikl = window._renderState?.ikäluokka || ctx.ikäluokka || 'U15';
 
-  // Laske pisteet suoraan tuloksista (ei DOM-riippuvuutta)
   function _laskeYhteenveto(p, ikl) {
-    const tulokset = p.tulokset || {};
+    const tulos = p.tulokset || {};
     const testit = (typeof TESTIT !== 'undefined' ? TESTIT[ikl] : null) || [];
     let pisteet = 0, maxP = 0, taytetty = 0;
-    testit.forEach(t => {
-      const v = tulokset[t.id];
-      if (t.tyyppi === 'pisteet' || !t.tyyppi) {
+    testit.forEach(ti => {
+      if (ti.tyyppi === 'flei') return;
+      if (ti.tyyppi === 'pisteet') {
         maxP += 3;
-        const n = parseInt(v);
+        const n = parseInt(tulos[ti.id]);
         if (n > 0) { pisteet += n; taytetty++; }
-      } else if (t.tyyppi === 'toisto') {
-        const n = parseFloat(v);
-        if (n > 0) { taytetty++; pisteet += n >= (t.viiteT?.p2||20) ? 3 : n >= (t.viiteT?.p1||12) ? 2 : 1; maxP += 3; }
       }
     });
     const pct = maxP > 0 ? Math.round(pisteet / maxP * 100) : null;
     return { pisteet, maxP, pct, taytetty };
   }
 
-  const yhteenveto = (typeof pelaajat !== "undefined" ? pelaajat : []).map(p => {
-    const t = p.tulokset || {};
-    const t = p.tulokset || {};
-    const phv = t.phv_tila || p.phv_tila || '—';
+  const rivit = (typeof pelaajat !== 'undefined' ? pelaajat : []).map(p => {
+    const tulos = p.tulokset || {};
+    const phv = tulos.phv_tila || p.phv_tila || '—';
     const nimi = (p.sukunimi || '') + ', ' + (p.etunimi || '');
     const yht = _laskeYhteenveto(p, ikl);
     const fleipct = yht.pct;
     const fleiC = fleipct >= 75 ? '#2ED573' : fleipct >= 55 ? '#FFA502' : '#FF4757';
     const phvTxt = phv === 'PH' ? '⚠️ Kasvupyrähdys' : phv === 'VA' ? '✅ Kasvu ohitse' : phv === 'AN' ? '📍 Ennen kasvua' : '—';
-    const phvC = phv === 'PH' ? '#FF4757' : phv === 'VA' ? '#2ED573' : 'var(--teksti2)';
-    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--reuna);flex-wrap:wrap;">
+    const phvC = phv === 'PH' ? '#FF4757' : phv === 'VA' ? '#2ED573' : '#9AAAC4';
+    const fleipctStr = fleipct !== null
+      ? `<div style="font-size:13px;font-weight:700;color:${fleiC};">FLEI ${fleipct}%</div>
+         <div style="font-size:11px;color:#9AAAC4;">${yht.pisteet}/${yht.maxP}p · ${yht.taytetty} testiä</div>`
+      : `<div style="font-size:12px;color:#9AAAC4;">Ei pisteitä</div>`;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #1E2D42;flex-wrap:wrap;">
       <div style="font-weight:600;min-width:150px;">${nimi}</div>
       <div style="font-size:12px;color:${phvC};font-weight:600;">${phvTxt}</div>
-      ${fleipct !== null
-        ? `<div style="font-size:13px;font-weight:700;color:${fleiC};">FLEI ${fleipct}%</div>
-           <div style="font-size:11px;color:var(--teksti2);">${yht.pisteet}/${yht.maxP}p · ${yht.taytetty} testiä</div>`
-        : `<div style="font-size:12px;color:var(--teksti2);">Ei pisteitä</div>`}
-    </div>`;.join('');
+      ${fleipctStr}
+    </div>`;
+  }).join('');
 
   el.innerHTML = `
-    <div style="background:var(--pinta);border:1px solid var(--reuna);border-radius:10px;overflow:hidden;margin-bottom:16px;">
-      <div style="background:var(--sininen);color:#fff;padding:12px 16px;font-weight:700;font-size:15px;">
+    <div style="background:#0D1117;border:1px solid #1E2D42;border-radius:10px;overflow:hidden;margin-bottom:16px;">
+      <div style="background:#4A7ED9;color:#fff;padding:12px 16px;font-weight:700;font-size:15px;">
         📊 Testauksen yhteenveto — ${ctx.joukkueNimi || ctx.joukkueId || ''} · ${ctx.pvm || ''}
       </div>
       <div style="padding:4px 0;">
-        <div style="display:flex;gap:12px;padding:10px 14px;border-bottom:1px solid var(--reuna);font-size:11px;font-weight:700;color:var(--teksti2);text-transform:uppercase;letter-spacing:.05em;">
-          <div style="min-width:160px;">Pelaaja</div>
-          <div>PHV-tila</div>
-          <div>FLEI</div>
-          <div>Huomio</div>
+        <div style="display:flex;gap:16px;padding:8px 14px;border-bottom:1px solid #1E2D42;font-size:10px;font-weight:700;color:#9AAAC4;text-transform:uppercase;letter-spacing:.05em;">
+          <div style="min-width:150px;">Pelaaja</div><div>PHV-tila</div><div>FLEI</div><div>Pisteet</div>
         </div>
-        ${yhteenveto || '<div style="padding:16px;color:var(--teksti2);">Ei tallennettuja tuloksia</div>'}
+        ${rivit || '<div style="padding:16px;color:#9AAAC4;">Ei pelaajia</div>'}
       </div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button onclick="asetaVaihe(8)" style="background:var(--sininen);color:#fff;border:none;border-radius:8px;padding:11px 24px;font-size:14px;font-weight:700;cursor:pointer;">
-        Jatka palautteeseen →
-      </button>
-      <button onclick="asetaVaihe(5)" style="background:var(--pinta);color:var(--teksti);border:1px solid var(--reuna);border-radius:8px;padding:11px 20px;font-size:13px;cursor:pointer;">
-        ← Takaisin lomakkeelle
-      </button>
+      <button onclick="asetaVaihe(8)" style="background:#4A7ED9;color:#fff;border:none;border-radius:8px;padding:11px 24px;font-size:14px;font-weight:700;cursor:pointer;">Jatka palautteeseen →</button>
+      <button onclick="asetaVaihe(5)" style="background:#0D1117;color:#E8EEF8;border:1px solid #1E2D42;border-radius:8px;padding:11px 20px;font-size:13px;cursor:pointer;">← Takaisin lomakkeelle</button>
     </div>`;
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
