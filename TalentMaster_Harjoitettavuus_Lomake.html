@@ -2901,7 +2901,7 @@ function renderTestipiste(ikäluokka) {
     <div class="tp-navi">
       <button class="btn btn-ghost" onclick="vaihdaPiste('${ikäluokka}',${_nykyinenPiste-1})"
         ${onEkä?'disabled':''}>← Edellinen</button>
-      <button class="btn btn-success" onclick="tpTallennaKaikkiPiste()"
+      <button class="btn btn-success" onclick="tpTallennaTamaPiste()"
         style="flex:1;">💾 Tallenna tämän pisteen tulokset</button>
       ${!onViim
         ? `<button class="btn btn-primary" onclick="vaihdaPiste('${ikäluokka}',${_nykyinenPiste+1})">
@@ -2969,6 +2969,32 @@ async function tpTallennaKaikkiPiste() {
   window._tpTallennettu = true;
   suljeTestipistemoodi();
   setTimeout(() => asetaVaihe(7), 400);
+}
+
+// ── Tallenna TÄMÄ piste ja siirry seuraavaan ────────────────────────────
+// "Tallenna tämän pisteen tulokset" -nappi kutsuu tätä
+async function tpTallennaTamaPiste() {
+  const ikäluokka = window._renderState?.ikäluokka || window._tapahtumaKonteksti?.ikäluokka || 'U15';
+  const aktiiviset = _aktiivisetPisteet || TESTIPISTEET[ikäluokka] || [];
+  const nykyinen = _nykyinenPiste || 0;
+
+  // Tallenna nykyisen pisteen kaikki dirty rivit
+  const dirty = [...dirtyRows];
+  for (const idx of dirty) {
+    try { await tpTallennaRivi(idx); } catch(e) { console.warn('tp tallennusvirhe:', e); }
+  }
+  naytaNotif('Piste ' + (nykyinen + 1) + ' tallennettu ✓', 'ok');
+
+  // Siirry seuraavaan pisteseen tai viimeisenä → vaihe 7
+  const seuraava = nykyinen + 1;
+  if (seuraava < aktiiviset.length) {
+    vaihdaPiste(ikäluokka, seuraava);
+  } else {
+    // Viimeinen piste — kaikki tallennettu
+    window._tpTallennettu = true;
+    suljeTestipistemoodi();
+    setTimeout(() => asetaVaihe(7), 400);
+  }
 }
 
 
