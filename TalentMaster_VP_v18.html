@@ -322,7 +322,25 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <div class="logo-badge">TM™</div>
       <div class="header-seura" id="headerSeura">—</div>
       <div class="header-role" id="headerRole">VP</div>
-      <div class="header-right">
+      <div class="header-right" style="display:flex;align-items:center;gap:8px;">
+        <button onclick="window.open('TalentMaster_Master_v9.html','_blank')"
+          style="background:none;border:1px solid rgba(74,126,217,.5);border-radius:6px;
+            color:#4A7ED9;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;
+            transition:background .15s;"
+          onmouseover="this.style.background='rgba(74,126,217,.1)'"
+          onmouseout="this.style.background='none'"
+          title="Valmentajan näkymä">
+          &#128100; Valmentaja
+        </button>
+        <button onclick="window.open('TalentMaster_Seura.html','_blank')"
+          style="background:none;border:1px solid rgba(62,201,167,.5);border-radius:6px;
+            color:#3EC9A7;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;
+            transition:background .15s;"
+          onmouseover="this.style.background='rgba(62,201,167,.1)'"
+          onmouseout="this.style.background='none'"
+          title="Seurahallinta">
+          &#127968; Seura
+        </button>
         <button class="header-logout" onclick="kirjauduUlos()">Kirjaudu ulos</button>
       </div>
     </div>
@@ -861,14 +879,58 @@ function naytaTabi(nimi, btn) {
 /* ══════════════════════════════════════════════
    TILANNE NYT — pääsivu
 ══════════════════════════════════════════════ */
+
+// ── SEURAPROFIILIDATA ─────────────────────────────────────────────
+const SEURA_PROFIILIT = {
+  kpv:   { nimi:'KPV', koko:'Kokkolan Palloveikot', kaupunki:'Kokkola', vuosi:1930,
+            v1:'#2D7A3A', v2:'#1A5C2A', v3:'rgba(45,122,58,0.15)',
+            tunnus:'Enemmän kuin jalkapalloa jo vuodesta 1930' },
+  sjk:   { nimi:'SJK Juniorit', koko:'Seinäjoen Jalkapallokerho', kaupunki:'Seinäjoki', vuosi:2007,
+            v1:'#F5C500', v2:'#C9A000', v3:'rgba(245,197,0,0.12)',
+            tunnus:'Tähtiseura — perhe, kehittyminen ja rohkeus' },
+  fcl:   { nimi:'FC Lahti Juniorit', koko:'FC Lahti', kaupunki:'Lahti', vuosi:1996,
+            v1:'#1A4FA0', v2:'#0D3278', v3:'rgba(26,79,160,0.15)',
+            tunnus:'Pelaajapolku huipulle' },
+  grifk: { nimi:'GrIFK', koko:'Grankulla IFK', kaupunki:'Kauniainen', vuosi:1919,
+            v1:'#0057A8', v2:'#003D7A', v3:'rgba(0,87,168,0.15)',
+            tunnus:'Tradition och framgång sedan 1919' },
+};
+function _haeProfiili(id) {
+  return SEURA_PROFIILIT[id] || {
+    nimi:(id||'').toUpperCase(), koko:id||'', kaupunki:'', vuosi:null,
+    v1:'#4A7ED9', v2:'#3A6EC9', v3:'rgba(74,126,217,0.12)', tunnus:'',
+  };
+}
+
 async function lataaTilanne() {
   if (!_seuraId) return;
 
-  // Banner
+  // Banner — seuravärit ja tervehdys
   const tunnin = new Date().getHours();
   const terv = tunnin < 11 ? 'Hyvää huomenta' : tunnin < 17 ? 'Hyvää päivää' : 'Hyvää iltaa';
   const etunimi = (_user?.displayName || _user?.email || '').split(/[ @]/)[0];
   document.getElementById('bannerNimi').textContent = etunimi || '—';
+
+  const _prof = _haeProfiili(_seuraId);
+  const _bannerEl = document.querySelector('.banner');
+  if (_bannerEl) {
+    _bannerEl.style.borderLeftColor = _prof.v1;
+    _bannerEl.style.background = 'linear-gradient(135deg, var(--surface) 55%, ' + _prof.v3 + ')';
+  }
+  const _bannerRole = document.getElementById('bannerRole');
+  if (_bannerRole) {
+    _bannerRole.style.color = _prof.v1;
+    _bannerRole.style.borderColor = _prof.v1 + '55';
+  }
+  let _tunnus = document.getElementById('bannerTunnus');
+  if (!_tunnus && _prof.tunnus) {
+    _tunnus = document.createElement('p');
+    _tunnus.id = 'bannerTunnus';
+    _tunnus.style.cssText = 'font-size:11px;letter-spacing:.8px;margin-top:6px;opacity:.8;font-weight:600;text-transform:uppercase;';
+    const _bh1 = document.querySelector('.banner h1');
+    if (_bh1 && _bh1.parentNode) _bh1.parentNode.insertBefore(_tunnus, _bh1.nextSibling);
+  }
+  if (_tunnus) { _tunnus.textContent = _prof.tunnus; _tunnus.style.color = _prof.v1; }
 
   // KPI-data
   let pelaajatLkm = 0;
