@@ -1011,9 +1011,9 @@ async function asetaAktiivinenSeura(seuraId) {
     });
 
   // Päivitetään sivupalkin tieto
-  document.getElementById('sivupalkkiSeuraNimi').textContent = tila.seuraNimi;
-  document.getElementById('sivupalkkiPaketti').textContent   = tila.seuraPaketti;
-  document.getElementById('topbarSeuraNimi').textContent     = tila.seuraNimi;
+  const _el_sivupalkkiSeuraNimi = document.getElementById('sivupalkkiSeuraNimi'); if (_el_sivupalkkiSeuraNimi) _el_sivupalkkiSeuraNimi.textContent = tila.seuraNimi;
+  const _elx_sivupalkkiPaketti=document.getElementById('sivupalkkiPaketti');if(_elx_sivupalkkiPaketti)_elx_sivupalkkiPaketti.textContent=tila.seuraPaketti
+  const _elx_topbarSeuraNimi=document.getElementById('topbarSeuraNimi');if(_elx_topbarSeuraNimi)_elx_topbarSeuraNimi.textContent=tila.seuraNimi
 }
 
 // Super-adminin seuravalitsin vaihtaa seuran
@@ -1038,7 +1038,7 @@ function paivitaJoukkueValitsin() {
 // TOPBAR ALUSTUS
 // ─────────────────────────────────────────────────────────────────
 function alustaTopbar() {
-  document.getElementById('topbarEmail').textContent = tila.kayttaja.email || '—';
+  const _e_topbarEmail=document.getElementById('topbarEmail');if(_e_topbarEmail)_e_topbarEmail.textContent=tila.kayttaja.email || '—';
 
   const rooliNimet = {
     superadmin: 'Super Admin', vp: 'VP',
@@ -1074,12 +1074,14 @@ function vaihdaNakyma(nakyma, nappiEl) {
 
 function renderoi(nakyma) {
   const alue = document.getElementById('nakymaAlue');
+  if (!alue) return;
   switch (nakyma) {
     case 'yhteenveto':  alue.innerHTML = renderYhteenveto();  break;
     case 'pelaajat':    renderPelaajat(alue);                 break;
     case 'joukkueet':   alue.innerHTML = renderJoukkueet();   break;
     case 'henkilosto':  renderHenkilosto(alue);               break;
     case 'sopimukset':  alue.innerHTML = renderSopimukset();  break;
+    case 'kehitys':     renderKehitys(alue);                  break;
   }
 }
 
@@ -3699,16 +3701,7 @@ function suljeMobiiliNav() {
   document.getElementById('overlay')?.classList.remove('naytetaan');
 }
 
-// ── Kehitysnäkymä — laajennettu renderoi() ──
-const _alkuperainenRenderoi = renderoi;
-function renderoi(nakyma) {
-  if (nakyma === 'kehitys') {
-    const alue = document.getElementById('nakymaAlue');
-    if (alue) renderKehitys(alue);
-    return;
-  }
-  _alkuperainenRenderoi(nakyma);
-}
+// ── Kehitysnäkymä — renderoi() laajennettu yllä ──
 
 // ── Kehitystilanne — 3 datalähdettä ──
 async function renderKehitys(alue) {
