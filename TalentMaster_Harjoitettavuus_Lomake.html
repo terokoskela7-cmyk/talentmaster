@@ -2278,7 +2278,15 @@ async function tallennaRivi(idx) {
 }
 
 async function tallennaKaikki() {
-  if (dirtyRows.size === 0) { naytaNotif('Ei tallennettavaa', 'info'); return; }
+  if (dirtyRows.size === 0) {
+    // Jos testipistemoodi käytössä — tulokset on jo tallennettu, siirry vaiheeseen 7
+    if (window._tpTallennettu) {
+      asetaVaihe(7);
+    } else {
+      naytaNotif('Ei tallennettavaa — syötä pisteet ensin', 'info');
+    }
+    return;
+  }
   const status = document.getElementById('globalStatus');
   if (status) { status.className = 'tallenna-status tallentaa'; status.textContent = `Tallennetaan ${dirtyRows.size} pelaajaa...`; }
 
@@ -2900,9 +2908,9 @@ function renderTestipiste(ikäluokka) {
              Seuraava piste →
            </button>`
         : `<button class="btn" style="background:var(--vihrea);color:#fff;"
-             onclick="suljeTestipistemoodi()">
-             ✓ Kaikki pisteet valmiit
-           </button>`}
+             onclick="tpTallennaKaikkiPiste()">
+              ✓ Kaikki pisteet valmiit
+            </button>`}
     </div>
   </div>`;
 
@@ -2958,6 +2966,7 @@ async function tpTallennaKaikkiPiste() {
     try { await tpTallennaRivi(idx); } catch(e) { console.warn('tp tallennusvirhe:', e); }
   }
   naytaNotif('Kaikki tallennettu ✓', 'ok');
+  window._tpTallennettu = true;
   suljeTestipistemoodi();
   setTimeout(() => asetaVaihe(7), 400);
 }
