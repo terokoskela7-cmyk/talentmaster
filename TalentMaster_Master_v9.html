@@ -1051,15 +1051,17 @@ async function lataaKayttajanProfiili(kayttaja) {
     // Näyttää seuranvalintanäkymän jos ei ole valittu seuraa
     if (claims.super_admin || claims.superAdmin) {
       console.log('Super Admin kirjautui Master v9:ään');
-      seuraId = 'kpv'; // Oletusseura — voidaan muuttaa UI:sta
-      seuraNimi = 'KPV (Super Admin)';
-      kayttajaData = { rooli: 'super_admin', email: kayttaja.email, seuraId };
-      const seuraSnap0 = await db.collection('seurat').limit(1).get();
+      // Haetaan ensimmäinen aktiivinen pilottiseura (ei demo-fc)
+      const seuraSnap0 = await db.collection('seurat')
+        .where('aktiivinen', '==', true).limit(1).get();
       if (!seuraSnap0.empty) {
-        seuraId = seuraSnap0.docs[0].id;
+        seuraId   = seuraSnap0.docs[0].id;
         seuraNimi = seuraSnap0.docs[0].data().nimi || seuraId;
-        kayttajaData.seuraId = seuraId;
+      } else {
+        seuraId   = 'kpv';
+        seuraNimi = 'KPV';
       }
+      kayttajaData = { rooli: 'super_admin', email: kayttaja.email, seuraId };
     } else if (claims.seuraId && claims.rooli) {
       // ✅ Custom Claims löytyivät — nopein polku.
       // Ei tarvita collectionGroup-kyselyä.
