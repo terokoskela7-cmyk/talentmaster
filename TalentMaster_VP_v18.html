@@ -323,11 +323,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <div class="header-seura" id="headerSeura">—</div>
       <div class="header-role" id="headerRole">VP</div>
       <div class="header-right">
-        <button onclick="window.open('TalentMaster_Master_v9.html','_blank')"
-          style="background:#1E3A5F;color:#4A7ED9;border:1px solid #4A7ED9;border-radius:6px;
-            padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-right:8px;">
-          👨‍💼 Valmentaja v9
-        </button><button class="header-logout" onclick="kirjauduUlos()">Kirjaudu ulos</button>
+        <button class="header-logout" onclick="kirjauduUlos()">Kirjaudu ulos</button>
       </div>
     </div>
   </header>
@@ -600,6 +596,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_auth.js"></script>
 <script>
 /* ══════════════════════════════════════════════
    FIREBASE INIT
@@ -799,18 +796,6 @@ async function asetaSeura(seuraId) {
   nayta('sDash');
   naytaTabi('tilanne', document.getElementById('tab-tilanne'));
   lataaTilanne();
-
-  // Täytä uusiTapahtumaModal:n joukkuevalitsin
-  setTimeout(async () => {
-    const sel = document.getElementById('utJoukkue');
-    if (!sel || !_seuraId) return;
-    try {
-      const snap = await _db.collection('seurat').doc(_seuraId)
-        .collection('joukkueet').orderBy('nimi').get();
-      sel.innerHTML = '<option value="">— valitse joukkue —</option>' +
-        snap.docs.map(d => `<option value="${d.id}">${d.data().nimi || d.id}</option>`).join('');
-    } catch(e) { console.warn('utJoukkue täyttö:', e.message); }
-  }, 500);
 }
 
 /* ══════════════════════════════════════════════
@@ -1333,9 +1318,7 @@ async function lataaKalenteri() {
           const pvmKk = pvm ? ['tam','hel','maa','huh','tou','kes','hei','elo','syy','lok','mar','jou'][pvm.getMonth()] : '';
           const tilaClass = {suunniteltu:'ts-suun', vahvistettu:'ts-vah', kaynnissa:'ts-kay', valmis:'ts-val'}[d.tila] || 'ts-suun';
           const tilaLabel = {suunniteltu:'Suunniteltu', vahvistettu:'Vahvistettu', kaynnissa:'Käynnissä', valmis:'Valmis'}[d.tila] || d.tila || '—';
-          const lomakeUrl = `TalentMaster_Harjoitettavuus_Lomake.html?tapahtumaId=${doc.id}&seuraId=${_seuraId}`;
-          return `<div class="tap-item" onclick="window.open('${lomakeUrl}','_blank')" style="cursor:pointer;"
-            title="Avaa testilomake">
+          return `<div class="tap-item">
             <div class="tap-date">
               <div class="tap-date-d">${pvmPv}</div>
               <div class="tap-date-m">${pvmKk}</div>
@@ -1345,7 +1328,6 @@ async function lataaKalenteri() {
               <div class="tap-meta">${d.joukkueNimi || d.joukkueId || '—'} · ${d.tyyppi || 'harjoitettavuus'}</div>
             </div>
             <div class="tap-status ${tilaClass}">${tilaLabel}</div>
-            <div style="font-size:11px;color:#4A7ED9;margin-left:8px;">📋 Avaa →</div>
           </div>`;
         }).join('')}
       </div>`;
@@ -1355,52 +1337,11 @@ async function lataaKalenteri() {
 }
 
 function avaaUusiTapahtuma() {
-  // Näytä tapahtuman luonti -modaali suoraan VP v18:ssa
-  const modal = document.getElementById('uusiTapahtumaModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    // Esitäytä päivämäärä tähän päivään
-    const pvmInput = document.getElementById('utPvm');
-    if (pvmInput) pvmInput.value = new Date().toISOString().split('T')[0];
-    return;
-  }
-  // Fallback: avaa lomake suoraan
-  window.open(`TalentMaster_Harjoitettavuus_Lomake.html?seuraId=${_seuraId}`, '_blank');
-}
-
-function suljeUusiTapahtuma() {
-  const modal = document.getElementById('uusiTapahtumaModal');
-  if (modal) modal.style.display = 'none';
-}
-
-async function tallennaTapahtuma() {
-  const nimi   = document.getElementById('utNimi')?.value?.trim();
-  const pvm    = document.getElementById('utPvm')?.value;
-  const jId    = document.getElementById('utJoukkue')?.value;
-  const jNimi  = document.getElementById('utJoukkue')?.selectedOptions[0]?.textContent || jId;
-  const tyyppi = document.getElementById('utTyyppi')?.value || 'harjoitettavuus';
-
-  if (!pvm || !jId) { alert('Valitse joukkue ja päivämäärä.'); return; }
-
-  try {
-    const doc = await _db.collection('seurat').doc(_seuraId)
-      .collection('tapahtumat').add({
-        nimi:        nimi || `Harjoitettavuuskartoitus ${pvm}`,
-        pvm:         pvm,
-        pvmStr:      pvm,
-        joukkueId:   jId,
-        joukkueNimi: jNimi,
-        seuraId:     _seuraId,
-        tyyppi,
-        tila:        'suunniteltu',
-        luotu:       firebase.firestore.FieldValue.serverTimestamp(),
-        luojaUid:    firebase.auth().currentUser?.uid || null,
-      });
-    suljeUusiTapahtuma();
-    // Avaa lomake suoraan uudelle tapahtumalle
-    window.open(`TalentMaster_Harjoitettavuus_Lomake.html?tapahtumaId=${doc.id}&seuraId=${_seuraId}`, '_blank');
-  } catch(e) {
-    alert('Virhe: ' + e.message);
+  // Ohjataan Harjoitettavuus-lomakkeeseen uuden tapahtuman luomiseen
+  // Tulevaisuudessa: inline-modaali
+  const url = `TalentMaster_VP_v17.html`;
+  if (confirm('Siirrytäänkö tapahtuman luomiseen VP v17 -dashboardiin?')) {
+    window.location.href = url;
   }
 }
 
