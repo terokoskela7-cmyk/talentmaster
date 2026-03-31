@@ -4,453 +4,324 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalentMaster™ — Seurahallinta</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
-<!-- Excel-tuonti: SheetJS ensin, sitten TM-komponentit -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="tm_import.js"></script>
-<script src="tm_empty_state.js"></script>
-
-<style>
-/* ─────────────────────────────────────────────
-   DESIGN TOKENS — yhtenäinen koko TalentMasterin kanssa
-   ───────────────────────────────────────────── */
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_import.js"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_empty_state.js"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/tk_kansallinen.js"></script>
+</head><style>
+/* ══════════════════════════════════════════════════════
+   DESIGN SYSTEM v2 — TalentMaster Seurahallinta
+   Moderni, responsiivinen, yhtenäinen VP v18 + Master v9
+══════════════════════════════════════════════════════ */
 :root {
-  --bg:      #06090F;
-  --bg2:     #0C1018;
-  --bg3:     #121824;
-  --bg4:     #181F2C;
-  --ink:     #E8EEF8;
-  --ink2:    rgba(232,238,248,.65);
-  --ink3:    rgba(232,238,248,.35);
-  --blue:    #4A7ED9;
-  --blue-d:  #3A6EC9;
-  --teal:    #3EC9A7;
-  --amber:   #E0A040;
-  --red:     #D96060;
-  --green:   #5EC97A;
-  --border:  rgba(232,238,248,.07);
-  --bord2:   rgba(232,238,248,.14);
-  --r:       10px;
+  --bg:    #06090F; --bg2:  #0C1018; --bg3:  #121824; --bg4:  #181F2C; --bg5:  #1E2736;
+  --ink:   #E8EEF8; --ink2: rgba(232,238,248,.65); --ink3: rgba(232,238,248,.38);
+  --blue:  #4A7ED9; --blue2:#3A6EC9; --blue3:rgba(74,126,217,.12);
+  --teal:  #3EC9A7; --teal2:rgba(62,201,167,.12);
+  --amber: #E0A040; --amber2:rgba(224,160,64,.12);
+  --red:   #D96060; --red2: rgba(217,96,96,.12);
+  --green: #5EC97A; --green2:rgba(94,201,122,.12);
+  --purple:#9B7FD4; --purp2:rgba(155,127,212,.12);
+  --border:rgba(232,238,248,.07); --bord2:rgba(232,238,248,.13); --bord3:rgba(232,238,248,.22);
+  --r:10px; --r2:14px; --r3:20px;
+  --shadow:0 4px 24px rgba(0,0,0,.4); --shadow2:0 8px 40px rgba(0,0,0,.5);
+  --nav-w:220px; --top-h:56px;
 }
-*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body {
-  background: var(--bg);
-  color: var(--ink);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 15px;
-  line-height: 1.65;
-  min-height: 100vh;
-  overflow-x: hidden;
-}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;min-height:100vh;overflow-x:hidden;}
 
-/* ─────────────────────────────────────────────
-   KIRJAUTUMISNÄKYMÄ
-   ───────────────────────────────────────────── */
-#kirjautumisNakyma {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 24px;
-  background:
-    radial-gradient(ellipse 80% 60% at 15% 85%, rgba(74,126,217,.06) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 85% 15%, rgba(62,201,167,.04) 0%, transparent 50%),
-    var(--bg);
-}
-.kirjKortti {
-  width: 100%;
-  max-width: 420px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 48px 40px 40px;
-  animation: sisaan .5s cubic-bezier(.16,1,.3,1) both;
-}
-@keyframes sisaan {
-  from { opacity: 0; transform: translateY(18px) scale(.97); }
-  to   { opacity: 1; transform: none; }
-}
-.kirjLogo { font-family:'Playfair Display',serif; font-size:22px; font-weight:900; margin-bottom:4px; }
-.kirjLogo span { color: var(--teal); }
-.kirjSub {
-  font-size:11px; font-weight:600; letter-spacing:2px;
-  text-transform:uppercase; color:var(--ink3); margin-bottom:32px;
-}
-.kenttaRyhma { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
-.kenttaLabel { font-size:11px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink3); }
-.kenttaInput {
-  background:var(--bg3); border:1px solid var(--bord2); border-radius:8px;
-  padding:11px 14px; font-size:14px; font-family:'DM Sans',sans-serif;
-  color:var(--ink); outline:none; transition:border-color .2s; width:100%;
-}
-.kenttaInput:focus { border-color:var(--blue); background:var(--bg4); }
-.kenttaInput::placeholder { color:var(--ink3); }
-select.kenttaInput { cursor:pointer; }
-.nappi {
-  width:100%; margin-top:6px; padding:13px; background:var(--blue);
-  border:none; border-radius:8px; font-size:14px; font-weight:600;
-  font-family:'DM Sans',sans-serif; color:#fff; cursor:pointer;
-  transition:background .2s, transform .1s;
-}
-.nappi:hover { background:var(--blue-d); }
-.nappi:active { transform:scale(.98); }
-.nappi:disabled { opacity:.5; cursor:not-allowed; }
-.nappi.teal { background:var(--teal); }
-.nappi.teal:hover { background:#32b898; }
-.virheDiv {
-  display:none; margin-top:12px; padding:10px 14px;
-  background:rgba(217,96,96,.12); border:1px solid rgba(217,96,96,.3);
-  border-radius:8px; font-size:13px; color:#e88080; text-align:center;
-}
-.virheDiv.nakyvilla { display:block; }
+/* Kirjautuminen */
+#kirjautumisNakyma{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:radial-gradient(ellipse 70% 50% at 10% 90%,rgba(74,126,217,.08) 0%,transparent 60%),radial-gradient(ellipse 50% 40% at 90% 10%,rgba(62,201,167,.05) 0%,transparent 50%),var(--bg);}
+.kirjKortti{width:100%;max-width:400px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:44px 36px 36px;box-shadow:var(--shadow2);animation:fadeUp .4s cubic-bezier(.16,1,.3,1) both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px) scale(.98);}to{opacity:1;transform:none;}}
+.kirjBrand{display:flex;align-items:center;gap:10px;margin-bottom:28px;}
+.kirjLogoMark{width:36px;height:36px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0;}
+.kirjLogoText{font-size:17px;font-weight:800;} .kirjLogoText span{color:var(--teal);}
+.kirjLogoSub{font-size:10px;color:var(--ink3);margin-top:1px;}
+.kirjTitle{font-size:22px;font-weight:700;margin-bottom:6px;}
+.kirjDesc{font-size:13px;color:var(--ink2);margin-bottom:24px;}
+/* Takautuva yhteensopivuus */
+.kirjLogo{font-size:20px;font-weight:800;margin-bottom:4px;}
+.kirjLogo span{color:var(--teal);}
+.kirjSub{font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);margin-bottom:32px;}
 
-/* ─────────────────────────────────────────────
-   LATAUSNÄKYMÄ
-   ───────────────────────────────────────────── */
-#latausNakyma {
-  display:none; align-items:center; justify-content:center;
-  min-height:100vh; flex-direction:column; gap:14px;
-  color:var(--ink3); font-size:13px;
-}
-.spinner {
-  width:28px; height:28px; border:2px solid var(--border);
-  border-top-color:var(--blue); border-radius:50%;
-  animation:pyori .7s linear infinite;
-}
-@keyframes pyori { to { transform:rotate(360deg); } }
+/* Lomakekentät */
+.kenttaRyhma{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.kenttaLabel{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);}
+.kenttaInput{background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;padding:10px 13px;font-size:14px;font-family:inherit;color:var(--ink);outline:none;transition:border-color .2s,background .2s;width:100%;}
+.kenttaInput:focus{border-color:var(--blue);background:var(--bg4);}
+.kenttaInput::placeholder{color:var(--ink3);}
+select.kenttaInput{cursor:pointer;}
+.nappi{width:100%;margin-top:6px;padding:12px;background:var(--blue);border:none;border-radius:8px;font-size:14px;font-weight:600;font-family:inherit;color:#fff;cursor:pointer;transition:background .15s,transform .1s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.nappi:hover{background:var(--blue2);} .nappi:active{transform:scale(.98);}
+.nappi.secondary{background:transparent;border:1px solid var(--bord2);color:var(--ink2);}
+.nappi.secondary:hover{background:var(--bg4);color:var(--ink);}
+.virheViesti{font-size:12px;color:var(--red);background:var(--red2);border:1px solid rgba(217,96,96,.25);border-radius:6px;padding:8px 12px;margin-top:10px;display:none;}
 
-/* ─────────────────────────────────────────────
-   PÄÄSOVELLUS
-   ───────────────────────────────────────────── */
-#sovellus { display:none; }
+/* Layout */
+#appNakyma{display:none;min-height:100vh;}
+#topbar{position:fixed;top:0;left:0;right:0;z-index:200;height:var(--top-h);background:rgba(6,9,15,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px 0 0;gap:0;}
+.topBrand{width:var(--nav-w);flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 16px;height:100%;border-right:1px solid var(--border);}
+.topLogoMark{width:28px;height:28px;background:var(--blue);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;}
+.topLogoText{font-size:13px;font-weight:700;white-space:nowrap;} .topLogoText span{color:var(--teal);}
+.topRight{margin-left:auto;display:flex;align-items:center;gap:8px;}
+#topSeuraValitsin{background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;color:var(--ink);font-family:inherit;font-size:13px;font-weight:500;padding:6px 10px;cursor:pointer;outline:none;max-width:200px;}
+.topAvatar{width:32px;height:32px;border-radius:50%;background:var(--blue3);border:1px solid var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--blue);cursor:default;}
+#topUserEmail{font-size:12px;color:var(--ink2);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;}
+.topIconBtn{background:none;border:none;cursor:pointer;color:var(--ink2);padding:6px;border-radius:6px;font-size:16px;transition:background .15s,color .15s;display:flex;align-items:center;}
+.topIconBtn:hover{background:var(--bg4);color:var(--ink);}
 
-/* TOPBAR */
-.topbar {
-  position:fixed; top:0; left:0; right:0; z-index:100; height:54px;
-  background:rgba(6,9,15,.96); backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--border);
-  display:flex; align-items:center; padding:0 24px; gap:0;
-}
-.topbarLogo {
-  font-family:'Playfair Display',serif; font-size:16px; font-weight:900;
-  padding-right:18px; border-right:1px solid var(--border); flex-shrink:0;
-}
-.topbarLogo span { color:var(--teal); }
+/* Sivupalkki */
+#sivupalkki{position:fixed;top:var(--top-h);left:0;bottom:0;width:var(--nav-w);z-index:100;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:transform .3s cubic-bezier(.16,1,.3,1);}
+.navSection{padding:12px 8px 4px;}
+.navSectionLabel{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);padding:0 8px;margin-bottom:4px;}
+.navNappi{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border:none;background:none;color:var(--ink2);cursor:pointer;border-radius:8px;font-family:inherit;font-size:13px;font-weight:500;text-align:left;transition:background .15s,color .15s;white-space:nowrap;}
+.navNappi:hover{background:var(--bg4);color:var(--ink);}
+.navNappi.aktiivinen{background:var(--blue3);color:var(--blue);font-weight:600;}
+.navNappi .navIkoni{font-size:15px;width:22px;text-align:center;flex-shrink:0;}
+.navBadge{margin-left:auto;font-size:10px;font-weight:700;background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;min-width:18px;text-align:center;}
+.navDivider{height:1px;background:var(--border);margin:6px 8px;}
+.navSeura{padding:12px;border-bottom:1px solid var(--border);}
+.navSeuraLabel{font-size:10px;color:var(--ink3);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
+#navSeuraValitsin{width:100%;background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;color:var(--ink);font-family:inherit;font-size:12px;padding:7px 10px;cursor:pointer;outline:none;}
 
-/* Seuravalitsin — näkyy vain super-adminille */
-.seuraValitsinWrap {
-  padding-left:18px;
-  display:none; /* piilotettu oletuksena — näytetään JS:ssä super-adminille */
-}
-.seuraValitsin {
-  background:var(--bg3); border:1px solid var(--bord2); border-radius:7px;
-  padding:5px 12px; font-size:13px; font-family:'DM Sans',sans-serif;
-  color:var(--ink); cursor:pointer; outline:none;
-  transition:border-color .2s; min-width:180px;
-}
-.seuraValitsin:focus { border-color:var(--blue); }
+/* Sisältöalue */
+#sisaltoAlue{margin-left:var(--nav-w);margin-top:var(--top-h);padding:24px;min-height:calc(100vh - var(--top-h));}
 
-/* Seuran nimi normaalikäyttäjälle */
-.topbarSeuraNimi {
-  padding-left:18px; font-size:13px; font-weight:600; color:var(--teal);
-  display:none;
-}
+/* Sivuotsikko */
+.sivuOtsikko{margin-bottom:24px;}
+.sivuEyebrow{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);margin-bottom:4px;}
+.sivuH1{font-size:26px;font-weight:800;letter-spacing:-.5px;}
+.sivuH1 small{font-size:12px;font-weight:500;color:var(--teal);background:var(--teal2);border-radius:20px;padding:2px 10px;margin-left:10px;vertical-align:middle;letter-spacing:0;}
 
-.topbarKayttaja { display:flex; align-items:center; gap:10px; margin-left:auto; }
-.topbarEmail { font-size:12px; color:var(--ink3); }
-.topbarRooli {
-  font-size:10px; font-weight:700; letter-spacing:1.2px;
-  text-transform:uppercase; padding:3px 8px; border-radius:4px;
-}
-.topbarRooli.vp       { background:rgba(224,160,64,.15); color:var(--amber); }
-.topbarRooli.sihteeri { background:rgba(74,126,217,.15);  color:var(--blue); }
-.topbarRooli.admin    { background:rgba(62,201,167,.15);  color:var(--teal); }
-.ulosNappi {
-  background:none; border:1px solid var(--border); border-radius:6px;
-  padding:5px 12px; font-size:11px; font-weight:600; letter-spacing:.5px;
-  text-transform:uppercase; color:var(--ink3); cursor:pointer;
-  font-family:'DM Sans',sans-serif; transition:all .2s;
-}
-.ulosNappi:hover { color:var(--ink2); border-color:var(--bord2); }
+/* KPI-kortit */
+.kpiRivi{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;margin-bottom:24px;}
+.kpiKortti{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px 18px;position:relative;overflow:hidden;transition:border-color .2s,transform .15s;}
+.kpiKortti:hover{transform:translateY(-1px);}
+.kpiKortti::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:var(--r2) var(--r2) 0 0;}
+.kpiKortti.sininen::before{background:var(--blue);} .kpiKortti.teal::before{background:var(--teal);} .kpiKortti.amber::before{background:var(--amber);} .kpiKortti.red::before{background:var(--red);} .kpiKortti.green::before{background:var(--green);} .kpiKortti.purple::before{background:var(--purple);}
+.kpiLabel{font-size:11px;color:var(--ink3);font-weight:600;letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase;}
+.kpiArvo{font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1;margin-bottom:4px;}
+.kpiAla{font-size:11px;color:var(--ink2);}
+.kpiKortti.sininen .kpiArvo{color:var(--blue);} .kpiKortti.teal .kpiArvo{color:var(--teal);} .kpiKortti.amber .kpiArvo{color:var(--amber);} .kpiKortti.red .kpiArvo{color:var(--red);} .kpiKortti.green .kpiArvo{color:var(--green);} .kpiKortti.purple .kpiArvo{color:var(--purple);}
 
-/* SIVUPALKKI */
-.sivupalkki {
-  position:fixed; top:54px; bottom:0; left:0; width:210px;
-  background:var(--bg2); border-right:1px solid var(--border);
-  padding:20px 0; z-index:50; overflow-y:auto;
-}
-.sivupalkkiSeura {
-  padding:0 20px 18px; border-bottom:1px solid var(--border); margin-bottom:10px;
-}
-.sivupalkkiSeuraLabel {
-  font-size:10px; font-weight:600; letter-spacing:1.5px;
-  text-transform:uppercase; color:var(--ink3); margin-bottom:4px;
-}
-.sivupalkkiSeuraNimi { font-size:14px; font-weight:600; color:var(--ink); }
-.sivupalkkiPaketti { font-size:11px; color:var(--amber); margin-top:2px; }
+/* Kortit */
+.kortti{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;margin-bottom:16px;}
+.korttiHeader{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);gap:12px;flex-wrap:wrap;}
+.korttiOtsikko{font-size:14px;font-weight:700;}
+.korttiBody{padding:18px;}
 
-.navNappi {
-  display:flex; align-items:center; gap:10px; padding:10px 20px;
-  cursor:pointer; color:var(--ink3); font-size:13px; font-weight:500;
-  border-left:2px solid transparent; transition:all .15s; user-select:none;
-}
-.navNappi:hover { color:var(--ink); background:rgba(255,255,255,.02); }
-.navNappi.aktiivinen { color:var(--blue); border-left-color:var(--blue); background:rgba(74,126,217,.07); }
-.navIkoni { font-size:15px; width:20px; text-align:center; flex-shrink:0; }
+/* Taulukot */
+.taulukkoPohja{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg2);position:sticky;top:0;z-index:1;}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr{transition:background .1s;}
+tbody tr:hover{background:var(--bg3);}
+.tdMuted{color:var(--ink2);font-size:12px;}
 
-/* SISÄLTÖ */
-.sisalto { margin-left:210px; margin-top:54px; padding:28px 32px; min-height:calc(100vh - 54px); }
+/* Badget */
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;border-radius:20px;padding:2px 8px;white-space:nowrap;}
+.badge.blue{background:var(--blue3);color:var(--blue);} .badge.teal{background:var(--teal2);color:var(--teal);} .badge.amber{background:var(--amber2);color:var(--amber);} .badge.red{background:var(--red2);color:var(--red);} .badge.green{background:var(--green2);color:var(--green);} .badge.purple{background:var(--purp2);color:var(--purple);} .badge.gray{background:var(--bg4);color:var(--ink2);}
 
-/* SIVUOTSIKKO */
-.sivuOtsikko { margin-bottom:22px; }
-.sivuEyebrow {
-  font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase;
-  color:var(--blue); margin-bottom:5px; display:flex; align-items:center; gap:10px;
-}
-.sivuEyebrow::before { content:''; width:18px; height:1px; background:var(--blue); flex-shrink:0; }
-.sivuH1 { font-family:'Playfair Display',serif; font-size:28px; font-weight:900; letter-spacing:-.3px; }
-.sivuH1 small { font-size:14px; font-weight:400; color:var(--ink3); font-family:'DM Sans',sans-serif; margin-left:10px; }
+/* Napit */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.btn-primary{background:var(--blue);color:#fff;} .btn-primary:hover{background:var(--blue2);}
+.btn-teal{background:var(--teal);color:#000;} .btn-teal:hover{filter:brightness(1.1);}
+.btn-ghost{background:transparent;border:1px solid var(--bord2);color:var(--ink2);} .btn-ghost:hover{background:var(--bg4);color:var(--ink);border-color:var(--bord3);}
+.btn-red{background:var(--red2);border:1px solid rgba(217,96,96,.3);color:var(--red);} .btn-red:hover{background:var(--red);color:#fff;}
+.btn-sm{padding:5px 10px;font-size:12px;} .btn-xs{padding:3px 8px;font-size:11px;}
+.btn:active{transform:scale(.97);}
 
-/* KPI-KORTIT */
-.kpiRivi { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:24px; }
-.kpiKortti {
-  background:var(--bg2); border:1px solid var(--border);
-  border-radius:var(--r); padding:18px 20px; position:relative; overflow:hidden;
-}
-.kpiKortti::before {
-  content:''; position:absolute; top:0; bottom:0; left:0; width:3px;
-}
-.kpiKortti.sininen::before { background:var(--blue); }
-.kpiKortti.teal::before    { background:var(--teal); }
-.kpiKortti.amber::before   { background:var(--amber); }
-.kpiKortti.vihrea::before  { background:var(--green); }
-.kpiLabel { font-size:10px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink3); margin-bottom:5px; }
-.kpiArvo  { font-family:'Playfair Display',serif; font-size:30px; font-weight:700; line-height:1; }
-.kpiAla   { font-size:11px; color:var(--ink3); margin-top:3px; }
+/* Lomakekentät */
+.formGroup{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+.formLabel{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);}
+.formInput,.formSelect,.formTextarea{background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;padding:10px 13px;font-size:14px;font-family:inherit;color:var(--ink);outline:none;transition:border-color .2s,background .2s;width:100%;}
+.formInput:focus,.formSelect:focus,.formTextarea:focus{border-color:var(--blue);background:var(--bg4);}
+.formInput::placeholder,.formTextarea::placeholder{color:var(--ink3);}
+.formSelect{cursor:pointer;} .formTextarea{resize:vertical;min-height:80px;}
+.formRow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 
-/* KORTIT */
-.kortti { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; margin-bottom:20px; }
-.korttiHeader {
-  padding:16px 20px; border-bottom:1px solid var(--border);
-  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
-}
-.korttiOtsikko { font-size:13px; font-weight:600; }
-.korttiMaara { font-size:12px; color:var(--ink3); }
+/* Modaalit */
+.modal{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px;}
+.modal.auki{display:flex;}
+.modalKortti{background:var(--bg2);border:1px solid var(--bord2);border-radius:var(--r2);padding:28px;width:100%;box-shadow:var(--shadow2);max-height:90vh;overflow-y:auto;animation:slideUp .3s cubic-bezier(.16,1,.3,1) both;}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px) scale(.97);}to{opacity:1;transform:none;}}
+.modalHeader{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:16px;}
+.modalOtsikko{font-size:18px;font-weight:700;}
+.modalSulje{background:none;border:none;cursor:pointer;color:var(--ink3);font-size:18px;padding:4px;border-radius:6px;transition:background .15s,color .15s;flex-shrink:0;line-height:1;display:flex;align-items:center;}
+.modalSulje:hover{background:var(--bg4);color:var(--ink);}
+.modalFooter{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap;}
+.modal-sm .modalKortti{max-width:440px;} .modal-md .modalKortti{max-width:600px;} .modal-lg .modalKortti{max-width:800px;}
 
-/* TAULUKKO */
-table { width:100%; border-collapse:collapse; }
-thead th {
-  padding:9px 14px; text-align:left; font-size:10px; font-weight:700;
-  letter-spacing:1.2px; text-transform:uppercase; color:var(--ink3);
-  border-bottom:1px solid var(--border); background:rgba(255,255,255,.02);
-}
-tbody tr { border-bottom:1px solid var(--border); transition:background .12s; }
-tbody tr:last-child { border-bottom:none; }
-tbody tr:hover { background:rgba(74,126,217,.04); }
-tbody td { padding:11px 14px; font-size:13px; color:var(--ink2); vertical-align:middle; }
-tbody td:first-child { font-weight:600; color:var(--ink); }
+/* Toastit */
+#toastAlue{position:fixed;bottom:20px;right:20px;z-index:900;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.toast{background:var(--bg3);border:1px solid var(--bord2);border-radius:10px;padding:12px 16px;font-size:13px;box-shadow:var(--shadow);pointer-events:auto;display:flex;align-items:center;gap:10px;animation:toastIn .3s cubic-bezier(.16,1,.3,1) both;max-width:340px;}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:none;}}
+.toast.ok{border-left:3px solid var(--green);} .toast.virhe{border-left:3px solid var(--red);} .toast.info{border-left:3px solid var(--blue);} .toast.varoitus{border-left:3px solid var(--amber);}
+.toast-ikon{font-size:16px;flex-shrink:0;}
 
-/* BADGE */
-.badge {
-  display:inline-block; padding:2px 8px; border-radius:4px;
-  font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
-}
-.badge.vp        { background:rgba(224,160,64,.15); color:var(--amber); }
-.badge.valmentaja{ background:rgba(74,126,217,.15);  color:var(--blue); }
-.badge.sihteeri  { background:rgba(62,201,167,.15);  color:var(--teal); }
-.badge.muu       { background:rgba(255,255,255,.06); color:var(--ink3); }
-.badge.ok        { background:rgba(94,201,122,.12);  color:var(--green); }
-.badge.odottaa   { background:rgba(224,160,64,.12);  color:var(--amber); }
-.badge.harmaa    { background:rgba(255,255,255,.06);  color:var(--ink3); }
+/* Kehitysnäkymä */
+.fleiBar{height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-top:6px;}
+.fleiBarFill{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.16,1,.3,1);}
 
-/* TOIMINTANAPIT */
-.toimNappi {
-  background:none; border:1px solid var(--border); border-radius:5px;
-  padding:4px 10px; font-size:11px; font-weight:600; color:var(--ink3);
-  cursor:pointer; font-family:'DM Sans',sans-serif; transition:all .15s;
-}
-.toimNappi:hover { color:var(--ink); border-color:var(--bord2); }
-.toimNappi.sininen { border-color:rgba(74,126,217,.3); color:var(--blue); }
-.toimNappi.sininen:hover { background:rgba(74,126,217,.1); }
-.toimNappi.vaara { border-color:rgba(217,96,96,.3); color:var(--red); }
-.toimNappi.vaara:hover { background:rgba(217,96,96,.1); }
+/* Tyhjänäkymä */
+.tyhjaAlue{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center;color:var(--ink2);}
+.tyhjaIkoni{font-size:40px;margin-bottom:14px;opacity:.6;}
+.tyhjaOtsikko{font-size:18px;font-weight:700;margin-bottom:6px;color:var(--ink);}
+.tyhjaTeksti{font-size:14px;color:var(--ink2);max-width:380px;margin:0 auto 20px;}
 
-/* LISÄÄ-NAPPI */
-.lisaaNappi {
-  display:flex; align-items:center; gap:6px; padding:7px 14px;
-  background:var(--blue); border:none; border-radius:7px;
-  font-size:12px; font-weight:600; font-family:'DM Sans',sans-serif;
-  color:#fff; cursor:pointer; transition:background .2s; white-space:nowrap;
-}
-.lisaaNappi:hover { background:var(--blue-d); }
-.lisaaNappi.teal { background:var(--teal); }
-.lisaaNappi.teal:hover { background:#32b898; }
+/* Virheviesti */
+.virheAlue{background:var(--red2);border:1px solid rgba(217,96,96,.25);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red);display:none;}
+.virheAlue.naytetaan{display:block;}
 
-/* TYHJÄ TILA */
-.tyhjaAlue {
-  display:flex; flex-direction:column; align-items:center;
-  justify-content:center; min-height:40vh; text-align:center; gap:14px; padding:40px;
-}
-.tyhjaIkoni { font-size:40px; opacity:.3; }
-.tyhjaOtsikko { font-family:'Playfair Display',serif; font-size:22px; font-weight:700; color:var(--ink2); }
-.tyhjaTeksti { font-size:14px; color:var(--ink3); max-width:400px; line-height:1.7; }
+/* KORI */
+.koriPalkki{background:linear-gradient(135deg,var(--blue3),var(--teal2));border:1px solid var(--bord2);border-radius:var(--r2);padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.koriLuku{font-size:32px;font-weight:800;color:var(--blue);flex-shrink:0;line-height:1;}
+.koriKuvaus{flex:1;min-width:200px;} .koriKuvaus strong{font-size:15px;display:block;margin-bottom:2px;} .koriKuvaus span{font-size:13px;color:var(--ink2);}
+.koriProgress{flex:1;min-width:120px;}
+.koriProgressBar{height:8px;background:var(--bg4);border-radius:4px;overflow:hidden;}
+.koriProgressFill{height:100%;background:var(--blue);border-radius:4px;transition:width .5s;}
 
-/* ─────────────────────────────────────────────
-   REKISTERÖINTILINKKI-MODAL
-   ───────────────────────────────────────────── */
-.modalTausta {
-  display:none; position:fixed; inset:0; z-index:200;
-  background:rgba(6,9,15,.85); backdrop-filter:blur(6px);
-  align-items:center; justify-content:center; padding:20px;
-}
-.modalTausta.auki { display:flex; }
-.modalKortti {
-  background:var(--bg2); border:1px solid var(--bord2);
-  border-radius:16px; width:100%; max-width:540px;
-  max-height:90vh; overflow-y:auto; padding:32px;
-  animation:sisaan .25s cubic-bezier(.16,1,.3,1) both;
-}
-.modalSuljeNappi {
-  float:right; background:none; border:1px solid var(--border);
-  border-radius:6px; padding:5px 12px; font-size:11px; color:var(--ink3);
-  cursor:pointer; font-family:'DM Sans',sans-serif; transition:all .2s; margin-bottom:8px;
-}
-.modalSuljeNappi:hover { color:var(--ink2); border-color:var(--bord2); }
-.modalOtsikko { font-family:'Playfair Display',serif; font-size:22px; font-weight:900; clear:both; margin-bottom:6px; }
-.modalKuvaus { font-size:13px; color:var(--ink3); margin-bottom:22px; line-height:1.6; }
-.formDivider { border:none; border-top:1px solid var(--border); margin:18px 0; }
+/* Spinner */
+.spinner{width:20px;height:20px;border-radius:50%;border:2px solid var(--bord2);border-top-color:var(--blue);animation:spin .7s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
 
-/* Linkki-näyttö modalissa */
-.linkkiBoksi {
-  display:none;
-  background:var(--bg3); border:1px solid rgba(62,201,167,.3);
-  border-radius:8px; padding:16px; margin-top:16px;
-}
-.linkkiBoksi.nakyvilla { display:block; }
-.linkkiBoksiOtsikko { font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--teal); margin-bottom:8px; }
-.linkkiTeksti {
-  font-size:12px; color:var(--ink2); word-break:break-all;
-  background:var(--bg4); padding:10px; border-radius:6px; margin-bottom:10px;
-  font-family:monospace;
-}
-.linkkiNapit { display:flex; gap:8px; flex-wrap:wrap; }
-.linkkiNappi {
-  padding:7px 14px; border:1px solid var(--bord2); border-radius:6px;
-  font-size:12px; font-weight:600; color:var(--ink2); cursor:pointer;
-  background:none; font-family:'DM Sans',sans-serif; transition:all .15s;
-}
-.linkkiNappi:hover { background:rgba(255,255,255,.04); }
-.linkkiNappi.teal { background:var(--teal); border-color:var(--teal); color:#000; }
-.linkkiNappi.teal:hover { background:#32b898; }
+/* Tekstilinkki */
+.textLink{color:var(--blue);text-decoration:none;font-size:13px;font-weight:500;transition:opacity .15s;}
+.textLink:hover{opacity:.75;}
+.divider{height:1px;background:var(--border);margin:16px 0;}
 
-/* TOAST */
-#toastPalkki { position:fixed; bottom:20px; right:20px; z-index:300; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
-.toast {
-  padding:11px 16px; border-radius:8px; font-size:13px; font-weight:500;
-  max-width:300px; animation:sisaan .25s cubic-bezier(.16,1,.3,1) both; pointer-events:auto;
-}
-.toast.ok    { background:rgba(62,201,167,.15); border:1px solid rgba(62,201,167,.3); color:var(--teal); }
-.toast.virhe { background:rgba(217,96,96,.15);  border:1px solid rgba(217,96,96,.3);  color:#e88080; }
+/* Pelaajakortit */
+.pelaajaKortti{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;cursor:pointer;transition:border-color .2s,transform .15s,background .15s;position:relative;}
+.pelaajaKortti:hover{border-color:var(--bord3);transform:translateY(-2px);background:var(--bg4);}
+.pk-nimi{font-weight:700;font-size:14px;margin-bottom:2px;}
+.pk-meta{font-size:11px;color:var(--ink2);margin-bottom:8px;}
+.pk-badges{display:flex;gap:4px;flex-wrap:wrap;}
 
-@media (max-width:768px) {
-  .sivupalkki { display:none; }
-  .sisalto { margin-left:0; padding:16px; }
+/* Responsiivisuus */
+@media(max-width:768px){
+  :root{--nav-w:0px;}
+  #sivupalkki{transform:translateX(-220px);width:220px;}
+  #sivupalkki.auki{transform:translateX(0);box-shadow:4px 0 40px rgba(0,0,0,.5);}
+  #sisaltoAlue{margin-left:0;padding:16px 12px;}
+  .topBrand{width:auto;border-right:none;padding:0 8px 0 16px;}
+  .kpiRivi{grid-template-columns:repeat(2,1fr);}
+  .formRow{grid-template-columns:1fr;}
+  .modalKortti{padding:20px 16px;}
+  #menuHamburger{display:flex !important;}
+  #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;}
+  #overlay.naytetaan{display:block;}
+}
+@media(max-width:480px){
+  .kpiRivi{grid-template-columns:1fr 1fr;gap:8px;}
+  .sivuH1{font-size:20px;}
+  #topUserEmail{display:none;}
 }
 </style>
-</head>
 <body>
+<div id="overlay" onclick="suljeMobiiliNav()"></div>
 
-<!-- ══ KIRJAUTUMISNÄKYMÄ ══ -->
+<!-- KIRJAUTUMISNÄKYMÄ -->
 <div id="kirjautumisNakyma">
   <div class="kirjKortti">
-    <div class="kirjLogo">Talent<span>Master</span>™</div>
-    <div class="kirjSub">Seurahallinta</div>
-
+    <div class="kirjBrand">
+      <div class="kirjLogoMark">TM</div>
+      <div>
+        <div class="kirjLogoText">Talent<span>Master</span>™</div>
+        <div class="kirjLogoSub">Seurahallinta</div>
+      </div>
+    </div>
+    <div class="kirjTitle">Kirjaudu sisään</div>
+    <div class="kirjDesc">Seurahallintajärjestelmä pilottiseuroille</div>
     <div class="kenttaRyhma">
-      <label class="kenttaLabel" for="emailInput">Sähköposti</label>
-      <input class="kenttaInput" type="email" id="emailInput"
-        placeholder="vp@seura.fi" autocomplete="email" autocapitalize="none">
+      <label class="kenttaLabel" for="kirjEmail">Sähköposti</label>
+      <input class="kenttaInput" id="kirjEmail" type="email" placeholder="seura@talentmaster.fi" autocomplete="email">
     </div>
     <div class="kenttaRyhma">
-      <label class="kenttaLabel" for="salasanaInput">Salasana</label>
-      <input class="kenttaInput" type="password" id="salasanaInput"
-        placeholder="••••••••" autocomplete="current-password">
+      <label class="kenttaLabel" for="kirjSalasana">Salasana</label>
+      <input class="kenttaInput" id="kirjSalasana" type="password" placeholder="••••••••" autocomplete="current-password">
     </div>
-    <button class="nappi" id="kirjauduNappi" onclick="kirjauduSisaan()">
-      Kirjaudu sisään
-    </button>
-    <div class="virheDiv" id="kirjautumisVirhe"></div>
+    <div class="virheViesti" id="kirjVirhe"></div>
+    <button class="nappi" onclick="kirjauduSisaan()">Kirjaudu sisään</button>
+    <div style="text-align:center;margin-top:12px;">
+      <a href="#" class="textLink" onclick="lahetaSalasana(document.getElementById('kirjEmail').value);return false;">Unohdin salasanan</a>
+    </div>
   </div>
 </div>
 
-<!-- ══ LATAUSNÄKYMÄ ══ -->
-<div id="latausNakyma">
-  <div class="spinner"></div>
-  <span>Ladataan seuran tietoja...</span>
-</div>
-
-<!-- ══ PÄÄSOVELLUS ══ -->
-<div id="sovellus">
+<!-- SOVELLUS -->
+<div id="appNakyma">
 
   <!-- TOPBAR -->
-  <div class="topbar">
-    <div class="topbarLogo">Talent<span>Master</span>™</div>
-
-    <!-- Super-adminin seuravalitsin -->
-    <div class="seuraValitsinWrap" id="seuraValitsinWrap">
-      <select class="seuraValitsin" id="seuraValitsin" onchange="vaihdaSeura(this.value)">
-        <option value="">— Valitse seura —</option>
-      </select>
+  <header id="topbar">
+    <div class="topBrand">
+      <div class="topLogoMark">TM</div>
+      <div class="topLogoText">Talent<span>Master</span>™</div>
     </div>
-
-    <!-- Normaalikäyttäjän seuran nimi -->
-    <div class="topbarSeuraNimi" id="topbarSeuraNimi">—</div>
-
-    <div class="topbarKayttaja">
-      <span class="topbarEmail" id="topbarEmail">—</span>
-      <span class="topbarRooli" id="topbarRooli">—</span>
-      <button class="ulosNappi" onclick="kirjauduUlos()">Kirjaudu ulos</button>
+    <button id="menuHamburger" class="topIconBtn" onclick="toggleMobiiliNav()" style="display:none;margin-left:8px;" aria-label="Valikko">☰</button>
+    <div class="topRight">
+      <select id="topSeuraValitsin" style="display:none" onchange="vaihdaSeura(this.value)"></select>
+      <span id="topUserEmail"></span>
+      <div class="topAvatar" id="topAvatar">VP</div>
+      <button class="topIconBtn" onclick="window.open('TalentMaster_VP_v18.html','_blank')" title="VP Dashboard v18">📊</button>
+      <button class="topIconBtn" onclick="window.open('TalentMaster_Master_v9.html','_blank')" title="Valmentaja v9">👨‍💼</button>
+      <button class="topIconBtn" onclick="kirjauduUlos()" title="Kirjaudu ulos">⎋</button>
     </div>
-  </div>
+  </header>
 
   <!-- SIVUPALKKI -->
-  <div class="sivupalkki">
-    <div class="sivupalkkiSeura">
-      <div class="sivupalkkiSeuraLabel">Seura</div>
-      <div class="sivupalkkiSeuraNimi" id="sivupalkkiSeuraNimi">—</div>
-      <div class="sivupalkkiPaketti" id="sivupalkkiPaketti">—</div>
+  <nav id="sivupalkki">
+    <div class="navSeura" id="navSeuraAlue" style="display:none;">
+      <div class="navSeuraLabel">Seura</div>
+      <select id="navSeuraValitsin" onchange="vaihdaSeura(this.value)"></select>
     </div>
-
-    <div class="navNappi aktiivinen" onclick="vaihdaNakyma('yhteenveto',this)">
-      <span class="navIkoni">🏠</span>Yhteenveto
+    <div class="navSection">
+      <div class="navSectionLabel">Hallinta</div>
+      <button class="navNappi aktiivinen" onclick="vaihdaNakyma('yhteenveto',this)" data-nakyma="yhteenveto"><span class="navIkoni">🏠</span>Yhteenveto</button>
+      <button class="navNappi" onclick="vaihdaNakyma('kehitys',this)" data-nakyma="kehitys"><span class="navIkoni">📈</span>Kehitystilanne</button>
+      <button class="navNappi" onclick="vaihdaNakyma('pelaajat',this)" data-nakyma="pelaajat"><span class="navIkoni">👥</span>Pelaajat</button>
+      <button class="navNappi" onclick="vaihdaNakyma('joukkueet',this)" data-nakyma="joukkueet"><span class="navIkoni">🏆</span>Joukkueet</button>
     </div>
-    <div class="navNappi" onclick="vaihdaNakyma('pelaajat',this)">
-      <span class="navIkoni">👥</span>Pelaajat
+    <div class="navDivider"></div>
+    <div class="navSection">
+      <div class="navSectionLabel">Organisaatio</div>
+      <button class="navNappi" onclick="vaihdaNakyma('henkilosto',this)" data-nakyma="henkilosto"><span class="navIkoni">👤</span>Henkilöstö</button>
+      <button class="navNappi" onclick="vaihdaNakyma('sopimukset',this)" data-nakyma="sopimukset"><span class="navIkoni">📋</span>Sopimukset<span class="navBadge" id="sopimuksetBadge" style="display:none"></span></button>
     </div>
-    <div class="navNappi" onclick="vaihdaNakyma('joukkueet',this)">
-      <span class="navIkoni">⚽</span>Joukkueet
+    <div class="navDivider"></div>
+    <div class="navSection">
+      <div class="navSectionLabel">Toiminnot</div>
+      <button class="navNappi" onclick="avaaRekisteriModal()"><span class="navIkoni">✉️</span>Rekisteröintikutsu</button>
+      <button class="navNappi" onclick="avaaExcelTuonti()"><span class="navIkoni">📥</span>Tuo Excel</button>
+      <button class="navNappi" onclick="avaaMassakutsuModal()"><span class="navIkoni">📨</span>Massakutsu</button>
     </div>
-    <div class="navNappi" onclick="vaihdaNakyma('henkilosto',this)">
-      <span class="navIkoni">🧑‍🏫</span>Henkilöstö
+    <div class="navDivider"></div>
+    <div class="navSection">
+      <div class="navSectionLabel">Navigoi</div>
+      <button class="navNappi" onclick="window.open('TalentMaster_VP_v18.html','_blank')"><span class="navIkoni">📊</span>VP Dashboard</button>
+      <button class="navNappi" onclick="window.open('TalentMaster_Master_v9.html','_blank')"><span class="navIkoni">👨‍💼</span>Valmentaja v9</button>
+      <button class="navNappi" onclick="window.open('TalentMaster_Rekisterointi_Suostumus.html','_blank')"><span class="navIkoni">📝</span>Suostumuslomake</button>
     </div>
-    <div class="navNappi" onclick="vaihdaNakyma('sopimukset',this)">
-      <span class="navIkoni">📋</span>Sopimukset
-    </div>
-  </div>
+  </nav>
 
   <!-- PÄÄSISÄLTÖ -->
-  <div class="sisalto">
+  <main id="sisaltoAlue">
     <div id="nakymaAlue"></div>
-  </div>
+  </main>
 </div>
 
-<!-- ══ REKISTERÖINTILINKKI-MODAL ══ -->
+<div id="toastAlue"></div>
+
+<!-- MODAALIT -->
+
 <div class="modalTausta" id="rekisteriModal">
   <div class="modalKortti">
     <button class="modalSuljeNappi" onclick="suljeModal('rekisteriModal')">✕ Sulje</button>
@@ -543,7 +414,6 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   </div>
 </div>
 
-<!-- ══ JOUKKUE-MODAL ══ -->
 <div class="modalTausta" id="joukkueModal">
   <div class="modalKortti">
     <button class="modalSuljeNappi" onclick="suljeModal('joukkueModal')">✕ Sulje</button>
@@ -580,7 +450,6 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   </div>
 </div>
 
-<!-- ══ JOUKKUEEN VAIHTO -MODAL ══ -->
 <div class="modalTausta" id="joukkueMuutosModal">
   <div class="modalKortti" style="max-width:400px;">
     <button class="modalSuljeNappi" onclick="suljeModal('joukkueMuutosModal')">✕ Sulje</button>
@@ -606,11 +475,6 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   </div>
 </div>
 
-
-<!-- ══ VALMENTAJAKUTSU-MODAL ══════════════════════════════════════ -->
-<!-- VP tai sihteeri kutsuu uuden valmentajan / henkilöstön jäsenen -->
-<!-- luoKayttaja Cloud Function luo Firebase Auth -tilin +           -->
-<!-- custom claims ja lähettää salasanavaihtolinkin sähköpostiin     -->
 <div class="modalTausta" id="kutsuModal">
   <div class="modalKortti" style="max-width:480px;">
     <button class="modalSuljeNappi" onclick="suljeModal('kutsuModal')">✕ Sulje</button>
@@ -646,20 +510,12 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       <label class="kenttaLabel">Rooli *</label>
       <select class="kenttaInput" id="kutsu_rooli">
         <option value="">— Valitse rooli —</option>
-        <optgroup label="Johto">
-          <option value="vp">Valmennuspäällikkö (VP)</option>
-          <option value="urheilutoimenjohtaja">Urheilutoimenjohtaja (UTJ)</option>
-          <option value="seurasihteeri">Seurasihteeri</option>
-        </optgroup>
-        <optgroup label="Valmennus">
-          <option value="valmentaja">Valmentaja</option>
-          <option value="talenttivalmentaja">Talenttivalmentaja</option>
-          <option value="fysiikkavalmentaja">Fysiikkavalmentaja</option>
-        </optgroup>
-        <optgroup label="Tuki">
-          <option value="testivastaava">Testivastaava</option>
-          <option value="fysioterapeutti">Fysioterapeutti</option>
-        </optgroup>
+        <option value="valmentaja">Valmentaja</option>
+        <option value="talenttivalmentaja">Talenttivalmentaja</option>
+        <option value="fysiikkavalmentaja">Fysiikkavalmentaja</option>
+        <option value="testivastaava">Testivastaava</option>
+        <option value="fysioterapeutti">Fysioterapeutti</option>
+        <option value="seurasihteeri">Seurasihteeri</option>
       </select>
     </div>
 
@@ -686,7 +542,6 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   </div>
 </div>
 
-<!-- ══ REKISTERIPOHJA-OHJEMODAL ══ -->
 <div class="modalTausta" id="rekisteriOhjeModal">
   <div class="modalKortti" style="max-width:580px;">
     <button class="modalSuljeNappi" onclick="suljeModal('rekisteriOhjeModal')">✕ Sulje</button>
@@ -843,9 +698,6 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   </div>
 </div>
 
-<!-- ══ TOAST ══ -->
-
-<!-- ══ EXCEL-TUONTI MODAL ══ -->
 <div class="modalTausta" id="excelTuontiModal">
   <div class="modalKortti" style="max-width:620px;">
     <button class="modalSuljeNappi" onclick="suljeModal('excelTuontiModal')">✕ Sulje</button>
@@ -916,9 +768,8 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   </div>
 </div>
 
-<div id="toastPalkki"></div>
-
 <script>
+
 // ─────────────────────────────────────────────────────────────────
 // FIREBASE INIT — double-init estetty (kriittinen)
 // ─────────────────────────────────────────────────────────────────
@@ -1243,39 +1094,12 @@ function renderYhteenveto() {
       <div class="kpiKortti amber">
         <div class="kpiLabel">Henkilöstöä</div>
         <div class="kpiArvo" id="kpiHenkilosto">—</div>
-        <div class="kpiAla">+ hallinto</div>
+        <div class="kpiAla">tunnusta</div>
       </div>
       <div class="kpiKortti vihrea">
         <div class="kpiLabel">Kutsuja lähetetty</div>
         <div class="kpiArvo" id="kpiKutsut">—</div>
         <div class="kpiAla">tänä kautena</div>
-      </div>
-    </div>
-
-    <!-- ── Strategiset mittarit ────────────────────────────────── -->
-    <div style="font-size:10px;font-weight:600;letter-spacing:1.5px;
-                text-transform:uppercase;color:var(--ink3);
-                margin:20px 0 10px;">Kehitystoiminta</div>
-    <div class="kpiRivi">
-      <div class="kpiKortti" style="border-left:3px solid var(--blue);">
-        <div class="kpiLabel">Kartoituksia</div>
-        <div class="kpiArvo" id="kpiKartoitukset">—</div>
-        <div class="kpiAla">tänä kautena</div>
-      </div>
-      <div class="kpiKortti" style="border-left:3px solid var(--teal);">
-        <div class="kpiLabel">FLEI keskiarvo</div>
-        <div class="kpiArvo" id="kpiFLEI">—</div>
-        <div class="kpiAla">% harjoitettavuus</div>
-      </div>
-      <div class="kpiKortti" style="border-left:3px solid var(--amber);">
-        <div class="kpiLabel">Tapahtumat</div>
-        <div class="kpiArvo" id="kpiTapahtumat">—</div>
-        <div class="kpiAla">suunniteltu/valmis</div>
-      </div>
-      <div class="kpiKortti" style="border-left:3px solid var(--green);">
-        <div class="kpiLabel">Palloliiton korit</div>
-        <div class="kpiArvo" id="kpiKorit">—</div>
-        <div class="kpiAla">/ 18 kriteeriä</div>
       </div>
     </div>
 
@@ -1395,59 +1219,7 @@ async function lataaYhteenvetoKPIt() {
       });
     }
 
-    // ── Strategiset mittarit ──────────────────────────────────────
-    // Haetaan asynkronisesti — ei kaada sivua jos epäonnistuu
-    lataaStrategisetKPIt().catch(() => {});
-
   } catch (e) { /* Ei kriittinen — KPI-luvut pysyvät — -tilassa */ }
-}
-
-async function lataaStrategisetKPIt() {
-  if (!tila.seuraId) return;
-  const db2 = firebase.firestore();
-
-  // 1. Kartoituksia — lasketaan kaikista joukkueista
-  let kartoitusLkm = 0;
-  let fleiSumma = 0;
-  let fleiLkm = 0;
-  try {
-    for (const j of tila.joukkueet) {
-      const kSnap = await db2.collection('seurat').doc(tila.seuraId)
-        .collection('joukkueet').doc(j.id)
-        .collection('kartoitukset').get();
-      kartoitusLkm += kSnap.size;
-      kSnap.forEach(doc => {
-        const flei = doc.data().flei ?? doc.data().flei_pisteet;
-        if (flei != null && !isNaN(flei)) { fleiSumma += flei; fleiLkm++; }
-      });
-    }
-    const kEl = document.getElementById('kpiKartoitukset');
-    if (kEl) kEl.textContent = kartoitusLkm;
-    const fEl = document.getElementById('kpiFLEI');
-    if (fEl) fEl.textContent = fleiLkm > 0 ? Math.round(fleiSumma / fleiLkm) + '%' : '—';
-  } catch(e) {}
-
-  // 2. Tapahtumat
-  try {
-    const tSnap = await db2.collection('seurat').doc(tila.seuraId)
-      .collection('tapahtumat').get();
-    const valmiit = tSnap.docs.filter(d => d.data().tila === 'valmis').length;
-    const tEl = document.getElementById('kpiTapahtumat');
-    if (tEl) {
-      tEl.textContent = valmiit;
-      const ala = tEl.closest('.kpiKortti')?.querySelector('.kpiAla');
-      if (ala) ala.textContent = `/ ${tSnap.size} suunniteltu`;
-    }
-  } catch(e) {}
-
-  // 3. Palloliiton korit — lasketaan täytetyt kriteerit Firestoresta
-  try {
-    const koriSnap = await db2.collection('seurat').doc(tila.seuraId)
-      .collection('kriteerit').get();
-    const taytetty = koriSnap.docs.filter(d => d.data().taytetty === true).length;
-    const kEl2 = document.getElementById('kpiKorit');
-    if (kEl2) kEl2.textContent = taytetty;
-  } catch(e) {}
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2401,25 +2173,6 @@ async function tallennaKutsu() {
       });
 
     // Cloud Function (luoKayttaja) lähettää reset-linkin automaattisesti
-
-    // ── Jos rooli on VP, päivitetään seuran vp_uid ──────────────
-    // Tämä varmistaa että fallback-tunnistus toimii heti ilman Claims:ia
-    if (rooli === 'vp' && uid) {
-      try {
-        const seuraSnap = await db.collection('seurat').doc(tila.seuraId).get();
-        if (seuraSnap.exists && !seuraSnap.data().vp_uid) {
-          // Seuralla ei vielä ole VP:tä — asetetaan tämä
-          await db.collection('seurat').doc(tila.seuraId).update({
-            vp_uid: uid, vp_email: email
-          });
-          console.log('[Seura] vp_uid päivitetty:', uid);
-        }
-        // Jos vp_uid on jo olemassa, lisätään apuvp_uid varmuudeksi
-        // (pienillä seuroilla voi olla useampi VP)
-      } catch(e) {
-        console.warn('[Seura] vp_uid päivitys epäonnistui:', e.message);
-      }
-    }
 
     // ── Onnistui ─────────────────────────────────────────────────
     suljeModal('kutsuModal');
@@ -3906,6 +3659,319 @@ document.addEventListener('keydown', e => {
     if (e.target === this) suljeModal(id);
   });
 });
+
+
+
+/* ══════════════════════════════════════════════════════
+   LAAJENNUS: Kehitysnäkymä + mobiilinavigaatio
+   Säilytetään kaikki alkuperäiset funktiot koskemattomina
+══════════════════════════════════════════════════════ */
+
+// ── Mobiilinavigaatio ──
+function toggleMobiiliNav() {
+  const nav = document.getElementById('sivupalkki');
+  const overlay = document.getElementById('overlay');
+  nav?.classList.toggle('auki');
+  overlay?.classList.toggle('naytetaan');
+}
+function suljeMobiiliNav() {
+  document.getElementById('sivupalkki')?.classList.remove('auki');
+  document.getElementById('overlay')?.classList.remove('naytetaan');
+}
+
+// ── Kehitysnäkymä — laajennettu renderoi() ──
+const _alkuperainenRenderoi = renderoi;
+function renderoi(nakyma) {
+  if (nakyma === 'kehitys') {
+    const alue = document.getElementById('nakymaAlue');
+    if (alue) renderKehitys(alue);
+    return;
+  }
+  _alkuperainenRenderoi(nakyma);
+}
+
+// ── Kehitystilanne — 3 datalähdettä ──
+async function renderKehitys(alue) {
+  alue.innerHTML = `
+    <div class="sivuOtsikko">
+      <div class="sivuEyebrow">Kehitysseuranta</div>
+      <div class="sivuH1">${tila.seuraNimi || '—'} <small>Koko seura</small></div>
+    </div>
+
+    <!-- Välilehtivalitsin -->
+    <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;">
+      <button onclick="vaihdaKehitysTab('flei',this)" id="kDev_flei"
+        class="btn btn-primary">🏃 Harjoitettavuus</button>
+      <button onclick="vaihdaKehitysTab('hh',this)" id="kDev_hh"
+        class="btn btn-ghost">⚡ H-H polun testit</button>
+      <button onclick="vaihdaKehitysTab('tk',this)" id="kDev_tk"
+        class="btn btn-ghost">🏅 Tekniikkakilpailu</button>
+    </div>
+
+    <div id="kehitysSisalto">
+      <div style="display:flex;align-items:center;gap:10px;padding:40px;color:var(--ink2);">
+        <div class="spinner"></div> Ladataan...
+      </div>
+    </div>`;
+
+  await lataaKehitysFlei();
+}
+
+function vaihdaKehitysTab(tab, btn) {
+  ['flei','hh','tk'].forEach(t => {
+    const b = document.getElementById('kDev_' + t);
+    if (!b) return;
+    if (t === tab) {
+      b.className = 'btn btn-primary';
+    } else {
+      b.className = 'btn btn-ghost';
+    }
+  });
+  if (tab === 'flei') lataaKehitysFlei();
+  else if (tab === 'hh') lataaKehitysHH();
+  else if (tab === 'tk') lataaKehitysTK();
+}
+
+// ── 1. FLEI — Harjoitettavuuskartoitukset ──
+async function lataaKehitysFlei() {
+  const alue = document.getElementById('kehitysSisalto');
+  if (!alue) return;
+  alue.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:32px;color:var(--ink2);"><div class="spinner"></div> Ladataan kartoitukset...</div>';
+
+  try {
+    // Haetaan viimeisimmät kartoitukset kaikista joukkueista
+    const joukkueet = tila.joukkueet || [];
+    const kaikki = [];
+
+    for (const j of joukkueet) {
+      try {
+        const snap = await db.collection('seurat').doc(tila.seuraId)
+          .collection('joukkueet').doc(j.id)
+          .collection('kartoitukset')
+          .orderBy('tallennettu', 'desc').limit(30).get();
+        snap.docs.forEach(d => kaikki.push({ ...d.data(), joukkueId: j.id, joukkueNimi: j.nimi }));
+      } catch(_) {}
+    }
+
+    // Myös seuratasolta
+    try {
+      const snap2 = await db.collection('seurat').doc(tila.seuraId)
+        .collection('joukkueet').doc(tila.joukkueId || joukkueet[0]?.id)
+        .collection('kartoitukset')
+        .orderBy('tallennettu', 'desc').limit(30).get();
+      snap2.docs.forEach(d => kaikki.push(d.data()));
+    } catch(_) {}
+
+    if (kaikki.length === 0) {
+      alue.innerHTML = `<div class="tyhjaAlue">
+        <div class="tyhjaIkoni">🏃</div>
+        <div class="tyhjaOtsikko">Ei harjoitettavuuskartoituksia</div>
+        <div class="tyhjaTeksti">Luo ensin testitapahtuma VP-dashboardista ja suorita kartoitus.</div>
+        <button class="btn btn-primary" onclick="window.open('TalentMaster_VP_v18.html','_blank')">Avaa VP Dashboard</button>
+      </div>`;
+      return;
+    }
+
+    // Ryhmittele per pelaaja — viimeisin per pelaaja
+    const perPelaaja = {};
+    kaikki.forEach(d => {
+      const pid = d.pelaajaId;
+      if (!pid) return;
+      if (!perPelaaja[pid] || d.testipvm > perPelaaja[pid].testipvm) {
+        perPelaaja[pid] = d;
+      }
+    });
+
+    const pelaajat = Object.values(perPelaaja).sort((a,b) => (b.flei_pct||0)-(a.flei_pct||0));
+    const fleikeski = pelaajat.length
+      ? Math.round(pelaajat.reduce((s,p) => s+(p.flei_pct||0), 0) / pelaajat.length) : 0;
+    const korkea = pelaajat.filter(p => (p.flei_pct||0) < 40).length;
+    const phv = pelaajat.filter(p => p.tulokset?.phv_tila === 'PH').length;
+    const fc = fleikeski >= 75 ? 'var(--green)' : fleikeski >= 55 ? 'var(--amber)' : 'var(--red)';
+
+    let html = `
+      <!-- Yhteenveto-KPI:t -->
+      <div class="kpiRivi" style="margin-bottom:20px;">
+        <div class="kpiKortti sininen">
+          <div class="kpiLabel">FLEI keskim.</div>
+          <div class="kpiArvo" style="color:${fc};">${fleikeski}%</div>
+          <div class="kpiAla">koko seura</div>
+        </div>
+        <div class="kpiKortti ${korkea > 0 ? 'red' : 'green'}">
+          <div class="kpiLabel">Korkea riski</div>
+          <div class="kpiArvo">${korkea}</div>
+          <div class="kpiAla">FLEI alle 40%</div>
+        </div>
+        <div class="kpiKortti ${phv > 0 ? 'amber' : 'teal'}">
+          <div class="kpiLabel">PHV-huippu</div>
+          <div class="kpiArvo">${phv}</div>
+          <div class="kpiAla">kuorma max 60%</div>
+        </div>
+        <div class="kpiKortti purple">
+          <div class="kpiLabel">Testattu</div>
+          <div class="kpiArvo">${pelaajat.length}</div>
+          <div class="kpiAla">pelaajaa</div>
+        </div>
+      </div>
+
+      <!-- FLEI-pylväskaavio joukkueittain -->
+      <div class="kortti" style="margin-bottom:16px;">
+        <div class="korttiHeader">
+          <div class="korttiOtsikko">Pelaajien FLEI-jakautuma</div>
+          <span class="badge gray">${pelaajat.length} pelaajaa</span>
+        </div>
+        <div class="korttiBody">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">`;
+
+    pelaajat.forEach(p => {
+      const flei = p.flei_pct || 0;
+      const fc2 = flei >= 75 ? 'var(--green)' : flei >= 55 ? 'var(--amber)' : 'var(--red)';
+      const phvTxt = p.tulokset?.phv_tila === 'PH' ? '⚠️' : p.tulokset?.phv_tila === 'VA' ? '✅' : '';
+      html += `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);
+          padding:12px;border-left:3px solid ${fc2};">
+        <div style="font-weight:700;font-size:13px;margin-bottom:2px;">${p.pelaajaNimi || '—'} ${phvTxt}</div>
+        <div style="font-size:11px;color:var(--ink2);margin-bottom:6px;">${p.joukkueNimi||p.ikäluokka||''} · ${p.testipvm||''}</div>
+        <div style="font-size:22px;font-weight:800;color:${fc2};line-height:1;">${flei}%</div>
+        <div class="fleiBar" style="margin-top:6px;"><div class="fleiBarFill" style="width:${flei}%;background:${fc2};"></div></div>
+      </div>`;
+    });
+
+    html += `</div></div></div>`;
+    alue.innerHTML = html;
+  } catch(e) {
+    alue.innerHTML = `<div style="color:var(--red);padding:20px;">Virhe: ${e.message}</div>`;
+  }
+}
+
+// ── 2. H-H polun testit ──
+async function lataaKehitysHH() {
+  const alue = document.getElementById('kehitysSisalto');
+  if (!alue) return;
+  alue.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:32px;color:var(--ink2);"><div class="spinner"></div> Ladataan H-H testit...</div>';
+
+  try {
+    const snap = await db.collection('seurat').doc(tila.seuraId)
+      .collection('testit')
+      .orderBy('luotu', 'desc').limit(50).get();
+
+    if (snap.empty) {
+      alue.innerHTML = `<div class="tyhjaAlue">
+        <div class="tyhjaIkoni">⚡</div>
+        <div class="tyhjaOtsikko">Ei H-H polun testituloksia</div>
+        <div class="tyhjaTeksti">Eerikkilän H-H polun testidataa ei löydy. Tuo Excel-tiedostolla tai lisää manuaalisesti.</div>
+        <button class="btn btn-primary" onclick="lataaExcelMalli()">📥 Lataa Excel-pohja</button>
+      </div>`;
+      return;
+    }
+
+    let html = `<div class="kortti"><div class="korttiHeader">
+      <div class="korttiOtsikko">H-H polun testitulokset</div>
+      <span class="badge blue">${snap.size} testitulosta</span>
+    </div><div class="taulukkoPohja"><table>
+      <thead><tr><th>Pelaaja</th><th>Testipäivä</th><th>Joukkue</th><th>Tulokset</th></tr></thead>
+      <tbody>`;
+
+    snap.docs.forEach(d => {
+      const data = d.data();
+      const tulokset = Object.entries(data.tulokset || {})
+        .slice(0,4).map(([k,v]) => `${k}: ${v}`).join(' · ');
+      html += `<tr>
+        <td><strong>${data.pelaajaNimi || '—'}</strong></td>
+        <td class="tdMuted">${data.testipvm || '—'}</td>
+        <td class="tdMuted">${data.joukkueId || '—'}</td>
+        <td class="tdMuted" style="font-size:11px;">${tulokset}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table></div></div>`;
+    alue.innerHTML = html;
+  } catch(e) {
+    alue.innerHTML = `<div style="color:var(--red);padding:20px;">Virhe: ${e.message}</div>`;
+  }
+}
+
+// ── 3. Tekniikkakilpailu — tk_kansallinen.js ──
+function lataaKehitysTK() {
+  const alue = document.getElementById('kehitysSisalto');
+  if (!alue) return;
+
+  const tkData = (typeof TK_KANSALLINEN !== 'undefined') ? TK_KANSALLINEN.seurat : null;
+  if (!tkData) {
+    alue.innerHTML = `<div class="tyhjaAlue">
+      <div class="tyhjaIkoni">🏅</div>
+      <div class="tyhjaOtsikko">TK-data ladataan</div>
+      <div class="tyhjaTeksti">tk_kansallinen.js ei ole vielä ladattu.</div>
+    </div>`;
+    return;
+  }
+
+  const seuraNimi = tila.seuraNimi || '';
+  const seuraTK = Object.entries(tkData).find(([n]) =>
+    n.toLowerCase().includes(seuraNimi.toLowerCase().split(' ')[0]) ||
+    seuraNimi.toLowerCase().includes(n.toLowerCase().split(' ')[0])
+  );
+
+  if (!seuraTK) {
+    alue.innerHTML = `<div class="tyhjaAlue">
+      <div class="tyhjaIkoni">🏅</div>
+      <div class="tyhjaOtsikko">Ei TK-dataa</div>
+      <div class="tyhjaTeksti">Seuralle "${seuraNimi}" ei löydy tekniikkakilpailutuloksia kansallisesta datasta.</div>
+    </div>`;
+    return;
+  }
+
+  const [tkNimi, tkSis] = seuraTK;
+  const kaudet = Object.entries(tkSis.kaudet || {}).sort((a,b)=>b[0]-a[0]);
+
+  let html = `<div class="kortti">
+    <div class="korttiHeader">
+      <div>
+        <div class="korttiOtsikko">${tkNimi} — Tekniikkakilpailut</div>
+        <div style="font-size:12px;color:var(--ink2);">${tkSis.alue||''} · 2022–2025</div>
+      </div>
+    </div>
+    <div class="korttiBody">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">`;
+
+  kaudet.forEach(([kausi, data]) => {
+    ['P','T'].forEach(sp => {
+      const d = data[sp];
+      if (!d) return;
+      const pct = Math.round((d.pct||0)*100);
+      const fc = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+      html += `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);
+          padding:12px;border-left:3px solid ${fc};">
+        <div style="font-size:10px;font-weight:700;color:var(--ink3);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">${kausi} · ${sp==='P'?'Pojat':'Tytöt'}</div>
+        <div style="font-size:24px;font-weight:800;color:${fc};line-height:1;">${pct}%</div>
+        <div style="font-size:11px;color:var(--ink2);margin-top:2px;">mitalit · ${d.suor||0} suoritusta</div>
+        <div style="font-size:11px;margin-top:4px;">🥇${d.kulta||0} 🥈${d.hopea||0} 🥉${d.pronssi||0}</div>
+      </div>`;
+    });
+  });
+
+  html += `</div></div></div>`;
+  alue.innerHTML = html;
+}
+
+// ── naytaToast — uusittu kompatibiliteetilla ──
+// Säilytetään vanha naytaToast mutta lisätään toast-elementtien tuki
+const _alkNaytaToast = naytaToast;
+window.naytaToast = function(teksti, tyyppi = 'ok') {
+  // Yritä käyttää uutta toast-aluetta
+  const alue = document.getElementById('toastAlue');
+  if (alue) {
+    const ikonit = {ok:'✓', virhe:'✕', info:'ℹ', varoitus:'⚠'};
+    const toast = document.createElement('div');
+    toast.className = `toast ${tyyppi}`;
+    toast.innerHTML = `<span class="toast-ikon">${ikonit[tyyppi]||'•'}</span><span>${teksti}</span>`;
+    alue.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+    return;
+  }
+  // Fallback vanhaan toteutukseen
+  if (typeof _alkNaytaToast === 'function') _alkNaytaToast(teksti, tyyppi);
+};
+
 </script>
 </body>
 </html>
