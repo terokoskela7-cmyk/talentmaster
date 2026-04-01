@@ -2617,5 +2617,36 @@ async function rakentaaFiilinki() {
 }
 
 </script>
+
+</html
+// ── Kirjautuminen (VP v18 -adaptaatio) ──────────────────────────
+function kirjauduSisaan() {
+  var email = (document.getElementById('loginEmail') || {}).value || '';
+  var pass  = (document.getElementById('loginPass')  || {}).value || '';
+  var virhe = document.getElementById('loginVirhe');
+  if (!email || !pass) {
+    if (virhe) { virhe.textContent = 'Syötä sähköposti ja salasana.'; virhe.style.display = 'block'; }
+    return;
+  }
+  if (virhe) virhe.style.display = 'none';
+  firebase.auth().signInWithEmailAndPassword(email, pass)
+    .catch(function(e) {
+      if (virhe) {
+        virhe.textContent = e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found'
+          ? 'Väärä sähköposti tai salasana.' : 'Kirjautuminen epäonnistui.';
+        virhe.style.display = 'block';
+      }
+    });
+}
+
+function lahetaSalasana() {
+  var email = (document.getElementById('loginEmail') || {}).value || '';
+  if (!email) { alert('Syötä sähköpostiosoite ensin.'); return; }
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(function() { alert('Salasanan nollauslinkki lähetetty: ' + email); })
+    .catch(function(e) { alert('Virhe: ' + e.message); });
+}
+
+</script>
 </body>
 </html>
