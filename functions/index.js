@@ -1,4 +1,3 @@
-require('dotenv').config();
 /**
  * TalentMaster™ — Firebase Cloud Functions
  * functions/index.js
