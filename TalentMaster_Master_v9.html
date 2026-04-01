@@ -1258,7 +1258,7 @@ async function lataaKayttajanProfiili(kayttaja) {
     await lataaJoukkuePelaajat();
 
     naytaNakyma('sovellus');
-    renderoi('pelaajat');
+    renderoi('etusivu');
 
   } catch (virhe) {
     console.error('Profiilin latausvirhe:', virhe);
@@ -1514,6 +1514,9 @@ function renderoi(nakyma) {
       case 'kalenteri':   renderKalenteri(alue);               break;
     case 'profiili':    alue.innerHTML = renderProfiili();   break;
     case 'etusivu':
+      document.querySelectorAll('.navNappi').forEach(function(n){n.classList.remove('aktiivinen');});
+      var etusivuBtn = document.querySelector('[data-nakyma="etusivu"]');
+      if (etusivuBtn) etusivuBtn.classList.add('aktiivinen');
       lataaEtusivu(alue);
       break;
     case 'kalenteri':
@@ -1521,7 +1524,7 @@ function renderoi(nakyma) {
       alue.innerHTML = '<div id="tabKalenteri"></div>';
       requestAnimationFrame(function() { if (typeof renderVPKalenteri === 'function') renderVPKalenteri(); });
       break;
-    default:            alue.innerHTML = renderPelaajat();
+    default:            lataaEtisivu(alue); break;
   }
 
   // Kiinnitetään tapahtumankäsittelijät renderöinnin jälkeen
@@ -1543,10 +1546,14 @@ async function lataaEtusivu(alue) {
     var ts = t.toISOString().split('T')[0];
     var t2 = new Date(t); t2.setDate(t.getDate()+2);
     var ts2 = t2.toISOString().split('T')[0];
-    if (tila.seuraId && tila.joukkueId) {
-      var snap = await db.collection('seurat').doc(tila.seuraId)
-        .collection('tapahtumat')
-        .where('joukkueId','==',tila.joukkueId)
+    if (tila.seuraId) {
+      var tapQ = db.collection('seurat').doc(tila.seuraId)
+        .collection('tapahtumat');
+      // Valmentajalla joukkueId — VP:llä ei
+      if (tila.joukkueId) {
+        tapQ = tapQ.where('joukkueId','==',tila.joukkueId);
+      }
+      var snap = await tapQ
         .where('pvm','>=',ts).where('pvm','<=',ts2)
         .orderBy('pvm').limit(1).get();
       if (!snap.empty) harjoitus = Object.assign({id:snap.docs[0].id}, snap.docs[0].data());
