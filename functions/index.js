@@ -409,7 +409,7 @@ exports.lahetaPelaajaSivuLinkki = functions
 
     // Rakennetaan linkki pelaajan omalle sivulle
     const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster';
-    const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v2.html` +
+    const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v1.html` +
       `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
       `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
     const vanhempiLinkki = `${baseUrl}/TalentMaster_Vanhempi.html` +
