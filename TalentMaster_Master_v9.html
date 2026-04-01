@@ -1097,18 +1097,24 @@ async function lataaKayttajanProfiili(kayttaja) {
       console.log('Custom Claims löytyivät:', claims.seuraId, claims.rooli);
       seuraId = claims.seuraId;
 
-      const docSnap = await db
-        .collection('seurat').doc(seuraId)
-        .collection('kayttajat').doc(kayttaja.uid)
-        .get();
-
-      if (docSnap.exists) {
-        kayttajaData = docSnap.data();
+      // kayttajat-dokumentti on optionaalinen — ei kaada kirjautumista
+      try {
+        const docSnap = await db
+          .collection('seurat').doc(seuraId)
+          .collection('kayttajat').doc(kayttaja.uid)
+          .get();
+        if (docSnap.exists) kayttajaData = docSnap.data();
+      } catch(e2) {
+        console.warn('[Master] kayttajat-haku:', e2.code || e2.message);
       }
 
       // Haetaan seuran nimi Firestoresta
-      const seuraSnap = await db.collection('seurat').doc(seuraId).get();
-      seuraNimi = seuraSnap.exists ? seuraSnap.data().nimi : seuraId;
+      try {
+        const seuraSnap = await db.collection('seurat').doc(seuraId).get();
+        seuraNimi = seuraSnap.exists ? seuraSnap.data().nimi : seuraId;
+      } catch(e3) {
+        seuraNimi = seuraId;
+      }
 
     } else {
       // ── VAIHE 2: Fallback — collectionGroup ──
