@@ -2514,51 +2514,55 @@ async function rakentaaHalytykset() {
   try {
     var halytykset = [];
 
-    // PHV-pelaajat
-    var karSnap = await _db.collection('seurat').doc(_seuraId)
-      .collection('kartoitukset')
-      .where('phvTila','==','PH').limit(10).get();
-    if (!karSnap.empty) {
-      halytykset.push({
-        taso:'kriittinen', ikoni:'\u26A0\uFE0F',
-        otsikko: karSnap.size + ' pelaajaa kasvupyr\u00e4hdysvaiheessa',
-        teksti:'Harjoittelukuorma pit\u00e4\u00e4 rajoittaa. Tarkista valmentajan ohjeet.',
-        tagi:'PHV-seuranta', nav:'kartoitukset',
-      });
-    }
+    // PHV-pelaajat — seurat/{id}/kartoitukset
+    try {
+      var karSnap = await _db.collection('seurat').doc(_seuraId)
+        .collection('kartoitukset')
+        .where('phvTila','==','PH').limit(10).get();
+      if (!karSnap.empty) {
+        halytykset.push({
+          taso:'kriittinen', ikoni:'\u26A0\uFE0F',
+          otsikko: karSnap.size + ' pelaajaa kasvupyr\u00e4hdysvaiheessa',
+          teksti:'Harjoittelukuorma pit\u00e4\u00e4 rajoittaa. Tarkista valmentajan ohjeet.',
+          tagi:'PHV-seuranta', nav:'kartoitukset',
+        });
+      }
+    } catch(e1) { console.warn('[H\u00e4lytykset] PHV:', e1.message); }
 
     // Heikko FLEI
-    var heikotSnap = await _db.collection('seurat').doc(_seuraId)
-      .collection('kartoitukset')
-      .orderBy('yhteenveto.fleiPisteet').limit(5).get();
-    var heikot = heikotSnap.docs.filter(function(d) {
-      var yh = d.data().yhteenveto || {};
-      var ps = yh.fleiPisteet || 0;
-      var mx = yh.pisteetMaksimi || 27;
-      return mx > 0 && (ps/mx) < 0.4;
-    });
-    if (heikot.length > 0) {
-      halytykset.push({
-        taso:'varoitus', ikoni:'\uD83D\uDD34',
-        otsikko: heikot.length + ' pelaajaa — FLEI alle 40%',
-        teksti: heikot.slice(0,2).map(function(d){return d.data().nimi||'—';}).join(', ') + ' tarvitsee prioriteettiharjoittelua.',
-        tagi:'Kehitysprioriteetti', nav:'kartoitukset',
+    try {
+      var heikotSnap = await _db.collection('seurat').doc(_seuraId)
+        .collection('kartoitukset')
+        .orderBy('yhteenveto.fleiPisteet').limit(5).get();
+      var heikot = heikotSnap.docs.filter(function(d) {
+        var yh = d.data().yhteenveto || {};
+        return (yh.pisteetMaksimi||27) > 0 && ((yh.fleiPisteet||0)/(yh.pisteetMaksimi||27)) < 0.4;
       });
-    }
+      if (heikot.length > 0) {
+        halytykset.push({
+          taso:'varoitus', ikoni:'\uD83D\uDD34',
+          otsikko: heikot.length + ' pelaajaa \u2014 FLEI alle 40%',
+          teksti: heikot.slice(0,2).map(function(d){return d.data().nimi||'\u2014';}).join(', ') + ' tarvitsee prioriteettiharjoittelua.',
+          tagi:'Kehitysprioriteetti', nav:'kartoitukset',
+        });
+      }
+    } catch(e2) { console.warn('[H\u00e4lytykset] FLEI:', e2.message); }
 
-    // Passiivisuus
-    var raja = new Date(); raja.setDate(raja.getDate()-14);
-    var rajaPvm = raja.toISOString().split('T')[0];
-    var kirjSnap = await _db.collection('seurat').doc(_seuraId)
-      .collection('kirjaukset').where('pvm','>=',rajaPvm).limit(5).get();
-    if (kirjSnap.empty) {
-      halytykset.push({
-        taso:'varoitus', ikoni:'\uD83D\uDCCB',
-        otsikko:'Ei harjoituskirjauksia 14 p\u00e4iv\u00e4\u00e4n',
-        teksti:'Valmentajat eiv\u00e4t ole kirjanneet harjoituksia. Muistuta heit\u00e4.',
-        tagi:'Aktiivisuus', nav:'henkilosto',
-      });
-    }
+    // Ei kirjauksia
+    try {
+      var raja = new Date(); raja.setDate(raja.getDate()-14);
+      var rajaPvm = raja.toISOString().split('T')[0];
+      var kirjSnap = await _db.collection('seurat').doc(_seuraId)
+        .collection('kirjaukset').where('pvm','>=',rajaPvm).limit(5).get();
+      if (kirjSnap.empty) {
+        halytykset.push({
+          taso:'varoitus', ikoni:'\uD83D\uDCCB',
+          otsikko:'Ei harjoituskirjauksia 14 p\u00e4iv\u00e4\u00e4n',
+          teksti:'Valmentajat eiv\u00e4t ole kirjanneet harjoituksia. Muistuta heit\u00e4.',
+          tagi:'Aktiivisuus', nav:'henkilosto',
+        });
+      }
+    } catch(e3) { console.warn('[H\u00e4lytykset] Kirjaukset:', e3.message); }
 
     if (halytykset.length === 0) {
       lista.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:14px;background:rgba(31,209,106,.08);border:1px solid rgba(31,209,106,.2);border-radius:10px;">' +
@@ -2570,7 +2574,7 @@ async function rakentaaHalytykset() {
     }
 
     lista.innerHTML = halytykset.map(function(h) {
-      return '<div class="halytys-rivi ' + h.taso + '" onclick="_vpSiirryTabiin(\'' + h.nav + '\')">' +
+      return '<div class="halytys-rivi ' + h.taso + '" onclick="_vpSiirryTabiin(\'' + h.nav + '\')" style="cursor:pointer">' +
         '<span class="halytys-ikoni">' + h.ikoni + '</span>' +
         '<div><div class="halytys-otsikko">' + h.otsikko + '</div>' +
         '<div class="halytys-teksti">' + h.teksti + '</div>' +
@@ -2585,6 +2589,7 @@ async function rakentaaHalytykset() {
   } catch(e) {
     console.warn('[H\u00e4lytykset]', e.message);
     if (lista) lista.innerHTML = '<div style="color:var(--ink3);font-size:12px;padding:8px">Ei dataa saatavilla.</div>';
+    if (lkm) { lkm.textContent = 'Ei dataa'; lkm.className = 'osio-badge harmaa'; }
   }
 }
 
