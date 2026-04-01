@@ -1,3 +1,4 @@
+require('dotenv').config();
 /**
  * TalentMaster™ — Firebase Cloud Functions
  * functions/index.js
@@ -22,8 +23,11 @@ const auth = admin.auth();
 function luoTransporter() {
   const email    = process.env.GMAIL_EMAIL;
   const password = process.env.GMAIL_APP_PASSWORD;
+  // Diagnostiikka — ei tulosta salasanaa
+  console.log('[Nodemailer] GMAIL_EMAIL:', email ? email.substring(0,5) + '***' : 'PUUTTUU');
+  console.log('[Nodemailer] GMAIL_APP_PASSWORD:', password ? '*** (' + password.length + ' merkkiä)' : 'PUUTTUU');
   if (!email || !password) {
-    throw new Error('Gmail-credentiaalit puuttuvat: GMAIL_EMAIL ja GMAIL_APP_PASSWORD');
+    throw new Error('Gmail-credentiaalit puuttuvat. GMAIL_EMAIL=' + (email?'OK':'TYHJÄ') + ' GMAIL_APP_PASSWORD=' + (password?'OK':'TYHJÄ'));
   }
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
