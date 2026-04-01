@@ -352,11 +352,13 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 /* TOAST */
 #toastPalkki { position:fixed; bottom:20px; right:20px; z-index:300; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
 .toast {
-  padding:11px 16px; border-radius:8px; font-size:13px; font-weight:500;
-  max-width:300px; animation:sisaan .25s cubic-bezier(.16,1,.3,1) both; pointer-events:auto;
+  padding:14px 20px; border-radius:10px; font-size:14px; font-weight:600;
+  max-width:360px; animation:sisaan .3s cubic-bezier(.16,1,.3,1) both; pointer-events:auto;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4); display:flex; align-items:center; gap:10px;
 }
-.toast.ok    { background:rgba(62,201,167,.15); border:1px solid rgba(62,201,167,.3); color:var(--teal); }
-.toast.virhe { background:rgba(217,96,96,.15);  border:1px solid rgba(217,96,96,.3);  color:#e88080; }
+.toast.ok    { background:#0D2B22; border:1px solid rgba(62,201,167,.5); color:#3EC9A7; }
+.toast.virhe { background:#2B0D0D; border:1px solid rgba(217,96,96,.5);  color:#e88080; }
+.toast.info  { background:#0D1A2B; border:1px solid rgba(74,126,217,.5); color:#7EB6FF; }
 
 @media (max-width:768px) {
   .sivupalkki { display:none; }
@@ -1937,6 +1939,30 @@ function avaaRekisteriModal() {
   document.getElementById('rekisteriModal').classList.add('auki');
 }
 
+
+// Avaa rekisterimodaali olemassaolevalle pelaajalle — täyttää kentät ja asettaa pelaajaId
+function avaaRekisteriModalPelaajalle(pelaajaId, etunimi, sukunimi, joukkue, hEmail, palloid) {
+  avaaRekisteriModal();
+  setTimeout(() => {
+    // Esitäytä kentät
+    var fn = document.getElementById('rek_etunimi');
+    var sn = document.getElementById('rek_sukunimi');
+    var em = document.getElementById('rek_hEmail');
+    var jq = document.getElementById('rek_joukkue');
+    var pi = document.getElementById('rek_palloid');
+    if (fn) fn.value = etunimi || '';
+    if (sn) sn.value = sukunimi || '';
+    if (em) em.value = hEmail || '';
+    if (jq && joukkue) jq.value = joukkue;
+    if (pi && palloid) pi.value = palloid;
+    // Tallennetaan pelaajaId tilaan — lomake käyttää tätä merge:een
+    tila._rekPelaajaId = pelaajaId;
+    // Päivitä otsikko
+    var kuvaus = document.querySelector('#rekisteriModal .modalKuvaus');
+    if (kuvaus) kuvaus.innerHTML = 'Lähetä rekisteröintikutsu pelaajalle <strong>' + etunimi + ' ' + sukunimi + '</strong>.';
+  }, 50);
+}
+
 function avaaRekisteriModalJoukkueella(joukkueId, joukkueNimi) {
   avaaRekisteriModal();
   // Asetetaan joukkue valikkoon ja näytetään nimi modalin otsikossa
@@ -1984,6 +2010,8 @@ function luoRekisteriLinkki() {
     ...(sukunimi && { sukunimi }),
     ...(hEmail   && { hEmail }),
     ...(palloId  && { palloid: palloId }),
+    // Lisätään pelaajaId jos pelaaja on jo rekisterissä — estää duplikaatin
+    ...(tila._rekPelaajaId && { pelaajaId: tila._rekPelaajaId }),
   });
 
   const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
@@ -2128,10 +2156,14 @@ async function lahetaRekisteriSahkoposti() {
         sukunimi: sukunimi,
         joukkue:  joukkue,
       });
-      nappi.textContent = 'Lähetetty ✓';
-      naytaToast(`Kutsu lähetetty: ${tila._rekHEmail}`, 'ok');
+      nappi.textContent = '✓ Lähetetty';
+      nappi.style.background = 'var(--teal)';
+      nappi.style.color = '#000';
+      nappi.style.opacity = '1';
+      naytaToast('✅ Rekisteröintikutsu lähetetty osoitteeseen ' + tila._rekHEmail, 'ok');
     } catch(fnErr) {
       console.warn('[Kutsu] Sähköposti epäonnistui:', fnErr.message);
+      naytaToast('⚠️ Tallennettu mutta sähköposti ei lähtenyt: ' + fnErr.message, 'virhe');
       nappi.textContent = 'Tallennettu ✓';
       naytaToast(`Kutsu tallennettu: ${tila._rekHEmail}`, 'ok');
     }
@@ -2585,10 +2617,14 @@ async function naytaPelaajaTiedot(pelaajaId) {
           ">
           📋 Avaa kehityskortti (IDP)
         </button>
+        <button class="lisaaNappi" style="background:rgba(62,201,167,.12);border:1px solid rgba(62,201,167,.3);flex:1;"
+          onclick="document.getElementById('${modalId}').classList.remove('auki'); avaaRekisteriModalPelaajalle('${pelaajaId}','${p.etunimi||''}','${p.sukunimi||''}','${p.joukkue||''}','${p.huoltajaEmail||''}','${p.palloID||''}');">
+          ✉️ Lähetä rekisteröintikutsu
+        </button>
         ${!onAnnettu ? `
         <button class="lisaaNappi" style="background:rgba(74,126,217,.15);flex:1;"
-          onclick="document.getElementById('${modalId}').classList.remove('auki'); avaaRekisteriModal();">
-          ✉️ Lähetä kutsu uudelleen
+          onclick="document.getElementById('${modalId}').classList.remove('auki'); avaaRekisteriModalPelaajalle('${pelaajaId}','${p.etunimi||''}','${p.sukunimi||''}','${p.joukkue||''}','${p.huoltajaEmail||''}','${p.palloID||''}');">
+          ✉️ Lähetä rekisteröintikutsu
         </button>` : ''}
       </div>
 
