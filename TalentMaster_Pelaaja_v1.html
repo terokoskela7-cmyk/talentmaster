@@ -809,6 +809,39 @@ async function _lataaFirebasePelaaja(user) {
       return;
     }
 
+    // ── Tapa 0: URL-parametri + huoltajaEmail (huoltaja kirjautunut) ──
+    const _urlParams = new URLSearchParams(location.search);
+    const _urlPelId  = _urlParams.get('pelaajaId');
+    const _urlSeura  = _urlParams.get('seuraId') || 'kpv';
+    if (_urlPelId && _urlSeura) {
+      try {
+        const directSnap = await _db.collection('seurat').doc(_urlSeura)
+          .collection('pelaajat').doc(_urlPelId).get();
+        if (directSnap.exists) {
+          const d = directSnap.data();
+          const emailTasmaa = d.huoltajaEmail &&
+            d.huoltajaEmail.toLowerCase() === user.email.toLowerCase();
+          if (emailTasmaa || claims.super_admin || claims.superAdmin) {
+            _pelaaja = Object.assign({ id: directSnap.id }, d);
+            await _alustaUI();
+            return;
+          }
+        }
+      } catch(e0) { console.warn('[Tapa0]', e0.message); }
+    }
+
+    // ── Tapa 1: Hae huoltajaEmail-kentällä ──
+    try {
+      const hSnap = await _db.collection('seurat').doc(_urlSeura || 'kpv')
+        .collection('pelaajat')
+        .where('huoltajaEmail', '==', user.email.toLowerCase()).limit(1).get();
+      if (!hSnap.empty) {
+        _pelaaja = Object.assign({ id: hSnap.docs[0].id }, hSnap.docs[0].data());
+        await _alustaUI();
+        return;
+      }
+    } catch(e1) { console.warn('[Tapa1]', e1.message); }
+
     // ── Normaali pelaaja: haetaan Firestoresta ──
     // HUOM: collectionGroup vaatii Firestore-indeksin:
     // Firebase Console → Firestore → Indexes → Composite
