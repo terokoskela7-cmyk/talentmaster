@@ -778,6 +778,26 @@ _auth.onAuthStateChanged(async user => {
   await _tunnistaudu(user);
 });
 
+
+async function asetaSeura(seuraId) {
+  _seuraId = seuraId;
+  try {
+    const snap = await _db.collection('seurat').doc(seuraId).get();
+    const d = snap.data() || {};
+    _seuraNimi = d.nimi || seuraId.toUpperCase();
+    var hEl = document.getElementById('headerSeura');
+    if (hEl) hEl.textContent = _seuraNimi;
+    var jSnap = await _db.collection('seurat').doc(seuraId).collection('joukkueet').orderBy('nimi').get();
+    _joukkueet = jSnap.docs.map(function(doc){ return Object.assign({id:doc.id}, doc.data()); });
+  } catch(e) {
+    console.warn('[asetaSeura]', e.message);
+    _seuraNimi = seuraId.toUpperCase();
+    _joukkueet = [];
+  }
+  nayta('sDash');
+  lataaTilanne();
+}
+
 async function _tunnistaudu(user) {
   _user = user;
   console.log('[AUTH] Kirjautunut:', user.email);
