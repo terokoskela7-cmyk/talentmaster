@@ -1,3 +1,4 @@
+require('dotenv').config();
 /**
  * TalentMaster™ — Firebase Cloud Functions
  * functions/index.js
@@ -412,6 +413,9 @@ exports.lahetaPelaajaSivuLinkki = functions
     const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v2.html` +
       `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
       `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
+    const vanhempiLinkki = `${baseUrl}/TalentMaster_Vanhempi.html` +
+      `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
+      `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
 
     try {
       const transporter = luoTransporter();
@@ -446,14 +450,24 @@ exports.lahetaPelaajaSivuLinkki = functions
               </ul>
             </div>
 
-            <div style="text-align:center;margin:32px 0;">
-              <a href="${pelaajaLinkki}"
+            <div style="text-align:center;margin:32px 0;display:flex;flex-direction:column;gap:12px;align-items:center;">
+              <a href="${vanhempiLinkki}"
                 style="background:#3EC9A7;color:#000;padding:16px 36px;
                 border-radius:8px;text-decoration:none;font-weight:bold;
-                font-size:16px;display:inline-block;">
-                Avaa ${etunimi||'pelaajan'} kehityssivu →
+                font-size:16px;display:inline-block;width:280px;">
+                👨‍👩‍👦 Vanhemman sivu →
+              </a>
+              <a href="${pelaajaLinkki}"
+                style="background:#1A2235;color:#3EC9A7;padding:14px 36px;
+                border:1px solid #3EC9A7;
+                border-radius:8px;text-decoration:none;font-weight:bold;
+                font-size:15px;display:inline-block;width:280px;">
+                ⚽ Pelaajan oma sivu →
               </a>
             </div>
+            <p style="font-size:12px;color:#999;text-align:center;">
+              Tallentakaa molemmat sivut puhelimeen — ne päivittyvät automaattisesti.
+            </p>
 
             <p style="font-size:13px;color:#666;line-height:1.6;">
               Kirjautukaa sivulle tällä sähköpostiosoitteella (<strong>${hEmail}</strong>).
