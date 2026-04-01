@@ -21,22 +21,14 @@ jobs:
         run: |
           echo "GMAIL_EMAIL=$GMAIL_EMAIL" > functions/.env
           echo "GMAIL_APP_PASSWORD=$GMAIL_APP_PASSWORD" >> functions/.env
-          echo "✅ .env created"
+          echo "✅ .env luotu:"
           cat functions/.env | sed 's/=.*/=***/'
 
       - name: Deploy Cloud Functions
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          GMAIL_EMAIL: ${{ secrets.GMAIL_EMAIL }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > service-account.json
           npm install -g firebase-tools
           export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/service-account.json"
-          # Aseta Gmail-credentiaalit Firebase Runtime Configiin
-          firebase functions:config:set \
-            gmail.email="$GMAIL_EMAIL" \
-            gmail.password="$GMAIL_APP_PASSWORD" \
-            --project talentmaster-pilot
-          # Deploy
           firebase deploy --only functions --force --project talentmaster-pilot
