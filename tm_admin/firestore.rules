@@ -20,158 +20,104 @@ service cloud.firestore {
       );
     }
 
-    // Kirjautunut käyttäjä jolla seuraId Custom Claimissa
-    // Kattaa: VP, valmentaja, testivastaava
     function onKirjautunutSeuraJasen() {
       return request.auth != null && request.auth.token.seuraId != null;
     }
 
-    // ─── Admins ─────────────────────────────────────────────────────
     match /admins/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if false;
     }
 
-    // ─── Seurat ─────────────────────────────────────────────────────
     match /seurat/{seuraId} {
-
       allow list: if request.auth != null;
-
-      allow get: if request.auth != null && (
-        onSuperAdmin() || onSeuranJasen(seuraId)
-      );
-
+      allow get: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
       allow create: if request.auth != null && onSuperAdmin();
       allow update: if onHallinta(seuraId);
       allow delete: if onSuperAdmin();
 
-      // ── Joukkueet ────────────────────────────────────────────────
       match /joukkueet/{joukkueId} {
-        allow read: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
+        allow read: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
         allow write: if onHallinta(seuraId);
 
         match /pelaajat/{pelaajaid} {
-          allow read: if request.auth != null && (
-            onSuperAdmin() || onSeuranJasen(seuraId)
-          );
+          allow read: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
           allow create: if onHallinta(seuraId) || request.auth == null;
           allow update: if onHallinta(seuraId) || request.auth == null;
         }
 
         match /kartoitukset/{kartoitusId} {
-          allow read: if request.auth != null && (
-            onSuperAdmin() || onSeuranJasen(seuraId)
-          );
+          allow read: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
           allow create: if request.auth == null || onSeuranJasen(seuraId);
           allow update: if request.auth == null || onSeuranJasen(seuraId);
           allow delete: if onHallinta(seuraId);
         }
       }
 
-      // ── Tapahtumat + palautteet ──────────────────────────────────
       match /tapahtumat/{tapahtumaId} {
-        allow read: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
+        allow read: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
         allow create: if onHallinta(seuraId) || onSeuranJasen(seuraId);
-        // Update: VP, seuran jäsen TAI kirjautunut seura-token (testivastaava)
-        allow update: if onHallinta(seuraId)
-          || onSeuranJasen(seuraId)
-          || onKirjautunutSeuraJasen();
+        allow update: if onHallinta(seuraId) || onSeuranJasen(seuraId) || onKirjautunutSeuraJasen();
         allow delete: if onHallinta(seuraId);
 
-        // ── Palautteet (Vaihe 8 — tallenna ja merkitse valmis) ──────
         match /palautteet/{palauteId} {
-          allow read: if request.auth != null && (
-            onSuperAdmin() || onSeuranJasen(seuraId)
-          );
-          allow create: if onHallinta(seuraId)
-            || onSeuranJasen(seuraId)
-            || onKirjautunutSeuraJasen();
+          allow read: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
+          allow create: if onHallinta(seuraId) || onSeuranJasen(seuraId) || onKirjautunutSeuraJasen();
           allow update, delete: if onHallinta(seuraId);
         }
       }
 
-
-      // ── Kartoitukset seuratasolla ────────────────────────────────
       match /kartoitukset/{kartoitusId} {
-        allow read: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
-        allow create, update: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
+        allow read: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
+        allow create, update: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
         allow delete: if onHallinta(seuraId);
       }
 
-      // ── Kriteerit (tavoitteet) ───────────────────────────────────
       match /kriteerit/{kriteeriId} {
-        allow read, write: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
+        allow read, write: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
       }
 
-      // ── Pelaajat seuratasolla ────────────────────────────────────
       match /pelaajat/{pelaajaid} {
         allow read: if request.auth != null && (
           onSuperAdmin() || onSeuranJasen(seuraId)
+          || resource.data.huoltajaEmail == request.auth.token.email
         ) || request.auth == null;
         allow create: if onHallinta(seuraId) || request.auth == null;
-        allow update: if onHallinta(seuraId) || request.auth == null;
+        allow update: if onHallinta(seuraId) || request.auth == null
+          || (request.auth != null && resource.data.huoltajaEmail == request.auth.token.email);
         allow delete: if onSuperAdmin() || onHallinta(seuraId);
       }
 
-      // ── Suostumukset (rekisteröintilomake, ei auth) ──────────────
       match /suostumukset/{suostumusId} {
-        allow read: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
+        allow read: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
         allow create: if true;
-        allow update: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
+        allow update: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
       }
 
-      // ── Kutsut ──────────────────────────────────────────────────
       match /kutsut/{kutsuId} {
-        allow read: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
+        allow read: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
         allow create: if onHallinta(seuraId) || onSeuranJasen(seuraId);
         allow update: if onHallinta(seuraId);
       }
 
-      // ── Käyttäjät ────────────────────────────────────────────────
       match /kayttajat/{kayttajaId} {
-        allow read: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
+        allow read: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
         allow write: if onHallinta(seuraId);
       }
 
-      // ── Kirjaukset, testit, adar ─────────────────────────────────
       match /kirjaukset/{kirjausId} {
-        allow read, write: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
+        allow read, write: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
       }
 
       match /testit/{testiId} {
-        allow read, write: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
+        allow read, write: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
       }
 
       match /adar/{adarId} {
-        allow read, write: if request.auth != null && (
-          onSuperAdmin() || onSeuranJasen(seuraId)
-        );
+        allow read, write: if request.auth != null && (onSuperAdmin() || onSeuranJasen(seuraId));
       }
     }
 
-    // ─── Vanha rakenne (yhteensopivuus) ─────────────────────────────
     match /kirjaukset/{doc} {
       allow read, write: if request.auth != null && onSuperAdmin();
     }
