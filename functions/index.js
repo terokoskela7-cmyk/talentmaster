@@ -1,3 +1,4 @@
+require('dotenv').config();
 /**
  * TalentMaster™ — Firebase Cloud Functions
  * functions/index.js
@@ -20,8 +21,19 @@ const auth = admin.auth();
 // Gmail-transporter — App Password ympäristömuuttujasta
 // Asetetaan: firebase functions:config:set gmail.email="..." gmail.password="..."
 function luoTransporter() {
-  const email    = functions.config().gmail?.email    || process.env.GMAIL_EMAIL;
-  const password = functions.config().gmail?.password || process.env.GMAIL_APP_PASSWORD;
+  // Yritetään ensin functions.config() (vanha tapa), sitten process.env (.env-tiedosto)
+  let email, password;
+  try {
+    email    = functions.config().gmail && functions.config().gmail.email;
+    password = functions.config().gmail && functions.config().gmail.password;
+  } catch(e) {}
+  email    = email    || process.env.GMAIL_EMAIL;
+  password = password || process.env.GMAIL_APP_PASSWORD;
+  
+  if (!email || !password) {
+    throw new Error('Gmail-credentiaalit puuttuvat. Aseta GMAIL_EMAIL ja GMAIL_APP_PASSWORD.');
+  }
+  
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
@@ -382,3 +394,100 @@ exports.deaktivioiKayttaja = functions
 
     return { ok: true, viesti: 'Käyttäjä deaktivoitu.' };
   });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// lahetaPelaajaSivuLinkki — Lähettää pelaajalle/huoltajalle linkin omalle sivulle
+// Kutsutaan rekisteröintilomakkeesta suostumuksen tallennuksen jälkeen
+// ─────────────────────────────────────────────────────────────────────────────
+exports.lahetaPelaajaSivuLinkki = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+
+    const { hEmail, pelaajaId, seuraId, etunimi, sukunimi, seura, joukkue } = data;
+
+    if (!hEmail || !pelaajaId || !seuraId) {
+      throw new functions.https.HttpsError('invalid-argument', 'hEmail, pelaajaId ja seuraId ovat pakollisia.');
+    }
+
+    const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
+    const seuraNimi   = seura || 'TalentMaster-seura';
+    const joukkueNimi = joukkue || '';
+
+    // Rakennetaan linkki pelaajan omalle sivulle
+    const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster';
+    const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v2.html` +
+      `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
+      `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
+
+    try {
+      const transporter = luoTransporter();
+      const fromEmail   = functions.config().gmail?.email || process.env.GMAIL_EMAIL;
+
+      await transporter.sendMail({
+        from:    `"${seuraNimi}" <${fromEmail}>`,
+        to:      hEmail,
+        subject: `${etunimi ? etunimi + ' — ' : ''}Pelaajan kehityssivu TalentMasterissa`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:#06090F;padding:24px;border-radius:12px;margin-bottom:24px;">
+              <h1 style="color:#3EC9A7;margin:0;font-size:22px;">TalentMaster™</h1>
+              <p style="color:#aaa;margin:4px 0 0;font-size:13px;">${seuraNimi}</p>
+            </div>
+
+            <p style="font-size:16px;color:#333;">Hei,</p>
+
+            <p style="font-size:15px;color:#333;line-height:1.6;">
+              <strong>${pelaajaNimi}</strong> on nyt rekisteröity TalentMaster-järjestelmään
+              ${joukkueNimi ? `joukkueeseen <strong>${joukkueNimi}</strong>` : ''}.
+              Tästä eteenpäin voitte seurata kehitystä omalla sivulla.
+            </p>
+
+            <div style="background:#f8f9fa;border-radius:12px;padding:20px;margin:24px 0;border-left:4px solid #3EC9A7;">
+              <h3 style="margin:0 0 8px;color:#333;font-size:15px;">📊 Mitä näette pelaajan sivulla?</h3>
+              <ul style="margin:0;padding-left:20px;color:#555;font-size:14px;line-height:1.8;">
+                <li>Harjoitettavuus (FLEI) — kehon valmius harjoitteluun</li>
+                <li>Viisi kehitysdimensiota (fyysinen, tekninen, psyykkinen...)</li>
+                <li>Harjoitus- ja kartoitushistoria</li>
+                <li>Yksilölliset kehityskohteet ja vahvuudet</li>
+              </ul>
+            </div>
+
+            <div style="text-align:center;margin:32px 0;">
+              <a href="${pelaajaLinkki}"
+                style="background:#3EC9A7;color:#000;padding:16px 36px;
+                border-radius:8px;text-decoration:none;font-weight:bold;
+                font-size:16px;display:inline-block;">
+                Avaa ${etunimi||'pelaajan'} kehityssivu →
+              </a>
+            </div>
+
+            <p style="font-size:13px;color:#666;line-height:1.6;">
+              Kirjautukaa sivulle tällä sähköpostiosoitteella (<strong>${hEmail}</strong>).
+              Jos ette ole vielä luoneet salasanaa, käyttäkää "Unohditko salasanan?" -linkkiä.
+            </p>
+
+            <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+            <p style="font-size:11px;color:#bbb;text-align:center;">
+              TalentMaster™ — Jalkapallon talenttiarviointijärjestelmä<br>
+              ${seuraNimi}
+            </p>
+          </div>
+        `,
+      });
+
+      // Päivitä pelaajan tila Firestoreen
+      await db.collection('seurat').doc(seuraId)
+        .collection('pelaajat').doc(pelaajaId)
+        .update({
+          pelaajaLinkki,
+          pelaajaLinkLahetetty: admin.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => {});
+
+      return { ok: true, linkki: pelaajaLinkki };
+
+    } catch (e) {
+      console.error('lahetaPelaajaSivuLinkki virhe:', e.message);
+      throw new functions.https.HttpsError('internal', `Lähetys epäonnistui: ${e.message}`);
+    }
+  });
+
