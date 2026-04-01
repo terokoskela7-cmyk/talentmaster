@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>TalentMaster™ — Vanhemman sivu</title>
+<title>TalentMaster™ — Vanhemman sivu 👨‍👩‍👦</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -168,12 +168,12 @@ body { background:var(--bg); color:var(--ink); font-family:'DM Sans',sans-serif;
 <div id="sLogin">
   <div class="login-box">
     <div class="login-logo">TalentMaster™</div>
-    <div class="login-sub">Vanhemman sivu</div>
+    <div class="login-sub" style="font-size:14px;font-weight:700;color:var(--teal);margin-bottom:16px">👨‍👩‍👦 Tämä on vanhemman sivu</div>
     <div class="login-info" id="loginInfo">
       Kirjaudu sähköpostillasi nähdäksesi lapsesi kehitystiedot.
     </div>
-    <div class="login-label">Sähköposti</div>
-    <input class="login-input" type="email" id="loginEmail" placeholder="sinä@esimerkki.fi" autocapitalize="none">
+    <div class="login-label">Sähköposti tai PalloID</div>
+    <input class="login-input" type="email" id="loginEmail" placeholder="sähköposti tai PalloID (esim. 34650191)" autocapitalize="none">
     <div class="login-label">Salasana</div>
     <input class="login-input" type="password" id="loginPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')kirjauduSisaan()">
     <button class="login-btn" onclick="kirjauduSisaan()">Kirjaudu sisään</button>
@@ -189,6 +189,7 @@ body { background:var(--bg); color:var(--ink); font-family:'DM Sans',sans-serif;
   <div class="topbar">
     <div class="topbar-logo">TM™</div>
     <div class="topbar-badge" id="topbarSeura">—</div>
+    <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;padding:2px 8px;background:rgba(0,212,170,.08);border-radius:10px;border:1px solid rgba(0,212,170,.25)">👨‍👩‍👦 Vanhemman sivu</div>
     <div class="topbar-spacer"></div>
     <div class="topbar-nimi" id="topbarNimi">—</div>
     <div class="topbar-out" onclick="kirjauduUlos()">Kirjaudu ulos</div>
@@ -376,7 +377,7 @@ async function _renderSivu() {
 
   // ── Banneri ──
   html += '<div class="banner">' +
-    '<div class="banner-badge">Vanhemman sivu</div>' +
+    '<div class="banner-badge">👨‍👩‍👦 Vanhemman sivu</div>' +
     '<h1>' + etunimi + ' kehittyy <span>' + _kehitysLause(fleiPct) + '</span></h1>' +
     '<p>Tällä sivulla näet yksinkertaisesti, miten ' + etunimi + 'in jalkapalloura etenee — mitä hän harjoittelee, missä hän on hyvä ja miten voit tukea kotona. Ei teknistä jargonaa.</p>' +
     '</div>';
@@ -635,13 +636,53 @@ function sendPrompt(teksti) {
 
 // ── Kirjautuminen ─────────────────────────────────────────────────
 function kirjauduSisaan() {
-  var email = (document.getElementById('loginEmail').value || '').trim();
-  var pass  = document.getElementById('loginPass').value || '';
+  var syote = (document.getElementById('loginEmail').value || '').trim();
+  var pass   = document.getElementById('loginPass').value || '';
   var virheEl = document.getElementById('loginVirhe');
-  if (!email || !pass) { virheEl.textContent = 'Syötä sähköposti ja salasana.'; return; }
+  if (!syote || !pass) { virheEl.textContent = 'Syötä sähköposti tai PalloID ja salasana.'; return; }
   virheEl.textContent = '';
+
+  // Tarkista onko syöte PalloID (pelkkä numero) vai sähköposti
+  var onPalloID = /^\d{5,10}$/.test(syote);
+
+  if (onPalloID) {
+    // Hae sähköposti PalloID:llä Firestoresta
+    virheEl.textContent = 'Haetaan PalloID:llä...';
+    var seurat = ['kpv','fcl','palloiirot','yvies','sjk','grifk'];
+    var loydetty = false;
+    var db = firebase.firestore();
+
+    (async function() {
+      for (var i = 0; i < seurat.length; i++) {
+        try {
+          var s = await db.collection('seurat').doc(seurat[i])
+            .collection('pelaajat').where('palloID','==',syote).limit(1).get();
+          if (!s.empty) {
+            var email = s.docs[0].data().huoltajaEmail;
+            if (email) {
+              virheEl.textContent = '';
+              loydetty = true;
+              _kirjautuminenKesken = true;
+              _auth.signInWithEmailAndPassword(email, pass)
+                .then(function(c) { _kirjautuminenKesken = false; _lataaData(c.user); })
+                .catch(function(e) {
+                  _kirjautuminenKesken = false;
+                  virheEl.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found')
+                    ? 'Väärä salasana.' : 'Virhe: ' + e.message;
+                });
+              return;
+            }
+          }
+        } catch(e2) {}
+      }
+      if (!loydetty) virheEl.textContent = 'PalloID:tä ei löydy. Tarkista numero tai käytä sähköpostia.';
+    })();
+    return;
+  }
+
+  // Normaali sähköpostikirjautuminen
   _kirjautuminenKesken = true;
-  _auth.signInWithEmailAndPassword(email, pass)
+  _auth.signInWithEmailAndPassword(syote, pass)
     .then(function(c) { _kirjautuminenKesken = false; _lataaData(c.user); })
     .catch(function(e) {
       _kirjautuminenKesken = false;
