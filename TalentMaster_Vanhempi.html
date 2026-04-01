@@ -264,16 +264,22 @@ async function _lataaData(user) {
 
     // Tapa 1: URL-parametri + sähköposti täsmää
     if (_urlPelId && _urlSeura) {
-      var snap = await _db.collection('seurat').doc(_urlSeura)
-        .collection('pelaajat').doc(_urlPelId).get();
-      if (snap.exists) {
-        var d = snap.data();
-        if (isSuperAdmin || (d.huoltajaEmail && d.huoltajaEmail.toLowerCase() === user.email.toLowerCase())) {
-          _pelaaja = Object.assign({ id: snap.id }, d);
-          _seuraId = _urlSeura; _pelaajaId = _urlPelId;
-          _renderSivu();
-          return;
+      try {
+        var snap = await _db.collection('seurat').doc(_urlSeura)
+          .collection('pelaajat').doc(_urlPelId).get();
+        if (snap.exists) {
+          var d = snap.data();
+          var emailTasmaa = d.huoltajaEmail &&
+            d.huoltajaEmail.toLowerCase() === user.email.toLowerCase();
+          if (isSuperAdmin || emailTasmaa) {
+            _pelaaja = Object.assign({ id: snap.id }, d);
+            _seuraId = _urlSeura; _pelaajaId = _urlPelId;
+            _renderSivu();
+            return;
+          }
         }
+      } catch(snapErr) {
+        console.warn('[Vanhempi] Snap virhe:', snapErr.message);
       }
     }
 
@@ -282,7 +288,7 @@ async function _lataaData(user) {
     for (var i = 0; i < seurat.length; i++) {
       try {
         var s = await _db.collection('seurat').doc(seurat[i])
-          .collection('pelaajat').where('huoltajaEmail','==',user.email).limit(1).get();
+          .collection('pelaajat').where('huoltajaEmail','==',user.email.toLowerCase()).limit(1).get();
         if (!s.empty) {
           _pelaaja = Object.assign({ id: s.docs[0].id }, s.docs[0].data());
           _seuraId = seurat[i]; _pelaajaId = s.docs[0].id;
@@ -372,7 +378,7 @@ async function _renderSivu() {
       : /Android/.test(ua)
       ? '<strong>📱 Tallenna sivu Androidiin:</strong> Paina ⋮-valikkoa → Lisää aloitusnäyttöön'
       : '<strong>💻 Tallenna kirjanmerkki:</strong> Paina Ctrl+D tallentaaksesi sivun';
-    html += '<div class="tallennusohje">' + ohje + '<br><span style="font-size:12px">Kirjaudu aina sähköpostilla ' + (user ? user.email : '') + ' ja omalla salasanallasi.</span></div>';
+    html += '<div class="tallennusohje">' + ohje + '<br><span style="font-size:12px">Kirjaudu aina sähköpostilla ' + (_user ? _user.email : '') + ' ja omalla salasanallasi.</span></div>';
   }
 
   // ── Banneri ──
