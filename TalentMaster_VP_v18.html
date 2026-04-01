@@ -285,6 +285,43 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .hyv-warn{color:var(--amber);}
 .hyv-red{color:var(--red);}
 
+
+.tanaan-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:20px;}
+@media(max-width:900px){.tanaan-grid{grid-template-columns:1fr;}}
+.halytys-lista{display:flex;flex-direction:column;gap:8px;}
+.halytys-rivi{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;cursor:pointer;transition:opacity .15s;border:1px solid transparent;}
+.halytys-rivi:hover{opacity:.85;}
+.halytys-rivi.kriittinen{background:rgba(255,64,96,.08);border-color:rgba(255,64,96,.2);}
+.halytys-rivi.varoitus{background:rgba(224,160,64,.08);border-color:rgba(224,160,64,.2);}
+.halytys-rivi.info{background:rgba(74,126,217,.08);border-color:rgba(74,126,217,.15);}
+.halytys-ikoni{font-size:18px;flex-shrink:0;margin-top:1px;}
+.halytys-otsikko{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px;}
+.halytys-teksti{font-size:12px;color:var(--ink2);line-height:1.5;}
+.halytys-tagi{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:600;margin-top:4px;}
+.halytys-tagi.kriittinen{background:rgba(255,64,96,.15);color:#FF6080;}
+.halytys-tagi.varoitus{background:rgba(224,160,64,.15);color:#E0A040;}
+.halytys-tagi.info{background:rgba(74,126,217,.15);color:#7EB6FF;}
+.fiilinki-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.fiilinki-arvo-iso{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:900;line-height:1;margin:8px 0 2px;}
+.fiilinki-delta{font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-block;margin-bottom:12px;}
+.fiilinki-delta.nousu{background:rgba(31,209,106,.15);color:#1FD16A;}
+.fiilinki-delta.lasku{background:rgba(255,64,96,.15);color:#FF4060;}
+.fiilinki-delta.tasainen{background:rgba(74,126,217,.15);color:#7EB6FF;}
+.fiilinki-baari-wrap{display:flex;flex-direction:column;gap:4px;margin-top:12px;}
+.fiilinki-baari-rivi{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ink3);}
+.fiilinki-baari-bg{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.fiilinki-baari-fill{height:100%;border-radius:3px;transition:width .5s;}
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+.qa-nappi{padding:10px 12px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--ink2);text-align:left;transition:all .15s;display:flex;align-items:center;gap:7px;}
+.qa-nappi:hover{border-color:var(--blue);color:var(--ink);}
+.qa-nappi.paa{grid-column:1/-1;background:var(--blue);color:#fff;border-color:var(--blue);font-size:13px;}
+.qa-nappi.paa:hover{opacity:.9;}
+.qa-ikoni{font-size:15px;flex-shrink:0;}
+.osio-otsikko{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.osio-nimi{font-size:13px;font-weight:700;color:var(--ink);}
+.osio-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;}
+.osio-badge.punainen{background:rgba(255,64,96,.15);color:#FF4060;}
+.osio-badge.harmaa{background:var(--bg3);color:var(--ink3);}
 </style>
 </head>
 <body>
@@ -398,7 +435,54 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     </div>
 
     <!-- FLEI-JAKAUMA + VALMENNUSLINJA -->
-    <div class="grid2">
+    
+  <div class="tanaan-grid" id="tanaanGrid">
+    <div>
+      <div class="osio-otsikko">
+        <span class="osio-nimi">Toimenpiteet tänään</span>
+        <span class="osio-badge punainen" id="halytysLkm">Ladataan...</span>
+      </div>
+      <div class="halytys-lista" id="halytysLista">
+        <div style="color:var(--ink3);font-size:13px;padding:12px 0">Analysoidaan...</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="fiilinki-card">
+        <div class="osio-otsikko" style="margin-bottom:4px;">
+          <span class="osio-nimi">Joukkueiden fiilinki</span>
+          <span style="font-size:10px;color:var(--ink3)">Anonyymi</span>
+        </div>
+        <div class="fiilinki-arvo-iso" id="fiilinkiArvo" style="color:var(--teal)">—</div>
+        <span class="fiilinki-delta tasainen" id="fiilinkiDelta">Ladataan...</span>
+        <div class="fiilinki-baari-wrap" id="fiilinkiBaarit"></div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div class="osio-nimi" style="margin-bottom:10px;">Nopeat toiminnot</div>
+        <div class="qa-grid">
+          <button class="qa-nappi paa" onclick="_vpSiirryTabiin('kartoitukset')">
+            <span class="qa-ikoni">📋</span>Uusi harjoitettavuuskartoitus
+          </button>
+          <button class="qa-nappi" onclick="_vpSiirryTabiin('kalenteri')">
+            <span class="qa-ikoni">📅</span>Lisää tapahtuma
+          </button>
+          <button class="qa-nappi" onclick="_vpSiirryTabiin('henkilosto')">
+            <span class="qa-ikoni">🧑‍🏫</span>Kutsu valmentaja
+          </button>
+          <button class="qa-nappi" onclick="window.open('TalentMaster_Master_v9.html','_blank')">
+            <span class="qa-ikoni">⚽</span>Valmentajan näkymä
+          </button>
+          <button class="qa-nappi" onclick="window.open('TalentMaster_Rekisterointi_Suostumus.html','_blank')">
+            <span class="qa-ikoni">📝</span>Rekisteröintikutsu
+          </button>
+          <button class="qa-nappi" onclick="window.open('TalentMaster_Seura.html','_blank')">
+            <span class="qa-ikoni">🏛️</span>Seurahallinta
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
 
       <!-- FLEI ikäluokittain -->
       <div class="card">
@@ -778,6 +862,9 @@ function _haeProfiili(id) {
 
 async function lataaTilanne() {
   if (!_seuraId) return;
+
+  rakentaaHalytykset();
+  rakentaaFiilinki();
 
   // Banner — seuravärit ja tervehdys
   const tunnin = new Date().getHours();
@@ -2381,6 +2468,154 @@ async function _vpMerkitsePaikalla(tapahtumaId, seuraId, idx, paikalla) {
     await _fbDb.collection('seurat').doc(seuraId).collection('tapahtumat').doc(tapahtumaId).update({pelaajat: pelaajat});
   } catch(e) { console.error('Paikalla:', e); }
 }
+
+// ════ TÄNÄÄN-OSIO: HÄLYTYKSET + FIILINKI ════
+
+function _vpSiirryTabiin(nimi) {
+  var nayta = window.naytaTabi;
+  if (nayta) { nayta(nimi); return; }
+  var btn = document.getElementById('tab-' + nimi) ||
+            document.querySelector('[data-tabi="' + nimi + '"]');
+  if (btn) btn.click();
+}
+
+async function rakentaaHalytykset() {
+  var lista = document.getElementById('halytysLista');
+  var lkm   = document.getElementById('halytysLkm');
+  if (!lista || !_seuraId) return;
+
+  try {
+    var halytykset = [];
+
+    // PHV-pelaajat
+    var karSnap = await _db.collection('seurat').doc(_seuraId)
+      .collection('kartoitukset')
+      .where('phvTila','==','PH').limit(10).get();
+    if (!karSnap.empty) {
+      halytykset.push({
+        taso:'kriittinen', ikoni:'\u26A0\uFE0F',
+        otsikko: karSnap.size + ' pelaajaa kasvupyr\u00e4hdysvaiheessa',
+        teksti:'Harjoittelukuorma pit\u00e4\u00e4 rajoittaa. Tarkista valmentajan ohjeet.',
+        tagi:'PHV-seuranta', nav:'kartoitukset',
+      });
+    }
+
+    // Heikko FLEI
+    var heikotSnap = await _db.collection('seurat').doc(_seuraId)
+      .collection('kartoitukset')
+      .orderBy('yhteenveto.fleiPisteet').limit(5).get();
+    var heikot = heikotSnap.docs.filter(function(d) {
+      var yh = d.data().yhteenveto || {};
+      var ps = yh.fleiPisteet || 0;
+      var mx = yh.pisteetMaksimi || 27;
+      return mx > 0 && (ps/mx) < 0.4;
+    });
+    if (heikot.length > 0) {
+      halytykset.push({
+        taso:'varoitus', ikoni:'\uD83D\uDD34',
+        otsikko: heikot.length + ' pelaajaa — FLEI alle 40%',
+        teksti: heikot.slice(0,2).map(function(d){return d.data().nimi||'—';}).join(', ') + ' tarvitsee prioriteettiharjoittelua.',
+        tagi:'Kehitysprioriteetti', nav:'kartoitukset',
+      });
+    }
+
+    // Passiivisuus
+    var raja = new Date(); raja.setDate(raja.getDate()-14);
+    var rajaPvm = raja.toISOString().split('T')[0];
+    var kirjSnap = await _db.collection('seurat').doc(_seuraId)
+      .collection('kirjaukset').where('pvm','>=',rajaPvm).limit(5).get();
+    if (kirjSnap.empty) {
+      halytykset.push({
+        taso:'varoitus', ikoni:'\uD83D\uDCCB',
+        otsikko:'Ei harjoituskirjauksia 14 p\u00e4iv\u00e4\u00e4n',
+        teksti:'Valmentajat eiv\u00e4t ole kirjanneet harjoituksia. Muistuta heit\u00e4.',
+        tagi:'Aktiivisuus', nav:'henkilosto',
+      });
+    }
+
+    if (halytykset.length === 0) {
+      lista.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:14px;background:rgba(31,209,106,.08);border:1px solid rgba(31,209,106,.2);border-radius:10px;">' +
+        '<span style="font-size:20px">\u2705</span>' +
+        '<div><div style="font-size:13px;font-weight:600;color:var(--ink)">Kaikki kunnossa</div>' +
+        '<div style="font-size:12px;color:var(--ink2)">Ei kriittisi\u00e4 toimenpiteit\u00e4 t\u00e4n\u00e4\u00e4n.</div></div></div>';
+      if (lkm) { lkm.textContent = 'Kaikki ok'; lkm.className = 'osio-badge harmaa'; }
+      return;
+    }
+
+    lista.innerHTML = halytykset.map(function(h) {
+      return '<div class="halytys-rivi ' + h.taso + '" onclick="_vpSiirryTabiin(\'' + h.nav + '\')">' +
+        '<span class="halytys-ikoni">' + h.ikoni + '</span>' +
+        '<div><div class="halytys-otsikko">' + h.otsikko + '</div>' +
+        '<div class="halytys-teksti">' + h.teksti + '</div>' +
+        '<span class="halytys-tagi ' + h.taso + '">' + h.tagi + '</span></div></div>';
+    }).join('');
+
+    var kriit = halytykset.filter(function(h){return h.taso==='kriittinen';}).length;
+    if (lkm) {
+      lkm.textContent = kriit > 0 ? kriit + ' kriittist\u00e4' : halytykset.length + ' huomiota';
+      lkm.className = 'osio-badge ' + (kriit > 0 ? 'punainen' : 'harmaa');
+    }
+  } catch(e) {
+    console.warn('[H\u00e4lytykset]', e.message);
+    if (lista) lista.innerHTML = '<div style="color:var(--ink3);font-size:12px;padding:8px">Ei dataa saatavilla.</div>';
+  }
+}
+
+async function rakentaaFiilinki() {
+  var arvoEl  = document.getElementById('fiilinkiArvo');
+  var deltaEl = document.getElementById('fiilinkiDelta');
+  var baarEl  = document.getElementById('fiilinkiBaarit');
+  if (!arvoEl || !_seuraId) return;
+
+  try {
+    var snap = await _db.collection('seurat').doc(_seuraId)
+      .collection('kirjaukset').orderBy('luotu','desc').limit(60).get();
+
+    var rpeArvot = snap.docs.map(function(d){return d.data().rpe;}).filter(function(v){return v!=null&&!isNaN(v);});
+    if (rpeArvot.length === 0) {
+      arvoEl.textContent = '—'; deltaEl.textContent = 'Ei dataa'; return;
+    }
+
+    // RPE 1-10 → fiilinki 0-100 (matala RPE = hyvä olo)
+    var fArvot = rpeArvot.map(function(r){return Math.round(100-(r-1)*8);});
+    var ka = Math.round(fArvot.reduce(function(a,b){return a+b;},0)/fArvot.length);
+
+    var puoli = Math.max(1, Math.floor(fArvot.length/2));
+    var uKa = Math.round(fArvot.slice(0,puoli).reduce(function(a,b){return a+b;},0)/puoli);
+    var vKa = fArvot.length > puoli ?
+      Math.round(fArvot.slice(puoli).reduce(function(a,b){return a+b;},0)/fArvot.slice(puoli).length) : uKa;
+    var delta = uKa - vKa;
+
+    arvoEl.textContent = ka + '%';
+    arvoEl.style.color = ka>=70?'var(--green)':ka>=50?'var(--amber)':'var(--red)';
+    deltaEl.textContent = (delta>=0?'+':'') + delta + ' vs. aiempi';
+    deltaEl.className = 'fiilinki-delta ' + (delta>2?'nousu':delta<-2?'lasku':'tasainen');
+
+    // Joukkuebaarit
+    if (baarEl) {
+      var jData = {};
+      snap.docs.forEach(function(d) {
+        var dat = d.data();
+        var jNimi = dat.joukkueNimi || dat.joukkueId || 'Muu';
+        if (!jData[jNimi]) jData[jNimi] = [];
+        jData[jNimi].push(Math.round(100-((dat.rpe||5)-1)*8));
+      });
+      var joukkueet = Object.entries(jData)
+        .map(function(e){return {nimi:e[0],ka:Math.round(e[1].reduce(function(a,b){return a+b;},0)/e[1].length)};})
+        .sort(function(a,b){return b.ka-a.ka;}).slice(0,4);
+      baarEl.innerHTML = joukkueet.map(function(j){
+        var c = j.ka>=70?'var(--green)':j.ka>=50?'var(--amber)':'var(--red)';
+        return '<div class="fiilinki-baari-rivi"><span style="min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+j.nimi+'</span>' +
+          '<div class="fiilinki-baari-bg"><div class="fiilinki-baari-fill" style="width:'+j.ka+'%;background:'+c+'"></div></div>' +
+          '<span style="min-width:32px;text-align:right">'+j.ka+'%</span></div>';
+      }).join('');
+    }
+  } catch(e) {
+    console.warn('[Fiilinki]', e.message);
+    if (arvoEl) arvoEl.textContent = '—';
+  }
+}
+
 </script>
 </body>
 </html>
