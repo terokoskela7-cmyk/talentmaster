@@ -21,19 +21,11 @@ const auth = admin.auth();
 // Gmail-transporter — App Password ympäristömuuttujasta
 // Asetetaan: firebase functions:config:set gmail.email="..." gmail.password="..."
 function luoTransporter() {
-  // Yritetään ensin functions.config() (vanha tapa), sitten process.env (.env-tiedosto)
-  let email, password;
-  try {
-    email    = functions.config().gmail && functions.config().gmail.email;
-    password = functions.config().gmail && functions.config().gmail.password;
-  } catch(e) {}
-  email    = email    || process.env.GMAIL_EMAIL;
-  password = password || process.env.GMAIL_APP_PASSWORD;
-  
+  const email    = process.env.GMAIL_EMAIL;
+  const password = process.env.GMAIL_APP_PASSWORD;
   if (!email || !password) {
-    throw new Error('Gmail-credentiaalit puuttuvat. Aseta GMAIL_EMAIL ja GMAIL_APP_PASSWORD.');
+    throw new Error('Gmail-credentiaalit puuttuvat: GMAIL_EMAIL ja GMAIL_APP_PASSWORD');
   }
-  
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
@@ -105,7 +97,7 @@ exports.lahetaRekisteriKutsu = functions
 
     try {
       const transporter = luoTransporter();
-      const fromEmail   = functions.config().gmail?.email || process.env.GMAIL_EMAIL;
+      const fromEmail   = process.env.GMAIL_EMAIL;
 
       await transporter.sendMail({
         from:    `"${seuraNimi}" <${fromEmail}>`,
@@ -318,7 +310,7 @@ exports.luoKayttaja = functions
 
       // Lähetetään salasanaviesti sähköpostilla
       const transporter = luoTransporter();
-      const fromEmail   = functions.config().gmail?.email || process.env.GMAIL_EMAIL;
+      const fromEmail   = process.env.GMAIL_EMAIL;
       await transporter.sendMail({
         from:    `"TalentMaster" <${fromEmail}>`,
         to:      email,
@@ -421,7 +413,7 @@ exports.lahetaPelaajaSivuLinkki = functions
 
     try {
       const transporter = luoTransporter();
-      const fromEmail   = functions.config().gmail?.email || process.env.GMAIL_EMAIL;
+      const fromEmail   = process.env.GMAIL_EMAIL;
 
       await transporter.sendMail({
         from:    `"${seuraNimi}" <${fromEmail}>`,
@@ -490,4 +482,3 @@ exports.lahetaPelaajaSivuLinkki = functions
       throw new functions.https.HttpsError('internal', `Lähetys epäonnistui: ${e.message}`);
     }
   });
-
