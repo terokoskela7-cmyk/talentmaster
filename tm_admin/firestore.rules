@@ -2,7 +2,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── Apufunktiot ───────────────────────────────────────────────
     function onSuperAdmin() {
       return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
@@ -21,32 +20,27 @@ service cloud.firestore {
       );
     }
 
+    // Kirjautunut käyttäjä jolla seuraId Custom Claimissa
+    // Kattaa: VP, valmentaja, testivastaava
+    function onKirjautunutSeuraJasen() {
+      return request.auth != null && request.auth.token.seuraId != null;
+    }
+
     // ─── Admins ─────────────────────────────────────────────────────
     match /admins/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false; // Vain Firebase Console
+      allow write: if false;
     }
 
     // ─── Seurat ─────────────────────────────────────────────────────
     match /seurat/{seuraId} {
 
-      // KRIITTINEN LISÄYS: VP v17 hakee oman seuransa kyselyllä
-      // collection('seurat').where('vp_uid','==',uid) — tämä on LIST-operaatio.
-      // Ilman tätä sääntöä Rules ei tiedä seuraId:tä ennen kuin kysely on tehty
-      // → chicken-and-egg → "Missing or insufficient permissions".
-      // Turvallisuus: LIST sallii kyselyn rakenteen, mutta yksittäisten
-      // dokumenttien sisältö on suojattu alla olevalla GET-säännöllä.
-      // VP saa takaisin vain ne dokumentit joiden vp_uid == hänen uid.
       allow list: if request.auth != null;
 
-      // GET: yksittäinen dokumentti tunnetulla seuraId:llä
       allow get: if request.auth != null && (
         onSuperAdmin() || onSeuranJasen(seuraId)
       );
 
-      // WRITE: vain hallintotason käyttäjät
-      // Tämä kattaa myös uuden seuran luomisen Admin-sivulta
-      // (super-admin luo seurat/{id} suoraan JS:stä)
       allow create: if request.auth != null && onSuperAdmin();
       allow update: if onHallinta(seuraId);
       allow delete: if onSuperAdmin();
@@ -58,48 +52,88 @@ service cloud.firestore {
         );
         allow write: if onHallinta(seuraId);
 
-        // Pelaajat joukkueessa
         match /pelaajat/{pelaajaid} {
           allow read: if request.auth != null && (
             onSuperAdmin() || onSeuranJasen(seuraId)
           );
-          // Huoltajan rekisteröinti sallittu ilman kirjautumista
           allow create: if onHallinta(seuraId) || request.auth == null;
           allow update: if onHallinta(seuraId) || request.auth == null;
         }
 
-        // Kartoitukset — KRIITTINEN: testaaja voi olla kirjautumaton
         match /kartoitukset/{kartoitusId} {
           allow read: if request.auth != null && (
             onSuperAdmin() || onSeuranJasen(seuraId)
           );
-          // Kirjautumaton testaaja saa tallentaa tapahtumaId-kontekstilla
           allow create: if request.auth == null || onSeuranJasen(seuraId);
           allow update: if request.auth == null || onSeuranJasen(seuraId);
           allow delete: if onHallinta(seuraId);
         }
       }
 
-      // ── Tapahtumat ───────────────────────────────────────────────
+      // ── Tapahtumat + palautteet ──────────────────────────────────
       match /tapahtumat/{tapahtumaId} {
         allow read: if request.auth != null && (
           onSuperAdmin() || onSeuranJasen(seuraId)
         );
         allow create: if onHallinta(seuraId) || onSeuranJasen(seuraId);
-        allow update: if onHallinta(seuraId) || onSeuranJasen(seuraId);
+        // Update: VP, seuran jäsen TAI kirjautunut seura-token (testivastaava)
+        allow update: if onHallinta(seuraId)
+          || onSeuranJasen(seuraId)
+          || onKirjautunutSeuraJasen();
         allow delete: if onHallinta(seuraId);
+
+        // ── Palautteet (Vaihe 8 — tallenna ja merkitse valmis) ──────
+        match /palautteet/{palauteId} {
+          allow read: if request.auth != null && (
+            onSuperAdmin() || onSeuranJasen(seuraId)
+          );
+          allow create: if onHallinta(seuraId)
+            || onSeuranJasen(seuraId)
+            || onKirjautunutSeuraJasen();
+          allow update, delete: if onHallinta(seuraId);
+        }
       }
 
-      // ── Pelaajat seuratasolla (rekisteröintireitti) ──────────────
-      match /pelaajat/{pelaajaid} {
+
+      // ── Kartoitukset seuratasolla ────────────────────────────────
+      match /kartoitukset/{kartoitusId} {
         allow read: if request.auth != null && (
           onSuperAdmin() || onSeuranJasen(seuraId)
         );
-        allow create: if onHallinta(seuraId) || request.auth == null;
-        allow update: if onHallinta(seuraId);
+        allow create, update: if request.auth != null && (
+          onSuperAdmin() || onSeuranJasen(seuraId)
+        );
+        allow delete: if onHallinta(seuraId);
       }
 
-      // ── Kutsut (massakutsu huoltajille) ─────────────────────────
+      // ── Kriteerit (tavoitteet) ───────────────────────────────────
+      match /kriteerit/{kriteeriId} {
+        allow read, write: if request.auth != null && (
+          onSuperAdmin() || onSeuranJasen(seuraId)
+        );
+      }
+
+      // ── Pelaajat seuratasolla ────────────────────────────────────
+      match /pelaajat/{pelaajaid} {
+        allow read: if request.auth != null && (
+          onSuperAdmin() || onSeuranJasen(seuraId)
+        ) || request.auth == null;
+        allow create: if onHallinta(seuraId) || request.auth == null;
+        allow update: if onHallinta(seuraId) || request.auth == null;
+      }
+
+      // ── Suostumukset (rekisteröintilomake, ei auth) ──────────────
+      match /suostumukset/{suostumusId} {
+        allow read: if request.auth != null && (
+          onSuperAdmin() || onSeuranJasen(seuraId)
+        );
+        allow create: if true;
+        allow update: if request.auth != null && (
+          onSuperAdmin() || onSeuranJasen(seuraId)
+        );
+      }
+
+      // ── Kutsut ──────────────────────────────────────────────────
       match /kutsut/{kutsuId} {
         allow read: if request.auth != null && (
           onSuperAdmin() || onSeuranJasen(seuraId)
@@ -108,7 +142,7 @@ service cloud.firestore {
         allow update: if onHallinta(seuraId);
       }
 
-      // ── Käyttäjät (valmentajat, testaajat jne.) ─────────────────
+      // ── Käyttäjät ────────────────────────────────────────────────
       match /kayttajat/{kayttajaId} {
         allow read: if request.auth != null && (
           onSuperAdmin() || onSeuranJasen(seuraId)
