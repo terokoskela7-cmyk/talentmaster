@@ -895,6 +895,51 @@ function _haeProfiili(id) {
   };
 }
 
+// Super-admin seuravalitsin headeriin
+// Korvaa staattisen headerSeura-tekstin dropdown-valikolla
+// jotta super-admin voi vaihtaa seuraa ilman uudelleenkirjautumista
+function _paivitaSuperAdminDropdown() {
+  if (_rooli !== 'superadmin') return;
+  const hEl = document.getElementById('headerSeura');
+  if (!hEl) return;
+
+  // Jos dropdown on jo luotu, päivitetään vain valinta
+  const existing = document.getElementById('superAdminSeuraSelect');
+  if (existing) {
+    existing.value = _seuraId || '';
+    return;
+  }
+
+  // Luodaan select-elementti seurojen listasta
+  const select = document.createElement('select');
+  select.id = 'superAdminSeuraSelect';
+  select.style.cssText = [
+    'background:#131920', 'border:1px solid rgba(255,255,255,.2)',
+    'border-radius:6px', 'color:#E8EEF8', 'font-family:inherit',
+    'font-size:14px', 'font-weight:700', 'padding:3px 8px',
+    'cursor:pointer', 'outline:none', 'max-width:180px',
+  ].join(';');
+
+  _kaikki_seurat.forEach(function(s) {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.nimi || s.id.toUpperCase();
+    if (s.id === _seuraId) opt.selected = true;
+    select.appendChild(opt);
+  });
+
+  select.addEventListener('change', async function() {
+    const uusiSeura = this.value;
+    if (uusiSeura && uusiSeura !== _seuraId) {
+      await asetaSeura(uusiSeura);
+    }
+  });
+
+  // Korvataan tekstielementti dropdownilla
+  hEl.textContent = '';
+  hEl.appendChild(select);
+}
+
 async function lataaTilanne() {
   if (!_seuraId) return;
 
