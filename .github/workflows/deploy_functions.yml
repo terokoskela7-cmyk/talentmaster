@@ -27,5 +27,12 @@ jobs:
           echo "SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }}" >> .env
           echo "SENDGRID_FROM_EMAIL=${{ secrets.SENDGRID_FROM_EMAIL }}" >> .env
 
+      # Kirjoitetaan Service Account JSON väliaikaiseen tiedostoon
+      # Firebase CLI löytää sen GOOGLE_APPLICATION_CREDENTIALS-muuttujan kautta
+      - name: Authenticate with Firebase
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/sa.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json" >> $GITHUB_ENV
+
       - name: Deploy functions
-        run: firebase deploy --only functions --project talentmaster-pilot --token "${{ secrets.FIREBASE_TOKEN }}"
+        run: firebase deploy --only functions --project talentmaster-pilot
