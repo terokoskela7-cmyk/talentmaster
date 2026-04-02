@@ -1,9 +1,10 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
+## Projektin tila (päivitetty 2026-04-02)
 
-## Projektin tila (päivitetty 2026-04-01)
-
-TalentMaster on jalkapallon talenttiarviointialusta. Firebase-backend toimii, Cloud Functions toimii, koko rekisteröinti- ja kutsupolku toimii end-to-end. Pilotissa 7 seuraa. Tänään rakennettiin koko pelaaja/vanhempi-käyttäjäpolku alusta loppuun ja testattiin onnistuneesti KPV:n Topias Koskelalla.
+TalentMaster on jalkapallon talenttiarviointialusta jossa on **7 aktiivista pilottiseuraa**.
+Rekisteröintiketju toimii end-to-end. Vanhemman sivu on tuotantovalmis AI-chatilla.
+Seuraava fokus: VP-dashboardin KPI-näkymät ja valmentajan kartoitusnäkymä.
 
 ---
 
@@ -14,39 +15,41 @@ https://github.com/terokoskela7-cmyk/talentmaster
 https://terokoskela7-cmyk.github.io/talentmaster/
 ```
 
-### Aktiiviset tiedostot (2026-04-01)
+### Tärkeimmät tiedostot (ajantasainen lista)
 
-| Tiedosto | Kuvaus | Tila |
+| Tiedosto | Versio | Kuvaus |
 |---|---|---|
-| `TalentMaster_Seura.html` | VP/sihteeri/UTJ seurahallinta | Aktiivinen |
-| `TalentMaster_VP_v18.html` | VP-dashboard (kartoitukset, kalenteri, hälytykset) | Aktiivinen |
-| `TalentMaster_Master_v9.html` | Valmentajan kenttänäkymä | Aktiivinen |
-| `TalentMaster_Rekisterointi_Suostumus.html` | Huoltajan suostumuslomake | Aktiivinen |
-| `TalentMaster_IDP_Kortti_v3.html` | Pelaajan kehityskortti | Aktiivinen (KPV toimii) |
-| `TalentMaster_Pelaaja_v1.html` | PELAAJAN OMA SIVU — gamified FIFA-kortti, streak, XP | UUSI |
-| `TalentMaster_Vanhempi.html` | VANHEMMAN SIVU — selkokielinen kehityssivu | UUSI |
-| `hpp_rehab_protokollat.js` | 25 kuntoutusprotokollaa | Aktiivinen |
-| `functions/index.js` | 5 Cloud Funktiota | Aktiivinen |
-| `tm_admin/firestore.rules` | Security Rules | Aktiivinen |
+| `TalentMaster_Seura.html` | aktiivinen | Seurahallinta (VP/sihteeri) |
+| `TalentMaster_VP_v18.html` | v18 | VP-dashboard |
+| `TalentMaster_Master_v9.html` | v9 | Valmentajan näkymä |
+| `TalentMaster_Pelaaja_v1.html` | v1 | Pelaajan gamifioitu sivu |
+| `TalentMaster_Vanhempi.html` | v2 (2026-04-02) | Vanhemman sivu + AI chat ✅ |
+| `TalentMaster_IDP_Kortti_v3.html` | v3 | IDP-kortti (toimii KPV:llä) |
+| `TalentMaster_Rekisterointi_Suostumus.html` | aktiivinen | GDPR-suostumuslomake |
+| `hpp_rehab_protokollat.js` | aktiivinen | 25 kuntoutusprotokolaa |
+| `functions/index.js` | aktiivinen | Cloud Functions (SendGrid) |
+| `tm_import.js` | aktiivinen | Excel-tuonti komponentti |
+| `tm_empty_state.js` | aktiivinen | Tyhjän tilan komponentti |
 
 ---
 
 ## Firebase
 
-- Projekti: talentmaster-pilot (Blaze plan)
-- Tietokanta: Firestore, eur3 multi-region
-- Cloud Functions: europe-west1
-- Auth: Email/Password
+- **Projekti:** `talentmaster-pilot` (Blaze plan)
+- **Tietokanta:** Firestore `eur3` multi-region
+- **Auth:** Email/Password
+- **Functions:** `europe-west1` — 5 funktiota deployattu
+- **Sähköposti:** SendGrid HTTP API (ei Nodemailer)
 
-### Konfiguraatio
+### Firebase-konfiguraatio
 ```javascript
 const firebaseConfig = {
-  apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
-  authDomain:        "talentmaster-pilot.firebaseapp.com",
-  projectId:         "talentmaster-pilot",
-  storageBucket:     "talentmaster-pilot.firebasestorage.app",
+  apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+  authDomain: "talentmaster-pilot.firebaseapp.com",
+  projectId: "talentmaster-pilot",
+  storageBucket: "talentmaster-pilot.firebasestorage.app",
   messagingSenderId: "872561784446",
-  appId:             "1:872561784446:web:05c4c7996dfd46ddd14a2f",
+  appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
 };
 ```
 
@@ -55,274 +58,162 @@ const firebaseConfig = {
 | Sähköposti | UID | Rooli | Seura |
 |---|---|---|---|
 | talentmasterid@gmail.com | dqUzvJA61Wb9fgj5UiK0riSA4NI2 | Super Admin | Kaikki |
-| vp.kpv@talentmaster.fi | jIbW7q8nLggswTjefkYuSvtneH92 | VP | KPV |
 | vp.fcl@talentmaster.fi | dpYcfa154ZOHshZzHrVaTZ2iTHE3 | VP | FC Lahti Juniorit |
+| vp.kpv@talentmaster.fi | jIbW7q8nLggswTjefkYuSvtneH92 | VP | KPV |
 | vp.palloiirot@talentmaster.fi | fBf1c60rjXTPxYlsV03EfrHZ2xM2 | VP | Pallo-Iirot |
 | vp.yvies@talentmaster.fi | U21RwOm7OYdrAQB8wTXXlDQksEk2 | VP | Ylöjärven Ilves |
 | vp.sjk@talentmaster.fi | 1eHyfKsuTSRAAsPu9kRZ22E4hwo2 | VP | SJK Juniorit |
 | vp.grifk@talentmaster.fi | lBCx0ivDYVWLmxD9TGKsvYrFrlo1 | VP | GrIFK |
 
-KPV VP salasana: TM_KPV_2026!
-Super Admin salasana: 123456
-
-### Cloud Functions (5 kpl, kaikki toimivat)
-
-| Funktio | Kuvaus |
-|---|---|
-| lahetaRekisteriKutsu | Lähettää rekisteröintikutsun huoltajalle |
-| lahetaHuoltajaKutsu | Lähettää huoltajakutsun |
-| lahetaPelaajaSivuLinkki | Lähettää kaksi linkkiä: vanhemman sivu + pelaajan sivu |
-| luoKayttaja | Luo Firebase Auth -tilin |
-| deaktivioiKayttaja | Deaktivoi käyttäjän |
-
-KRIITTINEN: functions/.env pitää olla GitHubissa (tyhjät arvot) — CI korvaa ne.
-require('dotenv') EI SAA olla index.js:ssä — kaataa buildin.
-Gmail App Password: 16 merkkiä, ilman välilyöntejä, OIKEALLE Gmail-tilille.
-
----
-
-## Koko kutsupolku (toimii end-to-end)
-
+### Firestore-rakenne
 ```
-1. VP avaa Seura.html → Joukkue → Kutsu pelaaja
-2. Täyttää: etunimi, sukunimi, huoltajan sähköposti, joukkue, PalloID (valinnainen)
-3. Paina "Lähetä sähköpostilla" → lahetaRekisteriKutsu Cloud Function
-   → Sähköposti 1: rekisteröintilinkki huoltajalle
-
-4. Huoltaja täyttää suostumuslomakkeen (TalentMaster_Rekisterointi_Suostumus.html)
-   → 6 suostumusta, PalloID valinnainen
-   → Tallentuu Firestoreen: seurat/kpv/pelaajat/{id}
-
-5. Automaattisesti: lahetaPelaajaSivuLinkki Cloud Function
-   → Sähköposti 2: kaksi nappia
-     Vanhemman sivu → TalentMaster_Vanhempi.html?pelaajaId=...&seuraId=kpv
-     Pelaajan oma sivu → TalentMaster_Pelaaja_v1.html?pelaajaId=...&seuraId=kpv
-
-6. Vanhempi avaa vanhemman sivun → kirjautuu sähköpostilla tai PalloID:llä
-7. Pelaaja avaa pelaajan sivun → kirjautuu sähköpostilla tai PalloID:llä
-```
-
----
-
-## Uudet sivut tässä sessiossa
-
-### TalentMaster_Vanhempi.html
-
-Tarkoitus: Vanhemman selkokielinen näkymä — ei teknistä jargonaa.
-Malli: SJK Demo v2 vanhempi-näkymä (Aleksi-demosivu)
-Identiteetti: "Vanhemman sivu" badge topbarissa ja loginissa
-
-Sisältö:
-- Pelaajan profiilikortti (OVR, pelaajatyyppi selitettynä)
-- Vahvuudet + "harjoittelemme nyt" kehityskohde
-- FLEI-palkki selitettynä vanhemmalle arkikielellä
-- PHV-kasvupyrähdystieto automaattisesti
-- Kotitehtävät tarkoilla ohjeilla (15 min kotipihalla/olohuoneessa)
-- "Sinun roolisi tukijana" — tutkimuspohjainen kommunikaationeuvonta
-- Valmentajan havainto selitettynä arkikielellä
-- Seuraavat tapahtumat kalenterissa
-- Vanhemman opas — 5 koulutusmateriaalia
-
-Kirjautuminen: sähköposti TAI PalloID (numero 5-10 merkkiä)
-Laitekohtainen tallennusohje (iOS/Android/Desktop) ensimmäisellä kirjautumisella
-
-### TalentMaster_Pelaaja_v1.html
-
-Tarkoitus: Pelaajan gamified FIFA-kortti-näkymä.
-Identiteetti: "Pelaajan sivu" badge topbarissa (keltainen/gold)
-
-Sisältö:
-- FIFA-kortti (OVR, pelaajaprofiili, ketjupisteet)
-- Streak + freeze-mekaniikka
-- XP-tasot: Basic → Kilpailija → Sharp → Elite → Signature
-- Fiilinki-emoji widget
-- Kotitehtävät + XP-palkinnot
-- Viikkokalenteri, kehitysaikajana
-- Friend challenge -koodit
-
-Kirjautuminen: sama kuin vanhemman sivu
-
----
-
-## PalloID-arkkitehtuuri (toteutettu)
-
-PalloID on vain tunniste — ei vaadi integraatioita Palloliiton kanssa.
-Rajapintaintegraatio tarvitaan vasta kun siirretään dataa liitolta.
-
-palloID-kenttä pelaajadokumentissa Firestoressa.
-
-Lisätään kahdella reitillä:
-1. Rekisteröintilomake (valinnainen kenttä)
-2. Seura.html muokkaa-modaali (VP täyttää jälkikäteen, tallennaMusokkausPelaaja)
-
-Kirjautumislogiikka:
-```javascript
-// Numero 5-10 merkkiä = PalloID
-if (/^[0-9]{5,10}$/.test(syote)) {
-  // Hae seurat: ['kpv','fcl','palloiirot','yvies','sjk','grifk']
-  // seurat/{id}/pelaajat where palloID == syote
-  // → huoltajaEmail → signInWithEmailAndPassword(email, pass)
-}
-```
-
----
-
-## Monijoukkue-arkkitehtuuri (toteutettu)
-
-Pelaajadokumentin rakenne:
-```javascript
-{
-  joukkue:     "kpv_u15",        // pääjoukkue ID
-  joukkueNimi: "KPV U15",        // pääjoukkue näyttönimi
-  joukkueet: [
-    { id: "kpv_u15", nimi: "KPV U15", rooli: "pää" },
-    { id: "kpv_u13", nimi: "KPV U13", rooli: "lisä" },
-  ]
-}
-```
-
-TÄRKEÄÄ: Kartoitukset sidottu pelaajaId:hen — EI joukkueeseen.
-Joukkuesiirto = vain joukkue-kentän päivitys. Testidata ei liiku.
-
-Seura.html joukkuehallinta-modaali:
-- Pääjoukkue (dropdown) + lisäjoukkueet (checkboxit)
-- Pelaaja näkyy molempien joukkueiden listassa
-- vahvistaJoukkueVaihto() tallentaa joukkue + joukkueet-taulukon
-
----
-
-## Firestore-rakenne (täydellinen 2026-04-01)
-
-```
-admins/{uid}
-
 seurat/{seuraId}/
-  pelaajat/{pelaajaId}/
-    etunimi, sukunimi, nimi
-    joukkue, joukkueNimi
-    joukkueet: [{id, nimi, rooli}]
-    palloID
-    huoltajaEmail
-    syntymaaika, syntymavuosi, sukupuoli
-    suostumusTila: 'odottaa'|'annettu'
-    tila: 'aktiivinen'|'ei-aktiivinen'
-    rekisterointiId: 'TM-XXXXXXX'
-    pelaajaLinkki
-    pelaajaLinkLahetetty
-    suostumus: { aikaleima, hyvaksytyt: {...} }
-    luotu, muokattu
-
-  kartoitukset/{kartoitusId}/
-    pelaajaId             ← sidottu pelaajaan, EI joukkueeseen
-    joukkueId             ← missä joukkueessa kartoitushetkellä
-
-  joukkueet/{joukkueId}/
-  tapahtumat/{tapahtumaId}/
-  kutsut/{kutsuId}/
-  suostumukset/{suostumusId}/
-  havainnot/{havaintoId}/
-
-audit/                    ← Cloud Functions audit trail
+  pelaajat/{pelaajaId}    — pelaajadokumentti
+  joukkueet/{joukkueId}   — joukkueet (nimi, ikaryhma, jarjestys)
+  kayttajat/{uid}         — henkilöstö
+  kutsut/{kutsuId}        — rekisteröintikutsut
+  kartoitukset/{id}       — harjoitettavuuskartoitukset
+  havainnot/{id}          — valmentajan havainnot
+  tapahtumat/{id}         — tulevat tapahtumat
+  sopimukset/kriteerit    — Palloliiton korit
+admins/{uid}              — super-admin dokumentti
 ```
 
----
-
-## Firestore Security Rules — muutokset 2026-04-01
-
-- pelaajat: allow delete lisätty (super admin + VP)
-- kartoitukset seuratasolla lisätty (puuttui kokonaan)
-- suostumukset lisätty (rekisteröintilomake ilman auth)
-- pelaajat read sallittu ilman auth (URL-parametrikirjautuminen)
+### GitHub Secrets (Cloud Functions deploy)
+- `SENDGRID_API_KEY` — SendGrid API
+- `SENDGRID_FROM_EMAIL` — talentmasterid@gmail.com
+- `FIREBASE_SERVICE_ACCOUNT` — Service Account JSON
 
 ---
 
-## Teknisiä opittuja asioita
+## Pilottiseura: Topias Koskela (KPV) — testattu toimivaksi
 
-### Cloud Functions .env
-- functions/.env GitHubissa tyhjillä arvoilla, CI korvaa Secreteillä
-- require('dotenv').config() EI saa olla index.js:ssä
-- Gmail App Password: oikealle tilille, 16 merkkiä, ei välilyöntejä
-- Diagnostiikka: console.log('[Nodemailer] GMAIL_EMAIL:', email.substring(0,5))
-- Cloud Logs osoitteessa console.cloud.google.com
+Rekisteröintiketju testattu onnistuneesti 2026-04-02:
+1. VP lähetti rekisteröintikutsun Seura.html:stä → sähköposti tuli (SendGrid) ✅
+2. Huoltaja täytti suostumuslomakkeen → Firestore päivittyi ✅
+3. Sähköpostista tuli "Aseta salasana" -linkki ✅
+4. Salasanan asettamisen jälkeen ohjautui automaattisesti vanhemman sivulle ✅
+5. Vanhemman sivu näyttää Topiaksen tiedot oikein ✅
+6. Pelaajasivulinkki toimii vanhemman sivun alaosassa ✅
 
-### Duplikaattipelaaja-bugi (korjattu)
-- Syy: kutsulinkissä ei ollut pelaajaId → lomake loi uuden dokumentin
-- Korjaus: tila._rekPelaajaId tallennetaan modalin avauksessa
-- Kutsulinkki sisältää pelaajaId URL-parametrina
-- Rekisteröintilomake käyttää merge:true + pelaajaId-parametria
+**Testipelaaja:** Topias Koskela, KPV U13, syntymävuosi 2013, pelaajaId: `SDxaLlkLDTXpF4IgI8lG`
+**Testisähköposti:** terokoskela7@gmail.com (huoltaja)
 
-### Fastly CDN
-- GitHub Pages cachettaa aggressiivisesti (~10 min)
-- Cache-bust: ?v=N tai tarkista raw.githubusercontent.com ennen Pages-URL:ia
+---
+
+## Tämän session saavutukset (2026-04-02)
+
+### 1. SendGrid-integraatio (valmis ✅)
+- Siirrytty Nodemailer+Gmail → SendGrid HTTP API
+- Single Sender Verified: `talentmasterid@gmail.com`
+- Cloud Functions v11 deployattu, kaikki 5 funktiota vihreänä
+- GitHub Actions workflow päivitetty Service Account -autentikoinnilla
+
+### 2. Rekisteröintiketjun korjaukset (valmis ✅)
+- `joukkueNimi`-bugi: `kpv_u13` → "KPV U13" (haetaan Firestoresta)
+- Duplikaattipelaaja-bugi: Seura.html tarkistaa ensin onko sama email jo rekisterissä
+- `TalentMaster_Rekisterointi_Suostumus.html`: bugi jossa fallback loi kutsupäivityksen kahdesti
+- Password reset -bugi: `generatePasswordResetLink` + salasananappi sähköpostiin
+
+### 3. Vanhemman sivu v2 (valmis ✅)
+**Korjaukset:**
+- Tallennusohje näyttää huoltajan oman sähköpostin (ei kovakoodattua VP-osoitetta)
+- Otsikot: "Vahvuudet" ja "Harjoitteluvalmius" (ei nimeä + taivutusongelmia)
+- `_fleiSelitys()` ja `_vahvuudetHtml()` — poistettu nimimuoto yleisemmäksi
+- Pelaajasivulinkki sivun alaosaan (dynaaminen, rakentuu URL-parametreista)
+- Kirjaudu ulos nollataan linkki oikein
+
+**Uusi: AI chat -ominaisuus (täysin uusi)**
+- Kelluva chat-ikkuna — mobiilissa alhaalta, desktop ≥680px oikeaan alakulmaan
+- FAB-nappi kun chat suljettuna
+- **Kolme kieltä:** suomi (oletus), ruotsi (GrIFK automaattisesti), englanti — manuaalinen vaihto FI/SV/EN napeilla
+- **Pelaajan konteksti AI:lle:** nimi, ikä, joukkue, PHV-tila, profiili, FLEI% välitetään systeemiohjeeseen
+- **Kontekstuaaliset aihekorttikysymykset:** räätälöity pelaajan iän ja PHV-tilan mukaan (esim. 12v → "Milloin kasvupyrähdys alkaa?")
+- **Nappi-feedback:** "Kysy" → "Lähetetään..." / "Skickar..." / "Sending..."
+- **LocalStorage-sessio:** historia säilyy 24h per pelaaja (`tm_chat_{pelaajaId}`)
+- **Tervetuloviesti:** ensimmäisellä avaamisella, mainitsee pelaajan nimen
+- **Virheenkäsittely:** verkkovirhe vs. API-ongelma eritelty, kielikohtaiset viestit
+- API: `claude-sonnet-4-20250514`, max 12 viestiä kontekstissa, max_tokens 1000
 
 ---
 
 ## Seuraavat prioriteetit
 
-### VP-dashboard
-1. TEHTY: Tänään-osio (hälytykset + fiilinki + quick actions)
-2. TEKEMÄTTÄ: Delta 30pv + ikäluokat-taulukko (trenditieto seurajohtajalle)
-3. TEKEMÄTTÄ: Valmentajien aktiivisuus -näkymä (viimeksi kirjannut, pelaajamerkinnät)
-4. TEKEMÄTTÄ: X Factor + Hidden Gem -lista (lahjakkuusidentifiointi visuaalisena)
+### Kriittistä ennen pilotin laajentamista:
+1. **Lomakkeen joukkuekenttä** — `TalentMaster_Rekisterointi_Suostumus.html` näyttää `kpv_u13` tunnuksena (eri paikka kuin Cloud Functions)
+2. **Node.js 20 → 22** — vanhenee 30.4.2026, päivitä `functions/package.json` `"engines": {"node": "22"}`
 
-### Muut avoinna olevat
-- Valmentajan kenttähavainto → Firestore (puuttuu vielä)
-- IDP-aktivointilogiikka
-- Coach view: Kartoitukset-tabi Masteriin
-- Automaattinen tapahtumatila → valmis tallennuksessa
+### Seuraava kehitysfokus:
+3. **VP-dashboard KPI-mittarit** — Delta 30pv, ikäluokat-taulukko, valmentajien aktiivisuus
+4. **X Factor + Hidden Gem -lista** — algoritminen tunnistus VP-dashboardiin
+5. **Valmentajan kartoitusnäkymä** — Coach näkee kartoitustulokset Master v9:ssä (kriittisin puute ennen pilottia)
+6. **Domain `talentmaster.fi`** — osta pilotin jälkeen, lisää SendGrid DNS-tietueet
 
----
-
-## Avoimet ongelmat
-
-- Sähköpostit menevät roskapostiin: normaali uusilla lähettäjillä. Korjaus: SPF/DKIM tai SendGrid
-- joukkueNimi tallentuu tunnuksena (kpv_u13) eikä näyttönimenä (KPV U13) rekisteröintilomakkeesta. Pitää hakea joukkuelistan nimestä.
-- lahetaPelaajaSivuLinkki: ehtolause voi jättää linkin lähettämättä jos tallennettuId on null. Korjaus tehty (|| rid) mutta ei testattu täysin.
+### Horizon:
+- Game IQ -moduuli (ADAR) → Firebase-integraatio
+- Club KPI dashboard
+- Palloliitto-yhteistyö
 
 ---
 
-## Pilottiseurat
+## Teknisiä muistiinpanoja (2026-04-02)
 
-| Seura | VP-sähköposti | Huomio |
-|---|---|---|
-| KPV | vp.kpv@talentmaster.fi | Aktiivisin pilotti, Topias Koskela testipelaaja |
-| FC Lahti Juniorit | vp.fcl@talentmaster.fi | |
-| Pallo-Iirot | vp.palloiirot@talentmaster.fi | |
-| Ylöjärven Ilves | vp.yvies@talentmaster.fi | |
-| SJK Juniorit | vp.sjk@talentmaster.fi | |
-| GrIFK | vp.grifk@talentmaster.fi | |
-| HJK Juniorit | — | Tulossa |
+### Duplikaattipelaaja-bugi (korjattu)
+**Syy:** `lahetaRekisteriSahkoposti()` loi aina uuden pelaajadokumentin.
+**Korjaus `TalentMaster_Seura.html`:**
+```javascript
+// Tarkistetaan ensin onko pelaaja jo olemassa saman sähköpostin perusteella
+if (!pelaajaId && tila._rekHEmail) {
+  const olemassa = await db.collection('seurat').doc(tila.seuraId)
+    .collection('pelaajat')
+    .where('huoltajaEmail', '==', tila._rekHEmail.toLowerCase())
+    .limit(1).get();
+  if (!olemassa.empty) pelaajaId = olemassa.docs[0].id;
+}
+```
 
-Pilottikontakti: Topias Koskela KPV:llä (IDP-kortti v3 toimii, kutsupolku testattu)
+### SendGrid yksittäinen lähettäjä
+- Verified sender: `talentmasterid@gmail.com` (TalentMasterID)
+- Domain `talentmaster.fi` lisää toimitusvarmuutta — osta ennen pilotin laajentamista
+- Sähköpostit menevät roskapostiin ilman omaa domainia (odotettavaa)
+
+### Vanhemman sivu — kielimääritys
+```javascript
+var RUOTSINKIELISET = ['grifk'];
+function _maaritaKieli(sid) { return RUOTSINKIELISET.includes(sid) ? 'sv' : 'fi'; }
+```
+GrIFK → automaattisesti ruotsi. Muut → suomi. Manuaalivaihto FI/SV/EN.
+
+### HJK Juniorit lisätty
+7. pilottiseura (lisätty userMemories:iin, ei vielä Firestoreen).
 
 ---
 
-## Pelaajan sivu — kehitysideat (kirjattu 2026-04-01)
+## Vanhemman sivu — AI chat systeemiohje rakenne
 
-### FIFA-kortti isona näytölle / popup
-- Kortti isona ruudulle kännykällä — popup kun pelaaja klikkaa korttia
-- Erityisen hienon näköinen — tärkeä WOW-efekti
-- Spesiaalikortteja kehitetään (kultainen, hopea, erikoisversiot)
+```
+Olet TalentMaster vanhemman opas -assistentti...
+Pelaajan tiedot: [nimi, ikä, joukkue, seura, PHV-tila, profiili, FLEI%]
+Erikoisosaamista: motivaatio, PHV, ravitsemus, uni, vanhemman rooli, pettymykset
+[kieliohje: suomi/svenska/English, max 3 kpl, ei teknistä jargonia]
+Et ole lääkäri — suosittele ammattilaista vakavissa asioissa.
+```
 
-### Keräilykortit — STRATEGINEN TUOTEOMINAISUUS
-Pelaajille ilmestyy keräilykortteja sitä mukaan kun taidot kehittyvät.
-Kortit ovat oikeita jalkapalloilijoita joilla on samanlaiset ominaisuudet:
-- Maajoukkueen pelaajia (esim. "Sinulla on sama nopeus kuin Litmanen!")
-- Veikkausliigan pelaajia
-- Oman seuran edustusjoukkueen pelaajia
-- Logiikka: kun pelaajan ketjupisteet ylittävät tietyn kynnyksen → kortti freilataan
+---
 
-Esimerkki:
-  Topias saa 85% vauhtiketjussa → ilmestyy "Tim Sparv" -kortti
-  "Sinulla on sama räjähtävyys kuin Tim Sparvilla!"
+## Bisnesmalli
 
-Tämä on erittäin motivoiva mekanismi nuorille pelaajille.
-Erottaa TalentMasterin täysin kilpailijoista.
-Kytkös HPP ELITE -profiileihin (Railgun = nopeus jne.)
+- Kiinteä seuralisenssi 200-500€/kausi (MRR)
+- IDP raportti aukeaa kehitystasolta
+- maksu 2€ per pelaaja
+- Klinikka kertamaksuna
+- Paketit: Perustaso / Kehitystaso / Huipputaso
+- **Palloliitto-yhteistyö:** esitys tehty, merkittävä strateginen mahdollisuus
 
-### Tekninen toteutus (myöhemmin)
-- Korttikirjasto: pelaaja + ominaisuudet + kuva
-- Trigger: kartoitustulos ylittää kynnysarvon → unlock
-- Animaatio: kortti "paljastuu" dramaattisesti
-- Tallentuu Firestoreen: pelaaja.kortit: [{id, avatttu, pvm}]
-- Korttien jakomahdollisuus someen
+---
+
+## HPP ELITE -yhteys
+
+- Google Sheets ID: `1-UPKKPbibbAguiRsY8RzeRoWQAJBANTthgNy3AA3e5M`
+- 25 kuntoutusprotokolaa `hpp_rehab_protokollat.js`:ssä
+- Integroitavissa fysioterapeutin näkymän kautta myöhemmin
