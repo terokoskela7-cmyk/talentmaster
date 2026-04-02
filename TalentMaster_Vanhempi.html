@@ -153,6 +153,17 @@ body { background:var(--bg); color:var(--ink); font-family:'DM Sans',sans-serif;
 .tallennusohje { background:rgba(0,212,170,0.06); border:1px solid rgba(0,212,170,0.15); border-radius:8px; padding:14px; margin-bottom:20px; font-size:13px; color:var(--ink2); line-height:1.6; }
 .tallennusohje strong { color:var(--teal); display:block; margin-bottom:4px; }
 
+/* Pelaajasivulinkki */
+.pelaaja-sivu-linkki { max-width:780px; margin:8px auto 40px; padding:0 20px; }
+.pelaaja-sivu-linkki a {
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  background:#1A2235; border:1px solid var(--teal); color:var(--teal);
+  padding:16px 24px; border-radius:12px; text-decoration:none;
+  font-weight:700; font-size:15px; font-family:'DM Sans',sans-serif;
+  transition:background .2s;
+}
+.pelaaja-sivu-linkki a:hover { background:rgba(0,212,170,0.08); }
+
 /* Spinner */
 .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--teal); border-radius:50%; animation:spin .8s linear infinite; margin:40px auto; }
 @keyframes spin { to { transform:rotate(360deg); } }
@@ -197,6 +208,13 @@ body { background:var(--bg); color:var(--ink); font-family:'DM Sans',sans-serif;
 
   <div class="main" id="mainSisalto">
     <div class="spinner"></div>
+  </div>
+
+  <!-- MUUTOS 3: Pelaajasivulinkki — rakennetaan JS:ssä dynaamisesti -->
+  <div class="pelaaja-sivu-linkki" id="pelaajaSivuLinkki" style="display:none">
+    <a id="pelaajaSivuNappi" href="#">
+      ⚽ Siirry pelaajan omalle sivulle →
+    </a>
   </div>
 </div>
 
@@ -248,11 +266,9 @@ _auth.onAuthStateChanged(async function(user) {
 
 function _esitaytaLogin() {
   var infoEl = document.getElementById('loginInfo');
-  var emailEl = document.getElementById('loginEmail');
   if (_urlEtu && infoEl) {
     infoEl.innerHTML = 'Kirjaudu nähdäksesi <strong style="color:var(--teal)">' + _urlEtu + ' ' + _urlSuku + '</strong> kehitystiedot.';
   }
-  // Ei esitäytetä sähköpostia — tietoturvasyistä
 }
 
 // ── Datan lataus ──────────────────────────────────────────────────
@@ -298,7 +314,6 @@ async function _lataaData(user) {
       } catch(e2) {}
     }
 
-    // Ei löydy
     nayta('sLogin');
     document.getElementById('loginVirhe').textContent = 'Tiliä ei löydy. Ota yhteyttä seuraan.';
   } catch(e) {
@@ -316,6 +331,20 @@ async function _renderSivu() {
 
   document.getElementById('topbarSeura').textContent = seuraNimi;
   document.getElementById('topbarNimi').textContent = etunimi + ' ' + (p.sukunimi || '');
+
+  // MUUTOS 3: Rakennetaan pelaajasivulinkki dynaamisesti
+  var pelaajaUrl = 'TalentMaster_Pelaaja_v1.html'
+    + '?pelaajaId=' + (_pelaajaId || '')
+    + '&seuraId='   + (_seuraId || '')
+    + '&etunimi='   + encodeURIComponent(p.etunimi || '')
+    + '&sukunimi='  + encodeURIComponent(p.sukunimi || '');
+  var nappi = document.getElementById('pelaajaSivuNappi');
+  if (nappi) {
+    nappi.href = pelaajaUrl;
+    nappi.textContent = '⚽ Siirry ' + etunimi + 'n omalle pelaajasivulle →';
+  }
+  var linkDiv = document.getElementById('pelaajaSivuLinkki');
+  if (linkDiv) linkDiv.style.display = 'block';
 
   // Hae viimeisin kartoitus
   var kartoitus = null;
@@ -338,14 +367,13 @@ async function _renderSivu() {
   // Ketjupisteet
   var kp = (kartoitus && kartoitus.ketjupisteet) || {};
   var dimPct = {
-    nopeus:  _pct(kp.sbl || p.sbl),
-    ketteryys: _pct(kp.ll || p.ll),
-    tekniikka: _pct(kp.fl || p.fl),
-    voima:   _pct(kp.dfl || p.dfl),
+    nopeus:    _pct(kp.sbl || p.sbl),
+    ketteryys: _pct(kp.ll  || p.ll),
+    tekniikka: _pct(kp.fl  || p.fl),
+    voima:     _pct(kp.dfl || p.dfl),
     kestävyys: _pct(kp.sfl || p.sfl),
   };
 
-  // Kotitehtävät (placeholder — tulisi Firestoresta)
   var kotitehtavat = p.kotitehtavat || _oletusKotitehtavat(profiili);
 
   // Valmentajan havainto
@@ -378,20 +406,23 @@ async function _renderSivu() {
       : /Android/.test(ua)
       ? '<strong>📱 Tallenna sivu Androidiin:</strong> Paina ⋮-valikkoa → Lisää aloitusnäyttöön'
       : '<strong>💻 Tallenna kirjanmerkki:</strong> Paina Ctrl+D tallentaaksesi sivun';
-    html += '<div class="tallennusohje">' + ohje + '<br><span style="font-size:12px">Kirjaudu aina sähköpostilla ' + (_user ? _user.email : '') + ' ja omalla salasanallasi.</span></div>';
+    // MUUTOS 1: käytetään _user.email tallennusohjeessa — ei kovakoodattua osoitetta
+    html += '<div class="tallennusohje">' + ohje +
+      '<br><span style="font-size:12px">Kirjaudu aina omalla sähköpostillasi (<strong>' +
+      (_user ? _user.email : 'sähköpostisi') +
+      '</strong>) ja omalla salasanallasi.</span></div>';
   }
 
   // ── Banneri ──
   html += '<div class="banner">' +
     '<div class="banner-badge">👨‍👩‍👦 Vanhemman sivu</div>' +
     '<h1>' + etunimi + ' kehittyy <span>' + _kehitysLause(fleiPct) + '</span></h1>' +
-    '<p>Tällä sivulla näet yksinkertaisesti, miten ' + etunimi + 'in jalkapalloura etenee — mitä hän harjoittelee, missä hän on hyvä ja miten voit tukea kotona. Ei teknistä jargonaa.</p>' +
+    '<p>Tällä sivulla näet yksinkertaisesti, miten ' + etunimi + 'n jalkapalloura etenee — mitä hän harjoittelee, missä hän on hyvä ja miten voit tukea kotona. Ei teknistä jargonaa.</p>' +
     '</div>';
 
   // ── Pelaaja-kortti + Vahvuudet ──
   html += '<div class="grid2">';
 
-  // Pelaaja-kortti
   html += '<div class="kortti">' +
     '<div class="kortti-otsikko">⚽ ' + etunimi + ' pelaajana</div>' +
     '<div class="pelaaja-kortti">' +
@@ -420,12 +451,11 @@ async function _renderSivu() {
         '</div>';
       }).join('') + '</div>';
   }
-
   html += '</div>';
 
-  // Vahvuudet
+  // MUUTOS 2a: "Vahvuudet" — ei nimeä otsikossa
   html += '<div class="kortti">' +
-    '<div class="kortti-otsikko">✓ ' + etunimi + 'in vahvuudet</div>' +
+    '<div class="kortti-otsikko">✓ Vahvuudet</div>' +
     '<ul class="vahvuus-lista">' +
     _vahvuudetHtml(kartoitus, profiili, etunimi) +
     '</ul>';
@@ -436,7 +466,7 @@ async function _renderSivu() {
   html += '</div>';
   html += '</div>'; // grid2
 
-  // ── FLEI ──
+  // MUUTOS 2b: "Harjoitteluvalmius" — ei nimeä otsikossa
   var fleiVari = fleiPct >= 70 ? 'var(--green)' : fleiPct >= 50 ? 'var(--amber)' : 'var(--red)';
   var fleiTaso = fleiPct >= 70 ? 'HYVÄ TASO' : fleiPct >= 50 ? 'KEHITYSVAIHE' : 'TARVITSEE TUKEA';
   var fleiTasoVari = fleiPct >= 70 ? 'background:rgba(46,213,115,.12);color:var(--green)' :
@@ -444,7 +474,7 @@ async function _renderSivu() {
     'background:rgba(255,71,87,.12);color:var(--red)';
 
   html += '<div class="kortti">' +
-    '<div class="kortti-otsikko">💪 ' + etunimi + 'in keho harjoitteluvalmiudessa</div>' +
+    '<div class="kortti-otsikko">💪 Harjoitteluvalmius</div>' +
     '<div style="display:flex;gap:20px;align-items:flex-start">' +
       '<div>' +
         '<div class="flei-numero" style="color:' + fleiVari + '">' + (fleiPct !== null ? fleiPct + '%' : '—') + '</div>' +
@@ -462,7 +492,7 @@ async function _renderSivu() {
   html += '<div class="kortti">' +
     '<div class="kortti-otsikko">🏠 Miten voit auttaa kotona tänään?</div>' +
     '<p style="font-size:13px;color:var(--ink2);margin-bottom:14px;line-height:1.5">' +
-    etunimi + 'in valmentaja on antanut tämän viikon kotitehtävän. Harjoitteet kestävät yhteensä noin <strong style="color:var(--ink)">15 minuuttia</strong> — kaikki onnistuu kotipihalla tai olohuoneessa.</p>';
+    etunimi + 'n valmentaja on antanut tämän viikon kotitehtävän. Harjoitteet kestävät yhteensä noin <strong style="color:var(--ink)">15 minuuttia</strong> — kaikki onnistuu kotipihalla tai olohuoneessa.</p>';
 
   kotitehtavat.forEach(function(t) {
     html += '<div class="tehtava">' +
@@ -473,7 +503,7 @@ async function _renderSivu() {
 
   html += '<div class="tuki-banneri">' +
     '<div class="tuki-otsikko">💡 Sinun roolisi tukijana</div>' +
-    '<div class="tuki-teksti">Kysy ' + etunimi + 'ilta illalla <em>"miten treeni meni?"</em> tai <em>"pystyitkö parantamaan aikaasi?"</em> — älä kommentoi suorituksia, vaan osoita kiinnostusta. Tutkimusten mukaan tämä yksinkertainen kysymys on yksi tärkeimmistä motivaattoreista nuorille urheilijoille.</div>' +
+    '<div class="tuki-teksti">Kysy ' + etunimi + 'lta illalla <em>"miten treeni meni?"</em> tai <em>"pystyitkö parantamaan aikaasi?"</em> — älä kommentoi suorituksia, vaan osoita kiinnostusta. Tutkimusten mukaan tämä yksinkertainen kysymys on yksi tärkeimmistä motivaattoreista nuorille urheilijoille.</div>' +
     '</div>' +
     '</div>';
 
@@ -546,19 +576,19 @@ function _profiiliEmoji(p) {
 
 function _profiiliKuvaus(p) {
   var k = {
-    Railgun: 'Nopea, räjähtävä pelaaja jolla on hyvä pelinlukutaito. Pääsee nopeasti liikkeelle ja näkee tilanteet ennen muita.',
-    Maestro: 'Teknisesti lahjakas pelaaja joka hallitsee palloa erinomaisesti. Pelaa rauhallisesti paineen alla.',
+    Railgun:    'Nopea, räjähtävä pelaaja jolla on hyvä pelinlukutaito. Pääsee nopeasti liikkeelle ja näkee tilanteet ennen muita.',
+    Maestro:    'Teknisesti lahjakas pelaaja joka hallitsee palloa erinomaisesti. Pelaa rauhallisesti paineen alla.',
     Shadowstep: 'Ketterä ja ovela pelaaja. Löytää tilaa sieltä missä muut eivät näe ja toimii nopeasti pienissä tiloissa.',
-    Titan: 'Fyysisesti vahva ja kestävä pelaaja. Pitää alueen hallinnassa ja tukee joukkuetta rakenteellisesti.',
+    Titan:      'Fyysisesti vahva ja kestävä pelaaja. Pitää alueen hallinnassa ja tukee joukkuetta rakenteellisesti.',
   };
   return k[p] || 'Monipuolinen pelaaja joka kehittyy tasaisesti kaikilla osa-alueilla.';
 }
 
 function _fleiSelitys(pct, nimi) {
-  if (!pct) return nimi + 'in harjoitettavuuskartoitus tehdään pian. Valmentaja ottaa yhteyttä.';
-  if (pct >= 70) return nimi + 'in keho on hyvin valmis harjoitteluun. Harjoittelu tuottaa tulosta ja loukkaantumisriski on pieni.';
-  if (pct >= 50) return nimi + 'in kehossa on parannettavaa. Valmentaja on antanut kohdennettuja harjoitteita juuri tähän.';
-  return 'Harjoittelemme ensin ' + nimi + 'in kehon kuntoon ennen täyttä ohjelmaa. Tämä on täysin normaalia kasvavalla urheilijalla.';
+  if (!pct) return 'Harjoitettavuuskartoitus tehdään pian. Valmentaja ottaa yhteyttä.';
+  if (pct >= 70) return 'Keho on hyvin valmis harjoitteluun. Harjoittelu tuottaa tulosta ja loukkaantumisriski on pieni.';
+  if (pct >= 50) return 'Kehossa on parannettavaa. Valmentaja on antanut kohdennettuja harjoitteita juuri tähän.';
+  return 'Harjoittelemme ensin kehon kuntoon ennen täyttä ohjelmaa. Tämä on täysin normaalia kasvavalla urheilijalla.';
 }
 
 function _phvInfo(tila, nimi) {
@@ -569,13 +599,13 @@ function _phvInfo(tila, nimi) {
 }
 
 function _vahvuudetHtml(k, profiili, nimi) {
-  if (!k) return '<li>⚽ ' + nimi + 'in vahvuudet kartoitetaan pian.</li>';
+  if (!k) return '<li>⚽ Vahvuudet kartoitetaan pian.</li>';
   var kp = k.ketjupisteet || {};
   var KT = {sbl:'⚡ Vauhti','ll':'↔️ Suunnanmuutos',sfl:'🦵 Lähtövoima',dfl:'🏗️ Kehonhallinta',sl:'🔄 Kierto'};
   var arvot = Object.entries(KT).map(function(e) {
     return { key: e[0], label: e[1], arvo: parseFloat(kp[e[0]] || 0) };
   }).filter(function(x){ return x.arvo > 0; }).sort(function(a,b){ return b.arvo - a.arvo; });
-  if (arvot.length === 0) return '<li>⚽ ' + nimi + 'in vahvuudet kartoitetaan pian.</li>';
+  if (arvot.length === 0) return '<li>⚽ Vahvuudet kartoitetaan pian.</li>';
   return arvot.slice(0,3).map(function(v) {
     return '<li>' + v.label + ' — ' + _tasoSana(v.arvo) + '</li>';
   }).join('');
@@ -621,11 +651,11 @@ function _pvmStr(ts) {
 
 function _koulutuslistaHtml() {
   var items = [
-    { ikoni:'🧠', nimi:'Miten puhua lapselle urheilusta', kuvaus:'Motivoiva ja turvallinen kommunikaatio', viesti:'Kerro lisää siitä, miten puhua lapselle urheilusta motivoivasti' },
-    { ikoni:'😴', nimi:'Uni ja palautuminen', kuvaus:'Miksi uni on tärkein harjoitus', viesti:'Kerro nuoren urheilijan unen ja palautumisen merkityksestä' },
-    { ikoni:'🥗', nimi:'Ravinto harjoituspäivinä', kuvaus:'Mitä syödä ennen ja jälkeen treenin', viesti:'Kerro nuoren urheilijan ravitsemuksesta harjoituspäivinä' },
-    { ikoni:'📏', nimi:'Kasvupyrähdys ja urheilu', kuvaus:'Mitä tapahtuu ja miten voit tukea', viesti:'Kerro kasvupyrähdyksen vaikutuksesta nuoreen urheilijaan' },
-    { ikoni:'🎯', nimi:'Sisäinen motivaatio', kuvaus:'Ilo ennen tuloksia — pitkän tähtäimen kehitys', viesti:'Kerro sisäisen motivaation tärkeydestä nuoressa urheilijassa' },
+    { ikoni:'🧠', nimi:'Miten puhua lapselle urheilusta',  kuvaus:'Motivoiva ja turvallinen kommunikaatio',          viesti:'Kerro lisää siitä, miten puhua lapselle urheilusta motivoivasti' },
+    { ikoni:'😴', nimi:'Uni ja palautuminen',               kuvaus:'Miksi uni on tärkein harjoitus',                  viesti:'Kerro nuoren urheilijan unen ja palautumisen merkityksestä' },
+    { ikoni:'🥗', nimi:'Ravinto harjoituspäivinä',          kuvaus:'Mitä syödä ennen ja jälkeen treenin',            viesti:'Kerro nuoren urheilijan ravitsemuksesta harjoituspäivinä' },
+    { ikoni:'📏', nimi:'Kasvupyrähdys ja urheilu',          kuvaus:'Mitä tapahtuu ja miten voit tukea',              viesti:'Kerro kasvupyrähdyksen vaikutuksesta nuoreen urheilijaan' },
+    { ikoni:'🎯', nimi:'Sisäinen motivaatio',               kuvaus:'Ilo ennen tuloksia — pitkän tähtäimen kehitys',  viesti:'Kerro sisäisen motivaation tärkeydestä nuoressa urheilijassa' },
   ];
   return items.map(function(item) {
     return '<div class="koulutus-item" onclick="sendPrompt(\'' + item.viesti + '\')">' +
@@ -642,22 +672,19 @@ function sendPrompt(teksti) {
 
 // ── Kirjautuminen ─────────────────────────────────────────────────
 function kirjauduSisaan() {
-  var syote = (document.getElementById('loginEmail').value || '').trim();
+  var syote  = (document.getElementById('loginEmail').value || '').trim();
   var pass   = document.getElementById('loginPass').value || '';
   var virheEl = document.getElementById('loginVirhe');
   if (!syote || !pass) { virheEl.textContent = 'Syötä sähköposti tai PalloID ja salasana.'; return; }
   virheEl.textContent = '';
 
-  // Tarkista onko syöte PalloID (pelkkä numero) vai sähköposti
   var onPalloID = /^\d{5,10}$/.test(syote);
 
   if (onPalloID) {
-    // Hae sähköposti PalloID:llä Firestoresta
     virheEl.textContent = 'Haetaan PalloID:llä...';
     var seurat = ['kpv','fcl','palloiirot','yvies','sjk','grifk'];
     var loydetty = false;
     var db = firebase.firestore();
-
     (async function() {
       for (var i = 0; i < seurat.length; i++) {
         try {
@@ -686,7 +713,6 @@ function kirjauduSisaan() {
     return;
   }
 
-  // Normaali sähköpostikirjautuminen
   _kirjautuminenKesken = true;
   _auth.signInWithEmailAndPassword(syote, pass)
     .then(function(c) { _kirjautuminenKesken = false; _lataaData(c.user); })
@@ -702,6 +728,8 @@ function kirjauduUlos() {
     _user = null; _pelaaja = null;
     _esitaytaLogin();
     nayta('sLogin');
+    var linkDiv = document.getElementById('pelaajaSivuLinkki');
+    if (linkDiv) linkDiv.style.display = 'none';
   });
 }
 
