@@ -2245,15 +2245,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const idInput   = document.getElementById('jouk_id');
   if (nimiInput && idInput) {
     nimiInput.addEventListener('input', () => {
-      // Poistetaan seuran etuliite nimestä ennen ID:n generointia
-      // jotta ei tule kaksinkertaista etuliitettä (esim. kpv_kpv_u14)
-      const nimiOsa = nimiInput.value.toLowerCase()
+      // Muunnetaan nimi tunnusmuotoon: "FC Kokkola U15" → "fc_kokkola_u15"
+      var nimiPuhdas = nimiInput.value.toLowerCase()
         .replace(/\s+/g, '_')
         .replace(/[^a-z0-9_]/g, '')
-        .replace(new RegExp('^' + (tila.seuraId || '').toLowerCase() + '_?'), '')
-        .substring(0, 15);
-      const autoId = (tila.seuraId || 'seura') + '_' + nimiOsa;
-      idInput.value = autoId;
+        .substring(0, 20);
+      // Poistetaan seuran nimi VAIN jos se on jo alussa
+      // esim. "kpv_u15" → poistetaan "kpv_" → "u15"
+      // mutta "fc_kokkola" ei ala kpv_:llä → jätetään sellaisenaan
+      var seuraPrefix = (tila.seuraId || '').toLowerCase() + '_';
+      if (nimiPuhdas.startsWith(seuraPrefix)) {
+        nimiPuhdas = nimiPuhdas.slice(seuraPrefix.length);
+      }
+      idInput.value = (tila.seuraId || 'seura') + '_' + nimiPuhdas.substring(0, 15);
     });
   }
 });
