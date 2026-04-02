@@ -2095,25 +2095,52 @@ async function lahetaRekisteriSahkoposti() {
   const joukkue  = document.getElementById('rek_joukkue')?.value || '';
 
   try {
-    // VAIHE 1: Luodaan pelaajadokumentti jos nimi on annettu
-    // → antaa pelaajaId:n joka kulkee kutsulinkkiin → estää duplikaatin suostumuslomakkeella
-    let pelaajaId = null;
-    if (etunimi || sukunimi) {
-      const pelaajaRef = db.collection('seurat').doc(tila.seuraId)
-        .collection('pelaajat').doc();
-      pelaajaId = pelaajaRef.id;
-      await pelaajaRef.set({
-        etunimi:       etunimi || '',
-        sukunimi:      sukunimi || '',
-        joukkue:       joukkue || '',
-        seuraId:       tila.seuraId,
-        huoltajaEmail: tila._rekHEmail || null,
-        pelaajaId:     pelaajaId,
-        suostumusTila: 'odottaa',
-        tuotu:         firebase.firestore.FieldValue.serverTimestamp(),
-        tuoja:         tila.kayttaja?.email || 'tuntematon',
-      });
+    // VAIHE 1: Tarkistetaan ensin onko pelaaja jo olemassa
+    // → estää duplikaatin kun kutsu lähetetään uudelleen
+    let pelaajaId = tila._rekPelaajaId || null;
 
+    if (etunimi || sukunimi) {
+      // Jos pelaajaId on jo tiedossa (uudelleenlähetys), ei luoda uutta
+      if (!pelaajaId && tila._rekHEmail) {
+        // Haetaan onko sama sähköposti jo rekisterissä
+        try {
+          const olemassa = await db.collection('seurat').doc(tila.seuraId)
+            .collection('pelaajat')
+            .where('huoltajaEmail', '==', tila._rekHEmail.toLowerCase())
+            .limit(1).get();
+          if (!olemassa.empty) {
+            pelaajaId = olemassa.docs[0].id;
+            console.log('[Kutsu] Käytetään olemassa olevaa pelaajaa:', pelaajaId);
+          }
+        } catch(e) { console.warn('[Kutsu] Haku:', e.message); }
+      }
+
+      // Luodaan uusi dokumentti vain jos pelaajaa ei löydy
+      if (!pelaajaId) {
+        const pelaajaRef = db.collection('seurat').doc(tila.seuraId)
+          .collection('pelaajat').doc();
+        pelaajaId = pelaajaRef.id;
+        await pelaajaRef.set({
+          etunimi:       etunimi || '',
+          sukunimi:      sukunimi || '',
+          joukkue:       joukkue || '',
+          seuraId:       tila.seuraId,
+          huoltajaEmail: tila._rekHEmail ? tila._rekHEmail.toLowerCase() : null,
+          pelaajaId:     pelaajaId,
+          suostumusTila: 'odottaa',
+          tuotu:         firebase.firestore.FieldValue.serverTimestamp(),
+          tuoja:         tila.kayttaja?.email || 'tuntematon',
+        });
+      } else {
+        // Päivitetään olemassa oleva dokumentti
+        await db.collection('seurat').doc(tila.seuraId)
+          .collection('pelaajat').doc(pelaajaId)
+          .update({
+            joukkue:       joukkue || '',
+            suostumusTila: 'odottaa',
+            muokattu:      firebase.firestore.FieldValue.serverTimestamp(),
+          }).catch(() => {});
+      }
       // Päivitetään kutsulinkkiin pelaajaId
       const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
       const params = new URLSearchParams({
