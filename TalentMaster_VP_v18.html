@@ -787,8 +787,9 @@ async function asetaSeura(seuraId) {
     _seuraNimi = d.nimi || seuraId.toUpperCase();
     var hEl = document.getElementById('headerSeura');
     if (hEl) hEl.textContent = _seuraNimi;
-    var jSnap = await _db.collection('seurat').doc(seuraId).collection('joukkueet').orderBy('nimi').get();
-    _joukkueet = jSnap.docs.map(function(doc){ return Object.assign({id:doc.id}, doc.data()); });
+    var jSnap = await _db.collection('seurat').doc(seuraId).collection('joukkueet').get();
+    _joukkueet = jSnap.docs.map(function(doc){ return Object.assign({id:doc.id}, doc.data()); })
+      .sort(function(a,b){ return (a.nimi||'').localeCompare(b.nimi||''); });
   } catch(e) {
     console.warn('[asetaSeura]', e.message);
     _seuraNimi = seuraId.toUpperCase();
@@ -809,9 +810,11 @@ async function _tunnistaudu(user) {
       _rooli = 'superadmin';
       console.log('[AUTH] Super Admin tunnistettu');
 
-      // Kerätään kaikki seurat super adminille
-     const sSnap = await _db.collection('seurat').get();
-_kaikki_seurat = sSnap.docs.map(d => ({id: d.id, nimi: d.data().nimi || d.id.toUpperCase(), ...d.data()})).sort((a,b) => (a.nimi||'').localeCompare(b.nimi||''));
+      // Kerätään kaikki seurat super adminille (ilman orderBy — ei vaadi indeksiä)
+      const sSnap = await _db.collection('seurat').get();
+      _kaikki_seurat = sSnap.docs
+        .map(d => ({id: d.id, nimi: d.data().nimi || d.id.toUpperCase(), ...d.data()}))
+        .sort((a, b) => (a.nimi || '').localeCompare(b.nimi || ''));
 
       // URL-parametri tai ensimmäinen seura
       const urlSeura = new URLSearchParams(location.search).get('seura');
@@ -2371,8 +2374,9 @@ function _vpRakennaMOdaalit(container, seuraId) {
   console.log('[KalModaali] seuraId:', seuraId, '| _fbDb:', !!_fbDb);
   if (_fbDb && seuraId) {
     _fbDb.collection('seurat').doc(seuraId)
-      .collection('joukkueet').orderBy('nimi').get()
+      .collection('joukkueet').get()
       .then(function(snap) {
+        snap = { docs: snap.docs.sort(function(a,b){ return (a.data().nimi||'').localeCompare(b.data().nimi||''); }), ...snap };
         var sel = document.getElementById('vpKalJoukkue');
         if (!sel) return;
         sel.innerHTML = '<option value="">— valitse joukkue —</option>';
@@ -2684,139 +2688,6 @@ function lahetaSalasana() {
   firebase.auth().sendPasswordResetEmail(email)
     .then(function() { alert('Salasanan nollauslinkki lähetetty: ' + email); })
     .catch(function(e) { alert('Virhe: ' + e.message); });
-}
-
-// ── Uloskirjautuminen ────────────────────────────────────────────
-async function kirjauduUlos() {
-  if (_unsubKal) { try { _unsubKal(); } catch(e) {} _unsubKal = null; }
-  try { await _auth.signOut(); } catch(e) { firebase.auth().signOut(); }
-  nayta('sLogin');
-}
-
-// ── Tabi-navigointi ──────────────────────────────────────────────
-function naytaTabi(nimi, btn) {
-  // Deaktivoi kaikki tabnapit ja piilota kaikki viewt
-  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-  document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
-  // Aktivoi valittu nappi
-  if (btn) btn.classList.add('active');
-  else {
-    var b = document.getElementById('tab-' + nimi);
-    if (b) b.classList.add('active');
-  }
-  // Näytä oikea view
-  var el = document.getElementById('view-' + nimi);
-  if (el) el.classList.add('active');
-  // Lataa data lazily
-  if (nimi === 'kartoitukset') lataaKartoitukset();
-  else if (nimi === 'kalenteri') lataaKalenteri();
-  else if (nimi === 'henkilosto') lataaHenkilosto();
-  else if (nimi === 'tavoitteet') lataaTavoitteet();
-  else if (nimi === 'valmennus') lataaValmennus();
-  else if (nimi === 'polku') lataaPolku();
-  else if (nimi === 'kausirakenne') lataaKausirakenne();
-}
-
-// ── Kalenteri — uusi tapahtuma -nappi ───────────────────────────
-function avaaUusiTapahtuma() {
-  if (typeof _vpAvaaLuoModal === 'function') {
-    _vpAvaaLuoModal(_seuraId);
-  } else {
-    lataaKalenteri();
-    setTimeout(function() {
-      var m = document.getElementById('vpKalLuoModaali');
-      if (m) m.style.display = 'flex';
-    }, 300);
-  }
-}
-
-// ── Kalenteri — modaali-apufunktiot ─────────────────────────────
-function _vpValitseTyyppi(tyyppi, btn) {
-  var inp = document.getElementById('vpKalTyyppi');
-  if (inp) inp.value = tyyppi;
-  document.querySelectorAll('[data-tyyppi]').forEach(function(b) {
-    b.style.background = 'transparent';
-    b.style.color = 'var(--ink3)';
-    b.style.borderColor = 'var(--border)';
-  });
-  if (btn) {
-    var T = TmTapahtumat.TAPAHTUMATYYPIT[tyyppi] || {};
-    btn.style.background = (T.vari || 'var(--accent)') + '30';
-    btn.style.color = T.vari || 'var(--accent)';
-    btn.style.borderColor = T.vari || 'var(--accent)';
-  }
-}
-
-function _vpAvaaLuoModal(seuraId) {
-  var m = document.getElementById('vpKalLuoModaali');
-  if (!m) { lataaKalenteri(); setTimeout(function(){ _vpAvaaLuoModal(seuraId); }, 400); return; }
-  m.style.display = 'flex';
-}
-
-function _vpAvaaLuoModalPvm(seuraId, pvm) {
-  _vpAvaaLuoModal(seuraId);
-  setTimeout(function() {
-    var inp = document.getElementById('vpKalPvm');
-    if (inp) inp.value = pvm;
-  }, 100);
-}
-
-function _vpAvaaDetModal(tapahtumaId, seuraId) {
-  var m = document.getElementById('vpKalDetModaali');
-  if (!m) return;
-  var sisalto = document.getElementById('vpKalDetSisalto');
-  if (sisalto) sisalto.innerHTML = '<div class="loading"><div class="spinner"></div>Ladataan...</div>';
-  m.style.display = 'flex';
-  if (!_db || !seuraId || !tapahtumaId) return;
-  _db.collection('seurat').doc(seuraId).collection('tapahtumat').doc(tapahtumaId).get()
-    .then(function(snap) {
-      if (!snap.exists) { if (sisalto) sisalto.innerHTML = '<div style="color:var(--red)">Tapahtumaa ei löydy.</div>'; return; }
-      var d = snap.data();
-      var T = TmTapahtumat.TAPAHTUMATYYPIT[d.tyyppi] || {emoji:'📌', nimi:d.tyyppi};
-      var pvm = d.pvm || '—';
-      var tilaLabels = {suunniteltu:'Suunniteltu', vahvistettu:'Vahvistettu', kaynnissa:'Käynnissä', valmis:'Valmis'};
-      if (sisalto) sisalto.innerHTML =
-        '<button onclick="document.getElementById(\'vpKalDetModaali\').style.display=\'none\'" '
-        + 'style="float:right;background:none;border:none;color:var(--ink3);font-size:20px;cursor:pointer">✕</button>'
-        + '<div style="font-size:22px;margin-bottom:8px">' + T.emoji + '</div>'
-        + '<div style="font-size:16px;font-weight:700;margin-bottom:4px">' + (d.nimi || T.nimi) + '</div>'
-        + '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px">'
-        + pvm + (d.aika ? ' klo ' + d.aika : '') + ' · ' + (d.joukkueNimi || d.joukkueId || '—') + '</div>'
-        + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">'
-        + Object.entries(tilaLabels).map(function(e) {
-            var aktiiviinen = d.tila === e[0];
-            return '<button onclick="_vpMuutaTila(\'' + tapahtumaId + '\',\'' + seuraId + '\',\'' + e[0] + '\',this)" '
-              + 'style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-size:12px;font-weight:600;'
-              + (aktiiviinen ? 'background:var(--accent);color:#fff;border-color:var(--accent);' : 'background:transparent;color:var(--ink3);') + '">'
-              + e[1] + '</button>';
-          }).join('')
-        + '</div>'
-        + '<button onclick="_vpPoistaTapahtuma(\'' + tapahtumaId + '\',\'' + seuraId + '\')" '
-        + 'style="background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);color:var(--red);'
-        + 'border-radius:6px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600;">🗑 Poista tapahtuma</button>';
-    })
-    .catch(function(e) { if (sisalto) sisalto.innerHTML = '<div style="color:var(--red)">Virhe: ' + e.message + '</div>'; });
-}
-
-async function _vpMuutaTila(tapahtumaId, seuraId, uusiTila, btn) {
-  try {
-    await TmTapahtumat.paivitaTila(_db, seuraId, tapahtumaId, uusiTila);
-    document.querySelectorAll('#vpKalDetSisalto button').forEach(function(b) {
-      b.style.background = 'transparent'; b.style.color = 'var(--ink3)'; b.style.borderColor = 'var(--border)';
-    });
-    if (btn) { btn.style.background = 'var(--accent)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--accent)'; }
-  } catch(e) { alert('Tilamuutos epäonnistui: ' + e.message); }
-}
-
-function _vpNaytaMitaSeuraavaksi(seuraId, jId, jNimi, tNimi, pvm) {
-  // Näytetään onnistumisviesti kalenterissa
-  var el = document.getElementById('tapahtumatAlue');
-  if (!el) return;
-  var info = document.createElement('div');
-  info.style.cssText = 'background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.25);border-radius:10px;padding:14px 16px;margin-bottom:12px;font-size:13px;color:var(--teal);';
-  info.innerHTML = '✅ <strong>' + tNimi + '</strong> luotu joukkueelle ' + jNimi + ' (' + pvm + '). Tapahtuma näkyy nyt kalenterissa.';
-  el.insertBefore(info, el.firstChild);
-  setTimeout(function() { if (info.parentNode) info.parentNode.removeChild(info); }, 5000);
 }
 
 </script>
