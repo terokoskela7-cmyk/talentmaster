@@ -832,8 +832,8 @@ async function _tunnistaudu(user) {
   } catch(e) { console.warn('[AUTH] admins-haku:', e.message); }
 
   // ── VP / sihteeri / UTJ ───────────────────────────────────────
+  // Tapa 1: vp_uid seuradokumentissa — oma try jotta ei kaadu muihin
   try {
-    // Tapa 1: vp_uid seuradokumentissa (nopein)
     const vpSnap = await _db.collection('seurat')
       .where('vp_uid', '==', user.uid).limit(1).get();
     if (!vpSnap.empty) {
@@ -841,8 +841,10 @@ async function _tunnistaudu(user) {
       await asetaSeura(vpSnap.docs[0].id);
       return;
     }
+  } catch(e) { console.warn('[AUTH] vp_uid-haku:', e.message); }
 
-    // Tapa 2: kayttajat-alikokoelma (kattaa sihteeri, UTJ, useampi VP)
+  // Tapa 2: collectionGroup kayttajat — oma try, vaatii Firestore-indeksin
+  try {
     const kSnap = await _db.collectionGroup('kayttajat')
       .where('uid', '==', user.uid).limit(1).get();
     if (!kSnap.empty) {
@@ -854,8 +856,10 @@ async function _tunnistaudu(user) {
         return;
       }
     }
+  } catch(e) { console.warn('[AUTH] collectionGroup-haku:', e.message); }
 
-    // Tapa 3: Claims (jos on asetettu)
+  // Tapa 3: Custom Claims
+  try {
     const token = await user.getIdTokenResult(false);
     const claimsRooli = token.claims.rooli;
     const claimsSeura = token.claims.seuraId;
@@ -864,7 +868,7 @@ async function _tunnistaudu(user) {
       await asetaSeura(claimsSeura);
       return;
     }
-  } catch(e) { console.warn('[AUTH] VP-haku:', e.message); }
+  } catch(e) { console.warn('[AUTH] claims-haku:', e.message); }
 
   // Ei löydy — hylätään
   console.warn('[AUTH] Ei oikeuksia:', user.email);
@@ -876,6 +880,60 @@ async function _tunnistaudu(user) {
 
 // Super admin -seurojen vaihtodropdown headeriin
 let _kaikki_seurat = [];
+
+// Super-admin seura-dropdown headeriin
+function _paivitaSuperAdminDropdown() {
+  if (_rooli !== 'superadmin' || _kaikki_seurat.length === 0) return;
+
+  const vanha = document.getElementById('superAdminSeuraSelect');
+  if (vanha) vanha.parentNode && vanha.parentNode.removeChild(vanha);
+
+  const headerRight = document.querySelector('.header-right');
+  if (!headerRight) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.id = 'superAdminSeuraSelect';
+  wrapper.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+  const label = document.createElement('span');
+  label.style.cssText = 'font-size:11px;color:var(--ink3);font-weight:600;';
+  label.textContent = 'SEURA:';
+
+  const sel = document.createElement('select');
+  sel.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:6px;'
+    + 'color:var(--text);font-family:"DM Sans",sans-serif;font-size:12px;font-weight:600;'
+    + 'padding:5px 8px;cursor:pointer;outline:none;';
+
+  _kaikki_seurat.forEach(function(s) {
+    var opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.nimi || s.id.toUpperCase();
+    if (s.id === _seuraId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  sel.onchange = async function() {
+    var uusiSeura = this.value;
+    if (uusiSeura === _seuraId) return;
+    _kartoituksetLadattu = false;
+    _henkilostoLadattu   = false;
+    _tavoitteetLadattu   = false;
+    _valmennusLadattu    = false;
+    _polkuLadattu        = false;
+    _kausiLadattu        = false;
+    _polkuData           = [];
+    if (_unsubKal) { try { _unsubKal(); } catch(e){} _unsubKal = null; }
+    await asetaSeura(uusiSeura);
+    var url = new URL(location.href);
+    url.searchParams.set('seura', uusiSeura);
+    history.replaceState({}, '', url.toString());
+  };
+
+  wrapper.appendChild(label);
+  wrapper.appendChild(sel);
+  headerRight.insertBefore(wrapper, headerRight.firstChild);
+}
+
 function nayta(id) {
   var sLogin = document.getElementById('sLogin');
   var sDash  = document.getElementById('sDash');
