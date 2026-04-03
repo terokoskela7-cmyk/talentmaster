@@ -1,0 +1,253 @@
+<!-- 
+  TASO-INTEGRAATIO — lisätään Seura.html:ään
+  Sopii "Asetukset"-välilehdelle tai omaksi osioksi Seuran hallinta -näkymään
+  
+  Riippuvuudet:
+  - Firebase Firestore (_db tai firebase.firestore())
+  - Firebase Functions (firebase.functions())
+  - _seuraId tai vastaava muuttuja
+-->
+
+<!-- ══ TASO-ASETUKSET -OSIO ══ -->
+<div id="tasoAsetuksetOsio" style="
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:20px 22px;
+  margin-bottom:20px;
+">
+
+  <!-- Otsikko + tila-badge -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.5px;">
+        ⚽ Palloliiton TASO-integraatio
+      </div>
+      <div style="font-size:12px;color:var(--ink3);margin-top:2px;">
+        Ottelut päivittyvät automaattisesti TalentMasterin kalenteriin
+      </div>
+    </div>
+    <div id="tasoTilaBadge" style="
+      font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;
+      background:rgba(107,122,141,.1);color:var(--ink3);
+    ">Ei konfiguroitu</div>
+  </div>
+
+  <!-- Info-boksi -->
+  <div style="
+    background:rgba(74,126,217,.06);
+    border:1px solid rgba(74,126,217,.2);
+    border-left:3px solid rgba(74,126,217,.5);
+    border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;
+    color:var(--ink2);line-height:1.6;
+  ">
+    <strong style="color:var(--text);">Mistä saan API-avaimen?</strong><br>
+    Kirjaudu <a href="https://taso.palloliitto.fi" target="_blank" 
+      style="color:var(--accent2);">taso.palloliitto.fi</a> seuran 
+    <strong>pääkäyttäjätunnuksilla</strong> → valikosta <em>Rajapinta</em> → 
+    hyväksy käyttöehdot → kopioi avain tähän. Club ID löytyy samasta valikosta 
+    tai seuran TASO-sivun URL-osoitteesta.
+  </div>
+
+  <!-- Lomake -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+    <div>
+      <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+        letter-spacing:.5px;display:block;margin-bottom:5px;">TASO API-avain</label>
+      <input id="tasoApiKey" type="password" 
+        placeholder="Liitä avain tähän..."
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);
+          color:var(--text);padding:9px 12px;border-radius:8px;font-size:13px;
+          font-family:monospace;outline:none;transition:border-color .2s;"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'"
+      >
+      <div style="font-size:11px;color:var(--ink3);margin-top:4px;">
+        Tallennetaan salattuna Firestoreen
+      </div>
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+        letter-spacing:.5px;display:block;margin-bottom:5px;">Club ID (Palloliiton numero)</label>
+      <input id="tasoClubId" type="text" 
+        placeholder="esim. 2970"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);
+          color:var(--text);padding:9px 12px;border-radius:8px;font-size:13px;
+          font-family:monospace;outline:none;transition:border-color .2s;"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'"
+      >
+      <div style="font-size:11px;color:var(--ink3);margin-top:4px;">
+        Löytyy TASO:sta tai tulospalvelun URL:sta
+      </div>
+    </div>
+  </div>
+
+  <!-- Napit -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <button onclick="tallennaTasoAsetukset()" style="
+      background:var(--accent);color:#fff;border:none;border-radius:8px;
+      padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;
+      transition:background .15s;
+    " onmouseover="this.style.background='var(--accent2)'"
+      onmouseout="this.style.background='var(--accent)'">
+      💾 Tallenna asetukset
+    </button>
+    <button onclick="haeTasoOttelutNyt()" id="tasoHaeBtn" style="
+      background:none;border:1px solid var(--border);color:var(--ink2);
+      border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;
+      cursor:pointer;transition:all .15s;
+    " onmouseover="this.style.borderColor='var(--bord2)';this.style.color='var(--text)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--ink2)'">
+      🔄 Hae ottelut nyt
+    </button>
+    <div id="tasoVirhe" style="font-size:12px;color:var(--red);display:none;"></div>
+    <div id="tasoOnnistui" style="font-size:12px;color:var(--green);display:none;"></div>
+  </div>
+
+  <!-- Viimeisin haku -info -->
+  <div id="tasoViimeisinHaku" style="
+    margin-top:14px;font-size:12px;color:var(--ink3);
+    border-top:1px solid var(--border);padding-top:10px;display:none;
+  "></div>
+
+</div>
+
+<script>
+// ── TASO-asetukset: lataa nykyiset arvot ────────────────────────────────────
+async function lataaTasoAsetukset(seuraId) {
+  try {
+    const db = firebase.firestore();
+    const snap = await db.collection('seurat').doc(seuraId).get();
+    const d = snap.data() || {};
+    
+    // API-avain näytetään peitettyinä tähtinä jos asetettu
+    if (d.taso_api_key) {
+      document.getElementById('tasoApiKey').placeholder = '••••••••••••••••••••••• (asetettu)';
+      document.getElementById('tasoApiKey').dataset.asetettu = '1';
+    }
+    if (d.taso_club_id) {
+      document.getElementById('tasoClubId').value = d.taso_club_id;
+    }
+    
+    // Tila-badge
+    const badge = document.getElementById('tasoTilaBadge');
+    if (d.taso_api_key && d.taso_club_id) {
+      badge.textContent = '✓ Konfiguroitu';
+      badge.style.background = 'rgba(46,213,115,.1)';
+      badge.style.color = 'var(--green)';
+    } else if (d.taso_api_key || d.taso_club_id) {
+      badge.textContent = '⚠ Puutteellinen';
+      badge.style.background = 'rgba(255,165,2,.1)';
+      badge.style.color = 'var(--amber)';
+    }
+    
+    // Viimeisin haku
+    if (d.taso_viimeisin_haku) {
+      const hakuEl = document.getElementById('tasoViimeisinHaku');
+      const pvm = d.taso_viimeisin_haku.toDate().toLocaleString('fi-FI');
+      hakuEl.textContent = `Viimeisin automaattinen haku: ${pvm} · ${d.taso_ottelut_lkm || 0} ottelua`;
+      hakuEl.style.display = 'block';
+    }
+  } catch(e) {
+    console.warn('[TASO] Asetusten lataus:', e.message);
+  }
+}
+
+// ── Tallenna API-avain ja club_id Firestoreen ────────────────────────────────
+async function tallennaTasoAsetukset() {
+  const apiKey = document.getElementById('tasoApiKey').value.trim();
+  const clubId = document.getElementById('tasoClubId').value.trim();
+  const virheEl = document.getElementById('tasoVirhe');
+  const onnEl = document.getElementById('tasoOnnistui');
+  
+  virheEl.style.display = 'none';
+  onnEl.style.display = 'none';
+  
+  if (!apiKey && !document.getElementById('tasoApiKey').dataset.asetettu) {
+    virheEl.textContent = 'API-avain puuttuu.';
+    virheEl.style.display = 'block';
+    return;
+  }
+  if (!clubId) {
+    virheEl.textContent = 'Club ID puuttuu.';
+    virheEl.style.display = 'block';
+    return;
+  }
+  
+  try {
+    const db = firebase.firestore();
+    // Haetaan seuraId — eri lähteitä eri näkymissä
+    const seuraId = window._seuraId || window._aktivSeura || 
+                    (window._user && window._user.seuraId);
+    if (!seuraId) throw new Error('SeuraId ei löydy.');
+    
+    const paivitys = { taso_club_id: clubId };
+    // Päivitetään avain vain jos käyttäjä on syöttänyt uuden
+    if (apiKey) paivitys.taso_api_key = apiKey;
+    
+    await db.collection('seurat').doc(seuraId).update(paivitys);
+    
+    // Päivitetään badge
+    const badge = document.getElementById('tasoTilaBadge');
+    badge.textContent = '✓ Konfiguroitu';
+    badge.style.background = 'rgba(46,213,115,.1)';
+    badge.style.color = 'var(--green)';
+    
+    onnEl.textContent = '✓ Asetukset tallennettu! Ottelut päivittyvät automaattisesti huomenna klo 6.';
+    onnEl.style.display = 'block';
+    
+    // Merkitään avain asetetuksi
+    if (apiKey) {
+      document.getElementById('tasoApiKey').value = '';
+      document.getElementById('tasoApiKey').placeholder = '••••••••••••••••••••••• (asetettu)';
+      document.getElementById('tasoApiKey').dataset.asetettu = '1';
+    }
+  } catch(e) {
+    virheEl.textContent = 'Virhe: ' + e.message;
+    virheEl.style.display = 'block';
+  }
+}
+
+// ── Hae ottelut heti (kutsuu Cloud Functionia) ────────────────────────────────
+async function haeTasoOttelutNyt() {
+  const btn = document.getElementById('tasoHaeBtn');
+  const virheEl = document.getElementById('tasoVirhe');
+  const onnEl = document.getElementById('tasoOnnistui');
+  
+  virheEl.style.display = 'none';
+  onnEl.style.display = 'none';
+  btn.textContent = '⏳ Haetaan...';
+  btn.disabled = true;
+  
+  try {
+    const seuraId = window._seuraId || window._aktivSeura;
+    if (!seuraId) throw new Error('SeuraId ei löydy.');
+    
+    const fn = firebase.functions().httpsCallable('tasoHaeSeuranOttelut');
+    const tulos = await fn({ seuraId });
+    
+    onnEl.textContent = `✓ Haettu ${tulos.data.ottelut} ottelua! Tarkista kalenteri.`;
+    onnEl.style.display = 'block';
+    
+    // Päivitetään viimeisin haku -teksti
+    const hakuEl = document.getElementById('tasoViimeisinHaku');
+    hakuEl.textContent = `Viimeisin haku: ${new Date().toLocaleString('fi-FI')} · ${tulos.data.ottelut} ottelua`;
+    hakuEl.style.display = 'block';
+    
+  } catch(e) {
+    const msg = e.message || (e.details && e.details.message) || 'Tuntematon virhe';
+    if (msg.includes('puuttuu')) {
+      virheEl.textContent = '⚠ Tallenna ensin API-avain ja Club ID.';
+    } else if (msg.includes('permission')) {
+      virheEl.textContent = '⚠ Ei oikeuksia. Oletko seuran pääkäyttäjä?';
+    } else {
+      virheEl.textContent = 'Virhe: ' + msg;
+    }
+    virheEl.style.display = 'block';
+  } finally {
+    btn.textContent = '🔄 Hae ottelut nyt';
+    btn.disabled = false;
+  }
+}
+</script>
