@@ -119,6 +119,40 @@ async function tarkistaOikeus(kutsujaUid, kohdeSeuraId) {
   return { sallittu: false, rooli: null };
 }
 // ─────────────────────────────────────────────────────────────────────────────
+// APUFUNKTIO: Hae tai luo Auth-käyttäjä huoltajalle
+//
+// MIKSI TÄMÄ TARVITAAN:
+// generatePasswordResetLink() vaatii että käyttäjä on jo olemassa Firebase
+// Authissa. Suostumuslomakkeen kautta tuleva huoltaja ei ole vielä Auth-
+// käyttäjä — kukaan ei ole kutsunut luoKayttaja()-funktiota heidän puolestaan.
+// Ratkaisu: tarkistetaan ensin getUserByEmail(). Jos käyttäjä löytyy,
+// käytetään sitä. Jos ei löydy, luodaan uusi Auth-käyttäjä automaattisesti.
+// Huoltaja asettaa oman salasanansa reset-linkin kautta — väliaikaista
+// salasanaa ei koskaan näytetä kenellekään.
+// ─────────────────────────────────────────────────────────────────────────────
+async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
+  try {
+    const olemassa = await auth.getUserByEmail(hEmail);
+    console.log('[haeOrLuoHuoltajaAuth] Käyttäjä löytyi:', hEmail);
+    return olemassa;
+  } catch (e) {
+    // auth/user-not-found on odotettua — kaikki muut virheet nostetaan eteenpäin
+    if (e.errorInfo && e.errorInfo.code !== 'auth/user-not-found') throw e;
+  }
+  // Luodaan Auth-tili — väliaikainen salasana on tekninen pakko,
+  // käyttäjä ei koskaan näe sitä vaan asettaa oman reset-linkin kautta
+  const valiaikainenSalasana = 'TM_' + Math.random().toString(36).slice(2, 10).toUpperCase();
+  const uusiKayttaja = await auth.createUser({
+    email:         hEmail,
+    password:      valiaikainenSalasana,
+    displayName:   [etunimi, sukunimi].filter(Boolean).join(' ') || hEmail,
+    emailVerified: false,
+    disabled:      false,
+  });
+  console.log('[haeOrLuoHuoltajaAuth] Uusi käyttäjä luotu:', hEmail, uusiKayttaja.uid);
+  return uusiKayttaja;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 // SÄHKÖPOSTIPOHJAT
 // ─────────────────────────────────────────────────────────────────────────────
 function pohjaHeader(seuraNimi) {
@@ -354,19 +388,15 @@ exports.luoKayttaja = functions
       await auth.deleteUser(uid).catch(() => {});
       throw new functions.https.HttpsError('internal', `Firestore-kirjoitus epäonnistui: ${e.message}`);
     }
-    // Lähetetään salasanasähköposti — ohjataan oikeaan näkymään roolin mukaan
     let resetLinkki = null;
     try {
       const roolitusUrl = {
-        // Kenttäroolit → valmentajan näkymä
         valmentaja:           'TalentMaster_Master_v9.html',
         talenttivalmentaja:   'TalentMaster_Master_v9.html',
         fysiikkavalmentaja:   'TalentMaster_Master_v9.html',
         fysioterapeutti:      'TalentMaster_Master_v9.html',
         testivastaava:        'TalentMaster_Master_v9.html',
-        // Johto → VP-dashboard
         vp:                   'TalentMaster_VP_v18.html',
-        // Hallinto → seurahallinta
         seurasihteeri:        'TalentMaster_Seura.html',
         urheilutoimenjohtaja: 'TalentMaster_Seura.html',
       };
@@ -424,6 +454,11 @@ exports.deaktivioiKayttaja = functions
   });
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaPelaajaSivuLinkki
+//
+// MUUTOS: lisätty haeOrLuoHuoltajaAuth()-kutsu ennen generatePasswordResetLink().
+// Aiemmin funktio epäonnistui äänettömästi jos huoltajalla ei ollut Auth-tiliä,
+// jolloin salasanaLinkki jäi null:ksi ja sähköposti lähtee ilman salasanaosiota.
+// Nyt Auth-tili luodaan automaattisesti jos sitä ei vielä ole.
 // ─────────────────────────────────────────────────────────────────────────────
 exports.lahetaPelaajaSivuLinkki = functions
   .region('europe-west1')
@@ -445,6 +480,9 @@ exports.lahetaPelaajaSivuLinkki = functions
       `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
     let salasanaLinkki = null;
     try {
+      // MUUTOS: varmistetaan että Auth-tili on olemassa ennen reset-linkin generointia.
+      // haeOrLuoHuoltajaAuth() palauttaa olemassaolevan tai luo uuden käyttäjän.
+      await haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi);
       salasanaLinkki = await auth.generatePasswordResetLink(hEmail, {
         url: vanhempiLinkki,
         handleCodeInApp: false,
