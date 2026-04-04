@@ -103,10 +103,12 @@ service cloud.firestore {
           || onSeuranValmentaja(seuraId)
           || onKirjautunut();
 
-        allow update: if onSuperAdmin()
-          || onSeuranValmentaja(seuraId)
-          || (onKirjautunut() && request.auth.uid == pelaajaId)
-          || (onKirjautunut() && resource.data.huoltajaEmail == request.auth.token.email);
+        allow update: if onSuperAdmin() || onSeuranValmentaja(seuraId)
+              || (onKirjautunut() && request.auth.uid == pelaajaId)
+              || (onKirjautunut() && resource.data.huoltajaEmail == request.auth.token.email)
+              // Suostumuslomake: sallitaan anonyymi update kun suostumusTila vaihtuu odottaa→annettu
+              || (resource.data.suostumusTila == 'odottaa'
+                  && request.resource.data.suostumusTila == 'annettu');
 
         allow delete: if onSeuranYllApito(seuraId);
 
