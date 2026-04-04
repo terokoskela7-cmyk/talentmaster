@@ -388,6 +388,27 @@ exports.luoKayttaja = functions
       await auth.deleteUser(uid).catch(() => {});
       throw new functions.https.HttpsError('internal', `Firestore-kirjoitus epäonnistui: ${e.message}`);
     }
+
+    // ── CUSTOM CLAIMS ──────────────────────────────────────────────────────────
+    // Asetetaan rooli ja seuraId JWT-tokeniin jotta Firestore Rules tunnistaa
+    // käyttäjän ilman erillistä Firestore-hakua. Ilman tätä valmentaja/VP ei
+    // pääse Firestore-dataan koska Rules lukee request.auth.token.rooli:a.
+    //
+    // TÄRKEÄÄ: Käyttäjän täytyy kirjautua ulos ja uudelleen sisään (tai päivittää
+    // token) ennen kuin uudet claims astuvat voimaan selaimessa. Salasanalinkin
+    // kautta kirjautuminen hoitaa tämän automaattisesti — linkki pakottaa uuden
+    // tokenin, joten valmentajan ensimmäinen kirjautuminen toimii heti oikein.
+    try {
+      await auth.setCustomUserClaims(uid, {
+        rooli:   rooli,
+        seuraId: seuraId,
+      });
+      console.log(`[luoKayttaja] Custom claims asetettu: ${email} → rooli=${rooli}, seuraId=${seuraId}`);
+    } catch (e) {
+      // Claims-virhe ei estä käyttäjän luontia — lokitetaan mutta jatketaan
+      console.warn('[luoKayttaja] Custom claims -asetus epäonnistui:', e.message);
+    }
+
     let resetLinkki = null;
     try {
       const roolitusUrl = {
