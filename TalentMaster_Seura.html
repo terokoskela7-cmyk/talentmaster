@@ -2842,9 +2842,18 @@ async function avaaVaihdaJoukkuePelaajaModal(pelaajaId, nykyinenJoukkue) {
     naytaToast('Ei joukkueita. Luo joukkueet ensin.', 'virhe'); return;
   }
 
-  const options = joukkueet.map(j =>
-    `<option value="${j.nimi}" ${nykyinenJoukkue === j.nimi ? 'selected' : ''}>${j.nimi}</option>`
-  ).join('');
+  // Haetaan pelaajan nykyiset joukkueet — kenttä voi olla merkkijono (vanha)
+  // tai taulukko (uusi). Muunnetaan aina taulukoksi.
+  let nykyisetJoukkueet = [];
+  try {
+    const pSnap = await db.collection('seurat').doc(tila.seuraId)
+      .collection('pelaajat').doc(pelaajaId).get();
+    if (pSnap.exists) {
+      const d = pSnap.data();
+      if (Array.isArray(d.joukkueet)) nykyisetJoukkueet = d.joukkueet;
+      else if (d.joukkue) nykyisetJoukkueet = [d.joukkue];
+    }
+  } catch(e) { console.warn('[joukkueMuutos] Haku:', e.message); }
 
   let modal = document.getElementById('vaihdaJoukkuePelaajaModal');
   if (!modal) {
@@ -2854,25 +2863,40 @@ async function avaaVaihdaJoukkuePelaajaModal(pelaajaId, nykyinenJoukkue) {
     document.body.appendChild(modal);
   }
 
+  const checkboxit = joukkueet.map(j => `
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;
+      padding:8px 10px;border-radius:7px;transition:background .15s;"
+      onmouseover="this.style.background='rgba(74,126,217,.06)'"
+      onmouseout="this.style.background='transparent'">
+      <input type="checkbox" value="${j.id}"
+        ${nykyisetJoukkueet.includes(j.id) ? 'checked' : ''}
+        style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;flex-shrink:0;">
+      <span style="font-size:13px;color:var(--ink2);">${j.nimi || j.id}</span>
+      <span style="font-size:11px;color:var(--ink3);margin-left:auto;">${j.ikaryhma || ''}</span>
+    </label>`).join('');
+
   modal.innerHTML = `
-    <div class="modalSisalto" style="max-width:380px;">
+    <div class="modalKortti" style="max-width:420px;">
       <button class="modalSuljeNappi" onclick="document.getElementById('vaihdaJoukkuePelaajaModal').classList.remove('auki')">✕ Sulje</button>
       <div class="modalOtsikko">🔄 Vaihda joukkue</div>
-      <div class="modalKuvaus">Nykyinen joukkue: <strong>${nykyinenJoukkue || '—'}</strong></div>
-
-      <div class="kenttaRyhma" style="margin:16px 0;">
-        <label class="kenttaLabel">Uusi joukkue</label>
-        <select id="vj_joukkue" class="kenttaInput">
-          ${options}
-        </select>
+      <div class="modalKuvaus">
+        Nykyinen: <strong>${nykyinenJoukkue || '—'}</strong><br>
+        <span style="font-size:11px;color:var(--ink3);">
+          Pelaaja voi kuulua useampaan joukkueeseen — rastita kaikki joihin hän osallistuu.
+          Joukkuesiirto tallentuu pelaajadokumenttiin ja näkyy valmentajan näkymässä.
+        </span>
       </div>
-
-      <div id="vj_virhe" class="virheViesti" style="display:none;margin-bottom:12px;"></div>
-
+      <div style="display:flex;flex-direction:column;gap:4px;
+        background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
+        padding:8px;max-height:260px;overflow-y:auto;margin-bottom:16px;">
+        ${checkboxit}
+      </div>
+      <div id="vj_virhe" style="display:none;color:var(--red);font-size:12px;margin-bottom:10px;"></div>
       <div style="display:flex;gap:10px;">
-        <button class="lisaaNappi" style="flex:1;background:rgba(224,160,64,.15);border:1px solid rgba(224,160,64,.4);"
+        <button class="lisaaNappi" style="flex:1;background:rgba(224,160,64,.15);
+          border:1px solid rgba(224,160,64,.4);color:var(--amber);"
           onclick="tallennaPelaajanJoukkue('${pelaajaId}')">
-          🔄 Vaihda joukkue
+          🔄 Tallenna joukkueet
         </button>
         <button class="lisaaNappi" style="background:none;border:1px solid var(--border);color:var(--ink3);"
           onclick="document.getElementById('vaihdaJoukkuePelaajaModal').classList.remove('auki')">
@@ -2880,28 +2904,47 @@ async function avaaVaihdaJoukkuePelaajaModal(pelaajaId, nykyinenJoukkue) {
         </button>
       </div>
     </div>`;
-
   modal.classList.add('auki');
 }
 
 async function tallennaPelaajanJoukkue(pelaajaId) {
-  const uusiJoukkue = document.getElementById('vj_joukkue')?.value;
-  if (!uusiJoukkue) return;
+  // Kerätään valitut joukkueet checkboxeista
+  const checkboxes = document.querySelectorAll('#vaihdaJoukkuePelaajaModal input[type=checkbox]');
+  const valitutIds = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+
+  // Rakennetaan nimet tallennusta varten
+  const valitutNimet = valitutIds.map(id => {
+    const j = tila.joukkueet.find(j => j.id === id);
+    return j?.nimi || id;
+  });
+
+  const virheEl = document.getElementById('vj_virhe');
+  if (valitutIds.length === 0) {
+    if (virheEl) { virheEl.textContent = 'Valitse vähintään yksi joukkue.'; virheEl.style.display = 'block'; }
+    return;
+  }
 
   try {
+    // Tallennetaan sekä uusi taulukkomuoto että vanha yhteensopivuuskenttä
+    // joukkueet[] = kaikki joukkueet (uusi)
+    // joukkue = ensimmäinen joukkue (vanha yhteensopivuus valmentajan näkymälle)
     await db.collection('seurat').doc(tila.seuraId)
       .collection('pelaajat').doc(pelaajaId)
       .update({
-        joukkue: uusiJoukkue,
-        muokattu: firebase.firestore.FieldValue.serverTimestamp(),
+        joukkueet:   valitutIds,
+        joukkue:     valitutIds[0],      // ensisijainen joukkue (vanha kenttä)
+        joukkueNimi: valitutNimet[0] || null,
+        muokattu:    firebase.firestore.FieldValue.serverTimestamp(),
         muokkaajaUid: tila.kayttaja?.uid || 'superadmin',
       });
+
     document.getElementById('vaihdaJoukkuePelaajaModal').classList.remove('auki');
-    naytaToast(`Joukkue vaihdettu → ${uusiJoukkue} ✓`, 'ok');
+    const nimiLista = valitutNimet.join(', ');
+    naytaToast(`Joukkueet päivitetty → ${nimiLista} ✓`, 'ok');
+    // Päivitetään pelaajalistaus
     setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
   } catch(e) {
-    const v = document.getElementById('vj_virhe');
-    if (v) { v.textContent = 'Virhe: ' + e.message; v.style.display='block'; }
+    if (virheEl) { virheEl.textContent = 'Virhe: ' + e.message; virheEl.style.display = 'block'; }
   }
 }
 
