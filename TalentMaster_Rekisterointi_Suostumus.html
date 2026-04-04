@@ -235,8 +235,6 @@ window.addEventListener('DOMContentLoaded', function() {
   if (_urlParams.sukunimi) el('i_suku').value  = _urlParams.sukunimi;
   if (_urlParams.seura)    el('i_seura').value = _urlParams.seura;
 
-  // KORJAUS 1: Muunna joukkuetunnus (kpv_u13) luettavaksi (Kpv U13)
-  // Jos Seura.html on jo lähettänyt oikean nimen ("KPV U13"), se jää sellaisenaan.
   if (_urlParams.joukkue) {
     var jNimi = _urlParams.joukkue;
     if (jNimi.indexOf('_') !== -1) {
@@ -344,75 +342,119 @@ function toStep3() {
   var so        = syntyma ? syntyma.split('-') : [];
   var sv        = so.length===3 ? parseInt(so[0],10) : 0;
   var age       = syntyma ? Math.floor((Date.now()-new Date(Date.UTC(sv,parseInt(so[1],10)-1,parseInt(so[2],10))))/(365.25*24*3600*1000)) : 0;
-  // KORJAUS 2: huoltajaEmail top-level — Seura.html/Vanhempi.html/Cloud Functions hakevat tällä
   var raporttiEmail = (val('h_email') || val('i_email') || '').toLowerCase();
   var nyt       = firebase.firestore.FieldValue.serverTimestamp();
   var aikaleima = new Date().toLocaleString('fi-FI');
   var rid       = 'TM-' + Date.now().toString(36).toUpperCase();
   var palloId   = val('i_pid') || null;
-  var dokumenttiId = _pelaajaId || palloId || null;
 
-  var pelaajaDoc = {
-    etunimi:      val('i_etu'),
-    sukunimi:     val('i_suku'),
-    nimi:         val('i_etu') + ' ' + val('i_suku'),
-    syntymaaika:  (function() {
-      if (!syntyma || sv < 1990 || sv > 2025) return null;
-      return firebase.firestore.Timestamp.fromDate(new Date(Date.UTC(sv,parseInt(so[1],10)-1,parseInt(so[2],10))));
-    })(),
-    sukupuoli:    el('i_sp').value || '',
-    seura:        val('i_seura'),
-    seuraId:      _seuraId || 'tuntematon',
-    joukkue:      val('i_jou'),
-    // KORJAUS 2: huoltajaEmail top-level kenttä — kriittinen vanhemman kirjautumiselle
-    huoltajaEmail: raporttiEmail || null,
-    palloID:      palloId || '',
-    vammahistoria: val('i_vam') || '',
-    email:        val('i_email') || '',
-    raportteihin: raporttiEmail,
-    huoltaja: age < 18 ? {
-      etunimi:  val('h_etu'),
-      sukunimi: val('h_suku'),
-      email:    val('h_email'),
-      puhelin:  val('h_puh') || ''
-    } : null,
-    suostumus: {
-      annettu:      nyt,
-      antaja:       age < 18 ? (val('h_etu')+' '+val('h_suku')).trim() : (val('i_etu')+' '+val('i_suku')).trim(),
-      antajaRooli:  age < 18 ? 'huoltaja' : 'itse',
-      versio:       '2026-v1',
-      hyvaksytyt:   suostumusMap,
-      aikaleima:    aikaleima,
-    },
-    kutsuId:          _kutsuId || null,
-    rekisterointiId:  rid,
-    aktiivinen:       true,
-    luotu:            nyt,
-    muokattu:         nyt,
-    tila:             'aktiivinen',
-  };
+  // Tämä on se kriittinen tieto: onko dokumentti jo olemassa?
+  // _pelaajaId tarkoittaa kutsupohjaista flowta — dokumentti on jo Firestoressa.
+  var dokumenttiId = _pelaajaId || null;
 
   var nappi = el('btnok');
   if (nappi) { nappi.disabled = true; nappi.textContent = 'Tallennetaan...'; }
 
   var tallennusPromise;
+
   if (_fbDb && _seuraId) {
-    var colRef    = _fbDb.collection('seurat').doc(_seuraId).collection('pelaajat');
-    var pelRef    = dokumenttiId ? colRef.doc(dokumenttiId) : colRef.doc();
-    var tallId    = pelRef.id;
-    tallennusPromise = pelRef
-      .set(Object.assign({}, pelaajaDoc, { suostumusTila:'annettu', pelaajaId:tallId }), { merge:true })
-      .then(function() {
-        if (_kutsuId) {
-          return _fbDb.collection('seurat').doc(_seuraId).collection('kutsut').doc(_kutsuId)
-            .update({ tila:'hyvaksytty', hyvaksyttyPvm:nyt, pelaajaId:tallId });
-        }
-      });
+    var colRef = _fbDb.collection('seurat').doc(_seuraId).collection('pelaajat');
+
+    if (dokumenttiId) {
+      // ── KUTSUFLOW: dokumentti on jo olemassa, päivitetään vain suostumustiedot ──
+      // Tämä on tarkasti rajattu update joka vastaa rules-hasOnly()-listaa.
+      // Lomake EI kirjoita etunimi/sukunimi/joukkue jne. koska ne ovat jo oikein.
+      var pelRef = colRef.doc(dokumenttiId);
+      var tallId = dokumenttiId;
+
+      var suostumusUpdate = {
+        suostumusTila:       'annettu',
+        tila:                'aktiivinen',
+        suostumusPvm:        nyt,
+        suostumuksenAntaja:  age < 18
+          ? (val('h_etu') + ' ' + val('h_suku')).trim()
+          : (val('i_etu') + ' ' + val('i_suku')).trim(),
+        muokattu:            nyt,
+        // Suostumusdata tallennetaan omaan kenttään joka on myös listassa
+        // Huom: 'suostumus'-objekti ei ole hasOnly()-listassa, joten
+        // tallennetaan se erillisiin kenttiin tai laajennetaan listaa rules:ssa.
+        // Nyt tallennetaan vain pakolliset kentät jotka rules sallii.
+      };
+
+      tallennusPromise = pelRef.update(suostumusUpdate)
+        .then(function() {
+          if (_kutsuId) {
+            return _fbDb.collection('seurat').doc(_seuraId).collection('kutsut').doc(_kutsuId)
+              .update({ tila: 'hyvaksytty', hyvaksyttyPvm: nyt, pelaajaId: tallId, muokattu: nyt });
+          }
+        });
+
+    } else {
+      // ── UUSI REKISTERÖINTI: dokumenttia ei ole, luodaan se kokonaan ──
+      // Tässä tilanteessa vanhempi on täyttänyt lomakkeen ilman kutsua,
+      // joten kaikki kentät kirjoitetaan uuteen dokumenttiin.
+      var pelRef2 = colRef.doc();
+      var tallId2 = pelRef2.id;
+
+      var pelaajaDoc = {
+        etunimi:          val('i_etu'),
+        sukunimi:         val('i_suku'),
+        nimi:             val('i_etu') + ' ' + val('i_suku'),
+        syntymaaika:      (function() {
+          if (!syntyma || sv < 1990 || sv > 2025) return null;
+          return firebase.firestore.Timestamp.fromDate(new Date(Date.UTC(sv,parseInt(so[1],10)-1,parseInt(so[2],10))));
+        })(),
+        sukupuoli:        el('i_sp').value || '',
+        seura:            val('i_seura'),
+        seuraId:          _seuraId || 'tuntematon',
+        joukkue:          val('i_jou'),
+        huoltajaEmail:    raporttiEmail || null,
+        palloID:          palloId || '',
+        vammahistoria:    val('i_vam') || '',
+        email:            val('i_email') || '',
+        raportteihin:     raporttiEmail,
+        huoltaja: age < 18 ? {
+          etunimi:  val('h_etu'),
+          sukunimi: val('h_suku'),
+          email:    val('h_email'),
+          puhelin:  val('h_puh') || ''
+        } : null,
+        suostumus: {
+          annettu:     nyt,
+          antaja:      age < 18 ? (val('h_etu')+' '+val('h_suku')).trim() : (val('i_etu')+' '+val('i_suku')).trim(),
+          antajaRooli: age < 18 ? 'huoltaja' : 'itse',
+          versio:      '2026-v1',
+          hyvaksytyt:  suostumusMap,
+          aikaleima:   aikaleima,
+        },
+        kutsuId:          _kutsuId || null,
+        rekisterointiId:  rid,
+        suostumusTila:    'annettu',
+        aktiivinen:       true,
+        tila:             'aktiivinen',
+        pelaajaId:        tallId2,
+        luotu:            nyt,
+        muokattu:         nyt,
+      };
+
+      // Uusi dokumentti — .set() on oikein, ei tarvitse rules-rajoituksia
+      tallennusPromise = pelRef2.set(pelaajaDoc)
+        .then(function() {
+          if (_kutsuId) {
+            return _fbDb.collection('seurat').doc(_seuraId).collection('kutsut').doc(_kutsuId)
+              .update({ tila: 'hyvaksytty', hyvaksyttyPvm: nyt, pelaajaId: tallId2, muokattu: nyt });
+          }
+        });
+
+      // tallId viittauksiin myöhemmin
+      rid = tallId2;
+    }
+
   } else {
     console.warn('[SUOSTUMUS] Firebase ei kaytossa — localStorageen');
     try {
       var reg = JSON.parse(localStorage.getItem('tm_rekisteri_v1') || '[]');
-      reg.unshift(Object.assign({}, pelaajaDoc, { id:dokumenttiId, created:Date.now() }));
+      reg.unshift({ etunimi: val('i_etu'), sukunimi: val('i_suku'), id: dokumenttiId, created: Date.now() });
       localStorage.setItem('tm_rekisteri_v1', JSON.stringify(reg));
     } catch(e) {}
     tallennusPromise = Promise.resolve();
@@ -420,13 +462,22 @@ function toStep3() {
 
   tallennusPromise
     .then(function() {
-      if (_kutsuId && _fbDb && _seuraId && !dokumenttiId) {
-        _fbDb.collection('seurat').doc(_seuraId).collection('kutsut').doc(_kutsuId)
-          .update({ tila:'hyvaksytty', hyvaksyttyPvm:firebase.firestore.FieldValue.serverTimestamp() })
-          .catch(function(e) { console.warn('Kutsun päivitys:', e.message); });
-      }
-    })
-    .then(function() {
+      // Lähetetään linkki pelaajan/vanhemman sivulle
+      try {
+        if (_fbDb && _seuraId && typeof firebase.functions === 'function') {
+          var fn = firebase.app().functions('europe-west1').httpsCallable('lahetaPelaajaSivuLinkki');
+          fn({
+            hEmail:    raporttiEmail,
+            pelaajaId: dokumenttiId || rid,
+            seuraId:   _seuraId,
+            etunimi:   val('i_etu'),
+            sukunimi:  val('i_suku'),
+            seura:     val('i_seura'),
+            joukkue:   val('i_jou'),
+          }).catch(function(e) { console.warn('[Pelaajasivulinkki]', e.message); });
+        }
+      } catch(e2) { console.warn('[Pelaajasivulinkki]', e2.message); }
+
       el('receipt').innerHTML =
         '<div class="rrow"><span class="rk">Rekisterointitunnus</span><span class="rv">'+rid+'</span></div>'
         +'<div class="rrow"><span class="rk">Nimi</span><span class="rv">'+val('i_etu')+' '+val('i_suku')+'</span></div>'
@@ -440,20 +491,6 @@ function toStep3() {
           ?'<div class="rrow"><span class="rk">Tallennettu</span><span class="rv" style="color:var(--teal)">TalentMaster-rekisteriin</span></div>'
           :'<div class="rrow"><span class="rk">Tila</span><span class="rv" style="color:var(--amber)">Odottaa synkronointia</span></div>');
 
-      try {
-  if (_fbDb && _seuraId && typeof firebase.functions === 'function') {
-    var fn = firebase.app().functions('europe-west1').httpsCallable('lahetaPelaajaSivuLinkki');
-          fn({
-            hEmail:    raporttiEmail,
-            pelaajaId: tallId || (new URLSearchParams(location.search).get('pelaajaId')) || rid,
-            seuraId:   _seuraId,
-            etunimi:   val('i_etu'),
-            sukunimi:  val('i_suku'),
-            seura:     val('i_seura'),
-            joukkue:   val('i_jou'),
-          }).catch(function(e) { console.warn('[Pelaajasivulinkki]', e.message); });
-        }
-      } catch(e2) { console.warn('[Pelaajasivulinkki]', e2.message); }
       setStep(3);
     })
     .catch(function(err) {
