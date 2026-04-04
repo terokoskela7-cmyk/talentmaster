@@ -1738,187 +1738,186 @@ async function renderHenkilosto(alue) {
 // NÄKYMÄ: SOPIMUKSET
 // ─────────────────────────────────────────────────────────────────
 function renderSopimukset() {
-
-  // Palloliiton kolme koria — kriteeristö seuran kehitystoiminnan arviointiin
-  const korit = [
+  setTimeout(lataaKoriJaTasoTiedot, 150);
+  const tasot = [
     {
-      id: 'kori1',
-      nimi: 'Kori 1 — Pelaajakehitys',
-      vari: '--blue',
-      kuvaus: 'Pelaajien yksilöllinen kehitys ja seuranta',
-      kriteerit: [
-        'Pelaajille on laadittu yksilölliset kehityssuunnitelmat (IDP)',
-        'Kehitystä seurataan säännöllisesti kauden aikana',
-        'Pelaajille annetaan yksilöllistä palautetta vähintään kerran kaudessa',
-        'Biologinen ikä huomioidaan harjoittelun suunnittelussa',
-        'Tekniikkakilpailut tai vastaavat mittaukset toteutetaan kaudessa',
-        'Harjoitteludata tallennetaan järjestelmällisesti',
-      ]
+      id: 'perustaso', nimi: 'Perustaso', vari: '--blue',
+      kuvaus: 'Perusrekisteri, joukkuehallinta ja rekisteröintikutsut huoltajille.',
+      ominaisuudet: ['Pelaajahallinta', 'Joukkuehallinta', 'Rekisteröintikutsut', 'GDPR-suostumuslomake'],
     },
     {
-      id: 'kori2',
-      nimi: 'Kori 2 — Valmennustoiminta',
-      vari: '--teal',
-      kuvaus: 'Valmentajien osaaminen ja toiminnan laatu',
-      kriteerit: [
-        'Valmentajilla on vähintään C-lisenssi tai vastaava koulutus',
-        'Valmentajien kehittymistä seurataan ja tuetaan aktiivisesti',
-        'Harjoitussuunnitelmat laaditaan kirjallisesti etukäteen',
-        'Valmennustoiminnalla on kirjattu valmennuslinja',
-        'Valmentajat saavat säännöllistä mentorointia VP:ltä tai UTJ:lta',
-        'Valmentajien välistä yhteistyötä tuetaan rakenteellisesti',
-      ]
+      id: 'kehitystaso', nimi: 'Kehitystaso', vari: '--teal',
+      kuvaus: 'Kaikki Perustason ominaisuudet + harjoitettavuuskartoitus ja IDP-kortit.',
+      ominaisuudet: ['FLEI-harjoitettavuuskartoitus', 'IDP-kehityskortti v3', 'Valmentajan kenttähavainnot', 'PHV-seuranta'],
     },
     {
-      id: 'kori3',
-      nimi: 'Kori 3 — Seuran rakenteet',
-      vari: '--amber',
-      kuvaus: 'Seuran hallinnolliset rakenteet ja johtaminen',
-      kriteerit: [
-        'Seuralla on dokumentoitu strategia vähintään 3 vuodeksi',
-        'Valmennuspäällikkö johtaa kokonaisuutta aktiivisesti',
-        'Seuralla on toimiva viestintä vanhempien suuntaan',
-        'Pelaajatiedot tallennetaan GDPR-vaatimusten mukaisesti',
-        'Seura seuraa systemaattisesti pelaajamäärän kehitystä',
-        'Pelaajapolku on kuvattu U7:stä edustusjoukkueeseen',
-      ]
-    }
+      id: 'huipputaso', nimi: 'Huipputaso', vari: '--amber',
+      kuvaus: 'Kaikki ominaisuudet — talenttitunnistus, biologinen ikä ja täysi 5D-viitekehys.',
+      ominaisuudet: ['Talenttitunnistus (HPP ELITE)', 'Biologinen ikä (Mirwald 2002)', 'Pelaajaprofiili (Railgun/Maestro/Shadowstep/Titan)', 'Täysi 5D-arviointikehys'],
+    },
   ];
-
-  const koriHTML = korit.map(kori => {
-    const kriteeriHTML = kori.kriteerit.map((k, i) => `
-      <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;
-        border-bottom:1px solid var(--border);"
-        data-kori="${kori.id}" data-idx="${i}">
-        <div onclick="toggleKriteeri('${kori.id}',${i},this)"
-          id="${kori.id}-cb-${i}"
-          style="width:20px;height:20px;border:2px solid var(--border);border-radius:4px;
-          flex-shrink:0;cursor:pointer;margin-top:2px;display:flex;align-items:center;
-          justify-content:center;font-size:11px;transition:all .2s;">
+  const tasoHTML = tasot.map(t => `
+    <div id="taso-${t.id}" style="display:flex;gap:16px;padding:16px 20px;
+      border-bottom:1px solid var(--border);align-items:flex-start;transition:background .2s;">
+      <div id="taso-${t.id}-ind" style="width:10px;height:10px;border-radius:50%;
+        background:var(--border);flex-shrink:0;margin-top:5px;transition:background .3s;"></div>
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:700;color:var(--ink);">${t.nimi}</span>
+          <span id="taso-${t.id}-badge" style="display:none;font-size:10px;font-weight:700;
+            padding:2px 8px;border-radius:4px;background:rgba(62,201,167,.15);color:var(--teal);
+            text-transform:uppercase;letter-spacing:.5px;">Aktiivinen</span>
         </div>
-        <span style="font-size:13px;color:var(--ink2);line-height:1.5;">${k}</span>
-      </div>`).join('');
-
-    return `
-      <div class="kortti">
-        <div class="korttiHeader">
-          <div>
-            <span class="korttiOtsikko">${kori.nimi}</span>
-            <div style="font-size:11px;color:var(--ink3);margin-top:2px;">${kori.kuvaus}</div>
-          </div>
-          <span id="${kori.id}-ed" style="font-size:12px;color:var(--ink3);">
-            0 / ${kori.kriteerit.length}
-          </span>
+        <div style="font-size:12px;color:var(--ink3);margin-bottom:8px;">${t.kuvaus}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${t.ominaisuudet.map(o => `<span style="font-size:11px;padding:2px 8px;border-radius:4px;
+            background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--ink3);">${o}</span>`).join('')}
         </div>
-        <div style="padding:0 20px 4px;">
-          <div style="height:3px;background:var(--border);border-radius:2px;margin:12px 0 4px;">
-            <div id="${kori.id}-palkki"
-              style="height:100%;width:0%;background:var(${kori.vari});
-              border-radius:2px;transition:width .4s ease;"></div>
-          </div>
-          ${kriteeriHTML}
-        </div>
-      </div>`;
-  }).join('');
-
-  // Ladataan tallennettu tila Firestoresta pienen viiveen jälkeen
-  setTimeout(lataaKriteeritTila, 200);
-
+      </div>
+    </div>`).join('');
   return `
     <div class="sivuOtsikko">
-      <div class="sivuEyebrow">Palloliiton kriteerit</div>
-      <div class="sivuH1">Seuran kehitystoiminta</div>
+      <div class="sivuEyebrow">Sopimukset ja tasot</div>
+      <div class="sivuH1">Seuran taso ja Palloliiton kori</div>
     </div>
-    <div style="background:rgba(62,201,167,.08);border:1px solid rgba(62,201,167,.2);
-      border-radius:10px;padding:14px 18px;margin-bottom:22px;
-      font-size:13px;color:var(--ink2);line-height:1.6;">
-      <strong style="color:var(--teal);">ℹ️ Miten kriteerit toimivat</strong><br>
-      Palloliiton kolme koria mittaavat seuran kehitystoiminnan tasoa.
-      Merkitse täytetyt kriteerit — tila tallentuu automaattisesti Firestoreen
-      ja näkyy kaikille seuran käyttäjille.
+    <div class="kortti" style="margin-bottom:20px;">
+      <div class="korttiHeader">
+        <div>
+          <span class="korttiOtsikko">TalentMaster-taso</span>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Määrittää mitä ominaisuuksia seuralla on käytettävissä</div>
+        </div>
+        <span id="tm-taso-badge" style="font-size:12px;color:var(--ink3);">Ladataan...</span>
+      </div>
+      ${tasoHTML}
     </div>
-    ${koriHTML}
+    <div class="kortti" style="margin-bottom:20px;">
+      <div class="korttiHeader">
+        <div>
+          <span class="korttiOtsikko">Palloliiton kori</span>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Seuran ja Palloliiton välinen kehityssopimustaso — hallinnoidaan Palloliiton kanssa</div>
+        </div>
+        <span id="kori-badge" style="font-size:12px;color:var(--ink3);">Ladataan...</span>
+      </div>
+      <div style="padding:20px;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          ${['Kori 1','Kori 2','Kori 3'].map((k,i) => `
+            <div id="kori-${i+1}-kortti" style="padding:16px;border-radius:8px;border:1px solid var(--border);
+              background:var(--bg3);text-align:center;transition:all .25s;">
+              <div style="font-size:24px;margin-bottom:6px;">${['🌱','📈','🏆'][i]}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--ink2);">${k}</div>
+              <div style="font-size:11px;color:var(--ink3);margin-top:4px;">${['Perusvaihe','Kehitysvaihe','Huippuvaihe'][i]}</div>
+            </div>`).join('')}
+        </div>
+        <div id="kori-kuvaus" style="margin-top:14px;padding:12px 16px;background:rgba(74,126,217,.06);
+          border:1px solid rgba(74,126,217,.15);border-radius:8px;font-size:13px;color:var(--ink2);
+          line-height:1.6;display:none;"></div>
+      </div>
+    </div>
     <div class="kortti">
       <div class="korttiHeader">
-        <span class="korttiOtsikko">Seuran sopimukset</span>
-        <button class="lisaaNappi" onclick="naytaToast('Tulossa pian!','ok')">
-          + Lisää sopimus
-        </button>
+        <span class="korttiOtsikko">📋 Pelaajien suostumustilanne</span>
+        <span id="sopimukset-lkm" style="font-size:12px;color:var(--ink3);">Ladataan...</span>
       </div>
-      <div style="padding:20px;color:var(--ink3);font-size:14px;line-height:1.7;">
-        Valmentajasopimukset, kausisuunnitelmat ja muut seuran dokumentit.
-        Rakennetaan kun pilottiseurat ovat toiminnassa.
+      <div id="sopimukset-lista" style="padding:20px;color:var(--ink3);font-size:13px;">
+        <div style="display:flex;align-items:center;gap:10px;"><div class="spinner"></div> Ladataan...</div>
       </div>
-    </div>`;
+    </div>
+  `;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// KRITEERIN TOGGLAUS
-// Tallentuu Firestoreen: seurat/{seuraId}/sopimukset/kriteerit
-// Merge:true — ei ylikirjoita muita kriteerejä
-// ─────────────────────────────────────────────────────────────────
-const kriteeritTila = {};
-
-async function toggleKriteeri(koriId, idx, el) {
-  const avain = koriId + '_' + idx;
-  kriteeritTila[avain] = !kriteeritTila[avain];
-  renderKriteeriUI(koriId, idx, el, kriteeritTila[avain]);
-  paivitaKoriPalkki(koriId);
-  try {
-    await db.collection('seurat').doc(tila.seuraId)
-      .collection('sopimukset').doc('kriteerit')
-      .set({ [avain]: kriteeritTila[avain],
-             paivitetty: firebase.firestore.FieldValue.serverTimestamp() },
-           { merge: true });
-  } catch (e) { console.warn('Kriteerin tallennus:', e.message); }
-}
-
-function renderKriteeriUI(koriId, idx, el, taytetty) {
-  if (!el) el = document.getElementById(koriId + '-cb-' + idx);
-  if (!el) return;
-  if (taytetty) {
-    el.style.background  = 'var(--teal)';
-    el.style.borderColor = 'var(--teal)';
-    el.textContent       = '✓';
-    el.style.color       = '#000';
-    el.style.fontWeight  = '700';
-  } else {
-    el.style.background  = 'transparent';
-    el.style.borderColor = 'var(--border)';
-    el.textContent       = '';
-  }
-}
-
-function paivitaKoriPalkki(koriId) {
-  const cbs = document.querySelectorAll(`[data-kori="${koriId}"]`);
-  const yht = cbs.length;
-  const tay = Object.keys(kriteeritTila)
-    .filter(k => k.startsWith(koriId + '_') && kriteeritTila[k]).length;
-  const edEl = document.getElementById(koriId + '-ed');
-  const palkki = document.getElementById(koriId + '-palkki');
-  if (edEl)   edEl.textContent    = `${tay} / ${yht}`;
-  if (palkki) palkki.style.width  = yht > 0 ? `${(tay/yht)*100}%` : '0%';
-}
-
-async function lataaKriteeritTila() {
+async function lataaKoriJaTasoTiedot() {
   if (!tila.seuraId) return;
   try {
-    const snap = await db.collection('seurat').doc(tila.seuraId)
-      .collection('sopimukset').doc('kriteerit').get();
-    if (!snap.exists) return;
-    const data = snap.data();
-    Object.keys(data).forEach(avain => {
-      if (avain === 'paivitetty') return;
-      kriteeritTila[avain] = data[avain];
-      // Puretaan koriId ja idx avaimesta (esim. "kori1_3")
-      const osat = avain.split('_');
-      const idx  = parseInt(osat[osat.length - 1]);
-      const koriId = osat.slice(0, -1).join('_');
-      if (!isNaN(idx)) renderKriteeriUI(koriId, idx, null, data[avain]);
+    const seuraSnap = await db.collection('seurat').doc(tila.seuraId).get();
+    const seuraData = seuraSnap.exists ? seuraSnap.data() : {};
+    // TalentMaster-taso
+    const tmTaso = seuraData.tmTaso || seuraData.paketti || 'perustaso';
+    const tasoNimet = { perustaso:'Perustaso', kehitystaso:'Kehitystaso', huipputaso:'Huipputaso' };
+    const tasoVarit = { perustaso:'--blue', kehitystaso:'--teal', huipputaso:'--amber' };
+    const tmBadge = document.getElementById('tm-taso-badge');
+    if (tmBadge) tmBadge.innerHTML = `<span style="font-size:11px;font-weight:700;padding:3px 10px;
+      border-radius:4px;background:rgba(255,255,255,.06);color:var(${tasoVarit[tmTaso]||'--blue'});">
+      ${tasoNimet[tmTaso]||tmTaso}</span>`;
+    ['perustaso','kehitystaso','huipputaso'].forEach(t => {
+      const ind = document.getElementById('taso-'+t+'-ind');
+      const badge = document.getElementById('taso-'+t+'-badge');
+      const rivi = document.getElementById('taso-'+t);
+      if (t === tmTaso) {
+        if (ind) ind.style.background = 'var('+tasoVarit[t]+')';
+        if (badge) badge.style.display = 'inline-block';
+        if (rivi) rivi.style.background = 'rgba(255,255,255,.02)';
+      }
     });
-    // Päivitä kaikki palkit
-    ['kori1','kori2','kori3'].forEach(paivitaKoriPalkki);
-  } catch (e) { console.warn('Kriteerien lataus:', e.message); }
+    // Palloliiton kori
+    const palloKori = seuraData.palloliittoKori || seuraData.kori || null;
+    const koriNimet = {'1':'Kori 1','2':'Kori 2','3':'Kori 3'};
+    const koriKuvaukset = {
+      '1': 'Seura on Palloliiton Korissa 1 (perusvaihe). TalentMaster Perustaso tukee tämän tason vaatimusten täyttämistä.',
+      '2': 'Seura on Palloliiton Korissa 2 (kehitysvaihe). TalentMaster Kehitystaso tukee Korin 2 vaatimuksia IDP-korteilla ja harjoitettavuuskartoituksella.',
+      '3': 'Seura on Palloliiton Korissa 3 (huippuvaihe). TalentMaster Huipputaso on suunniteltu Korin 3 vaatimuksia varten — talenttitunnistus, biologinen ikä ja täysi 5D-arviointi.',
+    };
+    const koriBadge = document.getElementById('kori-badge');
+    if (koriBadge) koriBadge.innerHTML = palloKori
+      ? `<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;
+          background:rgba(74,126,217,.12);color:var(--blue);">${koriNimet[palloKori]||'Kori '+palloKori}</span>`
+      : `<span style="font-size:11px;color:var(--ink3);">Ei asetettu</span>`;
+    if (palloKori) {
+      const kortti = document.getElementById('kori-'+palloKori+'-kortti');
+      if (kortti) { kortti.style.background='rgba(74,126,217,.08)'; kortti.style.borderColor='rgba(74,126,217,.4)'; }
+      const kuvaus = document.getElementById('kori-kuvaus');
+      if (kuvaus) { kuvaus.textContent = koriKuvaukset[palloKori]||''; kuvaus.style.display='block'; }
+    }
+    // GDPR-suostumukset — luetaan pelaajat-kokoelmasta, EI kutsut-kokoelmasta
+    const pelaajatSnap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').get();
+    const pelaajat = pelaajatSnap.docs.map(d => ({id:d.id,...d.data()}));
+    const annettu = pelaajat.filter(p => p.suostumusTila==='annettu'||!!p.suostumus?.annettu);
+    const odottaa = pelaajat.filter(p =>
+      (p.suostumusTila==='odottaa'||p.suostumusTila==='luotu')&&
+      !(p.suostumusTila==='annettu'||!!p.suostumus?.annettu)
+    );
+    const lkm = document.getElementById('sopimukset-lkm');
+    if (lkm) lkm.textContent = pelaajat.length+' pelaajaa';
+    const lista = document.getElementById('sopimukset-lista');
+    if (!lista) return;
+    if (pelaajat.length === 0) {
+      lista.innerHTML = `<div class="tyhjaAlue" style="min-height:20vh;">
+        <div class="tyhjaIkoni">📋</div>
+        <div class="tyhjaOtsikko">Ei pelaajia</div>
+        <div class="tyhjaTeksti">Lähetä rekisteröintikutsuja jotta suostumusdata kertyy.</div>
+      </div>`;
+      return;
+    }
+    lista.innerHTML = `
+      <div style="display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--teal);">${annettu.length}</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Suostumus annettu</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--amber);">${odottaa.length}</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Odottaa suostumusta</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--ink3);">${pelaajat.length}</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Yhteensä</div>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Pelaaja</th><th>Joukkue</th><th>Huoltajan sähköposti</th><th>Suostumustila</th></tr></thead>
+        <tbody>
+          ${pelaajat.sort((a,b)=>(a.sukunimi||'').localeCompare(b.sukunimi||'')).map(p => {
+            const nimi = (p.etunimi||'')+' '+(p.sukunimi||'');
+            const onAnnettu = p.suostumusTila==='annettu'||!!p.suostumus?.annettu;
+            return `<tr>
+              <td>${nimi.trim()||p.id}</td>
+              <td style="color:var(--ink3);">${p.joukkue||'—'}</td>
+              <td style="font-size:12px;color:var(--ink3);">${p.huoltajaEmail||'—'}</td>
+              <td><span class="badge ${onAnnettu?'ok':'odottaa'}">${onAnnettu?'✓ Annettu':'⏳ Odottaa'}</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) { console.error('[Sopimukset]', e); }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2156,20 +2155,31 @@ async function lahetaRekisteriSahkoposti() {
       if (linkkiEl) linkkiEl.textContent = tila._rekLinkki;
     }
 
-    // VAIHE 2: Tallennetaan kutsu Firestoreen
-    await db.collection('seurat').doc(tila.seuraId)
-      .collection('kutsut').add({
-        tyyppi:      'yksittainen_kutsu',
-        hEmail:      tila._rekHEmail,
-        pelaajaNimi: (etunimi + ' ' + sukunimi).trim(),
-        pelaajaId:   pelaajaId,   // linkki pelaajadokumenttiin
-        joukkue,
-        linkki:      tila._rekLinkki,
-        lahetetty:   firebase.firestore.FieldValue.serverTimestamp(),
-        luotu:       firebase.firestore.FieldValue.serverTimestamp(),
-        tila:        'odottaa',
-        lahettaja:   tila.kayttaja?.uid || 'tuntematon',
-      });
+    // VAIHE 2: Tallennetaan kutsu Firestoreen — ID luodaan etukäteen
+    // jotta kutsuId voidaan lisätä rekisteröintilinkkiin.
+    // Suostumuslomake päivittää kutsun tilaksi 'hyvaksytty' tällä ID:llä.
+    const kutsuRef = db.collection('seurat').doc(tila.seuraId)
+      .collection('kutsut').doc();
+    const kutsuId = kutsuRef.id;
+    // Lisätään kutsuId rekisteröintilinkkiin
+    if (tila._rekLinkki && !tila._rekLinkki.includes('kutsuId=')) {
+      const sep = tila._rekLinkki.includes('?') ? '&' : '?';
+      tila._rekLinkki = tila._rekLinkki + sep + 'kutsuId=' + kutsuId;
+      const linkkiEl = document.getElementById('linkkiTekstiEl');
+      if (linkkiEl) linkkiEl.textContent = tila._rekLinkki;
+    }
+    await kutsuRef.set({
+      tyyppi:      'yksittainen_kutsu',
+      hEmail:      tila._rekHEmail,
+      pelaajaNimi: (etunimi + ' ' + sukunimi).trim(),
+      pelaajaId:   pelaajaId,
+      joukkue,
+      linkki:      tila._rekLinkki,
+      lahetetty:   firebase.firestore.FieldValue.serverTimestamp(),
+      luotu:       firebase.firestore.FieldValue.serverTimestamp(),
+      tila:        'odottaa',
+      lahettaja:   tila.kayttaja?.uid || 'tuntematon',
+    });
 
     // VAIHE 2: Lähetetään sähköposti lahetaRekisteriKutsu Cloud Functionilla
     // Käytetään yksittäisen kutsun muuttujia (ei Excel-tuonnin p-objektia)
