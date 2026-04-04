@@ -1,0 +1,393 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     TalentMaster Pelaaja v2 — PIN-kirjautuminen
+     
+     OHJEET:
+     1. KORVAA nykyinen #sLogin div kokonaan alla olevalla
+     2. LISÄÄ CSS-blokki <style>-lohkon LOPPUUN ennen </style>
+     3. LISÄÄ JS-blokki <script>-lohkon LOPPUUN ennen </script>
+     ═══════════════════════════════════════════════════════════════ -->
+
+
+<!-- ══════════════════════════════════
+     VAIHE 1: KORVAA #sLogin tällä
+     ══════════════════════════════════ -->
+<div id="sLogin">
+  <div class="login-box">
+
+    <!-- Logo -->
+    <div class="login-logo" style="margin-bottom:4px;">Talent<span>Master</span>™</div>
+    <div style="font-size:11px;color:var(--ink3);letter-spacing:1px;text-transform:uppercase;margin-bottom:20px;">⚽ Pelaajan oma sivu</div>
+
+    <!-- Tila-toggle: PIN / Sähköposti -->
+    <div style="display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:3px;margin-bottom:20px;">
+      <button id="tabPin" onclick="vaihtokirjautuminen('pin')"
+        style="flex:1;padding:9px;border:none;border-radius:8px;font-family:'Barlow Condensed',sans-serif;
+               font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .2s;
+               background:var(--gold);color:#000;">
+        🔢 PIN-koodi
+      </button>
+      <button id="tabEmail" onclick="vaihtokirjautuminen('email')"
+        style="flex:1;padding:9px;border:none;border-radius:8px;font-family:'Barlow Condensed',sans-serif;
+               font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .2s;
+               background:transparent;color:var(--ink3);">
+        📧 Sähköposti
+      </button>
+    </div>
+
+    <!-- ── PIN-näkymä ── -->
+    <div id="pinNakyma">
+      <!-- Pisteet -->
+      <div style="display:flex;gap:14px;justify-content:center;margin-bottom:16px;">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+
+      <!-- Virheilmoitus -->
+      <div id="pinVirhe" style="font-size:12px;color:var(--red);text-align:center;min-height:16px;margin-bottom:10px;"></div>
+
+      <!-- Numeronäppäimistö -->
+      <div class="pin-grid">
+        <button class="pin-nappi" onclick="pinLisaa('1')">1</button>
+        <button class="pin-nappi" onclick="pinLisaa('2')">2</button>
+        <button class="pin-nappi" onclick="pinLisaa('3')">3</button>
+        <button class="pin-nappi" onclick="pinLisaa('4')">4</button>
+        <button class="pin-nappi" onclick="pinLisaa('5')">5</button>
+        <button class="pin-nappi" onclick="pinLisaa('6')">6</button>
+        <button class="pin-nappi" onclick="pinLisaa('7')">7</button>
+        <button class="pin-nappi" onclick="pinLisaa('8')">8</button>
+        <button class="pin-nappi" onclick="pinLisaa('9')">9</button>
+        <button class="pin-nappi" onclick="pinLisaa('0')">0</button>
+        <button class="pin-nappi" style="font-size:16px;" onclick="pinPoista()">⌫</button>
+      </div>
+
+      <!-- Ohjeteksti -->
+      <div style="text-align:center;font-size:11px;color:var(--ink3);margin-top:12px;line-height:1.5;">
+        PIN-koodi on 4 numeroa.<br>
+        Sait sen valmentajaltasi tai seuran sihteeriltä.
+      </div>
+    </div>
+
+    <!-- ── Sähköposti-näkymä ── -->
+    <div id="emailNakyma" style="display:none;">
+      <div class="login-label">Sähköposti tai PalloID</div>
+      <input class="login-input" type="email" id="loginEmail"
+        placeholder="sähköposti tai PalloID (esim. 34650191)"
+        autocapitalize="none" autocomplete="email">
+      <div class="login-label">Salasana</div>
+      <input class="login-input" type="password" id="loginPass"
+        placeholder="••••••••" autocomplete="current-password">
+      <button class="login-btn" onclick="kirjauduSisaan()">Kirjaudu peliin →</button>
+      <div class="login-error" id="loginVirhe"></div>
+    </div>
+
+    <!-- Demo-napit (kehitystä varten) -->
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;text-align:center;">Demo-pelaajat</div>
+      <div class="login-pin-row">
+        <div class="pin-btn" onclick="demoKirjaudu('aleksi')">
+          ⚡ Aleksi<br><span style="color:var(--ink3);font-size:10px;">Nopea · 82pts</span>
+        </div>
+        <div class="pin-btn" onclick="demoKirjaudu('eeli')">
+          📈 Eeli<br><span style="color:var(--ink3);font-size:10px;">Kehittyvä · 71pts</span>
+        </div>
+        <div class="pin-btn" onclick="demoKirjaudu('mikko')">
+          🛡️ Mikko<br><span style="color:var(--ink3);font-size:10px;">Vahva · 65pts</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════
+     VAIHE 2: LISÄÄ CSS <style>-lohkon loppuun
+     ══════════════════════════════════ -->
+<style>
+/* ── PIN-näppäimistö ── */
+.pin-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--border); background: var(--bg3);
+  transition: all .15s;
+}
+.pin-dot.on  { background: var(--gold); border-color: var(--gold); }
+.pin-dot.err { background: var(--red);  border-color: var(--red); animation: shake .3s ease; }
+
+.pin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+.pin-nappi {
+  aspect-ratio: 1;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--bg3);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 26px; font-weight: 800;
+  color: var(--text);
+  cursor: pointer;
+  transition: all .1s;
+}
+.pin-nappi:active {
+  background: rgba(245,183,0,.12);
+  border-color: var(--gold);
+  transform: scale(.93);
+}
+
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  25%      { transform: translateX(-4px); }
+  75%      { transform: translateX(4px); }
+}
+</style>
+
+
+<!-- ══════════════════════════════════
+     VAIHE 3: LISÄÄ JS <script>-lohkon loppuun
+     (korvaa myös kirjauduSisaan()-funktio)
+     ══════════════════════════════════ -->
+<script>
+// ── PIN-tila ──────────────────────────────────────────────────────────────
+let _pinSyote = '';
+// Seurat haetaan Firestoresta — toimii uusille seuroille automaattisesti
+// Fallback: kovakoodattu lista jos Firestore ei vastaa
+const _PILOTTI_SEURAT_FALLBACK = ['kpv','fcl','palloiirot','yvies','sjk','grifk','hjk'];
+let _kaikkiSeurat = null; // cache
+
+async function _haeKaikkiSeurat() {
+  if (_kaikkiSeurat) return _kaikkiSeurat; // cache
+  try {
+    const snap = await _db.collection('seurat').get();
+    _kaikkiSeurat = snap.docs.map(d => d.id);
+    return _kaikkiSeurat;
+  } catch(e) {
+    console.warn('[Seurat]', e.message);
+    return _PILOTTI_SEURAT_FALLBACK;
+  }
+}
+
+function pinLisaa(n) {
+  if (_pinSyote.length >= 4) return;
+  _pinSyote += n;
+  _pinPaivitaDotit();
+  if (_pinSyote.length === 4) setTimeout(pinTarkista, 150);
+}
+
+function pinPoista() {
+  _pinSyote = _pinSyote.slice(0, -1);
+  _pinPaivitaDotit();
+  document.getElementById('pinVirhe').textContent = '';
+}
+
+function _pinPaivitaDotit() {
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById('pd' + i);
+    if (!el) return;
+    el.className = 'pin-dot' + (_pinSyote.length > i ? ' on' : '');
+  }
+}
+
+function _pinVirheNayta(teksti) {
+  document.getElementById('pinVirhe').textContent = teksti;
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById('pd' + i);
+    if (el) el.className = 'pin-dot err';
+  }
+  setTimeout(() => {
+    _pinSyote = '';
+    _pinPaivitaDotit();
+    document.getElementById('pinVirhe').textContent = '';
+  }, 1200);
+}
+
+async function pinTarkista() {
+  const pin = _pinSyote;
+  if (!pin || pin.length !== 4) return;
+
+  // Näytä latausanimaatio
+  document.getElementById('pinVirhe').textContent = '🔍 Haetaan...';
+
+  // Hae URL-parametristä seuraId jos on (?seura=kpv)
+  const urlSeura = new URLSearchParams(location.search).get('seura');
+  const haettavatSeurat = urlSeura ? [urlSeura] : await _haeKaikkiSeurat();
+
+  for (const seuraId of haettavatSeurat) {
+    try {
+      const snap = await _db
+        .collection('seurat').doc(seuraId)
+        .collection('pelaajat')
+        .where('pin', '==', pin)
+        .limit(1).get();
+
+      if (!snap.empty) {
+        const doc = snap.docs[0];
+        const data = doc.data();
+
+        // Löytyi — tallennetaan sessio
+        const sessio = {
+          pelaajaId: doc.id,
+          seuraId,
+          nimi: data.etunimi || data.nimi || '—',
+          ts: Date.now(),
+        };
+        try { localStorage.setItem('tm_pin_sessio', JSON.stringify(sessio)); } catch(e) {}
+
+        // Ladataan pelaajadata ja avataan dashboard
+        _pelaaja = { id: doc.id, seuraId, ...data };
+        await _alustaUI();
+        return;
+      }
+    } catch(e) {
+      console.warn('[PIN] Seura', seuraId, ':', e.message);
+    }
+  }
+
+  // Ei löydy
+  _pinVirheNayta('Väärä PIN-koodi. Tarkista numero.');
+}
+
+// ── PIN-session palautus sivulatauksen yhteydessä ─────────────────────────
+async function _tarkistaPinSessio() {
+  try {
+    const raw = localStorage.getItem('tm_pin_sessio');
+    if (!raw) return false;
+    const sessio = JSON.parse(raw);
+
+    // Sessio vanhenee 30 päivässä
+    if (!sessio.ts || Date.now() - sessio.ts > 30 * 86400000) {
+      localStorage.removeItem('tm_pin_sessio');
+      return false;
+    }
+
+    const snap = await _db
+      .collection('seurat').doc(sessio.seuraId)
+      .collection('pelaajat').doc(sessio.pelaajaId).get();
+
+    if (!snap.exists) return false;
+
+    _pelaaja = { id: snap.id, seuraId: sessio.seuraId, ...snap.data() };
+    await _alustaUI();
+    return true;
+  } catch(e) {
+    console.warn('[PIN-sessio]', e.message);
+    return false;
+  }
+}
+
+// ── Login-tilan vaihto PIN ↔ Sähköposti ──────────────────────────────────
+function vaihtokirjautuminen(tila) {
+  const pinNakyma   = document.getElementById('pinNakyma');
+  const emailNakyma = document.getElementById('emailNakyma');
+  const tabPin      = document.getElementById('tabPin');
+  const tabEmail    = document.getElementById('tabEmail');
+
+  if (tila === 'pin') {
+    pinNakyma.style.display   = '';
+    emailNakyma.style.display = 'none';
+    tabPin.style.background   = 'var(--gold)';
+    tabPin.style.color        = '#000';
+    tabEmail.style.background = 'transparent';
+    tabEmail.style.color      = 'var(--ink3)';
+  } else {
+    pinNakyma.style.display   = 'none';
+    emailNakyma.style.display = '';
+    tabPin.style.background   = 'transparent';
+    tabPin.style.color        = 'var(--ink3)';
+    tabEmail.style.background = 'var(--gold)';
+    tabEmail.style.color      = '#000';
+  }
+}
+
+// ── Uloskirjautuminen (päivitetty — tyhjentää myös PIN-session) ───────────
+async function kirjauduUlos() {
+  _isDemoUser = false;
+  _demoKey    = null;
+  _pelaaja    = null;
+  _ladattu    = {};
+  _pinSyote   = '';
+  _pinPaivitaDotit();
+
+  try { localStorage.removeItem('tm_pin_sessio'); } catch(e) {}
+  await _auth.signOut().catch(() => {});
+  nayta('sLogin');
+}
+
+// ── Sähköpostikirjautuminen (sama kuin v1, ei muutosta) ───────────────────
+async function kirjauduSisaan() {
+  const syote = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginVirhe');
+  errEl.textContent = '';
+  if (!syote || !pass) { errEl.textContent = 'Täytä molemmat kentät.'; return; }
+
+  // PalloID-haku (pelkkä numero)
+  if (/^[0-9]{5,10}$/.test(syote)) {
+    errEl.textContent = 'Haetaan PalloID:llä...';
+    for (const sid of await _haeKaikkiSeurat()) {
+      try {
+        const s = await _db.collection('seurat').doc(sid)
+          .collection('pelaajat').where('palloID','==',syote).limit(1).get();
+        if (!s.empty) {
+          const email = s.docs[0].data().huoltajaEmail;
+          if (email) {
+            errEl.textContent = '';
+            _kirjautuminenKesken = true;
+            const cred = await _auth.signInWithEmailAndPassword(email, pass);
+            _kirjautuminenKesken = false;
+            if (cred.user) await _lataaFirebasePelaaja(cred.user);
+            return;
+          }
+        }
+      } catch(e2) {}
+    }
+    errEl.textContent = 'PalloID:tä ei löydy.';
+    return;
+  }
+
+  // Normaali sähköposti
+  _kirjautuminenKesken = true;
+  try {
+    const cred = await _auth.signInWithEmailAndPassword(syote, pass);
+    _kirjautuminenKesken = false;
+    if (cred.user) await _lataaFirebasePelaaja(cred.user);
+  } catch(e) {
+    _kirjautuminenKesken = false;
+    errEl.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found')
+      ? 'Väärä sähköposti tai salasana.' : 'Kirjautuminen epäonnistui.';
+  }
+}
+
+// Enterin tuki sähköpostikentässä
+document.addEventListener('DOMContentLoaded', () => {
+  const passEl = document.getElementById('loginPass');
+  if (passEl) passEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') kirjauduSisaan();
+  });
+});
+
+// ── AUTH: päivitetty — tarkistaa ensin PIN-session ────────────────────────
+// KORVAA nykyinen _auth.onAuthStateChanged-blokki tällä:
+_auth.onAuthStateChanged(async user => {
+  if (_kirjautuminenKesken) return;
+
+  // 1. Firebase-sessio aktiivinen
+  if (user) {
+    await _lataaFirebasePelaaja(user);
+    return;
+  }
+
+  // 2. Demo-käyttäjä aktiivinen
+  if (_isDemoUser) return;
+
+  // 3. PIN-sessio tallennettuna
+  const pinOk = await _tarkistaPinSessio();
+  if (pinOk) return;
+
+  // 4. Ei sessiota — näytä login
+  nayta('sLogin');
+});
+</script>
