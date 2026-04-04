@@ -358,12 +358,15 @@ exports.luoKayttaja = functions
     let resetLinkki = null;
     try {
       const roolitusUrl = {
-        valmentaja:           'TalentMaster_Master_v7.html',
-        talenttivalmentaja:   'TalentMaster_Master_v7.html',
-        fysiikkavalmentaja:   'TalentMaster_Master_v7.html',
-        fysioterapeutti:      'TalentMaster_Master_v7.html',
-        testivastaava:        'TalentMaster_Master_v7.html',
-        vp:                   'TalentMaster_Seura.html',
+        // Kenttäroolit → valmentajan näkymä
+        valmentaja:           'TalentMaster_Master_v9.html',
+        talenttivalmentaja:   'TalentMaster_Master_v9.html',
+        fysiikkavalmentaja:   'TalentMaster_Master_v9.html',
+        fysioterapeutti:      'TalentMaster_Master_v9.html',
+        testivastaava:        'TalentMaster_Master_v9.html',
+        // Johto → VP-dashboard
+        vp:                   'TalentMaster_VP_v18.html',
+        // Hallinto → seurahallinta
         seurasihteeri:        'TalentMaster_Seura.html',
         urheilutoimenjohtaja: 'TalentMaster_Seura.html',
       };
