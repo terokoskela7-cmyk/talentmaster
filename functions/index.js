@@ -373,7 +373,8 @@ exports.luoKayttaja = functions
     } catch (e) {
       await auth.deleteUser(uid).catch(() => {});
       throw new functions.https.HttpsError('internal', `Firestore-kirjoitus epäonnistui: ${e.message}`);
-    }let resetLinkki = null;
+    }
+let resetLinkki = null;
 try {
   // Ohjataan oikeaan näkymään roolin mukaan salasanan asetuksen jälkeen
   const roolitusUrl = {
