@@ -373,13 +373,35 @@ exports.luoKayttaja = functions
     } catch (e) {
       await auth.deleteUser(uid).catch(() => {});
       throw new functions.https.HttpsError('internal', `Firestore-kirjoitus epäonnistui: ${e.message}`);
-    }
-    let resetLinkki = null;
-    try {
-      resetLinkki = await auth.generatePasswordResetLink(email, {
-        url: 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Seura.html',
-        handleCodeInApp: false,
-      });
+    }let resetLinkki = null;
+try {
+  // Ohjataan oikeaan näkymään roolin mukaan salasanan asetuksen jälkeen
+  const roolitusUrl = {
+    valmentaja:           'TalentMaster_Master_v7.html',
+    talenttivalmentaja:   'TalentMaster_Master_v7.html',
+    fysiikkavalmentaja:   'TalentMaster_Master_v7.html',
+    fysioterapeutti:      'TalentMaster_Master_v7.html',
+    testivastaava:        'TalentMaster_Master_v7.html',
+    vp:                   'TalentMaster_Seura.html',
+    seurasihteeri:        'TalentMaster_Seura.html',
+    urheilutoimenjohtaja: 'TalentMaster_Seura.html',
+  };
+  const kohdeSimu = roolitusUrl[rooli] || 'TalentMaster_Seura.html';
+  const kohdeUrl  = `https://terokoskela7-cmyk.github.io/talentmaster/${kohdeSimu}`;
+
+  resetLinkki = await auth.generatePasswordResetLink(email, {
+    url: kohdeUrl,
+    handleCodeInApp: false,
+  });
+  await lahetaSahkoposti({
+    to: email,
+    subject: 'TalentMaster™ — Tervetuloa! Aseta salasanasi',
+    fromName: 'TalentMaster™',
+    html: pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }),
+  });
+} catch (e) {
+  console.warn('[luoKayttaja] Salasanasähköposti epäonnistui:', e.message);
+}
       await lahetaSahkoposti({
         to: email,
         subject: 'TalentMaster™ — Tervetuloa! Aseta salasanasi',
