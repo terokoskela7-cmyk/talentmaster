@@ -1,317 +1,202 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
+## Projektin tila (päivitetty 2026-04-04)
 
-## Projektin tila (päivitetty 2026-04-02)
-
-TalentMaster on jalkapallon talenttiarviointialusta jossa on 7 aktiivista pilottiseuraa. Firebase Blaze-plan, GitHub Pages (Fastly CDN), vanilla JS. Kaikki perusnäkymät toimivat tuotannossa. Tässä sessiossa rakennettiin TASO-integraatio (Palloliiton tulospalvelu) ja korjattiin useita VP v18 -bugeja.
+TalentMaster on jalkapallon talenttiarviointialusta — 7 pilottiseuraa, Firebase Blaze. Harjoitelogiikka v3 rakennettu ja testattu tässä sessiossa. Pelaaja v2 kehitteillä PIN-kirjautumisella.
 
 ---
 
-## GitHub-repositorio
+## GitHub + tiedostot
 
 ```
 https://github.com/terokoskela7-cmyk/talentmaster
 https://terokoskela7-cmyk.github.io/talentmaster/
 ```
 
-### Aktiiviset tiedostot (viimeisimmät versiot)
+| Tiedosto | Tila |
+|---|---|
+| `TalentMaster_VP_v18.html` | outputs-kansiossa, lataus PENDING |
+| `TalentMaster_Seura.html` | Aktiivinen |
+| `TalentMaster_Master_v7.html` | Aktiivinen (12 238 riviä) |
+| `TalentMaster_IDP_Kortti_v3.html` | Toimii KPV:llä |
+| `harjoitelogiikka_v3.js` | UUSI — outputs-kansiossa, lataus PENDING |
+| `pin_lisays.html` | UUSI — outputs-kansiossa |
+| `functions/index.js` | Aktiivinen |
+| `tm_admin/firestore.rules` | Julkaistu Firebase-konsolissa |
 
-| Tiedosto | Versio | Kuvaus |
-|---|---|---|
-| `TalentMaster_VP_v18.html` | v18 | VP-dashboard — AKTIIVINEN |
-| `TalentMaster_Master_v9.html` | v9 | Valmentajan näkymä |
-| `TalentMaster_Seura.html` | v7+ | Seurahallinta (VP/sihteeri) |
-| `TalentMaster_Rekisterointi_Suostumus.html` | — | Huoltajan suostumuslomake |
-| `TalentMaster_IDP_Kortti_v3.html` | v3 | IDP-kortti (toimii KPV:llä) |
-| `TalentMaster_Pelaaja_v1.html` | v1 | Pelaajan gamified näkymä |
-| `functions/index.js` | — | Cloud Functions (7 kpl) |
-| `hpp_rehab_protokollat.js` | — | 25 kuntoutusprotokollaa |
-
----
-
-## Firebase
-
-- **Projekti:** `talentmaster-pilot` (Blaze plan)
-- **Tietokanta:** Firestore `eur3` multi-region
-- **Auth:** Email/Password
-- **Functions:** Node.js 22, `europe-west1`
-- **Sähköposti:** SendGrid HTTP API
-
-### Konfiguraatio
+## Firebase config
 ```javascript
 const firebaseConfig = {
-  apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
-  authDomain:        "talentmaster-pilot.firebaseapp.com",
-  projectId:         "talentmaster-pilot",
-  storageBucket:     "talentmaster-pilot.firebasestorage.app",
+  apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+  authDomain: "talentmaster-pilot.firebaseapp.com",
+  projectId: "talentmaster-pilot",
+  storageBucket: "talentmaster-pilot.firebasestorage.app",
   messagingSenderId: "872561784446",
-  appId:             "1:872561784446:web:05c4c7996dfd46ddd14a2f"
+  appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
 };
 ```
 
-### Käyttäjät
+Super Admin: talentmasterid@gmail.com / UID: dqUzvJA61Wb9fgj5UiK0riSA4NI2
 
-| Sähköposti | UID | Rooli | Seura |
+## PENDING
+- VP v18 → GitHub
+- harjoitelogiikka_v3.js → GitHub
+- Cloud Scheduler API: https://console.cloud.google.com/apis/library/cloudscheduler.googleapis.com?project=talentmaster-pilot
+
+---
+
+## Harjoitelogiikka v3 — tämän session tärkein rakenne
+
+### 70/30-periaate (lähde: TalentMaster_Kayttajatutkimus.html — EI muuteta)
+- 70% KOKONAISVALTAINEN: kaikki 5 liikeketjua joka harjoituksessa. Tekninen pääharjoite kiertää kahta heikointa viikottain.
+- 30% KOHDENNETTU: aina pelaajan HEIKOIMPAAN ketjuun. EI profiiliin. EI vahvuuteen.
+- Koskee ALKURUTIINIA (20–30 min). Kenttäharjoitus on valmentajan.
+
+### Harjoitetyypit
+| Tyyppi | Milloin | Kesto | Tarkoitus |
 |---|---|---|---|
-| talentmasterid@gmail.com | dqUzvJA61Wb9fgj5UiK0riSA4NI2 | Super Admin | Kaikki |
-| vp.fcl@talentmaster.fi | dpYcfa154ZOHshZzHrVaTZ2iTHE3 | VP | FC Lahti Juniorit |
-| vp.kpv@talentmaster.fi | jIbW7q8nLggswTjefkYuSvtneH92 | VP | KPV |
-| vp.palloiirot@talentmaster.fi | fBf1c60rjXTPxYlsV03EfrHZ2xM2 | VP | Pallo-Iirot |
-| vp.yvies@talentmaster.fi | U21RwOm7OYdrAQB8wTXXlDQksEk2 | VP | Ylöjärven Ilves |
-| vp.sjk@talentmaster.fi | 1eHyfKsuTSRAAsPu9kRZ22E4hwo2 | VP | SJK Juniorit |
-| vp.grifk@talentmaster.fi | lBCx0ivDYVWLmxD9TGKsvYrFrlo1 | VP | GrIFK |
+| T | Joka päivä — MYÖS LEPOPÄIVÄT | 15–30 min | Pallokosketus — kultaikkuna |
+| D | Joka päivä — myös lepopäivät | 5–10 min | Liikkuvuus + hermoston ylläpito |
+| S | Vapaa-/lepopäivä | 15–20 min | Pelaajan HEIKOIN ketju |
+| P | 2–3×/vk harjoitusten välissä | 20–30 min | 6 vk nousujohteinen jakso |
 
-### Firestore-kokoelmat
-- `seurat/{id}` — 7 pilottiseuraa
-- `seurat/{id}/tapahtumat/taso_{match_id}` — TASO-ottelut (lahde: "taso") **UUSI**
-- `admins/` — super-admin dokumentti
-- `seurat/{id}/pelaajat/` — pelaajat palloID-kentällä
+### T-harjoitteen filosofia — KIRJATTU TÄSSÄ SESSIOSSA
 
----
+**Perustava ero fysiikkaan:**
+Fyysinen kapasiteetti = superkompensaatio → vaatii lepoa väliin.
+Tekninen taito = hermostollinen automatisoituminen → EI vaadi lepoa. Tauko heikentää automaatioratoja.
+→ Sama periaate joka tekee lepopäivästä järkevää fysiikalle tekee lepopäivästä vaarallista tekniikalle.
 
-## Cloud Functions (functions/index.js) — 7 kpl
+**Kultaikkuna 8–12v (Nevanlinna 2014):**
+Taitavuustekijät (koordinaatio, tasapaino, rytmikyky, reaktiokyky) kehittyvät voimakkaimmillaan 7–12v.
+Sama oppimistulos murrosiän jälkeen vaatii MONINKERTAISEN työmäärän.
+→ 10-vuotias oppii ponnauttelu-automaation 3kk. 16-vuotias tarvitsee 12–18kk.
 
-| Funktio | Tyyppi | Kuvaus |
-|---|---|---|
-| `lahetaRekisteriKutsu` | callable | Lähettää huoltajalle rekisteröintilinkin |
-| `lahetaHuoltajaKutsu` | callable | Vanhempi yhteensopivuus |
-| `luoKayttaja` | callable | Luo valmentajan/VP:n Firebase Auth + Firestore |
-| `deaktivioiKayttaja` | callable | Deaktivoi käyttäjän |
-| `lahetaPelaajaSivuLinkki` | callable | Lähettää pelaajasivun linkin huoltajalle |
-| `tasoHaeMaatcheck` | cron 06:00 | **UUSI** Hakee ottelut kaikille seuroille päivittäin |
-| `tasoHaeSeuranOttelut` | callable | **UUSI** VP triggeröi otteluhaun heti Seura.html:stä |
+**Ajax/Benfica/La Masia — "daily touches":**
+15–30 min palloa joka päivä > 3h kahdesti viikossa.
+Benfican pelaajat saavat pallon kotiin joka kulkee mukana kaikkialle.
+Côté 2007: vapaa ilo-orientoitunut peli alle 12v → parempi tekninen pohja kuin strukturoitu harjoittelu.
+Ennustamattomat tilanteet rakentavat JOUSTAVIA hermoratoja.
 
----
+**U8–U12: EI mittausta, EI tavoitetta, EI pakottamista.**
+Ilo tuottaa toistoja. Pakottaminen tappaa ilon. Kultaikkunan arvo perustuu motivaatioon.
+Vanhemmalle: "Älkää painostako — tehkää pallosta osa arkirutiinia niin kuin hampaidenpesusta."
 
-## TASO-integraatio (UUSI 2026-04-02)
+**U15+ tekniikka vahvistuu eri tavalla:**
+Ei enää automatisoidu samalla tavalla — INTEGROITUU peliin.
+T muuttuu pelipaikkakohtaiseksi. LH: 1v1-siirtoja. KK: syöttötarkkuus. ST: viimeistely.
+Toistologiikka säilyy mutta konteksti muuttuu: pallontuntu OIKEASSA tilanteessa.
 
-### Miten toimii
-```
-VP kirjautuu taso.palloliitto.fi pääkäyttäjänä
-  → Valikko → Rajapinta → hyväksy käyttöehdot → kopioi API-avain
-  → Tallentaa avaimen + club_id:n Seura.html:n TASO-asetuksiin (kerran)
+**T-harjoite ei poistu koskaan. Se vain muuttaa muotoaan.**
 
-Cloud Function tasoHaeMaatcheck (cron klo 06:00)
-  → Hakee kaikki seurat joilla taso_api_key
-  → GET /getClub → joukkueet → GET /getMatches per joukkue
-  → Upsert Firestoreen: seurat/{id}/tapahtumat/taso_{match_id}
+### Muut periaatteet
+- **Viikkokierto:** parillinen vk → heikoin, pariton → toiseksi heikoin
+- **Ikäkohtainen kieli:** leikkija (U8–12) / rakentaja (U13–15) / showcase (U16+)
+- **Everton Stage 1→5:** sama harjoite vaikeutuu kun Stage nousee (pisteet tai ikä)
+- **PHV ohittaa Stagen:** circa-PHV pysyy Stage 2:ssa vaikka pisteet kasvaisivat
+- **PHV:** kuorma 60%, eksentriset pois, DFL-harjoitteet normaali tai enemmän, kognitiiviset suositeltuja
+- **Videolinkit:** yt-kenttä per harjoite. Firestore videoBank/{id} → valmentajan video menee ohi oletuksen
 
-VP v18 kalenteri näyttää ottelut automaattisesti
-```
+### Everton-lisäykset
+- Laskeutuminen (ACL): SBL + SFL + LL-ketjuihin kytketty, PHV-gated
+- YJ-loikat: LL + SBL, 6 vk progressio
+- Karhukävely (dynaaminen core): DFL
 
-### Firestore-kentät seuradokumentissa
+### 6 viikon P-jakso (Nevanlinna 2014)
+- Vk 1–2: Valmistava (60–70%)
+- Vk 3–4: Kehittävä (75–85%)
+- Vk 5–6: Huipentava (90–100%)
+
+### Funktiot
 ```javascript
-seurat/{seuraId}/ {
-  taso_api_key:        "abc123",   // VP tallentaa kerran
-  taso_club_id:        "2970",     // Palloliiton seura-numero
-  taso_viimeisin_haku: timestamp,
-  taso_ottelut_lkm:    47,
-}
+generoimTehtavat(pelaaja)        // T+D+S
+generoimTehtavatV2(pelaaja)      // + P (U15+)
+generoimViikoOhjelma(pelaaja)    // 7 päivän ohjelma
+laskeKetjuProfiili(pelaaja)      // heikoin/vahvin/järjestys
+_laskeStage(pelaaja)             // Stage 1-5
+_ikatyyppi(ika)                  // leikkija/rakentaja/showcase
+ytUrl(id) / ytThumbnail(id)      // YouTube apufunktiot
 ```
 
-### Ottelutapahtuman rakenne
+---
+
+## PIN-kirjautuminen
+
 ```javascript
-seurat/{id}/tapahtumat/taso_{match_id}/ {
-  tyyppi: "ottelu", lahde: "taso",
-  taso_ottelu_id: "12345",
-  nimi: "KPV U15 – FC Lahti U15",
-  pvm: "2026-05-10", aika: "14:00",
-  kotiJoukkue, vierasJoukkue, kentta, sarja, tulos, tila
-}
+_haeKaikkiSeurat()     // Firestoresta, ei kovakoodattu lista → toimii uusille seuroille
+pinTarkista()          // pelaajat.where('pin','==','1234')
+_tarkistaPinSessio()   // sessio 30 päivää localStorage
+kirjauduUlos()         // tyhjentää Firebase + PIN
 ```
-
-### TASO REST API
-- Base URL: `https://spl.torneopal.fi/taso/rest/`
-- Avain: seuran pääkäyttäjä → TASO → Rajapinta → hyväksy käyttöehdot
-- Endpointit: `getClub`, `getMatches`, `getTeams`, `getVenues`, `getDistricts`
-- Kausi-formaatti: `"2025-2026"` tai `"2026"`
-- `match_id` on uniikki → Firestore-doc-ID `taso_{match_id}`
-
-### UI-komponentti (taso_seura_ui.html)
-Lisätään Seura.html:n asetukset-osioon. Sisältää:
-- API-avain (password-kenttä, tallennetaan salattuna) + club_id -lomake
-- "Hae ottelut nyt" -nappi → kutsuu `tasoHaeSeuranOttelut`
-- Tila-badge (Ei konfiguroitu / Konfiguroitu)
-- Viimeisin haku -info
+URL-parametri `?seura=kpv` nopeuttaa hakua.
 
 ---
 
-## PalloID — tilanne
+## Vuosiohjelma — automaattiset muutokset
 
-- Rekisteröintilomakkeessa kenttä `id="i_pid"` ✅
-- Tallentuu Firestoreen `palloID`-kenttään ✅
-- Seura.html lukee `p.palloID || p.palloid || p.palloId` ✅
-- Jos palloID tiedetään, käytetään pelaajan Firestore-doc-ID:nä ✅
-- Vaihe 2: palloID linkittää pelaajan TASO-ottelukokoonpanoihin
+1. `harjoitettavuus_pisteet` kasvaa → Stage nousee → harjoite vaikeutuu
+2. Heikoin ketju vaihtuu → D ja S vaihtuvat automaattisesti
+3. `phv_tila` muuttuu → kuormarajoitin aktivoituu/poistuu
 
----
-
-## Tässä sessiossa korjatut bugit
-
-### VP v18 — puuttuvat funktiot (kaikki lisätty)
-- `kirjauduUlos()` — puuttui, "Kirjaudu ulos" kaatoi ReferenceError
-- `naytaTabi(nimi, btn)` — tab-navigointi + lazy loading
-- `avaaUusiTapahtuma()` — kalenteri-napin toiminta
-- `_vpValitseTyyppi()` — tapahtuman tyypin valinta modalissa
-- `_vpAvaaLuoModal()` / `_vpAvaaLuoModalPvm()` — modaalien avaus
-- `_vpAvaaDetModal()` — tapahtuman detaili-modaali
-- `_vpMuutaTila()` — tapahtuman tilan muutos
-- `_vpNaytaMitaSeuraavaksi()` — onnistumisviesti
-
-### Master v9 — superadmin kirjautuminen korjattu
-```javascript
-if (!sallitutRoolit.includes(rooli) && rooli !== 'vp'
-    && rooli !== 'superadmin' && rooli !== 'super_admin') {
-```
+Kehitysnopeus (realistinen/kausi): Lankku 20s→55s · T-drill −0.4s · 5-loikka +50cm · Ponnauttelu +10/min
 
 ---
 
-## Tiedostot joita EI OLE vielä deployttu
+## Kriittiset periaatteet (EI muuteta koskaan)
 
-| Tiedosto | Mitä pitää tehdä |
-|---|---|
-| `TalentMaster_VP_v18.html` | Korvaa GitHubissa (outputs-kansiossa) |
-| `functions/index.js` | Korvaa GitHubissa → GitHub Actions deploy |
-| `taso_seura_ui.html` | Lisää Seura.html:ään (outputs-kansiossa) |
-
-Master v9 on jo deployttu suoraan GitHubissa.
-
----
-
-## Seuraavat prioriteetit
-
-1. **Deploy** — `VP_v18.html` + `functions/index.js` GitHubiin → Actions
-2. **KPV API-avain** — Pyydä Topias Koskelalta → testaa TASO-integraatio
-3. **Seura.html TASO-UI** — `taso_seura_ui.html` integrointi
-4. **Valmentajan kartoitusnäkymä** — kriittisin puute ennen pilotin laajentamista
-5. **VP v18 KPI-mittarit** — Delta 30pv, ikäluokat-taulukko
+1. Super Admin dqUzvJA61Wb9fgj5UiK0riSA4NI2 — pääsy kaikkialle aina
+2. S-harjoite = AINA heikoin ketju, ei profiiliin
+3. T-harjoite = joka päivä, myös lepopäivät
+4. PHV ohittaa Stagen
+5. 70/30 koskee alkurutiinia — kenttäharjoitus on valmentajan
+6. `super_admin` underscore canonical — `normalizeRooli()` hoitaa vanhat
+7. Firestore Rules: `allow create` JA `allow update`
 
 ---
 
-## Teknisiä muistiinpanoja
+## Tehtävälista — sprinteittäin
 
-**Firebase:**
-- Super-admin: `admins/{uid}` dokumentin olemassaolo riittää (ei tarvita kenttiä)
-- `onAuthStateChanged` double-fire estetään `_kirjautuminenKesken`-lipulla
-- TASO-avain tallennetaan selväkielisenä seuradokumenttiin (riittävä pilotissa)
-- Batch max 500 → TASO käyttää 400 per erä
+### Sprint 1–2 (nyt)
+1. Lataa VP v18 + harjoitelogiikka_v3 GitHubiin
+2. Aktivoi Cloud Scheduler API
+3. Integroi PIN + harjoitelogiikka v3 Pelaaja v1:een
+4. Streak + XP Firestoreen (nyt localStoragessa)
+5. Valmentajan päivän tehtävä → Firestore
+6. videoBank Firestoreen — valmentaja lisää videolinkin harjoitteelle
 
-**GitHub Pages / CDN:**
-- Fastly CDN — `?v=N` cache-busting tai odota ~10min
-- Tarkista: `https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/[tiedosto]?nc=[timestamp]`
-- MCP file_upload epäonnistuu >100KB tiedostoille → käytä present_files + manuaalinen upload
-
-**Jopox-analyysi:**
-- Seurahallintajärjestelmä (Hilla Group), 9,90 €/kk/joukkue
-- Ei julkista APIa — kalenteri integroituu TASO:on (sama lähde)
-- TalentMaster ja Jopox täydentävät: Jopox = hallinto, TalentMaster = kehitys
-
----
-
-## Identiteetti-arkkitehtuuri
-
-- Firebase UID = ankkuri johon kaikki data kiinnittyy
-- PalloID = Palloliiton lisätunniste (`palloID`-kenttä)
-- Vaihe 2: PalloID linkittää TASO-ottelukokoonpanoihin
-- Vaihe 3: SporttiID = universaali urheilija-ID yli lajirajojen
-
----
-
-## Pilottiseurat (7 kpl)
-
-| ID | Seura | Tila |
-|---|---|---|
-| kpv | KPV | Aktiivinen — tärkein pilotti, Topias Koskela yhteyshenkilö |
-| fcl | FC Lahti Juniorit | Aktiivinen |
-| palloiirot | Pallo-Iirot | Aktiivinen |
-| yvies | Ylöjärven Ilves | Aktiivinen |
-| sjk | SJK Juniorit | Aktiivinen |
-| grifk | GrIFK | Aktiivinen |
-| hjk | HJK Juniorit | Tulossa |
-
----
-
-## Bisnesmalli
-
-- Kiinteä seuralisenssi 200–400 €/kausi (MRR)
-- Per-pelaaja raportti (skaalautuva)
-- Klinikka kertamaksuna
-- Paketit: Perustaso / Kehitystaso / Huipputaso
-- Palloliitto-yhteistyö: esitys tehty, merkittävä strateginen mahdollisuus
-
----
-
-## Gamification-analyysi ja Pelaaja-appin kehityssuunta (2026-04-02)
-
-### Tutkimuslöydökset
-- Gen Z (10–19v) käyttää mobiilia 2× enemmän kuin yli 45-vuotiaat
-- 65% Gen Z:sta pelaa yli 3h/pv — pelimekaniikka on heille normaali tapa toimia
-- Gen Z:lle toimivat: streak (tottumus), näkyvä edistyminen (OVR/XP), sosiaalinen kilpailu
-- Passiivinen data ei muuta käyttäytymistä — tarvitaan aktiivinen toimintasilmukka
-- Jokainen lisäaskel onboardingissa kasvattaa poistumaa 20%
-- Gamifioitu onboarding kasvattaa tehtävien suoritusastetta 135%
-
-### Pelaaja v1 — mitä on jo oikein
-- Streak + freeze-mekaniikka ✅
-- XP-tasot (Basic → Kilpailija → Sharp → Elite → Signature) ✅
-- FIFA-korttityylinen hero-card (OVR/avatar) ✅
-- Kaverihaasteet (6-merkkiset koodit, 4 tyyppiä) ✅
-- Fiilinki-emoji (anonyymi mielialakirjaus) ✅
-- Kehityskorttien lunastus harvinaisuusprosentilla ✅
-
-### Kriittisin puute — toimintasilmukka puuttuu
-Valmentaja ei voi asettaa tehtäviä eikä pelaaja voi kuitata niitä.
-Tämä on se pala joka saa pelaajan avaamaan appin **joka päivä**.
-
-### Sprint-suunnitelma
-
-**Sprint 1 — Päivittäinen mikrotehtävä (seuraava sessio)**
+### Sprint 3–5 (kun pelaajat kirjaavat)
+7. Harjoitekirjauksen Firestore-rakenne — tee oikein heti, AI tarvitsee myöhemmin:
 ```
-Master v9: valmentaja asettaa "Päivän tehtävä" joukkueelle
-  → Firestore: seurat/{id}/joukkueet/{jId}/paivan_tehtava/{pvm}
-
-Pelaaja v1: tehtäväkortti hero-kortin alla
-  "📋 Tänään: 3×10 pallokosketusta seinää vasten"
-  [Merkitse tehty] → +30 XP → streak kasvaa
-```
-Toteutustapa: **itsenäiset komponentit** (ei suoraa tiedostomuokkausta)
-— vähemmän bugeja koska liitoskohdat ovat tarkat ja pienet
-
-**Sprint 2 — Joukkueen viikkohaaste**
-```
-Automaattinen joka maanantai joukkueelle:
-"KPV U15 — tavoite: 80% kirjaa harjoituksen tällä viikolla"
-Tilanne näkyy kaikille pelaajille reaaliajassa
+seurat/{seuraId}/pelaajat/{pelaajaId}/kirjaukset/{pvm}/
+  tyyppi: 'T'|'D'|'S'|'P'
+  tehty: true|false
+  kesto_min: 15
+  rpe: 1-10
+  aika: 'ilta'|'aamu'|'paiva'
+  fiilinki: 1-5
+streak_historia: []
+joukkuetreenit: []
 ```
 
-**Sprint 3 — PWA push-ilmoitukset**
-```
-Muistutus klo 16:30: "Hei Mikael 🔥 Streak 7 päivää — jatka tänään!"
-Vaatii PWA-manifesti + service worker
-```
-
-### Firestore-rakenne Sprint 1:lle
-```javascript
-// Valmentaja kirjoittaa:
-seurat/{seuraId}/joukkueet/{joukkueId}/paivan_tehtava/{pvm}/ {
-  teksti: "3×10 pallokosketusta seinää vasten",
-  xp: 30,
-  asettanut: valmentajaUid,
-  asetettu: timestamp,
-  pvm: "2026-05-10"
-}
-
-// Pelaaja kuittaa:
-seurat/{seuraId}/pelaajat/{pelaajaId}/tehtava_kuitattu/{pvm}/ {
-  kuitattu: timestamp,
-  xp_saatu: 30
-}
-```
-
-### Seuraavan session aloitus
-Tero tuo Pelaaja v1:stä ja Master v9:stä nämä kohdat:
-1. Hero-kortin sulkevan `</div>`:n ympäriltä ~5 riviä
-2. JS-lohkon alun (`const _db` tai `firebase.firestore()`)
-3. Master v9:stä ensimmäisen tabi-osion alku
-
-Näiden perusteella rakennetaan tarkat komponentit ilman bugiriskiä.
+### Sprint 6–8 (kun dataa 2–4 viikkoa)
+8. AI Behavioural Science -agentti
+   - Arkkitehtuuri: Firestore trigger → Cloud Function → Anthropic API → pelaajan näkymä
+   - Puhuu VAIN oikeaan aikaan:
+     * Streak katkeamassa → proaktiivinen ilta-muistutus
+     * 3pv putki → positiivinen vahvistus
+     * Fiilinki matala 2pv → kysyy miten menee
+     * Uusi viikko / kuukausi → fresh start -viesti
+     * PHV-huippu → erityinen viesti (kehitä peliälyä nyt)
+   - Käyttäytymistieteen periaatteet:
+     * Habit loop (Duhigg 2012): cue → routine → reward
+     * Implementation intention (Gollwitzer 1999): "milloin ja missä?"
+     * Loss aversion (Kahneman): streak-freeze toimii jo tällä
+     * Social proof (Cialdini): "3 muuta KPV:n pelaajaa teki eilen"
+     * Temptation bundling (Milkman 2021): yhdistä harjoite mukavaan
+     * If-then planning: "jos sää huono → seinäsyöttö sisällä"
+     * Fresh start effect (Milkman 2014): uusi viikko = paras aika aloittaa
+   - Ikäkohtainen ääni:
+     * leikkija: "Hei! Muistitko ottaa pallon mukaan tänään? 🎮"
+     * rakentaja: "Kolmas päivä putkeen. Illalla vielä pieni pallokosketus?"
+     * showcase: "Streak 12pv. Walker 2017: ilta-T konsolidoituu unessa paremmin."
+   - Vaatii min 2–4vk dataa ennen aktivointia
