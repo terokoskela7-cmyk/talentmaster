@@ -568,6 +568,11 @@ async function paivitaSeuranOttelut(seuraId, apiKey, clubId) {
   });
   return ottelut.length;
 }
+// tasoHaeMaatcheck — VÄLIAIKAISESTI POISTETTU KÄYTÖSTÄ
+// Vaatii cloudscheduler.jobs.update -oikeuden Service Accountille.
+// Lisää IAM-konsolissa: Cloud Scheduler Admin -rooli SA:lle.
+// Käytä manuaalisesti: tasoHaeSeuranOttelut (HTTP callable VP:n kautta)
+/*
 exports.tasoHaeMaatcheck = functions
   .region('europe-west1')
   .pubsub.schedule('0 6 * * *')
@@ -586,6 +591,7 @@ exports.tasoHaeMaatcheck = functions
     }
     return null;
   });
+*/
 exports.tasoHaeSeuranOttelut = functions
   .region('europe-west1')
   .https.onCall(async (data, context) => {
