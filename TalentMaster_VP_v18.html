@@ -961,20 +961,8 @@ async function _tunnistaudu(user) {
     }
   } catch(e) { console.warn('[AUTH] claims-haku:', e.message); }
 
-  // Tapa 3: Custom Claims
-  try {
-    const token = await user.getIdTokenResult(false);
-    const claimsRooli = token.claims.rooli;
-    const claimsSeura = token.claims.seuraId;
-    if (['vp','seurasihteeri','urheilutoimenjohtaja'].includes(claimsRooli) && claimsSeura) {
-      _rooli = claimsRooli;
-      await asetaSeura(claimsSeura);
-      return;
-    }
-  } catch(e) { console.warn('[AUTH] claims-haku:', e.message); }
-
   // Tapa 4: Sähköpostifallback — vp.kpv@... → kpv, vp.fcl@... → fcl
-  // Käytetään kun Firestore Rules ei vielä deployttu tai Claims puuttuu
+  // Kriittinen fallback kun Firestore Rules ei vielä deployttu tai Claims puuttuu
   try {
     const emailParts = user.email.match(/^vp\.([a-z0-9_-]+)@/i);
     if (emailParts && emailParts[1]) {
@@ -986,12 +974,15 @@ async function _tunnistaudu(user) {
     }
   } catch(e) { console.warn('[AUTH] email-fallback:', e.message); }
 
-  // Ei löydy — hylätään
-  console.warn('[AUTH] Ei oikeuksia:', user.email);
-  await _auth.signOut();
+  // Ei tunnistettu — näytetään virhe ILMAN signOut:ia
+  // SignOut heittäisi käyttäjän ulos kokonaan, minkä sijaan näytetään vain virheilmoitus
+  console.warn('[AUTH] Ei tunnistettu VP-käyttäjä:', user.email);
   nayta('sLogin');
-  document.getElementById('loginVirhe').textContent =
-    'Tämä näkymä on seuran valmennuspäällikölle. Valmentajat kirjautuvat valmentajan näkymään.';
+  const virheEl = document.getElementById('loginVirhe');
+  if (virheEl) {
+    virheEl.textContent = 'Tämä näkymä on seuran valmennuspäällikölle. Valmentajat kirjautuvat valmentajan näkymään.';
+    virheEl.style.display = 'block';
+  }
 }
 
 // Super admin -seurojen vaihtodropdown headeriin
