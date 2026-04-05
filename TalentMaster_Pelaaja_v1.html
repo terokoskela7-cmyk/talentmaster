@@ -65,26 +65,122 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .view.active{display:block;}
 .inner{max-width:600px;margin:0 auto;padding:16px;}
 
-/* ── FIFA-KORTTI ── */
-.fcard{background:linear-gradient(145deg,#2A1F00,#1A1200);border:1px solid rgba(245,183,0,.3);border-radius:16px;padding:18px 16px;cursor:pointer;transition:transform .15s;position:relative;overflow:hidden;user-select:none;}
-.fcard::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 20% 20%,rgba(245,183,0,.08),transparent 60%);pointer-events:none;}
-.fcard:active{transform:scale(0.97);}
-.fc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
-.fc-rating{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:44px;color:var(--gold);line-height:1;}
-.fc-pos{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;color:var(--gold);text-align:right;}
-.fc-club{font-size:9px;color:rgba(245,183,0,.6);font-weight:700;letter-spacing:.5px;text-align:right;}
-.fc-level{font-size:8px;color:rgba(245,183,0,.5);font-weight:700;letter-spacing:.5px;text-align:right;margin-top:1px;}
-.fc-avatar{font-size:40px;text-align:center;margin:4px 0;line-height:1;}
-.fc-name{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;color:var(--gold);text-align:center;letter-spacing:.5px;margin-bottom:8px;}
-.fc-div{height:1px;background:rgba(245,183,0,.2);margin:6px 0;}
-.fc-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 12px;margin-top:8px;}
-.fcs{text-align:center;}
-.fcs-v{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;color:var(--gold);}
-.fcs-l{font-size:8px;color:rgba(245,183,0,.6);font-weight:600;letter-spacing:.3px;text-transform:uppercase;}
-.fc-type{text-align:center;margin-top:10px;font-size:9px;color:rgba(245,183,0,.5);font-weight:700;letter-spacing:1px;text-transform:uppercase;}
-.fc-xp-bar{height:3px;background:rgba(245,183,0,.1);border-radius:2px;margin-top:12px;overflow:hidden;}
-.fc-xp-fill{height:100%;background:var(--gold);border-radius:2px;transition:width 1s ease;}
-.fc-xp-label{font-size:9px;color:rgba(245,183,0,.5);text-align:center;margin-top:3px;}
+/* ── FIFA-KORTTI POPUP ── */
+.fcard-trigger{
+  background:linear-gradient(145deg,#2A1F00,#1A1200);
+  border:1px solid rgba(245,183,0,.4);
+  border-radius:16px;padding:16px;
+  cursor:pointer;transition:transform .2s, box-shadow .2s;
+  position:relative;overflow:hidden;user-select:none;
+  box-shadow:0 4px 24px rgba(245,183,0,.08);
+}
+.fcard-trigger:active{transform:scale(0.97);}
+.fcard-trigger::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 20% 20%,rgba(245,183,0,.1),transparent 60%);pointer-events:none;}
+
+/* Fullscreen overlay */
+.fcard-overlay{
+  position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,.85);
+  backdrop-filter:blur(12px);
+  display:none;
+  align-items:center;justify-content:center;
+  padding:20px;
+  animation:fadeIn .2s ease;
+}
+.fcard-overlay.open{display:flex;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+
+/* Iso kortti popupissa */
+.fcard-big{
+  background:linear-gradient(160deg,#3A2800 0%,#1A1200 40%,#0D0800 100%);
+  border:2px solid rgba(245,183,0,.5);
+  border-radius:24px;
+  width:100%;max-width:340px;
+  padding:28px 24px 24px;
+  position:relative;overflow:hidden;
+  box-shadow:
+    0 0 0 1px rgba(245,183,0,.1),
+    0 20px 60px rgba(0,0,0,.8),
+    0 0 80px rgba(245,183,0,.08) inset;
+  animation:cardPop .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes cardPop{
+  from{transform:scale(.85) translateY(30px);opacity:0;}
+  to{transform:scale(1) translateY(0);opacity:1;}
+}
+.fcard-big::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 30% 20%,rgba(245,183,0,.12),transparent 70%),
+    radial-gradient(ellipse 40% 60% at 80% 80%,rgba(255,107,43,.06),transparent 70%);
+  pointer-events:none;
+}
+.fcard-big::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(245,183,0,.6),transparent);
+}
+
+.fcard-close{
+  position:absolute;top:14px;right:14px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  border-radius:50%;width:32px;height:32px;
+  display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,.5);font-size:14px;
+  cursor:pointer;transition:all .15s;z-index:1;
+}
+.fcard-close:hover{background:rgba(255,255,255,.12);color:var(--text);}
+
+.fc-big-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.fc-big-rating{
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:80px;color:var(--gold);line-height:.9;
+  text-shadow:0 0 40px rgba(245,183,0,.4);
+}
+.fc-big-meta{text-align:right;}
+.fc-big-pos{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:20px;color:var(--gold);}
+.fc-big-club{font-size:11px;color:rgba(245,183,0,.6);font-weight:700;letter-spacing:.5px;margin-top:2px;}
+.fc-big-level{
+  font-size:10px;color:rgba(245,183,0,.5);font-weight:700;
+  letter-spacing:.5px;margin-top:2px;
+  background:rgba(245,183,0,.08);border:1px solid rgba(245,183,0,.15);
+  border-radius:6px;padding:2px 6px;display:inline-block;
+}
+.fc-big-avatar{font-size:64px;text-align:center;margin:4px 0 6px;line-height:1;filter:drop-shadow(0 0 16px rgba(245,183,0,.3));}
+.fc-big-name{
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:32px;color:var(--gold);text-align:center;
+  letter-spacing:.5px;margin-bottom:12px;
+  text-shadow:0 0 20px rgba(245,183,0,.3);
+}
+.fc-big-div{height:1px;background:linear-gradient(90deg,transparent,rgba(245,183,0,.3),transparent);margin:10px 0;}
+.fc-big-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 16px;margin-top:12px;}
+.fc-big-stat{text-align:center;}
+.fc-big-stat-v{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:26px;color:var(--gold);}
+.fc-big-stat-l{font-size:9px;color:rgba(245,183,0,.6);font-weight:600;letter-spacing:.5px;text-transform:uppercase;}
+.fc-big-type{text-align:center;margin-top:10px;font-size:10px;color:rgba(245,183,0,.5);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
+.fc-big-xp{margin-top:16px;}
+.fc-big-xp-bar{height:4px;background:rgba(245,183,0,.1);border-radius:2px;overflow:hidden;}
+.fc-big-xp-fill{height:100%;background:linear-gradient(90deg,var(--amber),var(--gold));border-radius:2px;transition:width 1.2s ease;}
+.fc-big-xp-row{display:flex;justify-content:space-between;font-size:10px;color:rgba(245,183,0,.5);margin-top:4px;}
+
+/* Pieni kortti (trigger) */
+.fc-mini{display:flex;align-items:center;gap:12px;}
+.fc-mini-rating{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:52px;color:var(--gold);line-height:1;}
+.fc-mini-info{flex:1;}
+.fc-mini-name{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;color:var(--gold);}
+.fc-mini-meta{font-size:11px;color:rgba(245,183,0,.6);margin-top:2px;}
+.fc-mini-badge{font-size:10px;color:rgba(245,183,0,.5);font-weight:700;letter-spacing:.5px;margin-top:4px;
+  background:rgba(245,183,0,.08);border:1px solid rgba(245,183,0,.15);border-radius:6px;padding:2px 7px;display:inline-block;}
+.fc-mini-tap{font-size:10px;color:rgba(245,183,0,.4);text-align:center;margin-top:10px;letter-spacing:.5px;}
+
+/* Mini-tilasto riville */
+.fc-mini-stats{display:flex;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(245,183,0,.1);}
+.fc-ms{text-align:center;flex:1;}
+.fc-ms-v{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;color:var(--gold);}
+.fc-ms-l{font-size:8px;color:rgba(245,183,0,.5);font-weight:600;letter-spacing:.3px;text-transform:uppercase;}
+
+/* ── Vanhat (legacy — poistetaan CSS muttei rikota JS) ── */
+.fcard,.fc-top,.fc-rating,.fc-pos,.fc-club,.fc-level,.fc-avatar,.fc-name,.fc-div,.fc-stats,.fcs,.fcs-v,.fcs-l,.fc-type,.fc-xp-bar,.fc-xp-fill,.fc-xp-label{display:none!important;}
 
 /* ── STREAK ── */
 .streak-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px;margin-bottom:14px;}
@@ -453,55 +549,72 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <div class="view" id="view-kortti">
   <div class="inner fadeup">
 
-    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
-      <!-- FIFA-kortti -->
-      <div style="flex:1;min-width:180px;max-width:220px;">
-        <div style="font-size:11px;color:var(--ink3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;">
-          Sinun korttisi
-          <button style="background:none;border:none;color:var(--teal);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;margin-left:4px;" onclick="popup('fifakortti')">Mitä luvut ovat?</button>
+    <!-- ── Mini-kortti (napauta → fullscreen) ── -->
+    <div class="fcard-trigger" onclick="avaaKorttiPopup()" style="margin-bottom:16px;">
+      <div class="fc-mini">
+        <div class="fc-mini-rating" id="fcRating">—</div>
+        <div class="fc-mini-info">
+          <div class="fc-mini-name" id="fcName">—</div>
+          <div class="fc-mini-meta"><span id="fcPos">—</span> · <span id="fcClub">—</span></div>
+          <div class="fc-mini-badge" id="fcLevelBadge">—</div>
         </div>
-        <div class="fcard" id="fifaKortti">
-          <div class="fc-top">
-            <div><div class="fc-rating" id="fcRating">—</div></div>
-            <div>
-              <div class="fc-pos" id="fcPos">—</div>
-              <div class="fc-club" id="fcClub">—</div>
-              <div class="fc-level" id="fcLevelBadge">—</div>
-            </div>
-          </div>
-          <div class="fc-avatar" id="fcAvatar">⚽</div>
-          <div class="fc-name" id="fcName">—</div>
-          <div class="fc-div"></div>
-          <div class="fc-stats" id="fcStats"></div>
-          <div class="fc-type" id="fcType">—</div>
-          <div class="fc-xp-bar"><div class="fc-xp-fill" id="fcXpFill" style="width:40%"></div></div>
-          <div class="fc-xp-label" id="fcXpLabel">40 / 100 XP seuraavalle tasolle</div>
-        </div>
-
-        <div style="margin-top:12px;text-align:center;">
-          <div style="font-size:11px;color:var(--ink3);margin-bottom:3px;">Kehitys tällä kaudella</div>
-          <div id="fcKehitys" style="font-size:14px;font-weight:700;color:var(--green);">— → —</div>
-        </div>
+        <div style="font-size:32px;" id="fcAvatar">⚽</div>
       </div>
-
-      <!-- Profiilikuvaus -->
-      <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:12px;">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">
-          <div class="stitle" style="font-size:14px;margin-bottom:8px;">Viisi vahvuusaluettasi</div>
-          <div id="ketjuBaarit"></div>
-        </div>
-
-        <div class="saavutus-grid" id="saavutusGrid"></div>
-      </div>
+      <div class="fc-mini-stats" id="fcStats"></div>
+      <div class="fc-mini-tap">👆 Napauta nähdäksesi koko kortin</div>
     </div>
 
+    <!-- Kehitys -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+      background:rgba(46,213,115,.06);border:1px solid rgba(46,213,115,.15);
+      border-radius:10px;padding:10px 14px;margin-bottom:16px;">
+      <div style="font-size:11px;color:var(--ink3);">Kehitys tällä kaudella</div>
+      <div id="fcKehitys" style="font-size:15px;font-weight:700;color:var(--green);">— → —</div>
+    </div>
+
+    <!-- Ketjubaarit -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div class="stitle" style="font-size:13px;margin-bottom:10px;">Viisi vahvuusaluettasi</div>
+      <div id="ketjuBaarit"></div>
+    </div>
+
+    <!-- Saavutukset -->
+    <div class="saavutus-grid" id="saavutusGrid"></div>
+
     <!-- Profiilikortti -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;" id="profiiliKortti"></div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:14px;" id="profiiliKortti"></div>
 
     <!-- Kehityskortti lunastus -->
     <div id="nftLunastus" style="margin-top:14px;"></div>
 
   </div>
+  </div>
+
+  <!-- ══ FIFA-KORTTI FULLSCREEN POPUP ══ -->
+  <div class="fcard-overlay" id="korttiPopup" onclick="suljeKorttiPopup(event)">
+    <div class="fcard-big" id="fcard-big">
+      <button class="fcard-close" onclick="suljeKorttiPopup()">✕</button>
+      <div class="fc-big-top">
+        <div class="fc-big-rating" id="fcBigRating">—</div>
+        <div class="fc-big-meta">
+          <div class="fc-big-pos" id="fcBigPos">—</div>
+          <div class="fc-big-club" id="fcBigClub">—</div>
+          <div class="fc-big-level" id="fcBigLevel">—</div>
+        </div>
+      </div>
+      <div class="fc-big-avatar" id="fcBigAvatar">⚽</div>
+      <div class="fc-big-name" id="fcBigName">—</div>
+      <div class="fc-big-div"></div>
+      <div class="fc-big-stats" id="fcBigStats"></div>
+      <div class="fc-big-type" id="fcBigType">—</div>
+      <div class="fc-big-xp">
+        <div class="fc-big-xp-bar"><div class="fc-big-xp-fill" id="fcBigXpFill" style="width:0%"></div></div>
+        <div class="fc-big-xp-row">
+          <span id="fcBigXpLabel">0 / 100 XP</span>
+          <span style="color:rgba(245,183,0,.4);">seuraavalle tasolle</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ══ HAASTEET ══ -->
@@ -1534,116 +1647,133 @@ async function renderHavainto() {
 function renderKortti() {
   const p = _pelaaja;
   const rating = laskeRating(p);
-  const profiilit = {Railgun:{emoji:'⚡',nimi:'NOPEA',taso:'SHARP-TASO',color:'var(--amber)'},
-    Maestro:{emoji:'🧠',nimi:'ÄLYKÄS',taso:'IQ-TASO',color:'var(--accent2)'},
-    Titan:{emoji:'🛡️',nimi:'VAHVA',taso:'TITAN-TASO',color:'var(--purple)'},
-    Shadowstep:{emoji:'🦊',nimi:'TAITAVA',taso:'TECH-TASO',color:'var(--teal)'}};
+  const profiilit = {
+    Railgun:    {emoji:'⚡',nimi:'NOPEA',    taso:'SHARP-TASO', color:'var(--amber)'},
+    Maestro:    {emoji:'🧠',nimi:'ÄLYKÄS',   taso:'IQ-TASO',    color:'var(--accent2)'},
+    Titan:      {emoji:'🛡️',nimi:'VAHVA',    taso:'TITAN-TASO', color:'var(--purple)'},
+    Shadowstep: {emoji:'🦊',nimi:'TAITAVA',  taso:'TECH-TASO',  color:'var(--teal)'},
+  };
   const pr = profiilit[p.pelaajaProfiili] || profiilit.Maestro;
-
-  document.getElementById('fcRating').textContent = rating;
-  document.getElementById('fcPos').textContent = p.pelipaikka || '—';
-  document.getElementById('fcClub').textContent = (p.joukkue || '').toUpperCase();
   const masteryNimetFc = {1:'Basic',2:'Basic',3:'Kilpailija',4:'Kilpailija',5:'Sharp',6:'Sharp',7:'Elite',8:'Elite',9:'Signature',10:'Signature'};
-  const mastFc = masteryNimetFc[Math.min(p.taso||1, 10)] || 'Basic';
-  document.getElementById('fcLevelBadge').textContent = `★ ${mastFc}`;
-  document.getElementById('fcAvatar').textContent = p.avatar || '⚽';
-  document.getElementById('fcName').textContent = p.sukunimi || p.nimi || '—';
-  document.getElementById('fcType').textContent = `${pr.emoji} ${pr.nimi} · ${pr.taso}`;
+  const mastFc = masteryNimetFc[Math.min(p.taso||1,10)] || 'Basic';
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
-  // Stats
   const stats = [
-    {v:Math.round((p.sbl||1.8)/3*100), l:'Nopeus'},
-    {v:Math.round((p.sl||1.8)/3*100), l:'Tekniikka'},
-    {v:Math.round((p.ll||1.8)/3*100), l:'Peliäly'},
+    {v:Math.round((p.sbl||1.5)/3*100), l:'Nopeus'},
+    {v:Math.round((p.sl||1.5)/3*100),  l:'Tekniikka'},
+    {v:Math.round((p.ll||1.5)/3*100),  l:'Peliäly'},
     {v:Math.round((p.flei_viimeisin||60)), l:'Fysiikka'},
-    {v:Math.round((p.dfl||1.6)/3*100), l:'Hallinta'},
-    {v:Math.round((p.sfl||1.8)/3*100), l:'Räjähtävyys'},
+    {v:Math.round((p.dfl||1.5)/3*100), l:'Hallinta'},
+    {v:Math.round((p.sfl||1.5)/3*100), l:'Räjähtävyys'},
   ];
-  document.getElementById('fcStats').innerHTML = stats.map(s =>
-    `<div class="fcs"><div class="fcs-v">${s.v}</div><div class="fcs-l">${s.l}</div></div>`
+
+  // ── Mini-kortti ──
+  setEl('fcRating', rating);
+  setEl('fcName',   p.sukunimi || p.nimi || '—');
+  setEl('fcPos',    p.pelipaikka || '—');
+  setEl('fcClub',   (p.joukkue || '').toUpperCase());
+  setEl('fcLevelBadge', '★ ' + mastFc);
+  const avEl = document.getElementById('fcAvatar');
+  if (avEl) avEl.textContent = p.avatar || '⚽';
+  const statsEl = document.getElementById('fcStats');
+  if (statsEl) statsEl.innerHTML = stats.slice(0,3).map(s =>
+    '<div class="fc-ms"><div class="fc-ms-v">'+s.v+'</div><div class="fc-ms-l">'+s.l+'</div></div>'
   ).join('');
 
-  // XP-palkki kortissa
-  const xpPct = (p.xp % 100);
-  document.getElementById('fcXpFill').style.width = xpPct + '%';
-  document.getElementById('fcXpLabel').textContent = `${p.xp % 100} / 100 XP seuraavalle tasolle`;
+  // ── Popup-kortti ──
+  setEl('fcBigRating', rating);
+  setEl('fcBigPos',    p.pelipaikka || '—');
+  setEl('fcBigClub',   (p.joukkue || '').toUpperCase());
+  setEl('fcBigLevel',  '★ ' + mastFc);
+  setEl('fcBigAvatar', p.avatar || '⚽');
+  setEl('fcBigName',   p.sukunimi || p.nimi || '—');
+  setEl('fcBigType',   pr.emoji + ' ' + pr.nimi + ' · ' + pr.taso);
+  const bigStEl = document.getElementById('fcBigStats');
+  if (bigStEl) bigStEl.innerHTML = stats.map(s =>
+    '<div class="fc-big-stat"><div class="fc-big-stat-v">'+s.v+'</div><div class="fc-big-stat-l">'+s.l+'</div></div>'
+  ).join('');
+  const xpPct = Math.min(100, (p.xp||0) % 100);
+  const xpFill = document.getElementById('fcBigXpFill');
+  if (xpFill) setTimeout(() => { xpFill.style.width = xpPct + '%'; }, 200);
+  setEl('fcBigXpLabel', ((p.xp||0) % 100) + ' / 100 XP');
 
   // Kehitys
   const diff = (p.flei_viimeisin||0) - (p.flei_aiempi||0);
-  document.getElementById('fcKehitys').textContent =
-    `${p.flei_aiempi||0} → ${p.flei_viimeisin||0} (+${Math.max(0,diff)} pistettä) 🚀`;
-  document.getElementById('fcKehitys').style.color = diff > 0 ? 'var(--green)' : 'var(--ink3)';
+  const kehEl = document.getElementById('fcKehitys');
+  if (kehEl) {
+    kehEl.textContent = (p.flei_aiempi||0) + ' → ' + (p.flei_viimeisin||0) + ' (+' + Math.max(0,diff) + ' pistettä) 🚀';
+    kehEl.style.color = diff > 0 ? 'var(--green)' : 'var(--ink3)';
+  }
 
   // Ketjubaarit
   const ketjut = [
-    {id:'sbl',nimi:'⚡ Vauhtiketju',arvo:p.sbl||1.5},
-    {id:'sfl',nimi:'🦵 Lähtöketju', arvo:p.sfl||1.5},
-    {id:'ll', nimi:'↔️ Suunta',     arvo:p.ll||1.5},
-    {id:'sl', nimi:'🔄 Kierto',     arvo:p.sl||1.5},
-    {id:'dfl',nimi:'🏗️ Hallinta',   arvo:p.dfl||1.5},
+    {id:'sbl',nimi:'⚡ Vauhtiketju', arvo:p.sbl||1.5},
+    {id:'sfl',nimi:'🦵 Lähtöketju',  arvo:p.sfl||1.5},
+    {id:'ll', nimi:'↔️ Suunta',      arvo:p.ll||1.5},
+    {id:'sl', nimi:'🔄 Kierto',      arvo:p.sl||1.5},
+    {id:'dfl',nimi:'🏗️ Hallinta',    arvo:p.dfl||1.5},
   ].sort((a,b) => b.arvo - a.arvo);
-
-  const ketjuColors = {sbl:'var(--amber)',sfl:'var(--teal)',ll:'#82AAFF',sl:'var(--purple)',dfl:'var(--red)'};
-  document.getElementById('ketjuBaarit').innerHTML = ketjut.map(k => {
+  const kColors = {sbl:'var(--amber)',sfl:'var(--teal)',ll:'#82AAFF',sl:'var(--purple)',dfl:'var(--red)'};
+  const kbEl = document.getElementById('ketjuBaarit');
+  if (kbEl) kbEl.innerHTML = ketjut.map(k => {
     const pct = Math.round(k.arvo/3*100);
-    const c = ketjuColors[k.id];
-    return `<div class="ketju-rivi">
-      <div class="ketju-label">${k.nimi}</div>
-      <div class="ketju-track"><div class="ketju-fill" style="width:${pct}%;background:${c}"></div></div>
-      <div class="ketju-val" style="color:${c}">${k.arvo.toFixed(1)}</div>
-    </div>`;
+    const c = kColors[k.id];
+    return '<div class="ketju-rivi"><div class="ketju-label">'+k.nimi+'</div><div class="ketju-track"><div class="ketju-fill" style="width:'+pct+'%;background:'+c+'"></div></div><div class="ketju-val" style="color:'+c+'">'+k.arvo.toFixed(1)+'</div></div>';
   }).join('');
 
   // Saavutukset
-  const saavutukset = [
-    {icon:'🔥',nimi:'Putki',ansaittu: (p.streak||0) >= 7},
-    {icon:'⚡',nimi:'Nopea',ansaittu: (p.sbl||0) >= 2.2},
-    {icon:'📈',nimi:'Kasvu',ansaittu: ((p.flei_viimeisin||0) - (p.flei_aiempi||0)) >= 5},
-    {icon:'🧠',nimi:'IQ',ansaittu: p.pelaajaProfiili === 'Maestro'},
-    {icon:'🏆',nimi:'Haaste',ansaittu: true},
-    {icon:'⭐',nimi:'Tähti',ansaittu: (p.flei_viimeisin||0) >= 75},
-    {icon:'🛡️',nimi:'Titan',ansaittu: p.pelaajaProfiili === 'Titan'},
-    {icon:'🌟',nimi:'X-Fact.',ansaittu: (p.taso||1) >= 7},
+  const saav = [
+    {icon:'🔥',nimi:'Putki',   ansaittu:(p.streak||0)>=7},
+    {icon:'⚡',nimi:'Nopea',   ansaittu:(p.sbl||0)>=2.2},
+    {icon:'📈',nimi:'Kasvu',   ansaittu:((p.flei_viimeisin||0)-(p.flei_aiempi||0))>=5},
+    {icon:'🧠',nimi:'IQ',      ansaittu:p.pelaajaProfiili==='Maestro'},
+    {icon:'🏆',nimi:'Haaste',  ansaittu:true},
+    {icon:'⭐',nimi:'Tähti',   ansaittu:(p.flei_viimeisin||0)>=75},
+    {icon:'🛡️',nimi:'Titan',  ansaittu:p.pelaajaProfiili==='Titan'},
+    {icon:'🌟',nimi:'X-Fact.', ansaittu:(p.taso||1)>=7},
   ];
-  document.getElementById('saavutusGrid').innerHTML = saavutukset.map(s =>
-    `<div class="saavutus ${s.ansaittu ? 'ansaittu' : 'lukittu'}">
-      <div class="saavutus-icon">${s.icon}</div>
-      <div class="saavutus-nimi">${s.nimi}</div>
-    </div>`
+  const saavEl = document.getElementById('saavutusGrid');
+  if (saavEl) saavEl.innerHTML = saav.map(s =>
+    '<div class="saavutus '+(s.ansaittu?'ansaittu':'lukittu')+'"><div class="saavutus-icon">'+s.icon+'</div><div class="saavutus-nimi">'+s.nimi+'</div></div>'
   ).join('');
 
-  // NFT lunastus
-  renderNFT();
-
   // Profiilikortti
-  const profiilikuvaukset = {
-    Railgun:'Nopeus on sinun aseesi. Ensimmäinen askel ratkaisee tilanteen. Räjähtävyytesi ja kiihdytyksesi ovat poikkeuksellisia — kehitä niitä entisestään.',
-    Maestro:'Peliäly on vahvuutesi. Näet kentän ennen muita. Päätöksentekonopeutesi paineessa on harvinaista — se vie sinut pitkälle.',
-    Titan:'Voima ja hallinta tekevät sinusta luotettavan. Joukkue luottaa sinuun — kehon hallintasi on perusta jonka päälle rakennetaan.',
-    Shadowstep:'Tekniikka erottaa sinut muista. Pallonkäsittelysi on silmiinpistävää — kehitä sitä päivittäin ja se siirtyy peliin.',
+  const pkuvaus = {
+    Railgun:'Nopeus on sinun aseesi. Ensimmäinen askel ratkaisee tilanteen. Räjähtävyytesi ja kiihdytyksesi ovat poikkeuksellisia.',
+    Maestro:'Peliäly on vahvuutesi. Näet kentän ennen muita. Päätöksentekonopeutesi paineessa on harvinaista.',
+    Titan:'Voima ja hallinta tekevät sinusta luotettavan. Joukkue luottaa sinuun.',
+    Shadowstep:'Tekniikka erottaa sinut muista. Pallonkäsittelysi on silmiinpistävää — kehitä sitä päivittäin.',
   };
-  // Harjoitelogiikan selite profiilikorttiin
-  const harjLogiikka = {
-    Railgun:    '⚡ S-harjoite: Reaktiolähtö ja sprintti — nopeus on identiteettisi.',
-    Maestro:    '🧠 S-harjoite: Skannausharjoite — peliäly erottaa eliitit.',
-    Titan:      '🛡️ S-harjoite: Lankku ja hallinta — olet joukkueen ankkuri.',
-    Shadowstep: '🔄 S-harjoite: SM-pallokierto — tekniikka tekee sinusta arvaamattoman.',
+  const pharj = {
+    Railgun:'⚡ S-harjoite: Reaktiolähtö ja sprintti — nopeus on identiteettisi.',
+    Maestro:'🧠 S-harjoite: Skannausharjoite — peliäly erottaa eliitit.',
+    Titan:'🛡️ S-harjoite: Lankku ja hallinta — olet joukkueen ankkuri.',
+    Shadowstep:'🔄 S-harjoite: SM-pallokierto — tekniikka tekee sinusta arvaamattoman.',
   };
-  const phvTxt = p.phv_tila === 'PH'
-    ? '⚠️ Kasvupyrähdys käynnissä — S-harjoitteen kuorma automaattisesti 60%'
-    : p.phv_tila === 'VA'
-    ? '✅ Kasvun jälkeen — harjoitteluhyöty on nyt maksimaalinen'
+  const phvTxt = p.phv_tila==='PH'
+    ? '⚠️ Kasvupyrähdys käynnissä — kuorma automaattisesti 60%'
+    : p.phv_tila==='VA' ? '✅ Kasvun jälkeen — harjoitteluhyöty on nyt maksimaalinen'
     : '📍 Ennen kasvupyrähdystä — koordinaation kultaikkuna auki';
+  const pkEl = document.getElementById('profiiliKortti');
+  if (pkEl) pkEl.innerHTML = '<div class="stitle" style="font-size:13px;margin-bottom:8px;">'+pr.emoji+' '+pr.nimi+'-profiili</div>'
+    +'<div style="font-size:13px;color:var(--ink2);line-height:1.6;margin-bottom:8px;">'+(pkuvaus[p.pelaajaProfiili]||'')+'</div>'
+    +'<div style="font-size:12px;color:var(--teal);margin-bottom:6px;">'+(pharj[p.pelaajaProfiili]||'')+'</div>'
+    +'<div style="font-size:11px;color:var(--ink3);border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">'+phvTxt+'<br><span style="color:var(--ink3);margin-top:4px;display:block;">⭐ T-harjoite (daily touches) on aina kaikille — Ajax/Benfica/La Masia -filosofia.</span></div>';
 
-  document.getElementById('profiiliKortti').innerHTML = `
-    <div class="stitle" style="font-size:14px;margin-bottom:8px;">${pr.emoji} ${pr.nimi}-profiili</div>
-    <div style="font-size:13px;color:var(--ink2);line-height:1.6;margin-bottom:8px;">${profiilikuvaukset[p.pelaajaProfiili] || ''}</div>
-    <div style="font-size:12px;color:var(--teal);margin-bottom:6px;">${harjLogiikka[p.pelaajaProfiili] || ''}</div>
-    <div style="font-size:11px;color:var(--ink3);border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
-      ${phvTxt}<br>
-      <span style="color:var(--ink3);margin-top:4px;display:block;">⭐ T-harjoite (daily touches) on aina kaikille — Ajax/Benfica/La Masia -filosofia.</span>
-    </div>`;
+  renderNFT();
 }
+
+function avaaKorttiPopup() {
+  document.getElementById('korttiPopup').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function suljeKorttiPopup(e) {
+  if (e && e.target !== document.getElementById('korttiPopup') &&
+      !e.target.classList.contains('fcard-close')) return;
+  document.getElementById('korttiPopup').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
 
 function laskeRating(p) {
   if (!p) return 50;
