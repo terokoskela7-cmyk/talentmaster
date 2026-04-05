@@ -875,11 +875,19 @@ async function asetaSeura(seuraId) {
       .sort(function(a,b){ return (a.nimi||'').localeCompare(b.nimi||''); });
   } catch(e) {
     console.warn('[asetaSeura]', e.message);
-    _seuraNimi = seuraId.toUpperCase();
+    // Firestore Rules ei deployttu — käytetään profiilidata fallbackina
+    const prof = SEURA_PROFIILIT ? (SEURA_PROFIILIT[seuraId] || {}) : {};
+    _seuraNimi = prof.koko || prof.nimi || seuraId.toUpperCase();
     _joukkueet = [];
+    var hEl = document.getElementById('headerSeura');
+    if (hEl) hEl.textContent = _seuraNimi + ' ⚠️';
   }
+  // Dashboard avataan AINA — myös Firestore-virheessä
   nayta('sDash');
-  lataaTilanne();
+  // Aktivoi ensimmäinen tabi
+  var tilanneTabi = document.getElementById('tab-tilanne');
+  if (tilanneTabi && window.naytaTabi) window.naytaTabi('tilanne', tilanneTabi);
+  else lataaTilanne();
 }
 
 async function _tunnistaudu(user) {
@@ -953,6 +961,31 @@ async function _tunnistaudu(user) {
     }
   } catch(e) { console.warn('[AUTH] claims-haku:', e.message); }
 
+  // Tapa 3: Custom Claims
+  try {
+    const token = await user.getIdTokenResult(false);
+    const claimsRooli = token.claims.rooli;
+    const claimsSeura = token.claims.seuraId;
+    if (['vp','seurasihteeri','urheilutoimenjohtaja'].includes(claimsRooli) && claimsSeura) {
+      _rooli = claimsRooli;
+      await asetaSeura(claimsSeura);
+      return;
+    }
+  } catch(e) { console.warn('[AUTH] claims-haku:', e.message); }
+
+  // Tapa 4: Sähköpostifallback — vp.kpv@... → kpv, vp.fcl@... → fcl
+  // Käytetään kun Firestore Rules ei vielä deployttu tai Claims puuttuu
+  try {
+    const emailParts = user.email.match(/^vp\.([a-z0-9_-]+)@/i);
+    if (emailParts && emailParts[1]) {
+      const seuraFromEmail = emailParts[1].toLowerCase();
+      console.log('[AUTH] Fallback sähköpostista:', seuraFromEmail);
+      _rooli = 'vp';
+      await asetaSeura(seuraFromEmail);
+      return;
+    }
+  } catch(e) { console.warn('[AUTH] email-fallback:', e.message); }
+
   // Ei löydy — hylätään
   console.warn('[AUTH] Ei oikeuksia:', user.email);
   await _auth.signOut();
@@ -1023,6 +1056,39 @@ function nayta(id) {
   if (sLogin) sLogin.style.display = (id === 'sLogin') ? 'flex' : 'none';
   if (sDash)  sDash.style.display  = (id === 'sDash')  ? 'block' : 'none';
 }
+
+// Tabi-latausmekanismi — kukin tabi ladataan vain kerran
+var _ladattu = {};
+
+window.naytaTabi = function naytaTabi(nimi, btn) {
+  // Näytä oikea view
+  document.querySelectorAll('.view').forEach(function(v) {
+    v.style.display = 'none';
+    v.classList.remove('active');
+  });
+  var el = document.getElementById('view-' + nimi);
+  if (el) { el.style.display = 'block'; el.classList.add('active'); }
+
+  // Aktivoi oikea tab-nappi
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+
+  // Lazy-lataus — kukin tabi kerran
+  if (!_ladattu[nimi]) {
+    _ladattu[nimi] = true;
+    var fn = {
+      tilanne:     lataaTilanne,
+      kartoitukset:lataaKartoitukset,
+      kalenteri:   function() { renderVPKalenteri && renderVPKalenteri(); },
+      henkilosto:  lataaHenkilosto,
+      tavoitteet:  function() { lataaTavoitteet(); lataaValmennuslinja(); },
+      valmennus:   lataaValmennus,
+      polku:       function() { lataaPolku && lataaPolku(); },
+      kausirakenne:function() { lataaKausirakenne && lataaKausirakenne(); },
+    };
+    if (fn[nimi]) { try { fn[nimi](); } catch(e) { console.warn('[naytaTabi]', nimi, e.message); } }
+  }
+};
 const SEURA_PROFIILIT = {
   'kpv':        { nimi:'KPV',             koko:'KPV Kokkola',       kaupunki:'Kokkola',   vuosi:1930, v1:'#003580', v2:'#002a6b', v3:'rgba(0,53,128,0.12)',   tunnus:'KPV'   },
   'fcl':        { nimi:'FC Lahti',        koko:'FC Lahti Juniorit', kaupunki:'Lahti',     vuosi:1996, v1:'#D62828', v2:'#b52020', v3:'rgba(214,40,40,0.12)',  tunnus:'FCL'   },
