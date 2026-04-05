@@ -2396,8 +2396,9 @@ function renderVPKalenteri() {
   if (window._fbSeuraDoc) {
     seuraId = window._fbSeuraDoc.id || window._fbSeuraDoc._seuraId;
   }
-  if (!seuraId && _seuraData && _aktivSeura) {
-    seuraId = (_seuraData[_aktivSeura] || {})._seuraId || null;
+  // _seuraData ei ole v18:ssa — käytetään _seuraId suoraan
+  if (!seuraId && window._seuraId) {
+    seuraId = window._seuraId;
   }
   // Viimeinen yritys: päättele VP:n emailista (vp.kpv@talentmaster.fi → kpv)
   if (!seuraId && _fbUser && _fbUser.email) {
@@ -2747,16 +2748,15 @@ function _vpRakennaMOdaalit(container, seuraId) {
       })
       .catch(function(e) {
         console.warn('Joukkueiden haku kalenteriin epäonnistui:', e.message);
-        // Fallback: _seuraData
-        var seura = _seuraData[_aktivSeura] || {};
-        var joukkueet = seura._joukkueet || seura.joukkueet || {};
+        // Fallback: _joukkueet (v18:n muuttuja)
+        var joukkueet = _joukkueet || [];
         var sel = document.getElementById('vpKalJoukkue');
         if (!sel) return;
         sel.innerHTML = '<option value="">— valitse joukkue —</option>';
-        Object.entries(joukkueet).forEach(function(e) {
+        joukkueet.forEach(function(j) {
           var opt = document.createElement('option');
-          opt.value = e[0];
-          opt.textContent = (e[1]||{}).nimi || e[0];
+          opt.value = j.id;
+          opt.textContent = j.nimi || j.id;
           sel.appendChild(opt);
         });
       });
@@ -2822,9 +2822,7 @@ async function _vpTallennaTapahtuma(seuraId) {
     return;
   }
   if (btn) { btn.textContent = '⏳ Tallennetaan...'; btn.disabled = true; }
-  var seura      = _seuraData[_aktivSeura] || {};
-  var joukkueet  = seura._joukkueet || seura.joukkueet || {};
-  var jNimi      = ((joukkueet[jId] || {}).nimi) || jId;
+  var jNimi = (_joukkueet.find(function(j){ return j.id === jId; }) || {}).nimi || jId;
   try {
     var kayttajaUid = null;
     try { kayttajaUid = firebase.auth().currentUser && firebase.auth().currentUser.uid; } catch(e2) {}
