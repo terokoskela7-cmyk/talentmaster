@@ -268,7 +268,27 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
         <div class="page-sub" id="tanPvm">—</div>
       </div>
 
-      <!-- Kuka tarvitsee huomiota tänään -->
+      <!-- ── KAUDEN SUUNTA (VP:n asettamat kehitystavoitteet) ── -->
+    <div class="card" id="kaudenSuuntaKortti" style="margin-bottom:14px;display:none;">
+      <div class="card-title" style="margin-bottom:10px;">
+        <span class="dot blue"></span>Kauden suunta — <span id="ksSuuntaJoukkue">joukkue</span>
+      </div>
+      <div id="ksSisalto">
+        <div class="loading-mini"></div>
+      </div>
+    </div>
+
+    <!-- ── TULEVAT TAPAHTUMAT ── -->
+    <div class="card" id="tapahtumatKortti" style="margin-bottom:14px;display:none;">
+      <div class="card-title" style="margin-bottom:10px;">
+        <span class="dot teal"></span>Tulevat tapahtumat
+      </div>
+      <div id="tapahtumatSisalto">
+        <div class="loading-mini"></div>
+      </div>
+    </div>
+
+    <!-- Kuka tarvitsee huomiota tänään -->
       <div class="card">
         <div class="card-title"><span class="dot red"></span>Ketkä tarvitsevat huomiota tänään</div>
         <div id="huomioLista"><div class="spinner"></div></div>
@@ -508,7 +528,189 @@ async function _lataaProfiili(user) {
   }
 }
 
-// ── PELAAJIEN LATAUS ─────────────────────────────────────────────
+// ── KAUDEN SUUNTA — VP:n asettamat kehitystavoitteet joukkueelle ──
+// Hakee seurat/{seuraId}/joukkueet/{joukkueId}/kehitystavoitteet/{kausi}
+// Tämä on se polku jonka VP kirjasi VP v18 Tavoitteet → Kehitystavoitteet -välilehdellä.
+// Valmentaja näkee ison suunnan muttei muokkaa sitä — se on VP:n ja valmentajan
+// yhdessä sopima suunnitelma.
+async function _lataaKaudenSuunta() {
+  if (!_seuraId || !_joukkue) return;
+
+  var kortti  = el('kaudenSuuntaKortti');
+  var sisalto = el('ksSisalto');
+  var nimiEl  = el('ksSuuntaJoukkue');
+  if (!kortti || !sisalto) return;
+
+  var kausi = String(new Date().getFullYear());
+  if (nimiEl) nimiEl.textContent = _joukkue;
+
+  try {
+    var snap = await _db.collection('seurat').doc(_seuraId)
+      .collection('joukkueet').doc(_joukkue)
+      .collection('kehitystavoitteet').doc(kausi).get();
+
+    kortti.style.display = 'block';
+
+    if (!snap.exists) {
+      // VP ei ole vielä kirjannut tavoitteita tälle joukkueelle
+      sisalto.innerHTML =
+        '<div style="font-size:12px;color:var(--ink3);line-height:1.5;padding:4px 0;">' +
+        'Valmennuspäällikkö ei ole vielä kirjannut kauden ' + kausi + ' kehitystavoitteita.' +
+        '<br>Sovi jaksopalaveri VP:n kanssa.' +
+        '</div>';
+      return;
+    }
+
+    var d = snap.data();
+
+    // Kolmen kategorian tiivistelmä — näyttää laadullisen tavoitteen ja tilan
+    var kategoriat = [
+      { key: 'pelisuoritus',    ikoni: '⚽', label: 'Pelisuoritus'    },
+      { key: 'harjoitettavuus', ikoni: '💪', label: 'Harjoitettavuus' },
+      { key: 'elamanHallinta',  ikoni: '🌱', label: 'Elämänhallinta'  },
+    ];
+
+    var tilaVari = { green: '#2ed573', yellow: '#ffa502', red: '#ff4757', '': '#6b7a8d' };
+    var tilaEmoji = { green: '🟢', yellow: '🟡', red: '🔴', '': '—' };
+
+    sisalto.innerHTML = kategoriat.map(function(kat) {
+      var katData    = d[kat.key] || {};
+      var laadull    = katData.laadullinen || '';
+      var maarall    = katData.maarallinen || '';
+      var tila       = katData.tila || '';
+
+      return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);">' +
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">' +
+          '<span style="font-size:12px;">' + kat.ikoni + '</span>' +
+          '<span style="font-size:11px;font-weight:700;color:var(--text);">' + kat.label + '</span>' +
+          '<span style="margin-left:auto;font-size:13px;" title="' +
+            (tila === 'green' ? 'Toteutuu' : tila === 'yellow' ? 'Osittain' : tila === 'red' ? 'Ei toteudu' : 'Ei arvioitu') +
+          '">' + (tilaEmoji[tila] || tilaEmoji['']) + '</span>' +
+        '</div>' +
+        (laadull
+          ? '<div style="font-size:11px;color:var(--ink2);line-height:1.4;margin-bottom:2px;">' + laadull + '</div>'
+          : '') +
+        (maarall
+          ? '<div style="font-size:10px;color:var(--ink3);">Mittari: ' + maarall + '</div>'
+          : '') +
+      '</div>';
+    }).join('') +
+    '<div style="font-size:10px;color:var(--ink3);margin-top:8px;">' +
+      'Päivitetty: ' + (d.paivittaja || 'VP') +
+      (d.kausi ? ' · Kausi ' + d.kausi : '') +
+    '</div>';
+
+  } catch(e) {
+    // Hiljainen epäonnistuminen — ei näytetä virhettä valmentajalle
+    console.warn('[Master] Kauden suunta:', e.message);
+    if (kortti) kortti.style.display = 'none';
+  }
+}
+
+// ── TULEVAT TAPAHTUMAT — VP:n kalenterista ────────────────────────
+// Hakee seurat/{seuraId}/tapahtumat -kokoelmasta tulevat tapahtumat
+// joissa joukkue on mukana. Näyttää max 4 seuraavaa.
+// Sama data jonka VP näkee omassa kalenterissaan.
+async function _lataaLahiTapahtumat() {
+  if (!_seuraId) return;
+
+  var kortti  = el('tapahtumatKortti');
+  var sisalto = el('tapahtumatSisalto');
+  if (!kortti || !sisalto) return;
+
+  var tanaan = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  try {
+    // Haetaan tulevat tapahtumat tänäänlähtien, max 10 (filtteröidään joukkueen mukaan)
+    var snap = await _db.collection('seurat').doc(_seuraId)
+      .collection('tapahtumat')
+      .where('pvm', '>=', tanaan)
+      .orderBy('pvm', 'asc')
+      .limit(10)
+      .get();
+
+    if (snap.empty) {
+      kortti.style.display = 'block';
+      sisalto.innerHTML =
+        '<div style="font-size:12px;color:var(--ink3);">Ei tulevia tapahtumia kalenterissa.</div>';
+      return;
+    }
+
+    // Filtteröidään valmentajan joukkueen tapahtumat
+    // VP voi merkitä tapahtumaan joukkueen — jos ei merkitty, näytetään kaikille
+    var tapahtumat = snap.docs
+      .map(function(d) { return Object.assign({ id: d.id }, d.data()); })
+      .filter(function(t) {
+        if (!_joukkue) return true; // ei joukkuetta → näytetään kaikki
+        if (!t.joukkue && !t.joukkueet) return true; // ei rajattu joukkueelle → näytetään
+        if (t.joukkue === _joukkue) return true;
+        if (Array.isArray(t.joukkueet) && t.joukkueet.includes(_joukkue)) return true;
+        return false;
+      })
+      .slice(0, 4); // max 4
+
+    if (tapahtumat.length === 0) {
+      // Näytetään kaikki seuran tapahtumat jos joukkuerajausta ei löydy
+      tapahtumat = snap.docs
+        .map(function(d) { return Object.assign({ id: d.id }, d.data()); })
+        .slice(0, 4);
+    }
+
+    kortti.style.display = 'block';
+
+    // Tyyppi-ikonit — samat kuin VP:n kalenterissa
+    var tyyppiIkoni = {
+      kartoitus:   '📋', harjoitus: '⚽', ottelu: '🏆',
+      koulutus:    '📚', palaveri:  '💬', muu:    '📌',
+    };
+
+    sisalto.innerHTML = tapahtumat.map(function(t) {
+      var pvmObj  = t.pvm ? new Date(t.pvm + 'T12:00:00') : null;
+      var pvmStr  = pvmObj
+        ? pvmObj.toLocaleDateString('fi-FI', { weekday:'short', day:'numeric', month:'numeric' })
+        : '—';
+      var onTanaan = t.pvm === tanaan;
+      var ikoni   = tyyppiIkoni[t.tyyppi] || '📌';
+
+      return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;' +
+        'border-bottom:1px solid rgba(255,255,255,.06);">' +
+        '<div style="font-size:18px;flex-shrink:0;">' + ikoni + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:12px;font-weight:600;color:' +
+            (onTanaan ? 'var(--teal)' : 'var(--text)') + ';white-space:nowrap;' +
+            'overflow:hidden;text-overflow:ellipsis;">' +
+            (onTanaan ? '⚡ TÄNÄÄN — ' : '') + (t.nimi || t.tyyppi || 'Tapahtuma') +
+          '</div>' +
+          '<div style="font-size:10px;color:var(--ink3);">' +
+            pvmStr + (t.alkuAika ? ' · klo ' + t.alkuAika : '') +
+            (t.paikka ? ' · ' + t.paikka : '') +
+          '</div>' +
+        '</div>' +
+        (t.tila === 'vahvistettu'
+          ? '<div style="font-size:10px;color:var(--teal);font-weight:700;">✓</div>'
+          : '') +
+      '</div>';
+    }).join('') +
+    '<div style="margin-top:8px;">' +
+      '<button onclick="naytaNakuma(\'harjoitus\')" ' +
+        'style="font-size:11px;color:var(--teal);background:none;border:none;cursor:pointer;padding:0;">' +
+        '→ Avaa harjoitusnäkymä' +
+      '</button>' +
+    '</div>';
+
+  } catch(e) {
+    // Kalenteri-indeksi saattaa puuttua — ei näytetä virhettä
+    console.warn('[Master] Tapahtumat:', e.message);
+    // Fallback: näytetään kortti ilman tapahtumalatausta
+    kortti.style.display = 'block';
+    sisalto.innerHTML =
+      '<div style="font-size:11px;color:var(--ink3);">' +
+      'Tapahtumat ladataan kun kalenteri on käytössä.' +
+      '</div>';
+  }
+}
+
+
 async function _lataaPelaajat() {
   if (!_seuraId) return;
   try {
@@ -546,6 +748,9 @@ function _renderTanaan() {
   _haeFiilinkiKooste();
   _haeRpeKooste();
   _haeViimeisimmatHavainnot();
+  // Uudet: kauden suunta VP:ltä + tulevat tapahtumat
+  _lataaKaudenSuunta();
+  _lataaLahiTapahtumat();
 }
 
 async function _rakennaaHuomioLista() {
