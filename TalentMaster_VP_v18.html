@@ -697,19 +697,30 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     <div id="tvl-ika" style="display:none;">
 
       <!-- Ohjeteksti -->
-      <div style="font-size:11px;color:var(--ink3);margin-bottom:12px;line-height:1.5;">
-        H-H polun mukainen kehitystavoitteiden kirjaus ikäluokittain.
-        Valitse ikäluokka, kirjaa tavoitteet kolmessa kategoriassa ja merkitse tila jakson jälkeen.
+      <div style="font-size:11px;color:var(--ink3);margin-bottom:14px;line-height:1.6;">
+        VP istuu valmentajan kanssa alas ja kirjaa joukkueen kehitystavoitteet yhdessä.
+        Tavoitteet tallentuvat joukkueen profiiliin — valmentaja näkee ne omassa näkymässään.
       </div>
 
-      <!-- Ikäluokkavalitsin -->
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;" id="ika_valinnat">
-        <!-- Renderöidään JS:llä -->
+      <!-- Joukkuevalitsin — hakee Firestoresta dynaamisesti -->
+      <div style="margin-bottom:16px;">
+        <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                      letter-spacing:.5px;display:block;margin-bottom:6px;">Valitse joukkue</label>
+        <select id="hh_joukkueValinta"
+          onchange="valitseHHJoukkue(this.value)"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                 padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                 outline:none;cursor:pointer;">
+          <option value="">— Lataa joukkueet —</option>
+        </select>
       </div>
 
-      <!-- H-H matriisi valitulle ikäluokalle -->
+      <!-- H-H matriisi valitulle joukkueelle -->
       <div id="ikaluokkaAlue">
-        <!-- Renderöidään JS:llä -->
+        <div style="background:var(--surface);border:1px dashed var(--border);border-radius:10px;
+                    padding:24px;text-align:center;color:var(--ink3);font-size:12px;">
+          Valitse joukkue yllä aloittaaksesi.
+        </div>
       </div>
 
     </div>
@@ -803,37 +814,52 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <div class="view" id="view-polku">
   <div class="inner fadeup">
 
-    <div class="info-box">
-      <div class="info-box-title">💡 Kuka tarvitsee päätöksen tänään?</div>
-      <div class="info-box-text">
-        <strong>Pelaajapolunseuranta vastaa yhteen kysymykseen: tarvitseeko tämä pelaaja
-        nyt jonkin konkreettisen toimenpiteen?</strong>
-        <br><br>
-        Kehitys ei tapahdu itsestään — se vaatii oikeita päätöksiä oikeaan aikaan.
-        Tässä näkymässä näet pelaajat jotka ovat ns. "päätöspisteessä":
-        <br><br>
-        🟡 <strong>IDP puuttuu</strong> — pelaajalla ei ole henkilökohtaista kehityssuunnitelmaa,
-        vaikka hänellä on kartoitustulokset. Tähän pitää reagoida viikon sisällä.<br>
-        🟢 <strong>Talenttisuositus auki</strong> — pelaajan kehitys viittaa siihen,
-        että hänet tulisi suositella Palloliiton talenttiohjelmaaan tai seuran omaan
-        talenttiryhmään.<br>
-        🔴 <strong>Tarvitsee erityistukea</strong> — FLEI alle 40% tai PHV-vaihe
-        ilman seurantaa. Valmentajalle pitää mennä viesti tänään.<br>
-        🟣 <strong>Siirtopäätös</strong> — ikäluokkasiirtymä lähestyy
-        (esim. U12 → U15) ja pelaajan paikka seuraavalla tasolla on auki.
-        <br><br>
-        <strong>Tutkimukset osoittavat</strong> (Côté 2007, Forsman 2013),
-        että kriittiset kehityspäätökset tehdään usein liian myöhään tai
-        liian aikaisin. Tämä näkymä auttaa ajoittamaan ne oikein.
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div class="stitle" style="margin-bottom:2px;">Pelaajapolunseuranta</div>
+        <div style="font-size:11px;color:var(--ink3);">
+          Pelaajat jotka tarvitsevat toimenpiteen nyt — ei kaikkia, vain päätöspisteet.
+        </div>
       </div>
+      <button onclick="lataaPolku(true)"
+        style="background:none;border:1px solid var(--border);border-radius:8px;
+               padding:6px 14px;font-size:11px;color:var(--ink3);cursor:pointer;">
+        🔄 Päivitä
+      </button>
     </div>
 
-    <div class="polku-filter" id="polkuFilter">
-      <button class="filter-btn active" onclick="suodataPolku('kaikki',this)">Kaikki</button>
-      <button class="filter-btn" onclick="suodataPolku('idp',this)">🟡 IDP puuttuu</button>
-      <button class="filter-btn" onclick="suodataPolku('talentit',this)">🟢 Talenttisuositus</button>
-      <button class="filter-btn" onclick="suodataPolku('tuki',this)">🔴 Erityistuki</button>
-      <button class="filter-btn" onclick="suodataPolku('siirto',this)">🟣 Siirtopäätös</button>
+    <!-- Signaalifilttterit -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+      <button id="polku-btn-kaikki" onclick="suodataPolku('kaikki',this)"
+        style="padding:5px 12px;border-radius:16px;border:1px solid var(--accent);
+               background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;">
+        Kaikki
+      </button>
+      <button id="polku-btn-tuki" onclick="suodataPolku('tuki',this)"
+        style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);
+               background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+        🔴 Erityistuki
+      </button>
+      <button id="polku-btn-phv" onclick="suodataPolku('phv',this)"
+        style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);
+               background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+        📏 PHV-vaihe
+      </button>
+      <button id="polku-btn-idp" onclick="suodataPolku('idp',this)"
+        style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);
+               background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+        🟡 IDP puuttuu
+      </button>
+      <button id="polku-btn-talentit" onclick="suodataPolku('talentit',this)"
+        style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);
+               background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+        🌟 Talenttisuositus
+      </button>
+      <button id="polku-btn-siirto" onclick="suodataPolku('siirto',this)"
+        style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);
+               background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+        🟣 Siirtopäätös
+      </button>
     </div>
 
     <div id="polkuAlue">
@@ -1564,20 +1590,8 @@ async function renderFleiJakauma() {
 
 let _vlData          = {};  // valmennuslinja-cache Firestoresta
 let _hhTavoitteet    = {};  // H-H tavoitteet-cache: {ikaNimi: {pelisuoritus:{...}, harjoitettavuus:{...}, elamanHallinta:{...}}}
-let _aktiivisenIkaluokanIdx = 0;
 
 // Ikäluokat H-H polun rytmillä (vastaa SPL:n kehitysvaiheita)
-const HH_IKALUOKAT = [
-  { id: 'u8u9',   nimi: 'U8–U9',   pelimuoto: '3v3–5v5',    vari: '#2D6A4F' },
-  { id: 'u10u11', nimi: 'U10–U11', pelimuoto: '8v8',         vari: '#3A7D44' },
-  { id: 'u12',    nimi: 'U12',     pelimuoto: '8v8',         vari: '#4A8C5C' },
-  { id: 'u13u14', nimi: 'U13–U14', pelimuoto: '8v8–11v11',  vari: '#4A7ED9' },
-  { id: 'u15u16', nimi: 'U15–U16', pelimuoto: '11v11',       vari: '#7B2D8B' },
-  { id: 'u17plus',nimi: 'U17+',    pelimuoto: '11v11 kilpa', vari: '#C0392B' },
-];
-
-// Ehdotukset kolmeen kategoriaan — VP voi käyttää tai kirjoittaa oman
-// Lähteet: EPS (KPI-pohjainen), SJK (laadullinen), FC Honka (määrällinen)
 // HH_EHDOTUKSET — geneeriset SPL-pohjaiset avainsanat pikatäyttöön
 // EI seuran omia tavoitteita — jokainen seura kirjoittaa oman tavoitteen vapaasti
 // Nämä ovat vain aloitusvirikkeitä jotka helpottavat tyhjän kentän täyttämistä
@@ -1621,7 +1635,7 @@ function naytaTavoiteVali(nimi, btn) {
       b.style.color      = v === nimi ? '#fff' : 'var(--ink3)';
     }
   });
-  if (nimi === 'ika')   _renderIkaValitsin();
+  if (nimi === 'ika')   _lataaHHJoukkueet();
   if (nimi === 'jakso') _lataaJaksoraportit();
 }
 
@@ -1643,12 +1657,6 @@ async function lataaValmennuslinja() {
 
     // Linkin esikatselu
     _paivitaLinkkiPreview(vl.linkki || '');
-
-    // Lataa H-H tavoitteet
-    const hhSnap = await _db.collection('seurat').doc(_seuraId)
-      .collection('hh_tavoitteet').get();
-    _hhTavoitteet = {};
-    hhSnap.forEach(doc => { _hhTavoitteet[doc.id] = doc.data(); });
 
     // Päivitä Tilanne nyt -kortti
     renderValmennuslinja();
@@ -1676,7 +1684,268 @@ function _paivitaLinkkiPreview(url) {
   }
 }
 
-// ── Valmennuslinja: tallenna Firestoreen ─────────────────────────
+// ── naytaToast — global toast-ilmoitus ───────────────────────────
+function naytaToast(teksti, tyyppi) {
+  const vari = tyyppi === 'ok' ? 'var(--green)' : tyyppi === 'err' ? 'var(--red)' : 'var(--accent)';
+  let t = document.getElementById('_toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = '_toast';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);' +
+      'background:var(--bg2);border:1px solid rgba(255,255,255,.12);border-radius:10px;' +
+      'padding:10px 20px;font-size:13px;font-weight:600;z-index:999;' +
+      'transition:transform .25s ease,opacity .25s;opacity:0;pointer-events:none;';
+    document.body.appendChild(t);
+  }
+  t.textContent = teksti;
+  t.style.borderLeftColor = vari;
+  t.style.borderLeftWidth = '3px';
+  t.style.borderLeftStyle = 'solid';
+  t.style.opacity = '1';
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(-50%) translateY(80px)';
+  }, 3000);
+}
+
+// ── renderValmennuslinja — Tilanne nyt -kortti ────────────────────
+function renderValmennuslinja() {
+  const el = document.getElementById('valmennuslinjaAlue');
+  if (!el) return;
+  const vl = _vlData || {};
+  const onTaytetty = vl.hyokkaysperiaate && vl.puolustusperiaate;
+
+  if (!onTaytetty) {
+    el.innerHTML = `
+      <div style="background:var(--bg3);border-radius:8px;padding:12px;font-size:13px;
+                  line-height:1.6;color:var(--ink3);margin-bottom:14px;">
+        <strong style="color:var(--text)">Valmennuslinja asetetaan Tavoitteet-välilehdellä.</strong>
+        <br>
+        <button onclick="naytaTabi('tavoitteet',document.getElementById('tab-tavoitteet'))"
+          style="margin-top:8px;background:var(--accent);color:#fff;border:none;
+                 border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">
+          Aseta valmennuslinja →
+        </button>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="background:rgba(74,126,217,.06);border:1px solid rgba(74,126,217,.2);
+                border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+      ${vl.linkki ? `<a href="${vl.linkki}" target="_blank" rel="noopener"
+        style="font-size:11px;color:var(--accent2);text-decoration:none;display:block;margin-bottom:8px;">
+        🔗 Avaa valmennuslinja-dokumentti ↗</a>` : ''}
+      <div style="font-size:10px;font-weight:700;color:var(--accent2);letter-spacing:.5px;
+                  text-transform:uppercase;margin-bottom:4px;">⚽ Hyökkäysperiaate</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:8px;">
+        ${vl.hyokkaysperiaate}</div>
+      <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.5px;
+                  text-transform:uppercase;margin-bottom:4px;">🛡️ Puolustusperiaate</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.5;">
+        ${vl.puolustusperiaate}</div>
+      <button onclick="naytaTabi('tavoitteet',document.getElementById('tab-tavoitteet'))"
+        style="margin-top:10px;background:none;border:1px solid var(--border);border-radius:6px;
+               padding:4px 12px;font-size:11px;color:var(--ink3);cursor:pointer;">
+        ✏️ Muokkaa
+      </button>
+    </div>`;
+}
+
+// ── Jaksoraportti-modaali ─────────────────────────────────────────
+function avaaJaksoraportti() {
+  let m = document.getElementById('jaksoraporttiModaali');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'jaksoraporttiModaali';
+    m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);' +
+      'backdrop-filter:blur(4px);z-index:300;align-items:center;justify-content:center;padding:20px;';
+    m.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid rgba(255,255,255,.12);border-radius:14px;
+                  padding:24px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+          <div style="font-size:16px;font-weight:800;">📝 Jaksoraportti</div>
+          <button onclick="document.getElementById('jaksoraporttiModaali').style.display='none'"
+            style="background:none;border:none;color:var(--ink3);font-size:20px;cursor:pointer;">✕</button>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                        letter-spacing:.5px;display:block;margin-bottom:5px;">Jakso / aikaväli</label>
+          <input id="jr_jakso" type="text" placeholder="Esim: Jakso 2 — huhti-kesäkuu 2026"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                   padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                   outline:none;box-sizing:border-box;">
+        </div>
+        ${['intensiteetti','rooli','kehittava'].map((key, i) => {
+          const lab  = ['1. Onko harjoittelu pelinomaisesti intensiivistä?',
+                        '2. Onko valmentajan rooli oikea ikävaiheeseen?',
+                        '3. Jatkuuko kehittävä harjoittelu kilpailukaudella?'][i];
+          const hint = ['Pelaajat 80% ajasta aktiivisena pallollisena.',
+                        'Lapsuus = innostaja · Nuoruus = roolimalli · Erikoistuminen = vaatija.',
+                        'Pelit eivät edellytä harjoittelun keventämistä.'][i];
+          const col  = ['var(--accent2)','var(--teal)','var(--amber)'][i];
+          return `
+          <div style="margin-bottom:14px;">
+            <label style="font-size:11px;font-weight:700;color:${col};text-transform:uppercase;
+                          letter-spacing:.5px;display:block;margin-bottom:4px;">${lab}</label>
+            <div style="font-size:10px;color:var(--ink3);margin-bottom:6px;">${hint}</div>
+            <div style="display:flex;gap:6px;margin-bottom:6px;">
+              ${['✅ Kyllä','⚠️ Osittain','❌ Ei'].map(v =>
+                `<button onclick="valitseJrVaihtoehto(this,'jr_${key}')" data-arvo="${v}"
+                  style="flex:1;padding:6px;border-radius:8px;border:1px solid var(--border);
+                         background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+                  ${v}</button>`
+              ).join('')}
+            </div>
+            <input id="jr_${key}" type="hidden" value="">
+            <textarea id="jr_${key}_huomio" rows="2" placeholder="Havaintoja..."
+              style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                     padding:8px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;
+                     resize:none;outline:none;box-sizing:border-box;"></textarea>
+          </div>`;
+        }).join('')}
+        <div style="margin-bottom:18px;">
+          <label style="font-size:11px;font-weight:700;color:var(--ink2);text-transform:uppercase;
+                        letter-spacing:.5px;display:block;margin-bottom:5px;">
+            Seuraavan jakson painopiste</label>
+          <textarea id="jr_seuraava" rows="2"
+            placeholder="Esim: U14-joukkueen painopiste: tarkoituksenmukainen toiminta pallon lähellä."
+            style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                   padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;
+                   resize:none;outline:none;box-sizing:border-box;"></textarea>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button onclick="tallennaJaksoraportti()"
+            style="background:var(--teal);color:#000;border:none;border-radius:8px;
+                   padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;
+                   font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px;">
+            Tallenna jaksoraportti</button>
+          <div id="jr_status" style="font-size:12px;color:var(--ink3);"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(m);
+  }
+  m.style.display = 'flex';
+}
+
+function valitseJrVaihtoehto(btn, kenttaId) {
+  btn.parentElement.querySelectorAll('button').forEach(b => {
+    b.style.borderColor = 'var(--border)';
+    b.style.background  = 'var(--bg3)';
+    b.style.color       = 'var(--ink3)';
+  });
+  btn.style.borderColor = 'var(--teal)';
+  btn.style.background  = 'rgba(0,212,170,.1)';
+  btn.style.color       = 'var(--teal)';
+  const h = document.getElementById(kenttaId);
+  if (h) h.value = btn.dataset.arvo;
+}
+
+async function tallennaJaksoraportti() {
+  if (!_seuraId) return;
+  const status = document.getElementById('jr_status');
+  const jakso  = document.getElementById('jr_jakso')?.value.trim() || '';
+  if (!jakso) {
+    if (status) { status.textContent = 'Kirjoita jakson nimi.'; status.style.color='var(--red)'; }
+    return;
+  }
+  const data = {
+    jakso,
+    intensiteetti:       document.getElementById('jr_intensiteetti')?.value || '',
+    intensieettiHuomio:  document.getElementById('jr_intensiteetti_huomio')?.value.trim() || '',
+    rooli:               document.getElementById('jr_rooli')?.value || '',
+    rooliHuomio:         document.getElementById('jr_rooli_huomio')?.value.trim() || '',
+    kehittava:           document.getElementById('jr_kehittava')?.value || '',
+    kehittavaHuomio:     document.getElementById('jr_kehittava_huomio')?.value.trim() || '',
+    seuraavaPainopiste:  document.getElementById('jr_seuraava')?.value.trim() || '',
+    pvm:    new Date().toISOString().split('T')[0],
+    kirjaaja: _user?.email || 'vp',
+    luotu:  firebase.firestore.FieldValue.serverTimestamp(),
+  };
+  if (status) { status.textContent = 'Tallennetaan...'; status.style.color = 'var(--ink3)'; }
+  try {
+    await _db.collection('seurat').doc(_seuraId).collection('jaksoraportit').add(data);
+    document.getElementById('jaksoraporttiModaali').style.display = 'none';
+    naytaToast('✅ Jaksoraportti tallennettu', 'ok');
+    _lataaJaksoraportit();
+  } catch(e) {
+    if (status) { status.textContent = 'Virhe: ' + e.message; status.style.color = 'var(--red)'; }
+  }
+}
+
+async function _lataaJaksoraportit() {
+  if (!_seuraId) return;
+  const el = document.getElementById('jaksoraporttiAlue');
+  if (!el) return;
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId)
+      .collection('jaksoraportit').orderBy('luotu','desc').limit(5).get();
+    if (snap.empty) {
+      el.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);
+                        border-radius:10px;padding:20px;text-align:center;color:var(--ink3);font-size:12px;">
+        Ei jaksoraportteja vielä. Lisää ensimmäinen jaksopalaverin jälkeen.</div>`;
+      return;
+    }
+    const v = {'✅ Kyllä':'var(--green)','⚠️ Osittain':'var(--amber)','❌ Ei':'var(--red)'};
+    el.innerHTML = snap.docs.map(d => {
+      const r = d.data();
+      return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;
+                          background:var(--surface);margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-size:13px;font-weight:700;">${r.jakso||'—'}</div>
+          <div style="font-size:10px;color:var(--ink3);">${r.pvm||''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+          ${[['Intensiteetti',r.intensiteetti],['Valmentajan rooli',r.rooli],['Kehittävä jatkuu',r.kehittava]]
+            .map(([lab,val]) => val ? `<div style="font-size:10px;font-weight:700;
+              color:${v[val]||'var(--ink3)'};background:rgba(255,255,255,.04);
+              border-radius:6px;padding:2px 8px;">${lab}: ${val}</div>` : '').join('')}
+        </div>
+        ${r.seuraavaPainopiste ? `<div style="font-size:11px;color:var(--ink2);border-top:1px solid var(--border);
+          padding-top:6px;">→ ${r.seuraavaPainopiste}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    console.warn('[Jaksoraportit]', e.message);
+  }
+}
+
+// ── Henkilöstö — kutsumodaali stub ───────────────────────────────
+function avaaKutsuModal() {
+  naytaToast('Kutsutoiminto avataan Admin-näkymästä. Siirry Admin → Käyttäjät → Kutsu.', 'info');
+}
+
+// ── Kalenteri — uusi tapahtuma ────────────────────────────────────
+function avaaUusiTapahtuma() {
+  const seuraId = _seuraId || window._seuraId;
+  if (seuraId && typeof _vpAvaaLuoModal === 'function') {
+    _vpAvaaLuoModal(seuraId);
+  } else {
+    naytaToast('Kalenteri latautuu hetken kuluttua.', 'info');
+  }
+}
+
+
+async function merkitseKausiEvent(key, tehty, el) {
+  if (!_seuraId) return;
+  // Optimistinen UI-päivitys
+  const nappi = el.closest('[data-nappi]') || el;
+  el.style.opacity = '.5';
+  try {
+    await _db.collection('seurat').doc(_seuraId)
+      .collection('kausirakenne').doc(key)
+      .set({ tehty, paivitetty: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    // Päivitetään kausirakenne
+    lataaKausirakenne && lataaKausirakenne();
+  } catch(e) {
+    el.style.opacity = '1';
+    naytaToast('Virhe: ' + e.message, 'err');
+  }
+}
+
+
 async function tallennaValmennuslinja() {
   if (!_seuraId) return;
   const statusEl = document.getElementById('vl_status');
@@ -1716,172 +1985,6 @@ async function tallennaValmennuslinja() {
   }
 }
 
-// ── H-H ikäluokkavalitsin ─────────────────────────────────────────
-function _renderIkaValitsin() {
-  const el = document.getElementById('ika_valinnat');
-  if (!el || el.children.length > 0) {
-    // Jo renderöity — renderöi vain sisältö
-    _renderHHAlue(_aktiivisenIkaluokanIdx);
-    return;
-  }
-  el.innerHTML = HH_IKALUOKAT.map((ika, i) =>
-    `<button id="ikaBtn_${i}" onclick="valitseIkaluokka(${i},this)"
-      style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);
-             background:${i===0 ? 'var(--accent)' : 'var(--bg3)'};
-             color:${i===0 ? '#fff' : 'var(--ink3)'};font-size:12px;font-weight:600;cursor:pointer;">
-      ${ika.nimi}</button>`
-  ).join('');
-  _renderHHAlue(0);
-}
-
-function valitseIkaluokka(idx, btn) {
-  _aktiivisenIkaluokanIdx = idx;
-  document.querySelectorAll('[id^=ikaBtn_]').forEach((b, i) => {
-    b.style.background = i === idx ? 'var(--accent)' : 'var(--bg3)';
-    b.style.color      = i === idx ? '#fff' : 'var(--ink3)';
-  });
-  _renderHHAlue(idx);
-}
-
-// ── H-H matriisi renderöinti ──────────────────────────────────────
-function _renderHHAlue(idx) {
-  const el = document.getElementById('ikaluokkaAlue');
-  if (!el) return;
-
-  const ika  = HH_IKALUOKAT[idx];
-  const data = _hhTavoitteet[ika.id] || {};
-
-  // Kolme kategoriaa
-  const kategoriat = [
-    {
-      key:   'pelisuoritus',
-      label: '⚽ Pelisuoritus',
-      kuvaus:'Mistä tiedetään kehityksen johdonmukaisuus kohti voittavaa jalkapalloa?',
-      vari:  'var(--accent2)',
-      ehdotukset: HH_EHDOTUKSET.pelisuoritus,
-    },
-    {
-      key:   'harjoitettavuus',
-      label: '💪 Harjoitettavuus',
-      kuvaus:'Mistä tiedetään harjoittelun kehittävä ja pitkäkestoinen vaikutus?',
-      vari:  'var(--teal)',
-      ehdotukset: HH_EHDOTUKSET.harjoitettavuus,
-    },
-    {
-      key:   'elamanHallinta',
-      label: '🌱 Elämänhallinta',
-      kuvaus:'Miten tiedetään joukkueen/yksilön kehityskyvystä kilpailla?',
-      vari:  'var(--amber)',
-      ehdotukset: HH_EHDOTUKSET.elamanHallinta,
-    },
-  ];
-
-  el.innerHTML = `
-    <!-- Ikäluokan otsikko -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-      <div style="width:4px;height:32px;border-radius:2px;background:${ika.vari};flex-shrink:0;"></div>
-      <div>
-        <div style="font-size:14px;font-weight:800;color:var(--text);">${ika.nimi} · ${ika.pelimuoto}</div>
-        <div style="font-size:11px;color:var(--ink3);">Toimintakausi ${new Date().getFullYear()}</div>
-      </div>
-    </div>
-
-    <!-- Kolme kategoriaa -->
-    ${kategoriat.map(kat => {
-      const d    = data[kat.key] || {};
-      const tila = d.tila || '';
-
-      return `
-      <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;">
-
-        <!-- Otsikkorivi: kategoria + tila -->
-        <div style="background:var(--surface);padding:10px 14px;border-bottom:1px solid var(--border);
-                    display:flex;align-items:center;gap:10px;">
-          <div style="font-size:13px;font-weight:700;color:var(--text);flex:1;">${kat.label}</div>
-          <!-- Tila -->
-          <div style="display:flex;gap:4px;">
-            ${['green','yellow','red'].map(t => {
-              const on   = tila === t;
-              const emoji = t==='green'?'🟢':t==='yellow'?'🟡':'🔴';
-              const av   = t==='green'?'rgba(46,213,115,.2)':t==='yellow'?'rgba(245,183,0,.2)':'rgba(255,71,87,.2)';
-              const bv   = t==='green'?'var(--green)':t==='yellow'?'var(--amber)':'var(--red)';
-              return `<button onclick="asetaHHTila('${ika.id}','${kat.key}','${t}',this)"
-                data-tila="${t}"
-                title="${t==='green'?'Toteutuu':t==='yellow'?'Osittain':'Ei toteudu'}"
-                style="width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:12px;
-                       border:2px solid ${on ? bv : 'var(--border)'};
-                       background:${on ? av : 'transparent'};">
-                ${emoji}
-              </button>`;
-            }).join('')}
-          </div>
-        </div>
-
-        <div style="padding:12px 14px;">
-
-          <!-- Pikatäyttövihjeet — pienet tagit, ei otsikoita -->
-          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
-            ${kat.ehdotukset.map(e =>
-              `<button onclick="lisaaHHEhdotus('${ika.id}','${kat.key}','laadullinen','${e.replace(/'/g,"\\'")}')"
-                style="padding:2px 9px;border-radius:10px;border:1px solid var(--border);
-                       background:transparent;color:var(--ink3);font-size:10px;cursor:pointer;"
-                onmouseover="this.style.borderColor='${kat.vari}';this.style.color='${kat.vari}'"
-                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--ink3)'">
-                ${e}
-              </button>`
-            ).join('')}
-          </div>
-
-          <!-- Kaksi kenttää rinnakkain — laadullinen + määrällinen -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <div>
-              <div style="font-size:10px;font-weight:700;color:${kat.vari};
-                          text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">
-                Laadullinen tavoite
-              </div>
-              <textarea id="hh_${ika.id}_${kat.key}_laadullinen" rows="3"
-                placeholder="Mitä tavoitellaan?"
-                style="width:100%;background:var(--bg3);border:1px solid var(--border);
-                       border-radius:8px;padding:8px 10px;color:var(--text);
-                       font-family:'DM Sans',sans-serif;font-size:12px;resize:vertical;
-                       outline:none;line-height:1.5;box-sizing:border-box;"
-                onfocus="this.style.borderColor='${kat.vari}'"
-                onblur="this.style.borderColor='var(--border)'"
-              >${d.laadullinen || ''}</textarea>
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:${kat.vari};
-                          text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">
-                Mittari / määrällinen
-              </div>
-              <textarea id="hh_${ika.id}_${kat.key}_maarallinen" rows="3"
-                placeholder="Numerolla mitattava tavoite"
-                style="width:100%;background:var(--bg3);border:1px solid var(--border);
-                       border-radius:8px;padding:8px 10px;color:var(--text);
-                       font-family:'DM Sans',sans-serif;font-size:12px;resize:vertical;
-                       outline:none;line-height:1.5;box-sizing:border-box;"
-                onfocus="this.style.borderColor='${kat.vari}'"
-                onblur="this.style.borderColor='var(--border)'"
-              >${d.maarallinen || ''}</textarea>
-            </div>
-          </div>
-
-        </div>
-      </div>`;
-    }).join('')}
-
-    <!-- Tallenna-nappi -->
-    <div style="display:flex;gap:10px;align-items:center;margin-top:4px;">
-      <button onclick="tallennaHHTavoitteet('${ika.id}')"
-        style="background:var(--accent);color:#fff;border:none;border-radius:8px;
-               padding:9px 20px;font-family:'Barlow Condensed',sans-serif;font-size:14px;
-               font-weight:700;cursor:pointer;letter-spacing:.5px;">
-        Tallenna ${ika.nimi}
-      </button>
-      <div id="hh_status_${ika.id}" style="font-size:12px;color:var(--ink3);"></div>
-    </div>
-  `;
-}
 
 // ── H-H pikatäyttö ─────────────────────────────────────────────────
 function lisaaHHEhdotus(ikaId, katKey, kentta, teksti) {
@@ -1911,48 +2014,12 @@ function asetaHHTila(ikaId, katKey, tila, btn) {
 }
 
 // ── H-H tavoitteet tallennus Firestoreen ────────────────────────────
-async function tallennaHHTavoitteet(ikaId) {
-  if (!_seuraId) return;
-  const statusEl = document.getElementById('hh_status_' + ikaId);
-  if (statusEl) { statusEl.textContent = 'Tallennetaan...'; statusEl.style.color = 'var(--ink3)'; }
-
-  const kategoriat = ['pelisuoritus','harjoitettavuus','elamanHallinta'];
-  const data = { paivitetty: firebase.firestore.FieldValue.serverTimestamp(), paivittaja: _user?.email || 'vp' };
-
-  kategoriat.forEach(kat => {
-    const laadEl = document.getElementById(`hh_${ikaId}_${kat}_laadullinen`);
-    const maarEl = document.getElementById(`hh_${ikaId}_${kat}_maarallinen`);
-    const tila   = (_hhTavoitteet[ikaId]?.[kat]?.tila) || '';
-    data[kat] = {
-      laadullinen:  laadEl?.value.trim() || '',
-      maarallinen:  maarEl?.value.trim() || '',
-      tila,
-    };
-  });
-
-  try {
-    await _db.collection('seurat').doc(_seuraId)
-      .collection('hh_tavoitteet').doc(ikaId).set(data);
-    _hhTavoitteet[ikaId] = data;
-    if (statusEl) {
-      statusEl.textContent = '✓ Tallennettu';
-      statusEl.style.color = 'var(--green)';
-      setTimeout(() => { statusEl.textContent = ''; }, 3000);
-    }
-    naytaToast('✅ Tavoitteet tallennettu', 'ok');
-  } catch(e) {
-    if (statusEl) { statusEl.textContent = 'Virhe: ' + e.message; statusEl.style.color = 'var(--red)'; }
-  }
-}
-
 // lataaTavoitteet — kutsutaan naytaTabi('tavoitteet') yhteydessä
-// Poistettu Palloliiton korit — toiminnallisuus siirtyy myöhemmin omalle SPL-sivulle
+// Palloliiton korit poistettu — siirtyy myöhemmin omalle SPL-sivulle
 async function lataaTavoitteet() {
   if (_tavoitteetLadattu) return;
   _tavoitteetLadattu = true;
-  // Ei enää lataa Palloliiton kori-dataa — poistettu.
 }
-
 
 async function tallennKriteeri(koriId, idx, arvo) {
   if (!_seuraId) return;
@@ -2234,128 +2301,497 @@ function avaaUusiKaynti() {
 ══════════════════════════════════════════════ */
 let _polkuLadattu = false;
 let _kausiLadattu = false;
-let _polkuData = [];
+// ── Kehitystavoitteet — joukkuepohjainen ─────────────────────────
+// Tallennuspaikka: seurat/{id}/joukkueet/{joukkueId}/kehitystavoitteet/{kausi}
+// Valmentaja näkee tämän myöhemmin omassa näkymässään (Master v8+)
+
+let _hhJoukkueId   = null;   // valittu joukkue
+let _hhJoukkueNimi = '';
+let _hhKausi       = String(new Date().getFullYear());
+
+// Ladataan joukkueet selectiin kun välilehti avataan
+async function _lataaHHJoukkueet() {
+  const sel = document.getElementById('hh_joukkueValinta');
+  if (!sel || !_seuraId) return;
+  if (_joukkueet && _joukkueet.length > 0) {
+    // Käytetään jo ladattua listaa
+    sel.innerHTML = '<option value="">— Valitse joukkue —</option>' +
+      _joukkueet.map(j =>
+        `<option value="${j.id}">${j.nimi || j.id}</option>`
+      ).join('');
+    return;
+  }
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId)
+      .collection('joukkueet').orderBy('nimi').get();
+    sel.innerHTML = '<option value="">— Valitse joukkue —</option>' +
+      snap.docs.map(d =>
+        `<option value="${d.id}">${d.data().nimi || d.id}</option>`
+      ).join('');
+  } catch(e) {
+    sel.innerHTML = '<option value="">Joukkueita ei löydy</option>';
+    console.warn('[HH] Joukkuehaku:', e.message);
+  }
+}
+
+async function valitseHHJoukkue(joukkueId) {
+  _hhJoukkueId = joukkueId || null;
+  const sel = document.getElementById('hh_joukkueValinta');
+  _hhJoukkueNimi = sel?.options[sel.selectedIndex]?.text || '';
+
+  if (!_hhJoukkueId) {
+    document.getElementById('ikaluokkaAlue').innerHTML =
+      `<div style="background:var(--surface);border:1px dashed var(--border);border-radius:10px;
+                   padding:24px;text-align:center;color:var(--ink3);font-size:12px;">
+        Valitse joukkue yllä aloittaaksesi.
+      </div>`;
+    return;
+  }
+
+  // Haetaan tämän joukkueen tallennetut tavoitteet
+  const el = document.getElementById('ikaluokkaAlue');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Ladataan...</div>';
+
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId)
+      .collection('joukkueet').doc(_hhJoukkueId)
+      .collection('kehitystavoitteet').doc(_hhKausi).get();
+    const data = snap.exists ? snap.data() : {};
+    _renderHHAlue(_hhJoukkueId, _hhJoukkueNimi, data);
+  } catch(e) {
+    _renderHHAlue(_hhJoukkueId, _hhJoukkueNimi, {});
+    console.warn('[HH] Tavoitehaku:', e.message);
+  }
+}
+
+function _renderHHAlue(joukkueId, joukkueNimi, data) {
+  const el = document.getElementById('ikaluokkaAlue');
+  if (!el) return;
+
+  const kategoriat = [
+    {
+      key:   'pelisuoritus',
+      label: '⚽ Pelisuoritus',
+      kuvaus:'Mistä tiedetään kehityksen johdonmukaisuus kohti voittavaa jalkapalloa?',
+      vari:  'var(--accent2)',
+      ehdotukset: HH_EHDOTUKSET.pelisuoritus,
+    },
+    {
+      key:   'harjoitettavuus',
+      label: '💪 Harjoitettavuus',
+      kuvaus:'Mistä tiedetään harjoittelun kehittävä ja pitkäkestoinen vaikutus?',
+      vari:  'var(--teal)',
+      ehdotukset: HH_EHDOTUKSET.harjoitettavuus,
+    },
+    {
+      key:   'elamanHallinta',
+      label: '🌱 Elämänhallinta',
+      kuvaus:'Miten tiedetään joukkueen/yksilön kehityskyvystä kilpailla?',
+      vari:  'var(--amber)',
+      ehdotukset: HH_EHDOTUKSET.elamanHallinta,
+    },
+  ];
+
+  el.innerHTML = `
+    <!-- Joukkueen otsikko + kausimerkintä -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <div style="width:4px;height:32px;border-radius:2px;background:var(--accent);flex-shrink:0;"></div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:800;color:var(--text);">${joukkueNimi}</div>
+        <div style="font-size:11px;color:var(--ink3);">Kehitystavoitteet ${_hhKausi} · kirjattu yhdessä valmentajan kanssa</div>
+      </div>
+      <!-- Kausivalitsin -->
+      <select onchange="_vaihdaHHKausi(this.value)"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+               padding:4px 10px;color:var(--text);font-size:11px;outline:none;cursor:pointer;">
+        ${[2026,2027,2028].map(v =>
+          `<option value="${v}" ${v===parseInt(_hhKausi)?'selected':''}>${v}</option>`
+        ).join('')}
+      </select>
+    </div>
+
+    <!-- Kolme kategoriaa -->
+    ${kategoriat.map(kat => {
+      const d    = data[kat.key] || {};
+      const tila = d.tila || '';
+
+      return `
+      <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;">
+        <!-- Otsikkorivi -->
+        <div style="background:var(--surface);padding:10px 14px;border-bottom:1px solid var(--border);
+                    display:flex;align-items:center;gap:10px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);flex:1;">${kat.label}</div>
+          <div style="font-size:10px;color:var(--ink3);flex:1;font-style:italic;">${kat.kuvaus}</div>
+          <!-- Tila 🟢🟡🔴 -->
+          <div style="display:flex;gap:4px;flex-shrink:0;">
+            ${['green','yellow','red'].map(t => {
+              const on   = tila === t;
+              const e    = t==='green'?'🟢':t==='yellow'?'🟡':'🔴';
+              const bv   = t==='green'?'var(--green)':t==='yellow'?'var(--amber)':'var(--red)';
+              const av   = t==='green'?'rgba(46,213,115,.2)':t==='yellow'?'rgba(245,183,0,.2)':'rgba(255,71,87,.2)';
+              return `<button onclick="asetaHHTila('${joukkueId}','${kat.key}','${t}',this)"
+                data-tila="${t}" title="${t==='green'?'Toteutuu':t==='yellow'?'Osittain':'Ei toteudu'}"
+                style="width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:12px;
+                       border:2px solid ${on?bv:'var(--border)'};background:${on?av:'transparent'};">
+                ${e}
+              </button>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <div style="padding:12px 14px;">
+          <!-- Pikatäyttövihjeet -->
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
+            ${kat.ehdotukset.map(e =>
+              `<button onclick="lisaaHHEhdotus('${joukkueId}','${kat.key}','laadullinen','${e.replace(/'/g,"\\'")}')"
+                style="padding:2px 9px;border-radius:10px;border:1px solid var(--border);
+                       background:transparent;color:var(--ink3);font-size:10px;cursor:pointer;"
+                onmouseover="this.style.borderColor='${kat.vari}';this.style.color='${kat.vari}'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--ink3)'">${e}</button>`
+            ).join('')}
+          </div>
+
+          <!-- Kaksi kenttää rinnakkain -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:${kat.vari};
+                          text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">
+                Laadullinen tavoite
+              </div>
+              <textarea id="hh_${joukkueId}_${kat.key}_laadullinen" rows="3"
+                placeholder="Mitä tavoitellaan? Miten se näkyy kentällä?"
+                style="width:100%;background:var(--bg3);border:1px solid var(--border);
+                       border-radius:8px;padding:8px 10px;color:var(--text);
+                       font-family:'DM Sans',sans-serif;font-size:12px;resize:vertical;
+                       outline:none;line-height:1.5;box-sizing:border-box;"
+                onfocus="this.style.borderColor='${kat.vari}'"
+                onblur="this.style.borderColor='var(--border)'"
+              >${d.laadullinen || ''}</textarea>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:${kat.vari};
+                          text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">
+                Mittari / määrällinen
+              </div>
+              <textarea id="hh_${joukkueId}_${kat.key}_maarallinen" rows="3"
+                placeholder="Numerolla mitattava tavoite"
+                style="width:100%;background:var(--bg3);border:1px solid var(--border);
+                       border-radius:8px;padding:8px 10px;color:var(--text);
+                       font-family:'DM Sans',sans-serif;font-size:12px;resize:vertical;
+                       outline:none;line-height:1.5;box-sizing:border-box;"
+                onfocus="this.style.borderColor='${kat.vari}'"
+                onblur="this.style.borderColor='var(--border)'"
+              >${d.maarallinen || ''}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+
+    <!-- Tallenna -->
+    <div style="display:flex;gap:10px;align-items:center;margin-top:4px;">
+      <button onclick="tallennaHHTavoitteet('${joukkueId}')"
+        style="background:var(--accent);color:#fff;border:none;border-radius:8px;
+               padding:9px 20px;font-family:'Barlow Condensed',sans-serif;font-size:14px;
+               font-weight:700;cursor:pointer;letter-spacing:.5px;">
+        Tallenna ${joukkueNimi}
+      </button>
+      <div id="hh_status_${joukkueId}" style="font-size:12px;color:var(--ink3);"></div>
+    </div>
+  `;
+}
+
+function _vaihdaHHKausi(kausi) {
+  _hhKausi = kausi;
+  if (_hhJoukkueId) valitseHHJoukkue(_hhJoukkueId);
+}
+
+async function tallennaHHTavoitteet(joukkueId) {
+  if (!_seuraId || !joukkueId) return;
+  const statusEl = document.getElementById('hh_status_' + joukkueId);
+  if (statusEl) { statusEl.textContent = 'Tallennetaan...'; statusEl.style.color = 'var(--ink3)'; }
+
+  const kategoriat = ['pelisuoritus','harjoitettavuus','elamanHallinta'];
+  const data = {
+    joukkueId,
+    joukkueNimi: _hhJoukkueNimi,
+    kausi:       _hhKausi,
+    paivitetty:  firebase.firestore.FieldValue.serverTimestamp(),
+    paivittaja:  _user?.email || 'vp',
+  };
+
+  kategoriat.forEach(kat => {
+    const laadEl = document.getElementById(`hh_${joukkueId}_${kat}_laadullinen`);
+    const maarEl = document.getElementById(`hh_${joukkueId}_${kat}_maarallinen`);
+    const tila   = _hhTavoitteet[joukkueId]?.[kat]?.tila || '';
+    data[kat] = {
+      laadullinen: laadEl?.value.trim() || '',
+      maarallinen: maarEl?.value.trim() || '',
+      tila,
+    };
+  });
+
+  try {
+    // Tallennetaan joukkueen alle: seurat/{id}/joukkueet/{joukkueId}/kehitystavoitteet/{kausi}
+    await _db.collection('seurat').doc(_seuraId)
+      .collection('joukkueet').doc(joukkueId)
+      .collection('kehitystavoitteet').doc(_hhKausi).set(data);
+
+    if (!_hhTavoitteet[joukkueId]) _hhTavoitteet[joukkueId] = {};
+    kategoriat.forEach(kat => {
+      _hhTavoitteet[joukkueId][kat] = data[kat];
+    });
+
+    if (statusEl) {
+      statusEl.textContent = '✓ Tallennettu';
+      statusEl.style.color = 'var(--green)';
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    }
+    naytaToast('✅ Kehitystavoitteet tallennettu — joukkue: ' + _hhJoukkueNimi, 'ok');
+  } catch(e) {
+    if (statusEl) { statusEl.textContent = 'Virhe: ' + e.message; statusEl.style.color = 'var(--red)'; }
+  }
+}
+
+// ── Pelaajapolut ──────────────────────────────────────────────────
+// Näyttää pelaajat joilla on aktiivinen päätöspiste nyt.
+// Ei kaikkia pelaajia — vain ne jotka tarvitsevat toimenpiteen.
+
+let _polkuData     = [];
 let _polkuSuodatin = 'kaikki';
 
-async function lataaPolku() {
-  if (_polkuLadattu) return;
+async function lataaPolku(pakota) {
+  if (_polkuLadattu && !pakota) return;
   _polkuLadattu = true;
+
   const el = document.getElementById('polkuAlue');
-  if (!_seuraId) return;
+  if (!_seuraId || !el) return;
+
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Analysoidaan pelaajia...</div>';
 
   try {
     const pelaajat = [];
-    const nyt = Date.now();
-    const pv60 = new Date(nyt - 60 * 86400000);
+    const nyt      = Date.now();
+    const joukkueet = _joukkueet?.length > 0 ? _joukkueet : [];
 
-    for (const j of _joukkueet) {
-      // Haetaan pelaajat
-      const pSnap = await _db.collection('seurat').doc(_seuraId)
-        .collection('joukkueet').doc(j.id)
-        .collection('pelaajat').limit(50).get();
+    // Jos ei joukkueita cachessa, haetaan Firestoresta
+    let joukkueetHaettava = joukkueet;
+    if (joukkueet.length === 0) {
+      const jSnap = await _db.collection('seurat').doc(_seuraId)
+        .collection('joukkueet').get();
+      joukkueetHaettava = jSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
 
-      // Haetaan viimeisin kartoitus per pelaaja
-      const kSnap = await _db.collection('seurat').doc(_seuraId)
-        .collection('joukkueet').doc(j.id)
-        .collection('kartoitukset').get();
+    if (joukkueetHaettava.length === 0) {
+      el.innerHTML = `
+        <div class="info-box">
+          <div class="info-box-title">👥 Ei joukkueita</div>
+          <div class="info-box-text">
+            Lisää joukkueet ensin seuraprofiiliin. Kun joukkueet ja pelaajat on rekisteröity,
+            tämä näkymä analysoi kuka tarvitsee toimenpiteen tänään.
+          </div>
+        </div>`;
+      return;
+    }
+
+    for (const j of joukkueetHaettava) {
+      // Pelaajat
+      let pSnap;
+      try {
+        pSnap = await _db.collection('seurat').doc(_seuraId)
+          .collection('joukkueet').doc(j.id)
+          .collection('pelaajat').limit(100).get();
+      } catch(e) { continue; }
+
+      // Viimeisin kartoitus per pelaaja
+      let kSnap;
       const viimeisinK = {};
-      kSnap.forEach(doc => {
-        const d = doc.data();
-        const pid = d.pelaaja_id;
-        if (!pid) return;
-        const ms = d.pvm?.toMillis?.() || 0;
-        if (!viimeisinK[pid] || ms > viimeisinK[pid].ms)
-          viimeisinK[pid] = { ...d, ms };
-      });
+      try {
+        kSnap = await _db.collection('seurat').doc(_seuraId)
+          .collection('joukkueet').doc(j.id)
+          .collection('kartoitukset').get();
+        kSnap.forEach(doc => {
+          const d = doc.data();
+          const pid = d.pelaaja_id || d.pelaajaId;
+          if (!pid) return;
+          const ms = d.pvm?.toMillis?.() || 0;
+          if (!viimeisinK[pid] || ms > viimeisinK[pid].ms)
+            viimeisinK[pid] = { ...d, ms };
+        });
+      } catch(e) {}
 
       pSnap.forEach(doc => {
-        const p = doc.data();
+        const p   = doc.data();
         const pid = doc.id;
-        const kart = viimeisinK[pid] || null;
-        const flei = kart ? (kart.flei ?? kart.flei_pisteet ?? null) : null;
-        const kartPvm = kart?.pvm?.toDate?.() || null;
-        const paiviaKart = kartPvm ? Math.floor((nyt - kartPvm.getTime()) / 86400000) : 999;
+        const k   = viimeisinK[pid] || null;
+        const flei = k ? (k.flei ?? k.flei_pisteet ?? null) : null;
+        const kartPvm = k?.pvm?.toDate?.() || null;
+        const paiviaKart = kartPvm
+          ? Math.floor((nyt - kartPvm.getTime()) / 86400000)
+          : 999;
 
-        // Päätöslogiikka
-        const paatokset = [];
-        if (!kart) paatokset.push({ tyyppi:'idp', label:'Ei kartoitusta' });
-        else if (!p.idp_aktiivinen && flei != null) paatokset.push({ tyyppi:'idp', label:'IDP puuttuu' });
-        if (flei != null && flei < 40) paatokset.push({ tyyppi:'tuki', label:'FLEI kriittinen' });
-        if (p.phv_tila === 'PH' && paiviaKart > 14) paatokset.push({ tyyppi:'tuki', label:'PHV — ei seurantaa' });
-        if (kart && (kart.flei_nousu || 0) >= 15 && flei >= 70 && !p.talenttisuositus)
-          paatokset.push({ tyyppi:'talentit', label:'Talenttisuositus' });
-        if (!p.syntymaVuosi && j.siirtymisvuosi && new Date().getFullYear() >= j.siirtymisvuosi)
-          paatokset.push({ tyyppi:'siirto', label:'Ikäluokkasiirtymä' });
+        // Päätöslogiikka — jokainen signaali on toimenpiteen aihe
+        const signaalit = [];
 
-        if (paatokset.length === 0) paatokset.push({ tyyppi:'ok', label:'OK' });
+        // 🔴 Erityistuki
+        if (flei != null && flei < 40)
+          signaalit.push({ tyyppi:'tuki', label:'FLEI kriittinen (<40%)' });
+        if (p.phv_tila === 'PH' && paiviaKart > 14)
+          signaalit.push({ tyyppi:'phv', label:'PHV — ei seurantaa 14pv' });
+
+        // 🟡 IDP puuttuu
+        if (!k)
+          signaalit.push({ tyyppi:'idp', label:'Ei kartoitusta' });
+        else if (!p.idp_aktiivinen && flei != null)
+          signaalit.push({ tyyppi:'idp', label:'IDP puuttuu' });
+
+        // 🌟 Talenttisuositus
+        if (k && (k.flei_nousu || 0) >= 15 && flei >= 70 && !p.talenttisuositus)
+          signaalit.push({ tyyppi:'talentit', label:'Nopea kehitys — suosita' });
+
+        // 🟣 Siirtopäätös
+        if (j.siirtymisvuosi && new Date().getFullYear() >= j.siirtymisvuosi)
+          signaalit.push({ tyyppi:'siirto', label:'Ikäluokkasiirtymä' });
+
+        // Näytetään vain pelaajat joilla on vähintään yksi signaali
+        if (signaalit.length === 0) return;
 
         pelaajat.push({
-          pid, joukkueId: j.id, joukkueNimi: j.nimi || j.id,
+          pid,
+          joukkueId:   j.id,
+          joukkueNimi: j.nimi || j.id,
           nimi: `${p.sukunimi||''} ${p.etunimi||''}`.trim() || '—',
-          flei, paatokset,
-          synt: p.syntymaVuosi,
+          flei,
+          paiviaKart: kartPvm ? paiviaKart : null,
+          signaalit,
         });
       });
     }
 
     _polkuData = pelaajat;
-    renderPolku();
+    _renderPolku();
+
   } catch(e) {
-    document.getElementById('polkuAlue').innerHTML =
-      `<div style="color:var(--red);padding:20px">Virhe: ${e.message}</div>`;
+    el.innerHTML =
+      `<div style="color:var(--red);padding:20px;">Virhe: ${e.message}</div>`;
+    console.error('[Pelaajapolku]', e);
   }
 }
 
-function renderPolku() {
-  const el = document.getElementById('polkuAlue');
-  const suodatin = _polkuSuodatin;
-  let lista = _polkuData;
+function _renderPolku() {
+  const el      = document.getElementById('polkuAlue');
+  if (!el) return;
 
-  if (suodatin !== 'kaikki') {
-    lista = lista.filter(p => p.paatokset.some(d => d.tyyppi === suodatin));
+  const suodat  = _polkuSuodatin;
+  let lista     = _polkuData;
+
+  if (suodat !== 'kaikki') {
+    lista = lista.filter(p => p.signaalit.some(s => s.tyyppi === suodat));
   }
-  // Järjestys: kriittiset ensin
-  const jarj = {tuki:0, talentit:1, idp:2, siirto:3, ok:4};
-  lista.sort((a,b) => Math.min(...a.paatokset.map(d => jarj[d.tyyppi]||9))
-                    - Math.min(...b.paatokset.map(d => jarj[d.tyyppi]||9)));
+
+  // Prioriteettijärjestys: kriittiset ensin
+  const prio = { tuki:0, phv:1, idp:2, talentit:3, siirto:4 };
+  lista.sort((a, b) =>
+    Math.min(...a.signaalit.map(s => prio[s.tyyppi] ?? 9)) -
+    Math.min(...b.signaalit.map(s => prio[s.tyyppi] ?? 9))
+  );
 
   if (lista.length === 0) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div>
-      <div class="empty-text">Ei toimenpiteitä tässä kategoriassa.</div></div>`;
+    const onFiltti = suodat !== 'kaikki';
+    el.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
+                  padding:24px;text-align:center;">
+        <div style="font-size:24px;margin-bottom:8px;">${onFiltti ? '🔍' : '✅'}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">
+          ${onFiltti ? 'Ei pelaajia tässä kategoriassa' : 'Kaikki kunnossa'}
+        </div>
+        <div style="font-size:11px;color:var(--ink3);">
+          ${onFiltti
+            ? 'Kokeile eri suodatinta tai päivitä lista.'
+            : 'Ei aktiivisia päätöspisteitä tällä hetkellä.'}
+        </div>
+      </div>`;
     return;
   }
 
-  const tyyppiVari = {tuki:'#FF4757', talentit:'#2ED573', idp:'#FFA502', siirto:'#A855F7', ok:'#6B7A8D'};
-  const tyyppiClass = {tuki:'pb-tuki', talentit:'pb-talentit', idp:'pb-idp', siirto:'pb-siirto', ok:'pb-ok'};
+  // Ryhmitellään joukkueittain
+  const ryhmät = {};
+  lista.forEach(p => {
+    if (!ryhmät[p.joukkueNimi]) ryhmät[p.joukkueNimi] = [];
+    ryhmät[p.joukkueNimi].push(p);
+  });
 
-  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px">
-    ${lista.map(p => {
-      const paaPaatos = p.paatokset[0];
-      const fleiStr = p.flei != null ? Math.round(p.flei) + '%' : '—';
-      const fleiColor = p.flei == null ? 'var(--ink3)' : p.flei >= 70 ? 'var(--green)' : p.flei >= 50 ? 'var(--amber)' : 'var(--red)';
-      const initials = p.nimi.split(' ').map(s=>s[0]||'').join('').slice(0,2).toUpperCase() || '?';
-      return `<div class="polku-rivi">
-        <div class="polku-avatar" style="background:${tyyppiVari[paaPaatos.tyyppi]}">${initials}</div>
-        <div style="flex:1;min-width:0">
-          <div class="polku-nimi">${p.nimi}</div>
-          <div class="polku-meta">${p.joukkueNimi}${p.synt ? ' · s. '+p.synt : ''}</div>
-        </div>
-        <div class="polku-status">
-          ${p.paatokset.map(d =>
-            `<span class="paatos-badge ${tyyppiClass[d.tyyppi]}">${d.label}</span>`
-          ).join('')}
-          <span class="polku-flei" style="color:${fleiColor}">FLEI ${fleiStr}</span>
-        </div>
-      </div>`;
-    }).join('')}
-  </div>`;
+  const sigVari  = { tuki:'var(--red)', phv:'var(--amber)', idp:'var(--amber)',
+                     talentit:'var(--green)', siirto:'#A855F7' };
+  const sigEmoji = { tuki:'🔴', phv:'📏', idp:'🟡', talentit:'🌟', siirto:'🟣' };
+
+  el.innerHTML = Object.entries(ryhmät).map(([joukkue, pelaajat]) => `
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                  letter-spacing:.5px;margin-bottom:8px;padding-left:4px;">
+        ${joukkue} · ${pelaajat.length} pelaajaa
+      </div>
+      ${pelaajat.map(p => {
+        const fleiStr   = p.flei != null ? Math.round(p.flei) + '%' : '—';
+        const fleiColor = p.flei == null ? 'var(--ink3)'
+                        : p.flei >= 70   ? 'var(--green)'
+                        : p.flei >= 50   ? 'var(--amber)'
+                        : 'var(--red)';
+        const initials  = p.nimi.split(' ').filter(Boolean).map(s => s[0]).join('').slice(0,2).toUpperCase() || '?';
+        const priSig    = p.signaalit[0];
+
+        return `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+                    background:var(--surface);border:1px solid var(--border);
+                    border-left:3px solid ${sigVari[priSig.tyyppi]||'var(--border)'};
+                    border-radius:10px;margin-bottom:6px;">
+          <!-- Avatar -->
+          <div style="width:36px;height:36px;border-radius:50%;flex-shrink:0;
+                      background:${sigVari[priSig.tyyppi]||'var(--ink3)'}22;
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:12px;font-weight:700;color:${sigVari[priSig.tyyppi]||'var(--text)'};">
+            ${initials}
+          </div>
+          <!-- Nimi + kartoituspäivä -->
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);">${p.nimi}</div>
+            <div style="font-size:10px;color:var(--ink3);">
+              ${p.paiviaKart != null ? `Kartoitettu ${p.paiviaKart}pv sitten` : 'Ei kartoitusta'}
+            </div>
+          </div>
+          <!-- Signaalit -->
+          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
+            ${p.signaalit.map(s =>
+              `<div style="font-size:10px;font-weight:700;white-space:nowrap;
+                           color:${sigVari[s.tyyppi]||'var(--ink3)'};">
+                ${sigEmoji[s.tyyppi]||'•'} ${s.label}
+              </div>`
+            ).join('')}
+          </div>
+          <!-- FLEI -->
+          <div style="text-align:right;flex-shrink:0;min-width:48px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;
+                        font-weight:900;color:${fleiColor};">${fleiStr}</div>
+            <div style="font-size:9px;color:var(--ink3);">FLEI</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('');
 }
 
 function suodataPolku(tyyppi, btn) {
   _polkuSuodatin = tyyppi;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderPolku();
+  // Päivitä napit
+  ['kaikki','tuki','phv','idp','talentit','siirto'].forEach(t => {
+    const b = document.getElementById('polku-btn-' + t);
+    if (!b) return;
+    const on = t === tyyppi;
+    b.style.background = on ? 'var(--accent)' : 'var(--bg3)';
+    b.style.color      = on ? '#fff' : 'var(--ink3)';
+    b.style.borderColor= on ? 'var(--accent)' : 'var(--border)';
+  });
+  _renderPolku();
 }
 
 /* ══════════════════════════════════════════════
@@ -2657,7 +3093,7 @@ document.addEventListener('keydown', e => {
 
 // ── KALENTERI v17:sta siirretty ────────────────────
 function renderVPKalenteri() {
-  var el = document.getElementById('tabKalenteri') || document.getElementById('view-kalenteri');
+  var el = document.getElementById('tapahtumatAlue') || document.getElementById('view-kalenteri');
   if (!el) return;
 
   if (typeof TmTapahtumat === 'undefined') {
