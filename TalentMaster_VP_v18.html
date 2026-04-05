@@ -401,11 +401,29 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <div class="view active" id="view-tilanne">
   <div class="inner fadeup">
 
-    <!-- BANNER -->
-    <div class="banner">
-      <div class="banner-role" id="bannerRole">Valmennuspäällikkö</div>
-      <h1>Hyvää huomenta, <span id="bannerNimi">—</span>.</h1>
-      <p id="bannerTeksti">Ladataan seuran tilannetta...</p>
+    <!-- BANNER — seuran identiteetti, ei kovakoodattu tervehdys -->
+    <div class="banner" id="seuraBanner">
+      <!-- Seuralogo/tunnus vasemmalla, teksti oikealla -->
+      <div style="display:flex;align-items:center;gap:16px;">
+        <!-- Seuran tunnus/logo — iso kirjainlyhenne kunnes oikea logo lisätään -->
+        <div id="seuraTunnusBlokki"
+          style="width:52px;height:52px;border-radius:12px;display:flex;align-items:center;
+                 justify-content:center;font-family:'Barlow Condensed',sans-serif;
+                 font-size:18px;font-weight:900;letter-spacing:-.5px;color:#fff;
+                 flex-shrink:0;background:var(--accent);">
+          —
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div class="banner-role" id="bannerRole">Valmennuspäällikkö</div>
+          <h1 id="bannerOtsikko" style="margin:2px 0 4px;font-size:22px;">
+            <span id="bannerNimi">—</span>
+          </h1>
+          <!-- Seuran visio/missio Firestoresta — tai geneerinen teksti -->
+          <p id="bannerTeksti" style="margin:0;font-size:12px;color:var(--ink3);line-height:1.5;">
+            Ladataan...
+          </p>
+        </div>
+      </div>
     </div>
 
     <!-- KPI-KORTIT -->
@@ -1244,43 +1262,64 @@ async function lataaTilanne() {
   rakentaaHalytykset();
   rakentaaFiilinki();
 
-  // Banner — seuravärit ja tervehdys
-  const tunnin = new Date().getHours();
-  const terv = tunnin < 11 ? 'Hyvää huomenta' : tunnin < 17 ? 'Hyvää päivää' : 'Hyvää iltaa';
-  const etunimi = (_user?.displayName || _user?.email || '').split(/[ @]/)[0];
-  document.getElementById('bannerNimi').textContent = etunimi || '—';
+  const prof = _haeProfiili(_seuraId);
 
-  const _prof = _haeProfiili(_seuraId);
-  const _bannerEl = document.querySelector('.banner');
-  if (_bannerEl) {
-    _bannerEl.style.borderLeftColor = _prof.v1;
-    _bannerEl.style.background = 'linear-gradient(135deg, var(--surface) 55%, ' + _prof.v3 + ')';
+  // ── Banner: seuran identiteetti ───────────────────────────────
+  // Tunnus-blokki: seuran väri + lyhenne
+  const tunnusEl = document.getElementById('seuraTunnusBlokki');
+  if (tunnusEl) {
+    tunnusEl.style.background = prof.v1;
+    tunnusEl.textContent      = prof.tunnus || (prof.nimi||'').substring(0,3).toUpperCase();
   }
-  const _bannerRole = document.getElementById('bannerRole');
-  if (_bannerRole) {
-    _bannerRole.style.color = _prof.v1;
-    _bannerRole.style.borderColor = _prof.v1 + '55';
-  }
-  let _tunnus = document.getElementById('bannerTunnus');
-  if (!_tunnus && _prof.tunnus) {
-    _tunnus = document.createElement('p');
-    _tunnus.id = 'bannerTunnus';
-    _tunnus.style.cssText = 'font-size:11px;letter-spacing:.8px;margin-top:6px;opacity:.8;font-weight:600;text-transform:uppercase;';
-    const _bh1 = document.querySelector('.banner h1');
-    if (_bh1 && _bh1.parentNode) _bh1.parentNode.insertBefore(_tunnus, _bh1.nextSibling);
-  }
-  if (_tunnus) { _tunnus.textContent = _prof.tunnus; _tunnus.style.color = _prof.v1; }
 
-  // KPI-data
+  // Bannerin taustaväri seuran mukaan
+  const bannerEl = document.getElementById('seuraBanner');
+  if (bannerEl) {
+    bannerEl.style.background    = 'linear-gradient(135deg, var(--surface) 55%, ' + prof.v3 + ')';
+    bannerEl.style.borderLeft    = '4px solid ' + prof.v1;
+  }
+
+  // Role-pilleri väri
+  const roleEl = document.getElementById('bannerRole');
+  if (roleEl) {
+    roleEl.style.color       = prof.v1;
+    roleEl.style.borderColor = prof.v1 + '55';
+  }
+
+  // Otsikko: seuran koko nimi (ei VP:n email)
+  const nimi = document.getElementById('bannerNimi');
+  if (nimi) nimi.textContent = prof.koko || _seuraNimi || prof.nimi || _seuraId.toUpperCase();
+
+  // ── Visio/missio Firestoresta ─────────────────────────────────
+  // Haetaan seura-dokumentista — VP on voinut kirjata sen Firestoreen.
+  // Jos ei löydy, käytetään geneeristä pelaajakehitystekstiä.
+  let visio = '';
+  try {
+    const sSnap = await _db.collection('seurat').doc(_seuraId).get();
+    const sd    = sSnap.data() || {};
+    visio = sd.visio || sd.missio || sd.kuvaus || '';
+  } catch(e) {}
+
+  const bannerTeksti = document.getElementById('bannerTeksti');
+  if (bannerTeksti) {
+    // Näytetään visio jos on, muuten neutraali teksti
+    bannerTeksti.textContent = visio ||
+      (prof.kaupunki ? prof.nimi + ' · ' + prof.kaupunki : prof.nimi || _seuraNimi) +
+      (prof.vuosi ? ' · perustettu ' + prof.vuosi : '');
+  }
+
+  // ── KPI-data ──────────────────────────────────────────────────
   let pelaajatLkm = 0;
   let fleiSumma = 0, fleiLkm = 0;
-  let kartoitusLkm = 0;
+  let idpLkm = 0;
 
   try {
     const pSnap = await _db.collection('seurat').doc(_seuraId)
       .collection('pelaajat').get();
     pelaajatLkm = pSnap.size;
+    pSnap.forEach(doc => { if (doc.data().idp_aktiivinen) idpLkm++; });
     document.getElementById('kpiPelaajat').textContent = pelaajatLkm;
+    document.getElementById('kpiIDP').textContent = idpLkm || '—';
   } catch(e) {}
 
   // FLEI kaikista joukkueista
@@ -1289,34 +1328,26 @@ async function lataaTilanne() {
       const kSnap = await _db.collection('seurat').doc(_seuraId)
         .collection('joukkueet').doc(j.id)
         .collection('kartoitukset').get();
-      kartoitusLkm += kSnap.size;
       kSnap.forEach(doc => {
         const f = doc.data().flei ?? doc.data().flei_pisteet;
         if (f != null && !isNaN(f)) { fleiSumma += f; fleiLkm++; }
       });
     }
     if (fleiLkm > 0) {
-      const ka = Math.round(fleiSumma / fleiLkm);
-      document.getElementById('kpiFLEI').textContent = ka + '%';
+      document.getElementById('kpiFLEI').textContent =
+        Math.round(fleiSumma / fleiLkm) + '%';
+    } else {
+      document.getElementById('kpiFLEI').textContent = '—';
     }
   } catch(e) {}
 
-  // Alertit
-  await laskeAlertit(fleiLkm > 0 ? Math.round(fleiSumma / fleiLkm) : null);
-
-  // Banner-teksti
-  document.getElementById('bannerTeksti').textContent =
-    `${_seuraNimi} seuraa ${pelaajatLkm} pelaajan kehitystä. ` +
-    (fleiLkm > 0 ? `Seuran FLEI-keskiarvo on ${Math.round(fleiSumma/fleiLkm)}%. ` : '') +
-    'Alla näet tärkeimmät asiat jotka vaativat huomiotasi tänään.';
-
-  document.getElementById('kpiIDP').textContent = '—';
   document.getElementById('kpiXFactor').textContent = '—';
 
-  // FLEI-jakauma
+  // Alertit + FLEI-jakauma
+  await laskeAlertit(fleiLkm > 0 ? Math.round(fleiSumma / fleiLkm) : null);
   renderFleiJakauma();
 
-  // Valmennuslinja — haetaan Firestoresta ja renderöidään Tilanne nyt -kortti
+  // Valmennuslinja-kortti (Tilanne nyt)
   await lataaValmennuslinja();
 }
 
@@ -1711,47 +1742,131 @@ function naytaToast(teksti, tyyppi) {
 }
 
 // ── renderValmennuslinja — Tilanne nyt -kortti ────────────────────
+// Näyttää valmennuslinjan toteutuman mittareilla kun data on,
+// tai selkeän kutsun asettaa se kun ei ole.
 function renderValmennuslinja() {
   const el = document.getElementById('valmennuslinjaAlue');
   if (!el) return;
   const vl = _vlData || {};
-  const onTaytetty = vl.hyokkaysperiaate && vl.puolustusperiaate;
+  const onTaytetty = !!(vl.hyokkaysperiaate || vl.puolustusperiaate);
 
   if (!onTaytetty) {
+    // ── Tyhjätila — selkeä kutsu, ei spinneriä ─────────────────
     el.innerHTML = `
-      <div style="background:var(--bg3);border-radius:8px;padding:12px;font-size:13px;
-                  line-height:1.6;color:var(--ink3);margin-bottom:14px;">
-        <strong style="color:var(--text)">Valmennuslinja asetetaan Tavoitteet-välilehdellä.</strong>
-        <br>
-        <button onclick="naytaTabi('tavoitteet',document.getElementById('tab-tavoitteet'))"
-          style="margin-top:8px;background:var(--accent);color:#fff;border:none;
-                 border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">
-          Aseta valmennuslinja →
-        </button>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:var(--bg3);border-radius:10px;padding:14px 16px;
+                    border-left:3px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:4px;">
+            Valmennuslinjaa ei ole asetettu
+          </div>
+          <div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-bottom:10px;">
+            Kirjaa seuran pelitapaperiaatteet Tavoitteet-välilehdelle.
+            Valmentajat näkevät sen omassa näkymässään.
+          </div>
+          <button onclick="naytaTabi('tavoitteet',document.getElementById('tab-tavoitteet'))"
+            style="background:var(--accent);color:#fff;border:none;border-radius:8px;
+                   padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">
+            Siirry Tavoitteet → Valmennuslinja
+          </button>
+        </div>
+        ${_renderVLMittarit(null)}
       </div>`;
     return;
   }
 
+  // ── Linja asetettu — näytetään tiivistelmä + mittarit ─────────
   el.innerHTML = `
-    <div style="background:rgba(74,126,217,.06);border:1px solid rgba(74,126,217,.2);
-                border-radius:10px;padding:12px 14px;margin-bottom:14px;">
-      ${vl.linkki ? `<a href="${vl.linkki}" target="_blank" rel="noopener"
-        style="font-size:11px;color:var(--accent2);text-decoration:none;display:block;margin-bottom:8px;">
-        🔗 Avaa valmennuslinja-dokumentti ↗</a>` : ''}
-      <div style="font-size:10px;font-weight:700;color:var(--accent2);letter-spacing:.5px;
-                  text-transform:uppercase;margin-bottom:4px;">⚽ Hyökkäysperiaate</div>
-      <div style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:8px;">
-        ${vl.hyokkaysperiaate}</div>
-      <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.5px;
-                  text-transform:uppercase;margin-bottom:4px;">🛡️ Puolustusperiaate</div>
-      <div style="font-size:12px;color:var(--text);line-height:1.5;">
-        ${vl.puolustusperiaate}</div>
-      <button onclick="naytaTabi('tavoitteet',document.getElementById('tab-tavoitteet'))"
-        style="margin-top:10px;background:none;border:1px solid var(--border);border-radius:6px;
-               padding:4px 12px;font-size:11px;color:var(--ink3);cursor:pointer;">
-        ✏️ Muokkaa
-      </button>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <!-- Tiivistelmä -->
+      <div style="background:rgba(74,126,217,.05);border:1px solid rgba(74,126,217,.12);
+                  border-radius:10px;padding:12px 14px;">
+        ${vl.linkki ? `
+          <a href="${vl.linkki}" target="_blank" rel="noopener"
+            style="font-size:11px;color:var(--accent2);text-decoration:none;
+                   display:inline-flex;align-items:center;gap:4px;margin-bottom:8px;">
+            🔗 Avaa valmennuslinja-dokumentti ↗
+          </a>` : ''}
+        <div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;
+                    letter-spacing:.5px;margin-bottom:3px;">⚽ Hyökkäys</div>
+        <div style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:8px;">
+          ${vl.hyokkaysperiaate||'—'}</div>
+        <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;
+                    letter-spacing:.5px;margin-bottom:3px;">🛡️ Puolustus</div>
+        <div style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:8px;">
+          ${vl.puolustusperiaate||'—'}</div>
+        <button onclick="naytaTabi('tavoitteet',document.getElementById('tab-tavoitteet'))"
+          style="background:none;border:1px solid var(--border);border-radius:6px;
+                 padding:4px 12px;font-size:11px;color:var(--ink3);cursor:pointer;">
+          ✏️ Muokkaa
+        </button>
+      </div>
+      <!-- Mittarit -->
+      ${_renderVLMittarit(vl)}
     </div>`;
+}
+
+// Mittarit — käyttää oikeaa KPI-dataa kun saatavilla
+// Kun dataa ei ole, näyttää placeholder-tilan (ei N/A, ei spinneriä)
+function _renderVLMittarit(vl) {
+  const fleiEl   = document.getElementById('kpiFLEI');
+  const fleiArvo = fleiEl ? fleiEl.textContent : '—';
+  const fleiNum  = parseInt(fleiArvo) || null;
+  const idpEl    = document.getElementById('kpiIDP');
+  const idpArvo  = idpEl ? idpEl.textContent : '—';
+
+  const fleiOk  = fleiNum != null && fleiNum >= 70;
+  const fleiWarn= fleiNum != null && fleiNum >= 50 && fleiNum < 70;
+  const fleiErr = fleiNum != null && fleiNum < 50;
+
+  const mittarit = [
+    {
+      ikoni: '🏋️',
+      nimi:  'Harjoitettavuus (FLEI)',
+      kuvaus:'Tavoite: seuran keskiarvo ≥ 70%',
+      arvo:  fleiArvo,
+      tila:  fleiOk ? 'ok' : fleiWarn ? 'warn' : fleiErr ? 'err' : 'odottaa',
+      tilateksti: fleiOk   ? 'Tavoitteessa ✓'
+                : fleiWarn ? 'Parannettavaa ⚠'
+                : fleiErr  ? 'Alle tavoitteen ✗'
+                : 'Ei dataa vielä',
+    },
+    {
+      ikoni: '📋',
+      nimi:  'Aktiiviset kehityskortit (IDP)',
+      kuvaus:'Tavoite: 80% pelaajista',
+      arvo:  idpArvo,
+      tila:  idpArvo !== '—' ? 'ok' : 'odottaa',
+      tilateksti: idpArvo !== '—' ? idpArvo + ' pelaajaa' : 'Ei dataa vielä',
+    },
+    {
+      ikoni: '📝',
+      nimi:  'Jaksoraportit',
+      kuvaus:'Tavoite: 2 kk välein — 5 kaudessa',
+      arvo:  '—',
+      tila:  'odottaa',
+      tilateksti: 'Kirjaa jaksopalaverin jälkeen',
+    },
+  ];
+
+  const variMap = {
+    ok:     'var(--green)',
+    warn:   'var(--amber)',
+    err:    'var(--red)',
+    odottaa:'var(--ink3)',
+  };
+
+  return mittarit.map(m => `
+    <div class="grow">
+      <div class="gicon">${m.ikoni}</div>
+      <div class="gtext">
+        <div class="gname">${m.nimi}</div>
+        <div class="gdesc">${m.kuvaus}</div>
+      </div>
+      <div class="gstatus" style="color:${variMap[m.tila]};font-size:11px;font-weight:700;
+                                   white-space:nowrap;">
+        ${m.tilateksti}
+      </div>
+    </div>`).join('');
 }
 
 // ── Jaksoraportti-modaali ─────────────────────────────────────────
