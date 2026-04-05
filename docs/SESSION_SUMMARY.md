@@ -1,9 +1,9 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
 
-## Projektin tila (päivitetty 2026-04-04)
+## Projektin tila (päivitetty 2026-04-05)
 
-TalentMaster on jalkapallon talenttiarviointialusta — 7 pilottiseuraa (KPV, FC Lahti Juniorit, SJK Juniorit, GrIFK, HJK Juniorit, Pallo-Iirot, Ylöjärven Ilves), Firebase Blaze. Harjoitelogiikka v3 rakennettu. Pelaajaprosessi testattu alusta loppuun. Seura.html merkittävästi paranneltu tässä sessiossa.
+TalentMaster on jalkapallon talenttiarviointialusta — 7 pilottiseuraa (KPV, FC Lahti Juniorit, SJK Juniorit, GrIFK, HJK Juniorit, Pallo-Iirot, Ylöjärven Ilves), Firebase Blaze. Pelaajaprosessi testattu alusta loppuun. Valmentajan näkymä v9 rakennettu. Testiindeksijärjestelmä valmis (`testit_indeksit.js`). Pilottiskenaariot ja esite valmiit.
 
 ---
 
@@ -16,7 +16,7 @@ https://terokoskela7-cmyk.github.io/talentmaster/
 
 ---
 
-## Sivuarkkitehtuuri (vahvistettu 2026-04-04)
+## Sivuarkkitehtuuri (vahvistettu 2026-04-05)
 
 | Sivu | Tiedosto | Rooli |
 |---|---|---|
@@ -74,12 +74,15 @@ Super Admin: `talentmasterid@gmail.com` / UID: `dqUzvJA61Wb9fgj5UiK0riSA4NI2`
 | Funktio | Kuvaus | Tila |
 |---|---|---|
 | `lahetaRekisteriKutsu` | Lähettää rekisteröintikutsun huoltajalle | ✅ |
-| `luoKayttaja` | Luo Auth-tunnuksen + custom claims + salasanalinkin | ✅ |
+| `luoKayttaja` | Luo Auth-tunnuksen + custom claims + salasanalinkin | ✅ + setCustomUserClaims lisätty 2026-04-04 |
 | `lahetaHuoltajaKutsu` | Huoltajan suostumuskutsu | ✅ |
 | `deaktivioiKayttaja` | Deaktivoi käyttäjän | ✅ |
 | `lahetaPelaajaSivuLinkki` | Lähettää linkit vanhemman/pelaajan sivulle | ✅ |
 | `tasoHaeSeuranOttelut` | Hakee ottelut TASO API:sta | ✅ |
-| `tasoHaeMaatcheck` | TASO cron klo 06:00 | ❌ KOMMENTOITU POIS — vaatii Cloud Scheduler Admin -roolin SA:lle IAM-konsolissa |
+| `tasoHaeMaatcheck` | TASO cron klo 06:00 | ❌ KOMMENTOITU — vaatii Cloud Scheduler Admin SA:lle IAM-konsolissa |
+
+### TÄRKEÄ: luoKayttaja — setCustomUserClaims (lisätty 2026-04-04)
+`luoKayttaja` kutsuu nyt `auth.setCustomUserClaims(uid, { rooli, seuraId })` heti Firestore-kirjoituksen jälkeen. Ilman tätä valmentaja ei pääse Firestore-dataan koska Rules lukee `request.auth.token.rooli`. Vanhoille käyttäjille jotka luotiin ennen tätä muutosta claims puuttuu — ne pitää asettaa manuaalisesti tai luoda uusi tili.
 
 ### roolitusUrl (luoKayttaja) — continueUrl salasanalinkissä
 ```javascript
@@ -99,13 +102,20 @@ const roolitusUrl = {
 
 ## PENDING — avoimet asiat
 
-- `TalentMaster_Seura.html` uusin versio (170 240 merkkiä) GitHubiin — **KRIITTINEN**
-- `TalentMaster_VP_v18.html` → GitHub — PENDING
-- `harjoitelogiikka_v3.js` → GitHub — PENDING
+### KRIITTINEN — lataa GitHubiin ennen testausta
+- `TalentMaster_Seura.html` uusin versio (170 240 merkkiä) — **KRIITTINEN**
+- `TalentMaster_VP_v18.html` — PENDING
+- `TalentMaster_Master_v9.html` — PENDING (rakennettu 2026-04-04)
+- `harjoitelogiikka_v3.js` — PENDING
+- `testit_indeksit.js` — PENDING (rakennettu 2026-04-04, 1210 riviä)
+
+### Muut avoimet
 - Cloud Scheduler API aktivointi: https://console.cloud.google.com/apis/library/cloudscheduler.googleapis.com?project=talentmaster-pilot
 - Muiden seurojen `palloliittoKori` + `tmTaso` Firestoreen (fcl, palloiirot, yvies, sjk, grifk) — KPV lisätty
-- Kutsu-dokumentin `hyvaksytty`-päivitys suostumuslomakkeesta — suostumuslomake ei vielä päivitä kutsu-dokumenttia
+- Kutsu-dokumentin `hyvaksytty`-päivitys suostumuslomakkeesta — ei vielä päivitä kutsu-dokumenttia
 - Vanhemman sivu: tallennusohje näkyy joka kerta (localStorage-rajoitus), padding-bottom 120px → 40px
+- H-H normitaulukon tarkat raja-arvot: verifioi `testit_indeksit.js`:n arvot virallisesta H-H taulukosta
+- **Testisyöttölomake** — kriittisin puuttuva palanen: Kartoitukset-välilehti Master v9:ään
 
 ---
 
@@ -126,11 +136,11 @@ Firestore Rules päivitetty Firebase-konsolissa suoraan (GitHub Actions saa 403 
 
 ---
 
-## TalentMaster_Seura.html — muutokset tässä sessiossa
+## TalentMaster_Seura.html — muutokset (2026-04-04)
 
-Uusin versio (170 240 merkkiä) ladattu käyttäjän selaimeen. **Tulee ladata GitHubiin ennen testausta.**
+Uusin versio (170 240 merkkiä). **Tulee ladata GitHubiin ennen testausta.**
 
-**Muutos 1 — renderSopimukset() uusittu.** Vanha Palloliiton kolme koria -checklist poistettu. Tilalle TalentMaster-taso (lukee `tmTaso` Firestoresta), Palloliiton kori (lukee `palloliittoKori`, vain informatiivinen) ja GDPR-suostumustilanne (lukee `suostumusTila` pelaajat-kokoelmasta — EI kutsut-kokoelmasta). Turhat funktiot `toggleKriteeri`, `renderKriteeriUI`, `paivitaKoriPalkki`, `lataaKriteeritTila` poistettu.
+**Muutos 1 — renderSopimukset() uusittu.** Vanha Palloliiton kolme koria -checklist poistettu. Tilalle TalentMaster-taso (`tmTaso` Firestoresta), Palloliiton kori (`palloliittoKori`, vain informatiivinen) ja GDPR-suostumustilanne (`suostumusTila` pelaajat-kokoelmasta — EI kutsut-kokoelmasta). Turhat funktiot `toggleKriteeri`, `renderKriteeriUI`, `paivitaKoriPalkki`, `lataaKriteeritTila` poistettu.
 
 **Muutos 2 — kutsuId kulkee rekisteröintilinkin mukana.** Kutsu luodaan `doc().id`-menetelmällä. `kutsuId` lisätään URL-parametreihin jotta suostumuslomake voi päivittää oikean kutsun tilaksi `hyvaksytty`.
 
@@ -140,33 +150,105 @@ Uusin versio (170 240 merkkiä) ladattu käyttäjän selaimeen. **Tulee ladata G
 
 ---
 
-## TalentMaster-tasot vs. Palloliiton korit — arkkitehtuuriselkeys
+## Testikerrosjärjestelmä — testit_indeksit.js (valmis 2026-04-04)
 
-**TalentMaster-tasot** = tuotelisenssi: Perustaso (rekisteri+kutsut), Kehitystaso (+FLEI+IDP+PHV), Huipputaso (+talenttitunnistus+biologinen ikä+5D).
+Tiedosto: `testit_indeksit.js` (1210 riviä) — vie GitHubiin, liitä `<script>`-tagilla VP v18:aan ja Master v9:ään.
 
-**Palloliiton korit** = seuran ja Palloliiton sopimustaso — TalentMaster vain näyttää tiedon. Kori 1 → Perustaso, Kori 2 → Kehitystaso, Kori 3 → Huipputaso. Myyntiargumentti.
+### Kolme testikerrosta → kolme indeksiä
 
-KPV:lle lisätty Firestoreen: `{ palloliittoKori: '1', tmTaso: 'perustaso' }`.
+| Kerros | Testit | Ikä | Indeksi | Paketti |
+|---|---|---|---|---|
+| 1 — Tekniikkakilpailut | Ponnauttelu, syöttö, pujottelu, kuljetus-laukaus, pituuspotku | U8–U13 | TKI 0–100 | Kaikki |
+| 2 — H-H ominaisuustestit | 30m, 5m, kasirata, CMJ, SM-juoksu, SM-pallo, pujottelu, MAS, syöttöpenkki | U10–U19 | OVR 0–100 + EI + FVP + TSI | Kehitys+ |
+| 3 — Harjoitettavuuskartoitus | Voimatestit, liikkuvuus, liiketaidot | U10–U19 | FLEI 0–100% | Kaikki |
+
+### Modulaarinen TKI
+- **TKI-Perus** (ei SM-palloa): `(Syöttö×0.45) + (Pujottelu×0.35) + (Ponnauttelu×0.20)` — kaikki seurat
+- **TKI-Laajennettu** (SM-pallo mukana): `(Syöttö×0.40) + (Pujottelu×0.30) + (SM-pallo×0.30)` — kehitys+
+- Luottamusvälimerkintä: `TKI 74 ◐` = osittainen, `TKI 81 ●` = täysi
+- Tallennetaan `tki_versio` + `tki_komponentit` Firestoreen
+
+### Soveltava testaus
+Indeksit lasketaan AINA niistä testeistä joita on tehty. `kattavuus`-kenttä (0–1) tallennetaan tuloksen rinnalle.
+
+### Räjähtävyysprofiili
+```javascript
+laskeEI(cmj, sj, ika)          // Elastisuusindeksi: CMJ−SJ, tavoite U12≥3cm U14≥5cm U18+≥8cm
+laskeFVP(m5, m30, pelipaikka)  // Voima-nopeus-profiili: 5m/(30m/6), <0.90 nopeus, >1.10 voima
+laskeVNE(params)               // Yhdistelmä: rajahdys/jousi/moottori/rakentaja/perusta
+```
+
+### ADAR / Game IQ
+```javascript
+adarHaeIkaTaso(ika)                          // U8-12: Havainnoija, U13-15: Arvioija, U16-19: Täysi
+laskeADARPisteet(pisteet, ika, skenaario)    // max 3p/12p, X-Factor/Hidden Gem -kytkös
+laskeADARTrendi(arvioinnit)                  // kehitysvauhti %/kk, Hidden Gem -signaali
+```
+
+### Neljä pelitilanneskenaariota (ADAR_SKENAARIOT)
+- `pressi_murto` — prässilinjan murto syötöllä (CD, CDM)
+- `kymmenen_paikka` — 10-paikan läpäisy puolilinjan yli (CAM, CM)
+- `boksi_syotto` — boksin sisäinen syöttö pystypaluulle (W, FB, ST)
+- `nopea_kierratys` — nopea kierrätys 2v1 (kaikki)
+
+### Firestore-rakenne (testit)
+```
+seurat/{seuraId}/testit/{testId}
+  tyyppi: 'hh' | 'tekniikka' | 'harjoitettavuus'
+  pelaajaId, pelaajaNimi, seuraId, joukkue
+  ika, sp ('P'|'T'), bioIka
+  pvm, kausi, testaaja, testaajaEmail
+  tulokset: { '30m': 4.45, cmj: 38, ... }
+  tasot:    { '30m': 3, cmj: 4, ... }    // laskettu automaattisesti
+  ovr: 72, tki: 74, flei: 67             // laskettu automaattisesti
+  metrikat: { ei: 5.2, fvp: 0.98, tsi: 0.8 }
+  kattavuus: 0.67                        // montako testeistä tehty (0-1)
+  tki_versio: 'perus' | 'laajennettu'
+  luotu: Timestamp
+```
 
 ---
 
-## Pelaajadatan rakenne (vahvistettu)
+## Valmentajan näkymä v9 — TalentMaster_Master_v9.html (valmis 2026-04-04)
 
-```javascript
-// seurat/{seuraId}/pelaajat/{pelaajaId}
-{
-  etunimi, sukunimi,
-  joukkue: 'kpv_u13',         // ensisijainen (vanha yhteensopivuus)
-  joukkueet: ['kpv_u13'],     // kaikki joukkueet (uusi rakenne)
-  seuraId, huoltajaEmail, pelaajaId,
-  suostumusTila: 'odottaa' | 'annettu',
-  tila: 'aktiivinen' | null,
-  syntymaaika, palloID,
-  tuotu, tuoja, muokattu, muokkaajaUid,
-}
+Coach A (neljä hetkeä) + Coach B (pelaajaohjautuva) -yhdistelmä. Neljä näkymää:
+
+**Tänään** — Kolmen pelaajan prioriteettilista (PHV-tila, Hidden Gem, RAE Q3/Q4), joukkueen fiilinki eiliseltä, RPE-kooste eilisestä.
+
+**Harjoitus** — 70/30-ohjelma viikkonumeron mukaan kiertyvänä, läsnäolot napauttamalla (paikalla/poissa/loukk), RPE-slider + kommentti, pikamerkinnät pelaajille (treeni/asenne/kehitys/tiimi).
+
+**Havainnot** — ADAR-havainto pelaajasta: dimensio (Assess/Decide/Act/Re-assess), tunnisteet (X-Factor/Hidden Gem), vapaa teksti. Tallentuu `seurat/{id}/havainnot/` → VP näkee automaattisesti.
+
+**Pelaajat** — Hakupalkki, huomio-ryhmä (PHV/HG), koko joukkuelista OVR:llä.
+
+### Firestore-rakenteet (valmentaja)
+```
+seurat/{id}/harjoitukset/{pvmId}    // RPE + läsnäolot + ohjelma + kommentti
+seurat/{id}/havainnot/{havaintoId}  // ADAR + tunnisteet + onXFactor/onHiddenGem
+seurat/{id}/merkinnät/{merkintaId}  // pikamerkintä + tyyppi + pelaajaId
 ```
 
-Joukkueen kaksikenttäinen rakenne on tarkoituksellinen: `joukkue` (string) säilyy yhteensopivuuden vuoksi, `joukkueet` (array) mahdollistaa usean joukkueen jäsenyyden ja on oikea rakenne harjoitettavuuskartoitushauille sekä testidatan seurannalle.
+---
+
+## ADAR-moduuli ikäluokittain (KV-tutkimus 2026-04-04)
+
+### U8–U12 — Havainnoija (vain Assess)
+Valmentajan työkalu — pelaaja EI tiedä olevansa arvioinnin kohteena. Neurologinen peruste: reagointikyky kehittyy U11:sta, ennakointikyky vasta murrosiästä (Vänttinen, KIHU 2015).
+
+**KV-harjoitteet:** Ball Hunters (La Masia), Väri-huuto-rondo (4v2 Dual-Task Taso 1), Futsal.
+**Pikakortti:** 3 kysymystä, max 3 pelaajaa, kyllä/ei — ei pisteytystä pelaajalle näkyviin.
+
+### U13–U15 — Arvioija (Assess + Decide + Act, max 12p)
+Ennakointikyky alkaa kehittyä. PHV käynnissä → koordinaatiomuutoksia → heikko Act ei tarkoita huonoa pelaajaa.
+
+**KV-harjoitteet:** Honey Trap, Dual-Task Rondo Taso 2 (5v2), Prässilinjan murto (3v3), Positional Play.
+**Protokolla:** max 4 tilannetta × 3 vaihetta = 12p. Narratiivi pakollinen numeroiden rinnalla.
+
+### U16–U19 — Täysi ADAR (A+D+A+R + pelaajan reflektio, max 12p)
+Re-assess = virheen jälkeinen palautuminen alle 15 sekunnissa.
+
+**KV-harjoitteet:** Error Recovery Protocol, 10-paikan läpäisy, Boksin sisäinen syöttö, Videoreflektio (delta-analyysi).
+**Game IQ aukeaa pelaajalle** arvioinnin jälkeen IDP-kortissa: ADAR-trendi + heikoin dimensio + harjoitussuositus.
 
 ---
 
@@ -183,7 +265,7 @@ Joukkueen kaksikenttäinen rakenne on tarkoituksellinen: `joukkue` (string) säi
 | P | 2–3×/vk | 20–30 min | 6 vk nousujohteinen jakso |
 
 ### T-harjoitteen filosofia
-Tekninen taito = hermostollinen automatisoituminen → EI vaadi lepoa. Tauko heikentää automaatioratoja. Kultaikkuna 8–12v (Nevanlinna 2014): sama tulos vaatii murrosiän jälkeen moninkertaisen työn. Ajax/Benfica/La Masia: daily touches. U8–U12: EI mittausta, EI pakottamista. U15+: T muuttuu pelipaikkakohtaiseksi. T ei poistu koskaan ohjelmasta.
+Tekninen taito = hermostollinen automatisoituminen → EI vaadi lepoa. Kultaikkuna 8–12v (Nevanlinna 2014). Ajax/Benfica/La Masia: daily touches. U8–U12: EI mittausta, EI pakottamista. U15+: pelipaikkakohtainen. T ei poistu koskaan ohjelmasta.
 
 ### Muut periaatteet
 Viikkokierto: parillinen vk → heikoin, pariton → toiseksi heikoin. Ikäkohtainen kieli: leikkija/rakentaja/showcase. Everton Stage 1→5. PHV ohittaa Stagen. Everton-lisäykset: laskeutuminen (ACL), YJ-loikat, karhukävely.
@@ -204,26 +286,27 @@ ytUrl(id) / ytThumbnail(id)      // YouTube apufunktiot
 
 ---
 
-## PIN-kirjautuminen (Pelaaja v1/v2)
+## Pelaajadata — rakenne (vahvistettu)
 
 ```javascript
-_haeKaikkiSeurat()     // Firestoresta — toimii uusille seuroille
-pinTarkista()          // pelaajat.where('pin','==','1234')
-_tarkistaPinSessio()   // sessio 30 päivää localStorage
-kirjauduUlos()         // tyhjentää Firebase + PIN
+// seurat/{seuraId}/pelaajat/{pelaajaId}
+{
+  etunimi, sukunimi,
+  joukkue: 'kpv_u13',         // ensisijainen (vanha yhteensopivuus)
+  joukkueet: ['kpv_u13'],     // kaikki joukkueet (uusi rakenne)
+  seuraId, huoltajaEmail, pelaajaId,
+  suostumusTila: 'odottaa' | 'annettu',
+  tila: 'aktiivinen' | null,
+  syntymaaika, palloID,
+  tuotu, tuoja, muokattu, muokkaajaUid,
+}
 ```
 
-URL-parametri `?seura=kpv` nopeuttaa hakua.
+Joukkueen kaksikenttäinen rakenne on tarkoituksellinen: `joukkue` (string) yhteensopivuus, `joukkueet` (array) uusi rakenne harjoitettavuuskartoitushauille ja testidatan seurannalle.
 
----
-
-## AI Behavioural Science -agentti (Sprint 6–8)
-
-Arkkitehtuuri: Firestore trigger → Cloud Function → Anthropic API → pelaajan näkymä. Puhuu VAIN oikeaan aikaan (streak katkeamassa, 3pv putki, fiilinki matala, uusi viikko, PHV-huippu). Periaatteet: Habit loop (Duhigg), Implementation intention (Gollwitzer), Loss aversion, Social proof, Temptation bundling (Milkman), Fresh start effect. Vaatii min 2–4vk dataa.
-
-### Harjoitekirjauksen Firestore-rakenne (tee oikein Sprint 3:ssa ennen agentin rakentamista)
+### Harjoitekirjauksen Firestore-rakenne (tee oikein Sprint 3:ssa ennen AI-agentin rakentamista)
 ```
-seurat/{seuraId}/pelaajat/{pelaajaId}/kirjaukset/{pvm}/
+seurat/{seuraId}/pelaajat/{pelaajaId}/kirjaukset/{pvm}
   tyyppi: 'T'|'D'|'S'|'P'
   tehty: bool
   kesto_min, rpe: 1-10
@@ -243,11 +326,40 @@ Kehitysnopeus (realistinen/kausi): Lankku 20s→55s · T-drill −0.4s · 5-loik
 
 ---
 
+## TalentMaster-tasot vs. Palloliiton korit
+
+**TalentMaster-tasot** = tuotelisenssi: Perustaso (rekisteri+kutsut), Kehitystaso (+FLEI+IDP+PHV), Huipputaso (+talenttitunnistus+biologinen ikä+5D+klinikka).
+
+**Palloliiton korit** = seuran ja Palloliiton sopimustaso — TalentMaster vain näyttää tiedon. Kori 1→Perustaso, Kori 2→Kehitystaso, Kori 3→Huipputaso. Myyntiargumentti.
+
+KPV:lle lisätty Firestoreen: `{ palloliittoKori: '1', tmTaso: 'perustaso' }`.
+
+---
+
+## PIN-kirjautuminen (Pelaaja v1/v2)
+
+```javascript
+_haeKaikkiSeurat()     // Firestoresta — toimii uusille seuroille
+pinTarkista()          // pelaajat.where('pin','==','1234')
+_tarkistaPinSessio()   // sessio 30 päivää localStorage
+kirjauduUlos()         // tyhjentää Firebase + PIN
+```
+
+URL-parametri `?seura=kpv` nopeuttaa hakua.
+
+---
+
+## AI Behavioural Science -agentti (Sprint 6–8)
+
+Firestore trigger → Cloud Function → Anthropic API → pelaajan näkymä. Puhuu VAIN oikeaan aikaan (streak katkeamassa, 3pv putki, fiilinki matala, uusi viikko, PHV-huippu). Periaatteet: Habit loop (Duhigg), Implementation intention (Gollwitzer), Loss aversion, Social proof, Temptation bundling (Milkman), Fresh start effect. Vaatii min 2–4vk dataa. Ikäkohtainen ääni: leikkija/rakentaja/showcase.
+
+---
+
 ## Tehtävälista — sprinteittäin
 
-**Sprint 1–2 (nyt):** Lataa Seura.html + VP v18 + harjoitelogiikka_v3 GitHubiin. Aktivoi Cloud Scheduler API. Integroi PIN + harjoitelogiikka v3 Pelaaja v1:een. Streak + XP Firestoreen (nyt localStoragessa). Valmentajan päivän tehtävä → Firestore. videoBank Firestoreen.
+**Sprint 1–2 (kriittiset deployt):** Lataa Seura.html + VP v18 + Master v9 + harjoitelogiikka_v3 + testit_indeksit.js GitHubiin. Aktivoi Cloud Scheduler API. Integroi PIN + harjoitelogiikka v3 Pelaaja v1:een. Streak + XP Firestoreen (nyt localStoragessa). Valmentajan päivän tehtävä → Firestore. videoBank Firestoreen.
 
-**Sprint 3–5:** Harjoitekirjauksen Firestore-rakenne. Valmentajan kenttähavainto → Firestore (tärkein puuttuva valmentajaominaisuus). IDP-aktivointilogiikka. Kartoitukset-välilehti Master v9:ään.
+**Sprint 3–5:** Testisyöttölomake (Kartoitukset-välilehti Master v9:ään) — KRIITTISIN. Harjoitekirjauksen Firestore-rakenne oikein. IDP-aktivointilogiikka. VP-dashboard avainluvut (OVR-jakauma, HG-hälytykset, ADAR-trendit).
 
 **Sprint 6–8 (kun dataa 2–4 viikkoa):** AI Behavioural Science -agentti.
 
@@ -255,7 +367,7 @@ Kehitysnopeus (realistinen/kausi): Lankku 20s→55s · T-drill −0.4s · 5-loik
 
 ## Deploy-workflow
 
-GitHub Actions, `deploy_functions.yml` (kolme valintaa: `functions`, `rules`, `kaikki`). Rules-deploy saa 403-virheen — käytä Firebase-konsolia suoraan. `tasoHaeMaatcheck` kommentoitu pois kunnes Cloud Scheduler Admin lisätty SA:lle.
+GitHub Actions, `deploy_functions.yml` (kolme valintaa: `functions`, `rules`, `kaikki`). Rules-deploy saa 403-virheen → käytä Firebase-konsolia suoraan. `tasoHaeMaatcheck` kommentoitu pois kunnes Cloud Scheduler Admin lisätty SA:lle. Fastly CDN: `?v=N` cache-busting jokaisen latauksen jälkeen.
 
 ---
 
@@ -272,6 +384,8 @@ GitHub Actions, `deploy_functions.yml` (kolme valintaa: `functions`, `rules`, `k
 9. GitHub Pages Fastly CDN — `?v=N` cache-busting jokaisen latauksen jälkeen
 10. `onAuthStateChanged`-loop estetty `_kirjautuminenKesken`-flagilla
 11. `onSnapshot`-kuuntelijat siivottava ennen `signOut()`-kutsua
+12. `setCustomUserClaims` pakollinen `luoKayttaja`-funktiossa — ilman tätä Rules ei tunnista valmentajaa
+13. Soveltava testaus: indeksit lasketaan niistä testeistä joita on tehty, `kattavuus`-kenttä tallennetaan aina
 
 ---
 
