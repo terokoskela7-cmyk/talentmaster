@@ -390,7 +390,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <button class="tab-btn" onclick="naytaTabi('kartoitukset',this)" id="tab-kartoitukset">🏋️ Kartoitukset</button>
       <button class="tab-btn" onclick="naytaTabi('kalenteri',this)" id="tab-kalenteri">📅 Kalenteri</button>
       <button class="tab-btn" onclick="naytaTabi('henkilosto',this)" id="tab-henkilosto">👥 Henkilöstö</button>
-      <button class="tab-btn" onclick="naytaTabi('tavoitteet',this)" id="tab-tavoitteet">🎯 Tavoitteet</button>
+      <button class="tab-btn" onclick="naytaTabi('tavoitteet',this);lataaTavoitteet();lataaValmennuslinja();" id="tab-tavoitteet">🎯 Tavoitteet</button>
       <button class="tab-btn" onclick="naytaTabi('valmennus',this)" id="tab-valmennus">🧑‍🏫 Valmennus</button>
       <button class="tab-btn" onclick="naytaTabi('polku',this)" id="tab-polku">🔀 Pelaajapolut</button>
       <button class="tab-btn" onclick="naytaTabi('kausirakenne',this)" id="tab-kausirakenne">📆 Kausirakenne</button>
@@ -550,6 +550,89 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <!-- ══ TAVOITTEET ══ -->
   <div class="view" id="view-tavoitteet">
   <div class="inner fadeup">
+
+    <!-- ── VALMENNUSLINJA (Hammarby-malli) ── -->
+    <div class="card" id="valmennuslinjaKortti" style="margin-bottom:20px;">
+      <div class="card-title" style="margin-bottom:4px;">🎯 Seuran valmennuslinja</div>
+      <div style="font-size:12px;color:var(--ink3);margin-bottom:16px;line-height:1.5;">
+        Kirjaa seurasi pelifilosofia Hammarby-mallin mukaan. Valmentajat näkevät tämän — 
+        se on pohja ADAR-arvioinnille ja yksilön kehitykselle joukkuekontekstissa.
+      </div>
+
+      <!-- Hyökkäys -->
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">
+          ⚽ Hyökkäysperiaate
+        </label>
+        <textarea id="vl_hyokkays" rows="2"
+          placeholder="Esim: Hallitaan palloa ja luodaan maalipaikkoja — passa/kuljeta eteenpäin, löydä vapaa pelaaja joka pystyy tekemään saman."
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                 padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                 resize:vertical;outline:none;line-height:1.5;transition:border-color .2s;"
+          onfocus="this.style.borderColor='var(--accent)'"
+          onblur="this.style.borderColor='var(--border)'"></textarea>
+      </div>
+
+      <!-- Puolustus -->
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">
+          🛡️ Puolustusperiaate
+        </label>
+        <textarea id="vl_puolustus" rows="2"
+          placeholder="Esim: Estetään vastustajan pallonhallinta — palautetaan pallo välittömästi menetyksen jälkeen, suunnataan vastustaja heikkoon suuntaan."
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                 padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                 resize:vertical;outline:none;line-height:1.5;transition:border-color .2s;"
+          onfocus="this.style.borderColor='var(--teal)'"
+          onblur="this.style.borderColor='var(--border)'"></textarea>
+      </div>
+
+      <!-- Yksilö joukkuekontekstissa -->
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">
+          👤 Yksilö joukkuekontekstissa
+        </label>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;line-height:1.4;">
+          Miten pelaajan henkilökohtainen kehitys näkyy joukkueen pelissä? 
+          Tämä ohjaa valmentajien ADAR-arviointia kentällä.
+        </div>
+        <textarea id="vl_yksilokehitys" rows="2"
+          placeholder="Esim: Jokainen pelaaja kehittää yhtä henkilökohtaista vahvuutta joka palvelee joukkueen pelitapaa — Railgun-profiili luo syvyyttä, Maestro luo leveyttä."
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                 padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                 resize:vertical;outline:none;line-height:1.5;transition:border-color .2s;"
+          onfocus="this.style.borderColor='var(--amber)'"
+          onblur="this.style.borderColor='var(--border)'"></textarea>
+      </div>
+
+      <!-- Ikäkorttien taitavuuspainopisteet -->
+      <div style="margin-bottom:16px;">
+        <label style="font-size:11px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:10px;">
+          📋 Ikäluokan taitavuuspainopisteet (Hammarby-malli)
+        </label>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:10px;line-height:1.4;">
+          Mitkä taitavuusalueet ovat kussakin ikäluokassa ensisijaisia (1 = harjoitellaan joka treeni)?
+          Valitse 1–3 painopistettä ikäluokkaa kohti.
+        </div>
+        <div id="ikakorttiAlue">
+          <!-- Renderöidään JS:llä -->
+        </div>
+      </div>
+
+      <!-- Tallenna -->
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button onclick="tallennaValmennuslinja()"
+          style="background:var(--accent);color:#fff;border:none;border-radius:8px;
+                 padding:10px 20px;font-family:'Barlow Condensed',sans-serif;font-size:15px;
+                 font-weight:700;cursor:pointer;letter-spacing:.5px;transition:opacity .2s;"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          Tallenna valmennuslinja
+        </button>
+        <div id="vl_status" style="font-size:12px;color:var(--ink3);"></div>
+      </div>
+    </div>
+
+    <!-- ── PALLOLIITON KORIT ── -->
     <div class="stitle">Palloliiton kolme koria</div>
     <div id="tavoitteetAlue">
       <div class="loading"><div class="spinner"></div></div>
@@ -1034,8 +1117,8 @@ async function lataaTilanne() {
   // FLEI-jakauma
   renderFleiJakauma();
 
-  // Valmennuslinja
-  renderValmennuslinja();
+  // Valmennuslinja — haetaan Firestoresta ja renderöidään Tilanne nyt -kortti
+  await lataaValmennuslinja();
 }
 
 /* ══════════════════════════════════════════════
@@ -1295,26 +1378,186 @@ async function renderFleiJakauma() {
 }
 
 /* ══════════════════════════════════════════════
-   VALMENNUSLINJA
+   VALMENNUSLINJA — haku + tallennus + ikäkortit
 ══════════════════════════════════════════════ */
+
+// Hammarby-mallin taitavuusalueet — ikäluokittainen progressio
+const _TAITAVUUSALUEET = [
+  { id: 'driva',    nimi: 'Driva / Kuljetus' },
+  { id: 'passning', nimi: 'Lyhyt passaus' },
+  { id: 'langpass', nimi: 'Pitkä passaus' },
+  { id: 'skjuta',   nimi: 'Laukaus' },
+  { id: 'finta',    nimi: 'Finta / Haaste' },
+  { id: 'mottag',   nimi: 'Vastaanotto' },
+  { id: 'press',    nimi: 'Puristus / Takling' },
+  { id: 'huvud',    nimi: 'Pääpeli' },
+];
+const _IKALUOKAT = ['U12','U13','U14','U15','U16','U17','U18','U19'];
+
+let _vlData = {}; // cache — ladattu Firestoresta
+
+async function lataaValmennuslinja() {
+  if (!_seuraId) return;
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId).get();
+    const vl = snap.data()?.valmennuslinja || {};
+    _vlData = vl;
+
+    // Täytä tekstikentät
+    const h = document.getElementById('vl_hyokkays');
+    const p = document.getElementById('vl_puolustus');
+    const y = document.getElementById('vl_yksilokehitys');
+    if (h) h.value = vl.hyokkaysperiaate || '';
+    if (p) p.value = vl.puolustusperiaate || '';
+    if (y) y.value = vl.yksilokehitys || '';
+
+    // Renderöi ikäkortit
+    _renderIkakortit(vl.ikakortti_painopisteet || {});
+
+    // Päivitä Tilanne nyt -kortti
+    renderValmennuslinja();
+
+  } catch(e) {
+    console.warn('[VP] Valmennuslinja lataus:', e.message);
+  }
+}
+
+function _renderIkakortit(painopisteet) {
+  const el = document.getElementById('ikakorttiAlue');
+  if (!el) return;
+
+  el.innerHTML = _IKALUOKAT.map(ika => {
+    const valitut = painopisteet[ika] || [];
+    return `
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:6px;">${ika}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${_TAITAVUUSALUEET.map(t => {
+            const on = valitut.includes(t.id);
+            return `<button
+              id="ika_${ika}_${t.id}"
+              onclick="toggleIkakortti('${ika}','${t.id}',this)"
+              style="padding:4px 10px;border-radius:12px;border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};
+                     background:${on ? 'rgba(74,126,217,.12)' : 'var(--bg3)'};
+                     color:${on ? 'var(--accent2)' : 'var(--ink3)'};
+                     font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;">
+              ${t.nimi}
+            </button>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleIkakortti(ika, taito, btn) {
+  if (!_vlData.ikakortti_painopisteet) _vlData.ikakortti_painopisteet = {};
+  const lista = _vlData.ikakortti_painopisteet[ika] || [];
+  const idx = lista.indexOf(taito);
+  if (idx === -1) {
+    lista.push(taito);
+    btn.style.borderColor = 'var(--accent)';
+    btn.style.background  = 'rgba(74,126,217,.12)';
+    btn.style.color       = 'var(--accent2)';
+  } else {
+    lista.splice(idx, 1);
+    btn.style.borderColor = 'var(--border)';
+    btn.style.background  = 'var(--bg3)';
+    btn.style.color       = 'var(--ink3)';
+  }
+  _vlData.ikakortti_painopisteet[ika] = lista;
+}
+
+async function tallennaValmennuslinja() {
+  if (!_seuraId) return;
+  const statusEl = document.getElementById('vl_status');
+  if (statusEl) statusEl.textContent = 'Tallennetaan...';
+
+  const hyokkays  = document.getElementById('vl_hyokkays')?.value.trim() || '';
+  const puolustus = document.getElementById('vl_puolustus')?.value.trim() || '';
+  const yksilö    = document.getElementById('vl_yksilokehitys')?.value.trim()   || '';
+
+  const tallennus = {
+    hyokkaysperiaate:   hyokkays,
+    puolustusperiaate:  puolustus,
+    yksilokehitys:      yksilö,
+    ikakortti_painopisteet: _vlData.ikakortti_painopisteet || {},
+    paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
+    paivittaja: _auth.currentUser?.email || 'tuntematon',
+  };
+
+  try {
+    await _db.collection('seurat').doc(_seuraId).update({
+      valmennuslinja: tallennus,
+    });
+    _vlData = tallennus;
+    if (statusEl) {
+      statusEl.textContent = '✓ Tallennettu';
+      statusEl.style.color = 'var(--green)';
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    }
+    // Päivitä Tilanne nyt -kortti
+    renderValmennuslinja();
+    naytaToast('✅ Valmennuslinja tallennettu', 'ok');
+  } catch(e) {
+    if (statusEl) {
+      statusEl.textContent = 'Virhe: ' + e.message;
+      statusEl.style.color = 'var(--red)';
+    }
+    console.error('[VP] Valmennuslinja tallennus:', e.message);
+  }
+}
+
 function renderValmennuslinja() {
   const el = document.getElementById('valmennuslinjaAlue');
-  // Tässä vaiheessa lasketaan mittarit Firestoresta
-  // Toistaiseksi näytetään seuran oma tavoite ja ohjataan täyttämään se
+  if (!el) return;
+
+  const vl = _vlData;
+  const onTaytetty = vl.hyokkaysperiaate && vl.puolustusperiaate;
+
+  if (!onTaytetty) {
+    el.innerHTML = `
+      <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;line-height:1.6;color:var(--ink3)">
+        <strong style="color:var(--text)">Valmennuslinja asetetaan Tavoitteet-välilehdellä.</strong>
+        Kun valmennuslinja on asetettu, tämä kortti näyttää toteutuman mittareilla.
+        <br><button onclick="naytaTabi('tavoitteet',document.getElementById('tab-tavoitteet'))"
+          style="margin-top:8px;background:var(--accent);color:#fff;border:none;border-radius:6px;
+                 padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">
+          Aseta valmennuslinja →
+        </button>
+      </div>
+      ${_kpiGrowRows()}`;
+    return;
+  }
+
+  // Linja on asetettu — näytetään se + KPI-rivit
   el.innerHTML = `
-    <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;line-height:1.6;color:var(--ink3)">
-      <strong style="color:var(--text)">Valmennuslinja asetetaan Tavoitteet-välilehdellä.</strong>
-      Kun valmennuslinja on asetettu, tämä kortti näyttää automaattisesti toteutuman mittareilla.
+    <div style="background:rgba(74,126,217,.06);border:1px solid rgba(74,126,217,.2);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+      <div style="font-size:10px;font-weight:700;color:var(--accent2);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">⚽ Hyökkäysperiaate</div>
+      <div style="font-size:13px;color:var(--text);line-height:1.5;margin-bottom:10px;">${vl.hyokkaysperiaate}</div>
+      <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">🛡️ Puolustusperiaate</div>
+      <div style="font-size:13px;color:var(--text);line-height:1.5;margin-bottom:10px;">${vl.puolustusperiaate}</div>
+      ${vl.yksilokehitys ? `
+        <div style="font-size:10px;font-weight:700;color:var(--amber);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">👤 Yksilö joukkueessa</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.5;">${vl.yksilokehitys}</div>
+      ` : ''}
+      <button onclick="naytaTabi('tavoitteet',document.getElementById('tab-tavoitteet'))"
+        style="margin-top:10px;background:none;border:1px solid var(--border);border-radius:6px;
+               padding:5px 12px;font-size:11px;color:var(--ink3);cursor:pointer;">
+        ✏️ Muokkaa
+      </button>
     </div>
+    ${_kpiGrowRows()}`;
+}
+
+function _kpiGrowRows() {
+  return `
     <div class="grow">
       <div class="gicon">🏋️</div>
       <div class="gtext">
         <div class="gname">Harjoitettavuus</div>
         <div class="gdesc">Tavoite: kaikki pelaajat yli 70%</div>
       </div>
-      <div class="gstatus ${_kpiFleiStatus()}">
-        ${_kpiFleiStatusTeksti()}
-      </div>
+      <div class="gstatus ${_kpiFleiStatus()}">${_kpiFleiStatusTeksti()}</div>
     </div>
     <div class="grow">
       <div class="gicon">📋</div>
