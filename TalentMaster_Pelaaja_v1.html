@@ -13,6 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_auth.js"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v3.js"></script>
 <style>
 :root{
   --accent:#4A7ED9;--accent2:#6B9EF0;
@@ -474,6 +475,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 <nav class="tabs">
     <div class="tabs-inner">
       <button class="tab-btn active" onclick="naytaTabi('tanaan',this)">⚽ Tänään</button>
+      <button class="tab-btn" onclick="naytaTabi('ohjelma',this)">🏋️ Ohjelma</button>
       <button class="tab-btn" onclick="naytaTabi('kortti',this)">⭐ Korttini</button>
       <button class="tab-btn" onclick="naytaTabi('haasteet',this)">🏆 Haasteet</button>
       <button class="tab-btn" onclick="naytaTabi('kehitys',this)">📈 Kehitys</button>
@@ -607,6 +609,56 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 
     <!-- Valmentajan havainto -->
     <div id="havaintoAlue"></div>
+
+  </div>
+  </div>
+
+  <!-- ══ OHJELMA ══ -->
+  <div class="view" id="view-ohjelma">
+  <div class="inner fadeup">
+
+    <!-- T-harjoite: vakio — EI poistu koskaan -->
+    <div style="background:linear-gradient(135deg,rgba(245,183,0,.08),rgba(245,183,0,.04));
+                border:1px solid rgba(245,183,0,.25);border-left:3px solid var(--gold);
+                border-radius:12px;padding:14px 16px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:18px;">⚽</span>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:16px;color:var(--gold);">
+          T — Pallokosketus
+        </div>
+        <div style="font-size:10px;font-weight:700;color:rgba(245,183,0,.6);
+                    background:rgba(245,183,0,.08);border:1px solid rgba(245,183,0,.2);
+                    border-radius:8px;padding:2px 8px;margin-left:auto;">
+          JOKA PÄIVÄ
+        </div>
+      </div>
+      <div id="tHarjoiteOhje" style="font-size:13px;color:var(--ink2);line-height:1.5;margin-bottom:8px;">
+        Lataa...
+      </div>
+      <div style="font-size:11px;color:rgba(245,183,0,.5);font-style:italic;line-height:1.4;">
+        Ajax / Benfica / La Masia — daily touches. T ei poistu koskaan ohjelmasta.
+        Walker 2017: motorinen taito konsolidoituu yöunen aikana — tee mieluiten illalla.
+      </div>
+    </div>
+
+    <!-- Ohjelman tila -->
+    <div id="ohjelmaStatus" style="margin-bottom:14px;"></div>
+
+    <!-- Viikko-ohjelma: D + S + P -->
+    <div class="stitle">Viikon ohjelma</div>
+    <div id="ohjelmaAlue">
+      <div class="loading"><div class="spinner"></div>Ladataan ohjelmaa...</div>
+    </div>
+
+    <!-- Päivitä-nappi (näytetään kun FLEI muuttunut) -->
+    <div id="ohjelmaPaivitys" style="margin-top:16px;display:none;">
+      <button onclick="paivitaOhjelma()"
+        style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;
+               padding:13px;font-family:'Barlow Condensed',sans-serif;font-size:16px;
+               font-weight:700;cursor:pointer;letter-spacing:.5px;">
+        🔄 Päivitä ohjelma — FLEI muuttunut
+      </button>
+    </div>
 
   </div>
   </div>
@@ -777,7 +829,8 @@ const DEMO_PELAAJAT = {
  *             Hermostollinen automatisoituminen, ei tavoitetta, ei mittausta
  *             Kriittisin U8-U15 (kultaikkuna), mutta kaikille ikäluokille
  *
- * D-harjoite: Heikoin ketju — 5 min ylläpito, viesti: "pohjahuolto"
+ * D-harjoite: 70% — Kokonaisvaltainen aktivointi, kaikki liikeketjut, ei heikoin-painotus
+ * S-harjoite: 30% — Kohdennettu heikoimaan liikeketjuun (yksilöllinen, IDP-pohjainen)
  *             Ei "sinä olet heikko tässä" — vaan "tämä pitää sinut terveenä"
  *             PHV-vaiheessa automaattisesti kevyempi versio
  *
@@ -1433,7 +1486,14 @@ function naytaTabi(nimi, btn) {
   if (btn) btn.classList.add('active');
   if (!_ladattu[nimi]) {
     _ladattu[nimi] = true;
-    const fn = {tanaan:renderTanaan, kortti:renderKortti, haasteet:renderHaasteet, kehitys:renderKehitys, idp:renderIDP};
+    const fn = {
+      tanaan:  renderTanaan,
+      ohjelma: renderOhjelma,   // ← uusi
+      kortti:  renderKortti,
+      haasteet:renderHaasteet,
+      kehitys: renderKehitys,
+      idp:     renderIDP,
+    };
     fn[nimi]?.();
   }
 }
@@ -1501,10 +1561,10 @@ function renderTehtavat() {
     const badgeTxt = {D:'Päivittäinen',S:'Täydentävä',T:'Tekniikka',P:'Progressiivinen'}[t.tyyppi] || t.tyyppi;
     // Tyypin selite
     const tyyppiSelite = {
-      T:'Kultaikkuna — joka päivä, myös lepopäivät. Ajax/Benfica/La Masia: daily touches.',
-      D:'Pohjahuolto — 5 min ylläpito estää kireydet ja valmistaa muuhun harjoitteluun.',
-      S:'Profiiliharjoite — vahvistaa sitä missä olet jo hyvä. Barcelona: identiteetti ensin.',
-      P:'Progressiivinen — 6 viikon jaksossa nousujohteinen kehitys.',
+      T:'Päivittäinen pallokosketus — Ajax/Benfica/La Masia: daily touches. Motorinen taito konsolidoituu yöunen aikana (Walker 2017). Tee mieluiten illalla.',
+      D:'70% — Kokonaisvaltainen aktivointi. Kaikki viisi liikeketjua herätetään — liikkuvuus, nopeus, elastisuus. Pitää kehon harjoitusvalmiina myös lepopäivänä. (5–10 min)',
+      S:'30% — Kohdennettu. Kohdistuu aina sinun henkilökohtaisesti heikoimpaan liikeketjuun. Tämä on se yksilöllinen liike joka tekee eron pitkällä aikavälillä. (15–20 min)',
+      P:'Progressiivinen — 6 viikon nousujohteinen jakso. Everton Stage 1→5: valmistava → kehittävä → huipentava. (20–30 min)',
     }[t.tyyppi] || '';
 
     return `<div class="tehtava-card" id="tehtava-${t.id}">
@@ -2357,7 +2417,286 @@ async function mintKehityskortti() {
   renderNFT();
 }
 
-/* ══ POPUP ══ */
+/* ══════════════════════════════════════════════
+   OHJELMA — omatoimiohjelma Firestoreen
+   
+   Rakenne:
+   seurat/{sid}/pelaajat/{pid}/omatoimi_ohjelmat/{ohjelmaId}
+     {
+       luotu: timestamp,
+       flei_pohja: number,        ← FLEI jolla ohjelma generoitiin
+       ikä: number,
+       profiili: string,
+       heikoin_ketju: string,
+       t_ohje: string,            ← ikäkohtainen T-harjoite
+       harjoitteet: [             ← D + S + P
+         { tyyppi, nimi, ohje, ketju, kesto, xp, cue }
+       ],
+       viikko_rakenne: {          ← milloin mitäkin
+         ma: ['T','D'], ti: ['T','P'], ke: ['T'], ...
+       }
+     }
+   
+   70/30-logiikka:
+   - T  = päivittäinen, vakio, ei muutu
+   - D  = 70% — kokonaisvaltainen aktivointi kaikki ketjut
+   - S  = 30% — kohdistettu heikoimpaan liikeketjuun
+   - P  = progressiivinen 6vk jakso
+══════════════════════════════════════════════ */
+
+let _ohjelma = null;           // cache — ladattu Firestoresta
+let _ohjelmaTallennettu = false;
+
+async function lataaOmatoimiOhjelma() {
+  if (_isDemoUser || !_pelaaja || !_db) return null;
+  const sid = _pelaaja.seuraId;
+  const pid = _pelaaja.id;
+  if (!sid || !pid || pid === 'super_admin_view') return null;
+
+  try {
+    const snap = await _db
+      .collection('seurat').doc(sid)
+      .collection('pelaajat').doc(pid)
+      .collection('omatoimi_ohjelmat')
+      .orderBy('luotu', 'desc')
+      .limit(1).get();
+
+    if (!snap.empty) {
+      _ohjelma = snap.docs[0].data();
+      // Tarkista onko FLEI muuttunut merkittävästi (>5%) — näytä päivitys-nappi
+      const fleipohja = _ohjelma.flei_pohja || 0;
+      const fleiNyt   = _pelaaja.flei_viimeisin || _pelaaja.flei_pct || 0;
+      if (Math.abs(fleiNyt - fleipohja) > 5) {
+        const nappi = document.getElementById('ohjelmaPaivitys');
+        if (nappi) nappi.style.display = '';
+      }
+      return _ohjelma;
+    }
+    return null;
+  } catch(e) {
+    console.warn('[TM] Ohjelma lataus:', e.message);
+    return null;
+  }
+}
+
+async function tallennaOmatoimiOhjelma(ohjelmaData) {
+  if (_isDemoUser || !_pelaaja || !_db) return;
+  const sid = _pelaaja.seuraId;
+  const pid = _pelaaja.id;
+  if (!sid || !pid || pid === 'super_admin_view') return;
+
+  try {
+    await _db
+      .collection('seurat').doc(sid)
+      .collection('pelaajat').doc(pid)
+      .collection('omatoimi_ohjelmat')
+      .add({
+        ...ohjelmaData,
+        luotu: new Date().toISOString(),
+        luoja: 'pelaaja_v1',
+      });
+    _ohjelma = ohjelmaData;
+    _ohjelmaTallennettu = true;
+    console.log('[TM] Omatoimiohjelma tallennettu Firestoreen');
+  } catch(e) {
+    console.warn('[TM] Ohjelma tallennus:', e.message);
+  }
+}
+
+async function paivitaOhjelma() {
+  _ohjelma = null;
+  _ladattu.ohjelma = false;
+  document.getElementById('ohjelmaPaivitys').style.display = 'none';
+  await renderOhjelma();
+  naytaToast('✅ Ohjelma päivitetty FLEI-muutoksen perusteella', 'ok');
+}
+
+/* ── T-harjoitteen ikäkohtainen ohje ─────────────────────── */
+function _tHarjoiteOhje(pelaaja) {
+  const syntymaVuosi = pelaaja.syntymaVuosi || pelaaja.syntymaaika_vuosi
+    || (new Date().getFullYear() - 14);
+  const ika = new Date().getFullYear() - syntymaVuosi;
+  const pelipaikka = pelaaja.pelipaikka || '';
+
+  if (ika < 12) {
+    return 'Ota pallo mukaan joka päivä — leiki sillä. Ei väliä miten, tärkeintä on pallokosketus. Pihajalkapallo, seinäsyöttö, ponnauttelu. 15–30 min.';
+  } else if (ika < 15) {
+    return 'Valitse päivän mittaan 15–20 minuuttia: ponnauttelu 3 min · seinäsyöttö 100 kosketusta · pujottelu kartioilla · SM-pallo ajanoton kanssa. Vaihtele vapaasti.';
+  } else {
+    // U15+: pelipaikkasidonnainen
+    const ohjeet = {
+      'LH': 'Laitahyökkääjä: kuljetus + 1v1-liikkeet — SM-pallo kartioilla, feintit, nopeat suunnanvaihdot. 20 min.',
+      'RH': 'Laitahyökkääjä: kuljetus + 1v1-liikkeet — SM-pallo kartioilla, feintit, nopeat suunnanvaihdot. 20 min.',
+      'KHK': 'Hyökkääjä: viimeistely + ensimmäinen kosketus — laukaukset eri kulmista, vastaanoton tarkkuus. 20 min.',
+      'KM': 'Keskikenttä: syöttötarkkuus molemmin jaloin — seinäsyöttö, lyhyt+pitkä passaus, ensikosketus. 20 min.',
+      'CDM': 'Tukikeskikenttä: syöttötarkkuus + suunnanmuutos — passingdrill, kääntyminen, voittaminen. 20 min.',
+      'ST': 'Keskushyökkääjä: sijoittuminen + viimeistely — laukaukset, pääpeli, liike pallottomana. 20 min.',
+      'CD': 'Keskuspuolustaja: pääpeli + ensikosketus — nikkaukset, pitkät pallot, hallinta paineessa. 20 min.',
+      'LB': 'Laitapuolustaja: kuljetus + syöttö — kombinaatiopassit, laitaoperointi, varmuus. 20 min.',
+      'RB': 'Laitapuolustaja: kuljetus + syöttö — kombinaatiopassit, laitaoperointi, varmuus. 20 min.',
+    };
+    return ohjeet[pelipaikka] || `${pelipaikka || 'Pelaaja'}: pelipaikkakohtainen tekniikka — tee 20 min harjoite joka liittyy tärkeimpään pelipaikkataitoosi.`;
+  }
+}
+
+/* ── Viikkorakenne — milloin mitäkin ─────────────────────── */
+function _laskePaivatyyppi(paivaNro) {
+  // 0=Su, 1=Ma, 2=Ti, 3=Ke, 4=To, 5=Pe, 6=La
+  // Tyypillinen jalkapallojoukkue: tiistai+torstai+lauantai harjoituksia
+  const harjoitusPaivat = [2, 4, 6]; // Ti, To, La
+  const lepopaivat = [0, 3]; // Su, Ke
+  if (harjoitusPaivat.includes(paivaNro)) return 'harjoitus';
+  if (lepopaivat.includes(paivaNro)) return 'lepo';
+  return 'välipäivä';
+}
+
+function _viikkoRakenne() {
+  const paivat = ['Su','Ma','Ti','Ke','To','Pe','La'];
+  const tulos = {};
+  paivat.forEach((p, i) => {
+    const tyyppi = _laskePaivatyyppi(i);
+    if (tyyppi === 'harjoitus') tulos[p] = ['T', 'D'];        // joukkueharjoitus + D ennen
+    else if (tyyppi === 'lepo')  tulos[p] = ['T', 'S'];       // lepopäivä: T + S (30%)
+    else                          tulos[p] = ['T', 'P'];       // välipäivä: T + P (progressiivinen)
+  });
+  return tulos;
+}
+
+/* ── Pääfunktio ───────────────────────────────────────────── */
+async function renderOhjelma() {
+  const p = _pelaaja;
+
+  // T-harjoitteen ohje — ikäkohtainen, aina
+  const tOhjeEl = document.getElementById('tHarjoiteOhje');
+  if (tOhjeEl) tOhjeEl.textContent = _tHarjoiteOhje(p);
+
+  const el = document.getElementById('ohjelmaAlue');
+  const statusEl = document.getElementById('ohjelmaStatus');
+
+  // Yritetään ladata Firestoresta
+  const ladattuOhjelma = await lataaOmatoimiOhjelma();
+
+  // Käytetään ladattua tai generoidaan uusi
+  let ohjelma = ladattuOhjelma;
+  if (!ohjelma) {
+    // Generoidaan harjoitelogiikka_v3.js:llä tai fallback inline-kirjastoon
+    const tehtavat = generoimTehtavat(p);
+    const fleiNyt  = p.flei_viimeisin || p.flei_pct || 60;
+    const syntymaVuosi = p.syntymaVuosi || p.syntymaaika_vuosi || (new Date().getFullYear() - 14);
+    const ika = new Date().getFullYear() - syntymaVuosi;
+
+    // Laske heikoin ketju
+    const ketjut = { sbl: p.sbl||1.5, sfl: p.sfl||1.5, ll: p.ll||1.5, sl: p.sl||1.5, dfl: p.dfl||1.5 };
+    const heikoinId = Object.entries(ketjut).sort((a,b) => a[1]-b[1])[0][0];
+    const ketjuNimet = {sbl:'⚡ Vauhtiketju',sfl:'🦵 Lähtöketju',ll:'↔️ Suunnanmuutos',sl:'🔄 Kiertoketju',dfl:'🏗️ Hallintaketju'};
+
+    ohjelma = {
+      flei_pohja:   fleiNyt,
+      ikä:          ika,
+      profiili:     p.pelaajaProfiili || 'Maestro',
+      heikoin_ketju: heikoinId,
+      t_ohje:       _tHarjoiteOhje(p),
+      harjoitteet:  tehtavat,
+      viikko_rakenne: _viikkoRakenne(),
+      luotu:        new Date().toISOString(),
+    };
+
+    // Tallennetaan Firestoreen (taustalla, ei blokkaava)
+    tallennaOmatoimiOhjelma(ohjelma).catch(() => {});
+  }
+
+  // Status-kortti
+  const fleiNyt = p.flei_viimeisin || p.flei_pct || 0;
+  const heikoinId = ohjelma.heikoin_ketju || 'dfl';
+  const ketjuNimet = {sbl:'⚡ Vauhtiketju',sfl:'🦵 Lähtöketju',ll:'↔️ Suunnanmuutos',sl:'🔄 Kiertoketju',dfl:'🏗️ Hallintaketju'};
+  if (statusEl) {
+    statusEl.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
+                  padding:12px 14px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
+        <div style="flex:1;min-width:120px;">
+          <div style="font-size:10px;color:var(--ink3);font-weight:600;text-transform:uppercase;
+                      letter-spacing:.5px;margin-bottom:3px;">Ohjelma perustuu</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);">FLEI ${fleiNyt}%</div>
+          <div style="font-size:11px;color:var(--ink3);">${p.pelaajaProfiili || '—'}-profiili</div>
+        </div>
+        <div style="flex:1;min-width:120px;">
+          <div style="font-size:10px;color:var(--ink3);font-weight:600;text-transform:uppercase;
+                      letter-spacing:.5px;margin-bottom:3px;">30% kohdennettu</div>
+          <div style="font-size:13px;font-weight:600;color:var(--teal);">
+            ${ketjuNimet[heikoinId] || heikoinId}
+          </div>
+          <div style="font-size:11px;color:var(--ink3);">heikoin ketju → S-harjoite</div>
+        </div>
+      </div>`;
+  }
+
+  // Viikkonäkymä
+  const viikko = ohjelma.viikko_rakenne || _viikkoRakenne();
+  const tanaan = new Date().getDay(); // 0=Su ... 6=La
+  const paivaNimet = ['Su','Ma','Ti','Ke','To','Pe','La'];
+  const harjoitteet = ohjelma.harjoitteet || generoimTehtavat(p);
+
+  const tyyppiVari = { T:'var(--gold)', D:'var(--teal)', S:'var(--accent2)', P:'var(--purple)' };
+  const tyyppiSelite = {
+    T: 'Päivittäinen pallokosketus — vakio',
+    D: '70% Kokonaisvaltainen aktivointi',
+    S: '30% Kohdennettu heikoimalle ketjulle',
+    P: 'Progressiivinen jakso (6 vk)',
+  };
+
+  el.innerHTML = `
+    <!-- Viikkokalenteri -->
+    <div style="display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;">
+      ${paivaNimet.map((pv, i) => {
+        const onTanaan = i === tanaan;
+        const tyypit = viikko[pv] || ['T'];
+        return `<div style="flex:1;min-width:44px;text-align:center;
+          background:${onTanaan ? 'rgba(74,126,217,.12)' : 'var(--surface)'};
+          border:1px solid ${onTanaan ? 'var(--accent)' : 'var(--border)'};
+          border-radius:10px;padding:8px 4px;">
+          <div style="font-size:10px;font-weight:700;color:${onTanaan ? 'var(--accent2)' : 'var(--ink3)'};
+                      margin-bottom:4px;">${pv}</div>
+          ${tyypit.map(t => `<div style="font-size:9px;font-weight:700;color:${tyyppiVari[t]||'var(--ink3)'};
+            background:rgba(255,255,255,.04);border-radius:4px;padding:1px 3px;margin-bottom:2px;">${t}</div>`).join('')}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Tänään: harjoitteet -->
+    <div class="stitle" style="margin-bottom:10px;">Tänään — ${paivaNimet[tanaan]}</div>
+    ${harjoitteet.filter(h => h.tyyppi !== 'T').map(h => `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
+                  padding:14px 16px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;
+                      background:rgba(255,255,255,.06);color:${tyyppiVari[h.tyyppi]||'var(--ink3)'};">
+            ${h.tyyppi}
+          </div>
+          <div style="font-size:14px;font-weight:600;flex:1;">${h.nimi}</div>
+          <div style="font-size:10px;color:var(--gold);font-weight:700;">+${h.xp} XP</div>
+        </div>
+        <div style="font-size:11px;color:var(--teal);margin-bottom:6px;">${tyyppiSelite[h.tyyppi]||''}</div>
+        <div style="font-size:12px;color:var(--ink2);line-height:1.5;margin-bottom:8px;">${h.ohje}</div>
+        ${h.cue ? `<div style="font-size:11px;color:var(--teal);border-left:2px solid var(--teal);
+          padding:4px 10px;background:rgba(0,212,170,.05);border-radius:0 6px 6px 0;
+          font-style:italic;line-height:1.5;">${h.cue}</div>` : ''}
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:10px;color:var(--ink3);">
+          <span>${h.ketju || ''}</span><span>${h.kesto || ''}</span>
+        </div>
+      </div>`).join('')}
+
+    <!-- Legenda -->
+    <div style="margin-top:16px;background:var(--bg3);border-radius:10px;padding:12px 14px;">
+      <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                  letter-spacing:.5px;margin-bottom:8px;">Ohjelma selitettynä</div>
+      ${Object.entries(tyyppiSelite).map(([t, s]) =>
+        `<div style="display:flex;gap:8px;margin-bottom:5px;align-items:baseline;">
+          <div style="font-size:10px;font-weight:700;color:${tyyppiVari[t]};width:14px;">${t}</div>
+          <div style="font-size:11px;color:var(--ink3);">${s}</div>
+        </div>`
+      ).join('')}
+    </div>`;
+}
 const popups = {
   fifakortti:{title:'Mitä FIFA-kortti kertoo?',body:`<strong>Kokonaisluokitus (iso numero)</strong> lasketaan FLEI-prosentistasi, ketjupisteistäsi ja XP:stäsi.<br><br><em>Nopeus:</em> Vauhtiketjun pisteet.<br><em>Tekniikka:</em> Kiertoketjun pisteet (syöttö, pujottelu).<br><em>Peliäly:</em> Suunnanmuutosketjun pisteet.<br><em>Fysiikka:</em> FLEI-prosentti suoraan.<br><em>Hallinta:</em> Hallintaketjun pisteet.<br><em>Räjähtävyys:</em> Lähtöketjun pisteet.<br><br>Korttisi päivittyy joka kartoituksen jälkeen. Paranna kehoa → kortti nousee!`},
   freeze:{title:'Streak-suoja ❄️',body:`Streak-suoja suojaa harjoitteluputkesi yhden päivän poissaolon yli.<br><br>Jos unohdat tehdä kotitehtävän, <em>freeze</em> aktivoituu automaattisesti ja putki säilyy.<br><br><strong>Miten ansaita lisää suojia?</strong><br>• Suorita viikkohaasteita<br>• Ansaitse XP-tasoja<br>• Tee viisi peräkkäistä päivää`},
