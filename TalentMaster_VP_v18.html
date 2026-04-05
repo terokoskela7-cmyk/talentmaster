@@ -744,31 +744,32 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <div class="view" id="view-kausirakenne">
   <div class="inner fadeup">
 
-    <div class="info-box">
-      <div class="info-box-title">💡 Miksi kauden rakenne pitää suunnitella etukäteen?</div>
+    <!-- Filosofia-infolaatikko -->
+    <div class="info-box" style="margin-bottom:20px;border-left:3px solid var(--accent2);">
+      <div class="info-box-title">🧠 Kehittävä harjoittelu ei pysähdy kilpailukaudella</div>
       <div class="info-box-text">
-        <strong>Kehitys ei tapahdu sattumanvaraisesti — se tapahtuu rakenteellisesti.</strong>
-        Parhaat seurat maailmalla (Ajax, KNVB, Saksan DFB) suunnittelevat kauden
-        avaintapahtumat etukäteen: milloin testataan, milloin arvioidaan, milloin
-        viestitään vanhemmille.
-        <br><br>
-        Kauden rakenteen tarkoitus on varmistaa kolme asiaa:
-        <strong>kartoitukset tehdään ajallaan, IDP-päivitykset tapahtuvat ennen
-        talvilomaa ja loppukautta,</strong> ja Palloliiton talenttiohjelmasuositukset
-        jätetään ennen määräaikoja.
-        <br><br>
-        Merkitse tehdyt asiat tehdyksi — se näyttää seuralle ja valmentajille,
-        että sovituista asioista pidetään kiinni. <strong>Luottamus syntyy
-        siitä, että lupaukset lunastetaan.</strong>
+        Aikuisurheilun periodisaatioajattelu on virheellisesti kopioitu lasten ja nuorten urheiluun.
+        <strong>Lapset ja nuoret eivät valmistu kilpailukauteen — he kasvavat urheilijoiksi.</strong>
+        Kehittävä harjoittelu jatkuu koko kauden. Kilpailukaudella se on sisällöltään erilaista, ei kevyempää.<br><br>
+        <strong>VP:n tehtävä:</strong> varmistaa että joukkueet eivät kilpailukaudella liuvu
+        pelkkään palauttavaan harjoitteluun. Kontrollikäynnit ja välimittaukset ovat tätä varten.
       </div>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <div class="stitle" style="margin-bottom:0">Kausi 2026 — avaintapahtumat</div>
-      <button onclick="avaaLisaaKausiEvent()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">+ Lisää tapahtuma</button>
-    </div>
+    <!-- Jaksomittari -->
+    <div id="jaksomittari" style="margin-bottom:20px;"></div>
 
-    <div class="aikajana" id="kausiAikajana">
+    <!-- Kausiaikajana -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div class="stitle" style="margin-bottom:0;">Kausi 2026 — jaksorakenne</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:10px;display:flex;align-items:center;gap:4px;color:var(--ink3)"><span style="width:8px;height:8px;border-radius:2px;background:#2D6A4F;display:inline-block;"></span>Kehittävä</span>
+        <span style="font-size:10px;display:flex;align-items:center;gap:4px;color:var(--ink3)"><span style="width:8px;height:8px;border-radius:2px;background:var(--accent);display:inline-block;"></span>Kontrolli/testi</span>
+        <span style="font-size:10px;display:flex;align-items:center;gap:4px;color:var(--ink3)"><span style="width:8px;height:8px;border-radius:2px;background:var(--amber);display:inline-block;"></span>Viestintä</span>
+        <span style="font-size:10px;display:flex;align-items:center;gap:4px;color:var(--ink3)"><span style="width:8px;height:8px;border-radius:2px;background:#7B2D8B;display:inline-block;"></span>Mentorointi</span>
+      </div>
+    </div>
+    <div id="kausiAikajana">
       <div class="loading"><div class="spinner"></div></div>
     </div>
 
@@ -2205,97 +2206,222 @@ function suodataPolku(tyyppi, btn) {
 let _kausiLadattu = false;
 
 // Vakiorakenne — täydennetään Firestoresta
-const KAUSI_VAKIOTAPAHTUMAT = [
-  { kk:'Tammikuu', tapahtumat:[
-    { ikoni:'🏋️', nimi:'Kauden avaustestit', kuvaus:'HPP ELITE -harjoitettavuuskartoitus kaikille joukkueille. Baseline FLEI mitataan.', tyyppi:'kartoitus', pvmStr:'2026-01-15' },
-    { ikoni:'📋', nimi:'IDP-kortit päivitetään', kuvaus:'Edellisen kauden IDP tarkistetaan — mitä saavutettiin, mitä jatketaan.', tyyppi:'idp', pvmStr:'2026-01-20' },
-  ]},
-  { kk:'Maaliskuu', tapahtumat:[
-    { ikoni:'👁', nimi:'VP:n harjoituskäynnit — kaikki joukkueet', kuvaus:'Tavoite: jokainen joukkue katsotaan ennen kauden ensimmäistä kilpailukautta.', tyyppi:'mentorointi', pvmStr:'2026-03-31' },
-    { ikoni:'🌟', nimi:'Talenttiohjelmasuositukset (Palloliitto)', kuvaus:'Talliohjelmaan suositeltavat pelaajat nimetään. Deadline Palloliiton hakuun.', tyyppi:'talentit', pvmStr:'2026-03-15' },
-  ]},
-  { kk:'Toukokuu', tapahtumat:[
-    { ikoni:'📊', nimi:'Välikauden kartoitus', kuvaus:'FLEI mitataan uudelleen — seurataan kehitystä alkukaudesta.', tyyppi:'kartoitus', pvmStr:'2026-05-15' },
-    { ikoni:'💬', nimi:'Vanhempainillat', kuvaus:'Kehityspalautteen jakaminen vanhemmille. IDP-kortit esitellään.', tyyppi:'viestinta', pvmStr:'2026-05-30' },
-  ]},
-  { kk:'Elokuu', tapahtumat:[
-    { ikoni:'🧑‍🏫', nimi:'Valmentajapalaverit — osaaminen ja kehitys', kuvaus:'VP käy läpi jokaisen valmentajan kehittymisen. Lisenssit, tavoitteet, tarpeet.', tyyppi:'mentorointi', pvmStr:'2026-08-15' },
-    { ikoni:'🔀', nimi:'Ikäluokkasiirtymäpäätökset', kuvaus:'Ketkä siirtyvät seuraavaan ikäluokkaan ensi kaudella? Päätös tehdään ajoissa.', tyyppi:'siirto', pvmStr:'2026-08-31' },
-  ]},
-  { kk:'Lokakuu', tapahtumat:[
-    { ikoni:'🏋️', nimi:'Kauden lopputestit', kuvaus:'Koko kauden kehitys näkyviin — FLEI ennen ja jälkeen. Valmis Palloliiton raportointiin.', tyyppi:'kartoitus', pvmStr:'2026-10-15' },
-    { ikoni:'📋', nimi:'IDP-yhteenveto kaudesta', kuvaus:'Jokainen pelaaja saa kausipalautteen. Ensi kauden tavoitteet kirjataan.', tyyppi:'idp', pvmStr:'2026-10-31' },
-  ]},
-  { kk:'Marraskuu', tapahtumat:[
-    { ikoni:'🎯', nimi:'Palloliiton kolmen korin itsearviointi', kuvaus:'Seura arvioi oman toimintansa korit 1–3 kriteereitä vasten. Dokumentoidaan.', tyyppi:'arviointi', pvmStr:'2026-11-15' },
-    { ikoni:'📅', nimi:'Ensi kauden suunnittelu', kuvaus:'Joukkuekokoonpanot, tapahtumakalenteri ja tavoitteet ensi kaudelle.', tyyppi:'suunnittelu', pvmStr:'2026-11-30' },
-  ]},
-];
+// ══════════════════════════════════════════════
+// KAUSIRAKENNE — Jaksologiikka
+// Filosofia: kehittävä harjoittelu ei pysähdy kilpailukaudella
+// VEAT 2025: VP varmistaa ettei liuta pelkkään palautteluun
+// ══════════════════════════════════════════════
+
+const KAUSI_2026 = {
+  jaksot: [
+    {
+      id: 'j1', nimi: 'Jakso 1 — Valmistava', vaihe: 'valmistava',
+      alku: '2026-01-01', loppu: '2026-03-31',
+      kuvaus: 'Rakennetaan pohja kaudelle. Korkein kehittävän harjoittelun osuus. Tekninen + fyysinen rakentaminen.',
+      tapahtumia: [
+        { ikoni:'🏋️', nimi:'Alkukauden kartoitus (FLEI baseline)', kuvaus:'HPP ELITE kaikille joukkueille. Lähtötaso mitataan.', tyyppi:'kontrolli', pvmStr:'2026-01-20' },
+        { ikoni:'📋', nimi:'IDP-kortit päivitetään', kuvaus:'Edellinen kausi käyty läpi. Uuden kauden tavoitteet kirjattu.', tyyppi:'kehittava', pvmStr:'2026-01-25' },
+        { ikoni:'👁️', nimi:'VP:n harjoituskäynnit kaikille joukkueille', kuvaus:'Jokainen joukkue katsottu ennen kilpailukautta. TIPS-kohtaaminen valmentajalle.', tyyppi:'mentorointi', pvmStr:'2026-03-20' },
+        { ikoni:'🌟', nimi:'Talenttiohjelmasuositukset (Palloliitto)', kuvaus:'Nimetään ennen hakudeadlinea.', tyyppi:'hallinto', pvmStr:'2026-03-15' },
+      ]
+    },
+    {
+      id: 'j2', nimi: 'Jakso 2 — Kilpailu (kevät)', vaihe: 'kilpailu',
+      alku: '2026-04-01', loppu: '2026-06-30',
+      kuvaus: '⚠️ Riskirakenne: kehittävä harjoittelu jatkuu — ei siirry pelkkään palauttavaan. Viikoittainen sykli: kehittävä + palautus + kehittävä.',
+      tapahtumia: [
+        { ikoni:'📊', nimi:'Kontrolli 1 — kehittävä harjoittelu jatkuu?', kuvaus:'VP käy katsomassa: onko valmistavan kauden kehittävät harjoitteet mukana? Vai siirretty palauttavaksi?', tyyppi:'kontrolli', pvmStr:'2026-04-30' },
+        { ikoni:'🏋️', nimi:'Välimittaus — FLEI (kehitys näkyviin)', kuvaus:'Ei odoteta kauden loppuun. Nähdään jo nyt kehittyvätkö pelaajat.', tyyppi:'kontrolli', pvmStr:'2026-05-15' },
+        { ikoni:'💬', nimi:'Vanhempainillat', kuvaus:'IDP-kortit esitellään. Kehitys kommunikoidaan konkreettisesti.', tyyppi:'viestinta', pvmStr:'2026-05-30' },
+        { ikoni:'🧑‍🏫', nimi:'Jaksokoulutus valmentajille', kuvaus:'Jakson teema: miten pidetään kehittävät harjoitteet mukana kilpailukaudella.', tyyppi:'mentorointi', pvmStr:'2026-06-15' },
+      ]
+    },
+    {
+      id: 'j3', nimi: 'Jakso 3 — Kesätauko / aktiivinen palautuminen', vaihe: 'tauko',
+      alku: '2026-07-01', loppu: '2026-07-31',
+      kuvaus: 'Aktiivinen tauko — ei passiivinen. T-harjoite jatkuu päivittäin. Omatoimiohjelma käynnissä.',
+      tapahtumia: [
+        { ikoni:'⚽', nimi:'Omatoimiohjelma käynnissä (T-harjoite)', kuvaus:'Valmentajat muistuttavat: päivittäinen pallokosketus ei lomaile.', tyyppi:'kehittava', pvmStr:'2026-07-01' },
+        { ikoni:'📋', nimi:'Jaksosuunnitelman laadinta syksylle', kuvaus:'VP sparraa valmentajia: mitä kehitetään toisella kilpailukaudella?', tyyppi:'hallinto', pvmStr:'2026-07-25' },
+      ]
+    },
+    {
+      id: 'j4', nimi: 'Jakso 4 — Kilpailu (syksy)', vaihe: 'kilpailu',
+      alku: '2026-08-01', loppu: '2026-10-31',
+      kuvaus: '⚠️ Toinen riskirakenne. Syksyllä kiire kasvaa — kehittävä helposti jätetään pois. VP:n kontrollikäynnit tärkeitä.',
+      tapahtumia: [
+        { ikoni:'👁️', nimi:'Kontrolli 2 — kehittävä harjoittelu (syksy)', kuvaus:'VP käy katsomassa: onko kehittävät harjoitteet mukana syksyn kilpailukaudella?', tyyppi:'kontrolli', pvmStr:'2026-08-31' },
+        { ikoni:'🧑‍🏫', nimi:'Valmentajapalaverit — kehitys ja osaaminen', kuvaus:'VP käy jokaisen valmentajan kehittymisen läpi. Lisenssit, tavoitteet, tarpeet.', tyyppi:'mentorointi', pvmStr:'2026-09-15' },
+        { ikoni:'🔀', nimi:'Ikäluokkasiirtymäpäätökset', kuvaus:'Ketkä seuraavaan ikäluokkaan? Päätös ajoissa — ei viime tingassa.', tyyppi:'hallinto', pvmStr:'2026-09-30' },
+        { ikoni:'🏋️', nimi:'Kauden lopputestit (FLEI)', kuvaus:'Koko kauden kehitys näkyy: alku vs. loppu. Valmis Palloliiton raportointiin.', tyyppi:'kontrolli', pvmStr:'2026-10-20' },
+      ]
+    },
+    {
+      id: 'j5', nimi: 'Jakso 5 — Kauden päätös', vaihe: 'paatos',
+      alku: '2026-11-01', loppu: '2026-12-31',
+      kuvaus: 'Palautetta, suunnittelua ja arvointia. Ensi kauden perusta rakennetaan nyt.',
+      tapahtumia: [
+        { ikoni:'📋', nimi:'IDP-yhteenveto kaudesta', kuvaus:'Jokainen pelaaja saa kausipalautteen. Ensi kauden tavoitteet kirjataan.', tyyppi:'kehittava', pvmStr:'2026-11-10' },
+        { ikoni:'🎯', nimi:'Palloliiton kolmen korin itsearviointi', kuvaus:'Seura arvioi oman toimintansa. Dokumentoidaan.', tyyppi:'hallinto', pvmStr:'2026-11-20' },
+        { ikoni:'📅', nimi:'Ensi kauden suunnittelu', kuvaus:'Joukkuekokoonpanot, tapahtumakalenteri ja tavoitteet ensi kaudelle.', tyyppi:'hallinto', pvmStr:'2026-11-30' },
+        { ikoni:'💬', nimi:'Kauden päätösvanhempainilta', kuvaus:'Kommunikoidaan pelaajien kehitys. Sitoutetaan perheitä ensi kauteen.', tyyppi:'viestinta', pvmStr:'2026-12-10' },
+      ]
+    },
+  ]
+};
+
+// Värit tapahtumatyypeille
+const TAPAHTUMA_TYYPIT = {
+  kontrolli:  { vari: 'var(--accent)',  label: 'Kontrolli/testi' },
+  kehittava:  { vari: '#2D6A4F',        label: 'Kehittävä' },
+  viestinta:  { vari: 'var(--amber)',   label: 'Viestintä' },
+  mentorointi:{ vari: '#7B2D8B',        label: 'Mentorointi' },
+  hallinto:   { vari: 'var(--ink3)',    label: 'Hallinto' },
+};
+
+// Jakson vaihe → taustaväri
+const JAKSO_VAIHEET = {
+  valmistava: { nimi:'Valmistava',          vari:'rgba(45,106,79,.08)',   reunaVari:'#2D6A4F' },
+  kilpailu:   { nimi:'Kilpailukausi ⚠️',    vari:'rgba(74,126,217,.06)', reunaVari:'var(--accent)' },
+  tauko:      { nimi:'Aktiivinen tauko',     vari:'rgba(245,183,0,.06)',  reunaVari:'var(--amber)' },
+  paatos:     { nimi:'Kauden päätös',        vari:'rgba(0,212,170,.06)',  reunaVari:'var(--teal)' },
+};
+
+let _kausiLadattu = false;
 
 async function lataaKausirakenne() {
   if (_kausiLadattu) return;
   _kausiLadattu = true;
   const el = document.getElementById('kausiAikajana');
-  if (!_seuraId) return;
+  const mittariEl = document.getElementById('jaksomittari');
 
   // Haetaan tehdyt merkinnät Firestoresta
   let tehdyt = {};
-  try {
-    const snap = await _db.collection('seurat').doc(_seuraId)
-      .collection('kausirakenne').get();
-    snap.forEach(d => { tehdyt[d.id] = d.data().tehty === true; });
-  } catch(e) {}
+  if (_seuraId) {
+    try {
+      const snap = await _db.collection('seurat').doc(_seuraId)
+        .collection('kausirakenne').get();
+      snap.forEach(d => { tehdyt[d.id] = d.data().tehty === true; });
+    } catch(e) { console.warn('[Kausirakenne]', e.message); }
+  }
 
   const nyt = new Date();
-  let html = '';
 
-  KAUSI_VAKIOTAPAHTUMAT.forEach(kk => {
-    html += `<div class="aikajana-kk">
-      <div class="aikajana-kk-otsikko">${kk.kk}</div>`;
-
-    kk.tapahtumat.forEach(t => {
-      const key = `${kk.kk}_${t.nimi}`.replace(/[^a-zA-Z0-9]/g, '_');
-      const tehty = tehdyt[key] || false;
-      const pvmDate = t.pvmStr ? new Date(t.pvmStr) : null;
-      const myohassa = pvmDate && pvmDate < nyt && !tehty;
-      const kiireinen = pvmDate && pvmDate > nyt &&
-        ((pvmDate.getTime() - nyt.getTime()) < 14 * 86400000) && !tehty;
-
-      const luokka = tehty ? 'tehty' : myohassa ? 'myohassa' : kiireinen ? 'kiireinen' : 'tuleva';
-      const pvmStr = pvmDate ? pvmDate.toLocaleDateString('fi-FI', {day:'numeric',month:'short'}) : '';
-
-      html += `<div class="aikajana-event ${luokka}">
-        <div class="ae-ikoni">${t.ikoni}</div>
-        <div class="ae-check ${tehty ? 'tehty' : ''}" onclick="merkitseKausiEvent('${key}',${!tehty},this)">
-          ${tehty ? '✓' : ''}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div class="ae-nimi">${t.nimi}</div>
-          <div class="ae-kuvaus">${t.kuvaus}</div>
-        </div>
-        <div class="ae-pvm">${myohassa ? '🔴 ' : kiireinen ? '⚠ ' : ''}${pvmStr}</div>
-      </div>`;
+  // Lasketaan jaksomittari
+  let yhteensa = 0, tehtyLkm = 0, kontrollit = 0, kontrolliTehty = 0;
+  KAUSI_2026.jaksot.forEach(j => {
+    j.tapahtumia.forEach(t => {
+      const key = `${j.id}_${t.nimi}`.replace(/[^a-zA-Z0-9]/g,'_');
+      yhteensa++;
+      if (tehdyt[key]) tehtyLkm++;
+      if (t.tyyppi === 'kontrolli') {
+        kontrollit++;
+        if (tehdyt[key]) kontrolliTehty++;
+      }
     });
-    html += `</div>`;
+  });
+
+  // Jaksomittari HTML
+  if (mittariEl) {
+    const pct = yhteensa > 0 ? Math.round(tehtyLkm/yhteensa*100) : 0;
+    mittariEl.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+        <div style="flex:1;min-width:140px;">
+          <div style="font-size:10px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Kauden eteneminen</div>
+          <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-bottom:4px;">
+            <div style="height:100%;width:${pct}%;background:var(--teal);border-radius:3px;transition:width .6s ease;"></div>
+          </div>
+          <div style="font-size:11px;color:var(--ink3);">${tehtyLkm}/${yhteensa} tapahtumaa tehty (${pct}%)</div>
+        </div>
+        <div style="text-align:center;min-width:80px;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:${kontrolliTehty === kontrollit ? 'var(--green)' : 'var(--amber)'};">${kontrolliTehty}/${kontrollit}</div>
+          <div style="font-size:10px;color:var(--ink3);">Kontrolleja tehty</div>
+        </div>
+        <div style="text-align:center;min-width:80px;">
+          <div style="font-size:11px;color:var(--accent2);font-weight:600;">⚠️ Kilpailukaudet</div>
+          <div style="font-size:10px;color:var(--ink3);line-height:1.4;">Kehittävä harjoittelu<br>ei pysähdy</div>
+        </div>
+      </div>`;
+  }
+
+  // Aikajana HTML
+  let html = '';
+  KAUSI_2026.jaksot.forEach(j => {
+    const vaihe = JAKSO_VAIHEET[j.vaihe] || JAKSO_VAIHEET.paatos;
+    const jAlku = new Date(j.alku);
+    const jLoppu = new Date(j.loppu);
+    const onKaynnissa = nyt >= jAlku && nyt <= jLoppu;
+
+    html += `
+      <div style="margin-bottom:16px;border-radius:12px;overflow:hidden;
+                  border:1px solid ${onKaynnissa ? vaihe.reunaVari : 'var(--border)'};
+                  background:${vaihe.vari};">
+        <!-- Jakson otsikko -->
+        <div style="padding:12px 14px;border-bottom:1px solid var(--border);
+                    background:${onKaynnissa ? 'rgba(255,255,255,.03)' : 'transparent'};
+                    display:flex;align-items:center;gap:10px;">
+          ${onKaynnissa ? `<div style="width:6px;height:6px;border-radius:50%;background:${vaihe.reunaVari};animation:pulse 1.5s infinite;flex-shrink:0;"></div>` : ''}
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:var(--text);">${j.nimi}</div>
+            <div style="font-size:11px;color:var(--ink3);margin-top:2px;">
+              ${new Date(j.alku).toLocaleDateString('fi-FI',{day:'numeric',month:'short'})} — 
+              ${new Date(j.loppu).toLocaleDateString('fi-FI',{day:'numeric',month:'short'})}
+            </div>
+          </div>
+          ${onKaynnissa ? `<span style="font-size:10px;font-weight:700;color:${vaihe.reunaVari};background:rgba(255,255,255,.06);border-radius:6px;padding:2px 8px;">NYT KÄYNNISSÄ</span>` : ''}
+        </div>
+        <!-- Jakson kuvaus -->
+        <div style="padding:8px 14px 4px;font-size:11px;color:var(--ink3);line-height:1.5;border-bottom:1px solid rgba(255,255,255,.04);">
+          ${j.kuvaus}
+        </div>
+        <!-- Tapahtumat -->
+        <div style="padding:8px 8px;">
+          ${j.tapahtumia.map(t => {
+            const key = `${j.id}_${t.nimi}`.replace(/[^a-zA-Z0-9]/g,'_');
+            const tehty = tehdyt[key] || false;
+            const pvmDate = t.pvmStr ? new Date(t.pvmStr) : null;
+            const myohassa = pvmDate && pvmDate < nyt && !tehty;
+            const kiireinen = pvmDate && pvmDate > nyt &&
+              ((pvmDate.getTime()-nyt.getTime()) < 14*86400000) && !tehty;
+            const pvmStr = pvmDate ? pvmDate.toLocaleDateString('fi-FI',{day:'numeric',month:'short'}) : '';
+            const tVari = (TAPAHTUMA_TYYPIT[t.tyyppi]||TAPAHTUMA_TYYPIT.hallinto).vari;
+
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px;
+                                border-radius:8px;margin-bottom:4px;
+                                background:${tehty ? 'rgba(46,213,115,.06)' : 'var(--surface)'};
+                                border:1px solid ${tehty ? 'rgba(46,213,115,.15)' : 'var(--border)'};">
+              <div style="font-size:16px;flex-shrink:0;">${t.ikoni}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:600;color:${tehty ? 'var(--ink3)' : 'var(--text)'};
+                            ${tehty ? 'text-decoration:line-through;opacity:.6;' : ''}">
+                  ${t.nimi}
+                </div>
+                <div style="font-size:10px;color:var(--ink3);line-height:1.4;margin-top:2px;">${t.kuvaus}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+                <div style="font-size:9px;font-weight:700;color:${tVari};background:rgba(255,255,255,.04);
+                            border-radius:4px;padding:1px 6px;white-space:nowrap;">
+                  ${(TAPAHTUMA_TYYPIT[t.tyyppi]||TAPAHTUMA_TYYPIT.hallinto).label}
+                </div>
+                <div style="font-size:10px;color:${myohassa ? 'var(--red)' : kiireinen ? 'var(--amber)' : 'var(--ink3)'};">
+                  ${myohassa ? '🔴 ' : kiireinen ? '⚠️ ' : ''}${pvmStr}
+                </div>
+              </div>
+              <div onclick="merkitseKausiEvent('${key}',${!tehty},this)"
+                   style="width:22px;height:22px;border-radius:6px;flex-shrink:0;cursor:pointer;
+                          display:flex;align-items:center;justify-content:center;font-size:12px;
+                          border:2px solid ${tehty ? 'var(--green)' : 'var(--border)'};
+                          background:${tehty ? 'rgba(46,213,115,.15)' : 'transparent'};
+                          color:var(--green);transition:all .15s;">
+                ${tehty ? '✓' : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
   });
 
   el.innerHTML = html;
-}
-
-async function merkitseKausiEvent(key, arvo, el) {
-  if (!_seuraId) return;
-  try {
-    await _db.collection('seurat').doc(_seuraId)
-      .collection('kausirakenne').doc(key)
-      .set({ tehty: arvo, paivitetty: firebase.firestore.FieldValue.serverTimestamp() });
-    el.classList.toggle('tehty', arvo);
-    el.textContent = arvo ? '✓' : '';
-    el.closest('.aikajana-event').classList.toggle('tehty', arvo);
-  } catch(e) { console.warn('Tallennus:', e.message); }
-}
-
-function avaaLisaaKausiEvent() {
-  alert('Oman tapahtuman lisääminen tulossa Sprint 2:ssa.');
 }
 
 
@@ -3044,6 +3170,19 @@ function lahetaSalasana() {
   firebase.auth().sendPasswordResetEmail(email)
     .then(function() { alert('Salasanan nollauslinkki lähetetty: ' + email); })
     .catch(function(e) { alert('Virhe: ' + e.message); });
+}
+
+function kirjauduUlos() {
+  // Siivotaan onSnapshot-kuuntelijat ennen uloskirjausta
+  if (window._unsubKal) { try { window._unsubKal(); } catch(e) {} window._unsubKal = null; }
+  _seuraId = null;
+  _joukkueet = [];
+  _rooli = '';
+  firebase.auth().signOut().then(function() {
+    nayta('sLogin');
+    var virhe = document.getElementById('loginVirhe');
+    if (virhe) { virhe.style.display = 'none'; virhe.textContent = ''; }
+  }).catch(function(e) { console.warn('[kirjauduUlos]', e.message); });
 }
 
 </script>
