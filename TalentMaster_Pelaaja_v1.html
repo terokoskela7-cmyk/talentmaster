@@ -316,6 +316,21 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .fiili-btn{background:var(--bg3);border:2px solid transparent;border-radius:10px;font-size:28px;padding:8px 10px;cursor:pointer;transition:all .15s;line-height:1;}
 .fiili-btn:hover{transform:scale(1.15);}
 .fiili-btn.valittu{border-color:var(--gold);background:rgba(245,183,0,.08);transform:scale(1.15);}
+.fiili-iso{font-size:24px;padding:10px 12px;}
+
+/* Liikennevalo-napit */
+.fiili-lv{background:var(--bg3);border:2px solid transparent;border-radius:12px;padding:12px 20px;
+  cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;}
+.fiili-lv:hover{transform:scale(1.05);}
+.fiili-lv.valittu{border-color:var(--gold);background:rgba(245,183,0,.08);}
+.fiili-lv-label{font-size:11px;font-weight:600;color:var(--ink3);white-space:nowrap;}
+.fiili-lv.valittu .fiili-lv-label{color:var(--gold);}
+
+/* Kehitystaso: kysymysrivit */
+.fiili-kysymys{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+.fiili-kysymys:last-of-type{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.fiili-q-label{font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:8px;}
+.fiili-nappi-rivi{display:flex;gap:6px;}
 
 /* ── WEEK-STRIP KALENTERI ── */
 .week-strip{display:flex;gap:5px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
@@ -522,17 +537,68 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 
     <!-- Fiilinki -->
     <div class="stitle" style="margin-top:4px;">Miten fiilaat tänään?</div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:10px;" id="fiiliNapit">
-        <button class="fiili-btn" onclick="valitseFiili(this,'😫')" title="Väsynyt">😫</button>
-        <button class="fiili-btn" onclick="valitseFiili(this,'😕')" title="Ei niin hyvä">😕</button>
-        <button class="fiili-btn" onclick="valitseFiili(this,'😐')" title="Ihan ok">😐</button>
-        <button class="fiili-btn" onclick="valitseFiili(this,'🙂')" title="Hyvä fiilis">🙂</button>
-        <button class="fiili-btn" onclick="valitseFiili(this,'🔥')" title="Tulessa!">🔥</button>
+    <div id="fiiliWidget" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+
+      <!-- Perustaso: Liikennevalofiilis (U8–U12) -->
+      <div id="fiiliPerustaso">
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:10px;text-align:center;letter-spacing:.3px;">
+          Valitse päivän fiilis
+        </div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-bottom:10px;">
+          <button class="fiili-lv" onclick="valitseLiikennevalo(this,'vihrea',3)" title="Hyvä päivä">
+            <span style="font-size:28px;">🟢</span>
+            <span class="fiili-lv-label">Hyvä päivä</span>
+          </button>
+          <button class="fiili-lv" onclick="valitseLiikennevalo(this,'keltainen',2)" title="Ihan ok">
+            <span style="font-size:28px;">🟡</span>
+            <span class="fiili-lv-label">Ihan ok</span>
+          </button>
+          <button class="fiili-lv" onclick="valitseLiikennevalo(this,'punainen',1)" title="Raskas päivä">
+            <span style="font-size:28px;">🔴</span>
+            <span class="fiili-lv-label">Raskas päivä</span>
+          </button>
+        </div>
+        <div style="font-size:10px;color:var(--ink3);text-align:center;" id="fiiliTeksti">
+          Valmentaja näkee joukkueen jakauman — ei sinun nimeäsi
+        </div>
       </div>
-      <div style="font-size:10px;color:var(--ink3);text-align:center;" id="fiiliTeksti">
-        Valmentaja näkee joukkueen jakauman — ei sinun nimeäsi
+
+      <!-- Kehitystaso: Mini-Hooper 3 kysymystä (U13+) -->
+      <div id="fiiliKehitystaso" style="display:none;">
+        <!-- Kysymys 1: Uni -->
+        <div class="fiili-kysymys" id="fiiliQ1">
+          <div class="fiili-q-label">😴 Miten nukuit?</div>
+          <div class="fiili-nappi-rivi" id="fiiliNapit">
+            <button class="fiili-btn fiili-iso" onclick="valitseFiili(this,'😫',1,'uni')" title="Huonosti">😫</button>
+            <button class="fiili-btn fiili-iso" onclick="valitseFiili(this,'😐',2,'uni')" title="Ihan ok">😐</button>
+            <button class="fiili-btn fiili-iso" onclick="valitseFiili(this,'⚡',3,'uni')" title="Hyvin">⚡</button>
+          </div>
+        </div>
+        <!-- Kysymys 2: Kroppa -->
+        <div class="fiili-kysymys" id="fiiliQ2">
+          <div class="fiili-q-label">🦵 Miten kroppa tuntuu?</div>
+          <div class="fiili-nappi-rivi">
+            <button class="fiili-btn fiili-iso" onclick="valitseFiili(this,'🤕',1,'lihaskunto')" title="Kipeä">🤕</button>
+            <button class="fiili-btn fiili-iso" onclick="valitseFiili(this,'😐',2,'lihaskunto')" title="Ihan ok">😐</button>
+            <button class="fiili-btn fiili-iso" onclick="valitseFiili(this,'💪',3,'lihaskunto')" title="Mahtava">💪</button>
+          </div>
+        </div>
+        <!-- Kysymys 3: Mieliala -->
+        <div class="fiili-kysymys" id="fiiliQ3">
+          <div class="fiili-q-label">⚽ Mikä fiilis?</div>
+          <div class="fiili-nappi-rivi">
+            <button class="fiili-btn fiili-iso" onclick="valitseFiili(this,'😫',1,'mieliala')" title="Väsynyt">😫</button>
+            <button class="fiili-btn fiili-iso" onclick="valitseFiili(this,'😕',2,'mieliala')" title="Ei niin hyvä">😕</button>
+            <button class="fiili-btn fiili-iso" onclick="valitseFiili(this,'😐',3,'mieliala')" title="Ihan ok">😐</button>
+            <button class="fiili-btn fiili-iso" onclick="valitseFiili(this,'🙂',4,'mieliala')" title="Hyvä fiilis">🙂</button>
+            <button class="fiili-btn fiili-iso" onclick="valitseFiili(this,'🔥',5,'mieliala')" title="Tulessa!">🔥</button>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--ink3);text-align:center;margin-top:8px;" id="fiiliTeksti">
+          Valmentaja näkee joukkueen jakauman — ei sinun nimeäsi
+        </div>
       </div>
+
     </div>
 
     <!-- Kysely -->
@@ -1378,6 +1444,7 @@ function renderTanaan() {
   renderTehtavat();
   renderKysely();
   renderHavainto();
+  _renderFiilinki();   // ikäryhmäpohjainen fiilinki-widget
 }
 
 function renderStreak() {
@@ -2035,17 +2102,122 @@ function toggleGoal(idx) {
 }
 
 /* ══ FIILINKI ══ */
-let _fiiliValittu = null;
-function valitseFiili(btn, emoji) {
-  document.querySelectorAll('.fiili-btn').forEach(b => b.classList.remove('valittu'));
+let _fiiliValittu = null;      // mieliala-emoji (taaksepäin yhteensopivuus)
+let _fiiliData = {};           // {mieliala:N, uni:N, lihaskunto:N} — kehitystaso
+let _fiiliTallennettu = false; // estetään tuplakirjaus saman päivän aikana
+
+/* ── Ikäryhmäpohjainen fiilinki-renderöinti ─────────────────────────── */
+function _renderFiilinki() {
+  const p = _pelaaja;
+  if (!p) return;
+  const syntymaVuosi = p.syntymaVuosi || p.syntymaaika_vuosi || (new Date().getFullYear() - 14);
+  const ika = new Date().getFullYear() - syntymaVuosi;
+
+  const perustaso  = document.getElementById('fiiliPerustaso');
+  const kehitystaso = document.getElementById('fiiliKehitystaso');
+  if (!perustaso || !kehitystaso) return;
+
+  if (ika < 13) {
+    // U8–U12: liikennevalofiilis
+    perustaso.style.display  = '';
+    kehitystaso.style.display = 'none';
+  } else {
+    // U13+: mini-Hooper
+    perustaso.style.display  = 'none';
+    kehitystaso.style.display = '';
+  }
+}
+
+/* ── Perustaso: liikennevalo ────────────────────────────────────────── */
+function valitseLiikennevalo(btn, vari, arvo) {
+  document.querySelectorAll('.fiili-lv').forEach(b => b.classList.remove('valittu'));
   btn.classList.add('valittu');
-  _fiiliValittu = emoji;
-  const tekstit = {'😫':'Vaikea päivä — lepää hyvin tänään.','😕':'Ei parhaimmillaan — tee päivittäinen rutiini rauhassa.','😐':'Ihan ok — normaalia kehittymistä!','🙂':'Hyvä fiilis — hyödynnä se harjoittelussa!','🔥':'Tulessa! Tänään on hyvä päivä haastaa itsesi.'};
-  document.getElementById('fiiliTeksti').textContent = tekstit[emoji] || 'Valmentaja näkee joukkueen jakauman — ei sinun nimeäsi';
-  document.getElementById('fiiliTeksti').style.color = emoji === '🔥' ? 'var(--green)' : emoji === '😫' ? 'var(--red)' : 'var(--ink3)';
-  naytaToast(`${emoji} Fiilis kirjattu — +5 XP`, 'ok');
+  _fiiliValittu = arvo === 3 ? '🟢' : arvo === 2 ? '🟡' : '🔴';
+  _fiiliData = { mieliala: arvo };
+
+  const tekstit = {
+    3: '🟢 Hyvä päivä — hyödynnä se harjoittelussa!',
+    2: '🟡 Ihan ok — tee rutiini rauhassa.',
+    1: '🔴 Raskas päivä — lepää hyvin tänään.',
+  };
+  const fiiliEl = document.getElementById('fiiliTeksti');
+  if (fiiliEl) {
+    fiiliEl.textContent = tekstit[arvo];
+    fiiliEl.style.color = arvo === 3 ? 'var(--green)' : arvo === 1 ? 'var(--red)' : 'var(--ink3)';
+  }
+
   _pelaaja.xp = (_pelaaja.xp || 0) + 5;
   _renderXP();
+  naytaToast(`${_fiiliValittu} Fiilis kirjattu — +5 XP`, 'ok');
+  _tallennaFiilinki();
+}
+
+/* ── Kehitystaso: mini-Hooper ────────────────────────────────────────── */
+function valitseFiili(btn, emoji, arvo, kentta) {
+  // Poistetaan valinta saman kysymyksen napeista (vain saman rivin napit)
+  const rivi = btn.closest('.fiili-nappi-rivi') || btn.parentElement;
+  if (rivi) rivi.querySelectorAll('.fiili-btn').forEach(b => b.classList.remove('valittu'));
+  btn.classList.add('valittu');
+
+  // Tallennetaan arvo oikeaan kenttään
+  _fiiliData[kentta] = arvo;
+
+  // Päivitetään taaksepäin yhteensopiva _fiiliValittu jos mieliala valittu
+  if (kentta === 'mieliala') _fiiliValittu = emoji;
+
+  // Tekstivaste
+  const tekstit = {
+    uni:        { 1:'😫 Uni huonosti — anna keholle aikaa palautua.', 2:'😐 Uni ok — normaali päivä.', 3:'⚡ Loistava uni — kehosi on valmis!' },
+    lihaskunto: { 1:'🤕 Keho kipeä — tee harjoite rauhallisesti.', 2:'😐 Keho ihan ok — normaalia.', 3:'💪 Keho mahtavassa kunnossa!' },
+    mieliala:   { 1:'😫 Vaikea päivä — sekin kuuluu kehittymiseen.', 2:'😕 Ei paras päivä — tee perusrutiini.', 3:'😐 Ihan ok — normaalia.', 4:'🙂 Hyvä fiilis!', 5:'🔥 Tulessa — hyödynnä se!' },
+  };
+  const fiiliEl = document.getElementById('fiiliTeksti');
+  if (fiiliEl && tekstit[kentta]) {
+    fiiliEl.textContent = tekstit[kentta][arvo] || '';
+    fiiliEl.style.color = arvo >= 4 ? 'var(--green)' : arvo <= 1 ? 'var(--red)' : 'var(--ink3)';
+  }
+
+  // XP vain mielialasta (ei kolmesta napista kolme kertaa)
+  if (kentta === 'mieliala') {
+    _pelaaja.xp = (_pelaaja.xp || 0) + 5;
+    _renderXP();
+    naytaToast(`${emoji} Fiilis kirjattu — +5 XP`, 'ok');
+  }
+
+  // Tallennetaan Firestoreen kun kaikki kehitystason kentät täytetty
+  // tai heti jos vain mieliala (osittainen kirjaus hyväksytty)
+  _tallennaFiilinki();
+}
+
+/* ── Firestore-tallennus ─────────────────────────────────────────────── */
+async function _tallennaFiilinki() {
+  if (_isDemoUser || !_pelaaja || !_db) return;
+  const sid = _pelaaja.seuraId;
+  const pid = _pelaaja.id;
+  if (!sid || !pid || pid === 'super_admin_view') return;
+
+  // Rakennetaan tallennettava data — vain täytetyt kentät
+  const tallennettava = {};
+  if (_fiiliData.mieliala !== undefined) tallennettava.fiilinki       = _fiiliData.mieliala;
+  if (_fiiliData.uni       !== undefined) tallennettava.uni           = _fiiliData.uni;
+  if (_fiiliData.lihaskunto!== undefined) tallennettava.lihaskunto    = _fiiliData.lihaskunto;
+  if (Object.keys(tallennettava).length === 0) return;
+
+  tallennettava.fiilinki_paivitetty = new Date().toISOString();
+
+  const pvm = new Date().toISOString().split('T')[0];
+  const kirjausDok = _db
+    .collection('seurat').doc(sid)
+    .collection('pelaajat').doc(pid)
+    .collection('kirjaukset').doc(pvm);
+
+  try {
+    await kirjausDok.set(tallennettava, { merge: true });
+    console.log('[TM] Fiilinki tallennettu:', tallennettava);
+  } catch(e) {
+    console.warn('[TM] Fiilinki-tallennus epäonnistui:', e.message);
+    // Hiljaa — UI toimii silti
+  }
 }
 
 /* ══ WEEK-STRIP ══ */
