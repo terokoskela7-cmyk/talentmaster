@@ -849,6 +849,11 @@ let _joukkueet= [];
 let _unsubKal = null;
 let _kirjautuminenKesken = false;
 
+// Kalenteri-tilan muuttujat (v17-perua, pidetään globaalina)
+var _vpKalKuukausi   = null;   // { v: vuosi, k: kuukausi }
+var _vpKalTapahtumat = [];
+var _vpKalFiltteri   = 'testit';
+
 /* ══════════════════════════════════════════════
    AUTH
    Yksi onAuthStateChanged — ei rekisteröidä uusia.
@@ -3142,6 +3147,76 @@ async function rakentaaFiilinki() {
 
 
 // ── Kirjautuminen (VP v18 -adaptaatio) ──────────────────────────
+/* ══════════════════════════════════════════════
+   KALENTERI-APUFUNKTIOT — modaalit ja navigointi
+══════════════════════════════════════════════ */
+
+function _vpAvaaLuoModal(seuraId) {
+  _vpRakennaMOdaalit(document.body, seuraId);
+  var m = document.getElementById('vpKalLuoModaali');
+  if (m) { m.style.display = 'flex'; }
+  // Tyhjää kentät
+  ['vpKalNimi','vpKalPvm','vpKalAika'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+}
+
+function _vpAvaaLuoModalPvm(seuraId, pvm) {
+  _vpAvaaLuoModal(seuraId);
+  var pvmEl = document.getElementById('vpKalPvm');
+  if (pvmEl && pvm) pvmEl.value = pvm;
+}
+
+function _vpAvaaDetModal(tapahtumaId, seuraId) {
+  _vpRakennaMOdaalit(document.body, seuraId);
+  var m = document.getElementById('vpKalDetModaali');
+  if (!m || !_db) return;
+  m.style.display = 'flex';
+  var body = document.getElementById('vpKalDetBody');
+  if (body) body.innerHTML = '<div style="color:var(--ink3);text-align:center;padding:20px;">Ladataan...</div>';
+  _db.collection('seurat').doc(seuraId).collection('tapahtumat').doc(tapahtumaId).get()
+    .then(function(doc) {
+      if (!doc.exists) { if (body) body.innerHTML = 'Tapahtumaa ei löydy.'; return; }
+      var d = doc.data();
+      var T = TmTapahtumat.TAPAHTUMATYYPIT[d.tyyppi] || { nimi: d.tyyppi, emoji: '📅' };
+      if (body) body.innerHTML = '<div style="font-size:15px;font-weight:700;margin-bottom:8px;">' + T.emoji + ' ' + (d.nimi || T.nimi) + '</div>'
+        + '<div style="font-size:12px;color:var(--ink3);">Päivämäärä: ' + (d.pvm || '—') + '</div>'
+        + '<div style="font-size:12px;color:var(--ink3);">Joukkue: ' + (d.joukkueNimi || d.joukkueId || '—') + '</div>'
+        + '<div style="font-size:12px;color:var(--ink3);margin-top:6px;">Tila: ' + (d.tila || '—') + '</div>'
+        + '<div style="margin-top:12px;display:flex;gap:8px;">'
+        + '<button onclick="_vpPoistaTapahtuma(\'' + tapahtumaId + '\',\'' + seuraId + '\')" style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;">🗑 Poista</button>'
+        + '<button onclick="document.getElementById(\'vpKalDetModaali\').style.display=\'none\'" style="background:var(--bg3);color:var(--ink3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;">Sulje</button>'
+        + '</div>';
+    })
+    .catch(function(e) { if (body) body.innerHTML = 'Virhe: ' + e.message; });
+}
+
+function _vpValitseTyyppi(tyyppi, btn) {
+  // Poista aktiivinen kaikilta
+  var luoModal = document.getElementById('vpKalLuoModaali');
+  if (luoModal) {
+    luoModal.querySelectorAll('[data-tyyppi]').forEach(function(b) {
+      b.style.borderColor = 'var(--border)';
+      b.style.color = 'var(--muted2)';
+      b.style.background = 'transparent';
+    });
+  }
+  if (btn) {
+    btn.style.borderColor = 'var(--teal)';
+    btn.style.color = 'var(--teal)';
+    btn.style.background = 'rgba(0,212,170,.08)';
+  }
+  var hidden = document.getElementById('vpKalTyyppiValinta');
+  if (hidden) hidden.value = tyyppi;
+}
+
+function _vpNaytaMitaSeuraavaksi(seuraId, joukkueId, joukkueNimi, tapNimi, pvm) {
+  naytaToast('✅ ' + tapNimi + ' luotu: ' + pvm, 'ok');
+  var m = document.getElementById('vpKalLuoModaali');
+  if (m) m.style.display = 'none';
+  renderVPKalenteri();
+}
+
 function kirjauduSisaan() {
   var email = (document.getElementById('loginEmail') || {}).value || '';
   var pass  = (document.getElementById('loginPass')  || {}).value || '';
