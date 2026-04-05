@@ -567,6 +567,26 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       </div>
     </div>
 
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div class="kenttaRyhma" style="margin:0;">
+        <label class="kenttaLabel">SporttiID (valinnainen)</label>
+        <input class="kenttaInput" type="text" id="rek_sporttiId"
+          placeholder="Universaali urheilija-ID">
+        <span style="font-size:11px;color:var(--ink3);margin-top:3px;display:block;">
+          Tuleva universaali urheilija-ID yli lajirajojen
+        </span>
+      </div>
+      <div class="kenttaRyhma" style="margin:0;">
+        <label class="kenttaLabel">PIN-koodi *</label>
+        <input class="kenttaInput" type="text" id="rek_pin"
+          placeholder="esim. 4721" maxlength="4" pattern="[0-9]{4}"
+          inputmode="numeric">
+        <span style="font-size:11px;color:var(--ink3);margin-top:3px;display:block;">
+          4 numeroa — pelaaja kirjautuu tällä. Täytä tai generoidaan automaattisesti.
+        </span>
+      </div>
+    </div>
+
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
       <button class="nappi" id="luoLinkkiNappi" onclick="luoRekisteriLinkki()"
         style="flex:1;min-width:180px;">
@@ -1926,7 +1946,7 @@ async function lataaKoriJaTasoTiedot() {
 // ─────────────────────────────────────────────────────────────────
 function avaaRekisteriModal() {
   // Nollataan lomake
-  ['rek_etunimi','rek_sukunimi','rek_hEmail','rek_palloId']
+  ['rek_etunimi','rek_sukunimi','rek_hEmail','rek_palloId','rek_sporttiId','rek_pin']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('rek_joukkue').value = '';
   document.getElementById('rekisteriVirhe').classList.remove('nakyvilla');
@@ -1940,19 +1960,23 @@ function avaaRekisteriModal() {
 
 
 // Avaa rekisterimodaali olemassaolevalle pelaajalle — täyttää kentät ja asettaa pelaajaId
-function avaaRekisteriModalPelaajalle(pelaajaId, etunimi, sukunimi, joukkue, hEmail, palloid) {
+function avaaRekisteriModalPelaajalle(pelaajaId, etunimi, sukunimi, joukkue, hEmail, palloid, sporttiId, pin) {
   avaaRekisteriModal();
   setTimeout(() => {
-    // Esitäytä kentät
     var fn = document.getElementById('rek_etunimi');
     var sn = document.getElementById('rek_sukunimi');
     var em = document.getElementById('rek_hEmail');
     var jq = document.getElementById('rek_joukkue');
-    var pi = document.getElementById('rek_palloid');
-    if (fn) fn.value = etunimi || '';
+    var pi = document.getElementById('rek_palloId');
+    var si = document.getElementById('rek_sporttiId');
+    var pn = document.getElementById('rek_pin');
+    if (fn) fn.value = etunimi  || '';
     if (sn) sn.value = sukunimi || '';
-    if (em) em.value = hEmail || '';
+    if (em) em.value = hEmail   || '';
     if (jq && joukkue) jq.value = joukkue;
+    if (pi) pi.value = palloid  || '';
+    if (si) si.value = sporttiId || '';
+    if (pn) pn.value = pin || '';
     if (pi && palloid) pi.value = palloid;
     // Tallennetaan pelaajaId tilaan — lomake käyttää tätä merge:een
     tila._rekPelaajaId = pelaajaId;
@@ -1984,6 +2008,7 @@ function luoRekisteriLinkki() {
   const etunimi  = document.getElementById('rek_etunimi').value.trim();
   const sukunimi = document.getElementById('rek_sukunimi').value.trim();
   const palloId  = document.getElementById('rek_palloId').value.trim();
+  const sporttiId = document.getElementById('rek_sporttiId')?.value?.trim() || '';
 
   if (!hEmail) {
     naytaModalVirhe('rekisteriVirhe', 'Huoltajan sähköposti on pakollinen.');
@@ -2005,10 +2030,11 @@ function luoRekisteriLinkki() {
     seuraId:  tila.seuraId,
     seura:    tila.seuraNimi,
     joukkue:  joukkueNimi,
-    ...(etunimi  && { etunimi }),
-    ...(sukunimi && { sukunimi }),
-    ...(hEmail   && { hEmail }),
-    ...(palloId  && { palloid: palloId }),
+    ...(etunimi   && { etunimi }),
+    ...(sukunimi  && { sukunimi }),
+    ...(hEmail    && { hEmail }),
+    ...(palloId   && { palloid: palloId }),
+    ...(sporttiId && { sporttiid: sporttiId }),
     // Lisätään pelaajaId jos pelaaja on jo rekisterissä — estää duplikaatin
     ...(tila._rekPelaajaId && { pelaajaId: tila._rekPelaajaId }),
   });
@@ -2116,6 +2142,17 @@ async function lahetaRekisteriSahkoposti() {
 
       // Luodaan uusi dokumentti vain jos pelaajaa ei löydy
       if (!pelaajaId) {
+        // ── Generoidaan PIN automaattisesti jos ei annettu ──────────────────
+        // PIN on 4 numeroa, tallennetaan pelaajadokumenttiin
+        // Pelaaja kirjautuu tällä PIN:llä Pelaaja v1 -näkymään
+        const syotettyPin = document.getElementById('rek_pin')?.value?.trim() || '';
+        const pin = syotettyPin.length === 4 && /^[0-9]{4}$/.test(syotettyPin)
+          ? syotettyPin
+          : String(Math.floor(1000 + Math.random() * 9000));
+
+        const palloIdArvo   = (document.getElementById('rek_palloId')?.value?.trim()    || palloId || null);
+        const sporttiIdArvo = (document.getElementById('rek_sporttiId')?.value?.trim()  || null);
+
         const pelaajaRef = db.collection('seurat').doc(tila.seuraId)
           .collection('pelaajat').doc();
         pelaajaId = pelaajaRef.id;
@@ -2123,13 +2160,23 @@ async function lahetaRekisteriSahkoposti() {
           etunimi:       etunimi || '',
           sukunimi:      sukunimi || '',
           joukkue:       joukkue || '',
+          joukkueet:     joukkue ? [joukkue] : [],
           seuraId:       tila.seuraId,
           huoltajaEmail: tila._rekHEmail ? tila._rekHEmail.toLowerCase() : null,
           pelaajaId:     pelaajaId,
           suostumusTila: 'odottaa',
+          // ── Kirjautumistunnisteet ──────────────────────────────────────
+          pin:           pin,         // 4-numeroinen PIN → Pelaaja v1
+          palloID:       palloIdArvo, // Palloliiton tunniste (null jos ei annettu)
+          sporttiID:     sporttiIdArvo, // Universaali urheilija-ID (null toistaiseksi)
+          // ──────────────────────────────────────────────────────────────
           tuotu:         firebase.firestore.FieldValue.serverTimestamp(),
           tuoja:         tila.kayttaja?.email || 'tuntematon',
         });
+
+        // Näytetään generoitu PIN VP:lle toast-viestissä
+        naytaToast(`✅ Pelaaja luotu — PIN: ${pin}`, 'ok');
+        console.log(`[TM] Pelaaja ${etunimi} ${sukunimi} luotu, PIN: ${pin}, PalloID: ${palloIdArvo}`);
       } else {
         // Päivitetään olemassa oleva dokumentti
         await db.collection('seurat').doc(tila.seuraId)
