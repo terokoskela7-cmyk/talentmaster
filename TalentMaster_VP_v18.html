@@ -2076,6 +2076,7 @@ function avaaUusiKaynti() {
    PELAAJAPOLUNSEURANTA
 ══════════════════════════════════════════════ */
 let _polkuLadattu = false;
+let _kausiLadattu = false;
 let _polkuData = [];
 let _polkuSuodatin = 'kaikki';
 
@@ -2511,26 +2512,26 @@ function renderVPKalenteri() {
     + '<div style="width:28px;height:28px;border:3px solid var(--blue);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></div>'
     + 'Ladataan kalenteria...</div>';
 
-  // Etsitään seuraId useasta lähteestä — VP:llä _fbSeuraDoc on asetettu
+  // Etsitään seuraId useasta lähteestä — VP:llä window._fbSeuraDoc on asetettu
   // kirjautumisessa ja sen .id-kenttä on Firestore-dokumentin ID (esim. "kpv")
   var seuraId = null;
 
-  if (window._fbSeuraDoc) {
-    seuraId = window._fbSeuraDoc.id || window._fbSeuraDoc._seuraId;
+  if (window.window._fbSeuraDoc) {
+    seuraId = window.window._fbSeuraDoc.id || window.window._fbSeuraDoc._seuraId;
   }
   // _seuraData ei ole v18:ssa — käytetään _seuraId suoraan
   if (!seuraId && window._seuraId) {
     seuraId = window._seuraId;
   }
   // Viimeinen yritys: päättele VP:n emailista (vp.kpv@talentmaster.fi → kpv)
-  if (!seuraId && _fbUser && _fbUser.email) {
-    var emailOsat = _fbUser.email.split('@')[0].split('.');
+  if (!seuraId && _user && _user.email) {
+    var emailOsat = _user.email.split('@')[0].split('.');
     if (emailOsat.length >= 2) seuraId = emailOsat[1];
   }
 
   console.log('[Kalenteri] seuraId:', seuraId,
-    '| _fbSeuraDoc.id:', window._fbSeuraDoc && window._fbSeuraDoc.id,
-    '| _fbUser.email:', _fbUser && _fbUser.email);
+    '| window._fbSeuraDoc.id:', window.window._fbSeuraDoc && window.window._fbSeuraDoc.id,
+    '| _user.email:', _user && _user.email);
 
   if (!seuraId) {
     el.innerHTML = '<div style="color:var(--red);padding:20px">⚠️ Seuran tunnistetta ei löydy.</div>';
@@ -2550,7 +2551,7 @@ function renderVPKalenteri() {
   // sivun latausta. Vanha kuuntelija puretaan aina ennen uuden luomista
   // jotta ei synny kahta rinnakkaista kuuntelijaa saman kalenterin kuulle.
   if (window._vpKalUnsubscribe) window._vpKalUnsubscribe();
-  window._vpKalUnsubscribe = _fbDb
+  window._vpKalUnsubscribe = _db
     .collection('seurat').doc(seuraId)
     .collection('tapahtumat')
     .where('pvm', '>=', pvmAlku)
@@ -2852,9 +2853,9 @@ function _vpRakennaMOdaalit(container, seuraId) {
   var joukkueOpt = '<option value="">Ladataan joukkueita...</option>';
 
   // Haetaan joukkueet Firestoresta heti kun modaali on luotu
-  console.log('[KalModaali] seuraId:', seuraId, '| _fbDb:', !!_fbDb);
-  if (_fbDb && seuraId) {
-    _fbDb.collection('seurat').doc(seuraId)
+  console.log('[KalModaali] seuraId:', seuraId, '| _db:', !!_db);
+  if (_db && seuraId) {
+    _db.collection('seurat').doc(seuraId)
       .collection('joukkueet').get()
       .then(function(snap) {
         snap = { docs: snap.docs.sort(function(a,b){ return (a.data().nimi||'').localeCompare(b.data().nimi||''); }), ...snap };
@@ -2948,7 +2949,7 @@ async function _vpTallennaTapahtuma(seuraId) {
   try {
     var kayttajaUid = null;
     try { kayttajaUid = firebase.auth().currentUser && firebase.auth().currentUser.uid; } catch(e2) {}
-    await TmTapahtumat.luoTapahtuma(_fbDb, seuraId, {
+    await TmTapahtumat.luoTapahtuma(_db, seuraId, {
       tyyppi: tyyppi, nimi: nimi || TmTapahtumat.TAPAHTUMATYYPIT[tyyppi].nimi,
       pvm: pvm, alkuAika: aika, joukkueId: jId, joukkueNimi: jNimi,
     }, kayttajaUid);
@@ -2970,7 +2971,7 @@ async function _vpTallennaTapahtuma(seuraId) {
 
 async function _vpPoistaTapahtuma(tapahtumaId, seuraId) {
   try {
-    await _fbDb.collection('seurat').doc(seuraId)
+    await _db.collection('seurat').doc(seuraId)
       .collection('tapahtumat').doc(tapahtumaId).delete();
     document.getElementById('vpKalDetModaali').style.display = 'none';
     renderVPKalenteri();
@@ -2979,10 +2980,10 @@ async function _vpPoistaTapahtuma(tapahtumaId, seuraId) {
 
 async function _vpMerkitsePaikalla(tapahtumaId, seuraId, idx, paikalla) {
   try {
-    var snap    = await _fbDb.collection('seurat').doc(seuraId).collection('tapahtumat').doc(tapahtumaId).get();
+    var snap    = await _db.collection('seurat').doc(seuraId).collection('tapahtumat').doc(tapahtumaId).get();
     var pelaajat = ((snap.data()||{}).pelaajat)||[];
     if (pelaajat[idx]) pelaajat[idx].paikalla = paikalla;
-    await _fbDb.collection('seurat').doc(seuraId).collection('tapahtumat').doc(tapahtumaId).update({pelaajat: pelaajat});
+    await _db.collection('seurat').doc(seuraId).collection('tapahtumat').doc(tapahtumaId).update({pelaajat: pelaajat});
   } catch(e) { console.error('Paikalla:', e); }
 }
 
