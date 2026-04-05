@@ -822,7 +822,10 @@ async function _lataaFirebasePelaaja(user) {
           const emailTasmaa = d.huoltajaEmail &&
             d.huoltajaEmail.toLowerCase() === user.email.toLowerCase();
           if (emailTasmaa || claims.super_admin || claims.superAdmin) {
-            _pelaaja = Object.assign({ id: directSnap.id }, d);
+            const pelData = directSnap.data();
+            _pelaaja = Object.assign({ id: directSnap.id }, pelData);
+            // Kortti_lunastettu → _kortti_lunastettu (sisäinen kenttä)
+            if (pelData.kortti_lunastettu) _pelaaja._kortti_lunastettu = pelData.kortti_lunastettu;
             await _alustaUI();
             return;
           }
@@ -1127,8 +1130,8 @@ function merkitseTehdyksi(tehtavaId, xp) {
   document.getElementById('xpFill').classList.add('xp-pulse');
   setTimeout(() => document.getElementById('xpFill').classList.remove('xp-pulse'), 500);
 
-  // Streak päivitys (jos kaikki päivän tehtävät tehty)
-  const tehtavat = _isDemoUser ? (DEMO_TEHTAVAT[_demoKey] || []) : [];
+  // Streak päivitys — kaikki päivän tehtävät tehty?
+  const tehtavat = generoimTehtavat(_pelaaja);
   const kaikki = tehtavat.every(t => _tehdytTehtavat.has(t.id));
   if (kaikki && tehtavat.length > 0) {
     _pelaaja.streak = (_pelaaja.streak || 0) + 1;
@@ -1139,8 +1142,59 @@ function merkitseTehdyksi(tehtavaId, xp) {
     naytaToast(`+${xp} XP — Hyvä työ!`, 'ok');
   }
 
+  // Tallennetaan Firestoreen (ei-demo-käyttäjälle)
+  const tyyppi = tehtavat.find(t => t.id === tehtavaId)?.tyyppi || 'T';
+  _tallennaKirjaus(tehtavaId, tyyppi, xp, kaikki);
+
   // Haasteet päivitetään
   if (_ladattu.haasteet) renderHaasteet();
+}
+
+/* ── Firestore-kirjaus: kirjaukset/{pvm} + streak-päivitys ── */
+async function _tallennaKirjaus(tehtavaId, tyyppi, xp, kaikki) {
+  if (_isDemoUser || !_pelaaja || !_db) return;
+
+  const sid = _pelaaja.seuraId;
+  const pid = _pelaaja.id;
+  if (!sid || !pid || pid === 'super_admin_view') return;
+
+  const pvm = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+  const pelaajaDok = _db.collection('seurat').doc(sid).collection('pelaajat').doc(pid);
+  const kirjausDok = pelaajaDok.collection('kirjaukset').doc(pvm);
+
+  try {
+    // Kirjaus: {tehty: true, tyyppi, xp, aika, pvm}
+    const aika = (() => {
+      const h = new Date().getHours();
+      return h < 11 ? 'aamu' : h < 17 ? 'paiva' : 'ilta';
+    })();
+
+    await kirjausDok.set({
+      tyyppi,
+      tehty: true,
+      xp,
+      aika,
+      pvm,
+      paivitetty: new Date().toISOString(),
+    }, { merge: true });
+
+    // Jos kaikki tehtävät tehty → päivitä streak + xp pelaajadokumenttiin
+    if (kaikki) {
+      await pelaajaDok.update({
+        streak: _pelaaja.streak,
+        xp: _pelaaja.xp,
+        streak_paivitetty: pvm,
+      });
+      console.log('[TM] Streak + XP tallennettu Firestoreen:', _pelaaja.streak, _pelaaja.xp);
+    } else {
+      // Päivitetään XP myös yksittäisestä tehtävästä
+      await pelaajaDok.update({ xp: _pelaaja.xp });
+    }
+
+  } catch(e) {
+    console.warn('[TM] Kirjaus epäonnistui — ei haittaa, jatketaan:', e.message);
+    // UI toimii silti — ei näytetä virhettä pelaajalle
+  }
 }
 
 function renderKysely() {
@@ -1182,23 +1236,59 @@ function vastaaKyselyyn(idx) {
   }
 }
 
-function renderHavainto() {
+async function renderHavainto() {
   const el = document.getElementById('havaintoAlue');
-  // Demo-havainto
-  const havainnot = {
-    aleksi:{teksti:'Skannaus on parantunut selvästi — katse ylös ennen vastaanottoa. Paineessa palaa vielä vanhaan malliin, mutta se korjataan nopeasti. Tänään lisähaaste: 1v1-tilanne rytminvaihdolla.',valmentaja:'Sami Laaksonen',pvm:'29.3.2026'},
-    eeli:{teksti:'Keho kasvaa tällä hetkellä nopeasti — älä huolehdi, se on normaalia! Fokus on nyt kehon hallinnassa ja hengityksessä. Tee päivittäinen dead bug -rutiini tarkkaan.',valmentaja:'Sami Laaksonen',pvm:'29.3.2026'},
-    mikko:{teksti:'Kehon hallinnassa on parannettavaa — lantio taaksepäin, pidä selkä suorana. Tee lankku joka päivä ja tunne ero. Olet menossa oikeaan suuntaan!',valmentaja:'Sami Laaksonen',pvm:'29.3.2026'},
-  };
-  const h = _isDemoUser ? havainnot[_demoKey] : null;
-  if (!h) { el.innerHTML = ''; return; }
+  if (!el) return;
 
-  el.innerHTML = `<div class="stitle" style="margin-top:4px;">Valmentajan havainto</div>
-  <div class="havainto-card">
-    <div class="havainto-from">📋 ${h.valmentaja}</div>
-    <div class="havainto-teksti">"${h.teksti}"</div>
-    <div class="havainto-pvm">${h.pvm}</div>
-  </div>`;
+  // Demo-käyttäjälle näytetään demo-havainto
+  if (_isDemoUser) {
+    const havainnot = {
+      aleksi:{teksti:'Skannaus on parantunut selvästi — katse ylös ennen vastaanottoa. Paineessa palaa vielä vanhaan malliin, mutta se korjataan nopeasti. Tänään lisähaaste: 1v1-tilanne rytminvaihdolla.',valmentaja:'Sami Laaksonen',pvm:'29.3.2026'},
+      eeli:{teksti:'Keho kasvaa tällä hetkellä nopeasti — älä huolehdi, se on normaalia! Fokus on nyt kehon hallinnassa ja hengityksessä. Tee päivittäinen dead bug -rutiini tarkkaan.',valmentaja:'Sami Laaksonen',pvm:'29.3.2026'},
+      mikko:{teksti:'Kehon hallinnassa on parannettavaa — lantio taaksepäin, pidä selkä suorana. Tee lankku joka päivä ja tunne ero. Olet menossa oikeaan suuntaan!',valmentaja:'Sami Laaksonen',pvm:'29.3.2026'},
+    };
+    const h = havainnot[_demoKey];
+    if (!h) { el.innerHTML = ''; return; }
+    el.innerHTML = `<div class="stitle" style="margin-top:4px;">Valmentajan havainto</div>
+    <div class="havainto-card">
+      <div class="havainto-from">📋 ${h.valmentaja}</div>
+      <div class="havainto-teksti">"${h.teksti}"</div>
+      <div class="havainto-pvm">${h.pvm}</div>
+    </div>`;
+    return;
+  }
+
+  // Oikea käyttäjä — haetaan viimeisin havainto Firestoresta
+  const sid = _pelaaja?.seuraId;
+  const pid = _pelaaja?.id;
+  if (!sid || !pid || !_db) { el.innerHTML = ''; return; }
+
+  try {
+    // Havainnot tallennetaan seurat/{id}/havainnot/ pelaajaId-kentällä
+    const snap = await _db.collection('seurat').doc(sid)
+      .collection('havainnot')
+      .where('pelaajaId', '==', pid)
+      .orderBy('luotu', 'desc')
+      .limit(1)
+      .get();
+
+    if (snap.empty) { el.innerHTML = ''; return; }
+
+    const h = snap.docs[0].data();
+    const pvm = h.luotu?.toDate
+      ? h.luotu.toDate().toLocaleDateString('fi-FI')
+      : (h.pvm || '');
+
+    el.innerHTML = `<div class="stitle" style="margin-top:4px;">Valmentajan havainto</div>
+    <div class="havainto-card">
+      <div class="havainto-from">📋 ${h.valmentajaNimi || 'Valmentaja'}</div>
+      <div class="havainto-teksti">"${h.teksti || h.narratiivi || ''}"</div>
+      <div class="havainto-pvm">${pvm}</div>
+    </div>`;
+  } catch(e) {
+    console.warn('[TM] Havainto-haku epäonnistui:', e.message);
+    el.innerHTML = '';
+  }
 }
 
 /* ══ KORTTI ══ */
@@ -1670,11 +1760,12 @@ function renderNFT() {
   if (!el || !_pelaaja) return;
   const p = _pelaaja;
   const rating = laskeRating(p);
-  const mintKey = 'nft_' + (p.id || _demoKey || 'demo');
-  const minted = JSON.parse(localStorage.getItem(mintKey) || 'null');
   const rarity = rating >= 85 ? 'Kultainen' : rating >= 75 ? 'Hopea' : rating >= 65 ? 'Pronssi' : 'Kehittyjä';
   const rarityPct = Math.round(100 - rating * 0.8);
   const rarityColor = rarity === 'Kultainen' ? 'var(--gold)' : rarity === 'Hopea' ? '#C0C0C0' : rarity === 'Pronssi' ? '#CD7F32' : 'var(--teal)';
+
+  // Tarkista onko jo lunastettu (Firestoresta tai pelaajaobjektista)
+  const minted = p._kortti_lunastettu || null;
 
   if (minted) {
     el.innerHTML = `<div style="background:rgba(245,183,0,.05);border:1px solid rgba(245,183,0,.2);border-radius:12px;padding:14px;text-align:center;">
@@ -1698,14 +1789,27 @@ function renderNFT() {
   }
 }
 
-function mintKehityskortti() {
+async function mintKehityskortti() {
   if (!_pelaaja) return;
   const rating = laskeRating(_pelaaja);
   const rarity = rating >= 85 ? 'Kultainen' : rating >= 75 ? 'Hopea' : rating >= 65 ? 'Pronssi' : 'Kehittyjä';
   const tokenId = Math.floor(1000 + Math.random() * 9000) + '' + rating;
-  const mintKey = 'nft_' + (_pelaaja.id || _demoKey || 'demo');
-  const data = {tokenId, ts: Date.now(), ovr: rating, rarity};
-  try { localStorage.setItem(mintKey, JSON.stringify(data)); } catch(e) {}
+  const data = { tokenId, ts: Date.now(), ovr: rating, rarity };
+
+  // Tallennetaan Firestoreen (ei-demo) tai muistiin (demo)
+  if (!_isDemoUser && _db && _pelaaja.seuraId && _pelaaja.id && _pelaaja.id !== 'super_admin_view') {
+    try {
+      await _db.collection('seurat').doc(_pelaaja.seuraId)
+        .collection('pelaajat').doc(_pelaaja.id)
+        .update({ kortti_lunastettu: data });
+    } catch(e) {
+      console.warn('[TM] Kortin lunastus Firestoreen epäonnistui:', e.message);
+    }
+  }
+
+  // Päivitetään muistiin jotta renderNFT() näyttää oikean tilan
+  _pelaaja._kortti_lunastettu = data;
+
   naytaToast(`🃏 Kortti #${tokenId} lunastettu! ${rarity}`, 'gold');
   _pelaaja.xp = (_pelaaja.xp || 0) + 30;
   _renderXP();
