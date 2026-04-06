@@ -33,14 +33,6 @@
   --r:      10px;
 }
 
-function avaaSeuraaPelaaja(seuraId, seuraNimi) {
-  tallennaSuperAdminKonteksti(seuraId, seuraNimi || seuraId);
-  window.open(
-    `https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Pelaaja_v1.html?seura=${seuraId}`,
-    '_blank'
-  );
-  naytaToast(`Avataan ${seuraNimi || seuraId} pelaaja-näkymä...`, 'ok');
-}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.65;min-height:100vh;}
 
@@ -330,8 +322,11 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
     <div id="uusiSeuraSektio" style="display:none;">
       <div style="background:rgba(74,126,217,.08);border:1px solid rgba(74,126,217,.25);
                   border-radius:8px;padding:14px 16px;margin-bottom:14px;">
-        <div style="font-size:12px;color:var(--blue);font-weight:600;margin-bottom:10px;">
+        <div style="font-size:12px;color:var(--blue);font-weight:600;margin-bottom:6px;">
           ➕ Luo uusi seura samalla kertaa
+        </div>
+        <div style="font-size:11px;color:var(--amber);background:rgba(224,160,64,.08);border:1px solid rgba(224,160,64,.2);border-radius:6px;padding:8px 10px;margin-bottom:10px;">
+          ⚠ Uudelle seuralle on valittava rooliksi <strong>Valmennuspäällikkö (VP)</strong>. VP:n tunnus luodaan ensin — muut roolit lisätään sen jälkeen Admin-sivun kautta.
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div class="kenttaRyhma" style="margin:0;">
@@ -428,6 +423,19 @@ if (!firebase.apps.length) {
 const auth      = firebase.auth();
 const db        = firebase.firestore();
 const functions = firebase.app().functions('europe-west1');
+
+// ─────────────────────────────────────────
+// SIIRRETTY STYLE-TAGISTA — oli lipsahtanut CSS-lohkon sisään
+// jolloin selain ei rekisteröinyt tätä funktiota JavaScriptiksi lainkaan
+// ─────────────────────────────────────────
+function avaaSeuraaPelaaja(seuraId, seuraNimi) {
+  tallennaSuperAdminKonteksti(seuraId, seuraNimi || seuraId);
+  window.open(
+    `https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Pelaaja_v1.html?seura=${seuraId}`,
+    '_blank'
+  );
+  naytaToast(`Avataan ${seuraNimi || seuraId} pelaaja-näkymä...`, 'ok');
+}
 
 // KRIITTINEN: Asetetaan LOCAL persistence eksplisiittisesti
 // Tämä varmistaa että sessio säilyy kun käyttäjä navigoi
@@ -1111,6 +1119,13 @@ async function luoUusiKayttaja() {
   if (!rooli)   { naytaModalVirhe('Valitse rooli.'); return; }
   if (!seuraId) { naytaModalVirhe('Valitse seura.'); return; }
 
+  // Uutta seuraa luodessa roolin on oltava VP — muuten seura jää ilman VP:tä
+  // eikä kukaan pysty kirjautumaan seuraan normaalisti.
+  if (seuraId === '__uusi__' && rooli !== 'vp') {
+    naytaModalVirhe('Uudelle seuralle on määritettävä VP ensimmäiseksi käyttäjäksi. Vaihda rooliksi "Valmennuspäällikkö (VP)".');
+    return;
+  }
+
   // ── Uuden seuran luonti Firestoreen (jos valittu "Luo uusi seura") ──
   // Tehdään ennen käyttäjän luontia, jotta Cloud Function löytää seuran
   let lopullinenSeuraId = seuraId;
@@ -1168,6 +1183,25 @@ async function luoUusiKayttaja() {
 
     const data = tulos.data;
 
+    // ── KRIITTINEN KORJAUS: VP:n uid kirjataan seuradokumenttiin ──────────
+    // Ilman tätä seura jää "orpona" — vp_uid puuttuu jolloin VP ei pääse
+    // kirjautumaan dashboardiin eikä Cloud Function tunnista häntä oikeaksi VP:ksi.
+    // luoKayttaja-funktio päivittää vp_uid:n vain jos se on tyhjä (first VP),
+    // mutta se tehdään Functionin sisällä — tässä varmistamme sen myös
+    // client-puolelta siltä varalta että Function-puolen update epäonnistuu.
+    if (rooli === 'vp' && data.uid) {
+      try {
+        await db.collection('seurat').doc(lopullinenSeuraId).update({
+          vp_uid:   data.uid,
+          vp_email: email,
+        });
+        console.log('[Admin] vp_uid päivitetty seuralle:', lopullinenSeuraId, '→', data.uid);
+      } catch (vpVirhe) {
+        // Ei kriittinen — Function on saattanut jo tehdä tämän
+        console.warn('[Admin] vp_uid päivitys epäonnistui (ei kriittinen):', vpVirhe.message);
+      }
+    }
+
     // Onnistui — näytetään vahvistusviesti
     nappi.textContent = 'Lähetä uusi kutsu';
     nappi.disabled    = false;
@@ -1175,7 +1209,7 @@ async function luoUusiKayttaja() {
     document.getElementById('kayttajaOnniTeksti').textContent =
       `${etunimi ? etunimi + ' ' + sukunimi : email} sai sähköpostiinsa linkin ` +
       `jonka kautta hän asettaa oman salasanansa. ` +
-      `Rooli: ${rooli} | Seura: ${seuraId}` +
+      `Rooli: ${rooli} | Seura: ${lopullinenSeuraId}` +
       (joukkue ? ` | Joukkue: ${joukkueNimi || joukkue}` : '');
 
     // Näytetään reset-linkki varmuudeksi VP:lle
