@@ -386,6 +386,8 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
       <div class="page-header">
         <div class="page-title">Havainnot</div>
         <div class="page-sub">ADAR-kirjaukset — valmentajan ammatillinen muisti</div>
+        <!-- Koulutuslinkki — näkyy aina, mutta huomaamaton. Uusi valmentaja löytää sen
+             juuri oikeaan aikaan kun on ensimmäistä kertaa kirjaamassa havaintoa. -->
         <a href="TalentMaster_ADAR_Koulutus.html"
            style="display:inline-flex;align-items:center;gap:6px;
                   font-size:11px;color:var(--blue);text-decoration:none;
@@ -2267,6 +2269,20 @@ async function lataaPelaajaKartoitukset() {
           </div>
         </div>
 
+        <!-- Joukkue — pakollinen, ilman tätä tapahtuma on anonyymia dataa -->
+        <div style="margin-bottom:14px;">
+          <label style="font-size:11px;font-weight:700;color:var(--ink3);
+            text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">
+            Joukkue *
+          </label>
+          <select id="kalJoukkue"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border);
+              color:var(--ink);padding:9px 12px;border-radius:8px;font-size:13px;
+              outline:none;cursor:pointer;">
+            <option value="">— Valitse joukkue —</option>
+          </select>
+        </div>
+
         <!-- Muistiinpanot -->
         <div style="margin-bottom:20px;">
           <label style="font-size:11px;font-weight:700;color:var(--ink3);
@@ -2379,9 +2395,41 @@ async function lataaPelaajaKartoitukset() {
     }
   }
 
-  function _avaaLuoTapahtuma() {
+  async function _avaaLuoTapahtuma() {
     const m = document.getElementById('kalLuoModaali');
     if (m) m.style.display = 'flex';
+
+    // Täytä joukkue-dropdown Firestoresta
+    const sel = document.getElementById('kalJoukkue');
+    if (!sel || !_seuraId) return;
+
+    // Jos valmentajalla on oma joukkue, esivalitse se
+    if (_joukkue) {
+      // Lisää valmentajan oma joukkue jos ei ole jo listalla
+      if (!sel.querySelector(`option[value="${_joukkue}"]`)) {
+        const opt = document.createElement('option');
+        opt.value = _joukkue;
+        opt.textContent = document.getElementById('sbJoukkue')?.textContent || _joukkue;
+        sel.appendChild(opt);
+      }
+      sel.value = _joukkue;
+      return;
+    }
+
+    // Muuten hae kaikki joukkueet Firestoresta
+    try {
+      const snap = await _db.collection('seurat').doc(_seuraId)
+        .collection('joukkueet').orderBy('nimi').get();
+      sel.innerHTML = '<option value="">— Valitse joukkue —</option>';
+      snap.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.data().nimi || d.id;
+        sel.appendChild(opt);
+      });
+    } catch(e) {
+      console.warn('[Joukkue-dropdown]', e.message);
+    }
   }
 
   function _suljeKalLuoModaali() {
@@ -2410,14 +2458,28 @@ async function lataaPelaajaKartoitukset() {
     btn.textContent = '⏳ Tallennetaan...';
     btn.disabled = true;
 
+    // Luetaan joukkue dropdownista — tämä on luotettavampi kuin _joukkue-muuttuja
+    // joka voi olla null valmentajalla jolla ei ole joukkuetta käyttäjädokumentissa
+    const joukkueSel = document.getElementById('kalJoukkue');
+    const valittuJoukkueId = joukkueSel?.value || _joukkue || '';
+    const valittuJoukkueNimi = joukkueSel?.options[joukkueSel.selectedIndex]?.text || _joukkue || '';
+
+    if (!valittuJoukkueId) {
+      virhe.textContent = 'Valitse joukkue';
+      virhe.style.display = 'block';
+      btn.textContent = 'Luo tapahtuma';
+      btn.disabled = false;
+      return;
+    }
+
     try {
       const uusi = await TmTapahtumat.luoTapahtuma(_db, _seuraId, {
         tyyppi,
         nimi: nimi || TmTapahtumat.TAPAHTUMATYYPIT[tyyppi]?.nimi || 'Tapahtuma',
         pvm,
         alkuAika: aika,
-        joukkueId: _joukkue,
-        joukkueNimi: document.getElementById('sivupalkkiJoukkue')?.textContent || _joukkue,
+        joukkueId: valittuJoukkueId,
+        joukkueNimi: valittuJoukkueNimi !== '— Valitse joukkue —' ? valittuJoukkueNimi : valittuJoukkueId,
         muistiinpanot,
       }, _user && _user.uid);
 
