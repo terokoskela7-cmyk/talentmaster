@@ -1,11 +1,14 @@
 /* ═══════════════════════════════════════════════════════════════════
-   TalentMaster™ — Harjoitelogiikka v3
+   TalentMaster™ — Harjoitelogiikka v4
    
    UUTTA v2:een verrattuna:
    1. Ikäkohtainen kieli — U10 puhutaan eri tavalla kuin U17
    2. Everton-progressio — harjoite vaikeutuu tason mukaan (Stage 1→5)
    3. Videolinkit — YouTube ID per harjoite, haetaan Firestoresta tai fallback
    4. "Taso-pohjainen" valinta — ei pelkkä ikä, myös pelaajan kehitystaso
+   5. DIAG-ketju — SL + FL yhdistettynä anatomisen näytön mukaan (Wilke 2016 ⭐⭐⭐)
+   6. Pallotekniikka-yhteys — jokainen D/S-harjoite kytkeytyy pelilliseen suoritukseen
+   7. "pig" → "diag" ketjukoodi — Peliäly on oma dimensionsa (D4), ei oma liikeketjunsa
    
    Kielitasot:
    - leikkija  (U8–U12):  konkreettinen, hauska, "leiki", "kokeile"
@@ -21,14 +24,21 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 // ── KETJUMÄÄRITTELY ──────────────────────────────────────────────────────
+// ── KETJUMÄÄRITTELY — 5 ketjua (Wilke 2016 + Liikanen 2025) ──────────
+// DIAG yhdistää SL (Kiertoketju) + FL (Yhdistelmäketju) anatomisesti
+// vahvimmalla näytöllä ⭐⭐⭐. Nämä toimivat aina yhdessä: syöttö,
+// SM-pallo ja pujottelu vaativat molempia samanaikaisesti.
+// Peliäly (D4) on oma dimensionsa — ei liikeketju, vaan ADAR-taso.
 const KETJUT = {
-  sbl: { nimi: '⚡ Vauhtiketju',    lyhyt: 'Vauhtiketju',    cue_leikkija: 'nopeutesi', cue_showcase: 'SBL — takaketjun voima' },
-  sfl: { nimi: '🦵 Lähtöketju',     lyhyt: 'Lähtöketju',     cue_leikkija: 'räjähtäväsi', cue_showcase: 'SFL — räjähtävyys ja potku' },
-  ll:  { nimi: '↔️ SM-ketju',       lyhyt: 'SM-ketju',       cue_leikkija: 'ketteryytesi', cue_showcase: 'LL — lateraalivakaus' },
-  sl:  { nimi: '🔄 Kiertoketju',    lyhyt: 'Kiertoketju',    cue_leikkija: 'syöttösi ja laukausesi', cue_showcase: 'SL — rotaatiovoima' },
-  dfl: { nimi: '🏗️ Hallintaketju',  lyhyt: 'Hallintaketju',  cue_leikkija: 'tasapainosi', cue_showcase: 'DFL — syvä etulinja' },
-  pig: { nimi: '🧠 Peliälyketju',   lyhyt: 'Peliälyketju',   cue_leikkija: 'pelisilmäsi', cue_showcase: 'Game IQ — ADAR-protokolla' },
+  sbl:  { nimi: '⚡ Vauhtiketju',      lyhyt: 'Vauhtiketju',      cue_leikkija: 'nopeutesi',          cue_showcase: 'SBL ⭐⭐⭐ — takaketjun voima (Wilke 2016)' },
+  sfl:  { nimi: '🦵 Lähtöketju',       lyhyt: 'Lähtöketju',       cue_leikkija: 'räjähtäväsi',        cue_showcase: 'SFL — lonkka auki → räjähtävyys ja potku' },
+  ll:   { nimi: '↔️ Sivuketju',        lyhyt: 'Sivuketju',        cue_leikkija: 'ketteryytesi',       cue_showcase: 'LL ⭐⭐ — lateraalivakaus, pujottelu +9%' },
+  diag: { nimi: '🔄⬡ Diagonaaliketju', lyhyt: 'Diagonaaliketju',  cue_leikkija: 'syöttösi ja kierroksesi', cue_showcase: 'DIAG ⭐⭐⭐ — SL+FL yhdessä: syöttö +13%, SM-pallo +8%' },
+  dfl:  { nimi: '🏗️ Hallintaketju',    lyhyt: 'Hallintaketju',    cue_leikkija: 'tasapainosi',        cue_showcase: 'DFL ⭐⭐ — hengitys, asento, pohja kaikelle' },
 };
+// HUOM: Peliäly (pig/D4) on oma dimensionsa, ei liikeketju.
+// ADAR-harjoitteet ovat osa jokaista ketjua — katse ylös ennen kosketusta
+// kehittää sekä DIAG:ia (seinäsyöttö) että DFL:ää (asento) samanaikaisesti.
 
 // ── IKÄLUOKKATYYPPI ───────────────────────────────────────────────────────
 function _ikatyyppi(ika) {
@@ -201,27 +211,31 @@ const PANKKI = {
       },
     ],
 
-    sl: [
+    diag: [
       {
+        // DIAG = Diagonaaliketju (SL+FL). Seinäsyöttö on DIAG:n päivittäinen pääharjoite
+        // Liikanen 2025: syöttö +13% erotteli ammattilaiset — tämä on se harjoite.
         stage: [1, 2],
-        nimi: 'Seinäpomputus — molemmat jalat',
+        nimi: 'Seinäsyöttö — molemmat jalat',
         ohje_leikkija: 'Lähetä pallo seinälle oikealla jalalla — ota takaisin vasemmalla. Sitten toisinpäin. 20 kertaa per jalka. Pidä pallo lähellä!',
         ohje_rakentaja: 'Seinäsyöttö vuorojaloilla 3×20: oikealla syötät, vasemmalla vastaanotat, takaisin. Pallo pysyy maassa. 1 kosketus per jalka.',
         ohje_showcase: null,
         kesto: '5 min', xp: 15,
         yt: 'FGhd77TRdC4',
-        cue: 'Syöttö lähtee rintakehästä — jalka vain seuraa. Heikko jalka saa enemmän toistoja.',
+        cue: 'Rintakehä ohjaa — jalka seuraa automaattisesti. DIAG: syöttö on kiertoketjun + yhdistelmäketjun harjoite yhtä aikaa.',
+        pallo_yhteys: 'Syöttö 🎯 DIAG pääketju — Liikanen 2025: +13% ammattilaisennustaja.',
         phv: 'Normaali — pallolliset tekniikkaharjoitteet aina turvallisia.',
       },
       {
         stage: [3, 4, 5],
-        nimi: 'Seinäsyöttörutiini + ponnauttelu',
+        nimi: 'Seinäsyöttö + ponnauttelu — DIAG päivittäin',
         ohje_leikkija: null,
         ohje_rakentaja: 'Seinäsyöttö vuorojaloilla 3×20 (1-kosketus takaisin). Sitten ponnauttelu 3×1 min: molemmat jalat vuorotellen, laske ääneen. Tavoite 20+ per min.',
         ohje_showcase: 'Seinäsyöttö 3×20 vuorojaloilla — 1 kosketus, ei pysähdystä. Ponnauttelu 3×1 min. SL: kiertoketju lähtee rintakehästä. Mittaa ponnauttelu per min.',
         kesto: '6 min', xp: 15,
         yt: 'FGhd77TRdC4',
-        cue: 'Forsman 2013: ponnauttelu ja syöttötaito erottelivat lahjakkaita kaikissa ikäluokissa.',
+        cue: 'Forsman 2013: ponnauttelu + syöttö erottelivat lahjakkaita kaikissa ikäluokissa. Molemmat ovat DIAG-harjoitteita.',
+        pallo_yhteys: 'Ponnauttelu 🎯 DIAG pääketju (DFL avustava) — päivittäinen integraatioharjoite.',
         phv: 'Normaali — pallolliset harjoitteet aina turvallisia.',
       },
     ],
@@ -532,8 +546,10 @@ const PANKKI = {
       },
     ],
 
-    pig: [
+    diag: [
       {
+        // DIAG S-harjoitteet: syöttö + SM-pallo paineessa
+        // ADAR-elementti integroituna — peliäly kehittyy DIAG-harjoitteissa
         vk: 'parillinen',
         stage_tasot: [
           {
@@ -669,19 +685,35 @@ function _valitseStage(stage_tasot, stage) {
   return h || stage_tasot[0];
 }
 
-// Laske ketjujen järjestys
+// Laske ketjujen järjestys — viisi ketjua (DIAG = SL+FL/2 vanhalle datalle)
 function laskeKetjuProfiili(pelaaja) {
+  // DIAG-pisteet: uusi kenttä suoraan tai lasketaan vanhoista SL+FL-kentistä
+  const k = pelaaja.flei_ketjut || pelaaja.ketjut || {};
+  const diagArvo = k.DIAG || k.diag
+    || (k.SL && k.FL ? Math.round((k.SL + k.FL) / 2)
+    : k.SL || k.FL
+    || pelaaja.diag || 0);
+
   const arvot = {
-    sbl: pelaaja.sbl  || 1.5,
-    sfl: pelaaja.sfl  || 1.5,
-    ll:  pelaaja.ll   || 1.5,
-    sl:  pelaaja.sl   || 1.5,
-    dfl: pelaaja.dfl  || 1.5,
-    pig: pelaaja.pig  || 1.5,
+    sbl:  k.SBL  || k.sbl  || pelaaja.sbl  || 0,
+    sfl:  k.SFL  || k.sfl  || pelaaja.sfl  || 0,
+    ll:   k.LL   || k.ll   || pelaaja.ll   || 0,
+    diag: diagArvo,
+    dfl:  k.DFL  || k.dfl  || pelaaja.dfl  || 0,
   };
+
+  // Jos ei yhtään dataa, käytetään neutraalia arvoa jottei
+  // aina valita samaa ketjua oletuksena
+  const onData = Object.values(arvot).some(v => v > 0);
+  if (!onData) {
+    // Ei testidataa — palataan tasaiseen oletukseen
+    Object.keys(arvot).forEach(k => arvot[k] = 50);
+  }
+
   const jarjestys = Object.entries(arvot)
     .sort(([,a],[,b]) => a - b)
     .map(([k]) => k);
+
   return {
     heikoin:         jarjestys[0],
     toiseksiHeikoin: jarjestys[1],
@@ -1113,7 +1145,7 @@ const HARJOITEPANKKI = {
     D: [
       {
         pv: [0, 2, 4],
-        nimi: 'Seinäsyöttörutiini + ponnauttelu',
+        nimi: 'Seinäsyöttö + ponnauttelu — DIAG päivittäin',
         ohje: 'Seinäsyöttö 3×20 vuorojaloilla (1-kosketus takaisin). Sitten ponnauttelu 3×1 min: molemmat jalat vuorotellen, laske ääneen. Rintakehä ohjaa — jalka seuraa.',
         kesto: '7 min', xp: 15,
         cue: 'Forsman 2013: ponnauttelu ja syöttötaito erottelivat lahjakkaita kaikissa ikäluokissa. Tämä harjoite mittaa molempia.',
@@ -1772,6 +1804,8 @@ function generoimViikoOhjelma(pelaaja, joukkuePaivat) {
 
     // ── Laskeutuminen: ke + to (2×/vk) ──────────────────────
     // Kytketty heikoimpaan ketjuun jolla on laskeutumisharjoite
+    // Laskeutumisharjoite kytkeytyy alaraajan ketjuihin (SBL/SFL/LL)
+    // DIAG ja DFL eivät tarvitse omaa laskeutumisharjoitetta
     const laskKetju = ['sbl','sfl','ll'].includes(heikoin) ? heikoin
       : ['sbl','sfl','ll'].find(k => prof.jarjestys.indexOf(k) < 3) || 'sfl';
 
