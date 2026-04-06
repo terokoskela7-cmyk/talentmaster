@@ -43,6 +43,8 @@ Kaikki kerrokset kytkeytyvät Firestoreen yhteiseen datarakenteeseen.
 | Excel-generointi | openpyxl (server-side, Cloud Function) | Firebase |
 | Sähköposti | SendGrid HTTP API | Cloud Functions |
 | Testiindeksit | testit_indeksit.js (1210 riviä) | GitHub Pages |
+| Testipankki | tm_testipankki.js (64 testiä, 5 FLEI-ketjua) | GitHub Pages |
+| Ketjumatriisi | tm_ketju_matriisi.js (fascia ↔ testi ↔ pallotekniikka) | GitHub Pages |
 
 ---
 
