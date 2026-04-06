@@ -212,6 +212,9 @@ Heikoin → ohjaa S-harjoitteen + 30% alkurutiinin ryhmän
 
 ---
 
+## Avoimet tehtävät
+- videoBank Firestoreen täyttäminen videopankki-adminin kautta on se mitä tarvitaan ennen kuin pelaajien omatoimiohjelmat näyttävät videoita.
+
 ## Kriittiset periaatteet (EI muuteta koskaan)
 
 1. Super Admin `dqUzvJA61Wb9fgj5UiK0riSA4NI2` — pääsy kaikkialle aina
