@@ -784,20 +784,122 @@ async function _lataaLahiTapahtumat() {
 
     kortti.style.display = 'block';
 
-    // Tyyppi-ikonit — samat kuin VP:n kalenterissa
-    var tyyppiIkoni = {
-      kartoitus:   '📋', harjoitus: '⚽', ottelu: '🏆',
-      koulutus:    '📚', palaveri:  '💬', muu:    '📌',
-    };
+    // ── NELJÄN HETKEN OHJAUSLOGIIKKA ─────────────────────────────────────────
+    // Tarkistetaan onko tänään harjoitus ja missä vaiheessa se on.
+    // Neljä hetkeä ohjaavat valmentajan automaattisesti oikeaan toimintaan
+    // ilman että hänen tarvitsee itse miettiä mitä tehdä seuraavaksi.
+    var tanaanTapahtuma = tapahtumat.find(function(t) { return t.pvm === tanaan; });
+    var neljatHetketHtml = '';
 
-    sisalto.innerHTML = tapahtumat.map(function(t) {
+    if (tanaanTapahtuma) {
+      // Asetetaan aktiivinen tapahtuma globaaliin muuttujaan —
+      // merkinnät ja havainnot kytkeytyivät automaattisesti tähän tapahtumaan
+      window._aktiivinenKalTapahtuma = tanaanTapahtuma;
+
+      var nyt      = new Date();
+      var tunnitNyt = nyt.getHours() + nyt.getMinutes() / 60;
+      var alkuH    = 17; // oletusalkuaika jos ei asetettu
+      if (tanaanTapahtuma.alkuAika) {
+        var osat = tanaanTapahtuma.alkuAika.split(':');
+        alkuH = parseInt(osat[0]) + (parseInt(osat[1]||0) / 60);
+      }
+      var kesto = tanaanTapahtuma.kesto || 90;
+      var loppuH = alkuH + kesto / 60;
+      var tila   = tanaanTapahtuma.tila || 'suunniteltu';
+
+      if (tila === 'suunniteltu' && tunnitNyt < alkuH) {
+        // HETKI 1 — Aamuvalmistautuminen
+        neljatHetketHtml =
+          '<div style="background:linear-gradient(135deg,rgba(74,126,217,.12),rgba(74,126,217,.06));' +
+          'border:1px solid rgba(74,126,217,.3);border-radius:10px;padding:14px 16px;margin-bottom:12px;">' +
+            '<div style="font-size:10px;font-weight:700;color:var(--blue);letter-spacing:1px;' +
+            'text-transform:uppercase;margin-bottom:8px;">⏰ HETKI 1 — Valmistaudu</div>' +
+            '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">' +
+              'Tänään harjoitus klo ' + (tanaanTapahtuma.alkuAika||'?') + '</div>' +
+            '<div style="font-size:12px;color:var(--ink2);margin-bottom:10px;line-height:1.5;">' +
+              'Tarkista 70/30-ohjelma ja osallistujat. Onko joku pelaaja ylikuormittunut?' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+              '<button onclick="naytaNakuma(\'harjoitus\')" ' +
+              'style="background:var(--blue);color:#fff;border:none;border-radius:6px;' +
+              'padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">⚽ Avaa harjoitus</button>' +
+              '<button onclick="naytaNakuma(\'pelaajat\')" ' +
+              'style="background:rgba(255,255,255,.06);color:var(--ink2);border:1px solid var(--border);' +
+              'border-radius:6px;padding:7px 14px;font-size:12px;cursor:pointer;">👥 Tarkista pelaajat</button>' +
+            '</div>' +
+          '</div>';
+
+      } else if (tila !== 'kirjattu' && tunnitNyt >= alkuH && tunnitNyt <= loppuH + 0.5) {
+        // HETKI 2 + 3 — Harjoituksen aikana
+        neljatHetketHtml =
+          '<div style="background:linear-gradient(135deg,rgba(0,212,170,.1),rgba(0,212,170,.05));' +
+          'border:1px solid rgba(0,212,170,.3);border-radius:10px;padding:14px 16px;margin-bottom:12px;">' +
+            '<div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:1px;' +
+            'text-transform:uppercase;margin-bottom:8px;">⚡ HARJOITUS KÄYNNISSÄ</div>' +
+            '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">' +
+              (tanaanTapahtuma.nimi||'Harjoitus') + ' · klo ' + (tanaanTapahtuma.alkuAika||'') + '</div>' +
+            '<div style="font-size:12px;color:var(--ink2);margin-bottom:10px;">' +
+              'Kirjaa pikahuomioita tai ADAR-havainto pelaajasta.' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+              '<button onclick="naytaNakuma(\'harjoitus\')" ' +
+              'style="background:var(--teal);color:#000;border:none;border-radius:6px;' +
+              'padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">💪 Pikakirjaukset</button>' +
+              '<button onclick="naytaNakuma(\'havainto\')" ' +
+              'style="background:rgba(255,255,255,.06);color:var(--ink2);border:1px solid var(--border);' +
+              'border-radius:6px;padding:7px 14px;font-size:12px;cursor:pointer;">🔍 ADAR-havainto</button>' +
+            '</div>' +
+          '</div>';
+
+      } else if (tila !== 'kirjattu' && tunnitNyt > loppuH) {
+        // HETKI 4 — Jälkikirjaus
+        neljatHetketHtml =
+          '<div style="background:linear-gradient(135deg,rgba(245,183,0,.1),rgba(245,183,0,.05));' +
+          'border:1px solid rgba(245,183,0,.3);border-radius:10px;padding:14px 16px;margin-bottom:12px;">' +
+            '<div style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;' +
+            'text-transform:uppercase;margin-bottom:8px;">📝 HETKI 4 — Kirjaa havainnot</div>' +
+            '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">' +
+              'Harjoitus päättyi — kirjaa kuormitus ja 0–3 pelaajahavaintoa</div>' +
+            '<div style="font-size:12px;color:var(--ink2);margin-bottom:10px;">' +
+              'Muisti haalistuu nopeasti — kirjaa nyt kun harjoitus on tuoreena.' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+              '<button onclick="naytaNakuma(\'harjoitus\')" ' +
+              'style="background:var(--gold);color:#000;border:none;border-radius:6px;' +
+              'padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">📊 RPE + läsnäolo</button>' +
+              '<button onclick="naytaNakuma(\'havainto\')" ' +
+              'style="background:rgba(255,255,255,.06);color:var(--ink2);border:1px solid var(--border);' +
+              'border-radius:6px;padding:7px 14px;font-size:12px;cursor:pointer;">🔍 ADAR-havainto</button>' +
+            '</div>' +
+          '</div>';
+
+      } else if (tila === 'kirjattu') {
+        neljatHetketHtml =
+          '<div style="background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.15);' +
+          'border-radius:10px;padding:10px 14px;margin-bottom:12px;' +
+          'display:flex;align-items:center;gap:10px;">' +
+            '<div style="font-size:20px;">✅</div>' +
+            '<div style="font-size:12px;color:var(--teal);">Tänään kirjattu — hyvää työtä!</div>' +
+          '</div>';
+      }
+    }
+
+    // Tyyppi-ikonit
+    var tyyppiIkoni = {
+      kartoitus:'📋', harjoitus:'⚽', ottelu:'🏆', harjoitettavuus:'📋',
+      hh_testit:'🏃', tekniikka:'⚽', koulutus:'📚', palaveri:'💬', muu:'📌',
+    };
+    var tilaIkoni = { suunniteltu:'', vahvistettu:'✓', kaynnissa:'⚡', kirjattu:'✅', valmis:'✓' };
+    var tilaVari  = { suunniteltu:'var(--ink3)', vahvistettu:'var(--blue)',
+                      kaynnissa:'var(--teal)', kirjattu:'var(--teal)', valmis:'var(--ink3)' };
+
+    sisalto.innerHTML = neljatHetketHtml + tapahtumat.map(function(t) {
       var pvmObj  = t.pvm ? new Date(t.pvm + 'T12:00:00') : null;
       var pvmStr  = pvmObj
         ? pvmObj.toLocaleDateString('fi-FI', { weekday:'short', day:'numeric', month:'numeric' })
         : '—';
       var onTanaan = t.pvm === tanaan;
       var ikoni   = tyyppiIkoni[t.tyyppi] || '📌';
-
       return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;' +
         'border-bottom:1px solid rgba(255,255,255,.06);">' +
         '<div style="font-size:18px;flex-shrink:0;">' + ikoni + '</div>' +
@@ -812,9 +914,8 @@ async function _lataaLahiTapahtumat() {
             (t.paikka ? ' · ' + t.paikka : '') +
           '</div>' +
         '</div>' +
-        (t.tila === 'vahvistettu'
-          ? '<div style="font-size:10px;color:var(--teal);font-weight:700;">✓</div>'
-          : '') +
+        (t.tila ? '<div style="font-size:11px;color:' + (tilaVari[t.tila]||'var(--ink3)') +
+          ';font-weight:700;">' + (tilaIkoni[t.tila]||'') + '</div>' : '') +
       '</div>';
     }).join('') +
     '<div style="margin-top:8px;">' +
@@ -1182,11 +1283,20 @@ function valitseMerkTyyppi(tyyppi) {
   el('merkTyp-'+tyyppi).classList.add('on');
 }
 
+// XP-pisteet per merkintätyyppi — portaistus kertoo pelaajalle mikä on arvokasta
+var MERKINTA_XP = { treeni: 5, tiimi: 8, asenne: 12, kehitys: 20 };
+
 async function teeMerkinta(pelId) {
   if (!_seuraId) return;
   window._paivaMerkinnat = window._paivaMerkinnat || {};
   var tanaan = new Date().toISOString().split('T')[0];
   var p = _pelaajat.find(function(x){return x.id===pelId;});
+  var xp = MERKINTA_XP[_merkityyppi] || 5;
+
+  // Aktiivinen tapahtuma — jos valmentaja on avannut jonkin kalenteritapahtuman,
+  // merkintä kytkeytyy siihen automaattisesti. Muuten tapahtumaId jää tyhjäksi.
+  var tapahtumaId = (window._aktiivinenKalTapahtuma && window._aktiivinenKalTapahtuma.id) || null;
+
   var data = {
     pvm:           tanaan,
     seuraId:       _seuraId,
@@ -1194,18 +1304,52 @@ async function teeMerkinta(pelId) {
     pelaajaId:     pelId,
     pelaajaNimi:   ((p&&p.etunimi)||'') + ' ' + ((p&&p.sukunimi)||''),
     tyyppi:        _merkityyppi,
+    xp:            xp,
+    tapahtumaId:   tapahtumaId,   // kytkee merkinnän kalenteritapahtumaan
     valmentajaUid: _user.uid,
     valmentajaEmail: _user.email,
     luotu: firebase.firestore.FieldValue.serverTimestamp(),
   };
+
   try {
+    // 1. Tallennetaan merkintä — doc-id estää duplikaatit saman päivän sisällä
     await _db.collection('seurat').doc(_seuraId)
       .collection('merkinnät')
       .doc(tanaan + '_' + pelId + '_' + _merkityyppi)
       .set(data, {merge:true});
+
+    // 2. Päivitetään kalenteritapahtuman tila suunniteltu → kaynnissa
+    //    kun ensimmäinen merkintä tehdään (harjoitus on selvästi alkanut)
+    if (tapahtumaId && window._aktiivinenKalTapahtuma &&
+        window._aktiivinenKalTapahtuma.tila === 'suunniteltu') {
+      await _db.collection('seurat').doc(_seuraId)
+        .collection('tapahtumat').doc(tapahtumaId)
+        .update({ tila: 'kaynnissa' });
+      window._aktiivinenKalTapahtuma.tila = 'kaynnissa';
+      console.log('[Merkintä] Tapahtuma siirtyi kaynnissa-tilaan:', tapahtumaId);
+    }
+
+    // 3. XP-bonus pelaajan päiväkirjaukseen — löytyy samasta paikasta
+    //    kuin omatoimiharjoitteet, joten XP-laskenta on yksinkertaista
+    var kirjausRef = _db.collection('seurat').doc(_seuraId)
+      .collection('pelaajat').doc(pelId)
+      .collection('kirjaukset').doc(tanaan);
+    await kirjausRef.set({
+      valmentajan_bonus: {
+        xp:          xp,
+        tyyppi:      _merkityyppi,
+        tapahtumaId: tapahtumaId,
+        kirjaaja_uid: _user.uid,
+        paivitetty:  firebase.firestore.FieldValue.serverTimestamp(),
+      }
+    }, {merge: true});
+
     window._paivaMerkinnat[pelId] = _merkityyppi;
     _renderMerkintaPelaajat();
-    toast('✅ ' + _merkityyppi.charAt(0).toUpperCase()+_merkityyppi.slice(1) + '-merkintä tallennettu');
+
+    var merkNimi = {treeni:'💪 Treeni',asenne:'🔥 Asenne',kehitys:'📈 Kehitys',tiimi:'🤝 Tiimi'}[_merkityyppi] || _merkityyppi;
+    toast('✅ ' + merkNimi + ' +' + xp + ' XP → ' + ((p&&p.etunimi)||'Pelaaja'));
+
   } catch(e) {
     toast('❌ Tallennus epäonnistui', true);
     console.error('[Merkintä]', e);
@@ -1259,12 +1403,38 @@ async function tallennaHavainto() {
     // Vaikuttaa X-Factor / Hidden Gem -tunnistukseen VP-dashboardissa
     onXFactor:     _valitutTunnisteet.includes('xfactor'),
     onHiddenGem:   _valitutTunnisteet.includes('hiddengem'),
+    // Kytkee havainnon kalenteritapahtumaan jos harjoitus on aktiivinen
+    tapahtumaId:   (window._aktiivinenKalTapahtuma && window._aktiivinenKalTapahtuma.id) || null,
     luotu: firebase.firestore.FieldValue.serverTimestamp(),
     pvm:   new Date().toISOString().split('T')[0],
   };
   try {
     await _db.collection('seurat').doc(_seuraId)
       .collection('havainnot').add(data);
+
+    // XP-bonus ADAR-havainnoista — X-Factor ja Hidden Gem tuottavat enemmän
+    // koska ne ovat harvinaisempia ja merkittävämpiä havaintoja
+    var havXp = 0;
+    if (_valitutTunnisteet.includes('xfactor') || _valitutTunnisteet.includes('hiddengem')) {
+      havXp = 30; // erityinen havainto — pelaajalle näkyy "valmentaja näki jotain erityistä"
+    } else if (_valitutTunnisteet.includes('kehitys')) {
+      havXp = 15; // kehitysaskel kirjattu
+    }
+    if (havXp > 0) {
+      var tanaan = new Date().toISOString().split('T')[0];
+      await _db.collection('seurat').doc(_seuraId)
+        .collection('pelaajat').doc(pelId)
+        .collection('kirjaukset').doc(tanaan)
+        .set({
+          valmentajan_bonus: {
+            xp: havXp,
+            tyyppi: 'havainto_' + (_valitutTunnisteet[0] || _valittuDim),
+            tapahtumaId: data.tapahtumaId,
+            kirjaaja_uid: _user.uid,
+            paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
+          }
+        }, {merge: true});
+    }
     toast('✅ Havainto tallennettu');
     el('havTeksti').value = '';
     el('havPelaaja').value = '';
