@@ -10,6 +10,8 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <!-- HPP ELITE — rehabilitaatioprotokollat (klinikan päivittämä data) -->
 <script src="hpp_rehab_protokollat.js"></script>
+<!-- Ketjumatriisi: anatomia + testit + pallotekniikka (Wilke 2016, Liikanen 2025) -->
+<script src="tm_ketju_matriisi.js"></script>
 <style>
 :root{
   --bg:#060A12;--bg2:#0B1120;--bg3:#101828;--bg4:#162035;--bg5:#1D2840;
@@ -633,20 +635,98 @@ if(!firebase.apps.length)firebase.initializeApp(FC);
 const db=firebase.firestore(),auth=firebase.auth();
 
 // ═══ HPP ELITE DATA (suoraan dokumentista) ═══════════════════
+// ═══ KETJUMÄÄRITTELYT — viisi ketjua (DIAG = SL+FL yhdistettynä) ═══
+// Anatominen peruste: Wilke 2016. Pallotekniikka: Liikanen & Törmä 2025.
+// DIAG (Diagonaaliketju) yhdistää SL:n ja FL:n koska ne toimivat
+// anatomisesti yhtenä kokonaisuutena — syöttö, SM-pallo ja pujottelu
+// vaativat molempia samanaikaisesti. Opeta: "ketjut toimivat yhdessä".
 const KETJU_DATA={
-  SBL:{nimi:'⚡ Vauhtiketju',teema:'Kiihdytys & ensimmäiset askeleet',cue:'Anna takaketjun vetää — ei ponnisteta eteen',aktivointi:'Jalkapohjan rullaus 60s/jalka + SLR-flossing 2×10/jalka',taso1:'SL lantionnosto koroke 3×8/jalka + pohje eksentrinen 3×10 hidas',taso2:'Nordic hamstring taso 1 3×5 + RDL 3×8',taso3:'Nordic hamstring täysi 3×5 + Trap bar DL 3×5',klinikka:'SLR-flossing pakollinen, hamstring neuraalinen vapautus'},
-  SFL:{nimi:'🦵 Lähtöketju',teema:'Potkutekniikan core-linja',cue:'Lonkka auki — sitten lähetä potku',aktivointi:'90/90 hip flexor passiivinen 2×45s/puoli + Quad rock back 2×10',taso1:'Hip hinge kepillä 3×10 + Anterior chain isometria 3×30s',taso2:'Askelkyykky 3×8/jalka + Hip thrust 3×10',taso3:'Bulgarian split squat 3×6/jalka + Hip thrust lisäpainolla',klinikka:'90/90 vapautus, hip flexor progressio'},
-  LL:{nimi:'↔️ Suunnanmuutosketju',teema:'Suunnanmuutos & jarrutus',cue:'3 askeleella jarrutus — polvilinja ei murru',aktivointi:'Clamshell 2×12 + Lateral hip circle 2×10 + SL wall hold 2×20s',taso1:'Lateral band walk 3×15 + SL squat tuella 3×6',taso2:'Lateral bound & stick 3×5/puoli + Pistoolikyykky koroke 3×6',taso3:'Bulgarian split squat 3×6/puoli + Lateral plyometric 3×5',klinikka:'Gluteus medius aktivointi, polvi-valgus korjaus'},
-  SL:{nimi:'🔄 Kiertoketju',teema:'1v1 käännökset & harhautukset',cue:'Kääntele rintakehää — jalka seuraa luonnostaan',aktivointi:'Thorax rotaatio 2×10 + pallonheitto seinään ristikkäin 2×10',taso1:'Anti-rotation plank 3×30s + Pallaton rotaatio 3×10',taso2:'Rotational med ball throw 3×6 + Diagonal pattern 3×8',taso3:'Rotational explosive power + Pallollinen kiertoharjoite',klinikka:'Thorax rotaatio mobilisointi, QL vapautus'},
-  DFL:{nimi:'🏗️ Hallintaketju',teema:'Asento, skannaus & rytminvaihto',cue:'Hengitä ympäri kylkiä — ei rintaan ylös',aktivointi:'360° palleahengitys 3×5 min + Dead bug taso 1 3×5/puoli',taso1:'Plank 2×20s + Dead bug polvi 3×5/puoli',taso2:'Plank 3×40s + Dead bug jalka suorana 3×5/puoli',taso3:'RKC plank 3×10s + Dead bug täysi 3×8/puoli',klinikka:'DFL-mobilisointi, pallea aktivointi'},
-  FL:{nimi:'⬡ Yhdistelmäketju',teema:'Diagonaaliset kombot & seinäsyöttö',cue:'Seinäsyöttö: adduktori → selkä → koko ketju',aktivointi:'Adductor rock 2×10 + Diagonal arm swing 2×10/puoli',taso1:'Dead bug vastakk. käsi+jalka 3×5/puoli + Diagonaali throw 2kg',taso2:'Cross-body squat reach 3×8 + Rotational press',taso3:'Explosive diagonal combo + Pallollinen',klinikka:'Adduktori + latissimus vapautus'}
+  SBL:{
+    nimi:'⚡ Vauhtiketju', teema:'Kiihdytys & ensimmäiset askeleet',
+    anatomia:'⭐⭐⭐ Vahva (Wilke 2016, 14 tut.)',
+    cue:'Kantapää maassa tukivaiheessa — ei nouse päkiälle ennen kontaktia.',
+    aktivointi:'Jalkapohjan rullaus 60s/jalka + SLR-flossing 2×10/jalka',
+    taso1:'SL lantionnosto koroke 3×8/jalka + pohje eksentrinen 3×10 hidas',
+    taso2:'Nordic hamstring taso 1 3×5 + RDL 3×8',
+    taso3:'Nordic hamstring täysi 3×5 + Trap bar DL 3×5',
+    klinikka:'SLR-flossing pakollinen, hamstring neuraalinen vapautus',
+    // Pallotekniikka — tämä ketju pelissä (Liikanen 2025, Forsman 2013)
+    pallo: [
+      {laji:'Pituuspotku 🎯 pääketju', cue:'Tukijalan SBL absorboi iskun ja generoi voimaa. Heikko SBL = potku hajoaa nilkalta.'},
+      {laji:'Kuljetus/laukaus ○ avustava', cue:'Tukijalan pohje kiinni — heikko SBL näkyy tasapainon menetyksenä laukaisun jälkeen.'},
+    ],
+  },
+  SFL:{
+    nimi:'🦵 Lähtöketju', teema:'Potkutekniikan core-linja',
+    anatomia:'⭐ Kohtalainen — käytä toiminnallista kieltä',
+    cue:'Lonkka auki ensin — sitten jalka heilahtaa.',
+    aktivointi:'90/90 hip flexor passiivinen 2×45s/puoli + Quad rock back 2×10',
+    taso1:'Hip hinge kepillä 3×10 + Anterior chain isometria 3×30s',
+    taso2:'Askelkyykky 3×8/jalka + Hip thrust 3×10',
+    taso3:'Bulgarian split squat 3×6/jalka + Hip thrust lisäpainolla',
+    klinikka:'90/90 vapautus, hip flexor progressio',
+    pallo: [
+      {laji:'Kuljetus/laukaus 🎯 pääketju', cue:'Lonkan täysi ojennus laukauksessa. Hip flexor kireys on yleisin syy miksi potku ei lennä.'},
+      {laji:'Syöttö ○ avustava', cue:'Lonkka avautuu potkuvaiheessa. Thomas positiivinen → syötön voima rajoittuu suoraan.'},
+    ],
+  },
+  LL:{
+    nimi:'↔️ Sivuketju', teema:'Suunnanmuutos & jarrutus',
+    anatomia:'⭐⭐ Kohtalainen (Wilke 2016, 10 tut.)',
+    cue:'3 askeleella jarrutus — polvilinja ei murru sisään.',
+    aktivointi:'Clamshell 2×12 + Lateral hip circle 2×10 + SL wall hold 2×20s',
+    taso1:'Lateral band walk 3×15 + SL squat tuella 3×6',
+    taso2:'Lateral bound & stick 3×5/puoli + Pistoolikyykky koroke 3×6',
+    taso3:'Bulgarian split squat 3×6/puoli + Lateral plyometric 3×5',
+    klinikka:'Gluteus medius aktivointi, polvi-valgus korjaus',
+    pallo: [
+      {laji:'Pujottelu 🎯 pääketju', cue:'Pujottelu vaatii LL-ketjua toistuvasti. Liikanen 2025: pujottelu +9% erotteli. 3 askelta jarrutuksessa.'},
+      {laji:'Ponnauttelu ○ avustava', cue:'Sivuttaiset mukautukset ponnautellessessa. Heikko LL = ponnauttelu epätarkka sivulle.'},
+    ],
+  },
+  DIAG:{
+    // ⭐⭐⭐ VAHVIN KETJU — SL (Kiertoketju) + FL (Yhdistelmäketju) yhdistettynä
+    // Wilke 2016: FL kaikki siirtymät todistettu (6 tut.) + SL 5/9 (21 tut.)
+    // Pedagoginen ydin: "Rintakehä ohjaa — jalka seuraa automaattisesti"
+    nimi:'🔄⬡ Diagonaaliketju', teema:'Syöttö, SM-pallo, harhautukset — rotaatiovoima',
+    anatomia:'⭐⭐⭐ Vahva (Wilke 2016) — SL + FL yhdessä',
+    anatomia_huomio:'SL ja FL toimivat anatomisesti yhtenä kokonaisuutena. Opeta yhdessä.',
+    cue:'Rintakehä ohjaa — jalka seuraa automaattisesti.',
+    aktivointi:'Thorax rotaatio 2×10 + Adductor rock 2×10 + Diagonal arm swing 2×10/puoli',
+    taso1:'Anti-rotation plank 3×30s + Dead bug vastakk. käsi+jalka 3×5/puoli',
+    taso2:'Rotational med ball throw 3×6 + Cross-body squat reach 3×8',
+    taso3:'Explosive diagonal combo + Pallollinen kiertoharjoite',
+    klinikka:'Thorax rotaatio mobilisointi, adduktori + latissimus vapautus, QL vapautus',
+    pallo: [
+      // Liikanen & Törmä 2025: syöttö +13%, SM-pallo +8%, pujottelu +9%
+      {laji:'Syöttö 🎯 pääketju +13%', cue:'Latissimus → kontra-lonkka (FL) + rintakehän rotaatio (SL). Liikanen 2025: vahvin yksittäinen ammattilaisennustaja.'},
+      {laji:'SM-pallo 🎯 pääketju +8%', cue:'Rotaatio käännöksessä (SL) + diagonaalivoima lähdössä (FL). Käänny rintakehästä — älä vain siirrä painoa.'},
+      {laji:'Kuljetus/laukaus 🎯 pääketju', cue:'Whip-efekti: rintakehä auki + latissimus vetää. Käsi vastakkaiselta puolelta eteen — se avaa diagonaalin.'},
+      {laji:'Pujottelu ○ avustava', cue:'Rotaatioimpulssi nopeissa käänteissä. Ensimmäinen askel diagonaaliin — ei suoraan sivulle.'},
+    ],
+  },
+  DFL:{
+    nimi:'🏗️ Hallintaketju', teema:'Asento, hengitys & rytmi — perusta kaikelle',
+    anatomia:'⭐⭐ Kohtalainen — hengitysyhteys anatomisesti perusteltu',
+    cue:'Hengitä tasaisesti — älä pidätä hengitystä suorituksen aikana.',
+    aktivointi:'360° palleahengitys 3×5 min + Dead bug taso 1 3×5/puoli',
+    taso1:'Plank 2×20s + Dead bug polvi 3×5/puoli',
+    taso2:'Plank 3×40s + Dead bug jalka suorana 3×5/puoli',
+    taso3:'RKC plank 3×10s + Dead bug täysi 3×8/puoli',
+    klinikka:'DFL-mobilisointi, pallea aktivointi',
+    pallo: [
+      {laji:'Ponnauttelu 🎯 pääketju', cue:'Ponnauttelu on DFL:n päivittäinen testi — rytmi, asento ja hengitys integroituna. Forsman 2013: erotteli kaikissa ikäluokissa.'},
+      {laji:'Syöttö ○ avustava', cue:'DFL pitää lantion vakaana syötön aikana. Heikko DFL → lantio heiluu → syöttö epätarkka.'},
+      {laji:'SM-pallo ○ avustava', cue:'Asento säilyy läpi koko sarjan — ei lysähdä käänteissä.'},
+    ],
+  },
 };
 
 const PELIPAIKKA_DATA={
   CD:{nimi:'CD — Toppari',harjoite:'Kiihdytys + puskuharjoittelu',kuvaus:'10m kiihdytysvedot ×6 + puskuharjoittelu yläpallo (CMJ-pohjainen)',paaketju:'SBL',sivuketju:'LL'},
   FB:{nimi:'FB/WB — Laitapuolustaja',harjoite:'Flying 20m + laitasyöttö',kuvaus:'Flying 20m ×5 + laitasyöttö juoksusta (SBL+Kiertoketju)',paaketju:'SBL',sivuketju:'SL'},
   CDM:{nimi:'CDM — Keskikenttäankkuri',harjoite:'Reaktiivinen SM + intervalli',kuvaus:'Reaktiivinen SM 4×6 + intervalli 4×4min pallon kanssa',paaketju:'DFL',sivuketju:'SL'},
-  CAM:{nimi:'CAM — Pelinrakentaja',harjoite:'Dual-Task Rondo + 1v1',kuvaus:'Dual-Task Rondo + 1v1 ahtaassa tilassa (Game IQ + Kiertoketju)',paaketju:'DFL',sivuketju:'FL'},
+  CAM:{nimi:'CAM — Pelinrakentaja',harjoite:'Dual-Task Rondo + 1v1',kuvaus:'Dual-Task Rondo + 1v1 ahtaassa tilassa (Peliäly + Diagonaaliketju)',paaketju:'DFL',sivuketju:'FL'},
   W:{nimi:'W — Laitahyökkääjä',harjoite:'Flying 30m + harhautus',kuvaus:'Flying 30-40m ×5 + 1v1 laidalla: harhautus+keskitys/laukaus',paaketju:'SBL',sivuketju:'SL'},
   ST:{nimi:'ST — Keskushyökkääjä',harjoite:'Reaktiolähtö + viimeistely',kuvaus:'Reaktiolähtö 5m ×6 + vastaanotto+käännös+laukaus molemmin jaloin',paaketju:'SFL',sivuketju:'SBL'}
 };
@@ -996,7 +1076,15 @@ function paivitaSeuraavaksiPelipaikalla(pp){
 
 // ═══ 70/30 VISUALISOINTI ═════════════════════════════════════
 function renderSeitskymmekkolme(p){
-  const ketjut=p.ketjut||{SBL:p.d1||0,SFL:p.d2||0,LL:0,SL:0,DFL:p.d5||0,FL:0};
+  // FLEI viidelle ketjulle — DIAG = (SL+FL)/2 vanhalle datalle
+  const kRaw2=p.ketjut||{};
+  const ketjut={
+    SBL:  kRaw2.SBL  || p.d1 || 0,
+    SFL:  kRaw2.SFL  || p.d2 || 0,
+    LL:   kRaw2.LL   || 0,
+    DIAG: kRaw2.DIAG || (kRaw2.SL && kRaw2.FL ? Math.round((kRaw2.SL + kRaw2.FL) / 2) : kRaw2.SL || kRaw2.FL || 0),
+    DFL:  kRaw2.DFL  || p.d5 || 0,
+  };
   let vahvinK='SBL',vahvinV=0,heikinK='SBL',heikinV=100;
   Object.entries(ketjut).forEach(([k,v])=>{
     if(v>vahvinV){vahvinV=v;vahvinK=k;}
@@ -1038,7 +1126,7 @@ function renderRAE(p){
 
 // ═══ SPIDER CHART ════════════════════════════════════════════
 function renderSpider(p){
-  const dims=[{n:'Fyysinen',v:p.d1||0,c:'#00DDB0'},{n:'Tekninen',v:p.d2||0,c:'#3B8BFF'},{n:'Psyk.',v:p.d3||0,c:'#A78BFA'},{n:'Kogn.',v:p.d4||0,c:'#FFB020'},{n:'Sos.',v:p.d5||0,c:'#20D468'}];
+  const dims=[{n:'Fyysinen',v:p.d1||0,c:'#00DDB0'},{n:'Tekninen',v:p.d2||0,c:'#3B8BFF'},{n:'Psykologinen',v:p.d3||0,c:'#A78BFA'},{n:'Peliäly',v:p.d4||0,c:'#FFB020'},{n:'Sosiaalinen',v:p.d5||0,c:'#20D468'}];
   const canvas=$('spiderCanvas');const W=280,H=260,cx=W/2,cy=H/2+4,R=96;
   canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');
   const n=dims.length;const ang=i=>Math.PI*2*i/n-Math.PI/2;
@@ -1060,19 +1148,47 @@ function renderSpider(p){
 
 // ═══ HALLINTAKETJUT jalkapallotermein ════════════════════════
 function renderKetjut(p){
-  const k=p.ketjut||{};
+  // DIAG-pisteet = (SL + FL) / 2 jos vanha data, muuten suoraan DIAG-kenttä
+  const kRaw=p.ketjut||{};
+  const k={
+    SBL:  kRaw.SBL  || kRaw.sbl  || 0,
+    SFL:  kRaw.SFL  || kRaw.sfl  || 0,
+    LL:   kRaw.LL   || kRaw.ll   || 0,
+    DIAG: kRaw.DIAG || kRaw.diag || (kRaw.SL && kRaw.FL ? Math.round((kRaw.SL + kRaw.FL) / 2) : kRaw.SL || kRaw.FL || 0),
+    DFL:  kRaw.DFL  || kRaw.dfl  || 0,
+  };
   const lista=$('ketjutLista');
   lista.innerHTML=Object.entries(KETJU_DATA).map(([id,kd])=>{
     const v=k[id]||0;
     const c=v<40?'#FF4060':v<60?'#FFB020':v<80?'#00DDB0':'#20D468';
     const tila=v<40?'Riski':v<60?'Tark.':v<80?'OK':'Hyvä';
     const tilaC=v<40?'background:rgba(255,64,96,.15);color:#ff8099':v<60?'background:rgba(255,176,32,.12);color:#FFB020':v<80?'background:rgba(0,221,176,.1);color:var(--teal)':'background:rgba(32,212,104,.1);color:var(--green)';
-    return`<div class="ketju-r" title="${kd.teema}">
-      <span class="kj-nimi">${kd.nimi}</span>
-      <span class="kj-teema">${kd.teema}</span>
-      <div class="kj-bg"><div class="kj-fill" style="width:${v}%;background:${c}"></div></div>
-      <span class="kj-v" style="color:${c}">${v||'—'}</span>
-      <span class="kj-tila" style="${tilaC}">${tila}</span>
+
+    // Pallotekniikka — näytetään vain jos on pisteitä tai valmentajanäkymässä
+    const palloHtml = kd.pallo ? `
+      <div style="margin-top:8px;padding:8px 10px;background:rgba(255,255,255,.03);
+                  border-radius:7px;border-left:2px solid ${c};">
+        <div style="font-size:9px;font-weight:700;color:var(--ink3);letter-spacing:1px;
+                    text-transform:uppercase;margin-bottom:5px;">🎯 Pelissä — mitä tämä tarkoittaa</div>
+        ${kd.pallo.map(pt=>`
+          <div style="font-size:11px;color:var(--ink2);margin-bottom:5px;">
+            <span style="font-weight:600;color:var(--text);">${pt.laji}</span><br>
+            <span style="color:var(--ink3);font-style:italic;">${pt.cue}</span>
+          </div>`).join('')}
+        ${kd.anatomia?`<div style="font-size:9px;color:var(--ink3);margin-top:4px;
+            border-top:1px solid rgba(255,255,255,.05);padding-top:4px;">
+            📊 ${kd.anatomia}</div>`:''}
+      </div>` : '';
+
+    return`<div class="ketju-r" title="${kd.teema}" style="flex-direction:column;align-items:stretch;padding:10px 0;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="kj-nimi">${kd.nimi}</span>
+        <span class="kj-teema">${kd.teema}</span>
+        <div class="kj-bg" style="flex:1;"><div class="kj-fill" style="width:${v}%;background:${c}"></div></div>
+        <span class="kj-v" style="color:${c}">${v||'—'}</span>
+        <span class="kj-tila" style="${tilaC}">${tila}</span>
+      </div>
+      ${palloHtml}
     </div>`;
   }).join('');
 }
