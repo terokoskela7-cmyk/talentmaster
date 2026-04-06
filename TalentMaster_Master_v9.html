@@ -199,26 +199,28 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
   background:linear-gradient(90deg,var(--teal),transparent);}
 .pel-kortti.phv-huomio::before{background:linear-gradient(90deg,var(--purple),transparent);}
 .pel-kortti.xfactor::before{background:linear-gradient(90deg,var(--gold),transparent);}
-.pel-kortti:hover{border-color:rgba(0,212,170,.35);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.2);}
+.pel-kortti:hover{border-color:rgba(0,212,170,.35);transform:translateY(-1px);
+  box-shadow:0 4px 16px rgba(0,0,0,.2);}
 .pk-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
 .pk-avatar{width:38px;height:38px;border-radius:50%;background:rgba(0,212,170,.1);
   color:var(--teal);display:flex;align-items:center;justify-content:center;
   font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:14px;flex-shrink:0;}
 .pk-nimi{font-size:13px;font-weight:700;line-height:1.2;}
 .pk-joukkue{font-size:10px;color:var(--ink3);margin-top:1px;}
-.pk-flei{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;
-  color:var(--teal);line-height:1;text-align:right;}
-.pk-flei-label{font-size:9px;color:var(--ink3);text-align:right;letter-spacing:.3px;}
+.pk-flei-num{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;
+  line-height:1;}
+.pk-flei-label{font-size:9px;color:var(--ink3);letter-spacing:.3px;}
 .pk-ketjut{display:flex;gap:3px;margin-bottom:8px;}
 .pk-ketju-bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden;}
-.pk-ketju-fill{height:100%;border-radius:2px;transition:width .6s;}
+.pk-ketju-fill{height:100%;border-radius:2px;}
 .pk-footer{display:flex;align-items:center;justify-content:space-between;}
 .pk-tagit{display:flex;gap:4px;flex-wrap:wrap;}
 .pk-tag{font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;}
 .pk-idp-nappi{font-size:10px;font-weight:700;color:var(--blue);
   background:rgba(74,126,217,.1);border:1px solid rgba(74,126,217,.2);
   border-radius:5px;padding:3px 8px;white-space:nowrap;}
-.pk-phv{font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;margin-top:6px;}
+.pk-phv{font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;margin-top:6px;
+  display:inline-block;}
 
 /* Pelaajan profiilikortit */
 .ketju-rivi{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
@@ -475,7 +477,7 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
 
       <input class="search-input" id="pelSearch" placeholder="🔍 Hae pelaajaa nimellä..." oninput="suodataPelaajat(this.value)">
 
-      <!-- Huomio-ryhmä — näytetään vain jos on huomioita -->
+      <!-- Huomio-ryhmä — piilotetaan automaattisesti jos ei huomioita -->
       <div id="pelHuomioWrap" style="display:none;">
         <div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;
                     letter-spacing:.8px;margin-bottom:8px;">⚠️ Tarvitsee huomiota</div>
@@ -484,7 +486,6 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
 
       <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;
                   letter-spacing:.8px;margin:14px 0 8px;">Kaikki pelaajat</div>
-      <!-- Korttiruudukko — 2 saraketta desktop, 1 mobiilissa -->
       <div id="pelLista" class="pel-korttiruudukko"></div>
     </div>
 
@@ -1544,27 +1545,36 @@ function _renderPelaajat(haku) {
       })
     : _pelaajat;
 
-  // Huomio-ryhmä — PHV-huippu tai erityistunniste
+  // Huomio-ryhmä — PHV-kasvupyrähdys tai erityistunniste
   var huomio = suodatetut.filter(function(p) {
     return p.phv_tila === 'PH' || p.phv_tila === 'KV'
-      || p.tunniste === 'hidden_gem' || p.tunniste === 'x_factor';
+        || p.tunniste === 'hidden_gem' || p.tunniste === 'x_factor';
   });
-  var huomioWrap = document.getElementById('pelHuomioWrap');
-  if (huomioWrap) huomioWrap.style.display = huomio.length ? 'block' : 'none';
-  el('pelHuomio').innerHTML = huomio.map(function(p){ return _renderPelaajaKortti(p); }).join('');
-  el('pelLista').innerHTML  = suodatetut.map(function(p){ return _renderPelaajaKortti(p); }).join('');
+  var wrap = document.getElementById('pelHuomioWrap');
+  if (wrap) wrap.style.display = huomio.length ? 'block' : 'none';
+  el('pelHuomio').innerHTML = huomio.map(function(p) { return _renderPelaajaKortti(p); }).join('');
+  el('pelLista').innerHTML  = suodatetut.map(function(p) { return _renderPelaajaKortti(p); }).join('');
+
+  // Kytketään click-handlerit data-attribuuteilla — turvallinen tapa
+  // välttää lainausmerkkisotkut HTML-attribuuteissa
+  document.querySelectorAll('.pel-kortti[data-idp-url]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      window.open(this.getAttribute('data-idp-url'), '_blank');
+    });
+  });
 }
 
-// Laskee FLEI-värin numeron perusteella
+// Palauttaa FLEI-pistemäärän mukaisen värin
 function _fleivari(flei) {
-  if (!flei || flei === 0) return 'var(--ink3)';
+  if (!flei) return 'var(--ink3)';
   if (flei >= 75) return 'var(--teal)';
   if (flei >= 55) return 'var(--blue)';
   if (flei >= 35) return 'var(--amber)';
   return 'var(--red)';
 }
 
-// Pelaajakortti — 2-sarakkeinen ruudukko, klikkaamalla aukeaa IDP-kortti
+// Renderöi pelaajan kortti — URL talletetaan data-attribuuttiin
+// jolloin lainausmerkit eivät aiheuta HTML-syntaksiongelmia
 function _renderPelaajaKortti(p) {
   var nimi  = (p.etunimi || '') + ' ' + (p.sukunimi || '');
   var init  = ((p.etunimi || '?')[0] + (p.sukunimi || '?')[0]).toUpperCase();
@@ -1572,68 +1582,81 @@ function _renderPelaajaKortti(p) {
   var fleic = _fleivari(flei);
 
   // Ikä syntymäajasta
-  var ikaVuodet = '';
+  var ikaStr = '';
   if (p.syntymaaika) {
-    var sy = p.syntymaaika.toDate ? p.syntymaaika.toDate() : new Date(p.syntymaaika.seconds * 1000);
-    ikaVuodet = Math.floor((Date.now() - sy) / (365.25 * 24 * 3600 * 1000)) + 'v';
+    var sy = p.syntymaaika.toDate ? p.syntymaaika.toDate()
+           : new Date(p.syntymaaika.seconds * 1000);
+    ikaStr = Math.floor((Date.now() - sy) / (365.25 * 24 * 3600 * 1000)) + 'v';
   }
 
-  // Korttiluokka — väritys top-borderia varten
-  var korttiLuokka = 'pel-kortti';
-  if (p.phv_tila === 'PH' || p.phv_tila === 'KV') korttiLuokka += ' phv-huomio';
-  else if (p.tunniste === 'x_factor') korttiLuokka += ' xfactor';
+  // Korttiluokka — top-borderin väri kertoo prioriteetin ensisilmäyksellä
+  var kls = 'pel-kortti';
+  if (p.phv_tila === 'PH' || p.phv_tila === 'KV') kls += ' phv-huomio';
+  else if (p.tunniste === 'x_factor') kls += ' xfactor';
 
-  // Tunnisteet
-  var tagitHtml = '';
+  // Tunnisteet kompaktisti
+  var tagit = '';
   if (p.phv_tila === 'PH' || p.phv_tila === 'KV')
-    tagitHtml += '<span class="pk-tag" style="background:rgba(168,85,247,.12);color:var(--purple);">📏 PHV</span>';
+    tagit += '<span class="pk-tag" style="background:rgba(168,85,247,.12);color:var(--purple);">📏 PHV</span>';
   if (p.tunniste === 'hidden_gem')
-    tagitHtml += '<span class="pk-tag" style="background:rgba(245,183,0,.1);color:var(--gold);">💎 HG</span>';
+    tagit += '<span class="pk-tag" style="background:rgba(245,183,0,.1);color:var(--gold);">💎 HG</span>';
   if (p.tunniste === 'x_factor')
-    tagitHtml += '<span class="pk-tag" style="background:rgba(245,183,0,.1);color:var(--gold);">⭐ XF</span>';
+    tagit += '<span class="pk-tag" style="background:rgba(245,183,0,.1);color:var(--gold);">⭐ XF</span>';
 
-  // PHV-tilarivi
+  // PHV-tila selkokielellä
   var phvHtml = '';
   if (p.phv_tila) {
-    var phvLabel = {AN:'Ennen pyrähdystä',PH:'Kasvupyrähdys!',KV:'Kasvun jälkeen',VA:'Vakaa'}[p.phv_tila] || p.phv_tila;
+    var phvTeksti = {AN:'Ennen pyrähdystä', PH:'Kasvupyrähdys!',
+                     KV:'Kasvun jälkeen', VA:'Vakaa'}[p.phv_tila] || p.phv_tila;
     var phvBg = p.phv_tila === 'PH' ? 'rgba(168,85,247,.15)' : 'rgba(255,255,255,.04)';
     var phvC  = p.phv_tila === 'PH' ? 'var(--purple)' : 'var(--ink3)';
-    phvHtml = '<div class="pk-phv" style="background:'+phvBg+';color:'+phvC+';">'
-      + p.phv_tila + ' · ' + phvLabel + '</div>';
+    phvHtml = '<div class="pk-phv" style="background:' + phvBg + ';color:' + phvC + ';">'
+            + p.phv_tila + ' · ' + phvTeksti + '</div>';
   }
 
-  // Liikeketjupalkit — 5 ketjua visuaalisena minigrafina
-  var ketjuData = p.flei_ketjut || {};
-  var ketjut = ['SBL','SFL','LL','SL','DFL'];
-  var ketjuVarit = {SBL:'var(--teal)',SFL:'var(--blue)',LL:'var(--purple)',SL:'var(--amber)',DFL:'#FF6B6B'};
-  var onKetjuData = Object.keys(ketjuData).length > 0;
-  var ketjuPalkit = ketjut.map(function(k) {
+  // Liikeketjupalkit — 5 ketjua minigraafina kortissa
+  var ketjuData  = p.flei_ketjut || {};
+  var ketjut     = ['SBL','SFL','LL','SL','DFL'];
+  var ketjuVarit = {SBL:'var(--teal)', SFL:'var(--blue)', LL:'var(--purple)',
+                    SL:'var(--amber)', DFL:'#FF6B6B'};
+  var onData = Object.keys(ketjuData).length > 0;
+  var palkit = ketjut.map(function(k) {
     var arvo = Math.min(ketjuData[k] || 0, 100);
-    return '<div class="pk-ketju-bar" title="'+k+': '+arvo+'">'
-      + '<div class="pk-ketju-fill" style="width:'+arvo+'%;background:'+ketjuVarit[k]+';"></div>'
-      + '</div>';
+    return '<div class="pk-ketju-bar" title="' + k + ': ' + arvo + '">'
+         + '<div class="pk-ketju-fill" style="width:' + arvo + '%;background:'
+         + ketjuVarit[k] + ';"></div></div>';
   }).join('');
 
-  // IDP-linkki avautuu uuteen välilehteen
-  var idpUrl = 'TalentMaster_IDP_Kortti_v3.html?seuraId='+(_seuraId||'')+'&pelaajaId='+p.id;
+  // IDP-URL tallennetaan data-attribuuttiin — click-handler lisätään
+  // _renderPelaajat:ssa querySelectorAll:lla, ei onclick-attribuutilla.
+  // Tämä on ainoa turvallinen tapa käsitellä dynaamisia URL:ja HTMLssa.
+  var idpUrl = 'TalentMaster_IDP_Kortti_v3.html?seuraId='
+             + (_seuraId || '') + '&pelaajaId=' + p.id;
 
-  return '<div class="'+korttiLuokka+'" onclick="window.open(''+idpUrl+'','_blank')">'
+  return '<div class="' + kls + '" data-idp-url="' + idpUrl + '">'
+    // Otsikkorivi: avatar + nimi/joukkue + FLEI-numero
     + '<div class="pk-header">'
-      + '<div class="pk-avatar">'+init+'</div>'
+      + '<div class="pk-avatar">' + init + '</div>'
       + '<div style="flex:1;min-width:0;">'
-        + '<div class="pk-nimi">'+nimi+'</div>'
-        + '<div class="pk-joukkue">'+ikaVuodet+(p.joukkue?' · '+p.joukkue:'')+'</div>'
+        + '<div class="pk-nimi">' + nimi + '</div>'
+        + '<div class="pk-joukkue">' + ikaStr
+          + (p.joukkue ? ' · ' + p.joukkue : '') + '</div>'
       + '</div>'
       + '<div style="text-align:right;flex-shrink:0;">'
-        + '<div class="pk-flei" style="color:'+fleic+';">'+(flei||'—')+'</div>'
+        + '<div class="pk-flei-num" style="color:' + fleic + ';">'
+          + (flei || '—') + '</div>'
         + '<div class="pk-flei-label">FLEI™</div>'
       + '</div>'
     + '</div>'
-    + '<div class="pk-ketjut">'+(onKetjuData ? ketjuPalkit
-        : '<div style="width:100%;height:4px;background:rgba(255,255,255,.04);border-radius:2px;"></div>')
+    // Ketjupalkit — tyhjä harmaa palkki jos ei vielä testituloksia
+    + '<div class="pk-ketjut">'
+      + (onData ? palkit
+          : '<div style="flex:1;height:4px;background:rgba(255,255,255,.04);'
+            + 'border-radius:2px;"></div>')
     + '</div>'
+    // Footer: tunnisteet vasemmalla, IDP-nappi oikealla
     + '<div class="pk-footer">'
-      + '<div class="pk-tagit">'+tagitHtml+'</div>'
+      + '<div class="pk-tagit">' + tagit + '</div>'
       + '<span class="pk-idp-nappi">IDP →</span>'
     + '</div>'
     + phvHtml
