@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TalentMaster™ — ADAR-koulutus</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #06090F;
+  --bg2:    #0D1117;
+  --bg3:    #131920;
+  --text:   #E8EEF8;
+  --ink2:   #B0BCCC;
+  --ink3:   #6B7A8D;
+  --blue:   #4A7ED9;
+  --teal:   #00D4AA;
+  --amber:  #F5B700;
+  --red:    #FF4757;
+  --purple: #A855F7;
+  --border: rgba(255,255,255,0.07);
+  --bord2:  rgba(255,255,255,0.12);
+
+  /* ADAR-värit suomeksi */
+  --havaitse: #4A7ED9;   /* sininen — tarkkaavainen, rauhallinen */
+  --paata:    #A855F7;   /* violetti — kognitiivinen, päättäväinen */
+  --toimi:    #00D4AA;   /* turkoosi — toiminta, energia */
+  --palaudu:  #F5B700;   /* amber — palautuminen, sitkeys */
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-inner {
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+}
+.logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 15px;
+  background: var(--blue);
+  color: #fff;
+  padding: 3px 9px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+}
+.header-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--text);
+}
+.header-badge {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink3);
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 10px;
+}
+
+/* ── EDISTYMISPALKKI ── */
+.progress-wrap {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 24px;
+  position: sticky;
+  top: 52px;
+  z-index: 99;
+}
+.progress-inner { max-width: 820px; margin: 0 auto; }
+.progress-steps {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.step-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background .3s, transform .2s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.step-dot.aktiivinen { background: var(--teal); transform: scale(1.4); }
+.step-dot.valmis { background: rgba(0,212,170,.4); }
+.progress-label {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink3);
+}
+
+/* ── SIVUT ── */
+.sivu {
+  display: none;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+  animation: fadein .35s ease;
+}
+.sivu.nakyvilla { display: block; }
+@keyframes fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── TYPOGRAFIA ── */
+.eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin-bottom: 10px;
+}
+h1 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: clamp(32px, 6vw, 52px);
+  line-height: 1.05;
+  margin-bottom: 16px;
+}
+h2 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 26px;
+  margin-bottom: 12px;
+}
+.lead {
+  font-size: 17px;
+  color: var(--ink2);
+  line-height: 1.65;
+  margin-bottom: 28px;
+  max-width: 620px;
+}
+p {
+  color: var(--ink2);
+  margin-bottom: 16px;
+  line-height: 1.7;
+}
+strong { color: var(--text); font-weight: 600; }
+
+/* ── KORTIT ── */
+.kortti {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 14px;
+}
+.kortti.korostettu {
+  border-color: var(--bord2);
+  background: linear-gradient(135deg, var(--bg2), var(--bg3));
+}
+
+/* ── ADAR-VAIHEKORTTI ── */
+.vaihe-kortti {
+  border-radius: 14px;
+  padding: 24px 26px;
+  margin-bottom: 16px;
+  border: 1px solid;
+  position: relative;
+  overflow: hidden;
+}
+.vaihe-kortti::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.vaihe-H::before { background: var(--havaitse); }
+.vaihe-P::before { background: var(--paata); }
+.vaihe-T::before { background: var(--toimi); }
+.vaihe-J::before { background: var(--palaudu); }
+.vaihe-H { background: rgba(74,126,217,.06); border-color: rgba(74,126,217,.2); }
+.vaihe-P { background: rgba(168,85,247,.06); border-color: rgba(168,85,247,.2); }
+.vaihe-T { background: rgba(0,212,170,.06); border-color: rgba(0,212,170,.2); }
+.vaihe-J { background: rgba(245,183,0,.06); border-color: rgba(245,183,0,.2); }
+
+.vaihe-kirjain {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 4px;
+  opacity: .15;
+  position: absolute;
+  top: 16px; right: 24px;
+}
+.vaihe-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+}
+.vaihe-H .vaihe-tag { background: rgba(74,126,217,.15); color: var(--havaitse); }
+.vaihe-P .vaihe-tag { background: rgba(168,85,247,.15); color: var(--paata); }
+.vaihe-T .vaihe-tag { background: rgba(0,212,170,.15); color: var(--toimi); }
+.vaihe-J .vaihe-tag { background: rgba(245,183,0,.15); color: var(--palaudu); }
+
+.vaihe-otsikko {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+.vaihe-kysymys {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink2);
+  margin-bottom: 10px;
+  font-style: italic;
+}
+.vaihe-selitys {
+  font-size: 13px;
+  color: var(--ink2);
+  line-height: 1.65;
+  margin-bottom: 12px;
+}
+.vaihe-esimerkki {
+  background: rgba(255,255,255,.04);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--ink2);
+  line-height: 1.6;
+}
+.vaihe-esimerkki strong { color: var(--text); }
+
+/* ── TUNNISTEET ── */
+.tunniste-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.tunniste-kortti {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.tunniste-nimi {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.tunniste-selitys {
+  font-size: 12px;
+  color: var(--ink3);
+  line-height: 1.5;
+}
+.tunniste-xp {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-top: 8px;
+  background: rgba(245,183,0,.1);
+  color: var(--amber);
+}
+
+/* ── HARJOITUSSKENAARIO ── */
+.skenaario {
+  background: var(--bg2);
+  border: 1px solid var(--bord2);
+  border-radius: 14px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.skenaario-numero {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  margin-bottom: 10px;
+}
+.skenaario-teksti {
+  font-size: 15px;
+  color: var(--text);
+  line-height: 1.7;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: rgba(255,255,255,.03);
+  border-radius: 8px;
+  border-left: 3px solid var(--bord2);
+}
+.vastaus-nappit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.vastaus-nappi {
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--ink2);
+  cursor: pointer;
+  text-align: left;
+  transition: all .2s;
+}
+.vastaus-nappi:hover { border-color: var(--bord2); background: rgba(255,255,255,.07); }
+.vastaus-nappi.oikein {
+  background: rgba(0,212,170,.1);
+  border-color: rgba(0,212,170,.4);
+  color: var(--teal);
+}
+.vastaus-nappi.vaarin {
+  background: rgba(255,71,87,.08);
+  border-color: rgba(255,71,87,.3);
+  color: var(--red);
+}
+.vastaus-nappi.himmea { opacity: .35; }
+.palaute {
+  display: none;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.palaute.nakyvilla { display: block; }
+.palaute.ok { background: rgba(0,212,170,.08); color: var(--teal); }
+.palaute.virhe { background: rgba(255,71,87,.08); color: var(--red); }
+
+/* ── NAVIGAATIOPALKIT ── */
+.nav-palkki {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  z-index: 200;
+}
+.nav-btn {
+  padding: 10px 28px;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all .2s;
+}
+.nav-btn.primary {
+  background: var(--teal);
+  color: #000;
+}
+.nav-btn.primary:hover { background: #00e8bb; }
+.nav-btn.secondary {
+  background: rgba(255,255,255,.06);
+  color: var(--ink2);
+  border: 1px solid var(--border);
+}
+.nav-btn.secondary:hover { background: rgba(255,255,255,.1); }
+.nav-btn:disabled { opacity: .35; cursor: default; }
+
+/* ── VALMISTUMINEN ── */
+.valmis-ring {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: rgba(0,212,170,.1);
+  border: 2px solid var(--teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  margin: 0 auto 24px;
+}
+.pisteet-iso {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 72px;
+  color: var(--teal);
+  text-align: center;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.pisteet-label {
+  text-align: center;
+  color: var(--ink3);
+  font-size: 13px;
+  margin-bottom: 32px;
+}
+
+/* ── ADAR-NAPPI MASTER V9:SSÄ ── */
+.linkki-nappi {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(74,126,217,.1);
+  border: 1px solid rgba(74,126,217,.25);
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s;
+  margin-top: 8px;
+}
+.linkki-nappi:hover { background: rgba(74,126,217,.18); }
+
+/* ── HERO-KUVIO ── */
+.hero-kuvio {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+.hero-vaihe {
+  flex: 1;
+  min-width: 80px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .2s;
+}
+.hero-vaihe:hover { transform: translateY(-2px); }
+.hero-vaihe-kirjain { font-size: 28px; display: block; margin-bottom: 2px; }
+.hero-vaihe.H { background: rgba(74,126,217,.12); color: var(--havaitse); border: 1px solid rgba(74,126,217,.25); }
+.hero-vaihe.P { background: rgba(168,85,247,.12); color: var(--paata); border: 1px solid rgba(168,85,247,.25); }
+.hero-vaihe.T { background: rgba(0,212,170,.12); color: var(--toimi); border: 1px solid rgba(0,212,170,.25); }
+.hero-vaihe.J { background: rgba(245,183,0,.12); color: var(--palaudu); border: 1px solid rgba(245,183,0,.25); }
+
+/* ── TUTKIMUSKORTTI ── */
+.tutkimus-kortti {
+  background: rgba(74,126,217,.06);
+  border: 1px solid rgba(74,126,217,.15);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+}
+.tutkimus-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 6px;
+}
+.tutkimus-teksti {
+  font-size: 13px;
+  color: var(--ink2);
+  line-height: 1.6;
+}
+
+/* ── MUISTISÄÄNTÖ ── */
+.muistisaanto {
+  background: linear-gradient(135deg, rgba(0,212,170,.08), rgba(74,126,217,.08));
+  border: 1px solid rgba(0,212,170,.2);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 24px 0;
+  text-align: center;
+}
+.muistisaanto-teksti {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  color: var(--teal);
+  margin-bottom: 6px;
+}
+.muistisaanto-selitys {
+  font-size: 12px;
+  color: var(--ink3);
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">TM™</div>
+    <div class="header-title">ADAR-koulutus</div>
+    <div class="header-badge">Valmentajan opas</div>
+  </div>
+</header>
+
+<!-- EDISTYMISPALKKI -->
+<div class="progress-wrap">
+  <div class="progress-inner">
+    <div class="progress-steps" id="progressSteps">
+      <!-- generoidaan JS:llä -->
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SIVU 1 — JOHDANTO
+══════════════════════════════════════════════════ -->
+<div class="sivu nakyvilla" id="sivu-0">
+  <div class="eyebrow">Valmentajan kenttähavaintoprotokolla</div>
+  <h1>Miksi ADAR<br>on tärkeä?</h1>
+  <p class="lead">Peliäly on jalkapallon neljäs ulottuvuus — ja ainoa jota ei kehitetä pelkällä fysiikkaharjoittelulla. Se vaatii tarkoituksellista havainnointia ja systemaattista palautetta.</p>
+
+  <div class="tutkimus-kortti">
+    <div class="tutkimus-label">📊 KNVB Coaching Moments — Alankomaat 2023</div>
+    <div class="tutkimus-teksti">Valmentajat jotka saivat visuaalisen muistutuksen pelaajan kehityskäyrästä antoivat <strong>40% enemmän yksilöllisiä pedagogisia interventioita</strong>. Tieto oikeaan aikaan muuttaa käyttäytymistä — lista numeroita ei.</div>
+  </div>
+
+  <p>Perinteinen valmennus reagoi virheisiin: "Topias, katsele ylös!" ADAR muuttaa reaktion systemaattiseksi havainnoiksi: Topiasin Havaitse-taso on toistuvasti heikko, mikä kertoo tietystä kehityskohteesta johon voidaan vastata konkreettisella harjoiteohjelmalla.</p>
+
+  <p>ADAR ei ole lomake — se on <strong>ajattelumalli joka muuttaa sen mitä näet kentällä</strong>. Kun opit katsomaan peliä ADAR:n läpi, alat huomata asioita joita et ennen nähnyt.</p>
+
+  <div class="muistisaanto">
+    <div class="muistisaanto-teksti">"Jokainen pelaaja näkyy — mutta näetkö miksi?"</div>
+    <div class="muistisaanto-selitys">ADAR auttaa sinua näkemään syyn käyttäytymisen taustalla, ei vain lopputulosta</div>
+  </div>
+
+  <div class="hero-kuvio">
+    <div class="hero-vaihe H">
+      <span class="hero-vaihe-kirjain">H</span>
+      Havaitse
+    </div>
+    <div class="hero-vaihe P">
+      <span class="hero-vaihe-kirjain">P</span>
+      Päätä
+    </div>
+    <div class="hero-vaihe T">
+      <span class="hero-vaihe-kirjain">T</span>
+      Toimi
+    </div>
+    <div class="hero-vaihe J">
+      <span class="hero-vaihe-kirjain">J</span>
+      Palaudu
+    </div>
+  </div>
+
+  <p style="font-size:13px;color:var(--ink3);">Neljä vaihetta muodostavat yhden pelitilanteen elinkaaren. Seuraavalla sivulla käymme jokaisen läpi kentältä tutulla esimerkillä.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SIVU 2 — H: HAVAITSE
+══════════════════════════════════════════════════ -->
+<div class="sivu" id="sivu-1">
+  <div class="eyebrow">Vaihe 1 / 4</div>
+  <h1 style="color:var(--havaitse);">Havaitse</h1>
+  <p class="lead">Ennen kuin pallo tulee — mitä pelaaja tekee? Katsaako hän ympärilleen, vai odottaako sokea?</p>
+
+  <div class="vaihe-kortti vaihe-H">
+    <div class="vaihe-kirjain">H</div>
+    <div class="vaihe-tag">🔍 Havaitse — Assess</div>
+    <div class="vaihe-otsikko">Skannasiko ennen pallonvastaanottoa?</div>
+    <div class="vaihe-kysymys">"Katsoiko hän ylös ennen kuin pallo tuli?"</div>
+    <div class="vaihe-selitys">
+      Havaitsemisvaihe tapahtuu ennen kontaktia. Pelaaja joka skannaa ympäristöään jatkuvasti tietää jo ennen pallonvastaanottoa mitä tekee seuraavaksi. Pelaaja joka odottaa sokea joutuu tekemään päätöksensä palloa kantaen — hitaampaa ja alttiimpaa virheille.
+    </div>
+    <div class="vaihe-esimerkki">
+      <strong>Mitä havaita kentällä:</strong><br>
+      Pelaaja vastaanottaa syötön. Ennen syöttöä — kääntyikö hän katsomaan tilan? Nousiko katse viimeksi kahden sekunnin aikana? Onko hänellä jo suunta valittuna vai jääkö hän pyörimään pallon kanssa?
+    </div>
+  </div>
+
+  <div class="kortti">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--havaitse);">🧠 Neurotiede taustalla</div>
+    <p style="font-size:13px;margin:0;">Reagointikyky kehittyy ennen murrosikää ja on mitattavissa jo U11-tasolta. Ennakointikyky — tilanteen lukeminen etukäteen — kehittyy vasta murrosiästä lähtien. Siksi U8–12 -pelaajalla Havaitseminen on ainoa mitä kannattaa arvioida ADAR:sta.</p>
+  </div>
+
+  <div class="tutkimus-kortti">
+    <div class="tutkimus-label">💡 Käytännön muistisääntö</div>
+    <div class="tutkimus-teksti">Laske ääneti montako kertaa pelaaja nostaa katseen 60 sekunnin aikana. Alle 3 kertaa — Havaitseminen on kehityskohde. Yli 6 kertaa — vahvuus jota kannattaa vahvistaa.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SIVU 3 — P: PÄÄTÄ
+══════════════════════════════════════════════════ -->
+<div class="sivu" id="sivu-2">
+  <div class="eyebrow">Vaihe 2 / 4</div>
+  <h1 style="color:var(--paata);">Päätä</h1>
+  <p class="lead">Pallo on jalassa — tekeekö pelaaja oikean ratkaisun? Valitseeko hän fiksusti vai impulsiivisesti?</p>
+
+  <div class="vaihe-kortti vaihe-P">
+    <div class="vaihe-kirjain">P</div>
+    <div class="vaihe-tag">⚡ Päätä — Decide</div>
+    <div class="vaihe-otsikko">Tekeekö oikeita ratkaisuja paineessa?</div>
+    <div class="vaihe-kysymys">"Valitsiko hän parhaimmista vaihtoehdoista?"</div>
+    <div class="vaihe-selitys">
+      Päätösvaihe on se lyhyt hetki pallon saapumisen ja toiminnan välillä. Hyvä pelaaja tekee enimmäkseen oikeita päätöksiä — ei välttämättä nopeimpia tai rohkeimpia, vaan tilanteen mukaisesti järkevimpiä.
+    </div>
+    <div class="vaihe-esimerkki">
+      <strong>Mitä havaita kentällä:</strong><br>
+      Onko vapaa pelaaja jota ei syötetty? Laukaisiko suoran paikan sijaan taaksepäin? Kuljettiko kun syöttö olisi vapautunut paineen? Tekeekö samoja virheratkaisuja toistuvasti samanlaisessa tilanteessa?
+    </div>
+  </div>
+
+  <div class="kortti">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--paata);">🎯 Päätös vai toteutus?</div>
+    <p style="font-size:13px;margin:0;">Tärkeä erottelu: jos pelaaja <em>yritti</em> syöttää vapaille pelaajalle mutta syöttö meni pieleen, kyse on toteutusvirheestä (Toimi-vaihe), ei päätösvirheestä. Päätösvirhe on se kun pelaaja valitsee väärän vaihtoehdon — esimerkiksi syöttää takaisin vaikka edessä on vapaa tila.</p>
+  </div>
+
+  <div class="tutkimus-kortti">
+    <div class="tutkimus-label">💡 Psykologinen yhteys — Inner Drive ja Coachability</div>
+    <div class="tutkimus-teksti">Pelaaja joka tekee johdonmukaisesti vääriä päätöksiä ei välttämättä ole lahjaton — hänellä voi olla <strong>fixed mindset</strong> (Coachability-ulottuvuus) tai puutteellinen pelitilannepankki. Nämä vastaavat täysin eri harjoitteisiin.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SIVU 4 — T: TOIMI
+══════════════════════════════════════════════════ -->
+<div class="sivu" id="sivu-3">
+  <div class="eyebrow">Vaihe 3 / 4</div>
+  <h1 style="color:var(--toimi);">Toimi</h1>
+  <p class="lead">Päätös on tehty — pystyykö pelaaja toteuttamaan sen paineen alla? Pitääkö tekninen laatu vaikeissa tilanteissa?</p>
+
+  <div class="vaihe-kortti vaihe-T">
+    <div class="vaihe-kirjain">T</div>
+    <div class="vaihe-tag">💥 Toimi — Act</div>
+    <div class="vaihe-otsikko">Pitääkö tekninen laatu kovassa paineessa?</div>
+    <div class="vaihe-kysymys">"Tekeekö sen mitä päätti tehdä?"</div>
+    <div class="vaihe-selitys">
+      Toimintavaihe on se mitä näytetään. Mutta tärkeintä ei ole lopputulos vaan suhde päätökseen — tekeekö pelaaja sen mitä päätti tehdä, vai hajoaako suoritus paineen alla? Tekninen laatu paineessa kertoo harjoitettavuudesta.
+    </div>
+    <div class="vaihe-esimerkki">
+      <strong>Mitä havaita kentällä:</strong><br>
+      Oli selkeä tilanne — toteutuiko syöttö tai laukaus teknisesti? Hyvä syöttö hyvässä tilassa on odotusarvo. Hyvä syöttö tiukkaan paineeseen on Toimi-vahvuus. Romahtaako tekniikka kiireessä?
+    </div>
+  </div>
+
+  <div class="kortti">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--toimi);">🧠 Emotional Control taustalla</div>
+    <p style="font-size:13px;margin:0;">Fulhamin Winning Mentality -tutkimuksen mukaan Toimi-vaiheen hajoaminen paineessa liittyy usein matalaan Emotional Control -tasoon — kyky pitää tekninen laatu emotionaalisen stressin alla. Tähän vastataan eri tavoin kuin tekniseen puutteeseen.</p>
+  </div>
+
+  <div class="tutkimus-kortti">
+    <div class="tutkimus-label">💡 Käytännön muistisääntö</div>
+    <div class="tutkimus-teksti">Testaa tietoisesti: anna pelaajalle tilaa (helppo tilanne) ja katso suoritus. Sitten kasvata painetta. Jos suoritus heikkenee radikaalisti paineen kasvaessa — se on Toimi-kehityskohde, ei tekninen puute.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SIVU 5 — J: PALAUDU
+══════════════════════════════════════════════════ -->
+<div class="sivu" id="sivu-4">
+  <div class="eyebrow">Vaihe 4 / 4</div>
+  <h1 style="color:var(--palaudu);">Palaudu</h1>
+  <p class="lead">Virhe tapahtui — jähmettyykö pelaaja vai jatkaako nopeasti eteenpäin? Tämä on ADAR:n tärkein ja vaikein vaihe nähdä.</p>
+
+  <div class="vaihe-kortti vaihe-J">
+    <div class="vaihe-kirjain">J</div>
+    <div class="vaihe-tag">🔄 Palaudu — Re-assess</div>
+    <div class="vaihe-otsikko">Jähmettyykö virheeseen vai jatkaako nopeasti?</div>
+    <div class="vaihe-kysymys">"Siirtyikö hän eteenpäin 15 sekunnin sisällä virheestä?"</div>
+    <div class="vaihe-selitys">
+      Palautuminen on se mitä tapahtuu virheen jälkeen. Jokainen pelaaja tekee virheitä. Ero on siinä kuinka kauan virhe vie heidät pois pelistä. Alle 15 sekuntia — normaali. Yli 15 sekuntia tai virhe näkyy kehossa (pää alas, hartiat lysyssä) — Palaudu-kehityskohde.
+    </div>
+    <div class="vaihe-esimerkki">
+      <strong>Mitä havaita kentällä:</strong><br>
+      Topias kadottaa pallon. Aloittaako hän heti prässin vai pysähtyy? Onko katse maassa? Vaikuttaako virhe seuraavaan tilanteeseen? Hakeutuuko hän piiloon pallolta seuraavien minuuttien aikana?
+    </div>
+  </div>
+
+  <div class="kortti">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--palaudu);">🧠 Resilience taustalla</div>
+    <p style="font-size:13px;margin:0;">Heikko Palaudu-tulos ei tarkoita että pelaaja on heikko henkisesti. Se kertoo matalasta Resilience-tasosta — joka on harjoiteltava taito. Harjoitetaan virheideologiaa: "Virhe on info, ei tuomio." Pelitilanteet joissa virhe on sallittu ovat tärkein harjoitusympäristö.</p>
+  </div>
+
+  <div class="tutkimus-kortti">
+    <div class="tutkimus-label">💡 15 sekunnin sääntö</div>
+    <div class="tutkimus-teksti">Käytä kelloa. Laske aikaa virheestä siihen kun pelaaja on täysin pelissä mukana — katse ylhäällä, asento aktiivinen, hakenut paikan. Alle 15s on hyvä. 15–30s on kehityskohde. Yli 30s on prioriteetti.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SIVU 6 — TUNNISTEET
+══════════════════════════════════════════════════ -->
+<div class="sivu" id="sivu-5">
+  <div class="eyebrow">Tunnisteet TalentMasterissa</div>
+  <h1>Mitä tallennat<br>havaintoon?</h1>
+  <p class="lead">ADAR-dimension lisäksi voit merkitä havaintoon tunnisteen joka vaikuttaa pelaajan kehityspolkuun järjestelmässä.</p>
+
+  <div class="tunniste-grid">
+    <div class="tunniste-kortti" style="border-color:rgba(245,183,0,.2);">
+      <div class="tunniste-nimi" style="color:var(--amber);">⭐ X-Factor</div>
+      <div class="tunniste-selitys">Pelaaja tekee jotain poikkeuksellista jota numerot eivät kerro. Intuitiivinen pelitaju, karisma joukkueessa, tai tekninen taito joka ylittää odotukset.</div>
+      <span class="tunniste-xp">+30 XP pelaajalle</span>
+    </div>
+    <div class="tunniste-kortti" style="border-color:rgba(245,183,0,.2);">
+      <div class="tunniste-nimi" style="color:var(--amber);">💎 Hidden Gem</div>
+      <div class="tunniste-selitys">Pelaaja kehittyy huomattavasti nopeammin kuin taso antaa odottaa. Usein myöhään syntynyt tai vähän harjoiteltu — piilotettu potentiaali.</div>
+      <span class="tunniste-xp">+30 XP pelaajalle</span>
+    </div>
+    <div class="tunniste-kortti" style="border-color:rgba(0,212,170,.15);">
+      <div class="tunniste-nimi" style="color:var(--teal);">📈 Kehitys</div>
+      <div class="tunniste-selitys">Näit selkeän kehitysaskeleen verrattuna aiempiin havaintoihin. Konkreettinen, toistuva parannus jossakin dimensiossa.</div>
+      <span class="tunniste-xp">+15 XP pelaajalle</span>
+    </div>
+    <div class="tunniste-kortti" style="border-color:rgba(255,71,87,.15);">
+      <div class="tunniste-nimi" style="color:var(--red);">⚠️ Huoli</div>
+      <div class="tunniste-selitys">Jotain huolestuttavaa — fyysinen, psykologinen tai sosiaalinen. VP näkee tämän dashboardillaan ja voi reagoida.</div>
+      <span class="tunniste-xp">Ei XP — tuki prioriteetti</span>
+    </div>
+  </div>
+
+  <div class="kortti korostettu">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">🎯 Tärkeää tunnisteiden käytössä</div>
+    <p style="font-size:13px;margin:0;">X-Factor ja Hidden Gem -tunnisteet käynnistävät automaattisesti IDP-tarkastelun valmennuspäällikön dashboardilla. Käytä niitä säästeliäästi ja vain kun olet varma — kerran kauden aikana on parempi kuin kerran viikossa.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SIVU 7 — HARJOITUSSKENAARIO 1
+══════════════════════════════════════════════════ -->
+<div class="sivu" id="sivu-6">
+  <div class="eyebrow">Harjoitus 1 / 2</div>
+  <h2>Testaa osaamistasi</h2>
+  <p style="margin-bottom:20px;">Lue tilannekuvaus ja valitse oikea ADAR-dimensio. Ei oikeaa tai väärää tapaa ajatella — tärkeintä on harjoitella ADAR-logiikalla.</p>
+
+  <div class="skenaario">
+    <div class="skenaario-numero">TILANNEKUVAUS — U13, harjoituspeli</div>
+    <div class="skenaario-teksti">
+      Mikael vastaanottaa syötön keskikenttäalueella. Hänellä on aikaa. Hän ottaa pallon, katsoo sen jälkeen ympärilleen, näkee vapaan pelaajan oikealla — mutta syöttää silti takaisin puolustajalle joka on paineessa. Vapaa pelaaja jää käyttämättä.
+    </div>
+    <p style="font-size:13px;color:var(--ink3);margin-bottom:12px;">Mikä ADAR-dimensio tässä on kehityskohteena?</p>
+    <div class="vastaus-nappit" id="sk1-nappit">
+      <button class="vastaus-nappi" onclick="tarkistaVastaus(1, 'H', this)">🔍 Havaitse<br><span style="font-size:11px;opacity:.7;">Ei skannannut ennen syöttöä</span></button>
+      <button class="vastaus-nappi" onclick="tarkistaVastaus(1, 'P', this)">⚡ Päätä<br><span style="font-size:11px;opacity:.7;">Valitsi väärän vaihtoehdon</span></button>
+      <button class="vastaus-nappi" onclick="tarkistaVastaus(1, 'T', this)">💥 Toimi<br><span style="font-size:11px;opacity:.7;">Tekninen suoritus hajosi</span></button>
+      <button class="vastaus-nappi" onclick="tarkistaVastaus(1, 'J', this)">🔄 Palaudu<br><span style="font-size:11px;opacity:.7;">Jäätyi virheen jälkeen</span></button>
+    </div>
+    <div class="palaute" id="sk1-palaute"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SIVU 8 — HARJOITUSSKENAARIO 2
+══════════════════════════════════════════════════ -->
+<div class="sivu" id="sivu-7">
+  <div class="eyebrow">Harjoitus 2 / 2</div>
+  <h2>Vielä yksi</h2>
+  <p style="margin-bottom:20px;">Tämä on vaikeampi — kiinnitä huomio siihen mitä tapahtuu virhetilanteen <em>jälkeen</em>.</p>
+
+  <div class="skenaario">
+    <div class="skenaario-numero">TILANNEKUVAUS — U15, ottelu</div>
+    <div class="skenaario-teksti">
+      Sara tekee hyvän päätöksen — syöttää vapaille. Syöttö menee pieleen ja vastustaja kaappaa pallon. Sara jää seisomaan paikalle päätä alaspäin noin 25 sekunnin ajaksi. Joukkue menettää puolustuspelin, Sara ei hakeudu puolustusasemaan.
+    </div>
+    <p style="font-size:13px;color:var(--ink3);margin-bottom:12px;">Mikä ADAR-dimensio on ensisijainen kehityskohde?</p>
+    <div class="vastaus-nappit" id="sk2-nappit">
+      <button class="vastaus-nappi" onclick="tarkistaVastaus(2, 'H', this)">🔍 Havaitse<br><span style="font-size:11px;opacity:.7;">Ei skannannut tilanteessa</span></button>
+      <button class="vastaus-nappi" onclick="tarkistaVastaus(2, 'P', this)">⚡ Päätä<br><span style="font-size:11px;opacity:.7;">Valitsi väärän vaihtoehdon</span></button>
+      <button class="vastaus-nappi" onclick="tarkistaVastaus(2, 'T', this)">💥 Toimi<br><span style="font-size:11px;opacity:.7;">Tekninen suoritus hajosi</span></button>
+      <button class="vastaus-nappi" onclick="tarkistaVastaus(2, 'J', this)">🔄 Palaudu<br><span style="font-size:11px;opacity:.7;">Jäätyi virheen jälkeen</span></button>
+    </div>
+    <div class="palaute" id="sk2-palaute"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SIVU 9 — VALMIS
+══════════════════════════════════════════════════ -->
+<div class="sivu" id="sivu-8">
+  <div style="text-align:center;padding-top:20px;">
+    <div class="valmis-ring">✓</div>
+    <div class="pisteet-iso" id="pisteetNaytto">0</div>
+    <div class="pisteet-label">pistettä harjoituksista</div>
+  </div>
+
+  <div class="muistisaanto" style="margin-bottom:24px;">
+    <div class="muistisaanto-teksti">H → P → T → J</div>
+    <div class="muistisaanto-selitys">Havaitse · Päätä · Toimi · Palaudu — valmentajan kenttähavaintomalli</div>
+  </div>
+
+  <div class="kortti korostettu" style="margin-bottom:14px;">
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px;">📋 Muista kentällä</div>
+    <div style="font-size:13px;color:var(--ink2);line-height:1.7;">
+      <strong>🔍 Havaitse</strong> — Katsaako ylös ennen pallonvastaanottoa?<br>
+      <strong>⚡ Päätä</strong> — Valitseeko fiksuimman vaihtoehdon tilanteessa?<br>
+      <strong>💥 Toimi</strong> — Pitääkö laatu myös paineessa?<br>
+      <strong>🔄 Palaudu</strong> — Siirtyykö eteenpäin alle 15 sekunnissa?
+    </div>
+  </div>
+
+  <div class="kortti" style="margin-bottom:14px;">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">🎯 Kolme neuvoa aloittamiseen</div>
+    <p style="font-size:13px;margin-bottom:6px;">Valitse yksi pelaaja per harjoitus ja seuraa häntä 10 minuuttia. Kirjaa <em>yksi</em> havainto. Älä yritä arvioida kaikkia kerralla.</p>
+    <p style="font-size:13px;margin-bottom:6px;">Kirjaa havainto heti harjoituksen aikana tai heti sen jälkeen — muisti haalistuu nopeasti.</p>
+    <p style="font-size:13px;margin:0;">Dimensio ei aina ole selvä. Kirjaa se mikä tuntuu vahvimmalta — ei tarvitse olla täydellinen.</p>
+  </div>
+
+  <a class="linkki-nappi" href="TalentMaster_Master_v9.html">
+    ← Takaisin valmentajan näkymään
+  </a>
+</div>
+
+<!-- NAVIGAATIOPALKKI -->
+<div class="nav-palkki">
+  <button class="nav-btn secondary" id="btnTakaisin" onclick="vaihdaSivu(-1)" disabled>← Takaisin</button>
+  <button class="nav-btn primary"    id="btnEteen"   onclick="vaihdaSivu(1)">Seuraava →</button>
+</div>
+
+<script>
+// ── TILA ──────────────────────────────────────────
+var _sivu    = 0;
+var _pisteet = 0;
+var _vastaukset = {}; // { 1: true/false, 2: true/false }
+var SIVUJA   = 9;
+
+// Oikeat vastaukset skenaarioihin
+var OIKEAT = { 1: 'P', 2: 'J' };
+var PALAUTTEET = {
+  1: {
+    ok:  '✓ Oikein! Mikael näki vapaan pelaajan (Havaitseminen toimi) mutta valitsi silti väärän vaihtoehdon. Tämä on Päätä-kehityskohde. Harjoita pelitilannesimulaatioita joissa on selkeät vapaat tilat — pakota pelaaja näkemään ne päätöksessä.',
+    err: 'Lähellä — mutta katso tarkasti. Mikael kyllä katsoi ympärilleen (Havaitseminen toimi). Ongelma oli se mitä hän teki tiedon kanssa — hän valitsi väärän vaihtoehdon. Oikea dimensio on ⚡ Päätä.'
+  },
+  2: {
+    ok:  '✓ Oikein! Sara teki oikean päätöksen (Päätä toimi) mutta tekninen suoritus epäonnistui (Toimi). Ratkaiseva havainto on kuitenkin se mitä tapahtui sen jälkeen — 25 sekuntia jäätymistä on selkeä Palaudu-kehityskohde. Prioritisoi se.',
+    err: 'Mieti uudelleen — Sara teki hyvän päätöksen ja yritti toteuttaa sen. Se epäonnistui teknisesti, mutta se ei ollut pääongelma tässä tilanteessa. Suurin kehityskohde oli 25 sekunnin jäätyminen virheestä — oikea dimensio on 🔄 Palaudu.'
+  }
+};
+
+// ── EDISTYMISMERKIT ────────────────────────────────
+function _paivitaProgress() {
+  var wrap = document.getElementById('progressSteps');
+  var html = '';
+  for (var i = 0; i < SIVUJA; i++) {
+    var cls = i === _sivu ? 'aktiivinen' : i < _sivu ? 'valmis' : '';
+    html += '<div class="step-dot ' + cls + '" onclick="hyppaasivu(' + i + ')"></div>';
+  }
+  html += '<span class="progress-label">' + (_sivu + 1) + ' / ' + SIVUJA + '</span>';
+  wrap.innerHTML = html;
+}
+
+function hyppaasivu(i) {
+  if (i <= _sivu) { // voi palata taaksepäin
+    _sivu = i;
+    _naytaSivu();
+  }
+}
+
+// ── SIVUNAVIGAATIO ─────────────────────────────────
+function vaihdaSivu(suunta) {
+  _sivu = Math.max(0, Math.min(SIVUJA - 1, _sivu + suunta));
+  _naytaSivu();
+}
+
+function _naytaSivu() {
+  document.querySelectorAll('.sivu').forEach(function(s) { s.classList.remove('nakyvilla'); });
+  var kohde = document.getElementById('sivu-' + _sivu);
+  if (kohde) {
+    kohde.classList.add('nakyvilla');
+    window.scrollTo(0, 0);
+  }
+  document.getElementById('btnTakaisin').disabled = (_sivu === 0);
+  var btnEteen = document.getElementById('btnEteen');
+  if (_sivu === SIVUJA - 1) {
+    btnEteen.textContent = '← Takaisin valmentajan näkymään';
+    btnEteen.onclick = function() { window.location.href = 'TalentMaster_Master_v9.html'; };
+  } else {
+    btnEteen.textContent = 'Seuraava →';
+    btnEteen.onclick = function() { vaihdaSivu(1); };
+  }
+  // Pisteet viimeisellä sivulla
+  if (_sivu === SIVUJA - 1) {
+    document.getElementById('pisteetNaytto').textContent = _pisteet;
+  }
+  _paivitaProgress();
+}
+
+// ── HARJOITUSTEHTÄVÄT ─────────────────────────────
+function tarkistaVastaus(numero, valittu, nappi) {
+  // Estä useampi yritys
+  if (_vastaukset[numero] !== undefined) return;
+
+  var oikein = (valittu === OIKEAT[numero]);
+  _vastaukset[numero] = oikein;
+  if (oikein) _pisteet += 1;
+
+  // Tyylit napeille
+  var napit = document.getElementById('sk' + numero + '-nappit').querySelectorAll('.vastaus-nappi');
+  napit.forEach(function(n) {
+    n.classList.add('himmea');
+    n.disabled = true;
+  });
+  nappi.classList.remove('himmea');
+  nappi.classList.add(oikein ? 'oikein' : 'vaarin');
+
+  // Näytä oikea vastaus jos väärin
+  if (!oikein) {
+    napit.forEach(function(n) {
+      var teksti = n.textContent;
+      if (teksti.indexOf(OIKEAT[numero] === 'H' ? 'Havaitse' :
+                         OIKEAT[numero] === 'P' ? 'Päätä' :
+                         OIKEAT[numero] === 'T' ? 'Toimi' : 'Palaudu') >= 0) {
+        n.classList.remove('himmea');
+        n.classList.add('oikein');
+      }
+    });
+  }
+
+  // Palaute
+  var palauteEl = document.getElementById('sk' + numero + '-palaute');
+  palauteEl.textContent = PALAUTTEET[numero][oikein ? 'ok' : 'err'];
+  palauteEl.className = 'palaute nakyvilla ' + (oikein ? 'ok' : 'virhe');
+}
+
+// ── INIT ──────────────────────────────────────────
+_paivitaProgress();
+</script>
+</body>
+</html>
