@@ -394,6 +394,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <button class="tab-btn" onclick="naytaTabi('valmennus',this)" id="tab-valmennus">🧑‍🏫 Valmennus</button>
       <button class="tab-btn" onclick="naytaTabi('polku',this)" id="tab-polku">🔀 Pelaajapolut</button>
       <button class="tab-btn" onclick="naytaTabi('kausirakenne',this)" id="tab-kausirakenne">📆 Kausirakenne</button>
+      <button class="tab-btn" onclick="naytaTabi('kehityspolku',this);lataaKehityspolku();" id="tab-kehityspolku">📈 Kehityspolku</button>
     </div>
   </nav>
 
@@ -988,6 +989,281 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     </div>
 
   </div>
+  </div>
+
+  <!-- ══ KEHITYSPOLKU ══ -->
+  <div class="view" id="view-kehityspolku">
+  <div class="inner fadeup">
+
+    <!-- Info -->
+    <div class="info-box" style="margin-bottom:20px;border-left:3px solid var(--teal);">
+      <div class="info-box-title" style="color:var(--teal);">📈 Kasvattiseuranta — huippuvaiheen peliminuutit</div>
+      <div class="info-box-text">
+        Seuraa kuinka moni oman seuran kasvatti pelaa edustus- tai lainaminuutteja korkean tason sarjoissa.
+        <strong>Tämä on tärkein yksittäinen mittari seuran kehitystyön onnistumiselle.</strong>
+        Syötä minuutit manuaalisesti — data kertyy kauden mittaan ja rakentaa seuran kehityspolkuprofiilin.
+        <br><br>
+        <em>Tulevaisuudessa: Palloliitto-tulospalvelu tai Wyscout-integraatio automatisoi syötön.</em>
+      </div>
+    </div>
+
+    <!-- KPI-rivi -->
+    <div class="kpi-grid" id="kpKehitysGrid" style="margin-bottom:20px;">
+      <div class="kpi" style="--a:var(--teal);">
+        <div class="kpi-val" id="kpEdustusLkm">—</div>
+        <div class="kpi-label">Edustuksessa tai lainalla</div>
+      </div>
+      <div class="kpi" style="--a:var(--green);">
+        <div class="kpi-val" id="kpMinYht">—</div>
+        <div class="kpi-label">Minuuttia yhteensä</div>
+        <div class="kpi-sub">tällä kaudella</div>
+      </div>
+      <div class="kpi" style="--a:var(--accent);">
+        <div class="kpi-val" id="kpKehVL">—</div>
+        <div class="kpi-label">Veikkausliiga / Ykkönen</div>
+        <div class="kpi-sub">korkein sarjataso</div>
+      </div>
+      <div class="kpi" style="--a:var(--gold);">
+        <div class="kpi-val" id="kpKehIndex">—</div>
+        <div class="kpi-label">Kasvattitehokkuus</div>
+        <div class="kpi-sub">% kasvateista edustuksessa</div>
+      </div>
+    </div>
+
+    <!-- Syöttönappi -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+      <div class="stitle" style="margin-bottom:0;">Edustuspelaajat &amp; peliminuutit</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="lataaKehityspolku(true)"
+          style="background:none;border:1px solid var(--border);border-radius:8px;
+                 padding:6px 14px;font-size:11px;color:var(--ink3);cursor:pointer;">
+          🔄 Päivitä
+        </button>
+        <button onclick="avaaKehitysModal()"
+          style="background:var(--teal);color:#000;border:none;border-radius:8px;
+                 padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;">
+          + Lisää pelaaja / ottelu
+        </button>
+      </div>
+    </div>
+
+    <!-- Sarjasuodattimet -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+      <button id="keh-btn-kaikki" onclick="suodataKehitys('kaikki',this)"
+        style="padding:5px 12px;border-radius:16px;border:1px solid var(--teal);
+               background:var(--teal);color:#000;font-size:11px;font-weight:600;cursor:pointer;">
+        Kaikki sarjat
+      </button>
+      <button id="keh-btn-vl" onclick="suodataKehitys('vl',this)"
+        style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);
+               background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+        🏆 Veikkausliiga
+      </button>
+      <button id="keh-btn-yk" onclick="suodataKehitys('yk',this)"
+        style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);
+               background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+        🥈 Ykkönen
+      </button>
+      <button id="keh-btn-k2" onclick="suodataKehitys('k2',this)"
+        style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);
+               background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+        🥉 Kakkonen
+      </button>
+      <button id="keh-btn-laina" onclick="suodataKehitys('laina',this)"
+        style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);
+               background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+        🔁 Lainalla
+      </button>
+    </div>
+
+    <!-- Pelaajalistausalue -->
+    <div id="kehitysAlue">
+      <div class="loading"><div class="spinner"></div>Ladataan kehityspolkuja...</div>
+    </div>
+
+  </div>
+  </div>
+
+  <!-- ══ KEHITYSPOLKU-MODAALI ══ -->
+  <div id="kehitysModaali"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);
+           z-index:2000;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);">
+    <div style="background:var(--bg2);border:1px solid var(--teal);border-radius:16px;
+                padding:24px 26px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;
+                position:relative;box-shadow:0 20px 60px rgba(0,0,0,.8);">
+      <button onclick="suljeKehitysModal()"
+        style="position:absolute;top:12px;right:14px;background:none;border:none;
+               color:var(--ink3);font-size:22px;cursor:pointer;line-height:1;">×</button>
+
+      <div style="font-size:11px;font-weight:700;color:var(--teal);letter-spacing:1px;
+                  text-transform:uppercase;margin-bottom:6px;">📈 KEHITYSPOLKU</div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:20px;">
+        Lisää pelaaja tai merkitse otteluminuutit
+      </div>
+
+      <!-- Pelaajahaku / nimi -->
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                      letter-spacing:.5px;display:block;margin-bottom:5px;">Pelaajan nimi *</label>
+        <input id="keh_pelaajaNimi" type="text" placeholder="Etunimi Sukunimi"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                 padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                 outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--teal)'"
+          onblur="this.style.borderColor='var(--border)'">
+      </div>
+
+      <!-- Syntymävuosi -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                        letter-spacing:.5px;display:block;margin-bottom:5px;">Syntymävuosi *</label>
+          <input id="keh_syntymavuosi" type="number" min="2000" max="2015" placeholder="2008"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                   padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                   outline:none;box-sizing:border-box;"
+            onfocus="this.style.borderColor='var(--teal)'"
+            onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                        letter-spacing:.5px;display:block;margin-bottom:5px;">Pelipaikka</label>
+          <select id="keh_pelipaikka"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                   padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                   outline:none;cursor:pointer;box-sizing:border-box;">
+            <option value="">— valitse —</option>
+            <option>MV</option><option>PU</option><option>KP</option><option>HP</option>
+            <option>KK</option><option>VK</option><option>TK</option>
+            <option>HH</option><option>VH</option><option>KH</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Seura ja sarjataso -->
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                      letter-spacing:.5px;display:block;margin-bottom:5px;">Seura (edustus tai lainaseura) *</label>
+        <input id="keh_edustusSeura" type="text" placeholder="Esim: SJK, FC Lahti, KPV..."
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                 padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                 outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--teal)'"
+          onblur="this.style.borderColor='var(--border)'">
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                        letter-spacing:.5px;display:block;margin-bottom:5px;">Sarjataso *</label>
+          <select id="keh_sarja"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                   padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                   outline:none;cursor:pointer;box-sizing:border-box;">
+            <option value="">— valitse —</option>
+            <option value="vl">Veikkausliiga</option>
+            <option value="yk">Ykkönen</option>
+            <option value="k2">Kakkonen</option>
+            <option value="k3">Kolmonen</option>
+            <option value="muu">Muu / ulkomaa</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                        letter-spacing:.5px;display:block;margin-bottom:5px;">Lainasopimus?</label>
+          <select id="keh_laina"
+            style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                   padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                   outline:none;cursor:pointer;box-sizing:border-box;">
+            <option value="ei">Ei — oma edustusjoukkue</option>
+            <option value="kylla">Kyllä — lainalla</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Otteluminuutit -->
+      <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                    letter-spacing:.5px;margin-bottom:10px;">⏱ OTTELUMINUUTIT</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div>
+            <label style="font-size:10px;color:var(--ink3);display:block;margin-bottom:4px;">Otteluita</label>
+            <input id="keh_otteluita" type="number" min="0" max="50" placeholder="0"
+              style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;
+                     padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                     outline:none;box-sizing:border-box;text-align:center;"
+              onfocus="this.style.borderColor='var(--teal)'"
+              onblur="this.style.borderColor='var(--border)'">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--ink3);display:block;margin-bottom:4px;">Minuuttia yht.</label>
+            <input id="keh_minuuttia" type="number" min="0" max="5000" placeholder="0"
+              style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;
+                     padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                     outline:none;box-sizing:border-box;text-align:center;"
+              onfocus="this.style.borderColor='var(--teal)'"
+              onblur="this.style.borderColor='var(--border)'">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--ink3);display:block;margin-bottom:4px;">Maaleja</label>
+            <input id="keh_maaleja" type="number" min="0" max="100" placeholder="0"
+              style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;
+                     padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                     outline:none;box-sizing:border-box;text-align:center;"
+              onfocus="this.style.borderColor='var(--teal)'"
+              onblur="this.style.borderColor='var(--border)'">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+          <div>
+            <label style="font-size:10px;color:var(--ink3);display:block;margin-bottom:4px;">Syöttöjä</label>
+            <input id="keh_syottoja" type="number" min="0" max="100" placeholder="0"
+              style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;
+                     padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                     outline:none;box-sizing:border-box;text-align:center;"
+              onfocus="this.style.borderColor='var(--teal)'"
+              onblur="this.style.borderColor='var(--border)'">
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--ink3);display:block;margin-bottom:4px;">Kausi</label>
+            <input id="keh_kausi" type="text" value="2025" placeholder="2025"
+              style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;
+                     padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                     outline:none;box-sizing:border-box;"
+              onfocus="this.style.borderColor='var(--teal)'"
+              onblur="this.style.borderColor='var(--border)'">
+          </div>
+        </div>
+      </div>
+
+      <!-- Huomiot VP:ltä -->
+      <div style="margin-bottom:18px;">
+        <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+                      letter-spacing:.5px;display:block;margin-bottom:5px;">VP:n huomiot (valinnainen)</label>
+        <textarea id="keh_huomiot" rows="2"
+          placeholder="Esim: Erinomainen kehitys puolustuspelissä. Lainasopimus jatkuu kevääseen."
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                 padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+                 resize:vertical;outline:none;line-height:1.5;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--teal)'"
+          onblur="this.style.borderColor='var(--border)'"></textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button onclick="tallennaKehityspolku()"
+          style="background:var(--teal);color:#000;border:none;border-radius:8px;
+                 padding:11px 22px;font-family:'DM Sans',sans-serif;font-size:14px;
+                 font-weight:700;cursor:pointer;flex:1;">
+          Tallenna kehityspolku
+        </button>
+        <button onclick="suljeKehitysModal()"
+          style="background:none;border:1px solid var(--border);border-radius:8px;
+                 padding:11px 16px;font-size:13px;color:var(--ink3);cursor:pointer;">
+          Peruuta
+        </button>
+      </div>
+      <div id="kehSaveStatus" style="font-size:12px;color:var(--ink3);margin-top:8px;text-align:center;"></div>
+    </div>
   </div>
 
 </div><!-- #sDash -->
@@ -4045,6 +4321,230 @@ function kirjauduUlos() {
     var virhe = document.getElementById('loginVirhe');
     if (virhe) { virhe.style.display = 'none'; virhe.textContent = ''; }
   }).catch(function(e) { console.warn('[kirjauduUlos]', e.message); });
+}
+
+/* ══════════════════════════════════════════════
+   KEHITYSPOLKU — huippuvaiheen peliminuuttiseuranta
+   Firestore: seurat/{seuraId}/kehityspolku/{id}
+══════════════════════════════════════════════ */
+
+var _kehitysData      = [];
+var _kehitysFiltteri  = 'kaikki';
+var _kehEditId        = null;
+
+function avaaKehitysModal(editId) {
+  _kehEditId = editId || null;
+  var m = document.getElementById('kehitysModaali');
+  if (!m) return;
+  if (!editId) {
+    ['keh_pelaajaNimi','keh_syntymavuosi','keh_pelipaikka','keh_edustusSeura',
+     'keh_sarja','keh_otteluita','keh_minuuttia',
+     'keh_maaleja','keh_syottoja','keh_huomiot'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    var kausiEl = document.getElementById('keh_kausi');
+    if (kausiEl) kausiEl.value = new Date().getFullYear();
+    var lainaEl = document.getElementById('keh_laina');
+    if (lainaEl) lainaEl.value = 'ei';
+    var statEl = document.getElementById('kehSaveStatus');
+    if (statEl) statEl.textContent = '';
+  } else {
+    var p = _kehitysData.find(function(x){ return x.id === editId; });
+    if (p) {
+      _kehSetVal('keh_pelaajaNimi', p.pelaajaNimi);
+      _kehSetVal('keh_syntymavuosi', p.syntymavuosi);
+      _kehSetVal('keh_pelipaikka', p.pelipaikka);
+      _kehSetVal('keh_edustusSeura', p.edustusSeura);
+      _kehSetVal('keh_sarja', p.sarja);
+      _kehSetVal('keh_laina', p.laina || 'ei');
+      _kehSetVal('keh_otteluita', p.otteluita);
+      _kehSetVal('keh_minuuttia', p.minuuttia);
+      _kehSetVal('keh_maaleja', p.maaleja || 0);
+      _kehSetVal('keh_syottoja', p.syottoja || 0);
+      _kehSetVal('keh_kausi', p.kausi || new Date().getFullYear());
+      _kehSetVal('keh_huomiot', p.huomiot || '');
+    }
+  }
+  m.style.display = 'flex';
+}
+
+function _kehSetVal(id, val) {
+  var el = document.getElementById(id);
+  if (el && val !== undefined && val !== null) el.value = val;
+}
+
+function suljeKehitysModal() {
+  var m = document.getElementById('kehitysModaali');
+  if (m) m.style.display = 'none';
+  _kehEditId = null;
+}
+
+function tallennaKehityspolku() {
+  if (!_seuraId || !_db) { naytaToast('Ei yhteyttä tietokantaan', 'red'); return; }
+  var nimi   = (document.getElementById('keh_pelaajaNimi') || {}).value || '';
+  var syntyma= (document.getElementById('keh_syntymavuosi') || {}).value || '';
+  var seura  = (document.getElementById('keh_edustusSeura') || {}).value || '';
+  var sarja  = (document.getElementById('keh_sarja') || {}).value || '';
+  if (!nimi || !syntyma || !seura || !sarja) {
+    var s = document.getElementById('kehSaveStatus');
+    if (s) { s.textContent = 'Täytä pakolliset kentät (*)'; s.style.color = 'var(--amber)'; }
+    return;
+  }
+  var doc = {
+    pelaajaNimi:   nimi.trim(),
+    syntymavuosi:  parseInt(syntyma, 10),
+    pelipaikka:    (document.getElementById('keh_pelipaikka') || {}).value || '',
+    edustusSeura:  seura.trim(),
+    sarja:         sarja,
+    laina:         (document.getElementById('keh_laina') || {}).value || 'ei',
+    otteluita:     parseInt((document.getElementById('keh_otteluita') || {}).value, 10) || 0,
+    minuuttia:     parseInt((document.getElementById('keh_minuuttia') || {}).value, 10) || 0,
+    maaleja:       parseInt((document.getElementById('keh_maaleja') || {}).value, 10) || 0,
+    syottoja:      parseInt((document.getElementById('keh_syottoja') || {}).value, 10) || 0,
+    kausi:         (document.getElementById('keh_kausi') || {}).value || String(new Date().getFullYear()),
+    huomiot:       (document.getElementById('keh_huomiot') || {}).value || '',
+    paivitetty:    firebase.firestore.FieldValue.serverTimestamp(),
+    paivittajaUid: (_user && _user.uid) || null,
+  };
+  var statEl = document.getElementById('kehSaveStatus');
+  if (statEl) { statEl.textContent = 'Tallennetaan...'; statEl.style.color = 'var(--ink3)'; }
+  var ref = _db.collection('seurat').doc(_seuraId).collection('kehityspolku');
+  var promise = _kehEditId ? ref.doc(_kehEditId).set(doc, {merge:true}) : ref.add(doc);
+  promise
+    .then(function() {
+      suljeKehitysModal();
+      naytaToast('Kehityspolku tallennettu', 'ok');
+      lataaKehityspolku(true);
+    })
+    .catch(function(e) {
+      if (statEl) { statEl.textContent = 'Virhe: ' + e.message; statEl.style.color = 'var(--red)'; }
+    });
+}
+
+function poistaKehityspolku(id) {
+  if (!id || !_seuraId || !_db) return;
+  if (!confirm('Poistetaanko tämä merkintä?')) return;
+  _db.collection('seurat').doc(_seuraId).collection('kehityspolku').doc(id).delete()
+    .then(function() { naytaToast('Poistettu', 'ok'); lataaKehityspolku(true); })
+    .catch(function(e) { naytaToast('Virhe: ' + e.message, 'red'); });
+}
+
+function lataaKehityspolku(pakota) {
+  if (!_seuraId || !_db) return;
+  var alue = document.getElementById('kehitysAlue');
+  if (!alue) return;
+  alue.innerHTML = '<div class="loading"><div class="spinner"></div>Ladataan kehityspolkuja...</div>';
+  _db.collection('seurat').doc(_seuraId).collection('kehityspolku').get()
+    .then(function(snap) {
+      _kehitysData = snap.docs.map(function(doc){ return Object.assign({id:doc.id}, doc.data()); });
+      renderKehityspolku();
+    })
+    .catch(function() {
+      alue.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:24px;text-align:center;">'
+        + 'Ei vielä kehityspolkumerkintöjä.<br><br>'
+        + '<button onclick="avaaKehitysModal()" style="background:var(--teal);color:#000;border:none;'
+        + 'border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;">'
+        + '+ Lisää ensimmäinen</button></div>';
+    });
+}
+
+function suodataKehitys(filtteri, btn) {
+  _kehitysFiltteri = filtteri;
+  document.querySelectorAll('[id^="keh-btn-"]').forEach(function(b) {
+    b.style.background = 'var(--bg3)';
+    b.style.borderColor = 'var(--border)';
+    b.style.color = 'var(--ink3)';
+  });
+  if (btn) { btn.style.background = 'var(--teal)'; btn.style.borderColor = 'var(--teal)'; btn.style.color = '#000'; }
+  renderKehityspolku();
+}
+
+var _kehSarjaNimet = {vl:'Veikkausliiga',yk:'Ykkönen',k2:'Kakkonen',k3:'Kolmonen',muu:'Muu'};
+
+function renderKehityspolku() {
+  var alue = document.getElementById('kehitysAlue');
+  if (!alue) return;
+  var data = _kehitysData.slice();
+  if (_kehitysFiltteri === 'laina') {
+    data = data.filter(function(p){ return p.laina === 'kylla'; });
+  } else if (_kehitysFiltteri !== 'kaikki') {
+    data = data.filter(function(p){ return p.sarja === _kehitysFiltteri; });
+  }
+
+  // KPI
+  var totalMin = _kehitysData.reduce(function(s,p){ return s+(p.minuuttia||0); }, 0);
+  var vlyk = _kehitysData.filter(function(p){ return p.sarja==='vl'||p.sarja==='yk'; }).length;
+  var uniikki = {};
+  _kehitysData.forEach(function(p){ uniikki[p.pelaajaNimi]=true; });
+  var uniikkiLkm = Object.keys(uniikki).length;
+  var _kpiSet = function(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; };
+  _kpiSet('kpEdustusLkm', uniikkiLkm);
+  _kpiSet('kpMinYht', totalMin.toLocaleString('fi'));
+  _kpiSet('kpKehVL', vlyk);
+  _kpiSet('kpKehIndex', _kehitysData.length ? uniikkiLkm + ' kasvattia' : '—');
+
+  if (!data.length) {
+    alue.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:24px;text-align:center;">'
+      + (_kehitysFiltteri==='kaikki'
+         ? 'Ei vielä merkintöjä.<br><br><button onclick="avaaKehitysModal()" style="background:var(--teal);color:#000;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;">+ Lisää pelaaja</button>'
+         : 'Ei pelaajia tällä suodattimella.')
+      + '</div>';
+    return;
+  }
+
+  var html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+  data.forEach(function(p) {
+    var sNimi = _kehSarjaNimet[p.sarja] || p.sarja || '—';
+    var minPer = p.otteluita>0 ? Math.round((p.minuuttia||0)/p.otteluita) : 0;
+    var bar = Math.min(100, Math.round((p.minuuttia||0)/900*100));
+    var lainaTagi = p.laina==='kylla'
+      ? '<span style="background:rgba(168,85,247,.15);color:var(--purple);font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;margin-left:6px;">LAINA</span>' : '';
+
+    html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px;">'
+        + '<div style="flex:1;min-width:0;">'
+          + '<div style="font-size:14px;font-weight:700;color:var(--text);">' + _kehEsc(p.pelaajaNimi) + lainaTagi + '</div>'
+          + '<div style="font-size:11px;color:var(--ink3);margin-top:2px;">s. '+(p.syntymavuosi||'—')+(p.pelipaikka?' · '+p.pelipaikka:'')
+            +' &nbsp;·&nbsp; '+_kehEsc(p.edustusSeura||'—')+' &nbsp;·&nbsp; Kausi '+(p.kausi||'—')+'</div>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">'
+          + '<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;background:rgba(74,126,217,.1);color:var(--accent2);">' + sNimi + '</span>'
+          + '<button onclick="avaaKehitysModal(\''+p.id+'\')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 9px;font-size:11px;color:var(--ink3);cursor:pointer;">✏️</button>'
+          + '<button onclick="poistaKehityspolku(\''+p.id+'\')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 9px;font-size:11px;color:var(--red);cursor:pointer;">🗑</button>'
+        + '</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px;">'
+        + _kehMini('Otteluita', p.otteluita||0)
+        + _kehMini('Minuuttia', (p.minuuttia||0).toLocaleString('fi'))
+        + _kehMini('Min/ottelu', minPer)
+        + _kehMini('Maaleja', p.maaleja||0)
+        + _kehMini('Syöttöjä', p.syottoja||0)
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;">'
+        + '<div style="font-size:10px;color:var(--ink3);width:70px;flex-shrink:0;">Min-kertymä</div>'
+        + '<div style="flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;">'
+          + '<div style="width:'+bar+'%;height:100%;border-radius:3px;background:var(--teal);"></div>'
+        + '</div>'
+        + '<div style="font-size:10px;color:var(--teal);width:36px;text-align:right;">'+bar+'%</div>'
+      + '</div>'
+      + (p.huomiot ? '<div style="margin-top:8px;font-size:12px;color:var(--ink3);background:var(--bg3);border-radius:7px;padding:8px 10px;line-height:1.5;">'+_kehEsc(p.huomiot)+'</div>' : '')
+    + '</div>';
+  });
+  html += '</div>';
+  alue.innerHTML = html;
+}
+
+function _kehMini(label, val) {
+  return '<div style="text-align:center;">'
+    + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:900;color:var(--teal);">' + val + '</div>'
+    + '<div style="font-size:10px;color:var(--ink3);">' + label + '</div>'
+    + '</div>';
+}
+
+function _kehEsc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 </script>
