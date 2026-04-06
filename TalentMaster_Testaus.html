@@ -888,7 +888,15 @@ const PROTOKOLLAT = {
 };
 
 // Ketjujen emojit
-const KETJU_EMOJI = { SBL:'⚡', SFL:'🦵', LL:'↔️', DIAG:'🔄', DFL:'🏗️' };
+const KETJU_EMOJI = { SBL:'⚡', SFL:'🦵', LL:'↔️', DIAG:'🔄⬡', DFL:'🏗️' };
+// Suomenkieliset nimet käyttöliittymässä — ketjumatriisin mukaisesti (Wilke 2016)
+const KETJU_NIMET = {
+  SBL:  'Vauhtiketju',
+  SFL:  'Lähtöketju',
+  LL:   'Sivuketju',
+  DIAG: 'Diagonaaliketju',  // SL+FL yhdistettynä ⭐⭐⭐ Wilke 2016
+  DFL:  'Hallintaketju',
+};
 
 // ════════════════════════════════════
 // AUTH
@@ -1469,7 +1477,7 @@ function _renderYksilöNakyma() {
     rivi.innerHTML = `
       <div class="yksilö-testi-info">
         <div class="yksilö-testi-nimi">${testi.nimi}</div>
-        <div class="yksilö-testi-ketju">${KETJU_EMOJI[testi.ketju]||''} ${testi.ketju}</div>
+        <div class="yksilö-testi-ketju">${KETJU_EMOJI[testi.ketju]||''} ${KETJU_NIMET[testi.ketju]||testi.ketju}</div>
       </div>
       <div class="yksilö-testi-syotto">${_renderTestiSyotto(testi, p.id, arvo)}</div>
     `;
@@ -1566,7 +1574,7 @@ function _renderTestiSyotto(testi, pelaajaId, nykyarvo) {
     const colors = ['','p1','p2','p3'];
     return `
       <div style="margin-bottom:14px;">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">${testi.nimi} <span style="opacity:0.5;font-size:10px;">${KETJU_EMOJI[testi.ketju]||''} ${testi.ketju}</span></div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">${testi.nimi} <span style="opacity:0.5;font-size:10px;">${KETJU_EMOJI[testi.ketju]||''} ${KETJU_NIMET[testi.ketju]||testi.ketju}</span></div>
         <div class="pisteet-nappit" id="nappit_${pelaajaId}_${testi.id}">
           ${[1,2,3].map(p => `<div class="piste-nappi ${colors[p]}${nykyarvo===p?' valittu':''}" onclick="_syotaPiste('${pelaajaId}','${testi.id}',${p})">
             <div class="piste-num">${p}</div>
@@ -1578,7 +1586,7 @@ function _renderTestiSyotto(testi, pelaajaId, nykyarvo) {
     // Numeerinen syöttö
     return `
       <div style="margin-bottom:14px;">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">${testi.nimi} <span style="opacity:0.5;font-size:10px;">${KETJU_EMOJI[testi.ketju]||''} ${testi.ketju}</span></div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">${testi.nimi} <span style="opacity:0.5;font-size:10px;">${KETJU_EMOJI[testi.ketju]||''} ${KETJU_NIMET[testi.ketju]||testi.ketju}</span></div>
         <div class="num-syotto-wrap">
           <input class="num-input${nykyarvo!==undefined?' tallennettu':''}" type="number" inputmode="decimal" id="${inputId}" value="${nykyarvo!==undefined?nykyarvo:''}" placeholder="—" onchange="_syotaNumero('${pelaajaId}','${testi.id}',this)">
           <span class="num-yksikko">${testi.yksikko}</span>
@@ -1637,6 +1645,30 @@ function _tallennaTulos(pelaajaId, testiId, arvo) {
         .collection('testitapahtumat').doc(_aktiivinenTapahtuma.id)
         .collection('tulokset').doc(pelaajaId);
       const pData = (_aktiivinenTapahtuma.pelaajatData||[]).find(p=>p.id===pelaajaId)||{};
+      // Laske FLEI ja ketjupisteet tallennusta varten
+      const protokolla_t = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
+      const ketjuPisteet_t = { SBL:[], SFL:[], LL:[], DIAG:[], DFL:[] };
+      if (protokolla_t && protokolla_t.tyyppi === '1-3') {
+        (protokolla_t.testit || []).forEach(t => {
+          const arvo_t = (_tulokset[pelaajaId] || {})[t.id];
+          if (arvo_t !== undefined && ketjuPisteet_t[t.ketju]) {
+            ketjuPisteet_t[t.ketju].push(arvo_t);
+          }
+        });
+      }
+      const ketjuKa_t = {};
+      let kaikki_t = [];
+      Object.entries(ketjuPisteet_t).forEach(([k, arr]) => {
+        if (arr.length > 0) {
+          ketjuKa_t[k] = Math.round((arr.reduce((a,b)=>a+b,0)/arr.length) * 100 / 3);
+          kaikki_t.push(...arr);
+        }
+      });
+      const fleiLaskettu = kaikki_t.length >= 3
+        ? Math.round((kaikki_t.reduce((a,b)=>a+b,0)/kaikki_t.length/3)*100)
+        : null;
+
+      // 1) Tallenna raakadata testitapahtumatuloksiin
       await tuloksetRef.set({
         pelaajaId,
         etunimi: pData.etunimi||'',
@@ -1644,8 +1676,23 @@ function _tallennaTulos(pelaajaId, testiId, arvo) {
         phv_tila: pData.phv_tila||null,
         syntymapaiva: pData.syntymapaiva||'',
         testit: _tulokset[pelaajaId],
+        flei: fleiLaskettu,
+        flei_ketjut: ketjuKa_t,
         paivitetty: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
+
+      // 2) Päivitä FLEI + ketjupisteet suoraan pelaajadokumenttiin
+      //    jotta IDP-kortti ja VP-dashboard saavat ne välittömästi
+      if (fleiLaskettu !== null && Object.keys(ketjuKa_t).length > 0) {
+        const pelaajaRef = _db.collection('seurat').doc(_seuraId)
+          .collection('pelaajat').doc(pelaajaId);
+        await pelaajaRef.set({
+          flei: fleiLaskettu,
+          flei_ketjut: ketjuKa_t,
+          flei_paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
+          flei_lahde: 'harjoitettavuuskartoitus',
+        }, { merge: true });
+      }
     } catch(e) {
       console.warn('Firestore-tallennus epäonnistui, data offline-välimuistissa', e);
     }
@@ -1734,7 +1781,7 @@ function _paivitaFLEI(pelaajaId) {
     <div class="flei-ketju${heikoin&&heikoin[0]===k?' heikoin':''}">
       <span class="flei-ketju-emoji">${KETJU_EMOJI[k]||''}</span>
       <div class="flei-ketju-info">
-        <div class="flei-ketju-nimi">${k}</div>
+        <div class="flei-ketju-nimi">${KETJU_NIMET[k]||k}</div>
         <div class="flei-ketju-piste">${v.toFixed(1)}</div>
       </div>
     </div>
