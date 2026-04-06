@@ -27,6 +27,7 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
 #lataaja.pois{opacity:0;pointer-events:none}
 .spin{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.08);border-top-color:var(--teal);animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 
 /* ── TOPBAR ─────────────────────────────────────────────── */
 .tb{position:sticky;top:0;z-index:100;background:rgba(6,10,18,.94);backdrop-filter:blur(20px);border-bottom:1px solid var(--line);padding:0 16px;height:48px;display:flex;align-items:center;gap:10px}
@@ -610,6 +611,350 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
 <div id="toast"></div>
 
 <script>
+
+// ══════════════════════════════════════════════════════════════
+// HARJOITEKIRJASTO — selkokielinen, pelaajalle ja valmentajalle
+// Rakenne per harjoite: nimi, lyhyt, vaiheet[], miksi, video, ika_huomio, sarjat
+// Ammattitermit poistettu — kaikki kirjoitettu "tee näin" -muodossa
+// ══════════════════════════════════════════════════════════════
+const HARJOITE_KIRJASTO = {
+
+  SBL_aktivointi: {
+    nimi: 'Jalkapohjan herätys',
+    lyhyt: 'Vieritä palloa jalkapohjalla — herätä takaketju ennen harjoitusta',
+    vaiheet: [
+      'Ota tennispallo tai nystyräpallo käteen',
+      'Seiso yhdellä jalalla, laita pallo lattisalle jalan alle',
+      'Vieritä palloa hitaasti koko jalkapohjan alla — kantapäästä varpaisiin',
+      'Kun tunnet jännittyneemmän kohdan, paina sitä kevyesti 5–10 sekuntia',
+      'Tee 60 sekuntia per jalka — älä kiirehdi',
+      'Lopuksi seiso molemmilla jaloilla ja huomaa miltä tuntuu'
+    ],
+    miksi: 'Jalkapohja on koko takaketjun "juuristo". Kun se on herätetty ennen harjoitusta, kiihdytys lähtee paremmin ja takareiden lihakset pysyvät suojassa. Aivan kuten auton moottori tarvitsee lämmittelyä, jalkakin tarvitsee herätyksen.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '1 × 60s / jalka'
+  },
+
+  SBL_taso1: {
+    nimi: 'Lantionnosto yhdellä jalalla',
+    lyhyt: 'Selällään, kantapää korokkeella — nosta lantio ylös, laske hitaasti',
+    vaiheet: [
+      'Asetu selällesi lattialle, toinen kantapää tuolin tai penkin reunalla',
+      'Toinen jalka suorana ilmassa',
+      'Paina lantio ylös niin että keho on suora linja olkapäästä polveen',
+      'Pidä yläasennossa 2 sekuntia — puristele pakaraa',
+      'Laske lantio alas HITAASTI — lasku kestää 3 sekuntia',
+      'Toista 8 kertaa per jalka, 3 sarjaa'
+    ],
+    miksi: 'Tämä harjoite vahvistaa takareiden ja pakaran lihakset jotka vetävät sinua eteenpäin juostessa. Kun takaketju on vahva, 10 metrin kiihdytys paranee ja takareiden venähdysten riski pienenee merkittävästi.',
+    video: 'https://www.youtube.com/watch?v=MSm9WKFWGh8',
+    ika_huomio: 'Alle 13v: tee ilman koroketta, molemmat jalat maassa',
+    sarjat: '3 × 8 / jalka'
+  },
+
+  SBL_taso2: {
+    nimi: 'Takaketjun jarrutuslasku',
+    lyhyt: 'Polvillaan, kaveri pitää nilkoista — laske keho eteenpäin mahdollisimman hitaasti',
+    vaiheet: [
+      'Polvistuu pehmeälle alustalle, pyydä kaveria tai valmentajaa pitämään nilkoistasi kiinni',
+      'Pidä selkä ja lantio SUORANA koko ajan — keho kuin lankku',
+      'Laske vartaloa hitaasti eteenpäin 3–4 sekuntia — anna takareiden jarruttaa',
+      'Kun et enää jaksa jarruttaa, pudota käsille — käsiä käytetään vain pehmentämään putoamista',
+      'Nouse takaisin alkuasentoon käsien avulla — nousua ei lasketa suoritukseksi',
+      'Toista 5 kertaa, 3 sarjaa — laatu on tärkeämpää kuin määrä'
+    ],
+    miksi: 'Tämä on yksi tehokkaimmista harjoitteista takareiden vammojen ehkäisyyn. Ammattilaisseurat kuten Ajax ja Liverpool käyttävät sitä joka viikko. Tutkimusten mukaan yksi sarja viikossa voi puolittaa takareiden vammariskin.',
+    video: 'https://www.youtube.com/watch?v=CqCdBEU7FDE',
+    ika_huomio: 'Alle 14v: älä tee tätä harjoitetta — tee lantionnosto sen sijaan. Kasvupyrähdysvaiheessa: vain 3 toistoa per sarja.',
+    sarjat: '3 × 5'
+  },
+
+  SFL_aktivointi: {
+    nimi: 'Lonkan avaus lattialla',
+    lyhyt: 'Istu molemmat polvet 90° kulmassa — tunne lonkan etuosan venyminen',
+    vaiheet: [
+      'Istu lattialle, oikea jalka edessä (polvi 90°), vasen sivulla (polvi 90°)',
+      'Pidä selkä ryhdikkäänä — älä kallista vartaloa eteenpäin',
+      'Tunnet venytyksen vasemman lonkan etupuolella ja reidessä',
+      'Hengitä rauhallisesti sisään ja ulos — älä pidätä hengitystä',
+      'Pidä asento 45 sekuntia per puoli'
+    ],
+    miksi: 'Lonkan etuosa kiristyy helposti pitkän koulupäivän jälkeen. Kun se on auki ennen harjoitusta, potku lähtee täydellä voimalla eikä lonkka jarruta liikettä. Monet pelaajat huomaavat laukauksen parantuvan jo ensimmäisellä kerralla.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '1 × 45s / puoli'
+  },
+
+  SFL_taso1: {
+    nimi: 'Lonkka-saranaharjoite',
+    lyhyt: 'Seiso keppi selässä — taivuta lonkasta eteen pitäen selkä suorana',
+    vaiheet: [
+      'Ota pitkä keppi tai seinä apuvälineeksi',
+      'Keppi (tai seinä) koskettaa takaraivoa, lapaluita ja alaselkää — kolme kosketuspistettä',
+      'Paina peppu taaksepäin kuin haluaisit istua tuolille joka on kaukana',
+      'Selän pitää pysyä suorana koko ajan — keppi ei saa irrota',
+      'Mene alas kunnes tunnet venytyksen reiden takana',
+      'Nouse takaisin ylös puristamalla pakaroita yhteen',
+      'Toista 10 kertaa hitaasti'
+    ],
+    miksi: 'Tämä opettaa lonkan oikeaa liikettä. Kun lonkka toimii oikein jalkapalloilussa, potku ja lähtönopeus tulevat lonkasta eikä selästä — tämä tekee liikkeestä sekä tehokkaamman että turvallisemman. Väärä lonkan käyttö on yleisin syy nuorten selkäkipuihin.',
+    video: 'https://www.youtube.com/watch?v=YwKQGvKJx3A',
+    ika_huomio: null,
+    sarjat: '3 × 10'
+  },
+
+  SFL_taso2: {
+    nimi: 'Askelkyykky',
+    lyhyt: 'Astu pitkä askel eteen — laske takapolvi kohti lattiaa',
+    vaiheet: [
+      'Seiso ryhdikkäästi, kädet lanteilla tai edessä tasapainoksi',
+      'Ota pitkä askel eteenpäin vasemmalla jalalla',
+      'Laske takapolvi (oikea) kohti lattiaa — ei koske lattiaan',
+      'Etummainen polvi (vasen) ei saa mennä varpaiden etupuolelle — tarkista katsomalla',
+      'Etummainen polvi osoittaa suoraan eteenpäin — ei sisäänpäin',
+      'Nouse takaisin seisomaan etummaisen jalan avulla',
+      'Toista 8 kertaa per jalka'
+    ],
+    miksi: 'Askelkyykky vahvistaa täsmälleen ne lihakset joita käytetään laukaisuasennossa. Hyvä askelkyykky = parempi laukausasento = kovempi ja tarkempi potku.',
+    video: 'https://www.youtube.com/watch?v=D7KaRcUTQeE',
+    ika_huomio: null,
+    sarjat: '3 × 8 / jalka'
+  },
+
+  LL_aktivointi: {
+    nimi: 'Simpukka-aktivointi',
+    lyhyt: 'Kyljellään polvet koukussa — nosta päälimmäinen polvi ylös kuin simpukka',
+    vaiheet: [
+      'Asetu kyljellesi, polvet 90° koukussa, kantapäät yhdessä',
+      'Pidä lantio paikallaan — se ei saa kaatua taaksepäin',
+      'Nosta päälimmäistä polvea ylöspäin pitäen kantapäät yhdessä',
+      'Nosta niin ylös kuin pystyt ilman lantion kääntymistä',
+      'Pidä yläasennossa 2 sekuntia, laske hitaasti alas',
+      'Toista 12 kertaa per puoli — tunnet polttamista reisien ulkosyrjällä'
+    ],
+    miksi: 'Tämä herättää pakaran yläosan joka vastaa sivusuunnan vakauttamisesta. Heikko pakara = polvi menee sisään suunnanmuutoksessa = nilkka ja polvi vaarassa. Tämä yksinkertainen harjoite on sivuketjun tärkein ensiaskel.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '2 × 12 / puoli'
+  },
+
+  LL_taso1: {
+    nimi: 'Sivuaskelkävely kuminauhalla',
+    lyhyt: 'Kuminauha polvien yläpuolella — astu sivulle kyykkyasennossa',
+    vaiheet: [
+      'Laita kuminauha molempien polvien yläpuolelle',
+      'Mene pieneen kyykkyasentoon — selkä suorana, paino kantapäillä',
+      'Pidä nauhan jännitys koko ajan — polvet eivät saa tulla yhteen',
+      'Astu sivulle oikealle 15 askelta',
+      'Astu takaisin vasemmalle 15 askelta — tämä on yksi sarja'
+    ],
+    miksi: 'Sivuliike on jalkapallon tärkein liikesuunta jonka useimmat pelaajat laiminlyövät. Tämä harjoite suojaa polven sivusiteen ja parantaa jarrutuskykyä suunnanmuutoksessa. Näkyy suoraan parempana puolustuspelina ja pujotteluna.',
+    video: 'https://www.youtube.com/watch?v=e1lxNI6TE3U',
+    ika_huomio: null,
+    sarjat: '3 × 15 askelta / suunta'
+  },
+
+  LL_taso2: {
+    nimi: 'Sivuhyppy ja hallittu pysäytys',
+    lyhyt: 'Hyppää sivulle yhdellä jalalla — pysähdy heti ilman pompimista',
+    vaiheet: [
+      'Seiso yhdellä jalalla hyvässä tasapainossa',
+      'Hyppää sivulle noin metrin matka',
+      'Lasku toiselle jalalle — PYSÄHDY heti, älä anna kehon jatkaa liikettä',
+      'Polvi menee varpaiden suuntaan, ei sisäänpäin — tarkista katsomalla',
+      'Pidä pysäytysasento 2 sekuntia ennen seuraavaa hyppyä',
+      'Toista 5 kertaa per suunta'
+    ],
+    miksi: 'Tämä harjoite opettaa jarrutusvoimaa sivusuunnassa — juuri sitä tarvitaan kun käännyt laidalla tai vaihdat suuntaa vastustajan paineessa. Hyvä jarrutus = vähemmän nilkka- ja polvivenähdyksiä.',
+    video: 'https://www.youtube.com/watch?v=Fkq6OqJOi2E',
+    ika_huomio: 'Alle 13v: tee ensin molemmilla jaloilla ennen kuin siirryt yhteen jalkaan',
+    sarjat: '3 × 5 / suunta'
+  },
+
+  DIAG_aktivointi: {
+    nimi: 'Rintakehän kierto',
+    lyhyt: 'Nelinkontin, käsi niskaan — kierrä kyynärpää kattoa kohti',
+    vaiheet: [
+      'Mene nelinkontin — kädet suoraan olkapäiden alla, polvet lonkkien alla',
+      'Laita oikea käsi niskasi taakse — kyynärpää osoittaa sivulle',
+      'Kierrä oikeaa kyynärpäätä kohti kattoa niin pitkälle kuin luonnostaan pääset',
+      'Pidä lantio paikallaan koko ajan — liike tulee rintakehästä',
+      'Palaa hitaasti takaisin',
+      'Toista 10 kertaa per puoli'
+    ],
+    miksi: 'Rintakehän kierto on syöttövoiman lähde. Kun rintakehä liikkuu vapaasti, syöttö tulee kehosta eikä pelkästä jalasta — tämä on juuri se mitä ammattilaisilla näkyy. Jäykkä rintakehä on yleisin syy heikkoon syöttöön vaikka jalat olisivat vahvat.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '2 × 10 / puoli'
+  },
+
+  DIAG_taso1: {
+    nimi: 'Kylkilankku',
+    lyhyt: 'Kyljellään kyynärvarren päällä — pidä keho suorana linjana',
+    vaiheet: [
+      'Asetu kyljellesi, tukena kyynärvarsi ja jalat päällekkäin',
+      'Nosta lantio ylös — keho muodostaa suoran linjan nilkasta päähän',
+      'Älä anna lantion vajota alas tai mennä ylös',
+      'Hengitä rauhallisesti — vedä vatsa kevyesti sisään',
+      'Pidä 30 sekuntia — laske alas, toista toiselle puolelle'
+    ],
+    miksi: 'Kylkilankku vahvistaa kylkien lihakset jotka pitävät sinut pystyssä kun vastustaja töytäisee. Vahva kylki = parempi SM-pallo = vaikea kaataa. Myös syöttövoima kasvaa kun kyljet ovat vahvat.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '3 × 30s / puoli'
+  },
+
+  DIAG_taso2: {
+    nimi: 'Kiertoheitot seinään',
+    lyhyt: 'Seiso sivuttain seinään — heitä pallo kierrättämällä kehoa, ei käsiä',
+    vaiheet: [
+      'Seiso noin 1,5 metrin etäisyydellä seinästä, sivuttain seinään',
+      'Pidä kevyttä lääkintäpalloa tai tavallista palloa',
+      'Kierrä keho ENSIN poispäin seinästä — rintakehä johtaa',
+      'Sitten nopea kierto takaisin — heitä pallo seinään rintakehän kierrosta',
+      'Ota pallo kiinni heti palautumisen jälkeen ja toista',
+      'Liike tulee rintakehästä, ei pelkistä käsistä — kädet seuraavat'
+    ],
+    miksi: 'Tämä on täsmälleen sama liikekaava kuin syötössä ja SM-pallossa. Kun teet tätä päivittäin, syöttövoima kasvaa ja SM-pallon hallinta paineessa paranee. Liikanen 2025: kiertovoima on vahvin yksittäinen ammattilaisuuden ennustaja.',
+    video: 'https://www.youtube.com/watch?v=9nSOapf_REU',
+    ika_huomio: null,
+    sarjat: '3 × 6 / puoli'
+  },
+
+  DFL_aktivointi: {
+    nimi: '360-asteen hengitys',
+    lyhyt: 'Hengitä kylkiin ja selkään — ei rintaan ylös',
+    vaiheet: [
+      'Istu tai seiso mukavasti, laita kädet kylkiesi päälle',
+      'Hengitä sisään nenän kautta — tunne käsien alla kyljet laajenevan sivuille',
+      'Tunne myös selän laajentuvan taaksepäin',
+      'Hengitä ulos suun kautta hitaasti — noin 5 sekuntia',
+      'Toista 5 kertaa',
+      'Tee tämä AINA ennen muita harjoitteita'
+    ],
+    miksi: 'Oikea hengitys aktivoi syvät vatsalihakset automaattisesti. Nämä lihakset ovat koko kehon perusta — kun ne ovat päällä, kaikki muu harjoittelu on tehokkaampaa ja selkä pysyy suojassa. Monet huippu-urheilijat aloittavat päivänsä juuri tällä.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '1 × 5 hengitystä'
+  },
+
+  DFL_taso1: {
+    nimi: 'Lankku',
+    lyhyt: 'Kyynärvarsien ja varpaiden varaan — pidä keho suorana, hengitä',
+    vaiheet: [
+      'Asetu kyynärvarsien ja varpaiden varaan — kyynärpäät suoraan olkapäiden alla',
+      'Nosta lantio niin että keho on suora linja kantapäistä päähän',
+      'Peppu ei saa olla ylöspäin (kolmio) eikä alaspäin (kaari)',
+      'Vedä napa kevyesti sisään — älä pidätä hengitystä',
+      'Katso lattiaan — niska jatkaa selkärangan linjaa',
+      'Lopeta kun tärisee tai asento hajoaa — laatu ratkaisee, ei kesto'
+    ],
+    miksi: 'Lankku on kaiken perusta. Ilman vahvaa keskivartaloa paino ei siirry tehokkaasti jalalta toiselle — se näkyy kömpelönä liikkeenä ja väsyneenä asentona pelin loppupuolella. Kaikki parhaat pelaajat tekevät tätä.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '3 × 20–40s'
+  },
+
+  DFL_taso2: {
+    nimi: 'Kuollut ötökkä',
+    lyhyt: 'Selällään — laske vastakkainen käsi ja jalka alas samanaikaisesti hitaasti',
+    vaiheet: [
+      'Asetu selällesi, kädet suorana kohti kattoa, polvet 90° kulmaan ilmassa',
+      'Litistä alaselkä lattiaan — se pysyy siellä koko harjoitteen ajan',
+      'Laske oikea käsi taaksepäin JA vasen jalka eteenpäin samanaikaisesti',
+      'Mene niin alas kuin pystyt ilman että alaselkä irtoaa lattiasta',
+      'Palauta hitaasti — vaihda puolta',
+      'HIDAS on parempi kuin NOPEA — 3 sekuntia alas, 3 sekuntia ylös'
+    ],
+    miksi: 'Tämä opettaa kehon eri osat toimimaan yhteistyössä. Juuri tätä tarvitaan SM-pallossa — hallitset palloa samalla kun skannaat ympärillesi. Se myös suojaa alaselkää harjoittelun aikana.',
+    video: 'https://www.youtube.com/watch?v=9e4MHaFBM7o',
+    ika_huomio: null,
+    sarjat: '3 × 5 / puoli'
+  },
+};
+
+// Ketju → harjoite-ID -kartoitus FLEI-tason mukaan
+const KETJU_HARJOITTEET = {
+  SBL:  { aktivointi: 'SBL_aktivointi',  taso1: 'SBL_taso1',  taso2: 'SBL_taso2'  },
+  SFL:  { aktivointi: 'SFL_aktivointi',  taso1: 'SFL_taso1',  taso2: 'SFL_taso2'  },
+  LL:   { aktivointi: 'LL_aktivointi',   taso1: 'LL_taso1',   taso2: 'LL_taso2'   },
+  DIAG: { aktivointi: 'DIAG_aktivointi', taso1: 'DIAG_taso1', taso2: 'DIAG_taso2' },
+  DFL:  { aktivointi: 'DFL_aktivointi',  taso1: 'DFL_taso1',  taso2: 'DFL_taso2'  },
+};
+
+// ── POPUP-MEKANISMI ────────────────────────────────────────────
+// Avautuu alhaalta ylöspäin (sheet-tyylinen) — luonteva mobiilissa
+function avaaHarjoitePopup(harjoiteId) {
+  const h = HARJOITE_KIRJASTO[harjoiteId];
+  if (!h) return;
+  const vanha = document.getElementById('harjoitePopup');
+  if (vanha) vanha.remove();
+
+  const videoHtml = h.video
+    ? `<a href="${h.video}" target="_blank" rel="noopener"
+        style="display:flex;align-items:center;gap:8px;padding:9px 12px;
+        background:rgba(255,64,96,.08);border:1px solid rgba(255,64,96,.2);
+        border-radius:9px;color:#FF4060;text-decoration:none;font-size:12px;
+        font-weight:600;margin-top:8px">
+        ▶ Katso video YouTubessa
+       </a>`
+    : `<div style="padding:8px 10px;background:var(--bg4);border-radius:8px;
+        font-size:11px;color:var(--ink3);margin-top:8px;font-style:italic">
+        📹 Video tulossa pian
+       </div>`;
+
+  const ikaHtml = h.ika_huomio
+    ? `<div style="padding:8px 10px;background:rgba(255,176,32,.07);
+        border:1px solid rgba(255,176,32,.2);border-radius:8px;
+        font-size:11px;color:var(--amber);margin-top:8px">
+        ⚠️ ${h.ika_huomio}
+       </div>` : '';
+
+  const vaiheHtml = h.vaiheet.map((v, i) =>
+    `<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">
+      <div style="width:22px;height:22px;border-radius:50%;background:rgba(0,221,176,.15);
+        color:var(--teal);font-size:10px;font-weight:700;display:flex;align-items:center;
+        justify-content:center;flex-shrink:0;margin-top:1px">${i+1}</div>
+      <div style="font-size:13px;color:var(--ink2);line-height:1.55">${v}</div>
+     </div>`).join('');
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="harjoitePopup" onclick="if(event.target.id==='harjoitePopup')suljeHarjoitePopup()"
+      style="position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.8);
+      display:flex;align-items:flex-end;justify-content:center;padding:0">
+      <div style="background:var(--bg2);border:1px solid var(--line2);
+        border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:640px;
+        max-height:88vh;overflow-y:auto;animation:slideUp .25s ease-out">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:800">${h.nimi}</div>
+          <button onclick="suljeHarjoitePopup()" style="background:var(--bg4);border:1px solid var(--line2);
+            border-radius:8px;padding:5px 12px;color:var(--ink3);cursor:pointer;
+            font-family:'DM Sans',sans-serif;font-size:12px">✕ Sulje</button>
+        </div>
+        <div style="display:inline-block;padding:3px 10px;background:rgba(0,221,176,.1);
+          border:1px solid rgba(0,221,176,.2);border-radius:20px;font-size:11px;
+          color:var(--teal);font-weight:600;margin-bottom:14px">${h.sarjat}</div>
+        <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+          letter-spacing:.8px;margin-bottom:10px">Tee näin</div>
+        ${vaiheHtml}
+        <div style="margin-top:14px;padding:12px 14px;background:var(--bg3);
+          border-radius:10px;border-left:3px solid var(--teal)">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;
+            letter-spacing:.8px;margin-bottom:6px">Miksi tämä harjoite?</div>
+          <div style="font-size:12px;color:var(--ink2);line-height:1.6">${h.miksi}</div>
+        </div>
+        ${ikaHtml}
+        ${videoHtml}
+      </div>
+    </div>`);
+}
+
+function suljeHarjoitePopup() {
+  const p = document.getElementById('harjoitePopup');
+  if (p) p.remove();
+}
+
 // ══════════════════════════════════════════════════════════════
 // FIREBASE
 // ══════════════════════════════════════════════════════════════
@@ -1150,67 +1495,108 @@ function renderJako7030(p){
 function renderHarjoite(p){
   const kRaw=p.flei_ketjut||p.ketjut||{};
   const ketjut={
-    SBL:kRaw.SBL||0,SFL:kRaw.SFL||0,LL:kRaw.LL||0,
+    SBL:kRaw.SBL||0, SFL:kRaw.SFL||0, LL:kRaw.LL||0,
     DIAG:kRaw.DIAG||(kRaw.SL&&kRaw.FL?Math.round((kRaw.SL+kRaw.FL)/2):kRaw.SL||kRaw.FL||0),
     DFL:kRaw.DFL||0,
   };
-  let heikinK='SBL',heikinV=100;
+  let heikinK='DFL', heikinV=100;
   Object.entries(ketjut).forEach(([k,v])=>{if(v>0&&v<heikinV){heikinV=v;heikinK=k;}});
   const heikin=KETJU_DATA[heikinK]||{};
   const ika=Math.floor(ikaTark(p.syntymaaika)||14);
 
-  // 30% kohdennettu harjoite — heikoimpaan ketjuun
-  let hTaso='taso1';
-  if(heikinV>=60)hTaso='taso2';if(heikinV>=75)hTaso='taso3';
+  // Valitse taso FLEI-pistemäärän mukaan
+  let tasoKey='taso1';
+  if(heikinV>=60) tasoKey='taso2';
+  if(heikinV>=75) tasoKey='taso3';
+
+  // Harjoite-ID:t kirjastosta
+  const harjIds=KETJU_HARJOITTEET[heikinK]||{};
+
+  // Popup-nappi: avaa selkokielinen ohje + video
+  const popupNappi=(id)=>id
+    ? `<button onclick="avaaHarjoitePopup('${id}')"
+        style="display:flex;align-items:center;gap:5px;padding:6px 11px;
+        background:rgba(59,139,255,.1);border:1px solid rgba(59,139,255,.2);
+        border-radius:8px;color:var(--blue);font-size:11px;font-weight:600;
+        cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:7px"
+        onmouseover="this.style.background='rgba(59,139,255,.18)'"
+        onmouseout="this.style.background='rgba(59,139,255,.1)'">
+        📋 Ohjeet &amp; video →
+       </button>`
+    : '';
+
+  // 30% kohdennettu — heikoimpaan ketjuun
   $('harjKohdennettu').innerHTML=`
     <div class="harj-card">
       <div class="harj-otsikko">
-        30% kohdennettu — ${heikin.emoji||''} ${heikin.nimi||heikinK}
-        <span class="harj-tag" style="background:rgba(255,176,32,.1);color:var(--amber);border:1px solid rgba(255,176,32,.2)">Heikoin ketju</span>
+        30% — ${heikin.emoji||''} ${heikin.nimi||heikinK}
+        <span class="harj-tag" style="background:rgba(255,176,32,.1);color:var(--amber);
+          border:1px solid rgba(255,176,32,.2)">Heikoin ketju</span>
       </div>
-      <div class="harj-teksti">${heikin[hTaso]||'—'}</div>
+      <div style="font-size:13px;color:var(--ink);font-weight:600;margin-bottom:3px">
+        ${heikin[tasoKey+'_nimi']||'Harjoite'}
+      </div>
+      <div class="harj-teksti">${heikin[tasoKey]||'—'}</div>
       <div class="harj-cue">${heikin.cue||'—'}</div>
+      ${popupNappi(harjIds[tasoKey])}
     </div>
     <div class="harj-card">
       <div class="harj-otsikko">
-        Aktivointi — kaikki viisi ketjua
-        <span class="harj-tag" style="background:rgba(0,221,176,.1);color:var(--teal);border:1px solid rgba(0,221,176,.2)">70% pohja</span>
+        Aktivointi
+        <span class="harj-tag" style="background:rgba(0,221,176,.1);color:var(--teal);
+          border:1px solid rgba(0,221,176,.2)">Joka harjoitus</span>
+      </div>
+      <div style="font-size:13px;color:var(--ink);font-weight:600;margin-bottom:3px">
+        ${heikin.aktivointi_nimi||'Aktivointi'}
       </div>
       <div class="harj-teksti">${heikin.aktivointi||'—'}</div>
+      ${popupNappi(harjIds.aktivointi)}
     </div>`;
 
   // T-harjoite — pallotekniikka ikäryhmän mukaan
-  const tHarjoitteet={
-    u12:{syotto:'Seinäsyöttö 3×10 molemmilla jaloilla — ei suorituspainetta, iloinen tekeminen',pujottelu:'Pujotteluleikki 3min — vapaasti, ei ajoitusta',ponnauttelu:'Naruhypyt 3×15s tai pomppuhyppely',smpallo:'Käsittely kaikilla pinnoin — katse ylös'},
-    u15:{syotto:'Syöttö+liike 4×8/puoli — tarkkuus tärkeämpää kuin nopeus. TSI-seuranta.',pujottelu:'T-rata pallolla 4× — mittaa aika, vertaa edelliseen',ponnauttelu:'Ponnauttelu 30s ×3 — rytmitaju fokus',smpallo:'SM-pallo 1min ×3 — vaihda suuntaa'},
-    u19:{syotto:'Syöttö+käännös+liike 5×8 — simuloi pelitilannetta. Walker 2017: illalla motorinen konsolidointi.',pujottelu:'Kasirata pallolla 6× kilpailu-nopeudella — COD-mittatulokset',ponnauttelu:'Reaktioponnauttelu + suunta 4×30s',smpallo:'SM-pallo paineessa 2min ×3 — ei lepoa'},
-  };
   const gr=ika<13?'u12':ika<16?'u15':'u19';
-  const hj=tHarjoitteet[gr];
-  $('harjTekniikka').innerHTML=`
-    <div class="harj-card">
-      <div class="harj-otsikko">Syöttö
-        <span class="harj-tag" style="background:rgba(59,139,255,.08);color:var(--blue);border:1px solid rgba(59,139,255,.15)">+13% Liikanen 2025</span>
+  const tHarjOhjeet={
+    syotto:{
+      u12:{teksti:'Seinäsyöttö molemmilla jaloilla — iloinen tekeminen, ei suorituspainetta', sarjat:'3 × 10 / jalka'},
+      u15:{teksti:'Syöttö + liike: syötä seinään, ota askel sivulle ennen paluuta', sarjat:'4 × 8 / puoli'},
+      u19:{teksti:'Syöttö + käännös + vastaanotto liikkeessä — simuloi pelitilannetta', sarjat:'5 × 8'},
+    },
+    pujottelu:{
+      u12:{teksti:'Pujotteluleikki kartioilla vapaasti — ei ajoitusta, leikitään', sarjat:'3 min vapaasti'},
+      u15:{teksti:'T-rata pallolla: mitataan aika, verrataan edelliseen kertaan', sarjat:'4 suoritusta'},
+      u19:{teksti:'Kasirata kilpailunopeudella — aika kirjataan ylös', sarjat:'6 suoritusta'},
+    },
+    ponnauttelu:{
+      u12:{teksti:'Naruhypyt tai pomppuhyppely — rytmi tärkeämpää kuin nopeus', sarjat:'3 × 15s'},
+      u15:{teksti:'Ponnauttelu rytmissä — laske tahti, pidä se tasaisena', sarjat:'3 × 30s'},
+      u19:{teksti:'Reaktioponnauttelu: valmentaja huutaa suunnan muutoksen', sarjat:'4 × 30s'},
+    },
+    smpallo:{
+      u12:{teksti:'Pallonkäsittely kaikilla pinnoin — katse ylös, ei palloon', sarjat:'3 min vapaasti'},
+      u15:{teksti:'SM-pallo: käänny nopeasti ja suojaa pallo vartalolla', sarjat:'3 × 1 min'},
+      u19:{teksti:'SM-pallo paineessa: kaveri häiritsee, pidä pallo', sarjat:'3 × 2 min'},
+    },
+  };
+  const harjoitteet=[
+    {avain:'syotto',nimi:'Syöttö',tag:'+13%',tv:'var(--blue)'},
+    {avain:'pujottelu',nimi:'Pujottelu',tag:'+9%',tv:'var(--blue)'},
+    {avain:'ponnauttelu',nimi:'Ponnauttelu',tag:'Forsman 2013',tv:'var(--green)'},
+    {avain:'smpallo',nimi:'SM-pallo',tag:'+8%',tv:'var(--blue)'},
+  ];
+  $('harjTekniikka').innerHTML=harjoitteet.map(h=>{
+    const info=tHarjOhjeet[h.avain][gr];
+    return `<div class="harj-card">
+      <div class="harj-otsikko">${h.nimi}
+        <span class="harj-tag" style="background:rgba(59,139,255,.08);color:${h.tv};
+          border:1px solid rgba(59,139,255,.15)">${h.tag}</span>
       </div>
-      <div class="harj-teksti">${hj.syotto}</div>
-    </div>
-    <div class="harj-card">
-      <div class="harj-otsikko">Pujottelu<span class="harj-tag" style="background:rgba(59,139,255,.08);color:var(--blue);border:1px solid rgba(59,139,255,.15)">+9%</span></div>
-      <div class="harj-teksti">${hj.pujottelu}</div>
-    </div>
-    <div class="harj-card">
-      <div class="harj-otsikko">Ponnauttelu
-        <span class="harj-tag" style="background:rgba(32,212,104,.08);color:var(--green);border:1px solid rgba(32,212,104,.15)">Forsman 2013</span>
-      </div>
-      <div class="harj-teksti">${hj.ponnauttelu}</div>
-    </div>
-    <div class="harj-card">
-      <div class="harj-otsikko">SM-pallo
-        <span class="harj-tag" style="background:rgba(59,139,255,.08);color:var(--blue);border:1px solid rgba(59,139,255,.15)">+8%</span>
-      </div>
-      <div class="harj-teksti">${hj.smpallo}</div>
+      <div class="harj-teksti">${info.teksti}</div>
+      <div style="font-size:10px;color:var(--teal);margin-top:5px;padding:3px 8px;
+        background:rgba(0,221,176,.06);border-radius:6px;display:inline-block">${info.sarjat}</div>
     </div>`;
+  }).join('');
 }
+
 
 // ══════════════════════════════════════════════════════════════
 // PELIPAIKKA
