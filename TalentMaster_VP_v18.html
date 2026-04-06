@@ -3566,11 +3566,13 @@ function _vpRakennaMOdaalit(container, seuraId) {
     _db.collection('seurat').doc(seuraId)
       .collection('joukkueet').get()
       .then(function(snap) {
-        snap = { docs: snap.docs.sort(function(a,b){ return (a.data().nimi||'').localeCompare(b.data().nimi||''); }), ...snap };
+        // Järjestetään docs erilliseen muuttujaan — ...spread ei kopioi
+        // QuerySnapshot:n metodeja, joten snap.forEach hajoaa plain-objektilla
+        var sortedDocs = snap.docs.sort(function(a,b){ return (a.data().nimi||'').localeCompare(b.data().nimi||''); });
         var sel = document.getElementById('vpKalJoukkue');
         if (!sel) return;
         sel.innerHTML = '<option value="">— valitse joukkue —</option>';
-        snap.forEach(function(d) {
+        sortedDocs.forEach(function(d) {
           var opt = document.createElement('option');
           opt.value = d.id;
           opt.textContent = d.data().nimi || d.id;
