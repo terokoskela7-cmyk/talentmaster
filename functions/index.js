@@ -346,26 +346,42 @@ exports.luoKayttaja = functions
       throw new functions.https.HttpsError('permission-denied',
         `Ei oikeuksia seuralle "${seuraId}".`);
     }
+    // ── KORJAUS 2026-04-06: sama henkilö voi toimia useassa roolissa ──────────
+    // Aikaisempi koodi heitti 'already-exists'-virheen jos sähköposti löytyi jo
+    // Authista. Tämä kaatoi prosessin tilanteessa jossa esim. henkilö on ensin
+    // rekisteröitynyt huoltajana ja hänet yritetään myöhemmin lisätä VP:ksi.
+    //
+    // Ratkaisu: sama logiikka kuin haeOrLuoHuoltajaAuth()-funktiossa.
+    // Jos email löytyy → käytetään olemassaolevaa UID:tä ja päivitetään vain
+    // rooli/seura Firestoreen. Jos ei löydy → luodaan uusi tili normaalisti.
+    // Molemmissa tapauksissa lähetetään salasanalinkki (vanhat käyttäjät saavat
+    // linkin joka ohjaa heidät uuteen rooliin).
+    let uid;
+    let onOlemassaOleva = false;
     try {
-      const olemassa = await auth.getUserByEmail(email);
-      if (olemassa) throw new functions.https.HttpsError('already-exists',
-        `${email} on jo käytössä.`);
+      const olemassaOleva = await auth.getUserByEmail(email);
+      // Käyttäjä löytyi — käytetään hänen UID:tään, ei luoda uutta tiliä
+      uid = olemassaOleva.uid;
+      onOlemassaOleva = true;
+      console.log(`[luoKayttaja] ${email} löytyi jo Authista (uid: ${uid}) — lisätään rooli ${rooli} seuralle ${seuraId}`);
     } catch (e) {
-      if (e.code === 'already-exists') throw e;
-      if (e.errorInfo && e.errorInfo.code !== 'auth/user-not-found') throw e;
+      // auth/user-not-found on normaali tapaus — luodaan uusi tili
+      if (e.errorInfo && e.errorInfo.code !== 'auth/user-not-found') {
+        throw new functions.https.HttpsError('internal', `Auth-haku epäonnistui: ${e.message}`);
+      }
+      const valiaikainenSalasana = 'TM_' + Math.random().toString(36).slice(2, 10).toUpperCase();
+      try {
+        const uusiKayttaja = await auth.createUser({
+          email, password: valiaikainenSalasana,
+          displayName: etunimi && sukunimi ? `${etunimi} ${sukunimi}` : (etunimi || email),
+          emailVerified: false, disabled: false,
+        });
+        uid = uusiKayttaja.uid;
+        console.log(`[luoKayttaja] Uusi Auth-tili luotu: ${email} (uid: ${uid})`);
+      } catch (createErr) {
+        throw new functions.https.HttpsError('internal', `Auth-luonti epäonnistui: ${createErr.message}`);
+      }
     }
-    const valiaikainenSalasana = 'TM_' + Math.random().toString(36).slice(2, 10).toUpperCase();
-    let uusiKayttaja;
-    try {
-      uusiKayttaja = await auth.createUser({
-        email, password: valiaikainenSalasana,
-        displayName: etunimi && sukunimi ? `${etunimi} ${sukunimi}` : (etunimi || email),
-        emailVerified: false, disabled: false,
-      });
-    } catch (e) {
-      throw new functions.https.HttpsError('internal', `Auth-luonti epäonnistui: ${e.message}`);
-    }
-    const uid = uusiKayttaja.uid;
     const nyt = admin.firestore.FieldValue.serverTimestamp();
     try {
       await db.collection('seurat').doc(seuraId)
@@ -385,7 +401,12 @@ exports.luoKayttaja = functions
         }
       }
     } catch (e) {
-      await auth.deleteUser(uid).catch(() => {});
+      // Rollback: poistetaan Auth-tili VAIN jos se luotiin juuri nyt.
+      // Olemassaolevaa käyttäjää ei koskaan poisteta — hänellä voi olla
+      // muita rooleja muissa seuroissa.
+      if (!onOlemassaOleva) {
+        await auth.deleteUser(uid).catch(() => {});
+      }
       throw new functions.https.HttpsError('internal', `Firestore-kirjoitus epäonnistui: ${e.message}`);
     }
 
