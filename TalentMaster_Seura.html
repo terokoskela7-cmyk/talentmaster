@@ -1203,10 +1203,12 @@ async function asetaAktiivinenSeura(seuraId) {
   tila._joukkueetKuuntelija = db
     .collection('seurat').doc(seuraId)
     .collection('joukkueet')
-    // Huom: orderBy vaatii Firestore-indeksin (jarjestys-kenttä joukkueet-kokoelmassa)
-    .orderBy('jarjestys')
+    // Järjestys client-puolella — ei vaadi Firestore-indeksiä
     .onSnapshot(snap => {
-      tila.joukkueet = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      tila.joukkueet = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (a.jarjestys ?? 99) - (b.jarjestys ?? 99)
+          || (a.nimi || '').localeCompare(b.nimi || ''));
       // Päivitä joukkuevalitsin modalissa
       paivitaJoukkueValitsin();
       // Päivitä näkymä jos joukkueet-välilehti auki
