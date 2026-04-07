@@ -2415,11 +2415,11 @@ let _fiiliTallennettu = false; // estetään tuplakirjaus saman päivän aikana
 function _renderFiilinki() {
   const p = _pelaaja;
   if (!p) return;
-  // Firestore: syntymavuosi (pienellä), fallback syntymaaika ISO-string
-  const syntymaVuosi = p.syntymavuosi || p.syntymaVuosi || p.syntymaaika_vuosi
-    || (p.syntymaaika ? new Date(p.syntymaaika).getFullYear() : null)
-    || (new Date().getFullYear() - 14);
-  const ika = new Date().getFullYear() - syntymaVuosi;
+  // Ikä: käytä suoraa ika-kenttää ensin, sitten laske syntymavuodesta
+  const synVuosi = p.syntymavuosi || p.syntymaVuosi || p.syntymaaika_vuosi
+    || (p.syntymaaika ? new Date(p.syntymaaika).getFullYear() : null);
+  const ika = p.ika                                       // suora kenttä (Firestore)
+    || (synVuosi ? new Date().getFullYear() - synVuosi : 13); // laskettu
 
   const perustaso  = document.getElementById('fiiliPerustaso');
   const kehitystaso = document.getElementById('fiiliKehitystaso');
