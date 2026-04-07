@@ -1016,11 +1016,13 @@ function haeProgressioAvain(tyyppi, ketjuId) {
 function generoimTehtavat(pelaaja) {
   if (!pelaaja) return [];
 
-  // Ikä: käytä suoraa kenttää tai laske syntymavuodesta
-  const synVuosi = pelaaja.syntymavuosi || pelaaja.syntymaVuosi
-    || (pelaaja.syntymaaika ? new Date(pelaaja.syntymaaika).getFullYear() : null);
-  const ika = pelaaja.ika
-    || (synVuosi ? new Date().getFullYear() - synVuosi : 13);
+  // Ikä: suora kenttä tai Timestamp-safe laskenta syntymavuodesta
+  const _gTs = pelaaja.syntymaaika;
+  const _gSyn = pelaaja.syntymavuosi || pelaaja.syntymaVuosi
+    || (_gTs?.toDate ? _gTs.toDate().getFullYear()
+       : _gTs?.seconds ? new Date(_gTs.seconds * 1000).getFullYear()
+       : _gTs ? new Date(_gTs).getFullYear() : null);
+  const ika = pelaaja.ika || (_gSyn ? new Date().getFullYear() - _gSyn : 13);
   const phv     = pelaaja.phv_tila || 'AN';
   const jakso   = laskeMissaJaksossa();
 
@@ -1390,12 +1392,60 @@ function vaihtokirjautuminen(tila) {
 
 // ── Firebase Auth state ────────────────────────────────────────────────────
 // Järjestys: 1) Firebase-sessio  2) Demo  3) PIN-sessio  4) Login
+// ── URL-parametritarkistus (ei kirjautumista) ─────────────────────────────
+async function _tarkistaUrlParam() {
+  const params   = new URLSearchParams(location.search);
+  const pelaajaId = params.get('pelaajaId');
+  const seuraId   = params.get('seuraId');
+  if (!pelaajaId || !seuraId) return false;
+
+  try {
+    // Anonyymi kirjautuminen Firestore-oikeuksien saamiseksi
+    if (!_auth.currentUser) {
+      await _auth.signInAnonymously();
+    }
+
+    const snap = await _db
+      .collection('seurat').doc(seuraId)
+      .collection('pelaajat').doc(pelaajaId).get();
+
+    if (!snap.exists) return false;
+    const data = snap.data();
+
+    // Turvallisuus: vain aktiiviset pelaajat joilla suostumus annettu
+    if (data.suostumusTila !== 'annettu' && data.tila !== 'aktiivinen') {
+      console.warn('[URL] Pelaajalla ei ole voimassa olevaa suostumusta');
+      return false;
+    }
+
+    _pelaaja = { id: snap.id, seuraId, ...data };
+    if (data.kortti_lunastettu) _pelaaja._kortti_lunastettu = data.kortti_lunastettu;
+
+    // Tallenna sessio → seuraavat vierailut toimivat ilman URL-parametria
+    try {
+      localStorage.setItem('tm_pin_sessio', JSON.stringify({
+        pelaajaId, seuraId, ts: Date.now(),
+        nimi: data.etunimi || data.nimi || '',
+      }));
+    } catch(e) {}
+
+    await _alustaUI();
+    return true;
+  } catch(e) {
+    console.warn('[URL-param]', e.message);
+    return false;
+  }
+}
+
 _auth.onAuthStateChanged(async user => {
   if (_kirjautuminenKesken) return;
   if (user) { await _lataaFirebasePelaaja(user); return; }
   if (_isDemoUser) return;
   const pinOk = await _tarkistaPinSessio();
   if (pinOk) return;
+  // Uusi: yritä URL-parametreilla suora avaus
+  const urlOk = await _tarkistaUrlParam();
+  if (urlOk) return;
   nayta('sLogin');
 });
 
@@ -2416,10 +2466,13 @@ function _renderFiilinki() {
   const p = _pelaaja;
   if (!p) return;
   // Ikä: käytä suoraa ika-kenttää ensin, sitten laske syntymavuodesta
-  const synVuosi = p.syntymavuosi || p.syntymaVuosi || p.syntymaaika_vuosi
-    || (p.syntymaaika ? new Date(p.syntymaaika).getFullYear() : null);
-  const ika = p.ika                                       // suora kenttä (Firestore)
-    || (synVuosi ? new Date().getFullYear() - synVuosi : 13); // laskettu
+  // Firestore Timestamp-objekti: {seconds, nanoseconds} — käytä .toDate() tai .seconds
+  const _synTs = p.syntymaaika;
+  const _synVuosi = p.syntymavuosi || p.syntymaVuosi || p.syntymaaika_vuosi
+    || (_synTs?.toDate ? _synTs.toDate().getFullYear()
+       : _synTs?.seconds ? new Date(_synTs.seconds * 1000).getFullYear()
+       : _synTs ? new Date(_synTs).getFullYear() : null);
+  const ika = p.ika || (_synVuosi ? new Date().getFullYear() - _synVuosi : 13);
 
   const perustaso  = document.getElementById('fiiliPerustaso');
   const kehitystaso = document.getElementById('fiiliKehitystaso');
