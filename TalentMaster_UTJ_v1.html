@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TalentMaster™ — Urheilutoimenjohtaja</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --accent:  #00D4AA;
+  --accent2: #3EECC4;
+  --bg:      #06090F;
+  --bg2:     #0D1117;
+  --bg3:     #131920;
+  --surface: #161D27;
+  --border:  rgba(255,255,255,0.07);
+  --bord2:   rgba(255,255,255,0.12);
+  --text:    #E8EEF8;
+  --ink2:    #B0BCCC;
+  --ink3:    #6B7A8D;
+  --blue:    #4A7ED9;
+  --green:   #2ED573;
+  --amber:   #FFA502;
+  --red:     #FF4757;
+  --purple:  #A855F7;
+  --gold:    #F5B700;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+
+/* ── LOGIN ─────────────────────────────── */
+#sLogin{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 32px;width:100%;max-width:380px;}
+.login-logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:28px;color:var(--text);margin-bottom:4px;}
+.login-logo span{color:var(--accent);}
+.login-sub{font-size:11px;color:var(--ink3);letter-spacing:1px;text-transform:uppercase;margin-bottom:28px;}
+.login-label{font-size:11px;color:var(--ink3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px;}
+.login-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;margin-bottom:14px;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;background:var(--accent);color:#000;border:none;border-radius:8px;padding:12px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .2s;margin-top:4px;}
+.login-btn:hover{opacity:.88;}
+.login-error{font-size:12px;color:var(--red);margin-top:8px;text-align:center;min-height:18px;}
+
+/* ── LAYOUT ─────────────────────────────── */
+#sApp{display:none;}
+.layout{display:grid;grid-template-columns:210px 1fr;min-height:100vh;}
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr;}
+  .sidebar{height:auto;position:static;border-right:none;border-bottom:1px solid var(--border);}
+  .sb-nav{display:flex;flex-wrap:wrap;padding:8px;}
+  .nav-group-label{display:none;}
+  .nav-item{padding:8px 12px;border-left:none !important;}
+  .nav-item.active{border-left:none !important;background:rgba(0,212,170,.1);}
+  .content{padding:14px 12px;}
+}
+
+/* ── SIDEBAR ─────────────────────────────── */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid var(--border);}
+.sb-logo-txt{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--accent);letter-spacing:1px;}
+.sb-seura{font-size:12px;font-weight:700;color:var(--text);margin-top:3px;}
+.sb-role{font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.8px;margin-top:1px;}
+.sb-user{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.sb-avatar{width:28px;height:28px;border-radius:50%;background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.3);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:900;color:var(--accent);flex-shrink:0;}
+.sb-email{font-size:11px;color:var(--ink3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sb-nav{flex:1;padding:10px 0;}
+.nav-group-label{font-size:9px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:1.2px;padding:10px 16px 4px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:13px;font-weight:500;color:var(--ink2);cursor:pointer;transition:all .15s;border-left:3px solid transparent;user-select:none;}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.03);}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,212,170,.08);font-weight:600;}
+.nav-item .ni{font-size:15px;flex-shrink:0;width:20px;text-align:center;}
+.sb-links{padding:10px 16px;border-top:1px solid var(--border);}
+.sb-link-btn{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink3);padding:6px 0;cursor:pointer;transition:color .15s;background:none;border:none;width:100%;text-align:left;}
+.sb-link-btn:hover{color:var(--text);}
+.sb-out{padding:10px 16px;border-top:1px solid var(--border);}
+.out-btn{font-size:12px;color:var(--ink3);cursor:pointer;display:flex;align-items:center;gap:6px;transition:color .15s;background:none;border:none;padding:0;}
+.out-btn:hover{color:var(--red);}
+
+/* ── CONTENT ─────────────────────────────── */
+.content{overflow-y:auto;}
+.inner{padding:22px 24px;}
+.view{display:none;}
+.view.active{display:block;}
+
+/* ── KOMPONENTIT ─────────────────────────── */
+.page-title{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--ink2);margin-bottom:20px;line-height:1.5;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px;}
+.card-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;letter-spacing:1px;color:var(--accent);margin-bottom:14px;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+@media(max-width:800px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--a,var(--accent));}
+.kpi-val{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;color:var(--a,var(--accent));line-height:1;margin-bottom:4px;}
+.kpi-label{font-size:11px;color:var(--ink3);font-weight:500;line-height:1.4;}
+.kpi-sub{font-size:10px;color:var(--ink3);margin-top:4px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+@media(max-width:700px){.grid2{grid-template-columns:1fr;}}
+.stitle{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:10px;color:var(--text);}
+.stitle::after{content:'';flex:1;height:1px;background:var(--border);}
+.info-box{background:rgba(0,212,170,.04);border:1px solid rgba(0,212,170,.15);border-left:3px solid rgba(0,212,170,.4);border-radius:10px;padding:14px 16px;margin-bottom:16px;}
+.info-box-title{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;}
+.info-box-text{font-size:13px;color:var(--ink2);line-height:1.7;}
+.info-box-text strong{color:var(--text);}
+.badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;display:inline-block;}
+.badge-ok{background:rgba(46,213,115,.1);color:var(--green);}
+.badge-warn{background:rgba(255,165,2,.1);color:var(--amber);}
+.badge-red{background:rgba(255,71,87,.1);color:var(--red);}
+.badge-blue{background:rgba(74,126,217,.1);color:var(--blue);}
+.badge-teal{background:rgba(0,212,170,.1);color:var(--accent);}
+.loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--ink3);gap:10px;}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.prow{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.plabel{font-size:11px;color:var(--ink3);width:100px;flex-shrink:0;}
+.ptrack{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.pfill{height:100%;border-radius:3px;}
+.pval{font-size:11px;font-weight:600;width:40px;text-align:right;}
+table{width:100%;border-collapse:collapse;}
+th{font-size:11px;color:var(--ink3);font-weight:600;text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px;}
+td{padding:9px 10px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--ink2);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.015);}
+.toiminto-nappi{background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .2s;}
+.toiminto-nappi:hover{opacity:.85;}
+.toiminto-nappi.toissijainen{background:none;border:1px solid var(--border);color:var(--ink2);font-weight:500;}
+.toiminto-nappi.toissijainen:hover{color:var(--text);border-color:var(--bord2);}
+#toast{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.toast-item{background:var(--surface);border:1px solid var(--bord2);border-radius:10px;padding:12px 16px;font-size:13px;animation:fadeUp .3s ease;min-width:200px;}
+.toast-ok{border-left:3px solid var(--green);}
+.toast-red{border-left:3px solid var(--red);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="sLogin">
+  <div class="login-box">
+    <div class="login-logo">Talent<span>Master</span>™</div>
+    <div class="login-sub">Urheilutoimenjohtaja</div>
+    <div class="login-label">Sähköposti</div>
+    <input class="login-input" type="email" id="loginEmail" placeholder="utj@seura.fi" autocapitalize="none">
+    <div class="login-label">Salasana</div>
+    <input class="login-input" type="password" id="loginPass" placeholder="••••••••">
+    <button class="login-btn" onclick="kirjauduSisaan()">Kirjaudu sisään</button>
+    <div class="login-error" id="loginVirhe"></div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="sApp">
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-txt">TM™</div>
+      <div class="sb-seura" id="sbSeura">—</div>
+      <div class="sb-role">Urheilutoimenjohtaja</div>
+    </div>
+    <div class="sb-user">
+      <div class="sb-avatar" id="sbAvatar">UT</div>
+      <div class="sb-email" id="sbEmail">—</div>
+    </div>
+
+    <nav class="sb-nav">
+      <!-- Seura -->
+      <div class="nav-group-label">Seura</div>
+      <div class="nav-item active" id="nav-yhteenveto" onclick="naytaNakuma('yhteenveto',this)">
+        <span class="ni">🏛️</span> Yhteenveto
+      </div>
+      <div class="nav-item" id="nav-sopimukset" onclick="naytaNakuma('sopimukset',this)">
+        <span class="ni">📋</span> Pilottisopimukset
+      </div>
+      <div class="nav-item" id="nav-lisenssit" onclick="naytaNakuma('lisenssit',this)">
+        <span class="ni">💰</span> Lisenssit
+      </div>
+
+      <!-- Kehitys -->
+      <div class="nav-group-label" style="margin-top:6px">Kehitystyö</div>
+      <div class="nav-item" id="nav-suppilo" onclick="naytaNakuma('suppilo',this)">
+        <span class="ni">📈</span> Kasvattisuppilo
+      </div>
+      <div class="nav-item" id="nav-kehityspolut" onclick="naytaNakuma('kehityspolut',this)">
+        <span class="ni">🔀</span> Kehityspolut
+      </div>
+      <div class="nav-item" id="nav-talentit" onclick="naytaNakuma('talentit',this)">
+        <span class="ni">🌟</span> Talent-tunnistukset
+      </div>
+
+      <!-- Palloliitto -->
+      <div class="nav-group-label" style="margin-top:6px">Palloliitto</div>
+      <div class="nav-item" id="nav-veat" onclick="naytaNakuma('veat',this)">
+        <span class="ni">🤝</span> VEAT-yhteistyö
+      </div>
+      <div class="nav-item" id="nav-vertailu" onclick="naytaNakuma('vertailu',this)">
+        <span class="ni">📊</span> Seuravertailu
+      </div>
+    </nav>
+
+    <div class="sb-links">
+      <button class="sb-link-btn" onclick="window.open('TalentMaster_VP_v20.html','_blank')">
+        🎯 VP-näkymä ↗
+      </button>
+      <button class="sb-link-btn" onclick="window.open('TalentMaster_Master_v9.html','_blank')">
+        👤 Valmentajan näkymä ↗
+      </button>
+    </div>
+    <div class="sb-out">
+      <button class="out-btn" onclick="kirjauduUlos()">⎋ Kirjaudu ulos</button>
+    </div>
+  </div>
+
+  <!-- SISÄLTÖ -->
+  <div class="content">
+
+    <!-- ══ YHTEENVETO ══ -->
+    <div class="view active" id="view-yhteenveto">
+    <div class="inner">
+      <div class="page-title">Hei, <span id="utjTervehdys" style="color:var(--accent)">UTJ</span> 👋</div>
+      <div class="page-sub" id="utjPvm">Ladataan...</div>
+
+      <div class="kpi-grid">
+        <div class="kpi" style="--a:var(--accent)">
+          <div class="kpi-val" id="kpiSeurat">—</div>
+          <div class="kpi-label">Pilottiseuraa</div>
+          <div class="kpi-sub">aktiivisia sopimuksia</div>
+        </div>
+        <div class="kpi" style="--a:var(--blue)">
+          <div class="kpi-val" id="kpiPelaajat">—</div>
+          <div class="kpi-label">Pelaajaa rekisterissä</div>
+          <div class="kpi-sub">kaikki seurat yhteensä</div>
+        </div>
+        <div class="kpi" style="--a:var(--green)">
+          <div class="kpi-val" id="kpiKasvatteja">—</div>
+          <div class="kpi-label">Kasvattia edustuksessa</div>
+          <div class="kpi-sub">kehityspolku-merkinnät</div>
+        </div>
+        <div class="kpi" style="--a:var(--gold)">
+          <div class="kpi-val" id="kpiMinuutteja">—</div>
+          <div class="kpi-label">Edustusminuuttia</div>
+          <div class="kpi-sub">kasvateilla tällä kaudella</div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">🏆 Seurat sarjatasoittain</div>
+          <div id="seuraJakauma">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">📈 Kehityspolku — viimeisin aktiviteetti</div>
+          <div id="viimeisinAktiviteetti">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚡ Toimenpiteet</div>
+        <div id="toimenpiteet">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- ══ PILOTTISOPIMUKSET ══ -->
+    <div class="view" id="view-sopimukset">
+    <div class="inner">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div class="page-title">Pilottisopimukset</div>
+          <div style="font-size:13px;color:var(--ink2);">Seurakohtaiset sopimukset, tila ja uusintapäivät</div>
+        </div>
+        <button class="toiminto-nappi" onclick="avaaSopimus()">+ Uusi sopimus</button>
+      </div>
+      <div id="sopimuksetAlue">
+        <div class="loading"><div class="spinner"></div>Ladataan sopimuksia...</div>
+      </div>
+    </div>
+    </div>
+
+    <!-- ══ LISENSSIT ══ -->
+    <div class="view" id="view-lisenssit">
+    <div class="inner">
+      <div class="page-title">Lisenssit &amp; laskutus</div>
+      <div class="page-sub">Seurakohtaiset lisenssitasot, hinnat ja laskutuskalenteri</div>
+
+      <div class="info-box">
+        <div class="info-box-title">💡 Vahvistettu hinnoittelumalli</div>
+        <div class="info-box-text">
+          <strong>Kiinteä seuralisenssi</strong> 200–400 €/kausi (ennustettava MRR) +
+          <strong>per-pelaaja-raportit</strong> (skaalautuva) +
+          <strong>Clinic-kertamaksut</strong> (suora tulo). Tero = kehittäjä + satunnainen konsultti, ei pullonkaula.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Lisenssitasot</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Taso</th><th>Hinta/kausi</th><th>Sisältö</th><th>Kohderyhmä</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-teal">Perustaso</span></td>
+              <td style="color:var(--text);font-weight:600;">200 €</td>
+              <td>Pelaajaprofiilit, testaus, kalenteri</td>
+              <td>Pienseurat, Kakkonen</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-blue">Kehitystaso</span></td>
+              <td style="color:var(--text);font-weight:600;">300 €</td>
+              <td>+ Kehityspolku, VP-dashboard, raportointi</td>
+              <td>Ykkönen-seurat</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-ok">Huipputaso</span></td>
+              <td style="color:var(--text);font-weight:600;">400 €</td>
+              <td>+ UTJ-näkymä, kasvattisuppilo, Palloliitto-data</td>
+              <td>Veikkausliiga-seurat</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💳 Seurakohtainen laskutus</div>
+        <div id="laskutusAlue">
+          <div class="loading"><div class="spinner"></div>Ladataan laskutustietoja...</div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- ══ KASVATTISUPPILO ══ -->
+    <div class="view" id="view-suppilo">
+    <div class="inner">
+      <div class="page-title">Kasvattisuppilo</div>
+      <div class="page-sub">Kuinka moni seuran kasvatti pelaa edustus- tai lainaminuutteja — kausittainen trendi</div>
+
+      <div class="info-box">
+        <div class="info-box-title">📌 Miksi tämä on tärkein mittari</div>
+        <div class="info-box-text">
+          Kasvattitehokkuus on ainoa mittari joka kertoo <strong>kehitysjärjestelmän todellisen arvon</strong>.
+          Tämä data ei ole saatavilla mistään muualta Suomessa systemaattisesti.
+          TalentMaster on ensimmäinen työkalu joka mahdollistaa tämän seurannan.
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi" style="--a:var(--accent)">
+          <div class="kpi-val" id="supKasvatteja">—</div>
+          <div class="kpi-label">Kasvattia edustuksessa</div>
+        </div>
+        <div class="kpi" style="--a:var(--blue)">
+          <div class="kpi-val" id="supVL">—</div>
+          <div class="kpi-label">VL / Ykkönen</div>
+        </div>
+        <div class="kpi" style="--a:var(--green)">
+          <div class="kpi-val" id="supMin">—</div>
+          <div class="kpi-label">Minuuttia yhteensä</div>
+        </div>
+        <div class="kpi" style="--a:var(--gold)">
+          <div class="kpi-val" id="supTehokkuus">—</div>
+          <div class="kpi-label">Kasvattitehokkuus</div>
+          <div class="kpi-sub">% rekisteröidyistä</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Sarjatasojakauma</div>
+        <div id="sarjatasoJakauma">
+          <div class="loading"><div class="spinner"></div>Ladataan dataa...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔀 Kaikki kasvattimerkinnät</div>
+        <div id="suppiloTaulukko">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- ══ KEHITYSPOLUT ══ -->
+    <div class="view" id="view-kehityspolut">
+    <div class="inner">
+      <div class="page-title">Kehityspolut</div>
+      <div class="page-sub">VP:n syöttämä edustuspelaajadata — lukijanäkymä, ei syöttöä</div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <button id="kp-btn-kaikki" onclick="suodataKP('kaikki',this)"
+          style="padding:5px 12px;border-radius:16px;border:1px solid var(--accent);background:var(--accent);color:#000;font-size:11px;font-weight:700;cursor:pointer;">
+          Kaikki
+        </button>
+        <button id="kp-btn-vl" onclick="suodataKP('vl',this)"
+          style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+          🏆 Veikkausliiga
+        </button>
+        <button id="kp-btn-yk" onclick="suodataKP('yk',this)"
+          style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+          🥈 Ykkönen
+        </button>
+        <button id="kp-btn-laina" onclick="suodataKP('laina',this)"
+          style="padding:5px 12px;border-radius:16px;border:1px solid var(--border);background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:600;cursor:pointer;">
+          🔁 Lainalla
+        </button>
+      </div>
+
+      <div id="kehityspolkuAlue">
+        <div class="loading"><div class="spinner"></div>Ladataan kehityspolkuja...</div>
+      </div>
+    </div>
+    </div>
+
+    <!-- ══ TALENT-TUNNISTUKSET ══ -->
+    <div class="view" id="view-talentit">
+    <div class="inner">
+      <div class="page-title">Talent-tunnistukset</div>
+      <div class="page-sub">Hidden Gem ja X-Factor -signaalit kaikista pilottiseuroista</div>
+      <div id="talenttiAlue">
+        <div class="loading"><div class="spinner"></div>Ladataan...</div>
+      </div>
+    </div>
+    </div>
+
+    <!-- ══ VEAT ══ -->
+    <div class="view" id="view-veat">
+    <div class="inner">
+      <div class="page-title">VEAT-yhteistyö</div>
+      <div class="page-sub">Suomen Palloliitto — VEAT 2026 -koulutusohjelmayhteistyö</div>
+
+      <div class="info-box">
+        <div class="info-box-title">🎯 Strateginen tavoite</div>
+        <div class="info-box-text">
+          TalentMaster tukee Palloliiton <strong>JET-VEAT -opetussuunnitelmaa</strong>.
+          Avainyhteyshenkilöt: <strong>Timo Huttunen</strong> ja <strong>Matti Lähitie</strong>.
+          Tavoite: TalentMaster asemoituu VEAT 2026 -ohjelman viralliseksi kehitystyökaluksi.
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">📋 Yhteistyön status</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg3);border-radius:8px;">
+              <div style="font-size:13px;color:var(--ink2);">Ehdotus lähetetty</div>
+              <span class="badge badge-ok">Tehty</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg3);border-radius:8px;">
+              <div style="font-size:13px;color:var(--ink2);">Pilottiseura: "Pilottiseura"</div>
+              <span class="badge badge-ok">Vahvistettu</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg3);border-radius:8px;">
+              <div style="font-size:13px;color:var(--ink2);">VEAT 2026 -integraatio</div>
+              <span class="badge badge-warn">Neuvottelussa</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg3);border-radius:8px;">
+              <div style="font-size:13px;color:var(--ink2);">Kasvattidatan jako Palloliitolle</div>
+              <span class="badge badge-blue">Suunniteltu</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">📅 Seuraavat askeleet</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="padding:10px 12px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--accent);">
+              <div style="font-size:12px;font-weight:600;color:var(--text);">Kehityspolku-data Huttuselle</div>
+              <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Kun 1 kausi dataa kertynyt</div>
+            </div>
+            <div style="padding:10px 12px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--amber);">
+              <div style="font-size:12px;font-weight:600;color:var(--text);">UTJ-sivu esittely Palloliitolle</div>
+              <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Kasvattisuppilo-näkymä</div>
+            </div>
+            <div style="padding:10px 12px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--blue);">
+              <div style="font-size:12px;font-weight:600;color:var(--text);">Kansallinen kasvattiseuranta</div>
+              <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Suomen ensimmäinen systemaattinen malli</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- ══ SEURAVERTAILU ══ -->
+    <div class="view" id="view-vertailu">
+    <div class="inner">
+      <div class="page-title">Seuravertailu</div>
+      <div class="page-sub">TalentMaster-pilottiseurojen vertailu — kehitysdatan perusteella</div>
+
+      <div class="info-box" style="border-color:rgba(74,126,217,.2);background:rgba(74,126,217,.04);">
+        <div class="info-box-title" style="color:var(--blue);">📌 Huom. anonymiteetti</div>
+        <div class="info-box-text">
+          Seurakohtainen vertailu näkyy vain UTJ:lle — ei valmentajille eikä VP:lle muissa seuroissa.
+          Data anonymisoidaan ennen Palloliitto-jakoa.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 U21-peliminuutit sarjatasoittain (VL + Ykkönen)</div>
+        <div id="vertailuAlue">
+          <div class="loading"><div class="spinner"></div>Ladataan vertailua...</div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /layout -->
+</div><!-- /sApp -->
+
+<div id="toast"></div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_auth.js"></script>
+<script>
+
+/* ══ FIREBASE ══ */
+const _fbCfg = {
+  apiKey:            'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo',
+  authDomain:        'talentmaster-pilot.firebaseapp.com',
+  projectId:         'talentmaster-pilot',
+  storageBucket:     'talentmaster-pilot.firebasestorage.app',
+  messagingSenderId: '872561784446',
+  appId:             '1:872561784446:web:05c4c7996dfd46ddd14a2f',
+};
+if (!firebase.apps.length) firebase.initializeApp(_fbCfg);
+const _auth = firebase.auth();
+const _db   = firebase.firestore();
+
+/* ══ TILA ══ */
+let _user    = null;
+let _seuraId = null;
+let _seuraNimi = '';
+let _kpData  = [];
+let _kpFiltteri = 'kaikki';
+
+const SEURA_PROFIILIT = {
+  'kpv':        { nimi:'KPV',             koko:'KPV Kokkola',       sarjataso:'Ykkönen'      },
+  'fcl':        { nimi:'FC Lahti',        koko:'FC Lahti Juniorit', sarjataso:'Ykkönen'      },
+  'palloiirot': { nimi:'Pallo-Iirot',     koko:'Pallo-Iirot',       sarjataso:'Kakkonen'     },
+  'yvies':      { nimi:'Ylöjärven Ilves', koko:'Ylöjärven Ilves',   sarjataso:'Kakkonen'     },
+  'sjk':        { nimi:'SJK',             koko:'SJK Juniorit',      sarjataso:'Veikkausliiga' },
+  'grifk':      { nimi:'GrIFK',           koko:'GrIFK',             sarjataso:'Ykkönen'      },
+  'hjk':        { nimi:'HJK',             koko:'HJK Juniorit',      sarjataso:'Veikkausliiga' },
+};
+
+/* ══ AUTH ══ */
+_auth.onAuthStateChanged(async user => {
+  if (!user) { nayta('sLogin'); return; }
+  _user = user;
+  const emailEl = document.getElementById('sbEmail');
+  if (emailEl) emailEl.textContent = user.email || '—';
+  const avatarEl = document.getElementById('sbAvatar');
+  if (avatarEl) avatarEl.textContent = (user.email||'UT').substring(0,2).toUpperCase();
+
+  // Yritä hakea seuraId profiilista
+  try {
+    const snap = await _db.collection('kayttajat').doc(user.uid).get();
+    const d = snap.data() || {};
+    _seuraId = d.seuraId || null;
+    _seuraNimi = d.seuraNimi || (_seuraId ? (SEURA_PROFIILIT[_seuraId]||{}).koko || _seuraId : 'TalentMaster');
+  } catch(e) {
+    // Fallback: admin näkee kaiken
+    _seuraId = null;
+    _seuraNimi = 'TalentMaster™ Admin';
+  }
+
+  const seuraEl = document.getElementById('sbSeura');
+  if (seuraEl) seuraEl.textContent = _seuraNimi;
+
+  nayta('sApp');
+  lataaYhteenveto();
+});
+
+function nayta(id) {
+  var sLogin = document.getElementById('sLogin');
+  var sApp   = document.getElementById('sApp');
+  if (sLogin) sLogin.style.display = id === 'sLogin' ? 'flex' : 'none';
+  if (sApp)   sApp.style.display   = id === 'sApp'   ? 'block' : 'none';
+}
+
+function naytaNakuma(nimi, btn) {
+  document.querySelectorAll('.view').forEach(function(v){
+    v.style.display = 'none'; v.classList.remove('active');
+  });
+  var el = document.getElementById('view-' + nimi);
+  if (el) { el.style.display = 'block'; el.classList.add('active'); }
+  document.querySelectorAll('.nav-item').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  else { var nb = document.getElementById('nav-'+nimi); if(nb) nb.classList.add('active'); }
+
+  // Lazy-lataus
+  var fn = {
+    yhteenveto:   lataaYhteenveto,
+    sopimukset:   laataaSopimukset,
+    lisenssit:    lataaLisenssit,
+    suppilo:      laataaSuppilo,
+    kehityspolut: lataaKehityspolut,
+    talentit:     laataaTalentit,
+    veat:         function(){},
+    vertailu:     lataaVertailu,
+  };
+  if (fn[nimi]) { try { fn[nimi](); } catch(e) { console.warn('[UTJ nayta]', e.message); } }
+}
+
+/* ══ TOAST ══ */
+function naytaToast(teksti, tyyppi) {
+  var t = document.createElement('div');
+  t.className = 'toast-item toast-' + (tyyppi||'ok');
+  t.textContent = teksti;
+  document.getElementById('toast').appendChild(t);
+  setTimeout(function(){ t.remove(); }, 3500);
+}
+
+/* ══ YHTEENVETO ══ */
+async function lataaYhteenveto() {
+  // Päivämäärä
+  var pvmEl = document.getElementById('utjPvm');
+  if (pvmEl) pvmEl.textContent = new Date().toLocaleDateString('fi-FI', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  var terEl = document.getElementById('utjTervehdys');
+  if (terEl && _user) terEl.textContent = (_user.email||'UTJ').split('@')[0];
+
+  // KPI: seurat
+  var seuraLkm = Object.keys(SEURA_PROFIILIT).length;
+  _setKpi('kpiSeurat', seuraLkm);
+
+  // Kehityspolku-data
+  try {
+    var scope = _seuraId
+      ? _db.collection('seurat').doc(_seuraId).collection('kehityspolku')
+      : null;
+
+    if (scope) {
+      var snap = await scope.get();
+      _kpData = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    } else {
+      _kpData = [];
+    }
+
+    var totalMin = _kpData.reduce(function(s,p){ return s+(p.minuuttia||0); }, 0);
+    var uniikki = {};
+    _kpData.forEach(function(p){ uniikki[p.pelaajaNimi]=true; });
+    _setKpi('kpiKasvatteja', Object.keys(uniikki).length);
+    _setKpi('kpiMinuutteja', totalMin > 0 ? totalMin.toLocaleString('fi') : '0');
+  } catch(e) {
+    _setKpi('kpiKasvatteja', '—');
+    _setKpi('kpiMinuutteja', '—');
+  }
+
+  // Pelaajat-yhteenlasku (yksinkertaistettu)
+  _setKpi('kpiPelaajat', '—');
+
+  // Seurajakauma
+  var sjEl = document.getElementById('seuraJakauma');
+  if (sjEl) {
+    var sarjat = {Veikkausliiga:0, Ykkönen:0, Kakkonen:0};
+    Object.values(SEURA_PROFIILIT).forEach(function(p){ if(sarjat[p.sarjataso]!==undefined) sarjat[p.sarjataso]++; });
+    var html = '';
+    Object.entries(sarjat).forEach(function(e){
+      var pct = Math.round(e[1]/seuraLkm*100);
+      html += '<div class="prow"><div class="plabel">'+e[0]+'</div>'
+        +'<div class="ptrack"><div class="pfill" style="width:'+pct+'%;background:var(--accent);"></div></div>'
+        +'<div class="pval" style="color:var(--accent);">'+e[1]+'</div></div>';
+    });
+    sjEl.innerHTML = html || '<div style="color:var(--ink3);font-size:13px;">Ei dataa</div>';
+  }
+
+  // Viimeisin aktiviteetti
+  var vaEl = document.getElementById('viimeisinAktiviteetti');
+  if (vaEl) {
+    if (_kpData.length > 0) {
+      var viimeisin = _kpData[0];
+      vaEl.innerHTML = '<div style="font-size:13px;color:var(--text);font-weight:600;">'
+        + _esc(viimeisin.pelaajaNimi) + '</div>'
+        + '<div style="font-size:11px;color:var(--ink3);margin-top:3px;">'
+        + _esc(viimeisin.edustusSeura||'—') + ' · ' + (_SARJANIMET[viimeisin.sarja]||'—')
+        + ' · ' + (viimeisin.minuuttia||0) + ' min</div>';
+    } else {
+      vaEl.innerHTML = '<div style="color:var(--ink3);font-size:13px;">Ei vielä kehityspolkumerkintöjä.<br>VP syöttää minuutit omasta dashboardista.</div>';
+    }
+  }
+
+  // Toimenpiteet
+  var toimEl = document.getElementById('toimenpiteet');
+  if (toimEl) {
+    var toimet = [];
+    if (_kpData.length === 0) toimet.push({taso:'info', teksti:'Pyydä VP:tä lisäämään ensimmäiset edustuspelaajat Kehityspolku-välilehdeltä'});
+    toimet.push({taso:'ok', teksti: seuraLkm + ' pilottiseuraa onboarded — sopimukset OK'});
+    toimet.push({taso:'info', teksti:'VEAT 2026 -neuvottelut kesken — Timo Huttunen'});
+    toimEl.innerHTML = toimet.map(function(t){
+      var v = t.taso==='info'?'var(--blue)':t.taso==='ok'?'var(--green)':'var(--amber)';
+      return '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:6px;border-left:3px solid '+v+';">'
+        +'<div style="font-size:13px;color:var(--ink2);">'+t.teksti+'</div></div>';
+    }).join('');
+  }
+}
+
+/* ══ SOPIMUKSET ══ */
+async function laataaSopimukset() {
+  var el = document.getElementById('sopimuksetAlue');
+  if (!el) return;
+  var seurat = Object.entries(SEURA_PROFIILIT);
+  var html = '<table><thead><tr><th>Seura</th><th>Sarjataso</th><th>Lisenssi</th><th>Tila</th><th>Uusinta</th></tr></thead><tbody>';
+  seurat.forEach(function(e){
+    var id = e[0]; var p = e[1];
+    var tila = id==='sjk'||id==='kpv'||id==='palloiirot'?'Aktiivinen':'Neuvottelussa';
+    var tilaKlass = tila==='Aktiivinen'?'badge-ok':'badge-warn';
+    var lisenssi = p.sarjataso==='Veikkausliiga'?'Huipputaso':p.sarjataso==='Ykkönen'?'Kehitystaso':'Perustaso';
+    html += '<tr><td style="color:var(--text);font-weight:600;">'+p.koko+'</td>'
+      +'<td>'+p.sarjataso+'</td>'
+      +'<td><span class="badge badge-teal">'+lisenssi+'</span></td>'
+      +'<td><span class="badge '+tilaKlass+'">'+tila+'</span></td>'
+      +'<td style="color:var(--ink3);">31.12.2025</td></tr>';
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function avaaSopimus() {
+  naytaToast('Sopimuksen lisäys — tulossa pian', 'ok');
+}
+
+/* ══ LISENSSIT ══ */
+async function lataaLisenssit() {
+  var el = document.getElementById('laskutusAlue');
+  if (!el) return;
+  var html = '<table><thead><tr><th>Seura</th><th>Taso</th><th>Hinta/kausi</th><th>Tila</th></tr></thead><tbody>';
+  Object.entries(SEURA_PROFIILIT).forEach(function(e){
+    var p = e[1];
+    var hinta = p.sarjataso==='Veikkausliiga'?'400 €':p.sarjataso==='Ykkönen'?'300 €':'200 €';
+    html += '<tr><td style="color:var(--text);">'+p.koko+'</td>'
+      +'<td>'+p.sarjataso+'</td>'
+      +'<td style="color:var(--accent);font-weight:600;">'+hinta+'</td>'
+      +'<td><span class="badge badge-ok">Maksettu</span></td></tr>';
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+/* ══ KASVATTISUPPILO ══ */
+async function laataaSuppilo() {
+  var totalMin = _kpData.reduce(function(s,p){ return s+(p.minuuttia||0); }, 0);
+  var vlyk = _kpData.filter(function(p){ return p.sarja==='vl'||p.sarja==='yk'; }).length;
+  var uniikki = {};
+  _kpData.forEach(function(p){ uniikki[p.pelaajaNimi]=true; });
+  var lkm = Object.keys(uniikki).length;
+  _setKpi('supKasvatteja', lkm);
+  _setKpi('supVL', vlyk);
+  _setKpi('supMin', totalMin.toLocaleString('fi'));
+  _setKpi('supTehokkuus', lkm ? lkm + ' hlö' : '—');
+
+  // Sarjatasojakauma palkit
+  var sarjat = {vl:0,yk:0,k2:0,k3:0,muu:0};
+  _kpData.forEach(function(p){ if(sarjat[p.sarja]!==undefined) sarjat[p.sarja]++; });
+  var jakauma = document.getElementById('sarjatasoJakauma');
+  if (jakauma) {
+    if (_kpData.length === 0) {
+      jakauma.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px;text-align:center;">Ei vielä dataa. VP lisää edustuspelaajat Kehityspolku-välilehdeltä.</div>';
+    } else {
+      var html = '';
+      Object.entries(sarjat).forEach(function(e){
+        if (e[1]===0) return;
+        var pct = Math.round(e[1]/_kpData.length*100);
+        html += '<div class="prow"><div class="plabel" style="width:110px;">'+(_SARJANIMET[e[0]]||e[0])+'</div>'
+          +'<div class="ptrack"><div class="pfill" style="width:'+pct+'%;background:var(--accent);"></div></div>'
+          +'<div class="pval" style="color:var(--accent);">'+e[1]+' hlö</div></div>';
+      });
+      jakauma.innerHTML = html;
+    }
+  }
+
+  // Taulukko
+  var taulu = document.getElementById('suppiloTaulukko');
+  if (taulu) {
+    if (_kpData.length === 0) {
+      taulu.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px;text-align:center;">Ei vielä merkintöjä.</div>';
+    } else {
+      var html = '<table><thead><tr><th>Pelaaja</th><th>s.</th><th>Seura</th><th>Sarja</th><th>Ottelut</th><th>Min</th><th>Kausi</th></tr></thead><tbody>';
+      _kpData.forEach(function(p){
+        html += '<tr><td style="color:var(--text);font-weight:600;">'+_esc(p.pelaajaNimi)+'</td>'
+          +'<td>'+( p.syntymavuosi||'—')+'</td>'
+          +'<td>'+_esc(p.edustusSeura||'—')+'</td>'
+          +'<td><span class="badge badge-teal">'+(_SARJANIMET[p.sarja]||p.sarja||'—')+'</span></td>'
+          +'<td>'+(p.otteluita||0)+'</td>'
+          +'<td style="color:var(--accent);font-weight:600;">'+(p.minuuttia||0)+'</td>'
+          +'<td style="color:var(--ink3);">'+(p.kausi||'—')+'</td></tr>';
+      });
+      html += '</tbody></table>';
+      taulu.innerHTML = html;
+    }
+  }
+}
+
+/* ══ KEHITYSPOLUT (lukijanäkymä) ══ */
+async function lataaKehityspolut() {
+  if (_kpData.length === 0 && _seuraId) {
+    try {
+      var snap = await _db.collection('seurat').doc(_seuraId).collection('kehityspolku').get();
+      _kpData = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    } catch(e) {}
+  }
+  renderKehityspolut();
+}
+
+function suodataKP(filtteri, btn) {
+  _kpFiltteri = filtteri;
+  document.querySelectorAll('[id^="kp-btn-"]').forEach(function(b){
+    b.style.background='var(--bg3)';b.style.borderColor='var(--border)';b.style.color='var(--ink3)';
+  });
+  if (btn){ btn.style.background='var(--accent)';btn.style.borderColor='var(--accent)';btn.style.color='#000'; }
+  renderKehityspolut();
+}
+
+function renderKehityspolut() {
+  var el = document.getElementById('kehityspolkuAlue');
+  if (!el) return;
+  var data = _kpData.slice();
+  if (_kpFiltteri==='laina') data = data.filter(function(p){ return p.laina==='kylla'; });
+  else if (_kpFiltteri!=='kaikki') data = data.filter(function(p){ return p.sarja===_kpFiltteri; });
+
+  if (!data.length) {
+    el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:24px;text-align:center;">'
+      + (_kpFiltteri==='kaikki'
+        ? 'Ei vielä merkintöjä. VP lisää edustuspelaajat VP-dashboardin Kehityspolku-välilehdeltä.'
+        : 'Ei pelaajia tällä suodattimella.')
+      + '</div>';
+    return;
+  }
+
+  var html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+  data.forEach(function(p){
+    var minPer = p.otteluita>0 ? Math.round((p.minuuttia||0)/p.otteluita) : 0;
+    var bar = Math.min(100, Math.round((p.minuuttia||0)/900*100));
+    html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">'
+        +'<div><div style="font-size:14px;font-weight:700;color:var(--text);">'+_esc(p.pelaajaNimi)+'</div>'
+        +'<div style="font-size:11px;color:var(--ink3);margin-top:2px;">s. '+(p.syntymavuosi||'—')+(p.pelipaikka?' · '+p.pelipaikka:'')
+          +' · '+_esc(p.edustusSeura||'—')+' · Kausi '+(p.kausi||'—')+'</div></div>'
+        +'<span class="badge badge-teal">'+(_SARJANIMET[p.sarja]||'—')+'</span>'
+      +'</div>'
+      +'<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;">'
+        +_utjMini('Otteluita', p.otteluita||0)
+        +_utjMini('Minuuttia', (p.minuuttia||0).toLocaleString('fi'))
+        +_utjMini('Min/ottelu', minPer)
+        +_utjMini('Maaleja', p.maaleja||0)
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px;">'
+        +'<div style="font-size:10px;color:var(--ink3);width:70px;">Min-kertymä</div>'
+        +'<div style="flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;">'
+          +'<div style="width:'+bar+'%;height:100%;border-radius:3px;background:var(--accent);"></div>'
+        +'</div>'
+        +'<div style="font-size:10px;color:var(--accent);width:36px;text-align:right;">'+bar+'%</div>'
+      +'</div>'
+      +(p.huomiot?'<div style="margin-top:8px;font-size:12px;color:var(--ink3);background:var(--bg3);border-radius:7px;padding:8px 10px;">'+_esc(p.huomiot)+'</div>':'')
+    +'</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function _utjMini(label, val) {
+  return '<div style="text-align:center;">'
+    +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:900;color:var(--accent);">'+val+'</div>'
+    +'<div style="font-size:10px;color:var(--ink3);">'+label+'</div>'
+    +'</div>';
+}
+
+/* ══ TALENTIT ══ */
+async function laataaTalentit() {
+  var el = document.getElementById('talenttiAlue');
+  if (!el) return;
+  if (!_seuraId) {
+    el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px;">Talent-tunnistukset haetaan kartoituksista — tulo pian.</div>';
+    return;
+  }
+  try {
+    var snap = await _db.collection('seurat').doc(_seuraId).collection('kartoitukset')
+      .where('hg','==',true).limit(20).get();
+    if (snap.empty) {
+      el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px;text-align:center;">Ei vielä Hidden Gem -tunnistuksia tässä seurassa.</div>';
+      return;
+    }
+    var html = '<table><thead><tr><th>Pelaaja</th><th>Joukkue</th><th>Signaali</th><th>Päivämäärä</th></tr></thead><tbody>';
+    snap.docs.forEach(function(d){
+      var p = d.data();
+      html += '<tr><td style="color:var(--text);font-weight:600;">'+_esc(p.pelaajanNimi||'—')+'</td>'
+        +'<td>'+_esc(p.joukkue||'—')+'</td>'
+        +'<td><span class="badge badge-ok">💎 Hidden Gem</span></td>'
+        +'<td style="color:var(--ink3);">'+(p.pvm||'—')+'</td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px;">Ladataan... ('+e.message+')</div>';
+  }
+}
+
+/* ══ VERTAILU ══ */
+function lataaVertailu() {
+  var el = document.getElementById('vertailuAlue');
+  if (!el) return;
+  var html = '<table><thead><tr><th>Seura</th><th>Sarjataso</th><th>Kasvatteja</th><th>Min yht.</th><th>Min/kasvatti</th></tr></thead><tbody>';
+  Object.entries(SEURA_PROFIILIT).forEach(function(e){
+    var p = e[1];
+    html += '<tr><td style="color:var(--text);">'+p.koko+'</td>'
+      +'<td>'+p.sarjataso+'</td>'
+      +'<td style="color:var(--accent);">—</td>'
+      +'<td style="color:var(--accent);">—</td>'
+      +'<td style="color:var(--ink3);">Lisätään dataa</td></tr>';
+  });
+  html += '</tbody></table>';
+  html += '<div style="font-size:11px;color:var(--ink3);margin-top:10px;">Data kertyy automaattisesti kun VP-seuroissa on kehityspolkumerkintöjä.</div>';
+  el.innerHTML = html;
+}
+
+/* ══ APURIT ══ */
+var _SARJANIMET = {vl:'Veikkausliiga',yk:'Ykkönen',k2:'Kakkonen',k3:'Kolmonen',muu:'Muu'};
+
+function _setKpi(id, val) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = val !== undefined && val !== null ? val : '—';
+}
+
+function _esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ══ AUTH NAPIT ══ */
+function kirjauduSisaan() {
+  var email = (document.getElementById('loginEmail')||{}).value||'';
+  var pass  = (document.getElementById('loginPass') ||{}).value||'';
+  var virhe = document.getElementById('loginVirhe');
+  if (!email||!pass) { if(virhe){virhe.textContent='Syötä sähköposti ja salasana.';} return; }
+  if (virhe) virhe.textContent='';
+  firebase.auth().signInWithEmailAndPassword(email,pass)
+    .catch(function(e){
+      if(virhe) virhe.textContent = e.code==='auth/wrong-password'||e.code==='auth/user-not-found'
+        ?'Väärä sähköposti tai salasana.':'Kirjautuminen epäonnistui.';
+    });
+}
+
+function kirjauduUlos() {
+  _seuraId=null; _user=null; _kpData=[];
+  firebase.auth().signOut().then(function(){ nayta('sLogin'); });
+}
+
+</script>
+</body>
+</html>
