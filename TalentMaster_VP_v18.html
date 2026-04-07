@@ -286,8 +286,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .hyv-red{color:var(--red);}
 
 
-.tanaan-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:20px;}
-@media(max-width:900px){.tanaan-grid{grid-template-columns:1fr;}}
+.tanaan-grid{display:grid;grid-template-columns:1fr 1fr 320px;gap:14px;margin-bottom:20px;}
+.huomio-rivi{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface);
+  border:1px solid var(--border);border-radius:9px;cursor:pointer;transition:border-color .15s;text-decoration:none;}
+.huomio-rivi:hover{border-color:rgba(255,255,255,.18);}
+.huomio-rivi.kriittinen{border-left:3px solid var(--red);}
+.huomio-rivi.varoitus{border-left:3px solid var(--amber);}
+.huomio-rivi.positiivinen{border-left:3px solid #00D4AA;}
+.huomio-ava{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.huomio-teksti{flex:1;min-width:0;}
+.huomio-nimi{font-size:12px;font-weight:700;color:var(--ink1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.huomio-syy{font-size:10px;color:var(--ink3);margin-top:1px;}
+.huomio-pil{font-size:9px;padding:2px 6px;border-radius:8px;font-weight:700;white-space:nowrap;}
+@media(max-width:1100px){.tanaan-grid{grid-template-columns:1fr 1fr;}}@media(max-width:700px){.tanaan-grid{grid-template-columns:1fr;}}
 .halytys-lista{display:flex;flex-direction:column;gap:8px;}
 .halytys-rivi{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;cursor:pointer;transition:opacity .15s;border:1px solid transparent;}
 .halytys-rivi:hover{opacity:.85;}
@@ -737,6 +749,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         <div style="color:var(--ink3);font-size:13px;padding:12px 0">Analysoidaan...</div>
       </div>
     </div>
+    <!-- UUSI: Pelaajat jotka tarvitsevat huomiota -->
+    <div>
+      <div class="osio-otsikko">
+        <span class="osio-nimi">Pelaajat — huomioitavaa</span>
+        <span class="osio-badge punainen" id="huomioLkm" style="display:none">0</span>
+      </div>
+      <div id="huomioLista" style="display:flex;flex-direction:column;gap:6px;">
+        <div style="color:var(--ink3);font-size:13px;padding:12px 0">Analysoidaan...</div>
+      </div>
+    </div>
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div class="fiilinki-card">
         <div class="osio-otsikko" style="margin-bottom:4px;">
@@ -746,35 +768,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
         <div class="fiilinki-arvo-iso" id="fiilinkiArvo" style="color:var(--teal)">—</div>
         <span class="fiilinki-delta tasainen" id="fiilinkiDelta">Ladataan...</span>
         <div class="fiilinki-baari-wrap" id="fiilinkiBaarit"></div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">
-        <div class="osio-nimi" style="margin-bottom:10px;">Nopeat toiminnot</div>
-        <div class="qa-grid">
-          <button class="qa-nappi paa" onclick="_vpSiirryTabiin('kartoitukset')">
-            <span class="qa-ikoni">📋</span>Uusi harjoitettavuuskartoitus
-          </button>
-          <button class="qa-nappi" onclick="_vpSiirryTabiin('kalenteri')">
-            <span class="qa-ikoni">📅</span>Lisää tapahtuma
-          </button>
-          <button class="qa-nappi" onclick="_vpSiirryTabiin('henkilosto')">
-            <span class="qa-ikoni">🧑‍🏫</span>Kutsu valmentaja
-          </button>
-          <button class="qa-nappi" onclick="window.open('TalentMaster_Master_v9.html','_blank')">
-            <span class="qa-ikoni">⚽</span>Valmentajan näkymä
-          </button>
-          <button class="qa-nappi" onclick="window.open('TalentMaster_Rekisterointi_Suostumus.html','_blank')">
-            <span class="qa-ikoni">📝</span>Rekisteröintikutsu
-          </button>
-          <button class="qa-nappi" onclick="window.open('TalentMaster_Seura.html','_blank')">
-            <span class="qa-ikoni">🏛️</span>Seurahallinta
-          </button>
-          <button class="qa-nappi" onclick="window.open('TalentMaster_UTJ_v1.html','_blank')">
-            <span class="qa-ikoni">📊</span>UTJ-näkymä
-          </button>
-          <button class="qa-nappi" onclick="window.open('TalentMaster_Testaus.html','_blank')">
-            <span class="qa-ikoni">🧪</span>Testaustapahtuma
-          </button>
-        </div>
       </div>
     </div>
   </div>
@@ -1635,6 +1628,7 @@ async function lataaTilanne() {
 
   rakentaaHalytykset();
   rakentaaFiilinki();
+  rakentaaHuomiolista();
 
   const prof = _haeProfiili(_seuraId);
 
@@ -4599,6 +4593,114 @@ async function rakentaaHalytykset() {
   }
 }
 
+// ── Pelaajat jotka tarvitsevat huomiota ────────────────────────────────────
+async function rakentaaHuomiolista() {
+  var el    = document.getElementById('huomioLista');
+  var lkmEl = document.getElementById('huomioLkm');
+  if (!el || !_seuraId) return;
+
+  try {
+    var [pSnap, jSnap] = await Promise.all([
+      _db.collection('seurat').doc(_seuraId).collection('pelaajat').get(),
+      _db.collection('seurat').doc(_seuraId).collection('joukkueet').get(),
+    ]);
+
+    var jNimet = {};
+    jSnap.docs.forEach(function(d) { jNimet[d.id] = d.data().nimi || d.id; });
+
+    var pelaajat = pSnap.docs
+      .map(function(d) { return Object.assign({id:d.id}, d.data()); })
+      .filter(function(p) { return p.etunimi && p.tila !== 'poistettu'; });
+
+    var huomiot = [];
+
+    pelaajat.forEach(function(p) {
+      var nimi = (p.etunimi||'') + ' ' + (p.sukunimi||'');
+      var init = ((p.etunimi||'?')[0] + (p.sukunimi||'?')[0]).toUpperCase();
+      var joukkue = jNimet[p.joukkue] || p.joukkue || '—';
+      var flei = p.flei_viimeisin || p.flei || 0;
+
+      // 1. PHV aktiivinen — kasvupyrähdys, kuorma rajoitettu
+      if (p.phv_tila === 'PH') {
+        huomiot.push({
+          taso: 'kriittinen', init: init, nimi: nimi,
+          syy: joukkue + ' · PHV — kuorma max 60%',
+          pilleri: '⚠️ PHV', pilleriVari: 'rgba(168,85,247,.15)', pilleriTeksti: '#A855F7',
+          pelaajaId: p.id, avaVari: 'rgba(168,85,247,.15)', avaTeksti: '#A855F7',
+        });
+      }
+      // 2. Matala FLEI (alle 55%)
+      if (flei > 0 && flei < 55) {
+        huomiot.push({
+          taso: 'kriittinen', init: init, nimi: nimi,
+          syy: joukkue + ' · FLEI ' + flei + '% — alle tavoitteen',
+          pilleri: '📉 ' + flei + '%', pilleriVari: 'rgba(239,68,68,.12)', pilleriTeksti: '#EF4444',
+          pelaajaId: p.id, avaVari: 'rgba(239,68,68,.12)', avaTeksti: '#EF4444',
+        });
+      }
+      // 3. Streak katkennut (streak 0, mutta on kirjauksia)
+      if ((p.streak||0) === 0 && flei > 0) {
+        huomiot.push({
+          taso: 'varoitus', init: init, nimi: nimi,
+          syy: joukkue + ' · Streak katkennut — aktivoi uudelleen',
+          pilleri: '🔕 Ei streakia', pilleriVari: 'rgba(255,176,32,.12)', pilleriTeksti: '#FFB020',
+          pelaajaId: p.id, avaVari: 'rgba(255,176,32,.12)', avaTeksti: '#FFB020',
+        });
+      }
+      // 4. Pitkä streak — tunnustus
+      if ((p.streak||0) >= 20) {
+        huomiot.push({
+          taso: 'positiivinen', init: init, nimi: nimi,
+          syy: joukkue + ' · ' + p.streak + ' pv streak — tunnusta!',
+          pilleri: '🔥 ' + p.streak + 'pv', pilleriVari: 'rgba(0,212,170,.12)', pilleriTeksti: '#00D4AA',
+          pelaajaId: p.id, avaVari: 'rgba(0,212,170,.12)', avaTeksti: '#00D4AA',
+        });
+      }
+    });
+
+    // Järjestä: kriittiset ensin, sitten varoitukset, sitten positiiviset
+    var jarjestys = {kriittinen:0, varoitus:1, positiivinen:2};
+    huomiot.sort(function(a,b) { return jarjestys[a.taso] - jarjestys[b.taso]; });
+
+    // Max 6 + tunnustukset viimeisenä (max 2)
+    var kriittiset = huomiot.filter(function(h){ return h.taso !== 'positiivinen'; }).slice(0,5);
+    var positiiviset = huomiot.filter(function(h){ return h.taso === 'positiivinen'; }).slice(0,2);
+    var naytettavat = kriittiset.concat(positiiviset);
+
+    var kriittinenLkm = kriittiset.length;
+    if (lkmEl) {
+      lkmEl.textContent = kriittinenLkm;
+      lkmEl.style.display = kriittinenLkm > 0 ? '' : 'none';
+    }
+
+    if (naytettavat.length === 0) {
+      el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:12px;'
+        + 'background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.15);border-radius:9px;">'
+        + '<span style="font-size:18px">✅</span>'
+        + '<div><div style="font-size:13px;font-weight:700;color:#00D4AA">Kaikki kunnossa</div>'
+        + '<div style="font-size:11px;color:var(--ink3)">Ei kriittisiä huomioita tänään</div></div></div>';
+      return;
+    }
+
+    var sid = _seuraId || '';
+    el.innerHTML = naytettavat.map(function(h) {
+      var url = 'TalentMaster_IDP_Kortti_v3.html?seuraId=' + sid + '&pelaajaId=' + h.pelaajaId;
+      return '<a href="' + url + '" target="_blank" class="huomio-rivi ' + h.taso + '" style="display:flex;">'
+        + '<div class="huomio-ava" style="background:' + h.avaVari + ';color:' + h.avaTeksti + '">' + h.init + '</div>'
+        + '<div class="huomio-teksti">'
+        + '<div class="huomio-nimi">' + h.nimi + '</div>'
+        + '<div class="huomio-syy">' + h.syy + '</div>'
+        + '</div>'
+        + '<span class="huomio-pil" style="background:' + h.pilleriVari + ';color:' + h.pilleriTeksti + '">' + h.pilleri + '</span>'
+        + '</a>';
+    }).join('');
+
+  } catch(e) {
+    console.warn('[HuomioLista]', e.message);
+    el.innerHTML = '<div style="color:var(--ink3);font-size:12px;padding:8px">—</div>';
+  }
+}
+
 async function rakentaaFiilinki() {
   var arvoEl  = document.getElementById('fiilinkiArvo');
   var deltaEl = document.getElementById('fiilinkiDelta');
@@ -4637,8 +4739,12 @@ async function rakentaaFiilinki() {
       arvoEl.textContent = '—'; deltaEl.textContent = 'Ei dataa'; return;
     }
 
-    // RPE 1-10 → fiilinki 0-100 (matala RPE = hyvä olo)
-    var fArvot = rpeArvot.map(function(r){return Math.round(100-(r-1)*8);});
+    // Tarkistetaan ovatko arvot RPE (1-10) vai fiilinki (20-100 = jo muunnettu)
+    // Jos keskiarvo yli 10 → arvot ovat jo fiilinki-prosentteja, ei tarvitse muuntaa
+    var onFiilinki = rpeArvot.reduce(function(a,b){return a+b;},0)/rpeArvot.length > 10;
+    var fArvot = onFiilinki
+      ? rpeArvot.map(function(r){return Math.min(100,Math.max(0,Math.round(r)));})
+      : rpeArvot.map(function(r){return Math.min(100,Math.max(0,Math.round(100-(r-1)*8)));});
     var ka = Math.round(fArvot.reduce(function(a,b){return a+b;},0)/fArvot.length);
 
     var puoli = Math.max(1, Math.floor(fArvot.length/2));
