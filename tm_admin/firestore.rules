@@ -309,6 +309,46 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // TESTITAPAHTUMAT — harjoitettavuuskartoitukset ja testit
+    // Kirjoitusoikeus: VP, Testivastaava, Fysiikkavalmentaja
+    // Lukuoikeus: kaikki seuran käyttäjät (valmentaja, talenttivalmentaja jne.)
+    // ─────────────────────────────────────────────────────────────────────
+
+    // Apufunktio — tulosten syöttäjät (permission matrixista)
+    // ─────────────────────────────────────────────────────────────────────
+
+    // Inline-tarkistus testitapahtumat-kokoelmassa
+
+    match /seurat/{seuraId}/testitapahtumat/{tapahtumaId} {
+      // Kaikki seuran käyttäjät saavat lukea tapahtumia
+      allow read: if onPaasySeuraan(seuraId);
+
+      // Luo ja muokkaa: VP, Testivastaava, Fysiikkavalmentaja, Talenttivalmentaja
+      allow create, update: if onSuperAdmin()
+        || onSeuranVP(seuraId)
+        || (onSeuranKayttaja(seuraId)
+            && get(/databases/$(database)/documents/seurat/$(seuraId)/kayttajat/$(request.auth.uid)).data.rooli
+               in ['testivastaava','fysiikkavalmentaja','talenttivalmentaja',
+                   'vp','urheilutoimenjohtaja','seurasihteeri']);
+
+      // Poistaa vain VP ja Super Admin
+      allow delete: if onSeuranYllApito(seuraId);
+
+      // ── TULOKSET tapahtuman alla ─────────────────────────────────────
+      // Raakadata per pelaaja — sama kirjoitusoikeus kuin tapahtumalla
+      match /tulokset/{pelaajaId} {
+        allow read: if onPaasySeuraan(seuraId);
+
+        allow write: if onSuperAdmin()
+          || onSeuranVP(seuraId)
+          || (onSeuranKayttaja(seuraId)
+              && get(/databases/$(database)/documents/seurat/$(seuraId)/kayttajat/$(request.auth.uid)).data.rooli
+                 in ['testivastaava','fysiikkavalmentaja','talenttivalmentaja',
+                     'vp','urheilutoimenjohtaja','seurasihteeri']);
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // UTJ-DATA — kasvattisuppilo
     // ─────────────────────────────────────────────────────────────────────
 
