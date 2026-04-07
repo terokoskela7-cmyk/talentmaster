@@ -2918,35 +2918,288 @@ let _valmennusLadattu = false;
 // tulee kun kartoitusdata on Firestoressa (Sprint 4)
 async function lataaKartoitukset() {
   const el = document.getElementById('kartoituksetAlue');
-  if (!el) return;
-  if (!_seuraId) {
-    el.innerHTML = '<div style="color:var(--ink3);padding:20px;text-align:center;">Kirjaudu sisään nähdäksesi kartoitukset.</div>';
-    return;
-  }
+  if (!el || !_seuraId) return;
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Ladataan...</div>';
+
   try {
-    const snap = await _db.collection('seurat').doc(_seuraId)
-      .collection('kartoitukset').orderBy('luotu','desc').limit(20).get();
-    if (snap.empty) {
-      el.innerHTML = `<div class="info-box">
-        <div class="info-box-title">📋 Ei kartoituksia vielä</div>
-        <div class="info-box-text">
-          Harjoitettavuuskartoitukset tuodaan tähän kun data on syötetty järjestelmään.
-          <br><br>Tuo data Admin-näkymän kautta tai kysy TalentMaster-tiimiltä.
-        </div>
-      </div>`;
-      return;
+    // Haetaan kaikki data rinnakkain
+    const [pSnap, tapSnap, havSnap, jSnap] = await Promise.all([
+      _db.collection('seurat').doc(_seuraId).collection('pelaajat').get(),
+      _db.collection('seurat').doc(_seuraId).collection('testitapahtumat').limit(10).get().catch(()=>({docs:[],size:0})),
+      _db.collection('seurat').doc(_seuraId).collection('havainnot')
+        .where('onXFactor','==',true).limit(20).get().catch(()=>({docs:[]})),
+      _db.collection('seurat').doc(_seuraId).collection('joukkueet').get(),
+    ]);
+
+    const jNimet = {};
+    jSnap.docs.forEach(d => { jNimet[d.id] = d.data().nimi || d.id; });
+
+    const pelaajat = pSnap.docs
+      .map(d => Object.assign({id:d.id}, d.data()))
+      .filter(p => p.etunimi && p.tila !== 'poistettu');
+
+    // X-Factor / Hidden Gem — pelaajaId → havaintotiedot
+    const xMap = {}, gemMap = {};
+    havSnap.docs.forEach(d => {
+      const h = d.data();
+      if (h.onXFactor)   xMap[h.pelaajaId]   = h;
+    });
+    // Hidden Gem haku erikseen (ei voi yhdistää OR-kyselyä ilman indeksiä)
+    try {
+      const gemSnap = await _db.collection('seurat').doc(_seuraId).collection('havainnot')
+        .where('onHiddenGem','==',true).limit(20).get();
+      gemSnap.docs.forEach(d => { const h = d.data(); gemMap[h.pelaajaId] = h; });
+    } catch(e) {}
+
+    // ── OSIO 1: KPI-rivi ──────────────────────────────────────────
+    const fleillaPelaajat = pelaajat.filter(p => p.flei > 0);
+    const fleiKa = fleillaPelaajat.length
+      ? Math.round(fleillaPelaajat.reduce((a,p) => a + (p.flei||0), 0) / fleillaPelaajat.length)
+      : 0;
+    const xLkm   = Object.keys(xMap).length + Object.keys(gemMap).length;
+    const phvLkm  = pelaajat.filter(p => p.phv_tila === 'PH').length;
+
+    // ── OSIO 2: Pelaajat FLEI-järjestyksessä ─────────────────────
+    const KETJU_EMOJI = {SBL:'⚡',SFL:'🦵',LL:'↔',DIAG:'🔄',DFL:'🏗'};
+    const KETJU_NIMET = {SBL:'Vauhti',SFL:'Lähtö',LL:'Sivu',DIAG:'Diag',DFL:'Hallinta'};
+
+    const pelJarjestetty = [...pelaajat]
+      .filter(p => p.flei > 0)
+      .sort((a,b) => (a.flei||0) - (b.flei||0)); // heikoimmat ensin
+
+    function fleiVari(f) {
+      return f >= 70 ? '#1D9E75' : f >= 55 ? '#BA7517' : '#E24B4A';
     }
-    el.innerHTML = snap.docs.map(d => {
-      const r = d.data();
-      return `<div class="card" style="margin-bottom:10px;">
-        <div style="font-size:13px;font-weight:700;">${r.joukkueNimi||r.joukkueId||'—'}</div>
-        <div style="font-size:11px;color:var(--ink3);">${r.pvm||''} · FLEI: ${r.flei||'—'}%</div>
+    function heikoinKetju(ketjut) {
+      if (!ketjut) return null;
+      return Object.entries(ketjut).sort((a,b) => a[1]-b[1])[0];
+    }
+
+    function renderPelaajariivi(p) {
+      const nimi   = (p.etunimi||'') + ' ' + (p.sukunimi||'');
+      const init   = ((p.etunimi||'?')[0] + (p.sukunimi||'?')[0]).toUpperCase();
+      const joukkue = jNimet[p.joukkue] || p.joukkue || '—';
+      const flei   = p.flei || 0;
+      const vari   = fleiVari(flei);
+      const ketjut = p.flei_ketjut || {};
+      const heikoin = heikoinKetju(ketjut);
+      const isX    = !!xMap[p.id];
+      const isGem  = !!gemMap[p.id];
+      const phvTag = p.phv_tila === 'PH' ? '<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(168,85,247,.12);color:#7F77DD;font-weight:500;margin-left:4px">PHV</span>' : '';
+      const xTag   = isX   ? '<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(245,183,0,.12);color:#B8860B;font-weight:500;margin-left:4px">⭐ X</span>' : '';
+      const gemTag = isGem ? '<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(245,183,0,.12);color:#B8860B;font-weight:500;margin-left:4px">💎 Gem</span>' : '';
+
+      // Minipalkit 5 ketjulle
+      const KETJUT = ['SBL','SFL','LL','DIAG','DFL'];
+      const palkit = KETJUT.map(k => {
+        const v = ketjut[k] || 0;
+        const kv = fleiVari(v);
+        const isHeikoin = heikoin && heikoin[0] === k;
+        return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:28px">
+          <div style="width:22px;height:${Math.max(4, Math.round(v*0.44))}px;background:${kv};border-radius:2px;${isHeikoin?'outline:1px solid #E24B4A;outline-offset:1px':''}"></div>
+          <span style="font-size:8px;color:var(--ink3)">${k==='DIAG'?'DIA':k}</span>
+        </div>`;
+      }).join('');
+
+      const url = `TalentMaster_IDP_Kortti_v3.html?seuraId=${_seuraId}&pelaajaId=${p.id}`;
+      return `<a href="${url}" target="_blank" style="display:flex;align-items:center;gap:10px;
+        padding:8px 12px;background:var(--surface);border:1px solid var(--border);
+        border-left:3px solid ${vari};border-radius:9px;text-decoration:none;
+        color:inherit;transition:border-color .15s;margin-bottom:6px">
+        <div style="width:28px;height:28px;border-radius:50%;background:${vari}22;
+          display:flex;align-items:center;justify-content:center;
+          font-size:10px;font-weight:700;color:${vari};flex-shrink:0">${init}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--ink1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${nimi}${phvTag}${xTag}${gemTag}
+          </div>
+          <div style="font-size:10px;color:var(--ink3)">
+            ${joukkue}${heikoin ? ' · heikoin: '+KETJU_NIMET[heikoin[0]]+'('+heikoin[1]+'%)' : ''}
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:3px">${palkit}</div>
+        <div style="font-size:14px;font-weight:700;color:${vari};min-width:36px;text-align:right">${flei}%</div>
+      </a>`;
+    }
+
+    // ── OSIO 3: Testitapahtumat ───────────────────────────────────
+    const PROTO_NIMET = {
+      harjoitettavuus_u12:'Harjoitettavuus U10–12',
+      harjoitettavuus_u15:'Harjoitettavuus U13–15',
+      harjoitettavuus_u19:'Harjoitettavuus U15–19',
+      hh_laaja:'HH-testi laaja', hh_suppea:'HH-testi suppea',
+      tekniikkakilpailu:'Tekniikkakilpailu',
+    };
+    const tapahtumaHTML = tapSnap.docs.length === 0
+      ? `<div style="color:var(--ink3);font-size:12px;padding:10px 0">
+          Ei testitapahtumia vielä —
+          <a href="TalentMaster_Testaus.html" target="_blank"
+            style="color:var(--primary2);text-decoration:none">luo ensimmäinen →</a>
+        </div>`
+      : tapSnap.docs.map(d => {
+          const t = d.data();
+          const suljettu = t.tila === 'suljettu';
+          const jNimi = jNimet[t.joukkue] || t.joukkue || '—';
+          return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;
+            border-bottom:1px solid var(--border)">
+            <div style="width:7px;height:7px;border-radius:50%;flex-shrink:0;
+              background:${suljettu?'var(--ink3)':'#1D9E75'}"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:600;color:var(--ink1)">
+                ${PROTO_NIMET[t.protokolla]||t.protokolla||'—'}
+              </div>
+              <div style="font-size:10px;color:var(--ink3)">
+                ${t.pvm||'—'} · ${jNimi} · ${(t.pelaajat||[]).length} pelaajaa
+              </div>
+            </div>
+            <span style="font-size:9px;padding:2px 7px;border-radius:8px;font-weight:600;
+              background:${suljettu?'var(--bg3)':'rgba(29,158,117,.12)'};
+              color:${suljettu?'var(--ink3)':'#1D9E75'}">
+              ${suljettu?'Päättynyt':'Avoin'}
+            </span>
+          </div>`;
+        }).join('');
+
+    // ── OSIO 4: Ketjuanalyysi koko seuralle ──────────────────────
+    const KETJUT_ALL = ['SBL','SFL','LL','DIAG','DFL'];
+    const ketjuSummat = {};
+    KETJUT_ALL.forEach(k => { ketjuSummat[k] = []; });
+    fleillaPelaajat.forEach(p => {
+      if (!p.flei_ketjut) return;
+      KETJUT_ALL.forEach(k => {
+        if (p.flei_ketjut[k] != null) ketjuSummat[k].push(p.flei_ketjut[k]);
+      });
+    });
+    const ketjuKa = {};
+    KETJUT_ALL.forEach(k => {
+      if (ketjuSummat[k].length) {
+        ketjuKa[k] = Math.round(ketjuSummat[k].reduce((a,b)=>a+b,0)/ketjuSummat[k].length);
+      }
+    });
+    const heikoinKetjuSeura = Object.entries(ketjuKa).sort((a,b)=>a[1]-b[1])[0];
+    const ketjuAnalyysiHTML = KETJUT_ALL.map(k => {
+      const v   = ketjuKa[k] || 0;
+      const vari = fleiVari(v);
+      const isH  = heikoinKetjuSeura && heikoinKetjuSeura[0] === k;
+      return `<div style="display:flex;align-items:center;gap:10px;font-size:12px;
+        padding:5px ${isH?'8px':'2px'};border-radius:6px;
+        background:${isH?'rgba(186,117,23,.06)':'transparent'}">
+        <span style="min-width:100px;color:${isH?'#BA7517':'var(--ink3)'};font-weight:${isH?'600':'400'}">
+          ${KETJU_EMOJI[k]} ${KETJU_NIMET[k]}
+        </span>
+        <div style="flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+          <div style="width:${v}%;height:100%;background:${vari};border-radius:3px"></div>
+        </div>
+        <span style="min-width:36px;text-align:right;font-weight:600;color:${vari}">${v}%</span>
+        ${isH?'<span style="font-size:9px;color:#BA7517">↓ heikoin</span>':''}
       </div>`;
     }).join('');
+
+    // ── OSIO 5: X-Factor + Hidden Gem -lista ─────────────────────
+    const xGemPelaajat = pelaajat.filter(p => xMap[p.id] || gemMap[p.id]);
+    const xGemHTML = xGemPelaajat.length === 0
+      ? `<div style="color:var(--ink3);font-size:12px;padding:10px 0">
+          Ei tunnistettuja pelaajia vielä — valmentaja merkitsee X-Factor / Hidden Gem havaintoa kirjatessa.
+        </div>`
+      : xGemPelaajat.map(p => {
+          const isX   = !!xMap[p.id];
+          const isGem = !!gemMap[p.id];
+          const hav   = xMap[p.id] || gemMap[p.id];
+          const url   = `TalentMaster_IDP_Kortti_v3.html?seuraId=${_seuraId}&pelaajaId=${p.id}`;
+          return `<a href="${url}" target="_blank" style="display:flex;align-items:center;gap:10px;
+            padding:9px 12px;background:rgba(245,183,0,.04);
+            border:1px solid rgba(245,183,0,.2);border-radius:9px;
+            text-decoration:none;color:inherit;margin-bottom:6px">
+            <span style="font-size:16px">${isX?'⭐':'💎'}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700;color:var(--ink1)">
+                ${(p.etunimi||'')} ${(p.sukunimi||'')}
+              </div>
+              <div style="font-size:10px;color:var(--ink3)">
+                ${jNimet[p.joukkue]||p.joukkue||'—'} ·
+                ${isX?'X-Factor':'Hidden Gem'} ·
+                ${(hav&&hav.pvm)||'—'}
+              </div>
+            </div>
+            <div style="font-size:13px;font-weight:700;color:${fleiVari(p.flei||0)}">${p.flei||'—'}%</div>
+          </a>`;
+        }).join('');
+
+    // ── KOKOA KAIKKI ──────────────────────────────────────────────
+    el.innerHTML = `
+      <!-- KPI-rivi -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px">
+        <div style="background:var(--surface);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:${fleiVari(fleiKa)}">${fleiKa||'—'}%</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:2px">FLEI keskiarvo</div>
+        </div>
+        <div style="background:var(--surface);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:var(--ink1)">${tapSnap.size}</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:2px">Testitapahtumaa</div>
+        </div>
+        <div style="background:var(--surface);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:#B8860B">${xLkm}</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:2px">X-Factor / Gem</div>
+        </div>
+      </div>
+
+      <!-- Pelaajat FLEI-järjestyksessä -->
+      <div class="stitle" style="margin-bottom:8px">
+        Pelaajat — FLEI
+        <span style="font-size:11px;font-weight:400;color:var(--ink3)">heikoimmat ensin · klikkaa → IDP</span>
+      </div>
+      <div style="margin-bottom:20px">
+        ${pelJarjestetty.length
+          ? pelJarjestetty.map(renderPelaajariivi).join('')
+          : '<div style="color:var(--ink3);font-size:12px;padding:10px 0">Ei kartoitustuloksia vielä</div>'
+        }
+        ${pelaajat.filter(p => !p.flei).length > 0
+          ? `<div style="font-size:11px;color:var(--ink3);padding:4px 0">
+              + ${pelaajat.filter(p=>!p.flei).length} pelaajaa ilman kartoitusta
+            </div>` : ''}
+      </div>
+
+      <!-- Testitapahtumat -->
+      <div class="stitle" style="margin-bottom:8px">Testitapahtumat</div>
+      <div class="card" style="margin-bottom:18px;padding:8px 14px">
+        ${tapahtumaHTML}
+        <div style="padding-top:6px">
+          <a href="TalentMaster_Testaus.html" target="_blank"
+            style="font-size:11px;color:var(--primary2);text-decoration:none">
+            + Uusi testitapahtuma →
+          </a>
+        </div>
+      </div>
+
+      <!-- Ketjuanalyysi -->
+      <div class="stitle" style="margin-bottom:8px">Liikeketjuanalyysi — koko seura</div>
+      <div class="card" style="margin-bottom:${xGemPelaajat.length?'18':'0'}px">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${Object.keys(ketjuKa).length
+            ? ketjuAnalyysiHTML
+            : '<div style="color:var(--ink3);font-size:12px">Ei ketjudataa vielä</div>'}
+        </div>
+        ${heikoinKetjuSeura ? `
+          <div style="margin-top:10px;padding:8px 10px;background:rgba(186,117,23,.06);
+            border-left:2px solid #BA7517;font-size:11px;color:#BA7517;line-height:1.5">
+            <strong>${KETJU_NIMET[heikoinKetjuSeura[0]]} (${heikoinKetjuSeura[0]})</strong>
+            on seuran heikoin ketju — painota S-harjoitteissa kaikissa ikäluokissa
+          </div>` : ''}
+      </div>
+
+      <!-- X-Factor / Hidden Gem -->
+      ${xGemPelaajat.length || true ? `
+        <div class="stitle" style="margin-bottom:8px;margin-top:20px">
+          Lahjakkuustunnisteet
+          <span style="font-size:11px;font-weight:400;color:var(--ink3)">valmentajan merkitsemät</span>
+        </div>
+        <div>${xGemHTML}</div>
+      ` : ''}
+    `;
+
   } catch(e) {
-    el.innerHTML = `<div class="info-box">
-      <div class="info-box-title">📋 Kartoitukset</div>
-      <div class="info-box-text">Kartoitusdata ladataan kun HPP ELITE -tulokset on tuotu järjestelmään.</div>
+    el.innerHTML = `<div style="color:var(--ink3);padding:20px;font-size:13px">
+      Virhe kartoitusten latauksessa: ${e.message}
     </div>`;
     console.warn('[Kartoitukset]', e.message);
   }
