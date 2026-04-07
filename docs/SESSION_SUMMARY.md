@@ -1,9 +1,9 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
 
-## Projektin tila (päivitetty 2026-04-06)
+## Projektin tila (päivitetty 2026-04-07)
 
-TalentMaster on jalkapallon talenttiarviointialusta — 7 pilottiseuraa (KPV, FC Lahti Juniorit, SJK Juniorit, GrIFK, HJK Juniorit, Pallo-Iirot, Ylöjärven Ilves), Firebase Blaze. Pelaajaprosessi testattu alusta loppuun. Valmentajan näkymä v9 rakennettu. Testiindeksijärjestelmä valmis. Teknis-fyysinen kokonaisuus (testipankki, ketjumatriisi, valmentajatyökalu, koukutus) rakennettu tässä sessiossa.
+TalentMaster on jalkapallon talenttiarviointialusta — 7 pilottiseuraa (KPV, FC Lahti Juniorit, SJK Juniorit, GrIFK, VIFK, Pallo-Iirot, Ylöjärven Ilves), Firebase Blaze. Pelaajaprosessi testattu alusta loppuun. Valmentajan näkymä v9 tuotannossa. Pelaaja-sivu merkittävästi päivitetty: harjoitelogiikka v4 (kolme kielitasoa, DIAG-ketju, Everton Stage 1–5), jaksoinfo-palkki, Stage-badge, ohjeet-popup ja fiilinki-lukitus. Uudet näkymät: UTJ v1 (kasvattisuppilo) ja keräilykortit spesiaalikorttiluokilla + WOW-animaatio.
 
 ---
 
@@ -16,25 +16,19 @@ https://terokoskela7-cmyk.github.io/talentmaster/
 
 ---
 
-## Sivuarkkitehtuuri (vahvistettu 2026-04-06)
+## Sivuarkkitehtuuri (vahvistettu 2026-04-07)
 
-| Sivu | Tiedosto | Rooli |
-|---|---|---|
-| Valmennuspäällikkö | `TalentMaster_VP_v18.html` | vp |
-| Valmentaja | `TalentMaster_Master_v9.html` | valmentaja + kenttäroolit |
-| Seurahallinta | `TalentMaster_Seura.html` | seurasihteeri, urheilutoimenjohtaja, vp, super_admin |
-| Vanhempi | `TalentMaster_Vanhempi.html` | huoltaja |
-| Pelaaja | `TalentMaster_Pelaaja_v1.html` | pelaaja |
-| IDP-kortti | `TalentMaster_IDP_Kortti_v3.html` | valmentaja/pelaaja/vanhempi |
-| Suostumuslomake | `TalentMaster_Rekisterointi_Suostumus.html` | anonyymi/huoltaja |
-
-### Koulutus- ja koukutustiedostot (uudet 2026-04-06)
-
-| Tiedosto | Tarkoitus | GitHub |
-|---|---|---|
-| `TalentMaster_Valmentaja_Matriisi.html` | Valmentajan 5-välilehtinen työkalu | PENDING |
-| `TalentMaster_Koukutus.html` | Koukutus 3 kohderyhmälle | PENDING |
-| `TalentMaster_Ketju_Matriisi.html` | Tekninen matriisikortti (vanhempi) | PENDING |
+| Sivu | Tiedosto | Rooli | Tila |
+|---|---|---|---|
+| Valmennuspäällikkö | `TalentMaster_VP_v18.html` | vp | ✅ tuotannossa |
+| Urheilutoimenjohtaja | `TalentMaster_UTJ_v1.html` | urheilutoimenjohtaja | ✅ UUSI — PENDING |
+| Valmentaja | `TalentMaster_Master_v9.html` | valmentaja + kenttäroolit | ✅ tuotannossa |
+| Seurahallinta | `TalentMaster_Seura.html` | seurasihteeri, utj, vp, super_admin | ✅ tuotannossa |
+| Vanhempi | `TalentMaster_Vanhempi.html` | huoltaja | ✅ tuotannossa |
+| Pelaaja | `TalentMaster_Pelaaja_v1.html` | pelaaja | ✅ päivitetty — PENDING |
+| IDP-kortti | `TalentMaster_IDP_Kortti_v3.html` | valmentaja/pelaaja/vanhempi | ✅ tuotannossa |
+| Suostumuslomake | `TalentMaster_Rekisterointi_Suostumus.html` | anonyymi/huoltaja | ✅ tuotannossa |
+| Keräilykortit | `TalentMaster_Kortit.html` | pelaaja | ✅ UUSI + spesiaalikortit — PENDING |
 
 ---
 
@@ -72,8 +66,11 @@ Super Admin: `talentmasterid@gmail.com` / UID: `dqUzvJA61Wb9fgj5UiK0riSA4NI2`
 | vp.grifk@talentmaster.fi | lBCx0ivDYVWLmxD9TGKsvYrFrlo1 | VP | GrIFK |
 
 ### Testipelaaja (KPV)
-- **Nimi:** Topias Koskela, **pelaajaId:** `rtQdrYf7J6CVEKjOUThI`
-- **huoltajaEmail:** `terokoskela7@gmail.com`, **suostumusTila:** `annettu`, **tila:** `aktiivinen`
+- **Nimi:** Topias Koskela
+- **pelaajaId:** `m93GBdOaGCUuenMiCL0I` (vahvistettu Firestoresta tässä sessiossa)
+- **huoltajaEmail:** `terokoskela7@gmail.com`
+- **suostumusTila:** `annettu`, **tila:** `aktiivinen`
+- **Pelaaja-sivu URL:** `?pelaajaId=m93GBdOaGCUuenMiCL0I&seuraId=kpv`
 
 ---
 
@@ -81,155 +78,166 @@ Super Admin: `talentmasterid@gmail.com` / UID: `dqUzvJA61Wb9fgj5UiK0riSA4NI2`
 
 | Funktio | Kuvaus | Tila |
 |---|---|---|
-| `lahetaRekisteriKutsu` | Lähettää rekisteröintikutsun huoltajalle | ✅ |
-| `luoKayttaja` | Luo Auth-tunnuksen + custom claims + salasanalinkin | ✅ setCustomUserClaims lisätty 2026-04-04 |
+| `lahetaRekisteriKutsu` | Rekisteröintikutsu huoltajalle | ✅ |
+| `luoKayttaja` | Auth + Firestore + custom claims + salasanalinkki | ✅ |
 | `lahetaHuoltajaKutsu` | Huoltajan suostumuskutsu | ✅ |
-| `deaktivioiKayttaja` | Deaktivoi käyttäjän | ✅ |
-| `lahetaPelaajaSivuLinkki` | Lähettää linkit vanhemman/pelaajan sivulle | ✅ |
-| `tasoHaeSeuranOttelut` | Hakee ottelut TASO API:sta | ✅ |
-| `tasoHaeMaatcheck` | TASO cron klo 06:00 | ❌ KOMMENTOITU — vaatii Cloud Scheduler Admin SA:lle IAM-konsolissa |
+| `deaktivioiKayttaja` | Deaktivoi käyttäjä | ✅ |
+| `lahetaPelaajaSivuLinkki` | Linkit vanhemman/pelaajan sivulle | ✅ |
+| `tasoHaeSeuranOttelut` | Ottelut TASO API:sta | ✅ |
+| `tasoHaeMaatcheck` | TASO cron klo 06:00 | ❌ KOMMENTOITU — vaatii Cloud Scheduler |
 
 ---
 
-## GitHub-tiedostot — tila 2026-04-06
+## GitHub-tiedostot — tila 2026-04-07
 
 ### GitHubissa ✅
 | Tiedosto | Päivitetty |
 |---|---|
-| `tm_testipankki.js` | Apr 6, 2026 |
 | `TalentMaster_Master_v9.html` | Apr 5, 2026 |
 | `TalentMaster_VP_v18.html` | Apr 5, 2026 |
 | `TalentMaster_Seura.html` | Apr 5, 2026 |
 | `TalentMaster_Vanhempi.html` | Apr 4, 2026 |
-| `TalentMaster_Pelaaja_v1.html` | Apr 5, 2026 |
-| `TalentMaster_Rekisterointi_Suostumus.html` | Apr 4, 2026 |
 | `TalentMaster_IDP_Kortti_v3.html` | Mar 27, 2026 |
+| `TalentMaster_Rekisterointi_Suostumus.html` | Apr 4, 2026 |
+| `tm_testipankki.js` | Apr 6, 2026 |
 | `harjoitelogiikka_v3.js` | Apr 4, 2026 |
+| `tm_ketju_matriisi.js` | Apr 6, 2026 |
 | `hpp_rehab_protokollat.js` | Mar 26, 2026 |
 | `functions/index.js` | Apr 4, 2026 |
 | `tm_admin/firestore.rules` | Apr 4, 2026 |
-| `TalentMaster_BioIka.xlsx` | Mar 27, 2026 |
-| `TalentMaster_Harjoitettavuus.xlsx` | Mar 29, 2026 |
+| `tm_import.js` + `tm_empty_state.js` | Apr 5, 2026 |
+| `tm_lang.js` | Apr 5, 2026 |
 
-### PENDING — lataa GitHubiin
-| Tiedosto | Sisältö |
-|---|---|
-| `tm_ketju_matriisi.js` | Fascia-ketju ↔ testi ↔ pallotekniikka matriisi + 4 apufunktiota |
-| `TalentMaster_Valmentaja_Matriisi.html` | Valmentajan 5-välilehtinen työkalu |
-| `TalentMaster_Koukutus.html` | Koukutus 3 kohderyhmälle |
-| `TalentMaster_Ketju_Matriisi.html` | Tekninen matriisikortti |
+### PENDING deploy — lataa GitHubiin
 
----
+**Järjestys tärkeä — `harjoitelogiikka_v4.js` ENSIN:**
 
-## TÄMÄN SESSION TUOTOKSET (2026-04-06)
-
-### tm_testipankki.js ✅ GitHubissa
-- 64 testiä, 8 protokollaa, 6 apufunktiota
-- **KRIITTINEN MUUTOS:** FLEI 6 ketjua → 5 ketjua. SL + FL yhdistetty `hpp_diag`-ketjuksi
-- Protokollat: `harjoitettavuus` / `harjoitettavuus_u12` / `harjoitettavuus_u15` / `harjoitettavuus_u19` / `hh_laaja` / `hh_suppea` / `vifk_p13` / `tekniikkakilpailu`
-- Apufunktiot: `TM_LASKE_FLEI()` / `TM_LASKE_FLEI_KEHONPAINO()` / `TM_LASKE_MAS()` / `TM_LASKE_BIOIKA()` / `TM_LASKE_MERKKI()` / `TM_PITUUSPOTKU_VAHENNYS()`
-
-### tm_ketju_matriisi.js (PENDING)
-- 5 fascia-ketjua: SBL / SFL / LL / DIAG (SL+FL) / DFL
-- `TM_KETJU_MATRIISI` — ketjukohtaiset testit + pallotekniikka + jalkapalloesimerkit
-- `TM_PALLOTEKNIIKKA` — 5 tekniikkalajia + `miksi_paivittain` + `harjoite_cue`
-- Apufunktiot: `TM_TESTIN_KETJUT()` / `TM_KETJUN_TESTIT()` / `TM_TEKNIIKAN_KETJUT()` / `TM_KETJUN_TEKNIIKAT()`
-
-### TalentMaster_Valmentaja_Matriisi.html (PENDING)
-5 välilehteä:
-1. ⚽ Tekniikka-opas — lajit + ketjut + kenttäohje + ongelma→ratkaisu
-2. 📊 Matriisi — tekniikka × ketju taulukko hover-selityksillä
-3. 💪 Fysiikkaohjelma — U8–U19 ikävaihekortit + 3+1-malli + D/S/P-omatoimiohjelma
-4. 📅 Päivittäinen pallo — konkreettiset harjoitteet
-5. 🔍 Ongelma → Ratkaisu — 6 yleisintä ongelmaa
-
-### TalentMaster_Koukutus.html (PENDING)
-Kolme kohderyhmää scroll-navigoinnilla:
-- Valmentaja: potku-esimerkki + 3+1-malli + ikäprogressiopalkit
-- VP: sudenkuoppa-ilmiö + tiistai-kysymys + IDP kotiin
-- VEAT: 3h moduuli aikajana + VEAT-tehtävä
+| Tiedosto | Sisältö | Prioriteetti |
+|---|---|---|
+| `harjoitelogiikka_v4.js` | UUSI — kolme kielitasoa, DIAG, Stage 1–5, YouTube embed | 🔴 Ensin |
+| `TalentMaster_Pelaaja_v1.html` | Stage, jaksoinfo, popup, fiilinki-lukitus, v4-integraatio | 🔴 Kriittinen |
+| `TalentMaster_UTJ_v1.html` | UUSI — kasvattisuppilo + Firestore | 🟡 Korkea |
+| `TalentMaster_Kortit.html` | UUSI spesiaalikortit + WOW-animaatio | 🟡 Korkea |
+| `ARKKITEHTUURI.md` | Päivitetty 2026-04-07 | 🟢 Dokumentaatio |
+| `PERMISSION_MATRIX.md` | Päivitetty 2026-04-07 | 🟢 Dokumentaatio |
+| `ROADMAP.md` | Päivitetty 2026-04-07 | 🟢 Dokumentaatio |
+| `SESSION_SUMMARY.md` | Tämä tiedosto | 🟢 Dokumentaatio |
 
 ---
 
-## FLEI — 5 ketjua (päivitetty 2026-04-06, EI enää 6)
+## TÄMÄN SESSION TUOTOKSET (2026-04-07)
 
-| Ketju | Testi | Emoji | Wilke 2016 |
+### harjoitelogiikka_v4.js — UUSI (1887 riviä)
+Korvaa v3:n. Harjoitesisältö eriytetty omaan tiedostoon — pelaaja-sivu delegoi `<script src>`:lla.
+
+- **Kolme kielitasoa:** `leikkija` (U8–12) / `rakentaja` (U13–15) / `showcase` (U16+)
+- **Everton Stage 1–5:** kehonpaino → toistoja → vastus → kuorma → pelispesifi
+- **PANKKI-rakenne:** `PANKKI.T / PANKKI.D / PANKKI.S` + stage-arrayt per harjoite
+- **5 liikeketjua:** `diag` on canonical (SL+FL), `sl` poistunut
+- **YouTube embed:** `youtube.com/embed/{ID}?rel=0` jokaisessa harjoitteessa
+- **Pallotekniikka-yhteys:** `pallo_yhteys`-kenttä DIAG-harjoitteissa
+- **Julkinen API:** `_ikatyyppi()` / `_laskeStage()` / `_ohje()` / `_valitseStage()` / `laskeKetjuProfiili()` / `ytUrl()` / `generoimTehtavat()` / `generoimViikoOhjelma()`
+
+### TalentMaster_Pelaaja_v1.html — merkittävä päivitys
+- Harjoitelogiikka v4 integroitu `<script src>`:lla
+- **Jaksoinfo-palkki:** `laskeMissaJaksossa()` → "🔥 Huipentuma-jakso · Vk 7/8"
+- **Stage-badge + parametrit:** "S3 — Lisähaaste · Sarjat: 3×12/jalka · Tempo: dynaaminen"
+- **"Miksi juuri nyt?":** selkokielinen perustelu harjoitekorteissa
+- **Progressio-preview:** "Seuraava askel (S4): ..."
+- **Ohjeet-popup:** `avaaOhjePopupPelaaja()` — popup ruudun keskellä
+- **Fiilinki-lukitus:** `_tarkistaFiilinki()` Firestoresta + `_lukitseFiilinki()` + "✓ Kirjattu tänään" -badge
+- **`_pelaajaViikonNumero()`:** oma toteutus, ei riippuvuutta Master v9:stä
+- **DIAG-ketju:** `sl` → `diag` korjattu kaikissa kartoissa
+
+### TalentMaster_UTJ_v1.html — UUSI
+- Kasvattisuppilo SVG-viivakaavio (2 viivaa: kasvatteja / VL+Ykkönen)
+- Hover-tooltip, nuoli-jatko, fallback demo-data
+- Firestore: `utj_data/{kausi}` → `{kasvatteja, vlYkk, minuuttia, seurat[]}`
+
+### TalentMaster_Kortit.html — UUSI + spesiaalikortit
+- **Perussarjat:** Huuhkajat / Helmarit / Veikkausliiga 2025 (16 korttia)
+- **Spesiaalikorttiluokat:**
+  - 🔥 FIRE — läpimurtokortit (oranssipunainen glow, 1.8s)
+  - 💎 ICON — holografinen legendakortti (violetti-sininen, 3-värikiero)
+  - ⭐ MILESTONE — pelaajan kehityskortti (kulta, starPulse, `milestoneInfo`)
+  - 🌟 TOTY — kauden parhaat (platinanvalkoinen)
+- **WOW-avausanimaatio:** flash-burst + 22 partikkelia + 3D flip (cubic-bezier) + labelSlide
+
+---
+
+## 8-viikon jaksotuslogiikka
+
+```javascript
+JAKSO_RAKENNE = {
+  pohja:      { viikot:'1-3', stageModif:0, emoji:'🌱', vari:'#00D4AA' },
+  kehitys:    { viikot:'4-6', stageModif:1, emoji:'📈', vari:'#FFB020' },
+  huipentuma: { viikot:'7-8', stageModif:2, emoji:'🔥', vari:'#A855F7' },
+}
+// Sykli: kalenteriviikko % 8 → 1-8
+// stageModif lisätään FLEI-pohjaiseen Stage-laskentaan
+// PHV-rajoite: phv_tila === 'PH' → max Stage 2
+```
+
+---
+
+## FLEI — 5 ketjua (EI enää 6, pysyvä 2026-04-06)
+
+| Ketju | Avain | Emoji | Wilke 2016 |
 |---|---|---|---|
-| SBL — Takaketju | `hpp_sbl` | ⚡ | ⭐⭐⭐ |
-| SFL — Etuketju | `hpp_sfl` | 🦵 | ⭐ toiminnallinen |
-| LL — Sivuketju | `hpp_ll` | ↔️ | ⭐⭐ |
-| DIAG — Diagonaali (SL+FL) | `hpp_diag` | 🔄⬡ | ⭐⭐⭐ |
-| DFL — Hallintaketju | `hpp_dfl` | 🏗️ | ⭐⭐ |
+| Takaketju | `sbl` | ⚡ | ⭐⭐⭐ |
+| Lähtöketju | `sfl` | 🦵 | ⭐ |
+| Sivuketju | `ll` | ↔️ | ⭐⭐ |
+| Diagonaaliketju (SL+FL) | `diag` | 🔄⬡ | ⭐⭐⭐ |
+| Hallintaketju | `dfl` | 🏗️ | ⭐⭐ |
 
-`TM_LASKE_FLEI()` palauttaa: `{ flei, ketjut, heikoin, heikoinArvo }`
-Heikoin → ohjaa S-harjoitteen + 30% alkurutiinin ryhmän
-
----
-
-## Pallotekniikka ↔ ketjut
-
-| Tekniikka | Pääketju | Avustava | Tutkimusnäyttö |
-|---|---|---|---|
-| Ponnauttelu | 🏗️ DFL + 🔄⬡ DIAG | ↔️ LL | Forsman 2013 — erotteli kaikissa U11-U14 |
-| Syöttö | 🔄⬡ DIAG | 🦵 SFL + 🏗️ DFL | Liikanen 2025 +13% ammattilaisennustaja |
-| Pujottelu | ↔️ LL | 🔄⬡ DIAG + 🏗️ DFL | Liikanen 2025 +9% |
-| Kuljetus-laukaus | 🔄⬡ DIAG + 🦵 SFL | ⚡ SBL | Thomas-testi → hip flexor kireys → potku ei lennä |
-| Pituuspotku | ⚡ SBL | 🔄⬡ DIAG + 🦵 SFL | Palloliiton protokolla vasta U12+ |
+Firestore-kenttä: `flei_ketjut: {SBL, SFL, LL, DIAG, DFL}` (isolla)
+`laskeKetjuProfiili(pelaaja)` hoitaa backward-compat vanhoille SL/FL-kentille.
 
 ---
-
-## 70/30 — kaksi tasoa
-
-**Joukkueen alkurutiini (20–30 min):**
-- 70% = kaikki yhdessä (kyykkyistunta + lantionnosto + lateraaliloikka + lankkukierto)
-- 30% = 3 ryhmää (nopeus W/ST/FB · hallinta CDM/CAM · voima CD) — FLEI ohjaa
-
-**Pelaajan omatoimiohjelma kotona:**
-- D päivittäin = 70% vahvuuksien ylläpito
-- S lepopäivänä = 30% heikoin ketju
-
-**Ikäprogressio:** U8–U12 leikki → U12–U15 rakenne alkaa → U15–U17 tasapuoli → U17+ yksilö johtaa
-
----
-
-## Kansainväliset esimerkit (fysiikkavalmentaja-kysymys)
-
-- **Ajax:** Soccer Aerobics 30 min alkuverryttelynä — integroitu aktivointi, ei erillinen fysiikkaohjelma U12 asti
-- **KNVB:** Kouluttaa valmentajat — ei lisää henkilöstöä pieniin seuroihin
-- **Premier League EPPP:** Multidisiplinääriset tiimit — epärelevantti vertailukohta suomalaisille seuroille
-- **Johtopäätös:** TalentMaster + harjoitettavuuskartoitus + ketjumatriisi riittää U8–U15. U16+ lisäkuormat vaativat silmän.
-
----
-
-## Pelaajaprosessi — toimii alusta loppuun (testattu 2026-04-04)
-
-1. VP lähettää rekisteröintikutsun Seura.html:stä → sähköposti huoltajalle ✅
-2. Pelaaja tallentuu Firestoreen (`suostumusTila: "odottaa"`) ✅
-3. Vanhempi täyttää suostumuslomakkeen → `suostumusTila: "annettu"`, `tila: "aktiivinen"` ✅
-4. Vanhemman sivu aukeaa oikein ✅
-5. Pelaajan sivu aukeaa oikein ✅
-6. Sähköposti vanhemmalle salasanalinkillä lähetetty ✅
-
----
-
-## Avoimet tehtävät
-- videoBank Firestoreen täyttäminen videopankki-adminin kautta on se mitä tarvitaan ennen kuin pelaajien omatoimiohjelmat näyttävät videoita.
 
 ## Kriittiset periaatteet (EI muuteta koskaan)
 
 1. Super Admin `dqUzvJA61Wb9fgj5UiK0riSA4NI2` — pääsy kaikkialle aina
 2. S-harjoite = AINA heikoin ketju, ei profiiliin
 3. T-harjoite = joka päivä, myös lepopäivät
-4. PHV ohittaa Stagen
-5. 70/30 koskee alkurutiinia — kenttäharjoitus on valmentajan
-6. 70/30 toimii kahdella tasolla: joukkueen alkurutiini JA pelaajan omatoimiohjelma kotona
-7. FLEI = 5 ketjua (SBL/SFL/LL/DIAG/DFL) — EI 6 (SL+FL yhdistetty)
+4. PHV ohittaa Stagen (max Stage 2)
+5. 70/30 koskee sekä joukkueen alkurutiinia ETTÄ pelaajan omatoimiohjelmaa
+6. FLEI = 5 ketjua (SBL/SFL/LL/DIAG/DFL) — SL+FL yhdistettynä pysyvästi
+7. `diag` on ainoa canonical ketjuavain — `sl` poistunut
 8. `super_admin` (underscore) canonical — `normalizeRooli()` hoitaa vanhat
 9. Firestore Rules: `allow create` JA `allow update`
-10. Älä testaa VP-dashboardia ja Admin-näkymää samassa selainistunnossa
+10. Älä testaa VP ja Admin samassa selainistunnossa
 11. GitHub Pages Fastly CDN — `?v=N` cache-busting jokaisen latauksen jälkeen
 12. `onAuthStateChanged`-loop estetty `_kirjautuminenKesken`-flagilla
-13. `onSnapshot`-kuuntelijat siivottava ennen `signOut()`-kutsua
-14. `setCustomUserClaims` pakollinen `luoKayttaja`-funktiossa
-15. Soveltava testaus: `kattavuus`-kenttä (0–1) tallennetaan aina indeksin rinnalla
-16. DIAG = SL+FL yhdistettynä — älä erota niitä takaisin
+13. `onSnapshot`-kuuntelijat siivottava ennen `signOut()` — `tm:logout`-event
+14. `setCustomUserClaims` pakollinen `luoKayttaja`:ssa
+15. Soveltava testaus: `kattavuus`-kenttä (0–1) aina indeksin rinnalla
+16. `_pelaaja` on `let`-muuttuja skoopin sisällä — EI `window._pelaaja`
+17. `harjoitelogiikka_v4.js` ladataan `<script src>`:lla ennen pääscriptejä
+18. YouTube embed: `youtube.com/embed/{ID}?rel=0` — ei watch-URL:ia
+19. Fiilinki-lukitus: tarkista `fiilinki_paivitetty` Firestoresta ennen renderöintiä
+
+---
+
+## Avoimet tehtävät (seuraavaan sessioon)
+
+### Kriittisin
+- [ ] Testisyöttölomake Master v9:ään (kartoitukset-välilehti)
+- [ ] Harjoitettavuuslomake lukee `tapahtumaId` URL:sta
+
+### Korkea prioriteetti
+- [ ] Kenttähavainto → Firestore (`havainnot`-kokoelma) — UI valmis, tallennus puuttuu
+- [ ] ADAR-pisteet → Firestore (`adar`-kokoelma, ei `havainnot`)
+- [ ] Streak-historia Firestoreen (nyt localStoragessa)
+
+### Normaali
+- [ ] IDP-aktivointilogiikka (3 reittiä, 3 tasoa)
+- [ ] Valmentajatunnukset joukkuekohtaisilla oikeuksilla
+- [ ] Bio-ikälomake → `maturity_offset` + `phv_tila` Firestoreen
+- [ ] videoBank Firestoreen (tarvitaan ennen videoiden näyttämistä)
+- [ ] Milestone-kortit ← Firebase-kytkös (streak + FLEI automaattisesti)
+- [ ] joukkueNimi tallentuu ID:nä eikä display-nimenä — bugi rekisteröinnissä
+
+### Tekniset avoimet
+- Cloud Scheduler API aktivointi (tasoHaeMaatcheck)
+- Rules-deploy: käytä Firebase-konsolia — GitHub Actions saa 403
