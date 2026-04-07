@@ -962,6 +962,45 @@ async function _lataakäyttäjätiedot(u) {
     } catch(e) {}
   }
 
+  // Super Admin ilman seuraa — lataa kaikki seurat ja näytä valitsin
+  if (_superAdmin && !_seuraId) {
+    try {
+      const sSnap = await _db.collection('seurat').get();
+      const seurat = sSnap.docs.map(d => ({ id: d.id, nimi: d.data().nimi || d.id }))
+        .sort((a,b) => a.nimi.localeCompare(b.nimi));
+      if (seurat.length > 0) {
+        // Aseta ensimmäinen seura oletukseksi
+        _seuraId  = seurat[0].id;
+        _seuraNimi = seurat[0].nimi;
+        // Lisää seuravalitsin topbariin
+        const topbar = document.querySelector('.topbar');
+        if (topbar && !document.getElementById('sa-seura-sel')) {
+          const sel = document.createElement('select');
+          sel.id = 'sa-seura-sel';
+          sel.style.cssText = 'background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);'
+            + 'border-radius:6px;color:#E8EEF8;font-family:DM Sans,sans-serif;font-size:12px;'
+            + 'padding:4px 8px;cursor:pointer;';
+          seurat.forEach(s => {
+            const op = document.createElement('option');
+            op.value = s.id; op.textContent = s.nimi;
+            sel.appendChild(op);
+          });
+          sel.onchange = async function() {
+            _seuraId = this.value;
+            const snap = await _db.collection('seurat').doc(_seuraId).get();
+            _seuraNimi = snap.data()?.nimi || _seuraId;
+            document.getElementById('etusivu-seura').textContent = _seuraNimi;
+            await _lataaJoukkueet();
+            await _lataaTapahtumat();
+          };
+          // Lisää ennen logout-nappia
+          const logout = topbar.querySelector('.topbar-logout');
+          topbar.insertBefore(sel, logout);
+        }
+      }
+    } catch(e) { console.warn('Super admin seurat:', e.message); }
+  }
+
   document.getElementById('topbar-user').textContent = u.email;
   document.getElementById('etusivu-seura').textContent = _seuraNimi || 'Kaikki seurat';
 
