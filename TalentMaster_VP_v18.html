@@ -623,6 +623,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           title="Seurahallinta">
           &#127968; Seura
         </button>
+        <button onclick="window.open('TalentMaster_UTJ_v1.html','_blank')"
+          style="background:none;border:1px solid rgba(168,85,247,.5);border-radius:6px;
+            color:#A855F7;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;
+            transition:background .15s;"
+          onmouseover="this.style.background='rgba(168,85,247,.1)'"
+          onmouseout="this.style.background='none'"
+          title="UTJ — Urheilutoimenjohtajan näkymä">
+          &#128202; UTJ
+        </button>
         <button class="header-logout" onclick="kirjauduUlos()">Kirjaudu ulos</button>
       </div>
     </div>
@@ -748,6 +757,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
           </button>
           <button class="qa-nappi" onclick="window.open('TalentMaster_Seura.html','_blank')">
             <span class="qa-ikoni">🏛️</span>Seurahallinta
+          </button>
+          <button class="qa-nappi" onclick="window.open('TalentMaster_UTJ_v1.html','_blank')">
+            <span class="qa-ikoni">📊</span>UTJ-näkymä
           </button>
         </div>
       </div>
@@ -1867,9 +1879,10 @@ async function laskeHeikoinkettju(joukkueId) {
     const ketjuLkm = {};
     kSnap.forEach(doc => {
       const d = doc.data();
-      const ketjut = ['sbl','sfl','ll','sl','dfl'];
+      const ketjut = ['sbl','sfl','ll','diag','dfl'];
       ketjut.forEach(k => {
-        const v = d[k] || d[k + '_pisteet'];
+        // backward-compat: diag = sl+fl yhdistettynä (Wilke 2016)
+        const v = d[k] || d[k + '_pisteet'] || (k === 'diag' ? (d['sl'] || d['fl']) : null);
         if (v != null) {
           ketjuSummat[k] = (ketjuSummat[k] || 0) + v;
           ketjuLkm[k] = (ketjuLkm[k] || 0) + 1;
@@ -2214,6 +2227,17 @@ function avaaJoukkuePopup(jDataStr) {
             <div class="jp-pk-bar-fill" style="width:${flei}%;background:${fleiColor}"></div>
           </div>
           <div class="jp-pk-badges">${phvBadge}${idpBadge}${streakBadge}</div>
+          ${p.huoltajaEmail
+            ? `<button onclick="event.stopPropagation();lahetaPelaajaLinkki('${p.id}','${p.joukkue||''}')"
+                style="margin-top:8px;width:100%;padding:6px 0;border-radius:7px;border:none;
+                       background:rgba(0,212,170,.1);color:#00D4AA;font-size:11px;font-weight:700;
+                       cursor:pointer;font-family:'DM Sans',sans-serif;"
+                onmouseover="this.style.background='rgba(0,212,170,.2)'"
+                onmouseout="this.style.background='rgba(0,212,170,.1)'">
+                📨 Lähetä linkki
+              </button>`
+            : `<div style="margin-top:6px;font-size:9px;color:var(--ink3)">⚠️ Ei huoltajasähköpostia</div>`
+          }
         </div>`;
       }).join('')
     : '<div style="color:var(--ink3);font-size:13px;padding:8px">Ei pelaajia tallennettuna.</div>';
@@ -2243,6 +2267,59 @@ function avaaJoukkuePopup(jDataStr) {
         </div>
       </div>
     </div>`;
+}
+
+
+// ── Lähetä pelaajasivu-linkki huoltajalle ──────────────────────────────────
+async function lahetaPelaajaLinkki(pelaajaId, joukkueId) {
+  const p = (window._vpJoukkueCache || [])
+    .flatMap(j => j.pelaajat || [])
+    .find(x => x.id === pelaajaId);
+  if (!p) { naytaToastVP('Pelaajaa ei löydy', 'virhe'); return; }
+  if (!p.huoltajaEmail) { naytaToastVP('Pelaajalla ei ole huoltajasähköpostia', 'virhe'); return; }
+
+  naytaToastVP('📨 Lähetetään linkkiä...', 'info');
+
+  try {
+    const fn = firebase.app().functions('europe-west1');
+    const lahetaFn = fn.httpsCallable('lahetaPelaajaSivuLinkki');
+    const tulos = await lahetaFn({
+      hEmail:    p.huoltajaEmail,
+      pelaajaId: pelaajaId,
+      seuraId:   _seuraId,
+      etunimi:   p.etunimi || '',
+      sukunimi:  p.sukunimi || '',
+      seura:     _seuraNimi || _seuraId,
+      joukkue:   joukkueId || p.joukkue || '',
+    });
+    if (tulos.data?.ok) {
+      naytaToastVP(`✅ Linkki lähetetty → ${p.huoltajaEmail}`, 'ok');
+    }
+  } catch(e) {
+    console.error('[lahetaPelaajaLinkki]', e.message);
+    naytaToastVP(`❌ Lähetys epäonnistui: ${e.message}`, 'virhe');
+  }
+}
+
+// ── Toast-viesti VP-näkymässä ──────────────────────────────────────────────
+function naytaToastVP(teksti, tyyppi) {
+  let toast = document.getElementById('vpToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'vpToast';
+    toast.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+      z-index:9999;padding:10px 20px;border-radius:10px;font-family:'DM Sans',sans-serif;
+      font-size:13px;font-weight:600;transition:opacity .3s;pointer-events:none;
+      box-shadow:0 4px 20px rgba(0,0,0,.4)`;
+    document.body.appendChild(toast);
+  }
+  const vari = tyyppi === 'ok' ? '#00D4AA' : tyyppi === 'virhe' ? '#EF4444' : '#4A7ED9';
+  toast.style.background = vari;
+  toast.style.color = '#fff';
+  toast.style.opacity = '1';
+  toast.textContent = teksti;
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3500);
 }
 
 function suljeJoukkuePopup() {
