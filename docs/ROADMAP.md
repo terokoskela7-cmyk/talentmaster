@@ -1,5 +1,5 @@
 # TalentMaster™ — Kehityssuunnitelma (Roadmap)
-## Päivitetty 2026-04-06
+## Päivitetty 2026-04-07
 
 ---
 
@@ -20,12 +20,15 @@
 - [x] `TalentMaster_Master_v9.html` — Valmentajan näkymä
 - [x] `TalentMaster_Seura.html` — Seurahallinta
 - [x] `TalentMaster_Vanhempi.html` — Huoltajan sivu
-- [x] `TalentMaster_Pelaaja_v1.html` — Pelaajan sivu
+- [x] `TalentMaster_Pelaaja_v1.html` — Pelaajan sivu (**päivitetty 2026-04-07:** Stage-badge, jaksoinfo-palkki, ohjeet-popup, fiilinki-lukitus, v4-integraatio)
 - [x] `TalentMaster_IDP_Kortti_v3.html` — IDP-kortti
 - [x] `TalentMaster_Rekisterointi_Suostumus.html` — Suostumuslomake
+- [x] `TalentMaster_UTJ_v1.html` — **UUSI 2026-04-07** Urheilutoimenjohtajan kasvattisuppilo + Firestore
+- [x] `TalentMaster_Kortit.html` — **UUSI 2026-04-07** Keräilykortit: 3 perussarjaa + 4 spesiaalikorttiluokkaa + WOW-animaatio
 
 ### JavaScript-kirjastot
 - [x] `harjoitelogiikka_v3.js` — T/D/S/P-harjoitteet, 70/30, ikäkielet
+- [x] `harjoitelogiikka_v4.js` — **UUSI 2026-04-07** kolme kielitasoa (leikkija/rakentaja/showcase), DIAG-ketju, Everton Stage 1–5, YouTube embed-URL:t, pallo_yhteys
 - [x] `hpp_rehab_protokollat.js` — 25 kuntoutusprotokollaa
 - [x] `tm_testipankki.js` — 64 testiä, 8 protokollaa, FLEI (5 ketjua)
 - [x] `tm_import.js` + `tm_empty_state.js` — Seura.html integraatiot
@@ -60,8 +63,8 @@
 - [ ] Tulokset tallentuvat oikeaan Firestore-rakenteeseen
 
 ### Harjoitekirjauksen Firestore-rakenne
-- [ ] Tehdään oikein NYT ennen AI-agentin rakentamista
-- [ ] `kirjaukset/{pvm}`: tyyppi, tehty, kesto_min, rpe, aika, fiilinki
+- [x] `kirjaukset/{pvm}` rakenne: tyyppi, tehty, kesto_min, rpe, aika, fiilinki, uni, lihaskunto, fiilinki_paivitetty
+- [x] Fiilinki-lukitus: päiväkohtainen tarkistus Firestoresta + visuaalinen badge
 - [ ] Streak-historia Firestoreen (nyt localStoragessa)
 
 ### IDP-aktivointilogiikka
@@ -87,8 +90,8 @@
 ## 📋 TULOSSA (Sprint 5–6)
 
 ### Valmentajan kenttähavainto
-- [ ] Kenttähavainto → Firestore (`havainnot`-kokoelma)
-- [ ] ADAR-pisteiden tallennus Firestoreen
+- [ ] Kenttähavainto → Firestore (`havainnot`-kokoelma) — UI valmis, tallennuslogiikka puuttuu
+- [ ] ADAR-pisteiden tallennus Firestoreen (`adar`-kokoelma, ei `havainnot`)
 - [ ] Pikamerkintä-toiminto (tyyppi + kommentti + pelaajaId)
 - [ ] Valmentaja näkee tulokset suoraan Master v9:ssä
 
@@ -139,9 +142,29 @@
 | Ylöjärven Ilves | 🔴 Ei dataa | Korkea — tekniikkakilpailut |
 | SJK Juniorit | 🟡 Tunnus luotu | Normaali |
 | GrIFK | 🟡 Tunnus luotu | Normaali |
+| VIFK | 🟡 Tunnus luotu (sv-kieli) | Normaali |
 | HJK Juniorit | 🟡 Tunnus luotu | Normaali |
 
 ---
+
+
+---
+
+## 🚀 PENDING DEPLOY — Tämä sessio (2026-04-07)
+
+Nämä tiedostot on rakennettu mutta EI vielä ladattu GitHubiin:
+
+| Tiedosto | Muutos | Prioriteetti |
+|---|---|---|
+| `TalentMaster_Pelaaja_v1.html` | Stage-badge, jaksoinfo, ohjeet-popup, fiilinki-lukitus, v4-integraatio | 🔴 Kriittinen |
+| `harjoitelogiikka_v4.js` | UUSI — kolme kielitasoa, DIAG, Stage 1–5, YouTube embed | 🔴 Kriittinen (pelaaja riippuu tästä) |
+| `TalentMaster_UTJ_v1.html` | UUSI — kasvattisuppilo-aikajana | 🟡 Korkea |
+| `TalentMaster_Kortit.html` | Spesiaalikortit (FIRE/ICON/MILESTONE/TOTY) + WOW | 🟡 Korkea |
+| `ARKKITEHTUURI.md` | Päivitetty 2026-04-07 | 🟢 Dokumentaatio |
+| `PERMISSION_MATRIX.md` | Päivitetty 2026-04-07 | 🟢 Dokumentaatio |
+| `ROADMAP.md` | Tämä tiedosto | 🟢 Dokumentaatio |
+
+**Latausjärjestys:** `harjoitelogiikka_v4.js` ENSIN — pelaaja-sivu riippuu siitä.
 
 ## Avoimet tekniset asiat
 
@@ -149,3 +172,7 @@
 - Rules-deploy saa 403 GitHub Actionsista → käytä Firebase-konsolia suoraan
 - H-H normitaulukon tarkat raja-arvot: verifioi `testit_indeksit.js`:n arvot virallisesta taulukosta
 - Fastly CDN cache: `?v=N` jokaisen deploy:n jälkeen
+- `_pelaaja` on `let`-muuttuja — EI `window._pelaaja` — aiheuttaa renderöintivirheitä jos sekoitetaan
+- `harjoitelogiikka_v4.js` ladattava ennen pääscriptejä — järjestys kriittinen
+- DIAG-ketju: `sl`-avain poistunut — käytä `diag` kaikkialla
+- Fiilinki-lukitus: tarkista `fiilinki_paivitetty` ennen renderöintiä
