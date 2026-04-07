@@ -1565,7 +1565,7 @@ async function renderPelaajat(alue) {
       </div>
       <table>
         <thead><tr>
-          <th>Nimi</th><th>Joukkue</th><th>Synt.</th><th>PalloID</th><th>Tila</th><th>Toiminnot</th>
+          <th>Nimi</th><th>Joukkue</th><th>Synt.</th><th>PalloID</th><th>Tila</th><th>Käytettävyys</th><th>Toiminnot</th>
         </tr></thead>
         <tbody>
           ${pelaajat.map(p => {
@@ -1608,6 +1608,7 @@ async function renderPelaajat(alue) {
                 <td>${syntVuosi}</td>
                 ${palloIdSolu}
                 <td><span class="badge ${tilaLuokka}">${tilaIkoni} ${tilaTeksti}</span></td>
+                <td>${_renderKaytettavyys(p)}</td>
                 <td>
                   <button class="toimNappi" onclick="naytaPelaajaTiedot('${p.id}')">Tiedot</button>
                   ${p.huoltajaEmail
@@ -1630,6 +1631,182 @@ async function renderPelaajat(alue) {
 // ─────────────────────────────────────────────────────────────────
 // NÄKYMÄ: JOUKKUEET
 // ─────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────
+// KÄYTETTÄVYYS — helper ja muutos
+// ─────────────────────────────────────────────────────────────────
+
+const KAYTETTAVYYS_TYYPIT = [
+  {id:'lihas',   nimi:'Lihasrepeämä'},
+  {id:'nivel',   nimi:'Nivelside'},
+  {id:'luu',     nimi:'Luuvamma'},
+  {id:'rasitus', nimi:'Rasitusvamma'},
+  {id:'sairaus', nimi:'Sairaus'},
+  {id:'muu',     nimi:'Muu'},
+];
+
+const KAYTETTAVYYS_ALUEET = [
+  'Nilkka','Polvi','Reisi','Lonkka','Selkä','Olkapää','Ranne','Sääri','Pohje','Muu'
+];
+
+function _renderKaytettavyys(p) {
+  const k = p.kaytettavyys || 'aktiivinen';
+  const cfg = {
+    aktiivinen:    {bg:'rgba(29,158,117,.12)',  c:'#0F6E56', ikoni:'✓', teksti:'Aktiivinen'},
+    loukkaantunut: {bg:'rgba(224,82,82,.12)',   c:'#A32D2D', ikoni:'⚠', teksti:'Loukkaantunut'},
+    kuntoutuksessa:{bg:'rgba(186,117,23,.12)',  c:'#633806', ikoni:'↑', teksti:'Kuntoutus'},
+    tauko:         {bg:'rgba(100,100,100,.12)', c:'#555',    ikoni:'⏸', teksti:'Tauko'},
+  }[k] || {bg:'rgba(100,100,100,.1)', c:'#888', ikoni:'?', teksti:k};
+
+  const loukkaInfo = k !== 'aktiivinen' && p.loukkaantuminen_alue
+    ? ` · ${p.loukkaantuminen_alue}` : '';
+  const paluuInfo = p.paluu_arvio
+    ? `<div style="font-size:9px;color:#888;margin-top:1px">Paluu: ${p.paluu_arvio}</div>` : '';
+
+  return `<div onclick="avaaKaytettavyysModal('${p.id}')" style="cursor:pointer;display:inline-flex;flex-direction:column">
+    <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:8px;
+      background:${cfg.bg};color:${cfg.c};white-space:nowrap">
+      ${cfg.ikoni} ${cfg.teksti}${loukkaInfo}
+    </span>
+    ${paluuInfo}
+  </div>`;
+}
+
+async function avaaKaytettavyysModal(pelaajaId) {
+  const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get();
+  const p = { id: pelaajaId, ...snap.data() };
+  const k = p.kaytettavyys || 'aktiivinen';
+
+  // Poista vanha modaali
+  document.getElementById('kaytettavyysModaali')?.remove();
+
+  const m = document.createElement('div');
+  m.id = 'kaytettavyysModaali';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  m.innerHTML = `
+    <div style="background:#0D1117;border:1px solid rgba(255,255,255,.12);border-radius:16px;
+      padding:24px;width:360px;max-width:92vw">
+      <div style="font-size:15px;font-weight:700;color:#E8EEF8;margin-bottom:4px">
+        Käytettävyys — ${p.etunimi||''} ${p.sukunimi||''}
+      </div>
+      <div style="font-size:11px;color:#5A6B82;margin-bottom:20px">${p.joukkue||'—'}</div>
+
+      <div style="font-size:10px;color:#5A6B82;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Tila</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
+        ${[
+          {id:'aktiivinen',    ikoni:'✓', teksti:'Aktiivinen',    bg:'rgba(29,158,117,.15)',  c:'#1D9E75'},
+          {id:'loukkaantunut', ikoni:'⚠', teksti:'Loukkaantunut', bg:'rgba(224,82,82,.15)',   c:'#E24B4A'},
+          {id:'kuntoutuksessa',ikoni:'↑', teksti:'Kuntoutuksessa',bg:'rgba(186,117,23,.15)',  c:'#BA7517'},
+          {id:'tauko',         ikoni:'⏸', teksti:'Tauko',         bg:'rgba(100,100,100,.15)', c:'#888'},
+        ].map(opt => `
+          <label style="cursor:pointer;display:flex;align-items:center;gap:6px;
+            padding:6px 12px;border-radius:8px;border:1.5px solid ${opt.id===k?opt.c:'rgba(255,255,255,.1)'};
+            background:${opt.id===k?opt.bg:'transparent'}">
+            <input type="radio" name="km_tila" value="${opt.id}" ${opt.id===k?'checked':''} style="display:none">
+            <span style="font-size:12px;font-weight:600;color:${opt.id===k?opt.c:'#8A9BB5'}">${opt.ikoni} ${opt.teksti}</span>
+          </label>`).join('')}
+      </div>
+
+      <div id="km_loukka_kentat" style="${k==='aktiivinen'||k==='tauko'?'display:none':''}">
+        <div style="font-size:10px;color:#5A6B82;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Loukkaantuminen</div>
+        <select id="km_tyyppi" style="width:100%;background:#131920;border:1px solid rgba(255,255,255,.1);
+          border-radius:8px;color:#E8EEF8;font-size:14px;padding:10px 12px;margin-bottom:10px">
+          <option value="">— Tyyppi —</option>
+          ${KAYTETTAVYYS_TYYPIT.map(t => `<option value="${t.id}" ${p.loukkaantuminen_tyyppi===t.id?'selected':''}>${t.nimi}</option>`).join('')}
+        </select>
+        <select id="km_alue" style="width:100%;background:#131920;border:1px solid rgba(255,255,255,.1);
+          border-radius:8px;color:#E8EEF8;font-size:14px;padding:10px 12px;margin-bottom:10px">
+          <option value="">— Alue —</option>
+          ${KAYTETTAVYYS_ALUEET.map(a => `<option ${p.loukkaantuminen_alue===a?'selected':''}>${a}</option>`).join('')}
+        </select>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div>
+            <div style="font-size:10px;color:#5A6B82;margin-bottom:4px">Loukkaantumispvm</div>
+            <input type="date" id="km_pvm" value="${p.loukkaantuminen_pvm||''}"
+              style="width:100%;background:#131920;border:1px solid rgba(255,255,255,.1);
+              border-radius:8px;color:#E8EEF8;font-size:13px;padding:9px 10px">
+          </div>
+          <div>
+            <div style="font-size:10px;color:#5A6B82;margin-bottom:4px">Arvioitu paluu</div>
+            <input type="date" id="km_paluu" value="${p.paluu_arvio||''}"
+              style="width:100%;background:#131920;border:1px solid rgba(255,255,255,.1);
+              border-radius:8px;color:#E8EEF8;font-size:13px;padding:9px 10px">
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+        <button onclick="document.getElementById('kaytettavyysModaali').remove()"
+          style="background:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;
+          color:#8A9BB5;padding:9px 18px;font-size:13px;cursor:pointer">Peruuta</button>
+        <button onclick="tallennakKaytettavyys('${pelaajaId}')"
+          style="background:#4A7ED9;border:none;border-radius:8px;color:#fff;
+          padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer">Tallenna</button>
+      </div>
+    </div>
+  `;
+
+  // Radio-napit näyttävät/piilottavat loukkaantumiskentät
+  m.querySelectorAll('input[name=km_tila]').forEach(r => {
+    r.addEventListener('change', () => {
+      const kentat = document.getElementById('km_loukka_kentat');
+      kentat.style.display = (r.value==='loukkaantunut'||r.value==='kuntoutuksessa') ? '' : 'none';
+      // Päivitä napin taustaväri
+      m.querySelectorAll('label').forEach(l => {
+        const inp = l.querySelector('input');
+        const opt = [{id:'aktiivinen',bg:'rgba(29,158,117,.15)',c:'#1D9E75'},
+          {id:'loukkaantunut',bg:'rgba(224,82,82,.15)',c:'#E24B4A'},
+          {id:'kuntoutuksessa',bg:'rgba(186,117,23,.15)',c:'#BA7517'},
+          {id:'tauko',bg:'rgba(100,100,100,.15)',c:'#888'}].find(o=>o.id===inp.value);
+        if (!opt) return;
+        l.style.border = `1.5px solid ${inp.checked?opt.c:'rgba(255,255,255,.1)'}`;
+        l.style.background = inp.checked ? opt.bg : 'transparent';
+        l.querySelector('span').style.color = inp.checked ? opt.c : '#8A9BB5';
+      });
+    });
+  });
+
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target===m) m.remove(); });
+}
+
+async function tallennakKaytettavyys(pelaajaId) {
+  const tila_val = document.querySelector('input[name=km_tila]:checked')?.value || 'aktiivinen';
+  const tyyppi   = document.getElementById('km_tyyppi')?.value || '';
+  const alue     = document.getElementById('km_alue')?.value || '';
+  const pvm      = document.getElementById('km_pvm')?.value || '';
+  const paluu    = document.getElementById('km_paluu')?.value || '';
+
+  const data = {
+    kaytettavyys: tila_val,
+    muokattu: firebase.firestore.FieldValue.serverTimestamp(),
+  };
+  if (tila_val !== 'aktiivinen') {
+    if (tyyppi) data.loukkaantuminen_tyyppi = tyyppi;
+    if (alue)   data.loukkaantuminen_alue   = alue;
+    if (pvm)    data.loukkaantuminen_pvm    = pvm;
+    if (paluu)  data.paluu_arvio            = paluu;
+  } else {
+    // Palautunut — nollataan loukkaantumiskentät
+    data.loukkaantuminen_tyyppi = firebase.firestore.FieldValue.delete();
+    data.loukkaantuminen_alue   = firebase.firestore.FieldValue.delete();
+    data.loukkaantuminen_pvm    = firebase.firestore.FieldValue.delete();
+    data.paluu_arvio            = firebase.firestore.FieldValue.delete();
+  }
+
+  try {
+    await db.collection('seurat').doc(tila.seuraId)
+      .collection('pelaajat').doc(pelaajaId)
+      .update(data);
+    document.getElementById('kaytettavyysModaali')?.remove();
+    // Päivitä pelaajalistat
+    const alueEl = document.getElementById('pelaajaListaAlue');
+    if (alueEl) renderPelaajat(document.querySelector('.nakyma.active') || document.body);
+    console.log('[Käytettävyys] Tallennettu:', tila_val);
+  } catch(e) {
+    alert('Tallennus epäonnistui: ' + e.message);
+  }
+}
 
 function renderKehitystilanne(alue) {
   alue.innerHTML = '<div class="kortti">' +
