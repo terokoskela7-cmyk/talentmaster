@@ -2151,6 +2151,9 @@ async function renderJoukkueKortit() {
   // Väripaletti joukkueille
   const varit = ['#00D4AA','#4A7ED9','#FFB020','#A855F7','#EF4444','#3EC9A7'];
 
+  // Tallennetaan cache ennen renderöintiä — avaaJoukkuePopup käyttää indeksiä
+  window._vpJoukkueCache = joukkueData;
+
   el.innerHTML = joukkueData.map((j, i) => {
     const color = j.v1 || varit[i % varit.length];
     const fleiTxt = j.fleiKa != null ? j.fleiKa + '%' : '—';
@@ -2160,7 +2163,7 @@ async function renderJoukkueKortit() {
       ? `<div class="jk-phv-badge">⚠️ ${j.phvLkm} PHV</div>` : '';
 
     return `<div class="joukkue-kortti" style="--j-color:${color}"
-      onclick="avaaJoukkuePopup(${JSON.stringify(JSON.stringify(j))})">
+      onclick="avaaJoukkuePopup(${i})">
       <div class="jk-ikaluokka">${j.ikaluokka || '—'}</div>
       <div class="jk-nimi">${j.nimi || j.id}</div>
       <div class="jk-meta">👤 ${j.valmentaja || 'Valmentaja ei asetettu'}</div>
@@ -2192,8 +2195,17 @@ async function renderJoukkueKortit() {
   }).join('');
 }
 
-function avaaJoukkuePopup(jDataStr) {
-  const j = typeof jDataStr === 'string' ? JSON.parse(jDataStr) : jDataStr;
+function avaaJoukkuePopup(idxTaiData) {
+  // Hyväksyy: numero (indeksi cacheen), string (JSON), tai objekti
+  let j;
+  if (typeof idxTaiData === 'number') {
+    j = (window._vpJoukkueCache || [])[idxTaiData];
+  } else if (typeof idxTaiData === 'string') {
+    try { j = JSON.parse(idxTaiData); } catch(e) { j = null; }
+  } else {
+    j = idxTaiData;
+  }
+  if (!j) { console.warn('[avaaJoukkuePopup] Ei dataa indeksille', idxTaiData); return; }
   const root = document.getElementById('joukkuePopupRoot');
   if (!root) return;
 
