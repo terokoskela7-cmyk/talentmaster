@@ -2502,16 +2502,71 @@ function _renderPelaajaKortti(p) {
           : '<div style="flex:1;height:4px;background:rgba(255,255,255,.04);'
             + 'border-radius:2px;"></div>')
     + '</div>'
-    // Footer: tunnisteet vasemmalla, IDP-nappi oikealla
+    // Footer: tunnisteet vasemmalla, linkki-nappi + IDP-nappi oikealla
     + '<div class="pk-footer">'
       + '<div class="pk-tagit">' + tagit + '</div>'
-      + '<span class="pk-idp-nappi">IDP →</span>'
+      + '<div style="display:flex;gap:5px;align-items:center;">'
+        + (p.huoltajaEmail
+            ? '<button onclick="event.stopPropagation();_lahetaPelaajaLinkki(\'' + p.id + '\',\'' + (p.huoltajaEmail||'') + '\',\'' + (p.etunimi||'') + '\',\'' + (p.sukunimi||'') + '\',\'' + (p.joukkue||'') + '\')" '
+              + 'style="border:none;background:rgba(0,212,170,.12);color:#00D4AA;'
+              + 'border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;" '
+              + 'title="Lähetä pelaajasivu-linkki huoltajalle">📨</button>'
+            : '')
+        + '<span class="pk-idp-nappi">IDP →</span>'
+      + '</div>'
     + '</div>'
     + phvHtml
   + '</div>';
 }
 
 function suodataPelaajat(haku) { _renderPelaajat(haku); }
+
+// ── Lähetä pelaajasivu-linkki huoltajalle (valmentajan nappi) ────────────────
+async function _lahetaPelaajaLinkki(pelaajaId, hEmail, etunimi, sukunimi, joukkue) {
+  if (!hEmail) { _naytaToastMaster('Pelaajalla ei ole huoltajasähköpostia', 'virhe'); return; }
+  _naytaToastMaster('📨 Lähetetään linkkiä...', 'info');
+  try {
+    var fn = firebase.app().functions('europe-west1');
+    var lahetaFn = fn.httpsCallable('lahetaPelaajaSivuLinkki');
+    var tulos = await lahetaFn({
+      hEmail: hEmail,
+      pelaajaId: pelaajaId,
+      seuraId: _seuraId,
+      etunimi: etunimi || '',
+      sukunimi: sukunimi || '',
+      seura: _seuraId,
+      joukkue: joukkue || '',
+    });
+    if (tulos.data && tulos.data.ok) {
+      _naytaToastMaster('✅ Linkki lähetetty → ' + hEmail, 'ok');
+    }
+  } catch(e) {
+    console.error('[_lahetaPelaajaLinkki]', e.message);
+    _naytaToastMaster('❌ Lähetys epäonnistui: ' + e.message, 'virhe');
+  }
+}
+
+function _naytaToastMaster(teksti, tyyppi) {
+  var toast = document.getElementById('masterToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'masterToast';
+    toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);'
+      + 'z-index:9999;padding:10px 20px;border-radius:10px;font-family:\'DM Sans\',sans-serif;'
+      + 'font-size:13px;font-weight:600;transition:opacity .3s;pointer-events:none;'
+      + 'box-shadow:0 4px 20px rgba(0,0,0,.4);min-width:200px;text-align:center';
+    document.body.appendChild(toast);
+  }
+  var vari = tyyppi === 'ok' ? '#00D4AA' : tyyppi === 'virhe' ? '#EF4444' : '#4A7ED9';
+  toast.style.background = vari;
+  toast.style.color = '#fff';
+  toast.style.opacity = '1';
+  toast.textContent = teksti;
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(function() { toast.style.opacity = '0'; }, 3500);
+}
+
+
 
 // ── NAVIGAATIO ───────────────────────────────────────────────────
 function naytaNakuma(nimi) {
