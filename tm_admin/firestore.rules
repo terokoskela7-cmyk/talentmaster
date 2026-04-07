@@ -46,6 +46,14 @@ service cloud.firestore {
       return onSuperAdmin() || onSeuranVP(seuraId) || onSeuranKayttaja(seuraId);
     }
 
+    // Anonyymi käyttäjä pääsee pelaajadataan URL-kirjautumisella
+    // (suostumusTila == 'annettu' varmistaa että pelaaja on rekisteröity)
+    function onAnonyymiPelaaja(seuraId, pelaajaId) {
+      return onKirjautunut()
+        && request.auth.token.firebase.sign_in_provider == 'anonymous'
+        && resource.data.suostumusTila == 'annettu';
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // SUOSTUMUSLOMAKKEEN APUFUNKTIOT
     // ─────────────────────────────────────────────────────────────────────
@@ -113,8 +121,6 @@ service cloud.firestore {
           allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
         }
 
-        // ── TAPAHTUMAT joukkueen alla ──────────────────────────────────
-        // LISÄTTY 2026-04-07: tapahtumat tallennetaan joukkuekohtaisesti
         match /tapahtumat/{tapahtumaId} {
           allow read: if onPaasySeuraan(seuraId) || onKirjautunut();
           allow write: if onSuperAdmin()
@@ -122,8 +128,15 @@ service cloud.firestore {
             || onSeuranVP(seuraId);
         }
 
+        // ── HARJOITUKSET joukkueen alla ────────────────────────────────
+        // Valmentaja tallentaa harjoituskirjaukset tänne (Master v9)
+        // VP ja UTJ saavat lukea fiilinki- ja aktiivisuusdataa
+        match /harjoitukset/{harjoitusId} {
+          allow read: if onPaasySeuraan(seuraId);
+          allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
+        }
+
         // ── HAVAINNOT joukkueen alla ───────────────────────────────────
-        // LISÄTTY 2026-04-07: valmentajan kenttähavainnot joukkuekohtaisesti
         match /havainnot/{havaintoId} {
           allow read: if onPaasySeuraan(seuraId);
           allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
@@ -138,7 +151,8 @@ service cloud.firestore {
           || onPaasySeuraan(seuraId)
           || (onKirjautunut() && request.auth.uid == pelaajaId)
           || (onKirjautunut() && resource.data.huoltajaEmail == request.auth.token.email)
-          || onSuostumusPelaajaRead();
+          || onSuostumusPelaajaRead()
+          || onAnonyymiPelaaja(seuraId, pelaajaId);
 
         allow create: if onSuperAdmin()
           || onSeuranValmentaja(seuraId)
@@ -149,7 +163,12 @@ service cloud.firestore {
           || onSeuranValmentaja(seuraId)
           || (onKirjautunut() && request.auth.uid == pelaajaId)
           || (onKirjautunut() && resource.data.huoltajaEmail == request.auth.token.email)
-          || onSuostumusUpdate();
+          || onSuostumusUpdate()
+          || (onKirjautunut()
+              && request.auth.token.firebase.sign_in_provider == 'anonymous'
+              && resource.data.suostumusTila == 'annettu'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['fiilinki','fiilinki_paivitetty','streak','xp','muokattu']));
 
         allow delete: if onSeuranYllApito(seuraId);
 
@@ -158,7 +177,9 @@ service cloud.firestore {
             || onPaasySeuraan(seuraId)
             || (onKirjautunut() && request.auth.uid == pelaajaId);
           allow write: if onSuperAdmin()
-            || (onKirjautunut() && request.auth.uid == pelaajaId);
+            || (onKirjautunut() && request.auth.uid == pelaajaId)
+            || (onKirjautunut()
+                && request.auth.token.firebase.sign_in_provider == 'anonymous');
         }
 
         match /idp/{idpId} {
@@ -171,17 +192,23 @@ service cloud.firestore {
           allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
         }
 
+        // ── KIRJAUKSET pelaajan alla ───────────────────────────────────
+        // Pelaaja tallentaa päivittäiset kirjaukset (fiilinki, harjoite, streak)
+        // VP lukee nämä fiilinki- ja aktiivisuusdataa varten
+        // Anonyymi (URL-kirjautuminen) saa kirjoittaa omiin kirjauksiinsa
         match /kirjaukset/{kirjausId} {
           allow read: if onSuperAdmin()
             || onPaasySeuraan(seuraId)
-            || (onKirjautunut() && request.auth.uid == pelaajaId);
+            || (onKirjautunut() && request.auth.uid == pelaajaId)
+            || (onKirjautunut()
+                && request.auth.token.firebase.sign_in_provider == 'anonymous');
           allow write: if onSuperAdmin()
             || onSeuranValmentaja(seuraId)
-            || (onKirjautunut() && request.auth.uid == pelaajaId);
+            || (onKirjautunut() && request.auth.uid == pelaajaId)
+            || (onKirjautunut()
+                && request.auth.token.firebase.sign_in_provider == 'anonymous');
         }
 
-        // ── HAVAINNOT pelaajan alla ────────────────────────────────────
-        // LISÄTTY 2026-04-07: valmentajan havainnot myös pelaajan profiilissa
         match /havainnot/{havaintoId} {
           allow read: if onSuperAdmin()
             || onPaasySeuraan(seuraId)
@@ -263,17 +290,26 @@ service cloud.firestore {
         allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
       }
 
-      // ── KIRJAUKSET (seuran tasoiset) ───────────────────────────────────
+      // ── KIRJAUKSET seuran tasolla (valmentajan RPE-kirjaukset) ─────────
+      // Master v9 tallentaa joukkueen RPE:n tänne
+      // VP lukee tältä tasolta harjoitusaktiivisuuden ja fiilingin
 
       match /kirjaukset/{kirjausId} {
+        allow read: if onPaasySeuraan(seuraId);
+        allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
+      }
+
+      // ── HARJOITUKSET seuran tasolla ────────────────────────────────────
+      // Master v9 voi tallentaa myös seuran tason harjoituskirjauksen
+
+      match /harjoitukset/{harjoitusId} {
         allow read: if onPaasySeuraan(seuraId);
         allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
       }
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // UTJ-DATA — kasvattisuppilo (UUSI 2026-04-07)
-    // Super Admin kirjoittaa, kaikki kirjautuneet lukevat
+    // UTJ-DATA — kasvattisuppilo
     // ─────────────────────────────────────────────────────────────────────
 
     match /utj_data/{kaudenId} {
