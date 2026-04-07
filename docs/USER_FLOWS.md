@@ -1,5 +1,5 @@
 # TalentMaster™ — Käyttäjäpolkumatriisi
-## Päivitetty 2026-04-06
+## Päivitetty 2026-04-07
 
 > Ennen kuin rakennetaan uusi ominaisuus, tarkistetaan tästä dokumentista
 > miten se vaikuttaa jokaiseen rooliin. Päivitetään aina kun uusi toiminto
@@ -16,6 +16,7 @@
 | VAL | Valmentaja + kenttäroolit | TalentMaster_Master_v9.html |
 | TST | Testaaja / Fysiikkavalmentaja | TalentMaster_Harjoitettavuus_Lomake.html |
 | PEL | Pelaaja | TalentMaster_Pelaaja_v1.html |
+| UTJ | Urheilutoimenjohtaja | TalentMaster_UTJ_v1.html |
 | VAN | Vanhempi / Huoltaja | TalentMaster_Vanhempi.html |
 
 ---
@@ -135,13 +136,17 @@ ADAR-ikäluokkakohtaistus:
 |---|---|---|---|
 | VP | Streakien poikkeamat dashboardissa | VP_v18 | EI vielä |
 | VAL | Halytys kun pelaajan streak katkeaa | Master v9 | EI vielä |
-| PEL | Kirjaa T/D/S/P-harjoitteet, näkee streak + XP | Pelaaja_v1.html | KESKEN UI valmis, Firestore TEHDÄÄN SPRINT 4 |
+| PEL | Kirjaa T/D/S/P-harjoitteet, näkee streak + XP + fiilinki | Pelaaja_v1.html | ✅ kirjaus + fiilinki-lukitus Firestoreen tehty, streak localStoragessa |
 | VAN | Lapsen streak + viimeisin kirjaus | Vanhempi.html | KESKEN UI valmis |
 
-Firestore-rakenne — tehdään oikein ennen AI-agentin rakentamista:
+Firestore-rakenne — toteutettu 2026-04-07:
   seurat/{id}/pelaajat/{pelaajaId}/kirjaukset/{pvm}
     tyyppi: T/D/S/P, tehty: bool, kesto_min, rpe: 1-10
-    aika: ilta/aamu/paiva, fiilinki: 1-5
+    aika: ilta/aamu/paiva
+    fiilinki: 1-5 (mieliala)
+    uni: 1-3, lihaskunto: 1-3 (mini-Hooper, U13+)
+    fiilinki_paivitetty: ISO-ts (lukitusavain — 1 kirjaus/pv)
+  Streak-historia: EI vielä Firestoreen (localStoragessa)
 
 ---
 
@@ -152,19 +157,62 @@ Firestore-rakenne — tehdään oikein ennen AI-agentin rakentamista:
 | VP | FLEI-jakauma — klinikkatrigger alle 40% | VP_v18 | EI vielä |
 | VAL | 3+1-malli alkurutiinissa, ketjuprofiili per pelaaja | TalentMaster_Valmentaja_Matriisi.html | OK valmis, PENDING GitHub |
 | TST | Kartoitus -> FLEI -> ohjelma generoidaan automaattisesti | Harjoitettavuus_Lomake.html | KESKEN generointi puuttuu |
-| PEL | D/S/P-omatoimiohjelma + pallotekniikkacuet | Pelaaja_v1 + IDP-kortti | KESKEN UI valmis, generointi puuttuu |
+| PEL | D/S/P-omatoimiohjelma + ikäkohtainen kieli (leikkija/rakentaja/showcase) + Stage-badge + jaksoinfo | Pelaaja_v1 + IDP-kortti | ✅ harjoitelogiikka v4 integroitu, FLEI→Firestore puuttuu |
 | VAN | Lapsen omatoimiohjelma selkokielellä | Vanhempi.html | EI vielä |
 
-Logiikka: harjoitelogiikka_v3.js + tm_ketju_matriisi.js -> generoimTehtavat(pelaaja) -> Firestore omatoimi_ohjelmat
+Logiikka: harjoitelogiikka_v4.js (kolme kielitasoa + Everton Stage) + tm_ketju_matriisi.js -> generoimTehtavat(pelaaja) -> Firestore omatoimi_ohjelmat
 
 ---
+
+
+---
+
+## Toiminto 11 — Keräilykortit (UUSI 2026-04-07)
+
+| Rooli | Mitä tekee | Missä | Tila |
+|---|---|---|---|
+| PEL | Selaa kortteja (Huuhkajat/Helmarit/Veikkausliiga), avaa lukittuja saavutuksilla | TalentMaster_Kortit.html | ✅ PENDING deploy |
+| VAN | Näkee lapsen korttikokoelman | TalentMaster_Kortit.html | ✅ PENDING deploy |
+| VP / VAL | — | — | Ei tarvetta |
+
+**Spesiaalikorttiluokat:**
+- 🔥 FIRE — kauden läpimurtokortit
+- 💎 ICON — holografinen legendakortti (OVR 99)
+- ⭐ MILESTONE — pelaajan oma kehityskortti (30 pv putki / FLEI 80+)
+- 🌟 TOTY — Team of the Year
+
+**Avoin:** Milestone-kortit eivät vielä kytkeydy Firestore-dataan — lukituslogiikka on staattinen.
+Tulevaisuudessa: streak ≥ 30 → "30 PÄIVÄN PUTKI" aukeaa automaattisesti, FLEI ≥ 80 → "FLEI 80+".
+
+---
+
+## Toiminto 12 — UTJ-kasvattisuppilo (UUSI 2026-04-07)
+
+| Rooli | Mitä tekee | Missä | Tila |
+|---|---|---|---|
+| UTJ | Seuraa kasvattien määrää edustusjoukkueessa vuosittain | TalentMaster_UTJ_v1.html | ✅ PENDING deploy |
+| VP | Näkee saman datan strategisena metriikkana | TalentMaster_UTJ_v1.html tai VP_v18 | KESKEN |
+| SA | Pääsy kaikkien seurojen UTJ-dataan | — | EI vielä |
+| Muut | — | — | Ei tarvetta |
+
+**Firestore-rakenne:**
+```
+utj_data/{kausi}/    // kausi = '2022', '2023', '2024', '2025'
+  kasvatteja: int    // seurakasvatteja edustusjoukkueessa
+  vlYkk: int         // VL tai Ykkönen -pelureita
+  minuuttia: int
+  seurat: []
+```
+
+**Fallback:** Jos `utj_data` on tyhjä → näytetään demo-aikajana (2022–2025 trendi).
 
 ## Kehitysprioriteettijärjestys (päivitetty 2026-04-06)
 
 Sprint 4 — Kirjaukset oikeaan rakenteeseen:
-1. Harjoitekirjauksen Firestore-rakenne oikein (ENNEN AI-agentin rakentamista)
-2. Testisyöttölomake Master v9:aan — KRIITTISIN
-3. Harjoitettavuuslomake lukee tapahtumaId URL:sta
+1. ✅ Harjoitekirjauksen Firestore-rakenne oikein (fiilinki + uni + lihaskunto + lukitusavain)
+2. ✅ harjoitelogiikka_v4.js — kolme kielitasoa, Stage, DIAG
+3. Testisyöttölomake Master v9:aan — KRIITTISIN, kesken
+4. Harjoitettavuuslomake lukee tapahtumaId URL:sta — kesken
 
 Sprint 5 — Pelaaja ja vanhempi saavat oikeaa dataa:
 4. FLEI -> Pelaaja_v1 + Vanhempi.html
@@ -188,9 +236,12 @@ Sprint 7-8 — AI-agentti:
 - VAL: Toimiiko puhelimella kentalla?
 - TST: Tarvitaanko erillistä lomaketta?
 - PEL: Ikakohtainen kieli? (leikkija/rakentaja/showcase)
+- UTJ: Aggregoitu — ei yksittäisiä pelaajatietoja UTJ:lle
 - VAN: Selkokielinen? Huoltaja ymmartaa?
 - Data: Firestore-polku + kentat suunniteltu?
 - Oikeudet: Permission matrix tarkistettu?
 - Mobiili: Toimiiko puhelimella?
 - FLEI: Vaikuttaako FLEI-laskentaan? 5 ketjua, DIAG = SL+FL
 - Ikavaihe: PHV-rajoitin huomioitu?
+- Kortit: Vaikuttaako korttikokoelmaan? Milestone-kynnysarvo?
+- Harjoitelogiikka: Kayttaako generoimTehtavat() v4:aa? leikkija/rakentaja/showcase?
