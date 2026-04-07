@@ -2605,86 +2605,79 @@ function avaaOhjePopupPelaaja(tehtavaId) {
   var vanha = document.getElementById('ohjePopupPelaaja');
   if (vanha) vanha.remove();
 
-  // Hae tehtävä tehtävälistasta
-  var tehtavat = typeof generoimTehtavat === 'function' && window._pelaaja
-    ? generoimTehtavat(window._pelaaja) : [];
+  var tehtavat = typeof generoimTehtavat === 'function' && _pelaaja
+    ? generoimTehtavat(_pelaaja) : [];
   var t = tehtavat.find(function(x){ return x.id === tehtavaId; });
   if (!t) return;
 
-  // Rakenna vaiheistus ohjetekstistä (pilkotaan lauseiksi)
-  var ohjeteksti = t.ohje || '';
-  // Jos ohje sisältää numeroita (1., 2. jne) tai + merkkejä, pilkotaan
-  var vaiheet = [];
-  if (ohjeteksti.includes(' + ')) {
-    // Muoto: "Naruhypyt 3×15s + pohjeeksentrinen 3×10"
-    vaiheet = ohjeteksti.split(' + ').map(function(v){ return v.trim(); });
-  } else {
-    // Koko ohje yhtenä vaiheena
-    vaiheet = [ohjeteksti];
-  }
-
-  var vaiheHtml = vaiheet.map(function(v, i) {
-    return '<div class="ohje-vaihe">'
-      + '<div class="ohje-vaihe-nro">' + (i+1) + '</div>'
-      + '<div class="ohje-vaihe-teksti">' + v + '</div>'
-      + '</div>';
+  // Pilko ohje vaiheiksi '+'-merkin kohdalta
+  var vaiheet = (t.ohje||'').split(' + ').map(function(v){ return v.trim(); });
+  var vaiheHtml = vaiheet.map(function(v,i){
+    return '<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">'
+      +'<div style="width:22px;height:22px;border-radius:50%;background:rgba(0,212,170,.15);'
+      +'color:#00D4AA;font-size:10px;font-weight:700;display:flex;align-items:center;'
+      +'justify-content:center;flex-shrink:0;margin-top:2px">'+(i+1)+'</div>'
+      +'<div style="font-size:13px;color:var(--ink2,#ccc);line-height:1.55">'+v+'</div>'
+      +'</div>';
   }).join('');
 
-  // Stage-parametrit jos D-harjoite
-  var stageHtml = '';
-  if (t.stage && t.sarjat) {
-    var sv = {1:'#8BA0BC',2:'#00D4AA',3:'#FFB020',4:'#EF4444',5:'#A855F7'}[t.stage] || '#00D4AA';
-    var sn = {1:'Aloitustaso',2:'Perusvahvistus',3:'Lisähaaste',4:'Tehotaso',5:'Huipputaso'}[t.stage] || '';
-    stageHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">'
-      + '<span style="padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;'
-      + 'background:rgba(255,255,255,.05);color:' + sv + ';border:1px solid ' + sv + '">S'
-      + t.stage + ' — ' + sn + '</span>'
-      + '<span style="padding:3px 10px;border-radius:12px;font-size:11px;'
-      + 'background:rgba(255,255,255,.04);color:var(--ink2);border:1px solid var(--border)">'
-      + t.sarjat + '</span>'
-      + '<span style="padding:3px 10px;border-radius:12px;font-size:11px;'
-      + 'background:rgba(255,255,255,.04);color:var(--ink2);border:1px solid var(--border)">'
-      + (t.tempo || '') + '</span>'
-      + '</div>';
-  }
+  // Stage + parametrit kompaktisti
+  var sv = {1:'#8BA0BC',2:'#00D4AA',3:'#FFB020',4:'#EF4444',5:'#A855F7'}[t.stage]||'#00D4AA';
+  var sn = {1:'Aloitustaso',2:'Perusvahvistus',3:'Lisähaaste',4:'Tehotaso',5:'Huipputaso'}[t.stage]||'';
+  var badgeStyle = 'padding:2px 8px;border-radius:10px;font-size:10px;border:1px solid rgba(255,255,255,.12);color:var(--ink2,#aaa);';
+  var stageHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin:4px 0 12px">'
+    + (t.stage ? '<span style="'+badgeStyle+'font-weight:700;color:'+sv+';border-color:'+sv+'">S'+t.stage+' '+sn+'</span>' : '')
+    + (t.sarjat ? '<span style="'+badgeStyle+'">'+t.sarjat+'</span>' : '')
+    + (t.tempo  ? '<span style="'+badgeStyle+'">'+t.tempo+'</span>' : '')
+    + '<span style="'+badgeStyle+'">'+t.kesto+'</span>'
+    + '</div>';
 
-  // Video-linkki
-  var videoHtml = t.yt
-    ? '<a href="https://www.youtube.com/results?search_query=' + encodeURIComponent(t.yt)
-      + '" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;'
-      + 'padding:9px 12px;background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);'
-      + 'border-radius:9px;color:#FF4757;text-decoration:none;font-size:12px;'
-      + 'font-weight:700;margin-top:8px;">&#9654; Katso esimerkkivideo</a>'
-    : '';
-
-  // PHV-huomio
+  // PHV kompaktisti
   var phvHtml = t.phvSuoja
-    ? '<div style="padding:7px 10px;background:rgba(255,176,32,.07);'
-      + 'border:1px solid rgba(255,176,32,.25);border-radius:8px;'
-      + 'font-size:11px;color:#FFB020;margin-bottom:10px;">'
-      + '&#9888; Kasvupyrähdys käynnissä — tee rauhallisesti, älä mene kipuun asti.'
-      + '</div>'
-    : '';
+    ? '<div style="padding:5px 10px;background:rgba(255,176,32,.08);border-left:3px solid #FFB020;'
+      +'border-radius:0 6px 6px 0;font-size:11px;color:#FFB020;margin-bottom:10px">'
+      +'&#9888; Kasvupyrähdys — tee rauhallisesti</div>' : '';
+
+  // Video
+  var videoHtml = t.yt
+    ? '<a href="https://www.youtube.com/results?search_query='+encodeURIComponent(t.yt)+'"'
+      +' target="_blank" rel="noopener"'
+      +' style="display:flex;align-items:center;gap:8px;padding:10px 14px;'
+      +'background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);'
+      +'border-radius:9px;color:#FF4757;text-decoration:none;font-size:12px;font-weight:700">'
+      +'&#9654; Katso esimerkkivideo</a>' : '';
 
   document.body.insertAdjacentHTML('beforeend',
     '<div id="ohjePopupPelaaja" class="ohje-modal-tausta"'
-    + ' onclick="if(event.target.id===\'ohjePopupPelaaja\')suljeOhjePopupPelaaja()">'
-    + '<div class="ohje-modal">'
-    + '<div class="ohje-modal-ot">'
-    + '<div class="ohje-modal-otsikko">' + t.nimi + '</div>'
-    + '<button onclick="suljeOhjePopupPelaaja()" class="ohje-modal-sulje">&#x2715; Sulje</button>'
-    + '</div>'
-    + phvHtml
-    + stageHtml
-    + '<div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;'
-    + 'letter-spacing:.8px;margin-bottom:10px;">Miten teet sen</div>'
-    + vaiheHtml
-    + '<div class="ohje-miksi">'
-    + '<div class="ohje-miksi-otsikko">Miksi tämä harjoite?</div>'
-    + '<div class="ohje-miksi-teksti">' + (t.cue || '') + '</div>'
-    + '</div>'
-    + videoHtml
-    + '</div></div>');
+    +' onclick="if(event.target.id===\'ohjePopupPelaaja\')suljeOhjePopupPelaaja()">'
+    +'<div class="ohje-modal">'
+
+    // Otsikko + sulje samalla rivillä
+    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;'
+    +'gap:10px;margin-bottom:4px">'
+    +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:900;'
+    +'color:#00D4AA;line-height:1.2">'+t.nimi+'</div>'
+    +'<button onclick="suljeOhjePopupPelaaja()"'
+    +' style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);'
+    +'border-radius:8px;padding:6px 12px;color:var(--ink2,#aaa);cursor:pointer;'
+    +'font-size:12px;white-space:nowrap;flex-shrink:0">&#x2715; Sulje</button>'
+    +'</div>'
+
+    +stageHtml+phvHtml
+
+    +'<div style="font-size:10px;font-weight:700;color:var(--ink3,#666);'
+    +'text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Miten teet sen</div>'
+    +vaiheHtml
+
+    +'<div style="margin-top:12px;padding:10px 13px;background:rgba(0,212,170,.04);'
+    +'border-radius:9px;border-left:3px solid rgba(0,212,170,.4)">'
+    +'<div style="font-size:10px;font-weight:700;color:#00D4AA;text-transform:uppercase;'
+    +'letter-spacing:.8px;margin-bottom:5px">Miksi tämä harjoite?</div>'
+    +'<div style="font-size:12px;color:var(--ink2,#ccc);line-height:1.6">'+(t.cue||'')+'</div>'
+    +'</div>'
+
+    +(videoHtml ? '<div style="margin-top:12px">'+videoHtml+'</div>' : '')
+    +'</div></div>');
 }
 
 function suljeOhjePopupPelaaja() {
