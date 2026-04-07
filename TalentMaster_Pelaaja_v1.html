@@ -1152,11 +1152,26 @@ function generoimTehtavat(pelaaja) {
   const phv = pelaaja.phv_tila || 'AN';
 
   // Laske heikoin ketju FLEI-arvoista (D-harjoitteelle)
-  const ketjut = {sbl: pelaaja.sbl||1.5, sfl: pelaaja.sfl||1.5, ll: pelaaja.ll||1.5, sl: pelaaja.sl||1.5, dfl: pelaaja.dfl||1.5};
-  const heikoinkid = Object.entries(ketjut).sort(([,a],[,b]) => a-b)[0][0];
+  // Tuetaan sekä vanhaa muotoa (pelaaja.sbl) että Firestore-muotoa (flei_ketjut.SBL)
+  const fk = pelaaja.flei_ketjut || {};
+  // DIAG fallback: vanha 6-ketju data → (SL+FL)/2
+  const diag = fk.DIAG || fk.diag || (fk.SL && fk.FL ? Math.round((fk.SL+fk.FL)/2) : fk.SL || fk.FL || 0);
+  const ketjut = {
+    sbl: fk.SBL || fk.sbl || pelaaja.sbl || 50,
+    sfl: fk.SFL || fk.sfl || pelaaja.sfl || 50,
+    ll:  fk.LL  || fk.ll  || pelaaja.ll  || 50,
+    sl:  diag   || pelaaja.sl             || 50,
+    dfl: fk.DFL || fk.dfl || pelaaja.dfl || 50,
+  };
+  const heikoinkid = Object.entries(ketjut).filter(([,v]) => v > 0).sort(([,a],[,b]) => a-b)[0][0];
 
   // Laske efektiivinen Stage — neljä tekijää yhdistettynä
-  const fleipct = pelaaja.flei_viimeisin || pelaaja.flei_pct || 0;
+  // Kattava fallback: flei_viimeisin → flei → flei_pct → ketjujen keskiarvo
+  const fleipct = pelaaja.flei_viimeisin
+    || pelaaja.flei
+    || pelaaja.flei_pct
+    || (Object.values(ketjut).filter(v => v > 0).reduce((a,b) => a+b, 0)
+        / Object.values(ketjut).filter(v => v > 0).length || 50);
   const jakso = laskeMissaJaksossa();
   const stageInfo = laskeEfektiivinenStage(fleipct, phv, ikä, jakso);
 
@@ -1737,11 +1752,24 @@ function naytaTabi(nimi, btn) {
 
 /* ══ TÄNÄÄN ══ */
 function renderTanaan() {
+  // Varmistetaan jaksoPalkki-elementti — lisätään dynaamisesti jos puuttuu
+  _varmistaTanaaenJaksoPalkki();
   renderStreak();
   renderTehtavat();
   renderKysely();
   renderHavainto();
-  _renderFiilinki();   // ikäryhmäpohjainen fiilinki-widget
+  _renderFiilinki();
+}
+
+// Luo jaksoinfo-palkki tänään-näkymään jos sitä ei vielä ole
+function _varmistaTanaaenJaksoPalkki() {
+  if (document.getElementById('jaksoPalkki')) return;
+  // Lisätään .stitle-otsikon jälkeen (ennen harjoitteita)
+  const ankkuri = document.querySelector('#view-tanaan .stitle');
+  if (!ankkuri) return;
+  const palkki = document.createElement('div');
+  palkki.id = 'jaksoPalkki';
+  ankkuri.insertAdjacentElement('afterend', palkki);
 }
 
 function renderStreak() {
@@ -1797,14 +1825,20 @@ function renderTehtavat() {
   const jaksoPalkki = document.getElementById('jaksoPalkki');
   if (jaksoPalkki) {
     jaksoPalkki.style.display = '';
-    jaksoPalkki.innerHTML = `<div class="jakso-palkki">
-      <div class="jakso-emoji">${jakso.emoji}</div>
-      <div class="jakso-teksti">
-        <div class="jakso-vaihe" style="color:${jakso.vari}">${jakso.vaihe}-jakso</div>
-        <div class="jakso-sub">${jakso.kuvaus} &nbsp;·&nbsp; Harjoitteesi on räätälöity tälle jaksolle</div>
-      </div>
-      <div class="jakso-viikko">Vk ${jakso.jaksoPaikka}/8</div>
-    </div>`;
+    jaksoPalkki.innerHTML = '<div style="display:flex;align-items:center;gap:10px;'
+      + 'padding:9px 14px;border-radius:10px;background:rgba(255,255,255,.03);'
+      + 'border:1px solid var(--border);margin-bottom:14px;">'
+      + '<div style="font-size:18px;flex-shrink:0">' + jakso.emoji + '</div>'
+      + '<div style="flex:1;">'
+      + '<div style="font-size:12px;font-weight:700;color:' + jakso.vari + '">'
+      + jakso.vaihe + '-jakso</div>'
+      + '<div style="font-size:10px;color:var(--ink3);margin-top:1px">'
+      + jakso.kuvaus + ' &nbsp;&middot;&nbsp; räätälöity sinulle</div>'
+      + '</div>'
+      + '<div style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;'
+      + 'background:rgba(255,255,255,.06);color:var(--ink2);white-space:nowrap">Vk '
+      + jakso.jaksoPaikka + '/8</div>'
+      + '</div>';
   }
 
   // Stagen värit ja nimet pelaajalle
