@@ -497,6 +497,9 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
     <div class="navNappi" onclick="window.open('TalentMaster_Rekisterointi_Suostumus.html','_blank')">
       <span class="navIkoni">📝</span>Suostumuslomake
     </div>
+    <div class="navNappi" onclick="window.open('TalentMaster_UTJ_v1.html','_blank')">
+      <span class="navIkoni">📈</span>UTJ-näkymä
+    </div>
   </div>
 
   <!-- PÄÄSISÄLTÖ -->
@@ -1602,6 +1605,13 @@ async function renderPelaajat(alue) {
                 <td><span class="badge ${tilaLuokka}">${tilaIkoni} ${tilaTeksti}</span></td>
                 <td>
                   <button class="toimNappi" onclick="naytaPelaajaTiedot('${p.id}')">Tiedot</button>
+                  ${p.huoltajaEmail
+                    ? `<button class="toimNappi" style="background:rgba(0,212,170,.12);color:#00D4AA;margin-left:4px"
+                        onclick="lahetaPelaajaLinkki('${p.id}','${tila.seuraId}','${p.etunimi||''}','${p.sukunimi||''}','${p.huoltajaEmail||''}','${p.joukkue||''}')">
+                        📨 Linkki
+                      </button>`
+                    : ''
+                  }
                 </td>
               </tr>`;
           }).join('')}
@@ -2181,7 +2191,7 @@ async function lahetaRekisteriSahkoposti() {
 
         // Näytetään generoitu PIN VP:lle toast-viestissä
         naytaToast(`✅ Pelaaja luotu — PIN: ${pin}`, 'ok');
-        console.log(`[TM] Pelaaja ${etunimi} ${sukunimi} luotu, PIN: ${pin}, PalloID: ${palloIdArvo}`);
+        console.log(`[TM] Pelaaja ${etunimi} ${sukunimi} luotu, PalloID: ${palloIdArvo}`);
       } else {
         // Päivitetään olemassa oleva dokumentti
         await db.collection('seurat').doc(tila.seuraId)
@@ -2537,6 +2547,29 @@ async function lahetaSalasana(email) {
   }
 }
 
+// ── Lähetä pelaajasivu-linkki huoltajalle uudelleen ──────────────────────────
+async function lahetaPelaajaLinkki(pelaajaId, seuraId, etunimi, sukunimi, hEmail, joukkue) {
+  if (!hEmail) { naytaToast('Pelaajalla ei ole huoltajasähköpostia', 'virhe'); return; }
+  naytaToast('📨 Lähetetään linkkiä...', 'info');
+  try {
+    const fn = firebase.app().functions('europe-west1');
+    const lahetaFn = fn.httpsCallable('lahetaPelaajaSivuLinkki');
+    const tulos = await lahetaFn({
+      hEmail, pelaajaId, seuraId: seuraId || tila.seuraId,
+      etunimi: etunimi || '', sukunimi: sukunimi || '',
+      seura: tila.seuraNimi || seuraId || tila.seuraId,
+      joukkue: joukkue || '',
+    });
+    if (tulos.data?.ok) {
+      naytaToast(`✅ Linkki lähetetty → ${hEmail}`, 'ok');
+    }
+  } catch(e) {
+    console.error('[lahetaPelaajaLinkki]', e.message);
+    naytaToast(`❌ Lähetys epäonnistui: ${e.message}`, 'virhe');
+  }
+}
+
+
 async function deaktivoiKayttaja(uid, email) {
   if (!confirm(`Deaktivoidaanko ${email}? Käyttäjä ei voi enää kirjautua.`)) return;
   try {
@@ -2699,6 +2732,39 @@ async function naytaPelaajaTiedot(pelaajaId) {
         <div style="background:rgba(255,255,255,.03);border-radius:8px;padding:10px 14px;">
           ${kutsuRivit}
         </div>
+      </div>
+
+      <!-- PIN-koodi ja pelaajasivu-linkki -->
+      <div style="margin-bottom:16px;padding:12px 14px;background:rgba(0,212,170,.06);
+        border:1px solid rgba(0,212,170,.18);border-radius:10px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;
+          color:#00D4AA;text-transform:uppercase;margin-bottom:10px;">
+          🔑 Pelaajasivu-kirjautuminen
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">PIN-koodi</div>
+            <div style="font-family:monospace;font-size:22px;font-weight:900;
+              color:#00D4AA;letter-spacing:4px;background:rgba(0,0,0,.25);
+              padding:6px 14px;border-radius:8px;display:inline-block;">
+              ${p.pin || '—'}
+            </div>
+          </div>
+          <div style="flex:1;min-width:180px;">
+            <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">Huoltajan sähköposti</div>
+            <div style="font-size:12px;color:var(--ink2);">${p.huoltajaEmail || '—'}</div>
+          </div>
+        </div>
+        ${p.huoltajaEmail ? `
+        <button class="lisaaNappi" style="margin-top:10px;width:100%;
+          background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.3);
+          color:#00D4AA;font-weight:700;"
+          onclick="lahetaPelaajaLinkki('${pelaajaId}','${tila.seuraId}','${(p.etunimi||'').replace(/'/g,"\\'")}','${(p.sukunimi||'').replace(/'/g,"\\'")}','${p.huoltajaEmail}','${(p.joukkue||'').replace(/'/g,"\\'")}')">
+          📨 Lähetä pelaajasivu-linkki huoltajalle uudelleen
+        </button>` : `
+        <div style="margin-top:8px;font-size:11px;color:var(--amber);">
+          ⚠️ Huoltajasähköposti puuttuu — linkkiä ei voi lähettää
+        </div>`}
       </div>
 
       <!-- Toiminnot -->
