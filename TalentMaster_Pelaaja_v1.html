@@ -669,6 +669,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     <!-- Fiilinki -->
     <div class="stitle" style="margin-top:4px;">Miten fiilaat tänään?</div>
     <div id="fiiliWidget" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px" id="fiiliOtsikko">Miten fiilaat tänään?</div>
 
       <!-- Perustaso: Liikennevalofiilis (U8–U12) -->
       <div id="fiiliPerustaso">
@@ -1015,7 +1016,11 @@ function haeProgressioAvain(tyyppi, ketjuId) {
 function generoimTehtavat(pelaaja) {
   if (!pelaaja) return [];
 
-  const ika     = pelaaja.ika || 13;
+  // Ikä: käytä suoraa kenttää tai laske syntymavuodesta
+  const synVuosi = pelaaja.syntymavuosi || pelaaja.syntymaVuosi
+    || (pelaaja.syntymaaika ? new Date(pelaaja.syntymaaika).getFullYear() : null);
+  const ika = pelaaja.ika
+    || (synVuosi ? new Date().getFullYear() - synVuosi : 13);
   const phv     = pelaaja.phv_tila || 'AN';
   const jakso   = laskeMissaJaksossa();
 
@@ -2410,21 +2415,30 @@ let _fiiliTallennettu = false; // estetään tuplakirjaus saman päivän aikana
 function _renderFiilinki() {
   const p = _pelaaja;
   if (!p) return;
-  const syntymaVuosi = p.syntymaVuosi || p.syntymaaika_vuosi || (new Date().getFullYear() - 14);
+  // Firestore: syntymavuosi (pienellä), fallback syntymaaika ISO-string
+  const syntymaVuosi = p.syntymavuosi || p.syntymaVuosi || p.syntymaaika_vuosi
+    || (p.syntymaaika ? new Date(p.syntymaaika).getFullYear() : null)
+    || (new Date().getFullYear() - 14);
   const ika = new Date().getFullYear() - syntymaVuosi;
 
   const perustaso  = document.getElementById('fiiliPerustaso');
   const kehitystaso = document.getElementById('fiiliKehitystaso');
   if (!perustaso || !kehitystaso) return;
 
+  const otsikkoEl = document.getElementById('fiiliOtsikko');
+
   if (ika < 13) {
-    // U8–U12: liikennevalofiilis
+    // U8–U12: liikennevalofiilis — yksinkertainen, kolme vaihtoehtoa
     perustaso.style.display  = '';
     kehitystaso.style.display = 'none';
+    if (otsikkoEl) otsikkoEl.textContent = 'Miten fiilaat tänään? 😊';
   } else {
-    // U13+: mini-Hooper
+    // U13+: mini-Hooper — kolme kysymystä (mieliala + uni + lihaskunto)
     perustaso.style.display  = 'none';
     kehitystaso.style.display = '';
+    if (otsikkoEl) otsikkoEl.textContent = ika >= 16
+      ? 'Päivittäinen tilannearvio' // showcase: ammattimainen termi
+      : 'Miten fiilaat tänään?';    // rakentaja: tuttu kysymys
   }
 }
 
