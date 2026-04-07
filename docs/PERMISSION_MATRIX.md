@@ -1,5 +1,5 @@
 # TalentMaster™ — Permission Matrix
-# Päivitetty: 2026-03-27
+# Päivitetty: 2026-04-07
 
 ## Merkinnät
 
@@ -118,7 +118,7 @@ Tapahtuman vastuuhenkilö voi päivittää tapahtumaa vaikka ei olisi hallintake
 | Fysiikkavalmentaja | RW | |
 | Talenttivalmentaja | R | |
 | Fysioterapeutti | R | |
-| Pelaaja | R | Omat tulokset |
+| Pelaaja | R | Omat tulokset — EI kirjoitusoikeutta testituloksiin (vain kirjaukset/{pvm}) |
 | Vanhempi | R* | Yksinkertaistettu |
 
 ---
@@ -219,6 +219,63 @@ Tapahtuman vastuuhenkilö voi päivittää tapahtumaa vaikka ei olisi hallintake
 
 ---
 
+## Omatoimiharjoitekirjaukset (kirjaukset/{pvm}) — UUSI 2026-04-07
+
+Pelaaja tallentaa omaa päivittäistä harjoitteluaan Firestoreen.
+Tämä on ainoa kokoelma johon pelaajalla on kirjoitusoikeus.
+
+| Rooli | Oikeus | Huomio |
+|---|---|---|
+| Super Admin | RW | |
+| VP | R | Aggregoitu näkymä — ei yksittäisiä kirjauksia |
+| UTJ | R | Vain aggregoitu harjoitteluseuranta |
+| Valmentaja | R | Oma joukkue — streak + fiilinki-trendit |
+| Talenttivalmentaja | R | |
+| Fysiikkavalmentaja | R | |
+| Fysioterapeutti | R | Kuormaseuranta + fiilinki PHV-pelaajilla |
+| Testivastaava | – | |
+| Pelaaja | **RW** | **Kirjoittaa VAIN omaan kirjaukset/{pvm}:ään** |
+| Vanhempi | R | Lapsen streak + fiilinki |
+
+**Kirjauksen kentät:**
+- `tyyppi`: 'T'|'D'|'S'|'P'
+- `tehty`: bool, `kesto_min`, `xp`
+- `fiilinki`: 1–5 (mieliala)
+- `uni`: 1–3 (mini-Hooper, U13+)
+- `lihaskunto`: 1–3 (mini-Hooper, U13+)
+- `fiilinki_paivitetty`: ISO-timestamp — **lukitusavain** (1 kirjaus/pv, ei voi muuttaa)
+
+**Security Rules -logiikka:**
+```javascript
+// Pelaaja kirjoittaa vain omaan dokumenttiinsa
+allow write: if request.auth.token.rooli == 'pelaaja'
+  && resource.data.pelaajaId == request.auth.uid
+  && !('fiilinki_paivitettu' in resource.data)  // ei voi ylikirjoittaa
+```
+
+---
+
+## Keräilykortit (TalentMaster_Kortit.html) — UUSI 2026-04-07
+
+Keräilykortit ovat pelaajan motivaatiotyökalu. Ne eivät tallennu Firestoreen
+toistaiseksi — data on staattista. Tulevaisuudessa Milestone-kortit
+kytkeytyvät automaattisesti pelaajan kirjaus- ja streakdataan.
+
+| Rooli | Oikeus | Huomio |
+|---|---|---|
+| Pelaaja | R | Näkee kaikki kortit, avaa lukitut saavuttamalla kynnysarvot |
+| Vanhempi | R | Näkee lapsen korttikokoelman |
+| Valmentaja | – | Ei tarvetta korttikokoelmaan |
+| VP / UTJ | – | |
+
+**Milestone-korttien kynnysarvot (tuleva Firebase-kytkös):**
+- 30-päivän streak → "30 PÄIVÄN PUTKI" -kortti
+- FLEI ≥ 80p → "FLEI 80+" -kortti
+- PHV läpikäynyt (`phv_tila` muuttunut AN→KV) → "PHV-selviytymiskortti"
+- KORI-status → "Seuran kasvatti" -kortti
+
+---
+
 ## Strateginen raportointi (UTJ ja hallitus)
 
 | Rooli | Oikeus | Sisältö |
@@ -239,8 +296,10 @@ kyselyt jokaisen raporttinäkymän latauksen yhteydessä.
 
 GDPR-kriittiset datatyypit ovat pelaajien henkilötiedot (nimi, syntymäaika —
 vaativat suostumuksen), biologinen ikä (fysiologinen tieto, erityinen suoja
-alaikäisillä), vammadata (terveystieto, vaatii erillisen suostumuksen) ja
-ADAR-pisteet (psykologinen arviointi, ammattilaisten välinen tieto).
+alaikäisillä), vammadata (terveystieto, vaatii erillisen suostumuksen),
+ADAR-pisteet (psykologinen arviointi, ammattilaisten välinen tieto) ja
+**fiilinki/uni/lihaskunto-data** (hyvinvointitieto, pelaajan itsensä tuottama —
+lukitusmekanismi estää jälkikäteisen muuttamisen, ISO-timestamp kirjataan).
 
 Huoltajan oikeudet: alaikäisen pelaajan data vaatii huoltajan suostumuksen.
 Huoltajalla on oikeus nähdä lapsensa data, pyytää datan poistoa, ja
