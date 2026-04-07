@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TalentMaster — Testaustapahtuma</title>
+<title>TalentMaster™ — Testaus</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -531,7 +531,7 @@ body {
         <div style="font-size:20px;font-weight:600;">Testitapahtumat</div>
         <div style="font-size:13px;color:var(--text3);margin-top:2px;" id="etusivu-seura">—</div>
       </div>
-      <button class="btn btn-outline btn-sm" onclick="_naytaSivu('sivu-luo')">+ Uusi tapahtuma</button>
+      <button class="btn btn-outline btn-sm" id="uusi-tapahtuma-nappi" onclick="_naytaSivu('sivu-luo')">+ Uusi tapahtuma</button>
     </div>
 
     <div class="sektiootsikko">Avoimet tapahtumat</div>
@@ -964,6 +964,28 @@ async function _lataakäyttäjätiedot(u) {
 
   document.getElementById('topbar-user').textContent = u.email;
   document.getElementById('etusivu-seura').textContent = _seuraNimi || 'Kaikki seurat';
+
+  // Roolivalidointi — permission matrix mukainen
+  // Tulossyöttö: VP, Testivastaava, Fysiikkavalmentaja, Talenttivalmentaja, Super Admin
+  // Valmentaja: vain luku (ei luo tapahtumia)
+  const SALLITUT_TULOSROOLIT = [
+    'super_admin','vp','testivastaava',
+    'fysiikkavalmentaja','talenttivalmentaja',
+    'urheilutoimenjohtaja','seurasihteeri'
+  ];
+  const VAIN_LUKU_ROOLIT = ['valmentaja'];
+
+  if (_rooli && !SALLITUT_TULOSROOLIT.includes(_rooli) && !VAIN_LUKU_ROOLIT.includes(_rooli)) {
+    // Tuntematon rooli — estetään pääsy
+    document.getElementById('login-err').textContent =
+      'Sinulla ei ole oikeutta tähän näkymään. Ota yhteyttä seuran VP:hen.';
+    _kirjauduUlos();
+    return;
+  }
+
+  // Tallennetaan lukuoikeus-tila — valmentaja ei voi luoda tapahtumia
+  window._vainLuku = _rooli && VAIN_LUKU_ROOLIT.includes(_rooli);
+
   _lataaJoukkueet();
   _naytaSivu('sivu-etusivu');
   _lataaTapahtumat();
@@ -1117,8 +1139,11 @@ async function _luoAskel2() {
   lista.innerHTML = '<div class="spinner" style="margin:32px auto;"></div>';
   try {
     const snap = await _db.collection('seurat').doc(_seuraId)
-      .collection('pelaajat').where('joukkueId', '==', j).where('tila', '==', 'aktiivinen').get();
-    _luoData.pelaajat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      .collection('pelaajat').where('joukkue', '==', j).get();
+    // Suodata aktiiviset — 'tila' voi puuttua vanhemmista dokumenteista
+    _luoData.pelaajat = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(p => p.tila !== 'poistettu' && p.etunimi && p.sukunimi);
     _renderPelaajaValinta();
   } catch(e) {
     lista.innerHTML = '<div class="empty"><div class="empty-teksti">Pelaajien lataus epäonnistui</div></div>';
@@ -1809,6 +1834,13 @@ function _toast(msg, tyyppi) {
 // INIT
 // ════════════════════════════════════
 document.getElementById('luo-pvm').value = new Date().toISOString().split('T')[0];
+// Piilotetaan "Uusi tapahtuma" -nappi vain-luku -rooleilta
+setTimeout(() => {
+  if (window._vainLuku) {
+    const n = document.getElementById('uusi-tapahtuma-nappi');
+    if (n) n.style.display = 'none';
+  }
+}, 500);
 _paivitaOfflineBanneri();
 </script>
 </body>
