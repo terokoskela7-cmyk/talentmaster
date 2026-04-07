@@ -1055,10 +1055,16 @@ const JAKSO_RAKENNE = {
   huipentuma:{viikot:'7-8', vaihe:'Huipentuma',emoji:'🔥', kuvaus:'Lajiteho ja peli-integraatio',   stageModif:2, vari:'#A855F7'},
 };
 
+// Viikonumero-laskuri — pelaaja-sivun oma toteutus
+// (ei riippuvuutta Master v9:n _viikonNumero-funktiosta)
+function _pelaajaViikonNumero(d) {
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+}
+
 function laskeMissaJaksossa() {
-  // Sama logiikka kuin Master v9:ssä — 8-viikon sykli kalenteriviikonumeron mukaan
-  const vk = _viikonNumero ? _viikonNumero(new Date())
-    : Math.ceil((new Date() - new Date(new Date().getFullYear(),0,1)) / (7*86400000));
+  // 8-viikon sykli kalenteriviikonumeron mukaan
+  const vk = _pelaajaViikonNumero(new Date());
   const p = ((vk - 1) % 8) + 1; // 1-8 toistuen
   const jakso = p <= 3 ? JAKSO_RAKENNE.pohja
               : p <= 6 ? JAKSO_RAKENNE.kehitys
