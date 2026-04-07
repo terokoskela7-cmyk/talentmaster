@@ -242,6 +242,72 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
     margin: 0 auto;
   }
 
+
+/* ── OHJELMAEDITORI: DRAG & DROP ─────────────────────────── */
+.ohj-lista{list-style:none;padding:0;margin:0;}
+.ohj-blokki{
+  background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+  padding:12px 14px;margin-bottom:8px;cursor:grab;transition:all .18s;
+  position:relative;border-left:3px solid var(--teal);
+  display:flex;flex-direction:column;gap:6px;user-select:none;
+}
+.ohj-blokki:active{cursor:grabbing;}
+.ohj-blokki.dragging{opacity:.4;transform:scale(.98);}
+.ohj-blokki.dragover{border-color:var(--teal);background:rgba(0,212,170,.08);
+  box-shadow:0 0 0 2px rgba(0,212,170,.25);}
+.ohj-blokki.yhteinen{border-left-color:var(--teal);}
+.ohj-blokki.tekniikka{border-left-color:var(--amber);}
+.ohj-blokki.yksiloo{border-left-color:var(--purple);}
+.ohj-blokki.cue{border-left-color:var(--border2);cursor:default;}
+.ohj-top{display:flex;align-items:flex-start;gap:8px;}
+.ohj-drag-handle{font-size:14px;color:var(--ink3);flex-shrink:0;margin-top:1px;
+  cursor:grab;padding:2px 4px;border-radius:4px;transition:color .15s;}
+.ohj-drag-handle:hover{color:var(--teal);}
+.ohj-sisalto{flex:1;min-width:0;}
+.ohj-otsikko{font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.8px;margin-bottom:3px;}
+.ohj-nimi{font-size:13px;font-weight:600;color:var(--ink);}
+.ohj-meta{font-size:11px;color:var(--ink2);margin-top:2px;line-height:1.45;}
+.ohj-napit{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;}
+.ohj-nappi{font-size:10px;font-weight:600;padding:4px 9px;border-radius:6px;
+  cursor:pointer;border:1px solid;background:none;font-family:'DM Sans',sans-serif;
+  transition:all .15s;white-space:nowrap;}
+.ohj-nappi-ohje{color:var(--blue);border-color:rgba(74,126,217,.3);}
+.ohj-nappi-ohje:hover{background:rgba(74,126,217,.12);}
+.ohj-nappi-vaihda{color:var(--amber);border-color:rgba(255,176,32,.3);}
+.ohj-nappi-vaihda:hover{background:rgba(255,176,32,.1);}
+.ohj-nappi-poista{color:var(--ink3);border-color:rgba(255,255,255,.1);}
+.ohj-nappi-poista:hover{color:var(--red);border-color:rgba(239,68,68,.3);}
+.ohj-lisaa-rivi{display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:9px;border:1px dashed var(--border2);border-radius:9px;
+  color:var(--ink3);font-size:12px;font-weight:600;cursor:pointer;
+  transition:all .18s;margin-top:4px;}
+.ohj-lisaa-rivi:hover{border-color:var(--teal);color:var(--teal);background:var(--teal2);}
+
+/* ── HARJOITEVALINTAMODAALI ──────────────────────────────── */
+.harj-modal-tausta{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.75);
+  display:flex;align-items:flex-end;justify-content:center;}
+.harj-modal{background:var(--bg2);border:1px solid var(--border2);
+  border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:640px;
+  max-height:88vh;overflow-y:auto;animation:slideUp .22s ease-out;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.harj-modal-ot{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.harj-modal-otsikko{font-family:'Barlow Condensed',sans-serif;font-size:18px;
+  font-weight:900;letter-spacing:.5px;color:var(--teal);}
+.harj-modal-sulje{background:var(--card);border:1px solid var(--border2);border-radius:8px;
+  padding:5px 12px;color:var(--ink2);cursor:pointer;font-family:'DM Sans',sans-serif;
+  font-size:12px;transition:color .15s;}
+.harj-modal-sulje:hover{color:var(--red);}
+.harj-kirjasto-ryhma{margin-bottom:14px;}
+.harj-ryhma-otsikko{font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.8px;color:var(--ink3);margin-bottom:7px;padding:0 2px;}
+.harj-kirjasto-item{display:flex;align-items:center;gap:10px;padding:9px 12px;
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  cursor:pointer;transition:all .15s;margin-bottom:5px;}
+.harj-kirjasto-item:hover{border-color:var(--teal);background:rgba(0,212,170,.06);}
+.harj-kirjasto-item.valittu{border-color:var(--teal);background:rgba(0,212,170,.1);}
+.harj-item-nimi{font-size:12px;font-weight:600;flex:1;}
+.harj-item-sarjat{font-size:10px;color:var(--teal);white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -544,6 +610,727 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
   <script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_tapahtumat.js"></script>
 
 <script>
+
+// ══════════════════════════════════════════════════════════════
+// HARJOITEKIRJASTO — selkokielinen, pelaajalle ja valmentajalle
+// Ammattitermit poistettu. Jokainen harjoite: nimi, lyhyt kuvaus,
+// vaiheistettu ohje (popup), miksi-perustelu, video, sarjat.
+// ══════════════════════════════════════════════════════════════
+var HARJOITE_KIRJASTO = {
+  SBL_aktivointi:{nimi:'Jalkapohjan herätys',ketju:'SBL',
+    lyhyt:'Vieritä tennispalloa jalkapohjalla 60s — herätä takaketju',sarjat:'1x60s/jalka',
+    vaiheet:['Seiso yhdellä jalalla, laita tennispallo jalan alle',
+      'Vieritä palloa hitaasti koko jalkapohjan alla — kantapäästä varpaisiin',
+      'Pidä jännittyneessä kohdassa 5-10 sekuntia',
+      '60 sekuntia per jalka — ei kiirettä'],
+    miksi:'Jalkapohja on takaketjun juuristo. Herätetty jalkapohja = parempi kiihdytys ja suojattu takareisi.',
+    video:null},
+  SBL_taso1:{nimi:'Lantionnosto yhdellä jalalla',ketju:'SBL',
+    lyhyt:'Selällään kantapää korokkeella — nosta lantio, laske 3s hitaasti',sarjat:'3x8/jalka',
+    vaiheet:['Asetu selällesi, toinen kantapää tuolin reunalla',
+      'Toinen jalka suorana ilmassa',
+      'Nosta lantio ylös — keho suorana olkapäästä polveen',
+      'Pidä 2 sekuntia, puristele pakaraa',
+      'Laske HITAASTI alas — 3 sekuntia'],
+    miksi:'Vahvistaa takareiden ja pakaran jotka antavat kiihdytysvoiman. Yksi parhaista takareiden vammojen ehkäisyharjoitteista.',
+    video:'https://www.youtube.com/watch?v=MSm9WKFWGh8',
+    ika_huomio:'Alle 13v: tee ilman koroketta, molemmat jalat maassa'},
+  SBL_taso2:{nimi:'Takaketjun jarrutuslasku',ketju:'SBL',
+    lyhyt:'Polvillaan, kaveri pitää nilkoista — laske eteenpäin 4s',sarjat:'3x5',
+    vaiheet:['Polvistuu pehmeälle, kaveri pitää nilkoista kiinni',
+      'Selkä ja lantio SUORANA — keho kuin lankku',
+      'Laske vartaloa eteenpäin 3-4 sekuntia hitaasti',
+      'Pudota käsille pehmeästi kun et enää jaksa',
+      'Nouse takaisin käsien avulla — nousua ei lasketa'],
+    miksi:'Tehokkain harjoite takaeiden vammojen ehkäisyyn. Yksi sarja viikossa voi puolittaa riskin.',
+    video:'https://www.youtube.com/watch?v=CqCdBEU7FDE',
+    ika_huomio:'Alle 14v: tee lantionnosto. PHV-vaiheessa: max 3 toistoa.'},
+  SFL_aktivointi:{nimi:'Lonkan avaus lattialla',ketju:'SFL',
+    lyhyt:'Istu 90/90-asennossa — tunne lonkan etuosan venyminen 45s',sarjat:'1x45s/puoli',
+    vaiheet:['Istu lattialle, oikea polvi edessä 90 asteen kulmassa, vasen sivulla 90 astetta',
+      'Pidä selkä suorana — älä kallista eteenpäin',
+      'Tunnet venytyksen lonkan etupuolella ja reidessä',
+      'Hengitä rauhallisesti — 45 sekuntia per puoli'],
+    miksi:'Lonkan etuosa kiristyy pitkän koulupäivän jälkeen. Kun se on auki, potku lähtee täydellä voimalla.',
+    video:null},
+  SFL_taso1:{nimi:'Lonkka-saranaharjoite',ketju:'SFL',
+    lyhyt:'Seiso keppi selässä — taivuta lonkasta, selkä täysin suorana',sarjat:'3x10',
+    vaiheet:['Keppi koskettaa takaraivoa, lapaluita ja alaselkää — kolme kosketuspistettä',
+      'Paina peppu taaksepäin kuin istuisit kaukaiselle tuolille',
+      'Selkä PYSYY SUORANA koko ajan — keppi ei saa irrota',
+      'Nouse ylös puristamalla pakaroita',
+      '10 toistoa hitaasti'],
+    miksi:'Opettaa lonkan oikeaa toimintaa. Oikea lonkka = tehokkaampi potku ja turvallisempi liike.',
+    video:'https://www.youtube.com/watch?v=YwKQGvKJx3A'},
+  SFL_taso2:{nimi:'Askelkyykky',ketju:'SFL',
+    lyhyt:'Pitkä askel eteen — laske takapolvi kohti lattiaa',sarjat:'3x8/jalka',
+    vaiheet:['Seiso ryhdikkäästi, kädet lanteilla',
+      'Astu pitkä askel eteenpäin',
+      'Laske takapolvi kohti lattiaa — ei koske lattiaan',
+      'Etummainen polvi ei mene varpaiden etupuolelle',
+      'Nouse takaisin etummaisen jalan avulla'],
+    miksi:'Vahvistaa laukaisulihakset. Hyvä askelkyykky = parempi ja kovempi potku.',
+    video:'https://www.youtube.com/watch?v=D7KaRcUTQeE'},
+  LL_aktivointi:{nimi:'Simpukka-aktivointi',ketju:'LL',
+    lyhyt:'Kyljellään polvet koukussa — nosta päälimmäinen polvi ylös 12x',sarjat:'2x12/puoli',
+    vaiheet:['Asetu kyljellesi, polvet 90 astetta koukussa, kantapäät yhdessä',
+      'Lantio paikallaan — ei kaadu taaksepäin',
+      'Nosta päälimmäistä polvea ylöspäin niin pitkälle kuin pystyt',
+      'Pidä 2 sekuntia, laske hitaasti',
+      '12 kertaa per puoli — polttaa reisien ulkosyrjällä'],
+    miksi:'Herättää pakaran yläosan. Heikko pakara = polvi sisään = nilkka ja polvi vaarassa.',
+    video:null},
+  LL_taso1:{nimi:'Sivuaskelkävely kuminauhalla',ketju:'LL',
+    lyhyt:'Kuminauha polvien yläpuolella — astu sivulle kyykkyasennossa',sarjat:'3x15 askelta/suunta',
+    vaiheet:['Laita kuminauha molempien polvien yläpuolelle',
+      'Pieneen kyykkyasentoon — selkä suorana, paino kantapäillä',
+      'Pidä nauhan jännitys koko ajan — polvet eivät tule yhteen',
+      'Astu 15 askelta oikealle, sitten 15 vasemmalle'],
+    miksi:'Sivuliike on jalkapallon tärkein liikesuunta jonka useimmat laiminlyövät. Suojaa polven sivusiteen.',
+    video:'https://www.youtube.com/watch?v=e1lxNI6TE3U'},
+  DIAG_aktivointi:{nimi:'Rintakehän kierto',ketju:'DIAG',
+    lyhyt:'Nelinkontin, käsi niskaan — kierrä kyynärpää kattoa kohti 10x',sarjat:'2x10/puoli',
+    vaiheet:['Nelinkontin — kädet olkapäiden alla, polvet lonkkien alla',
+      'Laita oikea käsi niskasi taakse',
+      'Kierrä kyynärpäätä kohti kattoa niin pitkälle kuin pääset',
+      'Lantio paikallaan koko ajan — liike tulee rintakehästä',
+      '10 kertaa per puoli'],
+    miksi:'Rintakehän kierto on syöttövoiman lähde. Liikanen 2025: kiertovoima on vahvin ammattilaisennustaja.',
+    video:null},
+  DIAG_taso1:{nimi:'Kylkilankku',ketju:'DIAG',
+    lyhyt:'Kyljellään kyynärvarren päällä — keho suorana 30s',sarjat:'3x30s/puoli',
+    vaiheet:['Kyyjellesi, kyynärvarsi ja jalat päällekkäin',
+      'Nosta lantio ylös — suora linja nilkasta päähän',
+      'Älä anna lantion vajota alas tai mennä ylös',
+      'Hengitä rauhallisesti, vatsa kevyesti sisään',
+      '30 sekuntia per puoli'],
+    miksi:'Vahvistaa kyljet jotka pitävät sinut pystyssä töytäisyssä. Vahva kylki = parempi SM-pallo.',
+    video:null},
+  DIAG_taso2:{nimi:'Kiertoheitot seinään',ketju:'DIAG',
+    lyhyt:'Sivuttain seinään — heitä kierrättämällä kehoa, ei pelkkiä käsiä',sarjat:'3x6/puoli',
+    vaiheet:['Seiso 1,5m päässä seinästä, sivuttain seinään',
+      'Pidä kevyttä palloa',
+      'Kierrä keho ENSIN poispäin — rintakehä johtaa',
+      'Nopea kierto takaisin — heitä pallo rintakehän kierrosta',
+      'Ota kiinni ja toista — liike tulee kehosta, ei käsistä'],
+    miksi:'Täsmälleen sama liikekaava kuin syötössä ja SM-pallossa. Päivittäin tehtynä syöttövoima kasvaa.',
+    video:'https://www.youtube.com/watch?v=9nSOapf_REU'},
+  DFL_aktivointi:{nimi:'360-asteen hengitys',ketju:'DFL',
+    lyhyt:'Hengitä kylkiin ja selkään — ei rintaan ylös — 5 hengitystä',sarjat:'1x5 hengitystä',
+    vaiheet:['Istu tai seiso, kädet kylkien päälle',
+      'Hengitä sisään — tunne kyljet laajenevan sivuille',
+      'Tunne myös selän laajentuvan taaksepäin',
+      'Ulos hitaasti — noin 5 sekuntia',
+      'Toista 5 kertaa — tee AINA ennen muita harjoitteita'],
+    miksi:'Aktivoi syvät vatsalihakset automaattisesti. Kun nämä ovat päällä, kaikki muu harjoittelu on tehokkaampaa.',
+    video:null},
+  DFL_taso1:{nimi:'Lankku',ketju:'DFL',
+    lyhyt:'Kyynärvarsien päällä — keho suorana, hengitä tasaisesti',sarjat:'3x20-40s',
+    vaiheet:['Kyynärvarsien ja varpaiden varaan — kyynärpäät olkapäiden alla',
+      'Keho suorana nilkasta päähän — ei peppu ylös',
+      'Vedä napa kevyesti sisään — älä pidätä hengitystä',
+      'Lopeta kun asento hajoaa — laatu ratkaisee'],
+    miksi:'Kaiken perusta. Ilman vahvaa keskivartaloa paino ei siirry tehokkaasti — näkyy väsyneenä asentona pelin loppupuolella.',
+    video:null},
+  DFL_taso2:{nimi:'Kuollut ötökkä',ketju:'DFL',
+    lyhyt:'Selällään — laske vastakkainen käsi ja jalka alas hitaasti 3s',sarjat:'3x5/puoli',
+    vaiheet:['Selällesi, kädet kattoon, polvet 90 astetta ilmassa',
+      'Litistä alaselkä lattiaan — pysyy siellä koko ajan',
+      'Laske oikea käsi taaksepäin JA vasen jalka eteenpäin yhtä aikaa',
+      'Niin alas kuin pystyt ilman alaselän irtoamista',
+      'Palauta hitaasti — 3 sekuntia alas, 3 sekuntia ylös'],
+    miksi:'Opettaa kehon osat toimimaan yhteistyössä. Tarvitaan SM-pallossa: hallitset palloa samalla kun skannaat ympärilläsi.',
+    video:'https://www.youtube.com/watch?v=9e4MHaFBM7o'},
+};
+
+
+// ══════════════════════════════════════════════════════════════
+// EVERTON STAGE -PROGRESSIO  (Stage 1-5 per harjoite)
+// S1=kehonpaino/tekniikka  S2=liikelaajuus  S3=vastus/reaktio
+// S4=kuorma/nopeus/kognitio  S5=maksimiteho/pelispesifi
+// ══════════════════════════════════════════════════════════════
+var HARJOITE_PROGRESSIO = {
+
+  SBL_taso1: {
+    s1:{nimi:'Tekniikka, kehonpaino',sarjat:'2x8/jalka',tempo:'rauhallinen',
+      kuvaus:'Molemmat jalat lattialla — opitaan liike ensin ilman koroketta',
+      cue:'Nosta lantio ylös, puristele pakaraa 2s ennen laskua'},
+    s2:{nimi:'Koroke, liikelaajuus kasvaa',sarjat:'3x8/jalka',tempo:'3s lasku',
+      kuvaus:'Kantapaa korokkeella — suurempi liikelaajuus',
+      cue:'3s alas — takaketju tyoskentelee myos laskullakin'},
+    s3:{nimi:'Balanssihaaste, pieni vastus',sarjat:'3x10/jalka',tempo:'3s lasku + 1s pito',
+      kuvaus:'Koroke + vastakkainen kasi ylos — tasapainohaaste',
+      cue:'Lantio pysyy vakaana vaikka kasi nousee'},
+    s4:{nimi:'Rajahtava nosto, kuorma',sarjat:'4x6/jalka',tempo:'nopea nosto, 4s lasku',
+      kuvaus:'Eksplosiivinen nosto + hidas eksentrisesti kontrolloitu lasku',
+      cue:'Nosta nopeasti kuin lahtisit sprinttiin — laske hitaasti'},
+    s5:{nimi:'Pelispesifi, itsenäinen arviointi',sarjat:'3x6/jalka',tempo:'reaktiivinen',
+      kuvaus:'Lantionnosto + valittomasti pallon kasittely',
+      cue:'Nouse ylos ja ota pallo — sama rytmi kuin pallonsaantitilanteessa'}
+  },
+
+  SBL_taso2: {
+    s1:{nimi:'Eksentristä tutustuminen',sarjat:'2x3',tempo:'5s lasku',
+      kuvaus:'Laske 5s, nouse kasien avulla — vain lasku lasketaan',
+      cue:'Hidasta laskua — tama on juuri se suojaava osa'},
+    s2:{nimi:'Toistoja lisaa',sarjat:'3x5',tempo:'4s lasku',
+      kuvaus:'4 sekuntia alas — laatu tarkeampaa kuin toistomara',
+      cue:'Selka suorana koko ajan — keho kuin lankku'},
+    s3:{nimi:'Nopeampi tempo, volyymi kasvaa',sarjat:'3x7',tempo:'3s lasku',
+      kuvaus:'3 sekuntia alas — keho oppii liiketta',
+      cue:'Ajattele takaketjua jarruna — hallittu hidastus'},
+    s4:{nimi:'SSC-reaktio, nopeus',sarjat:'3x5',tempo:'3s lasku + reaktiivinen',
+      kuvaus:'Pudota kasille, ponnista heti takaisin — SSC-sykli',
+      cue:'Ponnista ylos kuin lattiasta tulisi pallo'},
+    s5:{nimi:'Sprintti-integraatio',sarjat:'3x4',tempo:'rajahtava',
+      kuvaus:'Nordic + valittomasti 10m sprintti — taydellinen siirtovaikutus',
+      cue:'Nouse ja sprinttaa — sama kaava kuin pelissa'}
+  },
+
+  SFL_taso1: {
+    s1:{nimi:'Tekniikka kepilla',sarjat:'2x8',tempo:'hidas',
+      kuvaus:'Keppi selassa — opitaan liike puhtaana ilman kuormaa',
+      cue:'Keppi ei saa irrota kolmesta pisteesta'},
+    s2:{nimi:'Ilman keppia, liikelaajuus',sarjat:'3x10',tempo:'normaali',
+      kuvaus:'Syvemmalle ilman keppia — liike automatisoituu',
+      cue:'Paina peppu taaksepain kuin istuisit kaukaiselle tuolille'},
+    s3:{nimi:'Kevyt lisakuorma',sarjat:'3x10',tempo:'normaali',
+      kuvaus:'Kasipainot tai kettlebell — kuorma lisaa vaatimusta',
+      cue:'Paino ei muuta liikekaarta — sama kaari, enemman tyota'},
+    s4:{nimi:'Rajahtava, kognitiivinen',sarjat:'4x8',tempo:'rajahtava nosto',
+      kuvaus:'Rajahtava nosto + valmentajan signaali suunnasta',
+      cue:'Nouse nopeasti ja reagoi signaaliin'},
+    s5:{nimi:'RDL + pelispesifi',sarjat:'3x6',tempo:'rajahtava',
+      kuvaus:'RDL + valittomasti suunnanmuutos pallolla',
+      cue:'Nouse ylos ja kaanny — lonkkaketju pelissa'}
+  },
+
+  SFL_taso2: {
+    s1:{nimi:'Tekniikka, kehonpaino',sarjat:'2x8/jalka',tempo:'hidas',
+      kuvaus:'Opi pitamaan etummainen polvi varpaiden suunnassa',
+      cue:'Polvi osoittaa suoraan eteenpain — ei sisaanpain'},
+    s2:{nimi:'Pitempi askel, syvemmalle',sarjat:'3x10/jalka',tempo:'normaali',
+      kuvaus:'Takapolvi lahemmas lattiaa — taysi liikelaajuus',
+      cue:'Laske niin alas kuin pystyt hallitusti'},
+    s3:{nimi:'Kasipainot, reaktiivisuus',sarjat:'3x8/jalka',tempo:'normaali',
+      kuvaus:'Kasipainot + valmentajan signaali alhaalta',
+      cue:'Kuuntele signaali — reagoi valittomasti'},
+    s4:{nimi:'Rajahtava, nopeus',sarjat:'4x6/jalka',tempo:'rajahtava',
+      kuvaus:'Rajahtava nosto + nopea askeleen vaihto',
+      cue:'Nouse rajahtavasti — sama voimantuotto kuin laukaisussa'},
+    s5:{nimi:'Laukaus-integraatio',sarjat:'3x5/jalka',tempo:'rajahtava',
+      kuvaus:'Askelkyykky + valittomasti laukaus maaliin',
+      cue:'Kyykky alas, nouse, laukaise — yksi sujuva liike'}
+  },
+
+  LL_aktivointi: {
+    s1:{nimi:'Tekniikka, lantio paikallaan',sarjat:'2x12/puoli',tempo:'hidas',
+      kuvaus:'Lantio ei kaadu — opitaan gluteus medius -eristys',
+      cue:'Lantio paikallaan kuin siina olisi kirja'},
+    s2:{nimi:'Kuminauha, liikelaajuus',sarjat:'3x15/puoli',tempo:'normaali',
+      kuvaus:'Kevyt kuminauha — suurempi kiertokulma',
+      cue:'Nauhan vastus lisaa aktivaatiota'},
+    s3:{nimi:'Kuminauha + 3s pito',sarjat:'3x12/puoli',tempo:'3s pito',
+      kuvaus:'Pida 3s ylasennossa — isometrinen haaste',
+      cue:'3 sekuntia ylhalla — tunne polttaminen'},
+    s4:{nimi:'Sivulankku + simpukka',sarjat:'3x10/puoli',tempo:'normaali',
+      kuvaus:'Yhdistelma samassa setissa — funktionaalisuus kasvaa',
+      cue:'Lantio pysyy vakaana koko ajan'},
+    s5:{nimi:'Seisten, pelispesifi',sarjat:'3x10/puoli',tempo:'reaktiivinen',
+      kuvaus:'Seisten kuminauhalla — pelispesifi sivuliike',
+      cue:'Sama liike kuin sivuaskeleessa kentalla'}
+  },
+
+  LL_taso1: {
+    s1:{nimi:'Tekniikka ilman nauhaa',sarjat:'2x10/suunta',tempo:'hidas',
+      kuvaus:'Ilman kuminauhaa — opitaan asento ensin',
+      cue:'Polvet eivat tule yhteen — pida vali'},
+    s2:{nimi:'Kuminauha, pidempi askel',sarjat:'3x15/suunta',tempo:'normaali',
+      kuvaus:'Kevyt nauha — suurempi askelvaali',
+      cue:'Laajempi askelvaali = enemman tyota pakaralle'},
+    s3:{nimi:'Vahvempi nauha, syvempi kyykky',sarjat:'3x15/suunta',tempo:'normaali',
+      kuvaus:'Vahvempi nauha + syvempi kyykkyasento koko ajan',
+      cue:'Pysytaan kyykkyssa koko ajan — ei nousteta'},
+    s4:{nimi:'Reaktiivinen pysaytys',sarjat:'3x10/suunta',tempo:'reaktiivinen',
+      kuvaus:'Askelten jalkeen nopea pysaytys signaalista',
+      cue:'Pysahdy heti signaalista — sama kuin pelissa'},
+    s5:{nimi:'Pallo + siirtovaikutus',sarjat:'3x8/suunta',tempo:'reaktiivinen',
+      kuvaus:'Sivuaskelkavely + vastaanotto sivulle',
+      cue:'Siirry sivulle ja ota pallo — jalkapallon perusliike'}
+  },
+
+  DIAG_aktivointi: {
+    s1:{nimi:'Tekniikka, lantio paikallaan',sarjat:'2x8/puoli',tempo:'hidas',
+      kuvaus:'Nelinkontin — opitaan kierto, lantio paikallaan',
+      cue:'Lantio ei saa kaantya — liike tulee rintakehasta'},
+    s2:{nimi:'Suurempi kiertokulma',sarjat:'2x10/puoli',tempo:'normaali',
+      kuvaus:'Suurempi kiertokulma — rintakehaa vapautuu enemman',
+      cue:'Kay niin pitkalle kuin rintakehaa liikkuu vapaasti'},
+    s3:{nimi:'Seisten, toiminnallisuus',sarjat:'3x10/puoli',tempo:'normaali',
+      kuvaus:'Seisten rotatoriset liikkeet — siirtovaikutus kasvaa',
+      cue:'Sama kierto seisaaltaan — lahtotilanne pelissa'},
+    s4:{nimi:'Kevyt pallo, nopeus',sarjat:'3x8/puoli',tempo:'normaali-nopea',
+      kuvaus:'Kevyt laaakintapallo lisaa kuormaa',
+      cue:'Pallo lisaa voimantuottovaatimusta — sailyta tekniikka'},
+    s5:{nimi:'Kiertoheitot, pelispesifi',sarjat:'3x6/puoli',tempo:'rajahtava',
+      kuvaus:'Rotaatioheitot seinaan — siirtovaikutus syottoon',
+      cue:'Heita rintakehasta — juuri se voima joka tulee syotosta'}
+  },
+
+  DIAG_taso1: {
+    s1:{nimi:'Tekniikka, lyhyt kesto',sarjat:'2x20s/puoli',tempo:'staattinen',
+      kuvaus:'Keho suorana — opitaan asento ensin',
+      cue:'Nilkasta paahan — suora linja koko ajan'},
+    s2:{nimi:'Kesto kasvaa',sarjat:'3x30s/puoli',tempo:'staattinen',
+      kuvaus:'Pidempi kesto — kestavyys kehittyy',
+      cue:'Hengita tasaisesti — ala pida hengitysta'},
+    s3:{nimi:'Dynaaminen — kasi nousee',sarjat:'3x30s/puoli',tempo:'dynaaminen',
+      kuvaus:'Kylkilankku + paalimmainen kasi nostaa ylos',
+      cue:'Kasi nousee — lantio pysyy paikallaan'},
+    s4:{nimi:'Dynaaminen — jalka sivulle',sarjat:'3x20s/puoli',tempo:'dynaaminen',
+      kuvaus:'Kylkilankku + paalimmainen jalka sivulle',
+      cue:'Jalka sivulle — keho ei heilahda'},
+    s5:{nimi:'Reaktiivinen, kognitiivinen',sarjat:'3x20s/puoli',tempo:'reaktiivinen',
+      kuvaus:'Kylkilankku + reagoi signaaliin — kognitiivinen haaste',
+      cue:'Reagoi signaaliin — lantio pysyy'}
+  },
+
+  DIAG_taso2: {
+    s1:{nimi:'Tekniikka, hidas kierto',sarjat:'2x6/puoli',tempo:'hidas',
+      kuvaus:'Hidas kierto — opitaan liike rintakehasta',
+      cue:'Kierto tulee rintakehasta — kadet seuraavat'},
+    s2:{nimi:'Nopeus kasvaa',sarjat:'3x8/puoli',tempo:'normaali',
+      kuvaus:'Sama liike nopeammin — tekniikka sailyy',
+      cue:'Nopeus kasvaa mutta tekniikka ei muutu'},
+    s3:{nimi:'Painavampi pallo',sarjat:'3x8/puoli',tempo:'normaali',
+      kuvaus:'Raskaampi pallo lisaa voimantuottovaatimusta',
+      cue:'Raskaampi pallo = enemman kiertovoimaa'},
+    s4:{nimi:'Rajahtava, maksimivoima',sarjat:'3x6/puoli',tempo:'rajahtava',
+      kuvaus:'Maksimaalinen nopeus kierrossa',
+      cue:'Heita niin kovaa kuin pystyt — taysi kierto'},
+    s5:{nimi:'Syotto liikkeessa',sarjat:'3x5/puoli',tempo:'rajahtava',
+      kuvaus:'Heitto seinaan + juoksu ja vastaanotto',
+      cue:'Heita ja liiku — kuin syottaisit tilaan'}
+  },
+
+  DFL_aktivointi: {
+    s1:{nimi:'Tekniikka, rauhallinen',sarjat:'5 hengitysta',tempo:'hidas',
+      kuvaus:'Hengitys kylkiin — tunnetaan oikea suunta',
+      cue:'Tunne kadet laajenevan sivuille — ei rintaan ylos'},
+    s2:{nimi:'Lantionpohjan aktivaatio',sarjat:'5 hengitysta',tempo:'hidas',
+      kuvaus:'Hengityksen kanssa lantionpohjan aktivaatio',
+      cue:'Hengita sisaan — aktivoi lantionpohja ulos hengittaessa'},
+    s3:{nimi:'Puolikyykkyssa, kuormassa',sarjat:'5 kyykkyssa',tempo:'normaali',
+      kuvaus:'Hengitys puolikyykkyssa — siirtovaikutus kasvaa',
+      cue:'Hengita oikein myos kyykkyssa'},
+    s4:{nimi:'Liikkeen aikana',sarjat:'5x',tempo:'dynaaminen',
+      kuvaus:'Hengitys askelkyykyn tai lantionnoston aikana',
+      cue:'Hengitys ei saa muuttua liikkeessa'},
+    s5:{nimi:'Kuormituksen alla, itsenaiinen',sarjat:'3x5',tempo:'dynaaminen',
+      kuvaus:'Hengitys lisakuormalla — oma arvio suorituksesta',
+      cue:'Hengitys kestaa kuormituksen — itsenaiinen arviointi'}
+  },
+
+  DFL_taso1: {
+    s1:{nimi:'Tekniikka, lyhyt kesto',sarjat:'3x20s',tempo:'staattinen',
+      kuvaus:'Opitaan asento — laatu ennen kestoa',
+      cue:'Nipista pakaraa ja veda napa sisaan ennen nostoa'},
+    s2:{nimi:'Kesto kasvaa',sarjat:'3x35s',tempo:'staattinen',
+      kuvaus:'Sama asento, pidempi kesto',
+      cue:'Hengita tasaisesti — ala pida hengitysta'},
+    s3:{nimi:'Dynaaminen — polvi rinnalle',sarjat:'3x8/puoli',tempo:'dynaaminen',
+      kuvaus:'Lankku + polven veto rinnalle vuorotellen',
+      cue:'Polvi rinnalle — lantio pysyy vakaana'},
+    s4:{nimi:'Epastabiili tai reaktiivinen',sarjat:'3x25s',tempo:'dynaaminen',
+      kuvaus:'BOSU tai reaktio signaaliin',
+      cue:'Keho kompensoi — tarkoituksellista'},
+    s5:{nimi:'Kognitiivinen, itsenaiinen',sarjat:'3x20s',tempo:'reaktiivinen',
+      kuvaus:'Lankku + reaktio + oma arvio',
+      cue:'Pida asento ja reagoi — pelitilanteen kognitio'}
+  },
+
+  DFL_taso2: {
+    s1:{nimi:'Tekniikka, pieni liikelaajuus',sarjat:'2x4/puoli',tempo:'hidas',
+      kuvaus:'Pieni liike — alaselka pysyy lattiassa koko ajan',
+      cue:'Alaselka lattiassa — tarkeampaa kuin liikelaajuus'},
+    s2:{nimi:'Liikelaajuus kasvaa',sarjat:'3x6/puoli',tempo:'hidas',
+      kuvaus:'Kasi ja jalka lahemmas lattiaa — hallitusti',
+      cue:'Mene niin alas kuin alaselka pysyy lattiassa'},
+    s3:{nimi:'Erittain hidas, isometrinen',sarjat:'3x5/puoli',tempo:'3s alas, 2s pito, 3s ylos',
+      kuvaus:'Hidas tempo + pito alapisteessa',
+      cue:'Laske 3, pida 2, nosta 3 — hidas on oikeasti vaikea'},
+    s4:{nimi:'Lisakuorma, ulkoinen vastus',sarjat:'3x6/puoli',tempo:'hidas-normaali',
+      kuvaus:'1-2kg kasissa tai nilkkapainot',
+      cue:'Paino lisaa vaatimusta — alaselka pysyy yha lattiassa'},
+    s5:{nimi:'Pallo, pelispesifi',sarjat:'3x5/puoli',tempo:'normaali',
+      kuvaus:'Kuollut otokka + kasi ottaa pallon',
+      cue:'Ota pallo samalla kun laskut — siirtovaikutus peliin'}
+  }
+};
+
+// 8-viikon jaksotus
+var JAKSO_RAKENNE = {
+  pohja:     {vaihe:'Pohja',     kuvaus:'Tekniikka ja aktivaatio — Stage pysyy',    stageModif:0, vari:'var(--teal)'},
+  kehitys:   {vaihe:'Kehitys',   kuvaus:'Progressio ja kuorma — Stage +1',           stageModif:1, vari:'var(--amber)'},
+  huipentuma:{vaihe:'Huipentuma',kuvaus:'Lajiteho ja peli-integraatio — Stage +2',   stageModif:2, vari:'var(--purple)'}
+};
+
+function laskeMissaJaksossa() {
+  var vk = _viikonNumero(new Date());
+  var p = ((vk - 1) % 8) + 1;
+  var j = p <= 3 ? JAKSO_RAKENNE.pohja : p <= 6 ? JAKSO_RAKENNE.kehitys : JAKSO_RAKENNE.huipentuma;
+  return Object.assign({jaksoPaikka: p}, j);
+}
+
+// Efektiivinen Stage: FLEI + jakso + PHV-rajoite + ika
+function laskeEfektiivinenStage(pisteet, phvTila, ika, jakso) {
+  var s;
+  if (!pisteet || pisteet === 0) s = 1;
+  else if (pisteet < 40) s = 1;
+  else if (pisteet < 55) s = 2;
+  else if (pisteet < 70) s = 3;
+  else if (pisteet < 85) s = 4;
+  else                    s = 5;
+  var lahto = s;
+  s = Math.min(5, s + (jakso ? jakso.stageModif || 0 : 0));
+  var peruste = 'Pisteet ' + (pisteet||'?') + 'p => S' + lahto + (jakso && jakso.stageModif > 0 ? ' + jakso => S' + s : '');
+  var rajattu = false;
+  if (phvTila === 'PH' && s > 2)    { s = 2; rajattu = true; peruste += ' => max S2 (PHV)'; }
+  if (ika && ika < 10 && s > 1)     { s = 1; rajattu = true; peruste += ' => max S1 (alle 10v)'; }
+  else if (ika && ika < 12 && s > 2){ s = 2; rajattu = true; peruste += ' => max S2 (alle 12v)'; }
+  else if (ika && ika < 14 && s > 3){ s = 3; rajattu = true; peruste += ' => max S3 (alle 14v)'; }
+  return {stage: s, peruste: peruste, rajattu: rajattu};
+}
+
+function haeStageData(harjoiteId, stageNum) {
+  var p = HARJOITE_PROGRESSIO[harjoiteId];
+  if (!p) return null;
+  return p['s' + stageNum] || p['s1'] || null;
+}
+
+// Video: Firestore ensin, fallback kirjastoon
+// Rakenne: seurat/{seuraId}/harjoiteVideot/{harjoiteId} => {youtubeId, url}
+var _videoCache = {};
+async function haeVideoUrl(harjoiteId) {
+  if (_videoCache[harjoiteId] !== undefined) return _videoCache[harjoiteId];
+  var fallback = (HARJOITE_KIRJASTO[harjoiteId] || {}).video || null;
+  try {
+    if (!window._db || !window._seuraId) throw new Error('ei yhteytta');
+    var snap = await window._db.collection('seurat').doc(window._seuraId)
+      .collection('harjoiteVideot').doc(harjoiteId).get();
+    if (snap.exists) {
+      var d = snap.data();
+      var url = d.url || (d.youtubeId ? 'https://www.youtube.com/watch?v=' + d.youtubeId : null);
+      _videoCache[harjoiteId] = url;
+      return url;
+    }
+  } catch(e) {}
+  _videoCache[harjoiteId] = fallback;
+  return fallback;
+}
+
+// Ryhmitys harjoitevalintamodaaliin
+var HARJOITE_RYHMAT = [
+  {otsikko:'&#9889; Vauhtiketju',  avaimet:['SBL_aktivointi','SBL_taso1','SBL_taso2']},
+  {otsikko:'&#129466; Lähtöketju', avaimet:['SFL_aktivointi','SFL_taso1','SFL_taso2']},
+  {otsikko:'&#8596; Sivuketju',    avaimet:['LL_aktivointi','LL_taso1']},
+  {otsikko:'&#128260; Diagonaaliketju', avaimet:['DIAG_aktivointi','DIAG_taso1','DIAG_taso2']},
+  {otsikko:'&#127959; Hallintaketju',  avaimet:['DFL_aktivointi','DFL_taso1','DFL_taso2']},
+];
+
+// ══════════════════════════════════════════════════════════════
+// KETJUANALYYSI — dataperusteinen harjoitevalinta
+// ══════════════════════════════════════════════════════════════
+function laskeJoukkuenKetjut(pelaajat) {
+  var nimet = {SBL:'Vauhtiketju',SFL:'Lähtöketju',LL:'Sivuketju',
+               DIAG:'Diagonaaliketju',DFL:'Hallintaketju'};
+  var sum = {SBL:0,SFL:0,LL:0,DIAG:0,DFL:0};
+  var lkm = {SBL:0,SFL:0,LL:0,DIAG:0,DFL:0};
+  (pelaajat||[]).forEach(function(p) {
+    var k = p.flei_ketjut||{};
+    var diag = k.DIAG||k.diag||(k.SL&&k.FL?Math.round((k.SL+k.FL)/2):k.SL||k.FL||0);
+    var v = {SBL:k.SBL||0,SFL:k.SFL||0,LL:k.LL||0,DIAG:diag,DFL:k.DFL||0};
+    Object.keys(v).forEach(function(kk){if(v[kk]>0){sum[kk]+=v[kk];lkm[kk]++;}});
+  });
+  return Object.keys(sum)
+    .map(function(kk){return {ketju:kk,ka:lkm[kk]>0?Math.round(sum[kk]/lkm[kk]):0,nimi:nimet[kk]||kk};})
+    .filter(function(t){return t.ka>0;})
+    .sort(function(a,b){return a.ka-b.ka;}); // heikoin ensin
+}
+
+// Ketju + pistemäärä -> harjoite-ID
+var KETJU_HARJOITE_MAP = {
+  SBL: {aktivointi:'SBL_aktivointi',taso1:'SBL_taso1',taso2:'SBL_taso2'},
+  SFL: {aktivointi:'SFL_aktivointi',taso1:'SFL_taso1',taso2:'SFL_taso2'},
+  LL:  {aktivointi:'LL_aktivointi', taso1:'LL_taso1', taso2:'LL_taso1'},
+  DIAG:{aktivointi:'DIAG_aktivointi',taso1:'DIAG_taso1',taso2:'DIAG_taso2'},
+  DFL: {aktivointi:'DFL_aktivointi',taso1:'DFL_taso1',taso2:'DFL_taso2'},
+};
+function haeHarjoiteId(ketju,pisteet) {
+  var m = KETJU_HARJOITE_MAP[ketju]; if (!m) return null;
+  if (!pisteet||pisteet===0) return m.aktivointi;
+  if (pisteet<50) return m.taso1;
+  if (pisteet<70) return m.taso2;
+  return m.taso1;
+}
+
+// Yksilöllinen 30% — kuka tarvitsee mitä
+function rakenna30ProsenttiYhteenveto(pelaajat) {
+  var ryhmitys = {};
+  (pelaajat||[]).forEach(function(p) {
+    var k = p.flei_ketjut||{};
+    var diag = k.DIAG||k.diag||(k.SL&&k.FL?Math.round((k.SL+k.FL)/2):k.SL||k.FL||0);
+    var v = {SBL:k.SBL||0,SFL:k.SFL||0,LL:k.LL||0,DIAG:diag,DFL:k.DFL||0};
+    var heikoin=null,heikoinV=101;
+    Object.keys(v).forEach(function(kk){if(v[kk]>0&&v[kk]<heikoinV){heikoinV=v[kk];heikoin=kk;}});
+    if (heikoin) {
+      ryhmitys[heikoin]=ryhmitys[heikoin]||[];
+      ryhmitys[heikoin].push({nimi:(p.etunimi||'')+' '+((p.sukunimi||'')[0]||'')+'.',arvo:heikoinV});
+    }
+  });
+  return Object.keys(ryhmitys).length>0?ryhmitys:null;
+}
+
+// ══════════════════════════════════════════════════════════════
+// OHJEPOPUP — alhaalta liukuva sheet
+// ══════════════════════════════════════════════════════════════
+function avaaOhjePopup(harjoiteId, stageNum) {
+  var h = HARJOITE_KIRJASTO[harjoiteId]; if (!h) return;
+  var vanha = document.getElementById('ohjePopup'); if (vanha) vanha.remove();
+  stageNum = stageNum || 3;
+  var jakso = laskeMissaJaksossa();
+  var prog = HARJOITE_PROGRESSIO[harjoiteId];
+  var stageData = haeStageData(harjoiteId, stageNum);
+
+  // Stage-valintanapit 1-5
+  var sv = {1:'var(--ink3)',2:'var(--teal)',3:'var(--amber)',4:'var(--red)',5:'var(--purple)'};
+  var sl = {1:'Kehonpaino',2:'Liikelaajuus',3:'Vastus',4:'Nopeus',5:'Peliin'};
+  var stageTaul = '';
+  if (prog) {
+    stageTaul = '<div style="margin:10px 0 6px;font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.8px">Progressio — valitse Stage</div>'
+      + '<div style="display:flex;gap:4px;margin-bottom:10px">'
+      + [1,2,3,4,5].map(function(s) {
+          var on = s === stageNum; var v = sv[s];
+          return '<div onclick="suljeOhjePopup();avaaOhjePopup(\'' + harjoiteId + '\',' + s + ')"'
+            + ' style="flex:1;padding:7px 3px;border-radius:8px;text-align:center;cursor:pointer;'
+            + 'background:' + (on ? v : 'var(--bg3)') + ';border:1px solid ' + (on ? v : 'var(--border)') + '">'
+            + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:15px;font-weight:900;color:' + (on ? '#000' : v) + '">S' + s + '</div>'
+            + '<div style="font-size:8px;color:' + (on ? 'rgba(0,0,0,.65)' : 'var(--ink3)') + '">' + sl[s] + '</div>'
+            + '</div>';
+        }).join('') + '</div>';
+    if (stageData) {
+      var v = sv[stageNum];
+      stageTaul += '<div style="padding:10px 12px;background:var(--bg3);border-radius:9px;border-left:3px solid ' + v + ';margin-bottom:10px">'
+        + '<div style="font-size:10px;font-weight:700;color:' + v + ';text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px">Stage ' + stageNum + ' \u2014 ' + stageData.nimi + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px">'
+        + '<div style="font-size:11px;color:var(--ink2)">&#128197; ' + stageData.sarjat + '</div>'
+        + '<div style="font-size:11px;color:var(--ink2)">&#9201; ' + stageData.tempo + '</div>'
+        + '</div>'
+        + '<div style="font-size:12px;color:var(--ink)">' + stageData.kuvaus + '</div>'
+        + '<div style="font-size:11px;color:' + v + ';margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">Cue: ' + stageData.cue + '</div>'
+        + '</div>';
+    }
+  }
+
+  var jaksoHtml = '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(255,255,255,.03);border-radius:8px;margin-bottom:10px">'
+    + '<div style="width:7px;height:7px;border-radius:50%;background:' + jakso.vari + ';flex-shrink:0"></div>'
+    + '<div style="font-size:11px;color:var(--ink2)">Jakso: <strong style="color:' + jakso.vari + '">' + jakso.vaihe + '</strong>'
+    + ' &middot; vk ' + jakso.jaksoPaikka + '/8 &middot; ' + jakso.kuvaus + '</div></div>';
+
+  var vaiheHtml = (h.vaiheet||[]).map(function(v,i) {
+    return '<div style="display:flex;gap:10px;margin-bottom:7px;align-items:flex-start">'
+      + '<div style="width:20px;height:20px;border-radius:50%;background:rgba(0,212,170,.15);color:var(--teal);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">' + (i+1) + '</div>'
+      + '<div style="font-size:13px;color:var(--ink2);line-height:1.55">' + v + '</div></div>';
+  }).join('');
+
+  var ikaHtml = h.ika_huomio
+    ? '<div style="padding:7px 10px;background:rgba(255,176,32,.07);border:1px solid rgba(255,176,32,.2);border-radius:8px;font-size:11px;color:var(--amber);margin-top:8px">&#9888; ' + h.ika_huomio + '</div>'
+    : '';
+  var vidId = 'ohjeVid_' + Date.now();
+
+  document.body.insertAdjacentHTML('beforeend',
+    '<div id="ohjePopup" style="position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.8);display:flex;align-items:flex-end;justify-content:center"'
+    + ' onclick="if(event.target.id===\'ohjePopup\')suljeOhjePopup()">'
+    + '<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;animation:slideUp .22s ease-out">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+    + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:19px;font-weight:900;color:var(--teal)">' + h.nimi + '</div>'
+    + '<button onclick="suljeOhjePopup()" class="harj-modal-sulje">&#x2715; Sulje</button></div>'
+    + stageTaul + jaksoHtml
+    + '<div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Perusohjeet</div>'
+    + vaiheHtml
+    + '<div style="margin-top:12px;padding:11px 13px;background:var(--bg3);border-radius:10px;border-left:3px solid var(--teal)">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">Miksi?</div>'
+    + '<div style="font-size:12px;color:var(--ink2);line-height:1.6">' + h.miksi + '</div></div>'
+    + ikaHtml
+    + '<div id="' + vidId + '" style="margin-top:8px">'
+    + '<div style="padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:11px;color:var(--ink3);font-style:italic">&#128247; Ladataan videolinkkia...</div></div>'
+    + '</div></div>');
+
+  haeVideoUrl(harjoiteId).then(function(url) {
+    var el2 = document.getElementById(vidId); if (!el2) return;
+    el2.innerHTML = url
+      ? '<a href="' + url + '" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:9px;color:var(--red);text-decoration:none;font-size:12px;font-weight:700">&#9654; Katso video YouTubessa</a>'
+      : '<div style="padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:11px;color:var(--ink3);font-style:italic">&#128247; Video tulossa pian</div>';
+  });
+}
+
+function suljeOhjePopup() { var p=document.getElementById('ohjePopup'); if(p)p.remove(); }
+
+// ══════════════════════════════════════════════════════════════
+// HARJOITEVALINTAMODAALI — ketjusuodattimella
+// ══════════════════════════════════════════════════════════════
+var _vaihtaKohde = null;
+
+function avaaHarjoiteValinta(indeksi) {
+  _vaihtaKohde = indeksi;
+  var vanha = document.getElementById('harjValintaModal'); if (vanha) vanha.remove();
+  var blokki = window._ohjelmaData ? window._ohjelmaData[indeksi] : null;
+  var suodatin = (blokki && blokki.suodatinKetju) ? blokki.suodatinKetju : 'kaikki';
+  var ketjuNimet = {kaikki:'&#128269; Kaikki',SBL:'&#9889; Vauhti',SFL:'&#129466; Lähtö',
+    LL:'&#8596; Sivu',DIAG:'&#128260; Diagonaali',DFL:'&#127959; Hallinta'};
+  var suodatinHtml = Object.keys(ketjuNimet).map(function(k) {
+    var on = k===suodatin;
+    return '<button onclick="suodataHarjKirjasto(\''+k+'\')" id="harjSuod-'+k+'"'
+      +' style="padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;'
+      +'border:1px solid;cursor:pointer;font-family:\'DM Sans\',sans-serif;'
+      +'background:'+(on?'var(--teal)':'var(--bg3)')+';'
+      +'color:'+(on?'#000':'var(--ink2)')+';'
+      +'border-color:'+(on?'var(--teal)':'var(--border)')+'">'+ketjuNimet[k]+'</button>';
+  }).join('');
+  var ryhmaHtml = HARJOITE_RYHMAT.map(function(ryhma) {
+    var ryhmaKetju = ryhma.avaimet.length>0?(HARJOITE_KIRJASTO[ryhma.avaimet[0]]||{}).ketju||'':'';
+    var nakyy = suodatin==='kaikki'||ryhmaKetju===suodatin;
+    var itemit = ryhma.avaimet.map(function(avain) {
+      var h = HARJOITE_KIRJASTO[avain]; if (!h) return '';
+      var onValittu = blokki && blokki.harjoiteId===avain;
+      return '<div class="harj-kirjasto-item'+(onValittu?' valittu':'')+'"'
+        +' onclick="valitseHarjoite(\''+avain+'\')">'
+        +'<div class="harj-item-nimi">'+h.nimi
+        +(onValittu?' <span style="color:var(--teal);font-size:10px">&#10003;</span>':'')
+        +'<div style="font-size:10px;color:var(--ink3);margin-top:1px;font-weight:400">'+h.lyhyt+'</div></div>'
+        +'<div style="text-align:right;flex-shrink:0">'
+        +'<div class="harj-item-sarjat">'+h.sarjat+'</div>'
+        +(h.video?'<div style="font-size:9px;color:var(--teal);margin-top:2px">&#9654; video</div>':'')
+        +'</div></div>';
+    }).join('');
+    return '<div class="harj-kirjasto-ryhma" data-ketju="'+ryhmaKetju+'"'
+      +' style="display:'+(nakyy?'block':'none')+'">'
+      +'<div class="harj-ryhma-otsikko">'+ryhma.otsikko+'</div>'+itemit+'</div>';
+  }).join('');
+  document.body.insertAdjacentHTML('beforeend',
+    '<div id="harjValintaModal" class="harj-modal-tausta"'
+    +' onclick="if(event.target.id===\'harjValintaModal\')suljeHarjValinta()">'
+    +'<div class="harj-modal">'
+    +'<div class="harj-modal-ot">'
+    +'<div class="harj-modal-otsikko">Vaihda harjoite</div>'
+    +'<button onclick="suljeHarjValinta()" class="harj-modal-sulje">&#x2715; Sulje</button>'
+    +'</div>'
+    +'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">'+suodatinHtml+'</div>'
+    +'<div id="harjKirjastoSisalto">'+ryhmaHtml+'</div>'
+    +'</div></div>');
+}
+
+function suodataHarjKirjasto(ketju) {
+  document.querySelectorAll('[id^="harjSuod-"]').forEach(function(n) {
+    var on=n.id==='harjSuod-'+ketju;
+    n.style.background=on?'var(--teal)':'var(--bg3)';
+    n.style.color=on?'#000':'var(--ink2)';
+    n.style.borderColor=on?'var(--teal)':'var(--border)';
+  });
+  document.querySelectorAll('#harjKirjastoSisalto .harj-kirjasto-ryhma').forEach(function(r) {
+    r.style.display=(ketju==='kaikki'||r.dataset.ketju===ketju)?'block':'none';
+  });
+}
+
+function valitseHarjoite(avain) {
+  if (_vaihtaKohde===null) return;
+  var h = HARJOITE_KIRJASTO[avain]; if (!h) return;
+  _ohjelmaData[_vaihtaKohde].harjoiteId = avain;
+  _ohjelmaData[_vaihtaKohde].nimi = h.nimi;
+  _ohjelmaData[_vaihtaKohde].meta = h.lyhyt;
+  suljeHarjValinta();
+  _renderOhjelmaEditori();
+  toast('Harjoite vaihdettu: '+h.nimi);
+}
+function suljeHarjValinta() { var m=document.getElementById('harjValintaModal'); if(m)m.remove(); }
+
+// ══════════════════════════════════════════════════════════════
+// OHJELMAEDITORI — drag & drop + render
+// ══════════════════════════════════════════════════════════════
+var _dragSrcIdx = null;
+
+function _alustaDragDrop() {
+  var lista = document.getElementById('ohjelmaLista'); if (!lista) return;
+  lista.querySelectorAll('.ohj-blokki[draggable="true"]').forEach(function(blokki) {
+    blokki.addEventListener('dragstart', function(e) {
+      _dragSrcIdx = parseInt(blokki.dataset.idx);
+      blokki.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    blokki.addEventListener('dragend', function() {
+      blokki.classList.remove('dragging');
+      lista.querySelectorAll('.ohj-blokki').forEach(function(b){b.classList.remove('dragover');});
+    });
+    blokki.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      lista.querySelectorAll('.ohj-blokki').forEach(function(b){b.classList.remove('dragover');});
+      blokki.classList.add('dragover');
+    });
+    blokki.addEventListener('drop', function(e) {
+      e.preventDefault();
+      var kohdeIdx = parseInt(blokki.dataset.idx);
+      if (_dragSrcIdx===null||_dragSrcIdx===kohdeIdx) return;
+      var temp = _ohjelmaData[_dragSrcIdx];
+      _ohjelmaData[_dragSrcIdx] = _ohjelmaData[kohdeIdx];
+      _ohjelmaData[kohdeIdx] = temp;
+      _dragSrcIdx = null;
+      _renderOhjelmaEditori();
+      toast('Järjestys päivitetty');
+    });
+  });
+}
+
+function _renderOhjelmaEditori() {
+  var lista = document.getElementById('ohjelmaLista'); if (!lista) return;
+  lista.innerHTML = _ohjelmaData.map(function(blokki, i) {
+    var voidaanVetaa = blokki.muokattava !== false;
+    var voidaanVaihtaa = blokki.voidaanVaihtaa !== false;
+    var napitHtml = '';
+    if (blokki.harjoiteId)
+      napitHtml += '<button class="ohj-nappi ohj-nappi-ohje" onclick="avaaOhjePopup(\''+blokki.harjoiteId+'\','+(blokki.stage||1)+')">&#128203; Ohjeet &amp; video</button>';
+    if (voidaanVaihtaa)
+      napitHtml += '<button class="ohj-nappi ohj-nappi-vaihda" onclick="avaaHarjoiteValinta('+i+')">&#128260; Vaihda</button>';
+    if (blokki.lisatty)
+      napitHtml += '<button class="ohj-nappi ohj-nappi-poista" onclick="poistaOhjelmaBlokki('+i+')">&#x2715;</button>';
+    return '<li class="ohj-blokki '+(blokki.luokka||'')+'"'
+      +(voidaanVetaa?' draggable="true"':'')
+      +' data-idx="'+i+'">'
+      +'<div class="ohj-top">'
+      +(voidaanVetaa?'<div class="ohj-drag-handle" title="Vedä järjestääksesi">&#8285;</div>':'<div style="width:20px"></div>')
+      +'<div class="ohj-sisalto">'
+      +'<div class="ohj-otsikko" style="color:'+(blokki.vari||'var(--teal)')+'">'+blokki.otsikko+'</div>'
+      +'<div class="ohj-nimi">'+(blokki.nimi||'—')+'</div>'
+      +'<div class="ohj-meta">'+(blokki.meta||'')+'</div>'
+      +'</div></div>'
+      +(napitHtml?'<div class="ohj-napit">'+napitHtml+'</div>':'')
+      +'</li>';
+  }).join('');
+  lista.insertAdjacentHTML('beforeend',
+    '<li class="ohj-lisaa-rivi" onclick="lisaaOhjelmaBlokki()">+ Lisää harjoite</li>');
+  _alustaDragDrop();
+}
+
+function lisaaOhjelmaBlokki() {
+  _ohjelmaData.push({otsikko:'Lisätty harjoite',nimi:'Valitse harjoite',
+    meta:'Klikkaa Vaihda valitaksesi kirjastosta',
+    luokka:'tekniikka',vari:'var(--amber)',harjoiteId:null,lisatty:true,voidaanVaihtaa:true});
+  _renderOhjelmaEditori();
+}
+function poistaOhjelmaBlokki(i) {
+  if (!_ohjelmaData[i]||!_ohjelmaData[i].lisatty) return;
+  _ohjelmaData.splice(i,1); _renderOhjelmaEditori(); toast('Harjoite poistettu');
+}
+
 // ── FIREBASE INIT ────────────────────────────────────────────────
 firebase.initializeApp({
   apiKey:'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo',
@@ -1189,41 +1976,102 @@ function _renderHarjoitus() {
 }
 
 function _renderOhjelma() {
-  var el2 = el('harjOhjelma');
-  // 70/30-logiikka: parillinen viikko = heikoin ketju, pariton = toiseksi heikoin
-  var viikko = _viikonNumero(new Date());
-  var ketjut = [
-    {id:'dfl', nimi:'🏗️ Hallintaketju', kuvaus:'Keskivartalon hallinta, tasapaino, lonkan stabillius'},
-    {id:'sbl', nimi:'⚡ Vauhtiketju',   kuvaus:'Maksiminopeus, sprintit, reaktio'},
-    {id:'ll',  nimi:'↔️ Suunnanmuutos', kuvaus:'Lateraaliliike, feintit, ketteryys'},
-    {id:'sfl', nimi:'🦵 Lähtöketju',    kuvaus:'Kiihdytys, pysähtyminen, räjähtävyys'},
-    {id:'sl',  nimi:'🔄 Kiertoketju',   kuvaus:'Kiertovoima, syöttö, laukaus'},
-  ];
-  // Yksinkertaistettu: vuorotellaan ketjuja viikon mukaan
-  var fokus = ketjut[viikko % ketjut.length];
-  var cue = '"Hengitä ympäri kylkiä — katse ympäriinsä ennen palloa"';
-  el2.innerHTML =
-    '<div class="ohjelma-block yhteinen">' +
-      '<div class="ohjelma-ot" style="color:var(--teal)">Yhteinen alkulämmittely · 10 min</div>' +
-      '<div class="ohjelma-sis">Kyykkyistunta 2×20s + askelkyykky-kävely · Lantionnosto 2×10 · A-skip 2×20m</div>' +
-      '<div class="ohjelma-meta">Aktivoi kaikki liikeketjut — tehdään JOKA harjoituksessa</div>' +
-    '</div>' +
-    '<div class="ohjelma-block tekniikka">' +
-      '<div class="ohjelma-ot" style="color:var(--amber)">Tekninen pääharjoite · 15 min — viikko '+viikko+'</div>' +
-      '<div class="ohjelma-sis">'+fokus.nimi+'</div>' +
-      '<div class="ohjelma-meta">'+fokus.kuvaus+'</div>' +
-    '</div>' +
-    '<div class="ohjelma-block yksilö">' +
-      '<div class="ohjelma-ot" style="color:var(--purple)">Oma liike — heikoin ketju · 12 min</div>' +
-      '<div class="ohjelma-sis">Yksilöllinen harjoite heikoimmalle ketjulle</div>' +
-      '<div class="ohjelma-meta">Katso IDP-kortista pelaajan heikoin ketju</div>' +
-    '</div>' +
-    '<div class="ohjelma-block cue">' +
-      '<div class="ohjelma-ot" style="color:var(--ink3)">Valmentajan cue koko harjoitukseen</div>' +
-      '<div style="font-size:12px;color:var(--teal);font-style:italic">'+cue+'</div>' +
-    '</div>';
-}
+  if (window._ohjelmaData) {
+    var k = el('harjOhjelma');
+    k.innerHTML = '<div style="font-size:11px;color:var(--ink3);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span>&#8285;</span>Veda jarjestaaksesi &middot; &#128260; Vaihda &middot; + Lisaa</div>'
+      + '<ul class="ohj-lista" id="ohjelmaLista"></ul>';
+    _renderOhjelmaEditori(); return;
+  }
 
+  var pelaajat = window._pelaajat || [];
+  var ketjuData = laskeJoukkuenKetjut(pelaajat);
+  var heikoin = ketjuData.length > 0 ? ketjuData[0] : null;
+  var vahvin  = ketjuData.length > 1 ? ketjuData[ketjuData.length-1] : null;
+  var jakso   = laskeMissaJaksossa();
+
+  // Ika ja PHV Stage-laskentaa varten
+  var ep = pelaajat[0] || {};
+  var ika = ep.syntymaaika
+    ? Math.floor((Date.now() - (ep.syntymaaika.toDate ? ep.syntymaaika.toDate()
+        : new Date(ep.syntymaaika.seconds * 1000)).getTime()) / (365.25*24*3600*1e3))
+    : 14;
+  var phv = ep.phv_tila || null;
+
+  // Stage-laskenta: FLEI + jakso + PHV + ika
+  var stage70 = laskeEfektiivinenStage(vahvin  ? vahvin.ka  : 0, phv, ika, jakso);
+  var stage30 = laskeEfektiivinenStage(heikoin ? heikoin.ka : 0, phv, ika, jakso);
+
+  var harj70Id = vahvin  ? haeHarjoiteId(vahvin.ketju,  vahvin.ka)  : 'DFL_aktivointi';
+  var harj30Id = heikoin ? haeHarjoiteId(heikoin.ketju, heikoin.ka) : 'LL_taso1';
+  var harj70   = HARJOITE_KIRJASTO[harj70Id] || null;
+  var harj30   = HARJOITE_KIRJASTO[harj30Id] || null;
+  var sd70     = haeStageData(harj70Id, stage70.stage);
+  var sd30     = haeStageData(harj30Id, stage30.stage);
+
+  // Yksilollinen 30%-yhteenveto
+  var yhteenveto = rakenna30ProsenttiYhteenveto(pelaajat);
+  var kEmoji = {SBL:'&#9889;',SFL:'&#129466;',LL:'&#8596;',DIAG:'&#128260;',DFL:'&#127959;'};
+  var yhtMeta = yhteenveto
+    ? Object.keys(yhteenveto).map(function(kk) {
+        return yhteenveto[kk].map(function(p){return p.nimi;}).join(', ') + ' &rarr; ' + (kEmoji[kk]||kk);
+      }).join(' &middot; ')
+    : 'Tee harjoitettavuuskartoitus &mdash; data ei saatavilla';
+
+  // Stage-badge: vaarillinen pilli otsikkoon
+  function stageBadge(s, rajattu) {
+    var v = {1:'var(--ink3)',2:'var(--teal)',3:'var(--amber)',4:'var(--red)',5:'var(--purple)'}[s] || 'var(--teal)';
+    return '<span style="display:inline-block;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(255,255,255,.05);color:' + v + ';margin-left:4px;border:1px solid ' + v + '">S' + s + (rajattu ? '&#9888;' : '') + '</span>';
+  }
+
+  window._ohjelmaData = [
+    {
+      otsikko: 'Yhteinen alkulammittely &middot; 10 min',
+      nimi: 'Kyykkyistunta + askelkyykky-kavely + lantionnosto',
+      meta: 'JOKA harjoituksessa &mdash; aktivoi kaikki liikeketjut',
+      luokka:'yhteinen', vari:'var(--teal)',
+      harjoiteId:'DFL_aktivointi', stage:1,
+      muokattava:true, voidaanVaihtaa:true
+    },
+    {
+      otsikko: '70% &mdash; Vahvuusharjoite'
+        + (vahvin ? ' &middot; ' + vahvin.nimi + ' (' + vahvin.ka + 'p)' : '')
+        + stageBadge(stage70.stage, stage70.rajattu),
+      nimi: harj70 ? harj70.nimi : 'Valitse harjoite',
+      meta: sd70 ? sd70.nimi + ' &middot; ' + sd70.sarjat + ' &middot; ' + sd70.kuvaus
+                 : (harj70 ? harj70.lyhyt : ''),
+      luokka:'tekniikka', vari:'var(--amber)',
+      harjoiteId:harj70Id, stage:stage70.stage,
+      muokattava:true, voidaanVaihtaa:true,
+      suodatinKetju: vahvin ? vahvin.ketju : null
+    },
+    {
+      otsikko: '30% &mdash; Kohdennettu'
+        + (heikoin ? ' &middot; ' + heikoin.nimi + ' (' + heikoin.ka + 'p)' : '')
+        + stageBadge(stage30.stage, stage30.rajattu),
+      nimi: harj30 ? harj30.nimi : 'Valitse harjoite',
+      meta: yhtMeta,
+      luokka:'yksiloo', vari:'var(--purple)',
+      harjoiteId:harj30Id, stage:stage30.stage,
+      muokattava:true, voidaanVaihtaa:true,
+      suodatinKetju: heikoin ? heikoin.ketju : null
+    },
+    {
+      otsikko: jakso.vaihe + ' &middot; vk ' + jakso.jaksoPaikka + '/8',
+      nimi: jakso.kuvaus,
+      meta: ketjuData.length > 0
+        ? ketjuData.map(function(k){return k.nimi+' '+k.ka+'p';}).join(' &middot; ')
+        : 'Ei testituloksia &mdash; oletusharjoitteet',
+      luokka:'cue', vari:jakso.vari,
+      harjoiteId:null, stage:null,
+      muokattava:false, voidaanVaihtaa:false
+    }
+  ];
+
+  var kont = el('harjOhjelma');
+  kont.innerHTML = '<div style="font-size:11px;color:var(--ink3);margin-bottom:10px;display:flex;align-items:center;gap:6px"><span>&#8285;</span>Veda jarjestaaksesi &middot; &#128260; Vaihda &middot; + Lisaa</div>'
+    + '<ul class="ohj-lista" id="ohjelmaLista"></ul>';
+  _renderOhjelmaEditori();
+}
 function _renderLasnaolot() {
   var el2 = el('lasnaolot');
   if (!_pelaajat.length) { el2.innerHTML = '<div style="font-size:12px;color:var(--ink3)">Ei pelaajia</div>'; return; }
@@ -1667,6 +2515,8 @@ function suodataPelaajat(haku) { _renderPelaajat(haku); }
 
 // ── NAVIGAATIO ───────────────────────────────────────────────────
 function naytaNakuma(nimi) {
+  // Nollaa ohjelmaeditori kun siirrytään pois harjoitusnäkymästä
+  if (nimi === 'harjoitus') { window._ohjelmaData = null; }
   ['tanaan','harjoitus','havainto','pelaajat','kalenteri'].forEach(function(v) {
     el('v-'+v).classList.remove('active');
   });
