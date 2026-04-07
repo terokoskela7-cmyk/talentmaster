@@ -131,6 +131,59 @@ tr:hover td{background:rgba(255,255,255,.015);}
 .toast-ok{border-left:3px solid var(--green);}
 .toast-red{border-left:3px solid var(--red);}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── Max-width kuten VP v20:ssa ───────────────────────────── */
+.inner{max-width:1100px;margin-left:auto;margin-right:auto;}
+
+/* ── Kasvattisuppilo: aikajanakuvaaja ─────────────────────── */
+.aikajana-wrap{
+  position:relative;
+  width:100%;
+  overflow:hidden;
+}
+.aikajana-svg{
+  width:100%;
+  height:220px;
+  display:block;
+}
+.aikajana-tooltip{
+  position:absolute;
+  background:var(--bg2);
+  border:1px solid var(--accent);
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:12px;
+  color:var(--text);
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .15s;
+  white-space:nowrap;
+  z-index:10;
+}
+.aikajana-tooltip.vis{ opacity:1; }
+.aikajana-tooltip strong{ color:var(--accent); }
+
+/* Suppilo-grid: KPI:t + kaavio rinnakkain leveällä näytöllä */
+.suppilo-ylagrid{
+  display:grid;
+  grid-template-columns:1fr 2fr;
+  gap:16px;
+  margin-bottom:16px;
+  align-items:start;
+}
+@media(max-width:800px){
+  .suppilo-ylagrid{grid-template-columns:1fr;}
+}
+
+/* Kauden valitsinnappi */
+.kausi-nappi{
+  padding:4px 10px;border-radius:16px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--ink3);font-size:11px;font-weight:700;
+  cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;
+}
+.kausi-nappi.active{
+  background:var(--accent);border-color:var(--accent);color:#000;
+}
 </style>
 </head>
 <body>
@@ -355,25 +408,64 @@ tr:hover td{background:rgba(255,255,255,.015);}
         </div>
       </div>
 
-      <div class="kpi-grid">
-        <div class="kpi" style="--a:var(--accent)">
-          <div class="kpi-val" id="supKasvatteja">—</div>
-          <div class="kpi-label">Kasvattia edustuksessa</div>
+      <!-- Yläosa: KPI:t vasemmalla, aikajanakaavio oikealla -->
+      <div class="suppilo-ylagrid">
+
+        <!-- KPI:t kompaktisti -->
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="kpi" style="--a:var(--accent)">
+            <div class="kpi-val" id="supKasvatteja">—</div>
+            <div class="kpi-label">Kasvattia edustuksessa</div>
+          </div>
+          <div class="kpi" style="--a:var(--blue)">
+            <div class="kpi-val" id="supVL">—</div>
+            <div class="kpi-label">VL / Ykkönen</div>
+          </div>
+          <div class="kpi" style="--a:var(--green)">
+            <div class="kpi-val" id="supMin">—</div>
+            <div class="kpi-label">Minuuttia yhteensä</div>
+          </div>
+          <div class="kpi" style="--a:var(--gold)">
+            <div class="kpi-val" id="supTehokkuus">—</div>
+            <div class="kpi-label">Kasvattitehokkuus</div>
+            <div class="kpi-sub">% rekisteröidyistä</div>
+          </div>
         </div>
-        <div class="kpi" style="--a:var(--blue)">
-          <div class="kpi-val" id="supVL">—</div>
-          <div class="kpi-label">VL / Ykkönen</div>
+
+        <!-- Aikajanakuvaaja -->
+        <div class="card" style="margin-bottom:0;">
+          <div class="card-title" style="justify-content:space-between;">
+            <span>📈 Kasvattisuppilo — kausittainen kehitys</span>
+            <div style="display:flex;gap:5px;" id="kausiNappirivi">
+              <!-- Kausi-napit renderöidään JS:ssä -->
+            </div>
+          </div>
+          <!-- Selite -->
+          <div style="display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink3);">
+              <div style="width:16px;height:2px;background:var(--accent);border-radius:1px;"></div>
+              Kasvatteja edustuksessa
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink3);">
+              <div style="width:16px;height:2px;background:var(--blue);border-radius:1px;stroke-dasharray:4;"></div>
+              VL / Ykkönen
+            </div>
+          </div>
+          <div class="aikajana-wrap">
+            <svg id="aikajanaSvg" class="aikajana-svg" viewBox="0 0 600 200"
+                 preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="aikajana-tooltip" id="aikajanaTooltip"></div>
+          </div>
+          <div id="aikajanaEiDataa" style="display:none;text-align:center;
+            padding:30px;color:var(--ink3);font-size:13px;">
+            Dataa kertyy kun VP lisää kehityspolkumerkintöjä.<br>
+            <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
+              Kaavio aktivoituu automaattisesti ensimmäisen kauden jälkeen.
+            </span>
+          </div>
         </div>
-        <div class="kpi" style="--a:var(--green)">
-          <div class="kpi-val" id="supMin">—</div>
-          <div class="kpi-label">Minuuttia yhteensä</div>
-        </div>
-        <div class="kpi" style="--a:var(--gold)">
-          <div class="kpi-val" id="supTehokkuus">—</div>
-          <div class="kpi-label">Kasvattitehokkuus</div>
-          <div class="kpi-sub">% rekisteröidyistä</div>
-        </div>
-      </div>
+
+      </div><!-- /suppilo-ylagrid -->
 
       <div class="card">
         <div class="card-title">📊 Sarjatasojakauma</div>
@@ -751,6 +843,193 @@ async function lataaLisenssit() {
 }
 
 /* ══ KASVATTISUPPILO ══ */
+
+// ══════════════════════════════════════════════════════════════
+// KASVATTISUPPILO — AIKAJANAKUVAAJA
+//
+// Rakenne Firestoressa (tuleva):
+//   utj_data/{kausi}  esim. utj_data/2024
+//   {
+//     kasvatteja: 6,
+//     vlYkk: 2,
+//     minuuttia: 1240,
+//     seurat: [{nimi:'KPV', kasvatteja:2, minuuttia:480}, ...]
+//   }
+//
+// Tällä hetkellä: demodata + Firestore-fallback kun data kertyy.
+// ══════════════════════════════════════════════════════════════
+
+// Demo-data — korvautuu Firestoredatalla kun sitä kertyy
+var _DEMO_AIKAJANA = [
+  {kausi:'2022', kasvatteja:2, vlYkk:1, minuuttia:340},
+  {kausi:'2023', kasvatteja:4, vlYkk:1, minuuttia:720},
+  {kausi:'2024', kasvatteja:6, vlYkk:2, minuuttia:1240},
+  {kausi:'2025', kasvatteja:8, vlYkk:3, minuuttia:1890},
+];
+
+// Hae kausittainen aikajana Firestoresta (tai käytä demoa)
+async function _haeAikajanaData() {
+  // Jos seura ei ole kirjautunut tai tietokanta ei ole saatavilla, käytetään demoa
+  if (!_db) return _DEMO_AIKAJANA;
+  try {
+    // UTJ näkee kaikkien seurojen aggregoidun datan — tallennetaan erilliseen kokoelmaan
+    var snap = await _db.collection('utj_data')
+      .orderBy('kausi', 'asc').limit(10).get();
+    if (!snap.empty) {
+      return snap.docs.map(function(d){ return Object.assign({kausi:d.id}, d.data()); });
+    }
+  } catch(e) {
+    // Firestore ei ole saatavilla tai kokoelmaa ei ole — käytetään demoa
+    console.log('[UTJ] aikajana: Firestore ei saatavilla, käytetään demoa');
+  }
+  return _DEMO_AIKAJANA;
+}
+
+// Piirrä SVG-viivakaavio puhtaalla matematiikalla
+// Käytetään kahta viivaa: kasvatteja (pääväri) + VL/Ykkönen (sininen)
+function renderAikajana(data) {
+  var svg = document.getElementById('aikajanaSvg');
+  var eiDataEl = document.getElementById('aikajanaEiDataa');
+  var nappiRivi = document.getElementById('kausiNappirivi');
+  if (!svg) return;
+
+  // Jos dataa ei ole tai vain yksi piste, näytetään tyhjätila-viesti
+  if (!data || data.length < 2) {
+    svg.style.display = 'none';
+    if (eiDataEl) eiDataEl.style.display = 'block';
+    return;
+  }
+  svg.style.display = 'block';
+  if (eiDataEl) eiDataEl.style.display = 'none';
+
+  // Päivitä kausi-napit (viimeiset 4 kautta)
+  if (nappiRivi) {
+    nappiRivi.innerHTML = data.slice(-4).map(function(d) {
+      return '<button class="kausi-nappi" onclick="zoomAikajana(\''+d.kausi+'\')">'
+        + d.kausi + '</button>';
+    }).join('');
+  }
+
+  // Piirtämisalueen mitat
+  var W = 600, H = 200;
+  var padL = 44, padR = 20, padT = 20, padB = 36;
+  var plotW = W - padL - padR;
+  var plotH = H - padT - padB;
+
+  // Arvoalueet
+  var maxKasvatteja = Math.max.apply(null, data.map(function(d){return d.kasvatteja||0;}));
+  var maxAkselilla  = Math.max(maxKasvatteja * 1.3, 5); // 30% ylämarginaali, vähintään 5
+
+  var n = data.length;
+
+  // Koordinaattilaskelmat
+  function xPct(i) { return padL + (i / (n - 1)) * plotW; }
+  function yPct(v) { return padT + plotH - (v / maxAkselilla) * plotH; }
+
+  // Rakenna SVG sisältö
+  var html = '';
+
+  // Taustahilviivat (vaakasuuntaiset)
+  var steps = 4;
+  for (var s = 0; s <= steps; s++) {
+    var yv = padT + (s / steps) * plotH;
+    var arvo = Math.round(maxAkselilla * (1 - s / steps));
+    html += '<line x1="' + padL + '" y1="' + yv + '" x2="' + (W - padR) + '" y2="' + yv + '"'
+      + ' stroke="rgba(255,255,255,.05)" stroke-width="1"/>';
+    html += '<text x="' + (padL - 6) + '" y="' + (yv + 4) + '" font-size="9"'
+      + ' fill="rgba(255,255,255,.3)" text-anchor="end">' + arvo + '</text>';
+  }
+
+  // Täyttöalue kasvatteja-viivalle (gradient-efekti)
+  var fillPts = data.map(function(d,i){ return xPct(i)+','+yPct(d.kasvatteja||0); }).join(' ');
+  var fillPath = 'M ' + xPct(0) + ',' + yPct(data[0].kasvatteja||0)
+    + data.slice(1).map(function(d,i){ return ' L ' + xPct(i+1) + ',' + yPct(d.kasvatteja||0); }).join('')
+    + ' L ' + xPct(n-1) + ',' + (padT + plotH)
+    + ' L ' + xPct(0) + ',' + (padT + plotH) + ' Z';
+  html += '<path d="' + fillPath + '" fill="rgba(74,126,217,.12)"/>';
+
+  // VL/Ykkönen-viiva (sininen, katkoviiva)
+  var vlPts = data.map(function(d,i){ return xPct(i)+','+yPct(d.vlYkk||0); }).join(' ');
+  html += '<polyline points="' + vlPts + '"'
+    + ' fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-dasharray="5,3"'
+    + ' stroke-linecap="round" stroke-linejoin="round"/>';
+
+  // Pääviiva — kasvatteja
+  var mainPts = data.map(function(d,i){ return xPct(i)+','+yPct(d.kasvatteja||0); }).join(' ');
+  html += '<polyline points="' + mainPts + '"'
+    + ' fill="none" stroke="var(--accent)" stroke-width="2.5"'
+    + ' stroke-linecap="round" stroke-linejoin="round"/>';
+
+  // Pisteet ja interaktiivisuus
+  data.forEach(function(d, i) {
+    var x = xPct(i), y = yPct(d.kasvatteja||0);
+    var yVL = yPct(d.vlYkk||0);
+
+    // Pääpiste (kasvatteja) — hover-tooltip
+    html += '<circle cx="' + x + '" cy="' + y + '" r="5"'
+      + ' fill="var(--bg)" stroke="var(--accent)" stroke-width="2"'
+      + ' style="cursor:pointer"'
+      + ' onmouseenter="showAikajanaTooltip(event,' + JSON.stringify(d) + ')"'
+      + ' onmouseleave="hideAikajanaTooltip()"/>';
+
+    // VL/Ykkönen-piste — pienempi
+    html += '<circle cx="' + x + '" cy="' + yVL + '" r="3.5"'
+      + ' fill="var(--bg)" stroke="var(--blue)" stroke-width="1.5"/>';
+
+    // Kausi-teksti x-akselilla
+    html += '<text x="' + x + '" y="' + (H - padB + 16) + '"'
+      + ' font-size="10" fill="rgba(255,255,255,.45)"'
+      + ' text-anchor="middle">' + d.kausi + '</text>';
+
+    // Arvo pisteen päällä (vain jos ei liian tiivis)
+    if (n <= 6) {
+      html += '<text x="' + x + '" y="' + (y - 9) + '"'
+        + ' font-size="10" fill="var(--accent)" text-anchor="middle"'
+        + ' font-weight="700">' + (d.kasvatteja||0) + '</text>';
+    }
+  });
+
+  // Nuoli oikealle (trendi jatkuu)
+  var lastX = xPct(n - 1), lastY = yPct(data[n-1].kasvatteja||0);
+  html += '<line x1="' + lastX + '" y1="' + lastY + '"'
+    + ' x2="' + (lastX + 18) + '" y2="' + lastY + '"'
+    + ' stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="3,2"/>';
+  html += '<text x="' + (lastX + 22) + '" y="' + (lastY + 4) + '"'
+    + ' font-size="10" fill="var(--accent)">→</text>';
+
+  svg.innerHTML = html;
+}
+
+// Tooltip-funktiot
+function showAikajanaTooltip(event, d) {
+  var t = document.getElementById('aikajanaTooltip');
+  if (!t) return;
+  var muutos = '';
+  // Lisätään deltamuutos jos mahdollista — vertaa edelliseen vuoteen
+  t.innerHTML = '<strong>' + d.kausi + '</strong><br>'
+    + d.kasvatteja + ' kasvattia edustuksessa<br>'
+    + (d.vlYkk || 0) + ' VL / Ykkönen<br>'
+    + '<span style="color:var(--ink3)">' + (d.minuuttia||0).toLocaleString('fi') + ' min</span>';
+  var wrap = t.closest('.aikajana-wrap') || t.parentElement;
+  var rect = wrap ? wrap.getBoundingClientRect() : {left:0,top:0};
+  t.style.left = (event.clientX - rect.left + 10) + 'px';
+  t.style.top  = (event.clientY - rect.top  - 40) + 'px';
+  t.classList.add('vis');
+}
+
+function hideAikajanaTooltip() {
+  var t = document.getElementById('aikajanaTooltip');
+  if (t) t.classList.remove('vis');
+}
+
+// Zoom tiettyyn kauteen (ei vielä toteutettu — placeholder)
+function zoomAikajana(kausi) {
+  // Tulevassa versiossa: suodattaa taulukko ko. kaudelle
+  document.querySelectorAll('.kausi-nappi').forEach(function(b){
+    b.classList.toggle('active', b.textContent.trim() === kausi);
+  });
+}
+
 async function laataaSuppilo() {
   var totalMin = _kpData.reduce(function(s,p){ return s+(p.minuuttia||0); }, 0);
   var vlyk = _kpData.filter(function(p){ return p.sarja==='vl'||p.sarja==='yk'; }).length;
@@ -802,6 +1081,11 @@ async function laataaSuppilo() {
       taulu.innerHTML = html;
     }
   }
+
+  // Aikajanakaavio — haetaan Firestoresta tai käytetään demoa
+  _haeAikajanaData().then(function(aikaData) {
+    renderAikajana(aikaData);
+  });
 }
 
 /* ══ KEHITYSPOLUT (lukijanäkymä) ══ */
