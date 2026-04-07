@@ -48,59 +48,27 @@ service cloud.firestore {
 
     // ─────────────────────────────────────────────────────────────────────
     // SUOSTUMUSLOMAKKEEN APUFUNKTIOT
-    //
-    // ARKKITEHTUURIPERIAATE: Suostumuslomake on julkinen linkki jonka
-    // vanhempi klikkaa sähköpostista. Vanhemmalla EI ole Firebase-tunnusta.
-    //
-    // Tämä on tarkoituksellinen designvalinta — ei bugi, ei poikkeus.
-    // Turvallisuus perustuu kolmeen kerrokseen:
-    //
-    //   1) KERTALUONTEISUUS: dokumentti on 'odottaa'-tilassa → kun suostumus
-    //      on kerran annettu, sama operaatio ei onnistu uudelleen
-    //
-    //   2) SUUNTA: muutos on vain eteenpäin ('odottaa' → 'annettu'),
-    //      ei koskaan takaisin
-    //
-    //   3) KENTTÄRAJOITUS: lomake saa kirjoittaa VAIN nimetyt kentät.
-    //      affectedKeys() laskee vain ne kentät joiden ARVO MUUTTUU —
-    //      jos lomake lähettää muuttumattoman kentän, sitä ei lasketa.
-    //      hasOnly() hylkää operaation jos muuttunut kenttä ei ole listassa.
-    //
-    // TÄRKEÄ: read-sääntö täytyy myös sallia anonyymille 'odottaa'-tilassa,
-    // koska Firestore hakee resource.data sisäisesti evaluoidakseen
-    // update-säännön — ilman read-oikeutta koko pyyntö hylätään ennen
-    // kuin update-sääntöä edes evaluoidaan.
-    //
-    // Sama rakenne kestää massaviestinnän: 200 vanhempaa klikkaa linkkiä,
-    // jokainen operaatio on itsenäinen ja tarkasti rajattu.
     // ─────────────────────────────────────────────────────────────────────
 
     function onSuostumusPelaajaRead() {
-      // Anonyymi saa lukea pelaajadokumentin VAIN jos se on 'odottaa'-tilassa.
-      // Tätä tarvitaan koska Firestore evaluoi resource.data update-säännössä.
       return resource.data.suostumusTila == 'odottaa';
     }
 
     function onSuostumusUpdate() {
       return resource.data.suostumusTila == 'odottaa'
         && request.resource.data.suostumusTila == 'annettu'
-        // Lista kaikista kentistä joita lomake saa muuttaa.
-        // Lisää tähän jos lomake kerää tulevaisuudessa uusia kenttiä.
-        // HUOM: muuttumattomia kenttiä ei tarvitse listata — affectedKeys()
-        // laskee vain ne kentät joiden arvo oikeasti muuttuu.
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly([
-               'suostumusTila',       // 'odottaa' → 'annettu'
-               'tila',                // null → 'aktiivinen'
-               'suostumusPvm',        // milloin annettu (timestamp)
-               'suostumuksenAntaja',  // huoltajan nimi (string)
-               'huoltajaNimi',        // vaihtoehtoinen kenttänimi
-               'muokattu'             // aikaleima
+               'suostumusTila',
+               'tila',
+               'suostumusPvm',
+               'suostumuksenAntaja',
+               'huoltajaNimi',
+               'muokattu'
              ]);
     }
 
     function onSuostumusKutsuUpdate() {
-      // Suostumuslomake päivittää kutsudokumentin tilan anonyymisti.
       return resource.data.tila == 'odottaa'
         && request.resource.data.tila == 'hyvaksytty'
         && request.resource.data.diff(resource.data).affectedKeys()
@@ -144,16 +112,28 @@ service cloud.firestore {
           allow read: if onKirjautunut();
           allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
         }
+
+        // ── TAPAHTUMAT joukkueen alla ──────────────────────────────────
+        // LISÄTTY 2026-04-07: tapahtumat tallennetaan joukkuekohtaisesti
+        match /tapahtumat/{tapahtumaId} {
+          allow read: if onPaasySeuraan(seuraId) || onKirjautunut();
+          allow write: if onSuperAdmin()
+            || onSeuranValmentaja(seuraId)
+            || onSeuranVP(seuraId);
+        }
+
+        // ── HAVAINNOT joukkueen alla ───────────────────────────────────
+        // LISÄTTY 2026-04-07: valmentajan kenttähavainnot joukkuekohtaisesti
+        match /havainnot/{havaintoId} {
+          allow read: if onPaasySeuraan(seuraId);
+          allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
+        }
       }
 
       // ── PELAAJAT ───────────────────────────────────────────────────────
 
       match /pelaajat/{pelaajaId} {
 
-        // KRIITTINEN KORJAUS: anonyymi saa lukea dokumentin kun se on
-        // 'odottaa'-tilassa. Tämä on välttämätöntä jotta Firestore pystyy
-        // evaluoimaan update-säännön onSuostumusUpdate()-funktion
-        // resource.data-vertailun.
         allow read: if onSuperAdmin()
           || onPaasySeuraan(seuraId)
           || (onKirjautunut() && request.auth.uid == pelaajaId)
@@ -169,12 +149,10 @@ service cloud.firestore {
           || onSeuranValmentaja(seuraId)
           || (onKirjautunut() && request.auth.uid == pelaajaId)
           || (onKirjautunut() && resource.data.huoltajaEmail == request.auth.token.email)
-          // Anonyymi suostumusoperaatio — tarkasti rajattu
           || onSuostumusUpdate();
 
         allow delete: if onSeuranYllApito(seuraId);
 
-        // Pelaajan harjoitekuittaukset
         match /tehtava_kuitattu/{pvmId} {
           allow read: if onSuperAdmin()
             || onPaasySeuraan(seuraId)
@@ -183,7 +161,6 @@ service cloud.firestore {
             || (onKirjautunut() && request.auth.uid == pelaajaId);
         }
 
-        // IDP-kortit
         match /idp/{idpId} {
           allow read: if onSuperAdmin()
             || onPaasySeuraan(seuraId)
@@ -194,8 +171,6 @@ service cloud.firestore {
           allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
         }
 
-        // Harjoitekirjaukset (Sprint 3+)
-        // Rakenne: seurat/{seuraId}/pelaajat/{pelaajaId}/kirjaukset/{pvm}
         match /kirjaukset/{kirjausId} {
           allow read: if onSuperAdmin()
             || onPaasySeuraan(seuraId)
@@ -203,6 +178,15 @@ service cloud.firestore {
           allow write: if onSuperAdmin()
             || onSeuranValmentaja(seuraId)
             || (onKirjautunut() && request.auth.uid == pelaajaId);
+        }
+
+        // ── HAVAINNOT pelaajan alla ────────────────────────────────────
+        // LISÄTTY 2026-04-07: valmentajan havainnot myös pelaajan profiilissa
+        match /havainnot/{havaintoId} {
+          allow read: if onSuperAdmin()
+            || onPaasySeuraan(seuraId)
+            || (onKirjautunut() && request.auth.uid == pelaajaId);
+          allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
         }
       }
 
@@ -215,7 +199,7 @@ service cloud.firestore {
         allow write: if onSuperAdmin() || onSeuranYllApito(seuraId);
       }
 
-      // ── TAPAHTUMAT ─────────────────────────────────────────────────────
+      // ── TAPAHTUMAT seuran tasolla ─────────────────────────────────────
 
       match /tapahtumat/{tapahtumaId} {
         allow read: if onPaasySeuraan(seuraId) || onKirjautunut();
@@ -236,8 +220,6 @@ service cloud.firestore {
       // ── KUTSUT ─────────────────────────────────────────────────────────
 
       match /kutsut/{kutsuId} {
-        // KORJAUS: anonyymi saa lukea kutsudokumentin kun se on 'odottaa'-tilassa.
-        // Tarvitaan jos lomake validoi kutsuId:n tai lukee kutsun tietoja.
         allow read: if onSuperAdmin()
           || onSeuranYllApito(seuraId)
           || onKirjautunut()
@@ -248,7 +230,6 @@ service cloud.firestore {
         allow update: if onSuperAdmin()
           || onSeuranYllApito(seuraId)
           || onKirjautunut()
-          // Anonyymi suostumuslomake päivittää kutsun tilan
           || onSuostumusKutsuUpdate();
 
         allow delete: if onSeuranYllApito(seuraId);
@@ -282,7 +263,7 @@ service cloud.firestore {
         allow write: if onSuperAdmin() || onSeuranValmentaja(seuraId);
       }
 
-      // ── KIRJAUKSET (seuran tasoiset harjoituskirjaukset) ───────────────
+      // ── KIRJAUKSET (seuran tasoiset) ───────────────────────────────────
 
       match /kirjaukset/{kirjausId} {
         allow read: if onPaasySeuraan(seuraId);
@@ -291,8 +272,17 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // UTJ-DATA — kasvattisuppilo (UUSI 2026-04-07)
+    // Super Admin kirjoittaa, kaikki kirjautuneet lukevat
+    // ─────────────────────────────────────────────────────────────────────
+
+    match /utj_data/{kaudenId} {
+      allow read: if onKirjautunut();
+      allow write: if onSuperAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // COLLECTIONGROUP: kayttajat
-    // Tarvitaan kun haetaan collectionGroup('kayttajat').where('uid','==',uid)
     // ─────────────────────────────────────────────────────────────────────
 
     match /{path=**}/kayttajat/{kayttajaId} {
