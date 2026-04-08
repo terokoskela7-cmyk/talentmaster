@@ -1400,9 +1400,12 @@ async function _tarkistaUrlParam() {
   if (!pelaajaId || !seuraId) return false;
 
   try {
-    // Anonyymi kirjautuminen Firestore-oikeuksien saamiseksi
+    // Kirjaudu anonyymisti VAIN jos ei ole mitään kirjautumista
+    // Jos käyttäjä on jo kirjautunut (emaililla/anonymisti), käytä olemassaolevaa sessiota
     if (!_auth.currentUser) {
+      _kirjautuminenKesken = true;
       await _auth.signInAnonymously();
+      _kirjautuminenKesken = false;
     }
 
     const snap = await _db
@@ -1439,11 +1442,23 @@ async function _tarkistaUrlParam() {
 
 _auth.onAuthStateChanged(async user => {
   if (_kirjautuminenKesken) return;
-  if (user) { await _lataaFirebasePelaaja(user); return; }
+  if (user) {
+    // Anonyymi käyttäjä + URL-parametrit → käytä URL-param reittiä suoraan
+    if (user.isAnonymous) {
+      const urlOk = await _tarkistaUrlParam();
+      if (urlOk) return;
+      // Anonyymi ilman URL-param → kirjautumisnäkymä
+      nayta('sLogin');
+      return;
+    }
+    // Kirjautunut käyttäjä (email) → normaali flow
+    await _lataaFirebasePelaaja(user);
+    return;
+  }
   if (_isDemoUser) return;
   const pinOk = await _tarkistaPinSessio();
   if (pinOk) return;
-  // Uusi: yritä URL-parametreilla suora avaus
+  // Ei kirjautumista → yritä URL-parametreilla (kirjautuu anonyymisti sisällä)
   const urlOk = await _tarkistaUrlParam();
   if (urlOk) return;
   nayta('sLogin');
@@ -1467,10 +1482,15 @@ async function _lataaFirebasePelaaja(user) {
             .collection('pelaajat').doc(_saPelId).get();
           if (saSnap.exists) {
             _pelaaja = { id: saSnap.id, seuraId: _saSeura, ...saSnap.data() };
+            console.log('[SA] Ladattu oikea pelaaja:', _saPelId, 'seura:', _saSeura);
             await _alustaUI();
             return;
+          } else {
+            console.warn('[SA] Pelaajaa ei löydy Firestorestä:', _saPelId, _saSeura);
           }
-        } catch(eSA) { console.warn('[SA URL]', eSA.message); }
+        } catch(eSA) {
+          console.warn('[SA URL]', eSA.message);
+        }
       }
       // Fallback: demo-pelaaja
       _pelaaja = {
@@ -1495,7 +1515,7 @@ async function _lataaFirebasePelaaja(user) {
           .collection('pelaajat').doc(_urlPelId).get();
         if (directSnap.exists) {
           const d = directSnap.data();
-          const emailTasmaa = d.huoltajaEmail &&
+          const emailTasmaa = d.huoltajaEmail && user.email &&
             d.huoltajaEmail.toLowerCase() === user.email.toLowerCase();
           if (emailTasmaa || claims.super_admin || claims.superAdmin) {
             const pelData = directSnap.data();
@@ -1511,6 +1531,7 @@ async function _lataaFirebasePelaaja(user) {
 
     // ── Tapa 1: Hae huoltajaEmail-kentällä ──
     try {
+      if (!user.email) throw new Error('Anonyymi käyttäjä — ei emailia');
       const hSnap = await _db.collection('seurat').doc(_urlSeura || 'kpv')
         .collection('pelaajat')
         .where('huoltajaEmail', '==', user.email.toLowerCase()).limit(1).get();
@@ -1542,8 +1563,8 @@ async function _lataaFirebasePelaaja(user) {
     }
     // Fallback: käytetään demo-dataa mutta oikealla nimellä
     _pelaaja = {
-      nimi: user.displayName || user.email.split('@')[0],
-      etunimi: user.email.split('@')[0],
+      nimi: user.displayName || (user.email ? user.email.split('@')[0] : 'Pelaaja'),
+      etunimi: user.email ? user.email.split('@')[0] : 'Pelaaja',
       sukunimi: '', avatar:'⚽',
       flei_viimeisin:70, flei_aiempi:65, phv_tila:'AN',
       sbl:2.0, sfl:1.8, ll:1.9, sl:2.1, dfl:1.7,
