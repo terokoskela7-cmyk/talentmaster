@@ -9,7 +9,6 @@
 :root{
   --accent:  #4A7ED9;
   --accent2: #6B9EF0;
-  /* Seuran brändivär — ylikirjoitetaan JS:ssä kirjautumisen jälkeen */
   --seura-primary:   #4A7ED9;
   --seura-secondary: #6B9EF0;
   --seura-primary-rgb: 74,126,217;
@@ -28,6 +27,55 @@
   --teal:    #00D4AA;
   --purple:  #A855F7;
   --gold:    #F5B700;
+}
+/* ── Vaalea teema (seura-spesifinen) ─────────────────────────────────────── */
+[data-teema="vaalea"]{
+  --bg:      #F5F7FA;
+  --bg2:     #FFFFFF;
+  --bg3:     #EEF1F6;
+  --surface: #FFFFFF;
+  --border:  rgba(0,0,0,0.08);
+  --bord2:   rgba(0,0,0,0.14);
+  --text:    #111827;
+  --ink1:    #111827;
+  --ink2:    rgba(17,24,39,.65);
+  --ink3:    rgba(17,24,39,.38);
+  --card:    #FFFFFF;
+}
+[data-teema="vaalea"] .header{
+  background:#FFFFFF;
+  border-bottom:2px solid var(--accent);
+  box-shadow:0 1px 8px rgba(0,0,0,.06);
+}
+[data-teema="vaalea"] .tabs{
+  background:#FFFFFF;
+  border-bottom:1px solid rgba(0,0,0,.08);
+}
+[data-teema="vaalea"] .tab-btn{
+  color:rgba(17,24,39,.45);
+}
+[data-teema="vaalea"] .tab-btn:hover{
+  color:rgba(17,24,39,.8);
+}
+[data-teema="vaalea"] .tab-btn.active{
+  color:var(--accent);
+  border-bottom-color:var(--accent);
+}
+[data-teema="vaalea"] .card{
+  background:#FFFFFF;
+  border-color:rgba(0,0,0,.08);
+}
+[data-teema="vaalea"] .inner .stitle{
+  color:#111827;
+}
+[data-teema="vaalea"] .login-box,
+[data-teema="vaalea"] #sLogin{
+  background:#F5F7FA;
+}
+[data-teema="vaalea"] .login-input{
+  background:#FFFFFF;
+  color:#111827;
+  border-color:rgba(0,0,0,.15);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;-webkit-tap-highlight-color:transparent;}
@@ -618,7 +666,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <!-- HEADER -->
   <header class="header">
     <div class="header-inner">
-      <div class="logo-badge">TM™</div>
+      <!-- Seuran logo tai TM-badge -->
+      <div id="seuraLogo" style="display:none;height:34px;width:34px;border-radius:6px;
+        overflow:hidden;flex-shrink:0">
+        <img id="seuraLogoImg" src="" alt="" style="width:100%;height:100%;object-fit:contain">
+      </div>
+      <div class="logo-badge" id="tmBadge">TM™</div>
       <div class="header-seura" id="headerSeura">—</div>
       <div class="header-role" id="headerRole">VP</div>
       <div class="header-right" style="display:flex;align-items:center;gap:8px;">
@@ -1324,29 +1377,57 @@ let _seuraId  = null;
 // primary = pääväri (accent), secondary = vaaleampi sävy (accent2, hover)
 // primaryRgb = primary HEX → RGB pilkuilla erotettuina (läpinäkyvyysefektejä varten)
 const SEURA_BRÄNDIT = {
-  sjk:        { primary:'#BDB03A', secondary:'#D4C84A', primaryRgb:'189,176,58',  nimi:'SJK Juniorit' },
-  fcl:        { primary:'#E8002D', secondary:'#FF3355', primaryRgb:'232,0,45',    nimi:'FC Lahti Juniorit' },
-  kpv:        { primary:'#008D45', secondary:'#00A855', primaryRgb:'0,141,69',    nimi:'KPV' },
-  palloiirot: { primary:'#E8002D', secondary:'#FF3355', primaryRgb:'232,0,45',    nimi:'Pallo-Iirot' },
-  yvies:      { primary:'#006633', secondary:'#008844', primaryRgb:'0,102,51',    nimi:'Ylöjärven Ilves' },
-  grifk:      { primary:'#003087', secondary:'#1A4FA8', primaryRgb:'0,48,135',    nimi:'GrIFK' },
-  vifk:       { primary:'#003087', secondary:'#1A4FA8', primaryRgb:'0,48,135',    nimi:'VIFK' },
-  demo:       { primary:'#4A7ED9', secondary:'#6B9EF0', primaryRgb:'74,126,217',  nimi:'FC Demo' },
+  // teema: 'tumma' = TalentMaster-pohja (SJK), 'vaalea' = vaalea pohja + seuran väri tehosteena
+  // logoUrl: seuran logo (PNG/SVG), null = ei logoa, näytetään TM™-badge
+  sjk:        { primary:'#BDB03A', secondary:'#D4C84A', primaryRgb:'189,176,58',  nimi:'SJK Juniorit',      teema:'tumma',  logoUrl:null },
+  fcl:        { primary:'#E8002D', secondary:'#FF3355', primaryRgb:'232,0,45',    nimi:'FC Lahti Juniorit', teema:'vaalea', logoUrl:null },
+  kpv:        { primary:'#008D45', secondary:'#00A855', primaryRgb:'0,141,69',    nimi:'KPV',               teema:'vaalea', logoUrl:null },
+  palloiirot: { primary:'#E8002D', secondary:'#FF3355', primaryRgb:'232,0,45',    nimi:'Pallo-Iirot',       teema:'vaalea', logoUrl:null },
+  yvies:      { primary:'#006633', secondary:'#008844', primaryRgb:'0,102,51',    nimi:'Ylöjärven Ilves',   teema:'vaalea', logoUrl:null },
+  grifk:      { primary:'#003087', secondary:'#1A4FA8', primaryRgb:'0,48,135',    nimi:'GrIFK',             teema:'vaalea', logoUrl:null },
+  vifk:       { primary:'#003087', secondary:'#1A4FA8', primaryRgb:'0,48,135',    nimi:'VIFK',              teema:'vaalea', logoUrl:null },
+  demo:       { primary:'#4A7ED9', secondary:'#6B9EF0', primaryRgb:'74,126,217',  nimi:'FC Demo',           teema:'tumma',  logoUrl:null },
 };
 
 function _asetaSeuranVärit(seuraId) {
   const b = SEURA_BRÄNDIT[seuraId] || SEURA_BRÄNDIT['demo'];
   const root = document.documentElement;
-  root.style.setProperty('--accent',          b.primary);
-  root.style.setProperty('--accent2',         b.secondary);
-  root.style.setProperty('--seura-primary',   b.primary);
-  root.style.setProperty('--seura-secondary', b.secondary);
+
+  // CSS-muuttujat
+  root.style.setProperty('--accent',            b.primary);
+  root.style.setProperty('--accent2',           b.secondary);
+  root.style.setProperty('--seura-primary',     b.primary);
+  root.style.setProperty('--seura-secondary',   b.secondary);
   root.style.setProperty('--seura-primary-rgb', b.primaryRgb);
-  // Päivitä myös header-rooli alpha-värit dynaamisesti
   root.style.setProperty('--accent-12', 'rgba(' + b.primaryRgb + ',.12)');
   root.style.setProperty('--accent-25', 'rgba(' + b.primaryRgb + ',.25)');
   root.style.setProperty('--accent-06', 'rgba(' + b.primaryRgb + ',.06)');
-  console.log('[Brändi] Värit asetettu:', seuraId, b.primary);
+
+  // Teema: vaalea vai tumma
+  const teema = b.teema || 'tumma';
+  root.setAttribute('data-teema', teema);
+
+  // Logo topbariin
+  const logoWrap = document.getElementById('seuraLogo');
+  const logoImg  = document.getElementById('seuraLogoImg');
+  const tmBadge  = document.getElementById('tmBadge');
+  if (b.logoUrl && logoWrap && logoImg) {
+    logoImg.src = b.logoUrl;
+    logoImg.alt = b.nimi || seuraId;
+    logoWrap.style.display = 'flex';
+    if (tmBadge) tmBadge.style.display = 'none';
+  } else {
+    if (logoWrap) logoWrap.style.display = 'none';
+    if (tmBadge) tmBadge.style.display = '';
+  }
+
+  // Vaalean teeman header: border-väri = seuran väri
+  if (teema === 'vaalea') {
+    const hdr = document.querySelector('.header');
+    if (hdr) hdr.style.borderBottomColor = b.primary;
+  }
+
+  console.log('[Brändi]', seuraId, b.primary, 'teema:', teema);
 }
 let _seuraNimi= '';
 let _rooli    = '';
