@@ -1437,7 +1437,6 @@ const SEURA_BRÄNDIT = {
   yvies:      { primary:'#006633', secondary:'#008844', primaryRgb:'0,102,51',    nimi:'Ylöjärven Ilves',   teema:'vaalea', logoUrl:null },
   grifk:      { primary:'#003087', secondary:'#1A4FA8', primaryRgb:'0,48,135',    nimi:'GrIFK',             teema:'vaalea', logoUrl:null },
   vifk:       { primary:'#003087', secondary:'#1A4FA8', primaryRgb:'0,48,135',    nimi:'VIFK',              teema:'vaalea', logoUrl:null },
-  vifk:       { primary:'#003087', secondary:'#1A4FA8', primaryRgb:'0,48,135',    nimi:'VIFK',              teema:'vaalea', logoUrl:null },
   demo:       { primary:'#4A7ED9', secondary:'#6B9EF0', primaryRgb:'74,126,217',  nimi:'FC Demo',           teema:'tumma',  logoUrl:null },
 };
 
@@ -3380,11 +3379,16 @@ async function lataaHenkilosto() {
       return ika < 13 ? 'lapsuus' : 'nuoruus';
     }
 
-    // Viimeisin käynti per valmentaja
+    // Viimeisin käynti + historia per valmentaja
     const viimeisin = {};
+    const historia  = {};
     mentSnap.docs.forEach(d => {
-      const uid = d.data().valmentajaUid;
-      if (uid && !viimeisin[uid]) viimeisin[uid] = d.data();
+      const dat = d.data();
+      const uid = dat.valmentajaUid;
+      if (!uid) return;
+      if (!viimeisin[uid]) viimeisin[uid] = dat;
+      if (!historia[uid]) historia[uid] = [];
+      if (historia[uid].length < 5) historia[uid].push(Object.assign({id: d.id}, dat));
     });
 
     const ROOLI_NIMET = {
@@ -3397,7 +3401,11 @@ async function lataaHenkilosto() {
 
     // Valmentajat
     const valmentajat = henSnap.docs
-      .map(d => ({id: d.id, ...d.data()}))
+      .map(d => (Object.assign({id:d.id}, d.data(), {
+        _historia: historia[d.id] || [],
+        _kaynti2:  (historia[d.id] || [])[1] || null,
+        _muistiinpanot: (d.data().vp_muistiinpanot || []),
+      })))
       .filter(k => VALMENNUSROOLIT.includes(k.rooli))
       .sort((a,b) => (a.sukunimi||a.nimi||'').localeCompare(b.sukunimi||b.nimi||''));
 
