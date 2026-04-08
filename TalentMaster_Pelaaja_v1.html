@@ -1251,6 +1251,7 @@ let _tehdytTehtavat = new Set();
 let _kysely = null;
 let _kyselyVastattu = false;
 let _kirjautuminenKesken = false;
+let _uloskirjautunut    = false;  // Estää automaattisen sisäänkirjautumisen uloskirjautumisen jälkeen
 let _ladattu = {};
 
 /* ══ AUTH ══ */
@@ -1443,6 +1444,7 @@ async function _tarkistaUrlParam() {
 
     _pelaaja = { id: snap.id, seuraId, ...data };
     if (data.kortti_lunastettu) _pelaaja._kortti_lunastettu = data.kortti_lunastettu;
+    _uloskirjautunut = false;  // Kirjautuminen onnistui
 
     // Tallenna sessio → seuraavat vierailut toimivat ilman URL-parametria
     try {
@@ -1452,6 +1454,7 @@ async function _tarkistaUrlParam() {
       }));
     } catch(e) {}
 
+    _uloskirjautunut = false;  // Kirjautuminen onnistui → nollaa esto
     await _alustaUI();
     return true;
   } catch(e) {
@@ -1462,12 +1465,18 @@ async function _tarkistaUrlParam() {
 
 _auth.onAuthStateChanged(async user => {
   if (_kirjautuminenKesken) return;
+
+  // Käyttäjä on kirjautunut ulos manuaalisesti → älä kirjaudu automaattisesti
+  if (_uloskirjautunut) {
+    nayta('sLogin');
+    return;
+  }
+
   if (user) {
-    // Anonyymi käyttäjä + URL-parametrit → käytä URL-param reittiä suoraan
+    // Anonyymi käyttäjä + URL-parametrit → URL-param reitti
     if (user.isAnonymous) {
       const urlOk = await _tarkistaUrlParam();
       if (urlOk) return;
-      // Anonyymi ilman URL-param → kirjautumisnäkymä
       nayta('sLogin');
       return;
     }
@@ -1475,10 +1484,11 @@ _auth.onAuthStateChanged(async user => {
     await _lataaFirebasePelaaja(user);
     return;
   }
+
   if (_isDemoUser) return;
   const pinOk = await _tarkistaPinSessio();
   if (pinOk) return;
-  // Ei kirjautumista → yritä URL-parametreilla (kirjautuu anonyymisti sisällä)
+  // Ei kirjautumista → yritä URL-parametreilla
   const urlOk = await _tarkistaUrlParam();
   if (urlOk) return;
   nayta('sLogin');
@@ -1658,11 +1668,11 @@ async function kirjauduSisaan() {
 }
 
 async function kirjauduUlos() {
+  _uloskirjautunut = true;   // Esto: ei automaattista sisäänkirjautumista
   _isDemoUser = false; _demoKey = null; _pelaaja = null; _ladattu = {};
   _pinSyote   = '';
   _pinPaivitaDotit();
   try { localStorage.removeItem('tm_pin_sessio'); } catch(e) {}
-  // Kirjaa ulos sekä normaali että anonyymi Firebase Auth -sessio
   await _auth.signOut().catch(()=>{});
   nayta('sLogin');
 }
