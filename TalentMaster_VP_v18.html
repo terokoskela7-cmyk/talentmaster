@@ -3389,7 +3389,7 @@ async function lataaHenkilosto() {
       return {cls:'rgba(226,75,74,.12)', teksti:`🔴 ${pv}pv`, color:'#A32D2D'};
     }
 
-    // ── Kompakti listarivi henkilöstö-sivulle ─────────────────────────────────
+    // ── Valmentajakortti — sama tyyli kuin joukkuekortit ───────────────────────
     function valmentajaKortti(k) {
       const nimi     = `${k.etunimi||''} ${k.sukunimi||''}`.trim() || k.email || '—';
       const nimiSafe = nimi.replace(/'/g,'').replace(/"/g,'');
@@ -3400,40 +3400,76 @@ async function lataaHenkilosto() {
       const splKa    = viimeisin[k.id]?.splKa ?? null;
       const splVari  = splKa === null ? 'var(--ink3)'
                      : splKa >= 7.5 ? '#1D9E75' : splKa >= 6 ? '#BA7517' : '#E24B4A';
+      const kayntiLkm = (k._historia||[]).length;
 
-      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
-        background:var(--surface);border:1px solid var(--border);border-radius:10px;
-        margin-bottom:6px;cursor:pointer;transition:border-color .15s"
-        onclick="_avaaValmentajaPopup('${k.id}')"
-        onmouseover="this.style.borderColor='var(--bord2)'"
-        onmouseout="this.style.borderColor='var(--border)'">
-        <div style="width:32px;height:32px;border-radius:50%;background:rgba(74,126,217,.15);
-          display:flex;align-items:center;justify-content:center;
-          font-size:11px;font-weight:700;color:var(--accent2);flex-shrink:0">${init}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:var(--ink1)">${nimi}</div>
-          <div style="font-size:10px;color:var(--ink3);margin-top:1px">
-            ${ROOLI_NIMET[k.rooli]||k.rooli||'—'}
-            ${k.joukkueNimi ? ' · ' + k.joukkueNimi : ''}
-            ${lisenssi ? ' · <span style="color:var(--teal)">' + lisenssi + '</span>'
-                       : ' · <span style="color:var(--amber)">Lisenssi puuttuu</span>'}
+      // Väri roolin mukaan
+      const rooliVari = {
+        valmentaja:          'var(--accent)',
+        talenttivalmentaja:  '#00D4AA',
+        fysiikkavalmentaja:  '#A855F7',
+      }[k.rooli] || 'var(--ink3)';
+
+      return `<div class="joukkue-kortti" style="--j-color:${rooliVari}"
+        onclick="_avaaValmentajaPopup('${k.id}')">
+
+        <!-- Yläosa: avatar + nimi -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div style="width:38px;height:38px;border-radius:50%;
+            background:rgba(74,126,217,.15);flex-shrink:0;
+            display:flex;align-items:center;justify-content:center;
+            font-size:13px;font-weight:700;color:var(--accent2)">${init}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--ink1);
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nimi}</div>
+            <div style="font-size:10px;color:var(--ink3);margin-top:1px">
+              ${ROOLI_NIMET[k.rooli]||k.rooli||'—'}
+            </div>
           </div>
         </div>
-        ${splKa !== null ? `<div style="text-align:center;min-width:36px">
-          <div style="font-size:16px;font-weight:700;color:${splVari};line-height:1">${Math.round(splKa*10)/10}</div>
-          <div style="font-size:8px;color:var(--ink3)">hs ka.</div>
-        </div>` : ''}
-        <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:8px;
-          background:${badge.cls};color:${badge.color};white-space:nowrap">${badge.teksti}</span>
-        <button onclick="event.stopPropagation();avaaKenttaModal('${k.id}','${nimiSafe}','${k.rooli}','${iv||'nuoruus'}')"
-          style="font-size:11px;padding:5px 10px;border-radius:7px;border:1px solid var(--bord2);
-          background:rgba(74,126,217,.1);color:var(--accent2);cursor:pointer;white-space:nowrap;flex-shrink:0">
-          + Käynti
-        </button>
-        <span style="font-size:11px;color:var(--ink3)">›</span>
+
+        <!-- Lisenssi -->
+        ${lisenssi
+          ? `<div style="font-size:11px;font-weight:600;color:#00D4AA;margin-bottom:8px">🎓 ${lisenssi}</div>`
+          : `<div style="font-size:11px;color:var(--amber);margin-bottom:8px">🎓 Lisenssi puuttuu</div>`}
+
+        <!-- Joukkue -->
+        ${k.joukkueNimi
+          ? `<div style="font-size:11px;color:var(--ink3);margin-bottom:10px">⚽ ${k.joukkueNimi}</div>`
+          : ''}
+
+        <!-- KPI-rivi: hs ka + käyntejä -->
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <div style="flex:1;background:var(--bg3);border-radius:7px;
+            padding:7px 8px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:${splVari};line-height:1">
+              ${splKa !== null ? Math.round(splKa*10)/10 : '—'}
+            </div>
+            <div style="font-size:8px;color:var(--ink3);margin-top:2px;text-transform:uppercase;letter-spacing:.3px">hs ka.</div>
+          </div>
+          <div style="flex:1;background:var(--bg3);border-radius:7px;
+            padding:7px 8px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--ink1);line-height:1">${kayntiLkm}</div>
+            <div style="font-size:8px;color:var(--ink3);margin-top:2px;text-transform:uppercase;letter-spacing:.3px">käyntiä</div>
+          </div>
+        </div>
+
+        <!-- Käyntibadge + käynti-nappi -->
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="flex:1;font-size:10px;font-weight:600;padding:3px 8px;
+            border-radius:8px;background:${badge.cls};color:${badge.color};
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${badge.teksti}
+          </span>
+          <button onclick="event.stopPropagation();avaaKenttaModal('${k.id}','${nimiSafe}','${k.rooli}','${iv||'nuoruus'}')"
+            style="flex-shrink:0;font-size:11px;padding:4px 10px;border-radius:7px;
+            border:1px solid var(--bord2);background:rgba(74,126,217,.1);
+            color:var(--accent2);cursor:pointer;white-space:nowrap">
+            + Käynti
+          </button>
+        </div>
+
       </div>`;
     }
-
 
 
     // Mentorointirunko + SPL-seuranta 2-grid
@@ -3501,7 +3537,7 @@ async function lataaHenkilosto() {
 
     // Kootaan kaikki
     const valKortit = valmentajat.length
-      ? valmentajat.map(valmentajaKortti).join('')
+      ? `<div class="joukkue-grid">${valmentajat.map(valmentajaKortti).join('')}</div>`
       : '<div style="color:var(--ink3);font-size:12px;padding:10px 0">Ei valmentajia vielä — kutsu Henkilöstö-napista.</div>';
 
     el.innerHTML = `
