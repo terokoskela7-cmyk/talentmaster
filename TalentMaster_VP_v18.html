@@ -9,6 +9,10 @@
 :root{
   --accent:  #4A7ED9;
   --accent2: #6B9EF0;
+  /* Seuran brändivär — ylikirjoitetaan JS:ssä kirjautumisen jälkeen */
+  --seura-primary:   #4A7ED9;
+  --seura-secondary: #6B9EF0;
+  --seura-primary-rgb: 74,126,217;
   --bg:      #06090F;
   --bg2:     #0D1117;
   --bg3:     #131920;
@@ -48,7 +52,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .header-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;gap:12px;height:52px;}
 .logo-badge{background:var(--accent);color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:14px;letter-spacing:1px;padding:3px 9px;border-radius:4px;}
 .header-seura{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;color:var(--text);letter-spacing:.3px;}
-.header-role{background:rgba(74,126,217,.12);border:1px solid rgba(74,126,217,.25);color:var(--accent2);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;}
+.header-role{background:rgba(var(--seura-primary-rgb),.12);border:1px solid rgba(var(--seura-primary-rgb),.25);color:var(--accent2);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;}
 .header-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
 .header-logout{background:none;border:1px solid var(--border);border-radius:6px;color:var(--ink3);font-size:12px;padding:7px 12px;cursor:pointer;transition:all .15s;min-height:36px;}
 .header-logout:hover{color:var(--text);border-color:var(--bord2);}
@@ -72,7 +76,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 /* ── BANNER ────────────────────────────── */
 .banner{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:14px;padding:22px 24px;margin-bottom:20px;position:relative;overflow:hidden;}
 .banner::before{content:'';position:absolute;right:0;top:0;width:200px;height:100%;background:linear-gradient(to left,rgba(74,126,217,.04),transparent);pointer-events:none;}
-.banner-role{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;display:inline-block;margin-bottom:10px;background:rgba(74,126,217,.12);color:var(--accent2);border:1px solid rgba(74,126,217,.2);}
+.banner-role{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;display:inline-block;margin-bottom:10px;background:rgba(var(--seura-primary-rgb),.12);color:var(--accent2);border:1px solid rgba(var(--seura-primary-rgb),.2);}
 .banner h1{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:var(--text);margin-bottom:6px;line-height:1.1;}
 .banner h1 span{color:var(--accent);}
 .banner p{font-size:13px;color:var(--ink2);max-width:580px;line-height:1.6;}
@@ -99,7 +103,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .alert.red{background:rgba(255,71,87,.06);border-color:var(--red);}
 .alert.amber{background:rgba(255,165,2,.06);border-color:var(--amber);}
 .alert.green{background:rgba(46,213,115,.06);border-color:var(--green);}
-.alert.blue{background:rgba(74,126,217,.06);border-color:var(--accent);}
+.alert.blue{background:rgba(var(--seura-primary-rgb),.06);border-color:var(--accent);}
 .adot{width:7px;height:7px;border-radius:50%;margin-top:5px;flex-shrink:0;}
 .alert.red .adot{background:var(--red);}
 .alert.amber .adot{background:var(--amber);}
@@ -168,7 +172,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .tap-nimi{font-size:13px;font-weight:600;color:var(--text);}
 .tap-meta{font-size:11px;color:var(--ink3);margin-top:2px;}
 .tap-status{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
-.ts-suun{background:rgba(74,126,217,.1);color:var(--accent);}
+.ts-suun{background:rgba(var(--seura-primary-rgb),.1);color:var(--accent);}
 .ts-vah{background:rgba(0,212,170,.1);color:var(--teal);}
 .ts-kay{background:rgba(255,165,2,.1);color:var(--amber);}
 .ts-val{background:rgba(46,213,115,.1);color:var(--green);}
@@ -1314,6 +1318,36 @@ const _db   = firebase.firestore();
 ══════════════════════════════════════════════ */
 let _user     = null;
 let _seuraId  = null;
+
+// ── Seuran brändivär-kirjasto ────────────────────────────────────────────────
+// Lisää uusi seura: {primary, secondary, primaryRgb}
+// primary = pääväri (accent), secondary = vaaleampi sävy (accent2, hover)
+// primaryRgb = primary HEX → RGB pilkuilla erotettuina (läpinäkyvyysefektejä varten)
+const SEURA_BRÄNDIT = {
+  sjk:        { primary:'#BDB03A', secondary:'#D4C84A', primaryRgb:'189,176,58',  nimi:'SJK Juniorit' },
+  fcl:        { primary:'#E8002D', secondary:'#FF3355', primaryRgb:'232,0,45',    nimi:'FC Lahti Juniorit' },
+  kpv:        { primary:'#005EB8', secondary:'#2278D4', primaryRgb:'0,94,184',    nimi:'KPV' },
+  palloiirot: { primary:'#E8002D', secondary:'#FF3355', primaryRgb:'232,0,45',    nimi:'Pallo-Iirot' },
+  yvies:      { primary:'#006633', secondary:'#008844', primaryRgb:'0,102,51',    nimi:'Ylöjärven Ilves' },
+  grifk:      { primary:'#003087', secondary:'#1A4FA8', primaryRgb:'0,48,135',    nimi:'GrIFK' },
+  vifk:       { primary:'#003087', secondary:'#1A4FA8', primaryRgb:'0,48,135',    nimi:'VIFK' },
+  demo:       { primary:'#4A7ED9', secondary:'#6B9EF0', primaryRgb:'74,126,217',  nimi:'FC Demo' },
+};
+
+function _asetaSeuranVärit(seuraId) {
+  const b = SEURA_BRÄNDIT[seuraId] || SEURA_BRÄNDIT['demo'];
+  const root = document.documentElement;
+  root.style.setProperty('--accent',          b.primary);
+  root.style.setProperty('--accent2',         b.secondary);
+  root.style.setProperty('--seura-primary',   b.primary);
+  root.style.setProperty('--seura-secondary', b.secondary);
+  root.style.setProperty('--seura-primary-rgb', b.primaryRgb);
+  // Päivitä myös header-rooli alpha-värit dynaamisesti
+  root.style.setProperty('--accent-12', 'rgba(' + b.primaryRgb + ',.12)');
+  root.style.setProperty('--accent-25', 'rgba(' + b.primaryRgb + ',.25)');
+  root.style.setProperty('--accent-06', 'rgba(' + b.primaryRgb + ',.06)');
+  console.log('[Brändi] Värit asetettu:', seuraId, b.primary);
+}
 let _seuraNimi= '';
 let _rooli    = '';
 let _joukkueet= [];
@@ -1341,6 +1375,7 @@ _auth.onAuthStateChanged(async user => {
 
 async function asetaSeura(seuraId) {
   _seuraId = seuraId;
+  _asetaSeuranVärit(seuraId);
   try {
     const snap = await _db.collection('seurat').doc(seuraId).get();
     const d = snap.data() || {};
@@ -1378,7 +1413,8 @@ async function _tunnistaudu(user) {
   // Firebase paivittaa tokenin ~1h valein ja lahettaa uuden onAuthStateChanged.
   // Sama kayttaja + sama seura + ei URL-muutosta → ei nollata sessiota.
   if (_user && _seuraId && user && _user.uid === user.uid) {
-    const urlSeuraGuard = new URLSearchParams(location.search).get('seura');
+    const urlSeuraGuard = _asetaSeuranVärit(new URLSearchParams(location.search).get('seura') || 'demo');
+  new URLSearchParams(location.search).get('seura');
     if (!urlSeuraGuard || urlSeuraGuard === _seuraId) {
       console.log('[AUTH] Token refresh — sama kayttaja ja seura, ei nollata sessiota.');
       return;
