@@ -3555,6 +3555,54 @@ async function lataaHenkilosto() {
   }
 }
 
+
+// ── Harjoitteluseurannan kriteerit ikävaiheen mukaan ─────────────────────
+// VP valitsee itse ikävaiheen kirjatessaan — ei automaattinen
+const HS_IKAVAIHEET = {
+  lapsuus: {
+    nimi: 'Lapsuusvaihe (U8–U12)',
+    emoji: '⚽',
+    kuvaus: 'Monipuolinen leikki, innostus, pallokosketus',
+    kriteerit: [
+      {id:'inno',    nimi:'Valmennuksen toiminta on innostavaa',         tavoite:8},
+      {id:'liike',   nimi:'Pelaajat liikkeessä harjoitusajasta (%)',      tavoite:8},
+      {id:'pallo',   nimi:'Toistot — pallokosketukset (1=100 kpl)',       tavoite:7},
+      {id:'tekni',   nimi:'Monipuolinen leikki — vapaa vs. strukturoitu', tavoite:7},
+      {id:'pelille', nimi:'Lapset heittäytyvät pelille iloisesti',         tavoite:9},
+      {id:'maali',   nimi:'Maalintekoa mahdollistava harjoittelu (%)',    tavoite:7},
+      {id:'seuraOma',nimi:'Seuran oma painopiste näkyy harjoittelussa',   tavoite:7},
+    ]
+  },
+  nuoruus: {
+    nimi: 'Nuoruusvaihe (U13–U16)',
+    emoji: '🔥',
+    kuvaus: 'Teknis-taktinen kehitys, pelitilanteet, intensiteetti',
+    kriteerit: [
+      {id:'inno',    nimi:'Valmennuksen toiminta on innostavaa',                tavoite:8},
+      {id:'liike',   nimi:'Pelaajat liikkeessä harjoitusajasta (%)',             tavoite:8},
+      {id:'pallo',   nimi:'Toistot — pallokosketukset (1=100 kpl)',              tavoite:7},
+      {id:'tekni',   nimi:'Toistot — teknis-taktinen osaamistavoite',            tavoite:7},
+      {id:'pelille', nimi:'Pelaajat yrittävät täysillä',                         tavoite:8},
+      {id:'maali',   nimi:'Pelaajien toiminta täysivauhtista pelin vaatimusten mukaan', tavoite:7},
+      {id:'seuraOma',nimi:'Seuran oma painopiste näkyy harjoittelussa',          tavoite:7},
+    ]
+  },
+  showcase: {
+    nimi: 'Showcase-vaihe (U17–U19)',
+    emoji: '⭐',
+    kuvaus: 'Kilpailutaso, pelaajan vastuu, edustusvalmius',
+    kriteerit: [
+      {id:'inno',    nimi:'Valmennuksen toiminta on innostavaa',             tavoite:7},
+      {id:'liike',   nimi:'Pelaajat liikkeessä harjoitusajasta (%)',          tavoite:9},
+      {id:'pallo',   nimi:'Toistot — pallokosketukset (1=100 kpl)',           tavoite:7},
+      {id:'tekni',   nimi:'Teknis-taktinen vaatimustaso kilpailutasoa vastaa',tavoite:8},
+      {id:'pelille', nimi:'Pelaajat ottavat vastuun omasta kehityksestä',     tavoite:8},
+      {id:'maali',   nimi:'Harjoittelun intensiteetti vastaa kilpailutasoa',  tavoite:8},
+      {id:'seuraOma',nimi:'Seuran oma painopiste näkyy harjoittelussa',       tavoite:7},
+    ]
+  }
+};
+
 // ── Kenttäkäynti-modal (SPL Harjoitteluseuranta) ──────────────────
 async function avaaKenttaModal(valUid, valNimi, valRooli, ivDefault) {
   document.getElementById('_kenttaModal')?.remove();
@@ -3567,23 +3615,15 @@ async function avaaKenttaModal(valUid, valNimi, valRooli, ivDefault) {
     if (!ks.empty) viimeisinKirjaus = ks.docs[0].data();
   } catch(e) {}
 
-  const iv = viimeisinKirjaus?.ikavaihe || ivDefault || 'nuoruus';
-  const isLapsuus = iv === 'lapsuus';
+  // VP valitsee ikävaiheen — oletuksena viimeisin käynti tai joukkueen ikä
+  const ivAktiivinenDefault = viimeisinKirjaus?.ikavaihe || ivDefault || 'nuoruus';
 
-  // SPL-kriteeri 6 ikävaiheen mukaan
-  const kr6 = isLapsuus
-    ? 'Maalintekoa mahdollistava harjoittelu (%)'
-    : 'Pelaajien toiminta täysivauhtista pelin vaatimusten mukaan';
-
-  const KRITEERIT = [
-    {id:'inno',    nimi:'1 · Valmennuksen toiminta on innostavaa',       tavoite:8},
-    {id:'liike',   nimi:'2 · Pelaajat liikkeessä harjoitusajasta (%)',   tavoite:8},
-    {id:'pallo',   nimi:'3 · Toistot — pallokosketukset (1=100 kpl)',    tavoite:7},
-    {id:'tekni',   nimi:'4 · Toistot — teknis-taktinen osaamistavoite', tavoite:7},
-    {id:'pelille', nimi:'5 · Lapset heittäytyvät pelille / yrittäminen', tavoite:8},
-    {id:'maali',   nimi:'6 · ' + kr6,                                    tavoite:7},
-    {id:'seuraOma',nimi:'7 · Seuran oma painopiste näkyy harjoittelussa',tavoite:7},
-  ];
+  // Renderöi modaali — ikävalinta ensin, kriteerit sen mukaan
+  function _rakennaMod(valittuIv) {
+    document.getElementById('_kenttaModal')?.remove();
+    const iv = valittuIv || ivAktiivinenDefault;
+    const ivData = HS_IKAVAIHEET[iv] || HS_IKAVAIHEET['nuoruus'];
+    const KRITEERIT = ivData.kriteerit;
 
   function sliderRivi(k) {
     const arvo = viimeisinKirjaus?.[k.id] || 7;
@@ -3607,14 +3647,14 @@ async function avaaKenttaModal(valUid, valNimi, valRooli, ivDefault) {
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 0';
 
   m.innerHTML = `<div style="background:#0D1117;border:1px solid rgba(255,255,255,.12);border-radius:16px;
-    padding:24px;width:480px;max-width:94vw;margin:auto">
+    padding:24px;width:500px;max-width:94vw;margin:auto">
 
     <div style="font-size:15px;font-weight:700;color:#E8EEF8;margin-bottom:2px">Kenttäkäynti-kirjaus</div>
     <div style="font-size:11px;color:#5A6B82;margin-bottom:18px">${valNimi}</div>
 
     <!-- Kirjaajan rooli -->
     <div style="font-size:10px;color:#5A6B82;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Kirjaajan rooli</div>
-    <div style="display:flex;gap:8px;margin-bottom:16px">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       ${[
         ['joukkuevalmentaja','Joukkuevalmentaja'],
         ['talenttivalmentaja','Talenttivalmentaja'],
@@ -3631,21 +3671,31 @@ async function avaaKenttaModal(valUid, valNimi, valRooli, ivDefault) {
     </div>
     <div style="font-size:10px;color:#5A6B82;margin-bottom:16px">VP-katselmus = itsenäinen toinen arvio → verrataan havaintojen yhteneväisyyttä</div>
 
-    <!-- Ikävaihe -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <span style="font-size:11px;color:#5A6B82">Ikävaihe:</span>
-      <select id="_kk_iv" style="background:#131920;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#E8EEF8;font-size:12px;padding:4px 8px">
-        <option value="lapsuus" ${isLapsuus?'selected':''}>Lapsuusvaihe (U8–U12)</option>
-        <option value="nuoruus" ${!isLapsuus?'selected':''}>Nuoruusvaihe (U13+)</option>
-      </select>
+    <!-- Ikävaihe — VP valitsee itse -->
+    <div style="font-size:10px;color:#5A6B82;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">
+      Ikävaihe — valitse minkä joukkueen harjoitusta käyt katsomassa
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      ${Object.entries(HS_IKAVAIHEET).map(([ivKey, ivD]) => {
+        const onIv = iv === ivKey;
+        return `<button onclick="window._rakennaMod_${valUid.replace(/[^a-z0-9]/gi,'_')}('${ivKey}')"
+          style="flex:1;padding:8px 10px;border-radius:10px;cursor:pointer;text-align:center;
+          border:1.5px solid ${onIv?'#4A7ED9':'rgba(255,255,255,.1)'};
+          background:${onIv?'rgba(74,126,217,.15)':'transparent'}">
+          <div style="font-size:16px;margin-bottom:2px">${ivD.emoji}</div>
+          <div style="font-size:10px;font-weight:${onIv?'700':'400'};color:${onIv?'#4A7ED9':'#8A9BB5'}">${ivD.nimi.split(' ')[0]}</div>
+          <div style="font-size:9px;color:#5A6B82">${ivD.nimi.match(/\(([^)]+)\)/)?.[1]||''}</div>
+        </button>`;
+      }).join('')}
     </div>
 
-    <!-- SPL Harjoitteluseuranta -->
-    <div style="font-size:11px;font-weight:700;color:#E8EEF8;margin-bottom:12px;
+    <!-- Harjoitteluseuranta otsikko + ikävaiheen kuvaus -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
       padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08)">
-      📋 SPL Harjoitteluseuranta
+      <div style="font-size:11px;font-weight:700;color:#E8EEF8">📋 Harjoitteluseuranta</div>
+      <div style="font-size:10px;color:#5A6B82">${ivData.kuvaus}</div>
     </div>
-    ${KRITEERIT.map(sliderRivi).join('')}
+    ${KRITEERIT.map((k,i) => sliderRivi({...k, nimi: (i+1) + ' · ' + k.nimi})).join('')}
 
     <!-- Toimenpide -->
     <div style="font-size:10px;color:#5A6B82;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;margin-top:4px">
@@ -3682,6 +3732,79 @@ async function avaaKenttaModal(valUid, valNimi, valRooli, ivDefault) {
       });
     });
   });
+  }  // sulkee _rakennaMod
+
+  // Tallenna globaali referenssi — ikävalintanapit käyttävät tätä
+  const fnKey = '_rakennaMod_' + valUid.replace(/[^a-z0-9]/gi,'_');
+  window[fnKey] = _rakennaMod;
+
+  // Rakenna modaali oletusikävaiheella
+  _rakennaMod(ivAktiivinenDefault);
+}
+
+
+// ── Valmentajakortin avaus/sulkeminen ────────────────────────────────────
+function _toggleKortti(id) {
+  const body  = document.getElementById(id + '_body');
+  const arrow = document.getElementById(id + '_arrow');
+  if (!body) return;
+  const auki = body.style.display === 'block';
+  body.style.display  = auki ? 'none' : 'block';
+  if (arrow) arrow.textContent = auki ? '▼' : '▲';
+}
+
+// ── Kehitystavoitteen asetus ─────────────────────────────────────────────
+function _asetaKehitystavoite(valUid, valNimi) {
+  const uusi = prompt('Kehitystavoite kaudelle — ' + valNimi + ':', '');
+  if (uusi === null) return;
+  _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(valUid)
+    .update({ kehitystavoite: uusi.trim() })
+    .then(() => lataaHenkilosto())
+    .catch(e => alert('Tallennus epäonnistui: ' + e.message));
+}
+
+// ── VP:n muistiinpano ────────────────────────────────────────────────────
+function _lisaaMuistiinpano(valUid, valNimi) {
+  const teksti = prompt('Muistiinpano — ' + valNimi + ':');
+  if (!teksti?.trim()) return;
+  const pvm = new Date().toISOString().split('T')[0];
+  _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(valUid)
+    .update({
+      vp_muistiinpanot: firebase.firestore.FieldValue.arrayUnion({
+        teksti: teksti.trim(), pvm, vpUid: firebase.auth().currentUser?.uid || '',
+      })
+    })
+    .then(() => lataaHenkilosto())
+    .catch(e => alert('Tallennus epäonnistui: ' + e.message));
+}
+
+// ── Käynnin yksityiskohdat ───────────────────────────────────────────────
+function _naytaKayntiDetail(valUid, kayId) {
+  if (!kayId) return;
+  _db.collection('seurat').doc(_seuraId).collection('mentoroinnit').doc(kayId).get()
+    .then(d => {
+      if (!d.exists) { _naytaToastMaster('Käyntiä ei löydy', 'virhe'); return; }
+      const dat = d.data();
+      const iv = HS_IKAVAIHEET[dat.ikavaihe] || HS_IKAVAIHEET['nuoruus'];
+      const rivit = iv.kriteerit.map(k => {
+        const arvo = dat[k.id] ?? '—';
+        const vc = arvo === '—' ? 'var(--ink3)' : arvo >= k.tavoite ? '#1D9E75' : arvo >= k.tavoite-1 ? '#BA7517' : '#E24B4A';
+        return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:0.5px solid var(--border)">'
+          + '<span style="color:var(--ink2)">' + k.nimi + '</span>'
+          + '<span style="font-weight:700;color:' + vc + '">' + arvo + '</span></div>';
+      }).join('');
+      var m = document.createElement('div');
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+      m.innerHTML = '<div style="background:#0D1117;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:20px;width:420px;max-width:94vw;max-height:85vh;overflow-y:auto">'
+        + '<div style="font-size:13px;font-weight:700;color:#E8EEF8;margin-bottom:2px">Kenttäkäynti — ' + (dat.pvm||'') + '</div>'
+        + '<div style="font-size:11px;color:#5A6B82;margin-bottom:14px">' + iv.nimi + ' · ka. ' + (dat.splKa ? Math.round(dat.splKa*10)/10 : '—') + '</div>'
+        + rivit
+        + (dat.toimenpide ? '<div style="margin-top:12px;padding:8px 10px;background:#142018;border-radius:8px;font-size:12px;color:var(--ink2)">⚡ ' + dat.toimenpide + '</div>' : '')
+        + '<button onclick="this.closest(\'[style*=fixed]\').remove()" style="margin-top:14px;width:100%;padding:9px;background:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:var(--ink3);cursor:pointer;font-size:12px">Sulje</button>'
+        + '</div>';
+      m.addEventListener('click', function(e) { if (e.target===m) m.remove(); });
+      document.body.appendChild(m);
+    }).catch(e => _naytaToastMaster('Virhe: ' + e.message, 'virhe'));
 }
 
 async function _tallennakKaynti(valUid, valNimi, valRooli) {
