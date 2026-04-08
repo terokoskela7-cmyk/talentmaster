@@ -1456,16 +1456,30 @@ async function _lataaFirebasePelaaja(user) {
     const claims = tokenTulos.claims || {};
 
     if (claims.super_admin || claims.superAdmin) {
-      console.log('[TalentMaster] Super Admin Pelaaja-näkymässä — ladataan demo');
-      // Super admin näkee demo-pelaajan
-      _isDemoUser = false;
+      console.log('[TalentMaster] Super Admin Pelaaja-näkymässä');
+      // Super Admin: yritä ladata oikea pelaaja URL-parametrista
+      const _saParams = new URLSearchParams(location.search);
+      const _saPelId  = _saParams.get('pelaajaId');
+      const _saSeura  = _saParams.get('seuraId') || 'kpv';
+      if (_saPelId && _saSeura) {
+        try {
+          const saSnap = await _db.collection('seurat').doc(_saSeura)
+            .collection('pelaajat').doc(_saPelId).get();
+          if (saSnap.exists) {
+            _pelaaja = { id: saSnap.id, seuraId: _saSeura, ...saSnap.data() };
+            await _alustaUI();
+            return;
+          }
+        } catch(eSA) { console.warn('[SA URL]', eSA.message); }
+      }
+      // Fallback: demo-pelaaja
       _pelaaja = {
         id: 'super_admin_view',
         etunimi: 'Super', sukunimi: 'Admin',
-        seuraId: 'kpv', joukkueId: 'kpv_u15',
-        syntymaVuosi: 2010, positio: 'KM',
-        flei_pct: 75, streak: 0,
-        rooli: 'super_admin',
+        seuraId: _saSeura, joukkueId: 'kpv_u15',
+        syntymaVuosi: 2012, positio: 'KM',
+        flei_viimeisin: 75, streak: 3, xp: 250, taso: 3,
+        phv_tila: 'AN', sbl:2.1, sfl:1.9, ll:1.8, sl:2.0, dfl:1.7,
       };
       await _alustaUI();
       return;
@@ -1540,7 +1554,8 @@ async function _lataaFirebasePelaaja(user) {
     await _alustaUI();
   } catch(e) {
     console.warn('[Auth]', e.message);
-    nayta('sLogin');
+    // Älä pakota login-näkymää jos pelaaja on jo ladattu onnistuneesti
+    if (!_pelaaja) nayta('sLogin');
   }
 }
 
@@ -2472,7 +2487,8 @@ function _renderFiilinki() {
     || (_synTs?.toDate ? _synTs.toDate().getFullYear()
        : _synTs?.seconds ? new Date(_synTs.seconds * 1000).getFullYear()
        : _synTs ? new Date(_synTs).getFullYear() : null);
-  const ika = p.ika || (_synVuosi ? new Date().getFullYear() - _synVuosi : 13);
+  // Jos ikää ei voi laskea → oleta leikkijä (alle 13) turvallisuuden vuoksi
+  const ika = p.ika || (_synVuosi ? new Date().getFullYear() - _synVuosi : null);
 
   const perustaso  = document.getElementById('fiiliPerustaso');
   const kehitystaso = document.getElementById('fiiliKehitystaso');
@@ -2480,8 +2496,8 @@ function _renderFiilinki() {
 
   const otsikkoEl = document.getElementById('fiiliOtsikko');
 
-  if (ika < 13) {
-    // U8–U12: liikennevalofiilis — yksinkertainen, kolme vaihtoehtoa
+  if (!ika || ika < 13) {
+    // U8–U12 tai ikä tuntematon → leikkijä-taso: yksinkertainen, kolme vaihtoehtoa
     perustaso.style.display  = '';
     kehitystaso.style.display = 'none';
     if (otsikkoEl) otsikkoEl.textContent = 'Miten fiilaat tänään? 😊';
