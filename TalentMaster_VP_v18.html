@@ -903,7 +903,7 @@ body{background:var(--bg,#06090F);color:var(--text,#E8EEF8);}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <div class="stitle" style="margin-bottom:0">Tapahtumat</div>
     </div>
-    <button class="uusi-tap-btn" onclick="avaaUusiTapahtuma()">+ + Luo tapahtuma</button>
+    <button class="uusi-tap-btn" onclick="avaaUusiTapahtuma()">+ Uusi tapahtuma</button>
     <div style="margin-top:16px;" id="tapahtumatAlue">
       <div class="loading"><div class="spinner"></div>Ladataan tapahtumia...</div>
     </div>
@@ -1369,13 +1369,36 @@ const TmTapahtumat = {
       pelaajat:    [],
     };
     return db.collection('seurat').doc(seuraId)
-             .collection('tapahtumat').add(doc);
+             .collection('testitapahtumat').add(doc);
   },
 
   async paivitaTila(db, seuraId, tapahtumaId, uusiTila) {
     return db.collection('seurat').doc(seuraId)
-             .collection('tapahtumat').doc(tapahtumaId)
+             .collection('testitapahtumat').doc(tapahtumaId)
              .update({ tila: uusiTila, paivitetty: firebase.firestore.FieldValue.serverTimestamp() });
+  },
+
+  // Muotoilee 'YYYY-MM-DD' → 'pe 10.4.'
+  formatPvm: function(pvmStr) {
+    if (!pvmStr) return '—';
+    var osat = pvmStr.split('-');
+    if (osat.length < 3) return pvmStr;
+    var d = new Date(parseInt(osat[0]), parseInt(osat[1])-1, parseInt(osat[2]));
+    var paivat = ['su','ma','ti','ke','to','pe','la'];
+    return paivat[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth()+1) + '.';
+  },
+
+  // Palauttaa tila-badgen HTML:nä
+  tilaBadge: function(tila) {
+    var tilat = {
+      suunniteltu: { teksti:'Suunniteltu', bg:'rgba(74,126,217,.15)', c:'#4A7ED9' },
+      vahvistettu: { teksti:'Vahvistettu', bg:'rgba(0,212,170,.15)',  c:'#00D4AA' },
+      peruttu:     { teksti:'Peruttu',     bg:'rgba(224,82,82,.15)',  c:'#E24B4A' },
+      valmis:      { teksti:'Valmis',      bg:'rgba(0,200,83,.15)',   c:'#00C853' },
+    };
+    var t = tilat[tila] || tilat['suunniteltu'];
+    return '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;'
+      + 'background:' + t.bg + ';color:' + t.c + '">' + t.teksti + '</span>';
   },
 };
 
@@ -1966,7 +1989,7 @@ async function laskeAlertit(fleiKeskiarvo) {
     // ── LOGIIKKA 4: Kartoituksia ei ole tehty yli 60 päivään ──────
     const vanhin60 = new Date(); vanhin60.setDate(vanhin60.getDate() - 60);
     const tapSnap = await _db.collection('seurat').doc(_seuraId)
-      .collection('tapahtumat')
+      .collection('testitapahtumat')
       .where('tyyppi', 'in', ['harjoitettavuus', 'hh_testit'])
       .orderBy('pvm', 'desc').limit(1).get();
 
@@ -4757,7 +4780,7 @@ function renderVPKalenteri() {
   if (window._vpKalUnsubscribe) window._vpKalUnsubscribe();
   window._vpKalUnsubscribe = _db
     .collection('seurat').doc(seuraId)
-    .collection('tapahtumat')
+    .collection('testitapahtumat')
     .where('pvm', '>=', pvmAlku)
     .where('pvm', '<=', pvmLoppu)
     .onSnapshot(function(snap) {
@@ -5178,7 +5201,7 @@ async function _vpTallennaTapahtuma(seuraId) {
 async function _vpPoistaTapahtuma(tapahtumaId, seuraId) {
   try {
     await _db.collection('seurat').doc(seuraId)
-      .collection('tapahtumat').doc(tapahtumaId).delete();
+      .collection('testitapahtumat').doc(tapahtumaId).delete();
     document.getElementById('vpKalDetModaali').style.display = 'none';
     renderVPKalenteri();
   } catch(e) { alert('Poisto epäonnistui: ' + e.message); }
@@ -5186,10 +5209,10 @@ async function _vpPoistaTapahtuma(tapahtumaId, seuraId) {
 
 async function _vpMerkitsePaikalla(tapahtumaId, seuraId, idx, paikalla) {
   try {
-    var snap    = await _db.collection('seurat').doc(seuraId).collection('tapahtumat').doc(tapahtumaId).get();
+    var snap    = await _db.collection('seurat').doc(seuraId).collection('testitapahtumat').doc(tapahtumaId).get();
     var pelaajat = ((snap.data()||{}).pelaajat)||[];
     if (pelaajat[idx]) pelaajat[idx].paikalla = paikalla;
-    await _db.collection('seurat').doc(seuraId).collection('tapahtumat').doc(tapahtumaId).update({pelaajat: pelaajat});
+    await _db.collection('seurat').doc(seuraId).collection('testitapahtumat').doc(tapahtumaId).update({pelaajat: pelaajat});
   } catch(e) { console.error('Paikalla:', e); }
 }
 
@@ -5543,7 +5566,7 @@ function _vpAvaaDetModal(tapahtumaId, seuraId) {
   m.style.display = 'flex';
   var body = document.getElementById('vpKalDetBody');
   if (body) body.innerHTML = '<div style="color:var(--ink3);text-align:center;padding:20px;">Ladataan...</div>';
-  _db.collection('seurat').doc(seuraId).collection('tapahtumat').doc(tapahtumaId).get()
+  _db.collection('seurat').doc(seuraId).collection('testitapahtumat').doc(tapahtumaId).get()
     .then(function(doc) {
       if (!doc.exists) { if (body) body.innerHTML = 'Tapahtumaa ei löydy.'; return; }
       var d = doc.data();
