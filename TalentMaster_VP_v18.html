@@ -3857,9 +3857,10 @@ function _naytaKayntiDetail(valUid, kayId) {
 
 // ── Harjoitteluseuranta-yhteenveto koko seuralle ────────────────────────────
 // Inspiroi: Palloliiton Power BI -näyttö (trendi + kriteerikeskiarvot)
-async function lataaHSSeuranta() {
+async function lataaHSSeuranta(filtValmentaja) {
   const el = document.getElementById('hsSeurantaAlue');
   if (!el || !_seuraId) return;
+  window._hsAktFiltteri = filtValmentaja !== undefined ? filtValmentaja : (window._hsAktFiltteri || null);
 
   try {
     // Hae kaikki mentoroinnit
@@ -3895,9 +3896,13 @@ async function lataaHSSeuranta() {
     const perVal = {}; // valmentajaNimi → {summat, lkm, kayntiLkm, viimPvm}
     const trendit = []; // [{pvm, splKa}] aikajärjestyksessä
 
+    const kaikkiValmentajat = [...new Set(snap.docs.map(d => d.data().valmentajaNimi||'—'))].sort();
+    const aktFilt = window._hsAktFiltteri || null;
+
     snap.docs.forEach(d => {
       const dat = d.data();
       const vNimi = dat.valmentajaNimi || '—';
+      if (aktFilt && vNimi !== aktFilt) return;
       if (!perVal[vNimi]) perVal[vNimi] = {summat:{},lkm:{},kayntiLkm:0,viimPvm:dat.pvm||''};
       perVal[vNimi].kayntiLkm++;
 
@@ -3916,7 +3921,7 @@ async function lataaHSSeuranta() {
     // Kokonais-KPI:t
     const kaikkiKa = kritKeys.reduce((s,k) => s + (lkm[k]>0?summat[k]/lkm[k]:0), 0) / kritKeys.length;
     const seuranKa = Math.round(kaikkiKa * 10) / 10;
-    const kayntiLkm = snap.size;
+    const kayntiLkm = snap.docs.filter(d => !aktFilt || (d.data().valmentajaNimi||'—') === aktFilt).length;
     const valLkm = Object.keys(perVal).length;
 
     // Trendi aikajärjestyksessä (max 8 pistettä)
@@ -3998,7 +4003,25 @@ async function lataaHSSeuranta() {
       .sort((a,b) => summat[a]/lkm[a] - summat[b]/lkm[b])[0];
     const heikoinTeksti = heikoin ? KRIT_NIMET[heikoin] : null;
 
+    // Suodatinnapit
+    const filtNapit = ['Kaikki', ...kaikkiValmentajat].map(function(v) {
+      const onAkt = v === 'Kaikki' ? !aktFilt : aktFilt === v;
+      return '<button onclick="lataaHSSeuranta(\'' + (v==='Kaikki'?'':v) + '\')" '
+        + 'style="padding:5px 12px;border-radius:16px;cursor:pointer;font-size:11px;'
+        + 'font-weight:'+(onAkt?'700':'400')+';'
+        + 'border:1px solid '+(onAkt?'var(--accent)':'var(--border)')+';'
+        + 'background:'+(onAkt?'rgba(74,126,217,.15)':'var(--surface)')+';'
+        + 'color:'+(onAkt?'var(--accent2)':'var(--ink3)')+';">'
+        + v + '</button>';
+    }).join('');
+
     el.innerHTML = `
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+        <span style="font-size:10px;color:var(--ink3);font-weight:600;
+          text-transform:uppercase;letter-spacing:.5px">Valmentaja:</span>
+        ${filtNapit}
+      </div>
+
       <!-- KPI-rivi -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;
