@@ -903,7 +903,7 @@ body{background:var(--bg,#06090F);color:var(--text,#E8EEF8);}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <div class="stitle" style="margin-bottom:0">Tapahtumat</div>
     </div>
-    <button class="uusi-tap-btn" onclick="avaaUusiTapahtuma()">+ Luo uusi testitapahtuma</button>
+    <button class="uusi-tap-btn" onclick="avaaUusiTapahtuma()">+ + Luo tapahtuma</button>
     <div style="margin-top:16px;" id="tapahtumatAlue">
       <div class="loading"><div class="spinner"></div>Ladataan tapahtumia...</div>
     </div>
@@ -4730,6 +4730,11 @@ function renderVPKalenteri() {
     var urlParams = new URLSearchParams(window.location.search);
     seuraId = urlParams.get('seura');
   }
+  // URL-parametri viimeisenä fallbackina
+  if (!seuraId) {
+    var urlParams = new URLSearchParams(window.location.search);
+    seuraId = urlParams.get('seura');
+  }
   if (!seuraId) {
     el.innerHTML = '<div style="color:var(--red);padding:20px">⚠️ Seuran tunnistetta ei löydy.</div>';
     return;
@@ -4740,7 +4745,9 @@ function renderVPKalenteri() {
   var vuosi    = _vpKalKuukausi.v;
   var kuukausi = _vpKalKuukausi.k;
   var pvmAlku  = vuosi + '-' + String(kuukausi + 1).padStart(2, '0') + '-01';
-  var pvmLoppu = vuosi + '-' + String(kuukausi + 1).padStart(2, '0') + '-31';
+  // Lasketaan kuukauden viimeinen päivä oikein (huomioi 28/29/30/31)
+  var _viimPv  = new Date(vuosi, kuukausi + 1, 0).getDate();
+  var pvmLoppu = vuosi + '-' + String(kuukausi + 1).padStart(2, '0') + '-' + String(_viimPv).padStart(2, '0');
 
   // onSnapshot korvaa .then()-pohjaisen get():n.
   // Firestore kuuntelee muutoksia reaaliajassa — kun VP tai valmentaja
@@ -5003,7 +5010,7 @@ function _vpKalRenderoi(el, seuraId, vuosi, kuukausi, tapahtumat) {
   }
 
   el.appendChild(wrap);
-  _vpRakennaMOdaalit(el, seuraId);
+  _vpRakennaModaalit(el, seuraId);
 }
 
 function _vpKalEdKuukausi() {
@@ -5026,7 +5033,7 @@ function _vpKalTanaan() {
   renderVPKalenteri();
 }
 
-function _vpRakennaMOdaalit(container, seuraId) {
+function _vpRakennaModaalit(container, seuraId) {
   // Poistetaan vanhat modaalit ennen uusien lisäämistä — estää duplikaatit
   ['vpKalLuoModaali','vpKalDetModaali'].forEach(function(id) {
     var vanha = document.getElementById(id);
@@ -5514,7 +5521,7 @@ async function rakentaaFiilinki() {
 ══════════════════════════════════════════════ */
 
 function _vpAvaaLuoModal(seuraId) {
-  _vpRakennaMOdaalit(document.body, seuraId);
+  _vpRakennaModaalit(document.body, seuraId);
   var m = document.getElementById('vpKalLuoModaali');
   if (m) { m.style.display = 'flex'; }
   // Tyhjää kentät
@@ -5530,7 +5537,7 @@ function _vpAvaaLuoModalPvm(seuraId, pvm) {
 }
 
 function _vpAvaaDetModal(tapahtumaId, seuraId) {
-  _vpRakennaMOdaalit(document.body, seuraId);
+  _vpRakennaModaalit(document.body, seuraId);
   var m = document.getElementById('vpKalDetModaali');
   if (!m || !_db) return;
   m.style.display = 'flex';
