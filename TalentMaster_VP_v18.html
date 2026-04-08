@@ -750,9 +750,8 @@ body{background:var(--bg,#06090F);color:var(--text,#E8EEF8);}
       <button class="tab-btn active" onclick="naytaTabi('tilanne',this)" id="tab-tilanne">Tilanne</button>
       <button class="tab-btn" onclick="naytaTabi('kartoitukset',this)" id="tab-kartoitukset">Kartoitukset</button>
       <button class="tab-btn" onclick="naytaTabi('kalenteri',this)" id="tab-kalenteri">Kalenteri</button>
-      <button class="tab-btn" onclick="naytaTabi('henkilosto',this)" id="tab-henkilosto">Henkilöstö</button>
+      <button class="tab-btn" onclick="naytaTabi('valmentajat',this)" id="tab-valmentajat">Valmentajat</button>
       <button class="tab-btn" onclick="naytaTabi('tavoitteet',this);lataaTavoitteet();lataaValmennuslinja();" id="tab-tavoitteet">Tavoitteet</button>
-      <button class="tab-btn" onclick="naytaTabi('valmennus',this)" id="tab-valmennus">Valmennus</button>
       <button class="tab-btn" onclick="naytaTabi('pelaajat',this)" id="tab-pelaajat">Pelaajat</button>
             <button class="tab-btn" onclick="naytaTabi('polku',this)" id="tab-polku">Pelaajapolut</button>
       <button class="tab-btn" onclick="naytaTabi('kausirakenne',this)" id="tab-kausirakenne">Kausirakenne</button>
@@ -910,18 +909,89 @@ body{background:var(--bg,#06090F);color:var(--text,#E8EEF8);}
   </div>
   </div>
 
-  <!-- ══ HENKILÖSTÖ ══ -->
-  <div class="view" id="view-henkilosto">
+  <!-- ══ VALMENTAJAT ══ -->
+  <div class="view" id="view-valmentajat">
   <div class="inner fadeup">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <div class="stitle" style="margin-bottom:0">Henkilöstö</div>
-      <button onclick="avaaKutsuModal()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;">+ Kutsu henkilö</button>
+
+    <!-- Näkymävalitsin -->
+    <div style="display:flex;gap:0;margin-bottom:20px;background:var(--bg3);
+      border-radius:10px;padding:3px;border:1px solid var(--border);">
+      <button id="vval-btn-lista" onclick="_naytaValmentajatNakyma('lista',this)"
+        style="flex:1;padding:8px 10px;border:none;border-radius:7px;font-size:12px;
+        font-weight:600;cursor:pointer;transition:all .15s;
+        background:var(--accent);color:#fff;">
+        👤 Valmentajat
+      </button>
+      <button id="vval-btn-osaaminen" onclick="_naytaValmentajatNakyma('osaaminen',this)"
+        style="flex:1;padding:8px 10px;border:none;border-radius:7px;font-size:12px;
+        font-weight:600;cursor:pointer;transition:all .15s;
+        background:transparent;color:var(--ink3);">
+        📊 Osaaminen
+      </button>
     </div>
-    <div id="henkilostoAlue">
-      <div class="loading"><div class="spinner"></div>Ladataan henkilöstöä...</div>
+
+    <!-- NÄKYMÄ 1: Valmentajat-lista -->
+    <div id="vval-lista">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div class="stitle" style="margin-bottom:0">Valmentajat</div>
+        <button onclick="avaaKutsuModal()" style="background:var(--accent);color:#fff;
+          border:none;border-radius:8px;padding:8px 16px;font-size:13px;
+          font-weight:600;cursor:pointer;">+ Kutsu henkilö</button>
+      </div>
+      <div id="henkilostoAlue">
+        <div class="loading"><div class="spinner"></div>Ladataan...</div>
+      </div>
     </div>
+
+    <!-- NÄKYMÄ 2: Osaaminen -->
+    <div id="vval-osaaminen" style="display:none">
+
+      <!-- ADAR kompakti -->
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;
+        background:rgba(74,126,217,.06);border:1px solid rgba(74,126,217,.15);
+        border-radius:10px;margin-bottom:20px;">
+        <span style="font-size:18px;flex-shrink:0">📚</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--ink1);margin-bottom:1px">
+            ADAR-koulutus — käy läpi jokaisen valmentajan kanssa
+          </div>
+          <div style="font-size:11px;color:var(--ink3)">
+            Havaitse · Päätä · Toimi · Palaudu · 30 min yhteinen sessio riittää
+          </div>
+        </div>
+        <a href="TalentMaster_ADAR_Koulutus.html" target="_blank"
+          style="flex-shrink:0;background:var(--accent);color:#fff;text-decoration:none;
+          border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600">
+          Avaa →
+        </a>
+      </div>
+
+      <!-- Käyntiaktiivisuus -->
+      <div class="stitle" style="margin-bottom:12px">Käyntiaktiivisuus</div>
+      <div id="mentoriAlue">
+        <div class="loading"><div class="spinner"></div>Ladataan...</div>
+      </div>
+
+      <!-- Hyvinvointi -->
+      <div style="margin-top:24px;">
+        <div class="stitle">Pelaajien hyvinvointi — joukkueet</div>
+        <div class="info-box">
+          <div class="info-box-title">💡 Mistä tämä tieto tulee?</div>
+          <div class="info-box-text">
+            Valmentaja arvioi viikoittain joukkueensa yleistilan neljällä mittarilla:
+            <strong>energiataso, mieliala, motivaatio</strong> ja <strong>palautuminen</strong>.
+          </div>
+        </div>
+        <div id="hyvinvointiAlue">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+    </div>
+
   </div>
   </div>
+
 
   <!-- ══ TAVOITTEET ══ -->
   <div class="view" id="view-tavoitteet">
@@ -1124,76 +1194,6 @@ body{background:var(--bg,#06090F);color:var(--text,#E8EEF8);}
                     padding:20px;text-align:center;color:var(--ink3);font-size:12px;">
           Ei jaksoraportteja vielä. Lisää ensimmäinen jaksopalaverin jälkeen.
         </div>
-      </div>
-    </div>
-
-  </div>
-  </div>
-
-  <!-- ══ VALMENNUS ══ -->
-  <div class="view" id="view-valmennus">
-  <div class="inner fadeup">
-
-    <!-- Ohjeteksti -->
-    <div style="font-size:11px;color:var(--ink3);padding:4px 0 14px;line-height:1.6;
-      border-left:2px solid var(--accent2);padding-left:10px;margin-bottom:4px">
-      Valmennus-sivu = kokonaisnäkymä · Yksittäisen valmentajan tiedot löydät
-      <button onclick="naytaTabi('henkilosto',document.getElementById('tab-henkilosto'))"
-        style="background:none;border:none;color:var(--accent2);cursor:pointer;
-        font-size:11px;font-weight:600;text-decoration:underline;padding:0">
-        Henkilöstö-välilehdeltä →
-      </button>
-    </div>
-
-    <!-- ADAR — kompakti linkki, ei koko artikkeli -->
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;
-      background:rgba(74,126,217,.06);border:1px solid rgba(74,126,217,.15);
-      border-radius:10px;margin-bottom:20px;">
-      <span style="font-size:18px;flex-shrink:0">📚</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700;color:var(--ink1);margin-bottom:1px">
-          ADAR-koulutus — käy läpi jokaisen valmentajan kanssa
-        </div>
-        <div style="font-size:11px;color:var(--ink3)">
-          Havaitse · Päätä · Toimi · Palaudu · 30 min yhteinen sessio riittää
-        </div>
-      </div>
-      <a href="TalentMaster_ADAR_Koulutus.html" target="_blank"
-        style="flex-shrink:0;background:var(--accent);color:#fff;text-decoration:none;
-        border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600">
-        Avaa →
-      </a>
-    </div>
-
-    <!-- Valmentajien aktiivisuus — kokonaisnäkymä -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div class="stitle" style="margin-bottom:0">Valmentajien kehitys &amp; käyntihistoria</div>
-      <button onclick="avaaUusiKaynti()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">+ Merkitse käynti</button>
-    </div>
-    <div id="mentoriAlue">
-      <div class="loading"><div class="spinner"></div>Ladataan valmentajia...</div>
-    </div>
-
-    <!-- Hyvinvointikyselyn yhteenveto -->
-    <div style="margin-top:28px;">
-      <div class="stitle">Pelaajien hyvinvointi — joukkueet yhteenvetona</div>
-      <div class="info-box">
-        <div class="info-box-title">💡 Mistä tämä tieto tulee?</div>
-        <div class="info-box-text">
-          Valmentaja arvioi viikoittain joukkueensa yleistilan neljällä mittarilla:
-          <strong>energiataso, mieliala, motivaatio</strong> ja <strong>palautuminen</strong>.
-          Tämä ei vaadi GPS-laitteita tai erillisiä testejä — riittää että valmentaja
-          katsoo harjoituksessa silmin ja kuulee pelaajilta.
-          <br><br>
-          <strong>Miksi VP tarvitsee tämän?</strong> Ylikuormittunut joukkue ei kehity
-          vaikka harjoitusmäärä olisi optimaalinen. Punainen merkki ennen tärkeää
-          ottelua tai kartoitusta tarkoittaa: kevennä tällä viikolla.
-          Hyvä nyrkkisääntö — jos yli 30% joukkueen pelaajista on matalalla,
-          seuraavan harjoituksen intensiteetti puolitetaan.
-        </div>
-      </div>
-      <div id="hyvinvointiAlue">
-        <div class="loading"><div class="spinner"></div></div>
       </div>
     </div>
 
@@ -1660,6 +1660,7 @@ function _paivitaSuperAdminDropdown() {
     _valmennusLadattu    = false;
     _polkuLadattu        = false;
     _kausiLadattu        = false;
+    window._osaaminenLadattu = false;
     _polkuData           = [];
     if (_unsubKal) { try { _unsubKal(); } catch(e){} _unsubKal = null; }
     await asetaSeura(uusiSeura);
@@ -3792,6 +3793,24 @@ function _naytaKayntiDetail(valUid, kayId) {
       m.addEventListener('click', function(e) { if (e.target===m) m.remove(); });
       document.body.appendChild(m);
     }).catch(e => _naytaToastMaster('Virhe: ' + e.message, 'virhe'));
+}
+
+// ── Valmentajat-näkymän vaihto (lista ↔ osaaminen) ──────────────────────
+function _naytaValmentajatNakyma(nakyma, btn) {
+  ['lista','osaaminen'].forEach(function(n) {
+    var el = document.getElementById('vval-' + n);
+    var b  = document.getElementById('vval-btn-' + n);
+    if (el) el.style.display = n === nakyma ? 'block' : 'none';
+    if (b) {
+      b.style.background = n === nakyma ? 'var(--accent)' : 'transparent';
+      b.style.color      = n === nakyma ? '#fff' : 'var(--ink3)';
+    }
+  });
+  if (nakyma === 'osaaminen' && !window._osaaminenLadattu) {
+    window._osaaminenLadattu = true;
+    if (typeof lataaMentoriLista === 'function') lataaMentoriLista();
+    if (typeof lataaHyvinvointiYhteenveto === 'function') lataaHyvinvointiYhteenveto();
+  }
 }
 
     // ── Valmentaja-popup — avautuu klikkaamalla listariviä ─────────────────────
