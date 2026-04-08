@@ -3409,6 +3409,10 @@ async function lataaHenkilosto() {
       .filter(k => VALMENNUSROOLIT.includes(k.rooli))
       .sort((a,b) => (a.sukunimi||a.nimi||'').localeCompare(b.sukunimi||b.nimi||''));
 
+    // Cache popup-toimintoa varten
+    window._vpValmentajaCache = {};
+    valmentajat.forEach(k => { window._vpValmentajaCache[k.id] = k; });
+
     const muut = henSnap.docs
       .map(d => ({id: d.id, ...d.data()}))
       .filter(k => !VALMENNUSROOLIT.includes(k.rooli) && k.rooli !== 'vp');
@@ -3423,168 +3427,226 @@ async function lataaHenkilosto() {
       return {cls:'rgba(226,75,74,.12)', teksti:`🔴 ${pv}pv`, color:'#A32D2D'};
     }
 
+    // ── Kompakti listarivi henkilöstö-sivulle ─────────────────────────────────
     function valmentajaKortti(k) {
+      const nimi     = `${k.etunimi||''} ${k.sukunimi||''}`.trim() || k.email || '—';
+      const nimiSafe = nimi.replace(/'/g,'').replace(/"/g,'');
+      const init     = ((k.etunimi||k.nimi||'?')[0] + (k.sukunimi||'?')[0]).toUpperCase();
+      const badge    = kayntiBadge(k.id);
+      const lisenssi = k.lisenssi || k.koulutus || null;
+      const iv       = ikavaihe(k.joukkue || k.joukkueId);
+      const splKa    = viimeisin[k.id]?.splKa ?? null;
+      const splVari  = splKa === null ? 'var(--ink3)'
+                     : splKa >= 7.5 ? '#1D9E75' : splKa >= 6 ? '#BA7517' : '#E24B4A';
+
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+        background:var(--surface);border:1px solid var(--border);border-radius:10px;
+        margin-bottom:6px;cursor:pointer;transition:border-color .15s"
+        onclick="_avaaValmentajaPopup('${k.id}')"
+        onmouseover="this.style.borderColor='var(--bord2)'"
+        onmouseout="this.style.borderColor='var(--border)'">
+        <div style="width:32px;height:32px;border-radius:50%;background:rgba(74,126,217,.15);
+          display:flex;align-items:center;justify-content:center;
+          font-size:11px;font-weight:700;color:var(--accent2);flex-shrink:0">${init}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--ink1)">${nimi}</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:1px">
+            ${ROOLI_NIMET[k.rooli]||k.rooli||'—'}
+            ${k.joukkueNimi ? ' · ' + k.joukkueNimi : ''}
+            ${lisenssi ? ' · <span style="color:var(--teal)">' + lisenssi + '</span>'
+                       : ' · <span style="color:var(--amber)">Lisenssi puuttuu</span>'}
+          </div>
+        </div>
+        ${splKa !== null ? `<div style="text-align:center;min-width:36px">
+          <div style="font-size:16px;font-weight:700;color:${splVari};line-height:1">${Math.round(splKa*10)/10}</div>
+          <div style="font-size:8px;color:var(--ink3)">hs ka.</div>
+        </div>` : ''}
+        <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:8px;
+          background:${badge.cls};color:${badge.color};white-space:nowrap">${badge.teksti}</span>
+        <button onclick="event.stopPropagation();avaaKenttaModal('${k.id}','${nimiSafe}','${k.rooli}','${iv||'nuoruus'}')"
+          style="font-size:11px;padding:5px 10px;border-radius:7px;border:1px solid var(--bord2);
+          background:rgba(74,126,217,.1);color:var(--accent2);cursor:pointer;white-space:nowrap;flex-shrink:0">
+          + Käynti
+        </button>
+        <span style="font-size:11px;color:var(--ink3)">›</span>
+      </div>`;
+    }
+
+    // ── Valmentaja-popup — avautuu klikkaamalla listariviä ─────────────────────
+    function _avaaValmentajaPopup(uid) {
+      // Etsi valmentajan data cachesta
+      const k = window._vpValmentajaCache?.[uid];
+      if (!k) { naytaToast('Valmentajaa ei löydy', 'info'); return; }
+
       const nimi      = `${k.etunimi||''} ${k.sukunimi||''}`.trim() || k.email || '—';
       const nimiSafe  = nimi.replace(/'/g,'').replace(/"/g,'');
       const init      = ((k.etunimi||k.nimi||'?')[0] + (k.sukunimi||'?')[0]).toUpperCase();
       const badge     = kayntiBadge(k.id);
       const lisenssi  = k.lisenssi || k.koulutus || null;
-      const tavoite   = k.kehitystavoite || null;
       const iv        = ikavaihe(k.joukkue || k.joukkueId);
-      const korttiId  = 'vk_' + k.id;
       const kay       = viimeisin[k.id];
       const splKa     = kay?.splKa ?? null;
       const splVari   = splKa === null ? 'var(--ink3)'
                       : splKa >= 7.5 ? '#1D9E75' : splKa >= 6 ? '#BA7517' : '#E24B4A';
-
-      // Trendi vs edellinen käynti
       const trendi    = (splKa !== null && k._kaynti2?.splKa != null)
                       ? Math.round((splKa - k._kaynti2.splKa) * 10) / 10 : null;
 
-      // Harjoitteluseurannan kriteerit palkkeina
+      // Kriteerit
       const kriteerit = (HS_IKAVAIHEET[kay?.ikavaihe || iv || 'nuoruus']?.kriteerit || []);
       const kritHtml  = kriteerit.map(kr => {
         const arvo = kay?.[kr.id] ?? null;
         const pct  = arvo !== null ? Math.round(arvo / 10 * 100) : 0;
-        const vc   = arvo === null ? 'var(--border)'
-                   : arvo >= kr.tavoite ? '#1D9E75' : arvo >= kr.tavoite - 1 ? '#BA7517' : '#E24B4A';
-        return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0">
-          <div style="font-size:10px;color:var(--ink3);width:200px;flex-shrink:0;line-height:1.3">${kr.nimi}</div>
-          <div style="flex:1;height:4px;background:var(--border);border-radius:2px;position:relative">
+        const vc   = arvo === null ? 'rgba(255,255,255,.1)'
+                   : arvo >= kr.tavoite ? '#1D9E75' : arvo >= kr.tavoite-1 ? '#BA7517' : '#E24B4A';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+          <div style="font-size:11px;color:#8A9BB5;width:195px;flex-shrink:0;line-height:1.3">${kr.nimi}</div>
+          <div style="flex:1;height:4px;background:rgba(255,255,255,.08);border-radius:2px;position:relative">
             <div style="width:${pct}%;height:4px;border-radius:2px;background:${vc}"></div>
-            <div style="position:absolute;top:-3px;left:${kr.tavoite * 10}%;width:1.5px;height:10px;background:rgba(255,255,255,.3);border-radius:1px"></div>
+            <div style="position:absolute;top:-3px;left:${kr.tavoite*10}%;width:1.5px;height:10px;background:rgba(255,255,255,.2);border-radius:1px"></div>
           </div>
-          <div style="font-size:11px;font-weight:700;color:${vc};min-width:18px;text-align:right">${arvo ?? '—'}</div>
+          <div style="font-size:11px;font-weight:700;color:${vc};min-width:18px;text-align:right">${arvo??'—'}</div>
         </div>`;
       }).join('');
 
       // Käyntihistoria
-      const histHtml = (k._historia || []).slice(0, 3).map(h => {
-        const hv  = h.splKa ? Math.round(h.splKa * 10) / 10 : null;
-        const hc  = hv === null ? 'var(--ink3)' : hv >= 7.5 ? '#1D9E75' : hv >= 6 ? '#BA7517' : '#E24B4A';
-        const pvm = h.pvm || '—';
-        const ivN = HS_IKAVAIHEET[h.ikavaihe]?.nimi?.split(' ')[0] || '';
-        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;
-          font-size:11px;border-bottom:0.5px solid var(--border)">
-          <span style="flex:1;color:var(--ink3)">${pvm}</span>
-          <span style="font-size:9px;color:var(--ink3)">${ivN}</span>
-          <span style="font-weight:700;color:${hc}">${hv ?? '—'}</span>
-          <button onclick="event.stopPropagation();_naytaKayntiDetail('${k.id}','${h.id||''}')"
-            style="font-size:9px;padding:2px 7px;border-radius:5px;border:0.5px solid var(--bord2);
-            background:none;color:var(--ink3);cursor:pointer">Näytä</button>
+      const histHtml = (k._historia||[]).slice(0,3).map(h => {
+        const hv = h.splKa ? Math.round(h.splKa*10)/10 : null;
+        const hc = hv===null?'#5A6B82':hv>=7.5?'#1D9E75':hv>=6?'#BA7517':'#E24B4A';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;
+          border-bottom:1px solid rgba(255,255,255,.06);font-size:11px">
+          <span style="flex:1;color:#8A9BB5">${h.pvm||'—'}</span>
+          <span style="font-size:9px;color:#5A6B82">${HS_IKAVAIHEET[h.ikavaihe]?.nimi?.split(' ')[0]||''}</span>
+          <span style="font-weight:700;color:${hc}">${hv??'—'}</span>
+          <button onclick="_naytaKayntiDetail('${k.id}','${h.id||''}')"
+            style="font-size:9px;padding:2px 7px;border-radius:5px;border:1px solid rgba(255,255,255,.1);
+            background:none;color:#8A9BB5;cursor:pointer">Näytä</button>
         </div>`;
       }).join('');
 
-      return `<div class="card" style="margin-bottom:8px;padding:0;overflow:hidden" id="${korttiId}">
+      // Muistiinpanot
+      const muistiotHtml = (k._muistiinpanot||[]).length > 0
+        ? (k._muistiinpanot||[]).slice(0,3).map(m =>
+            `<div style="background:rgba(255,255,255,.04);border-radius:8px;padding:9px 11px;
+              margin-bottom:6px;border-left:2px solid #4A7ED9">
+              <div style="font-size:12px;color:#B0BCCC;line-height:1.5;font-style:italic">"${m.teksti}"</div>
+              <div style="font-size:10px;color:#5A6B82;margin-top:4px">— ${m.pvm||''}</div>
+            </div>`).join('')
+        : `<div style="font-size:12px;color:#5A6B82;font-style:italic;padding:4px 0">Ei muistiinpanoja vielä</div>`;
 
-        <!-- Yläosa — aina näkyvissä, klikattava -->
-        <div onclick="_toggleKortti('${korttiId}')"
-          style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer">
-          <div style="width:32px;height:32px;border-radius:50%;background:rgba(74,126,217,.15);
-            display:flex;align-items:center;justify-content:center;
-            font-size:11px;font-weight:700;color:var(--accent2);flex-shrink:0">${init}</div>
+      // Rakenna popup
+      document.getElementById('_valPopup')?.remove();
+      const m = document.createElement('div');
+      m.id = '_valPopup';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;'
+        + 'display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
+
+      m.innerHTML = `<div style="background:#0D1117;border:1px solid rgba(255,255,255,.12);
+        border-radius:16px;width:480px;max-width:95vw;max-height:88vh;overflow-y:auto;
+        padding:0;position:relative">
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:12px;padding:18px 20px 14px;
+          border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;
+          background:#0D1117;z-index:1">
+          <div style="width:38px;height:38px;border-radius:50%;background:rgba(74,126,217,.2);
+            display:flex;align-items:center;justify-content:center;font-size:14px;
+            font-weight:700;color:#6B9EF0;flex-shrink:0">${init}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:700;color:var(--ink1)">${nimi}</div>
-            <div style="font-size:10px;color:var(--ink3);margin-top:1px">
+            <div style="font-size:15px;font-weight:700;color:#E8EEF8">${nimi}</div>
+            <div style="font-size:11px;color:#5A6B82;margin-top:1px">
               ${ROOLI_NIMET[k.rooli]||k.rooli||'—'}
-              ${k.joukkueNimi ? ' · ' + k.joukkueNimi : ''}
-              ${lisenssi ? ' · <span style="color:var(--teal)">' + lisenssi + '</span>'
-                         : ' · <span style="color:var(--amber)">Lisenssi puuttuu</span>'}
+              ${k.joukkueNimi?' · '+k.joukkueNimi:''}
+              ${lisenssi?' · <span style="color:#00D4AA">'+lisenssi+'</span>':''}
             </div>
           </div>
-          ${splKa !== null ? `<div style="text-align:center;margin-right:4px">
-            <div style="font-size:18px;font-weight:700;color:${splVari};line-height:1">${Math.round(splKa * 10) / 10}</div>
-            <div style="font-size:8px;color:var(--ink3)">hs ka.</div>
-          </div>` : ''}
           <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:8px;
-            background:${badge.cls};color:${badge.color};white-space:nowrap">${badge.teksti}</span>
-          <button onclick="event.stopPropagation();avaaKenttaModal('${k.id}','${nimiSafe}','${k.rooli}','${iv||'nuoruus'}')"
-            style="font-size:11px;padding:5px 12px;border-radius:7px;border:1px solid var(--bord2);
-            background:rgba(74,126,217,.1);color:var(--accent2);cursor:pointer;white-space:nowrap;flex-shrink:0">
-            + Käynti
-          </button>
-          <span style="font-size:10px;color:var(--ink3)" id="${korttiId}_arrow">▼</span>
+            background:${badge.cls};color:${badge.color}">${badge.teksti}</span>
+          <button onclick="document.getElementById('_valPopup').remove()"
+            style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+            border-radius:8px;color:#8A9BB5;padding:5px 12px;cursor:pointer;font-size:12px;
+            flex-shrink:0">✕</button>
         </div>
 
-        <!-- Laajennettu sisältö — piilotettu oletuksena -->
-        <div id="${korttiId}_body" style="display:none;border-top:0.5px solid var(--border);padding:14px">
+        <div style="padding:16px 20px 20px">
+
+          <!-- Toimintanapit -->
+          <div style="display:flex;gap:8px;margin-bottom:16px">
+            <button onclick="avaaKenttaModal('${k.id}','${nimiSafe}','${k.rooli}','${iv||'nuoruus'}')"
+              style="flex:1;background:#4A7ED9;color:#fff;border:none;border-radius:8px;
+              padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer">
+              + Merkitse käynti
+            </button>
+            <button onclick="_asetaKehitystavoite('${k.id}','${nimiSafe}')"
+              style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+              border-radius:8px;color:#8A9BB5;padding:9px 14px;font-size:12px;cursor:pointer">
+              🎯 Tavoite
+            </button>
+            <button onclick="_lisaaMuistiinpano('${k.id}','${nimiSafe}')"
+              style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+              border-radius:8px;color:#8A9BB5;padding:9px 14px;font-size:12px;cursor:pointer">
+              + Muistio
+            </button>
+          </div>
 
           <!-- KPI-rivi -->
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
-            <div style="background:var(--bg3);border-radius:8px;padding:8px 10px;text-align:center">
-              <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Harjoitteluseuranta ka.</div>
-              <div style="font-size:20px;font-weight:700;color:${splVari}">${splKa !== null ? Math.round(splKa * 10) / 10 : '—'}</div>
-              <div style="font-size:9px;color:var(--ink3)">edellinen käynti</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+            <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-size:9px;color:#5A6B82;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Hs ka.</div>
+              <div style="font-size:22px;font-weight:700;color:${splVari}">${splKa!==null?Math.round(splKa*10)/10:'—'}</div>
+              <div style="font-size:9px;color:#5A6B82">edellinen käynti</div>
             </div>
-            <div style="background:var(--bg3);border-radius:8px;padding:8px 10px;text-align:center">
-              <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Käyntejä</div>
-              <div style="font-size:20px;font-weight:700;color:var(--ink1)">${(k._historia||[]).length}</div>
-              <div style="font-size:9px;color:var(--ink3)">tällä kaudella</div>
+            <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-size:9px;color:#5A6B82;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Käyntejä</div>
+              <div style="font-size:22px;font-weight:700;color:#E8EEF8">${(k._historia||[]).length}</div>
+              <div style="font-size:9px;color:#5A6B82">tällä kaudella</div>
             </div>
-            <div style="background:var(--bg3);border-radius:8px;padding:8px 10px;text-align:center">
-              <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Trendi</div>
-              ${trendi !== null
-                ? `<div style="font-size:16px;font-weight:700;color:${trendi >= 0 ? '#1D9E75' : '#E24B4A'};margin-top:2px">${trendi >= 0 ? '↑ +' : '↓ '}${trendi}</div>`
-                : `<div style="font-size:13px;color:var(--ink3);margin-top:6px">—</div>`}
-              <div style="font-size:9px;color:var(--ink3)">vs. edellinen</div>
+            <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-size:9px;color:#5A6B82;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">Trendi</div>
+              ${trendi!==null
+                ?`<div style="font-size:18px;font-weight:700;color:${trendi>=0?'#1D9E75':'#E24B4A'};margin-top:2px">${trendi>=0?'↑ +':'↓ '}${trendi}</div>`
+                :`<div style="font-size:14px;color:#5A6B82;margin-top:6px">—</div>`}
+              <div style="font-size:9px;color:#5A6B82">vs. edellinen</div>
             </div>
           </div>
 
-          <!-- Harjoitteluseurannan kriteerit -->
-          ${kritHtml ? `<div style="margin-bottom:14px">
-            <div style="font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;
-              letter-spacing:.4px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
-              Harjoitteluseuranta — viimeisin käynti
-              <span style="font-size:9px;font-weight:400;color:var(--ink3)">${kay?.pvm||''} · ${HS_IKAVAIHEET[kay?.ikavaihe]?.nimi?.split(' ')[0]||''}</span>
+          <!-- Kriteerit -->
+          ${kritHtml?`<div style="margin-bottom:16px">
+            <div style="font-size:10px;font-weight:600;color:#5A6B82;text-transform:uppercase;
+              letter-spacing:.4px;margin-bottom:8px;display:flex;justify-content:space-between">
+              Harjoitteluseuranta
+              <span style="font-weight:400">${kay?.pvm||''} · ${HS_IKAVAIHEET[kay?.ikavaihe]?.nimi?.split(' ')[0]||''}</span>
             </div>
             ${kritHtml}
-          </div>` : ''}
+          </div>`:''}
 
           <!-- Kehitystavoite -->
-          <div style="border-top:0.5px solid var(--border);padding-top:12px;margin-bottom:12px">
-            <div style="font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;
-              letter-spacing:.4px;margin-bottom:8px">Kehitystavoite kaudelle</div>
-            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;
-              background:var(--bg3);border-radius:8px">
-              <span style="font-size:14px">🎯</span>
-              <span style="font-size:12px;color:var(--ink2);flex:1">${tavoite ||
-                '<span style="color:var(--ink3);font-style:italic">Ei tavoitetta asetettu</span>'}</span>
-              <button onclick="event.stopPropagation();_asetaKehitystavoite('${k.id}','${nimiSafe}')"
-                style="font-size:10px;padding:3px 9px;border-radius:6px;border:0.5px solid var(--bord2);
-                background:none;color:var(--ink3);cursor:pointer">Muuta</button>
+          <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:12px;margin-bottom:12px">
+            <div style="font-size:10px;font-weight:600;color:#5A6B82;text-transform:uppercase;
+              letter-spacing:.4px;margin-bottom:6px">Kehitystavoite</div>
+            <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 12px;font-size:12px;color:#B0BCCC">
+              ${k.kehitystavoite||'<span style="color:#5A6B82;font-style:italic">Ei asetettu — paina 🎯 Tavoite</span>'}
             </div>
           </div>
 
-          <!-- VP:n muistiinpanot -->
-          <div style="border-top:0.5px solid var(--border);padding-top:12px;margin-bottom:12px">
-            <div style="font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;
-              letter-spacing:.4px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
-              VP:n muistiinpanot
-              <button onclick="event.stopPropagation();_lisaaMuistiinpano('${k.id}','${nimiSafe}')"
-                style="font-size:10px;padding:3px 9px;border-radius:6px;border:0.5px solid var(--bord2);
-                background:none;color:var(--accent2);cursor:pointer">+ Lisää</button>
-            </div>
-            <div id="${korttiId}_muistiot">
-              ${(k._muistiinpanot||[]).length > 0
-                ? (k._muistiinpanot||[]).slice(0, 3).map(m =>
-                    `<div style="background:var(--bg3);border-radius:8px;padding:9px 11px;
-                      margin-bottom:6px;border-left:2px solid var(--accent)">
-                      <div style="font-size:12px;color:var(--ink2);line-height:1.5;font-style:italic">"${m.teksti}"</div>
-                      <div style="font-size:10px;color:var(--ink3);margin-top:4px">— ${m.pvm||''}</div>
-                    </div>`).join('')
-                : `<div style="font-size:12px;color:var(--ink3);font-style:italic;padding:4px 0">Ei muistiinpanoja vielä</div>`}
-            </div>
+          <!-- Muistiinpanot -->
+          <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:12px;margin-bottom:12px">
+            <div style="font-size:10px;font-weight:600;color:#5A6B82;text-transform:uppercase;
+              letter-spacing:.4px;margin-bottom:6px">VP:n muistiinpanot</div>
+            ${muistiotHtml}
           </div>
 
           <!-- Käyntihistoria -->
-          ${histHtml ? `<div style="border-top:0.5px solid var(--border);padding-top:12px">
-            <div style="font-size:10px;font-weight:600;color:var(--ink3);text-transform:uppercase;
-              letter-spacing:.4px;margin-bottom:8px">Käyntihistoria</div>
+          ${histHtml?`<div style="border-top:1px solid rgba(255,255,255,.06);padding-top:12px">
+            <div style="font-size:10px;font-weight:600;color:#5A6B82;text-transform:uppercase;
+              letter-spacing:.4px;margin-bottom:6px">Käyntihistoria</div>
             ${histHtml}
-          </div>` : ''}
+          </div>`:''}
 
         </div>
       </div>`;
+
+      m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+      document.body.appendChild(m);
     }
 
     // Mentorointirunko + SPL-seuranta 2-grid
