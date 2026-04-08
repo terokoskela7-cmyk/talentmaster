@@ -2453,6 +2453,10 @@ function _renderPelaajaKortti(p) {
     tagit += '<span class="pk-tag" style="background:rgba(245,183,0,.1);color:var(--gold);">💎 HG</span>';
   if (p.tunniste === 'x_factor')
     tagit += '<span class="pk-tag" style="background:rgba(245,183,0,.1);color:var(--gold);">⭐ XF</span>';
+  if (p.kaytettavyys === 'loukkaantunut')
+    tagit += '<span class="pk-tag" style="background:rgba(224,82,82,.12);color:#E24B4A;">🏥 Loukk.</span>';
+  if (p.kaytettavyys === 'kuntoutuksessa')
+    tagit += '<span class="pk-tag" style="background:rgba(186,117,23,.12);color:#BA7517;">↑ Kuntoutus</span>';
 
   // PHV-tila selkokielellä
   var phvHtml = '';
@@ -2515,11 +2519,103 @@ function _renderPelaajaKortti(p) {
               + 'border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;" '
               + 'title="Lähetä pelaajasivu-linkki huoltajalle">📨</button>'
             : '')
+        + '<button onclick="event.stopPropagation();_avaaKaytettavyysV(\'' + p.id + '\',\'' + (p.etunimi||'') + '\',\'' + (p.sukunimi||'') + '\',\'' + (p.kaytettavyys||'aktiivinen') + '\',\'' + (p.loukkaantuminen_tyyppi||'') + '\',\'' + (p.loukkaantuminen_alue||'') + '\',\'' + (p.paluu_arvio||'') + '\')" '
+          + 'style="border:none;background:' + (p.kaytettavyys==='loukkaantunut'?'rgba(224,82,82,.15)':p.kaytettavyys==='kuntoutuksessa'?'rgba(186,117,23,.12)':'rgba(255,255,255,.05)') + ';'
+          + 'color:' + (p.kaytettavyys==='loukkaantunut'?'#E24B4A':p.kaytettavyys==='kuntoutuksessa'?'#BA7517':'var(--ink3)') + ';'
+          + 'border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;" '
+          + 'title="Merkitse käytettävyys">🏥</button>'
         + '<span class="pk-idp-nappi">IDP →</span>'
       + '</div>'
     + '</div>'
     + phvHtml
   + '</div>';
+}
+
+
+// ── Käytettävyys — valmentajan modaali ──────────────────────────────────────
+var _KM_TILAT = [
+  {id:'aktiivinen',    ik:'✓',t:'Aktiivinen',    bg:'rgba(29,158,117,.15)', c:'#1D9E75'},
+  {id:'loukkaantunut', ik:'⚠',t:'Loukkaantunut', bg:'rgba(224,82,82,.15)',  c:'#E24B4A'},
+  {id:'kuntoutuksessa',ik:'↑',t:'Kuntoutuksessa',bg:'rgba(186,117,23,.15)', c:'#BA7517'},
+  {id:'tauko',         ik:'⏸',t:'Tauko',         bg:'rgba(100,100,100,.15)',c:'#888888'},
+];
+var _KM_TYYPIT = ['Lihasrepeämä','Nivelside','Luuvamma','Rasitusvamma','Sairaus','Muu'];
+var _KM_ALUEET = ['Nilkka','Polvi','Reisi','Lonkka','Selkä','Olkapää','Ranne','Sääri','Pohje','Muu'];
+
+function _avaaKaytettavyysV(pelId, etunimi, sukunimi, kayt, tyyppi, alue, paluu) {
+  document.getElementById('_kaytModV')?.remove();
+  var k = kayt || 'aktiivinen';
+  var m = document.createElement('div');
+  m.id = '_kaytModV';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  m.innerHTML = '<div style="background:#0D1117;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:24px;width:340px;max-width:94vw">'
+    + '<div style="font-size:15px;font-weight:700;color:#E8EEF8;margin-bottom:3px">Käytettävyys</div>'
+    + '<div style="font-size:11px;color:#5A6B82;margin-bottom:18px">' + (etunimi + ' ' + sukunimi).trim() + '</div>'
+    + '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px">'
+    + _KM_TILAT.map(function(o){
+        return '<label style="cursor:pointer;display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:8px;'
+          + 'border:1.5px solid ' + (o.id===k?o.c:'rgba(255,255,255,.1)') + ';background:' + (o.id===k?o.bg:'transparent') + '">'
+          + '<input type="radio" name="_km_v" value="' + o.id + '" ' + (o.id===k?'checked':'') + ' style="display:none">'
+          + '<span style="font-size:11px;font-weight:600;color:' + (o.id===k?o.c:'#8A9BB5') + '">' + o.ik + ' ' + o.t + '</span></label>';
+      }).join('')
+    + '</div>'
+    + '<div id="_km_v_kentat" style="' + (k==='aktiivinen'||k==='tauko'?'display:none':'') + '">'
+    + '<select id="_km_v_tyyppi" style="width:100%;background:#131920;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#E8EEF8;font-size:13px;padding:9px 12px;margin-bottom:9px">'
+    + '<option value="">Tyyppi</option>'
+    + _KM_TYYPIT.map(function(t){return '<option' + (tyyppi===t?' selected':'') + '>' + t + '</option>';}).join('') + '</select>'
+    + '<select id="_km_v_alue" style="width:100%;background:#131920;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#E8EEF8;font-size:13px;padding:9px 12px;margin-bottom:9px">'
+    + '<option value="">Alue</option>'
+    + _KM_ALUEET.map(function(a){return '<option' + (alue===a?' selected':'') + '>' + a + '</option>';}).join('') + '</select>'
+    + '<input type="date" id="_km_v_paluu" value="' + (paluu||'') + '" style="width:100%;background:#131920;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#E8EEF8;font-size:13px;padding:9px 12px;margin-bottom:12px">'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;justify-content:flex-end">'
+    + '<button onclick="document.getElementById(\'_kaytModV\').remove()" style="background:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#8A9BB5;padding:8px 16px;font-size:12px;cursor:pointer">Peruuta</button>'
+    + '<button onclick="_tallennakKaytettavyysV(\'' + pelId + '\')" style="background:#4A7ED9;border:none;border-radius:8px;color:#fff;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer">Tallenna</button>'
+    + '</div></div>';
+
+  m.querySelectorAll('input[name=_km_v]').forEach(function(r) {
+    r.addEventListener('change', function() {
+      document.getElementById('_km_v_kentat').style.display =
+        (r.value==='loukkaantunut'||r.value==='kuntoutuksessa') ? '' : 'none';
+      m.querySelectorAll('label').forEach(function(l) {
+        var inp = l.querySelector('input');
+        var o = _KM_TILAT.find(function(x){return x.id===inp.value;});
+        if (!o) return;
+        l.style.border = '1.5px solid ' + (inp.checked?o.c:'rgba(255,255,255,.1)');
+        l.style.background = inp.checked ? o.bg : 'transparent';
+        l.querySelector('span').style.color = inp.checked ? o.c : '#8A9BB5';
+      });
+    });
+  });
+  document.body.appendChild(m);
+  m.addEventListener('click', function(e){if(e.target===m)m.remove();});
+}
+
+async function _tallennakKaytettavyysV(pelaajaId) {
+  var tilaVal = document.querySelector('input[name=_km_v]:checked')?.value || 'aktiivinen';
+  var tyyppi  = document.getElementById('_km_v_tyyppi')?.value || '';
+  var alue    = document.getElementById('_km_v_alue')?.value || '';
+  var paluu   = document.getElementById('_km_v_paluu')?.value || '';
+  var data = { kaytettavyys: tilaVal, muokattu: firebase.firestore.FieldValue.serverTimestamp() };
+  if (tilaVal !== 'aktiivinen') {
+    if (tyyppi) data.loukkaantuminen_tyyppi = tyyppi;
+    if (alue)   data.loukkaantuminen_alue   = alue;
+    if (paluu)  data.paluu_arvio            = paluu;
+  } else {
+    data.loukkaantuminen_tyyppi = firebase.firestore.FieldValue.delete();
+    data.loukkaantuminen_alue   = firebase.firestore.FieldValue.delete();
+    data.paluu_arvio            = firebase.firestore.FieldValue.delete();
+  }
+  try {
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).update(data);
+    document.getElementById('_kaytModV')?.remove();
+    var p = _pelaajat.find(function(x){return x.id===pelaajaId;});
+    if (p) { p.kaytettavyys=tilaVal; p.loukkaantuminen_tyyppi=tyyppi||undefined; p.loukkaantuminen_alue=alue||undefined; p.paluu_arvio=paluu||undefined; }
+    _renderPelaajat('');
+    _naytaToastMaster('Käytettävyys tallennettu', 'ok');
+  } catch(e) {
+    _naytaToastMaster('Tallennus epäonnistui: ' + e.message, 'virhe');
+  }
 }
 
 function suodataPelaajat(haku) { _renderPelaajat(haku); }
