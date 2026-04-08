@@ -3342,15 +3342,33 @@ async function lataaHenkilosto() {
     }
 
     // Viimeisin käynti + historia per valmentaja
+    // Indeksoidaan sekä UID:llä että nimellä — demo-data käyttää eri UID-formaattia
     const viimeisin = {};
     const historia  = {};
+    const nimiToUid = {}; // nimi → kayttajat-UID
+
+    // Rakennetaan nimi→uid -kartta ensin
+    henSnap.docs.forEach(d => {
+      const dat = d.data();
+      const nimi = `${dat.etunimi||''} ${dat.sukunimi||''}`.trim();
+      if (nimi) nimiToUid[nimi] = d.id;
+    });
+
     mentSnap.docs.forEach(d => {
       const dat = d.data();
-      const uid = dat.valmentajaUid;
+      // Yritä löytää oikea UID: ensin suora, sitten nimellä
+      let uid = dat.valmentajaUid;
+      const mentNimi = dat.valmentajaNimi || '';
+      if (uid && !viimeisin[uid] && !nimiToUid[mentNimi]) {
+        // Suora UID löytyy kayttajat-kokoelmasta
+      } else if (mentNimi && nimiToUid[mentNimi]) {
+        // Käytetään kayttajat-kokoelman UIDs
+        uid = nimiToUid[mentNimi];
+      }
       if (!uid) return;
       if (!viimeisin[uid]) viimeisin[uid] = dat;
       if (!historia[uid]) historia[uid] = [];
-      if (historia[uid].length < 5) historia[uid].push(Object.assign({id: d.id}, dat));
+      if (historia[uid].length < 10) historia[uid].push(Object.assign({id: d.id}, dat));
     });
 
     const ROOLI_NIMET = {
@@ -3884,18 +3902,37 @@ function _avaaValmentajaPopup(uid) {
     </div>`;
   }).join('');
 
-  // Käyntihistoria
-  const histHtml = (k._historia||[]).slice(0,3).map(h => {
+  // Käyntihistoria — näyttää kehityksen per käynti
+  const histHtml = (k._historia||[]).slice(0,5).map(h => {
     const hv = h.splKa ? Math.round(h.splKa*10)/10 : null;
     const hc = hv===null?'#5A6B82':hv>=7.5?'#1D9E75':hv>=6?'#BA7517':'#E24B4A';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;
-      border-bottom:1px solid rgba(255,255,255,.06);font-size:11px">
-      <span style="flex:1;color:#8A9BB5">${h.pvm||'—'}</span>
-      <span style="font-size:9px;color:#5A6B82">${HS_IKAVAIHEET[h.ikavaihe]?.nimi?.split(' ')[0]||''}</span>
-      <span style="font-weight:700;color:${hc}">${hv??'—'}</span>
-      <button onclick="_naytaKayntiDetail('${k.id}','${h.id||''}')"
-        style="font-size:9px;padding:2px 7px;border-radius:5px;border:1px solid rgba(255,255,255,.1);
-        background:none;color:#8A9BB5;cursor:pointer">Näytä</button>
+    const ivN = HS_IKAVAIHEET[h.ikavaihe]?.nimi?.split(' ')[0]||'';
+    const krit = HS_IKAVAIHEET[h.ikavaihe||'nuoruus']?.kriteerit||[];
+    // Minikriteeripalkki — näyttää jokaisen kriteerin kehityksen
+    const palkit = krit.map(kr => {
+      const v = h[kr.id]??null;
+      const vc = v===null?'rgba(255,255,255,.08)':v>=kr.tavoite?'#1D9E75':v>=kr.tavoite-1?'#BA7517':'#E24B4A';
+      const h_px = v !== null ? Math.max(3, Math.round(v/10*20)) : 3;
+      return `<div title="${kr.nimi}: ${v??'—'}" style="flex:1;display:flex;
+        flex-direction:column;align-items:center;justify-content:flex-end">
+        <div style="width:100%;height:${h_px}px;background:${vc};border-radius:1px"></div>
+      </div>`;
+    }).join('');
+    return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:11px;color:#8A9BB5;flex:1">${h.pvm||'—'}</span>
+        <span style="font-size:9px;color:#5A6B82">${ivN}</span>
+        <span style="font-size:14px;font-weight:700;color:${hc}">${hv??'—'}</span>
+        <button onclick="_naytaKayntiDetail('','${h.id||''}')"
+          style="font-size:9px;padding:2px 7px;border-radius:5px;
+          border:1px solid rgba(255,255,255,.1);background:none;
+          color:#8A9BB5;cursor:pointer">Näytä</button>
+      </div>
+      ${palkit?`<div style="display:flex;gap:1px;height:20px;align-items:flex-end;
+        padding:0 2px">${palkit}</div>`:''}
+      ${h.toimenpide?`<div style="font-size:10px;color:#5A6B82;margin-top:4px;
+        padding:3px 7px;background:rgba(74,126,217,.08);border-radius:4px">
+        ⚡ ${h.toimenpide}</div>`:''}
     </div>`;
   }).join('');
 
