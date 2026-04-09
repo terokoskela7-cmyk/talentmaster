@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_auth.js"></script>
-<script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v3.js"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js"></script>
 <style>
 :root{
   --accent:#4A7ED9;--accent2:#6B9EF0;
@@ -491,9 +491,299 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   border-radius:8px;font-size:12px;color:var(--teal);font-weight:600;
   margin-top:8px;
 }
+
+/* ══ SEURAN VÄRIT (Firestoresta täytetään JS:llä) ══ */
+:root {
+  --seura-vari: #004D2A;
+  --seura-vari2: #FFFFFF;
+  --seura-lyhenne: 'TM';
+  --seura-nimi: 'TalentMaster';
+}
+
+/* ══ SPLASH ══ */
+#sSplash {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg);
+  transition: opacity .5s ease;
+}
+#sSplash.piilotetaan { opacity: 0; pointer-events: none; }
+
+.splash-bg {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, var(--seura-vari) 0%, var(--bg) 70%);
+  opacity: .18;
+}
+
+.splash-logo-wrap {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 0;
+}
+
+.splash-ring-outer {
+  width: 110px; height: 110px; border-radius: 50%;
+  border: 1.5px solid var(--seura-vari2);
+  opacity: .2;
+  position: absolute;
+  animation: splashRingPulse 2s ease-out infinite;
+}
+@keyframes splashRingPulse {
+  0%  { transform: scale(1);   opacity: .22; }
+  100%{ transform: scale(1.5); opacity: 0;   }
+}
+
+.splash-ring-mid {
+  width: 88px; height: 88px; border-radius: 50%;
+  border: 1px solid var(--seura-vari2);
+  opacity: .15;
+  position: absolute;
+  animation: splashRingPulse 2s ease-out .4s infinite;
+}
+
+.splash-logo-img {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: var(--seura-vari);
+  border: 2px solid var(--seura-vari2);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; z-index: 2;
+  overflow: hidden;
+  box-shadow: 0 0 0 4px rgba(255,255,255,.04);
+  animation: splashLogoIn .7s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes splashLogoIn {
+  from { transform: scale(.4) rotate(-15deg); opacity: 0; }
+  to   { transform: scale(1)  rotate(0deg);   opacity: 1; }
+}
+
+.splash-logo-img img {
+  width: 100%; height: 100%; object-fit: contain;
+  display: none;
+}
+.splash-logo-img img.ladattu { display: block; }
+
+.splash-logo-teksti {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 22px; letter-spacing: 1px;
+  color: var(--seura-vari2);
+  line-height: 1;
+}
+
+.splash-seura-nimi {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 14px; letter-spacing: 2px;
+  color: var(--seura-vari2); opacity: .7;
+  text-transform: uppercase; margin-top: 10px;
+  animation: splashTextIn .6s ease .4s both;
+}
+@keyframes splashTextIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: .7; transform: translateY(0); }
+}
+
+.splash-divider {
+  width: 28px; height: 1px;
+  background: var(--seura-vari2); opacity: .2;
+  margin: 12px auto;
+  animation: splashTextIn .6s ease .5s both;
+}
+
+.splash-tm {
+  font-size: 11px; color: var(--ink3);
+  letter-spacing: 1.5px; text-transform: uppercase;
+  animation: splashTextIn .6s ease .6s both;
+}
+.splash-tm span { color: var(--gold); }
+
+.splash-tmid {
+  font-size: 10px; color: var(--ink3); opacity: .5;
+  letter-spacing: 1px; margin-top: 3px;
+  animation: splashTextIn .6s ease .7s both;
+}
+
+.splash-bar-wrap {
+  position: absolute; bottom: 40px;
+  width: 120px;
+  animation: splashTextIn .6s ease .8s both;
+}
+.splash-bar-bg {
+  height: 2px; background: rgba(255,255,255,.06);
+  border-radius: 1px; overflow: hidden;
+}
+.splash-bar-fill {
+  height: 100%; border-radius: 1px;
+  background: var(--seura-vari2); opacity: .4;
+  animation: splashBarFill 2s ease forwards;
+}
+@keyframes splashBarFill {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+/* ══ ONBOARDING ══ */
+#sOnboarding {
+  position: fixed; inset: 0; z-index: 9998;
+  display: none; flex-direction: column;
+  background: var(--bg);
+  padding: 0;
+  overflow: hidden;
+}
+#sOnboarding.nakyy { display: flex; }
+
+.ob-header {
+  padding: 20px 20px 12px;
+  background: linear-gradient(180deg, rgba(0,0,0,.3) 0%, transparent 100%);
+}
+.ob-steps {
+  display: flex; gap: 5px; margin-bottom: 16px;
+}
+.ob-step-dot {
+  height: 3px; border-radius: 2px; flex: 1;
+  background: rgba(255,255,255,.1);
+  transition: background .3s;
+}
+.ob-step-dot.aktiivinen { background: var(--seura-vari2); opacity: .7; }
+.ob-step-dot.tehty { background: var(--gold); }
+
+.ob-slide {
+  display: none; flex: 1;
+  flex-direction: column; align-items: center;
+  justify-content: center; padding: 0 28px;
+  text-align: center;
+}
+.ob-slide.nakyy { display: flex; }
+
+.ob-icon-wrap {
+  width: 80px; height: 80px; border-radius: 24px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; margin-bottom: 24px;
+  animation: splashLogoIn .5s cubic-bezier(.34,1.56,.64,1) both;
+}
+
+.ob-otsikko {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 28px;
+  color: var(--text); margin-bottom: 10px;
+  line-height: 1.1;
+}
+.ob-kuvaus {
+  font-size: 14px; color: var(--ink2);
+  line-height: 1.6; max-width: 280px;
+}
+.ob-fakta {
+  margin-top: 20px; padding: 12px 16px;
+  background: rgba(74,126,217,.08);
+  border: 1px solid rgba(74,126,217,.2);
+  border-radius: 10px;
+  font-size: 12px; color: var(--ink2); line-height: 1.5;
+  max-width: 280px; text-align: left;
+}
+.ob-fakta strong { color: var(--gold); }
+
+.ob-footer {
+  padding: 20px 24px 36px;
+  display: flex; gap: 10px; align-items: center;
+}
+.ob-skip {
+  background: none; border: none; color: var(--ink3);
+  font-size: 13px; cursor: pointer; padding: 8px;
+}
+.ob-btn {
+  flex: 1; padding: 14px;
+  background: var(--seura-vari);
+  border: 1.5px solid var(--seura-vari2);
+  border-radius: 12px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 17px; font-weight: 800;
+  color: var(--seura-vari2); letter-spacing: .5px;
+  cursor: pointer; transition: opacity .15s;
+}
+.ob-btn:hover { opacity: .85; }
+.ob-btn.kulta {
+  background: var(--gold); border-color: var(--gold);
+  color: #000;
+}
 </style>
 </head>
 <body>
+
+
+<!-- ══ SPLASH SCREEN ══ -->
+<div id="sSplash">
+  <div class="splash-bg"></div>
+  <div class="splash-logo-wrap">
+    <div class="splash-ring-outer"></div>
+    <div class="splash-ring-mid"></div>
+    <div class="splash-logo-img" id="splashLogoImg">
+      <img id="splashLogoKuva" alt="Seuran logo">
+      <span class="splash-logo-teksti" id="splashLogoTeksti">TM</span>
+    </div>
+  </div>
+  <div class="splash-seura-nimi" id="splashSeuraNimi">TalentMaster</div>
+  <div class="splash-divider"></div>
+  <div class="splash-tm">Talent<span>Master</span>™</div>
+  <div class="splash-tmid" id="splashTMID">TalentMasterID</div>
+  <div class="splash-bar-wrap">
+    <div class="splash-bar-bg">
+      <div class="splash-bar-fill"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ONBOARDING (vain 1. kerta) ══ -->
+<div id="sOnboarding">
+  <div class="ob-header">
+    <div class="ob-steps" id="obSteps">
+      <div class="ob-step-dot aktiivinen"></div>
+      <div class="ob-step-dot"></div>
+      <div class="ob-step-dot"></div>
+    </div>
+  </div>
+
+  <!-- Slide 1: Tervetuloa -->
+  <div class="ob-slide nakyy" id="obSlide0">
+    <div class="ob-icon-wrap" style="background:rgba(245,183,0,.1)">⚽</div>
+    <div class="ob-otsikko" id="obTerveOtsikko">Hei, pelaaja!</div>
+    <div class="ob-kuvaus">
+      Tämä on sinun oma kehityssivusi.<br>
+      Vain sinä ja sinun valmentajasi näkevät tämän.
+    </div>
+    <div class="ob-fakta">
+      <strong>Tiesitkö?</strong> Ajax Academyn tutkimuksessa pelaajat, jotka tekevät pallokosketuksen joka päivä, kehittyvät 3× nopeammin kuin kerran viikossa harjoittelevat.
+    </div>
+  </div>
+
+  <!-- Slide 2: Harjoitteet -->
+  <div class="ob-slide" id="obSlide1">
+    <div class="ob-icon-wrap" style="background:rgba(74,126,217,.1)">🏋️</div>
+    <div class="ob-otsikko">Päivittäinen ohjelma</div>
+    <div class="ob-kuvaus">
+      Joka päivä sinulla on <strong style="color:var(--gold)">T-harjoite</strong> — tekniikka. Se kestää alle 10 minuuttia ja sen voi tehdä kotona, pihalla tai puistossa.
+    </div>
+    <div class="ob-fakta">
+      <strong>70% kaikesta harjoittelusta</strong> on kokonaisvaltaista kehittymistä. <strong>30%</strong> kohdistuu juuri sinulle valittuun kehityskohteeseen.
+    </div>
+  </div>
+
+  <!-- Slide 3: Streak -->
+  <div class="ob-slide" id="obSlide2">
+    <div class="ob-icon-wrap" style="background:rgba(255,107,43,.1)">🔥</div>
+    <div class="ob-otsikko">Rakenna putki</div>
+    <div class="ob-kuvaus">
+      Kun teet harjoitteen joka päivä, streak-laskurisi kasvaa. Pystytäänkö sinun parhaan kaverin kanssa tekemään pidempi putki kuin toinen?
+    </div>
+    <div class="ob-fakta">
+      <strong>TalentMasterID:</strong> <span id="obTMID" style="color:var(--gold);font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;">—</span><br>
+      <span style="font-size:11px;color:var(--ink3)">Tämä on sinun tunnisteesi. Jaa se kaverille ja haasta hänet!</span>
+    </div>
+  </div>
+
+  <div class="ob-footer">
+    <button class="ob-skip" onclick="_obOhita()">Ohita</button>
+    <button class="ob-btn" id="obBtn" onclick="_obSeuraava()">Seuraava →</button>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -1210,7 +1500,7 @@ const TEKNIIKKAHARJOITTEET = {
     {n:'Lateraaliloikat',d:'3×8 per puoli',ohje:'Sivuttaishyppy jalalta jalalle hitaasti. Hallittu lasku, stabiloi ennen seuraavaa.',cue:'Kolme askelta jarrutuksessa — ei yhdellä.',yt:'lateral agility drills football'},
     {n:'T-drill omatoiminen',d:'3 kertaa ajanoton kanssa',ohje:'Konen/merkki T-muodossa: eteen, sivu, sivu, taakse. Paranna aikaa 0.1s per viikko.',cue:'Katso suuntaan mihin menet — ei alas.',yt:'T drill agility football'},
   ],
-  sl: [ // Kiertoketju
+  diag: [ // Kiertoketju (DIAG = SL+FL, Wilke 2016)
     {n:'Seinäsyöttö 1-kosketus',d:'3×2 min',ohje:'Syötä seinään, vastaanota takaisin samalla jalalla. 3-4m etäisyys. Pallo maassa.',cue:'Ottava jalka pehmentää — ei torjuta kovaa pintaa vasten.',yt:'football wall pass first touch drill'},
     {n:'SM-pallo seinään',d:'3×5 min',ohje:'Kiertoheitto seinälle molemmilta puolilta. Rintakehä ohjaa — jalka seuraa.',cue:'Heitto alkaa lonkasta, ei kädestä.',yt:'rotational power football training'},
   ],
@@ -1250,6 +1540,149 @@ let _demoKey = null;
 let _tehdytTehtavat = new Set();
 let _kysely = null;
 let _kyselyVastattu = false;
+
+/* ══ SEURAN VÄRI- JA LOGOKONFIGURAATIO ══
+ * Nämä arvot päivitetään automaattisesti Firestoresta.
+ * Uusi seura: lisää vari + vari2 + lyhenne + logoUrl Firestoreen.
+ */
+const SEURA_KONFIG = {
+  fcl:         { vari:'#1A0A2E', vari2:'#9467BD', lyhenne:'FCL', nimi:'FC Lahti Juniorit' },
+  kpv:         { vari:'#004D2A', vari2:'#FFFFFF', lyhenne:'KPV', nimi:'KPV Kokkola' },
+  palloiirot:  { vari:'#1A0033', vari2:'#E040FB', lyhenne:'PIR', nimi:'Pallo-Iirot' },
+  yvies:       { vari:'#1A0D00', vari2:'#FF6600', lyhenne:'YIL', nimi:'Ylöjärven Ilves' },
+  sjk:         { vari:'#1A1A1A', vari2:'#D4AF37', lyhenne:'SJK', nimi:'SJK Juniorit' },
+  grifk:       { vari:'#001F5B', vari2:'#FFD700', lyhenne:'GrI', nimi:'GrIFK' },
+  vifk:        { vari:'#00205B', vari2:'#FFFFFF', lyhenne:'VIF', nimi:'VIFK' },
+  hjk:         { vari:'#00287A', vari2:'#FFFFFF', lyhenne:'HJK', nimi:'HJK Juniorit' },
+  demo:        { vari:'#0D1F35', vari2:'#F5B700', lyhenne:'TM',  nimi:'TalentMaster Demo' },
+};
+
+function _sovellaSeuraVari(seuraId, logoUrl) {
+  const k = SEURA_KONFIG[seuraId] || SEURA_KONFIG['demo'];
+  const root = document.documentElement;
+  root.style.setProperty('--seura-vari',  k.vari);
+  root.style.setProperty('--seura-vari2', k.vari2);
+
+  // Splash-elementit
+  const logoImg  = document.getElementById('splashLogoKuva');
+  const logoTxt  = document.getElementById('splashLogoTeksti');
+  const seuraNimi = document.getElementById('splashSeuraNimi');
+  const logoWrap = document.getElementById('splashLogoImg');
+
+  if (seuraNimi) seuraNimi.textContent = k.nimi;
+  if (logoWrap)  logoWrap.style.background = k.vari;
+  if (logoWrap)  logoWrap.style.borderColor = k.vari2;
+
+  // Logo: kuva vai teksti
+  if (logoUrl && logoImg) {
+    logoImg.src = logoUrl;
+    logoImg.onload = () => {
+      logoImg.classList.add('ladattu');
+      if (logoTxt) logoTxt.style.display = 'none';
+    };
+    logoImg.onerror = () => {
+      // Fallback: teksti
+      if (logoTxt) { logoTxt.textContent = k.lyhenne; logoTxt.style.color = k.vari2; }
+    };
+  } else if (logoTxt) {
+    logoTxt.textContent = k.lyhenne;
+    logoTxt.style.color = k.vari2;
+  }
+
+  // Meta theme-color (mobiilin status bar)
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.content = k.vari;
+}
+
+/* ══ SPLASH-LOGIIKKA ══ */
+let _splashNaytetty = false;
+
+function _naytaSplash(seuraId, pelaajaNimi, talentMasterID, logoUrl) {
+  if (_splashNaytetty) return;
+  _splashNaytetty = true;
+
+  _sovellaSeuraVari(seuraId, logoUrl);
+
+  // TalentMasterID
+  const tmidEl = document.getElementById('splashTMID');
+  if (tmidEl && talentMasterID) tmidEl.textContent = 'TalentMasterID: ' + talentMasterID;
+
+  const splash = document.getElementById('sSplash');
+  if (!splash) return;
+
+  // 2.5 sekuntia → piilota splash
+  setTimeout(() => {
+    splash.classList.add('piilotetaan');
+    setTimeout(() => {
+      splash.style.display = 'none';
+      _tarkistaOnboarding(pelaajaNimi, talentMasterID);
+    }, 500);
+  }, 2500);
+}
+
+/* ══ ONBOARDING-LOGIIKKA ══ */
+let _obVaihe = 0;
+const _OB_AVAIN = 'tm_onboarding_tehty';
+
+function _tarkistaOnboarding(pelaajaNimi, talentMasterID) {
+  const tehty = localStorage.getItem(_OB_AVAIN);
+  if (tehty) return; // Jo nähty → suoraan Tänään
+
+  // Ensimmäinen kerta → onboarding
+  const ob = document.getElementById('sOnboarding');
+  if (!ob) return;
+
+  // Täytä nimi
+  const terveEl = document.getElementById('obTerveOtsikko');
+  if (terveEl && pelaajaNimi) terveEl.textContent = 'Hei, ' + pelaajaNimi + '!';
+  const tmidEl = document.getElementById('obTMID');
+  if (tmidEl && talentMasterID) tmidEl.textContent = talentMasterID;
+
+  ob.classList.add('nakyy');
+  _obPaivitaVaihe(0);
+}
+
+function _obPaivitaVaihe(vaihe) {
+  _obVaihe = vaihe;
+  const slidet = document.querySelectorAll('.ob-slide');
+  slidet.forEach((s, i) => s.classList.toggle('nakyy', i === vaihe));
+
+  const dotit = document.querySelectorAll('.ob-step-dot');
+  dotit.forEach((d, i) => {
+    d.classList.toggle('tehty', i < vaihe);
+    d.classList.toggle('aktiivinen', i === vaihe);
+  });
+
+  const btn = document.getElementById('obBtn');
+  if (btn) {
+    if (vaihe === slidet.length - 1) {
+      btn.textContent = 'Aloitetaan! →';
+      btn.classList.add('kulta');
+    } else {
+      btn.textContent = 'Seuraava →';
+      btn.classList.remove('kulta');
+    }
+  }
+}
+
+function _obSeuraava() {
+  const slidet = document.querySelectorAll('.ob-slide');
+  if (_obVaihe < slidet.length - 1) {
+    _obPaivitaVaihe(_obVaihe + 1);
+  } else {
+    _obValmis();
+  }
+}
+
+function _obOhita() { _obValmis(); }
+
+function _obValmis() {
+  localStorage.setItem(_OB_AVAIN, '1');
+  const ob = document.getElementById('sOnboarding');
+  if (ob) { ob.style.opacity = '0'; ob.style.transition = 'opacity .3s'; }
+  setTimeout(() => { if (ob) ob.classList.remove('nakyy'); }, 300);
+}
+
 let _kirjautuminenKesken = false;
 let _uloskirjautunut    = false;  // Estää automaattisen sisäänkirjautumisen uloskirjautumisen jälkeen
 let _ladattu = {};
@@ -1689,6 +2122,15 @@ document.addEventListener('DOMContentLoaded', () => {
 async function _alustaUI() {
   const p = _pelaaja;
   nayta('sDash');
+
+  // Splash + onboarding
+  const seuraId   = p.seuraId || p.seura || 'demo';
+  const pelaajaNimi = p.etunimi || p.nimi || 'pelaaja';
+  const talentMasterID = p.talentMasterID || p.id || '';
+  // logoUrl Firestoresta jos on
+  const logoUrl = p._seuraLogoUrl || null;
+  _naytaSplash(seuraId, pelaajaNimi, talentMasterID, logoUrl);
+
 
   // Header
   document.getElementById('headerNimi').textContent = p.etunimi || p.nimi || '—';
@@ -2273,10 +2715,11 @@ function laskeRating(p) {
 
 /* ══ HAASTEET ══ */
 function renderHaasteet() {
-  // Generoi haastekoodin (v7-logiikka)
+  if (!_pelaaja) return; // Bugikorjaus: odota pelaajadataa
   if (!window._haasteKoodit) window._haasteKoodit = {};
 
   const aktEl = document.getElementById('haasteetLista');
+  if (!aktEl) return; // Bugikorjaus: tarkista elementti
 
   // ── Kaverihaaste-osio
   const haasteTyypit = [
