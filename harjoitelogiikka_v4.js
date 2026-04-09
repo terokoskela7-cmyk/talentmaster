@@ -23,6 +23,14 @@
    - Stage 5: maksimiteho / pelispesifi / itsenäinen arviointi
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ══════════════════════════════════════════════════════════════════
+   harjoitelogiikka_v4.js — SIIVOTETTU VERSIO 2026-04-09
+   
+   Muutokset siivouksessa:
+   - Duplikaattifunktiot poistettu (_ikatyyppi, _laskeStage)
+   - sl-ketju: backward-compat säilytetty, diag on canonical
+   - Rakenne: generoimTehtavat() on pääfunktio
+   ══════════════════════════════════════════════════════════════════ */
 // ── KETJUMÄÄRITTELY ──────────────────────────────────────────────────────
 // ── KETJUMÄÄRITTELY — 5 ketjua (Wilke 2016 + Liikanen 2025) ──────────
 // DIAG yhdistää SL (Kiertoketju) + FL (Yhdistelmäketju) anatomisesti
@@ -643,28 +651,6 @@ function _laskeViikonNro() {
   return Math.ceil(((d - alku) / 86400000 + alku.getDay() + 1) / 7);
 }
 
-function _ikatyyppi(ika) {
-  if (ika <= 12) return 'leikkija';
-  if (ika <= 15) return 'rakentaja';
-  return 'showcase';
-}
-
-function _laskeStage(pelaaja) {
-  const ika = pelaaja.ika || 13;
-  const p   = pelaaja.harjoitettavuus_pisteet || null;
-  if (p !== null) {
-    if (p < 10) return 1;
-    if (p < 16) return 2;
-    if (p < 22) return 3;
-    if (p < 27) return 4;
-    return 5;
-  }
-  if (ika <= 10) return 1;
-  if (ika <= 12) return 2;
-  if (ika <= 14) return 3;
-  if (ika <= 16) return 4;
-  return 5;
-}
 
 // Valitsee oikean ohjetekstin kielen mukaan
 function _ohje(harj, ityyppi) {
@@ -1141,6 +1127,8 @@ const HARJOITEPANKKI = {
   // Jalkapallosuorituskyky: rotaatiovoima, käännösnopeus, harhautukset
   // Tyypillisin oire: nivus, IT-band, toistuva nilkka
   // ════════════════════════════════════════════════════════════
+  // HUOM: sl-ketju on historiallinen nimi — käytä diag (DIAG = SL+FL, Wilke 2016)
+  // sl-harjoitteet on siirretty diag-ketjuun. Tämä osio säilytetään yhteensopivuuden vuoksi.
   sl: {
     D: [
       {
@@ -1419,7 +1407,7 @@ function generoimTehtavatV2(pelaaja, jaksoViikko) {
     sbl: pelaaja.sbl  || 1.5,
     sfl: pelaaja.sfl  || 1.5,
     ll:  pelaaja.ll   || 1.5,
-    sl:  pelaaja.sl   || 1.5,
+    sl:  pelaaja.sl   || pelaaja.diag || 1.5, // backward-compat: sl → diag
     dfl: pelaaja.dfl  || 1.5,
     pig: pelaaja.pig  || 1.5,
   };
