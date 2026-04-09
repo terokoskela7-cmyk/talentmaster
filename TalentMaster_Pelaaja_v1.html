@@ -1701,10 +1701,16 @@ const SEURA_KONFIG = {
 };
 
 function _sovellaSeuraVari(seuraId, logoUrl) {
+  // Käytä Firestoresta haettuja arvoja jos pelaajalla on ne
+  // Muuten fallback SEURA_KONFIG-objektiin (staattiset oletukset)
   const k = SEURA_KONFIG[seuraId] || SEURA_KONFIG['demo'];
   const root = document.documentElement;
-  root.style.setProperty('--seura-vari',  k.vari);
-  root.style.setProperty('--seura-vari2', k.vari2);
+
+  // Firestoresta haetut arvot ylikirjoittavat staattiset
+  const vari  = (_pelaaja && _pelaaja._seuraVari)   || k.vari;
+  const vari2 = (_pelaaja && _pelaaja._seuraVari2)  || k.vari2;
+  root.style.setProperty('--seura-vari',  vari);
+  root.style.setProperty('--seura-vari2', vari2);
 
   // Splash-elementit
   const logoImg  = document.getElementById('splashLogoKuva');
@@ -1716,9 +1722,10 @@ function _sovellaSeuraVari(seuraId, logoUrl) {
   if (logoWrap)  logoWrap.style.background = k.vari;
   if (logoWrap)  logoWrap.style.borderColor = k.vari2;
 
-  // Logo: kuva vai teksti
-  if (logoUrl && logoImg) {
-    logoImg.src = logoUrl;
+  // Logo: kuva vai teksti (logoUrl voi tulla parametrina tai _pelaaja-objektista)
+  const _kaytettavaLogo = logoUrl || (_pelaaja && _pelaaja._seuraLogoUrl) || null;
+  if (_kaytettavaLogo && logoImg) {
+    logoImg.src = _kaytettavaLogo;
     logoImg.onload = () => {
       logoImg.classList.add('ladattu');
       if (logoTxt) logoTxt.style.display = 'none';
@@ -1744,7 +1751,12 @@ function _naytaSplash(seuraId, pelaajaNimi, talentMasterID, logoUrl) {
   if (_splashNaytetty) return;
   _splashNaytetty = true;
 
-  _sovellaSeuraVari(seuraId, logoUrl);
+  // logoUrl: parametrina annettu > Firestoresta pelaajan kautta > null
+  const lopullinenLogo = logoUrl
+    || (_pelaaja && _pelaaja._seuraLogoUrl)
+    || null;
+
+  _sovellaSeuraVari(seuraId, lopullinenLogo);
 
   // TalentMasterID
   const tmidEl = document.getElementById('splashTMID');
@@ -2173,7 +2185,29 @@ async function _tarkistaUrlParam() {
 
     _pelaaja = { id: snap.id, seuraId, ...data };
     if (data.kortti_lunastettu) _pelaaja._kortti_lunastettu = data.kortti_lunastettu;
-    _uloskirjautunut = false;  // Kirjautuminen onnistui
+    _uloskirjautunut = false;
+
+    // ── Hae seuran logo, värit ja nimi Firestoresta ─────────────────────
+    // Tämä mahdollistaa seuran oman brändin splashissa ilman koodimuutoksia.
+    // Riittää että Firestoreen lisätään logoUrl + vari + vari2 + lyhenne.
+    try {
+      const seuraSnap = await _db.collection('seurat').doc(seuraId).get();
+      if (seuraSnap.exists) {
+        const sd = seuraSnap.data();
+        _pelaaja._seuraLogoUrl = sd.logoUrl  || null;
+        _pelaaja._seuraVari    = sd.vari     || null;
+        _pelaaja._seuraVari2   = sd.vari2    || null;
+        _pelaaja._seuraLyhenne = sd.lyhenne  || seuraId.toUpperCase();
+        _pelaaja._seuraNimi    = sd.nimi     || seuraId;
+        // Päivitä CSS-muuttujat heti jos Firestoressa on värit
+        if (sd.vari) {
+          document.documentElement.style.setProperty('--seura-vari',  sd.vari);
+          document.documentElement.style.setProperty('--seura-vari2', sd.vari2 || '#FFFFFF');
+        }
+      }
+    } catch(e) {
+      console.warn('[TM] Seuradatan haku epäonnistui:', e.message);
+    }
 
     // Tallenna sessio → seuraavat vierailut toimivat ilman URL-parametria
     try {
