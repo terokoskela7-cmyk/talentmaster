@@ -503,11 +503,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 /* ══ SPLASH ══ */
 #sSplash {
   position: fixed; inset: 0; z-index: 9999;
-  display: flex; flex-direction: column;
+  display: none; flex-direction: column;  /* piilotettu oletuksena */
   align-items: center; justify-content: center;
   background: var(--bg);
   transition: opacity .5s ease;
+  opacity: 0;
 }
+#sSplash.nakyy {
+  display: flex;
+  animation: splashFadeIn .3s ease forwards;
+}
+@keyframes splashFadeIn { from { opacity:0; } to { opacity:1; } }
 #sSplash.piilotetaan { opacity: 0; pointer-events: none; }
 
 .splash-bg {
@@ -1610,13 +1616,21 @@ function _naytaSplash(seuraId, pelaajaNimi, talentMasterID, logoUrl) {
   const splash = document.getElementById('sSplash');
   if (!splash) return;
 
-  // 2.5 sekuntia → piilota splash
+  // Aktivoi splash (oletuksena display:none)
+  splash.style.display = 'flex';
+  splash.style.opacity = '0';
+  requestAnimationFrame(() => {
+    splash.style.transition = 'opacity .3s ease';
+    splash.style.opacity = '1';
+  });
+
+  // 2.5 sekuntia → häivytä ja siirry eteenpäin
   setTimeout(() => {
-    splash.classList.add('piilotetaan');
+    splash.style.opacity = '0';
     setTimeout(() => {
       splash.style.display = 'none';
       _tarkistaOnboarding(pelaajaNimi, talentMasterID);
-    }, 500);
+    }, 400);
   }, 2500);
 }
 
