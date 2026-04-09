@@ -710,6 +710,119 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   background: var(--gold); border-color: var(--gold);
   color: #000;
 }
+
+/* ══ JAKSOSIIRTYMÄ-KORTTI ══════════════════════════════════════════════ */
+#sJaksoSiirtyma {
+  position: fixed; inset: 0; z-index: 9990;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(6,9,15,.92);
+  backdrop-filter: blur(6px);
+  padding: 24px;
+}
+#sJaksoSiirtyma.nakyy { display: flex; }
+
+.jsiirtyma-kortti {
+  background: var(--bg2);
+  border: 1px solid var(--seura-vari2);
+  border-radius: 20px;
+  padding: 32px 28px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  animation: jsiirtymaPop .5s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes jsiirtymaPop {
+  from { transform: scale(.7) translateY(30px); opacity: 0; }
+  to   { transform: scale(1)  translateY(0);    opacity: 1; }
+}
+
+/* Seuran värikaista yläreunassa */
+.jsiirtyma-kaista {
+  position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: var(--seura-vari2);
+}
+
+/* Konfetti-partikkelit */
+.jsiirtyma-konfetti {
+  position: absolute; inset: 0; pointer-events: none;
+  overflow: hidden;
+}
+.konfetti-pala {
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 1px;
+  animation: konfettiFall linear forwards;
+}
+@keyframes konfettiFall {
+  0%   { transform: translateY(-10px) rotate(0deg);   opacity: 1; }
+  100% { transform: translateY(360px) rotate(720deg); opacity: 0; }
+}
+
+.jsiirtyma-emoji {
+  font-size: 56px; line-height: 1;
+  margin-bottom: 16px;
+  animation: jsiirtymaBounce 1s ease .3s both;
+  display: block;
+}
+@keyframes jsiirtymaBounce {
+  0%   { transform: scale(0) rotate(-20deg); }
+  60%  { transform: scale(1.2) rotate(5deg); }
+  80%  { transform: scale(.9) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0deg);  }
+}
+
+.jsiirtyma-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 8px;
+  color: var(--seura-vari2);
+}
+
+.jsiirtyma-otsikko {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 28px; line-height: 1.1;
+  margin-bottom: 12px; color: var(--text);
+}
+.jsiirtyma-otsikko span { color: var(--seura-vari2); }
+
+.jsiirtyma-kuvaus {
+  font-size: 13px; color: var(--ink2);
+  line-height: 1.6; margin-bottom: 20px;
+}
+
+.jsiirtyma-muutos {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px; padding: 12px 14px;
+  margin-bottom: 20px; text-align: left;
+}
+.jsiirtyma-muutos-rivi {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--ink2);
+  padding: 3px 0;
+}
+.jsiirtyma-muutos-rivi .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--seura-vari2); flex-shrink: 0;
+}
+
+.jsiirtyma-nappi {
+  width: 100%;
+  background: var(--seura-vari);
+  border: 1.5px solid var(--seura-vari2);
+  border-radius: 12px; padding: 14px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px; font-weight: 900; letter-spacing: .5px;
+  color: var(--seura-vari2); cursor: pointer;
+  transition: opacity .15s;
+}
+.jsiirtyma-nappi:hover { opacity: .85; }
+
+.jsiirtyma-viikko {
+  font-size: 11px; color: var(--ink3);
+  margin-top: 10px;
+}
 </style>
 </head>
 <body>
@@ -734,6 +847,30 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     <div class="splash-bar-bg">
       <div class="splash-bar-fill"></div>
     </div>
+  </div>
+</div>
+
+
+<!-- ══ JAKSOSIIRTYMÄ-KORTTI ══ -->
+<div id="sJaksoSiirtyma">
+  <div class="jsiirtyma-kortti" id="jsiirtymaSisalto">
+    <div class="jsiirtyma-kaista"></div>
+    <div class="jsiirtyma-konfetti" id="jsiirtymKonfetti"></div>
+    <span class="jsiirtyma-emoji" id="jsiirtymEmoji">📈</span>
+    <div class="jsiirtyma-label" id="jsiirtymLabel">Uusi jakso alkaa</div>
+    <div class="jsiirtyma-otsikko" id="jsiirtymOtsikko">
+      <span id="jsiirtymNimi">Hugo</span> —<br>
+      <span id="jsiirtymJaksoNimi">Kehitysjakso</span>!
+    </div>
+    <div class="jsiirtyma-kuvaus" id="jsiirtymKuvaus">
+      Kolme viikkoa pohjatyötä on takana.<br>
+      Nyt nostetaan tasoa.
+    </div>
+    <div class="jsiirtyma-muutos" id="jsiirtymMuutos"></div>
+    <button class="jsiirtyma-nappi" onclick="_suljeJaksoSiirtyma()">
+      ALOITETAAN! →
+    </button>
+    <div class="jsiirtyma-viikko" id="jsiirtymViikko">Viikko 4 / 8</div>
   </div>
 </div>
 
@@ -1697,6 +1834,151 @@ function _obValmis() {
   setTimeout(() => { if (ob) ob.classList.remove('nakyy'); }, 300);
 }
 
+
+/* ══ JAKSOSIIRTYMÄ-LOGIIKKA ═══════════════════════════════════════════
+ * Tarkistaa onko jakso vaihtunut edellisestä kirjautumisesta.
+ * Jos on → näyttää juhlallisen siirtymäkortin.
+ * Tallentaa käytetyn jakson LocalStorageen → ei näytetä uudelleen.
+ */
+
+const _JAKSO_AVAIN = 'tm_viimJakso'; // LocalStorage-avain
+
+// Jaksojen kuvaukset kielitason mukaan
+const _JAKSO_KUVAUKSET = {
+  pohja: {
+    leikkija:  { kuvaus: 'Aloitetaan alusta ja rakennetaan kunnon pohja. Jokainen harjoite lasketaan!', muutokset: ['Harjoitteet ovat tuttuja ja rauhallisia', 'Tärkeintä on tehdä joka päivä', 'Tekniikka ennen kaikkea'] },
+    rakentaja: { kuvaus: 'Pohjajakso alkaa — tässä rakennetaan perusta kaikelle muulle.', muutokset: ['Stage-taso perusarvossaan', 'Tekniikka ja liiketaito etusijalla', 'Toistomäärät maltilliset'] },
+    showcase:  { kuvaus: 'Pohjajakso (vk 1–3). Kuormitus perusarvossaan — tekninen laatu edellä.', muutokset: ['stageModif: 0 (ei lisäystä)', 'Volyymi maltillinen', 'Valmistautuminen tulevaan progressioon'] },
+  },
+  kehitys: {
+    leikkija:  { kuvaus: 'Nyt mennään kovempaa! Olet harjoitellut jo jonkin aikaa — nyt nostetaan rimaa.', muutokset: ['Harjoitteet vaikeutuvat vähän', 'Saat enemmän toistoja tai lisäpainoa', 'Sinä pystyt tähän!'] },
+    rakentaja: { kuvaus: 'Kolme viikkoa pohjatyötä on takana. Nyt nostetaan tasoa — se on tarkoitus.', muutokset: ['Stage +1 (vaikeutuu askel)', 'Lisää toistoja tai vastusta', 'Keho on valmis tähän'] },
+    showcase:  { kuvaus: 'Kehitysjakso (vk 4–6). Progressiivinen ylikuormitus alkaa — stageModif +1.', muutokset: ['stageModif: +1 kaikissa harjoitteissa', 'Volyymi kasvaa', 'Adaptaatiovaste käynnissä'] },
+  },
+  huipentuma: {
+    leikkija:  { kuvaus: 'Tämä on se hetki! Viimeiset kaksi viikkoa — anna kaikkesi kentällä ja kotona.', muutokset: ['Kaikkein haastavimmat harjoitteet', 'Pelispesifejä liikkeitä', 'Tämä on sinun viikkosi!'] },
+    rakentaja: { kuvaus: 'Huipentuma on täällä. Kaksi viikkoa maksimiteholla — sen jälkeen uusi sykli.', muutokset: ['Stage +2 (huipputaso)', 'Pelispesifi harjoittelu', 'Maksimaalinen kehitysvaste'] },
+    showcase:  { kuvaus: 'Huipentuma (vk 7–8). Peak week — stageModif +2, pelispesifi kuormitus.', muutokset: ['stageModif: +2 maksimi', 'Räjähtävyys + pelispesifisyys', 'Ylikuormitus ennen uutta pohjaosaa'] },
+  },
+};
+
+function _tarkistaJaksoSiirtyma(pelaaja) {
+  if (!pelaaja) return;
+
+  // Laske nykyinen jakso
+  const kvikko = typeof _laskeKalenteriViikko === 'function'
+    ? _laskeKalenteriViikko()
+    : Math.ceil(new Date().getDate() / 7);
+
+  // laskeJakso tulee harjoitelogiikka_v4.js:stä
+  if (typeof laskeJakso !== 'function') return;
+  const jakso = laskeJakso(kvikko);
+
+  // Hae edellinen jakso LocalStoragesta
+  const edellinen = localStorage.getItem(_JAKSO_AVAIN);
+  const nykyinen  = jakso.nimi; // 'Pohjajakso' | 'Kehitysjakso' | 'Huipentuma'
+
+  // Jos jakso ei ole muuttunut → ei näytetä
+  if (edellinen === nykyinen) return;
+
+  // Onboarding menee ensin → odotetaan sen jälkeen
+  const obTehty = localStorage.getItem('tm_onboarding_tehty');
+  if (!obTehty) {
+    // Onboarding tulee ensin, siirtymä vasta kun se on ohi
+    const obAlku = setInterval(() => {
+      if (localStorage.getItem('tm_onboarding_tehty')) {
+        clearInterval(obAlku);
+        setTimeout(() => _naytaJaksoSiirtyma(pelaaja, jakso, nykyinen), 300);
+      }
+    }, 500);
+    return;
+  }
+
+  // Näytä siirtymäkortti pienen viiveen jälkeen
+  setTimeout(() => _naytaJaksoSiirtyma(pelaaja, jakso, nykyinen), 400);
+}
+
+function _naytaJaksoSiirtyma(pelaaja, jakso, uusiJaksoNimi) {
+  const el = document.getElementById('sJaksoSiirtyma');
+  if (!el) return;
+
+  // Määritä jaksotyyppi
+  const jaksotyyppi = uusiJaksoNimi.toLowerCase().includes('pohja')     ? 'pohja'
+                    : uusiJaksoNimi.toLowerCase().includes('kehitys')   ? 'kehitys'
+                    : 'huipentuma';
+
+  // Ikätyypin perusteella valitaan kuvaus
+  const ika      = pelaaja.ika || 13;
+  const ityyppi  = ika <= 12 ? 'leikkija' : ika <= 15 ? 'rakentaja' : 'showcase';
+  const sisalto  = (_JAKSO_KUVAUKSET[jaksotyyppi] || {})[ityyppi] || _JAKSO_KUVAUKSET.kehitys.rakentaja;
+
+  // Täytä kortti
+  const nimi = pelaaja.etunimi || pelaaja.nimi || 'Pelaaja';
+  document.getElementById('jsiirtymNimi').textContent     = nimi;
+  document.getElementById('jsiirtymJaksoNimi').textContent = uusiJaksoNimi;
+  document.getElementById('jsiirtymEmoji').textContent    = jakso.emoji || '📈';
+  document.getElementById('jsiirtymLabel').textContent    = 'Uusi jakso alkaa';
+  document.getElementById('jsiirtymKuvaus').textContent   = sisalto.kuvaus;
+  document.getElementById('jsiirtymViikko').textContent   =
+    'Viikko ' + (jakso.viikonNro || '?') + ' / 8 · ' + uusiJaksoNimi;
+
+  // Muutoslista
+  const muutosEl = document.getElementById('jsiirtymMuutos');
+  if (muutosEl && sisalto.muutokset) {
+    muutosEl.innerHTML = sisalto.muutokset.map(m =>
+      '<div class="jsiirtyma-muutos-rivi"><div class="dot"></div>' + m + '</div>'
+    ).join('');
+  }
+
+  // Konfetti-animaatio
+  _luoKonfetti();
+
+  // Näytä kortti
+  el.classList.add('nakyy');
+
+  // Tallenna uusi jakso LocalStorageen → ei näytetä enää tällä jaksolla
+  localStorage.setItem(_JAKSO_AVAIN, uusiJaksoNimi);
+}
+
+function _suljeJaksoSiirtyma() {
+  const el = document.getElementById('sJaksoSiirtyma');
+  if (!el) return;
+  el.style.opacity = '0';
+  el.style.transition = 'opacity .3s ease';
+  setTimeout(() => {
+    el.classList.remove('nakyy');
+    el.style.opacity = '';
+    el.style.transition = '';
+  }, 300);
+}
+
+function _luoKonfetti() {
+  const container = document.getElementById('jsiirtymKonfetti');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // Seuran väreistä + kulta johdetut konfettivärit
+  const root = document.documentElement;
+  const v1 = getComputedStyle(root).getPropertyValue('--seura-vari').trim()  || '#004D2A';
+  const v2 = getComputedStyle(root).getPropertyValue('--seura-vari2').trim() || '#FFFFFF';
+  const varit = [v1, v2, '#F5B700', '#A855F7', '#00D4AA'];
+
+  for (let i = 0; i < 28; i++) {
+    const pala = document.createElement('div');
+    pala.className = 'konfetti-pala';
+    pala.style.cssText = [
+      'left:'            + (5 + Math.random() * 90) + '%',
+      'background:'      + varit[Math.floor(Math.random() * varit.length)],
+      'width:'           + (4 + Math.random() * 6) + 'px',
+      'height:'          + (4 + Math.random() * 6) + 'px',
+      'border-radius:'   + (Math.random() > .5 ? '50%' : '1px'),
+      'animation-duration:'  + (.8 + Math.random() * 1.2) + 's',
+      'animation-delay:'     + (Math.random() * .5) + 's',
+    ].join(';');
+    container.appendChild(pala);
+  }
+}
+
 let _kirjautuminenKesken = false;
 let _uloskirjautunut    = false;  // Estää automaattisen sisäänkirjautumisen uloskirjautumisen jälkeen
 let _ladattu = {};
@@ -2144,6 +2426,10 @@ async function _alustaUI() {
   // logoUrl Firestoresta jos on
   const logoUrl = p._seuraLogoUrl || null;
   _naytaSplash(seuraId, pelaajaNimi, talentMasterID, logoUrl);
+
+  // Jaksosiirtymä — tarkistetaan onko jakso vaihtunut
+  // (splash menee ensin, siirtymä tulee 400ms sen jälkeen)
+  setTimeout(() => _tarkistaJaksoSiirtyma(p), 3200);
 
 
   // Header
