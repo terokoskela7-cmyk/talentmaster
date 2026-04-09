@@ -873,11 +873,24 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
    ══════════════════════════════════════════════════════════════ */
 
 /* ── 1. Harjoitekortti tehty-tila ── */
-.hkortti-tehty {
-  border-color: var(--seura-vari) !important;
-  background: rgba(0, 150, 64, .06) !important;
+.hkortti-tehty,
+.tehtava-card.hkortti-tehty {
+  border-color: var(--teal) !important;
+  background: rgba(0, 212, 170, .06) !important;
   position: relative;
   overflow: hidden;
+}
+
+/* Kortin sulkeutuminen tehty-merkinnän jälkeen */
+.hkortti-sulkeutuu,
+.tehtava-card.hkortti-sulkeutuu {
+  overflow: hidden;
+  animation: korttiSulkeutuu .5s ease .7s forwards;
+}
+@keyframes korttiSulkeutuu {
+  0%   { max-height: 300px; opacity: 1; margin-bottom: 12px; padding-top: 14px; padding-bottom: 14px; }
+  40%  { max-height: 300px; opacity: .3; }
+  100% { max-height: 0;     opacity: 0; margin-bottom: 0;    padding-top: 0;    padding-bottom: 0;    }
 }
 .hkortti-tehty::after {
   content: '';
@@ -962,20 +975,26 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 /* ── 5. Kaikki tehty -banneri ── */
 #wowBanneri {
   position: fixed;
-  bottom: -120px; left: 50%; transform: translateX(-50%);
+  display: none; /* TÄRKEÄ: täysin piilotettu – liekki-emoji ei näy */
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(200px);
   z-index: 9000;
-  background: linear-gradient(135deg, var(--seura-vari), rgba(0,0,0,.8));
+  background: linear-gradient(135deg, var(--seura-vari), rgba(0,0,0,.85));
   border: 1.5px solid var(--seura-vari2);
   border-radius: 20px;
   padding: 18px 28px;
   text-align: center;
   width: calc(100% - 32px);
   max-width: 360px;
-  transition: bottom .5s cubic-bezier(.34,1.56,.64,1);
+  transition: transform .5s cubic-bezier(.34,1.56,.64,1);
   pointer-events: none;
+  opacity: 0;
 }
 #wowBanneri.nakyy {
-  bottom: 24px;
+  transform: translateX(-50%) translateY(0); /* Paikallaan */
+  opacity: 1;
+  pointer-events: auto;
 }
 .wow-banneri-streak {
   font-family: 'Barlow Condensed', sans-serif;
@@ -3029,9 +3048,9 @@ function merkitseTehdyksi(tehtavaId, xp) {
   _tehdytTehtavat.add(tehtavaId);
 
   // ── Vaihe 1: Etsi harjoitekortti ja käynnistä korttifekti ─────
-  const kortti = document.getElementById('hkortti-' + tehtavaId)
-               || document.getElementById('doneBtn-' + tehtavaId)?.closest('[id^="hkortti"]')
-               || document.getElementById('doneBtn-' + tehtavaId)?.closest('.harjoite-wrap, div[style*="border-radius"]');
+  // Kortti löytyy id="tehtava-{id}":llä — sama kuin renderTanaan generoi
+  const kortti = document.getElementById('tehtava-' + tehtavaId)
+               || document.getElementById('doneBtn-' + tehtavaId)?.closest('.tehtava-card, [id^="tehtava"]');
 
   const btn = document.getElementById('doneBtn-' + tehtavaId);
 
@@ -3039,15 +3058,32 @@ function merkitseTehdyksi(tehtavaId, xp) {
     // Kortti vihreäksi
     kortti.classList.add('hkortti-tehty');
 
-    // Checkmark pyörähtää esiin kortin päälle
+    // Checkmark pyörähtää esiin
     const check = document.createElement('div');
     check.className = 'hkortti-check';
     check.textContent = '✓';
     kortti.style.position = 'relative';
+    kortti.style.overflow = 'hidden';
     kortti.appendChild(check);
-    setTimeout(() => check.classList.add('poistu'), 800);
-    setTimeout(() => check.remove(), 1300);
-  }
+    setTimeout(() => check.classList.add('poistu'), 700);
+
+    // Kortti sulkeutuu 1.5s jälkeen — max-height animaatio
+    setTimeout(() => {
+      check.remove();
+      const h = kortti.offsetHeight;
+      kortti.style.maxHeight     = h + 'px';
+      kortti.style.overflow      = 'hidden';
+      kortti.style.transition    = 'max-height .5s ease, opacity .4s ease, margin-bottom .5s ease, padding .5s ease';
+      requestAnimationFrame(() => {
+        kortti.style.maxHeight     = '0';
+        kortti.style.opacity       = '0';
+        kortti.style.marginBottom  = '0';
+        kortti.style.paddingTop    = '0';
+        kortti.style.paddingBottom = '0';
+      });
+      setTimeout(() => { if (kortti.parentNode) kortti.parentNode.removeChild(kortti); }, 560);
+    }, 1500);
+  }}
 
   // Nappi muuttuu vihreäksi
   if (btn) {
@@ -3174,9 +3210,18 @@ function _wowKaikkiTehty(viimeinenXP, streak, isMilestone) {
 
   // Nosta banneri esiin
   if (banneri) {
-    banneri.classList.add('nakyy');
-    // Poista 3.5s jälkeen
-    setTimeout(() => banneri.classList.remove('nakyy'), 3500);
+    // display:block ensin, sitten animaatio alkaa
+    banneri.style.display = 'block';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        banneri.classList.add('nakyy');
+      });
+    });
+    // Poista 3.5s jälkeen — piilota animoiden sitten display:none
+    setTimeout(() => {
+      banneri.classList.remove('nakyy');
+      setTimeout(() => { banneri.style.display = 'none'; }, 500);
+    }, 3500);
   }
 
   // Konfetti
