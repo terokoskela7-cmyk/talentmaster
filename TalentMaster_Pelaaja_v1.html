@@ -1511,8 +1511,12 @@ function generoimTehtavat(pelaaja) {
       })();
 
   const heikoin = prof.heikoin;
-  const vkNro   = typeof _laskeViikonNro === 'function'
-    ? _laskeViikonNro() : _pelaajaViikonNumero(new Date());
+  // Yhtenäinen viikonlaskenta — _laskeKalenteriViikko tulee harjoitelogiikka_v4.js:stä
+  // _laskeViikonNro on vanhan koodin alias, molemmat palauttavat saman luvun
+  const _laskeViikkoFn = typeof _laskeKalenteriViikko === 'function'
+    ? _laskeKalenteriViikko
+    : (typeof _laskeViikonNro === 'function' ? _laskeViikonNro : () => Math.ceil(new Date().getDate()/7));
+  const vkNro = _laskeViikkoFn();
   const vkParit = vkNro % 2 === 0 ? 'parillinen' : 'pariton';
   const sKetju  = vkParit === 'parillinen' ? heikoin : (prof.toiseksiHeikoin || heikoin);
   const tehtavat = [];
@@ -1932,7 +1936,7 @@ function _naytaJaksoSiirtyma(pelaaja, jakso, uusiJaksoNimi) {
   document.getElementById('jsiirtymLabel').textContent    = 'Uusi jakso alkaa';
   document.getElementById('jsiirtymKuvaus').textContent   = sisalto.kuvaus;
   document.getElementById('jsiirtymViikko').textContent   =
-    'Viikko ' + (jakso.viikonNro || '?') + ' / 8 · ' + uusiJaksoNimi;
+    'Viikko ' + (jakso.viikonNro || ((((typeof _laskeKalenteriViikko === 'function' ? _laskeKalenteriViikko() : 1) - 1) % 8) + 1)) + ' / 8 · ' + uusiJaksoNimi;
 
   // Muutoslista
   const muutosEl = document.getElementById('jsiirtymMuutos');
@@ -2276,6 +2280,26 @@ async function _lataaFirebasePelaaja(user) {
           if (saSnap.exists) {
             _pelaaja = { id: saSnap.id, seuraId: _saSeura, ...saSnap.data() };
             console.log('[SA] Ladattu oikea pelaaja:', _saPelId, 'seura:', _saSeura);
+
+            // Hae seuran brändidatan (logo, värit) — sama kuin URL-param reitillä
+            try {
+              const saSeuraSnap = await _db.collection('seurat').doc(_saSeura).get();
+              if (saSeuraSnap.exists) {
+                const sd = saSeuraSnap.data();
+                _pelaaja._seuraLogoUrl = sd.logoUrl || null;
+                _pelaaja._seuraVari    = sd.vari    || null;
+                _pelaaja._seuraVari2   = sd.vari2   || null;
+                _pelaaja._seuraLyhenne = sd.lyhenne || _saSeura.toUpperCase();
+                _pelaaja._seuraNimi    = sd.nimi    || _saSeura;
+                if (sd.vari) {
+                  document.documentElement.style.setProperty('--seura-vari',  sd.vari);
+                  document.documentElement.style.setProperty('--seura-vari2', sd.vari2 || '#FFFFFF');
+                }
+              }
+            } catch(eSASeura) {
+              console.warn('[SA] Seuradatan haku:', eSASeura.message);
+            }
+
             await _alustaUI();
             return;
           } else {
@@ -2292,7 +2316,9 @@ async function _lataaFirebasePelaaja(user) {
         seuraId: _saSeura, joukkueId: 'kpv_u15',
         syntymaVuosi: 2012, positio: 'KM',
         flei_viimeisin: 75, streak: 3, xp: 250, taso: 3,
-        phv_tila: 'AN', sbl:2.1, sfl:1.9, ll:1.8, sl:2.0, dfl:1.7,
+        phv_tila: 'AN',
+        sbl:2.1, sfl:1.9, ll:1.8, diag:2.0, dfl:1.7,
+        harjoitettavuus_pisteet: 18,
       };
       await _alustaUI();
       return;
