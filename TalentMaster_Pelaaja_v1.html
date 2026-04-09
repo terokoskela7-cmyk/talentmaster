@@ -620,11 +620,49 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .splash-bar-fill {
   height: 100%; border-radius: 1px;
   background: var(--seura-vari2); opacity: .4;
-  animation: splashBarFill 2s ease forwards;
+  animation: splashBarFill 4s ease forwards;
 }
 @keyframes splashBarFill {
   from { width: 0%; }
   to   { width: 100%; }
+}
+
+/* ── Siirtymäteksti ── */
+.splash-siirtyma {
+  position: relative; z-index: 1;
+  text-align: center;
+  margin-top: 20px;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity .8s ease, transform .8s ease;
+  pointer-events: none;
+}
+.splash-siirtyma.nakyy {
+  opacity: 1;
+  transform: translateY(0);
+}
+.splash-siirtyma-viiva {
+  width: 40px; height: 1px;
+  background: var(--seura-vari2);
+  opacity: .3;
+  margin: 0 auto 14px;
+}
+.splash-siirtyma-teksti {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 1.5px;
+  color: var(--seura-vari2);
+  text-transform: uppercase;
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+.splash-siirtyma-sub {
+  font-size: 11px;
+  color: var(--seura-vari2);
+  opacity: .45;
+  letter-spacing: 3px;
+  text-transform: uppercase;
 }
 
 /* ══ ONBOARDING ══ */
@@ -843,6 +881,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   <div class="splash-divider"></div>
   <div class="splash-tm">Talent<span>Master</span>™</div>
   <div class="splash-tmid" id="splashTMID">TalentMasterID</div>
+
+  <!-- Siirtymäteksti — ilmestyy 1.8s jälkeen -->
+  <div class="splash-siirtyma" id="splashSiirtyma">
+    <div class="splash-siirtyma-viiva"></div>
+    <div class="splash-siirtyma-teksti" id="splashSiirtymaTeksti">
+      Tämä on sinun matkasi
+    </div>
+    <div class="splash-siirtyma-sub">Kehity. Haasta. Kasva.</div>
+  </div>
+
   <div class="splash-bar-wrap">
     <div class="splash-bar-bg">
       <div class="splash-bar-fill"></div>
@@ -921,6 +969,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <span style="font-size:11px;color:var(--ink3)">Tämä on sinun tunnisteesi. Jaa se kaverille ja haasta hänet!</span>
     </div>
   </div>
+
+  
+    <!-- Lupaus pelaajalle — viimeinen slide -->
+    <div style="border:1px solid rgba(255,255,255,.1);border-radius:12px;
+      padding:14px 16px;background:rgba(255,255,255,.03);text-align:center;margin-top:12px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;
+        font-size:17px;letter-spacing:2px;color:var(--text);margin-bottom:4px;">
+        TÄMÄ ON SINUN MATKASI
+      </div>
+      <div style="font-size:11px;color:var(--ink3);letter-spacing:2px;">
+        KEHITY · HAASTA · KASVA
+      </div>
+    </div>
 
   <div class="ob-footer">
     <button class="ob-skip" onclick="_obOhita()">Ohita</button>
@@ -1005,7 +1066,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 
     <!-- Demo-napit -->
     <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px;">
-      <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;text-align:center;">Demo-pelaajat</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;">Demo-pelaajat</div>
+        <button onclick="localStorage.removeItem('tm_onboarding_tehty');localStorage.removeItem('tm_viimJakso');location.reload()"
+          style="font-size:9px;color:var(--ink3);background:none;border:none;cursor:pointer;padding:2px 6px;
+          border:1px solid rgba(255,255,255,.06);border-radius:4px;opacity:.5"
+          title="Nollaa onboarding (kehittäjä)">↺ reset</button>
+      </div>
       <div class="login-pin-row">
         <div class="pin-btn" onclick="demoKirjaudu('aleksi')">⚡ Aleksi<br><span style="color:var(--ink3);font-size:10px;">Nopea · 82pts</span></div>
         <div class="pin-btn" onclick="demoKirjaudu('eeli')">📈 Eeli<br><span style="color:var(--ink3);font-size:10px;">Kehittyvä · 71pts</span></div>
@@ -1766,6 +1833,12 @@ function _naytaSplash(seuraId, pelaajaNimi, talentMasterID, logoUrl) {
   const tmidEl = document.getElementById('splashTMID');
   if (tmidEl && talentMasterID) tmidEl.textContent = 'TalentMasterID: ' + talentMasterID;
 
+  // Siirtymätekstin personointi — pelaajan nimi jos saatavilla
+  const siirtymaTekstiEl = document.getElementById('splashSiirtymaTeksti');
+  if (siirtymaTekstiEl && pelaajaNimi && pelaajaNimi !== 'pelaaja') {
+    siirtymaTekstiEl.textContent = pelaajaNimi + ' — tämä on sinun matkasi';
+  }
+
   const splash = document.getElementById('sSplash');
   if (!splash) return;
 
@@ -1778,13 +1851,20 @@ function _naytaSplash(seuraId, pelaajaNimi, talentMasterID, logoUrl) {
   });
 
   // 2.5 sekuntia → häivytä ja siirry eteenpäin
+  // Vaihe 1 (1.8s): Siirtymäteksti liukuu esiin
+  setTimeout(() => {
+    const siirtymaEl = document.getElementById('splashSiirtyma');
+    if (siirtymaEl) siirtymaEl.classList.add('nakyy');
+  }, 1800);
+
+  // Vaihe 2 (4.2s): Fade out → onboarding tai Tänään
   setTimeout(() => {
     splash.style.opacity = '0';
     setTimeout(() => {
       splash.style.display = 'none';
       _tarkistaOnboarding(pelaajaNimi, talentMasterID);
-    }, 400);
-  }, 2500);
+    }, 600);
+  }, 4200);
 }
 
 /* ══ ONBOARDING-LOGIIKKA ══ */
@@ -1823,7 +1903,7 @@ function _obPaivitaVaihe(vaihe) {
   const btn = document.getElementById('obBtn');
   if (btn) {
     if (vaihe === slidet.length - 1) {
-      btn.textContent = 'Aloitetaan! →';
+      btn.textContent = 'Aloita matka →';
       btn.classList.add('kulta');
     } else {
       btn.textContent = 'Seuraava →';
