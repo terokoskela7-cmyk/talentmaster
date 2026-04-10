@@ -199,7 +199,7 @@ const PANKKI = {
         stage: [1, 2],
         nimi: 'Simpukka + sivulankku',
         ohje_leikkija: 'Makaa kyljelläsi, polvet yhteen. Avaa yläpolvi ylöspäin kuin simpukka — mutta pidä lantio paikallaan! 12 kertaa, sitten vaihda. Sitten sivulankku kyynärpäällä 20 sekuntia per puoli.',
-        ohje_rakentaja: 'Clamshell kylkimakuulla 2×12 per puoli: polvet yhteen, avaa yläpolvi ylös (lantio ei saa kaatua). Sitten sivulankku 2×20s per puoli.',
+        ohje_rakentaja: 'Simpukka kylkimakuulla 2×12 per puoli: makaa kyljelläsi, polvet yhteen, avaa yläpolvi ylös (lantio ei saa kaatua). Sitten sivulankku 2×20s per puoli.',
         ohje_showcase: null,
         kesto: '5 min', xp: 15,
         yt: 'p5UANxnGByc',
@@ -208,9 +208,9 @@ const PANKKI = {
       },
       {
         stage: [3, 4, 5],
-        nimi: 'Clamshell + sivulankku',
+        nimi: 'Simpukka + sivulankku',
         ohje_leikkija: null,
-        ohje_rakentaja: 'Clamshell 2×12 per puoli: kylkimakuulla, polvet yhteen, avaa ylös (lantio paikallaan). Sitten sivulankku 2×20s per puoli: keho suorana sivulta.',
+        ohje_rakentaja: 'Simpukka 2×12 per puoli: makaa kyljelläsi, polvet yhteen, avaa yläpolvi ylös (lantio paikallaan). Sitten sivulankku 2×20s per puoli: keho suorana sivulta.',
         ohje_showcase: 'Clamshell 2×12 gluteus medius -aktivaatiolla. Sivulankku 2×20s. LL: gluteus medius estää valgus-kollapsın suunnanmuutoksissa.',
         kesto: '5 min', xp: 15,
         yt: 'p5UANxnGByc',
@@ -264,7 +264,7 @@ const PANKKI = {
         stage: [3, 4, 5],
         nimi: '360° hengitys + dead bug',
         ohje_leikkija: null,
-        ohje_rakentaja: '360° palleahengitys 3×5: hengitä sisään niin että vatsa, kyljet JA selkä laajenevat. Dead bug 3×5 per puoli: alaselkä maassa koko ajan, laske vastakkainen käsi + jalka hitaasti.',
+        ohje_rakentaja: '360° palleahengitys 3×5: hengitä sisään niin että vatsa, kyljet JA selkä laajenevat. Ristikkäinen selkäliike 3×5 per puoli: alaselkä maassa koko ajan, laske vastakkainen käsi + jalka hitaasti.',
         ohje_showcase: '360° palleahengitys 3×5. Dead bug 3×5 per puoli — alaselkä koko ajan maassa. DFL: pallea on ainoa lihas joka toimii sekä hengityslihaksena että lantion stabilaattorina.',
         kesto: '6 min', xp: 15,
         yt: 'kqnua4rHVIA',
@@ -363,9 +363,9 @@ const PANKKI = {
           },
           {
             stage: [3, 4],
-            nimi: '5-loikka ajalla + Nordic curl',
+            nimi: '5-loikka ajalla + norjalaiskaatuminen',
             ohje_leikkija: null,
-            ohje_rakentaja: '5-loikka 3× maksimilla, mittaa matka. Sitten Nordic curl avustettu: kumppaani tai seinä pitää kantapäistä, laske HITAASTI eteen 3×5. Palaa käsillä.',
+            ohje_rakentaja: '5-loikka 3× maksimilla, mittaa matka. Sitten Norjalaiskaatuminen avustettuna: pyydä kaveria tai seinää pitämään kantapäistäsi — laske HITAASTI eteen 3×5. Palaa käsillä ylös.',
             ohje_showcase: '5-loikka 3× — mittaa ja vertaa edelliseen kertaan. Nordic curl eksentrinen 3×5: laske hallitusti, palaa käsillä. SBL: hamstring eksentrisenä = loukkaantumissuoja.',
             kesto: '15 min', xp: 30,
             yt: 'a7UGb10ViSM',
@@ -375,7 +375,7 @@ const PANKKI = {
           },
           {
             stage: [5],
-            nimi: '5-loikka + Nordic curl täysi',
+            nimi: '5-loikka + norjalaiskaatuminen täysi',
             ohje_leikkija: null, ohje_rakentaja: null,
             ohje_showcase: '5-loikka 3× — kirjaa matka, vertaa kauden alkuun. Nordic curl täysi 3×5 (ei käsiapua). SBL eksentrisenä huipputasolla. Seuraa asymmetriaa: oikea vs vasen.',
             kesto: '15 min', xp: 35,
@@ -864,8 +864,8 @@ const HARJOITEPANKKI = {
       },
       {
         pv: [1, 3, 6], // Ti, To, Su
-        nimi: 'Hip hinge kepillä + silta',
-        ohje: 'Hip hinge kepillä 3×10: kepi selkärangan suuntaisesti, nojaa eteen lonkasta (ei alaselästä), tunne hamstring. Sitten lantionnosto 3×15: pidä yläasento 2s.',
+        nimi: 'Lonkkataitto kepillä + silta',
+        ohje: 'Lonkkataitto kepillä 3×10: kepi selkärangan suuntaisesti, nojaa eteen lonkasta (ei alaselästä), tunne hamstring. Sitten lantionnosto 3×15: pidä yläasento 2s.',
         kesto: '7 min',
         xp: 15,
         cue: 'Potku ja lähtö tapahtuvat lonkasta — ei polvesta. Hip hinge opettaa sen.',
@@ -887,7 +887,7 @@ const HARJOITEPANKKI = {
       {
         vk: 'parillinen',
         nimi: 'Takaketjun kehitys — loikkasarjat',
-        ohje: 'Loikkasarjat 3×5 paikaltaan (bilateral): ponnista ylös maksimikorkeuteen, laske pehmeästi. Palautus 90s. Sitten hip hinge kepillä 3×10 lisäten nopeutta.',
+        ohje: 'Loikkasarjat 3×5 paikaltaan (bilateral): ponnista ylös maksimikorkeuteen, laske pehmeästi. Palautus 90s. Sitten lonkkataitto kepillä 3×10 lisäten nopeutta.',
         kesto: '20 min',
         xp: 30,
         cue: 'Liikanen & Törmä 2025: loikkavoimaa mittaava 5-loikka erotteli ammattilaisiksi yltäneet tilastollisesti.',
@@ -897,8 +897,8 @@ const HARJOITEPANKKI = {
       },
       {
         vk: 'pariton',
-        nimi: 'Takaketjun kehitys — Nordic curl progressio',
-        ohje: 'Nordic curl avustettu (kumilenkki tai seinä kantapäällä): 3×5 eksentristä — laske HITAASTI eteen, palaa käsillä. Jos ei onnistu: glute bridge yhdellä jalalla 3×12.',
+        nimi: 'Takaketjun kehitys — norjalaiskaatuminen progressio',
+        ohje: 'norjalaiskaatuminen avustettu (kumilenkki tai seinä kantapäällä): 3×5 eksentristä — laske HITAASTI eteen, palaa käsillä. Jos ei onnistu: pakarasilta yhdellä jalalla 3×12: makaa selälläsi, nosta lantio ylös yhdellä jalalla.',
         kesto: '20 min',
         xp: 30,
         cue: 'Petersen 2011: Nordic hamstring -ohjelma vähensi hamstring-vammoja 51%. Pakollinen kaikille jalkapalloilijoille.',
@@ -983,7 +983,7 @@ const HARJOITEPANKKI = {
       {
         vk: 'parillinen',
         nimi: 'Lähtöketjun kehitys — sammakkohypyt',
-        ohje: 'Sammakkohypyt paikaltaan 3×5: kyykky alas, ponnista ylös ja eteen maksimille. Mittaa matka. Sitten hip hinge -rutiini 3×10 nousevalla nopeudella.',
+        ohje: 'Sammakkohypyt paikaltaan 3×5: kyykky alas, ponnista ylös ja eteen maksimille. Mittaa matka. Sitten lonkkataitto -rutiini 3×10 nousevalla nopeudella.',
         kesto: '20 min',
         xp: 30,
         cue: 'Vauhditon pituushyppy ennustaa räjähtävyyttä. Mittaa ja paranna — jokainen sentti kertoo kehityksestä.',
@@ -1043,8 +1043,8 @@ const HARJOITEPANKKI = {
     D: [
       {
         pv: [0, 2, 4],
-        nimi: 'Clamshell + sivulankku',
-        ohje: 'Clamshell 2×12 per puoli: kylkimakuulla, polvet yhteen, avaa yläpolvi kuin simpukka (pidä lantio paikallaan). Sitten sivulankku 2×20s per puoli: keho suorana sivulta katsottuna.',
+        nimi: 'Simpukka + sivulankku',
+        ohje: 'Simpukka 2×12 per puoli: kylkimakuulla, polvet yhteen, avaa yläpolvi kuin simpukka (pidä lantio paikallaan). Sitten sivulankku 2×20s per puoli: keho suorana sivulta katsottuna.',
         kesto: '6 min', xp: 15,
         cue: 'Sivuttainen vakaus pitää polven linjassa suunnanmuutoksissa. Clamshell aktivoi gluteus mediuksen — IT-bandin tärkein tukilihas.',
         fascia_cue: 'LL: gluteus medius → TFL → IT-band → fibula → peronéaaliset. Koko sivulinja.',
@@ -1277,7 +1277,7 @@ const HARJOITEPANKKI = {
         {
           vaihe: 'Valmistava', viikot: '1–2', intensiteetti: '60–70%',
           nimi: 'Tekniikka + hengitys',
-          ohje: 'Lankku 3×20s — fokus hengitykseen: hengitä normaalisti koko ajan. Dead bug 3×5 hitaasti. 360° palleahengitys 3×5. Kirjaa lankun kesto.',
+          ohje: 'Lankku 3×20s — fokus hengitykseen: hengitä normaalisti koko ajan. ristikkäinen selkäliike 3×5 hitaasti. 360° palleahengitys 3×5. Kirjaa lankun kesto.',
           mittari: 'Kirjaa lankun maksimikesto viikolla 1.',
           kesto: '25 min', xp: 40,
         },
