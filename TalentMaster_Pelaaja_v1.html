@@ -2051,7 +2051,10 @@ function generoimTehtavat(pelaaja) {
     ? _laskeStage(pelaaja)
     : (ika <= 10 ? 1 : ika <= 12 ? 2 : ika <= 14 ? 3 : ika <= 16 ? 4 : 5);
   // Jaksovaiheen modifikaattori (Pohja+0 / Kehitys+1 / Huipentuma+2)
-  stage = Math.min(5, stage + (jakso ? jakso.stageModif||0 : 0));
+  // Rajoitetaan +1 jotta stage ei hyppää liian rajusti
+  // (esim. stage 3 + kehitys +2 = 5 on liian kova)
+  const _rawModif = jakso ? jakso.stageModif||0 : 0;
+  stage = Math.min(5, stage + Math.min(1, _rawModif));
   // PHV-rajoite: biologinen suoja
   if (phv === 'PH' && stage > 2) stage = 2;
 
@@ -2915,8 +2918,23 @@ async function _lataaFirebasePelaaja(user) {
           if (emailTasmaa || claims.super_admin || claims.superAdmin) {
             const pelData = directSnap.data();
             _pelaaja = Object.assign({ id: directSnap.id }, pelData);
-            // Kortti_lunastettu → _kortti_lunastettu (sisäinen kenttä)
             if (pelData.kortti_lunastettu) _pelaaja._kortti_lunastettu = pelData.kortti_lunastettu;
+            // Hae seuran brändidata (logo, värit) ennen splashin näyttöä
+            try {
+              const t0SeuraSnap = await _db.collection('seurat').doc(_urlSeura).get();
+              if (t0SeuraSnap.exists) {
+                const sd = t0SeuraSnap.data();
+                _pelaaja._seuraLogoUrl = sd.logoUrl || null;
+                _pelaaja._seuraVari    = sd.vari    || null;
+                _pelaaja._seuraVari2   = sd.vari2   || null;
+                _pelaaja._seuraLyhenne = sd.lyhenne || _urlSeura.toUpperCase();
+                _pelaaja._seuraNimi    = sd.nimi    || _urlSeura;
+                if (sd.vari) {
+                  document.documentElement.style.setProperty('--seura-vari',  sd.vari);
+                  document.documentElement.style.setProperty('--seura-vari2', sd.vari2 || '#FFFFFF');
+                }
+              }
+            } catch(eT0Seura) { console.warn('[Tapa0] Seuradatan haku:', eT0Seura.message); }
             await _alustaUI();
             return;
           }
@@ -4544,7 +4562,29 @@ async function _tarkistaFiilinki() {
 
     if (snap.exists) {
       var data = snap.data();
-      // Jos fiilinki on jo kirjattu tänään, lukitaan widget
+
+      // Lataa tehdyt harjoitteet — aseta _tehdytTehtavat-set
+      // Kirjauksessa on: { T_pallo: true, D_aktivointi: true, ... }
+      // tai tyyppi-kentästä: { tyyppi: 'T', tehty: true }
+      if (_tehdytTehtavat) {
+        _tehdytTehtavat.clear();
+        // Uusi rakenne: erilliset kirjaukset per harjoite
+        Object.keys(data).forEach(function(k) {
+          if (data[k] === true && (k.startsWith('T_') || k.startsWith('D_') || k.startsWith('S_'))) {
+            _tehdytTehtavat.add(k.toLowerCase());
+          }
+        });
+        // Vanha rakenne: tyyppi + tehty = true
+        if (data.tehty === true && data.tyyppi) {
+          _tehdytTehtavat.add(data.tyyppi.toLowerCase() + '_' + (data.harjoiteId || 'tuntematon'));
+        }
+        // Kirjattu tehtäväId suoraan
+        if (data.tehtavaId && data.tehty) {
+          _tehdytTehtavat.add(data.tehtavaId);
+        }
+      }
+
+      // Fiilinki-lukitus
       if (data.fiilinki_paivitetty || data.fiilinki !== undefined) {
         _fiilinki_lukittu = true;
         _lukitseFiilinki(data);
