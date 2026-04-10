@@ -3944,8 +3944,13 @@ function renderHaasteet() {
     haasteTyypit.forEach(function(h) {
       var aktiivinen = aktiivisetKoodit.find(function(kv) { return kv[1].tyyppi === h.id; });
       var borderVari = aktiivinen ? 'var(--gold)' : 'var(--border)';
+      var koodiArvo = aktiivinen ? aktiivinen[0] : '';
       var koodiRivi  = aktiivinen
-        ? '<div style="font-size:11px;color:var(--gold);margin-top:4px;">Koodi: ' + aktiivinen[0] + '</div>'
+        ? '<div onclick="navigator.clipboard?.writeText(\'' + koodiArvo + '\').then(()=>naytaToast(\'📋 Koodi kopioitu!\',\'gold\'))"'
+          + ' style="font-size:12px;font-weight:700;color:var(--gold);margin-top:6px;'
+          + 'background:rgba(245,183,0,.1);border:1px solid rgba(245,183,0,.25);'
+          + 'border-radius:6px;padding:4px 8px;cursor:pointer;letter-spacing:1px;">'
+          + '📋 ' + koodiArvo + ' — kopioi</div>'
         : '';
       nappiHtml += '<div onclick="luoHaasteKoodi(\'' + h.id + '\')"'
         + ' style="background:var(--bg3);border:1px solid ' + borderVari + ';border-radius:9px;'
@@ -4630,7 +4635,9 @@ async function _tarkistaFiilinki() {
       if (_kFiilis) {
         if (_kMalli === 'aamu') {
           // Aamu kirjattu — vaihda UI treeni-malliin, älä lukitse treeniä
-          _naytaMalliBadge('aamu', data);
+          // Pieni viive — varmistetaan että _naytaFilinIkataso on renderöinyt widgetin
+          var _badgeData = data;
+          setTimeout(function() { _naytaMalliBadge('aamu', _badgeData); }, 300);
           if (typeof _fiiliMalli !== 'undefined' && _fiiliMalli === 'aamu') {
             _fiiliMalli = 'treeni';
             if (typeof _paivitaFilinAikaBtn === 'function') _paivitaFilinAikaBtn();
@@ -4838,7 +4845,8 @@ async function luoHaasteKoodi(tyyppi) {
   try {
     await _db.collection('haasteet').doc(koodi).set(haasteDok);
     window._haasteKoodit[koodi] = haasteDok;
-    naytaToast('⚔️ Koodi: ' + koodi + ' — kopioitu leikepöydälle!', 'gold');
+    // Näytä koodi toast + pysyvä näyttö haaste-napissa
+    naytaToast('⚔️ ' + koodi + ' — kopioitu! Jaa kaverille WhatsAppissa 📲', 'gold');
     navigator.clipboard?.writeText(koodi).catch(() => {});
     renderHaasteet();
   } catch(e) {
