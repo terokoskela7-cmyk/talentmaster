@@ -2025,22 +2025,19 @@ function generoimTehtavat(pelaaja) {
 
   // Ikä: suora kenttä tai Timestamp-safe laskenta syntymavuodesta
   const _gTs = pelaaja.syntymaaika;
-  // Tarkka ikälaskenta — vuosilukuero antaa väärän tuloksen syntymäkuukausille
   let ika = pelaaja.ika || null;
   if (!ika) {
-    let syntyma = null;
-    if (_gTs?.toDate)     syntyma = _gTs.toDate();
-    else if (_gTs?.seconds) syntyma = new Date(_gTs.seconds * 1000);
-    else if (_gTs)         syntyma = new Date(_gTs);
-    if (syntyma && !isNaN(syntyma)) {
-      const nyt = new Date();
-      ika = nyt.getFullYear() - syntyma.getFullYear();
-      const onVielaEdessä = nyt.getMonth() < syntyma.getMonth()
-        || (nyt.getMonth() === syntyma.getMonth() && nyt.getDate() < syntyma.getDate());
-      if (onVielaEdessä) ika--;
+    let _gsyn = _gTs?.toDate ? _gTs.toDate()
+      : _gTs?.seconds ? new Date(_gTs.seconds * 1000)
+      : _gTs ? new Date(_gTs) : null;
+    if (_gsyn && !isNaN(_gsyn)) {
+      const _gnyt = new Date();
+      ika = _gnyt.getFullYear() - _gsyn.getFullYear();
+      if (_gnyt.getMonth() < _gsyn.getMonth() ||
+          (_gnyt.getMonth() === _gsyn.getMonth() && _gnyt.getDate() < _gsyn.getDate())) ika--;
     }
   }
-  if (!ika) ika = 13; // fallback generoimTehtavat:ssa — rakentaja-taso
+  if (!ika) ika = 13;
   const phv     = pelaaja.phv_tila || 'AN';
   const jakso   = laskeMissaJaksossa();
 
@@ -2247,6 +2244,7 @@ const KYSELYT = [
 
 /* ══ STATE ══ */
 let _pelaaja = null;
+let _alustaUIKaynnissa = false;
 let _isDemoUser = false;
 let _demoKey = null;
 let _tehdytTehtavat = new Set();
@@ -2508,18 +2506,16 @@ function _naytaJaksoSiirtyma(pelaaja, jakso, uusiJaksoNimi) {
 
   // Täytä kortti
   const nimi = pelaaja.etunimi || pelaaja.nimi || 'Pelaaja';
-  // getElementById suojattu — elementti voi olla vielä DOM:ssa jos splash on kesken
-  const _jEl = (id) => document.getElementById(id);
-  if (_jEl('jsiirtymNimi'))     _jEl('jsiirtymNimi').textContent     = nimi;
-  if (_jEl('jsiirtymJaksoNimi'))_jEl('jsiirtymJaksoNimi').textContent = uusiJaksoNimi;
-  if (_jEl('jsiirtymEmoji'))    _jEl('jsiirtymEmoji').textContent    = jakso.emoji || '📈';
-  if (_jEl('jsiirtymLabel'))    _jEl('jsiirtymLabel').textContent    = 'Uusi jakso alkaa';
-  if (_jEl('jsiirtymKuvaus'))   _jEl('jsiirtymKuvaus').textContent   = sisalto.kuvaus;
-  if (_jEl('jsiirtymViikko')) _jEl('jsiirtymViikko').textContent =
+  document.getElementById('jsiirtymNimi').textContent     = nimi;
+  document.getElementById('jsiirtymJaksoNimi').textContent = uusiJaksoNimi;
+  document.getElementById('jsiirtymEmoji').textContent    = jakso.emoji || '📈';
+  document.getElementById('jsiirtymLabel').textContent    = 'Uusi jakso alkaa';
+  document.getElementById('jsiirtymKuvaus').textContent   = sisalto.kuvaus;
+  document.getElementById('jsiirtymViikko').textContent   =
     'Viikko ' + (jakso.viikonNro || ((((typeof _laskeKalenteriViikko === 'function' ? _laskeKalenteriViikko() : 1) - 1) % 8) + 1)) + ' / 8 · ' + uusiJaksoNimi;
 
   // Muutoslista
-  const muutosEl = _jEl('jsiirtymMuutos');
+  const muutosEl = document.getElementById('jsiirtymMuutos');
   if (muutosEl && sisalto.muutokset) {
     muutosEl.innerHTML = sisalto.muutokset.map(m =>
       '<div class="jsiirtyma-muutos-rivi"><div class="dot"></div>' + m + '</div>'
@@ -3056,10 +3052,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ══ UI-ALUSTUS ══ */
 async function _alustaUI() {
-  // Estä rinnakkainen ajaminen — auth-flow voi kutsua useasti lähes yhtä aikaa
-  if (_alustaUIKaynnissa) { console.log('[UI] _alustaUI jo käynnissä — ohitetaan'); return; }
+  if (_alustaUIKaynnissa) { console.log('[UI] jo käynnissä'); return; }
   _alustaUIKaynnissa = true;
-  try {
   const p = _pelaaja;
   nayta('sDash');
 
@@ -3073,8 +3067,7 @@ async function _alustaUI() {
 
   // Jaksosiirtymä — tarkistetaan onko jakso vaihtunut
   // (splash menee ensin, siirtymä tulee 400ms sen jälkeen)
-  // Jaksosiirtymä splashin jälkeen — 2000ms riittää (splash kestää ~2s)
-  setTimeout(() => _tarkistaJaksoSiirtyma(p), 2000);
+  setTimeout(() => _tarkistaJaksoSiirtyma(p), 3200);
 
 
   // Header
@@ -3105,11 +3098,7 @@ async function _alustaUI() {
 
   // Näytä ensimmäinen tabi
   naytaTabi('tanaan', document.querySelector('.tab-btn.active'));
-
-  } finally {
-    // Vapautetaan lippu aina — myös virhetilanteessa
-    _alustaUIKaynnissa = false;
-  }
+  _alustaUIKaynnissa = false;
 }
 
 function _renderXP() {
@@ -4170,26 +4159,20 @@ function _renderFiilinki() {
   const p = _pelaaja;
   if (!p) return;
 
-  // Laske ikä tarkasti syntymäpäivästä — pelkkä vuosilukuero antaa väärän tuloksen
-  // (joulukuussa 2012 syntynyt on vielä 13v huhtikuussa 2026 vaikka 2026-2012=14)
   const _synTs = p.syntymaaika;
   let ika = p.ika || null;
   if (!ika) {
-    let syntyma = null;
-    if (_synTs?.toDate)   syntyma = _synTs.toDate();
-    else if (_synTs?.seconds) syntyma = new Date(_synTs.seconds * 1000);
-    else if (_synTs)       syntyma = new Date(_synTs);
-    if (syntyma && !isNaN(syntyma)) {
-      // Tarkka ikä päivätasolla
-      const nyt = new Date();
-      ika = nyt.getFullYear() - syntyma.getFullYear();
-      // Vähennetään 1 jos syntymäpäivä ei vielä kuluvan vuoden osalta ohitettu
-      const onVielaEdessä = nyt.getMonth() < syntyma.getMonth()
-        || (nyt.getMonth() === syntyma.getMonth() && nyt.getDate() < syntyma.getDate());
-      if (onVielaEdessä) ika--;
+    let _syn = _synTs?.toDate ? _synTs.toDate()
+      : _synTs?.seconds ? new Date(_synTs.seconds * 1000)
+      : _synTs ? new Date(_synTs) : null;
+    if (_syn && !isNaN(_syn)) {
+      const _nyt = new Date();
+      ika = _nyt.getFullYear() - _syn.getFullYear();
+      if (_nyt.getMonth() < _syn.getMonth() ||
+          (_nyt.getMonth() === _syn.getMonth() && _nyt.getDate() < _syn.getDate())) ika--;
     }
   }
-  if (!ika) ika = 12; // fallback — näyttää leikkija-tason (turvallisin oletus)
+  if (!ika) ika = 12;
 
   // Automaattinen malli kellonajan mukaan
   // Ennen klo 10 → aamuarvio, sen jälkeen → treenimalli aktiivisena
@@ -4874,25 +4857,9 @@ async function paivitaOhjelma() {
 
 /* ── T-harjoitteen ikäkohtainen ohje ─────────────────────── */
 function _tHarjoiteOhje(pelaaja) {
-  // Tarkka ikälaskenta — vuosilukuero antaa väärän tuloksen syntymäkuukausille
-  let ika = pelaaja.ika || null;
-  if (!ika) {
-    const _ts = pelaaja.syntymaaika;
-    let syn = _ts?.toDate ? _ts.toDate()
-      : _ts?.seconds ? new Date(_ts.seconds * 1000)
-      : _ts ? new Date(_ts) : null;
-    if (!syn && (pelaaja.syntymaVuosi || pelaaja.syntymaaika_vuosi)) {
-      // Vain vuosi tiedossa — käytetään konservatiivisesti (ei kuukausikorjausta)
-      syn = new Date((pelaaja.syntymaVuosi || pelaaja.syntymaaika_vuosi) + '-07-01');
-    }
-    if (syn && !isNaN(syn)) {
-      const nyt = new Date();
-      ika = nyt.getFullYear() - syn.getFullYear();
-      if ((nyt.getMonth() < syn.getMonth()) ||
-          (nyt.getMonth() === syn.getMonth() && nyt.getDate() < syn.getDate())) ika--;
-    }
-  }
-  if (!ika) ika = 14; // fallback
+  const syntymaVuosi = pelaaja.syntymaVuosi || pelaaja.syntymaaika_vuosi
+    || (new Date().getFullYear() - 14);
+  const ika = new Date().getFullYear() - syntymaVuosi;
   const pelipaikka = pelaaja.pelipaikka || '';
 
   if (ika < 12) {
@@ -4959,24 +4926,8 @@ async function renderOhjelma() {
     // Generoidaan harjoitelogiikka_v3.js:llä tai fallback inline-kirjastoon
     const tehtavat = generoimTehtavat(p);
     const fleiNyt  = p.flei_viimeisin || p.flei_pct || 60;
-    // Tarkka ikälaskenta — vuosilukuero antaa väärän tuloksen syntymäkuukausille
-    let ika = p.ika || null;
-    if (!ika) {
-      const _rts = p.syntymaaika;
-      let _rsyn = _rts?.toDate ? _rts.toDate()
-        : _rts?.seconds ? new Date(_rts.seconds * 1000)
-        : _rts ? new Date(_rts) : null;
-      if (!_rsyn && (p.syntymaVuosi || p.syntymaaika_vuosi)) {
-        _rsyn = new Date((p.syntymaVuosi || p.syntymaaika_vuosi) + '-07-01');
-      }
-      if (_rsyn && !isNaN(_rsyn)) {
-        const _rnyt = new Date();
-        ika = _rnyt.getFullYear() - _rsyn.getFullYear();
-        if ((_rnyt.getMonth() < _rsyn.getMonth()) ||
-            (_rnyt.getMonth() === _rsyn.getMonth() && _rnyt.getDate() < _rsyn.getDate())) ika--;
-      }
-    }
-    if (!ika) ika = 14;
+    const syntymaVuosi = p.syntymaVuosi || p.syntymaaika_vuosi || (new Date().getFullYear() - 14);
+    const ika = new Date().getFullYear() - syntymaVuosi;
 
     // Laske heikoin ketju
     const ketjut = { sbl: p.sbl||1.5, sfl: p.sfl||1.5, ll: p.ll||1.5, sl: p.sl||1.5, dfl: p.dfl||1.5 };
