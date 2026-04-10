@@ -2025,11 +2025,22 @@ function generoimTehtavat(pelaaja) {
 
   // Ikä: suora kenttä tai Timestamp-safe laskenta syntymavuodesta
   const _gTs = pelaaja.syntymaaika;
-  const _gSyn = pelaaja.syntymavuosi || pelaaja.syntymaVuosi
-    || (_gTs?.toDate ? _gTs.toDate().getFullYear()
-       : _gTs?.seconds ? new Date(_gTs.seconds * 1000).getFullYear()
-       : _gTs ? new Date(_gTs).getFullYear() : null);
-  const ika = pelaaja.ika || (_gSyn ? new Date().getFullYear() - _gSyn : 13);
+  // Tarkka ikälaskenta — vuosilukuero antaa väärän tuloksen syntymäkuukausille
+  let ika = pelaaja.ika || null;
+  if (!ika) {
+    let syntyma = null;
+    if (_gTs?.toDate)     syntyma = _gTs.toDate();
+    else if (_gTs?.seconds) syntyma = new Date(_gTs.seconds * 1000);
+    else if (_gTs)         syntyma = new Date(_gTs);
+    if (syntyma && !isNaN(syntyma)) {
+      const nyt = new Date();
+      ika = nyt.getFullYear() - syntyma.getFullYear();
+      const onVielaEdessä = nyt.getMonth() < syntyma.getMonth()
+        || (nyt.getMonth() === syntyma.getMonth() && nyt.getDate() < syntyma.getDate());
+      if (onVielaEdessä) ika--;
+    }
+  }
+  if (!ika) ika = 13; // fallback generoimTehtavat:ssa — rakentaja-taso
   const phv     = pelaaja.phv_tila || 'AN';
   const jakso   = laskeMissaJaksossa();
 
@@ -3056,7 +3067,8 @@ async function _alustaUI() {
 
   // Jaksosiirtymä — tarkistetaan onko jakso vaihtunut
   // (splash menee ensin, siirtymä tulee 400ms sen jälkeen)
-  setTimeout(() => _tarkistaJaksoSiirtyma(p), 3200);
+  // Jaksosiirtymä splashin jälkeen — 2000ms riittää (splash kestää ~2s)
+  setTimeout(() => _tarkistaJaksoSiirtyma(p), 2000);
 
 
   // Header
@@ -3087,6 +3099,11 @@ async function _alustaUI() {
 
   // Näytä ensimmäinen tabi
   naytaTabi('tanaan', document.querySelector('.tab-btn.active'));
+
+  } finally {
+    // Vapautetaan lippu aina — myös virhetilanteessa
+    _alustaUIKaynnissa = false;
+  }
 }
 
 function _renderXP() {
@@ -4147,12 +4164,26 @@ function _renderFiilinki() {
   const p = _pelaaja;
   if (!p) return;
 
+  // Laske ikä tarkasti syntymäpäivästä — pelkkä vuosilukuero antaa väärän tuloksen
+  // (joulukuussa 2012 syntynyt on vielä 13v huhtikuussa 2026 vaikka 2026-2012=14)
   const _synTs = p.syntymaaika;
-  const _synVuosi = p.syntymavuosi || p.syntymaVuosi
-    || (_synTs?.toDate ? _synTs.toDate().getFullYear()
-       : _synTs?.seconds ? new Date(_synTs.seconds * 1000).getFullYear()
-       : _synTs ? new Date(_synTs).getFullYear() : null);
-  const ika = p.ika || (_synVuosi ? new Date().getFullYear() - _synVuosi : null) || 12;
+  let ika = p.ika || null;
+  if (!ika) {
+    let syntyma = null;
+    if (_synTs?.toDate)   syntyma = _synTs.toDate();
+    else if (_synTs?.seconds) syntyma = new Date(_synTs.seconds * 1000);
+    else if (_synTs)       syntyma = new Date(_synTs);
+    if (syntyma && !isNaN(syntyma)) {
+      // Tarkka ikä päivätasolla
+      const nyt = new Date();
+      ika = nyt.getFullYear() - syntyma.getFullYear();
+      // Vähennetään 1 jos syntymäpäivä ei vielä kuluvan vuoden osalta ohitettu
+      const onVielaEdessä = nyt.getMonth() < syntyma.getMonth()
+        || (nyt.getMonth() === syntyma.getMonth() && nyt.getDate() < syntyma.getDate());
+      if (onVielaEdessä) ika--;
+    }
+  }
+  if (!ika) ika = 12; // fallback — näyttää leikkija-tason (turvallisin oletus)
 
   // Automaattinen malli kellonajan mukaan
   // Ennen klo 10 → aamuarvio, sen jälkeen → treenimalli aktiivisena
