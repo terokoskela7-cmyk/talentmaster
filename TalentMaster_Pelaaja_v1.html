@@ -1357,12 +1357,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     </div>
 
     <!-- Kotitehtävät -->
-    <div class="stitle">Tänään tehtävänä</div>
-    <div id="tehtavatLista">
-      <div class="loading"><div class="spinner"></div>Ladataan...</div>
-    </div>
-
-    <!-- Fiilinki -->
     <div class="stitle" style="margin-top:4px;">Miten fiilaat tänään?</div>
     <div id="fiiliWidget" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
       <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px" id="fiiliOtsikko">Miten fiilaat tänään?</div>
@@ -1430,6 +1424,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     </div>
 
     <!-- Kysely -->
+
+    <div class="stitle">Tänään tehtävänä</div>
+    <div id="tehtavatLista">
+      <div class="loading"><div class="spinner"></div>Ladataan...</div>
+    </div>
+
+    <!-- Fiilinki -->
+
     <div class="stitle" style="margin-top:4px;">Päivän kysymys</div>
     <div id="kyselyAlue"></div>
 
@@ -2801,11 +2803,24 @@ async function _alustaUI() {
 function _renderXP() {
   const p = _pelaaja;
   const xp = p.xp || 0;
-  const taso = p.taso || 1;
   const tasot = [0,50,120,220,360,550,800,1100,1500,2000,2600];
+
+  // Laske taso XP:stä automaattisesti — älä luota p.taso-kenttään
+  // (se voi olla väärä jos XP on kertynyt ilman tason päivitystä)
+  let laskettuTaso = 1;
+  for (let i = 1; i < tasot.length; i++) {
+    if (xp >= tasot[i]) laskettuTaso = i + 1;
+    else break;
+  }
+  laskettuTaso = Math.min(laskettuTaso, 10);
+
+  // Päivitä _pelaaja.taso jos se on väärässä
+  if (p.taso !== laskettuTaso) p.taso = laskettuTaso;
+
+  const taso    = laskettuTaso;
   const nykyMin = tasot[Math.min(taso-1, tasot.length-1)] || 0;
-  const nykyMax = tasot[Math.min(taso, tasot.length-1)] || 100;
-  const pct = Math.min(100, Math.round((xp - nykyMin) / (nykyMax - nykyMin) * 100));
+  const nykyMax = tasot[Math.min(taso,   tasot.length-1)] || 100;
+  const pct     = Math.min(100, Math.round((xp - nykyMin) / (nykyMax - nykyMin) * 100));
   // Mastery-tasot: Basic (1-2) → Kilpailija (3-4) → Sharp (5-6) → Elite (7-8) → Signature (9-10)
   const masteryNimet = {
     1:'Basic',2:'Basic',3:'Kilpailija',4:'Kilpailija',
@@ -2926,7 +2941,7 @@ function renderTehtavat() {
     jaksoPalkki.innerHTML = '<div style="display:flex;align-items:center;gap:10px;'
       + 'padding:9px 14px;border-radius:10px;background:rgba(255,255,255,.03);'
       + 'border:1px solid var(--border);margin-bottom:14px;">'
-      + '<div style="font-size:18px;flex-shrink:0">' + jakso.emoji + '</div>'
+      + '<div style="font-size:18px;flex-shrink:0;margin-right:2px">' + jakso.emoji + '</div>'
       + '<div style="flex:1;">'
       + '<div style="font-size:12px;font-weight:700;color:' + jakso.vari + '">'
       + jakso.vaihe + '-jakso</div>'
