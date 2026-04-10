@@ -96,52 +96,247 @@ const PANKKI = {
   // Progressio: leikkipallo → tekniikkapallo → pelipaikka
   // ══════════════════════════════════════════════════════════════════
   T: {
-    leikkija: {
-      stage_1_2: {
-        nimi: 'Palloleikki — tee mitä tykkäät',
-        ohje_leikkija: 'Ota pallo ja mene ulos. Pompauta seinään, kuljeta, leiki! 15 minuuttia — ei sääntöjä. Voit kutsua kaverin mukaan.',
-        ohje_rakentaja: null, ohje_showcase: null,
-        kesto: '15–20 min', xp: 20,
-        yt: 'YkuHbivPsow',
-        cue: 'Jokainen kosketus rakentaa hermoratoja. Tämä on tärkeintä mitä voit tehdä.',
+
+    // ══════════════════════════════════════════════════════════════════
+    // T-HARJOITTEET — päivittäinen pallokosketus
+    //
+    // Lähteet:
+    //   Fulham FC Academy Home Practice (kotitreeniohjelma U9–U11)
+    //   v.v. Noordster Basis Techniek Training (8 sarjaa, 3 tasoa)
+    //
+    // JAKSOTUS (mesosyklit):
+    //   Syyskuu  (vk 1–4):  Kaka     — vastaanottaminen
+    //   Lokakuu  (vk 5–8):  Affelay  — dribbelin perusta
+    //   Marraskuu (vk 9–12): Ronaldo — 1v1-liikkeet
+    //   Joulukuu (vk 13–16): Beckham — syöttäminen
+    //   Tammi–huhtikuu: sama sykli, isompi vaativuus (kierros 2)
+    //
+    // VIIKKORAKENNE (mikrosykli):
+    //   Vk 1: opitaan → ilman vastustajaa, hidas, oikein
+    //   Vk 2: nopeutetaan → sama liike + haaste
+    //   Vk 3: passiivinen vastustaja → Noordster Taso 2
+    //   Vk 4: mittaus → laske toistot, vertaa edelliseen
+    //   Vk 5: REPEAT INDIVIDUAL NEED (Fulham) → heikoin viikko uudelleen
+    //
+    // OPPIMISTASOT (Noordster):
+    //   Taso 1 (vk 1–2): Ilman vastustajaa — oikea liike ensin
+    //   Taso 2 (vk 3):   Passiivinen vastustaja — nopeus kasvaa
+    //   Taso 3 (vk 4):   Täysi 1v1 tai mittaus — siirtyy peliin
+    // ══════════════════════════════════════════════════════════════════
+
+    // ── SYYSKUU (kuukausi 9): KAKA — vastaanottaminen ───────────────
+    kaka: {
+      teema: 'Vastaanottaminen',
+      kuvaus_leikkija: 'Pallo pysähtyy jalkaasi kuin magneetti',
+      kuvaus_rakentaja: 'Ensimmäinen kosketus ratkaisee kaiken',
+      kuvaus_showcase: 'Kaka-sarja — 13 vastaanottamisen muotoa',
+
+      vk1: { // Taso 1: opitaan liike ilman vastustajaa
+        nimi: 'Pysäytys — sisäjalalla',
+        ohje_leikkija: 'Heitä pallo seinään ja pysäytä se sisäjalalla niin että se jää kiinni jalkaan. 20 kertaa oikealla, 20 vasemmalla. Laske montako pysyy lähellä!',
+        ohje_rakentaja: 'Seinäsyöttö — sisäjalalla pysäytys välittömästi peliasennossa. 20 toistoa per jalka. Tarkista: tukijalka pallon viereen, ei taakse.',
+        ohje_showcase: 'Sisäjalka: pysäytys + välittömästi peliasento. Ulkojalka: pysäytys + ohjaus tilaan. 15 × 2 per jalka. Tarkista: pysähtyykö pallo alas vai jatkaako?',
+        kesto: '15 min', xp: 20,
+        yt: 'fHbM1v9G6xk',
+        cue: 'Kaká (AC Milan): "Ensimmäinen kosketus kertoo mitä tapahtuu seuraavaksi."',
+        viikkotavoite: 'Sisäjalkavastaanotto — 10/10 pysähtyy lähelle jalkaa',
+      },
+      vk2: { // Taso 1+: sama liike + nopeus kasvaa
+        nimi: 'Pysäytys — molemmat jalat + vaihto',
+        ohje_leikkija: 'Nyt nopeammin! Seinästä — pysäytä — lähetä heti takaisin. Ei odottelua. 30 kertaa. Vaihda jalkaa joka toinen kerta.',
+        ohje_rakentaja: 'Pysäytys + välitön peliasento + syöttö takaisin yhteen kosketukseen. 30 toistoa molemmin jaloin. Rytmi: pallo tulee → pysäytys → syöttö alle 2 sekunnissa.',
+        ohje_showcase: 'Kaikki 4 perusmuotoa: sisäjalka peliasento | sisäjalka tilaan | ulkojalka peliasento | ulkojalka tilaan. 10 toistoa kutakin. Mittaa aikaa.',
+        kesto: '15 min', xp: 20,
+        yt: 'fHbM1v9G6xk',
+        cue: 'Ajax: jokainen kosketus on päätös. Vastaanotto on jo hyökkäys.',
+        viikkotavoite: 'Vastaanotto + syöttö alle 2 sekunnissa 20/30 kertaa',
+      },
+      vk3: { // Taso 2: passiivinen vastustaja
+        nimi: 'Vastaanotto — vastustaja lähellä',
+        ohje_leikkija: 'Pyydä kaveria seisomaan lähellä (ei ota palloa). Pysäytä niin että pallo menee kaverin ohi. Pallo turvaan! 20 kertaa.',
+        ohje_rakentaja: 'Kaveri seisoo vieressä passiivisena. Vastaanota niin että avaat tilan pois hänestä — sisäjalka tai ulkojalka, kumpi toimii paremmin? 25 toistoa.',
+        ohje_showcase: 'Vastaanotto tukijalan taakse (Kaka-muoto 6) + avautuminen sisäjalalla (muoto 7) + avautuminen ulkojalalla (muoto 8). 10 × kutakin kaverin kanssa.',
+        kesto: '20 min', xp: 25,
+        yt: 'fHbM1v9G6xk',
+        cue: 'Noordster Taso 2: liike täytyy onnistua täydessä nopeudessa ennen 1v1:tä.',
+        viikkotavoite: 'Vastaanotto auki vastustajasta 15/20 toistoa',
+      },
+      vk4: { // Taso 3: mittaus + oma arvio
+        nimi: 'Kaka-viikon mittaus',
+        ohje_leikkija: 'Laske: montako kertaa peräkkäin pysäytät pallon niin että se ei vieri yli metrin päähän? Kirjaa ennätys! Yritä päihittää se.',
+        ohje_rakentaja: 'Mittaa: tee 20 vastaanottoa ja laske montako menee peliasennossa oikein (alle 1 m, välitön peliasento). Vertaa vk 1:n tasoon — onko kehitystä?',
+        ohje_showcase: 'Kaka-sarja kaikki 13 muotoa: käy läpi järjestyksessä. Merkitse ✓ kun onnistuu 8/10. Kuinka moni 13:sta on jo "omistettu"?',
+        kesto: '20 min', xp: 30,
+        yt: 'fHbM1v9G6xk',
+        cue: 'Fulham: mittaa kehitystä — ilman mittausta ei tiedä missä on.',
+        viikkotavoite: 'Kaka 13 muodosta: montako hallitset?',
       },
     },
-    rakentaja: {
-      stage_3: {
-        nimi: 'Tekniikkapallo — valitse yksi',
-        ohje_leikkija: 'Valitse yksi leikki: pompauta 3 min | lähetä seinälle 100 kertaa | tee kiemura kartioiden välissä. Vaihda joka päivä!',
-        ohje_rakentaja: 'Valitse yksi: ponnauttelu 3 min molemmat jalat | seinäsyöttö 100 × 1 kosketus | pujottelu kartioilla 15 min. Eri vaihtoehto joka päivä.',
+
+    // ── LOKAKUU (kuukausi 10): AFFELAY — dribbelin perusta ──────────
+    affelay: {
+      teema: 'Dribbelin perusta',
+      kuvaus_leikkija: 'Kuljeta palloa silmät ylhäällä!',
+      kuvaus_rakentaja: '4 perustaitoa — pohja kaikelle muulle',
+      kuvaus_showcase: 'Affelay + Sneijder — dribbeli + liike ilman palloa',
+
+      vk1: {
+        nimi: 'Dribbeli — katse ylhäällä',
+        ohje_leikkija: 'Kuljeta palloa eteenpäin 20 metriä, katso YLHÄÄLLÄ! Älä katso palloon. Vaihda suuntaa äkillisesti 5 kertaa. Tee 5 kierrosta.',
+        ohje_rakentaja: '4 perustaitoa peräkkäin: 1) Kuljeta silmät yli pallon etsien tilaa. 2) Kiihdytä hitaasta täyteen vauhtiin kahdessa askeleessa — pallo ei saa lähteä yli 2 askeleen. 3) Pienet nopeat suunnanvaihdot ilman suuria kaaria. 4) Tarkista: katso eteenpäin. 3 kierrosta.',
         ohje_showcase: null,
-        kesto: '15–20 min', xp: 20,
+        kesto: '15 min', xp: 20,
         yt: 'PKe-qpMbHgg',
-        cue: 'Taitavuus syntyy toistosta. Ajax: "daily touches" joka päivä.',
+        cue: 'Affelay (PSV/Barcelona): nämä 4 taitoa ovat pohja jolle kaikki muu rakennetaan.',
+        viikkotavoite: 'Kuljeta 20 m silmät ylhäällä ilman palloa putoamasta',
       },
-      stage_4: {
-        nimi: 'Tekniikkapallo — paineen alla',
-        ohje_leikkija: null,
-        ohje_rakentaja: 'Valitse yksi ja lisää haaste: seinäsyöttö silmät välillä kiinni | ponnauttelu heikolla jalalla | pujottelu taaksepäin. Vaikeus kasvaa.',
-        ohje_showcase: 'Vaativa tekniikka: seinäsyöttö 1-kosketuksella + samalla skannaa ympärillä → nimeä 3 asiaa ennen vastaanottoa. 20 min.',
-        kesto: '15–20 min', xp: 20,
+      vk2: {
+        nimi: 'Dribbeli — kiihdytys pallon kanssa',
+        ohje_leikkija: 'Seiso paikallasi, pallo edessä. Lähtölaukaus — kiihdytä maksimille niin nopeasti kuin pystyt, pallo mukana! 10 kertaa. Palautus kävellen.',
+        ohje_rakentaja: 'Kiihdytysladder: 0–5m hidas | 5–10m keskinopeus | 10–15m maksimi — pallo mukana koko ajan. Mittaa: milloin pallo irtoaa liikaa? 8 toistoa.',
+        ohje_showcase: 'Kiihdytys + suunnanmuutos 45° ilman palloa pysähtymistä. 6 toistoa kumpaankin suuntaan. Mittaa reaktioaikaa: kuinka nopeasti olet täydessä vauhdissa?',
+        kesto: '15 min', xp: 20,
         yt: 'PKe-qpMbHgg',
-        cue: 'Kun perus sujuu, lisää haaste. Aivojen pitää tehdä töitä samaan aikaan.',
+        cue: 'Räjähtävyys: tärkeää ei ole mitä liikettä teet vaan milloin ja kuinka nopeasti kiihdytät sen jälkeen.',
+        viikkotavoite: '0–15m pallo mukana, alle 3 s',
+      },
+      vk3: {
+        nimi: 'Dribbeli — kaveria vastaan (passiivinen)',
+        ohje_leikkija: 'Kaveri seisoo edessä, ei liiku. Ohita hänet vasemmalta tai oikealta! Kiihdytä ohi. 15 kertaa kummastakin suunnasta.',
+        ohje_rakentaja: 'Kaveri seisoo passiivisena puolustajana. Tee suunnanmuutos ohi hänestä — käytä lyhyttä liikettä, ei suurta kaarta. Ohituksen jälkeen välitön kiihdytys. 20 toistoa.',
+        ohje_showcase: 'Affelay-Sneijder yhdistettynä: dribbele lähelle kaveria → vaihda suuntaa → kaveri seuraa passiivisesti. Katso ylös ennen liikettä. 20 min pelimäisesti.',
+        kesto: '20 min', xp: 25,
+        yt: 'PKe-qpMbHgg',
+        cue: 'Noordster: hallitse liike ensin yksin, sitten passiivista vastaan, sitten täydessä 1v1:ssä.',
+        viikkotavoite: 'Ohita passiivinen puolustaja 15/20 kertaa',
+      },
+      vk4: {
+        nimi: 'Dribbeli-mittaus',
+        ohje_leikkija: 'Pujottele 5 kartiota niin nopeasti kuin pystyt — ajanotto! Kirjaa aika. Yritä parantaa 3 kertaa.',
+        ohje_rakentaja: 'Ajanotto: pujottelu 5 kartio, 10 m. Tee 5 suoritusta. Laske paras aika. Vertaa: oletko nopeampi kuin lokakuun alussa?',
+        ohje_showcase: 'Affelay 4 taitoa: mittaa kuinka moni onnistuu täydessä pelissä (pelin jälkeen arvioi). Katso ylös, kiihdytä, suunnanmuutos, rytmi.',
+        kesto: '20 min', xp: 30,
+        yt: 'PKe-qpMbHgg',
+        cue: 'La Masia: mittaa kehitystä, älä vain harjoittele — ilman mittausta et tiedä oletko kehittynyt.',
+        viikkotavoite: 'Pujottelu 10 m — paranna lokakuun alun aikaa',
       },
     },
-    showcase: {
-      stage_5: {
-        nimi: 'Pelipaikkakohtainen tekniikka',
-        ohje_leikkija: null, ohje_rakentaja: null,
-        ohje_showcase: 'Tee 20 min pelipaikkasi teknistä ydinliikettä. LH: 1v1-siirtoja + laukaus. KK: syöttötarkkuus molemmin jaloin. KV: jalkaterätekniikka matalalta. Mittaa suoritusten laatu.',
+
+    // ── MARRASKUU (kuukausi 11): 1V1-LIIKKEET (Ronaldo-sarja) ───────
+    ronaldo: {
+      teema: '1v1-liikkeet',
+      kuvaus_leikkija: 'Opi ohittamaan vastustaja',
+      kuvaus_rakentaja: 'Cristiano Ronaldo -sarja — Zidane ja Robben kategoriat',
+      kuvaus_showcase: 'Ronaldo + Van Persie -sarjat — laaja 1v1-repertuaari',
+
+      vk1: {
+        nimi: 'U-käännös (Zidane) — opitaan hitaasti',
+        ohje_leikkija: 'Jalkapohja pallon päälle, vedä taaksepäin, käänny 180°. Hidas ensin! 15 kertaa oikealla jalalla, 15 vasemmalla. Ei kiire.',
+        ohje_rakentaja: 'U-draai: jalkapohja päälle → vedä taaksepäin → käänny 180° → kiihdytä. Tee 20 kertaa hitaasti ja oikein. Sitten: yliastuminen (saksi pallon yli). 20 kertaa. Ei vastustajaa.',
+        ohje_showcase: 'Ronaldo-sarja liikkeet 1–4 hitaasti: U-käännös | yliastuminen | U+yliastuminen yhdistettynä | Cruyff-käännös. 10 × kutakin, tekninen laatu ensin.',
         kesto: '20 min', xp: 20,
-        yt: 'aclHkVaku9U',
-        cue: 'La Masia: pelipaikka on identiteetti. Tekniikka siirtyy peliin automaation kautta.',
+        yt: 'eoR91TNIWDQ',
+        cue: 'Noordster-sääntö: "Koko sarja täytyy hallita ilman vastustajaa ennen kuin siirrytään passiiviseen."',
+        viikkotavoite: 'U-käännös onnistuu 10/10 molemmilla jaloilla',
+      },
+      vk2: {
+        nimi: '1v1-liike — nopeammin',
+        ohje_leikkija: 'Nyt nopeammin! U-käännös + heti kiihdytys. Tee liike ja juokse ohi nopeasti. 15 kertaa kummallakin jalalla.',
+        ohje_rakentaja: 'Valittu liike täydessä nopeudessa ilman vastustajaa: teeskentely + liike + kiihdytys alle 1 sekunnissa. 25 toistoa. Lisää: saksi (Robben) — vie jalka pallon yli 20 kertaa.',
+        ohje_showcase: 'Liikkeet 1–7 täydessä nopeudessa yksin. Mittaa: kuinka nopeasti teet liikkeen + kiihdytys 5 metriin? Tavoite alle 2 s.',
+        kesto: '20 min', xp: 20,
+        yt: 'eoR91TNIWDQ',
+        cue: 'Räjähtävyys: tärkeää ei ole mitä liikettä — vaan kuinka nopeasti kiihdytät sen jälkeen.',
+        viikkotavoite: 'Liike + 5 m kiihdytys alle 2 sekunnissa',
+      },
+      vk3: {
+        nimi: '1v1 — passiivinen puolustaja',
+        ohje_leikkija: 'Kaveri seisoo edessä, ei liiku. Käytä U-käännöstä tai saksea ohittaaksesi hänet! 20 kertaa. Yllätä kaveri.',
+        ohje_rakentaja: 'Kaveri passiivisena: tee liike → ohita → kiihdytä. Kaveri voi liikkua hitaasti mutta ei ota palloa. 20 toistoa valitulla liikkeellä + 10 toistoa vapaasti valiten.',
+        ohje_showcase: 'Puoli-aktiivinen puolustaja (saa liikkua mutta ei taklata): ohita käyttäen Ronaldo-sarjan liikkeitä. 25 toistoa. Mikä liike toimii parhaiten sinulle?',
+        kesto: '20 min', xp: 25,
+        yt: 'eoR91TNIWDQ',
+        cue: 'Noordster Taso 2: liikkeen täytyy toimia täydessä nopeudessa ennen siirtymistä täyteen 1v1:een.',
+        viikkotavoite: 'Ohita passiivinen puolustaja 15/20 kertaa valitulla liikkeellä',
+      },
+      vk4: {
+        nimi: '1v1-mittaus — toimiiko pelissä?',
+        ohje_leikkija: 'Pelaa 1v1-peliä kaverin kanssa 10 min. Laske: montako kertaa ohitit? Mitä liikettä käytit parhaiten?',
+        ohje_rakentaja: 'Täysi 1v1: 10 min peliä. Laske ohitukset. Arvioi: mikä liike toimi, mikä ei? Harjoittele heikkoa liikettä 10 min lisää.',
+        ohje_showcase: 'Täysi 1v1-peli 15 min + itsearvio: Ronaldo-sarjan liikkeistä mitkä 3 ovat jo omassa repertuaarissa? Mitkä tarvitsevat lisää työtä?',
+        kesto: '20 min', xp: 30,
+        yt: 'eoR91TNIWDQ',
+        cue: 'Fulham-mittaus: toimiiko liike oikeassa pelissä? Jos ei — palaa vk 1:een.',
+        viikkotavoite: 'Vähintään 1 onnistunut ohitus per pelitilanne',
       },
     },
+
+    // ── JOULUKUU (kuukausi 12): BECKHAM — syöttäminen ───────────────
+    beckham: {
+      teema: 'Syöttäminen ja laukaus',
+      kuvaus_leikkija: 'Lähetä pallo tarkasti',
+      kuvaus_rakentaja: 'Sisäjalka + wreeffi — kaikki syöttötavat',
+      kuvaus_showcase: 'Beckham-sarja — 11 syöttö- ja laukausteknikkaa',
+
+      vk1: {
+        nimi: 'Sisäjalkasyöttö — tarkka ja toistettava',
+        ohje_leikkija: 'Lähetä pallo seinälle ja yritä osua samaan kohtaan 10 kertaa peräkkäin. Tukijalka pallon viereen — ei taakse! Laske ennätys.',
+        ohje_rakentaja: 'Sisäjalkasyöttö 20 toistoa: tukijalka pallon viereen | nilkka lukossa | osuma pallon keskikohtaan. Sitten wreeffi maassa 20 toistoa: koko jalkapöydän yläpuoli osuu palloon. Mittaa tarkkuus.',
+        ohje_showcase: 'Beckham-sarja muodot 1–3: sisäjalka | wreeffi maassa | suora ilmapassi. 15 × kutakin. Mittaa: osumakohta pallossa (pitää olla keskikohta).',
+        kesto: '20 min', xp: 20,
+        yt: 'yGHMHi9mMOQ',
+        cue: 'Beckham (ManUtd/Real Madrid): tukijalka ratkaisee suunnan. Wreeffi ratkaisee nopeuden.',
+        viikkotavoite: '10 peräkkäistä sisäjalkasyöttöä samaan kohtaan',
+      },
+      vk2: {
+        nimi: 'Syöttö — etäisyydet kasvavat',
+        ohje_leikkija: 'Syötä 5 metriin, sitten 10 metriin, sitten 15 metriin. Sama liike, pallo seuraa! Kumpi jalka on tarkempi?',
+        ohje_rakentaja: 'Syöttöprogressio: 10 m | 15 m | 20 m — sisäjalka ja wreeffi. Mittaa tarkkuus joka etäisyydellä. Tavoite: 8/10 osuu kohteeseen.',
+        ohje_showcase: 'Pitkä syöttö (kaareva/kierteinen, Beckham muoto 5) + ulkojalkapassi maassa (muoto 6). 15 toistoa kutakin. Mittaa kaartuma ja tarkkuus.',
+        kesto: '20 min', xp: 20,
+        yt: 'yGHMHi9mMOQ',
+        cue: 'La Masia: teknisesti taitavat pelaajat pystyvät pitämään pallon liikkeessä joka etäisyydellä.',
+        viikkotavoite: '20 m sisäjalkasyöttö 8/10 osuu kohteeseen',
+      },
+      vk3: {
+        nimi: 'Syöttö kaverin kanssa — liikkuvaan kohteeseen',
+        ohje_leikkija: 'Kaveri juoksee — syötä hänelle niin että pallo tulee hänen eteen! Ei perään. 15 kertaa kummallakin jalalla.',
+        ohje_rakentaja: 'Kaveri juoksee ristiin — syötä eteen tilaan, ei pelaajalle itselleen. 20 syöttöä. Sitten: lyhyt vaihto (1/2 kombinaatio, Beckham muoto 10) — syötä, juokse, saa takaisin.',
+        ohje_showcase: 'Läpisyöttö ulkojalalla (muoto 11, Pirlon erikoisuus) + voorzet maaliin päin (muoto 9). 10 × kutakin. Tarkkuus: osuu käytävään?',
+        kesto: '20 min', xp: 25,
+        yt: 'yGHMHi9mMOQ',
+        cue: 'Ajax: syöttö on kommunikaatiota. Pallo kertoo joukkuekaverille minne mennä.',
+        viikkotavoite: 'Syöttö liikkuvaan kohteeseen 12/20 oikein ajoitettu',
+      },
+      vk4: {
+        nimi: 'Syöttö-mittaus',
+        ohje_leikkija: 'Laske: montako kertaa lähetät pallon tarkasti 10 metriin? Tee 20 syöttöä ja laske pisteet.',
+        ohje_rakentaja: 'Syöttöhaaste: 20 syöttöä, eri etäisyydet (10/15/20 m). Laske pisteet: tarkka osuma = 1 p. Vertaa: oletko parempi kuin joulukuun alussa?',
+        ohje_showcase: 'Beckham-sarja 11 muotoa — montako hallitset jo? Käy läpi ja arvioi itsesi. Harjoittele 2 heikkointa 10 min.',
+        kesto: '20 min', xp: 30,
+        yt: 'yGHMHi9mMOQ',
+        cue: 'Fulham: viidennen viikon periaate — harjoittele sitä missä tulos jäi heikoimmaksi.',
+        viikkotavoite: 'Syöttöhaaste 15/20 pistettä',
+      },
+    },
+
+    // ── FALLBACK: jos kuukautta ei tunnisteta ────────────────────────
+    perus: {
+      teema: 'Päivittäinen pallokosketus',
+      vk1: {
+        nimi: 'Palloleikki — tee mitä tykkäät',
+        ohje_leikkija: 'Ota pallo ja mene ulos. Pompauta seinään, kuljeta, leiki! 15 minuuttia — ei sääntöjä.',
+        ohje_rakentaja: 'Valitse yksi: seinäsyöttö 100 × 1 kosketus | pujottelu kartioilla 15 min | ponnauttelu heikolla jalalla 5 min.',
+        ohje_showcase: 'Vaativa tekniikka: seinäsyöttö 1-kosketuksella + samalla skannaa ympärillä — nimeä 3 asiaa ennen vastaanottoa. 20 min.',
+        kesto: '15–20 min', xp: 20,
+        yt: 'PKe-qpMbHgg',
+        cue: 'Ajax: "daily touches" — joka päivä pallo, myös lepopäivinä.',
+        viikkotavoite: 'Tee pallokosketus joka päivä',
+      },
+    },
+
   },
 
-  // ══════════════════════════════════════════════════════════════════
-  // D-HARJOITTEET — päivittäinen ylläpito, 5–10 min
-  // Progressio ikäluokan + Stagen mukaan
-  // ══════════════════════════════════════════════════════════════════
   D: {
 
     sbl: [
@@ -199,7 +394,7 @@ const PANKKI = {
         stage: [1, 2],
         nimi: 'Simpukka + sivulankku',
         ohje_leikkija: 'Makaa kyljelläsi, polvet yhteen. Avaa yläpolvi ylöspäin kuin simpukka — mutta pidä lantio paikallaan! 12 kertaa, sitten vaihda. Sitten sivulankku kyynärpäällä 20 sekuntia per puoli.',
-        ohje_rakentaja: 'Simpukka kylkimakuulla 2×12 per puoli: makaa kyljelläsi, polvet yhteen, avaa yläpolvi ylös (lantio ei saa kaatua). Sitten sivulankku 2×20s per puoli.',
+        ohje_rakentaja: 'Clamshell kylkimakuulla 2×12 per puoli: polvet yhteen, avaa yläpolvi ylös (lantio ei saa kaatua). Sitten sivulankku 2×20s per puoli.',
         ohje_showcase: null,
         kesto: '5 min', xp: 15,
         yt: 'p5UANxnGByc',
@@ -208,9 +403,9 @@ const PANKKI = {
       },
       {
         stage: [3, 4, 5],
-        nimi: 'Simpukka + sivulankku',
+        nimi: 'Clamshell + sivulankku',
         ohje_leikkija: null,
-        ohje_rakentaja: 'Simpukka 2×12 per puoli: makaa kyljelläsi, polvet yhteen, avaa yläpolvi ylös (lantio paikallaan). Sitten sivulankku 2×20s per puoli: keho suorana sivulta.',
+        ohje_rakentaja: 'Clamshell 2×12 per puoli: kylkimakuulla, polvet yhteen, avaa ylös (lantio paikallaan). Sitten sivulankku 2×20s per puoli: keho suorana sivulta.',
         ohje_showcase: 'Clamshell 2×12 gluteus medius -aktivaatiolla. Sivulankku 2×20s. LL: gluteus medius estää valgus-kollapsın suunnanmuutoksissa.',
         kesto: '5 min', xp: 15,
         yt: 'p5UANxnGByc',
@@ -264,7 +459,7 @@ const PANKKI = {
         stage: [3, 4, 5],
         nimi: '360° hengitys + dead bug',
         ohje_leikkija: null,
-        ohje_rakentaja: '360° palleahengitys 3×5: hengitä sisään niin että vatsa, kyljet JA selkä laajenevat. Ristikkäinen selkäliike 3×5 per puoli: alaselkä maassa koko ajan, laske vastakkainen käsi + jalka hitaasti.',
+        ohje_rakentaja: '360° palleahengitys 3×5: hengitä sisään niin että vatsa, kyljet JA selkä laajenevat. Dead bug 3×5 per puoli: alaselkä maassa koko ajan, laske vastakkainen käsi + jalka hitaasti.',
         ohje_showcase: '360° palleahengitys 3×5. Dead bug 3×5 per puoli — alaselkä koko ajan maassa. DFL: pallea on ainoa lihas joka toimii sekä hengityslihaksena että lantion stabilaattorina.',
         kesto: '6 min', xp: 15,
         yt: 'kqnua4rHVIA',
@@ -363,9 +558,9 @@ const PANKKI = {
           },
           {
             stage: [3, 4],
-            nimi: '5-loikka ajalla + norjalaiskaatuminen',
+            nimi: '5-loikka ajalla + Nordic curl',
             ohje_leikkija: null,
-            ohje_rakentaja: '5-loikka 3× maksimilla, mittaa matka. Sitten Norjalaiskaatuminen avustettuna: pyydä kaveria tai seinää pitämään kantapäistäsi — laske HITAASTI eteen 3×5. Palaa käsillä ylös.',
+            ohje_rakentaja: '5-loikka 3× maksimilla, mittaa matka. Sitten Nordic curl avustettu: kumppaani tai seinä pitää kantapäistä, laske HITAASTI eteen 3×5. Palaa käsillä.',
             ohje_showcase: '5-loikka 3× — mittaa ja vertaa edelliseen kertaan. Nordic curl eksentrinen 3×5: laske hallitusti, palaa käsillä. SBL: hamstring eksentrisenä = loukkaantumissuoja.',
             kesto: '15 min', xp: 30,
             yt: 'a7UGb10ViSM',
@@ -375,7 +570,7 @@ const PANKKI = {
           },
           {
             stage: [5],
-            nimi: '5-loikka + norjalaiskaatuminen täysi',
+            nimi: '5-loikka + Nordic curl täysi',
             ohje_leikkija: null, ohje_rakentaja: null,
             ohje_showcase: '5-loikka 3× — kirjaa matka, vertaa kauden alkuun. Nordic curl täysi 3×5 (ei käsiapua). SBL eksentrisenä huipputasolla. Seuraa asymmetriaa: oikea vs vasen.',
             kesto: '15 min', xp: 35,
@@ -730,10 +925,34 @@ function generoimTehtavat(pelaaja) {
   const tBank = ika <= 12 ? PANKKI.T.leikkija
               : ika <= 15 ? PANKKI.T.rakentaja
               : PANKKI.T.showcase;
-  const tKey  = stage <= 2 ? 'stage_1_2' : stage <= 4 ? 'stage_3' : 'stage_5';
 
-  // Fallback: käytä parasta saatavilla olevaa
+  // Viikonpäiväkohtainen fokus (Noordster + Fulham viikkorakenne)
+  // 0=Su, 1=Ma, 2=Ti, 3=Ke, 4=To, 5=Pe, 6=La
+  const _viikonPaiva = new Date().getDay();
+  const _viikonFokus = {
+    1: 'kaka',       // Maanantai: vastaanottaminen
+    2: 'affelay',    // Tiistai: dribbelin perusta
+    3: '1v1',        // Keskiviikko: 1v1-liikkeet
+    4: 'sneijder',   // Torstai: pelinkäsittely ilman palloa
+    5: 'beckham',    // Perjantai: syöttäminen ja laukaus
+  }[_viikonPaiva] || null;
+
+  // Etsi avain viikonpäivän ja stagen mukaan
+  let tKey;
+  if (stage <= 2) {
+    tKey = _viikonFokus === 'kaka' ? 'stage_1_2_vastaanotto' : 'stage_1_2';
+  } else if (stage <= 4) {
+    tKey = _viikonFokus ? ('stage_3_' + _viikonFokus) : 'stage_3_affelay';
+  } else {
+    // Showcase: vaihtelee fokuksen mukaan
+    tKey = _viikonFokus === 'kaka' ? 'stage_5_kaka'
+         : _viikonFokus === 'affelay' ? 'stage_5_affelay_sneijder'
+         : 'stage_5';
+  }
+
+  // Fallback ketju
   let tHarj = tBank[tKey]
+    || tBank['stage_3_affelay']
     || tBank['stage_3']
     || tBank['stage_1_2']
     || tBank['stage_5'];
@@ -864,8 +1083,8 @@ const HARJOITEPANKKI = {
       },
       {
         pv: [1, 3, 6], // Ti, To, Su
-        nimi: 'Lonkkataitto kepillä + silta',
-        ohje: 'Lonkkataitto kepillä 3×10: kepi selkärangan suuntaisesti, nojaa eteen lonkasta (ei alaselästä), tunne hamstring. Sitten lantionnosto 3×15: pidä yläasento 2s.',
+        nimi: 'Hip hinge kepillä + silta',
+        ohje: 'Hip hinge kepillä 3×10: kepi selkärangan suuntaisesti, nojaa eteen lonkasta (ei alaselästä), tunne hamstring. Sitten lantionnosto 3×15: pidä yläasento 2s.',
         kesto: '7 min',
         xp: 15,
         cue: 'Potku ja lähtö tapahtuvat lonkasta — ei polvesta. Hip hinge opettaa sen.',
@@ -887,7 +1106,7 @@ const HARJOITEPANKKI = {
       {
         vk: 'parillinen',
         nimi: 'Takaketjun kehitys — loikkasarjat',
-        ohje: 'Loikkasarjat 3×5 paikaltaan (bilateral): ponnista ylös maksimikorkeuteen, laske pehmeästi. Palautus 90s. Sitten lonkkataitto kepillä 3×10 lisäten nopeutta.',
+        ohje: 'Loikkasarjat 3×5 paikaltaan (bilateral): ponnista ylös maksimikorkeuteen, laske pehmeästi. Palautus 90s. Sitten hip hinge kepillä 3×10 lisäten nopeutta.',
         kesto: '20 min',
         xp: 30,
         cue: 'Liikanen & Törmä 2025: loikkavoimaa mittaava 5-loikka erotteli ammattilaisiksi yltäneet tilastollisesti.',
@@ -897,8 +1116,8 @@ const HARJOITEPANKKI = {
       },
       {
         vk: 'pariton',
-        nimi: 'Takaketjun kehitys — norjalaiskaatuminen progressio',
-        ohje: 'norjalaiskaatuminen avustettu (kumilenkki tai seinä kantapäällä): 3×5 eksentristä — laske HITAASTI eteen, palaa käsillä. Jos ei onnistu: pakarasilta yhdellä jalalla 3×12: makaa selälläsi, nosta lantio ylös yhdellä jalalla.',
+        nimi: 'Takaketjun kehitys — Nordic curl progressio',
+        ohje: 'Nordic curl avustettu (kumilenkki tai seinä kantapäällä): 3×5 eksentristä — laske HITAASTI eteen, palaa käsillä. Jos ei onnistu: glute bridge yhdellä jalalla 3×12.',
         kesto: '20 min',
         xp: 30,
         cue: 'Petersen 2011: Nordic hamstring -ohjelma vähensi hamstring-vammoja 51%. Pakollinen kaikille jalkapalloilijoille.',
@@ -983,7 +1202,7 @@ const HARJOITEPANKKI = {
       {
         vk: 'parillinen',
         nimi: 'Lähtöketjun kehitys — sammakkohypyt',
-        ohje: 'Sammakkohypyt paikaltaan 3×5: kyykky alas, ponnista ylös ja eteen maksimille. Mittaa matka. Sitten lonkkataitto -rutiini 3×10 nousevalla nopeudella.',
+        ohje: 'Sammakkohypyt paikaltaan 3×5: kyykky alas, ponnista ylös ja eteen maksimille. Mittaa matka. Sitten hip hinge -rutiini 3×10 nousevalla nopeudella.',
         kesto: '20 min',
         xp: 30,
         cue: 'Vauhditon pituushyppy ennustaa räjähtävyyttä. Mittaa ja paranna — jokainen sentti kertoo kehityksestä.',
@@ -1043,8 +1262,8 @@ const HARJOITEPANKKI = {
     D: [
       {
         pv: [0, 2, 4],
-        nimi: 'Simpukka + sivulankku',
-        ohje: 'Simpukka 2×12 per puoli: kylkimakuulla, polvet yhteen, avaa yläpolvi kuin simpukka (pidä lantio paikallaan). Sitten sivulankku 2×20s per puoli: keho suorana sivulta katsottuna.',
+        nimi: 'Clamshell + sivulankku',
+        ohje: 'Clamshell 2×12 per puoli: kylkimakuulla, polvet yhteen, avaa yläpolvi kuin simpukka (pidä lantio paikallaan). Sitten sivulankku 2×20s per puoli: keho suorana sivulta katsottuna.',
         kesto: '6 min', xp: 15,
         cue: 'Sivuttainen vakaus pitää polven linjassa suunnanmuutoksissa. Clamshell aktivoi gluteus mediuksen — IT-bandin tärkein tukilihas.',
         fascia_cue: 'LL: gluteus medius → TFL → IT-band → fibula → peronéaaliset. Koko sivulinja.',
@@ -1277,7 +1496,7 @@ const HARJOITEPANKKI = {
         {
           vaihe: 'Valmistava', viikot: '1–2', intensiteetti: '60–70%',
           nimi: 'Tekniikka + hengitys',
-          ohje: 'Lankku 3×20s — fokus hengitykseen: hengitä normaalisti koko ajan. ristikkäinen selkäliike 3×5 hitaasti. 360° palleahengitys 3×5. Kirjaa lankun kesto.',
+          ohje: 'Lankku 3×20s — fokus hengitykseen: hengitä normaalisti koko ajan. Dead bug 3×5 hitaasti. 360° palleahengitys 3×5. Kirjaa lankun kesto.',
           mittari: 'Kirjaa lankun maksimikesto viikolla 1.',
           kesto: '25 min', xp: 40,
         },
