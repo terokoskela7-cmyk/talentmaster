@@ -2001,28 +2001,84 @@ function haeProgressioAvain(tyyppi, ketjuId) {
 // Palauttaa {vaihe, emoji, vari, kuvaus, stageModif} nykyisen kuukauden mukaan
 // Kolme vaihetta: Pohja (1-3), Kehitys (4-8), Huipentuma (9-12)
 function laskeMissaJaksossa() {
-  // Laske kalenteriviikko (ISO 8601)
+  // ═══════════════════════════════════════════════════════════════
+  // KALENTERIPOHJAINEN MESOSYKLI
+  //
+  // MAKROSYKLI: kausi (syyskuu–huhtikuu)
+  //   Kierros 1 (syys–joulu): opitaan liike
+  //   Kierros 2 (tammi–huhtikuu): omistetaan liike (+30% vaativuus)
+  //
+  // MESOSYKLIT (1 kuukausi = yksi tekninen teema):
+  //   Syyskuu  = Kaka (vastaanottaminen)
+  //   Lokakuu  = Affelay (dribbeli)
+  //   Marraskuu = Ronaldo (1v1-liikkeet)
+  //   Joulukuu = Beckham (syöttäminen)
+  //   Tammi–huhtikuu: sama sykli, kierros 2
+  //
+  // MIKROSYKLI (1 viikko):
+  //   Vk 1: Taso 1 — ilman vastustajaa, hidas, oikein
+  //   Vk 2: Taso 1+ — sama liike, nopeutuu
+  //   Vk 3: Taso 2 — passiivinen vastustaja
+  //   Vk 4: Taso 3 — mittaus ja oma arvio
+  //   Vk 5: REPEAT INDIVIDUAL NEED (Fulham) — heikoin viikko uudelleen
+  // ═══════════════════════════════════════════════════════════════
   var nyt = new Date();
+  var kuukausi = nyt.getMonth() + 1; // 1–12
+
+  // Tekninen teema kuukauden mukaan
+  // Kierros 1: syys–joulu | Kierros 2: tammi–huhtikuu (sama teema, isompi)
+  var teemat = {
+    9:  { teema: 'kaka',    nimi: 'Vastaanottaminen', emoji: '🎯', vari: '#4A7ED9' },
+    10: { teema: 'affelay', nimi: 'Dribbeli',          emoji: '⚡', vari: '#00D4AA' },
+    11: { teema: 'ronaldo', nimi: '1v1-liikkeet',       emoji: '🔥', vari: '#FFB020' },
+    12: { teema: 'beckham', nimi: 'Syöttäminen',        emoji: '🎯', vari: '#A855F7' },
+    1:  { teema: 'kaka',    nimi: 'Vastaanottaminen II', emoji: '🎯', vari: '#4A7ED9' },
+    2:  { teema: 'affelay', nimi: 'Dribbeli II',         emoji: '⚡', vari: '#00D4AA' },
+    3:  { teema: 'ronaldo', nimi: '1v1-liikkeet II',     emoji: '🔥', vari: '#FFB020' },
+    4:  { teema: 'beckham', nimi: 'Syöttäminen II',      emoji: '🎯', vari: '#A855F7' },
+  };
+  var teemaData = teemat[kuukausi] || { teema: 'perus', nimi: 'Pallokosketus', emoji: '⚽', vari: '#00D4AA' };
+  var kierros2 = kuukausi >= 1 && kuukausi <= 4;
+
+  // Viikko kuukauden sisällä (1–5)
+  var paiva = nyt.getDate();
+  var viikkoKuussa = Math.ceil(paiva / 7); // 1–5
+  var viikkoKuussa5 = viikkoKuussa >= 5; // Fulham: vk 5 = repeat individual need
+
+  // Viikonnimi kuvatekstiksi
+  var viikkoNimet = {
+    1: 'Taso 1 — opitaan liike',
+    2: 'Taso 1+ — nopeutetaan',
+    3: 'Taso 2 — kaverin kanssa',
+    4: 'Taso 3 — mittaus',
+    5: '⭐ Repeat — harjoittele heikkous',
+  };
+  var viikkoAvain = viikkoKuussa5 ? 'vk4' : 'vk' + viikkoKuussa; // vk5 → toista vk4
+
+  // Jaksovaiheen stageModif (kierros 2 on vaativampi)
+  var stageModif = kierros2 ? 1 : 0;
+  var vaiheTeksti = teemaData.nimi + (viikkoKuussa5 ? ' — Repeat' : ' · ' + (viikkoNimet[viikkoKuussa] || ''));
+
+  // Laske ISO-viikkonumero jaksopalkkia varten
   var vuodenAlku = new Date(nyt.getFullYear(), 0, 1);
   var paivia = Math.floor((nyt - vuodenAlku) / 86400000);
   var kvikko = Math.ceil((paivia + vuodenAlku.getDay() + 1) / 7);
 
-  // 8-viikon sykli (sama logiikka kuin harjoitelogiikka_v4.js)
-  var syklissa = ((kvikko - 1) % 8) + 1; // 1–8
-
-  if (syklissa <= 3) {
-    return { vaihe:'Pohja', emoji:'🌱', vari:'#00D4AA',
-             kuvaus:'Harjoittelun perusta — tekniikka ja liikehallinta',
-             stageModif: 0, jaksoPaikka: syklissa, kvikko: kvikko };
-  } else if (syklissa <= 6) {
-    return { vaihe:'Kehitys', emoji:'📈', vari:'#FFB020',
-             kuvaus:'Progressiivinen kuormitus — kehitys käynnissä',
-             stageModif: 1, jaksoPaikka: syklissa, kvikko: kvikko };
-  } else {
-    return { vaihe:'Huipentuma', emoji:'🔥', vari:'#A855F7',
-             kuvaus:'Kauden huipennus — maksimaalinen teho',
-             stageModif: 2, jaksoPaikka: syklissa, kvikko: kvikko };
-  }
+  return {
+    vaihe: teemaData.nimi,
+    emoji: teemaData.emoji,
+    vari: teemaData.vari,
+    kuvaus: viikkoNimet[viikkoKuussa] || 'Päivittäinen kehitys',
+    stageModif: stageModif,
+    jaksoPaikka: viikkoKuussa,
+    kvikko: kvikko,
+    // Uudet kentät jaksotuslogiikkaa varten
+    teema: teemaData.teema,
+    viikkoAvain: viikkoAvain,
+    kierros2: kierros2,
+    viikkoKuussa: viikkoKuussa,
+    onRepeatViikko: viikkoKuussa5,
+  };
 }
 
 function generoimTehtavat(pelaaja) {
@@ -2112,12 +2168,29 @@ function generoimTehtavat(pelaaja) {
 
   // ── 1. T-HARJOITE ─────────────────────────────────────────
   if (typeof PANKKI !== 'undefined') {
-    const tBank = ika <= 12 ? PANKKI.T.leikkija
-                : ika <= 15 ? PANKKI.T.rakentaja
-                : PANKKI.T.showcase;
-    const tKey  = stage <= 2 ? 'stage_1_2' : stage <= 4 ? 'stage_3' : 'stage_5';
-    const tH = tBank?.[tKey] || tBank?.['stage_3'] || tBank?.['stage_1_2']
-      || PANKKI.T.rakentaja?.['stage_3'];
+    // ── Mesosykli: hae teema ja viikko kalenterista ────────────────
+    // laskeMissaJaksossa() → { teema:'kaka'|'affelay'|'ronaldo'|'beckham', viikkoAvain:'vk1'–'vk4' }
+    const _jaksoData   = typeof laskeMissaJaksossa === 'function' ? laskeMissaJaksossa() : {};
+    const _mesoteema   = _jaksoData.teema       || 'perus';
+    const _viikonAvain = _jaksoData.viikkoAvain || 'vk1';
+    const _kierros2    = _jaksoData.kierros2    || false;
+
+    // Hae PANKKI.T:n mesoteema-objekti (kaka/affelay/ronaldo/beckham/perus)
+    const _teemaObj = PANKKI?.T?.[_mesoteema] || PANKKI?.T?.perus || null;
+    // Hae oikean viikon harjoite-objekti — fallback vk1:een
+    let tH = _teemaObj
+      ? (_teemaObj[_viikonAvain] || _teemaObj['vk1'] || null)
+      : null;
+    // Kierros 2: käytä showcase-ohjetta rakentaja-tasolla
+    if (tH && _kierros2 && ityyppi === 'rakentaja' && tH.ohje_showcase) {
+      tH = Object.assign({}, tH, { ohje_rakentaja: tH.ohje_showcase });
+    }
+    // Viimeinen fallback: vanha rakenne
+    if (!tH) {
+      const tBank = ika <= 12 ? PANKKI.T.leikkija : ika <= 15 ? PANKKI.T.rakentaja : PANKKI.T.showcase;
+      const tKey  = stage <= 2 ? 'stage_1_2' : stage <= 4 ? 'stage_3' : 'stage_5';
+      tH = tBank?.[tKey] || tBank?.['stage_3'] || null;
+    }
     if (tH) tehtavat.push({
       id:'t_pallo', tyyppi:'T',
       label:'⚽ Kultaikkuna',
