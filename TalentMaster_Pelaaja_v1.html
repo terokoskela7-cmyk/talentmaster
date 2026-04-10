@@ -4366,7 +4366,20 @@ function avaaOhjePopupPelaaja(tehtavaId) {
   if (!t) return;
 
   // Pilko ohje vaiheiksi '+'-merkin kohdalta
-  var vaiheet = (t.ohje||'').split(' + ').map(function(v){ return v.trim(); });
+  // Ohje pilkotaan useammalla erottimella:
+  // ' + ' | ' | ' | '. ' (lause) | '. ' alkavat uudet kappaleet
+  var _ohjeRaw = t.ohje || '';
+  var vaiheet;
+  if (_ohjeRaw.includes(' | ')) {
+    vaiheet = _ohjeRaw.split(' | ').map(function(v){ return v.trim(); });
+  } else if (_ohjeRaw.includes(' + ')) {
+    vaiheet = _ohjeRaw.split(' + ').map(function(v){ return v.trim(); });
+  } else if (_ohjeRaw.includes('. ') && _ohjeRaw.split('. ').length > 2) {
+    vaiheet = _ohjeRaw.split('. ').map(function(v){ return v.trim(); }).filter(Boolean);
+  } else {
+    // Yksi ohje — näytetään kokonaan
+    vaiheet = [_ohjeRaw];
+  }
   var vaiheHtml = vaiheet.map(function(v,i){
     return '<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">'
       +'<div style="width:22px;height:22px;border-radius:50%;background:rgba(0,212,170,.15);'
@@ -4395,7 +4408,7 @@ function avaaOhjePopupPelaaja(tehtavaId) {
 
   // Video
   var videoHtml = t.yt
-    ? '<a href="https://www.youtube.com/results?search_query='+encodeURIComponent(t.yt)+'"'
+    ? '<a href="https://www.youtube.com/watch?v='+t.yt.replace('https://www.youtube.com/embed/','').replace('?rel=0','')+'"'
       +' target="_blank" rel="noopener"'
       +' style="display:flex;align-items:center;gap:8px;padding:10px 14px;'
       +'background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);'
@@ -4631,7 +4644,12 @@ function _haeVideoNappi(ketju, ytEmbedUrl) {
   if (!key) return '';
   const harjoitteet = TEKNIIKKAHARJOITTEET[map[key]];
   if (!harjoitteet || !harjoitteet[0]) return '';
-  const ytUrl = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(harjoitteet[0].yt);
+  // harjoitteet[0].yt on embed URL → muunnetaan watch URL:ksi
+  const _ytEmbed = harjoitteet[0].yt || '';
+  const ytUrl = _ytEmbed
+    ? _ytEmbed.replace('https://www.youtube.com/embed/', 'https://www.youtube.com/watch?v=').replace('?rel=0','')
+    : '';
+  if (!ytUrl) return '';
   return '<a href="' + ytUrl + '" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);border-radius:8px;padding:0 12px;color:#FF4757;font-size:11px;font-weight:600;text-decoration:none;min-height:42px;white-space:nowrap;">▶ Video</a>';
 }
 
