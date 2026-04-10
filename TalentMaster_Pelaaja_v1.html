@@ -3097,6 +3097,24 @@ async function _alustaUI() {
   document.getElementById('headerNimi').textContent = p.etunimi || p.nimi || '—';
   document.getElementById('headerStreak').textContent = p.streak || 0;
 
+  // "Tänään kehität" -rivi — näyttää heikoimmasta ketjusta
+  const _headerKehita = document.getElementById('headerKehita');
+  if (_headerKehita) {
+    const _ketjut = {
+      sbl: p.sbl, sfl: p.sfl, ll: p.ll, diag: p.diag, dfl: p.dfl
+    };
+    const _ketjuNimet = {
+      sbl: '⚡ Nopeutta', sfl: '🦵 Kiihdytystä', ll: '↔️ Suunnanmuutosta',
+      diag: '🔄 Syöttötarkkuutta', dfl: '🏗️ Kehonhallintaa'
+    };
+    const _validi = Object.entries(_ketjut).filter(([,v]) => v !== undefined && v !== null);
+    if (_validi.length > 0) {
+      const _heikoin = _validi.sort((a,b) => a[1]-b[1])[0][0];
+      _headerKehita.textContent = 'Tänään kehität: ' + (_ketjuNimet[_heikoin] || '⚡ nopeutta');
+      _headerKehita.style.display = '';
+    }
+  }
+
   // Hero-kortti
   const heroAvatar = document.getElementById('heroAvatar');
   const heroNimi = document.getElementById('heroNimi');
@@ -3268,125 +3286,260 @@ function renderStreak() {
 
 function renderTehtavat() {
   const p = _pelaaja;
-  // Generoidaan tehtävät profiilipohjaisen logiikan mukaan
   const tehtavat = generoimTehtavat(_pelaaja);
-
   const el = document.getElementById('tehtavatLista');
+  if (!el) return;
   if (tehtavat.length === 0) {
-    el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:16px;text-align:center;">Ei tehtäviä tänään.</div>';
+    el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px;text-align:center;">Ei harjoitteita tänään.</div>';
     return;
   }
 
-  // Renderöi jaksoinfo-palkki tänään-näkymän yläreunaan
+  // ── Ikä tarkasti ────────────────────────────────────────────────
+  let ika = p.ika || null;
+  if (!ika && p.syntymaaika) {
+    const syn = p.syntymaaika?.toDate ? p.syntymaaika.toDate()
+      : p.syntymaaika?.seconds ? new Date(p.syntymaaika.seconds * 1000) : null;
+    if (syn) {
+      const nyt = new Date();
+      ika = nyt.getFullYear() - syn.getFullYear();
+      if (nyt.getMonth() < syn.getMonth() ||
+        (nyt.getMonth() === syn.getMonth() && nyt.getDate() < syn.getDate())) ika--;
+    }
+  }
+  if (!ika) ika = 13;
+  const ikaTyyppi = ika <= 12 ? 'leikkija' : ika <= 15 ? 'rakentaja' : 'showcase';
+
+  // ── Ikätason kielikartta ─────────────────────────────────────────
+  const kieli = {
+    leikkija: {
+      pallo_otsikko:   '⚽ Palloleikki',
+      pallo_kehote:    'Ota pallo ja leiki!',
+      kehitys_otsikko: '🔥 Tänään harjoittelet',
+      bonus_otsikko:   '✨ Bonus — kokeile jos jaksat!',
+      bonus_kehote:    'Extra suoritus = extra kehitys ⚡',
+      miksi_prefix:    'Tämä tekee sinusta paremman:',
+      cta:             'Tein tämän! ✔',
+      bonus_cta:       '⭐ Tein bonuksen!',
+    },
+    rakentaja: {
+      pallo_otsikko:   '⚽ Päivän pallokosketus',
+      pallo_kehote:    'Tee tämä ensin — joka päivä.',
+      kehitys_otsikko: '🔥 Päivän kehitys',
+      bonus_otsikko:   '✨ Bonus — tee jos jaksat',
+      bonus_kehote:    'Tämä kehittää sinua nopeammin kuin muita.',
+      miksi_prefix:    'Miksi tämä auttaa sinua pelissä:',
+      cta:             'Merkitse tehty ✔',
+      bonus_cta:       '⭐ Tein bonuksen!',
+    },
+    showcase: {
+      pallo_otsikko:   '⚽ Päivittäinen pallokosketus',
+      pallo_kehote:    'Päivittäinen rutiini — ei neuvotella.',
+      kehitys_otsikko: '🔥 Henkilökohtainen kehitys',
+      bonus_otsikko:   '✨ Bonus — lisäkuorma',
+      bonus_kehote:    'Tämä näkyy seuraavassa testissä.',
+      miksi_prefix:    'Pelillinen hyöty:',
+      cta:             'Suoritettu ✔',
+      bonus_cta:       '⭐ Bonus suoritettu!',
+    },
+  }[ikaTyyppi];
+
+  // ── Jaksoinfo ────────────────────────────────────────────────────
   const jakso = laskeMissaJaksossa();
   const jaksoPalkki = document.getElementById('jaksoPalkki');
   if (jaksoPalkki) {
     jaksoPalkki.style.display = '';
     jaksoPalkki.innerHTML = '<div style="display:flex;align-items:center;gap:10px;'
       + 'padding:9px 14px;border-radius:10px;background:rgba(255,255,255,.03);'
-      + 'border:1px solid var(--border);margin-bottom:14px;">'
-      + '<div style="font-size:18px;flex-shrink:0;margin-right:2px">' + jakso.emoji + '</div>'
-      + '<div style="flex:1;">'
-      + '<div style="font-size:12px;font-weight:700;color:' + jakso.vari + '">'
-      + jakso.vaihe + '-jakso</div>'
-      + '<div style="font-size:10px;color:var(--ink3);margin-top:1px">'
-      + jakso.kuvaus + ' &nbsp;&middot;&nbsp; räätälöity sinulle</div>'
-      + '</div>'
-      + '<div style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;'
-      + 'background:rgba(255,255,255,.06);color:var(--ink2);white-space:nowrap">Vk '
-      + jakso.jaksoPaikka + '/8</div>'
+      + 'border:1px solid var(--border);margin-bottom:16px;">'
+      + '<span style="font-size:18px;">' + jakso.emoji + '</span>'
+      + '<div style="flex:1;font-size:12px;color:var(--ink2);">'
+      + '<strong style="color:' + jakso.vari + ';">' + jakso.vaihe + '-jakso</strong>'
+      + ' &nbsp;·&nbsp; ' + jakso.kuvaus + '</div>'
+      + '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;'
+      + 'background:rgba(255,255,255,.06);color:var(--ink2);">Vk ' + jakso.jaksoPaikka + '/8</span>'
       + '</div>';
   }
 
-  // Stagen värit ja nimet pelaajalle
-  const stageVarit = {1:'#8BA0BC',2:'#00D4AA',3:'#FFB020',4:'#EF4444',5:'#A855F7'};
-  const stageNimet = {1:'Aloitustaso',2:'Perusvahvistus',3:'Lisähaaste',4:'Tehotaso',5:'Huipputaso'};
+  // ── Rakenna kortit ───────────────────────────────────────────────
+  const T = tehtavat.find(t => t.tyyppi === 'T');
+  const D = tehtavat.find(t => t.tyyppi === 'D');
+  const S = tehtavat.find(t => t.tyyppi === 'S');
 
-  el.innerHTML = tehtavat.map(t => {
+  function tehtyCSS(id) {
+    return _tehdytTehtavat.has(id) ? 'opacity:.55;' : '';
+  }
+  function tehtyMerkki(id) {
+    return _tehdytTehtavat.has(id)
+      ? '<div style="display:flex;align-items:center;gap:6px;color:var(--green);'
+        + 'font-size:12px;font-weight:700;margin-top:10px;">✓ Tehty tänään!</div>'
+      : '';
+  }
+
+  // ── Pallo-kortti (T) ─────────────────────────────────────────────
+  function palloKortti(t) {
+    if (!t) return '';
     const tehty = _tehdytTehtavat.has(t.id);
-    const badgeCls = {D:'tb-d',S:'tb-s',T:'tb-t',P:'tb-d'}[t.tyyppi] || 'tb-d';
-    const badgeTxt = t.label || {D:'🔄 Päivittäinen',S:'🎯 Kohdennettu',T:'⚽ Kultaikkuna'}[t.tyyppi] || t.tyyppi;
+    return '<div style="background:linear-gradient(135deg,rgba(74,126,217,.12),rgba(74,126,217,.04));'
+      + 'border:1.5px solid rgba(74,126,217,.3);border-radius:14px;padding:18px;'
+      + 'margin-bottom:12px;' + (tehty ? 'opacity:.6;' : '') + '">'
+      + '<div style="font-size:11px;font-weight:700;letter-spacing:1.2px;'
+      + 'text-transform:uppercase;color:var(--accent2);margin-bottom:6px;">'
+      + kieli.pallo_otsikko + '</div>'
+      + '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">' + t.nimi + '</div>'
+      + '<div style="font-size:12px;color:var(--ink3);margin-bottom:10px;">'
+      + kieli.pallo_kehote + ' &nbsp;·&nbsp; ' + (t.kesto || '15 min') + '</div>'
+      // Ohje
+      + '<div style="font-size:13px;color:var(--ink2);line-height:1.6;'
+      + 'background:rgba(255,255,255,.03);border-radius:8px;padding:10px 12px;margin-bottom:10px;">'
+      + _muotoileOhje(t.ohje || '', ikaTyyppi) + '</div>'
+      // Video
+      + (t.yt ? '<div style="margin-bottom:10px;">' + _haeVideoNappi('', t.yt) + '</div>' : '')
+      // CTA
+      + (tehty ? tehtyMerkki(t.id)
+        : '<button onclick="merkitseTehdyksi(\'' + t.id + '\',' + t.xp + ')"'
+        + ' style="width:100%;background:var(--accent);border:none;border-radius:10px;'
+        + 'padding:12px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:14px;'
+        + 'font-weight:700;cursor:pointer;display:flex;align-items:center;'
+        + 'justify-content:center;gap:8px;">'
+        + '✔ ' + kieli.cta + ' <span style="font-size:11px;opacity:.8;">+' + t.xp + ' XP</span>'
+        + '</button>')
+      + '</div>';
+  }
 
-    // ── Stage-badge ──────────────────────────────────────────
-    // Näytetään vain D-harjoitteessa jolla on Stage-tieto.
-    // T-harjoite ei tarvitse stagea, S-harjoite on profiilipohjainen.
-    let stageBadgeHtml = '';
-    if (t.stage) {
-      const sv = stageVarit[t.stage] || '#8BA0BC';
-      const sn = stageNimet[t.stage] || 'Stage ' + t.stage;
-      const phvMerkinta = t.phvSuoja ? ' ⚠️' : '';
-      stageBadgeHtml = `<span class="stage-badge s${t.stage}">S${t.stage} — ${sn}${phvMerkinta}</span>`;
-    }
+  // ── Kehitys-kortti (D) ───────────────────────────────────────────
+  function kehitysKortti(t) {
+    if (!t) return '';
+    const tehty = _tehdytTehtavat.has(t.id);
+    // Miksi-selite ikätasolla
+    const miksi = _miksiSelite(t.cue || '', ikaTyyppi, t.ketjuNimi || '');
+    return '<div style="background:linear-gradient(135deg,rgba(0,212,170,.10),rgba(0,212,170,.03));'
+      + 'border:1.5px solid rgba(0,212,170,.3);border-radius:14px;padding:18px;'
+      + 'margin-bottom:12px;' + (tehty ? 'opacity:.6;' : '') + '">'
+      + '<div style="font-size:11px;font-weight:700;letter-spacing:1.2px;'
+      + 'text-transform:uppercase;color:var(--teal);margin-bottom:6px;">'
+      + kieli.kehitys_otsikko + '</div>'
+      + '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">' + t.nimi + '</div>'
+      + '<div style="font-size:12px;color:var(--ink3);margin-bottom:10px;">'
+      + (t.kesto || '5 min') + '</div>'
+      // Ohje
+      + '<div style="font-size:13px;color:var(--ink2);line-height:1.6;'
+      + 'background:rgba(255,255,255,.03);border-radius:8px;padding:10px 12px;margin-bottom:10px;">'
+      + _muotoileOhje(t.ohje || '', ikaTyyppi) + '</div>'
+      // Miksi
+      + '<div style="font-size:12px;color:var(--teal);background:rgba(0,212,170,.06);'
+      + 'border-left:3px solid var(--teal);border-radius:0 8px 8px 0;'
+      + 'padding:8px 12px;margin-bottom:10px;line-height:1.5;">'
+      + '<strong>' + kieli.miksi_prefix + '</strong> ' + miksi + '</div>'
+      // Vanhemman rooli — rakentaja ja showcase
+      + (ikaTyyppi !== 'leikkija'
+        ? '<div style="font-size:11px;color:var(--ink3);margin-bottom:10px;">'
+          + '👀 Pyydä joku katsomaan että liike on hallittu.</div>' : '')
+      // Video
+      + (t.yt ? '<div style="margin-bottom:10px;">' + _haeVideoNappi('', t.yt) + '</div>' : '')
+      // CTA
+      + (tehty ? tehtyMerkki(t.id)
+        : '<button onclick="merkitseTehdyksi(\'' + t.id + '\',' + t.xp + ')"'
+        + ' style="width:100%;background:var(--teal);border:none;border-radius:10px;'
+        + 'padding:12px;color:#000;font-family:\'DM Sans\',sans-serif;font-size:14px;'
+        + 'font-weight:700;cursor:pointer;display:flex;align-items:center;'
+        + 'justify-content:center;gap:8px;">'
+        + '✔ ' + kieli.cta + ' <span style="font-size:11px;opacity:.7;">+' + t.xp + ' XP</span>'
+        + '</button>')
+      + '</div>';
+  }
 
-    // ── Stage-spesifiset parametrit ──────────────────────────
-    // Tämä on se konkreettinen tieto joka aiemmin puuttui:
-    // "3×12/jalka · normaali tempo" sen sijaan että vain lukee ohjeen.
-    let parametritHtml = '';
-    if (t.sarjat || t.tempo) {
-      parametritHtml = `<div class="stage-parametrit">
-        ${t.sarjat ? `<div class="stage-param"><strong>Sarjat:</strong> ${t.sarjat}</div>` : ''}
-        ${t.tempo  ? `<div class="stage-param"><strong>Tempo:</strong> ${t.tempo}</div>` : ''}
-        <div class="stage-param"><strong>Kesto:</strong> ${t.kesto}</div>
-      </div>`;
-    } else {
-      parametritHtml = `<div class="stage-parametrit">
-        <div class="stage-param"><strong>Kesto:</strong> ${t.kesto}</div>
-      </div>`;
-    }
+  // ── Bonus-kortti (S) — loistaa ───────────────────────────────────
+  function bonusKortti(t) {
+    if (!t) return '';
+    const tehty = _tehdytTehtavat.has(t.id);
+    return '<div style="position:relative;background:linear-gradient(135deg,'
+      + 'rgba(245,183,0,.14),rgba(168,85,247,.08));'
+      + 'border:1.5px solid rgba(245,183,0,.4);border-radius:14px;padding:18px;'
+      + 'margin-bottom:12px;overflow:hidden;' + (tehty ? 'opacity:.6;' : '') + '">'
+      // Hohde-efekti
+      + '<div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;'
+      + 'background:radial-gradient(circle,rgba(245,183,0,.15),transparent 70%);'
+      + 'border-radius:50%;pointer-events:none;"></div>'
+      + '<div style="font-size:11px;font-weight:700;letter-spacing:1.2px;'
+      + 'text-transform:uppercase;color:var(--gold);margin-bottom:6px;">'
+      + kieli.bonus_otsikko + '</div>'
+      + '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">' + t.nimi + '</div>'
+      + '<div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">'
+      + kieli.bonus_kehote + '</div>'
+      + '<div style="font-size:12px;color:var(--ink3);margin-bottom:10px;">'
+      + (t.kesto || '5 min') + '</div>'
+      // Ohje
+      + '<div style="font-size:13px;color:var(--ink2);line-height:1.6;'
+      + 'background:rgba(255,255,255,.03);border-radius:8px;padding:10px 12px;margin-bottom:10px;">'
+      + _muotoileOhje(t.ohje || '', ikaTyyppi) + '</div>'
+      // Video
+      + (t.yt ? '<div style="margin-bottom:10px;">' + _haeVideoNappi('', t.yt) + '</div>' : '')
+      // CTA — kultainen bonus-nappi
+      + (tehty ? tehtyMerkki(t.id)
+        : '<button onclick="merkitseTehdyksi(\'' + t.id + '\',' + t.xp + ')"'
+        + ' style="width:100%;background:linear-gradient(135deg,#F5B700,#E09900);'
+        + 'border:none;border-radius:10px;padding:12px;color:#000;'
+        + 'font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:800;cursor:pointer;'
+        + 'display:flex;align-items:center;justify-content:center;gap:8px;'
+        + 'box-shadow:0 2px 12px rgba(245,183,0,.25);">'
+        + kieli.bonus_cta + ' <span style="font-size:12px;opacity:.8;">+' + t.xp + ' XP</span>'
+        + '</button>')
+      + '</div>';
+  }
 
-    // ── "Miksi tänään tämä" -selitys ────────────────────────
-    // Tämä on se ohjaava dashboard-toiminto: kontekstualisoi harjoitteen
-    // pelaajan tilanteen ja jaksovaiheen perusteella.
-    let miksiHtml = '';
-    if (t.stageInfo) {
-      miksiHtml = `<div class="miksi-boksi">
-        <strong>Miksi juuri nyt?</strong> ${t.stageInfo.peruste}
-      </div>`;
-    }
+  el.innerHTML = palloKortti(T) + kehitysKortti(D) + bonusKortti(S);
+}
 
-    // ── Progressio-preview: seuraava Stage ─────────────────
-    // Motivaatiotyökalu — pelaaja näkee mihin suuntaan harjoittelu menee.
-    // "Ensi jaksolla kuorma nousee" → käyttäytymistieteilijä Milkman:
-    // tulevaisuuden näkeminen motivoi nykyistä toimintaa.
-    let progressioHtml = '';
-    if (t.stage && t.stage < 5 && t.progressioAvain) {
-      const seuraavaStageData = haeStageData(t.progressioAvain, t.stage + 1);
-      if (seuraavaStageData) {
-        progressioHtml = `<div class="progressio-preview">
-          <strong>Seuraava askel (S${t.stage + 1}):</strong> ${seuraavaStageData.kuvaus}
-        </div>`;
-      }
-    }
+// ── Apufunktiot renderille ───────────────────────────────────────────
 
-    return `<div class="tehtava-card" id="tehtava-${t.id}">
-      <div class="tehtava-header">
-        <div class="tehtava-badge ${badgeCls}">${badgeTxt}</div>
-        <div class="tehtava-nimi">${t.nimi}</div>
-        <div class="tehtava-xp">+${t.xp} XP</div>
-      </div>
-      ${stageBadgeHtml ? `<div style="margin:4px 0 6px">${stageBadgeHtml}</div>` : ''}
-      ${miksiHtml}
-      <div class="tehtava-ohje">${t.ohje}</div>
-      ${parametritHtml}
-      ${t.cue ? `<div style="font-size:11px;color:var(--teal);background:rgba(0,212,170,.06);border-left:2px solid var(--teal);border-radius:0 6px 6px 0;padding:5px 10px;margin-bottom:8px;line-height:1.5;font-style:italic;">${t.cue}</div>` : ''}
-      ${progressioHtml}
-      <div class="tehtava-ketju">
-        <span>${t.ketju}</span>
-        <span style="color:var(--border)">·</span>
-        <span>${t.kesto}</span>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:0;flex-wrap:wrap;">
-        <button class="done-btn ${tehty ? 'tehty' : ''}" id="doneBtn-${t.id}"
-          onclick="merkitseTehdyksi('${t.id}',${t.xp})" style="flex:1;min-width:120px;">
-          ${tehty ? '&#10003; Tehty!' : '&#8599; Merkitse tehty'}
-        </button>
-        <button class="ohje-nappi" onclick="avaaOhjePopupPelaaja('${t.id}')">
-          &#128203; Ohjeet
-        </button>
-        ${_haeVideoNappi(t.ketjuNimi||t.ketju, t.yt)}
-      </div>
-    </div>`;
+// Muotoile ohjeteksti ikätasolle — pilko askeliin
+function _muotoileOhje(ohje, ikaTyyppi) {
+  if (!ohje) return '';
+  // Pilko erottimilla
+  let osat;
+  if (ohje.includes(' | '))      osat = ohje.split(' | ');
+  else if (ohje.includes(' + ')) osat = ohje.split(' + ');
+  else if (ohje.includes('. ') && ohje.split('. ').length > 2)
+    osat = ohje.split('. ').filter(Boolean);
+  else osat = [ohje];
+
+  osat = osat.map(s => s.trim()).filter(Boolean);
+
+  if (osat.length === 1) {
+    return '<span style="color:var(--ink2);">' + osat[0] + '</span>';
+  }
+  return osat.map(function(s, i) {
+    return '<div style="display:flex;gap:8px;margin-bottom:' + (i < osat.length-1 ? '6' : '0') + 'px;">'
+      + '<span style="width:18px;height:18px;border-radius:50%;'
+      + 'background:rgba(255,255,255,.06);color:var(--ink3);font-size:10px;font-weight:700;'
+      + 'display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">'
+      + (i + 1) + '</span>'
+      + '<span style="color:var(--ink2);font-size:13px;line-height:1.55;">' + s + '</span>'
+      + '</div>';
   }).join('');
+}
+
+// Pelillinen miksi-selite ikätasolle
+function _miksiSelite(cue, ikaTyyppi, ketjuNimi) {
+  if (!cue) {
+    // Fallback ketjun mukaan
+    const fallback = {
+      '↔️ Sivuketju': 'pitää polvesi suorassa suunnanmuutoksissa',
+      '⚡ Vauhtiketju': 'tekee sinusta nopeamman',
+      '🦵 Lähtöketju': 'parantaa kiihdytystäsi',
+      '🔄 Kiertoketju': 'tehostaa syöttöjäsi ja laukauksiasi',
+      '🏗️ Hallintaketju': 'antaa sinulle paremman kehonhallinnan',
+    };
+    const fb = fallback[ketjuNimi] || 'kehittää sinua pelaajana';
+    if (ikaTyyppi === 'leikkija')  return 'tämä auttaa sinua liikkumaan paremmin';
+    if (ikaTyyppi === 'rakentaja') return 'tämä ' + fb + ' pelissä';
+    return 'tämä ' + fb + ' — näkyy seuraavassa testissä';
+  }
+  // Lyhennä cue ikätasolle
+  const lauseet = cue.split(/[.!]/).map(s => s.trim()).filter(Boolean);
+  if (ikaTyyppi === 'leikkija')  return lauseet[0] || cue;
+  if (ikaTyyppi === 'rakentaja') return lauseet[0] || cue;
+  return cue.substring(0, 120) + (cue.length > 120 ? '…' : '');
 }
 
 /* ══ WOW-EFEKTI — harjoitteen kirjaus ════════════════════════════
