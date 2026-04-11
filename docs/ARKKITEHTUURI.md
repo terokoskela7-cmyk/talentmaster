@@ -1,5 +1,5 @@
 # TalentMaster™ — Järjestelmäarkkitehtuuri
-## Päivitetty 2026-04-09
+## Päivitetty 2026-04-11
 
 ---
 
@@ -42,7 +42,8 @@ Kerros 7:  Fyysinen → teknis-taktinen       ← lopullinen tavoite
 | Harjoitelogiikka | harjoitelogiikka_v4.js (1887 riviä) | GitHub Pages |
 | Kielimoduuli | tm_lang.js (fi/sv/en, 144 käännöstä) | GitHub Pages |
 
-**Firebase Functions:** AINA `firebase.app().functions('europe-west1')` — `firebase.functions()` → us-central1 (väärä)
+**Firebase Functions:** AINA `firebase.app().functions('europe-west1')` —
+`firebase.functions()` → us-central1 (väärä)
 
 ---
 
@@ -53,11 +54,12 @@ Kerros 7:  Fyysinen → teknis-taktinen       ← lopullinen tavoite
 - **Super Admin:** `talentmasterid@gmail.com` (UID: `dqUzvJA61Wb9fgj5UiK0riSA4NI2`)
 - **Super admin tunnistus:** `adminSnap.exists` — EI custom claims -arvoista
 
-**ABSOLUUTTINEN PERIAATE:** Super Adminilla on aina pääsy kaikkeen. Ei saa koskaan rikkoutua.
+**ABSOLUUTTINEN PERIAATE:** Super Adminilla on aina pääsy kaikkeen.
+Ei saa koskaan rikkoutua.
 
 ---
 
-## Pilottiseurat (8 kpl) — tila 2026-04-09
+## Pilottiseurat (8 kpl) — tila 2026-04-11
 
 | SeuraId | Seura | Tila | Huomio |
 |---|---|---|---|
@@ -71,7 +73,8 @@ Kerros 7:  Fyysinen → teknis-taktinen       ← lopullinen tavoite
 | `hjk` | HJK Juniorit | ✅ aktiivinen | — |
 | `demo` | FC Demo | ✅ testikäyttö | Super Admin demo-seura |
 
-**SJK-huomio:** Ensimmäinen seura jolla tyttöjoukkue mukana. Tyttöjen PHV-kaava (Mirwald) eri parametrit — tarkistettava Sprint 5:ssä.
+**SJK-huomio:** Ensimmäinen seura jolla tyttöjoukkue mukana.
+Tyttöjen PHV-kaava (Mirwald) eri parametrit — tarkistettava Sprint 5:ssä.
 
 ---
 
@@ -121,7 +124,9 @@ seurat/
       tekniikka/{kilpailuId}      ← tekniikkakilpailut
       adar/{adarId}               ← Game IQ (EI havainnot-kokoelmaan)
       havainnot/{havaintoId}      ← valmentajan kenttähavainnot
+
       idp_kausi/{kaudenId}
+
       pelihavainnot/{otteluId}/   ← TULEVA Sprint 5
         tyyppi: 'valmentaja'|'pelaaja'
         tips_T, tips_I, tips_P, tips_S: 1-10
@@ -145,9 +150,9 @@ kirjaukset_tapahtumat/
 
 ---
 
-## Sivuarkkitehtuuri — tila 2026-04-09
+## Sivuarkkitehtuuri — tila 2026-04-11
 
-| Tiedosto | Rooli | GitHub | Viimeisin muutos |
+| Tiedosto | Rooli | GitHub | Huomio |
 |---|---|---|---|
 | `TalentMaster_VP_v18.html` | vp | ✅ | Valmentajat-tabi, harjoitteluseuranta, kortit grid |
 | `TalentMaster_Master_v9.html` | valmentaja | ✅ | — |
@@ -163,6 +168,15 @@ kirjaukset_tapahtumat/
 | `TalentMaster_Koukutus.html` | markkinointi | ⏳ PENDING | — |
 | `TalentMaster_Valmentaja_Matriisi.html` | koulutus | ⏳ PENDING | — |
 | `TalentMaster_Pelihavainto_Demo.html` | demo | ⚠ EI GitHubissa | Palloliiton offline-demo |
+
+### Solo-versio (TalentMaster Player™) — uusi tuotehaarake
+
+| Tiedosto | Rooli | GitHub | Huomio |
+|---|---|---|---|
+| `TalentMaster_Player_Home.html` | solo-pelaaja | ⏳ | Onboarding: splash → nimi → syntymäaika → kortti |
+| `TalentMaster_Solo_Profiili.html` | solo-pelaaja | ⏳ | Profiili: tkk-tulokset, kotimittarit, pelaajaprofiili |
+| `TalentMaster_Solo_Arviointi.html` | solo-pelaaja | ⏳ | Alkuarviointi 3-kerrosta: tausta, tekniikka Y/N, mittaukset |
+| `TalentMaster_Kortti_Demo.html` | demo | ⏳ | Korttityypit: Starter/Sharp/Elite, pelipaikka-ikonit |
 
 ---
 
@@ -217,7 +231,7 @@ tab: Valmentajat  (korvasi: Henkilöstö + Valmennus)
 sbl:  '⚡ Vauhtiketju'
 sfl:  '🦵 Lähtöketju'
 ll:   '↔️ Sivuketju'
-diag: '🔄 Kiertoketju'   // korvaa SL+FL
+diag: '🔄 Kiertoketju'   // korvaa SL+FL — Wilke et al. 2016
 dfl:  '🏗️ Hallintaketju'
 // Peliälyketju = D4, EI liikeketju
 ```
@@ -234,6 +248,22 @@ showcase  U16-19: termit + "mittaa" + "kirjaa"
 harjoitettavuus_pisteet → Stage 1-5
 8-vk jakso: Pohja(+0) / Kehitys(+1) / Huipentuma(+2)
 PHV-rajoite: phv_tila==='PH' → max Stage 2
+```
+
+### T-harjoite — mesosykli (kalenteripohjainen)
+```
+Makrosykli: 2 kierrosta/kausi (syys–joulu, tammi–huhti)
+Mesosykli (1 kk = 1 tekninen teema):
+  Syys/Tammi: Vastaanottaminen — Kaka-sarja
+  Loka/Helmi: Dribbeli — Affelay-sarja
+  Marras/Maalis: 1v1-liikkeet — Ronaldo-sarja
+  Joulu/Huhti: Syöttäminen — Beckham-sarja
+Mikrosykli (Noordster-progressio):
+  Vk 1: ilman vastustajaa, hidas
+  Vk 2: sama liike, nopeutuu
+  Vk 3: passiivinen vastustaja
+  Vk 4: mittaus + oma arvio
+  Vk 5: REPEAT INDIVIDUAL NEED (Fulham)
 ```
 
 ---
@@ -271,7 +301,7 @@ Mikään muu järjestelmä ei tee tätä.
 
 ---
 
-## Testidatan tuontirakenne (UUSI 2026-04-09)
+## Testidatan tuontirakenne (2026-04-09)
 
 ### Excel-pohja: `TalentMaster_Testidatan_Tuontipohja.xlsx`
 ```
@@ -280,6 +310,22 @@ Mikään muu järjestelmä ei tee tätä.
 2_HH_Testit        — nopeus / ketteryys / voima / tekniikka / kestävyys
 3_Harjoitettavuus  — pisteet 1-3, FLEI% automaattinen
 4_Tekniikkakilpailut — syöttö + pujottelu + ponnauttelu
+```
+
+### Tekniikkakilpailumittaukset (Palloliitto 2023)
+```
+Kaikki testit aikapohjaisia (sekunteja) paitsi pituuspotku (metrejä):
+  Ponnauttelu:    aika + sarja ikäluokittain
+    P13-11/T13-12: vuorojaloin 4× + vuororeisin 4× + päällä 4× — 3×
+    P10/T11:       vuorojaloin 4× + vuororeisin 4× + päällä 1× — 3×
+    P9/T10-9:      vuorojaloin 4× + vuororeisin 2× — 2×
+    P/T8:          vuorojaloin 10×
+  Syöttäminen:    aika aloituksesta viimeiseen osumaan (max 60s)
+  Pujottelu:      aika lähdöstä maalilinjalle (max 60s)
+  Kuljetus-laukaus: loppuaika tarkkuusvähennysten jälkeen (max 40s)
+  Pituuspotku:    metriä (vain P/T 12-13), 5m = 1s vähennys
+Kokonaistulos = kaikkien lajien aikojen summa (pienempi parempi)
+Merkkirajat esim P13: kulta <75s, hopea <85s, pronssi <100s
 ```
 
 ### SJK-käyttöönottoprosessi
@@ -295,17 +341,71 @@ Mikään muu järjestelmä ei tee tätä.
 
 ---
 
+## Solo-versio (TalentMaster Player™)
+
+### Filosofia
+Sama "Pelaaja ensin" -filosofia seurajärjestelmän kanssa —
+mutta pelaaja käyttää yksin ilman seuraa.
+Solo-pelaajat tallennetaan `players/{id}` (ei seurahierarkiassa).
+Linkitetään seuraan `seuraId`-kentällä myöhemmin.
+
+### Rekisteröitymisvirta (3 askelta)
+```
+Splash → Nimi → Syntymäaika → FIFA-kortin paljastuminen → Profiili
+```
+Minimaalinen: vain nimi + syntymäaika kirjautumisessa.
+Kaikki muu täytetään profiilisivulle omaan tahtiin.
+
+### FIFA-kortti
+```
+Korttityypit:
+  ⭐   Starter  — sininen (lähtötaso)
+  ⭐⭐  Sharp   — kultainen (kehittyvä)
+  ⭐⭐⭐ Elite  — platina/hopea (huipputaso)
+OVR lasketaan iästä + profiilidata tarkentaa
+Pelipaikka-ikoni: ⚽ HYÖ / ⚡ KHK / ⚙️ KK / 🛡️ PUO / 🧤 MV
+PlayerCode: TMP-XXXX — jaettavissa kavereille
+```
+
+### Profiilisivu — 4 osiota
+```
+1. Pelaajaprofiili:       pelipaikka, kokemus, treenikerrat, ketjuvalinta
+2. Tekniikkakilpailu:     kokonaistulos + lajit erikseen + merkki + historia
+3. Fyysinen testi:        valinnainen (pituushyppy, 5-loikka, naruhypyt, sprintti)
+4. Kotimittarit:          ponnautusluku, seinäsyöttöputki, driblausaika — 3kk seuranta
+5. Seuran testitulokset:  automaattinen kun seura käyttää TalentMasteria (FLEI + ketjut)
+```
+
+### Firestore-rakenne (Solo)
+```
+players/{playerId}
+  nimi, synVuosi, synKuukausi, email
+  pp, kokemus, treeni, ketju
+  tkkYht, tkkMerkki, tkkVuosi
+  kotiPonn, kotiSeina, kotiDrip, kotiPvm
+  playerCode: 'TMP-XXXX'
+  seuraId: null → täytetään kun seura liittyy
+
+players/{id}/tkk_historia/{vuosi}
+  yht, merkki, lajit: {ponn, syotto, pujottelu, kl, potku}
+
+players/{id}/kotimittarit/{pvm}
+  ponn, seina, drip
+```
+
+---
+
 ## Security Rules
 
 ```
-super_admin        → kaikkeen
-vp                 → oma seura, kaikki
-valmentaja         → luku oma seura, kirjoitus havainnot/harjoitukset
+super_admin          → kaikkeen
+vp                   → oma seura, kaikki
+valmentaja           → luku oma seura, kirjoitus havainnot/harjoitukset
 urheilutoimenjohtaja → aggregoitu data, ei yksilödata
-fysioterapeutti    → vammat strict
-pelaaja            → oma profiili + kirjaukset/{pvm}
-vanhempi           → lapsen profiili pelkistetysti
-anonyymi           → vain suostumusTila=='odottaa'
+fysioterapeutti      → vammat strict
+pelaaja              → oma profiili + kirjaukset/{pvm}
+vanhempi             → lapsen profiili pelkistetysti
+anonyymi             → vain suostumusTila=='odottaa'
 ```
 
 ---
@@ -352,7 +452,7 @@ fysioterapeutti | testivastaava | pelaaja | vanhempi
 
 ---
 
-## Avoimet bugit (2026-04-09)
+## Avoimet bugit (2026-04-11)
 
 | Bugi | Tiedosto | Prioriteetti |
 |---|---|---|
@@ -364,12 +464,14 @@ fysioterapeutti | testivastaava | pelaaja | vanhempi
 
 ## Sprint-suunnitelma
 
-### Sprint 4 (käynnissä)
+### Sprint 4 (käynnissä — 2026-04-11)
 - [x] VP v18: Valmentajat-tabi yhdistetty
 - [x] VP v18: Harjoitteluseuranta + suodatin
 - [x] VP v18: Valmentajakortit grid
 - [x] SJK pilottiin (U15P + U14/15T + talentit)
 - [x] Excel-tuontipohja (testit + kartoitus + tekniikka)
+- [x] Solo-versio: onboarding + kortti + profiilisivu
+- [x] TalentMaster Player Card™ — Starter/Sharp/Elite -variantit
 - [ ] Pelaaja-sivu lag-bugi
 - [ ] SJK VP-tunnukset + joukkueet
 - [ ] Excel → Firestore tuontityökalu
@@ -380,19 +482,24 @@ fysioterapeutti | testivastaava | pelaaja | vanhempi
 - [ ] Pelihavainto Taso 2 (pelaajan itsearviointi)
 - [ ] Suostumuslomakkeet SJK:lle (kun data OK)
 - [ ] Tyttöjen PHV-kaava (Mirwald eri parametrit)
+- [ ] Solo-versio: Firebase-integraatio (players-kokoelma)
+- [ ] Solo-versio: Google Sign-In
 
 ### Sprint 6-8
 - [ ] Pelihavainto Taso 3 (IDP-kytkös + FLEI-korrelaatio)
 - [ ] AI Behavioural Science -agentti
 - [ ] Milestone-kortit Firestoresta
+- [ ] Solo-versio: Stripe-maksut (4,99€/kk)
 
 ---
 
 ## Palloliiton yhteistyö (2026-04-09)
 
 **Palaveri Head of Talent:** 2026-04-09
+
 **Positioning:**
-- Myeway = passiivinen dashboard (kerää dataa, paljon lukuja ja analyysejä, mutta ei johda toimenpiteisiin) vaikea käyttää
+- Myeway = passiivinen dashboard (kerää dataa, vaikea käyttää,
+  ei johda toimenpiteisiin)
 - TalentMaster = aktiivinen kehitystyökalu (ajaa toimintaa)
 
 **TM:n uniikki lisäarvo:**
