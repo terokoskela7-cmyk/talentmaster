@@ -358,17 +358,90 @@ Firestore: `flei_ketjut: {SBL, SFL, LL, DIAG, DFL}` (isolla)
 
 ---
 
+## PX Sprint -analyysi (Player Experience) — 2026-04-11
+
+Analysoitu ulkopuolinen suunnitelma "TalentMaster PX Sprint". Kolme asiaa
+jotka kannattaa ottaa mukaan, muut jo olemassa tai liian aikaisia.
+
+### ✅ Otetaan mukaan heti
+
+**1. "Why"-lause jokaiseen harjoitekorttiin**
+Nykyinen koodi näyttää harjoitteen nimen + ohjeen. Puuttuu yksi lause
+joka kertoo miksi tämä auttaa pelissä. Pieni muutos, iso vaikutus motivaatioon.
+```
+Ennen: "Sivuttaisliike + spurtti — 5 toistoa/puoli"
+Jälkeen: "Sivuttaisliike + spurtti — auttaa sinua voittamaan 1v1-tilanteet"
+```
+Toteutus: lisää `why`-kenttä `harjoitelogiikka_v4.js`:n harjoite-objekteihin.
+Ikätasokohtainen teksti: leikkija = "auttaa ohittamaan pelaajan",
+rakentaja = "tekee sinusta vaikeamman puolustaa",
+showcase = "ratkaisee tilanteita kovassa tempossa".
+
+**2. Onnistumismittarit — käytetään OrsaSport-pilotin arvioinnissa**
+```
+Day 1:  80% ymmärtää mitä tehdä ilman selitystä
+Day 3:  50% avaa appin uudestaan
+Day 7:  30% tekee 3 päivän streakin
+```
+Testikysymykset 5-10 pelaajalle: "Ymmärsitkö mitä tehdä?" /
+"Kauanko kesti aloittaa?" / "Avaatko huomenna uudestaan?"
+
+### 📋 Tallennettu Sprint 6-8:aan — AI Copy Agent
+
+Prompti on kirjoitettu valmiiksi ja sopii suoraan TalentMasterin
+AI-agentin toteutukseen (Sprint 6-8). Ikäjaottelu identtinen
+`leikkija/rakentaja/showcase`-jaon kanssa.
+
+```
+You are a youth football coach.
+Write a short message (max 2 sentences).
+
+Rules:
+- simple language, no jargon
+- explain why this matters in a game
+- adapt tone by age:
+  10-12: playful
+  13-15: encouraging
+  16-19: performance-focused
+
+Input:
+Age: {age}
+Focus: {focus}         ← heikoin FLEI-ketju
+Last feedback: {feedback}   ← valmentajan viimeisin havainto
+Streak: {streak}
+```
+
+Output-esimerkit:
+- 11v: "Pidä pallo lähellä ja kokeile eri suuntia ⚽ Tämä auttaa sinua ohittamaan pelaajan pelissä!"
+- 14v: "Nopea suunnanmuutos tekee sinusta vaikeamman puolustaa. Tämä näkyy suoraan 1v1-tilanteissa."
+- 17v: "Explosiivinen suunnanmuutos ratkaisee tilanteita kovassa pelitempossa. Tee tämä huolellisesti."
+
+**Aktivointihetket (triggerit) kun aika on oikea:**
+- Streak katkeamassa
+- 3 päivän putki saavutettu
+- Fiilinki matala 2 päivää peräkkäin
+- Uusi viikko (fresh start)
+- PHV-huippu
+
+### ❌ EI rakenneta vielä
+- Daily Summary Builder Cloud Function → `generoimTehtavat()` tekee jo tämän
+- AI-agentti → Sprint 6-8, vasta kun pelaajat käyttävät appia 3 päivää putkeen
+- Monimutkainen trigger-logiikka → turha ennen kuin lag-bugi on korjattu
+
+---
+
 ## Seuraavaan sessioon (tärkeysjärjestyksessä)
 1. 🔴 Pelaaja-sivu lag-bugi — tutkimatta
-2. 🔴 Solo-versio deploy GitHubiin (4 tiedostoa)
-3. 🔴 SJK-käyttöönotto: VP-tunnukset + joukkueet + pelaajat
-4. 🔴 Excel → Firestore tuontityökalu
-5. 🟡 Pelihavainto Taso 1 (TIPS-lomake Master-näkymässä)
-6. 🟡 Tyttöjen PHV-kaava (ennen U14/15T-aktivointia)
-7. 🟡 Fiilinki ikävaihekysely-bugi
-8. 🟡 Solo Firebase-integraatio (players-kokoelma)
-9. 🟢 Pending deploy: Koukutus.html + Valmentaja_Matriisi.html
-10. 🟢 Streak-historia Firestoreen (nyt localStoragessa)
+2. 🔴 Lisää "why"-lause harjoitekortteihin (`harjoitelogiikka_v4.js`)
+3. 🔴 Solo-versio deploy GitHubiin (4 tiedostoa)
+4. 🔴 SJK-käyttöönotto: VP-tunnukset + joukkueet + pelaajat
+5. 🔴 Excel → Firestore tuontityökalu
+6. 🟡 Pelihavainto Taso 1 (TIPS-lomake Master-näkymässä)
+7. 🟡 Tyttöjen PHV-kaava (ennen U14/15T-aktivointia)
+8. 🟡 Fiilinki ikävaihekysely-bugi
+9. 🟡 Solo Firebase-integraatio (players-kokoelma)
+10. 🟢 Pending deploy: Koukutus.html + Valmentaja_Matriisi.html
+11. 🟢 Streak-historia Firestoreen (nyt localStoragessa)
 
 ---
 
