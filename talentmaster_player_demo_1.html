@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster™ — Player Journey</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0A0C10; --bg2:#0F1218; --surface:#141820; --surface2:#1A2030;
+  --border:rgba(255,255,255,.07); --bord2:rgba(255,255,255,.13);
+  --text:#EEF2FA; --ink2:#A8B4C8; --ink3:#5A6880;
+  --tm:#1E6FC8; --tm2:#2A85E8;
+  --green:#2EC27A; --amber:#E8A020; --red:#E04444;
+  --gold:#D4A820; --gold2:#F0C840; --teal:#00BFA5;
+  --purple:#A855F7; --pink:#EC4899;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.7;overflow-x:hidden;}
+
+/* ── NAV ── */
+.nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(10,12,16,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);height:52px;display:flex;align-items:center;padding:0 28px;gap:0;}
+.nav-logo{font-family:'Fraunces',serif;font-weight:900;font-size:18px;color:var(--text);margin-right:28px;}
+.nav-logo em{color:var(--tm2);font-style:normal;}
+.view-tabs{display:flex;gap:0;flex:1;}
+.view-tab{padding:0 16px;height:52px;display:flex;align-items:center;gap:7px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;font-size:11px;font-weight:500;color:var(--ink3);white-space:nowrap;}
+.view-tab:hover{color:var(--text);}
+.view-tab.active{border-bottom-color:var(--tm2);color:var(--tm2);font-weight:700;}
+.view-tab .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.6;}
+
+/* ── SCREENS ── */
+.screen{display:none;padding-top:52px;min-height:100vh;overflow-x:hidden;}
+.screen.active{display:block;}
+
+/* ════════════════════════════════
+   PLAYER VIEW
+════════════════════════════════ */
+.player-bg{background:radial-gradient(ellipse at 60% 0%, rgba(30,111,200,.12) 0%, transparent 60%), radial-gradient(ellipse at 20% 80%, rgba(212,168,32,.06) 0%, transparent 50%), #0A0C10;}
+
+/* FIFA CARD */
+.card-stage{display:flex;justify-content:center;align-items:flex-start;gap:48px;padding:40px 40px 32px;flex-wrap:wrap;min-height:500px;}
+
+.fifa-card{width:280px;height:400px;border-radius:20px;position:relative;overflow:hidden;flex-shrink:0;cursor:pointer;transition:transform .3s,box-shadow .3s;}
+.fifa-card:hover{transform:translateY(-6px) rotate(1deg);box-shadow:0 32px 64px rgba(212,168,32,.25);}
+.fifa-card-bg{position:absolute;inset:0;background:linear-gradient(160deg,#1A1200 0%,#2A1E00 40%,#1A0E00 100%);}
+.fifa-card-shine{position:absolute;inset:0;background:linear-gradient(135deg,rgba(212,168,32,.3) 0%,transparent 50%,rgba(212,168,32,.1) 100%);pointer-events:none;}
+.fifa-card-border{position:absolute;inset:2px;border-radius:18px;border:1px solid rgba(212,168,32,.35);}
+.fifa-card-content{position:relative;z-index:2;padding:18px 16px 14px;}
+
+.fc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;}
+.fc-rating{font-family:'Fraunces',serif;font-size:44px;font-weight:900;color:var(--gold2);line-height:1;text-shadow:0 0 20px rgba(212,168,32,.4);}
+.fc-pos{font-size:14px;font-weight:700;color:var(--gold2);margin-top:4px;text-align:center;}
+.fc-flag{font-size:22px;margin-top:2px;}
+.fc-club{font-size:8px;font-weight:700;letter-spacing:1px;color:rgba(212,168,32,.5);text-transform:uppercase;text-align:right;margin-top:4px;}
+
+.fc-avatar{width:140px;height:140px;margin:0 auto 8px;display:block;border-radius:50%;background:linear-gradient(135deg,rgba(212,168,32,.15),rgba(212,168,32,.05));border:2px solid rgba(212,168,32,.2);display:flex;align-items:center;justify-content:center;font-size:72px;}
+
+.fc-name{text-align:center;font-family:'Fraunces',serif;font-size:20px;font-weight:900;color:var(--gold2);letter-spacing:.5px;margin-bottom:10px;text-shadow:0 0 12px rgba(212,168,32,.3);}
+.fc-divider{height:1px;background:linear-gradient(to right,transparent,rgba(212,168,32,.3),transparent);margin-bottom:10px;}
+
+.fc-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+.fc-stat{text-align:center;}
+.fc-stat-val{font-family:'Fraunces',serif;font-size:16px;font-weight:900;color:var(--gold2);line-height:1;}
+.fc-stat-label{font-size:7px;color:rgba(212,168,32,.5);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}
+
+.fc-tier{position:absolute;bottom:14px;right:14px;font-size:8px;font-weight:700;letter-spacing:1px;color:rgba(212,168,32,.4);text-transform:uppercase;}
+.fc-gem{position:absolute;top:14px;right:14px;font-size:14px;}
+
+/* Player info */
+.player-info{flex:1;min-width:300px;max-width:480px;}
+.pi-name{font-family:'Fraunces',serif;font-size:36px;font-weight:900;line-height:1;margin-bottom:4px;}
+.pi-sub{font-size:13px;color:var(--ink3);margin-bottom:24px;}
+
+.xp-section{margin-bottom:24px;}
+.xp-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;display:flex;justify-content:space-between;}
+.xp-track{height:12px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden;position:relative;}
+.xp-fill{height:12px;border-radius:6px;background:linear-gradient(to right,var(--tm),var(--tm2));transition:width .8s ease;}
+.xp-glow{position:absolute;right:0;top:0;bottom:0;width:20px;background:linear-gradient(to right,transparent,rgba(42,133,232,.5));border-radius:6px;}
+
+.streak-badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;}
+.streak-badge{padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px;}
+
+.idp-goal{background:rgba(30,111,200,.08);border:1px solid rgba(30,111,200,.2);border-radius:12px;padding:14px 18px;margin-bottom:20px;}
+.idp-label{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tm2);margin-bottom:5px;}
+.idp-text{font-size:14px;font-weight:600;color:var(--text);}
+.idp-sub{font-size:11px;color:var(--ink3);margin-top:4px;}
+
+/* Radar */
+.player-radar-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;min-height:260px;}
+.prd-title{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:12px;}
+
+/* Next challenge */
+.challenge-section{padding:0 40px 40px;}
+.ch-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;}
+.challenge-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.challenge{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:border-color .15s,transform .1s;}
+.challenge:hover{border-color:rgba(30,111,200,.35);transform:translateY(-2px);}
+.ch-icon{font-size:28px;margin-bottom:8px;}
+.ch-name{font-size:13px;font-weight:700;margin-bottom:4px;}
+.ch-desc{font-size:11px;color:var(--ink3);line-height:1.55;margin-bottom:10px;}
+.ch-reward{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--gold);}
+.ch-progress{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-top:8px;}
+.ch-prog-fill{height:4px;border-radius:2px;}
+
+/* Coach message */
+.coach-msg{margin:0 40px 32px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;gap:14px;align-items:flex-start;}
+.cm-avatar{width:40px;height:40px;border-radius:10px;background:rgba(30,111,200,.15);border:1px solid rgba(30,111,200,.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.cm-body{}
+.cm-from{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--tm2);margin-bottom:3px;}
+.cm-text{font-size:12px;color:var(--ink2);line-height:1.65;font-style:italic;}
+.cm-time{font-size:10px;color:var(--ink3);margin-top:4px;}
+
+/* ════════════════════════════════
+   COACH VIEW
+════════════════════════════════ */
+.coach-bg{background:radial-gradient(ellipse at 30% 0%, rgba(46,194,122,.06) 0%, transparent 50%), var(--bg);}
+.coach-layout{display:grid;grid-template-columns:1fr 300px;gap:16px;max-width:1200px;margin:0 auto;padding:24px 32px;}
+.coach-header{max-width:1200px;margin:0 auto;padding:20px 32px 0;display:flex;align-items:center;justify-content:space-between;}
+
+.squad-table{width:100%;border-collapse:collapse;}
+.squad-table th{background:var(--surface2);font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);padding:10px 12px;text-align:left;border-bottom:1px solid var(--bord2);}
+.squad-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle;}
+.squad-table tr:hover td{background:rgba(255,255,255,.015);}
+.squad-table tr.highlight td{background:rgba(212,168,32,.04);}
+
+.player-mini-card{display:flex;align-items:center;gap:10px;}
+.pmc-num{font-family:'Fraunces',serif;font-size:18px;font-weight:900;color:var(--ink3);width:24px;}
+.pmc-name{font-size:13px;font-weight:600;}
+.pmc-pos{font-size:10px;color:var(--ink3);}
+.pmc-gem{font-size:12px;}
+
+.flei-bar{display:flex;align-items:center;gap:8px;}
+.fb-track{width:60px;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;}
+.fb-fill{height:5px;border-radius:3px;}
+
+.tag-sm{font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.5px;text-transform:uppercase;}
+
+/* Match prep panel */
+.match-prep{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.mp-header{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:12px;}
+.focus-player{padding:12px;background:var(--surface2);border-radius:8px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;border:1px solid var(--border);}
+.focus-player.selected{border-color:rgba(212,168,32,.4);background:rgba(212,168,32,.04);}
+.fp-name{font-size:12px;font-weight:700;margin-bottom:3px;}
+.fp-goal{font-size:10px;color:var(--tm2);font-style:italic;}
+.fp-status{font-size:10px;color:var(--ink3);margin-top:3px;}
+
+/* ADAR quick */
+.adar-quick{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:12px;}
+.aq-label{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;}
+.aq-scores{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;}
+.aq-score-btn{padding:8px 4px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--ink3);font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;text-align:center;transition:all .15s;}
+.aq-score-btn .sub{font-size:9px;font-weight:400;display:block;margin-top:2px;}
+.aq-score-btn.on-0{background:rgba(224,68,68,.1);border-color:var(--red);color:var(--red);}
+.aq-score-btn.on-1{background:rgba(232,160,32,.1);border-color:var(--amber);color:var(--amber);}
+.aq-score-btn.on-2{background:rgba(46,194,122,.1);border-color:var(--green);color:var(--green);}
+
+/* ════════════════════════════════
+   VP VIEW
+════════════════════════════════ */
+.vp-bg{background:radial-gradient(ellipse at 80% 20%, rgba(168,85,247,.06) 0%, transparent 50%), var(--bg);}
+.vp-layout{max-width:1200px;margin:0 auto;padding:24px 32px;}
+.vp-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;}
+
+/* Org pulse */
+.org-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.org-kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative;overflow:hidden;}
+.org-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.ok-val{font-family:'Fraunces',serif;font-size:36px;font-weight:900;line-height:1;margin-bottom:4px;}
+.ok-label{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+.ok-delta{font-size:10px;font-weight:600;margin-top:6px;padding:2px 8px;border-radius:8px;display:inline-block;}
+
+/* Activity feed */
+.activity-feed{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.af-header{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:12px;}
+.af-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.af-item:last-child{border-bottom:none;}
+.af-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.af-body{flex:1;}
+.af-text{font-size:12px;color:var(--text);line-height:1.5;}
+.af-text strong{color:var(--tm2);}
+.af-time{font-size:10px;color:var(--ink3);margin-top:2px;}
+
+/* Coach activity matrix */
+.coach-matrix{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.cm-title{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:12px;}
+.cm-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.cm-row:last-child{border-bottom:none;}
+.cm-name{font-size:12px;font-weight:600;width:110px;flex-shrink:0;}
+.cm-team{font-size:10px;color:var(--ink3);width:40px;}
+.cm-dots{display:flex;gap:4px;flex:1;}
+.cm-dot{width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;}
+.cm-activity-label{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;}
+
+/* Bottoms-up view */
+.gem-pipeline{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+
+/* Scroll indicator */
+.scroll-hint{text-align:center;padding:12px;font-size:11px;color:var(--ink3);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+@keyframes fadeup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.fadeup{animation:fadeup .4s ease both;}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">Talent<em>Master™</em></div>
+  <div class="view-tabs">
+    <div class="view-tab active" onclick="switchView('player')" id="vt-player">
+      <div class="dot"></div> 🎮 Player — Mikael
+    </div>
+    <div class="view-tab" onclick="switchView('coach')" id="vt-coach">
+      <div class="dot"></div> 📋 Coach — Virtanen
+    </div>
+    <div class="view-tab" onclick="switchView('vp')" id="vt-vp">
+      <div class="dot"></div> 📊 Sporting Director
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════
+     PLAYER VIEW
+═══════════════════════════════════════ -->
+<div class="screen player-bg active" id="view-player">
+
+  <!-- Coach message banner -->
+  <div class="coach-msg" style="margin:16px 32px 0;">
+    <div class="cm-avatar">⚽</div>
+    <div class="cm-body">
+      <div class="cm-from">Coach Virtanen · Today</div>
+      <div class="cm-text">"Mikael — your scanning has improved massively. I noticed it clearly in the second half against Rival FC. Keep it going this week. One focus: when you receive under pressure, trust your preparation and play forward."</div>
+      <div class="cm-time">Sent after yesterday's match · Via TalentMaster IDP</div>
+    </div>
+  </div>
+
+  <!-- FIFA Card + Player info -->
+  <div class="card-stage">
+
+    <!-- FIFA CARD -->
+    <div class="fifa-card">
+      <div class="fifa-card-bg"></div>
+      <div class="fifa-card-shine"></div>
+      <div class="fifa-card-border"></div>
+      <div class="fc-gem">💎</div>
+      <div class="fifa-card-content">
+        <div class="fc-top">
+          <div>
+            <div class="fc-rating">84</div>
+            <div class="fc-pos">CM</div>
+          </div>
+          <div style="text-align:right">
+            <div class="fc-flag">🇫🇮</div>
+            <div class="fc-club">TalentMaster Academy</div>
+          </div>
+        </div>
+        <div class="fc-avatar">⚡</div>
+        <div class="fc-name">MIKAEL K.</div>
+        <div class="fc-divider"></div>
+        <div class="fc-stats">
+          <div class="fc-stat"><div class="fc-stat-val">83</div><div class="fc-stat-label">First touch</div></div>
+          <div class="fc-stat"><div class="fc-stat-val">80</div><div class="fc-stat-label">Vision</div></div>
+          <div class="fc-stat"><div class="fc-stat-val">86</div><div class="fc-stat-label">Mindset</div></div>
+          <div class="fc-stat"><div class="fc-stat-val">75</div><div class="fc-stat-label">Social</div></div>
+          <div class="fc-stat"><div class="fc-stat-val">81</div><div class="fc-stat-label">Compete</div></div>
+          <div class="fc-stat"><div class="fc-stat-val">↑↑</div><div class="fc-stat-label">DVI</div></div>
+        </div>
+        <div class="fc-tier">Hidden Gem · U14</div>
+      </div>
+    </div>
+
+    <!-- Player info -->
+    <div class="player-info fadeup">
+      <div class="pi-name">Mikael Koskela</div>
+      <div class="pi-sub">Central Midfielder · U14 · Born November 2012 · Hidden Gem 💎</div>
+
+      <!-- XP Bar -->
+      <div class="xp-section">
+        <div class="xp-label">
+          <span>⚡ Development XP — Level 7: Competitor</span>
+          <span style="color:var(--gold)">2,840 / 3,500 XP</span>
+        </div>
+        <div class="xp-track">
+          <div class="xp-fill" style="width:81%"></div>
+          <div class="xp-glow"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--ink3);margin-top:4px;">
+          <span>660 XP to next level: Elite</span>
+          <span>🔥 12-match streak</span>
+        </div>
+      </div>
+
+      <!-- Streak badges -->
+      <div class="streak-badges">
+        <div class="streak-badge" style="background:rgba(212,168,32,.1);color:var(--gold);border:1px solid rgba(212,168,32,.25)">🔥 12 Match Streak</div>
+        <div class="streak-badge" style="background:rgba(46,194,122,.1);color:var(--green);border:1px solid rgba(46,194,122,.25)">📈 Best month ever</div>
+        <div class="streak-badge" style="background:rgba(168,85,247,.1);color:var(--purple);border:1px solid rgba(168,85,247,.25)">💎 Hidden Gem</div>
+        <div class="streak-badge" style="background:rgba(30,111,200,.1);color:var(--tm2);border:1px solid rgba(30,111,200,.25)">🧠 IDP Active</div>
+      </div>
+
+      <!-- IDP goal -->
+      <div class="idp-goal">
+        <div class="idp-label">My IDP goal this month</div>
+        <div class="idp-text">"Scan before receiving — look before the ball arrives"</div>
+        <div class="idp-sub">Coach Virtanen · Progress: 7/10 matches with clear improvement</div>
+        <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-top:8px;">
+          <div style="height:4px;width:70%;background:var(--tm2);border-radius:2px;"></div>
+        </div>
+      </div>
+
+      <!-- Mini radar -->
+      <div class="player-radar-wrap">
+        <div class="prd-title">Development profile · vs age group average</div>
+        <canvas id="playerRadar" height="180" style="display:block;max-height:200px;"></canvas>
+        <div style="display:flex;gap:14px;margin-top:8px;font-size:10px;color:var(--ink3);">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:2px;background:var(--gold);display:inline-block;border-radius:1px"></span>Mikael</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:2px;background:rgba(255,255,255,.25);display:inline-block;border-radius:1px;border-style:dashed"></span>Age group avg</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Development challenges -->
+  <div class="challenge-section fadeup">
+    <div class="ch-title">Your development challenges this week</div>
+    <div class="challenge-grid">
+      <div class="challenge" style="border-color:rgba(30,111,200,.25);background:rgba(30,111,200,.03);">
+        <div class="ch-icon">👁️</div>
+        <div class="ch-name">Scanning Master</div>
+        <div class="ch-desc">In your next 3 training sessions: scan at least once before every receive. Coach will track it.</div>
+        <div class="ch-reward">🏆 +180 XP · Badge unlock</div>
+        <div class="ch-progress"><div class="ch-prog-fill" style="width:60%;background:var(--tm2)"></div></div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:4px;">2/3 sessions done</div>
+      </div>
+      <div class="challenge">
+        <div class="ch-icon">⚡</div>
+        <div class="ch-name">First Touch Under Pressure</div>
+        <div class="ch-desc">Complete the rondo drill at the start of Tuesday's session. Focus: receive and play forward in 1 touch.</div>
+        <div class="ch-reward">🏆 +120 XP</div>
+        <div class="ch-progress"><div class="ch-prog-fill" style="width:0%;background:var(--amber)"></div></div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:4px;">Not started · Tuesday</div>
+      </div>
+      <div class="challenge" style="opacity:.55;">
+        <div class="ch-icon">🔒</div>
+        <div class="ch-name">Next Level Unlock</div>
+        <div class="ch-desc">Complete 2 more match observations with your coach to unlock your Elite card.</div>
+        <div class="ch-reward">🏆 +250 XP · Card upgrade</div>
+        <div class="ch-progress"><div class="ch-prog-fill" style="width:0%;background:var(--purple)"></div></div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:4px;">Locked · 2 matches needed</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     COACH VIEW
+═══════════════════════════════════════ -->
+<div class="screen coach-bg" id="view-coach">
+  <div class="coach-header fadeup">
+    <div>
+      <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:900;">Squad Overview</div>
+      <div style="font-size:12px;color:var(--ink3);margin-top:2px;">Academy U14 · Coach Virtanen · Next match: Saturday vs Rival FC B</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div style="padding:6px 14px;border-radius:8px;background:rgba(46,194,122,.08);border:1px solid rgba(46,194,122,.2);font-size:11px;font-weight:600;color:var(--green);">Team FLEI: 64% ↑</div>
+      <div style="padding:6px 14px;border-radius:8px;background:var(--surface);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--ink2);">12 players · 8 IDPs active</div>
+    </div>
+  </div>
+
+  <div class="coach-layout">
+    <div>
+      <!-- Squad table -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;" class="fadeup">
+        <table class="squad-table">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>FLEI</th>
+              <th>DNA</th>
+              <th>IDP goal</th>
+              <th>Last match</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="highlight">
+              <td><div class="player-mini-card"><div class="pmc-num">8</div><div><div class="pmc-name">Mikael K. <span class="pmc-gem">💎</span></div><div class="pmc-pos">Central Midfielder</div></div></div></td>
+              <td><div class="flei-bar"><div class="fb-track"><div class="fb-fill" style="width:76%;background:var(--green)"></div></div><span style="font-size:11px;font-weight:700;color:var(--green)">76%</span></div></td>
+              <td><span style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--gold)">84%</span></td>
+              <td><span style="font-size:11px;color:var(--tm2);font-style:italic;">"Scan before receive"</span></td>
+              <td><span class="tag-sm" style="background:rgba(46,194,122,.1);color:var(--green)">8/10 ↑</span></td>
+              <td><span class="tag-sm" style="background:rgba(212,168,32,.1);color:var(--gold)">Hidden Gem</span></td>
+            </tr>
+            <tr>
+              <td><div class="player-mini-card"><div class="pmc-num">4</div><div><div class="pmc-name">Joonas V.</div><div class="pmc-pos">Central Midfielder</div></div></div></td>
+              <td><div class="flei-bar"><div class="fb-track"><div class="fb-fill" style="width:68%;background:var(--green)"></div></div><span style="font-size:11px;font-weight:700;color:var(--green)">68%</span></div></td>
+              <td><span style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--ink2)">71%</span></td>
+              <td><span style="font-size:11px;color:var(--tm2);font-style:italic;">"Play forward first"</span></td>
+              <td><span class="tag-sm" style="background:rgba(232,160,32,.1);color:var(--amber)">6/10 →</span></td>
+              <td><span class="tag-sm" style="background:var(--surface2);color:var(--ink3)">Standard</span></td>
+            </tr>
+            <tr style="border-color:rgba(224,68,68,.15)">
+              <td><div class="player-mini-card"><div class="pmc-num">5</div><div><div class="pmc-name">Eemeli H. ⚡</div><div class="pmc-pos">Left Back · PHV</div></div></div></td>
+              <td><div class="flei-bar"><div class="fb-track"><div class="fb-fill" style="width:48%;background:var(--amber)"></div></div><span style="font-size:11px;font-weight:700;color:var(--amber)">48%</span></div></td>
+              <td><span style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--ink3)">62%</span></td>
+              <td><span style="font-size:11px;color:var(--amber);font-style:italic;">PHV — reduced load</span></td>
+              <td><span class="tag-sm" style="background:rgba(224,68,68,.1);color:var(--red)">Monitor</span></td>
+              <td><span class="tag-sm" style="background:rgba(232,160,32,.1);color:var(--amber)">Growth spurt</span></td>
+            </tr>
+            <tr>
+              <td><div class="player-mini-card"><div class="pmc-num">11</div><div><div class="pmc-name">Sofia R.</div><div class="pmc-pos">Right Winger</div></div></div></td>
+              <td><div class="flei-bar"><div class="fb-track"><div class="fb-fill" style="width:71%;background:var(--green)"></div></div><span style="font-size:11px;font-weight:700;color:var(--green)">71%</span></div></td>
+              <td><span style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--ink2)">78%</span></td>
+              <td><span style="font-size:11px;color:var(--tm2);font-style:italic;">"1v1 bravery"</span></td>
+              <td><span class="tag-sm" style="background:rgba(46,194,122,.1);color:var(--green)">9/10 ↑↑</span></td>
+              <td><span class="tag-sm" style="background:var(--surface2);color:var(--ink3)">Standard</span></td>
+            </tr>
+            <tr>
+              <td><div class="player-mini-card"><div class="pmc-num">3</div><div><div class="pmc-name">Lauri M.</div><div class="pmc-pos">Centre Back</div></div></div></td>
+              <td><div class="flei-bar"><div class="fb-track"><div class="fb-fill" style="width:65%;background:var(--green)"></div></div><span style="font-size:11px;font-weight:700;color:var(--green)">65%</span></div></td>
+              <td><span style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--ink2)">69%</span></td>
+              <td><span style="font-size:11px;color:var(--tm2);font-style:italic;">"Anticipate — not react"</span></td>
+              <td><span class="tag-sm" style="background:rgba(232,160,32,.1);color:var(--amber)">5/10 →</span></td>
+              <td><span class="tag-sm" style="background:var(--surface2);color:var(--ink3)">Standard</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Match prep — who to focus on Saturday -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;" class="fadeup">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;">Saturday match — IDP focus players</div>
+        <div style="font-size:12px;color:var(--ink2);line-height:1.7;margin-bottom:12px;">These players have active IDP goals that are directly testable in Saturday's match. Observe individually.</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="padding:12px;background:rgba(212,168,32,.04);border:1px solid rgba(212,168,32,.2);border-radius:8px;">
+            <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:4px;">💎 Mikael K. — Priority watch</div>
+            <div style="font-size:11px;color:var(--ink3);font-style:italic;">"Scan before receiving"</div>
+            <div style="font-size:10px;color:var(--ink3);margin-top:6px;">Biological age 1.4 yrs behind — performing at a higher level than peers. This match: let him play forward early. Don't over-coach.</div>
+          </div>
+          <div style="padding:12px;background:rgba(224,68,68,.04);border:1px solid rgba(224,68,68,.15);border-radius:8px;">
+            <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:4px;">⚡ Eemeli H. — PHV flag</div>
+            <div style="font-size:11px;color:var(--ink3);font-style:italic;">Growth spurt active</div>
+            <div style="font-size:10px;color:var(--ink3);margin-top:6px;">Can play full match but no extra training load this week. Normal if physically slower — biological, not motivational.</div>
+          </div>
+          <div style="padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;">
+            <div style="font-size:12px;font-weight:700;margin-bottom:4px;">Sofia R.</div>
+            <div style="font-size:11px;color:var(--tm2);font-style:italic;">"1v1 bravery"</div>
+            <div style="font-size:10px;color:var(--ink3);margin-top:6px;">Best trend in the squad this month. Create situations where she can try 1v1 on the right side. Don't pull her off if she misses first one.</div>
+          </div>
+          <div style="padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;">
+            <div style="font-size:12px;font-weight:700;margin-bottom:4px;">Joonas V.</div>
+            <div style="font-size:11px;color:var(--tm2);font-style:italic;">"Play forward first"</div>
+            <div style="font-size:10px;color:var(--ink3);margin-top:6px;">Tendency to play safe sideways. Coaching cue during warm-up: "First option is always forward."</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side panel: quick log -->
+    <div class="fadeup">
+      <div class="match-prep">
+        <div class="mp-header">Quick KPI log — after Saturday</div>
+        <div style="font-size:11px;color:var(--ink3);margin-bottom:10px;line-height:1.5;">Score each IDP player. Takes 3 minutes. Updates their profile automatically.</div>
+
+        <div style="font-size:10px;font-weight:700;color:var(--gold);margin-bottom:6px;">💎 Mikael K. — Scanning</div>
+        <div class="aq-scores" id="quickScoreMikael">
+          <button class="aq-score-btn" onclick="quickScore(this,'m',0)">0<span class="sub">Not shown</span></button>
+          <button class="aq-score-btn" onclick="quickScore(this,'m',1)">1<span class="sub">Partially</span></button>
+          <button class="aq-score-btn" onclick="quickScore(this,'m',2)">2<span class="sub">Clearly</span></button>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:var(--green);margin:8px 0 6px;">Sofia R. — 1v1 bravery</div>
+        <div class="aq-scores" id="quickScoreSofia">
+          <button class="aq-score-btn" onclick="quickScore(this,'s',0)">0<span class="sub">Not shown</span></button>
+          <button class="aq-score-btn" onclick="quickScore(this,'s',1)">1<span class="sub">Partially</span></button>
+          <button class="aq-score-btn" onclick="quickScore(this,'s',2)">2<span class="sub">Clearly</span></button>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:var(--ink2);margin:8px 0 6px;">Joonas V. — Forward first</div>
+        <div class="aq-scores" id="quickScoreJoonas">
+          <button class="aq-score-btn" onclick="quickScore(this,'j',0)">0<span class="sub">Not shown</span></button>
+          <button class="aq-score-btn" onclick="quickScore(this,'j',1)">1<span class="sub">Partially</span></button>
+          <button class="aq-score-btn" onclick="quickScore(this,'j',2)">2<span class="sub">Clearly</span></button>
+        </div>
+        <button onclick="showCoachSaved()" style="width:100%;padding:10px;margin-top:12px;border-radius:8px;background:var(--tm);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">Save observations →</button>
+        <div id="coachSavedMsg" style="display:none;margin-top:8px;padding:8px;background:rgba(46,194,122,.08);border-radius:6px;font-size:11px;color:var(--green);text-align:center;">✓ Saved. Player profiles updated. VP notified.</div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:12px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;">Team DNA match</div>
+        <canvas id="coachRadar" height="160" style="display:block;max-height:180px;"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     VP / SPORTING DIRECTOR VIEW
+═══════════════════════════════════════ -->
+<div class="screen vp-bg" id="view-vp">
+<div class="vp-layout">
+
+  <div class="vp-header fadeup">
+    <div>
+      <div style="font-family:'Fraunces',serif;font-size:26px;font-weight:900;margin-bottom:4px;">Sporting Director</div>
+      <div style="font-size:12px;color:var(--ink3);">Academy · 247 players · 5 teams · Real-time overview</div>
+    </div>
+    <div style="font-size:11px;color:var(--ink3);text-align:right;">
+      <div style="color:var(--green);font-weight:600;margin-bottom:2px;">● Live — auto-updating</div>
+      <div>Last coach log: 4 minutes ago</div>
+    </div>
+  </div>
+
+  <!-- Org KPIs -->
+  <div class="org-grid fadeup">
+    <div class="org-kpi" style="border-top-color:var(--tm);">
+      <div class="org-kpi" style="padding:0;border:none;box-shadow:none;">
+        <div class="ok-val" style="color:var(--tm)">247</div>
+        <div class="ok-label">Players in system</div>
+        <div class="ok-delta" style="background:rgba(46,194,122,.08);color:var(--green)">↑ +22 this season</div>
+      </div>
+    </div>
+    <div class="org-kpi">
+      <div class="ok-val" style="color:var(--green)">68<span style="font-size:18px">%</span></div>
+      <div class="ok-label">FLEI avg · all teams</div>
+      <div class="ok-delta" style="background:rgba(46,194,122,.08);color:var(--green)">↑ +5% from last season</div>
+    </div>
+    <div class="org-kpi">
+      <div class="ok-val" style="color:var(--gold)">5 💎</div>
+      <div class="ok-label">Hidden Gems · active</div>
+      <div class="ok-delta" style="background:rgba(212,168,32,.08);color:var(--gold)">2 new this month</div>
+    </div>
+    <div class="org-kpi">
+      <div class="ok-val" style="color:var(--purple)">3</div>
+      <div class="ok-label">Transition ready · senior</div>
+      <div class="ok-delta" style="background:rgba(168,85,247,.08);color:var(--purple)">↑ +1 from last month</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+    <!-- Activity feed -->
+    <div class="activity-feed fadeup">
+      <div class="af-header">Live activity — what's happening right now</div>
+      <div class="af-item">
+        <div class="af-icon" style="background:rgba(212,168,32,.1);">💎</div>
+        <div class="af-body">
+          <div class="af-text"><strong>Mikael K. (U14)</strong> completed IDP challenge: Scanning Master. +180 XP. Card upgraded to level 7.</div>
+          <div class="af-time">4 minutes ago · Coach Virtanen logged the observation</div>
+        </div>
+      </div>
+      <div class="af-item">
+        <div class="af-icon" style="background:rgba(46,194,122,.1);">📋</div>
+        <div class="af-body">
+          <div class="af-text"><strong>Coach Virtanen</strong> submitted match review for U14 vs Rival FC. 5/5 KPIs scored. ADAR complete. DNA updated.</div>
+          <div class="af-time">12 minutes ago · No meeting needed</div>
+        </div>
+      </div>
+      <div class="af-item">
+        <div class="af-icon" style="background:rgba(232,160,32,.1);">⚡</div>
+        <div class="af-body">
+          <div class="af-text"><strong>Eemeli H. (U14)</strong> flagged: growth spurt active (PHV). Training load automatically reduced in coach dashboard.</div>
+          <div class="af-time">2 hours ago · Biological monitoring</div>
+        </div>
+      </div>
+      <div class="af-item">
+        <div class="af-icon" style="background:rgba(168,85,247,.1);">🎯</div>
+        <div class="af-body">
+          <div class="af-text"><strong>Sofia R. (U14)</strong> transition score crossed 80. Added to senior team watchlist automatically.</div>
+          <div class="af-time">Yesterday · No spreadsheet update needed</div>
+        </div>
+      </div>
+      <div class="af-item">
+        <div class="af-icon" style="background:rgba(30,111,200,.1);">📊</div>
+        <div class="af-body">
+          <div class="af-text"><strong>U19 FLEI dropped</strong> from 68% to 49% over 3 weeks. Competition load likely cause. Alert sent to head coach.</div>
+          <div class="af-time">Today · Automated monitoring</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coach activity matrix -->
+    <div class="coach-matrix fadeup">
+      <div class="cm-title">Coach activity this week — IDP observations</div>
+      <div style="display:grid;grid-template-columns:110px 40px repeat(7,1fr);gap:4px;margin-bottom:8px;font-size:9px;color:var(--ink3);text-align:center;">
+        <div></div><div></div>
+        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+      </div>
+      <div class="cm-row">
+        <div class="cm-name">Virtanen J.</div>
+        <div class="cm-team" style="font-size:10px;color:var(--ink3)">U14</div>
+        <div class="cm-dots">
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+        </div>
+      </div>
+      <div class="cm-row">
+        <div class="cm-name">Korhonen M.</div>
+        <div class="cm-team" style="font-size:10px;color:var(--ink3)">U17</div>
+        <div class="cm-dots">
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+        </div>
+      </div>
+      <div class="cm-row">
+        <div class="cm-name">Leinonen P.</div>
+        <div class="cm-team" style="font-size:10px;color:var(--amber)">U12</div>
+        <div class="cm-dots">
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+        </div>
+      </div>
+      <div class="cm-row">
+        <div class="cm-name">Heikkinen A.</div>
+        <div class="cm-team" style="font-size:10px;color:var(--ink3)">U19</div>
+        <div class="cm-dots">
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(46,194,122,.2);color:var(--green)">✓</div>
+          <div class="cm-dot" style="background:rgba(255,255,255,.04)"></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:10px;color:var(--ink3);display:flex;gap:12px;">
+        <span style="color:var(--green)">● Observation logged</span>
+        <span style="color:var(--amber)">! Below target this week</span>
+      </div>
+      <div style="margin-top:10px;padding:10px 12px;background:rgba(232,160,32,.06);border:1px solid rgba(232,160,32,.2);border-radius:8px;font-size:11px;color:var(--amber);">
+        ⚠ Coach Leinonen (U12) — only 1 observation this week. IDP coverage dropping. Consider check-in.
+      </div>
+    </div>
+  </div>
+
+  <!-- Transition pipeline + Hidden Gems -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="fadeup">
+    <div class="gem-pipeline">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:12px;">Hidden Gem pipeline — no spreadsheet, no meetings</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:14px;line-height:1.6;">These players are performing above their chronological age group when biological age is corrected. Other academies are not seeing this yet.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:rgba(212,168,32,.05);border:1px solid rgba(212,168,32,.2);border-radius:8px;">
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:900;color:var(--gold);width:36px;">91</div>
+          <div style="flex:1;"><div style="font-size:12px;font-weight:700;">💎 Mikael K. · U14</div><div style="font-size:10px;color:var(--ink3);">RAE Q4 · Bio age −1.4y · DVI +3.2</div></div>
+          <div style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(46,194,122,.1);color:var(--green);">IDP active</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:rgba(212,168,16,.04);border:1px solid rgba(212,168,16,.15);border-radius:8px;">
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:900;color:var(--gold);width:36px;">87</div>
+          <div style="flex:1;"><div style="font-size:12px;font-weight:700;">💎 Sofia R. · U14</div><div style="font-size:10px;color:var(--ink3);">RAE Q3 · Bio age −0.9y · DVI +2.8</div></div>
+          <div style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(212,168,16,.1);color:var(--gold);">Transition watch</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;">
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:900;color:var(--ink3);width:36px;">82</div>
+          <div style="flex:1;"><div style="font-size:12px;font-weight:700;">💎 Aino L. · U12</div><div style="font-size:10px;color:var(--ink3);">RAE Q4 · Bio age −1.1y · DVI +2.1</div></div>
+          <div style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(30,111,200,.1);color:var(--tm2);">Open IDP</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transition ready -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:4px;">Transition to senior team</div>
+      <div style="font-size:10px;color:var(--ink3);margin-bottom:12px;line-height:1.5;">Auto-generated from FLEI + DNA + DVI. Updates live. Replaces the monthly spreadsheet.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(46,194,122,.04);border:1px solid rgba(46,194,122,.2);border-radius:8px;">
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:900;color:var(--green);width:36px;">94</div>
+          <div style="flex:1;"><div style="font-size:12px;font-weight:700;">Emma Korhonen · U19</div><div style="font-size:10px;color:var(--ink3);">Centre mid · FLEI 81% · DNA 91%</div></div>
+          <div style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;background:rgba(46,194,122,.1);color:var(--green);white-space:nowrap;">Ready now</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;">
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:900;color:var(--tm2);width:36px;">87</div>
+          <div style="flex:1;"><div style="font-size:12px;font-weight:700;">Lauri Mäkinen · U17</div><div style="font-size:10px;color:var(--ink3);">Left back · FLEI 74% · DNA 84%</div></div>
+          <div style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;background:var(--surface2);color:var(--ink3);white-space:nowrap;">3–6 months</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(212,168,32,.03);border:1px solid rgba(212,168,32,.2);border-radius:8px;">
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:900;color:var(--gold);width:36px;">81</div>
+          <div style="flex:1;"><div style="font-size:12px;font-weight:700;">💎 Sofia R. · U14</div><div style="font-size:10px;color:var(--ink3);">Winger · Hidden Gem · DVI +2.8</div></div>
+          <div style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;background:rgba(212,168,32,.1);color:var(--gold);white-space:nowrap;">Watch closely</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:10px;color:var(--ink3);padding:8px 10px;background:rgba(255,255,255,.02);border-radius:6px;line-height:1.6;">
+        Previously: updated manually once a month in a shared spreadsheet. Now: live. Zero extra work from coaches.
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ── VIEW SWITCHING ──
+function switchView(v) {
+  ['player','coach','vp'].forEach(id=>{
+    document.getElementById('view-'+id).classList.remove('active');
+    document.getElementById('vt-'+id).classList.remove('active');
+  });
+  document.getElementById('view-'+v).classList.add('active');
+  document.getElementById('vt-'+v).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(v==='player') initPlayerRadar();
+  if(v==='coach') initCoachRadar();
+}
+
+// ── PLAYER RADAR ──
+function initPlayerRadar() {
+  const ctx = document.getElementById('playerRadar');
+  if(!ctx) return;
+  const existing = Chart.getChart(ctx);
+  if(existing) existing.destroy();
+  new Chart(ctx,{
+    type:'radar',
+    data:{
+      labels:['First touch','Intelligence','Mindset','Social skills','Competitive'],
+      datasets:[
+        {label:'Mikael',data:[8.3,8.0,8.6,7.5,8.1],borderColor:var_gold(),backgroundColor:'rgba(212,168,32,.12)',borderWidth:2.5,pointRadius:4,pointBackgroundColor:var_gold()},
+        {label:'Age avg',data:[7.0,6.8,6.5,6.8,7.0],borderColor:'rgba(255,255,255,.2)',backgroundColor:'rgba(255,255,255,.03)',borderWidth:1.5,borderDash:[5,3],pointRadius:2},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'rgba(168,180,200,.7)',font:{size:10},boxWidth:10}}},
+      scales:{r:{min:5,max:10,ticks:{display:false},grid:{color:'rgba(255,255,255,.06)'},angleLines:{color:'rgba(255,255,255,.06)'},pointLabels:{color:'rgba(168,180,200,.8)',font:{size:11}}}}
+    }
+  });
+}
+
+function initCoachRadar() {
+  const ctx = document.getElementById('coachRadar');
+  if(!ctx) return;
+  const existing = Chart.getChart(ctx);
+  if(existing) existing.destroy();
+  new Chart(ctx,{
+    type:'radar',
+    data:{
+      labels:['First touch','Intelligence','Mindset','Social','Competitive'],
+      datasets:[
+        {label:'U14 now',data:[7.2,6.8,7.5,7.0,7.8],borderColor:'rgba(30,111,200,.8)',backgroundColor:'rgba(30,111,200,.08)',borderWidth:2,pointRadius:3},
+        {label:'Target',data:[8,8,8,6,8],borderColor:'rgba(212,168,32,.5)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[4,3],pointRadius:2},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'rgba(90,104,128,.8)',font:{size:10},boxWidth:10}}},
+      scales:{r:{min:0,max:10,ticks:{display:false},grid:{color:'rgba(255,255,255,.05)'},angleLines:{color:'rgba(255,255,255,.05)'},pointLabels:{color:'rgba(90,104,128,.8)',font:{size:10}}}}
+    }
+  });
+}
+
+function var_gold(){return '#D4A820';}
+
+// ── QUICK SCORES ──
+function quickScore(btn, player, val) {
+  const id = 'quickScore'+{m:'Mikael',s:'Sofia',j:'Joonas'}[player];
+  document.getElementById(id).querySelectorAll('.aq-score-btn').forEach(b=>{
+    b.classList.remove('on-0','on-1','on-2');
+  });
+  btn.classList.add('on-'+val);
+}
+
+function showCoachSaved() {
+  document.getElementById('coachSavedMsg').style.display='block';
+  setTimeout(()=>switchView('vp'), 1800);
+}
+
+// Init - delay to ensure DOM is ready
+setTimeout(() => {
+  initPlayerRadar();
+  initCoachRadar();
+}, 100);
+</script>
+</body>
+</html>
