@@ -1,11 +1,11 @@
-# TalentMaster™ — Session Summary
+# TalentMaster™ — Master Session Summary
 # Briefingi uusia Claude-sessioita varten
-## Projektin tila (päivitetty 2026-04-11)
+## Projektin tila (päivitetty 2026-04-12)
 
 TalentMaster on jalkapallon talenttiarviointialusta — 8 pilottiseuraa, Firebase Blaze.
 Kehitys etenee kahdella rinnakkaisella haaralla:
 1. **Seurajärjestelmä** (VP/Valmentaja/Pelaaja) — tuotannossa
-2. **Solo-versio** (TalentMaster Player™) — uusi tuotehaarake, rakennettu tässä sessiossa
+2. **Solo-versio** (TalentMaster Player™) — uusi tuotehaarake, rakennettu 2026-04-10
 
 ---
 
@@ -17,7 +17,7 @@ https://terokoskela7-cmyk.github.io/talentmaster/
 
 ---
 
-## Sivuarkkitehtuuri (2026-04-11)
+## Sivuarkkitehtuuri (2026-04-12)
 
 ### Seurajärjestelmä
 | Sivu | Tiedosto | Rooli | Tila |
@@ -37,13 +37,27 @@ https://terokoskela7-cmyk.github.io/talentmaster/
 | Coaching tool | `TalentMaster_Valmentaja_Matriisi.html` | valmentaja | ⏳ PENDING |
 | Pelihavainto demo | `TalentMaster_Pelihavainto_Demo.html` | demo | ⚠ EI GitHubissa |
 
-### Solo-versio — TalentMaster Player™ (uusi, ⏳ PENDING GitHubiin)
+### Solo-versio — TalentMaster Player™ (⏳ PENDING GitHubiin)
 | Tiedosto | Kuvaus | Tila |
 |---|---|---|
 | `TalentMaster_Player_Home.html` | Onboarding: splash → nimi → syntymäaika → kortti | ⏳ PENDING |
 | `TalentMaster_Solo_Profiili.html` | Profiili: tekniikkakilpailu, kotimittarit, fyysinen, pelaajaprofiili | ⏳ PENDING |
 | `TalentMaster_Solo_Arviointi.html` | Alkuarviointi 3-kerrosta: tausta, tekniikka Y/N, mittaukset | ⏳ PENDING |
 | `TalentMaster_Kortti_Demo.html` | Korttityypit: Starter/Sharp/Elite, pelipaikka-ikonit | ⏳ PENDING |
+
+### Demo- ja myyntitiedostot (rakennettu 2026-04-12, EI GitHubissa)
+| Tiedosto | Kuvaus | Tila |
+|---|---|---|
+| `talentmaster_demo_en.html` | Kansainvälinen myyntidemo — 5 näyttöä, englanniksi | ✅ Valmis, bugit korjattu |
+| `talentmaster_player_demo.html` | 3 perspektiiviä: Pelaaja/Valmentaja/SD, FIFA-kortti | ✅ Valmis, bugit korjattu |
+| `hjk_pitch_v2.html` | HJK pitch uudistettu — 6 diaa, 3 perspektiiviä, FI/EN | ✅ Tuorein versio |
+| `hammarby_talentmaster_analyysi.html` | Strateginen analyysi Hammarby × TalentMaster | ✅ Valmis |
+| `fcn_talentmaster_proposal.html` | Co-development ehdotus FCN × TalentMaster | ✅ Valmis |
+| `eps_unified_v2.html` | EPS-dashboard vaalea teema, 7 välilehteä | ✅ Tuorein EPS-versio |
+| `eps_utj_dashboard.html` | UTJ-näkymä Heinille | ✅ Valmis |
+| `eps_idp_ottelu.html` | IDP-otteluesitys | ✅ Valmis |
+| `tm_dna_dashboard.html` | VP-dashboard DNA-painotuksilla | ✅ Valmis |
+| `tm_dna_builder.html` | DNA-rakennustyökalu | ✅ Valmis |
 
 ---
 
@@ -100,7 +114,7 @@ const firebaseConfig = {
 
 ---
 
-## Pilottiseurat (8 kpl) — tila 2026-04-11
+## Pilottiseurat (8 kpl) — tila 2026-04-12
 | SeuraId | Seura | Tila | Huomio |
 |---|---|---|---|
 | `fcl` | FC Lahti Juniorit | ✅ tunnukset | — |
@@ -111,6 +125,7 @@ const firebaseConfig = {
 | `grifk` | GrIFK | ✅ tunnukset | sv-kieli |
 | `vifk` | VIFK | ✅ tunnukset | sv-kieli |
 | `hjk` | HJK Juniorit | ✅ tunnukset | — |
+| `eps` | EPS (Espoon Palloseura) | ✅ tunnukset | Heini yhteyshenkilö, Teams-puhelu PENDING |
 | `demo` | FC Demo | ✅ testikäyttö | Super Admin |
 
 **Kaikilla seuroilla:** tunnukset luotu, testidataa ei vielä Firestoressä.
@@ -118,168 +133,164 @@ Kriittisin pullonkaula: Excel → Firestore tuontityökalu puuttuu.
 
 ---
 
-## TÄMÄN SESSION TUOTOKSET (2026-04-10 → 2026-04-11)
+## KANSAINVÄLINEN LAAJENTUMINEN — ANALYSOITU 2026-04-12
 
-### Solo-versio — TalentMaster Player™
+### Hammarby IF — kolme dokumenttia analysoitu
+**Dokumentit:**
+1. `HammarbyIF_GirlsAcademy_IndividualDevelopment.pdf`
+2. `Eerikkilä_january_2026_JoR.pdf` — poikaakatemian itsearviointi 2018–2025
+3. `HammarbyIF_GirlsAcademy_Transition.pdf`
 
-#### TalentMaster_Player_Home.html — onboarding
-**Filosofia (UX-määrittely v1.0):**
-- WOW-efekti = omistajuuden tunne, ei animaatiot
-- Rekisteröityminen ei tunnu lomakkeelta — tuntuu peliltä
-- Sähköposti + salasana VIIMEISENÄ (psykologinen sitoutuminen ensin)
+**Hammarbyn numerot:**
+- 2018: 0,89% oman kasvatuksen peliaika Allsvenskanissa (viimeinen sija)
+- 2025: 20,6% (Ruotsin ykkönen)
+- 2021–2024: 48 pelaajaa Superettaniin/Allsvenskaniin/vastaavaan
+- Transferit: Erabi +50 MSEK, Gül +50 MSEK, Adjei +60 MSEK, Swedberg +50 MSEK
 
-**Rakenne — 3 screeniä:**
-```
-S0: Splash
-  - Kultainen TM-logo nousee pimeydestä (scale(0)rotate(-15deg) → scale(1))
-  - Kolme pulssoivaa kultarengasta ympärillä
-  - "Tee se mitä ammattilaiset tekevät. Joka päivä." — "Joka päivä" kultaisena
-  - CTA: "Aloita — se on ilmainen" + shimmer-efekti napissa
-  - Particle-kenttä (52 hiukkasta, sininen/kulta/teal)
+**Hammarbyn 5 pilaria → TalentMaster-vastaavuus:**
+| Pilari | TalentMaster |
+|---|---|
+| Style of Play | DNA-konfiguraatio |
+| Role Profile | Pelipaikka-KPI |
+| Team Training | Kausikaari (osittain) |
+| IDP | Pelihavainto + IDP-kortti |
+| **Player Pathway** | **PUUTTUU — suurin mahdollisuus** |
 
-S1: Nimi
-  - Vain etunimi — heti kun kirjoitettu:
-    "Hei [Nimi] — tehdään sinulle oma kortti."
-  - Enter-nappi jatkaa suoraan
+**Mitä Hammarbylta puuttuu (= TM:n mahdollisuus):**
+- Biologinen ikä — ei RAE-korjausta
+- Staattinen siirtymädokumentti — Excel manuaalisesti kerran kuussa
+- Raportoivat palaverit — data ei korvaa palavereita
+- Kehitysnopeus (DVI) — ei näy kuka kehittyy nopeammin
 
-S2: Syntymäaika
-  - Vuosi: scroll-wheel (rullattava, snap, kultainen valittu)
-  - Kuukausi: 3×4 grid, klikattavat napit
-  - "Luo korttini →" → suoraan korttipaljastumiseen
+**Mitä TalentMaster oppii Hammarbylta:**
+- Faasiajattelu: Foundation (8–11) / Learning (12–13) / Developing (14–15) / Transition (16–19)
+- Player Care -moduuli — psykologinen taso 2×/kk (puuttuu TM:stä)
+- Harjoitushavainto — sama ADAR-rakenne harjoituskontekstissa
+- Harjoitussuunnitelma pelaajalle etukäteen
+- Tulokset-KPI:t — "montako siirtyi ylemmälle tasolle"
 
-sCard: FIFA-kortin paljastuminen
-  - t=300ms: kortti nousee alhaalta (translateY(64px) → 0)
-  - t=900ms: 3D-flip (rotateY(180deg) → 0)
-  - t=1900ms: kultainen burst välähtää + tausta syttyy
-  - t=2.2-5.1s: kolme lausetta peräkkäin:
-    "Tämä on sinun korttisi, [Nimi]."
-    "Se muuttuu sitä mukaa kun sinä muutut."
-    "Aloitetaan."
-    → koodi kultaisena isolla: TMP-XXXX
-    → "Tämä on sinun koodisi. Jaa se kavereille."
-  - t=5.8s: "Aloita harjoittelu →" nappi
-  - Tallentuu: localStorage tm_player_code + tm_solo_profiili
-```
+**Yhteydenotto:**
+- Magnus Bodsgård, Head of Academy
+- magnus.bodsgard@hammarbyungdom.se | +46 702 095 474
+- Viesti: ruotsiksi, tunnistava ei myyvä, pilotti yhdelle joukkueelle
 
-**FIFA-kortin rakenne:**
-- Pyöreäkulmainen suorakaide (sama muoto kuin kuva 1, Mäkinen-kortti)
-- Kehys: 3px gradient-reunus (FFE566→F5B700→C88000→7A4D00)
-- Tausta: syväsininen, radial gradient yläosasta
-- Pelipaikka-badge + tähdet oikeassa yläkulmassa
-- OVR iso (76px Barlow Condensed 900), kultainen gradient + drop-shadow
-- Pelaajan nimi isolla
-- 6 statistiikkaa 3+3 gridissä
-- XP-palkki alareunassa
-- Shimmer-pyyhkäisy silmättömänä loopina
+### FC Nordsjælland — viisi dokumenttia analysoitu
+**Dokumentit:**
+1. `Club Presentation (2).pdf` — 29 sivua, akatemiaesittely
+2. `Data and Research Department.pdf` — 8 sivua, data-infrastruktuuri
+3. `Opl%C3%A6g Finske FA.pdf` — 18 sivua, U17 viikko-ohjelma
+4. `Presentation Finnish FA.pdf` — 28 sivua, metodologia
+5. `Thomas Arvedsen, Finish FA.pdf` — 37 sivua, videoanalyysi
 
-**Kolme korttityyppiä:**
-```
-⭐   Starter  — sininen (lähtötaso, OVR 40-50)
-⭐⭐  Sharp   — kultainen (kehittyvä, OVR 51-65)
-⭐⭐⭐ Elite  — platina/hopea (huipputaso, OVR 66+)
-```
+**FCN:n numerot:**
+- €92M transfereissa 2015→ (Kudus, Emre Mor, Kamaldeen, Adingra...)
+- Nuorin edustusjoukkue Euroopassa (ka. 20,9v)
+- Nr. 12 Euroopassa oman kasvatuksen pelaajien siirroissa top-5 liigaan
+- Data-tiimi: Lasse Ishøi (PhD), Franek Liszka, Christian Rønsholt
 
-#### TalentMaster_Solo_Profiili.html — pelaajan profiilisivu
-**5 collapsible-osiota:**
+**FCN:n 5 analyysialustaa (ei integroituja):**
+Spiideo + VEO + Hudl + ProSoccerData + Wyscout
+→ Thomas Arvedsen koostaa neljännesvuosiraportit käsin viidestä järjestelmästä
 
-1. **Pelaajaprofiili** — chippeillä (ei lomake):
-   - Pelipaikka: MV/PUO/LP/KK/HKK/LH/HYÖ
-   - Kokemus: aloitin juuri / 1-2v / 3-4v / 5+v
-   - Treenikerrat: 0/1-2/3-4/5+
-   - Vaikein asia: ketjuvalinta SBL/LL/DFL/SFL/DIAG
+**FCN:n 4 KPI:tä (joukkuetaso):**
+1. CONTROL — omistus vs. muodostelmalinja
+2. HIGH PRESSING — PPDA vs. puoliskon palautukset
+3. GOALSEEKING — xG vs. syötöt viimeiseen kolmannekseen
+4. EFFECTIVE — xG vs. maalit
 
-2. **Tekniikkakilpailutulokset** — ydin:
-   - Kilpailuvuosi (chip-valinta)
-   - Kokonaistulos sekunteina + merkki (kulta/hopea/pronssi)
-   - Lajit erikseen (valinnainen): ponnauttelu, syöttäminen, pujottelu,
-     kuljetus-laukaus, pituuspotku (vain 12-13v)
-   - Ponnauttelu-ohje vaihtuu automaattisesti iän mukaan:
-     - P13-11/T13-12: vuorojaloin 4× + vuororeisin 4× + päällä 4× — 3×
-     - P10/T11: vuorojaloin 4× + vuororeisin 4× + päällä 1× — 3×
-     - P9/T10-9: vuorojaloin 4× + vuororeisin 2× — 2× (ei päätä)
-     - P/T8: vuorojaloin 10×
-   - Kaikki testit sekunteina (pienempi parempi), pituuspotku metreissä
-   - Tuloshistoria vuosittain
+**FCN:n aukot (= TM:n mahdollisuus):**
+- **Biologinen ikä** — kaikki data kronologisella iällä, ei RAE-korjausta
+- **Kehityspolku 8v→edustus** — ei yhtenäistä dataketjua ikäluokkien välillä
+- **Character development** — 4 kokopäiväistä (psykologi, kulttuurijohtaja, player care, koulutus) mutta ei dataakerrosta
+- **Integraatio** — 5 alustaa, 0 integraatiota keskenään
 
-3. **Fyysinen testi** (valinnainen):
-   - Vauhditon pituushyppy (cm), 5-loikka (m)
-   - Naruhypyt 15s (kpl), 30m sprintti (s)
+**Co-development -ehdotus (3 vaihetta):**
+| Vaihe | Sisältö | Kesto | Vetäjä |
+|---|---|---|---|
+| I — Research Partnership | Biologinen ikä -validaatio, yhteinen tutkimusjulkaisu | 1–6 kk | Lasse Ishøi + TM |
+| II — Pilot Programme | U17 yksi kausi, Character-moduuli, unified player file | 4–12 kk | Thomas Arvedsen |
+| III — Platform Partnership | Koko akatemia, FCN DNA konfiguraatio, nordinen referenssi | 10–24 kk | Mikkel Hemmersam |
 
-4. **Kotimittarit** (3 kk seuranta):
-   - Ponnautusluku (kpl), seinäsyöttöputki (kpl), driblausaika (s)
-   - Tallentaa päivämäärän, näyttää milloin seuraava mittaus
+**Mitä rakennetaan yhdessä:**
+1. Biologinen ikä -korjausmoottori (FCN data + TM Mirwald/Khamis-Roche)
+2. Character Development -moduuli (Stine Lyhnen kanssa)
+3. Unified Player Development File (korvaa manuaalisen neljännesvuosiraportin)
+4. Transfer Trajectory Report (DVI + DNA match ostajaseuraan)
+5. FCN DNA -konfiguraatio nordiselle markkinalle
 
-5. **Seuran testitulokset** (automaattinen Firestoresta):
-   - FLEI + ketjupisteet kun seura käyttää TalentMasteria
-   - PlayerCode näkyy jaettavaksi
-
-**Tallentuu:** localStorage `tm_solo_profiili` + `tm_tkk_historia`
-
-#### TalentMaster_Solo_Arviointi.html — alkuarviointi
-**3 kerrosta, 13 screeniä:**
-
-Kerros 1 — Tausta (4 kysymystä):
-- Syntymävuosi+kuukausi → ikä + RAE-huomio (tammikuu/joulukuu)
-- Harjoittelukokemus
-- Treenikerrat viikossa
-- Vaikein asia pelissä → FLEI-ketjun valinta
-
-Kerros 2 — Tekniset Y/N (kokeile itse ennen kuin vastaat):
-1. Kuljettaminen 20m silmät ylhäällä
-2. Vastaanotto seinästä 5m, 3/5 hallitusti
-3. Syöttö reppu 15m, 3/5 osuu
-4. Cruyff-käännös molemmin puolin
-5. Laukaus: maali TAI kaveri/vanhempi 10m päässä kädet edessä → 3/5
-
-Kerros 3 — Kolme mittausta (lähtötaso, palataan 3 kk päästä):
-- Ponnautusluku, seinäsyöttöputki, driblausaika
-
-**Tulos:**
-- FIFA-kortti OVR-arvolla (40-78)
-- T-mesosykli kalenterin mukaan (Kaka/Affelay/Ronaldo/Beckham)
-- D-harjoite ketjuvalinnan mukaan
-- PHV-varoitus 11-13-vuotiaille automaattisesti
-
-#### TalentMaster_Kortti_Demo.html — korttidemo
-- Standalone demo kolmesta korttityypistä
-- Starter/Sharp/Elite napista → koko värimaailma vaihtuu
-- Pelipaikka-ikonit: ⚽ HYÖ / ⚡ KHK / ⚙️ KK / 🛡️ PUO / 🧤 MV
-- Kipinät + burst joka variantinvaihdossa
-- Fontti: Barlow Condensed 900 (FIFA-tyylinen mutta oma identiteetti)
+**Ensimmäinen yhteydenotto:**
+- Lasse Ishøi — Head of Sport & Data Science (EI myyntipitch — tutkimuskysymys)
+- Thomas Arvedsen — Head of Academy Analysis (operatiivinen: "mitä jos raportti generoituisi itse?")
 
 ---
 
-## AIEMMAT SESSION TUOTOKSET (2026-04-08 → 2026-04-09)
+## DEMO-ARKKITEHTUURI — RAKENNETTU 2026-04-12
 
-### VP v18 — Valmentajat-tabi
-```
-Valmentajat-tabi (korvasi: Henkilöstö + Valmennus)
-  ├── 👤 Valmentajat: kortit grid, hover, väriviiva roolittain
-  └── 📊 Osaaminen: lataaHSSeuranta() — KPI + 7 kriteeriä + trendi + suodatin
-```
-**Kriittiset korjaukset:**
-- `_avaaValmentajaPopup` → globaali (oli nested → ReferenceError)
-- `window._vpKayntiBadge/Viimeisin/RooliNimet/JData` → cache
-- `nimiToUid`-kartta: UID-mismatch mentoroinnit ↔ kayttajat
-- `_tavoitteetLadattu`, `_henkilostoLadattu` globaalit lisätty
+### talentmaster_demo_en.html — kansainvälinen myyntityökalu
+5 näyttöä, englanniksi, interaktiivinen:
+1. **The Problem** — 2.1% → 21.4% homegrown (teoreettinen), €8.4M transferit
+2. **Academy Overview** — UTJ-dashboard, DNA-ring, KPI-grid, transition-lista automaattinen
+3. **Hidden Gem** — Joonas vs Mikael: bio-ikä −1.4v, RAE Q4, 18kk aiempi tunnistus
+4. **Match Review** — KPI → ADAR → Pelaajan arvio, live DNA-feedback
+5. **CTA** — "Your philosophy, made visible"
 
-### Testidatan tuontipohja
-`TalentMaster_Testidatan_Tuontipohja.xlsx` (5 välilehteä):
-- 0_OHJEET, 1_Pelaajat, 2_HH_Testit, 3_Harjoitettavuus, 4_Tekniikkakilpailut
-- FLEI% automaattinen, validointi, TSI automaattinen
+### talentmaster_player_demo.html — 3 perspektiiviä
+- 🎮 **Player**: FIFA-kortti (kulta, taso 7), XP-palkki, streak-badget, IDP, viikkohaasteet
+- 📋 **Coach**: joukkuetaulukko FLEI+DNA, otteluvalmistelu, nopea KPI-kirjaus, Team DNA radar
+- 📊 **Sporting Director**: 4 KPI:tä, live-aktiviteettifeed, valmentajien aktiivisuusmatriisi, Hidden Gem -pipeline, transition-lista
 
-### Pelihavainto-arkkitehtuuri (suunniteltu, Sprint 5)
-```
-TIPS: T=Tekninen / I=Pelikuva / P=Persoona / S=Nopeus / +IDP-kytkös
-3 tasoa: Valmentaja 24h → Pelaaja 48h → VP näkee molemmat + FLEI+PHV
-KV-perusta: Ajax TIPS, GPAI, EPPP
-Demo: TalentMaster_Pelihavainto_Demo.html (offline, ei GitHubissa)
-```
+### hjk_pitch_v2.html — HJK pitch uudistettu
+6 diaa scroll-snap, Barlow Condensed -fontti, **täysi FI/EN kielivalinta (80+ tekstielementtiä)**:
+| Dia | Sisältö |
+|---|---|
+| 1 | Hero — FIFA-kortti, hover-efekti |
+| 2 | Haaste — 0%, 10+ valmentajanvaihtoa |
+| 3 | **UUSI: Kolme perspektiiviä** — sama tab-rakenne kuin player demo |
+| 4 | DNA Match — identiteettikortti, "muistuttaa Atomua" |
+| 5 | Pipeline — 8v→VL, 3 feature-korttia |
+| 6 | CTA — HJK PILOTTI 2025 |
 
-### Palloliiton yhteistyö (2026-04-09)
-- Head of Talent -tapaaminen
-- Positioning: TalentMaster = Myeway:n toiminnallinen pari (ei kilpailija)
-- Laukauskarttaa ei rakenneta — linkki Palloliiton BI:hin riittää
+### Chart.js bugikorjaus — MUISTA JATKOSSA
+**Ongelma:** `_init` guard tai `display:none` → canvas 0-dimensiot → kaavio tyhjä
+**Ratkaisu:** `Chart.getChart(ctx)` + `existing.destroy()` + `new Chart()` + `setTimeout(50–100ms)`
+**EI koskaan:** `_init` guard
+
+---
+
+## TUOTEPOHDINTA — ROADMAP (PRIORITEETTIJÄRJESTYS)
+
+### 🔴 Kriittiset — estää tuotannon
+- [ ] SPF/DKIM puuttuu — sähköpostit menevät roskapostiin
+- [ ] `joukkueNimi` tallentuu ID:nä, ei display-nimenä
+- [ ] VP-dashboard delta/trendit rakentamatta
+- [ ] Pelaaja-sivu lag-bugi (`TalentMaster_Pelaaja_v1.html`)
+- [ ] Teams-puhelu Heinille (EPS) — 16 kysymystä valmiina
+
+### 🟡 Tärkeät — Hammarbyn ja FCN:n analyysin pohjalta
+- [ ] **Harjoitushavainto-moduuli** — sama ADAR-rakenne harjoituksissa
+- [ ] **Player Care -moduuli** — psykologinen taso 2×/kk
+- [ ] **Transition-näkymä** — dynaaminen "valmis ylemmälle tasolle" (korvaa Excel)
+- [ ] **Harjoitussuunnitelma pelaajalle etukäteen** — IDP-tavoite + viikon fokus
+- [ ] "Why"-lause jokaiseen harjoitekorttiin (`harjoitelogiikka_v4.js`)
+- [ ] Solo-versio deploy GitHubiin (4 tiedostoa)
+- [ ] SJK-käyttöönotto: VP-tunnukset + joukkueet + pelaajat
+- [ ] Excel → Firestore tuontityökalu
+
+### 🔵 Strategiset
+- [ ] **Tulokset-KPI:t** — "montako siirtyi ylemmälle tasolle"
+- [ ] **Faasikohtainen KPI-kirjasto** — Foundation → Learning → Developing → Transition
+- [ ] **Transfer Trajectory Report** — DVI + DNA match ostajaseuraan (FCN-co-dev)
+- [ ] **Character Development -moduuli** (FCN co-dev, Stine Lyhne)
+- [ ] DNA-pulssimittari VP:n KPI-gridiin
+- [ ] Firestore-integraatio DNA-konfiguraatiolle
+- [ ] Showcase Pro -moduuli (17–19v)
+- [ ] Tyttöjen PHV-kaava (ennen SJK U14/15T-aktivointia)
+- [ ] Streak-historia Firestoreen (nyt localStoragessa)
+
+### Strategiset yhteydenotot — prioriteettijärjestys
+1. **Heini (EPS)** — Teams-puhelu, 16 kysymystä valmiina — HETI
+2. **Magnus Bodsgård (Hammarby)** — ruotsiksi, tunnistava, pilotti yhdelle joukkueelle
+3. **Lasse Ishøi (FCN)** — englanniksi, tutkimuskysymys biologisesta iästä
 
 ---
 
@@ -295,13 +306,12 @@ ytUrl(id)               → 'https://www.youtube.com/embed/{id}?rel=0'
 generoimTehtavat(pel)   → [{id, tyyppi, label, ohje, yt, stage, ...}]
 ```
 
-**T-mesosykli kalenteripohjainen (Kaka/Affelay/Ronaldo/Beckham):**
+**T-mesosykli kalenteripohjainen:**
 ```
 Syys/Tammi: Vastaanottaminen — Kaka-sarja
 Loka/Helmi: Dribbeli — Affelay-sarja
 Marras/Maalis: 1v1-liikkeet — Ronaldo-sarja
 Joulu/Huhti: Syöttäminen — Beckham-sarja
-Mikrosykli (Noordster): Vk1 hidas → Vk2 nopeutuu → Vk3 vastustaja → Vk4 mittaus → Vk5 REPEAT
 ```
 
 ---
@@ -312,7 +322,7 @@ Mikrosykli (Noordster): Vk1 hidas → Vk2 nopeutuu → Vk3 vastustaja → Vk4 mi
 | Vauhtiketju | `sbl` | ⚡ | Nopeus, räjähtävyys |
 | Lähtöketju | `sfl` | 🦵 | Kiihdytys, pysähtyminen |
 | Sivuketju | `ll` | ↔️ | Suunnanmuutos, feintit |
-| Kiertoketju | `diag` | 🔄 | Syöttö, laukaus (korvaa SL+FL) |
+| Kiertoketju | `diag` | 🔄 | Syöttö, laukaus |
 | Hallintaketju | `dfl` | 🏗️ | Keskivartalo, hallinta |
 
 Firestore: `flei_ketjut: {SBL, SFL, LL, DIAG, DFL}` (isolla)
@@ -337,7 +347,7 @@ Firestore: `flei_ketjut: {SBL, SFL, LL, DIAG, DFL}` (isolla)
 15. `_pelaaja` on `let` — EI `window._pelaaja`
 16. `harjoitelogiikka_v4.js` ennen pääscriptejä
 17. YouTube: `embed/{ID}?rel=0`
-18. Fiilinki-lukitus: `fiilinki_paivitetty` ennen renderöintiä
+18. Fiilinki-lukitus: `fiilinki_paivitettu` ennen renderöintiä
 19. Super admin: `adminSnap.exists`
 20. `huoltajaEmail` aina `.toLowerCase()`
 21. Firebase Functions: AINA `firebase.app().functions('europe-west1')`
@@ -346,104 +356,30 @@ Firestore: `flei_ketjut: {SBL, SFL, LL, DIAG, DFL}` (isolla)
 24. `nimiToUid`: UID-mismatch mentoroinnit ↔ kayttajat
 25. `joukkueNimi`: display name, ei ID (bugi auki)
 26. Solo-pelaajat: `players/{id}` (ei seurahierarkiassa) — `seuraId: null`
+27. Chart.js: AINA `Chart.getChart()` + destroy + redraw, EI `_init` guard
+28. Chart.js `display:none` -näyttö: `setTimeout(50–100ms)` ennen init-kutsua
 
 ---
 
-## Avoimet bugit (2026-04-11)
+## Avoimet bugit (2026-04-12)
 | Bugi | Tiedosto | Prioriteetti |
 |---|---|---|
 | Pelaaja-sivu lagaa / ei toimi | TalentMaster_Pelaaja_v1.html | 🔴 Korkea |
 | Fiilinki-kysely väärä U13-vaiheessa | TalentMaster_Pelaaja_v1.html | 🟡 Keski |
 | joukkueNimi tallentuu ID:nä | Rekisterointi_Suostumus.html | 🟡 Keski |
+| SPF/DKIM puuttuu — roskapostiin | Cloud Functions / Gmail | 🔴 Korkea |
+| VP-dashboard delta/trendit puuttuu | TalentMaster_VP_v18.html | 🟡 Keski |
 
 ---
 
-## PX Sprint -analyysi (Player Experience) — 2026-04-11
-
-Analysoitu ulkopuolinen suunnitelma "TalentMaster PX Sprint". Kolme asiaa
-jotka kannattaa ottaa mukaan, muut jo olemassa tai liian aikaisia.
-
-### ✅ Otetaan mukaan heti
-
-**1. "Why"-lause jokaiseen harjoitekorttiin**
-Nykyinen koodi näyttää harjoitteen nimen + ohjeen. Puuttuu yksi lause
-joka kertoo miksi tämä auttaa pelissä. Pieni muutos, iso vaikutus motivaatioon.
-```
-Ennen: "Sivuttaisliike + spurtti — 5 toistoa/puoli"
-Jälkeen: "Sivuttaisliike + spurtti — auttaa sinua voittamaan 1v1-tilanteet"
-```
-Toteutus: lisää `why`-kenttä `harjoitelogiikka_v4.js`:n harjoite-objekteihin.
-Ikätasokohtainen teksti: leikkija = "auttaa ohittamaan pelaajan",
-rakentaja = "tekee sinusta vaikeamman puolustaa",
-showcase = "ratkaisee tilanteita kovassa tempossa".
-
-**2. Onnistumismittarit — käytetään OrsaSport-pilotin arvioinnissa**
-```
-Day 1:  80% ymmärtää mitä tehdä ilman selitystä
-Day 3:  50% avaa appin uudestaan
-Day 7:  30% tekee 3 päivän streakin
-```
-Testikysymykset 5-10 pelaajalle: "Ymmärsitkö mitä tehdä?" /
-"Kauanko kesti aloittaa?" / "Avaatko huomenna uudestaan?"
-
-### 📋 Tallennettu Sprint 6-8:aan — AI Copy Agent
-
-Prompti on kirjoitettu valmiiksi ja sopii suoraan TalentMasterin
-AI-agentin toteutukseen (Sprint 6-8). Ikäjaottelu identtinen
-`leikkija/rakentaja/showcase`-jaon kanssa.
-
-```
-You are a youth football coach.
-Write a short message (max 2 sentences).
-
-Rules:
-- simple language, no jargon
-- explain why this matters in a game
-- adapt tone by age:
-  10-12: playful
-  13-15: encouraging
-  16-19: performance-focused
-
-Input:
-Age: {age}
-Focus: {focus}         ← heikoin FLEI-ketju
-Last feedback: {feedback}   ← valmentajan viimeisin havainto
-Streak: {streak}
-```
-
-Output-esimerkit:
-- 11v: "Pidä pallo lähellä ja kokeile eri suuntia ⚽ Tämä auttaa sinua ohittamaan pelaajan pelissä!"
-- 14v: "Nopea suunnanmuutos tekee sinusta vaikeamman puolustaa. Tämä näkyy suoraan 1v1-tilanteissa."
-- 17v: "Explosiivinen suunnanmuutos ratkaisee tilanteita kovassa pelitempossa. Tee tämä huolellisesti."
-
-**Aktivointihetket (triggerit) kun aika on oikea:**
-- Streak katkeamassa
-- 3 päivän putki saavutettu
-- Fiilinki matala 2 päivää peräkkäin
-- Uusi viikko (fresh start)
-- PHV-huippu
-
-### ❌ EI rakenneta vielä
-- Daily Summary Builder Cloud Function → `generoimTehtavat()` tekee jo tämän
-- AI-agentti → Sprint 6-8, vasta kun pelaajat käyttävät appia 3 päivää putkeen
-- Monimutkainen trigger-logiikka → turha ennen kuin lag-bugi on korjattu
-
----
-
-## Seuraavaan sessioon (tärkeysjärjestyksessä)
-1. 🔴 Pelaaja-sivu lag-bugi — tutkimatta
-2. 🔴 Lisää "why"-lause harjoitekortteihin (`harjoitelogiikka_v4.js`)
-3. 🔴 Solo-versio deploy GitHubiin (4 tiedostoa)
-4. 🔴 SJK-käyttöönotto: VP-tunnukset + joukkueet + pelaajat
-5. 🔴 Excel → Firestore tuontityökalu
-6. 🟡 Pelihavainto Taso 1 (TIPS-lomake Master-näkymässä)
-7. 🟡 Tyttöjen PHV-kaava (ennen U14/15T-aktivointia)
-8. 🟡 Fiilinki ikävaihekysely-bugi
-9. 🟡 Solo Firebase-integraatio (players-kokoelma)
-10. 🟢 Pending deploy: Koukutus.html + Valmentaja_Matriisi.html
-11. 🟢 Streak-historia Firestoreen (nyt localStoragessa)
-
----
+## Tekniset vakiot
+- Firebase: `talentmaster-pilot` / `europe-west1`
+- Super Admin: `talentmasterid@gmail.com` / `dqUzvJA61Wb9fgj5UiK0riSA4NI2`
+- EPS väri: `#004B87` (sininen, vaalea teema)
+- HJK väri: `#005CB9` (tumma teema, Barlow Condensed)
+- GitHub: `terokoskela7-cmyk.github.io/talentmaster/`
+- Tuorein EPS dashboard: `eps_unified_v2.html`
+- Tuorein HJK pitch: `hjk_pitch_v2.html`
 
 ## Avoimet tekniset asiat
 - **Cloud Scheduler API:** console.cloud.google.com/apis/library/cloudscheduler.googleapis.com?project=talentmaster-pilot
@@ -451,3 +387,23 @@ Output-esimerkit:
 - **CDN cache:** ~10min — `?v=N` + tarkista raw.githubusercontent.com
 - **Tyttöjen PHV:** Mirwald eri parametrit — pakollinen ennen SJK U14/15T
 - **Palloliiton Power BI:** https://app.powerbi.com/view?r=eyJrIjoiOWZhZGExZTMtODRhMC00NmI1LTk2N2QtNGU5OThkNjg2Mjk1IiwidCI6IjQ2OTM4YzQyLTk2MDgtNDU4ZC1iMjVlLTg3MTMzNjJhOTk5MSIsImMiOjh9
+
+## Seuraavaan sessioon (tärkeysjärjestyksessä)
+1. 🔴 Pelaaja-sivu lag-bugi — tutkimatta
+2. 🔴 SPF/DKIM — sähköpostit roskapostiin
+3. 🔴 Lisää "why"-lause harjoitekortteihin (`harjoitelogiikka_v4.js`)
+4. 🔴 Solo-versio deploy GitHubiin (4 tiedostoa)
+5. 🔴 SJK-käyttöönotto: VP-tunnukset + joukkueet + pelaajat
+6. 🔴 Teams-puhelu Heinille (EPS) — 16 kysymystä valmiina
+7. 🟡 Pelihavainto Taso 1 (TIPS-lomake Master-näkymässä)
+8. 🟡 Tyttöjen PHV-kaava (ennen U14/15T-aktivointia)
+9. 🟡 Fiilinki ikävaihekysely-bugi
+10. 🟡 Solo Firebase-integraatio (players-kokoelma)
+11. 🟡 Player Care -moduuli (Hammarby/FCN-oppiminen)
+12. 🟡 Harjoitushavainto-moduuli (Hammarby-oppiminen)
+13. 🟡 Transition-näkymä (dynaaminen, korvaa Excel)
+14. 🟡 Excel → Firestore tuontityökalu
+15. 🟢 Hammarby-yhteydenotto (Magnus Bodsgård, ruotsiksi)
+16. 🟢 FCN-yhteydenotto (Lasse Ishøi, tutkimuskysymys)
+17. 🟢 Pending deploy: Koukutus.html + Valmentaja_Matriisi.html
+18. 🟢 Streak-historia Firestoreen (nyt localStoragessa)
