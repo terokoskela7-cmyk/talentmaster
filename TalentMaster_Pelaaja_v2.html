@@ -9,7 +9,19 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>TalentMaster™ — Pelaajan oma sivu ⚽</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js">
+// ── Putkesi katkesi -suodatin ──
+// Behavior Playbook: "Ei koskaan, ei missään muodossa"
+function _suodataStreakViesti(teksti) {
+  const kielletyt = [
+    'katkesi', 'katkeaa', 'menetit', 'menetät', 'putki poikki',
+    'epäonnistuit', 'ei onnistunut', 'huono', 'unohdit', 'puuttuu',
+  ];
+  const lower = (teksti || '').toLowerCase();
+  if (kielletyt.some(k => lower.includes(k))) return '';
+  return teksti;
+}
+</script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_auth.js"></script>
@@ -2054,41 +2066,97 @@ function _renderTanaaHarjoiteKortti() {
   _renderAiTulkintaDemo(p);
 }
 
-// ── Demo AI-tulkinta — 3 päivätyyppiä ──
-// Logiikka: streak + fiilinki + kirjausten tiheys
-// Oikea AI lukee: streak_historia[], fiilinki-trendi, RPE-trendi
+// ── AI-viestit — 15 viestiä, 5 tilannetta (Behavior Playbook 2026) ──
+// Sprint 6-8: Firestore trigger → Anthropic API korvaa tämän
+// Säännöt: ei kehotusverbiä, ei kontekstia vaativa, hieman kylmä = oikea
+const _TM_AI_VIESTIT = {
+  // A — Rutiini käynnissä (hiljainen vahvistus, 1-2× / vko)
+  rutiini: [
+    { teksti: 'Putki on ollut käynnissä {streak} päivää.',  sub: '' },
+    { teksti: 'Tämä on jatkunut tasaisesti.',               sub: '' },
+    { teksti: 'Rytmi näyttää löytyneen.',                   sub: '' },
+  ],
+  // B — Päivän kotitehtävä (vain jos ei avattu)
+  tehtava: [
+    { teksti: 'Tänään riittää yksi rauhallinen toisto.',    sub: '' },
+    { teksti: 'Tämän päivän kehitys on kevyt.',             sub: '' },
+    { teksti: 'Pieni asia riittää pitämään rytmin.',        sub: '' },
+  ],
+  // C — Tehtävä tehty (heti suorituksen jälkeen)
+  tehty: [
+    { teksti: 'Merkitty.',       sub: '' },
+    { teksti: 'Jatkuu.',         sub: '' },
+    { teksti: 'Tämä jäi talteen.', sub: '' },
+  ],
+  // D — Tauko / paluu ⚠️ kriittinen — ei sanaakaan tauosta
+  paluu: [
+    { teksti: 'Tämä on tämän päivän kehitys.',  sub: '' },
+    { teksti: 'Tässä kohtaa jatketaan.',         sub: '' },
+    { teksti: 'Jatkuvuus alkaa tästä.',          sub: '' },
+  ],
+  // E — Identiteettimuistutus (max 1× / 2 vko, harvinainen)
+  identiteetti: [
+    { teksti: 'Kehitys tapahtuu myös silloin kun kukaan ei katso.', sub: '' },
+    { teksti: 'Rutiini on tärkeämpi kuin yksittäinen päivä.',       sub: '' },
+    { teksti: 'Oma työ näkyy ajan kanssa.',                         sub: '' },
+  ],
+};
+
 function _renderAiTulkintaDemo(p) {
-  const alue = document.getElementById('aiTulkintaAlue');
-  const teksti = document.getElementById('aiTulkintaTeksti');
-  const sub    = document.getElementById('aiTulkintaSub');
-  if (!alue || !teksti || !p) return;
+  const alue   = document.getElementById('aiTulkintaAlue');
+  const tekstiEl = document.getElementById('aiTulkintaTeksti');
+  const subEl    = document.getElementById('aiTulkintaSub');
+  if (!alue || !tekstiEl || !p) return;
 
-  const streak = p.streak || 0;
-  const fiilinki = p.fiilinki_ka || p.fiilinki || 3; // 1-5
+  const streak     = p.streak || 0;
+  const fiilinki   = p.fiilinki_ka || p.fiilinki || 3;
   const poissaolot = p.poissaoloja_7pv || 0;
+  const tanaan     = new Date().toISOString().split('T')[0];
+  const viimeksi   = localStorage.getItem('tm_tehty_' + (p.id || p.tmId || ''));
+  const tauolla    = viimeksi && viimeksi !== tanaan;
+  const viikkoPv   = new Date().getDay(); // 0=su
 
-  let viesti = '', alateksti = '';
+  let pool = null;
 
-  if (streak >= 5 && fiilinki >= 3 && poissaolot <= 1) {
-    // 🟢 NORMAALI — rytmi toimii
-    viesti   = 'Ei kriittistä. Rytmi toimii.';
-    alateksti = 'Perustuu sitoutumisen vakauteen ja kirjausten jatkuvuuteen.';
+  // ── Tilannelogiikka ──
+  if (tauolla && streak === 0) {
+    // D: Paluu tauolta — ei sanaakaan tauosta
+    pool = _TM_AI_VIESTIT.paluu;
+  } else if (streak >= 14 && viikkoPv % 3 === 0) {
+    // E: Identiteetti — harvinainen, pitkä streak, tietty päivä
+    pool = _TM_AI_VIESTIT.identiteetti;
+  } else if (streak >= 3 && fiilinki >= 3 && poissaolot <= 1) {
+    // A: Rutiini käynnissä
+    pool = _TM_AI_VIESTIT.rutiini;
   } else if (fiilinki < 2.5 || poissaolot >= 3) {
-    // 🔴 EPÄVAKAUS
-    viesti    = 'Epäsäännöllinen rytmi. Tarkista arki.';
-    alateksti = 'Taukojen tiheys ja fiilinkitrendi heikentyneet viimeisellä viikolla.';
+    // B: Tehtävä-ehdotus (epäsäännöllinen → ei syytä, palauta rytmi)
+    pool = _TM_AI_VIESTIT.tehtava;
   } else if (streak < 3) {
-    // 🟡 KUORMITUS / HEIKKO PALAUTE
-    viesti    = 'Putki katkeamassa — palauta rytmi tänään.';
-    alateksti = 'Viimeisin merkintä yli 2 päivää sitten.';
+    // B: Tehtävä-ehdotus (putki alussa)
+    pool = _TM_AI_VIESTIT.tehtava;
   } else {
-    // Ei tarpeeksi dataa → ei näytetä
+    // Ei tarpeeksi signaalia — hiljaisuus on ok
     return;
   }
 
-  teksti.textContent = viesti;
-  sub.textContent    = alateksti;
-  alue.style.display = 'block';
+  // Valitse viesti deterministisesti päivän mukaan (ei random joka render)
+  const idx  = Math.floor(Date.now() / 86400000) % pool.length;
+  let { teksti, sub } = pool[idx];
+
+  // Korvaa {streak} placeholderit
+  teksti = teksti.replace('{streak}', streak);
+
+  tekstiEl.textContent = teksti;
+  subEl.textContent    = sub;
+  alue.style.display   = 'block';
+}
+
+// ── C: Tehty-viesti — kutsutaan _merkitseTanaaTehdyksi:stä ──
+function _naytaTehtyViesti() {
+  const el = document.getElementById('tanaaTehdyAika');
+  const pool = _TM_AI_VIESTIT.tehty;
+  const idx  = Math.floor(Date.now() / 86400000) % pool.length;
+  if (el) el.textContent = pool[idx].teksti;
 }
 
 // ── Merkitse tänään tehdyksi (uusi CTA) ──
@@ -2111,6 +2179,8 @@ function _merkitseTanaaTehdyksi() {
   if (tehty) tehty.style.display = 'block';
   if (aikaEl) aikaEl.textContent = 'Klo ' + aika;
 
+  // Näytä tehty-viesti (C-kategoria)
+  _naytaTehtyViesti();
   // Avaa fiilinki overlay automaattisesti
   setTimeout(avaaFiiliOverlay, 600);
 
