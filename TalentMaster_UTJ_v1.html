@@ -8,938 +8,456 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_auth.js"></script>
 <style>
-:root{
-  --accent:#00D4AA; --accent2:#3EECC4;
-  --bg:#06090F; --bg2:#0D1117; --bg3:#131920;
-  --surface:#161D27; --border:rgba(255,255,255,0.07); --bord2:rgba(255,255,255,0.12);
-  --text:#E8EEF8; --ink2:#B0BCCC; --ink3:#6B7A8D;
-  --blue:#4A7ED9; --green:#2ED573; --amber:#FFA502; --red:#FF4757;
-  --purple:#A855F7; --gold:#F5B700;
-}
+:root{--ac:#00D4AA;--bg:#06090F;--bg2:#0D1117;--sf:#161D27;--bo:rgba(255,255,255,.07);--bo2:rgba(255,255,255,.13);--tx:#E8EEF8;--i2:#B0BCCC;--i3:#6B7A8D;--bl:#4A7ED9;--gr:#2ED573;--am:#FFA502;--rd:#FF4757;--pu:#A855F7;--go:#F5B700;}
 *{box-sizing:border-box;margin:0;padding:0;}
-html{scroll-behavior:smooth;-webkit-tap-highlight-color:transparent;}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
-
-/* ── LOGIN ── */
-#sLogin{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
-.login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 32px;width:100%;max-width:380px;}
-.login-logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:28px;color:var(--accent);letter-spacing:1px;margin-bottom:4px;}
-.login-title{font-size:13px;color:var(--ink3);margin-bottom:28px;}
-.login-label{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
-.login-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;margin-bottom:14px;}
-.login-input:focus{border-color:var(--accent);}
-.login-btn{width:100%;background:var(--accent);color:#000;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .2s;font-family:'DM Sans',sans-serif;}
-.login-btn:hover{opacity:.85;}
-#loginVirhe{color:var(--red);font-size:12px;margin-top:10px;display:none;}
-.login-role{margin-top:16px;padding:10px 14px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.15);border-radius:8px;font-size:12px;color:var(--accent);}
-
-/* ── APP SHELL ── */
-#sApp{display:none;min-height:100vh;}
-.shell{display:flex;height:100vh;}
-
-/* ── SIDEBAR ── */
-.sidebar{width:200px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;bottom:0;left:0;z-index:100;}
-.sb-logo{padding:20px 16px 16px;border-bottom:1px solid var(--border);}
-.sb-logo-tm{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;color:var(--accent);letter-spacing:1px;}
-.sb-role{font-size:10px;color:var(--ink3);margin-top:2px;text-transform:uppercase;letter-spacing:.5px;}
-.sb-seura{font-size:11px;color:var(--ink2);margin-top:2px;font-weight:500;}
-
-.sb-nav{flex:1;padding:10px 8px;overflow-y:auto;}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--ink3);font-size:13px;font-weight:500;transition:all .15s;margin-bottom:2px;}
-.nav-item:hover{background:rgba(255,255,255,.04);color:var(--text);}
-.nav-item.active{background:rgba(0,212,170,.1);color:var(--accent);}
-.nav-item .ni-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;}
-.nav-sep{height:1px;background:var(--border);margin:8px 0;}
-
-.sb-bottom{padding:10px 8px;border-top:1px solid var(--border);}
-.sb-link-btn{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;border:none;background:none;color:var(--ink3);font-size:12px;cursor:pointer;width:100%;transition:all .15s;font-family:'DM Sans',sans-serif;}
-.sb-link-btn:hover{color:var(--text);background:rgba(255,255,255,.04);}
-.sb-link-btn.logout{color:var(--red);opacity:.7;}
-.sb-link-btn.logout:hover{opacity:1;background:rgba(255,71,87,.06);}
-
-/* ── MAIN CONTENT ── */
-.main{margin-left:200px;flex:1;overflow-y:auto;min-height:100vh;}
-.view{display:none;padding:28px 32px;max-width:1100px;}
-.view.active{display:block;}
-
-/* ── PAGE TITLE ── */
-.page-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:26px;letter-spacing:.5px;margin-bottom:4px;}
-.page-sub{font-size:13px;color:var(--ink3);margin-bottom:24px;}
-
-/* ── KPI GRID ── */
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
-.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
-.kpi-val{font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;line-height:1;color:var(--text);}
-.kpi-label{font-size:11px;color:var(--ink3);margin-top:4px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
-.kpi-sub{font-size:11px;color:var(--ink2);margin-top:4px;}
-
-/* ── GRIDS ── */
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
-.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px;}
-
-/* ── CARD ── */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px;}
-.card-title{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
-.card-title .ct-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;letter-spacing:0;text-transform:none;}
-
-/* ── ACTIVITY FEED ── */
-.af-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
-.af-item:last-child{border-bottom:none;}
-.af-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
-.af-body{flex:1;}
-.af-text{font-size:12px;color:var(--ink2);line-height:1.5;}
-.af-text strong{color:var(--text);font-weight:500;}
-.af-time{font-size:11px;color:var(--ink3);margin-top:2px;}
-
-/* ── COACH MATRIX ── */
-.cm-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
-.cm-row:last-child{border-bottom:none;}
-.cm-avatar{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;font-family:'Barlow Condensed',sans-serif;}
-.cm-name{font-size:12px;font-weight:600;flex:1;min-width:0;}
-.cm-team{font-size:10px;color:var(--ink3);white-space:nowrap;}
-.cm-dots{display:flex;gap:3px;margin:0 8px;}
-.cm-day{width:16px;height:16px;border-radius:3px;display:flex;align-items:center;justify-content:center;}
-.cm-day.on{background:rgba(0,212,170,.2);}
-.cm-day.off{background:rgba(255,255,255,.04);}
-.cm-day.today{border:1px solid var(--accent);}
-.cm-score{font-size:11px;font-weight:700;color:var(--accent);min-width:24px;text-align:right;}
-
-/* ── SEURA JAKAUMA ── */
-.prow{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:12px;}
-.plabel{width:90px;color:var(--ink2);font-size:11px;}
-.ptrack{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;}
-.pfill{height:5px;border-radius:3px;background:var(--accent);}
-.pval{width:20px;text-align:right;color:var(--ink3);font-size:11px;}
-
-/* ── TALENT CARDS ── */
-.talent-filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
-.tf-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--ink3);font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
-.tf-btn:hover{border-color:var(--bord2);color:var(--text);}
-.tf-btn.active{background:rgba(0,212,170,.12);border-color:rgba(0,212,170,.3);color:var(--accent);}
-
-.talent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;}
-
-.tcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;transition:border-color .15s;cursor:pointer;}
-.tcard:hover{border-color:var(--bord2);}
-.tcard.gem{border-left:3px solid var(--gold);}
-.tcard.xfactor{border-left:3px solid var(--purple);}
-.tcard.kori{border-left:3px solid var(--accent);}
-
-.tc-header{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
-.tc-ovr{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;line-height:1;min-width:44px;}
-.tc-ovr.gold{color:var(--gold);}
-.tc-ovr.purple{color:var(--purple);}
-.tc-ovr.teal{color:var(--accent);}
-.tc-info{flex:1;}
-.tc-name{font-size:14px;font-weight:600;color:var(--text);}
-.tc-meta{font-size:11px;color:var(--ink3);margin-top:2px;}
-.tc-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:auto;flex-shrink:0;}
-.tc-badge.gem{background:rgba(245,183,0,.12);color:var(--gold);}
-.tc-badge.xfactor{background:rgba(168,85,247,.12);color:var(--purple);}
-.tc-badge.kori{background:rgba(0,212,170,.12);color:var(--accent);}
-
-.tc-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:10px;}
-.tc-stat{text-align:center;}
-.tc-stat-val{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:var(--ink2);}
-.tc-stat-lbl{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.3px;margin-top:1px;}
-
-.tc-footer{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);}
-.tc-seura{font-size:11px;color:var(--ink3);}
-.tc-dvi{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;}
-.tc-dvi.up{color:var(--green);}
-.tc-dvi.down{color:var(--red);}
-.tc-dvi.flat{color:var(--ink3);}
-
-.talent-empty{text-align:center;padding:48px 24px;color:var(--ink3);}
-.talent-empty .te-icon{font-size:36px;margin-bottom:12px;opacity:.4;}
-.talent-empty p{font-size:13px;}
-
-/* ── SUPPILO ── */
-.sup-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
-.sup-kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
-.sup-kpi-val{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:900;line-height:1;}
-.sup-kpi-lbl{font-size:11px;color:var(--ink3);margin-top:4px;text-transform:uppercase;letter-spacing:.3px;font-weight:600;}
-
-/* ── KEHITYSPOLUT ── */
-.kp-filters{display:flex;gap:8px;margin-bottom:16px;}
-.kp-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--ink3);font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
-.kp-btn.active{background:rgba(0,212,170,.12);border-color:rgba(0,212,170,.3);color:var(--accent);}
-
-/* ── SOPIMUKSET ── */
-.sopimus-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
-.sopimus-row:last-child{border-bottom:none;}
-.s-seura{font-size:13px;font-weight:600;flex:1;}
-.s-taso{font-size:11px;color:var(--ink3);}
-.s-status{font-size:10px;font-weight:700;padding:3px 10px;border-radius:10px;}
-.s-status.active{background:rgba(46,213,115,.1);color:var(--green);}
-.s-status.pending{background:rgba(255,165,2,.1);color:var(--amber);}
-.s-date{font-size:11px;color:var(--ink3);white-space:nowrap;}
-
-/* ── TOIMENPITEET ── */
-.toimenpide{display:flex;gap:10px;padding:10px 14px;background:rgba(0,212,170,.04);border:1px solid rgba(0,212,170,.1);border-radius:8px;margin-bottom:8px;font-size:12px;color:var(--ink2);}
-.toimenpide:last-child{margin-bottom:0;}
-
-/* ── TABLES ── */
+body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+#sL{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.lb{background:var(--sf);border:1px solid var(--bo);border-radius:16px;padding:36px 32px;width:100%;max-width:380px;}
+.ll{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:28px;color:var(--ac);margin-bottom:4px;}
+.lt{font-size:13px;color:var(--i3);margin-bottom:28px;}
+.llab{font-size:11px;font-weight:600;color:var(--i3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.lin{width:100%;background:var(--bg2);border:1px solid var(--bo);border-radius:8px;padding:10px 14px;color:var(--tx);font-size:14px;font-family:inherit;outline:none;margin-bottom:14px;transition:border-color .2s;}
+.lin:focus{border-color:var(--ac);}
+.lbtn{width:100%;background:var(--ac);color:#000;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+#lErr{color:var(--rd);font-size:12px;margin-top:10px;display:none;}
+.lrole{margin-top:16px;padding:10px 14px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.15);border-radius:8px;font-size:12px;color:var(--ac);}
+#sA{display:none;}
+.shell{display:flex;min-height:100vh;}
+.sb{width:200px;background:var(--bg2);border-right:1px solid var(--bo);display:flex;flex-direction:column;position:fixed;top:0;bottom:0;left:0;z-index:100;}
+.sb-top{padding:20px 16px 16px;border-bottom:1px solid var(--bo);}
+.sb-tm{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;color:var(--ac);}
+.sb-sn{font-size:13px;font-weight:600;color:var(--tx);margin-top:4px;}
+.sb-rl{font-size:10px;color:var(--i3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}
+.sbn{flex:1;padding:10px 8px;overflow-y:auto;}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--i3);font-size:13px;font-weight:500;transition:all .15s;margin-bottom:2px;}
+.ni:hover{background:rgba(255,255,255,.04);color:var(--tx);}
+.ni.on{background:rgba(0,212,170,.1);color:var(--ac);}
+.ni-ic{font-size:16px;width:20px;text-align:center;flex-shrink:0;}
+.sep{height:1px;background:var(--bo);margin:8px 0;}
+.sb-bot{padding:10px 8px;border-top:1px solid var(--bo);}
+.sbb{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;border:none;background:none;color:var(--i3);font-size:12px;cursor:pointer;width:100%;font-family:inherit;transition:all .15s;}
+.sbb:hover{color:var(--tx);background:rgba(255,255,255,.04);}
+.sbb.out{color:var(--rd);opacity:.7;}
+.sbb.out:hover{opacity:1;background:rgba(255,71,87,.06);}
+.main{margin-left:200px;flex:1;}
+.vw{display:none;padding:28px 32px;max-width:1100px;}
+.vw.on{display:block;}
+.pt{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:26px;letter-spacing:.5px;margin-bottom:4px;}
+.ps{font-size:13px;color:var(--i3);margin-bottom:24px;}
+.kg{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.kc{background:var(--sf);border:1px solid var(--bo);border-radius:12px;padding:16px 18px;}
+.kv{font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;line-height:1;}
+.kl{font-size:11px;color:var(--i3);margin-top:4px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
+.ks{font-size:11px;color:var(--i2);margin-top:4px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.card{background:var(--sf);border:1px solid var(--bo);border-radius:12px;padding:18px 20px;margin-bottom:16px;}
+.ct{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--i3);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.cbadge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;letter-spacing:0;text-transform:none;background:rgba(0,212,170,.1);color:var(--ac);}
+.fi{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--bo);}
+.fi:last-child{border-bottom:none;}
+.fd{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.ft{font-size:12px;color:var(--i2);line-height:1.5;}
+.ft strong{color:var(--tx);font-weight:500;}
+.fm{font-size:11px;color:var(--i3);margin-top:2px;}
+.cr{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bo);}
+.cr:last-child{border-bottom:none;}
+.ca{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;font-family:'Barlow Condensed',sans-serif;}
+.cn{font-size:12px;font-weight:600;flex:1;}
+.cte{font-size:10px;color:var(--i3);white-space:nowrap;}
+.cds{display:flex;gap:3px;}
+.cd{width:16px;height:16px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;}
+.cd.on{background:rgba(0,212,170,.22);color:var(--ac);}
+.cd.off{background:rgba(255,255,255,.04);color:transparent;}
+.cd.td{outline:1px solid var(--ac);}
+.csc{font-size:11px;font-weight:700;min-width:28px;text-align:right;}
+.pr{display:flex;align-items:center;gap:10px;padding:7px 0;}
+.pl{width:100px;font-size:11px;color:var(--i2);}
+.pt2{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;}
+.pf{height:5px;border-radius:3px;}
+.pv{font-size:11px;color:var(--i3);min-width:24px;text-align:right;}
+.tfrow{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.tfb{padding:6px 14px;border-radius:20px;border:1px solid var(--bo);background:none;color:var(--i3);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;}
+.tfb.on{background:rgba(0,212,170,.12);border-color:rgba(0,212,170,.3);color:var(--ac);}
+.tg{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;}
+.tc{background:var(--sf);border:1px solid var(--bo);border-radius:12px;padding:16px;}
+.tc.gem{border-left:3px solid var(--go);}
+.tc.xf{border-left:3px solid var(--pu);}
+.tc.ko{border-left:3px solid var(--ac);}
+.tch{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.tovr{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;line-height:1;min-width:44px;}
+.tovr.g{color:var(--go);}
+.tovr.p{color:var(--pu);}
+.tovr.t{color:var(--ac);}
+.ti{flex:1;}
+.tn{font-size:14px;font-weight:600;}
+.tm2{font-size:11px;color:var(--i3);margin-top:2px;}
+.tbg{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;flex-shrink:0;}
+.tbg.gem{background:rgba(245,183,0,.12);color:var(--go);}
+.tbg.xf{background:rgba(168,85,247,.12);color:var(--pu);}
+.tbg.ko{background:rgba(0,212,170,.12);color:var(--ac);}
+.tds{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:10px;}
+.tdx{text-align:center;}
+.tdv{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:var(--i2);}
+.tdl{font-size:9px;color:var(--i3);text-transform:uppercase;letter-spacing:.3px;margin-top:1px;}
+.tft{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--bo);font-size:11px;}
+.tj2{color:var(--i3);}
+.tdvi{font-weight:600;}
+.tdvi.up{color:var(--gr);}
+.tdvi.fl{color:var(--i3);}
+.tdvi.dn{color:var(--rd);}
+.sk{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.skc{background:var(--sf);border:1px solid var(--bo);border-radius:10px;padding:14px 16px;}
+.skv{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:900;line-height:1;}
+.skl{font-size:11px;color:var(--i3);margin-top:4px;text-transform:uppercase;letter-spacing:.3px;font-weight:600;}
+.jc{background:var(--sf);border:1px solid var(--bo);border-radius:10px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;gap:16px;}
+.jn{font-size:14px;font-weight:600;flex:1;}
+.jm{font-size:11px;color:var(--i3);}
+.jst{text-align:right;}
+.jsv{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--ac);}
+.jsl{font-size:10px;color:var(--i3);}
+.ur{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bo);}
+.ur:last-child{border-bottom:none;}
+.ua{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;font-family:'Barlow Condensed',sans-serif;}
+.ui{flex:1;}
+.un{font-size:13px;font-weight:600;}
+.ue{font-size:11px;color:var(--i3);}
+.urol{font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;text-transform:uppercase;letter-spacing:.3px;flex-shrink:0;}
+.urol.vp{background:rgba(74,126,217,.15);color:var(--bl);}
+.urol.val{background:rgba(0,212,170,.12);color:var(--ac);}
+.urol.utj{background:rgba(168,85,247,.12);color:var(--pu);}
+.ust{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.ust.act{background:var(--gr);}
+.ust.ina{background:var(--i3);}
+.btn{background:var(--ac);color:#000;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+.btn.sec{background:none;border:1px solid var(--bo);color:var(--i2);font-weight:500;}
 table{width:100%;border-collapse:collapse;}
-th{font-size:11px;color:var(--ink3);font-weight:600;text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px;}
-td{padding:9px 10px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--ink2);}
+th{font-size:11px;color:var(--i3);font-weight:600;text-align:left;padding:7px 10px;border-bottom:1px solid var(--bo);text-transform:uppercase;letter-spacing:.4px;}
+td{padding:9px 10px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--i2);}
 tr:last-child td{border-bottom:none;}
-tr:hover td{background:rgba(255,255,255,.015);}
-
-/* ── BUTTONS ── */
-.toiminto-nappi{background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .2s;font-family:'DM Sans',sans-serif;}
-.toiminto-nappi:hover{opacity:.85;}
-.toiminto-nappi.toissijainen{background:none;border:1px solid var(--border);color:var(--ink2);font-weight:500;}
-.toiminto-nappi.toissijainen:hover{color:var(--text);border-color:var(--bord2);}
-
-/* ── TOAST ── */
+.empty{text-align:center;padding:40px 24px;color:var(--i3);}
+.ei{font-size:32px;opacity:.3;margin-bottom:10px;}
+.empty p{font-size:13px;}
 #toast{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
-.toast-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:13px;color:var(--text);box-shadow:0 4px 20px rgba(0,0,0,.4);animation:toastIn .25s ease;max-width:300px;}
-@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.ti2{background:var(--sf);border:1px solid var(--bo);border-radius:10px;padding:10px 16px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:tIn .2s ease;max-width:300px;}
+@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;}
+.mbg.open{display:flex;}
+.mod{background:var(--sf);border:1px solid var(--bo2);border-radius:16px;padding:28px;width:100%;max-width:440px;}
+.mod h3{font-size:16px;font-weight:700;margin-bottom:20px;}
+.ml{font-size:11px;font-weight:600;color:var(--i3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;margin-top:14px;}
+.mi{width:100%;background:var(--bg2);border:1px solid var(--bo);border-radius:8px;padding:10px 14px;color:var(--tx);font-size:14px;font-family:inherit;outline:none;}
+.mi:focus{border-color:var(--ac);}
+.mbtns{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="sLogin">
-  <div class="login-box">
-    <div class="login-logo">TM™</div>
-    <div class="login-title">Urheilutoimenjohtaja · Kirjaudu sisään</div>
-    <div class="login-label">Sähköposti</div>
-    <input class="login-input" type="email" id="loginEmail" placeholder="utj@talentmaster.fi" autocomplete="email">
-    <div class="login-label">Salasana</div>
-    <input class="login-input" type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
-    <button class="login-btn" onclick="kirjauduSisaan()">Kirjaudu sisään</button>
-    <div id="loginVirhe"></div>
-    <div class="login-role">🏛️ Urheilutoimenjohtaja — kaikki pilottiseurat</div>
+<div id="sL">
+  <div class="lb">
+    <div class="ll">TM™</div>
+    <div class="lt">Urheilutoimenjohtaja — kirjaudu</div>
+    <div class="llab">Sähköposti</div>
+    <input class="lin" type="email" id="lEmail" placeholder="utj@seura.fi" autocomplete="email">
+    <div class="llab">Salasana</div>
+    <input class="lin" type="password" id="lPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')sisaan()">
+    <button class="lbtn" onclick="sisaan()">Kirjaudu sisään</button>
+    <div id="lErr"></div>
+    <div class="lrole">🏛️ Urheilutoimenjohtaja — oman seuran näkymä</div>
   </div>
 </div>
 
-<!-- APP -->
-<div id="sApp">
+<div id="sA">
   <div class="shell">
-
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-      <div class="sb-logo">
-        <div class="sb-logo-tm">TalentMaster™</div>
-        <div class="sb-role">Urheilutoimenjohtaja</div>
-        <div class="sb-seura" id="sbSeura"></div>
+    <div class="sb">
+      <div class="sb-top">
+        <div class="sb-tm">TalentMaster™</div>
+        <div class="sb-sn" id="sbNimi">—</div>
+        <div class="sb-rl">Urheilutoimenjohtaja</div>
       </div>
-
-      <nav class="sb-nav">
-        <div class="nav-item active" id="nav-yhteenveto" onclick="naytaNakuma('yhteenveto',this)">
-          <span class="ni-icon">🏛️</span> Yhteenveto
-        </div>
-        <div class="nav-item" id="nav-sopimukset" onclick="naytaNakuma('sopimukset',this)">
-          <span class="ni-icon">📋</span> Pilottisopimukset
-        </div>
-        <div class="nav-sep"></div>
-        <div class="nav-item" id="nav-talentit" onclick="naytaNakuma('talentit',this)">
-          <span class="ni-icon">🌟</span> Talent-tunnistukset
-        </div>
-        <div class="nav-item" id="nav-suppilo" onclick="naytaNakuma('suppilo',this)">
-          <span class="ni-icon">📈</span> Kasvattisuppilo
-        </div>
-        <div class="nav-item" id="nav-kehityspolut" onclick="naytaNakuma('kehityspolut',this)">
-          <span class="ni-icon">🔀</span> Kehityspolut
-        </div>
+      <nav class="sbn">
+        <div class="ni on" id="ni-yht" onclick="navi('yht',this)"><span class="ni-ic">📊</span>Yhteenveto</div>
+        <div class="ni" id="ni-jouk" onclick="navi('jouk',this)"><span class="ni-ic">👥</span>Joukkueet</div>
+        <div class="sep"></div>
+        <div class="ni" id="ni-tal" onclick="navi('tal',this)"><span class="ni-ic">🌟</span>Talent-tunnistukset</div>
+        <div class="ni" id="ni-sup" onclick="navi('sup',this)"><span class="ni-ic">📈</span>Kasvattisuppilo</div>
+        <div class="sep"></div>
+        <div class="ni" id="ni-kay" onclick="navi('kay',this)"><span class="ni-ic">⚙️</span>Käyttäjähallinta</div>
       </nav>
-
-      <div class="sb-bottom">
-        <button class="sb-link-btn" onclick="window.open('TalentMaster_VP_v18.html','_blank')">🎯 VP-näkymä ↗</button>
-        <button class="sb-link-btn" onclick="window.open('TalentMaster_Master_v9.html','_blank')">👤 Valmentajan näkymä ↗</button>
-        <button class="sb-link-btn logout" onclick="kirjauduUlos()">⎋ Kirjaudu ulos</button>
+      <div class="sb-bot">
+        <button class="sbb" onclick="window.open('TalentMaster_VP_v18.html','_blank')">🎯 VP-näkymä ↗</button>
+        <button class="sbb" onclick="window.open('TalentMaster_Master_v9.html','_blank')">👤 Valmentaja ↗</button>
+        <button class="sbb out" onclick="auth.signOut()">⎋ Kirjaudu ulos</button>
       </div>
     </div>
-
-    <!-- MAIN -->
     <div class="main">
 
-      <!-- ═══ YHTEENVETO ═══ -->
-      <div class="view active" id="view-yhteenveto">
-        <div class="page-title">Hei, UTJ 👋</div>
-        <div class="page-sub" id="utjPvm"></div>
-
-        <!-- KPI-kortit -->
-        <div class="kpi-grid">
-          <div class="kpi">
-            <div class="kpi-val" id="kpiSeurat">—</div>
-            <div class="kpi-label">Pilottiseuraa</div>
-            <div class="kpi-sub">aktiivisia sopimuksia</div>
-          </div>
-          <div class="kpi">
-            <div class="kpi-val" id="kpiPelaajat">—</div>
-            <div class="kpi-label">Pelaajaa rekisterissä</div>
-            <div class="kpi-sub">kaikki seurat yhteensä</div>
-          </div>
-          <div class="kpi">
-            <div class="kpi-val" id="kpiTalentit">—</div>
-            <div class="kpi-label">Talent-tunnistusta</div>
-            <div class="kpi-sub">Hidden Gem + X-Factor</div>
-          </div>
-          <div class="kpi">
-            <div class="kpi-val" id="kpiAktiivisuus">—</div>
-            <div class="kpi-label">Kirjausta 7 pv</div>
-            <div class="kpi-sub">pelaajat + valmentajat</div>
-          </div>
+      <div class="vw on" id="vw-yht">
+        <div class="pt" id="otsikko">Yhteenveto</div>
+        <div class="ps" id="pvm"></div>
+        <div class="kg">
+          <div class="kc"><div class="kv" id="kJ">—</div><div class="kl">Joukkuetta</div><div class="ks">rekisterissä</div></div>
+          <div class="kc"><div class="kv" id="kP">—</div><div class="kl">Pelaajaa</div><div class="ks">aktiivisia</div></div>
+          <div class="kc"><div class="kv" id="kT" style="color:var(--go)">—</div><div class="kl">Talent-tunnistusta</div><div class="ks">Hidden Gem + X-Factor</div></div>
+          <div class="kc"><div class="kv" id="kK" style="color:var(--ac)">—</div><div class="kl">Kirjausta</div><div class="ks">viimeiset 7 pv</div></div>
         </div>
-
-        <div class="grid2">
-          <!-- Sarjatasojakauma -->
-          <div class="card">
-            <div class="card-title">🏆 Seurat sarjatasoittain</div>
-            <div id="seuraJakauma">
-              <div class="prow"><span class="plabel">Veikkausliiga</span><div class="ptrack"><div class="pfill" id="pVL" style="width:0%"></div></div><span class="pval" id="nVL">0</span></div>
-              <div class="prow"><span class="plabel">Ykkönen</span><div class="ptrack"><div class="pfill" id="pYK" style="width:0%;background:var(--blue)"></div></div><span class="pval" id="nYK">0</span></div>
-              <div class="prow"><span class="plabel">Kakkonen</span><div class="ptrack"><div class="pfill" id="pKK" style="width:0%;background:var(--ink3)"></div></div><span class="pval" id="nKK">0</span></div>
-            </div>
-          </div>
-
-          <!-- Activity feed -->
-          <div class="card">
-            <div class="card-title">⚡ Viimeisin aktiviteetti</div>
-            <div id="activityFeed">
-              <div style="text-align:center;padding:20px;color:var(--ink3);font-size:12px;">Ladataan aktiviteettia...</div>
-            </div>
-          </div>
+        <div class="g2">
+          <div class="card"><div class="ct">⚡ Viimeisin aktiviteetti</div><div id="feed"><div class="empty"><p>Ladataan...</p></div></div></div>
+          <div class="card"><div class="ct">📊 Joukkueet kehitysindeksillä</div><div id="palkit"><div class="empty"><p>Ladataan...</p></div></div></div>
         </div>
-
-        <!-- Coach activity matrix -->
         <div class="card">
-          <div class="card-title">
-            👥 Valmentajien aktiivisuus — viimeiset 7 päivää
-            <span class="ct-badge" style="background:rgba(0,212,170,.1);color:var(--accent);" id="aktiivinenLkm"></span>
-          </div>
-          <div style="display:flex;gap:4px;justify-content:flex-end;margin-bottom:8px;padding-right:4px;">
-            <span id="paivaNimet" style="display:flex;gap:3px;font-size:9px;color:var(--ink3);"></span>
-          </div>
-          <div id="coachMatrix">
-            <div style="text-align:center;padding:20px;color:var(--ink3);font-size:12px;">Ladataan valmentajadataa...</div>
-          </div>
-        </div>
-
-        <!-- Toimenpiteet -->
-        <div class="card" id="toimenpiteetCard" style="display:none;">
-          <div class="card-title">⚡ Toimenpiteet</div>
-          <div id="toimenpiteet"></div>
+          <div class="ct">👥 Valmentajien aktiivisuus — 7 pv <span class="cbadge" id="aktN"></span></div>
+          <div style="display:flex;justify-content:flex-end;gap:3px;margin-bottom:8px" id="pvots"></div>
+          <div id="matrix"><div class="empty"><p>Ladataan...</p></div></div>
         </div>
       </div>
 
-      <!-- ═══ SOPIMUKSET ═══ -->
-      <div class="view" id="view-sopimukset">
-        <div class="page-title">Pilottisopimukset</div>
-        <div class="page-sub">Seurakohtaiset sopimukset, tila ja uusintapäivät</div>
-
-        <div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;">
-          <span style="font-size:12px;color:var(--ink3);">7 pilottiseuraa onboarded — sopimukset OK</span>
-          <button class="toiminto-nappi" onclick="naytaToast('Uusi sopimus -toiminto tulossa','info')">+ Uusi sopimus</button>
-        </div>
-
-        <div class="card">
-          <div id="sopimuksetAlue">
-            <div style="text-align:center;padding:24px;color:var(--ink3);font-size:12px;">Ladataan sopimuksia...</div>
-          </div>
-        </div>
+      <div class="vw" id="vw-jouk">
+        <div class="pt">Joukkueet & pelaajat</div>
+        <div class="ps">Seuran joukkuerakenne, valmentajat ja pelaajamäärät</div>
+        <div id="joukkueet"><div class="empty"><div class="ei">👥</div><p>Ladataan...</p></div></div>
       </div>
 
-      <!-- ═══ TALENT-TUNNISTUKSET ═══ -->
-      <div class="view" id="view-talentit">
-        <div class="page-title">Talent-tunnistukset</div>
-        <div class="page-sub">Hidden Gem ja X-Factor -signaalit kaikista pilottiseuroista</div>
-
-        <div class="talent-filters">
-          <button class="tf-btn active" onclick="suodataTalentit('kaikki',this)">Kaikki</button>
-          <button class="tf-btn" onclick="suodataTalentit('gem',this)">💎 Hidden Gem</button>
-          <button class="tf-btn" onclick="suodataTalentit('xfactor',this)">⚡ X-Factor</button>
-          <button class="tf-btn" onclick="suodataTalentit('kori',this)">🎯 KORI-ehdokas</button>
+      <div class="vw" id="vw-tal">
+        <div class="pt">Talent-tunnistukset</div>
+        <div class="ps">Seuran Hidden Gem, X-Factor ja KORI-ehdokkaat</div>
+        <div class="tfrow">
+          <button class="tfb on" onclick="tSuodata('k',this)">Kaikki</button>
+          <button class="tfb" onclick="tSuodata('gem',this)">💎 Hidden Gem</button>
+          <button class="tfb" onclick="tSuodata('xfactor',this)">⚡ X-Factor</button>
+          <button class="tfb" onclick="tSuodata('kori',this)">🎯 KORI-ehdokas</button>
         </div>
-
-        <div class="talent-grid" id="talenttiGrid">
-          <div style="text-align:center;padding:48px;color:var(--ink3);font-size:12px;grid-column:1/-1;">Ladataan talent-tunnistuksia...</div>
-        </div>
+        <div class="tg" id="tgrid"><div class="empty" style="grid-column:1/-1"><div class="ei">🌟</div><p>Ladataan...</p></div></div>
       </div>
 
-      <!-- ═══ KASVATTISUPPILO ═══ -->
-      <div class="view" id="view-suppilo">
-        <div class="page-title">Kasvattisuppilo</div>
-        <div class="page-sub">Kuinka moni seuran kasvatti pelaa edustus- tai lainaminuutteja — kausittainen trendi</div>
-
-        <div class="card" style="background:rgba(0,212,170,.04);border-color:rgba(0,212,170,.15);margin-bottom:16px;padding:14px 18px;">
-          <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;">📌 Miksi tämä on tärkein mittari</div>
-          <div style="font-size:12px;color:var(--ink2);line-height:1.65;">Kasvattitehokkuus on ainoa mittari joka kertoo kehitysjärjestelmän todellisen arvon. Tämä data ei ole saatavilla mistään muualta Suomessa systemaattisesti.</div>
+      <div class="vw" id="vw-sup">
+        <div class="pt">Kasvattisuppilo</div>
+        <div class="ps">Seuran kasvattien edustusminuutit</div>
+        <div class="card" style="background:rgba(0,212,170,.04);border-color:rgba(0,212,170,.15);margin-bottom:20px;padding:14px 18px;">
+          <div style="font-size:11px;font-weight:700;color:var(--ac);margin-bottom:5px">📌 Tärkein mittari</div>
+          <div style="font-size:12px;color:var(--i2);line-height:1.65">Kasvattitehokkuus kertoo kehitysjärjestelmän todellisen arvon — kuinka moni seuran kasvatti pelaa edustusminuutteja. VP syöttää minuutit omasta dashboardista.</div>
         </div>
-
-        <div class="sup-kpi-grid">
-          <div class="sup-kpi"><div class="sup-kpi-val" id="supKasvatteja" style="color:var(--accent)">—</div><div class="sup-kpi-lbl">Kasvattia edustuksessa</div></div>
-          <div class="sup-kpi"><div class="sup-kpi-val" id="supVL" style="color:var(--gold)">—</div><div class="sup-kpi-lbl">VL / Ykkönen</div></div>
-          <div class="sup-kpi"><div class="sup-kpi-val" id="supMin" style="color:var(--blue)">—</div><div class="sup-kpi-lbl">Minuuttia yhteensä</div></div>
-          <div class="sup-kpi"><div class="sup-kpi-val" id="supTehokkuus" style="color:var(--green)">—</div><div class="sup-kpi-lbl">Kasvattitehokkuus %</div></div>
+        <div class="sk">
+          <div class="skc"><div class="skv" id="sN" style="color:var(--ac)">—</div><div class="skl">Kasvattia edustuksessa</div></div>
+          <div class="skc"><div class="skv" id="sVL" style="color:var(--go)">—</div><div class="skl">VL / Ykkönen</div></div>
+          <div class="skc"><div class="skv" id="sMin" style="color:var(--bl)">—</div><div class="skl">Minuuttia yhteensä</div></div>
+          <div class="skc"><div class="skv" id="sT" style="color:var(--gr)">—</div><div class="skl">Kasvattitehokkuus %</div></div>
         </div>
-
-        <div class="card">
-          <div class="card-title">📈 Kasvattisuppilo — kausittainen kehitys</div>
-          <div id="suppiloTaulukko" style="color:var(--ink3);font-size:12px;text-align:center;padding:32px;">
-            Dataa kertyy kun VP lisää kehityspolkumerkintöjä.<br>Kaavio aktivoituu automaattisesti ensimmäisen kauden jälkeen.
-          </div>
-        </div>
+        <div class="card"><div class="ct">📋 Kasvattimerkinnät</div><div id="suppilo"><div class="empty"><div class="ei">📈</div><p>Dataa kertyy kun VP lisää kehityspolkumerkintöjä.</p></div></div></div>
       </div>
 
-      <!-- ═══ KEHITYSPOLUT ═══ -->
-      <div class="view" id="view-kehityspolut">
-        <div class="page-title">Kehityspolut</div>
-        <div class="page-sub">VP:n syöttämä edustuspelaajadata — lukijanäkymä</div>
-
-        <div class="kp-filters">
-          <button class="kp-btn active" id="kp-btn-kaikki" onclick="suodataKP('kaikki',this)">Kaikki</button>
-          <button class="kp-btn" id="kp-btn-vl" onclick="suodataKP('vl',this)">🏆 Veikkausliiga</button>
-          <button class="kp-btn" id="kp-btn-yk" onclick="suodataKP('yk',this)">🥈 Ykkönen</button>
-          <button class="kp-btn" id="kp-btn-laina" onclick="suodataKP('laina',this)">🔁 Lainalla</button>
+      <div class="vw" id="vw-kay">
+        <div class="pt">Käyttäjähallinta</div>
+        <div class="ps">Seuran käyttäjät ja roolit — vain oman seuran henkilöt</div>
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px 18px;margin-bottom:16px;">
+          <span style="font-size:12px;color:var(--i3)">Kutsu valmentaja tai muu henkilö seuraan</span>
+          <button class="btn" onclick="avaMod()">+ Kutsu käyttäjä</button>
         </div>
-
-        <div class="card">
-          <div id="kehityspolkuAlue">
-            <div style="text-align:center;padding:32px;color:var(--ink3);font-size:12px;">Ladataan kehityspolkuja...</div>
-          </div>
-        </div>
+        <div class="card"><div class="ct">Seuran käyttäjät</div><div id="kayttajat"><div class="empty"><p>Ladataan...</p></div></div></div>
       </div>
 
-    </div><!-- /main -->
-  </div><!-- /shell -->
-</div><!-- /sApp -->
+    </div>
+  </div>
+</div>
 
+<div class="mbg" id="mod">
+  <div class="mod">
+    <h3>Kutsu uusi käyttäjä</h3>
+    <div class="ml">Sähköposti</div>
+    <input class="mi" type="email" id="mEmail" placeholder="valmentaja@seura.fi">
+    <div class="ml">Rooli</div>
+    <select class="mi" id="mRooli">
+      <option value="valmentaja">Valmentaja</option>
+      <option value="tj">Talenttivalmentaja</option>
+      <option value="fysiikka">Fysiikkavalmentaja</option>
+      <option value="testi">Testivastaava</option>
+      <option value="vp">Valmennuspäällikkö</option>
+    </select>
+    <div class="ml">Joukkue (vapaaehtoinen)</div>
+    <input class="mi" id="mJouk" placeholder="esim. U14">
+    <div class="mbtns">
+      <button class="btn sec" onclick="sulMod()">Peruuta</button>
+      <button class="btn" onclick="lahetaKutsu()">Lähetä kutsu</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
-/* ══ FIREBASE ══ */
-const _fbCfg = {
-  apiKey:            'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo',
-  authDomain:        'talentmaster-pilot.firebaseapp.com',
-  projectId:         'talentmaster-pilot',
-  storageBucket:     'talentmaster-pilot.firebasestorage.app',
-  messagingSenderId: '872561784446',
-  appId:             '1:872561784446:web:05c4c7996dfd46ddd14a2f'
-};
-if (!firebase.apps.length) firebase.initializeApp(_fbCfg);
-const db   = firebase.firestore();
-const auth = firebase.auth();
+const _c={apiKey:'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo',authDomain:'talentmaster-pilot.firebaseapp.com',projectId:'talentmaster-pilot',storageBucket:'talentmaster-pilot.firebasestorage.app',messagingSenderId:'872561784446',appId:'1:872561784446:web:05c4c7996dfd46ddd14a2f'};
+if(!firebase.apps.length)firebase.initializeApp(_c);
+const db=firebase.firestore(),auth=firebase.auth(),SU='dqUzvJA61Wb9fgj5UiK0riSA4NI2';
+let _sid=null,_snm='',_kirjautuu=false,_talentit=[],_tS='k',_jD=[];
+let _tL=false,_jL=false,_sL=false,_kL=false;
 
-const SUPER_ADMIN_UID = 'dqUzvJA61Wb9fgj5UiK0riSA4NI2';
-
-/* ══ AUTH ══ */
-let _kirjautuminenKesken = false;
-
-auth.onAuthStateChanged(async user => {
-  if (_kirjautuminenKesken) return;
-  if (!user) { nayta('login'); return; }
-
-  // Tarkista UTJ- tai super-admin-rooli
-  const adminSnap = await db.collection('admins').doc(user.uid).get().catch(() => null);
-  const isSuper   = adminSnap && adminSnap.exists;
-
-  let seuratSnap = await db.collection('seurat').get().catch(() => null);
-  const seuratData = seuratSnap ? seuratSnap.docs.map(d => ({id:d.id,...d.data()})) : [];
-
-  // UTJ-rooli tarkistus (custom claims tai admin)
-  const token = await user.getIdTokenResult().catch(() => null);
-  const rooli = token?.claims?.rooli || '';
-  if (!isSuper && rooli !== 'utj') {
-    naytaToast('Ei UTJ-oikeuksia','error');
-    auth.signOut();
-    return;
+auth.onAuthStateChanged(async u=>{
+  if(_kirjautuu)return;
+  if(!u){show('l');return;}
+  const isSu=u.uid===SU;
+  const tok=await u.getIdTokenResult().catch(()=>null);
+  const rooli=tok?.claims?.rooli||'';
+  const cS=tok?.claims?.seura||'';
+  if(!isSu&&rooli!=='utj'){
+    const ad=await db.collection('admins').doc(u.uid).get().catch(()=>null);
+    if(!ad?.exists){toast('Ei UTJ-oikeuksia','err');auth.signOut();return;}
   }
-
-  document.getElementById('sbSeura').textContent = isSuper ? 'Super Admin' : 'UTJ';
-  nayta('app');
-  alusta(seuratData, user.uid);
+  if(isSu){const s=await db.collection('seurat').limit(1).get().catch(()=>null);_sid=s&&!s.empty?s.docs[0].id:'kpv';_snm=s&&!s.empty?s.docs[0].data().nimi||_sid:'Super Admin';}
+  else{
+    _sid=cS;
+    if(!_sid){const us=await db.collectionGroup('kayttajat').where('uid','==',u.uid).limit(1).get().catch(()=>null);if(us&&!us.empty)_sid=us.docs[0].ref.parent.parent.id;}
+    if(!_sid){toast('Seuraa ei löydy','err');auth.signOut();return;}
+    const ss=await db.collection('seurat').doc(_sid).get().catch(()=>null);_snm=ss?.data()?.nimi||_sid;
+  }
+  document.getElementById('sbNimi').textContent=_snm;
+  document.getElementById('otsikko').textContent=_snm;
+  document.getElementById('pvm').textContent=new Date().toLocaleDateString('fi-FI',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  show('a');alusta();
 });
 
-function nayta(kohde) {
-  document.getElementById('sLogin').style.display  = kohde==='login' ? 'flex' : 'none';
-  document.getElementById('sApp').style.display    = kohde==='app'   ? 'block' : 'none';
+function show(v){document.getElementById('sL').style.display=v==='l'?'flex':'none';document.getElementById('sA').style.display=v==='a'?'block':'none';}
+
+async function sisaan(){
+  const em=document.getElementById('lEmail').value.trim(),pw=document.getElementById('lPass').value,er=document.getElementById('lErr');
+  er.style.display='none';_kirjautuu=true;
+  try{await auth.signInWithEmailAndPassword(em,pw);_kirjautuu=false;}
+  catch(ex){_kirjautuu=false;er.textContent='Virhe: '+(ex.code||ex.message);er.style.display='block';}
 }
 
-async function kirjauduSisaan() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass  = document.getElementById('loginPass').value;
-  const virhe = document.getElementById('loginVirhe');
-  virhe.style.display = 'none';
-  _kirjautuminenKesken = true;
-  try {
-    await auth.signInWithEmailAndPassword(email, pass);
-    _kirjautuminenKesken = false;
-    // onAuthStateChanged hoitaa jatkosta
-  } catch(e) {
-    _kirjautuminenKesken = false;
-    virhe.textContent = 'Kirjautuminen epäonnistui: ' + (e.message || e.code);
-    virhe.style.display = 'block';
-  }
+function navi(id,el){
+  document.querySelectorAll('.vw').forEach(v=>v.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+  document.getElementById('vw-'+id)?.classList.add('on');el?.classList.add('on');
+  if(id==='jouk')lataaJ();if(id==='tal')lataaT();if(id==='sup')lataaS();if(id==='kay')lataaK();
 }
 
-function kirjauduUlos() {
-  auth.signOut();
+async function alusta(){
+  const j=await db.collection('seurat').doc(_sid).collection('joukkueet').get().catch(()=>null);
+  _jD=j&&!j.empty?j.docs.map(d=>({id:d.id,...d.data()})):demoJ();
+  kpi('kJ',_jD.length);
+  const p=await db.collection('pelaajat').where('seura','==',_sid).get().catch(()=>null);
+  kpi('kP',p?.size??_jD.reduce((s,x)=>s+(x.pelaajia||0),0));
+  const d7=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  const k=await db.collection('kirjaukset').where('seura','==',_sid).where('pvm','>=',d7).get().catch(()=>null);
+  kpi('kK',k?.size??0);
+  const t=await db.collection('pelaajat').where('seura','==',_sid).where('tunnistus','in',['gem','xfactor','kori']).get().catch(()=>null);
+  kpi('kT',t?.size??demoT().length);
+  rFeed(k?.docs);rPalkit();rMatrix();
 }
 
-/* ══ NAV ══ */
-function naytaNakuma(id, el) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const v = document.getElementById('view-' + id);
-  if (v) v.classList.add('active');
-  if (el) el.classList.add('active');
-  // Lataa data tarvittaessa
-  if (id === 'sopimukset') laataaSopimukset();
-  if (id === 'talentit')   laataaTalentit();
-  if (id === 'suppilo')    laataaSuppilo();
-  if (id === 'kehityspolut') lataaKehityspolut();
+function rFeed(docs){
+  const el=document.getElementById('feed');
+  if(!docs||!docs.length){el.innerHTML=dFeed();return;}
+  const ic={T:'⚽',D:'🏃',S:'💤',P:'🎮'},dc={T:'var(--ac)',D:'var(--bl)',S:'var(--i3)',P:'var(--pu)'};
+  el.innerHTML=docs.slice(0,6).map(d=>{const v=d.data();return`<div class="fi"><div class="fd" style="background:${dc[v.tyyppi]||'var(--i3)'}"></div><div><div class="ft">${ic[v.tyyppi]||'📝'} <strong>${e(v.pelaajaNimi||'Pelaaja')}</strong> — ${v.tyyppi==='T'?'tekniikkaharjoitus':'kirjaus'}</div><div class="fm">${e(v.pvm||'')} · ${e(v.joukkue||'')}</div></div></div>`;}).join('');
+}
+function dFeed(){return[['var(--ac)','⚽ <strong>Topias K.</strong> — tekniikkaharjoitus','Tänään 18:34 · U14'],['var(--go)','💎 Uusi <strong>Hidden Gem</strong> tunnistettu','Tänään 16:12 · U15'],['var(--bl)','🏃 <strong>Mikael L.</strong> — fyysinen harjoitus','Tänään 14:55 · U16'],['var(--ac)','⚽ <strong>Aino M.</strong> — tekniikkaharjoitus','Eilen 20:01 · U15 T'],['var(--pu)','⚡ <strong>X-Factor</strong>-signaali aktivoitu','Eilen 17:30 · U16']].map(([d,t,m])=>`<div class="fi"><div class="fd" style="background:${d}"></div><div><div class="ft">${t}</div><div class="fm">${m} · demo</div></div></div>`).join('');}
+
+function rPalkit(){
+  const el=document.getElementById('palkit');
+  if(!_jD.length){el.innerHTML='<div class="empty"><p>Ei joukkueita.</p></div>';return;}
+  el.innerHTML=_jD.slice(0,6).map(j=>{const idx=j.indeksi||j.kehitysindeksi||Math.round(45+Math.random()*35);const c=idx>=70?'var(--gr)':idx>=50?'var(--ac)':'var(--am)';return`<div class="pr"><span class="pl">${e(j.nimi||j.id)}</span><div class="pt2"><div class="pf" style="width:${idx}%;background:${c}"></div></div><span class="pv">${idx}</span></div>`;}).join('');
 }
 
-/* ══ ALUSTUS ══ */
-function alusta(seurat, uid) {
-  // Päivämäärä
-  const pvm = new Date().toLocaleDateString('fi-FI',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  document.getElementById('utjPvm').textContent = pvm;
-
-  // KPI: seurojen lkm
-  _setKpi('kpiSeurat', seurat.length);
-
-  // Sarjataso-jakauma
-  const vl = seurat.filter(s => s.sarjataso === 'Veikkausliiga').length;
-  const yk = seurat.filter(s => s.sarjataso === 'Ykkönen').length;
-  const kk = seurat.filter(s => !['Veikkausliiga','Ykkönen'].includes(s.sarjataso)).length;
-  const max = Math.max(vl,yk,kk,1);
-  document.getElementById('nVL').textContent = vl;
-  document.getElementById('nYK').textContent = yk;
-  document.getElementById('nKK').textContent = kk;
-  document.getElementById('pVL').style.width = (vl/max*100)+'%';
-  document.getElementById('pYK').style.width = (yk/max*100)+'%';
-  document.getElementById('pKK').style.width = (kk/max*100)+'%';
-
-  // Pelaajien lkm kaikista seuroista
-  let pelaajatYht = 0;
-  const pelaajaProm = seurat.map(s =>
-    db.collection('pelaajat').where('seura','==',s.id).get()
-      .then(snap => { pelaajatYht += snap.size; })
-      .catch(()=>{})
-  );
-  Promise.all(pelaajaProm).then(() => _setKpi('kpiPelaajat', pelaajatYht));
-
-  // Kirjaukset 7 pv
-  const seitsemänPvSitten = new Date(Date.now() - 7*24*3600*1000);
-  db.collection('kirjaukset')
-    .where('pvm','>=', seitsemänPvSitten.toISOString().slice(0,10))
-    .get()
-    .then(snap => _setKpi('kpiAktiivisuus', snap.size))
-    .catch(()=>_setKpi('kpiAktiivisuus','—'));
-
-  renderCoachMatrix(seurat);
-  renderActivityFeed();
+async function rMatrix(){
+  const pv=[];
+  for(let i=6;i>=0;i--){const d=new Date(Date.now()-i*864e5);pv.push({l:d.toLocaleDateString('fi-FI',{weekday:'short'}).substring(0,2),dt:d.toISOString().slice(0,10),td:i===0});}
+  document.getElementById('pvots').innerHTML=pv.map(p=>`<span style="width:16px;text-align:center;font-size:9px;color:${p.td?'var(--ac)':'var(--i3)'}">${p.l}</span>`).join('');
+  const con=document.getElementById('matrix');
+  try{
+    const us=await db.collection('seurat').doc(_sid).collection('kayttajat').where('rooli','in',['valmentaja','tj','fysiikka','testi','vp']).get();
+    if(us.empty){con.innerHTML=dMatrix(pv);return;}
+    const d7=pv[0].dt,rows=[];
+    for(const doc of us.docs){const d=doc.data();const ks=await db.collection('kirjaukset').where('seura','==',_sid).where('kirjaaja','==',doc.id).where('pvm','>=',d7).get().catch(()=>null);const pvs=new Set((ks?.docs||[]).map(k=>k.data().pvm));rows.push({n:d.nimi||d.email||'?',j:d.joukkue||'',pvs,sc:pvs.size});}
+    rows.sort((a,b)=>b.sc-a.sc);
+    const akt=rows.filter(r=>r.sc>0).length;
+    document.getElementById('aktN').textContent=`${akt}/${rows.length} aktiivinen`;
+    con.innerHTML=rows.map(r=>cRow(r,pv)).join('');
+  }catch(ex){con.innerHTML=dMatrix(pv);}
 }
 
-/* ══ COACH ACTIVITY MATRIX ══ */
-async function renderCoachMatrix(seurat) {
-  const container = document.getElementById('coachMatrix');
-  const paivaNimet = document.getElementById('paivaNimet');
-
-  // 7 päivän nimet (ma-su lyhenne)
-  const pvNimet = [];
-  for (let i=6; i>=0; i--) {
-    const d = new Date(Date.now() - i*24*3600*1000);
-    pvNimet.push(d.toLocaleDateString('fi-FI',{weekday:'short'}).substring(0,2));
-  }
-  paivaNimet.innerHTML = pvNimet.map((n,i) =>
-    `<span style="width:16px;text-align:center;font-size:9px;color:var(--ink3)${i===6?';color:var(--accent)':''}">${n}</span>`
-  ).join('');
-
-  try {
-    // Haetaan kaikki valmentajat
-    const valSnap = await db.collection('kayttajat')
-      .where('rooli','in',['valmentaja','tj','utj'])
-      .limit(30).get();
-
-    if (valSnap.empty) {
-      container.innerHTML = renderDemoCoachMatrix();
-      return;
-    }
-
-    // Haetaan kirjaukset per valmentaja (7 pv)
-    const seitsemänPvSitten = new Date(Date.now() - 7*24*3600*1000).toISOString().slice(0,10);
-    const rows = [];
-
-    for (const doc of valSnap.docs) {
-      const d = doc.data();
-      const kirjSnap = await db.collection('kirjaukset')
-        .where('kirjaaja','==',doc.id)
-        .where('pvm','>=',seitsemänPvSitten)
-        .get().catch(()=>null);
-
-      const pvSet = new Set(kirjSnap?.docs.map(k=>k.data().pvm)||[]);
-      const score = pvSet.size;
-
-      rows.push({ nimi: d.nimi||d.email||'?', joukkue: d.joukkue||'', uid: doc.id, pvSet, score });
-    }
-
-    rows.sort((a,b) => b.score-a.score);
-    const aktiiviset = rows.filter(r=>r.score>0).length;
-    document.getElementById('aktiivinenLkm').textContent = `${aktiiviset}/${rows.length} aktiivinen`;
-
-    container.innerHTML = rows.map(r => renderCoachRow(r, pvNimet)).join('');
-
-  } catch(e) {
-    container.innerHTML = renderDemoCoachMatrix();
-  }
+function cRow(r,pv){
+  const ini=r.n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const h=r.n.charCodeAt(0)*7%360;
+  const dots=pv.map(p=>`<div class="cd ${r.pvs?.has(p.dt)?'on':'off'} ${p.td?'td':''}">${r.pvs?.has(p.dt)?'✓':''}</div>`).join('');
+  const c=r.sc>=5?'var(--gr)':r.sc>=3?'var(--am)':'var(--rd)';
+  return`<div class="cr"><div class="ca" style="background:hsla(${h},55%,40%,.2);color:hsl(${h},55%,65%)">${ini}</div><div style="flex:1;min-width:0"><div class="cn">${e(r.n)}</div><div class="cte">${e(r.j)}</div></div><div class="cds">${dots}</div><div class="csc" style="color:${c}">${r.sc}/7</div></div>`;
+}
+function dMatrix(pv){
+  const d=[{n:'Topias Koskela',j:'U14',p:[1,1,0,1,1,1,1]},{n:'Sari Leinonen',j:'U15 T',p:[1,1,1,1,1,1,1]},{n:'Jani Mäkinen',j:'U13',p:[0,1,1,0,1,0,1]},{n:'Mikko Virtanen',j:'U16',p:[1,0,1,1,0,1,1]},{n:'Tero Heikkinen',j:'U12',p:[0,0,1,0,1,0,0]}];
+  const akt=d.filter(v=>v.p.some(x=>x)).length;
+  document.getElementById('aktN').textContent=`${akt}/${d.length} aktiivinen (demo)`;
+  return d.map(v=>{const ini=v.n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const h=v.n.charCodeAt(0)*7%360;const sc=v.p.filter(x=>x).length;const c=sc>=5?'var(--gr)':sc>=3?'var(--am)':'var(--rd)';const dots=v.p.map((on,i)=>`<div class="cd ${on?'on':'off'} ${i===6?'td':''}">${on?'✓':''}</div>`).join('');return`<div class="cr"><div class="ca" style="background:hsla(${h},55%,40%,.2);color:hsl(${h},55%,65%)">${ini}</div><div style="flex:1;min-width:0"><div class="cn">${v.n}</div><div class="cte">${v.j}</div></div><div class="cds">${dots}</div><div class="csc" style="color:${c}">${sc}/7</div></div>`;}).join('');
 }
 
-function renderCoachRow(r, pvNimet) {
-  const initials = r.nimi.split(' ').map(w=>w[0]).join('').toUpperCase().substring(0,2);
-  const hue = r.nimi.charCodeAt(0)*7 % 360;
-  const dots = pvNimet.map((n,i) => {
-    const d = new Date(Date.now() - (6-i)*24*3600*1000).toISOString().slice(0,10);
-    const on = r.pvSet.has(d);
-    const isToday = i===6;
-    return `<div class="cm-day ${on?'on':'off'} ${isToday?'today':''}" title="${n}: ${on?'kirjaus':'ei kirjausta'}">${on?'✓':''}</div>`;
-  }).join('');
-  const scoreColor = r.score>=5?'var(--green)':r.score>=3?'var(--amber)':'var(--red)';
-  return `<div class="cm-row">
-    <div class="cm-avatar" style="background:hsla(${hue},60%,40%,.2);color:hsl(${hue},60%,65%)">${initials}</div>
-    <div style="flex:1;min-width:0">
-      <div class="cm-name">${_esc(r.nimi)}</div>
-      <div class="cm-team">${_esc(r.joukkue)}</div>
-    </div>
-    <div class="cm-dots">${dots}</div>
-    <div class="cm-score" style="color:${scoreColor}">${r.score}/7</div>
-  </div>`;
+async function lataaJ(){
+  if(_jL)return;_jL=true;
+  const al=document.getElementById('joukkueet');
+  const lista=_jD.length?_jD:demoJ();
+  const ps=await db.collection('pelaajat').where('seura','==',_sid).get().catch(()=>null);
+  const ppj={};(ps?.docs||[]).forEach(d=>{const j=d.data().joukkue||d.data().joukkueId;if(j)ppj[j]=(ppj[j]||0)+1;});
+  al.innerHTML=lista.map(j=>{const pn=ppj[j.id]||j.pelaajia||'—';const idx=j.indeksi||j.kehitysindeksi||'—';return`<div class="jc"><div style="width:40px;height:40px;border-radius:10px;background:rgba(0,212,170,.1);display:flex;align-items:center;justify-content:center;font-size:18px">👥</div><div style="flex:1"><div class="jn">${e(j.nimi||j.id)}</div><div class="jm">${e(j.valmentaja||'Ei valmentajaa')} · ${e(j.ikaluokka||'—')}</div></div><div class="jst" style="margin-right:16px"><div class="jsv">${pn}</div><div class="jsl">pelaajaa</div></div><div class="jst"><div class="jsv" style="color:var(--bl)">${idx}</div><div class="jsl">kehitysindeksi</div></div></div>`;}).join('');
 }
+function demoJ(){return[{id:'u16',nimi:'U16',valmentaja:'Mikko Virtanen',ikaluokka:'U16',pelaajia:18,indeksi:74},{id:'u15t',nimi:'U15 Tytöt',valmentaja:'Sari Leinonen',ikaluokka:'U15',pelaajia:16,indeksi:71},{id:'u15',nimi:'U15',valmentaja:'Pekka Korhonen',ikaluokka:'U15',pelaajia:17,indeksi:68},{id:'u14',nimi:'U14',valmentaja:'Topias Koskela',ikaluokka:'U14',pelaajia:19,indeksi:65},{id:'u13',nimi:'U13',valmentaja:'Jani Mäkinen',ikaluokka:'U13',pelaajia:15,indeksi:61},{id:'u12',nimi:'U12',valmentaja:'Tero Heikkinen',ikaluokka:'U12',pelaajia:14,indeksi:58}];}
 
-function renderDemoCoachMatrix() {
-  // Demo-data kun ei oikeaa dataa
-  const demoValmentajat = [
-    {nimi:'Topias Koskela',joukkue:'U14',pisteet:[1,1,0,1,1,1,1]},
-    {nimi:'Mikko Virtanen',joukkue:'U16',pisteet:[1,0,1,1,0,1,1]},
-    {nimi:'Jani Mäkinen',joukkue:'U13',pisteet:[0,1,1,0,1,0,1]},
-    {nimi:'Sari Leinonen',joukkue:'U15 T',pisteet:[1,1,1,1,1,1,1]},
-    {nimi:'Tero Heikkinen',joukkue:'U12',pisteet:[0,0,1,0,1,0,0]},
-  ];
-  const pvNimet = [];
-  for (let i=6;i>=0;i--){const d=new Date(Date.now()-i*24*3600*1000);pvNimet.push(d.toLocaleDateString('fi-FI',{weekday:'short'}).substring(0,2));}
-
-  const aktiiviset = demoValmentajat.filter(v=>v.pisteet.some(p=>p)).length;
-  document.getElementById('aktiivinenLkm').textContent = `${aktiiviset}/${demoValmentajat.length} aktiivinen (demo)`;
-
-  return demoValmentajat.map(v => {
-    const initials = v.nimi.split(' ').map(w=>w[0]).join('').toUpperCase().substring(0,2);
-    const hue = v.nimi.charCodeAt(0)*7 % 360;
-    const score = v.pisteet.filter(p=>p).length;
-    const scoreColor = score>=5?'var(--green)':score>=3?'var(--amber)':'var(--red)';
-    const dots = v.pisteet.map((p,i)=>
-      `<div class="cm-day ${p?'on':'off'} ${i===6?'today':''}">${p?'✓':''}</div>`
-    ).join('');
-    return `<div class="cm-row">
-      <div class="cm-avatar" style="background:hsla(${hue},60%,40%,.2);color:hsl(${hue},60%,65%)">${initials}</div>
-      <div style="flex:1;min-width:0">
-        <div class="cm-name">${v.nimi}</div>
-        <div class="cm-team">${v.joukkue}</div>
-      </div>
-      <div class="cm-dots">${dots}</div>
-      <div class="cm-score" style="color:${scoreColor}">${score}/7</div>
-    </div>`;
+async function lataaT(){
+  if(_tL)return;_tL=true;
+  try{const s=await db.collection('pelaajat').where('seura','==',_sid).where('tunnistus','in',['gem','xfactor','kori']).limit(50).get();_talentit=s.empty?demoT():s.docs.map(d=>({id:d.id,...d.data()}));}
+  catch(ex){_talentit=demoT();}
+  kpi('kT',_talentit.length);rT();
+}
+function tSuodata(s,btn){_tS=s;document.querySelectorAll('.tfb').forEach(b=>b.classList.remove('on'));btn?.classList.add('on');rT();}
+function rT(){
+  const g=document.getElementById('tgrid');
+  const l=_tS==='k'?_talentit:_talentit.filter(p=>p.tunnistus===_tS);
+  if(!l.length){g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">🔍</div><p>Ei tunnistuksia.</p></div>`;return;}
+  const bm={gem:{lb:'💎 Hidden Gem',cl:'gem',oc:'g'},xfactor:{lb:'⚡ X-Factor',cl:'xf',oc:'p'},kori:{lb:'🎯 KORI',cl:'ko',oc:'t'}};
+  const dl=['Fys','Tek','Psy','Kog','Sos'];
+  g.innerHTML=l.map(p=>{
+    const b=bm[p.tunnistus]||bm.gem;const ovr=p.ovr||p.OVR||Math.round(60+Math.random()*25);const dvi=p.dvi||0;
+    const dviEl=dvi>0?`<span class="tdvi up">▲ DVI +${dvi}</span>`:dvi<0?`<span class="tdvi dn">▼ DVI ${dvi}</span>`:`<span class="tdvi fl">→ stabiili</span>`;
+    const dims=['D1','D2','D3','D4','D5'].map((k,i)=>`<div class="tdx"><div class="tdv">${Math.round(p[k]||p[k.toLowerCase()]||(ovr-8+Math.random()*16))}</div><div class="tdl">${dl[i]}</div></div>`).join('');
+    return`<div class="tc ${b.cl}"><div class="tch"><div class="tovr ${b.oc}">${ovr}</div><div class="ti"><div class="tn">${e(p.nimi||'Pelaaja')}</div><div class="tm2">${e(p.pelipaikka||'—')} · ${e(p.ikaluokka||'—')}</div></div><span class="tbg ${b.cl}">${b.lb}</span></div><div class="tds">${dims}</div><div class="tft"><span class="tj2">📍 ${e(p.joukkue||'—')}</span>${dviEl}</div></div>`;
   }).join('');
 }
+function demoT(){return[{nimi:'Mikael Koskela',pelipaikka:'CM',ikaluokka:'U14',joukkue:'U14',tunnistus:'gem',ovr:84,dvi:4,D1:79,D2:83,D3:86,D4:80,D5:75},{nimi:'Aino Mäkinen',pelipaikka:'LW',ikaluokka:'U15',joukkue:'U15 T',tunnistus:'xfactor',ovr:81,dvi:6,D1:76,D2:80,D3:78,D4:85,D5:82},{nimi:'Eerik Lahtinen',pelipaikka:'CB',ikaluokka:'U16',joukkue:'U16',tunnistus:'kori',ovr:79,dvi:2,D1:84,D2:74,D3:77,D4:76,D5:80},{nimi:'Sofia Niemi',pelipaikka:'DM',ikaluokka:'U15',joukkue:'U15',tunnistus:'gem',ovr:77,dvi:3,D1:72,D2:78,D3:80,D4:75,D5:81},{nimi:'Lauri Virtanen',pelipaikka:'ST',ikaluokka:'U13',joukkue:'U13',tunnistus:'gem',ovr:76,dvi:5,D1:74,D2:77,D3:75,D4:73,D5:74}];}
 
-/* ══ ACTIVITY FEED ══ */
-async function renderActivityFeed() {
-  const container = document.getElementById('activityFeed');
-  try {
-    const snap = await db.collection('kirjaukset')
-      .orderBy('luotu','desc').limit(8).get();
-
-    if (snap.empty) { container.innerHTML = renderDemoFeed(); return; }
-
-    const items = snap.docs.map(d => {
-      const data = d.data();
-      return renderFeedItem(data);
-    });
-    container.innerHTML = items.join('');
-  } catch(e) {
-    container.innerHTML = renderDemoFeed();
-  }
+async function lataaS(){
+  if(_sL)return;_sL=true;
+  try{
+    const s=await db.collection('kehityspolut').where('seura','==',_sid).get();
+    const n=s.size,vl=s.docs.filter(d=>['Veikkausliiga','Ykkönen'].includes(d.data().sarjataso)).length;
+    const min=s.docs.reduce((x,d)=>x+(d.data().minuutit||0),0);
+    const ps=await db.collection('pelaajat').where('seura','==',_sid).get().catch(()=>null);
+    const te=ps?.size>0?Math.round(n/ps.size*100):0;
+    kpi('sN',n);kpi('sVL',vl);kpi('sMin',min.toLocaleString('fi-FI'));kpi('sT',te+'%');
+    if(n)document.getElementById('suppilo').innerHTML=`<table><thead><tr><th>Pelaaja</th><th>Joukkue</th><th>Sarjataso</th><th>Min</th><th>Kausi</th></tr></thead><tbody>${s.docs.map(d=>{const v=d.data();return`<tr><td>${e(v.pelaajaNimi||'—')}</td><td>${e(v.joukkue||'—')}</td><td>${e(v.sarjataso||'—')}${v.lainalla?'<span style="font-size:10px;color:var(--am);margin-left:6px">🔁</span>':''}</td><td>${v.minuutit||'—'}</td><td>${e(v.kausi||'2026')}</td></tr>`;}).join('')}</tbody></table>`;
+  }catch(ex){kpi('sN','—');kpi('sVL','—');kpi('sMin','—');kpi('sT','—');}
 }
 
-function renderFeedItem(data) {
-  const tyypit = {T:'⚽',D:'🏃',S:'💤',P:'🎮'};
-  const ikoni = tyypit[data.tyyppi] || '📝';
-  const dot_color = data.tyyppi==='T'?'var(--accent)':data.tyyppi==='D'?'var(--blue)':'var(--ink3)';
-  const aika = data.luotu ? new Date(data.luotu.toDate?.() || data.luotu).toLocaleTimeString('fi-FI',{hour:'2-digit',minute:'2-digit'}) : '';
-  return `<div class="af-item">
-    <div class="af-dot" style="background:${dot_color}"></div>
-    <div class="af-body">
-      <div class="af-text">${ikoni} <strong>${_esc(data.pelaajaNimi||'Pelaaja')}</strong> kirjasi ${data.tyyppi==='T'?'tekniikkaharjoituksen':data.tyyppi==='D'?'fyysisen harjoituksen':'kirjauksen'} — ${_esc(data.seura||'')}</div>
-      <div class="af-time">${aika} · ${_esc(data.pvm||'')}</div>
-    </div>
-  </div>`;
+async function lataaK(){
+  if(_kL)return;_kL=true;
+  const al=document.getElementById('kayttajat');
+  try{
+    const s=await db.collection('seurat').doc(_sid).collection('kayttajat').orderBy('nimi').get();
+    if(s.empty){al.innerHTML=demoK();return;}
+    al.innerHTML=s.docs.map(d=>{const u=d.data();const ini=(u.nimi||u.email||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);const h=(u.email||'').charCodeAt(0)*11%360;const rc={vp:'vp',valmentaja:'val',tj:'val',fysiikka:'val',utj:'utj'}[u.rooli]||'val';const rn={vp:'VP',valmentaja:'Valmentaja',tj:'Talenttivalmentaja',fysiikka:'Fysiikkavalmentaja',utj:'UTJ',testi:'Testivastaava'}[u.rooli]||u.rooli||'—';return`<div class="ur"><div class="ua" style="background:hsla(${h},55%,40%,.2);color:hsl(${h},55%,65%)">${ini}</div><div class="ui"><div class="un">${e(u.nimi||'—')}</div><div class="ue">${e(u.email||'')}</div></div><span style="font-size:11px;color:var(--i3);margin-right:8px">${e(u.joukkue||'')}</span><span class="urol ${rc}">${rn}</span><div class="ust ${u.aktiivinen!==false?'act':'ina'}"></div></div>`;}).join('');
+  }catch(ex){al.innerHTML=demoK();}
+}
+function demoK(){return[{n:'Topias Koskela',em:'topias@kpv.fi',r:'vp',j:'U14',a:true},{n:'Sari Leinonen',em:'sari@kpv.fi',r:'valmentaja',j:'U15 T',a:true},{n:'Jani Mäkinen',em:'jani@kpv.fi',r:'valmentaja',j:'U13',a:true},{n:'Mikko Virtanen',em:'mikko@kpv.fi',r:'valmentaja',j:'U16',a:true},{n:'Tero Heikkinen',em:'tero@kpv.fi',r:'valmentaja',j:'U12',a:false}].map(u=>{const ini=u.n.split(' ').map(w=>w[0]).join('').toUpperCase();const h=u.em.charCodeAt(0)*11%360;return`<div class="ur"><div class="ua" style="background:hsla(${h},55%,40%,.2);color:hsl(${h},55%,65%)">${ini}</div><div class="ui"><div class="un">${u.n}</div><div class="ue">${u.em}</div></div><span style="font-size:11px;color:var(--i3);margin-right:8px">${u.j}</span><span class="urol ${u.r==='vp'?'vp':'val'}">${u.r==='vp'?'VP':'Valmentaja'}</span><div class="ust ${u.a?'act':'ina'}"></div></div>`;}).join('');}
+
+function avaMod(){document.getElementById('mod').classList.add('open');}
+function sulMod(){document.getElementById('mod').classList.remove('open');}
+async function lahetaKutsu(){
+  const em=document.getElementById('mEmail').value.trim().toLowerCase();
+  const ro=document.getElementById('mRooli').value;const jo=document.getElementById('mJouk').value.trim();
+  if(!em){toast('Anna sähköpostiosoite','err');return;}
+  try{await db.collection('seurat').doc(_sid).collection('kutsut').add({email:em,rooli:ro,joukkue:jo,seura:_sid,luotu:firebase.firestore.FieldValue.serverTimestamp(),tila:'lahetetty'});toast('Kutsu lähetetty: '+em,'ok');sulMod();}
+  catch(ex){toast('Kutsu epäonnistui: '+ex.message,'err');}
 }
 
-function renderDemoFeed() {
-  const items = [
-    {dot:'var(--accent)',text:'<strong>Topias K.</strong> kirjasi tekniikkaharjoituksen — KPV',aika:'Tänään 18:34'},
-    {dot:'var(--gold)',text:'💎 Uusi <strong>Hidden Gem</strong> tunnistettu — SJK Juniorit U15',aika:'Tänään 16:12'},
-    {dot:'var(--blue)',text:'<strong>Sari L.</strong> teki kenttähavainnon — SJK U15 T',aika:'Tänään 14:55'},
-    {dot:'var(--accent)',text:'<strong>Mikael K.</strong> kirjasi tekniikkaharjoituksen — KPV',aika:'Eilen 20:01'},
-    {dot:'var(--purple)',text:'⚡ <strong>X-Factor</strong>-signaali — FC Lahti Juniorit U16',aika:'Eilen 17:30'},
-  ];
-  return items.map(i=>`<div class="af-item">
-    <div class="af-dot" style="background:${i.dot}"></div>
-    <div class="af-body">
-      <div class="af-text">${i.text}</div>
-      <div class="af-time">${i.aika} · demo</div>
-    </div>
-  </div>`).join('');
-}
-
-/* ══ SOPIMUKSET ══ */
-let _sopimuksetLadattu = false;
-async function laataaSopimukset() {
-  if (_sopimuksetLadattu) return;
-  _sopimuksetLadattu = true;
-  const alue = document.getElementById('sopimuksetAlue');
-  try {
-    const snap = await db.collection('seurat').orderBy('nimi').get();
-    if (snap.empty) { alue.innerHTML = '<div style="color:var(--ink3);font-size:12px;padding:16px;">Ei seuroja vielä.</div>'; return; }
-    const rows = snap.docs.map(d => {
-      const s = d.data();
-      const sarj = s.sarjataso||'—';
-      const tila = s.sopimus?.tila||'active';
-      const uusinta = s.sopimus?.uusinta||'—';
-      const tilaEl = tila==='active'
-        ? `<span class="s-status active">Aktiivinen</span>`
-        : `<span class="s-status pending">Odottaa</span>`;
-      return `<div class="sopimus-row">
-        <div style="flex:1"><div class="s-seura">${_esc(s.nimi||d.id)}</div><div class="s-taso">${_esc(sarj)}</div></div>
-        ${tilaEl}
-        <div class="s-date">Uusinta: ${_esc(uusinta)}</div>
-      </div>`;
-    });
-    alue.innerHTML = rows.join('');
-  } catch(e) {
-    // Demo
-    alue.innerHTML = [
-      ['FC Lahti Juniorit','Ykkönen','active','31.12.2026'],
-      ['KPV','Ykkönen','active','31.12.2026'],
-      ['Pallo-Iirot','Kakkonen','active','31.12.2026'],
-      ['Ylöjärven Ilves','Kakkonen','active','31.12.2026'],
-      ['SJK Juniorit','Veikkausliiga','active','31.12.2026'],
-      ['GrIFK','Ykkönen','active','31.12.2026'],
-      ['VIFK','Ykkönen','active','31.12.2026'],
-    ].map(([nimi,sarj,tila,uus])=>`<div class="sopimus-row">
-      <div style="flex:1"><div class="s-seura">${nimi}</div><div class="s-taso">${sarj}</div></div>
-      <span class="s-status active">Aktiivinen</span>
-      <div class="s-date">Uusinta: ${uus}</div>
-    </div>`).join('');
-  }
-}
-
-/* ══ TALENT-TUNNISTUKSET ══ */
-let _kaikki_talentit = [];
-let _aktiivinen_suodatin = 'kaikki';
-
-async function laataaTalentit() {
-  const grid = document.getElementById('talenttiGrid');
-  if (_kaikki_talentit.length > 0) { renderTalentit(); return; }
-
-  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--ink3);font-size:12px;">Ladataan...</div>';
-
-  try {
-    // Haetaan pelaajat joilla on gem tai xfactor merkintä
-    const snap = await db.collection('pelaajat')
-      .where('tunnistus','in',['gem','xfactor','kori'])
-      .limit(50).get();
-
-    if (snap.empty) {
-      _kaikki_talentit = demotTalentit();
-    } else {
-      _kaikki_talentit = snap.docs.map(d => ({id:d.id,...d.data()}));
-    }
-
-    const count = _kaikki_talentit.length;
-    _setKpi('kpiTalentit', count);
-    renderTalentit();
-  } catch(e) {
-    _kaikki_talentit = demotTalentit();
-    _setKpi('kpiTalentit', _kaikki_talentit.length);
-    renderTalentit();
-  }
-}
-
-function suodataTalentit(suodatin, btn) {
-  _aktiivinen_suodatin = suodatin;
-  document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  renderTalentit();
-}
-
-function renderTalentit() {
-  const grid = document.getElementById('talenttiGrid');
-  const lista = _aktiivinen_suodatin==='kaikki'
-    ? _kaikki_talentit
-    : _kaikki_talentit.filter(p=>p.tunnistus===_aktiivinen_suodatin);
-
-  if (!lista.length) {
-    grid.innerHTML = `<div class="talent-empty" style="grid-column:1/-1">
-      <div class="te-icon">🔍</div>
-      <p>Ei tunnistuksia tässä kategoriassa.</p>
-    </div>`;
-    return;
-  }
-
-  grid.innerHTML = lista.map(p => renderTalentCard(p)).join('');
-}
-
-function renderTalentCard(p) {
-  const tunnistus = p.tunnistus || 'gem';
-  const badgeMap = {
-    gem:     {label:'💎 Hidden Gem', cls:'gem', ovrCls:'gold'},
-    xfactor: {label:'⚡ X-Factor',  cls:'xfactor', ovrCls:'purple'},
-    kori:    {label:'🎯 KORI',       cls:'kori', ovrCls:'teal'},
-  };
-  const b = badgeMap[tunnistus] || badgeMap.gem;
-  const ovr = p.ovr || p.OVR || Math.round(60 + Math.random()*25);
-  const dvi = p.dvi || 0;
-  const dviEl = dvi>0
-    ? `<span class="tc-dvi up">▲ DVI +${dvi}</span>`
-    : dvi<0
-    ? `<span class="tc-dvi down">▼ DVI ${dvi}</span>`
-    : `<span class="tc-dvi flat">→ DVI stabiili</span>`;
-
-  const d1 = Math.round(p.D1||p.d1||(ovr-8+Math.random()*16));
-  const d2 = Math.round(p.D2||p.d2||(ovr-8+Math.random()*16));
-  const d3 = Math.round(p.D3||p.d3||(ovr-8+Math.random()*16));
-  const d4 = Math.round(p.D4||p.d4||(ovr-8+Math.random()*16));
-  const d5 = Math.round(p.D5||p.d5||(ovr-8+Math.random()*16));
-
-  return `<div class="tcard ${b.cls}">
-    <div class="tc-header">
-      <div class="tc-ovr ${b.ovrCls}">${ovr}</div>
-      <div class="tc-info">
-        <div class="tc-name">${_esc(p.nimi||p.etunimi||'Pelaaja')}</div>
-        <div class="tc-meta">${_esc(p.pelipaikka||'—')} · ${_esc(p.ikaluokka||p.ikäluokka||'—')}</div>
-      </div>
-      <span class="tc-badge ${b.cls}">${b.label}</span>
-    </div>
-    <div class="tc-stats">
-      <div class="tc-stat"><div class="tc-stat-val">${d1}</div><div class="tc-stat-lbl">D1 Fys</div></div>
-      <div class="tc-stat"><div class="tc-stat-val">${d2}</div><div class="tc-stat-lbl">D2 Tek</div></div>
-      <div class="tc-stat"><div class="tc-stat-val">${d3}</div><div class="tc-stat-lbl">D3 Psy</div></div>
-      <div class="tc-stat"><div class="tc-stat-val">${d4}</div><div class="tc-stat-lbl">D4 Kog</div></div>
-      <div class="tc-stat"><div class="tc-stat-val">${d5}</div><div class="tc-stat-lbl">D5 Sos</div></div>
-    </div>
-    <div class="tc-footer">
-      <span class="tc-seura">📍 ${_esc(p.seura||'—')}</span>
-      ${dviEl}
-    </div>
-  </div>`;
-}
-
-function demotTalentit() {
-  return [
-    {nimi:'Mikael Koskela',pelipaikka:'CM',ikaluokka:'U14',seura:'KPV',tunnistus:'gem',ovr:84,dvi:4,D1:79,D2:83,D3:86,D4:80,D5:75},
-    {nimi:'Aino Mäkinen',pelipaikka:'LW',ikaluokka:'U15',seura:'SJK Juniorit',tunnistus:'xfactor',ovr:81,dvi:6,D1:76,D2:80,D3:78,D4:85,D5:82},
-    {nimi:'Eerik Lahtinen',pelipaikka:'CB',ikaluokka:'U16',seura:'FC Lahti Juniorit',tunnistus:'kori',ovr:79,dvi:2,D1:84,D2:74,D3:77,D4:76,D5:80},
-    {nimi:'Sofia Niemi',pelipaikka:'DM',ikaluokka:'U15',seura:'SJK Juniorit',tunnistus:'gem',ovr:77,dvi:3,D1:72,D2:78,D3:80,D4:75,D5:81},
-    {nimi:'Lauri Virtanen',pelipaikka:'ST',ikaluokka:'U13',seura:'Pallo-Iirot',tunnistus:'gem',ovr:76,dvi:5,D1:74,D2:77,D3:75,D4:73,D5:74},
-    {nimi:'Ronja Heikkinen',pelipaikka:'RB',ikaluokka:'U14',seura:'GrIFK',tunnistus:'xfactor',ovr:75,dvi:7,D1:70,D2:74,D3:76,D4:79,D5:77},
-  ];
-}
-
-/* ══ KASVATTISUPPILO ══ */
-let _suppiloLadattu = false;
-async function laataaSuppilo() {
-  if (_suppiloLadattu) return;
-  _suppiloLadattu = true;
-  try {
-    const snap = await db.collection('kehityspolut').get();
-    const kpl = snap.size;
-    const vl  = snap.docs.filter(d=>['Veikkausliiga','Ykkönen'].includes(d.data().sarjataso)).length;
-    const min = snap.docs.reduce((s,d)=>s+(d.data().minuutit||0),0);
-    const pelaajatSnap = await db.collection('pelaajat').get();
-    const teho = pelaajatSnap.size > 0 ? Math.round(kpl/pelaajatSnap.size*100) : 0;
-    document.getElementById('supKasvatteja').textContent = kpl;
-    document.getElementById('supVL').textContent = vl;
-    document.getElementById('supMin').textContent = min.toLocaleString('fi-FI');
-    document.getElementById('supTehokkuus').textContent = teho + '%';
-  } catch(e) {
-    document.getElementById('supKasvatteja').textContent = '—';
-    document.getElementById('supVL').textContent = '—';
-    document.getElementById('supMin').textContent = '—';
-    document.getElementById('supTehokkuus').textContent = '—';
-  }
-}
-
-/* ══ KEHITYSPOLUT ══ */
-let _kpData = [];
-let _kpSuodatin = 'kaikki';
-let _kehityspolkuLadattu = false;
-
-async function lataaKehityspolut() {
-  if (_kehityspolkuLadattu) return;
-  _kehityspolkuLadattu = true;
-  const alue = document.getElementById('kehityspolkuAlue');
-  try {
-    const snap = await db.collection('kehityspolut').orderBy('lisatty','desc').limit(100).get();
-    if (snap.empty) { alue.innerHTML = '<div style="color:var(--ink3);font-size:12px;padding:24px;text-align:center;">Ei kehityspolkumerkintöjä vielä.<br>VP syöttää minuutit omasta dashboardista.</div>'; return; }
-    _kpData = snap.docs.map(d=>({id:d.id,...d.data()}));
-    renderKehityspolut();
-  } catch(e) {
-    alue.innerHTML = '<div style="color:var(--ink3);font-size:12px;padding:24px;text-align:center;">Kehityspolut ladataan kun data kertyy.</div>';
-  }
-}
-
-function suodataKP(s, btn) {
-  _kpSuodatin = s;
-  document.querySelectorAll('.kp-btn').forEach(b=>b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  renderKehityspolut();
-}
-
-function renderKehityspolut() {
-  const alue = document.getElementById('kehityspolkuAlue');
-  const lista = _kpSuodatin==='kaikki' ? _kpData
-    : _kpSuodatin==='vl' ? _kpData.filter(p=>p.sarjataso==='Veikkausliiga')
-    : _kpSuodatin==='yk' ? _kpData.filter(p=>p.sarjataso==='Ykkönen')
-    : _kpData.filter(p=>p.lainalla);
-
-  if (!lista.length) { alue.innerHTML = '<div style="color:var(--ink3);font-size:12px;padding:24px;text-align:center;">Ei merkintöjä tässä kategoriassa.</div>'; return; }
-  alue.innerHTML = `<table>
-    <thead><tr><th>Pelaaja</th><th>Seura</th><th>Sarjataso</th><th>Min</th><th>Kausi</th></tr></thead>
-    <tbody>${lista.map(p=>`<tr>
-      <td>${_esc(p.pelaajaNimi||'—')}</td>
-      <td>${_esc(p.seura||'—')}</td>
-      <td>${_esc(p.sarjataso||'—')}${p.lainalla?'<span style="font-size:10px;color:var(--amber);margin-left:6px;">🔁 laina</span>':''}</td>
-      <td>${p.minuutit||'—'}</td>
-      <td>${_esc(p.kausi||'2026')}</td>
-    </tr>`).join('')}</tbody>
-  </table>`;
-}
-
-/* ══ HELPERS ══ */
-function _setKpi(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val;
-}
-function _esc(str) {
-  return String(str||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-}
-function naytaToast(viesti, tyyppi='info') {
-  const t = document.getElementById('toast');
-  const el = document.createElement('div');
-  el.className = 'toast-item';
-  const v = tyyppi==='error'?'var(--red)':tyyppi==='ok'?'var(--green)':'var(--accent)';
-  el.style.borderLeft = '3px solid ' + v;
-  el.textContent = viesti;
-  t.appendChild(el);
-  setTimeout(()=>el.remove(), 3500);
-}
+function kpi(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
+function e(s){return String(s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
+function toast(msg,t='ok'){const el=document.createElement('div');el.className='ti2';el.style.borderLeft='3px solid '+(t==='err'?'var(--rd)':t==='ok'?'var(--gr)':'var(--ac)');el.textContent=msg;document.getElementById('toast').appendChild(el);setTimeout(()=>el.remove(),3500);}
 </script>
 </body>
 </html>
