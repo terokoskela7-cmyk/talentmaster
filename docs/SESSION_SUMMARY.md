@@ -407,3 +407,230 @@ Firestore: `flei_ketjut: {SBL, SFL, LL, DIAG, DFL}` (isolla)
 16. 🟢 FCN-yhteydenotto (Lasse Ishøi, tutkimuskysymys)
 17. 🟢 Pending deploy: Koukutus.html + Valmentaja_Matriisi.html
 18. 🟢 Streak-historia Firestoreen (nyt localStoragessa)
+
+---
+
+## JÄRJESTELMÄARKKITEHTUURI — LISÄTTY 2026-04-12
+
+### Seitsemän kerroksen arkkitehtuuri
+```
+Kerros 1:  Pelaaja / Pelaaja v1              ← pelaajan arjen työkalu
+Kerros 2:  Valmentaja / Master v9            ← kenttähavainto + ADAR
+Kerros 3:  Game IQ / D4 / ADAR-moduuli      ← kognitiivinen kehitys
+Kerros 4:  IDP-kortti v3                    ← yksilöllinen kehityskortti
+Kerros 5:  IDP-aktivointi (3 reittiä)       ← aktivointilogiikka
+Kerros 6:  VP / johtamisjärjestelmä         ← seuran johtaminen
+Kerros 7:  Fyysinen → teknis-taktinen       ← lopullinen tavoite
+```
+
+### Tekninen stack
+| Kerros | Teknologia | Sijainti |
+|---|---|---|
+| Frontend | HTML/CSS/JavaScript (vanilla, IIFE-pattern) | GitHub Pages |
+| Tietokanta | Firebase Firestore | `eur3` multi-region |
+| Autentikointi | Firebase Auth + Custom Claims | Email/Password |
+| Cloud Functions | Node.js, europe-west1 | Firebase Blaze |
+| Excel-lukeminen | SheetJS 0.18.5 (client-side, vain luku) | Selain |
+| Excel-generointi | openpyxl (server-side, Cloud Function) | Firebase |
+| Sähköposti | Nodemailer + Gmail | Cloud Functions |
+| Harjoitelogiikka | harjoitelogiikka_v4.js (1887 riviä) | GitHub Pages |
+| Kielimoduuli | tm_lang.js (fi/sv/en, 144 käännöstä) | GitHub Pages |
+
+---
+
+## FIRESTORE-RAKENNE — TÄYDELLINEN
+
+```
+admins/
+  {uid}/
+    email, rooli, superAdmin, luotu
+
+seurat/
+  {seuraId}/
+    id, nimi, laji, paketti, tmTaso, palloliittoKori
+    vp_uid, vp_email, kaupunki, maa, aktiivinen
+
+    joukkueet/{joukkueId}
+      nimi, syntymavuosi, ikäluokka
+      valmentajaUid, valmentajaNimi
+
+    kayttajat/{kayttajaId}
+      uid, email, etunimi, sukunimi
+      rooli, seuraId, joukkue, joukkueet[]
+      aktiivinen, luotu, luonut_uid
+
+    pelaajat/{pelaajaId}/
+      etunimi, sukunimi, syntymaaika
+      palloID, seuraId, joukkue, joukkueet[]
+      suostumusTila: 'odottaa'|'annettu'
+      tila: 'aktiivinen'|null
+      huoltajaEmail               ← AINA .toLowerCase()
+      biologinen_ika{}            ← Mirwald 2002
+      phv_tila: 'PH'|'KV'|'AN'
+      flei_profiili{}
+      flei_ketjut{}               ← {SBL, SFL, LL, DIAG, DFL} 0-100
+      tki{}, tsi{}
+
+      kirjaukset/{pvm}/           ← 'YYYY-MM-DD'
+        tyyppi: 'T'|'D'|'S'|'P'
+        tehty: bool, kesto_min, rpe: 1-10
+        aika: 'ilta'|'aamu'|'paiva'
+        fiilinki: 1-5
+        uni: 1-3, lihaskunto: 1-3  ← mini-Hooper, U13+
+        fiilinki_paivitettu: ISO-ts ← lukitusavain
+
+      testit/{testiId}            ← H-H ominaisuustestit
+      kartoitukset/{kartoitusId}  ← harjoitettavuus, FLEI
+      tekniikka/{kilpailuId}      ← tekniikkakilpailut
+      adar/{adarId}               ← Game IQ — EI havainnot-kokoelmaan!
+      havainnot/{havaintoId}      ← valmentajan kenttähavainnot
+
+      idp_kausi/{kaudenId}
+
+      pelihavainnot/{otteluId}/   ← Sprint 5
+        tyyppi: 'valmentaja'|'pelaaja'
+        tips_T, tips_I, tips_P, tips_S: 1-10
+        idp_nakyiko: 'kylla'|'osittain'|'ei'
+        havainto: string, fiilinki: 1-5
+        otteluId, seuraId, joukkueId, pvm
+
+    mentoroinnit/{id}/
+      valmentajaUid, valmentajaNimi, pvm, ikavaihe, splKa
+      inno, liike, pallo, tekni, pelille, maali, seuraOma
+      toimenpide, kirjaajaRooli, seuraId, luotu
+
+utj_data/{kausi}/
+  kasvatteja, vlYkk, minuuttia, seurat[]
+
+testitapahtumat/         ← OIKEA NIMI (ei 'tapahtumat')
+kirjaukset/              ← vanha rakenne (yhteensopivuus)
+kirjaukset_joukkue/
+kirjaukset_tapahtumat/
+
+players/{playerId}       ← Solo-pelaajat (ei seurahierarkiassa)
+  nimi, synVuosi, synKuukausi, email
+  pp, kokemus, treeni, ketju
+  tkkYht, tkkMerkki, tkkVuosi
+  kotiPonn, kotiSeina, kotiDrip, kotiPvm
+  playerCode: 'TMP-XXXX'
+  seuraId: null → täytetään kun seura liittyy
+
+  players/{id}/tkk_historia/{vuosi}
+    yht, merkki, lajit: {ponn, syotto, pujottelu, kl, potku}
+
+  players/{id}/kotimittarit/{pvm}
+    ponn, seina, drip
+```
+
+---
+
+## SECURITY RULES — ROOLIKOHTAINEN PÄÄSY
+
+```
+super_admin          → kaikkeen
+vp                   → oma seura, kaikki
+valmentaja           → luku oma seura, kirjoitus havainnot/harjoitukset
+urheilutoimenjohtaja → aggregoitu data, ei yksilödata
+fysioterapeutti      → vammat strict
+pelaaja              → oma profiili + kirjaukset/{pvm}
+vanhempi             → lapsen profiili pelkistetysti
+anonyymi             → vain suostumusTila=='odottaa'
+```
+
+### Custom Claims — kanoninen lista
+```
+super_admin | vp | seurasihteeri | urheilutoimenjohtaja |
+valmentaja | talenttivalmentaja | fysiikkavalmentaja |
+fysioterapeutti | testivastaava | pelaaja | vanhempi
+```
+**underscore CANONICAL** — `normalizeRooli()` hoitaa vanhat muodot
+
+---
+
+## PELIHAVAINTO-ARKKITEHTUURI (Sprint 5)
+
+### TIPS-rakenne (Ajax-pohja + TM-uniikki)
+```
+T = Tekninen suoritus paineessa   (D2)
+I = Pelikuva — Game IQ            (D4)
+P = Persoona — intensiteetti      (D3)
+S = Suorituksen nopeus            (D1+D4)
++ IDP-tavoitteen toteutuminen     ← TM-uniikki, ei muualla
+```
+
+### Ikävaiheen adaptaatio
+```
+Leikkija U8-12:   ei numeroita, kuvakysymykset
+Rakentaja U13-16: TIPS 1-10 + IDP + vapaa havainto
+Showcase U17-19:  TIPS + positiokohtainen + vertailu
+```
+
+### Kirjaamisjärjestys (EPPP-malli)
+```
+Valmentaja kirjaa 24h sisällä ottelusta
+→ Pelaaja arvioi 48h sisällä
+→ Pelaaja näkee valmentajan arvion VASTA oman jälkeen
+→ VP: molemmat + FLEI + PHV + bio-ikä + RAE kontekstina
+→ Kehityskeskustelu → IDP päivittyy automaattisesti
+```
+
+**Taso 3 — TM:n uniikki lisäarvo:**
+Arvioija näkee FLEI-profiilin, PHV-tilan, biologisen iän ja
+syntymäkvartaalin suoraan TIPS-arvion vierellä.
+Mikään muu järjestelmä ei tee tätä.
+
+---
+
+## SPRINT-SUUNNITELMA
+
+### Sprint 4 (käynnissä — 2026-04-12)
+- [x] VP v18: Valmentajat-tabi yhdistetty
+- [x] VP v18: Harjoitteluseuranta + suodatin
+- [x] VP v18: Valmentajakortit grid
+- [x] SJK pilottiin (U15P + U14/15T + talentit)
+- [x] Excel-tuontipohja (testit + kartoitus + tekniikka)
+- [x] Solo-versio: onboarding + kortti + profiilisivu
+- [x] TalentMaster Player Card™ — Starter/Sharp/Elite -variantit
+- [ ] Pelaaja-sivu lag-bugi
+- [ ] SJK VP-tunnukset + joukkueet
+- [ ] Excel → Firestore tuontityökalu
+- [ ] Palloliiton laukausstatistiikka-linkki kalenteriin
+
+### Sprint 5
+- [ ] Pelihavainto Taso 1 (TIPS-lomake Master-näkymässä)
+- [ ] Pelihavainto Taso 2 (pelaajan itsearviointi)
+- [ ] Suostumuslomakkeet SJK:lle (kun data OK)
+- [ ] Tyttöjen PHV-kaava (Mirwald eri parametrit)
+- [ ] Solo-versio: Firebase-integraatio (players-kokoelma)
+- [ ] Solo-versio: Google Sign-In
+
+### Sprint 6–8
+- [ ] Pelihavainto Taso 3 (IDP-kytkös + FLEI-korrelaatio)
+- [ ] AI Behavioural Science -agentti
+- [ ] Milestone-kortit Firestoresta
+- [ ] Solo-versio: Stripe-maksut (4,99€/kk)
+
+---
+
+## LISÄTYT KRIITTISET TEKNISET RATKAISUT (27–31)
+
+Lisätty arkkitehtuuridokumentista — puuttuivat master summarysta:
+
+27. Chart.js: AINA `Chart.getChart()` + destroy + redraw, EI `_init` guard
+28. Chart.js `display:none`-näyttö: `setTimeout(50–100ms)` ennen init-kutsua
+29. **Syntymäpäivä: `Date.UTC(y,m-1,d)` — EI `new Date(string)` (timezone-bugi)**
+30. **Näkymien vaihto: `style.display` EI `classList` (ei flicker)**
+31. **`openpyxl` pakollinen Excel-tyyleille — SheetJS ei tue server-side tyylejä**
+32. **Suostumuslomake: kutsuflow=`.update()`, uusi pelaaja=`.set()` — eri polut**
+33. **Testaus AINA GitHub Pages URL:lla — `file://` estää Firebase Auth kokonaan**
+
+### SJK-käyttöönottoprosessi (järjestys tärkeä)
+```
+1. VP-tunnukset Admin-näkymästä
+2. Joukkueet Firestoreen (U15P, U14T, U15T, Talentit)
+3. Pelaajat rekisteröidään (ilman suostumusta)
+4. SJK toimittaa testidatan Excel-pohjalle
+5. Tuontityökalu: Excel → Firestore (Sprint 4)
+6. VP + valmentajat tarkistavat datan
+7. VASTA sitten suostumuslomakkeet + pelaajatunnukset
+```
