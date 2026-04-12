@@ -1382,53 +1382,104 @@ body{background:var(--bg,#06090F);color:var(--text,#E8EEF8);}
    Jos muutos lisää päätösten määrää → se on väärä muutos
    ════════════════════════════════════════════════════════ */
 
-// ── VP Demo AI-signaali (korvautuu Sprint 6-8 AI-agentilla) ──
-// Input: { aktiivisuusPct, paluuPct, epavakaitaRytmeja }
-function _vpRenderAiSignaali(data) {
-  const alue   = document.getElementById('vpAiSignaaliAlue');
-  const teksti = document.getElementById('vpAiSignaaliTeksti');
-  const sub    = document.getElementById('vpAiSignaaliSub');
-  if (!alue || !teksti) return;
+// ── VP AI-signaali + CSI — Behavior Playbook 2026 ──
+// VP näkee järjestelmän vaikutuksen, ei yksilöitä
+// CSI = Commitment Stability Index (Behavior Playbook)
+// Sprint 6-8: Firestore trigger → Anthropic API korvaa tämän
 
-  const akt  = (data && data.aktiivisuusPct) || 0;
-  const pal  = (data && data.paluuPct)       || 100;
-  const epav = (data && data.epavakaitaRytmeja) || 0;
+// VP:n AI-viestit — johtotaso, järjestelmänäkökulma
+const _TM_VP_AI = {
+  normaali: [
+    { teksti: 'Ei kriittistä. Rytmi toimii.',      sub: 'Perustuu sitoutumisen vakauteen, kuormitukseen ja poissaoloihin.' },
+    { teksti: 'Kehitystyö vakaata.',                sub: 'Sitoutumisen suunta parantunut viimeisen 30 päivän aikana.' },
+    { teksti: 'Järjestelmä toimii suunnitelman mukaan.', sub: 'CSI vakaa tai nouseva koko pilottijoukolle.' },
+  ],
+  kuormitus: [
+    { teksti: 'Kuormitus nousussa — kevennä 20 %.', sub: 'Usean harjoituksen RPE-trendi ja poissaolot samassa suunnassa.' },
+    { teksti: 'Harjoitusrakenne vaatii tarkistusta.', sub: 'Kuormitusmittarit nousussa useammassa joukkueessa.' },
+  ],
+  epavakaus: [
+    { teksti: 'Useita epävakaita rytmejä. Ympäristö ratkaisee.', sub: 'Taukojen tiheys ja paluuprosentti heikentyneet.' },
+    { teksti: 'CSI laskussa. Rakenne tärkeämpi kuin muistutukset.', sub: 'Useampi pelaaja epäsäännöllisessä rytmissä.' },
+  ],
+};
 
-  let viesti = '', alateksti = '';
+// CSI-luokitus — Behavior Playbook: "Vakaa ↗ / Vaihtelevasti vakaa ↘ / Epävakaa"
+function _laskeCsi(data) {
+  const akt  = (data && data.aktiivisuusPct)     || 0;
+  const pal  = (data && data.paluuPct)           || 100;
+  const epav = (data && data.epavakaitaRytmeja)  || 0;
+  const trendi = (data && data.trendSuunta)      || 0; // +1 nousu, -1 lasku, 0 tasainen
 
   if (akt >= 75 && pal >= 80 && epav <= 2) {
-    // 🟢 NORMAALI
-    viesti    = 'Ei kriittistä. Rytmi toimii.';
-    alateksti = 'Perustuu sitoutumisen vakauteen ja kirjausten jatkuvuuteen.';
-  } else if (epav >= 5 || pal < 60) {
-    // 🔴 EPÄVAKAUS
-    viesti    = 'Useita epävakaita rytmejä. Ympäristö ratkaisee.';
-    alateksti = 'Taukojen tiheys ja paluuprosentti heikentyneet.';
-  } else if (akt < 50) {
-    // 🟡 KUORMITUS
-    viesti    = 'Kuormitus nousussa — kevennä 20 %.';
-    alateksti = 'Usean harjoituksen RPE-trendi ja poissaolot samassa suunnassa.';
+    return { luokka: 'Vakaa', nuoli: '↗', css: 'color:var(--teal)' };
+  } else if (epav >= 5 || pal < 60 || akt < 40) {
+    return { luokka: 'Epävakaa', nuoli: '↘', css: 'color:var(--red)' };
   } else {
-    // Ei tarpeeksi dataa — hiljaisuus on ok
-    viesti    = 'Kehitystyö vakaata.';
-    alateksti = 'Sitoutumisen suunta parantunut viimeisen 30 päivän aikana.';
+    return { luokka: 'Vaihtelevasti vakaa', nuoli: trendi >= 0 ? '→' : '↘', css: 'color:var(--amber)' };
+  }
+}
+
+function _vpRenderAiSignaali(data) {
+  const alue     = document.getElementById('vpAiSignaaliAlue');
+  const tekstiEl = document.getElementById('vpAiSignaaliTeksti');
+  const subEl    = document.getElementById('vpAiSignaaliSub');
+  if (!alue || !tekstiEl) return;
+
+  const akt  = (data && data.aktiivisuusPct)    || 0;
+  const pal  = (data && data.paluuPct)          || 100;
+  const epav = (data && data.epavakaitaRytmeja) || 0;
+
+  // Tilannelogiikka
+  let pool = null;
+  if (epav >= 5 || pal < 60) {
+    pool = _TM_VP_AI.epavakaus;
+  } else if (akt < 50) {
+    pool = _TM_VP_AI.kuormitus;
+  } else {
+    pool = _TM_VP_AI.normaali;
   }
 
-  teksti.textContent = viesti;
-  sub.textContent    = alateksti;
+  const idx = Math.floor(Date.now() / 86400000) % pool.length;
+  const { teksti, sub } = pool[idx];
+
+  // CSI-luokitus AI-signaalin alle
+  const csi = _laskeCsi(data);
+  tekstiEl.textContent = teksti;
+
+  // CSI merkki + AI-sub yhteinen
+  subEl.innerHTML =
+    `<span style="${csi.css};font-weight:500;font-size:13px;">${csi.luokka} ${csi.nuoli}</span>` +
+    (sub ? `<span style="margin-left:12px;">${sub}</span>` : '');
 }
 
 // Kutsutaan kun Tilanne-data on ladattu
 function _paivitaVpAiSignaali() {
-  // Kerää olemassa olevasta datasta
   const data = {
-    aktiivisuusPct: window._vpStats?.aktiivisuus || 0,
-    paluuPct:       window._vpStats?.paluu || 100,
-    epavakaitaRytmeja: window._vpStats?.epavakaat || 0,
+    aktiivisuusPct:    window._vpStats?.aktiivisuus || 72,
+    paluuPct:          window._vpStats?.paluu       || 78,
+    epavakaitaRytmeja: window._vpStats?.epavakaat   || 2,
+    trendSuunta:       window._vpStats?.trendi      || 1,
   };
   _vpRenderAiSignaali(data);
 }
 
+
+// ── CSI-demo: näytetään heti kun sivu avautuu ──
+// Oikea data: _paivitaVpAiSignaali() kutsutaan datan latauksen jälkeen
+document.addEventListener('DOMContentLoaded', function() {
+  // Demo-data — korvautuu Firestore-datalla
+  setTimeout(function() {
+    if (document.getElementById('vpAiSignaaliAlue')) {
+      _vpRenderAiSignaali({
+        aktiivisuusPct: 72,
+        paluuPct: 78,
+        epavakaitaRytmeja: 2,
+        trendSuunta: 1,
+      });
+    }
+  }, 800);
+});
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
