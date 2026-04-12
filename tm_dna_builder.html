@@ -876,7 +876,11 @@ function renderSakaraBody(s, i) {
 
   // Valinnat
   const valinnat = `
-    <div style="font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;">${s.kysymys}</div>
+    <div style="font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--ink3);margin-bottom:6px;">${s.kysymys}</div>
+    <div style="font-size:11px;color:var(--ink3);line-height:1.6;margin-bottom:12px;padding:8px 12px;background:rgba(255,255,255,.03);border-radius:7px;border-left:2px solid rgba(255,255,255,.08);">
+      💡 Valitse se vaihtoehto joka kuvaa teitä <em>tällä hetkellä</em> — ei sitä mitä haluaisitte olla. Jos kaksi tuntuu yhtä sopivalta, valitse se joka näkyy arjen harjoituksissa <strong style="color:var(--text)">useammin</strong>. Toinen vivahtavuus kirjataan omaan kuvaukseen alla.
+      <span style="display:block;margin-top:5px;color:rgba(255,255,255,.35);">${['Kysy itseltäsi: jos katson viimeksi pitämääni harjoitusta — mikä näistä näkyi siinä?','Kysy itseltäsi: mitä teknistä ominaisuutta kehun pelaajalle useimmin harjoituksessa?','Kysy itseltäsi: millainen pelaaja saa minulta eniten kehuja — ja miksi?','Kysy itseltäsi: miten reagoin kun pelaaja ei jaksa — olenko fysiikka- vai taitovalmentaja?','Kysy itseltäsi: mistä vanhemmat puhuvat seurasta positiivisessa mielessä?'][i]}</span>
+    </div>
     <div class="valinnat-grid">
       ${s.vaihtoehdot.map(v => `
         <button class="valinta-nappi ${tila.valinta===v.id?'on':''}"
@@ -908,7 +912,8 @@ function renderSakaraBody(s, i) {
 
   // Oma kuvaus
   const omaKuvaus = `
-    <label class="oma-kuvaus-label">Seuran oma kuvaus — omin sanoin (valinnainen)</label>
+    <label class="oma-kuvaus-label">Seuran oma kuvaus — omin sanoin <span style=\"opacity:.5;font-weight:400\">(valinnainen mutta suositeltava)</span></label>
+    <div style=\"font-size:11px;color:var(--ink3);margin-bottom:7px;line-height:1.55;\">Tähän voit tarkentaa valintaasi tai kirjata toisen vivahteen — jos kaksi vaihtoehtoa tuntui yhtä sopivalta, kirjaa se tähän.</div>
     <textarea class="oma-kuvaus" rows="3" placeholder="${s.oma_placeholder}"
       oninput="setOmaKuvaus(${i},this.value)">${tila.omaKuvaus}</textarea>`;
 
@@ -1050,19 +1055,18 @@ function paivitaSpider() {
     html += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="${col}" stroke="var(--bg2)" stroke-width="1.5"/>`;
   });
 
-  // 5. Labelit (emoji + lyhyt nimi)
+  // 5. Labelit — ei emojia, lyhyet nimet, kauempana keskuksesta
+  const SHORT_NAMES = ['PELIFIL.', 'TEKNINEN', 'PSYKOL.', 'FYYSINEN', 'YHTEISÖ'];
   angles.forEach((a, i) => {
-    const labelR = maxR + 22;
+    const labelR = maxR + 26;
     const p = pt(a, labelR);
-    const shortName = labels[i].split(' ')[0]; // "Pelifilosofia" → "Pelifilosofia"
-    const anchor = Math.abs(Math.cos(a)) < 0.1 ? 'middle' : Math.cos(a) > 0 ? 'start' : 'end';
+    const anchor = Math.abs(Math.cos(a)) < 0.15 ? 'middle' : Math.cos(a) > 0 ? 'start' : 'end';
     const col = S.sakarat[i].valmis ? colors[i] : 'rgba(107,122,141,.7)';
-    html += `<text x="${p.x.toFixed(1)}" y="${(p.y - 6).toFixed(1)}" text-anchor="${anchor}" font-size="13" fill="${col}">${emojis[i]}</text>`;
-    html += `<text x="${p.x.toFixed(1)}" y="${(p.y + 8).toFixed(1)}" text-anchor="${anchor}" font-size="9" fill="${col}" font-family="DM Sans, sans-serif" font-weight="600" letter-spacing="0.3">${shortName.toUpperCase()}</text>`;
-    // Arvo
+    html += `<text x="${p.x.toFixed(1)}" y="${(p.y + 4).toFixed(1)}" text-anchor="${anchor}" font-size="9" fill="${col}" font-family="DM Sans, sans-serif" font-weight="700" letter-spacing="0.5">${SHORT_NAMES[i]}</text>`;
+    // Arvo datapisteen lähellä
     const vp = pt(a, (values[i] / 10) * maxR);
     if (S.sakarat[i].valmis) {
-      html += `<text x="${(vp.x + Math.cos(a)*12).toFixed(1)}" y="${(vp.y + Math.sin(a)*12 + 4).toFixed(1)}" text-anchor="middle" font-size="10" fill="${colors[i]}" font-family="DM Sans, sans-serif" font-weight="700">${values[i]}</text>`;
+      html += `<text x="${(vp.x + Math.cos(a)*11).toFixed(1)}" y="${(vp.y + Math.sin(a)*11 + 4).toFixed(1)}" text-anchor="middle" font-size="10" fill="${colors[i]}" font-family="DM Sans, sans-serif" font-weight="700">${values[i]}</text>`;
     }
   });
 
