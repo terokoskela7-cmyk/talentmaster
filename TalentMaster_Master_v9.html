@@ -648,49 +648,69 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
    Jos muutos lisää päätösten määrää → se on väärä muutos
    ════════════════════════════════════════════════════════ */
 
-// ── Master v9 Demo AI-signaali ──
-// Input: { fiilinkiKa, rpeKa, poissaolojaLkm, huomioLkm }
+// ── Master v9 AI-signaali — Behavior Playbook 2026 ──
+// Valmentaja näkee joukkueen tilan, ei yksilöitä
+// Sprint 6-8: Firestore trigger → Anthropic API korvaa tämän
+
+// Valmentajan AI-viestit — joukkuetaso, ei yksilötaso
+const _TM_MASTER_AI = {
+  // 🟢 NORMAALI — hiljaisuus on vahvistus
+  normaali: [
+    { teksti: 'Ei kriittistä. Rytmi toimii.',       sub: 'Perustuu sitoutumisen vakauteen ja kuormitustrendiin.' },
+    { teksti: 'Kehitystyö vakaata.',                 sub: 'Joukkueen sitoutuminen jatkunut tasaisena.' },
+    { teksti: 'Joukkue jatkaa suunnitelman mukaan.', sub: 'Ei poikkeavia signaaleja tänään.' },
+  ],
+  // 🟡 KUORMITUS
+  kuormitus: [
+    { teksti: 'Kuormitus nousussa — kevennä 20 %.',  sub: 'Usean harjoituksen RPE-trendi ja poissaolot samassa suunnassa.' },
+    { teksti: 'Harjoitusrytmi kiristynyt.',           sub: 'RPE-trendi nousussa viimeisellä viikolla.' },
+    { teksti: 'Tarkista harjoituksen intensiteetti.', sub: 'Kuormitusmittarit ylhäällä. Kevennä tarvittaessa.' },
+  ],
+  // 🔴 EPÄVAKAUS — ympäristö, ei yksilöt
+  epavakaus: [
+    { teksti: 'Useita epävakaita rytmejä. Ympäristö ratkaisee.', sub: 'Taukojen tiheys ja paluuprosentti heikentyneet.' },
+    { teksti: 'Rytmit hajoavat. Rakenne auttaa enemmän kuin muistutukset.', sub: 'Matala fiilinki usealla pelaajalla.' },
+    { teksti: 'Kehitysympäristö tarvitsee huomiota.',            sub: 'Poissaolot ja fiilinki samaan suuntaan.' },
+  ],
+};
+
 function _masterRenderAiSignaali(data) {
   const alue   = document.getElementById('masterAiSignaaliAlue');
-  const teksti = document.getElementById('masterAiSignaaliTeksti');
-  const sub    = document.getElementById('masterAiSignaaliSub');
-  if (!alue || !teksti) return;
+  const tekstiEl = document.getElementById('masterAiSignaaliTeksti');
+  const subEl    = document.getElementById('masterAiSignaaliSub');
+  if (!alue || !tekstiEl) return;
 
-  const fiilinki  = (data && data.fiilinkiKa)      || 3;   // 1-5
-  const rpe       = (data && data.rpeKa)            || 5;   // 1-10
-  const poissaolo = (data && data.poissaolojaLkm)   || 0;
-  const huomio    = (data && data.huomioLkm)        || 0;
+  const fiilinki  = (data && data.fiilinkiKa)       || 3;
+  const rpe       = (data && data.rpeKa)             || 5;
+  const poissaolo = (data && data.poissaolojaLkm)    || 0;
+  const huomio    = (data && data.huomioLkm)         || 0;
 
-  let viesti = '', alateksti = '';
+  let pool = null;
 
-  if (fiilinki >= 3.5 && rpe <= 7 && huomio <= 1) {
-    // 🟢 NORMAALI
-    viesti    = 'Ei kriittistä. Rytmi toimii.';
-    alateksti = 'Perustuu joukkueen fiilinkiin, kuormitukseen ja poissaoloihin.';
-  } else if (fiilinki < 2.5 || huomio >= 4) {
-    // 🔴 EPÄVAKAUS
-    viesti    = 'Useita epävakaita rytmejä. Ympäristö ratkaisee.';
-    alateksti = 'Matala fiilinki tai useita poissaoloja viimeisellä viikolla.';
-  } else if (rpe >= 8) {
-    // 🟡 KUORMITUS
-    viesti    = 'Kuormitus nousussa — kevennä 20 %.';
-    alateksti = 'RPE-trendi nousussa. Harkitse harjoituksen keventämistä.';
+  // Tilannelogiikka
+  if (fiilinki < 2.5 || huomio >= 4 || poissaolo >= 4) {
+    pool = _TM_MASTER_AI.epavakaus;
+  } else if (rpe >= 8 || poissaolo >= 2) {
+    pool = _TM_MASTER_AI.kuormitus;
   } else {
-    viesti    = 'Kehitystyö vakaata.';
-    alateksti = 'Joukkueen sitoutuminen jatkunut tasaisena.';
+    pool = _TM_MASTER_AI.normaali;
   }
 
-  teksti.textContent = viesti;
-  sub.textContent    = alateksti;
+  // Deterministinen valinta päivän mukaan
+  const idx = Math.floor(Date.now() / 86400000) % pool.length;
+  const { teksti, sub } = pool[idx];
+
+  tekstiEl.textContent = teksti;
+  subEl.textContent    = sub;
 }
 
 // Kutsutaan kun Tänään-data on ladattu
 function _paivitaMasterAiSignaali() {
   const data = {
-    fiilinkiKa:    window._masterStats?.fiilinkiKa    || 3,
-    rpeKa:         window._masterStats?.rpeKa         || 5,
-    poissaolojaLkm:window._masterStats?.poissaoloja   || 0,
-    huomioLkm:     window._masterStats?.huomio        || 0,
+    fiilinkiKa:    window._masterStats?.fiilinkiKa  || 3,
+    rpeKa:         window._masterStats?.rpeKa        || 5,
+    poissaolojaLkm:window._masterStats?.poissaoloja  || 0,
+    huomioLkm:     window._masterStats?.huomio       || 0,
   };
   _masterRenderAiSignaali(data);
 }
