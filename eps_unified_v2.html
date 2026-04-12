@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPS · TalentMaster™</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#F4F6F9; --bg2:#FFFFFF; --bg3:#EEF1F5; --surface:#FFFFFF;
+  --border:rgba(0,0,0,.08); --bord2:rgba(0,0,0,.14);
+  --text:#1A1E28; --ink2:#44505F; --ink3:#8892A0;
+  --green:#1A7A3C; --amber:#C47A00; --red:#B82020; --teal:#007070;
+  --accent:#004B87; --accent2:#0062B1; --seura-primary-rgb:0,75,135;
+  --blue:#2A60B0; --purple:#6B35B8; --gold:#9A7010;
+  --shadow:0 1px 4px rgba(0,0,0,.08), 0 2px 12px rgba(0,0,0,.04);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+@keyframes fadeup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.fadeup{animation:fadeup .35s ease both;}
+
+/* ── HEADER ── */
+.header{background:#004B87;padding:0 24px;border-bottom:none;display:flex;align-items:center;height:56px;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,75,135,.3);}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;color:#fff;}
+.logo span{color:rgba(255,255,255,.65);font-weight:400;}
+.header-seura{font-size:12px;font-weight:700;color:rgba(255,255,255,.75);padding-left:16px;border-left:1px solid rgba(255,255,255,.2);letter-spacing:.5px;text-transform:uppercase;}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.header-role{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:5px 14px;border-radius:20px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25);}
+
+/* ── TABS ── */
+.tabs{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 24px;display:flex;gap:0;position:sticky;top:56px;z-index:99;overflow-x:auto;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+.tab-btn{background:none;border:none;color:var(--ink3);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;padding:12px 14px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:6px;}
+.tab-btn:hover{color:var(--text);background:var(--bg3);}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:700;}
+.tab-new{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(var(--seura-primary-rgb),.15);color:var(--accent);letter-spacing:.5px;text-transform:uppercase;}
+.tab-hot{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(46,213,115,.12);color:var(--green);letter-spacing:.5px;text-transform:uppercase;}
+
+/* ── VIEWS ── */
+.view{display:none;}.view.active{display:block;}
+.inner{max-width:1200px;margin:0 auto;padding:24px;}
+.inner-split{max-width:1200px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 320px;gap:20px;}
+@media(max-width:900px){.inner-split{grid-template-columns:1fr;}}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow);}
+.card-title{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+.card-title-val{font-size:11px;color:var(--ink2);font-weight:400;letter-spacing:0;text-transform:none;}
+.stitle{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:4px;}
+.stitle-sub{font-size:11px;color:var(--ink3);font-weight:400;margin-left:8px;}
+
+/* ── KPI GRID ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 16px;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.kpi:nth-child(1)::before{background:#004B87;}
+.kpi:nth-child(2)::before{background:#1A7A3C;}
+.kpi:nth-child(3)::before{background:#C47A00;}
+.kpi:nth-child(4)::before{background:#007070;}
+.kpi:hover{border-color:rgba(var(--seura-primary-rgb),.25);box-shadow:0 4px 16px rgba(0,0,0,.1);}
+.kpi-val{font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;color:var(--accent);line-height:1;}
+.kpi-label{font-size:10px;color:var(--ink3);letter-spacing:.5px;text-transform:uppercase;margin-top:4px;font-weight:600;}
+.kpi-delta{font-size:11px;font-weight:600;margin-top:6px;padding:2px 8px;border-radius:10px;display:inline-block;}
+
+/* ── DNA RING ── */
+.dna-ring-wrap{display:flex;gap:20px;align-items:flex-start;}
+.dna-score-ring{position:relative;width:110px;height:110px;flex-shrink:0;}
+.dna-score-ring canvas{position:absolute;top:0;left:0;}
+.dna-score-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.dna-score-num{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:900;line-height:1;}
+.dna-score-label{font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-top:2px;}
+
+/* ── DNA BARS ── */
+.dna-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.dna-bar-label{font-size:12px;color:var(--ink2);width:110px;flex-shrink:0;}
+.dna-bar-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;position:relative;border:1px solid var(--border);}
+.dna-bar-fill{height:100%;border-radius:3px;transition:width .6s;}
+.dna-bar-target{position:absolute;top:-2px;width:2px;height:10px;background:rgba(0,0,0,.25);border-radius:1px;}
+.dna-bar-val{font-size:11px;font-weight:600;width:32px;text-align:right;}
+.dna-bar-delta{font-size:10px;width:18px;text-align:right;}
+
+/* ── JOUKKUEET ── */
+.joukkue-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:16px;}
+.joukkue-kortti{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color .15s,transform .1s;position:relative;overflow:hidden;}
+.joukkue-kortti:hover{border-color:rgba(var(--seura-primary-rgb),.3);transform:translateY(-1px);}
+.joukkue-kortti::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:#004B87;opacity:0;transition:opacity .15s;}
+.joukkue-kortti:hover::before{opacity:1;}
+.joukkue-nimi{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;margin-bottom:3px;}
+.joukkue-meta{font-size:11px;color:var(--ink3);margin-bottom:8px;}
+.jk-stats{display:flex;gap:14px;margin-top:6px;}
+.jk-stat strong{display:block;font-family:'Barlow Condensed',sans-serif;font-size:18px;line-height:1;}
+.jk-stat span{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;}
+
+/* ── MOMENTUM ── */
+.momentum-item{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:12px;margin-bottom:7px;}
+.momentum-nimi{font-size:13px;font-weight:600;width:50px;flex-shrink:0;}
+.momentum-spark{flex:1;}
+.momentum-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.5px;text-transform:uppercase;}
+.momentum-up{background:rgba(26,122,60,.08);color:#1A7A3C;}
+.momentum-down{background:rgba(184,32,32,.08);color:#B82020;}
+.momentum-flat{background:rgba(136,146,160,.1);color:#8892A0;}
+
+/* ── ALERTS ── */
+.alert{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;border-left:3px solid;}
+.alert.red{border-left-color:#B82020;background:rgba(184,32,32,.02);}
+.alert.amber{border-left-color:#C47A00;background:rgba(196,122,0,.02);}
+.alert.green{border-left-color:#1A7A3C;background:rgba(26,122,60,.02);}
+.atitle{font-size:12px;font-weight:600;margin-bottom:2px;}
+.adesc{font-size:11px;color:var(--ink2);line-height:1.55;}
+
+/* ── VALMENTAJAT NELIKENTTÄ ── */
+.nk-wrap{position:relative;width:100%;aspect-ratio:1;background:#F8FAFE;border-radius:10px;overflow:hidden;border:1px solid var(--border);}
+.nk-wrap canvas{position:absolute;inset:0;width:100%!important;height:100%!important;}
+.nk-quad-label{position:absolute;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:8px 10px;line-height:1.4;pointer-events:none;background:rgba(255,255,255,.7);border-radius:4px;margin:6px;}
+.nk-quad-label.tl{top:0;left:0;color:#C47A00;}
+.nk-quad-label.tr{top:0;right:0;text-align:right;color:#1A7A3C;}
+.nk-quad-label.bl{bottom:0;left:0;color:#B82020;}
+.nk-quad-label.br{bottom:0;right:0;text-align:right;color:#007070;}
+
+/* ── RADAR ── */
+.radar-wrap{position:relative;}
+
+/* ── PELIHAVAINTO ── */
+.ph-header{background:linear-gradient(135deg,rgba(0,75,135,.06),rgba(0,75,135,.02));border:1px solid rgba(0,75,135,.15);border-radius:12px;padding:16px 20px;margin-bottom:16px;}
+.ph-vaihejono{display:flex;align-items:center;gap:0;margin-bottom:20px;}
+.ph-vaihe{display:flex;align-items:center;gap:8px;flex:1;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .15s;}
+.ph-vaihe.active{background:rgba(var(--seura-primary-rgb),.1);}
+.ph-vaihe-num{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:var(--ink3);}
+.ph-vaihe.active .ph-vaihe-num{background:var(--accent);border-color:var(--accent);color:#fff;}
+.ph-vaihe.done .ph-vaihe-num{background:var(--green);border-color:var(--green);color:#fff;}
+.ph-vaihe-label{font-size:11px;font-weight:600;color:var(--ink3);}
+.ph-vaihe.active .ph-vaihe-label,.ph-vaihe.done .ph-vaihe-label{color:var(--text);}
+.ph-connector{width:24px;height:1px;background:var(--border);}
+
+.ph-pelipaikka-wrap{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.ph-pos-btn{padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--ink3);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
+.ph-pos-btn:hover{border-color:var(--bord2);color:var(--text);}
+.ph-pos-btn.on{background:rgba(var(--seura-primary-rgb),.12);border-color:rgba(var(--seura-primary-rgb),.35);color:var(--accent);}
+
+.kpi-q-block{background:var(--bg3);border:1px solid var(--border);box-shadow:none;border-radius:10px;padding:14px 16px;margin-bottom:10px;transition:border-color .15s;}
+.kpi-q-block.answered{border-color:rgba(var(--seura-primary-rgb),.25);}
+.kpi-q-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;}
+.kpi-q-text{font-size:12px;color:var(--ink2);line-height:1.65;flex:1;}
+.kpi-dna-tag{font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;}
+.kpi-score-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+.kpi-score-btn{width:100%;padding:9px 6px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--ink3);cursor:pointer;font-size:13px;font-weight:700;font-family:'DM Sans',sans-serif;transition:all .15s;text-align:center;line-height:1.2;}
+.kpi-score-btn .lbl{font-size:9px;font-weight:400;display:block;margin-top:2px;letter-spacing:.3px;}
+.kpi-score-btn:hover{border-color:var(--bord2);color:var(--text);}
+.kpi-score-btn.sel-0{background:rgba(255,71,87,.1);border-color:var(--red);color:var(--red);}
+.kpi-score-btn.sel-1{background:rgba(255,165,2,.1);border-color:var(--amber);color:var(--amber);}
+.kpi-score-btn.sel-2{background:rgba(46,213,115,.1);border-color:var(--green);color:var(--green);}
+
+.kpi-progress{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;}
+.kpi-progress-total{font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;line-height:1;color:var(--accent);width:44px;text-align:center;}
+.kpi-progress-info{flex:1;}
+.kpi-progress-bar-wrap{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:6px;border:1px solid var(--border);}
+.kpi-progress-bar{height:5px;border-radius:3px;background:var(--accent);transition:width .4s;}
+
+.havainto-area{width:100%;background:#fff;border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;padding:10px 12px;resize:vertical;min-height:70px;outline:none;transition:border-color .15s;line-height:1.6;}
+.havainto-area:focus{border-color:var(--accent);}
+
+/* ── ADAR ── */
+.adar-blokki{margin-bottom:14px;}
+.adar-label{font-size:11px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.adar-kirjain{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:900;flex-shrink:0;}
+
+/* ── DNA LIVE FEEDBACK ── */
+.dna-fb-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.dna-fb-label{font-size:11px;color:var(--ink2);width:100px;flex-shrink:0;}
+.dna-fb-track{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;border:1px solid var(--border);}
+.dna-fb-fill{height:4px;border-radius:2px;transition:width .5s;}
+.dna-fb-val{font-size:11px;font-weight:600;width:28px;text-align:right;}
+
+/* ── ITSEARVIOINTI ── */
+.oma-q{margin-bottom:14px;}
+.oma-q-label{font-size:12px;color:var(--ink2);line-height:1.6;margin-bottom:8px;}
+.oma-scale{display:flex;gap:6px;}
+.oma-scale-btn{flex:1;padding:8px 4px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--ink3);font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;text-align:center;}
+.oma-scale-btn:hover{border-color:var(--bord2);color:var(--text);}
+.oma-scale-btn.on{background:rgba(var(--seura-primary-rgb),.12);border-color:rgba(var(--seura-primary-rgb),.4);color:var(--accent);}
+
+/* ── TALLENNA BTN ── */
+.tallenna-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:12px 24px;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:14px;transition:opacity .15s;font-family:'DM Sans',sans-serif;letter-spacing:.2px;}
+.tallenna-btn:hover{opacity:.85;}
+
+/* ── OPPIMINEN ── */
+.opp-lista{display:flex;flex-direction:column;gap:8px;}
+.opp-item{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+.opp-title{font-size:12px;font-weight:600;margin-bottom:3px;}
+.opp-sub{font-size:11px;color:var(--ink2);line-height:1.55;}
+.korr-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.korr-item:last-child{border-bottom:none;}
+.korr-bar{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
+.korr-fill{height:5px;border-radius:3px;}
+
+/* ── KONFIG ── */
+.konfig-slider-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:8px 0;border-bottom:1px solid var(--border);}
+.konfig-slider-label{font-size:12px;color:var(--ink2);width:120px;flex-shrink:0;font-weight:500;}
+.konfig-slider{flex:1;-webkit-appearance:none;height:6px;border-radius:3px;background:var(--bg3);outline:none;cursor:pointer;border:1px solid var(--border);}
+.konfig-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2);}
+.konfig-slider-val{font-size:13px;font-weight:700;width:24px;text-align:right;color:var(--accent);}
+.periaate-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.periaate-chip{padding:6px 14px;border-radius:16px;border:1.5px solid var(--border);background:var(--bg3);color:var(--ink3);font-size:11px;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;font-weight:500;}
+.periaate-chip:hover{border-color:rgba(var(--seura-primary-rgb),.4);color:var(--accent);}
+.periaate-chip.on{background:rgba(var(--seura-primary-rgb),.08);border-color:rgba(var(--seura-primary-rgb),.45);color:var(--accent);font-weight:600;}
+.konfig-input{width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;resize:vertical;min-height:64px;line-height:1.6;}
+.konfig-input:focus{border-color:var(--accent);}
+
+/* ── SUCCESS ── */
+.success-box{text-align:center;padding:40px 20px;}
+.success-icon{font-size:52px;margin-bottom:16px;}
+.success-title{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;margin-bottom:8px;}
+.success-sub{font-size:13px;color:var(--ink2);line-height:1.7;max-width:480px;margin:0 auto;}
+
+/* ── HIDDEN GEM ── */
+.gem-item{background:var(--surface);border:1px solid rgba(154,112,16,.2);border-radius:8px;padding:10px 14px;margin-bottom:7px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);}
+.gem-score{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#9A7010;width:36px;text-align:center;}
+.gem-nimi{font-size:13px;font-weight:600;}
+.gem-syy{font-size:10px;color:var(--ink3);margin-top:2px;}
+.gem-joukkue{font-size:10px;font-weight:700;color:var(--accent);background:rgba(var(--seura-primary-rgb),.1);padding:2px 7px;border-radius:4px;margin-left:auto;flex-shrink:0;}
+
+/* ── POLKU ── */
+.suppilo-item{padding:8px 12px;border-radius:6px;display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-bottom:5px;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--green);color:var(--bg);font-size:12px;font-weight:700;padding:10px 22px;border-radius:20px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap;}
+.toast.on{opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div class="header">
+  <div class="logo">Talent<span>Master™</span></div>
+  <div class="header-seura" id="header-seura-nimi">Espoon Palloseura</div>
+  <div class="header-right">
+    <div class="header-role" id="header-role">Valmennuspäällikkö</div>
+  </div>
+</div>
+
+<!-- ══ TABS ══ -->
+<nav class="tabs">
+  <button class="tab-btn active" onclick="naytaTabi('tilanne',this)">📊 Tilanne nyt</button>
+  <button class="tab-btn" onclick="naytaTabi('pelihavainto',this)">⚽ Pelihavainto <span class="tab-hot">LIVE</span></button>
+  <button class="tab-btn" onclick="naytaTabi('dna',this)">🧬 DNA & Identiteetti</button>
+  <button class="tab-btn" onclick="naytaTabi('valmentajat',this)">👥 Valmentajat</button>
+  <button class="tab-btn" onclick="naytaTabi('polku',this)">🔍 Kehityspolut</button>
+  <button class="tab-btn" onclick="naytaTabi('oppiminen',this)">📈 Seuran oppiminen</button>
+  <button class="tab-btn" onclick="naytaTabi('konfig',this)">⚙️ DNA-konfiguraatio</button>
+</nav>
+
+<!-- ══════════════════════════════════
+     TAB 1 — TILANNE NYT
+══════════════════════════════════ -->
+<div class="view active" id="view-tilanne">
+<div class="inner fadeup">
+  <!-- KPI grid -->
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-val" style="color:#004B87">76<span style="font-size:16px">%</span></div><div class="kpi-label">DNA-vastaavuus</div><div class="kpi-delta" style="color:#1A7A3C;background:rgba(26,122,60,.08);border-radius:8px;padding:2px 8px;">↑ +4% edellisestä</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#1A7A3C">71<span style="font-size:16px">%</span></div><div class="kpi-label">FLEI · seuran ka.</div><div class="kpi-delta" style="color:#1A7A3C;background:rgba(26,122,60,.08);border-radius:8px;padding:2px 8px;">↑ +2% edellisestä</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#C47A00">47</div><div class="kpi-label">IDP aktiiviset</div><div class="kpi-delta" style="color:#C47A00;background:rgba(196,122,0,.08);border-radius:8px;padding:2px 8px;">↓ 10% tavoitteesta</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#007070">6</div><div class="kpi-label">Hidden Gem</div><div class="kpi-delta" style="color:#007070;background:rgba(0,112,112,.08);border-radius:8px;padding:2px 8px;">↑ 2 uutta viime kuussa</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <!-- DNA ring -->
+    <div class="card">
+      <div class="card-title">Seuran DNA-vastaavuus <span class="card-title-val">Positional Play · EPS Metodi</span></div>
+      <div class="dna-ring-wrap">
+        <div class="dna-score-ring">
+          <canvas id="dnaRing" width="110" height="110"></canvas>
+          <div class="dna-score-center">
+            <div class="dna-score-num" style="color:#004B87">76%</div>
+            <div class="dna-score-label">DNA-match</div>
+          </div>
+        </div>
+        <div style="flex:1">
+          <div class="dna-bar-row"><div class="dna-bar-label">First touch</div><div class="dna-bar-track"><div class="dna-bar-fill" style="width:82%;background:var(--teal)"></div><div class="dna-bar-target" style="left:80%"></div></div><div class="dna-bar-val" style="color:var(--teal)">8.2</div><div class="dna-bar-delta" style="color:var(--green)">↑</div></div>
+          <div class="dna-bar-row"><div class="dna-bar-label">Intelligence</div><div class="dna-bar-track"><div class="dna-bar-fill" style="width:62%;background:var(--amber)"></div><div class="dna-bar-target" style="left:80%"></div></div><div class="dna-bar-val" style="color:var(--amber)">6.2</div><div class="dna-bar-delta" style="color:var(--red)">↓</div></div>
+          <div class="dna-bar-row"><div class="dna-bar-label">Mindset</div><div class="dna-bar-track"><div class="dna-bar-fill" style="width:75%;background:var(--accent)"></div><div class="dna-bar-target" style="left:75%"></div></div><div class="dna-bar-val" style="color:var(--accent)">7.5</div><div class="dna-bar-delta" style="color:var(--green)">↑</div></div>
+          <div class="dna-bar-row"><div class="dna-bar-label">Social skills</div><div class="dna-bar-track"><div class="dna-bar-fill" style="width:68%;background:var(--gold)"></div><div class="dna-bar-target" style="left:60%"></div></div><div class="dna-bar-val" style="color:var(--gold)">6.8</div><div class="dna-bar-delta" style="color:var(--green)">↑</div></div>
+          <div class="dna-bar-row"><div class="dna-bar-label">Competitive</div><div class="dna-bar-track"><div class="dna-bar-fill" style="width:80%;background:var(--blue)"></div><div class="dna-bar-target" style="left:80%"></div></div><div class="dna-bar-val" style="color:var(--blue)">8.0</div><div class="dna-bar-delta" style="color:var(--green)">↑</div></div>
+          <div style="margin-top:10px;padding:6px 0;border-top:1px solid var(--border);font-size:10px;color:var(--ink3);">
+            Pelihavainto-data päivittää automaattisesti → <span style="color:var(--accent);cursor:pointer" onclick="naytaTabi('pelihavainto',document.querySelectorAll('.tab-btn')[1])">Kirjaa nyt ⚽</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Momentum -->
+    <div class="card">
+      <div class="card-title">Kehitysmomentum · joukkueet</div>
+      <div id="momentum-lista"></div>
+    </div>
+  </div>
+
+  <!-- Alertit -->
+  <div style="margin-top:16px;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#8892A0;margin-bottom:10px;">Toimenpiteet tällä viikolla</div>
+    <div class="alert amber"><div class="atitle">⚡ Pelihavaintoja kirjaamatta — 5 joukkuetta</div><div class="adesc">Viimeinen kirjaus 28.2. 14 pelaajaa ilman päivitettyä kehitysarviota. DNA-data vanhenee ilman säännöllistä havainnointia. → <span style="color:var(--accent);cursor:pointer" onclick="naytaTabi('pelihavainto',document.querySelectorAll('.tab-btn')[1])">Avaa pelihavainto</span></div></div>
+    <div class="alert red"><div class="atitle">🔴 P15A — DNA-vastaavuus laskenut 3kk peräkkäin</div><div class="adesc">Intelligence-dimensio laskenut 8.1 → 6.2. Valmentajan ADAR-kirjauksia ei löydy viimeisen 6 viikon ajalta.</div></div>
+    <div class="alert green"><div class="atitle">🟢 P13A — seuran paras DNA-vastaavuus (94%)</div><div class="adesc">Valmentaja Mäkinen käyttänyt systemaattisesti ADAR Taso 2 -protokollaa. Tieto jaettavana muille valmentajille.</div></div>
+  </div>
+
+  <!-- Joukkueet -->
+  <div style="margin-top:16px;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#8892A0;margin-bottom:10px;">Joukkueet</div>
+    <div class="joukkue-grid" id="joukkue-grid"></div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════
+     TAB 2 — PELIHAVAINTO (integroitu)
+══════════════════════════════════ -->
+<div class="view" id="view-pelihavainto">
+<div class="inner-split">
+<div><!-- vasen -->
+
+  <!-- Ottelu + pelaaja -->
+  <div class="ph-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;" id="ph-ottelu-otsikko">EPS P15A vs HJK P15A</div>
+        <div style="font-size:11px;color:var(--ink3);" id="ph-ottelu-meta">10.4.2026 · Valmentaja: Korhonen M.</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;" id="ph-pelaaja-nimi">Eemeli Virtanen</div>
+        <div style="font-size:10px;color:var(--accent);font-weight:600;">IDP-tavoite: Pelinlukutaito — katso ennen vastaanottoa</div>
+      </div>
+    </div>
+    <!-- Vaihe-jono -->
+    <div class="ph-vaihejono" id="ph-vaihejono">
+      <div class="ph-vaihe active" id="ph-v1" onclick="naytaPHVaihe(1)">
+        <div class="ph-vaihe-num" id="ph-num1">1</div>
+        <div class="ph-vaihe-label">KPI-arvio</div>
+      </div>
+      <div class="ph-connector"></div>
+      <div class="ph-vaihe" id="ph-v2" onclick="naytaPHVaihe(2)">
+        <div class="ph-vaihe-num" id="ph-num2">2</div>
+        <div class="ph-vaihe-label">ADAR-reflektio</div>
+      </div>
+      <div class="ph-connector"></div>
+      <div class="ph-vaihe" id="ph-v3" onclick="naytaPHVaihe(3)">
+        <div class="ph-vaihe-num" id="ph-num3">3</div>
+        <div class="ph-vaihe-label">Pelaajan arvio</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VAIHE 1: KPI ── -->
+  <div id="ph-vaihe1">
+    <div class="card">
+      <div class="card-title">Pelipaikka-KPI — Positional Play · EPS Metodi</div>
+      <div class="ph-pelipaikka-wrap">
+        <button class="ph-pos-btn" onclick="setPos('hyö',this)">⚡ Hyökkääjä</button>
+        <button class="ph-pos-btn on" onclick="setPos('kes',this)">🎯 Keskikenttä</button>
+        <button class="ph-pos-btn" onclick="setPos('puo',this)">🛡 Puolustaja</button>
+        <button class="ph-pos-btn" onclick="setPos('maa',this)">🥅 Maalivahti</button>
+      </div>
+      <div id="kpi-questions"></div>
+      <textarea class="havainto-area" id="val-havainto" placeholder="Vapaa havainto — Mitä erityistä huomasit tässä ottelussa?&#10;&#10;Esim: Pään kääntäminen ennen vastaanottoa parani selvästi 2. puolajalla..."></textarea>
+      <button class="tallenna-btn" onclick="tallenna1()">Tallenna KPI ja siirry ADAR-prosessiin →</button>
+    </div>
+  </div>
+
+  <!-- ── VAIHE 2: ADAR ── -->
+  <div id="ph-vaihe2" style="display:none;">
+    <div class="card">
+      <div style="padding:8px 12px;background:rgba(46,213,115,.06);border:1px solid rgba(46,213,115,.15);border-radius:7px;font-size:11px;color:var(--green);margin-bottom:14px;">✓ KPI-arvio tallennettu · KPI-pistemäärä: <span id="adar-kpi-tulos" style="font-weight:700">—</span></div>
+      <div class="card-title">ADAR — valmentajan strukturoitu reflektio</div>
+      <div style="font-size:11px;color:var(--ink3);line-height:1.6;margin-bottom:16px;">ADAR ohjaa sinut KPI-datan tulkinnasta konkreettiseen toimintaan. Täytä ennen kehityskeskustelua.</div>
+
+      <div class="adar-blokki">
+        <div class="adar-label"><div class="adar-kirjain" style="background:rgba(200,16,46,.1);color:var(--accent)">A</div>Arvioi — Mitä KPI-data kertoo pelaajan kehityksestä?</div>
+        <textarea class="havainto-area" id="adar-a" placeholder="Mitkä KPI-tulokset ylittivät odotuksesi? Mitkä jäivät alle? Näkyikö IDP-tavoite pelissä?&#10;&#10;Esim: Intelligence laski mutta First touch oli paras kauden tulos. Pelinlukutaito kehittyy mutta ei vielä systemaattisesti..."></textarea>
+      </div>
+      <div class="adar-blokki">
+        <div class="adar-label"><div class="adar-kirjain" style="background:rgba(74,126,217,.1);color:var(--blue)">D</div>Päätä — Mikä on tärkein kehitystoimenpide seuraavaan otteluun?</div>
+        <textarea class="havainto-area" id="adar-d" placeholder="Yksi konkreettinen asia jota harjoitellaan tai muutetaan. Ei kolmea — yksi.&#10;&#10;Esim: Erityisharjoite pään kääntämiseen ennen vastaanottoa — 10 min jokaisen harjoituksen alusta..."></textarea>
+      </div>
+      <div class="adar-blokki">
+        <div class="adar-label"><div class="adar-kirjain" style="background:rgba(46,213,115,.1);color:var(--green)">A</div>Toteuta — Miten toimenpide näkyy käytännössä?</div>
+        <textarea class="havainto-area" id="adar-t" placeholder="Harjoitusmenetelmä, vastuuhenkilö ja aikataulu.&#10;&#10;Esim: Rondo-harjoite + coaching cue 'katso ennen' — Korhonen seuraa joka harjoitus 2 viikon ajan..."></textarea>
+      </div>
+      <div class="adar-blokki">
+        <div class="adar-label"><div class="adar-kirjain" style="background:rgba(168,85,247,.1);color:var(--purple)">R</div>Arvioi uudelleen — Milloin ja mitä tarkkailet seuraavaksi?</div>
+        <textarea class="havainto-area" id="adar-r" placeholder="Seuraava arviointipiste ja mittari.&#10;&#10;Esim: Seuraava ottelu 17.4 — seuraan erityisesti Intelligence-KPI:tä painetilanteissa..."></textarea>
+      </div>
+      <button class="tallenna-btn" onclick="tallenna2()">Tallenna ADAR ja siirry pelaajan itsearviointiin →</button>
+    </div>
+  </div>
+
+  <!-- ── VAIHE 3: ITSEARVIO ── -->
+  <div id="ph-vaihe3" style="display:none;">
+    <div class="card">
+      <div style="padding:8px 12px;background:rgba(46,213,115,.06);border:1px solid rgba(46,213,115,.15);border-radius:7px;font-size:11px;color:var(--green);margin-bottom:14px;">✓ Valmentajan arvio tallennettu — näet sen tallentamisen jälkeen</div>
+      <div class="card-title">Pelaajan itsearvio — Eemeli Virtanen</div>
+
+      <div class="oma-q">
+        <div class="oma-q-label">Miten koen kehittyneeni tässä ottelussa verrattuna kauden alkuun?</div>
+        <div class="oma-scale" id="oma-q1"></div>
+      </div>
+      <div class="oma-q">
+        <div class="oma-q-label">Näkyikö IDP-tavoitteeni <strong style="color:var(--accent)">"Pelinlukutaito — katso ennen vastaanottoa"</strong> tässä ottelussa?</div>
+        <div class="oma-scale" id="oma-q2"></div>
+      </div>
+      <div class="oma-q">
+        <div class="oma-q-label">Pidin intensiteettini korkeana koko ottelun ajan</div>
+        <div class="oma-scale" id="oma-q3"></div>
+      </div>
+      <div class="oma-q">
+        <div class="oma-q-label">Miten ottelu tuntui?</div>
+        <div class="oma-scale" id="oma-q4" style="gap:4px"></div>
+      </div>
+      <div style="margin-top:14px;">
+        <div class="card-title">Yksi asia jota kehitän seuraavaan otteluun</div>
+        <textarea class="havainto-area" placeholder="Esim: Juoksen takaisin paremmin kun menetän pallon..."></textarea>
+      </div>
+      <button class="tallenna-btn" onclick="tallenna3()">Tallenna ja näytä valmentajan arvio →</button>
+    </div>
+  </div>
+
+  <!-- ── VAIHE 4: YHTEENVETO ── -->
+  <div id="ph-vaihe4" style="display:none;">
+    <div class="card">
+      <div class="success-box">
+        <div class="success-icon">🎯</div>
+        <div class="success-title">Pelihavainto tallennettu!</div>
+        <div class="success-sub">Eemeli Virtasen pelihavainto on päivitetty.<br>KPI-data, ADAR-reflektio ja pelaajan itsearvio yhdistetty kehitysprofiiliin. <strong>DNA-vastaavuus päivitetty automaattisesti.</strong></div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;">
+          <button onclick="naytaTabi('dna',document.querySelectorAll('.tab-btn')[2])" style="padding:10px 20px;border-radius:8px;background:rgba(var(--seura-primary-rgb),.12);border:1px solid rgba(var(--seura-primary-rgb),.3);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Katso DNA-päivitys →</button>
+          <button onclick="resetPH()" style="padding:10px 20px;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:var(--ink2);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">Kirjaa uusi ottelu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /vasen -->
+
+<!-- Sivukolumni: live DNA + edistyminen -->
+<div>
+  <!-- KPI progress -->
+  <div class="card">
+    <div class="card-title">KPI-tulos · tämä ottelu</div>
+    <div class="kpi-progress">
+      <div class="kpi-progress-total" id="kpi-total" style="color:var(--ink3)">0</div>
+      <div class="kpi-progress-info">
+        <div style="font-size:11px;font-weight:600;" id="kpi-label-text">0/5 kysymystä vastattu</div>
+        <div class="kpi-progress-bar-wrap"><div class="kpi-progress-bar" id="kpi-progress-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div id="dna-feedback"></div>
+    <div style="text-align:right;margin-top:8px;font-size:11px;color:var(--ink3);">DNA-summa: <span id="dna-total-display" style="font-weight:700;color:var(--accent)">—</span></div>
+  </div>
+
+  <!-- Kauden edistyminen -->
+  <div class="card">
+    <div class="card-title">Kauden edistyminen</div>
+    <canvas id="kpiTrendiChart" height="120"></canvas>
+    <div style="margin-top:10px;font-size:10px;color:var(--ink3);">6 ottelua kirjattu · Tavoite 8 ottelua kaudessa</div>
+  </div>
+
+  <!-- Ohje -->
+  <div class="card" style="background:rgba(var(--seura-primary-rgb),.04);border-color:rgba(var(--seura-primary-rgb),.15);">
+    <div class="card-title" style="color:var(--accent);">Miksi 3 vaihetta?</div>
+    <div style="font-size:11px;color:var(--ink2);line-height:1.7;">
+      <strong style="color:var(--text)">KPI</strong> mittaa pelipaikkakohtaiset periaatteet objektiivisesti.<br><br>
+      <strong style="color:var(--text)">ADAR</strong> varmistaa että data johtaa toimintaan — ei vain dokumentaatioon.<br><br>
+      <strong style="color:var(--text)">Itsearvio</strong> rakentaa pelaajan omistajuuden kehityksestä. Ero valmentajan ja pelaajan arviossa on kehityskeskustelun lähtökohta.
+    </div>
+  </div>
+</div>
+
+</div><!-- /inner-split -->
+</div>
+
+<!-- ══════════════════════════════════
+     TAB 3 — DNA & IDENTITEETTI
+══════════════════════════════════ -->
+<div class="view" id="view-dna">
+<div class="inner fadeup">
+  <div class="stitle">DNA & Identiteetti <span class="stitle-sub" id="dna-seura-nimi">EPS · Positional Play -pohjainen</span></div>
+
+  <!-- Filosofia-info -->
+  <div style="background:linear-gradient(135deg,#004B87,#002D5A);border-radius:12px;padding:18px 22px;margin-top:16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:20px;">
+    <div style="flex:1;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:4px;" id="dna-filosofia-label">EPS Metodi · Filosofia</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px;" id="dna-tavoite-kuvaus">Älykkäitä · Kunnianhimoisia · Kilpailullisia</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.65;" id="dna-filosofia-teksti">Positional Play — palloa hallitsemalla luodaan ylivoimia. Älykkäitä pelaajia jotka lukevat peliä ennen kuin pallo tulee.</div>
+    </div>
+    <div style="text-align:center;flex-shrink:0;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:900;color:#fff;line-height:1;">76<span style="font-size:22px;font-weight:300">%</span></div>
+      <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.5);">DNA-vastaavuus</div>
+    </div>
+  </div>
+
+  <!-- 3 paneelia -->
+  <div style="display:grid;grid-template-columns:240px 1fr 1fr;gap:16px;">
+
+    <!-- Radar -->
+    <div class="card">
+      <div class="card-title">Tavoiteprofiili</div>
+      <canvas id="dnaRadar" height="240"></canvas>
+      <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:10px;display:flex;align-items:center;gap:4px;color:var(--ink3)"><span style="width:10px;height:2px;background:#004B87;display:inline-block;border-radius:1px"></span>Tavoite</span>
+        <span style="font-size:10px;display:flex;align-items:center;gap:4px;color:var(--ink3)"><span style="width:10px;height:2px;background:rgba(0,0,0,.3);display:inline-block;border-radius:1px;border-top:1px dashed rgba(0,0,0,.3)"></span>Nykytila</span>
+      </div>
+    </div>
+
+    <!-- Joukkueet vs tavoite -->
+    <div class="card">
+      <div class="card-title">Joukkueet suhteessa tavoiteprofiiliin</div>
+      <div id="etaisyys-lista"></div>
+    </div>
+
+    <!-- Periaatteet + ikäluokkakaavio -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="card" style="flex:0;">
+        <div class="card-title">EPS Positional Play — periaatteet</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <span style="padding:4px 10px;border-radius:12px;background:rgba(0,75,135,.08);border:1px solid rgba(0,75,135,.2);color:#004B87;font-size:11px;font-weight:600;">Unmarked</span>
+          <span style="padding:4px 10px;border-radius:12px;background:rgba(0,75,135,.08);border:1px solid rgba(0,75,135,.2);color:#004B87;font-size:11px;font-weight:600;">Support</span>
+          <span style="padding:4px 10px;border-radius:12px;background:rgba(0,75,135,.08);border:1px solid rgba(0,75,135,.2);color:#004B87;font-size:11px;font-weight:600;">Game spaces</span>
+          <span style="padding:4px 10px;border-radius:12px;background:rgba(0,75,135,.08);border:1px solid rgba(0,75,135,.2);color:#004B87;font-size:11px;font-weight:600;">Ennakointi</span>
+          <span style="padding:4px 10px;border-radius:12px;background:rgba(0,75,135,.08);border:1px solid rgba(0,75,135,.2);color:#004B87;font-size:11px;font-weight:600;">Kommunikointi</span>
+          <span style="padding:4px 10px;border-radius:12px;background:rgba(0,0,0,.04);border:1px solid var(--border);color:var(--ink3);font-size:11px;">1v1-dominanssi</span>
+          <span style="padding:4px 10px;border-radius:12px;background:rgba(0,0,0,.04);border:1px solid var(--border);color:var(--ink3);font-size:11px;">Tila ennen palloa</span>
+        </div>
+        <div style="margin-top:10px;font-size:10px;color:var(--ink3);line-height:1.5;">Täytetyt = prioriteettiperiaatteet · Muut = kehittämiskohteet. Pelihavainnossa KPI-kysymykset johdetaan näistä automaattisesti.</div>
+      </div>
+      <div class="card" style="flex:1;">
+        <div class="card-title">Ikäluokat suhteessa EPS-profiiliin</div>
+        <canvas id="ikaluokkaChart" height="140"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════
+     TAB 4 — VALMENTAJAT
+══════════════════════════════════ -->
+<div class="view" id="view-valmentajat">
+<div class="inner fadeup">
+  <div class="stitle">Valmentajat <span class="stitle-sub">KNVB-nelikenttä · pedagoginen aktiivisuus × kehitystulokset</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+    <div class="card" style="padding:16px;">
+      <div class="card-title">Nelikenttä — 6 valmentajaa</div>
+      <div class="nk-wrap" style="max-width:100%;">
+        <canvas id="nelikenttaChart"></canvas>
+        <div class="nk-quad-label tl">Jaa<br><span style="font-weight:400;opacity:.8;font-size:8px">Aktiivinen / heikko tulos</span></div>
+        <div class="nk-quad-label tr">Tukea<br><span style="font-weight:400;opacity:.8;font-size:8px">Aktiivinen / hyvä tulos</span></div>
+        <div class="nk-quad-label bl">Aktivoi<br><span style="font-weight:400;opacity:.8;font-size:8px">Passiivinen / heikko tulos</span></div>
+        <div class="nk-quad-label br">Seuraa<br><span style="font-weight:400;opacity:.8;font-size:8px">Passiivinen / hyvä tulos</span></div>
+      </div>
+      <div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;">
+        <span style="font-size:10px;display:flex;align-items:center;gap:5px;color:var(--ink3)"><span style="width:10px;height:10px;border-radius:50%;background:#1A7A3C;display:inline-block"></span>Tukea</span>
+        <span style="font-size:10px;display:flex;align-items:center;gap:5px;color:var(--ink3)"><span style="width:10px;height:10px;border-radius:50%;background:#C47A00;display:inline-block"></span>Jaa</span>
+        <span style="font-size:10px;display:flex;align-items:center;gap:5px;color:var(--ink3)"><span style="width:10px;height:10px;border-radius:50%;background:#007070;display:inline-block"></span>Seuraa</span>
+        <span style="font-size:10px;display:flex;align-items:center;gap:5px;color:var(--ink3)"><span style="width:10px;height:10px;border-radius:50%;background:#B82020;display:inline-block"></span>Aktivoi</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Valmentajien tila — toimenpide-ehdotukset</div>
+      <div id="valm-matrix"></div>
+    </div>
+  </div>
+  <!-- Valmentajakortit -->
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════
+     TAB 5 — KEHITYSPOLUT
+══════════════════════════════════ -->
+<div class="view" id="view-polku">
+<div class="inner fadeup">
+  <div class="stitle">Kehityspolut <span class="stitle-sub">Hidden Gem · Kasvupyrähdys · IDP</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+    <div class="card">
+      <div class="card-title">💎 Hidden Gem · tunnistettu kaudella</div>
+      <div id="gem-lista"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Kehityssuppilo · EPS</div>
+      <div id="suppilo"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════
+     TAB 6 — SEURAN OPPIMINEN
+══════════════════════════════════ -->
+<div class="view" id="view-oppiminen">
+<div class="inner fadeup">
+  <div class="stitle">Seuran oppiminen <span class="stitle-sub">DFB-korrelaatiot · parhaat käytännöt</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+    <div class="card">
+      <div class="card-title">Parhaat käytännöt · tällä kaudella</div>
+      <div class="opp-lista" id="oppiminen-lista"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Mitkä tekijät ennustavat parasta kehitystä?</div>
+      <div id="korrelaatio-lista"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════
+     TAB 7 — DNA-KONFIGURAATIO
+══════════════════════════════════ -->
+<div class="view" id="view-konfig">
+<div class="inner fadeup">
+  <div class="stitle">DNA-konfiguraatio <span class="stitle-sub">EPS · Positional Play · Muokkaa seuran profiilia</span></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 300px;gap:16px;margin-top:16px;">
+
+    <!-- Vasen: Tavoitepelaaja + painotukset -->
+    <div>
+      <div class="card">
+        <div class="card-title">Tavoitepelaaja — määritelmä</div>
+        <div style="font-size:10px;color:var(--ink3);margin-bottom:8px;line-height:1.5;">Tämä teksti on perusta. Kaikki mittarit johdetaan tästä — ei toisinpäin.</div>
+        <textarea class="konfig-input" rows="4" id="tavoite-teksti" placeholder="Älykkäitä pelaajia jotka lukevat peliä ennen kuin pallo tulee. Kunnianhimoisia — tavoittelevat jalkapalloilijan uraa. Kilpailullisia — korkea voittamisen halu ja kyky kilpailla myös epäonnistumisen uhalla."></textarea>
+        <div style="margin-top:14px;">
+          <div class="card-title" style="margin-bottom:10px;">DNA-painotukset <span class="card-title-val">1 = ei tärkeä · 10 = kriittinen</span></div>
+          <div id="painotus-sliders"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Keski: Periaatteet + ikämatriisi -->
+    <div>
+      <div class="card">
+        <div class="card-title">Pelifilosofian periaatteet <span class="card-title-val">Valitse 5–8 tärkeintä</span></div>
+        <div class="periaate-grid" id="periaate-grid"></div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:10px;padding:8px 10px;background:rgba(0,75,135,.04);border-radius:6px;border-left:2px solid rgba(0,75,135,.3);line-height:1.55;">
+          ⚡ Valitut periaatteet muuttuvat KPI-kysymyksiksi pelihavainnoissa. Muutos astuu voimaan heti.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Ikäluokkamatriisi <span class="card-title-val">Promote → Improve → Enforce</span></div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead>
+              <tr style="background:var(--bg3);">
+                <th style="padding:8px 10px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);font-weight:700;border-bottom:1px solid var(--border);">Periaate</th>
+                <th style="padding:8px 6px;text-align:center;font-size:9px;color:var(--ink3);font-weight:700;border-bottom:1px solid var(--border);">U9</th>
+                <th style="padding:8px 6px;text-align:center;font-size:9px;color:var(--ink3);font-weight:700;border-bottom:1px solid var(--border);">U11</th>
+                <th style="padding:8px 6px;text-align:center;font-size:9px;color:var(--ink3);font-weight:700;border-bottom:1px solid var(--border);">U13</th>
+                <th style="padding:8px 6px;text-align:center;font-size:9px;color:var(--ink3);font-weight:700;border-bottom:1px solid var(--border);">U15</th>
+                <th style="padding:8px 6px;text-align:center;font-size:9px;color:var(--ink3);font-weight:700;border-bottom:1px solid var(--border);">U17+</th>
+              </tr>
+            </thead>
+            <tbody id="ikamatriisi-body"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:14px;margin-top:8px;font-size:10px;flex-wrap:wrap;">
+          <span style="color:#C47A00;font-weight:600;">P = Promote</span>
+          <span style="color:#2A60B0;font-weight:600;">I = Improve</span>
+          <span style="color:#1A7A3C;font-weight:600;">E = Enforce</span>
+          <span style="color:var(--ink3);">— = ei tässä iässä</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Oikea: Esikatselu -->
+    <div>
+      <div class="card" style="position:sticky;top:120px;">
+        <div class="card-title">Esikatselu — reaaliaikainen</div>
+        <canvas id="konfig-radar" height="200" style="margin-bottom:14px;"></canvas>
+        <div id="konfig-preview-bars" style="margin-bottom:12px;"></div>
+        <div style="padding:8px 10px;background:var(--bg3);border-radius:7px;font-size:10px;color:var(--ink3);margin-bottom:12px;line-height:1.5;">
+          <strong style="color:var(--text);">Aktiiviset periaatteet:</strong><br>
+          <span id="konfig-periaatteet-preview" style="color:var(--accent);">—</span>
+        </div>
+        <button class="tallenna-btn" onclick="tallennaKonfig()">Tallenna DNA-konfiguraatio →</button>
+        <div style="font-size:10px;color:var(--ink3);text-align:center;margin-top:8px;line-height:1.5;">Tallennus päivittää pelihavainnot ja DNA-vastaavuuslaskennan</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════
+// DATA
+// ══════════════════════════════════
+const SEURA = {
+  nimi: 'Espoon Palloseura',
+  filosofia: 'Positional Play — palloa hallitsemalla luodaan ylivoimia. Älykkäitä pelaajia jotka lukevat peliä ennen kuin pallo tulee.',
+  filosofia_label: 'EPS Metodi · Positional Play',
+  tavoite: 'Älykkäitä · Kunnianhimoisia · Kilpailullisia',
+  painotukset: { 'First touch':8, 'Intelligence':9, 'Mindset':7, 'Social skills':6, 'Competitive':8 },
+  periaatteet: ['Unmarked','Support','Game spaces','Ennakointi','Kommunikointi','1v1-dominanssi','Pelitilan lukeminen','Tila ennen palloa'],
+  dna_match: 76,
+  accent: '#C8102E',
+};
+
+const JOUKKUEET = [
+  { nimi:'P13A', ikä:'U13', pelaajia:16, dna:94, momentum:'up',   valmentaja:'Mäkinen T.' },
+  { nimi:'P15A', ikä:'U15', pelaajia:18, dna:71, momentum:'down', valmentaja:'Korhonen M.' },
+  { nimi:'P13B', ikä:'U13', pelaajia:14, dna:82, momentum:'up',   valmentaja:'Virtanen J.' },
+  { nimi:'P11A', ikä:'U11', pelaajia:15, dna:78, momentum:'flat', valmentaja:'Leinonen P.' },
+  { nimi:'P17A', ikä:'U17', pelaajia:20, dna:88, momentum:'up',   valmentaja:'Heikkinen A.' },
+  { nimi:'P11B', ikä:'U11', pelaajia:13, dna:58, momentum:'down', valmentaja:'Järvinen K.' },
+  { nimi:'P15B', ikä:'U15', pelaajia:16, dna:75, momentum:'flat', valmentaja:'Nieminen S.' },
+  { nimi:'P9A',  ikä:'U9',  pelaajia:12, dna:65, momentum:'up',   valmentaja:'Saarinen R.' },
+];
+
+const VALMENTAJAT = [
+  { nimi:'Mäkinen T.',   joukkue:'P13A', aktiivisuus:92, tulokset:94 },
+  { nimi:'Korhonen M.',  joukkue:'P15A', aktiivisuus:88, tulokset:71 },
+  { nimi:'Virtanen J.',  joukkue:'P13B', aktiivisuus:75, tulokset:82 },
+  { nimi:'Leinonen P.',  joukkue:'P11A', aktiivisuus:45, tulokset:78 },
+  { nimi:'Heikkinen A.', joukkue:'P17A', aktiivisuus:85, tulokset:88 },
+  { nimi:'Järvinen K.',  joukkue:'P11B', aktiivisuus:22, tulokset:58 },
+];
+
+const GEMS = [
+  { nimi:'Mikael V.', joukkue:'P13A', syy:'RAE Q4 · PHV −0.8v · DVI +3.4', score:91 },
+  { nimi:'Eemeli H.', joukkue:'P15A', syy:'RAE Q3 · PHV −1.2v · DVI +2.9', score:87 },
+  { nimi:'Lauri S.',  joukkue:'P15A', syy:'RAE Q4 · PHV −0.5v · DVI +2.1', score:82 },
+];
+
+// KPI-kysymykset pelipaikoittain (EPS Positional Play)
+const KPI_DATA = {
+  hyö: [
+    {q:'Hakeutuiko pelaaja aktiivisesti syvyyteen tai väliin ennen syöttöä?',               dna:'Intelligence', color:'#7F77DD'},
+    {q:'Pystyikö pelaaja ottamaan pallon haltuun ja tekemään seuraavan päätöksen alle 2s?', dna:'First touch',  color:'#00D4AA'},
+    {q:'Teikö pelaaja maalintekopäätöksen tilanteen vaatimalla nopeudella?',                dna:'Intelligence', color:'#7F77DD'},
+    {q:'Pysyikö pelaaja pelissä mukana myös silloin kun pallo ei tullut hänelle?',          dna:'Mindset',      color:'#4A7ED9'},
+    {q:'Juoksiko pelaaja takaisin puolustukseen menetettyään pallon?',                       dna:'Competitive',  color:'#E24B4A'},
+  ],
+  kes: [
+    {q:'Käänsikö pelaaja päätä ja katsoi ympärilleen ennen vastaanottoa?',                  dna:'Intelligence', color:'#7F77DD'},
+    {q:'Ottiko pelaaja aktiivisesti vastaan pallon vaikeissa tilanteissa?',                  dna:'Competitive',  color:'#E24B4A'},
+    {q:'Vaihteliko pelaaja tarkoituksenmukaisesti tempoa — hidastaen rakentaessa?',          dna:'Intelligence', color:'#7F77DD'},
+    {q:'Löysikö pelaaja syötöillään tilaa vastustajan linjojen välistä?',                    dna:'First touch',  color:'#00D4AA'},
+    {q:'Kommunikoiko pelaaja joukkuetovereilleen — ääneen tai elein?',                       dna:'Social skills',color:'#BA7517'},
+  ],
+  puo: [
+    {q:'Asemoituiko pelaaja oikein ennen kuin pallo liikkui — ennakoiden, ei reaktiona?',   dna:'Intelligence', color:'#7F77DD'},
+    {q:'Miten pelaaja selvisi 1v1-tilanteista — pysyikö rauhallisena ja taktisena?',        dna:'Mindset',      color:'#4A7ED9'},
+    {q:'Pysyikö pelaaja oikealla puolella vastustajasta suhteessa omaan maaliin?',          dna:'Intelligence', color:'#7F77DD'},
+    {q:'Osallistuiko pelaaja aktiivisesti pelinjärjestelyyn kun oma joukkue omisti pallon?', dna:'Social skills',color:'#BA7517'},
+    {q:'Pysyikö suoritustaso samana sekä ottelun alussa että lopussa?',                     dna:'Mindset',      color:'#4A7ED9'},
+  ],
+  maa: [
+    {q:'Ohjasiko maalivahti puolustusta ääneen — selkeitä käskyjä oikeaan aikaan?',         dna:'Social skills',color:'#BA7517'},
+    {q:'Selviytyikö maalivahti jaloin tehtävistä syötöistä paineessa?',                     dna:'First touch',  color:'#00D4AA'},
+    {q:'Pysyikö maalivahti optimaalisessa asemassa suhteessa palloon?',                     dna:'Intelligence', color:'#7F77DD'},
+    {q:'Säilyikö päätöksentekokyky paineen alla — myös maalin jälkeen?',                    dna:'Mindset',      color:'#4A7ED9'},
+    {q:'Lähteekö maalivahti rohkeasti ulos tilanteisiin?',                                  dna:'Competitive',  color:'#E24B4A'},
+  ],
+};
+const DNA_DIMS   = ['First touch','Intelligence','Mindset','Social skills','Competitive'];
+const DNA_COLORS = {'First touch':'#00D4AA','Intelligence':'#7F77DD','Mindset':'#4A7ED9','Social skills':'#BA7517','Competitive':'#E24B4A'};
+const DNA_BASE   = {'First touch':7,'Intelligence':8,'Mindset':7,'Social skills':7,'Competitive':7};
+
+// ══════════════════════════════════
+// STATE
+// ══════════════════════════════════
+let phVaihe = 1;
+let currentPos = 'kes';
+let scores = {};
+let dnaCurrent = {...DNA_BASE};
+let konfig_painotukset = {...SEURA.painotukset};
+let konfig_periaatteet = [...SEURA.periaatteet.slice(0,5)];
+let charts = {};
+
+// ══════════════════════════════════
+// TAB
+// ══════════════════════════════════
+function naytaTabi(nimi, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + nimi).classList.add('active');
+  btn.classList.add('active');
+  if (nimi==='tilanne')      renderTilanne();
+  if (nimi==='pelihavainto') renderPH();
+  if (nimi==='dna')          renderDNA();
+  if (nimi==='valmentajat')  renderValmentajat();
+  if (nimi==='polku')        renderPolku();
+  if (nimi==='oppiminen')    renderOppiminen();
+  if (nimi==='konfig')       renderKonfig();
+}
+
+// ══════════════════════════════════
+// TILANNE
+// ══════════════════════════════════
+function renderTilanne() {
+  renderDnaRing();
+  renderMomentum();
+  renderJoukkueet();
+}
+
+function renderDnaRing() {
+  const canvas = document.getElementById('dnaRing');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const pct = SEURA.dna_match / 100;
+  ctx.clearRect(0,0,110,110);
+  ctx.beginPath(); ctx.arc(55,55,44,0,Math.PI*2);
+  ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=9; ctx.stroke();
+  ctx.beginPath(); ctx.arc(55,55,44,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);
+  ctx.strokeStyle=SEURA.accent; ctx.lineWidth=9; ctx.lineCap='round'; ctx.stroke();
+}
+
+function renderMomentum() {
+  const joukkueet = [
+    {nimi:'P17A', data:[72,75,80,83,88,88], s:'up'},
+    {nimi:'P15A', data:[82,80,79,75,72,71], s:'down'},
+    {nimi:'P13A', data:[88,90,91,92,93,94], s:'up'},
+    {nimi:'P11B', data:[65,63,61,60,59,58], s:'down'},
+    {nimi:'P13B', data:[78,79,80,81,81,82], s:'flat'},
+  ];
+  const el = document.getElementById('momentum-lista');
+  el.innerHTML = joukkueet.map(j => {
+    const badge = j.s==='up'
+      ? '<span class="momentum-badge momentum-up">↑ Nouseva</span>'
+      : j.s==='down'
+      ? '<span class="momentum-badge momentum-down">↓ Laskeva</span>'
+      : '<span class="momentum-badge momentum-flat">→ Tasainen</span>';
+    const color = j.s==='up'?'#2ED573':j.s==='down'?'#FF4757':'#6B7A8D';
+    const w=200, h=40;
+    const pts = j.data;
+    const mn=Math.min(...pts)-5, mx=Math.max(...pts)+5;
+    const px=(i)=>i/(pts.length-1)*(w-20)+10;
+    const py=(v)=>h-(v-mn)/(mx-mn)*(h-8)-4;
+    const path = pts.map((v,i)=>(i===0?'M':'L')+px(i)+','+py(v)).join(' ');
+    return `<div class="momentum-item">
+      <div class="momentum-nimi">${j.nimi}</div>
+      <div class="momentum-spark">
+        <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+          <path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+          <circle cx="${px(pts.length-1)}" cy="${py(pts[pts.length-1])}" r="3" fill="${color}"/>
+        </svg>
+      </div>
+      ${badge}
+    </div>`;
+  }).join('');
+}
+
+function renderJoukkueet() {
+  document.getElementById('joukkue-grid').innerHTML = JOUKKUEET.map(j => {
+    const color = j.dna>=85?'var(--green)':j.dna>=70?'var(--amber)':'var(--red)';
+    const arrow = j.momentum==='up'?'↑':j.momentum==='down'?'↓':'→';
+    return `<div class="joukkue-kortti">
+      <div class="joukkue-nimi">${j.nimi}</div>
+      <div class="joukkue-meta">${j.ikä} · ${j.pelaajia} pelaajaa · ${j.valmentaja}</div>
+      <div class="jk-stats">
+        <div class="jk-stat"><strong style="color:${color}">${j.dna}%</strong><span>DNA</span></div>
+        <div class="jk-stat"><strong style="color:${color}">${arrow}</strong><span>Trendi</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════
+// PELIHAVAINTO
+// ══════════════════════════════════
+function renderPH() {
+  renderQuestions(currentPos);
+  renderDnaFeedback();
+  renderKpiTrendi();
+}
+
+function setPos(pos, btn) {
+  currentPos = pos;
+  scores = {};
+  document.querySelectorAll('.ph-pos-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderQuestions(pos);
+  updateTotal();
+  dnaCurrent = {...DNA_BASE};
+  renderDnaFeedback();
+}
+
+function renderQuestions(pos) {
+  const qs = KPI_DATA[pos];
+  document.getElementById('kpi-questions').innerHTML = qs.map((q,i) => `
+    <div class="kpi-q-block" id="q-block-${i}">
+      <div class="kpi-q-top">
+        <div class="kpi-q-text">${q.q}</div>
+        <div class="kpi-dna-tag" style="background:${q.color}20;color:${q.color};border:1px solid ${q.color}40;">${q.dna}</div>
+      </div>
+      <div class="kpi-score-row">
+        <button class="kpi-score-btn" onclick="setScore(${i},0,this,'sel-0')">0<span class="lbl">Ei toteutunut</span></button>
+        <button class="kpi-score-btn" onclick="setScore(${i},1,this,'sel-1')">1<span class="lbl">Osittain</span></button>
+        <button class="kpi-score-btn" onclick="setScore(${i},2,this,'sel-2')">2<span class="lbl">Selvästi</span></button>
+      </div>
+    </div>`).join('');
+}
+
+function setScore(idx, val, btn, cls) {
+  scores[idx] = val;
+  const block = document.getElementById('q-block-'+idx);
+  block.querySelectorAll('.kpi-score-btn').forEach(b=>b.className='kpi-score-btn');
+  btn.classList.add(cls);
+  block.classList.add('answered');
+  updateTotal();
+  updateDna();
+}
+
+function updateTotal() {
+  const total = Object.values(scores).reduce((s,v)=>s+v,0);
+  const answered = Object.keys(scores).length;
+  const max = KPI_DATA[currentPos].length * 2;
+  const el = document.getElementById('kpi-total');
+  el.textContent = total;
+  el.style.color = total>=8?'var(--green)':total>=5?'var(--amber)':'var(--red)';
+  document.getElementById('kpi-label-text').textContent =
+    answered<5 ? `${answered}/5 kysymystä vastattu` : `Kaikki vastattu · ${total}/${max} pistettä`;
+  document.getElementById('kpi-progress-bar').style.width = (total/max*100)+'%';
+}
+
+function updateDna() {
+  dnaCurrent = {...DNA_BASE};
+  const qs = KPI_DATA[currentPos];
+  Object.entries(scores).forEach(([idx,val]) => {
+    const dim = qs[idx].dna;
+    dnaCurrent[dim] = Math.min(10, (dnaCurrent[dim]||7) + (val-1)*0.6);
+  });
+  renderDnaFeedback();
+}
+
+function renderDnaFeedback() {
+  document.getElementById('dna-feedback').innerHTML = DNA_DIMS.map(d => {
+    const v = dnaCurrent[d]||7;
+    const pct = Math.round(v/10*100);
+    return `<div class="dna-fb-row">
+      <div class="dna-fb-label">${d}</div>
+      <div class="dna-fb-track"><div class="dna-fb-fill" style="width:${pct}%;background:${DNA_COLORS[d]}"></div></div>
+      <div class="dna-fb-val" style="color:${DNA_COLORS[d]}">${v.toFixed(1)}</div>
+    </div>`;
+  }).join('');
+  const tot = Math.round(Object.values(dnaCurrent).reduce((s,v)=>s+v,0)*2);
+  document.getElementById('dna-total-display').textContent = tot+'/50';
+}
+
+function renderKpiTrendi() {
+  const ctx = document.getElementById('kpiTrendiChart');
+  if (!ctx || charts.kpiTrendi) return;
+  charts.kpiTrendi = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['O1','O2','O3','O4','O5','O6','Nyt'],
+      datasets: [
+        {label:'Intelligence',data:[6.5,7.0,6.8,7.2,6.9,6.2,null],borderColor:'#7F77DD',backgroundColor:'transparent',tension:.4,pointRadius:3},
+        {label:'First touch',data:[7.0,7.5,8.0,7.8,8.2,8.0,null],borderColor:'#00D4AA',backgroundColor:'transparent',tension:.4,pointRadius:3},
+        {label:'Competitive',data:[7.5,7.8,8.0,8.2,8.0,8.1,null],borderColor:'#E24B4A',backgroundColor:'transparent',tension:.4,pointRadius:3},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#44505F',font:{size:10},boxWidth:12}}},
+      scales:{
+        x:{ticks:{color:'#8892A0',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}},
+        y:{min:5,max:10,ticks:{color:'#8892A0',font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}},
+      }
+    }
+  });
+}
+
+// Pelihavainto-vaiheet
+function naytaPHVaihe(n) {
+  phVaihe = n;
+  [1,2,3,4].forEach(i => {
+    const el = document.getElementById('ph-vaihe'+i);
+    if(el) el.style.display = i===n ? 'block' : 'none';
+  });
+  [1,2,3].forEach(i => {
+    const vEl = document.getElementById('ph-v'+i);
+    if(!vEl) return;
+    vEl.classList.toggle('active', i===n);
+    vEl.classList.toggle('done', i<n);
+    const nEl = document.getElementById('ph-num'+i);
+    if(nEl) nEl.textContent = i<n ? '✓' : i;
+  });
+}
+
+function tallenna1() {
+  const answered = Object.keys(scores).length;
+  if(answered < 3) { naytaToast('Vastaa vähintään 3 kysymykseen'); return; }
+  const total = Object.values(scores).reduce((s,v)=>s+v,0);
+  document.getElementById('adar-kpi-tulos').textContent = total + '/' + (KPI_DATA[currentPos].length*2) + ' pistettä';
+  naytaPHVaihe(2);
+  naytaToast('KPI-arvio tallennettu ✓');
+}
+
+function tallenna2() {
+  const aA = document.getElementById('adar-a').value;
+  const aD = document.getElementById('adar-d').value;
+  if(!aA || !aD) { naytaToast('Täytä Arvioi ja Päätä -kentät'); return; }
+  // Render oma-scale napit
+  renderOmaScale();
+  naytaPHVaihe(3);
+  naytaToast('ADAR tallennettu ✓');
+}
+
+function renderOmaScale() {
+  const q1vals = ['Paljon heikompi','Heikompi','Sama taso','Parempi','Paljon parempi'];
+  const q24vals = ['1','2','3','4','5'];
+  const emotiot = ['😤','😕','😐','🙂','😄'];
+  document.getElementById('oma-q1').innerHTML = q1vals.map((v,i) =>
+    `<button class="oma-scale-btn" onclick="this.parentNode.querySelectorAll('.oma-scale-btn').forEach(b=>b.classList.remove('on'));this.classList.add('on')">${v}</button>`).join('');
+  ['oma-q2','oma-q3'].forEach(id => {
+    document.getElementById(id).innerHTML = q24vals.map((v,i) =>
+      `<button class="oma-scale-btn" onclick="this.parentNode.querySelectorAll('.oma-scale-btn').forEach(b=>b.classList.remove('on'));this.classList.add('on')">${v}</button>`).join('');
+  });
+  document.getElementById('oma-q4').innerHTML = emotiot.map((v,i) =>
+    `<button class="oma-scale-btn" style="font-size:18px;padding:8px 4px;" onclick="this.parentNode.querySelectorAll('.oma-scale-btn').forEach(b=>b.classList.remove('on'));this.classList.add('on')">${v}</button>`).join('');
+}
+
+function tallenna3() {
+  naytaPHVaihe(4);
+  naytaToast('Pelihavainto tallennettu — DNA päivitetty ✓');
+}
+
+function resetPH() {
+  scores = {}; dnaCurrent = {...DNA_BASE};
+  document.getElementById('val-havainto').value='';
+  ['adar-a','adar-d','adar-t','adar-r'].forEach(id => {const el=document.getElementById(id);if(el)el.value='';});
+  document.querySelectorAll('.ph-pos-btn').forEach(b=>b.classList.remove('on'));
+  document.querySelector('.ph-pos-btn:nth-child(2)')?.classList.add('on');
+  currentPos='kes';
+  naytaPHVaihe(1);
+  renderQuestions('kes');
+  updateTotal();
+  renderDnaFeedback();
+}
+
+// ══════════════════════════════════
+// DNA & IDENTITEETTI
+// ══════════════════════════════════
+function renderDNA() {
+  renderDnaRadar();
+  renderEtaisyydet();
+  renderIkaluokkaChart();
+}
+
+function renderDnaRadar() {
+  const ctx = document.getElementById('dnaRadar');
+  if(!ctx) return;
+  if(charts.dnaRadar) charts.dnaRadar.destroy();
+  const s = SEURA;
+  const labels = Object.keys(s.painotukset);
+  const vals = Object.values(s.painotukset);
+  charts.dnaRadar = new Chart(ctx, {
+    type:'radar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Tavoiteprofiili',data:vals,borderColor:'#004B87',backgroundColor:'rgba(0,75,135,.1)',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#004B87'},
+        {label:'Seuran nykytila',data:[8.2,6.2,7.5,6.8,8.0],borderColor:'rgba(0,0,0,.35)',backgroundColor:'rgba(0,0,0,.04)',borderWidth:1.5,pointRadius:3,borderDash:[5,3],pointBackgroundColor:'rgba(0,0,0,.35)'},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#44505F',font:{size:10},boxWidth:12}}},
+      scales:{r:{min:0,max:10,ticks:{display:false},grid:{color:'rgba(0,0,0,.07)'},angleLines:{color:'rgba(0,0,0,.07)'},pointLabels:{color:'#44505F',font:{size:11}}}}
+    }
+  });
+}
+
+function renderEtaisyydet() {
+  const el = document.getElementById('etaisyys-lista');
+  el.innerHTML = JOUKKUEET.sort((a,b)=>b.dna-a.dna).map(j => {
+    const color = j.dna>=85?'var(--green)':j.dna>=70?'var(--amber)':'var(--red)';
+    const arrow = j.momentum==='up'?'↑ ':j.momentum==='down'?'↓ ':' ';
+    return `<div class="dna-bar-row">
+      <div class="dna-bar-label">${j.nimi}</div>
+      <div class="dna-bar-track"><div class="dna-bar-fill" style="width:${j.dna}%;background:${color}"></div></div>
+      <div class="dna-bar-val" style="color:${color}">${j.dna}%</div>
+      <div class="dna-bar-delta" style="color:${color}">${arrow}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderIkaluokkaChart() {
+  const ctx = document.getElementById('ikaluokkaChart');
+  if(!ctx||charts.ika) return;
+  charts.ika = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:['U9','U11A','U11B','U13A','U13B','U15A','U15B','U17A'],
+      datasets:[
+        {label:'DNA-vastaavuus',data:[65,78,58,94,82,71,75,88],
+          backgroundColor:JOUKKUEET.map(j=>j.dna>=85?'rgba(26,122,60,.7)':j.dna>=70?'rgba(196,122,0,.7)':'rgba(184,32,32,.7)'),borderRadius:5},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#8892A0',font:{size:10}},grid:{display:false},border:{display:false}},
+        y:{min:0,max:100,ticks:{color:'#8892A0',font:{size:10},callback:v=>v+'%'},grid:{color:'rgba(0,0,0,.05)'},border:{display:false}},
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════
+// VALMENTAJAT
+// ══════════════════════════════════
+function renderValmentajat() {
+  renderNelikentta();
+  renderValmMatrix();
+}
+
+function renderNelikentta() {
+  const ctx = document.getElementById('nelikenttaChart');
+  if(!ctx||charts.nk) return;
+  charts.nk = new Chart(ctx, {
+    type:'scatter',
+    data:{datasets:[{
+      data: VALMENTAJAT.map(v=>({x:v.aktiivisuus,y:v.tulokset})),
+      backgroundColor: VALMENTAJAT.map(v=>{
+        if(v.aktiivisuus>60&&v.tulokset>60) return 'rgba(26,122,60,.85)';
+        if(v.aktiivisuus>60&&v.tulokset<=60) return 'rgba(196,122,0,.85)';
+        if(v.aktiivisuus<=60&&v.tulokset>60) return 'rgba(0,112,112,.85)';
+        return 'rgba(184,32,32,.85)';
+      }),
+      pointRadius:14, pointHoverRadius:16,
+      pointBorderColor:'rgba(255,255,255,.8)', pointBorderWidth:2,
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        label:ctx=>VALMENTAJAT[ctx.dataIndex].nimi+' · '+VALMENTAJAT[ctx.dataIndex].joukkue
+      }}},
+      scales:{
+        x:{min:0,max:100,
+          title:{display:true,text:'Pedagoginen aktiivisuus →',color:'#8892A0',font:{size:10}},
+          ticks:{color:'#8892A0',font:{size:10}},
+          grid:{color:'rgba(0,0,0,.06)'},border:{display:false},
+        },
+        y:{min:0,max:100,
+          title:{display:true,text:'↑ Kehitystulokset',color:'#8892A0',font:{size:10}},
+          ticks:{color:'#8892A0',font:{size:10}},
+          grid:{color:'rgba(0,0,0,.06)'},border:{display:false},
+        },
+      }
+    }
+  });
+  // Piirretään kvadranttijako suoraan canvakselle initin jälkeen
+  setTimeout(()=>{
+    const c = ctx.getContext('2d');
+    const area = charts.nk.chartArea;
+    if(!area) return;
+    const midX = (area.left+area.right)/2;
+    const midY = (area.top+area.bottom)/2;
+    c.save();
+    c.strokeStyle='rgba(0,0,0,.1)';
+    c.lineWidth=1;
+    c.setLineDash([6,4]);
+    c.beginPath();c.moveTo(midX,area.top);c.lineTo(midX,area.bottom);c.stroke();
+    c.beginPath();c.moveTo(area.left,midY);c.lineTo(area.right,midY);c.stroke();
+    c.restore();
+  },100);
+}
+
+function renderValmMatrix() {
+  const el = document.getElementById('valm-matrix');
+  el.innerHTML = VALMENTAJAT.map(v => {
+    const quad = v.aktiivisuus>60&&v.tulokset>60
+      ? {l:'Tukea →', c:'#1A7A3C', bg:'rgba(26,122,60,.06)', border:'rgba(26,122,60,.2)'}
+      : v.aktiivisuus>60
+      ? {l:'Jaa ↓', c:'#C47A00', bg:'rgba(196,122,0,.06)', border:'rgba(196,122,0,.2)'}
+      : v.tulokset>60
+      ? {l:'Seuraa →', c:'#007070', bg:'rgba(0,112,112,.06)', border:'rgba(0,112,112,.2)'}
+      : {l:'Aktivoi ↑', c:'#B82020', bg:'rgba(184,32,32,.06)', border:'rgba(184,32,32,.2)'};
+    const actW = v.aktiivisuus;
+    const resW = v.tulokset;
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${v.nimi}</div>
+          <div style="font-size:10px;color:var(--ink3)">${v.joukkue}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;background:${quad.bg};color:${quad.c};border:1px solid ${quad.border};">${quad.l}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:70px 1fr 30px;gap:4px;align-items:center;margin-bottom:3px;">
+        <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;">Aktiivisuus</div>
+        <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;"><div style="height:5px;width:${actW}%;background:#004B87;border-radius:3px;"></div></div>
+        <div style="font-size:10px;font-weight:700;color:#004B87;text-align:right">${actW}%</div>
+      </div>
+      <div style="display:grid;grid-template-columns:70px 1fr 30px;gap:4px;align-items:center;">
+        <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;">Tulokset</div>
+        <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;"><div style="height:5px;width:${resW}%;background:${quad.c};border-radius:3px;"></div></div>
+        <div style="font-size:10px;font-weight:700;color:${quad.c};text-align:right">${resW}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════
+// KEHITYSPOLUT
+// ══════════════════════════════════
+function renderPolku() {
+  document.getElementById('gem-lista').innerHTML = GEMS.map(g => `
+    <div class="gem-item">
+      <div class="gem-score">${g.score}</div>
+      <div style="flex:1"><div class="gem-nimi">💎 ${g.nimi}</div><div class="gem-syy">${g.syy}</div></div>
+      <div class="gem-joukkue">${g.joukkue}</div>
+    </div>`).join('');
+
+  const suppilo_data = [
+    {label:'Kaikki pelaajat',n:171,color:'rgba(0,75,135,.06)'},
+    {label:'FLEI > 60%',n:124,color:'rgba(74,126,217,.2)'},
+    {label:'DNA > 75%',n:82,color:'rgba(0,212,170,.2)'},
+    {label:'IDP aktiivinen',n:47,color:'rgba(255,165,2,.2)'},
+    {label:'Hidden Gem',n:12,color:'rgba(212,168,32,.3)'},
+  ];
+  document.getElementById('suppilo').innerHTML = suppilo_data.map((s,i) => {
+    const w = 100 - i*14;
+    return `<div class="suppilo-item" style="background:${s.color};width:${w}%;margin:0 auto ${4}px;">
+      <span style="font-size:11px;color:var(--ink2)">${s.label}</span>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700">${s.n}</span>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════
+// OPPIMINEN
+// ══════════════════════════════════
+function renderOppiminen() {
+  document.getElementById('oppiminen-lista').innerHTML = [
+    {t:'P13A — ADAR Taso 2 systemaattisesti',s:'Valmentaja Mäkinen käyttänyt ADAR-protokollaa joka ottelun jälkeen. DNA-vastaavuus noussut 88→94% kolmessa kuukaudessa.',c:'var(--green)'},
+    {t:'Pelihavainto-data täydentyy',s:`${Object.keys(scores).length>0?'Eemeli Virtanen':'Pelaajia'} kirjauksella tällä viikolla. Säännöllinen havainnointi parantaa DNA-päivityksen tarkkuutta.`,c:'var(--amber)'},
+    {t:'Pelipaikkakohtaiset KPI:t toimivat',s:'Keskikenttäkysymykset erottavat parhaiten pelaajat jotka kehittyvät hitaasti vs. nopeasti. Intelligence-dimensio on kriittisin ennustaja.',c:'var(--teal)'},
+  ].map(o => `<div class="opp-item"><div class="opp-title" style="color:${o.c}">${o.t}</div><div class="opp-sub">${o.s}</div></div>`).join('');
+
+  document.getElementById('korrelaatio-lista').innerHTML = [
+    {label:'ADAR-kirjausten tiheys',v:87,c:'var(--green)'},
+    {label:'Pelihavainto × viikko',v:74,c:'var(--teal)'},
+    {label:'FLEI-taso > 65%',v:68,c:'var(--blue)'},
+    {label:'Valmentajan aktiivisuus',v:62,c:'var(--amber)'},
+    {label:'IDP-tavoite asetettu',v:55,c:'var(--accent)'},
+  ].map(k => `<div class="korr-item">
+    <div style="font-size:11px;color:var(--ink2);flex:1">${k.label}</div>
+    <div class="korr-bar"><div class="korr-fill" style="width:${k.v}%;background:${k.c}"></div></div>
+    <div style="font-size:11px;font-weight:700;color:${k.c};width:32px;text-align:right">${k.v}%</div>
+  </div>`).join('');
+}
+
+// ══════════════════════════════════
+// KONFIG
+// ══════════════════════════════════
+function renderKonfig() {
+  // Sliders
+  document.getElementById('painotus-sliders').innerHTML = Object.entries(konfig_painotukset).map(([d,v]) => `
+    <div class="konfig-slider-row">
+      <div class="konfig-slider-label">${d}</div>
+      <input type="range" class="konfig-slider" min="1" max="10" value="${v}"
+        oninput="updateKonfig('${d}',this.value)">
+      <div class="konfig-slider-val" id="kval-${d.replace(/ /g,'_')}">${v}</div>
+    </div>`).join('');
+
+  // Periaatteet
+  const kaikki = ['Unmarked','Support','Game spaces','Ennakointi','Kommunikointi',
+    '1v1-dominanssi','Pelitilan lukeminen','Tila ennen palloa','Intensiteetti',
+    'Transitio','Pallonhallinta','Puolustuksen tuki','Eteneminen'];
+  document.getElementById('periaate-grid').innerHTML = kaikki.map(p => `
+    <button class="periaate-chip ${konfig_periaatteet.includes(p)?'on':''}" onclick="togglePeriaate('${p}',this)">${p}</button>`).join('');
+
+  // Ikämatriisi
+  const pikaMatriisi = [
+    {p:'Unmarked',     v:['P','I','I','E','E']},
+    {p:'Support',      v:['P','P','I','I','E']},
+    {p:'Game spaces',  v:['—','P','I','I','E']},
+    {p:'Ennakointi',   v:['—','P','P','I','E']},
+    {p:'Kommunikointi',v:['P','P','I','E','E']},
+  ];
+  const matColors = {'P':'#C47A00','I':'#2A60B0','E':'#1A7A3C','—':'#8892A0'};
+  const tbody = document.getElementById('ikamatriisi-body');
+  if(tbody) tbody.innerHTML = pikaMatriisi.map(r => `
+    <tr>
+      <td style="padding:7px 10px;font-size:11px;color:var(--ink2);border-bottom:1px solid var(--border);font-weight:500;">${r.p}</td>
+      ${r.v.map(val => `<td style="padding:7px 6px;text-align:center;border-bottom:1px solid var(--border);">
+        <span style="font-size:10px;font-weight:700;color:${matColors[val]};background:${matColors[val]}15;padding:2px 7px;border-radius:4px;">${val}</span>
+      </td>`).join('')}
+    </tr>`).join('');
+
+  renderKonfigRadar();
+  renderKonfigBars();
+  document.getElementById('konfig-periaatteet-preview').textContent = konfig_periaatteet.join(' · ') || '—';
+}
+
+function updateKonfig(dim, val) {
+  konfig_painotukset[dim] = parseInt(val);
+  document.getElementById('kval-'+dim.replace(' ','_')).textContent = val;
+  renderKonfigRadar();
+  renderKonfigBars();
+}
+
+function togglePeriaate(p, btn) {
+  const idx = konfig_periaatteet.indexOf(p);
+  if(idx===-1) konfig_periaatteet.push(p);
+  else konfig_periaatteet.splice(idx,1);
+  btn.classList.toggle('on');
+  document.getElementById('konfig-periaatteet-preview').textContent = konfig_periaatteet.join(' · ') || '—';
+}
+
+function renderKonfigRadar() {
+  const ctx = document.getElementById('konfig-radar');
+  if(!ctx) return;
+  if(charts.konfig) charts.konfig.destroy();
+  charts.konfig = new Chart(ctx, {
+    type:'radar',
+    data:{
+      labels: Object.keys(konfig_painotukset),
+      datasets:[{
+        label:'EPS DNA',
+        data: Object.values(konfig_painotukset),
+        borderColor:'#004B87',
+        backgroundColor:'rgba(0,75,135,.1)',
+        borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#004B87',
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{r:{min:0,max:10,ticks:{display:false},grid:{color:'rgba(0,0,0,.07)'},angleLines:{color:'rgba(0,0,0,.07)'},pointLabels:{color:'#44505F',font:{size:10}}}}
+    }
+  });
+}
+
+function renderKonfigBars() {
+  const DNA_COLORS_LIGHT = {
+    'First touch':'#007070','Intelligence':'#6B35B8',
+    'Mindset':'#2A60B0','Social skills':'#9A7010','Competitive':'#B82020'
+  };
+  document.getElementById('konfig-preview-bars').innerHTML = Object.entries(konfig_painotukset).map(([d,v]) => {
+    const col = DNA_COLORS_LIGHT[d] || '#004B87';
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <div style="font-size:10px;color:var(--ink2);width:90px;flex-shrink:0;">${d}</div>
+      <div style="flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;">
+        <div style="height:5px;width:${v*10}%;background:${col};border-radius:3px;transition:width .4s;"></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:${col};width:18px;text-align:right;">${v}</div>
+    </div>`;
+  }).join('');
+}
+
+function tallennaKonfig() {
+  // Päivitä KPI-kysymysten järjestys periaatteiden mukaan (yhteys pelihavaintoon)
+  naytaToast('DNA-konfiguraatio tallennettu — pelihavainto päivitetty ✓');
+}
+
+// ══════════════════════════════════
+// UTILS
+// ══════════════════════════════════
+function naytaToast(t) {
+  const el = document.getElementById('toast');
+  el.textContent = t;
+  el.classList.add('on');
+  setTimeout(()=>el.classList.remove('on'), 2500);
+}
+
+// INIT
+renderTilanne();
+</script>
+</body>
+</html>
