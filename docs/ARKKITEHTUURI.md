@@ -1,5 +1,5 @@
 # TalentMaster™ — Järjestelmäarkkitehtuuri
-## Päivitetty 2026-04-11
+## Päivitetty 2026-04-13
 
 ---
 
@@ -59,7 +59,7 @@ Ei saa koskaan rikkoutua.
 
 ---
 
-## Pilottiseurat (8 kpl) — tila 2026-04-11
+## Pilottiseurat (9 kpl) — tila 2026-04-13
 
 | SeuraId | Seura | Tila | Huomio |
 |---|---|---|---|
@@ -67,10 +67,11 @@ Ei saa koskaan rikkoutua.
 | `kpv` | KPV Kokkola | ✅ aktiivinen | Topias Koskela, test UID: TM-MN67OLDO |
 | `palloiirot` | Pallo-Iirot | ✅ aktiivinen | — |
 | `yvies` | Ylöjärven Ilves | ✅ aktiivinen | — |
-| `sjk` | SJK Juniorit | ✅ laajennettu | U15P + U14/15T + talenttipelaajat (2026-04-08) |
+| `sjk` | SJK Juniorit | ✅ laajennettu | U15P + U14/15T + talenttipelaajat |
 | `grifk` | GrIFK | ✅ aktiivinen | sv-kieli |
 | `vifk` | VIFK | ✅ aktiivinen | sv-kieli |
 | `hjk` | HJK Juniorit | ✅ aktiivinen | — |
+| `eps` | EPS (Espoon Palloseura) | ✅ tunnukset | Heini, Teams-puhelu PENDING |
 | `demo` | FC Demo | ✅ testikäyttö | Super Admin demo-seura |
 
 **SJK-huomio:** Ensimmäinen seura jolla tyttöjoukkue mukana.
@@ -146,11 +147,21 @@ testitapahtumat/         ← OIKEA NIMI (ei 'tapahtumat')
 kirjaukset/              ← vanha rakenne (yhteensopivuus)
 kirjaukset_joukkue/
 kirjaukset_tapahtumat/
+
+players/{playerId}       ← Solo-pelaajat (ei seurahierarkiassa)
+  nimi, synVuosi, synKuukausi, email
+  pp, kokemus, treeni, ketju
+  tkkYht, tkkMerkki, tkkVuosi
+  kotiPonn, kotiSeina, kotiDrip, kotiPvm
+  playerCode: 'TMP-XXXX'
+  seuraId: null → täytetään kun seura liittyy
 ```
 
 ---
 
-## Sivuarkkitehtuuri — tila 2026-04-11
+## Sivuarkkitehtuuri — tila 2026-04-13
+
+### Seurajärjestelmä
 
 | Tiedosto | Rooli | GitHub | Huomio |
 |---|---|---|---|
@@ -162,21 +173,36 @@ kirjaukset_tapahtumat/
 | `TalentMaster_Rekisterointi_Suostumus.html` | huoltaja | ✅ | fi/sv/en kielituki |
 | `TalentMaster_Kortit.html` | pelaaja | ✅ | FIRE/ICON/MILESTONE/TOTY + WOW |
 | `TalentMaster_Vanhempi.html` | huoltaja | ✅ | — |
-| `TalentMaster_UTJ_v1.html` | urheilutoimenjohtaja | ✅ | Kasvattisuppilo |
+| `TalentMaster_UTJ_v2.html` | urheilutoimenjohtaja | ✅ | DNA-välilehti, CSI, 6 välilehteä (korvaa v1) |
 | `TalentMaster_Admin.html` | super_admin | ✅ | — |
 | `TalentMaster_ADAR_Koulutus.html` | valmentaja | ✅ | — |
+| `TalentMaster_Valmentaja_Matriisi.html` | koulutus | ✅ | 5-tabi coaching tool |
 | `TalentMaster_Koukutus.html` | markkinointi | ⏳ PENDING | — |
-| `TalentMaster_Valmentaja_Matriisi.html` | koulutus | ⏳ PENDING | — |
 | `TalentMaster_Pelihavainto_Demo.html` | demo | ⚠ EI GitHubissa | Palloliiton offline-demo |
 
-### Solo-versio (TalentMaster Player™) — uusi tuotehaarake
+### Solo-versio (TalentMaster Player™)
 
 | Tiedosto | Rooli | GitHub | Huomio |
 |---|---|---|---|
-| `TalentMaster_Player_Home.html` | solo-pelaaja | ⏳ | Onboarding: splash → nimi → syntymäaika → kortti |
-| `TalentMaster_Solo_Profiili.html` | solo-pelaaja | ⏳ | Profiili: tkk-tulokset, kotimittarit, pelaajaprofiili |
-| `TalentMaster_Solo_Arviointi.html` | solo-pelaaja | ⏳ | Alkuarviointi 3-kerrosta: tausta, tekniikka Y/N, mittaukset |
-| `TalentMaster_Kortti_Demo.html` | demo | ⏳ | Korttityypit: Starter/Sharp/Elite, pelipaikka-ikonit |
+| `TalentMaster_Player_Home.html` | solo-pelaaja | ✅ | Onboarding: splash → nimi → syntymäaika → kortti |
+| `TalentMaster_Solo_Profiili.html` | solo-pelaaja | ✅ | Profiili: tkk-tulokset, kotimittarit, pelaajaprofiili |
+| `TalentMaster_Solo_Arviointi.html` | solo-pelaaja | ⏳ PENDING | Alkuarviointi 3-kerrosta |
+| `TalentMaster_Kortti_Demo.html` | demo | ✅ | Korttityypit: Starter/Sharp/Elite |
+
+### Myynti- ja esitystiedostot
+
+| Tiedosto | GitHub | Huomio |
+|---|---|---|
+| `tm_pitch_en.html` | ✅ | Englanninkielinen pitch — U8→Pro, 5D Framework, 10 osiota |
+| `tm_pitch.html` | ✅ | Suomenkielinen pitch |
+| `tm_brand.html` | ✅ | Brändikirja: logo, värit, typografia, periaatteet |
+| `TalentMaster_UTJ_v2.html` | ✅ | UTJ-dashboard v2 |
+| `tm_dna_builder.html` | ✅ | DNA-rakennustyökalu |
+| `tm_dna_opas.html` | ✅ | DNA-opas |
+| `tm_filosofia_kirjasto.html` | ✅ | Filosofiakirjasto |
+| `eps_unified_v2.html` | ✅ | EPS-dashboard, 7 välilehteä |
+| `hammarby_talentmaster_analyysi_1.html` | ✅ | Strateginen analyysi |
+| `talentmaster_player_demo_1.html` | ✅ | 3 perspektiiviä: Pelaaja/Valmentaja/SD |
 
 ---
 
@@ -191,6 +217,46 @@ kirjaukset_tapahtumat/
 | `lahetaPelaajaSivuLinkki` | Linkit + salasananollaus | ✅ |
 | `tasoHaeSeuranOttelut` | TASO API | ✅ |
 | `tasoHaeMaatcheck` | TASO cron | ❌ KOMMENTOITU |
+
+---
+
+## TalentMaster 5D Framework™
+
+| Dimensio | Avain | Paino | Mittarit |
+|---|---|---|---|
+| Physical | D1 | **40%** | Sprint · PHV (Mirwald 2002) · FLEI · MAS test · COD |
+| Technical | D2 | **25%** | First touch · passing · technique competitions · daily T-drill |
+| Psychological | D3 | **15%** | Growth mindset · FLEI trainability · Dweck 2006 |
+| Cognitive | D4 | **10%** | ADAR · space reading · Game IQ |
+| Social | D5 | **10%** | SDT (Deci & Ryan) · coachability · team role |
+
+**OVR-kaava:** `(D1×0.40)+(D2×0.25)+(D3×0.15)+(D4×0.10)+(D5×0.10)`
+
+**RAE-korjaus:** Q1 ×0.92 / Q2 ×0.96 / Q3 ×1.02 / Q4 ×1.06
+
+**DVI (Development Velocity Index):** Kuka kehittyy nopeammin kuin normit ennustavat.
+DVI > +0.15 = X-Factor signaali / DVI < 0 korkean raw-scoren kanssa = Hidden Gem at risk.
+
+**PHV-vaiheet ja automaattikorjaus:**
+- Pre-PHV: load builds, coordination window
+- PHV peak: D1-paino laskee 10 pistettä automaattisesti, FLEI-kynnys madaltuu
+- Post-PHV: load voi kasvaa, positional specialisation
+
+---
+
+## Brändi-identiteetti (lukittu)
+
+```
+--carbon:  #1C1C1A   (pääväri tumma)
+--bone:    #F2EFE6   (pääväri vaalea)
+--teal:    #1A7A5E   (aksentti, CTA)
+--slate:   #8C8B83   (sekundäärinen teksti)
+```
+
+- **Display-fontti:** Cormorant Garamond (otsikot, numerot)
+- **Body-fontti:** DM Sans (UI, leipäteksti)
+- **Logo:** kehä-SVG — 3 kehää + teal-piste + pystyviiva
+- **Non-Negotiable:** Barlow Condensed poistettu kaikista tiedostoista
 
 ---
 
@@ -316,10 +382,6 @@ Mikään muu järjestelmä ei tee tätä.
 ```
 Kaikki testit aikapohjaisia (sekunteja) paitsi pituuspotku (metrejä):
   Ponnauttelu:    aika + sarja ikäluokittain
-    P13-11/T13-12: vuorojaloin 4× + vuororeisin 4× + päällä 4× — 3×
-    P10/T11:       vuorojaloin 4× + vuororeisin 4× + päällä 1× — 3×
-    P9/T10-9:      vuorojaloin 4× + vuororeisin 2× — 2×
-    P/T8:          vuorojaloin 10×
   Syöttäminen:    aika aloituksesta viimeiseen osumaan (max 60s)
   Pujottelu:      aika lähdöstä maalilinjalle (max 60s)
   Kuljetus-laukaus: loppuaika tarkkuusvähennysten jälkeen (max 40s)
@@ -349,12 +411,10 @@ mutta pelaaja käyttää yksin ilman seuraa.
 Solo-pelaajat tallennetaan `players/{id}` (ei seurahierarkiassa).
 Linkitetään seuraan `seuraId`-kentällä myöhemmin.
 
-### Rekisteröitymisvirta (3 askelta)
+### Rekisteröitymisvirta
 ```
 Splash → Nimi → Syntymäaika → FIFA-kortin paljastuminen → Profiili
 ```
-Minimaalinen: vain nimi + syntymäaika kirjautumisessa.
-Kaikki muu täytetään profiilisivulle omaan tahtiin.
 
 ### FIFA-kortti
 ```
@@ -362,35 +422,8 @@ Korttityypit:
   ⭐   Starter  — sininen (lähtötaso)
   ⭐⭐  Sharp   — kultainen (kehittyvä)
   ⭐⭐⭐ Elite  — platina/hopea (huipputaso)
-OVR lasketaan iästä + profiilidata tarkentaa
 Pelipaikka-ikoni: ⚽ HYÖ / ⚡ KHK / ⚙️ KK / 🛡️ PUO / 🧤 MV
 PlayerCode: TMP-XXXX — jaettavissa kavereille
-```
-
-### Profiilisivu — 4 osiota
-```
-1. Pelaajaprofiili:       pelipaikka, kokemus, treenikerrat, ketjuvalinta
-2. Tekniikkakilpailu:     kokonaistulos + lajit erikseen + merkki + historia
-3. Fyysinen testi:        valinnainen (pituushyppy, 5-loikka, naruhypyt, sprintti)
-4. Kotimittarit:          ponnautusluku, seinäsyöttöputki, driblausaika — 3kk seuranta
-5. Seuran testitulokset:  automaattinen kun seura käyttää TalentMasteria (FLEI + ketjut)
-```
-
-### Firestore-rakenne (Solo)
-```
-players/{playerId}
-  nimi, synVuosi, synKuukausi, email
-  pp, kokemus, treeni, ketju
-  tkkYht, tkkMerkki, tkkVuosi
-  kotiPonn, kotiSeina, kotiDrip, kotiPvm
-  playerCode: 'TMP-XXXX'
-  seuraId: null → täytetään kun seura liittyy
-
-players/{id}/tkk_historia/{vuosi}
-  yht, merkki, lajit: {ponn, syotto, pujottelu, kl, potku}
-
-players/{id}/kotimittarit/{pvm}
-  ponn, seina, drip
 ```
 
 ---
@@ -421,7 +454,7 @@ fysioterapeutti | testivastaava | pelaaja | vanhempi
 
 ---
 
-## Kriittiset tunnetut ratkaisut (26 kpl)
+## Kriittiset tunnetut ratkaisut (33 kpl)
 
 1. Firestore Rules: `allow create` JA `allow update` pakollinen
 2. Syntymäpäivä: `Date.UTC(y,m-1,d)` — EI `new Date(string)`
@@ -449,33 +482,46 @@ fysioterapeutti | testivastaava | pelaaja | vanhempi
 24. `_avaaValmentajaPopup`: GLOBAALI — EI nested
 25. nimiToUid-kartta: UID-mismatch mentoroinnit ↔ kayttajat
 26. joukkueNimi: tallenna display name, ei ID (bugi auki)
+27. Chart.js: AINA `Chart.getChart()` + destroy + redraw, EI `_init` guard
+28. Chart.js `display:none`-näyttö: `setTimeout(50–100ms)` ennen init-kutsua
+29. Syntymäpäivä: `Date.UTC(y,m-1,d)` — EI `new Date(string)` (timezone-bugi)
+30. Näkymien vaihto: `style.display` EI `classList` (ei flicker)
+31. `openpyxl` pakollinen Excel-tyyleille — SheetJS ei tue server-side tyylejä
+32. Suostumuslomake: kutsuflow=`.update()`, uusi pelaaja=`.set()` — eri polut
+33. Testaus AINA GitHub Pages URL:lla — `file://` estää Firebase Auth kokonaan
 
 ---
 
-## Avoimet bugit (2026-04-11)
+## Avoimet bugit (2026-04-13)
 
 | Bugi | Tiedosto | Prioriteetti |
 |---|---|---|
 | Pelaaja-sivu lagaa | TalentMaster_Pelaaja_v1.html | 🔴 |
 | Fiilinki-kysely väärä U13-vaiheessa | TalentMaster_Pelaaja_v1.html | 🟡 |
 | joukkueNimi tallentuu ID:nä | Rekisterointi_Suostumus.html | 🟡 |
+| SPF/DKIM puuttuu — roskapostiin | Cloud Functions / Gmail | 🔴 |
+| VP-dashboard delta/trendit puuttuu | TalentMaster_VP_v18.html | 🟡 |
 
 ---
 
 ## Sprint-suunnitelma
 
-### Sprint 4 (käynnissä — 2026-04-11)
+### Sprint 4 (valmis — 2026-04-13)
 - [x] VP v18: Valmentajat-tabi yhdistetty
 - [x] VP v18: Harjoitteluseuranta + suodatin
 - [x] VP v18: Valmentajakortit grid
 - [x] SJK pilottiin (U15P + U14/15T + talentit)
 - [x] Excel-tuontipohja (testit + kartoitus + tekniikka)
-- [x] Solo-versio: onboarding + kortti + profiilisivu
+- [x] Solo-versio: onboarding + kortti + profiilisivu (GitHubissa)
 - [x] TalentMaster Player Card™ — Starter/Sharp/Elite -variantit
+- [x] tm_pitch_en.html — englanninkielinen pitchdeck (5D Framework)
+- [x] TalentMaster_Palloliitto_2026.pptx — 9-dia PowerPoint
+- [x] TalentMaster_UTJ_v2.html — UTJ-dashboard v2
+- [x] tm_brand.html — brändikirja
+- [x] Palloliiton palaveri fyysisen suorituskyvyn johtajan kanssa (Apr 13)
 - [ ] Pelaaja-sivu lag-bugi
 - [ ] SJK VP-tunnukset + joukkueet
 - [ ] Excel → Firestore tuontityökalu
-- [ ] Palloliiton laukausstatistiikka-linkki kalenteri-tapahtumaan
 
 ### Sprint 5
 - [ ] Pelihavainto Taso 1 (TIPS-lomake Master-näkymässä)
@@ -493,18 +539,18 @@ fysioterapeutti | testivastaava | pelaaja | vanhempi
 
 ---
 
-## Palloliiton yhteistyö (2026-04-09)
+## Palloliiton yhteistyö
 
 **Palaveri Head of Talent:** 2026-04-09
+**Palaveri Fyysisen suorituskyvyn johtaja:** 2026-04-13
 
 **Positioning:**
-- Myeway = passiivinen dashboard (kerää dataa, vaikea käyttää,
-  ei johda toimenpiteisiin)
-- TalentMaster = aktiivinen kehitystyökalu (ajaa toimintaa)
+- Myeway = passiivinen dashboard (kerää dataa, ei johda toimenpiteisiin)
+- TalentMaster = aktiivinen kehitystyökalu (ajaa toimintaa päivittäin)
 
 **TM:n uniikki lisäarvo:**
 - Yhdistää pelisuorituksen biologiseen ikään + FLEI + IDP
-- Mikään olemassa oleva järjestelmä ei tee tätä
+- 5D Framework + RAE-korjaus + DVI — mikään muu järjestelmä ei tee tätä
 - Laukauskarttaa ei rakenneta — linkki Palloliiton BI:hin riittää
 
-**Pilotti:** 8 seuraa, SJK laajentaa tyttöihin
+**Pilotti:** 9 seuraa (+ EPS tulossa), SJK laajentaa tyttöihin
