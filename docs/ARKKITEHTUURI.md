@@ -202,6 +202,7 @@ players/{playerId}       ← Solo-pelaajat (ei seurahierarkiassa)
 | `tm_filosofia_kirjasto.html` | ✅ | Filosofiakirjasto |
 | `eps_unified_v2.html` | ✅ | EPS-dashboard, 7 välilehteä |
 | `hammarby_talentmaster_analyysi_1.html` | ✅ | Strateginen analyysi |
+| `hammarby_simulation.html` | ✅ | Interaktiivinen simulaatio — 5 pilaria Hammarby → TalentMaster |
 | `talentmaster_player_demo_1.html` | ✅ | 3 perspektiiviä: Pelaaja/Valmentaja/SD |
 
 ---
@@ -525,6 +526,10 @@ fysioterapeutti | testivastaava | pelaaja | vanhempi
 
 ### Sprint 5
 - [ ] Pelihavainto Taso 1 (TIPS-lomake Master-näkymässä)
+- [ ] Training ADAR — `tyyppi: 'harjoitus'|'ottelu'` (Hammarby-oppi)
+- [ ] Player Care -loki — "Käyty — pvm" + 21pv hälytys (Hammarby-oppi)
+- [ ] Live Transition View — UTJ_v2 + readiness score (Hammarby-oppi)
+- [ ] Weekly training focus — pelaaja/vanhempi-näkymä, IDP-kytketty (Hammarby-oppi)
 - [ ] Pelihavainto Taso 2 (pelaajan itsearviointi)
 - [ ] Suostumuslomakkeet SJK:lle (kun data OK)
 - [ ] Tyttöjen PHV-kaava (Mirwald eri parametrit)
@@ -533,6 +538,8 @@ fysioterapeutti | testivastaava | pelaaja | vanhempi
 
 ### Sprint 6-8
 - [ ] Pelihavainto Taso 3 (IDP-kytkös + FLEI-korrelaatio)
+- [ ] Result KPI:t — "montako siirtyi ylemmälle tasolle" (Hammarby-oppi)
+- [ ] Phase-based KPI library — Foundation/Learning/Developing/Transition (Hammarby-oppi)
 - [ ] AI Behavioural Science -agentti
 - [ ] Milestone-kortit Firestoresta
 - [ ] Solo-versio: Stripe-maksut (4,99€/kk)
