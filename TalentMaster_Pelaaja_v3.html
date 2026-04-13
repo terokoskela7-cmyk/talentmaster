@@ -302,7 +302,7 @@ function _naytaMalliBadge(malli, data) {
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html{scroll-behavior:smooth;}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden;overflow-y:auto;-webkit-font-smoothing:antialiased;}
 
 /* ── LOGIN ── */
 #sLogin{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--bg);}
@@ -321,7 +321,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .login-error{font-size:12px;color:var(--red);margin-top:8px;text-align:center;min-height:16px;}
 
 /* ── HEADER ── */
-#sDash{display:none;}
+#sDash{display:none;min-height:100vh;padding-bottom:80px;}
 .header{background:var(--bg2);padding:0 16px;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);}
 .header-inner{max-width:600px;margin:0 auto;display:flex;align-items:center;gap:10px;height:48px;}
 .logo-badge{display:flex;align-items:center;justify-content:center;width:24px;height:24px;flex-shrink:0;}
@@ -338,7 +338,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .tab-btn.active{color:var(--text);border-bottom-color:var(--teal);font-weight:500;}
 
 /* ── CONTENT ── */
-.view{display:none;}
+.view{display:none;}.view.active{display:block;min-height:calc(100vh - 160px);}
 .view.active{display:block;}
 .inner{max-width:600px;margin:0 auto;padding:16px;}
 
@@ -863,7 +863,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .login-error{font-size:12px;color:var(--red);margin-top:8px;text-align:center;min-height:16px;}
 
 /* ── HEADER ── */
-#sDash{display:none;}
+#sDash{display:none;min-height:100vh;padding-bottom:80px;}
 .header{background:var(--bg2);padding:0 16px;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);}
 .header-inner{max-width:600px;margin:0 auto;display:flex;align-items:center;gap:10px;height:50px;}
 .logo-badge{display:flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0;}
@@ -1875,6 +1875,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
   100% { opacity: 0; }
 }
 
+
+/* ── SCROLL-BUGI KORJAUS ── */
+html, body { height: auto !important; min-height: 100vh; }
+body { overflow-y: auto !important; }
+#sDash { height: auto !important; min-height: 100vh; overflow: visible !important; }
+.view.active { display: block !important; }
+/* Varmista että .inner ei leikkaa sisältöä */
+.inner { overflow: visible !important; }
+
+.view.active{display:block;min-height:calc(100vh - 160px);}
 </style>
 </head>
 <body>
@@ -3016,6 +3026,9 @@ async function _tarkistaUrlParam() {
     _pelaaja = { id: snap.id, seuraId, ...data };
     if (data.kortti_lunastettu) _pelaaja._kortti_lunastettu = data.kortti_lunastettu;
     _uloskirjautunut = false;  // Kirjautuminen onnistui
+    // URL-param flowssa: tallenna anon UID pelaajaId:n mukaan
+    // Tämä mahdollistaa kirjaukset ilman sähköpostiautentikointia
+    _pelaaja._anonUid = _auth.currentUser?.uid || null;
 
     // Tallenna sessio → seuraavat vierailut toimivat ilman URL-parametria
     try {
@@ -3263,7 +3276,9 @@ async function _alustaUI() {
   // Super admin (super_admin_view) ohittaa onboardingin
   if (p && p.id !== 'super_admin_view') {
     const _obKey = typeof _OB_AVAIN !== 'undefined' ? _OB_AVAIN : 'tm_onboarding_tehty';
-    if (!localStorage.getItem(_obKey)) {
+    // URL-param flow (pelaajaId URL:ssa) ohittaa onboardingin — linkki on henkilökohtainen
+    const _hasUrlParam = new URLSearchParams(location.search).get('pelaajaId');
+    if (!_hasUrlParam && !localStorage.getItem(_obKey)) {
       nayta('sOnboarding');
       if (typeof _obPaivitaVaihe === 'function') _obPaivitaVaihe(0);
       return;
@@ -3401,6 +3416,11 @@ function _renderTanaaHarjoiteKortti() {
     harjoite = ohj && ohj[0];
   }
 
+  // Fallback: jos haeTanaaHarjoite ei löydy, käytä generoimTehtavat
+  if (!harjoite && typeof generoimTehtavat === 'function' && _pelaaja) {
+    const tasks = generoimTehtavat(_pelaaja);
+    harjoite = tasks && tasks.length > 0 ? tasks[0] : null;
+  }
   if (harjoite) {
     if (nimEl)  nimEl.textContent  = harjoite.nimi || harjoite.name || 'Pallokosketus';
     if (metaEl) {
@@ -3787,6 +3807,10 @@ async function _tallennaKirjaus(tehtavaId, tyyppi, xp, kaikki) {
 
   const pvm = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
   const pelaajaDok = _db.collection('seurat').doc(sid).collection('pelaajat').doc(pid);
+    // Varmista auth ennen kirjoitusta (URL-param flow käyttää anon auth)
+    if (!_auth.currentUser) {
+      try { await _auth.signInAnonymously(); } catch(authE) {}
+    }
   const kirjausDok = pelaajaDok.collection('kirjaukset').doc(pvm);
 
   try {
@@ -3913,8 +3937,14 @@ async function renderHavainto() {
       <div class="havainto-pvm">${pvm}</div>
     </div>`;
   } catch(e) {
-    console.warn('[TM] Havainto-haku epäonnistui:', e.message);
-    el.innerHTML = '';
+    // Permission denied = pelaajalla ei vielä omaa pelaajaUID:ta Firestoressä
+    // URL-param flowssa anon-auth UID ≠ Firestore-UID → graceful fallback
+    if (e.message && e.message.includes('permission')) {
+      el.innerHTML = ''; // Tyhjä on ok — ei virheviestiä pelaajalle
+    } else {
+      console.warn('[TM] Havainto-haku:', e.message);
+      el.innerHTML = '';
+    }
   }
 }
 
@@ -4803,6 +4833,10 @@ async function lataaOmatoimiOhjelma() {
     }
     return null;
   } catch(e) {
+    // Permission denied URL-param flowssa → generoi ohjelma lokaalisti
+    if (e.message && e.message.includes('permission')) {
+      return null; // renderOhjelma generoi tällöin lokaalisti
+    }
     console.warn('[TM] Ohjelma lataus:', e.message);
     return null;
   }
@@ -4828,7 +4862,7 @@ async function tallennaOmatoimiOhjelma(ohjelmaData) {
     _ohjelmaTallennettu = true;
     console.log('[TM] Omatoimiohjelma tallennettu Firestoreen');
   } catch(e) {
-    console.warn('[TM] Ohjelma tallennus:', e.message);
+    if (!(e.message||'').includes('permission')) console.warn('[TM] Ohjelma tallennus:', e.message);
   }
 }
 
