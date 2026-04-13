@@ -252,6 +252,44 @@ Firestore: `flei_ketjut: {SBL, SFL, LL, DIAG, DFL}` (isolla)
 
 ---
 
+---
+
+## HAMMARBY × TALENTMASTER — SIMULAATIO (2026-04-13)
+
+### hammarby_simulation.html — GitHubissa
+Interaktiivinen demonstraatiosivu: 5 pilaria rinnakkain, Hammarby vs. TalentMaster.
+Käytetään sisäiseen valmisteluun ennen Magnus Bodsgård -yhteydenottoa.
+
+**Viisi pilaria:**
+| Pilari | Hammarby | TalentMaster | Tila |
+|---|---|---|---|
+| Style of Play | 41-sivuinen PDF, manuaalinen | DNA Builder + 5 sakara | ✅ Rakennettu |
+| Role Profile | Positiokohtaiset KPI:t, intuitio | 5D + OVR + RAE-korjaus | ✅ Rakennettu |
+| IDP 3 tasoa | Kokous / harjoitukset / Player Care | IDP Card + TIPS + Player Care | 2/3 ✅ |
+| Transition | Kuukausittainen Excel, AHA-palaverit | Live Transition View | 🔨 Sprint 5 |
+| Team Training | Harjoitussuunnitelma + havainnointi | Training ADAR + DVI-trendi | 🔨 Sprint 5 |
+
+### Hammarbyn analyysi → omat kehitysprioriteetit
+
+**Sprint 5 — Hammarbyn gap:eista johdetut lisäykset:**
+1. **Training ADAR** — `tyyppi: 'harjoitus'|'ottelu'` → harjoitushavainto käyttöön
+2. **Player Care -loki** — "Käyty — pvm" valmentajan näkymässä, 21pv hälytys
+3. **Live Transition View** — UTJ_v2 + readiness score (FLEI + DVI + DNA-vastaavuus)
+4. **Weekly focus** — "Tämän viikon fokus" pelaaja/vanhempi-näkymässä, kytketty IDP:hen
+
+**Sprint 6 — Strategiset lisäykset:**
+5. **Result KPI:t** — "montako siirtyi ylemmälle tasolle / sai sopimuksen"
+6. **Phase-based KPI library** — Foundation/Learning/Developing/Transition (Hammarbyn faasimalli)
+
+### Hammarbyn lähestymisstratategia
+- **Ei myyntipitch** — tunnistava kysymys: "Haluaisimme oppia"
+- **Demo heidän systeemistään** — "Miten teidän kuukausittainen siirtymädokumentti toimii?"
+- **Pilotti yhdelle joukkueelle** — yksi kausi, selkeä mittari
+- **Kontakti:** Magnus Bodsgård · magnus.bodsgard@hammarbyungdom.se · +46 702 095 474
+- **Kriittinen havainto:** Hammarby ei ole asiakas — he ovat referenssi
+
+---
+
 ## Tekniset vakiot
 - Firebase: `talentmaster-pilot` / `europe-west1`
 - Super Admin: `talentmasterid@gmail.com` / `dqUzvJA61Wb9fgj5UiK0riSA4NI2`
