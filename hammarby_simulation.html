@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hammarby × TalentMaster — System Simulation</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --carbon:#1C1C1A; --bone:#F2EFE6; --teal:#1A7A5E; --slate:#8C8B83;
+  --bone2:#E8E5DC; --bone3:#D4D1C8; --carbon2:#2A2A28; --carbon3:#363634;
+  --ham:#006633; --ham2:rgba(0,102,51,.12); --ham3:rgba(0,102,51,.06);
+  --tm-teal:rgba(26,122,94,.12); --amber:#C8882A; --red:#B03A2E;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bone);color:var(--carbon);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.6;overflow-x:hidden;}
+
+/* ── REVEAL ── */
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease;}
+.reveal.visible{opacity:1;transform:none;}
+.delay-1{transition-delay:.1s;} .delay-2{transition-delay:.2s;}
+.delay-3{transition-delay:.3s;} .delay-4{transition-delay:.4s;}
+.delay-5{transition-delay:.5s;}
+
+/* ── HERO ── */
+.hero{background:var(--carbon);padding:80px 64px 64px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;right:-120px;top:-120px;width:480px;height:480px;border-radius:50%;border:1px solid rgba(242,239,230,.04);}
+.hero::after{content:'';position:absolute;right:-60px;top:-60px;width:320px;height:320px;border-radius:50%;border:1px solid rgba(242,239,230,.06);}
+.hero-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr auto;gap:48px;align-items:end;}
+.hero-eyebrow{font-size:9px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--teal);margin-bottom:16px;}
+.hero-title{font-family:'Cormorant Garamond',serif;font-size:clamp(40px,5vw,72px);font-weight:300;line-height:.95;letter-spacing:-2.5px;color:var(--bone);margin-bottom:16px;}
+.hero-title .ham-color{color:var(--ham);font-style:italic;}
+.hero-title .x{color:rgba(242,239,230,.2);}
+.hero-sub{font-size:14px;color:rgba(242,239,230,.45);max-width:520px;line-height:1.75;}
+.hero-meta{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+.hero-badge{padding:8px 16px;border-radius:6px;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;text-align:center;}
+.hero-badge.ham{background:rgba(0,102,51,.2);border:1px solid rgba(0,102,51,.3);color:#5CB87A;}
+.hero-badge.tm{background:rgba(26,122,94,.12);border:1px solid rgba(26,122,94,.25);color:var(--teal);}
+.hero-note{font-size:10px;color:rgba(242,239,230,.2);text-align:right;letter-spacing:.3px;}
+
+/* ── SECTION ── */
+section{padding:72px 64px;}
+.inner{max-width:1200px;margin:0 auto;}
+.section-eyebrow{font-size:9px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--teal);margin-bottom:12px;}
+.section-title{font-family:'Cormorant Garamond',serif;font-size:clamp(28px,3.5vw,48px);font-weight:400;letter-spacing:-1.5px;line-height:.95;margin-bottom:10px;}
+.section-title em{font-style:italic;color:var(--slate);}
+.section-lead{font-size:14px;color:var(--slate);max-width:560px;line-height:1.75;margin-bottom:48px;}
+
+/* ── PILLAR GRID ── */
+.pillars{display:flex;flex-direction:column;gap:3px;}
+.pillar{display:grid;grid-template-columns:1fr 60px 1fr;gap:0;cursor:pointer;border-radius:0;}
+.pillar:first-child{border-radius:12px 12px 0 0;}
+.pillar:last-child{border-radius:0 0 12px 12px;}
+.pillar.active .pillar-ham{background:var(--ham);}
+.pillar.active .pillar-tm{background:var(--teal);}
+.pillar.active .pillar-bridge{background:var(--carbon);}
+
+.pillar-ham{background:var(--ham3);border:1px solid rgba(0,102,51,.12);padding:22px 26px;transition:background .25s,border-color .25s;}
+.pillar-ham:hover,.pillar.active .pillar-ham{border-color:rgba(0,102,51,.35);}
+.pillar-tm{background:var(--tm-teal);border:1px solid rgba(26,122,94,.12);padding:22px 26px;transition:background .25s,border-color .25s;}
+.pillar-tm:hover,.pillar.active .pillar-tm{border-color:rgba(26,122,94,.35);}
+
+.pillar-bridge{background:var(--carbon2);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;padding:8px 4px;transition:background .25s;}
+.bridge-arrow{font-size:18px;color:rgba(242,239,230,.15);}
+.pillar.active .bridge-arrow{color:var(--teal);}
+.bridge-num{font-family:'Cormorant Garamond',serif;font-size:11px;font-weight:400;color:rgba(242,239,230,.2);}
+.pillar.active .bridge-num{color:rgba(242,239,230,.5);}
+
+.pillar-eyebrow{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;opacity:.55;}
+.pillar-ham .pillar-eyebrow{color:var(--ham);}
+.pillar-tm .pillar-eyebrow{color:var(--teal);}
+.pillar.active .pillar-ham .pillar-eyebrow{color:#5CB87A;opacity:1;}
+.pillar.active .pillar-tm .pillar-eyebrow{color:#7ECFB3;opacity:1;}
+
+.pillar-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:500;letter-spacing:-.3px;margin-bottom:6px;}
+.pillar-ham .pillar-title{color:var(--carbon);}
+.pillar-tm .pillar-title{color:var(--carbon);}
+.pillar.active .pillar-ham .pillar-title{color:#FFFFFF;}
+.pillar.active .pillar-tm .pillar-title{color:#FFFFFF;}
+
+.pillar-desc{font-size:12px;line-height:1.65;}
+.pillar-ham .pillar-desc{color:var(--slate);}
+.pillar-tm .pillar-desc{color:var(--slate);}
+.pillar.active .pillar-ham .pillar-desc{color:rgba(255,255,255,.65);}
+.pillar.active .pillar-tm .pillar-desc{color:rgba(255,255,255,.65);}
+
+.pillar-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px;}
+.tag{font-size:9px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;padding:2px 8px;border-radius:4px;}
+.tag-ham{background:rgba(0,102,51,.1);color:var(--ham);border:1px solid rgba(0,102,51,.15);}
+.tag-tm{background:rgba(26,122,94,.1);color:var(--teal);border:1px solid rgba(26,122,94,.15);}
+.tag-build{background:rgba(200,136,42,.1);color:var(--amber);border:1px solid rgba(200,136,42,.2);}
+.tag-miss{background:rgba(176,58,46,.08);color:var(--red);border:1px solid rgba(176,58,46,.15);}
+.pillar.active .tag-ham{background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.2);}
+.pillar.active .tag-tm{background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.2);}
+.pillar.active .tag-build{background:rgba(200,136,42,.25);color:#E8B97A;border-color:rgba(200,136,42,.4);}
+.pillar.active .tag-miss{background:rgba(200,136,42,.25);color:#E8B97A;border-color:rgba(200,136,42,.4);}
+
+/* ── DETAIL PANEL ── */
+.detail-panel{display:none;background:var(--carbon);border-radius:12px;margin-top:3px;overflow:hidden;}
+.detail-panel.open{display:block;}
+.detail-inner{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+.detail-ham{background:rgba(0,102,51,.08);border-right:1px solid rgba(242,239,230,.05);padding:32px;}
+.detail-tm{padding:32px;}
+.detail-label{font-size:8px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:16px;}
+.detail-ham .detail-label{color:#5CB87A;}
+.detail-tm .detail-label{color:var(--teal);}
+.detail-quote{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;font-weight:300;color:rgba(242,239,230,.8);line-height:1.5;margin-bottom:16px;border-left:2px solid var(--ham);padding-left:14px;}
+.detail-tm .detail-quote{border-left-color:var(--teal);}
+.detail-items{display:flex;flex-direction:column;gap:8px;}
+.detail-item{display:flex;gap:10px;font-size:12px;color:rgba(242,239,230,.55);line-height:1.5;}
+.detail-item-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.detail-item-dot.ham{background:var(--ham);}
+.detail-item-dot.tm{background:var(--teal);}
+.detail-item-dot.build{background:var(--amber);}
+.detail-stat{display:flex;align-items:baseline;gap:8px;margin-top:16px;padding:12px 14px;background:rgba(242,239,230,.04);border-radius:8px;}
+.detail-stat-n{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:300;color:var(--teal);letter-spacing:-1px;line-height:1;}
+.detail-stat-label{font-size:10px;color:rgba(242,239,230,.3);letter-spacing:.5px;}
+
+/* Mock UI elements */
+.mock-ui{background:rgba(242,239,230,.04);border:1px solid rgba(242,239,230,.07);border-radius:10px;padding:16px;margin-top:16px;}
+.mock-header{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(242,239,230,.25);margin-bottom:12px;}
+.mock-spider{width:100%;max-width:200px;display:block;margin:0 auto 12px;}
+.mock-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.mock-bar-label{font-size:10px;color:rgba(242,239,230,.35);width:80px;flex-shrink:0;}
+.mock-bar-track{flex:1;height:4px;background:rgba(242,239,230,.06);border-radius:2px;overflow:hidden;}
+.mock-bar-fill{height:4px;border-radius:2px;}
+.mock-bar-val{font-size:10px;font-weight:600;width:24px;text-align:right;}
+.mock-player-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(242,239,230,.05);}
+.mock-player-row:last-child{border:none;padding-bottom:0;}
+.mock-player-name{font-size:11px;color:rgba(242,239,230,.65);flex:1;}
+.mock-player-badge{font-size:9px;font-weight:600;padding:2px 7px;border-radius:6px;}
+.mock-dvi{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:400;}
+
+/* ── BUILD PLAN ── */
+.build-section{background:var(--carbon2);}
+.build-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:40px;}
+.build-card{border-radius:10px;padding:22px;position:relative;overflow:hidden;}
+.build-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.build-critical{background:rgba(176,58,46,.08);border:1px solid rgba(176,58,46,.15);}
+.build-critical::before{background:var(--red);}
+.build-important{background:rgba(200,136,42,.07);border:1px solid rgba(200,136,42,.15);}
+.build-important::before{background:var(--amber);}
+.build-strategic{background:rgba(26,122,94,.07);border:1px solid rgba(26,122,94,.15);}
+.build-strategic::before{background:var(--teal);}
+.build-priority{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.build-critical .build-priority{color:var(--red);}
+.build-important .build-priority{color:var(--amber);}
+.build-strategic .build-priority{color:var(--teal);}
+.build-title{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:500;letter-spacing:-.2px;margin-bottom:8px;color:var(--bone);}
+.build-source{font-size:10px;color:rgba(242,239,230,.3);margin-bottom:10px;font-style:italic;}
+.build-items{display:flex;flex-direction:column;gap:5px;}
+.build-item{font-size:11px;color:rgba(242,239,230,.5);display:flex;gap:7px;line-height:1.5;}
+.build-item::before{content:'→';color:rgba(242,239,230,.2);flex-shrink:0;}
+.build-sprint{margin-top:12px;display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:3px 10px;border-radius:6px;}
+.build-critical .build-sprint{background:rgba(176,58,46,.15);color:#E07070;}
+.build-important .build-sprint{background:rgba(200,136,42,.15);color:#E8B97A;}
+.build-strategic .build-sprint{background:rgba(26,122,94,.12);color:var(--teal);}
+
+/* ── QUOTE SECTION ── */
+.quote-section{background:var(--ham);padding:64px;}
+.quote-inner{max-width:800px;margin:0 auto;text-align:center;}
+.big-quote{font-family:'Cormorant Garamond',serif;font-size:clamp(22px,3.5vw,38px);font-weight:300;font-style:italic;color:rgba(255,255,255,.92);line-height:1.35;margin-bottom:16px;}
+.quote-source{font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);}
+.quote-tm-response{margin-top:24px;padding:16px 24px;background:rgba(0,0,0,.2);border-radius:10px;border-left:3px solid var(--teal);}
+.tm-response-label{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--teal);margin-bottom:6px;}
+.tm-response-text{font-size:13px;color:rgba(255,255,255,.65);line-height:1.65;}
+
+/* ── OUTREACH ── */
+.outreach-section{background:var(--carbon);}
+.outreach-box{background:rgba(0,102,51,.07);border:1px solid rgba(0,102,51,.18);border-radius:14px;padding:28px 32px;margin-top:40px;}
+.outreach-label{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#5CB87A;margin-bottom:14px;}
+.outreach-text{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:300;color:rgba(242,239,230,.75);line-height:1.7;font-style:italic;}
+.outreach-meta{display:flex;align-items:center;gap:16px;margin-top:16px;padding-top:16px;border-top:1px solid rgba(242,239,230,.06);}
+.outreach-person{font-size:12px;font-weight:500;color:var(--bone);}
+.outreach-role{font-size:11px;color:var(--slate);}
+.outreach-contact{font-size:11px;color:rgba(242,239,230,.3);}
+.outreach-principle{margin-top:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.principle{background:rgba(242,239,230,.03);border:1px solid rgba(242,239,230,.06);border-radius:8px;padding:12px 14px;}
+.principle-num{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:var(--teal);margin-bottom:4px;line-height:1;}
+.principle-text{font-size:11px;color:rgba(242,239,230,.4);line-height:1.5;}
+
+/* ── FOOTER ── */
+footer{background:var(--carbon);border-top:1px solid rgba(242,239,230,.05);padding:32px 64px;display:flex;justify-content:space-between;align-items:center;}
+.footer-brand{font-family:'Cormorant Garamond',serif;font-size:14px;color:rgba(242,239,230,.25);}
+.footer-note{font-size:10px;color:rgba(242,239,230,.15);letter-spacing:.5px;}
+
+/* ── COLUMN HEADERS ── */
+.col-headers{display:grid;grid-template-columns:1fr 60px 1fr;gap:0;margin-bottom:3px;}
+.col-header{padding:10px 26px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+.col-header.ham{color:#5CB87A;background:rgba(0,102,51,.08);border-radius:10px 0 0 0;}
+.col-header.bridge{background:var(--carbon3);display:flex;align-items:center;justify-content:center;}
+.col-header.tm{color:var(--teal);background:rgba(26,122,94,.07);border-radius:0 10px 0 0;text-align:right;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .hero,.hero-inner{grid-template-columns:1fr;}
+  section{padding:48px 24px;}
+  .hero{padding:60px 24px 48px;}
+  .detail-inner,.build-grid{grid-template-columns:1fr;}
+  .col-headers{display:none;}
+  .pillar{grid-template-columns:1fr;}
+  .pillar-bridge{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner reveal">
+    <div>
+      <div class="hero-eyebrow">Strategic system simulation · Confidential</div>
+      <h1 class="hero-title">
+        <span class="ham-color">Hammarby</span> <span class="x">×</span><br>
+        TalentMaster™
+      </h1>
+      <p class="hero-sub">What Hammarby has built manually in seven years — and what it looks like when it runs on TalentMaster. Five pillars. One system. Zero extra headcount.</p>
+    </div>
+    <div class="hero-meta reveal delay-2">
+      <div class="hero-badge ham">Hammarby IF</div>
+      <div class="hero-badge tm">TalentMaster™</div>
+      <div style="height:8px;"></div>
+      <div class="hero-note">0.89% → 20.6% homegrown</div>
+      <div class="hero-note">210+ MSEK in transfers</div>
+      <div class="hero-note">5 full-time staff</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- SIMULATION -->
+<section>
+  <div class="inner">
+    <div class="section-eyebrow reveal">System mapping</div>
+    <h2 class="section-title reveal delay-1">Five pillars.<br><em>One platform.</em></h2>
+    <p class="section-lead reveal delay-2">Click each pillar to see how Hammarby's system maps to TalentMaster — what exists today, what is being built, and what it looks like in practice.</p>
+
+    <div class="col-headers reveal delay-3">
+      <div class="col-header ham">Hammarby IF — what they do</div>
+      <div class="col-header bridge"></div>
+      <div class="col-header tm">TalentMaster — how it runs</div>
+    </div>
+
+    <div class="pillars reveal delay-3">
+
+      <!-- PILLAR 1: Style of Play → DNA -->
+      <div class="pillar" data-pillar="1" onclick="togglePillar(1)">
+        <div class="pillar-ham">
+          <div class="pillar-eyebrow">Hammarby Pillar 1</div>
+          <div class="pillar-title">Style of Play</div>
+          <div class="pillar-desc">A shared playing philosophy for the entire club. Principles — not formulas. Every coach implements it their own way. Used in recruitment, IDP and training design.</div>
+          <div class="pillar-tags"><span class="tag tag-ham">Club philosophy</span><span class="tag tag-ham">Coach autonomy</span><span class="tag tag-ham">Manual</span></div>
+        </div>
+        <div class="pillar-bridge"><div class="bridge-arrow">→</div><div class="bridge-num">01</div></div>
+        <div class="pillar-tm">
+          <div class="pillar-eyebrow">TalentMaster equivalent</div>
+          <div class="pillar-title">DNA Builder + Configuration</div>
+          <div class="pillar-desc">Five pillars: Playing philosophy · Technical identity · Psychological profile · Physical style · Community. Built once per season by the Sporting Director. Activates across all team and player views automatically.</div>
+          <div class="pillar-tags"><span class="tag tag-tm">DNA Builder</span><span class="tag tag-tm">5 pillars</span><span class="tag tag-tm">✅ Built</span></div>
+        </div>
+      </div>
+      <div class="detail-panel" id="detail-1">
+        <div class="detail-inner">
+          <div class="detail-ham">
+            <div class="detail-label">Hammarby — how it works today</div>
+            <div class="detail-quote">"Each coach interprets the Style of Play in their own way — we give principles, not formulas."</div>
+            <div class="detail-items">
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>Philosophy document: 41-page PDF with routines and principles</div></div>
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>Updated seasonally in staff meetings</div></div>
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>Coach leaves → philosophy stays in document, not in data</div></div>
+              <div class="detail-item"><div class="detail-item-dot build"></div><div>Gap: No measurement of whether coaches actually implement it</div></div>
+            </div>
+          </div>
+          <div class="detail-tm">
+            <div class="detail-label">TalentMaster — what it looks like</div>
+            <div class="mock-ui">
+              <div class="mock-header">KPV Juniors — Club DNA · Spring 2026</div>
+              <svg class="mock-spider" viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="100,25 160,72 138,148 62,148 40,72" fill="none" stroke="rgba(242,239,230,.08)" stroke-width="1"/>
+                <polygon points="100,48 140,86 124,136 76,136 60,86" fill="none" stroke="rgba(242,239,230,.05)" stroke-width="1"/>
+                <polygon points="100,92 118,113 112,130 88,130 82,113" fill="none" stroke="rgba(242,239,230,.04)" stroke-width="1"/>
+                <polygon points="100,32 152,77 133,143 67,143 48,77" fill="rgba(26,122,94,.12)" stroke="#1A7A5E" stroke-width="1.5" stroke-linejoin="round"/>
+                <circle cx="100" cy="32" r="3.5" fill="#C8102E"/>
+                <circle cx="152" cy="77" r="3.5" fill="#1A7A5E"/>
+                <circle cx="133" cy="143" r="3.5" fill="#A855F7"/>
+                <circle cx="67" cy="143" r="3.5" fill="#2ED573"/>
+                <circle cx="48" cy="77" r="3.5" fill="#C8882A"/>
+                <text x="100" y="18" text-anchor="middle" font-size="8" fill="rgba(242,239,230,.4)" font-family="DM Sans">PLAYING PHIL.</text>
+                <text x="170" y="78" font-size="7" fill="rgba(242,239,230,.35)" font-family="DM Sans">TECHNICAL</text>
+                <text x="133" y="158" text-anchor="middle" font-size="7" fill="rgba(242,239,230,.35)" font-family="DM Sans">PSYCH.</text>
+                <text x="55" y="158" text-anchor="middle" font-size="7" fill="rgba(242,239,230,.35)" font-family="DM Sans">PHYSICAL</text>
+                <text x="10" y="78" font-size="7" fill="rgba(242,239,230,.35)" font-family="DM Sans">COMMUNITY</text>
+              </svg>
+              <div class="mock-bar-row"><div class="mock-bar-label">Playing Phil.</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:90%;background:#C8102E;"></div></div><div class="mock-bar-val" style="color:#C8102E;">9</div></div>
+              <div class="mock-bar-row"><div class="mock-bar-label">Technical</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:80%;background:#1A7A5E;"></div></div><div class="mock-bar-val" style="color:#1A7A5E;">8</div></div>
+              <div class="mock-bar-row"><div class="mock-bar-label">Community</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:70%;background:#C8882A;"></div></div><div class="mock-bar-val" style="color:#C8882A;">7</div></div>
+            </div>
+            <div class="detail-stat"><div class="mock-dvi" style="font-size:18px;color:var(--teal);">91%</div><div class="detail-stat-label">DNA alignment — training sessions vs. club philosophy</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PILLAR 2: Role Profile → Position KPI -->
+      <div class="pillar" data-pillar="2" onclick="togglePillar(2)">
+        <div class="pillar-ham">
+          <div class="pillar-eyebrow">Hammarby Pillar 2</div>
+          <div class="pillar-title">Role Profile</div>
+          <div class="pillar-desc">Every position and role is defined. The academy's "product" is written down. Used in scouting, IDP and training. Each player knows what is expected in their position.</div>
+          <div class="pillar-tags"><span class="tag tag-ham">Position KPIs</span><span class="tag tag-ham">Written standards</span><span class="tag tag-ham">Scouting basis</span></div>
+        </div>
+        <div class="pillar-bridge"><div class="bridge-arrow">→</div><div class="bridge-num">02</div></div>
+        <div class="pillar-tm">
+          <div class="pillar-eyebrow">TalentMaster equivalent</div>
+          <div class="pillar-title">Position KPI + OVR Rating</div>
+          <div class="pillar-desc">5D Framework with position-specific weighting from U13+. D1 Physical 40% · D2 Technical 25% · D3 Psychological 15% · D4 Cognitive 10% · D5 Social 10%. OVR calculated per player, RAE-corrected.</div>
+          <div class="pillar-tags"><span class="tag tag-tm">5D Framework</span><span class="tag tag-tm">OVR rating</span><span class="tag tag-tm">RAE correction</span><span class="tag tag-tm">✅ Built</span></div>
+        </div>
+      </div>
+      <div class="detail-panel" id="detail-2">
+        <div class="detail-inner">
+          <div class="detail-ham">
+            <div class="detail-label">Hammarby — how it works today</div>
+            <div class="detail-quote">"Second chance players are one of our success factors. We found them — by instinct."</div>
+            <div class="detail-items">
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>Role profiles defined per position: goalkeeper, central midfielder, striker etc.</div></div>
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>KPIs measured: specific technical actions in match context</div></div>
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>All data on chronological age — no biological age correction</div></div>
+              <div class="detail-item"><div class="detail-item-dot build"></div><div>Gap: Q4-born players systematically underrated. "Second chance" found by instinct, not system.</div></div>
+            </div>
+          </div>
+          <div class="detail-tm">
+            <div class="detail-label">TalentMaster — Hidden Gem detection</div>
+            <div class="mock-ui">
+              <div class="mock-header">Hidden Gem · U14 · Q4-born · RAE-corrected</div>
+              <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:14px;">
+                <div>
+                  <div style="font-family:'Cormorant Garamond',serif;font-size:52px;font-weight:300;color:var(--teal);line-height:1;letter-spacing:-2px;">87</div>
+                  <div style="font-size:9px;color:rgba(242,239,230,.3);letter-spacing:.5px;">OVR · RAE-CORRECTED</div>
+                </div>
+                <div style="font-size:10px;color:rgba(242,239,230,.3);padding-bottom:10px;">vs. 68 without<br>correction</div>
+              </div>
+              <div class="mock-bar-row"><div class="mock-bar-label">D1 Physical</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:91%;background:#C8102E;"></div></div><div class="mock-bar-val" style="color:#C8102E;">91</div></div>
+              <div class="mock-bar-row"><div class="mock-bar-label">D2 Technical</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:94%;background:#1A7A5E;"></div></div><div class="mock-bar-val" style="color:#1A7A5E;">94</div></div>
+              <div class="mock-bar-row"><div class="mock-bar-label">D3 Psych.</div><div class="mock-bar-track"><div class="mock-bar-fill" style="width:82%;background:#A855F7;"></div></div><div class="mock-bar-val" style="color:#A855F7;">82</div></div>
+              <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
+                <span style="background:rgba(26,122,94,.15);border:1px solid rgba(26,122,94,.3);color:var(--teal);font-size:9px;font-weight:700;padding:3px 9px;border-radius:6px;">💎 Hidden Gem</span>
+                <span style="background:rgba(200,136,42,.1);border:1px solid rgba(200,136,42,.2);color:#C8882A;font-size:9px;font-weight:700;padding:3px 9px;border-radius:6px;">Q4 · +0.24 DVI</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PILLAR 3: IDP → IDP-kortti + Pelihavainto + Player Care -->
+      <div class="pillar" data-pillar="3" onclick="togglePillar(3)">
+        <div class="pillar-ham">
+          <div class="pillar-eyebrow">Hammarby Pillar 3</div>
+          <div class="pillar-title">IDP — Individual Development Plan</div>
+          <div class="pillar-desc">Three-level IDP: review meetings 2–3×/year · IDP-focused training sessions 2×/week · Player Care conversations 2×/month. "More than a document — it must be embedded in everyday training."</div>
+          <div class="pillar-tags"><span class="tag tag-ham">IDP meetings</span><span class="tag tag-ham">Player Care 2×/month</span><span class="tag tag-ham">Training integrated</span></div>
+        </div>
+        <div class="pillar-bridge"><div class="bridge-arrow">→</div><div class="bridge-num">03</div></div>
+        <div class="pillar-tm">
+          <div class="pillar-eyebrow">TalentMaster equivalent</div>
+          <div class="pillar-title">IDP Card v3 + TIPS + Player Care</div>
+          <div class="pillar-desc">Level 1: IDP card (built ✅) · Level 2: TIPS match observation (Sprint 5) · Level 3: Player Care log — 20 min 1-on-1, no training, no data. A simple "Player Care completed — date" in coach view creates the continuity that disappears when a coach leaves.</div>
+          <div class="pillar-tags"><span class="tag tag-tm">IDP Card v3</span><span class="tag tag-tm">✅ Built</span><span class="tag tag-build">TIPS — Sprint 5</span><span class="tag tag-build">Player Care — Sprint 5</span></div>
+        </div>
+      </div>
+      <div class="detail-panel" id="detail-3">
+        <div class="detail-inner">
+          <div class="detail-ham">
+            <div class="detail-label">Hammarby — three IDP levels</div>
+            <div class="detail-quote">"Individual development must be embedded in everyday training — not reviewed twice a year."</div>
+            <div class="detail-items">
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>Level 1 — IDP meeting: 2–3 times per year. Coach + player + parent. Document reviewed and updated.</div></div>
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>Level 2 — IDP training: 2× per week sessions specifically focused on the player's IDP goals. Observed, not just planned.</div></div>
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>Level 3 — Player Care: 2× per month. Coach + player, 20 minutes. No training. Psychological connection. Wellbeing check.</div></div>
+              <div class="detail-item"><div class="detail-item-dot build"></div><div>Gap: All three levels exist — but when the coach leaves, the memory of all three leaves with them.</div></div>
+            </div>
+          </div>
+          <div class="detail-tm">
+            <div class="detail-label">TalentMaster — three levels in one system</div>
+            <div class="mock-ui">
+              <div class="mock-header">Player: Topias K. · IDP Status · U14</div>
+              <div class="mock-player-row">
+                <div style="width:8px;height:8px;border-radius:50%;background:#1A7A5E;flex-shrink:0;"></div>
+                <div class="mock-player-name">IDP Card — active</div>
+                <span class="mock-player-badge" style="background:rgba(26,122,94,.15);color:#7ECFB3;">Level 2 Extended</span>
+              </div>
+              <div class="mock-player-row">
+                <div style="width:8px;height:8px;border-radius:50%;background:#C8882A;flex-shrink:0;"></div>
+                <div class="mock-player-name">Match TIPS — last logged 3d ago</div>
+                <span class="mock-player-badge" style="background:rgba(200,136,42,.15);color:#E8B97A;">Sprint 5</span>
+              </div>
+              <div class="mock-player-row">
+                <div style="width:8px;height:8px;border-radius:50%;background:#B03A2E;flex-shrink:0;"></div>
+                <div class="mock-player-name">Player Care — overdue (last: 34d)</div>
+                <span class="mock-player-badge" style="background:rgba(176,58,46,.12);color:#E07070;">Sprint 5</span>
+              </div>
+              <div class="detail-stat" style="margin-top:12px;">
+                <div class="mock-dvi" style="font-size:18px;color:var(--amber);">34 days</div>
+                <div class="detail-stat-label">since last Player Care — system flags this automatically</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PILLAR 4: Transition → VP Dashboard -->
+      <div class="pillar" data-pillar="4" onclick="togglePillar(4)">
+        <div class="pillar-ham">
+          <div class="pillar-eyebrow">Hammarby Pillar 4</div>
+          <div class="pillar-title">Player Pathway + Transition</div>
+          <div class="pillar-desc">A shared document updated monthly by hand. AHA-meetings keep the system coherent. When a coach says "Emma is ready to train with the senior squad" — it is based on gut feeling, not live data.</div>
+          <div class="pillar-tags"><span class="tag tag-ham">Monthly Excel</span><span class="tag tag-ham">AHA meetings</span><span class="tag tag-ham">Manual updates</span><span class="tag tag-miss">Biggest gap</span></div>
+        </div>
+        <div class="pillar-bridge"><div class="bridge-arrow">→</div><div class="bridge-num">04</div></div>
+        <div class="pillar-tm">
+          <div class="pillar-eyebrow">TalentMaster equivalent</div>
+          <div class="pillar-title">Live Transition View — VP Dashboard</div>
+          <div class="pillar-desc">Automatic "ready for next level" list generated from FLEI + DNA alignment + DVI in real time. Replaces the shared Excel document. The Sporting Director sees who is ready — without a meeting. Updated every time a coach logs an observation.</div>
+          <div class="pillar-tags"><span class="tag tag-build">Building — Sprint 5</span><span class="tag tag-tm">FLEI + DVI + DNA</span><span class="tag tag-tm">Real-time</span></div>
+        </div>
+      </div>
+      <div class="detail-panel" id="detail-4">
+        <div class="detail-inner">
+          <div class="detail-ham">
+            <div class="detail-label">Hammarby — monthly manual process</div>
+            <div class="detail-quote">"The transition document is updated monthly. Someone sits down, collects coach assessments, types them in, sends it forward."</div>
+            <div class="detail-items">
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>Monthly shared document — 1 person updates it manually</div></div>
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>AHA meetings (Academy Head + coaches) keep it coherent — valuable ritual but slow</div></div>
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>HTFF bridge: specific pathway from academy to senior squad for boys</div></div>
+              <div class="detail-item"><div class="detail-item-dot build"></div><div>Gap: Data is stale by the time it reaches the decision-maker. Gut feeling rules.</div></div>
+            </div>
+            <div class="detail-stat">
+              <div class="mock-dvi" style="font-size:18px;color:var(--amber);">Monthly</div>
+              <div class="detail-stat-label">update cycle — vs. real-time in TalentMaster</div>
+            </div>
+          </div>
+          <div class="detail-tm">
+            <div class="detail-label">TalentMaster — live transition dashboard</div>
+            <div class="mock-ui">
+              <div class="mock-header">Transition view · U17 → Senior · Updated live</div>
+              <div class="mock-player-row">
+                <div style="width:8px;height:8px;border-radius:50%;background:#1A7A5E;flex-shrink:0;"></div>
+                <div class="mock-player-name">Topias K. · U16 · DVI +0.24</div>
+                <span class="mock-player-badge" style="background:rgba(26,122,94,.2);color:#7ECFB3;">✓ Ready</span>
+              </div>
+              <div class="mock-player-row">
+                <div style="width:8px;height:8px;border-radius:50%;background:#C8882A;flex-shrink:0;"></div>
+                <div class="mock-player-name">Mikael L. · U17 · DVI +0.11</div>
+                <span class="mock-player-badge" style="background:rgba(200,136,42,.15);color:#E8B97A;">→ Developing</span>
+              </div>
+              <div class="mock-player-row">
+                <div style="width:8px;height:8px;border-radius:50%;background:rgba(242,239,230,.15);flex-shrink:0;"></div>
+                <div class="mock-player-name">Hugo M. · U15 · DVI −0.04</div>
+                <span class="mock-player-badge" style="background:rgba(242,239,230,.05);color:rgba(242,239,230,.3);">Monitor</span>
+              </div>
+              <div style="margin-top:12px;font-size:10px;color:rgba(242,239,230,.25);line-height:1.6;">Generated automatically from FLEI + DNA alignment + DVI. No meeting needed. Updated every time a coach logs a session.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PILLAR 5: Team Training → Harjoitushavainto + DVI -->
+      <div class="pillar" data-pillar="5" onclick="togglePillar(5)">
+        <div class="pillar-ham">
+          <div class="pillar-eyebrow">Hammarby Pillar 5</div>
+          <div class="pillar-title">Team Training + IDP focus</div>
+          <div class="pillar-desc">A shared training template sent to players before each session. "Monday to Friday mindset" — training is not built around the next opponent, but around each player's IDP goal. Non-opponent specific by design.</div>
+          <div class="pillar-tags"><span class="tag tag-ham">Pre-session plan</span><span class="tag tag-ham">IDP-driven</span><span class="tag tag-ham">4 phase model</span></div>
+        </div>
+        <div class="pillar-bridge"><div class="bridge-arrow">→</div><div class="bridge-num">05</div></div>
+        <div class="pillar-tm">
+          <div class="pillar-eyebrow">TalentMaster equivalent</div>
+          <div class="pillar-title">Training Observation + DVI Trend</div>
+          <div class="pillar-desc">ADAR observation in training context (not only match). "This week's focus" element in player/parent view linked to IDP goal. DVI tracks whether training is actually producing development velocity — visible over time, not just as a snapshot.</div>
+          <div class="pillar-tags"><span class="tag tag-build">Training ADAR — Sprint 5</span><span class="tag tag-build">Weekly focus — Sprint 5</span><span class="tag tag-tm">DVI trend</span></div>
+        </div>
+      </div>
+      <div class="detail-panel" id="detail-5">
+        <div class="detail-inner">
+          <div class="detail-ham">
+            <div class="detail-label">Hammarby — training as the development engine</div>
+            <div class="detail-quote">"We train the player — we do not prepare for the opponent. Monday to Friday belongs to the player's IDP."</div>
+            <div class="detail-items">
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>Four development phases: Foundation (8–11) · Learning (12–13) · Developing (14–15) · Transition (16–19)</div></div>
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>Shared training template sent to players before the session — cognitive preparation</div></div>
+              <div class="detail-item"><div class="detail-item-dot ham"></div><div>IDP-focused sessions 2× per week — observed and logged</div></div>
+              <div class="detail-item"><div class="detail-item-dot build"></div><div>Gap: Training observations disappear with the coach. No DVI signal — no data on who is developing faster than expected.</div></div>
+            </div>
+          </div>
+          <div class="detail-tm">
+            <div class="detail-label">TalentMaster — DVI trend over time</div>
+            <div class="mock-ui">
+              <div class="mock-header">DVI — Development Velocity Index · 6 months</div>
+              <svg viewBox="0 0 260 80" style="width:100%;margin-bottom:12px;" xmlns="http://www.w3.org/2000/svg">
+                <line x1="0" y1="40" x2="260" y2="40" stroke="rgba(242,239,230,.06)" stroke-width="1" stroke-dasharray="4,4"/>
+                <polyline points="0,52 40,45 80,42 120,35 160,28 200,22 240,18" fill="none" stroke="#1A7A5E" stroke-width="2" stroke-linejoin="round"/>
+                <circle cx="240" cy="18" r="4" fill="#1A7A5E"/>
+                <text x="244" y="15" font-size="9" fill="#1A7A5E" font-family="DM Sans" font-weight="600">+0.24</text>
+                <polyline points="0,45 40,46 80,48 120,46 160,48 200,47 240,46" fill="none" stroke="rgba(242,239,230,.2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="3,3"/>
+                <text x="244" y="49" font-size="8" fill="rgba(242,239,230,.25)" font-family="DM Sans">+0.11</text>
+                <text x="0" y="75" font-size="7" fill="rgba(242,239,230,.2)" font-family="DM Sans">Aug</text>
+                <text x="36" y="75" font-size="7" fill="rgba(242,239,230,.2)" font-family="DM Sans">Sep</text>
+                <text x="76" y="75" font-size="7" fill="rgba(242,239,230,.2)" font-family="DM Sans">Oct</text>
+                <text x="116" y="75" font-size="7" fill="rgba(242,239,230,.2)" font-family="DM Sans">Nov</text>
+                <text x="156" y="75" font-size="7" fill="rgba(242,239,230,.2)" font-family="DM Sans">Dec</text>
+                <text x="196" y="75" font-size="7" fill="rgba(242,239,230,.2)" font-family="DM Sans">Jan</text>
+                <text x="234" y="75" font-size="7" fill="rgba(242,239,230,.2)" font-family="DM Sans">Feb</text>
+              </svg>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div style="width:16px;height:2px;background:#1A7A5E;flex-shrink:0;"></div>
+                <div style="font-size:10px;color:rgba(242,239,230,.4);">Topias K. — accelerating above norm</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="width:16px;height:2px;background:rgba(242,239,230,.2);flex-shrink:0;border-top:1px dashed rgba(242,239,230,.2);"></div>
+                <div style="font-size:10px;color:rgba(242,239,230,.25);">Norm for age group</div>
+              </div>
+              <div style="margin-top:12px;padding:8px 12px;background:rgba(26,122,94,.08);border-radius:6px;font-size:10px;color:rgba(242,239,230,.45);line-height:1.6;">
+                DVI &gt; +0.15 → X-Factor signal. Training ADAR logs feed this automatically. Coach leaves — data stays.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /pillars -->
+  </div>
+</section>
+
+
+<!-- QUOTE -->
+<div class="quote-section">
+  <div class="quote-inner reveal">
+    <div class="big-quote">"Hammarby's entire system — philosophy, role profile, IDP, transition — is run manually with five full-time people. They have proven it works: 210+ MSEK in transfers."</div>
+    <div class="quote-source">TalentMaster Strategic Analysis · April 2026</div>
+    <div class="quote-tm-response">
+      <div class="tm-response-label">TalentMaster's role</div>
+      <div class="tm-response-text">Not to change what Hammarby does. To make it scalable — so the next club can build the same system without five full-time staff, and so Hammarby itself can identify the next Deniz Gül before other clubs know he exists.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- BUILD PLAN -->
+<section class="build-section">
+  <div class="inner">
+    <div class="section-eyebrow reveal" style="color:var(--teal);">What we build — in our own system</div>
+    <h2 class="section-title light reveal delay-1" style="color:var(--bone);">Hammarby's gaps<br><em>become our roadmap.</em></h2>
+    <p class="section-lead light reveal delay-2" style="color:rgba(242,239,230,.45);">Every gap identified in Hammarby's system is something TalentMaster can build. These are not speculative — they are based on what Hammarby does manually and wishes it could do better.</p>
+
+    <div class="build-grid">
+      <div class="build-card build-critical reveal delay-1">
+        <div class="build-priority">🔴 Critical — Sprint 5</div>
+        <div class="build-title">Training Observation</div>
+        <div class="build-source">Hammarby: "IDP training sessions 2×/week — observed."</div>
+        <div class="build-items">
+          <div class="build-item">ADAR observation context: add `tyyppi: 'harjoitus'|'ottelu'`</div>
+          <div class="build-item">Same TIPS structure — coach logs in training, not only match</div>
+          <div class="build-item">Feeds DVI trend and DNA alignment automatically</div>
+        </div>
+        <div class="build-sprint">Sprint 5 · Low technical complexity</div>
+      </div>
+
+      <div class="build-card build-critical reveal delay-2">
+        <div class="build-priority">🔴 Critical — Sprint 5</div>
+        <div class="build-title">Player Care Module</div>
+        <div class="build-source">Hammarby: "2× per month, 20 min, no training, psychological connection."</div>
+        <div class="build-items">
+          <div class="build-item">Simple log: "Player Care completed — date" in coach view</div>
+          <div class="build-item">Alert when overdue: 21-day threshold → coach notified</div>
+          <div class="build-item">Continuity: when coach changes, the history stays</div>
+        </div>
+        <div class="build-sprint">Sprint 5 · Low technical complexity</div>
+      </div>
+
+      <div class="build-card build-important reveal delay-3">
+        <div class="build-priority">🟡 Important — Sprint 5</div>
+        <div class="build-title">Live Transition View</div>
+        <div class="build-source">Hammarby: "Monthly Excel, updated manually. AHA meetings."</div>
+        <div class="build-items">
+          <div class="build-item">Auto-generated list: FLEI + DNA alignment + DVI</div>
+          <div class="build-item">Replaces monthly manual document</div>
+          <div class="build-item">UTJ_v2 DNA tab is the foundation — extend with readiness score</div>
+        </div>
+        <div class="build-sprint">Sprint 5 · Medium complexity</div>
+      </div>
+
+      <div class="build-card build-important reveal delay-4">
+        <div class="build-priority">🟡 Important — Sprint 5</div>
+        <div class="build-title">Weekly Training Focus</div>
+        <div class="build-source">Hammarby: "Training plan sent to players before the session."</div>
+        <div class="build-items">
+          <div class="build-item">"This week's focus" element in player/parent view</div>
+          <div class="build-item">Linked to player's active IDP goal</div>
+          <div class="build-item">Player prepares cognitively — doesn't just react</div>
+        </div>
+        <div class="build-sprint">Sprint 5 · Low complexity</div>
+      </div>
+
+      <div class="build-card build-strategic reveal delay-5">
+        <div class="build-priority">🔵 Strategic — Sprint 6</div>
+        <div class="build-title">Result KPIs</div>
+        <div class="build-source">Hammarby measures: how many trained with senior squad, how many got minutes, how many called up to national team.</div>
+        <div class="build-items">
+          <div class="build-item">TalentMaster now measures actions (FLEI, DNA, IDP-activations)</div>
+          <div class="build-item">Add outcomes: players who moved up a level, first contracts</div>
+          <div class="build-item">This is how TalentMaster proves its value</div>
+        </div>
+        <div class="build-sprint">Sprint 6 · Medium complexity</div>
+      </div>
+
+      <div class="build-card build-strategic reveal delay-1">
+        <div class="build-priority">🔵 Strategic — Sprint 6</div>
+        <div class="build-title">Phase-based KPI Library</div>
+        <div class="build-source">Hammarby: 4 development phases. Foundation (8–11) · Learning · Developing · Transition.</div>
+        <div class="build-items">
+          <div class="build-item">Upgrade age matrix to phase model — clearer communication</div>
+          <div class="build-item">TIPS questions adapt automatically per phase</div>
+          <div class="build-item">8-year-old KPI is qualitatively different from 15-year-old</div>
+        </div>
+        <div class="build-sprint">Sprint 6 · High complexity</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- OUTREACH -->
+<section class="outreach-section">
+  <div class="inner">
+    <div class="section-eyebrow reveal" style="color:#5CB87A;">Approach strategy</div>
+    <h2 class="section-title light reveal delay-1" style="color:var(--bone);">Recognition,<br><em>not selling.</em></h2>
+    <p class="section-lead light reveal delay-2" style="color:rgba(242,239,230,.4);">Hammarby is not a customer to be sold. They are a reference to be built with. The first contact is a question — not a presentation.</p>
+
+    <div class="outreach-box reveal delay-2">
+      <div class="outreach-label">First contact — Swedish · Suggested message</div>
+      <div class="outreach-text">"Hej Magnus — vi har tagit del av era presentationer om Individual Development och Transition, och ni har byggt något som vi sällan ser i nordisk akademifotboll. Vi utvecklar ett spelarutvecklingsverktyg för nordiska akademier som automatiserar IDP-uppföljning och lägger till biologisk ålderskorrigering på KPI-bedömningen. Vår bedömning är att det vi bygger kompletterar — inte förändrar — det ni redan har. Det ni gör manuellt varje vecka, kan göras synligt i realtid. Skulle du ha 20 minuter för ett samtal? Vi vill lära oss lika mycket som vi kan erbjuda."</div>
+      <div class="outreach-meta">
+        <div>
+          <div class="outreach-person">Magnus Bodsgård</div>
+          <div class="outreach-role">Head of Academy · Hammarby IF</div>
+        </div>
+        <div>
+          <div class="outreach-contact">magnus.bodsgard@hammarbyungdom.se</div>
+          <div class="outreach-contact">+46 702 095 474</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="outreach-principle reveal delay-3">
+      <div class="principle">
+        <div class="principle-num">1</div>
+        <div class="principle-text">Recognition, not selling. First contact is a question — not a pitch.</div>
+      </div>
+      <div class="principle">
+        <div class="principle-num">2</div>
+        <div class="principle-text">Demo starting from their system. "How does your monthly transition document work right now?"</div>
+      </div>
+      <div class="principle">
+        <div class="principle-num">3</div>
+        <div class="principle-text">Pilot for one team. One season. One clear metric: time freed from reporting.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<footer>
+  <div class="footer-brand">TalentMaster™ × Hammarby IF — Strategic Simulation</div>
+  <div class="footer-note">Confidential · April 2026 · talentmasterid@gmail.com</div>
+</footer>
+
+
+<script>
+// Scroll reveal
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.07, rootMargin:'0px 0px -30px 0px' });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// Pillar toggle
+function togglePillar(n) {
+  const pillar = document.querySelector(`[data-pillar="${n}"]`);
+  const panel = document.getElementById(`detail-${n}`);
+  const isOpen = panel.classList.contains('open');
+
+  // Close all
+  document.querySelectorAll('.pillar').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('open'));
+
+  if (!isOpen) {
+    pillar.classList.add('active');
+    panel.classList.add('open');
+    // Smooth scroll
+    setTimeout(() => {
+      pillar.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }, 50);
+  }
+}
+</script>
+</body>
+</html>
