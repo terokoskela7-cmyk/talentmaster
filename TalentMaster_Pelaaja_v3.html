@@ -3985,6 +3985,10 @@ async function renderHavainto() {
   }
 
   // Oikea käyttäjä — haetaan viimeisin havainto Firestoresta
+  // Rules: havainnot vaatii auth + (seuranJasen TAI suostumusTila=annettu)
+  if (_auth && !_auth.currentUser) {
+    try { await _auth.signInAnonymously(); } catch(e) {}
+  }
   const sid = _pelaaja?.seuraId;
   const pid = _pelaaja?.id;
   if (!sid || !pid || !_db) { el.innerHTML = ''; return; }
@@ -4890,6 +4894,11 @@ async function lataaOmatoimiOhjelma() {
   const sid = _pelaaja.seuraId;
   const pid = _pelaaja.id;
   if (!sid || !pid || pid === 'super_admin_view') return null;
+  // Rules: omatoimi_ohjelmat vaatii auth + suostumusTila=annettu
+  // Varmista että auth on aktiivinen
+  if (!_auth.currentUser) {
+    try { await _auth.signInAnonymously(); } catch(e) { return null; }
+  }
 
   try {
     const snap = await _db
