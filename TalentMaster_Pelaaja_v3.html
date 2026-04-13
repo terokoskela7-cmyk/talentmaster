@@ -321,7 +321,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .login-error{font-size:12px;color:var(--red);margin-top:8px;text-align:center;min-height:16px;}
 
 /* ── HEADER ── */
-#sDash{display:none;min-height:100vh;padding-bottom:80px;}
+#sDash{display:none;}
 .header{background:var(--bg2);padding:0 16px;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);}
 .header-inner{max-width:600px;margin:0 auto;display:flex;align-items:center;gap:10px;height:48px;}
 .logo-badge{display:flex;align-items:center;justify-content:center;width:24px;height:24px;flex-shrink:0;}
@@ -338,7 +338,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .tab-btn.active{color:var(--text);border-bottom-color:var(--teal);font-weight:500;}
 
 /* ── CONTENT ── */
-.view{display:none;}.view.active{display:block;min-height:calc(100vh - 160px);}
+.view{display:none;}
 .view.active{display:block;}
 .inner{max-width:600px;margin:0 auto;padding:16px;}
 
@@ -863,7 +863,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .login-error{font-size:12px;color:var(--red);margin-top:8px;text-align:center;min-height:16px;}
 
 /* ── HEADER ── */
-#sDash{display:none;min-height:100vh;padding-bottom:80px;}
+#sDash{display:none;}
 .header{background:var(--bg2);padding:0 16px;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);}
 .header-inner{max-width:600px;margin:0 auto;display:flex;align-items:center;gap:10px;height:50px;}
 .logo-badge{display:flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0;}
@@ -1876,45 +1876,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 }
 
 
-/* ── SCROLL-BUGI KORJAUS — RAKENTEELLINEN ── */
-html { height: 100%; }
-body { 
-  height: 100vh; 
-  overflow: hidden; 
-  display: flex; 
-  flex-direction: column; 
-}
-#sLogin { flex: 1; overflow-y: auto; }
-#sDash { 
-  flex: 1; 
-  display: flex; 
-  flex-direction: column; 
-  overflow: hidden;
-  height: calc(100vh);
-}
-/* Header ja tabs ovat sticky — ne eivät scrollaa */
-#sDash header,
-#sDash .header { flex-shrink: 0; }
-#sDash nav,
-#sDash .tabs { flex-shrink: 0; }
-#sDash .week-strip { flex-shrink: 0; }
-/* Scrollattava alue: views */
-.view.active { 
-  display: block !important; 
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  height: auto;
-}
+/* ── TalentMaster Pelaaja v3 — scroll fix ── */
+html, body { height: auto; min-height: 100%; }
+body { overflow-y: scroll; }
+#sDash { display: none; }
 .view { display: none; }
-.inner { 
-  max-width: 600px; 
-  margin: 0 auto; 
-  padding: 16px 16px 120px; 
-  min-height: 100%;
-}
-
-.view.active{display:block;min-height:calc(100vh - 160px);}
+.view.active { display: block; }
+.inner { max-width: 600px; margin: 0 auto; padding: 16px 14px 120px; }
 </style>
 </head>
 <body>
@@ -2220,17 +2188,13 @@ body {
       <!-- Alasignaali: DM Sans, tertiary -->
       <div class="tm-signal-sub" id="tanaaHarjoiteMeta">—</div>
 
-      <!-- Ohje — generoimTehtavat täyttää tämän -->
-      <div id="tanaaHarjoiteOhje" style="font-size:13px;color:var(--ink2);line-height:1.7;margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;display:none;"></div>
-
-      <!-- Linkki ohjelma-sivulle -->
+      <!-- Ohje pelaajalle -->
+      <div id="tanaaHarjoiteOhje" style="display:none;font-size:13px;color:var(--ink2);line-height:1.7;margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;border-left:2px solid var(--teal);"></div>
       <div style="margin-top:8px;text-align:right;">
-        <button onclick="naytaTabi('ohjelma',document.querySelector('.tab-btn:nth-child(2)'))"
-          style="background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;font-weight:600;">
+        <button onclick="naytaTabi('ohjelma',document.querySelectorAll('.tab-btn')[1])" style="background:none;border:none;color:var(--teal);font-size:12px;font-weight:600;cursor:pointer;padding:4px 0;">
           Kaikki harjoitteet → Ohjelma ↗
         </button>
       </div>
-
       <!-- CTA: teal — ainoa aktiivinen elementti -->
       <button id="tanaaAloitaNappi" onclick="_merkitseTanaaTehdyksi()"
         style="margin-top:var(--tm-space-lg);width:100%;
@@ -2360,16 +2324,16 @@ body {
       </div>
 
       <!-- Fiili-triggeri (näkyy kun fiilinki ei vielä tehty) -->
-      <div id="fiiliWidget" style="display:none;margin-top:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;" onclick="avaaFiiliOverlay()">
-        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">MITEN TÄNÄÄN MENI?</div>
-        <div style="display:flex;gap:10px;justify-content:space-between;">
-          <button onclick="event.stopPropagation();tallennFiilinki(1)" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 4px;font-size:20px;cursor:pointer;">😫</button>
-          <button onclick="event.stopPropagation();tallennFiilinki(2)" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 4px;font-size:20px;cursor:pointer;">😕</button>
-          <button onclick="event.stopPropagation();tallennFiilinki(3)" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 4px;font-size:20px;cursor:pointer;">😐</button>
-          <button onclick="event.stopPropagation();tallennFiilinki(4)" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 4px;font-size:20px;cursor:pointer;">🙂</button>
-          <button onclick="event.stopPropagation();tallennFiilinki(5)" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 4px;font-size:20px;cursor:pointer;">🔥</button>
+      <div id="fiiliWidget" style="display:none;margin-top:12px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);margin-bottom:10px;">MITEN TÄNÄÄN MENI?</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="tallennFiilinki(1)" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 2px;font-size:22px;cursor:pointer;transition:transform .1s;" onmousedown="this.style.transform='scale(.9)'" onmouseup="this.style.transform=''">😫</button>
+          <button onclick="tallennFiilinki(2)" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 2px;font-size:22px;cursor:pointer;" onmousedown="this.style.transform='scale(.9)'" onmouseup="this.style.transform=''">😕</button>
+          <button onclick="tallennFiilinki(3)" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 2px;font-size:22px;cursor:pointer;" onmousedown="this.style.transform='scale(.9)'" onmouseup="this.style.transform=''">😐</button>
+          <button onclick="tallennFiilinki(4)" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 2px;font-size:22px;cursor:pointer;" onmousedown="this.style.transform='scale(.9)'" onmouseup="this.style.transform=''">🙂</button>
+          <button onclick="tallennFiilinki(5)" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 2px;font-size:22px;cursor:pointer;" onmousedown="this.style.transform='scale(.9)'" onmouseup="this.style.transform=''">🔥</button>
         </div>
-        <div style="font-size:11px;color:var(--ink3);margin-top:8px;text-align:center;">Paina emoji → tallentuu päiväkirjaasi</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:8px;text-align:center;">Paina emoji — tallentuu päiväkirjaasi 📓</div>
       </div>
     </div>
   </div>
@@ -2378,17 +2342,14 @@ body {
   <div class="view" id="view-ohjelma">
   <div class="inner fadeup">
 
-    <!-- Intro pelaajalle -->
-    <div style="padding:16px 0 4px;">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:500;letter-spacing:-.3px;margin-bottom:6px;">Viikon ohjelma</div>
-      <div style="font-size:12px;color:var(--ink3);line-height:1.7;">
-        Ohjelma koostuu kolmesta harjoitteesta:<br>
-        <strong style="color:var(--text);">T-harjoite</strong> — pallokosketus, joka päivä 15–20 min.<br>
-        <strong style="color:var(--text);">D-harjoite</strong> — päivittäinen kehon aktivointi 5–7 min.<br>
-        <strong style="color:var(--text);">S-harjoite</strong> — kohdennettu harjoite 2–3× viikossa.
+    <div style="padding:12px 0 8px;">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:500;letter-spacing:-.3px;margin-bottom:6px;">Viikon ohjelma</div>
+      <div style="font-size:12px;color:var(--ink3);line-height:1.8;padding:10px 12px;background:var(--surface);border-radius:8px;border-left:2px solid var(--teal);">
+        <strong style="color:var(--text);">T = Tekniikka</strong> — pallokosketus joka päivä, 15–20 min.<br>
+        <strong style="color:var(--text);">D = Päivittäinen</strong> — kehon aktivointi, 5–7 min.<br>
+        <strong style="color:var(--text);">S = Kohdennettu</strong> — tärkein harjoite sinulle, 2–3× viikossa.
       </div>
     </div>
-
     <!-- T-harjoite: vakio — EI poistu koskaan -->
     <div style="background:var(--surface);
                 border:1px solid var(--border);border-left:2px solid var(--teal);
@@ -2521,12 +2482,7 @@ body {
   <div class="inner fadeup">
     <div class="stitle">FLEI-kehitys kaudella</div>
     <div id="kehitysKaari">
-      <div class="loading"><div class="spinner"></div>Ladataan...</div>
-    </div>
-    <div id="kehitysTyhjä" style="display:none;padding:24px;text-align:center;color:var(--ink3);font-size:13px;line-height:1.7;">
-      <div style="font-size:32px;margin-bottom:10px;">📊</div>
-      <div style="font-weight:600;color:var(--text);margin-bottom:6px;">Kehitysdata kertyy harjoittelemalla</div>
-      <div>Tee ensimmäinen FLEI-kartoitus valmentajasi kanssa tai syötä kotimittaustulokset — ne näkyvät tässä kehityskaarena.</div>
+      <div class="loading"><div class="spinner"></div></div>
     </div>
 
     <div class="stitle" style="margin-top:8px;">Pisteiden historia</div>
@@ -2869,34 +2825,34 @@ const TEKNIIKKAHARJOITTEET = {
 };
 
 const KYSELYT = [
-  {q:'Mikä on tärkein yksittäinen taito jalkapallossa?',
-   opts:['Nopeus','Ensimmäinen kosketus','Pelilukutaito','Fyysinen kunto'],
+  {q:'Mikä päivä on vastaanottamisen päivä ohjelmassasi?',
+   opts:['Maanantai','Tiistai','Perjantai','Torstai'],
+   oikein:0,
+   selitys:'Maanantai = Kaká-sarja = vastaanottaminen. Ensimmäinen kosketus ratkaisee kaiken.'},
+  {q:'Montako minuuttia päivässä riittää tekniikan kehittämiseen?',
+   opts:['1 tunti','20–30 minuuttia','2 tuntia','10 minuuttia'],
    oikein:1,
-   selitys:'Ensimmäinen kosketus ratkaisee mitä tapahtuu seuraavaksi. Kaká: "Millä kosketuksella vastaanotat, sillä kosketuksella pelaat."'},
-  {q:'Kuinka monta minuuttia päivässä riittää tekniikan kehittämiseen?',
-   opts:['1 tunti','30 minuuttia','2 tuntia','15 minuuttia'],
+   selitys:'20–30 minuuttia päivässä rakentaa enemmän kuin 3 tuntia kerran viikossa.'},
+  {q:'Mitä "streak" tarkoittaa?',
+   opts:['Nopeus sprintissä','Peräkkäisten harjoituspäivien putki','Tekniikkakilpailun pisteet','Pelaajakortin taso'],
    oikein:1,
-   selitys:'20–30 minuuttia päivässä on enemmän kuin 3 tuntia kerran viikossa. Päivittäinen toisto rakentaa automaation.'},
-  {q:'Mitä tarkoittaa "kultaikkuna" tekniikkaharjoittelussa?',
-   opts:['Aamutreeni on paras','Ikävuodet 8–12 ovat parhaat oppimiselle','Kultainen pallo on tavoite','Harjoittele ennen peliä'],
-   oikein:1,
-   selitys:'Ikävuodet 8–12 ovat parasta aikaa oppia tekniikka. Sama taito vaatii myöhemmin moninkertaisen työn.'},
-  {q:'Mitä "streak" tarkoittaa TalentMasterissa?',
-   opts:['Nopeus 30 metrillä','Peräkkäisten harjoituspäivien putki','Tekniikkakilpailun pisteet','Pelaajakortin taso'],
-   oikein:1,
-   selitys:'Streak on peräkkäisten päivien putki jolloin olet merkinnyt harjoitteen tehdyksi. Älä katkaise putkea!'},
+   selitys:'Streak = peräkkäisten päivien putki. Älä katkaise putkea!'},
   {q:'Mitä Affelay-sarja harjoittelee?',
-   opts:['Laukaistekniikkaa','Dribbelin 4 perustaitoa','Puolustamista','Ilmapalloja'],
+   opts:['Laukaustekniikkaa','Dribbelin 4 perustaitoa','Puolustamista','Pääpalloja'],
    oikein:1,
-   selitys:'Affelay-sarja: 1) Dribbeli silmät ylhäällä 2) Kiihdytys 3) Suunnanvaihto 4) Katse yli pallon. Pohja kaikelle muulle.'},
-  {q:'Mikä pelipäivä on vastaanottamisen päivä?',
-   opts:['Tiistai','Perjantai','Maanantai','Torstai'],
+   selitys:'Affelay: katse ylhäällä, kiihdytys, suunnanvaihto, rytmi. Pohja kaikelle muulle.'},
+  {q:'Mikä on tärkein yksittäinen taito jalkapallossa?',
+   opts:['Nopeus','Ensimmäinen kosketus','Laukausteho','Fyysinen kunto'],
+   oikein:1,
+   selitys:'Kaká: "Ensimmäinen kosketus kertoo mitä tapahtuu seuraavaksi."'},
+  {q:'Mikä sarjan nimi on syöttämisessä ja potkutekniikassa?',
+   opts:['Ronaldo','Kaká','Beckham','Affelay'],
    oikein:2,
-   selitys:'Maanantai = Kaká-sarja = vastaanottaminen. Tiistai = Affelay = dribbeli. Perjantai = Beckham = syöttö.'},
-  {q:'Montako vastaanottamisen muotoa Kaká-sarjassa on?',
-   opts:['5','8','13','3'],
-   oikein:2,
-   selitys:'Kaká-sarjassa on 13 vastaanottamisen muotoa. Kaká otti vastaan jopa kovimmat syötöt niin, että pallo tarttui jalkaan magneetin lailla.'},
+   selitys:'Beckham-sarja = syöttäminen ja potkutekniikka. Perjantai on Beckham-päivä.'},
+  {q:'Miksi T-harjoite tehdään myös lepopäivinä?',
+   opts:['Pakko','Motorinen taito vahvistuu yöunen aikana','Se on helppo','Valmentaja käskee'],
+   oikein:1,
+   selitys:'Walker 2017: motorinen taito konsolidoituu yöunen aikana. Päivittäinen toisto rakentaa automaation.'},
 ];
 
 /* ══ STATE ══ */
@@ -3101,9 +3057,6 @@ async function _tarkistaUrlParam() {
     _pelaaja = { id: snap.id, seuraId, ...data };
     if (data.kortti_lunastettu) _pelaaja._kortti_lunastettu = data.kortti_lunastettu;
     _uloskirjautunut = false;  // Kirjautuminen onnistui
-    // URL-param flowssa: tallenna anon UID pelaajaId:n mukaan
-    // Tämä mahdollistaa kirjaukset ilman sähköpostiautentikointia
-    _pelaaja._anonUid = _auth.currentUser?.uid || null;
 
     // Tallenna sessio → seuraavat vierailut toimivat ilman URL-parametria
     try {
@@ -3351,7 +3304,6 @@ async function _alustaUI() {
   // Super admin (super_admin_view) ohittaa onboardingin
   if (p && p.id !== 'super_admin_view') {
     const _obKey = typeof _OB_AVAIN !== 'undefined' ? _OB_AVAIN : 'tm_onboarding_tehty';
-    // URL-param flow (pelaajaId URL:ssa) ohittaa onboardingin — linkki on henkilökohtainen
     const _hasUrlParam = new URLSearchParams(location.search).get('pelaajaId');
     if (!_hasUrlParam && !localStorage.getItem(_obKey)) {
       nayta('sOnboarding');
@@ -3432,11 +3384,7 @@ function _renderXP() {
 /* ══ NAVIGAATIO ══ */
 function nayta(id) {
   document.getElementById('sLogin').style.display = id==='sLogin' ? 'flex' : 'none';
-  const dash = document.getElementById('sDash');
-  if (dash) {
-    dash.style.display = id==='sDash' ? 'block' : 'none';
-    // Flex-layout hoitaa scrollin — ei JS-muutoksia tarvita
-  }
+  document.getElementById('sDash').style.display  = id==='sDash'  ? 'block' : 'none';
 }
 
 function naytaTabi(nimi, btn) {
@@ -3495,11 +3443,6 @@ function _renderTanaaHarjoiteKortti() {
     harjoite = ohj && ohj[0];
   }
 
-  // Fallback: jos haeTanaaHarjoite ei löydy, käytä generoimTehtavat
-  if (!harjoite && typeof generoimTehtavat === 'function' && _pelaaja) {
-    const tasks = generoimTehtavat(_pelaaja);
-    harjoite = tasks && tasks.length > 0 ? tasks[0] : null;
-  }
   if (harjoite) {
     if (nimEl)  nimEl.textContent  = harjoite.nimi || harjoite.name || 'Pallokosketus';
     if (metaEl) {
@@ -3508,25 +3451,27 @@ function _renderTanaaHarjoiteKortti() {
       const vko   = harjoite.viikko ? `Vk ${harjoite.viikko}` : '';
       metaEl.textContent = [kesto + ' min', jakso, vko].filter(Boolean).join(' · ');
     }
-    // Näytä ohje pelaajalle
+    // Näytä ohje
     const ohjeEl = document.getElementById('tanaaHarjoiteOhje');
-    if (ohjeEl && (harjoite.ohje || harjoite.cue)) {
-      const ityyppi = (p.ika || 14) <= 12 ? 'leikkija' : (p.ika || 14) <= 15 ? 'rakentaja' : 'showcase';
-      const ohje = harjoite['ohje_'+ityyppi] || harjoite.ohje || harjoite.cue || '';
-      if (ohje) {
-        ohjeEl.textContent = ohje;
-        ohjeEl.style.display = 'block';
-      }
+    if (ohjeEl && harjoite) {
+      const ika = _pelaaja?.ika || 14;
+      const it = ika <= 12 ? 'leikkija' : ika <= 15 ? 'rakentaja' : 'showcase';
+      const ohje = harjoite['ohje_'+it] || harjoite.ohje || harjoite.cue || '';
+      if (ohje) { ohjeEl.textContent = ohje; ohjeEl.style.display = 'block'; }
     }
+    // Fiilinki näkyy aina (ennen tai jälkeen merkintää)
+    setTimeout(() => {
+      const fw = document.getElementById('fiiliWidget');
+      const tanaan_ = new Date().toISOString().split('T')[0];
+      const fTehty = (() => { try { const d=JSON.parse(localStorage.getItem('tm_fiilinki_'+(_pelaaja?.id||''))||'{}'); return d.pvm===tanaan_; } catch(e){return false;} })();
+      if (fw && !fTehty) fw.style.display = 'block';
+    }, 300);
   } else {
     // Fallback: näytä T-harjoite
     if (nimEl)  nimEl.textContent  = 'Pallokosketus — päivittäinen';
     if (metaEl) metaEl.textContent = '20 min · T-harjoite · Joka päivä';
-    const ohjeEl = document.getElementById('tanaaHarjoiteOhje');
-    if (ohjeEl) {
-      ohjeEl.textContent = 'Ota pallo ja mene ulos. Seinäsyöttörutiini 3×20 tai ponnauttelu 3×1 min. Joka päivä — myös lepopäivät.';
-      ohjeEl.style.display = 'block';
-    }
+    const ohjeEl2 = document.getElementById('tanaaHarjoiteOhje');
+    if (ohjeEl2) { ohjeEl2.textContent = 'Ota pallo ja mene ulos. Seinäsyöttörutiini 3×20 tai ponnauttelu 3×1 min. Joka päivä — myös lepopäivät.'; ohjeEl2.style.display = 'block'; }
   }
 
   // Jakso-info alla
@@ -3660,13 +3605,6 @@ function _merkitseTanaaTehdyksi() {
   const tehty = document.getElementById('tanaaTehtySect');
   const aikaEl = document.getElementById('tanaaTehdyAika');
   if (nappi) nappi.style.display = 'none';
-    // Näytä fiilinki heti merkitsemisen jälkeen
-    const fw = document.getElementById('fiiliWidget');
-    const tanaan_ = new Date().toISOString().split('T')[0];
-    const fKey = 'tm_fiilinki_' + (_pelaaja?.id||'');
-    const tallFii = localStorage.getItem(fKey);
-    const fTehty = tallFii ? JSON.parse(tallFii).pvm === tanaan_ : false;
-    if (fw && !fTehty) { fw.style.display = 'block'; fw.scrollIntoView({behavior:'smooth',block:'nearest'}); }
   if (tehty) tehty.style.display = 'block';
   if (aikaEl) aikaEl.textContent = 'Klo ' + aika;
 
@@ -3908,10 +3846,6 @@ async function _tallennaKirjaus(tehtavaId, tyyppi, xp, kaikki) {
 
   const pvm = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
   const pelaajaDok = _db.collection('seurat').doc(sid).collection('pelaajat').doc(pid);
-    // Varmista auth ennen kirjoitusta (URL-param flow käyttää anon auth)
-    if (!_auth.currentUser) {
-      try { await _auth.signInAnonymously(); } catch(authE) {}
-    }
   const kirjausDok = pelaajaDok.collection('kirjaukset').doc(pvm);
 
   try {
@@ -4011,10 +3945,6 @@ async function renderHavainto() {
   }
 
   // Oikea käyttäjä — haetaan viimeisin havainto Firestoresta
-  // Rules: havainnot vaatii auth + (seuranJasen TAI suostumusTila=annettu)
-  if (_auth && !_auth.currentUser) {
-    try { await _auth.signInAnonymously(); } catch(e) {}
-  }
   const sid = _pelaaja?.seuraId;
   const pid = _pelaaja?.id;
   if (!sid || !pid || !_db) { el.innerHTML = ''; return; }
@@ -4042,14 +3972,8 @@ async function renderHavainto() {
       <div class="havainto-pvm">${pvm}</div>
     </div>`;
   } catch(e) {
-    // Permission denied = pelaajalla ei vielä omaa pelaajaUID:ta Firestoressä
-    // URL-param flowssa anon-auth UID ≠ Firestore-UID → graceful fallback
-    if (e.message && e.message.includes('permission')) {
-      el.innerHTML = ''; // Tyhjä on ok — ei virheviestiä pelaajalle
-    } else {
-      console.warn('[TM] Havainto-haku:', e.message);
-      el.innerHTML = '';
-    }
+    console.warn('[TM] Havainto-haku epäonnistui:', e.message);
+    el.innerHTML = '';
   }
 }
 
@@ -4199,52 +4123,37 @@ function renderHaasteet() {
   const valmisEl = document.getElementById('haasteetValmis');
   if (!aktEl) return;
 
-  // Kaverihaastetyypit
-  const haasteTyypit = [
-    {id:'streak', ikoni:'🔥', nimi:'Streak-haaste', kuvaus:'Kumpi pitää pidemmän harjoitusputken 7 päivässä?', kesto:'7 pv', xp:150, color:'var(--amber)'},
-    {id:'treeni', ikoni:'⚡', nimi:'Treeni-haaste', kuvaus:'Kumpi tekee enemmän tällä viikolla?', kesto:'Viikko', xp:120, color:'var(--teal)'},
-    {id:'visa',   ikoni:'🧠', nimi:'Tietovisa-haaste', kuvaus:'Kumpi saa enemmän oikein päivän tietovisa-kysymyksessä?', kesto:'Heti', xp:100, color:'#7C5CBF'},
-    {id:'ovr',    ikoni:'👑', nimi:'OVR-haaste', kuvaus:'Kumpi nousee enemmän tekniikkakilpailussa?', kesto:'Testaus', xp:200, color:'var(--amber)'},
-  ];
-
-  aktEl.innerHTML = '<div style="margin-bottom:8px;font-size:11px;color:var(--ink3);">Haasta kaverisi — jaa PlayerCode ja kilpailkaa!</div>'
-    + haasteTyypit.map(h => `
-    <div class="haaste-card" style="margin-bottom:10px;cursor:pointer;" onclick="aloitaHaaste('${h.id}')">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-        <span style="font-size:22px;">${h.ikoni}</span>
-        <div style="flex:1;">
-          <div class="haaste-title">${h.nimi}</div>
-          <div class="haaste-desc">${h.kuvaus}</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="haaste-xp" style="color:${h.color};">+${h.xp} XP</div>
-          <div style="font-size:10px;color:var(--ink3);">${h.kesto}</div>
-        </div>
-      </div>
-      <button style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
-        padding:8px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;">
-        ⚡ Aloita haaste
-      </button>
-    </div>`).join('');
-
-  // PlayerCode jako
   const p = _pelaaja;
-  const code = p?.tmId || p?.id?.substring(0,8).toUpperCase() || 'TMP-????';
-  const codeEl = document.getElementById('haasteetValmis');
-  if (codeEl) codeEl.innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:8px;text-align:center;">
-      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);margin-bottom:6px;">Oma PlayerCode</div>
-      <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:600;color:var(--teal);letter-spacing:2px;">${code}</div>
-      <div style="font-size:11px;color:var(--ink3);margin-top:4px;">Jaa koodi kaverille — hän syöttää sen haasteen aloituksessa</div>
+  const code = (p?.tmId || (p?.id||'').substring(0,8).toUpperCase() || 'TMP-????');
+
+  aktEl.innerHTML = [
+    {id:'streak',ikoni:'🔥',nimi:'Streak-haaste',kuvaus:'Kumpi pitää pidemmän harjoitusputken 7 päivässä?',kesto:'7 pv',xp:150},
+    {id:'treeni',ikoni:'⚡',nimi:'Treeni-haaste',kuvaus:'Kumpi tekee enemmän harjoitteita tällä viikolla?',kesto:'Viikko',xp:120},
+    {id:'visa',  ikoni:'🧠',nimi:'Tietovisa-haaste',kuvaus:'Kumpi saa enemmän oikein päivän kysymyksessä?',kesto:'Heti',xp:100},
+    {id:'ovr',   ikoni:'👑',nimi:'OVR-haaste',kuvaus:'Kumpi nousee enemmän tekniikkakilpailussa?',kesto:'Testaus',xp:200},
+  ].map(h => `<div class="haaste-card" style="margin-bottom:10px;">
+    <div style="display:flex;gap:10px;align-items:flex-start;">
+      <span style="font-size:24px;line-height:1;">${h.ikoni}</span>
+      <div style="flex:1;">
+        <div class="haaste-title">${h.nimi}</div>
+        <div class="haaste-desc">${h.kuvaus}</div>
+        <div class="haaste-meta"><span>${h.kesto}</span><span class="haaste-xp">+${h.xp} XP</span></div>
+      </div>
+    </div>
+    <button onclick="aloitaHaaste('${h.id}','${code}')" style="width:100%;margin-top:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px;font-size:12px;font-weight:600;color:var(--teal);cursor:pointer;">⚡ Aloita haaste</button>
+  </div>`).join('');
+
+  if (valmisEl) valmisEl.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;margin-top:8px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;">OMA PLAYERCODE</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:var(--teal);letter-spacing:3px;">${code}</div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:6px;">Jaa koodi kaverille — hän syöttää sen haasteen aloituksessa</div>
     </div>`;
 }
 
-function aloitaHaaste(tyyppi) {
-  const p = _pelaaja;
-  const code = p?.tmId || p?.id?.substring(0,8).toUpperCase() || '???';
-  naytaToast(`🔥 Haaste aloitettu! Jaa PlayerCode: ${code}`, 'ok');
+function aloitaHaaste(tyyppi, code) {
+  naytaToast('🔥 Haaste aloitettu! Jaa PlayerCode: ' + code, 'ok');
 }
-
 
 /* ══ KEHITYS ══ */
 function renderKehitys() {
@@ -4255,9 +4164,7 @@ function renderKehitys() {
   const el = document.getElementById('kehitysKaari');
 
   if (kaari.length === 0) {
-    el.innerHTML = '';
-    const tyhjä = document.getElementById('kehitysTyhjä');
-    if (tyhjä) tyhjä.style.display = 'block';
+    el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:16px;text-align:center;">Ei vielä kartoituksia. Ensimmäinen kartoitus näytetään tässä!</div>';
   } else {
     // SVG kehitysaikajana
     const n = kaari.length;
@@ -4633,54 +4540,53 @@ var _fiilinki_lukittu = false;
 
 // Tarkista Firestoresta onko tänään jo vastattu
 async function tallennFiilinki(arvo) {
-  // Nopea fiilinki ilman overlayta — suoraan painettu
   const p = _pelaaja;
-  if (!p) return;
   const tanaan = new Date().toISOString().split('T')[0];
+  const emoji = ['','😫','😕','😐','🙂','🔥'][arvo] || '✓';
   
-  // LocalStorage-tallennus (nopea feedback)
-  try { localStorage.setItem('tm_fiilinki_' + (p.id||''), JSON.stringify({arvo, pvm: tanaan})); } catch(e) {}
+  // LocalStorage — nopea
+  try { localStorage.setItem('tm_fiilinki_'+(p?.id||''), JSON.stringify({arvo,pvm:tanaan})); } catch(e) {}
   
-  // Piilota widget, näytä kiitos
+  // UI: näytä kiitos
   const w = document.getElementById('fiiliWidget');
   if (w) {
-    const emoji = ['','😫','😕','😐','🙂','🔥'][arvo] || '✓';
-    w.innerHTML = '<div style="text-align:center;padding:8px;"><span style="font-size:28px;">'+emoji+'</span><div style="font-size:12px;color:var(--teal);margin-top:4px;">Kirjattu ✓</div></div>';
-    setTimeout(() => { w.style.display = 'none'; }, 1800);
+    w.innerHTML = '<div style="text-align:center;padding:10px 0;"><span style="font-size:36px;">'+emoji+'</span><div style="font-size:13px;color:var(--teal);margin-top:6px;font-weight:600;">Kirjattu ✓</div></div>';
+    setTimeout(() => { w.style.display='none'; }, 2000);
   }
   
-  // Firestore-tallennus taustalla
-  if (_db && p.id && p.seuraId && p.id !== 'super_admin_view') {
-    const sid = p.seuraId, pid = p.id;
-    _db.collection('seurat').doc(sid).collection('pelaajat').doc(pid)
-      .collection('kirjaukset').doc(tanaan)
-      .set({ fiilinki: arvo, fiilinki_paivitetty: new Date().toISOString() }, { merge: true })
-      .catch(e => {}); // permission ok — silent fail
-  }
+  // Firestore
+  if (!p || !_db || p.id==='super_admin_view') return;
+  if (_auth && !_auth.currentUser) { _auth.signInAnonymously().catch(()=>{}); }
+  _db.collection('seurat').doc(p.seuraId).collection('pelaajat').doc(p.id)
+    .collection('kirjaukset').doc(tanaan)
+    .set({fiilinki:arvo, fiilinki_paivitetty:new Date().toISOString()},{merge:true})
+    .catch(()=>{});
 }
 
 function _tarkistaFiilinki() {
-  // Tarkista onko fiilinki jo tehty tänään (localStorage)
-  const p = _pelaaja;
-  if (!p) return;
-  const tanaan = new Date().toISOString().split('T')[0];
-  const fKey = 'tm_fiilinki_' + (p.id || '');
+  if (!window._pelaaja || !window._db) return;
+  var sid = window._pelaaja.seuraId;
+  var pid = window._pelaaja.id;
+  if (!sid || !pid || pid === 'super_admin_view') return;
+
+  var pvm = new Date().toISOString().split('T')[0];
   try {
-    const tallFii = localStorage.getItem(fKey);
-    const fTehty = tallFii ? JSON.parse(tallFii).pvm === tanaan : false;
-    const fw = document.getElementById('fiiliWidget');
-    if (fw) {
-      // Näytä vain jos harjoite on jo merkitty mutta fiilinki ei
-      const hKey = 'tm_tehty_' + (p.id || p.tmId || '');
-      const hTehty = localStorage.getItem(hKey) === tanaan;
-      if (!fTehty && hTehty) {
-        fw.style.display = 'block';
-      } else if (!fTehty) {
-        // Näytä fiilinki joka tapauksessa (pienempi versio)
-        fw.style.display = 'block';
+    var snap = await window._db
+      .collection('seurat').doc(sid)
+      .collection('pelaajat').doc(pid)
+      .collection('kirjaukset').doc(pvm).get();
+
+    if (snap.exists) {
+      var data = snap.data();
+      // Jos fiilinki on jo kirjattu tänään, lukitaan widget
+      if (data.fiilinki_paivitetty || data.fiilinki !== undefined) {
+        _fiilinki_lukittu = true;
+        _lukitseFiilinki(data);
       }
     }
-  } catch(e) {}
+  } catch(e) {
+    console.warn('[TM] Fiilinki-tarkistus:', e.message);
+  }
 }
 
 // Lukitse fiilinki-widget — näytä kirjattu-tila
@@ -4920,11 +4826,6 @@ async function lataaOmatoimiOhjelma() {
   const sid = _pelaaja.seuraId;
   const pid = _pelaaja.id;
   if (!sid || !pid || pid === 'super_admin_view') return null;
-  // Rules: omatoimi_ohjelmat vaatii auth + suostumusTila=annettu
-  // Varmista että auth on aktiivinen
-  if (!_auth.currentUser) {
-    try { await _auth.signInAnonymously(); } catch(e) { return null; }
-  }
 
   try {
     const snap = await _db
@@ -4947,10 +4848,6 @@ async function lataaOmatoimiOhjelma() {
     }
     return null;
   } catch(e) {
-    // Permission denied URL-param flowssa → generoi ohjelma lokaalisti
-    if (e.message && e.message.includes('permission')) {
-      return null; // renderOhjelma generoi tällöin lokaalisti
-    }
     console.warn('[TM] Ohjelma lataus:', e.message);
     return null;
   }
@@ -4976,7 +4873,7 @@ async function tallennaOmatoimiOhjelma(ohjelmaData) {
     _ohjelmaTallennettu = true;
     console.log('[TM] Omatoimiohjelma tallennettu Firestoreen');
   } catch(e) {
-    if (!(e.message||'').includes('permission')) console.warn('[TM] Ohjelma tallennus:', e.message);
+    console.warn('[TM] Ohjelma tallennus:', e.message);
   }
 }
 
