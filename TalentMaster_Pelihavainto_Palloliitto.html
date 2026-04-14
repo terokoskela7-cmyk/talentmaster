@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster™ — Pelihavainto · Palloliitto-integraatio</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:    #06090F;
+  --bg2:   #0D1117;
+  --bg3:   #131920;
+  --bg4:   #1A2332;
+  --acc:   #4A7ED9;
+  --acc2:  #6B9FFF;
+  --teal:  #00D4AA;
+  --ink1:  #E8EEF8;
+  --ink2:  #9AAAC4;
+  --ink3:  #5A6B82;
+  --bord:  #1E2D42;
+  --bord2: #243347;
+  --green: #1D9E75;
+  --amber: #BA7517;
+  --red:   #E24B4A;
+  --purp:  #7F77DD;
+  --spl:   #002F6C;  /* Palloliitto-sininen */
+  --spl2:  #1A4E9E;
+  --pink:  #E24B8A;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--ink1);
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ── Topbar ── */
+.topbar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--bord);
+  padding: 10px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.logo { font-weight: 700; font-size: 16px; color: var(--acc2); letter-spacing: -.3px; }
+.logo span { color: var(--ink3); font-weight: 400; font-size: 12px; margin-left: 8px; }
+.demo-badge {
+  background: rgba(74,126,217,.15); color: var(--acc2);
+  border: 1px solid rgba(74,126,217,.3);
+  border-radius: 20px; padding: 3px 12px;
+  font-size: 11px; font-weight: 600; letter-spacing: .3px;
+}
+
+/* ── Päävaihe-napit ── */
+.vaiheet {
+  display: flex; gap: 0;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--bord);
+  padding: 0 24px;
+  overflow-x: auto;
+}
+.vaihe-btn {
+  padding: 14px 20px;
+  border: none; background: none;
+  color: var(--ink3);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s;
+  display: flex; align-items: center; gap: 8px;
+}
+.vaihe-btn.active {
+  color: var(--acc2);
+  border-bottom-color: var(--acc);
+}
+.vaihe-num {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--bg4); border: 1px solid var(--bord2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--ink3);
+  flex-shrink: 0; transition: background .15s, color .15s;
+}
+.vaihe-btn.active .vaihe-num {
+  background: var(--acc); border-color: var(--acc); color: #fff;
+}
+.vaihe-btn.done .vaihe-num {
+  background: var(--green); border-color: var(--green); color: #fff;
+}
+.vaihe-btn.done { color: var(--green); border-bottom-color: var(--green); }
+
+/* SPL-vaiheessa erityinen sininen korostus */
+.vaihe-btn.spl-active {
+  color: #FFF !important;
+  border-bottom-color: var(--pink) !important;
+}
+.vaihe-btn.spl-active .vaihe-num {
+  background: var(--spl); border-color: var(--spl); color: #fff;
+}
+
+/* ── Layout ── */
+.main { max-width: 1180px; margin: 0 auto; padding: 24px 20px; }
+.vaihe-sivu { display: none; }
+.vaihe-sivu.active { display: block; }
+
+/* ── Pelaaja-header ── */
+.pel-header {
+  background: var(--bg2);
+  border: 1px solid var(--bord);
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 20px;
+}
+.pel-avatar {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: linear-gradient(135deg, rgba(226,75,138,.3), rgba(226,75,138,.1));
+  border: 2px solid rgba(226,75,138,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; color: var(--pink);
+  flex-shrink: 0;
+}
+.pel-info { flex: 1; min-width: 0; }
+.pel-nimi { font-size: 18px; font-weight: 700; color: var(--ink1); }
+.pel-meta { font-size: 11px; color: var(--ink3); margin-top: 2px; }
+.pel-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.chip {
+  font-size: 10px; font-weight: 600; padding: 3px 10px;
+  border-radius: 20px; border: 1px solid;
+  white-space: nowrap;
+}
+
+/* ── Kahteen sarakkeeseen ── */
+.kahdessa { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.kahdessa-vasemmalle { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+.section-card {
+  background: var(--bg2); border: 1px solid var(--bord);
+  border-radius: 14px; padding: 18px 20px;
+}
+.section-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .8px; color: var(--ink3); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-title span {
+  font-size: 9px; color: var(--acc2); background: rgba(74,126,217,.1);
+  border: 1px solid rgba(74,126,217,.2); border-radius: 4px;
+  padding: 1px 6px; text-transform: none; letter-spacing: 0;
+}
+.section-title .spl-tag {
+  font-size: 9px; color: #FFF; background: var(--spl);
+  border: 1px solid var(--spl2); border-radius: 4px;
+  padding: 1px 6px; text-transform: uppercase; letter-spacing: .5px;
+  font-weight: 700;
+}
+
+/* ── TIPS-arvio ── */
+.tips-kriteeri { margin-bottom: 18px; }
+.tips-label {
+  display: flex; justify-content: space-between;
+  align-items: baseline; margin-bottom: 8px;
+}
+.tips-nimi { font-size: 13px; font-weight: 600; color: var(--ink1); }
+.tips-kirjain {
+  font-size: 9px; font-weight: 700; padding: 1px 6px;
+  border-radius: 4px; margin-left: 6px;
+  background: rgba(74,126,217,.15); color: var(--acc2);
+  border: 1px solid rgba(74,126,217,.2);
+}
+.tips-arvo {
+  font-size: 20px; font-weight: 700; font-family: 'DM Mono', monospace;
+}
+.tips-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 6px;
+  background: var(--bg4); border-radius: 3px;
+  outline: none; cursor: pointer;
+}
+.tips-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--acc); cursor: pointer;
+  border: 2px solid rgba(255,255,255,.2);
+  box-shadow: 0 0 8px rgba(74,126,217,.5);
+  transition: transform .1s;
+}
+.tips-slider::-webkit-slider-thumb:active { transform: scale(1.2); }
+.tips-ticks {
+  display: flex; justify-content: space-between;
+  padding: 3px 0; font-size: 9px; color: var(--ink3);
+}
+
+/* ── IDP-kytkös ── */
+.idp-q { font-size: 12px; color: var(--ink2); margin-bottom: 10px; line-height: 1.4; }
+.idp-napit { display: flex; gap: 8px; }
+.idp-nappi {
+  flex: 1; padding: 9px 6px; border-radius: 8px;
+  border: 1px solid var(--bord2); background: var(--bg3);
+  color: var(--ink3); font-size: 12px; font-weight: 500;
+  cursor: pointer; text-align: center;
+  transition: all .15s;
+}
+.idp-nappi:hover { border-color: var(--acc); color: var(--acc2); }
+.idp-nappi.sel-green { background: rgba(29,158,117,.15); border-color: var(--green); color: var(--green); font-weight: 700; }
+.idp-nappi.sel-amber { background: rgba(186,117,23,.15); border-color: var(--amber); color: var(--amber); font-weight: 700; }
+.idp-nappi.sel-red   { background: rgba(226,75,74,.12);  border-color: var(--red);   color: var(--red);   font-weight: 700; }
+
+/* ── Havainto ── */
+.havainto-area {
+  width: 100%; background: var(--bg3);
+  border: 1px solid var(--bord2); border-radius: 8px;
+  color: var(--ink1); font-family: 'DM Sans', sans-serif;
+  font-size: 13px; padding: 10px 12px; resize: vertical;
+  min-height: 80px; outline: none;
+}
+.havainto-area:focus { border-color: var(--acc); }
+
+/* ── Tallenna-nappi ── */
+.tallenna-btn {
+  background: var(--acc); color: #fff;
+  border: none; border-radius: 10px;
+  padding: 13px 28px; font-size: 14px; font-weight: 700;
+  cursor: pointer; width: 100%; margin-top: 16px;
+  transition: background .15s, transform .1s;
+  letter-spacing: .2px;
+}
+.tallenna-btn:hover { background: #3A6BC4; }
+.tallenna-btn:active { transform: scale(.98); }
+.tallenna-btn.spl {
+  background: var(--spl);
+}
+.tallenna-btn.spl:hover { background: var(--spl2); }
+
+/* ── Huomio-blokki ── */
+.huomio {
+  background: rgba(186,117,23,.08); border: 1px solid rgba(186,117,23,.25);
+  border-left: 3px solid var(--amber);
+  border-radius: 0 8px 8px 0; padding: 10px 14px;
+  font-size: 12px; color: var(--ink2); line-height: 1.6;
+  margin-bottom: 14px;
+}
+.huomio strong { color: var(--amber); font-weight: 600; }
+.huomio.spl {
+  background: rgba(0,47,108,.15);
+  border-color: rgba(0,47,108,.35);
+  border-left-color: var(--spl);
+}
+.huomio.spl strong { color: var(--acc2); }
+
+/* ═══════════════════════════════════════════════════════
+   PALLOLIITTO-NÄKYMÄ — 4 periaatetta + 16 alatoimintoa
+   ═══════════════════════════════════════════════════════ */
+
+.spl-hero {
+  background: linear-gradient(135deg, var(--spl) 0%, var(--spl2) 100%);
+  border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+  color: #FFF; position: relative; overflow: hidden;
+}
+.spl-hero::before {
+  content: ''; position: absolute; top: -50px; right: -50px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: rgba(255,255,255,.05);
+}
+.spl-hero h1 {
+  font-size: 22px; font-weight: 700; letter-spacing: -.3px;
+  margin-bottom: 6px;
+}
+.spl-hero p {
+  font-size: 13px; color: rgba(255,255,255,.85);
+  line-height: 1.6; max-width: 680px;
+}
+.spl-hero .kredit {
+  font-size: 10px; color: rgba(255,255,255,.5);
+  margin-top: 10px; font-style: italic;
+}
+
+/* 4 periaatetta -grid */
+.periaatteet-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  margin-bottom: 20px;
+}
+.periaate-kortti {
+  background: var(--bg2); border: 1px solid var(--bord);
+  border-radius: 12px; padding: 16px 18px;
+  border-top: 3px solid var(--spl);
+  position: relative;
+}
+.periaate-otsikko {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--bord);
+}
+.periaate-nimi {
+  font-size: 14px; font-weight: 700; color: var(--ink1);
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.periaate-arvio {
+  font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace;
+}
+.alatoiminto {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0; border-bottom: 1px dashed rgba(255,255,255,.06);
+}
+.alatoiminto:last-child { border-bottom: none; }
+.alatoiminto-nimi {
+  font-size: 12px; color: var(--ink2);
+  flex: 1; padding-right: 10px;
+}
+.alatoiminto-napit { display: flex; gap: 4px; }
+.at-nappi {
+  width: 28px; height: 24px; border-radius: 5px;
+  border: 1px solid var(--bord2); background: var(--bg3);
+  color: var(--ink3); font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.at-nappi:hover { border-color: var(--acc); color: var(--acc2); }
+.at-nappi.sel-1 { background: rgba(226,75,74,.15); border-color: var(--red); color: var(--red); }
+.at-nappi.sel-2 { background: rgba(186,117,23,.15); border-color: var(--amber); color: var(--amber); }
+.at-nappi.sel-3 { background: rgba(29,158,117,.15); border-color: var(--green); color: var(--green); }
+.at-nappi.na {
+  width: 40px; font-size: 9px;
+  border-style: dashed;
+}
+.at-nappi.sel-na {
+  background: rgba(90,107,130,.12); border-color: var(--ink3);
+  color: var(--ink2); border-style: solid;
+}
+.at-nappi.pelipaikka-ei-sovellu {
+  opacity: 0.4;
+}
+
+/* Kehityskohde-merkki */
+.kehityskohde-vari {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--red);
+  margin-right: 4px; vertical-align: middle;
+}
+
+/* Kehityskohteet-yhteenveto */
+.kehityskohde-lista {
+  background: rgba(226,75,74,.06);
+  border: 1px solid rgba(226,75,74,.2);
+  border-radius: 8px; padding: 10px 12px;
+  margin-top: 10px;
+}
+.kehityskohde-otsikko {
+  font-size: 10px; font-weight: 700;
+  color: var(--red); text-transform: uppercase;
+  letter-spacing: .5px; margin-bottom: 6px;
+}
+.kehityskohde-rivi {
+  font-size: 11px; color: var(--ink2);
+  padding: 3px 0;
+}
+.kehityskohde-rivi strong { color: var(--red); }
+
+/* Porautuminen — pelipaikka-KPI */
+.porautu-rivi {
+  background: var(--bg3);
+  border: 1px dashed var(--spl2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 12px;
+  cursor: pointer;
+  transition: all .2s;
+  font-size: 11px;
+  color: var(--acc2);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.porautu-rivi:hover {
+  background: rgba(74,126,217,.08);
+  border-color: var(--acc);
+}
+.porautu-rivi .arrow { font-size: 14px; }
+
+/* Pelipaikka-KPI-näkymä (modaali) */
+.kpi-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(6,9,15,.92);
+  z-index: 100; overflow-y: auto;
+  padding: 40px 20px;
+}
+.kpi-modal.show { display: block; }
+.kpi-modal-sisalto {
+  max-width: 920px; margin: 0 auto;
+  background: var(--bg2); border: 1px solid var(--bord);
+  border-radius: 16px; padding: 28px 32px;
+}
+.kpi-modal-header {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; margin-bottom: 20px;
+  padding-bottom: 16px; border-bottom: 1px solid var(--bord);
+}
+.kpi-modal-otsikko {
+  font-size: 20px; font-weight: 700; color: var(--ink1);
+  margin-bottom: 4px;
+}
+.kpi-modal-subotsikko {
+  font-size: 12px; color: var(--ink3);
+}
+.close-btn {
+  background: var(--bg3); border: 1px solid var(--bord2);
+  color: var(--ink2); width: 32px; height: 32px;
+  border-radius: 8px; cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.close-btn:hover { border-color: var(--red); color: var(--red); }
+
+.ketju-otsikko {
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(90deg, rgba(0,47,108,.2), transparent);
+  padding: 10px 14px; border-radius: 8px;
+  margin-bottom: 16px;
+  border-left: 3px solid var(--spl);
+}
+.ketju-otsikko .iso {
+  font-size: 15px; font-weight: 700;
+  color: var(--ink1); letter-spacing: .5px;
+}
+.ketju-otsikko .pieni {
+  font-size: 11px; color: var(--ink3);
+}
+.ketju-otsikko .arrow {
+  color: var(--ink3); margin: 0 4px;
+}
+.ketju-otsikko .tag {
+  font-size: 9px; color: #FFF; background: var(--spl);
+  padding: 2px 8px; border-radius: 4px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+}
+
+.kpi-rivi {
+  display: grid; grid-template-columns: 1fr 120px 80px;
+  gap: 14px; padding: 12px 14px;
+  background: var(--bg3); border: 1px solid var(--bord);
+  border-radius: 10px; margin-bottom: 8px;
+  align-items: center;
+}
+.kpi-nimi {
+  font-size: 13px; color: var(--ink1); font-weight: 500;
+}
+.kpi-kuvaus {
+  font-size: 10px; color: var(--ink3); margin-top: 3px;
+  line-height: 1.4;
+}
+.kpi-tavoite {
+  font-size: 11px; color: var(--ink2);
+  text-align: center; font-family: 'DM Mono', monospace;
+}
+.kpi-tavoite strong { color: var(--ink1); font-size: 13px; }
+.kpi-tulos {
+  font-size: 16px; font-weight: 700; font-family: 'DM Mono', monospace;
+  text-align: right;
+}
+
+/* Ikäkausivertailu */
+.ikavertailu {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px; margin-top: 16px;
+}
+.ika-box {
+  padding: 12px; background: var(--bg3);
+  border: 1px solid var(--bord); border-radius: 10px;
+}
+.ika-box.nyt {
+  border-color: var(--pink);
+  background: rgba(226,75,138,.05);
+}
+.ika-otsikko {
+  font-size: 11px; font-weight: 700;
+  color: var(--ink3); text-transform: uppercase;
+  letter-spacing: .6px; margin-bottom: 8px;
+}
+.ika-box.nyt .ika-otsikko { color: var(--pink); }
+.ika-rivi {
+  font-size: 11px; color: var(--ink2);
+  padding: 4px 0; display: flex; justify-content: space-between;
+}
+.ika-rivi strong { color: var(--ink1); font-weight: 600; }
+
+/* Sydän-placeholder */
+.sydan-paneeli {
+  background: linear-gradient(135deg, rgba(226,75,138,.08), rgba(127,119,221,.08));
+  border: 2px dashed rgba(226,75,138,.3);
+  border-radius: 14px; padding: 24px 28px;
+  text-align: center; margin-top: 20px;
+}
+.sydan-ikoni {
+  font-size: 32px; margin-bottom: 10px;
+}
+.sydan-otsikko {
+  font-size: 16px; font-weight: 700;
+  color: var(--pink); margin-bottom: 8px;
+  letter-spacing: .5px;
+}
+.sydan-teksti {
+  font-size: 12px; color: var(--ink2);
+  line-height: 1.7; max-width: 580px; margin: 0 auto;
+}
+.sydan-teksti strong { color: var(--ink1); }
+.sydan-pilarit {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 8px; margin-top: 16px;
+}
+.pilar-placeholder {
+  background: rgba(226,75,138,.05);
+  border: 1px dashed rgba(226,75,138,.2);
+  border-radius: 8px; padding: 12px 6px;
+  font-size: 10px; color: rgba(226,75,138,.7);
+  font-style: italic;
+}
+
+/* Success */
+.success-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(6,9,15,.9); z-index: 200;
+  align-items: center; justify-content: center;
+}
+.success-overlay.show { display: flex; }
+.success-box {
+  background: var(--bg2); border: 1px solid var(--green);
+  border-radius: 16px; padding: 40px;
+  text-align: center; max-width: 360px;
+}
+.success-icon { font-size: 48px; margin-bottom: 16px; }
+.success-title { font-size: 20px; font-weight: 700; color: var(--green); margin-bottom: 8px; }
+.success-text { font-size: 13px; color: var(--ink2); line-height: 1.6; }
+
+/* Animaatiot */
+@keyframes fadeup { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+.fadeup { animation: fadeup .3s ease; }
+
+/* FLEI + konteksti (säilytetty) */
+.flei-iso { font-size: 42px; font-weight: 700; font-family: 'DM Mono', monospace; line-height: 1; margin-bottom: 4px; }
+.ketju-rivi {
+  display: flex; gap: 6px; align-items: center;
+  padding: 5px 0; border-bottom: 1px solid var(--bord);
+}
+.ketju-rivi:last-child { border: none; }
+.ketju-nimi { font-size: 11px; color: var(--ink2); width: 80px; flex-shrink: 0; }
+.ketju-track { flex: 1; height: 6px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
+.ketju-fill { height: 6px; border-radius: 3px; }
+.ketju-arvo { font-size: 11px; font-weight: 600; min-width: 28px; text-align: right; }
+
+/* Yhteenveto-rivi periaatekortilla */
+.yhteenveto-tag {
+  display: inline-block;
+  font-size: 9px; font-weight: 700;
+  padding: 2px 8px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: .5px;
+  margin-left: 6px;
+}
+.yhteenveto-tag.hyva {
+  background: rgba(29,158,117,.15); color: var(--green);
+  border: 1px solid rgba(29,158,117,.3);
+}
+.yhteenveto-tag.keski {
+  background: rgba(186,117,23,.15); color: var(--amber);
+  border: 1px solid rgba(186,117,23,.3);
+}
+.yhteenveto-tag.heikko {
+  background: rgba(226,75,74,.15); color: var(--red);
+  border: 1px solid rgba(226,75,74,.3);
+}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="logo">TalentMaster™ <span>Pelihavainto · Palloliitto-integraatio</span></div>
+  <div class="demo-badge">🎯 DEMO — Head of Talent + TU15 · 16.4.2026</div>
+</div>
+
+<!-- Vaihenavigaatio -->
+<div class="vaiheet">
+  <button class="vaihe-btn active" id="btn-1" onclick="naytaVaihe(1)">
+    <span class="vaihe-num" id="num-1">1</span>
+    Seuravalmentajan TIPS-arvio
+  </button>
+  <button class="vaihe-btn" id="btn-2" onclick="naytaVaihe(2)">
+    <span class="vaihe-num" id="num-2">2</span>
+    Palloliitto-näkymä · 4 periaatetta
+  </button>
+  <button class="vaihe-btn" id="btn-3" onclick="naytaVaihe(3)">
+    <span class="vaihe-num" id="num-3">3</span>
+    Ikäkausivertailu + Sydän
+  </button>
+</div>
+
+<div class="main">
+
+<!-- ══════════════════════════════════════════════════════
+     VAIHE 1 — Seuravalmentajan TIPS-arvio
+     (Alkuperäinen runko, säilyy seurakäytössä)
+     ══════════════════════════════════════════════════════ -->
+<div class="vaihe-sivu active fadeup" id="vaihe-1">
+
+  <!-- Pelaajaotsikko -->
+  <div class="pel-header">
+    <div class="pel-avatar">ET</div>
+    <div class="pel-info">
+      <div class="pel-nimi">Emma Tuominen</div>
+      <div class="pel-meta">s. 12.3.2011 · U15-tyttö · Keskuspuolustaja (4) · SJK Juniorit T15</div>
+      <div class="pel-chips">
+        <span class="chip" style="background:rgba(29,158,117,.1);color:#1D9E75;border-color:rgba(29,158,117,.25)">✓ PHV ohitettu (APHV 12.1 v)</span>
+        <span class="chip" style="background:rgba(29,158,117,.1);color:#1D9E75;border-color:rgba(29,158,117,.25)">Bio-ikä 15.3 v (krono 15.0 v)</span>
+        <span class="chip" style="background:rgba(74,126,217,.1);color:#6B9FFF;border-color:rgba(74,126,217,.2)">Syntymä Q1</span>
+        <span class="chip" style="background:rgba(226,75,138,.1);color:#E24B8A;border-color:rgba(226,75,138,.25)">IDP: Pelinjohtamisrooli puolustuksessa</span>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:10px;color:var(--ink3);margin-bottom:2px">Ottelu</div>
+      <div style="font-size:13px;font-weight:600">SJK Juniorit T15 vs HJK Juniorit T15</div>
+      <div style="font-size:11px;color:var(--ink3)">12.4.2026 · T15 Etelä-sarja</div>
+    </div>
+  </div>
+
+  <!-- Kontekstivaroitus -->
+  <div class="huomio">
+    <strong>Konteksti arvioinnissa:</strong> Emma on ohittanut PHV-piikin ja on biologiselta iältään hieman krono-ikää edellä (+0.3 v). Tytöillä APHV 12.1 v on tyypillinen — Emma on nyt vakaassa kehitysvaiheessa. Syntymä Q1 tuo suhteellisen ikäedun — huomioi vertailussa ikäluokan nuorempiin.
+  </div>
+
+  <div class="kahdessa">
+
+    <!-- TIPS-arvio -->
+    <div class="section-card">
+      <div class="section-title">TIPS-arvio <span>Seuratason runko · 1–10</span></div>
+
+      <!-- T -->
+      <div class="tips-kriteeri">
+        <div class="tips-label">
+          <div><span class="tips-kirjain">T</span> <span class="tips-nimi">Tekninen suoritus paineessa</span></div>
+          <div class="tips-arvo" id="val-T" style="color:#1D9E75">8</div>
+        </div>
+        <input type="range" class="tips-slider" min="1" max="10" value="8"
+          oninput="paivitaArvo('T',this.value)">
+        <div class="tips-ticks"><span>1</span><span>Heikko</span><span>5</span><span>Hyvä</span><span>10</span></div>
+      </div>
+
+      <!-- I -->
+      <div class="tips-kriteeri">
+        <div class="tips-label">
+          <div><span class="tips-kirjain">I</span> <span class="tips-nimi">Pelikuva — Game IQ</span></div>
+          <div class="tips-arvo" id="val-I" style="color:#1D9E75">8</div>
+        </div>
+        <input type="range" class="tips-slider" min="1" max="10" value="8"
+          oninput="paivitaArvo('I',this.value)">
+        <div class="tips-ticks"><span>1</span><span>Heikko</span><span>5</span><span>Hyvä</span><span>10</span></div>
+      </div>
+
+      <!-- P -->
+      <div class="tips-kriteeri">
+        <div class="tips-label">
+          <div><span class="tips-kirjain">P</span> <span class="tips-nimi">Persoona — intensiteetti, asenne</span></div>
+          <div class="tips-arvo" id="val-P" style="color:#1D9E75">9</div>
+        </div>
+        <input type="range" class="tips-slider" min="1" max="10" value="9"
+          oninput="paivitaArvo('P',this.value)">
+        <div class="tips-ticks"><span>1</span><span>Heikko</span><span>5</span><span>Hyvä</span><span>10</span></div>
+      </div>
+
+      <!-- S -->
+      <div class="tips-kriteeri">
+        <div class="tips-label">
+          <div><span class="tips-kirjain">S</span> <span class="tips-nimi">Suorituksen nopeus — päätökset</span></div>
+          <div class="tips-arvo" id="val-S" style="color:#BA7517">7</div>
+        </div>
+        <input type="range" class="tips-slider" min="1" max="10" value="7"
+          oninput="paivitaArvo('S',this.value)">
+        <div class="tips-ticks"><span>1</span><span>Heikko</span><span>5</span><span>Hyvä</span><span>10</span></div>
+      </div>
+
+      <!-- IDP-kytkös -->
+      <div style="border-top:1px solid var(--bord);padding-top:14px;margin-top:4px">
+        <div class="section-title" style="margin-bottom:10px">IDP-tavoitteen toteutuminen <span>TM-uniikki</span></div>
+        <div class="idp-q">Näkyikö Emman kauden tavoite <strong style="color:var(--pink)">"Pelinjohtamisrooli puolustuksessa"</strong> tässä ottelussa?</div>
+        <div class="idp-napit">
+          <button class="idp-nappi sel-green" onclick="valitseIDP('kylla')">✓ Kyllä</button>
+          <button class="idp-nappi" onclick="valitseIDP('osittain')">△ Osittain</button>
+          <button class="idp-nappi" onclick="valitseIDP('ei')">✗ Ei</button>
+        </div>
+      </div>
+
+      <!-- Vapaa havainto -->
+      <div style="margin-top:14px">
+        <div class="section-title" style="margin-bottom:8px">Vapaa havainto</div>
+        <textarea class="havainto-area">Emma johti puolustuslinjaa läpi ottelun. Luki hyökkäystilanteet varhain, ohjasi kommunikaatiota takalinjassa. Kahdesti nosti linjan hyvin offside-tilanteeseen. Vaikea hetki 67. min, kun vastustaja pääsi selän taakse — reagointi 2–3 metriä liian myöhään.</textarea>
+      </div>
+
+      <button class="tallenna-btn" onclick="tallenna1()">Tallenna arvio ja siirry Palloliitto-näkymään →</button>
+    </div>
+
+    <!-- Oikea sarake: konteksti -->
+    <div>
+      <!-- Suorituskykyprofiili — 5D spider + testitulokset -->
+      <div class="section-card" style="margin-bottom:12px">
+        <div class="section-title">Suorituskykyprofiili <span>5D · viimeisin 2.4.2026</span></div>
+
+        <!-- Spider chart -->
+        <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:14px">
+          <div style="flex-shrink:0">
+            <svg width="180" height="180" viewBox="0 0 180 180" style="display:block;overflow:visible">
+              <!-- Taustaverkot -->
+              <polygon points="90,78 102.6,86.2 97.8,100.9 82.2,100.9 77.4,86.2" fill="none" stroke="rgba(255,255,255,.08)" stroke-width=".5"/>
+              <polygon points="90,66 115.2,82.4 105.5,111.8 74.5,111.8 64.8,82.4" fill="none" stroke="rgba(255,255,255,.08)" stroke-width=".5"/>
+              <polygon points="90,54 127.8,78.6 113.3,122.7 66.7,122.7 52.2,78.6" fill="none" stroke="rgba(255,255,255,.08)" stroke-width=".5"/>
+              <polygon points="90,42 140.4,74.8 121.1,133.6 58.9,133.6 39.6,74.8" fill="none" stroke="rgba(255,255,255,.08)" stroke-width=".5"/>
+              <polygon points="90,30 153,71 128.8,144.5 51.2,144.5 27,71" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+
+              <!-- Viivat keskeltä -->
+              <line x1="90" y1="90" x2="90" y2="30" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
+              <line x1="90" y1="90" x2="153" y2="71" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
+              <line x1="90" y1="90" x2="128.8" y2="144.5" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
+              <line x1="90" y1="90" x2="51.2" y2="144.5" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
+              <line x1="90" y1="90" x2="27" y2="71" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
+
+              <!-- Emman profiili: D1 Fyysinen 72, D2 Tekninen 78, D3 Henkinen 88, D4 Game IQ 80, D5 Sosiaalinen 82 -->
+              <polygon points="90,46.8 139.4,75.4 119.8,133.8 58.6,125.4 41.4,74.4"
+                fill="rgba(226,75,138,.18)" stroke="#E24B8A" stroke-width="1.5"/>
+              <circle cx="90" cy="46.8" r="4.5" fill="#4A7ED9" stroke="#06090F" stroke-width="2"/>
+              <circle cx="139.4" cy="75.4" r="4.5" fill="#00D4AA" stroke="#06090F" stroke-width="2"/>
+              <circle cx="119.8" cy="133.8" r="4.5" fill="#7F77DD" stroke="#06090F" stroke-width="2"/>
+              <circle cx="58.6" cy="125.4" r="4.5" fill="#F5B700" stroke="#06090F" stroke-width="2"/>
+              <circle cx="41.4" cy="74.4" r="4.5" fill="#E24B4A" stroke="#06090F" stroke-width="2"/>
+
+              <!-- Otsikot -->
+              <text x="90" y="16" text-anchor="middle" font-size="9" fill="#9AAAC4" font-family="DM Sans,sans-serif">Fyysinen</text>
+              <text x="160" y="69" text-anchor="start" font-size="9" fill="#9AAAC4" font-family="DM Sans,sans-serif">Tekninen</text>
+              <text x="132" y="163" text-anchor="start" font-size="9" fill="#9AAAC4" font-family="DM Sans,sans-serif">Henkinen</text>
+              <text x="48" y="163" text-anchor="end" font-size="9" fill="#9AAAC4" font-family="DM Sans,sans-serif">Game IQ</text>
+              <text x="20" y="69" text-anchor="end" font-size="9" fill="#9AAAC4" font-family="DM Sans,sans-serif">Sosiaalin.</text>
+
+              <!-- Arvot pisteiden vieressä -->
+              <text x="90" y="40" text-anchor="middle" font-size="8" fill="#4A7ED9" font-family="DM Mono,monospace" font-weight="700">72</text>
+              <text x="148" y="76" text-anchor="start" font-size="8" fill="#00D4AA" font-family="DM Mono,monospace" font-weight="700">78</text>
+              <text x="126" y="146" text-anchor="start" font-size="8" fill="#7F77DD" font-family="DM Mono,monospace" font-weight="700">88</text>
+              <text x="53" y="137" text-anchor="end" font-size="8" fill="#F5B700" font-family="DM Mono,monospace" font-weight="700">80</text>
+              <text x="33" y="75" text-anchor="end" font-size="8" fill="#E24B4A" font-family="DM Mono,monospace" font-weight="700">82</text>
+            </svg>
+          </div>
+
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px">
+              <div style="width:8px;height:8px;border-radius:50%;background:#4A7ED9;flex-shrink:0"></div>
+              <span style="color:#9AAAC4;flex:1">D1 Fyysinen</span>
+              <span style="font-weight:700;font-family:'DM Mono',monospace;color:#4A7ED9">72</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px">
+              <div style="width:8px;height:8px;border-radius:50%;background:#00D4AA;flex-shrink:0"></div>
+              <span style="color:#9AAAC4;flex:1">D2 Tekninen</span>
+              <span style="font-weight:700;font-family:'DM Mono',monospace;color:#00D4AA">78</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px">
+              <div style="width:8px;height:8px;border-radius:50%;background:#7F77DD;flex-shrink:0"></div>
+              <span style="color:#9AAAC4;flex:1">D3 Henkinen</span>
+              <span style="font-weight:700;font-family:'DM Mono',monospace;color:#7F77DD">88</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px">
+              <div style="width:8px;height:8px;border-radius:50%;background:#F5B700;flex-shrink:0"></div>
+              <span style="color:#9AAAC4;flex:1">D4 Game IQ</span>
+              <span style="font-weight:700;font-family:'DM Mono',monospace;color:#F5B700">80</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px">
+              <div style="width:8px;height:8px;border-radius:50%;background:#E24B4A;flex-shrink:0"></div>
+              <span style="color:#9AAAC4;flex:1">D5 Sosiaalin.</span>
+              <span style="font-weight:700;font-family:'DM Mono',monospace;color:#E24B4A">82</span>
+            </div>
+            <div style="margin-top:8px;padding:7px 9px;background:var(--bg3);border-radius:7px;border:1px solid var(--bord)">
+              <div style="font-size:9px;color:var(--ink3);margin-bottom:2px">Kokonaisprofiili</div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <span style="font-size:16px;font-weight:700;font-family:'DM Mono',monospace;color:var(--green)">80</span>
+                <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(29,158,117,.1);color:#1D9E75">Vahva</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Testitulokset -->
+        <div style="border-top:1px solid var(--bord);padding-top:12px">
+          <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;font-weight:700">
+            Keskeiset testitulokset
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <div style="padding:8px;background:var(--bg3);border-radius:7px">
+              <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Nopeus 20m</div>
+              <div style="font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:#1D9E75">3.18s</div>
+              <div style="font-size:9px;color:var(--ink3)">T15 ikäryhmä ka. 3.28s</div>
+            </div>
+            <div style="padding:8px;background:var(--bg3);border-radius:7px">
+              <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">SM-pallo indeksi</div>
+              <div style="font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:#1D9E75">82</div>
+              <div style="font-size:9px;color:var(--ink3)">T15 ikäryhmä ka. 68</div>
+            </div>
+            <div style="padding:8px;background:var(--bg3);border-radius:7px">
+              <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">DVI kehitysnopeus</div>
+              <div style="font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:#1D9E75">+14%</div>
+              <div style="font-size:9px;color:var(--ink3)">6 kk aikana</div>
+            </div>
+            <div style="padding:8px;background:var(--bg3);border-radius:7px">
+              <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">CMJ</div>
+              <div style="font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:#1D9E75">38.4cm</div>
+              <div style="font-size:9px;color:var(--ink3)">T15 ikäryhmä ka. 32.1cm</div>
+            </div>
+            <div style="padding:8px;background:var(--bg3);border-radius:7px">
+              <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Kaksinkamppailu-%</div>
+              <div style="font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:#1D9E75">82%</div>
+              <div style="font-size:9px;color:var(--ink3)">Kp-paikan benchmark 70%</div>
+            </div>
+            <div style="padding:8px;background:var(--bg3);border-radius:7px">
+              <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Syötön tarkkuus</div>
+              <div style="font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:#BA7517">68%</div>
+              <div style="font-size:9px;color:var(--ink3)">Tavoite U15 80%</div>
+            </div>
+          </div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:8px;padding:6px 8px;
+            background:rgba(29,158,117,.06);border-radius:6px;border-left:2px solid var(--green)">
+            <strong style="color:var(--green)">Nopeus ja SM-pallo selvästi yli ikäryhmäkeskiarvon.</strong> Syötön tarkkuus on IDP:n kehityskohde — linkittyy Kiihdytys-periaatteen avaussyöttö-KPI:hin.
+          </div>
+        </div>
+
+        <!-- FLEI: siirretty alaviitteeksi, ei pääelementiksi -->
+        <details style="margin-top:10px;font-size:10px;color:var(--ink3)">
+          <summary style="cursor:pointer;padding:6px 8px;background:var(--bg3);border-radius:6px;border:1px solid var(--bord)">
+            + Näytä harjoitettavuus-analytiikka (FLEI · seuran fysioterapeutin näkymä)
+          </summary>
+          <div style="padding:10px;margin-top:6px;background:var(--bg3);border-radius:6px;font-size:11px;color:var(--ink2);line-height:1.6">
+            FLEI 68% · Perustaso — heikoin liikeketju suunnanmuutos (58%). Tämä näkymä on seuran fysioterapeutin ja valmentajan työkalu ja ohjaa yksilöllisen harjoitusohjelman rakentamista. Ei osa ottelu-arviointia.
+          </div>
+        </details>
+      </div>
+
+      <!-- Pelaajan itsearvio (tiivis) -->
+      <div class="section-card" style="margin-bottom:12px">
+        <div class="section-title">Emman itsearvio <span>Pelaajanäkymä</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div style="padding:10px;background:var(--bg3);border-radius:8px;text-align:center">
+            <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;margin-bottom:4px">Fiilinki</div>
+            <div style="font-size:20px;font-weight:700">😊 4/5</div>
+          </div>
+          <div style="padding:10px;background:var(--bg3);border-radius:8px;text-align:center">
+            <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;margin-bottom:4px">Oma arvio</div>
+            <div style="font-size:20px;font-weight:700;color:var(--amber)">7/10</div>
+          </div>
+        </div>
+        <div style="padding:10px;background:var(--bg3);border-radius:8px;border-left:2px solid var(--acc);font-size:11px;color:var(--ink2);line-height:1.5">
+          "Olin tyytyväinen johtamiseen, mutta tuo yksi tilanne jäi harmittamaan — olisin voinut nousta linjaan aiemmin."
+        </div>
+      </div>
+
+      <!-- Bio-ikä + PHV -->
+      <div class="section-card">
+        <div class="section-title">Maturaatio · Bio-ikä</div>
+        <div style="display:flex;gap:14px;margin-bottom:10px">
+          <div style="flex:1">
+            <div style="font-size:10px;color:var(--ink3);margin-bottom:2px">Krono-ikä</div>
+            <div style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace">15.0 v</div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:10px;color:var(--ink3);margin-bottom:2px">Bio-ikä</div>
+            <div style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:var(--green)">15.3 v</div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:10px;color:var(--ink3);margin-bottom:2px">Ero</div>
+            <div style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:var(--green)">+0.3 v</div>
+          </div>
+        </div>
+        <div style="padding:8px 10px;background:rgba(29,158,117,.08);border-left:2px solid var(--green);border-radius:0 6px 6px 0;font-size:11px;color:var(--ink2)">
+          APHV 12.1 v · PHV ohitettu noin 3 v sitten. Motorinen koordinaatio vakiintunut, voimantuotto edistyneellä tasolla. Vertailu ikäluokan sisällä oikeudenmukaisinta nyt.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     VAIHE 2 — Palloliitto-näkymä · 4 periaatetta + 16 alatoimintoa
+     ══════════════════════════════════════════════════════════ -->
+<div class="vaihe-sivu fadeup" id="vaihe-2">
+
+  <!-- SPL-hero -->
+  <div class="spl-hero">
+    <h1>🦅 4 pelin periaatetta — Palloliitto</h1>
+    <p>Maajoukkuekarsintatason arviointi. Palloliiton julkaisemat pelaamisen periaatteet (lokakuu 2025) soveltuvat kaikkiin U15–U19 maajoukkueisiin. Tämä näkymä tuo maajoukkuevalmentajan kriteerit pelaajan arkeen — seura arvioi ottelun, tieto palautuu Palloliiton suuntaan oikein rakenteisena.</p>
+    <div class="kredit">Periaatteet ja alatoiminnot: Palloliitto.fi / Nuorten maajoukkueiden pelaamisen periaatteet (Miettinen, Söderström, Eskola, Okomoh, Lundberg 2025)</div>
+  </div>
+
+  <div class="huomio spl">
+    <strong>Miten tämä näkymä toimii:</strong> Kun seuravalmentaja täyttää TIPS-rungon, maajoukkuevalmentajalle / Head of Talentille näkyy tämä rinnakkainen näkymä. Jokainen 4 periaatetta on jaettu neljään alatoimintoon — yhteensä 16 havaittavaa kohdetta per ottelu. Skaala on tarkoituksella lyhyt (1–3) koska DNA- ja periaatearviointi vaatii rehellistä havaintoa, ei tarkkuusilluusiota.
+  </div>
+
+  <!-- 4 periaatetta -->
+  <div class="periaatteet-grid">
+
+    <!-- PRÄSSI -->
+    <div class="periaate-kortti">
+      <div class="periaate-otsikko">
+        <div>
+          <div class="periaate-nimi">🎯 Prässi</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:2px">Voittaa pallo omalle joukkueelle</div>
+        </div>
+        <div class="periaate-arvio" id="p-prassi-arvo" style="color:#1D9E75">2.5<span class="yhteenveto-tag keski">OK</span></div>
+      </div>
+
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Prässin käynnistys</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('prassi-1',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('prassi-1',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('prassi-1',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('prassi-1',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Yhdessä (tuki, etäisyydet)</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('prassi-2',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('prassi-2',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('prassi-2',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('prassi-2',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Voita kamppailut</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('prassi-3',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('prassi-3',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('prassi-3',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('prassi-3',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Vastaprässi (pallon menetyksen jälkeen)</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('prassi-4',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('prassi-4',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('prassi-4',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('prassi-4',this,'na')">N/A</button>
+        </div>
+      </div>
+
+      <div class="porautu-rivi" onclick="avaaKPI('prassi')">
+        <span>📊 Porautu: Prässi keskuspuolustajan U15-tytön KPI:hin</span>
+        <span class="arrow">→</span>
+      </div>
+    </div>
+
+    <!-- BOKSI -->
+    <div class="periaate-kortti">
+      <div class="periaate-otsikko">
+        <div>
+          <div class="periaate-nimi">🛡️ Boksi</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:2px">Puolustaa omaa maalia</div>
+        </div>
+        <div class="periaate-arvio" id="p-boksi-arvo" style="color:#1D9E75">3.0<span class="yhteenveto-tag hyva">VAHVA</span></div>
+      </div>
+
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Viiva (vastustaja ei boksiin)</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('boksi-1',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('boksi-1',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('boksi-1',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('boksi-1',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Tolpat (rangaistusalueella)</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('boksi-2',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('boksi-2',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('boksi-2',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('boksi-2',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Portti (maalin edessä)</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('boksi-3',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('boksi-3',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('boksi-3',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('boksi-3',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Laukausten blokkaaminen</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('boksi-4',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('boksi-4',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('boksi-4',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('boksi-4',this,'na')">N/A</button>
+        </div>
+      </div>
+
+      <div class="porautu-rivi" onclick="avaaKPI('boksi')">
+        <span>📊 Porautu: Boksi keskuspuolustajan U15-tytön KPI:hin</span>
+        <span class="arrow">→</span>
+      </div>
+    </div>
+
+    <!-- KIIHDYTYS -->
+    <div class="periaate-kortti">
+      <div class="periaate-otsikko">
+        <div>
+          <div class="periaate-nimi">⚡ Kiihdytys</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:2px">Hyödyntää syntyvät edut</div>
+        </div>
+        <div class="periaate-arvio" id="p-kiihdytys-arvo" style="color:#BA7517">2.0<span class="yhteenveto-tag keski">OK</span></div>
+      </div>
+
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Rytminvaihdot</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('kiihdytys-1',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('kiihdytys-1',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('kiihdytys-1',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('kiihdytys-1',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Vastahyökkäykset</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('kiihdytys-2',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('kiihdytys-2',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('kiihdytys-2',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('kiihdytys-2',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Nopeat käynnistykset</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('kiihdytys-3',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('kiihdytys-3',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('kiihdytys-3',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('kiihdytys-3',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Etene yhdessä (lyhyet etäisyydet)</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('kiihdytys-4',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('kiihdytys-4',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('kiihdytys-4',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('kiihdytys-4',this,'na')">N/A</button>
+        </div>
+      </div>
+
+      <div class="porautu-rivi" onclick="avaaKPI('kiihdytys')">
+        <span>📊 Porautu: Kiihdytys keskuspuolustajan U15-tytön KPI:hin</span>
+        <span class="arrow">→</span>
+      </div>
+    </div>
+
+    <!-- TAAKSE -->
+    <div class="periaate-kortti">
+      <div class="periaate-otsikko">
+        <div>
+          <div class="periaate-nimi">🎯 Taakse</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:2px">Murtaa puolustuslinja</div>
+        </div>
+        <div class="periaate-arvio" id="p-taakse-arvo" style="color:#BA7517">2.3<span class="yhteenveto-tag keski">OK</span></div>
+      </div>
+
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Murtavat juoksut, syötöt, ohitukset</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('taakse-1',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('taakse-1',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('taakse-1',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('taakse-1',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Usein (toistuvasti ottelun aikana)</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('taakse-2',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('taakse-2',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('taakse-2',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('taakse-2',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Kombinaatiot</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('taakse-3',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('taakse-3',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('taakse-3',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('taakse-3',this,'na')">N/A</button>
+        </div>
+      </div>
+      <div class="alatoiminto">
+        <div class="alatoiminto-nimi">Boksin täyttö</div>
+        <div class="alatoiminto-napit">
+          <button class="at-nappi" onclick="valAT('taakse-4',this,1)">1</button>
+          <button class="at-nappi" onclick="valAT('taakse-4',this,2)">2</button>
+          <button class="at-nappi" onclick="valAT('taakse-4',this,3)">3</button>
+        
+          <button class="at-nappi na" onclick="valAT('taakse-4',this,'na')">N/A</button>
+        </div>
+      </div>
+
+      <div class="porautu-rivi" onclick="avaaKPI('taakse')">
+        <span>📊 Porautu: Taakse keskuspuolustajan U15-tytön KPI:hin</span>
+        <span class="arrow">→</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Konteksti-infolaatikko -->
+  <div class="section-card" style="margin-bottom:20px;border-left:3px solid var(--pink)">
+    <div class="section-title">Konteksti: Keskuspuolustajan rooli U15-tyttöjen maajoukkuekarsinnassa <span class="spl-tag">PELIPAIKKA-ANALYYSI</span></div>
+    <div style="font-size:12px;color:var(--ink2);line-height:1.7">
+      Emman pelipaikassa (keskuspuolustaja) korostuu erityisesti <strong style="color:var(--ink1)">Boksi</strong>-periaate — 4/4 alatoimintoa arvioitu maajoukkuetason tavoitteessa. <strong style="color:var(--amber)">Kiihdytys</strong> on alhaisempi, mikä on pelipaikalle tyypillistä — keskuspuolustajan rooli vastahyökkäyksissä on avaussyöttö tai rytminvaihto, ei maalintekotilanne. <strong style="color:var(--ink1)">Taakse</strong>-periaatteesta kaksi alatoimintoa on merkitty <strong>N/A</strong> — murtavat juoksut ja boksin täyttö eivät kuulu keskuspuolustajan pelirooliin.
+    </div>
+
+    <!-- Automaattinen kehityskohteet-lista -->
+    <div class="kehityskohde-lista" id="kehityskohteet" style="margin-top:14px">
+      <!-- Täytetään JavaScriptillä -->
+    </div>
+  </div>
+
+  <!-- Metodologiaselite -->
+  <div class="huomio spl" style="margin-bottom:16px">
+    <strong>Metodologia · arvojen merkitys:</strong>
+    <br>
+    <span style="display:inline-block;margin-top:6px;font-size:11px;line-height:1.7">
+      <strong style="color:var(--red)">1 = Kehityskohde</strong> (toteutui heikosti → syöttyy automaattisesti IDP-ehdotuksiin) ·
+      <strong style="color:var(--amber)">2 = OK</strong> (toteutui osittain) ·
+      <strong style="color:var(--green)">3 = Vahva</strong> (toteutui tasolla) ·
+      <strong style="color:var(--ink2)">N/A = Ei arvioitavissa</strong> (ei näkynyt ottelussa / ei sovellu pelipaikalle)
+      <br><br>
+      Keskiarvo lasketaan vain numeerisista arvioista — N/A ei vedä arvoa alas. Arvioija ei ole pakotettu täyttämään kaikkea; <strong style="color:var(--acc2)">"en nähnyt" on rehellinen havainto</strong>.
+    </span>
+  </div>
+
+  <button class="tallenna-btn spl" onclick="tallenna2()">Tallenna Palloliitto-arvio ja jatka →</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     VAIHE 3 — Ikäkausivertailu + Sydän-placeholder
+     ══════════════════════════════════════════════════════════ -->
+<div class="vaihe-sivu fadeup" id="vaihe-3">
+
+  <div class="spl-hero" style="background:linear-gradient(135deg, var(--spl) 0%, #7F77DD 100%)">
+    <h1>📈 Ikäkausivertailu — Sama pelaaja, eri vaiheissa</h1>
+    <p>Keskuspuolustajan pelin periaatteiden vaatimustaso kehittyy U13 → U15 → U17. Emman nykyinen taso näyttää miltä kriteerit näyttävät — eikä mitä tulevaisuudessa vaaditaan. Tämä on maajoukkuepolun pitkä kehityskaari, jonka pohja luodaan seura-arjessa.</p>
+  </div>
+
+  <div class="section-card" style="margin-bottom:20px">
+    <div class="section-title">Keskuspuolustaja · Boksi-periaate eri ikäkausina <span class="spl-tag">IKÄKAUSIMATRIISI</span></div>
+
+    <div class="ikavertailu">
+      <!-- U13 -->
+      <div class="ika-box">
+        <div class="ika-otsikko">U13 — Perustaso</div>
+        <div class="ika-rivi"><span>Viiva-ymmärrys</span><strong>Oppii konseptin</strong></div>
+        <div class="ika-rivi"><span>Tolpat-sijoittuminen</span><strong>Ohjattu</strong></div>
+        <div class="ika-rivi"><span>Laukausten blokki</span><strong>2–3 / ottelu</strong></div>
+        <div class="ika-rivi"><span>1v1-puolustus</span><strong>Voitto-% 50</strong></div>
+        <div class="ika-rivi"><span>Kommunikaatio</span><strong>Ohjattu</strong></div>
+        <div style="margin-top:10px;padding:8px;background:rgba(186,117,23,.08);border-radius:6px;font-size:10px;color:var(--ink2);line-height:1.5">
+          <strong style="color:var(--amber)">Painopiste:</strong> Konseptin oppiminen ja toistaminen. Virheet sallittuja.
+        </div>
+      </div>
+
+      <!-- U15 — Emma nyt -->
+      <div class="ika-box nyt">
+        <div class="ika-otsikko">U15 — Emma nyt ⭐</div>
+        <div class="ika-rivi"><span>Viiva-ymmärrys</span><strong style="color:#1D9E75">Hallitsee</strong></div>
+        <div class="ika-rivi"><span>Tolpat-sijoittuminen</span><strong style="color:#1D9E75">Itsenäinen</strong></div>
+        <div class="ika-rivi"><span>Laukausten blokki</span><strong style="color:#1D9E75">4–6 / ottelu</strong></div>
+        <div class="ika-rivi"><span>1v1-puolustus</span><strong style="color:#1D9E75">Voitto-% 68</strong></div>
+        <div class="ika-rivi"><span>Kommunikaatio</span><strong style="color:#1D9E75">Johtaa linjaa</strong></div>
+        <div style="margin-top:10px;padding:8px;background:rgba(226,75,138,.08);border-radius:6px;font-size:10px;color:var(--ink2);line-height:1.5">
+          <strong style="color:var(--pink)">Emma tässä:</strong> Hallitsee kaikki U15-tavoitteet. Seuraava askel on U17-vaatimus.
+        </div>
+      </div>
+
+      <!-- U17 -->
+      <div class="ika-box">
+        <div class="ika-otsikko">U17 — Maajoukkuetaso</div>
+        <div class="ika-rivi"><span>Linja-johtaminen</span><strong>Muiden ohjaus</strong></div>
+        <div class="ika-rivi"><span>Ennakointi</span><strong>2 siirtoa edellä</strong></div>
+        <div class="ika-rivi"><span>Laukausten blokki</span><strong>6+ / ottelu</strong></div>
+        <div class="ika-rivi"><span>1v1-puolustus</span><strong>Voitto-% 75+</strong></div>
+        <div class="ika-rivi"><span>Avaussyöttö</span><strong>Tarkkuus 80%+</strong></div>
+        <div style="margin-top:10px;padding:8px;background:rgba(127,119,221,.08);border-radius:6px;font-size:10px;color:var(--ink2);line-height:1.5">
+          <strong style="color:var(--purp)">Tavoite 2028:</strong> Kansainvälisen vaatimustason vaatima kyky lukea peli ja johtaa puolustusta.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Huuhkaja-/Helmarisydän -->
+  <div class="sydan-paneeli">
+    <div class="sydan-ikoni">❤️</div>
+    <div class="sydan-otsikko">HUUHKAJA- JA HELMARISYDÄN</div>
+    <div class="sydan-teksti">
+      <strong>Pilarit odottavat Palloliiton viitekehystä.</strong> Nuorten maajoukkueiden psyykkinen valmentaja <strong>Aleksi Tossavainen</strong> on johtanut Huuhkaja- ja Helmarisydämen pilareiden rakentamista. TalentMaster™ rakentaa tämän osion täsmälleen sellaisena kuin Palloliitto sen määrittelee — pelaajakehityksen mentaaliset arvot eivät tule scouting-työkalusta, vaan kansallisesta DNA-työstä.
+      <br><br>
+      <span style="color:var(--pink);font-weight:600">Seuraava askel:</span> Yhteiseen työpajaan Palloliiton psyykkisen valmennuksen työryhmän kanssa — pilareiden sanoitus ottelun havainnoitaviksi kriteereiksi.
+    </div>
+    <div class="sydan-pilarit">
+      <div class="pilar-placeholder">Pilari 1<br>[odottaa sisältöä]</div>
+      <div class="pilar-placeholder">Pilari 2<br>[odottaa sisältöä]</div>
+      <div class="pilar-placeholder">Pilari 3<br>[odottaa sisältöä]</div>
+      <div class="pilar-placeholder">Pilari 4<br>[odottaa sisältöä]</div>
+      <div class="pilar-placeholder">Pilari 5<br>[odottaa sisältöä]</div>
+    </div>
+  </div>
+
+  <!-- Yhteenveto ja päätös -->
+  <div class="section-card" style="margin-top:20px;border-left:3px solid var(--acc)">
+    <div class="section-title">Emma Tuominen · kokonaisyhteenveto <span>Maajoukkue-karsinta</span></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+      <div style="padding:12px;background:var(--bg3);border-radius:8px;text-align:center">
+        <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;margin-bottom:4px">Prässi</div>
+        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:#BA7517">2.5</div>
+        <div style="font-size:9px;color:var(--ink3);margin-top:2px">4/4 havaintoa</div>
+      </div>
+      <div style="padding:12px;background:var(--bg3);border-radius:8px;text-align:center;border:1px solid rgba(29,158,117,.3)">
+        <div style="font-size:9px;color:var(--green);text-transform:uppercase;margin-bottom:4px">Boksi ⭐</div>
+        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:#1D9E75">3.0</div>
+        <div style="font-size:9px;color:var(--ink3);margin-top:2px">4/4 havaintoa</div>
+      </div>
+      <div style="padding:12px;background:var(--bg3);border-radius:8px;text-align:center">
+        <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;margin-bottom:4px">Kiihdytys</div>
+        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:#BA7517">1.8</div>
+        <div style="font-size:9px;color:var(--ink3);margin-top:2px">4/4 · kehityskohde</div>
+      </div>
+      <div style="padding:12px;background:var(--bg3);border-radius:8px;text-align:center">
+        <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;margin-bottom:4px">Taakse</div>
+        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:#BA7517">2.0</div>
+        <div style="font-size:9px;color:var(--ink3);margin-top:2px">2/4 · 2 N/A (pelipaikka)</div>
+      </div>
+    </div>
+
+    <div style="padding:12px 14px;background:rgba(74,126,217,.05);border-radius:8px;border-left:3px solid var(--acc);font-size:12px;color:var(--ink2);line-height:1.7">
+      <strong style="color:var(--acc2)">Päätös maajoukkuetason tarkkailuun:</strong> Emma Tuominen täyttää U15-tyttöjen keskuspuolustajan Boksi-periaatteen maajoukkuetasolla (3.0/3.0, 4 havaintoa). Prässi ja Taakse ovat tasolla. <strong style="color:var(--red)">Yksi kehityskohde</strong> tunnistettu: Kiihdytys → Vastahyökkäykset (1/3) — syöttyy IDP-ehdotuksiin automaattisesti.
+      <br><br>
+      <strong style="color:var(--ink1)">Suositus:</strong> Kutsutaan TU15-alueleirille 28.4. IDP-kytkös: avaussyöttöjen laadun kehittäminen + U17-tavoitetason ennakointitaidot.
+      <br><br>
+      <em style="color:var(--ink3);font-size:11px">Raportti palautuu SJK Juniorit -seuran VP:lle automaattisesti — ensimmäinen kerta Suomessa kun maajoukkue ja seura katsovat samaa pelaajadataa.</em>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="tallenna-btn" onclick="naytaSuccess()" style="margin-top:0;flex:1">
+        Vie Palloliiton tiedolla johtamisen alustalle →
+      </button>
+      <button class="tallenna-btn spl" onclick="avaaDashboard()" style="margin-top:0;flex:1;background:var(--pink)">
+        Avaa Head of Talent -dashboard →
+      </button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- ════════════════════════════════════════════
+     KPI-MODAALI — pelipaikkakohtaiset KPI:t
+     ════════════════════════════════════════════ -->
+<div class="kpi-modal" id="kpi-modal">
+  <div class="kpi-modal-sisalto">
+    <div class="kpi-modal-header">
+      <div>
+        <div class="kpi-modal-otsikko" id="kpi-otsikko">Periaate → Pelipaikkakohtaiset KPI:t</div>
+        <div class="kpi-modal-subotsikko" id="kpi-subotsikko">Keskuspuolustaja · U15-tyttö · Ottelukohtaiset mittarit</div>
+      </div>
+      <button class="close-btn" onclick="suljeKPI()">×</button>
+    </div>
+
+    <div id="kpi-sisalto"></div>
+  </div>
+</div>
+
+<!-- Success -->
+<div class="success-overlay" id="success-overlay" onclick="this.classList.remove('show')">
+  <div class="success-box">
+    <div class="success-icon">✅</div>
+    <div class="success-title">Arvio lähetetty!</div>
+    <div class="success-text">
+      Emma Tuomisen ottelu-arvio on tallennettu sekä SJK Juniorit -seuran että Palloliiton nuorten maajoukkueen tiedolla johtamisen alustalle.<br><br>
+      <strong>Tallennus:</strong><br>
+      <code style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc2)">
+        pelaajat/ET-004/pelihavainnot/2026-04-12<br>
+        spl/karsinta/tu15/ET-004/2026-04-12
+      </code>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─ KPI-data per periaate ─
+const kpiData = {
+  prassi: {
+    otsikko: "Prässi → Keskuspuolustajan KPI:t",
+    alatag: "🎯 PRÄSSI",
+    kpit: [
+      { nimi: "Prässi-aloituksen laukaisu ajassa", kuvaus: "Kun prässi käynnistetään sovitulla hetkellä, keskuspuolustajan rooli on nostaa puolustuslinja ja pitää offside-linja tiivis", tavoite: "<1.5s", tulos: "1.2s", vari: "#1D9E75" },
+      { nimi: "Puolustuslinjan nosto prässin yhteydessä", kuvaus: "Linja nousee yhtenäisesti prässin aloituksessa — keskuspuolustaja johtaa aikaa kommunikoimalla", tavoite: "80%", tulos: "72%", vari: "#BA7517" },
+      { nimi: "Ilmataistelujen voitto-%", kuvaus: "Kamppailut keskikentällä ja puolustuslinjassa — korkeat palloja vastaan", tavoite: "65%+", tulos: "71%", vari: "#1D9E75" },
+      { nimi: "Vastaprässin aloitusaika pallon menetyksen jälkeen", kuvaus: "Sekunneissa — miten nopeasti Emma reagoi oman joukkueen pallonmenetykseen", tavoite: "<2s", tulos: "2.6s", vari: "#BA7517" },
+      { nimi: "Tuki-etäisyys pallolliseen prässääjään", kuvaus: "Kun joukkuetoveri prässää, Emman sijainti tuen varmistamiseksi", tavoite: "8–12m", tulos: "10m", vari: "#1D9E75" },
+      { nimi: "Duel-voittosuhde kenttäpuoliskolla", kuvaus: "Maajoukkuetason kansainvälinen benchmark: U15-tyttö keskuspuolustaja", tavoite: "60%+", tulos: "64%", vari: "#1D9E75" }
+    ]
+  },
+  boksi: {
+    otsikko: "Boksi → Keskuspuolustajan KPI:t",
+    alatag: "🛡️ BOKSI",
+    kpit: [
+      { nimi: "Viiva-puolustus onnistumis-%", kuvaus: "Vastustajan estäminen pääsemästä omalle rangaistusalueelle — blokatut keskitykset + poiskäännöt", tavoite: "70%+", tulos: "83%", vari: "#1D9E75" },
+      { nimi: "Tolppa-sijoittuminen kulmapotkuissa", kuvaus: "Etu- tai takatolppa riippuen taktisesta suunnitelmasta — oikea sijoittuminen ja markkeeraus", tavoite: "100%", tulos: "100%", vari: "#1D9E75" },
+      { nimi: "Laukausten blokit per ottelu", kuvaus: "Vartalolla tai jalalla blokatut laukaukset rangaistusalueella", tavoite: "3+", tulos: "5", vari: "#1D9E75" },
+      { nimi: "1v1-puolustus rangaistusalueella", kuvaus: "Voitetut 1v1-tilanteet omalla rangaistusalueella ilman rangaistuspotkua", tavoite: "80%+", tulos: "89%", vari: "#1D9E75" },
+      { nimi: "Ilmapalloyksiköt rangaistusalueella", kuvaus: "Voitetut yläpalloyksiköt oman rangaistusalueen puolella", tavoite: "75%+", tulos: "82%", vari: "#1D9E75" },
+      { nimi: "Boksin tyhjennys (clearance) -nopeus", kuvaus: "Pallon saaminen pois omalta rangaistusalueelta — sekunneissa kamppailun voitosta", tavoite: "<2s", tulos: "1.4s", vari: "#1D9E75" }
+    ]
+  },
+  kiihdytys: {
+    otsikko: "Kiihdytys → Keskuspuolustajan KPI:t",
+    alatag: "⚡ KIIHDYTYS",
+    kpit: [
+      { nimi: "Avaussyötön tarkkuus (pitkä > 30m)", kuvaus: "Keskuspuolustajan rooli kiihdytyksessä on avaussyöttö — tarkkuus puolustuslinjan takaa hyökkäysalueelle", tavoite: "65%+", tulos: "48%", vari: "#E24B4A" },
+      { nimi: "Linjojen ohittava syöttö (line-break pass)", kuvaus: "Syötöt jotka ohittavat vähintään yhden vastustajan puolustuslinjan kokonaisuudessaan", tavoite: "5+ / ottelu", tulos: "3", vari: "#BA7517" },
+      { nimi: "Rytminvaihdon aloitus pallonriistoa seuraten", kuvaus: "Palauttaako Emma pallon heti eteenpäin nopeaan hyökkäykseen vai pelaako turvallisesti taaksepäin", tavoite: "60%+ eteen", tulos: "54%", vari: "#BA7517" },
+      { nimi: "Kiihdytyksen tukeminen puolustuslinjalta", kuvaus: "Linjan liike hyökkäykseen — keskuspuolustaja tukee noin 10m perässä, valmiina vastaprässiin", tavoite: "85%+", tulos: "78%", vari: "#BA7517" },
+      { nimi: "Pallon kuljetus omalta puoliskolta", kuvaus: "Rohkeus viedä palloa eteenpäin jaloissa kun pressi ei aktivoidu — rikkoo vastustajan muodon", tavoite: "3+ / ottelu", tulos: "2", vari: "#BA7517" },
+      { nimi: "Nopeus takaisin puolustusasemaan menetyksen jälkeen", kuvaus: "Sprint-palautuminen kun vastustaja saa pallon hyökkäysalueella", tavoite: "<4s", tulos: "3.8s", vari: "#1D9E75" }
+    ]
+  },
+  taakse: {
+    otsikko: "Taakse → Keskuspuolustajan KPI:t",
+    alatag: "🎯 TAAKSE",
+    kpit: [
+      { nimi: "Pitkän syötön osuma puolustuslinjan taakse", kuvaus: "Suora syöttö vastustajan puolustuslinjan taakse hyökkääjälle — keskuspuolustajan strateginen avaus", tavoite: "4+ / ottelu", tulos: "2", vari: "#BA7517" },
+      { nimi: "Toisen linjan ohittaminen", kuvaus: "Syötöt jotka ohittavat vastustajan keskikentän kokonaan", tavoite: "8+ / ottelu", tulos: "6", vari: "#BA7517" },
+      { nimi: "Laaja lateraalinen syöttö (switch play)", kuvaus: "Pelin kääntäminen laidalta toiselle — avaa tilaa taakse-syötölle", tavoite: "5+ / ottelu", tulos: "7", vari: "#1D9E75" },
+      { nimi: "Erikoistilanteiden aloitus (vapaapotku, kulmapotku)", kuvaus: "Pysäytettyjen pelitilanteiden aloituksen onnistumis-% — Emman rooli nostona ja syöttäjänä", tavoite: "60%+", tulos: "73%", vari: "#1D9E75" },
+      { nimi: "Kombinaatio-avauksen aloitus keskikentän kanssa", kuvaus: "Kolmiopeli keskikenttäpelaajien kanssa joka johtaa pallon etenemiseen", tavoite: "10+ / ottelu", tulos: "8", vari: "#BA7517" },
+      { nimi: "Syötön tarkkuus paineen alla", kuvaus: "Onnistumis-% syötöissä kun vastustaja prässää 5m säteellä", tavoite: "75%+", tulos: "81%", vari: "#1D9E75" }
+    ]
+  }
+};
+
+function avaaKPI(periaate) {
+  const data = kpiData[periaate];
+  document.getElementById('kpi-otsikko').textContent = data.otsikko;
+  document.getElementById('kpi-subotsikko').textContent = "Emma Tuominen · U15-tyttö · Keskuspuolustaja · Ottelu 12.4.2026";
+
+  let html = `<div class="ketju-otsikko">
+    <span class="iso">${data.alatag}</span>
+    <span class="arrow">→</span>
+    <span class="pieni">Keskuspuolustaja</span>
+    <span class="arrow">→</span>
+    <span class="pieni">U15-tyttö</span>
+    <span class="tag">Palloliitto KPI</span>
+  </div>`;
+
+  data.kpit.forEach(k => {
+    html += `<div class="kpi-rivi">
+      <div>
+        <div class="kpi-nimi">${k.nimi}</div>
+        <div class="kpi-kuvaus">${k.kuvaus}</div>
+      </div>
+      <div class="kpi-tavoite">Tavoite<br><strong>${k.tavoite}</strong></div>
+      <div class="kpi-tulos" style="color:${k.vari}">${k.tulos}</div>
+    </div>`;
+  });
+
+  html += `<div style="margin-top:18px;padding:14px 16px;background:rgba(0,47,108,.15);border-radius:10px;border-left:3px solid var(--spl);font-size:12px;color:var(--ink2);line-height:1.7">
+    <strong style="color:var(--acc2)">KPI-matriisi · tiedolla johtaminen:</strong> Nämä KPI:t ovat esimerkki miltä periaatteen konkretisointi voisi näyttää. Lopulliset arvot ja tavoitteet määritetään yhteistyössä Palloliiton nuorten maajoukkueiden valmennusryhmän kanssa — jokainen pelipaikka × ikäkausi -yhdistelmä saa oman KPI-paletin. Yhteensä: 11 pelipaikkaa × 4 ikäkautta × ~6 KPI = ~264 KPI:tä. Systeeminen omaisuus joka tekee Palloliiton talenttipolusta johtamismallin, ei julistekieltä.
+  </div>`;
+
+  document.getElementById('kpi-sisalto').innerHTML = html;
+  document.getElementById('kpi-modal').classList.add('show');
+}
+
+function suljeKPI() {
+  document.getElementById('kpi-modal').classList.remove('show');
+}
+
+// ─ TIPS-logiikka (säilyy alkuperäisenä) ─
+const arvot = { T:8, I:8, P:9, S:7 };
+function paivitaArvo(k, v) {
+  arvot[k] = parseInt(v);
+  const el = document.getElementById('val-' + k);
+  if (!el) return;
+  const n = parseInt(v);
+  const c = n >= 8 ? 'var(--green)' : n >= 6 ? 'var(--amber)' : 'var(--red)';
+  el.style.color = c; el.textContent = v;
+}
+
+function valitseIDP(v) {
+  document.querySelectorAll('#vaihe-1 .idp-nappi').forEach(el => {
+    el.className = 'idp-nappi';
+  });
+  const target = event.target;
+  const klasses = { kylla:'sel-green', osittain:'sel-amber', ei:'sel-red' };
+  target.classList.add(klasses[v]);
+}
+
+// ─ Alatoiminto-arviot ─
+const atArvot = {};
+function valAT(key, btn, arvo) {
+  atArvot[key] = arvo;
+  const parent = btn.parentElement;
+  parent.querySelectorAll('.at-nappi').forEach(b => {
+    // Nollaa valinnat mutta säilytä N/A-nappien na-tyyli
+    if (b.classList.contains('na')) {
+      b.className = 'at-nappi na';
+    } else {
+      b.className = 'at-nappi';
+    }
+  });
+  if (arvo === 'na') {
+    btn.classList.add('sel-na');
+  } else {
+    btn.classList.add('sel-' + arvo);
+  }
+
+  // Päivitä periaatteen yhteenveto + kehityskohteet
+  const periaate = key.split('-')[0];
+  paivitaPeriaate(periaate);
+  paivitaKehityskohteet();
+}
+
+function paivitaPeriaate(periaate) {
+  // Suodata pois N/A-arvot ja tyhjät — vain numeeriset arvot lasketaan
+  const arvot = [1,2,3,4]
+    .map(n => atArvot[periaate + '-' + n])
+    .filter(v => v === 1 || v === 2 || v === 3);
+
+  const el = document.getElementById('p-' + periaate + '-arvo');
+  if (!el) return;
+
+  if (arvot.length === 0) {
+    el.style.color = 'var(--ink3)';
+    el.innerHTML = '—<span class="yhteenveto-tag" style="background:rgba(90,107,130,.1);color:var(--ink3);border:1px solid var(--bord2)">EI DATAA</span>';
+    return;
+  }
+
+  const ka = arvot.reduce((a,b) => a+b, 0) / arvot.length;
+  const k = ka.toFixed(1);
+  const vari = ka >= 2.5 ? 'var(--green)' : ka >= 1.8 ? 'var(--amber)' : 'var(--red)';
+  const tag = ka >= 2.5 ? '<span class="yhteenveto-tag hyva">VAHVA</span>' :
+              ka >= 1.8 ? '<span class="yhteenveto-tag keski">OK</span>' :
+                          '<span class="yhteenveto-tag heikko">KEHITYS</span>';
+  // Näytä myös montako havaintoa
+  const selite = arvot.length < 4 ? ` <span style="font-size:10px;color:var(--ink3);font-weight:400;margin-left:6px">(${arvot.length}/4 havaittu)</span>` : '';
+  el.style.color = vari;
+  el.innerHTML = k + tag + selite;
+}
+
+// ─ Kehityskohteet-yhteenveto ─
+// Kerää kaikki alatoiminnot jotka saivat arvon 1 (= kehityskohde)
+const alatoimintoNimet = {
+  'prassi-1': 'Prässin käynnistys',
+  'prassi-2': 'Yhdessä (tuki, etäisyydet)',
+  'prassi-3': 'Voita kamppailut',
+  'prassi-4': 'Vastaprässi',
+  'boksi-1': 'Viiva',
+  'boksi-2': 'Tolpat',
+  'boksi-3': 'Portti',
+  'boksi-4': 'Laukausten blokkaaminen',
+  'kiihdytys-1': 'Rytminvaihdot',
+  'kiihdytys-2': 'Vastahyökkäykset',
+  'kiihdytys-3': 'Nopeat käynnistykset',
+  'kiihdytys-4': 'Etene yhdessä',
+  'taakse-1': 'Murtavat juoksut',
+  'taakse-2': 'Usein',
+  'taakse-3': 'Kombinaatiot',
+  'taakse-4': 'Boksin täyttö'
+};
+const periaateNimet = { prassi:'Prässi', boksi:'Boksi', kiihdytys:'Kiihdytys', taakse:'Taakse' };
+
+function paivitaKehityskohteet() {
+  const kohteet = Object.keys(atArvot)
+    .filter(k => atArvot[k] === 1)
+    .map(k => ({
+      key: k,
+      periaate: periaateNimet[k.split('-')[0]],
+      nimi: alatoimintoNimet[k] || k
+    }));
+
+  const el = document.getElementById('kehityskohteet');
+  if (!el) return;
+
+  if (kohteet.length === 0) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--ink3);font-style:italic">Ei kehityskohteita tunnistettu — kaikki havaitut toiminnot toteutuivat tasolla 2 tai 3.</div>';
+    return;
+  }
+
+  let html = '<div class="kehityskohde-otsikko">⚠ Kehityskohteet (saivat arvion 1) — syöttyvät IDP-ehdotuksiin</div>';
+  kohteet.forEach(k => {
+    html += `<div class="kehityskohde-rivi"><span class="kehityskohde-vari"></span><strong>${k.periaate}</strong> → ${k.nimi}</div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ─ Vaihesiirtymät ─
+function naytaVaihe(n) {
+  [1,2,3].forEach(i => {
+    const sivu = document.getElementById('vaihe-' + i);
+    sivu.className = 'vaihe-sivu' + (i===n ? ' active fadeup' : '');
+    const btn = document.getElementById('btn-' + i);
+    btn.className = 'vaihe-btn' + (i===n ? (i===2 || i===3 ? ' active spl-active' : ' active') : (i<n ? ' done' : ''));
+  });
+}
+
+function tallenna1() {
+  naytaVaihe(2);
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function tallenna2() {
+  naytaVaihe(3);
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function naytaSuccess() {
+  document.getElementById('success-overlay').classList.add('show');
+}
+
+function avaaDashboard() {
+  // Avaa Head of Talent -dashboard samassa välilehdessä
+  window.location.href = 'TalentMaster_HeadOfTalent_Dashboard.html';
+}
+
+// Alustus: keskuspuolustajan U15-tyttö
+// Pelipaikkakohtainen logiikka:
+// - Keskuspuolustaja ei tyypillisesti tee "Taakse → murtavat juoksut" → N/A
+// - Keskuspuolustaja ei tyypillisesti tee "Taakse → boksin täyttö" → N/A
+// - "Kiihdytys → Vastahyökkäys" kp:n kannalta rajallinen → jätetty pois (N/A)
+// - Yksi arvo = 1 (Kiihdytys → Vastahyökkäys, koska kp ei saanut ottelussa tilaisuutta osallistua)
+// HUOM: Olen muuttanut Kiihdytys-2 arvoksi 1 → näkyy kehityskohteena
+const alustus = {
+  'prassi-1': 2, 'prassi-2': 3, 'prassi-3': 3, 'prassi-4': 2,
+  'boksi-1': 3, 'boksi-2': 3, 'boksi-3': 3, 'boksi-4': 3,
+  'kiihdytys-1': 2, 'kiihdytys-2': 1, 'kiihdytys-3': 2, 'kiihdytys-4': 2,
+  // Taakse-periaate: keskuspuolustaja harvoin edessä — N/A oletus 1. ja 4.
+  'taakse-1': 'na', 'taakse-2': 2, 'taakse-3': 2, 'taakse-4': 'na'
+};
+
+Object.keys(alustus).forEach(k => {
+  atArvot[k] = alustus[k];
+  // Etsi oikea nappi ja merkitse se valituksi
+  const btns = document.querySelectorAll(`.at-nappi[onclick*="'${k}'"]`);
+  btns.forEach(b => {
+    // Nollaa nykyinen tila
+    if (b.classList.contains('na')) {
+      b.className = 'at-nappi na';
+    } else {
+      b.className = 'at-nappi';
+    }
+  });
+  // Etsi oikea nappi arvon perusteella
+  btns.forEach(b => {
+    const m = b.getAttribute('onclick').match(/,\s*([^)]+)\)/);
+    if (!m) return;
+    const napinArvo = m[1].replace(/['"]/g, '').trim();
+    if (String(alustus[k]) === napinArvo) {
+      if (alustus[k] === 'na') {
+        b.classList.add('sel-na');
+      } else {
+        b.classList.add('sel-' + alustus[k]);
+      }
+    }
+  });
+});
+
+['prassi','boksi','kiihdytys','taakse'].forEach(p => paivitaPeriaate(p));
+paivitaKehityskohteet();
+
+// Sulje modaali Esc-napilla
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') suljeKPI();
+});
+</script>
+</body>
+</html>
