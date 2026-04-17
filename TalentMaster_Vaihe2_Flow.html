@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster — Flow-diagrammi · Vaihe 2</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!--
+  ══════════════════════════════════════════════════════════════════════
+  TALENTMASTER · FLOW-DIAGRAMMI · VAIHE 2
+  ══════════════════════════════════════════════════════════════════════
+
+  Tämä on vaihe 2 kolmesta. Vaihe 1.1:ssä kuvasimme kuka tekee mitä
+  (staattinen kartta). Vaihe 2:ssa kuvaamme miten tieto liikkuu
+  ihmisten välillä (dynaaminen kuvaus). Vaiheessa 3 nämä yhdistetään
+  integroiduksi arkkitehtuuriksi.
+
+  RAKENNE — KOLMITASOINEN:
+  1. Kokonaiskuva (ylätaso): yksi visualisointi koko systeemistä
+  2. Rytmidiagrammit (keskitaso): 5 kuvaa yksi kutakin aikayksikköä
+     - Päiväsykli
+     - Viikkosykli
+     - Kuukausisykli
+     - Jaksosykli
+     - Kvartaalisykli
+  3. Tarinalliset flowt (alataso): 4 konkreettista use-casea
+     - Pelaajan fiilinkilasku
+     - IDP-aktivointi kolmea eri reittiä
+     - Jakson päättyminen
+     - Strategian jalkautumisen gap
+
+  VISUAALINEN KIELI — YHTENÄINEN VAIHE 1.1:N KANSSA:
+  - Samat värit: strateginen sininen, operatiivinen kulta,
+    suoritustaso vihreä, ekosysteemi okra
+  - Samat fontit: Cormorant Garamond otsikoihin, DM Sans leipätekstiin
+  - SVG visualisointeihin jotta nuolet ovat eleganttia;
+    HTML/CSS kehykseen ja teksteihin
+
+  ITERAATIO 1 — TÄMÄ TIEDOSTO:
+  Sisältää rungon, intro-osion, paikanvaraukset kaikille osioille,
+  ja kokonaiskuvan visualisoinnin. Rytmidiagrammit ja tarinat tulevat
+  seuraavissa iteraatioissa.
+-->
+
+<style>
+:root{
+  --carbon:#1C1C1A;
+  --bone:#F2EFE6;
+  --bone2:#E8E5DC;
+  --bone3:#D4D1C8;
+  --bone4:#BDB9AC;
+  --ink:#1C1C1A;
+  --ink2:rgba(28,28,26,.62);
+  --ink3:rgba(28,28,26,.38);
+  --ink4:rgba(28,28,26,.18);
+
+  /* Roolitasot — samat kuin Vaihe 1.1 */
+  --strat:#1A4F8C;
+  --strat-bg:rgba(26,79,140,.06);
+  --oper:#C8882A;
+  --oper-bg:rgba(200,136,42,.06);
+  --suor:#1A7A5E;
+  --suor-bg:rgba(26,122,94,.06);
+  --ekosys:#B05A3C;
+  --ekosys-bg:rgba(176,90,60,.06);
+
+  /* Rytmivärit — samat kuin Vaihe 1.1 */
+  --rytmi-p:#C44060;
+  --rytmi-v:#A06A1F;
+  --rytmi-k:#1F4F8E;
+  --rytmi-j:#1F6B7A;
+  --rytmi-q:#5A2A9E;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bone);color:var(--ink);
+  font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── HEADER — sama rakenne kuin Vaihe 1.1 ── */
+header{
+  background:var(--carbon);color:var(--bone);
+  padding:36px 48px 32px;
+}
+.header-inner{max-width:1400px;margin:0 auto}
+.header-eyebrow{
+  font-size:10px;letter-spacing:3px;text-transform:uppercase;
+  color:rgba(242,239,230,.4);margin-bottom:14px;font-weight:500;
+}
+.header-title{
+  font-family:'Cormorant Garamond',serif;font-size:42px;
+  font-weight:400;letter-spacing:-1.5px;line-height:1.05;margin-bottom:10px;
+}
+.header-title em{font-style:italic;color:rgba(242,239,230,.45)}
+.header-sub{
+  font-size:14px;color:rgba(242,239,230,.55);max-width:760px;line-height:1.7;
+}
+.header-stage{
+  margin-top:20px;display:inline-flex;align-items:center;gap:14px;
+  padding:8px 16px;background:rgba(242,239,230,.06);
+  border:1px solid rgba(242,239,230,.12);border-radius:20px;
+}
+.stage-dot{width:8px;height:8px;border-radius:50%;background:#1A7A5E}
+.stage-text{font-size:11px;color:rgba(242,239,230,.7);letter-spacing:0.5px}
+.stage-text strong{color:var(--bone);font-weight:600}
+
+/* ── INTRO — kaksi palstaa kuten Vaihe 1.1:ssä ── */
+.intro-section{
+  padding:48px 48px 40px;background:var(--bone2);
+  border-bottom:1px solid var(--bone3);
+}
+.intro-inner{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:48px}
+@media(max-width:960px){.intro-inner{grid-template-columns:1fr}}
+
+.intro-block h3{
+  font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:500;
+  letter-spacing:-0.4px;margin-bottom:12px;line-height:1.2;
+}
+.intro-block h3 em{font-style:italic;color:var(--ink3)}
+.intro-block p{font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:10px}
+
+/* Osionavigointi — helpottaa pitkässä dokumentissa siirtymistä */
+.intro-nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.intro-nav-pill{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
+  background:var(--bone);border:1px solid var(--bone3);border-radius:16px;
+  font-size:11px;color:var(--ink2);text-decoration:none;
+  transition:all 0.15s ease;
+}
+.intro-nav-pill:hover{background:var(--bone3);color:var(--ink)}
+.intro-nav-num{
+  width:18px;height:18px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;
+  background:var(--ink4);color:var(--ink);
+}
+
+/* ── OSION YLEINEN RAKENNE — toistuva kaikissa visualisointiosioissa ── */
+.viz-section{
+  padding:64px 48px;
+  border-bottom:1px solid var(--bone3);
+}
+.viz-section.alt{background:var(--bone2)}
+.viz-inner{max-width:1400px;margin:0 auto}
+
+.viz-header{margin-bottom:32px}
+.viz-eyebrow{
+  font-size:10px;letter-spacing:3px;text-transform:uppercase;
+  margin-bottom:12px;font-weight:500;
+}
+.viz-eyebrow.kokon{color:var(--carbon)}
+.viz-eyebrow.rytmi{color:var(--rytmi-k)}
+.viz-eyebrow.tarina{color:var(--oper)}
+
+.viz-title{
+  font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:400;
+  letter-spacing:-0.8px;line-height:1.15;margin-bottom:14px;
+}
+.viz-title em{font-style:italic;color:var(--ink3)}
+.viz-lead{
+  font-size:14px;color:var(--ink2);max-width:760px;line-height:1.7;
+}
+
+/* SVG-kontti joka hostaa visualisoinnit */
+.viz-canvas{
+  background:var(--bone);
+  border:1px solid var(--bone3);
+  border-radius:14px;
+  padding:40px;
+  overflow-x:auto;
+  margin-top:24px;
+}
+.viz-canvas.on-alt{background:var(--bone)}
+.viz-canvas svg{display:block;max-width:100%;height:auto}
+
+/* Selitysteksti visualisoinnin alla — auttaa tulkinnassa */
+.viz-explain{
+  margin-top:28px;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:20px;
+}
+@media(max-width:960px){.viz-explain{grid-template-columns:1fr}}
+
+.explain-card{
+  padding:20px;background:var(--bone);
+  border:1px solid var(--bone3);border-radius:10px;
+  position:relative;
+}
+.explain-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+}
+.explain-card.a::before{background:var(--strat)}
+.explain-card.b::before{background:var(--oper)}
+.explain-card.c::before{background:var(--suor)}
+.explain-num{
+  font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:300;
+  line-height:1;letter-spacing:-1px;color:var(--ink3);margin-bottom:8px;
+}
+.explain-title{
+  font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:500;
+  letter-spacing:-0.2px;line-height:1.25;margin-bottom:8px;
+}
+.explain-text{font-size:12.5px;color:var(--ink2);line-height:1.6}
+.explain-text strong{color:var(--ink);font-weight:600}
+
+/* ── PAIKANVARAUSKORTIT — osiot joissa visualisointi ei ole vielä valmis ── */
+.placeholder{
+  padding:60px 40px;background:var(--bone);
+  border:2px dashed var(--bone3);border-radius:14px;
+  text-align:center;margin-top:24px;
+}
+.placeholder-tag{
+  display:inline-block;padding:4px 12px;
+  background:rgba(31,107,122,.1);color:var(--rytmi-j);
+  border-radius:14px;font-size:10px;letter-spacing:1.5px;
+  text-transform:uppercase;font-weight:600;margin-bottom:14px;
+}
+.placeholder-title{
+  font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:500;
+  letter-spacing:-0.4px;margin-bottom:8px;color:var(--ink2);
+}
+.placeholder-text{
+  font-size:13px;color:var(--ink3);max-width:520px;margin:0 auto;line-height:1.65;
+}
+
+/* ── FOOTER — NEXT ITERATION ── */
+.next-section{
+  padding:48px;background:var(--carbon);color:var(--bone);
+}
+.next-inner{
+  max-width:1100px;margin:0 auto;
+  display:grid;grid-template-columns:1fr auto;gap:32px;align-items:center;
+}
+@media(max-width:760px){.next-inner{grid-template-columns:1fr}}
+.next-eyebrow{
+  font-size:10px;letter-spacing:3px;text-transform:uppercase;
+  color:#5BC9A1;margin-bottom:8px;
+}
+.next-title{
+  font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:400;
+  letter-spacing:-0.5px;line-height:1.25;color:var(--bone);margin-bottom:8px;
+}
+.next-title em{font-style:italic;color:rgba(242,239,230,.45)}
+.next-text{font-size:13px;color:rgba(242,239,230,.55);line-height:1.65}
+.next-stages{display:flex;flex-direction:column;gap:8px;min-width:240px}
+.stage-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;border-radius:8px;
+  background:rgba(242,239,230,.05);border:1px solid rgba(242,239,230,.08);
+  font-size:12px;
+}
+.stage-item.done{background:rgba(26,122,94,.12);border-color:rgba(26,122,94,.25)}
+.stage-item.current{background:rgba(200,136,42,.12);border-color:rgba(200,136,42,.3)}
+.stage-num{
+  width:22px;height:22px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:600;flex-shrink:0;
+  background:rgba(242,239,230,.1);color:rgba(242,239,230,.5);
+}
+.stage-item.done .stage-num{background:#1A7A5E;color:var(--bone)}
+.stage-item.current .stage-num{background:#C8882A;color:var(--bone)}
+.stage-label{color:rgba(242,239,230,.7)}
+.stage-item.done .stage-label,.stage-item.current .stage-label{color:var(--bone)}
+
+/* ══════════════════════════════════════════════════════════════
+   SVG-VISUALISOINNIN YHTEISET TYYLIT
+   Näitä käytetään kaikissa visualisoinneissa, jotta ne näyttävät
+   visuaalisesti yhtenäiseltä perheeltä eivätkä irrallisilta kuvilta.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Roolilaatikoiden yleiset tyylit */
+.role-box{
+  cursor:default;
+}
+.role-box-bg{
+  stroke-width:1.5;
+  transition:all 0.2s ease;
+}
+.role-box-bg.strat{fill:rgba(26,79,140,.08);stroke:var(--strat)}
+.role-box-bg.oper{fill:rgba(200,136,42,.08);stroke:var(--oper)}
+.role-box-bg.suor{fill:rgba(26,122,94,.08);stroke:var(--suor)}
+.role-box-bg.ekosys{fill:rgba(176,90,60,.08);stroke:var(--ekosys);stroke-dasharray:4,3}
+
+.role-box-label{
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;
+  text-anchor:middle;dominant-baseline:central;
+}
+.role-box-label.strat{fill:var(--strat)}
+.role-box-label.oper{fill:var(--oper)}
+.role-box-label.suor{fill:var(--suor)}
+.role-box-label.ekosys{fill:var(--ekosys)}
+
+.role-box-sub{
+  font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;
+  text-anchor:middle;opacity:0.65;
+}
+.role-box-sub.strat{fill:var(--strat)}
+.role-box-sub.oper{fill:var(--oper)}
+.role-box-sub.suor{fill:var(--suor)}
+.role-box-sub.ekosys{fill:var(--ekosys)}
+
+/* Kerrosotsikot visualisointien vasemmassa reunassa */
+.layer-label{
+  font-family:'Cormorant Garamond',serif;font-size:13px;font-weight:500;
+  font-style:italic;text-anchor:start;opacity:0.5;
+  dominant-baseline:central;letter-spacing:0.5px;
+}
+.layer-divider{
+  stroke:var(--bone3);stroke-width:1;stroke-dasharray:2,4;
+}
+
+/* Nuolityylit — ylös/alas/sivu */
+.flow-arrow{fill:none;stroke-width:1.5}
+.flow-arrow.up{stroke:var(--suor);opacity:0.55}       /* havainnot ylöspäin */
+.flow-arrow.down{stroke:var(--strat);opacity:0.45}    /* ohjaus alaspäin */
+.flow-arrow.cross{stroke:var(--oper);opacity:0.45}    /* sivuvirtaus */
+.flow-arrow.ekosys{stroke:var(--ekosys);opacity:0.5;stroke-dasharray:3,3}
+
+.flow-label{
+  font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;
+  fill:var(--ink2);text-anchor:middle;
+}
+
+/* Yhteen painuneet otsikot visualisoinnin yläpuolella */
+.viz-caption{
+  font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:500;
+  font-style:italic;fill:var(--ink3);text-anchor:middle;
+}
+
+/* ── RYTMIDIAGRAMMIT — viisi yksittäistä SVG-näkymää ── */
+.rytmi-stack{
+  display:flex;flex-direction:column;gap:48px;margin-top:24px;
+}
+
+.rytmi-block{
+  display:grid;grid-template-columns:1fr 340px;gap:32px;align-items:start;
+}
+@media(max-width:1000px){.rytmi-block{grid-template-columns:1fr}}
+
+.rytmi-canvas{
+  background:var(--bone);border:1px solid var(--bone3);
+  border-radius:12px;padding:28px 32px;
+  overflow-x:auto;
+}
+.rytmi-canvas svg{display:block;max-width:100%;height:auto}
+
+.rytmi-meta{
+  display:flex;flex-direction:column;gap:12px;padding-top:4px;
+}
+.rytmi-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 14px;border-radius:20px;
+  font-size:11px;font-weight:700;letter-spacing:0.5px;
+  text-transform:uppercase;align-self:flex-start;
+}
+.rytmi-badge.p{background:var(--rytm-p-bg);color:var(--rytm-p)}
+.rytmi-badge.v{background:var(--rytm-v-bg);color:var(--rytm-v)}
+.rytmi-badge.k{background:var(--rytm-k-bg);color:var(--rytm-k)}
+.rytmi-badge.j{background:var(--rytm-j-bg);color:var(--rytm-j)}
+.rytmi-badge.q{background:var(--rytm-q-bg);color:var(--rytm-q)}
+
+.rytmi-title{
+  font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:500;
+  letter-spacing:-0.4px;line-height:1.2;
+}
+.rytmi-title em{font-style:italic;color:var(--ink3)}
+.rytmi-summary{font-size:13px;color:var(--ink2);line-height:1.65}
+.rytmi-summary strong{color:var(--ink);font-weight:600}
+
+.rytmi-points{
+  list-style:none;padding:0;margin:0;
+  display:flex;flex-direction:column;gap:8px;
+}
+.rytmi-point{
+  display:flex;gap:8px;align-items:flex-start;
+  font-size:12px;color:var(--ink2);line-height:1.5;
+  padding:8px 10px;background:var(--bone2);
+  border-left:3px solid var(--bone3);border-radius:0 6px 6px 0;
+}
+.rytmi-point.p{border-left-color:var(--rytm-p)}
+.rytmi-point.v{border-left-color:var(--rytm-v)}
+.rytmi-point.k{border-left-color:var(--rytm-k)}
+.rytmi-point.j{border-left-color:var(--rytm-j)}
+.rytmi-point.q{border-left-color:var(--rytm-q)}
+.rytmi-point strong{color:var(--ink);font-weight:600}
+
+.rytmi-divider{
+  height:1px;background:var(--bone3);margin:0;
+}
+
+/* ── TARINALLISET FLOWT — swimlane-rakenne ── */
+.tarina-stack{
+  display:flex;flex-direction:column;gap:56px;margin-top:28px;
+}
+.tarina-block{
+  background:var(--bone);border:1px solid var(--bone3);
+  border-radius:14px;overflow:hidden;
+}
+.tarina-header{
+  padding:24px 32px 20px;border-bottom:1px solid var(--bone3);
+  display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start;
+}
+@media(max-width:760px){.tarina-header{grid-template-columns:1fr}}
+
+.tarina-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:14px;
+  font-size:10px;font-weight:700;letter-spacing:0.5px;
+  text-transform:uppercase;margin-bottom:10px;align-self:flex-start;
+  background:rgba(200,136,42,.12);color:#A06A1F;
+}
+.tarina-title{
+  font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:500;
+  letter-spacing:-0.5px;line-height:1.15;margin-bottom:8px;
+}
+.tarina-title em{font-style:italic;color:var(--ink3)}
+.tarina-lead{font-size:13px;color:var(--ink2);line-height:1.65;max-width:640px}
+
+.tarina-meta{text-align:right}
+.tarina-meta-label{
+  font-size:10px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--ink3);font-weight:500;margin-bottom:4px;
+}
+.tarina-meta-value{
+  font-family:'Cormorant Garamond',serif;font-size:16px;
+  font-weight:500;color:var(--ink2);
+}
+
+.tarina-canvas{
+  padding:24px 32px 28px;overflow-x:auto;
+}
+.tarina-canvas svg{display:block;max-width:100%;height:auto;min-width:680px}
+
+.tarina-steps{
+  padding:20px 32px 28px;
+  border-top:1px solid var(--bone3);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:12px;background:var(--bone2);
+}
+.tarina-step{
+  padding:12px 14px;background:var(--bone);
+  border:1px solid var(--bone3);border-radius:8px;
+  border-top:3px solid var(--oper);
+}
+.tarina-step-num{
+  font-family:'Cormorant Garamond',serif;font-size:22px;
+  font-weight:300;color:var(--ink3);line-height:1;margin-bottom:4px;
+}
+.tarina-step-title{
+  font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px;
+}
+.tarina-step-text{font-size:11.5px;color:var(--ink2);line-height:1.5}
+
+.tarina-divider{height:1px;background:var(--bone3);margin:0 32px}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HEADER — Konteksti ja vaiheen sijainti
+     ═══════════════════════════════════════════════════════════ -->
+<header>
+  <div class="header-inner">
+    <div class="header-eyebrow">Arkkitehtuurin rakentaminen · Vaihe 2 / 3 · Valmis</div>
+    <h1 class="header-title">Flow-diagrammi —<br><em>miten tieto liikkuu.</em></h1>
+    <p class="header-sub">Kokonaiskuva + viisi rytmidiagrammia + neljä tarinaa. Vaihe 2 on valmis. Seuraavaksi Vaihe 3: integroitu arkkitehtuuri joka kokoaa roolimatriisin, flow-diagrammin ja tarinat yhdeksi kokonaisuudeksi.</p>
+    <div class="header-stage">
+      <span class="stage-dot" style="background:#1A7A5E"></span>
+      <span class="stage-text">Vaihe 2 valmis: <strong>Kaikki neljä iteraatiota</strong> · Seuraavaksi: Vaihe 3 integroitu arkkitehtuuri</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════
+     INTRO — Lukuohje ja osionavigointi
+     ═══════════════════════════════════════════════════════════ -->
+<div class="intro-section">
+  <div class="intro-inner">
+    <div class="intro-block">
+      <h3>Kolmitasoinen kuvaus —<br><em>kokonaisuudesta yksityiskohtaan.</em></h3>
+      <p>Dokumentti etenee laajasta kapeaan. Ensin kokonaiskuva josta näet kaikki roolit ja niiden kytkennät yhdellä silmäyksellä. Sitten viisi rytmidiagrammia jotka näyttävät miten systeemi toimii eri aikayksiköissä — päivästä kvartaaliin. Lopuksi neljä tarinaa jotka konkretisoivat abstraktin rakenteen todellisiksi arjen tilanteiksi.</p>
+      <p>Tätä dokumenttia voi lukea kahdella tavalla. Ylhäältä alas jos haluat ymmärtää systeemin kokonaisuutena. Tai poimimalla yhden osion kerrallaan — esimerkiksi katsomalla vain jaksosyklin tai vain IDP-aktivoinnin tarinan — jos sinulla on kysymys tietystä kohdasta.</p>
+    </div>
+    <div class="intro-block">
+      <h3>Yhteys Vaihe 1.1:n matriisiin.<br><em>Sama systeemi, eri kysymys.</em></h3>
+      <p>Vaihe 1.1:n roolimatriisi vastasi kysymykseen "kuka näkee mitä, kuka päättää mistä, kenen huomio herää". Se oli kartta, staattinen kuva. Tämä flow-diagrammi vastaa eri kysymykseen: "kun jokin tapahtuu, miten se kulkee ihmiseltä toiselle?" Se on liikkeen kuvaus, dynaaminen.</p>
+      <p>Kumpikin kuva kuvaa samaa seitsemää roolia ja samaa ekosysteemiä, mutta eri näkökulmasta. Yhdessä ne muodostavat täydellisemmän kuvan kuin kumpikaan yksinään.</p>
+      <nav class="intro-nav">
+        <a href="#kokon" class="intro-nav-pill"><span class="intro-nav-num">1</span> Kokonaiskuva</a>
+        <a href="#rytmit" class="intro-nav-pill"><span class="intro-nav-num">2</span> Rytmidiagrammit</a>
+        <a href="#tarinat" class="intro-nav-pill"><span class="intro-nav-num">3</span> Tarinat</a>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     OSIO 1: KOKONAISKUVA — koko systeemi yhdellä kuvalla
+     ═══════════════════════════════════════════════════════════ -->
+<section id="kokon" class="viz-section">
+  <div class="viz-inner">
+    <div class="viz-header">
+      <div class="viz-eyebrow kokon">Osio 1 / 3 · Kokonaiskuva</div>
+      <h2 class="viz-title">Seitsemän roolia, kolme kerrosta,<br><em>ekosysteemi reunoilla.</em></h2>
+      <p class="viz-lead">Tässä on koko TalentMaster-systeemi yhdessä kuvassa. Strateginen pari ylhäällä, operatiivinen kolmikko keskellä, suoritustason pari alhaalla. Ekosysteemiroolit sivuilla — kytkettyinä mutta matriisin ulkopuolella. Nuolet ovat hienovaraisia koska ne kertovat vain yleisistä virtauksista. Yksityiskohtaiset liikkeet näkyvät myöhemmissä osioissa.</p>
+    </div>
+
+    <div class="viz-canvas">
+      <!-- KOKONAISKUVA-SVG tulee tähän seuraavassa vaiheessa -->
+      <svg viewBox="0 0 1200 620" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+
+        <!-- ═══════════════════════════════════════════════════════
+             NUOLIPÄÄT — määritellään kerran ja käytetään kaikkialla
+             ═══════════════════════════════════════════════════════ -->
+        <defs>
+          <!-- Havaintonuoli ylöspäin (suoritustasolta operatiiviselle) -->
+          <marker id="arrow-up" viewBox="0 0 10 10" refX="8" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1A7A5E" opacity="0.7"/>
+          </marker>
+          <!-- Ohjausnuoli alaspäin (strategiselta operatiiviselle) -->
+          <marker id="arrow-down" viewBox="0 0 10 10" refX="8" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1A4F8C" opacity="0.6"/>
+          </marker>
+          <!-- Käännösnuoli sivuvirtauksille -->
+          <marker id="arrow-cross" viewBox="0 0 10 10" refX="8" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#C8882A" opacity="0.6"/>
+          </marker>
+          <!-- Ekosysteeminuoli kevyemmällä painolla -->
+          <marker id="arrow-ekosys" viewBox="0 0 10 10" refX="8" refY="5"
+                  markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#B05A3C" opacity="0.65"/>
+          </marker>
+        </defs>
+
+        <!-- ═══════════════════════════════════════════════════════
+             KERROSOTSIKOT vasemmassa reunassa
+             Hienovaraiset ohjeet lukemiseen ylhäältä alas
+             ═══════════════════════════════════════════════════════ -->
+        <text x="20" y="130" class="layer-label">Strateginen</text>
+        <text x="20" y="300" class="layer-label">Operatiivinen</text>
+        <text x="20" y="408" class="layer-label">Suoritustaso</text>
+
+        <!-- Kerroksia erottavat hienovaraiset katkoviivat
+             alkavat kerrosotsikon jälkeen jotta otsikko ei leikkaudu -->
+        <line x1="110" y1="215" x2="1160" y2="215" class="layer-divider"/>
+        <line x1="110" y1="385" x2="1160" y2="385" class="layer-divider"/>
+
+        <!-- ═══════════════════════════════════════════════════════
+             HALLITUS — kvartaaliankkuri aivan ylhäällä
+             Näkyy hienovaraisena kehyksenä, kertoo että strateginen
+             pari raportoi sinne mutta ei ole rooli matriisissa
+             ═══════════════════════════════════════════════════════ -->
+        <rect x="475" y="25" width="250" height="40" rx="20"
+              fill="none" stroke="#1C1C1A" stroke-width="1"
+              stroke-dasharray="3,3" opacity="0.35"/>
+        <text x="600" y="46" fill="#1C1C1A" opacity="0.55"
+              font-family="DM Sans" font-size="11" font-weight="600"
+              text-anchor="middle" letter-spacing="1.5" dominant-baseline="central">
+          HALLITUS
+        </text>
+        <text x="600" y="58" fill="#1C1C1A" opacity="0.4"
+              font-family="DM Sans" font-size="9" font-style="italic"
+              text-anchor="middle" dominant-baseline="central">
+          kvartaaliraportoinnin vastaanottaja
+        </text>
+
+        <!-- Hallituksesta alas strategiseen tasoon — ohut "raportoi"-viiva -->
+        <line x1="600" y1="65" x2="600" y2="90" stroke="#1C1C1A"
+              stroke-width="1" stroke-dasharray="2,3" opacity="0.35"/>
+
+        <!-- ═══════════════════════════════════════════════════════
+             STRATEGINEN KERROS — UTJ ja TJ rinnakkain
+             Sijoitellaan niin että ne ovat visuaalisesti vertaisia:
+             sama korkeus, sama koko, riittävä välimatka jotta
+             rinnakkaisuus on selvää
+             ═══════════════════════════════════════════════════════ -->
+        <!-- UTJ -->
+        <g class="role-box">
+          <rect x="350" y="95" width="200" height="85" rx="10"
+                class="role-box-bg strat"/>
+          <text x="450" y="125" class="role-box-label strat">UTJ</text>
+          <text x="450" y="145" class="role-box-sub strat">Urheilutoimen johtaja</text>
+          <text x="450" y="160" class="role-box-sub strat">viikko / kvartaali</text>
+        </g>
+
+        <!-- TJ -->
+        <g class="role-box">
+          <rect x="650" y="95" width="200" height="85" rx="10"
+                class="role-box-bg strat"/>
+          <text x="750" y="125" class="role-box-label strat">TJ</text>
+          <text x="750" y="145" class="role-box-sub strat">Toiminnanjohtaja</text>
+          <text x="750" y="160" class="role-box-sub strat">jakso / kvartaali</text>
+        </g>
+
+        <!-- Rinnakkaisuuden visuaalinen vahvistus: kaksisuuntainen nuoli
+             UTJ:n ja TJ:n välillä kertoo että he tekevät yhteistyötä -->
+        <path d="M 555 137 Q 600 127 645 137" fill="none"
+              stroke="#1A4F8C" stroke-width="1.2" opacity="0.4"/>
+        <path d="M 645 137 Q 600 147 555 137" fill="none"
+              stroke="#1A4F8C" stroke-width="1.2" opacity="0.4"/>
+        <text x="600" y="113" fill="#1A4F8C" opacity="0.55"
+              font-family="DM Sans" font-size="10" font-style="italic"
+              text-anchor="middle">yhteistyö</text>
+
+        <!-- ═══════════════════════════════════════════════════════
+             OPERATIIVINEN KERROS — Tekninen johtaja, HoT, VP
+             Kolme laatikkoa tasavälein, koska ne ovat kaikki
+             operatiivisen tiimin osia ilman sisäistä hierarkiaa.
+
+             Skaalautuvuuskehys: pienissä ja keskisuurissa seuroissa
+             nämä kolme roolia ovat usein saman valmennuspäällikön
+             harteilla. Katkoviivakehys viestii tämän visuaalisesti
+             ilman että se poistaa analyyttistä erottelua.
+             ═══════════════════════════════════════════════════════ -->
+
+        <!-- Skaalautuvuuskehys operatiivisen kerroksen ympärillä.
+             Piirretään ENNEN laatikoita jotta ne näkyvät kehyksen päällä.
+             Marginaali ~15px joka sivulla luo luontevan hengitysvälin -->
+        <rect x="205" y="250" width="790" height="115" rx="14"
+              fill="none" stroke="#5A7266" stroke-width="1.5"
+              stroke-dasharray="6,5" opacity="0.55"/>
+
+        <!-- Skaalautuvuuslappu kehyksen yläreunassa, vasemmalla laidalla.
+             Kertoo lukijalle suoraan mitä katkoviiva tarkoittaa -->
+        <g transform="translate(225, 243)">
+          <rect x="0" y="0" width="230" height="18" rx="9"
+                fill="#5A7266" opacity="0.9"/>
+          <text x="115" y="12" fill="#F2EFE6" opacity="0.95"
+                font-family="DM Sans" font-size="9.5" font-weight="600"
+                letter-spacing="0.8" text-anchor="middle"
+                dominant-baseline="central">PIENESSÄ SEURASSA SAMA HENKILÖ</text>
+        </g>
+
+        <!-- Tekninen johtaja -->
+        <g class="role-box">
+          <rect x="220" y="265" width="190" height="85" rx="10"
+                class="role-box-bg oper"/>
+          <text x="315" y="295" class="role-box-label oper">Tekninen johtaja</text>
+          <text x="315" y="315" class="role-box-sub oper">Valmennusprosessi</text>
+          <text x="315" y="330" class="role-box-sub oper">viikko / kuukausi</text>
+        </g>
+
+        <!-- Head of Talent -->
+        <g class="role-box">
+          <rect x="505" y="265" width="190" height="85" rx="10"
+                class="role-box-bg oper"/>
+          <text x="600" y="295" class="role-box-label oper">Head of Talent</text>
+          <text x="600" y="315" class="role-box-sub oper">Yksilökehitys</text>
+          <text x="600" y="330" class="role-box-sub oper">viikko</text>
+        </g>
+
+        <!-- VP -->
+        <g class="role-box">
+          <rect x="790" y="265" width="190" height="85" rx="10"
+                class="role-box-bg oper"/>
+          <text x="885" y="295" class="role-box-label oper">VP</text>
+          <text x="885" y="315" class="role-box-sub oper">Valmennuspäällikkö</text>
+          <text x="885" y="330" class="role-box-sub oper">viikko</text>
+        </g>
+
+        <!-- ═══════════════════════════════════════════════════════
+             UTJ ↔ VALMENNUSPÄÄLLIKKÖ — seuran sisäinen ydinakseli
+             Pienissä ja keskisuurissa seuroissa UTJ:n ja VP:n
+             (joka kantaa myös Teknisen johtajan ja HoT:n roolit)
+             välinen viikoittainen dialogi on seuran arjen kaikkein
+             aktiivisin yksittäinen kommunikaatio. Tämä nuolipari
+             tekee sen näkyväksi.
+
+             Kaarevuus vältetään menemästä skaalautuvuuskehyksen
+             keskelle (jossa on laatikoita), joten nuoli kulkee
+             vinottain vasemmalta oikealle UTJ:n pohjakulmista
+             operatiivisen kerroksen yläreunaan.
+             ═══════════════════════════════════════════════════════ -->
+
+        <!-- UTJ alas operatiivisen kerroksen keskelle (havainto + kysymys) -->
+        <path d="M 420 180 Q 430 260 530 307" fill="none"
+              stroke="#5A7266" stroke-width="1.8" opacity="0.55"/>
+        <!-- Operatiivisen kerroksen keskeltä ylös UTJ:lle (kooste + tilannekuva) -->
+        <path d="M 560 307 Q 480 250 470 180" fill="none"
+              stroke="#5A7266" stroke-width="1.8" opacity="0.55"/>
+
+        <!-- Dialogia kuvaava teksti nuoliparin puolivälissä -->
+        <text x="468" y="232" fill="#5A7266" opacity="0.85"
+              font-family="DM Sans" font-size="10" font-weight="600"
+              font-style="italic" text-anchor="middle">viikoittainen dialogi</text>
+
+        <!-- ═══════════════════════════════════════════════════════
+             SUORITUSTASO — Valmentaja ja Pelaaja keskellä alhaalla
+             Pelaaja on sydämessä — hän on TalentMasterin keskiö
+             ═══════════════════════════════════════════════════════ -->
+        <!-- Valmentaja -->
+        <g class="role-box">
+          <rect x="380" y="435" width="190" height="85" rx="10"
+                class="role-box-bg suor"/>
+          <text x="475" y="465" class="role-box-label suor">Valmentaja</text>
+          <text x="475" y="485" class="role-box-sub suor">Joukkue</text>
+          <text x="475" y="500" class="role-box-sub suor">päivittäin</text>
+        </g>
+
+        <!-- Pelaaja -->
+        <g class="role-box">
+          <rect x="630" y="435" width="190" height="85" rx="10"
+                class="role-box-bg suor"/>
+          <text x="725" y="465" class="role-box-label suor">Pelaaja</text>
+          <text x="725" y="485" class="role-box-sub suor">Itse</text>
+          <text x="725" y="500" class="role-box-sub suor">päivittäin</text>
+        </g>
+
+        <!-- Valmentajan ja pelaajan välillä on päivittäinen vuorovaikutus
+             joka on koko systeemin perusta — merkitään se näkyvästi -->
+        <path d="M 575 477 Q 600 467 625 477" fill="none"
+              stroke="#1A7A5E" stroke-width="1.5" opacity="0.55"/>
+        <path d="M 625 477 Q 600 487 575 477" fill="none"
+              stroke="#1A7A5E" stroke-width="1.5" opacity="0.55"/>
+        <text x="600" y="425" fill="#1A7A5E" opacity="0.7"
+              font-family="DM Sans" font-size="10" font-style="italic"
+              text-anchor="middle">päivittäin</text>
+
+        <!-- ═══════════════════════════════════════════════════════
+             EKOSYSTEEMIROOLIT — Vanhemmat vasemmalla, Oppilaitos oikealla
+             Asettuvat pystysuunnassa matriisin sivuille kertomaan
+             että ne ovat matriisin ulkopuolella mutta kytkettyjä
+             ═══════════════════════════════════════════════════════ -->
+        <!-- Vanhemmat -->
+        <g class="role-box">
+          <rect x="30" y="395" width="150" height="70" rx="10"
+                class="role-box-bg ekosys"/>
+          <text x="105" y="420" class="role-box-label ekosys">Vanhemmat</text>
+          <text x="105" y="440" class="role-box-sub ekosys">Ekosysteemi</text>
+          <text x="105" y="452" class="role-box-sub ekosys">jakso</text>
+        </g>
+
+        <!-- Oppilaitos -->
+        <g class="role-box">
+          <rect x="1020" y="395" width="150" height="70" rx="10"
+                class="role-box-bg ekosys"/>
+          <text x="1095" y="420" class="role-box-label ekosys">Oppilaitos</text>
+          <text x="1095" y="440" class="role-box-sub ekosys">Ekosysteemi</text>
+          <text x="1095" y="452" class="role-box-sub ekosys">jakso</text>
+        </g>
+
+        <!-- ═══════════════════════════════════════════════════════
+             VIRTAUKSET — nuolet kerrosten välillä
+             Ylös: havainnot (vihreä), alas: ohjaus (sininen),
+             sivu: operatiiviset käännökset (kulta),
+             ekosysteemi: kevyemmät katkoviivat
+             ═══════════════════════════════════════════════════════ -->
+
+        <!-- Suoritustasolta operatiiviselle — havainnot ylöspäin -->
+        <!-- Valmentaja → Tekninen johtaja (pelisuoritus, harjoituslaatu) -->
+        <path d="M 420 435 Q 360 395 330 350"
+              class="flow-arrow up" marker-end="url(#arrow-up)"/>
+        <!-- Valmentaja → HoT (talenttisignaalit) -->
+        <path d="M 475 435 Q 540 395 580 350"
+              class="flow-arrow up" marker-end="url(#arrow-up)"/>
+        <!-- Valmentaja → VP (vastuualuetasoinen data) -->
+        <path d="M 530 435 Q 700 395 820 350"
+              class="flow-arrow up" marker-end="url(#arrow-up)"/>
+        <!-- Pelaaja → HoT (yksilötason kehityssignaalit) -->
+        <path d="M 700 435 Q 650 395 620 350"
+              class="flow-arrow up" marker-end="url(#arrow-up)"/>
+        <!-- Pelaaja → Valmentaja aggregaatit omatoimisesta harjoittelusta —
+             tämä virta nousee valmentajan kautta eikä suoraan ylemmäs -->
+
+        <!-- Operatiiviselta strategiselle — koosteet ylöspäin -->
+        <!-- Tekninen johtaja → UTJ (valmennuslinjan toteutuma) -->
+        <path d="M 340 265 Q 380 220 420 180"
+              class="flow-arrow up" marker-end="url(#arrow-up)"/>
+        <!-- HoT → UTJ (talenttiputki) -->
+        <path d="M 590 265 Q 540 220 480 180"
+              class="flow-arrow up" marker-end="url(#arrow-up)"/>
+        <!-- HoT → TJ (aggregaatti jaksoittain) -->
+        <path d="M 640 265 Q 700 220 750 180"
+              class="flow-arrow up" marker-end="url(#arrow-up)"/>
+        <!-- VP → TJ (operatiivisen tiimin toiminta) -->
+        <path d="M 860 265 Q 820 220 780 180"
+              class="flow-arrow up" marker-end="url(#arrow-up)"/>
+
+        <!-- Strategiselta operatiiviselle — ohjaus alaspäin -->
+        <!-- UTJ → Tekninen johtaja (konfiguraatio, strategiset linjaukset) -->
+        <path d="M 420 180 Q 370 220 340 265"
+              class="flow-arrow down" marker-end="url(#arrow-down)"/>
+        <!-- TJ → VP (resursointi, operatiiviset prioriteetit) -->
+        <path d="M 780 180 Q 830 220 860 265"
+              class="flow-arrow down" marker-end="url(#arrow-down)"/>
+        <!-- TJ → HoT (talenttikriteerien strategiset päivitykset) -->
+        <path d="M 730 180 Q 680 220 640 265"
+              class="flow-arrow down" marker-end="url(#arrow-down)"/>
+
+        <!-- Operatiivisen kerroksen sisäiset virtaukset -->
+        <!-- Tekninen johtaja ↔ HoT -->
+        <path d="M 410 307 L 505 307"
+              class="flow-arrow cross" marker-end="url(#arrow-cross)"/>
+        <!-- HoT ↔ VP -->
+        <path d="M 695 307 L 790 307"
+              class="flow-arrow cross" marker-end="url(#arrow-cross)"/>
+
+        <!-- Operatiiviselta suoritustasolle — valmentajan ja pelaajan tuki -->
+        <!-- VP → Valmentaja (joukkuekohtainen tuki) -->
+        <path d="M 790 350 Q 640 395 570 435"
+              class="flow-arrow down" marker-end="url(#arrow-down)"/>
+        <!-- HoT → Pelaaja (IDP-aktivoinnit, talenttikutsu) -->
+        <path d="M 640 350 Q 680 395 700 435"
+              class="flow-arrow down" marker-end="url(#arrow-down)"/>
+        <!-- Tekninen johtaja → Valmentaja (koulutus, valmennuslinja) -->
+        <path d="M 360 350 Q 410 395 430 435"
+              class="flow-arrow down" marker-end="url(#arrow-down)"/>
+
+        <!-- Ekosysteeminuolet — katkoviivoilla kertomaan kevyemmästä yhteydestä -->
+        <!-- Vanhemmat ↔ Pelaaja (arjen tuki ja kuljetus) -->
+        <path d="M 180 440 L 625 470"
+              class="flow-arrow ekosys" marker-end="url(#arrow-ekosys)"/>
+        <!-- Vanhemmat ↔ VP (yhteydenpito seuran kanssa) -->
+        <path d="M 180 420 Q 400 340 790 300"
+              class="flow-arrow ekosys" marker-end="url(#arrow-ekosys)"/>
+        <!-- Oppilaitos ↔ Pelaaja (koulu-urheilu -yhteensovitus) -->
+        <path d="M 1020 440 L 825 470"
+              class="flow-arrow ekosys" marker-end="url(#arrow-ekosys)"/>
+        <!-- Oppilaitos ↔ VP (koordinointi) -->
+        <path d="M 1020 420 Q 1000 350 985 310"
+              class="flow-arrow ekosys" marker-end="url(#arrow-ekosys)"/>
+
+        <!-- ═══════════════════════════════════════════════════════
+             LEGENDA oikeassa yläkulmassa
+             Kertoo mitä nuolet tarkoittavat — olennainen koska
+             kolme eri suuntaa (ylös, alas, sivu) kantavat eri
+             merkitystä
+             ═══════════════════════════════════════════════════════ -->
+        <g transform="translate(880, 45)">
+          <rect x="0" y="0" width="290" height="36" rx="6"
+                fill="#F2EFE6" stroke="#D4D1C8" stroke-width="1"/>
+
+          <!-- Ylös: havainnot -->
+          <line x1="12" y1="18" x2="30" y2="18" stroke="#1A7A5E"
+                stroke-width="1.5" opacity="0.7" marker-end="url(#arrow-up)"/>
+          <text x="35" y="18" fill="#1C1C1A" opacity="0.65"
+                font-family="DM Sans" font-size="10"
+                dominant-baseline="central">havainnot</text>
+
+          <!-- Alas: ohjaus -->
+          <line x1="105" y1="18" x2="123" y2="18" stroke="#1A4F8C"
+                stroke-width="1.5" opacity="0.6" marker-end="url(#arrow-down)"/>
+          <text x="128" y="18" fill="#1C1C1A" opacity="0.65"
+                font-family="DM Sans" font-size="10"
+                dominant-baseline="central">ohjaus</text>
+
+          <!-- Sivu: käännös -->
+          <line x1="178" y1="18" x2="196" y2="18" stroke="#C8882A"
+                stroke-width="1.5" opacity="0.6" marker-end="url(#arrow-cross)"/>
+          <text x="201" y="18" fill="#1C1C1A" opacity="0.65"
+                font-family="DM Sans" font-size="10"
+                dominant-baseline="central">käännös</text>
+
+          <!-- Katkoviiva: ekosysteemi -->
+          <line x1="248" y1="18" x2="266" y2="18" stroke="#B05A3C"
+                stroke-width="1.5" opacity="0.65" stroke-dasharray="3,3"
+                marker-end="url(#arrow-ekosys)"/>
+          <text x="271" y="18" fill="#1C1C1A" opacity="0.65"
+                font-family="DM Sans" font-size="10"
+                dominant-baseline="central">ekosys.</text>
+        </g>
+
+      </svg>
+    </div>
+
+      <div class="viz-explain">
+        <div class="explain-card a">
+          <div class="explain-num">01</div>
+          <div class="explain-title">Strateginen pari ylhäällä</div>
+          <div class="explain-text">UTJ ja TJ ovat matriisin toimivat strategisella tasolla <strong>rinnakkaisina akseleina</strong>. UTJ johtaa valmennuslinjaa, TJ operatiivista kokonaisuutta ja resursointia. Molemmat raportoivat hallitukselle kvartaaleittain.</div>
+        </div>
+        <div class="explain-card b">
+          <div class="explain-num">02</div>
+          <div class="explain-title">Operatiivinen tiimi keskellä</div>
+          <div class="explain-text">Tekninen johtaja, Head of Talent ja VP muodostavat <strong>operatiivisen tiimin</strong>. He kääntävät strategiset linjaukset käytännön prosesseiksi ja kuljettavat kenttätason signaalit strategiselle tasolle koostettuina. <strong>Pienissä ja keskisuurissa seuroissa nämä kolme tehtävää ovat usein saman valmennuspäällikön harteilla</strong> — katkoviivakehys visualisoi tämän. Valmennuspäällikkö on jatkuvassa <strong>viikoittaisessa dialogissa UTJ:n kanssa</strong> — tämä akseli on seuran sisäisen arjen aktiivisin kommunikaatio. Tarkempi käsittely matriisin skaalautuvuusosiossa.</div>
+        </div>
+        <div class="explain-card c">
+        <div class="explain-num">03</div>
+        <div class="explain-title">Suoritustaso alhaalla</div>
+        <div class="explain-text">Valmentaja ja pelaaja ovat <strong>jalkapallon ydin</strong>. Täällä tieto syntyy päivittäin — harjoituksissa, otteluissa, pelaajan omasta kokemuksesta. Ylöspäin tieto virtaa koosteina, alaspäin ohjauksina.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     OSIO 2: RYTMIDIAGRAMMIT — viisi aikayksikköä
+     Iteraatio 2 rakentaa sisällön tähän.
+     ═══════════════════════════════════════════════════════════ -->
+<section id="rytmit" class="viz-section alt">
+  <div class="viz-inner">
+    <div class="viz-header">
+      <div class="viz-eyebrow rytmi">Osio 2 / 3 · Rytmidiagrammit</div>
+      <h2 class="viz-title">Sama systeemi, viisi nopeutta.<br><em>Mitä kussakin rytmissä tapahtuu.</em></h2>
+      <p class="viz-lead">Systeemi näyttää erilaiselta eri rytmeissä tarkasteltuna. Päiväsyklissä liikkuvat valmentajan ja pelaajan välinen arki. Viikko tuo mukaan VP:n ja Head of Talentin. Kuukausi ja jakso kokoavat operatiivisen tiimin ja toiminnanjohtajan. Kvartaali vie raportin hallitukselle. Jokainen rytmi saa oman visualisointinsa alla.</p>
+    </div>
+
+    <div class="rytmi-stack">
+
+      <!-- ════════════════════════════════ PÄIVÄ ════════════════════════════════ -->
+      <div class="rytmi-block">
+        <div class="rytmi-canvas">
+          <svg viewBox="0 0 640 210" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="p-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A7A5E" opacity=".7"/></marker>
+              <marker id="p-dn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A4F8C" opacity=".6"/></marker>
+              <marker id="p-wn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#C44060" opacity=".7"/></marker>
+            </defs>
+
+            <text x="320" y="18" class="viz-caption" font-size="10">Pelaaja kirjaa · Valmentaja reagoi · Poikkeamat nousevat automaattisesti</text>
+
+            <!-- Pelaaja -->
+            <g class="role-box"><rect x="50" y="38" width="180" height="68" rx="10" class="role-box-bg suor"/>
+              <text x="140" y="68" class="role-box-label suor">Pelaaja</text>
+              <text x="140" y="86" class="role-box-sub suor">fiilinki · kuormitus · T-touches</text>
+            </g>
+
+            <!-- Valmentaja -->
+            <g class="role-box"><rect x="410" y="38" width="180" height="68" rx="10" class="role-box-bg suor"/>
+              <text x="500" y="68" class="role-box-label suor">Valmentaja</text>
+              <text x="500" y="86" class="role-box-sub suor">joukkueen päiväkuva</text>
+            </g>
+
+            <!-- VP — päivittäin paikalla harjoituksessa (kansainvälinen malli) -->
+            <g class="role-box"><rect x="230" y="148" width="180" height="50" rx="10"
+              fill="rgba(200,136,42,.06)" stroke="#C8882A" stroke-width="1.2"/>
+              <text x="320" y="170" class="role-box-label oper" font-size="11">VP harjoituksessa</text>
+              <text x="320" y="188" class="role-box-sub oper" font-size="9">pelaajakuva ennen harjoitusta</text>
+            </g>
+
+            <!-- Pelaaja → Valmentaja -->
+            <path d="M235 72 L405 72" class="flow-arrow up" marker-end="url(#p-up)"/>
+            <text x="320" y="67" class="flow-label" font-size="9">kirjaus päivittäin</text>
+
+            <!-- Valmentaja → Pelaaja -->
+            <path d="M405 96 L235 96" class="flow-arrow down" marker-end="url(#p-dn)"/>
+            <text x="320" y="113" class="flow-label" font-size="9">harjoitussuunnitelma</text>
+
+            <!-- Automaattisignaalit -->
+            <rect x="200" y="122" width="240" height="20" rx="6" fill="rgba(196,64,96,.08)" stroke="#C44060" stroke-width=".8" stroke-dasharray="3,2"/>
+            <text x="320" y="134" fill="#C44060" font-family="DM Sans" font-size="9" font-weight="600" text-anchor="middle">FLEI &lt; 40 · fiilinki laskee 2 pv peräkkäin → automaattisignaali</text>
+
+            <!-- Signaali → Valmentaja + VP -->
+            <path d="M200 131 Q120 120 105 106" fill="none" stroke="#C44060" stroke-width="1" stroke-dasharray="3,2" opacity=".7" marker-end="url(#p-wn)"/>
+            <path d="M400 131 Q430 148 450 148" fill="none" stroke="#C44060" stroke-width="1" stroke-dasharray="3,2" opacity=".7" marker-end="url(#p-wn)"/>
+          </svg>
+        </div>
+        <div class="rytmi-meta">
+          <span class="rytmi-badge p">P · Päivittäin</span>
+          <div class="rytmi-title">Arjen silmukka —<br><em>kaksi roolia, yksi yhteys.</em></div>
+          <p class="rytmi-summary">Päivärytmi on systeemin yksinkertaisin taso. Pelaaja kirjaa, valmentaja reagoi. VP on paikalla harjoituksissa ja näkee pelaajakuvan ennen harjoituksen alkua — <strong>kansainvälisen Academy Manager -mallin mukaisesti.</strong></p>
+          <ul class="rytmi-points">
+            <li class="rytmi-point p"><strong>Pelaaja:</strong> fiilinki 1–5, kuormitus, T-touches — kirjaus ennen harjoitusta tai illalla</li>
+            <li class="rytmi-point p"><strong>Valmentaja:</strong> joukkueen päiväkuva yhdellä silmäyksellä — kuka tarvitsee huomiota</li>
+            <li class="rytmi-point p"><strong>VP:</strong> avaa järjestelmän harjoitukseen tullessaan — kenellä FLEI-rajoitin, kenellä matala fiilinki</li>
+            <li class="rytmi-point p"><strong>Automaattiset signaalit:</strong> FLEI &lt; 40 tai fiilinki laskee 2 pv → valmentajalle + VP:lle välittömästi</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="rytmi-divider"></div>
+
+      <!-- ════════════════════════════════ VIIKKO ════════════════════════════════ -->
+      <div class="rytmi-block">
+        <div class="rytmi-canvas">
+          <svg viewBox="0 0 760 270" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="v-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A7A5E" opacity=".7"/></marker>
+              <marker id="v-dn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A4F8C" opacity=".6"/></marker>
+              <marker id="v-cr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#C8882A" opacity=".6"/></marker>
+            </defs>
+            <text x="380" y="18" class="viz-caption" font-size="10">Viikkorytmi tuo operatiivisen kerroksen mukaan — VP:n kenttähavainnot kirjataan</text>
+
+            <!-- UTJ — ohuempi, taustalla -->
+            <g class="role-box" opacity=".55"><rect x="295" y="30" width="170" height="52" rx="9" class="role-box-bg strat"/>
+              <text x="380" y="57" class="role-box-label strat" font-size="11">UTJ</text>
+              <text x="380" y="72" class="role-box-sub strat" font-size="9">eliittikerros viikoittain</text>
+            </g>
+
+            <!-- Operatiivinen -->
+            <g class="role-box"><rect x="50" y="120" width="170" height="62" rx="9" class="role-box-bg oper"/>
+              <text x="135" y="147" class="role-box-label oper" font-size="12">Tekninen johtaja</text>
+              <text x="135" y="166" class="role-box-sub oper">ADAR-aktiivisuus</text>
+            </g>
+            <g class="role-box"><rect x="295" y="120" width="170" height="62" rx="9" class="role-box-bg oper"/>
+              <text x="380" y="147" class="role-box-label oper" font-size="12">Head of Talent</text>
+              <text x="380" y="166" class="role-box-sub oper">Top 20 · X-Factor</text>
+            </g>
+            <g class="role-box"><rect x="540" y="120" width="170" height="62" rx="9" class="role-box-bg oper"/>
+              <text x="625" y="147" class="role-box-label oper" font-size="12">VP</text>
+              <text x="625" y="163" class="role-box-sub oper">kenttähavainnot</text>
+              <text x="625" y="176" class="role-box-sub oper" font-size="8">+ viikkokatsaus</text>
+            </g>
+
+            <!-- Suoritustaso -->
+            <g class="role-box"><rect x="160" y="210" width="170" height="48" rx="9" class="role-box-bg suor"/>
+              <text x="245" y="237" class="role-box-label suor" font-size="11">Valmentaja</text>
+            </g>
+            <g class="role-box"><rect x="430" y="210" width="170" height="48" rx="9" class="role-box-bg suor"/>
+              <text x="515" y="237" class="role-box-label suor" font-size="11">Pelaaja</text>
+            </g>
+
+            <!-- Virtaukset suoritukselta operatiiviselle -->
+            <path d="M245 210 Q190 180 170 184" class="flow-arrow up" marker-end="url(#v-up)"/>
+            <path d="M515 210 Q430 175 385 184" class="flow-arrow up" marker-end="url(#v-up)"/>
+            <path d="M515 210 Q580 180 625 184" class="flow-arrow up" marker-end="url(#v-up)"/>
+
+            <!-- Operatiiviselta UTJ -->
+            <path d="M135 120 Q275 78 370 82" class="flow-arrow up" marker-end="url(#v-up)"/>
+            <path d="M625 120 Q520 78 395 82" class="flow-arrow up" marker-end="url(#v-up)"/>
+
+            <!-- UTJ → VP ohjaus -->
+            <path d="M390 82 Q540 88 625 120" class="flow-arrow down" marker-end="url(#v-dn)"/>
+
+            <!-- TJ ↔ HoT käännös -->
+            <path d="M225 153 L290 153" class="flow-arrow cr" stroke="#C8882A" stroke-width="1.5" fill="none" opacity=".45" marker-end="url(#v-cr)"/>
+
+            <!-- ADAR-kehotus ottelun jälkeen -->
+            <text x="380" y="205" fill="#C8882A" font-family="DM Sans" font-size="9" font-style="italic" text-anchor="middle" opacity=".8">ADAR-kehotus ottelun jälkeen → 48 h</text>
+          </svg>
+        </div>
+        <div class="rytmi-meta">
+          <span class="rytmi-badge v">V · Viikoittain</span>
+          <div class="rytmi-title">Operatiivinen kerros<br><em>herää mukaan.</em></div>
+          <p class="rytmi-summary">Viikkorytmi tuo kolme operatiivista roolia mukaan. <strong>VP kirjaa kenttähavainnot</strong> harjoituksista ja otteluista — tämä on kansainvälisen Head of Coaching -roolin ydintehtävä. Sama pelaajatieto kulkee kahta reittiä: valmentajan kautta joukkuetasolle ja HoT:n kautta yksilötasolle.</p>
+          <ul class="rytmi-points">
+            <li class="rytmi-point v"><strong>ADAR:</strong> valmentaja kirjaa otteluhavainnot 48h sisällä — nousevat tekniselle johtajalle</li>
+            <li class="rytmi-point v"><strong>HoT:</strong> päivittää Top 20 -listan, X-Factor ja Hidden Gem -signaalit viikoittain</li>
+            <li class="rytmi-point v"><strong>VP:</strong> kirjaa kenttähavainnot — harjoituksen laatu, valmentajan toiminta, joukkueen tila</li>
+            <li class="rytmi-point v"><strong>UTJ:</strong> eliittikerroksen (U16–U18+akatemia) signaalit suoraan viikoittain</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="rytmi-divider"></div>
+
+      <!-- ════════════════════════════════ KUUKAUSI ════════════════════════════════ -->
+      <div class="rytmi-block">
+        <div class="rytmi-canvas">
+          <svg viewBox="0 0 760 270" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="k-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A7A5E" opacity=".7"/></marker>
+              <marker id="k-dn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A4F8C" opacity=".6"/></marker>
+            </defs>
+            <text x="380" y="18" class="viz-caption" font-size="10">Kuukausirytmi kokoaa — UTJ näkee strategiset mittarit, VP+Valmentaja käyvät kehityskeskustelun</text>
+
+            <!-- Strateginen -->
+            <g class="role-box"><rect x="145" y="30" width="175" height="58" rx="9" class="role-box-bg strat"/>
+              <text x="232" y="57" class="role-box-label strat">UTJ</text>
+              <text x="232" y="76" class="role-box-sub strat">strategiset mittarit K-tasolla</text>
+            </g>
+            <g class="role-box" opacity=".45"><rect x="440" y="30" width="175" height="58" rx="9" class="role-box-bg strat"/>
+              <text x="527" y="57" class="role-box-label strat" opacity=".7">TJ</text>
+              <text x="527" y="76" class="role-box-sub strat">odottaa jaksoa →</text>
+            </g>
+
+            <!-- Operatiivinen -->
+            <g class="role-box"><rect x="50" y="130" width="165" height="60" rx="9" class="role-box-bg oper"/>
+              <text x="132" y="157" class="role-box-label oper" font-size="11">Tekninen johtaja</text>
+              <text x="132" y="175" class="role-box-sub oper">valmentajien kehitys</text>
+            </g>
+            <g class="role-box"><rect x="298" y="130" width="165" height="60" rx="9" class="role-box-bg oper"/>
+              <text x="380" y="157" class="role-box-label oper" font-size="11">Head of Talent</text>
+              <text x="380" y="175" class="role-box-sub oper">putken siirtymät</text>
+            </g>
+            <g class="role-box"><rect x="546" y="130" width="165" height="60" rx="9" class="role-box-bg oper"/>
+              <text x="628" y="157" class="role-box-label oper" font-size="11">VP</text>
+              <text x="628" y="175" class="role-box-sub oper">kehityskeskustelut</text>
+            </g>
+
+            <!-- Suoritustaso -->
+            <g class="role-box"><rect x="360" y="218" width="200" height="42" rx="9" class="role-box-bg suor"/>
+              <text x="460" y="242" class="role-box-label suor" font-size="11">Valmentaja · kehityskeskustelu</text>
+            </g>
+
+            <!-- Virtaukset ylös -->
+            <path d="M132 130 Q190 90 220 90" class="flow-arrow up" marker-end="url(#k-up)"/>
+            <path d="M380 130 Q310 90 245 88" class="flow-arrow up" marker-end="url(#k-up)"/>
+
+            <!-- VP → UTJ kuukausikatsaus -->
+            <path d="M628 130 Q510 80 242 62" class="flow-arrow up" marker-end="url(#k-up)"/>
+
+            <!-- UTJ ohjaus alas TJ:lle -->
+            <path d="M322 88 Q420 88 520 60" class="flow-arrow down" marker-end="url(#k-dn)" opacity=".4"/>
+
+            <!-- VP ↔ Valmentaja kehityskeskustelu -->
+            <path d="M546 175 Q510 205 468 218" class="flow-arrow down" marker-end="url(#k-dn)"/>
+            <text x="500" y="207" fill="#1A4F8C" font-family="DM Sans" font-size="9" font-style="italic" text-anchor="middle" opacity=".75">kehityskeskustelu kuukausittain</text>
+          </svg>
+        </div>
+        <div class="rytmi-meta">
+          <span class="rytmi-badge k">K · Kuukausittain</span>
+          <div class="rytmi-title">Kokoava rytmi —<br><em>UTJ näkee strategiset mittarit.</em></div>
+          <p class="rytmi-summary">Kuukausirytmi kokoaa operatiivisen kerroksen koosteiksi. UTJ näkee strategiset mittarit ensimmäistä kertaa. <strong>TJ odottaa jaksoa</strong> — kuukausi ei ole hänen aktiivinen rytminsä. VP:n ja valmentajan kehityskeskustelu on kuukausirytmin tärkein kahdensuuntainen elementti.</p>
+          <ul class="rytmi-points">
+            <li class="rytmi-point k"><strong>Tekninen johtaja:</strong> valmentajien kehitysseuranta 5 ulottuvuutta → UTJ:lle koosteena</li>
+            <li class="rytmi-point k"><strong>HoT:</strong> talenttiputken siirtymät kuukaudelta — kehitysjoukkue → akatemia</li>
+            <li class="rytmi-point k"><strong>VP → Valmentaja:</strong> kehityskeskustelu — kuukausittainen tukipalaveri, Barcelonan päivittäinen coaches-palaveri skaalattuna</li>
+            <li class="rytmi-point k"><strong>UTJ:</strong> strategiset mittarit ensimmäistä kertaa kuukausitasolla — trendit näkyvissä</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="rytmi-divider"></div>
+
+      <!-- ════════════════════════════════ JAKSO ════════════════════════════════ -->
+      <div class="rytmi-block">
+        <div class="rytmi-canvas">
+          <svg viewBox="0 0 800 290" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="j-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A7A5E" opacity=".7"/></marker>
+              <marker id="j-dn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A4F8C" opacity=".6"/></marker>
+              <marker id="j-dl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#5A7266" opacity=".85"/></marker>
+              <marker id="j-ek" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#B05A3C" opacity=".7"/></marker>
+            </defs>
+            <text x="400" y="18" class="viz-caption" font-size="10">Jakson päättyessä: TJ saa koosteen, UTJ+TJ tekevät resursointipäätökset, ekosysteemi saa raportin</text>
+
+            <!-- UTJ -->
+            <g class="role-box"><rect x="155" y="35" width="175" height="62" rx="9" class="role-box-bg strat"/>
+              <text x="242" y="62" class="role-box-label strat">UTJ</text>
+              <text x="242" y="80" class="role-box-sub strat">valmennuslinjan jaksokatse</text>
+            </g>
+
+            <!-- TJ — päärooli tässä rytmissä -->
+            <g class="role-box"><rect x="470" y="35" width="175" height="62" rx="9" class="role-box-bg strat"/>
+              <text x="557" y="62" class="role-box-label strat">TJ</text>
+              <text x="557" y="80" class="role-box-sub strat">operatiivinen jaksokooste</text>
+            </g>
+
+            <!-- UTJ ↔ TJ resursointidialogi -->
+            <path d="M335 66 Q400 50 465 66" fill="none" stroke="#5A7266" stroke-width="2" opacity=".6" marker-end="url(#j-dl)"/>
+            <path d="M465 82 Q400 98 340 82" fill="none" stroke="#5A7266" stroke-width="2" opacity=".6" marker-end="url(#j-dl)"/>
+            <text x="400" y="42" fill="#5A7266" font-family="DM Sans" font-size="10" font-weight="600" font-style="italic" text-anchor="middle">resursointipäätös</text>
+
+            <!-- Valmennuspäällikkö — koosteen lähde -->
+            <g class="role-box"><rect x="45" y="155" width="220" height="58" rx="9" class="role-box-bg oper"/>
+              <text x="155" y="181" class="role-box-label oper" font-size="11">Valmennuspäällikkö</text>
+              <text x="155" y="199" class="role-box-sub oper">VP+TJ+HoT jaksokoosteen lähteet</text>
+            </g>
+
+            <!-- Jojot — TJ:n operatiivinen kumppani -->
+            <g class="role-box"><rect x="535" y="155" width="165" height="58" rx="9"
+              fill="rgba(90,114,102,.07)" stroke="#5A7266" stroke-width="1.2"/>
+              <text x="617" y="181" font-family="DM Sans" font-size="12" font-weight="600" fill="#5A7266" text-anchor="middle">Jojot</text>
+              <text x="617" y="199" font-family="DM Sans" font-size="10" fill="#5A7266" text-anchor="middle" opacity=".75">joukkueiden arkikooste</text>
+            </g>
+
+            <!-- Ekosysteemi -->
+            <g class="role-box"><rect x="300" y="230" width="200" height="48" rx="9" class="role-box-bg ekosys"/>
+              <text x="400" y="257" class="role-box-label ekosys" font-size="11">Vanhemmat · Oppilaitos</text>
+            </g>
+
+            <!-- Virtaukset -->
+            <path d="M155 155 Q200 118 235 100" class="flow-arrow up" marker-end="url(#j-up)"/>
+            <path d="M557 155 Q557 118 557 100" class="flow-arrow up" marker-end="url(#j-up)"/>
+            <path d="M617 155 Q610 112 582 100" class="flow-arrow up" marker-end="url(#j-up)"/>
+
+            <!-- TJ → Ekosysteemi jaksoraportti -->
+            <path d="M540 95 Q490 170 410 230" fill="none" stroke="#B05A3C" stroke-width="1.2" stroke-dasharray="3,3" opacity=".55" marker-end="url(#j-ek)"/>
+            <text x="462" y="175" fill="#B05A3C" font-family="DM Sans" font-size="9" font-style="italic" text-anchor="middle" opacity=".8">jaksoraportti</text>
+
+            <!-- UTJ → Valmennuspäällikkö ohjaus -->
+            <path d="M242 97 Q185 128 155 155" class="flow-arrow down" marker-end="url(#j-dn)"/>
+          </svg>
+        </div>
+        <div class="rytmi-meta">
+          <span class="rytmi-badge j">J · Jaksoittain (6–8 vk)</span>
+          <div class="rytmi-title">Toiminnanjohtajan hetki —<br><em>kaksi akselia kohtaa.</em></div>
+          <p class="rytmi-summary">Jaksorytmi on <strong>TJ:n tärkein työrytmi.</strong> Jakson päättyessä valmennuspäällikkö ja jojot tuovat koosteet TJ:lle. UTJ tuo valmennuslinjallisen kuvan. Yhdessä he tekevät seuraavan jakson resursointipäätökset. Ekosysteemi saa jaksoraportin tiedoksi.</p>
+          <ul class="rytmi-points">
+            <li class="rytmi-point j"><strong>Valmennuspäällikkö:</strong> VP+TJ+HoT-tehtävien jaksokooste → TJ:lle yhdistettynä</li>
+            <li class="rytmi-point j"><strong>Jojot:</strong> joukkueiden arjen raportti → TJ:n operatiivinen kumppanuusakseli</li>
+            <li class="rytmi-point j"><strong>UTJ + TJ:</strong> viikoittaisen dialogin huipennus — yhteiset resursointipäätökset</li>
+            <li class="rytmi-point j"><strong>Ekosysteemi:</strong> vanhemmat ja oppilaitos saavat jaksoraportin — koordinointi seuraavaan jaksoon</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="rytmi-divider"></div>
+
+      <!-- ════════════════════════════════ KVARTAALI ════════════════════════════════ -->
+      <div class="rytmi-block">
+        <div class="rytmi-canvas">
+          <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="q-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A7A5E" opacity=".7"/></marker>
+              <marker id="q-hn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1C1C1A" opacity=".5"/></marker>
+              <marker id="q-dn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A4F8C" opacity=".6"/></marker>
+            </defs>
+            <text x="380" y="18" class="viz-caption" font-size="10">Kvartaali on systeemin hitain rytmi — hallitus vastaanottaa strategisen raportin</text>
+
+            <!-- Hallitus ylhäällä -->
+            <rect x="280" y="30" width="200" height="40" rx="20" fill="none" stroke="#1C1C1A" stroke-dasharray="3,3" stroke-width="1" opacity=".4"/>
+            <text x="380" y="51" fill="#1C1C1A" font-family="DM Sans" font-size="11" font-weight="600" text-anchor="middle" letter-spacing="1.5" opacity=".6" dominant-baseline="central">HALLITUS</text>
+
+            <!-- Hallituksesta alas -->
+            <line x1="380" y1="70" x2="380" y2="93" stroke="#1C1C1A" stroke-width="1" stroke-dasharray="2,3" opacity=".3"/>
+
+            <!-- UTJ -->
+            <g class="role-box"><rect x="100" y="100" width="175" height="60" rx="9" class="role-box-bg strat"/>
+              <text x="188" y="127" class="role-box-label strat">UTJ</text>
+              <text x="188" y="146" class="role-box-sub strat">urheilullinen kvartaalikatsaus</text>
+            </g>
+
+            <!-- TJ -->
+            <g class="role-box"><rect x="490" y="100" width="175" height="60" rx="9" class="role-box-bg strat"/>
+              <text x="577" y="127" class="role-box-label strat">TJ</text>
+              <text x="577" y="146" class="role-box-sub strat">operatiivinen kvartaalikatsaus</text>
+            </g>
+
+            <!-- Palloliiton passidata — kansainvälinen benchmark -->
+            <g><rect x="288" y="100" width="188" height="60" rx="9" fill="rgba(26,79,140,.04)" stroke="#1A4F8C" stroke-dasharray="4,3" stroke-width="1"/>
+              <text x="382" y="127" font-family="DM Sans" font-size="11" font-weight="600" fill="#1A4F8C" text-anchor="middle" opacity=".75">Palloliiton passidata</text>
+              <text x="382" y="146" font-family="DM Sans" font-size="10" fill="#1A4F8C" text-anchor="middle" opacity=".6">kansainvälinen benchmark</text>
+            </g>
+
+            <!-- Pitkä aikakaari — 3+ jakson trendi -->
+            <rect x="80" y="185" width="600" height="38" rx="9" fill="rgba(26,79,140,.04)" stroke="#1A4F8C" stroke-dasharray="3,3" stroke-width="1"/>
+            <text x="380" y="204" font-family="DM Sans" font-size="10" font-weight="600" fill="#1A4F8C" text-anchor="middle">Kvartaalin strateginen katse</text>
+            <text x="380" y="216" font-family="DM Sans" font-size="9" fill="#1A4F8C" text-anchor="middle" opacity=".75">3+ jakson trendi · talenttiputken outcome · pelaajakehityksen vaikuttavuus</text>
+
+            <!-- UTJ → Hallitus -->
+            <path d="M188 100 Q280 70 345 70" class="flow-arrow up" marker-end="url(#q-hn)"/>
+            <!-- TJ → Hallitus -->
+            <path d="M577 100 Q490 70 420 70" class="flow-arrow up" marker-end="url(#q-hn)"/>
+            <!-- Passidata → UTJ -->
+            <path d="M350 130 Q265 130 278 130" class="flow-arrow up" marker-end="url(#q-up)" opacity=".5"/>
+
+            <!-- Trendiviivat alas -->
+            <path d="M188 160 L188 185" fill="none" stroke="#1A4F8C" stroke-width="1" stroke-dasharray="2,3" opacity=".35"/>
+            <path d="M577 160 L577 185" fill="none" stroke="#1A4F8C" stroke-width="1" stroke-dasharray="2,3" opacity=".35"/>
+          </svg>
+        </div>
+        <div class="rytmi-meta">
+          <span class="rytmi-badge q">Q · Kvartaaleittain</span>
+          <div class="rytmi-title">Strateginen katse —<br><em>hallitus vastaanottaa.</em></div>
+          <p class="rytmi-summary">Kvartaalirytmi on systeemin hitain taso. UTJ ja TJ valmistelevat yhdessä hallitusraportin. <strong>Palloliiton passidata</strong> tulee mukaan kansainvälisenä benchmarkkina — missä seura on suhteessa muihin? Trendit näkyvät kolmen jakson yli.</p>
+          <ul class="rytmi-points">
+            <li class="rytmi-point q"><strong>UTJ:</strong> urheilullinen kvartaalikatsaus — talenttiputken outcome, valmennuslinjan toteutuma</li>
+            <li class="rytmi-point q"><strong>TJ:</strong> operatiivinen kvartaalikatsaus — seuran elinvoima, resursoinnin vaikuttavuus</li>
+            <li class="rytmi-point q"><strong>Palloliiton passidata:</strong> kansainvälinen benchmark — seura suhteessa pilottikenttään</li>
+            <li class="rytmi-point q"><strong>Hallitus:</strong> vastaanottaa strategisen raportin ja tekee seuraavan kauden resursointipäätökset</li>
+          </ul>
+        </div>
+      </div>
+
+    </div><!-- end rytmi-stack -->
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     OSIO 3: TARINALLISET FLOWT — neljä konkreettista use-casea
+     Iteraatiot 3 ja 4 rakentavat sisällön tähän.
+     ═══════════════════════════════════════════════════════════ -->
+<section id="tarinat" class="viz-section">
+  <div class="viz-inner">
+    <div class="viz-header">
+      <div class="viz-eyebrow tarina">Osio 3 / 3 · Tarinalliset flowt</div>
+      <h2 class="viz-title">Neljä tarinaa —<br><em>kun abstrakti muuttuu arjeksi.</em></h2>
+      <p class="viz-lead">Rakenne kertoo miten systeemi toimii periaatteessa. Tarinat kertovat miten se toimii kun jotain oikeasti tapahtuu. Jokainen tarina seuraa yhtä signaalia tai tapahtumaa alusta loppuun — kenelle se menee, kuka reagoi, mikä lopputulos.</p>
+    </div>
+
+    <div class="tarina-stack">
+
+      <!-- ══════════════════════════════════════════════
+           TARINA 1: IDP-AKTIVOINTI — kolme reittiä
+           ══════════════════════════════════════════════ -->
+      <div class="tarina-block">
+        <div class="tarina-header">
+          <div>
+            <div class="tarina-badge">Tarina 1 / 4</div>
+            <h3 class="tarina-title">IDP-aktivointi —<br><em>kolme reittiä, yksi lopputulos.</em></h3>
+            <p class="tarina-lead">Pelaajan yksilöllinen kehityssuunnitelma voidaan aktivoida kolmea eri reittiä. Reitti riippuu siitä kuka tekee aloitteen ja millä tiedolla. Kaikki kolme polkua päätyvät samaan pisteeseen: aktivoituun IDP-korttiin ja pelaajan tietoisuuteen.</p>
+          </div>
+          <div class="tarina-meta">
+            <div class="tarina-meta-label">Aikajänne</div>
+            <div class="tarina-meta-value">P → V → J</div>
+          </div>
+        </div>
+
+        <div class="tarina-canvas">
+          <svg viewBox="0 0 900 420" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="t1-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A7A5E" opacity=".75"/></marker>
+              <marker id="t1-dn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A4F8C" opacity=".65"/></marker>
+              <marker id="t1-cr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#C8882A" opacity=".7"/></marker>
+              <marker id="t1-ok" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A7A5E"/></marker>
+            </defs>
+
+            <!-- Sarake-otsikot -->
+            <text x="110" y="22" font-family="DM Sans" font-size="10" font-weight="700" fill="#1A7A5E" text-anchor="middle" letter-spacing="0.5" opacity=".8">VALMENTAJA</text>
+            <text x="310" y="22" font-family="DM Sans" font-size="10" font-weight="700" fill="#C8882A" text-anchor="middle" letter-spacing="0.5" opacity=".8">VP / HoT</text>
+            <text x="510" y="22" font-family="DM Sans" font-size="10" font-weight="700" fill="#1A4F8C" text-anchor="middle" letter-spacing="0.5" opacity=".8">UTJ / TJ</text>
+            <text x="760" y="22" font-family="DM Sans" font-size="10" font-weight="700" fill="#1A7A5E" text-anchor="middle" letter-spacing="0.5" opacity=".8">PELAAJA</text>
+
+            <!-- Sarakeviivat -->
+            <line x1="210" y1="28" x2="210" y2="385" stroke="#D4D1C8" stroke-width="1" stroke-dasharray="2,4" opacity=".6"/>
+            <line x1="415" y1="28" x2="415" y2="385" stroke="#D4D1C8" stroke-width="1" stroke-dasharray="2,4" opacity=".6"/>
+            <line x1="620" y1="28" x2="620" y2="385" stroke="#D4D1C8" stroke-width="1" stroke-dasharray="2,4" opacity=".6"/>
+
+            <!-- ─── REITTI 1: Manuaalinen (vasemmalta) ─── -->
+            <rect x="5" y="32" width="28" height="290" rx="6"
+                  fill="rgba(26,122,94,.08)" stroke="#1A7A5E" stroke-width="1"/>
+            <text x="19" y="185" font-family="DM Sans" font-size="9" font-weight="700"
+                  fill="#1A7A5E" text-anchor="middle" transform="rotate(-90,19,185)" letter-spacing="1">REITTI 1 · MANUAALINEN</text>
+
+            <!-- R1: Valmentaja tekee ADAR-havainnon -->
+            <rect x="40" y="38" width="140" height="50" rx="8" class="role-box-bg suor"/>
+            <text x="110" y="58" font-family="DM Sans" font-size="10" font-weight="600" fill="#1A7A5E" text-anchor="middle">ADAR-havainto ottelusta</text>
+            <text x="110" y="74" font-family="DM Sans" font-size="9" fill="#1A7A5E" text-anchor="middle" opacity=".75">kehityskohde tunnistettu</text>
+
+            <!-- R1: Valmentaja → VP pyyntö -->
+            <path d="M185 63 L240 90" fill="none" stroke="#1A7A5E" stroke-width="1.5" marker-end="url(#t1-up)"/>
+            <text x="215" y="75" font-family="DM Sans" font-size="8.5" fill="#1A7A5E" text-anchor="middle" font-style="italic">pyyntö</text>
+
+            <!-- R1: VP arvioi + hyväksyy -->
+            <rect x="240" y="78" width="140" height="50" rx="8" fill="rgba(200,136,42,.08)" stroke="#C8882A" stroke-width="1.3"/>
+            <text x="310" y="98" font-family="DM Sans" font-size="10" font-weight="600" fill="#C8882A" text-anchor="middle">VP arvioi</text>
+            <text x="310" y="114" font-family="DM Sans" font-size="9" fill="#C8882A" text-anchor="middle" opacity=".75">hyväksyy + HoT tiedoksi</text>
+
+            <!-- ─── REITTI 2: Automaattinen (keskeltä) ─── -->
+            <rect x="5" y="168" width="28" height="120" rx="6"
+                  fill="rgba(107,53,184,.06)" stroke="#5A2A9E" stroke-width="1"/>
+            <text x="19" y="228" font-family="DM Sans" font-size="9" font-weight="700"
+                  fill="#5A2A9E" text-anchor="middle" transform="rotate(-90,19,228)" letter-spacing="1">REITTI 2 · AUTO</text>
+
+            <!-- R2: Automaattisignaali -->
+            <rect x="40" y="174" width="140" height="50" rx="8"
+                  fill="rgba(107,53,184,.07)" stroke="#5A2A9E" stroke-width="1.3"/>
+            <text x="110" y="194" font-family="DM Sans" font-size="10" font-weight="600" fill="#5A2A9E" text-anchor="middle">X-Factor / Hidden Gem</text>
+            <text x="110" y="210" font-family="DM Sans" font-size="9" fill="#5A2A9E" text-anchor="middle" opacity=".75">automaattinen kynnys ylittyy</text>
+
+            <!-- R2: → HoT vahvistaa -->
+            <path d="M185 199 L240 215" fill="none" stroke="#5A2A9E" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#t1-cr)"/>
+            <text x="215" y="208" font-family="DM Sans" font-size="8.5" fill="#5A2A9E" text-anchor="middle" font-style="italic">signaali</text>
+
+            <rect x="240" y="204" width="140" height="44" rx="8"
+                  fill="rgba(107,53,184,.06)" stroke="#5A2A9E" stroke-width="1"/>
+            <text x="310" y="222" font-family="DM Sans" font-size="10" font-weight="600" fill="#5A2A9E" text-anchor="middle">HoT vahvistaa</text>
+            <text x="310" y="238" font-family="DM Sans" font-size="9" fill="#5A2A9E" text-anchor="middle" opacity=".75">+ VP ja valmentaja tiedoksi</text>
+
+            <!-- ─── REITTI 3: Talenttiohjelma (alhaalta) ─── -->
+            <rect x="5" y="296" width="28" height="85" rx="6"
+                  fill="rgba(26,79,140,.06)" stroke="#1A4F8C" stroke-width="1"/>
+            <text x="19" y="340" font-family="DM Sans" font-size="9" font-weight="700"
+                  fill="#1A4F8C" text-anchor="middle" transform="rotate(-90,19,340)" letter-spacing="1">REITTI 3 · KORI</text>
+
+            <!-- R3: UTJ/TJ jaksopalaveri -->
+            <rect x="440" y="298" width="155" height="50" rx="8" class="role-box-bg strat"/>
+            <text x="517" y="318" font-family="DM Sans" font-size="10" font-weight="600" fill="#1A4F8C" text-anchor="middle">UTJ + TJ jaksopalaveri</text>
+            <text x="517" y="334" font-family="DM Sans" font-size="9" fill="#1A4F8C" text-anchor="middle" opacity=".75">KORI-kriteerit täyttyvät</text>
+
+            <!-- R3: → VP toteuttaa -->
+            <path d="M440 323 L385 270" fill="none" stroke="#1A4F8C" stroke-width="1.5" marker-end="url(#t1-dn)"/>
+            <text x="410" y="295" font-family="DM Sans" font-size="8.5" fill="#1A4F8C" text-anchor="middle" font-style="italic">toimeksianto</text>
+
+            <!-- ═══ YHDISTYMISPISTE: VP aktivoi IDP ═══ -->
+            <rect x="240" y="258" width="140" height="32" rx="8"
+                  fill="rgba(200,136,42,.12)" stroke="#C8882A" stroke-width="1.5"/>
+            <text x="310" y="278" font-family="DM Sans" font-size="10" font-weight="700" fill="#C8882A" text-anchor="middle">VP aktivoi IDP-kortin</text>
+
+            <!-- Kolme polkua yhdistyy aktivointiin -->
+            <path d="M310 128 L310 258" fill="none" stroke="#C8882A" stroke-width="1.5" marker-end="url(#t1-cr)"/>
+            <path d="M310 248 L310 258" fill="none" stroke="#5A2A9E" stroke-width="1.5" marker-end="url(#t1-cr)" opacity=".7"/>
+
+            <!-- Aktivointi → Pelaaja -->
+            <path d="M385 274 Q580 274 700 310" fill="none" stroke="#1A7A5E" stroke-width="2" marker-end="url(#t1-ok)"/>
+            <text x="545" y="265" font-family="DM Sans" font-size="9" fill="#1A7A5E" text-anchor="middle" font-weight="600">IDP aktivoitu — pelaajalle ilmoitus</text>
+
+            <!-- Pelaaja: vastaanottaa -->
+            <rect x="700" y="298" width="150" height="70" rx="10" class="role-box-bg suor"/>
+            <text x="775" y="323" font-family="DM Sans" font-size="11" font-weight="600" fill="#1A7A5E" text-anchor="middle">Pelaaja</text>
+            <text x="775" y="340" font-family="DM Sans" font-size="9" fill="#1A7A5E" text-anchor="middle" opacity=".8">vastaanottaa IDP-ilmoituksen</text>
+            <text x="775" y="356" font-family="DM Sans" font-size="9" fill="#1A7A5E" text-anchor="middle" opacity=".7">kuittaa ymmärtäneensä</text>
+
+            <!-- Valmentaja tiedoksi -->
+            <path d="M310 258 Q140 258 110 320" fill="none" stroke="#C8882A" stroke-width="1.2" stroke-dasharray="3,2" opacity=".7" marker-end="url(#t1-cr)"/>
+            <rect x="40" y="320" width="140" height="44" rx="8" fill="rgba(200,136,42,.06)" stroke="#C8882A" stroke-width="1" stroke-dasharray="3,2"/>
+            <text x="110" y="340" font-family="DM Sans" font-size="9.5" font-weight="600" fill="#C8882A" text-anchor="middle">Valmentaja tiedoksi</text>
+            <text x="110" y="356" font-family="DM Sans" font-size="9" fill="#C8882A" text-anchor="middle" opacity=".75">IDP-tavoite harjoitteluun</text>
+
+            <!-- Lopputulos-label -->
+            <rect x="625" y="258" width="240" height="28" rx="8"
+                  fill="rgba(26,122,94,.10)" stroke="#1A7A5E" stroke-width="1.5"/>
+            <text x="745" y="276" font-family="DM Sans" font-size="10" font-weight="700" fill="#1A7A5E" text-anchor="middle">✓ IDP aktivoitu — kehityspolku käynnissä</text>
+          </svg>
+        </div>
+
+        <div class="tarina-steps">
+          <div class="tarina-step">
+            <div class="tarina-step-num">01</div>
+            <div class="tarina-step-title">Reitti 1 · Valmentajan aloite</div>
+            <div class="tarina-step-text">Valmentaja tekee ADAR-havainnon ottelun jälkeen ja tunnistaa kehityskohteen. Hän pyytää VP:ltä IDP-aktivointia. Nopein reitti — tapahtuu päivä–viikkotasolla.</div>
+          </div>
+          <div class="tarina-step">
+            <div class="tarina-step-num">02</div>
+            <div class="tarina-step-title">Reitti 2 · Automaattinen signaali</div>
+            <div class="tarina-step-text">Järjestelmä havaitsee X-Factor- tai Hidden Gem -kynnyksen ylittymisen. HoT vahvistaa signaalin, ilmoittaa valmentajalle ja VP:lle. Syntyy ilman kenenkään erillistä aloitetta.</div>
+          </div>
+          <div class="tarina-step">
+            <div class="tarina-step-num">03</div>
+            <div class="tarina-step-title">Reitti 3 · Talenttiohjelma (KORI)</div>
+            <div class="tarina-step-text">UTJ ja TJ tunnistavat jaksopalaverin yhteydessä että pelaaja täyttää KORI-kriteerit. Toimeksianto VP:lle. Hitain mutta strategisin reitti — aktivointi osana suunniteltua talenttiputkea.</div>
+          </div>
+          <div class="tarina-step">
+            <div class="tarina-step-num">04</div>
+            <div class="tarina-step-title">Kaikki polut → sama lopputulos</div>
+            <div class="tarina-step-text">VP aktivoi IDP-kortin. Pelaaja saa ilmoituksen ja kuittaa. Valmentaja saa IDP-tavoitteen harjoitteluun. Kolme reittiä — yksi rakenne joka varmistaa että kehityspolku käynnistyy oikeaan aikaan.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════
+           TARINA 2: JAKSON PÄÄTTYMINEN — kokoaminen ja päätökset
+           ══════════════════════════════════════════════ -->
+      <div class="tarina-block">
+        <div class="tarina-header">
+          <div>
+            <div class="tarina-badge">Tarina 2 / 4</div>
+            <h3 class="tarina-title">Jakson päättyminen —<br><em>tieto kokoontuu, päätökset syntyvät.</em></h3>
+            <p class="tarina-lead">Jakson päättyessä kaikki kerätty tieto virtaa ylöspäin kohti TJ:n resursointipäätöstä. Tämä on se hetki jossa tiedolla johtaminen konkretisoituu — ei vain dataa vaan selkeitä päätöksiä seuraavaa jaksoa varten.</p>
+          </div>
+          <div class="tarina-meta">
+            <div class="tarina-meta-label">Aikajänne</div>
+            <div class="tarina-meta-value">J−7 → J → J+3</div>
+          </div>
+        </div>
+
+        <div class="tarina-canvas">
+          <svg viewBox="0 0 900 400" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="t2-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A7A5E" opacity=".75"/></marker>
+              <marker id="t2-dn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A4F8C" opacity=".65"/></marker>
+              <marker id="t2-ek" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#B05A3C" opacity=".7"/></marker>
+            </defs>
+
+            <!-- Aikajanakaistat -->
+            <rect x="0" y="32" width="900" height="28" rx="0" fill="rgba(26,122,94,.04)"/>
+            <text x="16" y="50" font-family="DM Sans" font-size="10" font-weight="700" fill="#1A7A5E" opacity=".7" letter-spacing="0.5">J−7 · Viikko ennen jakson loppua</text>
+
+            <rect x="0" y="180" width="900" height="28" rx="0" fill="rgba(26,79,140,.05)"/>
+            <text x="16" y="198" font-family="DM Sans" font-size="10" font-weight="700" fill="#1A4F8C" opacity=".7" letter-spacing="0.5">J · Jakson viimeinen päivä — resursointipäätökset</text>
+
+            <rect x="0" y="318" width="900" height="28" rx="0" fill="rgba(176,90,60,.04)"/>
+            <text x="16" y="336" font-family="DM Sans" font-size="10" font-weight="700" fill="#B05A3C" opacity=".7" letter-spacing="0.5">J+3 · Kolme päivää jakson jälkeen — ekosysteemille</text>
+
+            <!-- J-7: Koosteet kerätään -->
+            <!-- VP -->
+            <rect x="30" y="68" width="148" height="96" rx="9" class="role-box-bg oper"/>
+            <text x="104" y="90" font-family="DM Sans" font-size="11" font-weight="600" fill="#C8882A" text-anchor="middle">VP</text>
+            <text x="104" y="106" font-family="DM Sans" font-size="9" fill="#C8882A" text-anchor="middle" opacity=".8">vastuualueen jaksokooste</text>
+            <text x="104" y="120" font-family="DM Sans" font-size="8.5" fill="#C8882A" text-anchor="middle" opacity=".65">valmentaja-aktiivisuus</text>
+            <text x="104" y="134" font-family="DM Sans" font-size="8.5" fill="#C8882A" text-anchor="middle" opacity=".65">identity-toteutuma · IDP-tila</text>
+            <text x="104" y="148" font-family="DM Sans" font-size="8.5" fill="#C8882A" text-anchor="middle" opacity=".65">kehityskeskustelut</text>
+
+            <!-- TJ -->
+            <rect x="220" y="68" width="148" height="96" rx="9" class="role-box-bg oper"/>
+            <text x="294" y="90" font-family="DM Sans" font-size="11" font-weight="600" fill="#C8882A" text-anchor="middle">Tekninen johtaja</text>
+            <text x="294" y="106" font-family="DM Sans" font-size="9" fill="#C8882A" text-anchor="middle" opacity=".8">valmentajien kehitysseuranta</text>
+            <text x="294" y="120" font-family="DM Sans" font-size="8.5" fill="#C8882A" text-anchor="middle" opacity=".65">5 ulottuvuutta · Coach Identity</text>
+            <text x="294" y="134" font-family="DM Sans" font-size="8.5" fill="#C8882A" text-anchor="middle" opacity=".65">ADAR-kattavuus</text>
+
+            <!-- HoT -->
+            <rect x="410" y="68" width="148" height="96" rx="9" class="role-box-bg oper"/>
+            <text x="484" y="90" font-family="DM Sans" font-size="11" font-weight="600" fill="#C8882A" text-anchor="middle">Head of Talent</text>
+            <text x="484" y="106" font-family="DM Sans" font-size="9" fill="#C8882A" text-anchor="middle" opacity=".8">talenttiputken tila</text>
+            <text x="484" y="120" font-family="DM Sans" font-size="8.5" fill="#C8882A" text-anchor="middle" opacity=".65">Top 20 · IDP-aktivoinnit</text>
+            <text x="484" y="134" font-family="DM Sans" font-size="8.5" fill="#C8882A" text-anchor="middle" opacity=".65">Hidden Gem · X-Factor</text>
+
+            <!-- Jojot -->
+            <rect x="600" y="68" width="148" height="96" rx="9"
+                  fill="rgba(90,114,102,.07)" stroke="#5A7266" stroke-width="1.3"/>
+            <text x="674" y="90" font-family="DM Sans" font-size="11" font-weight="600" fill="#5A7266" text-anchor="middle">Jojot</text>
+            <text x="674" y="106" font-family="DM Sans" font-size="9" fill="#5A7266" text-anchor="middle" opacity=".8">joukkueiden arkikooste</text>
+            <text x="674" y="120" font-family="DM Sans" font-size="8.5" fill="#5A7266" text-anchor="middle" opacity=".65">budjetti · käytännön toiminta</text>
+            <text x="674" y="134" font-family="DM Sans" font-size="8.5" fill="#5A7266" text-anchor="middle" opacity=".65">vanhempainillat</text>
+
+            <!-- Koosteet → TJ (päivänä J) -->
+            <path d="M104 165 Q104 195 200 215" fill="none" stroke="#C8882A" stroke-width="1.5" marker-end="url(#t2-up)"/>
+            <path d="M294 165 Q294 185 320 210" fill="none" stroke="#C8882A" stroke-width="1.5" marker-end="url(#t2-up)"/>
+            <path d="M484 165 Q450 185 380 210" fill="none" stroke="#C8882A" stroke-width="1.5" marker-end="url(#t2-up)"/>
+            <path d="M674 165 Q640 185 430 215" fill="none" stroke="#5A7266" stroke-width="1.2" marker-end="url(#t2-up)"/>
+
+            <!-- J: TJ vastaanottaa + päätökset -->
+            <rect x="210" y="216" width="165" height="86" rx="10" class="role-box-bg strat"/>
+            <text x="292" y="240" font-family="DM Sans" font-size="12" font-weight="700" fill="#1A4F8C" text-anchor="middle">TJ</text>
+            <text x="292" y="256" font-family="DM Sans" font-size="9" fill="#1A4F8C" text-anchor="middle" opacity=".8">operatiivinen jaksokooste</text>
+            <text x="292" y="272" font-family="DM Sans" font-size="8.5" fill="#1A4F8C" text-anchor="middle" opacity=".65">koostaa yhdeksi näkymäksi</text>
+            <text x="292" y="286" font-family="DM Sans" font-size="8.5" fill="#1A4F8C" text-anchor="middle" opacity=".65">strategian jalkautumisen gap</text>
+
+            <!-- UTJ jaksopalaveri -->
+            <rect x="490" y="216" width="165" height="86" rx="10" class="role-box-bg strat"/>
+            <text x="572" y="240" font-family="DM Sans" font-size="12" font-weight="700" fill="#1A4F8C" text-anchor="middle">UTJ</text>
+            <text x="572" y="256" font-family="DM Sans" font-size="9" fill="#1A4F8C" text-anchor="middle" opacity=".8">valmennuslinjallinen katse</text>
+            <text x="572" y="272" font-family="DM Sans" font-size="8.5" fill="#1A4F8C" text-anchor="middle" opacity=".65">jakson identity-toteutuma</text>
+            <text x="572" y="286" font-family="DM Sans" font-size="8.5" fill="#1A4F8C" text-anchor="middle" opacity=".65">talenttiputken suunta</text>
+
+            <!-- TJ ↔ UTJ resursointipäätös -->
+            <path d="M378 259 L488 259" fill="none" stroke="#5A7266" stroke-width="2" marker-end="url(#t2-up)"/>
+            <path d="M488 272 L378 272" fill="none" stroke="#5A7266" stroke-width="2" marker-end="url(#t2-up)"/>
+            <text x="433" y="252" font-family="DM Sans" font-size="9" fill="#5A7266" text-anchor="middle" font-weight="600" font-style="italic">resursointipäätös</text>
+
+            <!-- J+3: Ekosysteemille -->
+            <!-- Pelaaja kehityskooste -->
+            <rect x="30" y="352" width="175" height="38" rx="8"
+                  fill="rgba(26,122,94,.07)" stroke="#1A7A5E" stroke-width="1.3"/>
+            <text x="117" y="368" font-family="DM Sans" font-size="10" font-weight="600" fill="#1A7A5E" text-anchor="middle">Pelaaja</text>
+            <text x="117" y="382" font-family="DM Sans" font-size="9" fill="#1A7A5E" text-anchor="middle" opacity=".8">jakson kehityskooste · "mitä kehittyi"</text>
+
+            <!-- Vanhemmat -->
+            <rect x="240" y="352" width="175" height="38" rx="8" class="role-box-bg ekosys"/>
+            <text x="327" y="368" font-family="DM Sans" font-size="10" font-weight="600" fill="#B05A3C" text-anchor="middle">Vanhemmat</text>
+            <text x="327" y="382" font-family="DM Sans" font-size="9" fill="#B05A3C" text-anchor="middle" opacity=".8">jaksoraportti tiedoksi</text>
+
+            <!-- Valmentaja seuraavaan jaksoon -->
+            <rect x="450" y="352" width="175" height="38" rx="8"
+                  fill="rgba(200,136,42,.07)" stroke="#C8882A" stroke-width="1.2"/>
+            <text x="537" y="368" font-family="DM Sans" font-size="10" font-weight="600" fill="#C8882A" text-anchor="middle">Valmentaja</text>
+            <text x="537" y="382" font-family="DM Sans" font-size="9" fill="#C8882A" text-anchor="middle" opacity=".8">seuraavan jakson suunnitelma</text>
+
+            <!-- TJ → ekosysteemi -->
+            <path d="M292 302 Q117 320 117 352" fill="none" stroke="#1A7A5E" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#t2-up)"/>
+            <path d="M292 302 Q327 320 327 352" fill="none" stroke="#B05A3C" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#t2-ek)"/>
+            <path d="M292 302 Q490 320 537 352" fill="none" stroke="#C8882A" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#t2-up)"/>
+          </svg>
+        </div>
+
+        <div class="tarina-steps">
+          <div class="tarina-step">
+            <div class="tarina-step-num">J−7</div>
+            <div class="tarina-step-title">Koosteet kerätään</div>
+            <div class="tarina-step-text">VP kokoaa vastuualueensa jaksokoosteen. Tekninen johtaja kokoaa valmentajien kehitysseurannan. HoT päivittää talenttiputken tilan. Jojot tuovat joukkueiden arkikoosteen.</div>
+          </div>
+          <div class="tarina-step">
+            <div class="tarina-step-num">J</div>
+            <div class="tarina-step-title">TJ + UTJ kohtaavat</div>
+            <div class="tarina-step-text">TJ vastaanottaa operatiivisen koosteen. UTJ tuo valmennuslinjallisen kuvan. Yhdessä he tunnistavat strategian jalkautumisen gapin ja tekevät seuraavan jakson resursointipäätökset.</div>
+          </div>
+          <div class="tarina-step">
+            <div class="tarina-step-num">J+3</div>
+            <div class="tarina-step-title">Ekosysteemi saa palautteen</div>
+            <div class="tarina-step-text">Pelaaja saa jakson kehityskoosteensa. Vanhemmat saavat jaksoraportin. Valmentaja saa perustan seuraavan jakson suunnittelulle. Tieto ei katoa — se ohjaa seuraavaa jaksoa.</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end tarina-stack -->
+
+    <div class="tarina-stack">
+
+      <!-- ══════════════════════════════════════════════
+           TARINA 3: FIILINKILASKU — nopea reaktioketju
+           ══════════════════════════════════════════════ -->
+      <div class="tarina-block">
+        <div class="tarina-header">
+          <div>
+            <span class="tarina-badge">Tarina 3 / 4</span>
+            <div class="tarina-title">Fiilinkilasku —<br><em>systeemi reagoi ennen kuin kukaan ehtii kysyä.</em></div>
+            <p class="tarina-lead">Pelaaja kirjaa matalan fiilingin kahtena peräkkäisenä päivänä. Tämä on signaali joka nousee automaattisesti — valmentaja näkee sen ennen harjoitusta, VP saa ilmoituksen, ja ketju käynnistyy ilman että kenenkään täytyy erikseen huomata mitään. Tämä on se arvo jota ei voi korvata muistinvaraisella johtamisella.</p>
+          </div>
+          <div class="tarina-meta">
+            <div class="tarina-meta-label">Rytmi</div>
+            <div class="tarina-meta-value">P · V<br>nopea reaktio</div>
+          </div>
+        </div>
+
+        <div class="tarina-canvas">
+          <svg viewBox="0 0 860 240" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="t3-wn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#C44060" opacity=".8"/></marker>
+              <marker id="t3-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A7A5E" opacity=".75"/></marker>
+              <marker id="t3-dn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A4F8C" opacity=".65"/></marker>
+            </defs>
+
+            <text x="430" y="18" class="viz-caption" font-size="10">Pelaaja P1 · fiilinki 2/5 kahtena peräkkäisenä päivänä → ketju käynnistyy automaattisesti</text>
+
+            <!-- Pelaaja kirjaa -->
+            <g class="role-box"><rect x="20" y="38" width="130" height="62" rx="9" class="role-box-bg suor"/>
+              <text x="85" y="62" class="role-box-label suor" font-size="11">Pelaaja</text>
+              <text x="85" y="78" class="role-box-sub suor">fiilinki 2/5 · pv 1</text>
+              <text x="85" y="92" class="role-box-sub suor">fiilinki 2/5 · pv 2</text>
+            </g>
+
+            <!-- Automaattisignaali -->
+            <rect x="175" y="55" width="140" height="28" rx="7"
+                  fill="rgba(196,64,96,.08)" stroke="#C44060" stroke-width="1.2" stroke-dasharray="3,2"/>
+            <text x="245" y="71" font-family="DM Sans" font-size="10" font-weight="600" fill="#C44060" text-anchor="middle">Automaattisignaali</text>
+
+            <path d="M154 69 L172 69" fill="none" stroke="#C44060" stroke-width="1.5" marker-end="url(#t3-wn)"/>
+
+            <!-- Kaksi vastaanottajaa rinnakkain -->
+            <path d="M318 62 L378 55" fill="none" stroke="#C44060" stroke-width="1.3" stroke-dasharray="3,2" marker-end="url(#t3-wn)"/>
+            <path d="M318 74 L378 115" fill="none" stroke="#C44060" stroke-width="1.3" stroke-dasharray="3,2" marker-end="url(#t3-wn)"/>
+
+            <!-- Valmentaja reagoi -->
+            <g class="role-box"><rect x="382" y="28" width="155" height="52" rx="9" class="role-box-bg suor"/>
+              <text x="460" y="50" class="role-box-label suor" font-size="11">Valmentaja</text>
+              <text x="460" y="68" class="role-box-sub suor">näkee ennen harjoitusta</text>
+            </g>
+
+            <!-- VP reagoi -->
+            <g class="role-box"><rect x="382" y="100" width="155" height="52" rx="9" class="role-box-bg oper"/>
+              <text x="460" y="122" class="role-box-label oper" font-size="11">VP</text>
+              <text x="460" y="140" class="role-box-sub oper">saa ilmoituksen</text>
+            </g>
+
+            <!-- Valmentajan toimenpide -->
+            <path d="M540" y1="54" x2="600" y2="54" fill="none"/>
+            <path d="M540 54 L600 54" fill="none" stroke="#1A7A5E" stroke-width="1.5" marker-end="url(#t3-up)"/>
+            <g class="role-box"><rect x="604" y="28" width="200" height="52" rx="9"
+                  fill="rgba(26,122,94,.08)" stroke="#1A7A5E" stroke-width="1.5"/>
+              <text x="704" y="50" font-family="DM Sans" font-size="11" font-weight="600" fill="#1A7A5E" text-anchor="middle">Harjoituksen muutos</text>
+              <text x="704" y="68" font-family="DM Sans" font-size="9" fill="#1A7A5E" text-anchor="middle" opacity=".8">FLEI-rajoitin · kevyempi sessio</text>
+            </g>
+
+            <!-- VP:n toimenpide -->
+            <path d="M540 126 L600 145" fill="none" stroke="#1A4F8C" stroke-width="1.5" marker-end="url(#t3-dn)"/>
+            <g class="role-box"><rect x="604" y="120" width="200" height="52" rx="9"
+                  fill="rgba(26,79,140,.07)" stroke="#1A4F8C" stroke-width="1.5"/>
+              <text x="704" y="142" font-family="DM Sans" font-size="11" font-weight="600" fill="#1A4F8C" text-anchor="middle">VP ottaa yhteyttä</text>
+              <text x="704" y="160" font-family="DM Sans" font-size="9" fill="#1A4F8C" text-anchor="middle" opacity=".8">valmentajalle · tarvitaanko tukea?</text>
+            </g>
+
+            <!-- Jos jatkuu → HoT -->
+            <rect x="160" y="185" width="540" height="40" rx="8"
+                  fill="rgba(196,64,96,.05)" stroke="#C44060" stroke-width="1" stroke-dasharray="3,3"/>
+            <text x="430" y="203" font-family="DM Sans" font-size="9.5" font-weight="600" fill="#C44060" text-anchor="middle">Jos fiilinkilasku jatkuu 5+ päivää → HoT saa signaalin · pelaajan kokonaistilanne arvioidaan</text>
+            <text x="430" y="218" font-family="DM Sans" font-size="9" fill="#C44060" text-anchor="middle" opacity=".75">tämä on se hetki jolloin IDP-aktivointi voi käynnistyä automaattisesti (Reitti 2)</text>
+          </svg>
+        </div>
+
+        <div class="tarina-steps">
+          <div class="tarina-step">
+            <div class="tarina-step-num">01</div>
+            <div class="tarina-step-title">Pelaaja kirjaa — tietämättään käynnistää ketjun</div>
+            <div class="tarina-step-text">Pelaaja kirjaa fiilingin 2/5 kahtena peräkkäisenä päivänä. Hän ei tiedä käynnistävänsä mitään — hän vain kirjaa totuuden. Järjestelmä tunnistaa pattern ja lähettää signaalin automaattisesti.</div>
+          </div>
+          <div class="tarina-step">
+            <div class="tarina-step-num">02</div>
+            <div class="tarina-step-title">Valmentaja näkee — ennen harjoitusta</div>
+            <div class="tarina-step-text">Valmentaja avaa järjestelmän harjoitukseen tullessaan. P1:n kohdalla on keltainen merkki. Hän tietää jo ennen kuin pelaaja astuu kentälle: tänään mennään kevyemmällä ohjelmalla. Ei kysymyksiä, ei selityksiä — suora muutos.</div>
+          </div>
+          <div class="tarina-step">
+            <div class="tarina-step-num">03</div>
+            <div class="tarina-step-title">VP reagoi — tukea valmentajalle</div>
+            <div class="tarina-step-text">VP saa saman ilmoituksen. Hän ei mikromanageeraa harjoitusta vaan tarkistaa: tarvitseeko valmentaja tukea tilanteen käsittelyyn? Kenties pelaajalla on koulustressi, vamma, tai muu elämäntilanne. VP:n rooli on pitää isompi kuva.</div>
+          </div>
+          <div class="tarina-step">
+            <div class="tarina-step-num">04</div>
+            <div class="tarina-step-title">Jos jatkuu — HoT + mahdollinen IDP</div>
+            <div class="tarina-step-text">Jos fiilinkilasku jatkuu yli 5 päivää, HoT saa signaalin ja pelaajan kokonaistilanne arvioidaan. Tämä voi käynnistää IDP-aktivoinnin automaattisesti Reitti 2:ta — järjestelmä tunnistaa tilanteen ennen kuin kukaan ehtii pyytää.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════
+           TARINA 4: STRATEGIAN JALKAUTUMISEN GAP
+           ══════════════════════════════════════════════ -->
+      <div class="tarina-block">
+        <div class="tarina-header">
+          <div>
+            <span class="tarina-badge">Tarina 4 / 4</span>
+            <div class="tarina-title">Strategian jalkautumisen gap —<br><em>kun linja ei siirry kentälle.</em></div>
+            <p class="tarina-lead">UTJ on asettanut valmennuslinjaan tavoitteen: U13-joukkueiden pallon vierimisajan tulee olla ≥70% harjoituksessa. Kolmen jakson jälkeen TJ havaitsee jaksoraportista että kahdessa joukkueessa luku on jatkuvasti alle 60%. Tämä on strategian jalkautumisen gap — tieto oli olemassa, mutta se ei ole johtanut muutokseen.</p>
+          </div>
+          <div class="tarina-meta">
+            <div class="tarina-meta-label">Rytmi</div>
+            <div class="tarina-meta-value">J · Q<br>hidas ilmiö</div>
+          </div>
+        </div>
+
+        <div class="tarina-canvas">
+          <svg viewBox="0 0 860 270" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="t4-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A7A5E" opacity=".75"/></marker>
+              <marker id="t4-dn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A4F8C" opacity=".65"/></marker>
+              <marker id="t4-wn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#C44060" opacity=".8"/></marker>
+              <marker id="t4-fix" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1A7A5E"/></marker>
+            </defs>
+
+            <text x="430" y="18" class="viz-caption" font-size="10">Jakso 1–3: gap kasvaa näkymättömissä · Jakso 4: TJ havaitsee · Korjaava toimenpide käynnistyy</text>
+
+            <!-- Aikajana vasemmalla -->
+            <line x1="30" y1="38" x2="30" y2="250" stroke="#BDB9AC" stroke-width="1.5"/>
+
+            <!-- Jakso 1–3: gap kasvaa -->
+            <circle cx="30" cy="60" r="5" fill="#C44060"/>
+            <text x="44" y="64" font-family="DM Sans" font-size="10" font-weight="600" fill="#C44060">Jakso 1–3</text>
+            <rect x="130" y="44" width="220" height="36" rx="7" fill="rgba(196,64,96,.07)" stroke="#C44060" stroke-width="1" stroke-dasharray="3,2"/>
+            <text x="240" y="62" font-family="DM Sans" font-size="10" font-weight="600" fill="#C44060" text-anchor="middle">Pallon vierimisaika: 55–58%</text>
+            <text x="240" y="75" font-family="DM Sans" font-size="9" fill="#C44060" text-anchor="middle" opacity=".8">tavoite ≥70% · gap kasvaa joka jaksossa</text>
+
+            <!-- Tekninen johtaja ei hälytä vielä -->
+            <text x="380" y="62" font-family="DM Sans" font-size="9" fill="#BDB9AC" text-anchor="start" font-style="italic">tieto Teknisellä johtajalla · ei eskalointia</text>
+
+            <!-- Jakso 4: TJ havaitsee -->
+            <circle cx="30" cy="120" r="5" fill="#C8882A"/>
+            <text x="44" y="124" font-family="DM Sans" font-size="10" font-weight="600" fill="#C8882A">Jakso 4 · J</text>
+            <rect x="130" y="104" width="220" height="36" rx="7" fill="rgba(200,136,42,.09)" stroke="#C8882A" stroke-width="1.5"/>
+            <text x="240" y="120" font-family="DM Sans" font-size="10" font-weight="600" fill="#C8882A" text-anchor="middle">TJ havaitsee jaksoraportista</text>
+            <text x="240" y="134" font-family="DM Sans" font-size="9" fill="#C8882A" text-anchor="middle" opacity=".85">trendi — ei kertapoikkeama</text>
+
+            <!-- TJ → UTJ + Tekninen johtaja -->
+            <path d="M354 122 L440 90" fill="none" stroke="#C8882A" stroke-width="1.5" marker-end="url(#t4-wn)"/>
+            <path d="M354 122 L440 155" fill="none" stroke="#C8882A" stroke-width="1.5" marker-end="url(#t4-wn)"/>
+
+            <g class="role-box"><rect x="444" y="64" width="155" height="52" rx="9" class="role-box-bg strat"/>
+              <text x="521" y="87" class="role-box-label strat" font-size="11">UTJ</text>
+              <text x="521" y="105" class="role-box-sub strat">strateginen hälytys</text>
+            </g>
+
+            <g class="role-box"><rect x="444" y="132" width="155" height="52" rx="9" class="role-box-bg oper"/>
+              <text x="521" y="155" class="role-box-label oper" font-size="11">Tekninen johtaja</text>
+              <text x="521" y="173" class="role-box-sub oper">syy selvitetään</text>
+            </g>
+
+            <!-- UTJ + TJ → korjaava toimenpide -->
+            <path d="M602 90 L660 122" fill="none" stroke="#1A7A5E" stroke-width="1.5" marker-end="url(#t4-fix)"/>
+            <path d="M602 158 L660 138" fill="none" stroke="#1A7A5E" stroke-width="1.5" marker-end="url(#t4-fix)"/>
+
+            <rect x="664" y="90" width="180" height="80" rx="10"
+                  fill="rgba(26,122,94,.09)" stroke="#1A7A5E" stroke-width="2"/>
+            <text x="754" y="118" font-family="DM Sans" font-size="11" font-weight="700" fill="#1A7A5E" text-anchor="middle">Korjaava toimenpide</text>
+            <text x="754" y="136" font-family="DM Sans" font-size="9" fill="#1A7A5E" text-anchor="middle" opacity=".85">valmentajakoulutus · mentorointi</text>
+            <text x="754" y="152" font-family="DM Sans" font-size="9" fill="#1A7A5E" text-anchor="middle" opacity=".85">harjoitussuunnitelman tarkistus</text>
+
+            <!-- Jakso 5: seuranta -->
+            <circle cx="30" cy="220" r="5" fill="#1A7A5E"/>
+            <text x="44" y="224" font-family="DM Sans" font-size="10" font-weight="600" fill="#1A7A5E">Jakso 5 · J+1</text>
+            <rect x="130" y="204" width="220" height="36" rx="7" fill="rgba(26,122,94,.08)" stroke="#1A7A5E" stroke-width="1.5"/>
+            <text x="240" y="220" font-family="DM Sans" font-size="10" font-weight="600" fill="#1A7A5E" text-anchor="middle">Seuranta: tulos näkyy</text>
+            <text x="240" y="234" font-family="DM Sans" font-size="9" fill="#1A7A5E" text-anchor="middle" opacity=".85">vierimisaika noussut 68%:iin — suunta oikea</text>
+
+            <!-- Strategian gap dokumentoitu -->
+            <text x="380" y="218" font-family="DM Sans" font-size="9" fill="#5A7266" text-anchor="start" font-style="italic">gap dokumentoitu → Q-raportti hallitukselle</text>
+          </svg>
+        </div>
+
+        <div class="tarina-steps">
+          <div class="tarina-step">
+            <div class="tarina-step-num">01</div>
+            <div class="tarina-step-title">Jakso 1–3 · Gap kasvaa näkymättömissä</div>
+            <div class="tarina-step-text">Pallon vierimisaika on kolme jaksoa peräkkäin 55–58% vaikka tavoite on ≥70%. Tekninen johtaja näkee luvun mutta ei eskaloi — ehkä ajattelee sen olevan tilapäistä. Ilman systemaattista trendiseurantaa tilanne jatkuu.</div>
+          </div>
+          <div class="tarina-step">
+            <div class="tarina-step-num">02</div>
+            <div class="tarina-step-title">Jakso 4 · TJ havaitsee trendin</div>
+            <div class="tarina-step-text">TJ vastaanottaa jaksoraportin ja huomaa: tämä ei ole kertapoikkeama. Kolmen jakson trendi on selkeä. Hän käynnistää hälytyksen UTJ:lle strategisesta gapista ja tekniselle johtajalle syyn selvittämiseksi.</div>
+          </div>
+          <div class="tarina-step">
+            <div class="tarina-step-num">03</div>
+            <div class="tarina-step-title">UTJ + TJ · Korjaava toimenpide</div>
+            <div class="tarina-step-text">UTJ vahvistaa että kyse on strategian jalkautumisen ongelmasta — ei pelaajien ongelmasta. Tekninen johtaja selvittää syyn: harjoitussuunnitelmissa liikaa taktisia selityksiä, pallokosketus jää vähäiseksi. Korjaava toimenpide: mentorointi + harjoitussuunnitelman tarkistus.</div>
+          </div>
+          <div class="tarina-step">
+            <div class="tarina-step-num">04</div>
+            <div class="tarina-step-title">Jakso 5 · Tulos näkyy — gap dokumentoitu</div>
+            <div class="tarina-step-text">Seuraavassa jaksossa vierimisaika nousee 68%:iin — suunta on oikea. Gap on dokumentoitu ja menee Q-raporttiin hallitukselle. Ei kadota historiatietoon. Tämä on FCN:n "Evaluation of learning objectives" käytännössä.</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end tarina-stack 2 -->
+  </div>
+</section>
+     ═══════════════════════════════════════════════════════════ -->
+<div class="next-section">
+  <div class="next-inner">
+    <div>
+      <div class="next-eyebrow">Iteraatio 4 valmis · Vaihe 2 täysin valmis</div>
+      <h3 class="next-title">Kaikki neljä tarinaa kirjoitettu.<br><em>Seuraavaksi integroitu arkkitehtuuri.</em></h3>
+      <p class="next-text">Vaihe 3 kokoaa roolimatriisin, flow-diagrammin ja tarinat yhdeksi integroiduksi arkkitehtuurikuvaukseksi joka voidaan viedä seurakeskusteluihin eri kokoisissa seuroissa — ja Palloliiton suuntaan.</p>
+    </div>
+    <div class="next-stages">
+      <div class="stage-item done">
+        <div class="stage-num">1</div>
+        <div class="stage-label">Kokonaiskuva + rakenne</div>
+      </div>
+      <div class="stage-item done">
+        <div class="stage-num">2</div>
+        <div class="stage-label">5 rytmidiagrammia</div>
+      </div>
+      <div class="stage-item done">
+        <div class="stage-num">3</div>
+        <div class="stage-label">Tarinat 1–2 (IDP, jakso)</div>
+      </div>
+      <div class="stage-item done">
+        <div class="stage-num">4</div>
+        <div class="stage-label">Tarinat 3–4 (fiilis, gap)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
