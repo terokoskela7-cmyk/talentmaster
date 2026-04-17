@@ -198,18 +198,18 @@ function _merkitseT() {
 }
 
 function _naytaMalliBadge(malli, data) {
-  var emoji = data && data.fiilinki
+  const emoji = data && data.fiilinki
     ? (['','😫','😕','😐','🙂','🔥'][data.fiilinki] || '✓') : '✓';
   // Etsi näkyvä fiilinki-osio
-  var els = ['fiiliPerustaso','fiiliKehitystaso','fiiliShowcase'];
-  var targetEl = null;
+  const els = ['fiiliPerustaso','fiiliKehitystaso','fiiliShowcase'];
+  let targetEl = null;
   for (var i = 0; i < els.length; i++) {
     var el = document.getElementById(els[i]);
     if (el && el.style.display !== 'none') { targetEl = el; break; }
   }
   if (!targetEl) return;
   if (targetEl.querySelector('.fiili-badge-aamu')) return; // ei duplikaattia
-  var badge = document.createElement('div');
+  const badge = document.createElement('div');
   badge.className = 'fiili-kirjattu-badge fiili-badge-aamu';
   badge.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;'
     + 'background:rgba(46,213,115,.08);border:1px solid rgba(46,213,115,.25);'
@@ -2597,6 +2597,18 @@ function esc(s) {
     .replace(/'/g, '&#039;');
 }
 
+/* ── Päivämäärä-apufunktiot ──────────────────────────────────────────────
+   Syy: new Date().toISOString().split('T')[0] toistui 7 kertaa — DRY
+   tanaan()    → 'YYYY-MM-DD' (lokaalikello — UI-käyttöön)
+   serverTs()  → firebase.firestore.FieldValue.serverTimestamp() (Firestore-kirjauksiin)
+*/
+function tanaan() {
+  return new Date().toISOString().split('T')[0];
+}
+function serverTs() {
+  return firebase.firestore.FieldValue.serverTimestamp();
+}
+
 /* ══ DEMO-DATA ══ */
 const DEMO_PELAAJAT = {
   aleksi:{
@@ -2937,6 +2949,20 @@ let _kirjautuminenKesken = false;
 let _uloskirjautunut    = false;  // Estää automaattisen sisäänkirjautumisen uloskirjautumisen jälkeen
 let _ladattu = {};
 
+/* ── URL-parametrit: parsitaan kerran, käytetään kaikkialla ───────────
+   Aiemmin: new URLSearchParams(location.search) kutsuttiin 4 eri kohdassa
+   eri muuttujanimin (_saParams, _urlParams, params, _urlParam).
+   Nyt: yksi singleton — luetaan DOM valmis, ei muutu kesken session.
+*/
+const _URL = (() => {
+  const p = new URLSearchParams(location.search);
+  return {
+    pelaajaId : p.get('pelaajaId') || null,
+    seuraId   : p.get('seuraId')   || null,
+    demo      : p.get('demo')      || null,
+  };
+})();
+
 /* ══ AUTH ══ */
 
 // ── PIN-kirjautumislogiikka ──────────────────────────────────────────────
@@ -3098,9 +3124,9 @@ function vaihtokirjautuminen(tila) {
 // Järjestys: 1) Firebase-sessio  2) Demo  3) PIN-sessio  4) Login
 // ── URL-parametritarkistus (ei kirjautumista) ─────────────────────────────
 async function _tarkistaUrlParam() {
-  const params   = new URLSearchParams(location.search);
-  const pelaajaId = params.get('pelaajaId');
-  const seuraId   = params.get('seuraId');
+  // [TM-FIX] Käytetään _URL-singletonia
+  const pelaajaId = _URL.pelaajaId;
+  const seuraId   = _URL.seuraId;
   if (!pelaajaId || !seuraId) return false;
 
   try {
@@ -3187,9 +3213,9 @@ async function _lataaFirebasePelaaja(user) {
     if (claims.super_admin || claims.superAdmin) {
       console.log('[TalentMaster] Super Admin Pelaaja-näkymässä');
       // Super Admin: yritä ladata oikea pelaaja URL-parametrista
-      const _saParams = new URLSearchParams(location.search);
-      const _saPelId  = _saParams.get('pelaajaId');
-      const _saSeura  = _saParams.get('seuraId') || 'kpv';
+      // [TM-FIX] Käytetään _URL-singletonia URLSearchParams-parsimisen sijaan
+      const _saPelId  = _URL.pelaajaId;
+      const _saSeura  = _URL.seuraId || 'kpv';
       if (_saPelId && _saSeura) {
         try {
           const saSnap = await _db.collection('seurat').doc(_saSeura)
@@ -3202,8 +3228,8 @@ async function _lataaFirebasePelaaja(user) {
           } else {
             console.warn('[SA] Pelaajaa ei löydy Firestorestä:', _saPelId, _saSeura);
           }
-        } catch(eSA) {
-          console.warn('[SA URL]', eSA.message);
+        } catch(superAdminUrlErr) {
+          console.warn('[SA URL]', superAdminUrlErr.message);
         }
       }
       // Fallback: demo-pelaaja
@@ -3220,9 +3246,9 @@ async function _lataaFirebasePelaaja(user) {
     }
 
     // ── Tapa 0: URL-parametri + huoltajaEmail (huoltaja kirjautunut) ──
-    const _urlParams = new URLSearchParams(location.search);
-    const _urlPelId  = _urlParams.get('pelaajaId');
-    const _urlSeura  = _urlParams.get('seuraId') || 'kpv';
+    // [TM-FIX] Käytetään _URL-singletonia
+    const _urlPelId  = _URL.pelaajaId;
+    const _urlSeura  = _URL.seuraId || 'kpv';
     if (_urlPelId && _urlSeura) {
       try {
         const directSnap = await _db.collection('seurat').doc(_urlSeura)
@@ -3254,7 +3280,7 @@ async function _lataaFirebasePelaaja(user) {
         await _alustaUI();
         return;
       }
-    } catch(e1) { console.warn('[Tapa1]', e1.message); }
+    } catch(huoltajaHakuErr) { console.warn('[Tapa1] Huoltajahaku epäonnistui:', huoltajaHakuErr.message); }
 
     // ── Normaali pelaaja: haetaan Firestoresta ──
     // HUOM: collectionGroup vaatii Firestore-indeksin:
@@ -3332,7 +3358,7 @@ async function kirjauduSisaan() {
             }
           }
         }
-      } catch(e2) {}
+      } catch(directSnapErr) { console.warn('[Tapa0] Suora pelaajahaku:', directSnapErr.message); }
     }
     errEl.textContent = 'Tunnusta ei löydy. Kokeile sähköpostilla.';
     return;
@@ -3371,12 +3397,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ══ UI-ALUSTUS ══ */
 async function _alustaUI() {
+  // Re-entry guard: estetään rinnakkaiset kutsut auth-flow-ketjusta
+  if (_alustaUI._kaynnissa) {
+    console.warn('[TM] _alustaUI jo käynnissä — ohitetaan duplikaattikutsu');
+    return;
+  }
+  _alustaUI._kaynnissa = true;
+  try {
+    await _alustaUI_impl();
+  } finally {
+    _alustaUI._kaynnissa = false;
+  }
+}
+_alustaUI._kaynnissa = false;
+
+async function _alustaUI_impl() {
   const p = _pelaaja;
   // ── Onboarding-check: 1. kerta → näytä onboarding ensin ──
   // Super admin (super_admin_view) ohittaa onboardingin
   if (p && p.id !== 'super_admin_view') {
     const _obKey = typeof _OB_AVAIN !== 'undefined' ? _OB_AVAIN : 'tm_onboarding_tehty';
-    const _hasUrlParam = new URLSearchParams(location.search).get('pelaajaId');
+    const _hasUrlParam = _URL.pelaajaId; // [TM-FIX] _URL-singleton
     if (!_hasUrlParam && !localStorage.getItem(_obKey)) {
       nayta('sOnboarding');
       if (typeof _obPaivitaVaihe === 'function') _obPaivitaVaihe(0);
@@ -3939,42 +3980,43 @@ async function _tallennaKirjaus(tehtavaId, tyyppi, xp, kaikki) {
   const pid = _pelaaja.id;
   if (!sid || !pid || pid === 'super_admin_view') return;
 
-  const pvm = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+  const pvm = tanaan(); // [TM-FIX] apufunktio — ei toisteta new Date()... 7× koodissa
   const pelaajaDok = _db.collection('seurat').doc(sid).collection('pelaajat').doc(pid);
   const kirjausDok = pelaajaDok.collection('kirjaukset').doc(pvm);
 
+  // ── Batch write: kirjaus + pelaaja-doc atomisesti ──────────────────────
+  // Aiemmin: 2 erillistä .set()/.update() — toinen voi epäonnistua
+  // Nyt: writeBatch() takaa että molemmat kirjoitetaan tai ei kumpikaan
   try {
-    // Kirjaus: {tehty: true, tyyppi, xp, aika, pvm}
-    const aika = (() => {
-      const h = new Date().getHours();
-      return h < 11 ? 'aamu' : h < 17 ? 'paiva' : 'ilta';
-    })();
+    const h = new Date().getHours();
+    const aika = h < 11 ? 'aamu' : h < 17 ? 'paiva' : 'ilta';
 
-    await kirjausDok.set({
+    const batch = _db.batch();
+
+    // 1. Päiväkirjaus
+    batch.set(kirjausDok, {
       tyyppi,
       tehty: true,
       xp,
       aika,
       pvm,
-      paivitetty: new Date().toISOString(),
+      paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    // Jos kaikki tehtävät tehty → päivitä streak + xp pelaajadokumenttiin
+    // 2. Pelaajadok: aina XP, streak vain jos kaikki tehty
+    const pelaajaPaivitys = { xp: _pelaaja.xp };
     if (kaikki) {
-      await pelaajaDok.update({
-        streak: _pelaaja.streak,
-        xp: _pelaaja.xp,
-        streak_paivitetty: pvm,
-      });
-      console.log('[TM] Streak + XP tallennettu Firestoreen:', _pelaaja.streak, _pelaaja.xp);
-    } else {
-      // Päivitetään XP myös yksittäisestä tehtävästä
-      await pelaajaDok.update({ xp: _pelaaja.xp });
+      pelaajaPaivitys.streak = _pelaaja.streak;
+      pelaajaPaivitys.streak_paivitetty = pvm;
     }
+    batch.update(pelaajaDok, pelaajaPaivitys);
+
+    await batch.commit();
+    if (kaikki) console.log('[TM] Streak + XP tallennettu (batch):', _pelaaja.streak, _pelaaja.xp);
 
   } catch(e) {
-    console.warn('[TM] Kirjaus epäonnistui — ei haittaa, jatketaan:', e.message);
-    // UI toimii silti — ei näytetä virhettä pelaajalle
+    console.warn('[TM] Kirjaus epäonnistui — UI jatkuu:', e.message);
+    // Ei näytetä virhettä pelaajalle — offline-tuki tulossa Sprint 4
   }
 }
 
@@ -4476,7 +4518,7 @@ function _renderFiilinki() {
 // miksi-perustelu ja YouTube-linkki.
 // ══════════════════════════════════════════════════════════════
 function avaaOhjePopupPelaaja(tehtavaId) {
-  var vanha = document.getElementById('ohjePopupPelaaja');
+  const vanha = document.getElementById('ohjePopupPelaaja');
   if (vanha) vanha.remove();
 
   var tehtavat = typeof generoimTehtavat === 'function' && _pelaaja
@@ -4485,14 +4527,14 @@ function avaaOhjePopupPelaaja(tehtavaId) {
   if (!t) return;
 
   // ── Ikätyyppi (leikkija / rakentaja / showcase) ──────────────────────
-  var ika = (_pelaaja && (_pelaaja.ika || (new Date().getFullYear() - (_pelaaja.syntymavuosi||2011)))) || 13;
-  var ityyppi = ika <= 12 ? 'leikkija' : ika <= 15 ? 'rakentaja' : 'showcase';
+  const ika = (_pelaaja && (_pelaaja.ika || (new Date().getFullYear() - (_pelaaja.syntymavuosi||2011)))) || 13;
+  const ityyppi = ika <= 12 ? 'leikkija' : ika <= 15 ? 'rakentaja' : 'showcase';
 
   // ── Ikätyypin mukainen kieli ─────────────────────────────────────────
   // Leikkija (U8–12): lyhyt, konkreettinen, pelin kieli — "kokeile", "peli", "hauskaa"
   // Rakentaja (U13–15): selkeä, askel kerrallaan — "toisto", "tunne", "kehittyy"
   // Showcase (U16+): tiivis, ammattilaislähtöinen — "adaptaatio", "kuorma", "progressio"
-  var kielet = {
+  const kielet = {
     leikkija: {
       ohjeOtsikko: '⚽ Näin se menee',
       miksiOtsikko: '🤔 Miksi tämä on siistiä?',
@@ -4518,11 +4560,11 @@ function avaaOhjePopupPelaaja(tehtavaId) {
       videoBtn: '▶ Video-referenssi'
     }
   };
-  var k = kielet[ityyppi];
+  const k = kielet[ityyppi];
 
   // ── Pilko ohje vaiheiksi '.' tai '+' kohdalta ───────────────────────
   // Siivotaan tekninen kieli pois leikkija-vaiheista
-  var ohjeRaaka = t.ohje || '';
+  const ohjeRaaka = t.ohje || '';
   var vaiheet = ohjeRaaka.split(/\.\s+|\s\+\s/).map(function(v){ return v.trim(); }).filter(Boolean);
 
   // Leikkija: max 3 vaihetta, lyhyt lause, arkikieli
@@ -4546,10 +4588,10 @@ function avaaOhjePopupPelaaja(tehtavaId) {
   }
 
   // ── Harjoite-emoji tyyppikohtaisesti ────────────────────────────────
-  var tyyppiEmoji = {T:'⚽', D:'🔄', S:'🎯', P:'💪'}[t.tyyppi] || '🏋️';
+  const tyyppiEmoji = {T:'⚽', D:'🔄', S:'🎯', P:'💪'}[t.tyyppi] || '🏋️';
 
   // ── Kesto selkeästi ──────────────────────────────────────────────────
-  var kestoHtml = '<div style="display:flex;align-items:center;gap:8px;'
+  const kestoHtml = '<div style="display:flex;align-items:center;gap:8px;'
     + 'padding:8px 12px;background:rgba(255,255,255,.03);border-radius:8px;'
     + 'margin-bottom:12px;flex-wrap:wrap;gap:8px;">'
     + '<span style="font-size:11px;color:var(--ink3);">⏱ ' + k.kestoBefore + '</span>'
@@ -4560,13 +4602,13 @@ function avaaOhjePopupPelaaja(tehtavaId) {
   kestoHtml += '</div>';
 
   // ── PHV-varoitus ─────────────────────────────────────────────────────
-  var phvHtml = t.phvSuoja
+  const phvHtml = t.phvSuoja
     ? '<div style="padding:9px 12px;background:rgba(255,176,32,.08);border-left:3px solid #FFB020;'
       + 'border-radius:0 8px 8px 0;font-size:12px;color:#FFB020;margin-bottom:12px;line-height:1.5;">'
       + k.phvTxt + '</div>' : '';
 
   // ── Vaihe-kortit — suuremmat, selkeämmät ────────────────────────────
-  var vaiheHtml = '<div style="margin-bottom:14px;">'
+  const vaiheHtml = '<div style="margin-bottom:14px;">'
     + '<div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;'
     + 'letter-spacing:.8px;margin-bottom:10px;">' + k.ohjeOtsikko + '</div>'
     + vaiheet.map(function(v, i) {
@@ -4587,7 +4629,7 @@ function avaaOhjePopupPelaaja(tehtavaId) {
     + '</div>';
 
   // ── Fiilis-cue (motivaatio) ──────────────────────────────────────────
-  var cueHtml = '';
+  let cueHtml = '';
   if (t.cue) {
     var cueIcon = ityyppi === 'leikkija' ? '🌟' : ityyppi === 'rakentaja' ? '💡' : '📌';
     cueHtml = '<div style="padding:10px 13px;background:rgba(26,122,94,.05);'
@@ -4600,14 +4642,14 @@ function avaaOhjePopupPelaaja(tehtavaId) {
   }
 
   // ── Ketjuselitys — lapselle ymmärrettävä ────────────────────────────
-  var ketjuSelitykset = {
+  const ketjuSelitykset = {
     sbl: {leikkija:'⚡ Vauhtiketju = miten juokset nopeasti!', rakentaja:'⚡ Vauhtiketju — takaketju, pohje, räjähtävyys', showcase:'⚡ SBL — posterioriketju, plantaarifleksio'},
     sfl: {leikkija:'🦵 Lähtöketju = miten pomppaat ylös ja eteenpäin!', rakentaja:'🦵 Lähtöketju — lonkka, polvi, räjähtävä lähtö', showcase:'🦵 SFL — superfisiaalinen etupuoli, räjähtävyys'},
     ll:  {leikkija:'↔️ Sivuketju = miten käännyt nopeasti!', rakentaja:'↔️ Sivuketju — sivuttaisliike, suunnanmuutos', showcase:'↔️ LL — lateraalilinja, stabilaatio, agility'},
     diag:{leikkija:'🔄 Kiertoketju = miten käännyt palloa potkiessa!', rakentaja:'🔄 Diagonaaliketju — rotaatio, kiertoliike', showcase:'🔄 DIAG — spiraalilinja, rotaatioteho'},
     dfl: {leikkija:'🏗️ Hallintaketju = miten pidät kehon hallinnassa!', rakentaja:'🏗️ Hallintaketju — keskivartalon vakaus, lantio', showcase:'🏗️ DFL — syvä etupuoli, lumbopelvinen stabilaatio'},
   };
-  var ketjuHtml = '';
+  let ketjuHtml = '';
   if (t.ketju && ketjuSelitykset[t.ketju]) {
     ketjuHtml = '<div style="font-size:11px;color:var(--ink3);'
       + 'padding:5px 10px;background:rgba(255,255,255,.02);border-radius:6px;margin-bottom:12px;">'
@@ -4615,7 +4657,7 @@ function avaaOhjePopupPelaaja(tehtavaId) {
   }
 
   // ── Video-nappi ──────────────────────────────────────────────────────
-  var videoHtml = t.yt
+  const videoHtml = t.yt
     ? '<a href="https://www.youtube.com/results?search_query=' + encodeURIComponent(t.yt || t.nimi) + '"'
       + ' target="_blank" rel="noopener"'
       + ' style="display:flex;align-items:center;gap:8px;padding:11px 16px;'
@@ -4625,7 +4667,7 @@ function avaaOhjePopupPelaaja(tehtavaId) {
       + k.videoBtn + '</a>' : '';
 
   // ── Kootaan popup ────────────────────────────────────────────────────
-  var html = '<div id="ohjePopupPelaaja" class="ohje-modal-tausta"'
+  const html = '<div id="ohjePopupPelaaja" class="ohje-modal-tausta"'
     + ' onclick="if(event.target.id===\'ohjePopupPelaaja\')suljeOhjePopupPelaaja()">'
     + '<div class="ohje-modal">'
 
@@ -4663,8 +4705,8 @@ function avaaOhjePopupPelaaja(tehtavaId) {
   document.body.insertAdjacentHTML('beforeend', html);
 }
 function suljeOhjePopupPelaaja() {
-  var p = document.getElementById('ohjePopupPelaaja');
-  if (p) p.remove();
+  const popup = document.getElementById('ohjePopupPelaaja');
+  if (popup) popup.remove();
 }
 
 /* ── Perustaso: liikennevalo ────────────────────────────────────────── */
@@ -4758,13 +4800,11 @@ async function tallennFiilinki(arvo) {
     setTimeout(() => { w.style.display='none'; }, 2000);
   }
   
-  // Firestore
-  if (!p || !_db || p.id==='super_admin_view') return;
-  if (_auth && !_auth.currentUser) { _auth.signInAnonymously().catch(()=>{}); }
-  _db.collection('seurat').doc(p.seuraId).collection('pelaajat').doc(p.id)
-    .collection('kirjaukset').doc(tanaan)
-    .set({fiilinki:arvo, fiilinki_paivitetty:new Date().toISOString()},{merge:true})
-    .catch(()=>{});
+  // Firestore — tallennus hoidetaan _tallennaFiilinki():ssa
+  // [TM-FIX] Poistettu duplikaatti fire-and-forget .set() joka kirjoitti
+  // fiilinki + fiilinki_paivitetty erikseen. _tallennaFiilinki() hoitaa
+  // kaiken datan yhtenä batch-kirjoituksena oikeilla kentillä.
+  // (Aiempi versio: saattoi tehdä 2 kirjoitusta/500ms → Firestore write-limit riski)
 }
 
 function _tarkistaFiilinki() {
@@ -4786,7 +4826,7 @@ function _tarkistaFiilinki() {
 function _lukitseFiilinki(data) {
   _fiilinki_lukittu = true;
   // Lukitse napit
-  var widgetit = document.querySelectorAll('.fiilinki-widget, #fiiliPerustaso, #fiiliKehitystaso');
+  const widgetit = document.querySelectorAll('.fiilinki-widget, #fiiliPerustaso, #fiiliKehitystaso');
   widgetit.forEach(function(w) {
     // Lukitse napit
     w.querySelectorAll('.fiili-btn, .fiili-lv').forEach(function(b) {
@@ -4823,9 +4863,9 @@ async function _tallennaFiilinki() {
   if (_fiiliData.lihaskunto!== undefined) tallennettava.lihaskunto    = _fiiliData.lihaskunto;
   if (Object.keys(tallennettava).length === 0) return;
 
-  tallennettava.fiilinki_paivitetty = new Date().toISOString();
+  tallennettava.fiilinki_paivitetty = firebase.firestore.FieldValue.serverTimestamp();
 
-  const pvm = new Date().toISOString().split('T')[0];
+  const pvm = tanaan();
   const kirjausDok = _db
     .collection('seurat').doc(sid)
     .collection('pelaajat').doc(pid)
