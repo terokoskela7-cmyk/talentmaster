@@ -225,6 +225,14 @@ function _naytaMalliBadge(malli, data) {
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_auth.js"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js"></script>
 <style>
+/* ══════════════════════════════════════════════════════════════
+   LEGACY CSS-BLOKKI — Ensimmäinen <style>-tagi
+   HUOM: Alla oleva CSS on osittain ylikirjoitettu myöhemmällä <style>-tagilla
+   (katso toinen <style>-blokki ennen </head>-tagia).
+   Duplikaatit: .header, .tabs, .inner, .login-pin-row, .pin-btn, .login-input,
+                .login-btn, .fcard-trigger, @keyframes popIn
+   TODO: Yhdistä yhteen <style>-tagiin seuraavassa siistimisessä.
+   ══════════════════════════════════════════════════════════════ */
 /* body background + height heti alussa — scroll-bugi korjaus */
 body {
   background: var(--bg, #111110) !important;
@@ -585,7 +593,7 @@ html {
 .popup-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
 .popup-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--ink3);font-size:20px;cursor:pointer;}
 .popup-title{font-family:'DM Sans',sans-serif;font-size:20px;font-weight:700;margin-bottom:8px;}
-.popup-.popup-body strong{color:var(--text);}
+.popup-body strong{color:var(--text);}
 .popup-body em{color:var(--teal);font-style:normal;}
 
 /* ── ANIMAATIOT ── */
@@ -1129,7 +1137,7 @@ html {
 .popup-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
 .popup-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--ink3);font-size:20px;cursor:pointer;}
 .popup-title{font-family:'DM Sans',sans-serif;font-size:20px;font-weight:700;margin-bottom:8px;}
-.popup-.popup-body strong{color:var(--text);}
+.popup-body strong{color:var(--text);}
 .popup-body em{color:#1A7A5E;font-style:normal;}
 
 /* ── ANIMAATIOT ── */
@@ -1468,15 +1476,7 @@ html {
 .splash-logo-teksti,.splash-divider,.splash-tm,.splash-tmid,
 .splash-text-layer,.splash-wordmark,.splash-id-badge,
 .splash-seura-nimi,.splash-siirtyma-viiva,.splash-siirtyma-sub { display: none; }
-.splash-bar-fill {
-  height: 100%; border-radius: 1px;
-  background: #1A7A5E; opacity: .7;
-  animation: splashBarFill 3.8s ease forwards;
-}
-@keyframes splashBarFill {
-  from { width: 0%; }
-  to   { width: 100%; }
-}
+/* [TM-FIX] Duplikaatti splash-bar-fill poistettu — käytetään ylempää 3.5s versiota */
 
 /* Legacy-luokat — ei poisteta jotta JS ei hajoa */
 .splash-logo-wrap { display: none; }
@@ -1904,6 +1904,42 @@ body {
 .view { display: none; height: 0; min-height: 0; overflow: hidden; }
 .view.active { display: block; height: auto; min-height: 0; overflow: visible; }
 .inner { max-width: 600px; margin: 0 auto; padding: 16px 14px 120px; }
+
+/* ══ HARJOITE-POPUP — ikätyyppikohtainen v2 ══ */
+.ohje-modal {
+  background: var(--surface, #1E1E1C);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 18px;
+  padding: 22px 20px 20px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 88vh;
+  overflow-y: auto;
+  animation: popIn .22s ease-out;
+  -webkit-overflow-scrolling: touch;
+  /* Scrollbar hieno */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.1) transparent;
+}
+.ohje-modal-tausta {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.82);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0 0 0 0;
+  backdrop-filter: blur(4px);
+}
+@media (min-height: 600px) {
+  .ohje-modal-tausta { align-items: center; padding: 20px; }
+  .ohje-modal { border-radius: 18px; }
+}
+/* Leikkija: isompi ohje-teksti kortissa */
+.ityyppi-leikkija .tehtava-ohje { font-size: 14px; line-height: 1.65; }
+
+/* Vaihekortti hover */
+.ohje-vaihekortit div:hover {
+  background: rgba(255,255,255,.04) !important;
+}
+
 </style>
 </head>
 <body>
@@ -2044,7 +2080,6 @@ body {
   <div class="wow-banneri-xp" id="wowXpTeksti">Tehty.</div>
 </div>
 
-<div class="toast" id="toast"></div>
 
 <!-- ══ LOGIN ══ -->
 <div id="sLogin">
@@ -2543,9 +2578,24 @@ const _fbCfg = {
 };
 if (!firebase.apps.length) firebase.initializeApp(_fbCfg);
 // Expose TEKNIIKKAHARJOITTEET globaalisti template literal -käyttöä varten
-setTimeout(() => { if (typeof TEKNIIKKAHARJOITTEET !== 'undefined') window.TEKNIIKKAHARJOITTEET = TEKNIIKKAHARJOITTEET; }, 0);
+// [TM-FIX] Ei setTimeout — harjoitelogiikka_v4.js asettaa itse window.TEKNIIKKAHARJOITTEET
+// Jos tarvitaan fallback, käytä window.addEventListener('load', ...) — setTimeout(0) ei takaa latausjärjestystä
 const _auth = firebase.auth();
 const _db   = firebase.firestore();
+
+/* ══ XSS-SUOJA ══
+   Käytä aina kun Firestore-data interpoloidaan innerHTML-template literaaliin.
+   Pakolliset kentät: valmentajaNimi, teksti, narratiivi, nimi, sukunimi, etunimi.
+*/
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 /* ══ DEMO-DATA ══ */
 const DEMO_PELAAJAT = {
@@ -3069,9 +3119,10 @@ async function _tarkistaUrlParam() {
     if (!snap.exists) return false;
     const data = snap.data();
 
-    // Turvallisuus: vain aktiiviset pelaajat joilla suostumus annettu
-    if (data.suostumusTila !== 'annettu' && data.tila !== 'aktiivinen') {
-      console.warn('[URL] Pelaajalla ei ole voimassa olevaa suostumusta');
+    // Turvallisuus: MOLEMMAT ehdot vaaditaan — suostumus JA aktiivinen tila
+    // Aiemmin oli &&-logiikka (OR), jolloin tila='aktiivinen' mutta suostumus puuttuva pelaaja pääsi läpi
+    if (data.suostumusTila !== 'annettu' || data.tila !== 'aktiivinen') {
+      console.warn('[URL] Pelaajalla ei ole voimassa olevaa suostumusta tai tiliä:', data.suostumusTila, data.tila);
       return false;
     }
 
@@ -3804,19 +3855,34 @@ function renderTehtavat() {
       </div>
       ${stageBadgeHtml ? `<div style="margin:4px 0 6px">${stageBadgeHtml}</div>` : ''}
       ${miksiHtml}
-      <div class="tehtava-ohje">${t.ohje}</div>
+      ${(function() {
+        // Näytetään ikätyypin mukainen LYHYT johdantolause ennen täysiä ohjeita
+        var ika2 = _pelaaja ? (_pelaaja.ika || (new Date().getFullYear() - (_pelaaja.syntymavuosi||2011))) : 13;
+        var it2 = ika2 <= 12 ? 'leikkija' : ika2 <= 15 ? 'rakentaja' : 'showcase';
+        // Leikkija: max 1 lause, iso fontti, ei teknistä
+        // Rakentaja: 1-2 lausetta, selkeä
+        // Showcase: täysi ohje
+        var ohjeRaaka2 = t.ohje || '';
+        var lauseet = ohjeRaaka2.split(/\.\s+/).filter(Boolean);
+        var lyhytOhje = it2 === 'leikkija'
+          ? lauseet[0] || ohjeRaaka2
+          : it2 === 'rakentaja'
+          ? lauseet.slice(0,2).join('. ')
+          : ohjeRaaka2;
+        return '<div class="tehtava-ohje">' + lyhytOhje + (lyhytOhje.slice(-1) !== '.' ? '.' : '') + '</div>';
+      })()}
       ${parametritHtml}
       ${t.cue ? `<div style="font-size:11px;color:var(--teal);background:rgba(26,122,94,.06);border-left:2px solid var(--teal);border-radius:0 6px 6px 0;padding:5px 10px;margin-bottom:8px;line-height:1.5;font-style:italic;">${t.cue}</div>` : ''}
       ${progressioHtml}
       <div class="tehtava-ketju">
-        <span>${t.ketju}</span>
-        <span style="color:var(--border)">·</span>
+        <span>${t.ketjuNimi || t.ketju || ''}</span>
+        ${t.ketju ? '<span style="color:var(--border)">·</span>' : ''}
         <span>${t.kesto}</span>
       </div>
       <div style="display:flex;gap:6px;margin-top:0;flex-wrap:wrap;">
         <button class="done-btn ${tehty ? 'tehty' : ''}" id="doneBtn-${t.id}"
           onclick="merkitseTehdyksi('${t.id}',${t.xp})" style="flex:1;min-width:120px;">
-          ${tehty ? '&#10003; Tehty!' : '&#8599; Merkitse tehty'}
+          ${tehty ? '&#10003; Tehty!' : 'Merkitse tehty ✓'}
         </button>
         <button class="ohje-nappi" onclick="avaaOhjePopupPelaaja('${t.id}')">
           &#128203; Ohjeet
@@ -3994,11 +4060,12 @@ async function renderHavainto() {
       ? h.luotu.toDate().toLocaleDateString('fi-FI')
       : (h.pvm || '');
 
+    // esc() suojaa XSS:ltä — valmentaja voi kirjoittaa mitä tahansa tekstikenttään
     el.innerHTML = `<div class="stitle" style="margin-top:4px;">Valmentajan havainto</div>
     <div class="havainto-card">
-      <div class="havainto-from">📋 ${h.valmentajaNimi || 'Valmentaja'}</div>
-      <div class="havainto-teksti">"${h.teksti || h.narratiivi || ''}"</div>
-      <div class="havainto-pvm">${pvm}</div>
+      <div class="havainto-from">📋 ${esc(h.valmentajaNimi || 'Valmentaja')}</div>
+      <div class="havainto-teksti">"${esc(h.teksti || h.narratiivi || '')}"</div>
+      <div class="havainto-pvm">${esc(pvm)}</div>
     </div>`;
   } catch(e) {
     console.warn('[TM] Havainto-haku epäonnistui:', e.message);
@@ -4417,76 +4484,184 @@ function avaaOhjePopupPelaaja(tehtavaId) {
   var t = tehtavat.find(function(x){ return x.id === tehtavaId; });
   if (!t) return;
 
-  // Pilko ohje vaiheiksi '+'-merkin kohdalta
-  var vaiheet = (t.ohje||'').split(' + ').map(function(v){ return v.trim(); });
-  var vaiheHtml = vaiheet.map(function(v,i){
-    return '<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">'
-      +'<div style="width:22px;height:22px;border-radius:50%;background:rgba(26,122,94,.15);'
-      +'color:#1A7A5E;font-size:10px;font-weight:700;display:flex;align-items:center;'
-      +'justify-content:center;flex-shrink:0;margin-top:2px">'+(i+1)+'</div>'
-      +'<div style="font-size:13px;color:var(--ink2,#ccc);line-height:1.55">'+v+'</div>'
-      +'</div>';
-  }).join('');
+  // ── Ikätyyppi (leikkija / rakentaja / showcase) ──────────────────────
+  var ika = (_pelaaja && (_pelaaja.ika || (new Date().getFullYear() - (_pelaaja.syntymavuosi||2011)))) || 13;
+  var ityyppi = ika <= 12 ? 'leikkija' : ika <= 15 ? 'rakentaja' : 'showcase';
 
-  // Stage + parametrit kompaktisti
-  var sv = {1:'#8BA0BC',2:'#1A7A5E',3:'#FFB020',4:'#EF4444',5:'#A855F7'}[t.stage]||'#1A7A5E';
-  var sn = {1:'Aloitustaso',2:'Perusvahvistus',3:'Lisähaaste',4:'Tehotaso',5:'Huipputaso'}[t.stage]||'';
-  var badgeStyle = 'padding:2px 8px;border-radius:10px;font-size:10px;border:1px solid rgba(255,255,255,.12);color:var(--ink2,#aaa);';
-  var stageHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin:4px 0 12px">'
-    + (t.stage ? '<span style="'+badgeStyle+'font-weight:700;color:'+sv+';border-color:'+sv+'">S'+t.stage+' '+sn+'</span>' : '')
-    + (t.sarjat ? '<span style="'+badgeStyle+'">'+t.sarjat+'</span>' : '')
-    + (t.tempo  ? '<span style="'+badgeStyle+'">'+t.tempo+'</span>' : '')
-    + '<span style="'+badgeStyle+'">'+t.kesto+'</span>'
+  // ── Ikätyypin mukainen kieli ─────────────────────────────────────────
+  // Leikkija (U8–12): lyhyt, konkreettinen, pelin kieli — "kokeile", "peli", "hauskaa"
+  // Rakentaja (U13–15): selkeä, askel kerrallaan — "toisto", "tunne", "kehittyy"
+  // Showcase (U16+): tiivis, ammattilaislähtöinen — "adaptaatio", "kuorma", "progressio"
+  var kielet = {
+    leikkija: {
+      ohjeOtsikko: '⚽ Näin se menee',
+      miksiOtsikko: '🤔 Miksi tämä on siistiä?',
+      kestoBefore: 'Kestää vain',
+      xpLabel: 'Pisteitä tulossa',
+      phvTxt: '🌱 Kehosi kasvaa nyt — tee rauhallisesti, ei kiirettä!',
+      videoBtn: '▶ Katso miten pro tekee sen'
+    },
+    rakentaja: {
+      ohjeOtsikko: '📋 Ohjeet vaihe vaiheelta',
+      miksiOtsikko: '💡 Miksi tämä harjoite?',
+      kestoBefore: 'Kesto',
+      xpLabel: 'XP ansaittu',
+      phvTxt: '⚠️ Kasvupyrähdys käynnissä — vähennä kuormaa 30%, tunne ero',
+      videoBtn: '▶ Katso esimerkkivideo'
+    },
+    showcase: {
+      ohjeOtsikko: '🎯 Suoritusprotokolla',
+      miksiOtsikko: '📊 Harjoitusvaikutus',
+      kestoBefore: 'Kesto',
+      xpLabel: 'XP',
+      phvTxt: '⚠️ PHV-protokolla: RPE max 7/10, kuorma -30%',
+      videoBtn: '▶ Video-referenssi'
+    }
+  };
+  var k = kielet[ityyppi];
+
+  // ── Pilko ohje vaiheiksi '.' tai '+' kohdalta ───────────────────────
+  // Siivotaan tekninen kieli pois leikkija-vaiheista
+  var ohjeRaaka = t.ohje || '';
+  var vaiheet = ohjeRaaka.split(/\.\s+|\s\+\s/).map(function(v){ return v.trim(); }).filter(Boolean);
+
+  // Leikkija: max 3 vaihetta, lyhyt lause, arkikieli
+  if (ityyppi === 'leikkija') {
+    vaiheet = vaiheet.slice(0, 3).map(function(v) {
+      // Korvaa tekninen sanasto lapsen kielellä
+      return v
+        .replace(/ekstentrinen/gi, 'venytys')
+        .replace(/konsentri[a-z]*/gi, 'supistus')
+        .replace(/fascia/gi, 'lihaskalvo')
+        .replace(/lateraali/gi, 'sivuttais')
+        .replace(/stabiloi/gi, 'pidä paikalla')
+        .replace(/eksentrinen/gi, 'venytys')
+        .replace(/plantaarifaskiitti/gi, 'pohkeen venytys')
+        .replace(/supinatio/gi, 'kääntö')
+        .replace(/RPE/gi, 'rasitus')
+        .replace(/protraktio/gi, 'eteen')
+        .replace(/proprioseptiikka/gi, 'tasapaino')
+        .replace(/neuromuskulaarinen/gi, 'hermolihasyhteys');
+    });
+  }
+
+  // ── Harjoite-emoji tyyppikohtaisesti ────────────────────────────────
+  var tyyppiEmoji = {T:'⚽', D:'🔄', S:'🎯', P:'💪'}[t.tyyppi] || '🏋️';
+
+  // ── Kesto selkeästi ──────────────────────────────────────────────────
+  var kestoHtml = '<div style="display:flex;align-items:center;gap:8px;'
+    + 'padding:8px 12px;background:rgba(255,255,255,.03);border-radius:8px;'
+    + 'margin-bottom:12px;flex-wrap:wrap;gap:8px;">'
+    + '<span style="font-size:11px;color:var(--ink3);">⏱ ' + k.kestoBefore + '</span>'
+    + '<span style="font-size:14px;font-weight:700;color:var(--text);">' + (t.kesto||'—') + '</span>';
+  if (t.sarjat) kestoHtml += '<span style="font-size:11px;color:var(--ink3);">·</span>'
+    + '<span style="font-size:13px;font-weight:600;color:var(--ink2);">' + t.sarjat + '</span>';
+  if (t.xp) kestoHtml += '<span style="margin-left:auto;font-size:11px;color:var(--teal);font-weight:700;">+' + t.xp + ' XP</span>';
+  kestoHtml += '</div>';
+
+  // ── PHV-varoitus ─────────────────────────────────────────────────────
+  var phvHtml = t.phvSuoja
+    ? '<div style="padding:9px 12px;background:rgba(255,176,32,.08);border-left:3px solid #FFB020;'
+      + 'border-radius:0 8px 8px 0;font-size:12px;color:#FFB020;margin-bottom:12px;line-height:1.5;">'
+      + k.phvTxt + '</div>' : '';
+
+  // ── Vaihe-kortit — suuremmat, selkeämmät ────────────────────────────
+  var vaiheHtml = '<div style="margin-bottom:14px;">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;'
+    + 'letter-spacing:.8px;margin-bottom:10px;">' + k.ohjeOtsikko + '</div>'
+    + vaiheet.map(function(v, i) {
+      // Numero-badge + teksti
+      var nro = ityyppi === 'leikkija'
+        ? ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣'][i] || (i+1)
+        : (i+1);
+      return '<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;'
+        + 'background:rgba(255,255,255,.02);border:1px solid var(--border);'
+        + 'border-radius:10px;padding:10px 12px;">'
+        + '<div style="min-width:26px;height:26px;border-radius:50%;background:rgba(26,122,94,.15);'
+        + 'color:#1A7A5E;font-size:' + (ityyppi==='leikkija'?'16px':'11px') + ';font-weight:700;'
+        + 'display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + nro + '</div>'
+        + '<div style="font-size:' + (ityyppi==='leikkija'?'14px':'13px') + ';'
+        + 'color:var(--text);line-height:1.6;">' + esc(v) + '</div>'
+        + '</div>';
+    }).join('')
     + '</div>';
 
-  // PHV kompaktisti
-  var phvHtml = t.phvSuoja
-    ? '<div style="padding:5px 10px;background:rgba(255,176,32,.08);border-left:3px solid #FFB020;'
-      +'border-radius:0 6px 6px 0;font-size:11px;color:#FFB020;margin-bottom:10px">'
-      +'&#9888; Kasvupyrähdys — tee rauhallisesti</div>' : '';
+  // ── Fiilis-cue (motivaatio) ──────────────────────────────────────────
+  var cueHtml = '';
+  if (t.cue) {
+    var cueIcon = ityyppi === 'leikkija' ? '🌟' : ityyppi === 'rakentaja' ? '💡' : '📌';
+    cueHtml = '<div style="padding:10px 13px;background:rgba(26,122,94,.05);'
+      + 'border-radius:9px;border-left:3px solid rgba(26,122,94,.4);margin-bottom:12px;">'
+      + '<div style="font-size:10px;font-weight:700;color:#1A7A5E;text-transform:uppercase;'
+      + 'letter-spacing:.8px;margin-bottom:5px;">' + cueIcon + ' ' + k.miksiOtsikko + '</div>'
+      + '<div style="font-size:' + (ityyppi==='leikkija'?'14px':'12px') + ';'
+      + 'color:var(--ink2);line-height:1.65;">' + esc(t.cue) + '</div>'
+      + '</div>';
+  }
 
-  // Video
+  // ── Ketjuselitys — lapselle ymmärrettävä ────────────────────────────
+  var ketjuSelitykset = {
+    sbl: {leikkija:'⚡ Vauhtiketju = miten juokset nopeasti!', rakentaja:'⚡ Vauhtiketju — takaketju, pohje, räjähtävyys', showcase:'⚡ SBL — posterioriketju, plantaarifleksio'},
+    sfl: {leikkija:'🦵 Lähtöketju = miten pomppaat ylös ja eteenpäin!', rakentaja:'🦵 Lähtöketju — lonkka, polvi, räjähtävä lähtö', showcase:'🦵 SFL — superfisiaalinen etupuoli, räjähtävyys'},
+    ll:  {leikkija:'↔️ Sivuketju = miten käännyt nopeasti!', rakentaja:'↔️ Sivuketju — sivuttaisliike, suunnanmuutos', showcase:'↔️ LL — lateraalilinja, stabilaatio, agility'},
+    diag:{leikkija:'🔄 Kiertoketju = miten käännyt palloa potkiessa!', rakentaja:'🔄 Diagonaaliketju — rotaatio, kiertoliike', showcase:'🔄 DIAG — spiraalilinja, rotaatioteho'},
+    dfl: {leikkija:'🏗️ Hallintaketju = miten pidät kehon hallinnassa!', rakentaja:'🏗️ Hallintaketju — keskivartalon vakaus, lantio', showcase:'🏗️ DFL — syvä etupuoli, lumbopelvinen stabilaatio'},
+  };
+  var ketjuHtml = '';
+  if (t.ketju && ketjuSelitykset[t.ketju]) {
+    ketjuHtml = '<div style="font-size:11px;color:var(--ink3);'
+      + 'padding:5px 10px;background:rgba(255,255,255,.02);border-radius:6px;margin-bottom:12px;">'
+      + ketjuSelitykset[t.ketju][ityyppi] + '</div>';
+  }
+
+  // ── Video-nappi ──────────────────────────────────────────────────────
   var videoHtml = t.yt
-    ? '<a href="https://www.youtube.com/results?search_query='+encodeURIComponent(t.yt)+'"'
-      +' target="_blank" rel="noopener"'
-      +' style="display:flex;align-items:center;gap:8px;padding:10px 14px;'
-      +'background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);'
-      +'border-radius:9px;color:#FF4757;text-decoration:none;font-size:12px;font-weight:700">'
-      +'&#9654; Katso esimerkkivideo</a>' : '';
+    ? '<a href="https://www.youtube.com/results?search_query=' + encodeURIComponent(t.yt || t.nimi) + '"'
+      + ' target="_blank" rel="noopener"'
+      + ' style="display:flex;align-items:center;gap:8px;padding:11px 16px;'
+      + 'background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);'
+      + 'border-radius:10px;color:#FF4757;text-decoration:none;'
+      + 'font-size:13px;font-weight:700;width:100%;justify-content:center;">'
+      + k.videoBtn + '</a>' : '';
 
-  document.body.insertAdjacentHTML('beforeend',
-    '<div id="ohjePopupPelaaja" class="ohje-modal-tausta"'
-    +' onclick="if(event.target.id===\'ohjePopupPelaaja\')suljeOhjePopupPelaaja()">'
-    +'<div class="ohje-modal">'
+  // ── Kootaan popup ────────────────────────────────────────────────────
+  var html = '<div id="ohjePopupPelaaja" class="ohje-modal-tausta"'
+    + ' onclick="if(event.target.id===\'ohjePopupPelaaja\')suljeOhjePopupPelaaja()">'
+    + '<div class="ohje-modal">'
 
-    // Otsikko + sulje samalla rivillä
-    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;'
-    +'gap:10px;margin-bottom:4px">'
-    +'<div style="font-family:\'DM Sans\',sans-serif;font-size:20px;font-weight:900;'
-    +'color:#1A7A5E;line-height:1.2">'+t.nimi+'</div>'
-    +'<button onclick="suljeOhjePopupPelaaja()"'
-    +' style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);'
-    +'border-radius:8px;padding:6px 12px;color:var(--ink2,#aaa);cursor:pointer;'
-    +'font-size:12px;white-space:nowrap;flex-shrink:0">&#x2715; Sulje</button>'
-    +'</div>'
+    // Header: emoji + nimi + sulje
+    + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:14px;">'
+    + '<div>'
+    + '<div style="font-size:22px;margin-bottom:3px;">' + tyyppiEmoji + '</div>'
+    + '<div style="font-family:\'DM Sans\',sans-serif;font-size:20px;font-weight:900;'
+    + 'color:var(--text);line-height:1.2;">' + esc(t.nimi) + '</div>'
+    + (t.ketjuNimi ? '<div style="font-size:11px;color:var(--ink3);margin-top:3px;">' + esc(t.ketjuNimi) + '</div>' : '')
+    + '</div>'
+    + '<button onclick="suljeOhjePopupPelaaja()"'
+    + ' style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);'
+    + 'border-radius:8px;padding:8px 14px;color:var(--ink2);cursor:pointer;'
+    + 'font-size:13px;white-space:nowrap;flex-shrink:0;">✕ Sulje</button>'
+    + '</div>'
 
-    +stageHtml+phvHtml
+    + kestoHtml
+    + phvHtml
+    + ketjuHtml
+    + vaiheHtml
+    + cueHtml
+    + (videoHtml ? videoHtml : '')
 
-    +'<div style="font-size:10px;font-weight:700;color:var(--ink3,#666);'
-    +'text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Miten teet sen</div>'
-    +vaiheHtml
+    // Footer: "Tehty?" -nappi suoraan popupissa
+    + '<button onclick="suljeOhjePopupPelaaja();merkitseTehdyksi(\'' + t.id + '\',' + (t.xp||10) + ')"'
+    + ' style="margin-top:14px;width:100%;padding:14px;border:none;border-radius:10px;'
+    + 'background:var(--teal);color:white;font-family:\'DM Sans\',sans-serif;'
+    + 'font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.3px;">'
+    + '✓ Merkitse tehty — +' + (t.xp||10) + ' XP'
+    + '</button>'
 
-    +'<div style="margin-top:12px;padding:10px 13px;background:rgba(26,122,94,.04);'
-    +'border-radius:9px;border-left:3px solid rgba(26,122,94,.4)">'
-    +'<div style="font-size:10px;font-weight:700;color:#1A7A5E;text-transform:uppercase;'
-    +'letter-spacing:.8px;margin-bottom:5px">Miksi tämä harjoite?</div>'
-    +'<div style="font-size:12px;color:var(--ink2,#ccc);line-height:1.6">'+(t.cue||'')+'</div>'
-    +'</div>'
+    + '</div></div>';
 
-    +(videoHtml ? '<div style="margin-top:12px">'+videoHtml+'</div>' : '')
-    +'</div></div>');
+  document.body.insertAdjacentHTML('beforeend', html);
 }
-
 function suljeOhjePopupPelaaja() {
   var p = document.getElementById('ohjePopupPelaaja');
   if (p) p.remove();
