@@ -841,9 +841,37 @@ const PANKKI = {
    ═══════════════════════════════════════════════════════════════════ */
 
 function _laskeViikonNro() {
+  // ISO 8601: viikko alkaa maanantaista, vk 1 = se viikko jossa vuoden ensimmäinen torstai
   const d = new Date();
-  const alku = new Date(d.getFullYear(), 0, 1);
-  return Math.ceil(((d - alku) / 86400000 + alku.getDay() + 1) / 7);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+// Laskee kuukauden sisäisen viikonumeron (1–4) ja mesosyklin
+// Käytetään T-harjoitteen Fulham-mallin toteuttamiseen
+function _laskeMesosykli() {
+  const nyt   = new Date();
+  const kk    = nyt.getMonth() + 1; // 1–12
+
+  // Mesosyklikartta — syyskuu→joulukuu = kierros 1, tammi→elokuu = kierros 2
+  // Kierros 2 käyttää samoja mesosyklirakenteita mutta PANKKI.T[mesosykli+'_2']
+  // jos se löytyy, muuten saman mesosyklin vk4 (vaikeutettu versio)
+  const mesosykliKartta = {
+    9: 'kaka', 10: 'affelay', 11: 'ronaldo', 12: 'beckham',
+    1: 'kaka',  2: 'affelay',  3: 'ronaldo',  4: 'beckham',
+    5: 'kaka',  6: 'affelay',  7: 'ronaldo',  8: 'beckham',
+  };
+  const mesosykli  = mesosykliKartta[kk] || 'perus';
+  const kierros    = kk >= 9 ? 1 : 2; // 1 = syksy, 2 = kevät/kesä
+
+  // Viikonumero kuukauden sisällä (1–5, rajoitetaan 4:ään)
+  // vk 5 = Fulham "REPEAT INDIVIDUAL NEED" — toistaa heikoiten menneen viikon
+  const pvKuussa    = nyt.getDate();
+  const jaksoViikko = Math.ceil(pvKuussa / 7); // 1–5
+
+  return { mesosykli, jaksoViikko, kierros, kk };
 }
 
 
@@ -921,46 +949,44 @@ function generoimTehtavat(pelaaja) {
   const sKetju    = vkParit === 'parillinen' ? heikoin : prof.toiseksiHeikoin;
   const tehtavat  = [];
 
-  // ── 1. T-HARJOITE ──────────────────────────────────────────────
+  // ── 1. T-HARJOITE — Fulham/Noordster kuukausimalli ────────────
+  // Ikäkohtainen pankki
   const tBank = ika <= 12 ? PANKKI.T.leikkija
               : ika <= 15 ? PANKKI.T.rakentaja
               : PANKKI.T.showcase;
 
-  // Viikonpäiväkohtainen fokus (Noordster + Fulham viikkorakenne)
-  // 0=Su, 1=Ma, 2=Ti, 3=Ke, 4=To, 5=Pe, 6=La
-  const _viikonPaiva = new Date().getDay();
-  const _viikonFokus = {
-    1: 'kaka',       // Maanantai: vastaanottaminen
-    2: 'affelay',    // Tiistai: dribbelin perusta
-    3: '1v1',        // Keskiviikko: 1v1-liikkeet
-    4: 'sneijder',   // Torstai: pelinkäsittely ilman palloa
-    5: 'beckham',    // Perjantai: syöttäminen ja laukaus
-  }[_viikonPaiva] || null;
+  // Laske mesosykli (kaka/affelay/ronaldo/beckham) ja jaksoviikko (1–5)
+  const _meso      = _laskeMesosykli();
+  const mesosykli  = _meso.mesosykli;   // esim. 'kaka'
+  const jaksoViikko = _meso.jaksoViikko; // 1–4 normaali, 5 = Fulham "repeat"
 
-  // Etsi avain viikonpäivän ja stagen mukaan
-  let tKey;
-  if (stage <= 2) {
-    tKey = _viikonFokus === 'kaka' ? 'stage_1_2_vastaanotto' : 'stage_1_2';
-  } else if (stage <= 4) {
-    tKey = _viikonFokus ? ('stage_3_' + _viikonFokus) : 'stage_3_affelay';
+  // Hae mesosyklin harjoiterakenne
+  const tSeries = PANKKI.T[mesosykli] || PANKKI.T.perus;
+
+  // Viikko 5 = "REPEAT INDIVIDUAL NEED" (Fulham-malli)
+  // Toistetaan heikoiten mennyt viikko kirjaushistorian perusteella
+  // Jos historiaa ei ole, käytetään vk1 (turvallinen default)
+  let tViikkoAvain;
+  if (jaksoViikko >= 5) {
+    // Hae Firestoresta heikoin viikko — jos ei saatavilla, käytä vk1
+    const _heikoiViikko = (typeof pelaaja._t_heikoin_viikko !== 'undefined')
+      ? Math.max(1, Math.min(4, pelaaja._t_heikoin_viikko))
+      : 1;
+    tViikkoAvain = 'vk' + _heikoiViikko;
   } else {
-    // Showcase: vaihtelee fokuksen mukaan
-    tKey = _viikonFokus === 'kaka' ? 'stage_5_kaka'
-         : _viikonFokus === 'affelay' ? 'stage_5_affelay_sneijder'
-         : 'stage_5';
+    tViikkoAvain = 'vk' + Math.max(1, Math.min(4, jaksoViikko));
   }
 
-  // Fallback ketju
-  let tHarj = tBank[tKey]
-    || tBank['stage_3_affelay']
-    || tBank['stage_3']
-    || tBank['stage_1_2']
-    || tBank['stage_5'];
+  // Hae harjoite — fallback-ketju takaa aina jonkin harjoitteen
+  let tHarj = (tSeries && tSeries[tViikkoAvain])
+    || (tSeries && tSeries.vk1)
+    || (PANKKI.T.perus && PANKKI.T.perus.vk1)
+    || null;
 
   if (!tHarj) {
-    // Jos showcase-kohdetta ei löydy, käytä rakentaja
-    const fallback = PANKKI.T.rakentaja;
-    tHarj = fallback[tKey] || fallback['stage_3'] || fallback['stage_1_2'];
+    // Viimeinen fallback: rakentaja vk1
+    const fb = PANKKI.T.rakentaja || PANKKI.T.perus;
+    tHarj = fb && (fb.vk1 || fb.perus);
   }
 
   if (tHarj) {
@@ -973,6 +999,11 @@ function generoimTehtavat(pelaaja) {
       kesto: tHarj.kesto, xp: tHarj.xp,
       cue: tHarj.cue,
       yt: tHarj.yt,
+      viikkotavoite: tHarj.viikkotavoite || null,
+      mesosykli,          // esim. 'kaka' — pelaaja-app voi näyttää teeman
+      jaksoViikko,        // 1–5 — näytetään "Viikko X / 4"
+      kierros: _meso.kierros,
+      isRepeatViikko: jaksoViikko >= 5,
       stage, ityyppi,
     });
   }
@@ -1646,17 +1677,31 @@ function generoimTehtavatV2(pelaaja, jaksoViikko) {
   const jaksoVko   = ((viikonNro - 1) % 6) + 1;
   const pVaiheIdx  = jaksoVko <= 2 ? 0 : jaksoVko <= 4 ? 1 : 2;
 
-  // 1. T-harjoite — käytetään v3:n PANKKI:a
-  const tBank = ika <= 12 ? PANKKI.T.leikkija : ika <= 15 ? PANKKI.T.rakentaja : PANKKI.T.showcase;
-  const tKey  = stage <= 2 ? 'stage_1_2' : stage <= 4 ? 'stage_3' : 'stage_5';
-  const tHarjV2 = tBank[tKey] || tBank['stage_3'] || tBank['stage_1_2'] || tBank['stage_5']
-    || PANKKI.T.rakentaja['stage_3'];
+  // 1. T-harjoite — Fulham/Noordster kuukausimalli (sama logiikka kuin generoimTehtavat)
+  const _mesoV2      = _laskeMesosykli();
+  const mesosykliV2  = _mesoV2.mesosykli;
+  const jaksoViikkoV2 = _mesoV2.jaksoViikko;
+  const tBankV2      = ika <= 12 ? PANKKI.T.leikkija
+                     : ika <= 15 ? PANKKI.T.rakentaja
+                     : PANKKI.T.showcase;
+  const tSeriesV2    = PANKKI.T[mesosykliV2] || PANKKI.T.perus;
+  const tVkAvainV2   = jaksoViikkoV2 >= 5
+    ? 'vk' + Math.max(1, Math.min(4, pelaaja._t_heikoin_viikko || 1))
+    : 'vk' + Math.max(1, Math.min(4, jaksoViikkoV2));
+  const tHarjV2 = (tSeriesV2 && tSeriesV2[tVkAvainV2])
+    || (tSeriesV2 && tSeriesV2.vk1)
+    || (PANKKI.T.perus && PANKKI.T.perus.vk1)
+    || (PANKKI.T.rakentaja && PANKKI.T.rakentaja.vk1);
   const tOhjeV2 = _ohje(tHarjV2, ityyppi);
   tehtavat.push({
     id:'t_pallo', tyyppi:'T', label:'⚽ Kultaikkuna',
     label_cue:'Joka päivä — myös lepopäivät · Ajax/Benfica/La Masia',
     nimi:tHarjV2.nimi, ohje:tOhjeV2, kesto:tHarjV2.kesto, xp:tHarjV2.xp,
-    cue:tHarjV2.cue, yt:tHarjV2.yt, ketju:null, stage, ityyppi,
+    cue:tHarjV2.cue, yt:tHarjV2.yt,
+    viikkotavoite: tHarjV2.viikkotavoite || null,
+    mesosykli: mesosykliV2, jaksoViikko: jaksoViikkoV2,
+    isRepeatViikko: jaksoViikkoV2 >= 5,
+    ketju:null, stage, ityyppi,
   });
 
   // 2. D-harjoite pankkista — vaihtelee viikonpäivän mukaan
