@@ -435,6 +435,68 @@ src.startsWith('\uFEFF')
 // ══════════════════════════════════════════════════════════════
 // YHTEENVETO
 // ══════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════
+// H. RUNTIME EDGE CASE — MIKROTARKISTUKSET
+// Skenaarioista löydetyt korkean riskin kohdat
+// ══════════════════════════════════════════════════════════════
+section('H. RUNTIME EDGE CASE — MIKROTARKISTUKSET');
+
+// H1: _suodataStreakViesti — tyyppiturvaus (R1)
+// Funktio kaatuu jos saa numeron/undefined — pitää olla null-guard
+const _suodatinIdx = src.indexOf('function _suodataStreakViesti');
+const suodatinFnStr = _suodatinIdx >= 0 ? src.slice(_suodatinIdx, _suodatinIdx + 400) : '';
+const hasNullGuard = suodatinFnStr.includes("if (!teksti)") || 
+                     suodatinFnStr.includes("if(!teksti)") ||
+                     suodatinFnStr.includes("typeof teksti") ||
+                     suodatinFnStr.includes("String(teksti)") ||
+                     suodatinFnStr.includes("=== null") ||
+                     suodatinFnStr.includes("=== undefined");
+hasNullGuard
+  ? ok('_suodataStreakViesti: null-guard löytyy (R1 — tyyppiturvaus)')
+  : fail('_suodataStreakViesti: NULL-GUARD PUUTTUU', 'kaatuu jos Firestore palauttaa numeron/undefined — lisää: if (!teksti) return \'\'');
+
+// H2: UI Patch — duplikaattisuojaus (R9)
+// Patch ajetaan joka kerta kun onAuthStateChanged laukeaa
+const patchSrc = src.match(/TM_HARJOITE_UI_PATCH[\s\S]{0,500}/)?.[0] || 
+                 src.match(/TM UI Patch[\s\S]{0,500}/)?.[0] || '';
+const hasDupGuard = src.includes('_patchAjettu') || src.includes('window._tmPatchDone') ||
+                    src.includes('_tmPatch_done') || src.includes('if (window._patch');
+hasDupGuard
+  ? ok('UI Patch: duplikaattisuojaus löytyy (R9 — ei multi-exec)')
+  : warn('UI Patch: duplikaattisuojaus puuttuu', 'patch voi ajautua useita kertoja per sessio — lisää: if (window._patchAjettu) return; window._patchAjettu=true;');
+
+// H3: CSS fallback vanhalle selaimelle (R7)
+// Jos custom properties ei toimi, sivu on valkoinen
+const hasCssFallback = src.includes('background: #111110') || 
+                       src.includes("background:#111110") ||
+                       src.includes('@supports') ||
+                       // body{} inline fallback arvo
+                       src.match(/background:\s*var\(--bg,\s*#111110\)/);
+hasCssFallback
+  ? ok('CSS fallback-väri (R7 — vanha WebView): background: var(--bg, #111110)')
+  : warn('CSS fallback puuttuu', 'Samsung/Android 7 WebView voi näyttää valkoisen sivun — lisää: background: var(--bg, #111110) !important');
+
+// H4: naytaTabi fallback (R8)
+// Tarkista onko fallback tyhjälle näkymälle
+const naytaTabiFn = src.match(/function naytaTabi[\s\S]{0,600}?(?=\nfunction)/)?.[0] || '';
+const hasFallback = naytaTabiFn.includes("|| 'tanaan'") || 
+                    naytaTabiFn.includes('fallback') ||
+                    naytaTabiFn.includes("=== -1") ||
+                    naytaTabiFn.includes('console.warn');
+hasFallback
+  ? ok('naytaTabi: fallback olemattomalle näkymälle (R8)')
+  : warn('naytaTabi: ei fallbackia', 'väärä tab-nimi → silent fail → tyhjä näkymä');
+
+// H5: Auth timeout (R3) — onko splash:lla timeout
+const hasSplashTimeout = (src.match(/setTimeout[^,]+,\s*(\d+)/g)||[])
+  .some(m => parseInt(m.match(/(\d+)/)?.[1]) > 5000);
+const hasRetryBtn = src.includes('Yritä uudelleen') || src.includes('yritaUudelleen') ||
+                    src.includes('reload') || src.includes('location.reload');
+hasSplashTimeout || hasRetryBtn
+  ? ok('Auth timeout / retry mekanismi löytyy (R3)')
+  : warn('Auth timeout puuttuu', 'hidas yhteys → splash jää ikuisesti — harkitse 8s timeout + reload-nappi');
+
 const total   = PASS + FAIL + WARNS;
 const passRate = Math.round(PASS / (PASS + FAIL) * 100);
 
@@ -453,4 +515,25 @@ if (FAIL === 0) {
 } else {
   console.log(`\n${C.red}${C.bold}❌ GUARDIAN HYLKÄÄ — korjaa ${FAIL} virhettä ennen deployta${C.reset}\n`);
   process.exit(1);
+}
+
+// ══════════════════════════════════════════════════════════════
+// G. VISUAALINEN TARKASTUS — DOM-MITTAUKSET (Chrome MCP data)
+// ══════════════════════════════════════════════════════════════
+// Tämä osio analysoi Chrome MCP:n kautta kerätyn DOM-datan.
+// Data syötetään tiedostosta: visual_data.json (jos olemassa)
+
+const VISUAL_DATA_FILE = path.join(__dirname, 'visual_data.json');
+if (fs.existsSync(VISUAL_DATA_FILE)) {
+  section('G. VISUAALINEN TARKASTUS (live DOM-data)');
+  const { analysoiVisuaalinentData } = require('./guardian_visual.js');
+  const vdata = JSON.parse(fs.readFileSync(VISUAL_DATA_FILE, 'utf8'));
+  const prev = { PASS, FAIL, WARNS };
+  analysoiVisuaalinentData(vdata);
+  // Synkronoi laskurit
+  // (visual module käyttää omia — yhteenveto näkyy omassa tulostuksessa)
+} else {
+  section('G. VISUAALINEN TARKASTUS');
+  console.log(`  ${'\x1b[90m'}ℹ️  visual_data.json puuttuu — aja ensin:${'\x1b[0m'}`);
+  console.log(`  ${'\x1b[90m'}   node collect_visual.js${'\x1b[0m'}`);
 }
