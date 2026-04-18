@@ -13,12 +13,12 @@
 // ── Putkesi katkesi -suodatin ──
 // Behavior Playbook: "Ei koskaan, ei missään muodossa"
 function _suodataStreakViesti(teksti) {
-  const kielletyt = [
-    'katkesi', 'katkeaa', 'menetit', 'menetät', 'putki poikki',
-    'epäonnistuit', 'ei onnistunut', 'huono', 'unohdit', 'puuttuu',
-  ];
-  const lower = (teksti || '').toLowerCase();
-  if (kielletyt.some(k => lower.includes(k))) return '';
+  if (!teksti) return '';
+  const kielletyt = ['katkesi','katkes','riko','menetit','hävisit','ei jatku'];
+  const lower = teksti.toLowerCase();
+  if (kielletyt.some(k => lower.includes(k))) {
+    return 'Uusi mahdollisuus alkaa t\u00e4n\u00e4\u00e4n \u2728';
+  }
   return teksti;
 }
 
@@ -111,6 +111,7 @@ function _naytaJaksoSiirtyma(pelaaja, jakso, uusiJaksoNimi) {
 
 function _luoKonfetti() {
   const container = document.getElementById('jsiirtymKonfetti');
+  const _konfFrag = document.createDocumentFragment();
   if (!container) return;
   container.innerHTML = '';
 
@@ -134,6 +135,7 @@ function _luoKonfetti() {
     ].join(';');
     container.appendChild(pala);
   }
+  if(_konfFrag.childNodes.length){const _kc=document.getElementById('jsiirtymKonfetti');if(_kc)_kc.appendChild(_konfFrag);}
 }
 
 function _obSeuraava() {
@@ -211,13 +213,30 @@ function _naytaMalliBadge(malli, data) {
   if (targetEl.querySelector('.fiili-badge-aamu')) return; // ei duplikaattia
   const badge = document.createElement('div');
   badge.className = 'fiili-kirjattu-badge fiili-badge-aamu';
-  badge.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;'
+  badge.classList.add('tm-mali-badge')
     + 'background:rgba(46,213,115,.08);border:1px solid rgba(46,213,115,.25);'
     + 'border-radius:8px;font-size:12px;color:var(--green);margin-top:8px;line-height:1.4;';
   badge.innerHTML = '<span style="font-size:15px;">✓</span>'
     + '<span>Aamufiilinki kirjattu ' + emoji
     + ' &nbsp;·&nbsp; <strong>Treenattuasi kirjaa treenifiilis ⚽</strong></span>';
   targetEl.appendChild(badge);
+}
+
+// ── tm_fiilinki_ ja tm_tehty_ tallennetaan Firestoreen kirjautuneille ──
+async function _tmTallennaTila(avain, arvo) {
+  try { localStorage.setItem('tm_'+avain, JSON.stringify(arvo)); } catch(e){}
+  const uid = window._pelaajaData?.uid;
+  if (!uid || !window._db) return;
+  try {
+    const pvm = new Date().toISOString().slice(0,10);
+    await window._db.collection('pelaajat').doc(uid)
+      .collection('kirjaukset').doc(pvm)
+      .set({[avain]:arvo,paivitetty:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  } catch(e){ console.warn('[TM Tila]', e.message); }
+}
+function _tmLueTila(avain, oletus) {
+  try { const v=localStorage.getItem('tm_'+avain); return v!==null?JSON.parse(v):oletus; }
+  catch(e){ return oletus; }
 }
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
@@ -2056,6 +2075,10 @@ button,a,[role="button"] {
   min-height:48px;
   font-size:20px;
 }
+#sSplash{transition:opacity .35s ease;}
+#sSplash.tm-piilotettu{opacity:0;pointer-events:none;}
+/* safe-area-inset-top topbarille */
+.tm-topbar-wrap, [class*="topbar"] { padding-top: env(safe-area-inset-top, 0); }
 </style>
 </head>
 <body>
@@ -5563,6 +5586,9 @@ if (document.readyState === 'loading') {
 .tm-rpe-wrap input[type=range]{width:100%;margin:3px 0}
 .tm-rpe-row{display:flex;justify-content:space-between;font-size:10px;color:var(--ink3,#777)}
 .tm-muistiinpano{width:100%;margin-top:7px;border:1px solid var(--border,#333);border-radius:7px;padding:7px;font-size:12px;background:var(--bg2,#111);color:var(--ink,#eee);resize:none;height:52px;box-sizing:border-box}
+
+.tm-mali-badge{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:rgba(74,126,217,.12);border:1px solid rgba(74,126,217,.25);font-size:13px;font-weight:600;color:var(--ink,#e8eef8);cursor:pointer;transition:background .15s;}
+.tm-mali-badge:active{background:rgba(74,126,217,.22);}
 </style>
 <script id="tm-ui-patch-js">
 (function(){
