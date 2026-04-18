@@ -9,236 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>TalentMaster™ — Pelaajan oma sivu ⚽</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js">
-// ── Putkesi katkesi -suodatin ──
-// Behavior Playbook: "Ei koskaan, ei missään muodossa"
-function _suodataStreakViesti(teksti) {
-  if (!teksti) return '';
-  const kielletyt = ['katkesi','katkes','riko','menetit','hävisit','ei jatku'];
-  const lower = teksti.toLowerCase();
-  if (kielletyt.some(k => lower.includes(k))) {
-    return 'Uusi mahdollisuus alkaa t\u00e4n\u00e4\u00e4n \u2728';
-  }
-  return teksti;
-}
-
-
-/* ── V1 Onboarding + Splash JS ── */
-function _naytaSplash(seuraId, pelaajaNimi, talentMasterID, logoUrl) {
-  if (_splashNaytetty) return;
-  _splashNaytetty = true;
-
-  const lopullinenLogo = logoUrl || (_pelaaja && _pelaaja._seuraLogoUrl) || null;
-  _sovellaSeuraVari(seuraId, lopullinenLogo);
-
-  const splash = document.getElementById('sSplash');
-  if (!splash) return;
-
-  splash.style.display = 'flex';
-  splash.style.opacity = '0';
-  requestAnimationFrame(() => {
-    splash.style.transition = 'opacity .6s ease';
-    splash.style.opacity = '1';
-  });
-
-  // 0.6s → kehät hengitysmoodiin
-  setTimeout(() => {
-    const r1 = splash.querySelector('.splash-ring-1');
-    const r2 = splash.querySelector('.splash-ring-2');
-    const cd = splash.querySelector('.splash-center-dot');
-    if (r1) r1.classList.add('breathing');
-    if (r2) r2.classList.add('breathing');
-    if (cd) cd.classList.add('breathing');
-  }, 600);
-
-  // 0.8s → lause liukuu esiin
-  setTimeout(() => {
-    const siirtymaEl = document.getElementById('splashSiirtyma');
-    if (siirtymaEl) siirtymaEl.classList.add('nakyy');
-  }, 800);
-
-  // 1.8s → fade out (UX-palaute: splash liian pitkä, 1.5–2s riittää)
-  setTimeout(() => {
-    splash.style.opacity = '0';
-    setTimeout(() => {
-      splash.style.display = 'none';
-      _tarkistaOnboarding(pelaajaNimi, talentMasterID);
-    }, 500);
-  }, 1800);
-}
-
-function _naytaJaksoSiirtyma(pelaaja, jakso, uusiJaksoNimi) {
-  const el = document.getElementById('sJaksoSiirtyma');
-  if (!el) return;
-
-  // Määritä jaksotyyppi
-  const jaksotyyppi = uusiJaksoNimi.toLowerCase().includes('pohja')     ? 'pohja'
-                    : uusiJaksoNimi.toLowerCase().includes('kehitys')   ? 'kehitys'
-                    : 'huipentuma';
-
-  // Ikätyypin perusteella valitaan kuvaus
-  const ika      = pelaaja.ika || 13;
-  const ityyppi  = ika <= 12 ? 'leikkija' : ika <= 15 ? 'rakentaja' : 'showcase';
-  const sisalto  = (_JAKSO_KUVAUKSET[jaksotyyppi] || {})[ityyppi] || _JAKSO_KUVAUKSET.kehitys.rakentaja;
-
-  // Täytä kortti
-  const nimi = pelaaja.etunimi || pelaaja.nimi || 'Pelaaja';
-  document.getElementById('jsiirtymNimi').textContent     = nimi;
-  document.getElementById('jsiirtymJaksoNimi').textContent = uusiJaksoNimi;
-  document.getElementById('jsiirtymEmoji').textContent    = jakso.emoji || '📈';
-  document.getElementById('jsiirtymLabel').textContent    = 'Uusi jakso alkaa';
-  document.getElementById('jsiirtymKuvaus').textContent   = sisalto.kuvaus;
-  document.getElementById('jsiirtymViikko').textContent   =
-    'Viikko ' + (jakso.viikonNro || ((((typeof _laskeKalenteriViikko === 'function' ? _laskeKalenteriViikko() : 1) - 1) % 8) + 1)) + ' / 8 · ' + uusiJaksoNimi;
-
-  // Muutoslista
-  const muutosEl = document.getElementById('jsiirtymMuutos');
-  if (muutosEl && sisalto.muutokset) {
-    muutosEl.innerHTML = sisalto.muutokset.map(m =>
-      '<div class="jsiirtyma-muutos-rivi"><div class="dot"></div>' + m + '</div>'
-    ).join('');
-  }
-
-  // Konfetti-animaatio
-  _luoKonfetti();
-
-  // Näytä kortti
-  el.classList.add('nakyy');
-
-  // Tallenna uusi jakso LocalStorageen → ei näytetä enää tällä jaksolla
-  localStorage.setItem(_JAKSO_AVAIN, uusiJaksoNimi);
-}
-
-function _luoKonfetti() {
-  const container = document.getElementById('jsiirtymKonfetti');
-  const _konfFrag = document.createDocumentFragment();
-  if (!container) return;
-  container.innerHTML = '';
-
-  // Seuran väreistä + kulta johdetut konfettivärit
-  const root = document.documentElement;
-  const v1 = getComputedStyle(root).getPropertyValue('--seura-vari').trim()  || '#004D2A';
-  const v2 = getComputedStyle(root).getPropertyValue('--seura-vari2').trim() || '#FFFFFF';
-  const varit = [v1, v2, '#C8882A', '#A855F7', '#1A7A5E'];
-
-  for (let i = 0; i < 28; i++) {
-    const pala = document.createElement('div');
-    pala.className = 'konfetti-pala';
-    pala.style.cssText = [
-      'left:'            + (5 + Math.random() * 90) + '%',
-      'background:'      + varit[Math.floor(Math.random() * varit.length)],
-      'width:'           + (4 + Math.random() * 6) + 'px',
-      'height:'          + (4 + Math.random() * 6) + 'px',
-      'border-radius:'   + (Math.random() > .5 ? '50%' : '1px'),
-      'animation-duration:'  + (.8 + Math.random() * 1.2) + 's',
-      'animation-delay:'     + (Math.random() * .5) + 's',
-    ].join(';');
-    container.appendChild(pala);
-  }
-  if(_konfFrag.childNodes.length){const _kc=document.getElementById('jsiirtymKonfetti');if(_kc)_kc.appendChild(_konfFrag);}
-}
-
-function _obSeuraava() {
-  const slidet = document.querySelectorAll('.ob-slide');
-  if (_obVaihe < slidet.length - 1) {
-    _obPaivitaVaihe(_obVaihe + 1);
-  } else {
-    _obValmis();
-  }
-}
-
-function _obOhita() { _obValmis(); }
-
-function _obValmis() {
-  localStorage.setItem(_OB_AVAIN, '1');
-  const ob = document.getElementById('sOnboarding');
-  if (ob) { ob.style.opacity = '0'; ob.style.transition = 'opacity .3s'; }
-  setTimeout(() => {
-    if (ob) ob.classList.remove('nakyy');
-    // Onboarding valmis → avaa dashboard
-    if (window._pelaaja) {
-      _alustaUI();
-    } else {
-      nayta('sLogin');
-    }
-  }, 350);
-}
-
-function _obPaivitaVaihe(vaihe) {
-  _obVaihe = vaihe;
-  const slidet = document.querySelectorAll('.ob-slide');
-  slidet.forEach((s, i) => s.classList.toggle('nakyy', i === vaihe));
-
-  const dotit = document.querySelectorAll('.ob-step-dot');
-  dotit.forEach((d, i) => {
-    d.classList.toggle('tehty', i < vaihe);
-    d.classList.toggle('aktiivinen', i === vaihe);
-  });
-
-  const btn = document.getElementById('obBtn');
-  if (btn) {
-    if (vaihe === slidet.length - 1) {
-      btn.textContent = 'Aloita matka →';
-      btn.classList.add('kulta');
-    } else {
-      btn.textContent = 'Seuraava →';
-      btn.classList.remove('kulta');
-    }
-  }
-}
-
-function _merkitseD() {
-  const d = generoimTehtavat(_pelaaja)?.[1];
-  merkitseTehdyksi('d_aktivointi', d?.xp || 15);
-  setTimeout(() => _renderTanaaHarjoite(), 350);
-}
-
-function _merkitseT() {
-  const t = generoimTehtavat(_pelaaja)?.[0];
-  merkitseTehdyksi('t_pallo', t?.xp || 20);
-  setTimeout(() => _renderTanaaHarjoite(), 350);
-}
-
-function _naytaMalliBadge(malli, data) {
-  const emoji = data && data.fiilinki
-    ? (['','😫','😕','😐','🙂','🔥'][data.fiilinki] || '✓') : '✓';
-  // Etsi näkyvä fiilinki-osio
-  const els = ['fiiliPerustaso','fiiliKehitystaso','fiiliShowcase'];
-  let targetEl = null;
-  for (var i = 0; i < els.length; i++) {
-    var el = document.getElementById(els[i]);
-    if (el && el.style.display !== 'none') { targetEl = el; break; }
-  }
-  if (!targetEl) return;
-  if (targetEl.querySelector('.fiili-badge-aamu')) return; // ei duplikaattia
-  const badge = document.createElement('div');
-  badge.className = 'fiili-kirjattu-badge fiili-badge-aamu';
-  badge.classList.add('tm-mali-badge')
-    + 'background:rgba(46,213,115,.08);border:1px solid rgba(46,213,115,.25);'
-    + 'border-radius:8px;font-size:12px;color:var(--green);margin-top:8px;line-height:1.4;';
-  badge.innerHTML = '<span style="font-size:15px;">✓</span>'
-    + '<span>Aamufiilinki kirjattu ' + emoji
-    + ' &nbsp;·&nbsp; <strong>Treenattuasi kirjaa treenifiilis ⚽</strong></span>';
-  targetEl.appendChild(badge);
-}
-
-// ── tm_fiilinki_ ja tm_tehty_ tallennetaan Firestoreen kirjautuneille ──
-async function _tmTallennaTila(avain, arvo) {
-  try { localStorage.setItem('tm_'+avain, JSON.stringify(arvo)); } catch(e){}
-  const uid = window._pelaajaData?.uid;
-  if (!uid || !window._db) return;
-  try {
-    const pvm = new Date().toISOString().slice(0,10);
-    await window._db.collection('pelaajat').doc(uid)
-      .collection('kirjaukset').doc(pvm)
-      .set({[avain]:arvo,paivitetty:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-  } catch(e){ console.warn('[TM Tila]', e.message); }
-}
-function _tmLueTila(avain, oletus) {
-  try { const v=localStorage.getItem('tm_'+avain); return v!==null?JSON.parse(v):oletus; }
-  catch(e){ return oletus; }
-}
-</script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_auth.js"></script>
@@ -2696,6 +2467,237 @@ button,a,[role="button"] {
 </div>
 
 <script>
+
+
+// ── Putkesi katkesi -suodatin ──
+// Behavior Playbook: "Ei koskaan, ei missään muodossa"
+function _suodataStreakViesti(teksti) {
+  if (!teksti) return '';
+  const kielletyt = ['katkesi','katkes','riko','menetit','hävisit','ei jatku'];
+  const lower = teksti.toLowerCase();
+  if (kielletyt.some(k => lower.includes(k))) {
+    return 'Uusi mahdollisuus alkaa t\u00e4n\u00e4\u00e4n \u2728';
+  }
+  return teksti;
+}
+
+
+/* ── V1 Onboarding + Splash JS ── */
+function _naytaSplash(seuraId, pelaajaNimi, talentMasterID, logoUrl) {
+  if (_splashNaytetty) return;
+  _splashNaytetty = true;
+
+  const lopullinenLogo = logoUrl || (_pelaaja && _pelaaja._seuraLogoUrl) || null;
+  _sovellaSeuraVari(seuraId, lopullinenLogo);
+
+  const splash = document.getElementById('sSplash');
+  if (!splash) return;
+
+  splash.style.display = 'flex';
+  splash.style.opacity = '0';
+  requestAnimationFrame(() => {
+    splash.style.transition = 'opacity .6s ease';
+    splash.style.opacity = '1';
+  });
+
+  // 0.6s → kehät hengitysmoodiin
+  setTimeout(() => {
+    const r1 = splash.querySelector('.splash-ring-1');
+    const r2 = splash.querySelector('.splash-ring-2');
+    const cd = splash.querySelector('.splash-center-dot');
+    if (r1) r1.classList.add('breathing');
+    if (r2) r2.classList.add('breathing');
+    if (cd) cd.classList.add('breathing');
+  }, 600);
+
+  // 0.8s → lause liukuu esiin
+  setTimeout(() => {
+    const siirtymaEl = document.getElementById('splashSiirtyma');
+    if (siirtymaEl) siirtymaEl.classList.add('nakyy');
+  }, 800);
+
+  // 1.8s → fade out (UX-palaute: splash liian pitkä, 1.5–2s riittää)
+  setTimeout(() => {
+    splash.style.opacity = '0';
+    setTimeout(() => {
+      splash.style.display = 'none';
+      _tarkistaOnboarding(pelaajaNimi, talentMasterID);
+    }, 500);
+  }, 1800);
+}
+
+function _naytaJaksoSiirtyma(pelaaja, jakso, uusiJaksoNimi) {
+  const el = document.getElementById('sJaksoSiirtyma');
+  if (!el) return;
+
+  // Määritä jaksotyyppi
+  const jaksotyyppi = uusiJaksoNimi.toLowerCase().includes('pohja')     ? 'pohja'
+                    : uusiJaksoNimi.toLowerCase().includes('kehitys')   ? 'kehitys'
+                    : 'huipentuma';
+
+  // Ikätyypin perusteella valitaan kuvaus
+  const ika      = pelaaja.ika || 13;
+  const ityyppi  = ika <= 12 ? 'leikkija' : ika <= 15 ? 'rakentaja' : 'showcase';
+  const sisalto  = (_JAKSO_KUVAUKSET[jaksotyyppi] || {})[ityyppi] || _JAKSO_KUVAUKSET.kehitys.rakentaja;
+
+  // Täytä kortti
+  const nimi = pelaaja.etunimi || pelaaja.nimi || 'Pelaaja';
+  document.getElementById('jsiirtymNimi').textContent     = nimi;
+  document.getElementById('jsiirtymJaksoNimi').textContent = uusiJaksoNimi;
+  document.getElementById('jsiirtymEmoji').textContent    = jakso.emoji || '📈';
+  document.getElementById('jsiirtymLabel').textContent    = 'Uusi jakso alkaa';
+  document.getElementById('jsiirtymKuvaus').textContent   = sisalto.kuvaus;
+  document.getElementById('jsiirtymViikko').textContent   =
+    'Viikko ' + (jakso.viikonNro || ((((typeof _laskeKalenteriViikko === 'function' ? _laskeKalenteriViikko() : 1) - 1) % 8) + 1)) + ' / 8 · ' + uusiJaksoNimi;
+
+  // Muutoslista
+  const muutosEl = document.getElementById('jsiirtymMuutos');
+  if (muutosEl && sisalto.muutokset) {
+    muutosEl.innerHTML = sisalto.muutokset.map(m =>
+      '<div class="jsiirtyma-muutos-rivi"><div class="dot"></div>' + m + '</div>'
+    ).join('');
+  }
+
+  // Konfetti-animaatio
+  _luoKonfetti();
+
+  // Näytä kortti
+  el.classList.add('nakyy');
+
+  // Tallenna uusi jakso LocalStorageen → ei näytetä enää tällä jaksolla
+  localStorage.setItem(_JAKSO_AVAIN, uusiJaksoNimi);
+}
+
+function _luoKonfetti() {
+  const container = document.getElementById('jsiirtymKonfetti');
+  const _konfFrag = document.createDocumentFragment();
+  if (!container) return;
+  container.innerHTML = '';
+
+  // Seuran väreistä + kulta johdetut konfettivärit
+  const root = document.documentElement;
+  const v1 = getComputedStyle(root).getPropertyValue('--seura-vari').trim()  || '#004D2A';
+  const v2 = getComputedStyle(root).getPropertyValue('--seura-vari2').trim() || '#FFFFFF';
+  const varit = [v1, v2, '#C8882A', '#A855F7', '#1A7A5E'];
+
+  for (let i = 0; i < 28; i++) {
+    const pala = document.createElement('div');
+    pala.className = 'konfetti-pala';
+    pala.style.cssText = [
+      'left:'            + (5 + Math.random() * 90) + '%',
+      'background:'      + varit[Math.floor(Math.random() * varit.length)],
+      'width:'           + (4 + Math.random() * 6) + 'px',
+      'height:'          + (4 + Math.random() * 6) + 'px',
+      'border-radius:'   + (Math.random() > .5 ? '50%' : '1px'),
+      'animation-duration:'  + (.8 + Math.random() * 1.2) + 's',
+      'animation-delay:'     + (Math.random() * .5) + 's',
+    ].join(';');
+    container.appendChild(pala);
+  }
+  if(_konfFrag.childNodes.length){const _kc=document.getElementById('jsiirtymKonfetti');if(_kc)_kc.appendChild(_konfFrag);}
+}
+
+function _obSeuraava() {
+  const slidet = document.querySelectorAll('.ob-slide');
+  if (_obVaihe < slidet.length - 1) {
+    _obPaivitaVaihe(_obVaihe + 1);
+  } else {
+    _obValmis();
+  }
+}
+
+function _obOhita() { _obValmis(); }
+
+function _obValmis() {
+  localStorage.setItem(_OB_AVAIN, '1');
+  const ob = document.getElementById('sOnboarding');
+  if (ob) { ob.style.opacity = '0'; ob.style.transition = 'opacity .3s'; }
+  setTimeout(() => {
+    if (ob) ob.classList.remove('nakyy');
+    // Onboarding valmis → avaa dashboard
+    if (window._pelaaja) {
+      _alustaUI();
+    } else {
+      nayta('sLogin');
+    }
+  }, 350);
+}
+
+function _obPaivitaVaihe(vaihe) {
+  _obVaihe = vaihe;
+  const slidet = document.querySelectorAll('.ob-slide');
+  slidet.forEach((s, i) => s.classList.toggle('nakyy', i === vaihe));
+
+  const dotit = document.querySelectorAll('.ob-step-dot');
+  dotit.forEach((d, i) => {
+    d.classList.toggle('tehty', i < vaihe);
+    d.classList.toggle('aktiivinen', i === vaihe);
+  });
+
+  const btn = document.getElementById('obBtn');
+  if (btn) {
+    if (vaihe === slidet.length - 1) {
+      btn.textContent = 'Aloita matka →';
+      btn.classList.add('kulta');
+    } else {
+      btn.textContent = 'Seuraava →';
+      btn.classList.remove('kulta');
+    }
+  }
+}
+
+function _merkitseD() {
+  const d = generoimTehtavat(_pelaaja)?.[1];
+  merkitseTehdyksi('d_aktivointi', d?.xp || 15);
+  setTimeout(() => _renderTanaaHarjoite(), 350);
+}
+
+function _merkitseT() {
+  const t = generoimTehtavat(_pelaaja)?.[0];
+  merkitseTehdyksi('t_pallo', t?.xp || 20);
+  setTimeout(() => _renderTanaaHarjoite(), 350);
+}
+
+function _naytaMalliBadge(malli, data) {
+  const emoji = data && data.fiilinki
+    ? (['','😫','😕','😐','🙂','🔥'][data.fiilinki] || '✓') : '✓';
+  // Etsi näkyvä fiilinki-osio
+  const els = ['fiiliPerustaso','fiiliKehitystaso','fiiliShowcase'];
+  let targetEl = null;
+  for (var i = 0; i < els.length; i++) {
+    var el = document.getElementById(els[i]);
+    if (el && el.style.display !== 'none') { targetEl = el; break; }
+  }
+  if (!targetEl) return;
+  if (targetEl.querySelector('.fiili-badge-aamu')) return; // ei duplikaattia
+  const badge = document.createElement('div');
+  badge.className = 'fiili-kirjattu-badge fiili-badge-aamu';
+  badge.classList.add('tm-mali-badge')
+    + 'background:rgba(46,213,115,.08);border:1px solid rgba(46,213,115,.25);'
+    + 'border-radius:8px;font-size:12px;color:var(--green);margin-top:8px;line-height:1.4;';
+  badge.innerHTML = '<span style="font-size:15px;">✓</span>'
+    + '<span>Aamufiilinki kirjattu ' + emoji
+    + ' &nbsp;·&nbsp; <strong>Treenattuasi kirjaa treenifiilis ⚽</strong></span>';
+  targetEl.appendChild(badge);
+}
+
+// ── tm_fiilinki_ ja tm_tehty_ tallennetaan Firestoreen kirjautuneille ──
+async function _tmTallennaTila(avain, arvo) {
+  try { localStorage.setItem('tm_'+avain, JSON.stringify(arvo)); } catch(e){}
+  const uid = window._pelaajaData?.uid;
+  if (!uid || !window._db) return;
+  try {
+    const pvm = new Date().toISOString().slice(0,10);
+    await window._db.collection('pelaajat').doc(uid)
+      .collection('kirjaukset').doc(pvm)
+      .set({[avain]:arvo,paivitetty:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+  } catch(e){ console.warn('[TM Tila]', e.message); }
+}
+function _tmLueTila(avain, oletus) {
+  try { const v=localStorage.getItem('tm_'+avain); return v!==null?JSON.parse(v):oletus; }
+  catch(e){ return oletus; }
+}
+
 
 /* ════════════════════════════════════════════════════════
    TM NON-NEGOTIABLES — Pelaaja v2
@@ -5640,7 +5642,7 @@ function fiilinkiHTML(ityyppi){
   }
   if(ityyppi==='showcase'){
     h+='<div class="tm-rpe-wrap"><label>RPE (1–10)</label>'
-      +'<input type="range" min="1" max="10" value="5" step="1" oninput="document.getElementById('_rpeV').textContent=this.value">'
+      +'<input type="range" min="1" max="10" value="5" step="1" oninput="document.getElementById(\"_rpeV\").textContent=this.value">'
       +'<div class="tm-rpe-row"><span>Helppo</span><span id="_rpeV">5</span><span>Max</span></div></div>'
       +'<textarea class="tm-muistiinpano" placeholder="Muistiinpano (vapaaehtoinen)..."></textarea>';
   }
