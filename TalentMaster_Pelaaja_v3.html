@@ -1864,6 +1864,15 @@ button,a,[role="button"] {
   align-items: center;
   justify-content: center;
 }
+nav.tabs {
+  position: sticky !important;
+  bottom: 0 !important;
+  top: auto !important;
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* nav ylhäältä poistetaan */
+nav.tabs { top: auto !important; }
 </style>
 </head>
 <body>
@@ -3938,7 +3947,7 @@ function renderStreak() {
   if (freeze > 0) {
     freezeEl.innerHTML = `<div class="streak-freeze">❄️ ${freeze} streak-suojaa jäljellä <button style="background:none;border:none;color:var(--teal);cursor:pointer;font-size:12px;text-decoration:underline;" onclick="popup('freeze')">Mitä nämä ovat?</button></div>`;
   } else {
-    freezeEl.innerHTML = '<div style="font-size:12px;color:var(--ink3);margin-top:4px;">Ei suojia — älä riko putkea!</div>';
+    freezeEl.innerHTML = '<div style="font-size:12px;color:var(--ink3);margin-top:4px;">Ei suojia — pidä rytmi! 🔥</div>';
   }
 
   // Viesti
@@ -5758,6 +5767,34 @@ if(document.readyState==='complete'||document.readyState==='interactive'){
   document.addEventListener('DOMContentLoaded',function(){setTimeout(_tmPatch,400);});
 }
 console.log('[TM UI Patch v1.0] ladattu');
+})();
+
+// ── Fiilinki etusivulle (TM Patch) ──────────────────────────
+(function _lisaaFiilinki() {
+  const AVAIN = 'tm_fiilinki_' + new Date().toISOString().slice(0,10);
+  const tallennettu = parseInt(localStorage.getItem(AVAIN)||'0');
+
+  const kontaineri = document.querySelector('.tanaa-harjoite-btn')?.closest('section') ||
+                     document.querySelector('#sTanaan .tm-harjoite-kortti')?.parentElement ||
+                     document.querySelector('#tanaaHarjoiteKortti');
+  if (!kontaineri) return;
+
+  // Älä lisää kahta kertaa
+  if (document.getElementById('tm-fiilinki-patch')) return;
+
+  const div = document.createElement('div');
+  div.id = 'tm-fiilinki-patch';
+  div.className = 'tm-fiilinki';
+  div.innerHTML = `
+    <div class="tm-fiilinki-label">Miltä tänään tuntuu?</div>
+    <div class="tm-fiilinki-row">
+      ${['😴','😐','🙂','😄','🔥'].map((e,i)=>`
+        <button class="tm-fiilinki-btn${tallennettu===i+1?' on':''}"
+          onclick="this.parentElement.querySelectorAll('.tm-fiilinki-btn').forEach(b=>b.classList.remove('on'));this.classList.add('on');localStorage.setItem('${AVAIN}',${i+1})">${e}</button>
+      `).join('')}
+    </div>
+  `;
+  kontaineri.appendChild(div);
 })();
 </script>
 </body>
