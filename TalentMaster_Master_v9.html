@@ -12,9 +12,10 @@
   /* ── TalentMasterID™ — Institutional Palette ── */
   --carbon:#1C1C1A;
   --bone:#F2EFE6;
-  --teal:#1A7A5E;
+  --teal:#1A7A5E;   /* bone-pohja 4.58:1 ✅ */
+  --teal-d:#28B090; /* carbon-pohja 6.26:1 ✅ */
   --teal2:rgba(26,122,94,.10);
-  --slate:#8C8B83;
+  --slate:#A8A79F;  /* Palette v3 dark-UI ✅ */
 
   /* ── Tausta-layerit ── */
   --bg:#111110;
@@ -30,7 +31,7 @@
   /* ── Teksti ── */
   --ink:#F2EFE6;
   --ink2:#A8A79F;
-  --ink3:#5C5B55;
+  --ink3:#8BA0BC;  /* 7.45:1 carbon-pohjalla ✅ */
   --text:#F2EFE6;
 
   /* ── Toiminnalliset ── */
@@ -69,7 +70,7 @@
   --r: 12;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden;}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:400;line-height:1.65;min-height:100vh;overflow-x:hidden;}
 
 /* ── LOGIN ─────────────────────────────────────────────────────── */
 #sLogin{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 20% 30%,rgba(26,122,94,.07) 0%,transparent 55%),var(--bg);}
@@ -113,7 +114,7 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
 .view.active{display:block;}
 
 /* ── CARDS ──────────────────────────────────────────────────────── */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:16px;}
+.card{background:var(--card);border:.5px solid var(--border2);border-radius:var(--r);padding:20px;margin-bottom:16px;transition:border-color .18s ease;}
 .card-title{font-size:var(--tm-meta-size);font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;}
 .card-title .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0;}
 .card-title .dot.amber{display:none;}
@@ -1540,6 +1541,16 @@ async function _lataaProfiili(user) {
     var rooli   = (claims.rooli || claims.role || '').toLowerCase();
     var clSeura = claims.seuraId || claims.seura || null;
 
+    /* ── Sallitut roolit — Master/Valmentaja-näkymä ─────────────────
+       KRIITTINEN KORJAUS: valmentaja-roolit puuttuivat — KPV:n
+       valmentajat saivat "Profiilia ei löydy" vaikka Claims oli oikein.
+    */
+    var SALLITUT_ROOLIT = [
+      'super_admin', 'valmentaja', 'talenttivalmentaja',
+      'fysiikkavalmentaja', 'fysioterapeutti', 'testivastaava',
+      'vp', 'urheilutoimenjohtaja', 'seurasihteeri',
+    ];
+
     // ── TASO 2: Super admin — pääsy kaikkialle ─────────────────────
     // super_admin voi käyttää valmentajan näkymää kaikkien seurojen dataan.
     if (rooli === 'super_admin' || user.uid === 'dqUzvJA61Wb9fgj5UiK0riSA4NI2') {
@@ -1556,7 +1567,7 @@ async function _lataaProfiili(user) {
 
     // ── TASO 3: VP-rooli — tunnistetaan Claims:sta tai sähköpostista ─
     // VP:n sähköposti: vp.kpv@talentmaster.fi → seuraId = kpv
-    var onVP = ['vp','urheilutoimenjohtaja','seurasihteeri'].includes(rooli);
+    var onVP = ['vp','urheilutoimenjohtaja','seurasihteeri','urheilujohtaja'].includes(rooli);
     if (!onVP && user.email) {
       var emailOsat = user.email.split('@')[0].split('.');
       if (emailOsat[0] === 'vp' && emailOsat.length >= 2) onVP = true;
@@ -1608,6 +1619,18 @@ async function _lataaProfiili(user) {
     }
 
     // ── TASO 5: admins-kokoelma — viimeinen keino ──────────────────
+    if (!loydetty && SALLITUT_ROOLIT.includes(rooli) && rooli !== 'super_admin') {
+      // Rooli OK Claims:ssa mutta kayttajat-doc puuttuu → luo minimisessio
+      console.warn('[Master] Sallittu rooli, kayttajat-doc puuttuu:', rooli, user.email);
+      _seuraId = clSeura || 'kpv';
+      _joukkue = claims.joukkueId || null;
+      el('sbSeura').textContent   = (_seuraId || 'Seura').toUpperCase();
+      el('sbJoukkue').textContent = claims.joukkueNimi || _joukkue || 'Ei joukkuetta';
+      el('sbEmail').textContent   = user.email;
+      el('sbAvatar').textContent  = (user.email || '?')[0].toUpperCase();
+      el('tanTervehdys').textContent = rooli.charAt(0).toUpperCase() + rooli.slice(1);
+      loydetty = true;
+    }
     if (!loydetty) {
       try {
         var adminSnap = await _db.collection('admins').doc(user.uid).get();
@@ -1626,8 +1649,9 @@ async function _lataaProfiili(user) {
 
     if (!loydetty) {
       el('loginVirhe').textContent =
-        'Profiilia ei löydy. Vain valmentajat, VP ja admin voivat kirjautua tähän näkymään.';
-      console.error('[Master] Käyttäjää ei löydy:', user.email, user.uid);
+        'Käyttäjätiliä ei löydy. Pyydä seuran järjestelmänvalvojalta käyttöoikeudet.' +
+        (rooli ? ' (rooli: ' + rooli + ')' : ' (ei roolia Claims:ssa)');
+      console.warn('[Master] Pääsy estetty:', user.email, 'rooli:', rooli);      console.error('[Master] Käyttäjää ei löydy:', user.email, user.uid);
       _auth.signOut();
       return;
     }
@@ -2859,8 +2883,17 @@ function kirjauduSisaan() {
     .then(function(c) { _kirjautuminenKesken=false; _lataaProfiili(c.user); })
     .catch(function(e) {
       _kirjautuminenKesken = false;
-      virheEl.textContent = (e.code==='auth/wrong-password'||e.code==='auth/user-not-found')
-        ? 'Väärä sähköposti tai salasana.' : 'Virhe: ' + e.message;
+      const koodit = {
+        'auth/wrong-password':          'Väärä sähköposti tai salasana.',
+        'auth/user-not-found':          'Käyttäjää ei löydy. Tarkista sähköposti.',
+        'auth/invalid-credential':      'Väärä sähköposti tai salasana.',
+        'auth/too-many-requests':       'Liian monta yritystä. Odota hetki ja yritä uudelleen.',
+        'auth/network-request-failed':  'Verkkovirhe. Tarkista internet-yhteys.',
+        'auth/invalid-email':           'Sähköpostiosoite on virheellinen.',
+        'auth/user-disabled':           'Käyttäjätunnus on poistettu käytöstä.',
+      };
+      virheEl.textContent = koodit[e.code] || ('Kirjautuminen epäonnistui: ' + e.message);
+      console.error('[Login]', e.code, e.message);
     });
 }
 
