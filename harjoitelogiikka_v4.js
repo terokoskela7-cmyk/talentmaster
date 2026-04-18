@@ -833,6 +833,81 @@ const PANKKI = {
         ],
       },
     ],
+
+    // ── SFL — Lähtöketju S-harjoitteet ──────────────────────────────
+    // Kytkentä: thomas_testi_p=1, askelkyykky_p=1, sprintti_5m tai sprintti_10m hidas
+    // Anatominen perusta: lonkankoukistajat + quadriceps → kiihdytys + 1. askel
+    sfl: [
+      {
+        vk: 'parillinen',
+        stage_tasot: [
+          {
+            stage: [1, 2],
+            nimi: 'Hip flexor venytys + askelkyykky-kävely',
+            ohje_leikkija: 'Mene polvi maahan, toinen jalka eteen. Kallista lantiota eteen kunnes tunnet venytyksen edessä. Pidä 30 sekuntia! Sitten iso askelkävely 10 askelta eteenpäin.',
+            ohje_rakentaja: 'Hip flexor 90/90: polvi maahan, etupolvi 90°. Kallista lantiota eteen 2×30s per puoli. Sitten askelkyykky-kävely 2×10m — iso askel, polvi lähelle lattiaa.',
+            ohje_showcase: null,
+            kesto: '15 min', xp: 25,
+            yt: 'UcGAOOBMYMU',
+            cue: 'Lonkankoukistaja on pelaaajan jarru. Kireä lonkankoukistaja = hidas lähtö, pienentynyt askelpituus.',
+            phv: 'Normaali — venytykset aina turvallisia. Kyykkyjen laajuutta voidaan rajoittaa.',
+            phv_xp: 20,
+          },
+          {
+            stage: [3, 4],
+            nimi: 'Hip flexor 90/90 + askelkyykky-kiihdytys',
+            ohje_leikkija: null,
+            ohje_rakentaja: 'Hip flexor 90/90 2×45s per puoli. Sitten: askelkyykky-kävely 2×10m, ja lopuksi 4×15m kiihdytys — ensimmäinen askel lonkasta, ei polvesta. Laske: kuinka nopeasti olet täydessä vauhdissa?',
+            ohje_showcase: 'Hip flexor 90/90 2×45s. Askelkyykky 2×10m. SFL-kiihdytys: 4×15m — arvioi ensimmäisen 5m reaktiivisuus. Lonkka ohjaa, polvi seuraa.',
+            kesto: '15 min', xp: 30,
+            yt: 'UcGAOOBMYMU',
+            cue: 'Benfica-akatemian mittaus: ensimmäinen 5m ennustaa 30m:tä paremmin pelitilanteiden nopeutta.',
+            phv: '2×30s venytys + 3×10m askelkävely. Jätä kiihdytykset pois.',
+            phv_xp: 20,
+          },
+          {
+            stage: [5],
+            nimi: 'Thomas-venytys + pelispesifi kiihdytyssarjat',
+            ohje_leikkija: null, ohje_rakentaja: null,
+            ohje_showcase: 'Thomas-venytys 2×45s per puoli + 90/90 2×45s. Sitten pelispesifi: 6×10m kiihdytys reaktioärsykkeestä (pallo, käsimerki). Mittaa: aikaa ensimmäiseen 5m:iin paranee kauden aikana?',
+            kesto: '20 min', xp: 35,
+            yt: 'UcGAOOBMYMU',
+            cue: 'Stage 5: lonkankoukistajan liikkuvuus + räjähtävä reaktiviteetti pelissä. Molemmat samassa sessiossa.',
+            phv: '3×30s venytys + 3 reaktiivista kiihdytystä 70% teholla.',
+            phv_xp: 25,
+          },
+        ],
+      },
+      {
+        vk: 'pariton',
+        stage_tasot: [
+          {
+            stage: [1, 2],
+            nimi: 'Pistoolikyykky progressio — yksijalkainen',
+            ohje_leikkija: 'Seiso yhdellä jalalla, toinen suorana edessä. Kyykky alas niin pitkälle kuin pystyt — pidä selkä suorana. Nouse takaisin! 8 kertaa per jalka, 2 sarjaa.',
+            ohje_rakentaja: 'Pistoolikyykky kehitys: aloita tuettuna (tuoli tai seinä) 2×8 per jalka. Laske: kuinka syvälle pääset ilman kantapään nousua?',
+            ohje_showcase: null,
+            kesto: '15 min', xp: 25,
+            yt: 'DdWA1c0VsMg',
+            cue: 'Pistoolikyykky testaa yksijalkaisesta voimaa ja tasapainoa. Pelissä jokainen askel on yksijalkainen.',
+            phv: '2×6 per jalka tuettuna. Syvyyttä rajoitetaan — polven etuosa herkkä.',
+            phv_xp: 20,
+          },
+          {
+            stage: [3, 4, 5],
+            nimi: 'Pistoolikyykky + Nordic curl yhdistelmä',
+            ohje_leikkija: null,
+            ohje_rakentaja: 'Pistoolikyykky 3×8 per jalka (ilman tukea tai kevyt tuki). Sitten Nordic curl avustettu 3×5: kumppanikäsin kantapäistä, laske hitaasti eteen, palaa käsillä.',
+            ohje_showcase: 'Pistoolikyykky 3×8 (täysi liike). Nordic curl eksentrinen 3×5: laske hallitusti, palaa käsillä. SFL-yhdistelmä: etuketjun voima + takareiden suoja = lähtö + jarruttaminen.',
+            kesto: '20 min', xp: 30,
+            yt: 'DdWA1c0VsMg',
+            cue: 'Liikanen 2025: pistoolikyykky + Nordic curl yhdistelmä vähensi hamstring-vammoja 51%. Tämä on se tärkein harjoite.',
+            phv: 'Pistoolikyykky 2×6 tuettuna. Nordic curl pois — jänne-luuliitos herkkä.',
+            phv_xp: 20,
+          },
+        ],
+      },
+    ],
   },
 };
 
@@ -946,7 +1021,7 @@ function generoimTehtavat(pelaaja) {
   const heikoin = prof.heikoin;
   const viikonNro = _laskeViikonNro();
   const vkParit   = viikonNro % 2 === 0 ? 'parillinen' : 'pariton';
-  const sKetju    = vkParit === 'parillinen' ? heikoin : prof.toiseksiHeikoin;
+  // sKetju lasketaan _laskeSKetju()-funktiolla testidatan perusteella (alla)
   const tehtavat  = [];
 
   // ── 1. T-HARJOITE — Fulham/Noordster kuukausimalli ────────────
@@ -1008,15 +1083,32 @@ function generoimTehtavat(pelaaja) {
     });
   }
 
-  // ── 2. D-HARJOITE ──────────────────────────────────────────────
-  const dVaihtoehto = (PANKKI.D[heikoin] || [])
-    .find(h => h.stage.some(s => s <= stage + 1 && s >= stage - 1))
-    || (PANKKI.D[heikoin] || [])[0];
+  // ── 2. D-HARJOITE — yhtenäinen PANKKI.D-rakenne + ADAR-override ─
+  // ADAR-pisteet < 40 → kognitiivinen D-harjoite (diag/pig) riippumatta
+  // fyysisestä ketjusta. Tämä on ainoa poikkeus heikoin-ketju-valintaan.
+  // Stage ja PHV ovat aina turvakerroksena — ADAR ei koskaan ohita niitä.
+  const dKetju = (
+    pelaaja.adar_pisteet !== undefined &&
+    pelaaja.adar_pisteet !== null &&
+    pelaaja.adar_pisteet < 40
+  ) ? 'diag' : heikoin;
+
+  const dVaihtoehto = _haeD(dKetju, stage);
+
+  function _haeD(ketju, stg) {
+    // Yhtenäinen haku PANKKI.D:stä (stage-pohjainen)
+    // Fallback-ketju: jos ketjua ei löydy, käytetään lähintä
+    const pool = PANKKI.D[ketju] || PANKKI.D['dfl'] || [];
+    return pool.find(h => h.stage && h.stage.some(s => s <= stg + 1 && s >= stg - 1))
+        || pool[0]
+        || null;
+  }
 
   if (dVaihtoehto) {
     const dOhje = _ohje(dVaihtoehto, ityyppi);
     const dPhv  = phv === 'PH' && dVaihtoehto.phv
       ? dOhje + '\n\n⚠️ ' + dVaihtoehto.phv : dOhje;
+    const dOnAdar = dKetju !== heikoin; // ADAR-override aktiivinen
     tehtavat.push({
       id: 'd_aktivointi', tyyppi: 'D',
       label: '🔄 Päivittäinen',
@@ -1026,13 +1118,213 @@ function generoimTehtavat(pelaaja) {
       kesto: dVaihtoehto.kesto, xp: dVaihtoehto.xp,
       cue: dVaihtoehto.cue,
       yt: dVaihtoehto.yt,
-      ketju: heikoin,
-      ketjuNimi: KETJUT[heikoin]?.nimi,
+      ketju: dKetju,
+      ketjuNimi: KETJUT[dKetju]?.nimi,
+      adar_override: dOnAdar,  // pelaaja-app voi näyttää selityksen
       stage, ityyppi,
     });
   }
 
-  // ── 3. S-HARJOITE (U13+) ────────────────────────────────────────
+  // ── 3. S-HARJOITE (U13+) — testidataohjattu ketjuvalinta ────────
+  // Päätöspuu:
+  //   1. testit.loikka_5m alle normin → SBL (räjähtävyys/nopeus)
+  //   2. testit.t_testi_s alle normin → LL (ketteryys/suunnanmuutos)
+  //   3. testit.sprintti_30m alle normin → SBL (kiihdytys)
+  //   4. Ei testidataa → FLEI-heikoin (nykytila, säilyy)
+  // Stage ja PHV säilyvät aina turvakerroksena.
+  const sKetju = _laskeSKetju(pelaaja, prof, vkParit);
+
+  function _laskeSKetju(p, ketjuProf, vkP) {
+    // ADAR-override S:ään: matala ADAR → diag S-harjoite
+    if (p.adar_pisteet !== undefined && p.adar_pisteet !== null && p.adar_pisteet < 30) {
+      return PANKKI.S['diag'] ? 'diag' : ketjuProf.heikoin;
+    }
+
+    // ── KERROS 3: Harjoitettavuuskartoitus → liikeketjukytkentä ──
+    // Lähde: Jalkapallon harjoitettavuuskartoitus testimanuaali 2026
+    // Harjoitettavuuskartoitus kertoo kuinka valmis keho on harjoittelemaan.
+    // Everton Stage (harjoitettavuus_pisteet) = sama tieto KOKO ohjelman tasolla.
+    // Yksittäiset testit = tarkennus: MIKÄ ketju tarvitsee kohdennetun S-harjoitteen.
+    //
+    // Pisteytys: 1=punainen (heikko), 2=keltainen, 3=vihreä
+    // Alle 2 (=punainen) = prioriteetti → ohjaa S-harjoitevalintaan
+    // Liikeketju-kytkentä:
+    //   SBL = hyvää huomenta, lantionnosto, SLR, lonkan ojennus, vauhditon ph, 5-loikka
+    //   SFL = askelkyykky, thomas-testi (lonkankoukistajat)
+    //   LL  = luistelijan kyykky, sivulankku
+    //   DFL = valakyykky, etunoja, lankku, naruhypyt, jalkojennosto, leuanveto
+    if (p.testit) {
+      const t = p.testit;
+      const harjHeikoudet = [];
+
+      // ── Laatu-testit (pisteytys 1–3): punainen=1 → heikko ──────
+      // DFL — hallintaketju
+      if (t.valakyykky_p      === 1) harjHeikoudet.push({ ketju:'dfl', paino:3, testi:'valakyykky' });
+      if (t.etunoja_arvio_p   === 1) harjHeikoudet.push({ ketju:'dfl', paino:2, testi:'etunoja_arvio' });
+      if (t.lankku_p          !== undefined && t.lankku_p < 2) harjHeikoudet.push({ ketju:'dfl', paino:3, testi:'lankku' });
+      // SBL — takaketju
+      if (t.hyvaa_huomenta_p  === 1) harjHeikoudet.push({ ketju:'sbl', paino:4, testi:'hyvaa_huomenta' }); // takaketjun tärkein liike
+      if (t.lantionnosto_p    === 1) harjHeikoudet.push({ ketju:'sbl', paino:3, testi:'lantionnosto' });
+      if (t.slr_p             === 1) harjHeikoudet.push({ ketju:'sbl', paino:3, testi:'slr' }); // straight leg raise
+      if (t.lonkan_ojennus_p  === 1) harjHeikoudet.push({ ketju:'sbl', paino:2, testi:'lonkan_ojennus' });
+      // SFL — lähtöketju
+      if (t.askelkyykky_p     === 1) harjHeikoudet.push({ ketju:'sfl', paino:3, testi:'askelkyykky' });
+      if (t.thomas_testi_p    === 1) harjHeikoudet.push({ ketju:'sfl', paino:4, testi:'thomas_testi' }); // lonkankoukistajat = tärkein SFL
+      // LL — sivuketju
+      if (t.luistelijakyykky_p === 1) harjHeikoudet.push({ ketju:'ll',  paino:3, testi:'luistelijakyykky' });
+      if (t.sivulankku_p      !== undefined && t.sivulankku_p < 2) harjHeikoudet.push({ ketju:'ll', paino:3, testi:'sivulankku' });
+
+      // ── Mitattavat harjoitettavuustestit ───────────────────────
+      const ika = p.ika || 13;
+      // Naruhypyt 15s: <26=1 → DFL/SBL
+      if (t.naruhypyt_tst !== undefined && t.naruhypyt_tst < 26)
+        harjHeikoudet.push({ ketju:'dfl', paino:2, testi:'naruhypyt' });
+      // Vauhditon pituushyppy: T10-12 <1.75m, P10-12 <1.80m, T13-15 <1.85m jne.
+      const phNormi = ika<=12 ? 1.75 : ika<=15 ? 1.90 : ika<=17 ? 2.20 : 2.45;
+      if (t.vauhditon_ph_m !== undefined && t.vauhditon_ph_m < phNormi)
+        harjHeikoudet.push({ ketju:'sbl', paino:3, testi:'vauhditon_ph' });
+      // Leuanveto: U15-19 <8=heikko → DFL
+      if (t.leuanveto_tst !== undefined && t.leuanveto_tst < 8)
+        harjHeikoudet.push({ ketju:'dfl', paino:2, testi:'leuanveto' });
+      // Jalkojennosto riipunnasta: <12=heikko → DFL
+      if (t.jalkojennosto_tst !== undefined && t.jalkojennosto_tst < 12)
+        harjHeikoudet.push({ ketju:'dfl', paino:2, testi:'jalkojennosto' });
+      // YJ päkiänousu: <15=heikko → SBL (pohje)
+      if (t.yj_pakianousu_tst !== undefined && t.yj_pakianousu_tst < 15)
+        harjHeikoudet.push({ ketju:'sbl', paino:2, testi:'yj_pakianousu' });
+      // 5RM voimatestit: suhteellinen voima alle normin → SBL/SFL
+      if (t.takakyykky_5rm !== undefined && p.paino_kg) {
+        const suhteellinen = t.takakyykky_5rm / p.paino_kg;
+        if (suhteellinen < 1.2) harjHeikoudet.push({ ketju:'sbl', paino:3, testi:'takakyykky_5rm' });
+      }
+      if (t.maastaveto_5rm !== undefined && p.paino_kg) {
+        const suhteellinen = t.maastaveto_5rm / p.paino_kg;
+        if (suhteellinen < 1.5) harjHeikoudet.push({ ketju:'sbl', paino:3, testi:'maastaveto_5rm' });
+      }
+
+      if (harjHeikoudet.length > 0) {
+        // Korkein paino voittaa — thomas-testi ja hyvää huomenta ovat prioriteetti
+        harjHeikoudet.sort((a, b) => b.paino - a.paino);
+        const ketju = harjHeikoudet[0].ketju;
+        if (PANKKI.S[ketju]) return ketju;
+      }
+    }
+
+    // ── KERROS 2: H-H ominaisuustestit + Tekniikkakilpailut ──────
+    // Normit (Liikanen & Törmä 2025 + HuHe-testimanuaali 2024)
+    // Jokainen testi kytkeytyy liikeketjuun anatomisen logiikan mukaan:
+    //   SBL = takaketju:  nopeus, elastisuus, hyppyvoima
+    //   SFL = lähtöketju: kiihdytys, 1. askel, etuketju
+    //   LL  = sivuketju:  ketteryys, suunnanmuutos
+    //   DIAG = diagonaali: pallollinen tekniikka, syöttö, SM-pallo
+    //   DFL = hallinta:   kestävyys, aerobinen kapasiteetti
+    if (p.testit) {
+      const t   = p.testit;
+      const ika = p.ika || 13;
+
+      // Iänmukaiset normit (alarajat/ylärajat)
+      const normit = {
+        // ── KERROS 1: Tekniikkakilpailut (U8–U13) ──────────────────
+        // Kaikki DIAG-ketjuun (pallolliset taidot)
+        // Isompi = parempi → alle normin = heikko
+        ponnauttelu_s:    ika<=10?16:ika<=12?20:25,          // ponnauttelu toistot/30s
+        syotto_penkki_s:  ika<=10?7.5:ika<=12?6.5:5.8,      // syöttöpenkki aika (s) — alle=heikko
+        kuljetus_laukaus_s:ika<=10?9.5:ika<=12?8.5:7.5,     // kuljetus+laukaus aika (s) — yli=heikko
+        pituuspotku_m:    ika<=10?15:ika<=12?22:28,          // pituuspotku (m) — alle=heikko → SBL
+        // ── KERROS 2: H-H ominaisuustestit ─────────────────────────
+        // SBL — takaketju
+        cmj_cm:        ika <= 12 ? 20 : ika <= 14 ? 24 : ika <= 16 ? 28 : 32,
+        sjhyppy_cm:    ika <= 12 ? 16 : ika <= 14 ? 20 : ika <= 16 ? 24 : 28,
+        loikka_5m:     ika <= 12 ? 6.5: ika <= 14 ? 7.5: ika <= 16 ? 8.5: 9.5,
+        sprintti_30m:  ika <= 12 ? 5.5: ika <= 14 ? 4.9: ika <= 16 ? 4.5: 4.2,
+        // SFL — lähtöketju
+        sprintti_5m:   ika <= 12 ? 1.25:ika <= 14 ? 1.15:ika <= 16 ? 1.05:1.0,
+        sprintti_10m:  ika <= 12 ? 2.1: ika <= 14 ? 1.95:ika <= 16 ? 1.85:1.75,
+        // LL — sivuketju
+        sm_juoksu_s:   ika <= 12 ? 7.8: ika <= 14 ? 7.2: ika <= 16 ? 6.8: 6.4,
+        kasirata_s:    ika <= 12 ? 16.5:ika <= 14 ? 15.5:ika <= 16 ? 14.8:14.2,
+        t_testi_s:     ika <= 12 ? 12.5:ika <= 14 ? 11.5:ika <= 16 ? 10.8:10.2,
+        // DIAG — diagonaaliketju
+        sm_pallo_s:    ika <= 12 ? 9.5: ika <= 14 ? 8.8: ika <= 16 ? 8.2: 7.8,
+        pujottelu_s:   ika <= 12 ? 9.8: ika <= 14 ? 9.0: ika <= 16 ? 8.4: 8.0,
+        syotto_s:      ika <= 12 ? 8.5: ika <= 14 ? 7.8: ika <= 16 ? 7.2: 6.8,
+        // DFL — hallintaketju
+        mas_ms:        ika <= 12 ? 2.8: ika <= 14 ? 3.0: ika <= 16 ? 3.2: 3.4,
+      };
+
+      // Testit ja niiden ketjukytkentä
+      // ero = positiivinen luku = heikkous (normalisoidaan vertailukelpoiseksi)
+      const heikoudet = [];
+
+      // ── KERROS 1: Tekniikkakilpailut → DIAG / SBL ──────────────
+      // Isompi luku = parempi → alle normin = heikko
+      if (t.ponnauttelu_s    !== undefined && t.ponnauttelu_s    < normit.ponnauttelu_s)
+        heikoudet.push({ ketju:'diag', ero: normit.ponnauttelu_s    - t.ponnauttelu_s,    testi:'ponnauttelu_s' });
+      if (t.syotto_penkki_s  !== undefined && t.syotto_penkki_s  < normit.syotto_penkki_s)
+        heikoudet.push({ ketju:'diag', ero: normit.syotto_penkki_s  - t.syotto_penkki_s,  testi:'syotto_penkki_s' });
+      if (t.pituuspotku_m    !== undefined && t.pituuspotku_m    < normit.pituuspotku_m)
+        heikoudet.push({ ketju:'sbl',  ero: normit.pituuspotku_m    - t.pituuspotku_m,    testi:'pituuspotku_m' });
+      // Kuljetus+laukaus: isompi aika = heikompi suoritus
+      if (t.kuljetus_laukaus_s !== undefined && t.kuljetus_laukaus_s > normit.kuljetus_laukaus_s)
+        heikoudet.push({ ketju:'diag', ero: t.kuljetus_laukaus_s - normit.kuljetus_laukaus_s, testi:'kuljetus_laukaus_s' });
+
+      // ── KERROS 2: SBL-testit (isompi = parempi → alle normin = heikko) ──
+      if (t.cmj_cm      !== undefined && t.cmj_cm      < normit.cmj_cm)
+        heikoudet.push({ ketju:'sbl', ero: normit.cmj_cm      - t.cmj_cm,      testi:'cmj_cm' });
+      if (t.sjhyppy_cm  !== undefined && t.sjhyppy_cm  < normit.sjhyppy_cm)
+        heikoudet.push({ ketju:'sbl', ero: normit.sjhyppy_cm  - t.sjhyppy_cm,  testi:'sjhyppy_cm' });
+      if (t.loikka_5m   !== undefined && t.loikka_5m   < normit.loikka_5m)
+        heikoudet.push({ ketju:'sbl', ero: normit.loikka_5m   - t.loikka_5m,   testi:'loikka_5m' });
+
+      // SBL-testit (pienempi tulos = parempi → yli normin = heikko)
+      if (t.sprintti_30m !== undefined && t.sprintti_30m > normit.sprintti_30m)
+        heikoudet.push({ ketju:'sbl', ero: t.sprintti_30m - normit.sprintti_30m, testi:'sprintti_30m' });
+
+      // SFL-testit
+      if (t.sprintti_5m  !== undefined && t.sprintti_5m  > normit.sprintti_5m)
+        heikoudet.push({ ketju:'sfl', ero: t.sprintti_5m  - normit.sprintti_5m,  testi:'sprintti_5m' });
+      if (t.sprintti_10m !== undefined && t.sprintti_10m > normit.sprintti_10m)
+        heikoudet.push({ ketju:'sfl', ero: t.sprintti_10m - normit.sprintti_10m, testi:'sprintti_10m' });
+
+      // LL-testit
+      if (t.sm_juoksu_s  !== undefined && t.sm_juoksu_s  > normit.sm_juoksu_s)
+        heikoudet.push({ ketju:'ll',  ero: t.sm_juoksu_s  - normit.sm_juoksu_s,  testi:'sm_juoksu_s' });
+      if (t.kasirata_s   !== undefined && t.kasirata_s   > normit.kasirata_s)
+        heikoudet.push({ ketju:'ll',  ero: t.kasirata_s   - normit.kasirata_s,   testi:'kasirata_s' });
+      if (t.t_testi_s    !== undefined && t.t_testi_s    > normit.t_testi_s)
+        heikoudet.push({ ketju:'ll',  ero: t.t_testi_s    - normit.t_testi_s,    testi:'t_testi_s' });
+
+      // DIAG-testit
+      if (t.sm_pallo_s   !== undefined && t.sm_pallo_s   > normit.sm_pallo_s)
+        heikoudet.push({ ketju:'diag',ero: t.sm_pallo_s   - normit.sm_pallo_s,   testi:'sm_pallo_s' });
+      if (t.pujottelu_s  !== undefined && t.pujottelu_s  > normit.pujottelu_s)
+        heikoudet.push({ ketju:'diag',ero: t.pujottelu_s  - normit.pujottelu_s,  testi:'pujottelu_s' });
+      if (t.syotto_s     !== undefined && t.syotto_s     > normit.syotto_s)
+        heikoudet.push({ ketju:'diag',ero: t.syotto_s     - normit.syotto_s,     testi:'syotto_s' });
+
+      // DFL-testit (MAS: isompi = parempi → alle normin = heikko)
+      if (t.mas_ms       !== undefined && t.mas_ms       < normit.mas_ms)
+        heikoudet.push({ ketju:'dfl', ero: normit.mas_ms - t.mas_ms,             testi:'mas_ms' });
+
+      if (heikoudet.length > 0) {
+        // Eniten normista poikkeava testi voittaa
+        // Normalisoidaan ero suhteessa normiarvoon jotta eri yksiköt ovat vertailukelpoisia
+        heikoudet.forEach(h => {
+          const normi = normit[h.testi];
+          h.ero_norm = normi ? Math.abs(h.ero / normi) : h.ero;
+        });
+        heikoudet.sort((a, b) => b.ero_norm - a.ero_norm);
+        const ketju = heikoudet[0].ketju;
+        if (PANKKI.S[ketju]) return ketju;
+      }
+    }
+
+    // Fallback: FLEI-heikoin + parillinen/pariton rotaatio (backward compat)
+    return vkP === 'parillinen'
+      ? ketjuProf.heikoin
+      : ketjuProf.toiseksiHeikoin;
+  }
+
   if (ika >= 13 && PANKKI.S[sKetju]) {
     const sRyyhma = PANKKI.S[sKetju].find(r => r.vk === vkParit) || PANKKI.S[sKetju][0];
     if (sRyyhma?.stage_tasot) {
@@ -1040,6 +1332,11 @@ function generoimTehtavat(pelaaja) {
       const sOhje  = _ohje(sHarj, ityyppi);
       const sPhv   = phv === 'PH' && sHarj.phv ? sOhje + '\n\n⚠️ ' + sHarj.phv : sOhje;
       const sXp    = phv === 'PH' && sHarj.phv_xp ? sHarj.phv_xp : sHarj.xp;
+
+      // Selvitetään mikä ohjasi valintaa (läpinäkyvyys pelaajalle/valmentajalle)
+      const sValintaPeruste = (pelaaja.adar_pisteet < 30) ? 'adar'
+        : (pelaaja.testit && Object.keys(pelaaja.testit).length > 0) ? 'testidata'
+        : 'flei';
 
       tehtavat.push({
         id: 's_kohdennettu', tyyppi: 'S',
@@ -1052,9 +1349,10 @@ function generoimTehtavat(pelaaja) {
         yt: sHarj.yt,
         ketju: sKetju,
         ketjuNimi: KETJUT[sKetju]?.nimi,
+        valinta_peruste: sValintaPeruste, // 'testidata'|'adar'|'flei'
         stage,
         stageLabel: `Everton Stage ${stage}`,
-        vkKierto: `Viikko ${viikonNro} · ${vkParit === 'parillinen' ? 'Heikoin' : 'Toiseksi heikoin'} ketju`,
+        vkKierto: `Viikko ${viikonNro} · ${sValintaPeruste === 'flei' ? (vkParit === 'parillinen' ? 'Heikoin' : 'Toiseksi heikoin') : 'Testidata'} ketju`,
         ityyppi,
       });
     }
@@ -1653,19 +1951,11 @@ function generoimTehtavatV2(pelaaja, jaksoViikko) {
   const tehtavat = [];
 
   // Ketjujärjestys
-  const ketjuArvot = {
-    sbl: pelaaja.sbl  || 1.5,
-    sfl: pelaaja.sfl  || 1.5,
-    ll:  pelaaja.ll   || 1.5,
-    sl:  pelaaja.sl   || pelaaja.diag || 1.5, // backward-compat: sl → diag
-    dfl: pelaaja.dfl  || 1.5,
-    pig: pelaaja.pig  || 1.5,
-  };
-  const jarjestys = Object.entries(ketjuArvot)
-    .sort(([,a],[,b]) => a - b)
-    .map(([k]) => k);
-  const heikoin         = jarjestys[0];
-  const toiseksiHeikoin = jarjestys[1];
+  // Käytä laskeKetjuProfiili():a samoin kuin generoimTehtavat()
+  // Tämä varmistaa identtisen FLEI-heikoin-laskennan
+  const profV2 = laskeKetjuProfiili(pelaaja);
+  const heikoin         = profV2.heikoin;
+  const toiseksiHeikoin = profV2.toiseksiHeikoin;
 
   // Ajastus
   const ikaLuokka  = ika <= 12 ? 'U12' : ika <= 15 ? 'U15' : 'U19';
@@ -1704,35 +1994,144 @@ function generoimTehtavatV2(pelaaja, jaksoViikko) {
     ketju:null, stage, ityyppi,
   });
 
-  // 2. D-harjoite pankkista — vaihtelee viikonpäivän mukaan
-  const dVaihtoehdot = HARJOITEPANKKI[heikoin]?.D || [];
-  const dHarj = dVaihtoehdot.find(h => h.pv && h.pv.includes(paivaNro)) || dVaihtoehdot[0];
-  if (dHarj) {
-    const dOhje = (phv === 'PH' && dHarj.phv)
-      ? dHarj.ohje + '\n\n⚠️ ' + dHarj.phv : dHarj.ohje;
+  // 2. D-harjoite — identtinen generoimTehtavat()-logiikka
+  // PANKKI.D (stage-pohjainen) korvaa HARJOITEPANKKI.D (viikonpäivä-pohjainen)
+  // ADAR-override: adar_pisteet < 40 → diag-ketju
+  const dKetjuV2 = (
+    pelaaja.adar_pisteet !== undefined &&
+    pelaaja.adar_pisteet !== null &&
+    pelaaja.adar_pisteet < 40
+  ) ? 'diag' : heikoin;
+
+  const dPoolV2 = PANKKI.D[dKetjuV2] || PANKKI.D['dfl'] || [];
+  const dHarjV2 = dPoolV2.find(h => h.stage && h.stage.some(s => s <= stage+1 && s >= stage-1))
+               || dPoolV2[0] || null;
+
+  if (dHarjV2) {
+    const dOhjeV2 = _ohje(dHarjV2, ityyppi);
+    const dPhvV2  = phv === 'PH' && dHarjV2.phv
+      ? dOhjeV2 + '\n\n⚠️ ' + dHarjV2.phv : dOhjeV2;
     tehtavat.push({
-      id:'d_aktivointi', tyyppi:'D', label:'Päivittäinen',
+      id:'d_aktivointi', tyyppi:'D', label:'🔄 Päivittäinen',
       label_cue:'5–10 min · Ylläpito · Myös lepopäivät',
-      nimi:dHarj.nimi, ohje:dOhje, kesto:dHarj.kesto, xp:dHarj.xp,
-      cue:dHarj.cue, ketju:heikoin, ketjuNimi:KETJUT[heikoin]?.nimi,
-      fascia_cue: dHarj.fascia_cue,
+      nimi:dHarjV2.nimi, ohje:dPhvV2, kesto:dHarjV2.kesto, xp:dHarjV2.xp,
+      cue:dHarjV2.cue, yt:dHarjV2.yt,
+      ketju:dKetjuV2, ketjuNimi:KETJUT[dKetjuV2]?.nimi,
+      adar_override: dKetjuV2 !== heikoin,
+      stage, ityyppi,
     });
   }
 
-  // 3. S-harjoite pankkista — U13+
-  if (ika >= 13) {
-    const sVaihtoehdot = HARJOITEPANKKI[sKetju]?.S || [];
-    const sHarj = sVaihtoehdot.find(h => h.vk === vkParit) || sVaihtoehdot[0];
-    if (sHarj) {
-      const sOhje = (phv === 'PH' && sHarj.phv) ? sHarj.ohje + '\n\n⚠️ ' + sHarj.phv : sHarj.ohje;
-      const sXp   = (phv === 'PH' && sHarj.phv_xp) ? sHarj.phv_xp : sHarj.xp;
+  // 3. S-harjoite — identtinen testidataohjattu logiikka
+  // Sama _laskeSKetju-logiikka kuin generoimTehtavat():ssa
+  const sKetjuV2 = (function() {
+    if (pelaaja.adar_pisteet !== undefined && pelaaja.adar_pisteet < 30 && PANKKI.S['diag'])
+      return 'diag';
+    // Kerros 3: Harjoitettavuuskartoitus
+    if (pelaaja.testit) {
+      const tv = pelaaja.testit;
+      const harjH = [];
+      if(tv.valakyykky_p===1)        harjH.push({ketju:'dfl',paino:3});
+      if(tv.hyvaa_huomenta_p===1)    harjH.push({ketju:'sbl',paino:4});
+      if(tv.lantionnosto_p===1)      harjH.push({ketju:'sbl',paino:3});
+      if(tv.slr_p===1)               harjH.push({ketju:'sbl',paino:3});
+      if(tv.lonkan_ojennus_p===1)    harjH.push({ketju:'sbl',paino:2});
+      if(tv.askelkyykky_p===1)       harjH.push({ketju:'sfl',paino:3});
+      if(tv.thomas_testi_p===1)      harjH.push({ketju:'sfl',paino:4});
+      if(tv.luistelijakyykky_p===1)  harjH.push({ketju:'ll', paino:3});
+      if(tv.etunoja_arvio_p===1)     harjH.push({ketju:'dfl',paino:2});
+      if(tv.lankku_p!==undefined&&tv.lankku_p<2)        harjH.push({ketju:'dfl',paino:3});
+      if(tv.sivulankku_p!==undefined&&tv.sivulankku_p<2) harjH.push({ketju:'ll',paino:3});
+      const phNv = ika<=12?1.75:ika<=15?1.90:ika<=17?2.20:2.45;
+      if(tv.naruhypyt_tst!==undefined&&tv.naruhypyt_tst<26)    harjH.push({ketju:'dfl',paino:2});
+      if(tv.vauhditon_ph_m!==undefined&&tv.vauhditon_ph_m<phNv) harjH.push({ketju:'sbl',paino:3});
+      if(tv.leuanveto_tst!==undefined&&tv.leuanveto_tst<8)      harjH.push({ketju:'dfl',paino:2});
+      if(tv.jalkojennosto_tst!==undefined&&tv.jalkojennosto_tst<12) harjH.push({ketju:'dfl',paino:2});
+      if(tv.yj_pakianousu_tst!==undefined&&tv.yj_pakianousu_tst<15) harjH.push({ketju:'sbl',paino:2});
+      if(tv.takakyykky_5rm!==undefined&&pelaaja.paino_kg&&tv.takakyykky_5rm/pelaaja.paino_kg<1.2) harjH.push({ketju:'sbl',paino:3});
+      if(tv.maastaveto_5rm!==undefined&&pelaaja.paino_kg&&tv.maastaveto_5rm/pelaaja.paino_kg<1.5) harjH.push({ketju:'sbl',paino:3});
+      if(harjH.length>0){
+        harjH.sort((a,b)=>b.paino-a.paino);
+        const k=harjH[0].ketju;
+        if(PANKKI.S[k]) return k;
+      }
+    }
+    // Kerros 2: H-H testit + tekniikkakilpailut
+    if (pelaaja.testit) {
+      const t = pelaaja.testit;
+      const normit = {
+        ponnauttelu_s:    ika<=10?16:ika<=12?20:25,
+        syotto_penkki_s:  ika<=10?7.5:ika<=12?6.5:5.8,
+        kuljetus_laukaus_s:ika<=10?9.5:ika<=12?8.5:7.5,
+        pituuspotku_m:    ika<=10?15:ika<=12?22:28,
+        cmj_cm:       ika<=12?20:ika<=14?24:ika<=16?28:32,
+        sjhyppy_cm:   ika<=12?16:ika<=14?20:ika<=16?24:28,
+        loikka_5m:    ika<=12?6.5:ika<=14?7.5:ika<=16?8.5:9.5,
+        sprintti_30m: ika<=12?5.5:ika<=14?4.9:ika<=16?4.5:4.2,
+        sprintti_5m:  ika<=12?1.25:ika<=14?1.15:ika<=16?1.05:1.0,
+        sprintti_10m: ika<=12?2.1:ika<=14?1.95:ika<=16?1.85:1.75,
+        sm_juoksu_s:  ika<=12?7.8:ika<=14?7.2:ika<=16?6.8:6.4,
+        kasirata_s:   ika<=12?16.5:ika<=14?15.5:ika<=16?14.8:14.2,
+        t_testi_s:    ika<=12?12.5:ika<=14?11.5:ika<=16?10.8:10.2,
+        sm_pallo_s:   ika<=12?9.5:ika<=14?8.8:ika<=16?8.2:7.8,
+        pujottelu_s:  ika<=12?9.8:ika<=14?9.0:ika<=16?8.4:8.0,
+        syotto_s:     ika<=12?8.5:ika<=14?7.8:ika<=16?7.2:6.8,
+        mas_ms:       ika<=12?2.8:ika<=14?3.0:ika<=16?3.2:3.4,
+      };
+      const heikoudet = [];
+      // Kerros 1: tekniikkakilpailut
+      if(t.ponnauttelu_s    !==undefined&&t.ponnauttelu_s    <normit.ponnauttelu_s)    heikoudet.push({ketju:'diag',ero:normit.ponnauttelu_s-t.ponnauttelu_s,testi:'ponnauttelu_s'});
+      if(t.syotto_penkki_s  !==undefined&&t.syotto_penkki_s  <normit.syotto_penkki_s)  heikoudet.push({ketju:'diag',ero:normit.syotto_penkki_s-t.syotto_penkki_s,testi:'syotto_penkki_s'});
+      if(t.pituuspotku_m    !==undefined&&t.pituuspotku_m    <normit.pituuspotku_m)    heikoudet.push({ketju:'sbl', ero:normit.pituuspotku_m-t.pituuspotku_m,testi:'pituuspotku_m'});
+      if(t.kuljetus_laukaus_s!==undefined&&t.kuljetus_laukaus_s>normit.kuljetus_laukaus_s) heikoudet.push({ketju:'diag',ero:t.kuljetus_laukaus_s-normit.kuljetus_laukaus_s,testi:'kuljetus_laukaus_s'});
+      // SBL
+      if(t.cmj_cm      !==undefined&&t.cmj_cm      <normit.cmj_cm)      heikoudet.push({ketju:'sbl',ero:normit.cmj_cm-t.cmj_cm,testi:'cmj_cm'});
+      if(t.sjhyppy_cm  !==undefined&&t.sjhyppy_cm  <normit.sjhyppy_cm)  heikoudet.push({ketju:'sbl',ero:normit.sjhyppy_cm-t.sjhyppy_cm,testi:'sjhyppy_cm'});
+      if(t.loikka_5m   !==undefined&&t.loikka_5m   <normit.loikka_5m)   heikoudet.push({ketju:'sbl',ero:normit.loikka_5m-t.loikka_5m,testi:'loikka_5m'});
+      if(t.sprintti_30m!==undefined&&t.sprintti_30m>normit.sprintti_30m) heikoudet.push({ketju:'sbl',ero:t.sprintti_30m-normit.sprintti_30m,testi:'sprintti_30m'});
+      // SFL
+      if(t.sprintti_5m !==undefined&&t.sprintti_5m >normit.sprintti_5m)  heikoudet.push({ketju:'sfl',ero:t.sprintti_5m-normit.sprintti_5m,testi:'sprintti_5m'});
+      if(t.sprintti_10m!==undefined&&t.sprintti_10m>normit.sprintti_10m) heikoudet.push({ketju:'sfl',ero:t.sprintti_10m-normit.sprintti_10m,testi:'sprintti_10m'});
+      // LL
+      if(t.sm_juoksu_s !==undefined&&t.sm_juoksu_s >normit.sm_juoksu_s)  heikoudet.push({ketju:'ll', ero:t.sm_juoksu_s-normit.sm_juoksu_s,testi:'sm_juoksu_s'});
+      if(t.kasirata_s  !==undefined&&t.kasirata_s  >normit.kasirata_s)   heikoudet.push({ketju:'ll', ero:t.kasirata_s-normit.kasirata_s,testi:'kasirata_s'});
+      if(t.t_testi_s   !==undefined&&t.t_testi_s   >normit.t_testi_s)    heikoudet.push({ketju:'ll', ero:t.t_testi_s-normit.t_testi_s,testi:'t_testi_s'});
+      // DIAG
+      if(t.sm_pallo_s  !==undefined&&t.sm_pallo_s  >normit.sm_pallo_s)   heikoudet.push({ketju:'diag',ero:t.sm_pallo_s-normit.sm_pallo_s,testi:'sm_pallo_s'});
+      if(t.pujottelu_s !==undefined&&t.pujottelu_s >normit.pujottelu_s)  heikoudet.push({ketju:'diag',ero:t.pujottelu_s-normit.pujottelu_s,testi:'pujottelu_s'});
+      if(t.syotto_s    !==undefined&&t.syotto_s    >normit.syotto_s)     heikoudet.push({ketju:'diag',ero:t.syotto_s-normit.syotto_s,testi:'syotto_s'});
+      // DFL
+      if(t.mas_ms      !==undefined&&t.mas_ms      <normit.mas_ms)       heikoudet.push({ketju:'dfl', ero:normit.mas_ms-t.mas_ms,testi:'mas_ms'});
+
+      if(heikoudet.length>0){
+        heikoudet.forEach(h=>{const n=normit[h.testi];h.ero_norm=n?Math.abs(h.ero/n):h.ero;});
+        heikoudet.sort((a,b)=>b.ero_norm-a.ero_norm);
+        const k=heikoudet[0].ketju;
+        if(PANKKI.S[k]) return k;
+      }
+    }
+    return vkParit==='parillinen' ? heikoin : toiseksiHeikoin;
+  })();
+
+  if (ika >= 13 && PANKKI.S[sKetjuV2]) {
+    const sRyhmaV2 = PANKKI.S[sKetjuV2].find(r => r.vk === vkParit) || PANKKI.S[sKetjuV2][0];
+    if (sRyhmaV2?.stage_tasot) {
+      const sHarjV2 = _valitseStage(sRyhmaV2.stage_tasot, stage);
+      const sOhjeV2 = _ohje(sHarjV2, ityyppi);
+      const sPhvV2  = phv === 'PH' && sHarjV2.phv ? sOhjeV2 + '\n\n⚠️ ' + sHarjV2.phv : sOhjeV2;
+      const sXpV2   = phv === 'PH' && sHarjV2.phv_xp ? sHarjV2.phv_xp : sHarjV2.xp;
+      const sPeruste = (pelaaja.adar_pisteet < 30) ? 'adar'
+        : (pelaaja.testit && Object.keys(pelaaja.testit).length > 0) ? 'testidata' : 'flei';
       tehtavat.push({
-        id:'s_kohdennettu', tyyppi:'S', label:'Kohdennettu',
-        label_cue:'30% · Heikoin ketju · 15–20 min · Vapaa-/lepopäivä',
-        nimi:sHarj.nimi, ohje:sOhje, kesto:sHarj.kesto, xp:sXp,
-        cue:sHarj.cue, ketju:sKetju, ketjuNimi:KETJUT[sKetju]?.nimi,
-        fascia_cue: sHarj.fascia_cue,
-        vkKierto: `Viikko ${viikonNro} · ${vkParit === 'parillinen' ? 'Heikoin' : 'Toiseksi heikoin'} ketju`,
+        id:'s_kohdennettu', tyyppi:'S', label:'🎯 Kohdennettu 30%',
+        label_cue:`15–20 min · ${KETJUT[sKetjuV2]?.lyhyt} · Vapaa-/lepopäivä`,
+        nimi:sHarjV2.nimi, ohje:sPhvV2, kesto:sHarjV2.kesto, xp:sXpV2,
+        cue:sHarjV2.cue, yt:sHarjV2.yt,
+        ketju:sKetjuV2, ketjuNimi:KETJUT[sKetjuV2]?.nimi,
+        valinta_peruste: sPeruste,
+        stage, stageLabel:`Everton Stage ${stage}`,
+        vkKierto:`Viikko ${viikonNro} · ${sPeruste === 'flei' ? (vkParit==='parillinen'?'Heikoin':'Toiseksi heikoin') : 'Testidata'} ketju`,
+        ityyppi,
       });
     }
   }
@@ -2011,18 +2410,19 @@ function generoimViikoOhjelma(pelaaja, joukkuePaivat) {
       return;
     }
 
-    // ── D: joka päivä ───────────────────────────────────────
-    const dVaihtoehdot = HARJOITEPANKKI[heikoin]?.D || [];
-    const dHarj = dVaihtoehdot.find(h => h.pv && h.pv.includes(pvIdx)) || dVaihtoehdot[0];
+    // ── D: joka päivä — PANKKI.D (stage-pohjainen, yhtenäinen) ──
+    const dPoolVko = PANKKI.D[heikoin] || PANKKI.D['dfl'] || [];
+    const dHarj = dPoolVko.find(h => h.stage && h.stage.some(s => s <= stage+1 && s >= stage-1))
+               || dPoolVko[0];
     if (dHarj) {
+      const dOhjeVko = _ohje(dHarj, ityyppi);
       harjoitteet.push({
         tyyppi: 'D',
         nimi: dHarj.nimi,
-        ohje: (phv === 'PH' && dHarj.phv) ? dHarj.ohje + ' ⚠️ ' + dHarj.phv : dHarj.ohje,
+        ohje: (phv === 'PH' && dHarj.phv) ? dOhjeVko + ' ⚠️ ' + dHarj.phv : dOhjeVko,
         kesto: dHarj.kesto,
         xp: dHarj.xp,
         cue: dHarj.cue,
-        fascia_cue: dHarj.fascia_cue,
         ketju: heikoin,
       });
     }
