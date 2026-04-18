@@ -13,6 +13,7 @@
   --carbon:#1C1C1A;
   --bone:#F2EFE6;
   --teal:#1A7A5E;   /* bone-pohja 4.58:1 ✅ */
+  --teal-d:#28B090; /* carbon-pohja 6.26:1 ✅ */   /* bone-pohja 4.58:1 ✅ */
   --teal-d:#28B090; /* carbon-pohja 6.26:1 ✅ */
   --teal2:rgba(26,122,94,.10);
   --slate:#A8A79F;  /* Palette v3 dark-UI ✅ */
@@ -1541,6 +1542,16 @@ async function _lataaProfiili(user) {
     var rooli   = (claims.rooli || claims.role || '').toLowerCase();
     var clSeura = claims.seuraId || claims.seura || null;
 
+    /* ── Sallitut roolit — Master/Valmentaja-näkymä ───────────────
+       KRIITTINEN KORJAUS: valmentaja-roolit puuttuivat — käyttäjät
+       saivat "Profiilia ei löydy" vaikka Claims oli oikein.
+    */
+    var SALLITUT_ROOLIT = [
+      'super_admin', 'valmentaja', 'talenttivalmentaja',
+      'fysiikkavalmentaja', 'fysioterapeutti', 'testivastaava',
+      'vp', 'urheilutoimenjohtaja', 'seurasihteeri',
+    ];
+
     /* ── Sallitut roolit — Master/Valmentaja-näkymä ─────────────────
        KRIITTINEN KORJAUS: valmentaja-roolit puuttuivat — KPV:n
        valmentajat saivat "Profiilia ei löydy" vaikka Claims oli oikein.
@@ -1630,6 +1641,17 @@ async function _lataaProfiili(user) {
       el('sbAvatar').textContent  = (user.email || '?')[0].toUpperCase();
       el('tanTervehdys').textContent = rooli.charAt(0).toUpperCase() + rooli.slice(1);
       loydetty = true;
+    }
+    if (!loydetty && SALLITUT_ROOLIT.includes(rooli) && rooli !== 'super_admin') {
+      console.warn('[Master] Sallittu rooli, kayttajat-doc puuttuu:', rooli, user.email);
+      _seuraId = clSeura || 'kpv';
+      _joukkue = claims.joukkueId || null;
+      el('sbSeura').textContent   = (_seuraId || 'Seura').toUpperCase();
+      el('sbJoukkue').textContent = claims.joukkueNimi || _joukkue || 'Ei joukkuetta';
+      el('sbEmail').textContent   = user.email;
+      el('sbAvatar').textContent  = (user.email || '?')[0].toUpperCase();
+      el('tanTervehdys').textContent = rooli.charAt(0).toUpperCase() + rooli.slice(1);
+      loydettu = true;
     }
     if (!loydetty) {
       try {
@@ -2068,26 +2090,43 @@ async function _rakennaaHuomioLista() {
 }
 
 async function _haeFiilinkiKooste() {
+  /* Promise.allSettled — N+1 korjaus (Senior Arkkitehti 2026)
+     Ennen: for-silmukka + await = 20 peräkkäistä verkkopyyntöä (~3s)
+     Jälkeen: Promise.allSettled = kaikki rinnakkain (~0.3s)
+     allSettled eikä all: yhden epäonnistuminen ei tuhoa muiden dataa */
   var el2 = el('fiilinkiKooste');
-  // Haetaan eilen lähetetyt fiilinkit pelaajilta
-  // Tallennetaan pelaajat/{id}/kirjaukset/{pvm} kokoelmaan
   var eilen = new Date();
   eilen.setDate(eilen.getDate() - 1);
   var eilenStr = eilen.toISOString().split('T')[0];
   var laskurit = {1:0, 2:0, 3:0, 4:0, 5:0};
   var yhteensa = 0;
+  var epaonnistui = 0;
+  var otanta = _pelaajat.slice(0, 20);
+  var kyselyt = otanta.map(function(p) {
+    return _db.collection('seurat').doc(_seuraId)
+      .collection('pelaajat').doc(p.id)
+      .collection('kirjaukset').doc(eilenStr).get();
+  });
+  var tulokset;
   try {
-    for (var i = 0; i < Math.min(_pelaajat.length, 20); i++) {
-      var p = _pelaajat[i];
-      var s = await _db.collection('seurat').doc(_seuraId)
-        .collection('pelaajat').doc(p.id)
-        .collection('kirjaukset').doc(eilenStr).get();
-      if (s.exists && s.data().fiilinki) {
-        var f = parseInt(s.data().fiilinki);
-        if (laskurit[f] !== undefined) { laskurit[f]++; yhteensa++; }
-      }
+    tulokset = await Promise.allSettled(kyselyt);
+  } catch(e) {
+    console.warn('[Fiilinki] Batch epäonnistui:', e.message);
+    el2.innerHTML = '<div style="font-size:12px;color:var(--ink3);text-align:center;padding:14px 0">Ei fiilinki-dataa eiliseltä</div>';
+    return;
+  }
+  tulokset.forEach(function(tulos, i) {
+    if (tulos.status === 'rejected') {
+      console.warn('[Fiilinki] Pelaajan haku epäonnistui:', otanta[i]?.id, tulos.reason?.message);
+      epaonnistui++;
+      return;
     }
-  } catch(e) { console.warn('[Fiilinki]', e.message); }
+    var s = tulos.value;
+    if (s.exists && s.data().fiilinki) {
+      var f = parseInt(s.data().fiilinki);
+      if (laskurit[f] !== undefined) { laskurit[f]++; yhteensa++; }
+    }
+  });
   var emojit = {1:'😫',2:'😕',3:'😐',4:'🙂',5:'🔥'};
   var varit = {1:'#EF4444',2:'#F97316',3:'#C8882A',4:'#7FD96A',5:'#22C55E'};
   if (yhteensa === 0) {
