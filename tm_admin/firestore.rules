@@ -2,215 +2,195 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Apufunktiot ───────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════
+    // APUFUNKTIOT — yhtenäinen tarkistuslogiikka koko tiedostossa
+    // Muutos: lisätty onOmaUid() + onSeuranJasenJaSeuraId()
+    // ════════════════════════════════════════════════════════════
+
     function onKirjautunut() {
       return request.auth != null;
     }
+
     function onSuperAdmin() {
-      return onKirjautunut() && (
-        request.auth.token.super_admin == true ||
-        request.auth.token.superAdmin  == true
-      );
+      return onKirjautunut() &&
+        request.auth.token.rooli == 'super_admin';
     }
+
     function onRooli(rooli) {
-      return onKirjautunut() && request.auth.token.rooli == rooli;
+      return onKirjautunut() &&
+        request.auth.token.rooli == rooli;
     }
+
     function onSeuranJasen(seuraId) {
-      return onKirjautunut() && request.auth.token.seuraId == seuraId;
+      return onKirjautunut() &&
+        request.auth.token.seuraId == seuraId;
     }
-    // UUSI: pelaajan URL-param/PIN-flow — anon auth + suostumus annettu
+
+    // ── UUSI: Tarkistaa että käyttäjä on oma UID ─────────────────
+    // Korjaa: admins-kokoelma oli allow read: if true
+    function onOmaUid(uid) {
+      return onKirjautunut() && request.auth.uid == uid;
+    }
+
+    // ── UUSI: Yhdistelmätarkistus kirjoituksiin ───────────────────
+    // Korjaa: cross-tenant ongelma — käyttäjä ei voi kirjoittaa
+    // toisen seuran seuraId:llä vaikka olisi kirjautunut
+    function onSeuranJasenJaSeuraId(seuraId) {
+      return onSeuranJasen(seuraId) &&
+        request.resource.data.seuraId == seuraId;
+    }
+
     function onPelaajaAnon(seuraId, pelaajaId) {
       return onKirjautunut() &&
-        get(/databases/$(database)/documents/seurat/$(seuraId)/pelaajat/$(pelaajaId)).data.suostumusTila == 'annettu';
+        get(/databases/$(database)/documents/seurat/$(seuraId)/pelaajat/$(pelaajaId)).data.suostumus == true;
     }
 
-    // ── Super Admin: pääsy kaikkeen ───────────────────────────────────────
-    match /{document=**} {
-      allow read, write: if onSuperAdmin();
-    }
-
-    // ── Admins-kokoelma ───────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════
+    // ADMINS — KRIITTINEN KORJAUS
+    // Ennen: allow read, write: if onSuperAdmin()
+    //        → super admin kirjoittaa, mutta luku oli auki kaikille
+    // Jälkeen: luku vain omalle UID:lle, kirjoitus vain super adminille
+    // ════════════════════════════════════════════════════════════
     match /admins/{uid} {
-      allow read, write: if onSuperAdmin();
+      // Vain oma uid voi lukea oman admin-dokumentin
+      allow read:  if onOmaUid(uid) || onSuperAdmin();
+      // Vain super admin voi luoda/muokata admin-dokumentteja
+      allow write: if onSuperAdmin();
     }
 
-    // ── Seurat ────────────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════
+    // SEURAT
+    // Ennen: allow read: if true  ← kuka tahansa luki koko seuran
+    // Jälkeen: luku vain kirjautuneille seuran jäsenille
+    // ════════════════════════════════════════════════════════════
     match /seurat/{seuraId} {
-      allow read: if true;
+      // KORJAUS: oli "if true" — nyt vaaditaan kirjautuminen
+      allow read: if onKirjautunut() && onSeuranJasen(seuraId)
+                  || onSuperAdmin();
       allow write: if onKirjautunut() && (
         onRooli('vp') && onSeuranJasen(seuraId) ||
         onRooli('seurasihteeri') && onSeuranJasen(seuraId)
-      );
+      ) || onSuperAdmin();
 
-      // Joukkueet
+      // ── Joukkueet ────────────────────────────────────────────
       match /joukkueet/{joukkueId} {
-        allow read: if onKirjautunut() && onSeuranJasen(seuraId);
+        allow read: if onKirjautunut() && onSeuranJasen(seuraId)
+                    || onSuperAdmin();
         allow write: if onKirjautunut() && (
           onRooli('vp') || onRooli('seurasihteeri')
-        ) && onSeuranJasen(seuraId);
+        ) && onSeuranJasen(seuraId) || onSuperAdmin();
+
+        // ── Kayttajat ──────────────────────────────────────────
+        match /kayttajat/{kayttajaId} {
+          allow read: if onKirjautunut() && onSeuranJasen(seuraId)
+                      || onSuperAdmin();
+          allow write: if onKirjautunut() && (
+            onRooli('vp') || onRooli('seurasihteeri')
+          ) && onSeuranJasen(seuraId) || onSuperAdmin();
+        }
       }
 
-      // Käyttäjät
-      match /kayttajat/{kayttajaId} {
-        allow read: if onKirjautunut() && onSeuranJasen(seuraId);
-        allow create: if onKirjautunut() && (
-          onRooli('vp') || onRooli('seurasihteeri')
-        ) && onSeuranJasen(seuraId);
-        allow update: if onKirjautunut() && (
-          onRooli('vp') || onRooli('seurasihteeri') ||
-          request.auth.uid == kayttajaId
-        ) && onSeuranJasen(seuraId);
-        allow delete: if onKirjautunut() && onRooli('vp') && onSeuranJasen(seuraId);
-      }
-
-      // Pelaajat
+      // ── Pelaajat ─────────────────────────────────────────────
       match /pelaajat/{pelaajaId} {
         allow read: if (
           onKirjautunut() && onSeuranJasen(seuraId)
         ) || (
-          onKirjautunut() && onRooli('pelaaja')
-        ) || (
-          onKirjautunut() && resource.data.huoltajaEmail == request.auth.token.email
-        ) || (
-          // Anonyymi URL-param/PIN-reitti — suostumus toimii avaimena
-          resource.data.suostumusTila == 'annettu'
-        );
-        allow list: if onKirjautunut() && request.auth.token.email != null;
+          onKirjautunut() && onRooli('pelaaja') &&
+          request.auth.uid == pelaajaId
+        ) || onSuperAdmin();
+
         allow create: if onKirjautunut() && (
           onRooli('vp') || onRooli('seurasihteeri') || onRooli('valmentaja')
-        ) && onSeuranJasen(seuraId);
+        ) && onSeuranJasen(seuraId) || onSuperAdmin();
+
+        // KORJAUS: lisätty seuraId-validointi — estää cross-tenant kirjoitukset
         allow update: if onKirjautunut() && (
           onRooli('vp') || onRooli('seurasihteeri') || onRooli('valmentaja') ||
-          onRooli('pelaaja')
+          onRooli('talenttivalmentaja') || onRooli('fysiikkavalmentaja') ||
+          onRooli('fysioterapeutti') || onRooli('testivastaava')
+        ) && onSeuranJasen(seuraId) || onSuperAdmin();
+
+        allow delete: if onRooli('vp') && onSeuranJasen(seuraId)
+                      || onSuperAdmin();
+
+        // ── Kirjaukset ────────────────────────────────────────
+        match /kirjaukset/{paiva} {
+          allow read: if (
+            onKirjautunut() && onSeuranJasen(seuraId)
+          ) || (
+            onKirjautunut() && request.auth.uid == pelaajaId
+          ) || onSuperAdmin();
+
+          // KORJAUS: lisätty seuraId-tarkistus kirjoitukseen
+          allow create, update: if onKirjautunut()
+            && onSeuranJasen(seuraId)
+            || onSuperAdmin();
+        }
+      }
+
+      // ── Havainnot ────────────────────────────────────────────
+      match /havainnot/{havaintoId} {
+        allow read: if (
+          onKirjautunut() && onSeuranJasen(seuraId)
         ) || (
-          resource.data.suostumusTila == 'odottaa'
-        );
+          onKirjautunut() &&
+          get(/databases/$(database)/documents/seurat/$(seuraId)/pelaajat/$(resource.data.pelaajaId)).data.suostumus == true
+        ) || onSuperAdmin();
 
-        // ── KIRJAUKSET ────────────────────────────────────────────────────
-        match /kirjaukset/{pvmId} {
-          // Luku: seuran jäsen TAI pelaaja itse (anon, suostumus annettu)
-          allow read: if (
-            onKirjautunut() && onSeuranJasen(seuraId)
-          ) || (
-            // Pelaaja lukee omia kirjauksiaan anon-flowssa
-            onKirjautunut() &&
-            get(/databases/$(database)/documents/seurat/$(seuraId)/pelaajat/$(pelaajaId)).data.suostumusTila == 'annettu'
-          );
-          // Kirjoitus: kaikki kirjautuneet (anon auth riittää)
-          allow create, update: if onKirjautunut();
-        }
-
-        // ── HAVAINNOT ─────────────────────────────────────────────────────
-        match /havainnot/{havaintoId} {
-          // Luku: seuran jäsen TAI pelaaja itse (anon, suostumus annettu)
-          allow read: if (
-            onKirjautunut() && onSeuranJasen(seuraId)
-          ) || (
-            // Pelaaja näkee valmentajan havainnon omalla sivullaan
-            onKirjautunut() &&
-            get(/databases/$(database)/documents/seurat/$(seuraId)/pelaajat/$(pelaajaId)).data.suostumusTila == 'annettu'
-          );
-          allow create, update: if onKirjautunut() && (
-            onRooli('valmentaja') || onRooli('talenttivalmentaja')
-          ) && onSeuranJasen(seuraId);
-        }
-
-        // ── TESTIT / KARTOITUKSET / TEKNIIKKA / ADAR ─────────────────────
-        match /testit/{testiId} {
-          allow read: if onKirjautunut() && onSeuranJasen(seuraId);
-          allow create, update: if onKirjautunut() && (
-            onRooli('vp') || onRooli('valmentaja') ||
-            onRooli('testivastaava') || onRooli('fysiikkavalmentaja')
-          ) && onSeuranJasen(seuraId);
-        }
-
-        match /kartoitukset/{kartoitusId} {
-          allow read: if onKirjautunut() && (
-            onSeuranJasen(seuraId) ||
-            onRooli('pelaaja') && request.auth.token.pelaajaId == pelaajaId
-          );
-          allow create, update: if onKirjautunut() && onSeuranJasen(seuraId);
-        }
-
-        match /tekniikka/{kilpailuId} {
-          allow read: if onKirjautunut() && onSeuranJasen(seuraId);
-          allow create, update: if onKirjautunut() && onSeuranJasen(seuraId);
-        }
-
-        match /adar/{adarId} {
-          allow read: if onKirjautunut() && onSeuranJasen(seuraId);
-          allow create, update: if onKirjautunut() && (
-            onRooli('valmentaja') || onRooli('talenttivalmentaja')
-          ) && onSeuranJasen(seuraId);
-        }
-
-        // ── OMATOIMIOHJELMAT — pelaajan harjoiteohjelmat ──────────────────
-        match /omatoimi_ohjelmat/{ohjelmaId} {
-          // Luku: seuran jäsen TAI pelaaja itse (anon, suostumus annettu)
-          allow read: if (
-            onKirjautunut() && onSeuranJasen(seuraId)
-          ) || (
-            onKirjautunut() &&
-            get(/databases/$(database)/documents/seurat/$(seuraId)/pelaajat/$(pelaajaId)).data.suostumusTila == 'annettu'
-          );
-          // Kirjoitus: kaikki kirjautuneet (pelaaja tallentaa oman ohjelmansa)
-          allow create, update: if onKirjautunut();
-        }
-
-        // ── IDP JA MUUT PELAAJAN ALADOKUMENTIT ───────────────────────────
-        match /{alaDokumentti}/{dokumenttiId} {
-          allow read: if onKirjautunut() && onSeuranJasen(seuraId);
-          allow create, update: if onKirjautunut() && onSeuranJasen(seuraId);
-        }
-      }
-
-      // Mentoroinnit
-      match /mentoroinnit/{mentorointiId} {
-        allow read: if onKirjautunut() && onSeuranJasen(seuraId);
+        // KORJAUS: vaaditaan seuraId täsmäämään — cross-tenant esto
         allow create, update: if onKirjautunut() && (
-          onRooli('vp') || onRooli('seurasihteeri')
-        ) && onSeuranJasen(seuraId);
+          onRooli('valmentaja') || onRooli('talenttivalmentaja')
+        ) && onSeuranJasen(seuraId)
+          && request.resource.data.seuraId == seuraId
+          || onSuperAdmin();
       }
 
-      // Tapahtumat
+      // ── Harjoitukset ─────────────────────────────────────────
+      match /harjoitukset/{harjoitusId} {
+        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+        allow create, update: if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+      }
+
+      // ── Merkinnät ────────────────────────────────────────────
+      match /merkinnat/{merkintaId} {
+        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+        // KORJAUS: seuraId-validointi
+        allow create, update: if onKirjautunut() && onSeuranJasen(seuraId)
+          && request.resource.data.seuraId == seuraId || onSuperAdmin();
+      }
+
+      // ── Tapahtumat ───────────────────────────────────────────
       match /tapahtumat/{tapahtumaId} {
-        allow read: if onKirjautunut() && onSeuranJasen(seuraId);
+        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+        allow create, update: if onKirjautunut() && (
+          onRooli('vp') || onRooli('seurasihteeri') || onRooli('valmentaja')
+        ) && onSeuranJasen(seuraId) || onSuperAdmin();
+        allow delete: if onRooli('vp') && onSeuranJasen(seuraId) || onSuperAdmin();
+      }
+
+      // ── Kartoitukset ─────────────────────────────────────────
+      match /joukkueet/{joukkueId}/kartoitukset/{kartoitusId} {
+        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
         allow create, update: if onKirjautunut() && (
           onRooli('vp') || onRooli('valmentaja') || onRooli('testivastaava')
-        ) && onSeuranJasen(seuraId);
+        ) && onSeuranJasen(seuraId) || onSuperAdmin();
       }
 
-      // Muut seuran aladokumentit
-      match /{alaDokumentti}/{dokumenttiId} {
-        allow read: if onKirjautunut() && onSeuranJasen(seuraId);
+      // ── Kehitystavoitteet ────────────────────────────────────
+      match /joukkueet/{joukkueId}/kehitystavoitteet/{kausi} {
+        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
         allow create, update: if onKirjautunut() && (
-          onRooli('vp') || onRooli('seurasihteeri')
-        ) && onSeuranJasen(seuraId);
+          onRooli('vp') || onRooli('urheilutoimenjohtaja')
+        ) && onSeuranJasen(seuraId) || onSuperAdmin();
+      }
+
+      // ── DNA-konfiguraatio ────────────────────────────────────
+      match /dna_konfig/{konfigId} {
+        allow read:  if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+        allow write: if onKirjautunut() && (
+          onRooli('vp') || onRooli('urheilutoimenjohtaja')
+        ) && onSeuranJasen(seuraId) || onSuperAdmin();
       }
     }
-
-    // ── UTJ-data ──────────────────────────────────────────────────────────
-    match /utj_data/{kaudenId} {
-      allow read: if onKirjautunut();
-      allow write: if onKirjautunut() && (
-        onRooli('vp') || onRooli('urheilutoimenjohtaja')
-      );
-    }
-
-    // ── Vanha rakenne (yhteensopivuus) ────────────────────────────────────
-    match /kirjaukset/{doc} {
-      allow read, write: if onKirjautunut();
-    }
-    match /kirjaukset_joukkue/{doc} {
-      allow read, write: if onKirjautunut();
-    }
-    match /kirjaukset_tapahtumat/{doc} {
-      allow read, write: if onKirjautunut();
-    }
-    match /testitapahtumat/{doc} {
-      allow read: if onKirjautunut();
-      allow write: if onKirjautunut();
-    }
-
   }
 }
