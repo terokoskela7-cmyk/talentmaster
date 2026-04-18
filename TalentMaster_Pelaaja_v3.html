@@ -5535,5 +5535,188 @@ if (document.readyState === 'loading') {
   _patchAlusta();
 }
 </script>
+
+<!-- TM_HARJOITE_UI_PATCH v1.0 -->
+<style id="tm-ui-patch-css">
+.tm-meso-badge{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#1e293b,#334155);color:#94a3b8;font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;border:1px solid rgba(148,163,184,.2);margin-bottom:5px}
+.tm-meso-badge .tm-meso-nimi{color:#cbd5e1}
+.tm-meso-badge .tm-meso-teema{opacity:.6;font-size:10px}
+.tm-meso-badge .tm-meso-vk{color:#f1f5f9;font-weight:700;margin-left:4px;background:rgba(74,126,217,.25);padding:1px 6px;border-radius:10px}
+.tm-meso-badge .tm-meso-repeat{color:#f59e0b;font-size:10px;margin-left:2px}
+.tm-viikkotavoite{font-size:11px;color:var(--ink3,#777);border-left:2px solid #4A7ED9;padding:3px 8px;margin:5px 0;background:rgba(74,126,217,.05);border-radius:0 4px 4px 0}
+.tm-valinta-peruste{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink3,#777);margin-top:7px;padding:5px 9px;background:rgba(139,92,246,.07);border:1px solid rgba(139,92,246,.15);border-radius:7px}
+.tm-valinta-peruste .tm-vp-ketju{margin-left:auto;font-weight:600;font-size:11px;color:var(--ink2,#aaa)}
+.tm-adar-huomio{display:flex;align-items:center;gap:6px;font-size:11px;color:#818cf8;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:7px;padding:5px 9px;margin-top:7px}
+.tm-s-siirto{display:flex;gap:7px;margin-top:10px}
+.tm-s-siirto-btn{flex:1;padding:9px 6px;border-radius:9px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.tm-s-siirto-btn--tee{background:#4A7ED9;color:#fff}
+.tm-s-siirto-btn--myohemmin{background:rgba(255,255,255,.06);color:var(--ink3,#888);border:1px solid var(--border,#333)}
+.tm-s-siirto-btn:active{opacity:.75}
+.tm-fiilinki{margin-top:12px}
+.tm-fiilinki-label{font-size:12px;font-weight:500;color:var(--ink2,#aaa);margin-bottom:6px}
+.tm-fiilinki-row{display:flex;gap:5px;justify-content:space-between}
+.tm-fiilinki-btn{flex:1;font-size:20px;background:rgba(255,255,255,.05);border:1px solid var(--border,#333);border-radius:8px;padding:7px 2px;cursor:pointer;transition:background .15s,transform .1s;line-height:1}
+.tm-fiilinki-btn.on{background:rgba(74,126,217,.2);border-color:#4A7ED9}
+.tm-fiilinki-btn:active{transform:scale(.9)}
+.tm-rpe-wrap{margin-top:8px}
+.tm-rpe-wrap label{font-size:11px;color:var(--ink3,#777)}
+.tm-rpe-wrap input[type=range]{width:100%;margin:3px 0}
+.tm-rpe-row{display:flex;justify-content:space-between;font-size:10px;color:var(--ink3,#777)}
+.tm-muistiinpano{width:100%;margin-top:7px;border:1px solid var(--border,#333);border-radius:7px;padding:7px;font-size:12px;background:var(--bg2,#111);color:var(--ink,#eee);resize:none;height:52px;box-sizing:border-box}
+</style>
+<script id="tm-ui-patch-js">
+(function(){
+var MESO={kaka:['Kaka','Vastaanottaminen'],affelay:['Affelay','Dribbeli'],
+  ronaldo:['Ronaldo','1v1'],beckham:['Beckham','Syöttäminen'],perus:['Perus','Tekniikka']};
+var VP={testidata:{t:'Testitulos ohjasi',i:'\u{1F4CA}'},adar:{t:'Peliälyprofiili ohjasi',i:'\u{1F9E0}'},
+  flei:{t:'Liikeketjuprofiili',i:'\u26A1'}};
+
+function haeT(p){
+  if(!window.PANKKI||!window.PANKKI.T||typeof window._laskeMesosykli!=='function')return null;
+  var ika=p.ika||13;
+  var ityyppi=ika<=12?'leikkija':ika<=15?'rakentaja':'showcase';
+  var meso=window._laskeMesosykli();
+  var series=window.PANKKI.T[meso.mesosykli]||window.PANKKI.T.perus;
+  var vk=meso.jaksoViikko>=5?'vk'+Math.max(1,Math.min(4,p._t_heikoin_viikko||1))
+        :'vk'+Math.max(1,Math.min(4,meso.jaksoViikko));
+  var h=(series&&series[vk])||(series&&series.vk1)||null;
+  if(!h)return null;
+  return{mesosykli:meso.mesosykli,jaksoViikko:meso.jaksoViikko,
+    isRepeatViikko:meso.jaksoViikko>=5,ityyppi:ityyppi,
+    viikkotavoite:h.viikkotavoite||null,nimi:h.nimi};
+}
+
+function laskeVP(p){
+  if(p.adar_pisteet!==undefined&&p.adar_pisteet<30)return'adar';
+  if(p.testit){
+    var k3=['thomas_testi_p','hyvaa_huomenta_p','valakyykky_p','askelkyykky_p',
+            'lantionnosto_p','slr_p','luistelijakyykky_p','sivulankku_p'];
+    var k2=['cmj_cm','sm_juoksu_s','sm_pallo_s','mas_ms','kasirata_s',
+            'sprintti_30m','loikka_5m','ponnauttelu_s','pituuspotku_m'];
+    if(k3.some(function(k){return p.testit[k]===1})||
+       k2.some(function(k){return p.testit[k]!==undefined}))return'testidata';
+  }
+  return'flei';
+}
+
+function fiilinkiHTML(ityyppi){
+  var btns=['😫','😕','😐','🙂','🔥'].map(function(e,i){
+    return'<button class="tm-fiilinki-btn" data-v="'+(i+1)+'" onclick="window._tmFiilinki('+(i+1)+')">'+e+'</button>';
+  }).join('');
+  var h='<div class="tm-fiilinki"><div class="tm-fiilinki-label">Miten meni?</div>'
+    +'<div class="tm-fiilinki-row">'+btns+'</div>';
+  if(ityyppi==='rakentaja'||ityyppi==='showcase'){
+    h+='<div style="margin-top:7px"><div class="tm-fiilinki-label" style="font-size:11px">Kehon tila</div>'
+      +'<div class="tm-fiilinki-row">'
+      +[['😴','1'],['😐','2'],['💪','3'],['⚡','4']].map(function(e){
+        return'<button class="tm-fiilinki-btn" style="font-size:16px" data-k="'+e[1]+'" onclick="window._tmKeho('+e[1]+')">'+e[0]+'</button>';
+      }).join('')+'</div></div>';
+  }
+  if(ityyppi==='showcase'){
+    h+='<div class="tm-rpe-wrap"><label>RPE (1–10)</label>'
+      +'<input type="range" min="1" max="10" value="5" step="1" oninput="document.getElementById('_rpeV').textContent=this.value">'
+      +'<div class="tm-rpe-row"><span>Helppo</span><span id="_rpeV">5</span><span>Max</span></div></div>'
+      +'<textarea class="tm-muistiinpano" placeholder="Muistiinpano (vapaaehtoinen)..."></textarea>';
+  }
+  return h+'</div>';
+}
+
+window._tmFiilinki=function(v){
+  document.querySelectorAll('.tm-fiilinki-btn[data-v]').forEach(function(b){
+    b.classList.toggle('on',+b.dataset.v===v);
+  });
+  if(window._kirjaaFiilinki)window._kirjaaFiilinki(v);
+};
+window._tmKeho=function(v){
+  document.querySelectorAll('.tm-fiilinki-btn[data-k]').forEach(function(b){
+    b.classList.toggle('on',+b.dataset.k===v);
+  });
+};
+window._tmSLykka=function(btn){
+  btn.textContent='⏰ Siirretty';btn.disabled=true;btn.style.opacity='.5';
+  if(window._kirjaaSLykka)window._kirjaaSLykka(new Date().toISOString());
+};
+window._tmSTehty=function(btn){
+  btn.textContent='✅ Tehty!';btn.disabled=true;
+  if(window._merkitseTehty)window._merkitseTehty('s_kohdennettu');
+};
+
+function _tmPatch(){
+  var p=window._pelaajaData||window._pelaaja;
+  if(!p)return;
+
+  // T: mesosykli + jaksoViikko + viikkotavoite
+  var T=haeT(p);
+  if(T){
+    var m=MESO[T.mesosykli]||[T.mesosykli,''];
+    var badge='<span class="tm-meso-badge">'
+      +'<span class="tm-meso-nimi">'+m[0]+'</span>'
+      +(m[1]?'<span class="tm-meso-teema">— '+m[1]+'</span>':'')
+      +'<span class="tm-meso-vk">vk'+T.jaksoViikko+'/4</span>'
+      +(T.isRepeatViikko?'<span class="tm-meso-repeat">↺</span>':'')
+      +'</span>';
+    var jn=document.getElementById('tanaaJaksoNimi');
+    if(jn)jn.innerHTML=badge;
+    var jv=document.getElementById('tanaaJaksoVko');
+    if(jv)jv.innerHTML=T.viikkotavoite?'<div class="tm-viikkotavoite">🎯 '+T.viikkotavoite+'</div>':'';
+
+    // Fiilinki ikätyypin mukaan
+    var fel=document.getElementById('fiilinkiWidget')||document.getElementById('fiilinki-alue');
+    if(fel&&T.ityyppi&&!fel.querySelector('.tm-fiilinki'))
+      fel.innerHTML=fiilinkiHTML(T.ityyppi);
+  }
+
+  // D + S: patchaa tehtavatLista-kortit
+  var lista=document.getElementById('tehtavatLista');
+  if(!lista)return;
+  var adarOv=p.adar_pisteet!==undefined&&p.adar_pisteet<40;
+  var vpKey=laskeVP(p);
+  var vpD=VP[vpKey]||{t:vpKey,i:'📋'};
+
+  [].slice.call(lista.querySelectorAll('.tehtava-card')).forEach(function(k){
+    var badge=k.querySelector('.tehtava-badge');
+    if(!badge)return;
+    var onD=badge.classList.contains('tb-d');
+    var onS=badge.classList.contains('tb-s');
+
+    // D: ADAR-override badge
+    if(onD&&adarOv&&!k.querySelector('.tm-adar-huomio'))
+      k.insertAdjacentHTML('beforeend',
+        '<div class="tm-adar-huomio">🧠 Peliälykognitio aktivoitu — skannaus + päätöksenteko</div>');
+
+    // S: valinta_peruste + 70/30 siirtonappi
+    if(onS){
+      var kt=(k.querySelector('.tehtava-ketju')||{}).textContent||'';
+      if(!k.querySelector('.tm-valinta-peruste'))
+        k.insertAdjacentHTML('beforeend',
+          '<div class="tm-valinta-peruste">'
+          +'<span>'+vpD.i+'</span><span>'+vpD.t+'</span>'
+          +(kt.trim()?'<span class="tm-vp-ketju">'+kt.trim()+'</span>':'')
+          +'</div>');
+      if(!k.querySelector('.tm-s-siirto'))
+        k.insertAdjacentHTML('beforeend',
+          '<div class="tm-s-siirto">'
+          +'<button class="tm-s-siirto-btn tm-s-siirto-btn--tee" onclick="_tmSTehty(this)">Tein harjoitteen ✓</button>'
+          +'<button class="tm-s-siirto-btn tm-s-siirto-btn--myohemmin" onclick="_tmSLykka(this)">Teen myöhemmin</button>'
+          +'</div>');
+    }
+  });
+}
+
+// Monkey-patch renderTehtavat ja _renderTanaaHarjoiteKortti
+var _oRT=window.renderTehtavat;
+window.renderTehtavat=function(p){_oRT&&_oRT.call(this,p);setTimeout(_tmPatch,60);};
+var _oTanaa=window._renderTanaaHarjoiteKortti;
+window._renderTanaaHarjoiteKortti=function(){_oTanaa&&_oTanaa.call(this);setTimeout(_tmPatch,60);};
+
+// Triggeroi heti jos sivu jo latautunut
+if(document.readyState==='complete'||document.readyState==='interactive'){
+  setTimeout(_tmPatch,400);
+}else{
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(_tmPatch,400);});
+}
+console.log('[TM UI Patch v1.0] ladattu');
+})();
+</script>
 </body>
 </html>
