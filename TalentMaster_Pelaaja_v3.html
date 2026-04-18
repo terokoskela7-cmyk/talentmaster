@@ -1850,6 +1850,20 @@ button,a,[role="button"] {
 #sSplash.tm-piilotettu{opacity:0;pointer-events:none;}
 /* safe-area-inset-top topbarille */
 .tm-topbar-wrap, [class*="topbar"] { padding-top: env(safe-area-inset-top, 0); }
+.bottom-nav {
+  position: sticky !important;
+  bottom: 0 !important;
+  top: auto !important;
+  padding-bottom: env(safe-area-inset-bottom, 8px);
+  z-index: 200;
+}
+#tanaaAloitaNappi {
+  min-height: 52px !important;
+  overflow: visible !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
 </style>
 </head>
 <body>
@@ -2127,7 +2141,7 @@ button,a,[role="button"] {
     <!-- ── HERO: Nimi + jakso + streak ── -->
     <div style="padding:var(--tm-space-sm) 0 var(--tm-space-md);">
       <!-- Nimi Cormorant Display -->
-      <div style="font-family:'Cormorant Garamond',serif;font-weight:600;font-size:34px;line-height:1.05;color:var(--tm-text-primary);letter-spacing:-.3px;" id="heroNimi">—</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-weight:600;font-size:34px;line-height:1.05;color:var(--tm-text-primary);letter-spacing:-.3px;" id="heroNimi">Hei, pelaaja! 👋</div>
       <!-- Tyyppi + joukkue — hiljainen metadata -->
       <div class="tm-meta" style="letter-spacing:.8px;text-transform:uppercase;margin-top:4px;" id="heroMeta">—</div>
       <!-- Streak: tekstinä, ei palkkinäkymänä -->
@@ -2234,8 +2248,8 @@ button,a,[role="button"] {
         <button onclick="suljeFiiliOverlay()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;line-height:1;">×</button>
       </div>
 
-      <!-- Perustaso U8–U12 -->
-      <div id="fiiliPerustaso">
+      <!-- Taso 1 U8–U12 -->
+      <div id="fiiliTaso 1">
         <div style="font-size:11px;color:var(--ink3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:16px;">Valitse päivän fiilis</div>
         <div style="display:flex;gap:12px;justify-content:center;margin-bottom:20px;">
           <button class="fiili-lv" onclick="valitseLiikennevalo(this,'vihrea',3)">
@@ -2446,7 +2460,7 @@ button,a,[role="button"] {
   <!-- ══ KEHITYS ══ -->
   <div class="view" id="view-kehitys">
   <div class="inner fadeup">
-    <div class="stitle">FLEI-kehitys kaudella</div>
+    <div class="stitle">Kehon vahvuus kaudella</div>
     <div id="kehitysKaari">
       <div class="loading"><div class="spinner"></div></div>
     </div>
@@ -2662,7 +2676,7 @@ function _naytaMalliBadge(malli, data) {
   const emoji = data && data.fiilinki
     ? (['','😫','😕','😐','🙂','🔥'][data.fiilinki] || '✓') : '✓';
   // Etsi näkyvä fiilinki-osio
-  const els = ['fiiliPerustaso','fiiliKehitystaso','fiiliShowcase'];
+  const els = ['fiiliTaso 1','fiiliKehitystaso','fiiliShowcase'];
   let targetEl = null;
   for (var i = 0; i < els.length; i++) {
     var el = document.getElementById(els[i]);
@@ -3060,7 +3074,7 @@ const KYSELYT = [
   {q:'Mitä "streak" tarkoittaa?',
    opts:['Nopeus sprintissä','Peräkkäisten harjoituspäivien putki','Tekniikkakilpailun pisteet','Pelaajakortin taso'],
    oikein:1,
-   selitys:'Streak = peräkkäisten päivien putki. Älä katkaise putkea!'},
+   selitys:'Jokainen päivä rakentaa huippua. Pidä rytmi!'},
   {q:'Mitä Affelay-sarja harjoittelee?',
    opts:['Laukaustekniikkaa','Dribbelin 4 perustaitoa','Puolustamista','Pääpalloja'],
    oikein:1,
@@ -3971,7 +3985,7 @@ function renderTehtavat() {
 
   // Stagen värit ja nimet pelaajalle
   const stageVarit = {1:'#8BA0BC',2:'#1A7A5E',3:'#FFB020',4:'#EF4444',5:'#A855F7'};
-  const stageNimet = {1:'Aloitustaso',2:'Perusvahvistus',3:'Lisähaaste',4:'Tehotaso',5:'Huipputaso'};
+  const stageNimet = {1:'Aloitustaso',2:'Perusvahvistus',3:'Lisähaaste',4:'Taso 4',5:'Huipputaso'};
 
   el.innerHTML = tehtavat.map(t => {
     const tehty = _tehdytTehtavat.has(t.id);
@@ -3986,7 +4000,7 @@ function renderTehtavat() {
       const sv = stageVarit[t.stage] || '#8BA0BC';
       const sn = stageNimet[t.stage] || 'Stage ' + t.stage;
       const phvMerkinta = t.phvSuoja ? ' ⚠️' : '';
-      stageBadgeHtml = `<span class="stage-badge s${t.stage}">S${t.stage} — ${sn}${phvMerkinta}</span>`;
+      stageBadgeHtml = `<span class="stage-badge s${t.stage}">Taso ${t.stage}${phvMerkinta}</span>`;
     }
 
     // ── Stage-spesifiset parametrit ──────────────────────────
@@ -4024,7 +4038,7 @@ function renderTehtavat() {
       const seuraavaStageData = haeStageData(t.progressioAvain, t.stage + 1);
       if (seuraavaStageData) {
         progressioHtml = `<div class="progressio-preview">
-          <strong>Seuraava askel (S${t.stage + 1}):</strong> ${seuraavaStageData.kuvaus}
+          ${seuraavaStageData?.kuvaus ? `<strong>Seuraava:</strong> ${seuraavaStageData.kuvaus}` : ""}
         </div>`;
       }
     }
@@ -4630,7 +4644,7 @@ function _renderFiilinki() {
   // Jos ikää ei voi laskea → oleta leikkijä (alle 13) turvallisuuden vuoksi
   const ika = p.ika || (_synVuosi ? new Date().getFullYear() - _synVuosi : null);
 
-  const perustaso  = document.getElementById('fiiliPerustaso');
+  const perustaso  = document.getElementById('fiiliTaso 1');
   const kehitystaso = document.getElementById('fiiliKehitystaso');
   if (!perustaso || !kehitystaso) return;
 
@@ -4850,7 +4864,7 @@ function suljeOhjePopupPelaaja() {
   if (popup) popup.remove();
 }
 
-/* ── Perustaso: liikennevalo ────────────────────────────────────────── */
+/* ── Taso 1: liikennevalo ────────────────────────────────────────── */
 function valitseLiikennevalo(btn, vari, arvo) {
   document.querySelectorAll('.fiili-lv').forEach(b => b.classList.remove('valittu'));
   btn.classList.add('valittu');
@@ -4967,7 +4981,7 @@ function _tarkistaFiilinki() {
 function _lukitseFiilinki(data) {
   _fiilinki_lukittu = true;
   // Lukitse napit
-  const widgetit = document.querySelectorAll('.fiilinki-widget, #fiiliPerustaso, #fiiliKehitystaso');
+  const widgetit = document.querySelectorAll('.fiilinki-widget, #fiiliTaso 1, #fiiliKehitystaso');
   widgetit.forEach(function(w) {
     // Lukitse napit
     w.querySelectorAll('.fiili-btn, .fiili-lv').forEach(function(b) {
@@ -5364,7 +5378,7 @@ async function renderOhjelma() {
         <div style="flex:1;min-width:120px;">
           <div style="font-size:12px;color:var(--ink3);font-weight:600;text-transform:uppercase;
                       letter-spacing:.5px;margin-bottom:3px;">Ohjelma perustuu</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text);">FLEI ${fleiNyt}%</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);">Kehon vahvuus ${fleiNyt}%</div>
           <div style="font-size:11px;color:var(--ink3);">${p.pelaajaProfiili || '—'}-profiili</div>
         </div>
         <div style="flex:1;min-width:120px;">
@@ -5446,7 +5460,7 @@ async function renderOhjelma() {
     </div>`;
 }
 const popups = {
-  fifakortti:{title:'Mitä FIFA-kortti kertoo?',body:`<strong>Kokonaisluokitus (iso numero)</strong> lasketaan FLEI-prosentistasi, ketjupisteistäsi ja XP:stäsi.<br><br><em>Nopeus:</em> Vauhtiketjun pisteet.<br><em>Tekniikka:</em> Kiertoketjun pisteet (syöttö, pujottelu).<br><em>Peliäly:</em> Suunnanmuutosketjun pisteet.<br><em>Fysiikka:</em> FLEI-prosentti suoraan.<br><em>Hallinta:</em> Hallintaketjun pisteet.<br><em>Räjähtävyys:</em> Lähtöketjun pisteet.<br><br>Korttisi päivittyy joka kartoituksen jälkeen. Paranna kehoa → kortti nousee!`},
+  fifakortti:{title:'Mitä FIFA-kortti kertoo?',body:`<strong>Kokonaisluokitus (iso numero)</strong> lasketaan FLEI-prosentistasi, ketjupisteistäsi ja XP:stäsi.<br><br><em>Nopeus:</em> Vauhtiketjun pisteet.<br><em>Tekniikka:</em> Kiertoketjun pisteet (syöttö, pujottelu).<br><em>Peliäly:</em> Suunnanmuutosketjun pisteet.<br><em>Fysiikka:</em> Kehon vahvuusindeksi suoraan.<br><em>Hallinta:</em> Hallintaketjun pisteet.<br><em>Räjähtävyys:</em> Lähtöketjun pisteet.<br><br>Korttisi päivittyy joka kartoituksen jälkeen. Paranna kehoa → kortti nousee!`},
   freeze:{title:'Streak-suoja ❄️',body:`Streak-suoja suojaa harjoitteluputkesi yhden päivän poissaolon yli.<br><br>Jos unohdat tehdä kotitehtävän, <em>freeze</em> aktivoituu automaattisesti ja putki säilyy.<br><br><strong>Miten ansaita lisää suojia?</strong><br>• Suorita viikkohaasteita<br>• Ansaitse XP-tasoja<br>• Tee viisi peräkkäistä päivää`},
   flei:{title:'Harjoitettavuus (FLEI)',body:`FLEI kertoo yhdellä prosenttiluvulla onko kehosi valmis ottamaan harjoittelusta kaiken hyödyn irti.<br><br><em>75%+ = hyvä</em> — harjoittelu tuottaa täyden hyödyn.<br><em>55–74% = kehitysvaihe</em> — kehossa on parannettavaa.<br><em>alle 55% = tarvitsee tukea</em> — huolletaan keho kuntoon ensin.<br><br>Sama harjoite tuottaa 2–3× paremman tuloksen kun FLEI on korkea!`},
   ketjut:{title:'Viisi liikeketjua',body:`<em>⚡ Vauhtiketju:</em> Nopeus, kiihdytys, hypyt. Nopeus syntyy takaa — hamstringilta.<br><em>🦵 Lähtöketju:</em> Räjähtävyys, ponnistus, lähtö paikalta.<br><em>↔️ Suunnanmuutos:</em> Ketteryys, feintit, sivuttaisliike.<br><em>🔄 Kiertoketju:</em> Syöttö, laukaus — rintakehä ohjaa.<br><em>🏗️ Hallintaketju:</em> Ryhti, tasapaino, syvät lihakset. Pohja kaikelle muulle.`},
