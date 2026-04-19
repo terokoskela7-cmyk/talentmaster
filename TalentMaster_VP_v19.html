@@ -1640,7 +1640,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /* ââ Seura-brändit âââââââââââââââââââââââââââââââââââââââââââââââ */
-const SEURA_BRÃNDIT = {
+const SEURA_BRANDIT = {
   sjk:        { primary:'#BDB03A', secondary:'#D4C84A', primaryRgb:'189,176,58',  nimi:'SJK Juniorit',      teema:'tumma'  },
   fcl:        { primary:'#E8002D', secondary:'#FF3355', primaryRgb:'232,0,45',    nimi:'FC Lahti Juniorit', teema:'vaalea' },
   kpv:        { primary:'#00C853', secondary:'#69F0AE', primaryRgb:'0,200,83',    nimi:'KPV',               teema:'vihrea' },
@@ -1651,10 +1651,10 @@ const SEURA_BRÃNDIT = {
   demo:       { primary:'#1A7A5E', secondary:'rgba(26,122,94,.6)', primaryRgb:'26,122,94', nimi:'FC Demo', teema:'tumma'  },
 };
 
-function _asetaSeuranVärit(seuraId) {
+function _asetaSeuranVarit(seuraId) {
   // v19: Palette v2 — brändi ei enää ylikirjoita koko teemaa
   // Käytetään seuran väriä vain header-borderiin ja tunnus-blokkiin
-  const b = SEURA_BRÃNDIT[seuraId] || SEURA_BRÃNDIT['demo'];
+  const b = SEURA_BRANDIT[seuraId] || SEURA_BRANDIT['demo'];
   // Säilytetään Palette v2 -teal päävärinä
   document.documentElement.style.setProperty('--seura-primary',     b.primary);
   document.documentElement.style.setProperty('--seura-primary-rgb', b.primaryRgb);
@@ -1684,7 +1684,7 @@ _auth.onAuthStateChanged(async user => {
 
 async function asetaSeura(seuraId) {
   _seuraId = seuraId;
-  _asetaSeuranVärit(seuraId);
+  _asetaSeuranVarit(seuraId);
   try {
     const snap = await _db.collection('seurat').doc(seuraId).get();
     const d = snap.data() || {};
@@ -2404,7 +2404,7 @@ async function renderJoukkueKortit() {
   window._vpJoukkueCache = joukkueData;
   const varit=['#1A7A5E','#3B7A57','#7A5A10','#8A2B2B','#4A3A8A','#3EC9A7'];
   el.innerHTML = joukkueData.map((j,i)=>{
-    const color=j.v1||SEURA_BRÃNDIT[_seuraId]?.primary||varit[i%varit.length];
+    const color=j.v1||SEURA_BRANDIT[_seuraId]?.primary||varit[i%varit.length];
     const fleiFill=j.fleiKa!=null?j.fleiKa:0;
     const fleiColor=fleiFill>=75?'#1A7A5E':fleiFill>=55?'#7A5A10':'#8A2B2B';
     const fleiTxt=j.fleiKa!=null?j.fleiKa+'%':'—';
@@ -2432,7 +2432,7 @@ function avaaJoukkuePopup(idxTaiData) {
   if (!j) return;
   const root = document.getElementById('joukkuePopupRoot');
   if (!root) return;
-  const pelaajat=j.pelaajat||[], color=j.v1||SEURA_BRÃNDIT[_seuraId]?.primary||'#1A7A5E';
+  const pelaajat=j.pelaajat||[], color=j.v1||SEURA_BRANDIT[_seuraId]?.primary||'#1A7A5E';
   const pelaajaKortit = pelaajat.length>0
     ? pelaajat.map(p=>{
         const flei=p.flei_viimeisin??p.flei_pct??0;
@@ -3069,7 +3069,7 @@ async function lataaMentoriLista() {
 
 /* ââ avaaKayntimodaali (vanha, legacy käyttö lataaMentoriListasta) ââ */
 function avaaKayntimodaali(uid, nimi) {
-  // FIX: uid voi olla tyhjä — käytä aina oikeaa uid:ta
+  // FIX: uid voi olla tyhja — käytä aina oikeaa uid:ta
   if (!uid) { naytaToast('Valmentajan UID puuttuu','info'); return; }
   const muistiinpano=prompt(`Käyntimuistiinpano — ${nimi}\n\nMitä havaitsit? Mikä meni hyvin? Mitä kehitetään?`);
   if(muistiinpano===null)return;
@@ -3148,11 +3148,11 @@ function _renderPolku() {
   const prio={tuki:0,phv:1,idp:2,talentit:3,siirto:4};
   lista.sort((a,b)=>Math.min(...a.signaalit.map(s=>prio[s.tyyppi]??9))-Math.min(...b.signaalit.map(s=>prio[s.tyyppi]??9)));
   if(lista.length===0){const onFiltti=suodat!=='kaikki';el.innerHTML=`<div style="background:var(--surface);border:.5px solid var(--border2);padding:24px;text-align:center;"><div style="font-size:24px;margin-bottom:8px;">${onFiltti?'ð':'â'}</div><div style="font-size:13px;font-weight:500;color:var(--carbon);margin-bottom:4px;">${onFiltti?'Ei pelaajia tässä kategoriassa':'Kaikki kunnossa'}</div><div style="font-size:11px;color:var(--ink3);">${onFiltti?'Kokeile eri suodatinta.':'Ei aktiivisia päätöspisteitä tällä hetkellä.'}</div></div>`;return;}
-  const ryhmät={};
-  lista.forEach(p=>{if(!ryhmät[p.joukkueNimi])ryhmät[p.joukkueNimi]=[];ryhmät[p.joukkueNimi].push(p);});
+  const ryhmat={};
+  lista.forEach(p=>{if(!ryhmat[p.joukkueNimi])ryhmat[p.joukkueNimi]=[];ryhmat[p.joukkueNimi].push(p);});
   const sigVari={tuki:'var(--red)',phv:'var(--amber)',idp:'var(--amber)',talentit:'var(--green)',siirto:'var(--purple)'};
   const sigEmoji={tuki:'ð´',phv:'ð',idp:'ð¡',talentit:'ð',siirto:'ð£'};
-  el.innerHTML=Object.entries(ryhmät).map(([joukkue,pelaajat])=>`<div style="margin-bottom:16px;"><div style="font-size:9px;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.14em;margin-bottom:8px;padding-left:4px;">${joukkue} · ${pelaajat.length} pelaajaa</div>${pelaajat.map(p=>{const fleiStr=p.flei!=null?Math.round(p.flei)+'%':'—';const fleiColor=p.flei==null?'var(--ink3)':p.flei>=70?'var(--green)':p.flei>=50?'var(--amber)':'var(--red)';const initials=p.nimi.split(' ').filter(Boolean).map(s=>s[0]).join('').slice(0,2).toUpperCase()||'?';const priSig=p.signaalit[0];return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:.5px solid var(--border);border-left:2px solid ${sigVari[priSig.tyyppi]||'var(--border)'};margin-bottom:5px;"><div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;background:${sigVari[priSig.tyyppi]||'var(--ink3)'}18;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:${sigVari[priSig.tyyppi]||'var(--carbon)'};">${initials}</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;color:var(--carbon);">${p.nimi}</div><div style="font-size:10px;color:var(--ink3);">${p.paiviaKart!=null?`Kartoitettu ${p.paiviaKart}pv sitten`:'Ei kartoitusta'}</div></div><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">${p.signaalit.map(s=>`<div style="font-size:10px;font-weight:500;white-space:nowrap;color:${sigVari[s.tyyppi]||'var(--ink3)'};">${sigEmoji[s.tyyppi]||'•'} ${s.label}</div>`).join('')}</div><div style="text-align:right;flex-shrink:0;min-width:48px;"><div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:${fleiColor};">${fleiStr}</div><div style="font-size:9px;color:var(--ink3);">FLEI</div></div></div>`;}).join('')}</div>`).join('');
+  el.innerHTML=Object.entries(ryhmat).map(([joukkue,pelaajat])=>`<div style="margin-bottom:16px;"><div style="font-size:9px;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.14em;margin-bottom:8px;padding-left:4px;">${joukkue} · ${pelaajat.length} pelaajaa</div>${pelaajat.map(p=>{const fleiStr=p.flei!=null?Math.round(p.flei)+'%':'—';const fleiColor=p.flei==null?'var(--ink3)':p.flei>=70?'var(--green)':p.flei>=50?'var(--amber)':'var(--red)';const initials=p.nimi.split(' ').filter(Boolean).map(s=>s[0]).join('').slice(0,2).toUpperCase()||'?';const priSig=p.signaalit[0];return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:.5px solid var(--border);border-left:2px solid ${sigVari[priSig.tyyppi]||'var(--border)'};margin-bottom:5px;"><div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;background:${sigVari[priSig.tyyppi]||'var(--ink3)'}18;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:${sigVari[priSig.tyyppi]||'var(--carbon)'};">${initials}</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;color:var(--carbon);">${p.nimi}</div><div style="font-size:10px;color:var(--ink3);">${p.paiviaKart!=null?`Kartoitettu ${p.paiviaKart}pv sitten`:'Ei kartoitusta'}</div></div><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">${p.signaalit.map(s=>`<div style="font-size:10px;font-weight:500;white-space:nowrap;color:${sigVari[s.tyyppi]||'var(--ink3)'};">${sigEmoji[s.tyyppi]||'•'} ${s.label}</div>`).join('')}</div><div style="text-align:right;flex-shrink:0;min-width:48px;"><div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:${fleiColor};">${fleiStr}</div><div style="font-size:9px;color:var(--ink3);">FLEI</div></div></div>`;}).join('')}</div>`).join('');
 }
 
 function suodataPolku(tyyppi, btn) {
@@ -3283,7 +3283,7 @@ function _vpKalRenderoi(el, seuraId, vuosi, kuukausi, tapahtumat) {
   paivanimet.forEach(p=>{const d=document.createElement('div');d.style.cssText='text-align:center;padding:8px 4px;font-size:9px;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.1em;';d.textContent=p;otRivi.appendChild(d);});
   grid.appendChild(otRivi);
   const ruudukko=document.createElement('div');ruudukko.style.cssText='display:grid;grid-template-columns:repeat(7,1fr);';
-  for(let e=0;e<aloitusPv;e++){const tyhjä=document.createElement('div');tyhjä.style.cssText='min-height:72px;border-right:.5px solid var(--border);border-bottom:.5px solid var(--border);background:rgba(28,28,26,.04);';ruudukko.appendChild(tyhjä);}
+  for(let e=0;e<aloitusPv;e++){const tyhja=document.createElement('div');tyhja.style.cssText='min-height:72px;border-right:.5px solid var(--border);border-bottom:.5px solid var(--border);background:rgba(28,28,26,.04);';ruudukko.appendChild(tyhja);}
   for(let pv=1;pv<=pvLkm;pv++){
     const pvStr=vuosi+'-'+String(kuukausi+1).padStart(2,'0')+'-'+String(pv).padStart(2,'0');
     const onTanaan=pvStr===tanaanStr;const tapTana=tapPerPv[pvStr]||[];const onViikonloppu=((aloitusPv+pv-1)%7)>=5;
