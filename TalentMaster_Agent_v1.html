@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster™ — Project Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bone: #F2EFE6;
+  --bone2: #E8E5DC;
+  --bone3: #D4D1C8;
+  --carbon: #1C1C1A;
+  --carbon2: #2A2A28;
+  --carbon3: #383836;
+  --teal: #1A7A5E;
+  --teal-l: #D6EDE6;
+  --teal-glow: rgba(26,122,94,0.15);
+  --amber: #C8882A;
+  --amber-l: #FFF3DC;
+  --red: #B83535;
+  --blue: #1A4F8C;
+  --blue-l: #E0EAF7;
+  --text: #F2EFE6;
+  --text-dim: #A8A59C;
+  --text-faint: #6B6864;
+  --bg: #0E0E0C;
+  --bg2: #161614;
+  --bg3: #1E1E1C;
+  --bg4: #262624;
+  --border: rgba(242,239,230,0.08);
+  --border-m: rgba(242,239,230,0.15);
+  --border-b: rgba(242,239,230,0.25);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: "DM Sans", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Topbar ── */
+.topbar {
+  position: fixed; top:0; left:0; right:0; z-index:100;
+  height: 56px;
+  background: rgba(14,14,12,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 28px;
+  gap: 20px;
+}
+.tm-logo {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 20px; font-weight: 600;
+  color: var(--bone); letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.tm-logo span { color: var(--teal); }
+.topbar-sep { width:1px; height:20px; background:var(--border-m); }
+.topbar-badge {
+  font-family: "DM Mono", monospace;
+  font-size: 10px; font-weight: 500;
+  color: var(--teal);
+  background: var(--teal-glow);
+  border: 1px solid rgba(26,122,94,0.3);
+  border-radius: 4px;
+  padding: 3px 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.topbar-right {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 12px;
+}
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 8px var(--teal);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity:1; } 50% { opacity:0.4; }
+}
+.status-txt {
+  font-size: 11px; color: var(--text-dim);
+  font-family: "DM Mono", monospace;
+}
+
+/* ── Layout ── */
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  grid-template-rows: 100vh;
+  padding-top: 56px;
+}
+
+/* ── Left panel — Context ── */
+.panel-left {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  background: var(--bg2);
+}
+.panel-section {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-section-title {
+  font-family: "DM Mono", monospace;
+  font-size: 9px; font-weight: 500;
+  color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: 0.12em;
+  margin-bottom: 14px;
+}
+
+/* System context */
+.ctx-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-bottom: 10px;
+}
+.ctx-label {
+  font-size: 10px; color: var(--text-faint);
+  font-family: "DM Mono", monospace;
+  min-width: 70px; padding-top: 2px;
+}
+.ctx-value {
+  font-size: 12px; color: var(--bone2);
+  line-height: 1.4;
+}
+.ctx-value.mono {
+  font-family: "DM Mono", monospace;
+  font-size: 11px; color: var(--teal);
+}
+.ctx-value.ok { color: var(--teal); }
+.ctx-value.warn { color: var(--amber); }
+.ctx-value.err { color: var(--red); }
+
+/* Sprint status */
+.sprint-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  cursor: pointer; transition: background 0.15s;
+}
+.sprint-item:hover { background: var(--bg3); }
+.sprint-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.sprint-dot.done { background: var(--teal); }
+.sprint-dot.active { background: var(--amber); }
+.sprint-dot.todo { background: var(--carbon3); border: 1px solid var(--text-faint); }
+.sprint-txt { color: var(--bone2); flex: 1; line-height: 1.3; }
+.sprint-meta { font-size: 10px; color: var(--text-faint); font-family: "DM Mono", monospace; }
+
+/* Known issues */
+.issue-item {
+  padding: 8px 10px; border-radius: 6px;
+  border-left: 2px solid var(--red);
+  background: rgba(184,53,53,0.06);
+  margin-bottom: 6px; font-size: 11px;
+  color: var(--bone2); line-height: 1.4;
+}
+.issue-item.warn {
+  border-color: var(--amber);
+  background: rgba(200,136,42,0.06);
+}
+
+/* Active files */
+.file-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg3); border: 1px solid var(--border-m);
+  border-radius: 5px; padding: 5px 10px;
+  margin: 3px; font-size: 10px;
+  font-family: "DM Mono", monospace; color: var(--text-dim);
+  cursor: pointer; transition: all 0.15s;
+}
+.file-chip:hover { border-color: var(--teal); color: var(--bone); }
+.file-chip .ext { color: var(--teal); }
+
+/* ── Center — Chat ── */
+.panel-chat {
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.chat-header {
+  padding: 20px 28px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.chat-title {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 22px; font-weight: 400;
+  color: var(--bone);
+  margin-bottom: 4px;
+}
+.chat-subtitle {
+  font-size: 12px; color: var(--text-faint);
+}
+
+.chat-messages {
+  flex: 1; overflow-y: auto;
+  padding: 24px 28px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+
+/* Welcome message */
+.msg-agent {
+  display: flex; gap: 14px; align-items: flex-start;
+}
+.agent-avatar {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--teal), #28B090);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 600; color: white;
+  font-family: "Cormorant Garamond", serif;
+}
+.msg-bubble {
+  background: var(--bg2);
+  border: 1px solid var(--border-m);
+  border-radius: 2px 12px 12px 12px;
+  padding: 14px 18px;
+  max-width: 680px;
+  font-size: 14px; line-height: 1.65;
+  color: var(--bone2);
+}
+.msg-bubble strong { color: var(--bone); font-weight: 500; }
+.msg-bubble .highlight {
+  color: var(--teal);
+  font-family: "DM Mono", monospace; font-size: 12px;
+}
+.msg-bubble .code-block {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 14px;
+  margin: 10px 0; font-size: 12px;
+  font-family: "DM Mono", monospace;
+  color: var(--teal); line-height: 1.5;
+  white-space: pre-wrap;
+}
+.msg-user {
+  display: flex; gap: 14px; align-items: flex-start;
+  flex-direction: row-reverse;
+}
+.user-avatar {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--bg3); border: 1px solid var(--border-m);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: var(--text-dim);
+}
+.msg-user .msg-bubble {
+  background: var(--bg3);
+  border-radius: 12px 2px 12px 12px;
+}
+
+/* Thinking indicator */
+.thinking {
+  display: flex; gap: 14px; align-items: flex-start;
+}
+.thinking-bubble {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 2px 12px 12px 12px;
+  padding: 12px 18px;
+  display: flex; align-items: center; gap: 10px;
+}
+.thinking-dots { display: flex; gap: 5px; }
+.thinking-dots span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--teal); opacity: 0.4;
+  animation: blink 1.2s infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%,100%{opacity:0.2} 50%{opacity:1} }
+.thinking-txt { font-size: 12px; color: var(--text-faint); font-style: italic; }
+
+/* Suggestion chips */
+.suggestions {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 0 28px 16px;
+}
+.sug-chip {
+  background: var(--bg2); border: 1px solid var(--border-m);
+  border-radius: 20px; padding: 7px 14px;
+  font-size: 12px; color: var(--bone2);
+  cursor: pointer; transition: all 0.2s;
+  white-space: nowrap;
+}
+.sug-chip:hover {
+  background: var(--teal-glow); border-color: var(--teal);
+  color: var(--bone);
+}
+
+/* Input area */
+.chat-input-wrap {
+  padding: 16px 28px 20px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.chat-input-row {
+  display: flex; gap: 12px; align-items: flex-end;
+}
+.chat-input {
+  flex: 1;
+  background: var(--bg2); border: 1px solid var(--border-m);
+  border-radius: 12px; padding: 12px 16px;
+  color: var(--bone); font-family: "DM Sans", sans-serif;
+  font-size: 14px; resize: none; min-height: 48px; max-height: 200px;
+  outline: none; transition: border-color 0.2s;
+  line-height: 1.5;
+}
+.chat-input:focus { border-color: var(--teal); }
+.chat-input::placeholder { color: var(--text-faint); }
+.send-btn {
+  width: 44px; height: 44px; border-radius: 10px;
+  background: var(--teal); border: none;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; flex-shrink: 0;
+}
+.send-btn:hover { background: #28B090; transform: scale(1.05); }
+.send-btn svg { width: 18px; height: 18px; fill: white; }
+
+/* Mode selector */
+.mode-row {
+  display: flex; gap: 6px; margin-bottom: 10px;
+}
+.mode-btn {
+  padding: 5px 12px; border-radius: 16px;
+  font-size: 11px; font-weight: 500;
+  border: 1px solid var(--border-m);
+  background: transparent; color: var(--text-dim);
+  cursor: pointer; transition: all 0.15s;
+}
+.mode-btn.active {
+  background: var(--teal-glow); border-color: var(--teal);
+  color: var(--teal);
+}
+
+/* ── Right panel — Intelligence ── */
+.panel-right {
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  background: var(--bg2);
+}
+
+/* Architecture map */
+.arch-layer {
+  padding: 10px 14px; margin: 0 16px 6px;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg3);
+  cursor: pointer; transition: all 0.15s;
+}
+.arch-layer:hover { border-color: var(--border-m); }
+.arch-layer.active { border-color: var(--teal); background: var(--teal-glow); }
+.arch-num {
+  font-family: "DM Mono", monospace;
+  font-size: 10px; color: var(--teal); margin-bottom: 3px;
+}
+.arch-name { font-size: 12px; color: var(--bone2); font-weight: 500; }
+.arch-sub { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+
+/* KPI cards */
+.kpi-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; padding: 0 16px;
+}
+.kpi-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px;
+}
+.kpi-val {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 26px; color: var(--bone);
+  line-height: 1;
+}
+.kpi-lbl { font-size: 10px; color: var(--text-faint); margin-top: 4px; }
+.kpi-delta { font-size: 10px; color: var(--teal); margin-top: 2px; }
+
+/* Roadmap compact */
+.road-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px; border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.road-sprint {
+  font-family: "DM Mono", monospace;
+  font-size: 9px; color: var(--text-faint);
+  min-width: 50px;
+}
+.road-txt { color: var(--bone2); flex: 1; }
+.road-status {
+  font-size: 10px; padding: 2px 7px; border-radius: 4px;
+}
+.road-status.done { background: rgba(26,122,94,0.15); color: var(--teal); }
+.road-status.active { background: rgba(200,136,42,0.15); color: var(--amber); }
+.road-status.next { background: var(--bg4); color: var(--text-faint); }
+
+/* Global vision */
+.vision-item {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+}
+.vision-flag { font-size: 18px; flex-shrink: 0; }
+.vision-info { flex: 1; }
+.vision-market { font-size: 12px; color: var(--bone2); font-weight: 500; }
+.vision-detail { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+.vision-tam {
+  font-family: "DM Mono", monospace;
+  font-size: 10px; color: var(--amber); margin-top: 3px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--carbon3); border-radius: 2px; }
+
+/* Divider label */
+.divider-lbl {
+  text-align: center; font-size: 10px; color: var(--text-faint);
+  font-family: "DM Mono", monospace;
+  position: relative; margin: 8px 0;
+}
+.divider-lbl::before, .divider-lbl::after {
+  content: ''; position: absolute;
+  top: 50%; width: 30%; height: 1px; background: var(--border);
+}
+.divider-lbl::before { left: 10px; }
+.divider-lbl::after { right: 10px; }
+
+/* Tag */
+.tag {
+  display: inline-block;
+  font-family: "DM Mono", monospace; font-size: 9px;
+  padding: 2px 7px; border-radius: 3px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.tag.teal { background: rgba(26,122,94,0.15); color: var(--teal); }
+.tag.amber { background: rgba(200,136,42,0.15); color: var(--amber); }
+.tag.red { background: rgba(184,53,53,0.15); color: var(--red); }
+.tag.blue { background: rgba(26,79,140,0.15); color: #5B8FD4; }
+
+.fade-in { animation: fadeIn 0.4s ease both; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tm-logo">TalentMaster<span>™</span></div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-badge">Project Agent v1</div>
+  <div class="topbar-right">
+    <div class="status-dot"></div>
+    <div class="status-txt">Anthropic API yhdistetty</div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- ═══ LEFT PANEL — CONTEXT ═══ -->
+  <div class="panel-left">
+
+    <!-- System state -->
+    <div class="panel-section">
+      <div class="panel-section-title">Järjestelmän tila</div>
+      <div class="ctx-item">
+        <div class="ctx-label">Backend</div>
+        <div class="ctx-value ok">Firebase Blaze ✓</div>
+      </div>
+      <div class="ctx-item">
+        <div class="ctx-label">Region</div>
+        <div class="ctx-value mono">eur3 / europe-west1</div>
+      </div>
+      <div class="ctx-item">
+        <div class="ctx-label">Auth</div>
+        <div class="ctx-value ok">Email+Password ✓</div>
+      </div>
+      <div class="ctx-item">
+        <div class="ctx-label">Rules</div>
+        <div class="ctx-value warn">Päivitetty tänään</div>
+      </div>
+      <div class="ctx-item">
+        <div class="ctx-label">Pilotit</div>
+        <div class="ctx-value">9 seuraa aktiiivisena</div>
+      </div>
+      <div class="ctx-item">
+        <div class="ctx-label">Super Admin</div>
+        <div class="ctx-value mono">dqUzvJA61Wb9...</div>
+      </div>
+    </div>
+
+    <!-- Sprint status -->
+    <div class="panel-section">
+      <div class="panel-section-title">Sprint-tilanne</div>
+      <div class="sprint-item">
+        <div class="sprint-dot done"></div>
+        <div>
+          <div class="sprint-txt">Firebase-infra + Auth</div>
+          <div class="sprint-meta">Sprint 1-2 ✓</div>
+        </div>
+      </div>
+      <div class="sprint-item">
+        <div class="sprint-dot done"></div>
+        <div>
+          <div class="sprint-txt">VP-dashboard v18</div>
+          <div class="sprint-meta">Sprint 2-3 ✓</div>
+        </div>
+      </div>
+      <div class="sprint-item">
+        <div class="sprint-dot done"></div>
+        <div>
+          <div class="sprint-txt">Pelaaja + Vanhempi + IDP v3</div>
+          <div class="sprint-meta">Sprint 3 ✓</div>
+        </div>
+      </div>
+      <div class="sprint-item">
+        <div class="sprint-dot active"></div>
+        <div>
+          <div class="sprint-txt">Testidatan tuonti Excel→Firebase</div>
+          <div class="sprint-meta">Sprint 4 🔄</div>
+        </div>
+      </div>
+      <div class="sprint-item">
+        <div class="sprint-dot active"></div>
+        <div>
+          <div class="sprint-txt">Security Rules korjaus</div>
+          <div class="sprint-meta">Sprint 4 🔄</div>
+        </div>
+      </div>
+      <div class="sprint-item">
+        <div class="sprint-dot todo"></div>
+        <div>
+          <div class="sprint-txt">Kenttätyökalun datavirta-fix</div>
+          <div class="sprint-meta">Sprint 4-5</div>
+        </div>
+      </div>
+      <div class="sprint-item">
+        <div class="sprint-dot todo"></div>
+        <div>
+          <div class="sprint-txt">AI Behavioural Agent</div>
+          <div class="sprint-meta">Sprint 6-8</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Open bugs -->
+    <div class="panel-section">
+      <div class="panel-section-title">Avoimet bugit</div>
+      <div class="issue-item">Super Admin VP-pääsy — Security Rules korjaus tehty, ei testattu</div>
+      <div class="issue-item warn">Fiilinki-kysely väärä U13-vaiheessa — leikkija-kieli puuttuu</div>
+      <div class="issue-item warn">joukkueNimi tallentuu ID:nä rekisteröinnissä</div>
+      <div class="issue-item">SPF/DKIM puuttuu — sähköpostit roskapostiin</div>
+      <div class="issue-item warn">Kenttätyökalu kirjoittaa väärään kokoelmaan (testitapahtumat vs kartoitukset)</div>
+    </div>
+
+    <!-- Active files -->
+    <div class="panel-section">
+      <div class="panel-section-title">Aktiiviset tiedostot</div>
+      <div>
+        <span class="file-chip"><span class="ext">HTML</span> VP_v18</span>
+        <span class="file-chip"><span class="ext">HTML</span> Seura</span>
+        <span class="file-chip"><span class="ext">HTML</span> Pelaaja_v3</span>
+        <span class="file-chip"><span class="ext">HTML</span> IDP_v3</span>
+        <span class="file-chip"><span class="ext">RULES</span> firestore</span>
+        <span class="file-chip"><span class="ext">XLSX</span> Tuontipohja_v4</span>
+        <span class="file-chip"><span class="ext">HTML</span> Testituonti_v2</span>
+        <span class="file-chip"><span class="ext">JS</span> harjoitelogiikka_v4</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══ CENTER — CHAT ═══ -->
+  <div class="panel-chat">
+    <div class="chat-header">
+      <div class="chat-title">TalentMaster Project Agent</div>
+      <div class="chat-subtitle">Senior-tason arkkitehtuuri · Koodinlaatu · Roadmap · Kansainvälinen skaalaus</div>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+
+      <!-- Welcome message -->
+      <div class="msg-agent fade-in">
+        <div class="agent-avatar">T</div>
+        <div class="msg-bubble">
+          <strong>Hei Tero.</strong> Olen TalentMaster Project Agent — senioritason arkkitehtuuri- ja kehityspartneri joka tuntee järjestelmän läpikotaisin.<br><br>
+          Minulla on käytössäni kaikki projektin konteksti: 7-kerroksinen arkkitehtuuri, 9 pilottiseuraa, FLEI-laskentalogiikka, Security Rules, dataflow-päätökset ja kansainvälisen skaalauksen tiekartta.<br><br>
+          <span class="highlight">Mitä rakennetaan tänään?</span><br><br>
+          Voin auttaa seuraavissa:
+          <ul style="margin:10px 0 0 18px; line-height:2;">
+            <li>Koodimuutokset ilman ominaisuuksien hajoamista</li>
+            <li>Arkkitehtuuripäätökset ja dataflow</li>
+            <li>Security Rules ja roolilogiikka</li>
+            <li>Sprint-suunnittelu ja prioriteetti</li>
+            <li>Kansainvälinen skaalausstrategia</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Suggestion chips -->
+    <div class="suggestions" id="suggestions">
+      <div class="sug-chip" onclick="sendSuggestion(this)">🔴 Mikä on kriittisin este ennen KPV-pilottia?</div>
+      <div class="sug-chip" onclick="sendSuggestion(this)">🔐 Tarkista Security Rules super admin -flow</div>
+      <div class="sug-chip" onclick="sendSuggestion(this)">📊 Suunnittele VP-dashboardin KPI-näkymä</div>
+      <div class="sug-chip" onclick="sendSuggestion(this)">🌍 Kansainvälinen skaalausstrategia</div>
+      <div class="sug-chip" onclick="sendSuggestion(this)">🤖 AI Behavioural Agent arkkitehtuuri</div>
+      <div class="sug-chip" onclick="sendSuggestion(this)">📱 Mobiili-first pelaajan näkymä</div>
+    </div>
+
+    <!-- Input -->
+    <div class="chat-input-wrap">
+      <div class="mode-row">
+        <button class="mode-btn active" onclick="setMode('arkkitehtuuri',this)">Arkkitehtuuri</button>
+        <button class="mode-btn" onclick="setMode('koodi',this)">Koodi</button>
+        <button class="mode-btn" onclick="setMode('roadmap',this)">Roadmap</button>
+        <button class="mode-btn" onclick="setMode('kansainvalinen',this)">Kansainvälinen</button>
+        <button class="mode-btn" onclick="setMode('debug',this)">Debug</button>
+      </div>
+      <div class="chat-input-row">
+        <textarea
+          class="chat-input"
+          id="chatInput"
+          placeholder="Kysy tai anna tehtävä agentille..."
+          rows="2"
+          onkeydown="handleKey(event)"
+        ></textarea>
+        <button class="send-btn" onclick="send()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT PANEL — INTELLIGENCE ═══ -->
+  <div class="panel-right">
+
+    <!-- Architecture layers -->
+    <div class="panel-section">
+      <div class="panel-section-title">7-kerroksinen arkkitehtuuri</div>
+      <div class="arch-layer active">
+        <div class="arch-num">Kerros 1</div>
+        <div class="arch-name">Pelaaja / Master v7</div>
+        <div class="arch-sub">streak · fiilinki · T-harjoite · OVR</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-num">Kerros 2</div>
+        <div class="arch-name">Valmentaja / kenttähavainto</div>
+        <div class="arch-sub">ADAR · pelihavainto · TIPS</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-num">Kerros 3</div>
+        <div class="arch-name">Game IQ / D4</div>
+        <div class="arch-sub">ADAR U10-19 · kognitiivinen</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-num">Kerros 4</div>
+        <div class="arch-name">IDP-kortti v3</div>
+        <div class="arch-sub">70/30 · FLEI → ohjelma · klinikka</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-num">Kerros 5</div>
+        <div class="arch-name">IDP-aktivointi</div>
+        <div class="arch-sub">3 reittiä · X-Factor · KORI</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-num">Kerros 6</div>
+        <div class="arch-name">VP / johtamisjärjestelmä</div>
+        <div class="arch-sub">KPI · tiistain kysymys · trendit</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-num">Kerros 7</div>
+        <div class="arch-name">Fyysinen → teknis-taktinen</div>
+        <div class="arch-sub">FLEI → ketjut → IDP-integraatio</div>
+      </div>
+    </div>
+
+    <!-- KPI snapshot -->
+    <div class="panel-section">
+      <div class="panel-section-title">Projektin KPI:t</div>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-val">9</div>
+          <div class="kpi-lbl">Pilottiseuraa</div>
+          <div class="kpi-delta">+3 tänä kausi</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val">0</div>
+          <div class="kpi-lbl">Täysin toimiva</div>
+          <div class="kpi-delta" style="color:var(--amber)">KPV seuraava</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val">7</div>
+          <div class="kpi-lbl">Arkkitehtuurikerrosta</div>
+          <div class="kpi-delta">Kaikki suunniteltu</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val">5</div>
+          <div class="kpi-lbl">Avointa bugia</div>
+          <div class="kpi-delta" style="color:var(--red)">2 kriittistä</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Global roadmap -->
+    <div class="panel-section">
+      <div class="panel-section-title">Kansainvälinen tiekartta</div>
+    </div>
+    <div class="road-item">
+      <div class="road-sprint">2026 Q2</div>
+      <div class="road-txt">9 seuraa Suomessa pilotissa</div>
+      <div class="road-status active">Nyt</div>
+    </div>
+    <div class="road-item">
+      <div class="road-sprint">2026 Q3</div>
+      <div class="road-txt">KPV end-to-end toimiva</div>
+      <div class="road-status next">Q3</div>
+    </div>
+    <div class="road-item">
+      <div class="road-sprint">2026 Q4</div>
+      <div class="road-txt">AI-agentti + streak-data</div>
+      <div class="road-status next">Q4</div>
+    </div>
+    <div class="road-item">
+      <div class="road-sprint">2027 Q1</div>
+      <div class="road-txt">Pohjoismaat: Ruotsi, Norja</div>
+      <div class="road-status next">2027</div>
+    </div>
+    <div class="road-item">
+      <div class="road-sprint">2027 Q2</div>
+      <div class="road-txt">SporttiID — lajiriippumaton</div>
+      <div class="road-status next">2027</div>
+    </div>
+    <div class="road-item">
+      <div class="road-sprint">2027 Q4</div>
+      <div class="road-txt">Baltia + Puola</div>
+      <div class="road-status next">2027</div>
+    </div>
+    <div class="road-item">
+      <div class="road-sprint">2028</div>
+      <div class="road-txt">FIFA/UEFA partnership neuvottelut</div>
+      <div class="road-status next">2028</div>
+    </div>
+
+    <!-- Global markets -->
+    <div class="panel-section" style="margin-top:8px">
+      <div class="panel-section-title">Markkinapotentiaali</div>
+    </div>
+    <div class="vision-item">
+      <div class="vision-flag">🇫🇮</div>
+      <div class="vision-info">
+        <div class="vision-market">Suomi — Pilotti</div>
+        <div class="vision-detail">~130 000 lisenssipelaajaa · 900+ seuraa</div>
+        <div class="vision-tam">TAM ~360K€/v · 400€/seura</div>
+      </div>
+    </div>
+    <div class="vision-item">
+      <div class="vision-flag">🇸🇪</div>
+      <div class="vision-info">
+        <div class="vision-market">Ruotsi — Vaihe 2</div>
+        <div class="vision-detail">~400 000 pelaajaa · 3 200 seuraa</div>
+        <div class="vision-tam">TAM ~1.3M€/v</div>
+      </div>
+    </div>
+    <div class="vision-item">
+      <div class="vision-flag">🇵🇱</div>
+      <div class="vision-info">
+        <div class="vision-market">Puola — Korkea potentiaali</div>
+        <div class="vision-detail">~2.3M pelaajaa · 1v1-konsepti tuttu</div>
+        <div class="vision-tam">TAM ~5M€/v</div>
+      </div>
+    </div>
+    <div class="vision-item">
+      <div class="vision-flag">🌍</div>
+      <div class="vision-info">
+        <div class="vision-market">UEFA-alue 2028+</div>
+        <div class="vision-detail">55 jäsenliittoa · 50M+ lisenssiä</div>
+        <div class="vision-tam">TAM ~200M€/v SaaS</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `Olet TalentMaster Project Agent — senioritason ohjelmistoarkkitehti ja tuotepäällikkö joka tuntee TalentMaster-järjestelmän läpikotaisin.
+
+PROJEKTIN KONTEKSTI:
+- TalentMaster™ on multi-tenant SaaS jalkapallon pelaajankehitykseen
+- Tech stack: Firebase Blaze (Firestore eur3, Auth, Cloud Functions europe-west1), vanilla JavaScript (IIFE), GitHub Pages
+- Super Admin UID: dqUzvJA61Wb9fgj5UiK0riSA4NI2 — universaali pääsy kaikkialle AINA
+- 9 pilottiseuraa: FC Lahti, KPV, Pallo-Iirot, Ylöjärven Ilves, SJK, GrIFK, VIFK ja muita
+- Suunnittelufilosofia: "Pelaaja ensin, hallinto vahvistaa"
+
+7-KERROKSINEN ARKKITEHTUURI:
+1. Pelaaja / Master v7 — streak, fiilinki, T-harjoite, OVR
+2. Valmentaja / kenttähavainto + ADAR
+3. Game IQ / D4 / koulutusmoduuli  
+4. IDP-kortti v3
+5. IDP-aktivointi (3 reittiä: manuaalinen/signaali/talenttiohjelma)
+6. VP / johtamisjärjestelmä
+7. Fyysinen → teknis-taktinen integraatio
+
+KRIITTISET PERIAATTEET (älä koskaan riko näitä):
+- super_admin (underscore) on canonical kaikkialla
+- FLEI = 5 ketjua: SBL/SFL/LL/DIAG/DFL (DIAG korvaa SL+FL pysyvästi — Wilke 2016)
+- S-harjoite aina heikoimmalle ketjulle (EI profiiliin)
+- T-harjoite joka päivä — myös lepopäivinä
+- PHV-status ohittaa Stagen
+- PalloID = pysyvä ankkuri, päivämäärä = universaali linkki datassa
+- huoltajaEmail aina .toLowerCase()
+- onSuperAdmin() tarkistaa nyt: custom claim super_admin TAI superadmin TAI admins-kokoelma
+
+AVOIMET BUGIT:
+1. Super Admin VP-pääsy — Security Rules korjattu, testausta vailla
+2. Fiilinki U13-vaiheessa väärä — leikkija-kieli puuttuu
+3. joukkueNimi tallentuu ID:nä rekisteröinnissä
+4. SPF/DKIM puuttuu — sähköpostit roskapostiin
+5. Kenttätyökalu kirjoittaa testitapahtumat/ eikä kartoitukset/
+
+DATAFLOW-PÄÄTÖKSET (päätetty 2026-04-19):
+- PalloID = universaali pelaaja-ankkuri
+- Testipäivämäärä = pakollinen linkki pelaaja+data+ajankohta
+- tapahtumaId = valinnainen (null ok historiassa)
+- Raakadata: kartoitukset/ palloID+pvm indeksoituna, ei nestattuna
+- Historia: where(palloID).orderBy(pvm)
+
+KOODAUSSTANDARDI:
+- Tuota aina täydellinen, toimiva koodi — ei placeholdereita
+- Säilytä kaikki olemassa olevat ominaisuudet
+- Tarkista aina auth flow, seura-isolaatio ja super admin -pääsy
+- Käytä Guardian-tarkastusta ennen luovutusta
+- Vanilla JS IIFE pattern (ei frameworkkeja)
+
+Vastaa suomeksi. Ole konkreettinen, tarkka ja anna toimivaa koodia. Kun teet muutoksia, selitä mitä muutat ja miksi, ja listaa mitä ominaisuuksia säilytetään.`;
+
+let _mode = 'arkkitehtuuri';
+let _historia = [];
+let _isThinking = false;
+
+// ── Mode ───────────────────────────────────────────────────────
+function setMode(mode, btn) {
+  _mode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Suggestion chips ───────────────────────────────────────────
+function sendSuggestion(el) {
+  const txt = el.textContent.replace(/^[🔴🔐📊🌍🤖📱]\s/, '');
+  document.getElementById('chatInput').value = txt;
+  send();
+}
+
+// ── Keyboard ───────────────────────────────────────────────────
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault(); send();
+  }
+}
+
+// ── Render message ─────────────────────────────────────────────
+function renderMsg(role, text) {
+  const wrap = document.createElement('div');
+  wrap.className = (role === 'user' ? 'msg-user' : 'msg-agent') + ' fade-in';
+
+  const avatar = document.createElement('div');
+  avatar.className = role === 'user' ? 'user-avatar' : 'agent-avatar';
+  avatar.textContent = role === 'user' ? 'T' : 'A';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.innerHTML = formatText(text);
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(bubble);
+  return wrap;
+}
+
+function formatText(txt) {
+  // Code blocks
+  txt = txt.replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, lang, code) =>
+    `<div class="code-block">${escHtml(code.trim())}</div>`);
+  // Inline code
+  txt = txt.replace(/`([^`]+)`/g, '<span class="highlight">$1</span>');
+  // Bold
+  txt = txt.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Newlines
+  txt = txt.replace(/\n/g, '<br>');
+  return txt;
+}
+
+function escHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Thinking indicator ─────────────────────────────────────────
+function showThinking() {
+  const wrap = document.createElement('div');
+  wrap.className = 'thinking fade-in';
+  wrap.id = 'thinking-indicator';
+  wrap.innerHTML = `
+    <div class="agent-avatar">A</div>
+    <div class="thinking-bubble">
+      <div class="thinking-dots">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="thinking-txt">Analysoi kontekstia...</div>
+    </div>`;
+  document.getElementById('chatMessages').appendChild(wrap);
+  scrollBottom();
+}
+
+function hideThinking() {
+  const el = document.getElementById('thinking-indicator');
+  if (el) el.remove();
+}
+
+function scrollBottom() {
+  const msgs = document.getElementById('chatMessages');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── Send ───────────────────────────────────────────────────────
+async function send() {
+  if (_isThinking) return;
+  const input = document.getElementById('chatInput');
+  const txt = input.value.trim();
+  if (!txt) return;
+
+  // Piilota ehdotukset
+  document.getElementById('suggestions').style.display = 'none';
+
+  // Lisää käyttäjän viesti
+  input.value = '';
+  input.style.height = 'auto';
+  const msgs = document.getElementById('chatMessages');
+  msgs.appendChild(renderMsg('user', txt));
+  scrollBottom();
+
+  // Lisää historiaan
+  _historia.push({ role: 'user', content: getModePrefix() + txt });
+
+  // Näytä thinking
+  _isThinking = true;
+  showThinking();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: _historia
+      })
+    });
+
+    const data = await res.json();
+    const reply = data?.content?.[0]?.text || 'Vastaus puuttui — yritä uudelleen.';
+
+    hideThinking();
+    _historia.push({ role: 'assistant', content: reply });
+    msgs.appendChild(renderMsg('agent', reply));
+    scrollBottom();
+
+  } catch(e) {
+    hideThinking();
+    msgs.appendChild(renderMsg('agent', '**Yhteysvirhe.** Tarkista verkko ja yritä uudelleen.\n\n`' + e.message + '`'));
+    scrollBottom();
+  }
+
+  _isThinking = false;
+}
+
+function getModePrefix() {
+  const prefixes = {
+    arkkitehtuuri: '[ARKKITEHTUURI] ',
+    koodi: '[KOODI] Tuota toimiva, täydellinen koodi. Säilytä kaikki olemassa olevat ominaisuudet. ',
+    roadmap: '[ROADMAP] ',
+    kansainvalinen: '[KANSAINVÄLINEN STRATEGIA] ',
+    debug: '[DEBUG] Analysoi ongelma tarkasti. Löydä juurisyy ennen ratkaisua. '
+  };
+  return prefixes[_mode] || '';
+}
+
+// Auto-resize textarea
+document.getElementById('chatInput').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+});
+
+// Arch layer click
+document.querySelectorAll('.arch-layer').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.arch-layer').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>
