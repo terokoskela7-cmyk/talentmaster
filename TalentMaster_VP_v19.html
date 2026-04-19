@@ -1822,7 +1822,7 @@ function _paivitaSuperAdminDropdown() {
     window._osaaminenLadattu = false;
     _polkuData = [];
     _ladattu = {};
-    if (_unsubKal) { try { _unsubKal(); } catch(e){} _unsubKal = null; }
+    if (_unsubKal) { try { _unsubKal(); } catch(e){ console.warn('[VP] catch:', e.message); } _unsubKal = null; }
     await asetaSeura(uusiSeura);
     const url = new URL(location.href);
     url.searchParams.set('seura', uusiSeura);
@@ -1981,7 +1981,7 @@ async function lataaTilanne() {
     const visio = sd.visio||sd.missio||sd.kuvaus||'';
     const bannerTeksti = document.getElementById('bannerTeksti');
     if (bannerTeksti) bannerTeksti.textContent = visio || (prof.kaupunki?prof.nimi+' · '+prof.kaupunki:prof.nimi||_seuraNimi)+(prof.vuosi?' · perustettu '+prof.vuosi:'');
-  } catch(e) {}
+  } catch(e){ console.warn('[VP] catch:', e.message); }
 
   let pelaajatLkm=0, fleiSumma=0, fleiLkm=0, idpLkm=0;
   try {
@@ -1990,7 +1990,7 @@ async function lataaTilanne() {
     pSnap.forEach(doc => { if (doc.data().idp_aktiivinen) idpLkm++; });
     document.getElementById('kpiPelaajat').textContent = pelaajatLkm;
     document.getElementById('kpiIDP').textContent = idpLkm||'—';
-  } catch(e){}
+  } catch(e){ console.warn('[VP] catch:', e.message); }
 
   try {
     for (const j of _joukkueet) {
@@ -2001,7 +2001,7 @@ async function lataaTilanne() {
       });
     }
     document.getElementById('kpiFLEI').textContent = fleiLkm>0 ? Math.round(fleiSumma/fleiLkm)+'%' : '—';
-  } catch(e){}
+  } catch(e){ console.warn('[VP] catch:', e.message); }
 
   document.getElementById('kpiXFactor').textContent = '—';
   await laskeAlertit(fleiLkm>0 ? Math.round(fleiSumma/fleiLkm) : null);
@@ -2093,7 +2093,7 @@ async function renderFleiJakauma() {
         <div class="prow"><div class="plabel">Hyvä taso</div><div class="ptrack"><div class="pfill" style="width:${Math.round(hyvat/n*100)}%;background:var(--green)"></div></div><div class="pval" style="color:var(--green)">${hyvat}/${n}</div></div>
         <div class="prow"><div class="plabel">Kehitysvaihe</div><div class="ptrack"><div class="pfill" style="width:${Math.round(kehitys/n*100)}%;background:var(--amber)"></div></div><div class="pval" style="color:var(--amber)">${kehitys}/${n}</div></div>
         <div class="prow"><div class="plabel">Tarvitsee tukea</div><div class="ptrack"><div class="pfill" style="width:${Math.round(tuki/n*100)}%;background:var(--red)"></div></div><div class="pval" style="color:var(--red)">${tuki}/${n}</div></div></div>`;
-    } catch(e){}
+    } catch(e){ console.warn('[VP] catch:', e.message); }
   }
   el.innerHTML = html||'<div class="empty"><div class="empty-icon">ð</div><div class="empty-text">Kartoituksia ei vielä.<br>Luo ensimmäinen testitapahtuma.</div></div>';
 }
@@ -2580,7 +2580,7 @@ async function lataaKartoitukset() {
     try {
       const gemSnap=await _db.collection('seurat').doc(_seuraId).collection('havainnot').where('onHiddenGem','==',true).limit(20).get();
       gemSnap.docs.forEach(d=>{const h=d.data();gemMap[h.pelaajaId]=h;});
-    } catch(e){}
+    } catch(e){ console.warn('[VP] catch:', e.message); }
     const fleillaPelaajat=pelaajat.filter(p=>p.flei>0);
     const fleiKa=fleillaPelaajat.length?Math.round(fleillaPelaajat.reduce((a,p)=>a+(p.flei||0),0)/fleillaPelaajat.length):0;
     const xLkm=Object.keys(xMap).length+Object.keys(gemMap).length, phvLkm=pelaajat.filter(p=>p.phv_tila==='PH').length;
@@ -2877,7 +2877,7 @@ async function lataaHenkilosto() {
 async function avaaKenttaModal(valUid, valNimi, valRooli, ivDefault) {
   document.getElementById('_kenttaModal')?.remove();
   let viimeisinKirjaus=null;
-  try{const ks=await _db.collection('seurat').doc(_seuraId).collection('mentoroinnit').where('valmentajaUid','==',valUid).orderBy('luotu','desc').limit(1).get();if(!ks.empty)viimeisinKirjaus=ks.docs[0].data();}catch(e){}
+  try{const ks=await _db.collection('seurat').doc(_seuraId).collection('mentoroinnit').where('valmentajaUid','==',valUid).orderBy('luotu','desc').limit(1).get();if(!ks.empty)viimeisinKirjaus=ks.docs[0].data();}catch(e){ console.warn('[VP] catch:', e.message); }
   const ivAktiivinenDefault=viimeisinKirjaus?.ikavaihe||ivDefault||'nuoruus';
   function _rakennaMod(valittuIv){
     document.getElementById('_kenttaModal')?.remove();
@@ -3119,7 +3119,7 @@ async function lataaPolku(pakota) {
     for(const j of joukkueetHaettava){
       let pSnap;try{pSnap=await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(j.id).collection('pelaajat').limit(100).get();}catch(e){continue;}
       let kSnap;const viimeisinK={};
-      try{kSnap=await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(j.id).collection('kartoitukset').get();kSnap.forEach(doc=>{const d=doc.data();const pid=d.pelaaja_id||d.pelaajaId;if(!pid)return;const ms=d.pvm?.toMillis?.()||0;if(!viimeisinK[pid]||ms>viimeisinK[pid].ms)viimeisinK[pid]={...d,ms};});}catch(e){}
+      try{kSnap=await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(j.id).collection('kartoitukset').get();kSnap.forEach(doc=>{const d=doc.data();const pid=d.pelaaja_id||d.pelaajaId;if(!pid)return;const ms=d.pvm?.toMillis?.()||0;if(!viimeisinK[pid]||ms>viimeisinK[pid].ms)viimeisinK[pid]={...d,ms};});}catch(e){ console.warn('[VP] catch:', e.message); }
       pSnap.forEach(doc=>{
         const p=doc.data(), pid=doc.id, k=viimeisinK[pid]||null;
         const flei=k?(k.flei??k.flei_pisteet??null):null;
@@ -3389,9 +3389,9 @@ async function rakentaaHalytykset() {
   if(!lista||!_seuraId)return;
   try{
     const halytykset=[];
-    try{const karSnap=await _db.collection('seurat').doc(_seuraId).collection('kartoitukset').where('phvTila','==','PH').limit(10).get();if(!karSnap.empty)halytykset.push({taso:'kriittinen',ikoni:'â ï¸',otsikko:karSnap.size+' pelaajaa kasvupyrähdysvaiheessa',teksti:'Harjoittelukuorma pitää rajoittaa. Tarkista valmentajan ohjeet.',tagi:'PHV-seuranta',nav:'kartoitukset'});}catch(e1){}
-    try{const heikotSnap=await _db.collection('seurat').doc(_seuraId).collection('kartoitukset').orderBy('yhteenveto.fleiPisteet').limit(5).get();const heikot=heikotSnap.docs.filter(d=>{const yh=d.data().yhteenveto||{};return (yh.pisteetMaksimi||27)>0&&((yh.fleiPisteet||0)/(yh.pisteetMaksimi||27))<0.4;});if(heikot.length>0)halytykset.push({taso:'varoitus',ikoni:'ð´',otsikko:heikot.length+' pelaajaa — FLEI alle 40%',teksti:heikot.slice(0,2).map(d=>d.data().nimi||'—').join(', ')+' tarvitsee prioriteettiharjoittelua.',tagi:'Kehitysprioriteetti',nav:'kartoitukset'});}catch(e2){}
-    try{const raja=new Date();raja.setDate(raja.getDate()-14);const rajaPvm=raja.toISOString().split('T')[0];const harjSnap=await _db.collection('seurat').doc(_seuraId).collection('harjoitukset').where('pvm','>=',rajaPvm).limit(5).get();if(harjSnap.empty){let pelKirjLkm=0;try{for(const jj of (_joukkueet||[]).slice(0,3)){const pSnap=await _db.collection('seurat').doc(_seuraId).collection('pelaajat').where('joukkue','==',jj.id).limit(5).get();for(const pd of pSnap.docs){const kSnap=await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pd.id).collection('kirjaukset').where('pvm','>=',rajaPvm).limit(1).get();if(!kSnap.empty){pelKirjLkm++;break;}}if(pelKirjLkm>0)break;}}catch(ek){}if(pelKirjLkm===0)halytykset.push({taso:'varoitus',ikoni:'ð',otsikko:'Ei harjoituskirjauksia 14 päivään',teksti:'Valmentajat eivät ole kirjanneet harjoituksia. Muistuta heitä.',tagi:'Aktiivisuus',nav:'henkilosto'});}}catch(e3){}
+    try{const karSnap=await _db.collection('seurat').doc(_seuraId).collection('kartoitukset').where('phvTila','==','PH').limit(10).get();if(!karSnap.empty)halytykset.push({taso:'kriittinen',ikoni:'â ï¸',otsikko:karSnap.size+' pelaajaa kasvupyrähdysvaiheessa',teksti:'Harjoittelukuorma pitää rajoittaa. Tarkista valmentajan ohjeet.',tagi:'PHV-seuranta',nav:'kartoitukset'});}catch(e1){ console.warn('[VP] catch:', e1.message); }
+    try{const heikotSnap=await _db.collection('seurat').doc(_seuraId).collection('kartoitukset').orderBy('yhteenveto.fleiPisteet').limit(5).get();const heikot=heikotSnap.docs.filter(d=>{const yh=d.data().yhteenveto||{};return (yh.pisteetMaksimi||27)>0&&((yh.fleiPisteet||0)/(yh.pisteetMaksimi||27))<0.4;});if(heikot.length>0)halytykset.push({taso:'varoitus',ikoni:'ð´',otsikko:heikot.length+' pelaajaa — FLEI alle 40%',teksti:heikot.slice(0,2).map(d=>d.data().nimi||'—').join(', ')+' tarvitsee prioriteettiharjoittelua.',tagi:'Kehitysprioriteetti',nav:'kartoitukset'});}catch(e2){ console.warn('[VP] catch:', e2.message); }
+    try{const raja=new Date();raja.setDate(raja.getDate()-14);const rajaPvm=raja.toISOString().split('T')[0];const harjSnap=await _db.collection('seurat').doc(_seuraId).collection('harjoitukset').where('pvm','>=',rajaPvm).limit(5).get();if(harjSnap.empty){let pelKirjLkm=0;try{for(const jj of (_joukkueet||[]).slice(0,3)){const pSnap=await _db.collection('seurat').doc(_seuraId).collection('pelaajat').where('joukkue','==',jj.id).limit(5).get();for(const pd of pSnap.docs){const kSnap=await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pd.id).collection('kirjaukset').where('pvm','>=',rajaPvm).limit(1).get();if(!kSnap.empty){pelKirjLkm++;break;}}if(pelKirjLkm>0)break;}}catch(ek){ console.warn('[VP] catch:', ek.message); }if(pelKirjLkm===0)halytykset.push({taso:'varoitus',ikoni:'ð',otsikko:'Ei harjoituskirjauksia 14 päivään',teksti:'Valmentajat eivät ole kirjanneet harjoituksia. Muistuta heitä.',tagi:'Aktiivisuus',nav:'henkilosto'});}}catch(e3){ console.warn('[VP] catch:', e3.message); }
     if(halytykset.length===0){lista.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:14px;background:var(--green-dim);border:.5px solid var(--green-brd);">'+' <span style="font-size:20px">â</span><div><div style="font-size:13px;font-weight:500;color:var(--carbon)">Kaikki kunnossa</div><div style="font-size:12px;color:var(--ink3)">Ei kriittisiä toimenpiteitä tänään.</div></div></div>';if(lkm){lkm.textContent='Kaikki ok';lkm.className='osio-badge harmaa';}return;}
     lista.innerHTML=halytykset.map(h=>'<div class="halytys-rivi '+h.taso+'" onclick="_vpSiirryTabiin(\''+h.nav+'\')" style="cursor:pointer"><span class="halytys-ikoni">'+h.ikoni+'</span><div><div class="halytys-otsikko">'+h.otsikko+'</div><div class="halytys-teksti">'+h.teksti+'</div><span class="halytys-tagi '+h.taso+'">'+h.tagi+'</span></div></div>').join('');
     const kriit=halytykset.filter(h=>h.taso==='kriittinen').length;
@@ -3435,7 +3435,7 @@ async function rakentaaFiilinki() {
   try{
     const snap=await _db.collection('seurat').doc(_seuraId).collection('harjoitukset').orderBy('luotu','desc').limit(60).get();
     let rpeArvot=snap.docs.map(d=>d.data().rpe||d.data().rpeKa).filter(v=>v!=null&&!isNaN(v));
-    if(rpeArvot.length===0){try{const pelSnap=await _db.collection('seurat').doc(_seuraId).collection('pelaajat').limit(20).get();const fiiliArvot=[];for(const pd of pelSnap.docs.slice(0,8)){const kk=await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pd.id).collection('kirjaukset').orderBy('pvm','desc').limit(7).get();kk.docs.forEach(d=>{const f=d.data().fiilinki;if(f!=null&&!isNaN(f))fiiliArvot.push(Math.round(f*20));});}if(fiiliArvot.length>0)rpeArvot=fiiliArvot;}catch(ef){}}
+    if(rpeArvot.length===0){try{const pelSnap=await _db.collection('seurat').doc(_seuraId).collection('pelaajat').limit(20).get();const fiiliArvot=[];for(const pd of pelSnap.docs.slice(0,8)){const kk=await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pd.id).collection('kirjaukset').orderBy('pvm','desc').limit(7).get();kk.docs.forEach(d=>{const f=d.data().fiilinki;if(f!=null&&!isNaN(f))fiiliArvot.push(Math.round(f*20));});}if(fiiliArvot.length>0)rpeArvot=fiiliArvot;}catch(ef){ console.warn('[VP] catch:', ef.message); }}
     if(rpeArvot.length===0){arvoEl.textContent='—';deltaEl.textContent='Ei dataa';return;}
     const onFiilinki=rpeArvot.reduce((a,b)=>a+b,0)/rpeArvot.length>10;
     const fArvot=onFiilinki?rpeArvot.map(r=>Math.min(100,Math.max(0,Math.round(r)))):rpeArvot.map(r=>Math.min(100,Math.max(0,Math.round(100-(r-1)*8))));
@@ -3473,8 +3473,8 @@ function lahetaSalasana() {
 }
 
 function kirjauduUlos() {
-  if(window._vpKalUnsubscribe){try{window._vpKalUnsubscribe();}catch(e){}window._vpKalUnsubscribe=null;}
-  if(_unsubKal){try{_unsubKal();}catch(e){}_unsubKal=null;}
+  if(window._vpKalUnsubscribe){try{window._vpKalUnsubscribe();}catch(e){ console.warn('[VP] catch:', e.message); }window._vpKalUnsubscribe=null;}
+  if(_unsubKal){try{_unsubKal();}catch(e){ console.warn('[VP] catch:', e.message); }_unsubKal=null;}
   _seuraId=null;_joukkueet=[];_rooli='';_ladattu={};
   firebase.auth().signOut().then(()=>{nayta('sLogin');const virhe=document.getElementById('loginVirhe');if(virhe){virhe.style.display='none';virhe.textContent='';}}).catch(e=>console.warn('[kirjauduUlos]',e.message));
 }
