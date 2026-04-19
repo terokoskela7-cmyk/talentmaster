@@ -3,17 +3,25 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ════════════════════════════════════════════════════════════
-    // APUFUNKTIOT — yhtenäinen tarkistuslogiikka koko tiedostossa
-    // Muutos: lisätty onOmaUid() + onSeuranJasenJaSeuraId()
+    // APUFUNKTIOT
     // ════════════════════════════════════════════════════════════
 
     function onKirjautunut() {
       return request.auth != null;
     }
 
+    // KORJAUS: Super admin tunnistetaan kolmella tavalla:
+    // 1) Custom Claim rooli == 'super_admin' (underscore)
+    // 2) Custom Claim rooli == 'superadmin' (yhteen - vanha muoto)
+    // 3) Custom Claim super_admin == true (boolean)
+    // 4) admins-kokoelmassa on dokumentti kyseisellä UID:llä
     function onSuperAdmin() {
-      return onKirjautunut() &&
-        request.auth.token.rooli == 'super_admin';
+      return onKirjautunut() && (
+        request.auth.token.rooli == 'super_admin' ||
+        request.auth.token.rooli == 'superadmin' ||
+        request.auth.token.super_admin == true ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
     }
 
     function onRooli(rooli) {
@@ -26,45 +34,28 @@ service cloud.firestore {
         request.auth.token.seuraId == seuraId;
     }
 
-    // ── UUSI: Tarkistaa että käyttäjä on oma UID ─────────────────
-    // Korjaa: admins-kokoelma oli allow read: if true
     function onOmaUid(uid) {
       return onKirjautunut() && request.auth.uid == uid;
     }
 
-    // ── UUSI: Yhdistelmätarkistus kirjoituksiin ───────────────────
-    // Korjaa: cross-tenant ongelma — käyttäjä ei voi kirjoittaa
-    // toisen seuran seuraId:llä vaikka olisi kirjautunut
     function onSeuranJasenJaSeuraId(seuraId) {
       return onSeuranJasen(seuraId) &&
         request.resource.data.seuraId == seuraId;
     }
 
-    function onPelaajaAnon(seuraId, pelaajaId) {
-      return onKirjautunut() &&
-        get(/databases/$(database)/documents/seurat/$(seuraId)/pelaajat/$(pelaajaId)).data.suostumus == true;
-    }
-
     // ════════════════════════════════════════════════════════════
-    // ADMINS — KRIITTINEN KORJAUS
-    // Ennen: allow read, write: if onSuperAdmin()
-    //        → super admin kirjoittaa, mutta luku oli auki kaikille
-    // Jälkeen: luku vain omalle UID:lle, kirjoitus vain super adminille
+    // ADMINS
+    // Super admin lukee oman dokumenttinsa — onOmaUid riittää
     // ════════════════════════════════════════════════════════════
     match /admins/{uid} {
-      // Vain oma uid voi lukea oman admin-dokumentin
       allow read:  if onOmaUid(uid) || onSuperAdmin();
-      // Vain super admin voi luoda/muokata admin-dokumentteja
       allow write: if onSuperAdmin();
     }
 
     // ════════════════════════════════════════════════════════════
     // SEURAT
-    // Ennen: allow read: if true  ← kuka tahansa luki koko seuran
-    // Jälkeen: luku vain kirjautuneille seuran jäsenille
     // ════════════════════════════════════════════════════════════
     match /seurat/{seuraId} {
-      // KORJAUS: oli "if true" — nyt vaaditaan kirjautuminen
       allow read: if onKirjautunut() && onSeuranJasen(seuraId)
                   || onSuperAdmin();
       allow write: if onKirjautunut() && (
@@ -80,12 +71,25 @@ service cloud.firestore {
           onRooli('vp') || onRooli('seurasihteeri')
         ) && onSeuranJasen(seuraId) || onSuperAdmin();
 
-        // ── Kayttajat ──────────────────────────────────────────
         match /kayttajat/{kayttajaId} {
           allow read: if onKirjautunut() && onSeuranJasen(seuraId)
                       || onSuperAdmin();
           allow write: if onKirjautunut() && (
             onRooli('vp') || onRooli('seurasihteeri')
+          ) && onSeuranJasen(seuraId) || onSuperAdmin();
+        }
+
+        match /kartoitukset/{kartoitusId} {
+          allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+          allow create, update: if onKirjautunut() && (
+            onRooli('vp') || onRooli('valmentaja') || onRooli('testivastaava')
+          ) && onSeuranJasen(seuraId) || onSuperAdmin();
+        }
+
+        match /kehitystavoitteet/{kausi} {
+          allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+          allow create, update: if onKirjautunut() && (
+            onRooli('vp') || onRooli('urheilutoimenjohtaja')
           ) && onSeuranJasen(seuraId) || onSuperAdmin();
         }
       }
@@ -103,7 +107,6 @@ service cloud.firestore {
           onRooli('vp') || onRooli('seurasihteeri') || onRooli('valmentaja')
         ) && onSeuranJasen(seuraId) || onSuperAdmin();
 
-        // KORJAUS: lisätty seuraId-validointi — estää cross-tenant kirjoitukset
         allow update: if onKirjautunut() && (
           onRooli('vp') || onRooli('seurasihteeri') || onRooli('valmentaja') ||
           onRooli('talenttivalmentaja') || onRooli('fysiikkavalmentaja') ||
@@ -113,7 +116,6 @@ service cloud.firestore {
         allow delete: if onRooli('vp') && onSeuranJasen(seuraId)
                       || onSuperAdmin();
 
-        // ── Kirjaukset ────────────────────────────────────────
         match /kirjaukset/{paiva} {
           allow read: if (
             onKirjautunut() && onSeuranJasen(seuraId)
@@ -121,7 +123,6 @@ service cloud.firestore {
             onKirjautunut() && request.auth.uid == pelaajaId
           ) || onSuperAdmin();
 
-          // KORJAUS: lisätty seuraId-tarkistus kirjoitukseen
           allow create, update: if onKirjautunut()
             && onSeuranJasen(seuraId)
             || onSuperAdmin();
@@ -132,12 +133,8 @@ service cloud.firestore {
       match /havainnot/{havaintoId} {
         allow read: if (
           onKirjautunut() && onSeuranJasen(seuraId)
-        ) || (
-          onKirjautunut() &&
-          get(/databases/$(database)/documents/seurat/$(seuraId)/pelaajat/$(resource.data.pelaajaId)).data.suostumus == true
         ) || onSuperAdmin();
 
-        // KORJAUS: vaaditaan seuraId täsmäämään — cross-tenant esto
         allow create, update: if onKirjautunut() && (
           onRooli('valmentaja') || onRooli('talenttivalmentaja')
         ) && onSeuranJasen(seuraId)
@@ -154,7 +151,6 @@ service cloud.firestore {
       // ── Merkinnät ────────────────────────────────────────────
       match /merkinnat/{merkintaId} {
         allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-        // KORJAUS: seuraId-validointi
         allow create, update: if onKirjautunut() && onSeuranJasen(seuraId)
           && request.resource.data.seuraId == seuraId || onSuperAdmin();
       }
@@ -168,20 +164,37 @@ service cloud.firestore {
         allow delete: if onRooli('vp') && onSeuranJasen(seuraId) || onSuperAdmin();
       }
 
-      // ── Kartoitukset ─────────────────────────────────────────
-      match /joukkueet/{joukkueId}/kartoitukset/{kartoitusId} {
+      // ── Kartoitukset (seuran taso) ───────────────────────────
+      match /kartoitukset/{kartoitusId} {
         allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
         allow create, update: if onKirjautunut() && (
           onRooli('vp') || onRooli('valmentaja') || onRooli('testivastaava')
         ) && onSeuranJasen(seuraId) || onSuperAdmin();
       }
 
-      // ── Kehitystavoitteet ────────────────────────────────────
-      match /joukkueet/{joukkueId}/kehitystavoitteet/{kausi} {
+      // ── HH-tulokset ──────────────────────────────────────────
+      match /hh_tulokset/{tulosId} {
         allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
         allow create, update: if onKirjautunut() && (
-          onRooli('vp') || onRooli('urheilutoimenjohtaja')
+          onRooli('vp') || onRooli('valmentaja') || onRooli('testivastaava')
         ) && onSeuranJasen(seuraId) || onSuperAdmin();
+      }
+
+      // ── Tekniikkatulokset ────────────────────────────────────
+      match /tekniikkatulokset/{tulosId} {
+        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+        allow create, update: if onKirjautunut() && (
+          onRooli('vp') || onRooli('valmentaja') || onRooli('testivastaava')
+        ) && onSeuranJasen(seuraId) || onSuperAdmin();
+      }
+
+      // ── Testitapahtumat ──────────────────────────────────────
+      match /testitapahtumat/{tapahtumaId} {
+        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+        allow create, update: if onKirjautunut() && (
+          onRooli('vp') || onRooli('valmentaja') || onRooli('testivastaava')
+        ) && onSeuranJasen(seuraId) || onSuperAdmin();
+        allow delete: if onRooli('vp') && onSeuranJasen(seuraId) || onSuperAdmin();
       }
 
       // ── DNA-konfiguraatio ────────────────────────────────────
@@ -191,6 +204,32 @@ service cloud.firestore {
           onRooli('vp') || onRooli('urheilutoimenjohtaja')
         ) && onSeuranJasen(seuraId) || onSuperAdmin();
       }
+
+      // ── Catch-all: muut alikokoelmat ─────────────────────────
+      match /{alikokoelma}/{docId} {
+        allow read:  if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+        allow write: if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+      }
     }
+
+    // ════════════════════════════════════════════════════════════
+    // KUTSUT — pelaajien rekisteröinti
+    // ════════════════════════════════════════════════════════════
+    match /kutsut/{kutsuId} {
+      allow read:  if onKirjautunut() || onSuperAdmin();
+      allow write: if onKirjautunut() && (
+        onRooli('vp') || onRooli('seurasihteeri')
+      ) || onSuperAdmin();
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // PELAAJAT top-level (suostumuslomake anonyymi kirjoitus)
+    // ════════════════════════════════════════════════════════════
+    match /pelaajat/{pelaajaId} {
+      allow read:  if onOmaUid(pelaajaId) || onSuperAdmin();
+      allow create: if true;  // anonyymi rekisteröinti sallittu
+      allow update: if onOmaUid(pelaajaId) || onSuperAdmin();
+    }
+
   }
 }
