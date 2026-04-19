@@ -2481,41 +2481,81 @@ nav.tabs { top: auto !important; }
 </div>
 
 <script>
-// ══════════════════════════════════════════════════════════════
-// ERROR MONITORING — R4 production visibility
-// Tuotannossa tapahtuvat JS-virheet kirjataan Firestorea
-// Näet ne Firebase Consolesta: Firestore → errors
-// ══════════════════════════════════════════════════════════════
+// ── Error monitoring ──────────────────────────────────────
 window._tmVirheCount = 0;
 window.onerror = function(msg, src_url, line, col, err) {
-  if (window._tmVirheCount > 5) return; // max 5 virhettä per sessio
+  if (window._tmVirheCount > 5) return;
   window._tmVirheCount++;
   try {
-    const virheData = {
-      msg:     String(msg).slice(0, 200),
-      url:     String(src_url).slice(0, 100),
-      line, col,
-      stack:   err?.stack?.slice(0, 500) || '',
-      ua:      navigator.userAgent.slice(0, 150),
-      ts:      Date.now(),
-      pelaaja: window._pelaaja?.id || 'tuntematon',
-      seura:   window._pelaaja?.seuraId || 'tuntematon',
-      versio:  document.querySelector('script[src*="harjoitelogiikka"]')
-               ?.src?.match(/v(\d+)/)?.[0] || 'v?',
-    };
-    // Kirjaa Firestorea — epäonnistuminen ei haittaa
-    if (window._db) {
-      window._db.collection('errors').add(virheData)
-        .catch(() => {}); // silent fail — ei loop
-    }
-  } catch(e) { /* ei koskaan kaaду */ }
-  return false; // ei estä default error handling
+    const virheData = { msg: String(msg).slice(0,200), url: String(src_url).slice(0,100),
+      line, col, stack: err?.stack?.slice(0,500) || '', ua: navigator.userAgent.slice(0,150),
+      ts: Date.now(), pelaaja: window._pelaaja?.id || 'tuntematon',
+      seura: window._pelaaja?.seuraId || 'tuntematon' };
+    if (window._db) window._db.collection('errors').add(virheData).catch(()=>{});
+  } catch(e){ /* silent */ }
+  return false;
+};
+window.onunhandledrejection = function(ev) {
+  if (ev.reason?.message?.includes('permission')) return;
+  window.onerror('Promise: ' + ev.reason?.message, location.href, 0, 0, ev.reason);
 };
 
-window.onunhandledrejection = function(ev) {
-  if (ev.reason?.message?.includes('permission')) return; // Firestore rules — OK
-  window.onerror('Unhandled Promise: ' + ev.reason?.message, location.href, 0, 0, ev.reason);
-};
+// ── SessionStorage cache ──────────────────────────────────
+function _cacheAseta(avain, data) {
+  try { sessionStorage.setItem(avain, JSON.stringify({ data, ts: Date.now() })); } catch(e){ /* silent */ }
+}
+function _cacheLue(avain, maxIka_ms) {
+  try {
+    const raw = sessionStorage.getItem(avain);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (maxIka_ms && Date.now() - obj.ts > maxIka_ms) { sessionStorage.removeItem(avain); return null; }
+    return obj.data;
+  } catch(e) { return null; }
+}
+function _cacheTyhjenna() {
+  try { ['tm_sc_seura','tm_sc_pelaaja'].forEach(k => sessionStorage.removeItem(k)); } catch(e){ /* silent */ }
+}
+async function _haeSeuraCached(seuraId) {
+  const cacheKey = 'tm_sc_seura_' + seuraId;
+  const cached = _cacheLue(cacheKey, 30 * 60 * 1000);
+  if (cached) return cached;
+  try {
+    const snap = await _db.collection('seurat').doc(seuraId).get();
+    if (snap.exists) { const data = { id: snap.id, ...snap.data() }; _cacheAseta(cacheKey, data); return data; }
+  } catch(e) { console.warn('[TM cache]', e.message); }
+  return null;
+}
+
+// ── R2: harjoitelogiikka_v4.js latausjärjestys-guard ─────
+function _tmOdotaHarjoitelogiikka(callback, yritys) {
+  yritys = yritys || 0;
+  if (typeof PANKKI !== 'undefined' && typeof generoimTehtavat !== 'undefined') {
+    callback();
+  } else if (yritys < 20) {
+    setTimeout(() => _tmOdotaHarjoitelogiikka(callback, yritys + 1), 150);
+  } else {
+    console.warn('[TM R2] harjoitelogiikka_v4.js ei latautunut 3s:ssa');
+    const el = document.getElementById('tanaaHarjoiteKortti');
+    if (el) el.innerHTML = '<p style="color:var(--ink3);padding:16px;text-align:center">Ladataan harjoitteita... Jos tämä jatkuu, päivitä sivu.</p>';
+  }
+}
+
+// ── R4: Firestore UI Error State ─────────────────────────
+function _tmNaytaFirestoreVirhe(konteksti, virhe) {
+  console.warn('[TM R4] Firestore-virhe:', konteksti, virhe?.message || virhe);
+  const virheViesti = 'Yhteysvirhe. Tarkista internet-yhteys ja päivitä sivu.';
+  if (typeof naytaToast === 'function') naytaToast(virheViesti, 'err');
+  const kortti = document.getElementById('tanaaHarjoiteKortti');
+  if (kortti && !kortti.innerHTML.trim()) {
+    kortti.innerHTML = `<div style="padding:20px;text-align:center;color:var(--ink3)">
+      <div style="font-size:24px;margin-bottom:8px">📡</div>
+      <div style="font-size:14px;color:var(--ink2);margin-bottom:4px">Yhteysvirhe</div>
+      <div style="font-size:12px">Päivitä sivu tai kokeile uudelleen</div>
+      <button onclick="location.reload()" style="margin-top:12px;padding:8px 20px;background:var(--teal);color:var(--bone,#F2EFE6);border:none;border-radius:8px;font-size:13px;cursor:pointer">Päivitä sivu</button>
+    </div>`;
+  }
+}
 
 
 
@@ -3173,69 +3213,6 @@ async function _haeKaikkiSeurat() {
     console.warn('[Seurat]', e.message);
     return _PILOTTI_SEURAT_FALLBACK;
   }
-}
-
-
-// ══════════════════════════════════════════════════════════════
-// SESSION STORAGE CACHE — skaalaus-fix
-// Ongelma: seurat ladataan 15x per sessio vaikka data ei muutu
-// Ratkaisu: kirjautumisen jälkeen cache sessionStorage:een
-// TTL: session (suljetaan kun selain suljetaan) — ei 30pv vanhaa dataa
-// Säästö: ~15 reads/sessio → ~1 read/sessio (94% vähenemä)
-// ══════════════════════════════════════════════════════════════
-
-const _CACHE_AVAIN_SEURA    = 'tm_sc_seura';    // seuran perustiedot
-const _CACHE_AVAIN_PELAAJA  = 'tm_sc_pelaaja';  // pelaajan data
-const _CACHE_VERSIO         = 'tm_sc_v';        // versio-avain rikkoutumissuoja
-
-function _cacheAseta(avain, data) {
-  try {
-    sessionStorage.setItem(avain, JSON.stringify({ data, ts: Date.now() }));
-  } catch(e) { /* private mode — ei haittaa */ }
-}
-
-function _cacheLue(avain, maxIka_ms) {
-  try {
-    const raw = sessionStorage.getItem(avain);
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    if (maxIka_ms && Date.now() - obj.ts > maxIka_ms) {
-      sessionStorage.removeItem(avain);
-      return null;
-    }
-    return obj.data;
-  } catch(e) { return null; }
-}
-
-function _cacheTyhjenna() {
-  try {
-    [_CACHE_AVAIN_SEURA, _CACHE_AVAIN_PELAAJA, _CACHE_VERSIO].forEach(k => sessionStorage.removeItem(k));
-  } catch(e){ /* silent — ok */ }
-}
-
-// Hae seura-data cachesta tai Firestorea — tallenna cache
-async function _haeSeuraCached(seuraId) {
-  const cacheKey = _CACHE_AVAIN_SEURA + '_' + seuraId;
-  // Lue cache — max 30min (seura-data muuttuu harvoin)
-  const cached = _cacheLue(cacheKey, 30 * 60 * 1000);
-  if (cached) {
-    return cached;
-  }
-  // Ei cachessa → hae Firestorea
-  try {
-    const snap = await _db.collection('seurat').doc(seuraId).get();
-    if (snap.exists) {
-      const data = { id: snap.id, ...snap.data() };
-      _cacheAseta(cacheKey, data);
-      return data;
-    }
-  } catch(e) { console.warn('[TM cache] Seura-haku epäonnistui:', e.message); }
-  return null;
-}
-
-// Tyhjennä cache uloskirjautuessa (kutsutaan kirjauduUlos:ssa)
-function _tyhjennaSessionCache() {
-  _cacheTyhjenna();
 }
 
 function pinLisaa(n) {
@@ -5720,7 +5697,6 @@ nav.tabs { position:fixed!important; bottom:0!important; top:auto!important; lef
 .tab-icon { font-size:18px; line-height:1; }
 .tab-label { font-size:10px; font-weight:500; letter-spacing:.3px; }
 #sDash { padding-bottom:70px; }
-/* ── CTA 56px ── */
 #tanaaAloitaNappi { min-height:56px!important; height:auto!important; overflow:visible!important;
   display:flex!important; width:100%!important; background:var(--teal)!important;
   color:var(--bone,#F2EFE6)!important; border:none!important; border-radius:12px!important;
@@ -5730,23 +5706,12 @@ nav.tabs { position:fixed!important; bottom:0!important; top:auto!important; lef
 #tanaaAloitaNappi.tehty { background:rgba(46,213,115,.1)!important; color:var(--green)!important;
   border:1px solid rgba(46,213,115,.25)!important; font-size:15px!important; }
 .aloita-cta { min-height:56px; }
-/* ── Valmentajan viesti ── */
 .coach-viesti { border-left:3px solid var(--teal); padding:10px 14px; margin:14px 0;
   background:rgba(26,122,94,.05); border-radius:0 8px 8px 0; display:none; }
 .coach-viesti.nakyy { display:block; }
-.coach-label { font-size:11px; font-weight:700; color:var(--teal); text-transform:uppercase;
-  letter-spacing:.6px; margin-bottom:5px; }
+.coach-label { font-size:11px; font-weight:700; color:var(--teal);
+  text-transform:uppercase; letter-spacing:.6px; margin-bottom:5px; }
 .coach-teksti { font-size:13px; color:var(--ink2); line-height:1.55; }
-/* ── R2 lataa-tila ── */
-.tm-loading-state { padding:24px 16px; text-align:center; }
-.tm-loading-state p { font-size:13px; color:var(--ink3); }
-/* ── R4 virhe-tila ── */
-.tm-error-state { padding:20px; text-align:center; }
-.tm-error-retry { margin-top:12px; padding:8px 20px; background:var(--teal);
-  color:var(--bone,#F2EFE6); border:none; border-radius:8px; font-size:13px;
-  cursor:pointer; font-family:'DM Sans',sans-serif; }
-/* ── R2 defer guard ── */
-.tab-icon { font-size:18px; line-height:1; }
 </style>
 <script id="tm-ui-patch-js">
 (function(){
