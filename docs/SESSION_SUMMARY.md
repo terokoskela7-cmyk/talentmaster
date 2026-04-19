@@ -341,3 +341,76 @@ Firestore: `flei_ketjut: {SBL, SFL, LL, DIAG, DFL}` (isolla)
 - Tuorein UTJ: `TalentMaster_UTJ_v2.html`
 - Tuorein pitch: `tm_pitch_en.html` (englanti) / `tm_pitch.html` (suomi)
 - Palloliiton Power BI: https://app.powerbi.com/view?r=eyJrIjoiOWZhZGExZTMtODRhMC00NmI1LTk2N2QtNGU5OThkNjg2Mjk1IiwidCI6IjQ2OTM4YzQyLTk2MDgtNDU4ZC1iMjVlLTg3MTMzNjJhOTk5MSIsImMiOjh9
+
+---
+## Sessio 2026-04-19 (ilta) — lisäykset
+
+### Security Rules — KRIITTINEN KORJAUS
+**Ongelma löydetty:** Super Admin ei päässyt VP-sivulle.
+**Juurisyy:** `onSuperAdmin()` tarkisti vain `token.rooli == 'super_admin'` mutta:
+- VP_v18 asettaa `_rooli = 'superadmin'` (yhteen, ei underscoreä)
+- Pelaaja/Vanhempi käyttää `claims.super_admin || claims.superAdmin`
+- Custom Claimeja ei välttämättä asetettu
+
+**Korjaus:** `onSuperAdmin()` hyväksyy nyt 4 tapaa:
+```javascript
+function onSuperAdmin() {
+  return onKirjautunut() && (
+    request.auth.token.rooli == 'super_admin' ||
+    request.auth.token.rooli == 'superadmin' ||
+    request.auth.token.super_admin == true ||
+    exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+  );
+}
+```
+**Tiedosto:** `/mnt/user-data/outputs/firestore.rules` — LADATTAVA GitHubiin + julkaistavaksi Firebase Consolessa.
+
+**Lisäykset Rules:iin:** `hh_tulokset/`, `tekniikkatulokset/`, `testitapahtumat/`, catch-all `/{alikokoelma}/{docId}` seuran alla.
+
+---
+### Testidatan tuontipohja v4 — VALMIS
+**Tiedosto:** `TM_Testidatan_Tuontipohja_v4.xlsx` (88 KB, 9 välilehteä)
+**Guardian:** 63/63 — 100%
+
+**Välilehdet:**
+- `1_Pelaajat` — PalloID + Testipäivämäärä pakolliset
+- `2_HH_Testit` — nopeus 3 yritystä (5m/10m/30m samasta juoksusta), SJ 3 yrit, CMJ 3 yrit
+- `3a_Harjoitettavuus_U10-12` — 9 testiä, max 27p (Palloliiton 2026 manuaali)
+- `3b_Harjoitettavuus_U13-15` — 10 testiä, max 30p
+- `3c_Harjoitettavuus_U15-19` — 13 testiä 5RM kuormitustestit, max 39p
+- `4a_Tekniikka_P-T13-12` — 5 lajia + pituuspotku, merkkirajat automaattinen
+- `4b_Tekniikka_P-T11-9` — 4 lajia
+- `4c_Tekniikka_P-T8` — 4 lajia, ponnauttelu vain jaloin, maali 5.5m
+
+**Tekniikkakilpailun laskentalogiikka:**
+- Kokonaistulos = parhaiden aikojen SUMMA (pienempi = parempi)
+- Ponnauttelu-ohjesarake vaihtelee automaattisesti ikäluokan mukaan
+- Kuljetus-laukaus: tarkkuusvähennykset −5/−2/−3/−1, ylilaukaus +10s
+- Pituuspotku: 5m=1s aikabonus, max −20s
+- Merkki per ikäluokka (12 eri rajaa)
+
+---
+### Dataflow-arkkitehtuuripäätökset (pysyvät)
+1. **PalloID** = universaali pelaaja-ankkuri (Palloliiton pysyvä tunniste)
+2. **Testipäivämäärä** = pakollinen linkki pelaaja+data+ajankohta
+3. **tapahtumaId** = valinnainen (null ok historiassa)
+4. Raakadata litteässä kokoelmassa `kartoitukset/` palloID+pvm indeksoituna
+5. Historia: `where('palloID','==',id).orderBy('pvm','asc')`
+6. Excel-tuonti: `lahde:'excel_tuonti'`, `tapahtumaId:null`
+
+---
+### TalentMaster Project Agent v2
+- Rakennettu claude.ai Artifact -muotoon (toimii tässä chatissa)
+- CORS-ongelma: GitHub Pages ei voi kutsua Anthropic API:a suoraan
+- Ratkaisu: Käytä tätä claude.ai-projektia — se on se agentti
+- Firebase Cloud Function proxy mahdollistaa käytön myös GitHubista (Sprint 5+)
+
+---
+### Seuraavaan sessioon (PRIORISOITU)
+1. 🔴 Testaa Security Rules — kirjaudu super adminilla VP-sivulle
+2. 🔴 Julkaise firestore.rules Firebase Consolessa
+3. 🔴 KPV-datan tuonti Excelin v4 pohjalla
+4. 🔴 Kenttätyökalun datavirta-fix: kirjoita `kartoitukset/` eikä `testitapahtumat/`
+5. 🟡 SPF/DKIM DNS-korjaus (alle tunti, kriittinen sähköposteille)
+6. 🟡 Tyttöjen PHV-kaava ennen SJK U14/15T-aktivointia
+7. 🟡 Huoltajan kirjautuminen — testattava oikealla tilillä
