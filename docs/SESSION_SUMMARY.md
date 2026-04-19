@@ -1,17 +1,14 @@
 # TalentMaster™ — Master Session Summary
 # Briefingi uusia Claude-sessioita varten
-## Projektin tila (päivitetty 2026-04-13)
-
+## Projektin tila (päivitetty 2026-04-19)
 TalentMaster on jalkapallon talenttiarviointialusta — 8 pilottiseuraa + EPS (tulossa), Firebase Blaze.
 Kehitys etenee kahdella rinnakkaisella haaralla:
 1. **Seurajärjestelmä** (VP/Valmentaja/Pelaaja) — tuotannossa
 2. **Solo-versio** (TalentMaster Player™) — uusi tuotehaarake, rakennettu 2026-04-10
-
 **Palloliiton palaveri 2026-04-13:** Fyysisen suorituskyvyn johtaja.
 Esitysmateriaali: `tm_pitch_en.html` + `TalentMaster_Palloliitto_2026.pptx`
 
 ---
-
 ## GitHub-repositorio
 ```
 https://github.com/terokoskela7-cmyk/talentmaster
@@ -19,18 +16,16 @@ https://terokoskela7-cmyk.github.io/talentmaster/
 ```
 
 ---
-
-## Sivuarkkitehtuuri (2026-04-13)
-
+## Sivuarkkitehtuuri (2026-04-19)
 ### Seurajärjestelmä
 | Sivu | Tiedosto | Rooli | Tila |
 |---|---|---|---|
 | Valmennuspäällikkö | `TalentMaster_VP_v18.html` | vp | ✅ tuotannossa |
-| Urheilutoimenjohtaja | `TalentMaster_UTJ_v2.html` | urheilutoimenjohtaja | ✅ tuotannossa (v2 korvaa v1) |
+| Urheilutoimenjohtaja | `TalentMaster_UTJ_v2.html` | urheilutoimenjohtaja | ✅ tuotannossa |
 | Valmentaja | `TalentMaster_Master_v9.html` | valmentaja | ✅ tuotannossa |
 | Seurahallinta | `TalentMaster_Seura.html` | seurasihteeri/utj/vp | ✅ tuotannossa |
 | Vanhempi | `TalentMaster_Vanhempi.html` | huoltaja | ✅ tuotannossa |
-| Pelaaja | `TalentMaster_Pelaaja_v1.html` | pelaaja | ✅ ⚠ lag-bugi |
+| Pelaaja | `TalentMaster_Pelaaja_v3.html` | pelaaja | ✅ **v3 käytössä** — Guardian 100% |
 | IDP-kortti | `TalentMaster_IDP_Kortti_v3.html` | valmentaja/pelaaja/vanhempi | ✅ tuotannossa |
 | Suostumuslomake | `TalentMaster_Rekisterointi_Suostumus.html` | huoltaja | ✅ tuotannossa |
 | Keräilykortit | `TalentMaster_Kortit.html` | pelaaja | ✅ tuotannossa |
@@ -48,7 +43,7 @@ https://terokoskela7-cmyk.github.io/talentmaster/
 | `TalentMaster_Solo_Arviointi.html` | Alkuarviointi 3-kerrosta | ⏳ PENDING |
 | `TalentMaster_Kortti_Demo.html` | Korttityypit: Starter/Sharp/Elite | ✅ GitHubissa |
 
-### Myynti- ja esitystiedostot (GitHubissa 2026-04-13)
+### Myynti- ja esitystiedostot (GitHubissa)
 | Tiedosto | Kuvaus | Tila |
 |---|---|---|
 | `tm_pitch_en.html` | Englanninkielinen pitch — U8→Pro, 5D Framework, 10 osiota | ✅ GitHubissa |
@@ -56,17 +51,9 @@ https://terokoskela7-cmyk.github.io/talentmaster/
 | `tm_brand.html` | Brändikirja: logo, värit, typografia, komponentit | ✅ GitHubissa |
 | `TalentMaster_Palloliitto_2026.pptx` | 9-dia PowerPoint Palloliiton palaveriin | ✅ GitHubissa |
 | `TalentMaster_UTJ_v2.html` | UTJ-dashboard v2: DNA-välilehti, CSI, AI-signaali | ✅ GitHubissa |
-| `tm_dna_builder.html` | DNA-rakennustyökalu | ✅ GitHubissa |
-| `tm_dna_opas.html` | DNA-opas | ✅ GitHubissa |
-| `tm_filosofia_kirjasto.html` | Filosofiakirjasto | ✅ GitHubissa |
-| `eps_unified_v2.html` | EPS-dashboard vaalea teema, 7 välilehteä | ✅ GitHubissa |
-| `hammarby_talentmaster_analyysi_1.html` | Strateginen analyysi Hammarby × TalentMaster | ✅ GitHubissa |
-| `talentmaster_player_demo_1.html` | 3 perspektiiviä: Pelaaja/Valmentaja/SD | ✅ GitHubissa |
 
 ---
-
 ## TalentMaster 5D Framework™
-
 | Dimensio | Paino | Mittarit |
 |---|---|---|
 | D1 Physical | **40%** | Sprint · PHV (Mirwald 2002) · FLEI · MAS test · COD |
@@ -80,7 +67,6 @@ https://terokoskela7-cmyk.github.io/talentmaster/
 **DVI (Development Velocity Index):** Kuka kehittyy nopeammin kuin normit ennustavat
 
 ---
-
 ## Firebase
 - **Projekti:** `talentmaster-pilot` (Blaze)
 - **Firestore:** `eur3` multi-region
@@ -99,7 +85,6 @@ const firebaseConfig = {
   appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
 };
 ```
-
 **Super Admin:** `talentmasterid@gmail.com` / UID: `dqUzvJA61Wb9fgj5UiK0riSA4NI2`
 **Tunnistus:** `adminSnap.exists` — EI custom claims -arvoista
 
@@ -119,7 +104,6 @@ const firebaseConfig = {
 - **URL:** `?pelaajaId=m93GBdOaGCUuenMiCL0I&seuraId=kpv`
 
 ---
-
 ## Cloud Functions — 7 deployattu (europe-west1)
 | Funktio | Kuvaus | Tila |
 |---|---|---|
@@ -132,15 +116,14 @@ const firebaseConfig = {
 | `tasoHaeMaatcheck` | TASO cron klo 06:00 | ❌ KOMMENTOITU |
 
 ---
-
-## Pilottiseurat (9 kpl) — tila 2026-04-13
+## Pilottiseurat (9 kpl) — tila 2026-04-19
 | SeuraId | Seura | Tila | Huomio |
 |---|---|---|---|
 | `fcl` | FC Lahti Juniorit | ✅ tunnukset | — |
 | `kpv` | KPV Kokkola | ✅ tunnukset | Testipelaaja TM-MN67OLDO |
 | `palloiirot` | Pallo-Iirot | ✅ tunnukset | — |
 | `yvies` | Ylöjärven Ilves | ✅ tunnukset | — |
-| `sjk` | SJK Juniorit | ✅ **laajennettu** | U15P+U14/15T+talentit, **1. tyttöjoukkue** |
+| `sjk` | SJK Juniorit | ✅ **laajennettu** | U15P+U14/15T+talentit, 1. tyttöjoukkue |
 | `grifk` | GrIFK | ✅ tunnukset | sv-kieli |
 | `vifk` | VIFK | ✅ tunnukset | sv-kieli |
 | `hjk` | HJK Juniorit | ✅ tunnukset | — |
@@ -151,15 +134,87 @@ const firebaseConfig = {
 Kriittisin pullonkaula: Excel → Firestore tuontityökalu puuttuu.
 
 ---
+## Firestore Security Rules — tila 2026-04-19
+**Versio:** Julkaistu Firebase Consolessa 2026-04-19 klo ~9:15 + päivitys huoltajafix ~17:00
+**117 riviä** — täydellinen uudelleenkirjoitus
 
-## Brändi-identiteetti (lukittu)
-- `--carbon: #1C1C1A` · `--bone: #F2EFE6` · `--teal: #1A7A5E` · `--slate: #8C8B83`
-- Fontit: **Cormorant Garamond** (display/otsikot) + **DM Sans** (body/UI)
-- Logo: kehä-SVG (3 kehää + teal-piste + pystyviiva)
-- **Non-Negotiables:** Barlow Condensed poistettu kaikista tiedostoista
+### Tässä sessiossa korjatut kriittiset bugit:
+- `omatoimi_ohjelmat` — puuttui kokonaan, nyt suojattu oikein
+- `onValmentaja()` + `onOmaPelaaja()` helper-funktiot lisätty
+- `pelaajat` UPDATE: `seuraId`-validointi cross-tenant-eston lisäämiseksi
+- `kirjaukset`: pelaajaId-guard — pelaaja kirjaa vain omalle tililleen
+- `harjoitukset`: rajattu valmentaja-rooleihin (ennen: kaikki seuran jäsenet)
+- `errors/`: lisätty error monitoring -kokoelma
+- **HUOLTAJAFIX:** `resource.data.huoltajaEmail == request.auth.token.email`
+  — vanhempi pääsee lukemaan lapsensa pelaajat/havainnot/tapahtumat
+- `tapahtumat` read: avattu kaikille kirjautuneille
+
+### Firestore-indeksit — tila 2026-04-19
+| Kokoelma | Kentät | Status |
+|---|---|---|
+| havainnot | joukkue ASC · luotu DESC · __name__ | ✅ Enabled |
+| kartoitukset | luseurald ASC · luotu DESC · __name__ | ✅ Enabled |
+| kartoitukset | pelaajaId ASC · luotu DESC · __name__ | ✅ Enabled |
+| pelaajat | joukkue ASC · sukunimi ASC · __name__ | ✅ Enabled |
+| **pelaajat** | **seura ASC · joukkue ASC · __name__** | ✅ **Enabled — UUSI 2026-04-19** |
+| tapahtumat | tyyppi ASC · pvm DESC · __name__ | ✅ Enabled |
 
 ---
+## Pelaaja-sivu v3 — tila 2026-04-19
+**Tiedosto:** `TalentMaster_Pelaaja_v3.html` (v1 korvattu, lag-bugi historiaa)
+**Guardian:** ✅ 44/44 — 100%
 
+### Tässä sessiossa lisätyt ominaisuudet:
+- Bottom nav: position fixed, ⚡Tänään/📅Viikko/👤Minä/📈Kehitys
+- `_tmOdotaHarjoitelogiikka()` — R2 latausjärjestys-guard (pollaa 150ms, max 3s)
+- `_tmNaytaFirestoreVirhe()` — R4 UI error state (toast + 📡 fallback-kortti)
+- `_cacheAseta()` / `_cacheLue()` / `_haeSeuraCached()` — sessionStorage-cache
+  → seurat-kutsut 15/sessio → 1/sessio, säästö ~40% Firestore-luvuista
+- `window.onerror → Firestore errors/` — error monitoring tuotannossa
+- `_suodataStreakViesti()` tyyppiturvaus (null/undefined/numero)
+- `harjoitelogiikka_v4.js` defer-attribuutti
+- Patch duplikaattisuoja (`_tmPatchDone`)
+- Catch-blokit: kaikki tyhjät korjattu
+
+---
+## Vanhempi-sivu — tila 2026-04-19
+**Tiedosto:** `TalentMaster_Vanhempi.html`
+**Guardian:** ✅ 46/46 — 100%
+
+### Kirjautumisbugi — korjattu (Rules-puoli, 2026-04-19)
+**Ongelma:** Huoltaja sai "Tiliä ei löydy" vaikka Auth-kirjautuminen onnistui.
+**Juurisyy:** Uudet Rules vaativat `onSeuranJasen(seuraId)` mutta huoltajalla
+ei ole `seuraId` Custom Claimia — Firestore hylkäsi `pelaajat`-kyselyt.
+**Korjaus:** `resource.data.huoltajaEmail == request.auth.token.email` lisätty
+`pelaajat`, `havainnot`, ja `tapahtumat` read-sääntöihin.
+**Status:** Rules julkaistu — testaamatta oikealla huoltajatilillä.
+
+---
+## TM Guardian — runtime-tarkastusjärjestelmä
+**Tiedosto:** `/home/claude/tm_ci/guardian.js` (62 staattista tarkistusta)
+**Runtime-tarkastus:** JavaScript-tarkistukset suoraan selaimessa Chrome MCP:llä
+
+| Sivu | Kategoriat | Tulos |
+|---|---|---|
+| Pelaaja v3 | Värit·Nav·Näkymä·Funktiot·Firebase·Harjoitelogiikka·Cache·Monitoring·Tyyppiturvaus | ✅ 44/44 — 100% |
+| Vanhempi | Värit·Näkymät·Login·Funktiot·Firebase·Kirjautumislogiikka·AI Chat·Monikielisyys | ✅ 46/46 — 100% |
+
+---
+## Skaalaus — 2000 pelaajan valmius
+### Live-mittaus (2026-04-19):
+- Firestore reads/sessio: **36** (ennen cache), **~22** (cachen jälkeen)
+- 2000 pelaajaa × 3 sessiota/pv = **216 000 reads/pv** → **$3.89/kk**
+- harjoitelogiikka_v4.js: 38 KB, cache-control max-age=600 (PENDING: versioitu nimi)
+
+### Tehty:
+- Composite-indeksi `pelaajat: seura + joukkue` → Enabled
+- SessionStorage-cache → ~40% reads vähenevät
+- Error monitoring → tuotantovirheet näkyvissä Firebase Consolessa
+
+### Vielä tehtävä (ennen 1000 pelaajaa):
+- harjoitelogiikka_v4.js: versioitu tiedostonimi → ikuinen cache (max-age=600 nyt)
+
+---
 ## JavaScript-kirjastot (GitHubissa)
 | Kirjasto | Kuvaus | Tila |
 |---|---|---|
@@ -172,7 +227,6 @@ Kriittisin pullonkaula: Excel → Firestore tuontityökalu puuttuu.
 | `tm_bioika.js` | Biologinen ikä, Mirwald 2002 | ✅ |
 
 ---
-
 ## FLEI — 5 ketjua (pysyvä, Wilke 2016)
 | Ketju | Avain | Emoji |
 |---|---|---|
@@ -185,7 +239,14 @@ Kriittisin pullonkaula: Excel → Firestore tuontityökalu puuttuu.
 Firestore: `flei_ketjut: {SBL, SFL, LL, DIAG, DFL}` (isolla)
 
 ---
+## Brändi-identiteetti (lukittu)
+- `--carbon: #1C1C1A` · `--bone: #F2EFE6` · `--teal: #1A7A5E` · `--slate: #8C8B83`
+- Pelaaja-sivu: `--bg:#111110` · `--bg2:#161614` · `--teal:#1A7A5E` · `--text:#F2EFE6`
+- Fontit: **Cormorant Garamond** (display/otsikot) + **DM Sans** (body/UI)
+- Logo: kehä-SVG (3 kehää + teal-piste + pystyviiva)
+- **Non-Negotiables:** Barlow Condensed poistettu kaikista tiedostoista
 
+---
 ## Kriittiset periaatteet (EI muuteta koskaan)
 1. Super Admin `dqUzvJA61Wb9fgj5UiK0riSA4NI2` — pääsy kaikkialle aina
 2. S-harjoite = heikoin ketju, ei profiiliin
@@ -220,46 +281,42 @@ Firestore: `flei_ketjut: {SBL, SFL, LL, DIAG, DFL}` (isolla)
 31. `openpyxl` pakollinen Excel-tyyleille
 32. Suostumuslomake: kutsuflow=`.update()`, uusi=`.set()`
 33. Testaus AINA GitHub Pages URL:lla — `file://` estää Firebase
+34. **UUSI 2026-04-19:** Huoltajan luku: `resource.data.huoltajaEmail == request.auth.token.email`
+35. **UUSI 2026-04-19:** SessionStorage cache TTL 30min — `_cacheAseta` / `_cacheLue`
+36. **UUSI 2026-04-19:** Pelaaja-sivu: `_tmOdotaHarjoitelogiikka()` guard ennen harjoitekutsuja
 
 ---
-
-## Avoimet bugit (2026-04-13)
-| Bugi | Tiedosto | Prioriteetti |
-|---|---|---|
-| Pelaaja-sivu lagaa / ei toimi | TalentMaster_Pelaaja_v1.html | 🔴 Korkea |
-| Fiilinki-kysely väärä U13-vaiheessa | TalentMaster_Pelaaja_v1.html | 🟡 Keski |
-| joukkueNimi tallentuu ID:nä | Rekisterointi_Suostumus.html | 🟡 Keski |
-| SPF/DKIM puuttuu — roskapostiin | Cloud Functions / Gmail | 🔴 Korkea |
-| VP-dashboard delta/trendit puuttuu | TalentMaster_VP_v18.html | 🟡 Keski |
+## Avoimet bugit (2026-04-19)
+| Bugi | Tiedosto | Prioriteetti | Huomio |
+|---|---|---|---|
+| ~~Pelaaja-sivu lagaa~~ | ~~TalentMaster_Pelaaja_v1.html~~ | — | **Korvattu v3:lla, lag poistunut** |
+| Fiilinki-kysely väärä U13-vaiheessa | TalentMaster_Pelaaja_v3.html | 🟡 Keski | Ei katsottu |
+| joukkueNimi tallentuu ID:nä | Rekisterointi_Suostumus.html | 🟡 Keski | — |
+| SPF/DKIM puuttuu — roskapostiin | Cloud Functions / Gmail | 🔴 Korkea | — |
+| VP-dashboard delta/trendit puuttuu | TalentMaster_VP_v18.html | 🟡 Keski | — |
+| Huoltajan kirjautuminen — testaamatta | TalentMaster_Vanhempi.html | 🔴 Korkea | Rules OK, ei vahvistettu |
 
 ---
-
 ## Seuraavaan sessioon (tärkeysjärjestyksessä)
-1. 🔴 Pelaaja-sivu lag-bugi — tutkimatta
-2. 🔴 SPF/DKIM — sähköpostit roskapostiin
-3. 🔴 SJK-käyttöönotto: VP-tunnukset + joukkueet + pelaajat
-4. 🔴 Teams-puhelu Heinille (EPS) — 16 kysymystä valmiina
-5. 🟡 Excel → Firestore tuontityökalu
-6. 🟡 Pelihavainto Taso 1 (TIPS-lomake Master-näkymässä)
-7. 🟡 Tyttöjen PHV-kaava (ennen U14/15T-aktivointia)
-8. 🟡 Fiilinki ikävaihekysely-bugi
-9. 🟡 "Why"-lause harjoitekortteihin (`harjoitelogiikka_v4.js`)
-10. 🟡 Solo Firebase-integraatio (players-kokoelma)
-11. 🟡 Player Care -moduuli (Hammarby/FCN-oppiminen)
-12. 🟢 Hammarby-yhteydenotto (Magnus Bodsgård, ruotsiksi)
-13. 🟢 FCN-yhteydenotto (Lasse Ishøi, tutkimuskysymys)
-14. 🟢 Streak-historia Firestoreen (nyt localStoragessa)
+1. 🔴 **Testaa huoltajan kirjautuminen** oikealla tilillä — Rules ok mutta testaamatta
+2. 🔴 **SPF/DKIM** — sähköpostit roskapostiin
+3. 🔴 **SJK-käyttöönotto**: VP-tunnukset + joukkueet + pelaajat
+4. 🔴 **Teams-puhelu Heinille** (EPS) — 16 kysymystä valmiina
+5. 🟡 **Excel → Firestore tuontityökalu** — kriittisin pullonkaula pilotille
+6. 🟡 **Pelihavainto Taso 1** (TIPS-lomake Master-näkymässä)
+7. 🟡 **Tyttöjen PHV-kaava** (ennen U14/15T-aktivointia)
+8. 🟡 **Fiilinki ikävaihekysely-bugi** (U13 leikkija-kieli)
+9. 🟡 **harjoitelogiikka_v4.js versioitu tiedostonimi** (cache max-age → ikuinen)
+10. 🟡 **"Why"-lause harjoitekortteihin** (`harjoitelogiikka_v4.js`)
+11. 🟡 **Solo Firebase-integraatio** (players-kokoelma)
+12. 🟡 **Player Care -moduuli** (Hammarby/FCN-oppiminen)
+13. 🟢 **Hammarby-yhteydenotto** (Magnus Bodsgård, ruotsiksi)
+14. 🟢 **FCN-yhteydenotto** (Lasse Ishøi, tutkimuskysymys)
+15. 🟢 **Streak-historia Firestoreen** (nyt localStoragessa)
 
 ---
-
----
-
-## HAMMARBY × TALENTMASTER — SIMULAATIO (2026-04-13)
-
+## HAMMARBY × TALENTMASTER — SIMULAATIO
 ### hammarby_simulation.html — GitHubissa
-Interaktiivinen demonstraatiosivu: 5 pilaria rinnakkain, Hammarby vs. TalentMaster.
-Käytetään sisäiseen valmisteluun ennen Magnus Bodsgård -yhteydenottoa.
-
 **Viisi pilaria:**
 | Pilari | Hammarby | TalentMaster | Tila |
 |---|---|---|---|
@@ -269,31 +326,16 @@ Käytetään sisäiseen valmisteluun ennen Magnus Bodsgård -yhteydenottoa.
 | Transition | Kuukausittainen Excel, AHA-palaverit | Live Transition View | 🔨 Sprint 5 |
 | Team Training | Harjoitussuunnitelma + havainnointi | Training ADAR + DVI-trendi | 🔨 Sprint 5 |
 
-### Hammarbyn analyysi → omat kehitysprioriteetit
-
-**Sprint 5 — Hammarbyn gap:eista johdetut lisäykset:**
-1. **Training ADAR** — `tyyppi: 'harjoitus'|'ottelu'` → harjoitushavainto käyttöön
-2. **Player Care -loki** — "Käyty — pvm" valmentajan näkymässä, 21pv hälytys
-3. **Live Transition View** — UTJ_v2 + readiness score (FLEI + DVI + DNA-vastaavuus)
-4. **Weekly focus** — "Tämän viikon fokus" pelaaja/vanhempi-näkymässä, kytketty IDP:hen
-
-**Sprint 6 — Strategiset lisäykset:**
-5. **Result KPI:t** — "montako siirtyi ylemmälle tasolle / sai sopimuksen"
-6. **Phase-based KPI library** — Foundation/Learning/Developing/Transition (Hammarbyn faasimalli)
-
-### Hammarbyn lähestymisstratategia
-- **Ei myyntipitch** — tunnistava kysymys: "Haluaisimme oppia"
-- **Demo heidän systeemistään** — "Miten teidän kuukausittainen siirtymädokumentti toimii?"
-- **Pilotti yhdelle joukkueelle** — yksi kausi, selkeä mittari
-- **Kontakti:** Magnus Bodsgård · magnus.bodsgard@hammarbyungdom.se · +46 702 095 474
-- **Kriittinen havainto:** Hammarby ei ole asiakas — he ovat referenssi
+**Sprint 5:** Training ADAR · Player Care -loki · Live Transition View · Weekly focus
+**Sprint 6:** Result KPI:t · Phase-based KPI library
+**Kontakti:** Magnus Bodsgård · magnus.bodsgard@hammarbyungdom.se · +46 702 095 474
 
 ---
-
 ## Tekniset vakiot
 - Firebase: `talentmaster-pilot` / `europe-west1`
 - Super Admin: `talentmasterid@gmail.com` / `dqUzvJA61Wb9fgj5UiK0riSA4NI2`
 - GitHub: `terokoskela7-cmyk.github.io/talentmaster/`
+- Tuorein Pelaaja: `TalentMaster_Pelaaja_v3.html`
 - Tuorein VP: `TalentMaster_VP_v18.html`
 - Tuorein Valmentaja: `TalentMaster_Master_v9.html`
 - Tuorein UTJ: `TalentMaster_UTJ_v2.html`
