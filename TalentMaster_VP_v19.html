@@ -2824,7 +2824,7 @@ async function lataaHenkilosto() {
       _db.collection('seurat').doc(_seuraId).collection('mentoroinnit').orderBy('luotu','desc').limit(60).get().catch(()=>({docs:[]})),
       _db.collection('seurat').doc(_seuraId).collection('joukkueet').get(),
     ]);
-    const jData={};jSnap.docs.forEach(d=>{jData[d.id]=d.data();});
+    const jData={};jSnap.docs.forEach(d=>{jData[d.id]=d.data();});function _rJId(k){return k.joukkueId||k.joukkue||(Array.isArray(k.joukkueet)&&k.joukkueet[0])||null;}function _rJNimi(k){return k.joukkueNimi||(k.joukkueNimet&&k.joukkueNimet[0])||"";}
     function ikavaihe(joukkueId){const j=jData[joukkueId];if(!j)return null;const sy=j.syntymaVuosi||j.syntymavuosi||null;if(!sy)return null;const ika=new Date().getFullYear()-sy;return ika<13?'lapsuus':'nuoruus';}
     const viimeisin={},historia={},nimiToUid={};
     henSnap.docs.forEach(d=>{const dat=d.data();const nimi=`${dat.etunimi||''} ${dat.sukunimi||''}`.trim();if(nimi)nimiToUid[nimi]=d.id;});
@@ -2846,7 +2846,7 @@ async function lataaHenkilosto() {
       const init=((k.etunimi||k.nimi||'?')[0]+(k.sukunimi||'?')[0]).toUpperCase();
       const badge=kayntiBadge(k.id);
       const lisenssi=k.lisenssi||k.koulutus||null;
-      const iv=ikavaihe(k.joukkue||k.joukkueId);
+      const iv=ikavaihe(_rJId(k));
       const splKa=viimeisin[k.id]?.splKa??null;
       const splVari=splKa===null?'var(--ink3)':splKa>=7.5?'var(--green)':splKa>=6?'var(--amber)':'var(--red)';
       const kayntiLkm=(k._historia||[]).length;
@@ -2857,7 +2857,7 @@ async function lataaHenkilosto() {
           <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:var(--carbon);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nimi}</div><div style="font-size:10px;color:var(--ink3);margin-top:1px">${ROOLI_NIMET[k.rooli]||k.rooli||'—'}</div></div>
         </div>
         ${lisenssi?`<div style="font-size:11px;font-weight:500;color:var(--teal);margin-bottom:8px">🎓 ${lisenssi}</div>`:`<div style="font-size:11px;color:var(--amber);margin-bottom:8px">🎓 Lisenssi puuttuu</div>`}
-        ${k.joukkueNimi?`<div style="font-size:11px;color:var(--ink3);margin-bottom:10px">⚽ ${k.joukkueNimi}</div>`:''}
+        ${_rJNimi(k)?`<div style="font-size:11px;color:var(--ink3);margin-bottom:10px">⚽ ${k.joukkueNimi}</div>`:''}
         <div style="display:flex;gap:8px;margin-bottom:12px">
           <div style="flex:1;background:rgba(28,28,26,.04);border:.5px solid var(--border);padding:7px 8px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;color:${splVari};line-height:1">${splKa!==null?Math.round(splKa*10)/10:'—'}</div><div style="font-size:8px;color:var(--ink3);margin-top:2px;text-transform:uppercase;letter-spacing:.3px">hs ka.</div></div>
           <div style="flex:1;background:rgba(28,28,26,.04);border:.5px solid var(--border);padding:7px 8px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;color:var(--carbon);line-height:1">${kayntiLkm}</div><div style="font-size:8px;color:var(--ink3);margin-top:2px;text-transform:uppercase;letter-spacing:.3px">käyntiä</div></div>
@@ -2933,7 +2933,7 @@ function _avaaValmentajaPopup(uid) {
   const init=((k.etunimi||k.nimi||'?')[0]+(k.sukunimi||'?')[0]).toUpperCase();
   const badge=window._vpKayntiBadge?window._vpKayntiBadge(k.id):{cls:'rgba(28,28,26,.06)',teksti:'—',color:'var(--ink3)'};
   const lisenssi=k.lisenssi||k.koulutus||null;
-  const iv=window._vpIkavaihe?window._vpIkavaihe(k.joukkue||k.joukkueId):null;
+  const iv=window._vpIkavaihe?window._vpIkavaihe(_rJId(k)):null;
   const kay=(window._vpViimeisin||{})[k.id];
   const splKa=kay?.splKa??null, splVari=splKa===null?'var(--ink3)':splKa>=7.5?'var(--green)':splKa>=6?'var(--amber)':'var(--red)';
   const trendi=(splKa!==null&&k._kaynti2?.splKa!=null)?Math.round((splKa-k._kaynti2.splKa)*10)/10:null;
