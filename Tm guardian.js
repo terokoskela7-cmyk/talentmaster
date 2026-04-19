@@ -518,6 +518,116 @@ if (FAIL === 0) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// I. ENKOODAUSTARKISTUS — UTF-8 / EMOJI / DOUBLE-ENCODED
+// ══════════════════════════════════════════════════════════════
+// Tämä osio havaitsee double-encoded UTF-8 -ongelmat jotka
+// kaatavat JS-syntaksin tai tuottavat korruptoituneita emojeja.
+// Juurisyy: tiedosto tallennettu Windows-1252/latin-1 eikä UTF-8:lla.
+//
+// Tunnistuslogiikka:
+//   \u00F0[^\s<>"'`] = korruptoitunut 4-tavu emoji (F0-alkuinen UTF-8
+//                 tulkittu latin-1:nä → ð + 3 kontrollimerkkiä)
+//   Esimerkit:  ð¯ = 🎯  ð¤ = 🤝  ð´ = 🔴  ð¥ = 🔥
+//
+// JS-muuttujanimikorruptio (aiheuttaa SyntaxError):
+//   SEURA_BRÄNDIT → SEURA_BR[Ã\x84]NDIT
+//   _asetaSeuranVärit → non-ASCII funktionimi
+//   ryhmät, tyhjä → non-ASCII const-nimet
+// ══════════════════════════════════════════════════════════════
+
+section('I. ENKOODAUSTARKISTUS — UTF-8 INTEGRITY');
+
+// I1: Korruptoituneet emojit (double-encoded F0-sekvenssi)
+const corruptEmojiPattern = /\u00F0[^\s<>"'`\\n]/g;
+const corruptEmojis = src.match(corruptEmojiPattern) || [];
+const uniqueCorrupt = [...new Set(corruptEmojis)];
+
+if (corruptEmojis.length === 0) {
+  ok('Ei korruptoituneita emojeja (double-encoded UTF-8)', '0 esiintymää');
+} else {
+  fail(
+    `Korruptoituneita emojeja: ${corruptEmojis.length} esiintymää`,
+    `${uniqueCorrupt.length} erilaista: ${uniqueCorrupt.slice(0, 8).join(' ')} — ` +
+    `tiedosto tallennettu latin-1:nä eikä UTF-8:nä. ` +
+    `Korjaa: avaa tiedosto UTF-8-editorilla ja tallenna uudelleen.`
+  );
+}
+
+// I2: Non-ASCII JS-identifioijat (aiheuttavat SyntaxError)
+const nonAsciiJsIds = lines.filter(l =>
+  /(?:const|let|var|function)\s+\w*[\u0080-\uFFFF]\w*/.test(l)
+);
+if (nonAsciiJsIds.length === 0) {
+  ok('Ei non-ASCII JS-muuttujanimiä', 'SEURA_BRANDIT, ryhmat, tyhja OK');
+} else {
+  fail(
+    `Non-ASCII JS-identifioijia: ${nonAsciiJsIds.length} riviä`,
+    nonAsciiJsIds.slice(0, 3).map(l => l.trim().substring(0, 60)).join(' | ') +
+    ' — aiheuttaa SyntaxError → kaikki funktiot katoavat'
+  );
+}
+
+// I3: BOM-merkki
+if (src.charCodeAt(0) === 0xFEFF) {
+  fail('BOM-merkki tiedoston alussa (U+FEFF)', 'GitHub Pages / Fastly CDN voi tarjoilla väärällä charset:llä');
+} else {
+  ok('Ei BOM-merkkiä — UTF-8 puhdas alku');
+}
+
+// I4: meta charset ensimmäisten 512 tavun sisällä
+const first512 = src.substring(0, 512);
+if (first512.includes('charset="UTF-8"') || first512.includes("charset='UTF-8'")) {
+  ok('meta charset="UTF-8" löytyy <head>:n alussa (< 512 tavua)');
+} else if (src.includes('charset="UTF-8"')) {
+  warn('meta charset löytyy mutta ei ensimmäisten 512 tavun sisällä', 'Selain voi valita väärän encoding:n');
+} else {
+  fail('meta charset="UTF-8" puuttuu', 'Selain arvaa encoding:n → emojit korruptoituvat');
+}
+
+// I5: Box-drawing merkit CSS-kommenteissa
+const boxDrawingCount = (src.match(/[─━═│┃╔╗╚╝╠╣╦╩╬]/g) || []).length;
+if (boxDrawingCount > 0) {
+  warn(`Box-drawing merkkejä: ${boxDrawingCount} kpl`, 'Ei kaada JS:ää mutta osoittaa encoding-riskiä — harkitse ASCII-vaihtoehtoja (--- ///)');
+} else {
+  ok('Ei box-drawing merkkejä — CSS-kommentit ASCII-turvallisia');
+}
+
+// I6: JS-syntaksi encoding-virheiden varalta (viimeinen linnake)
+const inlineScriptsEnc = [...src.matchAll(/<script(?!\s+src)[^>]*>([\s\S]*?)<\/script>/g)];
+let encSyntaxErrors = 0;
+const encErrDetails = [];
+inlineScriptsEnc.forEach((s, i) => {
+  try { new Function(s[1]); }
+  catch (e) {
+    if (e instanceof SyntaxError) {
+      encSyntaxErrors++;
+      encErrDetails.push(`Script#${i + 1}: ${e.message.substring(0, 60)}`);
+    }
+  }
+});
+if (encSyntaxErrors === 0) {
+  ok('JS-syntaksi: ei encoding-aiheuttamia SyntaxError-virheitä');
+} else {
+  fail(
+    `Encoding aiheuttaa SyntaxError: ${encSyntaxErrors} scriptiä`,
+    encErrDetails.join(' | ') + ' — KRIITTINEN: sivu ei lataudu, kaikki funktiot katoavat'
+  );
+}
+
+// I7: Enkoodauksen yhteenvetotila
+const encodingClean = (corruptEmojis.length === 0 && nonAsciiJsIds.length === 0 && encSyntaxErrors === 0);
+if (encodingClean) {
+  ok('ENKOODAUS OK — UTF-8 puhdas, deploy turvallinen');
+} else {
+  fail(
+    'ENKOODAUS RIKKI — älä deployaa ennen korjausta',
+    '1) Avaa VS Code 2) Klikkaa oikeassa alakulmassa "UTF-8" ' +
+    '3) "Save with Encoding" → "UTF-8" 4) Aja Guardian uudelleen'
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════
 // G. VISUAALINEN TARKASTUS — DOM-MITTAUKSET (Chrome MCP data)
 // ══════════════════════════════════════════════════════════════
 // Tämä osio analysoi Chrome MCP:n kautta kerätyn DOM-datan.
