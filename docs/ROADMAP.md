@@ -1,5 +1,5 @@
 # TalentMaster™ — Kehityssuunnitelma (Roadmap)
-## Päivitetty 2026-04-11
+## Päivitetty 2026-04-19
 
 ---
 
@@ -20,7 +20,6 @@
 - [x] `TalentMaster_Master_v9.html` — Valmentajan näkymä
 - [x] `TalentMaster_Seura.html` — Seurahallinta (UTF-8 korjattu)
 - [x] `TalentMaster_Vanhempi.html` — Huoltajan sivu
-- [x] `TalentMaster_Pelaaja_v1.html` — Stage-badge, fiilinki-lukitus, v4-logiikka
 - [x] `TalentMaster_IDP_Kortti_v3.html` — toimii KPV:llä
 - [x] `TalentMaster_Rekisterointi_Suostumus.html` — fi/sv/en kielituki
 - [x] `TalentMaster_UTJ_v1.html` — Kasvattisuppilo-aikajana
@@ -84,35 +83,56 @@
 
 ### Solo-versio — TalentMaster Player™ (uusi tuotehaarake)
 - [x] `TalentMaster_Player_Home.html` — splash + nimi + syntymäaika + kortti-reveal
-  - Kultainen TM-logo animoituu pimeydestä
-  - 3D-flip korttipaljastuminen burst-efektillä + kipinöillä
-  - Tekstitarina: "Tämä on sinun korttisi, [Nimi]." — kolme lausetta
-  - PlayerCode TMP-XXXX tallennetaan localStorage
 - [x] `TalentMaster_Solo_Profiili.html` — pelaajan profiilisivu
-  - Tekniikkakilpailutulokset (Palloliitto 2023 säännöt, ikäluokittain)
-  - Kotimittarit (3 kk seuranta: ponnautusluku, seinäsyöttöputki, driblausaika)
-  - Fyysinen testi (valinnainen: pituushyppy, 5-loikka, naruhypyt, sprintti)
-  - Pelaajaprofiili (pelipaikka, kokemus, treenikerrat, ketjuvalinta)
-  - Seuran testitulokset (automaattinen Firestoresta kun seura käyttää TM:ää)
 - [x] `TalentMaster_Solo_Arviointi.html` — alkuarviointi 3-kerrosta
-  - Kerros 1: tausta (ikä, kokemus, treenikerrat, vaikein asia)
-  - Kerros 2: tekniset Y/N (kuljettaminen, vastaanotto, syöttö, Cruyff, laukaus)
-  - Kerros 3: kotimittaukset (lähtötaso, palataan 3 kk päästä)
 - [x] `TalentMaster_Kortti_Demo.html` — korttityypit demo
-  - ⭐ Starter (sininen), ⭐⭐ Sharp (kultainen), ⭐⭐⭐ Elite (platina)
-  - Pelipaikka-ikonit: ⚽ HYÖ / ⚡ KHK / ⚙️ KK / 🛡️ PUO / 🧤 MV
-  - Shimmer, burst, kipinät, XP-palkki
 
 ### Dokumentaatio (päivitetty 2026-04-11)
 - [x] `ARKKITEHTUURI.md` — täysin uudelleenkirjoitettu (127 → 510 riviä)
-- [x] `ROADMAP.md` — tämä tiedosto
+
+---
+
+## ✅ TEHTY — Sprint 4 jatko (2026-04-19)
+
+### Pelaaja-sivu v3 — täydellinen uudelleenkirjoitus
+- [x] `TalentMaster_Pelaaja_v3.html` — korvaa v1:n (lag-bugi historiaa)
+- [x] Bottom nav: position fixed, ⚡Tänään / 📅Viikko / 👤Minä / 📈Kehitys
+- [x] R2: `_tmOdotaHarjoitelogiikka()` — latausjärjestys-guard (pollaa 150ms, max 3s)
+- [x] R4: `_tmNaytaFirestoreVirhe()` — UI error state + 📡 fallback-kortti
+- [x] SessionStorage-cache: `_cacheAseta` / `_cacheLue` / `_haeSeuraCached`
+  — seurat-kutsut 15/sessio → ~1/sessio, säästö ~40% Firestore-luvuista
+- [x] Error monitoring: `window.onerror → Firestore errors/` — tuotantovirheet näkyvissä
+- [x] `_suodataStreakViesti()` tyyppiturvaus (null/undefined/numero)
+- [x] `harjoitelogiikka_v4.js` defer-attribuutti
+- [x] TM Guardian: ✅ 44/44 — 100%
+
+### Firestore Security Rules — täydellinen uudelleenkirjoitus (117 riviä)
+- [x] `omatoimi_ohjelmat` — lisätty (puuttui kokonaan, oli täysin auki)
+- [x] `onValmentaja()` + `onOmaPelaaja()` helper-funktiot
+- [x] `pelaajat` UPDATE: `seuraId`-validointi cross-tenant-estolle
+- [x] `kirjaukset`: pelaajaId-guard — pelaaja kirjaa vain omalle tililleen
+- [x] `harjoitukset`: rajattu valmentaja-rooleihin (ennen: kaikki seuran jäsenet)
+- [x] `errors/`: error monitoring -kokoelma lisätty
+- [x] **Huoltajafix:** `resource.data.huoltajaEmail == request.auth.token.email`
+  — vanhempi pääsee lukemaan lapsensa pelaajat/havainnot/tapahtumat
+- [x] `tapahtumat` read: avattu kaikille kirjautuneille
+
+### Firestore composite-indeksi
+- [x] `pelaajat: seura ASC · joukkue ASC` — Enabled
+  — estää full scan 200+ pelaajalla, hakuaika ms vs. 3–8s ilman
+
+### TM Guardian — runtime-tarkastusjärjestelmä
+- [x] Pelaaja v3: ✅ 44/44 — 100%
+- [x] Vanhempi: ✅ 46/46 — 100%
+- [x] Kategoriat: värit · nav · näkymä · funktiot · Firebase · harjoitelogiikka · cache · monitoring · tyyppiturvaus
 
 ---
 
 ## 🔄 KESKEN — Sprint 4 jatkuu
 
 ### Kriittiset bugit
-- [ ] **🔴 Pelaaja-sivu lagaa / ei toimi** — `TalentMaster_Pelaaja_v1.html`, tutkimatta
+- [ ] **🔴 SPF/DKIM puuttuu** — sähköpostit menevät roskapostiin, katkaisee pelaajaprosessin
+- [ ] **🔴 Huoltajan kirjautuminen testaamatta** — Rules OK, ei vahvistettu oikealla tilillä
 - [ ] **🟡 Fiilinki-kysely väärä U13-vaiheessa** — ikävaihe-tunnistus + leikkija-kieli
 - [ ] **🟡 joukkueNimi tallentuu ID:nä** — `Rekisterointi_Suostumus.html`
 
@@ -122,10 +142,11 @@
 - [ ] Pelaajat rekisteröidään (ilman suostumusta aluksi)
 - [ ] SJK toimittaa testidatan Excel-tuontipohjan muodossa
 
-### Excel → Firestore tuontityökalu
+### Excel → Firestore tuontityökalu ⚠️ KOKO PILOTIN KRIITTISIN PULLONKAULA
 - [ ] SheetJS lukee Excel-pohjan selaimessa
-- [ ] Cloud Function kirjoittaa Firestoreen oikeaan rakenteeseen
+- [ ] Cloud Function kirjoittaa Firestoreen oikeaan rakenteeseen (openpyxl)
 - [ ] VP tarkistaa → sitten suostumuslomakkeet + pelaajatunnukset
+- [ ] Kaikki 9 seuraa odottavat tätä ennen datan tuontia
 
 ### Pending deploy GitHubiin
 - [ ] `TalentMaster_Koukutus.html` — 3-yleisön engagement ⏳
@@ -136,9 +157,10 @@
 - [ ] `TalentMaster_Kortti_Demo.html` — Korttidemo ⏳
 
 ### Muut Sprint 4
-- [ ] Streak-historia Firestoreen (nyt localStoragessa)
+- [ ] Streak-historia Firestoreen (nyt localStoragessa — pakollinen ennen AI-agenttia)
 - [ ] Palloliiton laukausstatistiikka-linkki kalenteri-tapahtumaan
 - [ ] Automaattinen salasananpalautus `lahetaPelaajaSivuLinkki`-funktiossa
+- [ ] harjoitelogiikka_v4.js versioitu tiedostonimi → ikuinen cache (nyt max-age=600)
 
 ---
 
@@ -154,7 +176,8 @@
 ### SJK — aktivointi (kun data OK)
 - [ ] Suostumuslomakkeet huoltajille
 - [ ] Pelaajatunnukset aktivoidaan
-- [ ] **Tyttöjen PHV-kaava** (Mirwald eri parametrit) — pakollinen ennen U14/15T
+- [ ] **Tyttöjen PHV-kaava** (Mirwald eri parametrit) — PAKOLLINEN ennen U14/15T
+  ⚠️ Ilman tätä tyttöpelaajat saavat väärän PHV-statuksen → väärät suositukset
 
 ### Infrastruktuuri
 - [ ] Kenttähavainto → Firestore (`havainnot`-kokoelma)
@@ -181,7 +204,7 @@
 - [ ] Aktivoituu: streak katkeamassa / 3 pv putki / fiilinki matala 2 pv /
   uusi viikko / PHV-huippu
 - [ ] Ikäkohtainen ääni: leikkija / rakentaja / showcase
-- [ ] Vaatii min 2–4 vk kirjausdataa
+- [ ] **Vaatii min 2–4 vk kirjausdataa Firestoressä** — streak → Firestore heti Sprint 4
 
 ### Solo-versio kaupallistaminen
 - [ ] Stripe-maksut (4,99€/kk tai 34,99€/kausi)
@@ -195,21 +218,24 @@
 
 ---
 
-## 🏟️ Pilottiseurojen tila (2026-04-11)
+## 🏟️ Pilottiseurojen tila (2026-04-19)
 
 | Seura | Tunnukset | Data | Pelaajat | Seuraava askel |
 |---|---|---|---|---|
-| KPV | ✅ | 🟡 Harjoitettavuus puuttuu | 🟡 Testipelaaja (Topias) | Testidatan tuonti |
+| KPV | ✅ | 🟡 Harjoitettavuus puuttuu | 🟡 Testipelaaja (Topias) | **Tuontityökalu → data sisään** |
 | FC Lahti | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Testidatan tuonti |
 | Pallo-Iirot | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Tuonti (3 joukkuetta) |
 | Ylöjärven Ilves | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Testidatan tuonti |
-| SJK Juniorit | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | VP-tunnukset → joukkueet → data |
+| SJK Juniorit | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | VP-tunnukset → joukkueet → tyttöjen PHV → data |
 | GrIFK | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Testidatan tuonti (sv) |
 | VIFK | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Testidatan tuonti (sv) |
 | HJK Juniorit | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Testidatan tuonti |
+| EPS | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Teams-puhelu Heini (PENDING) |
 
-**Kriittisin pullonkaula kaikilla seuroilla:** testidatan tuonti Firestoreen.
-Excel-pohja on valmis — tuontityökalu puuttuu (Sprint 4).
+**Kriittisin pullonkaula kaikilla seuroilla:** Excel → Firestore tuontityökalu.
+Excel-pohja on valmis — tuontityökalu Sprint 4:ssä.
+
+**Aktiivinen mittari:** tavoite on 1 seura end-to-end toimivana (KPV) ennen muita.
 
 ---
 
@@ -218,7 +244,7 @@ Excel-pohja on valmis — tuontityökalu puuttuu (Sprint 4).
 - **Rules-deploy:** Firebase-konsoli suoraan (GitHub Actions → 403)
 - **CDN cache:** ~10 min — `?v=N` + tarkista `raw.githubusercontent.com` ensin
 - **`_pelaaja`** on `let` — EI `window._pelaaja`
-- **`harjoitelogiikka_v4.js`** ladattava ennen pääscriptejä
+- **`harjoitelogiikka_v4.js`** ladattava ennen pääscriptejä (tai defer)
 - **DIAG:** `sl`-avain poistunut, käytä `diag`
 - **`testitapahtumat`** oikea kokoelmanimi (EI `tapahtumat`)
 - **`_avaaValmentajaPopup`** GLOBAALI — ei saa olla nested funktio
@@ -226,3 +252,7 @@ Excel-pohja on valmis — tuontityökalu puuttuu (Sprint 4).
 - **Tyttöjen PHV:** Mirwald eri parametrit — tarkistettava ennen SJK U14/15T
 - **Cloud Scheduler API:** aktivoi tarvittaessa Firebase-konsolista
 - **Ei VP + Admin samassa selaimessa** (Firebase yksi auth-sessio per projekti)
+- **Huoltajaluku Rules:** `resource.data.huoltajaEmail == request.auth.token.email`
+- **SessionStorage cache TTL:** 30 min — `_cacheAseta` / `_cacheLue`
+- **Pelaaja-sivu guard:** `_tmOdotaHarjoitelogiikka()` ennen harjoitekutsuja
+- **Streak → Firestore:** pakollinen ennen AI-agenttia (Sprint 6)
