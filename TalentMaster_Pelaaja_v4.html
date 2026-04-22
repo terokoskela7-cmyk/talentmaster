@@ -166,6 +166,7 @@ button{font-family:var(--font-b);cursor:pointer}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -1119,6 +1120,39 @@ function tmFiilinki(arvo, btn) {
   btn.style.border = '.5px solid rgba(26,122,94,.25)';
   // Tallennetaan Firestoreen
   _tmKirjaa('fiilinki', arvo);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   HARJOITE-INTEGRAATIO
+   harjoitelogiikka_v4.js lataa PANKKI-objektin globaaliin
+   Käytetään rTIntro():ssä EX[]-taulukon sijaan kun data on saatavilla
+══════════════════════════════════════════════════════════ */
+function _haeHarjoiteData(ketju) {
+  // PANKKI = harjoitelogiikka_v4.js:n päärakenne
+  try {
+    if (window.PANKKI?.[ketju]?.length) {
+      return window.PANKKI[ketju].map(h => ({
+        name: h.nimi || h.name || ketju + '-harjoite',
+        dur:  h.kesto || 60,
+        hint: h.kuvaus || h.ohje || '',
+      }));
+    }
+  } catch(e) {}
+  return null;
+}
+
+function _paivitaEXHarjoitelogiikasta() {
+  // Kutsutaan kun harjoitelogiikka on latautunut
+  const heikoin = _heikoinKetju();
+  const data = _haeHarjoiteData(heikoin);
+  if (data?.length >= 3) {
+    // Korvaa EX demo-harjoitteet oikeilla
+    EX[0] = data[0];
+    EX[1] = data[1] || data[0];
+    EX[2] = data[2] || data[0];
+    console.log('[v4] Harjoitteet ladattu PANKKI:sta:', heikoin, data.length, 'kpl');
+  }
 }
 
 /* BOOT */
