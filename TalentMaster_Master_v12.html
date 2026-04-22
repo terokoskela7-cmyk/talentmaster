@@ -1,0 +1,1639 @@
+<!doctype html>
+<html lang="fi" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TalentMaster™ — Valmentaja v12</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Firebase v9 compat -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+<!-- SVG sprite — omat TM-ikonit (V9 korjaus #10) -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ic-home"     viewBox="0 0 20 20"><path d="M3 8.5L10 2l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V8.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M7 18v-6h6v6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-dev"      viewBox="0 0 20 20"><circle cx="10" cy="7" r="3.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 18c0-3.3 3.1-6 7-6s7 2.7 7 6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-season"   viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M13 2v4M7 2v4M3 9h14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-drill"    viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-obs"      viewBox="0 0 20 20"><path d="M2 10s3-6 8-6 8 6 8 6-3 6-8 6-8-6-8-6z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+  <symbol id="ic-test"     viewBox="0 0 20 20"><path d="M5 3h10M8 3v4l-3 8h10l-3-8V3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-search"   viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M13 13l4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-adar"     viewBox="0 0 20 20"><path d="M10 3l2 4h4l-3.5 2.5 1.5 4.5L10 11.5 6 14l1.5-4.5L4 7h4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-xfactor"  viewBox="0 0 20 20"><path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="ic-gem"      viewBox="0 0 20 20"><path d="M10 17L3 8l2-4h10l2 4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 8h14M7 4l3 13M13 4l-3 13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="ic-chevron"  viewBox="0 0 20 20"><path d="M7 8l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-arrow-r"  viewBox="0 0 20 20"><path d="M4 10h12M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-close"    viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-undo"     viewBox="0 0 20 20"><path d="M4 8V4M4 8h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 8c2-4 8-5 11-1s1 9-3 10-9-1-9-6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-trend-up" viewBox="0 0 20 20"><path d="M3 14l5-5 4 3 5-6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 6h3v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-video"    viewBox="0 0 20 20"><rect x="2" y="5" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M14 9l4-2v6l-4-2V9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-sun"      viewBox="0 0 20 20"><circle cx="10" cy="10" r="3.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-moon"     viewBox="0 0 20 20"><path d="M15 10.5A7 7 0 018 3.5a7 7 0 100 13A7 7 0 0115 10.5z" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+  <symbol id="ic-logout"   viewBox="0 0 20 20"><path d="M8 5H5a1 1 0 00-1 1v8a1 1 0 001 1h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M13 7l3 3-3 3M8 10h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-alert"    viewBox="0 0 20 20"><path d="M10 3l7.5 13H2.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M10 9v3M10 14.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+</svg>
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   TalentMaster™ Master v12 — Valmentajan dashboard
+   Arkkitehtuuri: V9 käytettävyyskorjaukset + V11 kolme työtilaa
+   Dark/light toggle · Firebase auth · Skeleton loading · Undo
+═══════════════════════════════════════════════════════════════ */
+
+/* ── TOKENEET ── */
+:root[data-theme="dark"] {
+  --bg:   #0F0F0D;  --bg2:  #161614;  --card: #1C1C1A;  --card2:#212120;
+  --ink:  rgba(242,239,230,.95);
+  --ink2: rgba(242,239,230,.62);
+  --ink3: rgba(242,239,230,.36);
+  --line: rgba(242,239,230,.09);
+  --line2:rgba(242,239,230,.16);
+  --teal: #28B090;  --teal-bg:rgba(40,176,144,.09); --teal-brd:rgba(40,176,144,.22);
+  --amber:#E0A653;  --amber-bg:rgba(224,166,83,.09);
+  --red:  #D85A5A;  --red-bg:rgba(216,90,90,.09);
+  --purple:#B08AE0; --blue:#6FA8DC;
+  --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.25);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.5), 0 20px 60px rgba(0,0,0,.35);
+}
+:root[data-theme="light"] {
+  --bg:   #F2EFE6;  --bg2:  #FAF9F4;  --card: #FFFFFF;  --card2:#F5F4EF;
+  --ink:  rgba(28,28,26,.95);
+  --ink2: rgba(28,28,26,.62);
+  --ink3: rgba(28,28,26,.38);
+  --line: rgba(28,28,26,.1);
+  --line2:rgba(28,28,26,.18);
+  --teal: #1A7A5E;  --teal-bg:rgba(26,122,94,.07);  --teal-brd:rgba(26,122,94,.2);
+  --amber:#7A5A10;  --amber-bg:rgba(122,90,16,.07);
+  --red:  #8A2B2B;  --red-bg:rgba(138,43,43,.07);
+  --purple:#6B3FA0; --blue:#2A5E8A;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,.12), 0 16px 48px rgba(0,0,0,.08);
+}
+
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg); color: var(--ink);
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  font-size: 14px; line-height: 1.6; min-height: 100vh;
+  transition: background .2s, color .2s;
+}
+button { font-family: inherit; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+::selection { background: var(--teal-brd); }
+
+/* Typokirjasto */
+.serif  { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 300; }
+.mono   { font-family: 'DM Mono', monospace; letter-spacing: .05em; }
+.caps   { font-size: 10px; font-weight: 500; letter-spacing: .22em;
+          text-transform: uppercase; color: var(--ink3); }
+.sig    { font-family: 'Cormorant Garamond', serif; font-weight: 400; font-size: 22px;
+          line-height: 1.3; letter-spacing: -.01em; }
+
+/* ── KEYFRAMES ── */
+@keyframes fadeUp  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@keyframes shimmer { 0%,100%{opacity:.4} 50%{opacity:.9} }
+@keyframes toastIn { from{transform:translateY(8px);opacity:0} to{transform:none;opacity:1} }
+@keyframes slideIn { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
+
+/* ── LAYOUT ── */
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .sidebar.open { display: flex; position: fixed; inset: 0; z-index: 200; width: 260px; }
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: var(--bg2);
+  border-right: .5px solid var(--line);
+  padding: 24px 0;
+  position: sticky; top: 0; height: 100vh;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+  transition: background .2s;
+}
+.sb-brand { padding: 0 24px 20px; border-bottom: .5px solid var(--line); margin-bottom: 16px; }
+.sb-logo  { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 18px;
+             letter-spacing: .01em; color: var(--ink); }
+.sb-logo em { color: var(--teal); font-style: normal; }
+.sb-role  { font-size: 10px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase;
+             color: var(--ink3); margin-top: 3px; }
+.sb-seura { font-size: 12px; color: var(--ink2); margin-top: 2px; }
+
+.sb-nav   { flex: 1; padding: 0 12px; }
+.sb-section { padding: 0 12px 6px; font-size: 9px; font-weight: 600;
+               letter-spacing: .24em; text-transform: uppercase; color: var(--ink3); }
+.sb-item  {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 6px;
+  font-size: 13px; color: var(--ink2);
+  cursor: pointer; transition: background .12s, color .12s;
+  margin-bottom: 2px;
+}
+.sb-item:hover  { background: var(--card); color: var(--ink); }
+.sb-item.active { background: var(--teal-bg); color: var(--teal);
+                   font-weight: 500; }
+.sb-item svg    { width: 16px; height: 16px; flex-shrink: 0; opacity: .7; }
+.sb-item.active svg { opacity: 1; }
+.sb-divider { height: .5px; background: var(--line); margin: 12px 0; }
+
+.sb-bot {
+  padding: 16px 24px 0;
+  border-top: .5px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.theme-btn {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--card); border: .5px solid var(--line2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink2); transition: all .15s;
+}
+.theme-btn:hover { background: var(--teal-bg); color: var(--teal); }
+.theme-btn svg { width: 14px; height: 14px; }
+
+/* ── MAIN ── */
+.main {
+  padding: 48px 56px 80px;
+  max-width: 1120px;
+  animation: fadeUp .3s ease;
+}
+@media (max-width: 1200px) { .main { padding: 40px 40px 80px; } }
+@media (max-width: 900px)  { .main { padding: 24px 20px 80px; } }
+
+/* ── HEADER ── */
+.h-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 32px;
+}
+.h-greet {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 28px;
+  line-height: 1.1; margin-bottom: 4px;
+}
+.h-date { font-size: 11px; color: var(--ink3); letter-spacing: .16em; }
+
+.cmd-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border: .5px solid var(--line2);
+  color: var(--ink2); padding: 8px 14px; border-radius: 8px;
+  font-size: 12px; font-weight: 500;
+  transition: all .12s;
+}
+.cmd-btn:hover { border-color: var(--teal-brd); color: var(--teal); }
+.cmd-btn kbd {
+  background: var(--bg); border: .5px solid var(--line2);
+  border-radius: 3px; padding: 1px 5px; font-size: 10px;
+  font-family: inherit; color: var(--ink3);
+}
+.cmd-btn svg { width: 13px; height: 13px; }
+
+/* ── WSBAR (workspace tabs) ── */
+.wsbar {
+  display: flex; align-items: center; gap: 2px;
+  border-bottom: .5px solid var(--line);
+  margin-bottom: 36px;
+}
+.ws-tab {
+  padding: 10px 18px; font-size: 13px; font-weight: 500;
+  color: var(--ink3); cursor: pointer; position: relative;
+  border-radius: 4px 4px 0 0;
+  transition: color .12s;
+}
+.ws-tab::after {
+  content: ''; position: absolute; bottom: -1px; left: 0; right: 0;
+  height: 1.5px; background: transparent; transition: background .12s;
+}
+.ws-tab:hover { color: var(--ink2); }
+.ws-tab.active { color: var(--ink); }
+.ws-tab.active::after { background: var(--teal); }
+.ws-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--card2); font-size: 9px; font-weight: 600;
+  font-family: 'DM Mono', monospace; color: var(--ink3);
+  margin-right: 6px;
+}
+.ws-tab.active .ws-num { background: var(--teal-bg); color: var(--teal); }
+
+/* ── WS VIEWS ── */
+.ws-view { display: none; animation: fadeUp .2s ease; }
+.ws-view.active { display: block; }
+
+/* ══════════════════════════════════════════════════════════════
+   TYÖTILA 1 — TÄNÄÄN
+══════════════════════════════════════════════════════════════ */
+
+/* Signal (V9 korjaus #02: iso, tyhjää ympärille) */
+.signal-block {
+  background: var(--card);
+  border: .5px solid var(--line2);
+  border-radius: 10px;
+  padding: 28px 32px;
+  margin-bottom: 24px;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+  position: relative; overflow: hidden;
+}
+.signal-block::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--teal); border-radius: 3px 0 0 3px;
+}
+.signal-block:hover { border-color: var(--teal-brd); box-shadow: var(--shadow); }
+.signal-caps { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.signal-dot  { width: 6px; height: 6px; border-radius: 50%; background: var(--teal);
+                animation: shimmer 2s ease-in-out infinite; }
+.signal-title {
+  font-family: 'Cormorant Garamond', serif; font-weight: 400;
+  font-size: 26px; line-height: 1.3; margin-bottom: 10px; /* V9 korjaus #02 */
+  letter-spacing: -.01em;
+}
+.signal-title em { color: var(--teal); font-style: normal; }
+.signal-sub  { font-size: 13px; color: var(--ink2); line-height: 1.65; max-width: 600px; }
+.signal-open {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 500; color: var(--ink3);
+  margin-top: 16px; transition: color .12s;
+}
+.signal-open svg { width: 14px; height: 14px; }
+.signal-block:hover .signal-open { color: var(--teal); }
+
+/* Kolme toimenpidettä */
+.actions-section { margin-bottom: 32px; }
+.actions-head    { margin-bottom: 14px; }
+.action-row {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: .5px solid var(--line);
+  border-radius: 8px; margin-bottom: 8px;
+  cursor: pointer; transition: border-color .12s, background .12s;
+}
+.action-row:hover { border-color: var(--line2); background: var(--card2); }
+.action-num {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--card2); border: .5px solid var(--line2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; font-family: 'DM Mono', monospace;
+  color: var(--ink3); flex-shrink: 0; margin-top: 1px;
+}
+.action-row.priority .action-num { background: var(--teal-bg); color: var(--teal); border-color: var(--teal-brd); }
+.action-title { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+.action-meta  { font-size: 11px; color: var(--ink3); display: flex; gap: 12px; flex-wrap: wrap; }
+.action-meta .time-tag {
+  background: var(--card2); border: .5px solid var(--line);
+  padding: 1px 7px; border-radius: 3px; font-size: 9px;
+  font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+}
+
+/* Metriikat (V9 korjaus #04: trendit kaikkiin lukuihin) */
+.metrics-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin-bottom: 32px;
+}
+@media (max-width: 900px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+.metric-card {
+  background: var(--card); border: .5px solid var(--line);
+  border-radius: 8px; padding: 16px 18px;
+  transition: border-color .12s;
+}
+.metric-card:hover { border-color: var(--line2); }
+.metric-lbl  { font-size: 9px; font-weight: 500; letter-spacing: .2em;
+                text-transform: uppercase; color: var(--ink3); margin-bottom: 8px; }
+.metric-val  {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300;
+  font-size: 36px; line-height: 1; margin-bottom: 6px;
+}
+/* Trendi (V9 korjaus #04) */
+.metric-trend {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-family: 'DM Mono', monospace;
+}
+.trend-up   { color: var(--teal); }
+.trend-down { color: var(--red); }
+.trend-flat { color: var(--ink3); }
+.sparkline  { display: flex; align-items: flex-end; gap: 2px; height: 16px; }
+.spark-bar  { width: 3px; background: var(--ink3); border-radius: 1px; transition: background .2s; }
+.metric-card:hover .spark-bar { background: var(--teal); }
+
+/* Pelaajalistaus tänään */
+.players-today { margin-top: 8px; }
+.player-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 0; border-bottom: .5px solid var(--line);
+}
+.player-row:last-child { border-bottom: none; }
+.player-num  {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--card2); border: .5px solid var(--line2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 600; font-family: 'DM Mono', monospace;
+  color: var(--ink2); flex-shrink: 0;
+}
+.player-info { flex: 1; min-width: 0; }
+.player-name { font-size: 13px; font-weight: 500; }
+.player-pos  { font-size: 11px; color: var(--ink3); margin-top: 1px; }
+.player-tags { display: flex; gap: 5px; flex-shrink: 0; }
+.tag {
+  font-size: 9px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 3px;
+  border: .5px solid;
+}
+.tag-x   { color: var(--teal);  background: var(--teal-bg);  border-color: var(--teal-brd); }
+.tag-gem { color: var(--purple); background: rgba(176,138,224,.08); border-color: rgba(176,138,224,.2); }
+.tag-warn{ color: var(--amber);  background: var(--amber-bg); border-color: rgba(224,166,83,.2); }
+.tag-inj { color: var(--red);    background: var(--red-bg);   border-color: rgba(216,90,90,.2); }
+
+/* ══════════════════════════════════════════════════════════════
+   TYÖTILA 2 — KEHITYS (pelaajan aikajana)
+══════════════════════════════════════════════════════════════ */
+.dev-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 28px;
+}
+.player-picker {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.player-pill {
+  padding: 7px 14px; border-radius: 20px;
+  background: var(--card); border: .5px solid var(--line2);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  transition: all .12s;
+}
+.player-pill:hover  { border-color: var(--teal-brd); color: var(--teal); }
+.player-pill.active { background: var(--teal-bg); border-color: var(--teal-brd); color: var(--teal); }
+
+/* Pelaajan yläkortti */
+.pinfo-card {
+  background: var(--card); border: .5px solid var(--line2);
+  border-radius: 10px; padding: 24px 28px;
+  margin-bottom: 24px; display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  gap: 24px; align-items: start;
+}
+@media (max-width: 900px) { .pinfo-card { grid-template-columns: 1fr 1fr; } }
+.pinfo-name {
+  grid-column: 1 / -1;
+  font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 30px;
+  margin-bottom: 4px; line-height: 1;
+}
+.pinfo-sub { font-size: 12px; color: var(--ink2); margin-bottom: 16px; }
+.pstat-lbl { font-size: 9px; font-weight: 500; letter-spacing: .2em;
+              text-transform: uppercase; color: var(--ink3); margin-bottom: 5px; }
+.pstat-val { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 28px;
+              line-height: 1; }
+.pstat-delta { font-size: 11px; font-family: 'DM Mono', monospace; margin-top: 3px; }
+
+/* Aikajana */
+.timeline-wrap {
+  background: var(--card); border: .5px solid var(--line2);
+  border-radius: 10px; overflow: hidden; margin-bottom: 24px;
+}
+.tl-months {
+  display: grid; grid-template-columns: 100px repeat(10, 1fr);
+  border-bottom: .5px solid var(--line);
+}
+.tl-month-hdr {
+  padding: 10px 12px; font-size: 9px; font-weight: 600;
+  letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ink3); text-align: center;
+}
+.tl-month-hdr:first-child { text-align: left; }
+.tl-row {
+  display: grid; grid-template-columns: 100px repeat(10, 1fr);
+  border-bottom: .5px solid var(--line); min-height: 40px;
+}
+.tl-row:last-child { border-bottom: none; }
+.tl-row-lbl {
+  padding: 10px 12px; font-size: 9px; font-weight: 600;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink3); border-right: .5px solid var(--line);
+  display: flex; align-items: center;
+}
+.tl-cell { padding: 6px; display: flex; align-items: center; justify-content: center; }
+.tl-dot  { width: 8px; height: 8px; border-radius: 50%; }
+.tl-bar  { height: 6px; border-radius: 3px; width: 80%; }
+.tl-event {
+  font-size: 9px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; padding: 2px 6px;
+  border-radius: 3px; white-space: nowrap;
+}
+
+/* Narratiivi */
+.narrative-list { display: flex; flex-direction: column; gap: 1px; }
+.narrative-item {
+  display: flex; gap: 20px; padding: 16px 20px;
+  background: var(--card); border-bottom: .5px solid var(--line);
+  transition: background .12s;
+}
+.narrative-item:first-child { border-radius: 10px 10px 0 0; }
+.narrative-item:last-child  { border-radius: 0 0 10px 10px; border-bottom: none; }
+.narrative-item:hover { background: var(--card2); }
+.narr-month { font-size: 11px; font-weight: 600; color: var(--teal);
+               font-family: 'DM Mono', monospace; width: 80px; flex-shrink: 0;
+               padding-top: 2px; }
+.narr-text  { font-size: 13px; color: var(--ink2); line-height: 1.6; flex: 1; }
+.narr-tag   { flex-shrink: 0; padding-top: 2px; }
+
+/* ══════════════════════════════════════════════════════════════
+   TYÖTILA 3 — KAUSI
+══════════════════════════════════════════════════════════════ */
+.season-header { margin-bottom: 28px; }
+.season-title  {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 32px;
+  margin-bottom: 4px;
+}
+.season-sub { font-size: 12px; color: var(--ink2); }
+
+.season-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 16px; margin-bottom: 32px;
+}
+@media (max-width: 900px) { .season-grid { grid-template-columns: 1fr; } }
+.season-card {
+  background: var(--card); border: .5px solid var(--line2);
+  border-radius: 10px; padding: 22px 24px;
+}
+.sc-label { margin-bottom: 14px; }
+.sc-val {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 42px;
+  line-height: 1; margin-bottom: 6px;
+}
+.sc-desc  { font-size: 12px; color: var(--ink2); line-height: 1.55; }
+
+/* Kausijakso-palkki */
+.season-bar-wrap { margin-bottom: 10px; }
+.season-bar-track {
+  height: 6px; background: var(--card2); border-radius: 3px;
+  overflow: hidden; margin-bottom: 4px;
+}
+.season-bar-fill {
+  height: 100%; background: var(--teal); border-radius: 3px;
+  transition: width 1s ease;
+}
+.season-bar-labels {
+  display: flex; justify-content: space-between;
+  font-size: 9px; font-family: 'DM Mono', monospace; color: var(--ink3);
+}
+
+/* X-Factor pelaajat */
+.xfactor-list { display: flex; flex-direction: column; gap: 8px; }
+.xf-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--card2); border-radius: 6px;
+}
+.xf-name  { flex: 1; font-size: 13px; font-weight: 500; }
+.xf-trend { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--teal); }
+
+/* ══════════════════════════════════════════════════════════════
+   DRILL-IN PANEL (V9 korjaus — syyhierarkia)
+══════════════════════════════════════════════════════════════ */
+.drill-back {
+  display: none; position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,.4); backdrop-filter: blur(4px);
+}
+.drill-back.open { display: block; }
+.drill-panel {
+  position: fixed; right: 0; top: 0; bottom: 0;
+  width: 420px; background: var(--bg2);
+  border-left: .5px solid var(--line2);
+  z-index: 101; overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
+  box-shadow: var(--shadow-lg);
+}
+.drill-panel.open { transform: none; }
+.drill-header {
+  padding: 24px 24px 0; display: flex; align-items: flex-start;
+  justify-content: space-between; margin-bottom: 24px;
+}
+.drill-title {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 22px;
+  line-height: 1.2; max-width: 300px;
+}
+.drill-close {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--card); border: .5px solid var(--line2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink2); flex-shrink: 0;
+  transition: all .12s;
+}
+.drill-close:hover { background: var(--red-bg); color: var(--red); }
+.drill-close svg { width: 14px; height: 14px; }
+.drill-section { padding: 0 24px 20px; border-bottom: .5px solid var(--line); margin-bottom: 20px; }
+.drill-section:last-child { border-bottom: none; }
+
+.drill-reason {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 12px 0; border-bottom: .5px solid var(--line);
+}
+.drill-reason:last-child { border-bottom: none; }
+.dr-label { font-size: 9px; font-weight: 600; letter-spacing: .18em;
+              text-transform: uppercase; color: var(--ink3); margin-bottom: 4px; }
+.dr-val   { font-family: 'DM Mono', monospace; font-size: 22px; color: var(--ink); }
+.dr-trend { font-size: 11px; margin-top: 2px; }
+.dr-icon  {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--card2); border: .5px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: var(--ink2);
+}
+.dr-icon svg { width: 16px; height: 16px; }
+
+.drill-actions { padding: 0 24px 24px; }
+.drill-btn {
+  width: 100%; padding: 12px 16px; border-radius: 8px;
+  background: var(--teal-bg); border: .5px solid var(--teal-brd);
+  color: var(--teal); font-size: 13px; font-weight: 500;
+  margin-bottom: 8px; text-align: left;
+  transition: all .12s;
+}
+.drill-btn:hover { background: var(--teal); color: white; }
+
+/* ══════════════════════════════════════════════════════════════
+   COMMAND PALETTE (V9 korjaus #05 — Cmd+K)
+══════════════════════════════════════════════════════════════ */
+.cp-back {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,.5); backdrop-filter: blur(8px);
+}
+.cp-back.open { display: block; }
+.cp-box {
+  position: fixed; top: 18%; left: 50%; transform: translateX(-50%);
+  width: 560px; max-width: 90vw;
+  background: var(--bg2); border: .5px solid var(--line2);
+  border-radius: 12px; z-index: 201; overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  animation: fadeUp .18s ease;
+}
+.cp-input-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px; border-bottom: .5px solid var(--line);
+}
+.cp-input-row svg { width: 16px; height: 16px; color: var(--ink3); flex-shrink: 0; }
+#cpInput {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--ink); font-size: 14px; font-family: inherit;
+}
+#cpInput::placeholder { color: var(--ink3); }
+.cp-hint { font-size: 10px; color: var(--ink3); padding: 6px 18px 2px;
+            letter-spacing: .1em; }
+#cpList  { max-height: 360px; overflow-y: auto; padding: 4px 0 8px; }
+.cp-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 18px; cursor: pointer; font-size: 13px;
+  transition: background .1s;
+}
+.cp-item:hover, .cp-item.focus { background: var(--teal-bg); }
+.cp-item-icon {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: var(--card); border: .5px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: var(--ink3);
+}
+.cp-item-icon svg { width: 13px; height: 13px; }
+.cp-item-label { flex: 1; }
+.cp-item-kbd   { font-size: 10px; color: var(--ink3); font-family: 'DM Mono', monospace; }
+.cp-section-hdr { padding: 10px 18px 4px; font-size: 9px; font-weight: 600;
+                   letter-spacing: .22em; text-transform: uppercase; color: var(--ink3); }
+
+/* ══════════════════════════════════════════════════════════════
+   TOAST + UNDO (V9 korjaus #08)
+══════════════════════════════════════════════════════════════ */
+#toast-wrap {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  z-index: 500; display: flex; flex-direction: column; gap: 8px; align-items: center;
+}
+.toast-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card2); border: .5px solid var(--line2);
+  border-radius: 8px; padding: 10px 16px;
+  font-size: 13px; box-shadow: var(--shadow);
+  animation: toastIn .2s ease;
+  white-space: nowrap;
+}
+.toast-undo {
+  font-size: 11px; font-weight: 600; color: var(--teal);
+  cursor: pointer; padding: 2px 6px; border-radius: 3px;
+  border: .5px solid var(--teal-brd);
+  transition: background .12s;
+}
+.toast-undo:hover { background: var(--teal-bg); }
+
+/* ══════════════════════════════════════════════════════════════
+   SKELETON LOADING (V9 korjaus #06)
+══════════════════════════════════════════════════════════════ */
+.skel {
+  background: linear-gradient(90deg, var(--card2) 25%, var(--card) 50%, var(--card2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LOGIN SCREEN
+══════════════════════════════════════════════════════════════ */
+#sLogin {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 100vh;
+  background: var(--bg); padding: 32px;
+}
+.login-logo {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300;
+  font-size: 40px; margin-bottom: 4px; text-align: center;
+}
+.login-logo em { color: var(--teal); font-style: normal; }
+.login-eyebrow { font-size: 10px; letter-spacing: .28em; text-transform: uppercase;
+                  color: var(--ink3); text-align: center; margin-bottom: 40px; }
+.login-form { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 10px; }
+.login-input {
+  background: var(--card); border: .5px solid var(--line2); color: var(--ink);
+  padding: 13px 16px; border-radius: 8px; font-size: 14px; font-family: inherit;
+  outline: none; transition: border-color .15s;
+}
+.login-input:focus { border-color: var(--teal-brd); }
+.login-input::placeholder { color: var(--ink3); }
+.login-btn {
+  background: var(--teal); color: white; border: none;
+  padding: 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  letter-spacing: .2em; text-transform: uppercase; transition: opacity .12s;
+}
+.login-btn:hover { opacity: .9; }
+.login-err { font-size: 12px; color: var(--red); text-align: center; min-height: 18px; }
+.login-demo { font-size: 12px; color: var(--ink3); text-align: center; cursor: pointer; }
+.login-demo:hover { color: var(--teal); }
+
+/* ── SKROLLIBAARIT ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--teal-brd); }
+
+/* ── UTILS ── */
+.hidden { display: none !important; }
+.muted  { color: var(--ink3); }
+.accent { color: var(--teal); }
+.row    { display: flex; align-items: center; gap: 10px; }
+.sect-hdr { display: flex; align-items: center; justify-content: space-between;
+             margin-bottom: 14px; }
+.sect-link { font-size: 11px; font-weight: 500; color: var(--teal); cursor: pointer; }
+.sect-link:hover { opacity: .8; }
+
+/* DIVIDER */
+.divider { height: .5px; background: var(--line); margin: 28px 0; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="sLogin">
+  <div class="login-logo">Talent<em>Master</em>™</div>
+  <div class="login-eyebrow">Valmentajan näkymä · v12</div>
+  <div class="login-form">
+    <input class="login-input" id="lEmail" type="email" placeholder="Sähköposti" autocomplete="email">
+    <input class="login-input" id="lPass"  type="password" placeholder="Salasana">
+    <button class="login-btn" onclick="login()">Kirjaudu sisään</button>
+    <div class="login-err" id="lErr"></div>
+    <div class="login-demo" onclick="loginDemo()">Kokeile demona →</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="sDash" class="hidden">
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">Talent<em>Master</em>™</div>
+      <div class="sb-role caps">Valmentaja</div>
+      <div class="sb-seura" id="sbSeura">—</div>
+    </div>
+
+    <nav class="sb-nav">
+      <div class="sb-section">Työtilat</div>
+      <div class="sb-item active" data-ws="today" onclick="setWs('today')">
+        <svg width="16" height="16"><use href="#ic-home"/></svg>Tänään
+      </div>
+      <div class="sb-item" data-ws="dev" onclick="setWs('dev')">
+        <svg width="16" height="16"><use href="#ic-dev"/></svg>Kehitys
+      </div>
+      <div class="sb-item" data-ws="season" onclick="setWs('season')">
+        <svg width="16" height="16"><use href="#ic-season"/></svg>Kausi
+      </div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section">Työkalut</div>
+      <div class="sb-item" onclick="openDrill('rpe')">
+        <svg width="16" height="16"><use href="#ic-drill"/></svg>Kirjaa RPE
+      </div>
+      <div class="sb-item" onclick="openDrill('adar')">
+        <svg width="16" height="16"><use href="#ic-obs"/></svg>Havainto
+      </div>
+      <div class="sb-item" onclick="setWs('season');toast('Kartoitukset avattu')">
+        <svg width="16" height="16"><use href="#ic-test"/></svg>Kartoitukset
+      </div>
+    </nav>
+
+    <div class="sb-bot">
+      <span class="mono muted" style="font-size:10px">v12.0</span>
+      <button class="theme-btn" onclick="toggleTheme()" title="Vaihda teema">
+        <svg><use href="#ic-sun" id="themeIcon"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HEADER -->
+    <div class="h-top">
+      <div>
+        <div class="h-greet serif" id="hGreet">Hyvää päivää.</div>
+        <div class="h-date mono muted" id="hDate"></div>
+      </div>
+      <button class="cmd-btn" onclick="openCmd()">
+        <svg width="13" height="13"><use href="#ic-search"/></svg>
+        Komennot <kbd>⌘K</kbd>
+      </button>
+    </div>
+
+    <!-- WSBAR -->
+    <div class="wsbar">
+      <div class="ws-tab active" data-ws="today" onclick="setWs('today')">
+        <span class="ws-num">01</span>Tänään
+      </div>
+      <div class="ws-tab" data-ws="dev" onclick="setWs('dev')">
+        <span class="ws-num">02</span>Kehitys
+      </div>
+      <div class="ws-tab" data-ws="season" onclick="setWs('season')">
+        <span class="ws-num">03</span>Kausi
+      </div>
+    </div>
+
+    <!-- ══ TYÖTILA: TÄNÄÄN ══ -->
+    <div class="ws-view active" data-view="today">
+
+      <!-- Signaali -->
+      <div class="signal-block" id="signalBlock" onclick="openDrill('signal')">
+        <div class="signal-caps">
+          <div class="signal-dot"></div>
+          <span class="caps">Joukkueen tila · klikkaa syventääksesi</span>
+        </div>
+        <div class="signal-title" id="signalTitle">
+          Kuormitus nousussa viikon kolmannella päivällä —
+          <em>kevennä 20&nbsp;% tänään.</em>
+        </div>
+        <div class="signal-sub" id="signalSub">
+          Perustuu RPE-trendiin (7&nbsp;pv&nbsp;ka&nbsp;7.2, baseline&nbsp;5.8) ja kolmen
+          pelaajan poissaoloon. Kolme keinoa: lyhennä tehot, vähennä toistoja,
+          siirrä tekniikkaosuus alkuun.
+        </div>
+        <div class="signal-open">
+          Syyhierarkia ja teot
+          <svg width="14" height="14"><use href="#ic-arrow-r"/></svg>
+        </div>
+      </div>
+
+      <!-- Kolme toimenpidettä -->
+      <div class="actions-section">
+        <div class="actions-head sect-hdr">
+          <div class="caps">Nämä kolme tänään</div>
+        </div>
+        <div id="actionList"></div>
+      </div>
+
+      <!-- Metriikat -->
+      <div class="sect-hdr">
+        <div class="caps">Joukkueen tilanne</div>
+        <span class="sect-link" onclick="setWs('season')">Kausitrendi →</span>
+      </div>
+      <div class="metrics-grid" id="metricsGrid"></div>
+
+      <div class="divider"></div>
+
+      <!-- Pelaajat tänään -->
+      <div class="sect-hdr">
+        <div class="caps">Pelaajat — huomioitavaa</div>
+        <span class="sect-link" onclick="setWs('dev')">Kaikki pelaajat →</span>
+      </div>
+      <div class="players-today" id="playersTodayList"></div>
+
+    </div><!-- /today -->
+
+    <!-- ══ TYÖTILA: KEHITYS ══ -->
+    <div class="ws-view" data-view="dev">
+
+      <div class="dev-header">
+        <div>
+          <h2 class="serif" style="font-size:28px;margin-bottom:4px">Pelaajan elämäkerta</h2>
+          <div class="muted" style="font-size:13px">10&nbsp;kk näkymä · Kausi 25/26</div>
+        </div>
+      </div>
+
+      <!-- Pelaajapicker -->
+      <div class="player-picker" id="playerPicker" style="margin-bottom:24px"></div>
+
+      <!-- Pelaajan yläkortti -->
+      <div class="pinfo-card" id="pinfoCard"></div>
+
+      <!-- Aikajana -->
+      <div class="sect-hdr" style="margin-bottom:12px">
+        <div class="caps">Kehitysaikajana</div>
+      </div>
+      <div class="timeline-wrap" id="tlWrap"></div>
+
+      <!-- Narratiivi -->
+      <div class="sect-hdr" style="margin-top:24px;margin-bottom:12px">
+        <div class="caps">Merkittävät tapahtumat</div>
+      </div>
+      <div class="narrative-list" id="narrativeList"></div>
+
+    </div><!-- /dev -->
+
+    <!-- ══ TYÖTILA: KAUSI ══ -->
+    <div class="ws-view" data-view="season">
+
+      <div class="season-header">
+        <h2 class="season-title serif">Kauden rytmi ja kehitys</h2>
+        <div class="season-sub muted" id="seasonSub">Kausi 25/26</div>
+      </div>
+
+      <!-- Edistymispalkki -->
+      <div class="season-bar-wrap" style="margin-bottom:28px">
+        <div class="season-bar-labels" style="margin-bottom:6px">
+          <span class="caps">Kausi edistynyt</span>
+          <span class="mono muted" style="font-size:10px" id="seasonProgress">vk 17/36</span>
+        </div>
+        <div class="season-bar-track">
+          <div class="season-bar-fill" id="seasonBar"></div>
+        </div>
+      </div>
+
+      <div class="season-grid" id="seasonGrid"></div>
+
+      <div class="divider"></div>
+
+      <div class="sect-hdr">
+        <div class="caps">X-Factor-pelaajat</div>
+        <span class="sect-link" onclick="setWs('dev')">Aikajana →</span>
+      </div>
+      <div class="xfactor-list" id="xfList"></div>
+
+    </div><!-- /season -->
+
+  </main>
+</div><!-- /layout -->
+</div><!-- /sDash -->
+
+<!-- DRILL-IN PANEL -->
+<div class="drill-back" id="drillBack" onclick="closeDrill()"></div>
+<div class="drill-panel" id="drillPanel">
+  <div class="drill-header">
+    <div class="drill-title" id="drillTitle">Signaalin syy</div>
+    <button class="drill-close" onclick="closeDrill()">
+      <svg width="14" height="14"><use href="#ic-close"/></svg>
+    </button>
+  </div>
+  <div id="drillContent" style="padding:0 24px 0"></div>
+  <div class="drill-actions" id="drillActions"></div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div class="cp-back" id="cpBack" onclick="closeCmd()"></div>
+<div class="cp-box" id="cpBox">
+  <div class="cp-input-row">
+    <svg width="16" height="16"><use href="#ic-search"/></svg>
+    <input id="cpInput" placeholder="Hae tai luo..." autocomplete="off" oninput="filterCmd()">
+  </div>
+  <div class="cp-hint caps">↑↓ navigoi · ↵ suorita · esc sulje</div>
+  <div id="cpList"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast-wrap"></div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════
+   FIREBASE CONFIG
+════════════════════════════════════════════════════════════ */
+const _FB = {
+  apiKey:'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo',
+  authDomain:'talentmaster-pilot.firebaseapp.com',
+  projectId:'talentmaster-pilot',
+  storageBucket:'talentmaster-pilot.firebasestorage.app',
+  messagingSenderId:'872561784446',
+  appId:'1:872561784446:web:05c4c7996dfd46ddd14a2f'
+};
+firebase.initializeApp(_FB);
+const _auth = firebase.auth();
+const _db   = firebase.firestore();
+
+/* ════════════════════════════════════════════════════════════
+   TILA
+════════════════════════════════════════════════════════════ */
+let _user     = null;
+let _seura    = null;
+let _joukkue  = null;
+let _seuraId  = null;
+let _rooli    = null;
+let _demo     = false;
+let _ws       = 'today';
+let _kirjautuminenKesken = false;
+let _drillType = null;
+let _lastAction = null;
+let _toastTimer = null;
+let _activePelaaja = 'teemu';
+let _cpFocusIdx = -1;
+
+/* ════════════════════════════════════════════════════════════
+   DEMO DATA (SAMA RAKENNE KUIN FIRESTORESSA)
+════════════════════════════════════════════════════════════ */
+const DEMO = {
+  valmentaja: { etunimi:'Antti', sukunimi:'Nieminen', seura:'KPV', joukkue:'U17' },
+  signal: {
+    title: 'Kuormitus nousussa viikon kolmannella päivällä — <em>kevennä 20\u00a0% tänään.</em>',
+    sub:   'Perustuu RPE-trendiin (7\u00a0pv\u00a0ka\u00a07.2, baseline\u00a05.8) ja kolmen pelaajan poissaoloon.',
+    level: 'warning', // ok | warning | alert
+  },
+  actions: [
+    { num:1, title:'Päivitä 70/30-ohjelma — laske tehot', mins:2, aika:'AAMU', priority:true, key:'ohjelma' },
+    { num:2, title:'Kirjaa RPE ja 0–3 ADAR-havaintoa', mins:4, aika:'ILTAPÄIVÄ', priority:false, key:'rpe' },
+    { num:3, title:'Katso Teemun X-Factor-trendi — neljäs nousu peräkkäin', mins:1, aika:'ILTA', priority:false, key:'xfactor' },
+  ],
+  metrics: [
+    { lbl:'Fiilinki', val:'3.4', delta:'-0.2 vs. vk', trend:'down', unit:'', sparks:[3.6,3.8,3.5,3.6,3.4] },
+    { lbl:'RPE 7\u00a0pv', val:'7.2', delta:'+1.4 vs. baseline', trend:'up', unit:'', sparks:[5.8,6.1,6.4,6.8,7.2] },
+    { lbl:'ACWR', val:'1.48', delta:'+0.35 · varovaisuus', trend:'up', unit:'', sparks:[1.1,1.2,1.15,1.3,1.48] },
+    { lbl:'Paikalla', val:'14', delta:'/ 16 · sama kuin vk', trend:'flat', unit:'', sparks:[16,15,14,16,14] },
+  ],
+  players: [
+    { num:'7', name:'Teemu Salo', pos:'KH · #7', tags:['x'], note:'X-Factor neljäs peräkkäinen' },
+    { num:'11', name:'Oiva Heikkinen', pos:'HM · #11', tags:['gem'], note:'Piilohelmi · FLEI +3 kk:ssa' },
+    { num:'4', name:'Luukas Haapala', pos:'PM · #4', tags:['warn'], note:'Poissa · kuormitusperäinen' },
+    { num:'3', name:'Milo Korhonen', pos:'MVH · #3', tags:['warn'], note:'Poissa · kuormitusperäinen' },
+    { num:'9', name:'Oskari Mäki', pos:'HK · #9', tags:['x'], note:'X-Factor · laukaustekniikka' },
+  ],
+  pelaajat: {
+    teemu: {
+      name:'Teemu Salo', num:'#7', pos:'KH', flei:68, fleiDelta:'+8 vs. syksy',
+      adar:42, xfactor:11, testit:'7/8', fiilinki:'3.8 vakaa', ottelut:18, loukk:1,
+      narrative:[
+        { kk:'MARRAS', txt:'Ensimmäinen X-Factor-havainto: luki 2v1-tilanteen rohkeasti.', tag:'x' },
+        { kk:'TAMMI–HELMI', txt:'Nopeustestien kehitys +0.18\u00a0s 10\u00a0m:llä — tekniikkamuutos välitilasta.', tag:null },
+        { kk:'MAALIS', txt:'Takareisi — kaksi viikkoa sivussa. Fiilinki putosi kyseiseksi ajaksi.', tag:'warn' },
+        { kk:'HUHTI', txt:'Paluu: neljä peräkkäistä X-Factor-havaintoa. Nyt puhuvat ikäluokkaa vanhemmat.', tag:'x' },
+      ],
+    },
+    oiva: {
+      name:'Oiva Heikkinen', num:'#11', pos:'HM', flei:55, fleiDelta:'+3 kk:ssa',
+      adar:28, xfactor:3, testit:'5/8', fiilinki:'3.5 vakaa', ottelut:15, loukk:0,
+      narrative:[
+        { kk:'JOULU', txt:'Ensimmäinen piilohelmi-merkintä: luki syöttölinjan ennen kuin pallo tuli.', tag:'gem' },
+        { kk:'TAMMI', txt:'FLEI nousi 52 → 55. DFL-vahvistus alkaa näkyä paikallaan olemisessa.', tag:null },
+        { kk:'MAALIS–HUHTI', txt:'Kolme peräkkäistä hyvää ottelua — VP tietoinen, seuraa tilannetta.', tag:'gem' },
+      ],
+    },
+    luukas: {
+      name:'Luukas Haapala', num:'#4', pos:'PM', flei:61, fleiDelta:'+1 kk:ssa',
+      adar:19, xfactor:1, testit:'6/8', fiilinki:'3.1 lasku', ottelut:16, loukk:2,
+      narrative:[
+        { kk:'HELMI', txt:'X-Factor-merkintä: ratkaisi 2v2 rohkeasti vasemmalle.', tag:'x' },
+        { kk:'MAALIS', txt:'Poissa 2 vk — kuormitusperäinen takarevieste.', tag:'warn' },
+        { kk:'HUHTI', txt:'Paluu mutta kuorma pidettiin matalana. Paikalla mutta ei täydessä harjoituksessa.', tag:'warn' },
+      ],
+    },
+  },
+  season: {
+    vk: 17, vkTotal: 36,
+    harjoitukset: { tehty:112, tavoite:140, laatu:4.1 },
+    xfpelaajat: ['Teemu Salo','Iida Korhonen','Oskari Mäki','Aapo Virtanen'],
+    fiilinki: { ka:3.6, tavoite:4.0, info:'Vakain jakso tammi–helmi · nyt −0.4 tavoitteesta.' },
+    acwr: { ka:1.12, info:'Koko kauden ajan turvallisella alueella (0.8–1.3). Nyt 1.48 — viikko varovaisuutta.' },
+  },
+};
+
+/* ════════════════════════════════════════════════════════════
+   AUTH
+════════════════════════════════════════════════════════════ */
+_auth.onAuthStateChanged(async user => {
+  if (_kirjautuminenKesken) return;
+  if (user) {
+    _user = user;
+    if (!user.isAnonymous) await _lataaValmentaja(user.uid);
+    else _kaynnistaDemoTila();
+  } else {
+    _naytaLogin();
+  }
+});
+
+function _naytaLogin() {
+  document.getElementById('sLogin').classList.remove('hidden');
+  document.getElementById('sDash').classList.add('hidden');
+}
+
+function _naytaDash() {
+  document.getElementById('sLogin').classList.add('hidden');
+  document.getElementById('sDash').classList.remove('hidden');
+}
+
+async function login() {
+  const email = document.getElementById('lEmail').value.trim();
+  const pass  = document.getElementById('lPass').value;
+  const err   = document.getElementById('lErr');
+  err.textContent = '';
+  _kirjautuminenKesken = true;
+  try {
+    await _auth.signInWithEmailAndPassword(email, pass);
+    _kirjautuminenKesken = false;
+  } catch(e) {
+    _kirjautuminenKesken = false;
+    err.textContent = 'Virheellinen sähköposti tai salasana.';
+  }
+}
+
+async function loginDemo() {
+  _kirjautuminenKesken = true;
+  try {
+    await _auth.signInAnonymously();
+    _kirjautuminenKesken = false;
+    _demo = true;
+    _kaynnistaDemoTila();
+  } catch(e) { _kirjautuminenKesken = false; }
+}
+
+function logout() {
+  _auth.signOut();
+  _naytaLogin();
+}
+
+async function _lataaValmentaja(uid) {
+  try {
+    // Hae valmentajan profiili Firestoresta
+    const snap = await _db.collection('kayttajat').doc(uid).get();
+    if (snap.exists) {
+      const d = snap.data();
+      _seuraId = d.seuraId || 'kpv';
+      _rooli   = d.rooli || 'valmentaja';
+      _joukkue = d.joukkue || '';
+      document.getElementById('sbSeura').textContent = (d.seura||'') + (d.joukkue ? ' · ' + d.joukkue : '');
+      _alusta(d.etunimi || 'Valmentaja');
+    } else {
+      _kaynnistaDemoTila();
+    }
+  } catch(e) {
+    console.warn('[v12 auth]', e.message);
+    _kaynnistaDemoTila();
+  }
+}
+
+function _kaynnistaDemoTila() {
+  _demo = true;
+  const d = DEMO.valmentaja;
+  document.getElementById('sbSeura').textContent = d.seura + ' · ' + d.joukkue;
+  _alusta(d.etunimi);
+}
+
+/* ════════════════════════════════════════════════════════════
+   ALUSTUS
+════════════════════════════════════════════════════════════ */
+function _alusta(nimi) {
+  _naytaDash();
+  _setGreet(nimi);
+  _setDate();
+  renderToday();
+  renderDev();
+  renderSeason();
+  initCmdPalette();
+  _initKeyboard();
+}
+
+function _setGreet(nimi) {
+  const h = new Date().getHours();
+  const prefix = h < 11 ? 'Hyvää aamua' : h < 17 ? 'Hyvää päivää' : 'Hyvää iltaa';
+  document.getElementById('hGreet').textContent = prefix + ', ' + nimi + '.';
+}
+
+function _setDate() {
+  const d  = new Date();
+  const pv = ['sunnuntai','maanantai','tiistai','keskiviikko','torstai','perjantai','lauantai'][d.getDay()];
+  const kk = ['tammikuuta','helmikuuta','maaliskuuta','huhtikuuta','toukokuuta','kesäkuuta',
+               'heinäkuuta','elokuuta','syyskuuta','lokakuuta','marraskuuta','joulukuuta'][d.getMonth()];
+  const vk = _getVk(d);
+  document.getElementById('hDate').textContent =
+    (pv.charAt(0).toUpperCase()+pv.slice(1)) + ', ' + d.getDate() + '. ' + kk + ' · VIIKKO ' + vk;
+}
+
+function _getVk(d) {
+  const startOfYear = new Date(d.getFullYear(),0,1);
+  return Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+}
+
+/* ════════════════════════════════════════════════════════════
+   WORKSPACE
+════════════════════════════════════════════════════════════ */
+function setWs(ws) {
+  _ws = ws;
+  document.querySelectorAll('.ws-view').forEach(v => v.classList.toggle('active', v.dataset.view === ws));
+  document.querySelectorAll('.ws-tab').forEach(t  => t.classList.toggle('active',  t.dataset.ws === ws));
+  document.querySelectorAll('.sb-item[data-ws]').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
+  localStorage.setItem('tm-ws', ws);
+  // Scroll top
+  document.querySelector('.main')?.scrollTo({ top:0, behavior:'smooth' });
+}
+
+/* ════════════════════════════════════════════════════════════
+   TÄNÄÄN
+════════════════════════════════════════════════════════════ */
+function renderToday() {
+  _renderActions();
+  _renderMetrics();
+  _renderPlayersToday();
+}
+
+function _renderActions() {
+  const el = document.getElementById('actionList');
+  if (!el) return;
+  el.innerHTML = DEMO.actions.map(a => `
+    <div class="action-row${a.priority ? ' priority' : ''}" onclick="actionClick('${a.key}')">
+      <div class="action-num">${a.num}</div>
+      <div style="flex:1">
+        <div class="action-title">${a.title}</div>
+        <div class="action-meta">
+          <span class="time-tag">${a.aika}</span>
+          <span>${a.mins} min</span>
+        </div>
+      </div>
+      <svg width="14" height="14" style="color:var(--ink3);flex-shrink:0;margin-top:3px"><use href="#ic-arrow-r"/></svg>
+    </div>`).join('');
+}
+
+function actionClick(key) {
+  if (key === 'rpe')     { openDrill('rpe'); return; }
+  if (key === 'xfactor') { setWs('dev'); return; }
+  toast('Avattu: ' + DEMO.actions.find(a=>a.key===key)?.title, key);
+}
+
+function _renderMetrics() {
+  const el = document.getElementById('metricsGrid');
+  if (!el) return;
+  el.innerHTML = DEMO.metrics.map(m => {
+    const trendColor = m.trend==='up' ? 'var(--red)' : m.trend==='down' ? 'var(--teal)' : 'var(--ink3)';
+    const trendSym   = m.trend==='up' ? '▲' : m.trend==='down' ? '▼' : '–';
+    const sparks = m.sparks || [0,0,0,0,0];
+    const maxS = Math.max(...sparks);
+    const sparkHtml = sparks.map(s => {
+      const h = maxS > 0 ? Math.round((s/maxS)*16) : 4;
+      return `<div class="spark-bar" style="height:${Math.max(h,2)}px"></div>`;
+    }).join('');
+    return `
+      <div class="metric-card">
+        <div class="metric-lbl">${m.lbl}</div>
+        <div class="metric-val serif">${m.val}<span style="font-size:16px;color:var(--ink3)"> ${m.unit}</span></div>
+        <div class="metric-trend">
+          <span style="color:${trendColor};font-size:10px">${trendSym}</span>
+          <span style="color:var(--ink3)">${m.delta}</span>
+          <div class="sparkline" style="margin-left:auto">${sparkHtml}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function _renderPlayersToday() {
+  const el = document.getElementById('playersTodayList');
+  if (!el) return;
+  const tagMap = {
+    x:    { cls:'tag-x',    txt:'X-Factor' },
+    gem:  { cls:'tag-gem',  txt:'Piilohelmi' },
+    warn: { cls:'tag-warn', txt:'Poissa' },
+    inj:  { cls:'tag-inj',  txt:'Loukk.' },
+  };
+  el.innerHTML = DEMO.players.map(p => `
+    <div class="player-row" onclick="pickPlayer('${p.name.split(' ')[0].toLowerCase()}');setWs('dev')" style="cursor:pointer">
+      <div class="player-num">${p.num}</div>
+      <div class="player-info">
+        <div class="player-name">${p.name}</div>
+        <div class="player-pos">${p.pos}</div>
+      </div>
+      <div class="player-tags">
+        ${p.tags.map(t => `<span class="tag ${tagMap[t]?.cls||''}">${tagMap[t]?.txt||t}</span>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   KEHITYS
+════════════════════════════════════════════════════════════ */
+function renderDev(pid) {
+  if (pid) _activePelaaja = pid;
+  const p = DEMO.pelaajat[_activePelaaja] || DEMO.pelaajat.teemu;
+  _renderPlayerPicker();
+  _renderPinfo(p);
+  _renderTimeline(p);
+  _renderNarrative(p);
+}
+
+function pickPlayer(pid) {
+  renderDev(pid);
+}
+
+function _renderPlayerPicker() {
+  const el = document.getElementById('playerPicker');
+  if (!el) return;
+  el.innerHTML = Object.entries(DEMO.pelaajat).map(([id, p]) => `
+    <div class="player-pill${_activePelaaja===id?' active':''}" onclick="pickPlayer('${id}')">
+      ${p.name} <span style="color:var(--ink3);font-size:11px;margin-left:4px">${p.num}</span>
+    </div>`).join('');
+}
+
+function _renderPinfo(p) {
+  const el = document.getElementById('pinfoCard');
+  if (!el) return;
+  const stats = [
+    { lbl:'FLEI', val:p.flei, delta:p.fleiDelta, color: p.flei>=65?'var(--teal)':p.flei>=55?'var(--amber)':'var(--red)' },
+    { lbl:'ADAR-kirjauksia', val:p.adar, delta:p.xfactor+' X-Factor', color:'var(--ink)' },
+    { lbl:'Testit', val:p.testit, delta:'suoritettu', color:'var(--ink)' },
+    { lbl:'Fiilinki', val:p.fiilinki.split(' ')[0], delta:p.fiilinki.split(' ').slice(1).join(' '), color:'var(--ink)' },
+    { lbl:'Ottelut / loukk.', val:p.ottelut+'/'+p.loukk, delta:p.loukk>0?'Huomio':'Kaikki ok', color:'var(--ink)' },
+  ];
+  el.innerHTML = `
+    <div style="grid-column:1/-1">
+      <div class="pinfo-name serif">${p.name}</div>
+      <div class="pinfo-sub">${p.pos} · ${p.num} · Kausi 25/26 · lokakuu–heinäkuu</div>
+    </div>
+    ${stats.map(s=>`
+      <div>
+        <div class="pstat-lbl">${s.lbl}</div>
+        <div class="pstat-val serif" style="color:${s.color}">${s.val}</div>
+        <div class="pstat-delta mono trend-${s.delta.includes('+')?'up':s.delta.includes('-')?'down':'flat'}" style="font-size:11px;color:var(--ink3)">${s.delta}</div>
+      </div>`).join('')}`;
+}
+
+function _renderTimeline(p) {
+  const el = document.getElementById('tlWrap');
+  if (!el) return;
+  const months = ['LOKA','MARRAS','JOULU','TAMMI','HELMI','MAALIS','HUHTI','TOUKO','KESÄ','HEINÄ'];
+  const rows = [
+    { lbl:'ADAR', color:'var(--teal)',   data:[3,4,5,6,5,4,6,0,0,0] },
+    { lbl:'Testit', color:'var(--blue)', data:[1,0,0,1,1,0,0,0,0,0] },
+    { lbl:'Fiilinki', color:'var(--amber)', data:[3.5,3.8,3.6,3.9,3.8,3.1,3.8,0,0,0] },
+    { lbl:'Ottelu', color:'var(--purple)', data:[2,3,3,2,3,1,4,0,0,0] },
+    { lbl:'Loukk.',  color:'var(--red)',    data:[0,0,0,0,0,1,0,0,0,0] },
+  ];
+  const maxPerRow = rows.map(r => Math.max(...r.data));
+
+  el.innerHTML = `
+    <div class="tl-months">
+      <div class="tl-month-hdr" style="text-align:left">Kerros</div>
+      ${months.map(m=>`<div class="tl-month-hdr">${m}</div>`).join('')}
+    </div>
+    ${rows.map((r,ri)=>`
+      <div class="tl-row">
+        <div class="tl-row-lbl">${r.lbl}</div>
+        ${r.data.map((v,mi)=>`
+          <div class="tl-cell">
+            ${v > 0 ? `<div class="tl-bar" style="background:${r.color};opacity:${0.3 + 0.7*(v/maxPerRow[ri])};width:${60+40*(v/maxPerRow[ri])}%"></div>` : ''}
+          </div>`).join('')}
+      </div>`).join('')}`;
+}
+
+function _renderNarrative(p) {
+  const el = document.getElementById('narrativeList');
+  if (!el) return;
+  const tagMap = { x:'tag-x', gem:'tag-gem', warn:'tag-warn', null:null };
+  el.innerHTML = p.narrative.map(n => `
+    <div class="narrative-item">
+      <div class="narr-month">${n.kk}</div>
+      <div class="narr-text">${n.txt}</div>
+      <div class="narr-tag">
+        ${n.tag ? `<span class="tag ${tagMap[n.tag]||''}">
+          ${n.tag==='x'?'X-Factor':n.tag==='gem'?'Piilohelmi':n.tag==='warn'?'Huomio':''}
+        </span>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   KAUSI
+════════════════════════════════════════════════════════════ */
+function renderSeason() {
+  const s = DEMO.season;
+  document.getElementById('seasonSub').textContent = 'Kausi 25/26 · vk ' + s.vk + '/' + s.vkTotal;
+  document.getElementById('seasonProgress').textContent = 'vk ' + s.vk + '/' + s.vkTotal;
+  const pct = Math.round((s.vk/s.vkTotal)*100);
+  setTimeout(() => {
+    const bar = document.getElementById('seasonBar');
+    if (bar) bar.style.width = pct + '%';
+  }, 300);
+
+  const grid = document.getElementById('seasonGrid');
+  if (grid) {
+    const cards = [
+      { lbl:'Harjoitustapahtumia', val:s.harjoitukset.tehty,
+        desc:s.harjoitukset.tavoite+' suunniteltu · '+Math.round(s.harjoitukset.tehty/s.harjoitukset.tavoite*100)+'% · laatu '+s.harjoitukset.laatu+'/5' },
+      { lbl:'X-Factor-pelaajia', val:s.xfpelaajat.length,
+        desc:s.xfpelaajat.join(' · ')+' — kaikki nousseet viimeisen 3\u00a0kk aikana' },
+      { lbl:'Joukkueen fiilinki', val:s.fiilinki.ka, desc:s.fiilinki.info },
+      { lbl:'ACWR kausikeskim.', val:s.acwr.ka, desc:s.acwr.info },
+    ];
+    grid.innerHTML = cards.map(c=>`
+      <div class="season-card">
+        <div class="sc-label caps">${c.lbl}</div>
+        <div class="sc-val serif">${c.val}</div>
+        <div class="sc-desc">${c.desc}</div>
+      </div>`).join('');
+  }
+
+  const xfl = document.getElementById('xfList');
+  if (xfl) {
+    const trends = ['+4 viikossa','+3 viikossa','+2 viikossa','+1 viikossa'];
+    xfl.innerHTML = s.xfpelaajat.map((name,i)=>`
+      <div class="xf-row">
+        <svg width="14" height="14" style="color:var(--teal)"><use href="#ic-xfactor"/></svg>
+        <span class="xf-name">${name}</span>
+        <span class="xf-trend mono">${trends[i]||''}</span>
+      </div>`).join('');
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   DRILL-IN PANEL
+════════════════════════════════════════════════════════════ */
+function openDrill(type) {
+  _drillType = type;
+  const titleEl   = document.getElementById('drillTitle');
+  const contentEl = document.getElementById('drillContent');
+  const actionsEl = document.getElementById('drillActions');
+
+  if (type === 'signal') {
+    titleEl.textContent = 'Signaalin syy — miksi tämä suositus';
+    contentEl.innerHTML = `
+      <div class="drill-section" style="padding-bottom:16px">
+        <div class="caps" style="margin-bottom:12px">Mistä signaali koostuu</div>
+        ${[
+          { ico:'ic-trend-up', lbl:'RPE 7\u00a0pv\u00a0ka', val:'7.2', trend:'+1.4 · baseline 5.8 · +24%', color:'var(--red)' },
+          { ico:'ic-alert',    lbl:'ACWR', val:'1.48', trend:'+0.35 · turvaraja 1.3 · +14%', color:'var(--amber)' },
+          { ico:'ic-obs',      lbl:'Fiilinki\u00a0ka', val:'3.4', trend:'−0.2 · viime\u00a0vk\u00a03.6', color:'var(--amber)' },
+          { ico:'ic-dev',      lbl:'Poissaolot', val:'3', trend:'Luukas · Milo · Onni · kuormaperäisiä', color:'var(--ink3)' },
+        ].map(r=>`
+          <div class="drill-reason">
+            <div class="dr-icon"><svg width="16" height="16"><use href="#${r.ico}"/></svg></div>
+            <div style="flex:1">
+              <div class="dr-label">${r.lbl}</div>
+              <div class="dr-val serif" style="font-size:20px;color:${r.color}">${r.val}</div>
+              <div class="dr-trend mono muted" style="font-size:11px">${r.trend}</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    actionsEl.innerHTML = `
+      <div class="caps" style="margin-bottom:10px">Toimenpiteet</div>
+      ${['Kevennä 20\u00a0% — laske tehot automaattisesti','Kirjaa tänään RPE harjoituksen jälkeen','Tarkista Luukaan paluu timeline:sta'].map(a=>`
+        <button class="drill-btn" onclick="drillDo('${a}')">${a}</button>`).join('')}`;
+
+  } else if (type === 'rpe') {
+    titleEl.textContent = 'Kirjaa RPE — joukkue';
+    contentEl.innerHTML = `
+      <div class="drill-section">
+        <div class="caps" style="margin-bottom:12px">Harjoituksen koettu kuormitus (RPE 1–10)</div>
+        <div id="rpeSliderWrap" style="padding:8px 0">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+            <div class="serif" style="font-size:48px;color:var(--teal);min-width:52px;text-align:center" id="rpeNum">7</div>
+            <input type="range" min="1" max="10" value="7" id="rpeSlider"
+              oninput="document.getElementById('rpeNum').textContent=this.value"
+              style="flex:1;accent-color:var(--teal);height:4px">
+          </div>
+          <div class="muted" style="font-size:12px">1 = erittäin kevyt · 10 = maksimaalinen</div>
+        </div>
+      </div>`;
+    actionsEl.innerHTML = `
+      <button class="drill-btn" onclick="drillDo('RPE '+document.getElementById('rpeSlider').value+' kirjattu')">Kirjaa joukkueelle</button>
+      <button class="drill-btn" style="margin-top:4px" onclick="closeDrill()">Peru</button>`;
+
+  } else if (type === 'adar') {
+    titleEl.textContent = 'ADAR-havainto';
+    contentEl.innerHTML = `
+      <div class="drill-section">
+        <div class="caps" style="margin-bottom:12px">Havainto</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+          ${DEMO.players.slice(0,5).map(p=>`
+            <div onclick="this.style.background='var(--teal-bg)';this.style.color='var(--teal)';this.style.borderColor='var(--teal-brd)'"
+              style="padding:6px 12px;border-radius:20px;border:.5px solid var(--line2);font-size:12px;cursor:pointer;transition:all .12s">
+              ${p.name.split(' ')[0]}
+            </div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+          ${[
+            { lbl:'Tarkkailla (A)', sub:'Pelikentän hahmottaminen' },
+            { lbl:'Päättää (D)', sub:'Valinnan laatu' },
+            { lbl:'Toimi (A)', sub:'Suorituksen laatu' },
+            { lbl:'Arvioi (R)', sub:'Reflektio' },
+          ].map(d=>`
+            <div onclick="this.style.background='var(--teal-bg)';this.style.borderColor='var(--teal-brd)'"
+              style="padding:10px 12px;border-radius:6px;border:.5px solid var(--line2);cursor:pointer;transition:all .12s">
+              <div style="font-weight:600;font-size:12px">${d.lbl}</div>
+              <div style="font-size:11px;color:var(--ink3);margin-top:2px">${d.sub}</div>
+            </div>`).join('')}
+        </div>
+        <textarea placeholder="Kirjoita havainto..." rows="3"
+          style="width:100%;background:var(--card);border:.5px solid var(--line2);border-radius:6px;padding:10px 12px;color:var(--ink);font-family:inherit;font-size:13px;resize:none;outline:none"></textarea>
+      </div>`;
+    actionsEl.innerHTML = `<button class="drill-btn" onclick="drillDo('ADAR-havainto tallennettu')">Tallenna havainto</button>`;
+  }
+
+  document.getElementById('drillBack').classList.add('open');
+  document.getElementById('drillPanel').classList.add('open');
+}
+
+function closeDrill() {
+  document.getElementById('drillBack').classList.remove('open');
+  document.getElementById('drillPanel').classList.remove('open');
+}
+
+function drillDo(label) {
+  closeDrill();
+  setTimeout(() => toast(label, 'drill'), 200);
+}
+
+/* ════════════════════════════════════════════════════════════
+   COMMAND PALETTE (⌘K)
+════════════════════════════════════════════════════════════ */
+const CP_CMDS = [
+  { section:'Työtilat', label:'Tänään-työtila', sub:'', ico:'ic-home', fn: ()=>setWs('today') },
+  { section:'Työtilat', label:'Kehitys-työtila', sub:'', ico:'ic-dev', fn: ()=>setWs('dev') },
+  { section:'Työtilat', label:'Kausi-työtila', sub:'', ico:'ic-season', fn: ()=>setWs('season') },
+  { section:'Pelaajat', label:'Avaa Teemu Salo — aikajana', sub:'#7 · KH', ico:'ic-dev', fn: ()=>{setWs('dev');pickPlayer('teemu');} },
+  { section:'Pelaajat', label:'Avaa Oiva Heikkinen — aikajana', sub:'#11 · HM · Piilohelmi', ico:'ic-gem', fn: ()=>{setWs('dev');pickPlayer('oiva');} },
+  { section:'Pelaajat', label:'Avaa Luukas Haapala — aikajana', sub:'#4 · PM', ico:'ic-dev', fn: ()=>{setWs('dev');pickPlayer('luukas');} },
+  { section:'Kirjaukset', label:'Kirjaa RPE joukkueelle', sub:'', ico:'ic-drill', fn: ()=>openDrill('rpe') },
+  { section:'Kirjaukset', label:'Uusi ADAR-havainto', sub:'', ico:'ic-obs', fn: ()=>openDrill('adar') },
+  { section:'Kirjaukset', label:'@teemu ADAR decide 4 ratkaisi 3v2', sub:'Pikahavainto', ico:'ic-adar', fn: ()=>drillDo('@teemu ADAR decide 4 tallennettu') },
+  { section:'Kirjaukset', label:'@oiva ADAR act 4 kaksi ohitusta', sub:'Pikahavainto', ico:'ic-adar', fn: ()=>drillDo('@oiva ADAR act 4 tallennettu') },
+  { section:'Haku', label:'Hae: kaikki X-Factor-havainnot', sub:'', ico:'ic-xfactor', fn: ()=>toast('Haku: X-Factor-havainnot') },
+  { section:'Haku', label:'Hae: 3v2-ratkaisut kaudelta', sub:'', ico:'ic-search', fn: ()=>toast('Haku: 3v2-tilanteet') },
+  { section:'Näkymä', label:'Vaihda: tumma / vaalea', sub:'', ico:'ic-sun', fn: toggleTheme },
+  { section:'Näkymä', label:'Kirjaudu ulos', sub:'', ico:'ic-logout', fn: logout },
+];
+
+let _cpFiltered = [...CP_CMDS];
+
+function initCmdPalette() {
+  renderCp('');
+}
+
+function openCmd() {
+  document.getElementById('cpBack').classList.add('open');
+  document.getElementById('cpBox').style.display = 'block';
+  document.getElementById('cpInput').value = '';
+  filterCmd();
+  document.getElementById('cpInput').focus();
+  _cpFocusIdx = -1;
+}
+
+function closeCmd() {
+  document.getElementById('cpBack').classList.remove('open');
+  document.getElementById('cpBox').style.display = 'none';
+}
+
+function filterCmd() {
+  const q = document.getElementById('cpInput').value.toLowerCase();
+  _cpFiltered = q
+    ? CP_CMDS.filter(c => c.label.toLowerCase().includes(q) || c.sub.toLowerCase().includes(q) || c.section.toLowerCase().includes(q))
+    : [...CP_CMDS];
+  renderCp(q);
+  _cpFocusIdx = -1;
+}
+
+function renderCp(q) {
+  const el = document.getElementById('cpList');
+  if (!el) return;
+  const sections = [...new Set(_cpFiltered.map(c=>c.section))];
+  el.innerHTML = sections.map(sec => {
+    const items = _cpFiltered.filter(c=>c.section===sec);
+    return `
+      <div class="cp-section-hdr">${sec}</div>
+      ${items.map((c,i) => `
+        <div class="cp-item" onclick="execCmd(${CP_CMDS.indexOf(c)})">
+          <div class="cp-item-icon"><svg width="13" height="13"><use href="#${c.ico}"/></svg></div>
+          <div class="cp-item-label">
+            <div style="font-size:13px">${c.label}</div>
+            ${c.sub?`<div style="font-size:11px;color:var(--ink3)">${c.sub}</div>`:''}
+          </div>
+        </div>`).join('')}`;
+  }).join('');
+}
+
+function execCmd(idx) {
+  closeCmd();
+  setTimeout(() => CP_CMDS[idx]?.fn(), 100);
+}
+
+/* ════════════════════════════════════════════════════════════
+   TOAST + UNDO (V9 korjaus #08)
+════════════════════════════════════════════════════════════ */
+function toast(msg, actionKey) {
+  _lastAction = actionKey || null;
+  const wrap = document.getElementById('toast-wrap');
+  // Poista vanhat
+  wrap.querySelectorAll('.toast-item').forEach(t => t.remove());
+  const item = document.createElement('div');
+  item.className = 'toast-item';
+  item.innerHTML = `
+    <span>${msg}</span>
+    <span class="toast-undo" onclick="undoAction('${actionKey||''}')">
+      <svg width="11" height="11" style="vertical-align:middle;margin-right:3px"><use href="#ic-undo"/></svg>Peru
+    </span>`;
+  wrap.appendChild(item);
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => item.remove(), 5000);
+}
+
+function undoAction(key) {
+  document.querySelectorAll('.toast-item').forEach(t=>t.remove());
+  toast('Toiminto peruttu', null);
+  console.log('[v12 undo]', key);
+}
+
+/* ════════════════════════════════════════════════════════════
+   THEME (V9 korjaus #09)
+════════════════════════════════════════════════════════════ */
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  html.dataset.theme = next;
+  localStorage.setItem('tm-theme', next);
+  const icon = document.getElementById('themeIcon');
+  if (icon) icon.href.baseVal = next === 'dark' ? '#ic-sun' : '#ic-moon';
+}
+
+// Palauta tallennettu teema
+(function() {
+  const saved = localStorage.getItem('tm-theme');
+  if (saved) {
+    document.documentElement.dataset.theme = saved;
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.href.baseVal = saved === 'dark' ? '#ic-sun' : '#ic-moon';
+  }
+})();
+
+// Palauta tallennettu työtila
+(function() {
+  const ws = localStorage.getItem('tm-ws');
+  if (ws && ['today','dev','season'].includes(ws)) _ws = ws;
+})();
+
+/* ════════════════════════════════════════════════════════════
+   NÄPPÄIMISTÖ
+════════════════════════════════════════════════════════════ */
+function _initKeyboard() {
+  document.addEventListener('keydown', e => {
+    // ⌘K tai Ctrl+K → command palette
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('cpBack').classList.contains('open') ? closeCmd() : openCmd();
+      return;
+    }
+    // ESC → sulje kaikki
+    if (e.key === 'Escape') {
+      closeDrill();
+      closeCmd();
+      return;
+    }
+    // ↑↓ command palette navigointi
+    if (document.getElementById('cpBack').classList.contains('open')) {
+      const items = document.querySelectorAll('.cp-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _cpFocusIdx = Math.min(_cpFocusIdx+1, items.length-1);
+        items.forEach((it,i)=>it.classList.toggle('focus',i===_cpFocusIdx));
+        items[_cpFocusIdx]?.scrollIntoView({block:'nearest'});
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _cpFocusIdx = Math.max(_cpFocusIdx-1, 0);
+        items.forEach((it,i)=>it.classList.toggle('focus',i===_cpFocusIdx));
+        items[_cpFocusIdx]?.scrollIntoView({block:'nearest'});
+      } else if (e.key === 'Enter' && _cpFocusIdx >= 0) {
+        e.preventDefault();
+        const focused = document.querySelectorAll('.cp-item')[_cpFocusIdx];
+        focused?.click();
+      }
+    }
+    // 1/2/3 → workspace shortcuts
+    if (!e.target.matches('input,textarea')) {
+      if (e.key==='1') setWs('today');
+      if (e.key==='2') setWs('dev');
+      if (e.key==='3') setWs('season');
+    }
+  });
+}
+</script>
+</body>
+</html>
