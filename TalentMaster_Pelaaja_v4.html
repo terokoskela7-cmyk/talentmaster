@@ -906,7 +906,9 @@ let _stage    = '2_rakentaja';
 // URL-params
 const _URL = (() => {
   const p = new URLSearchParams(location.search);
-  return { pelaajaId: p.get('p'), seuraId: p.get('seura'), demo: p.get('demo')==='1' };
+  const urlSeuraId = p.get('seura') || p.get('seuraId');
+  if (urlSeuraId) window._seuraId = urlSeuraId;
+  return { pelaajaId: p.get('p'), seuraId: urlSeuraId, demo: p.get('demo')==='1' };
 })();
 
 function _initFirebase() {
@@ -946,12 +948,32 @@ function _initFirebase() {
 
 async function _lataaProfiiliFirestore(db, uid) {
   try {
-    const snap = await db.collection('pelaajat').doc(uid).get();
-    if (snap.exists) {
-      _pelaaja = { id: uid, ...snap.data() };
+    // Hae seuraId Custom Claimsista (tokenista)
+    let seuraId = null;
+    try {
+      const tokenResult = await firebase.auth().currentUser?.getIdTokenResult();
+      seuraId = tokenResult?.claims?.seuraId || null;
+    } catch(e) {}
+    window._seuraId = seuraId;
+
+    if (seuraId) {
+      // Oikea polku: seurat/{seuraId}/pelaajat/{uid}
+      const snap = await db.collection('seurat').doc(seuraId)
+        .collection('pelaajat').doc(uid).get();
+      if (snap.exists) {
+        _pelaaja = { id: uid, seuraId, ...snap.data() };
+        _stage = _laskeStage(_pelaaja.syntymaVuosi, _pelaaja.phv_tila);
+        _flei  = _laskeFlei(_pelaaja);
+        _paivitaDemoData();
+        return;
+      }
+    }
+    // Fallback: flat pelaajat/{uid} (legacy / URL-param reitti)
+    const snap2 = await db.collection('pelaajat').doc(uid).get();
+    if (snap2.exists) {
+      _pelaaja = { id: uid, seuraId, ...snap2.data() };
       _stage = _laskeStage(_pelaaja.syntymaVuosi, _pelaaja.phv_tila);
       _flei  = _laskeFlei(_pelaaja);
-      // Päivitä UI demosta oikeaan dataan
       _paivitaDemoData();
     }
   } catch(e) {
@@ -991,10 +1013,19 @@ function _paivitaDemoData() {
 async function _tmKirjaa(avain, arvo) {
   if (!_pelaaja?.id || !window._db) return;
   const pvm = new Date().toISOString().slice(0,10);
+  const seuraId = window._seuraId || _pelaaja?.seuraId || null;
   try {
-    await window._db.collection('pelaajat').doc(_pelaaja.id)
-      .collection('kirjaukset').doc(pvm)
-      .set({ [avain]: arvo, paivitetty: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    // Oikea polku: seurat/{seuraId}/pelaajat/{uid}/kirjaukset/{pvm}
+    const ref = seuraId
+      ? window._db.collection('seurat').doc(seuraId)
+          .collection('pelaajat').doc(_pelaaja.id)
+          .collection('kirjaukset').doc(pvm)
+      : window._db.collection('pelaajat').doc(_pelaaja.id)
+          .collection('kirjaukset').doc(pvm); // fallback legacy
+    await ref.set(
+      { [avain]: arvo, paivitetty: firebase.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
   } catch(e) {
     console.warn('[v4 kirjaus]', e.message);
   }
