@@ -633,7 +633,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 
     <div class="kenttaRyhma">
       <label class="kenttaLabel">Joukkueen nimi *</label>
-      <input class="kenttaInput" type="text" id="jouk_nimi" placeholder="esim. VIFK P13">
+      <input class="kenttaInput" type="text" id="jouk_nimi" placeholder="esim. Seura T18" id="jouk_nimi_input">
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="kenttaRyhma" style="margin:0;">
@@ -643,9 +643,9 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       <div class="kenttaRyhma" style="margin:0;">
         <label class="kenttaLabel">Joukkue-ID *</label>
         <input class="kenttaInput" type="text" id="jouk_id"
-          placeholder="esim. vifk_p13" style="text-transform:lowercase;">
+          placeholder="esim. seura_t18" style="text-transform:lowercase;">
         <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
-          Pieni kirjain, ei välejä (esim. vifk_p13)
+          Pieni kirjain, ei välejä (esim. seura_t18)
         </span>
       </div>
     </div>
@@ -2490,6 +2490,15 @@ function avaaJoukkueModal() {
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('joukkueVirhe').classList.remove('nakyvilla');
   document.getElementById('joukkueModalOtsikko').textContent = 'Lisää joukkue';
+  // Päivitä placeholder kirjautuneen seuran mukaan
+  const lyhenne = (window._seuraData?.lyhenne || window._seuraId || 'seura').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const nimiEl = document.getElementById('jouk_nimi');
+  const idEl   = document.getElementById('jouk_id');
+  if (nimiEl) nimiEl.placeholder = 'esim. ' + (window._seuraData?.lyhenne || 'Seura') + ' T18';
+  if (idEl)   idEl.placeholder   = 'esim. ' + lyhenne + '_t18';
+  // Päivitä ohjeteksti
+  const ohjeEl = idEl?.nextElementSibling;
+  if (ohjeEl) ohjeEl.textContent = 'Pieni kirjain, ei välejä (esim. ' + lyhenne + '_t18)';
   document.getElementById('joukkueModal').classList.add('auki');
 }
 
