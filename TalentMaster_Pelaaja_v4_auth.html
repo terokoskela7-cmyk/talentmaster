@@ -54,7 +54,7 @@ button{font-family:var(--font-b);cursor:pointer}
 /* Phone */
 .phone{width:min(390px,100vw);height:min(780px,calc(100vh - 90px));margin:0 auto;background:var(--bg);border-radius:36px;border:1px solid #222;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 8px #1a1a1a;position:relative;font-family:var(--font-b);color:var(--text)}
 .ph-status{height:42px;padding:14px 24px 0;display:flex;justify-content:space-between;align-items:flex-start;font-family:var(--font-m);font-size:12px;font-weight:500}
-.ph-body{height:calc(min(780px,calc(100vh - 90px)) - 42px);overflow:hidden;position:relative}
+.ph-body{height:calc(min(780px,calc(100vh - 90px)) - 42px);overflow:hidden;overflow-y:auto;position:relative}
 .scene{background:var(--bg);height:100%;animation:fadeUp .28s ease;position:relative;background:var(--bg)}
 .scroll{height:100%;overflow-y:auto;padding-bottom:72px;-webkit-overflow-scrolling:touch}
 
@@ -97,12 +97,12 @@ button{font-family:var(--font-b);cursor:pointer}
 .kcell{background:var(--bg2);padding:12px 10px}
 
 /* PIN */
-.pin-av{width:72px;height:72px;margin:0 auto;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(26,122,94,.25),rgba(26,122,94,.05));border:.5px solid rgba(26,122,94,.35);display:flex;align-items:center;justify-content:center;font-family:var(--font-b);font-weight:500;font-size:24px;color:var(--teal-d);letter-spacing:.05em}
+.pin-av{width:52px;height:52px;margin:0 auto;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(26,122,94,.25),rgba(26,122,94,.05));border:.5px solid rgba(26,122,94,.35);display:flex;align-items:center;justify-content:center;font-family:var(--font-b);font-weight:500;font-size:24px;color:var(--teal-d);letter-spacing:.05em}
 .pin-dots{display:flex;gap:14px;justify-content:center}
 .pd{width:12px;height:12px;border-radius:50%;background:transparent;border:1px solid rgba(242,239,230,.3);transition:background .12s,transform .12s}
 .pd.on{background:var(--teal);transform:scale(1.1);animation:dotPop .2s ease}
 .kpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.key{background:rgba(242,239,230,.04);border:.5px solid var(--border2);color:var(--text);padding:14px 0;font-size:20px;font-weight:400;border-radius:var(--r-sm);transition:background .12s,transform .08s}
+.key{background:rgba(242,239,230,.04);border:.5px solid var(--border2);color:var(--text);padding:10px 0;font-size:18px;font-weight:400;border-radius:var(--r-sm);transition:background .12s,transform .08s}
 .key:active{background:rgba(26,122,94,.12);transform:scale(.93)}
 
 /* Training progress */
@@ -206,6 +206,11 @@ button{font-family:var(--font-b);cursor:pointer}
 .flei-anim { transition:width .5s cubic-bezier(.4,0,.2,1); }
 .sig-label { display:inline-flex;align-items:center;gap:6px;padding:4px 12px;
   border-radius:20px;font-size:11px;font-weight:600;margin-bottom:10px; }
+
+
+/* ph-body scrollbar piilossa */
+#phBody::-webkit-scrollbar { width: 0; }
+#phBody { scrollbar-width: none; }
 
 </style>
 
@@ -437,43 +442,45 @@ function startEx(){
 /* D – PIN */
 function rPin(){
   const keys=['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  const p=_pelaaja;
+  const streakViesti=_streak>0?ikaCfg().streakViesti(_streak):'';
   return `
-<div style="padding:28px 28px 20px;height:100%;display:flex;flex-direction:column;background:var(--bg)">
-  <div style="text-align:center;margin-top:16px">
-    <div class="pin-av">AM</div>
-    <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin:14px 0 2px;color:var(--text)">Anton</div>
-    <div class="ey" style="letter-spacing:.18em">P14 Musta · TMP-4892</div>
+<div style="height:100%;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)">
+  <div style="padding:16px 20px 0;text-align:center">
+    <div class="pin-av" style="width:52px;height:52px;font-size:18px;margin:0 auto">${p?((p.etunimi||'')[0]||'A')+((p.sukunimi||'')[0]||'M'):'AM'}</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:22px;margin:8px 0 1px;color:var(--text)">${p?p.etunimi||'Anton':'Anton'}</div>
+    <div class="ey" style="letter-spacing:.18em">${p?(p.pelipaikka||'P14')+' · '+(p.joukkueId||'Musta').toUpperCase():'P14 · MUSTA'}</div>
   </div>
-  <div style="margin-top:22px;padding:14px 16px;background:rgba(184,92,56,.08);border:.5px solid rgba(184,92,56,.25);border-radius:10px;display:flex;align-items:center;gap:12px">
-    <span class="fl" style="font-size:22px">🔥</span>
+  ${_streak>0?`<div style="margin:10px 14px 0;padding:10px 12px;background:rgba(184,92,56,.08);border:.5px solid rgba(184,92,56,.22);border-radius:8px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:18px">🔥</span>
     <div style="flex:1">
-      <div class="ey" style="color:rgba(184,92,56,.9);font-weight:500">12 pv streak</div>
-      <div style="font-family:var(--font-d);font-weight:400;font-size:15px;color:rgba(242,239,230,.95);margin-top:2px;line-height:1.35">Olit viimeksi 4 pv sitten — älä anna liekin sammua.</div>
+      <div class="ey" style="color:rgba(184,92,56,.9);font-weight:500">${_streak} pv streak</div>
+      <div style="font-size:12px;color:rgba(242,239,230,.75);margin-top:1px;line-height:1.3">${streakViesti}</div>
     </div>
-  </div>
-  <div style="margin-top:18px;display:flex;gap:10px">
-    <div class="card" style="flex:1;padding:10px 12px">
+  </div>`:''}
+  <div style="margin:10px 14px 0;display:flex;gap:8px">
+    <div class="card" style="flex:1;padding:8px 10px">
       <div class="ey">Taso</div>
-      <div class="kpi" style="font-size:24px;margin-top:4px">7</div>
+      <div class="kpi" style="font-size:20px;margin-top:2px">${p?p.taso||7:7}</div>
     </div>
-    <div class="card" style="flex:1;padding:10px 12px">
+    <div class="card" style="flex:1;padding:8px 10px">
       <div class="ey">Kortti</div>
-      <div class="kpi" style="font-size:24px;margin-top:4px;color:#B8860B">87</div>
+      <div class="kpi" style="font-size:20px;margin-top:2px;color:#B8860B">${p?Math.round((p.flei_viimeisin||75)*0.9+10):87}</div>
     </div>
   </div>
-  <div class="pin-dots" style="margin-top:22px;margin-bottom:14px">
+  <div class="pin-dots" style="margin:14px 0 6px">
     ${[0,1,2,3].map(i=>`<div class="pd${i<_pin.length?' on':''}"></div>`).join('')}
   </div>
-  <div class="ey" style="text-align:center;margin-bottom:12px;letter-spacing:.2em">Syötä PIN</div>
+  <div class="ey" style="text-align:center;margin-bottom:8px;letter-spacing:.2em">Syötä PIN</div>
   <div class="kpad">
     ${keys.map(k=>k===''?'<div></div>':`<button class="key" data-k="${k}">${k}</button>`).join('')}
   </div>
-  <div class="ey" style="text-align:center;margin-top:14px;letter-spacing:.18em">${T('forgotPw')}</div>
-  <div style="margin-top:18px;display:flex;gap:8px;justify-content:center;padding:0 20px">
-    <button onclick="demoKirjaudu('aleksi')" style="flex:1;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.25);color:#28B090;padding:9px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">⚡ Demo</button>
-    <button onclick="demoKirjaudu('eeli')" style="flex:1;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.25);color:#28B090;padding:9px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">📈 Eeli</button>
+  <div style="margin:8px 14px 10px;display:flex;gap:6px">
+    <button onclick="demoKirjaudu('aleksi')" style="flex:1;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.22);color:#28B090;padding:7px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.08em">⚡ ALEKSI DEMO</button>
+    <button onclick="demoKirjaudu('eeli')"   style="flex:1;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.22);color:#28B090;padding:7px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.08em">📈 EELI DEMO</button>
   </div>
-</div>`;
+  <div class="ey" style="text-align:center;padding-bottom:10px;letter-spacing:.18em">${T('forgotPw')}</div>
+</div>`
 }
 
 /* A1 – Action-first */
