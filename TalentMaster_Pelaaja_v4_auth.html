@@ -208,9 +208,6 @@ button{font-family:var(--font-b);cursor:pointer}
   border-radius:20px;font-size:11px;font-weight:600;margin-bottom:10px; }
 
 
-/* ph-body scrollbar piilossa */
-#phBody::-webkit-scrollbar { width: 0; }
-#phBody { scrollbar-width: none; }
 
 
 /* Piilota scrollbar ph-bodyssä kaikissa selaimissa */
@@ -220,6 +217,23 @@ button{font-family:var(--font-b);cursor:pointer}
 .scene::-webkit-scrollbar { display: none; width: 0; }
 .scroll { -ms-overflow-style: none; scrollbar-width: none; }
 .scroll::-webkit-scrollbar { display: none; width: 0; }
+
+/* ═══ Scrollbar piiloon kaikkialla phone-framessa ═══ */
+#phBody,
+#phBody *,
+.scroll,
+.scene {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+#phBody::-webkit-scrollbar,
+#phBody *::-webkit-scrollbar,
+.scroll::-webkit-scrollbar,
+.scene::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
 </style>
 
 <!-- Firebase v9 compat — sama kuin VP v19 -->
@@ -495,10 +509,10 @@ function rPin(){
 function rA1(){
   return `
 <div class="scroll" style="background:var(--bg)">
-  ${hdr('A1 Action-first')}
+  ${hdr((_pelaaja?.etunimi||'Pelaaja')+' · '+(_pelaaja?.pelaajaProfiili||''))}
   <section style="padding:28px 20px 20px">
     <div class="ey ac" style="margin-bottom:10px">${T('today')}</div>
-    <div class="sig" style="margin-bottom:14px">${T('streak')}</div>
+    <div class="sig" style="margin-bottom:14px">${_streak>0 ? ikaCfg().streakViesti(_streak) : T('streak')}</div>
     <div class="meta">${T('speed')}</div>
     ${(()=>{ const w=getWhy(_heikoinKetju(),'T',_stage); 
     const ohj=(_pelaaja&&window.PANKKI)?_luoOhjelma(_pelaaja):null;
@@ -950,7 +964,7 @@ function hdr(v){
 <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px 0">
   <div>
     <div class="ey">${T('wBack')} · ${v}</div>
-    <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin-top:4px;color:var(--text);line-height:1.1">Anton</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin-top:4px;color:var(--text);line-height:1.1">${_pelaaja?.etunimi||'Anton'}</div>
   </div>
   <div class="streak-b"><span class="fl">🔥</span><span class="streak-n">12 pv</span></div>
 </div>
