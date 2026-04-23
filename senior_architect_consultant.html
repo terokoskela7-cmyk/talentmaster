@@ -1,0 +1,164 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.w{font-family:var(--font-sans);max-width:680px}
+.hdr{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--color-background-secondary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);margin-bottom:12px}
+.av{width:42px;height:42px;border-radius:50%;background:var(--color-background-info);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.hn{font-size:14px;font-weight:500;color:var(--color-text-primary)}
+.ht{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.badge{margin-left:auto;font-size:11px;padding:3px 10px;border-radius:20px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)}
+.badge.ok{background:var(--color-background-success);color:var(--color-text-success);border-color:var(--color-border-success)}
+.chat{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden}
+.msgs{padding:16px;max-height:520px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.bubble{display:flex;flex-direction:column;gap:3px}
+.bubble .lbl{font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-secondary)}
+.bubble.ai .lbl{color:var(--color-text-info)}
+.bubble .txt{font-size:13px;line-height:1.7;color:var(--color-text-primary);white-space:pre-wrap;word-break:break-word}
+.thinking{display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:0.5px solid var(--color-border-tertiary);font-size:12px;color:var(--color-text-secondary)}
+.dots{display:flex;gap:3px}
+.d{width:5px;height:5px;border-radius:50%;background:var(--color-text-secondary);animation:p 1.4s ease-in-out infinite}
+.d:nth-child(2){animation-delay:.2s}.d:nth-child(3){animation-delay:.4s}
+@keyframes p{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.inp-row{display:flex;gap:8px;padding:10px 12px;border-top:0.5px solid var(--color-border-tertiary)}
+.inp-row input{flex:1;font-size:13px}
+.inp-row button{font-size:13px;padding:6px 14px;white-space:nowrap;cursor:pointer}
+.err-box{padding:12px 16px;font-size:13px;color:var(--color-text-danger)}
+</style>
+
+<div class="w">
+  <div class="hdr">
+    <div class="av">🏗️</div>
+    <div>
+      <div class="hn">Senior Mobile App Architect</div>
+      <div class="ht">15+ v · sports tech, PWA, Firebase · riippumaton analyysi</div>
+    </div>
+    <div class="badge" id="badge">Käynnistyy...</div>
+  </div>
+
+  <div class="chat">
+    <div class="msgs" id="msgs"></div>
+    <div class="thinking" id="think" style="display:none">
+      <div class="dots"><div class="d"></div><div class="d"></div><div class="d"></div></div>
+      <span id="thinkTxt">Analysoi koodia...</span>
+    </div>
+    <div id="errBox" class="err-box" style="display:none"></div>
+    <div class="inp-row" id="inpRow" style="display:none">
+      <input id="inp" placeholder="Kysy arkkitehdiltä lisää..." onkeydown="if(event.key==='Enter')ask()"/>
+      <button onclick="ask()">Lähetä ↗</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SYS = `Olet senior mobile app -arkkitehti (15+ v). Erikoistunut sports tech -sovelluksiin, PWA:han, Firebaseen.
+
+Analysoit TalentMaster-jalkapallosovelluksen kahta versiota (suomalaisille junioripelaajille 13-17v).
+
+SOVELLUKSEN KONTEKSTI:
+- Multi-tenant SaaS, Firebase Auth+Firestore, vanilla JS, GitHub Pages
+- Käyttäjät: pelaajat, vanhemmat, valmentajat
+- Kriittiset metriikat: päivittäinen streak, harjoitusten kirjaus, FLEI-kehitys
+
+V3 (268K chars, 5909 riviä, 105 funktiota):
+- Arkkitehtuuri: DOM-tab (4 tabia DOM:ssa kerralla, display:none vaihto)
+- Auth: erillinen tm_auth.js-moduuli + PIN + URL-param
+- Firestore: 7 kokoelmaa (errors, seurat, pelaajat, kirjaukset, joukkueet, havainnot, omatoimi_ohjelmat)
+- Ominaisuudet ON: onboarding 5-vaiheinen, XP taso 1-10, haasteet kaverin kanssa, IDP-tavoitteet, kehitysaikajana SVG, valmentajan havainnot, pelaajaprofiili (Railgun/Maestro/Titan/Shadowstep), rating-logiikka, error-logging
+- Ominaisuudet PUUTTUU: harjoitusflow timer, Samsung-mobiilikorjaus, 4 kieltä, WHY-lauseet
+- Design: body-font Times New Roman (Google Fonts fallback-ongelma), sisältö valuu koko näytölle, tuntuu verkkosivulta
+
+V4 (72K chars, 1229 riviä, 38 funktiota):
+- Arkkitehtuuri: draw()-pattern (body.innerHTML korvataan per scene)
+- Auth: EI tm_auth.js — vain PIN-demo, ei oikeaa Firebase Auth -integraatiota
+- Firestore: 3 kokoelmaa (seurat, pelaajat, kirjaukset) — ei error-loggausta
+- Ominaisuudet ON: harjoitusflow timer (rTIntro→rTGo→rTEx→rTDone), phone-frame (390px, border-radius:36px), DM Sans+Cormorant+DM Mono latautuu oikein, WHY-lauseet per ketju+ikä, 4 kieltä, Samsung-korjaus, vanhempi-näkymä, offline-scene, haptics-spec
+- Ominaisuudet PUUTTUU: onboarding, XP Firestoreen, haasteet, IDP, kehitysaikajana, pelaajaprofiili
+- Design: phone-frame simuloi natiiviappia, visuaalisesti selkeästi parempi
+
+AIEMPI ANALYYSI ehdotti: "v4 on pohja, siihen tuodaan v3:n sisältö sceneiksi."
+
+Ole rehellinen ja kriittinen. Vastaa suomeksi, ole tiivis ja tekninen.`;
+
+let hist = [];
+let busy = false;
+
+const msgs = document.getElementById('msgs');
+const think = document.getElementById('think');
+const thinkTxt = document.getElementById('thinkTxt');
+const badge = document.getElementById('badge');
+const inpRow = document.getElementById('inpRow');
+const errBox = document.getElementById('errBox');
+
+function addMsg(role, txt) {
+  const b = document.createElement('div');
+  b.className = 'bubble ' + role;
+  b.innerHTML = '<div class="lbl">' + (role==='ai'?'Arkkitehti':'Sinä') + '</div><div class="txt">' + txt.replace(/</g,'&lt;') + '</div>';
+  msgs.appendChild(b);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+async function callAI(userMsg) {
+  hist.push({role:'user', content: userMsg});
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1200,
+      system: SYS,
+      messages: hist
+    })
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const d = await res.json();
+  const reply = d.content?.[0]?.text || '(tyhjä)';
+  hist.push({role:'assistant', content: reply});
+  return reply;
+}
+
+async function ask() {
+  if (busy) return;
+  const inp = document.getElementById('inp');
+  const q = inp.value.trim();
+  if (!q) return;
+  inp.value = '';
+  busy = true;
+  addMsg('user', q);
+  think.style.display = 'flex';
+  thinkTxt.textContent = 'Vastaa...';
+  try {
+    const reply = await callAI(q);
+    addMsg('ai', reply);
+  } catch(e) {
+    addMsg('ai', '⚠ Virhe: ' + e.message);
+  }
+  think.style.display = 'none';
+  busy = false;
+}
+
+async function init() {
+  think.style.display = 'flex';
+  thinkTxt.textContent = 'Lukee koodianalyysin...';
+  const Q = `Analysoi molemmat versiot. Vastaa tiiviisti kolmeen:
+
+1. ARKKITEHTUURI: Onko "v4 pohja + v3 sisältö sceneiksi" oikea päätös? Riskit?
+2. DESIGN: Miksi v4 tuntuu paremman mobiililaitteella? Konkreettiset tekniset syyt?
+3. PRIORITEETIT: 5 tärkeintä asiaa ennen 100-pelaajan pilottia — järjestyksessä.`;
+
+  try {
+    const reply = await callAI(Q);
+    think.style.display = 'none';
+    addMsg('ai', reply);
+    badge.textContent = 'Aktiivinen';
+    badge.className = 'badge ok';
+    inpRow.style.display = 'flex';
+  } catch(e) {
+    think.style.display = 'none';
+    badge.textContent = 'Virhe';
+    errBox.style.display = 'block';
+    errBox.textContent = 'Virhe: ' + e.message;
+  }
+}
+
+init();
+</script>
