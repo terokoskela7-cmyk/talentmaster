@@ -389,6 +389,16 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 }
 @media(max-width:480px){ .kpiRivi{grid-template-columns:1fr;} .sisalto{padding:10px;} }
 .taulukonWrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+
+/* ── modalSisalto — dynaamisten modalien kortti (alias modalKortti) ── */
+.modalSisalto {
+  background:var(--bg2); border:1px solid var(--bord2);
+  border-radius:16px; width:100%; max-width:540px;
+  max-height:90vh; overflow-y:auto; padding:32px;
+  animation:sisaan .25s cubic-bezier(.16,1,.3,1) both;
+}
+
+.virheViesti{padding:10px 14px;background:rgba(217,96,96,.12);border:1px solid rgba(217,96,96,.3);border-radius:8px;font-size:13px;color:#e88080}
 </style>
 </head>
 <body>
@@ -975,12 +985,21 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
     </div>
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button id="excelTuoNappi" onclick="ajaExcelTuonti(false)" disabled
+        style="flex:1;padding:13px;background:rgba(62,201,167,.12);border:1px solid rgba(62,201,167,.3);
+        border-radius:10px;color:var(--teal);font-size:13px;font-weight:700;cursor:pointer;
+        opacity:.5;font-family:inherit;">
+        📥 Tuo vain (ei kutsuja)
+      </button>
       <button id="excelTuoJaLahetaNappi" onclick="ajaExcelTuonti(true)" disabled
         style="flex:1;padding:13px;background:rgba(74,126,217,.15);border:1px solid rgba(74,126,217,.3);
         border-radius:10px;color:var(--blue);font-size:14px;font-weight:700;cursor:pointer;
         opacity:.5;font-family:inherit;">
         📥 Tuo + lähetä kutsut
       </button>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--ink3);text-align:center;">
+      💡 <strong>Ennen pilottia:</strong> Käytä "Tuo vain" — kutsut lähetetään myöhemmin kun kaikki on kunnossa.
     </div>
     <div id="excelVirhe" style="color:var(--red);font-size:13px;margin-top:10px;text-align:center;"></div>
     <div id="excelOnnistui" style="display:none;margin-top:12px;padding:12px 16px;
@@ -2491,10 +2510,13 @@ function avaaJoukkueModal() {
   document.getElementById('joukkueVirhe').classList.remove('nakyvilla');
   document.getElementById('joukkueModalOtsikko').textContent = 'Lisää joukkue';
   // Päivitä placeholder kirjautuneen seuran mukaan
-  const lyhenne = (window._seuraData?.lyhenne || window._seuraId || 'seura').toLowerCase().replace(/[^a-z0-9]/g,'');
+  // Käytä tila.seuraNimi:ä dynaamiseen placeholderiin
+  const _seuraNimi = tila.seuraNimi || tila.seuraId || 'Seura';
+  const _seuraLyh  = (tila.seuraId || 'seura').toUpperCase();
+  const lyhenne    = (tila.seuraId || 'seura').toLowerCase().replace(/[^a-z0-9]/g,'');
   const nimiEl = document.getElementById('jouk_nimi');
   const idEl   = document.getElementById('jouk_id');
-  if (nimiEl) nimiEl.placeholder = 'esim. ' + (window._seuraData?.lyhenne || 'Seura') + ' T18';
+  if (nimiEl) nimiEl.placeholder = 'esim. ' + _seuraLyh + ' T18';
   if (idEl)   idEl.placeholder   = 'esim. ' + lyhenne + '_t18';
   // Päivitä ohjeteksti
   const ohjeEl = idEl?.nextElementSibling;
@@ -2509,18 +2531,17 @@ document.addEventListener('DOMContentLoaded', () => {
   if (nimiInput && idInput) {
     nimiInput.addEventListener('input', () => {
       // Muunnetaan nimi tunnusmuotoon: "FC Kokkola U15" → "fc_kokkola_u15"
-      var nimiPuhdas = nimiInput.value.toLowerCase()
-        .replace(/\s+/g, '_')
-        .replace(/[^a-z0-9_]/g, '')
-        .substring(0, 20);
-      // Poistetaan seuran nimi VAIN jos se on jo alussa
-      // esim. "kpv_u15" → poistetaan "kpv_" → "u15"
-      // mutta "fc_kokkola" ei ala kpv_:llä → jätetään sellaisenaan
-      var seuraPrefix = (tila.seuraId || '').toLowerCase() + '_';
-      if (nimiPuhdas.startsWith(seuraPrefix)) {
-        nimiPuhdas = nimiPuhdas.slice(seuraPrefix.length);
+      // Generoi joukkue-ID: "KPV T18" → "kpv_t18", "SJK T15" → "sjk_t15"
+      // Poistetaan seura-etuliite jos ensimmäinen sana vastaa seuraId:tä
+      var sanat = nimiInput.value.trim().split(/\s+/).filter(Boolean);
+      var puhdas = sanat.map(s => s.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      // Jos ensimmäinen sana on seuran tunnus, jätetään se pois
+      var seuraLyh = (tila.seuraId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (puhdas.length > 1 && (puhdas[0] === seuraLyh || seuraLyh.startsWith(puhdas[0]) || puhdas[0].startsWith(seuraLyh))) {
+        puhdas = puhdas.slice(1);
       }
-      idInput.value = (tila.seuraId || 'seura') + '_' + nimiPuhdas.substring(0, 15);
+      var lyhenne = puhdas.join('_').substring(0, 15);
+      idInput.value = (tila.seuraId || 'seura') + '_' + lyhenne;
     });
   }
 });
