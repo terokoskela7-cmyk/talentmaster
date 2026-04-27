@@ -659,86 +659,221 @@ function rViikko(){
 }
 
 /* ══ KIRJAA (vain U12) ══ */
-let _pTyyppi=null, _pFiilis=null, _pTeksti='';
+let _pTyypit=new Set();  // monivalinta — Set estää duplikaatit
+let _pFiilis=null;
+let _pTeksti='';
+let _pMinuutit=null;     // kesto minuutteina
 function rKirjaa(){
+  // Aktiviteettityypit — U8-U12:lle tuttu kieli, lapselle merkityksellisiä tilanteita
   const tyypit=[
-    {k:'pihapeli',l:'Pihapeli',s:'Naapureiden kanssa',i:'users'},
-    {k:'uinti',l:'Uintia',s:'Kesällä tai uimahallissa',i:'heart'},
-    {k:'pyora',l:'Pyöräili',s:'Koulumatka tai pidempi',i:'star'},
-    {k:'pallo',l:'Leikkiä pallon kanssa',s:'Jalalla, kädellä, seinään',i:'flame'},
-    {k:'metsa',l:'Metsässä/mäessä',s:'Luova liike',i:'heart'},
-    {k:'muu',l:'Jokin muu',s:'Tanssi, lumilauta, hiihto...',i:'star'},
+    {k:'pihapeli',  l:'Pihapeli',             s:'Naapureiden kanssa',      i:'users', onT:true},
+    {k:'pallo',     l:'Leikkiä pallolla',      s:'Jalalla, kädellä, seinää vasten',i:'flame',onT:true},
+    {k:'pyora',     l:'Pyöräili',              s:'Koulumatka tai pidempi',  i:'star',  onT:false},
+    {k:'uinti',     l:'Uintia',                s:'Uimahallissa tai rannalla',i:'heart',onT:false},
+    {k:'metsa',     l:'Metsässä tai mäessä',   s:'Luova liike, kiipeily',   i:'heart', onT:false},
+    {k:'tanssi',    l:'Tanssia tai jumppaa',   s:'Musiikki, rytmi, liike',  i:'star',  onT:false},
+    {k:'muu',       l:'Jokin muu',             s:'Hiihto, luistelu...',     i:'star',  onT:false},
   ];
-  const fiilikset=[{k:'vasynyt',e:'😴',l:'Väsynyt'},{k:'iloinen',e:'😊',l:'Iloinen'},{k:'innoissaan',e:'💪',l:'Innoissaan'},{k:'loukkasi',e:'🤕',l:'Loukkasi'}];
-  const valmis = _pTyyppi && _pFiilis;
+
+  // Paljonko aikaa — selkeät vaihtoehdot vanhemmalle
+  const ajat=[
+    {v:15,  l:'15 min'},
+    {v:30,  l:'½ h'},
+    {v:45,  l:'45 min'},
+    {v:60,  l:'1 h'},
+    {v:90,  l:'1½ h'},
+    {v:120, l:'2 h+'},
+  ];
+
+  const fiilikset=[
+    {k:'iloinen',   e:'😊', l:'Iloinen'},
+    {k:'innoissaan',e:'💪', l:'Innoissaan'},
+    {k:'vasynyt',   e:'😴', l:'Väsynyt'},
+    {k:'loukkasi',  e:'🤕', l:'Loukkasi'},
+  ];
+
+  // Kirjaa-nappi aktiiviseksi kun vähintään 1 tyyppi + aika + fiilis valittu
+  const valmis = _pTyypit.size > 0 && _pMinuutit && _pFiilis;
+
+  // Laske onko pallokosketus mukana (T-tyypin kirjaus)
+  const sisaltaaPallon = [..._pTyypit].some(t => tyypit.find(x=>x.k===t)?.onT);
+
   return `
 <div class="scroll">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px 2px 20px">
+  <!-- Otsikko + sulje -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px 2px 16px">
     <div>
       <div class="ey" style="margin-bottom:4px">Vanhempi kirjaa</div>
-      <div style="font-family:var(--font-d);font-weight:300;font-size:26px;line-height:1.1;color:var(--text)">Mitä ${IKA[_age].nimi} teki?</div>
+      <div style="font-family:var(--font-d);font-weight:300;font-size:26px;line-height:1.1;color:var(--text)">
+        Mitä ${IKA[_age].nimi} teki?
+      </div>
     </div>
     <button onclick="go('koti')" style="background:transparent;border:none;color:var(--ink3);font-size:22px;padding:4px 8px">×</button>
   </div>
 
-  <div style="padding:12px 14px;background:rgba(26,122,94,.08);border-left:2px solid var(--teal);border-radius:6px;margin-bottom:18px">
-    <div style="font-size:11px;color:var(--text);line-height:1.55">
-      Alle 13-vuotiaalla vanhempi voi kirjata puolesta. Valmentaja näkee että sinä kirjaisit, ei lapsi. Se on ok.
-    </div>
+  <!-- Infobanneri -->
+  <div style="padding:10px 14px;background:rgba(26,122,94,.08);border-left:2px solid var(--teal);border-radius:6px;margin-bottom:16px;font-size:11px;color:var(--text);line-height:1.55">
+    Voit valita useamman. Valmentaja näkee että sinä kirjasit — alle 13-vuotiaan puolesta kirjaaminen on ok.
   </div>
 
-  <div class="ey" style="margin-bottom:10px">Mitä teki?</div>
+  <!-- Aktiviteetit — MONIVALINTA -->
+  <div class="ey" style="margin-bottom:10px">Mitä teki? <span style="font-size:10px;color:var(--ink3);font-weight:400;letter-spacing:0">(valitse kaikki sopivat)</span></div>
   <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px">
-    ${tyypit.map(o=>`
-      <button onclick="_pTyyppi='${o.k}';draw()" style="padding:14px 12px;background:${_pTyyppi===o.k?'rgba(26,122,94,.14)':'var(--surface)'};border:.5px solid ${_pTyyppi===o.k?'rgba(26,122,94,.5)':'var(--border2)'};border-radius:10px;text-align:left;cursor:pointer;color:var(--text);display:flex;flex-direction:column;gap:6px;transition:all .12s">
-        ${ic(o.i,14,_pTyyppi===o.k?'#28B090':'#A8A79F',1.6)}
-        <div style="font-size:12px;font-weight:600">${o.l}</div>
-        <div style="font-size:10px;color:var(--ink3);line-height:1.3">${o.s}</div>
-      </button>
-    `).join('')}
+    ${tyypit.map(o=>{
+      const valittu = _pTyypit.has(o.k);
+      return `
+      <button onclick="_toggleTyyppi('${o.k}')"
+        style="padding:12px;background:${valittu?'rgba(26,122,94,.14)':'var(--surface)'};
+               border:.5px solid ${valittu?'rgba(26,122,94,.5)':'var(--border2)'};
+               border-radius:10px;text-align:left;cursor:pointer;color:var(--text);
+               display:flex;align-items:center;gap:10px;transition:all .12s;position:relative">
+        ${valittu?`<div style="position:absolute;top:8px;right:8px;width:16px;height:16px;
+                              border-radius:50%;background:var(--teal);display:flex;align-items:center;
+                              justify-content:center;font-size:9px;color:#fff;font-weight:700">✓</div>`:''}
+        ${ic(o.i,16,valittu?'#28B090':'#A8A79F',1.6)}
+        <div>
+          <div style="font-size:12px;font-weight:600">${o.l}</div>
+          <div style="font-size:10px;color:var(--ink3);line-height:1.3;margin-top:1px">${o.s}</div>
+        </div>
+      </button>`;
+    }).join('')}
   </div>
 
+  <!-- Aika — kuinka kauan -->
+  <div class="ey" style="margin-bottom:10px">Kuinka kauan?</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
+    ${ajat.map(a=>`
+      <button onclick="_pMinuutit=${a.v};draw()"
+        style="padding:9px 16px;background:${_pMinuutit===a.v?'rgba(26,122,94,.14)':'var(--surface)'};
+               border:.5px solid ${_pMinuutit===a.v?'rgba(26,122,94,.5)':'var(--border2)'};
+               border-radius:20px;cursor:pointer;color:var(--text);
+               font-size:12px;font-weight:${_pMinuutit===a.v?'600':'400'};
+               letter-spacing:.04em;transition:all .12s">
+        ${a.l}
+      </button>`).join('')}
+  </div>
+
+  <!-- Fiilis -->
   <div class="ey" style="margin-bottom:10px">Miltä vaikutti?</div>
-  <div style="display:flex;gap:6px;margin-bottom:20px">
+  <div style="display:flex;gap:6px;margin-bottom:18px">
     ${fiilikset.map(f=>`
-      <button onclick="_pFiilis='${f.k}';draw()" style="flex:1;padding:12px 4px;background:${_pFiilis===f.k?'rgba(26,122,94,.14)':'var(--surface)'};border:.5px solid ${_pFiilis===f.k?'rgba(26,122,94,.5)':'var(--border2)'};border-radius:8px;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:all .12s">
-        <div style="font-size:22px">${f.e}</div>
+      <button onclick="_pFiilis='${f.k}';draw()"
+        style="flex:1;padding:10px 4px;background:${_pFiilis===f.k?'rgba(26,122,94,.14)':'var(--surface)'};
+               border:.5px solid ${_pFiilis===f.k?'rgba(26,122,94,.5)':'var(--border2)'};
+               border-radius:8px;cursor:pointer;color:var(--text);
+               display:flex;flex-direction:column;align-items:center;gap:4px;transition:all .12s">
+        <div style="font-size:20px">${f.e}</div>
         <div style="font-size:9px;color:${_pFiilis===f.k?'#28B090':'var(--ink3)'};letter-spacing:.04em">${f.l}</div>
-      </button>
-    `).join('')}
+      </button>`).join('')}
   </div>
 
-  <div class="ey" style="margin-bottom:10px">Sanasi (valinnainen)</div>
-  <textarea id="pTxt" oninput="_pTeksti=this.value" placeholder="Esim. 'Lähti naapurin luo eikä tullut kotiin 3 tuntiin. Takaisin hikisenä ja tyytyväisenä.'" style="width:100%;min-height:80px;padding:12px;background:var(--surface);border:.5px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:12px;resize:vertical;margin-bottom:24px">${_pTeksti||''}</textarea>
+  <!-- Oma kommentti -->
+  <div class="ey" style="margin-bottom:8px">Sanasi <span style="font-size:10px;color:var(--ink3);font-weight:400;letter-spacing:0">(valinnainen)</span></div>
+  <textarea id="pTxt" oninput="_pTeksti=this.value"
+    placeholder="Esim. 'Lähti ulos itsestään, tuli kotiin hikisenä ja tyytyväisenä.'"
+    style="width:100%;min-height:70px;padding:12px;background:var(--surface);
+           border:.5px solid var(--border2);border-radius:8px;color:var(--text);
+           font-family:var(--font-b);font-size:12px;resize:vertical;
+           box-sizing:border-box;margin-bottom:20px"
+  >${_pTeksti||''}</textarea>
 
-  <button onclick="_perheKirjaa()" ${valmis?'':'disabled'} style="width:100%;padding:14px;background:${valmis?'var(--teal)':'rgba(26,122,94,.2)'};color:var(--text);border:none;border-radius:10px;font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;cursor:${valmis?'pointer':'not-allowed'};opacity:${valmis?'1':'.5'}">
-    Kirjaa ja lähetä valmentajalle
+  <!-- Pallokosketus-huomio (näkyy jos palloa ei valittu) -->
+  ${_pTyypit.size>0 && !sisaltaaPallon ? `
+  <div style="padding:10px 12px;background:rgba(184,92,56,.06);border-left:2px solid rgba(184,92,56,.3);border-radius:6px;margin-bottom:14px;font-size:11px;color:rgba(242,239,230,.7);line-height:1.55">
+    Huom: Pallokosketus puuttuu tänään. Bola Sempre — pallo joka päivä, edes 5 min!
+  </div>` : ''}
+
+  <!-- Lähetä-nappi -->
+  <button onclick="_perheKirjaa()" ${valmis?'':'disabled'}
+    style="width:100%;padding:14px;
+           background:${valmis?'var(--teal)':'rgba(26,122,94,.2)'};
+           color:var(--text);border:none;border-radius:10px;
+           font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+           cursor:${valmis?'pointer':'not-allowed'};opacity:${valmis?'1':'.5'};
+           transition:all .2s">
+    ${valmis ? 'KIRJAA JA LÄHETÄ' : 'Valitse tyyppi · aika · fiilis'}
   </button>
 
-  <div style="margin-top:14px;padding:10px 12px;background:rgba(242,239,230,.03);border-radius:6px;font-size:10px;color:var(--ink3);line-height:1.55;text-align:center">
-    Kirjaus näkyy valmentajan viikkokoosteessa. Streakit lasketaan myös omatoimisesta.
+  <div style="margin-top:12px;font-size:10px;color:var(--ink3);line-height:1.55;text-align:center">
+    Kirjaus näkyy valmentajan viikkokoosteessa. Streakit lasketaan myös vanhemman kirjauksista.
   </div>
 </div>`;
 }
 
-function _perheKirjaa(){
-  if(!_pTyyppi||!_pFiilis) return;
-  const fiilisMap={vasynyt:2,iloinen:4,innoissaan:5,loukkasi:1};
-  if(window.TMBus){
-    TMBus.publish('training',{
-      playerId: _childId,
-      source: 'parent',
-      tyyppi: _pTyyppi,
-      minutes: 45,
-      fiilis: fiilisMap[_pFiilis]||4,
-      note: _pTeksti||''
+/* Toggle monivalinnassa — lisää tai poista tyyppi */
+function _toggleTyyppi(k) {
+  if (_pTyypit.has(k)) {
+    _pTyypit.delete(k);
+  } else {
+    _pTyypit.add(k);
+  }
+  draw();
+}
+
+async function _perheKirjaa(){
+  if(_pTyypit.size===0 || !_pFiilis || !_pMinuutit) return;
+
+  const fiilisMap = {vasynyt:2, iloinen:4, innoissaan:5, loukkasi:1};
+  const tyypit    = [..._pTyypit];
+  // Onko pallokosketusta mukana — pihapeli tai leikkiä pallolla
+  const onT       = tyypit.some(t => t==='pihapeli' || t==='pallo');
+  const paatyyppi = onT ? 'T' : 'vapaa';   // T = tallentuu streakiin
+
+  // Pvm tänään muodossa YYYY-MM-DD
+  const nyt = new Date();
+  const pvm = nyt.toISOString().slice(0,10);
+
+  // ── TMBus: demo-moodi & valmentajan live-feed ──────────────────────
+  if (window.TMBus) {
+    TMBus.publish('training', {
+      playerId:  _childId,
+      source:    'parent',
+      tyyppi:    paatyyppi,
+      tyypit:    tyypit,            // kaikki valitut aktiviteetit
+      minutes:   _pMinuutit,        // oikea aika
+      fiilis:    fiilisMap[_pFiilis] || 4,
+      note:      _pTeksti || ''
     });
   }
-  _pTyyppi=null;_pFiilis=null;_pTeksti='';
-  _sc='koti';
+
+  // ── Firestore: tallenna oikea kirjaus pelaajan kokoelmaan ──────────
+  // Tarvitsee URL-parametrit ?seura=kpv&uid=XXXXX
+  const urlSeura = new URLSearchParams(location.search).get('seura');
+  const urlUid   = new URLSearchParams(location.search).get('uid');
+
+  if (_db && urlSeura && urlUid) {
+    try {
+      await _db.collection('seurat').doc(urlSeura)
+        .collection('pelaajat').doc(urlUid)
+        .collection('kirjaukset').doc(pvm)
+        .set({
+          tyyppi:     paatyyppi,        // 'T' tai 'vapaa'
+          tyypit:     tyypit,           // ['pihapeli','pallo'] jne.
+          kesto_min:  _pMinuutit,
+          fiilis:     fiilisMap[_pFiilis] || 4,
+          lahde:      'vanhempi',       // kuka kirjasi
+          teksti:     _pTeksti || null,
+          luotu:      firebase.firestore.FieldValue.serverTimestamp(),
+          tehty:      true,
+        }, { merge: true });           // merge: ei ylikirjoita jos kirjaus jo olemassa
+    } catch(e) {
+      console.warn('[perheKirjaa Firestore]', e.message);
+      // Ei katkaista — TMBus-viesti meni läpi vaikka Firestore epäonnistui
+    }
+  }
+
+  // Tyhjennä tila
+  _pTyypit   = new Set();
+  _pFiilis   = null;
+  _pTeksti   = '';
+  _pMinuutit = null;
+  _viimeisinKirjaus = null; // pakottaa uuden haun KOTI:ssa
+  _kehuLahetetty    = false;
+
+  _sc = 'koti';
   document.querySelectorAll('.sp').forEach(b=>b.classList.toggle('on',b.dataset.s==='koti'));
   draw();
-  _toast(`${IKA[_age].nimi}:n treeni kirjattu`);
+  _toast(`${IKA[_age].nimi}:n treeni kirjattu${onT?' · pallo ✓':''}!`);
 }
 
 /* ══ VALMENTAJAN VIESTI ══ */
