@@ -806,7 +806,7 @@ function rAsetukset(){
   </div>
 
   <!-- Kirjaudu ulos -->
-  <button style="width:100%;padding:12px;background:transparent;border:.5px solid rgba(184,92,56,.3);border-radius:8px;color:var(--fire);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;cursor:pointer">Kirjaudu ulos</button>
+  <button onclick="_kirjauduUlos()" style="width:100%;padding:12px;background:transparent;border:.5px solid rgba(184,92,56,.3);border-radius:8px;color:var(--fire);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;cursor:pointer">Kirjaudu ulos</button>
 
   <div style="margin-top:14px;text-align:center;font-size:9px;color:var(--ink3);letter-spacing:.04em">
     TalentMaster — Perhe v1 · ${_age.toUpperCase()}
@@ -1010,6 +1010,25 @@ function _tarinaKuvaus(k) {
   else if (tehdytPvt === 1) osat.push('Ensimmäinen kirjaus tänä viikkona.');
 
   return osat.join(' ') || 'Hyvää työtä tänään.';
+}
+
+
+/* ── Kirjaudu ulos ── */
+function _kirjauduUlos() {
+  // Tyhjennä localStorage TM-avaimet
+  try {
+    Object.keys(localStorage).filter(k => /^tm_|^tm-/.test(k))
+      .forEach(k => localStorage.removeItem(k));
+  } catch(e) {}
+  // Firebase signOut jos käytössä
+  try {
+    if (window.firebase && firebase.auth) {
+      firebase.auth().signOut().catch(() => {});
+    }
+  } catch(e) {}
+  // Näytä vahvistus ja lataa sivu uudelleen
+  _toast('Kirjauduttu ulos');
+  setTimeout(() => location.reload(), 1200);
 }
 
 // ── TMBus-yhteensopivuus: varmista että kaikki metodit ovat olemassa ──
