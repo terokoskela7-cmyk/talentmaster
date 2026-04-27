@@ -861,7 +861,9 @@ function rMina(){
   const taso   = _pelaaja?.taso   || 1;
   const xp     = _pelaaja?.xp     || 0;
   const xpNext = taso * 1000;
-  const streak = _streak || _pelaaja?.streak || 0;  // _streak päivittyy _lataaCStreak():ssa
+  // _streak on Firestoresta haettu (oikea pelaaja) tai 0 (ei haettu vielä)
+  // _pelaaja.streak on demo-arvo — käytetään fallbackina kun Firestore ei ole ajettu
+  const streak = (_streak > 0 ? _streak : (_pelaaja?.streak || 0));
   const flei   = _pelaaja?.flei_viimeisin || 0;
   const ika    = p?.syntymaVuosi ? new Date().getFullYear()-p.syntymaVuosi : '?';
   const profiili = p?.pelaajaProfiili || '–';
@@ -1973,6 +1975,10 @@ async function demoKirjaudu(key) {
   _demoKey = key;
   _pelaaja = demoPelaajat[key] || demoPelaajat.aleksi;
   window._seuraId = _pelaaja.seuraId;
+  // Demo-paneeli vain ?demo=1 URL-parametrilla — ei tuotannossa
+  if (new URLSearchParams(location.search).get('demo') === '1') {
+    document.body.classList.add('demo-mode');
+  }
   _kaynnistaAppUI();
 }
 
@@ -2158,7 +2164,7 @@ async function _kirjauduPinilla(pin) {
       // Käytetään demoKirjaudu()-funktiota jossa on täydellinen pelaajadata (sbl/sfl/ll/diag/dfl)
       const DEMO_PIN_MAP = { '1234':'aleksi', '9012':'aleksi', '5555':'aleksi' };
       if (DEMO_PIN_MAP[pin]) {
-        document.body.classList.add('demo-mode');
+        // Demo-paneeli vain ?demo=1:llä — demoKirjaudu() hoitaa loput
         demoKirjaudu(DEMO_PIN_MAP[pin]);
         return;
       }
