@@ -1055,7 +1055,12 @@ function rTDone(){
   // Merkitään tehty + kirjataan streak
   if (!_tdoneCalled) {
     _tdoneCalled = true;
-    _kirjaaStreak().catch(e=>console.warn('[v5 done]',e));
+    // T-harjoite (joukkuetreeni): 40 XP, kaikki=true, RPE tulee rRPE-valinnan mukaan
+    _tallennaKirjaus('T', 40, true, {
+      kesto_min: Math.round(EX.reduce((s,e)=>s+e.dur,0)/60),
+      fiilinki:  _fiilis || null,
+      konteksti: 'joukkuetreeni',
+    }).catch(e => console.warn('[treeni kirjaus]', e.message));
   }
   return `
 <div style="padding:28px 20px;height:100%;display:flex;flex-direction:column;background:var(--bg)">
@@ -1067,16 +1072,17 @@ function rTDone(){
       ${rRPE()}
     </div>
     <div style="font-family:var(--font-d);font-weight:300;font-size:30px;margin-top:10px;line-height:1.1">Liekki pysyy.</div>
-    <div class="meta" style="margin-top:10px;max-width:280px;margin-left:auto;margin-right:auto;line-height:1.6">13 pv streak · +40 XP · kolme tehtävää kirjattu.</div>
+    <div class="meta" style="margin-top:10px;max-width:280px;margin-left:auto;margin-right:auto;line-height:1.6">${(_streak||0)} pv streak · +40 XP · kolme tehtävää kirjattu.</div>
   </div>
+  ${(()=>{ const xp=_pelaaja?.xp||0; const taso=_pelaaja?.taso||1; const xpNext=taso*1000; const pct=Math.min(100,Math.round((xp/xpNext)*100)); const newPct=Math.min(100,Math.round(((xp+40)/xpNext)*100)); return `
   <div style="margin-top:28px;padding:16px 18px;background:var(--surface);border-radius:10px;border:.5px solid var(--border)">
     <div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px">
-      <span>Taso 7</span><span style="font-family:var(--font-m)">620 → 660 / 1000</span>
+      <span>Taso ${taso}</span><span style="font-family:var(--font-m)">${xp} → ${xp+40} / ${xpNext}</span>
     </div>
     <div style="height:8px;background:rgba(242,239,230,.08);border-radius:4px;overflow:hidden;position:relative">
-      <div style="position:absolute;left:0;top:0;bottom:0;width:62%;background:rgba(26,122,94,.6)"></div>
-      <div style="position:absolute;left:62%;top:0;bottom:0;width:4%;background:#28B090;animation:fadeUp .8s ease"></div>
-    </div>
+      <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:rgba(26,122,94,.6)"></div>
+      <div style="position:absolute;left:${pct}%;top:0;bottom:0;width:${newPct-pct}%;background:#28B090;animation:fadeUp .8s ease"></div>
+    </div>`; })()}
   </div>
   <div style="margin-top:18px;padding:14px 16px;background:rgba(26,122,94,.06);border:.5px solid rgba(26,122,94,.25);border-radius:10px">
     <div class="ey ac" style="font-weight:500">Valmentajalle</div>
@@ -1425,18 +1431,21 @@ function rVapaaDone(){
 function _tallennaVapaa(){
   if(!_vaTyyppi||!_vaFiilis) return;
   _vaSaved=true;
-  // Firestore-kirjaus (demo-userille no-op)
-  try{
-    if(typeof _tmKirjaa==='function'){
-      // Bola Sempre: pihapeli, pallo yksin ja kaverin kanssa = T-kirjaus (pallokosketus)
-      const _onT = ['pihapeli','pallo','kaveri'].includes(_vaTyyppi);
-      _tmKirjaa(_onT ? 'T' : 'vapaa', _vaTyyppi);
-      _tmKirjaa('oma_min', _vaMin);
-      _tmKirjaa('oma_fiilis', _vaFiilis);
-      _tmKirjaa('oma_kavereita', _vaKavereita);
-      if(typeof _kirjaaStreak==='function') _kirjaaStreak().catch(()=>{});
-    }
-  }catch(e){}
+
+  // Bola Sempre: pihapeli/pallo/kaveri = T (pallokosketus), muut = vapaa
+  const onT = ['pihapeli','pallo','kaveri'].includes(_vaTyyppi);
+  const tyyppi = onT ? 'T' : 'vapaa';
+
+  // XP: T-harjoite 0.5 XP/min, vapaa 0.3 XP/min
+  const xp = Math.round(_vaMin * (onT ? 0.5 : 0.3));
+
+  // Yksittäinen atominen write — AI-agentin lukema rakenne
+  _tallennaKirjaus(tyyppi, xp, true, {
+    kesto_min: _vaMin,
+    fiilinki:  _vaFiilis,
+    konteksti: _vaTyyppi,
+  }).catch(e => console.warn('[vapaa kirjaus]', e.message));
+
   // ── TMBus: julkaise ekosysteemille ──
   try{
     if(window.TMBus){
@@ -2062,7 +2071,8 @@ async function _tmKirjaa(avain, arvo) {
 /* ══ TALLENNA KIRJAUS — batch write (streak + XP atomisesti) ═════
    Polku: seurat/{seuraId}/pelaajat/{pid}/kirjaukset/{pvm}
 ═════════════════════════════════════════════════════════════════ */
-async function _tallennaKirjaus(tyyppi, xp, kaikki) {
+async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
+  // ekstra: { rpe, fiilinki, kesto_min, konteksti } — AI-agentti lukee nämä myöhemmin
   if (_isDemoUser || !_pelaaja || !window._db) return;
 
   const sid = window._seuraId || _pelaaja.seuraId;
@@ -2071,39 +2081,59 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki) {
 
   const pvm = new Date().toISOString().slice(0,10);
   const db  = window._db;
-  const pelaajaDok  = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid);
-  const kirjausDok  = pelaajaDok.collection('kirjaukset').doc(pvm);
-  const h = new Date().getHours();
+  const pelaajaDok = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid);
+  const kirjausDok = pelaajaDok.collection('kirjaukset').doc(pvm);
+  const h    = new Date().getHours();
   const aika = h < 11 ? 'aamu' : h < 17 ? 'paiva' : 'ilta';
+
+  // Rakenne jonka AI-agentti lukee (Sprint 6-8):
+  // tyyppi: 'T' | 'D' | 'S' | 'joukkue' | 'vapaa'
+  // kesto_min: kokonaisminuutit
+  // rpe: 1-10 (joukkuetreeni) tai null (omaehtoinen)
+  // fiilinki: 1-5 (emojiasteikko)
+  // aika: 'aamu' | 'paiva' | 'ilta'
+  const kirjausData = {
+    tyyppi,
+    tehty: true,
+    xp: xp || 0,
+    aika,
+    pvm,
+    kesto_min: ekstra?.kesto_min || null,
+    rpe:       ekstra?.rpe       || null,
+    fiilinki:  ekstra?.fiilinki  || null,
+    konteksti: ekstra?.konteksti || null,
+    paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
+  };
 
   try {
     const batch = db.batch();
 
-    // 1. Päiväkirjaus
-    batch.set(kirjausDok, {
-      tyyppi, tehty: true, xp, aika, pvm,
-      paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    // 1. Päiväkirjausdokumentti (id = 'YYYY-MM-DD', merge koska sama päivä voi olla useita)
+    batch.set(kirjausDok, kirjausData, { merge: true });
 
-    // 2. Pelaajadok: XP + streak (vain jos kaikki tehty)
+    // 2. Pelaajadokumentti: XP + streak atomisesti samassa commitissa
     const paivitys = {
       xp: (_pelaaja.xp || 0) + (xp || 0),
     };
     if (kaikki) {
-      _streak = (_streak || 0) + ((_streakLastDate === pvm) ? 0 : 1);
-      paivitys.streak = _streak;
+      // Ei lisätä streakia jos sama päivä on jo kirjattu
+      const uusiStreak = (_streak || 0) + ((_streakLastDate === pvm) ? 0 : 1);
+      _streak = uusiStreak;
+      paivitys.streak            = uusiStreak;
       paivitys.streak_paivitetty = pvm;
-      _streakLastDate = pvm;
+      _streakLastDate            = pvm;
     }
     batch.update(pelaajaDok, paivitys);
+
+    // Päivitä lokaalisti heti — UI päivittyy ennen Firestore-vahvistusta
     _pelaaja.xp = paivitys.xp;
 
     await batch.commit();
-    console.log('[v4] Kirjaus tallennettu:', tyyppi, xp, 'XP');
+    console.log('[v5] Kirjaus OK:', tyyppi, xp, 'XP | streak:', _streak);
 
   } catch(e) {
-    console.warn('[v4 kirjaus]', e.message);
-    // Ei näytetä virhettä — offline-tuki tulossa
+    console.warn('[v5 kirjaus virhe]', e.message);
+    // Graceful degradation: kirjaus ei tallennu mutta UI toimii
   }
 }
 
@@ -2709,7 +2739,8 @@ async function _lataaCStreak() {
 }
 
 async function _kirjaaStreak() {
-  // Kutsutaan kun harjoitus merkitään tehdyksi
+  // Suora kutsu vain legacy-poluille — päävirta kulkee _tallennaKirjaus():n kautta
+  if (_isDemoUser || !_pelaaja?.id || !window._db) return;
   const pvm = new Date().toISOString().slice(0,10);
   await _tmKirjaa('tehty', true);
   await _tmKirjaa('streak_pvm', pvm);
