@@ -855,34 +855,106 @@ function rKortti(){
 /* MINÄ-tab */
 function rMina(){
   const p = _pelaaja;
-  const ika = p?.syntymaVuosi ? new Date().getFullYear()-p.syntymaVuosi : '?';
+
+  // ── Yhtenäinen datalähde: sama kuin KOTI-näkymä ─────────────────
+  const taso   = p?.taso   || _pelaaja?.taso   || 1;
+  const xp     = p?.xp     || _pelaaja?.xp     || 0;
+  const xpNext = taso * 1000;
+  const streak = _streak || p?.streak || 0;
+  const flei   = p?.flei_viimeisin || 0;
+  const ika    = p?.syntymaVuosi ? new Date().getFullYear()-p.syntymaVuosi : '?';
+  const profiili = p?.pelaajaProfiili || '–';
+
+  // ── FLEI-ketjudata ───────────────────────────────────────────────
+  const fleiKetjut = _flei || {};
+  const KETJUT = [
+    { k:'SBL',  nimi:'Vauhtiketju',     emoji:'⚡' },
+    { k:'SFL',  nimi:'Lähtöketju',      emoji:'🦵' },
+    { k:'LL',   nimi:'Sivuketju',       emoji:'↔️' },
+    { k:'DIAG', nimi:'Diagonaaliketju', emoji:'🔄' },
+    { k:'DFL',  nimi:'Hallintaketju',   emoji:'🏗️' },
+  ];
+
+  // Heikointa ketjua korostetaan + näytetään WHY-lause
+  const heikoin = _heikoinKetju();
+  const whyLause = getWhy(heikoin, 'S', _stage);
+
+  // XP-prosentti
+  const xpPct = Math.min(100, Math.round(xp / xpNext * 100));
+
   return `
 <div class="scroll" style="background:var(--bg)">
   ${hdr('Minä')}
-  <section style="padding:20px">
+  <section style="padding:20px 20px 0">
+
+    <!-- Pelaajan tunniste -->
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
-      <div class="pin-av" style="width:56px;height:56px;font-size:20px">${p?((p.etunimi||'')[0]||'?')+((p.sukunimi||'')[0]||'?'):'??'}</div>
+      <div class="pin-av" style="width:56px;height:56px;font-size:20px">${p ? ((p.etunimi||'')[0]||'?')+((p.sukunimi||'')[0]||'?') : '??'}</div>
       <div>
         <div style="font-family:var(--font-d);font-size:22px;color:var(--text)">${p?.etunimi||'–'} ${p?.sukunimi||''}</div>
         <div class="meta">${p?.joukkueId||'–'} · ${ika} v · ${p?.pelipaikka||'–'}</div>
+        ${profiili !== '–' ? `<div style="font-size:10px;letter-spacing:.14em;color:var(--teal);margin-top:2px">${profiili}</div>` : ''}
       </div>
     </div>
-    ${[
-      {l:'Taso',          v:(p?.taso||1)},
-      {l:'XP',            v:(p?.xp||0)+' / '+((p?.taso||1)*1000)},
-      {l:'Streak',        v:(_streak||0)+' päivää'},
-      {l:'FLEI',          v:(p?.flei_viimeisin||0)+' / 100'},
-      {l:'Pelaajaprofiili', v:p?.pelaajaProfiili||'–'},
-    ].map(s=>`
-      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:.5px solid rgba(242,239,230,.08)">
-        <span class="meta">${s.l}</span>
-        <span style="font-size:13px;color:var(--text);font-weight:500">${s.v}</span>
-      </div>`).join('')}
-    <div style="margin-top:20px">
+
+    <!-- Avainluvut — yhtenäinen datalähde KOTI-näkymän kanssa -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
+      <div style="background:var(--surface2);border-radius:10px;padding:12px;border:.5px solid var(--border)">
+        <div class="meta" style="margin-bottom:4px">Taso</div>
+        <div style="font-family:var(--font-m);font-size:26px;color:var(--text)">${taso}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:10px;padding:12px;border:.5px solid var(--border)">
+        <div class="meta" style="margin-bottom:4px">Streak</div>
+        <div style="font-family:var(--font-m);font-size:26px;color:${streak>0?'#B85C38':'var(--ink3)'}">${streak} <span style="font-size:13px">pv</span></div>
+      </div>
+      <div style="background:var(--surface2);border-radius:10px;padding:12px;border:.5px solid var(--border);grid-column:span 2">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="meta">XP</div>
+          <div class="meta">${xp} / ${xpNext}</div>
+        </div>
+        <div style="height:4px;background:rgba(242,239,230,.1);border-radius:2px">
+          <div style="height:4px;width:${xpPct}%;background:var(--teal);border-radius:2px;transition:width .5s"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLEI-ketjut — visuaalinen profiili -->
+    <div style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="ey">Kehon valmiusprofiili</div>
+        <div style="font-family:var(--font-m);font-size:13px;color:${flei>=70?'var(--teal)':flei>=50?'#E0A653':'#E05C38'}">${flei} / 100</div>
+      </div>
+      ${KETJUT.map(kt => {
+        const arvo = fleiKetjut[kt.k] || fleiKetjut[kt.k.toLowerCase()] || 0;
+        const onHeikoin = kt.k === heikoin;
+        const pct = Math.min(100, arvo);
+        const vari = arvo >= 70 ? 'var(--teal)' : arvo >= 50 ? '#E0A653' : '#E05C38';
+        return `
+        <div style="margin-bottom:${onHeikoin?'14':'8'}px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <div style="font-size:11px;color:${onHeikoin?'var(--teal)':'var(--ink2)'}">
+              ${kt.emoji} ${kt.nimi}${onHeikoin?' ← kehitysalue':''}
+            </div>
+            <div style="font-family:var(--font-m);font-size:11px;color:${vari}">${arvo > 0 ? arvo : '–'}</div>
+          </div>
+          <div style="height:3px;background:rgba(242,239,230,.08);border-radius:2px">
+            <div style="height:3px;width:${pct}%;background:${vari};border-radius:2px"></div>
+          </div>
+          ${onHeikoin && whyLause ? `
+          <div style="margin-top:6px;padding:8px 10px;background:rgba(26,122,94,.06);border-left:2px solid rgba(26,122,94,.3);font-size:11px;color:var(--ink2);line-height:1.55;font-style:italic">
+            ${whyLause}
+          </div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Kirjaudu ulos -->
+    <div style="padding-bottom:24px">
       <button onclick="kirjauduUlos()" style="width:100%;background:rgba(240,78,78,.08);border:.5px solid rgba(240,78,78,.3);color:#F04E4E;border-radius:8px;padding:12px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.1em">
         KIRJAUDU ULOS
       </button>
     </div>
+
   </section>
 </div>`;
 }
@@ -2110,7 +2182,7 @@ async function _kirjauduPinilla(pin) {
    WHY-LAUSEET (Tero Koskela, v1.1)
 ══════════════════════════════════════════════════════════ */
 const WHY = {
-  SBL:{ T:{ 'leikkija':'Takapuolelta tulee vauhti. Siellä asuu juoksumoottori.', 'rakentaja':'Sprintti käynnistyy takaketjusta — takareisistä ja pakaroista. Tämä opettaa sen liikkeen.', 'showcase':'Posterior chain tuottaa sprintin viisi ensimmäistä metriä. Tekniikka siirtää voiman maahan.' }, D:{ 'leikkija':'Takalihakset herätetään ensin. Sitten ne jaksavat juosta.', 'rakentaja':'Kylmä takaketju repeää helpommin. Lämmittely on vakuutus takareidelle.', 'showcase':'Aktivoitu takalinja vähentää hamstring-strainin riskiä ennen kovaa kuormaa.' }, S:{ 'leikkija':'Vahva takapää juoksee pisimpään. Loppupeli on sen aikaa.', 'rakentaja':'Heikoin lenkki väsyy ensin. Tämä vahvistaa sitä — viime minuutteihin asti nopein.', 'showcase':'Kohdennettu vahvistus ketjun heikoimpaan segmenttiin. Loppupeli ratkaistaan siellä missä vastustajan posterior chain antautuu.' } },
+  SBL:{ T:{ 'leikkija':'Takapuolelta tulee vauhti. Siellä asuu juoksumoottori.', 'rakentaja':'Sprintti käynnistyy takaketjusta — takareisistä ja pakaroista. Tämä opettaa sen liikkeen.', 'showcase':'Posterior chain tuottaa sprintin viisi ensimmäistä metriä. Tekniikka siirtää voiman maahan.' }, D:{ 'leikkija':'Takalihakset herätetään ensin. Sitten ne jaksavat juosta.', 'rakentaja':'Kylmä takaketju repeää helpommin. Lämmittely on vakuutus takareidelle.', 'showcase':'Aktivoitu takalinja vähentää hamstring-strainin riskiä ennen kovaa kuormaa.' }, S:{ 'leikkija':'Vahva takapää juoksee pisimpään. Loppupeli on sen aikaa.', 'rakentaja':'Heikoin lenkki väsyy ensin. Tämä vahvistaa sitä — ja olet viimeisellä vartilla yhä nopein.', 'showcase':'Kohdennettu vahvistus ketjun heikoimpaan segmenttiin. Loppupeli ratkaistaan siellä missä vastustajan posterior chain antautuu.' } },
   SFL:{ T:{ 'leikkija':'Etupuolesta tulee potku ja hyppy.', 'rakentaja':'Ensiaskel ja laukaus syntyvät etulinjasta — etureidestä ja lonkan koukistajista.', 'showcase':'Anterior chain tuottaa laukauksen ja ensiaskeleen räjähdyksen. Tekniikka määrittää kuinka paljon siitä voimasta siirtyy maahan.' }, D:{ 'leikkija':'Etureidet venyvät. Polvet kiittävät.', 'rakentaja':'Kireä etureisi vetää polvea väärään suuntaan. Kasvupyrähdyksessä tämä on kriittistä.', 'showcase':'Etulinjan liikkuvuus suojaa patellaa PHV-vaiheessa, kun luut kasvavat lihaksia nopeammin.' }, S:{ 'leikkija':'Vahva etupuoli tekee hypystä korkeamman ja potkusta kovemman.', 'rakentaja':'Räjähdysmoottori voittaa puolustajan ensimmäisessä askeleessa. Se on tässä.', 'showcase':'Anterior chainin voima = laukauksen vauhti, ponnistuksen korkeus, ensiaskeleen eksplosiivisuus.' } },
   LL:{ T:{ 'leikkija':'Sivuille liikkumiseen tarvitaan kylkiä.', 'rakentaja':'Sivuaskel ja suunnanmuutos kulkevat sivuketjua pitkin. Tämä opettaa sen reitin.', 'showcase':'Lateral line hallitsee frontaalitason siirtymät. Cutting-liike ja sivuaskel lepäävät tällä.' }, D:{ 'leikkija':'Lantio pysyy suorassa juostessa. Polvi kiittää.', 'rakentaja':'Kun lantio ei tue, polvi kaatuu sisäänpäin. Se on yleisin ACL-vammamekanismi.', 'showcase':'Pelvic stability vähentää valgus-kuormaa polveen. ACL-riskin vähennys alkaa täältä.' }, S:{ 'leikkija':'Vahvat kyljet pitävät kiinni hyökkääjässä.', 'rakentaja':'1v1 on sivuttaisvoimaa. Heikko sivuketju antaa hyökkääjän ohittaa.', 'showcase':'Vahva lateral line = leveämpi puolustettava kaista, tiukempi body-to-body duellissa.' } },
   DIAG:{ T:{ 'leikkija':'Keho kiertyy kun pallo tulee. Koko kroppa liikkuu yhdessä.', 'rakentaja':'Pallo vastaanotetaan kiertoliikkeellä — olkapää ja vastakkainen lonkka tekevät samaa työtä.', 'showcase':'Spiral line yhdistää vastakkaiset raajat. Vastaanoton kierto ja torson rotaatio syntyvät tästä.' }, D:{ 'leikkija':'Juostessa keho kiertyy pikkuisen. Se on oikein.', 'rakentaja':'Jalkapallo on kiertojen peli mutta harjoitellaan useimmiten suoraan eteenpäin. Tämä korjaa sen.', 'showcase':'Jalkapallon yleisin liikesuunta on rotaatio — muttei se mitä harjoituksissa useimmiten tehdään. Kiertoketju yhdistää vastakkaiset puolet.' }, S:{ 'leikkija':'Kiertovoima tekee laukauksesta kovan.', 'rakentaja':'Laukauksen teho ei tule jalasta vaan vartalon kierrosta. Tämä vahvistaa sen lähteen.', 'showcase':'Rotational power = laukauksen teho, syötön tarkkuus liikkeessä, vartalosuojaus paineen alla.' } },
