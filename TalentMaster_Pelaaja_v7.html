@@ -856,12 +856,13 @@ function rKortti(){
 function rMina(){
   const p = _pelaaja;
 
-  // ── Yhtenäinen datalähde: sama kuin KOTI-näkymä ─────────────────
-  const taso   = p?.taso   || _pelaaja?.taso   || 1;
-  const xp     = p?.xp     || _pelaaja?.xp     || 0;
+  // ── Yhtenäinen datalähde: samat muuttujat kuin hdr() ja rA1() ────
+  // hdr() lukee suoraan _pelaaja.taso ja _pelaaja.xp — tehdään sama
+  const taso   = _pelaaja?.taso   || 1;
+  const xp     = _pelaaja?.xp     || 0;
   const xpNext = taso * 1000;
-  const streak = _streak || p?.streak || 0;
-  const flei   = p?.flei_viimeisin || 0;
+  const streak = _streak || _pelaaja?.streak || 0;  // _streak päivittyy _lataaCStreak():ssa
+  const flei   = _pelaaja?.flei_viimeisin || 0;
   const ika    = p?.syntymaVuosi ? new Date().getFullYear()-p.syntymaVuosi : '?';
   const profiili = p?.pelaajaProfiili || '–';
 
@@ -2139,18 +2140,26 @@ async function _kirjauduPinilla(pin) {
       // Fallback: tarkista demo-pelaajat (kehitys- ja demokäyttö)
       const DEMO_PINIT = {
         '1234': { etunimi:'Aleksi', sukunimi:'Mäkinen', pelaajaProfiili:'P14 · RAILGUN',
-                  seuraId:'kpv', id:'demo_aleksi', _demo:true },
+                  seuraId:'kpv', id:'demo_aleksi', _demo:true,
+                  taso:7, xp:620, streak:14, flei_viimeisin:84, syntymaVuosi:2012,
+                  pelipaikka:'KH', joukkueId:'KPV P14 Musta',
+                  sbl:2.5, sfl:2.1, ll:2.3, diag:1.7, dfl:2.4 },
         '9012': { etunimi:'Anton',  sukunimi:'M',       pelaajaProfiili:'P14 · MUSTA',
-                  seuraId:'kpv', id:'demo_anton',  _demo:true },
+                  seuraId:'kpv', id:'demo_anton',  _demo:true,
+                  taso:7, xp:620, streak:14, flei_viimeisin:71, syntymaVuosi:2011,
+                  pelipaikka:'P', joukkueId:'KPV P14 Musta',
+                  sbl:2.1, sfl:1.8, ll:2.0, diag:1.5, dfl:2.2 },
         '5555': { etunimi:'Demo',   sukunimi:'Pelaaja', pelaajaProfiili:'Demo',
-                  seuraId:'kpv', id:'demo_5555',   _demo:true },
+                  seuraId:'kpv', id:'demo_5555',   _demo:true,
+                  taso:3, xp:180, streak:3, flei_viimeisin:60, syntymaVuosi:2012,
+                  pelipaikka:'–', joukkueId:'Demo',
+                  sbl:1.8, sfl:1.6, ll:1.7, diag:1.4, dfl:1.9 },
       };
-      if (DEMO_PINIT[pin]) {
-        _pelaaja = DEMO_PINIT[pin];
-        window._seuraId = 'kpv';
-        _isDemoUser = true;
+      // Käytetään demoKirjaudu()-funktiota jossa on täydellinen pelaajadata (sbl/sfl/ll/diag/dfl)
+      const DEMO_PIN_MAP = { '1234':'aleksi', '9012':'aleksi', '5555':'aleksi' };
+      if (DEMO_PIN_MAP[pin]) {
         document.body.classList.add('demo-mode');
-        _kaynnistaAppUI();
+        demoKirjaudu(DEMO_PIN_MAP[pin]);
         return;
       }
       // Ei löydy mistään — näytä virhe
