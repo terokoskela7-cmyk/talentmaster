@@ -237,23 +237,15 @@ button{font-family:var(--font-b);cursor:pointer}
   height: 0 !important;
 }
 
-.synttari-banner {
-  background:linear-gradient(135deg,rgba(224,160,64,.15) 0%,rgba(62,201,167,.15) 100%);
-  border:1px solid rgba(224,160,64,.35); border-radius:14px;
-  padding:18px 20px; margin-bottom:16px; text-align:center;
-  animation:synttari-sisaan .6s cubic-bezier(.16,1,.3,1) both;
-}
-@keyframes synttari-sisaan {
-  from{opacity:0;transform:translateY(-12px) scale(.96);}
-  to{opacity:1;transform:none;}
-}
-.synttari-emoji{font-size:36px;margin-bottom:6px;}
-.synttari-otsikko{font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:#E0A040;margin-bottom:4px;}
-.synttari-teksti{font-size:13px;color:var(--ink2);line-height:1.5;}
-.synttari-bonus{margin-top:14px;padding:12px 14px;background:rgba(255,255,255,.06);border-radius:10px;border:1px solid rgba(255,255,255,.1);text-align:left;}
-.synttari-bonus-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);margin-bottom:5px;}
-.synttari-bonus-nimi{font-size:14px;font-weight:700;color:var(--ink);}
-.synttari-bonus-ohje{font-size:12px;color:var(--ink3);margin-top:3px;}
+.synttari-banner{background:linear-gradient(135deg,rgba(224,160,64,.15),rgba(62,201,167,.15));border:1px solid rgba(224,160,64,.35);border-radius:14px;padding:18px 20px;margin-bottom:16px;text-align:center;animation:synttari-in .6s cubic-bezier(.16,1,.3,1) both}
+@keyframes synttari-in{from{opacity:0;transform:translateY(-12px) scale(.96)}to{opacity:1;transform:none}}
+.synttari-emoji{font-size:36px;margin-bottom:6px}
+.synttari-otsikko{font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:#E0A040;margin-bottom:4px}
+.synttari-teksti{font-size:13px;color:var(--ink2);line-height:1.5}
+.synttari-bonus{margin-top:14px;padding:12px 14px;background:rgba(255,255,255,.06);border-radius:10px;border:1px solid rgba(255,255,255,.1);text-align:left}
+.synttari-bonus-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);margin-bottom:5px}
+.synttari-bonus-nimi{font-size:14px;font-weight:700;color:var(--ink)}
+.synttari-bonus-ohje{font-size:12px;color:var(--ink3);margin-top:3px}
 </style>
 
 <!-- Firebase v9 compat — sama kuin VP v19 -->
@@ -278,7 +270,8 @@ button{font-family:var(--font-b);cursor:pointer}
 
 <div class="scene-bar" id="sBar">
   <button class="sp on" data-s="pin" onclick="go('pin')">D · PIN</button>
-  <button class="sp" data-s="a1" onclick="go('a1')">A1 Action</button>
+  <button class="sp" data-s="a1" onclick="  if (_onkoSynttari(_pelaaja)) { setTimeout(function(){ _synttariKonfetti(); var el=document.querySelector('.koti-sisalto,#phBody'); if(el&&!el.querySelector('.synttari-banner')) el.insertAdjacentHTML('afterbegin',_synttariBanner(_pelaaja)); },800); }
+  go('a1')">A1 Action</button>
   <button class="sp" data-s="a2" onclick="go('a2')">A2 Signal</button>
   <button class="sp" data-s="a3" onclick="go('a3')">A3 Grid</button>
   <button class="sp" data-s="train" onclick="go('train')">B · Harjoitus</button>
@@ -2010,6 +2003,71 @@ async function demoKirjaudu(key) {
 }
 
 /* ══ KÄYNNISTÄ APP UI PELAAJADATAN JÄLKEEN ══════════════════ */
+
+function _onkoSynttari(p) {
+  if (!p) return false;
+  var pvm = p.syntymaaika && p.syntymaaika.seconds
+    ? new Date(p.syntymaaika.seconds * 1000)
+    : p.syntymaVuosi ? new Date(p.syntymaVuosi, 5, 15) : null;
+  if (!pvm) return false;
+  var nyt = new Date();
+  return pvm.getMonth() === nyt.getMonth() && pvm.getDate() === nyt.getDate();
+}
+
+function _synttariKonfetti() {
+  var el = document.getElementById('synttari-konfetti');
+  if (el) el.remove();
+  var canvas = document.createElement('canvas');
+  canvas.id = 'synttari-konfetti';
+  canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;';
+  document.body.appendChild(canvas);
+  var ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  var V = ['#3EC9A7','#4A7ED9','#E0A040','#D96060','#FFD700'];
+  var P = [];
+  for (var k=0;k<60;k++) P.push({
+    x:Math.random()*canvas.width, y:-10-Math.random()*100,
+    w:6+Math.random()*8, h:3+Math.random()*5,
+    vx:(Math.random()-.5)*3, vy:2+Math.random()*3,
+    rot:Math.random()*360, vrot:(Math.random()-.5)*8,
+    c:V[Math.floor(Math.random()*V.length)]
+  });
+  var f=0;
+  function loop(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    f++;
+    var fade = Math.max(0,1-(f-80)/40);
+    P.forEach(function(p){
+      p.x+=p.vx; p.y+=p.vy; p.rot+=p.vrot; p.vy+=0.08;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180);
+      ctx.globalAlpha=f<80?1:fade; ctx.fillStyle=p.c;
+      ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
+    });
+    if(f<120) requestAnimationFrame(loop); else canvas.remove();
+  }
+  requestAnimationFrame(loop);
+}
+
+function _synttariBanner(p) {
+  var bonukset = [
+    {n:'🎂 Synttäri-sprint', o:'10m × 10 kertaa — nopein kierros voittaa!'},
+    {n:'🎁 Taitohaaste', o:'Pallonkäsittely 3 min — kokeile uutta temppu'},
+    {n:'⭐ Syntymäpäivä-T', o:'Lempiharjoitteesi 5 minuuttia täysillä'}
+  ];
+  var bonus = bonukset[Math.floor(Math.random()*3)];
+  var ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
+  var ikaStr = ika ? (', ' + ika + 'v!') : '!';
+  return '<div class="synttari-banner">' +
+    '<div class="synttari-emoji">🎂</div>' +
+    '<div class="synttari-otsikko">Hyvää syntymäpäivää' + ikaStr + '</div>' +
+    '<div class="synttari-teksti">Tänään on sinun päiväsi, ' + (p.etunimi||'') + '.<br>Kehittyvä pelaaja ei pidä taukoa — mutta saa itse valita miten.</div>' +
+    '<div class="synttari-bonus">' +
+    '<div class="synttari-bonus-label">🎁 Bonustehtävä tänään</div>' +
+    '<div class="synttari-bonus-nimi">' + bonus.n + '</div>' +
+    '<div class="synttari-bonus-ohje">' + bonus.o + '</div>' +
+    '</div></div>';
+}
+
 function _kaynnistaAppUI() {
   const p = _pelaaja;
   if (!p) { go('pin'); return; }
@@ -2030,19 +2088,6 @@ function _kaynnistaAppUI() {
 
   // Hae vanhemman lähettämät kehut
   _haePerhekehu().catch(e => console.warn('[kehu]', e.message));
-
-  // Syntymäpäiväyllätys — tarkistetaan joka kirjautumisessa
-  if (_onkoSynttari(_pelaaja)) {
-    setTimeout(() => {
-      // Konfetti-animaatio
-      _synttariKonfetti();
-      // Lisää banneri KOTI-sivun alkuun
-      const kotiSisalto = document.querySelector('.koti-sisalto, #phBody, .sivu-koti, [data-sivu="koti"]');
-      if (kotiSisalto && !document.querySelector('.synttari-banner')) {
-        kotiSisalto.insertAdjacentHTML('afterbegin', _synttariBanner(_pelaaja));
-      }
-    }, 800);
-  }
 
   // Siirry tänään-näkymään
   go('a1');
@@ -2072,75 +2117,7 @@ function _laskeFlei(p) {
   };
 }
 
-function _heikoinKetju() 
-// ─────────────────────────────────────────────────────────────────
-// SYNTYMÄPÄIVÄYLLÄTYS
-// ─────────────────────────────────────────────────────────────────
-
-function _onkoSynttari(p) {
-  if (!p) return false;
-  const pvm = p.syntymaaika?.seconds
-    ? new Date(p.syntymaaika.seconds * 1000)
-    : p.syntymaVuosi ? new Date(p.syntymaVuosi, 5, 15) : null;
-  if (!pvm) return false;
-  const nyt = new Date();
-  return pvm.getMonth() === nyt.getMonth() && pvm.getDate() === nyt.getDate();
-}
-
-function _synttariKonfetti() {
-  document.getElementById('synttari-konfetti')?.remove();
-  const canvas = document.createElement('canvas');
-  canvas.id = 'synttari-konfetti';
-  canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;';
-  document.body.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
-  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-  const V = ['#3EC9A7','#4A7ED9','#E0A040','#D96060','#7FE0C9','#FFD700'];
-  const P = Array.from({length:60}, () => ({
-    x:Math.random()*canvas.width, y:-10-Math.random()*100,
-    w:6+Math.random()*8, h:3+Math.random()*5,
-    vx:(Math.random()-.5)*3, vy:2+Math.random()*3,
-    rot:Math.random()*360, vrot:(Math.random()-.5)*8,
-    c:V[Math.floor(Math.random()*V.length)]
-  }));
-  let f=0;
-  (function loop(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    f++;
-    const fade = Math.max(0,1-(f-80)/40);
-    P.forEach(p => {
-      p.x+=p.vx; p.y+=p.vy; p.rot+=p.vrot; p.vy+=0.08;
-      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180);
-      ctx.globalAlpha = f<80?1:fade; ctx.fillStyle=p.c;
-      ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
-    });
-    if(f<120) requestAnimationFrame(loop); else canvas.remove();
-  })();
-}
-
-function _synttariBanner(p) {
-  const bonus = [
-    {n:'🎂 Synttäri-sprint', o:'10m × 10 kertaa — nopein kierros voittaa!'},
-    {n:'🎁 Taitohaaste', o:'Pallonkäsittely 3 min — kokeile uutta temppu'},
-    {n:'⭐ Syntymäpäivä-T', o:'Lempiharjoitteesi 5 minuuttia täysillä'},
-  ][Math.floor(Math.random()*3)];
-  const ika = p.syntymaVuosi ? new Date().getFullYear()-p.syntymaVuosi : null;
-  return `<div class="synttari-banner">
-    <div class="synttari-emoji">🎂</div>
-    <div class="synttari-otsikko">Hyvää syntymäpäivää${ika ? ', '+ika+'v!' : '!'}</div>
-    <div class="synttari-teksti">
-      Tänään on sinun päiväsi, ${p.etunimi}.<br>
-      Kehittyivä pelaaja ei pidä taukoa — mutta saa itse valita miten.
-    </div>
-    <div class="synttari-bonus">
-      <div class="synttari-bonus-label">🎁 Bonustehtävä tänään</div>
-      <div class="synttari-bonus-nimi">${bonus.n}</div>
-      <div class="synttari-bonus-ohje">${bonus.o}</div>
-    </div>
-  </div>`;
-}
-
-{
+function _heikoinKetju() {
   if (!Object.keys(_flei).length) return 'SBL';
   return Object.entries(_flei).sort(([,a],[,b])=>a-b)[0][0];
 }
