@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TalentMaster™ — Perhe v1</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --carbon:#1C1C1A; --bone:#F2EFE6;
+  --teal:#1A7A5E; --teal-d:#28B090;
+  --slate:#585751; --gold:#B8860B; --fire:#B85C38;
+  --font-d:'Cormorant Garamond',Georgia,serif;
+  --font-b:'DM Sans',system-ui,sans-serif;
+  --font-m:'DM Mono',Menlo,monospace;
+  --bg:#111110; --bg2:#161614; --surface:#1E1E1C; --surface2:#1A1A18;
+  --border:rgba(242,239,230,.06); --border2:rgba(242,239,230,.12);
+  --text:#F2EFE6; --ink2:#A8A79F; --ink3:#8BA0BC;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-b);background:#0a0a08;color:var(--text);min-height:100dvh;overflow-x:hidden;font-size:14px;line-height:1.7}
+button{font-family:var(--font-b);cursor:pointer}
+
+.wrap{max-width:100%;margin:0 auto;padding:14px 8px 40px;text-align:center}
+
+/* Switcher */
+.age-bar{display:inline-flex;gap:3px;background:rgba(242,239,230,.04);padding:3px;border-radius:20px;margin-bottom:10px}
+.age-btn{background:transparent;color:var(--ink3);border:none;padding:6px 14px;font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;border-radius:18px;cursor:pointer;transition:all .15s}
+.age-btn.on{background:var(--teal);color:var(--text)}
+
+.scene-bar{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-bottom:10px}
+.sp{background:rgba(242,239,230,.04);color:var(--ink3);border:.5px solid rgba(242,239,230,.1);padding:4px 9px;font-size:9px;letter-spacing:.16em;text-transform:uppercase;font-weight:500;border-radius:14px;cursor:pointer;transition:all .12s}
+.sp.on{background:var(--teal);color:var(--text);border-color:var(--teal)}
+
+.hint{font-size:10px;color:var(--ink3);margin-bottom:10px;letter-spacing:.04em;max-width:540px;margin-left:auto;margin-right:auto;line-height:1.55}
+
+/* Phone */
+.phone{width:min(390px,100vw);margin:0 auto;background:var(--bg);border-radius:36px;border:1px solid #222;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 8px #1a1a1a;position:relative;overflow:hidden;text-align:left}
+.ph-status{height:42px;padding:14px 24px 0;display:flex;justify-content:space-between;font-family:var(--font-m);font-size:12px;font-weight:500}
+.ph-body{height:700px;overflow-y:auto;position:relative}
+.scroll{padding:10px 18px 90px}
+
+.tabs{position:sticky;bottom:0;background:var(--bg2);border-top:.5px solid var(--border2);display:flex;justify-content:space-around;padding:8px 0 14px}
+.tb{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 12px;color:var(--ink3)}
+.tb.on{color:var(--text)}
+.tb svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.tb.on svg{stroke:var(--teal-d);stroke-width:1.8}
+.tb-lbl{font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase}
+
+.ey{font-size:9px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3)}
+.ey.ac{color:var(--teal-d)}
+
+.card{background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:14px}
+.card2{background:var(--surface2);border:.5px solid var(--border);border-radius:10px;padding:14px}
+.card-warm{background:linear-gradient(180deg,rgba(184,134,11,.1),rgba(184,134,11,.02));border:.5px solid rgba(184,134,11,.28);border-radius:14px}
+.card-teal{background:linear-gradient(180deg,rgba(26,122,94,.12),rgba(26,122,94,.02));border:.5px solid rgba(26,122,94,.3);border-radius:14px}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes heartbeat{0%,20%{transform:scale(1)}10%{transform:scale(1.15)}}
+.scene{animation:fadeUp .28s ease}
+
+/* Week dots */
+.week-dots{display:flex;gap:4px}
+.wd{flex:1;height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;letter-spacing:.08em;color:var(--ink3);background:var(--surface2);border:.5px solid var(--border)}
+.wd.done{background:rgba(26,122,94,.12);border-color:rgba(26,122,94,.35);color:#28B090}
+.wd.miss{opacity:.45}
+.wd.today{border-color:var(--teal-d)}
+
+/* Streak flame */
+.flame-dot{width:8px;height:8px;border-radius:50%;background:#B85C38;animation:heartbeat 2s ease infinite}
+
+.divider{height:.5px;background:var(--border);margin:18px -2px}
+
+/* Live-tila */
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#28B090;animation:heartbeat 2s ease infinite;margin-right:6px}
+.toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:9999;padding:11px 18px;background:rgba(26,122,94,.95);color:#fff;border-radius:22px;font-size:12px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:fadeUp .3s ease}
+</style>
+<script src="tm-bus.js?v=3"></script>
+<script src="tm-demo.js?v=3"></script>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div style="margin-bottom:12px;padding-top:4px">
+    <div style="font-family:var(--font-d);font-weight:500;font-size:22px;color:var(--text)">TalentMaster — Perhe <span style="color:var(--teal-d)">v1</span></div>
+    <div class="hint">Vanhemman näkymä omatoimiseen harjoitteluun. Ikä-tila vaikuttaa sisällön tonaliteettiin ja mitä saa tehdä.</div>
+  </div>
+
+  <!-- Age switcher -->
+  <div class="age-bar">
+    <button class="age-btn on" data-age="u12" onclick="setAge('u12')">U10–U12 · Agentti</button>
+    <button class="age-btn" data-age="u15" onclick="setAge('u15')">U13–U15 · Tuki</button>
+    <button class="age-btn" data-age="u19" onclick="setAge('u19')">U16–U19 · Vieras</button>
+  </div>
+
+  <div class="scene-bar" id="sBar">
+    <button class="sp on" data-s="koti" onclick="go('koti')">Koti</button>
+    <button class="sp" data-s="viikko" onclick="go('viikko')">Viikko</button>
+    <button class="sp" data-s="kirjaa" onclick="go('kirjaa')">Kirjaa (vain U12)</button>
+    <button class="sp" data-s="valmentaja" onclick="go('valmentaja')">Valmentajan viesti</button>
+    <button class="sp" data-s="kortti" onclick="go('kortti')">Kausikortti</button>
+    <button class="sp" data-s="asetukset" onclick="go('asetukset')">Asetukset</button>
+  </div>
+
+  <div class="phone">
+    <div class="ph-status">
+      <span id="clock">9:41</span>
+      <span>● ● ● ▪</span>
+    </div>
+    <div class="ph-body" id="phBody"></div>
+  </div>
+
+</div>
+
+<script>
+/* ════════════════════════════════════════════════
+   IKÄ-ADAPTIIVISUUS
+   U12: Agentti — voi kirjata, lämmin tone, pallopelit
+   U15: Tuki     — näkee, rohkaisee, ei kirjaa
+   U19: Vieras   — viikkokooste, kepeä kieli
+════════════════════════════════════════════════ */
+const IKA = {
+  u12: {
+    nimi:'Eemeli', ika:11, ryhma:'KPV U12 · Sininen',
+    otsikko:(e)=>`${e}:n viikko`,
+    hero: { t:'Eemeli treenasi eilen 45 min', s:'Pihalla Jaakon ja Lauran kanssa. Hyvä fiilis.' },
+    vinkki: 'Pikkuiselle on tänään hyvä päivä levätä. Katso lempeästi, että hän ei treenaa kolmatta päivää putkeen.',
+    kirjaaNakyva: true,
+    valmentaja: 'Hyvä kun Eemeli oli pihalla! Ei välttämätöntä kirjata kaikkea — rentous on tärkeintä tässä iässä.',
+  },
+  u15: {
+    nimi:'Aino', ika:14, ryhma:'KPV U15 · Tytöt',
+    otsikko:(e)=>`${e}:n viikko`,
+    hero: { t:'Aino on ollut aktiivinen', s:'4 treeniä tällä viikolla · kaikki omasta aloitteesta.' },
+    vinkki: 'Nuori alkaa ottaa vastuuta itse. Ei tarvitse kysyä joka päivä — viesti kannattaa säästää viikon lopuksi.',
+    kirjaaNakyva: false,
+    valmentaja: 'Aino teki tällä viikolla vahvaa työtä kaikilla osa-alueilla. Vanhemmalle vinkki: anna hänen hengittää, hän tietää mitä tekee.',
+  },
+  u19: {
+    nimi:'Joonas', ika:17, ryhma:'KPV U19 · Mustat',
+    otsikko:(e)=>`${e}:n kooste`,
+    hero: { t:'Joonas on kehittynyt 6 kk ajan', s:'Stage-matka: 2 → 3. Ammattilaisuuden rakennuttamisen vaihe.' },
+    vinkki: 'Hän on lähes aikuinen pelaaja. Rooli muuttuu: olet läsnä, mutta et ohjaaja. Kuukausikooste riittää — älä häiritse arkea.',
+    kirjaaNakyva: false,
+    valmentaja: 'Joonas on kilpa-uraan kypsymässä. Kommunikoidaan suoraan pelaajan kanssa. Kuukausikooste tulee automaattisesti.',
+  },
+};
+
+let _age='u12';
+let _sc='koti';
+
+function setAge(a){
+  _age=a;
+  document.querySelectorAll('.age-btn').forEach(b=>b.classList.toggle('on',b.dataset.age===a));
+  // kirjaa-tab piilotetaan paitsi u12:lla
+  const kBtn = document.querySelector('[data-s="kirjaa"]');
+  if(kBtn) kBtn.style.display = a==='u12' ? '' : 'none';
+  if(_sc==='kirjaa' && a!=='u12') _sc='koti';
+  draw();
+}
+
+function go(s){
+  if(s==='kirjaa' && _age!=='u12') return;
+  _sc=s;
+  document.querySelectorAll('.sp').forEach(b=>b.classList.toggle('on',b.dataset.s===s));
+  draw();
+}
+
+function ic(name,sz=18,col='currentColor',sw=1.5){
+  const s=`width:${sz}px;height:${sz}px;stroke:${col};stroke-width:${sw};fill:none;stroke-linecap:round;stroke-linejoin:round`;
+  const P={
+    home:`<path d="M3 10L12 3L21 10V20a1 1 0 01-1 1H4a1 1 0 01-1-1Z"/><path d="M9 21V13H15V21"/>`,
+    calendar:`<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>`,
+    users:`<circle cx="9" cy="8" r="3.5"/><path d="M3 21v-1a6 6 0 0112 0v1"/><path d="M16 4a3.5 3.5 0 010 7"/><path d="M21 21v-1a6 6 0 00-4-5.65"/>`,
+    heart:`<path d="M12 21s-7-4.5-7-11a4 4 0 017-2.5A4 4 0 0119 10c0 6.5-7 11-7 11z"/>`,
+    msg:`<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>`,
+    star:`<path d="M12 2L15 9L22 9.5L17 14.5L18.5 21.5L12 17.8L5.5 21.5L7 14.5L2 9.5L9 9Z"/>`,
+    user:`<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0116 0v1"/>`,
+    cog:`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 01-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 01-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 012.8-2.8l.1.1a1.7 1.7 0 001.8.3 1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 012.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8 1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/>`,
+    flame:`<path d="M12 3c2 3 5 5 5 9a5 5 0 01-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z"/>`,
+    check:`<path d="M4 12L10 18L20 6"/>`,
+    edit:`<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 113 3L7 19l-4 1 1-4z"/>`,
+    back:`<path d="M15 5L8 12L15 19"/>`,
+    plus:`<path d="M12 5v14M5 12h14"/>`,
+    bell:`<path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 004 0"/>`,
+  };
+  return `<svg viewBox="0 0 24 24" style="${s}">${P[name]||''}</svg>`;
+}
+
+function draw(){
+  const pb=document.getElementById('phBody');
+  let html='';
+  if(_sc==='koti') html=rKoti();
+  else if(_sc==='viikko') html=rViikko();
+  else if(_sc==='kirjaa') html=rKirjaa();
+  else if(_sc==='valmentaja') html=rValmentaja();
+  else if(_sc==='kortti') html=rKortti();
+  else if(_sc==='asetukset') html=rAsetukset();
+  pb.innerHTML=`<div class="scene">${html}${rTabs()}</div>`;
+}
+
+/* ══ KOTI ══ */
+function _renderLiveFeed(){
+  if(!window.TMBus) return '';
+  const evts=TMBus.getEventsFor(_childId).slice(-5).reverse();
+  if(!evts.length) return '';
+  const fmtTime=(ts)=>{
+    const diff=Date.now()-ts;
+    if(diff<60000) return 'juuri nyt';
+    if(diff<3600000) return Math.floor(diff/60000)+' min sitten';
+    if(diff<86400000) return Math.floor(diff/3600000)+' h sitten';
+    return Math.floor(diff/86400000)+' pv sitten';
+  };
+  return `
+  <div style="margin:14px 0 18px">
+    <div class="ey" style="margin-bottom:10px;display:flex;align-items:center;gap:6px"><span class="live-dot"></span>Viimeisimmät tapahtumat</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${evts.map(e=>{
+        if(e.type==='coach_message'){
+          return `<div style="padding:11px 13px;background:rgba(26,122,94,.08);border-left:2px solid var(--teal);border-radius:6px">
+            <div style="font-size:10px;color:#28B090;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Valmentajalta · ${fmtTime(e.at)}</div>
+            <div style="font-size:12px;color:var(--text);line-height:1.55">${e.text||''}</div>
+          </div>`;
+        }
+        if(e.type==='training'){
+          const src=e.source==='parent'?'Kirjasit':(e.source==='coach'?'Joukkue':'Omatoimi');
+          return `<div style="padding:11px 13px;background:var(--surface);border:.5px solid var(--border2);border-radius:6px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:11px;color:var(--text);font-weight:500">${src} · ${e.tyyppi||'treeni'}</div>
+              <div style="font-size:10px;color:var(--ink3);margin-top:2px">${fmtTime(e.at)}${e.minutes?' · '+e.minutes+' min':''}</div>
+            </div>
+            ${e.fiilis?`<div style="font-size:18px">${['','🤕','😴','😐','😊','💪'][e.fiilis]||'😊'}</div>`:''}
+          </div>`;
+        }
+        if(e.type==='coach_react'){
+          return `<div style="padding:9px 13px;background:rgba(242,239,230,.03);border-radius:6px;font-size:11px;color:var(--ink2)">
+            Valmentaja ${e.emoji||'❤️'} reagoi kirjaukseen · ${fmtTime(e.at)}
+          </div>`;
+        }
+        return '';
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function rKoti(){
+  const d=IKA[_age];
+  // U12: agentti, voi kirjata. U15: tuki. U19: vieras.
+  return `
+<div class="scroll">
+  <!-- Tervehdys -->
+  <div style="padding:16px 4px 10px">
+    <div class="ey" style="margin-bottom:4px"><span class="live-dot"></span>Live · ${d.ryhma.split(' · ')[0]||d.ryhma}</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:30px;line-height:1.1;color:var(--text)">
+      ${d.nimi}:n ${_age==='u19'?'kuukausi':'viikko'}
+    </div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:4px;letter-spacing:.04em">${d.ryhma}</div>
+  </div>
+
+  ${_renderLiveFeed()}
+
+  <!-- Hero (tarina, ei dataa) -->
+  <div class="card-teal" style="padding:18px 18px 20px;margin:14px 0">
+    <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px">
+      <div class="flame-dot"></div>
+      <div class="ey ac">${_age==='u19'?'Kehitys':'Tänään'}</div>
+    </div>
+    <div style="font-family:var(--font-d);font-weight:400;font-size:22px;line-height:1.2;color:var(--text);margin-bottom:8px">
+      ${d.hero.t}
+    </div>
+    <div style="font-size:12px;color:var(--ink2);line-height:1.6">
+      ${d.hero.s}
+    </div>
+  </div>
+
+  ${_age==='u12'?_kotiU12(d):_age==='u15'?_kotiU15(d):_kotiU19(d)}
+
+</div>`;
+}
+
+function _kotiU12(d){
+  return `
+  <!-- Viikko visuaalisesti -->
+  <div style="padding:0 2px;margin-bottom:16px">
+    <div class="ey" style="margin-bottom:10px">Tämä viikko</div>
+    <div class="week-dots">
+      ${['Ma','Ti','Ke','To','Pe','La','Su'].map((p,i)=>{
+        const done=i<4; const today=i===4; const miss=i>=5;
+        return `<div class="wd ${done?'done':''} ${today?'today':''} ${miss?'miss':''}">${p}</div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--ink3);margin-top:8px;text-align:center">
+      4 päivää tehty · tänään levätään
+    </div>
+  </div>
+
+  <!-- Kirjaus-nopeakiinnitys (VAIN U12) -->
+  <button onclick="go('kirjaa')" style="width:100%;padding:14px 18px;background:var(--surface);border:.5px solid var(--border2);border-radius:10px;text-align:left;color:var(--text);display:flex;align-items:center;gap:12px;cursor:pointer">
+    ${ic('plus',20,'#28B090',1.8)}
+    <div style="flex:1">
+      <div style="font-size:12px;font-weight:600;color:var(--text)">Kirjaa Eemelin puolesta</div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:2px">Pihapeli, sovellus ei auki, syntymäpäivä...</div>
+    </div>
+    <div style="color:var(--ink3)">›</div>
+  </button>
+
+  <div class="divider"></div>
+
+  <!-- Valmentajan viesti -->
+  <div style="padding:0 2px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="ey">Valmentajalta</div>
+      <div style="font-size:9px;color:var(--gold);letter-spacing:.14em">Eilen 18:42</div>
+    </div>
+    <div class="card" style="padding:16px">
+      <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px">
+        <div style="width:34px;height:34px;border-radius:50%;background:var(--surface2);border:.5px solid rgba(26,122,94,.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#28B090">MV</div>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text)">Mika Virtanen</div>
+          <div style="font-size:10px;color:var(--ink3)">Päävalmentaja</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text);line-height:1.6;font-style:italic">"${d.valmentaja}"</div>
+      <div style="margin-top:10px;display:flex;gap:6px">
+        <button style="flex:1;padding:8px;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.3);border-radius:6px;color:var(--teal-d);font-size:11px;font-weight:600">👍 Kiitos</button>
+        <button style="flex:1;padding:8px;background:var(--surface2);border:.5px solid var(--border2);border-radius:6px;color:var(--text);font-size:11px;font-weight:600">Vastaa</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Viikon vinkki -->
+  <div class="card-warm" style="padding:16px">
+    <div class="ey" style="color:var(--gold);margin-bottom:8px">Vinkki vanhemmille</div>
+    <div style="font-size:12px;color:var(--text);line-height:1.6">${d.vinkki}</div>
+  </div>
+  `;
+}
+
+function _kotiU15(d){
+  return `
+  <!-- Tarinanäkymä ilman dataa -->
+  <div style="padding:8px 2px 14px">
+    <div class="ey" style="margin-bottom:8px">Mitä viikossa tapahtui</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${[
+        {t:'Maanantai · joukkueharjoitus', s:'Ei loukkauksia. Aino näytti motivoituneelta.', c:'teal'},
+        {t:'Tiistai · omaehtoinen 30 min', s:'Pomputteli ja kuvasi itsensä. Postasi TikTokiin.', c:'teal'},
+        {t:'Keskiviikko · lepo', s:'Koulu ja kavereita. Hyvä niin.', c:'slate'},
+        {t:'Torstai · joukkueharjoitus', s:'Valmentaja kehui asennetta. Kysy, jos hän haluaa kertoa.', c:'teal'},
+        {t:'Perjantai · ei tietoa', s:'Ei kirjausta. Ei syytä huoleen — ei joka päivä tarvitse.', c:'slate'},
+      ].map(r=>`
+        <div style="display:flex;gap:12px;padding:2px 0">
+          <div style="width:3px;background:${r.c==='teal'?'var(--teal)':'rgba(242,239,230,.1)'};border-radius:2px;flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:600;color:var(--text)">${r.t}</div>
+            <div style="font-size:11px;color:var(--ink2);line-height:1.55;margin-top:2px">${r.s}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Rohkaisu-ehdotus -->
+  <div class="card" style="padding:16px">
+    <div class="ey ac" style="margin-bottom:8px">Ehdotus</div>
+    <div style="font-size:13px;color:var(--text);line-height:1.5;margin-bottom:12px">
+      Aino on tehnyt hyvää viikkoa. Pieni viesti voi ilahduttaa — ilman että tuntuu kontrolloinnilta.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${['"Hieno viikko! 💪"','"Näin sun postauksen — hyvää työtä!"','"Haluatko että teen sulle iltapalan?"'].map(v=>`
+        <button style="text-align:left;padding:10px 12px;background:var(--surface2);border:.5px solid var(--border2);border-radius:8px;color:var(--text);font-size:11px;font-style:italic;cursor:pointer">${v}</button>
+      `).join('')}
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Valmentaja -->
+  <div class="card2" style="padding:14px;display:flex;gap:10px;align-items:flex-start">
+    ${ic('msg',16,'#28B090',1.5)}
+    <div style="flex:1">
+      <div style="font-size:10px;color:var(--ink3);margin-bottom:4px">Valmentajalta · tällä viikolla</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.55;font-style:italic">"${d.valmentaja}"</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="card-warm" style="padding:16px">
+    <div class="ey" style="color:var(--gold);margin-bottom:8px">Muistathan</div>
+    <div style="font-size:12px;color:var(--text);line-height:1.6">${d.vinkki}</div>
+  </div>
+  `;
+}
+
+function _kotiU19(d){
+  return `
+  <!-- Pitkä kaari -->
+  <div style="padding:8px 2px 16px">
+    <div class="ey" style="margin-bottom:10px">6 kk kehityskaari</div>
+    <!-- Stage progress bar -->
+    <div style="padding:18px 16px;background:var(--surface);border:.5px solid var(--border);border-radius:10px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--ink3);margin-bottom:10px;letter-spacing:.08em">
+        <span>LEIKKIJÄ</span><span>RAKENTAJA</span><span style="color:var(--teal-d)">SHOWCASE</span><span>AMMATTILAINEN</span>
+      </div>
+      <div style="height:6px;background:var(--surface2);border-radius:3px;position:relative;margin-bottom:12px">
+        <div style="position:absolute;left:0;top:0;height:100%;width:62%;background:linear-gradient(90deg,var(--teal),var(--teal-d));border-radius:3px"></div>
+        <div style="position:absolute;left:62%;top:-4px;width:14px;height:14px;border-radius:50%;background:var(--teal-d);transform:translateX(-50%);box-shadow:0 0 10px rgba(40,176,144,.5)"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text);line-height:1.55">
+        Joonas on rakentaja-vaiheen lopussa, matkalla showcase:en. <span style="color:var(--teal-d)">Noin 8 kk kuluttua</span> hän on valmis vakavaan näyttövaiheeseen.
+      </div>
+    </div>
+  </div>
+
+  <!-- Kuukaudet -->
+  <div style="padding:0 2px 14px">
+    <div class="ey" style="margin-bottom:10px">Kuukaudet</div>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:10px">
+      ${['Mar','Huh','Tou','Kes','Hei','Elo'].map((k,i)=>`
+        <div style="padding:8px 2px;text-align:center;background:${i>=3?'rgba(26,122,94,.12)':'var(--surface2)'};border:.5px solid ${i>=3?'rgba(26,122,94,.3)':'var(--border)'};border-radius:6px">
+          <div style="font-size:9px;color:var(--ink3);letter-spacing:.08em;margin-bottom:2px">${k}</div>
+          <div style="font-size:13px;font-weight:600;color:${i>=3?'#28B090':'var(--ink2)'}">${[12,8,14,18,22,25][i]}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--ink3);text-align:center">Treenikerrat kuukaudessa · omaehtoiset ja joukkue</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Valmentajan linja -->
+  <div class="card" style="padding:18px">
+    <div class="ey ac" style="margin-bottom:10px">Valmentajan linja tällä kaudella</div>
+    <div style="font-size:12px;color:var(--text);line-height:1.6;font-style:italic">"${d.valmentaja}"</div>
+    <div style="margin-top:14px;padding-top:12px;border-top:.5px solid var(--border)">
+      <div style="font-size:10px;color:var(--ink3);line-height:1.55">Kuukausikooste lähetetään automaattisesti sähköpostiin. Halutessasi voit ottaa yhteyttä suoraan valmentajaan.</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="card-warm" style="padding:16px">
+    <div class="ey" style="color:var(--gold);margin-bottom:8px">Roolisi</div>
+    <div style="font-size:12px;color:var(--text);line-height:1.6">${d.vinkki}</div>
+  </div>
+  `;
+}
+
+/* ══ VIIKKO ══ */
+function rViikko(){
+  const d=IKA[_age];
+  return `
+<div class="scroll">
+  <div style="padding:16px 4px 16px">
+    <div class="ey" style="margin-bottom:4px">Viikko 17</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:26px;line-height:1.1;color:var(--text)">
+      Mitä ${d.nimi} teki
+    </div>
+  </div>
+
+  ${[
+    {pvm:'Ma 20.4', tapahtumat:[
+      {aika:'17:30', t:'Joukkueharjoitus', s:'Töölön kenttä · 90 min', tyyppi:'joukkue'},
+    ]},
+    {pvm:'Ti 21.4', tapahtumat:[
+      {aika:'16:42', t:'Omaehtoinen · pihapeli', s:'30 min · 2 kaveria · fiilis 4/5', tyyppi:'oma'},
+    ]},
+    {pvm:'Ke 22.4', tapahtumat:[
+      {aika:'–', t:'Lepopäivä', s:'Ei kirjausta — ja se on ok', tyyppi:'lepo'},
+    ]},
+    {pvm:'To 23.4', tapahtumat:[
+      {aika:'18:00', t:'Joukkueharjoitus', s:'Töölön kenttä · 90 min · ADAR: A4 D3 A4 R4', tyyppi:'joukkue'},
+      {aika:'20:10', t:'Valmentajan viesti', s:'"Hyvä asenne tänään"', tyyppi:'viesti'},
+    ]},
+    {pvm:'Pe 24.4', tapahtumat:[
+      {aika:'Tänään', t:'Ei vielä kirjausta', s:'Normaali — päivää ei ole vielä eletty', tyyppi:'pending'},
+    ]},
+  ].map(p=>`
+    <div style="margin-bottom:20px">
+      <div class="ey" style="margin-bottom:8px;color:${p.pvm.includes('Tänään')?'var(--teal-d)':''}">${p.pvm}</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${p.tapahtumat.map(t=>`
+          <div class="card" style="padding:12px 14px;display:flex;gap:12px">
+            <div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);width:42px;flex-shrink:0;padding-top:1px">${t.aika}</div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:500;color:${t.tyyppi==='lepo'?'var(--ink2)':'var(--text)'};margin-bottom:2px">${t.t}</div>
+              <div style="font-size:11px;color:var(--ink3);line-height:1.5">${t.s}</div>
+            </div>
+            ${t.tyyppi==='oma'?`<div style="color:var(--gold);font-size:14px;flex-shrink:0">★</div>`:''}
+            ${t.tyyppi==='joukkue'?`<div style="color:var(--teal-d);font-size:14px;flex-shrink:0">●</div>`:''}
+            ${t.tyyppi==='viesti'?`<div style="color:var(--ink3);font-size:14px;flex-shrink:0">✉</div>`:''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('')}
+
+  <!-- Yhteenveto -->
+  <div class="card-teal" style="padding:16px;margin-top:10px">
+    <div class="ey ac" style="margin-bottom:8px">Viikon tunne</div>
+    <div style="font-size:13px;color:var(--text);line-height:1.6">
+      Tasapainoinen viikko. 3 tehtyä päivää, 1 lepopäivä, 1 vielä edessä. Ei loukkauksia, valmentajan viesti positiivinen.
+    </div>
+  </div>
+</div>`;
+}
+
+/* ══ KIRJAA (vain U12) ══ */
+let _pTyyppi=null, _pFiilis=null, _pTeksti='';
+function rKirjaa(){
+  const tyypit=[
+    {k:'pihapeli',l:'Pihapeli',s:'Naapureiden kanssa',i:'users'},
+    {k:'uinti',l:'Uintia',s:'Kesällä tai uimahallissa',i:'heart'},
+    {k:'pyora',l:'Pyöräili',s:'Koulumatka tai pidempi',i:'star'},
+    {k:'pallo',l:'Leikkiä pallon kanssa',s:'Jalalla, kädellä, seinään',i:'flame'},
+    {k:'metsa',l:'Metsässä/mäessä',s:'Luova liike',i:'heart'},
+    {k:'muu',l:'Jokin muu',s:'Tanssi, lumilauta, hiihto...',i:'star'},
+  ];
+  const fiilikset=[{k:'vasynyt',e:'😴',l:'Väsynyt'},{k:'iloinen',e:'😊',l:'Iloinen'},{k:'innoissaan',e:'💪',l:'Innoissaan'},{k:'loukkasi',e:'🤕',l:'Loukkasi'}];
+  const valmis = _pTyyppi && _pFiilis;
+  return `
+<div class="scroll">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px 2px 20px">
+    <div>
+      <div class="ey" style="margin-bottom:4px">Vanhempi kirjaa</div>
+      <div style="font-family:var(--font-d);font-weight:300;font-size:26px;line-height:1.1;color:var(--text)">Mitä ${IKA[_age].nimi} teki?</div>
+    </div>
+    <button onclick="go('koti')" style="background:transparent;border:none;color:var(--ink3);font-size:22px;padding:4px 8px">×</button>
+  </div>
+
+  <div style="padding:12px 14px;background:rgba(26,122,94,.08);border-left:2px solid var(--teal);border-radius:6px;margin-bottom:18px">
+    <div style="font-size:11px;color:var(--text);line-height:1.55">
+      Alle 13-vuotiaalla vanhempi voi kirjata puolesta. Valmentaja näkee että sinä kirjaisit, ei lapsi. Se on ok.
+    </div>
+  </div>
+
+  <div class="ey" style="margin-bottom:10px">Mitä teki?</div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px">
+    ${tyypit.map(o=>`
+      <button onclick="_pTyyppi='${o.k}';draw()" style="padding:14px 12px;background:${_pTyyppi===o.k?'rgba(26,122,94,.14)':'var(--surface)'};border:.5px solid ${_pTyyppi===o.k?'rgba(26,122,94,.5)':'var(--border2)'};border-radius:10px;text-align:left;cursor:pointer;color:var(--text);display:flex;flex-direction:column;gap:6px;transition:all .12s">
+        ${ic(o.i,14,_pTyyppi===o.k?'#28B090':'#A8A79F',1.6)}
+        <div style="font-size:12px;font-weight:600">${o.l}</div>
+        <div style="font-size:10px;color:var(--ink3);line-height:1.3">${o.s}</div>
+      </button>
+    `).join('')}
+  </div>
+
+  <div class="ey" style="margin-bottom:10px">Miltä vaikutti?</div>
+  <div style="display:flex;gap:6px;margin-bottom:20px">
+    ${fiilikset.map(f=>`
+      <button onclick="_pFiilis='${f.k}';draw()" style="flex:1;padding:12px 4px;background:${_pFiilis===f.k?'rgba(26,122,94,.14)':'var(--surface)'};border:.5px solid ${_pFiilis===f.k?'rgba(26,122,94,.5)':'var(--border2)'};border-radius:8px;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:all .12s">
+        <div style="font-size:22px">${f.e}</div>
+        <div style="font-size:9px;color:${_pFiilis===f.k?'#28B090':'var(--ink3)'};letter-spacing:.04em">${f.l}</div>
+      </button>
+    `).join('')}
+  </div>
+
+  <div class="ey" style="margin-bottom:10px">Sanasi (valinnainen)</div>
+  <textarea id="pTxt" oninput="_pTeksti=this.value" placeholder="Esim. 'Lähti naapurin luo eikä tullut kotiin 3 tuntiin. Takaisin hikisenä ja tyytyväisenä.'" style="width:100%;min-height:80px;padding:12px;background:var(--surface);border:.5px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:12px;resize:vertical;margin-bottom:24px">${_pTeksti||''}</textarea>
+
+  <button onclick="_perheKirjaa()" ${valmis?'':'disabled'} style="width:100%;padding:14px;background:${valmis?'var(--teal)':'rgba(26,122,94,.2)'};color:var(--text);border:none;border-radius:10px;font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;cursor:${valmis?'pointer':'not-allowed'};opacity:${valmis?'1':'.5'}">
+    Kirjaa ja lähetä valmentajalle
+  </button>
+
+  <div style="margin-top:14px;padding:10px 12px;background:rgba(242,239,230,.03);border-radius:6px;font-size:10px;color:var(--ink3);line-height:1.55;text-align:center">
+    Kirjaus näkyy valmentajan viikkokoosteessa. Streakit lasketaan myös omatoimisesta.
+  </div>
+</div>`;
+}
+
+function _perheKirjaa(){
+  if(!_pTyyppi||!_pFiilis) return;
+  const fiilisMap={vasynyt:2,iloinen:4,innoissaan:5,loukkasi:1};
+  if(window.TMBus){
+    TMBus.publish('training',{
+      playerId: _childId,
+      source: 'parent',
+      tyyppi: _pTyyppi,
+      minutes: 45,
+      fiilis: fiilisMap[_pFiilis]||4,
+      note: _pTeksti||''
+    });
+  }
+  _pTyyppi=null;_pFiilis=null;_pTeksti='';
+  _sc='koti';
+  document.querySelectorAll('.sp').forEach(b=>b.classList.toggle('on',b.dataset.s==='koti'));
+  draw();
+  _toast(`${IKA[_age].nimi}:n treeni kirjattu`);
+}
+
+/* ══ VALMENTAJAN VIESTI ══ */
+function rValmentaja(){
+  const d=IKA[_age];
+  return `
+<div class="scroll">
+  <div style="padding:14px 2px 18px">
+    <div class="ey" style="margin-bottom:4px">Viestit</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:26px;line-height:1.1;color:var(--text)">Valmentajalta</div>
+  </div>
+
+  <!-- Uusin viesti -->
+  <div class="card" style="padding:18px;margin-bottom:14px">
+    <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+      <div style="width:42px;height:42px;border-radius:50%;background:var(--surface2);border:.5px solid rgba(26,122,94,.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#28B090;flex-shrink:0">MV</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">Mika Virtanen</div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:1px">Päävalmentaja · ${d.ryhma}</div>
+      </div>
+      <div style="font-size:10px;color:var(--ink3)">Eilen</div>
+    </div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:18px;line-height:1.35;color:var(--text);font-style:italic">
+      "${d.valmentaja}"
+    </div>
+    <div style="margin-top:16px;padding-top:14px;border-top:.5px solid var(--border);display:flex;gap:8px">
+      <button style="flex:1;padding:10px;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.3);border-radius:8px;color:var(--teal-d);font-size:11px;font-weight:600">👍 Kiitos viestistä</button>
+      <button style="padding:10px 14px;background:var(--surface2);border:.5px solid var(--border2);border-radius:8px;color:var(--text);font-size:11px;font-weight:600">Vastaa</button>
+    </div>
+  </div>
+
+  <!-- Aikaisemmat -->
+  <div class="ey" style="margin:16px 2px 8px">Aikaisemmat</div>
+  ${[
+    {pvm:'Vk 16', sisalto:'Hyvä viikko. Pelaaja osallistuu aktiivisesti joukkueharjoituksiin ja on löytänyt oman paikkansa ryhmässä.'},
+    {pvm:'Vk 15', sisalto:'Pientä nihkeyttä — ehkä kausi on pitkä ja väsyttää. Lepo tulee tarpeeseen.'},
+    {pvm:'Vk 14', sisalto:'ADAR-havainnot kehittyneet: toiminta nopeampaa ja rohkeampaa. Hyvä suunta.'},
+  ].map(v=>`
+    <div class="card2" style="padding:14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <div style="font-size:10px;color:var(--teal-d);letter-spacing:.14em;font-weight:600">${v.pvm}</div>
+        <div style="font-size:10px;color:var(--ink3)">›</div>
+      </div>
+      <div style="font-size:12px;color:var(--ink2);line-height:1.55">${v.sisalto}</div>
+    </div>
+  `).join('')}
+
+  <!-- Tieto -->
+  <div style="margin-top:18px;padding:12px 14px;background:rgba(242,239,230,.03);border-radius:8px;font-size:10px;color:var(--ink3);line-height:1.55">
+    ${_age==='u19'?'Kuukausikooste lähetetään lisäksi sähköpostilla. Pelaaja-valmentaja-kommunikaatio kulkee suoraan ilman välikäsiä.':'Jos haluat keskustella jostain konkreettisesta, ota yhteyttä suoraan — älä kommentoi lapselle.'}
+  </div>
+</div>`;
+}
+
+/* ══ KAUSIKORTTI ══ */
+function rKortti(){
+  const d=IKA[_age];
+  return `
+<div class="scroll">
+  <div style="padding:14px 2px 14px;text-align:center">
+    <div class="ey ac" style="margin-bottom:6px">Kausi 2025/26</div>
+    <div style="font-family:var(--font-d);font-weight:400;font-size:26px;line-height:1.1;color:var(--text)">${d.nimi}:n matka</div>
+  </div>
+
+  <!-- Iso kortti -->
+  <div style="position:relative;padding:24px 20px 20px;background:linear-gradient(135deg,#1a2f25,#0d1912);border:.5px solid rgba(184,134,11,.35);border-radius:16px;overflow:hidden;margin-bottom:16px">
+    <div style="position:absolute;top:-40px;right:-30px;width:160px;height:160px;background:radial-gradient(circle,rgba(184,134,11,.2),transparent 70%);border-radius:50%;pointer-events:none"></div>
+    
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div class="ey" style="color:rgba(184,134,11,.8);margin-bottom:3px">Kausipassi</div>
+        <div style="font-family:var(--font-d);font-weight:500;font-size:22px;color:var(--text);line-height:1">${d.nimi}</div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:4px;letter-spacing:.06em">${d.ryhma} · #${_age==='u12'?'7':_age==='u15'?'11':'9'}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:var(--font-d);font-weight:300;font-size:44px;color:var(--gold);line-height:1">${_age==='u12'?'82':_age==='u15'?'87':'91'}</div>
+        <div class="ey" style="color:rgba(184,134,11,.8)">Kortti</div>
+      </div>
+    </div>
+
+    <div class="divider" style="background:rgba(184,134,11,.2);margin:16px 0"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+      ${[
+        {l:'Streak',v:_age==='u12'?'14':_age==='u15'?'23':'47',u:'pv'},
+        {l:'Treenejä',v:_age==='u12'?'38':_age==='u15'?'52':'124',u:'kausi'},
+        {l:'Stage',v:_age==='u12'?'Leikkijä':_age==='u15'?'Rakentaja':'Showcase',u:''},
+      ].map(s=>`
+        <div>
+          <div class="ey" style="color:rgba(184,134,11,.6);font-size:8px;margin-bottom:2px">${s.l}</div>
+          <div style="font-family:var(--font-d);font-size:18px;color:var(--text);font-weight:400;line-height:1">${s.v}</div>
+          ${s.u?`<div style="font-size:9px;color:var(--ink3);margin-top:1px">${s.u}</div>`:''}
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- Signaalit -->
+    ${_age!=='u12'?`
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <div style="padding:4px 10px;background:rgba(26,122,94,.15);border:.5px solid rgba(26,122,94,.35);border-radius:12px;font-size:9px;font-weight:600;color:#28B090;letter-spacing:.1em">★ X-FACTOR</div>
+      ${_age==='u19'?`<div style="padding:4px 10px;background:rgba(184,134,11,.15);border:.5px solid rgba(184,134,11,.35);border-radius:12px;font-size:9px;font-weight:600;color:var(--gold);letter-spacing:.1em">◆ GEM</div>`:''}
+    </div>`:''}
+  </div>
+
+  <!-- Sanasto -->
+  <div class="card2" style="padding:14px;margin-bottom:12px">
+    <div class="ey ac" style="margin-bottom:8px">Mitä tarkoittaa?</div>
+    <div style="font-size:11px;color:var(--ink2);line-height:1.65">
+      <strong style="color:var(--text)">Kortti 0–99</strong> kuvaa pelaajan kokonaiskehitystä. Ei ole "arvosana" vaan matka — numero nousee luonnollisesti iän ja harjoittelun myötä.<br><br>
+      <strong style="color:var(--text)">Stage</strong> on pelaajan kasvuvaihe: leikkijä (U8–U12) → rakentaja (U13–U15) → showcase (U16–U17) → ammattilainen (U18+).
+    </div>
+  </div>
+
+  <!-- Jakaminen -->
+  <div class="card" style="padding:14px;display:flex;gap:10px;align-items:center">
+    ${ic('star',18,'#B8860B',1.6)}
+    <div style="flex:1">
+      <div style="font-size:12px;font-weight:600;color:var(--text)">Jaa ${d.nimi}:n kortti</div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:2px">Isovanhemmille, kummitädille...</div>
+    </div>
+    <button style="padding:8px 14px;background:rgba(184,134,11,.1);border:.5px solid rgba(184,134,11,.3);border-radius:6px;color:var(--gold);font-size:10px;font-weight:600;letter-spacing:.1em">JAA</button>
+  </div>
+</div>`;
+}
+
+/* ══ ASETUKSET ══ */
+function rAsetukset(){
+  const d=IKA[_age];
+  return `
+<div class="scroll">
+  <div style="padding:14px 2px 18px">
+    <div class="ey" style="margin-bottom:4px">Asetukset</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:26px;line-height:1.1;color:var(--text)">Mitä näen ja miten</div>
+  </div>
+
+  <!-- Profiili -->
+  <div class="card" style="padding:16px;margin-bottom:14px;display:flex;gap:14px;align-items:center">
+    <div style="width:48px;height:48px;border-radius:50%;background:var(--surface2);border:.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--ink2)">P</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:var(--text)">Petri Kinnunen</div>
+      <div style="font-size:11px;color:var(--ink3)">${d.nimi}:n huoltaja</div>
+    </div>
+    ${ic('edit',16,'#8BA0BC',1.5)}
+  </div>
+
+  <!-- Ikä-säätö -->
+  <div class="ey" style="margin:16px 2px 10px">Lapsen ikäryhmä · vaikuttaa näkymään</div>
+  <div class="card2" style="padding:16px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${d.nimi} · ${d.ika} v</div>
+        <div style="font-size:10px;color:var(--ink3)">${_age==='u12'?'Agentti — voit kirjata puolesta':_age==='u15'?'Tuki — näet kaiken, et kirjaa':'Vieras — kuukausikooste'}</div>
+      </div>
+      <div class="ey ac">${_age.toUpperCase()}</div>
+    </div>
+    <div style="font-size:10px;color:var(--ink3);line-height:1.55;padding:10px;background:rgba(242,239,230,.02);border-radius:6px">
+      ${_age==='u12'?'Alle 13-vuotiaalla GDPR edellyttää huoltajan roolia. Saat näkyvyyden kaikkeen ja voit kirjata puolesta.':_age==='u15'?'Nuori ottaa vastuuta. Sinä tuet — et hallitse. Aino voi halutessaan piilottaa yksityiskohtia.':'Joonas hallitsee omaa dataansa. Sinulle lähtee viikottainen/kuukausittainen kooste — ei reaaliaikaa.'}
+    </div>
+  </div>
+
+  <!-- Ilmoitukset -->
+  <div class="ey" style="margin:16px 2px 10px">Ilmoitukset</div>
+  <div class="card2" style="padding:4px 0;margin-bottom:14px">
+    ${[
+      {l:'Valmentajan viesti', s:'Heti kun saapuu', on:true, d:'u12 u15 u19'},
+      {l:'Päivittäinen kirjaus', s:'Muistutus illalla 20:30', on:_age==='u12', d:'u12'},
+      {l:'Viikkokooste', s:'Sunnuntaina klo 18', on:true, d:'u12 u15 u19'},
+      {l:'Kuukausikooste sähköpostilla', s:'Ensimmäinen pv', on:_age==='u19', d:'u19'},
+      {l:'Loukkaantuminen', s:'Heti kun valmentaja kirjaa', on:true, d:'u12 u15 u19'},
+    ].filter(x=>x.d.includes(_age)).map(o=>`
+      <div style="padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:.5px solid var(--border)">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:500;color:var(--text)">${o.l}</div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:1px">${o.s}</div>
+        </div>
+        <div style="width:36px;height:20px;background:${o.on?'var(--teal)':'var(--surface2)'};border-radius:10px;position:relative;cursor:pointer">
+          <div style="position:absolute;top:2px;${o.on?'right:2px':'left:2px'};width:16px;height:16px;background:var(--text);border-radius:50%;transition:all .2s"></div>
+        </div>
+      </div>
+    `).join('')}
+  </div>
+
+  <!-- Yksityisyys -->
+  <div class="ey" style="margin:16px 2px 10px">Yksityisyys</div>
+  <div class="card2" style="padding:16px;margin-bottom:14px">
+    <div style="font-size:12px;color:var(--text);font-weight:500;margin-bottom:6px">${d.nimi} hallitsee dataa</div>
+    <div style="font-size:11px;color:var(--ink3);line-height:1.55">
+      ${_age==='u12'?'Alaikäisen tietoja käsittelet sinä. Oikeus korjata tai poistaa kuuluu teille molemmille.':_age==='u15'?'Yli 13-vuotiaalla on lain mukaan oma tietosuojaoikeus. Aino voi piilottaa sinulta asioita, jotka ovat hänestä henkilökohtaisia.':'Joonas on täysi-ikäistymässä. Hän päättää mitä jaetaan vanhemmille, seuralle ja ulkopuolisille. Tietoja ei jaeta ilman hänen lupaansa.'}
+    </div>
+    <button style="margin-top:12px;width:100%;padding:10px;background:transparent;border:.5px solid var(--border2);border-radius:8px;color:var(--ink2);font-size:11px;font-weight:500;cursor:pointer">Lue GDPR-selvitys</button>
+  </div>
+
+  <!-- Kirjaudu ulos -->
+  <button style="width:100%;padding:12px;background:transparent;border:.5px solid rgba(184,92,56,.3);border-radius:8px;color:var(--fire);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;cursor:pointer">Kirjaudu ulos</button>
+
+  <div style="margin-top:14px;text-align:center;font-size:9px;color:var(--ink3);letter-spacing:.04em">
+    TalentMaster — Perhe v1 · ${_age.toUpperCase()}
+  </div>
+</div>`;
+}
+
+/* ══ TABS ══ */
+function rTabs(){
+  const tbs=[
+    {id:'koti',l:'Koti',i:'home'},
+    {id:'viikko',l:'Viikko',i:'calendar'},
+    {id:'valmentaja',l:'Viestit',i:'msg'},
+    {id:'kortti',l:'Kortti',i:'star'},
+    {id:'asetukset',l:'Asetukset',i:'cog'},
+  ];
+  return `<nav class="tabs">${tbs.map(t=>`
+    <button class="tb${_sc===t.id?' on':''}" onclick="go('${t.id}')">
+      ${ic(t.i,19,_sc===t.id?'#28B090':'#8BA0BC',_sc===t.id?1.8:1.4)}
+      <span class="tb-lbl">${t.l}</span>
+    </button>
+  `).join('')}</nav>`;
+}
+
+// Init — linkitä TMBus
+let _childId = 'eemeli';
+try{
+  const u=new URL(location.href);
+  const pid=u.searchParams.get('pid');
+  if(pid) _childId=pid;
+  // age-band TMBus-pelaajasta
+  if(window.TMBus){
+    const p=TMBus.getPlayer(_childId);
+    if(p){
+      _age = p.ageBand; // u12/u15/u19
+      // Päivitä IKA-objektin nimet ja ryhmät vastaamaan oikeaa lasta
+      IKA[p.ageBand].nimi = p.name.split(' ')[0];
+      IKA[p.ageBand].ryhma = TMBus.getTeam().name + ' · #'+p.num;
+      document.querySelectorAll('.age-btn').forEach(b=>b.classList.toggle('on',b.dataset.age===_age));
+      // Piilota kirjaa jos ei U12
+      const kBtn=document.querySelector('[data-s="kirjaa"]');
+      if(kBtn) kBtn.style.display = _age==='u12'?'':'none';
+    }
+  }
+}catch(e){}
+
+draw();
+
+// TMBus subscribe — valmentajan viestit ja reagoinnit
+if(window.TMBus){
+  TMBus.subscribe((msg)=>{
+    if(!msg || msg.kind!=='event' || !msg.evt) return;
+    const evt=msg.evt;
+    if(evt.playerId!==_childId) return;
+    if(evt.type==='coach_message' && (evt.channel==='family'||evt.channel==='player')){
+      _toast('Valmentajalta uusi viesti');
+    } else if(evt.type==='coach_react'){
+      _toast(`Valmentaja ${evt.emoji||'❤️'} reagoi`);
+    } else if(evt.type==='training' && evt.source!=='parent'){
+      _toast(`${IKA[_age].nimi} kirjasi treenin`);
+    }
+    // Uudelleenrenderöi aktiivinen näkymä
+    draw();
+  });
+}
+
+function _toast(text){
+  const el=document.createElement('div');
+  el.className='toast';
+  el.textContent=text;
+  document.body.appendChild(el);
+  setTimeout(()=>el.style.opacity='0',3000);
+  setTimeout(()=>el.remove(),3500);
+}
+
+// Clock
+setInterval(()=>{
+  const d=new Date();
+  const h=String(d.getHours()).padStart(2,'0');
+  const m=String(d.getMinutes()).padStart(2,'0');
+  const el=document.getElementById('clock');
+  if(el) el.textContent=`${h}:${m}`;
+}, 1000);
+</script>
+</body>
+</html>

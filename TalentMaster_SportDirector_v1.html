@@ -1,0 +1,976 @@
+<!doctype html>
+<html lang="fi" data-screen-label="Sport Director v1 — Tuotanto">
+<head>
+<meta charset="utf-8">
+<title>TalentMaster · Sport Director (tuotanto v1)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2EFE6;--bg-2:#E8E3D4;--paper:#FAFAF7;--ink:#1C1C1A;
+  --ink-2:rgba(28,28,26,.62);--ink-3:rgba(28,28,26,.40);
+  --line:rgba(28,28,26,.14);--line-2:rgba(28,28,26,.08);
+  --teal:#1A7A5E;--teal-bg:rgba(26,122,94,.10);
+  --amber:#A06A1A;--amber-bg:rgba(160,106,26,.10);
+  --red:#B24A3C;--red-bg:rgba(178,74,60,.10);
+  --plum:#6B4A7A;--plum-bg:rgba(107,74,122,.10);
+  --serif:'Cormorant Garamond',serif;
+  --mono:'DM Mono',ui-monospace,monospace;
+  --sans:'DM Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;padding:0}
+em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--teal)}
+b{font-weight:500}
+a{color:var(--ink);text-underline-offset:3px}
+
+/* Topbar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 36px;background:var(--paper);border-bottom:1px solid var(--line)}
+.brand{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase}
+.brand em{letter-spacing:0;font-size:13px}
+.crumbs{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);display:flex;gap:10px;align-items:center}
+.crumbs b{color:var(--ink);font-weight:500}
+.user{display:flex;align-items:center;gap:10px;padding:6px 14px;background:var(--bg);border:1px solid var(--line);border-radius:24px;font-size:11px;color:var(--ink-2)}
+.user .ava{width:24px;height:24px;border-radius:50%;background:var(--plum);color:var(--paper);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px}
+.user b{color:var(--ink)}
+
+/* Filter bar */
+.filterbar{display:flex;flex-wrap:wrap;gap:20px;align-items:center;padding:14px 36px;background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
+.fset{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.fset-l{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-right:4px}
+.chip{padding:5px 12px;background:var(--paper);border:1px solid var(--line);border-radius:18px;font-size:11px;cursor:pointer;color:var(--ink);transition:.12s}
+.chip:hover{background:var(--bg)}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip-clear{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);text-decoration:underline;text-underline-offset:3px}
+.chip-clear:hover{color:var(--ink)}
+.crossfilter{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--teal);display:none;align-items:center;gap:8px}
+.crossfilter.on{display:flex}
+.crossfilter button{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--ink-3);text-decoration:underline;text-underline-offset:3px}
+
+/* Hero */
+.hero{padding:36px 36px 8px;max-width:1700px;margin:0 auto}
+.kicker{font-family:var(--mono);font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--ink-3);margin-bottom:12px}
+.h1{font-family:var(--serif);font-size:46px;font-weight:300;letter-spacing:-.015em;line-height:1.02;max-width:1000px;margin:0 0 12px}
+.h1-sub{color:var(--ink-2);font-size:14px;max-width:820px;line-height:1.65;margin-bottom:24px}
+.h1-sub em{font-size:15px}
+
+.wrap{max-width:1700px;margin:0 auto;padding:0 36px 96px}
+
+/* KPI strip — 5 päätunnusluvut */
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);background:var(--paper);border:1px solid var(--line);margin-bottom:24px}
+.kpi{padding:22px 24px;border-right:1px solid var(--line-2);position:relative;cursor:pointer;transition:background .12s}
+.kpi:last-child{border-right:none}
+.kpi:hover{background:#fff}
+.kpi-lbl{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-bottom:14px}
+.kpi-val{font-family:var(--serif);font-size:46px;font-weight:300;line-height:1;letter-spacing:-.015em}
+.kpi-val .u{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-left:6px;letter-spacing:.1em}
+.kpi-val .stars{color:var(--amber);font-size:30px}
+.kpi-trend{margin-top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--ink-2)}
+.kpi-trend.up{color:var(--teal)}
+.kpi-trend.warn{color:var(--amber)}
+.kpi-trend.down{color:var(--red)}
+
+/* Brand voice strap */
+.voice{font-family:var(--serif);font-style:italic;font-size:18px;color:var(--ink-2);text-align:center;padding:18px 0 30px;border-bottom:1px solid var(--line-2);margin-bottom:32px}
+.voice em{color:var(--teal)}
+
+/* 5D-pulssi-strippi (vakio kaikille seuroille — KV-yhteensopiva) */
+.fived-wrap{margin-bottom:28px}
+.fived-head{display:flex;align-items:baseline;justify-content:space-between;gap:24px;padding:0 0 12px;border-bottom:1px solid var(--line-2);margin-bottom:14px}
+.fived-h{font-family:var(--serif);font-size:24px;font-weight:300;letter-spacing:-.005em;line-height:1;margin:0}
+.fived-tag{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
+.canon-banner{display:flex;align-items:center;gap:14px;padding:11px 16px;background:var(--bg);border-left:2px solid var(--teal);margin-bottom:14px}
+.canon-banner .pill{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);background:var(--teal-bg);padding:3px 9px;border-radius:10px;flex-shrink:0}
+.canon-banner .txt{font-size:12px;color:var(--ink-2);line-height:1.55}
+.canon-banner .txt b{color:var(--ink);font-weight:500}
+.canon-banner .txt em{font-style:italic;color:var(--teal)}
+.fived{display:grid;grid-template-columns:repeat(5,1fr);background:var(--line-2);gap:1px;border:1px solid var(--line)}
+.fd{background:var(--paper);padding:20px 18px 18px;position:relative;cursor:pointer;transition:background .14s}
+.fd:hover{background:#fff}
+.fd-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.fd-name{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink)}
+.fd-info{width:18px;height:18px;border-radius:50%;border:1px solid var(--line);color:var(--ink-3);display:flex;align-items:center;justify-content:center;font-size:11px;font-style:italic;font-family:var(--serif);font-weight:400;line-height:1}
+.fd:hover .fd-info{border-color:var(--teal);color:var(--teal)}
+.fd-val{font-family:var(--serif);font-size:42px;font-weight:300;line-height:1;letter-spacing:-.015em}
+.fd-val .pp{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-left:4px;letter-spacing:.06em}
+.fd-trend{margin-top:6px;font-family:var(--mono);font-size:10px;color:var(--ink-2);letter-spacing:.04em}
+.fd-trend.up{color:var(--teal)}
+.fd-trend.warn{color:var(--amber)}
+.fd-trend.down{color:var(--red)}
+.fd-bar{margin-top:12px;height:4px;background:var(--bg-2);position:relative}
+.fd-bar > .fill{position:absolute;left:0;top:0;bottom:0;background:var(--teal)}
+.fd-bar > .fill.amber{background:var(--amber)}
+.fd-bar > .fill.beta{background:var(--plum)}
+.fd-bar > .norm{position:absolute;top:-3px;bottom:-3px;width:1.5px;background:var(--ink);opacity:.7}
+.fd-norm-lbl{font-family:var(--mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-top:6px;display:flex;justify-content:space-between}
+.fd.beta{background:repeating-linear-gradient(45deg,var(--paper),var(--paper) 8px,#F5F1E4 8px,#F5F1E4 9px)}
+.fd-beta{position:absolute;top:14px;right:14px;font-family:var(--mono);font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--plum);background:var(--plum-bg);padding:2px 6px;border-radius:8px}
+
+/* Panel grid */
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:1240px){.panels{grid-template-columns:1fr}}
+.pn{background:var(--paper);border:1px solid var(--line);transition:opacity .15s,filter .15s}
+.pn.dim{opacity:.32;filter:saturate(.4)}
+.pn.full{grid-column:1/-1}
+.pn-head{padding:18px 22px;background:var(--bg);border-bottom:1px solid var(--line-2);display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.pn-num{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--ink-3)}
+.pn-title{font-family:var(--serif);font-size:24px;font-weight:300;margin:4px 0 4px;line-height:1.15;letter-spacing:-.005em}
+.pn-sub{font-size:12px;color:var(--ink-2);line-height:1.5;max-width:520px}
+.pn-meta{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);text-align:right;white-space:nowrap}
+.pn-meta .drill{display:block;margin-top:6px;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.pn-body{padding:18px 22px}
+.pn-body .note{font-family:var(--serif);font-style:italic;font-size:13px;color:var(--ink-2);margin-top:10px;line-height:1.55}
+.pn-body .note em{font-style:italic}
+
+/* Pipeline flow */
+.flow{display:flex;gap:0;align-items:flex-end;height:120px;margin:8px 0 28px;padding-bottom:22px;position:relative}
+.flow .stage{flex:1;background:var(--ink-3);position:relative;min-width:0;border-right:2px solid var(--paper);cursor:pointer;transition:background .12s}
+.flow .stage:hover{background:var(--ink)}
+.flow .stage:last-child{border-right:none;background:var(--teal)}
+.flow .stage:last-child:hover{background:#0e5a44}
+.flow .stage .ct{position:absolute;top:-26px;left:0;right:0;text-align:center;font-family:var(--serif);font-size:22px;color:var(--ink);font-weight:300}
+.flow .stage .lbl{position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--ink-2);text-transform:uppercase}
+.flow .stage .conv{position:absolute;top:-44px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;color:var(--ink-3)}
+
+/* Mini KPI */
+.mini-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line-2);margin-bottom:12px}
+.mini-kpi>div{background:var(--paper);padding:10px 12px}
+.mini-kpi .l{font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+.mini-kpi .v{font-family:var(--serif);font-size:24px;font-weight:300;line-height:1;margin-top:6px}
+.mini-kpi .t{font-family:var(--mono);font-size:9.5px;color:var(--teal);margin-top:4px}
+.mini-kpi .t.warn{color:var(--amber)}
+.mini-kpi .t.down{color:var(--red)}
+
+/* Bar rows (player list / categories) */
+.bar-rows{font-size:11.5px}
+.row-pl{display:grid;grid-template-columns:120px 1fr 70px 70px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-2);cursor:pointer;transition:background .1s}
+.row-pl:hover{background:var(--bg)}
+.row-pl:last-child{border-bottom:none}
+.row-pl .nm{font-family:var(--serif);font-size:15px;line-height:1.1}
+.row-pl .nm .pos{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--ink-3);margin-top:3px;text-transform:uppercase}
+.row-pl .b{height:6px;background:var(--bg-2);position:relative}
+.row-pl .b .f{position:absolute;left:0;top:0;bottom:0;background:var(--ink)}
+.row-pl .b .f.t{background:var(--teal)}
+.row-pl .b .f.a{background:var(--amber)}
+.row-pl .b .f.r{background:var(--red)}
+.row-pl .b .ref{position:absolute;top:-3px;bottom:-3px;width:1.5px;background:var(--ink-3)}
+.row-pl .v{font-family:var(--serif);font-size:18px;text-align:right;font-weight:300}
+.row-pl .age{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);text-align:right;letter-spacing:.08em;text-transform:uppercase}
+
+.row-cat{display:grid;grid-template-columns:140px 1fr 50px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line-2)}
+.row-cat:last-child{border-bottom:none}
+.row-cat .nm{font-family:var(--serif);font-size:15px}
+.row-cat .b{height:6px;background:var(--bg-2);position:relative}
+.row-cat .b .f{position:absolute;left:0;top:0;bottom:0;background:var(--ink)}
+.row-cat .b .f.t{background:var(--teal)}
+.row-cat .b .f.a{background:var(--amber)}
+.row-cat .b .f.r{background:var(--red)}
+.row-cat .b .ref{position:absolute;top:-3px;bottom:-3px;width:1.5px;background:var(--ink-3)}
+.row-cat .v{font-family:var(--mono);font-size:11px;color:var(--ink-2);text-align:right}
+
+/* Heatmap (load) */
+.heat{display:grid;gap:1px;background:var(--line-2);font-family:var(--mono);font-size:9.5px}
+.heat .h-cell{background:var(--paper);padding:7px 5px;text-align:center;cursor:pointer}
+.heat .h-cell.lbl{text-align:left;padding-left:10px;color:var(--ink);background:var(--bg);font-weight:500;cursor:default}
+.heat .h-cell.h0{background:#F2EFE6;color:var(--ink-3)}
+.heat .h-cell.h1{background:#D9DEC0;color:var(--ink)}
+.heat .h-cell.h2{background:#7FA68C;color:var(--paper)}
+.heat .h-cell.h3{background:var(--teal);color:var(--paper)}
+.heat .h-cell.warn{background:var(--amber-bg);color:var(--amber)}
+.heat .h-cell.red{background:var(--red-bg);color:var(--red)}
+.heat .h-cell.head{background:var(--bg);color:var(--ink-3);font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;cursor:default}
+
+/* TM-arvo / siirtoputki */
+.bar-year{display:grid;grid-template-columns:60px 1fr 60px;gap:10px;align-items:center;padding:5px 0;font-size:11px;border-bottom:1px solid var(--line-2)}
+.bar-year:last-child{border-bottom:none}
+.bar-year .y{font-family:var(--mono);font-size:10px;letter-spacing:.1em}
+.bar-year .b{height:14px;background:var(--bg-2);position:relative}
+.bar-year .b .f{position:absolute;left:0;top:0;bottom:0;background:var(--ink)}
+.bar-year .b .f.t{background:var(--teal)}
+.bar-year .v{font-family:var(--serif);font-size:14px;text-align:right;font-weight:300}
+
+/* Sertifiointi categories — riveiksi muutettu */
+.cert-rows{margin-bottom:8px}
+
+/* National team callouts */
+.mj-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line-2);margin-bottom:10px}
+.mj-grid>div{background:var(--paper);padding:14px 12px;text-align:center;cursor:pointer;transition:background .12s}
+.mj-grid>div:hover{background:var(--bg)}
+.mj-grid .age-l{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--ink-3);text-transform:uppercase}
+.mj-grid .age-v{font-family:var(--serif);font-size:32px;line-height:1;margin:8px 0 4px;font-weight:300}
+.mj-grid .age-t{font-family:var(--mono);font-size:9px;color:var(--teal);letter-spacing:.04em}
+.mj-grid .age-t.warn{color:var(--amber)}
+.mj-grid .age-t.down{color:var(--red)}
+
+/* KV table */
+.kv{margin-top:14px;padding-top:14px;border-top:1px solid var(--line-2)}
+.kv-l{font-family:var(--mono);font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.kv-l .ct{color:var(--ink-3)}
+.kv table{width:100%;border-collapse:collapse;font-size:11.5px}
+.kv th{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);font-weight:500;text-align:left;padding:7px 10px 7px 0;width:140px;vertical-align:top;border-bottom:1px solid var(--line-2)}
+.kv td{padding:7px 0;line-height:1.55;color:var(--ink-2);vertical-align:top;border-bottom:1px solid var(--line-2)}
+.kv td b{color:var(--ink)}
+.kv td em{font-style:italic;font-family:var(--serif);color:var(--teal);font-size:13px}
+.kv td .src{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--ink-3);margin-top:4px;text-transform:uppercase}
+.kv tr:last-child th,.kv tr:last-child td{border-bottom:none}
+
+/* Drill-down modal */
+.modal-bg{position:fixed;inset:0;background:rgba(28,28,26,.55);display:none;align-items:flex-start;justify-content:center;z-index:120;padding:6vh 20px;overflow-y:auto}
+.modal-bg.on{display:flex}
+.modal{background:var(--paper);border:1px solid var(--line);width:min(820px,96vw);padding:34px 38px 30px;position:relative}
+.modal-x{position:absolute;top:18px;right:24px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--ink-3);cursor:pointer}
+.modal-x:hover{color:var(--ink)}
+.modal h2{font-family:var(--serif);font-size:34px;font-weight:300;margin:0 0 4px;letter-spacing:-.01em}
+.modal-sub{color:var(--ink-2);font-size:13px;margin-bottom:22px}
+.modal h3{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin:24px 0 12px;font-weight:500}
+.modal h3:first-of-type{margin-top:0}
+.modal-section{margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--line-2)}
+.modal-section:last-child{border-bottom:none}
+.fived-mini{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line-2);border:1px solid var(--line)}
+.fived-mini>div{background:var(--paper);padding:12px 12px;position:relative}
+.fived-mini .n{font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase}
+.fived-mini .v{font-family:var(--serif);font-size:24px;font-weight:300;line-height:1;margin-top:8px}
+.fived-mini .b{margin-top:6px;height:3px;background:var(--bg-2);position:relative}
+.fived-mini .b .f{position:absolute;left:0;top:0;bottom:0;background:var(--teal)}
+.fived-mini .b .ref{position:absolute;top:-2px;bottom:-2px;width:1.5px;background:var(--ink-3)}
+.fived-mini.beta-mark > .beta{background:repeating-linear-gradient(45deg,var(--paper),var(--paper) 6px,#F5F1E4 6px,#F5F1E4 7px)}
+.fived-mini .beta-tag{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:8px;letter-spacing:.16em;background:var(--plum-bg);color:var(--plum);padding:2px 6px;border-radius:8px}
+
+.idp-list{display:flex;flex-direction:column;gap:8px}
+.idp-list .it{display:grid;grid-template-columns:90px 1fr 50px;gap:12px;padding:10px 12px;background:var(--bg);border-left:2px solid var(--teal);align-items:center}
+.idp-list .it .tag{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase}
+.idp-list .it .tx{font-size:12.5px;line-height:1.45}
+.idp-list .it .tx b{font-weight:500}
+.idp-list .it .pct{font-family:var(--serif);font-size:18px;text-align:right;font-weight:300}
+
+.timeline{display:flex;gap:0;align-items:center;font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink-2)}
+.timeline .ev{flex:1;text-align:center;position:relative;padding:14px 4px}
+.timeline .ev::before{content:'';position:absolute;left:0;right:0;top:6px;height:1px;background:var(--line)}
+.timeline .ev::after{content:'';position:absolute;left:50%;top:1px;width:11px;height:11px;border-radius:50%;background:var(--paper);border:2px solid var(--ink-3);transform:translateX(-50%)}
+.timeline .ev.now::after{background:var(--teal);border-color:var(--teal)}
+.timeline .ev .y{display:block;color:var(--ink);font-size:11px;margin-bottom:4px;font-family:var(--serif);font-weight:400}
+.timeline .ev .t{display:block;font-size:9.5px;letter-spacing:.06em}
+
+/* Tooltip (5D & KV-source) */
+.tt-bg{position:fixed;inset:0;background:rgba(28,28,26,.5);display:none;align-items:flex-start;justify-content:center;z-index:140;padding-top:10vh}
+.tt-bg.on{display:flex}
+.tt{background:var(--paper);border:1px solid var(--line);width:min(580px,94vw);padding:28px 30px 24px;position:relative}
+.tt h3{font-family:var(--serif);font-size:28px;font-weight:300;margin:0 0 4px;letter-spacing:-.01em}
+.tt-sub{color:var(--ink-2);font-size:13px;margin-bottom:18px}
+.tt-x{position:absolute;top:14px;right:20px;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--ink-3);cursor:pointer}
+.tt-map{display:grid;grid-template-columns:130px 1fr;gap:10px 18px;padding:16px 0;margin:14px 0;border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
+.tt-map dt{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin:0}
+.tt-map dd{margin:0;font-size:13px;line-height:1.55}
+.tt-map dd em{font-style:italic;font-family:var(--serif);color:var(--teal)}
+.tt-foot{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-top:10px}
+
+/* Legend strip below filter */
+.legend{display:flex;gap:18px;flex-wrap:wrap;padding:0 0 18px}
+.lg{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.lg-sw{width:14px;height:6px;background:var(--ink)}
+.lg-sw.t{background:var(--teal)}
+.lg-sw.a{background:var(--amber)}
+.lg-sw.r{background:var(--red)}
+.lg-sw.line{height:0;border-top:1.5px dashed var(--ink-3);width:18px}
+
+/* Tweaks panel (custom inline) */
+.tweaks-panel{position:fixed;bottom:24px;right:24px;width:320px;background:var(--paper);border:1px solid var(--line);box-shadow:0 12px 36px rgba(28,28,26,.18);z-index:200;display:none}
+.tweaks-panel.on{display:block}
+.tw-head{padding:14px 18px;background:var(--bg);border-bottom:1px solid var(--line-2);display:flex;justify-content:space-between;align-items:center}
+.tw-head .ttl{font-family:var(--serif);font-size:18px;font-weight:400}
+.tw-head .x{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--ink-3);cursor:pointer}
+.tw-body{padding:14px 18px}
+.tw-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-2)}
+.tw-row:last-child{border-bottom:none}
+.tw-row .lbl{font-size:12.5px}
+.tw-row .lbl .sub{display:block;font-family:var(--mono);font-size:9.5px;color:var(--ink-3);letter-spacing:.08em;margin-top:2px;text-transform:uppercase}
+.tw-toggle{width:42px;height:22px;background:var(--bg-2);border-radius:12px;position:relative;cursor:pointer;transition:background .15s;flex-shrink:0}
+.tw-toggle::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--paper);box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .15s}
+.tw-toggle.on{background:var(--teal)}
+.tw-toggle.on::after{left:22px}
+.tw-radio{display:flex;gap:4px;background:var(--bg-2);border-radius:14px;padding:2px}
+.tw-radio button{padding:4px 10px;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;border-radius:11px;color:var(--ink-2)}
+.tw-radio button.on{background:var(--ink);color:var(--paper)}
+
+/* Footer */
+.foot{padding:32px 36px 16px;max-width:1700px;margin:0 auto;border-top:1px solid var(--line);font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-3);display:flex;justify-content:space-between;gap:24px}
+.foot-l{max-width:1100px;line-height:1.7}
+
+/* Hidden via beta toggle */
+body[data-beta="off"] [data-beta-hide]{display:none !important}
+body[data-bench="vertais"] .ref-uefa{display:none}
+body[data-bench="uefa"] .ref-vertais{display:none}
+</style>
+</head>
+<body data-beta="on" data-bench="uefa">
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">TalentMaster · <em>Sport Director</em></div>
+  <div class="crumbs"><span>Tuotanto v1</span><span class="sep">/</span><b>Esimerkki-FC</b><span class="sep">/</span><span>Q2 2026</span></div>
+  <div class="user">
+    <span class="ava">SD</span>
+    <div><b>Antti Mäkinen</b> · Sport Director · Esimerkki-FC</div>
+  </div>
+</header>
+
+<!-- Filter bar (sticky) -->
+<div class="filterbar" id="filterbar">
+  <div class="fset">
+    <span class="fset-l">Ikäluokka</span>
+    <button class="chip on" data-filter="age" data-val="all">Kaikki</button>
+    <button class="chip" data-filter="age" data-val="tu13">TU13</button>
+    <button class="chip" data-filter="age" data-val="tu15">TU15</button>
+    <button class="chip" data-filter="age" data-val="u17">U17</button>
+    <button class="chip" data-filter="age" data-val="u19">U19</button>
+    <button class="chip" data-filter="age" data-val="u20">U20</button>
+    <button class="chip" data-filter="age" data-val="a">A-edustus</button>
+  </div>
+  <div class="fset">
+    <span class="fset-l">Aikajakso</span>
+    <button class="chip" data-filter="period" data-val="q1">Q1/26</button>
+    <button class="chip on" data-filter="period" data-val="q2">Q2/26</button>
+    <button class="chip" data-filter="period" data-val="kausi">Kausi 25/26</button>
+    <button class="chip" data-filter="period" data-val="5v">5v</button>
+  </div>
+  <div class="crossfilter" id="cf-strip">
+    <span>Ristiinsuodatus aktiivinen: <b id="cf-label">—</b></span>
+    <button onclick="clearCross()">SULJE ✕</button>
+  </div>
+</div>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="kicker">Sport Director · Esimerkki-FC · 26.4.2026</div>
+  <h1 class="h1">Akatemian pulssi — TU13 → A-edustus.</h1>
+  <p class="h1-sub">Yksi seura, koko organisaatio. Kuusi paneelia kertoo missä akatemia on matkalla, missä on riski, ja mistä A-edustus saa seuraavat omakasvattajansa. <em>Pelaaja ensin, hallinto vahvistaa.</em></p>
+</section>
+
+<div class="wrap">
+
+  <!-- KPI strip -->
+  <div class="kpi-strip">
+    <div class="kpi" onclick="openDrill('akatemia')">
+      <div class="kpi-lbl">Akatemian koko</div>
+      <div class="kpi-val">132 <span class="u">pelaajaa</span></div>
+      <div class="kpi-trend up">▲ +8 vs Q1/26</div>
+    </div>
+    <div class="kpi" onclick="openDrill('1stteam')">
+      <div class="kpi-lbl">1st team · omilta</div>
+      <div class="kpi-val">38<span class="u">% min/90</span></div>
+      <div class="kpi-trend up">▲ +6 pp · Ajax-norm 50%</div>
+    </div>
+    <div class="kpi" onclick="openDrill('tmarvo')">
+      <div class="kpi-lbl">TM-arvo · akatemia</div>
+      <div class="kpi-val">3,8<span class="u">M€</span></div>
+      <div class="kpi-trend up">▲ +0,9 vs 2025</div>
+    </div>
+    <div class="kpi" onclick="openDrill('sertifiointi')">
+      <div class="kpi-lbl">Sertifiointi</div>
+      <div class="kpi-val"><span class="stars">★★★</span><span class="u">3 / 3</span></div>
+      <div class="kpi-trend warn">Audit Q3/26 · 2 kehityskoht.</div>
+    </div>
+    <div class="kpi" onclick="openDrill('mj')">
+      <div class="kpi-lbl">Maajoukkuekutsuja</div>
+      <div class="kpi-val">9 <span class="u">aktiivista</span></div>
+      <div class="kpi-trend up">▲ +4 vs 2025</div>
+    </div>
+  </div>
+
+  <!-- 5D-pulssi-strippi (vakio kaikille seuroille — KV-yhteensopiva) -->
+  <div class="fived-wrap">
+    <div class="fived-head">
+      <h2 class="fived-h">5D · Akatemian ulottuvuusprofiili</h2>
+      <span class="fived-tag">Vakio · KV-vertailukelpoinen · Q2/26</span>
+    </div>
+    <div class="canon-banner">
+      <span class="pill">Mapped</span>
+      <span class="txt"><b>5D ≈ Ajax TIPS · EPPP Four Corners · DFB · KNVB BSJ.</b> Klikkaa ulottuvuutta nähdäksesi <em>kv-vastineet</em>. Pelitilanne-KPI:t (omakasvattajat, konversio, kasvattajakorvaus) ovat seurakohtaisia ja löytyvät paneeleista alla.</span>
+    </div>
+    <div class="fived" id="fived-grid">
+      <div class="fd" data-d="ketjut" onclick="openTip('ketjut')">
+        <div class="fd-head"><span class="fd-name">Ketjut</span><span class="fd-info">i</span></div>
+        <div class="fd-val">P58<span class="pp">/100</span></div>
+        <div class="fd-trend up">▲ +4 vs Q4/25</div>
+        <div class="fd-bar"><div class="fill" style="width:58%"></div><div class="norm" style="left:50%"></div></div>
+        <div class="fd-norm-lbl"><span>Akatemia</span><span>KV-norm 50</span></div>
+      </div>
+      <div class="fd" data-d="taito" onclick="openTip('taito')">
+        <div class="fd-head"><span class="fd-name">Taito</span><span class="fd-info">i</span></div>
+        <div class="fd-val">P61<span class="pp">/100</span></div>
+        <div class="fd-trend up">▲ +6 vs Q4/25</div>
+        <div class="fd-bar"><div class="fill" style="width:61%"></div><div class="norm" style="left:50%"></div></div>
+        <div class="fd-norm-lbl"><span>Akatemia</span><span>KV-norm 50</span></div>
+      </div>
+      <div class="fd" data-d="pelialy" onclick="openTip('pelialy')">
+        <div class="fd-head"><span class="fd-name">Peliäly</span><span class="fd-info">i</span></div>
+        <div class="fd-val">P52<span class="pp">/100</span></div>
+        <div class="fd-trend up">▲ +3 vs Q4/25</div>
+        <div class="fd-bar"><div class="fill" style="width:52%"></div><div class="norm" style="left:50%"></div></div>
+        <div class="fd-norm-lbl"><span>Akatemia</span><span>KV-norm 50</span></div>
+      </div>
+      <div class="fd beta" data-d="harjoitettavuus" onclick="openTip('harjoitettavuus')" data-beta-hide-fd>
+        <span class="fd-beta">Beta</span>
+        <div class="fd-head"><span class="fd-name">Harjoitettavuus</span><span class="fd-info">i</span></div>
+        <div class="fd-val" style="color:var(--ink-2)">P47<span class="pp">esimittaus</span></div>
+        <div class="fd-trend warn">Olympiakomitea · käyttöön 2026 Q4</div>
+        <div class="fd-bar"><div class="fill beta" style="width:47%"></div><div class="norm" style="left:50%"></div></div>
+        <div class="fd-norm-lbl"><span>Esi-data</span><span>Norm tulossa</span></div>
+      </div>
+      <div class="fd" data-d="omistajuus" onclick="openTip('omistajuus')">
+        <div class="fd-head"><span class="fd-name">Omistajuus</span><span class="fd-info">i</span></div>
+        <div class="fd-val">P63<span class="pp">käytösdata</span></div>
+        <div class="fd-trend up">▲ +5 vs Q4/25</div>
+        <div class="fd-bar"><div class="fill" style="width:63%"></div><div class="norm" style="left:50%"></div></div>
+        <div class="fd-norm-lbl"><span>Akatemia</span><span>Streak/RPE/vapaa</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="voice">"Pelaaja ensin, hallinto vahvistaa." — <em>akatemiajohtamisen kompassi</em></div>
+
+  <div class="legend">
+    <div class="lg"><span class="lg-sw t"></span> Tavoitetasolla</div>
+    <div class="lg"><span class="lg-sw a"></span> Varoitusalue</div>
+    <div class="lg"><span class="lg-sw r"></span> Kriittinen</div>
+    <div class="lg"><span class="lg-sw line"></span> KV-norm <span class="ref-uefa">UEFA YD 14v</span><span class="ref-vertais">Vertaisryhmä</span></div>
+    <div class="lg" style="margin-left:auto;color:var(--plum)" data-beta-hide><span class="lg-sw" style="background:var(--plum)"></span> Beta · Olympiakomitean kuormakartoitus 2026 Q4</div>
+  </div>
+
+  <!-- Panels -->
+  <div class="panels" id="panels"></div>
+
+</div>
+
+<footer class="foot">
+  <div class="foot-l">
+    <b>Lähteet:</b> Premier League EPPP/PMA · DFB NLZ-konsepti (Leistungszentren-Zertifizierung) · KNVB BSJ (Beoordelingssystematiek Jeugdopleidingen) · The FA "England DNA" · Ajax DNA Index · Brentford B-team / Smartabase case studies · UEFA Youth Development -aineisto. ·
+    Kanonia: <code>docs/5d-malli-ja-kpi.md</code>
+  </div>
+  <div class="foot-r">v1.1 · 26.4.2026 · 5D-strippi lisätty</div>
+</footer>
+
+<!-- Tooltip (KV / 5D) -->
+<div class="tt-bg" id="tt-bg" onclick="if(event.target===this)closeTip()">
+  <div class="tt">
+    <span class="tt-x" onclick="closeTip()">SULJE ✕</span>
+    <h3 id="tt-h">—</h3>
+    <div class="tt-sub" id="tt-s">—</div>
+    <dl class="tt-map" id="tt-map"></dl>
+    <div class="tt-foot" id="tt-f">—</div>
+  </div>
+</div>
+
+<!-- Drill-down modal -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeDrill()">
+  <div class="modal">
+    <span class="modal-x" onclick="closeDrill()">SULJE ✕</span>
+    <div id="modal-content">—</div>
+  </div>
+</div>
+
+<!-- Tweaks panel -->
+<div class="tweaks-panel" id="tweaks">
+  <div class="tw-head">
+    <span class="ttl">Tweaks</span>
+    <span class="x" onclick="hideTweaks()">SULJE ✕</span>
+  </div>
+  <div class="tw-body">
+    <div class="tw-row">
+      <div class="lbl">Bench-vertailu<span class="sub">UEFA YD vs vertaisryhmä</span></div>
+      <div class="tw-radio" data-tweak="bench">
+        <button class="on" data-val="uefa">UEFA</button>
+        <button data-val="vertais">Vertais</button>
+      </div>
+    </div>
+    <div class="tw-row">
+      <div class="lbl">Beta-merkit<span class="sub">Harjoitettavuus &amp; tulossa-tilat</span></div>
+      <div class="tw-toggle on" data-tweak="beta"></div>
+    </div>
+    <div class="tw-row">
+      <div class="lbl">Tihennetty rivit<span class="sub">Pelaajalistat</span></div>
+      <div class="tw-toggle" data-tweak="dense"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ───────── PANEELIDATA ───────── */
+const PANELS = [
+  {
+    id:'putki', num:'01', meta:'5v rolling', drill:'akatemia',
+    title:'Pelaajaputki TU13 → A-edustus',
+    sub:'Kuinka moni etenee tasolta toiselle. Akatemian mediaaniläpäisy. Klikkaa vaihetta avataksesi sen kohortin.',
+    body:`
+      <div class="flow">
+        <div class="stage" style="height:100%" onclick="setCross('age','tu13','TU13 — 42 pelaajaa')"><span class="conv">100%</span><span class="ct">42</span><span class="lbl">TU13</span></div>
+        <div class="stage" style="height:78%"  onclick="setCross('age','tu15','TU15 — 33 pelaajaa')"><span class="conv">▼ 79%</span><span class="ct">33</span><span class="lbl">TU15</span></div>
+        <div class="stage" style="height:55%"  onclick="setCross('age','u17','U17 — 23 pelaajaa')"><span class="conv">▼ 70%</span><span class="ct">23</span><span class="lbl">U17</span></div>
+        <div class="stage" style="height:34%"  onclick="setCross('age','u19','U19 — 14 pelaajaa')"><span class="conv">▼ 61%</span><span class="ct">14</span><span class="lbl">U19</span></div>
+        <div class="stage" style="height:14%"  onclick="setCross('age','a','A · min &gt;90 — 6 pelaajaa')"><span class="conv">▼ 43%</span><span class="ct">6</span><span class="lbl">A · min&gt;90</span></div>
+      </div>
+      <div class="mini-kpi">
+        <div><div class="l">Konversio TU13→A</div><div class="v">14<em style="font-size:13px;color:var(--ink-3)">%</em></div><div class="t warn">tavoite 18%</div></div>
+        <div><div class="l">1st team -minuuttia omilta</div><div class="v">38<em style="font-size:13px;color:var(--ink-3)">%</em></div><div class="t">▲ +6 pp</div></div>
+        <div><div class="l">Ajax DNA Index -bench</div><div class="v">≥50<em style="font-size:13px;color:var(--ink-3)">%</em></div><div class="t" style="color:var(--ink-3)">tavoite</div></div>
+      </div>
+      <div class="note">Konversio TU13 → A-edustus on <em>14 %</em>. Ajax-mallin tavoite omakasvattajia 1st team -kokoonpanossa ≥ 50 %. Esimerkki-FC matkalla — ero −12 pp vs huippubench.</div>`,
+    kv:[
+      ['Ajax (NL)','<em>DNA Index</em> · "1st team owned" -prosentti, kerrokset 1st / Jong Ajax / U18 / U17. Tavoite ≥ 50 % omakasvattajia.','Ajax annual review 2024'],
+      ['Brighton (ENG)','<em>Player Pathway</em> -dashboard U9–U23. Pelaajakohtainen polku ja pelipositio yhdellä silmäyksellä.','Athletic case study, 2023'],
+      ['RB Salzburg (AT)','<em>Liefering bridge</em> · 2.div siltajoukkue U19→A-välille. Vastine: III-divari farmi.','Red Bull AG, 2024'],
+      ['FA England DNA (ENG)','U15→U21 yhtenäinen pelitapa. Tavoite 70 % U21:stä A-edustusehdokkaita.','The FA, England DNA framework v3 2022'],
+      ['Brentford (ENG)','<em>B-team window</em> · oma alustusvaihe omille pelaajille ennen 1st team -peliminuutteja.','Athletic, Brentford pathway 2023'],
+      ['Bayern (GER)','<em>FCB Campus</em> · NLZ-data + 1st team -mittarit yhdistetty Champions Leaguen tasolle.','FCB Campus annual report 2024']
+    ]
+  },
+  {
+    id:'lapimurto', num:'02', meta:'Q2 2026', drill:'lapimurto',
+    title:'Akatemia → A · läpimurtoputki',
+    sub:'Lähimpinä A-debyyttiä olevat pelaajat. Valmiusmittari = 5D-mediaani × pelitilanteet × peliminuutit U20:ssa.',
+    body:`
+      <div class="bar-rows">
+        <div class="row-pl" onclick="openPlayer('makela')">
+          <div class="nm">L. Mäkelä<span class="pos">U20 · CB · 2008</span></div>
+          <div class="b"><div class="f t" style="width:88%"></div><div class="ref" style="left:75%"></div></div>
+          <div class="v">88</div><div class="age">▲ +12</div>
+        </div>
+        <div class="row-pl" onclick="openPlayer('koski')">
+          <div class="nm">A. Koski<span class="pos">U20 · CM · 2008</span></div>
+          <div class="b"><div class="f t" style="width:74%"></div><div class="ref" style="left:75%"></div></div>
+          <div class="v">74</div><div class="age">▲ +8</div>
+        </div>
+        <div class="row-pl" onclick="openPlayer('suni')">
+          <div class="nm">M. Suni<span class="pos">U20 · LW · 2008</span></div>
+          <div class="b"><div class="f t" style="width:69%"></div><div class="ref" style="left:75%"></div></div>
+          <div class="v">69</div><div class="age">▲ +5</div>
+        </div>
+        <div class="row-pl" onclick="openPlayer('toivonen')">
+          <div class="nm">J. Toivonen<span class="pos">U19 · ST · 2009</span></div>
+          <div class="b"><div class="f a" style="width:58%"></div><div class="ref" style="left:75%"></div></div>
+          <div class="v">58</div><div class="age">▲ +3</div>
+        </div>
+        <div class="row-pl" onclick="openPlayer('salo')">
+          <div class="nm">P. Salo<span class="pos">U19 · GK · 2009</span></div>
+          <div class="b"><div class="f a" style="width:52%"></div><div class="ref" style="left:75%"></div></div>
+          <div class="v">52</div><div class="age">⟶ ±0</div>
+        </div>
+      </div>
+      <div class="note">Brighton/Brentford-malli: vihreä &gt; 75 = harjoitusmukaan kutsu. Mäkelä on porttina; Koski ja Suni 1–2 vk takana.</div>`,
+    kv:[
+      ['Brighton (ENG)','<em>Pathway readiness</em> · sama mittari U21–1st team siirtymälle. Valmentajan päätösväline.','Athletic, "Brighton model" 2023'],
+      ['Brentford B (ENG)','<em>B-team window</em> · oma alustusvaihe omille pelaajille ennen 1st team -minuutteja.','Brentford FC academy review 2023'],
+      ['Bayern Campus','<em>FCB Campus</em> NLZ-data + 1st team -mittarit yhdistetty.','FCB Campus 2024'],
+      ['Ajax Jong (NL)','Eredivisie-2 reserves -joukkue todellisena testitasona ennen A:ta.','KNVB liigaraportti 2024'],
+      ['Salzburg/Liefering','Pakollinen siltavuosi U19→A. 70 % A-debutanteista käy Lieferingin kautta.','Red Bull annual 2024']
+    ]
+  },
+  {
+    id:'kuorma', num:'03', meta:'Saatavuus 4 vk', drill:'kuorma',
+    title:'Joukkueiden vamma- ja kuormatila',
+    sub:'Saatavuus % per joukkue, 4 vk eteenpäin. Harjoitettavuus on 5D-ulottuvuus — H-H-polun pelaajakohtaiset testit ovat IDP-puolella.',
+    body:`
+      <div class="heat" style="grid-template-columns:130px repeat(4,1fr)">
+        <div class="h-cell head"></div>
+        <div class="h-cell head">vk 17</div><div class="h-cell head">vk 18</div><div class="h-cell head">vk 19</div><div class="h-cell head">vk 20</div>
+        <div class="h-cell lbl">A · 28 pel</div><div class="h-cell h2">86%</div><div class="h-cell h2">82%</div><div class="h-cell warn">71% · A-cup</div><div class="h-cell h2">88%</div>
+        <div class="h-cell lbl">U20 · 22 pel</div><div class="h-cell h2">79%</div><div class="h-cell h3">88%</div><div class="h-cell h3">91%</div><div class="h-cell h2">76%</div>
+        <div class="h-cell lbl">U19 · 24 pel</div><div class="h-cell h2">82%</div><div class="h-cell h2">85%</div><div class="h-cell h3">90%</div><div class="h-cell warn">68% · leiri</div>
+        <div class="h-cell lbl">U17 · 22 pel</div><div class="h-cell h2">85%</div><div class="h-cell h3">89%</div><div class="h-cell h2">83%</div><div class="h-cell h2">81%</div>
+        <div class="h-cell lbl">TU15 · 19 pel</div><div class="h-cell h3">93%</div><div class="h-cell h3">94%</div><div class="h-cell h2">87%</div><div class="h-cell h2">80%</div>
+      </div>
+      <div class="mini-kpi" style="margin-top:14px">
+        <div><div class="l">ACWR-keskiarvo</div><div class="v">1,18</div><div class="t">UEFA ≤ 1,3</div></div>
+        <div><div class="l">Aktiivisia vammoja</div><div class="v">7</div><div class="t warn">▲ +2 vk vs vk 16</div></div>
+        <div><div class="l">Paluu-protokolla aktiivinen</div><div class="v">3</div><div class="t" style="color:var(--ink-3)">U19 + U20</div></div>
+      </div>
+      <div class="note" data-beta-hide>Harjoitettavuus-ulottuvuus on <em>Beta</em> — Olympiakomitean kuormakartoitus aloittaa 2026 Q4. Tämän jälkeen lukemat pohjautuvat oikeisiin Nordic / Y-Balance / RPE -protokolliin eivät arvioon.</div>`,
+    kv:[
+      ['Brentford (ENG)','<em>Smartabase</em> -alusta — saatavuus % per joukkue, päivittäinen kuormaviive, paluusprintti-protokolla.','Brentford FC, Smartabase deployment 2022'],
+      ['UEFA ECA','Suositus: ramppi-ikkuna 4 vk ennen turnausta, kuorma-arvo ≤ 1,3 ACWR.','UEFA ECA player welfare 2023, p. 24'],
+      ['Olympiakomitea (FI)','Suomen kansallinen kuormakartoitus 2026 Q4 → korvaa placeholder oikealla protokollalla (Nordic, Y-Balance, RPE).','OK lajitukikartoitus, hanke 2024–26'],
+      ['EPPP PMA (ENG)','Premier League EPPP-protokolla edellyttää akatemioilta päivittäistä saatavuusraportointia.','Premier League EPPP rules 2023'],
+      ['DFB NLZ','Saksa NLZ-keskukset: medical screening 2× / vuosi pakollinen.','DFB Leistungszentrum-Konzept 2023, §4.2']
+    ]
+  },
+  {
+    id:'tmarvo', num:'04', meta:'5v € · TM', drill:'tmarvo',
+    title:'Akatemian arvo · siirtoputki',
+    sub:'Kasvattajakorvaukset, Transfermarkt-arvo, aktiiviset tarjouspolut. Akatemia liiketoimintana.',
+    body:`
+      <div class="mini-kpi">
+        <div><div class="l">Kasvattajakorv. 2025</div><div class="v">240<em style="font-size:13px;color:var(--ink-3)">k€</em></div><div class="t">▲ +18%</div></div>
+        <div><div class="l">TM-arvo akatemia</div><div class="v">3,8<em style="font-size:13px;color:var(--ink-3)">M€</em></div><div class="t">▲ +0,9</div></div>
+        <div><div class="l">Avoin siirtoputki</div><div class="v">7</div><div class="t">aktiivinen</div></div>
+      </div>
+      <div class="bar-year" style="font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase;border-bottom:1px solid var(--line);padding-bottom:8px;margin-top:10px"><span>Vuosi</span><span>Solidarity €</span><span style="text-align:right">k€</span></div>
+      <div class="bar-year"><span class="y">2021</span><span class="b"><span class="f" style="width:35%"></span></span><span class="v">85</span></div>
+      <div class="bar-year"><span class="y">2022</span><span class="b"><span class="f" style="width:48%"></span></span><span class="v">120</span></div>
+      <div class="bar-year"><span class="y">2023</span><span class="b"><span class="f" style="width:62%"></span></span><span class="v">155</span></div>
+      <div class="bar-year"><span class="y">2024</span><span class="b"><span class="f t" style="width:78%"></span></span><span class="v">196</span></div>
+      <div class="bar-year"><span class="y">2025</span><span class="b"><span class="f t" style="width:96%"></span></span><span class="v">240</span></div>
+      <div class="note">Akatemian nettotuotto / budjetti -suhde 2025 = <em>0,6×</em>. Salzburg-malli ≥ 1,0× — kehitysvaihe.</div>`,
+    kv:[
+      ['FIFA TMS','5 % siirrosta jaetaan kasvattajille (Solidarity Mechanism). Suomalainen seura saa keskim. 12 % per kv-pelaaja, useampi kasvatusketjun seura.','FIFA RSTP Annex 5 2024'],
+      ['Salzburg (AT)','<em>Akatemian liiketoimintamalli</em> — nettotuotto ≥ akatemian budjetti. Esimerkki-FC 2025 = 0,6× (kehitysvaihe).','Red Bull annual 2024, p. 18'],
+      ['Eredivisie (NL)','Akatemioiden mediaani-myynti = 2,1 M€/v.','KNVB Voetbal Economisch raportti 2024'],
+      ['Brighton (ENG)','Akatemia keskeinen liiketoimintajalka — 5 v jaksolla 280 M£ akatemiamyynti.','Brighton FC accounts 2024'],
+      ['DFB NLZ','Saksan NLZ-mallissa 30–40 % seuran transferpääomasta tulee oman akatemian myynnistä.','DFB transfer report 2023']
+    ]
+  },
+  {
+    id:'sertifiointi', num:'05', meta:'Audit Q3/2026', drill:'sertifiointi',
+    title:'Akatemian sertifiointi',
+    sub:'Palloliiton akatemiapassi · 5 ulottuvuutta · auditointi-status. Klikkaa kategoriaa avataksesi auditoinnin tarkistuslistan.',
+    body:`
+      <div class="bar-rows cert-rows">
+        <div class="row-cat" onclick="openCert('infra')"><span class="nm">Infra</span><span class="b"><span class="f t" style="width:88%"></span><span class="ref" style="left:70%"></span></span><span class="v">88</span></div>
+        <div class="row-cat" onclick="openCert('hlo')"><span class="nm">Henkilöstö</span><span class="b"><span class="f t" style="width:72%"></span><span class="ref" style="left:70%"></span></span><span class="v">72</span></div>
+        <div class="row-cat" onclick="openCert('tuki')"><span class="nm">Pelaajatuki</span><span class="b"><span class="f a" style="width:54%"></span><span class="ref" style="left:70%"></span></span><span class="v">54</span></div>
+        <div class="row-cat" onclick="openCert('mit')"><span class="nm">Mittausjärj.</span><span class="b"><span class="f t" style="width:91%"></span><span class="ref" style="left:70%"></span></span><span class="v">91</span></div>
+        <div class="row-cat" onclick="openCert('tytar')"><span class="nm">Tytäraktiv.</span><span class="b"><span class="f a" style="width:48%"></span><span class="ref" style="left:70%"></span></span><span class="v">48</span></div>
+      </div>
+      <div class="mini-kpi" style="margin-top:14px">
+        <div><div class="l">Tila</div><div class="v" style="color:var(--teal);font-size:18px;line-height:1.2">★★★ akat.</div><div class="t" style="color:var(--ink-3)">3 / 3</div></div>
+        <div><div class="l">Avoimet havainnot</div><div class="v">2</div><div class="t warn">Pelaajatuki + Tytär</div></div>
+        <div><div class="l">Audit Q3/2026</div><div class="v">−5<em style="font-size:13px;color:var(--ink-3)"> kk</em></div><div class="t" style="color:var(--ink-3)">9.9.2026</div></div>
+      </div>
+      <div class="note">Kehitysvaade: <em>pelaajatuki­rakenne</em> — urheilupsykologin vakanssi auki Q2/2026. Tytäraktiviteetti = pienseurayhteistyö, jossa puuttuu 11 v ikäluokan koordinaattori.</div>`,
+    kv:[
+      ['EPPP Cat 1–4 (ENG)','Cat 1 vaatii ~3 M£/v, omat huippuvalmentajat, päivittäinen koulutus.','Premier League EPPP rules 2023, §3'],
+      ['DFB NLZ-Zertifizierung (GER)','56 sertifioitua nuorten suorituskeskusta, audit 3 v välein.','DFB Leistungszentrum-Konzept 2023'],
+      ['KNVB BSJ (NL)','4-tasoinen pisteytys (Beoordelingssystematiek Jeugdopleidingen). Ajax/PSV/Feyenoord = taso 1.','KNVB BSJ-richtlijn 2024'],
+      ['FA Academy License','EPPP rinnalla — 4 kategoriaa, kategoriaan 1 vaatii erillisen lisenssin lasten koulutukseen.','FA Youth Development rules 2023'],
+      ['Croatian HNS','Kansallinen sertifiointi (3 tasoa), erityispaino tekniseen ja taktiseen koulutukseen.','HNS Talent Strategy 2022'],
+      ['Iceland KSÍ','Pieni mittakaava, 100 % U13–U17 keskuksista auditoidaan 2 v välein.','KSÍ Talent Plan 2023']
+    ]
+  },
+  {
+    id:'mj', num:'06', meta:'U15–U21', drill:'mj',
+    title:'Maajoukkueosallistuminen',
+    sub:'Seuran pelaajat U-maajoukkueissa — kutsut, peliminuutit, tarkkailut. Klikkaa ikäluokkaa avataksesi nimet.',
+    body:`
+      <div class="mini-kpi">
+        <div><div class="l">Aktiivisia kutsuja</div><div class="v">9</div><div class="t">▲ +4</div></div>
+        <div><div class="l">Peliminuutteja / kausi</div><div class="v">412</div><div class="t">▲ +28%</div></div>
+        <div><div class="l">Tarkkailussa</div><div class="v">14</div><div class="t" style="color:var(--ink-3)">aktiivinen</div></div>
+      </div>
+      <div class="mj-grid">
+        <div onclick="openMj('U15')"><span class="age-l">U15</span><span class="age-v">3</span><span class="age-t">▲ +1</span></div>
+        <div onclick="openMj('U17')"><span class="age-l">U17</span><span class="age-v">4</span><span class="age-t">▲ +2</span></div>
+        <div onclick="openMj('U19')"><span class="age-l">U19</span><span class="age-v">2</span><span class="age-t warn">⟶ ±0</span></div>
+        <div onclick="openMj('U21')"><span class="age-l">U21</span><span class="age-v" style="color:var(--red)">0</span><span class="age-t down">▼ −1 · aukko 04–05</span></div>
+      </div>
+      <div class="note">U21-aukko: ikäluokka 2004–05 ei tuottanut maajoukkue­osallistujaa. Toimenpide: rekrytointi-painopiste 2026, U19 valmennusresurssi auki.</div>`,
+    kv:[
+      ['DFB Stützpunkt (GER)','366 kuntakeskuksen verkosto, ~14 000 talenttia. Polku NLZ → DFB-Auswahl → A-Mannschaft.','DFB Talentförderprogramm 2024'],
+      ['FA England DNA','U15→U21 yhtenäinen pelitapa, sama valmennusfilosofia kaikilla tasoilla. Tavoite: 70 % U21:stä A-edustusehdokkaita.','The FA, England DNA framework v3 2022'],
+      ['Croatia (HNS)','4 milj. asukasta, MM-finaali 2018. Avain: keskitetty Talent ID + akatemioiden tiukka rotaatio.','HNS Talent Strategy 2022'],
+      ['Iceland KSÍ','350k asukasta, EM 2016 puolivälierä. 700+ UEFA B -valmentajaa, keskitetty data.','KSÍ retrospective 2018'],
+      ['Wales FAW','3,1 M asukasta, EM 2016 semifinaali. Kansallinen 5–11 v talent ID -ohjelma.','FAW Strategy 2024'],
+      ['KNVB Oranje','Polku U15→U21 yhden valmennusrungon alla; 60 % omasta ikäluokasta tarkkailussa.','KNVB Voetbalvisie 2023']
+    ]
+  }
+];
+
+/* ───────── 5D-tooltipit ───────── */
+const TIPS = {
+  ketjut:{h:'Ketjut',s:'Fyysinen pohja — H-H-testit (SBL/SFL/LL/DIAG/DFL).',map:[
+    ['EPPP Four Corners','<em>Physical</em> — Premier League EPPP-tunnustus.'],
+    ['DFB','<em>Athletik / Sprint-Sprung</em> -mittarit.'],
+    ['KNVB BSJ','<em>Fysieke ontwikkeling</em> -kategoria.'],
+    ['FA Lions','<em>Physical</em> — England DNA Four Corner.']
+  ],f:'Skaala P0–P100 · KV-norm 14v · Tuotannossa'},
+  taito:{h:'Taito',s:'Lajitekniikka — kuljetus, syöttö, vastaanotto, laukaus.',map:[
+    ['Ajax TIPS','<em>Technique</em> — TIPS-mallin tekninen pilari.'],
+    ['EPPP Four Corners','<em>Technical</em> -kategoria.'],
+    ['KNVB BSJ','<em>Techniek</em> — pisteytetty erikseen.'],
+    ['FA Lions','<em>Technical</em> — Four Corner.']
+  ],f:'Skaala P0–P100 · Tuotannossa'},
+  pelialy:{h:'Peliäly',s:'Pelin lukeminen — skannaus, päätöksen laatu, tilan luominen.',map:[
+    ['Ajax TIPS','<em>Intelligence</em> — pelitilanteen hallinta.'],
+    ['EPPP Four Corners','<em>Psychological / Tactical</em>.'],
+    ['DFB','<em>Spielintelligenz</em> · Spielmomente-mittarit.'],
+    ['Brentford','<em>Decision-making</em> -indeksi pelidata-pohjalta.']
+  ],f:'Pelihavainto v3 · Tuotannossa'},
+  harjoitettavuus:{h:'Harjoitettavuus',s:'Kuormankesto ja palautuminen. Beta — Olympiakomitean kartoitus 2026 Q4.',map:[
+    ['EPPP Four Corners','<em>Physical</em> -alaosa: durability.'],
+    ['Brentford','<em>Smartabase</em>-saatavuus % + ACWR.'],
+    ['UEFA ECA','Player welfare -suositukset.'],
+    ['Olympiakomitea','Nordic, Y-Balance, RPE -protokolla.']
+  ],f:'BETA · Käyttöön 2026 Q4'},
+  omistajuus:{h:'Omistajuus',s:'Sitoutuminen — käytösdata: streak, RPE-säännöllisyys, vapaaharjoitukset.',map:[
+    ['Ajax TIPS','<em>Personality</em> — sisältää sitoutumisen.'],
+    ['EPPP Four Corners','<em>Social</em> + <em>Psychological</em>.'],
+    ['FA Lions','<em>Social</em> + <em>Psychological</em>.'],
+    ['KNVB BSJ','<em>Mentaliteit</em> -kategoria.']
+  ],f:'Käytösdata-johdettu · Tuotannossa'}
+};
+
+/* ───────── Render ───────── */
+function panelHtml(p){
+  const dim = p.dim ? ' dim' : '';
+  let kv = '<table>';
+  p.kv.forEach(r=>{
+    kv += `<tr><th>${r[0]}</th><td><b>${r[1].replace(/<em>/g,'<em>').replace(/<\/em>/g,'</em>')}</b><span class="src">${r[2]}</span></td></tr>`;
+  });
+  kv += '</table>';
+  return `<section class="pn" data-pn="${p.id}">
+    <header class="pn-head">
+      <div>
+        <div class="pn-num">${p.num}</div>
+        <h3 class="pn-title">${p.title}</h3>
+        <div class="pn-sub">${p.sub}</div>
+      </div>
+      <div class="pn-meta">${p.meta}<span class="drill" onclick="openDrill('${p.drill}')">Avaa →</span></div>
+    </header>
+    <div class="pn-body">
+      ${p.body}
+      <div class="kv">
+        <div class="kv-l"><span>≈ Kansainväliset vastineet</span><span class="ct">${p.kv.length} viittausta</span></div>
+        ${kv}
+      </div>
+    </div>
+  </section>`;
+}
+
+document.getElementById('panels').innerHTML = PANELS.map(panelHtml).join('');
+
+/* ───────── Filter chips ───────── */
+document.querySelectorAll('.chip[data-filter]').forEach(c=>{
+  c.addEventListener('click',()=>{
+    const f = c.dataset.filter;
+    document.querySelectorAll(`.chip[data-filter="${f}"]`).forEach(x=>x.classList.remove('on'));
+    c.classList.add('on');
+  });
+});
+
+/* ───────── Cross-filter ───────── */
+let crossOn = null;
+function setCross(type, val, label){
+  crossOn = {type, val, label};
+  document.getElementById('cf-strip').classList.add('on');
+  document.getElementById('cf-label').textContent = label;
+  // Highlight relevant panels, dim others
+  const relevant = ['putki','lapimurto','kuorma','mj']; // age-relevant
+  document.querySelectorAll('.pn').forEach(p=>{
+    if(relevant.includes(p.dataset.pn)) p.classList.remove('dim');
+    else p.classList.add('dim');
+  });
+  // Snap to chip if exists
+  const chip = document.querySelector(`.chip[data-filter="age"][data-val="${val}"]`);
+  if(chip){
+    document.querySelectorAll('.chip[data-filter="age"]').forEach(x=>x.classList.remove('on'));
+    chip.classList.add('on');
+  }
+}
+function clearCross(){
+  crossOn = null;
+  document.getElementById('cf-strip').classList.remove('on');
+  document.querySelectorAll('.pn').forEach(p=>p.classList.remove('dim'));
+  document.querySelectorAll('.chip[data-filter="age"]').forEach(x=>x.classList.remove('on'));
+  document.querySelector('.chip[data-filter="age"][data-val="all"]').classList.add('on');
+}
+
+/* ───────── Drill-down modals ───────── */
+const DRILLS = {
+  akatemia:{h:'Akatemian rakenne',s:'132 pelaajaa kuudella ikäluokalla. Mediaani-iät, 5D-pulssit.',html:`
+    <div class="modal-section"><h3>5D-mediaani · koko akatemia</h3>
+      <div class="fived-mini beta-mark">
+        <div onclick="openTip('ketjut')"><span class="n">Ketjut</span><div class="v">P58</div><div class="b"><div class="f" style="width:58%"></div><div class="ref" style="left:50%"></div></div></div>
+        <div onclick="openTip('taito')"><span class="n">Taito</span><div class="v">P61</div><div class="b"><div class="f" style="width:61%"></div><div class="ref" style="left:50%"></div></div></div>
+        <div onclick="openTip('pelialy')"><span class="n">Peliäly</span><div class="v">P52</div><div class="b"><div class="f" style="width:52%"></div><div class="ref" style="left:50%"></div></div></div>
+        <div class="beta" onclick="openTip('harjoitettavuus')"><span class="n">Harjoitett.</span><span class="beta-tag">β</span><div class="v" style="color:var(--ink-3)">P47</div><div class="b"><div class="f" style="width:47%;background:var(--plum)"></div><div class="ref" style="left:50%"></div></div></div>
+        <div onclick="openTip('omistajuus')"><span class="n">Omistajuus</span><div class="v">P63</div><div class="b"><div class="f" style="width:63%"></div><div class="ref" style="left:50%"></div></div></div>
+      </div>
+    </div>
+    <div class="modal-section"><h3>Pelaajat ikäluokittain</h3>
+      <div class="bar-rows">
+        <div class="row-cat"><span class="nm">TU13</span><span class="b"><span class="f" style="width:32%"></span></span><span class="v">42</span></div>
+        <div class="row-cat"><span class="nm">TU14</span><span class="b"><span class="f" style="width:28%"></span></span><span class="v">36</span></div>
+        <div class="row-cat"><span class="nm">TU15</span><span class="b"><span class="f" style="width:25%"></span></span><span class="v">33</span></div>
+        <div class="row-cat"><span class="nm">U17</span><span class="b"><span class="f t" style="width:18%"></span></span><span class="v">23</span></div>
+        <div class="row-cat"><span class="nm">U19</span><span class="b"><span class="f t" style="width:11%"></span></span><span class="v">14</span></div>
+        <div class="row-cat"><span class="nm">U20</span><span class="b"><span class="f t" style="width:7%"></span></span><span class="v">9</span></div>
+      </div>
+    </div>`},
+  '1stteam':{h:'1st team -minuutit · omilta',s:'Omakasvattajien minuutit / 90 — kausi 25/26.',html:`
+    <div class="modal-section"><h3>Trendi</h3>
+      <div class="bar-year"><span class="y">21/22</span><span class="b"><span class="f" style="width:24%"></span></span><span class="v">22%</span></div>
+      <div class="bar-year"><span class="y">22/23</span><span class="b"><span class="f" style="width:28%"></span></span><span class="v">26%</span></div>
+      <div class="bar-year"><span class="y">23/24</span><span class="b"><span class="f" style="width:32%"></span></span><span class="v">29%</span></div>
+      <div class="bar-year"><span class="y">24/25</span><span class="b"><span class="f t" style="width:38%"></span></span><span class="v">32%</span></div>
+      <div class="bar-year"><span class="y">25/26</span><span class="b"><span class="f t" style="width:46%"></span></span><span class="v">38%</span></div>
+    </div>
+    <div class="modal-section"><h3>Top-osallistujat</h3>
+      <div class="bar-rows">
+        <div class="row-pl" style="grid-template-columns:120px 1fr 70px 70px"><div class="nm">L. Mäkelä<span class="pos">U20→A · CB</span></div><div class="b"><div class="f t" style="width:84%"></div></div><div class="v">1418</div><div class="age">min</div></div>
+        <div class="row-pl" style="grid-template-columns:120px 1fr 70px 70px"><div class="nm">A. Koski<span class="pos">U20 · CM</span></div><div class="b"><div class="f t" style="width:62%"></div></div><div class="v">1041</div><div class="age">min</div></div>
+        <div class="row-pl" style="grid-template-columns:120px 1fr 70px 70px"><div class="nm">M. Suni<span class="pos">U20 · LW</span></div><div class="b"><div class="f a" style="width:38%"></div></div><div class="v">638</div><div class="age">min</div></div>
+      </div>
+    </div>
+    <div class="modal-section"><h3>Bench: Ajax DNA Index</h3>
+      <p style="font-size:13px;color:var(--ink-2);line-height:1.6;margin:0">Ajax tavoittelee <em>≥ 50 %</em> 1st team -minuutteja omakasvattajilta. Esimerkki-FC 38 % — ero 12 pp. Brighton & Brentford referenssitasolla 30–35 %; <em>Eredivisie-mediaani 28 %.</em></p>
+    </div>`},
+  tmarvo:{h:'TM-arvo · siirtoputki',s:'Transfermarkt-arvon kehitys ja avoimet siirtopolut.',html:`
+    <div class="modal-section"><h3>Akatemian TM-arvo (M€)</h3>
+      <div class="bar-year"><span class="y">2021</span><span class="b"><span class="f" style="width:28%"></span></span><span class="v">1,1</span></div>
+      <div class="bar-year"><span class="y">2022</span><span class="b"><span class="f" style="width:42%"></span></span><span class="v">1,7</span></div>
+      <div class="bar-year"><span class="y">2023</span><span class="b"><span class="f" style="width:58%"></span></span><span class="v">2,3</span></div>
+      <div class="bar-year"><span class="y">2024</span><span class="b"><span class="f t" style="width:75%"></span></span><span class="v">2,9</span></div>
+      <div class="bar-year"><span class="y">2025</span><span class="b"><span class="f t" style="width:96%"></span></span><span class="v">3,8</span></div>
+    </div>
+    <div class="modal-section"><h3>Avoimet polut · 7</h3>
+      <p style="font-size:12.5px;color:var(--ink-2);margin:0 0 10px">Aktiiviset siirtokeskustelut. Kohdemaa, taso, vaihe.</p>
+      <div class="idp-list">
+        <div class="it"><span class="tag">L. Mäkelä</span><span class="tx"><b>Eredivisie · taso 1</b> — 2. neuvottelu, tarjous 1,8 M€ + 20 % jälkimyynti.</span><span class="pct">★</span></div>
+        <div class="it"><span class="tag">A. Koski</span><span class="tx"><b>2. Bundesliga</b> — koeharjoitus sovittu 8.5.</span><span class="pct">○</span></div>
+        <div class="it"><span class="tag">M. Suni</span><span class="tx"><b>Allsvenskan</b> — alustava kontakti, ei tarjousta.</span><span class="pct">○</span></div>
+      </div>
+    </div>`},
+  sertifiointi:{h:'Sertifiointi · auditointi',s:'Palloliiton akatemiapassi — 5 ulottuvuutta, audit Q3/2026.',html:`
+    <div class="modal-section"><h3>Status</h3>
+      <p style="font-size:14px;color:var(--ink-2);margin:0 0 10px"><b style="color:var(--teal)">★★★ akatemia</b> · 3 / 3 tähteä. Audit 9.9.2026 (−5 kk). Avoimet havainnot: <em>Pelaajatuki</em>, <em>Tytäraktiviteetti</em>.</p>
+    </div>
+    <div class="modal-section"><h3>Avoimet havainnot</h3>
+      <div class="idp-list">
+        <div class="it" style="border-color:var(--amber)"><span class="tag">Pelaajatuki</span><span class="tx"><b>Urheilupsykologin vakanssi auki</b> — rekry Q2/2026, haastattelut käynnissä. Riski: audit-pisteet −8.</span><span class="pct" style="color:var(--amber)">54</span></div>
+        <div class="it" style="border-color:var(--amber)"><span class="tag">Tytäraktiv.</span><span class="tx"><b>11 v ikäluokan koordinaattori puuttuu</b> — pienseurayhteistyö katkolla 3 kunnassa.</span><span class="pct" style="color:var(--amber)">48</span></div>
+      </div>
+    </div>
+    <div class="modal-section"><h3>Audit-aikajana</h3>
+      <div class="timeline">
+        <div class="ev now"><span class="y">Q2/26</span><span class="t">Pre-audit</span></div>
+        <div class="ev"><span class="y">Q3/26</span><span class="t">Audit-käynti</span></div>
+        <div class="ev"><span class="y">Q4/26</span><span class="t">Päätös</span></div>
+        <div class="ev"><span class="y">2027</span><span class="t">Uusinta</span></div>
+      </div>
+    </div>`},
+  mj:{h:'Maajoukkuekutsut',s:'9 aktiivista kutsua + 14 tarkkailussa.',html:`
+    <div class="modal-section"><h3>Aktiiviset kutsut · 9</h3>
+      <div class="idp-list">
+        <div class="it"><span class="tag">U15</span><span class="tx"><b>3 pelaajaa</b> — V. Heikkilä, T. Nurmi, S. Salmi</span><span class="pct">▲</span></div>
+        <div class="it"><span class="tag">U17</span><span class="tx"><b>4 pelaajaa</b> — J. Toivonen, M. Suni, P. Salo, R. Lehto</span><span class="pct">▲</span></div>
+        <div class="it"><span class="tag">U19</span><span class="tx"><b>2 pelaajaa</b> — A. Koski, L. Mäkelä</span><span class="pct">▲</span></div>
+        <div class="it" style="border-color:var(--red)"><span class="tag">U21</span><span class="tx"><b>0 pelaajaa</b> — ikäluokka-aukko 2004–05.</span><span class="pct" style="color:var(--red)">▼</span></div>
+      </div>
+    </div>
+    <div class="modal-section"><h3>Tarkkailussa · 14</h3>
+      <p style="font-size:12.5px;color:var(--ink-2);margin:0">Skaattihavaintoja viimeisten 90 pv:n aikana. Top-3: V. Heikkilä (TU14), T. Nurmi (TU14), S. Salmi (TU13). Kaikki 5D-mediaani &gt; P60.</p>
+    </div>`},
+  lapimurto:{h:'Läpimurtoputki — 5 pelaajaa',s:'Lähimpinä A-debyyttiä. Valmiusmittari = 5D-mediaani × pelitilanteet × U20-min.',html:`
+    <div class="modal-section"><h3>Sija 1 · L. Mäkelä</h3>
+      <p style="font-size:13px;color:var(--ink-2);margin:0 0 10px"><b>U20 · CB · 2008</b> · valmius 88 / 100 · A-cup 14.5. Pääehdokas avauskokoonpanoon.</p>
+      <div class="fived-mini beta-mark">
+        <div><span class="n">Ket.</span><div class="v">P82</div></div>
+        <div><span class="n">Tai.</span><div class="v">P74</div></div>
+        <div><span class="n">Pel.</span><div class="v">P88</div></div>
+        <div class="beta"><span class="n">Har.</span><span class="beta-tag">β</span><div class="v" style="color:var(--ink-3)">P71</div></div>
+        <div><span class="n">Omi.</span><div class="v">P91</div></div>
+      </div>
+    </div>
+    <div class="modal-section"><h3>Aktiiviset IDP:t · 3</h3>
+      <div class="idp-list">
+        <div class="it"><span class="tag">DFL · Puol.</span><span class="tx"><b>1v1-puolustus avoimessa kentässä</b> — 6 vk video + harjoitusyksiköt.</span><span class="pct">62%</span></div>
+        <div class="it"><span class="tag">5D · Ket.</span><span class="tx"><b>Sprintti-nopeus 30m</b> — H-H-polun pelaajakohtaiset testit, kuukausittainen mittaus.</span><span class="pct">78%</span></div>
+        <div class="it"><span class="tag">SBL · Maa.</span><span class="tx"><b>Maalipaikan ajoitus erikoistilanteissa</b> — videoanalyysi.</span><span class="pct">45%</span></div>
+      </div>
+    </div>`}
+};
+
+function openDrill(id){
+  const d = DRILLS[id] || {h:id, s:'—', html:'<p>Ei vielä kuvattu.</p>'};
+  document.getElementById('modal-content').innerHTML = `<h2>${d.h}</h2><div class="modal-sub">${d.s}</div>${d.html}`;
+  document.getElementById('modal-bg').classList.add('on');
+}
+function closeDrill(){ document.getElementById('modal-bg').classList.remove('on'); }
+function openPlayer(id){ openDrill('lapimurto'); }
+function openCert(id){ openDrill('sertifiointi'); }
+function openMj(age){ openDrill('mj'); }
+
+/* ───────── Tooltip ───────── */
+function openTip(d){
+  const t = TIPS[d]; if(!t) return;
+  document.getElementById('tt-h').textContent = t.h;
+  document.getElementById('tt-s').textContent = t.s;
+  let m = ''; t.map.forEach(r=> m += `<dt>${r[0]}</dt><dd>${r[1]}</dd>`);
+  document.getElementById('tt-map').innerHTML = m;
+  document.getElementById('tt-f').textContent = t.f;
+  document.getElementById('tt-bg').classList.add('on');
+}
+function closeTip(){ document.getElementById('tt-bg').classList.remove('on'); }
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ closeDrill(); closeTip(); }
+});
+
+/* ───────── Tweaks (custom inline, edit-mode protocol) ───────── */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "bench": "vertais",
+  "beta": true,
+  "dense": false
+}/*EDITMODE-END*/;
+let TW = Object.assign({}, TWEAK_DEFAULTS);
+
+function applyTweaks(){
+  document.body.dataset.bench = TW.bench;
+  document.body.dataset.beta = TW.beta ? 'on' : 'off';
+  document.body.dataset.dense = TW.dense ? 'on' : 'off';
+}
+function persistTweaks(patch){
+  Object.assign(TW, patch);
+  applyTweaks();
+  try{ window.parent.postMessage({type:'__edit_mode_set_keys', edits:patch}, '*'); }catch(e){}
+}
+applyTweaks();
+
+window.addEventListener('message', e=>{
+  if(!e.data || !e.data.type) return;
+  if(e.data.type==='__activate_edit_mode') showTweaks();
+  if(e.data.type==='__deactivate_edit_mode') hideTweaks();
+});
+function showTweaks(){ document.getElementById('tweaks').classList.add('on'); }
+function hideTweaks(){
+  document.getElementById('tweaks').classList.remove('on');
+  try{ window.parent.postMessage({type:'__edit_mode_dismissed'}, '*'); }catch(e){}
+}
+
+document.querySelectorAll('.tw-toggle').forEach(t=>{
+  t.addEventListener('click',()=>{
+    const k = t.dataset.tweak;
+    t.classList.toggle('on');
+    persistTweaks({[k]: t.classList.contains('on')});
+  });
+});
+document.querySelectorAll('.tw-radio').forEach(r=>{
+  const k = r.dataset.tweak;
+  r.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click',()=>{
+      r.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      persistTweaks({[k]: b.dataset.val});
+    });
+  });
+});
+// Sync UI to current TW
+document.querySelectorAll('.tw-toggle').forEach(t=>{
+  if(TW[t.dataset.tweak]) t.classList.add('on'); else t.classList.remove('on');
+});
+document.querySelectorAll('.tw-radio').forEach(r=>{
+  const k = r.dataset.tweak;
+  r.querySelectorAll('button').forEach(b=>{
+    if(b.dataset.val===TW[k]) b.classList.add('on'); else b.classList.remove('on');
+  });
+});
+
+// Announce edit mode
+setTimeout(()=>{
+  try{ window.parent.postMessage({type:'__edit_mode_available'}, '*'); }catch(e){}
+}, 50);
+</script>
+</body>
+</html>
