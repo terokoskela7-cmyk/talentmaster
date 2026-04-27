@@ -75,6 +75,9 @@ button{font-family:var(--font-b);cursor:pointer}
 .live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#28B090;animation:heartbeat 2s ease infinite;margin-right:6px}
 .toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:9999;padding:11px 18px;background:rgba(26,122,94,.95);color:#fff;border-radius:22px;font-size:12px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:fadeUp .3s ease}
 </style>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -149,6 +152,15 @@ const IKA = {
 
 let _age='u12';
 let _sc='koti';
+
+// Firebase
+let _db = null;
+let _auth = null;
+
+// Lapsen viimeisin kirjaus (Firestoresta)
+let _viimeisinKirjaus = null;   // { tyyppi, kesto_min, fiilis, aika, pvm }
+let _viikkoKirjaukset = [];     // koko viikon kirjaukset tarina-generaattorille
+let _kehuLahetetty = false;     // nappi harmaa lähetyksen jälkeen
 
 function setAge(a){
   _age=a;
@@ -267,11 +279,20 @@ function rKoti(){
       <div class="ey ac">${_age==='u19'?'Kehitys':'Tänään'}</div>
     </div>
     <div style="font-family:var(--font-d);font-weight:400;font-size:22px;line-height:1.2;color:var(--text);margin-bottom:8px">
-      ${d.hero.t}
+      ${_viimeisinKirjaus ? _tarinaOtsikko(_viimeisinKirjaus) : d.hero.t}
     </div>
     <div style="font-size:12px;color:var(--ink2);line-height:1.6">
-      ${d.hero.s}
+      ${_viimeisinKirjaus ? _tarinaKuvaus(_viimeisinKirjaus) : d.hero.s}
     </div>
+    ${_viimeisinKirjaus ? `
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button onclick="_lahetaKehu('❤️','Hienoa!')" style="flex:1;padding:10px 8px;background:${_kehuLahetetty?'rgba(242,239,230,.05)':'rgba(184,92,56,.12)'};border:.5px solid ${_kehuLahetetty?'rgba(242,239,230,.1)':'rgba(184,92,56,.35)'};border-radius:8px;color:${_kehuLahetetty?'var(--ink3)':'#B85C38'};font-size:11px;font-weight:600;cursor:${_kehuLahetetty?'default':'pointer'};letter-spacing:.08em;transition:all .2s">
+        ${_kehuLahetetty ? '✓ Kehu lähetetty' : '❤️  Hienoa!'}
+      </button>
+      <button onclick="_lahetaKehu('🔥','Upea treeni!')" ${_kehuLahetetty?'disabled':''} style="flex:1;padding:10px 8px;background:${_kehuLahetetty?'rgba(242,239,230,.05)':'rgba(26,122,94,.1)'};border:.5px solid ${_kehuLahetetty?'rgba(242,239,230,.1)':'rgba(26,122,94,.3)'};border-radius:8px;color:${_kehuLahetetty?'var(--ink3)':'var(--teal-d)'};font-size:11px;font-weight:600;cursor:${_kehuLahetetty?'default':'pointer'};letter-spacing:.08em;transition:all .2s">
+        🔥 Upea treeni!
+      </button>
+    </div>` : ''}
   </div>
 
   ${_age==='u12'?_kotiU12(d):_age==='u15'?_kotiU15(d):_kotiU19(d)}
@@ -831,6 +852,165 @@ try{
     }
   }
 }catch(e){}
+
+
+/* ═══════════════════════════════════════════════════════════
+   FIREBASE — alustus + pelaajadatan luku
+   ═══════════════════════════════════════════════════════════ */
+const _fbCfg = {
+  apiKey:            'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo',
+  authDomain:        'talentmaster-pilot.firebaseapp.com',
+  projectId:         'talentmaster-pilot',
+  storageBucket:     'talentmaster-pilot.firebasestorage.app',
+  messagingSenderId: '872561784446',
+  appId:             '1:872561784446:web:05c4c7996dfd46ddd14a2f',
+};
+
+try {
+  if (!firebase.apps.length) firebase.initializeApp(_fbCfg);
+  _db   = firebase.firestore();
+  _auth = firebase.auth();
+
+  // Anonyymi kirjautuminen — tarvitaan Firestore-rules
+  _auth.signInAnonymously().catch(() => {});
+
+  // Hae pelaajan viimeisimmät kirjaukset kun autentikointi ok
+  _auth.onAuthStateChanged(async (user) => {
+    if (!user) return;
+    await _haeViimeisinKirjaus();
+  });
+} catch(e) {
+  console.warn('[VanA Firebase]', e.message);
+}
+
+/* ── Hae lapsen viimeisin T-kirjaus Firestoresta ── */
+async function _haeViimeisinKirjaus() {
+  if (!_db) return;
+  // Haetaan kaikista pilottiseuroista — käytetään URL-parametria tai u12-oletusta
+  const urlSeura = new URLSearchParams(location.search).get('seura') || 'kpv';
+  const urlUid   = new URLSearchParams(location.search).get('uid');
+  if (!urlUid) return; // Ei UID:tä — demo-moodi, ei haeta
+
+  try {
+    // Viimeisin kirjaus
+    const snap = await _db.collection('seurat').doc(urlSeura)
+      .collection('pelaajat').doc(urlUid)
+      .collection('kirjaukset')
+      .orderBy('luotu', 'desc')
+      .limit(1)
+      .get();
+
+    if (!snap.empty) {
+      const d = snap.docs[0].data();
+      _viimeisinKirjaus = {
+        id:       snap.docs[0].id,
+        tyyppi:   d.tyyppi || 'T',
+        konteksti: d.konteksti || '',
+        kesto_min: d.kesto_min || 0,
+        fiilis:   d.fiilis || null,
+        luotu:    d.luotu?.toDate() || new Date(),
+        pvm:      snap.docs[0].id,
+        uid:      urlUid,
+        seura:    urlSeura,
+      };
+    }
+
+    // Viikon kirjaukset tarina-generaattorille
+    const viikkoSitten = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const viikkoSnap = await _db.collection('seurat').doc(urlSeura)
+      .collection('pelaajat').doc(urlUid)
+      .collection('kirjaukset')
+      .where('luotu', '>=', firebase.firestore.Timestamp.fromDate(viikkoSitten))
+      .orderBy('luotu', 'desc')
+      .limit(14)
+      .get();
+
+    _viikkoKirjaukset = viikkoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _kehuLahetetty = false;
+    draw();
+  } catch(e) {
+    console.warn('[haeKirjaus]', e.message);
+  }
+}
+
+/* ── Lähetä kehu pelaajalle → Firestore ── */
+async function _lahetaKehu(emoji, teksti) {
+  if (_kehuLahetetty || !_db || !_viimeisinKirjaus) return;
+  const { seura, uid } = _viimeisinKirjaus;
+  const d = IKA[_age];
+
+  try {
+    await _db.collection('seurat').doc(seura)
+      .collection('pelaajat').doc(uid)
+      .collection('kehut')
+      .add({
+        emoji,
+        teksti,
+        lahettaja: 'Vanhempi',        // myöhemmin: oikea huoltajan nimi
+        luotu: firebase.firestore.FieldValue.serverTimestamp(),
+        nahty: false,
+        kirjausId: _viimeisinKirjaus.id,
+      });
+    _kehuLahetetty = true;
+    _toast(`${emoji} Kehu lähetetty ${d.nimi}:lle!`);
+    draw();
+  } catch(e) {
+    console.warn('[lahetaKehu]', e.message);
+    _toast('Kehu ei lähtenyt — tarkista yhteys');
+  }
+}
+
+/* ── Tarina-generaattori — muuntaa kirjauksen kertomukseksi ── */
+function _tarinaOtsikko(k) {
+  const nimi = IKA[_age].nimi;
+  const minSitten = Math.round((Date.now() - k.luotu.getTime()) / 60000);
+  const aikaStr = minSitten < 5 ? 'juuri nyt' :
+                  minSitten < 60 ? `${minSitten} min sitten` :
+                  minSitten < 120 ? 'tunnin sitten' : 'tänään';
+
+  // Kontekstikohtainen otsikko
+  const kontekstiOtsikot = {
+    pihapeli: `${nimi} pelasi pihalla ${aikaStr}`,
+    kaveri:   `${nimi} harjoitteli kaverin kanssa ${aikaStr}`,
+    aamu:     `${nimi} teki aamuharjoitteen ${aikaStr}`,
+    valitunti:`${nimi} treenasi välitunnilla ${aikaStr}`,
+    ilta:     `${nimi} teki iltatreenin ${aikaStr}`,
+    oma:      `${nimi} harjoitteli itsekseen ${aikaStr}`,
+  };
+  if (k.konteksti && kontekstiOtsikot[k.konteksti]) return kontekstiOtsikot[k.konteksti];
+
+  const tyypit = {
+    T: `${nimi} harjoitteli palloa ${aikaStr}`,
+    D: `${nimi} teki kehonhuollon ${aikaStr}`,
+    S: `${nimi} teki lihaskuntoharjoitteen ${aikaStr}`,
+  };
+  return tyypit[k.tyyppi] || `${nimi} treenasi ${aikaStr}`;
+}
+
+function _tarinaKuvaus(k) {
+  const nimi = IKA[_age].nimi;
+  const osat = [];
+
+  // Kesto
+  if (k.kesto_min >= 30) osat.push(`${k.kesto_min} minuuttia — pisin tänä viikkona`);
+  else if (k.kesto_min > 0) osat.push(`${k.kesto_min} minuuttia`);
+
+  // Konteksti — kasvutarina-sävy
+  const kontekstiKuvaukset = {
+    pihapeli: 'Oma-aloitteinen ulkoilu — ei pyyntiä.',
+    kaveri:   'Sosiaalinen treeni kavereiden kanssa. Tärkeintä tässä iässä.',
+    aamu:     'Bola Sempre: aamuharjoite ennen koulua. Bellinghamin tapa.',
+    valitunti:'Välituntimikrosykli — yksi kosketushetki päivän keskellä.',
+  };
+  if (k.konteksti && kontekstiKuvaukset[k.konteksti]) osat.push(kontekstiKuvaukset[k.konteksti]);
+
+  // Viikon tilanne
+  const tehdytPvt = _viikkoKirjaukset.filter(p => p.tyyppi === 'T' || p.tyyppi === 'vapaa').length;
+  if (tehdytPvt >= 5) osat.push(`Tämä on jo ${tehdytPvt}. kirjaus tällä viikolla.`);
+  else if (tehdytPvt === 1) osat.push('Ensimmäinen kirjaus tänä viikkona.');
+
+  return osat.join(' ') || 'Hyvää työtä tänään.';
+}
 
 draw();
 
