@@ -47,7 +47,9 @@ button{font-family:var(--font-b);cursor:pointer}
 .locale-inner{display:inline-flex;gap:2px;background:rgba(242,239,230,.04);padding:2px;border-radius:4px}
 .loc-btn{background:transparent;color:var(--ink3);border:none;padding:4px 8px;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;border-radius:3px;transition:background .12s,color .12s}
 .loc-btn.on{background:var(--teal);color:var(--text)}
-.scene-bar{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:10px;width:100%;max-width:100vw;box-sizing:border-box;}
+.scene-bar{display:none;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:10px;width:100%;max-width:100vw;box-sizing:border-box;}
+.demo-mode .scene-bar{display:flex;}
+.demo-mode .locale-bar{display:flex;}
 .sp{background:rgba(242,239,230,.04);color:var(--ink3);border:.5px solid rgba(242,239,230,.1);padding:5px 9px;font-size:9px;letter-spacing:.18em;text-transform:uppercase;font-weight:500;border-radius:20px;transition:background .12s,color .12s,border-color .12s}
 .sp.on{background:var(--teal);color:var(--text);border-color:var(--teal)}
 
@@ -358,6 +360,14 @@ function go(s){
   draw();
 }
 
+/* tab(t) — vaihda päänavigaation välilehti (joukkue/testit/kortti/mina/koti) */
+function tab(t){
+  _sc='main'; // poista erikoisnäkymä
+  _tab=t;
+  document.querySelectorAll('.sp').forEach(b=>b.classList.toggle('on',b.dataset.s===t));
+  draw();
+}
+
 /* ══════════════════════════════════════
    EXERCISES
 ══════════════════════════════════════ */
@@ -507,6 +517,7 @@ function rPin(){
     ${[0,1,2,3].map(i=>`<div class="pd${i<_pin.length?' on':''}"></div>`).join('')}
   </div>
   <div class="ey" style="text-align:center;margin-bottom:8px;letter-spacing:.2em">Syötä PIN</div>
+  <div id="pinVirhe" style="font-size:11px;color:#E05C38;min-height:16px;margin-top:2px;text-align:center;letter-spacing:.04em"></div>
   <div class="kpad">
     ${keys.map(k=>k===''?'<div></div>':`<button class="key" data-k="${k}">${k}</button>`).join('')}
   </div>
@@ -1342,7 +1353,9 @@ function _tallennaVapaa(){
   // Firestore-kirjaus (demo-userille no-op)
   try{
     if(typeof _tmKirjaa==='function'){
-      _tmKirjaa('oma_tyyppi', _vaTyyppi);
+      // Bola Sempre: pihapeli, pallo yksin ja kaverin kanssa = T-kirjaus (pallokosketus)
+      const _onT = ['pihapeli','pallo','kaveri'].includes(_vaTyyppi);
+      _tmKirjaa(_onT ? 'T' : 'vapaa', _vaTyyppi);
       _tmKirjaa('oma_min', _vaMin);
       _tmKirjaa('oma_fiilis', _vaFiilis);
       _tmKirjaa('oma_kavereita', _vaKavereita);
@@ -1602,6 +1615,12 @@ let _user     = null;
 let _kirjautuminenKesken = false;
 let _uloskirjautunut     = false;
 let _isDemoUser = false;
+/* Demo-tila: aktivoi scene-bar ja locale-bar vain kehittäjille
+   Tuotannossa nämä ovat piilossa — lisää ?demo=1 URL:iin dev-käyttöön */
+if (new URLSearchParams(location.search).get('demo') === '1') {
+  _isDemoUser = true;
+  document.body.classList.add('demo-mode');
+}
 let _viimeisinKehu = null;   // { teksti, lahettaja, aika } — vanhemman kehu
 let _demoKey    = null;
 let _ladattu    = {};
@@ -2045,9 +2064,27 @@ async function _kirjauduPinilla(pin) {
     }
 
     if (!found) {
-      // Näytä virhe PIN-ruudussa
+      // Fallback: tarkista demo-pelaajat (kehitys- ja demokäyttö)
+      const DEMO_PINIT = {
+        '1234': { etunimi:'Aleksi', sukunimi:'Mäkinen', pelaajaProfiili:'P14 · RAILGUN',
+                  seuraId:'kpv', id:'demo_aleksi', _demo:true },
+        '9012': { etunimi:'Anton',  sukunimi:'M',       pelaajaProfiili:'P14 · MUSTA',
+                  seuraId:'kpv', id:'demo_anton',  _demo:true },
+        '5555': { etunimi:'Demo',   sukunimi:'Pelaaja', pelaajaProfiili:'Demo',
+                  seuraId:'kpv', id:'demo_5555',   _demo:true },
+      };
+      if (DEMO_PINIT[pin]) {
+        _pelaaja = DEMO_PINIT[pin];
+        window._seuraId = 'kpv';
+        _isDemoUser = true;
+        document.body.classList.add('demo-mode');
+        _kaynnistaAppUI();
+        return;
+      }
+      // Ei löydy mistään — näytä virhe
       const errEl = document.querySelector('.pin-err, #pinVirhe');
       if (errEl) errEl.textContent = 'Virheellinen PIN. Tarkista koodi.';
+      else { _pin=''; draw(); } // resetoi PIN-ruutu
       return;
     }
 
