@@ -151,7 +151,7 @@ const IKA = {
 };
 
 let _age='u12';
-let _sc='koti';
+let _sc='login';  // Avataan aina login-näkymästä
 
 // Firebase
 let _db = null;
@@ -203,13 +203,139 @@ function ic(name,sz=18,col='currentColor',sw=1.5){
 function draw(){
   const pb=document.getElementById('phBody');
   let html='';
-  if(_sc==='koti') html=rKoti();
+  if(_sc==='login') html=rLogin();
+  else if(_sc==='koti') html=rKoti();
   else if(_sc==='viikko') html=rViikko();
   else if(_sc==='kirjaa') html=rKirjaa();
   else if(_sc==='valmentaja') html=rValmentaja();
   else if(_sc==='kortti') html=rKortti();
   else if(_sc==='asetukset') html=rAsetukset();
   pb.innerHTML=`<div class="scene">${html}${rTabs()}</div>`;
+}
+
+
+/* ══ LOGIN — sähköpostikirjautuminen vanhemmalle ════════════════════ */
+let _loginEmail = '';
+let _loginPass  = '';
+let _loginErr   = '';
+let _loginLng   = false; // loading
+
+function rLogin() {
+  return `
+<div class="scroll" style="display:flex;flex-direction:column;min-height:100%;justify-content:center;padding:0 24px 40px">
+
+  <!-- Logo + otsikko -->
+  <div style="text-align:center;margin-bottom:32px;padding-top:40px">
+    <div style="font-family:var(--font-d);font-weight:300;font-size:32px;color:var(--text);letter-spacing:-.5px;line-height:1.1">
+      TalentMaster
+    </div>
+    <div style="font-size:11px;letter-spacing:.22em;color:var(--ink3);margin-top:6px;text-transform:uppercase">
+      Perhe · Huoltajan sisäänkirjautuminen
+    </div>
+  </div>
+
+  <!-- Lomake -->
+  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+    <input
+      id="loginEmail"
+      type="email"
+      placeholder="Sähköposti"
+      autocomplete="username"
+      value="${_loginEmail}"
+      oninput="_loginEmail=this.value"
+      style="width:100%;padding:13px 14px;background:var(--surface);border:.5px solid ${_loginErr?'rgba(184,92,56,.6)':'var(--border2)'};
+             border-radius:10px;color:var(--text);font-family:var(--font-b);font-size:14px;
+             box-sizing:border-box;outline:none;transition:border .15s"
+    />
+    <input
+      id="loginPass"
+      type="password"
+      placeholder="Salasana"
+      autocomplete="current-password"
+      oninput="_loginPass=this.value"
+      onkeydown="if(event.key==='Enter')_teeSisaankirjautuminen()"
+      style="width:100%;padding:13px 14px;background:var(--surface);border:.5px solid ${_loginErr?'rgba(184,92,56,.6)':'var(--border2)'};
+             border-radius:10px;color:var(--text);font-family:var(--font-b);font-size:14px;
+             box-sizing:border-box;outline:none;transition:border .15s"
+    />
+    ${_loginErr ? `<div style="font-size:11px;color:#E05C38;text-align:center;padding:4px 0">${_loginErr}</div>` : ''}
+  </div>
+
+  <!-- Kirjaudu-nappi -->
+  <button
+    onclick="_teeSisaankirjautuminen()"
+    ${_loginLng ? 'disabled' : ''}
+    style="width:100%;padding:14px;background:${_loginLng?'rgba(26,122,94,.4)':'var(--teal)'};
+           color:var(--text);border:none;border-radius:10px;font-size:12px;
+           font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+           cursor:${_loginLng?'default':'pointer'};transition:background .2s"
+  >
+    ${_loginLng ? 'Kirjaudutaan...' : 'KIRJAUDU SISÄÄN'}
+  </button>
+
+  <!-- Apuviesti -->
+  <div style="text-align:center;margin-top:20px;font-size:11px;color:var(--ink3);line-height:1.6">
+    Tunnukset saat seuran toimistosta.<br>
+    Ensimmäisellä kerralla tarkista sähköpostisi kutsulinkkiä varten.
+  </div>
+
+  <!-- Salasana unohtunut -->
+  <button
+    onclick="_lahetaSalasananpalautus()"
+    style="margin-top:12px;background:transparent;border:none;
+           color:rgba(26,122,94,.7);font-size:11px;letter-spacing:.1em;
+           cursor:pointer;text-decoration:underline;text-underline-offset:3px"
+  >
+    Unohtuiko salasana?
+  </button>
+
+</div>`;
+}
+
+async function _teeSisaankirjautuminen() {
+  const email = _loginEmail.trim();
+  const pass  = _loginPass;
+
+  if (!email || !pass) {
+    _loginErr = 'Syötä sähköposti ja salasana.';
+    draw(); return;
+  }
+
+  _loginLng = true;
+  _loginErr = '';
+  draw();
+
+  try {
+    await firebase.auth().signInWithEmailAndPassword(email, pass);
+    // onAuthStateChanged hoitaa loput — siirtyy kotiin automaattisesti
+    _loginPass = '';  // älä säilytä salasanaa muistissa
+  } catch(e) {
+    _loginLng = false;
+    _loginErr =
+      e.code === 'auth/wrong-password'    ? 'Väärä salasana.' :
+      e.code === 'auth/user-not-found'    ? 'Sähköpostia ei löydy.' :
+      e.code === 'auth/invalid-email'     ? 'Tarkista sähköpostiosoite.' :
+      e.code === 'auth/too-many-requests' ? 'Liian monta yritystä — odota hetki.' :
+      e.code === 'auth/invalid-credential'? 'Väärä sähköposti tai salasana.' :
+      'Kirjautuminen epäonnistui. Tarkista yhteys.';
+    draw();
+  }
+}
+
+async function _lahetaSalasananpalautus() {
+  const email = _loginEmail.trim();
+  if (!email) {
+    _loginErr = 'Kirjoita ensin sähköpostiosoite ylös.';
+    draw(); return;
+  }
+  try {
+    await firebase.auth().sendPasswordResetEmail(email);
+    _loginErr = '';
+    _toast('Palautuslinkki lähetetty sähköpostiisi!');
+  } catch(e) {
+    _loginErr = 'Sähköpostia ei löydy järjestelmästä.';
+    draw();
+  }
 }
 
 /* ══ KOTI ══ */
@@ -876,8 +1002,19 @@ try {
 
   // Hae pelaajan viimeisimmät kirjaukset kun autentikointi ok
   _auth.onAuthStateChanged(async (user) => {
-    if (!user) return;
-    await _haeViimeisinKirjaus();
+    if (user && !user.isAnonymous) {
+      // Oikea käyttäjä kirjautunut → siirry kotiin
+      _loginLng = false;
+      _loginErr = '';
+      _sc = 'koti';
+      draw();
+      await _haeViimeisinKirjaus();
+    } else if (!user) {
+      // Ei sessiota → näytä login
+      _sc = 'login';
+      draw();
+    }
+    // Anonyymi sessio (Firestore-rules) → ei näkymämuutosta
   });
 } catch(e) {
   console.warn('[VanA Firebase]', e.message);
@@ -1015,20 +1152,22 @@ function _tarinaKuvaus(k) {
 
 /* ── Kirjaudu ulos ── */
 function _kirjauduUlos() {
-  // Tyhjennä localStorage TM-avaimet
   try {
     Object.keys(localStorage).filter(k => /^tm_|^tm-/.test(k))
       .forEach(k => localStorage.removeItem(k));
   } catch(e) {}
-  // Firebase signOut jos käytössä
   try {
     if (window.firebase && firebase.auth) {
-      firebase.auth().signOut().catch(() => {});
+      firebase.auth().signOut().then(() => {
+        // onAuthStateChanged hoitaa siirtymisen login-näkymään
+      }).catch(() => {});
     }
   } catch(e) {}
-  // Näytä vahvistus ja lataa sivu uudelleen
+  _viimeisinKirjaus = null;
+  _viikkoKirjaukset = [];
+  _sc = 'login';
+  draw();
   _toast('Kirjauduttu ulos');
-  setTimeout(() => location.reload(), 1200);
 }
 
 // ── TMBus-yhteensopivuus: varmista että kaikki metodit ovat olemassa ──
