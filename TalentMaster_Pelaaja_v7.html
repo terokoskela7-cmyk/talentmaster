@@ -1967,17 +1967,17 @@ async function demoKirjaudu(key) {
     aleksi: { id:'demo-aleksi', etunimi:'Aleksi', sukunimi:'Mäkinen',
       seuraId:'kpv', joukkueId:'kpv_u13', pelipaikka:'KH',
       syntymaVuosi:2012, flei_viimeisin:84, streak:14, xp:620, taso:7,
-      sbl:2.6, sfl:1.8, ll:2.4, diag:2.3, dfl:2.1,
+      sbl:2.7, sfl:1.6, ll:2.3, diag:2.2, dfl:2.0,
       pelaajaProfiili:'Railgun', signaali:'x-factor' },
     eeli:   { id:'demo-eeli', etunimi:'Eeli', sukunimi:'Virtanen',
       seuraId:'kpv', joukkueId:'kpv_u13', pelipaikka:'HM',
       syntymaVuosi:2012, flei_viimeisin:71, streak:6, xp:310, taso:4,
-      sbl:2.0, sfl:1.6, ll:2.2, diag:1.9, dfl:1.8,
+      sbl:1.9, sfl:1.5, ll:2.1, diag:1.8, dfl:1.7,
       pelaajaProfiili:'Maestro' },
     mikko:  { id:'demo-mikko', etunimi:'Mikko', sukunimi:'Korhonen',
       seuraId:'kpv', joukkueId:'kpv_u13', pelipaikka:'KP',
       syntymaVuosi:2011, flei_viimeisin:65, streak:3, xp:180, taso:3,
-      sbl:2.3, sfl:2.1, ll:1.6, diag:2.0, dfl:1.9,
+      sbl:2.2, sfl:2.0, ll:1.5, diag:1.9, dfl:1.8,
       pelaajaProfiili:'Titan' },
   };
   _isDemoUser = true;
@@ -2027,12 +2027,17 @@ function _laskeStage(sy, phv) {
 }
 
 function _laskeFlei(p) {
+  // Harjoitettavuuskartoitus käyttää asteikkoa 1-3 (Palloliiton manuaali 2026)
+  // Normalisointi 0-100%: (arvo - 1) / (3 - 1) * 100
+  // 1p = 0%, 2p = 50%, 3p = 100%
+  // Defaultarvo 2.0 = 50% (ikäluokan normi kun dataa ei ole)
+  const norm = v => Math.round(((v || 2.0) - 1) / 2 * 100);
   return {
-    SBL:  Math.round((p.sbl  || 2.5) / 3 * 100),
-    SFL:  Math.round((p.sfl  || 2.5) / 3 * 100),
-    LL:   Math.round((p.ll   || 2.5) / 3 * 100),
-    DIAG: Math.round((p.diag || 2.5) / 3 * 100),
-    DFL:  Math.round((p.dfl  || 2.5) / 3 * 100),
+    SBL:  norm(p.sbl),
+    SFL:  norm(p.sfl),
+    LL:   norm(p.ll),
+    DIAG: norm(p.diag),
+    DFL:  norm(p.dfl),
   };
 }
 
@@ -2179,7 +2184,7 @@ async function _kirjauduPinilla(pin) {
                   seuraId:'kpv', id:'demo_aleksi', _demo:true,
                   taso:7, xp:620, streak:14, flei_viimeisin:84, syntymaVuosi:2012,
                   pelipaikka:'KH', joukkueId:'KPV P14 Musta',
-                  sbl:2.5, sfl:2.1, ll:2.3, diag:1.7, dfl:2.4 },
+                  sbl:2.7, sfl:1.6, ll:2.3, diag:2.2, dfl:2.0 },
         '9012': { etunimi:'Anton',  sukunimi:'M',       pelaajaProfiili:'P14 · MUSTA',
                   seuraId:'kpv', id:'demo_anton',  _demo:true,
                   taso:7, xp:620, streak:14, flei_viimeisin:71, syntymaVuosi:2011,
@@ -2342,10 +2347,10 @@ function naytaFcOverlay() {
     ? Math.round(Object.values(_flei).reduce((a,b)=>a+b,0)/5)
     : (p.ovr || 70);
   const stats = [
-    ['PAC', p.sbl  ? Math.round(p.sbl/3*100)  : 82],
+    ['PAC', p.sbl  ? Math.round(((p.sbl)-1)/2*100)  : 75],
     ['DRI', fleiKa],
     ['SHO', 74], ['DEF', 58], ['PAS', 80],
-    ['PHY', p.dfl  ? Math.round(p.dfl/3*100)  : 72],
+    ['PHY', p.dfl  ? Math.round(((p.dfl)-1)/2*100)  : 65],
   ];
   const why = getWhy(_heikoinKetju(), 'S');
   el.innerHTML = `
