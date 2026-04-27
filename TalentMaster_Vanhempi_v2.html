@@ -1012,6 +1012,16 @@ function _tarinaKuvaus(k) {
   return osat.join(' ') || 'Hyvää työtä tänään.';
 }
 
+// ── TMBus-yhteensopivuus: varmista että kaikki metodit ovat olemassa ──
+// tm-bus.js:n eri versioilla on eri API — suojataan kaatumiselta
+if (window.TMBus) {
+  if (!TMBus.getEventsFor) TMBus.getEventsFor = function() { return []; };
+  if (!TMBus.getPlayer)    TMBus.getPlayer    = function() { return null; };
+  if (!TMBus.getTeam)      TMBus.getTeam      = function() { return { name:'KPV', id:'kpv' }; };
+  if (!TMBus.publish)      TMBus.publish      = function() {};
+  if (!TMBus.subscribe)    TMBus.subscribe    = function() {};
+}
+
 draw();
 
 // TMBus subscribe — valmentajan viestit ja reagoinnit
