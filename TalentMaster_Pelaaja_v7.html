@@ -508,8 +508,65 @@ function rPin(){
     <button onclick="demoKirjaudu('aleksi')" style="flex:1;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.22);color:#28B090;padding:7px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.08em">⚡ ALEKSI DEMO</button>
     <button onclick="demoKirjaudu('eeli')"   style="flex:1;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.22);color:#28B090;padding:7px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.08em">📈 EELI DEMO</button>
   </div>
-  <div class="ey" style="text-align:center;padding-bottom:10px;letter-spacing:.18em">${T('forgotPw')}</div>
+
+  <!-- Sähköpostikirjautuminen — vanhemmille ja pelaajille joilla on Firebase-tili -->
+  <div id="emailLoginWrap" style="margin:4px 14px 0;border-top:.5px solid rgba(242,239,230,.08);padding-top:10px">
+    <button onclick="_toggleEmailLogin()"
+      style="width:100%;background:transparent;border:none;color:rgba(242,239,230,.45);
+             font-size:10px;letter-spacing:.16em;cursor:pointer;padding:4px 0;text-align:center">
+      ${T('forgotPw')} · KIRJAUDU SÄHKÖPOSTILLA
+    </button>
+    <div id="emailLoginForm" style="display:none;margin-top:10px">
+      <input id="pinEmail" type="email" placeholder="sähköposti@osoite.fi" autocomplete="email"
+        style="width:100%;background:rgba(242,239,230,.06);border:.5px solid rgba(242,239,230,.18);
+               border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;
+               box-sizing:border-box;margin-bottom:8px;outline:none;font-family:var(--font-s)">
+      <input id="pinPassword" type="password" placeholder="Salasana" autocomplete="current-password"
+        style="width:100%;background:rgba(242,239,230,.06);border:.5px solid rgba(242,239,230,.18);
+               border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;
+               box-sizing:border-box;margin-bottom:8px;outline:none;font-family:var(--font-s)">
+      <div id="emailLoginErr" style="color:#F04E4E;font-size:11px;text-align:center;margin-bottom:6px;display:none"></div>
+      <button onclick="_kirjauduEmaililla()"
+        style="width:100%;background:var(--teal);border:none;border-radius:8px;padding:11px;
+               color:#fff;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.08em">
+        KIRJAUDU SISÄÄN
+      </button>
+    </div>
+  </div>
 </div>`
+}
+
+function _toggleEmailLogin() {
+  const form = document.getElementById('emailLoginForm');
+  if (!form) return;
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  if (form.style.display === 'block') {
+    setTimeout(() => document.getElementById('pinEmail')?.focus(), 100);
+  }
+}
+
+async function _kirjauduEmaililla() {
+  const email = document.getElementById('pinEmail')?.value?.trim();
+  const pass  = document.getElementById('pinPassword')?.value;
+  const errEl = document.getElementById('emailLoginErr');
+  if (!email || !pass) {
+    if (errEl) { errEl.textContent = 'Syötä sähköposti ja salasana.'; errEl.style.display = 'block'; }
+    return;
+  }
+  if (errEl) errEl.style.display = 'none';
+  const btn = document.querySelector('#emailLoginForm button:last-child');
+  if (btn) btn.textContent = 'Kirjaudutaan...';
+  try {
+    await firebase.auth().signInWithEmailAndPassword(email, pass);
+    // onAuthStateChanged hoitaa loput
+  } catch(e) {
+    const msg = e.code === 'auth/wrong-password' ? 'Väärä salasana.' :
+                e.code === 'auth/user-not-found'  ? 'Sähköpostia ei löydy.' :
+                e.code === 'auth/invalid-email'    ? 'Tarkista sähköposti.' :
+                'Kirjautuminen epäonnistui.';
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    if (btn) btn.textContent = 'KIRJAUDU SISÄÄN';
+  }
 }
 
 /* A1 – Action-first */
@@ -1310,17 +1367,32 @@ function rTabs(){
 
 /* COMMON HEADER */
 function hdr(v){
+  const taso   = _pelaaja?.taso   || 7;
+  const xp     = _pelaaja?.xp     || 620;
+  const xpNext = taso * 1000;
+  const xpPct  = Math.min(100, Math.round(xp / xpNext * 100));
+  const streak = _streak || _pelaaja?.streak || 0;
   return `
 <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px 0">
   <div>
     <div class="ey">${T('wBack')} · ${v}</div>
-    <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin-top:4px;color:var(--text);line-height:1.1">${_pelaaja?.etunimi||'Anton'}</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin-top:4px;color:var(--text);line-height:1.1">${_pelaaja?.etunimi||'–'}</div>
   </div>
-  <div class="streak-b"><span class="fl">🔥</span><span class="streak-n">12 pv</span></div>
+  <div style="display:flex;align-items:center;gap:10px">
+    ${streak>0?`<div class="streak-b"><span class="fl">🔥</span><span class="streak-n">${streak} pv</span></div>`:''}
+    <button onclick="kirjauduUlos()" title="Kirjaudu ulos"
+      style="background:rgba(242,239,230,.06);border:.5px solid rgba(242,239,230,.14);
+             border-radius:8px;padding:7px 10px;cursor:pointer;color:rgba(242,239,230,.5);
+             font-size:10px;letter-spacing:.1em;font-weight:600;transition:all .15s"
+      onmouseover="this.style.color='#F04E4E';this.style.borderColor='rgba(240,78,78,.4)'"
+      onmouseout="this.style.color='rgba(242,239,230,.5)';this.style.borderColor='rgba(242,239,230,.14)'">
+      ULOS
+    </button>
+  </div>
 </div>
 <div style="padding:14px 20px 0">
-  <div class="xpl"><span>Taso 7</span><span style="font-family:var(--font-m)">620 / 1000 XP</span></div>
-  <div class="xpt"><div class="xpf" style="width:62%"></div></div>
+  <div class="xpl"><span>Taso ${taso}</span><span style="font-family:var(--font-m)">${xp} / ${xpNext} XP</span></div>
+  <div class="xpt"><div class="xpf" style="width:${xpPct}%"></div></div>
 </div>`;
 }
 
@@ -1592,7 +1664,11 @@ async function kirjauduUlos() {
   _uloskirjautunut = true;
   _isDemoUser = false; _demoKey = null; _pelaaja = null; _ladattu = {};
   window._seuraId = null;
-  try { localStorage.removeItem('tm_pin_sessio'); } catch(e) {}
+  // Tyhjennä kaikki TM-sessiot ja demo-paneeli
+  try {
+    const tmKeys = Object.keys(localStorage).filter(k => /^tm_|^tm-/.test(k));
+    tmKeys.forEach(k => localStorage.removeItem(k));
+  } catch(e) {}
   try { await firebase.auth().signOut(); } catch(e) {}
   go('pin');
 }
