@@ -384,7 +384,13 @@ function draw(){
   else if(_sc==='parent')html=rParent();
   else if(_sc==='vapaa') html=rVapaa();
   else if(_sc==='haaste')html=rHaaste();
-  else                   html=rA1();
+  else {
+    if      (_tab==='joukkue') html=rJoukkue();
+    else if (_tab==='testit')  html=rTestit();
+    else if (_tab==='kortti')  html=rKortti();
+    else if (_tab==='mina')    html=rMina();
+    else                       html=rA1();
+  }
   const card=(_sc==='card'||_cOpen)?rCard():'';
   const tabs=hideTabs?'':rTabs();
   body.innerHTML=`<div class="scene">${html}${card}${tabs}</div>`;
@@ -689,6 +695,173 @@ function rA3(){
       <div class="meta">+1 · Elite</div>
     </div>
   </div>
+</div>`;
+}
+
+
+/* JOUKKUE-tab */
+function rJoukkue(){
+  const p = _pelaaja;
+  return `
+<div class="scroll" style="background:var(--bg)">
+  ${hdr('Joukkue')}
+  <section style="padding:20px 20px 0">
+    <div class="ey ac" style="margin-bottom:14px">JOUKKUETREENIT</div>
+    ${[
+      {aika:'Ti 18:30', paikka:'Töölö · tekonurmi', tyyppi:'Pallollinen', ok:false},
+      {aika:'To 17:00', paikka:'Töölö · tekonurmi', tyyppi:'Pelitilanteet', ok:false},
+      {aika:'La 10:00', paikka:'Mäkelänrinne', tyyppi:'Peli', ok:false},
+    ].map(t=>`
+      <div class="row" style="margin-bottom:8px;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--text)">${t.aika} · ${t.tyyppi}</div>
+          <div class="meta">${t.paikka}</div>
+        </div>
+        <div style="font-size:11px;letter-spacing:.12em;color:var(--teal)">TULOSSA</div>
+      </div>`).join('')}
+  </section>
+  <section style="padding:20px 20px 0">
+    <div class="ey ac" style="margin-bottom:10px">OMA PAIKKA JOUKKUEESSA</div>
+    <div class="row" style="display:flex;gap:16px;align-items:center">
+      <div style="text-align:center;flex:1">
+        <div style="font-family:var(--font-m);font-size:22px;color:var(--teal)">${p?.pelipaikka||'KH'}</div>
+        <div class="meta">Pelipaikka</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-family:var(--font-m);font-size:22px;color:var(--text)">${(p?.joukkueId||'KPV U13').toUpperCase()}</div>
+        <div class="meta">Joukkue</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-family:var(--font-m);font-size:22px;color:var(--text)">${_streak||0}</div>
+        <div class="meta">Streak pv</div>
+      </div>
+    </div>
+  </section>
+  <section style="padding:20px">
+    <div class="ey ac" style="margin-bottom:10px">OMATOIMINEN · TÄMÄ VIIKKO</div>
+    <div style="font-size:13px;color:var(--text);line-height:1.6">
+      Jokainen kotona tehty harjoite tukee joukkueen yhteistä kehitystä. Valmentaja näkee kirjauksesi.
+    </div>
+  </section>
+</div>`;
+}
+
+/* TESTIT-tab */
+function rTestit(){
+  const p = _pelaaja;
+  const flei = p?.flei_viimeisin || 0;
+  const chains = [
+    {nimi:'Vauhtiketju', koodi:'SBL', emoji:'⚡', arvo: p?.sbl||0},
+    {nimi:'Etuketju',    koodi:'SFL', emoji:'🦵', arvo: p?.sfl||0},
+    {nimi:'Sivuketju',   koodi:'LL',  emoji:'↔️', arvo: p?.ll||0},
+    {nimi:'Kiertoketju', koodi:'DIAG',emoji:'🔄', arvo: p?.diag||0},
+    {nimi:'Syvyysketju', koodi:'DFL', emoji:'🏗️', arvo: p?.dfl||0},
+  ];
+  const heikoin = [...chains].sort((a,b)=>a.arvo-b.arvo)[0];
+  return `
+<div class="scroll" style="background:var(--bg)">
+  ${hdr('Testit')}
+  <section style="padding:20px 20px 0">
+    <div class="ey ac" style="margin-bottom:14px">KEHON VALMIUSINDEKSI (FLEI)</div>
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-family:var(--font-m);font-size:48px;color:${flei>=70?'var(--teal)':flei>=40?'#E8A020':'#E04040'}">${flei||'–'}</div>
+      <div class="meta">pistettä 100:sta</div>
+    </div>
+    ${chains.map(c=>`
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div style="font-size:12px;color:var(--text)">${c.emoji} ${c.nimi}</div>
+          <div style="font-family:var(--font-m);font-size:13px;color:${c.koodi===heikoin.koodi?'#E8A020':'var(--teal)'}">${c.arvo>0?c.arvo.toFixed(1):'–'}</div>
+        </div>
+        <div style="height:4px;background:rgba(242,239,230,.1);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:${c.arvo>0?Math.min(100,c.arvo/3*100):0}%;background:${c.koodi===heikoin.koodi?'#E8A020':'var(--teal)'};border-radius:2px"></div>
+        </div>
+      </div>`).join('')}
+    ${heikoin.arvo>0?`<div style="margin-top:14px;padding:12px;background:rgba(232,160,32,.08);border:.5px solid rgba(232,160,32,.3);border-radius:8px;font-size:12px;color:rgba(242,239,230,.8)">
+      ⚠️ Heikoin ketju: <strong>${heikoin.nimi}</strong> — tämän päivän S-harjoite kohdistuu sinne.
+    </div>`:''}
+  </section>
+  <section style="padding:20px 20px 0">
+    <div class="ey ac" style="margin-bottom:10px">CMJ-TESTI</div>
+    <div class="row" style="flex-direction:column;gap:6px">
+      <div style="font-size:13px;font-weight:500;color:var(--text)">Kehon jousitusvoima (CMJ)</div>
+      <div class="meta">Mittaa reaktiivivoiman kehittymistä — tulokset näkyvät valmentajalle.</div>
+      <div style="margin-top:6px;font-size:10px;letter-spacing:.14em;color:var(--teal)">TULOS PUUTTUU · ODOTTAA TESTIÄ</div>
+    </div>
+  </section>
+</div>`;
+}
+
+/* KORTTI-tab */
+function rKortti(){
+  const p = _pelaaja;
+  const dri = p?.flei_viimeisin || 87;
+  return `
+<div class="scroll" style="background:var(--bg)">
+  ${hdr('Kortti')}
+  <section style="padding:20px;text-align:center">
+    <div class="ey ac" style="margin-bottom:16px">TALENTMASTER PLAYER CARD</div>
+    <div data-card style="cursor:pointer;display:inline-block">
+      <div style="width:180px;height:240px;background:linear-gradient(135deg,#3A2800,#1A1200,#0D0800);border-radius:14px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:.5px solid rgba(184,134,11,.4);margin:0 auto">
+        <div style="font-family:var(--font-b);font-weight:900;font-size:64px;color:#B8860B;line-height:1">${dri}</div>
+        <div style="font-size:9px;letter-spacing:.2em;color:rgba(184,134,11,.7);margin-top:4px">DRI · OVERALL</div>
+        <div style="margin-top:16px;font-family:var(--font-d);font-size:16px;color:rgba(242,239,230,.9)">${p?.etunimi||'–'} ${(p?.sukunimi||'')[0]||''}.</div>
+        <div style="font-size:9px;letter-spacing:.18em;color:rgba(242,239,230,.5);margin-top:2px">${p?.pelipaikka||'KH'} · ${(p?.joukkueId||'').toUpperCase()}</div>
+        <div style="margin-top:12px;font-size:8px;letter-spacing:.22em;color:rgba(184,134,11,.6)">★ ELITE</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;font-size:12px;color:rgba(242,239,230,.5);line-height:1.6">
+      Kortti kasvaa kehittymisesi mukana.<br>Seuraava taso: DRI 88 (+1 tästä viikosta)
+    </div>
+  </section>
+  <section style="padding:0 20px 20px">
+    <div class="ey ac" style="margin-bottom:10px">TILASTOT</div>
+    ${[
+      {l:'Streak',      v:(_streak||0)+' pv'},
+      {l:'XP yhteensä', v:(p?.xp||0)+' XP'},
+      {l:'Taso',        v:p?.taso||1},
+      {l:'FLEI-indeksi',v:(p?.flei_viimeisin||0)+' / 100'},
+    ].map(s=>`
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:.5px solid rgba(242,239,230,.08)">
+        <span class="meta">${s.l}</span>
+        <span style="font-family:var(--font-m);font-size:13px;color:var(--teal)">${s.v}</span>
+      </div>`).join('')}
+  </section>
+</div>`;
+}
+
+/* MINÄ-tab */
+function rMina(){
+  const p = _pelaaja;
+  const ika = p?.syntymaVuosi ? new Date().getFullYear()-p.syntymaVuosi : '?';
+  return `
+<div class="scroll" style="background:var(--bg)">
+  ${hdr('Minä')}
+  <section style="padding:20px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div class="pin-av" style="width:56px;height:56px;font-size:20px">${p?((p.etunimi||'')[0]||'?')+((p.sukunimi||'')[0]||'?'):'??'}</div>
+      <div>
+        <div style="font-family:var(--font-d);font-size:22px;color:var(--text)">${p?.etunimi||'–'} ${p?.sukunimi||''}</div>
+        <div class="meta">${p?.joukkueId||'–'} · ${ika} v · ${p?.pelipaikka||'–'}</div>
+      </div>
+    </div>
+    ${[
+      {l:'Taso',          v:(p?.taso||1)},
+      {l:'XP',            v:(p?.xp||0)+' / '+((p?.taso||1)*1000)},
+      {l:'Streak',        v:(_streak||0)+' päivää'},
+      {l:'FLEI',          v:(p?.flei_viimeisin||0)+' / 100'},
+      {l:'Pelaajaprofiili', v:p?.pelaajaProfiili||'–'},
+    ].map(s=>`
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:.5px solid rgba(242,239,230,.08)">
+        <span class="meta">${s.l}</span>
+        <span style="font-size:13px;color:var(--text);font-weight:500">${s.v}</span>
+      </div>`).join('')}
+    <div style="margin-top:20px">
+      <button onclick="kirjauduUlos()" style="width:100%;background:rgba(240,78,78,.08);border:.5px solid rgba(240,78,78,.3);color:#F04E4E;border-radius:8px;padding:12px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.1em">
+        KIRJAUDU ULOS
+      </button>
+    </div>
+  </section>
 </div>`;
 }
 
