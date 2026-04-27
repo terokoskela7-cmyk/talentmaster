@@ -1132,24 +1132,26 @@ try {
   _db   = firebase.firestore();
   _auth = firebase.auth();
 
-  // Anonyymi kirjautuminen — tarvitaan Firestore-rules
+  // Anonyymi kirjautuminen — vain Firestore-rules varten (lukuoikeus)
+  // Tämä EI kirjaa vanhempaa sisään — oikea kirjautuminen vaatii sähköposti+salasana
   _auth.signInAnonymously().catch(() => {});
 
   // Hae pelaajan viimeisimmät kirjaukset kun autentikointi ok
   _auth.onAuthStateChanged(async (user) => {
     if (user && !user.isAnonymous) {
-      // Oikea käyttäjä kirjautunut → siirry kotiin
+      // Oikea, tunnistettu käyttäjä → siirry kotiin
       _loginLng = false;
       _loginErr = '';
-      _sc = 'koti';
-      draw();
+      if (_sc === 'login') {
+        _sc = 'koti';
+        draw();
+      }
       await _haeViimeisinKirjaus();
-    } else if (!user) {
-      // Ei sessiota → näytä login
-      _sc = 'login';
-      draw();
+    } else {
+      // Ei sessiota TAI anonyymi sessio → pysy login-näkymässä
+      // Anonyymi on vain Firestore-rules-apuri, ei oikea kirjautuminen
+      if (_sc === 'login') draw(); // renderöi login jos ei vielä renderöity
     }
-    // Anonyymi sessio (Firestore-rules) → ei näkymämuutosta
   });
 } catch(e) {
   console.warn('[VanA Firebase]', e.message);
