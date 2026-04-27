@@ -3053,39 +3053,38 @@ async function naytaPelaajaTiedot(pelaajaId) {
 // SUPER ADMIN: PELAAJAN MUOKKAUS
 // ─────────────────────────────────────────────────────────────────
 async function avaaMuokkaaPelaajaModal(pelaajaId) {
-  // Suljetaan profiilimodaali
   const pm = document.getElementById('pelaajaProfiiliModal');
   if (pm) pm.classList.remove('auki');
 
-  // Haetaan tuore data
   let p = null;
   try {
-    const snap = await db.collection('seurat').doc(tila.seuraId)
-      .collection('pelaajat').doc(pelaajaId).get();
+    const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get();
     if (snap.exists) p = { id: snap.id, ...snap.data() };
   } catch(e) { naytaToast('Tietojen haku epäonnistui.', 'virhe'); return; }
   if (!p) return;
+
+  // Syntymäaika → date-kentäksi (YYYY-MM-DD)
+  let syntymaPvm = '';
+  if (p.syntymaaika?.seconds) {
+    syntymaPvm = new Date(p.syntymaaika.seconds*1000).toISOString().slice(0,10);
+  } else if (p.syntymaVuosi) {
+    syntymaPvm = p.syntymaVuosi + '-01-01';
+  }
 
   const joukkueet = (tila.joukkueet || []);
   const joukkueOptions = joukkueet.map(j =>
     `<option value="${j.nimi}" ${p.joukkue === j.nimi ? 'selected' : ''}>${j.nimi}</option>`
   ).join('');
 
+  const isSuperAdmin = tila.rooli === 'superadmin' || tila.rooli === 'super_admin';
+
   let modal = document.getElementById('muokkaaPelaajaModal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'muokkaaPelaajaModal';
-    modal.className = 'modalTausta';
-    document.body.appendChild(modal);
-  }
+  if (!modal) { modal = document.createElement('div'); modal.id = 'muokkaaPelaajaModal'; modal.className = 'modalTausta'; document.body.appendChild(modal); }
 
   modal.innerHTML = `
-    <div class="modalSisalto" style="max-width:480px;">
+    <div class="modalSisalto" style="max-width:520px;">
       <button class="modalSuljeNappi" onclick="document.getElementById('muokkaaPelaajaModal').classList.remove('auki')">✕ Sulje</button>
       <div class="modalOtsikko">✏️ Muokkaa pelaajatietoja</div>
-      <div class="modalKuvaus" style="color:var(--amber);font-size:12px;margin-bottom:16px;">
-        Super Admin — muutokset tallentuvat suoraan Firestoreen
-      </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div class="kenttaRyhma">
@@ -3098,37 +3097,67 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
         </div>
       </div>
 
-      <div class="kenttaRyhma" style="margin-bottom:12px;">
-        <label class="kenttaLabel">Joukkue</label>
-        <select id="mp_joukkue" class="kenttaInput">
-          <option value="">— valitse —</option>
-          ${joukkueOptions}
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="kenttaRyhma">
+          <label class="kenttaLabel">Syntymäpäivä</label>
+          <input id="mp_syntymaaika" class="kenttaInput" type="date" value="${syntymaPvm}">
+        </div>
+        <div class="kenttaRyhma">
+          <label class="kenttaLabel">Sukupuoli</label>
+          <select id="mp_sukupuoli" class="kenttaInput">
+            <option value="">— valitse —</option>
+            <option value="M" ${p.sukupuoli==='M'?'selected':''}>Poika / Mies</option>
+            <option value="N" ${p.sukupuoli==='N'?'selected':''}>Tyttö / Nainen</option>
+          </select>
+        </div>
       </div>
 
-      <div class="kenttaRyhma" style="margin-bottom:12px;">
-        <label class="kenttaLabel">Huoltajan sähköposti</label>
-        <input id="mp_hEmail" class="kenttaInput" type="email" value="${p.huoltajaEmail||p.huoltaja?.email||''}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="kenttaRyhma">
+          <label class="kenttaLabel">Joukkue</label>
+          <select id="mp_joukkue" class="kenttaInput">
+            <option value="">— valitse —</option>
+            ${joukkueOptions}
+          </select>
+        </div>
+        <div class="kenttaRyhma">
+          <label class="kenttaLabel">Pelipaikka</label>
+          <input id="mp_pelipaikka" class="kenttaInput" placeholder="esim. KH, TK, HY" value="${p.pelipaikka||p.positio||''}">
+        </div>
       </div>
 
-      <div class="kenttaRyhma" style="margin-bottom:12px;">
-        <label class="kenttaLabel">PalloID</label>
-        <input id="mp_palloId" class="kenttaInput" value="${p.palloID||p.palloId||''}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="kenttaRyhma">
+          <label class="kenttaLabel">Huoltajan sähköposti</label>
+          <input id="mp_hEmail" class="kenttaInput" type="email" value="${p.huoltajaEmail||p.huoltaja?.email||''}">
+        </div>
+        <div class="kenttaRyhma">
+          <label class="kenttaLabel">PalloID</label>
+          <input id="mp_palloId" class="kenttaInput" value="${p.palloID||p.palloId||''}">
+        </div>
       </div>
 
-      <div class="kenttaRyhma" style="margin-bottom:20px;">
-        <label class="kenttaLabel">Sukupuoli</label>
-        <select id="mp_sukupuoli" class="kenttaInput">
-          <option value="">— valitse —</option>
-          <option value="poika" ${p.sukupuoli==='poika'?'selected':''}>Poika</option>
-          <option value="tyttö" ${p.sukupuoli==='tyttö'?'selected':''}>Tyttö</option>
-        </select>
-      </div>
+      ${isSuperAdmin ? `
+      <div style="margin-top:16px;padding:14px;background:rgba(224,160,64,.06);border:1px solid rgba(224,160,64,.2);border-radius:10px;margin-bottom:12px;">
+        <div style="font-size:11px;font-weight:700;color:var(--amber);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;">
+          🔬 FLEI-ketjut (Super Admin) — asteikko 1.0–3.0
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+          ${[['sbl','SBL'],['sfl','SFL'],['ll','LL'],['diag','DIAG'],['dfl','DFL']].map(([k,l]) => `
+            <div>
+              <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">${l}</div>
+              <input id="mp_${k}" class="kenttaInput" type="number" min="1" max="3" step="0.01"
+                style="padding:6px 8px;font-size:13px;text-align:center;"
+                value="${p[${k}] != null ? p[${k}] : ''}">
+            </div>`).join('')}
+        </div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:6px;">1.0 = rajoitteita · 2.0 = normi · 3.0 = erinomainen. flei_viimeisin lasketaan automaattisesti.</div>
+      </div>` : ''}
 
       <div id="mp_virhe" class="virheViesti" style="display:none;margin-bottom:12px;"></div>
 
       <div style="display:flex;gap:10px;">
-        <button class="lisaaNappi" style="flex:1;background:var(--primary-dim);"
+        <button class="lisaaNappi" style="flex:1;"
           onclick="tallennaMusokkausPelaaja('${pelaajaId}')">
           💾 Tallenna muutokset
         </button>
@@ -3143,12 +3172,14 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
 }
 
 async function tallennaMusokkausPelaaja(pelaajaId) {
-  const etunimi  = document.getElementById('mp_etunimi')?.value.trim() || '';
-  const sukunimi = document.getElementById('mp_sukunimi')?.value.trim() || '';
-  const joukkue  = document.getElementById('mp_joukkue')?.value || '';
-  const hEmail   = document.getElementById('mp_hEmail')?.value.trim() || '';
-  const palloId  = document.getElementById('mp_palloId')?.value.trim() || '';
+  const etunimi   = document.getElementById('mp_etunimi')?.value.trim() || '';
+  const sukunimi  = document.getElementById('mp_sukunimi')?.value.trim() || '';
+  const joukkue   = document.getElementById('mp_joukkue')?.value || '';
+  const hEmail    = document.getElementById('mp_hEmail')?.value.trim() || '';
+  const palloId   = document.getElementById('mp_palloId')?.value.trim() || '';
   const sukupuoli = document.getElementById('mp_sukupuoli')?.value || '';
+  const pelipaikka = document.getElementById('mp_pelipaikka')?.value.trim() || '';
+  const syntymaaika_str = document.getElementById('mp_syntymaaika')?.value || '';
 
   if (!etunimi && !sukunimi) {
     const v = document.getElementById('mp_virhe');
@@ -3156,21 +3187,59 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
     return;
   }
 
+  // Rakenna päivitysobjekti
+  const paivitys = {
+    etunimi, sukunimi,
+    nimi: (etunimi + ' ' + sukunimi).trim(),
+    joukkue, sukupuoli,
+    huoltajaEmail: hEmail || null,
+    pelipaikka: pelipaikka || null,
+    positio:    pelipaikka || null,  // yhteensopivuus vanhan kentän kanssa
+    ...(palloId && { palloID: palloId }),
+    muokattu: firebase.firestore.FieldValue.serverTimestamp(),
+    muokkaajaUid: tila.kayttaja?.uid || 'tuntematon',
+  };
+
+  // Syntymäpäivä — muunnetaan Firestore Timestampiksi ja lasketaan syntymaVuosi
+  if (syntymaaika_str) {
+    const [y, m, d] = syntymaaika_str.split('-').map(Number);
+    paivitys.syntymaaika   = new Date(Date.UTC(y, m-1, d));
+    paivitys.syntymaVuosi  = y;
+  }
+
+  // FLEI-kentät — vain super admin, validointi 1-3
+  const isSuperAdmin = tila.rooli === 'superadmin' || tila.rooli === 'super_admin';
+  if (isSuperAdmin) {
+    const ketjut = ['sbl','sfl','ll','diag','dfl'];
+    let fleika = 0; let fleiknt = 0;
+    for (const k of ketjut) {
+      const el = document.getElementById('mp_' + k);
+      if (!el || el.value === '') continue;
+      const v = parseFloat(el.value);
+      if (isNaN(v) || v < 1 || v > 3) {
+        const ve = document.getElementById('mp_virhe');
+        if (ve) { ve.textContent = k.toUpperCase() + ' pitää olla 1.0–3.0.'; ve.style.display='block'; }
+        return;
+      }
+      paivitys[k] = Math.round(v * 100) / 100;
+      fleika += v; fleiknt++;
+    }
+    // Laske flei_viimeisin jos kaikki 5 ketjua on asetettu
+    if (fleiknt === 5) {
+      paivitys.flei_viimeisin = Math.round((fleika/5 - 1) / 2 * 100);
+    }
+  }
+
   try {
     await db.collection('seurat').doc(tila.seuraId)
       .collection('pelaajat').doc(pelaajaId)
-      .update({
-        etunimi, sukunimi,
-        nimi: `${etunimi} ${sukunimi}`.trim(),
-        joukkue, sukupuoli,
-        huoltajaEmail: hEmail || null,
-        ...(palloId && { palloID: palloId }),
-        muokattu: firebase.firestore.FieldValue.serverTimestamp(),
-        muokkaajaUid: tila.kayttaja?.uid || 'superadmin',
-      });
+      .update(paivitys);
 
     document.getElementById('muokkaaPelaajaModal').classList.remove('auki');
-    naytaToast(`${etunimi} ${sukunimi} — tiedot päivitetty ✓`, 'ok');
+    const infot = [etunimi + ' ' + sukunimi];
+    if (paivitys.syntymaVuosi) infot.push('s.' + paivitys.syntymaVuosi);
+    if (pelipaikka) infot.push(pelipaikka);
+    naytaToast(infot.join(' · ') + ' — tallennettu ✓', 'ok');
     setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
   } catch(e) {
     const v = document.getElementById('mp_virhe');
