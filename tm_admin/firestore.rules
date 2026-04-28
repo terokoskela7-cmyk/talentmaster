@@ -56,8 +56,10 @@ service cloud.firestore {
     // SEURAT
     // ════════════════════════════════════════════════════════════
     match /seurat/{seuraId} {
-      allow read: if onKirjautunut() && onSeuranJasen(seuraId)
-                  || onSuperAdmin();
+      // list: kirjautunut vanhempi saa hakea seurojen ID:t lapsen löytämiseksi
+      // get:  vain seuran jäsen tai super admin näkee seuran sisällön
+      allow list: if onKirjautunut();
+      allow get:  if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
       allow write: if onKirjautunut() && (
         onRooli('vp') && onSeuranJasen(seuraId) ||
         onRooli('seurasihteeri') && onSeuranJasen(seuraId)
@@ -101,6 +103,9 @@ service cloud.firestore {
         ) || (
           onKirjautunut() && onRooli('pelaaja') &&
           request.auth.uid == pelaajaId
+        ) || (
+          // P4: Vanhempi lukee oman lapsensa datan huoltajaEmail-vertailulla
+          onKirjautunut() && resource.data.huoltajaEmail == request.auth.token.email
         ) || onSuperAdmin();
 
         allow create: if onKirjautunut() && (
@@ -121,6 +126,9 @@ service cloud.firestore {
             onKirjautunut() && onSeuranJasen(seuraId)
           ) || (
             onKirjautunut() && request.auth.uid == pelaajaId
+          ) || (
+            // P4: Vanhempi lukee lapsen kirjaukset
+            onKirjautunut() && get(/databases/$(database)/documents/seurat/$(seuraId)/pelaajat/$(pelaajaId)).data.huoltajaEmail == request.auth.token.email
           ) || onSuperAdmin();
 
           allow create, update: if onKirjautunut()
