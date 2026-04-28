@@ -1,3 +1,4 @@
+[ARKKITEHTUURI.md](https://github.com/user-attachments/files/27151254/ARKKITEHTUURI.md)
 # TalentMaster™ — Järjestelmäarkkitehtuuri
 ## Päivitetty 2026-04-13
 
@@ -561,3 +562,92 @@ fysioterapeutti | testivastaava | pelaaja | vanhempi
 - Laukauskarttaa ei rakenneta — linkki Palloliiton BI:hin riittää
 
 **Pilotti:** 9 seuraa (+ EPS tulossa), SJK laajentaa tyttöihin
+
+---
+
+## Avoimet rajapinnat — API-arkkitehtuuri (lisätty 2026-04-28)
+
+> **Pysyvä periaate:** TalentMaster on avoin ekosysteemi. Avoimet rajapinnat mahdollistavat sen että kaksi erilaista ohjelmaa voivat "puhua" keskenään — ja kolmannet osapuolet voivat rakentaa uusia palveluita olemassa olevan tiedon päälle.
+
+### Provider-agnostic AI-kerros (tm_ai.js)
+
+Kaikki AI-kutsut kulkevat yhden abstraktiokerroksen kautta. EI koskaan suoraa OpenAI/Anthropic-kutsua UI-koodissa.
+
+```javascript
+// tm_ai.js
+const TM_AI = {
+  provider: 'anthropic', // 'openai' | 'anthropic' | 'gemini'
+  async call(prompt, context) {
+    if (this.provider === 'anthropic') return await tmCallAnthropic(prompt, context);
+    if (this.provider === 'openai')    return await tmCallOpenAI(prompt, context);
+    if (this.provider === 'gemini')    return await tmCallGemini(prompt, context);
+  }
+};
+```
+
+### Firebase Cloud Function = pakollinen AI-proxy
+
+API-avaimet EIVÄT koskaan selaimessa. Kaikki AI-kutsut Cloud Functionin kautta (europe-west1).
+
+```javascript
+exports.tmAiProxy = functions.region('europe-west1').https.onCall(async (data) => {
+  const { provider, prompt } = data;
+  // API_KEY ympäristömuuttujassa — ei koodissa koskaan
+});
+```
+
+### AI-providerit ja käyttötapaukset
+
+| Provider | Malli | Käyttötapaus TalentMasterissa |
+|---|---|---|
+| Anthropic | claude-sonnet-4 | Behavioural science -agentti, Firestore-trigger → pelaajan näkymä |
+| OpenAI | gpt-4o vision | Pelihavainto: valmentaja kuvaa → AI analysoi ADAR-kriteerit automaattisesti |
+| OpenAI | whisper-1 | Äänikirjaus kentällä → teksti → Firestore |
+| OpenAI | Assistants API | Pelaajan pitkäaikainen kehitysnarratiiivi (thread per pelaaja yli kausien) |
+| Google | Gemini | Vaihtoehto — vaihdettavissa configista ilman UI-muutoksia |
+
+### Behavioural Science -agentti (Sprint 6-8)
+
+Trigger-ketju:
+```
+Firestore-muutos (kirjaus/putki/fiilinki)
+  → Cloud Function (europe-west1)
+    → Anthropic API
+      → AI-viesti pelaajan näkymään
+```
+
+AI puhuu VAIN 3 tilanteessa (Behavior Playbook):
+1. Putki vaarassa katketa (3 pv ilman kirjausta)
+2. Streak-virstanpylväs (7/14/30 pv)
+3. Pelaaja palaa tauolta
+
+Kiellettyä AI:lta: painostaminen, päivittäiset viestit, "putkesi katkesi", punaiset varoitukset.
+
+### UX-filosofia avoimille rajapinnoille
+
+- **API-first design** — jokainen näkymä suunniteltu niin että data haettavissa myös ulkopuolelta
+- **AI näkymätön** kunnes relevantti — ei "AI-powered"-badgeja missään
+- **LLM-agnostinen** — käyttäjä ei tiedä eikä välitä mikä provider taustalla, hän kokee vain tuloksen
+- **Saumattomat integraatiot** — kolmannen osapuolen data näkyy TalentMasterin UI:ssa ilman siirtymää
+
+### Kooditason säännöt (pysyvät — sovelletaan jokaisessa komponentissa)
+
+1. Kaikki AI-kutsut `TM_AI.call()` kautta — ei suoraa `fetch()` Anthropic/OpenAI UI:ssa
+2. API-avaimet AINA Cloud Functionissa ympäristömuuttujana — ei koodissa koskaan
+3. Cloud Functions region: **aina `europe-west1`** eksplisiittisesti
+4. Provider vaihdettavissa yhdestä config-muuttujasta ilman UI-muutoksia
+5. Behavior Playbook koodissa: ei punaista negatiivisille, streak puuttuva = harmaa
+
+---
+
+## Design Studio (lisätty 2026-04-28)
+
+TalentMaster Design Studio on AI-pohjainen suunnittelu- ja koodaustyökalu:
+- **UX Advisor** — tuntee ekosysteemin, roolit, Behavior Playbookin, lasten maailman
+- **Senior Coder** — tuottaa valmiin HTML/CSS/JS:n suoraan GitHubiin
+
+Arkkitehtuuri: kaksi erillistä API-kutsua per pyyntö:
+1. UX-kutsu (300 tokens) — lyhyt suunnittelupäätös
+2. Coder-kutsu (8000 tokens) — täydellinen HTML-tiedosto
+
+Tiedosto: `TalentMaster_Studio.html` — julkaistu claude.ai Artifact -ympäristössä.
