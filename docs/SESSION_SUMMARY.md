@@ -1,3 +1,4 @@
+[SESSION_SUMMARY.md](https://github.com/user-attachments/files/27151266/SESSION_SUMMARY.md)
 # TalentMaster™ — Master Session Summary
 # Briefingi uusia Claude-sessioita varten
 ## Projektin tila (päivitetty 2026-04-19)
@@ -414,3 +415,37 @@ function onSuperAdmin() {
 5. 🟡 SPF/DKIM DNS-korjaus (alle tunti, kriittinen sähköposteille)
 6. 🟡 Tyttöjen PHV-kaava ennen SJK U14/15T-aktivointia
 7. 🟡 Huoltajan kirjautuminen — testattava oikealla tilillä
+
+---
+
+## Sessio 2026-04-28 — Design Studio + Avoimet rajapinnat
+
+### TalentMaster Design Studio
+- Rakennettu: `TalentMaster_Studio.html` — AI-pohjainen suunnittelu+koodaustyökalu
+- Kaksi agenttia: UX Advisor (300 tok) + Senior Coder (8000 tok) — erilliset API-kutsut
+- 24 pikanapit: First Login Flows (4 roolia), Pelaajan näkymä, Testit & Indeksit, Valmentaja & Johto, UX-strategia
+- Julkaisu: claude.ai Artifact (ei GitHub Pages — CORS-ongelma Anthropic API:n kanssa)
+- Tunnettu ongelma: koodit voivat katketa jos komponentti on erittäin iso (8000 tok raja)
+
+### Avoimet rajapinnat — pysyvä arkkitehtuuripäätös
+**Periaate:** TalentMaster on avoin ekosysteemi — kaksi ohjelmaa voi "puhua" keskenään.
+
+**Provider-agnostic AI (tm_ai.js):**
+- Yksi abstraktiokerros: `TM_AI.call()` — ei suoraa Anthropic/OpenAI-kutsua UI:ssa
+- Provider vaihdettavissa configista: 'anthropic' | 'openai' | 'gemini'
+- Firebase Cloud Function = pakollinen AI-proxy (europe-west1) — API-avaimet ei selaimessa
+
+**OpenAI-integraatiot (tuleva):**
+- GPT-4o vision: valmentaja kuvaa → AI analysoi ADAR-kriteerit automaattisesti
+- Whisper: äänikirjaus kentällä → teksti → Firestore
+- Assistants API: pelaajan pitkäaikainen kehitysnarratiiivi (thread per pelaaja)
+
+**UX-filosofia:**
+- AI näkymätön kunnes relevantti — ei "AI-powered"-badgeja
+- Käyttäjä ei tiedä mikä LLM taustalla — hän kokee vain tuloksen
+- API-first: jokainen näkymä suunniteltu niin että data haettavissa myös ulkoa
+
+### Seuraavaan sessioon
+- Design Studio toimii — testaa komponentteja käytännössä
+- AI-proxy Cloud Function rakentaminen kun Studio siirtyy GitHubiin
+- Provider-agnostic tm_ai.js kirjoittaminen (Sprint 6 prep)
