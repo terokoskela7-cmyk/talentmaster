@@ -963,8 +963,9 @@ exports.aiProxy = functions
     memory:         '256MB',
     // Firebase Secrets Manager — API-avaimet turvallisesti
     // Vaatii: firebase functions:secrets:set ANTHROPIC_API_KEY
-    // Sprint A: vain ANTHROPIC_API_KEY. OPENAI + GEMINI lisätään Sprint C:ssä.
-    secrets: ['ANTHROPIC_API_KEY']
+    // ANTHROPIC_API_KEY luetaan process.env:stä .env-tiedoston kautta (kuten SENDGRID).
+    // secrets-lista poistettu — Firebase CLI:n sisäinen validointi vaati oikeuksia
+    // jotka eivät ole käytettävissä GitHub Actions -ympäristössä.
   })
   .https.onRequest(async (req, res) => {
 
