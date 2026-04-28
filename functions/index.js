@@ -693,3 +693,410 @@ exports.tasoHaeSeuranOttelut = functions
     const lkm = await paivitaSeuranOttelut(seuraId, seuraData.taso_api_key, seuraData.taso_club_id);
     return { ok: true, ottelut: lkm, seuraId };
   });
+// ============================================================
+// AI PROXY — TalentMaster Provider-Agnostic AI Gateway
+// ============================================================
+// LIITÄ TÄMÄ functions/index.js:n LOPPUUN olemassaolevien
+// exports-funktioiden perään. Ei korvaa mitään olemassaolevaa.
+//
+// Tarvitaan:
+//   firebase functions:secrets:set ANTHROPIC_API_KEY
+//   firebase functions:secrets:set OPENAI_API_KEY      (myöhemmin)
+//   firebase functions:secrets:set GEMINI_API_KEY       (myöhemmin)
+//
+// Deploy:
+//   firebase deploy --only functions:aiProxy
+// ============================================================
+
+// ----------------------------------------------------------
+// PROVIDER-REITITYS
+// Jokainen tehtävätyyppi on sidottu tiettyyn provideriin.
+// Vaihto tapahtuu tässä tiedostossa — frontend ei muutu.
+// ----------------------------------------------------------
+const PROVIDER_MAP = {
+  player_narrative:  'anthropic',
+  coach_insight:     'anthropic',
+  game_vision:       'openai',
+  voice_transcribe:  'openai',
+  flei_diagnosis:    'anthropic',
+  streak_nudge:      'gemini',
+  parent_summary:    'anthropic',
+  drill_suggest:     'gemini',
+  return_welcome:    'anthropic',
+  weekly_story:      'anthropic',
+};
+
+// ----------------------------------------------------------
+// SYSTEM PROMPTS
+// Kirjoitettu monikielisiksi — TalentMaster laajenee Pohjoismaihin
+// ja Eurooppaan. Tuetut kielet: fi, sv, en, no, da, de, fr, nl, pl, es
+// ----------------------------------------------------------
+const AI_SYSTEM_PROMPTS = {
+
+  default: `Olet TalentMasterin AI-avustaja. Vastaat aina lyhyesti,
+kannustavasti ja käyttäjän kielellä. Et koskaan mainitse
+AI-providerin nimeä tai teknologiaa. Käytät kieltä: {{language}}.`,
+
+  player_narrative: `Olet urheilijan kehityskumppani. Kirjoitat lyhyitä,
+henkilökohtaisia narratiiveja jotka peilaavat pelaajan omia tekoja takaisin
+hänelle. Et koskaan arvioi heikkouksia suoraan. Et vertaa muihin pelaajiin.
+Käytät aina pelaajan omaa kieltä (fi/sv/en/no/da/de/fr/nl/pl/es).
+Maksimipituus: 5 lausetta.`,
+
+  weekly_story: `Olet tarinankertoija joka muuttaa urheilutilastot inhimillisiksi
+tarinoiksi. Viikkonarratiivi on aina positiivinen tai neutraali — ei koskaan
+syyllistävä. Rakenne: 1) viikon paras hetki, 2) rytmin kuvaus,
+3) eteenpäin katsova lause. Käytät pelaajan kieltä. Maksimi 5 lausetta.`,
+
+  return_welcome: `Olet lempeä paluun vastaanottaja. Pelaaja palaa tauolta —
+et koskaan mainitse poissaoloaikaa negatiivisesti tai kysy miksi hän oli poissa.
+Fokus on aina nykyhetkessä ja tulevassa. Viittaat viimeiseen kirjaukseen
+positiivisesti. Maksimi 3 lausetta. Käytät pelaajan kieltä (fi/sv/en/no/da/de).`,
+
+  flei_diagnosis: `Olet FLEI-metodologian asiantuntija (5 ketjua: SBL/SFL/LL/DIAG/DFL).
+Analysoit ketjujen tasapainon ja tunnistat heikoimmman ketjun S-training kohteeksi.
+Et koskaan esitä heikkoa ketjua rangaistuksena — se on seuraavan luvun alku.
+Vastaus on aina rakentava ja suuntaa eteenpäin. Käytät pelaajan kieltä.`,
+
+  streak_nudge: `Olet micro-copy-kirjoittaja joka tuottaa lyhyitä,
+energisiä kannustusviestejä. Viesti on maksimissaan 12 sanaa.
+Et koskaan käytä sanoja 'muista', 'sinun täytyy' tai 'putkesi katkesi'.
+Käytät pelaajan kieltä (fi/sv/en/no/da/de/fr/nl/pl/es).`,
+
+  parent_summary: `Olet vanhemmalle kirjoittava viestijä. Käytät lämmintä,
+positiivista kieltä. Kerrot lapsen viikon tarinan — et tilastoja.
+Rakenne: 1) mitä lapsi teki, 2) yksi positiivinen havainto,
+3) lyhyt eteenpäin katsova lause. Maksimi 4 lausetta.
+GDPR-tietoinen: et paljasta muiden pelaajien tietoja.
+Käytät vanhemman kieltä (fi/sv/en/no/da/de/fr/nl/pl/es).`,
+
+  coach_insight: `Olet pedagoginen analyytikko joka tukee valmentajan työtä.
+Analysoit joukkueen kollektiivista tilaa — et yksittäistä pelaajaa.
+Nostat esiin ryhmätason kehityskohteita rakentavasti.
+Et koskaan nimeä yksittäistä pelaajaa heikkona.
+Käytät valmentajan kieltä (fi/sv/en/no/da/de/fr/nl/pl/es).`,
+
+  drill_suggest: `Olet harjoitesuunnittelija joka tuntee FLEI-metodologian
+ja ikäryhmäkohtaisen pedagogiikan. Ehdotat aina 3 harjoitetta jotka
+kohdistuvat heikoimman ketjun vahvistamiseen. Harjoitteet ovat
+konkreettisia, ajallisesti rajattuja ja ikäryhmälle sopivia.
+Et selitä miksi ketju on heikko — vain miten sitä vahvistetaan.
+Käytät valmentajan kieltä (fi/sv/en/no/da/de/fr/nl/pl/es).`,
+
+  game_vision: `Olet pelivision analyytikko joka tunnistaa pelaajan liikkeen,
+asemoinnin ja teknisen suorituksen videoframesta tai kuvasta.
+Palautteesi on aina rakentava ja konkreettinen. Maksimi 4 lausetta.
+Käytät pelaajan kieltä (fi/sv/en/no/da/de/fr/nl/pl/es).`,
+};
+
+// ----------------------------------------------------------
+// TUETUT KIELET — pohjoismaiseen ja eurooppalaiseen laajentumiseen
+// ----------------------------------------------------------
+const SUPPORTED_LANGUAGES = new Set(['fi','sv','en','no','da','de','fr','nl','pl','es']);
+
+function _validateLanguage(lang) {
+  return SUPPORTED_LANGUAGES.has(lang) ? lang : 'fi';
+}
+
+// ----------------------------------------------------------
+// PROVIDER-KONFIGURAATIOT
+// API-avaimet tulevat Firebase Secrets Managerista — ei koskaan koodissa.
+// Aseta: firebase functions:secrets:set ANTHROPIC_API_KEY
+// ----------------------------------------------------------
+function _buildProviderConfig(providerName, task, data) {
+
+  // Hae system prompt ja korvaa kieliholdit
+  const lang = _validateLanguage(data.language || 'fi');
+  const systemPrompt = (AI_SYSTEM_PROMPTS[task] || AI_SYSTEM_PROMPTS.default)
+    .replace('{{language}}', lang);
+
+  if (providerName === 'anthropic') {
+    return {
+      url: 'https://api.anthropic.com/v1/messages',
+      headers: {
+        'Content-Type':       'application/json',
+        'x-api-key':          process.env.ANTHROPIC_API_KEY,
+        'anthropic-version':  '2023-06-01'
+      },
+      body: {
+        // claude-sonnet-4-5: kustannustehokas, riittävä narratiiveille
+        // Älä vaihda claude-opus:een ilman budjettihyväksyntää
+        model:      'claude-sonnet-4-5',
+        max_tokens: 1024,
+        system:     systemPrompt,
+        messages:   [{ role: 'user', content: JSON.stringify(data) }]
+      },
+      extractText: (res) => (res.content && res.content[0] && res.content[0].text) || ''
+    };
+  }
+
+  if (providerName === 'openai') {
+    // Whisper-transkriptio käsitellään erikseen (_handleWhisper)
+    return {
+      url: 'https://api.openai.com/v1/chat/completions',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + process.env.OPENAI_API_KEY
+      },
+      body: {
+        model:      task === 'game_vision' ? 'gpt-4o' : 'gpt-4o-mini',
+        max_tokens: 1024,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: task === 'game_vision'
+            ? [
+                { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + data.image } },
+                { type: 'text',      text:       JSON.stringify({ position: data.playerPosition, drill: data.drillType }) }
+              ]
+            : JSON.stringify(data)
+          }
+        ]
+      },
+      extractText: (res) => (res.choices && res.choices[0] && res.choices[0].message && res.choices[0].message.content) || ''
+    };
+  }
+
+  if (providerName === 'gemini') {
+    return {
+      url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + process.env.GEMINI_API_KEY,
+      headers: { 'Content-Type': 'application/json' },
+      body: {
+        contents: [{ parts: [
+          { text: systemPrompt },
+          { text: JSON.stringify(data) }
+        ]}],
+        generationConfig: { maxOutputTokens: 1024, temperature: 0.7 }
+      },
+      extractText: (res) => {
+        try { return res.candidates[0].content.parts[0].text || ''; }
+        catch(e) { return ''; }
+      }
+    };
+  }
+
+  throw new Error('Tuntematon provider: ' + providerName);
+}
+
+// ----------------------------------------------------------
+// WHISPER-TRANSKRIPTIO — erillinen käsittely multipart/form-data
+// ----------------------------------------------------------
+async function _handleWhisper(data) {
+  const nodeFetch = require('node-fetch');
+  const FormData  = require('form-data');
+  const lang = _validateLanguage(data.language);
+
+  const audioBuffer = Buffer.from(data.audio, 'base64');
+  const form = new FormData();
+  form.append('file',            audioBuffer, { filename: 'audio.webm', contentType: data.mimeType || 'audio/webm' });
+  form.append('model',           'whisper-1');
+  form.append('language',        lang);
+  form.append('response_format', 'text');
+
+  const res = await nodeFetch('https://api.openai.com/v1/audio/transcriptions', {
+    method:  'POST',
+    headers: { 'Authorization': 'Bearer ' + process.env.OPENAI_API_KEY, ...form.getHeaders() },
+    body:    form
+  });
+
+  if (!res.ok) throw new Error('Whisper virhe: ' + await res.text());
+  return { text: await res.text(), language: lang };
+}
+
+// ----------------------------------------------------------
+// RATE LIMITING — per UID, Firestore-pohjainen
+// Estää väärinkäytön ilman kolmannen osapuolen palvelua.
+// 20 kutsua / minuutti / käyttäjä — riittää kaikille realistisille käyttötapauksille.
+// ----------------------------------------------------------
+async function _checkRateLimit(uid, task) {
+  const db        = admin.firestore();
+  const windowMs  = 60000; // 1 minuutti
+  const maxCalls  = 20;
+  const ref       = db.collection('_rateLimits').doc(uid + '_' + task);
+
+  return db.runTransaction(async (tx) => {
+    const doc = await tx.get(ref);
+    const now = Date.now();
+
+    if (!doc.exists) {
+      tx.set(ref, { count: 1, windowStart: now, uid, task });
+      return true;
+    }
+
+    const { count, windowStart } = doc.data();
+
+    if (now - windowStart > windowMs) {
+      // Ikkuna vanhentunut — nollaa laskuri
+      tx.update(ref, { count: 1, windowStart: now });
+      return true;
+    }
+
+    if (count >= maxCalls) throw new Error('RATE_LIMIT_EXCEEDED');
+    tx.update(ref, { count: count + 1 });
+    return true;
+  });
+}
+
+// ----------------------------------------------------------
+// AUDIT LOG — GDPR-compliant minimaalinen loki
+// Ei tallenneta: promptin sisältöä, API-vastauksen tekstiä
+// ----------------------------------------------------------
+async function _auditLog(uid, task, provider, durationMs, success) {
+  try {
+    await admin.firestore().collection('_aiAudit').add({
+      uid, task, provider, durationMs, success,
+      ts: admin.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (e) {
+    // Auditointi ei saa kaataa pääkutsua
+    console.warn('[aiProxy] auditLog epäonnistui:', e.message);
+  }
+}
+
+// ----------------------------------------------------------
+// PÄÄFUNKTIO — Cloud Function HTTP endpoint
+// region: europe-west1 (kaikki TM-funktiot samalla alueella)
+// ----------------------------------------------------------
+exports.aiProxy = functions
+  .region('europe-west1')
+  .runWith({
+    timeoutSeconds: 30,
+    memory:         '256MB',
+    // Firebase Secrets Manager — API-avaimet turvallisesti
+    // Vaatii: firebase functions:secrets:set ANTHROPIC_API_KEY
+    secrets: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY']
+  })
+  .https.onRequest(async (req, res) => {
+
+    // --------------------------------------------------
+    // CORS — sallitaan vain TalentMaster-domainit
+    // GitHub Pages on lisätty kehitysvaihetta varten.
+    // Poista terokoskela7-cmyk.github.io ennen tuotantolaajennusta.
+    // --------------------------------------------------
+    const allowedOrigins = [
+      // Kehitys
+      'https://terokoskela7-cmyk.github.io', // GitHub Pages — nykyinen frontend
+      'http://localhost:3000',
+      'http://localhost:5000',               // Firebase emulator
+      // Tuotanto — Suomi
+      'https://talentmaster.fi',
+      'https://app.talentmaster.fi',
+      // Pohjoismainen laajennus
+      'https://talentmaster.se',             // Ruotsi
+      'https://talentmaster.no',             // Norja
+      'https://talentmaster.dk',             // Tanska
+      // Eurooppalainen laajennus
+      'https://talentmaster.de',             // Saksa
+      'https://talentmaster.eu',             // EU-fallback
+    ];
+
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+      res.set('Access-Control-Allow-Origin',  origin);
+    }
+    res.set('Access-Control-Allow-Methods',  'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers',  'Content-Type, Authorization, X-TM-Version, X-TM-UID');
+
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+    if (req.method !== 'POST')    { res.status(405).json({ code: 'METHOD_NOT_ALLOWED' }); return; }
+
+    const startTime   = Date.now();
+    let uid           = null;
+    let providerName  = null;
+
+    try {
+      // --------------------------------------------------
+      // 1. AUTENTIKAATIO — Firebase ID-token pakollinen
+      // --------------------------------------------------
+      const authHeader = req.headers.authorization || '';
+      if (!authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ code: 'UNAUTHORIZED', message: 'Bearer-token puuttuu' });
+        return;
+      }
+
+      const token    = authHeader.slice(7);
+      const decoded  = await admin.auth().verifyIdToken(token);
+      uid            = decoded.uid;
+
+      // --------------------------------------------------
+      // 2. PAYLOAD-VALIDOINTI
+      // --------------------------------------------------
+      const { task, data } = req.body;
+
+      if (!task || typeof task !== 'string') {
+        res.status(400).json({ code: 'INVALID_TASK', message: 'task puuttuu' });
+        return;
+      }
+
+      providerName = PROVIDER_MAP[task];
+      if (!providerName) {
+        res.status(400).json({ code: 'UNKNOWN_TASK', message: 'Tuntematon tehtävätyyppi: ' + task });
+        return;
+      }
+
+      // --------------------------------------------------
+      // 3. RATE LIMITING
+      // --------------------------------------------------
+      await _checkRateLimit(uid, task);
+
+      // --------------------------------------------------
+      // 4. AI-KUTSU — whisper erikoistapaus
+      // --------------------------------------------------
+      let aiResult;
+
+      if (task === 'voice_transcribe') {
+        aiResult = await _handleWhisper(data);
+      } else {
+        const nodeFetch = require('node-fetch');
+        const cfg       = _buildProviderConfig(providerName, task, data);
+        const aiRes     = await nodeFetch(cfg.url, {
+          method:  'POST',
+          headers: cfg.headers,
+          body:    JSON.stringify(cfg.body)
+        });
+
+        if (!aiRes.ok) {
+          const errBody = await aiRes.text();
+          console.error('[aiProxy] Provider error:', aiRes.status, errBody);
+          throw new Error('Provider virhe ' + aiRes.status);
+        }
+
+        const aiJson = await aiRes.json();
+        const text   = cfg.extractText(aiJson);
+
+        if (!text) throw new Error('Provider palautti tyhjän vastauksen');
+
+        aiResult = { text };
+      }
+
+      // --------------------------------------------------
+      // 5. AUDIT LOG + VASTAUS
+      // --------------------------------------------------
+      const durationMs = Date.now() - startTime;
+      await _auditLog(uid, task, providerName, durationMs, true);
+
+      res.status(200).json({
+        ...aiResult,
+        _meta: { task, provider: providerName, durationMs }
+        // Huom: provider palautetaan vain meta-kentässä kehitystyötä varten.
+        // UI ei koskaan näytä tätä käyttäjälle.
+      });
+
+    } catch (err) {
+      const durationMs = Date.now() - startTime;
+
+      if (uid) await _auditLog(uid, req.body && req.body.task, providerName, durationMs, false);
+
+      console.error('[aiProxy] Virhe:', err.message);
+
+      if (err.message === 'RATE_LIMIT_EXCEEDED') {
+        res.status(429).json({ code: 'RATE_LIMIT_EXCEEDED', message: 'Liian monta kutsua — odota hetki' });
+        return;
+      }
+
+      res.status(500).json({
+        code:    'AI_ERROR',
+        message: 'Palvelu ei ole juuri nyt käytettävissä'
+        // Ei paljasteta teknistä virheviestiä käyttäjälle
+      });
+    }
+  });
