@@ -555,6 +555,142 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
   .level-view { display: block !important; }
   .phase-block { page-break-inside: avoid; }
 }
+
+/* ── PROGRESSIPALKKI ── */
+.prog-bar {
+  height: 3px;
+  background: rgba(255,255,255,.08);
+  overflow: hidden;
+}
+.prog-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #002F6C, #1A7A5E);
+  border-radius: 0 2px 2px 0;
+  transition: width .35s ease;
+}
+
+/* ── PARANNUS 3: TASO-NAPIT (Decide-osioon) ── */
+.lvl-row { display: flex; gap: 8px; }
+.lvl-btn {
+  flex: 1;
+  padding: 10px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: transparent;
+  color: rgba(242,239,230,.45);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .2s;
+  text-align: center;
+  line-height: 1.4;
+}
+.lvl-btn b {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(242,239,230,.6);
+}
+.lvl-btn.sel {
+  border-color: #1A7A5E;
+  background: rgba(26,122,94,.15);
+  color: #28B090;
+}
+.lvl-btn.sel b { color: #28B090; }
+
+/* ── PARANNUS 4: ANALYYSITULOS ── */
+.result-box {
+  display: none;
+  background: rgba(26,122,94,.07);
+  border: 1px solid rgba(26,122,94,.25);
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 16px;
+}
+.result-box.show { display: block; }
+.res-header {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: #28B090;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.res-header::before {
+  content: '';
+  display: block;
+  width: 3px;
+  height: 18px;
+  background: #1A7A5E;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.res-block {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: .5px solid rgba(255,255,255,.07);
+}
+.res-block:last-of-type { border-bottom: none; margin-bottom: 0; }
+.res-label {
+  font-size: 9px;
+  font-family: 'DM Mono', monospace;
+  color: rgba(242,239,230,.35);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.res-val {
+  font-size: 13px;
+  color: rgba(242,239,230,.8);
+  line-height: 1.6;
+}
+.res-val strong { color: #28B090; }
+.narr-box {
+  background: rgba(9,12,18,.35);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: rgba(242,239,230,.7);
+  font-style: italic;
+  border-left: 3px solid #1A7A5E;
+}
+.res-btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.res-btn {
+  flex: 1;
+  padding: 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: transparent;
+  color: rgba(242,239,230,.5);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.res-btn:hover {
+  border-color: #1A7A5E;
+  color: #28B090;
+}
+
+/* ── PARANNUS 6: ADAR-VÄRIKOODAUS (kirjaimet) ── */
+.ph-a  { background: rgba(0,47,108,.25) !important; color: #4A7ED9 !important; }
+.ph-d  { background: rgba(138,90,16,.25) !important; color: #C8882A !important; }
+.ph-ac { background: rgba(138,43,43,.22) !important; color: #E07070 !important; }
+.ph-r  { background: rgba(26,122,94,.22) !important; color: #28B090 !important; }
+
 </style>
 
 <!-- Firebase SDK — lisätty Porras 1 (P6) -->
@@ -563,6 +699,9 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
+<!-- Progressipalkki -->
+<div class="prog-bar"><div class="prog-fill" id="tm-prog-fill"></div></div>
+
 <!-- Kirjautumisbanneri — näkyy kun ei ole kirjautunut -->
 <div id="tm-login-banner" style="
   display:none; align-items:center; justify-content:center;
@@ -685,7 +824,7 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
   <!-- PISTEYTYS 1–3 -->
   <div class="phase-block">
     <div class="phase-header">
-      <div class="phase-letter ph-a">A</div>
+      <div class="phase-letter ph-a" style="background:rgba(0,47,108,.25);color:#4A7ED9">A</div>
       <div class="phase-info">
         <div class="phase-name">Assess — Kokonaisarvio</div>
         <div class="phase-q">"Kuinka usein katsoo ylös ennen kosketusta?"</div>
@@ -787,7 +926,7 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
   <!-- ASSESS -->
   <div class="phase-block">
     <div class="phase-header">
-      <div class="phase-letter ph-a">A</div>
+      <div class="phase-letter ph-a" style="background:rgba(0,47,108,.25);color:#4A7ED9">A</div>
       <div class="phase-info">
         <div class="phase-name">Assess — Havainto</div>
         <div class="phase-q">"Katsoo ylös ennen vastaanottoa? Lukee vastustajan?"</div>
@@ -823,7 +962,7 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
   <!-- DECIDE -->
   <div class="phase-block">
     <div class="phase-header">
-      <div class="phase-letter ph-d">D</div>
+      <div class="phase-letter ph-d" style="background:rgba(138,90,16,.25);color:#C8882A">D</div>
       <div class="phase-info">
         <div class="phase-name">Decide — Päätös</div>
         <div class="phase-q">"Nopeus alle 1s = nopea. Yli 2s = hidas. Johdonmukaisuus?"</div>
@@ -854,12 +993,28 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
     <div id="t2-psyk-D" class="psyk-link">
       <strong>Psyk-signaali:</strong> Piste 1 Decide-vaiheessa ja pelaaja ei reagoi ohjaukseen saman harjoituksen aikana → mahdollinen <strong>Coachability</strong>- tai <strong>Inner Drive</strong> -kehitystarve.
     </div>
+    <!-- Päätösnopeus-napit lisätty UX-parannuksena -->
+    <div style="margin-top:14px;">
+      <div class="mf-label" style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:rgba(242,239,230,.35);margin-bottom:8px;">PÄÄTÖSNOPEUS</div>
+      <div class="lvl-row">
+        <button class="lvl-btn" data-nopeus="nopea" onclick="_setNopeus('nopea',this)">
+          <b>&lt;1s</b>Nopea
+        </button>
+        <button class="lvl-btn" data-nopeus="normaali" onclick="_setNopeus('normaali',this)">
+          <b>1–2s</b>Normaali
+        </button>
+        <button class="lvl-btn" data-nopeus="hidas" onclick="_setNopeus('hidas',this)">
+          <b>&gt;2s</b>Hidas
+        </button>
+      </div>
+      <input type="hidden" id="t2-nopeus" value="">
+    </div>
   </div>
 
   <!-- ACT -->
   <div class="phase-block">
     <div class="phase-header">
-      <div class="phase-letter ph-ac">A</div>
+      <div class="phase-letter ph-ac" style="background:rgba(138,43,43,.22);color:#E07070">A</div>
       <div class="phase-info">
         <div class="phase-name">Act — Toteutus paineessa</div>
         <div class="phase-q">"Toteutuuko suunniteltu liike teknisesti kovassa paineessa?"</div>
@@ -919,6 +1074,31 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
       <span><span class="st-val" id="t2-total">—</span><span class="st-max"> / 9</span></span>
     </div>
     <button class="save-btn" id="t2-save" onclick="saveCard(2)">Tallenna havainto → Firestoreen</button>
+
+<!-- Analyysitulos Taso 2 -->
+<div class="result-box" id="t2-result">
+  <div class="res-header">ADAR-analyysi tallennettu</div>
+  <div class="res-block">
+    <div class="res-label">Assess → Tilanne</div>
+    <div class="res-val" id="t2-r-assess">—</div>
+  </div>
+  <div class="res-block">
+    <div class="res-label">Decide → Ratkaisu · Nopeus</div>
+    <div class="res-val" id="t2-r-decide">—</div>
+  </div>
+  <div class="res-block">
+    <div class="res-label">Act → Toteutus</div>
+    <div class="res-val" id="t2-r-act">—</div>
+  </div>
+  <div class="res-block">
+    <div class="res-label">Narratiivi</div>
+    <div class="narr-box" id="t2-r-narr"></div>
+  </div>
+  <div class="res-btn-row">
+    <button class="res-btn" onclick="_kopioiAnalyysi('t2')">⧉ Kopioi analyysi</button>
+    <button class="res-btn" onclick="_uusiArviointi('t2')">↺ Uusi arviointi</button>
+  </div>
+</div>
   </div>
 </div>
 
@@ -979,7 +1159,7 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
   <!-- ASSESS -->
   <div class="phase-block">
     <div class="phase-header">
-      <div class="phase-letter ph-a">A</div>
+      <div class="phase-letter ph-a" style="background:rgba(0,47,108,.25);color:#4A7ED9">A</div>
       <div class="phase-info">
         <div class="phase-name">Assess — Havainto</div>
         <div class="phase-q">"Pre-scanning ennen kosketusta — skannaustaajuus ja -laatu?"</div>
@@ -1007,7 +1187,7 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
   <!-- DECIDE -->
   <div class="phase-block">
     <div class="phase-header">
-      <div class="phase-letter ph-d">D</div>
+      <div class="phase-letter ph-d" style="background:rgba(138,90,16,.25);color:#C8882A">D</div>
       <div class="phase-info">
         <div class="phase-name">Decide — Päätös</div>
         <div class="phase-q">"Nopeus ja johdonmukaisuus pelipaikkakohtaisissa avaintilanteissa?"</div>
@@ -1035,7 +1215,7 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
   <!-- ACT -->
   <div class="phase-block">
     <div class="phase-header">
-      <div class="phase-letter ph-ac">A</div>
+      <div class="phase-letter ph-ac" style="background:rgba(138,43,43,.22);color:#E07070">A</div>
       <div class="phase-info">
         <div class="phase-name">Act — Toteutus</div>
         <div class="phase-q">"Tekninen ja taktinen toteutus pelipaikkakohtaisessa avaintilanteessa?"</div>
@@ -1063,7 +1243,7 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
   <!-- RE-ASSESS -->
   <div class="phase-block">
     <div class="phase-header">
-      <div class="phase-letter ph-r">R</div>
+      <div class="phase-letter ph-r" style="background:rgba(26,122,94,.22);color:#28B090">R</div>
       <div class="phase-info">
         <div class="phase-name">Re-assess — Virheestä palautuminen</div>
         <div class="phase-q">"Palautuuko vai jähmettyykö virheen jälkeen? &lt;15s = normaali"</div>
@@ -1133,6 +1313,31 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
       <span><span class="st-val" id="t3-total">—</span><span class="st-max"> / 12</span></span>
     </div>
     <button class="save-btn" id="t3-save" onclick="saveCard(3)">Tallenna havainto → Firestoreen</button>
+
+<!-- Analyysitulos Taso 3 -->
+<div class="result-box" id="t3-result">
+  <div class="res-header">ADAR-analyysi tallennettu</div>
+  <div class="res-block">
+    <div class="res-label">Pelipaikka · Assess</div>
+    <div class="res-val" id="t3-r-assess">—</div>
+  </div>
+  <div class="res-block">
+    <div class="res-label">Decide → Ratkaisu · Nopeus</div>
+    <div class="res-val" id="t3-r-decide">—</div>
+  </div>
+  <div class="res-block">
+    <div class="res-label">Act · Re-assess → Oppiminen</div>
+    <div class="res-val" id="t3-r-act">—</div>
+  </div>
+  <div class="res-block">
+    <div class="res-label">Narratiivi</div>
+    <div class="narr-box" id="t3-r-narr"></div>
+  </div>
+  <div class="res-btn-row">
+    <button class="res-btn" onclick="_kopioiAnalyysi('t3')">⧉ Kopioi analyysi</button>
+    <button class="res-btn" onclick="_uusiArviointi('t3')">↺ Uusi arviointi</button>
+  </div>
+</div>
   </div>
 </div>
 
@@ -1484,6 +1689,9 @@ function saveCard(level) {
     btn.classList.add('saved');
     btn.disabled = false;
 
+    // Näytä analyysitulos-osio
+    _naytaAnalyysi(level);
+
     // Näytä vahvistustoast
     _showToast('✓ Havainto tallennettu — pelaaja voi nyt lukea sen');
 
@@ -1500,6 +1708,142 @@ function saveCard(level) {
     setTimeout(() => { btn.textContent = 'Tallenna havainto → Firestoreen'; btn.style.background = ''; }, 4000);
   }
 }
+
+// ══════════════════════════════════════════════════════════════
+// PARANNUS 1: Progressipalkki — päivittyy reaaliajassa
+// ══════════════════════════════════════════════════════════════
+function _updateProg() {
+  const tier = 't' + _currentLevel();
+  const fields = {
+    t1: ['t1-pelaaja-id'],
+    t2: ['t2-pelaaja-id', 't2-pvm'],
+    t3: ['t3-pelaaja-id', 't3-pelipaikka', 't3-pvm']
+  };
+  const required = fields[tier] || [];
+  let filled = 0;
+  const total = required.length + (Object.values(scores[tier] || {}).filter(v=>v!==null).length);
+  required.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.value) filled++;
+  });
+  filled += Object.values(scores[tier] || {}).filter(v=>v!==null).length;
+  const narr = document.getElementById(tier + '-narr');
+  if (narr && narr.value.trim().length >= 20) filled++;
+  const maxFill = required.length + Object.keys(scores[tier] || {}).length + 1;
+  const pct = maxFill > 0 ? Math.min(100, Math.round((filled / maxFill) * 100)) : 0;
+  const fill = document.getElementById('tm-prog-fill');
+  if (fill) fill.style.width = Math.max(3, pct) + '%';
+}
+
+function _currentLevel() {
+  const active = document.querySelector('.level-tab.active');
+  if (!active) return 2;
+  const idx = Array.from(document.querySelectorAll('.level-tab')).indexOf(active);
+  return idx + 1;
+}
+
+// Kytke progressipalkki kaikkiin select-muutoksiin
+document.addEventListener('change', function(e) {
+  if (e.target.tagName === 'SELECT') _updateProg();
+});
+
+// ══════════════════════════════════════════════════════════════
+// PARANNUS 3: Päätösnopeus-napit (hidden input kautta)
+// ══════════════════════════════════════════════════════════════
+function _setNopeus(val, btn) {
+  document.getElementById('t2-nopeus').value = val;
+  document.querySelectorAll('[data-nopeus]').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  _updateProg();
+}
+
+// ══════════════════════════════════════════════════════════════
+// PARANNUS 4: Täytä analyysitulos-osio tallennuksen yhteydessä
+// ══════════════════════════════════════════════════════════════
+function _naytaAnalyysi(level) {
+  const tier = 't' + level;
+
+  if (level === 2) {
+    const tilanne = document.getElementById('t2-tilanne')?.value || '—';
+    const ratkaisu = document.getElementById('t2-ratkaisu')?.value || '—';
+    const nopeus = document.getElementById('t2-nopeus')?.value || '—';
+    const suoritus = document.getElementById('t2-suoritus')?.value || '—';
+    const narr = document.getElementById('t2-narr')?.value || '';
+
+    const nopeusLabel = { nopea: 'Nopea (<1s)', normaali: 'Normaali (1–2s)', hidas: 'Hidas (>2s)' };
+
+    document.getElementById('t2-r-assess').innerHTML = '<strong>' + tilanne + '</strong>';
+    document.getElementById('t2-r-decide').innerHTML =
+      '<strong>' + ratkaisu + '</strong><br>' +
+      '<span style="color:rgba(242,239,230,.5);font-size:11px">' + (nopeusLabel[nopeus] || nopeus) + '</span>';
+    document.getElementById('t2-r-act').innerHTML = '<strong>' + suoritus + '</strong>';
+    document.getElementById('t2-r-narr').textContent = narr;
+  }
+
+  if (level === 3) {
+    const pelipaikka = document.getElementById('t3-pelipaikka')?.value?.split('—')[0]?.trim() || '—';
+    const ratkaisu = document.getElementById('t3-ratkaisu')?.value || '—';
+    const nopeus = document.getElementById('t3-paatosNopeus')?.value || '—';
+    const oppiminen = document.getElementById('t3-oppiminen')?.value || '—';
+    const narr = document.getElementById('t3-narr')?.value || '';
+
+    document.getElementById('t3-r-assess').innerHTML = '<strong>' + pelipaikka + '</strong>';
+    document.getElementById('t3-r-decide').innerHTML =
+      '<strong>' + ratkaisu + '</strong><br>' +
+      '<span style="color:rgba(242,239,230,.5);font-size:11px">' + nopeus + '</span>';
+    document.getElementById('t3-r-act').innerHTML = '<strong>' + oppiminen + '</strong>';
+    document.getElementById('t3-r-narr').textContent = narr;
+  }
+
+  const box = document.getElementById(tier + '-result');
+  if (box) {
+    box.classList.add('show');
+    setTimeout(() => box.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// PARANNUS 4: Kopioi analyysi leikepöydälle
+// ══════════════════════════════════════════════════════════════
+function _kopioiAnalyysi(tier) {
+  const level = parseInt(tier.replace('t',''));
+  const assess = document.getElementById(tier + '-r-assess')?.innerText || '';
+  const decide = document.getElementById(tier + '-r-decide')?.innerText || '';
+  const act    = document.getElementById(tier + '-r-act')?.innerText || '';
+  const narr   = document.getElementById(tier + '-r-narr')?.textContent || '';
+  const pvm    = new Date().toLocaleDateString('fi-FI');
+
+  const teksti = [
+    'ADAR-havainto · TalentMaster™',
+    'Päivämäärä: ' + pvm,
+    '',
+    'Assess → ' + assess,
+    'Decide → ' + decide,
+    'Act / Oppiminen → ' + act,
+    '',
+    'Narratiivi:',
+    narr,
+  ].join('
+');
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(teksti).then(() => {
+      _showToast('✓ Analyysi kopioitu leikepöydälle');
+    }).catch(() => _showToast('⚠ Kopioiminen epäonnistui'));
+  } else {
+    _showToast('⚠ Clipboard ei tuettu tässä selaimessa');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// PARANNUS 4: Uusi arviointi — piilottaa tulokset
+// ══════════════════════════════════════════════════════════════
+function _uusiArviointi(tier) {
+  const box = document.getElementById(tier + '-result');
+  if (box) box.classList.remove('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 </script>
 </body>
 </html>
