@@ -1160,34 +1160,42 @@ try {
 /* ── Hae lapsen viimeisin T-kirjaus Firestoresta ── */
 async function _haeViimeisinKirjaus() {
   if (!_db) return;
-  // Haetaan kaikista pilottiseuroista — käytetään URL-parametria tai u12-oletusta
-  const urlSeura = new URLSearchParams(location.search).get('seura') || 'kpv';
-  const urlUid   = new URLSearchParams(location.search).get('uid');
-  // P3: Jos urlUid puuttuu → hae lapsi huoltajaEmail:lla
+  // P3: let (ei const) — arvot voidaan päivittää huoltajaEmail-haun jälkeen
+  let urlSeura = new URLSearchParams(location.search).get('seura') || 'kpv';
+  let urlUid   = new URLSearchParams(location.search).get('uid');
+  // P3: Jos urlUid puuttuu → hae lapsi pilottiseuroista huoltajaEmail:lla
   if (!urlUid) {
     const user = _auth.currentUser;
-    if (!user || !user.email) return; // Ei kirjautunut
+    if (!user || !user.email) return;
+    // P3: collectionGroup ei toimi (collection group scope disabled) →
+    // haetaan tunnetuista pilottiseuroista järjestyksessä
+    const PILOTTISEURAT = ['kpv','fcl','sjk','palloiirot','yvies','grifk','vifk','hjk'];
     try {
-      const q = await _db.collectionGroup('pelaajat')
-        .where('huoltajaEmail', '==', user.email)
-        .limit(1)
-        .get();
-      if (q.empty) {
+      let lapsiDoc = null;
+      for (const sid of PILOTTISEURAT) {
+        const q = await _db.collection('seurat').doc(sid)
+          .collection('pelaajat')
+          .where('huoltajaEmail', '==', user.email)
+          .limit(1)
+          .get();
+        if (!q.empty) { lapsiDoc = q.docs[0]; break; }
+      }
+      if (!lapsiDoc) {
         console.warn('[Perhe] Ei löydy pelaajaa huoltajaEmail:lla', user.email);
         return;
       }
-      const lapsiDoc = q.docs[0];
       window._lapsi = lapsiDoc.data();
       // Päivitä IKA-objekti oikeilla tiedoilla
       const ika = new Date().getFullYear() - (window._lapsi.syntymaVuosi || 2012);
       _age = ika <= 12 ? 'u12' : ika <= 15 ? 'u15' : 'u19';
       IKA[_age].nimi  = window._lapsi.etunimi || IKA[_age].nimi;
-      IKA[_age].ryhma = (window._lapsi.joukkueNimi || IKA[_age].ryhma);
-      // Aseta urlSeura + urlUid jotta kirjaukset/kehu toimivat
+      IKA[_age].ryhma = window._lapsi.joukkueNimi || IKA[_age].ryhma;
+      // P3 fix: let → nyt voidaan sijoittaa
       urlSeura = lapsiDoc.ref.parent.parent.id;
       urlUid   = lapsiDoc.id;
       // Päivitä ikätila-nappi UI:ssa
       setAge(_age);
+      draw();
       // ── Syntymäpäivä-kehuviesti vanhemmalle (P3) ──
       if (window._lapsi.syntymaaika) {
         const syn = window._lapsi.syntymaaika.toDate
