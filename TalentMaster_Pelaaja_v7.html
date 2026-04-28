@@ -246,6 +246,28 @@ button{font-family:var(--font-b);cursor:pointer}
 .synttari-bonus-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);margin-bottom:5px}
 .synttari-bonus-nimi{font-size:14px;font-weight:700;color:var(--ink)}
 .synttari-bonus-ohje{font-size:12px;color:var(--ink3);margin-top:3px}
+
+/* ── P6: ADAR-HAVAINTONOTIFIKAATIO ─────────────────────────────── */
+.hav-card{background:linear-gradient(135deg,rgba(26,122,94,.12),rgba(0,47,108,.08));border:1px solid rgba(26,122,94,.25);border-radius:14px;padding:16px;margin:12px 0;cursor:pointer;transition:all .2s;position:relative}
+.hav-card:hover{border-color:rgba(26,122,94,.45)}
+.hav-card-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.hav-dot{width:8px;height:8px;border-radius:50%;background:#1A7A5E;flex-shrink:0;box-shadow:0 0 6px rgba(26,122,94,.5)}
+.hav-from{font-size:11px;color:rgba(242,239,230,.5);flex:1;font-family:var(--font-m,'DM Mono',monospace);letter-spacing:.06em}
+.hav-badge{font-size:9px;background:rgba(26,122,94,.2);color:#28B090;border-radius:20px;padding:2px 8px;font-family:var(--font-m,'DM Mono',monospace);letter-spacing:.08em}
+.hav-narr{font-size:14px;color:rgba(242,239,230,.85);line-height:1.65;font-family:var(--font-s,'Cormorant Garamond',serif);font-style:italic;margin-bottom:10px;border-left:2px solid rgba(26,122,94,.4);padding-left:12px}
+.hav-oppiminen{font-size:12px;color:rgba(242,239,230,.5);line-height:1.5}
+.hav-oppiminen strong{color:rgba(242,239,230,.75)}
+.hav-close{position:absolute;top:12px;right:12px;font-size:18px;color:rgba(242,239,230,.3);cursor:pointer;line-height:1;padding:4px;background:none;border:none}
+.hav-close:hover{color:rgba(242,239,230,.7)}
+.hav-merkki{display:inline-flex;align-items:center;gap:5px;background:rgba(26,122,94,.15);border:.5px solid rgba(26,122,94,.3);border-radius:20px;padding:3px 10px;font-size:10px;color:#28B090;font-family:var(--font-m,'DM Mono',monospace);cursor:pointer;margin-left:8px;vertical-align:middle}
+.hav-merkki .hm-dot{width:6px;height:6px;border-radius:50%;background:#1A7A5E;flex-shrink:0}
+.hav-ov{position:fixed;inset:0;z-index:800;background:rgba(6,9,15,.94);overflow-y:auto;padding:20px 16px 48px}
+.hav-ov-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.hav-ov-title{font-family:var(--font-s,'Cormorant Garamond',serif);font-size:20px;color:rgba(242,239,230,.9)}
+.hav-ov-close{width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(242,239,230,.5);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.hav-luettu-btn{width:100%;margin-top:14px;padding:12px;border-radius:10px;border:1px solid rgba(26,122,94,.3);background:rgba(26,122,94,.1);color:#28B090;font-family:var(--font-m,'DM Mono',monospace);font-size:12px;cursor:pointer;transition:all .2s;letter-spacing:.06em}
+.hav-luettu-btn:hover{background:rgba(26,122,94,.2)}
+
 </style>
 
 <!-- Firebase v9 compat — sama kuin VP v19 -->
@@ -1671,7 +1693,7 @@ function hdr(v){
     <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin-top:4px;color:var(--text);line-height:1.1">${_pelaaja?.etunimi||'–'}</div>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
-    ${streak>0?`<div class="streak-b"><span class="fl">🔥</span><span class="streak-n">${streak} pv</span></div>`:''}
+    ${streak>0?`<div class="streak-b"><span class="fl">🔥</span><span class="streak-n">${streak} pv</span></div>`:''}${window._havLkm>0?`<span class="hav-merkki" onclick="_avaaHavainnot()"><span class="hm-dot"></span>${window._havLkm} uutta</span>`:''}
     <button onclick="kirjauduUlos()" title="Kirjaudu ulos"
       style="background:rgba(242,239,230,.06);border:.5px solid rgba(242,239,230,.14);
              border-radius:8px;padding:7px 10px;cursor:pointer;color:rgba(242,239,230,.5);
@@ -2091,6 +2113,11 @@ function _kaynnistaAppUI() {
 
   // Siirry tänään-näkymään
   go('a1');
+
+  // P6: Käynnistä havainto-kuuntelija — kuuntelee valmentajan kirjauksia reaaliajassa
+  if (window._p7Pelaaja && window._p7Pelaaja.seuraId && window._p7Pelaaja.pelaajaId) {
+    _p6KaynnistakuuntelIja(window._p7Pelaaja.seuraId, window._p7Pelaaja.pelaajaId);
+  }
 }
 
 
@@ -2970,5 +2997,142 @@ draw();
 
 <!-- FIFA Card Overlay -->
 <div class="fc-ov" id="fcOv"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// P6 — VALMENTAJAN HAVAINTO → PELAAJAN NÄKYMÄ
+// onSnapshot kuuntelee: seurat/{id}/pelaajat/{id}/havainnot
+// Suodatin: tila=='valmis' AND pelaaja_lukenut==false
+// Pelaaja näkee narratiivin + oppimisnäkökohdan — ei ADAR-pisteitä
+// ═══════════════════════════════════════════════════════════════════════
+
+// Globaali tila — käytetään myös KOTI-renderöinnissä (streak-badge vieressä)
+window._havLkm = 0;
+window._havData = [];
+window._havUnsub = null;
+
+// Apurakenne joka tallentaa pelaajan identiteetin kun se on selvinnyt.
+// _kaynnistaAppUI() täyttää tämän, P6-koodi lukee siitä.
+window._p7Pelaaja = window._p7Pelaaja || { seuraId: null, pelaajaId: null };
+
+// Käynnistää onSnapshot-kuuntelijan. Kutsutaan _kaynnistaAppUI():sta
+// heti kun seuraId ja pelaajaId ovat tiedossa.
+function _p6KaynnistakuuntelIja(seuraId, pelaajaId) {
+  // Pura vanha kuuntelija ensin (uudelleenkirjautuminen tms.)
+  if (window._havUnsub) { window._havUnsub(); window._havUnsub = null; }
+
+  const db = window._db;
+  if (!db || !seuraId || !pelaajaId) return;
+
+  // Tallennetaan identiteetti myöhempää käyttöä varten
+  window._p7Pelaaja = { seuraId, pelaajaId };
+
+  // reaaliaikainen kuuntelija — reagoi välittömästi kun valmentaja tallentaa
+  window._havUnsub = db
+    .collection('seurat').doc(seuraId)
+    .collection('pelaajat').doc(pelaajaId)
+    .collection('havainnot')
+    .where('tila', '==', 'valmis')
+    .where('pelaaja_lukenut', '==', false)
+    .orderBy('luotu', 'desc')
+    .onSnapshot(function(snap) {
+      window._havLkm  = snap.size;
+      window._havData = snap.docs.map(function(d) {
+        return Object.assign({ _id: d.id }, d.data());
+      });
+      // Päivitä KOTI-näkymän merkki jos se on renderöitynä
+      _p6PaivitaMerkki();
+      // Värähtely kun uusi havainto saapuu (mobiili, reaaliajassa)
+      if (snap.size > 0 && !snap.metadata.fromCache && document.visibilityState === 'visible') {
+        if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+      }
+    }, function(err) {
+      // Oikeusvirhe demo-tilassa tai jos Firestore-säännöt eivät salli — ohitetaan
+      console.warn('[P6]', err.code);
+    });
+}
+
+// Päivittää KOTI-näkymässä olevan havainto-merkin laskurin
+function _p6PaivitaMerkki() {
+  const el = document.querySelector('.hav-merkki');
+  if (!el) return; // KOTI ei ole renderöitynä — ei tee mitään
+  if (window._havLkm > 0) {
+    el.style.display = 'inline-flex';
+    const tekstiNode = el.lastChild;
+    if (tekstiNode) tekstiNode.textContent = ' ' + window._havLkm + ' uutta';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+// Avaa overlay jossa pelaaja lukee valmentajan havainnot.
+// Pelaaja näkee narratiivin ja oppimisnäkökohdan — ei ADAR-pisteitä (numeroita).
+// Tämä on pedagoginen valinta: palaute on tarina, ei arvosana.
+function _avaaHavainnot() {
+  if (!window._havData.length) return;
+  const { seuraId, pelaajaId } = window._p7Pelaaja;
+
+  const kortit = window._havData.map(function(h) {
+    const pvm    = h.pvm || '';
+    const tekija = h.tekija_nimi || 'Valmentaja';
+    const narr   = h.narratiivi || '';
+    const oppim  = h.oppimisnakokohta || '';
+
+    return '<div class="hav-card" id="hk-' + h._id + '">' +
+      '<div class="hav-card-hdr">' +
+        '<div class="hav-dot"></div>' +
+        '<div class="hav-from">' + tekija + (pvm ? ' · ' + pvm : '') + '</div>' +
+        '<div class="hav-badge">UUSI</div>' +
+        '<button class="hav-close" onclick="_p6Luetuksi('' + h._id + '','' + seuraId + '','' + pelaajaId + '')">&#215;</button>' +
+      '</div>' +
+      (narr ? '<div class="hav-narr">' + narr + '</div>' : '') +
+      (oppim ? '<div class="hav-oppiminen"><strong>Mitä opit:</strong> ' + oppim + '</div>' : '') +
+      '<button class="hav-luettu-btn" onclick="_p6Luetuksi('' + h._id + '','' + seuraId + '','' + pelaajaId + '')">Merkitse luetuksi &#8594;</button>' +
+    '</div>';
+  }).join('');
+
+  const ov = document.createElement('div');
+  ov.className = 'hav-ov';
+  ov.id = 'havOv';
+  ov.innerHTML =
+    '<div class="hav-ov-hdr">' +
+      '<div class="hav-ov-title">Valmentajaltasi</div>' +
+      '<button class="hav-ov-close" onclick="_suljeHavainnot()">&#215;</button>' +
+    '</div>' + kortit;
+  document.body.appendChild(ov);
+}
+
+// Merkitsee havainnon luetuksi Firestoreen (pelaaja_lukenut: true)
+// ja poistaa sen overlaystä animaatiolla.
+async function _p6Luetuksi(havId, seuraId, pelaajaId) {
+  const db = window._db;
+  if (!db) return;
+  try {
+    await db
+      .collection('seurat').doc(seuraId)
+      .collection('pelaajat').doc(pelaajaId)
+      .collection('havainnot').doc(havId)
+      .update({ pelaaja_lukenut: true });
+    // Animoi poisto
+    const el = document.getElementById('hk-' + havId);
+    if (el) {
+      el.style.cssText += 'transition:opacity .3s,transform .3s;opacity:0;transform:translateX(20px)';
+      setTimeout(function() { el.remove(); }, 320);
+    }
+    // Sulje overlay automaattisesti kun kaikki on luettu
+    setTimeout(function() {
+      if (window._havLkm === 0) _suljeHavainnot();
+    }, 400);
+  } catch(e) {
+    console.warn('[P6] luetuksi-virhe:', e.message);
+  }
+}
+
+// Sulkee havainto-overlayN
+function _suljeHavainnot() {
+  const ov = document.getElementById('havOv');
+  if (ov) ov.remove();
+}
+</script>
 </body>
 </html>
