@@ -42,6 +42,16 @@ jobs:
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/sa.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json" >> $GITHUB_ENV
 
+      - name: Debug — mikä palvelutili käytössä
+        run: |
+          cat /tmp/sa.json | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print('Tilin tyyppi:', d.get('type'))
+          print('Tilin sahkoposti:', d.get('client_email', 'EI LOYDY'))
+          print('Projekti:', d.get('project_id', 'EI LOYDY'))
+          "
+
       - name: Deploy kaikki (Functions + Rules)
         if: github.event.inputs.kohde == 'kaikki'
         run: firebase deploy --only functions,firestore:rules --project talentmaster-pilot --force
