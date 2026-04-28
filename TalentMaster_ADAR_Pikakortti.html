@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TalentMaster™ — ADAR Pikakortti</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --carbon:   #1C1C1A;
+  --bone:     #F2EFE6;
+  --surface:  #FAFAF7;
+  --teal:     #1A7A5E;
+  --teal-d:   #28B090;
+  --slate:    #585751;
+  --border:   rgba(28,28,26,.10);
+  --border2:  rgba(28,28,26,.18);
+  --a-col:    #002F6C;   /* Assess — SPL-sininen */
+  --d-col:    #1A7A5E;   /* Decide — teal */
+  --ac-col:   #7A4010;   /* Act — amber-ruskea */
+  --r-col:    #6B2D6B;   /* Re-assess — violetti */
+  --score1:   #8A2B2B;
+  --score2:   #7A5A10;
+  --score3:   #1A7A5E;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+body {
+  background: var(--carbon);
+  color: var(--bone);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 300;
+  min-height: 100vh;
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  background: rgba(255,255,255,.04);
+  border-bottom: .5px solid rgba(255,255,255,.08);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(12px);
+}
+.tb-logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: .08em;
+  color: rgba(242,239,230,.5);
+}
+.tb-title {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(242,239,230,.35);
+}
+
+/* ── TASO SELECTOR ── */
+.level-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1px;
+  background: rgba(255,255,255,.06);
+  margin: 0;
+}
+.level-tab {
+  padding: 14px 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: background .15s;
+  border: none;
+  background: rgba(255,255,255,.03);
+  color: rgba(242,239,230,.35);
+}
+.level-tab:hover { background: rgba(255,255,255,.07); }
+.level-tab.active {
+  background: rgba(26,122,94,.2);
+  color: var(--bone);
+}
+.lt-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+  display: block;
+  margin-bottom: 4px;
+}
+.lt-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 2px;
+}
+.lt-age {
+  font-size: 9px;
+  opacity: .6;
+  font-family: 'DM Mono', monospace;
+  display: block;
+}
+.level-tab.active .lt-num { color: var(--teal-d); }
+.level-tab.active .lt-label { color: var(--bone); }
+
+/* ── TASO VIEW ── */
+.level-view { display: none; }
+.level-view.active { display: block; }
+
+/* ── HEADER STRIP ── */
+.card-header {
+  padding: 20px 20px 16px;
+  border-bottom: .5px solid rgba(255,255,255,.08);
+}
+.card-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.ch-badge {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--teal-d);
+  background: rgba(26,122,94,.15);
+  border: .5px solid rgba(40,176,144,.25);
+  padding: 4px 10px;
+  border-radius: 2px;
+}
+.ch-date {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: rgba(242,239,230,.3);
+  padding-top: 3px;
+}
+.card-header h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1.1;
+  color: var(--bone);
+  margin-bottom: 6px;
+}
+.card-header p {
+  font-size: 12px;
+  color: rgba(242,239,230,.45);
+  line-height: 1.6;
+}
+
+/* ── META FIELDS ── */
+.meta-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: rgba(255,255,255,.06);
+  margin: 0 0 1px;
+}
+.meta-field {
+  background: var(--carbon);
+  padding: 12px 16px;
+}
+.mf-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: rgba(242,239,230,.3);
+  margin-bottom: 6px;
+}
+.mf-input {
+  width: 100%;
+  background: rgba(255,255,255,.05);
+  border: .5px solid rgba(255,255,255,.1);
+  border-radius: 2px;
+  padding: 8px 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--bone);
+  outline: none;
+  transition: border-color .15s;
+  -webkit-appearance: none;
+}
+.mf-input:focus { border-color: rgba(40,176,144,.5); }
+.mf-input::placeholder { color: rgba(242,239,230,.2); }
+select.mf-input option { background: #2a2a28; color: var(--bone); }
+
+/* ── TILANNE CONTEXT ── */
+.ctx-strip {
+  padding: 12px 16px;
+  background: rgba(255,255,255,.03);
+  border-bottom: .5px solid rgba(255,255,255,.06);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ctx-btn {
+  padding: 6px 12px;
+  border: .5px solid rgba(255,255,255,.12);
+  border-radius: 2px;
+  background: transparent;
+  color: rgba(242,239,230,.4);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.ctx-btn.active {
+  background: rgba(40,176,144,.15);
+  border-color: rgba(40,176,144,.4);
+  color: var(--teal-d);
+}
+
+/* ── ADAR VAIHE-KORTTI ── */
+.phase-block {
+  border-bottom: .5px solid rgba(255,255,255,.06);
+}
+.phase-header {
+  padding: 16px 20px 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: default;
+}
+.phase-letter {
+  width: 36px;
+  height: 36px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
+  font-weight: 400;
+  flex-shrink: 0;
+}
+.ph-a  { background: rgba(0,47,108,.35);   color: #7BA8E0; border: .5px solid rgba(0,47,108,.5); }
+.ph-d  { background: rgba(26,122,94,.3);   color: #5EC9A8; border: .5px solid rgba(26,122,94,.5); }
+.ph-ac { background: rgba(122,64,16,.3);   color: #D4935A; border: .5px solid rgba(122,64,16,.5); }
+.ph-r  { background: rgba(107,45,107,.3);  color: #C47EC4; border: .5px solid rgba(107,45,107,.4); }
+
+.phase-info { flex: 1; }
+.phase-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--bone);
+  margin-bottom: 2px;
+}
+.phase-q {
+  font-size: 11px;
+  color: rgba(242,239,230,.45);
+  font-style: italic;
+  font-family: 'Cormorant Garamond', serif;
+}
+
+/* ── PISTEYTYS ── */
+.score-area {
+  padding: 0 20px 16px;
+}
+.score-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(242,239,230,.25);
+  margin-bottom: 10px;
+}
+.score-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.score-btn {
+  flex: 1;
+  padding: 14px 8px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.04);
+  color: rgba(242,239,230,.4);
+  cursor: pointer;
+  transition: all .15s;
+  text-align: center;
+  font-family: 'DM Sans', sans-serif;
+}
+.score-btn:hover { background: rgba(255,255,255,.08); }
+.score-btn .sbn { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 300; line-height: 1; display: block; margin-bottom: 4px; }
+.score-btn .sbl { font-size: 9px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; display: block; margin-bottom: 3px; }
+.score-btn .sbd { font-size: 10px; opacity: .7; line-height: 1.4; display: block; }
+
+.score-btn.s1.selected { background: rgba(138,43,43,.25); border-color: rgba(138,43,43,.5); color: #E07070; }
+.score-btn.s2.selected { background: rgba(122,90,16,.25); border-color: rgba(122,90,16,.5); color: #D4B060; }
+.score-btn.s3.selected { background: rgba(26,122,94,.25); border-color: rgba(26,122,94,.5); color: #5EC9A8; }
+.score-btn.s1 .sbn { color: rgba(224,112,112,.6); }
+.score-btn.s2 .sbn { color: rgba(212,176,96,.6); }
+.score-btn.s3 .sbn { color: rgba(94,201,168,.6); }
+.score-btn.s1.selected .sbn { color: #E07070; }
+.score-btn.s2.selected .sbn { color: #D4B060; }
+.score-btn.s3.selected .sbn { color: #5EC9A8; }
+
+/* ── SIGNAALI-VIHJEET ── */
+.signal-hint {
+  background: rgba(255,255,255,.03);
+  border: .5px solid rgba(255,255,255,.07);
+  border-radius: 3px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.sh-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: rgba(242,239,230,.25);
+  margin-bottom: 6px;
+}
+.sh-item {
+  font-size: 11px;
+  color: rgba(242,239,230,.45);
+  padding: 3px 0;
+  border-bottom: .5px solid rgba(255,255,255,.04);
+  display: flex;
+  gap: 8px;
+  line-height: 1.5;
+}
+.sh-item:last-child { border-bottom: none; }
+.sh-dot { opacity: .3; flex-shrink: 0; margin-top: 4px; font-size: 8px; }
+
+/* ── PSYK-LINKKI (pieni vihje) ── */
+.psyk-link {
+  margin: 0 20px 12px;
+  padding: 8px 12px;
+  background: rgba(107,45,107,.12);
+  border: .5px solid rgba(107,45,107,.25);
+  border-radius: 2px;
+  font-size: 10px;
+  color: rgba(196,126,196,.7);
+  display: none;
+}
+.psyk-link.visible { display: block; }
+.psyk-link strong { color: #C47EC4; font-weight: 500; }
+
+/* ── NARRATIIVI ── */
+.narratiivi-block {
+  padding: 0 20px 16px;
+}
+.narr-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(242,239,230,.25);
+  margin-bottom: 8px;
+}
+.narr-ta {
+  width: 100%;
+  background: rgba(255,255,255,.04);
+  border: .5px solid rgba(255,255,255,.1);
+  border-radius: 3px;
+  padding: 12px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--bone);
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  line-height: 1.6;
+  transition: border-color .15s;
+}
+.narr-ta:focus { border-color: rgba(40,176,144,.4); }
+.narr-ta::placeholder { color: rgba(242,239,230,.18); font-style: italic; }
+
+/* ── YHTEENVETO ── */
+.summary-block {
+  background: rgba(255,255,255,.03);
+  border-top: .5px solid rgba(255,255,255,.08);
+  padding: 20px;
+}
+.sum-title {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(242,239,230,.3);
+  margin-bottom: 14px;
+}
+.sum-scores {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.sum-score-item {
+  flex: 1;
+  min-width: 60px;
+  background: rgba(255,255,255,.04);
+  border: .5px solid rgba(255,255,255,.08);
+  border-radius: 3px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.ssi-phase { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; opacity: .4; margin-bottom: 4px; }
+.ssi-val {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
+  color: rgba(242,239,230,.2);
+}
+.ssi-val.scored-1 { color: #E07070; }
+.ssi-val.scored-2 { color: #D4B060; }
+.ssi-val.scored-3 { color: #5EC9A8; }
+
+.sum-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255,255,255,.04);
+  border: .5px solid rgba(255,255,255,.08);
+  border-radius: 3px;
+  margin-bottom: 16px;
+}
+.st-label { font-size: 11px; color: rgba(242,239,230,.4); }
+.st-val {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 36px;
+  font-weight: 300;
+  line-height: 1;
+  color: var(--teal-d);
+}
+.st-max { font-size: 14px; color: rgba(242,239,230,.2); }
+
+/* ── TALLENNA NAPPI ── */
+.save-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--teal);
+  border: none;
+  border-radius: 3px;
+  color: white;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+.save-btn:hover { background: var(--teal-d); }
+.save-btn:active { transform: scale(.99); }
+.save-btn.saved {
+  background: rgba(26,122,94,.3);
+  color: var(--teal-d);
+  cursor: default;
+}
+
+/* ── TASO 1 erityinen — yksinkertaisempi ── */
+.t1-observe {
+  padding: 16px 20px;
+}
+.t1-obs-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: rgba(242,239,230,.3);
+  margin-bottom: 10px;
+}
+.t1-checkboxes { display: flex; flex-direction: column; gap: 8px; }
+.t1-cb {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,.03);
+  border: .5px solid rgba(255,255,255,.07);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.t1-cb:hover { background: rgba(255,255,255,.06); }
+.t1-cb.checked {
+  background: rgba(0,47,108,.2);
+  border-color: rgba(0,47,108,.4);
+}
+.t1-cb-box {
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid rgba(255,255,255,.15);
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all .15s;
+}
+.t1-cb.checked .t1-cb-box {
+  background: rgba(0,47,108,.5);
+  border-color: #7BA8E0;
+  color: #7BA8E0;
+}
+.t1-cb-text { font-size: 12px; color: rgba(242,239,230,.6); line-height: 1.5; }
+.t1-cb.checked .t1-cb-text { color: var(--bone); }
+
+/* ── INFO TOOLTIPS ── */
+.info-bar {
+  background: rgba(26,122,94,.08);
+  border-top: .5px solid rgba(26,122,94,.15);
+  padding: 12px 20px;
+  font-size: 11px;
+  color: rgba(94,201,168,.6);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+/* ── PROGRESS DOTS ── */
+.progress-dots {
+  display: flex;
+  gap: 4px;
+  padding: 10px 20px;
+  justify-content: center;
+  border-bottom: .5px solid rgba(255,255,255,.05);
+}
+.pd { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.1); transition: background .2s; }
+.pd.done { background: var(--teal-d); }
+.pd.current { background: rgba(40,176,144,.5); }
+
+/* ── SCROLL hint ── */
+.scroll-hint {
+  text-align: center;
+  padding: 8px;
+  font-size: 10px;
+  color: rgba(242,239,230,.2);
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── TULOSTUS ── */
+@media print {
+  body { background: white; color: black; }
+  .topbar, .level-tabs { display: none; }
+  .level-view { display: block !important; }
+  .phase-block { page-break-inside: avoid; }
+}
+</style>
+
+<!-- Firebase SDK — lisätty Porras 1 (P6) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<!-- Kirjautumisbanneri — näkyy kun ei ole kirjautunut -->
+<div id="tm-login-banner" style="
+  display:none; align-items:center; justify-content:center;
+  position:fixed; inset:0; z-index:9000;
+  background:rgba(28,28,26,.92); backdrop-filter:blur(8px);
+  flex-direction:column; gap:16px; padding:32px; text-align:center;">
+  <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:#F2EFE6;">
+    TalentMaster™
+  </div>
+  <div style="font-size:13px;color:rgba(242,239,230,.6);max-width:320px;line-height:1.6;">
+    Kirjaudu sisään tallentaaksesi havaintoja Firestoreen.<br>
+    Lomaketta voi täyttää ilman kirjautumista.
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:280px;margin-top:8px;">
+    <input id="tm-login-email" type="email" placeholder="Sähköposti"
+      style="background:rgba(255,255,255,.08);border:.5px solid rgba(255,255,255,.15);
+      border-radius:6px;padding:12px 16px;color:#F2EFE6;font-size:14px;outline:none;">
+    <input id="tm-login-pass" type="password" placeholder="Salasana"
+      style="background:rgba(255,255,255,.08);border:.5px solid rgba(255,255,255,.15);
+      border-radius:6px;padding:12px 16px;color:#F2EFE6;font-size:14px;outline:none;">
+    <button onclick="_tmKirjaudu()" style="
+      background:#1A7A5E;color:#F2EFE6;border:none;border-radius:6px;
+      padding:13px;font-size:14px;font-weight:500;cursor:pointer;">
+      Kirjaudu sisään
+    </button>
+  </div>
+  <div id="tm-login-err" style="font-size:12px;color:#E07070;min-height:16px;"></div>
+</div>
+
+
+<div class="topbar">
+  <div class="tb-logo">TalentMaster™</div>
+  <div class="tb-title">ADAR Pikakortti</div>
+</div>
+
+<!-- TASO SELECTOR -->
+<div class="level-tabs">
+  <button class="level-tab active" onclick="setLevel(1)">
+    <span class="lt-num">1</span>
+    <span class="lt-label">Havainnoija</span>
+    <span class="lt-age">U8–U12</span>
+  </button>
+  <button class="level-tab" onclick="setLevel(2)">
+    <span class="lt-num">2</span>
+    <span class="lt-label">Arvioija</span>
+    <span class="lt-age">U13–U15</span>
+  </button>
+  <button class="level-tab" onclick="setLevel(3)">
+    <span class="lt-num">3</span>
+    <span class="lt-label">Täysi ADAR</span>
+    <span class="lt-age">U16–U19</span>
+  </button>
+</div>
+
+<!-- ════════════════════════════════════════
+     TASO 1 — U8–U12 — VAIN ASSESS
+     ════════════════════════════════════════ -->
+<div class="level-view active" id="level-1">
+
+  <div class="card-header">
+    <div class="card-header-top">
+      <span class="ch-badge">Taso 1 · Havainnoija</span>
+      <span class="ch-date" id="date1"></span>
+    </div>
+    <h2>Assess<br><em style="font-size:20px;color:rgba(242,239,230,.4);">Katsoo ylös — lukee kentän?</em></h2>
+    <p>U8–U12 · Valmentaja havainnoi — pelaaja ei tiedä olevansa arvioinnin kohteena. Mittaa vain skannausvaistoa.</p>
+  </div>
+
+  <div class="meta-fields">
+    <div class="meta-field">
+      <div class="mf-label">Pelaaja</div>
+      <select class="mf-input" id="t1-pelaaja-id"><option value="">— Valitse pelaaja —</option></select>
+    </div>
+    <div class="meta-field">
+      <div class="mf-label">Ikäluokka</div>
+      <input class="mf-input" type="text" placeholder="esim. U10" id="t1-ikä">
+    </div>
+    <div class="meta-field">
+      <div class="mf-label">Tilanne</div>
+      <select class="mf-input" id="t1-tilanne">
+        <option value="">Valitse...</option>
+        <option>Pienpeli</option>
+        <option>Pelitilanne</option>
+        <option>Ottelu</option>
+        <option>Vapaa peli</option>
+      </select>
+    </div>
+    <div class="meta-field">
+      <div class="mf-label">Pvm</div>
+      <input class="mf-input" type="date" id="t1-pvm">
+    </div>
+  </div>
+
+  <div class="info-bar">
+    Ikähuomio (Vänttinen/KIHU 2015): U8–U12-pelaajalta voi mitata luotettavasti sen katsaako hän ylös ennen kosketusta. Ennakointikyky kehittyy vasta murrosiästä.
+  </div>
+
+  <div class="t1-observe">
+    <div class="t1-obs-label">Mitä havaitset? — merkitse kaikki näkemäsi</div>
+    <div class="t1-checkboxes">
+      <div class="t1-cb" onclick="toggleCb(this)">
+        <div class="t1-cb-box">✓</div>
+        <div class="t1-cb-text"><strong style="color:rgba(242,239,230,.8);">Katsoo ylös ennen vastaanottoa</strong> — pelaaja tekee katsauksen kentälle ennen kuin pallo saapuu</div>
+      </div>
+      <div class="t1-cb" onclick="toggleCb(this)">
+        <div class="t1-cb-box">✓</div>
+        <div class="t1-cb-text"><strong style="color:rgba(242,239,230,.8);">Lukee lähimmät pelaajat</strong> — huomioi sekä joukkuetoverit että vastustajat palloa odottaessa</div>
+      </div>
+      <div class="t1-cb" onclick="toggleCb(this)">
+        <div class="t1-cb-box">✓</div>
+        <div class="t1-cb-text"><strong style="color:rgba(242,239,230,.8);">Reagoi tilanteenavautumiseen</strong> — liikkuu ennakoivasti ennen palloa</div>
+      </div>
+      <div class="t1-cb" onclick="toggleCb(this)">
+        <div class="t1-cb-box">✓</div>
+        <div class="t1-cb-text"><strong style="color:rgba(242,239,230,.8);">Pallokeskeinen</strong> — katsoo vain palloa, ei nosta päätä (kehityskohde)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PISTEYTYS 1–3 -->
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-letter ph-a">A</div>
+      <div class="phase-info">
+        <div class="phase-name">Assess — Kokonaisarvio</div>
+        <div class="phase-q">"Kuinka usein katsoo ylös ennen kosketusta?"</div>
+      </div>
+    </div>
+    <div class="score-area">
+      <div class="score-label">Pisteytys</div>
+      <div class="score-buttons">
+        <button class="score-btn s1" onclick="setScore('t1','A',1,this)">
+          <span class="sbn">1</span>
+          <span class="sbl">Harvoin</span>
+          <span class="sbd">Katsoo palloa lähes aina</span>
+        </button>
+        <button class="score-btn s2" onclick="setScore('t1','A',2,this)">
+          <span class="sbn">2</span>
+          <span class="sbl">Joskus</span>
+          <span class="sbd">Katsoo ylös osassa tilanteista</span>
+        </button>
+        <button class="score-btn s3" onclick="setScore('t1','A',3,this)">
+          <span class="sbn">3</span>
+          <span class="sbl">Usein</span>
+          <span class="sbd">Systemaattinen skannaus ennen kosketusta</span>
+        </button>
+      </div>
+      <div class="signal-hint">
+        <div class="sh-label">Kehityssuositus</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Piste 1: "Mihin sinä katsot ennen kuin saat pallon?" — herättelykysymys</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Piste 2: Pienpelissä bonus-piste jos katsoo ylös ennen vastaanotettua palloa</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Piste 3: Haasta monimutkaisemmilla tilanteilla — 3v3 pienessä tilassa</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="narratiivi-block">
+    <div class="narr-label">Valmentajan muistiinpano</div>
+    <textarea class="narr-ta" placeholder="Kirjoita vapaamuotoisesti mitä näit... (ei pakollinen)" id="t1-narr"></textarea>
+  </div>
+
+  <div class="summary-block">
+    <div class="sum-title">Yhteenveto</div>
+    <div class="sum-total">
+      <span class="st-label">Assess-pisteet</span>
+      <span><span class="st-val" id="t1-total">—</span><span class="st-max"> / 3</span></span>
+    </div>
+    <button class="save-btn" id="t1-save" onclick="saveCard(1)">Tallenna havainto → Firestoreen</button>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     TASO 2 — U13–U15 — A + D + A
+     ════════════════════════════════════════ -->
+<div class="level-view" id="level-2">
+
+  <div class="card-header">
+    <div class="card-header-top">
+      <span class="ch-badge">Taso 2 · Arvioija</span>
+      <span class="ch-date" id="date2"></span>
+    </div>
+    <h2>Assess · Decide · Act<br><em style="font-size:18px;color:rgba(242,239,230,.4);">Max 12p · Narratiivi pakollinen</em></h2>
+    <p>U13–U15 · 4 tilannetta × 3p. Valmentaja pistyttää tilanteita pienpelissä tai harjoituksessa.</p>
+  </div>
+
+  <div class="meta-fields">
+    <div class="meta-field">
+      <div class="mf-label">Pelaaja</div>
+      <select class="mf-input" id="t2-pelaaja-id"><option value="">— Valitse pelaaja —</option></select>
+    </div>
+    <div class="meta-field">
+      <div class="mf-label">Ikäluokka</div>
+      <input class="mf-input" type="text" placeholder="esim. U14" id="t2-ikä">
+    </div>
+    <div class="meta-field">
+      <div class="mf-label">Tilanne</div>
+      <select class="mf-input" id="t2-tilanne">
+        <option value="">Valitse...</option>
+        <option>Pienpeli</option>
+        <option>Dual-Task Rondo</option>
+        <option>Pelitilanne</option>
+        <option>Ottelu</option>
+        <option>Honey Trap</option>
+      </select>
+    </div>
+    <div class="meta-field">
+      <div class="mf-label">Pvm</div>
+      <input class="mf-input" type="date" id="t2-pvm">
+    </div>
+  </div>
+
+  <div class="ctx-strip">
+    <span style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:rgba(242,239,230,.2);padding-top:6px;margin-right:4px;">Konteksti:</span>
+    <button class="ctx-btn" onclick="toggleCtx(this)">Painettu</button>
+    <button class="ctx-btn" onclick="toggleCtx(this)">Avoin tila</button>
+    <button class="ctx-btn" onclick="toggleCtx(this)">Ylivoima</button>
+    <button class="ctx-btn" onclick="toggleCtx(this)">Alivoima</button>
+    <button class="ctx-btn" onclick="toggleCtx(this)">Viimeinen minuutti</button>
+  </div>
+
+  <!-- ASSESS -->
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-letter ph-a">A</div>
+      <div class="phase-info">
+        <div class="phase-name">Assess — Havainto</div>
+        <div class="phase-q">"Katsoo ylös ennen vastaanottoa? Lukee vastustajan?"</div>
+      </div>
+    </div>
+    <div class="score-area">
+      <div class="score-label">Pisteytys — Focus-ominaisuus</div>
+      <div class="score-buttons">
+        <button class="score-btn s1" onclick="setScore('t2','A',1,this)">
+          <span class="sbn">1</span><span class="sbl">Kehitettävää</span>
+          <span class="sbd">Katsoo palloa koko ajan — tekniikka ei ole automatisoitunut</span>
+        </button>
+        <button class="score-btn s2" onclick="setScore('t2','A',2,this)">
+          <span class="sbn">2</span><span class="sbl">Kehittyvä</span>
+          <span class="sbd">Katsoo ylös osassa tilanteita — ei vielä johdonmukaista</span>
+        </button>
+        <button class="score-btn s3" onclick="setScore('t2','A',3,this)">
+          <span class="sbn">3</span><span class="sbl">Hallitsee</span>
+          <span class="sbd">Systemaattinen skannaus — lukee tilannetta ennakoivasti</span>
+        </button>
+      </div>
+      <div class="signal-hint">
+        <div class="sh-label">Tyypillinen signaali</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Piste 1: Katsoo palloa — tekniikka ei ole automatisoitunut</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Psyk-yhteys: Matala Focus → ADAR Assess heikko</div>
+      </div>
+    </div>
+    <div id="t2-psyk-A" class="psyk-link">
+      <strong>Psyk-signaali:</strong> Piste 1 Assess-vaiheessa voi kertoa <strong>Focus</strong>-ominaisuuden kehitystarpeesta — ei pelkästä tekniikasta. Onko pelaaja läsnä?
+    </div>
+  </div>
+
+  <!-- DECIDE -->
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-letter ph-d">D</div>
+      <div class="phase-info">
+        <div class="phase-name">Decide — Päätös</div>
+        <div class="phase-q">"Nopeus alle 1s = nopea. Yli 2s = hidas. Johdonmukaisuus?"</div>
+      </div>
+    </div>
+    <div class="score-area">
+      <div class="score-label">Pisteytys — Inner Drive + Coachability</div>
+      <div class="score-buttons">
+        <button class="score-btn s1" onclick="setScore('t2','D',1,this)">
+          <span class="sbn">1</span><span class="sbl">Kehitettävää</span>
+          <span class="sbd">Epäröi yli 2s tai valintavirheitä toistuvasti</span>
+        </button>
+        <button class="score-btn s2" onclick="setScore('t2','D',2,this)">
+          <span class="sbn">2</span><span class="sbl">Kehittyvä</span>
+          <span class="sbd">Valinta noin 1–2s, oikea ratkaisu yli 50% tilanteista</span>
+        </button>
+        <button class="score-btn s3" onclick="setScore('t2','D',3,this)">
+          <span class="sbn">3</span><span class="sbl">Hallitsee</span>
+          <span class="sbd">Nopea ja johdonmukainen — alle 1s, oikea ratkaisu</span>
+        </button>
+      </div>
+      <div class="signal-hint">
+        <div class="sh-label">Tyypillinen signaali</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Hidas päätös ei aina tarkoita huonoa pelaajaa — voi olla kokemus, ei kyky</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Psyk-yhteys: Toistuva väärä valinta → onko Coachability-ongelma?</div>
+      </div>
+    </div>
+    <div id="t2-psyk-D" class="psyk-link">
+      <strong>Psyk-signaali:</strong> Piste 1 Decide-vaiheessa ja pelaaja ei reagoi ohjaukseen saman harjoituksen aikana → mahdollinen <strong>Coachability</strong>- tai <strong>Inner Drive</strong> -kehitystarve.
+    </div>
+  </div>
+
+  <!-- ACT -->
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-letter ph-ac">A</div>
+      <div class="phase-info">
+        <div class="phase-name">Act — Toteutus paineessa</div>
+        <div class="phase-q">"Toteutuuko suunniteltu liike teknisesti kovassa paineessa?"</div>
+      </div>
+    </div>
+    <div class="score-area">
+      <div class="score-label">Pisteytys — Emotional Control</div>
+      <div class="score-buttons">
+        <button class="score-btn s1" onclick="setScore('t2','Act',1,this)">
+          <span class="sbn">1</span><span class="sbl">Kehitettävää</span>
+          <span class="sbd">Tekninen laatu romahtaa paineessa selvästi</span>
+        </button>
+        <button class="score-btn s2" onclick="setScore('t2','Act',2,this)">
+          <span class="sbn">2</span><span class="sbl">Kehittyvä</span>
+          <span class="sbd">Osittainen laadun lasku paineessa — vaihtelee</span>
+        </button>
+        <button class="score-btn s3" onclick="setScore('t2','Act',3,this)">
+          <span class="sbn">3</span><span class="sbl">Hallitsee</span>
+          <span class="sbd">Tekninen laatu säilyy kovimmassakin paineessa</span>
+        </button>
+      </div>
+      <div class="signal-hint">
+        <div class="sh-label">Tyypillinen signaali</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Hyvä tekniikkatulos (H-H) + heikko Act → tekniikka ei siirry peliin</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Psyk-yhteys: Tekninen romahdus paineessa → Emotional Control -kehitystarve</div>
+      </div>
+    </div>
+    <div id="t2-psyk-Act" class="psyk-link">
+      <strong>Psyk-signaali:</strong> Piste 1 Act + hyvä H-H tekniikkatulos → tekniikka ei siirry peliin. Todennäköinen syy: <strong>Emotional Control</strong> (tunteet vaikuttavat tekniseen suoritukseen paineessa).
+    </div>
+  </div>
+
+  <!-- NARRATIIVI (pakollinen) -->
+  <div class="narratiivi-block">
+    <div class="narr-label">Narratiivi — pakollinen Taso 2:ssa ★</div>
+    <textarea class="narr-ta" placeholder="Kuvaa 1–2 tilannetta jotka näit. Mikä erityisesti kiinnitti huomiosi? Oliko yllättävää?" id="t2-narr" style="min-height:100px;"></textarea>
+  </div>
+
+  <div class="summary-block">
+    <div class="sum-title">Yhteenveto — Taso 2</div>
+    <div class="sum-scores">
+      <div class="sum-score-item">
+        <div class="ssi-phase">Assess</div>
+        <div class="ssi-val" id="t2-sum-A">—</div>
+      </div>
+      <div class="sum-score-item">
+        <div class="ssi-phase">Decide</div>
+        <div class="ssi-val" id="t2-sum-D">—</div>
+      </div>
+      <div class="sum-score-item">
+        <div class="ssi-phase">Act</div>
+        <div class="ssi-val" id="t2-sum-Act">—</div>
+      </div>
+    </div>
+    <div class="sum-total">
+      <span class="st-label">Yhteispisteet</span>
+      <span><span class="st-val" id="t2-total">—</span><span class="st-max"> / 9</span></span>
+    </div>
+    <button class="save-btn" id="t2-save" onclick="saveCard(2)">Tallenna havainto → Firestoreen</button>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     TASO 3 — U16–U19 — TÄYSI ADAR + R
+     ════════════════════════════════════════ -->
+<div class="level-view" id="level-3">
+
+  <div class="card-header">
+    <div class="card-header-top">
+      <span class="ch-badge">Taso 3 · Täysi ADAR</span>
+      <span class="ch-date" id="date3"></span>
+    </div>
+    <h2>Assess · Decide · Act · Re-assess<br><em style="font-size:16px;color:rgba(242,239,230,.4);">Max 12p + Pelaajan reflektio</em></h2>
+    <p>U16–U19 · Täysi sykli pelipaikkakohtaisilla tavoitetasoilla. Pelaajan reflektio pakollinen.</p>
+  </div>
+
+  <div class="meta-fields">
+    <div class="meta-field">
+      <div class="mf-label">Pelaaja</div>
+      <select class="mf-input" id="t3-pelaaja-id"><option value="">— Valitse pelaaja —</option></select>
+    </div>
+    <div class="meta-field">
+      <div class="mf-label">Pelipaikka</div>
+      <select class="mf-input" id="t3-pelipaikka">
+        <option value="">Valitse...</option>
+        <option>CD — Keskuspuolustaja</option>
+        <option>FB/WB — Laitapuolustaja</option>
+        <option>CDM — Puolustava keskikenttä</option>
+        <option>CAM — Hyökkäävä keskikenttä</option>
+        <option>W — Laitahyökkääjä</option>
+        <option>ST — Keskushyökkääjä</option>
+      </select>
+    </div>
+    <div class="meta-field">
+      <div class="mf-label">Tilanne</div>
+      <select class="mf-input" id="t3-tilanne">
+        <option value="">Valitse...</option>
+        <option>Ottelu</option>
+        <option>Pienpeli 4v4+</option>
+        <option>Error Recovery -harjoite</option>
+        <option>Dual-Task Rondo</option>
+        <option>Honey Trap</option>
+      </select>
+    </div>
+    <div class="meta-field">
+      <div class="mf-label">Pvm</div>
+      <input class="mf-input" type="date" id="t3-pvm">
+    </div>
+  </div>
+
+  <!-- Pelipaikkakohtaiset tavoitetasot -->
+  <div class="info-bar" id="t3-pp-info">
+    Valitse pelipaikka nähdäksesi tavoitetasot.
+  </div>
+
+  <!-- ASSESS -->
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-letter ph-a">A</div>
+      <div class="phase-info">
+        <div class="phase-name">Assess — Havainto</div>
+        <div class="phase-q">"Pre-scanning ennen kosketusta — skannaustaajuus ja -laatu?"</div>
+      </div>
+    </div>
+    <div class="score-area">
+      <div class="score-label">Pisteytys — Focus · Tavoitetaso CD ≥2p, CAM/CDM ≥3p</div>
+      <div class="score-buttons">
+        <button class="score-btn s1" onclick="setScore('t3','A',1,this)">
+          <span class="sbn">1</span><span class="sbl">Kehitettävää</span>
+          <span class="sbd">Satunnainen tai olematon pre-scanning</span>
+        </button>
+        <button class="score-btn s2" onclick="setScore('t3','A',2,this)">
+          <span class="sbn">2</span><span class="sbl">Kehittyvä</span>
+          <span class="sbd">Skannaa, mutta ei täysin johdonmukaisesti</span>
+        </button>
+        <button class="score-btn s3" onclick="setScore('t3','A',3,this)">
+          <span class="sbn">3</span><span class="sbl">Hallitsee</span>
+          <span class="sbd">Systemaattinen — tietää mihin katsoa ennen jokaista kosketusta</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DECIDE -->
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-letter ph-d">D</div>
+      <div class="phase-info">
+        <div class="phase-name">Decide — Päätös</div>
+        <div class="phase-q">"Nopeus ja johdonmukaisuus pelipaikkakohtaisissa avaintilanteissa?"</div>
+      </div>
+    </div>
+    <div class="score-area">
+      <div class="score-label">Pisteytys — Tavoitetaso CDM ≥2p, CAM ≥3p</div>
+      <div class="score-buttons">
+        <button class="score-btn s1" onclick="setScore('t3','D',1,this)">
+          <span class="sbn">1</span><span class="sbl">Kehitettävää</span>
+          <span class="sbd">Hidas tai systemaattisesti väärä ratkaisu</span>
+        </button>
+        <button class="score-btn s2" onclick="setScore('t3','D',2,this)">
+          <span class="sbn">2</span><span class="sbl">Kehittyvä</span>
+          <span class="sbd">Oikea ratkaisu yli 60% tilanteista, joskus hidas</span>
+        </button>
+        <button class="score-btn s3" onclick="setScore('t3','D',3,this)">
+          <span class="sbn">3</span><span class="sbl">Hallitsee</span>
+          <span class="sbd">Nopea ja johdonmukainen kaikissa pelipaikan avaintilanteissa</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACT -->
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-letter ph-ac">A</div>
+      <div class="phase-info">
+        <div class="phase-name">Act — Toteutus</div>
+        <div class="phase-q">"Tekninen ja taktinen toteutus pelipaikkakohtaisessa avaintilanteessa?"</div>
+      </div>
+    </div>
+    <div class="score-area">
+      <div class="score-label">Pisteytys — Tavoitetaso W/ST ≥2p, FB/WB ≥2p</div>
+      <div class="score-buttons">
+        <button class="score-btn s1" onclick="setScore('t3','Act',1,this)">
+          <span class="sbn">1</span><span class="sbl">Kehitettävää</span>
+          <span class="sbd">Tekninen tai taktinen laatu romahtaa paineessa</span>
+        </button>
+        <button class="score-btn s2" onclick="setScore('t3','Act',2,this)">
+          <span class="sbn">2</span><span class="sbl">Kehittyvä</span>
+          <span class="sbd">Laatu vaihtelee — ei vielä luotettavaa paineessa</span>
+        </button>
+        <button class="score-btn s3" onclick="setScore('t3','Act',3,this)">
+          <span class="sbn">3</span><span class="sbl">Hallitsee</span>
+          <span class="sbd">Tekninen ja taktinen laatu säilyy myös paineessa</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RE-ASSESS -->
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-letter ph-r">R</div>
+      <div class="phase-info">
+        <div class="phase-name">Re-assess — Virheestä palautuminen</div>
+        <div class="phase-q">"Palautuuko vai jähmettyykö virheen jälkeen? &lt;15s = normaali"</div>
+      </div>
+    </div>
+    <div class="score-area">
+      <div class="score-label">Pisteytys — Resilience · TalentMaster-innovaatio (Duckworth 2007)</div>
+      <div class="score-buttons">
+        <button class="score-btn s1" onclick="setScore('t3','R',1,this)">
+          <span class="sbn">1</span><span class="sbl">Kehitettävää</span>
+          <span class="sbd">Jähmettyy yli 15s virheen jälkeen — vaikuttaa pelin kulkuun</span>
+        </button>
+        <button class="score-btn s2" onclick="setScore('t3','R',2,this)">
+          <span class="sbn">2</span><span class="sbl">Kehittyvä</span>
+          <span class="sbd">Palautuu 10–15s, joskus jähmettymistä isoissa virheissä</span>
+        </button>
+        <button class="score-btn s3" onclick="setScore('t3','R',3,this)">
+          <span class="sbn">3</span><span class="sbl">Hallitsee</span>
+          <span class="sbd">Palautuu alle 10s — virhe ei vaikuta seuraavaan suoritukseen</span>
+        </button>
+      </div>
+      <div class="signal-hint">
+        <div class="sh-label">Signaali</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Jähmettyminen on usein kognitiivinen kuormituskynnys — ei pelko</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Psyk-yhteys: Matala Re-assess → Resilience-kehitystarve, ei taktiikkakoulutus</div>
+        <div class="sh-item"><span class="sh-dot">●</span>Error Recovery Protocol: tuo pelaaja takaisin peliin kysymällä — älä kommentoi virhettä</div>
+      </div>
+    </div>
+    <div id="t3-psyk-R" class="psyk-link visible">
+      <strong>Psyk-kytkös:</strong> Re-assess-pisteet heijastavat suoraan <strong>Resilience</strong>-ominaisuutta. Matala Re-assess + matala D3 Resilience = vahvistus. Oikea interventio: Error Recovery -harjoite, ei lisää taktiikkaa.
+    </div>
+  </div>
+
+  <!-- PELAAJAN REFLEKTIO -->
+  <div class="narratiivi-block">
+    <div class="narr-label">Pelaajan reflektio — pakollinen Taso 3:ssa ★</div>
+    <textarea class="narr-ta" placeholder="Mitä pelaaja itse sanoi tilanteesta? Tunnistiko saman mitä valmentaja näki? Mitä tekisi toisin?" id="t3-reflektio" style="min-height:90px;"></textarea>
+  </div>
+
+  <div class="narratiivi-block">
+    <div class="narr-label">Valmentajan narratiivi</div>
+    <textarea class="narr-ta" placeholder="Kuvaa 1–2 tilannetta. Pelipaikkakohtainen avaintilanne erityisesti." id="t3-narr" style="min-height:90px;"></textarea>
+  </div>
+
+  <div class="summary-block">
+    <div class="sum-title">Yhteenveto — Taso 3</div>
+    <div class="sum-scores">
+      <div class="sum-score-item">
+        <div class="ssi-phase">Assess</div>
+        <div class="ssi-val" id="t3-sum-A">—</div>
+      </div>
+      <div class="sum-score-item">
+        <div class="ssi-phase">Decide</div>
+        <div class="ssi-val" id="t3-sum-D">—</div>
+      </div>
+      <div class="sum-score-item">
+        <div class="ssi-phase">Act</div>
+        <div class="ssi-val" id="t3-sum-Act">—</div>
+      </div>
+      <div class="sum-score-item">
+        <div class="ssi-phase">Re-assess</div>
+        <div class="ssi-val" id="t3-sum-R">—</div>
+      </div>
+    </div>
+    <div class="sum-total">
+      <span class="st-label">Yhteispisteet</span>
+      <span><span class="st-val" id="t3-total">—</span><span class="st-max"> / 12</span></span>
+    </div>
+    <button class="save-btn" id="t3-save" onclick="saveCard(3)">Tallenna havainto → Firestoreen</button>
+  </div>
+</div>
+
+<div class="scroll-hint">↑ Vaihda tasoa yläpalkista · Tallenna → havainnot-kokoelma Firestoreen</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// FIREBASE-ALUSTUS — Porras 1 (P6)
+// ══════════════════════════════════════════════════════════════════
+(function _fbInit() {
+  const cfg = {
+    apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+    authDomain:        "talentmaster-pilot.firebaseapp.com",
+    projectId:         "talentmaster-pilot",
+    storageBucket:     "talentmaster-pilot.firebasestorage.app",
+    messagingSenderId: "872561784446",
+    appId:             "1:872561784446:web:05c4c7996dfd46ddd14a2f"
+  };
+  if (!firebase.apps.length) firebase.initializeApp(cfg);
+  window._tmDB   = firebase.firestore();
+  window._tmAuth = firebase.auth();
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// AUTH-KUUNTELU — hakee valmentajan seuran ja pelaajat kirjautuessa
+// ══════════════════════════════════════════════════════════════════
+window._tmAuth.onAuthStateChanged(async (user) => {
+  const loginBanner = document.getElementById('tm-login-banner');
+  if (!user) {
+    // Ei kirjautunut — näytä kirjautumisinfo
+    if (loginBanner) loginBanner.style.display = 'flex';
+    return;
+  }
+  if (loginBanner) loginBanner.style.display = 'none';
+
+  // Hae valmentajan seura Custom Claims -tokenista
+  try {
+    const token = await user.getIdTokenResult(true);
+    const seuraId = token.claims.seuraId;
+    if (!seuraId) {
+      console.warn('[ADAR] Ei seuraId Custom Claimsissä');
+      return;
+    }
+    window._tmSeuraId = seuraId;
+
+    // Hae seuran pelaajat — täytä kaikki kolme select-kentät
+    const snap = await window._tmDB
+      .collection('seurat').doc(seuraId)
+      .collection('pelaajat')
+      .orderBy('sukunimi')
+      .get();
+
+    const options = snap.docs.map(d => {
+      const p = d.data();
+      const nimi = (p.etunimi || '') + ' ' + (p.sukunimi || '');
+      const joukkue = p.joukkue || p.joukkueNimi || '';
+      return `<option value="${d.id}">${nimi.trim()}${joukkue ? ' · ' + joukkue : ''}</option>`;
+    }).join('');
+
+    // Päivitä kaikki kolme tasoa
+    ['t1','t2','t3'].forEach(tier => {
+      const el = document.getElementById(tier + '-pelaaja-id');
+      if (el) el.innerHTML = '<option value="">— Valitse pelaaja —</option>' + options;
+    });
+
+    console.log(`[ADAR] ${snap.docs.length} pelaajaa ladattu seuralle ${seuraId}`);
+  } catch (e) {
+    console.error('[ADAR] Pelaajien haku epäonnistui:', e.message);
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════
+// TOAST-VIESTI
+// ══════════════════════════════════════════════════════════════════
+function _showToast(msg) {
+  let t = document.getElementById('tm-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'tm-toast';
+    t.style.cssText = [
+      'position:fixed', 'bottom:24px', 'left:50%', 'transform:translateX(-50%)',
+      'background:#1A7A5E', 'color:#F2EFE6', 'padding:12px 24px',
+      'border-radius:8px', 'font-size:13px', 'font-weight:500',
+      'z-index:9999', 'opacity:0', 'transition:opacity .3s',
+      'max-width:90vw', 'text-align:center'
+    ].join(';');
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  setTimeout(() => { t.style.opacity = '0'; }, 3000);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// KIRJAUTUMINEN
+// ══════════════════════════════════════════════════════════════════
+async function _tmKirjaudu() {
+  const email = document.getElementById('tm-login-email').value.trim();
+  const pass  = document.getElementById('tm-login-pass').value;
+  const errEl = document.getElementById('tm-login-err');
+  errEl.textContent = '';
+  if (!email || !pass) { errEl.textContent = 'Täytä sähköposti ja salasana'; return; }
+  try {
+    await window._tmAuth.signInWithEmailAndPassword(email, pass);
+    // onAuthStateChanged hoitaa loput
+  } catch (e) {
+    errEl.textContent = 'Kirjautuminen epäonnistui — tarkista tiedot';
+    console.error('[ADAR] Kirjautumisvirhe:', e.code);
+  }
+}
+
+// ── TILA ──
+const scores = {
+  t1: { A: null },
+  t2: { A: null, D: null, Act: null },
+  t3: { A: null, D: null, Act: null, R: null }
+};
+
+const maxScores = { t1: 3, t2: 9, t3: 12 };
+
+// ── PÄIVÄMÄÄRÄ ──
+function setDates() {
+  const d = new Date();
+  const str = d.toLocaleDateString('fi-FI');
+  const iso = d.toISOString().split('T')[0];
+  ['1','2','3'].forEach(n => {
+    const el = document.getElementById('date' + n);
+    if (el) el.textContent = str;
+    const pvm = document.getElementById('t' + n + '-pvm');
+    if (pvm) pvm.value = iso;
+  });
+}
+setDates();
+
+// ── TASO VAIHTO ──
+function setLevel(n) {
+  document.querySelectorAll('.level-tab').forEach((t, i) => {
+    t.classList.toggle('active', i === n - 1);
+  });
+  document.querySelectorAll('.level-view').forEach((v, i) => {
+    v.classList.toggle('active', i === n - 1);
+  });
+}
+
+// ── PISTEET ──
+function setScore(tier, phase, val, btn) {
+  scores[tier][phase] = val;
+
+  // Poista muiden valinta
+  const parent = btn.closest('.score-buttons');
+  parent.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+
+  // Psyk-linkit Taso 2
+  if (tier === 't2' && val === 1) {
+    const el = document.getElementById('t2-psyk-' + phase);
+    if (el) el.classList.add('visible');
+  }
+
+  updateTotal(tier);
+}
+
+function updateTotal(tier) {
+  const s = scores[tier];
+  const vals = Object.values(s).filter(v => v !== null);
+  if (vals.length === 0) return;
+
+  const total = vals.reduce((a, b) => a + b, 0);
+
+  if (tier === 't1') {
+    document.getElementById('t1-total').textContent = total;
+  } else if (tier === 't2') {
+    ['A','D','Act'].forEach(p => {
+      const el = document.getElementById('t2-sum-' + p);
+      if (!el) return;
+      const v = s[p];
+      el.textContent = v !== null ? v : '—';
+      el.className = 'ssi-val' + (v ? ' scored-' + v : '');
+    });
+    const allDone = s.A !== null && s.D !== null && s.Act !== null;
+    if (allDone) document.getElementById('t2-total').textContent = total;
+  } else if (tier === 't3') {
+    ['A','D','Act','R'].forEach(p => {
+      const el = document.getElementById('t3-sum-' + p);
+      if (!el) return;
+      const v = s[p];
+      el.textContent = v !== null ? v : '—';
+      el.className = 'ssi-val' + (v ? ' scored-' + v : '');
+    });
+    const allDone = s.A !== null && s.D !== null && s.Act !== null && s.R !== null;
+    if (allDone) document.getElementById('t3-total').textContent = total;
+  }
+}
+
+// ── CHECKBOX Taso 1 ──
+function toggleCb(el) {
+  el.classList.toggle('checked');
+}
+
+// ── KONTEKSTI ──
+function toggleCtx(btn) {
+  btn.classList.toggle('active');
+}
+
+// ── PELIPAIKKA INFO Taso 3 ──
+const ppTargets = {
+  'CD': 'CD: Tavoite Assess ≥2p · Re-assess ≥2p. Skannausharjoitteet + Error Recovery.',
+  'FB/WB': 'FB/WB: Tavoite Assess ≥2p · Act ≥2p. Dual-Task reaktio + 1v1 laidalla.',
+  'CDM': 'CDM: Tavoite Decide ≥2p · Assess ≥2p. Honey Trap + paineistettu syöttö.',
+  'CAM': 'CAM: Tavoite täysi ADAR ≥9p/12p. Dual-Task Rondo progressio Taso 2–3.',
+  'W': 'W: Tavoite Act ≥2p (nopeus ratkaisee). 1v1 laidalla + harhautus-laukaus.',
+  'ST': 'ST: Tavoite Act ≥2p + Re-assess ≥2p. Kiihdytys + viimeistely + Error Recovery.'
+};
+document.getElementById('t3-pelipaikka').addEventListener('change', function() {
+  const pp = this.value.split('—')[0].trim();
+  const info = document.getElementById('t3-pp-info');
+  const match = Object.keys(ppTargets).find(k => pp.startsWith(k));
+  info.textContent = match ? ppTargets[match] : 'Valitse pelipaikka nähdäksesi tavoitetasot.';
+});
+
+// ── TALLENNA ──
+function saveCard(level) {
+  const tier = 't' + level;
+  const btn = document.getElementById(tier + '-save');
+
+  // Kerää data
+  const data = {
+    tyyppi: 'adar',
+    adar_taso: level,
+    pelaaja: document.getElementById(tier + '-pelaaja')?.value || '',
+    ika: document.getElementById(tier + '-ikä')?.value || '',
+    tilanne: document.getElementById(tier + '-tilanne')?.value || '',
+    pvm: document.getElementById(tier + '-pvm')?.value || new Date().toISOString().split('T')[0],
+    pisteet: { ...scores[tier] },
+    narratiivi: document.getElementById(tier + '-narr')?.value || '',
+    tehty: true,
+    timestamp: new Date().toISOString()
+  };
+
+  if (level === 3) {
+    data.pelipaikka = document.getElementById('t3-pelipaikka')?.value || '';
+    data.reflektio = document.getElementById('t3-reflektio')?.value || '';
+  }
+
+  // Tarkistus
+  const vals = Object.values(scores[tier]).filter(v => v !== null);
+  const required = { 1: 1, 2: 3, 3: 4 };
+  if (vals.length < required[level]) {
+    btn.textContent = '⚠ Täytä kaikki pisteet ensin';
+    btn.style.background = 'rgba(138,43,43,.4)';
+    setTimeout(() => {
+      btn.textContent = 'Tallenna havainto → Firestoreen';
+      btn.style.background = '';
+      btn.classList.remove('saved');
+    }, 2000);
+    return;
+  }
+
+  // ── FIREBASE TALLENNUSLOGIIKKA (Porras 1) ──────────────────────────────
+  // Polku: seurat/{seuraId}/pelaajat/{pelaajaId}/havainnot/{havaintoId}
+  // tila: 'valmis' — pelaaja voi lukea heti (ei Vision Analyysista)
+  // pelaaja_lukenut: false — päivittyy kun pelaaja avaa havainnon Pelaaja v7:ssä
+
+  const db   = window._tmDB;
+  const auth = window._tmAuth;
+
+  if (!db || !auth) {
+    btn.textContent = '⚠ Firebase ei ole alustettu';
+    btn.style.background = 'rgba(138,43,43,.4)';
+    setTimeout(() => { btn.textContent = 'Tallenna havainto → Firestoreen'; btn.style.background = ''; }, 3000);
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    btn.textContent = '⚠ Kirjaudu ensin sisään';
+    btn.style.background = 'rgba(138,43,43,.4)';
+    setTimeout(() => { btn.textContent = 'Tallenna havainto → Firestoreen'; btn.style.background = ''; }, 3000);
+    return;
+  }
+
+  // Hae valittu pelaaja-dokumentti
+  const pelaajaEl  = document.getElementById(tier + '-pelaaja-id');
+  const pelaajaId  = pelaajaEl?.value || '';
+  const seuraId    = window._tmSeuraId || '';
+
+  if (!pelaajaId || !seuraId) {
+    btn.textContent = '⚠ Valitse pelaaja ensin';
+    btn.style.background = 'rgba(138,43,43,.4)';
+    setTimeout(() => { btn.textContent = 'Tallenna havainto → Firestoreen'; btn.style.background = ''; }, 3000);
+    return;
+  }
+
+  // Validoi narratiivi Taso 2 ja 3
+  if (level >= 2 && (!data.narratiivi || data.narratiivi.trim().length < 20)) {
+    btn.textContent = '⚠ Narratiivi vaaditaan (min. 20 merkkiä)';
+    btn.style.background = 'rgba(138,43,43,.4)';
+    setTimeout(() => { btn.textContent = 'Tallenna havainto → Firestoreen'; btn.style.background = ''; }, 3000);
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Tallennetaan...';
+
+  // Rakenna Firestore-dokumentti suunnitellun scheman mukaan
+  const havaintoData = {
+    // Perusmetatiedot
+    tyyppi:           'adar_pikakortti',
+    adar_taso:        level,
+    tekija_uid:       user.uid,
+    tekija_nimi:      user.displayName || user.email,
+    luotu:            firebase.firestore.FieldValue.serverTimestamp(),
+    pelaaja_lukenut:  false,
+    tila:             'valmis',  // Suora tallennnus = valmis (ei Vision Analyysi -vaihetta)
+
+    // Pelaajan tunnisteet
+    pelaaja_id:  pelaajaId,
+    seura_id:    seuraId,
+    pvm:         data.pvm,
+
+    // ADAR-pisteet
+    pisteet: data.pisteet,
+
+    // Narratiivi ja oppimisnäkökohta (nämä näytetään pelaajalle)
+    narratiivi:       data.narratiivi || '',
+    oppimisnakokohta: data.reflektio  || '',
+    nakyvyys:         'pelaaja',  // default: pelaaja näkee
+
+    // Tilannekonteksti
+    tilanne: data.tilanne || '',
+  };
+
+  // Taso 3 -lisäkentät
+  if (level === 3) {
+    havaintoData.pelipaikka  = data.pelipaikka  || '';
+    havaintoData.reflektio   = data.reflektio   || '';
+  }
+
+  try {
+    const ref = await db
+      .collection('seurat').doc(seuraId)
+      .collection('pelaajat').doc(pelaajaId)
+      .collection('havainnot')
+      .add(havaintoData);
+
+    console.log('[ADAR Pikakortti] Tallennettu:', ref.id);
+
+    btn.textContent = '✓ Tallennettu pelaajalle';
+    btn.classList.add('saved');
+    btn.disabled = false;
+
+    // Näytä vahvistustoast
+    _showToast('✓ Havainto tallennettu — pelaaja voi nyt lukea sen');
+
+    setTimeout(() => {
+      btn.textContent = 'Tallenna havainto → Firestoreen';
+      btn.classList.remove('saved');
+    }, 4000);
+
+  } catch (err) {
+    console.error('[ADAR Pikakortti] Tallennusvirhe:', err);
+    btn.textContent = '⚠ Tallennusvirhe — yritä uudelleen';
+    btn.style.background = 'rgba(138,43,43,.4)';
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = 'Tallenna havainto → Firestoreen'; btn.style.background = ''; }, 4000);
+  }
+}
+</script>
+</body>
+</html>
