@@ -1805,6 +1805,19 @@ window._tmAuth.onAuthStateChanged(async (user) => {
 
     console.log(`[ADAR] ${snap.docs.length} pelaajaa ladattu seuralle ${seuraId}`);
 
+    // Jos master-kontekstissa on esivalittu pelaaja, valitaan se automaattisesti
+    if (window._masterPelaajaId) {
+      const pid = window._masterPelaajaId;
+      // Pikasyötön select-lista
+      ['t1','t2','t3'].forEach(tier => {
+        const sel = document.getElementById(tier + '-pelaaja-id');
+        if (sel) sel.value = pid;
+      });
+      // Pikasyöttö-grid (jos ollaan pikasyöttö-tilassa)
+      window._tmSeuraId = window._masterSeuraId || seuraId;
+      window._masterPelaajaId = null;  // käytetty kerran
+    }
+
     // Päivitä myös pikasyöttö-pelaajagrid
     _paivitaPikaPelaajat(snap, seuraId);
   } catch (e) {
@@ -2097,6 +2110,12 @@ async function saveCard(level) {
 
     // Näytä vahvistustoast
     _showToast('✓ Havainto tallennettu — pelaaja voi nyt lukea sen');
+
+    // Ilmoita isänikkunalle (Master-näkymä) että tallennus onnistui.
+    // Master kuuntelee tätä viestiä ja sulkee drill-paneelin automaattisesti.
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage('tm:adar:saved', '*');
+    }
 
     setTimeout(() => {
       btn.textContent = 'Tallenna havainto → Firestoreen';
@@ -2553,6 +2572,32 @@ function _paivitaPikaPelaajat(snap, seuraId) {
 
 // Alustuksen yhteydessä käynnistetään offline-tarkistus
 _initIDB().then(() => _paivitaOfflineBadge()).catch(() => {});
+
+// ── MASTER-KONTEKSTI: Kun Pikakortti on iframe Master-näkymässä ──────────────
+(function _masterKonteksti() {
+  const params = new URLSearchParams(window.location.search);
+  const ctx = params.get('context');
+  if (ctx !== 'master') return;  // Ei iframe-tila — toimitaan normaalisti
+
+  // Piilota topbar ja progressipalkki (tilaa on vähemmän iframessa)
+  const topbar = document.querySelector('.topbar');
+  if (topbar) topbar.style.display = 'none';
+  const prog = document.querySelector('.prog-bar');
+  if (prog) prog.style.display = 'none';
+
+  // Piilota kirjautumisbanneri — Master on jo kirjautunut,
+  // onAuthStateChanged hoitaa Firebase-session jakamisen
+  const banner = document.getElementById('tm-login-banner');
+  if (banner) banner.style.display = 'none';
+
+  // Esivalitse pelaaja URL-parametrista kun pelaajalistat on ladattu.
+  // Tallennetaan parametri — _paivitaPikaPelaajat() kutsuu tätä kun snap on valmis.
+  const pelaajaIdParam = params.get('pelaajaId');
+  if (pelaajaIdParam) {
+    window._masterPelaajaId = pelaajaIdParam;
+    window._masterSeuraId   = params.get('seuraId') || '';
+  }
+})();
 
 </script>
 </body>
