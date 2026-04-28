@@ -126,7 +126,7 @@ button{font-family:var(--font-b);cursor:pointer}
 const IKA = {
   u12: {
     nimi:'Eemeli', ika:11, ryhma:'KPV U12 · Sininen',
-    otsikko:(e)=>`${e}:n viikko`,
+    otsikko:(e)=>_genetiivi(e)+' viikko',
     hero: { t:'Eemeli treenasi eilen 45 min', s:'Pihalla Jaakon ja Lauran kanssa. Hyvä fiilis.' },
     vinkki: 'Pikkuiselle on tänään hyvä päivä levätä. Katso lempeästi, että hän ei treenaa kolmatta päivää putkeen.',
     kirjaaNakyva: true,
@@ -134,7 +134,7 @@ const IKA = {
   },
   u15: {
     nimi:'Aino', ika:14, ryhma:'KPV U15 · Tytöt',
-    otsikko:(e)=>`${e}:n viikko`,
+    otsikko:(e)=>_genetiivi(e)+' viikko',
     hero: { t:'Aino on ollut aktiivinen', s:'4 treeniä tällä viikolla · kaikki omasta aloitteesta.' },
     vinkki: 'Nuori alkaa ottaa vastuuta itse. Ei tarvitse kysyä joka päivä — viesti kannattaa säästää viikon lopuksi.',
     kirjaaNakyva: false,
@@ -142,13 +142,26 @@ const IKA = {
   },
   u19: {
     nimi:'Joonas', ika:17, ryhma:'KPV U19 · Mustat',
-    otsikko:(e)=>`${e}:n kooste`,
+    otsikko:(e)=>_genetiivi(e)+' kooste',
     hero: { t:'Joonas on kehittynyt 6 kk ajan', s:'Stage-matka: 2 → 3. Ammattilaisuuden rakennuttamisen vaihe.' },
     vinkki: 'Hän on lähes aikuinen pelaaja. Rooli muuttuu: olet läsnä, mutta et ohjaaja. Kuukausikooste riittää — älä häiritse arkea.',
     kirjaaNakyva: false,
     valmentaja: 'Joonas on kilpa-uraan kypsymässä. Kommunikoidaan suoraan pelaajan kanssa. Kuukausikooste tulee automaattisesti.',
   },
 };
+
+// Suomen genetiivi etunimelle — Topias→Topiaksen, Eemeli→Eemelin, Aino→Ainon
+function _genetiivi(nimi) {
+  if (!nimi) return '';
+  const n = nimi.trim();
+  const viim = n[n.length-1].toLowerCase();
+  // Päättyy s:ään (Topias, Joonas, Markus) → poista s, lisää ksen
+  if (viim === 's') return n.slice(0,-1) + 'ksen';
+  // Päättyy vokaaliin (Eemeli, Aino, Petra) → lisää n
+  if ('aeiouäöy'.includes(viim)) return n + 'n';
+  // Muut (konsonantti) → lisää in
+  return n + 'in';
+}
 
 let _age='u12';
 let _sc='login';  // Avataan aina login-näkymästä
@@ -391,7 +404,7 @@ function rKoti(){
   <div style="padding:16px 4px 10px">
     <div class="ey" style="margin-bottom:4px"><span class="live-dot"></span>Live · ${d.ryhma.split(' · ')[0]||d.ryhma}</div>
     <div style="font-family:var(--font-d);font-weight:300;font-size:30px;line-height:1.1;color:var(--text)">
-      ${d.nimi}:n ${_age==='u19'?'kuukausi':'viikko'}
+      ${_genetiivi(d.nimi)} ${_age==='u19'?'kuukausi':'viikko'}
     </div>
     <div style="font-size:11px;color:var(--ink3);margin-top:4px;letter-spacing:.04em">${d.ryhma}</div>
   </div>
@@ -446,7 +459,7 @@ function _kotiU12(d){
   <button onclick="go('kirjaa')" style="width:100%;padding:14px 18px;background:var(--surface);border:.5px solid var(--border2);border-radius:10px;text-align:left;color:var(--text);display:flex;align-items:center;gap:12px;cursor:pointer">
     ${ic('plus',20,'#28B090',1.8)}
     <div style="flex:1">
-      <div style="font-size:12px;font-weight:600;color:var(--text)">Kirjaa Eemelin puolesta</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text)">Kirjaa ${_genetiivi(d.nimi)} puolesta</div>
       <div style="font-size:10px;color:var(--ink3);margin-top:2px">Pihapeli, sovellus ei auki, syntymäpäivä...</div>
     </div>
     <div style="color:var(--ink3)">›</div>
@@ -873,7 +886,7 @@ async function _perheKirjaa(){
   _sc = 'koti';
   document.querySelectorAll('.sp').forEach(b=>b.classList.toggle('on',b.dataset.s==='koti'));
   draw();
-  _toast(`${IKA[_age].nimi}:n treeni kirjattu${onT?' · pallo ✓':''}!`);
+  _toast(`${_genetiivi(IKA[_age].nimi)} treeni kirjattu${onT?' · pallo ✓':''}!`);
 }
 
 /* ══ VALMENTAJAN VIESTI ══ */
@@ -935,7 +948,7 @@ function rKortti(){
 <div class="scroll">
   <div style="padding:14px 2px 14px;text-align:center">
     <div class="ey ac" style="margin-bottom:6px">Kausi 2025/26</div>
-    <div style="font-family:var(--font-d);font-weight:400;font-size:26px;line-height:1.1;color:var(--text)">${d.nimi}:n matka</div>
+    <div style="font-family:var(--font-d);font-weight:400;font-size:26px;line-height:1.1;color:var(--text)">${_genetiivi(d.nimi)} matka</div>
   </div>
 
   <!-- Iso kortti -->
@@ -991,7 +1004,7 @@ function rKortti(){
   <div class="card" style="padding:14px;display:flex;gap:10px;align-items:center">
     ${ic('star',18,'#B8860B',1.6)}
     <div style="flex:1">
-      <div style="font-size:12px;font-weight:600;color:var(--text)">Jaa ${d.nimi}:n kortti</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text)">Jaa ${_genetiivi(d.nimi)} kortti</div>
       <div style="font-size:10px;color:var(--ink3);margin-top:2px">Isovanhemmille, kummitädille...</div>
     </div>
     <button style="padding:8px 14px;background:rgba(184,134,11,.1);border:.5px solid rgba(184,134,11,.3);border-radius:6px;color:var(--gold);font-size:10px;font-weight:600;letter-spacing:.1em">JAA</button>
@@ -1014,7 +1027,7 @@ function rAsetukset(){
     <div style="width:48px;height:48px;border-radius:50%;background:var(--surface2);border:.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--ink2)">P</div>
     <div style="flex:1">
       <div style="font-size:13px;font-weight:600;color:var(--text)">Petri Kinnunen</div>
-      <div style="font-size:11px;color:var(--ink3)">${d.nimi}:n huoltaja</div>
+      <div style="font-size:11px;color:var(--ink3)">${_genetiivi(d.nimi)} huoltaja</div>
     </div>
     ${ic('edit',16,'#8BA0BC',1.5)}
   </div>
@@ -1167,13 +1180,12 @@ async function _haeViimeisinKirjaus() {
   if (!urlUid) {
     const user = _auth.currentUser;
     if (!user || !user.email) return;
-    // P3: collectionGroup ei toimi (collection group scope disabled) →
-    // haetaan tunnetuista pilottiseuroista järjestyksessä
-    const PILOTTISEURAT = ['kpv','fcl','sjk','palloiirot','yvies','grifk','vifk','hjk'];
+    // P3: Hae seurat dynaamisesti Firestoresta — ei kovakoodattu lista
     try {
       let lapsiDoc = null;
-      for (const sid of PILOTTISEURAT) {
-        const q = await _db.collection('seurat').doc(sid)
+      const seuraSnap = await _db.collection('seurat').get();
+      for (const seuraDoc of seuraSnap.docs) {
+        const q = await _db.collection('seurat').doc(seuraDoc.id)
           .collection('pelaajat')
           .where('huoltajaEmail', '==', user.email)
           .limit(1)
@@ -1189,7 +1201,7 @@ async function _haeViimeisinKirjaus() {
       const ika = new Date().getFullYear() - (window._lapsi.syntymaVuosi || 2012);
       _age = ika <= 12 ? 'u12' : ika <= 15 ? 'u15' : 'u19';
       IKA[_age].nimi  = window._lapsi.etunimi || IKA[_age].nimi;
-      IKA[_age].ryhma = window._lapsi.joukkueNimi || IKA[_age].ryhma;
+      IKA[_age].ryhma = window._lapsi.joukkue || window._lapsi.joukkueNimi || IKA[_age].ryhma;
       // P3 fix: let → nyt voidaan sijoittaa
       urlSeura = lapsiDoc.ref.parent.parent.id;
       urlUid   = lapsiDoc.id;
@@ -1205,7 +1217,7 @@ async function _haeViimeisinKirjaus() {
         if (syn.getMonth() === nyt.getMonth() && syn.getDate() === nyt.getDate()) {
           const nimi = window._lapsi.etunimi || IKA[_age].nimi;
           const ikaluku = nyt.getFullYear() - syn.getFullYear();
-          _toast('🎂 Tänään on ' + nimi + ':n ' + ikaluku + '. syntymäpäivä! Muistitko onnitella?', 6000);
+          _toast('🎂 Tänään on ' + _genetiivi(nimi) + ' ' + ikaluku + '. syntymäpäivä! Muistitko onnitella?', 6000);
         }
       }
     } catch(e) {
