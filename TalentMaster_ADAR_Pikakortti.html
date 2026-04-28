@@ -1523,6 +1523,154 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
   color: rgba(28,28,26,.3) !important;
 }
 
+
+/* ══ ADAR VISION — KUVA HAVAINTOON ══════════════════════════════════════════ */
+
+/* Kuvalatausalue joka ilmestyy Tallenna-napin yläpuolelle */
+.kuva-alue {
+  margin-bottom: 12px;
+}
+
+.kuva-nappi {
+  width: 100%;
+  padding: 13px;
+  border-radius: 10px;
+  border: 1.5px dashed rgba(26,122,94,.35);
+  background: rgba(26,122,94,.04);
+  color: rgba(242,239,230,.55);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.kuva-nappi:hover {
+  border-color: rgba(26,122,94,.6);
+  background: rgba(26,122,94,.09);
+  color: rgba(242,239,230,.8);
+}
+
+:root[data-theme="light"] .kuva-nappi {
+  border-color: rgba(15,110,86,.3);
+  background: rgba(15,110,86,.04);
+  color: rgba(28,28,26,.5);
+}
+
+:root[data-theme="light"] .kuva-nappi:hover {
+  border-color: rgba(15,110,86,.6);
+  background: rgba(15,110,86,.08);
+  color: rgba(28,28,26,.8);
+}
+
+/* Esikatselukuva kun kuva on valittu */
+.kuva-esikatselu-wrap {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  display: none;
+}
+
+.kuva-esikatselu-wrap.nakyy { display: block; }
+
+.kuva-esikatselu {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+}
+
+.kuva-poista {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(9,12,18,.75);
+  border: 1px solid rgba(255,255,255,.2);
+  color: rgba(242,239,230,.7);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.kuva-poista:hover { background: rgba(9,12,18,.9); }
+
+.kuva-ai-merkki {
+  position: absolute;
+  bottom: 8px; left: 8px;
+  background: rgba(9,12,18,.75);
+  border: 1px solid rgba(26,122,94,.4);
+  color: #28B090;
+  font-size: 9px;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: .1em;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+/* AI-narratiivin latausmerkki */
+.ai-lataa {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(26,122,94,.07);
+  border: 1px solid rgba(26,122,94,.2);
+  border-radius: 8px;
+  font-size: 11px;
+  color: rgba(242,239,230,.55);
+  font-family: 'DM Mono', monospace;
+  margin-top: 8px;
+}
+
+.ai-lataa.nakyy { display: flex; }
+
+.ai-lataa-piste {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #1A7A5E;
+  animation: ai-pulssi 1.2s ease-in-out infinite;
+}
+
+@keyframes ai-pulssi {
+  0%, 100% { opacity: .3; transform: scale(.8); }
+  50%       { opacity: 1;  transform: scale(1.2); }
+}
+
+/* AI-narratiivin tulos */
+.ai-narratiivi-tulos {
+  display: none;
+  background: rgba(26,122,94,.08);
+  border: 1px solid rgba(26,122,94,.2);
+  border-left: 3px solid #1A7A5E;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(242,239,230,.75);
+  line-height: 1.65;
+  font-style: italic;
+}
+
+.ai-narratiivi-tulos.nakyy { display: block; }
+
+.ai-narratiivi-label {
+  font-size: 9px;
+  font-family: 'DM Mono', monospace;
+  color: #1A7A5E;
+  letter-spacing: .12em;
+  margin-bottom: 6px;
+  font-style: normal;
+}
+
 </style>
 
 <!-- Firebase SDK — lisätty Porras 1 (P6) -->
@@ -1813,7 +1961,27 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
       <span class="st-label">Assess-pisteet</span>
       <span><span class="st-val" id="t1-total">—</span><span class="st-max"> / 3</span></span>
     </div>
-    <button class="save-btn" id="t1-save" onclick="saveCard(1)">Tallenna havainto → Firestoreen</button>
+    <!-- ADAR Vision — Lisää kuva havaintoon (Taso t1) -->
+<div class="kuva-alue" id="t1-kuva-alue">
+  <input type="file" id="t1-kuva-input" accept="image/*" capture="environment" style="display:none"
+         onchange="_kuvaValittu('t1', this)">
+  <div class="kuva-esikatselu-wrap" id="t1-kuva-wrap">
+    <img class="kuva-esikatselu" id="t1-kuva-img" alt="Havainnon kuva">
+    <button class="kuva-poista" onclick="_kuvaPoista('t1')">&#215;</button>
+    <div class="kuva-ai-merkki">AI analysoi</div>
+  </div>
+  <button class="kuva-nappi" id="t1-kuva-nappi" onclick="document.getElementById('t1-kuva-input').click()">
+    <span style="font-size:16px">📸</span> Lisää kuva havaintoon
+  </button>
+  <div class="ai-lataa" id="t1-ai-lataa">
+    <span class="ai-lataa-piste"></span> AI kirjoittaa narratiivia...
+  </div>
+  <div class="ai-narratiivi-tulos" id="t1-ai-narr">
+    <div class="ai-narratiivi-label">AI — NARRATIIVI</div>
+    <span id="t1-ai-narr-teksti"></span>
+  </div>
+</div>
+<button class="save-btn" id="t1-save" onclick="saveCard(1)">Tallenna havainto → Firestoreen</button>
   </div>
 </div>
 
@@ -2017,7 +2185,27 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
       <span class="st-label">Yhteispisteet</span>
       <span><span class="st-val" id="t2-total">—</span><span class="st-max"> / 9</span></span>
     </div>
-    <button class="save-btn" id="t2-save" onclick="saveCard(2)">Tallenna havainto → Firestoreen</button>
+    <!-- ADAR Vision — Lisää kuva havaintoon (Taso t2) -->
+<div class="kuva-alue" id="t2-kuva-alue">
+  <input type="file" id="t2-kuva-input" accept="image/*" capture="environment" style="display:none"
+         onchange="_kuvaValittu('t2', this)">
+  <div class="kuva-esikatselu-wrap" id="t2-kuva-wrap">
+    <img class="kuva-esikatselu" id="t2-kuva-img" alt="Havainnon kuva">
+    <button class="kuva-poista" onclick="_kuvaPoista('t2')">&#215;</button>
+    <div class="kuva-ai-merkki">AI analysoi</div>
+  </div>
+  <button class="kuva-nappi" id="t2-kuva-nappi" onclick="document.getElementById('t2-kuva-input').click()">
+    <span style="font-size:16px">📸</span> Lisää kuva havaintoon
+  </button>
+  <div class="ai-lataa" id="t2-ai-lataa">
+    <span class="ai-lataa-piste"></span> AI kirjoittaa narratiivia...
+  </div>
+  <div class="ai-narratiivi-tulos" id="t2-ai-narr">
+    <div class="ai-narratiivi-label">AI — NARRATIIVI</div>
+    <span id="t2-ai-narr-teksti"></span>
+  </div>
+</div>
+<button class="save-btn" id="t2-save" onclick="saveCard(2)">Tallenna havainto → Firestoreen</button>
 
 <!-- Analyysitulos Taso 2 -->
 <div class="result-box" id="t2-result">
@@ -2256,7 +2444,27 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
       <span class="st-label">Yhteispisteet</span>
       <span><span class="st-val" id="t3-total">—</span><span class="st-max"> / 12</span></span>
     </div>
-    <button class="save-btn" id="t3-save" onclick="saveCard(3)">Tallenna havainto → Firestoreen</button>
+    <!-- ADAR Vision — Lisää kuva havaintoon (Taso t3) -->
+<div class="kuva-alue" id="t3-kuva-alue">
+  <input type="file" id="t3-kuva-input" accept="image/*" capture="environment" style="display:none"
+         onchange="_kuvaValittu('t3', this)">
+  <div class="kuva-esikatselu-wrap" id="t3-kuva-wrap">
+    <img class="kuva-esikatselu" id="t3-kuva-img" alt="Havainnon kuva">
+    <button class="kuva-poista" onclick="_kuvaPoista('t3')">&#215;</button>
+    <div class="kuva-ai-merkki">AI analysoi</div>
+  </div>
+  <button class="kuva-nappi" id="t3-kuva-nappi" onclick="document.getElementById('t3-kuva-input').click()">
+    <span style="font-size:16px">📸</span> Lisää kuva havaintoon
+  </button>
+  <div class="ai-lataa" id="t3-ai-lataa">
+    <span class="ai-lataa-piste"></span> AI kirjoittaa narratiivia...
+  </div>
+  <div class="ai-narratiivi-tulos" id="t3-ai-narr">
+    <div class="ai-narratiivi-label">AI — NARRATIIVI</div>
+    <span id="t3-ai-narr-teksti"></span>
+  </div>
+</div>
+<button class="save-btn" id="t3-save" onclick="saveCard(3)">Tallenna havainto → Firestoreen</button>
 
 <!-- Analyysitulos Taso 3 -->
 <div class="result-box" id="t3-result">
@@ -2639,11 +2847,23 @@ async function saveCard(level) {
   }
 
   try {
+    // ── ADAR Vision: lataa kuva Storageen ennen Firestore-kirjoitusta ──────
+    const _mediaObj = await _lataaKuvaStorageen(tier, 'pre_' + Date.now(), seuraId);
+    if (_mediaObj) havaintoData.media = [_mediaObj];
+
     const ref = await db
       .collection('seurat').doc(seuraId)
       .collection('pelaajat').doc(pelaajaId)
       .collection('havainnot')
       .add(havaintoData);
+
+    // ── ADAR Vision: pyydä AI-narratiivi asynkronisesti ──────────────────
+    // Kutsutaan tallennuksen JÄLKEEN — ei estä tallennusta.
+    // _pyydaAINarratiivi() lataa kuvan base64:ksi, kutsuu aiProxy:a,
+    // ja tallentaa narratiivin erillisellä .update()-kutsulla.
+    if (window._kuvaFiles && window._kuvaFiles[tier]) {
+      _pyydaAINarratiivi(tier, ref.id, seuraId, pelaajaId, havaintoData);
+    }
 
     console.log('[ADAR Pikakortti] Tallennettu:', ref.id);
 
@@ -3171,6 +3391,208 @@ function _paivitaTeemaIcon(teema) {
 // Tukee sekä vanhat .t1-cb-item-elementit että uudet .t1-cb-btn-napit.
 // Vanha: toggles .checked luokan + muuttaa .t1-cb-box väriä.
 // Uusi:  toggles .checked luokan napissa itsessään.
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADAR VISION — KUVA HAVAINTOON
+// Arkkitehtuuri (Vaihtoehto 1, integroitu):
+//   1. Valmentaja valitsee kuvan → esikatselu näkyy
+//   2. saveCard() lataa kuvan Firebase Storageen ennen Firestore-kirjoitusta
+//   3. storage_url tallennetaan Firestoreen media[]-taulukkoon
+//   4. Cloud Function (pyydettäessä) kutsuu GPT-4o Vision → ai_narratiivi
+//
+// Tulevaisuuspolku (muuttamatta tätä rakennetta):
+//   - media.tyyppi: 'kuva' → 'video'
+//   - media.segmentit[] lisätään ilman rakennemuutosta
+//   - ai_video_analyysi-kenttä tulee rinnalle, ei korvaa
+//
+// Periaate: Pikakortti on totuus. Kuva on todiste. AI on apuri. Ihminen vastaa.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Tallennetaan valitut kuvat per taso — { t1: File|null, t2: File|null, t3: File|null }
+window._kuvaFiles = { t1: null, t2: null, t3: null };
+
+// Kutsutaan kun valmentaja valitsee kuvan file-inputista
+function _kuvaValittu(tier, input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // Tiedostokokorajoitus: max 5 MB (Firebase Storage ilmainen kiintiö)
+  if (file.size > 5 * 1024 * 1024) {
+    _showToast('⚠ Kuva on liian iso — max 5 MB');
+    return;
+  }
+
+  window._kuvaFiles[tier] = file;
+
+  // Näytä esikatselu
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img  = document.getElementById(tier + '-kuva-img');
+    const wrap = document.getElementById(tier + '-kuva-wrap');
+    const nappi = document.getElementById(tier + '-kuva-nappi');
+    if (img)   img.src = e.target.result;
+    if (wrap)  wrap.classList.add('nakyy');
+    if (nappi) nappi.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+// Poistaa valitun kuvan
+function _kuvaPoista(tier) {
+  window._kuvaFiles[tier] = null;
+  const wrap  = document.getElementById(tier + '-kuva-wrap');
+  const nappi = document.getElementById(tier + '-kuva-nappi');
+  const input = document.getElementById(tier + '-kuva-input');
+  const aiNarr = document.getElementById(tier + '-ai-narr');
+  const aiLataa = document.getElementById(tier + '-ai-lataa');
+  if (wrap)   wrap.classList.remove('nakyy');
+  if (nappi)  nappi.style.display = '';
+  if (input)  input.value = '';
+  if (aiNarr) aiNarr.classList.remove('nakyy');
+  if (aiLataa) aiLataa.classList.remove('nakyy');
+}
+
+// Lataa kuvan Firebase Storageen — kutsutaan saveCard():sta tallennuksen yhteydessä.
+// Palauttaa { storage_url, download_url } tai null jos ei kuvaa.
+async function _lataaKuvaStorageen(tier, havaintoId, seuraId) {
+  const file = window._kuvaFiles[tier];
+  if (!file) return null;
+
+  // Firebase Storage täytyy olla alustettu
+  const storage = window.firebase?.app().storage?.();
+  if (!storage) {
+    console.warn('[ADAR Vision] Firebase Storage ei ole alustettu');
+    return null;
+  }
+
+  // Polku: seurat/{seuraId}/havainnot/{havaintoId}/media_0.jpg
+  // Sama hierarkia kuin Firestore — oikeudet johdonmukaiset
+  const ext  = file.type.includes('png') ? 'png' : 'jpg';
+  const polku = 'seurat/' + seuraId + '/havainnot/' + havaintoId + '/media_0.' + ext;
+  const ref   = storage.ref(polku);
+
+  try {
+    const snapshot = await ref.put(file, {
+      contentType: file.type,
+      customMetadata: {
+        tier:    tier,
+        lahde:   'adar_pikakortti',
+        version: '1'
+      }
+    });
+    const download_url = await snapshot.ref.getDownloadURL();
+    return {
+      tyyppi:       'kuva',
+      storage_url:  'gs://' + snapshot.ref.bucket + '/' + polku,
+      download_url: download_url,
+      otettu:       window.firebase.firestore.FieldValue.serverTimestamp(),
+      // Tulevaisuudessa lisätään: kesto_ms, segmentit[] videon yhteydessä
+    };
+  } catch(e) {
+    console.error('[ADAR Vision] Storage-lataus epäonnistui:', e.message);
+    // Ei keskeytä tallennusta — kuva vain jää pois
+    _showToast('⚠ Kuvan lataus epäonnistui — havainto tallennettu ilman kuvaa');
+    return null;
+  }
+}
+
+// Pyytää AI-narratiivin Cloud Functionilta kuvan ja kenttien perusteella.
+// Tätä kutsutaan tallennuksen JÄLKEEN — ei estä tallennusta.
+// Narratiivi tallennetaan erillisellä .update()-kutsulla.
+async function _pyydaAINarratiivi(tier, havaintoId, seuraId, pelaajaId, havaintoData) {
+  const file = window._kuvaFiles[tier];
+  if (!file) return; // Ei kuvaa — ei AI-narratiivia
+
+  // Näytä latausindikattori
+  const aiLataa = document.getElementById(tier + '-ai-lataa');
+  if (aiLataa) aiLataa.classList.add('nakyy');
+
+  try {
+    // Lue kuva base64:ksi AI-pyyntöä varten
+    const base64 = await new Promise(function(resolve, reject) {
+      const reader = new FileReader();
+      reader.onload  = function(e) { resolve(e.target.result.split(',')[1]); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    // Rakennetaan konteksti AI:lle valmentajan täyttämistä kentistä
+    const konteksti = [
+      havaintoData.pelipaikka ? 'Pelipaikka: ' + havaintoData.pelipaikka : '',
+      havaintoData.tilanne    ? 'Tilanne: '    + havaintoData.tilanne    : '',
+      havaintoData.narratiivi ? 'Valmentajan muistiinpano: ' + havaintoData.narratiivi : '',
+      tier === 't1' ? 'Taso: U8-U12 (Havainnoija — arvioidaan vain Assess)' :
+      tier === 't2' ? 'Taso: U13-U15 (Arvioija — Assess, Decide, Act)' :
+                     'Taso: U16-U19 (Täysi ADAR)'
+    ].filter(Boolean).join('\n');
+
+    // Kutsutaan aiProxy Cloud Functionia (jo olemassa)
+    const auth  = window._tmAuth;
+    const token = auth?.currentUser ? await auth.currentUser.getIdToken() : null;
+
+    const vastaus = await fetch(
+      'https://europe-west1-talentmaster-pilot.cloudfunctions.net/aiProxy',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+        },
+        body: JSON.stringify({
+          tyyppi:  'adar_vision_narratiivi',
+          kuva:    { base64: base64, mime: file.type },
+          konteksti: konteksti,
+          // AI:n ohje: analysoi kuva, kirjoita narratiivi valmentajan äänellä
+          // ÄLÄ anna pisteitä — kirjoita havainto, ei arvosana
+          ohje: 'Olet jalkapallovalmentajan apuri. Analysoi kuva ja valmentajan muistiinpanot. ' +
+                'Kirjoita lyhyt (2-3 lausetta) havaintonarratiiivi suomeksi valmentajan äänellä. ' +
+                'Älä anna numeroarvosanoja. Keskity siihen mitä pelaaja tekee ja miksi se on merkityksellistä kehitykselle. ' +
+                'Jos kuvasta ei voi tehdä ADAR-arviota, kirjoita se rehellisesti.'
+        })
+      }
+    );
+
+    if (vastaus.ok) {
+      const data = await vastaus.json();
+      const narratiivi = data.narratiivi || data.content || '';
+
+      if (narratiivi) {
+        // Tallenna narratiivi Firestoreen (erillinen update)
+        const db = window._tmDB;
+        if (db && seuraId && pelaajaId && havaintoId) {
+          await db
+            .collection('seurat').doc(seuraId)
+            .collection('pelaajat').doc(pelaajaId)
+            .collection('havainnot').doc(havaintoId)
+            .update({
+              ai_narratiivi:  narratiivi,
+              ai_malli:       'gpt-4o-vision',
+              ai_analysoitu:  window.firebase.firestore.FieldValue.serverTimestamp(),
+              // Luottamustaso asetetaan matalaksi oletuksena — ihminen arvioi
+              ai_luottamus:   'matala'
+            });
+        }
+
+        // Näytä narratiivi UI:ssa
+        const narrEl  = document.getElementById(tier + '-ai-narr');
+        const tekstiEl = document.getElementById(tier + '-ai-narr-teksti');
+        if (narrEl && tekstiEl) {
+          tekstiEl.textContent = narratiivi;
+          narrEl.classList.add('nakyy');
+        }
+      }
+    }
+  } catch(e) {
+    console.warn('[ADAR Vision] AI-narratiivi epäonnistui:', e.message);
+    // Ei häiritä valmentajaa — AI-narratiivi on valinnainen lisä
+  } finally {
+    // Piilota latausindikattori aina
+    if (aiLataa) aiLataa.classList.remove('nakyy');
+    // Nollaa kuva tallennuksen jälkeen
+    window._kuvaFiles[tier] = null;
+  }
+}
 
 </script>
 </body>
