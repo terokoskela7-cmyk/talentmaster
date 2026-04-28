@@ -963,7 +963,8 @@ exports.aiProxy = functions
     memory:         '256MB',
     // Firebase Secrets Manager — API-avaimet turvallisesti
     // Vaatii: firebase functions:secrets:set ANTHROPIC_API_KEY
-    secrets: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY']
+    // Sprint A: vain ANTHROPIC_API_KEY. OPENAI + GEMINI lisätään Sprint C:ssä.
+    secrets: ['ANTHROPIC_API_KEY']
   })
   .https.onRequest(async (req, res) => {
 
