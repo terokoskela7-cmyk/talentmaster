@@ -3504,7 +3504,10 @@ async function _lataaKuvaStorageen(tier, havaintoId, seuraId) {
       tyyppi:       'kuva',
       storage_url:  'gs://' + snapshot.ref.bucket + '/' + polku,
       download_url: download_url,
-      otettu:       window.firebase.firestore.FieldValue.serverTimestamp(),
+      // HUOM: serverTimestamp() ei toimi taulukon sisällä (Firebase-rajoitus).
+      // Käytetään ISO-string aikaleimaa media[]-taulukon sisällä.
+      // Dokumentin ylätason 'luotu'-kenttä käyttää serverTimestamp():ä normaalisti.
+      otettu:       new Date().toISOString(),
       // Tulevaisuudessa lisätään: kesto_ms, segmentit[] videon yhteydessä
     };
   } catch(e) {
