@@ -268,6 +268,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 .badge.ok        { background:rgba(94,201,122,.12);  color:var(--green); }
 .badge.odottaa   { background:rgba(224,160,64,.12);  color:var(--amber); }
 .badge.harmaa    { background:rgba(255,255,255,.06);  color:var(--ink3); }
+.badge.pilotti   { background:rgba(74,126,217,.12);   color:var(--blue);  }
 
 /* TOIMINTANAPIT */
 .toimNappi {
@@ -967,7 +968,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
             <tr style="background:var(--bg3);">
               <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Nimi</th>
               <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Joukkue</th>
-              <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Synt.</th>
+              <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">PalloID</th>
               <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">HuoltajaEmail</th>
               <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Status</th>
             </tr>
@@ -1120,7 +1121,7 @@ async function lataaProfiili(kayttaja) {
     tila.rooli = rooli;
 
     // Super-admin: ladataan kaikki seurat ja näytetään valitsin
-    if (rooli === 'superadmin') {
+    if (rooli === 'superadmin' || rooli === 'super_admin') {
       await lataaKaikkiSeurat();
       if (tila.seurat.length > 0) {
         await asetaAktiivinenSeura(tila.seurat[0].id);
@@ -1542,9 +1543,10 @@ async function renderPelaajat(alue) {
       .sort((a,b) => (a.sukunimi || '').localeCompare(b.sukunimi || ''));
 
     // Lasketaan yhteenvetoluvut
-    const annettu  = pelaajat.filter(p => p.suostumusTila === 'annettu' || p.suostumus?.annettu).length;
-    const odottaa  = pelaajat.filter(p => (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu') && !p.suostumus?.annettu).length;
-    const eiLahetetty = pelaajat.length - annettu - odottaa;
+    const annettu    = pelaajat.filter(p => p.suostumusTila === 'annettu' || !!p.suostumus?.annettu).length;
+    const odottaa    = pelaajat.filter(p => (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu') && !p.suostumus?.annettu).length;
+    const pilotti    = pelaajat.filter(p => p.suostumusTila === 'pilotti').length;
+    const eiLahetetty = pelaajat.length - annettu - odottaa - pilotti;
 
     // PalloID-puuttuminen: rekisteröity mutta PalloID puuttuu.
     // Ei estä mitään toimintaa — näytetään huomiona sihteereille.
@@ -1567,6 +1569,12 @@ async function renderPelaajat(alue) {
           <span style="color:var(--ink3);">Kutsu lähetetty:</span>
           <strong style="color:var(--ink1);">${odottaa}</strong>
         </div>
+        ${pilotti > 0 ? `
+        <div style="display:flex;align-items:center;gap:7px;font-size:12px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#4A7ED9;display:inline-block;"></span>
+          <span style="color:var(--ink3);">Pilottituonti:</span>
+          <strong style="color:var(--ink1);">${pilotti}</strong>
+        </div>` : ''}
         ${eiLahetetty > 0 ? `
         <div style="display:flex;align-items:center;gap:7px;font-size:12px;">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--border);display:inline-block;"></span>
@@ -1595,13 +1603,16 @@ async function renderPelaajat(alue) {
 
             // Tila-logiikka: suostumusTila (uusi kenttä) tai suostumus.annettu (vanha)
             const onAnnettu = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
-            const onOdottaa = !onAnnettu && (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu' || p.tuotu);
+            const onPilotti = !onAnnettu && p.suostumusTila === 'pilotti';
+            const onOdottaa = !onAnnettu && !onPilotti && (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu' || p.tuotu);
 
             const [tilaLuokka, tilaIkoni, tilaTeksti] = onAnnettu
-              ? ['ok',      '✓', 'Rekisteröity']
+              ? ['ok',      '✓',  'Rekisteröity']
+              : onPilotti
+              ? ['pilotti', '🔬', 'Pilotti']
               : onOdottaa
               ? ['odottaa', '⏳', 'Kutsu lähetetty']
-              : ['harmaa',  '—', 'Ei kutsua'];
+              : ['harmaa',  '—',  'Ei kutsua'];
 
             // Normalisoi joukkue-kenttä näyttöä varten
             const joukkueNakymassa = p.joukkue || '—';
@@ -2106,10 +2117,12 @@ async function lataaKoriJaTasoTiedot() {
     // GDPR-suostumukset — luetaan pelaajat-kokoelmasta, EI kutsut-kokoelmasta
     const pelaajatSnap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').get();
     const pelaajat = pelaajatSnap.docs.map(d => ({id:d.id,...d.data()}));
-    const annettu = pelaajat.filter(p => p.suostumusTila==='annettu'||!!p.suostumus?.annettu);
-    const odottaa = pelaajat.filter(p =>
+    const annettu  = pelaajat.filter(p => p.suostumusTila==='annettu'||!!p.suostumus?.annettu);
+    const pilotti  = pelaajat.filter(p => p.suostumusTila==='pilotti');
+    const odottaa  = pelaajat.filter(p =>
       (p.suostumusTila==='odottaa'||p.suostumusTila==='luotu')&&
-      !(p.suostumusTila==='annettu'||!!p.suostumus?.annettu)
+      !(p.suostumusTila==='annettu'||!!p.suostumus?.annettu) &&
+      p.suostumusTila!=='pilotti'
     );
     const lkm = document.getElementById('sopimukset-lkm');
     if (lkm) lkm.textContent = pelaajat.length+' pelaajaa';
@@ -2129,6 +2142,11 @@ async function lataaKoriJaTasoTiedot() {
           <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--teal);">${annettu.length}</div>
           <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Suostumus annettu</div>
         </div>
+        ${pilotti.length > 0 ? `
+        <div style="text-align:center;">
+          <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--blue);">${pilotti.length}</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Pilotti (ei kutsua)</div>
+        </div>` : ''}
         <div style="text-align:center;">
           <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--amber);">${odottaa.length}</div>
           <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Odottaa suostumusta</div>
@@ -2143,12 +2161,15 @@ async function lataaKoriJaTasoTiedot() {
         <tbody>
           ${pelaajat.sort((a,b)=>(a.sukunimi||'').localeCompare(b.sukunimi||'')).map(p => {
             const nimi = (p.etunimi||'')+' '+(p.sukunimi||'');
-            const onAnnettu = p.suostumusTila==='annettu'||!!p.suostumus?.annettu;
+            const onAnnettu  = p.suostumusTila==='annettu'||!!p.suostumus?.annettu;
+            const onPilotti  = !onAnnettu && p.suostumusTila==='pilotti';
+            const badgeLuokka = onAnnettu ? 'ok' : onPilotti ? 'pilotti' : 'odottaa';
+            const badgeTeksti = onAnnettu ? '✓ Annettu' : onPilotti ? '🔬 Pilotti' : '⏳ Odottaa';
             return `<tr>
               <td>${nimi.trim()||p.id}</td>
               <td style="color:var(--ink3);">${p.joukkue||'—'}</td>
               <td style="font-size:12px;color:var(--ink3);">${p.huoltajaEmail||'—'}</td>
-              <td><span class="badge ${onAnnettu?'ok':'odottaa'}">${onAnnettu?'✓ Annettu':'⏳ Odottaa'}</span></td>
+              <td><span class="badge ${badgeLuokka}">${badgeTeksti}</span></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -3072,8 +3093,10 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
   }
 
   const joukkueet = (tila.joukkueet || []);
+  // joukkue-kentässä tallennetaan nimi (näyttöarvo) koska Excel-tuonti ja rekisterimodaali
+  // käyttävät molemmat joukkueen nimeä (ei ID:tä) koska ID on automaattigeneroitu
   const joukkueOptions = joukkueet.map(j =>
-    `<option value="${j.nimi}" ${p.joukkue === j.nimi ? 'selected' : ''}>${j.nimi}</option>`
+    `<option value="${j.nimi || j.id}" ${(p.joukkue === (j.nimi || j.id) || p.joukkue === j.id) ? 'selected' : ''}>${j.nimi || j.id}</option>`
   ).join('');
 
   const isSuperAdmin = tila.rooli === 'superadmin' || tila.rooli === 'super_admin';
@@ -3172,6 +3195,8 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
 }
 
 async function tallennaMusokkausPelaaja(pelaajaId) {
+  // Varmistetaan tuore token ennen kirjoitusta (sessio voi vanhentua pitkän tauon jälkeen)
+  try { if (tila.kayttaja) await tila.kayttaja.getIdToken(true); } catch(e) { console.warn('[Token]', e.message); }
   const etunimi   = document.getElementById('mp_etunimi')?.value.trim() || '';
   const sukunimi  = document.getElementById('mp_sukunimi')?.value.trim() || '';
   const joukkue   = document.getElementById('mp_joukkue')?.value || '';
@@ -3386,8 +3411,8 @@ function vahvistaPelaajanPoisto(pelaajaId, pelaajanNimi) {
       <div class="modalOtsikko" style="color:rgba(255,120,120,.9);">Poistetaanko pelaaja?</div>
       <div style="font-size:15px;font-weight:600;color:var(--ink1);margin:8px 0;">${pelaajanNimi}</div>
       <div class="modalKuvaus" style="color:var(--ink3);margin-bottom:20px;">
-        Tämä poistaa pelaajan tiedot <strong>pysyvästi</strong> Firestoresta.
-        Toimintoa ei voi peruuttaa. Suostumustiedot ja kutsuhistoria poistetaan myös.
+        Tämä poistaa pelaajan perustiedot <strong>pysyvästi</strong> Firestoresta.
+        Toimintoa ei voi peruuttaa. Havainnot ja kirjaukset säilyvät (alakokoelmat).
       </div>
 
       <div style="display:flex;gap:10px;justify-content:center;">
@@ -4199,15 +4224,17 @@ function kasitteleExcelTuonti(event) {
       const iSuku   = etsiSarake('Sukunimi', 'sukunimi');
       const iJouk   = etsiSarake('Joukkue', 'joukkue');
       const iEmail  = etsiSarake('Huoltajansähköposti', 'HuoltajaEmail', 'email', 'sähköposti');
+      const iPalloId = etsiSarake('PalloID', 'palloid', 'palloID', 'palloId');
 
       // Muutetaan datarivit objekteiksi
       rivit = kaikki.slice(otsikkoRiviIdx + 1)
         .filter(r => r.some(v => v !== '' && v !== null && v !== undefined))
         .map((r, idx) => ({
-          etunimi:       iEtu   >= 0 ? String(r[iEtu]   || '').trim() : '',
-          sukunimi:      iSuku  >= 0 ? String(r[iSuku]  || '').trim() : '',
-          joukkue:       iJouk  >= 0 ? String(r[iJouk]  || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_\-]/g, '') : '',
-          huoltajaEmail: iEmail >= 0 ? String(r[iEmail] || '').trim() : '',
+          etunimi:       iEtu     >= 0 ? String(r[iEtu]     || '').trim() : '',
+          sukunimi:      iSuku    >= 0 ? String(r[iSuku]    || '').trim() : '',
+          joukkue:       iJouk    >= 0 ? String(r[iJouk]    || '').trim() : '',
+          huoltajaEmail: iEmail   >= 0 ? String(r[iEmail]   || '').trim() : '',
+          palloId:       iPalloId >= 0 ? String(r[iPalloId] || '').trim() : '',
           _rivi: otsikkoRiviIdx + idx + 2,
         }));
 
@@ -4237,7 +4264,7 @@ function kasitteleExcelTuonti(event) {
         return `<tr style="border-bottom:1px solid var(--border);">
           <td style="padding:7px 10px;font-size:12px;font-weight:600;">${p.etunimi} ${p.sukunimi}</td>
           <td style="padding:7px 10px;font-size:12px;color:var(--ink3);">${p.joukkue || '—'}</td>
-          <td style="padding:7px 10px;font-size:12px;color:var(--ink3);">${p.syntymaaika || '—'}</td>
+          <td style="padding:7px 10px;font-size:11px;font-family:monospace;color:${p.palloId ? 'var(--ink2)' : 'var(--ink3)'};">${p.palloId || '—'}</td>
           <td style="padding:7px 10px;font-size:12px;color:var(--teal);">${p.huoltajaEmail || '—'}</td>
           <td style="padding:7px 10px;font-size:11px;color:${statusVari};">${status}</td>
         </tr>`;
@@ -4245,6 +4272,7 @@ function kasitteleExcelTuonti(event) {
 
       if (lkm) lkm.textContent = _excelData.length + ' pelaajaa tunnistettu';
       if (esi) esi.style.display = '';
+      if (tuoN)  { tuoN.disabled  = false; tuoN.style.opacity  = '1'; }
       if (tuoLN) { tuoLN.disabled = false; tuoLN.style.opacity = '1'; }
 
       if (nappiTeksti) nappiTeksti.textContent = '📁 ' + file.name + ' (' + _excelData.length + ' pelaajaa)';
@@ -4303,10 +4331,15 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         joukkue:       p.joukkue || '',
         seuraId:       tila.seuraId,
         huoltajaEmail: p.huoltajaEmail || null,
+        palloID:       p.palloId || null,
         pelaajaId:     pelaajaId,
-        suostumusTila: 'odottaa',
+        // 'pilotti' = tuotu ilman kutsua (testausta varten, kutsu lähetetään myöhemmin)
+        // 'odottaa' = kutsu lähetetty, huoltajan suostumus puuttuu
+        suostumusTila: lahetaKutsut ? 'odottaa' : 'pilotti',
+        tila:          'pilotti',
         tuotu:         nyt,
         tuoja:         tila.kayttaja?.email || 'tuntematon',
+        lahde:         'excel_tuonti',
       });
       tuotu++;
 
