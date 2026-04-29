@@ -1677,6 +1677,7 @@ select.mf-input option { background: #2a2a28; color: var(--bone); }
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
 </head>
 <body>
 
@@ -2889,8 +2890,19 @@ async function saveCard(level) {
     }, 4000);
 
   } catch (err) {
-    console.error('[ADAR Pikakortti] Tallennusvirhe:', err);
-    btn.textContent = '⚠ Tallennusvirhe — yritä uudelleen';
+    console.error('[ADAR Pikakortti] Tallennusvirhe:', err.message || err);
+    // Debug permission-denied — tulostaa tarkan Firestore-polun ja käyttäjän roolin
+    if (err.code === 'permission-denied' || err.message?.includes('permissions')) {
+      const seuraIdDbg  = window._tmSeuraId || 'EI ASETETTU';
+      const pelaajaDbg  = document.getElementById(tier + '-pelaaja-id')?.value || 'EI ASETETTU';
+      const emailDbg    = window._tmAuth?.currentUser?.email || 'EI KIRJAUTUNUT';
+      const rooliDbg    = window._tmRooli || 'EI TIEDOSSA';
+      console.warn('[ADAR Debug] Polku: seurat/' + seuraIdDbg + '/pelaajat/' + pelaajaDbg + '/havainnot');
+      console.warn('[ADAR Debug] Käyttäjä:', emailDbg, '| Rooli:', rooliDbg);
+      btn.textContent = '⚠ Oikeusvirhe — katso konsoli';
+    } else {
+      btn.textContent = '⚠ Tallennusvirhe — yritä uudelleen';
+    }
     btn.style.background = 'rgba(138,43,43,.4)';
     btn.disabled = false;
     setTimeout(() => { btn.textContent = 'Tallenna havainto → Firestoreen'; btn.style.background = ''; }, 4000);
@@ -3459,10 +3471,16 @@ async function _lataaKuvaStorageen(tier, havaintoId, seuraId) {
   const file = window._kuvaFiles[tier];
   if (!file) return null;
 
-  // Firebase Storage täytyy olla alustettu
-  const storage = window.firebase?.app().storage?.();
-  if (!storage) {
-    console.warn('[ADAR Vision] Firebase Storage ei ole alustettu');
+  // Firebase Storage — alustetaan turvallisesti try/catchilla
+  // Syy: firebase.app().storage() heittää virheen jos Storage SDK ei ole ladattu,
+  // ja optional chaining ei pyydystä kaikkia virhetapauksia
+  let storage;
+  try {
+    storage = firebase.app().storage();
+    if (!storage) throw new Error('storage() palautti null');
+  } catch(storageErr) {
+    console.warn('[ADAR Vision] Firebase Storage ei ole käytettävissä:', storageErr.message);
+    console.warn('[ADAR Vision] Tarkista että firebase-storage-compat.js on ladattu');
     return null;
   }
 
