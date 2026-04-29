@@ -498,20 +498,14 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
     </div>
 
     <div class="navRyhma">NAVIGOI</div>
-    <div class="navNappi" onclick="window.open('TalentMaster_VP_v18.html','_blank')">
+    <div class="navNappi" onclick="window.open('TalentMaster_VP_v20.html','_blank')">
       <span class="navIkoni">📊</span>VP Dashboard
     </div>
-    <div class="navNappi" onclick="window.open('TalentMaster_Master_v9.html','_blank')">
-      <span class="navIkoni">🧑‍🏫</span>Valmentaja v9
+    <div class="navNappi" onclick="window.open('TalentMaster_Master_v15.html','_blank')">
+      <span class="navIkoni">🧑‍🏫</span>Valmentaja
     </div>
     <div class="navNappi" onclick="window.open('TalentMaster_Rekisterointi_Suostumus.html','_blank')">
       <span class="navIkoni">📝</span>Suostumuslomake
-    </div>
-    <div class="navNappi" onclick="window.open('TalentMaster_UTJ_v1.html','_blank')">
-      <span class="navIkoni">📈</span>UTJ-näkymä
-    </div>
-    <div class="navNappi" onclick="window.open('TalentMaster_Testaus.html','_blank')">
-      <span class="navIkoni">🧪</span>Testaustapahtuma
     </div>
   </div>
 
@@ -934,14 +928,18 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
     <button class="modalSuljeNappi" onclick="suljeModal('excelTuontiModal')">✕ Sulje</button>
     <div class="modalOtsikko" style="clear:both;">📥 Tuo pelaajat Excelistä</div>
     <div class="modalKuvaus">
-      Valitse täytetty Excel-pohja. Järjestelmä tuo pelaajat ja lähettää rekisteröintilinkit huoltajille.
+      Lataa ensin Excel-pohja, täytä pelaajatiedot ja tuo tiedosto takaisin.
     </div>
 
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;
       padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--ink3);line-height:1.7;">
-      <strong style="color:var(--ink2);">Tarvittavat sarakkeet:</strong><br>
-      Etunimi · Sukunimi · Joukkue · Huoltajan sähköposti<br>
-      <span style="font-size:11px;">Muut tiedot täytetään suostumuslomakkeella</span>
+      <strong style="color:var(--ink2);">Sarakkeet:</strong>
+      Etunimi · Sukunimi · Joukkue · Huoltajan sähköposti · PalloID<br>
+      <button onclick="lataaRekisteriPohja()"
+        style="margin-top:10px;background:rgba(74,126,217,.15);border:1px solid rgba(74,126,217,.3);
+        border-radius:6px;padding:6px 14px;font-size:12px;color:var(--blue);cursor:pointer;font-family:inherit;">
+        ⬇ Lataa Excel-pohja (TalentMaster_Pelaajarekisteri.xlsx)
+      </button>
     </div>
 
     <input type="file" id="excelTuontiFile" accept=".xlsx,.csv"
@@ -1977,6 +1975,11 @@ async function renderHenkilosto(alue) {
       </table>`;
   } catch (e) {
     console.error('Henkilöstö:', e);
+    const alueEl2 = document.getElementById('henkilostoListaAlue');
+    if (alueEl2) alueEl2.innerHTML = `
+      <div style="padding:20px;color:var(--red);font-size:13px;">
+        Henkilöstön lataus epäonnistui: ${e.message || 'Tarkista yhteys ja kirjautuminen.'}
+      </div>`;
   }
 }
 
@@ -3812,26 +3815,25 @@ async function lahetaMassakutsu() {
   await lataaYhteenvetoKPIt();
 }
 
-function lataaExcelMalli() {
-  // Luodaan CSV-malli joka toimii sekä Excelissä että suoraan tuonnissa
-  const otsikot = ['PalloID', 'Etunimi', 'Sukunimi', 'HuoltajaEmail', 'Joukkue'];
-  const esimerkit = [
-    ['34650191', 'Topias', 'Koskela', 'huoltaja@email.fi', 'U14'],
-    ['34650192', 'Mikael', 'Virtanen', 'toinen@email.fi', 'U14'],
-    ['', 'Pelaaja', 'Ilman PalloID:tä', 'kolmas@email.fi', 'U12'],
-  ];
-  const csv = [otsikot, ...esimerkit]
-    .map(r => r.map(v => `"${v}"`).join(','))
-    .join('\n');
-
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `TalentMaster_rekisteripohja_${tila.seuraNimi || 'seura'}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  naytaToast('Excel-malli ladattu!', 'ok');
+async function lataaExcelMalli() {
+  // Ladataan oikea Excel-pohja suoraan GitHubista
+  // (sama pohja kuin lataaRekisteriPohja — yhteinen lähde)
+  try {
+    naytaToast('Ladataan Excel-pohjaa...', 'info');
+    const pohjaUrl = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_Pelaajarekisteri.xlsx';
+    const vastaus = await fetch(pohjaUrl);
+    if (!vastaus.ok) throw new Error('HTTP ' + vastaus.status);
+    const blob = await vastaus.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'TalentMaster_Pelaajarekisteri.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+    naytaToast('✅ Excel-pohja ladattu!', 'ok');
+  } catch(e) {
+    naytaToast('Lataus epäonnistui: ' + e.message, 'virhe');
+  }
 }
 
 function avaaRekisteriOhje() {
