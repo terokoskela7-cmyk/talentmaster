@@ -383,11 +383,41 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   table{font-size:13px;} table th,table td{padding:8px 10px;}
 }
 @media(max-width:768px){
-  .sivupalkki{display:none;} .sisalto{margin-left:0;padding:14px;}
-  .modalKortti{width:calc(100vw - 32px)!important;max-width:calc(100vw - 32px)!important;}
-  table{display:block;overflow-x:auto;white-space:nowrap;}
+  #hamburgeri { display:flex !important; }
+  .topbarEmail { display:none; }
+  .ulosNappi { font-size:12px; padding:5px 10px; }
+  .seuraValitsinWrap { max-width:140px; }
+
+  .sivupalkki {
+    transform: translateX(-100%);
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+    width: 260px !important;
+    z-index: 50;
+    top: 54px;
+    box-shadow: 4px 0 24px rgba(0,0,0,.4);
+  }
+  .sivupalkki.auki {
+    transform: translateX(0);
+  }
+  #sivupalkkiOverlay.auki { display:block !important; }
+
+  .sisalto { margin-left:0; padding:14px; margin-top:54px; }
+  .modalKortti { width:calc(100vw - 24px) !important; max-width:calc(100vw - 24px) !important; padding:20px !important; }
+  .modalSisalto { width:calc(100vw - 24px) !important; max-width:calc(100vw - 24px) !important; padding:20px !important; }
+  table { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .sivuOtsikko { margin-bottom:14px; }
+  .sivuH1 { font-size:24px !important; }
+  .kpiRivi { grid-template-columns: repeat(2,1fr); gap:10px; }
+  .korttiHeader { flex-direction:column; align-items:flex-start; gap:8px; }
+  .linkkiNapit { flex-direction:column; }
+  .toimNappi { font-size:12px; padding:5px 8px; }
 }
-@media(max-width:480px){ .kpiRivi{grid-template-columns:1fr;} .sisalto{padding:10px;} }
+@media(max-width:480px){
+  .kpiRivi { grid-template-columns:1fr; }
+  .sisalto { padding:10px; }
+  .sivuH1 { font-size:20px !important; }
+  .topbarLogo { font-size:15px; }
+}
 .taulukonWrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 
 /* ── modalSisalto — dynaamisten modalien kortti (alias modalKortti) ── */
@@ -437,6 +467,13 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 
   <!-- TOPBAR -->
   <div class="topbar">
+    <button id="hamburgeri" onclick="toggleSivupalkki()" aria-label="Avaa valikko"
+      style="display:none;background:none;border:none;cursor:pointer;padding:8px;
+      color:var(--ink);flex-direction:column;gap:5px;justify-content:center;align-items:center;">
+      <span id="ham1" style="display:block;width:20px;height:2px;background:currentColor;border-radius:1px;transition:all .2s;"></span>
+      <span id="ham2" style="display:block;width:20px;height:2px;background:currentColor;border-radius:1px;transition:all .2s;"></span>
+      <span id="ham3" style="display:block;width:20px;height:2px;background:currentColor;border-radius:1px;transition:all .2s;"></span>
+    </button>
     <div class="topbarLogo">Talent<span>Master</span>™</div>
 
     <!-- Super-adminin seuravalitsin -->
@@ -456,8 +493,12 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
     </div>
   </div>
 
+  <!-- Mobiili-overlay sivupalkin sulkemiseen -->
+  <div id="sivupalkkiOverlay" onclick="suljeeSivupalkki()"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:49;"></div>
+
   <!-- SIVUPALKKI -->
-  <div class="sivupalkki">
+  <div class="sivupalkki" id="sivupalkki">
     <div class="sivupalkkiSeura">
       <div class="sivupalkkiSeuraLabel">Seura</div>
       <div class="sivupalkkiSeuraNimi" id="sivupalkkiSeuraNimi">—</div>
@@ -1295,6 +1336,7 @@ function alustaTopbar() {
 // NAVIGOINTI
 // ─────────────────────────────────────────────────────────────────
 function vaihdaNakyma(nakyma, nappiEl) {
+  suljeeSivupalkki(); // Sulje mobiilivalikko navigoinnin yhteydessä
   document.querySelectorAll('.navNappi').forEach(n => n.classList.remove('aktiivinen'));
   if (nappiEl) nappiEl.classList.add('aktiivinen');
   tila.aktiivNakyma = nakyma;
@@ -4601,6 +4643,29 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 1000);
 }
 
+
+function toggleSivupalkki() {
+  const sp = document.getElementById('sivupalkki');
+  const ov = document.getElementById('sivupalkkiOverlay');
+  const h1 = document.getElementById('ham1');
+  const h3 = document.getElementById('ham3');
+  const auki = sp && sp.classList.toggle('auki');
+  if (ov) ov.classList.toggle('auki', auki);
+  // Animoi hamburger → X
+  if (h1) h1.style.transform = auki ? 'rotate(45deg) translate(5px,5px)' : '';
+  if (h3) h3.style.transform = auki ? 'rotate(-45deg) translate(5px,-5px)' : '';
+}
+
+function suljeeSivupalkki() {
+  const sp = document.getElementById('sivupalkki');
+  const ov = document.getElementById('sivupalkkiOverlay');
+  const h1 = document.getElementById('ham1');
+  const h3 = document.getElementById('ham3');
+  if (sp) sp.classList.remove('auki');
+  if (ov) ov.classList.remove('auki');
+  if (h1) h1.style.transform = '';
+  if (h3) h3.style.transform = '';
+}
 
 async function kirjauduUlos() {
   if (tila._joukkueetKuuntelija) tila._joukkueetKuuntelija();
