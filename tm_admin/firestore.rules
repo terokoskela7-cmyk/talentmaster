@@ -2,241 +2,166 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════
     // APUFUNKTIOT
-    // ════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════
 
     function onKirjautunut() {
       return request.auth != null;
     }
 
-    // KORJAUS: Super admin tunnistetaan kolmella tavalla:
-    // 1) Custom Claim rooli == 'super_admin' (underscore)
-    // 2) Custom Claim rooli == 'superadmin' (yhteen - vanha muoto)
-    // 3) Custom Claim super_admin == true (boolean)
-    // 4) admins-kokoelmassa on dokumentti kyseisellä UID:llä
+    // Super admin hyväksytään neljällä tavalla (underscore, yhteen,
+    // admins-kokoelma, token.super_admin-booli)
     function onSuperAdmin() {
-      return onKirjautunut() && (
-        request.auth.token.rooli == 'super_admin' ||
-        request.auth.token.rooli == 'superadmin' ||
-        request.auth.token.super_admin == true ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-      );
+      return request.auth.token.rooli == 'super_admin' ||
+             request.auth.token.rooli == 'superadmin'  ||
+             request.auth.token.super_admin == true     ||
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    function onRooli(rooli) {
-      return onKirjautunut() &&
-        request.auth.token.rooli == rooli;
+    // Käyttäjä kuuluu tähän seuraan
+    function onOmaSeura(seuraId) {
+      return request.auth.token.seuraId == seuraId;
     }
 
-    function onSeuranJasen(seuraId) {
-      return onKirjautunut() &&
-        request.auth.token.seuraId == seuraId;
+    // Käyttäjällä on valmentaja-tason rooli (kaikki jotka kirjaavat havaintoja)
+    function onValmentajaRooli() {
+      return request.auth.token.rooli in [
+        'valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja', 'vp',
+        'urheilutoimenjohtaja', 'seurasihteeri'
+      ];
     }
 
-    function onOmaUid(uid) {
-      return onKirjautunut() && request.auth.uid == uid;
+    // Käyttäjä on seuran VP tai UTJ (johtotaso)
+    function onJohtoRooli() {
+      return request.auth.token.rooli in [
+        'vp', 'urheilutoimenjohtaja', 'seurasihteeri'
+      ];
     }
 
-    function onSeuranJasenJaSeuraId(seuraId) {
-      return onSeuranJasen(seuraId) &&
-        request.resource.data.seuraId == seuraId;
+    // Käyttäjä on oman seuran valmentaja-tasolla
+    function onOmanSeuranValmentaja(seuraId) {
+      return onOmaSeura(seuraId) && onValmentajaRooli();
     }
 
-    // ════════════════════════════════════════════════════════════
-    // ADMINS
-    // Super admin lukee oman dokumenttinsa — onOmaUid riittää
-    // ════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════
+    // ADMINS — Super Admin -dokumentit
+    // ══════════════════════════════════════════════════════════════
+
     match /admins/{uid} {
-      allow read:  if onOmaUid(uid) || onSuperAdmin();
+      allow read:  if onKirjautunut();
       allow write: if onSuperAdmin();
     }
 
-    // ════════════════════════════════════════════════════════════
-    // SEURAT
-    // ════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════
+    // SEURAT — Seuran perustiedot
+    // ══════════════════════════════════════════════════════════════
+
     match /seurat/{seuraId} {
-      // list: kirjautunut vanhempi saa hakea seurojen ID:t lapsen löytämiseksi
-      // get:  vain seuran jäsen tai super admin näkee seuran sisällön
-      allow list: if onKirjautunut();
-      allow get:  if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-      allow write: if onKirjautunut() && (
-        onRooli('vp') && onSeuranJasen(seuraId) ||
-        onRooli('seurasihteeri') && onSeuranJasen(seuraId)
-      ) || onSuperAdmin();
+      allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
+      allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
 
-      // ── Joukkueet ────────────────────────────────────────────
-      match /joukkueet/{joukkueId} {
-        allow read: if onKirjautunut() && onSeuranJasen(seuraId)
-                    || onSuperAdmin();
-        allow write: if onKirjautunut() && (
-          onRooli('vp') || onRooli('seurasihteeri')
-        ) && onSeuranJasen(seuraId) || onSuperAdmin();
-
-        match /kayttajat/{kayttajaId} {
-          allow read: if onKirjautunut() && onSeuranJasen(seuraId)
-                      || onSuperAdmin();
-          allow write: if onKirjautunut() && (
-            onRooli('vp') || onRooli('seurasihteeri')
-          ) && onSeuranJasen(seuraId) || onSuperAdmin();
-        }
-
-        match /kartoitukset/{kartoitusId} {
-          allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-          allow create, update: if onKirjautunut() && (
-            onRooli('vp') || onRooli('valmentaja') || onRooli('testivastaava')
-          ) && onSeuranJasen(seuraId) || onSuperAdmin();
-        }
-
-        match /kehitystavoitteet/{kausi} {
-          allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-          allow create, update: if onKirjautunut() && (
-            onRooli('vp') || onRooli('urheilutoimenjohtaja')
-          ) && onSeuranJasen(seuraId) || onSuperAdmin();
-        }
-      }
-
-      // ── Pelaajat ─────────────────────────────────────────────
+      // ── PELAAJAT ───────────────────────────────────────────────
       match /pelaajat/{pelaajaId} {
-        allow read: if (
-          onKirjautunut() && onSeuranJasen(seuraId)
-        ) || (
-          onKirjautunut() && onRooli('pelaaja') &&
-          request.auth.uid == pelaajaId
-        ) || (
-          // P4: Vanhempi lukee oman lapsensa datan huoltajaEmail-vertailulla
-          onKirjautunut() && resource.data.huoltajaEmail == request.auth.token.email
-        ) || onSuperAdmin();
+        allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
+        allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+        allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId)
+                      || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId);
+        allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
 
-        allow create: if onKirjautunut() && (
-          onRooli('vp') || onRooli('seurasihteeri') || onRooli('valmentaja')
-        ) && onSeuranJasen(seuraId) || onSuperAdmin();
+        // ── HAVAINNOT (ADAR Pikakortti + ADAR Vision) ────────────
+        // KORJAUS: vp-roolilla ON oltava kirjoitusoikeus tähän polkuun.
+        // Aiemmin sääntö puuttui → permission-denied vaikka token oli kunnossa.
+        match /havainnot/{havaintoId} {
+          allow read:  if onSuperAdmin() || onOmaSeura(seuraId);
+          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        }
 
-        allow update: if onKirjautunut() && (
-          onRooli('vp') || onRooli('seurasihteeri') || onRooli('valmentaja') ||
-          onRooli('talenttivalmentaja') || onRooli('fysiikkavalmentaja') ||
-          onRooli('fysioterapeutti') || onRooli('testivastaava')
-        ) && onSeuranJasen(seuraId) || onSuperAdmin();
+        // ── KIRJAUKSET (pelaajan päivittäinen harjoittelu) ────────
+        match /kirjaukset/{pvm} {
+          allow read:  if onSuperAdmin() || onOmaSeura(seuraId);
+          allow write: if onSuperAdmin()
+                       || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
+                       || onOmanSeuranValmentaja(seuraId);
+        }
 
-        allow delete: if onRooli('vp') && onSeuranJasen(seuraId)
-                      || onSuperAdmin();
+        // ── TAPAHTUMAT ────────────────────────────────────────────
+        match /tapahtumat/{tapahtumaId} {
+          allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
+          allow write: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+        }
 
-        match /kirjaukset/{paiva} {
-          allow read: if (
-            onKirjautunut() && onSeuranJasen(seuraId)
-          ) || (
-            onKirjautunut() && request.auth.uid == pelaajaId
-          ) || (
-            // P4: Vanhempi lukee lapsen kirjaukset
-            onKirjautunut() && get(/databases/$(database)/documents/seurat/$(seuraId)/pelaajat/$(pelaajaId)).data.huoltajaEmail == request.auth.token.email
-          ) || onSuperAdmin();
-
-          allow create, update: if onKirjautunut()
-            && onSeuranJasen(seuraId)
-            || onSuperAdmin();
+        // ── IDP ───────────────────────────────────────────────────
+        match /idp/{idpId} {
+          allow read:  if onSuperAdmin() || onOmaSeura(seuraId);
+          allow write: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
         }
       }
 
-      // ── Havainnot ────────────────────────────────────────────
+      // ── SEURAN TASON HAVAINNOT (vaihtoehtoinen polku) ─────────
+      // Polku 2 joka jo toimii — säilytetään yhteensopivuuden vuoksi
       match /havainnot/{havaintoId} {
-        allow read: if (
-          onKirjautunut() && onSeuranJasen(seuraId)
-        ) || onSuperAdmin();
-
-        allow create, update: if onKirjautunut() && (
-          onRooli('valmentaja') || onRooli('talenttivalmentaja')
-        ) && onSeuranJasen(seuraId)
-          && request.resource.data.seuraId == seuraId
-          || onSuperAdmin();
+        allow read:  if onSuperAdmin() || onOmaSeura(seuraId);
+        allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+        allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+        allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
       }
 
-      // ── Harjoitukset ─────────────────────────────────────────
-      match /harjoitukset/{harjoitusId} {
-        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-        allow create, update: if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+      // ── JOUKKUEET ─────────────────────────────────────────────
+      match /joukkueet/{joukkueId} {
+        allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
+        allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
       }
 
-      // ── Merkinnät ────────────────────────────────────────────
-      match /merkinnat/{merkintaId} {
-        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-        allow create, update: if onKirjautunut() && onSeuranJasen(seuraId)
-          && request.resource.data.seuraId == seuraId || onSuperAdmin();
+      // ── MENTOROINNIT (VP:n kenttäkäyntikirjaukset) ────────────
+      match /mentoroinnit/{mentorointiId} {
+        allow read:  if onSuperAdmin() || onOmaSeura(seuraId);
+        allow write: if onSuperAdmin() || (onOmaSeura(seuraId) &&
+                       request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']);
       }
 
-      // ── Tapahtumat ───────────────────────────────────────────
-      match /tapahtumat/{tapahtumaId} {
-        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-        allow create, update: if onKirjautunut() && (
-          onRooli('vp') || onRooli('seurasihteeri') || onRooli('valmentaja')
-        ) && onSeuranJasen(seuraId) || onSuperAdmin();
-        allow delete: if onRooli('vp') && onSeuranJasen(seuraId) || onSuperAdmin();
-      }
-
-      // ── Kartoitukset (seuran taso) ───────────────────────────
-      match /kartoitukset/{kartoitusId} {
-        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-        allow create, update: if onKirjautunut() && (
-          onRooli('vp') || onRooli('valmentaja') || onRooli('testivastaava')
-        ) && onSeuranJasen(seuraId) || onSuperAdmin();
-      }
-
-      // ── HH-tulokset ──────────────────────────────────────────
-      match /hh_tulokset/{tulosId} {
-        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-        allow create, update: if onKirjautunut() && (
-          onRooli('vp') || onRooli('valmentaja') || onRooli('testivastaava')
-        ) && onSeuranJasen(seuraId) || onSuperAdmin();
-      }
-
-      // ── Tekniikkatulokset ────────────────────────────────────
-      match /tekniikkatulokset/{tulosId} {
-        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-        allow create, update: if onKirjautunut() && (
-          onRooli('vp') || onRooli('valmentaja') || onRooli('testivastaava')
-        ) && onSeuranJasen(seuraId) || onSuperAdmin();
-      }
-
-      // ── Testitapahtumat ──────────────────────────────────────
-      match /testitapahtumat/{tapahtumaId} {
-        allow read:          if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-        allow create, update: if onKirjautunut() && (
-          onRooli('vp') || onRooli('valmentaja') || onRooli('testivastaava')
-        ) && onSeuranJasen(seuraId) || onSuperAdmin();
-        allow delete: if onRooli('vp') && onSeuranJasen(seuraId) || onSuperAdmin();
-      }
-
-      // ── DNA-konfiguraatio ────────────────────────────────────
-      match /dna_konfig/{konfigId} {
-        allow read:  if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-        allow write: if onKirjautunut() && (
-          onRooli('vp') || onRooli('urheilutoimenjohtaja')
-        ) && onSeuranJasen(seuraId) || onSuperAdmin();
-      }
-
-      // ── Catch-all: muut alikokoelmat ─────────────────────────
-      match /{alikokoelma}/{docId} {
-        allow read:  if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
-        allow write: if onKirjautunut() && onSeuranJasen(seuraId) || onSuperAdmin();
+      // ── ERRORS (runtime monitoring) ───────────────────────────
+      match /errors/{errorId} {
+        allow read:  if onSuperAdmin();
+        allow create: if onKirjautunut() && onOmaSeura(seuraId);
+        allow update, delete: if onSuperAdmin();
       }
     }
 
-    // ════════════════════════════════════════════════════════════
-    // KUTSUT — pelaajien rekisteröinti
-    // ════════════════════════════════════════════════════════════
-    match /kutsut/{kutsuId} {
-      allow read:  if onKirjautunut() || onSuperAdmin();
-      allow write: if onKirjautunut() && (
-        onRooli('vp') || onRooli('seurasihteeri')
-      ) || onSuperAdmin();
+    // ══════════════════════════════════════════════════════════════
+    // KÄYTTÄJÄT — Profiilit
+    // ══════════════════════════════════════════════════════════════
+
+    match /kayttajat/{uid} {
+      allow read:  if onSuperAdmin() || request.auth.uid == uid;
+      allow write: if onSuperAdmin() || request.auth.uid == uid;
     }
 
-    // ════════════════════════════════════════════════════════════
-    // PELAAJAT top-level (suostumuslomake anonyymi kirjoitus)
-    // ════════════════════════════════════════════════════════════
-    match /pelaajat/{pelaajaId} {
-      allow read:  if onOmaUid(pelaajaId) || onSuperAdmin();
-      allow create: if true;  // anonyymi rekisteröinti sallittu
-      allow update: if onOmaUid(pelaajaId) || onSuperAdmin();
+    // ══════════════════════════════════════════════════════════════
+    // SUOSTUMUKSET — GDPR-suostumuslomakkeet
+    // ══════════════════════════════════════════════════════════════
+
+    match /suostumukset/{suostumusId} {
+      allow read:  if onSuperAdmin()
+                   || request.auth.uid == suostumusId
+                   || resource.data.suostumusTila == 'odottaa';
+      allow create: if true; // Anonyymi suostumuslomake sallittu
+      allow update: if onSuperAdmin()
+                    || request.auth.uid == suostumusId
+                    || resource.data.suostumusTila == 'odottaa';
+      allow delete: if onSuperAdmin();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // ERRORS — Ylätason virheloki (ei seuran alla)
+    // ══════════════════════════════════════════════════════════════
+
+    match /errors/{errorId} {
+      allow read:  if onSuperAdmin();
+      allow create: if onKirjautunut();
+      allow update, delete: if onSuperAdmin();
     }
 
   }
