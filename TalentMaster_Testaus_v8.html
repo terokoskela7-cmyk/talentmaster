@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TalentMaster™ — Testaus v8</title>
+<title>TalentMaster™ — Testaus v8.1</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -204,8 +204,8 @@ body {
 .ryhmakortti.aktiivinen { border-color: var(--primary); }
 .ryhmakortti-otsikko { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
 .ryhma-dot { width: 10px; height: 10px; border-radius: 50%; }
-.dot-a { background: #4A7ED9; }
-.dot-b { background: #3ECFB2; }
+.dot-a { background: var(--blue); }  /* Ryhmä A tunnistusväri */
+.dot-b { background: var(--teal); }  /* Ryhmä B tunnistusväri */
 .dot-c { background: #F4A435; }
 .dot-d { background: #9B7FE8; }
 .ryhmakortti-pelaajat { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -988,7 +988,7 @@ _auth.onAuthStateChanged(async u => {
   await _lataakäyttäjätiedot(u);
 });
 
-async function _kirjauduSisaan() {
+window._kirjauduSisaan = async function _kirjauduSisaan() {
   const email = document.getElementById('login-email').value.trim();
   const salasana = document.getElementById('login-salasana').value;
   const errEl = document.getElementById('login-err');
@@ -1110,7 +1110,7 @@ async function _lataakäyttäjätiedot(u) {
   _lataaTapahtumat();
 }
 
-function _kirjauduUlos() {
+window._kirjauduUlos = function _kirjauduUlos() {
   _auth.signOut();
   _seuraId = null; _seuraNimi = null; _rooli = null;
   _naytaSivu('sivu-kirjautuminen');
@@ -1119,7 +1119,7 @@ function _kirjauduUlos() {
 // ════════════════════════════════════
 // SIVUNAVIGAATIO
 // ════════════════════════════════════
-function _naytaSivu(id) {
+window._naytaSivu = function _naytaSivu(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   window.scrollTo(0, 0);
@@ -1167,11 +1167,11 @@ async function _lataaTapahtumat() {
 
 // Lataa testipäivän Excel tapahtumasta
 // Lataa Excel aktiivisesta tapahtumasta (kenttänäkymästä)
-function _lataaTestiExcelAktiivinen() {
+window._lataaTestiExcelAktiivinen = function _lataaTestiExcelAktiivinen() {
   if (_aktiivinenTapahtuma) _generoiExcel(_aktiivinenTapahtuma);
 }
 
-async function _lataaTestiExcel(tapahtumaId, event) {
+window._lataaTestiExcel = async function _lataaTestiExcel(tapahtumaId, event) {
   event.stopPropagation(); // Estä kortin avautuminen
   const btn = event.target.closest('button');
   const alkuTeksti = btn.innerHTML;
@@ -1239,7 +1239,7 @@ function _generoiExcel(tap) {
     { key:'tunniste',   otsikko:'PalloID *',      leveys:14 },
     { key:'sukunimi',   otsikko:'Sukunimi *',      leveys:16 },
     { key:'etunimi',    otsikko:'Etunimi *',        leveys:14 },
-    { key:'sukupuoli',  otsikko:'Suk. (P/T)',      leveys:8  },
+    { key:'sukupuoli',  otsikko:'Suk.\n(P=Poika\nT=Tyttö)', leveys:8  },
     { key:'joukkue',    otsikko:'Joukkue',          leveys:16 },
     { key:'testauspvm', otsikko:'Testaus-pvm',      leveys:12 },
     { key:'phv_tila',   otsikko:'PHV-tila',         leveys:10 },
@@ -1275,7 +1275,11 @@ function _generoiExcel(tap) {
       if (s.key === 'testauspvm') rivi.push(pelaajatOletuspvm);
       else if (s.key === 'kausi_meta') rivi.push(tap.kausi || '');
       else if (s.key === 'tapahtumaId') rivi.push(tap.id);
-      else if (s.key === 'sukupuoli') rivi.push(p.sukupuoli || (p.syntymapaiva ? '' : ''));
+      else if (s.key === 'sukupuoli') {
+        // Konversio: Firestore M/N → Excel P/T (Eerikkilä-normit käyttävät P/T)
+        const suk = p.sukupuoli || '';
+        rivi.push(suk === 'M' ? 'P' : suk === 'N' ? 'T' : suk);
+      }
       else rivi.push(p[s.key] || '');
     }
     return rivi;
@@ -1365,7 +1369,7 @@ async function _lataaJoukkueet() {
 // ════════════════════════════════════
 // LUO TAPAHTUMA — ASKEL 1
 // ════════════════════════════════════
-function _protokollaVaihtunut() {
+window._protokollaVaihtunut = function _protokollaVaihtunut() {
   const p = document.getElementById('luo-protokolla').value;
   const hinttEl = document.getElementById('moodi-hint');
   const rmField = document.getElementById('ryhmamaara-field');
@@ -1390,7 +1394,7 @@ function _protokollaVaihtunut() {
     const yks = t.yksikko || '1–3p';
     return '<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:8px;cursor:pointer;margin-bottom:4px;">'
       + '<input type="checkbox" id="testi-cb-' + t.id + '" value="' + t.id + '" checked'
-      + ' onchange="_paivitaAktiivisetTestit('' + p + '')"'
+      + ' onchange="_paivitaAktiivisetTestit(this)" data-protokolla="' + p + '"'
       + ' style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;">'
       + '<span style="flex:1;font-size:14px;">' + t.nimi + '</span>'
       + '<span style="font-size:11px;color:var(--text3);">' + yks + '</span>'
@@ -1401,7 +1405,11 @@ function _protokollaVaihtunut() {
   _paivitaAktiivisetTestit(p);
 }
 
-function _paivitaAktiivisetTestit(protokollaId) {
+window._paivitaAktiivisetTestit = function _paivitaAktiivisetTestit(cbTaiId) {
+  // Kutsutaan joko checkboxin onChange-eventillä tai suoraan protokollaId-stringillä
+  const protokollaId = (typeof cbTaiId === 'string')
+    ? cbTaiId
+    : (cbTaiId?.dataset?.protokolla || document.getElementById('luo-protokolla')?.value);
   const proto = PROTOKOLLAT[protokollaId];
   if (!proto) return;
   _luoData.aktiiviset_testit = (proto.testit || [])
@@ -1409,7 +1417,7 @@ function _paivitaAktiivisetTestit(protokollaId) {
     .map(t => t.id);
 }
 
-function _valitseMoodi(m) {
+window._valitseMoodi = function _valitseMoodi(m) {
   _luoData.moodi = m;
   ['rotaatio','yksilö','seka'].forEach(x => {
     document.getElementById('moodi-' + x)?.classList.toggle('active', x === m);
@@ -1417,11 +1425,11 @@ function _valitseMoodi(m) {
   document.getElementById('ryhmamaara-field').style.display = m === 'yksilö' ? 'none' : 'block';
 }
 
-function _joukkueVaihtunut() {
+window._joukkueVaihtunut = function _joukkueVaihtunut() {
   _luoData.joukkue = document.getElementById('luo-joukkue').value;
 }
 
-async function _luoAskel2() {
+window._luoAskel2 = async function _luoAskel2() {
   const p = document.getElementById('luo-protokolla').value;
   const j = document.getElementById('luo-joukkue').value;
   const pvm = document.getElementById('luo-pvm').value;
@@ -1536,7 +1544,7 @@ function _togglePelaaja(id, el) {
   }
 }
 
-function _valitseKaikki() {
+window._valitseKaikki = function _valitseKaikki() {
   _luoData.pelaajat.forEach(p => {
     _luoData.valitutPelaajat.add(p.id);
     const el = document.getElementById('privi-' + p.id);
@@ -1544,7 +1552,7 @@ function _valitseKaikki() {
   });
 }
 
-function _takaisinAskel1() {
+window._takaisinAskel1 = function _takaisinAskel1() {
   document.getElementById('luo-askel-2').style.display = 'none';
   document.getElementById('luo-askel-1').style.display = 'block';
   _paivitaStepIndikattori(1);
@@ -1553,7 +1561,7 @@ function _takaisinAskel1() {
 // ════════════════════════════════════
 // LUO TAPAHTUMA — ASKEL 3: Ryhmät
 // ════════════════════════════════════
-function _luoAskel3() {
+window._luoAskel3 = function _luoAskel3() {
   if (_luoData.valitutPelaajat.size === 0) { _toast('Valitse vähintään yksi pelaaja', 'err'); return; }
   document.getElementById('luo-askel-2').style.display = 'none';
   document.getElementById('luo-askel-3').style.display = 'block';
@@ -1600,7 +1608,7 @@ function _renderRyhmakortit() {
 }
 
 let _siirraKohde = null;
-function _siirraModal(pelaajaId, nimi) {
+window._siirraModal = function _siirraModal(pelaajaId, nimi) {
   _siirraKohde = pelaajaId;
   document.getElementById('siirra-nimi').textContent = nimi;
   const nappit = document.getElementById('siirra-nappit');
@@ -1625,7 +1633,7 @@ function _siirraRyhmaan(uusiRyhma) {
   _renderRyhmakortit();
 }
 
-function _takaisinAskel2() {
+window._takaisinAskel2 = function _takaisinAskel2() {
   document.getElementById('luo-askel-3').style.display = 'none';
   document.getElementById('luo-askel-2').style.display = 'block';
   _paivitaStepIndikattori(2);
@@ -1642,7 +1650,7 @@ function _paivitaStepIndikattori(aktiivinen) {
 // ════════════════════════════════════
 // TALLENNA TAPAHTUMA FIRESTOREEN
 // ════════════════════════════════════
-async function _tallennaTapahtuma() {
+window._tallennaTapahtuma = async function _tallennaTapahtuma() {
   const btn = document.getElementById('btn-tallenna');
   document.getElementById('btn-tallenna-teksti').textContent = 'Tallennetaan...';
   btn.disabled = true;
@@ -1880,10 +1888,10 @@ function _renderYksilöNakyma() {
   _paivitaFLEI(p.id);
 }
 
-function _yksilöEdellinen() {
+window._yksilöEdellinen = function _yksilöEdellinen() {
   if (_yksilöIndeksi > 0) { _yksilöIndeksi--; _renderYksilöNakyma(); }
 }
-function _yksilöSeuraava() {
+window._yksilöSeuraava = function _yksilöSeuraava() {
   const max = (_aktiivinenTapahtuma.pelaajatData || []).length - 1;
   if (_yksilöIndeksi < max) { _yksilöIndeksi++; _renderYksilöNakyma(); }
 }
@@ -1898,7 +1906,7 @@ function _renderSekaNakyma() {
   _sekaTab('rotaatio');
 }
 
-function _sekaTab(tab) {
+window._sekaTab = function _sekaTab(tab) {
   document.getElementById('seka-tab-rotaatio').classList.toggle('btn-primary', tab === 'rotaatio');
   document.getElementById('seka-tab-yksilö').classList.toggle('btn-primary', tab === 'yksilö');
   document.getElementById('seka-rotaatio-wrap').style.display = tab === 'rotaatio' ? 'block' : 'none';
@@ -2131,7 +2139,7 @@ function _renderTestiSyotto(testi, pelaajaId, nykyarvo) {
 // ════════════════════════════════════
 // SYÖTTÄMINEN JA TALLENNUS
 // ════════════════════════════════════
-function _syotaPiste(pelaajaId, testiId, piste) {
+window._syotaPiste = function _syotaPiste(pelaajaId, testiId, piste) {
   if (!_tulokset[pelaajaId]) _tulokset[pelaajaId] = {};
   _tulokset[pelaajaId][testiId] = piste;
 
@@ -2147,7 +2155,7 @@ function _syotaPiste(pelaajaId, testiId, piste) {
   _tarkistaValmis(pelaajaId);
 }
 
-function _syotaNumero(pelaajaId, testiId, input) {
+window._syotaNumero = function _syotaNumero(pelaajaId, testiId, input) {
   const arvo = parseFloat(input.value);
   if (isNaN(arvo)) return;
   if (!_tulokset[pelaajaId]) _tulokset[pelaajaId] = {};
@@ -2161,7 +2169,7 @@ function _syotaNumero(pelaajaId, testiId, input) {
 
 // ── HH-yritysten syöttöfunktiot ──────────────────────────────────────
 
-function _syotaHHYritys(pelaajaId, testiId, yritysNro, input, pienempiParempi) {
+window._syotaHHYritys = function _syotaHHYritys(pelaajaId, testiId, yritysNro, input, pienempiParempi) {
   const arvo = parseFloat(input.value);
   if (isNaN(arvo)) return;
   if (!_tulokset[pelaajaId]) _tulokset[pelaajaId] = {};
@@ -2178,7 +2186,7 @@ function _syotaHHYritys(pelaajaId, testiId, yritysNro, input, pienempiParempi) {
   _paivitaEdistyminen();
 }
 
-function _syotaHHValiAika(pelaajaId, testiId, yritysNro, valiAika, input) {
+window._syotaHHValiAika = function _syotaHHValiAika(pelaajaId, testiId, yritysNro, valiAika, input) {
   const arvo = parseFloat(input.value);
   if (isNaN(arvo)) return;
   if (!_tulokset[pelaajaId]) _tulokset[pelaajaId] = {};
@@ -2196,7 +2204,7 @@ function _syotaHHValiAika(pelaajaId, testiId, yritysNro, valiAika, input) {
   _paivitaEdistyminen();
 }
 
-function _syotaKuljetusRaaka(pelaajaId, testiId, yritysNro, input) {
+window._syotaKuljetusRaaka = function _syotaKuljetusRaaka(pelaajaId, testiId, yritysNro, input) {
   const arvo = parseFloat(input.value);
   if (isNaN(arvo)) return;
   if (!_tulokset[pelaajaId]) _tulokset[pelaajaId] = {};
@@ -2209,7 +2217,7 @@ function _syotaKuljetusRaaka(pelaajaId, testiId, yritysNro, input) {
   _renderYksilöNakyma && _renderYksilöNakyma();
 }
 
-function _toggleKuljetusLaukaus(pelaajaId, testiId, yritysNro, kohta, tapa) {
+window._toggleKuljetusLaukaus = function _toggleKuljetusLaukaus(pelaajaId, testiId, yritysNro, kohta, tapa) {
   if (!_tulokset[pelaajaId]) _tulokset[pelaajaId] = {};
   if (!_tulokset[pelaajaId][testiId]) _tulokset[pelaajaId][testiId] = {};
   const y = _tulokset[pelaajaId][testiId]['y' + yritysNro] || {};
@@ -2222,7 +2230,7 @@ function _toggleKuljetusLaukaus(pelaajaId, testiId, yritysNro, kohta, tapa) {
   _renderYksilöNakyma && _renderYksilöNakyma();
 }
 
-function _syotaPituuspotku(pelaajaId, testiId, jalka, yritysNro, input) {
+window._syotaPituuspotku = function _syotaPituuspotku(pelaajaId, testiId, jalka, yritysNro, input) {
   const arvo = parseFloat(input.value);
   if (isNaN(arvo)) return;
   if (!_tulokset[pelaajaId]) _tulokset[pelaajaId] = {};
