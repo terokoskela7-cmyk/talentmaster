@@ -2886,7 +2886,42 @@ async function saveCard(level) {
     console.log('[ADAR Pikakortti] Tallennettu:', ref.id);
 
     btn.textContent = '✓ Tallennettu pelaajalle';
-    btn.classList.add('saved');
+    // ── FIRESTORE TALLENNUS ──
+  try {
+    const seuraId = window._adarSeuraId || (firebase.auth().currentUser
+      ? (await db.collection('seurat').where('vp_uid','==',firebase.auth().currentUser.uid).limit(1).get())
+          .docs[0]?.id
+      : null) || 'demo';
+
+    const valittuNimi = document.getElementById(tier + '-pelaaja')?.value || '';
+    const pelaajaEntry = window._pelaajaMap
+      ? Object.entries(window._pelaajaMap).find(([id, p]) => p.nimi.trim() === valittuNimi.trim())
+      : null;
+    const pelaajaId = pelaajaEntry?.[0] || 'tuntematon';
+    const palloId   = pelaajaEntry?.[1]?.tunniste || data.palloId || null;
+
+    const havaintoRef = db
+      .collection('seurat').doc(seuraId)
+      .collection('pelaajat').doc(pelaajaId)
+      .collection('havainnot').doc();
+
+    await havaintoRef.set({
+      ...data,
+      palloId,
+      pelaajaId,
+      seuraId,
+      valmentajaUid: firebase.auth().currentUser?.uid || null,
+      tila: 'valmis',
+      pelaaja_lukenut: false,
+    });
+
+    btn.textContent = 'Tallennettu Firestoreen';
+  } catch (fsErr) {
+    console.error('[saveCard] Firestore-virhe:', fsErr);
+    btn.textContent = 'Tallennettu (offline)';
+  }
+  
+  btn.classList.add('saved');
     btn.disabled = false;
 
     // Näytä analyysitulos-osio
