@@ -1398,9 +1398,9 @@ async function generoi() {
 
   try {
     // Hae joukkueen pelaajat + mahdolliset aiemmat tulokset
-    const pelaajaSnap = // PÄIVITETTY: pelaajat seurat/{id}/pelaajat/ jossa joukkue == joukkueId
-    // (vanha rakenne oli joukkueet/{id}/pelaajat/ — muutettu 2026-04-30)
-    await db.collection('seurat').doc(seuraId)
+    // Hae pelaajat seurat/{id}/pelaajat/ jossa joukkue == joukkueId
+    // (päivitetty 2026-04-30: vanha rakenne oli joukkueet/{id}/pelaajat/)
+    const pelaajaSnap = await db.collection('seurat').doc(seuraId)
       .collection('pelaajat')
       .where('joukkue', '==', joukkueId)
       .orderBy('sukunimi')
@@ -1426,13 +1426,13 @@ async function generoi() {
       pelaajat.push(p);
     }
 
-    // Jos ei joukkueen omia pelaajia, hae seuran pelaajat
+    // Jos ei löydy sukunimi-järjestyksessä, kokeile ilman orderBy (index voi puuttua)
     if (pelaajat.length === 0) {
-      const seuraPelaajaSnap = await db.collection('seurat').doc(seuraId)
+      console.warn('[Lomake] Ei pelaajia orderBy:llä, yritetään ilman');
+      const snap2 = await db.collection('seurat').doc(seuraId)
         .collection('pelaajat')
-        .where('joukkue', '==', joukkueId)
-        .orderBy('sukunimi').get();
-      for (const doc of seuraPelaajaSnap.docs) {
+        .where('joukkue', '==', joukkueId).get();
+      for (const doc of snap2.docs) {
         pelaajat.push({ id: doc.id, ...doc.data(), tulokset: {} });
       }
     }
