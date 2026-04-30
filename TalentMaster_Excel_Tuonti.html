@@ -341,10 +341,11 @@ async function _lataakäyttäjätiedot(u) {
   // Super admin?
   const adminSnap = await _db.collection('admins').doc(u.uid).get();
   if (adminSnap.exists) {
-    // Super admin — valitse seura (yksinkertaistettu: käytä ensimmäistä tai kysy)
-    _seuraId = 'kpv'; // TODO: super admin seuranvalitsin
+    // Super admin — hae kaikki seurat ja näytä valitsin
     document.getElementById('seura-badge').textContent = '⚡ Super Admin';
     document.getElementById('seura-badge').style.display = 'block';
+    await _naytaSuperAdminSeuraValitsin();
+    return; // _naytaSuperAdminSeuraValitsin hoitaa loppunavigaation
   } else {
     // Hae VP:n seura
     const token = await u.getIdTokenResult(true);
@@ -362,6 +363,35 @@ async function _lataakäyttäjätiedot(u) {
   }
   document.getElementById('btn-kirjaudu-ulos').style.display = 'block';
   _naytaSivu('sivu-paanäkymä');
+}
+
+async function _naytaSuperAdminSeuraValitsin() {
+  const snap = await _db.collection('seurat').orderBy('nimi').get();
+  const seurat = snap.docs.map(d => ({ id: d.id, nimi: d.data().nimi || d.id }));
+
+  // Luo modaali
+  const mod = document.createElement('div');
+  mod.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:999;';
+  mod.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:32px;width:360px;max-width:90vw;">
+      <h3 style="font-family:Cormorant Garamond,serif;font-size:22px;font-weight:400;margin-bottom:8px;">Valitse seura</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Super Admin — valitse seura johon tuot dataa</p>
+      <select id="sa-seura-sel" style="width:100%;padding:12px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:DM Sans,sans-serif;margin-bottom:16px;">
+        ${seurat.map(s => `<option value="${s.id}">${s.nimi}</option>`).join('')}
+      </select>
+      <button onclick="window._vahvistaSASeura()" style="width:100%;padding:12px;background:var(--teal);border:none;border-radius:8px;color:#111;font-size:14px;font-weight:600;cursor:pointer;font-family:DM Sans,sans-serif;">Valitse →</button>
+    </div>`;
+  document.body.appendChild(mod);
+
+  window._vahvistaSASeura = async function() {
+    _seuraId = document.getElementById('sa-seura-sel').value;
+    const sd = await _db.collection('seurat').doc(_seuraId).get();
+    _seuraData = sd.data();
+    document.getElementById('seura-badge').textContent = '⚡ ' + (_seuraData?.nimi || _seuraId);
+    document.body.removeChild(mod);
+    document.getElementById('btn-kirjaudu-ulos').style.display = 'block';
+    _naytaSivu('sivu-paanäkymä');
+  };
 }
 
 function _kirjauduUlos() {
