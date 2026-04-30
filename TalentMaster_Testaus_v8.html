@@ -1018,15 +1018,18 @@ async function _lataakäyttäjätiedot(u) {
   } catch(e) {}
 
   // Seura? (VP, valmentaja, testivastaava)
-  try {
-    const seuratSnap = await _db.collection('seurat').where('vp_uid', '==', u.uid).limit(1).get();
-    if (!seuratSnap.empty) {
-      const s = seuratSnap.docs[0];
-      _seuraId = s.id;
-      _seuraNimi = s.data().nimi;
-      _rooli = _rooli || 'vp';
-    }
-  } catch(e) {}
+  // Super admin ei käytä vp_uid-hakua — se palauttaisi satunnaisen seuran
+  if (!_superAdmin) {
+    try {
+      const seuratSnap = await _db.collection('seurat').where('vp_uid', '==', u.uid).limit(1).get();
+      if (!seuratSnap.empty) {
+        const s = seuratSnap.docs[0];
+        _seuraId = s.id;
+        _seuraNimi = s.data().nimi;
+        _rooli = _rooli || 'vp';
+      }
+    } catch(e) {}
+  }
 
   // Yritä kayttajat-kokoelmasta
   if (!_seuraId && !_superAdmin) {
@@ -1042,8 +1045,8 @@ async function _lataakäyttäjätiedot(u) {
     } catch(e) {}
   }
 
-  // Super Admin ilman seuraa — lataa kaikki seurat ja näytä valitsin
-  if (_superAdmin && !_seuraId) {
+  // Super Admin — AINA seuranvalitsin, ei oletusseuraa
+  if (_superAdmin) {
     try {
       const sSnap = await _db.collection('seurat').get();
       const seurat = sSnap.docs.map(d => ({ id: d.id, nimi: d.data().nimi || d.id }))
@@ -1070,6 +1073,12 @@ async function _lataakäyttäjätiedot(u) {
             const snap = await _db.collection('seurat').doc(_seuraId).get();
             _seuraNimi = snap.data()?.nimi || _seuraId;
             document.getElementById('etusivu-seura').textContent = _seuraNimi;
+            // Nollaa luomisdata — vanha joukkue/protokolla ei saa siirtyä uudelle seuralle
+            _luoData.joukkue = '';
+            _luoData.protokolla = '';
+            _luoData.aktiiviset_testit = [];
+            const jSel = document.getElementById('luo-joukkue');
+            if (jSel) jSel.value = '';
             await _lataaJoukkueet();
             await _lataaTapahtumat();
           };
@@ -1184,6 +1193,10 @@ window._lataaTestiExcel = async function _lataaTestiExcel(tapahtumaId, event) {
       .collection('testitapahtumat').doc(tapahtumaId).get();
     if (!snap.exists) throw new Error('Tapahtumaa ei löydy');
     const tap = { id: snap.id, ...snap.data() };
+    if (!tap.protokolla) {
+      _toast('Tapahtumalla ei ole protokollaa — vanha tapahtuma. Luo uusi tapahtuma testivalinnalla.', 'err');
+      return;
+    }
     _generoiExcel(tap);
   } catch(e) {
     _toast('Excel-lataus epäonnistui: ' + e.message, 'err');
@@ -1467,7 +1480,10 @@ window._luoAskel2 = async function _luoAskel2() {
       .filter(p => p.tila !== 'poistettu' && p.etunimi && p.sukunimi);
     _renderPelaajaValinta();
   } catch(e) {
-    lista.innerHTML = '<div class="empty"><div class="empty-teksti">Pelaajien lataus epäonnistui</div></div>';
+    console.error('Pelaajien lataus epäonnistui:', e.code, e.message, 'seura:', _seuraId, 'joukkue:', j);
+    lista.innerHTML = '<div class="empty"><div class="empty-teksti">Pelaajien lataus epäonnistui'
+      + (e.code === 'permission-denied' ? ' — tarkista Security Rules' : '')
+      + '</div><div class="empty-sub" style="font-size:12px;color:var(--text3);margin-top:4px;">Seura: ' + _seuraId + ' · Joukkue: ' + j + '</div></div>';
   }
 }
 
@@ -1917,7 +1933,12 @@ window._sekaTab = function _sekaTab(tab) {
 
 function _renderSekRotaatio() {
   const wrap = document.getElementById('seka-rotaatio-wrap');
-  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
+  // Vanhoilla tapahtumilla ei välttämättä ole protokolla-kenttää — null-guard
+  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma?.protokolla];
+  if (!protokolla) {
+    wrap.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:16px;">Protokollaa ei löydy — tapahtuma tallennettu vanhalla rakenteella.</div>';
+    return;
+  }
   const rotTestit = protokolla.testit.filter(t => typeof t.piste === 'number');
   const pelaajat = _aktiivinenTapahtuma.pelaajatData || [];
   wrap.innerHTML = '<div class="sektiootsikko">Rotaatiopisteet</div>';
