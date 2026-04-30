@@ -737,7 +737,11 @@ body {
           </div>
         </div>
         <div id="kentta-moodi-badge"></div>
-        <button class="btn btn-ghost btn-sm" onclick="_naytaSivu('sivu-etusivu')">← Lista</button>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="btn btn-outline btn-sm" onclick="_lataaTestiExcelAktiivinen()"
+            style="font-size:11px;padding:5px 10px;" title="Lataa testipäivän Excel">📥 Excel</button>
+          <button class="btn btn-ghost btn-sm" onclick="_naytaSivu('sivu-etusivu')">← Lista</button>
+        </div>
       </div>
       <div class="edistymis-bar">
         <div class="edistymis-bar-fill" id="edistymis-fill" style="width:0%"></div>
@@ -794,6 +798,7 @@ body {
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
 // ════════════════════════════════════
@@ -1160,26 +1165,184 @@ async function _lataaTapahtumat() {
   }
 }
 
+// Lataa testipäivän Excel tapahtumasta
+// Lataa Excel aktiivisesta tapahtumasta (kenttänäkymästä)
+function _lataaTestiExcelAktiivinen() {
+  if (_aktiivinenTapahtuma) _generoiExcel(_aktiivinenTapahtuma);
+}
+
+async function _lataaTestiExcel(tapahtumaId, event) {
+  event.stopPropagation(); // Estä kortin avautuminen
+  const btn = event.target.closest('button');
+  const alkuTeksti = btn.innerHTML;
+  btn.innerHTML = '⏳';
+  btn.disabled = true;
+
+  try {
+    // Hae tapahtuma Firestoresta
+    const snap = await _db.collection('seurat').doc(_seuraId)
+      .collection('testitapahtumat').doc(tapahtumaId).get();
+    if (!snap.exists) throw new Error('Tapahtumaa ei löydy');
+    const tap = { id: snap.id, ...snap.data() };
+    _generoiExcel(tap);
+  } catch(e) {
+    _toast('Excel-lataus epäonnistui: ' + e.message, 'err');
+  } finally {
+    btn.innerHTML = alkuTeksti;
+    btn.disabled = false;
+  }
+}
+
+// Excel-generointi SheetJS:llä
+function _generoiExcel(tap) {
+  const proto = PROTOKOLLAT[tap.protokolla] || {};
+  const aktTestit = tap.aktiiviset_testit || (proto.testit||[]).map(t=>t.id);
+  const pelaajat = tap.pelaajatData || [];
+  const kausiNimi = { 'kevat':'Kevät','kesa':'Kesä','syksy':'Syksy' }[tap.kausi?.split('-')[1]] || tap.kausi || '';
+  const vuosi = tap.kausi?.split('-')[0] || tap.vuosi || '';
+
+  const wb = XLSX.utils.book_new();
+
+  // ── OHJEET-lehti ─────────────────────────────────────────────
+  const ohjeData = [
+    ['TalentMaster™ — Testipäivän Excel-pohja'],
+    [''],
+    ['Tapahtuma:', tap.nimi || proto.nimi],
+    ['Kausi:', kausiNimi + ' ' + vuosi],
+    ['Päivämäärä:', tap.pvm || ''],
+    ['Paikka:', tap.paikka || ''],
+    ['Arvioija:', tap.arvioija || ''],
+    ['Protokolla:', proto.nimi || tap.protokolla],
+    [''],
+    ['OHJEET:'],
+    ['1. Syötä testitulokset Testituloset-lehdelle'],
+    ['2. PalloID * = pakollinen kenttä'],
+    ['3. Syötä RAW-tulokset (aika s, pituus cm/m)'],
+    ['4. Hylättyä suoritusta EI kirjata — uusi yritys ennen kirjausta'],
+    ['5. Jos pelaaja testataan eri päivänä kuin tapahtuman pvm,'],
+    ['   merkitse oikea päivä Testaus-pvm -sarakkeeseen'],
+    ['6. Tallenna ja lataa TalentMaster Excel-tuontityökaluun'],
+    [''],
+    ['KAUSI-KENTTÄ: ' + (tap.kausi || '—') + ' — älä muuta'],
+    ['TAPAHTUMA-ID: ' + tap.id + ' — älä muuta'],
+  ];
+  const wsOhje = XLSX.utils.aoa_to_sheet(ohjeData);
+  wsOhje['!cols'] = [{wch:18},{wch:50}];
+  XLSX.utils.book_append_sheet(wb, wsOhje, '📋 Ohjeet');
+
+  // ── TESTITULOSET-lehti ────────────────────────────────────────
+  // Rakenna sarakkeet protokollan aktiivisten testien mukaan
+  const aktiivisetTestiObj = (proto.testit||[]).filter(t => aktTestit.includes(t.id));
+
+  // Perustiedot-sarakkeet (aina mukana)
+  const perustiedot = [
+    { key:'tunniste',   otsikko:'PalloID *',      leveys:14 },
+    { key:'sukunimi',   otsikko:'Sukunimi *',      leveys:16 },
+    { key:'etunimi',    otsikko:'Etunimi *',        leveys:14 },
+    { key:'sukupuoli',  otsikko:'Suk. (P/T)',      leveys:8  },
+    { key:'joukkue',    otsikko:'Joukkue',          leveys:16 },
+    { key:'testauspvm', otsikko:'Testaus-pvm',      leveys:12 },
+    { key:'phv_tila',   otsikko:'PHV-tila',         leveys:10 },
+  ];
+
+  // Testi-sarakkeet aktiivisista testeistä
+  const testiSarakkeet = aktiivisetTestiObj.map(t => ({
+    key: t.id,
+    otsikko: t.nimi + (t.yksikko ? '
+(' + t.yksikko + ')' : '
+(1-3p)'),
+    leveys: 11,
+    yksikko: t.yksikko || '1-3p',
+    yritykset: t.yritykset || 1
+  }));
+
+  // Meta-sarakkeet lopussa (vain lukuun)
+  const metaSarakkeet = [
+    { key:'kausi_meta',  otsikko:'Kausi',           leveys:12 },
+    { key:'tapahtumaId', otsikko:'Tapahtuma-ID',    leveys:22 },
+  ];
+
+  const kaikkiSarakkeet = [...perustiedot, ...testiSarakkeet, ...metaSarakkeet];
+
+  // Otsikkorivi 1: tapahtuman nimi
+  const infoRivi = [tap.nimi || proto.nimi + ' — ' + kausiNimi + ' ' + vuosi];
+  // Otsikkorivi 2: sarake-otsikot
+  const otsikkoRivi = kaikkiSarakkeet.map(s => s.otsikko);
+
+  // Datarivit: pelaajat
+  const pelaajatOletuspvm = tap.pvm || '';
+  const dataRivit = pelaajat.map(p => {
+    const rivi = [];
+    for (const s of kaikkiSarakkeet) {
+      if (s.key === 'testauspvm') rivi.push(pelaajatOletuspvm);
+      else if (s.key === 'kausi_meta') rivi.push(tap.kausi || '');
+      else if (s.key === 'tapahtumaId') rivi.push(tap.id);
+      else if (s.key === 'sukupuoli') rivi.push(p.sukupuoli || (p.syntymapaiva ? '' : ''));
+      else rivi.push(p[s.key] || '');
+    }
+    return rivi;
+  });
+
+  // Tyhjät rivit jos ei pelaajia (voi lisätä manuaalisesti)
+  const tyhjaRiveja = Math.max(0, 5 - pelaajat.length);
+  for (let i = 0; i < tyhjaRiveja; i++) {
+    const r = new Array(kaikkiSarakkeet.length).fill('');
+    // Meta asetetaan myös tyhjille
+    r[kaikkiSarakkeet.length-2] = tap.kausi || '';
+    r[kaikkiSarakkeet.length-1] = tap.id;
+    dataRivit.push(r);
+  }
+
+  const aoa = [[infoRivi[0]], otsikkoRivi, ...dataRivit];
+  const wsTulokset = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Sarakeleveydet
+  wsTulokset['!cols'] = kaikkiSarakkeet.map(s => ({ wch: s.leveys }));
+
+  // Jäädytä perustiedot-sarakkeet (freeze after column G = 7)
+  wsTulokset['!freeze'] = { xSplit: perustiedot.length, ySplit: 2 };
+
+  const lehtiNimi = '📝 ' + (proto.nimi || 'Testituloset').substring(0, 20);
+  XLSX.utils.book_append_sheet(wb, wsTulokset, lehtiNimi);
+
+  // ── Lataa tiedosto ────────────────────────────────────────────
+  const tiedostoNimi = 'TM_' + (tap.kausi||'testi') + '_' + (tap.joukkue||'joukkue')
+    .replace(/[^a-zA-Z0-9_]/g,'') + '_' + (tap.pvm||'').replace(/-/g,'') + '.xlsx';
+
+  XLSX.writeFile(wb, tiedostoNimi);
+  _toast('Excel ladattu: ' + tiedostoNimi, 'ok');
+}
+
 function _luoTapahtumakorttiEl(t) {
   const protokolla = PROTOKOLLAT[t.protokolla] || {};
   const moodiClass = t.moodi === 'rotaatio' ? 'moodi-rotaatio' : t.moodi === 'yksilö' ? 'moodi-yksilö' : 'moodi-seka';
   const moodiTeksti = t.moodi === 'rotaatio' ? '🔄 Rotaatio' : t.moodi === 'yksilö' ? '👤 Yksilö' : '⚡ Sekamalli';
   const el = document.createElement('div');
   el.className = 'tapahtuma-kortti';
+  const kausiNayta = t.kausi ? (' · ' + { 'kevat':'Kevät','kesa':'Kesä','syksy':'Syksy' }[t.kausi.split('-')[1]] + ' ' + t.kausi.split('-')[0]) : '';
   el.innerHTML = `
-    <div class="tapahtuma-kortti-info">
-      <div class="tapahtuma-kortti-nimi">${protokolla.nimi || t.protokolla}</div>
+    <div class="tapahtuma-kortti-info" style="flex:1;">
+      <div class="tapahtuma-kortti-nimi">${t.nimi || protokolla.nimi || t.protokolla}${kausiNayta}</div>
       <div class="tapahtuma-kortti-meta">
         <span class="tapahtuma-kortti-pvm">${t.pvm || '—'}</span>
         <span>${t.paikka || '—'}</span>
         <span class="moodi-badge ${moodiClass}">${moodiTeksti}</span>
         <span>${(t.pelaajat||[]).length} pelaajaa</span>
+        ${t.aktiiviset_testit ? '<span style="color:var(--teal);font-size:11px;">' + t.aktiiviset_testit.length + ' testiä</span>' : ''}
       </div>
     </div>
-    <span class="tapahtuma-tila ${t.tila === 'suljettu' ? 'tila-suljettu' : 'tila-avoin'}">${t.tila === 'suljettu' ? 'Päättynyt' : 'Avoin'}</span>
-    <span class="tapahtuma-nuoli">›</span>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+      <button class="btn btn-outline btn-sm"
+        onclick="_lataaTestiExcel('${t.id}', event)"
+        style="font-size:11px;padding:5px 10px;white-space:nowrap;"
+        title="Lataa testipäivän Excel-pohja">
+        📥 Excel
+      </button>
+      <span class="tapahtuma-tila ${t.tila === 'suljettu' ? 'tila-suljettu' : 'tila-avoin'}">${t.tila === 'suljettu' ? 'Päättynyt' : 'Avoin'}</span>
+    </div>
+    <span class="tapahtuma-nuoli" style="margin-left:8px;">›</span>
   `;
-  el.onclick = () => _avaaKentta(t);
+  el.onclick = (e) => { if (!e.target.closest('button')) _avaaKentta(t); };
   return el;
 }
 
