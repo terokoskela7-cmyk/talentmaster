@@ -574,6 +574,8 @@ body {
 
     <!-- ASKEL 1: Perustiedot -->
     <div id="luo-askel-1">
+
+      <!-- Protokolla -->
       <div class="field">
         <label class="field-label">PROTOKOLLA</label>
         <select class="field-select" id="luo-protokolla" onchange="_protokollaVaihtunut()">
@@ -587,6 +589,15 @@ body {
         </select>
       </div>
 
+      <!-- Testivalinta — ilmestyy kun protokolla valittu -->
+      <div class="field" id="testivalinta-wrap" style="display:none;">
+        <label class="field-label">AKTIIVISET TESTIT
+          <span style="font-weight:400;color:var(--text3);font-size:11px;margin-left:8px;">— poista rastit jos seura ei tee kaikkia</span>
+        </label>
+        <div id="testivalinta-lista" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;"></div>
+      </div>
+
+      <!-- Joukkue -->
       <div class="field">
         <label class="field-label">JOUKKUE</label>
         <select class="field-select" id="luo-joukkue" onchange="_joukkueVaihtunut()">
@@ -594,14 +605,40 @@ body {
         </select>
       </div>
 
+      <!-- Kausi -->
+      <div class="field">
+        <label class="field-label">KAUSI</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <select class="field-select" id="luo-vuosi">
+            <option value="2025">2025</option>
+            <option value="2026" selected>2026</option>
+            <option value="2027">2027</option>
+          </select>
+          <select class="field-select" id="luo-kausi">
+            <option value="kevat">Kevät</option>
+            <option value="kesa">Kesä</option>
+            <option value="syksy" selected>Syksy</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Päivämäärä -->
       <div class="field">
         <label class="field-label">TAPAHTUMAN PÄIVÄMÄÄRÄ</label>
         <input class="field-input" type="date" id="luo-pvm">
+        <div class="field-hint">Jos testejä useana päivänä, merkitse ensimmäinen päivä — pelaajan tarkka päivä kirjataan kentällä</div>
       </div>
 
+      <!-- Paikka -->
       <div class="field">
         <label class="field-label">PAIKKA</label>
         <input class="field-input" type="text" id="luo-paikka" placeholder="esim. KPV-halli, Kokkola">
+      </div>
+
+      <!-- Arvioija -->
+      <div class="field">
+        <label class="field-label">VASTUUARVIOIJA</label>
+        <input class="field-input" type="text" id="luo-arvioija" placeholder="Nimi tai titteli">
       </div>
 
       <div class="field">
@@ -692,6 +729,12 @@ body {
         <div style="flex:1;">
           <div class="kentta-protokolla" id="kentta-nimi">—</div>
           <div class="kentta-pvm" id="kentta-pvm">—</div>
+          <div style="margin-top:4px;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:var(--text3);">Pelaajan testipäivä:</span>
+            <input type="date" id="pelaaja-testauspvm"
+              style="background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text2);font-size:11px;font-family:DM Mono,monospace;padding:1px 4px;outline:none;"
+              onchange="_luoData._pelaajaPvm=this.value">
+          </div>
         </div>
         <div id="kentta-moodi-badge"></div>
         <button class="btn btn-ghost btn-sm" onclick="_naytaSivu('sivu-etusivu')">← Lista</button>
@@ -781,6 +824,8 @@ let _kirjautuminenKesken = false;
 // Tapahtuman luonti -tila
 let _luoData = {
   protokolla: '', joukkue: '', pvm: '', paikka: '',
+  vuosi: '2026', kausi: 'syksy', arvioija: '',
+  aktiiviset_testit: [],
   moodi: 'rotaatio', ryhmamaara: 4,
   pelaajat: [], valitutPelaajat: new Set(), ryhmajako: {}
 };
@@ -1173,6 +1218,34 @@ function _protokollaVaihtunut() {
     hinttEl.textContent = 'Rotaatio sopii harjoitettavuus U10–15';
   }
   rmField.style.display = _luoData.moodi !== 'yksilö' ? 'block' : 'none';
+
+  // Testivalinta — renderöi protokollan testit checkboxeina
+  const wrap = document.getElementById('testivalinta-wrap');
+  const lista = document.getElementById('testivalinta-lista');
+  if (!p || !PROTOKOLLAT[p]) { wrap.style.display = 'none'; return; }
+
+  const proto = PROTOKOLLAT[p];
+  lista.innerHTML = (proto.testit || []).map(t => {
+    const yks = t.yksikko || '1–3p';
+    return '<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:8px;cursor:pointer;margin-bottom:4px;">'
+      + '<input type="checkbox" id="testi-cb-' + t.id + '" value="' + t.id + '" checked'
+      + ' onchange="_paivitaAktiivisetTestit('' + p + '')"'
+      + ' style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;">'
+      + '<span style="flex:1;font-size:14px;">' + t.nimi + '</span>'
+      + '<span style="font-size:11px;color:var(--text3);">' + yks + '</span>'
+      + '<span style="font-size:11px;color:var(--text3);margin-left:4px;">' + (KETJU_EMOJI[t.ketju]||'') + '</span>'
+      + '</label>';
+  }).join('');
+  wrap.style.display = 'block';
+  _paivitaAktiivisetTestit(p);
+}
+
+function _paivitaAktiivisetTestit(protokollaId) {
+  const proto = PROTOKOLLAT[protokollaId];
+  if (!proto) return;
+  _luoData.aktiiviset_testit = (proto.testit || [])
+    .filter(t => { const cb = document.getElementById('testi-cb-' + t.id); return cb ? cb.checked : true; })
+    .map(t => t.id);
 }
 
 function _valitseMoodi(m) {
@@ -1192,9 +1265,19 @@ async function _luoAskel2() {
   const j = document.getElementById('luo-joukkue').value;
   const pvm = document.getElementById('luo-pvm').value;
   if (!p || !j || !pvm) { _toast('Täytä kaikki pakolliset kentät', 'err'); return; }
+
+  // Päivitä aktiiviset testit checkboxeista ennen siirtymistä
+  _paivitaAktiivisetTestit(p);
+  if (_luoData.aktiiviset_testit.length === 0) {
+    _toast('Valitse vähintään yksi testi', 'err'); return;
+  }
+
   _luoData.protokolla = p;
   _luoData.joukkue = j;
   _luoData.pvm = pvm;
+  _luoData.vuosi = document.getElementById('luo-vuosi')?.value || '2026';
+  _luoData.kausi = document.getElementById('luo-kausi')?.value || 'syksy';
+  _luoData.arvioija = document.getElementById('luo-arvioija')?.value || '';
   _luoData.paikka = document.getElementById('luo-paikka').value;
   _luoData.ryhmamaara = parseInt(document.getElementById('luo-ryhmamaara').value);
 
@@ -1406,22 +1489,37 @@ async function _tallennaTapahtuma() {
   const pelaajatArr = _luoData.pelaajat.filter(p => _luoData.valitutPelaajat.has(p.id));
   const protokolla = PROTOKOLLAT[_luoData.protokolla];
 
+  // Kausiavain esim. "2026-syksy"
+  const kausiAvain = (_luoData.vuosi || '2026') + '-' + (_luoData.kausi || 'syksy');
+  const kausiNimi = { kevat:'Kevät', kesa:'Kesä', syksy:'Syksy' }[_luoData.kausi] || _luoData.kausi;
+
   const tapData = {
-    nimi: protokolla.nimi + ' — ' + (_luoData.paikka || 'kentällä'),
+    nimi: protokolla.nimi + ' — ' + kausiNimi + ' ' + (_luoData.vuosi || '2026'),
     protokolla: _luoData.protokolla,
+    aktiiviset_testit: _luoData.aktiiviset_testit,   // Seura valitsi
     joukkue: _luoData.joukkue,
-    pvm: _luoData.pvm,
+    pvm: _luoData.pvm,                               // Ensimmäinen testipäivä
+    pvm_alku: _luoData.pvm,
+    pvm_loppu: _luoData.pvm,                         // Päivittyy jos testejä useana pvm
+    kausi: kausiAvain,
+    vuosi: _luoData.vuosi || '2026',
+    kausi_nimi: kausiNimi,
     paikka: _luoData.paikka,
+    arvioija: _luoData.arvioija,
     moodi: _luoData.moodi,
-    ryhmamaara: _luoData.moodi !== 'yksilö' ? _luoData.ryhmamaara : 0,
+    ryhmamaara: _luoData.moodi !== 'yksilö' ? parseInt(_luoData.ryhmamaara) : 0,
     ryhmajako: _luoData.moodi !== 'yksilö' ? _luoData.ryhmajako : {},
+    ryhmat: _luoData.moodi !== 'yksilö'
+      ? Object.keys(_luoData.ryhmajako).map(r => 'Ryhmä ' + r)
+      : [],
     pelaajat: pelaajatArr.map(p => p.id),
     pelaajatData: pelaajatArr.map(p => ({
       id: p.id,
       etunimi: p.etunimi || '',
       sukunimi: p.sukunimi || '',
       syntymapaiva: p.syntymapaiva || '',
-      phv_tila: p.phv_tila || null
+      phv_tila: p.phv_tila || null,
+      tunniste: p.tunniste || null    // PalloID
     })),
     tila: 'avoin',
     tekija_uid: _kayttaja.uid,
@@ -1467,6 +1565,8 @@ async function _tallennaTapahtuma() {
 async function _avaaKentta(tapahtuma) {
   _aktiivinenTapahtuma = tapahtuma;
   _tulokset = {};
+  // Pelaajan oma testauspvm — oletuksena tapahtuman pvm, voidaan muuttaa
+  _luoData._pelaajaPvm = tapahtuma.pvm || new Date().toISOString().slice(0,10);
 
   // Lataa olemassa olevat tulokset
   try {
@@ -1482,8 +1582,12 @@ async function _avaaKentta(tapahtuma) {
   Object.assign(_tulokset, offline);
 
   const protokolla = PROTOKOLLAT[tapahtuma.protokolla];
-  document.getElementById('kentta-nimi').textContent = protokolla?.nimi || tapahtuma.protokolla;
+  document.getElementById('kentta-nimi').textContent = tapahtuma.nimi || protokolla?.nimi || tapahtuma.protokolla;
   document.getElementById('kentta-pvm').textContent = tapahtuma.pvm + ' — ' + (tapahtuma.paikka || '');
+  // Pelaajan testipäivä — oletuksena tapahtuman pvm, muokattavissa
+  const pvmEl = document.getElementById('pelaaja-testauspvm');
+  if (pvmEl) { pvmEl.value = tapahtuma.pvm || new Date().toISOString().slice(0,10); }
+  _luoData._pelaajaPvm = tapahtuma.pvm || new Date().toISOString().slice(0,10);
 
   const moodiBadgeEl = document.getElementById('kentta-moodi-badge');
   const mc = tapahtuma.moodi === 'rotaatio' ? 'moodi-rotaatio' : tapahtuma.moodi === 'yksilö' ? 'moodi-yksilö' : 'moodi-seka';
@@ -1992,6 +2096,11 @@ function _tallennaTulos(pelaajaId, testiId, arvo) {
         .collection('testitapahtumat').doc(_aktiivinenTapahtuma.id)
         .collection('tulokset').doc(pelaajaId);
       const pData = (_aktiivinenTapahtuma.pelaajatData||[]).find(p=>p.id===pelaajaId)||{};
+      // Suodata vain tapahtuman aktiiviset testit
+      const aktTestit = _aktiivinenTapahtuma.aktiiviset_testit || null;
+      const testienSuodatus = aktTestit
+        ? Object.fromEntries(Object.entries(_tulokset[pelaajaId]||{}).filter(([k]) => aktTestit.includes(k)))
+        : (_tulokset[pelaajaId]||{});
       // Laske FLEI ja ketjupisteet tallennusta varten
       const protokolla_t = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
       const ketjuPisteet_t = { SBL:[], SFL:[], LL:[], DIAG:[], DFL:[] };
@@ -2016,13 +2125,17 @@ function _tallennaTulos(pelaajaId, testiId, arvo) {
         : null;
 
       // 1) Tallenna raakadata testitapahtumatuloksiin
+      const testauspvm = _luoData._pelaajaPvm || _aktiivinenTapahtuma.pvm || new Date().toISOString().slice(0,10);
       await tuloksetRef.set({
         pelaajaId,
         etunimi: pData.etunimi||'',
         sukunimi: pData.sukunimi||'',
         phv_tila: pData.phv_tila||null,
         syntymapaiva: pData.syntymapaiva||'',
-        testit: _tulokset[pelaajaId],
+        tunniste: pData.tunniste||null,   // PalloID
+        testauspvm,                        // Pelaajan oma testipäivä
+        kausi: _aktiivinenTapahtuma.kausi||null,
+        testit: testienSuodatus,
         flei: fleiLaskettu,
         flei_ketjut: ketjuKa_t,
         paivitetty: firebase.firestore.FieldValue.serverTimestamp()
