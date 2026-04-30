@@ -2869,7 +2869,37 @@ async function saveCard(level) {
     console.log('[ADAR Pikakortti] Tallennettu:', ref.id);
 
     btn.textContent = '✓ Tallennettu pelaajalle';
-    btn.classList.add('saved');
+    
+  // ── FIRESTORE TALLENNUS ──
+  try {
+    const seuraId = window._adarSeuraId || 'demo';
+    const valittuPelaaja = document.getElementById(tier + '-pelaaja')?.value || '';
+    const pelaajaEntry = window._pelaajaMap 
+      ? Object.entries(window._pelaajaMap).find(([id, p]) => p.nimi === valittuPelaaja || p.tunniste === valittuPelaaja)
+      : null;
+    const pelaajaId = pelaajaEntry ? pelaajaEntry[0] : null;
+    const palloId   = pelaajaEntry ? pelaajaEntry[1].tunniste : null;
+    const havaintoRef = db.collection('seurat').doc(seuraId)
+      .collection('pelaajat').doc(pelaajaId || 'tuntematon')
+      .collection('havainnot').doc();
+    const havaintoData = {
+      ...data,
+      seuraId,
+      pelaajaId: pelaajaId || null,
+      palloId: palloId || null,
+      valmentajaUid: firebase.auth().currentUser?.uid || null,
+      tila: 'valmis',
+      pelaaja_lukenut: false,
+      luotu: new Date().toISOString(),
+    };
+    await havaintoRef.set(havaintoData);
+    btn.textContent = 'Tallennettu Firestoreen';
+  } catch (fsErr) {
+    console.error('Firestore-tallennus:', fsErr);
+    btn.textContent = 'Tallennettu (offline)';
+  }
+  
+  btn.classList.add('saved');
     btn.disabled = false;
 
     // Näytä analyysitulos-osio
