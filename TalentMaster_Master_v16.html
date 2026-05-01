@@ -1,0 +1,3077 @@
+<!doctype html>
+<html lang="fi" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TalentMaster™ — Valmentaja v13</title>
+<!-- TalentMaster_Master_v13.html — V10-typografia + V12-rakenne + Pelaaja v4 -kytkös -->
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Firebase v9 compat -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<!-- SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- TalentMaster Bus -->
+<script src="tm-bus.js?v=3"></script>
+<script src="tm-demo.js?v=3"></script>
+
+<!-- SVG sprite — omat TM-ikonit (V9 korjaus #10) -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ic-home"     viewBox="0 0 20 20"><path d="M3 8.5L10 2l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V8.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M7 18v-6h6v6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-dev"      viewBox="0 0 20 20"><circle cx="10" cy="7" r="3.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 18c0-3.3 3.1-6 7-6s7 2.7 7 6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-season"   viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M13 2v4M7 2v4M3 9h14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-drill"    viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-obs"      viewBox="0 0 20 20"><path d="M2 10s3-6 8-6 8 6 8 6-3 6-8 6-8-6-8-6z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+  <symbol id="ic-test"     viewBox="0 0 20 20"><path d="M5 3h10M8 3v4l-3 8h10l-3-8V3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-search"   viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M13 13l4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-adar"     viewBox="0 0 20 20"><path d="M10 3l2 4h4l-3.5 2.5 1.5 4.5L10 11.5 6 14l1.5-4.5L4 7h4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-xfactor"  viewBox="0 0 20 20"><path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="ic-gem"      viewBox="0 0 20 20"><path d="M10 17L3 8l2-4h10l2 4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 8h14M7 4l3 13M13 4l-3 13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="ic-chevron"  viewBox="0 0 20 20"><path d="M7 8l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-arrow-r"  viewBox="0 0 20 20"><path d="M4 10h12M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-close"    viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-undo"     viewBox="0 0 20 20"><path d="M4 8V4M4 8h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 8c2-4 8-5 11-1s1 9-3 10-9-1-9-6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-trend-up" viewBox="0 0 20 20"><path d="M3 14l5-5 4 3 5-6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 6h3v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-video"    viewBox="0 0 20 20"><rect x="2" y="5" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M14 9l4-2v6l-4-2V9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-sun"      viewBox="0 0 20 20"><circle cx="10" cy="10" r="3.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-moon"     viewBox="0 0 20 20"><path d="M15 10.5A7 7 0 018 3.5a7 7 0 100 13A7 7 0 0115 10.5z" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+  <symbol id="ic-logout"   viewBox="0 0 20 20"><path d="M8 5H5a1 1 0 00-1 1v8a1 1 0 001 1h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M13 7l3 3-3 3M8 10h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-cal"      viewBox="0 0 20 20"><rect x="3" y="5" width="14" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 9h14M7 3v4M13 3v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-alert"    viewBox="0 0 20 20"><path d="M10 3l7.5 13H2.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M10 9v3M10 14.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-adar-ring" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.3"/>
+    <path d="M12 4 L12 7 M20 12 L17 12 M12 20 L12 17 M4 12 L7 12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+    <path d="M18 6 L15.5 8.5 M18 18 L15.5 15.5 M6 18 L8.5 15.5 M6 6 L8.5 8.5" stroke="currentColor" stroke-width=".8" stroke-linecap="round" opacity=".5"/>
+  </symbol>
+  <symbol id="ic-plus"     viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="ic-external" viewBox="0 0 20 20"><path d="M7 4H4v12h12v-3M11 4h5v5M8 12l8-8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-inbox"    viewBox="0 0 20 20"><path d="M3 10l2-6h10l2 6v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 10h4l1 2h4l1-2h4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-pulse"    viewBox="0 0 20 20"><path d="M2 10h3l2-6 4 12 2-8 2 4h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-heart"    viewBox="0 0 20 20"><path d="M10 17s-6-3.5-6-8a3.5 3.5 0 016-2.5A3.5 3.5 0 0116 9c0 4.5-6 8-6 8z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-send"     viewBox="0 0 20 20"><path d="M2 10l16-7-4 16-4-6-8-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-check"    viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-test"     viewBox="0 0 20 20"><path d="M4 4h12v2H4zm0 4h12v2H4zm0 4h8v2H4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-form"     viewBox="0 0 20 20"><path d="M4 4h12v2H4zm0 4h12v2H4zm0 4h8v2H4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="ic-download" viewBox="0 0 20 20"><path d="M10 4v8m0 0l-3-3m3 3l3-3M4 14h12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   TalentMaster™ Master v12 — Valmentajan dashboard
+   Arkkitehtuuri: V9 käytettävyyskorjaukset + V11 kolme työtilaa
+   Dark/light toggle · Firebase auth · Skeleton loading · Undo
+═══════════════════════════════════════════════════════════════ */
+
+/* ── TOKENEET ── */
+:root[data-theme="dark"] {
+  --bg:   #0F0F0D;  --bg2:  #161614;  --card: #1C1C1A;  --card2:#212120;
+  --ink:  rgba(242,239,230,.95);
+  --ink2: rgba(242,239,230,.62);
+  --ink3: rgba(242,239,230,.36);
+  --line: rgba(242,239,230,.09);
+  --line2:rgba(242,239,230,.16);
+  --teal: #28B090;  --teal-bg:rgba(40,176,144,.09); --teal-brd:rgba(40,176,144,.22);
+  --amber:#E0A653;  --amber-bg:rgba(224,166,83,.09);
+  --red:  #D85A5A;  --red-bg:rgba(216,90,90,.09);
+  --purple:#B08AE0; --blue:#6FA8DC;
+  --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.25);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.5), 0 20px 60px rgba(0,0,0,.35);
+}
+
+/* ── CANONICAL DS ALIAKSET (colors_and_type.css yhteensopivuus) ── */
+:root {
+    --bg: #111110;
+  --carbon:       #1C1C1A;
+  --bone:         #F2EFE6;
+  --slate:        #585751;
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body:    'DM Sans', -apple-system, sans-serif;
+  --font-mono:    'DM Mono', 'SF Mono', monospace;
+  --tm-ease:      cubic-bezier(.4,0,.2,1);
+  --tm-space-xl:  48px;
+  --tm-radius-sm: 6px;
+  --tm-radius-md: 10px;
+  --tm-radius-lg: 14px;
+  --green: #28B090;
+  --green-dim:    rgba(26,122,94,.08);
+  --green-brd:    rgba(26,122,94,.2);
+  --gold:         #B8860B;
+}
+:root[data-theme="light"] {
+  --bg:   #F2EFE6;  --bg2:  #FAF9F4;  --card: #FFFFFF;  --card2:#F5F4EF;
+  --ink:  rgba(28,28,26,.95);
+  --ink2: rgba(28,28,26,.62);
+  --ink3: rgba(28,28,26,.38);
+  --line: rgba(28,28,26,.1);
+  --line2:rgba(28,28,26,.18);
+  --teal: #28B090;  --teal-bg:rgba(26,122,94,.07);  --teal-brd:rgba(26,122,94,.2);
+  --amber:#7A5A10;  --amber-bg:rgba(122,90,16,.07);
+  --red:  #8A2B2B;  --red-bg:rgba(138,43,43,.07);
+  --purple:#6B3FA0; --blue:#2A5E8A;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,.12), 0 16px 48px rgba(0,0,0,.08);
+}
+
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg); color: var(--ink);
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  font-size: 14px; line-height: 1.6; min-height: 100vh;
+  transition: background .2s, color .2s;
+}
+button { font-family: inherit; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+::selection { background: var(--teal-brd); }
+
+/* Typokirjasto */
+.serif  { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 300; }
+.mono   { font-family: 'DM Mono', monospace; letter-spacing: .05em; }
+.caps   { font-size: 10px; font-weight: 500; letter-spacing: .22em;
+          text-transform: uppercase; color: var(--ink3); }
+.sig    { font-family: 'Cormorant Garamond', serif; font-weight: 400; font-size: 22px;
+          line-height: 1.3; letter-spacing: -.01em; }
+
+/* ── KEYFRAMES ── */
+@keyframes fadeUp  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@keyframes shimmer { 0%,100%{opacity:.4} 50%{opacity:.9} }
+@keyframes toastIn { from{transform:translateY(8px);opacity:0} to{transform:none;opacity:1} }
+@keyframes slideIn { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
+
+/* ── LAYOUT ── */
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .sidebar.open { display: flex; position: fixed; inset: 0; z-index: 200; width: 260px; }
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: var(--bg2);
+  border-right: .5px solid var(--line);
+  padding: 24px 0;
+  position: sticky; top: 0; height: 100vh;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+  transition: background .2s;
+}
+.sb-brand { padding: 0 24px 20px; border-bottom: .5px solid var(--line); margin-bottom: 16px; }
+.sb-logo  { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 18px;
+             letter-spacing: .01em; color: var(--ink); }
+.sb-logo em { color: var(--teal); font-style: normal; }
+.sb-role  { font-size: 10px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase;
+             color: var(--ink3); margin-top: 3px; }
+.sb-seura { font-size: 12px; color: var(--ink2); margin-top: 2px; }
+
+.sb-nav   { flex: 1; padding: 0 12px; }
+.sb-section { padding: 0 12px 6px; font-size: 9px; font-weight: 600;
+               letter-spacing: .24em; text-transform: uppercase; color: var(--ink3); }
+.sb-item  {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 6px;
+  font-size: 13px; color: var(--ink2);
+  cursor: pointer; transition: background .12s, color .12s;
+  margin-bottom: 2px;
+}
+.sb-item:hover  { background: var(--card); color: var(--ink); }
+.sb-item.active { background: var(--teal-bg); color: var(--teal);
+                   font-weight: 500; }
+.sb-item svg    { width: 16px; height: 16px; flex-shrink: 0; opacity: .7; }
+.sb-item.active svg { opacity: 1; }
+.sb-divider { height: .5px; background: var(--line); margin: 12px 0; }
+
+.sb-bot {
+  padding: 16px 24px 0;
+  border-top: .5px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.theme-btn {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--card); border: .5px solid var(--line2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink2); transition: all .15s;
+}
+.theme-btn:hover { background: var(--teal-bg); color: var(--teal); }
+.theme-btn svg { width: 14px; height: 14px; }
+
+/* ── MAIN ── */
+.main {
+  padding: 48px 56px 80px;
+  max-width: 1120px;
+  animation: fadeUp .3s ease;
+}
+@media (max-width: 1200px) { .main { padding: 40px 40px 80px; } }
+@media (max-width: 900px)  { .main { padding: 24px 20px 80px; } }
+
+/* ── HEADER ── */
+.h-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 32px;
+}
+.h-greet {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 28px;
+  line-height: 1.1; margin-bottom: 4px;
+}
+.h-date { font-size: 11px; color: var(--ink3); letter-spacing: .16em; }
+
+.cmd-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border: .5px solid var(--line2);
+  color: var(--ink2); padding: 8px 14px; border-radius: 8px;
+  font-size: 12px; font-weight: 500;
+  transition: all .12s;
+}
+.cmd-btn:hover { border-color: var(--teal-brd); color: var(--teal); }
+.cmd-btn kbd {
+  background: var(--bg); border: .5px solid var(--line2);
+  border-radius: 3px; padding: 1px 5px; font-size: 10px;
+  font-family: inherit; color: var(--ink3);
+}
+.cmd-btn svg { width: 13px; height: 13px; }
+
+/* ── WSBAR (workspace tabs) ── */
+.wsbar {
+  display: flex; align-items: center; gap: 2px;
+  border-bottom: .5px solid var(--line);
+  margin-bottom: 36px;
+}
+.ws-tab {
+  padding: 10px 18px; font-size: 13px; font-weight: 500;
+  color: var(--ink3); cursor: pointer; position: relative;
+  border-radius: 4px 4px 0 0;
+  transition: color .12s;
+}
+.ws-tab::after {
+  content: ''; position: absolute; bottom: -1px; left: 0; right: 0;
+  height: 1.5px; background: transparent; transition: background .12s;
+}
+.ws-tab:hover { color: var(--ink2); }
+.ws-tab.active { color: var(--ink); }
+.ws-tab.active::after { background: var(--teal); }
+.ws-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--card2); font-size: 9px; font-weight: 600;
+  font-family: 'DM Mono', monospace; color: var(--ink3);
+  margin-right: 6px;
+}
+.ws-tab.active .ws-num { background: var(--teal-bg); color: var(--teal); }
+
+/* ── WS VIEWS ── */
+.ws-view { display: none; opacity: 0; }
+.ws-view.active { display: block; opacity: 1; transition: opacity .2s ease; }
+
+/* ══════════════════════════════════════════════════════════════
+   TYÖTILA 1 — TÄNÄÄN
+══════════════════════════════════════════════════════════════ */
+
+/* Signal — V13: palautettu V10-typografia, reilu tyhjä tila */
+.signal-block {
+  padding: 40px 0 36px;
+  margin-bottom: 40px;
+  border-bottom: .5px solid var(--line);
+  cursor: pointer;
+  position: relative;
+  transition: padding-left .2s var(--tm-ease);
+}
+.signal-block:hover { padding-left: 8px; }
+.signal-caps { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; color: var(--teal); }
+.signal-caps .caps { color: var(--teal); }
+.signal-dot  { width: 6px; height: 6px; border-radius: 50%; background: var(--teal);
+                animation: shimmer 2s ease-in-out infinite; }
+.signal-title {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300;
+  font-size: 40px; line-height: 1.18;
+  letter-spacing: -.015em;
+  max-width: 760px; margin-bottom: 16px;
+}
+.signal-title em { color: var(--teal); font-style: italic; }
+.signal-sub  { font-size: 13px; color: var(--ink2); line-height: 1.65; max-width: 580px; }
+@media (max-width: 900px) { .signal-title { font-size: 30px; } }
+.signal-open {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 500; color: var(--ink3);
+  margin-top: 16px; transition: color .12s;
+}
+.signal-open svg { width: 14px; height: 14px; }
+.signal-block:hover .signal-open { color: var(--teal); }
+
+/* Kolme toimenpidettä — V13: V10-tyylinen serif-numero + iso rivi */
+.actions-section { margin-bottom: 48px; }
+.actions-head    { margin-bottom: 16px; }
+.action-row {
+  display: grid; grid-template-columns: 44px 1fr auto 100px;
+  gap: 18px; align-items: baseline;
+  padding: 18px 0; border-bottom: .5px solid var(--line);
+  cursor: pointer; transition: padding-left .15s var(--tm-ease), background .12s;
+}
+.action-row:hover { padding-left: 8px; background: rgba(255,255,255,.02); }
+:root[data-theme="light"] .action-row:hover { background: rgba(0,0,0,.02); }
+.action-num {
+  font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 300;
+  color: var(--ink3); line-height: 1; align-self: center;
+}
+.action-row.priority .action-num { color: var(--teal); }
+.action-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; color: var(--ink); }
+.action-meta  { font-size: 11px; color: var(--ink3); display: flex; gap: 12px; flex-wrap: wrap; }
+.action-arrow { color: var(--ink3); align-self: center; }
+.action-row:hover .action-arrow { color: var(--teal); }
+.action-time {
+  font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ink3); font-family: 'DM Mono', monospace; text-align: right;
+  align-self: center;
+}
+
+/* Metriikat — V13: V10-tyylinen neliörivi (ei korttien rajoja), sparkline */
+.metrics-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border-top: .5px solid var(--line); border-bottom: .5px solid var(--line);
+  margin-bottom: 48px;
+}
+@media (max-width: 900px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+.metric-card {
+  padding: 24px 24px 22px;
+  border-right: .5px solid var(--line);
+}
+.metric-card:last-child { border-right: none; }
+@media (max-width: 900px) {
+  .metric-card:nth-child(2n) { border-right: none; }
+  .metric-card:nth-child(-n+2) { border-bottom: .5px solid var(--line); }
+}
+.metric-lbl  { font-size: 9px; font-weight: 500; letter-spacing: .2em;
+                text-transform: uppercase; color: var(--ink3); margin-bottom: 10px; }
+.metric-val  {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300;
+  font-size: 44px; line-height: 1; margin-bottom: 8px; letter-spacing: -.02em;
+}
+.metric-trend {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-family: 'DM Mono', monospace;
+  margin-bottom: 10px;
+}
+.trend-up   { color: var(--red); }
+.trend-up.good { color: var(--teal); }
+.trend-down { color: var(--teal); }
+.trend-down.bad { color: var(--red); }
+.trend-flat { color: var(--ink3); }
+.metric-spark { width: 100%; height: 14px; opacity: .7; }
+.metric-ctx   { font-size: 10px; color: var(--ink3); padding-top: 10px;
+                 border-top: .5px solid var(--line); }
+
+/* Pelaajalistaus tänään — V13: tagit + "Avaa pelaaja" -nappi */
+.players-today { margin-top: 8px; }
+.player-row {
+  display: grid; grid-template-columns: 40px 1fr auto auto;
+  gap: 16px; align-items: center;
+  padding: 14px 0; border-bottom: .5px solid var(--line);
+}
+.player-row:last-child { border-bottom: none; }
+.player-num  {
+  font-family: 'Cormorant Garamond', serif; font-size: 22px;
+  font-weight: 400; color: var(--ink2); line-height: 1;
+}
+.player-info { min-width: 0; }
+.player-name { font-size: 13px; font-weight: 500; }
+.player-pos  { font-size: 11px; color: var(--ink3); margin-top: 2px; }
+.player-tags { display: flex; gap: 6px; flex-shrink: 0; }
+.player-open-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 4px;
+  background: var(--card); border: .5px solid var(--line2);
+  font-size: 10px; font-weight: 600; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink2);
+  cursor: pointer; transition: all .12s;
+  font-family: 'DM Sans', sans-serif;
+}
+.player-open-btn:hover { border-color: var(--teal-brd); color: var(--teal); background: var(--teal-bg); }
+.player-open-btn svg { width: 11px; height: 11px; }
+.tag {
+  font-size: 9px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 3px;
+  border: .5px solid;
+}
+.tag-x   { color: var(--teal);  background: var(--teal-bg);  border-color: var(--teal-brd); }
+.tag-gem { color: var(--purple); background: rgba(176,138,224,.08); border-color: rgba(176,138,224,.2); }
+.tag-warn{ color: var(--amber);  background: var(--amber-bg); border-color: rgba(224,166,83,.2); }
+.tag-inj { color: var(--red);    background: var(--red-bg);   border-color: rgba(216,90,90,.2); }
+
+/* ADAR-lista — palautettu V10:stä */
+.adar-list { margin-bottom: 48px; }
+.adar-item {
+  display: grid; grid-template-columns: 80px 1fr auto;
+  gap: 20px; padding: 18px 0;
+  border-bottom: .5px solid var(--line);
+}
+.adar-date { font-family: 'DM Mono', monospace; font-size: 10px;
+              color: var(--ink3); letter-spacing: .08em; padding-top: 4px; line-height: 1.5; }
+.adar-player { font-size: 11px; color: var(--teal); font-weight: 500;
+                letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px;
+                display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.adar-player:hover { opacity: .8; }
+.adar-text { font-size: 14px; color: var(--ink); font-family: 'Cormorant Garamond', serif;
+              font-style: italic; font-weight: 400; line-height: 1.55; margin-bottom: 10px;
+              letter-spacing: -.005em; }
+.adar-dim { display: inline-flex; gap: 14px; font-size: 9px; color: var(--ink3);
+             letter-spacing: .1em; text-transform: uppercase; align-items: center; }
+.adar-dim .on { color: var(--purple); font-weight: 600; }
+.adar-dim .xf { color: var(--amber); font-weight: 600; }
+.adar-video {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 3px;
+  background: none; border: .5px solid var(--line2);
+  font-size: 10px; color: var(--ink2);
+  letter-spacing: .08em; text-transform: uppercase;
+  cursor: pointer; height: fit-content; align-self: start;
+  font-family: 'DM Sans', sans-serif;
+  transition: all .12s;
+}
+.adar-video:hover { border-color: var(--teal-brd); color: var(--teal); }
+.adar-video svg { width: 11px; height: 11px; }
+
+/* ══════════════════════════════════════════════════════════════
+   TYÖTILA 2 — KEHITYS (pelaajan aikajana)
+══════════════════════════════════════════════════════════════ */
+.dev-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 28px;
+}
+.player-picker {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.player-pill {
+  padding: 7px 14px; border-radius: 20px;
+  background: var(--card); border: .5px solid var(--line2);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  transition: all .12s;
+}
+.player-pill:hover  { border-color: var(--teal-brd); color: var(--teal); }
+.player-pill.active { background: var(--teal-bg); border-color: var(--teal-brd); color: var(--teal); }
+
+/* Pelaajan yläkortti */
+.pinfo-card {
+  background: var(--card); border: .5px solid var(--line2);
+  border-radius: 10px; padding: 24px 28px;
+  margin-bottom: 24px; display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  gap: 24px; align-items: start;
+}
+@media (max-width: 900px) { .pinfo-card { grid-template-columns: 1fr 1fr; } }
+.pinfo-name {
+  grid-column: 1 / -1;
+  font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 30px;
+  margin-bottom: 4px; line-height: 1;
+}
+.pinfo-sub { font-size: 12px; color: var(--ink2); margin-bottom: 16px; }
+.pstat-lbl { font-size: 9px; font-weight: 500; letter-spacing: .2em;
+              text-transform: uppercase; color: var(--ink3); margin-bottom: 5px; }
+.pstat-val { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 28px;
+              line-height: 1; }
+.pstat-delta { font-size: 11px; font-family: 'DM Mono', monospace; margin-top: 3px; }
+
+/* Aikajana */
+.timeline-wrap {
+  background: var(--card); border: .5px solid var(--line2);
+  border-radius: 10px; overflow: hidden; margin-bottom: 24px;
+}
+.tl-months {
+  display: grid; grid-template-columns: 100px repeat(10, 1fr);
+  border-bottom: .5px solid var(--line);
+}
+.tl-month-hdr {
+  padding: 10px 12px; font-size: 9px; font-weight: 600;
+  letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ink3); text-align: center;
+}
+.tl-month-hdr:first-child { text-align: left; }
+.tl-row {
+  display: grid; grid-template-columns: 100px repeat(10, 1fr);
+  border-bottom: .5px solid var(--line); min-height: 40px;
+}
+.tl-row:last-child { border-bottom: none; }
+.tl-row-lbl {
+  padding: 10px 12px; font-size: 9px; font-weight: 600;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink3); border-right: .5px solid var(--line);
+  display: flex; align-items: center;
+}
+.tl-cell { padding: 6px; display: flex; align-items: center; justify-content: center; }
+.tl-dot  { width: 8px; height: 8px; border-radius: 50%; }
+.tl-bar  { height: 6px; border-radius: 3px; width: 80%; }
+.tl-event {
+  font-size: 9px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; padding: 2px 6px;
+  border-radius: 3px; white-space: nowrap;
+}
+
+/* Narratiivi */
+.narrative-list { display: flex; flex-direction: column; gap: 1px; }
+.narrative-item {
+  display: flex; gap: 20px; padding: 16px 20px;
+  background: var(--card); border-bottom: .5px solid var(--line);
+  transition: background .12s;
+}
+.narrative-item:first-child { border-radius: 10px 10px 0 0; }
+.narrative-item:last-child  { border-radius: 0 0 10px 10px; border-bottom: none; }
+.narrative-item:hover { background: var(--card2); }
+.narr-month { font-size: 11px; font-weight: 600; color: var(--teal);
+               font-family: 'DM Mono', monospace; width: 80px; flex-shrink: 0;
+               padding-top: 2px; }
+.narr-text  { font-size: 13px; color: var(--ink2); line-height: 1.6; flex: 1; }
+.narr-tag   { flex-shrink: 0; padding-top: 2px; }
+
+/* ══════════════════════════════════════════════════════════════
+   TYÖTILA 3 — KAUSI
+══════════════════════════════════════════════════════════════ */
+.season-header { margin-bottom: 28px; }
+.season-title  {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 32px;
+  margin-bottom: 4px;
+}
+.season-sub { font-size: 12px; color: var(--ink2); }
+
+.season-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 16px; margin-bottom: 32px;
+}
+@media (max-width: 900px) { .season-grid { grid-template-columns: 1fr; } }
+.season-card {
+  background: var(--card); border: .5px solid var(--line2);
+  border-radius: 10px; padding: 22px 24px;
+}
+.sc-label { margin-bottom: 14px; }
+.sc-val {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 42px;
+  line-height: 1; margin-bottom: 6px;
+}
+.sc-desc  { font-size: 12px; color: var(--ink2); line-height: 1.55; }
+
+/* Kausijakso-palkki */
+.season-bar-wrap { margin-bottom: 10px; }
+.season-bar-track {
+  height: 6px; background: var(--card2); border-radius: 3px;
+  overflow: hidden; margin-bottom: 4px;
+}
+.season-bar-fill {
+  height: 100%; background: var(--teal); border-radius: 3px;
+  transition: width 1s ease;
+}
+.season-bar-labels {
+  display: flex; justify-content: space-between;
+  font-size: 9px; font-family: 'DM Mono', monospace; color: var(--ink3);
+}
+
+/* X-Factor pelaajat */
+.xfactor-list { display: flex; flex-direction: column; gap: 8px; }
+.xf-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--card2); border-radius: 6px;
+}
+.xf-name  { flex: 1; font-size: 13px; font-weight: 500; }
+.xf-trend { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--teal); }
+
+/* ══════════════════════════════════════════════════════════════
+   TYÖTILA 4 — KALENTERI
+   Valmentajan viikkonäkymä: joukkue-harjoitukset + omatoiminen.
+   Pelaajien omatoimiset näkyvät rytmin vahvistamiseksi.
+══════════════════════════════════════════════════════════════ */
+.cal-header { margin-bottom: 22px; display:flex; align-items:flex-end; justify-content:space-between; gap: 20px; flex-wrap:wrap; }
+.cal-title  { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 32px; margin-bottom: 4px; }
+.cal-sub    { font-size: 12px; color: var(--ink2); }
+
+.cal-modebar { display:inline-flex; background: var(--card2); border:.5px solid var(--line2); border-radius: 6px; padding: 2px; gap: 2px; }
+.cal-mode    { background: none; border: none; padding: 6px 14px; font-size: 10px; letter-spacing:.18em; text-transform:uppercase; color: var(--ink2); cursor: pointer; border-radius: 4px; font-family: inherit; font-weight: 500; transition: background .15s, color .15s; }
+.cal-mode.on { background: var(--teal); color: #F2EFE6; }
+
+.cal-wknav  { display:flex; align-items:center; gap: 14px; margin-bottom: 18px; }
+.cal-wknav button { background: var(--card); border:.5px solid var(--line2); color: var(--ink2); width:32px; height:32px; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.cal-wknav button:hover { background: var(--card2); color: var(--ink); }
+.cal-wk-label { font-size: 13px; color: var(--ink); font-weight: 500; }
+.cal-wk-sub   { font-family:'DM Mono', monospace; font-size: 10px; color: var(--ink3); margin-left: auto; }
+
+/* Viikko-grid: 7 päivää yläriville, alla aikaruudukko */
+.cal-week { display: grid; grid-template-columns: 56px repeat(7, 1fr); gap:.5px; background: var(--line); border:.5px solid var(--line2); border-radius: 8px; overflow: hidden; }
+.cal-day-hdr { background: var(--card); padding: 10px 10px; text-align: center; }
+.cal-day-hdr.today { background: linear-gradient(180deg, rgba(26,122,94,.12), rgba(26,122,94,.02)); }
+.cal-day-hdr.today .cal-day-num { color: var(--teal); }
+.cal-day-name { font-size: 9px; letter-spacing:.2em; text-transform:uppercase; color: var(--ink3); font-weight: 500; }
+.cal-day-num  { font-family:'Cormorant Garamond', serif; font-weight: 400; font-size: 22px; color: var(--ink); margin-top: 2px; line-height: 1; }
+
+.cal-time-lbl { background: var(--card); padding: 8px 8px 8px 10px; font-family:'DM Mono', monospace; font-size: 9px; color: var(--ink3); border-top:.5px solid var(--line); }
+.cal-cell { background: var(--bg); min-height: 56px; border-top:.5px solid var(--line); position: relative; padding: 3px; cursor: pointer; transition: background .12s; }
+.cal-cell:hover { background: var(--card2); }
+
+.cal-evt {
+  display: block; padding: 5px 7px; border-radius: 4px;
+  font-size: 10px; line-height: 1.25; margin-bottom: 2px;
+  border-left: 2px solid;
+}
+.cal-evt-title { font-weight: 600; font-size: 10.5px; color: var(--ink); }
+.cal-evt-meta  { font-size: 9px; color: var(--ink2); margin-top: 1px; font-family:'DM Mono', monospace; }
+
+/* Event-tyypit */
+.cal-evt.team      { background: rgba(26,122,94,.10);  border-color: var(--teal); }
+.cal-evt.match     { background: rgba(184,92,56,.10);  border-color: #B85C38; }
+.cal-evt.gym       { background: rgba(184,134,11,.10); border-color: #B8860B; }
+.cal-evt.self      { background: rgba(139,160,188,.10);border-color: #2A5DB0; }
+.cal-evt.rest      { background: rgba(242,239,230,.03);border-color: rgba(242,239,230,.25); }
+
+/* Omatoimiset-koostekortit (rivi kalenterin alla) */
+.cal-self-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 22px; }
+@media (max-width: 900px) { .cal-self-grid { grid-template-columns: 1fr; } }
+.cal-self-card { background: var(--card); border:.5px solid var(--line2); border-radius: 10px; padding: 18px 20px; }
+.cal-self-lbl { font-size: 9px; letter-spacing:.2em; text-transform:uppercase; color: var(--ink3); margin-bottom: 8px; font-weight: 500; }
+.cal-self-val { font-family:'Cormorant Garamond', serif; font-weight: 300; font-size: 32px; line-height: 1; margin-bottom: 8px; }
+.cal-self-desc { font-size: 12px; color: var(--ink2); line-height: 1.55; }
+
+/* Lisää-modal (pelkkä koriste — ei varsinaista tallennusta) */
+.cal-add-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--teal); color: #F2EFE6; border: none; padding: 10px 16px; font-family: inherit; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 500; border-radius: 6px; cursor: pointer; }
+.cal-add-btn:hover { background: #1e8f6e; }
+
+/* Legenda */
+.cal-legend { display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap; font-size: 10px; color: var(--ink2); letter-spacing: .06em; }
+.cal-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.cal-legend-sw { width: 10px; height: 10px; border-radius: 2px; border-left: 2px solid; }
+
+/* Omatoimiset-pelaajalista */
+.cal-players { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.cal-player-row {
+  display: grid; grid-template-columns: 24px 1fr auto auto; gap: 14px;
+  align-items: center; padding: 10px 14px; background: var(--card2);
+  border-radius: 6px; border:.5px solid var(--line);
+  font-size: 12px;
+}
+.cal-player-num { font-family:'DM Mono', monospace; color: var(--ink3); font-size: 10px; text-align: center; }
+.cal-player-name { font-weight: 500; color: var(--ink); }
+.cal-player-streak { font-family:'DM Mono', monospace; font-size: 10px; color: var(--teal); }
+.cal-player-min { font-family:'DM Mono', monospace; font-size: 10px; color: var(--ink2); }
+.cal-player-row.low .cal-player-streak { color: #B85C38; }
+
+/* DRILL-IN PANEL (V9 korjaus — syyhierarkia)
+══════════════════════════════════════════════════════════════ */
+.drill-back {
+  display: none; position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,.4); backdrop-filter: blur(4px);
+}
+.drill-back.open { display: block; }
+.drill-panel {
+  position: fixed; right: 0; top: 0; bottom: 0;
+  width: 420px; background: var(--bg2);
+  border-left: .5px solid var(--line2);
+  z-index: 101; overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
+  box-shadow: var(--shadow-lg);
+}
+.drill-panel.open { transform: none; }
+.drill-header {
+  padding: 24px 24px 0; display: flex; align-items: flex-start;
+  justify-content: space-between; margin-bottom: 24px;
+}
+.drill-title {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 22px;
+  line-height: 1.2; max-width: 300px;
+}
+.drill-close {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--card); border: .5px solid var(--line2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink2); flex-shrink: 0;
+  transition: all .12s;
+}
+.drill-close:hover { background: var(--red-bg); color: var(--red); }
+.drill-close svg { width: 14px; height: 14px; }
+.drill-section { padding: 0 24px 20px; border-bottom: .5px solid var(--line); margin-bottom: 20px; }
+.drill-section:last-child { border-bottom: none; }
+
+.drill-reason {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 12px 0; border-bottom: .5px solid var(--line);
+}
+.drill-reason:last-child { border-bottom: none; }
+.dr-label { font-size: 9px; font-weight: 600; letter-spacing: .18em;
+              text-transform: uppercase; color: var(--ink3); margin-bottom: 4px; }
+.dr-val   { font-family: 'DM Mono', monospace; font-size: 22px; color: var(--ink); }
+.dr-trend { font-size: 11px; margin-top: 2px; }
+.dr-icon  {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--card2); border: .5px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: var(--ink2);
+}
+.dr-icon svg { width: 16px; height: 16px; }
+
+.drill-actions { padding: 0 24px 24px; }
+.drill-btn {
+  width: 100%; padding: 12px 16px; border-radius: 8px;
+  background: var(--teal-bg); border: .5px solid var(--teal-brd);
+  color: var(--teal); font-size: 13px; font-weight: 500;
+  margin-bottom: 8px; text-align: left;
+  transition: all .12s;
+}
+.drill-btn:hover { background: var(--teal); color: white; }
+
+/* ══════════════════════════════════════════════════════════════
+   COMMAND PALETTE (V9 korjaus #05 — Cmd+K)
+══════════════════════════════════════════════════════════════ */
+.cp-back {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,.5); backdrop-filter: blur(8px);
+}
+.cp-back.open { display: block; }
+.cp-box {
+  position: fixed; top: 18%; left: 50%; transform: translateX(-50%);
+  width: 560px; max-width: 90vw;
+  background: var(--bg2); border: .5px solid var(--line2);
+  border-radius: 12px; z-index: 201; overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  animation: fadeUp .18s ease;
+}
+.cp-input-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px; border-bottom: .5px solid var(--line);
+}
+.cp-input-row svg { width: 16px; height: 16px; color: var(--ink3); flex-shrink: 0; }
+#cpInput {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--ink); font-size: 14px; font-family: inherit;
+}
+#cpInput::placeholder { color: var(--ink3); }
+.cp-hint { font-size: 10px; color: var(--ink3); padding: 6px 18px 2px;
+            letter-spacing: .1em; }
+#cpList  { max-height: 360px; overflow-y: auto; padding: 4px 0 8px; }
+.cp-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 18px; cursor: pointer; font-size: 13px;
+  transition: background .1s;
+}
+.cp-item:hover, .cp-item.focus { background: var(--teal-bg); }
+.cp-item-icon {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: var(--card); border: .5px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: var(--ink3);
+}
+.cp-item-icon svg { width: 13px; height: 13px; }
+.cp-item-label { flex: 1; }
+.cp-item-kbd   { font-size: 10px; color: var(--ink3); font-family: 'DM Mono', monospace; }
+.cp-section-hdr { padding: 10px 18px 4px; font-size: 9px; font-weight: 600;
+                   letter-spacing: .22em; text-transform: uppercase; color: var(--ink3); }
+
+/* ══════════════════════════════════════════════════════════════
+   TOAST + UNDO (V9 korjaus #08)
+══════════════════════════════════════════════════════════════ */
+#toast-wrap {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  z-index: 500; display: flex; flex-direction: column; gap: 8px; align-items: center;
+}
+.toast-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card2); border: .5px solid var(--line2);
+  border-radius: 8px; padding: 10px 16px;
+  font-size: 13px; box-shadow: var(--shadow);
+  animation: toastIn .2s ease;
+  white-space: nowrap;
+}
+.toast-undo {
+  font-size: 11px; font-weight: 600; color: var(--teal);
+  cursor: pointer; padding: 2px 6px; border-radius: 3px;
+  border: .5px solid var(--teal-brd);
+  transition: background .12s;
+}
+.toast-undo:hover { background: var(--teal-bg); }
+
+/* ══════════════════════════════════════════════════════════════
+   SKELETON LOADING (V9 korjaus #06)
+══════════════════════════════════════════════════════════════ */
+.skel {
+  background: linear-gradient(90deg, var(--card2) 25%, var(--card) 50%, var(--card2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LOGIN SCREEN
+══════════════════════════════════════════════════════════════ */
+#sLogin {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 100vh;
+  background: var(--bg); padding: 32px;
+}
+.login-logo {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300;
+  font-size: 40px; margin-bottom: 4px; text-align: center;
+}
+.login-logo em { color: var(--teal); font-style: normal; }
+.login-eyebrow { font-size: 10px; letter-spacing: .28em; text-transform: uppercase;
+                  color: var(--ink3); text-align: center; margin-bottom: 40px; }
+.login-form { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 10px; }
+.login-input {
+  background: var(--card); border: .5px solid var(--line2); color: var(--ink);
+  padding: 13px 16px; border-radius: 8px; font-size: 14px; font-family: inherit;
+  outline: none; transition: border-color .15s;
+}
+.login-input:focus { border-color: var(--teal-brd); }
+.login-input::placeholder { color: var(--ink3); }
+.login-btn {
+  background: var(--teal); color: white; border: none;
+  padding: 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  letter-spacing: .2em; text-transform: uppercase; transition: opacity .12s;
+}
+.login-btn:hover { opacity: .9; }
+.login-err { font-size: 12px; color: var(--red); text-align: center; min-height: 18px; }
+.login-demo { font-size: 12px; color: var(--ink3); text-align: center; cursor: pointer; }
+.login-demo:hover { color: var(--teal); }
+
+/* ── SKROLLIBAARIT ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--teal-brd); }
+
+/* ── UTILS ── */
+.hidden { display: none !important; }
+.muted  { color: var(--ink3); }
+.accent { color: var(--teal); }
+.row    { display: flex; align-items: center; gap: 10px; }
+.sect-hdr { display: flex; align-items: center; justify-content: space-between;
+             margin-bottom: 14px; }
+.sect-link { font-size: 11px; font-weight: 500; color: var(--teal); cursor: pointer; }
+.sect-link:hover { opacity: .8; }
+
+/* DIVIDER */
+.divider { height: .5px; background: var(--line); margin: 28px 0; }
+
+/* ═══ INBOX ═══ */
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--teal);animation:heartbeat 2s ease infinite;margin-right:6px;vertical-align:middle}
+@keyframes heartbeat{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+.sb-badge,.ws-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--teal);color:#fff;font-size:10px;font-weight:600;margin-left:6px}
+.ws-badge{margin-left:8px}
+.inbox-header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:32px;flex-wrap:wrap}
+.inbox-h1{font-family:var(--font-d,'Cormorant Garamond',serif);font-weight:300;font-size:44px;line-height:1.05;color:var(--ink);margin:0 0 6px}
+.inbox-sub{font-size:13px;color:var(--ink3);letter-spacing:.02em}
+.inbox-filters{display:flex;gap:6px;flex-wrap:wrap}
+.inbox-filter{padding:8px 14px;background:transparent;border:.5px solid var(--line);border-radius:20px;color:var(--ink2);font-size:11px;cursor:pointer;font-weight:500;letter-spacing:.04em;transition:all .12s}
+.inbox-filter:hover{color:var(--ink);border-color:var(--ink3)}
+.inbox-filter.active{background:var(--teal-bg,rgba(26,122,94,.12));color:var(--teal,#28B090);border-color:var(--teal,#28B090)}
+.inbox-list{display:flex;flex-direction:column;gap:10px}
+.inbox-card{display:grid;grid-template-columns:auto 1fr auto;gap:18px;padding:18px 22px;background:var(--card);border:.5px solid var(--line);border-radius:10px;transition:all .15s;position:relative}
+.inbox-card:hover{border-color:var(--ink3)}
+.inbox-card.unseen{border-left:2.5px solid var(--teal,#28B090)}
+.inbox-card.attention{border-left:2.5px solid #E67E4F}
+.inbox-avatar{width:44px;height:44px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-family:var(--font-d,serif);font-size:18px;font-weight:400;color:var(--ink);flex-shrink:0}
+.inbox-body{min-width:0}
+.inbox-meta{display:flex;gap:10px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.inbox-who{font-size:13px;font-weight:600;color:var(--ink)}
+.inbox-num{font-size:11px;color:var(--ink3);font-family:var(--font-m,'DM Mono',monospace)}
+.inbox-tag{font-size:9px;letter-spacing:.14em;text-transform:uppercase;padding:2px 8px;border-radius:10px;background:var(--card2);color:var(--ink2)}
+.inbox-tag.parent{background:rgba(122,80,180,.16);color:#B488E0}
+.inbox-tag.player{background:rgba(26,122,94,.16);color:var(--teal,#28B090)}
+.inbox-tag.coach{background:rgba(230,126,79,.14);color:#E67E4F}
+.inbox-time{font-size:11px;color:var(--ink3);margin-left:auto}
+.inbox-text{font-size:13px;color:var(--ink2);line-height:1.6;margin-bottom:10px}
+.inbox-text strong{color:var(--ink);font-weight:500}
+.inbox-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.inbox-chip{font-size:10px;padding:3px 8px;border-radius:4px;background:var(--card2);color:var(--ink2);font-weight:500}
+.inbox-reactions{display:flex;gap:6px;align-items:center}
+.inbox-react{width:34px;height:34px;border-radius:50%;background:transparent;border:.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:all .15s}
+.inbox-react:hover{background:var(--card2);transform:scale(1.08);border-color:var(--ink3)}
+.inbox-react.done{background:var(--teal-bg,rgba(26,122,94,.14));border-color:var(--teal,#28B090)}
+.inbox-reply{padding:8px 14px;background:transparent;border:.5px solid var(--line);border-radius:6px;color:var(--ink2);font-size:11px;font-weight:500;cursor:pointer;letter-spacing:.04em}
+.inbox-reply:hover{color:var(--ink);border-color:var(--ink3)}
+.inbox-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end;min-width:130px}
+.inbox-empty{text-align:center;padding:60px 20px}
+
+/* ═══ PULSSI ═══ */
+.pulse-header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:32px;flex-wrap:wrap}
+.pulse-stats{display:flex;gap:28px}
+.pulse-stat-v{font-family:var(--font-d,serif);font-weight:300;font-size:36px;line-height:1;color:var(--ink)}
+.pulse-stat-l{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);margin-top:4px}
+.pulse-heatmap{background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:22px;margin-bottom:28px;overflow-x:auto}
+.heat-grid{display:grid;grid-template-columns:120px repeat(7,1fr);gap:3px;min-width:720px}
+.heat-header{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);text-align:center;padding:8px 2px;font-weight:500}
+.heat-header.today{color:var(--teal,#28B090)}
+.heat-player{font-size:12px;color:var(--ink);padding:10px 10px 10px 2px;font-weight:500;display:flex;align-items:center;gap:8px;cursor:pointer}
+.heat-player:hover{color:var(--teal,#28B090)}
+.heat-num{font-size:10px;color:var(--ink3);font-family:var(--font-m,monospace);min-width:22px}
+.heat-cell{aspect-ratio:1;min-height:38px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink2);cursor:pointer;transition:all .1s;background:var(--card2)}
+.heat-cell.l0{background:var(--card2)}
+.heat-cell.l1{background:rgba(26,122,94,.22)}
+.heat-cell.l2{background:rgba(26,122,94,.48)}
+.heat-cell.l3{background:rgba(26,122,94,.78)}
+.heat-cell.l4{background:var(--teal,#28B090);color:#fff;font-weight:600}
+.heat-cell.miss{background:rgba(230,126,79,.1);border:.5px dashed rgba(230,126,79,.35)}
+.heat-cell:hover{outline:1.5px solid var(--teal,#28B090);outline-offset:1px}
+.heat-cell.today-col{outline:1px solid rgba(26,122,94,.3)}
+.pulse-section{margin-top:28px}
+.pulse-today{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.pulse-today-card{padding:14px 16px;background:var(--card);border:.5px solid var(--line);border-radius:8px}
+.pulse-today-card .who{font-size:12px;color:var(--ink);font-weight:600;margin-bottom:4px}
+.pulse-today-card .what{font-size:11px;color:var(--ink2);line-height:1.5}
+.pulse-today-card .when{font-size:10px;color:var(--ink3);margin-top:6px;letter-spacing:.04em}
+
+/* Reply-modal (yksinkertainen) */
+.reply-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9998;display:none;align-items:center;justify-content:center;padding:20px}
+.reply-overlay.on{display:flex}
+.reply-modal{background:var(--card);border:.5px solid var(--line);border-radius:12px;width:100%;max-width:480px;padding:24px}
+.reply-modal h3{font-family:var(--font-d,serif);font-weight:400;font-size:22px;margin:0 0 6px;color:var(--ink)}
+.reply-modal .caps{margin-bottom:14px}
+.reply-modal textarea{width:100%;min-height:100px;padding:12px;background:var(--bg2);border:.5px solid var(--line);border-radius:6px;color:var(--ink);font-family:inherit;font-size:13px;resize:vertical;margin-bottom:14px}
+.reply-modal .actions{display:flex;gap:10px;justify-content:flex-end}
+.reply-modal button{padding:10px 18px;border-radius:6px;border:.5px solid var(--line);background:transparent;color:var(--ink2);font-size:12px;cursor:pointer;font-weight:500}
+.reply-modal button.primary{background:var(--teal,#28B090);border-color:var(--teal,#28B090);color:#fff}
+
+/* ══════════════════════════════════════════════════════════════
+   TYÖTILA 7 — TESTIT
+══════════════════════════════════════════════════════════════ */
+.testit-header { margin-bottom: 28px; }
+.testit-h1 { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 32px; margin-bottom: 4px; }
+.testit-sub { font-size: 12px; color: var(--ink2); }
+.testit-sect-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.testit-sect-title { font-size: 10px; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; color: var(--ink3); }
+.testit-card { background: var(--card); border: .5px solid var(--line2); border-radius: 10px; padding: 18px 22px; margin-bottom: 12px; transition: border-color .12s; }
+.testit-card:hover { border-color: var(--teal-brd); }
+.testit-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.testit-card-nimi { font-size: 15px; font-weight: 500; color: var(--ink); }
+.testit-card-meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--ink2); margin-top: 4px; }
+.testit-moodi-badge { font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; border: .5px solid; }
+.testit-moodi-rotaatio { color: var(--blue); background: rgba(111,168,220,.08); border-color: rgba(111,168,220,.2); }
+.testit-moodi-yksilö { color: var(--teal); background: var(--teal-bg); border-color: var(--teal-brd); }
+.testit-moodi-seka { color: var(--purple); background: rgba(176,138,224,.08); border-color: rgba(176,138,224,.2); }
+.testit-tila-avoin { font-size: 10px; font-weight: 600; color: var(--teal); background: var(--teal-bg); padding: 2px 8px; border-radius: 10px; }
+.testit-tila-suljettu { font-size: 10px; font-weight: 600; color: var(--ink3); background: var(--card2); padding: 2px 8px; border-radius: 10px; }
+.testit-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: .5px solid var(--line); }
+.testit-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; background: var(--card2); border: .5px solid var(--line2); font-size: 11px; font-weight: 500; color: var(--ink2); cursor: pointer; transition: all .12s; }
+.testit-btn:hover { border-color: var(--teal-brd); color: var(--teal); background: var(--teal-bg); }
+.testit-btn.primary { background: var(--teal-bg); border-color: var(--teal-brd); color: var(--teal); }
+.testit-btn.primary:hover { background: var(--teal); color: #fff; }
+.testit-btn.danger:hover { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+.testit-empty { text-align: center; padding: 48px 20px; color: var(--ink3); font-size: 13px; }
+.cal-evt.test { background: rgba(139,92,246,.10); border-color: #8B5CF6; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="sLogin">
+  <div class="login-logo">Talent<em>Master</em>™</div>
+  <div class="login-eyebrow">Valmentajan näkymä · v12</div>
+  <div class="login-form">
+    <input class="login-input" id="lEmail" type="email" placeholder="Sähköposti" autocomplete="email">
+    <input class="login-input" id="lPass"  type="password" placeholder="Salasana">
+    <button class="login-btn" onclick="login()">Kirjaudu sisään</button>
+    <div class="login-err" id="lErr"></div>
+    <div class="login-demo" onclick="loginDemo()">Kokeile demona →</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="sDash" class="hidden">
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">Talent<em>Master</em>™</div>
+      <div class="sb-role caps">Valmentaja</div>
+      <div class="sb-seura" id="sbSeura">—</div>
+    </div>
+
+    <nav class="sb-nav">
+      <div class="sb-section">Työtilat</div>
+      <div class="sb-item active" data-ws="inbox" onclick="setWs('inbox')">
+        <svg width="16" height="16"><use href="#ic-inbox"/></svg>Inbox
+        <span class="sb-badge" id="sbInboxBadge" style="display:none"></span>
+      </div>
+      <div class="sb-item" data-ws="today" onclick="setWs('today')">
+        <svg width="16" height="16"><use href="#ic-home"/></svg>Tänään
+      </div>
+      <div class="sb-item" data-ws="pulse" onclick="setWs('pulse')">
+        <svg width="16" height="16"><use href="#ic-pulse"/></svg>Pulssi
+      </div>
+      <div class="sb-item" data-ws="dev" onclick="setWs('dev')">
+        <svg width="16" height="16"><use href="#ic-dev"/></svg>Kehitys
+      </div>
+      <div class="sb-item" data-ws="season" onclick="setWs('season')">
+        <svg width="16" height="16"><use href="#ic-season"/></svg>Kausi
+      </div>
+      <div class="sb-item" data-ws="cal" onclick="setWs('cal')">
+        <svg width="16" height="16"><use href="#ic-cal"/></svg>Kalenteri
+      </div>
+      <div class="sb-item" data-ws="testit" onclick="setWs('testit')">
+        <svg width="16" height="16"><use href="#ic-test"/></svg>Testit
+      </div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section">Työkalut</div>
+      <div class="sb-item" onclick="openDrill('rpe')">
+        <svg width="16" height="16"><use href="#ic-drill"/></svg>Kirjaa RPE
+      </div>
+      <div class="sb-item" onclick="openDrill('adar')">
+        <svg width="16" height="16"><use href="#ic-obs"/></svg>Havainto
+      </div>
+      <div class="sb-item" onclick="setWs('season');toast('Kartoitukset avattu')">
+        <svg width="16" height="16"><use href="#ic-test"/></svg>Kartoitukset
+      </div>
+    </nav>
+
+    <div class="sb-bot">
+      <span class="mono muted" style="font-size:10px">v12.0</span>
+      <button class="theme-btn" onclick="toggleTheme()" title="Vaihda teema">
+        <svg><use href="#ic-sun" id="themeIcon"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HEADER -->
+    <div class="h-top">
+      <div>
+        <div class="h-greet serif" id="hGreet">Hyvää päivää.</div>
+        <div class="h-date mono muted" id="hDate"></div>
+      </div>
+      <button class="cmd-btn" onclick="openCmd()">
+        <svg width="13" height="13"><use href="#ic-search"/></svg>
+        Komennot <kbd>⌘K</kbd>
+      </button>
+    </div>
+
+    <!-- WSBAR -->
+    <div class="wsbar">
+      <div class="ws-tab active" data-ws="inbox" onclick="setWs('inbox')">
+        <span class="ws-num">01</span>Inbox
+        <span class="ws-badge" id="wsInboxBadge" style="display:none"></span>
+      </div>
+      <div class="ws-tab" data-ws="today" onclick="setWs('today')">
+        <span class="ws-num">02</span>Tänään
+      </div>
+      <div class="ws-tab" data-ws="pulse" onclick="setWs('pulse')">
+        <span class="ws-num">03</span>Pulssi
+      </div>
+      <div class="ws-tab" data-ws="dev" onclick="setWs('dev')">
+        <span class="ws-num">04</span>Kehitys
+      </div>
+      <div class="ws-tab" data-ws="season" onclick="setWs('season')">
+        <span class="ws-num">05</span>Kausi
+      </div>
+      <div class="ws-tab" data-ws="cal" onclick="setWs('cal')">
+        <span class="ws-num">06</span>Kalenteri
+      </div>
+      <div class="ws-tab" data-ws="testit" onclick="setWs('testit')">
+        <span class="ws-num">07</span>Testit
+        <span class="ws-badge" id="wsTestitBadge" style="display:none"></span>
+      </div>
+    </div>
+
+    <!-- ══ TYÖTILA: INBOX ══ -->
+    <div class="ws-view active" data-view="inbox">
+      <div class="inbox-header">
+        <div>
+          <div class="caps" style="margin-bottom:6px"><span class="live-dot"></span>Live · Joukkueen pulssi</div>
+          <h1 class="inbox-h1">Inbox</h1>
+          <div class="inbox-sub" id="inboxSub">Perheiden ja pelaajien kirjaukset</div>
+        </div>
+        <div class="inbox-filters">
+          <button class="inbox-filter active" data-fil="all" onclick="setInboxFilter('all')">Kaikki</button>
+          <button class="inbox-filter" data-fil="unseen" onclick="setInboxFilter('unseen')">Näkemättä</button>
+          <button class="inbox-filter" data-fil="attention" onclick="setInboxFilter('attention')">Huomio</button>
+          <button class="inbox-filter" data-fil="parent" onclick="setInboxFilter('parent')">Vanhemmat</button>
+        </div>
+      </div>
+      <div class="inbox-list" id="inboxList"></div>
+      <div class="inbox-empty" id="inboxEmpty" style="display:none">
+        <svg width="32" height="32" style="color:var(--ink3);margin-bottom:12px"><use href="#ic-check"/></svg>
+        <div style="font-size:14px;color:var(--ink2)">Kaikki käsitelty.</div>
+        <div style="font-size:12px;color:var(--ink3);margin-top:6px">Palaa myöhemmin.</div>
+      </div>
+    </div>
+
+    <!-- ══ TYÖTILA: PULSSI ══ -->
+    <div class="ws-view" data-view="pulse">
+      <div class="pulse-header">
+        <div>
+          <div class="caps" style="margin-bottom:6px">Joukkueen viikko</div>
+          <h1 class="inbox-h1">Pulssi</h1>
+          <div class="inbox-sub">Omatoimi ja aktiivisuus · 7 päivää</div>
+        </div>
+        <div class="pulse-stats" id="pulseStats"></div>
+      </div>
+      <div class="pulse-heatmap" id="pulseHeatmap"></div>
+      <div class="pulse-section">
+        <div class="caps" style="margin-bottom:14px">Tänään</div>
+        <div class="pulse-today" id="pulseToday"></div>
+      </div>
+    </div>
+
+    <!-- ══ TYÖTILA: TÄNÄÄN ══ -->
+    <div class="ws-view" data-view="today">
+
+      <!-- Signaali — V10-typografia -->
+      <div class="signal-block" id="signalBlock" onclick="openDrill('signal')">
+        <div class="signal-caps">
+          <div class="signal-dot"></div>
+          <span class="caps">Joukkueen tila · klikkaa syventääksesi</span>
+        </div>
+        <div class="signal-title" id="signalTitle">
+          Kuormitus nousussa viikon kolmannella päivällä —
+          <em>kevennä 20&nbsp;% tänään.</em>
+        </div>
+        <div class="signal-sub" id="signalSub">
+          Perustuu RPE-trendiin (7&nbsp;pv&nbsp;ka&nbsp;7.2, baseline&nbsp;5.8) ja kolmen
+          pelaajan poissaoloon. Kolme keinoa: lyhennä tehot, vähennä toistoja,
+          siirrä tekniikkaosuus alkuun.
+        </div>
+      </div>
+
+      <!-- Testitapahtuma tänään (dynaaminen) -->
+      <div id="todayTestitBlock" style="display:none;margin-bottom:22px;"></div>
+
+      <!-- Kolme toimenpidettä -->
+      <div class="actions-section">
+        <div class="actions-head sect-hdr">
+          <div class="caps">Nämä kolme tänään</div>
+        </div>
+        <div id="actionList"></div>
+      </div>
+
+      <!-- Metriikat -->
+      <div class="sect-hdr">
+        <div class="caps">Joukkueen tilanne</div>
+        <span class="sect-link" onclick="setWs('season')">Kausitrendi →</span>
+      </div>
+      <div class="metrics-grid" id="metricsGrid"></div>
+
+      <!-- ADAR-lista -->
+      <div class="sect-hdr">
+        <div class="caps">Viimeiset havainnot</div>
+        <span class="sect-link" onclick="openDrill('adar')">+ Uusi havainto</span>
+      </div>
+      <div class="adar-list" id="adarList"></div>
+
+      <!-- Pelaajat tänään -->
+      <div class="sect-hdr">
+        <div class="caps">Pelaajat — huomioitavaa</div>
+        <span class="sect-link" onclick="setWs('dev')">Kaikki pelaajat →</span>
+      </div>
+      <div class="players-today" id="playersTodayList"></div>
+
+    </div><!-- /today -->
+
+    <!-- ══ TYÖTILA: KEHITYS ══ -->
+    <div class="ws-view" data-view="dev">
+
+      <div class="dev-header">
+        <div>
+          <h2 class="serif" style="font-size:28px;margin-bottom:4px">Pelaajan elämäkerta</h2>
+          <div class="muted" style="font-size:13px">10&nbsp;kk näkymä · Kausi 25/26</div>
+        </div>
+      </div>
+
+      <!-- Pelaajapicker -->
+      <div class="player-picker" id="playerPicker" style="margin-bottom:24px"></div>
+
+      <!-- Pelaajan yläkortti -->
+      <div class="pinfo-card" id="pinfoCard"></div>
+
+      <!-- Aikajana -->
+      <div class="sect-hdr" style="margin-bottom:12px">
+        <div class="caps">Kehitysaikajana</div>
+      </div>
+      <div class="timeline-wrap" id="tlWrap"></div>
+
+      <!-- Narratiivi -->
+      <div class="sect-hdr" style="margin-top:24px;margin-bottom:12px">
+        <div class="caps">Merkittävät tapahtumat</div>
+      </div>
+      <div class="narrative-list" id="narrativeList"></div>
+
+    </div><!-- /dev -->
+
+    <!-- ══ TYÖTILA: KAUSI ══ -->
+    <div class="ws-view" data-view="season">
+
+      <div class="season-header">
+        <h2 class="season-title serif">Kauden rytmi ja kehitys</h2>
+        <div class="season-sub muted" id="seasonSub">Kausi 25/26</div>
+      </div>
+
+      <!-- Edistymispalkki -->
+      <div class="season-bar-wrap" style="margin-bottom:28px">
+        <div class="season-bar-labels" style="margin-bottom:6px">
+          <span class="caps">Kausi edistynyt</span>
+          <span class="mono muted" style="font-size:10px" id="seasonProgress">vk 17/36</span>
+        </div>
+        <div class="season-bar-track">
+          <div class="season-bar-fill" id="seasonBar"></div>
+        </div>
+      </div>
+
+      <div class="season-grid" id="seasonGrid"></div>
+
+      <div class="divider"></div>
+
+      <div class="sect-hdr">
+        <div class="caps">X-Factor-pelaajat</div>
+        <span class="sect-link" onclick="setWs('dev')">Aikajana →</span>
+      </div>
+      <div class="xfactor-list" id="xfList"></div>
+
+    </div><!-- /season -->
+
+    <!-- ══ TYÖTILA: KALENTERI ══ -->
+    <div class="ws-view" data-view="cal">
+
+      <div class="cal-header">
+        <div>
+          <h2 class="cal-title serif">Viikon rytmi</h2>
+          <div class="cal-sub muted">Joukkueen harjoitukset · ottelut · omatoimiset</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px">
+          <div class="cal-modebar" id="calModeBar">
+            <button class="cal-mode on" data-mode="week" onclick="setCalMode('week')">Viikko</button>
+            <button class="cal-mode" data-mode="month" onclick="setCalMode('month')">Kuukausi</button>
+            <button class="cal-mode" data-mode="season" onclick="setCalMode('season')">Kausi</button>
+          </div>
+          <button class="cal-add-btn" onclick="toast('Avaa: Lisää tapahtuma', 'cal-add')">+ Tapahtuma</button>
+        </div>
+      </div>
+
+      <div class="cal-wknav">
+        <button onclick="calNav(-1)" aria-label="Edellinen"><svg width="14" height="14" style="transform:rotate(180deg)"><use href="#ic-arrow-r"/></svg></button>
+        <button onclick="calNav(1)" aria-label="Seuraava"><svg width="14" height="14"><use href="#ic-arrow-r"/></svg></button>
+        <span class="cal-wk-label" id="calWkLabel">Viikko 17 · 20.–26. huhtikuuta</span>
+        <span class="cal-wk-sub" id="calWkSub">Kausi 25/26 · 17/36</span>
+      </div>
+
+      <div class="cal-week" id="calWeek"></div>
+
+      <div class="cal-legend">
+        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:rgba(26,122,94,.10);border-color:var(--teal)"></span>Joukkue-harjoitus</span>
+        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:rgba(184,92,56,.10);border-color:#B85C38"></span>Ottelu</span>
+        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:rgba(184,134,11,.10);border-color:#B8860B"></span>Voima · oheinen</span>
+        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:rgba(139,160,188,.10);border-color:#2A5DB0"></span>Omatoiminen (pelaajat)</span>
+        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:rgba(242,239,230,.03);border-color:rgba(242,239,230,.3)"></span>Lepo</span>
+      </div>
+
+      <!-- Omatoimisen koostekortit -->
+      <div class="sect-hdr" style="margin-top:32px; margin-bottom:12px">
+        <div class="caps">Omatoiminen tällä viikolla</div>
+        <span class="sect-link" onclick="toast('Kaikki omatoimiset →', 'self-all')">Kaikki →</span>
+      </div>
+      <div class="cal-self-grid">
+        <div class="cal-self-card">
+          <div class="cal-self-lbl">Osallistumisaste</div>
+          <div class="cal-self-val" id="calSelfPct">14/16</div>
+          <div class="cal-self-desc">pelaajaa kirjannut vähintään yhden omatoimisen tällä viikolla. <strong style="color:var(--teal)">+2 vs. viime viikko.</strong></div>
+        </div>
+        <div class="cal-self-card">
+          <div class="cal-self-lbl">Minuuttia keskim.</div>
+          <div class="cal-self-val" id="calSelfMin">42<span style="font-size:16px; color:var(--ink3); margin-left:4px">min</span></div>
+          <div class="cal-self-desc">per pelaaja. Suurin osa 20&nbsp;min jaksoissa pihalla kavereiden kanssa — ei raskasta treeniä.</div>
+        </div>
+        <div class="cal-self-card">
+          <div class="cal-self-lbl">Pihapelit &amp; haasteet</div>
+          <div class="cal-self-val" id="calSelfChallenges">23</div>
+          <div class="cal-self-desc">joukkuekaverien välistä haastetta viikossa. Yleisimmät: <em>3&nbsp;vs&nbsp;3 piha</em>, <em>seinäsyötöt-sarja</em>, <em>1&nbsp;vs&nbsp;1</em>.</div>
+        </div>
+      </div>
+
+      <!-- Pelaajat-rivit -->
+      <div class="sect-hdr" style="margin-top:28px; margin-bottom:10px">
+        <div class="caps">Pelaajien omatoimisuus · viikko 17</div>
+        <span class="sect-link" onclick="setWs('dev')">Aikajana →</span>
+      </div>
+      <div class="cal-players" id="calPlayers"></div>
+
+      <div style="margin-top: 20px; padding: 14px 18px; background: var(--card2); border:.5px solid var(--line); border-radius: 8px;">
+        <div class="caps" style="margin-bottom:8px">Muistutus</div>
+        <div style="font-size:12px; color:var(--ink2); line-height:1.6">
+          Omatoiminen ei ole joukkueharjoitus. Palkitse laatua, älä määrää.
+          Jos pelaaja pelaa 45&nbsp;min pihapelejä kavereiden kanssa, se on tavoite.
+          Vanhempien tuki (kuljetus, kannustus) näkyy näissä numeroissa.
+        </div>
+      </div>
+
+    </div><!-- /cal -->
+
+    <!-- ══ TYÖTILA: TESTIT ══ -->
+    <div class="ws-view" data-view="testit">
+      <div class="testit-header">
+        <h2 class="testit-h1 serif">Testitapahtumat</h2>
+        <div class="testit-sub muted">Harjoitettavuus-, HH- ja tekniikkakilpailut</div>
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <button class="testit-btn primary" onclick="_avaaUusiTapahtuma()">
+          <svg width="12" height="12"><use href="#ic-plus"/></svg>+ Uusi tapahtuma
+        </button>
+      </div>
+
+      <div class="testit-sect-hdr">
+        <div class="testit-sect-title">Avoimet tapahtumat</div>
+      </div>
+      <div id="testitAvoimet"></div>
+
+      <div class="testit-sect-hdr" style="margin-top:28px;">
+        <div class="testit-sect-title">Päättyneet tapahtumat</div>
+      </div>
+      <div id="testitSuljetut"></div>
+    </div><!-- /testit -->
+
+  </main>
+</div><!-- /layout -->
+</div><!-- /sDash -->
+
+<!-- DRILL-IN PANEL -->
+<div class="drill-back" id="drillBack" onclick="closeDrill()"></div>
+<div class="drill-panel" id="drillPanel">
+  <div class="drill-header">
+    <div class="drill-title" id="drillTitle">Signaalin syy</div>
+    <button class="drill-close" onclick="closeDrill()">
+      <svg width="14" height="14"><use href="#ic-close"/></svg>
+    </button>
+  </div>
+  <div id="drillContent" style="padding:0 24px 0"></div>
+  <div class="drill-actions" id="drillActions"></div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div class="cp-back" id="cpBack" onclick="closeCmd()"></div>
+<div class="cp-box" id="cpBox">
+  <div class="cp-input-row">
+    <svg width="16" height="16"><use href="#ic-search"/></svg>
+    <input id="cpInput" placeholder="Hae tai luo..." autocomplete="off" oninput="filterCmd()">
+  </div>
+  <div class="cp-hint caps">↑↓ navigoi · ↵ suorita · esc sulje</div>
+  <div id="cpList"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast-wrap"></div>
+
+<!-- REPLY MODAL (Inbox → perhe) -->
+<div class="reply-overlay" id="replyOverlay" onclick="if(event.target===this)closeReply()">
+  <div class="reply-modal">
+    <div class="caps">Viesti perheelle</div>
+    <h3 id="replyTitle">Viesti perheelle</h3>
+    <textarea id="replyText" placeholder="Kirjoita lyhyt, henkilökohtainen viesti perheelle…"></textarea>
+    <div class="actions">
+      <button onclick="closeReply()">Peru</button>
+      <button class="primary" onclick="sendReply()">Lähetä</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════
+   FIREBASE CONFIG
+════════════════════════════════════════════════════════════ */
+const _FB = {
+  apiKey:'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo',
+  authDomain:'talentmaster-pilot.firebaseapp.com',
+  projectId:'talentmaster-pilot',
+  storageBucket:'talentmaster-pilot.firebasestorage.app',
+  messagingSenderId:'872561784446',
+  appId:'1:872561784446:web:05c4c7996dfd46ddd14a2f'
+};
+firebase.initializeApp(_FB);
+const _auth = firebase.auth();
+const _db   = firebase.firestore();
+
+/* ════════════════════════════════════════════════════════════
+   TILA
+════════════════════════════════════════════════════════════ */
+let _user     = null;
+let _seura    = null;
+let _joukkue  = null;
+let _seuraId  = null;
+let _rooli    = null;
+let _demo     = false;
+let _ws       = 'today';
+let _kirjautuminenKesken = false;
+let _drillType = null;
+let _lastAction = null;
+let _toastTimer = null;
+let _activePelaaja = 'teemu';
+let _cpFocusIdx = -1;
+
+/* ════════════════════════════════════════════════════════════
+   REAALIDATA — TALLENNUSPAIKKA
+════════════════════════════════════════════════════════════ */
+let _pelaajatData = [];      // seurat/{sid}/pelaajat
+let _testitapahtumat = [];   // seurat/{sid}/testitapahtumat
+let _todayTestit = [];       // tänään olevat testitapahtumat
+
+
+/* ════════════════════════════════════════════════════════════
+   DEMO DATA (SAMA RAKENNE KUIN FIRESTORESSA)
+════════════════════════════════════════════════════════════ */
+const DEMO = {
+  valmentaja: { etunimi:'Antti', sukunimi:'Nieminen', seura:'KPV', joukkue:'U17' },
+  signal: {
+    title: 'Kuormitus nousussa viikon kolmannella päivällä — <em>kevennä 20\u00a0% tänään.</em>',
+    sub:   'Perustuu RPE-trendiin (7\u00a0pv\u00a0ka\u00a07.2, baseline\u00a05.8) ja kolmen pelaajan poissaoloon.',
+    level: 'warning', // ok | warning | alert
+  },
+  actions: [
+    { num:1, title:'Päivitä 70/30-ohjelma — laske tehot', mins:2, aika:'AAMU', sub:'harjoitus klo 18:00', priority:true, key:'ohjelma' },
+    { num:2, title:'Kirjaa RPE ja 0–3 ADAR-havaintoa', mins:4, aika:'ILTAPÄIVÄ', sub:'harjoituksen jälkeen', priority:false, key:'rpe' },
+    { num:3, title:'Katso Teemun X-Factor-trendi — neljäs nousu peräkkäin', mins:1, aika:'ILTA', sub:'pelaajanäkymä', priority:false, key:'xfactor' },
+  ],
+  metrics: [
+    { lbl:'Fiilinki — joukkue', val:'3.4', delta:'−0.2 vs. viime vk', trend:'down', sparks:[3.6,3.8,3.5,3.6,3.4], ctx:'14/16 vastasi eilen', trendClass:'trend-down bad' },
+    { lbl:'Kuormitus · RPE 7 pv', val:'7.2', delta:'+1.4 vs. baseline', trend:'up', sparks:[5.8,6.1,6.4,6.8,7.2], ctx:'ACWR 1.48 · varovaisuus', trendClass:'trend-up' },
+    { lbl:'ADAR — viikko', val:'17', delta:'+4 vs. viime vk', trend:'up', sparks:[11,13,12,15,17], ctx:'6 pelaajaa · 2 X-Factor', trendClass:'trend-up good' },
+    { lbl:'Paikalla — eilen', val:'14', unit:'/16', delta:'sama kuin vk', trend:'flat', sparks:[16,15,14,16,14], ctx:'2 loukk. · 0 sairaana', trendClass:'trend-flat' },
+  ],
+  adar: [
+    {
+      date:'EILEN', time:'19:12', playerId:'teemu', playerNum:'#7', playerName:'TEEMU SALO',
+      text:"\"3v2-hetki 67'. Uskalsi vaikean syötön, luki tilanteen oikein. Jatka tätä peliotetta.\"",
+      dims: { assess:0, decide:4, act:5, reassess:0 }, xfactor:true, video:'12s',
+    },
+    {
+      date:'EILEN', time:'19:08', playerId:'oiva', playerNum:'#11', playerName:'OIVA HEIKKINEN',
+      text:"\"Käännöksen nopeus paranee näkyvästi. Teki kaksi hyvää ohitusta oikealta laidalta.\"",
+      dims: { assess:0, decide:0, act:4, reassess:0 }, gem:true, video:null,
+    },
+    {
+      date:'2 PV', time:'20:30', playerId:'luukas', playerNum:'#4', playerName:'LUUKAS HAAPALA',
+      text:"\"Väsymys näkyi asennossa. Ei jaksanut juosta takaisin puolustamaan viimeisessä viidenneksessä.\"",
+      dims: { assess:2, decide:0, act:0, reassess:2 }, warn:true, video:'8s',
+    },
+  ],
+  players: [
+    { num:'7', name:'Teemu Salo', pos:'KH · #7', tags:['x'], note:'X-Factor neljäs peräkkäinen' },
+    { num:'11', name:'Oiva Heikkinen', pos:'HM · #11', tags:['gem'], note:'Piilohelmi · FLEI +3 kk:ssa' },
+    { num:'4', name:'Luukas Haapala', pos:'PM · #4', tags:['warn'], note:'Poissa · kuormitusperäinen' },
+    { num:'3', name:'Milo Korhonen', pos:'MVH · #3', tags:['warn'], note:'Poissa · kuormitusperäinen' },
+    { num:'9', name:'Oskari Mäki', pos:'HK · #9', tags:['x'], note:'X-Factor · laukaustekniikka' },
+  ],
+  pelaajat: {
+    teemu: {
+      name:'Teemu Salo', num:'#7', pos:'KH', flei:68, fleiDelta:'+8 vs. syksy',
+      adar:42, xfactor:11, testit:'7/8', fiilinki:'3.8 vakaa', ottelut:18, loukk:1,
+      narrative:[
+        { kk:'MARRAS', txt:'Ensimmäinen X-Factor-havainto: luki 2v1-tilanteen rohkeasti.', tag:'x' },
+        { kk:'TAMMI–HELMI', txt:'Nopeustestien kehitys +0.18\u00a0s 10\u00a0m:llä — tekniikkamuutos välitilasta.', tag:null },
+        { kk:'MAALIS', txt:'Takareisi — kaksi viikkoa sivussa. Fiilinki putosi kyseiseksi ajaksi.', tag:'warn' },
+        { kk:'HUHTI', txt:'Paluu: neljä peräkkäistä X-Factor-havaintoa. Nyt puhuvat ikäluokkaa vanhemmat.', tag:'x' },
+      ],
+    },
+    oiva: {
+      name:'Oiva Heikkinen', num:'#11', pos:'HM', flei:55, fleiDelta:'+3 kk:ssa',
+      adar:28, xfactor:3, testit:'5/8', fiilinki:'3.5 vakaa', ottelut:15, loukk:0,
+      narrative:[
+        { kk:'JOULU', txt:'Ensimmäinen piilohelmi-merkintä: luki syöttölinjan ennen kuin pallo tuli.', tag:'gem' },
+        { kk:'TAMMI', txt:'FLEI nousi 52 → 55. DFL-vahvistus alkaa näkyä paikallaan olemisessa.', tag:null },
+        { kk:'MAALIS–HUHTI', txt:'Kolme peräkkäistä hyvää ottelua — VP tietoinen, seuraa tilannetta.', tag:'gem' },
+      ],
+    },
+    luukas: {
+      name:'Luukas Haapala', num:'#4', pos:'PM', flei:61, fleiDelta:'+1 kk:ssa',
+      adar:19, xfactor:1, testit:'6/8', fiilinki:'3.1 lasku', ottelut:16, loukk:2,
+      narrative:[
+        { kk:'HELMI', txt:'X-Factor-merkintä: ratkaisi 2v2 rohkeasti vasemmalle.', tag:'x' },
+        { kk:'MAALIS', txt:'Poissa 2 vk — kuormitusperäinen takarevieste.', tag:'warn' },
+        { kk:'HUHTI', txt:'Paluu mutta kuorma pidettiin matalana. Paikalla mutta ei täydessä harjoituksessa.', tag:'warn' },
+      ],
+    },
+  },
+  season: {
+    vk: 17, vkTotal: 36,
+    harjoitukset: { tehty:112, tavoite:140, laatu:4.1 },
+    xfpelaajat: ['Teemu Salo','Iida Korhonen','Oskari Mäki','Aapo Virtanen'],
+    fiilinki: { ka:3.6, tavoite:4.0, info:'Vakain jakso tammi–helmi · nyt −0.4 tavoitteesta.' },
+    acwr: { ka:1.12, info:'Koko kauden ajan turvallisella alueella (0.8–1.3). Nyt 1.48 — viikko varovaisuutta.' },
+  },
+
+  // ── KALENTERI ──────────────────────────────────────────────
+  // Viikon 17 tapahtumat. Tunnit = index (8..21). day = 0..6 (Ma..Su).
+  cal: {
+    wk: 17,
+    wkLabel: 'Viikko 17 · 20.–26. huhtikuuta',
+    hours: [16, 17, 18, 19, 20],  // näytettävä aikaväli
+    events: [
+      // Maanantai — joukkue + piha
+      { day:0, hour:17, dur:1, type:'team', title:'Joukkue', meta:'17:00–18:30 · Töölö' },
+      { day:0, hour:19, dur:1, type:'self', title:'Oma · 7 pel', meta:'pihapelit · ~25 min' },
+      // Tiistai — voima
+      { day:1, hour:18, dur:1, type:'gym',  title:'Voima',   meta:'18:00–19:00 · halli' },
+      // Keskiviikko — joukkue + iso omatoiminen-piikki
+      { day:2, hour:17, dur:1, type:'team', title:'Joukkue · tekniikka', meta:'17:30–19:00' },
+      { day:2, hour:19, dur:1, type:'self', title:'Oma · 11 pel', meta:'pihapelit · 3v3 haaste' },
+      // Torstai — lepo
+      { day:3, hour:18, dur:1, type:'rest', title:'Lepo',     meta:'ei joukkue-harjoituksia' },
+      { day:3, hour:19, dur:1, type:'self', title:'Oma · 4 pel', meta:'seinäsyötöt' },
+      // Perjantai — joukkue
+      { day:4, hour:17, dur:1, type:'team', title:'Joukkue · pelikuva', meta:'17:00–18:30' },
+      { day:4, hour:19, dur:1, type:'self', title:'Oma · 3 pel', meta:'haaste: nopeusketju' },
+      // Lauantai — OTTELU
+      { day:5, hour:16, dur:1, type:'match',title:'Ottelu vs HJK', meta:'16:00 · kotona' },
+      // Sunnuntai — aktiivinen palautuminen
+      { day:6, hour:18, dur:1, type:'self', title:'Oma · 6 pel', meta:'kävely · aktiivinen palautuminen' },
+    ],
+    players: [
+      // { num, name, weekMin, streak, trend } — tällä viikolla kirjattu omatoiminen
+      { num:'#7',  name:'Teemu Salo',      min: 95, streak: 14, trend:'up',  note:'pihapelit 4×' },
+      { num:'#11', name:'Oiva Heikkinen',  min: 82, streak: 11, trend:'up',  note:'voima + piha' },
+      { num:'#4',  name:'Aapo Virtanen',   min: 71, streak:  9, trend:'up',  note:'haaste: 1v1 Teemu' },
+      { num:'#9',  name:'Iida Korhonen',   min: 68, streak:  8, trend:'flat',note:'pihapelit · siskon kanssa' },
+      { num:'#3',  name:'Oskari Mäki',     min: 54, streak:  6, trend:'up',  note:'seinäsyötöt' },
+      { num:'#18', name:'Leevi Niemi',     min: 48, streak:  5, trend:'flat',note:'3×' },
+      { num:'#22', name:'Kalle Rinne',     min: 42, streak:  5, trend:'up',  note:'juoksu+pallo' },
+      { num:'#13', name:'Venla Lampinen',  min: 38, streak:  4, trend:'flat',note:'1×' },
+      { num:'#6',  name:'Niilo Koskinen',  min: 33, streak:  3, trend:'flat',note:'2×' },
+      { num:'#20', name:'Akseli Rantala',  min: 28, streak:  3, trend:'flat',note:'pihapelit · veli' },
+      { num:'#15', name:'Eetu Hakala',     min: 22, streak:  2, trend:'down',note:'vain 1×', low:true },
+      { num:'#8',  name:'Roni Salminen',   min: 18, streak:  2, trend:'down',note:'vain 1×', low:true },
+      { num:'#5',  name:'Matias Laine',    min: 10, streak:  1, trend:'down',note:'ei tällä vk', low:true },
+      { num:'#17', name:'Topi Viitanen',   min:  8, streak:  1, trend:'down',note:'ei tällä vk', low:true },
+      { num:'#2',  name:'Veeti Järvinen',  min:  0, streak:  0, trend:'down',note:'loukkaantunut', low:true },
+      { num:'#10', name:'Lauri Heinonen',  min:  0, streak:  0, trend:'down',note:'sairaana',     low:true },
+    ],
+  },
+  // demo testitapahtumat
+  testitapahtumat: [
+    { id:'demo-testi-1', nimi:'Kevään harjoitettavuus', pvm:'2026-04-23', paikka:'Kokkolan jalkapallostadion',
+      protokolla:'harjoitettavuus_u15', moodi:'rotaatio', tila:'avoin',
+      pelaajatData: [ {tunniste:'salo.teemu',sukunimi:'Salo',etunimi:'Teemu',sukupuoli:'M',joukkue:'P14 YJ'} ] },
+    { id:'demo-testi-2', nimi:'HH-testi laaja', pvm:'2026-04-18', paikka:'Kipparihalli',
+      protokolla:'hh_laaja', moodi:'yksilö', tila:'suljettu',
+      pelaajatData: [ {tunniste:'salo.teemu',sukunimi:'Salo',etunimi:'Teemu',sukupuoli:'M',joukkue:'P14 YJ'},
+                       {tunniste:'pekka.p',sukunimi:'Pekka',etunimi:'Jussi',sukupuoli:'M',joukkue:'P14 YJ'} ] },
+    { id:'demo-testi-3', nimi:'Tekniikkakilpailu U12', pvm:'2026-05-02', paikka:'Eteläkenttä',
+      protokolla:'tekniikkakilpailu', moodi:'sekamalli', tila:'avoin',
+      pelaajatData: [] },
+  ],
+};
+
+/* ════════════════════════════════════════════════════════════
+   AUTH
+════════════════════════════════════════════════════════════ */
+_auth.onAuthStateChanged(async user => {
+  if (_kirjautuminenKesken) return;
+  if (user) {
+    _user = user;
+    if (!user.isAnonymous) await _lataaValmentaja(user.uid);
+    else _kaynnistaDemoTila();
+  } else {
+    _naytaLogin();
+  }
+});
+
+function _naytaLogin() {
+  document.getElementById('sLogin').classList.remove('hidden');
+  document.getElementById('sDash').classList.add('hidden');
+}
+
+function _naytaDash() {
+  document.getElementById('sLogin').classList.add('hidden');
+  document.getElementById('sDash').classList.remove('hidden');
+}
+
+async function login() {
+  const email = document.getElementById('lEmail').value.trim();
+  const pass  = document.getElementById('lPass').value;
+  const err   = document.getElementById('lErr');
+  err.textContent = '';
+  _kirjautuminenKesken = true;
+  try {
+    await _auth.signInWithEmailAndPassword(email, pass);
+    _kirjautuminenKesken = false;
+  } catch(e) {
+    _kirjautuminenKesken = false;
+    err.textContent = 'Virheellinen sähköposti tai salasana.';
+  }
+}
+
+async function loginDemo() {
+  _kirjautuminenKesken = true;
+  try {
+    await _auth.signInAnonymously();
+    _kirjautuminenKesken = false;
+    _demo = true;
+    _kaynnistaDemoTila();
+  } catch(e) { _kirjautuminenKesken = false; }
+}
+
+function logout() {
+  _auth.signOut();
+  _naytaLogin();
+}
+
+async function _lataaValmentaja(uid) {
+  try {
+    // Hae valmentajan profiili Firestoresta
+    const snap = await _db.collection('kayttajat').doc(uid).get();
+    if (snap.exists) {
+      const d = snap.data();
+      _seuraId = d.seuraId || 'kpv';
+      _rooli   = d.rooli || 'valmentaja';
+      _joukkue = d.joukkue || '';
+      document.getElementById('sbSeura').textContent = (d.seura||'') + (d.joukkue ? ' · ' + d.joukkue : '');
+      _alusta(d.etunimi || 'Valmentaja');
+    } else {
+      _kaynnistaDemoTila();
+    }
+  } catch(e) {
+    console.warn('[v12 auth]', e.message);
+    _kaynnistaDemoTila();
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   FIREBASE — REAALIDATAN LATAUS
+════════════════════════════════════════════════════════════ */
+async function _lataaPelaajat() {
+  if (!_seuraId) return;
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
+    _pelaajatData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { console.warn('[v16] Pelaajien lataus:', e.message); }
+}
+
+async function _lataaTestitapahtumat() {
+  if (!_seuraId) return;
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId).collection('testitapahtumat')
+      .orderBy('luotu', 'desc').limit(50).get();
+    _testitapahtumat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Etsi tämän päivän testit
+    const tanaan = new Date().toISOString().slice(0,10);
+    _todayTestit = _testitapahtumat.filter(t => t.pvm === tanaan && t.tila !== 'suljettu');
+    // Päivitä badget
+    const avoimet = _testitapahtumat.filter(t => t.tila !== 'suljettu').length;
+    const badge = document.getElementById('wsTestitBadge');
+    if (badge) { badge.textContent = avoimet || ''; badge.style.display = avoimet ? 'inline-flex' : 'none'; }
+    // Re-render affected views
+    renderToday();
+    renderCal();
+    renderTestit();
+  } catch(e) { console.warn('[v16] Testitapahtumien lataus:', e.message); }
+}
+
+async function _lataaTestitulokset(tapahtumaId) {
+  if (!_seuraId || !tapahtumaId) return {};
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId)
+      .collection('testitapahtumat').doc(tapahtumaId)
+      .collection('tulokset').get();
+    const tulokset = {};
+    snap.docs.forEach(d => { tulokset[d.id] = d.data().testit || {}; });
+    return tulokset;
+  } catch(e) { console.warn('[v16] Tulosten lataus:', e.message); return {}; }
+}
+
+
+function _kaynnistaDemoTila() {
+  _demo = true;
+  const d = DEMO.valmentaja;
+  _seuraId = 'kpv'; // Demo-seura
+  _testitapahtumat = DEMO.testitapahtumat || [];
+  // Etsi tämän päivän testit (demo: 2026-04-23)
+  const tanaan = new Date().toISOString().slice(0,10);
+  _todayTestit = _testitapahtumat.filter(t => t.pvm === '2026-04-23' && t.tila !== 'suljettu');
+  document.getElementById('sbSeura').textContent = d.seura + ' · ' + d.joukkue;
+  _alusta(d.etunimi);
+}
+
+
+
+/* ════════════════════════════════════════════════════════════
+   PROTOKOLLAT + EXCEL (kopioitu Testaus_v8)
+════════════════════════════════════════════════════════════ */
+const PROTOKOLLAT = {
+  harjoitettavuus_u12: {
+    nimi: 'Harjoitettavuuskartoitus U10–12',
+    ikäluokka: 'U10–12',
+    tyyppi: '1-3',
+    testit: [
+      { id: 'valakyykky',     nimi: 'Valakyykky',             ketju: 'SBL',  piste: 1 },
+      { id: 'luistelijakyykky', nimi: 'Luistelijan kyykky',  ketju: 'LL',   piste: 2 },
+      { id: 'askelkyykky',    nimi: 'Askelkyykky',            ketju: 'DFL',  piste: 2 },
+      { id: 'hyvahuomenta',   nimi: 'Hyvää huomenta -liike',  ketju: 'SBL',  piste: 1 },
+      { id: 'punnerrus_arv',  nimi: 'Etunojapunnerrus arvio', ketju: 'SFL',  piste: 3 },
+      { id: 'lankku',         nimi: 'Lankku 60s',             ketju: 'DFL',  piste: 4 },
+      { id: 'naruhypyt',      nimi: 'Naruhypyt 15s',          ketju: 'DIAG', piste: 5 },
+      { id: 'pituushyppy',    nimi: 'Vauhditon pituushyppy',  ketju: 'SFL',  piste: 6 },
+      { id: 'viisloikka',     nimi: '5-loikkatesti',          ketju: 'DIAG', piste: 6 }
+    ]
+  },
+  harjoitettavuus_u15: {
+    nimi: 'Harjoitettavuuskartoitus U13–15',
+    ikäluokka: 'U13–15',
+    tyyppi: '1-3',
+    testit: [
+      { id: 'pistoolikyykky', nimi: 'Pistoolikyykky tst',            ketju: 'LL',   piste: 1 },
+      { id: 'punnerrus_tst',  nimi: 'Etunojapunnerrus tst',          ketju: 'SFL',  piste: 2 },
+      { id: 'leuanveto',      nimi: 'Leuanveto',                     ketju: 'SBL',  piste: 3 },
+      { id: 'jalkojennosto',  nimi: 'Jalkojennosto riipunnasta',     ketju: 'DFL',  piste: 4 },
+      { id: 'yj_lantionnosto',nimi: 'YJ lantionnosto tasolla',       ketju: 'SBL',  piste: 4 },
+      { id: 'yj_naruhypyt',   nimi: 'YJ naruhypyt 30s',              ketju: 'DIAG', piste: 5 },
+      { id: 'sln_nosto',      nimi: 'SL-nosto selinmakuulta',        ketju: 'SBL',  piste: 6 },
+      { id: 'thomas_testi',   nimi: 'Thomas-testi (lonkka)',         ketju: 'SFL',  piste: 6 },
+      { id: 'pituushyppy',    nimi: 'Vauhditon pituushyppy',         ketju: 'SFL',  piste: 7 },
+      { id: 'viisloikka',     nimi: '5-loikkatesti',                 ketju: 'DIAG', piste: 7 }
+    ]
+  },
+  harjoitettavuus_u19: {
+    nimi: 'Harjoitettavuuskartoitus U15–19',
+    ikäluokka: 'U15–19',
+    tyyppi: 'num',
+    testit: [
+      { id: 'takakyykky_5rm', nimi: 'Takakyykky 5RM',        ketju: 'SBL',  yksikko: 'kg', piste: 1 },
+      { id: 'trapbar_5rm',    nimi: 'Trap Bar maastaveto 5RM',ketju: 'SBL',  yksikko: 'kg', piste: 1 },
+      { id: 'rinnalleveto_5rm',nimi:'Rinnalleveto 5RM',       ketju: 'DIAG', yksikko: 'kg', piste: 2 },
+      { id: 'yj_kyykky_5rm',  nimi: 'YJ kyykky 5RM',         ketju: 'LL',   yksikko: 'kg', piste: 2 },
+      { id: 'leuanveto',      nimi: 'Leuanvedot',             ketju: 'SBL',  yksikko: 'toistot', piste: 3 },
+      { id: 'penkkipunnerrus',nimi: 'Penkkipunnerrus 5RM',    ketju: 'SFL',  yksikko: 'kg', piste: 3 },
+      { id: 'jalkojennosto',  nimi: 'Jalkojennosto riipunnasta',ketju:'DFL', yksikko: 'toistot', piste: 4 },
+      { id: 'lonkka_ojennus', nimi: 'Lonkan aktiivinen ojennus',ketju:'SBL',yksikko: 'pisteet', piste: 4 },
+      { id: 'yj_pakianousu',  nimi: 'YJ päkiänousu',          ketju: 'DIAG', yksikko: 'toistot', piste: 5 },
+      { id: 'sln_nosto',      nimi: 'SL-nosto selinmakuulta', ketju: 'SBL',  yksikko: 'pisteet', piste: 5 },
+      { id: 'thomas_testi',   nimi: 'Thomas-testi',           ketju: 'SFL',  yksikko: 'pisteet', piste: 5 },
+      { id: 'pituushyppy',    nimi: 'Vauhditon pituushyppy',  ketju: 'SFL',  yksikko: 'cm', piste: 6 },
+      { id: 'viisloikka',     nimi: '5-loikkatesti',          ketju: 'DIAG', yksikko: 'cm', piste: 6 }
+    ]
+  },
+  hh_laaja: {
+    nimi: 'HH-testi laaja',
+    ikäluokka: 'U13+',
+    tyyppi: 'seka',
+    testit: [
+      { id: 'lin30m',         nimi: 'Lineaarinopeus 30m',      ketju: 'SBL',  yksikko: 's',   yritykset: 3, pienempi_parempi: true, valiajat: ['5m','10m','20m','30m'] },
+      { id: 'kasirata',       nimi: 'Kasirata',                ketju: 'LL',   yksikko: 's',   yritykset: 3, pienempi_parempi: true },
+      { id: 'sm_juoksu',      nimi: 'SM-juoksu (ilman palloa)',ketju: 'DIAG', yksikko: 's',   yritykset: 3, pienempi_parempi: true },
+      { id: 'sm_pallo',       nimi: 'SM-pallo',                ketju: 'DIAG', yksikko: 's',   yritykset: 2, pienempi_parempi: true },
+      { id: 'hyppy_sj',       nimi: 'Staattinen hyppy (SJ)',   ketju: 'SFL',  yksikko: 'cm',  yritykset: 3, pienempi_parempi: false },
+      { id: 'hyppy_cj',       nimi: 'Kevennyshyppy (CMJ)',     ketju: 'SFL',  yksikko: 'cm',  yritykset: 3, pienempi_parempi: false },
+      { id: 'mas',            nimi: 'MAS-juoksutesti',         ketju: 'SFL',  yksikko: 'km/h',yritykset: 1, pienempi_parempi: false },
+      { id: 'pujottelu_hh',   nimi: 'Pujottelu (lajitekniikka)',ketju:'LL',   yksikko: 's',   yritykset: 2, pienempi_parempi: true },
+      { id: 'syotto_hh',      nimi: 'Syöttö (lajitekniikka)', ketju: 'DIAG', yksikko: 's',   yritykset: 2, pienempi_parempi: true },
+    ]
+  },
+  hh_suppea: {
+    nimi: 'HH-testi suppea',
+    ikäluokka: 'U13+',
+    tyyppi: 'seka',
+    testit: [
+      { id: 'lin30m',         nimi: 'Lineaarinopeus 30m',      ketju: 'SBL',  yksikko: 's',   yritykset: 3, pienempi_parempi: true, valiajat: ['5m','10m','30m'] },
+      { id: 'hyppy_cj',       nimi: 'Kevennyshyppy (CMJ)',     ketju: 'SFL',  yksikko: 'cm',  yritykset: 3, pienempi_parempi: false },
+      { id: 'sm_juoksu',      nimi: 'SM-juoksu (ilman palloa)',ketju: 'DIAG', yksikko: 's',   yritykset: 3, pienempi_parempi: true },
+      { id: 'mas',            nimi: 'MAS-juoksutesti',         ketju: 'SFL',  yksikko: 'km/h',yritykset: 1, pienempi_parempi: false },
+    ]
+  },
+  tekniikkakilpailu: {
+    nimi: 'Tekniikkakilpailu',
+    ikäluokka: 'U8–U13',
+    tyyppi: 'tk',
+    testit: [
+      { id: 'ponnauttelu',      nimi: 'Ponnauttelu',       ketju: 'DFL',  yksikko: 's', yritykset: 2, ikaluokat: 'kaikki' },
+      { id: 'syotto',           nimi: 'Syöttö pujotellen', ketju: 'DIAG', yksikko: 's', yritykset: 2, ikaluokat: 'kaikki' },
+      { id: 'pujottelu',        nimi: 'Pujottelu',         ketju: 'LL',   yksikko: 's', yritykset: 2, ikaluokat: 'kaikki' },
+      { id: 'kuljetus_laukaus', nimi: 'Kuljetus-laukaus',  ketju: 'DIAG', yksikko: 's', yritykset: 2, ikaluokat: 'kaikki', lajiLogiikka: 'kuljetus_laukaus' },
+      { id: 'pituuspotku',      nimi: 'Pituuspotku',       ketju: 'SBL',  yksikko: 'm', yritykset: 4, ikaluokat: 'U12-U13', lajiLogiikka: 'pituuspotku' }
+    ],
+    merkkirajat: {
+      P13: { kulta:75, hopea:85, pronssi:100 },
+      P12: { kulta:80, hopea:90, pronssi:105 },
+      P11: { kulta:90, hopea:110, pronssi:130 },
+      P10: { kulta:100, hopea:120, pronssi:140 },
+      P9:  { kulta:85, hopea:100, pronssi:115 },
+      P8:  { kulta:95, hopea:105, pronssi:120 },
+      T13: { kulta:90, hopea:110, pronssi:130 },
+      T12: { kulta:95, hopea:115, pronssi:135 },
+      T11: { kulta:105, hopea:125, pronssi:145 },
+      T10: { kulta:110, hopea:135, pronssi:155 },
+      T9:  { kulta:105, hopea:120, pronssi:135 },
+      T8:  { kulta:110, hopea:125, pronssi:140 },
+    }
+  }
+};
+
+const KETJU_EMOJI = { SBL:'⚡', SFL:'🦵', LL:'↔️', DIAG:'🔄⬡', DFL:'🏗️' };
+const KETJU_NIMET = {
+  SBL: 'Vauhtiketju', SFL: 'Lähtöketju', LL: 'Sivuketju',
+  DIAG: 'Diagonaaliketju', DFL: 'Hallintaketju',
+};
+
+function _generoiExcel(tap) {
+  const proto = PROTOKOLLAT[tap.protokolla] || {};
+  const aktTestit = tap.aktiiviset_testit || (proto.testit||[]).map(t=>t.id);
+  const pelaajat = tap.pelaajatData || [];
+  const kausiNimi = { 'kevat':'Kevät','kesa':'Kesä','syksy':'Syksy' }[tap.kausi?.split('-')[1]] || tap.kausi || '';
+  const vuosi = tap.kausi?.split('-')[0] || tap.vuosi || '';
+
+  const wb = XLSX.utils.book_new();
+
+  // Ohjeet-lehti
+  const ohjeData = [
+    ['TalentMaster™ — Testipäivän Excel-pohja'],
+    [''],
+    ['Tapahtuma:', tap.nimi || proto.nimi],
+    ['Kausi:', kausiNimi + ' ' + vuosi],
+    ['Päivämäärä:', tap.pvm || ''],
+    ['Paikka:', tap.paikka || ''],
+    ['Arvioija:', tap.arvioija || ''],
+    ['Protokolla:', proto.nimi || tap.protokolla],
+    [''],
+    ['OHJEET:'],
+    ['1. Syötä testitulokset Testituloset-lehdelle'],
+    ['2. PalloID * = pakollinen kenttä'],
+    ['3. Syötä RAW-tulokset (aika s, pituus cm/m)'],
+    ['4. Hylättyä suoritusta EI kirjata — uusi yritys ennen kirjausta'],
+    ['5. Jos pelaaja testataan eri päivänä, merkitse oikea päivä Testaus-pvm -sarakkeeseen'],
+    ['6. Tallenna ja lataa TalentMaster Excel-tuontityökaluun'],
+    [''],
+    ['KAUSI-KENTTÄ: ' + (tap.kausi || '—') + ' — älä muuta'],
+    ['TAPAHTUMA-ID: ' + tap.id + ' — älä muuta'],
+  ];
+  const wsOhje = XLSX.utils.aoa_to_sheet(ohjeData);
+  wsOhje['!cols'] = [{wch:18},{wch:50}];
+  XLSX.utils.book_append_sheet(wb, wsOhje, '📋 Ohjeet');
+
+  // Testitulokset-lehti
+  const aktiivisetTestiObj = (proto.testit||[]).filter(t => aktTestit.includes(t.id));
+  const perustiedot = [
+    { key:'tunniste',   otsikko:'PalloID *',      leveys:14 },
+    { key:'sukunimi',   otsikko:'Sukunimi *',      leveys:16 },
+    { key:'etunimi',    otsikko:'Etunimi *',        leveys:14 },
+    { key:'sukupuoli',  otsikko:'Suk.\n(P=Poika\nT=Tyttö)', leveys:8  },
+    { key:'joukkue',    otsikko:'Joukkue',          leveys:16 },
+    { key:'testauspvm', otsikko:'Testaus-pvm',      leveys:12 },
+    { key:'phv_tila',   otsikko:'PHV-tila',         leveys:10 },
+  ];
+  const testiSarakkeet = aktiivisetTestiObj.map(t => ({
+    key: t.id,
+    otsikko: t.nimi + (t.yksikko ? ' (' + t.yksikko + ')' : ' (1-3p)'),
+    leveys: 11,
+    yksikko: t.yksikko || '1-3p',
+    yritykset: t.yritykset || 1
+  }));
+  const metaSarakkeet = [
+    { key:'kausi_meta',  otsikko:'Kausi',           leveys:12 },
+    { key:'tapahtumaId', otsikko:'Tapahtuma-ID',    leveys:22 },
+  ];
+  const kaikkiSarakkeet = [...perustiedot, ...testiSarakkeet, ...metaSarakkeet];
+  const infoRivi = [tap.nimi || proto.nimi + ' — ' + kausiNimi + ' ' + vuosi];
+  const otsikkoRivi = kaikkiSarakkeet.map(s => s.otsikko);
+  const pelaajatOletuspvm = tap.pvm || '';
+  const dataRivit = pelaajat.map(p => {
+    const rivi = [];
+    for (const s of kaikkiSarakkeet) {
+      if (s.key === 'testauspvm') rivi.push(pelaajatOletuspvm);
+      else if (s.key === 'kausi_meta') rivi.push(tap.kausi || '');
+      else if (s.key === 'tapahtumaId') rivi.push(tap.id);
+      else if (s.key === 'sukupuoli') {
+        const suk = p.sukupuoli || '';
+        rivi.push(suk === 'M' ? 'P' : suk === 'N' ? 'T' : suk);
+      }
+      else rivi.push(p[s.key] || '');
+    }
+    return rivi;
+  });
+  const tyhjaRiveja = Math.max(0, 5 - pelaajat.length);
+  for (let i = 0; i < tyhjaRiveja; i++) {
+    const r = new Array(kaikkiSarakkeet.length).fill('');
+    r[kaikkiSarakkeet.length-2] = tap.kausi || '';
+    r[kaikkiSarakkeet.length-1] = tap.id;
+    dataRivit.push(r);
+  }
+  const aoa = [[infoRivi[0]], otsikkoRivi, ...dataRivit];
+  const wsTulokset = XLSX.utils.aoa_to_sheet(aoa);
+  wsTulokset['!cols'] = kaikkiSarakkeet.map(s => ({ wch: s.leveys }));
+  wsTulokset['!freeze'] = { xSplit: perustiedot.length, ySplit: 2 };
+  const lehtiNimi = '📝 ' + (proto.nimi || 'Testituloset').substring(0, 20);
+  XLSX.utils.book_append_sheet(wb, wsTulokset, lehtiNimi);
+
+  const tiedostoNimi = 'TM_' + (tap.kausi||'testi') + '_' + (tap.joukkue||'joukkue')
+    .replace(/[^a-zA-Z0-9_]/g,'') + '_' + (tap.pvm||'').replace(/-/g,'') + '.xlsx';
+
+  XLSX.writeFile(wb, tiedostoNimi);
+  toast('Excel ladattu: ' + tiedostoNimi, 'excel');
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   RENDERÖINTI — TESTIT (Työtila #7)
+════════════════════════════════════════════════════════════ */
+function renderTestit() {
+  const avoimetEl = document.getElementById('testitAvoimet');
+  const suljetutEl = document.getElementById('testitSuljetut');
+  if (!avoimetEl || !suljetutEl) return;
+
+  const avoimet = (_testitapahtumat || []).filter(t => t.tila !== 'suljettu');
+  const suljetut = (_testitapahtumat || []).filter(t => t.tila === 'suljettu');
+
+  avoimetEl.innerHTML = avoimet.length
+    ? avoimet.map(t => _testiCardHtml(t)).join('')
+    : '<div class="testit-empty">Ei avoimia testitapahtumia.</div>';
+
+  suljetutEl.innerHTML = suljetut.length
+    ? suljetut.map(t => _testiCardHtml(t)).join('')
+    : '<div class="testit-empty">Ei päättyneitä tapahtumia.</div>';
+}
+
+function _testiCardHtml(t) {
+  const proto = PROTOKOLLAT[t.protokolla] || {};
+  const pelaajia = (t.pelaajatData || []).length || (t.pelaajat || []).length || 0;
+  const moodiCls = 'testit-moodi-' + (t.moodi || 'seka');
+  const tilaCls = t.tila === 'suljettu' ? 'testit-tila-suljettu' : 'testit-tila-avoin';
+  const tilaTxt = t.tila === 'suljettu' ? 'Suljettu' : 'Avoin';
+  const suljettu = t.tila === 'suljettu';
+
+  return `<div class="testit-card">
+    <div class="testit-card-header">
+      <div>
+        <div class="testit-card-nimi serif">${t.nimi || proto.nimi || 'Nimetön testi'}</div>
+        <div class="testit-card-meta">
+          <span><b class="mono">${t.pvm || '—'}</b></span>
+          <span>${t.paikka || ''}</span>
+          <span class="testit-moodi-badge ${moodiCls}">${t.moodi || 'sekamalli'}</span>
+          <span class="${tilaCls}">${tilaTxt}</span>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--ink2);">
+        ${pelaajia} pelaaja${pelaajia !== 1 ? 'a' : ''}
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink3);">${proto.nimi || t.protokolla || ''}</div>
+    <div class="testit-actions">
+      <button class="testit-btn primary" onclick="_avaaKentta('${t.id}')">
+        <svg width="12" height="12"><use href="#ic-external"/></svg>Avaa kenttänäkymä
+      </button>
+      <button class="testit-btn" onclick="_avaaLomake('${t.id}')">
+        <svg width="12" height="12"><use href="#ic-form"/></svg>Täytä lomake
+      </button>
+      <button class="testit-btn" onclick="_generoiExcel(_testiById('${t.id}'))">
+        <svg width="12" height="12"><use href="#ic-download"/></svg>Lataa Excel
+      </button>
+      ${suljettu ? '' : `<button class="testit-btn danger" onclick="_suljeTapahtuma('${t.id}')">
+        <svg width="12" height="12"><use href="#ic-close"/></svg>Sulje tapahtuma
+      </button>`}
+    </div>
+  </div>`;
+}
+
+function _testiById(id) {
+  return (_testitapahtumat || []).find(t => t.id === id) || {};
+}
+
+function _avaaKentta(tapahtumaId) {
+  const url = `TalentMaster_Testaus_v8.html?seuraId=${encodeURIComponent(_seuraId)}&tapahtumaId=${encodeURIComponent(tapahtumaId)}`;
+  window.open(url, '_blank');
+}
+
+function _avaaLomake(tapahtumaId) {
+  const url = `TalentMaster_Harjoitettavuus_Lomake_v4.html?tapahtumaId=${encodeURIComponent(tapahtumaId)}&seuraId=${encodeURIComponent(_seuraId)}`;
+  window.open(url, '_blank');
+}
+
+function _avaaUusiTapahtuma() {
+  const url = `TalentMaster_Testaus_v8.html?seuraId=${encodeURIComponent(_seuraId)}`;
+  window.open(url, '_blank');
+}
+
+async function _suljeTapahtuma(tapahtumaId) {
+  if (!confirm('Suljetaanko tapahtuma? Tapahtumaa ei voi enää muokata.')) return;
+  try {
+    if (_demo) {
+      const t = _testiById(tapahtumaId);
+      if (t) { t.tila = 'suljettu'; }
+    } else if (_seuraId) {
+      await _db.collection('seurat').doc(_seuraId).collection('testitapahtumat')
+        .doc(tapahtumaId).update({ tila: 'suljettu', paivitetty: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    toast('Tapahtuma suljettu', 'success');
+    _lataaTestitapahtumat();
+  } catch(e) {
+    toast('Virhe sulkemisessa: ' + e.message, 'error');
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   INBOX — TMBus-kytketty reaaliaikainen virta
+════════════════════════════════════════════════════════════ */
+let _inboxFilter='all';
+let _seenEvents = JSON.parse(localStorage.getItem('tm-inbox-seen')||'{}');
+let _doneReacts = JSON.parse(localStorage.getItem('tm-inbox-reacts')||'{}');
+
+function setInboxFilter(f){
+  _inboxFilter=f;
+  document.querySelectorAll('.inbox-filter').forEach(b=>b.classList.toggle('active',b.dataset.fil===f));
+  renderInbox();
+}
+
+function _getInboxEvents(){
+  if(!window.TMBus) return [];
+  const all = TMBus.getEvents().filter(e=>{
+    if(e.type==='training') return true;
+    if(e.type==='injury'||e.type==='attention') return true;
+    // VP-era tapahtumat (vp-bus-adapter.js julkaisee näitä)
+    if(e.type==='note.to_coach') return true;
+    if(e.type==='idp.approved'||e.type==='idp.rejected') return true;
+    if(e.type==='intervention.requested') return true;
+    return false;
+  });
+  // VP-era tapahtumissa ei välttämättä ole .at vaan .t tai .publishedAt
+  return all.sort((a,b)=>(b.at||b.t||b.publishedAt||0)-(a.at||a.t||a.publishedAt||0));
+}
+
+function _fmtTime(ts){
+  const diff=Date.now()-ts;
+  if(diff<60000) return 'juuri nyt';
+  if(diff<3600000) return Math.floor(diff/60000)+' min sitten';
+  if(diff<86400000) return Math.floor(diff/3600000)+' h sitten';
+  const pv=Math.floor(diff/86400000);
+  return pv===1?'eilen':pv+' pv sitten';
+}
+
+function _initials(name){
+  if(!name) return '?';
+  const p=name.split(' ');
+  return (p[0][0]||'')+(p[1]?p[1][0]:'');
+}
+
+function renderInbox(){
+  const list=document.getElementById('inboxList');
+  const empty=document.getElementById('inboxEmpty');
+  const sub=document.getElementById('inboxSub');
+  if(!list) return;
+  let evts=_getInboxEvents();
+  // suodattimet
+  if(_inboxFilter==='unseen')    evts=evts.filter(e=>!_seenEvents[e.id]);
+  if(_inboxFilter==='attention') evts=evts.filter(e=>e.type==='injury'||e.fiilis===1||e.fiilis===2);
+  if(_inboxFilter==='parent')    evts=evts.filter(e=>e.source==='parent');
+  // badge
+  const unseenN = _getInboxEvents().filter(e=>!_seenEvents[e.id]).length;
+  const sbB=document.getElementById('sbInboxBadge');
+  const wsB=document.getElementById('wsInboxBadge');
+  if(sbB){sbB.textContent=unseenN;sbB.style.display=unseenN?'inline-flex':'none';}
+  if(wsB){wsB.textContent=unseenN;wsB.style.display=unseenN?'inline-flex':'none';}
+  // sub
+  if(sub){
+    const total=_getInboxEvents().length;
+    sub.textContent=`${total} kirjausta · ${unseenN} näkemättä`;
+  }
+
+  if(!evts.length){
+    list.innerHTML='';
+    empty.style.display='block';
+    return;
+  }
+  empty.style.display='none';
+
+  const players = window.TMBus ? TMBus.getPlayers() : {};
+  list.innerHTML = evts.map(e=>{
+    // VP-era tapahtumissa playerId voi olla payloadin sisällä
+    const pid = e.playerId || e.payload?.playerId;
+    const p=players[pid]||{name:pid||e.payload?.coachId||'—',num:'?',ageBand:'u15'};
+    const unseen=!_seenEvents[e.id];
+    const vpEra = e.type && e.type.includes('.');
+    const attn=(e.type==='injury'||e.fiilis===1||e.fiilis===2||e.payload?.priority==='high'||e.type==='intervention.requested');
+    const cls=['inbox-card'];
+    if(unseen) cls.push('unseen');
+    if(attn) cls.push('attention');
+
+    const vpTagMap = {
+      'note.to_coach':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">VP · huomio</span>',
+      'idp.approved':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">VP · IDP hyväksytty</span>',
+      'idp.rejected':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">VP · IDP hylätty</span>',
+      'intervention.requested':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">VP · interventio</span>'
+    };
+    const sourceTag = vpTagMap[e.type] || ({
+      parent:'<span class="inbox-tag parent">Vanhempi</span>',
+      player:'<span class="inbox-tag player">Pelaaja</span>',
+      coach: '<span class="inbox-tag coach">Joukkue</span>'
+    }[e.source]) || '<span class="inbox-tag">Omatoimi</span>';
+
+    const tyypit={pihapeli:'Pihapeli',uinti:'Uintia',pyora:'Pyöräily',pallo:'Palloleikki',metsa:'Metsässä',muu:'Muu liike',individual:'Omatoimi',team:'Joukkueharjoitus'};
+    const fiilisEmoji=['','🤕','😴','😐','😊','💪'];
+    const fiilisLabel=['','Loukkasi','Väsynyt','Neutraali','Iloinen','Innoissaan'];
+
+    const reacts=_doneReacts[e.id]||{};
+    const vpTitleMap = {
+      'note.to_coach':'Valmennuspäälliköltä huomio',
+      'idp.approved':'Ehdottamasi IDP hyväksytty',
+      'idp.rejected':'Ehdottamasi IDP hylätty',
+      'intervention.requested':'VP pyytää interventiota'
+    };
+    const title = vpTitleMap[e.type]
+      || (e.type==='injury' ? 'Loukkaantumisesta ilmoitus'
+      : (tyypit[e.tyyppi]||e.tyyppi||'Kirjasi treenin'));
+
+    // VP-era text on payloadissa
+    const noteText = e.note || e.payload?.text || e.payload?.reason || e.payload?.note;
+    const note = noteText?`<div class="inbox-text">"${noteText}"</div>`:'';
+    const chips=[];
+    if(e.minutes) chips.push(`<span class="inbox-chip">${e.minutes} min</span>`);
+    if(e.fiilis) chips.push(`<span class="inbox-chip">${fiilisEmoji[e.fiilis]} ${fiilisLabel[e.fiilis]}</span>`);
+    if(e.payload?.priority==='high') chips.push(`<span class="inbox-chip" style="background:rgba(184,58,58,.1);color:#B83A3A">Korkea prioriteetti</span>`);
+    if(e.payload?.kind) chips.push(`<span class="inbox-chip">${e.payload.kind}</span>`);
+    if(e.payload?.due) chips.push(`<span class="inbox-chip">Takaraja ${e.payload.due}</span>`);
+    if(p.ageBand) chips.push(`<span class="inbox-chip">${p.ageBand.toUpperCase()}</span>`);
+
+    const evtTime = e.at || e.t || e.publishedAt || Date.now();
+    return `
+    <div class="${cls.join(' ')}" onclick="markSeen('${e.id}')">
+      <div class="inbox-avatar" ${vpEra?'style="background:#6B3FA0;color:#fff"':''}>${vpEra?'VP':_initials(p.name)}</div>
+      <div class="inbox-body">
+        <div class="inbox-meta">
+          <span class="inbox-who">${p.name}</span>
+          ${p.num!=='?'?`<span class="inbox-num">#${p.num}</span>`:''}
+          ${sourceTag}
+          <span class="inbox-time">${_fmtTime(evtTime)}</span>
+        </div>
+        <div style="font-size:13px;color:var(--ink);font-weight:500;margin-bottom:6px">${title}</div>
+        ${note}
+        <div class="inbox-chips">${chips.join('')}</div>
+        <div class="inbox-reactions" onclick="event.stopPropagation()">
+          ${['❤️','💪','⭐','🔥'].map(em=>`
+            <button class="inbox-react ${reacts[em]?'done':''}" onclick="inboxReact('${e.id}','${em}','${p.name.split(' ')[0]}','${e.playerId}')" title="Reagoi ${em}">${em}</button>
+          `).join('')}
+        </div>
+      </div>
+      <div class="inbox-actions" onclick="event.stopPropagation()">
+        <button class="inbox-reply" onclick="openReply('${e.playerId}','${p.name}','${e.id}')">Viestitä perheelle →</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function markSeen(eid){
+  if(_seenEvents[eid]) return;
+  _seenEvents[eid]=Date.now();
+  localStorage.setItem('tm-inbox-seen',JSON.stringify(_seenEvents));
+  renderInbox();
+}
+
+function inboxReact(eid,emoji,nimi,pid){
+  _doneReacts[eid]=_doneReacts[eid]||{};
+  _doneReacts[eid][emoji]=true;
+  localStorage.setItem('tm-inbox-reacts',JSON.stringify(_doneReacts));
+  markSeen(eid);
+  if(window.TMBus){
+    TMBus.publish('coach_react',{playerId:pid,emoji:emoji,refEventId:eid});
+  }
+  toast(`${emoji} ${nimi}:lle`);
+  renderInbox();
+}
+
+/* Reply-modal */
+let _replyCtx=null;
+function openReply(pid,pname,eid){
+  _replyCtx={pid,pname,eid};
+  const ov=document.getElementById('replyOverlay');
+  const h=document.getElementById('replyTitle');
+  const ta=document.getElementById('replyText');
+  if(h) h.textContent=`Viesti · ${pname}:n perhe`;
+  if(ta) ta.value='';
+  if(ov) ov.classList.add('on');
+  setTimeout(()=>ta?.focus(),50);
+}
+function closeReply(){ document.getElementById('replyOverlay')?.classList.remove('on'); }
+function sendReply(){
+  const txt=document.getElementById('replyText')?.value.trim();
+  if(!txt||!_replyCtx) return;
+  if(window.TMBus){
+    TMBus.publish('coach_message',{playerId:_replyCtx.pid,channel:'family',text:txt,refEventId:_replyCtx.eid});
+  }
+  markSeen(_replyCtx.eid);
+  toast(`Viesti lähetetty ${_replyCtx.pname}:n perheelle`);
+  closeReply();
+}
+
+/* ════════════════════════════════════════════════════════════
+   PULSSI — heatmap + tänään
+════════════════════════════════════════════════════════════ */
+function renderPulse(){
+  const heat=document.getElementById('pulseHeatmap');
+  const statsEl=document.getElementById('pulseStats');
+  const todayEl=document.getElementById('pulseToday');
+  if(!heat) return;
+
+  const players = window.TMBus ? TMBus.getPlayers() : {};
+  const pids = Object.keys(players);
+  const days=['Ma','Ti','Ke','To','Pe','La','Su'];
+  const now=new Date();
+  const dayMs=86400000;
+  // kuluvan viikon maanantai
+  const wd=(now.getDay()+6)%7; // 0=Ma
+  const monday=new Date(now.getFullYear(),now.getMonth(),now.getDate()-wd);
+
+  // laske eventit per pelaaja per päivä
+  const evts = window.TMBus ? TMBus.getEvents().filter(e=>e.type==='training') : [];
+  const matrix={};
+  pids.forEach(pid=>matrix[pid]=[0,0,0,0,0,0,0]);
+  evts.forEach(e=>{
+    const d=new Date(e.at);
+    const di=Math.floor((d-monday)/dayMs);
+    if(di>=0&&di<7&&matrix[e.playerId]!==undefined) matrix[e.playerId][di]++;
+  });
+
+  // tilastot
+  const totalEvts=evts.filter(e=>{const d=new Date(e.at);return d>=monday;}).length;
+  const activeToday=pids.filter(pid=>matrix[pid][wd]>0).length;
+  const streakPids=pids.filter(pid=>matrix[pid].slice(0,wd+1).every(v=>v>0)).length;
+  if(statsEl) statsEl.innerHTML=`
+    <div><div class="pulse-stat-v">${totalEvts}</div><div class="pulse-stat-l">Kirjausta viikolla</div></div>
+    <div><div class="pulse-stat-v">${activeToday}/${pids.length}</div><div class="pulse-stat-l">Aktiivinen tänään</div></div>
+    <div><div class="pulse-stat-v">${streakPids}</div><div class="pulse-stat-l">Streak käynnissä</div></div>
+  `;
+
+  // Heatmap
+  let html='<div class="heat-grid">';
+  html+='<div></div>';
+  days.forEach((dn,i)=>{
+    html+=`<div class="heat-header ${i===wd?'today':''}">${dn}</div>`;
+  });
+  pids.forEach(pid=>{
+    const p=players[pid];
+    html+=`<div class="heat-player" onclick="pickPlayer('${pid}');setWs('dev')"><span class="heat-num">#${p.num}</span>${p.name.split(' ')[0]}</div>`;
+    for(let i=0;i<7;i++){
+      const v=matrix[pid][i];
+      const lvl=v===0?'l0':v===1?'l2':v===2?'l3':'l4';
+      const cls=['heat-cell',lvl];
+      if(i===wd) cls.push('today-col');
+      if(i<wd && v===0) cls.push('miss');
+      html+=`<div class="${cls.join(' ')}" title="${p.name} · ${days[i]}: ${v} kirjausta">${v||''}</div>`;
+    }
+  });
+  html+='</div>';
+  heat.innerHTML=html;
+
+  // Tänään
+  const todayEvts = evts.filter(e=>{
+    const d=new Date(e.at);
+    return d.toDateString()===now.toDateString();
+  }).sort((a,b)=>b.at-a.at);
+  if(todayEl){
+    if(!todayEvts.length){
+      todayEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--ink3);font-size:12px;background:var(--card);border:.5px solid var(--line);border-radius:8px">Ei kirjauksia tältä päivältä.</div>';
+    } else {
+      const tyypit={pihapeli:'pihapeli',uinti:'uinti',pyora:'pyöräily',pallo:'palloleikki',metsa:'metsä',muu:'muu',individual:'omatoimi',team:'joukkue'};
+      todayEl.innerHTML=todayEvts.map(e=>{
+        const p=players[e.playerId]||{name:e.playerId,num:'?'};
+        const src=e.source==='parent'?'vanhempi kirjasi':e.source==='player'?'pelaaja kirjasi':'joukkue';
+        return `<div class="pulse-today-card">
+          <div class="who">${p.name} · <span style="color:var(--ink3)">#${p.num}</span></div>
+          <div class="what">${tyypit[e.tyyppi]||e.tyyppi||'treeni'}${e.minutes?' · '+e.minutes+' min':''}${e.fiilis?' · '+['','🤕','😴','😐','😊','💪'][e.fiilis]:''}</div>
+          <div class="when">${src} · ${_fmtTime(e.at)}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   TMBUS SUBSCRIBE
+════════════════════════════════════════════════════════════ */
+function _initBus(){
+  if(!window.TMBus) return;
+  TMBus.subscribe((msg)=>{
+    if(!msg||msg.kind!=='event') return;
+    // päivitä näkymät
+    renderInbox();
+    if(_ws==='pulse') renderPulse();
+    // notifikaatio
+    const evt = msg.evt;
+    if(evt.type==='training'&&evt.source!=='coach'){
+      const p=TMBus.getPlayers()[evt.playerId];
+      toast(`${p?.name||'Pelaaja'} kirjasi treenin`,'inbox');
+    }
+    // VP-era ilmoitukset
+    if(evt.type==='note.to_coach'){
+      const pid = evt.payload?.playerId;
+      const p = pid ? TMBus.getPlayers()[pid] : null;
+      const prio = evt.payload?.priority==='high' ? '⚠ ' : '';
+      toast(`${prio}VP: huomio${p?' · '+p.name:''}`,'inbox');
+    }
+    if(evt.type==='idp.approved'){
+      toast(`VP hyväksyi IDP-ehdotuksesi`,'inbox');
+    }
+    if(evt.type==='idp.rejected'){
+      toast(`VP hylkäsi IDP-ehdotuksesi — tarkista perustelu`,'inbox');
+    }
+    if(evt.type==='intervention.requested'){
+      const pid = evt.payload?.playerId;
+      const p = pid ? TMBus.getPlayers()[pid] : null;
+      toast(`VP pyytää interventiota${p?' · '+p.name:''}`,'inbox');
+    }
+  });
+}
+function _alusta(nimi) {
+  _naytaDash();
+  _setGreet(nimi);
+  _setDate();
+  renderInbox();
+  renderPulse();
+  renderToday();
+  renderDev();
+  renderSeason();
+  renderCal();
+  renderTestit();
+  initCmdPalette();
+  _initKeyboard();
+  _initBus();
+  // Lataa reaalidata Firestoresta (ei blokkaa renderöintiä)
+  if (!_demo && _seuraId) {
+    _lataaPelaajat();
+    _lataaTestitapahtumat();
+  }
+}
+
+function _setGreet(nimi) {
+  const h = new Date().getHours();
+  const prefix = h < 11 ? 'Hyvää aamua' : h < 17 ? 'Hyvää päivää' : 'Hyvää iltaa';
+  document.getElementById('hGreet').textContent = prefix + ', ' + nimi + '.';
+}
+
+function _setDate() {
+  const d  = new Date();
+  const pv = ['sunnuntai','maanantai','tiistai','keskiviikko','torstai','perjantai','lauantai'][d.getDay()];
+  const kk = ['tammikuuta','helmikuuta','maaliskuuta','huhtikuuta','toukokuuta','kesäkuuta',
+               'heinäkuuta','elokuuta','syyskuuta','lokakuuta','marraskuuta','joulukuuta'][d.getMonth()];
+  const vk = _getVk(d);
+  document.getElementById('hDate').textContent =
+    (pv.charAt(0).toUpperCase()+pv.slice(1)) + ', ' + d.getDate() + '. ' + kk + ' · VIIKKO ' + vk;
+}
+
+function _getVk(d) {
+  const startOfYear = new Date(d.getFullYear(),0,1);
+  return Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+}
+
+/* ════════════════════════════════════════════════════════════
+   WORKSPACE
+════════════════════════════════════════════════════════════ */
+function setWs(ws) {
+  _ws = ws;
+  document.querySelectorAll('.ws-view').forEach(v => v.classList.toggle('active', v.dataset.view === ws));
+  document.querySelectorAll('.ws-tab').forEach(t  => t.classList.toggle('active',  t.dataset.ws === ws));
+  document.querySelectorAll('.sb-item[data-ws]').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
+  localStorage.setItem('tm-ws', ws);
+  // View-specific rendering
+  if (ws === 'inbox') renderInbox();
+  if (ws === 'pulse') renderPulse();
+  if (ws === 'testit') renderTestit();
+  // Scroll top
+  document.querySelector('.main')?.scrollTo({ top:0, behavior:'smooth' });
+}
+
+/* ════════════════════════════════════════════════════════════
+   TÄNÄÄN
+════════════════════════════════════════════════════════════ */
+function renderToday() {
+  _renderActions();
+  _renderMetrics();
+  _renderAdar();
+  _renderPlayersToday();
+  _renderTodayTestit();
+}
+
+function _renderTodayTestit() {
+  const el = document.getElementById('todayTestitBlock');
+  if (!el) return;
+  const testit = (_todayTestit || []);
+  if (!testit.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const t = testit[0];
+  el.innerHTML = `
+    <div class="signal-block" style="border-color:#8B5CF6;background:rgba(139,92,246,.05);" onclick="setWs('testit')">
+      <div class="signal-caps">
+        <div class="signal-dot" style="background:#8B5CF6;"></div>
+        <span class="caps">Testitapahtuma tänään</span>
+      </div>
+      <div class="signal-title">${t.nimi || PROTOKOLLAT[t.protokolla]?.nimi || 'Testi'}</div>
+      <div class="signal-sub">${t.paikka || ''} · ${PROTOKOLLAT[t.protokolla]?.nimi || t.protokolla || ''}</div>
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button class="td-signal-act" onclick="event.stopPropagation();_avaaKentta('${t.id}')">Avaa kenttänäkymä</button>
+        <button class="td-signal-act" onclick="event.stopPropagation();_avaaLomake('${t.id}')">Täytä lomake</button>
+      </div>
+    </div>`;
+}
+
+function _renderActions() {
+  const el = document.getElementById('actionList');
+  if (!el) return;
+  el.innerHTML = DEMO.actions.map(a => `
+    <div class="action-row${a.priority ? ' priority' : ''}" onclick="actionClick('${a.key}')">
+      <div class="action-num">${a.num}</div>
+      <div>
+        <div class="action-title">${a.title}</div>
+        <div class="action-meta">${a.mins} min · ${a.sub||''}</div>
+      </div>
+      <div class="action-arrow">
+        <svg width="16" height="16"><use href="#ic-arrow-r"/></svg>
+      </div>
+      <div class="action-time">${a.aika}</div>
+    </div>`).join('');
+}
+
+function actionClick(key) {
+  if (key === 'rpe')     { openDrill('rpe'); return; }
+  if (key === 'xfactor') { setWs('dev'); pickPlayer('teemu'); return; }
+  if (key === 'ohjelma') { toast('Avattu: 70/30-ohjelma', 'ohjelma'); return; }
+  toast('Avattu: ' + DEMO.actions.find(a=>a.key===key)?.title, key);
+}
+
+function _renderMetrics() {
+  const el = document.getElementById('metricsGrid');
+  if (!el) return;
+  el.innerHTML = DEMO.metrics.map(m => {
+    const sparks = m.sparks || [0,0,0,0,0];
+    const max = Math.max(...sparks), min = Math.min(...sparks);
+    const range = max - min || 1;
+    const pts = sparks.map((s,i) => {
+      const x = (i/(sparks.length-1))*60;
+      const y = 14 - ((s-min)/range)*12 - 1;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const color = m.trend === 'up'   && m.trendClass.includes('bad')  ? 'var(--red)'
+                : m.trend === 'down' && m.trendClass.includes('bad')  ? 'var(--red)'
+                : m.trend === 'flat' ? 'var(--ink3)' : 'var(--teal)';
+    const sym = m.trend === 'up' ? '▲' : m.trend === 'down' ? '▼' : '—';
+    return `
+      <div class="metric-card">
+        <div class="metric-lbl">${m.lbl}</div>
+        <div class="metric-val">${m.val}${m.unit?`<span style="font-size:22px;color:var(--ink3)">${m.unit}</span>`:''}</div>
+        <div class="metric-trend">
+          <span class="${m.trendClass}" style="font-size:10px">${sym}</span>
+          <span class="${m.trendClass}">${m.delta}</span>
+        </div>
+        <svg class="metric-spark" viewBox="0 0 60 14" preserveAspectRatio="none">
+          <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="metric-ctx">${m.ctx}</div>
+      </div>`;
+  }).join('');
+}
+
+function _renderAdar() {
+  const el = document.getElementById('adarList');
+  if (!el) return;
+  el.innerHTML = DEMO.adar.map(a => {
+    const dimHtml = ['assess','decide','act','reassess'].map(d => {
+      const v = a.dims[d];
+      const lbl = d.toUpperCase();
+      return v > 0 ? `<span class="on">${lbl}·${v}</span>` : `<span>${lbl}</span>`;
+    }).join('');
+    const badge = a.xfactor ? `<span class="xf">★ X-FACTOR</span>`
+                 : a.gem   ? `<span style="color:var(--purple);font-weight:600">◆ PIILOHELMI</span>`
+                 : a.warn  ? `<span style="color:var(--amber);font-weight:600">⚠ HUOMIO</span>` : '';
+    const videoBtn = a.video
+      ? `<button class="adar-video" onclick="event.stopPropagation();toast('Videoklippi · ${a.video}','video')"><svg><use href="#ic-video"/></svg>${a.video}</button>`
+      : `<button class="adar-video" onclick="event.stopPropagation();toast('Lisää video','video')"><svg><use href="#ic-plus"/></svg>VIDEO</button>`;
+    return `
+      <div class="adar-item">
+        <div class="adar-date">${a.date}<br>${a.time}</div>
+        <div>
+          <div class="adar-player" onclick="pickPlayer('${a.playerId}');setWs('dev')">
+            <svg width="12" height="12"><use href="#ic-adar-ring"/></svg>
+            ${a.playerNum} ${a.playerName}
+          </div>
+          <div class="adar-text">${a.text}</div>
+          <div class="adar-dim">${dimHtml} ${badge}</div>
+        </div>
+        ${videoBtn}
+      </div>`;
+  }).join('');
+}
+
+function _renderPlayersToday() {
+  const el = document.getElementById('playersTodayList');
+  if (!el) return;
+  const tagMap = {
+    x:    { cls:'tag-x',    txt:'X-Factor' },
+    gem:  { cls:'tag-gem',  txt:'Piilohelmi' },
+    warn: { cls:'tag-warn', txt:'Poissa' },
+    inj:  { cls:'tag-inj',  txt:'Loukk.' },
+  };
+  el.innerHTML = DEMO.players.map(p => {
+    const pid = p.name.split(' ')[0].toLowerCase();
+    return `
+    <div class="player-row">
+      <div class="player-num" onclick="pickPlayer('${pid}');setWs('dev')" style="cursor:pointer">${p.num}</div>
+      <div class="player-info" onclick="pickPlayer('${pid}');setWs('dev')" style="cursor:pointer">
+        <div class="player-name">${p.name}</div>
+        <div class="player-pos">${p.pos} · ${p.note}</div>
+      </div>
+      <div class="player-tags">
+        ${p.tags.map(t => `<span class="tag ${tagMap[t]?.cls||''}">${tagMap[t]?.txt||t}</span>`).join('')}
+      </div>
+      <button class="player-open-btn" onclick="openPelaaja('${pid}')" title="Avaa Pelaaja v4 -näkymä">
+        <svg><use href="#ic-external"/></svg>Pelaaja
+      </button>
+    </div>`;
+  }).join('');
+}
+
+/* ═══ PELAAJA-KYTKÖS — avaa Pelaaja v4 uuteen välilehteen ═══ */
+function openPelaaja(pid) {
+  // Demo: URL-parametrit vastaavat Pelaaja v4:n oletuksia
+  // Tuotannossa: seuraId tulee valmentajan profiilista, pelaajaId on UID
+  const pelaajaIdMap = {
+    teemu:  { sid:'kpv', pid:'demo-teemu',  nimi:'Teemu Salo' },
+    oiva:   { sid:'kpv', pid:'demo-oiva',   nimi:'Oiva Heikkinen' },
+    luukas: { sid:'kpv', pid:'demo-luukas', nimi:'Luukas Haapala' },
+    milo:   { sid:'kpv', pid:'demo-milo',   nimi:'Milo Korhonen' },
+    oskari: { sid:'kpv', pid:'demo-oskari', nimi:'Oskari Mäki' },
+  };
+  const t = pelaajaIdMap[pid];
+  if (!t) { toast('Pelaajaa ei löytynyt'); return; }
+  const url = `Pelaaja v4.html?seuraId=${t.sid}&pelaajaId=${t.pid}&nimi=${encodeURIComponent(t.nimi)}`;
+  window.open(url, '_blank', 'noopener');
+  toast('Avataan: ' + t.nimi + ' → Pelaaja v4', 'pelaaja');
+}
+
+/* ════════════════════════════════════════════════════════════
+   KEHITYS
+════════════════════════════════════════════════════════════ */
+function renderDev(pid) {
+  if (pid) _activePelaaja = pid;
+  const p = DEMO.pelaajat[_activePelaaja] || DEMO.pelaajat.teemu;
+  _renderPlayerPicker();
+  _renderPinfo(p);
+  _renderTimeline(p);
+  _renderNarrative(p);
+}
+
+function pickPlayer(pid) {
+  renderDev(pid);
+}
+
+function _renderPlayerPicker() {
+  const el = document.getElementById('playerPicker');
+  if (!el) return;
+  el.innerHTML = Object.entries(DEMO.pelaajat).map(([id, p]) => `
+    <div class="player-pill${_activePelaaja===id?' active':''}" onclick="pickPlayer('${id}')">
+      ${p.name} <span style="color:var(--ink3);font-size:11px;margin-left:4px">${p.num}</span>
+    </div>`).join('');
+}
+
+function _renderPinfo(p) {
+  const el = document.getElementById('pinfoCard');
+  if (!el) return;
+  const stats = [
+    { lbl:'FLEI', val:p.flei, delta:p.fleiDelta, color: p.flei>=65?'var(--teal)':p.flei>=55?'var(--amber)':'var(--red)' },
+    { lbl:'ADAR-kirjauksia', val:p.adar, delta:p.xfactor+' X-Factor', color:'var(--ink)' },
+    { lbl:'Testit', val:p.testit, delta:'suoritettu', color:'var(--ink)' },
+    { lbl:'Fiilinki', val:p.fiilinki.split(' ')[0], delta:p.fiilinki.split(' ').slice(1).join(' '), color:'var(--ink)' },
+    { lbl:'Ottelut / loukk.', val:p.ottelut+'/'+p.loukk, delta:p.loukk>0?'Huomio':'Kaikki ok', color:'var(--ink)' },
+  ];
+  el.innerHTML = `
+    <div style="grid-column:1/-1">
+      <div class="pinfo-name serif">${p.name}</div>
+      <div class="pinfo-sub">${p.pos} · ${p.num} · Kausi 25/26 · lokakuu–heinäkuu</div>
+    </div>
+    ${stats.map(s=>`
+      <div>
+        <div class="pstat-lbl">${s.lbl}</div>
+        <div class="pstat-val serif" style="color:${s.color}">${s.val}</div>
+        <div class="pstat-delta mono trend-${s.delta.includes('+')?'up':s.delta.includes('-')?'down':'flat'}" style="font-size:11px;color:var(--ink3)">${s.delta}</div>
+      </div>`).join('')}`;
+}
+
+function _renderTimeline(p) {
+  const el = document.getElementById('tlWrap');
+  if (!el) return;
+  const months = ['LOKA','MARRAS','JOULU','TAMMI','HELMI','MAALIS','HUHTI','TOUKO','KESÄ','HEINÄ'];
+  // Laske testitapahtumat kuukausittain
+  const kuukausiIndeksit = { '01':3,'02':4,'03':5,'04':6,'05':7,'06':8,'07':9,'10':0,'11':1,'12':2 };
+  const testiCountPerMonth = new Array(10).fill(0);
+  (_testitapahtumat || []).forEach(t => {
+    const kk = (t.pvm || '').split('-')[1];
+    const idx = kuukausiIndeksit[kk];
+    if (idx !== undefined) testiCountPerMonth[idx]++;
+  });
+  // Käytä demodataa jos ei reaalidataa; muuten päivitä Testit-rivi
+  const rows = [
+    { lbl:'ADAR', color:'var(--teal)',   data:[3,4,5,6,5,4,6,0,0,0] },
+    { lbl:'Testit', color:'var(--blue)', data: testiCountPerMonth.some(c=>c>0) ? testiCountPerMonth : [1,0,0,1,1,0,0,0,0,0] },
+    { lbl:'Fiilinki', color:'var(--amber)', data:[3.5,3.8,3.6,3.9,3.8,3.1,3.8,0,0,0] },
+    { lbl:'Ottelu', color:'var(--purple)', data:[2,3,3,2,3,1,4,0,0,0] },
+    { lbl:'Loukk.',  color:'var(--red)',    data:[0,0,0,0,0,1,0,0,0,0] },
+  ];
+  const maxPerRow = rows.map(r => Math.max(...r.data));
+
+  el.innerHTML = `
+    <div class="tl-months">
+      <div class="tl-month-hdr" style="text-align:left">Kerros</div>
+      ${months.map(m=>`<div class="tl-month-hdr">${m}</div>`).join('')}
+    </div>
+    ${rows.map((r,ri)=>`
+      <div class="tl-row">
+        <div class="tl-row-lbl">${r.lbl}</div>
+        ${r.data.map((v,mi)=>`
+          <div class="tl-cell">
+            ${v > 0 ? `<div class="tl-bar" style="background:${r.color};opacity:${0.3 + 0.7*(v/maxPerRow[ri])};width:${60+40*(v/maxPerRow[ri])}%"></div>` : ''}
+          </div>`).join('')}
+      </div>`).join('')}`;
+}
+
+function _renderNarrative(p) {
+  const el = document.getElementById('narrativeList');
+  if (!el) return;
+  const tagMap = { x:'tag-x', gem:'tag-gem', warn:'tag-warn', null:null };
+  // Lisää testitulokset narratiiviin
+  const testiNarr = (_testitapahtumat || []).slice(0, 3).map(t => {
+    const proto = PROTOKOLLAT[t.protokolla];
+    const kk = (t.pvm || '').split('-').slice(1).reverse().join('/');
+    return {
+      kk: kk || '—',
+      txt: (proto?.nimi || t.protokolla || 'Testi') + (t.tila === 'suljettu' ? ' · <b>valmis</b>' : ' · avoin'),
+      tag: t.tila === 'suljettu' ? 'gem' : null
+    };
+  });
+  const kaikkiNarr = [...testiNarr, ...(p.narrative || [])];
+  el.innerHTML = kaikkiNarr.map(n => `
+    <div class="narrative-item">
+      <div class="narr-month">${n.kk}</div>
+      <div class="narr-text">${n.txt}</div>
+      <div class="narr-tag">
+        ${n.tag ? `<span class="tag ${tagMap[n.tag]||''}">
+          ${n.tag==='x'?'X-Factor':n.tag==='gem'?'Piilohelmi':n.tag==='warn'?'Huomio':''}
+        </span>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   KAUSI
+════════════════════════════════════════════════════════════ */
+function renderSeason() {
+  const s = DEMO.season;
+  document.getElementById('seasonSub').textContent = 'Kausi 25/26 · vk ' + s.vk + '/' + s.vkTotal;
+  document.getElementById('seasonProgress').textContent = 'vk ' + s.vk + '/' + s.vkTotal;
+  const pct = Math.round((s.vk/s.vkTotal)*100);
+  setTimeout(() => {
+    const bar = document.getElementById('seasonBar');
+    if (bar) bar.style.width = pct + '%';
+  }, 300);
+
+  const grid = document.getElementById('seasonGrid');
+  if (grid) {
+    const cards = [
+      { lbl:'Harjoitustapahtumia', val:s.harjoitukset.tehty,
+        desc:s.harjoitukset.tavoite+' suunniteltu · '+Math.round(s.harjoitukset.tehty/s.harjoitukset.tavoite*100)+'% · laatu '+s.harjoitukset.laatu+'/5' },
+      { lbl:'X-Factor-pelaajia', val:s.xfpelaajat.length,
+        desc:s.xfpelaajat.join(' · ')+' — kaikki nousseet viimeisen 3\u00a0kk aikana' },
+      { lbl:'Joukkueen fiilinki', val:s.fiilinki.ka, desc:s.fiilinki.info },
+      { lbl:'ACWR kausikeskim.', val:s.acwr.ka, desc:s.acwr.info },
+    ];
+    grid.innerHTML = cards.map(c=>`
+      <div class="season-card">
+        <div class="sc-label caps">${c.lbl}</div>
+        <div class="sc-val serif">${c.val}</div>
+        <div class="sc-desc">${c.desc}</div>
+      </div>`).join('');
+  }
+
+  const xfl = document.getElementById('xfList');
+  if (xfl) {
+    const trends = ['+4 viikossa','+3 viikossa','+2 viikossa','+1 viikossa'];
+    xfl.innerHTML = s.xfpelaajat.map((name,i)=>`
+      <div class="xf-row">
+        <svg width="14" height="14" style="color:var(--teal)"><use href="#ic-xfactor"/></svg>
+        <span class="xf-name">${name}</span>
+        <span class="xf-trend mono">${trends[i]||''}</span>
+      </div>`).join('');
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   KALENTERI — Viikkonäkymä · omatoimiset mukaan lukien
+════════════════════════════════════════════════════════════ */
+let _calMode = 'week';
+let _calWkOffset = 0; // 0 = nykyinen, -1 = edellinen jne.
+
+function renderCal() {
+  const c = DEMO.cal;
+  const days = ['Ma','Ti','Ke','To','Pe','La','Su'];
+  const dates = [20, 21, 22, 23, 24, 25, 26];  // viikko 17 huhtikuu
+  const todayIdx = 3;  // torstai (demo)
+
+  // Label
+  const lbl = document.getElementById('calWkLabel');
+  if (lbl) lbl.textContent = c.wkLabel;
+  const sub = document.getElementById('calWkSub');
+  if (sub) sub.textContent = 'Kausi 25/26 · ' + c.wk + '/36';
+
+  // Viikko-grid
+  const wk = document.getElementById('calWeek');
+  if (!wk) return;
+
+  // Muunna testitapahtumat kalenterimuotoon (all-day, klo 9)
+  const testiEvts = (_testitapahtumat || []).map(t => {
+    // Yritä löytää päivä index viikolta (pvm = YYYY-MM-DD)
+    const pvm = t.pvm || '';
+    const dayIdx = dates.findIndex((dd, i) => {
+      // Demo: huhti 2026. Todellisuudessa: dynaaminen viikon päivämäärät
+      return pvm.endsWith('-04-' + String(dd).padStart(2,'0'));
+    });
+    return { ...t, _dayIdx: dayIdx, _hour: 9 };
+  }).filter(t => t._dayIdx >= 0);
+
+  // Build: header row + time rows
+  let html = '';
+  // blank corner
+  html += '<div class="cal-day-hdr" style="background:var(--card)"></div>';
+  days.forEach((d,i) => {
+    html += `<div class="cal-day-hdr${i===todayIdx?' today':''}">
+      <div class="cal-day-name">${d}</div>
+      <div class="cal-day-num">${dates[i]}</div>
+    </div>`;
+  });
+
+  c.hours.forEach(h => {
+    html += `<div class="cal-time-lbl">${h}:00</div>`;
+    for (let d = 0; d < 7; d++) {
+      const evts = c.events.filter(e => e.day === d && e.hour === h);
+      // Lisää testitapahtumat tähän päivään ja tuntiin (jos tunti = 9)
+      const testit = testiEvts.filter(t => t._dayIdx === d && t._hour === h);
+      const allEvts = [...evts, ...testit.map(t => ({
+        type: 'test',
+        title: t.nimi || PROTOKOLLAT[t.protokolla]?.nimi || 'Testi',
+        meta: t.moodi || 'sekamalli',
+        _testId: t.id
+      }))];
+      const inner = allEvts.map(e => `
+        <div class="cal-evt ${e.type}" onclick="${e._testId ? `_avaaKentta('${e._testId}');` : `calEventClick('${e.type}',${d},${h});`}event.stopPropagation();">
+          <div class="cal-evt-title">${e.title}</div>
+          <div class="cal-evt-meta">${e.meta}</div>
+        </div>`).join('');
+      html += `<div class="cal-cell" onclick="calSlotClick(${d},${h})">${inner}</div>`;
+    }
+  });
+
+  wk.innerHTML = html;
+
+  // Omatoiminen-pelaajalista
+  const pl = document.getElementById('calPlayers');
+  if (pl) {
+    pl.innerHTML = c.players.map(p => `
+      <div class="cal-player-row${p.low?' low':''}" onclick="calPlayerClick('${p.name}')">
+        <div class="cal-player-num mono">${p.num}</div>
+        <div class="cal-player-name">${p.name}</div>
+        <div class="cal-player-streak mono">${p.streak>0?p.streak+' pv':'—'}</div>
+        <div class="cal-player-min mono">${p.min} min</div>
+      </div>`).join('');
+  }
+}
+
+function setCalMode(m) {
+  _calMode = m;
+  document.querySelectorAll('.cal-mode').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  if (m !== 'week') {
+    toast('Näkymä: ' + (m==='month'?'Kuukausi':'Kausi') + ' — tulossa', 'cal-mode');
+  }
+}
+
+function calNav(dir) {
+  _calWkOffset += dir;
+  toast((dir>0?'Seuraava':'Edellinen') + ' viikko', 'cal-nav');
+}
+
+function calEventClick(type, day, hour) {
+  const labels = { team:'Joukkueharjoitus', match:'Ottelu', gym:'Voima/oheinen', self:'Omatoiminen koonti', rest:'Lepo' };
+  toast('Avattu: ' + (labels[type]||type), 'cal-evt');
+}
+function calSlotClick(day, hour) {
+  toast('Lisää tapahtuma — ' + ['Ma','Ti','Ke','To','Pe','La','Su'][day] + ' klo ' + hour, 'cal-slot');
+}
+function calPlayerClick(name) {
+  toast('Pelaaja: ' + name + ' — avaa omatoimisen historia', 'cal-player');
+}
+/* ════════════════════════════════════════════════════════════
+   DRILL-IN PANEL
+════════════════════════════════════════════════════════════ */
+function openDrill(type) {
+  _drillType = type;
+  const titleEl   = document.getElementById('drillTitle');
+  const contentEl = document.getElementById('drillContent');
+  const actionsEl = document.getElementById('drillActions');
+
+  if (type === 'signal') {
+    titleEl.textContent = 'Signaalin syy — miksi tämä suositus';
+    contentEl.innerHTML = `
+      <div class="drill-section" style="padding-bottom:16px">
+        <div class="caps" style="margin-bottom:12px">Mistä signaali koostuu</div>
+        ${[
+          { ico:'ic-trend-up', lbl:'RPE 7\u00a0pv\u00a0ka', val:'7.2', trend:'+1.4 · baseline 5.8 · +24%', color:'var(--red)' },
+          { ico:'ic-alert',    lbl:'ACWR', val:'1.48', trend:'+0.35 · turvaraja 1.3 · +14%', color:'var(--amber)' },
+          { ico:'ic-obs',      lbl:'Fiilinki\u00a0ka', val:'3.4', trend:'−0.2 · viime\u00a0vk\u00a03.6', color:'var(--amber)' },
+          { ico:'ic-dev',      lbl:'Poissaolot', val:'3', trend:'Luukas · Milo · Onni · kuormaperäisiä', color:'var(--ink3)' },
+        ].map(r=>`
+          <div class="drill-reason">
+            <div class="dr-icon"><svg width="16" height="16"><use href="#${r.ico}"/></svg></div>
+            <div style="flex:1">
+              <div class="dr-label">${r.lbl}</div>
+              <div class="dr-val serif" style="font-size:20px;color:${r.color}">${r.val}</div>
+              <div class="dr-trend mono muted" style="font-size:11px">${r.trend}</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    actionsEl.innerHTML = `
+      <div class="caps" style="margin-bottom:10px">Toimenpiteet</div>
+      ${['Kevennä 20\u00a0% — laske tehot automaattisesti','Kirjaa tänään RPE harjoituksen jälkeen','Tarkista Luukaan paluu timeline:sta'].map(a=>`
+        <button class="drill-btn" onclick="drillDo('${a}')">${a}</button>`).join('')}`;
+
+  } else if (type === 'rpe') {
+    titleEl.textContent = 'Kirjaa RPE — joukkue';
+    contentEl.innerHTML = `
+      <div class="drill-section">
+        <div class="caps" style="margin-bottom:12px">Harjoituksen koettu kuormitus (RPE 1–10)</div>
+        <div id="rpeSliderWrap" style="padding:8px 0">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+            <div class="serif" style="font-size:48px;color:var(--teal);min-width:52px;text-align:center" id="rpeNum">7</div>
+            <input type="range" min="1" max="10" value="7" id="rpeSlider"
+              oninput="document.getElementById('rpeNum').textContent=this.value"
+              style="flex:1;accent-color:var(--teal);height:4px">
+          </div>
+          <div class="muted" style="font-size:12px">1 = erittäin kevyt · 10 = maksimaalinen</div>
+        </div>
+      </div>`;
+    actionsEl.innerHTML = `
+      <button class="drill-btn" onclick="drillDo('RPE '+document.getElementById('rpeSlider').value+' kirjattu')">Kirjaa joukkueelle</button>
+      <button class="drill-btn" style="margin-top:4px" onclick="closeDrill()">Peru</button>`;
+
+  } else if (type === 'adar') {
+    titleEl.textContent = 'ADAR-havainto';
+    contentEl.innerHTML = `
+      <div class="drill-section">
+        <div class="caps" style="margin-bottom:12px">Havainto</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+          ${DEMO.players.slice(0,5).map(p=>`
+            <div onclick="this.style.background='var(--teal-bg)';this.style.color='var(--teal)';this.style.borderColor='var(--teal-brd)'"
+              style="padding:6px 12px;border-radius:20px;border:.5px solid var(--line2);font-size:12px;cursor:pointer;transition:all .12s">
+              ${p.name.split(' ')[0]}
+            </div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+          ${[
+            { lbl:'Tarkkailla (A)', sub:'Pelikentän hahmottaminen' },
+            { lbl:'Päättää (D)', sub:'Valinnan laatu' },
+            { lbl:'Toimi (A)', sub:'Suorituksen laatu' },
+            { lbl:'Arvioi (R)', sub:'Reflektio' },
+          ].map(d=>`
+            <div onclick="this.style.background='var(--teal-bg)';this.style.borderColor='var(--teal-brd)'"
+              style="padding:10px 12px;border-radius:6px;border:.5px solid var(--line2);cursor:pointer;transition:all .12s">
+              <div style="font-weight:600;font-size:12px">${d.lbl}</div>
+              <div style="font-size:11px;color:var(--ink3);margin-top:2px">${d.sub}</div>
+            </div>`).join('')}
+        </div>
+        <textarea placeholder="Kirjoita havainto..." rows="3"
+          style="width:100%;background:var(--card);border:.5px solid var(--line2);border-radius:6px;padding:10px 12px;color:var(--ink);font-family:inherit;font-size:13px;resize:none;outline:none"></textarea>
+      </div>`;
+    actionsEl.innerHTML = `<button class="drill-btn" onclick="drillDo('ADAR-havainto tallennettu')">Tallenna havainto</button>`;
+  }
+
+  document.getElementById('drillBack').classList.add('open');
+  document.getElementById('drillPanel').classList.add('open');
+}
+
+function closeDrill() {
+  document.getElementById('drillBack').classList.remove('open');
+  document.getElementById('drillPanel').classList.remove('open');
+}
+
+function drillDo(label) {
+  closeDrill();
+  setTimeout(() => toast(label, 'drill'), 200);
+}
+
+/* ════════════════════════════════════════════════════════════
+   COMMAND PALETTE (⌘K)
+════════════════════════════════════════════════════════════ */
+const CP_CMDS = [
+  { section:'Työtilat', label:'Inbox — perheiden kirjaukset', sub:'', ico:'ic-inbox', fn: ()=>setWs('inbox') },
+  { section:'Työtilat', label:'Pulssi — joukkueen viikko', sub:'', ico:'ic-pulse', fn: ()=>setWs('pulse') },
+  { section:'Työtilat', label:'Tänään-työtila', sub:'', ico:'ic-home', fn: ()=>setWs('today') },
+  { section:'Työtilat', label:'Kehitys-työtila', sub:'', ico:'ic-dev', fn: ()=>setWs('dev') },
+  { section:'Työtilat', label:'Kausi-työtila', sub:'', ico:'ic-season', fn: ()=>setWs('season') },
+  { section:'Työtilat', label:'Kalenteri — viikko', sub:'', ico:'ic-cal', fn: ()=>setWs('cal') },
+  { section:'Työtilat', label:'Testit — tapahtumat', sub:'', ico:'ic-test', fn: ()=>setWs('testit') },
+  { section:'Pelaajat', label:'Avaa Teemu Salo — aikajana', sub:'#7 · KH', ico:'ic-dev', fn: ()=>{setWs('dev');pickPlayer('teemu');} },
+  { section:'Pelaajat', label:'Avaa Oiva Heikkinen — aikajana', sub:'#11 · HM · Piilohelmi', ico:'ic-gem', fn: ()=>{setWs('dev');pickPlayer('oiva');} },
+  { section:'Pelaajat', label:'Avaa Luukas Haapala — aikajana', sub:'#4 · PM', ico:'ic-dev', fn: ()=>{setWs('dev');pickPlayer('luukas');} },
+  { section:'Kirjaukset', label:'Kirjaa RPE joukkueelle', sub:'', ico:'ic-drill', fn: ()=>openDrill('rpe') },
+  { section:'Kirjaukset', label:'Uusi ADAR-havainto', sub:'', ico:'ic-obs', fn: ()=>openDrill('adar') },
+  { section:'Kirjaukset', label:'@teemu ADAR decide 4 ratkaisi 3v2', sub:'Pikahavainto', ico:'ic-adar', fn: ()=>drillDo('@teemu ADAR decide 4 tallennettu') },
+  { section:'Kirjaukset', label:'@oiva ADAR act 4 kaksi ohitusta', sub:'Pikahavainto', ico:'ic-adar', fn: ()=>drillDo('@oiva ADAR act 4 tallennettu') },
+  { section:'Haku', label:'Hae: kaikki X-Factor-havainnot', sub:'', ico:'ic-xfactor', fn: ()=>toast('Haku: X-Factor-havainnot') },
+  { section:'Haku', label:'Hae: 3v2-ratkaisut kaudelta', sub:'', ico:'ic-search', fn: ()=>toast('Haku: 3v2-tilanteet') },
+  { section:'Näkymä', label:'Vaihda: tumma / vaalea', sub:'', ico:'ic-sun', fn: toggleTheme },
+  { section:'Näkymä', label:'Kirjaudu ulos', sub:'', ico:'ic-logout', fn: logout },
+];
+
+let _cpFiltered = [...CP_CMDS];
+
+function initCmdPalette() {
+  renderCp('');
+}
+
+function openCmd() {
+  document.getElementById('cpBack').classList.add('open');
+  document.getElementById('cpBox').style.display = 'block';
+  document.getElementById('cpInput').value = '';
+  filterCmd();
+  document.getElementById('cpInput').focus();
+  _cpFocusIdx = -1;
+}
+
+function closeCmd() {
+  document.getElementById('cpBack').classList.remove('open');
+  document.getElementById('cpBox').style.display = 'none';
+}
+
+function filterCmd() {
+  const q = document.getElementById('cpInput').value.toLowerCase();
+  _cpFiltered = q
+    ? CP_CMDS.filter(c => c.label.toLowerCase().includes(q) || c.sub.toLowerCase().includes(q) || c.section.toLowerCase().includes(q))
+    : [...CP_CMDS];
+  renderCp(q);
+  _cpFocusIdx = -1;
+}
+
+function renderCp(q) {
+  const el = document.getElementById('cpList');
+  if (!el) return;
+  const sections = [...new Set(_cpFiltered.map(c=>c.section))];
+  el.innerHTML = sections.map(sec => {
+    const items = _cpFiltered.filter(c=>c.section===sec);
+    return `
+      <div class="cp-section-hdr">${sec}</div>
+      ${items.map((c,i) => `
+        <div class="cp-item" onclick="execCmd(${CP_CMDS.indexOf(c)})">
+          <div class="cp-item-icon"><svg width="13" height="13"><use href="#${c.ico}"/></svg></div>
+          <div class="cp-item-label">
+            <div style="font-size:13px">${c.label}</div>
+            ${c.sub?`<div style="font-size:11px;color:var(--ink3)">${c.sub}</div>`:''}
+          </div>
+        </div>`).join('')}`;
+  }).join('');
+}
+
+function execCmd(idx) {
+  closeCmd();
+  setTimeout(() => CP_CMDS[idx]?.fn(), 100);
+}
+
+/* ════════════════════════════════════════════════════════════
+   TOAST + UNDO (V9 korjaus #08)
+════════════════════════════════════════════════════════════ */
+function toast(msg, actionKey) {
+  _lastAction = actionKey || null;
+  const wrap = document.getElementById('toast-wrap');
+  // Poista vanhat
+  wrap.querySelectorAll('.toast-item').forEach(t => t.remove());
+  const item = document.createElement('div');
+  item.className = 'toast-item';
+  item.innerHTML = `
+    <span>${msg}</span>
+    <span class="toast-undo" onclick="undoAction('${actionKey||''}')">
+      <svg width="11" height="11" style="vertical-align:middle;margin-right:3px"><use href="#ic-undo"/></svg>Peru
+    </span>`;
+  wrap.appendChild(item);
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => item.remove(), 5000);
+}
+
+function undoAction(key) {
+  document.querySelectorAll('.toast-item').forEach(t=>t.remove());
+  toast('Toiminto peruttu', null);
+}
+
+/* ════════════════════════════════════════════════════════════
+   THEME (V9 korjaus #09)
+════════════════════════════════════════════════════════════ */
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  html.dataset.theme = next;
+  localStorage.setItem('tm-theme', next);
+  const icon = document.getElementById('themeIcon');
+  if (icon) icon.href.baseVal = next === 'dark' ? '#ic-sun' : '#ic-moon';
+}
+
+// Palauta tallennettu teema
+(function() {
+  const saved = localStorage.getItem('tm-theme');
+  if (saved) {
+    document.documentElement.dataset.theme = saved;
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.href.baseVal = saved === 'dark' ? '#ic-sun' : '#ic-moon';
+  }
+})();
+
+// Palauta tallennettu työtila
+(function() {
+  const ws = localStorage.getItem('tm-ws');
+  if (ws && ['inbox','today','pulse','dev','season','cal','testit'].includes(ws)) _ws = ws;
+})();
+
+/* ════════════════════════════════════════════════════════════
+   NÄPPÄIMISTÖ
+════════════════════════════════════════════════════════════ */
+function _initKeyboard() {
+  document.addEventListener('keydown', e => {
+    // ⌘K tai Ctrl+K → command palette
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('cpBack').classList.contains('open') ? closeCmd() : openCmd();
+      return;
+    }
+    // ESC → sulje kaikki
+    if (e.key === 'Escape') {
+      closeDrill();
+      closeCmd();
+      return;
+    }
+    // ↑↓ command palette navigointi
+    if (document.getElementById('cpBack').classList.contains('open')) {
+      const items = document.querySelectorAll('.cp-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _cpFocusIdx = Math.min(_cpFocusIdx+1, items.length-1);
+        items.forEach((it,i)=>it.classList.toggle('focus',i===_cpFocusIdx));
+        items[_cpFocusIdx]?.scrollIntoView({block:'nearest'});
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _cpFocusIdx = Math.max(_cpFocusIdx-1, 0);
+        items.forEach((it,i)=>it.classList.toggle('focus',i===_cpFocusIdx));
+        items[_cpFocusIdx]?.scrollIntoView({block:'nearest'});
+      } else if (e.key === 'Enter' && _cpFocusIdx >= 0) {
+        e.preventDefault();
+        const focused = document.querySelectorAll('.cp-item')[_cpFocusIdx];
+        focused?.click();
+      }
+    }
+    // 1/2/3/4 → workspace shortcuts
+    if (!e.target.matches('input,textarea')) {
+      if (e.key==='1') setWs('inbox');
+      if (e.key==='2') setWs('today');
+      if (e.key==='3') setWs('pulse');
+      if (e.key==='4') setWs('dev');
+      if (e.key==='5') setWs('season');
+      if (e.key==='6') setWs('cal');
+      if (e.key==='7') setWs('testit');
+    }
+  });
+}
+</script>
+</body>
+</html>
