@@ -774,12 +774,14 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       <label class="kenttaLabel">Rooli *</label>
       <select class="kenttaInput" id="kutsu_rooli">
         <option value="">— Valitse rooli —</option>
+        <option value="vp" class="rooli-vp-only" style="display:none">Valmennuspäällikkö (VP)</option>
         <option value="valmentaja">Valmentaja</option>
         <option value="talenttivalmentaja">Talenttivalmentaja</option>
         <option value="fysiikkavalmentaja">Fysiikkavalmentaja</option>
         <option value="testivastaava">Testivastaava</option>
         <option value="fysioterapeutti">Fysioterapeutti</option>
         <option value="seurasihteeri">Seurasihteeri</option>
+        <option value="urheilutoimenjohtaja">Urheilutoimenjohtaja</option>
       </select>
     </div>
 
@@ -2132,7 +2134,7 @@ async function renderHenkilosto(alue) {
     }
 
     const rooliNimet = {
-      vp:'VP', seurasihteeri:'Seurasihteeri', urheilutoimenjohtaja:'UTJ',
+      vp:'Valmennuspäällikkö', seurasihteeri:'Seurasihteeri', urheilutoimenjohtaja:'UTJ',
       valmentaja:'Valmentaja', talenttivalmentaja:'Talent.val.',
       fysiikkavalmentaja:'Fysiikkaval.', testivastaava:'Testivastaava',
       fysioterapeutti:'Fysioterapeutti',
@@ -2842,6 +2844,12 @@ function avaaKayttajaModal() {
   if (virhe) virhe.textContent = '';
   const nappi = document.getElementById('kutsuNappi');
   if (nappi) { nappi.disabled = false; nappi.textContent = 'Kutsu ja lähetä sähköposti'; }
+
+  // Näytä VP-rooli vain super adminille
+  const isSA = tila.rooli === 'superadmin' || tila.rooli === 'super_admin';
+  document.querySelectorAll('#kutsu_rooli .rooli-vp-only').forEach(opt => {
+    opt.style.display = isSA ? '' : 'none';
+  });
 
   // Hae joukkueet Firestoresta
   lataaKutsuJoukkueet();
