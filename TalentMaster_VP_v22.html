@@ -1353,14 +1353,8 @@ async function lataaPelaajat() {
     const snap = await db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
     _pelaajat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch(e) {
-    // Demo fallback
-    _pelaajat = [
-      { id:'p1', etunimi:'Topias', sukunimi:'Koskela', joukkue:'KPV U13', flei_viimeisin:62, phv_tila:'AN', signaali:'hidden' },
-      { id:'p2', etunimi:'Matias', sukunimi:'Leinonen', joukkue:'KPV U15', flei_viimeisin:74, phv_tila:'PH', signaali:'xfactor' },
-      { id:'p3', etunimi:'Aleksi', sukunimi:'Mäkinen', joukkue:'KPV U17', flei_viimeisin:58, phv_tila:'VA', signaali:'' },
-      { id:'p4', etunimi:'Aino', sukunimi:'Saarinen', joukkue:'KPV U15', flei_viimeisin:71, phv_tila:'PH', signaali:'' },
-      { id:'p5', etunimi:'Eemeli', sukunimi:'Korhonen', joukkue:'KPV U13', flei_viimeisin:45, phv_tila:'AN', signaali:'' },
-    ];
+    console.warn('[VP] Pelaajien lataus epäonnistui:', e.message);
+    _pelaajat = [];
   }
 }
 
@@ -1371,11 +1365,8 @@ async function lataaValmentajat() {
       .filter(h => ['valmentaja','talenttivalmentaja','fysiikkavalmentaja','vp'].includes(h.rooli));
     if (_valmentajat.length === 0) throw new Error('empty');
   } catch(e) {
-    _valmentajat = [
-      { id:'v1', nimi:'Matti Korhonen', joukkue:'KPV U15', rooli:'Valmentaja', adar: 4.2, adarTrendi: 0.3, harjoituksia: 3, viimKirjaus: '2pv sitten', aktiivinen: true },
-      { id:'v2', nimi:'Sari Lehtinen', joukkue:'KPV U13', rooli:'Valmentaja', adar: 3.8, adarTrendi: -0.2, harjoituksia: 2, viimKirjaus: '14pv sitten', aktiivinen: false },
-      { id:'v3', nimi:'Jari Mäkinen', joukkue:'KPV U17', rooli:'Fysiikkavalmentaja', adar: 4.5, adarTrendi: 0.1, harjoituksia: 4, viimKirjaus: 'eilen', aktiivinen: true },
-    ];
+    console.warn('[VP] Henkilöstön lataus epäonnistui:', e.message);
+    _valmentajat = [];
   }
 }
 
@@ -1385,11 +1376,8 @@ async function lataaTapahtumat() {
       .orderBy('pvm').get();
     _tapahtumat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch(e) {
-    _tapahtumat = [
-      { id:'t1', nimi:'Kevään harjoitettavuus', pvm:'2026-04-23', paikka:'Kokkolan jalkapallostadion', protokolla:'Harjoitettavuuskartoitus U13–15', moodi:'Rotaatio', tila:'avoin', joukkue:'KPV U15' },
-      { id:'t2', nimi:'Tekniikkakilpailu U12', pvm:'2026-05-02', paikka:'Eteläkenttä', protokolla:'Tekniikkakilpailu', moodi:'Sekamalli', tila:'avoin', joukkue:'KPV U12' },
-      { id:'t3', nimi:'HH-testi syksy', pvm:'2026-09-15', paikka:'Kippari-halli', protokolla:'HH-testi laaja', moodi:'Rotaatio', tila:'suunniteltu', joukkue:'KPV U15' },
-    ];
+    console.warn('[VP] Tapahtumien lataus epäonnistui:', e.message);
+    _tapahtumat = [];
   }
 }
 
@@ -1399,9 +1387,8 @@ async function lataaIdpJono() {
       .where('tila','==','ehdotettu').get();
     _idpJono = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch(e) {
-    _idpJono = [
-      { id:'i1', pelaajaNimi:'Topias Koskela', pelaajaId:'p1', joukkue:'KPV U13', tavoite:'Vertikaalinen syöttö alta ulos', valmentaja:'Matti Korhonen', perustelu:'FLEI 62 → tekniikkatyö', tila:'ehdotettu' },
-    ];
+    console.warn('[VP] IDP-jonon lataus epäonnistui:', e.message);
+    _idpJono = [];
   }
 }
 
@@ -1502,7 +1489,10 @@ function hylkaaIdp(id) {
 // ─── RENDER VALMENTAJAT ──────────────────────────────────
 function renderValmentajat() {
   const grid = document.getElementById('coachGrid');
-  if (_valmentajat.length === 0) return;
+  if (_valmentajat.length === 0) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🧑‍🏫</div><div class="empty-title">Ei valmentajia vielä</div><div class="empty-sub">Kutsu valmentajat Seurahallinnasta → Henkilöstö</div></div>';
+    return;
+  }
 
   grid.innerHTML = _valmentajat.map(v => {
     // Henkilöstö-kokoelmassa nimi on etunimi+sukunimi, demo-datassa nimi-kenttä
@@ -1771,25 +1761,25 @@ function demoMode() {
   document.getElementById('ti-sub').textContent = `FC Demo · Viikko ${getViikko()} · demo-tila`;
   document.getElementById('sLogin').style.display = 'none';
   document.getElementById('sDash').style.display  = 'flex';
-  // Demo data
+  // Demo data — geneerinen, ei oikeita nimiä tai paikkoja
   _pelaajat=[
-    {id:'p1',etunimi:'Topias',sukunimi:'Koskela',joukkue:'FC Demo U13',flei_viimeisin:62,phv_tila:'AN',signaali:'hidden'},
-    {id:'p2',etunimi:'Matias',sukunimi:'Leinonen',joukkue:'FC Demo U15',flei_viimeisin:74,phv_tila:'PH',signaali:'xfactor'},
-    {id:'p3',etunimi:'Aleksi',sukunimi:'Mäkinen',joukkue:'FC Demo U17',flei_viimeisin:58,phv_tila:'VA',signaali:''},
-    {id:'p4',etunimi:'Aino',sukunimi:'Saarinen',joukkue:'FC Demo U15',flei_viimeisin:71,phv_tila:'PH',signaali:''},
-    {id:'p5',etunimi:'Eemeli',sukunimi:'Korhonen',joukkue:'FC Demo U13',flei_viimeisin:45,phv_tila:'AN',signaali:''},
+    {id:'p1',etunimi:'Pelaaja',sukunimi:'A',joukkue:'Demo U13',flei_viimeisin:62,phv_tila:'AN',signaali:'hidden'},
+    {id:'p2',etunimi:'Pelaaja',sukunimi:'B',joukkue:'Demo U15',flei_viimeisin:74,phv_tila:'PH',signaali:'xfactor'},
+    {id:'p3',etunimi:'Pelaaja',sukunimi:'C',joukkue:'Demo U17',flei_viimeisin:58,phv_tila:'VA',signaali:''},
+    {id:'p4',etunimi:'Pelaaja',sukunimi:'D',joukkue:'Demo U15',flei_viimeisin:71,phv_tila:'PH',signaali:''},
+    {id:'p5',etunimi:'Pelaaja',sukunimi:'E',joukkue:'Demo U13',flei_viimeisin:45,phv_tila:'AN',signaali:''},
   ];
   _valmentajat=[
-    {id:'v1',nimi:'Matti Korhonen',joukkue:'FC Demo U15',rooli:'Valmentaja',adar:4.2,adarTrendi:0.3,harjoituksia:3,viimKirjaus:'2pv sitten',aktiivinen:true},
-    {id:'v2',nimi:'Sari Lehtinen',joukkue:'FC Demo U13',rooli:'Valmentaja',adar:3.8,adarTrendi:-0.2,harjoituksia:2,viimKirjaus:'14pv sitten',aktiivinen:false},
-    {id:'v3',nimi:'Jari Mäkinen',joukkue:'FC Demo U17',rooli:'Fysiikkavalmentaja',adar:4.5,adarTrendi:0.1,harjoituksia:4,viimKirjaus:'eilen',aktiivinen:true},
+    {id:'v1',nimi:'Valmentaja A',joukkue:'Demo U15',rooli:'Valmentaja',adar:4.2,adarTrendi:0.3,harjoituksia:3,viimKirjaus:'2pv sitten',aktiivinen:true},
+    {id:'v2',nimi:'Valmentaja B',joukkue:'Demo U13',rooli:'Valmentaja',adar:3.8,adarTrendi:-0.2,harjoituksia:2,viimKirjaus:'14pv sitten',aktiivinen:false},
+    {id:'v3',nimi:'Valmentaja C',joukkue:'Demo U17',rooli:'Fysiikkavalmentaja',adar:4.5,adarTrendi:0.1,harjoituksia:4,viimKirjaus:'eilen',aktiivinen:true},
   ];
   _tapahtumat=[
-    {id:'t1',nimi:'Kevään harjoitettavuus',pvm:'2026-04-23',paikka:'Kokkolan jalkapallostadion',protokolla:'Harjoitettavuuskartoitus U13–15',moodi:'Rotaatio',tila:'avoin',joukkue:'FC Demo U15'},
-    {id:'t2',nimi:'Tekniikkakilpailu U12',pvm:'2026-05-02',paikka:'Eteläkenttä',protokolla:'Tekniikkakilpailu',moodi:'Sekamalli',tila:'avoin',joukkue:'FC Demo U12'},
+    {id:'t1',nimi:'Harjoitettavuuskartoitus',pvm:'2026-05-10',paikka:'Demostadion',protokolla:'Harjoitettavuuskartoitus U13–15',moodi:'Rotaatio',tila:'avoin',joukkue:'Demo U15'},
+    {id:'t2',nimi:'Tekniikkakilpailu',pvm:'2026-05-20',paikka:'Demokenttä',protokolla:'Tekniikkakilpailu',moodi:'Sekamalli',tila:'avoin',joukkue:'Demo U12'},
   ];
   _idpJono=[
-    {id:'i1',pelaajaNimi:'Topias Koskela',pelaajaId:'p1',joukkue:'FC Demo U13',tavoite:'Vertikaalinen syöttö alta ulos',valmentaja:'Matti Korhonen',perustelu:'FLEI 62',tila:'ehdotettu'},
+    {id:'i1',pelaajaNimi:'Pelaaja B',pelaajaId:'p2',joukkue:'Demo U15',tavoite:'Vertikaalinen syöttö alta ulos',valmentaja:'Valmentaja A',perustelu:'FLEI 74 → X-Factor signaali',tila:'ehdotettu'},
   ];
   renderTilanne(); renderTeamPulse(); renderValmentajat(); renderKalib(); renderDI(); renderPelaajat(); renderKalenteri(); renderRaportointi();
 }
@@ -1923,14 +1913,14 @@ function renderKalib() {
   const suosTxt = document.getElementById('kalibTarget');
   if (!tbody) return;
 
-  // Demo ADAR-data (tulee tulevaisuudessa Firestoresta)
+  // ADAR-data — Firestoresta tulevaisuudessa, nyt henkilöstödatasta
   const data = _valmentajat.map(v => ({
-    nimi: v.nimi || ((v.etunimi||"")+" "+(v.sukunimi||"")).trim() || v.email || "—",
-    a1: Math.round(v.adar || 4),
-    d:  Math.round((v.adar || 4) - 0.5 + Math.random()),
-    a2: Math.round((v.adar || 4) + 0.2),
-    r:  Math.round((v.adar || 4) - 0.3),
-    delta: v.adar ? Math.abs(v.adar - 4).toFixed(2) : '0.50'
+    nimi: v.nimi || ((v.etunimi||'') + ' ' + (v.sukunimi||'')).trim() || v.email || '—',
+    a1: v.adar_a1 != null ? v.adar_a1 : null,
+    d:  v.adar_d  != null ? v.adar_d  : null,
+    a2: v.adar_a2 != null ? v.adar_a2 : null,
+    r:  v.adar_r  != null ? v.adar_r  : null,
+    delta: v.adar_delta != null ? v.adar_delta : '—'
   }));
 
   if (data.length === 0) {
@@ -1981,10 +1971,10 @@ function renderDI() {
   el.innerHTML = Object.entries(joukkueet).map(([nimi, pelaajat]) => {
     const fleiat = pelaajat.filter(p=>p.flei_viimeisin).map(p=>p.flei_viimeisin);
     const fleiKa = fleiat.length ? (fleiat.reduce((a,b)=>a+b,0)/fleiat.length).toFixed(1) : '—';
-    // Simuloitu delta (oikeassa datassa flei_historia vertailu)
-    const delta = (Math.random() * 6 - 2).toFixed(1);
-    const deltaClass = Number(delta) > 0 ? 'up' : Number(delta) < -1 ? 'down' : 'flat';
-    const deltaIcon = Number(delta) > 0 ? '↑' : Number(delta) < 0 ? '↓' : '→';
+    // Delta lasketaan kun flei_historia on käytössä — toistaiseksi ei näytetä
+    const delta = null;
+    const deltaClass = 'flat';
+    const deltaIcon = '→';
     const xf = pelaajat.filter(p=>p.signaali==='xfactor').length;
     const hg = pelaajat.filter(p=>p.signaali==='hidden').length;
     const phv = pelaajat.filter(p=>p.phv_tila==='PH').length;
