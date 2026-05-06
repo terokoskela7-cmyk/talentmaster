@@ -1239,18 +1239,62 @@ auth.onAuthStateChanged(async user => {
   _uid = user.uid;
   document.getElementById('tbEmail').textContent = user.email;
 
-  // Super admin check
+  // Super admin check — 4-tapa tunnistus
   const adminSnap = await db.collection('admins').doc(user.uid).get().catch(() => null);
-  const isSuperAdmin = adminSnap && adminSnap.exists;
+  const token = await user.getIdTokenResult(true);
+  const isSuperAdmin = (adminSnap && adminSnap.exists) ||
+    token.claims.super_admin === true ||
+    token.claims.rooli === 'super_admin' ||
+    token.claims.rooli === 'superadmin';
+
+  _isSuperAdmin = isSuperAdmin;
 
   // Resolve seuraId
-  const token = await user.getIdTokenResult(true);
-  _seuraId = token.claims.seuraId || (isSuperAdmin ? 'demo' : null);
+  if (isSuperAdmin) {
+    // Super admin: lataa kaikki seurat valintaa varten
+    const seuratSnap = await db.collection('seurat').get().catch(() => null);
+    _kaikki_seurat = seuratSnap ? seuratSnap.docs.map(d => ({ id: d.id, nimi: d.data().nimi || d.id })) : [];
+    // Käytä aiemmin valittua seuraa tai ensimmäistä
+    _seuraId = localStorage.getItem('vp_seuraId') || (_kaikki_seurat[0] && _kaikki_seurat[0].id) || 'demo';
+    naytaSuperAdminSeuranValinta();
+  } else {
+    _seuraId = token.claims.seuraId || null;
+    if (!_seuraId) {
+      // Fallback: hae seura vp_uid:llä
+      const seuratSnap = await db.collection('seurat').where('vp_uid','==',user.uid).limit(1).get().catch(() => null);
+      if (seuratSnap && !seuratSnap.empty) _seuraId = seuratSnap.docs[0].id;
+    }
+  }
 
   if (!_seuraId) { naytaLogin(); return; }
 
   naytaDash(user, isSuperAdmin);
 });
+
+let _isSuperAdmin = false, _kaikki_seurat = [];
+
+function naytaSuperAdminSeuranValinta() {
+  // Lisää tai päivitä seura-dropdown topbariin super adminille
+  let sel = document.getElementById('superAdminSeuranValinta');
+  if (!sel) {
+    sel = document.createElement('select');
+    sel.id = 'superAdminSeuranValinta';
+    sel.style.cssText = 'font-size:12px;padding:4px 8px;background:rgba(255,255,255,.08);color:var(--ink);border:1px solid rgba(255,255,255,.15);border-radius:4px;margin-left:8px;';
+    sel.onchange = () => {
+      _seuraId = sel.value;
+      localStorage.setItem('vp_seuraId', _seuraId);
+      lataaKaikki();
+      const label = _kaikki_seurat.find(s => s.id === _seuraId);
+      document.getElementById('tbSeura').textContent = label ? (label.nimi || label.id.toUpperCase()) : _seuraId.toUpperCase();
+      document.getElementById('sbSeura').textContent = label ? (label.nimi || label.id.toUpperCase()) : _seuraId.toUpperCase();
+    };
+    const ctx = document.getElementById('topbar');
+    if (ctx) ctx.querySelector('.topbar-ctx')?.appendChild(sel);
+  }
+  sel.innerHTML = _kaikki_seurat.map(s =>
+    `<option value="${s.id}" ${s.id === _seuraId ? 'selected' : ''}>${s.nimi || s.id.toUpperCase()}</option>`
+  ).join('');
+}
 
 function naytaLogin() {
   document.getElementById('sLogin').style.display = 'flex';
@@ -1261,9 +1305,19 @@ function naytaDash(user, isSuperAdmin) {
   document.getElementById('sLogin').style.display = 'none';
   document.getElementById('sDash').style.display  = 'flex';
 
-  const seuraLabel = _seuraId === 'demo' ? 'FC Demo' : _seuraId.toUpperCase();
-  document.getElementById('tbSeura').textContent  = seuraLabel;
-  document.getElementById('sbSeura').textContent  = seuraLabel;
+  // Hae seuran nimi Firestoresta jos mahdollista
+  db.collection('seurat').doc(_seuraId).get().then(d => {
+    const seuraLabel = (d.exists && d.data().nimi) ? d.data().nimi : _seuraId.toUpperCase();
+    document.getElementById('tbSeura').textContent = seuraLabel;
+    document.getElementById('sbSeura').textContent = seuraLabel;
+    document.getElementById('ti-sub').textContent =
+      `${seuraLabel} · Viikko ${getViikko()} · päivitetty reaaliaikaisesti`;
+  }).catch(() => {
+    const seuraLabel = _seuraId.toUpperCase();
+    document.getElementById('tbSeura').textContent = seuraLabel;
+    document.getElementById('sbSeura').textContent = seuraLabel;
+  });
+
   document.getElementById('sbNimi').textContent   = user.displayName || user.email.split('@')[0];
   document.getElementById('tbRooli').textContent  = isSuperAdmin ? 'Super Admin' : 'VP';
 
@@ -1271,7 +1325,7 @@ function naytaDash(user, isSuperAdmin) {
   const greet = h < 12 ? 'Hyvää aamua' : h < 17 ? 'Hyvää päivää' : 'Hyvää iltaa';
   document.getElementById('ti-greeting').textContent = `${greet}.`;
   document.getElementById('ti-sub').textContent =
-    `${seuraLabel} · Viikko ${getViikko()} · päivitetty reaaliaikaisesti`;
+    `${_seuraId.toUpperCase()} · Viikko ${getViikko()} · päivitetty reaaliaikaisesti`;
 
   lataaKaikki();
 }
@@ -1312,8 +1366,9 @@ async function lataaPelaajat() {
 
 async function lataaValmentajat() {
   try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('valmentajat').get();
-    _valmentajat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const snap = await db.collection('seurat').doc(_seuraId).collection('henkilosto').get();
+    _valmentajat = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(h => ['valmentaja','talenttivalmentaja','fysiikkavalmentaja','vp'].includes(h.rooli));
     if (_valmentajat.length === 0) throw new Error('empty');
   } catch(e) {
     _valmentajat = [
@@ -1367,7 +1422,7 @@ function renderTilanne() {
 
   // Tarkista inaktiiviset valmentajat
   _valmentajat.filter(v => !v.aktiivinen).forEach(v => {
-    signaalit.push({ type:'warn', icon:'⚠', title: `${v.nimi} — ADAR-kirjaus puuttuu`, sub: `Viimeisin kirjaus: ${v.viimKirjaus}`, cta:'Mentoroi →', ws:'valmentajat', coachId: v.id });
+    signaalit.push({ type:'warn', icon:'⚠', title: `${v.nimi||(v.etunimi+' '+v.sukunimi).trim()||v.email||'—'} — ADAR-kirjaus puuttuu`, sub: `Viimeisin kirjaus: ${v.viimKirjaus}`, cta:'Mentoroi →', ws:'valmentajat', coachId: v.id });
   });
 
   // X-Factor / Hidden Gem
@@ -1450,15 +1505,17 @@ function renderValmentajat() {
   if (_valmentajat.length === 0) return;
 
   grid.innerHTML = _valmentajat.map(v => {
-    const initials = v.nimi.split(' ').map(n=>n[0]).join('').substring(0,2);
+    // Henkilöstö-kokoelmassa nimi on etunimi+sukunimi, demo-datassa nimi-kenttä
+    const kokoNimi = v.nimi || ((v.etunimi || '') + ' ' + (v.sukunimi || '')).trim() || v.email || '—';
+    const initials = kokoNimi.split(' ').filter(Boolean).map(n=>n[0]).join('').substring(0,2).toUpperCase();
     const adarColor = v.adar >= 4 ? 'good' : v.adar < 3 ? 'warn' : '';
     const trendIcon = v.adarTrendi > 0 ? '↑' : v.adarTrendi < 0 ? '↓' : '→';
     const actClass  = v.aktiivinen ? '' : 'warn';
     return `
     <div class="coach-card" onclick="avaaCoachPanel('${v.id}')">
       <div class="coach-avatar">${initials}</div>
-      <div class="coach-name">${v.nimi}</div>
-      <div class="coach-team">${v.rooli} · ${v.joukkue}</div>
+      <div class="coach-name">${kokoNimi}</div>
+      <div class="coach-team">${v.rooli} · ${v.joukkue||'—'}</div>
       <div class="coach-stats">
         <div class="cs-item">
           <div class="cs-val ${adarColor}">${v.adar?.toFixed(1)||'—'} ${trendIcon}</div>
@@ -1491,13 +1548,14 @@ function renderValmentajat() {
 function avaaCoachPanel(id) {
   const v = _valmentajat.find(c => c.id === id);
   if (!v) return;
-  const initials = v.nimi.split(' ').map(n=>n[0]).join('').substring(0,2);
+  const kokoNimi = v.nimi || ((v.etunimi || '') + ' ' + (v.sukunimi || '')).trim() || v.email || '—';
+  const initials = kokoNimi.split(' ').filter(Boolean).map(n=>n[0]).join('').substring(0,2).toUpperCase();
   const adarTrend = v.adarTrendi > 0 ? `↑ +${v.adarTrendi}` : v.adarTrendi < 0 ? `↓ ${v.adarTrendi}` : '→ vakaa';
 
   document.getElementById('panelContent').innerHTML = `
     <div class="panel-avatar">${initials}</div>
-    <div class="panel-name">${v.nimi}</div>
-    <div class="panel-meta">${v.rooli} · ${v.joukkue}</div>
+    <div class="panel-name">${kokoNimi}</div>
+    <div class="panel-meta">${v.rooli} · ${v.joukkue||'—'}</div>
     <div class="panel-stat-row">
       <div class="psr-item">
         <div class="psr-val">${v.adar?.toFixed(1)||'—'}</div>
@@ -1516,7 +1574,7 @@ function avaaCoachPanel(id) {
     <div class="mentor-area">
       <div class="mentor-label">Mentorointiviesti</div>
       <textarea class="mentor-textarea" id="mentorMsg" placeholder="Kirjoita palaute tai ohjaus..."></textarea>
-      <button class="mentor-send" onclick="lahetaMentorointiViesti('${v.id}','${v.nimi}')">Lähetä valmentajalle</button>
+      <button class="mentor-send" onclick="lahetaMentorointiViesti('${v.id}','${v.nimi||(v.etunimi||'')+' '+(v.sukunimi||'')}'.trim())">Lähetä valmentajalle</button>
     </div>
 
     <div class="mentor-label">Mentorointi-historia</div>
@@ -1527,7 +1585,7 @@ function avaaCoachPanel(id) {
         <div class="msg-time">2pv sitten</div>
       </div>
       <div class="msg-bubble coach">
-        <div class="msg-from">${v.nimi}</div>
+        <div class="msg-from">${v.nimi||(v.etunimi+" "+v.sukunimi).trim()||v.email||"—"}</div>
         <div class="msg-text">Selvä, käyn läpi kaikki pelaajat tällä viikolla.</div>
         <div class="msg-time">2pv sitten</div>
       </div>
@@ -1867,7 +1925,7 @@ function renderKalib() {
 
   // Demo ADAR-data (tulee tulevaisuudessa Firestoresta)
   const data = _valmentajat.map(v => ({
-    nimi: v.nimi,
+    nimi: v.nimi || ((v.etunimi||"")+" "+(v.sukunimi||"")).trim() || v.email || "—",
     a1: Math.round(v.adar || 4),
     d:  Math.round((v.adar || 4) - 0.5 + Math.random()),
     a2: Math.round((v.adar || 4) + 0.2),
@@ -1888,7 +1946,7 @@ function renderKalib() {
     const deltaWarn = Number(v.delta) >= 0.5 ? 'warn' : '';
     return `
     <tr>
-      <td>${v.nimi}</td>
+      <td>${v.nimi||((v.etunimi||"")+" "+(v.sukunimi||"")).trim()||v.email||"—"}</td>
       <td><span class="kalib-score">${v.a1}</span></td>
       <td><span class="kalib-score">${v.d}</span></td>
       <td><span class="kalib-score">${v.a2}</span></td>
