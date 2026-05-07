@@ -1008,18 +1008,38 @@ window._kirjauduSisaan = async function _kirjauduSisaan() {
 }
 
 async function _lataakäyttäjätiedot(u) {
-  // Super admin?
+  // ── VAIHE 1: Custom Claims — nopein ja luotettavin tapa ──────────────
   try {
-    const adminSnap = await _db.collection('admins').doc(u.uid).get();
-    if (adminSnap.exists) {
+    const tokenResult = await u.getIdTokenResult(false);
+    const claims = tokenResult.claims;
+    if (claims.rooli === 'super_admin' || claims.rooli === 'superadmin' || claims.super_admin) {
       _superAdmin = true;
       _rooli = 'super_admin';
+    } else if (claims.seuraId && claims.rooli) {
+      _seuraId = claims.seuraId;
+      _rooli = claims.rooli;
+      // Hae seuran nimi
+      const sSnap = await _db.collection('seurat').doc(_seuraId).get().catch(() => null);
+      if (sSnap?.exists) _seuraNimi = sSnap.data().nimi;
+      _toast('✓ ' + (_seuraNimi || _seuraId), 'ok');
+      // Jos claims riitti → hypätään Firestore-kyselyjen yli
+      if (!_superAdmin) { await _lataaTapahtumat(); return; }
     }
-  } catch(e) {}
+  } catch(e) { console.warn('Claims-luku:', e.message); }
 
-  // Seura? (VP, valmentaja, testivastaava)
-  // Super admin ei käytä vp_uid-hakua — se palauttaisi satunnaisen seuran
-  if (!_superAdmin) {
+  // ── VAIHE 2: Super admin -tarkistus Firestoresta ──────────────────────
+  if (!_superAdmin && !_seuraId) {
+    try {
+      const adminSnap = await _db.collection('admins').doc(u.uid).get();
+      if (adminSnap.exists) {
+        _superAdmin = true;
+        _rooli = 'super_admin';
+      }
+    } catch(e) {}
+  }
+
+  // ── VAIHE 3: VP-haku seurat-kokoelmasta (fallback) ───────────────────
+  if (!_superAdmin && !_seuraId) {
     try {
       const seuratSnap = await _db.collection('seurat').where('vp_uid', '==', u.uid).limit(1).get();
       if (!seuratSnap.empty) {
@@ -1031,7 +1051,7 @@ async function _lataakäyttäjätiedot(u) {
     } catch(e) {}
   }
 
-  // Yritä kayttajat-kokoelmasta
+  // ── VAIHE 4: kayttajat-collectionGroup (valmentaja/testivastaava) ─────
   if (!_seuraId && !_superAdmin) {
     try {
       const kSnap = await _db.collectionGroup('kayttajat').where('uid', '==', u.uid).limit(1).get();
