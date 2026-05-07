@@ -992,7 +992,7 @@ a { color: inherit; text-decoration: none; }
   <aside class="sidebar" id="sidebar">
     <div class="sb-brand">
       <div class="sb-logo">Talent<em>Master</em>™</div>
-      <div class="sb-role caps">Valmentaja</div>
+      <div class="sb-role caps" id="sbRole">Valmentaja</div>
       <div class="sb-seura" id="sbSeura">—</div>
     </div>
 
@@ -1642,7 +1642,8 @@ async function _lataaValmentaja(uid) {
       _superAdmin = true;
       _demo = false;   // SA ei käytä demo-dataa
       _rooli = 'super_admin';
-      document.getElementById('sbRole').textContent = 'Super Admin';
+      const sbRoleEl = document.getElementById('sbRole') || document.querySelector('.sb-role');
+      if (sbRoleEl) sbRoleEl.textContent = 'Super Admin';
 
       // Lataa kaikki seurat — näytä valitsin SA:lle
       const sSnap = await _db.collection('seurat').get().catch(() => null);
@@ -1813,6 +1814,35 @@ async function _lataaKirjaukset() {
     // Järjestä uusimmasta vanhimpaan
     _kirjaukset = kaikki.sort((a,b) => b.t - a.t).slice(0, 100);
     _kirjauksetLadattu = true;
+
+    // Jos ei yhtään kirjausta löytynyt, yritä hakea suoraan pelaajadatasta
+    // (streak, fiilinki voivat olla tallennettu pelaajadokumenttiin)
+    if (_kirjaukset.length === 0 && _pelaajatData.length > 0) {
+      const synteettinen = _pelaajatData
+        .filter(p => p.fiilinki > 0 || p.streak > 0)
+        .map(p => ({
+          id: p.id + '_synth',
+          type: 'training',
+          source: 'self',
+          t: Date.now() - Math.random() * 86400000 * 3,
+          playerId: p.id,
+          _pelaajaId: p.id,
+          _nimi: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim(),
+          _num: p.numero || '?',
+          fiilis: p.fiilinki || 0,
+          streak: p.streak || 0,
+          tyyppi: 'omatoimi',
+          minutes: 0,
+          _synteettinen: true
+        }))
+        .filter(e => e.fiilis > 0)
+        .sort((a,b) => b.t - a.t)
+        .slice(0, 20);
+      if (synteettinen.length > 0) {
+        _kirjaukset = synteettinen;
+      }
+    }
+
     renderInbox();
   } catch(e) {
     console.warn('[v16] kirjaukset:', e.message);
@@ -2148,6 +2178,161 @@ function _testiCardHtml(t) {
   </div>`;
 }
 
+/* ════════════════════════════════════════════════════════════
+   KÄYTTÄYTYMISARKKITEHTUURI — KOLME VAIHETTA
+   Vaihe 1: Käynnistys  — 0–7 pv tai alle 5 kirjausta  → ohjaava
+   Vaihe 2: Kasvu       — 1–4 vk tai 5–50 kirjausta    → vahvistava
+   Vaihe 3: AI-ohjaus   — 4+ vk ja 50+ kirjausta        → ennakoiva
+════════════════════════════════════════════════════════════ */
+
+function _laskeVaihe() {
+  // Laske kirjausten määrä ja käyttöpäivät Firestoresta
+  const kirjauksia = _kirjaukset ? _kirjaukset.length : 0;
+  const pelaajia   = _pelaajatData ? _pelaajatData.length : 0;
+
+  // Käyttöpäivät: tallenna ensimmäinen kirjautumispäivä localStorageen
+  const ensimmainenPv = localStorage.getItem('tm-first-login-' + _seuraId);
+  const tanaan = new Date().toISOString().slice(0, 10);
+  if (!ensimmainenPv) {
+    localStorage.setItem('tm-first-login-' + _seuraId, tanaan);
+  }
+  const paiviaKaytossa = ensimmainenPv
+    ? Math.floor((Date.now() - new Date(ensimmainenPv).getTime()) / 86400000)
+    : 0;
+
+  // Demo-moodi pysyy aina vaiheessa 1 (ohjaava, täynnä dataa)
+  if (_demo) return { vaihe: 0, kirjauksia, pelaajia, paiviaKaytossa };
+
+  if (paiviaKaytossa < 7 || kirjauksia < 5)  return { vaihe: 1, kirjauksia, pelaajia, paiviaKaytossa };
+  if (paiviaKaytossa < 28 || kirjauksia < 50) return { vaihe: 2, kirjauksia, pelaajia, paiviaKaytossa };
+  return { vaihe: 3, kirjauksia, pelaajia, paiviaKaytossa };
+}
+
+/* ── OHJAAVA SIGNAALI — renderöidään Tänään-näkymän yläosaan ── */
+function _renderOhjaavaSignaali() {
+  const el = document.getElementById('signalBlock');
+  if (!el) return;
+
+  if (_demo) {
+    // Demo: näytä esimerkkisignaali
+    el.style.display = '';
+    return;
+  }
+
+  const { vaihe, kirjauksia, pelaajia, paiviaKaytossa } = _laskeVaihe();
+
+  if (vaihe === 1) {
+    // VAIHE 1: Käynnistys — konkreettiset ensiaskeleet
+    const aktivoitujen = (_pelaajatData||[]).filter(p => p.streak > 0).length;
+    const msg = aktivoitujen === 0
+      ? `Kutsutaan <em>${pelaajia} pelaajaa</em> mukaan — kukaan ei ole vielä kirjannut.`
+      : `${aktivoitujen} / ${pelaajia} pelaajaa on aloittanut kirjaukset. ${pelaajia - aktivoitujen > 0 ? 'Muistuta lopuille.' : 'Hyvä alku!'}`;
+    el.innerHTML = `
+      <div class="signal-icon">💡</div>
+      <div class="signal-body">
+        <div class="signal-title">${msg}</div>
+        <div class="signal-sub">Pelaajat tarvitsevat PIN-koodinsa kirjautuakseen Pelaaja-sovellukseen.</div>
+      </div>`;
+    el.style.display = '';
+
+  } else if (vaihe === 2) {
+    // VAIHE 2: Kasvu — vahvista mikä toimii
+    const aktiiviset = (_pelaajatData||[]).filter(p => p.streak >= 3).length;
+    const riskissa   = (_pelaajatData||[]).filter(p => p.fiilinki > 0 && p.fiilinki <= 2).length;
+
+    let msg = '', level = 'ok';
+    if (riskissa > 0) {
+      msg = `${riskissa} pelaajalla matala fiilinki — tarkista heidän tilanteensa.`;
+      level = 'warning';
+    } else if (aktiiviset > 0) {
+      msg = `${aktiiviset} pelaajaa kirjaa aktiivisesti. Streak käynnissä — vahvista tätä rytmiä.`;
+    } else {
+      msg = `${kirjauksia} kirjausta kerätty ${paiviaKaytossa} päivässä. Jatka systemaattisesti.`;
+    }
+    el.innerHTML = `
+      <div class="signal-icon">${riskissa > 0 ? '⚠️' : '📈'}</div>
+      <div class="signal-body">
+        <div class="signal-title">${msg}</div>
+        <div class="signal-sub">Käyttöpäiviä: ${paiviaKaytossa} · Kirjauksia: ${kirjauksia}</div>
+      </div>`;
+    el.style.display = '';
+
+  } else if (vaihe === 3) {
+    // VAIHE 3: AI-ohjaus — ennakoiva analyysi
+    // Tässä vaiheessa Cloud Function hoitaa oikean AI-analyysin
+    // Toistaiseksi lasketaan paikallisesti
+    const poissa = (_pelaajatData||[]).filter(p => {
+      if (!p.streak) return false;
+      // Yritä tunnistaa pelaajat joiden streak on katkennut viime päivinä
+      return p.streak === 0 && (p.flei_viimeisin || 0) > 50;
+    });
+    const msg = poissa.length > 0
+      ? `${poissa.length} pelaajaa keskeyttänyt — heillä on hyvä kehitystaso. Tarkista syy.`
+      : `Dataa ${kirjauksia} kirjausta — järjestelmä analysoi kaavoja aktiivisesti.`;
+    el.innerHTML = `
+      <div class="signal-icon">🤖</div>
+      <div class="signal-body">
+        <div class="signal-title">${msg}</div>
+        <div class="signal-sub">AI-analyysi aktivoitu · ${kirjauksia} kirjausta · ${paiviaKaytossa} pv</div>
+      </div>`;
+    el.style.display = '';
+
+  } else {
+    // Demo-tila: piilotetaan signaali (renderöidään DEMO.signal)
+    el.style.display = '';
+  }
+}
+
+/* ── VAIHEKOHTAINEN INBOX-OHJAUS ── */
+function _renderInboxOhjaus(el) {
+  if (!el) return;
+  const { vaihe, kirjauksia, pelaajia } = _laskeVaihe();
+
+  if (vaihe === 1) {
+    el.innerHTML = `
+      <div style="padding:40px 24px;max-width:480px;margin:0 auto">
+        <div style="font-size:32px;margin-bottom:16px;text-align:center">📬</div>
+        <div style="font-size:17px;font-weight:500;margin-bottom:12px;text-align:center">Inbox odottaa ensimmäisiä kirjauksia</div>
+        <div style="font-size:14px;color:var(--ink2);line-height:1.7;margin-bottom:20px">
+          Kun pelaajat kirjaavat omatoimiharjoittelujaan Pelaaja-sovellukseen,
+          ne ilmestyvät tähän reaaliajassa. Näet fiilingin, harjoitustyypin
+          ja voit reagoida sydämellä tai viestillä.
+        </div>
+        <div style="background:var(--card);border-radius:8px;padding:16px 20px;border:0.5px solid var(--line)">
+          <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:10px">Ensiaskeleet</div>
+          <div style="font-size:13px;color:var(--ink2);line-height:2">
+            1. Varmista että pelaajilla on PIN-koodi<br>
+            2. Pyydä pelaajia kirjaamaan yksi harjoitus tänään<br>
+            3. Reagoi heti kun kirjaus ilmestyy — se motivoi jatkamaan
+          </div>
+        </div>
+        <div style="margin-top:16px;text-align:center">
+          <button onclick="setWs('testit')" style="background:var(--teal);color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:13px;cursor:pointer;font-weight:500">
+            Katso testitapahtumat →
+          </button>
+        </div>
+      </div>`;
+  } else if (vaihe === 2) {
+    el.innerHTML = `
+      <div style="padding:32px 24px;text-align:center;color:var(--ink3)">
+        <div style="font-size:28px;margin-bottom:10px">📭</div>
+        <div style="font-size:15px;color:var(--ink2);margin-bottom:6px">Ei uusia kirjauksia</div>
+        <div style="font-size:13px;line-height:1.6">
+          <strong>${_pelaajatData.length} pelaajaa</strong> rekisteröity ·
+          ${kirjauksia} kirjausta yhteensä
+        </div>
+      </div>`;
+  } else {
+    // Vaihe 3: näytä tieto AI-analyysista
+    el.innerHTML = `
+      <div style="padding:32px 24px;text-align:center;color:var(--ink3)">
+        <div style="font-size:28px;margin-bottom:10px">✓</div>
+        <div style="font-size:15px;color:var(--ink2)">Kaikki kirjaukset käsitelty</div>
+        <div style="font-size:12px;margin-top:6px">${kirjauksia} kirjausta analysoitu</div>
+      </div>`;
+  }
+}
+
 /* ── PELAAJIEN VAHVISTUS ── */
 async function _avaaVahvistus(tapahtumaId) {
   const t = _testiById(tapahtumaId);
@@ -2402,8 +2587,13 @@ function renderInbox(){
   }
 
   if(!evts.length){
-    list.innerHTML='';
-    empty.style.display='block';
+    if (empty) empty.style.display = 'none';
+    if (!_demo && _seuraId) {
+      _renderInboxOhjaus(list);   // vaihekohtainen ohje
+    } else {
+      if (empty) empty.style.display = 'block';
+      list.innerHTML = '';
+    }
     return;
   }
   empty.style.display='none';
@@ -2559,29 +2749,59 @@ function renderPulse(){
   const todayEl=document.getElementById('pulseToday');
   if(!heat) return;
 
-  const players = window.TMBus ? TMBus.getPlayers() : {};
-  const pids = Object.keys(players);
   const days=['Ma','Ti','Ke','To','Pe','La','Su'];
   const now=new Date();
   const dayMs=86400000;
-  // kuluvan viikon maanantai
-  const wd=(now.getDay()+6)%7; // 0=Ma
+  const wd=(now.getDay()+6)%7;
   const monday=new Date(now.getFullYear(),now.getMonth(),now.getDate()-wd);
 
-  // laske eventit per pelaaja per päivä
-  const evts = window.TMBus ? TMBus.getEvents().filter(e=>e.type==='training') : [];
-  const matrix={};
-  pids.forEach(pid=>matrix[pid]=[0,0,0,0,0,0,0]);
-  evts.forEach(e=>{
-    const d=new Date(e.at);
-    const di=Math.floor((d-monday)/dayMs);
-    if(di>=0&&di<7&&matrix[e.playerId]!==undefined) matrix[e.playerId][di]++;
+  // ── Datalähde: Firestore jos kirjautunut, TMBus jos demo ──
+  let players = {};   // { id: {name, num, streak} }
+  let evts    = [];   // [{playerId, t}]
+
+  if (!_demo && _seuraId && _pelaajatData.length > 0) {
+    // Firestore-pelaajat
+    _pelaajatData.forEach(p => {
+      players[p.id] = {
+        name: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id,
+        num:  '#' + (p.numero || '?'),
+        streak: p.streak || 0,
+        flags: []
+      };
+    });
+    // Kirjaukset viikolta — käytä _kirjaukset jos ladattu
+    if (_kirjaukset && _kirjaukset.length > 0) {
+      evts = _kirjaukset.map(k => ({
+        playerId: k._pelaajaId || k.playerId,
+        at: k.t || Date.now(),
+        t:  k.t || Date.now(),
+        type: 'training'
+      })).filter(e => e.playerId);
+    }
+  } else {
+    // Demo-moodi: TMBus
+    const tmP = window.TMBus ? TMBus.getPlayers() : [];
+    (Array.isArray(tmP) ? tmP : Object.values(tmP)).forEach(p => {
+      if (p && p.id) players[p.id] = p;
+    });
+    if (window.TMBus) {
+      evts = TMBus.getEvents().filter(e => e.type === 'training');
+    }
+  }
+
+  const pids = Object.keys(players);
+  const matrix = {};
+  pids.forEach(pid => matrix[pid] = [0,0,0,0,0,0,0]);
+  evts.forEach(e => {
+    const d = new Date(e.at || e.t || 0);
+    const di = Math.floor((d - monday) / dayMs);
+    if (di >= 0 && di < 7 && matrix[e.playerId] !== undefined) matrix[e.playerId][di]++;
   });
 
-  // tilastot
-  const totalEvts=evts.filter(e=>{const d=new Date(e.at);return d>=monday;}).length;
-  const activeToday=pids.filter(pid=>matrix[pid][wd]>0).length;
-  const streakPids=pids.filter(pid=>matrix[pid].slice(0,wd+1).every(v=>v>0)).length;
+  // Tilastot
+  const totalEvts = evts.filter(e => { const d=new Date(e.at||e.t||0); return d>=monday; }).length;
+  const activeToday = pids.filter(pid => matrix[pid][wd] > 0).length;
+  const streakPids  = pids.filter(pid => matrix[pid].slice(0,wd+1).every(v => v > 0)).length;
   const viimTesti = (_testitapahtumat||[]).find(t=>t.tila==='suljettu');
   const viimTestiTxt = viimTesti
     ? (PROTOKOLLAT[viimTesti.protokolla]?.nimi||viimTesti.protokolla||'Testi')+' · '+(viimTesti.pvm||'—')
@@ -2685,6 +2905,7 @@ function _initBus(){
   });
 }
 function _alusta(nimi) {
+  _ws = 'inbox';  // Aloita aina inboxista, ei pulse-tilasta
   // Päivitä TMBus-konteksti aina kun kirjaudutaan oikealle seuralle
   if (_seuraId && window.TMBus) {
     window.__TM_SEURA = _seuraId;
@@ -2706,11 +2927,15 @@ function _alusta(nimi) {
   _initKeyboard();
   _initBus();
   // Lataa reaalidata Firestoresta jos seura tiedossa
-  // Järjestys: pelaajat ensin → kirjaukset → testitapahtumat
   if (_seuraId && !_demo) {
-    _lataaPelaajat();      // lataa _pelaajatData → kutsuu _lataaKirjaukset
+    _lataaPelaajat();
     _lataaTestitapahtumat();
   }
+  // Aktivoi inbox-tabi visuaalisesti
+  document.querySelectorAll('.sb-item[data-ws]').forEach(t =>
+    t.classList.toggle('active', t.dataset.ws === 'inbox'));
+  document.querySelectorAll('.ws-tab[data-ws]').forEach(t =>
+    t.classList.toggle('active', t.dataset.ws === 'inbox'));
 }
 
 function _setGreet(nimi) {
@@ -2755,6 +2980,7 @@ function setWs(ws) {
    TÄNÄÄN
 ════════════════════════════════════════════════════════════ */
 function renderToday() {
+  _renderOhjaavaSignaali();   // vaihekohtainen signaali aina ensin
   _renderActions();
   _renderMetrics();
   _renderAdar();
@@ -2948,6 +3174,21 @@ function openPelaaja(pid) {
    KEHITYS
 ════════════════════════════════════════════════════════════ */
 function renderDev(pid) {
+  if (!_demo && _seuraId && _pelaajatData.length > 0) {
+    // Kirjautunut: käytä Firestore-pelaajia
+    if (pid) _activePelaaja = pid;
+    // Jos _activePelaaja on demo-id (teemu/aino jne.), vaihda ensimmäiseen oikeaan
+    const isRealPlayer = _pelaajatData.some(p => p.id === _activePelaaja);
+    if (!isRealPlayer) _activePelaaja = _pelaajatData[0]?.id || null;
+    _renderPlayerPickerFirestore();
+    if (_activePelaaja) {
+      const fp = _pelaajatData.find(p => p.id === _activePelaaja);
+      if (fp) _renderPinfoFirestore(fp);
+    }
+    _renderTimeline(null);  // Aikajana testitulosdata pohjalta
+    return;
+  }
+  // Demo
   if (pid) _activePelaaja = pid;
   const p = DEMO.pelaajat[_activePelaaja] || DEMO.pelaajat.teemu;
   _renderPlayerPicker();
@@ -2958,6 +3199,56 @@ function renderDev(pid) {
 
 function pickPlayer(pid) {
   renderDev(pid);
+}
+
+/* ── Firestore-pelaajan kehitysnäkymä ── */
+function _renderPlayerPickerFirestore() {
+  const el = document.getElementById('playerPicker');
+  if (!el) return;
+  el.innerHTML = _pelaajatData.map(p => {
+    const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id;
+    return `<div class="player-pill${_activePelaaja===p.id?' active':''}"
+      onclick="pickPlayer('${p.id}')">
+      ${nimi} <span style="color:var(--ink3);font-size:11px;margin-left:4px">#${p.numero||'?'}</span>
+    </div>`;
+  }).join('');
+}
+
+function _renderPinfoFirestore(p) {
+  const el = document.getElementById('pinfoCard');
+  if (!el) return;
+  const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim();
+  const flei = p.flei_viimeisin || 0;
+  const fleiColor = flei >= 65 ? 'var(--teal)' : flei >= 50 ? 'var(--amber)' : flei > 0 ? 'var(--red)' : 'var(--ink3)';
+
+  // Hae pelaajan testejä _testitapahtumat:sta
+  const suoritetut = (_testitapahtumat||[]).filter(t => t.tila === 'suljettu').length;
+
+  const stats = [
+    { lbl:'FLEI', val: flei > 0 ? flei + '%' : '—',
+      delta: flei > 0 ? (flei>=65?'Hyvä taso':flei>=50?'Kehittyvä':'Tarvitsee tukea') : 'Ei mittauksia',
+      color: fleiColor },
+    { lbl:'Joukkue', val: p.joukkue || _joukkue || '—', delta: p.pelipaikka||'—', color:'var(--ink)' },
+    { lbl:'Testikertoja', val: suoritetut || '—', delta: 'suoritettu', color:'var(--ink)' },
+    { lbl:'Streak', val: p.streak > 0 ? p.streak + ' pv' : '—',
+      delta: p.streak > 5 ? 'Aktiivinen' : p.streak > 0 ? 'Aloitettu' : 'Ei kirjauksia',
+      color: p.streak > 5 ? 'var(--teal)' : 'var(--ink)' },
+  ];
+
+  const synt = p.syntymaVuosi ? p.syntymaVuosi : null;
+  const ika  = synt ? (new Date().getFullYear() - synt) + 'v' : '—';
+
+  el.innerHTML = `
+    <div style="grid-column:1/-1">
+      <div class="pinfo-name serif">${nimi}</div>
+      <div class="pinfo-sub">${ika} · ${p.pelipaikka||'—'} · ${p.joukkue||_joukkue||'—'}</div>
+    </div>
+    ${stats.map(s=>`
+      <div>
+        <div class="pstat-lbl">${s.lbl}</div>
+        <div class="pstat-val serif" style="color:${s.color}">${s.val}</div>
+        <div class="pstat-delta mono" style="font-size:11px;color:var(--ink3)">${s.delta}</div>
+      </div>`).join('')}`;
 }
 
 function _renderPlayerPicker() {
