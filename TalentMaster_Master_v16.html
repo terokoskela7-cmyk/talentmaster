@@ -2047,38 +2047,104 @@ function _testiCardHtml(t) {
 async function _avaaVahvistus(tapahtumaId) {
   const t = _testiById(tapahtumaId);
   if (!_pelaajatData.length) await _lataaPelaajat();
-  const kaikki = [..._pelaajatData].sort((a,b)=>(a.sukunimi||'').localeCompare(b.sukunimi||''));
+  const kaikki = [..._pelaajatData].sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
   const vahvistettu = new Set(t.vahvistetutPelaajat || []);
 
-  const ex = document.getElementById('vahvistusModaali');
-  if (ex) ex.remove();
+  const vanha = document.getElementById('vahvistusModaali');
+  if (vanha) vanha.remove();
+
   const modal = document.createElement('div');
   modal.id = 'vahvistusModaali';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;';
-  modal.innerHTML = '<div style="background:var(--card);border-radius:12px;padding:24px;width:440px;max-width:100%;max-height:85vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-    '<b style="font-size:15px;">Vahvista osallistuvat pelaajat</b>' +
-    '<button onclick="document.getElementById('vahvistusModaali').remove()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--ink3);line-height:1;">✕</button></div>' +
-    '<div style="font-size:12px;color:var(--ink3);">Excel generoidaan vain vahvistetuille. Puuttuvat ohjataan uuteen tapahtumaan.</div>' +
-    '<div style="display:flex;gap:8px;">' +
-    '<button onclick="[...document.querySelectorAll('#vahvistusLista input')].forEach(c=>c.checked=true);_paiVahvLkm()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;background:var(--surface);">Kaikki (' + kaikki.length + ')</button>' +
-    '<button onclick="[...document.querySelectorAll('#vahvistusLista input')].forEach(c=>c.checked=false);_paiVahvLkm()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;background:var(--surface);">Tyhjennä</button>' +
-    '<span id="vahvistusLkm" style="margin-left:auto;font-size:12px;color:var(--ink3);align-self:center;">' + vahvistettu.size + '/' + kaikki.length + ' valittu</span></div>' +
-    '<div id="vahvistusLista" style="display:flex;flex-direction:column;gap:4px;">' +
-    kaikki.map(p => {
-      const nimi = ((p.sukunimi||'') + ' ' + (p.etunimi||'')).trim() || p.id;
-      const pid  = p.palloID || p.id;
-      const ch   = vahvistettu.has(pid) ? 'checked' : '';
-      return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;">' +
-        '<input type="checkbox" ' + ch + ' value="' + pid + '" style="width:15px;height:15px;accent-color:var(--teal);" onchange="_paiVahvLkm()">' +
-        '<span style="flex:1;font-size:13px;">' + nimi + '</span>' +
-        '<span style="font-size:11px;color:var(--ink3);font-family:monospace;">' + pid + '</span></label>';
-    }).join('') +
-    '</div>' +
-    '<div style="display:flex;gap:8px;margin-top:4px;">' +
-    '<button onclick="document.getElementById('vahvistusModaali').remove()" style="font-size:12px;padding:7px 14px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;background:var(--surface);">Peruuta</button>' +
-    '<button onclick="_tallennaVahvistus('' + tapahtumaId + '')" style="font-size:13px;padding:7px 18px;border-radius:6px;border:none;background:var(--teal);color:#fff;cursor:pointer;font-weight:500;margin-left:auto;">Tallenna ja lataa Excel →</button>' +
-    '</div></div>';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  // Rakennetaan sisältö createElement:llä — ei lainausmerkkiongelmia
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--card);border-radius:12px;padding:24px;width:440px;max-width:100%;max-height:85vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px';
+
+  // Otsikko
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center';
+  const otsikko = document.createElement('b');
+  otsikko.style.fontSize = '15px';
+  otsikko.textContent = 'Vahvista osallistuvat pelaajat';
+  const suljeBtn = document.createElement('button');
+  suljeBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:20px;color:var(--ink3);line-height:1';
+  suljeBtn.textContent = '✕';
+  suljeBtn.onclick = () => modal.remove();
+  hdr.appendChild(otsikko);
+  hdr.appendChild(suljeBtn);
+  box.appendChild(hdr);
+
+  // Ohjeteksti
+  const ohje = document.createElement('div');
+  ohje.style.cssText = 'font-size:12px;color:var(--ink3)';
+  ohje.textContent = 'Excel generoidaan vain vahvistetuille. Puuttuvat ohjataan uuteen tapahtumaan.';
+  box.appendChild(ohje);
+
+  // Valitse kaikki / tyhjennä + laskuri
+  const napit = document.createElement('div');
+  napit.style.cssText = 'display:flex;gap:8px;align-items:center';
+  const kaikkiBtn = document.createElement('button');
+  kaikkiBtn.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;background:var(--surface)';
+  kaikkiBtn.textContent = 'Kaikki (' + kaikki.length + ')';
+  kaikkiBtn.onclick = () => { document.querySelectorAll('#vahvistusLista input').forEach(c => c.checked = true); _paiVahvLkm(); };
+  const tyhjennaBtn = document.createElement('button');
+  tyhjennaBtn.style.cssText = kaikkiBtn.style.cssText;
+  tyhjennaBtn.textContent = 'Tyhjennä';
+  tyhjennaBtn.onclick = () => { document.querySelectorAll('#vahvistusLista input').forEach(c => c.checked = false); _paiVahvLkm(); };
+  const lkm = document.createElement('span');
+  lkm.id = 'vahvistusLkm';
+  lkm.style.cssText = 'margin-left:auto;font-size:12px;color:var(--ink3)';
+  lkm.textContent = vahvistettu.size + '/' + kaikki.length + ' valittu';
+  napit.appendChild(kaikkiBtn);
+  napit.appendChild(tyhjennaBtn);
+  napit.appendChild(lkm);
+  box.appendChild(napit);
+
+  // Pelaajat lista
+  const lista = document.createElement('div');
+  lista.id = 'vahvistusLista';
+  lista.style.cssText = 'display:flex;flex-direction:column;gap:4px';
+  kaikki.forEach(p => {
+    const nimi = ((p.sukunimi||'') + ' ' + (p.etunimi||'')).trim() || p.id;
+    const pid  = p.palloID || p.id;
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = pid;
+    cb.checked = vahvistettu.has(pid);
+    cb.style.cssText = 'width:15px;height:15px;accent-color:var(--teal)';
+    cb.onchange = _paiVahvLkm;
+    const nimEl = document.createElement('span');
+    nimEl.style.cssText = 'flex:1;font-size:13px';
+    nimEl.textContent = nimi;
+    const pidEl = document.createElement('span');
+    pidEl.style.cssText = 'font-size:11px;color:var(--ink3);font-family:monospace';
+    pidEl.textContent = pid;
+    label.appendChild(cb);
+    label.appendChild(nimEl);
+    label.appendChild(pidEl);
+    lista.appendChild(label);
+  });
+  box.appendChild(lista);
+
+  // Toimintanapit
+  const footer = document.createElement('div');
+  footer.style.cssText = 'display:flex;gap:8px;margin-top:4px';
+  const peruBtn = document.createElement('button');
+  peruBtn.style.cssText = 'font-size:12px;padding:7px 14px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;background:var(--surface)';
+  peruBtn.textContent = 'Peruuta';
+  peruBtn.onclick = () => modal.remove();
+  const tallBtn = document.createElement('button');
+  tallBtn.style.cssText = 'font-size:13px;padding:7px 18px;border-radius:6px;border:none;background:var(--teal);color:#fff;cursor:pointer;font-weight:500;margin-left:auto';
+  tallBtn.textContent = 'Tallenna ja lataa Excel →';
+  tallBtn.onclick = () => _tallennaVahvistus(tapahtumaId);
+  footer.appendChild(peruBtn);
+  footer.appendChild(tallBtn);
+  box.appendChild(footer);
+
+  modal.appendChild(box);
   document.body.appendChild(modal);
 }
 
