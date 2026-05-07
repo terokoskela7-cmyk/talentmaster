@@ -15,6 +15,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <!-- TalentMaster Bus -->
+<script>
+  // Aseta seura ennen tm-bus.js latausta — päivitetään kirjautumisen jälkeen
+  // Lue localStorage:sta jos SA on aiemmin valinnut seuran
+  window.__TM_SEURA = localStorage.getItem('tm-sa-seura') || 'kpv';
+</script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 
@@ -1423,6 +1428,8 @@ let _cpFocusIdx = -1;
 let _pelaajatData = [];      // seurat/{sid}/pelaajat
 let _testitapahtumat = [];   // seurat/{sid}/testitapahtumat
 let _todayTestit = [];       // tänään olevat testitapahtumat
+let _kirjaukset = [];        // seurat/{sid}/pelaajat/{pid}/kirjaukset — omatoimiset kirjaukset
+let _kirjauksetLadattu = false;
 
 
 /* ════════════════════════════════════════════════════════════
@@ -1659,6 +1666,11 @@ async function _lataaValmentaja(uid) {
           sel.onchange = async function() {
             _seuraId = this.value;
             localStorage.setItem('tm-sa-seura', _seuraId);
+            // Päivitä TMBus-konteksti seuranvaihdon yhteydessä
+            if (window.TMBus) {
+              window.__TM_SEURA = _seuraId;
+              TMBus.setSeuraContext(_seuraId);
+            }
             const sn = seurat.find(s => s.id === _seuraId);
             document.getElementById('sbSeura').textContent = sn ? sn.nimi : _seuraId;
             _joukkue = null;
@@ -1734,7 +1746,7 @@ async function _lataaPelaajat() {
     const snap = await ref.get();
     _pelaajatData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     _pelaajatData.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
-    if (!_demo) { renderInbox(); renderCal(); }
+    if (!_demo) { renderCal(); _lataaKirjaukset(); }
   } catch(e) { console.warn('[v16] Pelaajien lataus:', e.message); }
 }
 
@@ -1756,6 +1768,55 @@ async function _lataaTestitapahtumat() {
     renderCal();
     renderTestit();
   } catch(e) { console.warn('[v16] Testitapahtumien lataus:', e.message); }
+}
+
+/* ── OMATOIMISET KIRJAUKSET FIRESTORESTA ── */
+async function _lataaKirjaukset() {
+  if (!_seuraId || _demo) return;
+  try {
+    // Hae viimeisimmät 50 kirjausta kaikista pelaajista tässä joukkueessa
+    // Rakenne: seurat/{id}/pelaajat/{pelaajaId}/kirjaukset/{pvm}
+    const pelaajat = _pelaajatData.length > 0 ? _pelaajatData : [];
+    const kaikki = [];
+
+    // Hae rinnakkaisesti (max 20 pelaajaa kerralla)
+    const erissa = 20;
+    for (let i = 0; i < pelaajat.length; i += erissa) {
+      const era = pelaajat.slice(i, i + erissa);
+      const lupaukset = era.map(async p => {
+        try {
+          const snap = await _db.collection('seurat').doc(_seuraId)
+            .collection('pelaajat').doc(p.id)
+            .collection('kirjaukset')
+            .orderBy('fiilinki_paivitetty', 'desc').limit(7).get();
+          return snap.docs.map(d => ({
+            ...d.data(),
+            _pelaajaId: p.id,
+            _pv: d.id,
+            _nimi: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id,
+            _num: p.numero || '?',
+            id: p.id + '_' + d.id,
+            type: 'training',
+            source: 'self',
+            t: d.data().fiilinki_paivitetty
+              ? new Date(d.data().fiilinki_paivitetty).getTime()
+              : Date.now(),
+            fiilis: d.data().fiilinki || 0,
+            playerId: p.id,
+          }));
+        } catch(e) { return []; }
+      });
+      const tulokset = await Promise.all(lupaukset);
+      tulokset.forEach(r => kaikki.push(...r));
+    }
+
+    // Järjestä uusimmasta vanhimpaan
+    _kirjaukset = kaikki.sort((a,b) => b.t - a.t).slice(0, 100);
+    _kirjauksetLadattu = true;
+    renderInbox();
+  } catch(e) {
+    console.warn('[v16] kirjaukset:', e.message);
+  }
 }
 
 async function _lataaTestitulokset(tapahtumaId) {
@@ -2273,18 +2334,26 @@ function setInboxFilter(f){
 }
 
 function _getInboxEvents(){
-  if(!window.TMBus) return [];
-  const all = TMBus.getEvents().filter(e=>{
-    if(e.type==='training') return true;
-    if(e.type==='injury'||e.type==='attention') return true;
-    // VP-era tapahtumat (vp-bus-adapter.js julkaisee näitä)
-    if(e.type==='note.to_coach') return true;
-    if(e.type==='idp.approved'||e.type==='idp.rejected') return true;
-    if(e.type==='intervention.requested') return true;
+  // Oikealla kirjautumisella: käytä Firestoren kirjauksia
+  if (!_demo && _seuraId) {
+    // Palauta Firestore-kirjaukset jos ladattu
+    if (_kirjauksetLadattu && _kirjaukset.length > 0) {
+      return _kirjaukset;
+    }
+    // Vielä latautuu — palauta tyhjä (renderInbox näyttää latausviestin)
+    return [];
+  }
+  // Demo-tila: käytä TMBus-dataa
+  if (!window.TMBus) return [];
+  const all = TMBus.getEvents().filter(e => {
+    if (e.type==='training') return true;
+    if (e.type==='injury' || e.type==='attention') return true;
+    if (e.type==='note.to_coach') return true;
+    if (e.type==='idp.approved' || e.type==='idp.rejected') return true;
+    if (e.type==='intervention.requested') return true;
     return false;
   });
-  // VP-era tapahtumissa ei välttämättä ole .at vaan .t tai .publishedAt
-  return all.sort((a,b)=>(b.at||b.t||b.publishedAt||0)-(a.at||a.t||a.publishedAt||0));
+  return all.sort((a,b) => (b.at||b.t||b.publishedAt||0) - (a.at||a.t||a.publishedAt||0));
 }
 
 function _fmtTime(ts){
@@ -2339,11 +2408,33 @@ function renderInbox(){
   }
   empty.style.display='none';
 
-  const players = window.TMBus ? TMBus.getPlayers() : {};
-  list.innerHTML = evts.map(e=>{
+  // Pelaajatiedot: Firestore jos kirjautunut, TMBus jos demo
+  const firestorePlayers = {};
+  if (!_demo && _pelaajatData.length > 0) {
+    _pelaajatData.forEach(p => {
+      firestorePlayers[p.id] = {
+        name: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id,
+        num: p.numero || '?',
+        ageBand: p.syntymaVuosi ? 'u' + (new Date().getFullYear() - p.syntymaVuosi) : 'u15',
+      };
+    });
+  }
+  const tmPlayers = window.TMBus ? TMBus.getPlayers() : [];
+  const tmPlayersMap = {};
+  (Array.isArray(tmPlayers) ? tmPlayers : Object.values(tmPlayers)).forEach(p => {
+    if (p && p.id) tmPlayersMap[p.id] = p;
+  });
+
+  list.innerHTML = evts.map(e => {
     // VP-era tapahtumissa playerId voi olla payloadin sisällä
-    const pid = e.playerId || e.payload?.playerId;
-    const p=players[pid]||{name:pid||e.payload?.coachId||'—',num:'?',ageBand:'u15'};
+    const pid = e.playerId || (e.payload && e.payload.playerId);
+    // Käytä _nimi-kenttää jos saatavilla (Firestore-kirjauksista)
+    const pFirestore = firestorePlayers[pid];
+    const pTmBus = tmPlayersMap[pid];
+    const pNimi = e._nimi || (pFirestore && pFirestore.name) || (pTmBus && pTmBus.name) || pid || '—';
+    const pNum  = e._num  || (pFirestore && pFirestore.num)  || (pTmBus && pTmBus.num)  || '?';
+    const pBand = (pFirestore && pFirestore.ageBand) || (pTmBus && pTmBus.ageBand) || 'u15';
+    const p = { name: pNimi, num: pNum, ageBand: pBand };
     const unseen=!_seenEvents[e.id];
     const vpEra = e.type && e.type.includes('.');
     const attn=(e.type==='injury'||e.fiilis===1||e.fiilis===2||e.payload?.priority==='high'||e.type==='intervention.requested');
@@ -2554,6 +2645,14 @@ function renderPulse(){
 ════════════════════════════════════════════════════════════ */
 function _initBus(){
   if(!window.TMBus) return;
+
+  // Päivitä seura-konteksti Firestore-kirjautumisen perusteella
+  // Tämä poistaa "window.__TM_SEURA ei asetettu" -varoituksen
+  if (_seuraId && _seuraId !== window.__TM_SEURA) {
+    window.__TM_SEURA = _seuraId;
+    TMBus.setSeuraContext(_seuraId);
+  }
+
   TMBus.subscribe((msg)=>{
     if(!msg||msg.kind!=='event') return;
     // päivitä näkymät
@@ -2586,6 +2685,13 @@ function _initBus(){
   });
 }
 function _alusta(nimi) {
+  // Päivitä TMBus-konteksti aina kun kirjaudutaan oikealle seuralle
+  if (_seuraId && window.TMBus) {
+    window.__TM_SEURA = _seuraId;
+    if (TMBus.getSeuraContext() !== _seuraId) {
+      TMBus.setSeuraContext(_seuraId);
+    }
+  }
   _naytaDash();
   _setGreet(nimi);
   _setDate();
@@ -2600,8 +2706,9 @@ function _alusta(nimi) {
   _initKeyboard();
   _initBus();
   // Lataa reaalidata Firestoresta jos seura tiedossa
+  // Järjestys: pelaajat ensin → kirjaukset → testitapahtumat
   if (_seuraId && !_demo) {
-    _lataaPelaajat();
+    _lataaPelaajat();      // lataa _pelaajatData → kutsuu _lataaKirjaukset
     _lataaTestitapahtumat();
   }
 }
