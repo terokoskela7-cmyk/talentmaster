@@ -21,7 +21,21 @@
   window.__TM_SEURA = localStorage.getItem('tm-sa-seura') || 'kpv';
 </script>
 <script src="tm-bus.js?v=3"></script>
-<script src="tm-demo.js?v=3"></script>
+<script>
+  // tm-demo.js ladataan vain demo-tilassa — ei kirjautuneelle käyttäjälle
+  // Lataus tapahtuu _kaynnistaDemoTila()-funktiossa tarpeen mukaan
+  window._tmDemoLoaded = false;
+  function _lataaDemoScript(callback) {
+    if (window._tmDemoLoaded || typeof DEMO !== 'undefined') {
+      if (callback) callback();
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = 'tm-demo.js?v=3';
+    s.onload = () => { window._tmDemoLoaded = true; if (callback) callback(); };
+    document.head.appendChild(s);
+  }
+</script>
 
 <!-- SVG sprite — omat TM-ikonit (V9 korjaus #10) -->
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
@@ -1864,6 +1878,15 @@ async function _lataaTestitulokset(tapahtumaId) {
 
 function _kaynnistaDemoTila() {
   _demo = true;
+  // Lataa demo-data vasta nyt kun tiedetään että tarvitaan
+  if (typeof DEMO === 'undefined') {
+    _lataaDemoScript(() => _kaynnistaDemoTilaSisalto());
+    return;
+  }
+  _kaynnistaDemoTilaSisalto();
+}
+function _kaynnistaDemoTilaSisalto() {
+  _demo = true;
   const d = DEMO.valmentaja;
   _seuraId = 'kpv'; // Demo-seura
   _testitapahtumat = DEMO.testitapahtumat || [];
@@ -3022,11 +3045,20 @@ function _renderActions() {
         : { priority:false, aika:'', title: 'Ei testitapahtumia tänään', sub: '', key:'' },
       { priority:false, aika:'', title: 'Kirjaa ADAR-havainto harjoitusten jälkeen', sub:'4 min', key:'adar' },
     ];
-    el.innerHTML = actions.filter(a => a.title).map(a => `
-      <div class="action-row${a.priority ? ' priority' : ''}" onclick="a.key==='testi'?setWs('testit'):openDrill(a.key||'adar')">
+    el.innerHTML = actions.filter(a => a.title).map(a => {
+      // Käytä data-key-attribuuttia onclick:n sijaan — turvallinen tapa
+      const clickFn = a.key === 'testi' ? "setWs('testit')"
+                    : a.key === 'adar'  ? "openDrill('adar')"
+                    : a.key === 'inbox' ? "setWs('inbox')"
+                    : "setWs('inbox')";
+      return `<div class="action-row${a.priority ? ' priority' : ''}" onclick="${clickFn}" style="cursor:pointer">
         <div class="action-aika mono">${a.aika}</div>
-        <div><div class="action-title">${a.title}</div><div class="action-sub">${a.sub}</div></div>
-      </div>`).join('');
+        <div style="flex:1">
+          <div class="action-title">${a.title}</div>
+          <div class="action-sub">${a.sub}</div>
+        </div>
+      </div>`;
+    }).join('');
     return;
   }
   el.innerHTML = DEMO.actions.map(a => `
@@ -3351,6 +3383,57 @@ function _renderNarrative(p) {
    KAUSI
 ════════════════════════════════════════════════════════════ */
 function renderSeason() {
+  // Kirjautuneena: laske tilastot Firestoresta
+  if (!_demo && _seuraId) {
+    const xfNimet = (_pelaajatData||[])
+      .filter(p => p.signaali==='xfactor' || p.signaali==='hidden')
+      .map(p => ((p.etunimi||'')+' '+(p.sukunimi||'')).trim()).filter(Boolean);
+
+    const now = new Date();
+    const kausiAlku = new Date(now.getFullYear(), 7, 1); // 1. elokuuta
+    const vkNyt = Math.ceil((now - kausiAlku) / 604800000);
+    const suljetut = (_testitapahtumat||[]).filter(t => t.tila === 'suljettu').length;
+    const avoimet  = (_testitapahtumat||[]).filter(t => t.tila !== 'suljettu').length;
+
+    const subEl = document.getElementById('seasonSub');
+    if (subEl) subEl.textContent = 'Kausi ' + now.getFullYear() + '/' + (now.getFullYear()+1).toString().slice(-2);
+
+    const grid = document.getElementById('seasonGrid');
+    if (grid) {
+      const cards = [
+        { lbl:'Pelaajia joukkueessa', val: _pelaajatData.length || '—', desc: _joukkue || _seuraId },
+        { lbl:'X-Factor-pelaajia',   val: xfNimet.length || '—',        desc: xfNimet.length > 0 ? xfNimet.join(' · ') : 'Ei vielä signaaleja' },
+        { lbl:'Testejä suoritettu',  val: suljetut || '—',               desc: avoimet + ' avoinna' },
+        { lbl:'Kirjauksia yhteensä', val: (_kirjaukset||[]).length || '—', desc: 'omatoimiharjoittelua' },
+      ];
+      grid.innerHTML = cards.map(c => `
+        <div class="season-card">
+          <div class="sc-label caps">${c.lbl}</div>
+          <div class="sc-val serif">${c.val}</div>
+          <div class="sc-desc">${c.desc}</div>
+        </div>`).join('');
+    }
+
+    // X-Factor-lista
+    const xfl = document.getElementById('xfList');
+    if (xfl) {
+      xfl.innerHTML = xfNimet.length > 0
+        ? xfNimet.map(name => `
+          <div class="xf-row">
+            <svg width="14" height="14" style="color:var(--teal)"><use href="#ic-xfactor"/></svg>
+            <span class="xf-name">${name}</span>
+          </div>`).join('')
+        : '<div style="color:var(--ink3);font-size:12px;padding:8px 0">Signaaleja kertyy kun pelaajadata kasvaa</div>';
+    }
+
+    // Kausiprogressio
+    const pct = Math.min(Math.round(vkNyt / 36 * 100), 100);
+    const bar = document.getElementById('seasonBar');
+    setTimeout(() => { if (bar) bar.style.width = pct + '%'; }, 300);
+    return;
+  }
+
+  // Demo-moodi
   const s = DEMO.season;
 
   // xfNimet ENSIN — tarvitaan sekä seasonGrid:ssä että xfList:ssä
