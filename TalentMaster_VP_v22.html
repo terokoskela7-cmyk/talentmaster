@@ -1170,12 +1170,28 @@ body {
     <!-- ── KALENTERI ── -->
     <div class="ws-view" id="ws-kalenteri">
       <div class="page-title">Kalenteri</div>
-      <div class="page-sub">Testitapahtumat · kaikki joukkueet · protokollat</div>
-      <div class="section-hd">Avoimet tapahtumat</div>
+      <div class="page-sub" id="vpCalSub">Testitapahtumat · kaikki joukkueet · protokollat</div>
+
+      <!-- Kalenteri-navigaatio -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+        <button onclick="vpCalPrev()" style="background:var(--surface);border:0.5px solid var(--border);border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--ink2);">←</button>
+        <span id="vpCalLabel" style="font-size:14px;font-weight:500;min-width:160px;text-align:center"></span>
+        <button onclick="vpCalNext()" style="background:var(--surface);border:0.5px solid var(--border);border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--ink2);">→</button>
+        <button onclick="vpCalToday()" style="background:var(--surface);border:0.5px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;color:var(--ink3);">Tänään</button>
+        <div style="margin-left:auto;display:flex;gap:6px;">
+          <select id="vpJoukkueFilter" onchange="renderKalenteri()" style="font-size:12px;padding:4px 8px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);">
+            <option value="">Kaikki joukkueet</option>
+          </select>
+          <button onclick="avaaUusiTapahtuma()" style="background:var(--teal);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px;">+ Uusi tapahtuma</button>
+        </div>
+      </div>
+
+      <!-- Kuukausikalenteri -->
+      <div id="vpCalGrid" style="border:0.5px solid var(--border);border-radius:8px;overflow:hidden;"></div>
+
+      <!-- Tapahtumalista -->
+      <div class="section-hd" style="margin-top:24px;">Tapahtumat</div>
       <div class="event-list" id="eventList"></div>
-      <button class="add-event-btn" onclick="avaaUusiTapahtuma()" style="margin-top:12px">
-        + Uusi testitapahtuma
-      </button>
     </div>
 
     <!-- ── RAPORTOINTI ── -->
@@ -1878,9 +1894,106 @@ function renderPelaajat_old() {
 }
 
 // ─── RENDER KALENTERI ────────────────────────────────────
+/* ════ VP KALENTERI ════ */
+let _vpCalOffset = 0; // kuukausisiirtymä
+
+function vpCalPrev() { _vpCalOffset--; renderKalenteri(); }
+function vpCalNext() { _vpCalOffset++; renderKalenteri(); }
+function vpCalToday() { _vpCalOffset = 0; renderKalenteri(); }
+
 function renderKalenteri() {
+  // ── Kuukausinäkymä ──
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth() + _vpCalOffset, 1);
+  const kkNimet = ['Tammikuu','Helmikuu','Maaliskuu','Huhtikuu','Toukokuu','Kesäkuu',
+    'Heinäkuu','Elokuu','Syyskuu','Lokakuu','Marraskuu','Joulukuu'];
+
+  // Label
+  const labelEl = document.getElementById('vpCalLabel');
+  if (labelEl) labelEl.textContent = kkNimet[target.getMonth()] + ' ' + target.getFullYear();
+
+  // Joukkuesuodatin — täytä valinnat
+  const joukkueFilter = document.getElementById('vpJoukkueFilter');
+  const valittuJoukkue = joukkueFilter ? joukkueFilter.value : '';
+  if (joukkueFilter && joukkueFilter.options.length <= 1) {
+    const joukkueet = [...new Set((_tapahtumat||[]).map(t => t.joukkue).filter(Boolean))].sort();
+    joukkueet.forEach(j => {
+      const o = document.createElement('option');
+      o.value = j; o.textContent = j;
+      joukkueFilter.appendChild(o);
+    });
+  }
+
+  // Suodata tapahtumat
+  const suodatetut = valittuJoukkue
+    ? (_tapahtumat||[]).filter(t => t.joukkue === valittuJoukkue)
+    : (_tapahtumat||[]);
+
+  // Rakenna kuukausikalenteri
+  const grid = document.getElementById('vpCalGrid');
+  if (grid) {
+    const firstDay = new Date(target.getFullYear(), target.getMonth(), 1);
+    const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0);
+    // Aloita maanantaista (0=Ma)
+    let startOffset = (firstDay.getDay() + 6) % 7;
+
+    const paivat = ['Ma','Ti','Ke','To','Pe','La','Su'];
+    let html = `<div style="display:grid;grid-template-columns:repeat(7,1fr);">`;
+
+    // Otsikkorivi
+    paivat.forEach(p => {
+      html += `<div style="padding:8px 4px;text-align:center;font-size:11px;font-weight:500;color:var(--ink3);border-bottom:0.5px solid var(--border);background:var(--surface);">${p}</div>`;
+    });
+
+    // Tyhjät alussa
+    for (let i = 0; i < startOffset; i++) {
+      html += `<div style="min-height:64px;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);background:var(--surface);opacity:.3;"></div>`;
+    }
+
+    // Päivät
+    const todayStr = new Date().toISOString().slice(0,10);
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      const dateStr = target.getFullYear() + '-' +
+        String(target.getMonth()+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+      const isToday = dateStr === todayStr;
+      const paivaTapahtumat = suodatetut.filter(t => t.pvm === dateStr);
+
+      const tapEvts = paivaTapahtumat.map(t => {
+        const tilaColor = t.tila==='suljettu' ? 'var(--ink3)' : t.tila==='avoin' ? 'var(--teal)' : 'var(--amber)';
+        const proto = t.nimi || t.protokolla || 'Testi';
+        return `<div onclick="event.stopPropagation();setWs('kalenteri')"
+          style="font-size:10px;padding:2px 4px;border-radius:3px;margin-top:2px;
+            background:rgba(40,176,144,.12);color:${tilaColor};
+            border-left:2px solid ${tilaColor};cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+          title="${proto} · ${t.joukkue||''}">
+          ${proto.length > 12 ? proto.slice(0,12)+'…' : proto}
+        </div>`;
+      }).join('');
+
+      html += `<div style="min-height:64px;padding:4px;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);
+        ${isToday ? 'background:rgba(40,176,144,.06);' : ''}cursor:pointer;transition:background .1s;"
+        onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='${isToday?'rgba(40,176,144,.06)':''}'"
+        onclick="vpCalDayClick('${dateStr}')">
+        <div style="font-size:12px;font-weight:${isToday?'500':'400'};color:${isToday?'var(--teal)':'var(--ink2)'};">${d}</div>
+        ${tapEvts}
+      </div>`;
+    }
+
+    // Tyhjät lopussa (täytä viikko)
+    const total = startOffset + lastDay.getDate();
+    const remainder = total % 7;
+    if (remainder > 0) {
+      for (let i = 0; i < 7 - remainder; i++) {
+        html += `<div style="min-height:64px;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);background:var(--surface);opacity:.3;"></div>`;
+      }
+    }
+    html += '</div>';
+    grid.innerHTML = html;
+  }
+
+  // ── Tapahtumalista alla ──
   const list = document.getElementById('eventList');
-  const avoimet = _tapahtumat.filter(t => t.tila === 'avoin' || t.tila === 'suunniteltu');
+  const avoimet = suodatetut.filter(t => t.tila === 'avoin' || t.tila === 'suunniteltu');
 
   if (avoimet.length === 0) {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">Ei avoimia tapahtumia</div></div>`;
@@ -1928,6 +2041,22 @@ function suljeTapahtuma(id) {
   _tapahtumat = _tapahtumat.map(t => t.id===id ? {...t, tila:'suljettu'} : t);
   renderKalenteri();
   toast('Tapahtuma suljettu','ok');
+}
+
+function vpCalDayClick(dateStr) {
+  // Klikkaus kalenteripäivään — näytä tapahtumat tai luo uusi
+  const paivaTapahtumat = (_tapahtumat||[]).filter(t => t.pvm === dateStr);
+  if (paivaTapahtumat.length === 0) {
+    const url = `TalentMaster_Testaus_v8.html?seuraId=${encodeURIComponent(_seuraId)}&pvm=${dateStr}`;
+    if (confirm('Päivälle ' + dateStr + ' ei ole tapahtumia. Luodaanko uusi?')) {
+      window.open(url, '_blank');
+    }
+  } else {
+    const nimi = paivaTapahtumat.map(t => t.nimi||t.protokolla||'Testi').join(', ');
+    toast(dateStr + ': ' + nimi, 'ok');
+    // Scroll tapahtumakorttiin
+    document.getElementById('eventList')?.scrollIntoView({behavior:'smooth'});
+  }
 }
 
 function avaaUusiTapahtuma() {
