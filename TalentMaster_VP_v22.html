@@ -1373,8 +1373,22 @@ async function lataaKaikki() {
 async function lataaPelaajat() {
   try {
     const snap = await db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
-    _pelaajat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _pelaajat = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        // Normalisoi — Firestore saattaa puuttua näitä
+        flei_viimeisin: data.flei_viimeisin ?? data.flei ?? null,
+        phv_tila: data.phv_tila || null,
+        signaali: data.signaali || null,
+        joukkue: data.joukkue || data.joukkueNimi || '—',
+      };
+    });
+    // Lajittele sukunimen mukaan
+    _pelaajat.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
   } catch(e) {
+    console.warn('lataaPelaajat:', e.message);
     // Demo fallback
     _pelaajat = [
       { id:'p1', etunimi:'Topias', sukunimi:'Koskela', joukkue:'KPV U13', flei_viimeisin:62, phv_tila:'AN', signaali:'hidden' },
@@ -1389,14 +1403,26 @@ async function lataaPelaajat() {
 async function lataaValmentajat() {
   try {
     const snap = await db.collection('seurat').doc(_seuraId).collection('kayttajat').get();
-    _valmentajat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    if (_valmentajat.length === 0) throw new Error('empty');
+    // Normalisoi kentät — Firestore käyttää etunimi/sukunimi, ei nimi
+    _valmentajat = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        nimi: data.nimi || ((data.etunimi||'') + ' ' + (data.sukunimi||'')).trim() || data.email || d.id,
+        joukkue: data.joukkue || data.joukkueNimi || (data.joukkueNimet||[])[0] || '—',
+        rooli: data.rooli || 'valmentaja',
+        aktiivinen: data.aktiivinen !== false,
+      };
+    });
+    // Lajittele: ensin valmentajat, sitten muut
+    _valmentajat.sort((a,b) => {
+      const rOrder = { valmentaja:0, talenttivalmentaja:1, fysiikkavalmentaja:2, testivastaava:3, vp:4 };
+      return (rOrder[a.rooli]??5) - (rOrder[b.rooli]??5);
+    });
   } catch(e) {
-    _valmentajat = [
-      { id:'v1', nimi:'Matti Korhonen', joukkue:'KPV U15', rooli:'Valmentaja', adar: 4.2, adarTrendi: 0.3, harjoituksia: 3, viimKirjaus: '2pv sitten', aktiivinen: true },
-      { id:'v2', nimi:'Sari Lehtinen', joukkue:'KPV U13', rooli:'Valmentaja', adar: 3.8, adarTrendi: -0.2, harjoituksia: 2, viimKirjaus: '14pv sitten', aktiivinen: false },
-      { id:'v3', nimi:'Jari Mäkinen', joukkue:'KPV U17', rooli:'Fysiikkavalmentaja', adar: 4.5, adarTrendi: 0.1, harjoituksia: 4, viimKirjaus: 'eilen', aktiivinen: true },
-    ];
+    console.warn('lataaValmentajat:', e.message);
+    _valmentajat = [];
   }
 }
 
@@ -1523,30 +1549,42 @@ function hylkaaIdp(id) {
 // ─── RENDER VALMENTAJAT ──────────────────────────────────
 function renderValmentajat() {
   const grid = document.getElementById('coachGrid');
-  if (_valmentajat.length === 0) return;
+  if (!grid) return;
+
+  if (_valmentajat.length === 0) {
+    grid.innerHTML = '<div style="color:var(--ink3);padding:40px;text-align:center;">Ei henkilöstöä — lisää kayttajat-kokoelmaan</div>';
+    return;
+  }
 
   grid.innerHTML = _valmentajat.map(v => {
-    const initials = v.nimi.split(' ').map(n=>n[0]).join('').substring(0,2);
-    const adarColor = v.adar >= 4 ? 'good' : v.adar < 3 ? 'warn' : '';
-    const trendIcon = v.adarTrendi > 0 ? '↑' : v.adarTrendi < 0 ? '↓' : '→';
-    const actClass  = v.aktiivinen ? '' : 'warn';
+    // nimi on jo normalisoitu lataaValmentajat:ssa
+    const nim = v.nimi || '?';
+    const initials = nim.split(' ').filter(Boolean).map(n=>n[0]).join('').substring(0,2).toUpperCase();
+    const adarColor = (v.adar||0) >= 4 ? 'good' : (v.adar||0) < 3 && v.adar ? 'warn' : '';
+    const trendIcon = (v.adarTrendi||0) > 0 ? '↑' : (v.adarTrendi||0) < 0 ? '↓' : '→';
+    const actClass  = v.aktiivinen !== false ? '' : 'warn';
+    const rooliLabel = {
+      valmentaja:'Valmentaja', talenttivalmentaja:'Talenttivalmentaja',
+      fysiikkavalmentaja:'Fysiikkavalmentaja', testivastaava:'Testivastaava',
+      vp:'Valmennuspäällikkö', seurasihteeri:'Seurasihteeri'
+    }[v.rooli] || v.rooli || 'Valmentaja';
     return `
     <div class="coach-card" onclick="avaaCoachPanel('${v.id}')">
       <div class="coach-avatar">${initials}</div>
-      <div class="coach-name">${v.nimi}</div>
-      <div class="coach-team">${v.rooli} · ${v.joukkue}</div>
+      <div class="coach-name">${nim}</div>
+      <div class="coach-team">${rooliLabel} · ${v.joukkue||'—'}</div>
       <div class="coach-stats">
         <div class="cs-item">
           <div class="cs-val ${adarColor}">${v.adar?.toFixed(1)||'—'} ${trendIcon}</div>
           <div class="cs-lbl">ADAR</div>
         </div>
         <div class="cs-item">
-          <div class="cs-val">${v.harjoituksia||0}/vko</div>
+          <div class="cs-val">${v.harjoituksia||'—'}</div>
           <div class="cs-lbl">Harjoituksia</div>
         </div>
         <div class="cs-item">
-          <div class="cs-val ${actClass}" style="font-size:13px;margin-top:4px">${v.viimKirjaus||'—'}</div>
-          <div class="cs-lbl">Viim. kirjaus</div>
+          <div class="cs-val ${actClass}" style="font-size:12px;margin-top:4px">${v.viimKirjaus||v.email||'—'}</div>
+          <div class="cs-lbl">Sähköposti</div>
         </div>
       </div>
       <div class="coach-actions">
@@ -1556,24 +1594,23 @@ function renderValmentajat() {
     </div>`;
   }).join('');
 
-  // Badge
-  const inact = _valmentajat.filter(v=>!v.aktiivinen).length;
-  if (inact > 0) {
-    const b = document.getElementById('sb-val-badge');
-    b.textContent = inact; b.style.display = '';
-  }
+  // Badge — ei-aktiiviset
+  const inact = _valmentajat.filter(v=>v.aktiivinen===false).length;
+  const b = document.getElementById('sb-val-badge');
+  if (b) { b.textContent = inact||''; b.style.display = inact>0?'':'none'; }
 }
 
 function avaaCoachPanel(id) {
   const v = _valmentajat.find(c => c.id === id);
   if (!v) return;
-  const initials = v.nimi.split(' ').map(n=>n[0]).join('').substring(0,2);
-  const adarTrend = v.adarTrendi > 0 ? `↑ +${v.adarTrendi}` : v.adarTrendi < 0 ? `↓ ${v.adarTrendi}` : '→ vakaa';
+  const nim = v.nimi || '?';
+  const initials = nim.split(' ').filter(Boolean).map(n=>n[0]).join('').substring(0,2).toUpperCase();
+  const adarTrend = (v.adarTrendi||0) > 0 ? `↑ +${v.adarTrendi}` : (v.adarTrendi||0) < 0 ? `↓ ${v.adarTrendi}` : '→ vakaa';
 
   document.getElementById('panelContent').innerHTML = `
     <div class="panel-avatar">${initials}</div>
-    <div class="panel-name">${v.nimi}</div>
-    <div class="panel-meta">${v.rooli} · ${v.joukkue}</div>
+    <div class="panel-name">${nim}</div>
+    <div class="panel-meta">${v.rooli||'Valmentaja'} · ${v.joukkue||'—'}</div>
     <div class="panel-stat-row">
       <div class="psr-item">
         <div class="psr-val">${v.adar?.toFixed(1)||'—'}</div>
@@ -1592,7 +1629,7 @@ function avaaCoachPanel(id) {
     <div class="mentor-area">
       <div class="mentor-label">Mentorointiviesti</div>
       <textarea class="mentor-textarea" id="mentorMsg" placeholder="Kirjoita palaute tai ohjaus..."></textarea>
-      <button class="mentor-send" onclick="lahetaMentorointiViesti('${v.id}','${v.nimi}')">Lähetä valmentajalle</button>
+      <button class="mentor-send" onclick="lahetaMentorointiViesti('${v.id}','${nim}')">Lähetä valmentajalle</button>
     </div>
 
     <div class="mentor-label">Mentorointi-historia</div>
@@ -1603,7 +1640,7 @@ function avaaCoachPanel(id) {
         <div class="msg-time">2pv sitten</div>
       </div>
       <div class="msg-bubble coach">
-        <div class="msg-from">${v.nimi}</div>
+        <div class="msg-from">${nim}</div>
         <div class="msg-text">Selvä, käyn läpi kaikki pelaajat tällä viikolla.</div>
         <div class="msg-time">2pv sitten</div>
       </div>
@@ -1939,7 +1976,9 @@ function renderPelaajatFiltered() {
     const phvColor = p.phv_tila === 'PH' ? 'color:var(--amber)' : '';
     return `
       <tr>
-        <td><strong>${p.sukunimi||''}, ${p.etunimi||''}</strong></td>
+        <td><strong>${p.sukunimi||''}, ${p.etunimi||''}</strong>
+          <div style="font-size:11px;color:var(--ink3);font-family:monospace">${p.palloID||''}</div>
+        </td>
         <td style="color:var(--ink2)">${p.joukkue||'—'}</td>
         <td>
           <div class="flei-bar-wrap">
@@ -1949,7 +1988,7 @@ function renderPelaajatFiltered() {
         </td>
         <td>${sig}</td>
         <td style="font-size:12px;${phvColor}">${p.phv_tila||'—'}</td>
-        <td><button class="btn-sm" onclick="toast('IDP-kortti','ok')">→</button></td>
+        <td><button class="btn-sm" onclick="toast('IDP-kortti — tulossa','ok')">→</button></td>
       </tr>`;
   }).join('');
 }
@@ -1962,7 +2001,7 @@ function renderKalib() {
 
   // Demo ADAR-data (tulee tulevaisuudessa Firestoresta)
   const data = _valmentajat.map(v => ({
-    nimi: v.nimi,
+    nimi: v.nimi || '?',
     a1: Math.round(v.adar || 4),
     d:  Math.round((v.adar || 4) - 0.5 + Math.random()),
     a2: Math.round((v.adar || 4) + 0.2),
