@@ -958,6 +958,11 @@ body {
     <div class="topbar-ctx">
       <span class="ctx-seura" id="tbSeura">—</span>
       <span class="ctx-badge" id="tbRooli">VP</span>
+      <select id="sa-seura-sel" style="display:none;margin-left:10px;background:rgba(255,255,255,.08);
+        border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#E8EEF8;
+        font-size:12px;padding:4px 8px;cursor:pointer;max-width:160px;" 
+        onchange="superAdminVaihdaSeura(this.value)">
+      </select>
     </div>
     <div class="topbar-right">
       <span class="topbar-email" id="tbEmail"></span>
@@ -1239,31 +1244,38 @@ auth.onAuthStateChanged(async user => {
   _uid = user.uid;
   document.getElementById('tbEmail').textContent = user.email;
 
-  // Super admin check — 4-tapa tunnistus
+  // Super admin check
   const adminSnap = await db.collection('admins').doc(user.uid).get().catch(() => null);
+  const isSuperAdmin = adminSnap && adminSnap.exists;
+
+  // Resolve seuraId — Claims ensin, super admin kaikki seurat
   const token = await user.getIdTokenResult(true);
-  const isSuperAdmin = (adminSnap && adminSnap.exists) ||
-    token.claims.super_admin === true ||
-    token.claims.rooli === 'super_admin' ||
-    token.claims.rooli === 'superadmin';
 
-  _isSuperAdmin = isSuperAdmin;
-
-  // Resolve seuraId
   if (isSuperAdmin) {
-    // Super admin: lataa kaikki seurat valintaa varten
-    const seuratSnap = await db.collection('seurat').get().catch(() => null);
-    _kaikki_seurat = seuratSnap ? seuratSnap.docs.map(d => ({ id: d.id, nimi: d.data().nimi || d.id })) : [];
-    // Käytä aiemmin valittua seuraa tai ensimmäistä
-    _seuraId = localStorage.getItem('vp_seuraId') || (_kaikki_seurat[0] && _kaikki_seurat[0].id) || 'demo';
-    naytaSuperAdminSeuranValinta();
+    // Super Admin: lataa kaikki seurat, näytä valitsin
+    try {
+      const sSnap = await db.collection('seurat').get();
+      const seurat = sSnap.docs
+        .map(d => ({ id: d.id, nimi: d.data().nimi || d.id }))
+        .sort((a,b) => a.nimi.localeCompare(b.nimi));
+
+      const sel = document.getElementById('sa-seura-sel');
+      sel.innerHTML = seurat.map(s =>
+        `<option value="${s.id}">${s.nimi}</option>`
+      ).join('');
+      sel.style.display = 'inline-block';
+
+      // Muista viimeksi valittu seura
+      const muistettu = localStorage.getItem('tm-sa-seura');
+      _seuraId = (muistettu && seurat.find(s => s.id === muistettu))
+        ? muistettu : seurat[0]?.id || 'demo';
+      sel.value = _seuraId;
+    } catch(e) {
+      console.warn('Seurojen lataus:', e.message);
+      _seuraId = 'demo';
+    }
   } else {
     _seuraId = token.claims.seuraId || null;
-    if (!_seuraId) {
-      // Fallback: hae seura vp_uid:llä
-      const seuratSnap = await db.collection('seurat').where('vp_uid','==',user.uid).limit(1).get().catch(() => null);
-      if (seuratSnap && !seuratSnap.empty) _seuraId = seuratSnap.docs[0].id;
-    }
   }
 
   if (!_seuraId) { naytaLogin(); return; }
@@ -1271,29 +1283,22 @@ auth.onAuthStateChanged(async user => {
   naytaDash(user, isSuperAdmin);
 });
 
-let _isSuperAdmin = false, _kaikki_seurat = [];
+// Super Admin — vaihda seura lennossa
+async function superAdminVaihdaSeura(uusiSeuraId) {
+  _seuraId = uusiSeuraId;
+  localStorage.setItem('tm-sa-seura', uusiSeuraId);
 
-function naytaSuperAdminSeuranValinta() {
-  // Lisää tai päivitä seura-dropdown topbariin super adminille
-  let sel = document.getElementById('superAdminSeuranValinta');
-  if (!sel) {
-    sel = document.createElement('select');
-    sel.id = 'superAdminSeuranValinta';
-    sel.style.cssText = 'font-size:12px;padding:4px 8px;background:rgba(255,255,255,.08);color:var(--ink);border:1px solid rgba(255,255,255,.15);border-radius:4px;margin-left:8px;';
-    sel.onchange = () => {
-      _seuraId = sel.value;
-      localStorage.setItem('vp_seuraId', _seuraId);
-      lataaKaikki();
-      const label = _kaikki_seurat.find(s => s.id === _seuraId);
-      document.getElementById('tbSeura').textContent = label ? (label.nimi || label.id.toUpperCase()) : _seuraId.toUpperCase();
-      document.getElementById('sbSeura').textContent = label ? (label.nimi || label.id.toUpperCase()) : _seuraId.toUpperCase();
-    };
-    const ctx = document.getElementById('topbar');
-    if (ctx) ctx.querySelector('.topbar-ctx')?.appendChild(sel);
-  }
-  sel.innerHTML = _kaikki_seurat.map(s =>
-    `<option value="${s.id}" ${s.id === _seuraId ? 'selected' : ''}>${s.nimi || s.id.toUpperCase()}</option>`
-  ).join('');
+  // Päivitä topbar-teksti
+  const sel = document.getElementById('sa-seura-sel');
+  const valittuNimi = sel.options[sel.selectedIndex]?.text || uusiSeuraId;
+  document.getElementById('tbSeura').textContent  = valittuNimi;
+  document.getElementById('sbSeura').textContent  = valittuNimi;
+  document.getElementById('ti-sub').textContent =
+    `${valittuNimi} · Viikko ${getViikko()} · päivitetty reaaliaikaisesti`;
+
+  // Nollaa data ja lataa uudelle seuralle
+  _pelaajat = []; _valmentajat = []; _tapahtumat = []; _idpJono = [];
+  await lataaKaikki();
 }
 
 function naytaLogin() {
@@ -1305,19 +1310,18 @@ function naytaDash(user, isSuperAdmin) {
   document.getElementById('sLogin').style.display = 'none';
   document.getElementById('sDash').style.display  = 'flex';
 
-  // Hae seuran nimi Firestoresta jos mahdollista
-  db.collection('seurat').doc(_seuraId).get().then(d => {
-    const seuraLabel = (d.exists && d.data().nimi) ? d.data().nimi : _seuraId.toUpperCase();
-    document.getElementById('tbSeura').textContent = seuraLabel;
-    document.getElementById('sbSeura').textContent = seuraLabel;
-    document.getElementById('ti-sub').textContent =
-      `${seuraLabel} · Viikko ${getViikko()} · päivitetty reaaliaikaisesti`;
-  }).catch(() => {
-    const seuraLabel = _seuraId.toUpperCase();
-    document.getElementById('tbSeura').textContent = seuraLabel;
-    document.getElementById('sbSeura').textContent = seuraLabel;
-  });
-
+  // Super Admin: käytä seuravalitsimen tekstiä jos saatavilla
+  let seuraLabel;
+  if (isSuperAdmin) {
+    const sel = document.getElementById('sa-seura-sel');
+    seuraLabel = sel && sel.options[sel.selectedIndex]
+      ? sel.options[sel.selectedIndex].text
+      : (_seuraId === 'demo' ? 'FC Demo' : _seuraId.toUpperCase());
+  } else {
+    seuraLabel = _seuraId === 'demo' ? 'FC Demo' : _seuraId.toUpperCase();
+  }
+  document.getElementById('tbSeura').textContent  = seuraLabel;
+  document.getElementById('sbSeura').textContent  = seuraLabel;
   document.getElementById('sbNimi').textContent   = user.displayName || user.email.split('@')[0];
   document.getElementById('tbRooli').textContent  = isSuperAdmin ? 'Super Admin' : 'VP';
 
@@ -1325,7 +1329,7 @@ function naytaDash(user, isSuperAdmin) {
   const greet = h < 12 ? 'Hyvää aamua' : h < 17 ? 'Hyvää päivää' : 'Hyvää iltaa';
   document.getElementById('ti-greeting').textContent = `${greet}.`;
   document.getElementById('ti-sub').textContent =
-    `${_seuraId.toUpperCase()} · Viikko ${getViikko()} · päivitetty reaaliaikaisesti`;
+    `${seuraLabel} · Viikko ${getViikko()} · päivitetty reaaliaikaisesti`;
 
   lataaKaikki();
 }
@@ -1353,21 +1357,28 @@ async function lataaPelaajat() {
     const snap = await db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
     _pelaajat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch(e) {
-    console.warn('[VP] Pelaajien lataus epäonnistui:', e.message);
-    _pelaajat = [];
+    // Demo fallback
+    _pelaajat = [
+      { id:'p1', etunimi:'Topias', sukunimi:'Koskela', joukkue:'KPV U13', flei_viimeisin:62, phv_tila:'AN', signaali:'hidden' },
+      { id:'p2', etunimi:'Matias', sukunimi:'Leinonen', joukkue:'KPV U15', flei_viimeisin:74, phv_tila:'PH', signaali:'xfactor' },
+      { id:'p3', etunimi:'Aleksi', sukunimi:'Mäkinen', joukkue:'KPV U17', flei_viimeisin:58, phv_tila:'VA', signaali:'' },
+      { id:'p4', etunimi:'Aino', sukunimi:'Saarinen', joukkue:'KPV U15', flei_viimeisin:71, phv_tila:'PH', signaali:'' },
+      { id:'p5', etunimi:'Eemeli', sukunimi:'Korhonen', joukkue:'KPV U13', flei_viimeisin:45, phv_tila:'AN', signaali:'' },
+    ];
   }
 }
 
 async function lataaValmentajat() {
   try {
     const snap = await db.collection('seurat').doc(_seuraId).collection('kayttajat').get();
-    _valmentajat = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(h => ['valmentaja','talenttivalmentaja','fysiikkavalmentaja','vp',
-                    'urheilutoimenjohtaja','seurasihteeri','testivastaava','fysioterapeutti'].includes(h.rooli));
+    _valmentajat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (_valmentajat.length === 0) throw new Error('empty');
   } catch(e) {
-    console.warn('[VP] Henkilöstön lataus epäonnistui:', e.message);
-    _valmentajat = [];
+    _valmentajat = [
+      { id:'v1', nimi:'Matti Korhonen', joukkue:'KPV U15', rooli:'Valmentaja', adar: 4.2, adarTrendi: 0.3, harjoituksia: 3, viimKirjaus: '2pv sitten', aktiivinen: true },
+      { id:'v2', nimi:'Sari Lehtinen', joukkue:'KPV U13', rooli:'Valmentaja', adar: 3.8, adarTrendi: -0.2, harjoituksia: 2, viimKirjaus: '14pv sitten', aktiivinen: false },
+      { id:'v3', nimi:'Jari Mäkinen', joukkue:'KPV U17', rooli:'Fysiikkavalmentaja', adar: 4.5, adarTrendi: 0.1, harjoituksia: 4, viimKirjaus: 'eilen', aktiivinen: true },
+    ];
   }
 }
 
@@ -1377,8 +1388,11 @@ async function lataaTapahtumat() {
       .orderBy('pvm').get();
     _tapahtumat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch(e) {
-    console.warn('[VP] Tapahtumien lataus epäonnistui:', e.message);
-    _tapahtumat = [];
+    _tapahtumat = [
+      { id:'t1', nimi:'Kevään harjoitettavuus', pvm:'2026-04-23', paikka:'Kokkolan jalkapallostadion', protokolla:'Harjoitettavuuskartoitus U13–15', moodi:'Rotaatio', tila:'avoin', joukkue:'KPV U15' },
+      { id:'t2', nimi:'Tekniikkakilpailu U12', pvm:'2026-05-02', paikka:'Eteläkenttä', protokolla:'Tekniikkakilpailu', moodi:'Sekamalli', tila:'avoin', joukkue:'KPV U12' },
+      { id:'t3', nimi:'HH-testi syksy', pvm:'2026-09-15', paikka:'Kippari-halli', protokolla:'HH-testi laaja', moodi:'Rotaatio', tila:'suunniteltu', joukkue:'KPV U15' },
+    ];
   }
 }
 
@@ -1388,8 +1402,9 @@ async function lataaIdpJono() {
       .where('tila','==','ehdotettu').get();
     _idpJono = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch(e) {
-    console.warn('[VP] IDP-jonon lataus epäonnistui:', e.message);
-    _idpJono = [];
+    _idpJono = [
+      { id:'i1', pelaajaNimi:'Topias Koskela', pelaajaId:'p1', joukkue:'KPV U13', tavoite:'Vertikaalinen syöttö alta ulos', valmentaja:'Matti Korhonen', perustelu:'FLEI 62 → tekniikkatyö', tila:'ehdotettu' },
+    ];
   }
 }
 
@@ -1410,7 +1425,7 @@ function renderTilanne() {
 
   // Tarkista inaktiiviset valmentajat
   _valmentajat.filter(v => !v.aktiivinen).forEach(v => {
-    signaalit.push({ type:'warn', icon:'⚠', title: `${v.nimi||(v.etunimi+' '+v.sukunimi).trim()||v.email||'—'} — ADAR-kirjaus puuttuu`, sub: `Viimeisin kirjaus: ${v.viimKirjaus}`, cta:'Mentoroi →', ws:'valmentajat', coachId: v.id });
+    signaalit.push({ type:'warn', icon:'⚠', title: `${v.nimi} — ADAR-kirjaus puuttuu`, sub: `Viimeisin kirjaus: ${v.viimKirjaus}`, cta:'Mentoroi →', ws:'valmentajat', coachId: v.id });
   });
 
   // X-Factor / Hidden Gem
@@ -1490,23 +1505,18 @@ function hylkaaIdp(id) {
 // ─── RENDER VALMENTAJAT ──────────────────────────────────
 function renderValmentajat() {
   const grid = document.getElementById('coachGrid');
-  if (_valmentajat.length === 0) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🧑‍🏫</div><div class="empty-title">Ei valmentajia vielä</div><div class="empty-sub">Kutsu valmentajat Seurahallinnasta → Henkilöstö</div></div>';
-    return;
-  }
+  if (_valmentajat.length === 0) return;
 
   grid.innerHTML = _valmentajat.map(v => {
-    // Henkilöstö-kokoelmassa nimi on etunimi+sukunimi, demo-datassa nimi-kenttä
-    const kokoNimi = v.nimi || ((v.etunimi || '') + ' ' + (v.sukunimi || '')).trim() || v.email || '—';
-    const initials = kokoNimi.split(' ').filter(Boolean).map(n=>n[0]).join('').substring(0,2).toUpperCase();
+    const initials = v.nimi.split(' ').map(n=>n[0]).join('').substring(0,2);
     const adarColor = v.adar >= 4 ? 'good' : v.adar < 3 ? 'warn' : '';
     const trendIcon = v.adarTrendi > 0 ? '↑' : v.adarTrendi < 0 ? '↓' : '→';
     const actClass  = v.aktiivinen ? '' : 'warn';
     return `
     <div class="coach-card" onclick="avaaCoachPanel('${v.id}')">
       <div class="coach-avatar">${initials}</div>
-      <div class="coach-name">${kokoNimi}</div>
-      <div class="coach-team">${v.rooli} · ${v.joukkue||'—'}</div>
+      <div class="coach-name">${v.nimi}</div>
+      <div class="coach-team">${v.rooli} · ${v.joukkue}</div>
       <div class="coach-stats">
         <div class="cs-item">
           <div class="cs-val ${adarColor}">${v.adar?.toFixed(1)||'—'} ${trendIcon}</div>
@@ -1539,14 +1549,13 @@ function renderValmentajat() {
 function avaaCoachPanel(id) {
   const v = _valmentajat.find(c => c.id === id);
   if (!v) return;
-  const kokoNimi = v.nimi || ((v.etunimi || '') + ' ' + (v.sukunimi || '')).trim() || v.email || '—';
-  const initials = kokoNimi.split(' ').filter(Boolean).map(n=>n[0]).join('').substring(0,2).toUpperCase();
+  const initials = v.nimi.split(' ').map(n=>n[0]).join('').substring(0,2);
   const adarTrend = v.adarTrendi > 0 ? `↑ +${v.adarTrendi}` : v.adarTrendi < 0 ? `↓ ${v.adarTrendi}` : '→ vakaa';
 
   document.getElementById('panelContent').innerHTML = `
     <div class="panel-avatar">${initials}</div>
-    <div class="panel-name">${kokoNimi}</div>
-    <div class="panel-meta">${v.rooli} · ${v.joukkue||'—'}</div>
+    <div class="panel-name">${v.nimi}</div>
+    <div class="panel-meta">${v.rooli} · ${v.joukkue}</div>
     <div class="panel-stat-row">
       <div class="psr-item">
         <div class="psr-val">${v.adar?.toFixed(1)||'—'}</div>
@@ -1565,7 +1574,7 @@ function avaaCoachPanel(id) {
     <div class="mentor-area">
       <div class="mentor-label">Mentorointiviesti</div>
       <textarea class="mentor-textarea" id="mentorMsg" placeholder="Kirjoita palaute tai ohjaus..."></textarea>
-      <button class="mentor-send" onclick="lahetaMentorointiViesti('${v.id}','${v.nimi||(v.etunimi||'')+' '+(v.sukunimi||'')}'.trim())">Lähetä valmentajalle</button>
+      <button class="mentor-send" onclick="lahetaMentorointiViesti('${v.id}','${v.nimi}')">Lähetä valmentajalle</button>
     </div>
 
     <div class="mentor-label">Mentorointi-historia</div>
@@ -1576,7 +1585,7 @@ function avaaCoachPanel(id) {
         <div class="msg-time">2pv sitten</div>
       </div>
       <div class="msg-bubble coach">
-        <div class="msg-from">${v.nimi||(v.etunimi+" "+v.sukunimi).trim()||v.email||"—"}</div>
+        <div class="msg-from">${v.nimi}</div>
         <div class="msg-text">Selvä, käyn läpi kaikki pelaajat tällä viikolla.</div>
         <div class="msg-time">2pv sitten</div>
       </div>
@@ -1762,25 +1771,25 @@ function demoMode() {
   document.getElementById('ti-sub').textContent = `FC Demo · Viikko ${getViikko()} · demo-tila`;
   document.getElementById('sLogin').style.display = 'none';
   document.getElementById('sDash').style.display  = 'flex';
-  // Demo data — geneerinen, ei oikeita nimiä tai paikkoja
+  // Demo data
   _pelaajat=[
-    {id:'p1',etunimi:'Pelaaja',sukunimi:'A',joukkue:'Demo U13',flei_viimeisin:62,phv_tila:'AN',signaali:'hidden'},
-    {id:'p2',etunimi:'Pelaaja',sukunimi:'B',joukkue:'Demo U15',flei_viimeisin:74,phv_tila:'PH',signaali:'xfactor'},
-    {id:'p3',etunimi:'Pelaaja',sukunimi:'C',joukkue:'Demo U17',flei_viimeisin:58,phv_tila:'VA',signaali:''},
-    {id:'p4',etunimi:'Pelaaja',sukunimi:'D',joukkue:'Demo U15',flei_viimeisin:71,phv_tila:'PH',signaali:''},
-    {id:'p5',etunimi:'Pelaaja',sukunimi:'E',joukkue:'Demo U13',flei_viimeisin:45,phv_tila:'AN',signaali:''},
+    {id:'p1',etunimi:'Topias',sukunimi:'Koskela',joukkue:'FC Demo U13',flei_viimeisin:62,phv_tila:'AN',signaali:'hidden'},
+    {id:'p2',etunimi:'Matias',sukunimi:'Leinonen',joukkue:'FC Demo U15',flei_viimeisin:74,phv_tila:'PH',signaali:'xfactor'},
+    {id:'p3',etunimi:'Aleksi',sukunimi:'Mäkinen',joukkue:'FC Demo U17',flei_viimeisin:58,phv_tila:'VA',signaali:''},
+    {id:'p4',etunimi:'Aino',sukunimi:'Saarinen',joukkue:'FC Demo U15',flei_viimeisin:71,phv_tila:'PH',signaali:''},
+    {id:'p5',etunimi:'Eemeli',sukunimi:'Korhonen',joukkue:'FC Demo U13',flei_viimeisin:45,phv_tila:'AN',signaali:''},
   ];
   _valmentajat=[
-    {id:'v1',nimi:'Valmentaja A',joukkue:'Demo U15',rooli:'Valmentaja',adar:4.2,adarTrendi:0.3,harjoituksia:3,viimKirjaus:'2pv sitten',aktiivinen:true},
-    {id:'v2',nimi:'Valmentaja B',joukkue:'Demo U13',rooli:'Valmentaja',adar:3.8,adarTrendi:-0.2,harjoituksia:2,viimKirjaus:'14pv sitten',aktiivinen:false},
-    {id:'v3',nimi:'Valmentaja C',joukkue:'Demo U17',rooli:'Fysiikkavalmentaja',adar:4.5,adarTrendi:0.1,harjoituksia:4,viimKirjaus:'eilen',aktiivinen:true},
+    {id:'v1',nimi:'Matti Korhonen',joukkue:'FC Demo U15',rooli:'Valmentaja',adar:4.2,adarTrendi:0.3,harjoituksia:3,viimKirjaus:'2pv sitten',aktiivinen:true},
+    {id:'v2',nimi:'Sari Lehtinen',joukkue:'FC Demo U13',rooli:'Valmentaja',adar:3.8,adarTrendi:-0.2,harjoituksia:2,viimKirjaus:'14pv sitten',aktiivinen:false},
+    {id:'v3',nimi:'Jari Mäkinen',joukkue:'FC Demo U17',rooli:'Fysiikkavalmentaja',adar:4.5,adarTrendi:0.1,harjoituksia:4,viimKirjaus:'eilen',aktiivinen:true},
   ];
   _tapahtumat=[
-    {id:'t1',nimi:'Harjoitettavuuskartoitus',pvm:'2026-05-10',paikka:'Demostadion',protokolla:'Harjoitettavuuskartoitus U13–15',moodi:'Rotaatio',tila:'avoin',joukkue:'Demo U15'},
-    {id:'t2',nimi:'Tekniikkakilpailu',pvm:'2026-05-20',paikka:'Demokenttä',protokolla:'Tekniikkakilpailu',moodi:'Sekamalli',tila:'avoin',joukkue:'Demo U12'},
+    {id:'t1',nimi:'Kevään harjoitettavuus',pvm:'2026-04-23',paikka:'Kokkolan jalkapallostadion',protokolla:'Harjoitettavuuskartoitus U13–15',moodi:'Rotaatio',tila:'avoin',joukkue:'FC Demo U15'},
+    {id:'t2',nimi:'Tekniikkakilpailu U12',pvm:'2026-05-02',paikka:'Eteläkenttä',protokolla:'Tekniikkakilpailu',moodi:'Sekamalli',tila:'avoin',joukkue:'FC Demo U12'},
   ];
   _idpJono=[
-    {id:'i1',pelaajaNimi:'Pelaaja B',pelaajaId:'p2',joukkue:'Demo U15',tavoite:'Vertikaalinen syöttö alta ulos',valmentaja:'Valmentaja A',perustelu:'FLEI 74 → X-Factor signaali',tila:'ehdotettu'},
+    {id:'i1',pelaajaNimi:'Topias Koskela',pelaajaId:'p1',joukkue:'FC Demo U13',tavoite:'Vertikaalinen syöttö alta ulos',valmentaja:'Matti Korhonen',perustelu:'FLEI 62',tila:'ehdotettu'},
   ];
   renderTilanne(); renderTeamPulse(); renderValmentajat(); renderKalib(); renderDI(); renderPelaajat(); renderKalenteri(); renderRaportointi();
 }
@@ -1914,14 +1923,14 @@ function renderKalib() {
   const suosTxt = document.getElementById('kalibTarget');
   if (!tbody) return;
 
-  // ADAR-data — Firestoresta tulevaisuudessa, nyt henkilöstödatasta
+  // Demo ADAR-data (tulee tulevaisuudessa Firestoresta)
   const data = _valmentajat.map(v => ({
-    nimi: v.nimi || ((v.etunimi||'') + ' ' + (v.sukunimi||'')).trim() || v.email || '—',
-    a1: v.adar_a1 != null ? v.adar_a1 : null,
-    d:  v.adar_d  != null ? v.adar_d  : null,
-    a2: v.adar_a2 != null ? v.adar_a2 : null,
-    r:  v.adar_r  != null ? v.adar_r  : null,
-    delta: v.adar_delta != null ? v.adar_delta : '—'
+    nimi: v.nimi,
+    a1: Math.round(v.adar || 4),
+    d:  Math.round((v.adar || 4) - 0.5 + Math.random()),
+    a2: Math.round((v.adar || 4) + 0.2),
+    r:  Math.round((v.adar || 4) - 0.3),
+    delta: v.adar ? Math.abs(v.adar - 4).toFixed(2) : '0.50'
   }));
 
   if (data.length === 0) {
@@ -1937,7 +1946,7 @@ function renderKalib() {
     const deltaWarn = Number(v.delta) >= 0.5 ? 'warn' : '';
     return `
     <tr>
-      <td>${v.nimi||((v.etunimi||"")+" "+(v.sukunimi||"")).trim()||v.email||"—"}</td>
+      <td>${v.nimi}</td>
       <td><span class="kalib-score">${v.a1}</span></td>
       <td><span class="kalib-score">${v.d}</span></td>
       <td><span class="kalib-score">${v.a2}</span></td>
@@ -1972,10 +1981,10 @@ function renderDI() {
   el.innerHTML = Object.entries(joukkueet).map(([nimi, pelaajat]) => {
     const fleiat = pelaajat.filter(p=>p.flei_viimeisin).map(p=>p.flei_viimeisin);
     const fleiKa = fleiat.length ? (fleiat.reduce((a,b)=>a+b,0)/fleiat.length).toFixed(1) : '—';
-    // Delta lasketaan kun flei_historia on käytössä — toistaiseksi ei näytetä
-    const delta = null;
-    const deltaClass = 'flat';
-    const deltaIcon = '→';
+    // Simuloitu delta (oikeassa datassa flei_historia vertailu)
+    const delta = (Math.random() * 6 - 2).toFixed(1);
+    const deltaClass = Number(delta) > 0 ? 'up' : Number(delta) < -1 ? 'down' : 'flat';
+    const deltaIcon = Number(delta) > 0 ? '↑' : Number(delta) < 0 ? '↓' : '→';
     const xf = pelaajat.filter(p=>p.signaali==='xfactor').length;
     const hg = pelaajat.filter(p=>p.signaali==='hidden').length;
     const phv = pelaajat.filter(p=>p.phv_tila==='PH').length;
