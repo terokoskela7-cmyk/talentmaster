@@ -969,7 +969,7 @@ a { color: inherit; text-decoration: none; }
 <!-- LOGIN -->
 <div id="sLogin">
   <div class="login-logo">Talent<em>Master</em>™</div>
-  <div class="login-eyebrow">Valmentajan näkymä · v12</div>
+  <div class="login-eyebrow">Valmentajan näkymä · v16</div>
   <div class="login-form">
     <input class="login-input" id="lEmail" type="email" placeholder="Sähköposti" autocomplete="email">
     <input class="login-input" id="lPass"  type="password" placeholder="Salasana">
@@ -1633,15 +1633,56 @@ async function _lataaValmentaja(uid) {
     const adminSnap = await _db.collection('admins').doc(uid).get().catch(() => null);
     if (adminSnap?.exists) {
       _superAdmin = true;
+      _demo = false;   // SA ei käytä demo-dataa
       _rooli = 'super_admin';
-      // Super admin: näytä seuranvalitsin topbarissa
       document.getElementById('sbRole').textContent = 'Super Admin';
-      _alusta('Super Admin');
-      // Lataa kaikki seurat — SA voi valita joukkueen
+
+      // Lataa kaikki seurat — näytä valitsin SA:lle
       const sSnap = await _db.collection('seurat').get().catch(() => null);
-      if (sSnap && !sSnap.empty) {
-        _seuraId = _seuraId || sSnap.docs[0].id;
+      const seurat = sSnap ? sSnap.docs.map(d => ({id: d.id, nimi: d.data().nimi || d.id})) : [];
+      if (seurat.length > 0) {
+        _seuraId = localStorage.getItem('tm-sa-seura') || seurat[0].id;
+
+        // Rakenna seuranvalitsin sidepalkiin
+        const existing = document.getElementById('sa-joukkue-sel');
+        if (!existing) {
+          const sel = document.createElement('select');
+          sel.id = 'sa-joukkue-sel';
+          sel.style.cssText = 'margin:8px 12px 0;width:calc(100% - 24px);padding:6px 8px;background:var(--card2);border:0.5px solid var(--line2);border-radius:6px;color:var(--ink2);font-size:12px;cursor:pointer;';
+          seurat.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.nimi;
+            if (s.id === _seuraId) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          sel.onchange = async function() {
+            _seuraId = this.value;
+            localStorage.setItem('tm-sa-seura', _seuraId);
+            const sn = seurat.find(s => s.id === _seuraId);
+            document.getElementById('sbSeura').textContent = sn ? sn.nimi : _seuraId;
+            _joukkue = null;
+            _pelaajatData = [];
+            _testitapahtumat = [];
+            await _lataaPelaajat();
+            await _lataaTestitapahtumat();
+            renderInbox();
+            renderTestit();
+            renderCal();
+          };
+          const sbNav = document.querySelector('.sb-nav');
+          if (sbNav) sbNav.insertBefore(sel, sbNav.firstChild);
+        }
+
+        const seuraNimi = seurat.find(s => s.id === _seuraId)?.nimi || _seuraId;
+        document.getElementById('sbSeura').textContent = seuraNimi;
+
+        // Lataa data
+        await _lataaPelaajat();
+        await _lataaTestitapahtumat();
       }
+
+      _alusta('Super Admin');
       return;
     }
 
@@ -1692,6 +1733,8 @@ async function _lataaPelaajat() {
     if (_joukkue) ref = ref.where('joukkue', '==', _joukkue);
     const snap = await ref.get();
     _pelaajatData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _pelaajatData.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
+    if (!_demo) { renderInbox(); renderCal(); }
   } catch(e) { console.warn('[v16] Pelaajien lataus:', e.message); }
 }
 
@@ -2260,6 +2303,14 @@ function _initials(name){
 }
 
 function renderInbox(){
+  // Jos oikea käyttäjä mutta ei vielä dataa, näytä latausviesti
+  if (!_demo && _seuraId && !_pelaajatData.length) {
+    const el = document.getElementById('inboxList');
+    if (el) el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3);font-size:14px;">Ladataan joukkueen kirjauksia...</div>';
+    const empty = document.getElementById('inboxEmpty');
+    if (empty) empty.style.display = 'none';
+    // Ei returnata — jatkaa renderöintiä
+  }
   const list=document.getElementById('inboxList');
   const empty=document.getElementById('inboxEmpty');
   const sub=document.getElementById('inboxSub');
@@ -2548,8 +2599,8 @@ function _alusta(nimi) {
   initCmdPalette();
   _initKeyboard();
   _initBus();
-  // Lataa reaalidata Firestoresta (ei blokkaa renderöintiä)
-  if (!_demo && _seuraId) {
+  // Lataa reaalidata Firestoresta jos seura tiedossa
+  if (_seuraId && !_demo) {
     _lataaPelaajat();
     _lataaTestitapahtumat();
   }
@@ -2629,6 +2680,22 @@ function _renderTodayTestit() {
 function _renderActions() {
   const el = document.getElementById('actionList');
   if (!el) return;
+  // Jos ei demo-tila, näytä tilannepohjainen lista
+  if (!_demo && _seuraId) {
+    const testit = _todayTestit || [];
+    const actions = [
+      testit.length > 0
+        ? { priority:true, aika:'TÄNÄÄN', title: testit[0].nimi + ' — testipäivä', sub: testit[0].joukkue || '', key:'testi' }
+        : { priority:false, aika:'', title: 'Ei testitapahtumia tänään', sub: '', key:'' },
+      { priority:false, aika:'', title: 'Kirjaa ADAR-havainto harjoitusten jälkeen', sub:'4 min', key:'adar' },
+    ];
+    el.innerHTML = actions.filter(a => a.title).map(a => `
+      <div class="action-row${a.priority ? ' priority' : ''}" onclick="a.key==='testi'?setWs('testit'):openDrill(a.key||'adar')">
+        <div class="action-aika mono">${a.aika}</div>
+        <div><div class="action-title">${a.title}</div><div class="action-sub">${a.sub}</div></div>
+      </div>`).join('');
+    return;
+  }
   el.innerHTML = DEMO.actions.map(a => `
     <div class="action-row${a.priority ? ' priority' : ''}" onclick="actionClick('${a.key}')">
       <div class="action-num">${a.num}</div>
@@ -2653,6 +2720,17 @@ function actionClick(key) {
 function _renderMetrics() {
   const el = document.getElementById('metricsGrid');
   if (!el) return;
+  // Reaalidata jos kirjautunut
+  if (!_demo && _seuraId) {
+    el.innerHTML = [
+      { lbl:'Pelaajia', val:_pelaajatData.length||'—', ctx:_joukkue||_seuraId },
+      { lbl:'Avoimet testit', val:(_testitapahtumat||[]).filter(t=>t.tila!=='suljettu').length||'0', ctx:'' },
+    ].map(m => `<div class="metric-card"><div class="metric-lbl caps">${m.lbl}</div>` +
+      `<div class="metric-val serif">${m.val}</div>` +
+      `<div style="font-size:11px;color:var(--ink3)">${m.ctx}</div></div>`).join('');
+    return;
+  }
+  // DEMO fallback
   el.innerHTML = DEMO.metrics.map(m => {
     const sparks = m.sparks || [0,0,0,0,0];
     const max = Math.max(...sparks), min = Math.min(...sparks);
