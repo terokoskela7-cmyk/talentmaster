@@ -851,7 +851,7 @@ function prosessoiExcel(wb) {
     return -1;
   };
 
-  const colTunniste   = findCol(['palloid', 'tunniste', 'pallo']);
+  const colTunniste   = findCol(['palloid', 'palloid *', 'tunniste', 'pallo', 'id']);
   const colSukunimi   = findCol(['sukunimi']);
   const colEtunimi    = findCol(['etunimi']);
   const colSukupuoli  = findCol(['sukup', 'suk.', 'sukupuoli']);
@@ -1418,7 +1418,7 @@ async function tallennaFirestoreen() {
 
       const tallennusData = {
         testit: testit,
-        pelaajaId: p.tunniste || `${p.sukunimi}_${p.etunimi}`,
+        pelaajaId: p.tunniste || '',
         sukunimi: p.sukunimi,
         etunimi: p.etunimi,
         phv_tila: p.phv_tila || '',
@@ -1432,12 +1432,18 @@ async function tallennaFirestoreen() {
 
       const ref = db.collection('seurat').doc(seuraId)
         .collection('testitapahtumat').doc(tapahtuma.id)
-        .collection('tulokset').doc(p.tunniste || `${p.sukunimi}_${p.etunimi}`);
+        .collection('tulokset').doc(p.tunniste);
       await ref.set(tallennusData, { merge: true });
 
       // Päivitä pelaajan profiili
       if (p.tunniste) {
-        const pelaajaRef = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(p.tunniste);
+        // Hae pelaajadokumentti palloID-kentän perusteella (doc ID on Firebase UID)
+        const pelaajaSnap = await db.collection('seurat').doc(seuraId)
+          .collection('pelaajat').where('palloID', '==', p.tunniste).limit(1).get()
+          .catch(() => null);
+        const pelaajaRef = (pelaajaSnap && !pelaajaSnap.empty)
+          ? pelaajaSnap.docs[0].ref
+          : db.collection('seurat').doc(seuraId).collection('pelaajat').doc(p.tunniste);
         const profiiliUpdate = {
           ...(fleiPct !== null ? { flei_viimeisin: fleiPct } : {}),
           ...(p.testauspvm || tapahtuma.pvm ? { flei_pvm: p.testauspvm || tapahtuma.pvm } : {}),
