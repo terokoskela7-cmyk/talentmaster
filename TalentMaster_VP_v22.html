@@ -1011,6 +1011,7 @@ body {
       </svg>
       Valmentajat
       <span class="sb-badge" id="sb-val-badge" style="display:none">0</span>
+      <span class="sb-badge red" id="sb-mentor-badge" style="display:none" title="Mentorointi erääntynyt">!</span>
     </div>
     <div class="sb-item" data-ws="pelaajat" onclick="setWs('pelaajat')">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -1420,6 +1421,25 @@ async function lataaValmentajat() {
       const rOrder = { valmentaja:0, talenttivalmentaja:1, fysiikkavalmentaja:2, testivastaava:3, vp:4 };
       return (rOrder[a.rooli]??5) - (rOrder[b.rooli]??5);
     });
+
+    // Hae viimeisin mentorointi per valmentaja
+    await Promise.all(_valmentajat.map(async v => {
+      try {
+        const mSnap = await db.collection('seurat').doc(_seuraId)
+          .collection('mentoroinnit')
+          .where('valmentajaId','==',v.id)
+          .orderBy('aika','desc').limit(1).get();
+        if (!mSnap.empty) {
+          const m = mSnap.docs[0].data();
+          v.viimMentorointi = m.aika?.toDate ? m.aika.toDate() : new Date(m.aika);
+          v.viimMentorointiPvm = v.viimMentorointi.toLocaleDateString('fi-FI');
+          v.mentorointiPvt = Math.floor((Date.now() - v.viimMentorointi)/86400000);
+        } else {
+          v.viimMentorointi = null;
+          v.mentorointiPvt = 999; // ei koskaan mentoroitu
+        }
+      } catch(e) { v.mentorointiPvt = 999; }
+    }));
   } catch(e) {
     console.warn('lataaValmentajat:', e.message);
     _valmentajat = [];
@@ -1468,8 +1488,21 @@ function renderTilanne() {
   const signaalit = [];
 
   // Tarkista inaktiiviset valmentajat
+  // Mentorointi-signaalit: 30 päivän sykli
+  const MENTOROI_VAROITUS_PV = 25; // varoita 5 pv ennen
+  const MENTOROI_KIIREELLINEN_PV = 30;
+  _valmentajat.forEach(v => {
+    const pvt = v.mentorointiPvt ?? 999;
+    if (pvt >= MENTOROI_KIIREELLINEN_PV) {
+      const kuvaus = pvt === 999 ? 'Ei koskaan mentoroitu' : `Viimeisin ${pvt} pv sitten`;
+      signaalit.push({ type:'warn', icon:'🎯', title:`${v.nimi} — mentorointi erääntynyt`, sub: kuvaus, cta:'Mentoroi nyt →', ws:'valmentajat', coachId: v.id });
+    } else if (pvt >= MENTOROI_VAROITUS_PV) {
+      signaalit.push({ type:'info', icon:'📅', title:`${v.nimi} — mentorointi ${MENTOROI_KIIREELLINEN_PV - pvt} pv`, sub:`Viimeisin ${pvt} pv sitten · Tavoite 30 pv sykli`, cta:'Suunnittele →', ws:'valmentajat', coachId: v.id });
+    }
+  });
+  // Inaktiiviset valmentajat
   _valmentajat.filter(v => !v.aktiivinen).forEach(v => {
-    signaalit.push({ type:'warn', icon:'⚠', title: `${v.nimi} — ADAR-kirjaus puuttuu`, sub: `Viimeisin kirjaus: ${v.viimKirjaus}`, cta:'Mentoroi →', ws:'valmentajat', coachId: v.id });
+    signaalit.push({ type:'warn', icon:'⚠', title:`${v.nimi} — ei kirjauksia`, sub:`Viimeisin kirjaus: ${v.viimKirjaus||'—'}`, cta:'Mentoroi →', ws:'valmentajat', coachId: v.id });
   });
 
   // X-Factor / Hidden Gem
@@ -1568,6 +1601,16 @@ function renderValmentajat() {
       fysiikkavalmentaja:'Fysiikkavalmentaja', testivastaava:'Testivastaava',
       vp:'Valmennuspäällikkö', seurasihteeri:'Seurasihteeri'
     }[v.rooli] || v.rooli || 'Valmentaja';
+
+    // Mentorointistatus
+    const pvt = v.mentorointiPvt ?? 999;
+    const mentorStatus = pvt === 999
+      ? { txt: 'Ei mentoroitu', cls: 'warn', dot: '🔴' }
+      : pvt >= 30
+      ? { txt: `${pvt} pv — erääntynyt`, cls: 'warn', dot: '🔴' }
+      : pvt >= 25
+      ? { txt: `${pvt} pv — pian`, cls: 'amber', dot: '🟡' }
+      : { txt: `${pvt} pv sitten`, cls: 'good', dot: '🟢' };
     return `
     <div class="coach-card" onclick="avaaCoachPanel('${v.id}')">
       <div class="coach-avatar">${initials}</div>
@@ -1576,14 +1619,16 @@ function renderValmentajat() {
       <div class="coach-stats">
         <div class="cs-item">
           <div class="cs-val ${adarColor}">${v.adar?.toFixed(1)||'—'} ${trendIcon}</div>
-          <div class="cs-lbl">ADAR</div>
+          <div class="cs-lbl">ADAR-taso</div>
         </div>
         <div class="cs-item">
-          <div class="cs-val">${v.harjoituksia||'—'}</div>
-          <div class="cs-lbl">Harjoituksia</div>
+          <div class="cs-val" style="font-size:11px;margin-top:2px;${pvt>=30?'color:var(--red)':pvt>=25?'color:var(--amber)':'color:var(--teal)'}">
+            ${mentorStatus.dot} ${mentorStatus.txt}
+          </div>
+          <div class="cs-lbl">Mentorointi</div>
         </div>
         <div class="cs-item">
-          <div class="cs-val ${actClass}" style="font-size:12px;margin-top:4px">${v.viimKirjaus||v.email||'—'}</div>
+          <div class="cs-val ${actClass}" style="font-size:11px;margin-top:2px">${v.email||'—'}</div>
           <div class="cs-lbl">Sähköposti</div>
         </div>
       </div>
@@ -1598,6 +1643,11 @@ function renderValmentajat() {
   const inact = _valmentajat.filter(v=>v.aktiivinen===false).length;
   const b = document.getElementById('sb-val-badge');
   if (b) { b.textContent = inact||''; b.style.display = inact>0?'':'none'; }
+
+  // Mentorointi-badge: montako valmentajaa odottaa mentorointia
+  const eraantyneet = _valmentajat.filter(v => (v.mentorointiPvt??999) >= 30).length;
+  const mb = document.getElementById('sb-mentor-badge');
+  if (mb) { mb.textContent = eraantyneet||''; mb.style.display = eraantyneet>0?'inline-flex':'none'; }
 }
 
 function avaaCoachPanel(id) {
@@ -1627,27 +1677,130 @@ function avaaCoachPanel(id) {
     </div>
 
     <div class="mentor-area">
-      <div class="mentor-label">Mentorointiviesti</div>
-      <textarea class="mentor-textarea" id="mentorMsg" placeholder="Kirjoita palaute tai ohjaus..."></textarea>
+      <div class="mentor-label" style="margin-top:16px;">SPL-kenttäkäynti (7 kriteeriä, 1–10)</div>
+      <button onclick="toggleSplArvio()" id="splToggleBtn"
+        style="width:100%;padding:7px;border-radius:6px;border:0.5px solid var(--border);background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer;margin-bottom:8px;">
+        + Lisää kenttäkäynti-arviointi
+      </button>
+      <div id="splArvio" style="display:none;margin-bottom:12px;">
+        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px;">
+          <div class="spl-row" style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:11px;color:var(--ink2);">1. Toiminta on innostavaa (8)</span><input type="number" min="1" max="10" class="spl-score" data-idx="0" style="width:44px;padding:3px 6px;border:0.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center;" placeholder="—"></div>
+          <div class="spl-row" style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:11px;color:var(--ink2);">2. Pelaajat liikkeessä harjoitusajasta (8)</span><input type="number" min="1" max="10" class="spl-score" data-idx="1" style="width:44px;padding:3px 6px;border:0.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center;" placeholder="—"></div>
+          <div class="spl-row" style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:11px;color:var(--ink2);">3. Toistot — pallokosketukset (7)</span><input type="number" min="1" max="10" class="spl-score" data-idx="2" style="width:44px;padding:3px 6px;border:0.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center;" placeholder="—"></div>
+          <div class="spl-row" style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:11px;color:var(--ink2);">4. Toistot — teknis-taktinen (7)</span><input type="number" min="1" max="10" class="spl-score" data-idx="3" style="width:44px;padding:3px 6px;border:0.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center;" placeholder="—"></div>
+          <div class="spl-row" style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:11px;color:var(--ink2);">5. Pelaajat yrittävät täysillä (8)</span><input type="number" min="1" max="10" class="spl-score" data-idx="4" style="width:44px;padding:3px 6px;border:0.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center;" placeholder="—"></div>
+          <div class="spl-row" style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:11px;color:var(--ink2);">6. Toiminta pelin vaatimusten mukaan (7)</span><input type="number" min="1" max="10" class="spl-score" data-idx="5" style="width:44px;padding:3px 6px;border:0.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center;" placeholder="—"></div>
+          <div class="spl-row" style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:11px;color:var(--ink2);">7. Seuran painopiste näkyy (7)</span><input type="number" min="1" max="10" class="spl-score" data-idx="6" style="width:44px;padding:3px 6px;border:0.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center;" placeholder="—"></div>
+        </div>
+        <button onclick="tallennaSplArvio('${v.id}')"
+          style="width:100%;padding:7px;border-radius:6px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer;">
+          Tallenna kenttäkäynti
+        </button>
+      </div>
+
+      <div class="mentor-label">Mentorointiviesti valmentajalle</div>
+      <textarea class="mentor-textarea" id="mentorMsg" placeholder="Kirjoita palaute tai kehitysehdotus..."></textarea>
       <button class="mentor-send" onclick="lahetaMentorointiViesti('${v.id}','${nim}')">Lähetä valmentajalle</button>
     </div>
 
     <div class="mentor-label">Mentorointi-historia</div>
-    <div class="mentor-history">
-      <div class="msg-bubble vp">
-        <div class="msg-from">Sinä · VP</div>
-        <div class="msg-text">Hyvä ADAR-rakenne viime viikon harjoituksessa. Muista merkitä PHV-tila kaikille U13-pelaajille ennen seuraavaa kartoitusta.</div>
-        <div class="msg-time">2pv sitten</div>
-      </div>
-      <div class="msg-bubble coach">
-        <div class="msg-from">${nim}</div>
-        <div class="msg-text">Selvä, käyn läpi kaikki pelaajat tällä viikolla.</div>
-        <div class="msg-time">2pv sitten</div>
-      </div>
+    <div class="mentor-history" id="mentorHistoria">
+      <div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px;">Ladataan...</div>
     </div>
   `;
   document.getElementById('coachPanel').classList.add('open');
   document.getElementById('coachPanelOverlay').classList.add('open');
+  _lataaCoachHistoria('${v.id}');
+}
+
+/* ════════════════════════════════════════════════════════════
+   MENTOROINTI — SPL-arviointi + historia + sykli
+════════════════════════════════════════════════════════════ */
+function toggleSplArvio() {
+  const el = document.getElementById('splArvio');
+  const btn = document.getElementById('splToggleBtn');
+  const open = el.style.display === 'none';
+  el.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '− Sulje kenttäkäynti-arviointi' : '+ Lisää kenttäkäynti-arviointi';
+}
+
+async function tallennaSplArvio(valmentajaId) {
+  const pisteet = [...document.querySelectorAll('.spl-score')].map(el => parseInt(el.value)||null);
+  const puuttuu = pisteet.filter(p => p === null).length;
+  if (puuttuu > 0) { toast(`Täytä kaikki ${puuttuu} puuttuvaa kriteeriä`, 'warn'); return; }
+
+  const kriteerit = ['Toiminta on innostavaa','Pelaajat liikkeessä','Toistot — pallokosketukset','Toistot — teknis-taktinen','Pelaajat yrittävät täysillä','Toiminta pelin vaatimusten mukaan','Seuran painopiste näkyy'];
+  const keskiarvo = pisteet.reduce((a,b)=>a+b,0) / pisteet.length;
+  const heikoin = pisteet.indexOf(Math.min(...pisteet));
+
+  try {
+    await db.collection('seurat').doc(_seuraId).collection('mentoroinnit').add({
+      valmentajaId,
+      tyyppi: 'kenttäkäynti',
+      pisteet,
+      kriteerit,
+      keskiarvo: Math.round(keskiarvo*10)/10,
+      heikoinKriteeri: kriteerit[heikoin],
+      heikoinPisteet: pisteet[heikoin],
+      vpUid: _uid,
+      aika: firebase.firestore.FieldValue.serverTimestamp(),
+      teksti: `SPL-arviointi · ka ${Math.round(keskiarvo*10)/10}/10 · Heikoin: "${kriteerit[heikoin]}" (${pisteet[heikoin]})`
+    });
+    toast(`✓ Kenttäkäynti tallennettu · ka ${Math.round(keskiarvo*10)/10}/10`, 'ok');
+    toggleSplArvio();
+    _lataaCoachHistoria(valmentajaId);
+    // Päivitä mentorointiPvt valmentajalla
+    const v = _valmentajat.find(x=>x.id===valmentajaId);
+    if (v) { v.mentorointiPvt = 0; v.viimMentorointiPvm = new Date().toLocaleDateString('fi-FI'); }
+    renderValmentajat();
+  } catch(e) {
+    toast('Virhe: ' + e.message, 'error');
+  }
+}
+
+async function _lataaCoachHistoria(valmentajaId) {
+  const el = document.getElementById('mentorHistoria');
+  if (!el) return;
+  try {
+    const snap = await db.collection('seurat').doc(_seuraId)
+      .collection('mentoroinnit')
+      .where('valmentajaId','==',valmentajaId)
+      .orderBy('aika','desc').limit(10).get();
+
+    if (snap.empty) {
+      el.innerHTML = '<div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px;">Ei mentorointihistoriaa — tee ensimmäinen kenttäkäynti tai lähetä viesti</div>';
+      return;
+    }
+
+    el.innerHTML = snap.docs.map(d => {
+      const m = d.data();
+      const aika = m.aika?.toDate ? m.aika.toDate().toLocaleDateString('fi-FI') : '—';
+      const onKenttakaynti = m.tyyppi === 'kenttäkäynti';
+
+      if (onKenttakaynti) {
+        const pisteet = m.pisteet || [];
+        const kriteerit = m.kriteerit || [];
+        return `<div class="msg-bubble vp" style="border-left-color:var(--teal);">
+          <div class="msg-from">Kenttäkäynti · VP · ${aika}</div>
+          <div class="msg-text" style="font-size:12px;">
+            <strong>Ka ${m.keskiarvo}/10</strong> · Heikoin: "${m.heikoinKriteeri}" (${m.heikoinPisteet}/10)
+            <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;">
+              ${kriteerit.map((k,i) => `<span style="font-size:10px;color:var(--ink3);">${i+1}. ${k.split('—')[0].trim()}: <strong style="color:${pisteet[i]>=8?'var(--teal)':pisteet[i]<=5?'var(--red)':'var(--ink)'};">${pisteet[i]}</strong></span>`).join('')}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      const isVp = m.fromRole === 'vp';
+      return `<div class="msg-bubble ${isVp?'vp':'coach'}">
+        <div class="msg-from">${isVp ? 'Sinä · VP' : m.fromNimi || 'Valmentaja'} · ${aika}</div>
+        <div class="msg-text">${m.teksti||''}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px;">Historian lataus epäonnistui</div>';
+    console.warn('Historia:', e.message);
+  }
 }
 
 function suljePaneeli() {
@@ -1658,12 +1811,32 @@ function suljePaneeli() {
 function lahetaMentorointiViesti(coachId, coachNimi) {
   const msg = document.getElementById('mentorMsg').value.trim();
   if (!msg) return;
+
+  const data = {
+    valmentajaId: coachId,
+    tyyppi: 'viesti',
+    teksti: msg,
+    fromRole: 'vp',
+    fromNimi: 'VP',
+    vpUid: _uid,
+    aika: firebase.firestore.FieldValue.serverTimestamp(),
+    luettu: false
+  };
+
+  // Tallenna mentoroinnit-kokoelmaan (historia)
+  db.collection('seurat').doc(_seuraId).collection('mentoroinnit').add(data).catch(()=>{});
+  // Tallenna myös viestit-kokoelmaan (valmentajan inbox)
   db.collection('seurat').doc(_seuraId).collection('viestit').add({
-    from: _uid, fromRole: 'vp', to: coachId,
-    teksti: msg, aika: firebase.firestore.FieldValue.serverTimestamp(), luettu: false
+    ...data, from: _uid, to: coachId
   }).catch(()=>{});
-  toast(`Viesti lähetetty: ${coachNimi}`,'ok');
+
+  toast(`✓ Viesti lähetetty: ${coachNimi}`, 'ok');
   document.getElementById('mentorMsg').value = '';
+  // Päivitä historia
+  setTimeout(() => _lataaCoachHistoria(coachId), 500);
+  // Päivitä mentorointiPvt
+  const v = _valmentajat.find(x=>x.id===coachId);
+  if (v) { v.mentorointiPvt = 0; }
 }
 
 // ─── RENDER PELAAJAT ─────────────────────────────────────
