@@ -1735,12 +1735,15 @@ async function _lataaValmentaja(uid) {
       document.getElementById('sbSeura').textContent = seuraNimi + (_joukkue ? ' · ' + _joukkue : '');
       _alusta(d.etunimi || nimi.trim() || 'Valmentaja');
     } else if (claims.seuraId) {
-      // Claims löytyi mutta kayttajat-dokumentti puuttuu — käynnistä silti
+      // Claims OK mutta kayttajat-dokumentti puuttuu — käynnistä silti oikeilla tiedoilla
+      _joukkue = claims.joukkue || '';
       const sSnap = await _db.collection('seurat').doc(_seuraId).get().catch(()=>null);
       const seuraNimi = sSnap?.exists ? (sSnap.data().nimi || _seuraId) : _seuraId;
-      document.getElementById('sbSeura').textContent = seuraNimi;
-      _alusta('Valmentaja');
+      const sbSeuraEl = document.getElementById('sbSeura');
+      if (sbSeuraEl) sbSeuraEl.textContent = seuraNimi + (_joukkue ? ' · ' + _joukkue : '');
+      _alusta(claims.rooli === 'vp' ? 'VP' : 'Valmentaja');
     } else {
+      // Ei claims eikä kayttajat-dokumenttia — oikea demo-tila
       _kaynnistaDemoTila();
     }
   } catch(e) {
@@ -1761,7 +1764,14 @@ async function _lataaPelaajat() {
     const snap = await ref.get();
     _pelaajatData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     _pelaajatData.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
-    if (!_demo) { renderCal(); _lataaKirjaukset(); }
+    if (!_demo) {
+      // Renderöi kaikki pelaajadataa käyttävät näkymät
+      renderCal();
+      renderPulse();
+      renderDev();
+      renderToday();   // päivitä myös tänään-metriikat
+      _lataaKirjaukset();
+    }
   } catch(e) { console.warn('[v16] Pelaajien lataus:', e.message); }
 }
 
@@ -1781,6 +1791,7 @@ async function _lataaTestitapahtumat() {
     // Re-render affected views
     renderToday();
     renderCal();
+    renderTestit();
     renderTestit();
   } catch(e) { console.warn('[v16] Testitapahtumien lataus:', e.message); }
 }
@@ -2847,7 +2858,8 @@ function renderPulse(){
   });
   pids.forEach(pid=>{
     const p=players[pid];
-    html+=`<div class="heat-player" onclick="pickPlayer('${pid}');setWs('dev')"><span class="heat-num">#${p.num}</span>${p.name.split(' ')[0]}</div>`;
+    const pNimi = (p.name||p.nimi||pid||'?').split(' ')[0];
+    html+=`<div class="heat-player" onclick="pickPlayer('${pid}');setWs('dev')"><span class="heat-num">${p.num||''}</span>${pNimi}</div>`;
     for(let i=0;i<7;i++){
       const v=matrix[pid][i];
       const lvl=v===0?'l0':v===1?'l2':v===2?'l3':'l4';
@@ -2928,24 +2940,38 @@ function _initBus(){
   });
 }
 function _alusta(nimi) {
-  _ws = 'inbox';  // Aloita aina inboxista, ei pulse-tilasta
-  // Päivitä TMBus-konteksti aina kun kirjaudutaan oikealle seuralle
+  _ws = 'inbox';
+  // Päivitä TMBus-konteksti
   if (_seuraId && window.TMBus) {
     window.__TM_SEURA = _seuraId;
-    if (TMBus.getSeuraContext() !== _seuraId) {
-      TMBus.setSeuraContext(_seuraId);
-    }
+    if (TMBus.getSeuraContext() !== _seuraId) TMBus.setSeuraContext(_seuraId);
   }
   _naytaDash();
   _setGreet(nimi);
   _setDate();
   renderInbox();
-  renderPulse();
   renderToday();
-  renderDev();
   renderSeason();
   renderCal();
-  renderTestit();
+  // renderTestit kutsutaan _lataaTestitapahtumat:ssa kun data saapuu
+  // Näytetään välitila
+  if (!_demo && _seuraId) {
+    const avEl = document.getElementById('testitAvoimet');
+    if (avEl) avEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--ink3);font-size:13px;">Ladataan testitapahtumia...</div>';
+  } else {
+    renderTestit();
+  }
+  // Pulssi ja Kehitys tarvitsevat _pelaajatData:n — renderöidään kun data saapuu
+  // Näytetään välitilana "Ladataan..." jos ei demo
+  if (!_demo && _seuraId) {
+    const pulseHeat = document.getElementById('pulseHeatmap');
+    if (pulseHeat) pulseHeat.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3);font-size:13px;">Ladataan joukkuetta...</div>';
+    const devPicker = document.getElementById('playerPicker');
+    if (devPicker) devPicker.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">Ladataan pelaajia...</div>';
+  } else {
+    renderPulse();
+    renderDev();
+  }
   initCmdPalette();
   _initKeyboard();
   _initBus();
@@ -3159,11 +3185,43 @@ function _renderAdar() {
 function _renderPlayersToday() {
   const el = document.getElementById('playersTodayList');
   if (!el) return;
+
+  // Kirjautuneena: käytä Firestoren pelaajadataa
+  if (!_demo && _seuraId && _pelaajatData.length > 0) {
+    // Näytä huomioitavat pelaajat: matala fiilinki, pitkä poissaolo tai X-Factor
+    const huomio = _pelaajatData.filter(p =>
+      p.fiilinki <= 2 || p.streak === 0 || p.signaali === 'xfactor' || p.signaali === 'hidden'
+    ).slice(0, 8);
+
+    if (huomio.length === 0) {
+      el.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">Ei erityishuomioita tänään — joukkue OK.</div>';
+      return;
+    }
+
+    el.innerHTML = huomio.map(p => {
+      const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id;
+      const signaali = p.fiilinki <= 2 ? { cls:'tag-warn', txt:'Matala fiilinki' }
+                     : p.streak === 0   ? { cls:'tag-warn', txt:'Ei kirjauksia' }
+                     : p.signaali === 'xfactor' ? { cls:'tag-x', txt:'X-Factor' }
+                     : p.signaali === 'hidden'  ? { cls:'tag-gem', txt:'Piilohelmi' }
+                     : { cls:'', txt:'' };
+      return `<div class="player-row">
+        <div class="player-num" onclick="pickPlayer('${p.id}');setWs('dev')" style="cursor:pointer">#${p.numero||'?'}</div>
+        <div class="player-info" onclick="pickPlayer('${p.id}');setWs('dev')" style="cursor:pointer">
+          <div class="player-name">${nimi}</div>
+          <div class="player-tags">${signaali.txt ? `<span class="player-tag ${signaali.cls}">${signaali.txt}</span>` : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  // Demo-moodi
   const tagMap = {
-    x:    { cls:'tag-x',    txt:'X-Factor' },
-    gem:  { cls:'tag-gem',  txt:'Piilohelmi' },
-    warn: { cls:'tag-warn', txt:'Poissa' },
-    inj:  { cls:'tag-inj',  txt:'Loukk.' },
+    x:   { cls:'tag-x',   txt:'X-Factor' },
+    gem: { cls:'tag-gem', txt:'Piilohelmi' },
+    warn:{ cls:'tag-warn', txt:'Poissa' },
+    inj: { cls:'tag-inj', txt:'Loukk.' },
   };
   el.innerHTML = DEMO.players.map(p => {
     const pid = p.name.split(' ')[0].toLowerCase();
@@ -3172,19 +3230,13 @@ function _renderPlayersToday() {
       <div class="player-num" onclick="pickPlayer('${pid}');setWs('dev')" style="cursor:pointer">${p.num}</div>
       <div class="player-info" onclick="pickPlayer('${pid}');setWs('dev')" style="cursor:pointer">
         <div class="player-name">${p.name}</div>
-        <div class="player-pos">${p.pos} · ${p.note}</div>
+        <div class="player-tags">${(p.tags||[]).map(t => `<span class="player-tag ${(tagMap[t]||{}).cls||''}">${(tagMap[t]||{}).txt||t}</span>`).join('')}</div>
       </div>
-      <div class="player-tags">
-        ${p.tags.map(t => `<span class="tag ${tagMap[t]?.cls||''}">${tagMap[t]?.txt||t}</span>`).join('')}
-      </div>
-      <button class="player-open-btn" onclick="openPelaaja('${pid}')" title="Avaa Pelaaja v4 -näkymä">
-        <svg><use href="#ic-external"/></svg>Pelaaja
-      </button>
+      ${p.note ? `<div class="player-note">${p.note}</div>` : ''}
     </div>`;
   }).join('');
 }
 
-/* ═══ PELAAJA-KYTKÖS — avaa Pelaaja v4 uuteen välilehteen ═══ */
 function openPelaaja(pid) {
   // Demo: URL-parametrit vastaavat Pelaaja v4:n oletuksia
   // Tuotannossa: seuraId tulee valmentajan profiilista, pelaajaId on UID
