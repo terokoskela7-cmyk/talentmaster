@@ -1249,7 +1249,7 @@ function _generoiExcel(tap) {
 
   // Perustiedot-sarakkeet (aina mukana)
   const perustiedot = [
-    { key:'tunniste',   otsikko:'PalloID *',      leveys:14 },
+    { key:'palloID',    otsikko:'PalloID *',      leveys:14 },
     { key:'sukunimi',   otsikko:'Sukunimi *',      leveys:16 },
     { key:'etunimi',    otsikko:'Etunimi *',        leveys:14 },
     { key:'sukupuoli',  otsikko:'Suk.\n(P=Poika\nT=Tyttö)', leveys:8  },
@@ -1704,7 +1704,7 @@ window._tallennaTapahtuma = async function _tallennaTapahtuma() {
       sukunimi: p.sukunimi || '',
       syntymapaiva: p.syntymapaiva || '',
       phv_tila: p.phv_tila || null,
-      tunniste: p.tunniste || null    // PalloID
+      palloID: p.palloID || p.tunniste || null    // Palloliiton tunniste — AVAIN
     })),
     tila: 'avoin',
     tekija_uid: _kayttaja.uid,
@@ -1748,6 +1748,17 @@ window._tallennaTapahtuma = async function _tallennaTapahtuma() {
 // KENTTÄNÄKYMÄ — AVAA TAPAHTUMA
 // ════════════════════════════════════
 async function _avaaKentta(tapahtuma) {
+  // Suodata pelaajatData vahvistettuihin jos Master-näkymässä vahvistus tehty
+  const vahv = tapahtuma.vahvistetutPelaajat || [];
+  if (vahv.length > 0 && tapahtuma.pelaajatData && tapahtuma.pelaajatData.length > 0) {
+    tapahtuma = {
+      ...tapahtuma,
+      pelaajatData: tapahtuma.pelaajatData.filter(p => vahv.includes(p.palloID || p.tunniste || p.id)),
+      pelaajat: tapahtuma.pelaajatData.filter(p => vahv.includes(p.palloID || p.tunniste || p.id)).map(p => p.id)
+    };
+    _toast(`✓ ${tapahtuma.pelaajatData.length} vahvistettua pelaajaa`, 'ok');
+  }
+
   _aktiivinenTapahtuma = tapahtuma;
   _tulokset = {};
   // Pelaajan oma testauspvm — oletuksena tapahtuman pvm, voidaan muuttaa
@@ -2282,9 +2293,11 @@ function _tallennaTulos(pelaajaId, testiId, arvo) {
   clearTimeout(_saveQueue[pelaajaId]);
   _saveQueue[pelaajaId] = setTimeout(async () => {
     try {
+      const pData0 = (_aktiivinenTapahtuma.pelaajatData||[]).find(p=>p.id===pelaajaId)||{};
+      const tuloksetDocId = pData0.palloID || pData0.tunniste || pelaajaId;
       const tuloksetRef = _db.collection('seurat').doc(_seuraId)
         .collection('testitapahtumat').doc(_aktiivinenTapahtuma.id)
-        .collection('tulokset').doc(pelaajaId);
+        .collection('tulokset').doc(tuloksetDocId);
       const pData = (_aktiivinenTapahtuma.pelaajatData||[]).find(p=>p.id===pelaajaId)||{};
       // Suodata vain tapahtuman aktiiviset testit
       const aktTestit = _aktiivinenTapahtuma.aktiiviset_testit || null;
@@ -2322,7 +2335,7 @@ function _tallennaTulos(pelaajaId, testiId, arvo) {
         sukunimi: pData.sukunimi||'',
         phv_tila: pData.phv_tila||null,
         syntymapaiva: pData.syntymapaiva||'',
-        tunniste: pData.tunniste||null,   // PalloID
+        palloID: pData.palloID || pData.tunniste || null,   // Palloliiton tunniste
         testauspvm,                        // Pelaajan oma testipäivä
         kausi: _aktiivinenTapahtuma.kausi||null,
         testit: testienSuodatus,
@@ -2334,8 +2347,20 @@ function _tallennaTulos(pelaajaId, testiId, arvo) {
       // 2) Päivitä FLEI + ketjupisteet suoraan pelaajadokumenttiin
       //    jotta IDP-kortti ja VP-dashboard saavat ne välittömästi
       if (fleiLaskettu !== null && Object.keys(ketjuKa_t).length > 0) {
-        const pelaajaRef = _db.collection('seurat').doc(_seuraId)
-          .collection('pelaajat').doc(pelaajaId);
+        // Hae pelaajadokumentti palloID-kentän perusteella (doc ID on Firebase UID)
+        let pelaajaDocRef;
+        const pelaajaIdPalloID = pData.palloID || pData.tunniste;
+        if (pelaajaIdPalloID) {
+          const pSnap = await _db.collection('seurat').doc(_seuraId)
+            .collection('pelaajat').where('palloID','==',pelaajaIdPalloID).limit(1).get()
+            .catch(()=>null);
+          pelaajaDocRef = (pSnap && !pSnap.empty)
+            ? pSnap.docs[0].ref
+            : _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId);
+        } else {
+          pelaajaDocRef = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId);
+        }
+        const pelaajaRef = pelaajaDocRef;
         await pelaajaRef.set({
           flei: fleiLaskettu,
           flei_ketjut: ketjuKa_t,
