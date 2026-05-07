@@ -1960,11 +1960,23 @@ function _testiCardHtml(t) {
       <button class="testit-btn" onclick="_generoiExcel(_testiById('${t.id}'))">
         <svg width="12" height="12"><use href="#ic-download"/></svg>Lataa Excel
       </button>
-      ${suljettu ? '' : `<button class="testit-btn danger" onclick="_suljeTapahtuma('${t.id}')">
+      ${!suljettu ? `<button class="testit-btn danger" onclick="_suljeTapahtuma('${t.id}')">
         <svg width="12" height="12"><use href="#ic-close"/></svg>Sulje tapahtuma
-      </button>`}
+      </button>` : ''}
+      <button class="testit-btn" style="background:rgba(26,122,94,.15);color:var(--teal);border-color:var(--teal);"
+        onclick="event.stopPropagation();_avaaTuonti('${t.id}')">
+        <svg width="12" height="12"><use href="#ic-download"/></svg>Tuo tulokset
+      </button>
     </div>
   </div>`;
+}
+
+function _avaaTuonti(tapahtumaId) {
+  const url = 'TalentMaster_Testituonti_Master.html'
+    + '?tapahtumaId=' + encodeURIComponent(tapahtumaId)
+    + '&seuraId='     + encodeURIComponent(_seuraId || '')
+    + '&joukkue='     + encodeURIComponent(_joukkue  || '');
+  window.open(url, '_blank', 'noopener');
 }
 
 function _testiById(id) {
@@ -2227,10 +2239,18 @@ function renderPulse(){
   const totalEvts=evts.filter(e=>{const d=new Date(e.at);return d>=monday;}).length;
   const activeToday=pids.filter(pid=>matrix[pid][wd]>0).length;
   const streakPids=pids.filter(pid=>matrix[pid].slice(0,wd+1).every(v=>v>0)).length;
+  const viimTesti = (_testitapahtumat||[]).find(t=>t.tila==='suljettu');
+  const viimTestiTxt = viimTesti
+    ? (PROTOKOLLAT[viimTesti.protokolla]?.nimi||viimTesti.protokolla||'Testi')+' · '+(viimTesti.pvm||'—')
+    : null;
   if(statsEl) statsEl.innerHTML=`
     <div><div class="pulse-stat-v">${totalEvts}</div><div class="pulse-stat-l">Kirjausta viikolla</div></div>
     <div><div class="pulse-stat-v">${activeToday}/${pids.length}</div><div class="pulse-stat-l">Aktiivinen tänään</div></div>
     <div><div class="pulse-stat-v">${streakPids}</div><div class="pulse-stat-l">Streak käynnissä</div></div>
+    ${viimTestiTxt ? `<div style="grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);font-size:11px;color:var(--ink3);">
+      Viimeisin testi: <span style="color:var(--ink);font-weight:500">${viimTestiTxt}</span>
+      <span class="testit-btn" style="margin-left:8px;cursor:pointer;font-size:10px;" onclick="setWs('testit')">Näytä →</span>
+    </div>` : ''}
   `;
 
   // Heatmap
@@ -2695,6 +2715,12 @@ function renderSeason() {
 
 /* ════════════════════════════════════════════════════════════
    KALENTERI — Viikkonäkymä · omatoimiset mukaan lukien
+   TODO Sprint 6: Valmentaja luo harjoitustapahtuman kalenteriin
+   TODO Sprint 6: Kuukausinäkymä (setCalMode 'month')
+   TODO Sprint 7: Kausinäkymä testipäivien visualisointi
+   TODO Sprint 7: Omatoiminen seuranta pelaajittain kalenterissa
+   TODO Sprint 8: MyWay-synkronointi (PalloID-linkitys)
+   TODO Sprint 8: Ottelut + peliminuutit kalenteriin
 ════════════════════════════════════════════════════════════ */
 let _calMode = 'week';
 let _calWkOffset = 0; // 0 = nykyinen, -1 = edellinen jne.
