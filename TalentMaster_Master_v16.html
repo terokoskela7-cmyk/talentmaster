@@ -607,6 +607,9 @@ a { color: inherit; text-decoration: none; }
 .cal-time-lbl { background: var(--card); padding: 8px 8px 8px 10px; font-family:'DM Mono', monospace; font-size: 9px; color: var(--ink3); border-top:.5px solid var(--line); }
 .cal-cell { background: var(--bg); min-height: 56px; border-top:.5px solid var(--line); position: relative; padding: 3px; cursor: pointer; transition: background .12s; }
 .cal-cell:hover { background: var(--card2); }
+.cal-cell.today-col { background: rgba(40,176,144,.04); }
+.cal-evt.test { background: rgba(40,176,144,.15); border-left: 2px solid var(--teal); }
+.cal-evt.test.done { background: rgba(88,87,81,.15); border-left: 2px solid var(--ink3); opacity: .7; }
 
 .cal-evt {
   display: block; padding: 5px 7px; border-radius: 4px;
@@ -2759,104 +2762,125 @@ let _calMode = 'week';
 let _calWkOffset = 0; // 0 = nykyinen, -1 = edellinen jne.
 
 function renderCal() {
-  // Laske nykyinen viikko — ei kovakoodattua viikko 17
   const today = new Date();
-  const dayOfWeek = (today.getDay() + 6) % 7; // 0=Ma
+  const dayOfWeek = (today.getDay() + 6) % 7;
   const monday = new Date(today);
   monday.setDate(today.getDate() - dayOfWeek + (_calWkOffset * 7));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
 
   // Viikkonumero
   const jan4 = new Date(monday.getFullYear(), 0, 4);
   const weekNum = Math.ceil(((monday - jan4) / 86400000 + jan4.getDay() + 1) / 7);
 
-  const kk = ['tammikuuta','helmikuuta','maaliskuuta','huhtikuuta','toukokuuta','kesäkuuta',
-    'heinäkuuta','elokuuta','syyskuuta','lokakuuta','marraskuuta','joulukuuta'];
-
-  // Päivämäärät Ma-Su
+  // Päivämäärät Ma-Su Date-olioina
   const dates = Array.from({length:7}, (_,i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
+    const d = new Date(monday); d.setDate(monday.getDate() + i); return d;
   });
 
-  // Päivitä otsikko
+  // Päivitä otsikot
+  const kk = ['tammikuuta','helmikuuta','maaliskuuta','huhtikuuta','toukokuuta','kesäkuuta',
+    'heinäkuuta','elokuuta','syyskuuta','lokakuuta','marraskuuta','joulukuuta'];
   const wkEl = document.getElementById('calWkLabel');
-  const startStr = monday.getDate() + '.';
-  const endStr = sunday.getDate() + '. ' + kk[sunday.getMonth()];
-  if (wkEl) wkEl.textContent = 'Viikko ' + weekNum + ' · ' + startStr + '–' + endStr;
+  if (wkEl) wkEl.textContent = 'Viikko ' + weekNum + ' · ' + monday.getDate() + '.–' + sunday.getDate() + '. ' + kk[sunday.getMonth()];
+  const subEl = document.getElementById('calWkSub');
+  const kausiVk = Math.ceil((monday - new Date(monday.getFullYear(), 7, 1)) / 604800000);
+  if (subEl) subEl.textContent = 'Kausi ' + monday.getFullYear() + '/' + (monday.getFullYear()+1).toString().slice(-2) + ' · Viikko ' + weekNum;
 
-  const c = DEMO.cal;
   const days = ['Ma','Ti','Ke','To','Pe','La','Su'];
-  const dateParts = dates.map(d => d.getDate());  // oikeat päivämäärät nykyisestä viikosta
-  const todayIdx = 3;  // torstai (demo)
+  const todayStr = today.toISOString().slice(0,10);
 
-  // Label
-  const lbl = document.getElementById('calWkLabel');
-  if (lbl) lbl.textContent = c.wkLabel;
-  const sub = document.getElementById('calWkSub');
-  if (sub) sub.textContent = 'Kausi 25/26 · ' + c.wk + '/36';
-
-  // Viikko-grid
-  const wk = document.getElementById('calWeek');
-  if (!wk) return;
-
-  // Muunna testitapahtumat kalenterimuotoon (all-day, klo 9)
+  // ── Testitapahtumat → kalenterimuoto ──
   const testiEvts = (_testitapahtumat || []).map(t => {
-    // Yritä löytää päivä index viikolta (pvm = YYYY-MM-DD)
-    const pvm = t.pvm || '';
-    const dayIdx = dates.findIndex((dd, i) => {
-      // Demo: huhti 2026. Todellisuudessa: dynaaminen viikon päivämäärät
-      return pvm.endsWith('-04-' + String(dd).padStart(2,'0'));
-    });
+    const dayIdx = dates.findIndex(dd => dd.toISOString().slice(0,10) === t.pvm);
     return { ...t, _dayIdx: dayIdx, _hour: 9 };
   }).filter(t => t._dayIdx >= 0);
 
-  // Build: header row + time rows
-  let html = '';
-  // blank corner
-  html += '<div class="cal-day-hdr" style="background:var(--card)"></div>';
+  // ── Demo harjoitusevents ──
+  const c = DEMO.cal || { hours:[15,16,17,18,19,20], events:[], players:[] };
+
+  const wk = document.getElementById('calWeek');
+  if (!wk) return;
+
+  // ── Rakenna grid ──
+  let html = '<div class="cal-day-hdr" style="background:var(--card)"></div>';
   days.forEach((d,i) => {
-    html += `<div class="cal-day-hdr${i===todayIdx?' today':''}">
+    const dateStr = dates[i].toISOString().slice(0,10);
+    const isToday = dateStr === todayStr;
+    // Laske testit tälle päivälle (badge)
+    const paivaTesti = (_testitapahtumat||[]).filter(t => t.pvm === dateStr);
+    const testiBadge = paivaTesti.length > 0
+      ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--teal);margin-left:4px;vertical-align:middle;"></span>`
+      : '';
+    html += `<div class="cal-day-hdr${isToday?' today':''}">
       <div class="cal-day-name">${d}</div>
-      <div class="cal-day-num">${dates[i]}</div>
+      <div class="cal-day-num">${dates[i].getDate()}${testiBadge}</div>
     </div>`;
   });
 
-  c.hours.forEach(h => {
+  (c.hours || [15,16,17,18,19,20]).forEach(h => {
     html += `<div class="cal-time-lbl">${h}:00</div>`;
     for (let d = 0; d < 7; d++) {
-      const evts = c.events.filter(e => e.day === d && e.hour === h);
-      // Lisää testitapahtumat tähän päivään ja tuntiin (jos tunti = 9)
-      const testit = testiEvts.filter(t => t._dayIdx === d && t._hour === h);
-      const allEvts = [...evts, ...testit.map(t => ({
-        type: 'test',
-        title: t.nimi || PROTOKOLLAT[t.protokolla]?.nimi || 'Testi',
-        meta: t.moodi || 'sekamalli',
-        _testId: t.id
-      }))];
-      const inner = allEvts.map(e => `
-        <div class="cal-evt ${e.type}" onclick="${e._testId ? `_avaaKentta('${e._testId}');` : `calEventClick('${e.type}',${d},${h});`}event.stopPropagation();">
+      const dateStr = dates[d].toISOString().slice(0,10);
+      const isToday = dateStr === todayStr;
+
+      // Demo-harjoitukset
+      const demoEvts = (c.events||[]).filter(e => e.day === d && e.hour === h);
+
+      // Testitapahtumat klo 9:00
+      const testit = testiEvts.filter(t => t._dayIdx === d && h === 9);
+      const allEvts = [
+        ...demoEvts,
+        ...testit.map(t => ({
+          type: t.tila === 'suljettu' ? 'test done' : 'test',
+          title: (t.nimi || PROTOKOLLAT?.[t.protokolla]?.nimi || 'Testi').split(' — ')[0],
+          meta: (t.joukkue || '') + (t.tila === 'suljettu' ? ' · valmis' : ' · ' + (t.moodi||'avoin')),
+          _testId: t.id,
+          _tila: t.tila
+        }))
+      ];
+
+      const inner = allEvts.map(e => {
+        const clickFn = e._testId
+          ? `event.stopPropagation();setWs('testit');`
+          : `event.stopPropagation();calEventClick('${e.type}',${d},${h});`;
+        return `<div class="cal-evt ${e.type}" onclick="${clickFn}" title="${e.title}">
           <div class="cal-evt-title">${e.title}</div>
           <div class="cal-evt-meta">${e.meta}</div>
-        </div>`).join('');
-      html += `<div class="cal-cell" onclick="calSlotClick(${d},${h})">${inner}</div>`;
+        </div>`;
+      }).join('');
+
+      html += `<div class="cal-cell${isToday?' today-col':''}" onclick="calSlotClick(${d},${h})">${inner}</div>`;
     }
   });
 
   wk.innerHTML = html;
 
-  // Omatoiminen-pelaajalista
+  // ── Omatoiminen-pelaajalista Firestoresta ──
   const pl = document.getElementById('calPlayers');
   if (pl) {
-    pl.innerHTML = c.players.map(p => `
-      <div class="cal-player-row${p.low?' low':''}" onclick="calPlayerClick('${p.name}')">
-        <div class="cal-player-num mono">${p.num}</div>
-        <div class="cal-player-name">${p.name}</div>
-        <div class="cal-player-streak mono">${p.streak>0?p.streak+' pv':'—'}</div>
-        <div class="cal-player-min mono">${p.min} min</div>
-      </div>`).join('');
+    if (_pelaajatData && _pelaajatData.length > 0) {
+      pl.innerHTML = _pelaajatData
+        .sort((a,b) => (b.streak||0) - (a.streak||0))
+        .slice(0, 10)
+        .map(p => {
+          const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim();
+          const streak = p.streak || 0;
+          const fiilinki = p.fiilinki || 0;
+          const low = streak < 2 || fiilinki < 3;
+          return `<div class="cal-player-row${low?' low':''}" onclick="setWs('inbox')">
+            <div class="cal-player-name" style="flex:1;font-size:12px">${nimi}</div>
+            <div class="cal-player-streak mono" style="font-size:11px;color:${streak>5?'var(--teal)':streak>2?'var(--ink2)':'var(--red)'}">${streak > 0 ? streak+'pv' : '—'}</div>
+            <div class="cal-player-min mono" style="font-size:11px;color:${fiilinki>3?'var(--ink2)':'var(--amber)'}">${fiilinki > 0 ? ['','😔','😐','🙂','😊','🤩'][fiilinki] : '—'}</div>
+          </div>`;
+        }).join('');
+    } else {
+      pl.innerHTML = (c.players||[]).map(p => `
+        <div class="cal-player-row${p.low?' low':''}" onclick="calPlayerClick('${p.name}')">
+          <div class="cal-player-name" style="flex:1;font-size:12px">${p.name}</div>
+          <div class="cal-player-streak mono">${p.streak>0?p.streak+' pv':'—'}</div>
+          <div class="cal-player-min mono">${p.min} min</div>
+        </div>`).join('');
+    }
   }
 }
 
@@ -2878,6 +2902,20 @@ function calEventClick(type, day, hour) {
   toast('Avattu: ' + (labels[type]||type), 'cal-evt');
 }
 function calSlotClick(day, hour) {
+  // Laske klikattu päivämäärä
+  const today = new Date();
+  const dayOfWeek = (today.getDay() + 6) % 7;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - dayOfWeek + (_calWkOffset * 7));
+  const clickedDate = new Date(monday);
+  clickedDate.setDate(monday.getDate() + day);
+  const pvm = clickedDate.toISOString().slice(0,10);
+  toast('+ Harjoitus ' + pvm + ' klo ' + hour + ':00 — Sprint 6', 'ok');
+  return; // TODO Sprint 6: avaa harjoitustapahtuman luonti
+  // eslint-disable-next-line no-unreachable
+  void day; void hour;
+}
+function _calSlotClickOrig(day, hour) {
   toast('Lisää tapahtuma — ' + ['Ma','Ti','Ke','To','Pe','La','Su'][day] + ' klo ' + hour, 'cal-slot');
 }
 function calPlayerClick(name) {
