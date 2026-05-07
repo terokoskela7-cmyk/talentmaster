@@ -1624,6 +1624,23 @@ async function _lataaValmentaja(uid) {
     // Hae Custom Claims ensin — nopein tapa
     const token = await _auth.currentUser.getIdTokenResult(false).catch(() => null);
     const claims = token?.claims || {};
+
+    // Super admin -tarkistus (admins-kokoelma)
+    const adminSnap = await _db.collection('admins').doc(uid).get().catch(() => null);
+    if (adminSnap?.exists) {
+      _superAdmin = true;
+      _rooli = 'super_admin';
+      // Super admin: näytä seuranvalitsin topbarissa
+      document.getElementById('sbRole').textContent = 'Super Admin';
+      _alusta('Super Admin');
+      // Lataa kaikki seurat — SA voi valita joukkueen
+      const sSnap = await _db.collection('seurat').get().catch(() => null);
+      if (sSnap && !sSnap.empty) {
+        _seuraId = _seuraId || sSnap.docs[0].id;
+      }
+      return;
+    }
+
     if (claims.seuraId) {
       _seuraId = claims.seuraId;
       _rooli   = claims.rooli || 'valmentaja';
@@ -1839,10 +1856,28 @@ const KETJU_NIMET = {
   DIAG: 'Diagonaaliketju', DFL: 'Hallintaketju',
 };
 
-function _generoiExcel(tap) {
+function async _generoiExcel(tap) {
   const proto = PROTOKOLLAT[tap.protokolla] || {};
   const aktTestit = tap.aktiiviset_testit || (proto.testit||[]).map(t=>t.id);
-  const pelaajat = tap.pelaajatData || [];
+
+  // Pelaajat: vahvistetut > pelaajatData > kaikki Firestoresta
+  let pelaajat = [];
+  const vahv = tap.vahvistetutPelaajat || [];
+  if (vahv.length > 0 && _pelaajatData.length > 0) {
+    pelaajat = _pelaajatData.filter(p => vahv.includes(p.palloID || p.id));
+  } else if (_pelaajatData.length > 0) {
+    pelaajat = [..._pelaajatData];
+  } else if (tap.pelaajatData?.length > 0) {
+    pelaajat = tap.pelaajatData;
+  } else if (!_demo && _seuraId) {
+    try {
+      let ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat');
+      if (_joukkue) ref = ref.where('joukkue','==',_joukkue);
+      const snap = await ref.get();
+      pelaajat = snap.docs.map(d => ({id:d.id,...d.data()}));
+    } catch(e) {}
+  }
+  pelaajat.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
   const kausiNimi = { 'kevat':'Kevät','kesa':'Kesä','syksy':'Syksy' }[tap.kausi?.split('-')[1]] || tap.kausi || '';
   const vuosi = tap.kausi?.split('-')[0] || tap.vuosi || '';
 
@@ -1877,7 +1912,7 @@ function _generoiExcel(tap) {
   // Testitulokset-lehti
   const aktiivisetTestiObj = (proto.testit||[]).filter(t => aktTestit.includes(t.id));
   const perustiedot = [
-    { key:'tunniste',   otsikko:'PalloID *',      leveys:14 },
+    { key:'palloID',    otsikko:'PalloID *',      leveys:14 },
     { key:'sukunimi',   otsikko:'Sukunimi *',      leveys:16 },
     { key:'etunimi',    otsikko:'Etunimi *',        leveys:14 },
     { key:'sukupuoli',  otsikko:'Suk.\n(P=Poika\nT=Tyttö)', leveys:8  },
@@ -1997,8 +2032,74 @@ function _testiCardHtml(t) {
         onclick="event.stopPropagation();_avaaTuonti('${t.id}')">
         <svg width="12" height="12"><use href="#ic-download"/></svg>Tuo tulokset
       </button>
+      <button class="testit-btn" style="background:rgba(139,92,246,.1);color:#8B5CF6;border-color:#8B5CF6;"
+        onclick="event.stopPropagation();_avaaVahvistus('${t.id}')">
+        <svg width="12" height="12"><use href="#ic-person"/></svg>Vahvista osallistujat
+      </button>
     </div>
   </div>`;
+}
+
+/* ── PELAAJIEN VAHVISTUS ── */
+async function _avaaVahvistus(tapahtumaId) {
+  const t = _testiById(tapahtumaId);
+  if (!_pelaajatData.length) await _lataaPelaajat();
+  const kaikki = [..._pelaajatData].sort((a,b)=>(a.sukunimi||'').localeCompare(b.sukunimi||''));
+  const vahvistettu = new Set(t.vahvistetutPelaajat || []);
+
+  const ex = document.getElementById('vahvistusModaali');
+  if (ex) ex.remove();
+  const modal = document.createElement('div');
+  modal.id = 'vahvistusModaali';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML = '<div style="background:var(--card);border-radius:12px;padding:24px;width:440px;max-width:100%;max-height:85vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+    '<b style="font-size:15px;">Vahvista osallistuvat pelaajat</b>' +
+    '<button onclick="document.getElementById('vahvistusModaali').remove()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--ink3);line-height:1;">✕</button></div>' +
+    '<div style="font-size:12px;color:var(--ink3);">Excel generoidaan vain vahvistetuille. Puuttuvat ohjataan uuteen tapahtumaan.</div>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<button onclick="[...document.querySelectorAll('#vahvistusLista input')].forEach(c=>c.checked=true);_paiVahvLkm()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;background:var(--surface);">Kaikki (' + kaikki.length + ')</button>' +
+    '<button onclick="[...document.querySelectorAll('#vahvistusLista input')].forEach(c=>c.checked=false);_paiVahvLkm()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;background:var(--surface);">Tyhjennä</button>' +
+    '<span id="vahvistusLkm" style="margin-left:auto;font-size:12px;color:var(--ink3);align-self:center;">' + vahvistettu.size + '/' + kaikki.length + ' valittu</span></div>' +
+    '<div id="vahvistusLista" style="display:flex;flex-direction:column;gap:4px;">' +
+    kaikki.map(p => {
+      const nimi = ((p.sukunimi||'') + ' ' + (p.etunimi||'')).trim() || p.id;
+      const pid  = p.palloID || p.id;
+      const ch   = vahvistettu.has(pid) ? 'checked' : '';
+      return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;">' +
+        '<input type="checkbox" ' + ch + ' value="' + pid + '" style="width:15px;height:15px;accent-color:var(--teal);" onchange="_paiVahvLkm()">' +
+        '<span style="flex:1;font-size:13px;">' + nimi + '</span>' +
+        '<span style="font-size:11px;color:var(--ink3);font-family:monospace;">' + pid + '</span></label>';
+    }).join('') +
+    '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:4px;">' +
+    '<button onclick="document.getElementById('vahvistusModaali').remove()" style="font-size:12px;padding:7px 14px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;background:var(--surface);">Peruuta</button>' +
+    '<button onclick="_tallennaVahvistus('' + tapahtumaId + '')" style="font-size:13px;padding:7px 18px;border-radius:6px;border:none;background:var(--teal);color:#fff;cursor:pointer;font-weight:500;margin-left:auto;">Tallenna ja lataa Excel →</button>' +
+    '</div></div>';
+  document.body.appendChild(modal);
+}
+
+function _paiVahvLkm() {
+  const n = document.querySelectorAll('#vahvistusLista input:checked').length;
+  const tot = document.querySelectorAll('#vahvistusLista input').length;
+  const el = document.getElementById('vahvistusLkm');
+  if (el) el.textContent = n + '/' + tot + ' valittu';
+}
+
+async function _tallennaVahvistus(tapahtumaId) {
+  const valitut = [...document.querySelectorAll('#vahvistusLista input:checked')].map(cb=>cb.value);
+  if (!_demo && _seuraId) {
+    try {
+      await _db.collection('seurat').doc(_seuraId).collection('testitapahtumat').doc(tapahtumaId)
+        .update({ vahvistetutPelaajat: valitut, vahvistusPvm: new Date().toISOString() });
+    } catch(e) { console.warn('Vahvistus:', e.message); }
+  }
+  const t = _testiById(tapahtumaId);
+  if (t) t.vahvistetutPelaajat = valitut;
+  document.getElementById('vahvistusModaali')?.remove();
+  renderTestit();
+  toast('✓ ' + valitut.length + ' pelaajaa vahvistettu', 'ok');
+  setTimeout(() => _generoiExcel(_testiById(tapahtumaId)), 400);
 }
 
 function _avaaTuonti(tapahtumaId) {
