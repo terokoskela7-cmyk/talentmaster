@@ -1408,6 +1408,7 @@ let _joukkue  = null;
 let _seuraId  = null;
 let _rooli    = null;
 let _demo     = false;
+let _superAdmin = false;
 let _ws       = 'today';
 let _kirjautuminenKesken = false;
 let _drillType = null;
@@ -2875,6 +2876,13 @@ function _renderNarrative(p) {
 ════════════════════════════════════════════════════════════ */
 function renderSeason() {
   const s = DEMO.season;
+
+  // xfNimet ENSIN — tarvitaan sekä seasonGrid:ssä että xfList:ssä
+  const _xfFire = (_pelaajatData||[])
+    .filter(p => p.signaali==='xfactor' || p.signaali==='hidden')
+    .map(p => ((p.etunimi||'')+' '+(p.sukunimi||'')).trim()).filter(Boolean);
+  const xfNimet = _xfFire.length > 0 ? _xfFire : (s.xfpelaajat||[]);
+
   document.getElementById('seasonSub').textContent = 'Kausi 25/26 · vk ' + s.vk + '/' + s.vkTotal;
   document.getElementById('seasonProgress').textContent = 'vk ' + s.vk + '/' + s.vkTotal;
   const pct = Math.round((s.vk/s.vkTotal)*100);
@@ -2901,11 +2909,7 @@ function renderSeason() {
       </div>`).join('');
   }
 
-  // X-Factor pelaajat Firestoresta, demoon fallback
-  const xfFiirestore = _pelaajatData
-    .filter(p => p.signaali==='xfactor'||p.signaali==='hidden')
-    .map(p => ((p.etunimi||'')+' '+(p.sukunimi||'')).trim()).filter(Boolean);
-  const xfNimet = xfFiirestore.length > 0 ? xfFiirestore : s.xfpelaajat;
+  // xfNimet jo laskettu yllä — käytetään suoraan
 
   const xfl = document.getElementById('xfList');
   if (xfl) {
