@@ -20,7 +20,7 @@
   // Lue localStorage:sta jos SA on aiemmin valinnut seuran
   window.__TM_SEURA = localStorage.getItem('tm-sa-seura') || 'kpv';
 </script>
-<script src="tm-bus.js?v=3"></script>
+<script src="tm-bus.js?v=4"></script>
 <script>
   // tm-demo.js ladataan vain demo-tilassa — ei kirjautuneelle käyttäjälle
   // Lataus tapahtuu _kaynnistaDemoTila()-funktiossa tarpeen mukaan
@@ -1600,9 +1600,28 @@ _auth.onAuthStateChanged(async user => {
     if (!user.isAnonymous) await _lataaValmentaja(user.uid);
     else _kaynnistaDemoTila();
   } else {
+    // Ei kirjautunut — näytä login
+    // Esitäytä sähköpostikenttä tyhjäksi (ei kovakoodattua arvoa)
     _naytaLogin();
   }
 });
+
+// Kirjautumisen timeout-varmistus:
+// Jos sivu latautuu ja 4 sekunnin kuluttua onAuthStateChanged ei ole ajanut,
+// pakota login-näkymä näkyviin (Firebase saattaa viipyä)
+setTimeout(() => {
+  const dash = document.getElementById('sDash');
+  const login = document.getElementById('sLogin');
+  if (dash && login) {
+    const dashHidden = dash.classList.contains('hidden');
+    const loginHidden = login.classList.contains('hidden');
+    // Jos molemmat hidden tai ei kumpikaan visible → pakota login
+    if (dashHidden && loginHidden) {
+      console.warn('[v16] Auth timeout — pakota login-näkymä');
+      _naytaLogin();
+    }
+  }
+}, 4000);
 
 function _naytaLogin() {
   document.getElementById('sLogin').classList.remove('hidden');
@@ -2859,7 +2878,8 @@ function renderPulse(){
   pids.forEach(pid=>{
     const p=players[pid];
     const pNimi = (p.name||p.nimi||pid||'?').split(' ')[0];
-    html+=`<div class="heat-player" onclick="pickPlayer('${pid}');setWs('dev')"><span class="heat-num">${p.num||''}</span>${pNimi}</div>`;
+    const pNum = p.num && p.num !== '?' ? p.num : '';
+    html+=`<div class="heat-player" onclick="pickPlayer('${pid}');setWs('dev')">${pNum ? `<span class="heat-num">${pNum}</span>` : ''}${pNimi}</div>`;
     for(let i=0;i<7;i++){
       const v=matrix[pid][i];
       const lvl=v===0?'l0':v===1?'l2':v===2?'l3':'l4';
@@ -3291,12 +3311,13 @@ function _renderPlayerPickerFirestore() {
   if (!el) return;
   el.innerHTML = _pelaajatData.map(p => {
     const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id;
+    // Näytä numero vain jos se on olemassa Firestoressa
+    const numTeksti = p.numero ? ` <span style="color:var(--ink3);font-size:11px;margin-left:4px">#${p.numero}</span>` : '';
     return `<div class="player-pill${_activePelaaja===p.id?' active':''}"
-      onclick="pickPlayer('${p.id}')">
-      ${nimi} <span style="color:var(--ink3);font-size:11px;margin-left:4px">#${p.numero||'?'}</span>
-    </div>`;
+      onclick="pickPlayer('${p.id}')">${nimi}${numTeksti}</div>`;
   }).join('');
 }
+
 
 function _renderPinfoFirestore(p) {
   const el = document.getElementById('pinfoCard');
@@ -3652,8 +3673,9 @@ function renderCal() {
           const streak = p.streak || 0;
           const fiilinki = p.fiilinki || 0;
           const low = streak < 2 || fiilinki < 3;
+          const numTeksti = p.numero ? `#${p.numero} ` : '';
           return `<div class="cal-player-row${low?' low':''}" onclick="setWs('inbox')">
-            <div class="cal-player-name" style="flex:1;font-size:12px">${nimi}</div>
+            <div class="cal-player-name" style="flex:1;font-size:12px">${numTeksti}${nimi}</div>
             <div class="cal-player-streak mono" style="font-size:11px;color:${streak>5?'var(--teal)':streak>2?'var(--ink2)':'var(--red)'}">${streak > 0 ? streak+'pv' : '—'}</div>
             <div class="cal-player-min mono" style="font-size:11px;color:${fiilinki>3?'var(--ink2)':'var(--amber)'}">${fiilinki > 0 ? ['','😔','😐','🙂','😊','🤩'][fiilinki] : '—'}</div>
           </div>`;
