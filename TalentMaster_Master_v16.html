@@ -1279,6 +1279,10 @@ a { color: inherit; text-decoration: none; }
         <button onclick="calNav(1)" aria-label="Seuraava"><svg width="14" height="14"><use href="#ic-arrow-r"/></svg></button>
         <span class="cal-wk-label" id="calWkLabel">Viikko 17 · 20.–26. huhtikuuta</span>
         <span class="cal-wk-sub" id="calWkSub">Kausi 25/26 · 17/36</span>
+      <button onclick="_avaaUusiTapahtuma(new Date().toISOString().slice(0,10), '17:00')"
+        style="background:var(--teal);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:500;cursor:pointer;">
+        + Luo tapahtuma
+      </button>
       </div>
 
       <div class="cal-week" id="calWeek"></div>
@@ -1634,6 +1638,8 @@ function _naytaDash() {
 }
 
 async function login() {
+  if (_kirjautuminenKesken) return;
+  _kirjautuminenKesken = true;
   const email = document.getElementById('lEmail').value.trim();
   const pass  = document.getElementById('lPass').value;
   const err   = document.getElementById('lErr');
@@ -3601,8 +3607,14 @@ function renderCal() {
     return { ...t, _dayIdx: dayIdx, _hour: 9 };
   }).filter(t => t._dayIdx >= 0);
 
-  // ── Demo harjoitusevents ──
-  const c = DEMO.cal || { hours:[15,16,17,18,19,20], events:[], players:[] };
+  // ── Kalenteritunnit: käytä aina realistista harjoitusaikaa ──
+  const c = { hours:[15,16,17,18,19,20], events:[], players:[] };
+  // Demo-tilassa lisätään DEMO.cal.events
+  if (_demo && typeof DEMO !== 'undefined' && DEMO.cal) {
+    c.events = DEMO.cal.events || [];
+    c.players = DEMO.cal.players || [];
+  }
+  // Kirjautuneena: ei demo-tapahtumia — kaikki data Firestoresta
 
   const wk = document.getElementById('calWeek');
   if (!wk) return;
@@ -3716,12 +3728,137 @@ function calSlotClick(day, hour) {
   monday.setDate(today.getDate() - dayOfWeek + (_calWkOffset * 7));
   const clickedDate = new Date(monday);
   clickedDate.setDate(monday.getDate() + day);
-  const pvm = clickedDate.toISOString().slice(0,10);
-  toast('+ Harjoitus ' + pvm + ' klo ' + hour + ':00 — Sprint 6', 'ok');
-  return; // TODO Sprint 6: avaa harjoitustapahtuman luonti
-  // eslint-disable-next-line no-unreachable
-  void day; void hour;
+  const pvm = clickedDate.toISOString().slice(0, 10);
+  const klo = String(hour).padStart(2,'0') + ':00';
+  _avaaUusiTapahtuma(pvm, klo);
 }
+
+function _avaaUusiTapahtuma(pvm, klo) {
+  // Poista vanha modaali jos auki
+  document.getElementById('uusiTapahtumaModal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'uusiTapahtumaModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--card);border-radius:10px;padding:24px;width:420px;max-width:100%;display:flex;flex-direction:column;gap:14px';
+
+  // Otsikko
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center';
+  const otsikko = document.createElement('div');
+  otsikko.innerHTML = '<span style="font-size:16px;font-weight:500">Uusi tapahtuma</span><br>' +
+    '<span style="font-size:12px;color:var(--ink3)">' + pvm + (klo ? ' · klo ' + klo : '') + '</span>';
+  const suljeBtn = document.createElement('button');
+  suljeBtn.textContent = '✕';
+  suljeBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:18px;color:var(--ink3)';
+  suljeBtn.onclick = () => modal.remove();
+  hdr.appendChild(otsikko);
+  hdr.appendChild(suljeBtn);
+  box.appendChild(hdr);
+
+  // Tapahtumatyyppi
+  const tyypit = [
+    { id:'harjoitus', label:'🏃 Joukkueharjoitus',  color:'var(--teal)' },
+    { id:'ottelu',    label:'⚽ Ottelu',             color:'#E24B4A' },
+    { id:'testi',     label:'📋 Testitapahtuma',    color:'var(--amber)' },
+    { id:'muu',       label:'📌 Muu tapahtuma',     color:'var(--ink3)' },
+  ];
+
+  let valittuTyyppi = 'harjoitus';
+  const tyyppirivi = document.createElement('div');
+  tyyppirivi.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+  tyypit.forEach(t => {
+    const btn = document.createElement('button');
+    btn.id = 'tapahtumatyyppi_' + t.id;
+    btn.textContent = t.label;
+    btn.style.cssText = 'padding:8px;border-radius:6px;border:0.5px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;text-align:left;transition:all .12s';
+    if (t.id === valittuTyyppi) {
+      btn.style.borderColor = t.color;
+      btn.style.background = t.color + '18';
+    }
+    btn.onclick = () => {
+      valittuTyyppi = t.id;
+      tyypit.forEach(t2 => {
+        const b2 = document.getElementById('tapahtumatyyppi_' + t2.id);
+        b2.style.borderColor = 'var(--border)';
+        b2.style.background = 'var(--surface)';
+      });
+      btn.style.borderColor = t.color;
+      btn.style.background = t.color + '18';
+    };
+    tyyppirivi.appendChild(btn);
+  });
+  box.appendChild(tyyppirivi);
+
+  // Nimi-kenttä
+  const nimiLabel = document.createElement('label');
+  nimiLabel.style.cssText = 'font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3)';
+  nimiLabel.textContent = 'Tapahtuman nimi';
+  const nimiInput = document.createElement('input');
+  nimiInput.type = 'text';
+  nimiInput.placeholder = 'esim. Harjoitukset · tekniikka';
+  nimiInput.style.cssText = 'width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;box-sizing:border-box';
+  box.appendChild(nimiLabel);
+  box.appendChild(nimiInput);
+
+  // Kellonaika
+  const aikaRivi = document.createElement('div');
+  aikaRivi.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px';
+  ['Alkaa', 'Päättyy'].forEach((lbl, i) => {
+    const wrap = document.createElement('div');
+    const l = document.createElement('label');
+    l.style.cssText = 'font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px';
+    l.textContent = lbl;
+    const inp = document.createElement('input');
+    inp.type = 'time';
+    inp.id = i === 0 ? 'tapahtumaAlkaa' : 'tapahtumaPaattyy';
+    inp.value = i === 0 ? (klo || '17:00') : (klo ? String(parseInt(klo)+1).padStart(2,'0') + ':30' : '18:30');
+    inp.style.cssText = 'width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;box-sizing:border-box';
+    wrap.appendChild(l);
+    wrap.appendChild(inp);
+    aikaRivi.appendChild(wrap);
+  });
+  box.appendChild(aikaRivi);
+
+  // Tallenna-nappi
+  const tallBtn = document.createElement('button');
+  tallBtn.textContent = 'Tallenna tapahtuma';
+  tallBtn.style.cssText = 'padding:10px;background:var(--teal);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;margin-top:4px';
+  tallBtn.onclick = async () => {
+    const nimi = nimiInput.value.trim() || (tyypit.find(t=>t.id===valittuTyyppi)?.label || 'Tapahtuma').replace(/^\S+\s/,'');
+    const alkaa = document.getElementById('tapahtumaAlkaa').value;
+    const paattyy = document.getElementById('tapahtumaPaattyy').value;
+
+    if (!_demo && _seuraId) {
+      try {
+        await _db.collection('seurat').doc(_seuraId).collection('tapahtumat').add({
+          nimi, tyyppi: valittuTyyppi,
+          pvm, alkaa, paattyy,
+          joukkue: _joukkue || '',
+          luotu: new Date().toISOString(),
+          luoja: firebase.auth().currentUser?.uid || ''
+        });
+        toast('✓ Tapahtuma tallennettu: ' + nimi, 'ok');
+      } catch(e) {
+        toast('Virhe tallennuksessa: ' + e.message, 'err');
+      }
+    } else {
+      toast('✓ ' + nimi + ' · ' + pvm + ' ' + alkaa + '–' + paattyy, 'ok');
+    }
+    modal.remove();
+    renderCal();
+  };
+  box.appendChild(tallBtn);
+
+  modal.appendChild(box);
+  // Klikkaus taustaan sulkee
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+  setTimeout(() => nimiInput.focus(), 100);
+}
+
 function _calSlotClickOrig(day, hour) {
   toast('Lisää tapahtuma — ' + ['Ma','Ti','Ke','To','Pe','La','Su'][day] + ' klo ' + hour, 'cal-slot');
 }
