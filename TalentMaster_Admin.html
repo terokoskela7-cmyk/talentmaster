@@ -674,43 +674,47 @@ function avaaSeuraValmentaja(seuraId, seuraNimi) {
 // Super-admin näkee kaikki, VP näkee vain oman
 // ─────────────────────────────────────────
 async function lataaSeurat() {
-  try {
-    // orderBy('nimi') vaatii Firestore-indeksin — käytetään yksinkertaista get()
-    // ja järjestetään JavaScriptissä
-    let kysely = db.collection('seurat');
+  // Reaaliaikainen kuuntelu — päivittyy automaattisesti kun seura lisätään/poistetaan
+  let kysely = db.collection('seurat');
+  const onSuperAdmin = ['superadmin','super_admin'].includes(tila.claims.rooli);
+  if (!onSuperAdmin) {
+    if (!tila.claims.seuraId) { tila.seurat = []; return; }
+    kysely = db.collection('seurat')
+      .where(firebase.firestore.FieldPath.documentId(), '==', tila.claims.seuraId);
+  }
 
-    // Super Admin näkee kaikki seurat — VP näkee vain omansa
-    // Huom: hyväksytään molemmat muodot 'superadmin' ja 'super_admin'
-    const onSuperAdmin = ['superadmin','super_admin'].includes(tila.claims.rooli);
-    if (!onSuperAdmin) {
-      if (!tila.claims.seuraId) {
-        console.error('lataaSeurat: seuraId puuttuu claims-objektista');
-        tila.seurat = [];
-        return;
-      }
-      kysely = db.collection('seurat')
-        .where(firebase.firestore.FieldPath.documentId(), '==', tila.claims.seuraId);
-    }
-    // Super Admin: kysely hakee kaikki seurat (ei rajausta)
-
-    const snap = await kysely.get();
+  // onSnapshot päivittää listan reaaliaikaisesti
+  if (window._seuraKuuntelija) window._seuraKuuntelija(); // peruuta vanha
+  window._seuraKuuntelija = kysely.onSnapshot(snap => {
     tila.seurat = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (a.nimi || a.id).localeCompare(b.nimi || b.id));
 
-    // Päivitetään seura-dropdown käyttäjänluontimodaliin
+    // Päivitä dropdown
     const seuraSelect = document.getElementById('uusiSeura');
-    seuraSelect.innerHTML = tila.seurat.length === 1
-      ? `<option value="${tila.seurat[0].id}">${tila.seurat[0].nimi || tila.seurat[0].id}</option>`
-      : `<option value="">— Valitse seura —</option>` +
-        tila.seurat.map(s =>
-          `<option value="${s.id}">${s.nimi || s.id}</option>`
-        ).join('');
+    if (!seuraSelect) return;
+    const nykyArvo = seuraSelect.value;
+    seuraSelect.innerHTML =
+      '<option value="">— Valitse seura —</option>' +
+      tila.seurat.map(s =>
+        '<option value="' + s.id + '">' + (s.nimi || s.id) + '</option>'
+      ).join('') +
+      // Lisätään "Luo uusi seura..." SA:lle aina
+      (onSuperAdmin
+        ? '<option value="__uusi__">✦ Luo uusi seura...</option>'
+        : '');
 
-  } catch (virhe) {
-    console.error('Seurojen latausvirhe:', virhe);
+    // Palauta valinta jos mahdollista
+    if (nykyArvo) seuraSelect.value = nykyArvo;
+
+    // Päivitä myös seurat-näkymä jos auki
+    if (document.querySelector('#nakyma-seurat:not([hidden])')) {
+      renderoi('seurat');
+    }
+  }, virhe => {
+    console.error('Seurojen kuuntelu epäonnistui:', virhe);
     tila.seurat = [];
-  }
+  });
 }
 
 // ─────────────────────────────────────────
