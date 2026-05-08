@@ -20,7 +20,7 @@
   // Lue localStorage:sta jos SA on aiemmin valinnut seuran
   window.__TM_SEURA = localStorage.getItem('tm-sa-seura') || 'kpv';
 </script>
-<script src="tm-bus.js?v=4"></script>
+<script src="tm-bus.js?v=5"></script>
 <script>
   // tm-demo.js ladataan vain demo-tilassa — ei kirjautuneelle käyttäjälle
   // Lataus tapahtuu _kaynnistaDemoTila()-funktiossa tarpeen mukaan
@@ -846,6 +846,7 @@ a { color: inherit; text-decoration: none; }
 }
 .login-input:focus { border-color: var(--teal-brd); }
 .login-input::placeholder { color: var(--ink3); }
+.login-google-btn { /* katso inline-tyylit HTML:ssä */ }
 .login-btn {
   background: var(--teal); color: white; border: none;
   padding: 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
@@ -994,6 +995,27 @@ a { color: inherit; text-decoration: none; }
     <input class="login-input" id="lPass"  type="password" placeholder="Salasana">
     <button class="login-btn" onclick="login()">Kirjaudu sisään</button>
     <div class="login-err" id="lErr"></div>
+    <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
+      <div style="flex:1;height:0.5px;background:var(--line2)"></div>
+      <span style="font-size:11px;color:var(--ink3)">tai</span>
+      <div style="flex:1;height:0.5px;background:var(--line2)"></div>
+    </div>
+    <button onclick="kirjauduGooglella()" style="
+      width:100%;padding:11px;border-radius:8px;
+      border:0.5px solid var(--line2);background:var(--surface2);
+      color:var(--ink2);font-size:14px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      transition:background .12s;font-family:inherit;"
+      onmouseover="this.style.background='var(--card2)'"
+      onmouseout="this.style.background='var(--surface2)'">
+      <svg width="18" height="18" viewBox="0 0 48 48">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      </svg>
+      Kirjaudu Google-tilillä
+    </button>
     <div class="login-demo" onclick="loginDemo()">Kokeile demona →</div>
   </div>
 </div>
@@ -1654,6 +1676,32 @@ async function login() {
   }
 }
 
+// Google Sign-In — toimii SA:lle ja kenelle tahansa Google-providerina
+async function kirjauduGooglella() {
+  if (_kirjautuminenKesken) return;
+  _kirjautuminenKesken = true;
+  const err = document.getElementById('lErr');
+  if (err) err.textContent = '';
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    // Pakota tilin valinta aina kun kirjaudutaan
+    provider.setCustomParameters({ prompt: 'select_account' });
+    await firebase.auth().signInWithPopup(provider);
+    // onAuthStateChanged hoitaa loput — ei tarvitse tehdä mitään täällä
+  } catch(e) {
+    _kirjautuminenKesken = false;
+    if (e.code === 'auth/popup-closed-by-user') return; // käyttäjä sulki
+    if (e.code === 'auth/popup-blocked') {
+      // Popup blokkaantui — kokeile redirect-metodia
+      const provider2 = new firebase.auth.GoogleAuthProvider();
+      provider2.setCustomParameters({ prompt: 'select_account' });
+      await firebase.auth().signInWithRedirect(provider2);
+      return;
+    }
+    if (err) err.textContent = 'Google-kirjautuminen epäonnistui: ' + (e.message || e.code);
+  }
+}
+
 async function loginDemo() {
   _kirjautuminenKesken = true;
   try {
@@ -1706,7 +1754,7 @@ async function _lataaValmentaja(uid) {
           sel.onchange = async function() {
             _seuraId = this.value;
             localStorage.setItem('tm-sa-seura', _seuraId);
-            // Päivitä TMBus-konteksti seuranvaihdon yhteydessä
+            localStorage.removeItem('tm-sa-joukkue'); // nollaa joukkueen kun seura vaihtuu
             if (window.TMBus) {
               window.__TM_SEURA = _seuraId;
               TMBus.setSeuraContext(_seuraId);
@@ -1716,6 +1764,8 @@ async function _lataaValmentaja(uid) {
             _joukkue = null;
             _pelaajatData = [];
             _testitapahtumat = [];
+            // Rakenna joukkuevalitsin uudelle seuralle
+            await _rakennaSAJoukkueValitsin(_seuraId);
             await _lataaPelaajat();
             await _lataaTestitapahtumat();
             renderInbox();
@@ -1729,7 +1779,10 @@ async function _lataaValmentaja(uid) {
         const seuraNimi = seurat.find(s => s.id === _seuraId)?.nimi || _seuraId;
         document.getElementById('sbSeura').textContent = seuraNimi;
 
-        // Lataa data
+        // Rakenna joukkuevalitsin tällä seuralle
+        await _rakennaSAJoukkueValitsin(_seuraId);
+
+        // Lataa data (joukkue jo asetettu _rakennaSAJoukkueValitsin:ssa)
         await _lataaPelaajat();
         await _lataaTestitapahtumat();
       }
@@ -2389,6 +2442,99 @@ function _renderInboxOhjaus(el) {
         <div style="font-size:15px;color:var(--ink2)">Kaikki kirjaukset käsitelty</div>
         <div style="font-size:12px;margin-top:6px">${kirjauksia} kirjausta analysoitu</div>
       </div>`;
+  }
+}
+
+/* ── SA JOUKKUEVALITSIN ── */
+async function _rakennaSAJoukkueValitsin(seuraId) {
+  // Poista vanha valitsin
+  document.getElementById('sa-joukkue-valitsin')?.remove();
+
+  // Hae joukkueet tämän seuran pelaajista
+  try {
+    const snap = await _db.collection('seurat').doc(seuraId)
+      .collection('pelaajat').get();
+
+    // Kerää uniikit joukkueet
+    const joukkueetSet = new Set();
+    snap.docs.forEach(d => {
+      const j = d.data().joukkue;
+      if (j) joukkueetSet.add(j);
+    });
+    const joukkueet = [...joukkueetSet].sort();
+
+    if (joukkueet.length === 0) return;
+
+    // Palauta tallennettu joukkue tai ensimmäinen
+    const tallennettu = localStorage.getItem('tm-sa-joukkue');
+    _joukkue = (tallennettu && joukkueet.includes(tallennettu))
+      ? tallennettu
+      : joukkueet[0];
+
+    // Rakenna valitsin
+    const jSel = document.createElement('select');
+    jSel.id = 'sa-joukkue-valitsin';
+    jSel.style.cssText = 'margin:4px 12px 0;width:calc(100% - 24px);padding:5px 8px;' +
+      'background:var(--card2);border:0.5px solid var(--line2);border-radius:6px;' +
+      'color:var(--teal);font-size:11px;cursor:pointer;font-weight:500;';
+
+    // "Kaikki joukkueet" -vaihtoehto SA:lle
+    const kaikki = document.createElement('option');
+    kaikki.value = '';
+    kaikki.textContent = '— Kaikki joukkueet —';
+    if (!_joukkue) kaikki.selected = true;
+    jSel.appendChild(kaikki);
+
+    joukkueet.forEach(j => {
+      const opt = document.createElement('option');
+      opt.value = j;
+      opt.textContent = j;
+      if (j === _joukkue) opt.selected = true;
+      jSel.appendChild(opt);
+    });
+
+    jSel.onchange = async function() {
+      _joukkue = this.value || null;
+      if (_joukkue) localStorage.setItem('tm-sa-joukkue', _joukkue);
+      else localStorage.removeItem('tm-sa-joukkue');
+
+      // Päivitä sbSeura näyttämään joukkue
+      const seuraNimi = document.getElementById('sbSeura').textContent.split(' · ')[0];
+      document.getElementById('sbSeura').textContent =
+        seuraNimi + (_joukkue ? ' · ' + _joukkue : '');
+
+      // Lataa suodatettu data
+      _pelaajatData = [];
+      _kirjaukset = [];
+      _kirjauksetLadattu = false;
+      await _lataaPelaajat();
+      await _lataaTestitapahtumat();
+
+      // Päivitä kaikki näkymät
+      renderInbox();
+      renderPulse();
+      renderDev();
+      renderToday();
+      renderTestit();
+      renderCal();
+      renderSeason();
+    };
+
+    // Lisää seuranvalitsimen alle
+    const saSeura = document.getElementById('sa-joukkue-sel');
+    if (saSeura) saSeura.insertAdjacentElement('afterend', jSel);
+    else {
+      const sbNav = document.querySelector('.sb-nav');
+      if (sbNav) sbNav.insertBefore(jSel, sbNav.firstChild);
+    }
+
+    // Päivitä sbSeura-teksti
+    const sNimi = document.getElementById('sbSeura').textContent.split(' · ')[0];
+    document.getElementById('sbSeura').textContent =
+      sNimi + (_joukkue ? ' · ' + _joukkue : '');
+
+  } catch(e) {
+    console.warn('[SA joukkuevalitsin]', e.message);
   }
 }
 
@@ -3406,8 +3552,20 @@ function _renderTimeline(p) {
     const idx = kuukausiIndeksit[kk];
     if (idx !== undefined) testiCountPerMonth[idx]++;
   });
-  // Käytä demodataa jos ei reaalidataa; muuten päivitä Testit-rivi
-  const rows = [
+  // Kirjautuneena: käytä vain todellista Firestore-dataa
+  // Demo-tilassa: käytä kovakoodattua demo-dataa
+  const rows = !_demo && _seuraId ? [
+    // Testit: laskettu testitapahtumista
+    { lbl:'Testit', color:'var(--teal)',
+      data: testiCountPerMonth },
+    // ADAR-kirjaukset: tulossa Sprint 6 — tällä hetkellä tyhjä
+    { lbl:'ADAR-kirjaukset', color:'var(--blue)',
+      data: new Array(10).fill(0) },
+    // Fiilinki: tulossa kirjauksista — tällä hetkellä tyhjä
+    { lbl:'Fiilinki', color:'var(--amber)',
+      data: new Array(10).fill(0) },
+  ] : [
+    // Demo-moodi: kovakoodattu data
     { lbl:'ADAR', color:'var(--teal)',   data:[3,4,5,6,5,4,6,0,0,0] },
     { lbl:'Testit', color:'var(--blue)', data: testiCountPerMonth.some(c=>c>0) ? testiCountPerMonth : [1,0,0,1,1,0,0,0,0,0] },
     { lbl:'Fiilinki', color:'var(--amber)', data:[3.5,3.8,3.6,3.9,3.8,3.1,3.8,0,0,0] },
@@ -3924,7 +4082,10 @@ function openDrill(type) {
       <div class="drill-section">
         <div class="caps" style="margin-bottom:12px">Havainto</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-          ${DEMO.players.slice(0,5).map(p=>`
+          ${(!_demo && _pelaajatData.length > 0 ? _pelaajatData.slice(0,5).map(p => ({
+              name: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim(),
+              id: p.id
+            })) : (typeof DEMO !== 'undefined' ? DEMO.players.slice(0,5) : [])).map(p=>`
             <div onclick="this.style.background='var(--teal-bg)';this.style.color='var(--teal)';this.style.borderColor='var(--teal-brd)'"
               style="padding:6px 12px;border-radius:20px;border:.5px solid var(--line2);font-size:12px;cursor:pointer;transition:all .12s">
               ${p.name.split(' ')[0]}
