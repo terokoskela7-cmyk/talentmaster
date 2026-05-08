@@ -1619,35 +1619,37 @@ const DEMO = {
 /* ════════════════════════════════════════════════════════════
    AUTH
 ════════════════════════════════════════════════════════════ */
+// onAuthStateChanged kutsutaan aina kun auth-tila muuttuu
+// _kirjautuminenKesken-lippu koskee VAIN login()-funktiota, ei tätä
 _auth.onAuthStateChanged(async user => {
-  if (_kirjautuminenKesken) return;
-  if (user) {
+  if (user && !user.isAnonymous) {
+    // Kirjautunut käyttäjä — aina lataa, riippumatta _kirjautuminenKesken
+    _kirjautuminenKesken = false; // varmista nollaus
     _user = user;
-    if (!user.isAnonymous) await _lataaValmentaja(user.uid);
-    else _kaynnistaDemoTila();
+    await _lataaValmentaja(user.uid);
+  } else if (user && user.isAnonymous) {
+    _kaynnistaDemoTila();
   } else {
-    // Ei kirjautunut — näytä login
-    // Esitäytä sähköpostikenttä tyhjäksi (ei kovakoodattua arvoa)
+    // Ei kirjautunut
+    _kirjautuminenKesken = false;
     _naytaLogin();
   }
 });
 
-// Kirjautumisen timeout-varmistus:
-// Jos sivu latautuu ja 4 sekunnin kuluttua onAuthStateChanged ei ole ajanut,
-// pakota login-näkymä näkyviin (Firebase saattaa viipyä)
+// Kirjautumisen timeout-varmistus (8 sekuntia)
+// Jos onAuthStateChanged ei ole ajanut eikä mitään näy → pakota login
 setTimeout(() => {
   const dash = document.getElementById('sDash');
   const login = document.getElementById('sLogin');
-  if (dash && login) {
-    const dashHidden = dash.classList.contains('hidden');
-    const loginHidden = login.classList.contains('hidden');
-    // Jos molemmat hidden tai ei kumpikaan visible → pakota login
-    if (dashHidden && loginHidden) {
-      console.warn('[v16] Auth timeout — pakota login-näkymä');
-      _naytaLogin();
-    }
+  if (!dash || !login) return;
+  const dashHidden = dash.classList.contains('hidden');
+  const loginHidden = login.classList.contains('hidden');
+  if (dashHidden && loginHidden) {
+    console.warn('[v16] Auth timeout 8s — pakota login');
+    _kirjautuminenKesken = false;
+    _naytaLogin();
   }
-}, 4000);
+}, 8000);
 
 function _naytaLogin() {
   document.getElementById('sLogin').classList.remove('hidden');
