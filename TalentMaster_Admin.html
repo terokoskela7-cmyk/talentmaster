@@ -2145,6 +2145,7 @@ function renderMassakutsu(alue) {
             <table style="width:100%">
               <thead><tr style="background:var(--bg3);">
                 <th style="padding:8px;font-size:11px;text-align:left;">Nimi</th>
+                <th style="padding:8px;font-size:11px;text-align:left;">PalloID</th>
                 <th style="padding:8px;font-size:11px;text-align:left;">Joukkue</th>
                 <th style="padding:8px;font-size:11px;text-align:left;">HuoltajaEmail</th>
                 <th style="padding:8px;font-size:11px;text-align:left;">Status</th>
@@ -2154,6 +2155,10 @@ function renderMassakutsu(alue) {
           </div>
         </div>
 
+        <div style="margin-bottom:10px;padding:10px 14px;background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.2);border-radius:8px;font-size:12px;color:var(--amber)">
+          ℹ️ <strong>Vaihe 1: Datantuonti</strong> — Pelaajat tallennetaan järjestelmään ilman suostumuspyyntöä.
+          Suostumuspyynnöt lähetetään vanhemmille erikseen myöhemmin kun kaikki näkymät ovat valmiit.
+        </div>
         <div id="adminMassaProgress" style="display:none;margin-bottom:12px;">
           <div style="background:var(--bg3);border-radius:6px;height:6px;overflow:hidden;">
             <div id="adminMassaBar" style="height:100%;background:var(--teal);width:0%;transition:width .3s;"></div>
@@ -2161,7 +2166,7 @@ function renderMassakutsu(alue) {
           <div id="adminMassaStatus" style="font-size:12px;color:var(--ink3);margin-top:6px;text-align:center;"></div>
         </div>
 
-        <button id="adminMassaLahetaNappi" onclick="lahetaAdminMassakutsu()" disabled
+        <button id="adminMassaLahetaNappi" data-action="tuonti" onclick="lahetaAdminMassakutsu()" disabled
           style="width:100%;padding:13px;background:var(--teal);border:none;border-radius:10px;
           color:#000;font-size:15px;font-weight:700;cursor:pointer;opacity:.5;">
           📨 Lähetä kaikille huoltajille
@@ -2197,12 +2202,16 @@ function kasitteleAdminMassaTiedosto(e) {
       }
 
       _adminMassaData = rivit.map(r => ({
-        palloId:       r['palloid']||r['PalloID']||r['palloID']||'',
-        etunimi:       r['etunimi']||r['Etunimi']||'',
-        sukunimi:      r['sukunimi']||r['Sukunimi']||'',
-        huoltajaEmail: r['huoltajaemail']||r['HuoltajaEmail']||r['email']||r['Email']||'',
-        joukkue:       r['joukkue']||r['Joukkue']||'',
-      })).filter(r => r.huoltajaEmail || r.etunimi);
+        // PalloID — tukee kaikkia kirjoitusasuja
+        palloID:       r['palloID']||r['PalloID']||r['palloid']||r['palloId']||'',
+        etunimi:       r['etunimi']||r['Etunimi']||r['firstName']||'',
+        sukunimi:      r['sukunimi']||r['Sukunimi']||r['lastName']||'',
+        huoltajaEmail: r['huoltajaemail']||r['HuoltajaEmail']||r['huoltaja_email']||r['email']||r['Email']||'',
+        joukkue:       r['joukkue']||r['Joukkue']||r['team']||'',
+        syntymaVuosi:  r['syntymavuosi']||r['syntymaVuosi']||r['Syntymavuosi']||r['birthYear']||'',
+        sukupuoli:     r['sukupuoli']||r['Sukupuoli']||r['gender']||'',
+        pelipaikka:    r['pelipaikka']||r['Pelipaikka']||r['position']||'',
+      })).filter(r => r.etunimi || r.sukunimi); // ei vaadi sähköpostia
 
       const tbody = document.getElementById('adminMassaTbody');
       const lkm   = document.getElementById('adminMassaLkm');
@@ -2211,10 +2220,12 @@ function kasitteleAdminMassaTiedosto(e) {
 
       if (tbody) tbody.innerHTML = _adminMassaData.map(r => `
         <tr>
-          <td style="padding:7px 8px;font-size:12px;">${r.etunimi} ${r.sukunimi}</td>
-          <td style="padding:7px 8px;font-size:12px;color:var(--ink3);">${r.joukkue||'—'}</td>
-          <td style="padding:7px 8px;font-size:12px;color:var(--teal);">${r.huoltajaEmail||'⚠️ puuttuu'}</td>
-          <td style="padding:7px 8px;font-size:11px;color:var(--ink3);">⏳ Odottaa</td>
+          <td style="padding:7px 8px;font-size:12px;font-weight:500">${r.etunimi} ${r.sukunimi}</td>
+          <td style="padding:7px 8px;font-size:11px;font-family:monospace;color:var(--ink3)">${r.palloID||'—'}</td>
+          <td style="padding:7px 8px;font-size:12px;color:var(--ink3)">${r.joukkue||'—'}</td>
+          <td style="padding:7px 8px;font-size:12px;color:${r.huoltajaEmail?'var(--teal)':'var(--amber)'}">
+            ${r.huoltajaEmail||'⚠️ puuttuu'}</td>
+          <td style="padding:7px 8px;font-size:11px;color:var(--ink3)">⏳ Tallennetaan</td>
         </tr>`).join('');
 
       if (lkm) lkm.textContent = _adminMassaData.length + ' pelaajaa tunnistettu';
@@ -2228,11 +2239,12 @@ function kasitteleAdminMassaTiedosto(e) {
   reader.readAsArrayBuffer(file);
 }
 
+// VAIHE 1: Tallenna pelaajat Firestoreen — EI lähetä sähköpostia
+// Suostumuspyynnöt lähetetään erikseen kun kaikki näkymät ovat valmiit
 async function lahetaAdminMassakutsu() {
   if (!_adminMassaData.length) return;
   const seuraValinta = document.getElementById('massaSeuraValinta');
   const seuraId = seuraValinta?.value;
-  const seuraNimi = seuraValinta?.options[seuraValinta.selectedIndex]?.dataset?.nimi || seuraId;
 
   if (!seuraId) {
     document.getElementById('adminMassaVirhe').textContent = 'Valitse kohdaseura.';
@@ -2245,58 +2257,85 @@ async function lahetaAdminMassakutsu() {
   const status   = document.getElementById('adminMassaStatus');
   const tbody    = document.getElementById('adminMassaTbody');
 
-  if (nappi) { nappi.disabled = true; nappi.textContent = 'Lähetetään...'; }
+  if (nappi) { nappi.disabled = true; nappi.textContent = 'Tallennetaan pelaajia...'; }
   if (progress) progress.style.display = '';
 
-  const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
-  let onnistui = 0, epaonnistui = 0;
+  let onnistui = 0, ohitettu = 0, virheita = 0;
 
   for (let i = 0; i < _adminMassaData.length; i++) {
     const p = _adminMassaData[i];
     if (bar)    bar.style.width = Math.round((i+1)/_adminMassaData.length*100) + '%';
     if (status) status.textContent = `${i+1}/${_adminMassaData.length} — ${p.etunimi} ${p.sukunimi}`;
 
-    if (!p.huoltajaEmail) { epaonnistui++; continue; }
+    // Hyppää yli jos ei nimeä
+    if (!p.etunimi && !p.sukunimi) { ohitettu++; continue; }
 
     try {
-      const params = new URLSearchParams({
-        seuraId, seura: seuraNimi,
-        ...(p.palloId && {palloid: p.palloId}),
-        ...(p.etunimi && {etunimi: p.etunimi}),
-        ...(p.sukunimi && {sukunimi: p.sukunimi}),
-        ...(p.joukkue && {joukkue: p.joukkue}),
-        ...(p.huoltajaEmail && {hEmail: p.huoltajaEmail}),
-      });
-      const linkki = `${baseUrl}?${params.toString()}`;
+      // Tarkista onko pelaaja jo olemassa palloID:n perusteella
+      let olemassaDoc = null;
+      if (p.palloID) {
+        const olemassa = await db.collection('seurat').doc(seuraId).collection('pelaajat')
+          .where('palloID', '==', p.palloID).limit(1).get();
+        if (!olemassa.empty) {
+          olemassaDoc = olemassa.docs[0];
+        }
+      }
 
-      await db.collection('seurat').doc(seuraId).collection('kutsut').add({
-        tyyppi: 'massakutsu_admin',
-        hEmail: p.huoltajaEmail,
-        pelaajaNimi: `${p.etunimi} ${p.sukunimi}`.trim(),
-        palloId: p.palloId || null,
-        joukkue: p.joukkue || null,
-        linkki, tila: 'luotu',
-        luotu: firebase.firestore.FieldValue.serverTimestamp(),
-        lahettaja: tila.kayttaja?.uid || 'superadmin',
-      });
+      const pelaajaData = {
+        etunimi:       p.etunimi || '',
+        sukunimi:      p.sukunimi || '',
+        palloID:       p.palloID || '',
+        tunniste:      p.palloID || '',  // synkronoidaan molemmat kentät
+        joukkue:       p.joukkue || '',
+        huoltajaEmail: p.huoltajaEmail || '',
+        syntymaVuosi:  p.syntymaVuosi ? parseInt(p.syntymaVuosi) || null : null,
+        sukupuoli:     p.sukupuoli || '',
+        pelipaikka:    p.pelipaikka || '',
+        seuraId,
+        // TÄRKEÄÄ: suostumusta EI lähetetä vielä
+        suostumusTila: 'odottaa',
+        tila:          'aktiivinen',
+        lahde:         'excel_tuonti',
+        tuotu:         firebase.firestore.FieldValue.serverTimestamp(),
+        tuoja:         tila.kayttaja?.uid || 'superadmin',
+      };
 
-      if (tbody?.rows[i]) {
-        tbody.rows[i].cells[3].innerHTML = '<span style="color:var(--teal);">✅ Linkki luotu</span>';
+      if (olemassaDoc) {
+        // Päivitä olemassa oleva pelaaja
+        await olemassaDoc.ref.update(pelaajaData);
+        if (tbody?.rows[i]) {
+          tbody.rows[i].cells[4].innerHTML = '<span style="color:var(--teal)">✓ Päivitetty</span>';
+        }
+      } else {
+        // Luo uusi pelaajadokumentti
+        await db.collection('seurat').doc(seuraId).collection('pelaajat').add(pelaajaData);
+        if (tbody?.rows[i]) {
+          tbody.rows[i].cells[4].innerHTML = '<span style="color:var(--teal)">✓ Lisätty</span>';
+        }
       }
       onnistui++;
     } catch(err) {
       if (tbody?.rows[i]) {
-        tbody.rows[i].cells[3].innerHTML = `<span style="color:var(--red);">❌ ${err.message}</span>`;
+        tbody.rows[i].cells[4].innerHTML = `<span style="color:var(--red)">❌ ${err.message.slice(0,30)}</span>`;
       }
-      epaonnistui++;
+      virheita++;
     }
-    await new Promise(r => setTimeout(r, 80));
+    // Pieni viive Firestore rate limiting -rajoitusten vuoksi
+    await new Promise(r => setTimeout(r, 50));
   }
 
-  if (status) status.textContent = `Valmis! ${onnistui} linkkiä luotu, ${epaonnistui} epäonnistui.`;
-  if (nappi) nappi.textContent = '✅ Valmis';
-  naytaToast(`Massakutsu valmis: ${onnistui}/${_adminMassaData.length} linkkiä luotu`,
-    onnistui === _adminMassaData.length ? 'ok' : 'virhe');
+  if (status) status.textContent =
+    `✅ Valmis! ${onnistui} pelaajaa tallennettu` +
+    (ohitettu  ? `, ${ohitettu} ohitettu`  : '') +
+    (virheita  ? `, ${virheita} virhettä`   : '') +
+    ` — Suostumuspyynnöt lähetetään erikseen myöhemmin.`;
+
+  if (nappi) { nappi.textContent = `✅ ${onnistui} pelaajaa tallennettu`; }
+  naytaToast(
+    `${onnistui}/${_adminMassaData.length} pelaajaa tallennettu Firestoreen`,
+    virheita === 0 ? 'ok' : 'virhe'
+  );
+  _adminMassaData = [];
 }
 
 
