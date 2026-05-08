@@ -4741,8 +4741,25 @@ function kasitteleExcelTuonti(event) {
 
       if (lkm) lkm.textContent = _excelData.length + ' pelaajaa tunnistettu';
       if (esi) esi.style.display = '';
-      if (tuoN)  { tuoN.disabled  = false; tuoN.style.opacity  = '1'; }
-      if (tuoLN) { tuoLN.disabled = false; tuoLN.style.opacity = '1'; }
+
+      // Tarkista PalloID-duplikaatit Excel-tiedoston sisällä
+      const palloIdLaskuri = {};
+      _excelData.forEach(p => { if (p.palloId) palloIdLaskuri[p.palloId] = (palloIdLaskuri[p.palloId]||0) + 1; });
+      const duplikaatit = Object.entries(palloIdLaskuri).filter(([id, lkm]) => lkm > 1);
+      if (duplikaatit.length > 0) {
+        const virheEl = document.getElementById('excelVirhe');
+        if (virheEl) {
+          virheEl.textContent = '⚠️ Sama PalloID usealla pelaajalla: ' +
+            duplikaatit.map(([id]) => id).join(', ') +
+            ' — tarkista Excel ennen tuontia.';
+          virheEl.style.color = 'var(--amber)';
+        }
+        if (tuoN)  { tuoN.disabled  = true;  tuoN.style.opacity  = '.5'; }
+        if (tuoLN) { tuoLN.disabled = true; tuoLN.style.opacity = '.5'; }
+      } else {
+        if (tuoN)  { tuoN.disabled  = false; tuoN.style.opacity  = '1'; }
+        if (tuoLN) { tuoLN.disabled = false; tuoLN.style.opacity = '1'; }
+      }
 
       if (nappiTeksti) nappiTeksti.textContent = '📁 ' + file.name + ' (' + _excelData.length + ' pelaajaa)';
 
@@ -4788,6 +4805,19 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
     if (teksti) teksti.textContent = (i + 1) + '/' + _excelData.length + ' — ' + p.etunimi + ' ' + p.sukunimi;
 
     try {
+      // VAIHE 0: Tarkista onko sama PalloID jo Firestoressä
+      if (p.palloId) {
+        const olemassa = await db.collection('seurat').doc(tila.seuraId)
+          .collection('pelaajat')
+          .where('palloID', '==', p.palloId)
+          .limit(1).get();
+        if (!olemassa.empty) {
+          if (teksti) teksti.textContent = '⏭ ' + p.etunimi + ' ' + p.sukunimi + ' — PalloID jo olemassa, ohitetaan';
+          virheet++;
+          continue;
+        }
+      }
+
       // VAIHE 1: Luodaan dokumenttiviite ensin → ID välitetään kutsulinkkiin
       // Näin suostumuslomake kirjoittaa SAMAAN dokumenttiin eikä luo duplikaattia
       const pelaajaRef = db.collection('seurat').doc(tila.seuraId)
