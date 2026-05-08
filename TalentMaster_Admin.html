@@ -1937,7 +1937,7 @@ async function renderJoukkueet(alue) {
     <div class="taulukkoKortti">
       <div class="taulukkoHeader">
         <span class="taulukkoOtsikko">Valitse seura</span>
-        <button class="lisaaNappi" onclick="avaaUusiJoukkueModalAdmin()">+ Lisää joukkue</button>
+        <span style="font-size:12px;color:var(--ink3);">Joukkueet hallitaan <a href="TalentMaster_Seura.html" target="_blank" style="color:var(--teal);text-decoration:none;">Seurahallinta-sivulla ↗</a></span>
       </div>
       <div style="padding:16px 20px;">
         <select id="jouSeuraValinta" onchange="lataaJoukkueetAdmin()"
@@ -2009,26 +2009,63 @@ async function lataaJoukkueetAdmin() {
   alue.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div class="spinner"></div> Ladataan...</div>';
 
   try {
-    // Hae joukkueet dynaamisesti pelaajadatasta — aina ajan tasalla
-    const pelSnap = await db.collection('seurat').doc(seuraId).collection('pelaajat').get();
-    const joukkueetMap = {};
+    // Hae sekä joukkueet-kokoelma (Seura.html luo tänne) että pelaajadata
+    const [joukkueetSnap, pelSnap] = await Promise.all([
+      db.collection('seurat').doc(seuraId).collection('joukkueet').orderBy('jarjestys').get().catch(() =>
+        db.collection('seurat').doc(seuraId).collection('joukkueet').get()
+      ),
+      db.collection('seurat').doc(seuraId).collection('pelaajat').get()
+    ]);
+
+    // Laske pelaajamäärät joukkueittain pelaajadatasta
+    const pelaajatMap = {};
     pelSnap.docs.forEach(d => {
       const p = d.data();
       const j = p.joukkue;
       if (j) {
-        if (!joukkueetMap[j]) joukkueetMap[j] = { nimi: j, pelaajia: 0, suostumus: 0 };
-        joukkueetMap[j].pelaajia++;
-        if (p.suostumusTila === 'annettu') joukkueetMap[j].suostumus++;
+        if (!pelaajatMap[j]) pelaajatMap[j] = { pelaajia: 0, suostumus: 0 };
+        pelaajatMap[j].pelaajia++;
+        if (p.suostumusTila === 'annettu') pelaajatMap[j].suostumus++;
       }
     });
 
-    const joukkueet = Object.values(joukkueetMap).sort((a,b) => a.nimi.localeCompare(b.nimi));
+    // Yhdistä: joukkueet-kokoelmasta saadaan viralliset joukkueet, pelaajadata täydentää
+    const joukkueetMap = {};
+
+    // 1. Ensin joukkueet-kokoelmasta (Seura.html:n kautta luodut — oikeilla ID:illä)
+    joukkueetSnap.docs.forEach(d => {
+      const data = d.data();
+      const nimi = data.nimi || d.id;
+      joukkueetMap[nimi] = {
+        nimi,
+        id: d.id,
+        ikaryhma: data.ikaryhma || data.ikaRyhma || '',
+        vuosi: data.vuosi || '',
+        pelaajia: pelaajatMap[nimi]?.pelaajia || 0,
+        suostumus: pelaajatMap[nimi]?.suostumus || 0,
+        lahde: 'kokoelma'
+      };
+    });
+
+    // 2. Lisää joukkueet jotka löytyvät vain pelaajadatasta (Excel-tuonnin kautta)
+    Object.keys(pelaajatMap).forEach(nimi => {
+      if (!joukkueetMap[nimi]) {
+        joukkueetMap[nimi] = {
+          nimi, id: null, ikaryhma: '', vuosi: '',
+          pelaajia: pelaajatMap[nimi].pelaajia,
+          suostumus: pelaajatMap[nimi].suostumus,
+          lahde: 'pelaajadata'
+        };
+      }
+    });
+
+    const joukkueet = Object.values(joukkueetMap).sort((a, b) => a.nimi.localeCompare(b.nimi));
 
     if (joukkueet.length === 0) {
       alue.innerHTML = `<div style="text-align:center;padding:40px;color:var(--ink3)">
         <div style="font-size:28px;margin-bottom:12px">👥</div>
         <div style="font-size:14px;margin-bottom:6px">Ei joukkueita vielä</div>
-        <div style="font-size:12px">Pelaajat liitetään joukkueisiin Excel-tuonnin joukkue-kentän mukaan.</div>
+        <div style="font-size:12px">Lisää joukkueet <a href="TalentMaster_Seura.html" target="_blank" style="color:var(--teal)">Seurahallinta-sivulla</a> tai tuo pelaajia Excelin kautta.</div>
       </div>`;
       return;
     }
@@ -2039,6 +2076,7 @@ async function lataaJoukkueetAdmin() {
           <th>Joukkue</th>
           <th>Pelaajia</th>
           <th>Suostumus</th>
+          <th>Lähde</th>
           <th>Toiminnot</th>
         </tr></thead>
         <tbody>
@@ -2047,14 +2085,18 @@ async function lataaJoukkueetAdmin() {
               <td style="font-weight:600">${j.nimi}</td>
               <td>${j.pelaajia}</td>
               <td>
-                <span style="font-size:12px;color:${j.suostumus===j.pelaajia?'var(--teal)':'var(--amber)'}">
+                <span style="font-size:12px;color:${j.suostumus===j.pelaajia&&j.pelaajia>0?'var(--teal)':'var(--amber)'}">
                   ${j.suostumus}/${j.pelaajia}
-                  (${Math.round(j.suostumus/j.pelaajia*100)}%)
+                </span>
+              </td>
+              <td>
+                <span style="font-size:11px;color:${j.lahde==='kokoelma'?'var(--teal)':'var(--ink3)'}">
+                  ${j.lahde==='kokoelma'?'✓ Seura.html':'Excel-tuonti'}
                 </span>
               </td>
               <td>
                 <button class="toimintaNappi" style="font-size:11px"
-                  onclick="document.getElementById('pelSeuraValinta')?null:null;vaihdaNakyma('pelaajat');setTimeout(()=>{document.getElementById('pelSeuraValinta').value='${seuraId}';lataaPelaajatJoukkue('${j.nimi}')},300)">
+                  onclick="vaihdaNakyma('pelaajat');setTimeout(()=>{const s=document.getElementById('pelSeuraValinta');if(s){s.value='${seuraId}';lataaPelaajatJoukkue('${j.nimi}');}},300)">
                   👁 Näytä pelaajat
                 </button>
               </td>
@@ -2069,19 +2111,9 @@ async function lataaJoukkueetAdmin() {
   }
 }
 
-function avaaUusiJoukkueModalAdmin() {
-  const seuraId = document.getElementById('jouSeuraValinta')?.value;
-  if (!seuraId) { naytaToast('Valitse ensin seura', 'virhe'); return; }
-  const nimi = prompt('Joukkueen nimi (esim. U14 pojat):');
-  if (!nimi) return;
-  const ikaryhma = prompt('Ikäryhmä (esim. U14):') || '';
-  const vuosi = prompt('Vuosi (esim. 2026):') || new Date().getFullYear().toString();
-  db.collection('seurat').doc(seuraId).collection('joukkueet').add({
-    nimi, ikaryhma, vuosi: parseInt(vuosi)||new Date().getFullYear(),
-    pelaajia: 0, luotu: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => { naytaToast('Joukkue luotu!', 'ok'); lataaJoukkueetAdmin(); })
-    .catch(e => naytaToast('Virhe: ' + e.message, 'virhe'));
-}
+// avaaUusiJoukkueModalAdmin poistettu — joukkueet hallitaan Seura.html:ssä (Joukkueet-välilehti)
+// Seura.html käyttää .doc(id)-metodia käyttäjän antamalla ID:llä → siisti dokumentti-ID
+// Admin-sivu käytti .add()-metodia → automaattinen Firebase-ID → yhteensopimaton
 
 async function poistaJoukkueAdmin(seuraId, joukkueId, nimi) {
   if (!confirm(`Poistetaanko joukkue "${nimi}"?`)) return;
