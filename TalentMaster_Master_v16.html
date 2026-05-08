@@ -1470,6 +1470,7 @@ let _testitapahtumat = [];   // seurat/{sid}/testitapahtumat
 let _todayTestit = [];       // tänään olevat testitapahtumat
 let _kirjaukset = [];        // seurat/{sid}/pelaajat/{pid}/kirjaukset — omatoimiset kirjaukset
 let _kirjauksetLadattu = false;
+let _kalenteriTapahtumat = []; // seurat/{sid}/tapahtumat — harjoitukset, ottelut, muut
 
 
 /* ════════════════════════════════════════════════════════════
@@ -1770,6 +1771,7 @@ async function _lataaValmentaja(uid) {
             await _rakennaSAJoukkueValitsin(_seuraId);
             await _lataaPelaajat();
             await _lataaTestitapahtumat();
+            await _lataaKalenteriTapahtumat();
             renderInbox();
             renderTestit();
             renderCal();
@@ -1860,10 +1862,19 @@ async function _lataaTestitapahtumat() {
   try {
     const snap = await _db.collection('seurat').doc(_seuraId).collection('testitapahtumat')
       .orderBy('luotu', 'desc').limit(50).get();
-    _testitapahtumat = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Normalisoi: käytä 'joukkue'-kenttää aina (vanhoissa saattaa olla 'joukkueNimi')
+    _testitapahtumat = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        joukkue: data.joukkue || data.joukkueNimi || ''
+      };
+    });
     // Etsi tämän päivän testit
     const tanaan = new Date().toISOString().slice(0,10);
-    _todayTestit = _testitapahtumat.filter(t => t.pvm === tanaan && t.tila !== 'suljettu');
+    // Suodata joukkueen mukaan myös tänään-tapahtumat
+    _todayTestit = _testitapahtumat.filter(t => t.pvm === tanaan && t.tila !== 'suljettu' && (!_joukkue || !t.joukkue || t.joukkue === _joukkue));
     // Päivitä badget
     const avoimet = _testitapahtumat.filter(t => t.tila !== 'suljettu').length;
     const badge = document.getElementById('wsTestitBadge');
@@ -1872,7 +1883,7 @@ async function _lataaTestitapahtumat() {
     renderToday();
     renderCal();
     renderTestit();
-    renderTestit();
+    _lataaKalenteriTapahtumat();
   } catch(e) { console.warn('[v16] Testitapahtumien lataus:', e.message); }
 }
 
@@ -2231,8 +2242,11 @@ function renderTestit() {
   const suljetutEl = document.getElementById('testitSuljetut');
   if (!avoimetEl || !suljetutEl) return;
 
-  const avoimet = (_testitapahtumat || []).filter(t => t.tila !== 'suljettu');
-  const suljetut = (_testitapahtumat || []).filter(t => t.tila === 'suljettu');
+  // Suodata joukkueen mukaan jos joukkue on valittu
+  // Jos tapahtumalla ei ole joukkuetta, se näkyy kaikille (seuratason tapahtuma)
+  const _suodataJoukkue = (t) => !_joukkue || !t.joukkue || t.joukkue === _joukkue;
+  const avoimet = (_testitapahtumat || []).filter(t => t.tila !== 'suljettu' && _suodataJoukkue(t));
+  const suljetut = (_testitapahtumat || []).filter(t => t.tila === 'suljettu' && _suodataJoukkue(t));
 
   avoimetEl.innerHTML = avoimet.length
     ? avoimet.map(t => _testiCardHtml(t)).join('')
@@ -2447,6 +2461,36 @@ function _renderInboxOhjaus(el) {
   }
 }
 
+/* ── KALENTERI TAPAHTUMAT FIRESTORESTA ── */
+async function _lataaKalenteriTapahtumat() {
+  if (!_seuraId || _demo) return;
+  try {
+    let ref = _db.collection('seurat').doc(_seuraId).collection('tapahtumat');
+    // Hae kuluvan kauden tapahtumat (6 kk taaksepäin, 6 kk eteenpäin)
+    const snap = await ref.orderBy('pvm', 'asc').get();
+    _kalenteriTapahtumat = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        joukkue: data.joukkue || data.joukkueNimi || ''
+      };
+    }).filter(t => !_joukkue || !t.joukkue || t.joukkue === _joukkue);
+  } catch(e) {
+    // Indeksi saattaa puuttua — hae ilman orderBy
+    try {
+      const snap2 = await _db.collection('seurat').doc(_seuraId)
+        .collection('tapahtumat').get();
+      _kalenteriTapahtumat = snap2.docs.map(d => ({id: d.id, ...d.data()}))
+        .filter(t => !_joukkue || !t.joukkue || t.joukkue === _joukkue)
+        .sort((a,b) => (a.pvm||'').localeCompare(b.pvm||''));
+    } catch(e2) {
+      console.warn('[kalenteri]', e2.message);
+    }
+  }
+  renderCal();
+}
+
 /* ── SA JOUKKUEVALITSIN ── */
 async function _rakennaSAJoukkueValitsin(seuraId) {
   // Poista vanha valitsin
@@ -2511,6 +2555,7 @@ async function _rakennaSAJoukkueValitsin(seuraId) {
       _kirjauksetLadattu = false;
       await _lataaPelaajat();
       await _lataaTestitapahtumat();
+      await _lataaKalenteriTapahtumat();
 
       // Päivitä kaikki näkymät
       renderInbox();
@@ -3153,6 +3198,7 @@ function _alusta(nimi) {
   if (_seuraId && !_demo) {
     _lataaPelaajat();
     _lataaTestitapahtumat();
+    _lataaKalenteriTapahtumat();  // harjoitukset, ottelut, muut
   }
   // Aktivoi inbox-tabi visuaalisesti
   document.querySelectorAll('.sb-item[data-ws]').forEach(t =>
@@ -3397,6 +3443,11 @@ function _renderPlayersToday() {
     warn:{ cls:'tag-warn', txt:'Poissa' },
     inj: { cls:'tag-inj', txt:'Loukk.' },
   };
+  // Demo-moodi — DEMO.players kovakoodattu data
+  if (!_demo) {
+    el.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">Ei erityishuomioita tänään — joukkue OK.</div>';
+    return;
+  }
   el.innerHTML = DEMO.players.map(p => {
     const pid = p.name.split(' ')[0].toLowerCase();
     return `
@@ -3761,11 +3812,28 @@ function renderCal() {
   const days = ['Ma','Ti','Ke','To','Pe','La','Su'];
   const todayStr = today.toISOString().slice(0,10);
 
-  // ── Testitapahtumat → kalenterimuoto ──
-  const testiEvts = (_testitapahtumat || []).map(t => {
-    const dayIdx = dates.findIndex(dd => dd.toISOString().slice(0,10) === t.pvm);
-    return { ...t, _dayIdx: dayIdx, _hour: 9 };
-  }).filter(t => t._dayIdx >= 0);
+  // ── Kaikki tapahtumat kalenterimuotoon ──
+  // Testitapahtumat (klo 9) + valmentajan luomat tapahtumat (omalla kellolla)
+  const suodataJoukkue = t => !_joukkue || !t.joukkue || t.joukkue === _joukkue;
+
+  const testiEvts = (_testitapahtumat || [])
+    .filter(suodataJoukkue)
+    .map(t => {
+      const dayIdx = dates.findIndex(dd => dd.toISOString().slice(0,10) === t.pvm);
+      return { ...t, _dayIdx: dayIdx, _hour: 9, _src: 'testi' };
+    }).filter(t => t._dayIdx >= 0);
+
+  // Kalenteritapahtumat (harjoitukset, ottelut, muut)
+  const kalEvts = (_kalenteriTapahtumat || [])
+    .filter(suodataJoukkue)
+    .map(t => {
+      const dayIdx = dates.findIndex(dd => dd.toISOString().slice(0,10) === t.pvm);
+      // Hae tunti alkuajasta (esim "17:00" → 17)
+      const tunti = t.alkaa ? parseInt(t.alkaa.split(':')[0]) : 17;
+      return { ...t, _dayIdx: dayIdx, _hour: tunti, _src: 'kalenteri' };
+    }).filter(t => t._dayIdx >= 0);
+
+  const kaikkiEvts = [...testiEvts, ...kalEvts];
 
   // ── Kalenteritunnit: käytä aina realistista harjoitusaikaa ──
   const c = { hours:[15,16,17,18,19,20], events:[], players:[] };
@@ -3801,20 +3869,32 @@ function renderCal() {
       const dateStr = dates[d].toISOString().slice(0,10);
       const isToday = dateStr === todayStr;
 
-      // Demo-harjoitukset
-      const demoEvts = (c.events||[]).filter(e => e.day === d && e.hour === h);
+      // Demo-harjoitukset vain demo-tilassa
+      const demoEvts = _demo ? (c.events||[]).filter(e => e.day === d && e.hour === h) : [];
 
-      // Testitapahtumat klo 9:00
-      const testit = testiEvts.filter(t => t._dayIdx === d && h === 9);
+      // Testitapahtumat klo 9:00 + kalenteritapahtumat omalla tunnillaan
+      const tapahtumatTallaTunnilla = kaikkiEvts.filter(t => t._dayIdx === d && t._hour === h);
       const allEvts = [
         ...demoEvts,
-        ...testit.map(t => ({
-          type: t.tila === 'suljettu' ? 'test done' : 'test',
-          title: (t.nimi || PROTOKOLLAT?.[t.protokolla]?.nimi || 'Testi').split(' — ')[0],
-          meta: (t.joukkue || '') + (t.tila === 'suljettu' ? ' · valmis' : ' · ' + (t.moodi||'avoin')),
-          _testId: t.id,
-          _tila: t.tila
-        }))
+        ...tapahtumatTallaTunnilla.map(t => {
+          if (t._src === 'testi') {
+            return {
+              type: t.tila === 'suljettu' ? 'test done' : 'test',
+              title: (t.nimi || 'Testi').split(' — ')[0],
+              meta: (t.joukkue || '') + (t.tila === 'suljettu' ? ' · valmis' : ' · avoin'),
+              _testId: t.id
+            };
+          } else {
+            // Kalenteritapahtuma (harjoitus, ottelu, muu)
+            const tyyppivari = t.tyyppi === 'ottelu' ? 'match' : t.tyyppi === 'testi' ? 'test' : 'team';
+            return {
+              type: tyyppivari,
+              title: t.nimi || t.tyyppi || 'Tapahtuma',
+              meta: (t.alkaa||'') + (t.paattyy ? '–'+t.paattyy : '') + (t.joukkue ? ' · '+t.joukkue : ''),
+              _kalId: t.id
+            };
+          }
+        })
       ];
 
       const inner = allEvts.map(e => {
