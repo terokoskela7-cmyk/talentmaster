@@ -517,6 +517,9 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
     <div class="navNappi" onclick="vaihdaNakyma('joukkueet',this)">
       <span class="navIkoni">⚽</span>Joukkueet
     </div>
+    <div class="navNappi" onclick="vaihdaNakyma('talentit',this)">
+      <span class="navIkoni">⭐</span>Talentit
+    </div>
 
     <div class="navRyhma">ORGANISAATIO</div>
     <div class="navNappi" onclick="vaihdaNakyma('henkilosto',this)">
@@ -1350,6 +1353,7 @@ function renderoi(nakyma) {
     case 'yhteenveto':  alue.innerHTML = renderYhteenveto();  break;
     case 'pelaajat':    renderPelaajat(alue);                 break;
     case 'joukkueet':   alue.innerHTML = renderJoukkueet();   break;
+    case 'talentit':    renderTalentit(alue);                 break;
         case 'kehitystilanne': renderKehitystilanne(alue); break;
     case 'rekisterointi':   avaaRekisteriModal();       break;
     case 'tuoexcel':        avaaExcelTuontiModal();     break;
@@ -1817,8 +1821,15 @@ async function renderPelaajat(alue) {
               ? ['odottaa', '⏳', 'Kutsu lähetetty']
               : ['harmaa',  '—',  'Ei kutsua'];
 
-            // Normalisoi joukkue-kenttä näyttöä varten
-            const joukkueNakymassa = p.joukkue || '—';
+            const joukkueetNakymassa = Array.isArray(p.joukkueet) && p.joukkueet.length > 0
+              ? p.joukkueet.map(id => {
+                  const j = (tila.joukkueet||[]).find(j => j.id === id);
+                  return j?.nimi || id;
+                }).join(' + ')
+              : (p.joukkue || '—');
+            const talenttiBadge = p.talenttiOhjelma
+              ? '<span style="font-size:10px;background:rgba(40,176,144,.15);color:var(--teal);border-radius:4px;padding:1px 6px;margin-left:4px;font-weight:700;">⭐ ' + (p.talenttiTaso||'T') + '</span>'
+              : '';
 
             // PalloID — tarkistetaan kaikki mahdolliset kenttänimet
             // (järjestelmässä on historiallisesti käytetty eri muotoja)
@@ -1837,7 +1848,7 @@ async function renderPelaajat(alue) {
             return `
               <tr>
                 <td style="font-weight:600;">${nimi}</td>
-                <td>${joukkueNakymassa}</td>
+                <td>${joukkueetNakymassa}${talenttiBadge}</td>
                 <td>${syntVuosi}</td>
                 ${palloIdSolu}
                 <td><span class="badge ${tilaLuokka}">${tilaIkoni} ${tilaTeksti}</span></td>
@@ -2038,6 +2049,108 @@ async function tallennakKaytettavyys(pelaajaId) {
     console.log('[Käytettävyys] Tallennettu:', tila_val);
   } catch(e) {
     alert('Tallennus epäonnistui: ' + e.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TALENTIT-NÄKYMÄ — VP ja talenttivalmentaja
+// ─────────────────────────────────────────────────────────────────
+async function renderTalentit(alue) {
+  alue.innerHTML = '<div style="padding:40px;text-align:center;"><div class="spinner"></div></div>';
+
+  try {
+    const pelSnap = await db.collection('seurat').doc(tila.seuraId)
+      .collection('pelaajat')
+      .where('talenttiOhjelma', '==', true)
+      .get();
+
+    const talentit = pelSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
+
+    const tasoVari = { laajennettu: 'var(--blue)', perus: 'var(--amber)' };
+
+    // Ryhmittely tason mukaan
+    const laajennettu = talentit.filter(p => p.talenttiTaso === 'laajennettu');
+    const perus      = talentit.filter(p => !p.talenttiTaso || p.talenttiTaso === 'perus');
+
+    function pelaajaRivi(p) {
+      const joukkueetStr = Array.isArray(p.joukkueet) && p.joukkueet.length
+        ? p.joukkueet.map(id => { const j=(tila.joukkueet||[]).find(j=>j.id===id); return j?.nimi||id; }).join(' + ')
+        : (p.joukkue || '—');
+      const alku = p.talenttiAlku?.seconds
+        ? new Date(p.talenttiAlku.seconds*1000).toLocaleDateString('fi-FI')
+        : '—';
+      const taso = p.talenttiTaso || 'perus';
+      return `
+        <tr>
+          <td style="font-weight:600;">${p.etunimi||''} ${p.sukunimi||''}</td>
+          <td style="color:var(--ink3);font-size:12px;">${p.syntymaVuosi||'—'}</td>
+          <td style="font-size:12px;">${joukkueetStr}</td>
+          <td>
+            <span style="font-size:11px;font-weight:700;color:${tasoVari[taso]||'var(--amber)'};
+              background:rgba(40,176,144,.08);border-radius:4px;padding:2px 8px;">
+              ${taso.toUpperCase()}
+            </span>
+          </td>
+          <td style="font-size:11px;color:var(--ink3);">${alku}</td>
+          <td>
+            <button class="toimNappi sininen" style="font-size:11px;"
+              onclick="avaaMuokkaaPelaajaModal('${p.id}')">✏️ Muokkaa</button>
+          </td>
+        </tr>`;
+    }
+
+    function ryhmaTaulukko(otsikko, vari, lista) {
+      if (lista.length === 0) return '';
+      return `
+        <div style="margin-bottom:20px;">
+          <div style="font-size:11px;font-weight:700;color:${vari};letter-spacing:.1em;
+            text-transform:uppercase;padding:8px 20px;border-bottom:1px solid var(--bord2);">
+            ${otsikko} — ${lista.length} pelaajaa
+          </div>
+          <table>
+            <thead><tr>
+              <th>Pelaaja</th><th>Synt.</th><th>Joukkueet</th><th>Taso</th><th>Alkanut</th><th></th>
+            </tr></thead>
+            <tbody>${lista.map(pelaajaRivi).join('')}</tbody>
+          </table>
+        </div>`;
+    }
+
+    alue.innerHTML = `
+      <div class="sivuOtsikko">
+        <div class="sivuEyebrow">Hallinta</div>
+        <div class="sivuH1">Talenttiohjelma</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;">
+        <div class="kpiKortti">
+          <div class="kpiArvo" style="color:var(--teal);">${talentit.length}</div>
+          <div class="kpiLabel">Talenttiohjelma yhteensä</div>
+        </div>
+        <div class="kpiKortti">
+          <div class="kpiArvo" style="color:var(--blue);">${laajennettu.length}</div>
+          <div class="kpiLabel">Laajennettu ohjelma</div>
+        </div>
+      </div>
+
+      ${talentit.length === 0 ? `
+        <div class="taulukkoKortti" style="text-align:center;padding:60px;">
+          <div style="font-size:32px;margin-bottom:12px;">⭐</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Ei talenttiohjelmassa olevia pelaajia</div>
+          <div style="font-size:12px;color:var(--ink3);">
+            Aktivoi talenttiohjelma pelaajalle Pelaajat-välilehdellä → ✏️ Muokkaa.
+          </div>
+        </div>
+      ` : `
+        <div class="taulukkoKortti">
+          ${ryhmaTaulukko('🔵 Laajennettu ohjelma', 'var(--blue)', laajennettu)}
+          ${ryhmaTaulukko('🟡 Perusohjelma', 'var(--amber)', perus)}
+        </div>
+      `}`;
+
+  } catch(e) {
+    alue.innerHTML = `<div style="color:var(--red);padding:20px;">Virhe: ${e.message}</div>`;
   }
 }
 
@@ -3307,11 +3420,30 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
   }
 
   const joukkueet = (tila.joukkueet || []);
-  // joukkue-kentässä tallennetaan nimi (näyttöarvo) koska Excel-tuonti ja rekisterimodaali
-  // käyttävät molemmat joukkueen nimeä (ei ID:tä) koska ID on automaattigeneroitu
-  const joukkueOptions = joukkueet.map(j =>
-    `<option value="${j.nimi || j.id}" ${(p.joukkue === (j.nimi || j.id) || p.joukkue === j.id) ? 'selected' : ''}>${j.nimi || j.id}</option>`
-  ).join('');
+  // Pelaajan nykyiset joukkueet — tukee sekä vanhaa string-kenttää että uutta array-kenttää
+  const nykyisetJoukkueet = Array.isArray(p.joukkueet) ? p.joukkueet
+    : (p.joukkue ? [p.joukkue] : []);
+
+  // Joukkue-checkboxit — vertaa sekä ID:llä että nimellä (backward compat)
+  const joukkueCheckboxit = joukkueet.length > 0
+    ? joukkueet.map(j => {
+        const valittu = nykyisetJoukkueet.includes(j.id) || nykyisetJoukkueet.includes(j.nimi);
+        return `<label style="display:flex;align-items:center;gap:10px;cursor:pointer;
+          padding:7px 10px;border-radius:6px;transition:background .15s;"
+          onmouseover="this.style.background='rgba(40,176,144,.06)'"
+          onmouseout="this.style.background='transparent'">
+          <input type="checkbox" name="mp_joukkue_cb" value="${j.id}"
+            ${valittu ? 'checked' : ''}
+            style="width:15px;height:15px;accent-color:var(--teal);cursor:pointer;flex-shrink:0;">
+          <span style="font-size:13px;color:var(--ink);">${j.nimi || j.id}</span>
+          <span style="font-size:11px;color:var(--ink3);margin-left:auto;">${j.ikaryhma||''} ${j.vuosi||''}</span>
+        </label>`;
+      }).join('')
+    : '<div style="font-size:12px;color:var(--ink3);padding:8px;">Ei joukkueita — lisää Joukkueet-välilehdellä ensin.</div>';
+
+  // Talenttistatus — nykytila
+  const onTalentti = !!p.talenttiOhjelma;
+  const talenttiTaso = p.talenttiTaso || 'perus';
 
   const isSuperAdmin = tila.rooli === 'superadmin' || tila.rooli === 'super_admin';
 
@@ -3349,28 +3481,53 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-        <div class="kenttaRyhma">
-          <label class="kenttaLabel">Joukkue</label>
-          <select id="mp_joukkue" class="kenttaInput">
-            <option value="">— valitse —</option>
-            ${joukkueOptions}
-          </select>
-        </div>
-        <div class="kenttaRyhma">
-          <label class="kenttaLabel">Pelipaikka</label>
-          <input id="mp_pelipaikka" class="kenttaInput" placeholder="esim. KH, TK, HY" value="${p.pelipaikka||p.positio||''}">
+      <div style="margin-bottom:12px;">
+        <label class="kenttaLabel">Joukkueet (voi valita useamman)</label>
+        <div style="background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
+          padding:6px;max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;">
+          ${joukkueCheckboxit}
         </div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div class="kenttaRyhma">
+          <label class="kenttaLabel">Pelipaikka</label>
+          <input id="mp_pelipaikka" class="kenttaInput" placeholder="esim. KH, TK, HY" value="${p.pelipaikka||p.positio||''}">
+        </div>
+        <div class="kenttaRyhma">
           <label class="kenttaLabel">Huoltajan sähköposti</label>
           <input id="mp_hEmail" class="kenttaInput" type="email" value="${p.huoltajaEmail||p.huoltaja?.email||''}">
         </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
         <div class="kenttaRyhma">
           <label class="kenttaLabel">PalloID</label>
           <input id="mp_palloId" class="kenttaInput" value="${p.palloID||p.palloId||''}">
+        </div>
+      </div>
+
+      <!-- TALENTTISTATUS -->
+      <div style="padding:14px;background:rgba(40,176,144,.06);border:1px solid rgba(40,176,144,.2);
+        border-radius:10px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--teal);letter-spacing:.06em;text-transform:uppercase;">⭐ Talenttiohjelma</div>
+            <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Pelaaja saa IDP:n ja talenttivalmentajan seurannan</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="mp_talentti" ${onTalentti ? 'checked' : ''}
+              style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;"
+              onchange="document.getElementById('mp_talenttiTasoRivi').style.display=this.checked?'block':'none'">
+            <span style="font-size:13px;color:var(--ink);">${onTalentti ? 'Aktiivinen' : 'Ei aktiivinen'}</span>
+          </label>
+        </div>
+        <div id="mp_talenttiTasoRivi" style="display:${onTalentti ? 'block' : 'none'};">
+          <label class="kenttaLabel" style="margin-bottom:4px;">Taso</label>
+          <select id="mp_talenttiTaso" class="kenttaInput" style="font-size:13px;">
+            <option value="perus" ${talenttiTaso==='perus'?'selected':''}>Perus — IDP-seuranta</option>
+            <option value="laajennettu" ${talenttiTaso==='laajennettu'?'selected':''}>Laajennettu — intensiivisempi ohjelma</option>
+          </select>
         </div>
       </div>
 
@@ -3409,16 +3566,27 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
 }
 
 async function tallennaMusokkausPelaaja(pelaajaId) {
-  // Varmistetaan tuore token ennen kirjoitusta (sessio voi vanhentua pitkän tauon jälkeen)
   try { if (tila.kayttaja) await tila.kayttaja.getIdToken(true); } catch(e) { console.warn('[Token]', e.message); }
-  const etunimi   = document.getElementById('mp_etunimi')?.value.trim() || '';
-  const sukunimi  = document.getElementById('mp_sukunimi')?.value.trim() || '';
-  const joukkue   = document.getElementById('mp_joukkue')?.value || '';
-  const hEmail    = document.getElementById('mp_hEmail')?.value.trim() || '';
-  const palloId   = document.getElementById('mp_palloId')?.value.trim() || '';
-  const sukupuoli = document.getElementById('mp_sukupuoli')?.value || '';
+  const etunimi    = document.getElementById('mp_etunimi')?.value.trim() || '';
+  const sukunimi   = document.getElementById('mp_sukunimi')?.value.trim() || '';
+  const hEmail     = document.getElementById('mp_hEmail')?.value.trim() || '';
+  const palloId    = document.getElementById('mp_palloId')?.value.trim() || '';
+  const sukupuoli  = document.getElementById('mp_sukupuoli')?.value || '';
   const pelipaikka = document.getElementById('mp_pelipaikka')?.value.trim() || '';
   const syntymaaika_str = document.getElementById('mp_syntymaaika')?.value || '';
+
+  // Joukkueet — kerää checkboxeista (uusi malli)
+  const cbList = document.querySelectorAll('input[name="mp_joukkue_cb"]:checked');
+  const valitutIds = Array.from(cbList).map(cb => cb.value);
+  // Muunna ID:t nimiksi (joukkue-kenttä backward compat)
+  const valitutNimet = valitutIds.map(id => {
+    const j = (tila.joukkueet||[]).find(j => j.id === id);
+    return j?.nimi || id;
+  });
+
+  // Talenttistatus
+  const onTalentti = document.getElementById('mp_talentti')?.checked || false;
+  const talenttiTaso = document.getElementById('mp_talenttiTaso')?.value || 'perus';
 
   if (!etunimi && !sukunimi) {
     const v = document.getElementById('mp_virhe');
@@ -3426,27 +3594,37 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
     return;
   }
 
-  // Rakenna päivitysobjekti
   const paivitys = {
     etunimi, sukunimi,
     nimi: (etunimi + ' ' + sukunimi).trim(),
-    joukkue, sukupuoli,
+    // Joukkueet — molemmat kentät (uusi + backward compat)
+    joukkueet:   valitutIds,
+    joukkue:     valitutNimet[0] || valitutIds[0] || '',   // ensisijainen, vanha kenttä
+    sukupuoli,
     huoltajaEmail: hEmail || null,
-    pelipaikka: pelipaikka || null,
-    positio:    pelipaikka || null,  // yhteensopivuus vanhan kentän kanssa
+    pelipaikka:  pelipaikka || null,
+    positio:     pelipaikka || null,
     ...(palloId && { palloID: palloId }),
-    muokattu: firebase.firestore.FieldValue.serverTimestamp(),
+    // Talenttistatus
+    talenttiOhjelma: onTalentti,
+    ...(onTalentti && { talenttiTaso }),
+    ...(!onTalentti && { talenttiTaso: null, talenttiPaattyi: firebase.firestore.FieldValue.serverTimestamp() }),
+    muokattu:    firebase.firestore.FieldValue.serverTimestamp(),
     muokkaajaUid: tila.kayttaja?.uid || 'tuntematon',
   };
 
-  // Syntymäpäivä — muunnetaan Firestore Timestampiksi ja lasketaan syntymaVuosi
-  if (syntymaaika_str) {
-    const [y, m, d] = syntymaaika_str.split('-').map(Number);
-    paivitys.syntymaaika   = new Date(Date.UTC(y, m-1, d));
-    paivitys.syntymaVuosi  = y;
+  // Talenttiohjelma aktivointi — aseta alkupäivä vain kun aktivoidaan ensi kertaa
+  if (onTalentti && !document.getElementById('mp_talentti').dataset.oliTalentti) {
+    paivitys.talenttiAlku    = firebase.firestore.FieldValue.serverTimestamp();
+    paivitys.talenttiAktivoi = tila.kayttaja?.uid || 'tuntematon';
   }
 
-  // FLEI-kentät — vain super admin, validointi 1-3
+  if (syntymaaika_str) {
+    const [y, m, d] = syntymaaika_str.split('-').map(Number);
+    paivitys.syntymaaika  = new Date(Date.UTC(y, m-1, d));
+    paivitys.syntymaVuosi = y;
+  }
+
   const isSuperAdmin = tila.rooli === 'superadmin' || tila.rooli === 'super_admin';
   if (isSuperAdmin) {
     const ketjut = ['sbl','sfl','ll','diag','dfl'];
@@ -3463,7 +3641,6 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
       paivitys[k] = Math.round(v * 100) / 100;
       fleika += v; fleiknt++;
     }
-    // Laske flei_viimeisin jos kaikki 5 ketjua on asetettu
     if (fleiknt === 5) {
       paivitys.flei_viimeisin = Math.round((fleika/5 - 1) / 2 * 100);
     }
@@ -3476,8 +3653,8 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
 
     document.getElementById('muokkaaPelaajaModal').classList.remove('auki');
     const infot = [etunimi + ' ' + sukunimi];
-    if (paivitys.syntymaVuosi) infot.push('s.' + paivitys.syntymaVuosi);
-    if (pelipaikka) infot.push(pelipaikka);
+    if (valitutNimet.length) infot.push(valitutNimet.join(' + '));
+    if (onTalentti) infot.push('⭐ Talenttiohjelma ' + talenttiTaso);
     naytaToast(infot.join(' · ') + ' — tallennettu ✓', 'ok');
     setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
   } catch(e) {
