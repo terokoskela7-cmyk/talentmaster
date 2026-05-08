@@ -1837,9 +1837,16 @@ async function renderPelaajat(alue) {
         </button>
       </div>
       <div id="pelaajaAlue" style="padding:20px;color:var(--ink3);font-size:13px;">
-        Valitse seura nähdäksesi pelaajat.
+        Ladataan...
       </div>
     </div>`;
+  // Valitse oletuksena ensimmäinen seura automaattisesti
+  const pSel = document.getElementById('pelSeuraValinta');
+  if (pSel && tila.seurat.length > 0) {
+    const oletus = tila.seurat.find(s => s.id === 'kpv') || tila.seurat[0];
+    pSel.value = oletus.id;
+    await lataaPelaajat();
+  }
 }
 
 async function lataaPelaajat() {
@@ -1867,28 +1874,51 @@ async function lataaPelaajat() {
     const pelaajat = snap.docs.map(d => ({id: d.id, ...d.data()}))
       .sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
 
+    // Joukkueet filttereinä
+    const joukkueet = [...new Set(pelaajat.map(p => p.joukkue).filter(Boolean))].sort();
+    
     alue.innerHTML = `
+      <div style="padding:12px 20px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--bord2)">
+        <span style="font-size:12px;color:var(--ink3)">Suodata:</span>
+        <button onclick="lataaPelaajat()" 
+          style="padding:4px 12px;border-radius:20px;border:1px solid var(--teal);background:var(--teal-bg);color:var(--teal);font-size:12px;cursor:pointer">
+          Kaikki (${pelaajat.length})
+        </button>
+        ${joukkueet.map(j => `
+          <button onclick="lataaPelaajatJoukkue('${j}')"
+            style="padding:4px 12px;border-radius:20px;border:1px solid var(--bord2);background:var(--bg3);color:var(--ink2);font-size:12px;cursor:pointer">
+            ${j}
+          </button>`).join('')}
+      </div>
       <table>
         <thead><tr>
-          <th>Nimi</th><th>PalloID</th><th>Joukkue</th><th>Syntymävuosi</th><th>Suostumus</th>
+          <th>Nimi</th>
+          <th>PalloID</th>
+          <th>Joukkue</th>
+          <th>Sähköposti</th>
+          <th>Suostumus</th>
+          <th>Lähde</th>
         </tr></thead>
         <tbody>
           ${pelaajat.map(p => `
             <tr>
-              <td>${p.etunimi||''} ${p.sukunimi||''}</td>
-              <td style="font-family:monospace;font-size:12px;color:var(--ink3);">${p.palloId||p.id||'—'}</td>
+              <td style="font-weight:500">${p.etunimi||''} ${p.sukunimi||''}</td>
+              <td style="font-family:monospace;font-size:12px;color:var(--ink3)">
+                ${p.palloID || p.tunniste || p.palloId || '—'}
+              </td>
               <td>${p.joukkue||'—'}</td>
-              <td>${p.syntymavuosi||p.syntymäVuosi||'—'}</td>
+              <td style="font-size:12px;color:var(--ink3)">${p.huoltajaEmail||'—'}</td>
               <td>
-                <span class="badge ${(p.suostumus||p.suostumusAnnettu||p.gdprSuostumus) ? 'aktiivinen' : 'ei'}">
-                  ${(p.suostumus||p.suostumusAnnettu||p.gdprSuostumus) ? '✓ OK' : '⏳ Puuttuu'}
+                <span class="badge ${p.suostumusTila==='annettu' ? 'aktiivinen' : 'ei'}">
+                  ${p.suostumusTila==='annettu' ? '✓ OK' : '⏳ Puuttuu'}
                 </span>
               </td>
+              <td style="font-size:11px;color:var(--ink3)">${p.lahde||'—'}</td>
             </tr>`).join('')}
         </tbody>
       </table>
-      <div style="padding:12px 14px;font-size:12px;color:var(--ink3);">
-        ${pelaajat.length} pelaajaa yhteensä
+      <div style="padding:12px 20px;font-size:12px;color:var(--ink3)">
+        ${pelaajat.length} pelaajaa · ${joukkueet.join(', ')}
       </div>`;
   } catch(e) {
     alue.innerHTML = `<div style="color:var(--red);padding:20px;">Virhe: ${e.message}</div>`;
@@ -1918,11 +1948,59 @@ async function renderJoukkueet(alue) {
         </select>
       </div>
       <div id="joukkueetAlue" style="padding:0 20px 20px;color:var(--ink3);font-size:13px;">
-        Valitse seura nähdäksesi joukkueet.
+        Ladataan...
       </div>
     </div>`;
+  // Valitse oletuksena KPV tai ensimmäinen seura
+  const jSel = document.getElementById('jouSeuraValinta');
+  if (jSel && tila.seurat.length > 0) {
+    // Suosi 'kpv' jos löytyy, muuten ensimmäinen
+    const oletus = tila.seurat.find(s => s.id === 'kpv') || tila.seurat[0];
+    jSel.value = oletus.id;
+    await lataaJoukkueetAdmin();
+  }
 }
 
+
+// Joukkuesuodatin pelaajat-sivulla
+async function lataaPelaajatJoukkue(joukkue) {
+  const seuraId = document.getElementById('pelSeuraValinta')?.value;
+  const alue = document.getElementById('pelaajaAlue');
+  if (!alue || !seuraId) return;
+  alue.innerHTML = '<div style="padding:20px;color:var(--ink3)">Ladataan...</div>';
+  try {
+    const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat')
+      .where('joukkue', '==', joukkue).get();
+    const pelaajat = snap.docs.map(d => ({id: d.id, ...d.data()}))
+      .sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
+    const kaikki = await db.collection('seurat').doc(seuraId).collection('pelaajat').get();
+    const joukkueet = [...new Set(kaikki.docs.map(d=>d.data().joukkue).filter(Boolean))].sort();
+    alue.innerHTML = `
+      <div style="padding:12px 20px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--bord2)">
+        <span style="font-size:12px;color:var(--ink3)">Suodata:</span>
+        <button onclick="lataaPelaajat()"
+          style="padding:4px 12px;border-radius:20px;border:1px solid var(--bord2);background:var(--bg3);color:var(--ink2);font-size:12px;cursor:pointer">
+          Kaikki (${kaikki.size})
+        </button>
+        ${joukkueet.map(j => `
+          <button onclick="lataaPelaajatJoukkue('${j}')"
+            style="padding:4px 12px;border-radius:20px;border:${j===joukkue?'1px solid var(--teal)':'1px solid var(--bord2)'};background:${j===joukkue?'var(--teal-bg)':'var(--bg3)'};color:${j===joukkue?'var(--teal)':'var(--ink2)'};font-size:12px;cursor:pointer">
+            ${j} (${kaikki.docs.filter(d=>d.data().joukkue===j).length})
+          </button>`).join('')}
+      </div>
+      <table>
+        <thead><tr><th>Nimi</th><th>PalloID</th><th>Joukkue</th><th>Sähköposti</th><th>Suostumus</th></tr></thead>
+        <tbody>${pelaajat.map(p => `<tr>
+          <td style="font-weight:500">${p.etunimi||''} ${p.sukunimi||''}</td>
+          <td style="font-family:monospace;font-size:12px;color:var(--ink3)">${p.palloID||p.tunniste||'—'}</td>
+          <td>${p.joukkue||'—'}</td>
+          <td style="font-size:12px;color:var(--ink3)">${p.huoltajaEmail||'—'}</td>
+          <td><span class="badge ${p.suostumusTila==='annettu'?'aktiivinen':'ei'}">${p.suostumusTila==='annettu'?'✓ OK':'⏳ Puuttuu'}</span></td>
+        </tr>`).join('')}</tbody>
+      </table>
+      <div style="padding:12px 20px;font-size:12px;color:var(--ink3)">${pelaajat.length} pelaajaa joukkueessa ${joukkue}</div>`;
+  } catch(e) { alue.innerHTML = '<div style="color:var(--red);padding:20px">Virhe: '+e.message+'</div>'; }
+}
 async function lataaJoukkueetAdmin() {
   const seuraId = document.getElementById('jouSeuraValinta')?.value;
   const alue = document.getElementById('joukkueetAlue');
@@ -1931,33 +2009,61 @@ async function lataaJoukkueetAdmin() {
   alue.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div class="spinner"></div> Ladataan...</div>';
 
   try {
-    const snap = await db.collection('seurat').doc(seuraId).collection('joukkueet').get();
-    if (snap.empty) {
-      alue.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink3);">Ei joukkueita — lisää ensimmäinen yllä.</div>';
+    // Hae joukkueet dynaamisesti pelaajadatasta — aina ajan tasalla
+    const pelSnap = await db.collection('seurat').doc(seuraId).collection('pelaajat').get();
+    const joukkueetMap = {};
+    pelSnap.docs.forEach(d => {
+      const p = d.data();
+      const j = p.joukkue;
+      if (j) {
+        if (!joukkueetMap[j]) joukkueetMap[j] = { nimi: j, pelaajia: 0, suostumus: 0 };
+        joukkueetMap[j].pelaajia++;
+        if (p.suostumusTila === 'annettu') joukkueetMap[j].suostumus++;
+      }
+    });
+
+    const joukkueet = Object.values(joukkueetMap).sort((a,b) => a.nimi.localeCompare(b.nimi));
+
+    if (joukkueet.length === 0) {
+      alue.innerHTML = `<div style="text-align:center;padding:40px;color:var(--ink3)">
+        <div style="font-size:28px;margin-bottom:12px">👥</div>
+        <div style="font-size:14px;margin-bottom:6px">Ei joukkueita vielä</div>
+        <div style="font-size:12px">Pelaajat liitetään joukkueisiin Excel-tuonnin joukkue-kentän mukaan.</div>
+      </div>`;
       return;
     }
-    const joukkueet = snap.docs.map(d => ({id: d.id, ...d.data()}))
-      .sort((a,b) => (a.nimi||'').localeCompare(b.nimi||''));
 
     alue.innerHTML = `
       <table>
-        <thead><tr><th>Joukkue</th><th>Ikäryhmä</th><th>Vuosi</th><th>Valmentaja</th><th>Pelaajia</th><th>Toiminnot</th></tr></thead>
+        <thead><tr>
+          <th>Joukkue</th>
+          <th>Pelaajia</th>
+          <th>Suostumus</th>
+          <th>Toiminnot</th>
+        </tr></thead>
         <tbody>
           ${joukkueet.map(j => `
             <tr>
-              <td style="font-weight:600;">${j.nimi||j.id}</td>
-              <td>${j.ikaryhma||'—'}</td>
-              <td>${j.vuosi||'—'}</td>
-              <td>${j.valmentaja||'—'}</td>
-              <td>${j.pelaajia||0}</td>
+              <td style="font-weight:600">${j.nimi}</td>
+              <td>${j.pelaajia}</td>
               <td>
-                <button class="toimintaNappi vaara" onclick="poistaJoukkueAdmin('${seuraId}','${j.id}','${(j.nimi||j.id).replace(/'/g,"\'")}')">
-                  🗑 Poista
+                <span style="font-size:12px;color:${j.suostumus===j.pelaajia?'var(--teal)':'var(--amber)'}">
+                  ${j.suostumus}/${j.pelaajia}
+                  (${Math.round(j.suostumus/j.pelaajia*100)}%)
+                </span>
+              </td>
+              <td>
+                <button class="toimintaNappi" style="font-size:11px"
+                  onclick="document.getElementById('pelSeuraValinta')?null:null;vaihdaNakyma('pelaajat');setTimeout(()=>{document.getElementById('pelSeuraValinta').value='${seuraId}';lataaPelaajatJoukkue('${j.nimi}')},300)">
+                  👁 Näytä pelaajat
                 </button>
               </td>
             </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table>
+      <div style="padding:12px 20px;font-size:12px;color:var(--ink3)">
+        Yhteensä ${pelSnap.size} pelaajaa · ${joukkueet.length} joukkuetta
+      </div>`;
   } catch(e) {
     alue.innerHTML = `<div style="color:var(--red);">Virhe: ${e.message}</div>`;
   }
