@@ -1014,6 +1014,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
               <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Nimi</th>
               <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Joukkue</th>
               <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">PalloID</th>
+              <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--teal);">Talentti</th>
               <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">HuoltajaEmail</th>
               <th style="padding:8px 10px;font-size:11px;text-align:left;font-weight:600;color:var(--ink3);">Status</th>
             </tr>
@@ -4687,6 +4688,8 @@ function kasitteleExcelTuonti(event) {
       const iJouk   = etsiSarake('Joukkue', 'joukkue');
       const iEmail  = etsiSarake('Huoltajansähköposti', 'HuoltajaEmail', 'email', 'sähköposti');
       const iPalloId = etsiSarake('PalloID', 'palloid', 'palloID', 'palloId');
+      const iTalentti = etsiSarake('Talenttiohjelma', 'talenttiohjelma', 'talentti');
+      const iTaso     = etsiSarake('TalenttiTaso', 'talentitaso', 'taso');
 
       // Muutetaan datarivit objekteiksi
       rivit = kaikki.slice(otsikkoRiviIdx + 1)
@@ -4697,6 +4700,8 @@ function kasitteleExcelTuonti(event) {
           joukkue:       iJouk    >= 0 ? String(r[iJouk]    || '').trim() : '',
           huoltajaEmail: iEmail   >= 0 ? String(r[iEmail]   || '').trim() : '',
           palloId:       iPalloId >= 0 ? String(r[iPalloId] || '').trim() : '',
+          talentti:      iTalentti >= 0 ? String(r[iTalentti] || '').trim().toLowerCase() : '',
+          talenttiTaso:  iTaso     >= 0 ? String(r[iTaso]    || '').trim().toLowerCase() : '',
           _rivi: otsikkoRiviIdx + idx + 2,
         }));
 
@@ -4718,6 +4723,7 @@ function kasitteleExcelTuonti(event) {
         const nimiOk    = p.etunimi || p.sukunimi;
         const emailOk   = p.huoltajaEmail && p.huoltajaEmail.includes('@');
         const joukkueOk = p.joukkue;
+        const onTalentti = p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k';
         const status    = !nimiOk ? '⚠️ Nimi puuttuu'
           : !joukkueOk ? '⚠️ Joukkue?'
           : !emailOk   ? '⚠️ Email?'
@@ -4727,6 +4733,7 @@ function kasitteleExcelTuonti(event) {
           <td style="padding:7px 10px;font-size:12px;font-weight:600;">${p.etunimi} ${p.sukunimi}</td>
           <td style="padding:7px 10px;font-size:12px;color:var(--ink3);">${p.joukkue || '—'}</td>
           <td style="padding:7px 10px;font-size:11px;font-family:monospace;color:${p.palloId ? 'var(--ink2)' : 'var(--ink3)'};">${p.palloId || '—'}</td>
+          <td style="padding:7px 10px;font-size:12px;">${onTalentti ? '<span style="color:var(--teal);font-weight:700;">⭐ ' + (p.talenttiTaso||'perus') + '</span>' : '<span style="color:var(--ink3);">—</span>'}</td>
           <td style="padding:7px 10px;font-size:12px;color:var(--teal);">${p.huoltajaEmail || '—'}</td>
           <td style="padding:7px 10px;font-size:11px;color:${statusVari};">${status}</td>
         </tr>`;
@@ -4791,10 +4798,20 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         etunimi:       p.etunimi || '',
         sukunimi:      p.sukunimi || '',
         joukkue:       p.joukkue || '',
+        joukkueet:     p.joukkue ? [p.joukkue] : [],
         seuraId:       tila.seuraId,
         huoltajaEmail: p.huoltajaEmail || null,
         palloID:       p.palloId || null,
         pelaajaId:     pelaajaId,
+        // Talenttiohjelma — luetaan Excel-sarakkeesta
+        talenttiOhjelma: p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k',
+        talenttiTaso:    (p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k')
+          ? (p.talenttiTaso || 'perus')
+          : null,
+        talenttiAlku:    (p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k')
+          ? nyt : null,
+        talenttiAktivoi: (p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k')
+          ? (tila.kayttaja?.uid || 'tuntematon') : null,
         // 'pilotti' = tuotu ilman kutsua (testausta varten, kutsu lähetetään myöhemmin)
         // 'odottaa' = kutsu lähetetty, huoltajan suostumus puuttuu
         suostumusTila: lahetaKutsut ? 'odottaa' : 'pilotti',
