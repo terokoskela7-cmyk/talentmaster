@@ -1581,53 +1581,103 @@ window._aktiiviSuodatin = 'kaikki';
 window._aktiiviJoukkue  = '';   // '' = kaikki joukkueet
 window._pelaajatKaikki = [];
 
+// ─── Apufunktio: yksittäisen pelaajarivin HTML ───────────────────
+function pelaajaRivi(p) {
+  const nimi       = p.nimi || (p.etunimi + ' ' + p.sukunimi).trim() || p.id;
+  const syntVuosi  = p.syntymaaika?.seconds
+    ? new Date(p.syntymaaika.seconds * 1000).getFullYear()
+    : (p.syntymaVuosi || '—');
+  const onAnnettu  = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
+  const onPilotti  = !onAnnettu && p.suostumusTila === 'pilotti';
+  const onOdottaa  = !onAnnettu && !onPilotti &&
+    (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu' || p.tuotu);
+  const [tilaLuokka, tilaIkoni, tilaTeksti] = onAnnettu
+    ? ['ok',     '✓',  'Rekisteröity']
+    : onPilotti ? ['pilotti', '🔬', 'Pilotti']
+    : onOdottaa ? ['odottaa', '⏳', 'Kutsu lähetetty']
+    : ['harmaa', '—',  'Ei kutsua'];
+  const palloIdArvo = p.palloID || p.palloid || p.palloId || '';
+  const palloIdSolu = palloIdArvo
+    ? '<td style="font-family:monospace;font-size:11px;color:var(--ink2);">' + palloIdArvo + '</td>'
+    : onAnnettu
+      ? '<td><span style="color:var(--amber);font-size:11px;font-weight:600;">⚠️ Puuttuu</span></td>'
+      : '<td style="color:var(--ink3);font-size:11px;">—</td>';
+  const joukkueetStr = Array.isArray(p.joukkueet) && p.joukkueet.length
+    ? p.joukkueet.map(id => { const j = (tila.joukkueet||[]).find(j => j.id === id); return j?.nimi || id; }).join(' + ')
+    : (p.joukkue || '—');
+  const talenttiBadge = p.talenttiOhjelma
+    ? '<span style="font-size:10px;background:rgba(40,176,144,.15);color:var(--teal);border-radius:4px;padding:1px 6px;margin-left:4px;font-weight:700;">⭐</span>'
+    : '';
+  return '<tr>'
+    + '<td style="font-weight:600;">' + nimi + '</td>'
+    + '<td>' + joukkueetStr + talenttiBadge + '</td>'
+    + '<td>' + syntVuosi + '</td>'
+    + palloIdSolu
+    + '<td><span class="badge ' + tilaLuokka + '">' + tilaIkoni + ' ' + tilaTeksti + '</span></td>'
+    + '<td>' + (p.kaytettavyys
+        ? '<span class="badge ' + (p.kaytettavyys === 'aktiivinen' ? 'ok' : 'odottaa') + '">' + p.kaytettavyys + '</span>'
+        : '—') + '</td>'
+    + '<td><button class="toimNappi" onclick="naytaPelaajaTiedot(\'' + p.id + '\')">Tiedot</button></td>'
+    + '</tr>';
+}
+
+// ─── Apufunktio: päivittää suodatin- ja joukkuenappien ulkoasun ──
+function paivitaNappienUlkoasu() {
+  ['kaikki','pilotti','odottaa','annettu','ei-palloid'].forEach(s => {
+    const btn = document.getElementById('suod-' + s);
+    if (!btn) return;
+    const ak = s === window._aktiiviSuodatin;
+    btn.style.background   = ak ? 'rgba(42,93,176,.2)'  : 'rgba(255,255,255,.05)';
+    btn.style.borderColor  = ak ? 'rgba(42,93,176,.4)'  : 'var(--border)';
+    btn.style.color        = ak ? 'var(--blue)'          : 'var(--ink3)';
+  });
+  document.querySelectorAll('[data-joukk-btn]').forEach(btn => {
+    const ak = btn.dataset.joukkBtn === window._aktiiviJoukkue;
+    btn.style.background   = ak ? 'rgba(40,176,144,.2)' : 'rgba(255,255,255,.05)';
+    btn.style.borderColor  = ak ? 'rgba(40,176,144,.4)' : 'var(--border)';
+    btn.style.color        = ak ? 'var(--teal)'          : 'var(--ink3)';
+  });
+}
+
+// ─── Apufunktio: renderöi suodatettu lista taulukkoon ────────────
+function renderPelaajaLista(lista) {
+  const tbody   = document.querySelector('#nakymaAlue table tbody');
+  const countEl = document.getElementById('pelaajatLkm');
+  if (countEl) countEl.textContent = lista.length + '/' + (window._pelaajatKaikki.length || 0) + ' pelaajaa';
+  if (!tbody) return;
+  tbody.innerHTML = lista.map(pelaajaRivi).join('');
+}
+
+// ─── Pääfunktio: suodatus + nappien päivitys + renderöinti ───────
 function suodataPelaajat(tila_suodin, hakuTeksti) {
   window._aktiiviSuodatin = tila_suodin || 'kaikki';
   const haku = (hakuTeksti ?? document.getElementById('pelaajaHaku')?.value ?? '').toLowerCase().trim();
 
-  // Päivitä tila-nappien ulkoasu
-  ['kaikki','pilotti','odottaa','annettu','ei-palloid'].forEach(s => {
-    const btn = document.getElementById('suod-' + s);
-    if (!btn) return;
-    const aktiivinen = s === window._aktiiviSuodatin;
-    btn.style.background = aktiivinen ? 'rgba(42,93,176,.2)' : 'rgba(255,255,255,.05)';
-    btn.style.borderColor = aktiivinen ? 'rgba(42,93,176,.4)' : 'var(--border)';
-    btn.style.color = aktiivinen ? 'var(--blue)' : 'var(--ink3)';
-  });
-
-  // Päivitä joukkue-nappien ulkoasu
-  document.querySelectorAll('[data-joukk-btn]').forEach(btn => {
-    const aktiivinen = btn.dataset.joukkBtn === window._aktiiviJoukkue;
-    btn.style.background = aktiivinen ? 'rgba(40,176,144,.2)' : 'rgba(255,255,255,.05)';
-    btn.style.borderColor = aktiivinen ? 'rgba(40,176,144,.4)' : 'var(--border)';
-    btn.style.color = aktiivinen ? 'var(--teal)' : 'var(--ink3)';
-  });
+  paivitaNappienUlkoasu();
 
   let lista = window._pelaajatKaikki || [];
 
   // Joukkuesuodatin
   if (window._aktiiviJoukkue) {
-    lista = lista.filter(p => {
-      if (Array.isArray(p.joukkueet) && p.joukkueet.length) {
-        return p.joukkueet.includes(window._aktiiviJoukkue);
-      }
-      return p.joukkue === window._aktiiviJoukkue;
-    });
+    lista = lista.filter(p => Array.isArray(p.joukkueet) && p.joukkueet.length
+      ? p.joukkueet.includes(window._aktiiviJoukkue)
+      : p.joukkue === window._aktiiviJoukkue
+    );
   }
 
-  // Tila-suodatin
+  // Tilasuodatin
   if (window._aktiiviSuodatin !== 'kaikki') {
     lista = lista.filter(p => {
       const onAnnettu = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
       const onPilotti = !onAnnettu && p.suostumusTila === 'pilotti';
-      const onOdottaa = !onAnnettu && !onPilotti && (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu' || p.tuotu);
-      const eiPalloId = !p.palloID && !p.palloId && !p.palloid;
-      switch(window._aktiiviSuodatin) {
+      const onOdottaa = !onAnnettu && !onPilotti &&
+        (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu' || p.tuotu);
+      switch (window._aktiiviSuodatin) {
         case 'pilotti':    return onPilotti;
         case 'odottaa':    return onOdottaa;
         case 'annettu':    return onAnnettu;
-        case 'ei-palloid': return eiPalloId;
-        default: return true;
+        case 'ei-palloid': return !p.palloID && !p.palloId && !p.palloid;
+        default:           return true;
       }
     });
   }
@@ -1640,45 +1690,7 @@ function suodataPelaajat(tila_suodin, hakuTeksti) {
     });
   }
 
-  // Renderöi suodatettu lista
-  const tbody = document.querySelector('#nakymaAlue table tbody');
-  const countEl = document.getElementById('pelaajatLkm');
-  if (countEl) countEl.textContent = lista.length + '/' + (window._pelaajatKaikki.length || 0) + ' pelaajaa';
-
-  if (!tbody) return;
-  tbody.innerHTML = lista.map(p => {
-    const nimi = p.nimi || (p.etunimi + ' ' + p.sukunimi).trim() || p.id;
-    const syntVuosi = p.syntymaaika?.seconds
-      ? new Date(p.syntymaaika.seconds * 1000).getFullYear()
-      : (p.syntymaVuosi || p.syntymaaika_vuosi || '—');
-    const onAnnettu = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
-    const onPilotti = !onAnnettu && p.suostumusTila === 'pilotti';
-    const onOdottaa = !onAnnettu && !onPilotti && (p.suostumusTila === 'odottaa' || p.suostumusTila === 'luotu' || p.tuotu);
-    const [tilaLuokka, tilaIkoni, tilaTeksti] = onAnnettu
-      ? ['ok', '✓', 'Rekisteröity']
-      : onPilotti ? ['pilotti', '🔬', 'Pilotti']
-      : onOdottaa ? ['odottaa', '⏳', 'Kutsu lähetetty']
-      : ['harmaa', '—', 'Ei kutsua'];
-    const palloIdArvo = p.palloID || p.palloid || p.palloId || '';
-    const palloIdSolu = palloIdArvo
-      ? '<td style="font-family:monospace;font-size:11px;color:var(--ink2);">' + palloIdArvo + '</td>'
-      : onAnnettu
-        ? '<td><span style="color:var(--amber);font-size:11px;font-weight:600;">⚠️ Puuttuu</span></td>'
-        : '<td style="color:var(--ink3);font-size:11px;">—</td>';
-    const joukkueetStr = Array.isArray(p.joukkueet) && p.joukkueet.length
-      ? p.joukkueet.map(id => { const j=(tila.joukkueet||[]).find(j=>j.id===id); return j?.nimi||id; }).join(' + ')
-      : (p.joukkue || '—');
-    const talenttiBadge = p.talenttiOhjelma
-      ? '<span style="font-size:10px;background:rgba(40,176,144,.15);color:var(--teal);border-radius:4px;padding:1px 6px;margin-left:4px;font-weight:700;">⭐</span>'
-      : '';
-    return '<tr><td style="font-weight:600;">' + nimi + '</td>'
-      + '<td>' + joukkueetStr + talenttiBadge + '</td>'
-      + '<td>' + syntVuosi + '</td>'
-      + palloIdSolu
-      + '<td><span class="badge ' + tilaLuokka + '">' + tilaIkoni + ' ' + tilaTeksti + '</span></td>'
-      + '<td>' + (p.kaytettavyys ? '<span class="badge ' + (p.kaytettavyys === 'aktiivinen' ? 'ok' : 'odottaa') + '">' + p.kaytettavyys + '</span>' : '—') + '</td>'
-      + '<td><button class="toimNappi" onclick="naytaPelaajaTiedot(\'' + p.id + '\')">Tiedot</button></td></tr>';
-  }).join('');
+  renderPelaajaLista(lista);
 }
 
 function suodataJoukkue(joukkueId) {
