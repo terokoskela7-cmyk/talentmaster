@@ -4944,7 +4944,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   const seuraNimi = tila.seuraNimi || tila.seuraId;
   const nyt = firebase.firestore.FieldValue.serverTimestamp();
 
-  let tuotu = 0, virheet = 0, kutsut = 0;
+  let tuotu = 0, virheet = 0, ohitettu = 0, kutsut = 0;
 
   for (let i = 0; i < _excelData.length; i++) {
     const p = _excelData[i];
@@ -4953,15 +4953,29 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
     if (teksti) teksti.textContent = (i + 1) + '/' + _excelData.length + ' — ' + p.etunimi + ' ' + p.sukunimi;
 
     try {
-      // VAIHE 0: Tarkista onko sama PalloID jo Firestoressä
+      // VAIHE 0: Tarkista onko sama pelaaja jo Firestoressä
+      // A) PalloID-tarkistus — luotettavin
       if (p.palloId) {
         const olemassa = await db.collection('seurat').doc(tila.seuraId)
           .collection('pelaajat')
           .where('palloID', '==', p.palloId)
           .limit(1).get();
         if (!olemassa.empty) {
-          if (teksti) teksti.textContent = '⏭ ' + p.etunimi + ' ' + p.sukunimi + ' — PalloID jo olemassa, ohitetaan';
-          virheet++;
+          if (teksti) teksti.textContent = '⏭ ' + p.etunimi + ' ' + p.sukunimi + ' — PalloID jo järjestelmässä, ohitetaan';
+          ohitettu++;
+          continue;
+        }
+      } else {
+        // B) Nimi + joukkue -tarkistus jos palloID puuttuu
+        const olemassa = await db.collection('seurat').doc(tila.seuraId)
+          .collection('pelaajat')
+          .where('etunimi', '==', p.etunimi)
+          .where('sukunimi', '==', p.sukunimi)
+          .where('joukkue',  '==', p.joukkue)
+          .limit(1).get();
+        if (!olemassa.empty) {
+          if (teksti) teksti.textContent = '⏭ ' + p.etunimi + ' ' + p.sukunimi + ' — jo järjestelmässä (nimi+joukkue), ohitetaan';
+          ohitettu++;
           continue;
         }
       }
@@ -5072,9 +5086,10 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   // Näytetään tulokset selkeästi
   const mailVirheitaOli = virheet > 0;
   const msg = [
-    `${tuotu} pelaajaa tuotu Firestoreen`,
+    tuotu > 0    ? `${tuotu} pelaajaa tuotu` : null,
+    ohitettu > 0 ? `${ohitettu} ohitettu (jo järjestelmässä)` : null,
     lahetaKutsut ? `${kutsut} kutsua käsitelty` : null,
-    virheet > 0 ? `${virheet} riviä epäonnistui` : null,
+    virheet > 0  ? `${virheet} riviä epäonnistui` : null,
   ].filter(Boolean).join(' · ');
 
   if (onni) {
