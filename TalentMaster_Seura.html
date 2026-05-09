@@ -4466,79 +4466,139 @@ async function aloitaLataaminenOhjeesta() {
 }
 
 async function lataaRekisteriPohja() {
-  if (!tila.seuraId) {
-    naytaToast('Valitse ensin seura', 'virhe');
-    return;
-  }
+  if (!tila.seuraId) { naytaToast('Valitse ensin seura', 'virhe'); return; }
 
   const nappi = document.querySelector('[onclick="lataaRekisteriPohja()"]');
-  const alkuperainenTeksti = nappi?.textContent || '';
-  if (nappi) {
-    nappi.disabled    = true;
-    nappi.textContent = '⏳ Ladataan...';
-  }
+  if (nappi) { nappi.disabled = true; nappi.textContent = '⏳ Haetaan joukkueet...'; }
 
   try {
-    // Ladataan valmis Excel-pohja suoraan GitHubista.
-    // Pohja on rakennettu openpyxl:lla joten siinä on täydelliset
-    // dropdown-validoinnit (joukkue, rooli) — SheetJS ei tue näitä.
-    //
-    // Sihteerin ohje: täytä joukkueet Asetukset-välilehdelle,
-    // jonka jälkeen Joukkue-dropdown toimii automaattisesti.
-    const pohjaNimi = 'TalentMaster_Pelaajarekisteri.xlsx';
-    const pohjaUrl  = `https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/${pohjaNimi}`;
+    // Hae seuran joukkueet Firestoresta
+    const joukkueetSnap = await db.collection('seurat').doc(tila.seuraId)
+      .collection('joukkueet').orderBy('jarjestys').get()
+      .catch(() => db.collection('seurat').doc(tila.seuraId).collection('joukkueet').get());
 
-    // Haetaan tiedosto fetch:llä ja tarjotaan se lataukseen
-    // käyttäen <a>-elementtiä ja Blob-URL:ia.
-    // Tämä tapa toimii kaikissa selaimissa ilman popup-estoja.
-    const vastaus = await fetch(pohjaUrl);
-    if (!vastaus.ok) {
-      throw new Error(
-          `Rekisteripohja ei löydy GitHubista (HTTP ${vastaus.status}).\n` +
-          `Varmista että tiedosto on viety GitHubiin: TalentMaster_Pelaajarekisteri.xlsx`
-        );
+    // Kerää myös joukkueet pelaajadatasta (Excel-tuonnin kautta tulleet)
+    const pelSnap = await db.collection('seurat').doc(tila.seuraId)
+      .collection('pelaajat').get();
+    const pelJoukkueet = new Set();
+    pelSnap.docs.forEach(d => { if (d.data().joukkue) pelJoukkueet.add(d.data().joukkue); });
+
+    // Yhdistä: kokoelman nimet + pelaajadatan nimet
+    const joukkueetKokoelma = new Set(joukkueetSnap.docs.map(d => d.data().nimi || d.id));
+    const kaikkiJoukkueet = [...new Set([...joukkueetKokoelma, ...pelJoukkueet])].sort();
+
+    if (kaikkiJoukkueet.length === 0) {
+      naytaToast('Lisää joukkueet ensin Joukkueet-välilehdellä', 'virhe');
+      if (nappi) { nappi.disabled = false; nappi.textContent = '⬇ Lataa Excel-pohja'; }
+      return;
     }
 
-    const blob     = await vastaus.blob();
-    const blobUrl  = URL.createObjectURL(blob);
+    // Rakenna Excel SheetJS:llä
+    if (typeof XLSX === 'undefined') {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
 
-    // Luodaan väliaikainen latauslinkki ja klikataan sitä ohjelmallisesti.
-    // Tiedostonimi sisältää seuran nimen jotta arkistointi on helppoa.
-    const a = document.createElement('a');
-    a.href     = blobUrl;
-    a.download = `${tila.seuraId.toUpperCase()}_Pelaajarekisteri_${
-      new Date().toISOString().split('T')[0]
-    }.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const wb = XLSX.utils.book_new();
 
-    // Vapautetaan muisti heti latauksen jälkeen
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    // ── PELAAJAT-välilehti ──────────────────────────────────────
+    const pelaajaOtsikot = ['Etunimi *', 'Sukunimi *', 'Joukkue *', 'Huoltajan sähköposti *', 'PalloID', 'Talenttiohjelma', 'TalenttiTaso'];
+    const ohje = [
+      '📋  OHJE SIHTEEREILLE',
+      '1.  Täytä jokainen pelaaja omalle rivilleen.',
+      '2.  Joukkue: valitse dropdownista ▼ (joukkueet haettu järjestelmästä)',
+      '3.  PalloID (vapaaehtoinen) — löytyy pelipassista tai Palloliiton rekisteristä.',
+      '4.  Talenttiohjelma: kirjoita "kyllä" jos pelaaja on talenttiryhmässä.',
+      '5.  TalenttiTaso: "perus" tai "laajennettu".',
+      '6.  Huoltajan s-posti: vanhempi saa tätä kautta suostumuspyynnön.',
+      '7.  Tallenna → lataa takaisin TalentMasteriin.',
+    ];
 
-    naytaToast(`✅ Rekisteripohja ladattu!`, 'ok');
+    // Rakenna data-array
+    const pelData = [pelaajaOtsikot.concat(['', '📋  OHJE SIHTEEREILLE'])];
+    for (let i = 0; i < 100; i++) {
+      const rivi = new Array(pelaajaOtsikot.length).fill('');
+      if (ohje[i]) rivi.push('', ohje[i]);
+      pelData.push(rivi);
+    }
 
-    // Tapahtumaloki Firestoreen — kuka latasi ja milloin
-    try {
-      await db.collection('seurat').doc(tila.seuraId)
-        .collection('tapahtumat').add({
-          tyyppi:   'rekisteri_pohja_ladattu',
-          lataaja:  tila.kayttaja?.email || 'tuntematon',
-          aika:     firebase.firestore.FieldValue.serverTimestamp(),
-        });
-    } catch (e) { /* Ei kriittinen */ }
+    const wsPel = XLSX.utils.aoa_to_sheet(pelData);
 
-  } catch (virhe) {
-    console.error('Pohjan lataus epäonnistui:', virhe);
-    naytaToast('Lataus epäonnistui: ' + virhe.message, 'virhe');
+    // Sarakeleveydet
+    wsPel['!cols'] = [
+      {wch: 16}, {wch: 18}, {wch: 22}, {wch: 32}, {wch: 14}, {wch: 18}, {wch: 16}, {wch: 4}, {wch: 50}
+    ];
 
+    // DataValidation — Joukkue-dropdown (C2:C101) seuran joukkueista
+    // SheetJS kirjoittaa validoinnin suoraan formula1:nä
+    const joukkueetFormula = '"' + kaikkiJoukkueet.join(',') + '"';
+    wsPel['!dataValidations'] = [
+      {
+        sqref: 'C2:C101',
+        type: 'list',
+        formula1: joukkueetFormula,
+        showDropDown: false,
+        showErrorMessage: true,
+        errorTitle: 'Virheellinen joukkue',
+        error: 'Valitse joukkue listasta. Jos joukkue puuttuu, lisää se ensin Joukkueet-välilehdellä Seurahallinnassa.',
+      },
+      {
+        sqref: 'F2:F101',
+        type: 'list',
+        formula1: '"kyllä,ei"',
+        showDropDown: false,
+      },
+      {
+        sqref: 'G2:G101',
+        type: 'list',
+        formula1: '"perus,laajennettu"',
+        showDropDown: false,
+      },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, wsPel, 'Pelaajat');
+
+    // ── ASETUKSET-välilehti — joukkueet kirjoitettu valmiiksi ───
+    const asData = [
+      ['Seuran joukkueet', '', 'Haettu automaattisesti TalentMasterista'],
+      ['Muokkaa joukkueita Seurahallinta → Joukkueet-välilehdellä, lataa sitten uusi pohja.'],
+      [],
+      ['Joukkue'],
+      ...kaikkiJoukkueet.map(j => [j]),
+    ];
+    const wsAs = XLSX.utils.aoa_to_sheet(asData);
+    wsAs['!cols'] = [{wch: 30}, {wch: 4}, {wch: 50}];
+    XLSX.utils.book_append_sheet(wb, wsAs, 'Asetukset');
+
+    // ── ESIMERKKI-välilehti ──────────────────────────────────────
+    const esData = [
+      pelaajaOtsikot,
+      ['Matti', 'Meikäläinen', kaikkiJoukkueet[0] || '', 'huoltaja@example.com', '12345678', '', ''],
+      ['Liisa', 'Liikuntanen', kaikkiJoukkueet[0] || '', 'liisa.h@example.com', '', 'kyllä', 'laajennettu'],
+    ];
+    const wsEs = XLSX.utils.aoa_to_sheet(esData);
+    wsEs['!cols'] = [{wch: 16}, {wch: 18}, {wch: 22}, {wch: 32}, {wch: 14}, {wch: 18}, {wch: 16}];
+    XLSX.utils.book_append_sheet(wb, wsEs, 'Esimerkki');
+
+    // Lataa tiedosto
+    const seuraNimi = (tila.seuraNimi || tila.seuraId).replace(/[^a-zA-Z0-9äöåÄÖÅ]/g, '_');
+    const pvm = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `TalentMaster_${seuraNimi}_${pvm}.xlsx`);
+
+    naytaToast('✅ Excel-pohja ladattu — ' + kaikkiJoukkueet.length + ' joukkuetta valmiina dropdownissa', 'ok');
+
+  } catch(e) {
+    naytaToast('Lataus epäonnistui: ' + e.message, 'virhe');
+    console.error('[lataaRekisteriPohja]', e);
   } finally {
-    if (nappi) {
-      nappi.disabled    = false;
-      nappi.textContent = alkuperainenTeksti;
-    }
+    if (nappi) { nappi.disabled = false; nappi.textContent = '⬇ Lataa Excel-pohja'; }
   }
 }
+
 
 // ─────────────────────────────────────────────────────────────────
 // PIN-HALLINTA — luoPelaajaPIN ja tallennaPelaajaPIN
@@ -4894,17 +4954,27 @@ function kasitteleExcelTuonti(event) {
       const palloIdLaskuri = {};
       _excelData.forEach(p => { if (p.palloId) palloIdLaskuri[p.palloId] = (palloIdLaskuri[p.palloId]||0) + 1; });
       const duplikaatit = Object.entries(palloIdLaskuri).filter(([id, lkm]) => lkm > 1);
+
+      // Tarkista joukkuenimet — täsmäävätkö seuran joukkueisiin
+      const tunnetutJoukkueet = new Set((tila.joukkueet||[]).map(j => j.nimi).filter(Boolean));
+      const tuntemattomat = [...new Set(_excelData.map(p => p.joukkue).filter(j => j && !tunnetutJoukkueet.has(j)))];
+
+      const virheEl = document.getElementById('excelVirhe');
+      if (virheEl) virheEl.style.color = 'var(--amber)';
+
       if (duplikaatit.length > 0) {
-        const virheEl = document.getElementById('excelVirhe');
-        if (virheEl) {
-          virheEl.textContent = '⚠️ Sama PalloID usealla pelaajalla: ' +
-            duplikaatit.map(([id]) => id).join(', ') +
-            ' — tarkista Excel ennen tuontia.';
-          virheEl.style.color = 'var(--amber)';
-        }
-        if (tuoN)  { tuoN.disabled  = true;  tuoN.style.opacity  = '.5'; }
-        if (tuoLN) { tuoLN.disabled = true; tuoLN.style.opacity = '.5'; }
+        if (virheEl) virheEl.textContent = '⚠️ Sama PalloID usealla pelaajalla: ' +
+          duplikaatit.map(([id]) => id).join(', ') + ' — tarkista Excel ennen tuontia.';
+        if (tuoN)  tuoN.disabled  = true;
+        if (tuoLN) tuoLN.disabled = true;
+      } else if (tuntemattomat.length > 0) {
+        if (virheEl) virheEl.textContent = '⚠️ Tuntemattomia joukkueita: "' + tuntemattomat.join('", "') +
+          '" — näitä ei ole järjestelmässä. Lataa uusi Excel-pohja tai tarkista nimet.';
+        if (tuoN)  { tuoN.disabled = false; tuoN.style.opacity = '1'; }
+        if (tuoLN) { tuoLN.disabled = false; tuoLN.style.opacity = '1'; }
+        // Varoitetaan mutta ei estetä — voi olla tarkoituksellista
       } else {
+        if (virheEl) virheEl.textContent = '';
         if (tuoN)  { tuoN.disabled  = false; tuoN.style.opacity  = '1'; }
         if (tuoLN) { tuoLN.disabled = false; tuoLN.style.opacity = '1'; }
       }
