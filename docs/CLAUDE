@@ -1,0 +1,1241 @@
+# CLAUDE.md — TalentMaster™ Master Briefing
+
+> Tämä tiedosto on ensimmäinen asia jonka liität uuteen Claude-sessioon.
+> Se korvaa kaikki aiemmat SESSION_SUMMARY.md -tiedostot.
+> Viimeksi päivitetty: 2026-05-11
+
+---
+
+## 1. PROJEKTI LYHYESTI
+
+**TalentMaster™** on suomalainen jalkapallon talenttiarviointiin ja pelaajien kehitysseurantaan
+tarkoitettu SaaS-alusta. Rakentaja: Tero Koskela, Palloliiton kansallisen ohjelman johtaja.
+Filosofia: *"Pelaaja ensin, hallinto vahvistaa"* — järjestelmä rakentuu lapsen kehitystarpeista
+ylöspäin, ei hallinnosta alaspäin.
+
+**GitHub:** `terokoskela7-cmyk/talentmaster`
+**GitHub Pages:** `https://terokoskela7-cmyk.github.io/talentmaster/`
+**Domain:** talentmasterid.com (ostettu)
+
+---
+
+## 2. TEKNINEN STACK — ÄLÄ MUUTA ILMAN LUPAA
+
+| Kerros | Teknologia | Huomio |
+|---|---|---|
+| Frontend | Vanilla JS (IIFE), multi-HTML | Ei frameworkeja |
+| Tietokanta | Firebase Firestore **eur3** multi-region | eur3 ≠ europe-west1 |
+| Auth | Firebase Authentication + Custom Claims + **Google Sign-In** | SA kirjautuu Googlella |
+| Cloud Functions | Node.js **europe-west1** | Aina tämä region |
+| Storage | Firebase Storage, europe-west1 | ADAR Vision -kuvat |
+| Hosting | GitHub Pages + Fastly CDN | ~10 min cache, käytä `?v=N` |
+| Sähköposti | Nodemailer Cloud Functionissa | Firebase Extension incompatible with eur3 |
+
+### Firebase-config (Blaze plan)
+```javascript
+const firebaseConfig = {
+  apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+  authDomain: "talentmaster-pilot.firebaseapp.com",
+  projectId: "talentmaster-pilot",
+  storageBucket: "talentmaster-pilot.firebasestorage.app",
+  messagingSenderId: "872561784446",
+  appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
+};
+```
+
+### Cloud Functions — KRIITTINEN SÄÄNTÖ
+```javascript
+// OIKEIN — aina näin:
+firebase.app().functions('europe-west1').httpsCallable('functionName')
+// VÄÄRIN — älä koskaan näin:
+firebase.functions().httpsCallable('functionName')
+// firebase.functions() menee us-central1 → hiljaa epäonnistuu
+```
+
+---
+
+## 3. SUPER-ADMIN — EI KOSKAAN RIKO
+
+- **Sähköposti:** talentmasterid@gmail.com
+- **UID:** `dqUzvJA61Wb9fgj5UiK0riSA4NI2`
+- **Rooli-string:** `super_admin` (alaviiva — ei välilyöntiä, ei superadmin)
+- Super-admin näkee **aina** kaiken — kaikki seurat, kaikki näkymät, kaikki funktiot
+- Super-admin-tunnistus: `adminSnap.exists` (ei kentän arvo)
+- Jokainen koodimuutos testattava: "Toimiiko tämä super-adminilla?"
+
+### Super admin erikoistilanteet
+- **ADAR Pikakortti:** Super adminilla ei ole `seuraId` Custom Claimissä
+  → `_naytaSuperAdminSeuraValitsin()` avautuu automaattisesti
+  → `_vahvistaSeuraValinta()` asettaa `window._tmSeuraId` + lataa pelaajat
+- **Seurahallinta:** Super admin näkee seuravalitsimen topbarissa
+  → `avaaNaviNakyma(sivu)` välittää `?seura=X&tm_ref=seura`
+
+---
+
+## 4. ROOLIRAKENNE
+
+```
+super_admin           → TalentMaster (Tero)
+vp                    → Valmennuspäällikkö per seura
+seurasihteeri
+urheilutoimenjohtaja
+valmentaja
+talenttivalmentaja
+fysiikkavalmentaja
+fysioterapeutti
+testivastaava
+pelaaja               → PIN-kirjautuminen (Anonymous Auth)
+vanhempi
+```
+
+**Kolmiportainen hallinto:**
+1. Platform (super_admin)
+2. Seuran hallinto (vp, seurasihteeri, urheilutoimenjohtaja)
+3. Operatiivinen (valmentaja, fysiikkavalmentaja jne.)
+
+---
+
+## 5. DESIGN-JÄRJESTELMÄ — CANONICAL TOKENS (2026-04-30)
+
+```
+Tausta:    #111110  (Carbon — EI #06090F)
+Kortit:    #161614
+Syvä:      #1C1C1A
+Teal:      #28B090  (ainoa aksentti — EI #3EC9A7)
+Sininen:   #2A5DB0  (sekundääri — EI #4A7ED9)
+Amber:     #E0A040  (varoitukset, pilotti)
+```
+
+**Fontit:**
+- Otsikot/KPI: `Cormorant Garamond` 300/400/600 (EI Playfair Display)
+- Body/UI: `DM Sans` 400/500/600
+
+**rgba-vastaavuudet:**
+- `rgba(42,93,176,X)` = --blue
+- `rgba(40,176,144,X)` = --teal
+
+**VANHA — EI KOSKAAN:** `Playfair Display`, `#3EC9A7`, `#4A7ED9`, `#06090F`
+
+**Periaate:** Mobile-first. Korkein aktivointivipunen: tyhjän tilan design.
+
+---
+
+## 6. MOBIILI — KRIITTINEN BUGI HISTORIASSA
+
+**ÄLÄ KOSKAAN tee näin:**
+```css
+/* VÄÄRIN — display:none tappaa transform-animaation */
+@media(max-width:768px) { .sivupalkki { display:none; } }
+@media(max-width:768px) { .sivupalkki.auki { transform:translateX(0); } }
+```
+
+**OIKEIN — slide-in:**
+```css
+@media(max-width:768px) {
+  #hamburgeri { display:flex !important; }
+  .sivupalkki { transform:translateX(-100%); transition:transform .25s; }
+  .sivupalkki.auki { transform:translateX(0); }
+  #sivupalkkiOverlay.auki { display:block !important; }
+}
+```
+
+**Vain YKSI `@media(max-width:768px)` per tiedosto.** Kaksi lohkoa kumoaa toisen.
+Ongelma löytyi: Seura.html:ssä oli kaksi lohkoa — ensimmäinen `display:none` kumosi
+toisen `translateX`. Admin.html toimi heti koska vain yksi lohko.
+
+---
+
+## 7. AVAINTIEDOSTOT GITHUBISSA (2026-04-30)
+
+| Tiedosto | Rooli | Tila |
+|---|---|---|
+| `TalentMaster_Seura.html` | Seurahallinta (VP, sihteeri, UTJ) | ✅ v9+ mobiili OK |
+| `TalentMaster_Admin.html` | Super Admin -hallintapaneeli | ✅ Tilastot + mobiili |
+| `TalentMaster_VP_v20.html` | VP strateginen dashboard | Arkisto |
+| `TalentMaster_VP_v21.html` | VP Firebase-pohjainen | Arkisto |
+| `TalentMaster_VP_v22.html` | VP — sivupalkki + mentorointi | ✅ UUSIN 2026-05-02 |
+| `TalentMaster_Master_v15.html` | Valmentajan näkymä | Arkisto |
+| `TalentMaster_Master_v16.html` | Valmentajan näkymä + Testit-työtila | ✅ UUSIN 2026-05-02 |
+| `TalentMaster_ADAR_Pikakortti.html` | Kenttähavainto + ADAR Vision | ✅ |
+| `TalentMaster_Pelaaja_v7.html` | Pelaajan mobiiliapp | ✅ korjattu 2026-05-01 |
+| `TalentMaster_Vanhempi_v2.html` | Vanhemman näkymä | ⚠️ Kovakoodattu nimi |
+| `TalentMaster_IDP_Kortti_v3.html` | IDP-kortti | ✅ |
+| `TalentMaster_Rekisterointi_Suostumus.html` | GDPR-suostumuslomake | ✅ |
+| `TalentMaster_Testaus_v8.html` | Kenttätestauslomake | ✅ UUSI 2026-05-01 |
+| `TalentMaster_Excel_Tuonti.html` | Massatuontityökalu VP:lle | ✅ UUSI 2026-05-01 |
+| `TalentMaster_Harjoitettavuus_Lomake_v4.html` | Harjoitettavuuskartoituslomake | ✅ UUSI 2026-05-01 |
+| `TalentMaster_Pelaajarekisteri.xlsx` | Excel-rekisteripohja | ✅ |
+| `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ |
+| `tm_admin/firestore.rules` | Security Rules v2.1.0 — CONSOLESTA | ✅ Päivitetty 2026-05-01 |
+| `tm_eerikkila_normit.js` | Eerikkilä-normitaulukot | ✅ |
+| `tm_lang.js` | fi/sv/en, 144 käännöstä | ✅ |
+| `harjoitelogiikka_v4.js` | Harjoitusohjelman generointi (144KB) | ⚠️ Tarkista onko GitHubissa |
+| `tm-profile.js` | Pelaajaprofiilin laskentamoottori | ⚠️ Tarkista onko GitHubissa |
+| `tm-kortit.js` | Gamification — idolikortit | ⚠️ Tarkista onko GitHubissa |
+
+---
+
+## 8. PILOTTISEURAT (8 kpl)
+
+| ID | Seura | VP-sähköposti | Huomio |
+|---|---|---|---|
+| fcl | FC Lahti Juniorit | vp.fcl@talentmaster.fi | |
+| kpv | KPV | rasmus_broberg@icloud.com | **HUOM:** vp.kpv ei ole Authissa — oikea tili on rasmus_broberg@icloud.com |
+| palloiirot | Pallo-Iirot | vp.palloiirot@talentmaster.fi | |
+| yvies | Ylöjärven Ilves | vp.yvies@talentmaster.fi | |
+| sjk | SJK Juniorit | vp.sjk@talentmaster.fi | 1. tyttöjoukkueet mukana |
+| grifk | GrIFK | vp.grifk@talentmaster.fi | kieliKartta: sv |
+| vifk | VIFK | vp.vifk@talentmaster.fi | kieliKartta: sv |
+| hjk | HJK Juniorit | vp.hjk@talentmaster.fi | |
+| sibbovargarna | Sibbo-Vargarna | — | sv-kieli |
+| eps | EPS (Espoon PS) | — | Teams-puhelu Heini PENDING |
+
+---
+
+## 9. TESTIPELAAJA: TOPIAS KOSKELA (KPV)
+
+```
+Dokumentti: seurat/kpv/pelaajat/m93GBdOaGCUuenMiCL0I
+                                         ↑↑ KAKSI u:ta! m93GBdOaGCUuenMiCL0I
+PIN: 9278
+syntymaVuosi: 2013  (syntymäpäivä: 15.3.2013)
+sukupuoli: "M"      (EI "poika")
+joukkue: "KPV U13"
+seuraId: "kpv"
+huoltajaEmail: "TeroKoskela7@gmail.com"
+tunniste (PalloID): "34650191"
+flei_viimeisin: 62
+sbl:2.16  sfl:2.30  ll:2.10  diag:2.40  dfl:2.20
+Heikoin ketju: LL (55%) → harjoitteet ohjautuvat lateraaliketjulle
+isDemoUser: false — oikea Firestore-data
+```
+
+---
+
+## 10. FIRESTORE-RAKENNE — LUKITTU 2026-04-30
+
+Neljä pääkokoelmaa + erilliskerrokset. Rakenne on päätetty.
+
+### Pelaajat — pääkokoelma
+```
+pelaajat/{palloID}
+  palloID, nimi, syntyma, sukupuoli, kansalaisuus
+
+  suostumukset/
+    perus: {ok, pvm, versio}
+    terveys: {ok, pvm, versio}
+    benchmark: {ok, pvm, versio}
+
+  kirjaukset/{pv}
+    tyyppi: T|D|S|P
+    tehty: bool, kesto_min, rpe: 1-10
+    fiilinki: 1-5, aika: ilta|aamu|paiva
+
+  idp_kausi/{vuosi}
+  ohjelmat/{id}
+  terveys/{id}          ← GDPR Art. 9, oma suostumus
+  streak_historia[], joukkuetreenit[]
+```
+
+### Seurat — operatiivinen hallinto
+```
+seurat/{seuraId}/
+  nimi, laji, paketti, maa, kieli
+  kaupunki, kotisivu, yhteystiedot
+  aktiivinen, luotu, paivitetty
+
+  pelaajat/{pelaajaId}/
+    etunimi, sukunimi
+    syntymaVuosi (numero), syntymaaika (Timestamp)
+    sukupuoli "M"/"N"
+    joukkue, pelipaikka, positio
+    palloId / tunniste    ← synonyymit
+    huoltajaEmail
+    pin (4 numeroa)
+    suostumusTila: 'pilotti'|'odottaa'|'annettu'
+    suostumusTunniste
+    lahde: 'excel_tuonti'|'kutsu'|'manuaalinen'
+    isDemoUser: false
+    flei_viimeisin (0-100)
+    sbl, sfl, ll, diag, dfl (1.0-3.0 raakadata)
+
+    // Joukkueet — uusi arkkitehtuuri 2026-05-09
+    joukkueet: ["sjk_u13", "sjk_u15"]  // ID-viittaukset, tukee useaan joukkueeseen
+    joukkue: "SJK U13"                  // Ensisijainen joukkue (backward compat)
+
+    // Talenttiohjelma — 2026-05-09
+    talenttiOhjelma: bool               // true = pelaaja talenttiohjelmassa
+    talenttiTaso: "perus"|"laajennettu" // Ohjelmanintensiteetti (KORI poistettu)
+    talenttiAlku: Timestamp             // Milloin aktivoitu
+    talenttiAktivoi: uid                // Kuka aktivoi
+
+    havainnot/{havaintoId}/    ← ADAR-havainnot
+      tyyppi: 'adar'
+      adar_taso: 1|2|3
+      pisteet: {A, D, Act, R}
+      narratiivi
+      palloId, pelaajaId, seuraId, valmentajaUid
+      tila: 'valmis'|'luonnos'
+      pelaaja_lukenut: false|true
+      ai_narratiivi, ai_luottamus: 'matala'
+      media: [{tyyppi, storage_url, download_url, otettu: ISO-string}]
+      luotu: ISO-string
+
+    kirjaukset/{pvm}/
+      tyyppi: T|D|S|P
+      tehty, xp, kesto_min, rpe: 1-10
+      fiilinki: 1-5, aika: ilta|aamu|paiva
+      lahde: 'manuaalinen'|'catapult'|'polar'|'taso'   ← pakollinen, integraatioekosysteemi
+      lahde_id: string|null                               ← alkuperäinen ID lähejärjestelmässä
+
+  kayttajat/{uid}/
+    email, rooli, etunimi, sukunimi
+    seuraId, aktiivinen
+
+  joukkueet/{joukkueId}/
+  kutsut/{kutsuId}/
+  havainnot/{havaintoId}/
+  adar/{adarId}/
+  kayttajat/{uid}/
+
+  valmentajat/{uid}/kontribuutio/{palloID}
+  valmentajat/{uid}/tuloskortti/
+
+  alumni/{palloID}/
+  konfiguraatio/
+    paketti/, kpi_painotukset/, mittarit/, idp_template/, viestinta/
+
+  kpi/
+    spl_united_valinnat/{kausi}
+
+  rekisteri/{palloID}/    ← viittaus, ei kopio
+```
+
+### Benchmarks (anonymisoitu, opt-in, n≥30)
+```
+benchmarks/{maa}/{ikäluokka}/{ominaisuus}
+  n, keskiarvo, mediaani, p25, p75, p90
+```
+
+### Marketplace (scout-pääsy, 15v+)
+```
+marketplace/{palloID}
+  scout_window_avautuu: timestamp  ← 15v
+  eu_siirto_mahdollinen: timestamp ← 16v (FIFA Art. 19)
+  taysis_ikaisyys: timestamp       ← 18v
+  huoltaja_hyvaksyy: bool
+  paasynot/{scoutId}/
+```
+
+### Palloliitto (oma kerros)
+```
+palloliitto/
+  kayttajat/{uid}/
+  ohjelmat/{ohjelmaId}/
+    pelaajat/{palloID}/
+    palautteet/{palloID}/{pvm}/
+```
+
+### Admins
+```
+admins/{uid}/
+  email, rooli, superAdmin, luotu
+```
+
+---
+
+## 11. FIRESTORE SECURITY RULES — KRIITTINEN
+
+**DEPLOATAAN Firebase Consolesta — EI GitHub Actionsilla (403)**
+Konsoli → Firestore → Rules → liitä → Julkaise
+
+### Yhdistetty versio (2026-04-30) sisältää:
+```javascript
+function onAnonymous()  // PIN-kirjautuminen — voi lukea pelaajat + havainnot
+function onSuperAdmin() // custom claim super_admin TAI admins/{uid} exists
+function onOmaSeura(id) // custom claim seuraId
+function onJohtoRooli() // vp|urheilutoimenjohtaja|seurasihteeri
+function onValmentajaRooli() // + valmentaja|talenttivalmentaja|...
+function onOmanSeuranValmentaja(seuraId)
+
+// Kriittinen: kayttajat-alikokoelma VP:lle (korjaa Henkilöstö-näkymän)
+seurat/{id}/kayttajat/{uid}:
+  read: onSuperAdmin() || (onOmaSeura() && onJohtoRooli()) || oma UID
+
+// Havainnot pelaajatasolla
+seurat/{id}/pelaajat/{pid}/havainnot/{hid}:
+  read: onSuperAdmin() || onOmaSeura() || onAnonymous()
+  write: onOmanSeuranValmentaja() || onSuperAdmin()
+```
+
+### Opittu kantapään kautta:
+1. Security Rules: tarvitaan **sekä** `allow create` **että** `allow update`
+   (set() merge-optionilla käyttää update jos doc exists)
+2. Syntymäpäivä: `Date.UTC()` — ei `new Date(string)` (aikavyöhyke-ongelmat)
+3. `onAuthStateChanged` loop: käytä `_kirjautuminenKesken`-lippua
+4. `onSnapshot`-kuuntelijat: `window._XxxUnsubscribe`-pattern
+5. Logout: dispatcha `tm:logout` → odota 50ms → signOut()
+
+---
+
+## 12. ADAR PIKAKORTTI — ARKKITEHTUURI (2026-04-30)
+
+### Bundler-rakenne (offline-käyttö kentällä)
+- Fontit + Firebase SDK inlineina base64/gzip-pakattuna
+- Script-tyypit: `__bundler/manifest`, `__bundler/ext_resources`, `__bundler/template`
+- Päälogiikka on JSON-enkoodattuna `__bundler/template` -skriptissä
+
+### KRIITTINEN: Bundler-template muokkausperiaate
+```python
+# OIKEIN — operoidaan raw JSON-stringillä indeksihaulla:
+idx = template_raw.find("etsittava_teksti")
+start = idx  # tai etsi lähempi rajakohta
+template_raw = template_raw[:start] + uusi_teksti + template_raw[end:]
+
+# VÄÄRIN — rikkoo tiedoston:
+template_html = json.loads(template_raw)
+# ... muutoksia ...
+template_raw = json.dumps(template_html)  # double-encoding korruptoi
+```
+
+### Firebase-muuttujat
+```javascript
+window._tmDB      // Firestore
+window._tmAuth    // Auth
+window._tmSeuraId // Seuran ID (asetetaan kirjautumisen yhteydessä)
+window._tmRooli   // Käyttäjän rooli
+window._pelaajaMap // {pelaajaId: {tunniste, nimi, joukkue}}
+```
+
+### Firestore-polku havainnoille
+```
+seurat/{seuraId}/pelaajat/{pelaajaId}/havainnot/{id}
+```
+
+### saveCard() — kriittiset kentät
+```javascript
+await havaintoRef.set({
+  palloId,            // PalloID Palloliiton rekisteristä
+  pelaajaId,          // Firebase-dokumentin ID
+  seuraId,
+  valmentajaUid: firebase.auth().currentUser?.uid,
+  tila: 'valmis',     // Pelaaja-näkymä kuuntelee tätä
+  pelaaja_lukenut: false,
+  luotu: new Date().toISOString(),
+  // ADAR-pisteet, narratiivi jne.
+});
+```
+
+### ADAR Vision
+- Kuva → Storage: `seurat/{id}/havainnot/{id}/media_0.jpg`
+- `media[]` taulukko — ei yksittäinen kenttä (video lisätään myöhemmin)
+- `otettu: new Date().toISOString()` — EI serverTimestamp() (array-rajoitus!)
+- `_pyydaAINarratiivi()` → aiProxy → GPT-4o Vision → `ai_narratiivi .update()`
+- `ai_luottamus: 'matala'` aina — ihminen hyväksyy ennen kuin pelaaja näkee
+
+### Pikatila (3-vaiheinen)
+```javascript
+_pikaValitsePelaaja(id, nimi, seuraId, btn)  // Vaihe 1
+_pikaAdar(vaihe, btn)                         // Vaihe 2
+_pikaSetPiste(piste, btn)                     // Vaihe 3
+_pikaTallenna()                               // → tila:'luonnos' (ei heti 'valmis')
+```
+
+### Kontrastikorjaukset (WCAG AA 2026-04-30)
+| Elementti | Ennen | Jälkeen | Kontrasti |
+|---|---|---|---|
+| Info-palkki teksti | rgba(94,201,168,.6) | #0C5940 | 1.4:1 → 5.2:1 |
+| .mf-label (TILANNE/PVM) | 9px / opacity .30 | 11px / opacity .70 | |
+| .sbd (nappi-kuvaus) | 10px / opacity .70 | 11px / opacity .85 | |
+| s3.selected | #5EC9A8 | #3DB898 | 4.1:1 → 5.0:1 |
+
+---
+
+## 13. PELAAJAN APP (TalentMaster_Pelaaja_v7.html) — v=24
+
+### Kirjautuminen
+```javascript
+_kirjauduPinilla(pin)
+// → Firebase Anonymous Auth
+// → Firestore-haku seurat/{id}/pelaajat jossa pin == arvo
+// → _kaynnistaAppUI()
+```
+
+### PIN-kirjautuminen + getIdToken(true)
+```javascript
+// PAKOLLINEN ennen Firestore-kirjoitusta jos sessio voi olla vanhentunut:
+await user.getIdToken(true);
+// Ilman tätä: permission-denied pitkän tauon jälkeen
+```
+
+### Kirjausrakenne
+```javascript
+pelaajat/{id}/kirjaukset/{pvm}: {
+  tyyppi: 'T'|'D'|'S'|'P',  // Tekniikka/Dual/Strength/Peli
+  tehty: bool,
+  xp: numero,
+  kesto_min: numero,
+  rpe: 1-10,
+  fiilinki: 1-5,
+  aika: 'ilta'|'aamu'|'paiva'
+}
+```
+
+### Syntymäpäiväyllätys (v=24)
+```javascript
+_onkoSynttari(p)      // vertaa syntymaaika.getMonth()+getDate() nykyiseen
+_synttariKonfetti()   // Canvas-animaatio: 60 palaa, 2s
+_synttariBanner(p)    // HTML-banneri: nimi, ikä, bonustehtävä
+
+// KRIITTINEN: käyttää string concatenationia (+)
+// Nested template literals `` `...${...`...`}...` `` rikkovat parserin
+// → koko script kaatuu → musta ruutu (oli v=23:n vika)
+```
+
+### sBar — kehittäjänavigaatio (display:none)
+Näkyy vain kehittäjälle. Konsepteja:
+```
+A1 KOTI     ✅ Tuotanto
+A2 Signal   🔵 Konsepti
+A3 Today-Grid 🔵
+B  Harjoitus + video 🔵
+C  FIFA OVR-kortti  🔵
+G  Haptics/ääni     🔵
+H  Offline/SW       🔵
+I  Vanhempi-konsepti 🔵
+J  Oma treeni       🔵
+K  Haaste           🔵
+```
+
+### P6 — Valmentajan havainto → Pelaajan näkymä (AVOIN)
+```javascript
+_p6KaynnistakuuntelIja(seuraId, pelaajaId)
+// onSnapshot: tila=='valmis' && pelaaja_lukenut==false
+// → näyttää "1 uutta" merkin
+// → _avaaHavainnot(): overlay narratiivilla (ei pisteitä)
+// → _p6Luetuksi(): pelaaja_lukenut: true
+
+// ONGELMA: PIN-callback ei aseta window._p7Pelaaja
+// → kuuntelija ei käynnisty automaattisesti
+// KORJAUS TARVITAAN: PIN success → window._p7Pelaaja = {seuraId, pelaajaId}
+```
+
+---
+
+## 14. SEURAHALLINTA (TalentMaster_Seura.html)
+
+### Toiminnot
+- Yhteenveto: 4 KPI-korttia + Pilottibanner + Suostumus-%
+- Pelaajat: suodattimet (Kaikki/Pilotti/Kutsu/Rekisteröity/Ilman PalloID) + nimihaku
+- Joukkueet, Henkilöstö, Sopimukset
+- Tuo Excel: xlsx GitHubista → SheetJS → Firestore
+- Massakutsu: xlsx-pohja + Cloud Function `lahetaHuoltajaKutsu`
+- Pilottiprosessi: 1) Tuo → `pilotti` | 2) Kutsu → `odottaa` | 3) Suostumus → `annettu`
+
+### Muokkausmodaali (päivitetty 2026-05-09)
+Kentät: etunimi, sukunimi, syntymäpäivä (→ syntymaVuosi auto), sukupuoli (M/N),
+joukkueet (checkboxit — monta joukkuetta mahdollinen), pelipaikka, huoltajaEmail, palloID.
+Talenttiohjelma-toggle: perus / laajennettu.
+Super admin lisäksi: sbl, sfl, ll, diag, dfl (FLEI-ketjut 1.0–3.0).
+
+### Joukkueen nimen muokkaus (2026-05-09)
+`avaaJoukkueMuokkaus(id, nimi, ikaryhma, vuosi)` — avaa modaalin.
+`tallennaJoukkueMuutos(joukkueId, vanhanimi)` — päivittää joukkueet-kokoelman dokumentin
+JA ajaa batch-päivityksen kaikille pelaajille joilla vanha nimi sekä joukkue- että joukkueet[]-kentässä.
+
+### Excel-pohja dynaaminen (2026-05-09)
+`lataaRekisteriPohja()` hakee seuran joukkueet Firestoresta ja generoi Excelin SheetJS:llä lennossa.
+Joukkue-sarake sisältää valmiiksi oikeat joukkuenimet dropdownissa — ei käsin täyttämistä.
+Tiedostonimi: `TalentMaster_{SeuraId}_{pvm}.xlsx`
+
+### Duplikaattisuoja tuonnissa (2026-05-09)
+Kaksi tasoa: 1) palloID-tarkistus Firestoresta, 2) etunimi+sukunimi+joukkue-yhdistelmä.
+Ohitetut pelaajat näkyvät `⏭`-merkillä edistymispalkissa, lasketaan `ohitettu`-laskuriin (ei virheisiin).
+Loppuyhteenveto: `X tuotu · Y ohitettu (jo järjestelmässä) · Z epäonnistui`
+
+### Talentit-välilehti (2026-05-09)
+Uusi navigointikohde. Hakee kaikki `talenttiOhjelma: true` -pelaajat seurasta.
+Ryhmittää perus/laajennettu-tasoihin. KPI-kortit: yhteensä + laajennettu-määrä.
+
+---
+
+## 15. ADMIN-NÄKYMÄ (TalentMaster_Admin.html)
+
+### Toiminnot (päivitetty 2026-05-09)
+- Seurat: muokkaa + poista + "+ Lisää seura" -modaali (`avaaLisaaSeuraModal`)
+- Käyttäjät: ✏️ Hallinnoi → roolinmuutos + salasana-reset + PIN + deaktivointi
+- Joukkueet: dynaaminen data pelaajista + kokoelmasta — "+ Lisää joukkue" POISTETTU (käytä Seura.html)
+- Tilastot: KPI-kortit + seurakohtainen taulukko suostumuspalkilla
+- Massakutsu: VAIHE 1 — tallentaa `suostumusTila:'odottaa'`, EI lähetä sähköpostia (kaksivaiheinen)
+
+### Massakutsu-arkkitehtuuri (MUUTTUNUT 2026-05-08)
+Vaihe 1: Excel → Firestoreen. Napin teksti: "💾 Tuo pelaajat järjestelmään".
+Iso amber-varoituslaatikko: "VAIHE 1/2 — EI suostumuspyyntöjä tässä vaiheessa."
+Vaihe 2 (tuleva): "Lähetä suostumuspyynnöt" -nappi kun kaikki näkymät tarkastettu.
+
+### KRIITTINEN: Tilastot-funktio
+```javascript
+// OIKEIN — string concatenation:
+const html = '<div>' + muuttuja + '</div>';
+
+// VÄÄRIN — template literals admin tilastot-funktiossa:
+const html = `<div>${muuttuja}</div>`;
+// Syy: Python-generoinnissa double-encoding rikkoo nested template literaalit
+```
+
+---
+
+## 16. METODOLOGIA — ÄLÄ MUUTA ILMAN LUPAA
+
+### 5D Framework
+- D1 Fyysinen | D2 Tekninen | D3 Psykologinen | D4 Peliäly | D5 Sosiaalinen
+
+### FLEI — 5 ketjua (TARKKA, EI MUUTA)
+- ⚡ SBL | 🦵 SFL | ↔️ LL | 🔄 DIAG | 🏗️ DFL
+- DIAG korvaa SL+FL pysyvästi (Wilke et al. 2016)
+- S-harjoite kohdistuu **aina heikoimman ketjun** mukaan (ei pelaajaprofiiliin)
+- T-harjoite joka päivä, myös lepopäivinä
+- FLEI < 40 → automaattinen klinikkalähetys
+
+### FLEI-raakadata
+```javascript
+// Tallennetaan 1-3 asteikolla:
+sbl: 2.16, sfl: 2.30, ll: 2.10, diag: 2.40, dfl: 2.20
+// flei_viimeisin lasketaan auto: 62 = keskiarvo normalisoituna
+
+// Normalisointi: (arvo-1)/2*100 = 0-100%
+// ll: 2.10 → (2.10-1)/2*100 = 55% → heikoin ketju
+// Default puuttuvalle: 2.0 (50%)
+```
+
+### Eerikkilä-normit (tm_eerikkila_normit.js)
+```javascript
+eerikkilaTaso(arvo, testi, ika, sukupuoli) // → 1-5 (tekniikka 1-3)
+// Tallennetaan AINA raakadata — taso lasketaan lennossa
+// Tekniikkatestit (pujottelu, syöttö): 3-portainen
+// Muut 11 testiä: 5-portainen
+// pienempi=parempi: nopeustestit, pujottelu, syöttö
+// suurempi=parempi: hyppy_cj, mas
+```
+
+### Pelaajaprofiilit
+Railgun | Maestro | Shadowstep | Titan
+
+### Ikävaiheryhmät
+- 10–12: Competitor / leikkija
+- 13–15: Builder / rakentaja
+- 16–19: Showcase Pro
+
+### Biologinen ikä
+- Mirwald 2002 (PHV)
+- PHV-status ohittaa Stage-luokituksen
+
+### Terminologia (julkinen kieli)
+| Tekninen | Julkinen |
+|---|---|
+| FLEI | kehon valmiusindeksi |
+| fascia-linja | liikehallintaketju |
+| jousitusindeksi | kimmovoima-indeksi |
+| D4 | peliäly |
+
+---
+
+## 17. KRIITTISET PERIAATTEET — ÄLÄ TOISTA NÄITÄ VIRHEITÄ
+
+1. **Nested template literals** rikkovat scriptin → **string concatenation** (+) aina
+2. **`getIdToken(true)`** pakollinen ennen Firestore-kirjoitusta (sessio vanhentuu)
+3. **`super_admin` (underscore)** — ei `superadmin`
+4. **CF:** `firebase.app().functions('europe-west1')` — EI `firebase.functions()`
+5. **`display:none` tappaa transform** → käytä `translateX(-100%)`
+6. **Yksi `@media(max-width:768px)` per tiedosto** — kaksi lohkoa kumoaa toisen
+7. **`serverTimestamp()` ei toimi array:n sisällä** → `new Date().toISOString()`
+8. **FLEI raakadata 1-3** — normalisointi koodissa, ei tallennettuna
+9. **Topias ID:** `m93GBdOaGCUuenMiCL0I` — KAKSI u:ta (m93GBdOaGCU**u**enMiCL0I)
+10. **Firestore rules Consolesta** — ei GitHub Actionsilla (403)
+11. **Bundler-template:** raw JSON-string indeksihaku, EI json.loads()+json.dumps()
+12. **`syntymaVuosi` numerona** — `syntymaaika` on Timestamp erikseen
+13. **`sukupuoli: "M"/"N"`** — ei "poika"/"tyttö"
+14. **Raakadata Firestoreen** — normalisointi koodissa
+15. **Security Rules:** tarvitaan sekä `allow create` että `allow update`
+16. **PalloID:** kenttänimi `tunniste` pelaajadokumentissa, kopioidaan `palloId`-nimellä havaintoihin
+17. **`media[]` taulukko** — tulevaisuudessa video samaan rakenteeseen
+18. **`seurat/{id}/pelaajat/` tarvitsee oman Rules-blokin** — EI periydy automaattisesti
+19. **`testitapahtumat` EI `tapahtumat`** — väärä nimi estää kaiken datan löytymisen
+20. **Super admin seuranvalitsin AINA** — Custom Claimissa ei seuraId:tä, joten automaattinen haku palauttaa satunnaisen seuran
+21. **IIFE-scope:** HTML `onclick=` kutsuu vain `window._`-globaaleja — sisäiset funktiot vaativat `window.fn = function fn()`
+22. **Sukupuoli-konversio:** Excel käyttää P/T, Firestore käyttää M/N — eri asiat, muunna aina
+23. **joukkueet[] + joukkue** — pelaajalla molemmat kentät. `joukkueet` = ID-lista (uusi), `joukkue` = ensisijainen nimi (backward compat)
+24. **Excel-sarakenimi "PalloID (vapaaehtoinen)"** rikkoo tuonnin — etsiSarake käyttää `startsWith` haun (`palloidvapaaehtoinen`.startsWith(`palloid`)), mutta sarakeotsikoissa EI pidä olla sulkeita
+25. **`lataaSeurat` = `onSnapshot`-kuuntelija** — EI `.get()` — päivittyy reaaliajassa
+26. **Joukkueet-kokoelma vs. pelaajadata** — Seura.html luo joukkueet `.doc(id)`-metodilla (siisti ID), Admin ei enää luo joukkueita. Näytä molemmat lähteet rinnakkain.
+27. **SA kirjautuu Google Sign-In:llä** (ei email/salasana) — aktivoitu 2026-05-08
+
+---
+
+## 18. CLOUD FUNCTIONS (europe-west1)
+
+| Funktio | Kuvaus |
+|---|---|
+| `lahetaRekisteriKutsu` | Yksittäinen kutsu huoltajalle |
+| `luoKayttaja` | Luo Firebase Auth -käyttäjän (sama email eri rooli OK) |
+| `lahetaHuoltajaKutsu` | Massakutsu huoltajille |
+| `deaktivioiKayttaja` | Pehmeä poisto — data säilyy |
+| `lahetaPelaajaSivuLinkki` | Linkki pelaajan näkymään |
+| `haeOrLuoHuoltajaAuth` | Huoltajan autentikointi |
+| `aiProxy` | AI-välitys: GPT-4o Vision, Whisper, narratiivi |
+
+`OPENAI_API_KEY`: Google Cloud Secret Manager + GitHub Actions Secrets
+
+---
+
+## INTEGRAATIOARKKITEHTUURI — Ekosysteemistrategia (2026-05-11)
+
+TalentMaster on platform johon datalähteet konvergoivat. Lock-in tulee datasta,
+ei sopimuksista. Kun kaikki pelaajan data on yhdessä paikassa, vaihtaminen
+vaatii massiivisen datansiirtoprojektin.
+
+### Arkkitehtuuriperiaate — `lahde`-kenttä kaikkialle
+Kaikki ulkoisesta lähteestä tuleva data merkitään:
+```javascript
+lahde:    'manuaalinen'|'catapult'|'polar'|'taso'|'wyscout'|'palloliiton_api'
+lahde_id: string|null  // alkuperäinen ID → synkronointi + deduplikointi
+```
+
+### TASO-integraatio (osittain toteutettu)
+Cloud Function `tasoHaeSeuranOttelut` on deployattu. TASO tarjoaa
+pelaajakohtaisen pelidatan (passit, laukaukset, minuutit, arvosanat).
+
+**Puuttuva — Sprint 4-5:**
+- Valmentaja lataa TASO-datan suoraan kalenteriin joukkueen otteluista
+- Pelaajakohtainen data: `pelaajat/{id}/pelidata/{otteluId}`
+- Kalenterissa ottelu-ikonista avautuu TASO-data rinnakkain TM-datan kanssa
+
+**Kohderakenne:**
+```
+seurat/{id}/tapahtumat/{otteluId}
+  tyyppi: 'ottelu', vastustaja, pvm, joukkue
+  taso_ottelu_id: string   ← synkronointi
+
+pelaajat/{id}/pelidata/{otteluId}
+  minuutit, laukaukset, passit, taso_arvosana
+  lahde: 'taso', lahde_id: string
+```
+
+### Kalenteri-integraatio — iCal-vienti (Sprint 5)
+Valmentaja näkee yhdessä kalenterissa: harjoitukset + ottelut TASO:sta + testipäivät.
+iCal-vienti: Cloud Function → `/api/kalenteri/{seuraId}/{joukkue}.ics`
+→ Google Calendar / Outlook / Apple Calendar.
+
+### Integraatioprioriteettijärjestys
+| Integraatio | Prioriteetti | Sprint |
+|---|---|---|
+| TASO → kalenteri + pelidata | 🔴 | 4-5 |
+| iCal-vienti | 🟡 | 5 |
+| Catapult (GPS) | 🟡 | 6-7 |
+| Polar (syke) | 🟡 | 6-7 |
+| Palloliiton API (PalloID-linkitys) | 🟢 | 8+ |
+| Wyscout / InStat (videoanalyysi) | 🟢 | 8+ |
+
+---
+
+## 19. AI-ARKKITEHTUURI
+
+### Behavioural Science -agentti (Sprint 6–8)
+```
+Firestore trigger → Cloud Function → Anthropic API → pelaajan näkymä
+```
+**Triggerit:** streak katkeaa | 3pv streak | fiilinki matala 2pv | uusi viikko | PHV-huippu
+
+**Käyttäytymistiede:** habit loop (Duhigg), implementation intention (Gollwitzer),
+loss aversion, temptation bundling (Milkman)
+
+**Tekninen toteutus:**
+- `tm_ai.js` — provider-agnostic wrapper
+- `TM_AI.call()` — ei suoria API-kutsuja UI:sta
+- Cloud Function = AI-proxy (europe-west1), API-avaimet ei ikinä selaimessa
+
+### RAG — pelaajan historia AI:n muistina
+- Firebase Vector Search (beta) tai Pinecone
+- Aktivoidaan kun 500+ pelaajaa usealta kaudelta — ei aiemmin
+
+### MCP-arkkitehtuuri
+- Palloliiton MCP-server on jo olemassa (`jsvirtane/tulospalvelu-mcp`)
+- TalentMasterID rakentaa oman MCP-serverin
+- `llms.txt`: api.talentmasterid.com/llms.txt
+
+### Open API -periaatteet
+- Versiointi URL:ssa: `/v1/`, `/v2/`
+- OpenAPI 3.1
+- Autentikointi: API-avain (seurat) · OAuth 2.0 PKCE (scoutit) · JWT (Palloliitto)
+- Rate limiting: seurat 1000/h · scoutit 100/h · Palloliitto 10000/h
+
+---
+
+## 20. AVOIMET TEHTÄVÄT (päivitetty 2026-05-09)
+
+### KRIITTISET — deploy ensin
+- [ ] **Security Rules v2.3 deploy** Firebase Consolesta (idp_jono, valmentajat, viestit)
+- [ ] **P6-käynnistys:** PIN-callback → `window._p7Pelaaja = {seuraId, pelaajaId}`
+- [ ] **Streak → Firestore** — pakollinen ennen AI-moduuleja (nyt localStoragessa)
+- [ ] **Testaa VP_v22 KPV:llä** — kirjaudu rasmus_broberg@icloud.com
+- [ ] **Vie GitHubiin:** Admin.html, Seura.html, Master_v16.html, Pelaajarekisteri.xlsx, CLAUDE.md
+
+### TÄRKEÄT
+- [ ] **P3 Vanhemman app:** "Eemeli" → `where('huoltajaEmail','==',email)`
+- [ ] **P4 Firestore Rules vanhemmalle:** `resource.data.huoltajaEmail == request.auth.token.email`
+- [ ] **P5 Fiilinki ikäfaasikohtaiseksi:** U13 → leikkija-kieli
+- [ ] **Suostumusprosessi vaihe 2:** "Lähetä suostumuspyynnöt" -nappi Admin-sivulle
+- [ ] **SPF/DKIM** — sähköpostit menevät roskapostiin
+- [ ] **Tyttöjen PHV-kaava** ennen U14/15T-aktivointia (SJK)
+- [ ] **AI-narratiivi debug:** `ai_narratiivi` tyhjä vaikka kuva tallentuu
+
+### SEURAAVAT SPRINNIT
+- [ ] **HH-testit Excel-kierto** — testaa KPV:llä end-to-end
+- [ ] **Harjoitettavuuslomake → Testaus-integraatio** — linkki tapahtumakortista
+- [ ] **IDP-aktivointilogiikka (P7):** 3 reittiä (manuaalinen/X-Factor/KORI)
+- [ ] **Firestore kirjausrakenne lukitaan** → AI agent -aktivointi
+- [ ] **RAG** kun 500+ pelaajaa
+
+---
+
+## 21. KANSAINVÄLISTYMINEN — OIKEA JÄRJESTYS
+
+**Ensin suomi vakaaksi, sitten kansainvälinen.**
+Referenssi tarvitaan: "meillä on 8 suomalaista seuraa ja 300+ pelaajaa."
+
+### Ota käytäntöön heti (ei vaadi erillistä sprinttiä):
+- CSS logical properties (`margin-inline-start` ei `margin-left`) kaikessa uudessa koodissa
+- RTL-valmius tulevaisuudessa ilmaiseksi
+
+### Ota talteen Q3 2026:
+- i18n-engine (tm_lang.js namespace-pohjaiseksi)
+- Token-pohjainen white-label: `data-theme="bundesliga"` Firestore-konfiguraatiosta
+- 5D-painotusten kalibrointi per markkina Firestoressä
+
+### Ota talteen Q4 2026+:
+- Saksan pilotti — referenssi + metodologia + kulttuurinen kalibrointi
+- RAG kun dataa riittävästi
+
+
+### RAE = kansainvälinen erottautumistekijä (Morganti 2025)
+
+TalentMaster on ainoa tunnettu alusta joka korjaa RAE:n systemaattisesti.
+Kilpailijat (Catapult, VALD, Smartabase) mittaavat. TalentMaster korjaa.
+- OR 4.38: BQ1-pelaajat 4.4× todennäköisemmin U17-maajoukkueessa kuin BQ4
+- OR 2.80: BQ4-pelaajat 2.8× todennäköisemmin senioritasolla kuin U17-tasolla
+- *"Raising awareness does not contribute to eradication"* — systeminen korjaus pakollinen
+
+### Akateeminen kumppanuus = varsinainen kv-avain
+KIHU-yhteistyö on jo olemassa. Seuraava askel:
+peer-reviewed artikkeli FLEI-metodologiasta (Journal of Sports Sciences / Science & Football).
+Yksi artikkeli avaa enemmän ovia liitoille kuin kymmenen pilottiseuraa.
+
+### Arkkitehtuurivelka — ei tehdä nyt, kirjataan
+`seurat/{id}/pelaajat/{pelaajaId}` — data kiinni seurassa.
+GDPR Art. 20 + kv-skaalaus vaatii tulevaisuudessa `pelaajat/{palloID}` ylätasolle.
+
+### PalloID = kilpailuetu kansainvälisesti
+Suomi on ainoa maa jossa pelaajan kehitysrekisteri + liittodata + seurarekisteri
+linkittyvät yhdellä tunnisteella. TalentMasterID voi rakentaa muiden maiden liitoille
+saman infrastruktuurin. FIFA Art. 19bis compliance on B2G-tuote liitoille.
+
+---
+
+## 22. BISNESMALLI
+
+| Tuote | Asiakas | Hinta |
+|---|---|---|
+| Solo | Pelaaja + perhe | 4–7€/kk |
+| Club | Seurat | 400€/kausi + 2€/pelaaja/kk |
+| Network | Palloliitto, liitot, UEFA | B2G-lisenssi |
+| Scout | Scoutit, agentit | Transaktio per pääsy |
+
+**Kilpailijat:** Catapult, VALD, Smartabase, Kitman Labs, PlayMetrics, 360Player, Playbook365
+
+**Key advisor:** Marko Kauppinen — "Think Global, Act Local"
+
+**FIFA ikäpisteet:**
+| Ikä | Tapahtuma |
+|---|---|
+| 15v | Scout window avautuu |
+| 16v | EU/ETA-siirto (FIFA Art. 19) |
+| 18v | Täysi omistajuus — pelaaja ottaa datan hallinnan |
+
+---
+
+## 23. TESTAUSINFRASTRUKTUURI — LISÄTTY 2026-05-01
+
+### Testikerrosjärjestelmä (3 kerrosta)
+
+| Kerros | Tiedosto | Käyttötapa | Firestore-polku |
+|---|---|---|---|
+| Kenttätestaus | `TalentMaster_Testaus_v8.html` | Reaaliaikainen kirjaus testipäivänä | `testitapahtumat/{id}/tulokset/{pelaajaId}` |
+| Harjoitettavuus | `TalentMaster_Harjoitettavuus_Lomake_v4.html` | U12/U15/U19 protokolla | `testitapahtumat/{id}/tulokset/` + `kartoitukset/` fallback |
+| Massatuonti | `TalentMaster_Excel_Tuonti.html` | Historiallinen data kerralla | `testit/`, `kartoitukset/`, `tekniikka/` |
+
+### Excel-kiertokulku (testit ilman nettiä kentällä)
+```
+VP luo tapahtuma (Testaus_v8)
+  → valitsee protokollan + aktiiviset testit + pelaajat
+  → tapahtuma tallennetaan: testitapahtumat/{id}
+     {aktiiviset_testit:[...], pelaajatData:[...], kausi:'2026-syksy', ...}
+
+Testipäivänä: VP klikkaa "📥 Excel" tapahtumakortista
+  → SheetJS generoi Excelin selaimessa
+  → Pelaajat esitäytetty, vain valitut testit sarakkeina
+  → Tiedostonimi: TM_2026-syksy_kpv-u15_20260915.xlsx
+  → Ohjeet-lehti + tapahtuma-ID metadatana
+
+Testaaja täyttää Excelin kentällä (ei nettiä)
+
+VP lataa täytetyn Excelin Excel-tuontityökaluun
+  → Validointi: PalloID pakollinen, sukupuoli P/T → M/N
+  → Esikatselu ennen kirjoitusta
+  → Firestore batch write
+```
+
+### Tekniikkakilpailu — 5 lajia (U8–U13)
+| Laji | Yritykset | Erikoislogiikka |
+|---|---|---|
+| Ponnauttelu | 2 | Parempi aika |
+| Syöttö pujotellen | 2 | Parempi aika |
+| Pujottelu | 2 | Parempi aika |
+| Kuljetus-laukaus | 2 | Raaka-aika − tarkkuusvähennykset |
+| Pituuspotku | 2+2 (oik+vas) | metrit/5 → aikabonus, max 20s, vain U12–13 |
+
+**Kuljetus-laukaus vähennykset:**
+- Nurkka ilmassa: −5s
+- Nurkka maata: −2s
+- Keski ilmassa: −3s
+- Keski maata: −1s
+
+### Tapahtuma-Firestore-rakenne (lukittu)
+```javascript
+testitapahtumat/{tapahtumaId} {
+  nimi: "HH-testi laaja — Syksy 2026",
+  protokolla: "hh_laaja",
+  aktiiviset_testit: ["lin30m", "hyppy_cj", "mas"],  // VP valitsi
+  kausi: "2026-syksy",
+  pvm_alku: "2026-09-15",
+  joukkue: "kpv_u15",
+  arvioija: "Matti Korhonen",
+  tila: "suunniteltu"|"avoin"|"valmis",
+  pelaajatData: [{id, etunimi, sukunimi, tunniste(PalloID), phv_tila}],
+
+  tulokset/{pelaajaId} {
+    testit: { lin30m: 4.21, hyppy_cj: 38.5, ... },
+    testauspvm: "2026-09-16",  // pelaajan oma päivä
+    kausi: "2026-syksy",
+    tunniste: "34650191"  // PalloID
+  }
+}
+```
+
+---
+
+## 24. SECURITY RULES — KRIITTISET MUUTOKSET 2026-05-01
+
+### firestore.rules v2.1.0 — uudet alikokoelmat
+Vanha v2.0 puuttui `seurat/{id}/pelaajat/`-alikokoelman — KAIKKI permission-denied
+koko sessiossa johtui tästä yhdestä puutteesta. Firestore ei periydy alaspäin.
+
+**Lisätyt alikokoelmat seurat/{seuraId}:n alle:**
+```
+seurat/{seuraId}/pelaajat/{pelaajaId}
+  allow read: superAdmin() || onSeuranJasen()
+  allow write: superAdmin() || onHallinto() || valmentajaroolit
+
+seurat/{seuraId}/pelaajat/{pelaajaId}/havainnot/{havaintoId}
+  → ADAR Pikakortti kirjoittaa tänne
+
+seurat/{seuraId}/pelaajat/{pelaajaId}/kirjaukset/{pv}
+  → päivittäiset harjoituskirjaukset
+
+seurat/{seuraId}/testitapahtumat/{tapahtumaId}/tulokset/{pelaajaId}
+  → testauslomake ja kenttätyökalu kirjoittavat
+```
+
+**KRIITTINEN MUISTISÄÄNTÖ:**
+Firestore Security Rules EI periydy automaattisesti alikokoelmiin.
+Jokainen alikokoelma vaatii oman `match`-blokin.
+`match /seurat/{id} { allow read... }` sallii vain SEURADOKUMENTIN, ei alikokoelmia.
+
+### Custom Claim -ongelma (ei vielä korjattu)
+- Claim-arvo: `rooli: 'superadmin'` (ilman alaviivaa)
+- Pitäisi olla: `rooli: 'super_admin'` (alaviivalla)
+- Vaikutus: Rules-funktiot kuten `onVP()` eivät toimi super-adminilla jos ne tarkistavat roolin
+- Korjaus: Cloud Function `setCustomUserClaims({rooli: 'super_admin', ...})`
+- Ei kriittinen jos `superAdmin()` käyttää `exists(admins/uid)` — se ei tarvitse Custom Claimsia
+
+---
+
+## 25. TUNNETTU ONGELMA: TIEDOSTONIMISEKAANNUS
+
+**Pelaaja v7 historia:**
+GitHubissa `TalentMaster_Pelaaja_v7.html` oli pitkään ADAR Pikakortti väärällä nimellä.
+Commit `0e58e48` ylikirjoitti sen edelleen ADAR-koodilla.
+Oikea pelaaja-app löytyi nimellä `TalentMaster_Pelaaja_v7__5_.html` (paikallinen kopio).
+
+**Ratkaisu 2026-05-01:**
+- Oikea tiedosto ladattu outputs-kansioon nimellä `TalentMaster_Pelaaja_v7.html`
+- Kolme korjausta: title v4→v7, värit canonical, `getIdToken(true)` lisätty
+
+**Oppi:** Kun lataat tiedoston GitHubiin, tarkista aina että tiedostonimi vastaa sisältöä.
+ADAR Pikakortti on `TalentMaster_ADAR_Pikakortti.html` — ei `TalentMaster_Pelaaja_v7.html`.
+
+---
+
+## 23. KEHITYSTYÖN PERIAATTEET
+
+1. **Suunnittele ennen koodausta** — "tehdään ensin suunnitelma"
+2. **Inkrementaalinen rakentaminen** — testaa jokaisen muutoksen jälkeen
+3. **Tiedostojen jakelu:** `/mnt/user-data/outputs/` → `present_files` → GitHub
+4. **CDN-cache:** ~10 min → käytä `?v=N`, tarkista `raw.githubusercontent.com`
+5. **Security Rules:** Firebase Consolesta JA `tm_admin/firestore.rules` — erilliset
+6. **Chrome MCP:** Firestore-kirjoitukset app-tabista (Firebase alustettu)
+7. **Super admin testi:** jokainen koodimuutos testattava super-adminilla
+
+---
+
+*CLAUDE.md — TalentMaster™ — Päivitetty 2026-05-02*
+
+---
+
+## 26. RAE-KORJAUS — TIETEELLINEN PERUSTA (2026-05-02)
+
+**Morganti et al. 2025** vahvistaa TalentMasterin RAE-moduulin matemaattisen perustan:
+
+| Löydös | Luku | Merkitys TalentMasterille |
+|---|---|---|
+| OR BQ1 vs BQ4 UEFA U17:llä | **4.38** (95% CI: 3.52–5.46) | RAE-korjaus on matemaattisesti välttämätön |
+| Joukkueet heikolla RAE → bottom 4 | **OR 5.67** | Valmentajalla insentivi syrjiä BQ4 — VP:n johtamiskysymys |
+| BQ4 seniorille selviytyminen vs. U17 | **OR 2.80** (1.96–3.98) | Hidden Gem -logiikka on pitkän tähtäimen strategia |
+| FIFA-pisteet korrelaatio RAE:hen | **r = .33** | Isompi kilpailu = pahempi RAE = kriittisempi korjata |
+
+**Kriittisin löydös:** *"Raising awareness about RAEs does not contribute to their eradication from youth soccer."*
+→ **Pelkkä tietoisuus ei riitä. Systeminen korjaus oletusarvona on ainoa ratkaisu.**
+
+### Arkkitehtuuriperiaate — LUKITTU
+
+**RAE-korjatut pisteet ovat OLETUSARVO kaikkialla.** Ei vaihtoehto.
+- VP näkee RAE-korjatut FLEI:t ja kehitysindeksit ensisijaisesti
+- Valmentaja näkee RAE-korjatun ADAR-pisteen pelaajan kortissa
+- Raaka-arvo näytetään sekundäärisesti pienemmällä
+
+### VP_v22:ssa puuttuu — lisätään seuraavassa sprintissä
+
+1. **BQ-jakauma joukkuekorteissa** — Q1/Q2/Q3/Q4 palkki per joukkue
+   - Jos Q1 > 40% → amber: "Joukkueella vahva RAE — tarkista valintakriteerit"
+   - Jos Q4 > 25% → teal: "Joukkue hyvä Hidden Gem -tunnistuksessa"
+2. **"BQ4-pelaajat" -filtteri** Pelaajat-näkymässä
+3. **RAE-bias-indeksi** Kalibraatiopajassa — valmentajan skenaarioissa 2 BQ-tapausta
+
+### Muissa näkymissä puuttuu
+
+- **ADAR Pikakortti:** BQ-kvartiili-chip + "Underdog"-badge BQ4-pelaajille
+- **Pelaaja_v7:** Motivaatioviesti BQ4-pelaajalle: "Myöhään syntyneet pelaajat jotka selviytyvät nuorisovaiheesta, menestyvät parhaiten senioritasolla." (Morganti 2025, Brustio 2024)
+- **Raportointi (VP):** RAE-jakauma seurassa vs. pilottiseurat — vuosiraporttiin
+
+### Tutkimusviitteet (kaikki validoitu)
+- Morganti et al. 2025 — UEFA U17/EM 2024 RAE + turnausmenestys
+- Brustio et al. 2024 — "underdog hypothesis" senioritasolle selviytyminen
+- Vänttinen & KIHU 2015 — talent wastage, RAE Suomessa
+- Mirwald 2002 — PHV/biologinen ikä (jo CLAUDE.md:ssä)
+
+---
+
+## 27. VALMENNUSPÄÄLLIKÖN NÄKYMÄ — VERSIOHISTORIA (2026-05-02)
+
+| Versio | Tila | Keskeiset muutokset |
+|---|---|---|
+| VP_v19 | Arkisto | Vaalea teema, ei Firebase. Pelaajapolut-filtterit, Kausirakenne-tabi |
+| VP_v20 | Arkisto | VP+TD yhdistetty rooli, Kalibraatiopaja, Benchmark |
+| VP_v21 | Käytössä | Firebase live-data, tumma teema, React-pohjainen |
+| **VP_v22** | **UUSIN** | Sivupalkki = Master_v16-pariteetti, mentorointi-loop, joukkuepulssi |
+
+### VP_v22 rakenne (canonical)
+```
+TYÖTILAT:
+  Tilanne      — kauden jakso + joukkuepulssi + kriittiset signaalit + IDP-jono
+  Valmentajat  — profiilit + mentorointi-paneeli + kalibraatiopaja + kehitysindeksit
+  Pelaajat     — IDP-jono + suodattimet (6 kpl) + pelaajataulukko
+  Kalenteri    — kaikki testitapahtumat + linkki Testaus_v8 + Harjoitettavuuslomake
+  Raportointi  — Head of Talent -koosto + talenttisuositukset + lähetys
+
+TYÖKALUT:
+  Arvioi harjoitus  (Sprint 4)
+
+ASETUKSET (sivupalkin pohja):
+  Metodologia · Kalibraatio · Kriteeristö · Benchmark
+```
+
+### Valmentajan mentorointi-loop (natiivi TalentMasterissa)
+VP kirjoittaa viestin valmentajalle → `seurat/{id}/viestit/{valmentajaUid}` → näkyy valmentajan Inboxissa.
+Ei sähköpostia, ei Slack-linkkiä. Kaikki TalentMasterin sisällä.
+
+---
+
+## 28. KANSAINVÄLISTYMINEN — PÄIVITETTY STRATEGIA (2026-05-02)
+
+> Luku 21 säilyy, tämä täydentää sitä uusilla havainnoilla.
+
+### RAE-korjaus = kansainvälinen erottautumistekijä
+
+**Miksi DFB, KNVB, FA tai UEFA kiinnostuu TalentMasterista:**
+Catapult, VALD, Smartabase — kukaan niistä ei korjaa RAE:tä systemaattisesti. Ne mittaavat.
+TalentMaster korjaa. OR 4.38 ja OR 2.80 ovat myyntiargumentit joita ei voi kiistää.
+
+### Kuusi kriittistä puutetta kansainväliseen skaalaan (prioriteettijärjestys)
+
+| Prioriteetti | Ominaisuus | Miksi kriittinen | Sprint |
+|---|---|---|---|
+| 🔴 1 | **Monikielisyys EN/SE/DE** | Jokainen kv-demo kaatuu tähän | Sprint 3 |
+| 🔴 2 | **Exportoitava pelaajaportti** | Skauttiyhteys vaatii | Sprint 4 |
+| 🟡 3 | **PHV+RAE-korjattu ranking VP:ssä** | Akatemia-uskottavuus | Sprint 3 |
+| 🟡 4 | **Vanhempien sitoutumisindeksi** | VEAT + eurooppalaiset akatemiat | Sprint 5 |
+| 🟡 5 | **UEFA-lisenssikytky valmentajaprofiilissa** | DFB/FA-vaatimus | Sprint 5-6 |
+| 🟢 6 | **Liittotason aggregaatti (Network-tuote)** | B2G, iso työ | Sprint 8-10 |
+
+### Akateeminen kumppanuus = varsinainen kansainvälistymisavain
+
+Liiton tai akatemian ostopäätös ei tapahdu myyntipuheen vaan **tieteellisen validoinnin** kautta.
+KIHU-yhteistyö on jo olemassa (Vänttinen 2015). Seuraava askel:
+peer-reviewed artikkeli FLEI-metodologiasta eurooppalaisessa lehdessä (Journal of Sports Sciences / Science & Football).
+Yksi artikkeli avaa enemmän ovia kuin kymmenen pilottiseuraa.
+
+### Pelaajan dataoikeudet — arkkitehtuuri-issue
+
+Nykyinen rakenne: `seurat/{id}/pelaajat/{pelaajaId}` — data kiinni seurassa.
+Kansainvälinen skaalaus + GDPR Art. 20 (oikeus siirtää data) vaatii pelaajan
+datan seuraneutraalisuuden. Pitkän tähtäimen arkkitehtuuri:
+`pelaajat/{palloID}` ylätasolle + seuraliitokset viitteillä.
+**Ei tehdä nyt** — vaatii ison migraation — mutta kirjataan arkkitehtuurivelaksi.
+
+### Sukupuolten tasa-arvo datassa (SJK-pilotti)
+
+SJK on ensimmäinen seura jolla tyttöjoukkueet mukana. Eerikkilä-normit on eriytetty.
+VP_v22:ssa ei vielä sukupuolikohtaisia kehitysindeksejä — lisätään Sprint 4.
+UEFA asettanut naisten jalkapallon kehittämisen strategiseksi prioriteetiksi 2024–2028.
+
+### PalloID = infrastruktuuri muille maille
+
+Suomi ainoa maa: kehitysrekisteri + liittodata + seurarekisteri yhdellä tunnisteella.
+TalentMasterID voi rakentaa muiden maiden liitoille saman infrastruktuurin.
+FIFA Art. 19bis compliance (pelaajien rekisteröinti alle 18v) = B2G-tuote liitoille.
+
+---
+
+## 29. VP-SPRINTTISUUNNITELMA (2026-05–2026-12)
+
+> Sprintti = 2 viikkoa. Pilotti käynnissä, kaikki kehitys testattava pilottiseuroilla.
+
+### Sprint 1 — POHJA (nyt käynnissä, 2026-05-02–16)
+**Tavoite:** VP_v22 pilottiseuroille, testausketju toimii
+
+- [x] VP_v22.html GitHubiin — sivupalkki, mentorointi, joukkuepulssi
+- [ ] **Security Rules v2.3 deploy** Firebase Consolesta (idp_jono, valmentajat, viestit)
+- [ ] **VP_v22 testaus KPV:llä** — kirjaudu vp.kpv@talentmaster.fi, tarkista data
+- [ ] **Testausketju end-to-end:** Testaus_v8 → Excel → Harjoitettavuuslomake → VP_v22 Kalenteri
+- [ ] **Valmentajat-kokoelma Firestoreen** — demo-data KPV:lle (Matti, Sari, Jari)
+- [ ] **Viestit-kokoelma** — mentorointi-loop testaus VP → valmentaja Inbox
+
+### Sprint 2 — RAE-NÄKYVYYS (2026-05-16–30)
+**Tavoite:** RAE-korjaus näkyväksi VP:lle ja valmentajalle
+
+- [ ] **BQ-jakauma joukkuekorteissa** VP_v22 Pelaajat-näkymässä
+  - Q1/Q2/Q3/Q4 palkki per joukkue
+  - Varoitus jos Q1 > 40%, palkinto jos Q4 > 25%
+- [ ] **"BQ4-pelaajat" -filtteri** Pelaajat-suodattimiin (6. filtteri)
+- [ ] **RAE-bias-skenaariot** Kalibraatiopajaan — 2 BQ-tapausta valmentajille
+- [ ] **ADAR Pikakortti:** BQ-kvartiili-chip + "Underdog"-badge BQ4-pelaajille
+- [ ] **Pelaaja_v7:** Motivaatioviesti BQ4-pelaajalle (Morganti 2025 -pohjainen)
+- [ ] **VP_v22 Raportointi:** RAE-jakauma-osio Head of Talent -raportissa
+
+### Sprint 3 — MONIKIELISYYS + PHV-RANKING (2026-05-30–06-13)
+**Tavoite:** Ensimmäinen kv-demo mahdollinen
+
+- [ ] **tm_lang.js namespace-pohjaiseksi** — VP_v22 käyttää tm_lang.js:ää
+  - fi/sv/en VP_v22:lle (144 käännöstä → laajennettava)
+  - kieliKartta: vifk→sv, grifk→sv automaattinen
+- [ ] **VP_v22 language toggle** topbariin (FI/SV/EN)
+- [ ] **PHV+RAE-korjattu FLEI-ranking** Pelaajat-taulukossa
+  - Lisäsarake: "PHV-korj. FLEI" vs. raaka FLEI
+  - Tooltip joka selittää korjauksen
+- [ ] **VP_v22 mobiili** — sivupalkki slide-in mobiiliksi (CLAUDE.md §6 periaate)
+- [ ] **GrIFK + VIFK testaus** ruotsinkielisellä UI:lla
+
+### Sprint 4 — PELAAJAPORTTI + SUKUPUOLIDATA (2026-06-13–27)
+**Tavoite:** Skautti-yhteistyö mahdollinen, SJK tyttöjoukkueet
+
+- [ ] **Exportoitava pelaajaportti** — "Jaa profiili" -toiminto
+  - PDF-generaatio: nimi, FLEI-trendi, ADAR-historia, PHV-tila, BQ-kvartiili, IDP-tavoitteet
+  - Shareable link: `talentmasterid.com/pelaaja/{token}` (15v+ pelaajille)
+  - Scout-tuote avautuu: `Scout`-tuote transaction-mallilla
+- [ ] **Sukupuolikohtaiset kehitysindeksit** VP_v22 Pelaajat-näkymässä
+  - Tyttöjoukkueet erillinen tarkastelu vs. pojat
+  - Eerikkilä-normit T10–N automaattisesti oikealle sukupuolelle
+- [ ] **Arvioi harjoitus -toiminto** VP_v22 Työkalut-valikossa
+  - VP voi merkitä havaintoja valmentajan harjoituksista
+  - Tallentuu `seurat/{id}/havainnot/{havaintoId}` tyyppi:'vp_arvio'
+- [ ] **Master_v16 Testit-työtila → VP_v22 Kalenteri synkronointi** — sama data
+
+### Sprint 5 — VANHEMMAT + UEFA-LISENSSI (2026-06-27–07-11)
+**Tavoite:** Ekosysteemin neljäs kerros näkyväksi
+
+- [ ] **Vanhempien sitoutumisindeksi** VP_v22 Pelaajat-näkymässä
+  - Kuinka moni vanhempi on kirjautunut viim. 30pv
+  - "Sitoutumisaste" per joukkue: korkea/kohtalainen/matala
+  - Signaali Tilanne-näkymään jos joukkueessa < 40% vanhemmista aktiivisia
+- [ ] **Vanhempi_v2 → Firebase** — kovakoodattu nimi poistetaan
+  - `where('huoltajaEmail','==',email)` -logiikka
+- [ ] **Valmentajaprofiili: koulutustaso** Valmentajat-kortissa
+  - UEFA-lisenssitaso (Grassroots C / B / A / Pro)
+  - Viimeisin koulutuspäivä
+  - Pohja UEFA-lisenssikytkylle Q4:ssa
+- [ ] **P3 Vanhemman app** — "Eemeli" → oikea Firestore-haku
+- [ ] **P5 Fiilinki ikäfaasikohtaiseksi** — U13 leikkija-kieli
+
+### Sprint 6 — AI-SIGNAALIMOOTTORI (2026-07-11–08-08)
+**Tavoite:** Järjestelmä tunnistaa ja nostaa oleelliset asiat automaattisesti
+
+> Vaatii: kirjausrakenne lukittu + min. 4 viikkoa dataa pilottiseuroilta
+
+- [ ] **AI Behavioural Science agent aktivointi** (CLAUDE.md §19)
+  - Firestore trigger → Cloud Function → Anthropic API → pelaajan Inbox
+  - Aktivointihetket: streak-katkeaminen, 3pv streak, matala fiilinki 2pv peräkkäin
+  - Ikäkohtainen ääni: leikkija (U8-12) / rakentaja (U13-15) / showcase (U16+)
+- [ ] **VP:n signaalimoottori** Tilanne-näkymään
+  - Automaattinen "Heili, joukkueessa tapahtui X" -signaali
+  - Perustuu kirjaustiheysmuutoksiin, FLEI-laskuun, RAE-vinoutumaan
+  - Ei kovakoodattuja signaaleja — AI tunnistaa poikkeamat
+- [ ] **Streak → Firestore** (pois localStoragesta — pakollinen ennen AI-agenttia)
+- [ ] **RAG-valmiuden testaus** — testataan kun 200+ pelaajaa datassa
+
+### Sprint 7 — LIITTOTASO + BENCHMARK (2026-08-08–09-05)
+**Tavoite:** Palloliiton ja Head of Talent -tason näkymä
+
+- [ ] **Head of Talent -dashboard** (erillinen sivu tai VP:n Raportointi laajennus)
+  - Aggregaatti kaikista pilottiseuroista
+  - RAE-jakauma kansallisella tasolla vs. Morganti 2025 -referenssi
+  - Tallenttisuositukset Palloliittolle
+- [ ] **Palloliiton Power BI -integraatio** KPI-vertailu
+  - `https://app.powerbi.com/...` passipassimäärät vs. TalentMaster-rekisteröidyt
+- [ ] **Benchmark-tabi Asetuksiin** — Eerikkilä-normit visualisoituna
+  - Oma seura vs. pilottiseurat (anonymisoitu)
+  - Oma seura vs. kansainväliset normit (DFB, KNVB — julkiset viitearvot)
+- [ ] **UEFA Grassroots Charter -raporttipohja** — vientiformaatti liitoille
+
+### Sprint 8-10 — KANSAINVÄLINEN PILOTTI (Q4 2026)
+**Tavoite:** Ensimmäinen kv-pilotti käynnistys (Baltia / Ruotsi)
+
+- [ ] **White-label `data-theme`** Firestore-konfiguraatiosta
+  - `data-theme="srl"` (Ruotsin liitto), `data-theme="eesti"` jne.
+- [ ] **5D-painotusten kalibrointi per markkina** Firestoressä
+- [ ] **DE/ET/LV-kielikäännökset** tm_lang.js:ään
+- [ ] **Network-tuote MVP** — liittotason lisenssi, B2G-sopimuspohja
+- [ ] **Business Finland Tempo -hakemus** (50-100k€ kv-laajentumiseen)
+- [ ] **KIHU-yhteistyö** — peer-reviewed artikkeli FLEI-metodologiasta
+
+---
+
+*Lisäykset CLAUDE.md:hen — 2026-05-02*
