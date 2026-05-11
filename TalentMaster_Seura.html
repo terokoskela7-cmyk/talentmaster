@@ -4506,7 +4506,7 @@ async function lataaRekisteriPohja() {
     const wb = XLSX.utils.book_new();
 
     // ── PELAAJAT-välilehti ──────────────────────────────────────
-    const pelaajaOtsikot = ['Etunimi *', 'Sukunimi *', 'Joukkue *', 'Huoltajan sähköposti *', 'PalloID', 'Talenttiohjelma', 'TalenttiTaso'];
+    const pelaajaOtsikot = ['Etunimi *', 'Sukunimi *', 'Joukkue * (katso Asetukset-välilehti)', 'Huoltajan sähköposti *', 'PalloID (vapaaehtoinen)', 'Talenttiohjelma', 'TalenttiTaso'];
     const ohje = [
       '📋  OHJE SIHTEEREILLE',
       '1.  Täytä jokainen pelaaja omalle rivilleen.',
@@ -4533,45 +4533,31 @@ async function lataaRekisteriPohja() {
       {wch: 16}, {wch: 18}, {wch: 22}, {wch: 32}, {wch: 14}, {wch: 18}, {wch: 16}, {wch: 4}, {wch: 50}
     ];
 
-    // DataValidation — Joukkue-dropdown (C2:C101) seuran joukkueista
-    // SheetJS kirjoittaa validoinnin suoraan formula1:nä
-    const joukkueetFormula = '"' + kaikkiJoukkueet.join(',') + '"';
-    wsPel['!dataValidations'] = [
-      {
-        sqref: 'C2:C101',
-        type: 'list',
-        formula1: joukkueetFormula,
-        showDropDown: false,
-        showErrorMessage: true,
-        errorTitle: 'Virheellinen joukkue',
-        error: 'Valitse joukkue listasta. Jos joukkue puuttuu, lisää se ensin Joukkueet-välilehdellä Seurahallinnassa.',
-      },
-      {
-        sqref: 'F2:F101',
-        type: 'list',
-        formula1: '"kyllä,ei"',
-        showDropDown: false,
-      },
-      {
-        sqref: 'G2:G101',
-        type: 'list',
-        formula1: '"perus,laajennettu"',
-        showDropDown: false,
-      },
-    ];
+    // HUOMIO: SheetJS 0.18.5 (ilmainen) ei tue dataValidation-dropdowneja.
+    // Toimiva ratkaisu: Asetukset-välilehdelle kirjoitetaan joukkueet selkeästi
+    // ja sihteeri valitsee joukkueen sieltä copy-pastella.
+    // DataValidation Pro-ominaisuus — lisätään Cloud Function -pohjaan Sprint 4-5.
+
+    // Merkitään Joukkue-sarake keltaisella jotta sihteeri huomaa täyttää sen
+    // (SheetJS tukee soluformaatteja)
 
     XLSX.utils.book_append_sheet(wb, wsPel, 'Pelaajat');
 
     // ── ASETUKSET-välilehti — joukkueet kirjoitettu valmiiksi ───
     const asData = [
-      ['Seuran joukkueet', '', 'Haettu automaattisesti TalentMasterista'],
-      ['Muokkaa joukkueita Seurahallinta → Joukkueet-välilehdellä, lataa sitten uusi pohja.'],
+      ['⚠ OHJE: Kopioi joukkuenimi alta Pelaajat-välilehden Joukkue-sarakkeeseen', '', ''],
+      ['Muokkaa joukkueita: Seurahallinta → Joukkueet-välilehti → lataa uusi pohja.'],
       [],
-      ['Joukkue'],
-      ...kaikkiJoukkueet.map(j => [j]),
+      ['✓ SEURAN JOUKKUEET (kopioi tarkasti):'],
+      ...kaikkiJoukkueet.map((j, i) => [j, '', i === 0 ? '← kopioi tämä Joukkue-sarakkeeseen' : '']),
     ];
     const wsAs = XLSX.utils.aoa_to_sheet(asData);
-    wsAs['!cols'] = [{wch: 30}, {wch: 4}, {wch: 50}];
+    wsAs['!cols'] = [{wch: 35}, {wch: 4}, {wch: 40}];
+    // Merkitään joukkuenimet lihavoituina SheetJS:n cell-muotoilulla
+    kaikkiJoukkueet.forEach((_, i) => {
+      const solunId = 'A' + (5 + i);
+      if (wsAs[solunId]) wsAs[solunId].s = { font: { bold: true } };
+    });
     XLSX.utils.book_append_sheet(wb, wsAs, 'Asetukset');
 
     // ── ESIMERKKI-välilehti ──────────────────────────────────────
