@@ -931,6 +931,55 @@ body {
   .kpi-row { grid-template-columns: repeat(2,1fr); }
   .coach-grid { grid-template-columns: 1fr; }
 }
+
+/* ── MOBIILI — hampurilais + sivupalkin slide-in (CLAUDE.md §6) ─── */
+#hamburgeri {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+#hamburgeri span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--ink);
+  position: relative;
+}
+#hamburgeri span::before,
+#hamburgeri span::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 18px;
+  height: 2px;
+  background: var(--ink);
+}
+#hamburgeri span::before { top: -6px; }
+#hamburgeri span::after  { top:  6px; }
+#sivupalkkiOverlay {
+  display: none;
+  position: fixed;
+  top: var(--topbar);
+  left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 85;
+}
+@media (max-width: 768px) {
+  #hamburgeri { display: flex !important; }
+  #topbar .logo { display: none; }
+  #topbar .topbar-email { display: none; }
+  #sidebar { transform: translateX(-100%); transition: transform .25s ease; }
+  #sidebar.auki { transform: translateX(0); }
+  #sivupalkkiOverlay.auki { display: block !important; }
+}
 </style>
 </head>
 <body>
@@ -972,6 +1021,7 @@ body {
 <div id="sDash">
   <!-- TOPBAR -->
   <div id="topbar">
+    <button id="hamburgeri" type="button" aria-label="Avaa valikko" onclick="_toggleSivupalkki()"><span></span></button>
     <div class="logo">Talent<span>Master</span>™</div>
     <div class="topbar-ctx">
       <span class="ctx-seura" id="tbSeura">—</span>
@@ -987,6 +1037,8 @@ body {
       <button class="btn-logout" onclick="kirjauduUlos()">Kirjaudu ulos</button>
     </div>
   </div>
+
+  <div id="sivupalkkiOverlay" onclick="_toggleSivupalkki()"></div>
 
   <!-- SIDEBAR -->
   <div id="sidebar">
@@ -2170,8 +2222,28 @@ function demoMode() {
   renderTilanne(); renderTeamPulse(); renderValmentajat(); renderKalib(); renderDI(); renderPelaajat(); renderKalenteri(); renderRaportointi();
 }
 
+// MOBIILI — sivupalkin slide-in (CLAUDE.md §6)
+function _toggleSivupalkki() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sivupalkkiOverlay');
+  if (!sb || !ov) return;
+  const auki = sb.classList.toggle('auki');
+  ov.classList.toggle('auki', auki);
+}
+window._toggleSivupalkki = _toggleSivupalkki;
+
+// Sulje sivupalkki kun työtila valitaan mobiilissa
+document.addEventListener('click', e => {
+  if (window.innerWidth > 768) return;
+  if (!e.target.closest('.sb-item')) return;
+  document.getElementById('sidebar')?.classList.remove('auki');
+  document.getElementById('sivupalkkiOverlay')?.classList.remove('auki');
+});
+
 function kirjauduUlos() {
-  auth.signOut().then(() => naytaLogin());
+  // CLAUDE.md §11 oppi #5: dispatch tm:logout → 50ms → signOut()
+  window.dispatchEvent(new CustomEvent('tm:logout'));
+  setTimeout(() => auth.signOut().then(() => naytaLogin()), 50);
 }
 
 // ─── TOAST ───────────────────────────────────────────────
