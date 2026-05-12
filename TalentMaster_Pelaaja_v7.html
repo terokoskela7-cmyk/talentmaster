@@ -48,6 +48,10 @@ button{font-family:var(--font-b);cursor:pointer}
 .loc-btn{background:transparent;color:var(--ink3);border:none;padding:4px 8px;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;border-radius:3px;transition:background .12s,color .12s}
 .loc-btn.on{background:var(--teal);color:var(--text)}
 .scene-bar{display:none;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:10px;width:100%;max-width:100vw;box-sizing:border-box;}
+/* Takautuva-modaalin napit (3-tyyppi + 4-kesto -valinta) */
+.tk-btn{background:rgba(242,239,230,.04);border:.5px solid rgba(242,239,230,.14);color:var(--ink2);padding:10px 6px;font-size:11px;font-weight:500;letter-spacing:.04em;border-radius:8px;cursor:pointer;text-align:center;line-height:1.4;transition:all .15s;font-family:inherit}
+.tk-btn:hover{color:var(--text);border-color:rgba(40,176,144,.4)}
+.tk-btn.on{background:rgba(40,176,144,.14);border-color:rgba(40,176,144,.6);color:var(--teal)}
 .demo-mode .scene-bar{display:flex;}
 .demo-mode .locale-bar{display:flex;}
 .sp{background:rgba(242,239,230,.04);color:var(--ink3);border:.5px solid rgba(242,239,230,.1);padding:5px 9px;font-size:9px;letter-spacing:.18em;text-transform:uppercase;font-weight:500;border-radius:20px;transition:background .12s,color .12s,border-color .12s}
@@ -397,6 +401,8 @@ function ic(name,sz=20,col='currentColor',sw=1.5){
    STATE
 ══════════════════════════════════════ */
 let _sc='pin', _tab='tanaan', _cOpen=false;
+let _takautuvaTyyppi = null;  // takautuva-modaalin valinta
+let _takautuvaKesto  = null;  // takautuva-modaalin kesto
 
 // localStorage-migraatio: vanhat tab-ID:t → uudet 3-tab-rakenteen ID:t
 // Defensiivinen — _tab ei tällä hetkellä persistoidu, mutta käsittelee
@@ -657,7 +663,7 @@ function rA1(){
   ${hdr((_pelaaja?.etunimi||'Pelaaja')+' · '+(_pelaaja?.pelaajaProfiili||''))}
   <section style="padding:28px 20px 20px">
     <div class="ey ac" style="margin-bottom:10px">${T('today')}</div>
-    <div class="sig" style="margin-bottom:14px">${_streakViesti(_streak || 0)}</div>
+    <div class="sig" style="margin-bottom:14px">${_streakViesti(_haeStreak())}</div>
     <div class="meta">${T('speed')}</div>
     ${_signaaliLabel()}
   </section>
@@ -681,22 +687,30 @@ function rA1(){
     </div>`;
   })()}
 
-  <!-- S-KORTTI — Kohdennettu kehitys (30%, heikoin FLEI-ketju) -->
+  <!-- S-KORTTI — Kohdennettu kehitys (30%, heikoin FLEI-ketju)
+       Defensiivinen: renderöityy aina kun _luoOhjelma onnistui,
+       getSHarjoiteWhy:n heitto tai sHarjoite=null ei estä korttia. -->
   ${(()=>{
     const ohj = (_pelaaja && window.PANKKI) ? _luoOhjelma(_pelaaja) : null;
-    if (!ohj?.sHarjoite) return '';
+    if (!ohj) return '';  // EI _pelaaja:a TAI EI PANKKI:a → ei renderöidä
     // _laskeFlei normalisoi raakadatan 1-3 → 0-100 (CLAUDE.md §4 invariantti).
     // ohj.flei on jo normalisoitu — välitetään suoraan getSHarjoiteWhy:lle.
-    const sw = (typeof getSHarjoiteWhy === 'function')
-      ? getSHarjoiteWhy(ohj.flei, ohj.stage)
-      : { ketju: ohj.heikoin, lause: '' };
+    // getSHarjoiteWhy heittää jos flei on tyhjä → try/catch suojaa rA1():tä.
+    let sw = { ketju: ohj.heikoin || 'SBL', lause: '' };
+    try {
+      if (typeof getSHarjoiteWhy === 'function' && ohj.flei && Object.keys(ohj.flei).length) {
+        sw = getSHarjoiteWhy(ohj.flei, ohj.stage);
+      }
+    } catch(e) { console.warn('[S-kortti getSHarjoiteWhy]', e.message); }
+    const sNimi = ohj.sHarjoite?.nimi || 'Harjoite päivittyy';
+    if (!ohj.sHarjoite) console.warn('[S-kortti] sHarjoite null:', { heikoin: ohj.heikoin, stage: ohj.stage, flei: ohj.flei });
     return `
     <div style="margin:12px 20px;padding:14px 16px;background:rgba(40,176,144,.06);border:.5px solid rgba(40,176,144,.28);border-radius:10px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div style="font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:#E0A653">Kohdennettu kehitys</div>
         <div style="font-size:9px;color:var(--ink3);letter-spacing:.14em">${sw.ketju}</div>
       </div>
-      <div style="font-family:var(--font-d);font-size:15px;font-weight:500;color:var(--text);line-height:1.3;margin-bottom:${sw.lause?'6px':'10px'}">${ohj.sHarjoite.nimi||'—'}</div>
+      <div style="font-family:var(--font-d);font-size:15px;font-weight:500;color:var(--text);line-height:1.3;margin-bottom:${sw.lause?'6px':'10px'}">${sNimi}</div>
       ${sw.lause ? `<div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-bottom:10px;font-style:italic">${sw.lause}</div>` : ''}
       <button id="sKirjausBtn" onclick="_kirjaaHarjoite('S')" style="background:rgba(40,176,144,.18);border:.5px solid rgba(40,176,144,.4);color:#28B090;padding:8px 14px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;cursor:pointer">
         ✓ Kirjaa tehdyksi
@@ -757,6 +771,13 @@ function rA1(){
       </div>`;
     })()}
   </div>
+
+  <!-- Takautuva liikuntakirjaus — pieni linkki ennen bottom-navia -->
+  <a onclick="_avaaTakautuvaModal()"
+    style="display:block;text-align:center;padding:18px;color:var(--ink3);font-size:12px;
+           letter-spacing:.06em;text-decoration:none;cursor:pointer">
+    + Lisää mennyt päivä
+  </a>
 </div>`;
 }
 
@@ -971,7 +992,7 @@ function rMina(){
   const xpNext = taso * 1000;
   // _streak on Firestoresta haettu (oikea pelaaja) tai 0 (ei haettu vielä)
   // _pelaaja.streak on demo-arvo — käytetään fallbackina kun Firestore ei ole ajettu
-  const streak = (_streak > 0 ? _streak : (_pelaaja?.streak || 0));
+  const streak = _haeStreak();
   const flei   = _pelaaja?.flei_viimeisin || 0;
   const ika    = p?.syntymaVuosi ? new Date().getFullYear()-p.syntymaVuosi : '?';
   const profiili = p?.pelaajaProfiili || '–';
@@ -1732,7 +1753,7 @@ function rTabs(){
 function hdr(v){
   // XP-palkki poistettu UI:sta (brand-päätös 2026-05-12) — XP-luvut tallennetaan
   // edelleen Firestoreen _tallennaKirjaus:n kautta, mutta niitä ei renderöidä.
-  const streak = _streak || _pelaaja?.streak || 0;
+  const streak = _haeStreak();
   return `
 <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px 0">
   <div>
@@ -2170,6 +2191,31 @@ function _kaynnistaAppUI() {
 
 
 /* ══════════════════════════════════════════════════════════
+   _paivaIso — paikallinen aikavyöhyke YYYY-MM-DD
+   Korvaa toISOString().slice(0,10):n joka käyttää UTC:tä ja
+   aiheuttaa off-by-one -bugin keskiyön tienoilla EET/EEST.
+══════════════════════════════════════════════════════════ */
+function _paivaIso(d) {
+  d = d || new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+window._paivaIso = _paivaIso;
+
+/* ══════════════════════════════════════════════════════════
+   _haeStreak — yksi totuus streak-arvolle
+   _streak (Firestoresta laskettu) ensisijainen, _pelaaja.streak
+   fallback (esim. demo-tila tai Firestore-haku kesken).
+   Korjaa hdr() ↔ streakViesti -ristiriidan.
+══════════════════════════════════════════════════════════ */
+function _haeStreak() {
+  return _streak || _pelaaja?.streak || 0;
+}
+window._haeStreak = _haeStreak;
+
+/* ══════════════════════════════════════════════════════════
    STREAK-VIESTI — positiivinen kehys (Seligman PERMA + Deci & Ryan SDT)
    Ei loss aversion -kieltä missään tilassa.
    Brand-päätös 2026-05-12.
@@ -2217,7 +2263,7 @@ function _paivitaDemoData() {
 // Firestore-kirjaus — kutsu aina kun tehty-nappia painetaan
 async function _tmKirjaa(avain, arvo) {
   if (!_pelaaja?.id || !window._db) return;
-  const pvm = new Date().toISOString().slice(0,10);
+  const pvm = _paivaIso();
   const seuraId = window._seuraId || _pelaaja?.seuraId || null;
   try {
     // Oikea polku: seurat/{seuraId}/pelaajat/{uid}/kirjaukset/{pvm}
@@ -2255,7 +2301,7 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
     if (u) await u.getIdToken(true);
   } catch (_) { /* ei estä kirjausta */ }
 
-  const pvm = new Date().toISOString().slice(0,10);
+  const pvm = _paivaIso();
   const db  = window._db;
   const pelaajaDok = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid);
   const kirjausDok = pelaajaDok.collection('kirjaukset').doc(pvm);
@@ -2278,6 +2324,7 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
     rpe:       ekstra?.rpe       || null,
     fiilinki:  ekstra?.fiilinki  || null,
     konteksti: ekstra?.konteksti || null,
+    kirjaustapa: 'heti',  // reaaliaikainen kirjaus — vrt. 'jalkikateen' (takautuva)
     paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
   };
 
@@ -2349,6 +2396,115 @@ function _harjoiteVahvistus(btnId) {
 
 // CLAUDE.md §17 #21: HTML onclick= vaatii window._-globaaleja
 window._kirjaaHarjoite = _kirjaaHarjoite;
+
+
+/* ══════════════════════════════════════════════════════════
+   TAKAUTUVA LIIKUNTAKIRJAUS — 'jalkikateen'-tyyppi
+   Pelaaja voi lisätä menneitä päiviä (tänään - 30pv).
+   Konflikti-strategia: jos pvm-doc on jo olemassa, lisätään
+   'takautuva'-alikenttänä — alkuperäistä EI ylikirjoiteta.
+══════════════════════════════════════════════════════════ */
+async function _kirjaaTakautuva(pvm, tyyppi, kestoMin) {
+  if (_isDemoUser || !_pelaaja || !window._db) return;
+  const sid = window._seuraId || _pelaaja.seuraId;
+  const pid = _pelaaja.id;
+  if (!sid || !pid || !pvm || !tyyppi) return;
+
+  try {
+    const u = window._auth?.currentUser || firebase.auth().currentUser;
+    if (u) await u.getIdToken(true);
+  } catch(_) {}
+
+  const ref = window._db.collection('seurat').doc(sid)
+    .collection('pelaajat').doc(pid)
+    .collection('kirjaukset').doc(pvm);
+
+  try {
+    const snap = await ref.get();
+    if (snap.exists) {
+      // Älä ylikirjoita olemassa olevaa kirjausta — tallenna takautuva alikenttänä
+      await ref.set({
+        takautuva: {
+          tyyppi, kesto_min: kestoMin,
+          lisatty: firebase.firestore.FieldValue.serverTimestamp()
+        }
+      }, { merge: true });
+    } else {
+      // Uusi dokumentti — täysi kirjaus
+      await ref.set({
+        tyyppi, tehty: true,
+        kesto_min: kestoMin,
+        kirjaustapa: 'jalkikateen',
+        pvm,
+        xp: 0,
+        rpe: null, fiilinki: null, aika: null,
+        lahde: 'manuaalinen',
+        paivitetty: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    console.log('[takautuva] kirjattu:', pvm, tyyppi, kestoMin);
+  } catch(e) {
+    console.warn('[takautuva]', e.message);
+  }
+}
+
+function _avaaTakautuvaModal() {
+  const ov = document.getElementById('takautuvaOv');
+  if (!ov) return;
+  const today = new Date();
+  const max = _paivaIso(today);
+  const minDate = new Date(today.getTime() - 30*86400000);
+  const min = _paivaIso(minDate);
+  const inp = document.getElementById('takautuvaPvm');
+  if (inp) { inp.min = min; inp.max = max; inp.value = max; }
+  _takautuvaTyyppi = null;
+  _takautuvaKesto = null;
+  ov.querySelectorAll('[data-tk-tyyppi]').forEach(b => b.classList.remove('on'));
+  ov.querySelectorAll('[data-tk-kesto]').forEach(b => b.classList.remove('on'));
+  const kestoBlock = document.getElementById('takautuvaKesto');
+  if (kestoBlock) kestoBlock.style.display = '';
+  ov.style.display = 'flex';
+}
+window._avaaTakautuvaModal = _avaaTakautuvaModal;
+
+function _suljeTakautuva() {
+  const ov = document.getElementById('takautuvaOv');
+  if (ov) ov.style.display = 'none';
+}
+window._suljeTakautuva = _suljeTakautuva;
+
+function _valitseTakautuvaTyyppi(tyyppi, btn) {
+  _takautuvaTyyppi = tyyppi;
+  document.querySelectorAll('[data-tk-tyyppi]').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  // Lepopäivälle ei tarvita kestoa — piilota kestonapit
+  const kestoBlock = document.getElementById('takautuvaKesto');
+  if (kestoBlock) kestoBlock.style.display = tyyppi === 'lepo' ? 'none' : '';
+}
+window._valitseTakautuvaTyyppi = _valitseTakautuvaTyyppi;
+
+function _valitseTakautuvaKesto(kesto, btn) {
+  _takautuvaKesto = kesto;
+  document.querySelectorAll('[data-tk-kesto]').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+}
+window._valitseTakautuvaKesto = _valitseTakautuvaKesto;
+
+async function _tallennaTakautuva() {
+  const inp = document.getElementById('takautuvaPvm');
+  const pvm = inp?.value;
+  if (!pvm)              { alert('Valitse päivä'); return; }
+  if (!_takautuvaTyyppi) { alert('Valitse mitä teit'); return; }
+  // Lepopäivälle kesto = 0, muille pakollinen
+  const kesto = _takautuvaTyyppi === 'lepo' ? 0 : _takautuvaKesto;
+  if (_takautuvaTyyppi !== 'lepo' && !kesto) {
+    alert('Valitse kesto'); return;
+  }
+  await _kirjaaTakautuva(pvm, _takautuvaTyyppi, kesto);
+  _suljeTakautuva();
+  if (typeof _lataaCStreak === 'function') setTimeout(_lataaCStreak, 400);
+}
+window._tallennaTakautuva = _tallennaTakautuva;
 
 
 /* ══ PIN-KIRJAUTUMINEN FIRESTOREEN ══════════════════════════════ */
@@ -2934,7 +3090,7 @@ async function _lataaCStreak() {
       .sort().reverse();
     
     let streak = 0;
-    const today = new Date().toISOString().slice(0,10);
+    const today = _paivaIso();
     let expected = today;
     
     for (const pvm of paivamaarat) {
@@ -2943,7 +3099,7 @@ async function _lataaCStreak() {
         // seuraava odotettava päivä = edellisenä päivänä
         const d = new Date(expected + 'T12:00:00Z');
         d.setDate(d.getDate() - 1);
-        expected = d.toISOString().slice(0,10);
+        expected = _paivaIso(d);
       } else if (pvm < expected) {
         break; // aukko — putki katkeaa
       }
@@ -2959,14 +3115,83 @@ async function _lataaCStreak() {
 async function _kirjaaStreak() {
   // Suora kutsu vain legacy-poluille — päävirta kulkee _tallennaKirjaus():n kautta
   if (_isDemoUser || !_pelaaja?.id || !window._db) return;
-  const pvm = new Date().toISOString().slice(0,10);
+  const pvm = _paivaIso();
   await _tmKirjaa('tehty', true);
   await _tmKirjaa('streak_pvm', pvm);
   _streak = Math.max(_streak, 1);
-  
+
   // Tarkista X-Factor (streak ≥ 7) ja Gem (3 kuukautta nousevaa FLEI:tä)
   _tarkistaSignaalit();
 }
+
+/* ══════════════════════════════════════════════════════════
+   PALLOLIITON VIIKKOSEURANTA
+   Hakee viimeisten 52 viikon kirjaukset ja laskee viikot
+   jolloin kaikki 7 päivää on merkitty. Kirjaustapa ei vaikuta —
+   sekä 'heti', 'jalkikateen' että 'auto' kelpaavat viikkoon.
+   Tavoite: 20 viikkoa/vuosi (kevyt: 12, deadlinet 2026).
+══════════════════════════════════════════════════════════ */
+async function laskePalloliittoViikot(pelaajaId) {
+  pelaajaId = pelaajaId || _pelaaja?.id;
+  if (!pelaajaId || !window._db) return null;
+  const sid = window._seuraId || _pelaaja?.seuraId;
+  if (!sid) return null;
+
+  // 52 viikkoa = 364 päivää
+  const raja = new Date();
+  raja.setDate(raja.getDate() - 364);
+  const rajaIso = _paivaIso(raja);
+
+  try {
+    const snap = await window._db.collection('seurat').doc(sid)
+      .collection('pelaajat').doc(pelaajaId)
+      .collection('kirjaukset')
+      .where(firebase.firestore.FieldPath.documentId(), '>=', rajaIso)
+      .get();
+
+    // Set kirjattujen päivien (YYYY-MM-DD)
+    const kirjattu = new Set();
+    snap.docs.forEach(d => kirjattu.add(d.id));
+
+    // ISO-viikko (Mon-Sun): laske tämän viikon maanantai
+    const monday = (d) => {
+      const day = d.getDay() || 7;  // Sun=0 → 7
+      const m = new Date(d);
+      m.setDate(d.getDate() - (day - 1));
+      m.setHours(0, 0, 0, 0);
+      return m;
+    };
+
+    const tama = monday(new Date());
+    const tanaan = new Date();
+    let hyvaksytyt = 0;
+
+    for (let v = 0; v < 52; v++) {
+      const viikkoStart = new Date(tama);
+      viikkoStart.setDate(tama.getDate() - v * 7);
+      let kaikki = true;
+      for (let pv = 0; pv < 7; pv++) {
+        const d = new Date(viikkoStart);
+        d.setDate(viikkoStart.getDate() + pv);
+        if (d > tanaan) break;  // tuleva päivä — älä laske vajaata viikkoa
+        if (!kirjattu.has(_paivaIso(d))) { kaikki = false; break; }
+      }
+      if (kaikki) hyvaksytyt++;
+    }
+
+    return {
+      hyvaksytyt,
+      tavoite: 20,
+      kevyt_tavoite: 12,
+      deadline_kevyt: '2026-06-30',
+      deadline_tavoite: '2026-12-31'
+    };
+  } catch (e) {
+    console.warn('[palloliitto-viikot]', e.message);
+    return null;
+  }
+}
+window.laskePalloliittoViikot = laskePalloliittoViikot;
 
 /* ═══════════════════════════════════════════════════════════
    RPE-KIRJAUS v5
@@ -3040,209 +3265,3 @@ function _signaaliLabel() {
   if (s === 'x-factor') return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(40,176,144,.12);border:.5px solid rgba(40,176,144,.25);font-size:11px;font-weight:600;color:#28B090;margin-bottom:10px">⚡ X-Factor</div>';
   if (s === 'gem')      return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(184,134,11,.12);border:.5px solid rgba(184,134,11,.25);font-size:11px;font-weight:600;color:#B8860B;margin-bottom:10px">💎 Piilohelmi</div>';
   if (s === 'phv')      return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(216,90,90,.12);border:.5px solid rgba(216,90,90,.25);font-size:11px;font-weight:600;color:#D85A5A;margin-bottom:10px">⚠ PHV — kevennä kuormaa</div>';
-  if (_streak >= 7)     return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(40,176,144,.12);border:.5px solid rgba(40,176,144,.25);font-size:11px;font-weight:600;color:#28B090;margin-bottom:10px">🔥 ' + _streak + ' pv putki</div>';
-  return '';
-}
-
-/* ═══════════════════════════════════════════════════════════
-   ADAR-NÄYTTÖ v5
-   Awareness · Decision · Action · Reading
-   Valmentajan kirjaamat pisteet 1–5 näkyy pelaajalle
-═══════════════════════════════════════════════════════════ */
-function rAdar() {
-  const adar = _pelaaja?.adar || null;
-  if (!adar) return '<div style="color:var(--ink3);font-size:12px;padding:12px 0">Ei ADAR-arviota vielä — valmentaja kirjaa havaintonsa harjoituksessa.</div>';
-  
-  const dims = [
-    {k:'A', lbl:'Awareness', kuvaus:'Skannaat ennen — peliälytietoisuus'},
-    {k:'D', lbl:'Decision',  kuvaus:'Oikea ratkaisu oikeaan aikaan'},
-    {k:'A2',lbl:'Action',    kuvaus:'Toteutus paineen alla'},
-    {k:'R', lbl:'Reading',   kuvaus:'Luet pelin kulun'},
-  ];
-  
-  return '<div style="margin-top:8px">' +
-    dims.map(d => {
-      const val = adar[d.k.toLowerCase()] || 0;
-      const pct = (val/5)*100;
-      const c = val >= 4 ? '#28B090' : val >= 3 ? '#E0A653' : '#D85A5A';
-      return `<div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-          <div style="font-size:11px;font-weight:600;color:var(--ink2)">${d.lbl}</div>
-          <div style="font-size:11px;font-family:var(--font-m);color:${c}">${val}/5</div>
-        </div>
-        <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:${c};border-radius:2px;transition:width .4s"></div>
-        </div>
-        <div style="font-size:10px;color:var(--ink3);margin-top:3px">${d.kuvaus}</div>
-      </div>`;
-    }).join('') + '</div>';
-}
-
-/* ═══════════════════════════════════════════════════════════
-   AIKAJANA v5 — kehityshistoria
-   Näytetään rA3-näkymässä
-═══════════════════════════════════════════════════════════ */
-function rAikajana() {
-  // Koostetaan demo-historia + Firestore-data myöhemmin
-  const tapahtumat = _pelaaja?.aikajana || [
-    { kk:'HELMI', txt:'IDP aktivoitu — DIAG-ketju fokukseen.' },
-    { kk:'MAALIS', txt:'FLEI nousi 61 % → 68 %. SFL edelleen heikoin.' },
-    { kk:'HUHTI', txt:'Streak-ennätys: 14 päivää peräkkäin. X-Factor.' },
-  ];
-  
-  if (!tapahtumat.length) return '<div style="color:var(--ink3);font-size:12px;padding:12px 0">Ei tapahtumia vielä.</div>';
-  
-  return '<div style="position:relative;padding-left:20px">' +
-    '<div style="position:absolute;left:6px;top:8px;bottom:0;width:.5px;background:var(--border2)"></div>' +
-    tapahtumat.map(t => `
-      <div style="position:relative;margin-bottom:16px">
-        <div style="position:absolute;left:-17px;top:4px;width:7px;height:7px;border-radius:50%;background:var(--teal);border:1.5px solid var(--bg)"></div>
-        <div style="font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:3px">${t.kk}</div>
-        <div style="font-size:12px;color:var(--ink2);line-height:1.5">${t.txt}</div>
-      </div>`).join('') + '</div>';
-}
-
-draw();
-</script>
-
-<!-- FIFA Card Overlay -->
-<div class="fc-ov" id="fcOv"></div>
-
-<script>
-// ═══════════════════════════════════════════════════════════════════════
-// P6 — VALMENTAJAN HAVAINTO → PELAAJAN NÄKYMÄ
-// onSnapshot kuuntelee: seurat/{id}/pelaajat/{id}/havainnot
-// Suodatin: tila=='valmis' AND pelaaja_lukenut==false
-// Pelaaja näkee narratiivin + oppimisnäkökohdan — ei ADAR-pisteitä
-// ═══════════════════════════════════════════════════════════════════════
-
-// Globaali tila — käytetään myös KOTI-renderöinnissä (streak-badge vieressä)
-window._havLkm = 0;
-window._havData = [];
-window._havUnsub = null;
-
-// Apurakenne joka tallentaa pelaajan identiteetin kun se on selvinnyt.
-// _kaynnistaAppUI() täyttää tämän, P6-koodi lukee siitä.
-window._p7Pelaaja = window._p7Pelaaja || { seuraId: null, pelaajaId: null };
-
-// Käynnistää onSnapshot-kuuntelijan. Kutsutaan _kaynnistaAppUI():sta
-// heti kun seuraId ja pelaajaId ovat tiedossa.
-function _p6KaynnistakuuntelIja(seuraId, pelaajaId) {
-  // Pura vanha kuuntelija ensin (uudelleenkirjautuminen tms.)
-  if (window._havUnsub) { window._havUnsub(); window._havUnsub = null; }
-
-  const db = window._db;
-  if (!db || !seuraId || !pelaajaId) return;
-
-  // Tallennetaan identiteetti myöhempää käyttöä varten
-  window._p7Pelaaja = { seuraId, pelaajaId };
-
-  // reaaliaikainen kuuntelija — reagoi välittömästi kun valmentaja tallentaa
-  window._havUnsub = db
-    .collection('seurat').doc(seuraId)
-    .collection('pelaajat').doc(pelaajaId)
-    .collection('havainnot')
-    .where('tila', '==', 'valmis')
-    .where('pelaaja_lukenut', '==', false)
-    .orderBy('luotu', 'desc')
-    .onSnapshot(function(snap) {
-      window._havLkm  = snap.size;
-      window._havData = snap.docs.map(function(d) {
-        return Object.assign({ _id: d.id }, d.data());
-      });
-      // Päivitä KOTI-näkymän merkki jos se on renderöitynä
-      _p6PaivitaMerkki();
-      // Värähtely kun uusi havainto saapuu (mobiili, reaaliajassa)
-      if (snap.size > 0 && !snap.metadata.fromCache && document.visibilityState === 'visible') {
-        if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-      }
-    }, function(err) {
-      // Oikeusvirhe demo-tilassa tai jos Firestore-säännöt eivät salli — ohitetaan
-      console.warn('[P6]', err.code);
-    });
-}
-
-// Päivittää KOTI-näkymässä olevan havainto-merkin laskurin
-function _p6PaivitaMerkki() {
-  const el = document.querySelector('.hav-merkki');
-  if (!el) return; // KOTI ei ole renderöitynä — ei tee mitään
-  if (window._havLkm > 0) {
-    el.style.display = 'inline-flex';
-    const tekstiNode = el.lastChild;
-    if (tekstiNode) tekstiNode.textContent = ' ' + window._havLkm + ' uutta';
-  } else {
-    el.style.display = 'none';
-  }
-}
-
-// Avaa overlay jossa pelaaja lukee valmentajan havainnot.
-// Pelaaja näkee narratiivin ja oppimisnäkökohdan — ei ADAR-pisteitä (numeroita).
-// Tämä on pedagoginen valinta: palaute on tarina, ei arvosana.
-function _avaaHavainnot() {
-  if (!window._havData.length) return;
-  const { seuraId, pelaajaId } = window._p7Pelaaja;
-
-  const kortit = window._havData.map(function(h) {
-    const pvm    = h.pvm || '';
-    const tekija = h.tekija_nimi || 'Valmentaja';
-    const narr   = h.narratiivi || '';
-    const oppim  = h.oppimisnakokohta || '';
-
-    return '<div class="hav-card" id="hk-' + h._id + '">' +
-      '<div class="hav-card-hdr">' +
-        '<div class="hav-dot"></div>' +
-        '<div class="hav-from">' + tekija + (pvm ? ' · ' + pvm : '') + '</div>' +
-        '<div class="hav-badge">UUSI</div>' +
-        '<button class="hav-close" onclick="_p6Luetuksi(\'' + h._id + '\',\'' + seuraId + '\',\'' + pelaajaId + '\')">&#215;</button>' +
-      '</div>' +
-      (narr ? '<div class="hav-narr">' + narr + '</div>' : '') +
-      (oppim ? '<div class="hav-oppiminen"><strong>Mitä opit:</strong> ' + oppim + '</div>' : '') +
-      '<button class="hav-luettu-btn" onclick="_p6Luetuksi(\'' + h._id + '\',\'' + seuraId + '\',\'' + pelaajaId + '\')">Merkitse luetuksi &#8594;</button>' +
-    '</div>';
-  }).join('');
-
-  const ov = document.createElement('div');
-  ov.className = 'hav-ov';
-  ov.id = 'havOv';
-  ov.innerHTML =
-    '<div class="hav-ov-hdr">' +
-      '<div class="hav-ov-title">Valmentajaltasi</div>' +
-      '<button class="hav-ov-close" onclick="_suljeHavainnot()">&#215;</button>' +
-    '</div>' + kortit;
-  document.body.appendChild(ov);
-}
-
-// Merkitsee havainnon luetuksi Firestoreen (pelaaja_lukenut: true)
-// ja poistaa sen overlaystä animaatiolla.
-async function _p6Luetuksi(havId, seuraId, pelaajaId) {
-  const db = window._db;
-  if (!db) return;
-  try {
-    await db
-      .collection('seurat').doc(seuraId)
-      .collection('pelaajat').doc(pelaajaId)
-      .collection('havainnot').doc(havId)
-      .update({ pelaaja_lukenut: true });
-    // Animoi poisto
-    const el = document.getElementById('hk-' + havId);
-    if (el) {
-      el.style.cssText += 'transition:opacity .3s,transform .3s;opacity:0;transform:translateX(20px)';
-      setTimeout(function() { el.remove(); }, 320);
-    }
-    // Sulje overlay automaattisesti kun kaikki on luettu
-    setTimeout(function() {
-      if (window._havLkm === 0) _suljeHavainnot();
-    }, 400);
-  } catch(e) {
-    console.warn('[P6] luetuksi-virhe:', e.message);
-  }
-}
-
-// Sulkee havainto-overlayN
-function _suljeHavainnot() {
-  const ov = document.getElementById('havOv');
-  if (ov) ov.remove();
-}
-</script>
-</body>
-</html>
