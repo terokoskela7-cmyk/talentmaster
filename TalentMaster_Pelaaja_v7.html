@@ -295,6 +295,7 @@ button{font-family:var(--font-b);cursor:pointer}
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
+<script src="tm_why_lauseet.js?v=1"></script>
 </head>
 <body>
 <div class="wrap">
@@ -347,6 +348,9 @@ const STR = {
   xpHint:  {fi:'+40 XP · pitää liekin palamassa',en:'+40 XP · keeps the flame alive',sv:'+40 XP · håller lågan brinnande',de:'+40 XP · hält die Flamme'},
   speed:   {fi:'Nopeusketju kotona · 3 tehtävää · ~5 min',en:'Speed chain at home · 3 tasks · ~5 min',sv:'Snabbkedja hemma · 3 uppgifter · ~5 min',de:'Speed-Chain zu Hause · 3 Aufgaben · ~5 Min'},
   otherTdy:{fi:'Muuta tänään',en:'Other today',sv:'Övrigt idag',de:'Weiteres heute'},
+  tanaan:  {fi:'Tänään', en:'Today',    sv:'Idag',     de:'Heute'},
+  mina:    {fi:'Minä',   en:'Me',       sv:'Jag',      de:'Ich'},
+  meista:  {fi:'Meistä', en:'About us', sv:'Om oss',   de:'Über uns'},
   forgotPw:{fi:'Unohtuiko salasana?',en:'Forgot PIN?',sv:'Glömt PIN?',de:'PIN vergessen?'},
   back:    {fi:'Takaisin',en:'Back',sv:'Tillbaka',de:'Zurück'},
   start:   {fi:'Aloita',en:'Start',sv:'Starta',de:'Starten'},
@@ -392,7 +396,16 @@ function ic(name,sz=20,col='currentColor',sw=1.5){
 /* ══════════════════════════════════════
    STATE
 ══════════════════════════════════════ */
-let _sc='pin', _tab='koti', _cOpen=false;
+let _sc='pin', _tab='tanaan', _cOpen=false;
+
+// localStorage-migraatio: vanhat tab-ID:t → uudet 3-tab-rakenteen ID:t
+// Defensiivinen — _tab ei tällä hetkellä persistoidu, mutta käsittelee
+// edge-caset jos persistointi lisätään myöhemmin tai jos vanha tm_tab on muistissa.
+(function _migroiTab() {
+  const tabMap = { koti:'tanaan', joukkue:'meista', testit:'mina', kortti:'mina', mina:'mina' };
+  const old = localStorage.getItem('tm_tab');
+  if (old && tabMap[old]) localStorage.setItem('tm_tab', tabMap[old]);
+})();
 let _tp='intro', _ts=0, _tsec=0, _tpause=false, _ttimer=null, _gsec=0;
 let _pin='';
 let _oMode='offline';
@@ -448,11 +461,9 @@ function draw(){
   else if(_sc==='vapaa') html=rVapaa();
   else if(_sc==='haaste')html=rHaaste();
   else {
-    if      (_tab==='joukkue') html=rJoukkue();
-    else if (_tab==='testit')  html=rTestit();
-    else if (_tab==='kortti')  html=rKortti();
-    else if (_tab==='mina')    html=rMina();
-    else                       html=rA1();
+    if      (_tab==='mina')   html=rMina();
+    else if (_tab==='meista') html=rMeista();
+    else                      html=rA1();  // 'tanaan' default
   }
   const card='';  // rCard() poistettu — FIFA-kortti renderöityy #fcOv overlayhyn (naytaFcOverlay)
   const tabs=hideTabs?'':rTabs();
@@ -545,9 +556,9 @@ function rPin(){
   return `
 <div style="height:100%;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)">
   <div style="padding:16px 20px 0;text-align:center">
-    <div class="pin-av" style="width:52px;height:52px;font-size:18px;margin:0 auto">${p?((p.etunimi||'')[0]||'A')+((p.sukunimi||'')[0]||'M'):'AM'}</div>
-    <div style="font-family:var(--font-d);font-weight:300;font-size:22px;margin:8px 0 1px;color:var(--text)">${p?p.etunimi||'Anton':'Anton'}</div>
-    <div class="ey" style="letter-spacing:.18em">${p?(p.pelipaikka||'P14')+' · '+(p.joukkueId||'Musta').toUpperCase():'P14 · MUSTA'}</div>
+    <div class="pin-av" style="width:52px;height:52px;font-size:18px;margin:0 auto">${(p?.etunimi?.[0]||'')+(p?.sukunimi?.[0]||'')}</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:22px;margin:8px 0 1px;color:var(--text)">${p?.etunimi||''}</div>
+    <div class="ey" style="letter-spacing:.18em">${[p?.pelipaikka, p?.joukkueId?.toUpperCase()].filter(Boolean).join(' · ')||'—'}</div>
   </div>
   ${_streak>0?`<div style="margin:10px 14px 0;padding:10px 12px;background:rgba(184,92,56,.08);border:.5px solid rgba(184,92,56,.22);border-radius:8px;display:flex;align-items:center;gap:10px">
     <span style="font-size:18px">🔥</span>
@@ -563,7 +574,7 @@ function rPin(){
     </div>
     <div class="card" style="flex:1;padding:8px 10px">
       <div class="ey">Kortti</div>
-      <div class="kpi" style="font-size:20px;margin-top:2px;color:#B8860B">${p?Math.round((p.flei_viimeisin||75)*0.9+10):87}</div>
+      <div class="kpi" style="font-size:20px;margin-top:2px;color:#B8860B">${p?Math.round((p.flei_viimeisin||0)*0.9+10):'—'}</div>
     </div>
   </div>
   <div class="pin-dots" style="margin:14px 0 6px">
@@ -574,10 +585,10 @@ function rPin(){
   <div class="kpad">
     ${keys.map(k=>k===''?'<div></div>':`<button class="key" data-k="${k}">${k}</button>`).join('')}
   </div>
-  <div style="margin:8px 14px 10px;display:flex;gap:6px">
+  ${_isDemoUser ? `<div style="margin:8px 14px 10px;display:flex;gap:6px">
     <button onclick="demoKirjaudu('aleksi')" style="flex:1;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.22);color:#28B090;padding:7px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.08em">⚡ ALEKSI DEMO</button>
     <button onclick="demoKirjaudu('eeli')"   style="flex:1;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.22);color:#28B090;padding:7px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.08em">📈 EELI DEMO</button>
-  </div>
+  </div>` : ''}
 
   <!-- Sähköpostikirjautuminen — vanhemmille ja pelaajille joilla on Firebase-tili -->
   <div id="emailLoginWrap" style="margin:4px 14px 0;border-top:.5px solid rgba(242,239,230,.08);padding-top:10px">
@@ -648,17 +659,69 @@ function rA1(){
     <div class="ey ac" style="margin-bottom:10px">${T('today')}</div>
     <div class="sig" style="margin-bottom:14px">${_streak>0 ? ikaCfg().streakViesti(_streak) : T('streak')}</div>
     <div class="meta">${T('speed')}</div>
-    ${(()=>{ const w=getWhy(_heikoinKetju(),'T',_stage); 
-    const ohj=(_pelaaja&&window.PANKKI)?_luoOhjelma(_pelaaja):null;
-    const sigLabel=_signaaliLabel();
-    return (sigLabel?sigLabel:'') + (w?`<div style="margin-top:10px;padding:8px 12px;background:rgba(26,122,94,.06);border-left:2px solid rgba(26,122,94,.28);font-size:11px;color:rgba(242,239,230,.7);line-height:1.55;font-style:italic">${w}</div>`:'') +
-    (ohj?`<div style="margin-top:10px;padding:8px 12px;background:rgba(242,239,230,.04);border:.5px solid rgba(242,239,230,.1);font-size:11px;color:var(--ink3)">Tänään: <strong style="color:var(--ink2)">${ohj.tHarjoite?.nimi||'—'}</strong> (${ohj.tKetju}) · S: <strong style="color:#E0A653">${ohj.sHarjoite?.nimi||'—'}</strong> (${ohj.heikoin})</div>`:'');
-  })()}
+    ${_signaaliLabel()}
   </section>
-  <div style="padding:0 20px">
-    <button class="btn-p" data-train>${ic('play',16)} ${T('start5')}</button>
-    <div class="meta" style="text-align:center;margin-top:10px;letter-spacing:.1em">${T('xpHint')}</div>
-  </div>
+
+  <!-- D-KORTTI — Tänään (70%, iso pääkortti, ohjelmaharjoite _luoOhjelma:sta) -->
+  ${(()=>{
+    const ohj = (_pelaaja && window.PANKKI) ? _luoOhjelma(_pelaaja) : null;
+    if (!ohj?.tHarjoite) return '';
+    const dWhy = (typeof getWhyLause === 'function') ? getWhyLause(ohj.tKetju, 'D', ohj.stage) : '';
+    return `
+    <div style="margin:14px 20px;padding:18px 18px;background:linear-gradient(135deg,rgba(40,176,144,.14),rgba(40,176,144,.04));border:1px solid rgba(40,176,144,.45);border-radius:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--teal)">${T('today')}</div>
+        <div style="font-size:9px;color:var(--ink3);letter-spacing:.14em">${ohj.tKetju}</div>
+      </div>
+      <div style="font-family:var(--font-d);font-size:18px;font-weight:500;color:var(--text);line-height:1.3;margin-bottom:${dWhy?'8px':'14px'}">${ohj.tHarjoite.nimi||'—'}</div>
+      ${dWhy ? `<div style="font-size:12px;color:var(--ink2);line-height:1.5;margin-bottom:14px;font-style:italic">${dWhy}</div>` : ''}
+      <button id="dKirjausBtn" onclick="_kirjaaHarjoite('D')" class="btn-p" style="width:100%;margin-top:0">
+        ✓ Kirjaa tehdyksi
+      </button>
+    </div>`;
+  })()}
+
+  <!-- S-KORTTI — Kohdennettu kehitys (30%, heikoin FLEI-ketju) -->
+  ${(()=>{
+    const ohj = (_pelaaja && window.PANKKI) ? _luoOhjelma(_pelaaja) : null;
+    if (!ohj?.sHarjoite) return '';
+    // _laskeFlei normalisoi raakadatan 1-3 → 0-100 (CLAUDE.md §4 invariantti).
+    // ohj.flei on jo normalisoitu — välitetään suoraan getSHarjoiteWhy:lle.
+    const sw = (typeof getSHarjoiteWhy === 'function')
+      ? getSHarjoiteWhy(ohj.flei, ohj.stage)
+      : { ketju: ohj.heikoin, lause: '' };
+    return `
+    <div style="margin:12px 20px;padding:14px 16px;background:rgba(40,176,144,.06);border:.5px solid rgba(40,176,144,.28);border-radius:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:#E0A653">Kohdennettu kehitys</div>
+        <div style="font-size:9px;color:var(--ink3);letter-spacing:.14em">${sw.ketju}</div>
+      </div>
+      <div style="font-family:var(--font-d);font-size:15px;font-weight:500;color:var(--text);line-height:1.3;margin-bottom:${sw.lause?'6px':'10px'}">${ohj.sHarjoite.nimi||'—'}</div>
+      ${sw.lause ? `<div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-bottom:10px;font-style:italic">${sw.lause}</div>` : ''}
+      <button id="sKirjausBtn" onclick="_kirjaaHarjoite('S')" style="background:rgba(40,176,144,.18);border:.5px solid rgba(40,176,144,.4);color:#28B090;padding:8px 14px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;cursor:pointer">
+        ✓ Kirjaa tehdyksi
+      </button>
+    </div>`;
+  })()}
+
+  <!-- T-KORTTI / Bola Siempre — kevyin, dashed reunus, vakio (ei muutu) -->
+  ${(()=>{
+    const stage = _laskeStage(_pelaaja?.syntymaVuosi, _pelaaja?.phv_tila);
+    const tWhy = (typeof getTHarjoiteWhy === 'function') ? getTHarjoiteWhy(stage) : '';
+    return `
+    <div style="margin:12px 20px;padding:14px 16px;background:rgba(40,176,144,.03);border:1px dashed rgba(40,176,144,.35);border-radius:10px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:${tWhy?'6px':'10px'}">
+        <span style="font-size:18px;line-height:1">⚽</span>
+        <div style="font-family:var(--font-d);font-size:14px;font-weight:500;color:var(--text)">Pallo joka päivä</div>
+      </div>
+      ${tWhy ? `<div style="font-size:11px;color:var(--ink3);line-height:1.5;margin:0 0 10px 28px;font-style:italic">${tWhy}</div>` : ''}
+      <div style="margin-left:28px">
+        <button id="tKirjausBtn" onclick="_kirjaaHarjoite('T')" style="background:rgba(40,176,144,.10);border:.5px solid rgba(40,176,144,.35);color:#28B090;padding:7px 14px;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;border-radius:6px;cursor:pointer">
+          ✓ Kirjaa tehdyksi
+        </button>
+      </div>
+    </div>`;
+  })()}
 
   <!-- Vanhemman kehu — näkyy jos on uusi kehu odottamassa -->
   ${_viimeisinKehu ? `
@@ -682,24 +745,19 @@ function rA1(){
     </div>
   </div>
   <div style="padding:26px 20px 0">
-    <div class="sdiv">${T('otherTdy')}</div>
-    ${[{e:'Joukkue',t:'Ti 18:30 harjoitus · Töölö',i:'users'},{e:'Testit',t:'CMJ-testi avoinna',i:'zap'},{e:'IDP',t:'Ensikosketus · 68%',i:'aUp'}].map(x=>`
-      <div class="row">
-        ${ic(x.i,16,'#8BA0BC')}
+    ${(()=>{
+      const ovr = Math.round((_pelaaja?.flei_viimeisin||0)*0.9+10);
+      const taso = ovr >= 90 ? 'Elite' : ovr >= 80 ? 'Pro' : ovr >= 60 ? 'Talent' : 'Kehittyvä';
+      return `
+      <div class="card-gold" style="margin-top:14px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:14px" data-card>
+        <div style="font-family:var(--font-b);font-weight:900;font-size:32px;color:#B8860B;line-height:.9">${ovr}</div>
         <div style="flex:1">
-          <div class="ey" style="letter-spacing:.18em">${x.e}</div>
-          <div style="font-size:12px;color:var(--text);margin-top:1px">${x.t}</div>
+          <div class="ey" style="color:rgba(184,134,11,.7);letter-spacing:.22em">★ ${taso} · avaa kortti</div>
+          <div style="font-size:12px;color:var(--text);margin-top:2px">Avaa kortti →</div>
         </div>
-        ${ic('cR',14,'rgba(242,239,230,.3)')}
-      </div>`).join('')}
-    <div class="card-gold" style="margin-top:14px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:14px" data-card>
-      <div style="font-family:var(--font-b);font-weight:900;font-size:32px;color:#B8860B;line-height:.9">87</div>
-      <div style="flex:1">
-        <div class="ey" style="color:rgba(184,134,11,.7);letter-spacing:.22em">★ Elite · avaa kortti</div>
-        <div style="font-size:12px;color:var(--text);margin-top:2px">+1 tästä viikosta · DRI 88 nousi</div>
-      </div>
-      ${ic('cR',16,'rgba(184,134,11,.6)')}
-    </div>
+        ${ic('cR',16,'rgba(184,134,11,.6)')}
+      </div>`;
+    })()}
   </div>
 </div>`;
 }
@@ -1644,9 +1702,24 @@ function _renderOmat(){
   </div>`;
 }
 
+/* ══════════════════════════════════════
+   rMeista — Meistä-tab (B1 stub, B3 täysi sisältö)
+══════════════════════════════════════ */
+function rMeista() {
+  return `
+<div class="scroll" style="background:var(--bg)">
+  ${hdr(T('meista'))}
+  <section style="padding:28px 20px 20px;text-align:center">
+    <div class="ey ac" style="margin-bottom:10px">${T('meista')}</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:22px;color:var(--text);margin-bottom:8px">Sisältö tulossa</div>
+    <div class="meta" style="line-height:1.55;max-width:280px;margin:0 auto">Joukkue, valmentajat, viestit, kalenteri — Vaihe B3.</div>
+  </section>
+</div>`;
+}
+
 /* BOTTOM TABS */
 function rTabs(){
-  const tbs=[{id:'koti',l:'Koti',i:'home'},{id:'joukkue',l:'Joukkue',i:'users'},{id:'testit',l:'Testit',i:'zap'},{id:'kortti',l:'Kortti',i:'star'},{id:'mina',l:'Minä',i:'user'}];
+  const tbs=[{id:'tanaan',l:T('tanaan'),i:'home'},{id:'mina',l:T('mina'),i:'user'},{id:'meista',l:T('meista'),i:'users'}];
   return `<nav class="tabs">${tbs.map(t=>`
     <button class="tb${_tab===t.id?' on':''}" data-t="${t.id}">
       ${_tab===t.id?'<div class="tb-dot"></div>':''}
@@ -2233,6 +2306,42 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
     // Graceful degradation: kirjaus ei tallennu mutta UI toimii
   }
 }
+
+
+/* ══ HARJOITE-KIRJAUS — KOTI-näkymän 3-kerros (D/S/T) ════════════
+   D = pääohjelma _luoOhjelma:sta, 70%, +60 XP, konteksti 'paivan_ohjelma'
+   S = kohdennettu kehitys heikoimpaan ketjuun, 30%, +30 XP
+   T = Bola Siempre vakio (pallo joka päivä), +20 XP
+   _tallennaKirjaus hoitaa demo-tarkistuksen + getIdToken(true) + batch-kirjoituksen.
+═════════════════════════════════════════════════════════════════ */
+async function _kirjaaHarjoite(tyyppi) {
+  const xpMap        = { D: 60, S: 30, T: 20 };
+  const kontekstiMap = { D: 'paivan_ohjelma', S: 'kohdennettu', T: 'bola_siempre' };
+  const btnIdMap     = { D: 'dKirjausBtn',    S: 'sKirjausBtn',  T: 'tKirjausBtn' };
+  if (!(tyyppi in xpMap)) return;
+  try {
+    await _tallennaKirjaus(tyyppi, xpMap[tyyppi], false, { konteksti: kontekstiMap[tyyppi] });
+    _harjoiteVahvistus(btnIdMap[tyyppi]);
+    // Päivitä streak (kirjaukset-kokoelmasta laskettu) viiveellä,
+    // jotta Firestore-write ehtii valmistua ennen lukua.
+    if (typeof _lataaCStreak === 'function') setTimeout(_lataaCStreak, 400);
+  } catch (e) {
+    console.warn('[kirjaaHarjoite]', tyyppi, e.message);
+  }
+}
+
+function _harjoiteVahvistus(btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '✓ Kirjattu';
+  btn.style.opacity = '0.55';
+  btn.style.cursor = 'default';
+  if (navigator.vibrate) navigator.vibrate(40);
+}
+
+// CLAUDE.md §17 #21: HTML onclick= vaatii window._-globaaleja
+window._kirjaaHarjoite = _kirjaaHarjoite;
 
 
 /* ══ PIN-KIRJAUTUMINEN FIRESTOREEN ══════════════════════════════ */
@@ -3077,11 +3186,11 @@ function _avaaHavainnot() {
         '<div class="hav-dot"></div>' +
         '<div class="hav-from">' + tekija + (pvm ? ' · ' + pvm : '') + '</div>' +
         '<div class="hav-badge">UUSI</div>' +
-        '<button class="hav-close" onclick="_p6Luetuksi('' + h._id + '','' + seuraId + '','' + pelaajaId + '')">&#215;</button>' +
+        '<button class="hav-close" onclick="_p6Luetuksi(\'' + h._id + '\',\'' + seuraId + '\',\'' + pelaajaId + '\')">&#215;</button>' +
       '</div>' +
       (narr ? '<div class="hav-narr">' + narr + '</div>' : '') +
       (oppim ? '<div class="hav-oppiminen"><strong>Mitä opit:</strong> ' + oppim + '</div>' : '') +
-      '<button class="hav-luettu-btn" onclick="_p6Luetuksi('' + h._id + '','' + seuraId + '','' + pelaajaId + '')">Merkitse luetuksi &#8594;</button>' +
+      '<button class="hav-luettu-btn" onclick="_p6Luetuksi(\'' + h._id + '\',\'' + seuraId + '\',\'' + pelaajaId + '\')">Merkitse luetuksi &#8594;</button>' +
     '</div>';
   }).join('');
 
