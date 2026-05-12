@@ -669,7 +669,14 @@ Railgun | Maestro | Shadowstep | Titan
 25. **`lataaSeurat` = `onSnapshot`-kuuntelija** — EI `.get()` — päivittyy reaaliajassa
 26. **Joukkueet-kokoelma vs. pelaajadata** — Seura.html luo joukkueet `.doc(id)`-metodilla (siisti ID), Admin ei enää luo joukkueita. Näytä molemmat lähteet rinnakkain.
 27. **SA kirjautuu Google Sign-In:llä** (ei email/salasana) — aktivoitu 2026-05-08
-
+28. UI ei näytä XP-lukuja eikä progressbarsia, eikä loss 
+aversion -kieltä missään tilassa. XP tallennetaan Firestoreen 
+AI-agentti varten mutta ei renderöidä pelaajalle. Streak 
+näytetään aina positiivisesti kehystettynä neljässä tilassa 
+(0pv / 1–6pv / 7–13pv / 14+pv). Peruste: Seligman PERMA + 
+Deci & Ryan SDT — intrinsic motivation > extrinsic 
+gamification. Kahneman loss aversion luo lyhytaikaista painetta 
+mutta pitkällä aikavälillä ahdistusta.
 ---
 
 ## 18. CLOUD FUNCTIONS (europe-west1)
