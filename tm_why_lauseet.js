@@ -2,18 +2,16 @@
  * TalentMaster™ — tm_why_lauseet.js
  *
  * Kirjoittaja:  Tero Koskela (Palloliitto / TalentMaster)
- * Päivitetty:   2026-05-11
- * Versio:       1.2
+ * Päivitetty:   2026-05-12
+ * Versio:       1.3
  *
- * Muutosloki v1.2:
- *   RAKENNEMUUTOS: Kirjausrakenne selkeytetty
- *     T = Tekniikka (Bola Siempre) — EI ketjusidonnainen, oma lausetaulukko
- *     D = Dual/Ylläpito (liikkuvuus, hermosto) — FLEI-ketjusidonnainen
- *     S = Strength/Täydentävä (heikoin FLEI-ketju) — FLEI-ketjusidonnainen
- *     P = Peli (otteludata) — ei why-lausetta
- *   LISÄTTY: WHY_T_LAUSEET — Bola Siempre -lauseet ikäfaaseittain
- *   LISÄTTY: getTHarjoiteWhy(stage) — T-harjoitteen why-lause
- *   LISÄTTY: normalisointikommentti getSHarjoiteWhy():hin
+ * Muutosloki v1.3:
+ *   D-rivin lauseet reframed vahvuus-kehykseen (Seligman PERMA + SDT):
+ *   SBL·D·rakentaja: "repeää helpommin" → "tuottaa täyden sprintin"
+ *   SBL·D·showcase:  "vähentää riskiä" → "kantaa kovan kuorman"
+ *   SFL·D·rakentaja: "Kireä/väärään" → "Vapaa/omalla radallaan"
+ *   LL·D·rakentaja:  "kaatuu/ACL" → "pitää linjassa/kallein vakuutus"
+ *   DFL·D·rakentaja: "ei tue/paikkaavat" → "jakaa kuorman tasaisesti"
  *
  * Muutosloki v1.1:
  *   SFL · T · showcase  — "siirtymän teho" → "...siirtyy maahan"
@@ -22,24 +20,10 @@
  *   DFL  · D · showcase — 32 sanaa → 16 sanaa, toteamus + pelikytkentä
  *
  * Käyttö:
- *   // T-harjoite (Bola Siempre — EI ketjusidonnainen):
- *   const t = getTHarjoiteWhy('2_rakentaja');
+ *   const lause = getWhyLause('SBL', 'T', '2_rakentaja');
+ *   const { ketju, lause } = getSHarjoiteWhy({ SBL:62, SFL:71, LL:68, DIAG:55, DFL:74 }, '2_rakentaja');
  *
- *   // D-harjoite (ylläpito, FLEI-ketjusidonnainen):
- *   const d = getWhyLause('LL', 'D', '2_rakentaja');
- *
- *   // S-harjoite (täydentävä, heikoin FLEI-ketju automaattisesti):
- *   // HUOM: flei-arvot oltava normalisoituna 0-100 (Firestore tallentaa 1-3 → normalisoi ensin)
- *   //   normalisointi: (raakaArvo - 1) / 2 * 100
- *   const { ketju, lause } = getSHarjoiteWhy({ SBL:62, SFL:71, LL:55, DIAG:70, DFL:74 }, '2_rakentaja');
- *
- * Harjoitetyypit (kirjausrakenne — kirjaukset/{pvm}/tyyppi):
- *   'T' = Tekniikka / Bola Siempre — pallollinen päivittäinen, EI ketjusidonnainen
- *   'D' = Dual / Ylläpito — liikkuvuus + hermosto, FLEI-ketjusidonnainen
- *   'S' = Strength / Täydentävä — heikoin FLEI-ketju, FLEI-ketjusidonnainen
- *   'P' = Peli — otteludata, TASO-integraatio, ei why-lausetta
- *
- * Behavior Playbook -invariantit (kaikki 45 D+S-lausetta + 3 T-lausetta):
+ * Behavior Playbook -invariantit (kaikki 45 lausetta):
  *   ✓  Luettavissa ilman kontekstia
  *   ✓  Ei kehotusverbiä
  *   ✓  Toteamus, ei imperatiivi
@@ -48,24 +32,6 @@
  */
 
 'use strict';
-
-
-/* ────────────────────────────────────────────────────────────
-   ⚽ T — Tekninen / Bola Siempre
-   EI FLEI-ketjusidonnainen — sama lause kaikille pelaajille
-   ikäfaasista riippumatta
-
-   Periaate: pallo joka päivä rakentaa hermoratoja joita ei
-   muuten synny. Kultaikkuna sulkeutuu — päivittäinen
-   aktivaatio pitää sen auki.
-
-   Pelitilanne: pallontuntu, luovuus, automaatio paineen alla
-────────────────────────────────────────────────────────────── */
-const WHY_T_LAUSEET = {
-  leikkija:  'Pallo joka päivä. Tänään keksi jotain uutta mitä sillä voi tehdä.',
-  rakentaja: 'Päivittäinen pallokosketus rakentaa hermoratoja joita ei muuten synny. Kultaikkuna on auki — käytä se.',
-  showcase:  'Elite-pelaajan pallontuntu ei synny kahdesti viikossa. Päivittäinen aktivaatio pitää tekniikka-automaation terävänä.',
-};
 
 const WHY_LAUSEET = {
 
@@ -82,8 +48,8 @@ const WHY_LAUSEET = {
     },
     D: {
       leikkija:  'Takalihakset herätetään ensin. Sitten ne jaksavat juosta.',
-      rakentaja: 'Kylmä takaketju repeää helpommin. Lämmittely on vakuutus takareidelle.',
-      showcase:  'Aktivoitu takalinja vähentää hamstring-strainin riskiä ennen kovaa kuormaa.',
+      rakentaja: 'Lämmin takaketju tuottaa täyden sprintin. Lämmittely vapauttaa moottorin.',
+      showcase:  'Aktivoitu takalinja kantaa kovan kuorman. Hamstring kestää 90 minuuttia.',
     },
     S: {
       leikkija:  'Vahva takapää juoksee pisimpään. Loppupeli on sen aikaa.',
@@ -106,7 +72,7 @@ const WHY_LAUSEET = {
     },
     D: {
       leikkija:  'Etureidet venyvät. Polvet kiittävät.',
-      rakentaja: 'Kireä etureisi vetää polvea väärään suuntaan. Kasvupyrähdyksessä tämä on kriittistä.',
+      rakentaja: 'Vapaa etureisi pitää polven omalla radallaan. Tämä on kriittistä kasvupyrähdyksessä.',
       showcase:  'Etulinjan liikkuvuus suojaa patellaa PHV-vaiheessa, kun luut kasvavat lihaksia nopeammin.',
     },
     S: {
@@ -130,7 +96,7 @@ const WHY_LAUSEET = {
     },
     D: {
       leikkija:  'Lantio pysyy suorassa juostessa. Polvi kiittää.',
-      rakentaja: 'Kun lantio ei tue, polvi kaatuu sisäänpäin. Se on yleisin ACL-vammamekanismi.',
+      rakentaja: 'Vahva lantio pitää polven linjassa. Pelaajan kallein vakuutus.',
       showcase:  'Pelvic stability vähentää valgus-kuormaa polveen. ACL-riskin vähennys alkaa täältä.',
     },
     S: {
@@ -178,7 +144,7 @@ const WHY_LAUSEET = {
     },
     D: {
       leikkija:  'Syvät lihakset pitävät ryhdin koko päivän.',
-      rakentaja: 'Kun keskikeho ei tue, muut lihakset paikkaavat — ja väsyvät nopeammin. Tämä on perusta.',
+      rakentaja: 'Vahva keskikeho jakaa kuorman tasaisesti. Kaikki muu lihaksisto kiittää.',
       // v1.1: 32 sanaa selittely → 16 sanaa toteamus + pelikytkentä
       showcase:  'DFL aktivoi kaiken muun. Kun ydin ei tue, voima vuotaa ennen kuin se saavuttaa jalkaa.',
     },
@@ -222,33 +188,10 @@ function getWhyLause(ketju, tyyppi, stage) {
  * @returns {{ ketju: string, lause: string }}
  */
 function getSHarjoiteWhy(flei, stage) {
-  // HUOM: flei-arvot oltava normalisoituna 0–100
-  // Firestore tallentaa raakadatana 1–3 asteikolla (esim. sbl: 2.16)
-  // Normalisoi ennen kutsua: (raakaArvo - 1) / 2 * 100
-  // Esim: { SBL: Math.round((p.sbl-1)/2*100), ... }
   const heikoin = Object.entries(flei).sort(([, a], [, b]) => a - b)[0][0];
   return { ketju: heikoin, lause: getWhyLause(heikoin, 'S', stage) };
 }
 
-
-/**
- * T-harjoitteen (Bola Siempre) why-lause.
- * EI ketjusidonnainen — sama lause kaikille pelaajille ikäfaasista riippuen.
- * @param {string} stage  '1_leikkija' | '2_rakentaja' | '3_showcase'
- *                        tai lyhyt 'leikkija' | 'rakentaja' | 'showcase'
- * @returns {string}
- */
-function getTHarjoiteWhy(stage) {
-  const map = {
-    '1_leikkija': 'leikkija', leikkija: 'leikkija',
-    '2_rakentaja':'rakentaja', rakentaja:'rakentaja',
-    '3_showcase': 'showcase',  showcase: 'showcase',
-  };
-  const ika = map[stage];
-  if (!ika) return '';
-  return WHY_T_LAUSEET[ika] ?? '';
-}
-
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { WHY_LAUSEET, WHY_T_LAUSEET, getWhyLause, getTHarjoiteWhy, getSHarjoiteWhy };
+  module.exports = { WHY_LAUSEET, getWhyLause, getSHarjoiteWhy };
 }
