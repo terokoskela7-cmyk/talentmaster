@@ -343,7 +343,7 @@ button{font-family:var(--font-b);cursor:pointer}
 const STR = {
   wBack:   {fi:'Tervetuloa takaisin',en:'Welcome back',sv:'Välkommen tillbaka',de:'Willkommen zurück'},
   today:   {fi:'Tänään',en:'Today',sv:'Idag',de:'Heute'},
-  streak:  {fi:'Streak katkeamassa — tee 5 min tänään.',en:'Streak about to break — do 5 min today.',sv:'Streaken håller på att brytas — gör 5 min idag.',de:'Serie droht zu reißen — mach 5 Min heute.'},
+  streak:  {fi:'🔥 Aloita putki tänään.',en:'🔥 Start your streak today.',sv:'🔥 Börja din serie idag.',de:'🔥 Starte deine Serie heute.'},
   start5:  {fi:'Aloita · 5 min',en:'Start · 5 min',sv:'Starta · 5 min',de:'Starten · 5 Min'},
   xpHint:  {fi:'+40 XP · pitää liekin palamassa',en:'+40 XP · keeps the flame alive',sv:'+40 XP · håller lågan brinnande',de:'+40 XP · hält die Flamme'},
   speed:   {fi:'Nopeusketju kotona · 3 tehtävää · ~5 min',en:'Speed chain at home · 3 tasks · ~5 min',sv:'Snabbkedja hemma · 3 uppgifter · ~5 min',de:'Speed-Chain zu Hause · 3 Aufgaben · ~5 Min'},
@@ -570,7 +570,7 @@ function rPin(){
   <div style="margin:10px 14px 0;display:flex;gap:8px">
     <div class="card" style="flex:1;padding:8px 10px">
       <div class="ey">Taso</div>
-      <div class="kpi" style="font-size:20px;margin-top:2px">${p?p.taso||7:7}</div>
+      <div class="kpi" style="font-size:20px;margin-top:2px">${p?.taso||'—'}</div>
     </div>
     <div class="card" style="flex:1;padding:8px 10px">
       <div class="ey">Kortti</div>
@@ -657,7 +657,7 @@ function rA1(){
   ${hdr((_pelaaja?.etunimi||'Pelaaja')+' · '+(_pelaaja?.pelaajaProfiili||''))}
   <section style="padding:28px 20px 20px">
     <div class="ey ac" style="margin-bottom:10px">${T('today')}</div>
-    <div class="sig" style="margin-bottom:14px">${_streak>0 ? ikaCfg().streakViesti(_streak) : T('streak')}</div>
+    <div class="sig" style="margin-bottom:14px">${_streakViesti(_streak || 0)}</div>
     <div class="meta">${T('speed')}</div>
     ${_signaaliLabel()}
   </section>
@@ -747,13 +747,11 @@ function rA1(){
   <div style="padding:26px 20px 0">
     ${(()=>{
       const ovr = Math.round((_pelaaja?.flei_viimeisin||0)*0.9+10);
-      const taso = ovr >= 90 ? 'Elite' : ovr >= 80 ? 'Pro' : ovr >= 60 ? 'Talent' : 'Kehittyvä';
       return `
       <div class="card-gold" style="margin-top:14px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:14px" data-card>
         <div style="font-family:var(--font-b);font-weight:900;font-size:32px;color:#B8860B;line-height:.9">${ovr}</div>
         <div style="flex:1">
-          <div class="ey" style="color:rgba(184,134,11,.7);letter-spacing:.22em">★ ${taso} · avaa kortti</div>
-          <div style="font-size:12px;color:var(--text);margin-top:2px">Avaa kortti →</div>
+          <div class="ey" style="color:rgba(184,134,11,.7);letter-spacing:.22em">Kehittyy kohti huippua · avaa kortti →</div>
         </div>
         ${ic('cR',16,'rgba(184,134,11,.6)')}
       </div>`;
@@ -951,7 +949,6 @@ function rKortti(){
     <div class="ey ac" style="margin-bottom:10px">TILASTOT</div>
     ${[
       {l:'Streak',      v:(_streak||0)+' pv'},
-      {l:'XP yhteensä', v:(p?.xp||0)+' XP'},
       {l:'Taso',        v:p?.taso||1},
       {l:'FLEI-indeksi',v:(p?.flei_viimeisin||0)+' / 100'},
     ].map(s=>`
@@ -1021,14 +1018,17 @@ function rMina(){
         <div class="meta" style="margin-bottom:4px">Streak</div>
         <div style="font-family:var(--font-m);font-size:26px;color:${streak>0?'#B85C38':'var(--ink3)'}">${streak} <span style="font-size:13px">pv</span></div>
       </div>
-      <div style="background:var(--surface2);border-radius:10px;padding:12px;border:.5px solid var(--border);grid-column:span 2">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div class="meta">XP</div>
-          <div class="meta">${xp} / ${xpNext}</div>
+      <!-- Sitoutuminen — 14 pv visualisointi + positiivinen viesti (korvaa XP-bar:n, brand-päätös 2026-05-12) -->
+      <div style="background:var(--surface2);border-radius:10px;padding:14px;border:.5px solid var(--border);grid-column:span 2">
+        <div class="meta" style="margin-bottom:10px">Sitoutuminen · 14 pv</div>
+        <div style="display:flex;gap:3px;margin-bottom:12px">
+          ${Array.from({length:14}).map((_,i) => {
+            const d = 13 - i;  // 13 = vanhin, 0 = tänään
+            const onTaytetty = d < streak;
+            return `<div style="flex:1;height:8px;background:${onTaytetty?'var(--teal)':'rgba(242,239,230,.08)'};border-radius:2px"></div>`;
+          }).join('')}
         </div>
-        <div style="height:4px;background:rgba(242,239,230,.1);border-radius:2px">
-          <div style="height:4px;width:${xpPct}%;background:var(--teal);border-radius:2px;transition:width .5s"></div>
-        </div>
+        <div class="meta" style="font-size:11px;line-height:1.5;color:var(--ink2)">${_streakViesti(streak)}</div>
       </div>
     </div>
 
@@ -1730,10 +1730,8 @@ function rTabs(){
 
 /* COMMON HEADER */
 function hdr(v){
-  const taso   = _pelaaja?.taso   || 7;
-  const xp     = _pelaaja?.xp     || 620;
-  const xpNext = taso * 1000;
-  const xpPct  = Math.min(100, Math.round(xp / xpNext * 100));
+  // XP-palkki poistettu UI:sta (brand-päätös 2026-05-12) — XP-luvut tallennetaan
+  // edelleen Firestoreen _tallennaKirjaus:n kautta, mutta niitä ei renderöidä.
   const streak = _streak || _pelaaja?.streak || 0;
   return `
 <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px 0">
@@ -1742,7 +1740,7 @@ function hdr(v){
     <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin-top:4px;color:var(--text);line-height:1.1">${_pelaaja?.etunimi||'–'}</div>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
-    ${streak>0?`<div class="streak-b"><span class="fl">🔥</span><span class="streak-n">${streak} pv</span></div>`:''}${window._havLkm>0?`<span class="hav-merkki" onclick="_avaaHavainnot()"><span class="hm-dot"></span>${window._havLkm} uutta</span>`:''}${window._havLkm>0?`<span class="hav-merkki" onclick="_avaaHavainnot()"><span class="hm-dot"></span>${window._havLkm} uutta</span>`:''}
+    ${streak>0?`<div class="streak-b"><span class="fl">🔥</span><span class="streak-n">${streak} pv</span></div>`:''}${window._havLkm>0?`<span class="hav-merkki" onclick="_avaaHavainnot()"><span class="hm-dot"></span>${window._havLkm} uutta</span>`:''}
     <button onclick="kirjauduUlos()" title="Kirjaudu ulos"
       style="background:rgba(242,239,230,.06);border:.5px solid rgba(242,239,230,.14);
              border-radius:8px;padding:7px 10px;cursor:pointer;color:rgba(242,239,230,.5);
@@ -1752,10 +1750,6 @@ function hdr(v){
       ULOS
     </button>
   </div>
-</div>
-<div style="padding:14px 20px 0">
-  <div class="xpl"><span>Taso ${taso}</span><span style="font-family:var(--font-m)">${xp} / ${xpNext} XP</span></div>
-  <div class="xpt"><div class="xpf" style="width:${xpPct}%"></div></div>
 </div>`;
 }
 
@@ -2175,6 +2169,18 @@ function _kaynnistaAppUI() {
 }
 
 
+/* ══════════════════════════════════════════════════════════
+   STREAK-VIESTI — positiivinen kehys (Seligman PERMA + Deci & Ryan SDT)
+   Ei loss aversion -kieltä missään tilassa.
+   Brand-päätös 2026-05-12.
+══════════════════════════════════════════════════════════ */
+function _streakViesti(streak) {
+  if (!streak)      return 'Aloita tänään — ensimmäinen askel on tärkein.';
+  if (streak <= 6)  return `🔥 ${streak} päivän putki — jatka huomenna!`;
+  if (streak <= 13) return `🔥 ${streak} päivää — olet jo sitoutunut.`;
+  return `🔥 ${streak} päivää — olet jo poikkeuksellinen.`;
+}
+
 function _laskeStage(sy, phv) {
   if (phv === 'huippu') return '1_leikkija';
   const ika = new Date().getFullYear() - (sy || 2010);
@@ -2334,7 +2340,8 @@ function _harjoiteVahvistus(btnId) {
   const btn = document.getElementById(btnId);
   if (!btn) return;
   btn.disabled = true;
-  btn.textContent = '✓ Kirjattu';
+  const etunimi = _pelaaja?.etunimi || '';
+  btn.textContent = etunimi ? `✓ Tehty — hyvä työ, ${etunimi}!` : '✓ Tehty — hyvä työ!';
   btn.style.opacity = '0.55';
   btn.style.cursor = 'default';
   if (navigator.vibrate) navigator.vibrate(40);
@@ -2453,9 +2460,9 @@ function getWhy(ketju, tyyppi) {
    IKÄVAIHE CONFIG
 ══════════════════════════════════════════════════════════ */
 const IKA = {
-  '1_leikkija': { fiiKysymys:'Miten tänään meni?', streakViesti: pv=>`${pv} päivää putkea! 🔥`, aiTehty:'Hienoa! Teit tänään hyvää työtä.', ovrNayta:false },
-  '2_rakentaja':{ fiiKysymys:'Miten kehosi reagoi tänään?', streakViesti: pv=>`${pv} pv streak. Rytmi toimii.`, aiTehty:'Takaketju sai hyvän ärsykkeen. Loppupeli kiittää.', ovrNayta:true },
-  '3_showcase': { fiiKysymys:'Arvioi harjoituksen kuormitus', streakViesti: pv=>`Streak: ${pv} pv.`, aiTehty:'Posterior chain kuormitettu. Palautuminen määrittää adaptaation.', ovrNayta:true },
+  '1_leikkija': { fiiKysymys:'Miten tänään meni?', streakViesti: pv=>`🔥 ${pv} päivän putki — jatka tänään!`, aiTehty:'Hienoa! Teit tänään hyvää työtä.', ovrNayta:false },
+  '2_rakentaja':{ fiiKysymys:'Miten kehosi reagoi tänään?', streakViesti: pv=>`🔥 ${pv} päivän putki — jatka tänään!`, aiTehty:'Takaketju sai hyvän ärsykkeen. Loppupeli kiittää.', ovrNayta:true },
+  '3_showcase': { fiiKysymys:'Arvioi harjoituksen kuormitus', streakViesti: pv=>`🔥 ${pv} päivän putki — jatka tänään!`, aiTehty:'Posterior chain kuormitettu. Palautuminen määrittää adaptaation.', ovrNayta:true },
 };
 function ikaCfg() { return IKA[_stage] || IKA['2_rakentaja']; }
 
