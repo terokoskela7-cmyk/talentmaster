@@ -1,17 +1,12 @@
-name: Deploy Firebase — Functions + Rules
+name: Deploy Firebase Functions
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'functions/**'
+      - '.github/workflows/deploy_functions.yml'
   workflow_dispatch:
-    inputs:
-      kohde:
-        description: 'Mitä deployataan?'
-        required: true
-        default: 'kaikki'
-        type: choice
-        options:
-          - kaikki
-          - functions
-          - rules
 
 jobs:
   deploy:
@@ -43,14 +38,5 @@ jobs:
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/sa.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json" >> $GITHUB_ENV
 
-      - name: Deploy kaikki (Functions + Rules)
-        if: github.event.inputs.kohde == 'kaikki'
-        run: firebase deploy --only functions,firestore:rules --project talentmaster-pilot --force
-
-      - name: Deploy vain Functions
-        if: github.event.inputs.kohde == 'functions'
+      - name: Deploy Functions
         run: firebase deploy --only functions --project talentmaster-pilot --force
-
-      - name: Deploy vain Rules
-        if: github.event.inputs.kohde == 'rules'
-        run: firebase deploy --only firestore:rules --project talentmaster-pilot --force
