@@ -282,3 +282,180 @@ Firestore
 **Seuraava kehitysaskel (P7):** IDP-aktivointilogiikka lukee nämä signaalit
 ja käynnistää vahvistusprosessin automaattisesti. Valmentaja saa ilmoituksen:
 "Pelaaja X täyttää Hidden Gem -kriteerit — haluatko tehdä ehdotuksen?"
+
+---
+
+## 11. Pelaajan app — kehitysarkkitehtuuri (2026-05-12)
+
+### KOTI-näkymän 70/30-rakenne
+
+KOTI-näkymä toteuttaa 70/30-periaatteen kolmena hierarkkisena korttina.
+Visuaalinen hierarkia ohjaa käyttäytymistä — D-kortti on suurin, S-kortti
+pienempi, T-kortti kevyin. Tämä kertoo pelaajalle ilman sanoja mikä on
+tärkeintä.
+
+D-kortti "Tänään" (70%) on pääohjelma. Lähde on `_luoOhjelma(p).tHarjoite`
+(PANKKI, päivärotaatio). Why-lause: `getWhyLause(ketju, 'D', stage)`.
+Kirjaus: `tyyppi:'D'`, konteksti:'paivan_ohjelma'. Tyyli: gradient-teal,
+solidi reuna, 18px otsikko.
+
+S-kortti "Kohdennettu kehitys" (30%) on yksilöllinen kohdennusharjoite.
+L�hde on `_luoOhjelma(p).sHarjoite` (heikoin FLEI-ketju). Why-lause:
+`getSHarjoiteWhy(flei_normalisoitu, stage)` — HUOM: flei normalisointi
+(arvo-1)/2×100 ennen kutsua. Kirjaus: `tyyppi:'S'`, konteksti:'kohdennettu'.
+Tyyli: subtle teal-tausta, 0.5px reuna, 15px otsikko.
+
+T-kortti "⚽ Pallo joka päivä" on Bola Siempre — invariantti vakio joka
+pätee joka päivä riippumatta muusta ohjelmasta. Why-lause: `getTHarjoiteWhy(stage)`
+ikäfaasin mukaan. Kirjaus: `tyyppi:'T'`, konteksti:'bola_siempre'. Tyyli:
+3% teal-tausta, dashed reuna, 14px otsikko — kevyin visuaalisesti. Ei XP-
+lukuja näkyviin (tallennetaan Firestoreen mutta piilotetaan UI:sta).
+
+XP tallennetaan Firestoreen tulevia AI-moduuleja varten (D+60, S+30, T+20)
+mutta ei näytetä pelaajalle. Overjustification effect: ulkoiset palkkiot
+heikentävät sisäistä motivaatiota pitkällä aikavälillä (Deci & Ryan 1985).
+
+---
+
+### 12. Streak — kaksi käyttökontekstia
+
+Streak on järjestelmässä kahdella eri tasolla ja ne palvelevat eri tarkoituksia.
+
+Pelaajalle streak on jatkuvuuden mittari — "7 päivän putki" kertoo konkreettisesti
+mitä hän on saavuttanut. Se ei ole palkintojärjestelmä vaan kehitysjärjestelmä.
+Yksi kirjaus per päivä riittää (T, D tai S) — kaikki kolme voi tehdä samana
+päivänä mutta streak nousee silti vain yhdellä. Streak on jo Firestoressa
+(v5, `_lataaCStreak()`), ei localStoragessa.
+
+Valmentajalle streak on diagnostinen työkalu. VP-dashboardissa näkyy
+joukkueen streak-jakauma: montako pelaajaa on aktiivisia tällä viikolla,
+kenen streak on katkennut. Tätä ei esitetä rankinginä — se on työkalu joka
+auttaa valmentajaa tunnistamaan ketkä tarvitsevat tukea ennen kuin ongelma
+kasvaa. Tärkeä periaate: streak-tieto on valmentajalle yksityinen diagnostiikka,
+ei julkinen vertailutaulu pelaajien välillä.
+
+Firestore-rakenne on jo olemassa: `streak` ja `streak_paivitetty` pelaajan
+päädokumentissa. VP-näkymään lisätään aggregoitu luku: `aktiivisia_viikolla`
+(streak ≥ 1 viimeisen 7 päivän aikana) per joukkue.
+
+---
+
+### 13. Haasteet — neljä ulottuvuutta
+
+Haaste-ominaisuus rakentuu neljään erilliseen ulottuvuuteen jotka toteutetaan
+eri sprinteissä prioriteettijärjestyksessä.
+
+**Kaverihaaste (Sprint 2 — läsnäolohaaste)** on yksinkertaisin ja tärkein.
+Pelaaja lähettää joukkuekaverille "Treenaa tänään" -haasteen. Haaste on aina
+T-tyyppi (Bola Siempre) koska se on ikä- ja kehitysvaiheesta riippumaton —
+jokainen pelaaja voi haastaa kaverin riippumatta siitä onko hän U8 tai U16.
+Suoritushaasteet (ole nopeampi kuin minä) on tarkoituksella poistettu koska
+ne luovat epäterveellistä vertailua eri kehitysvaiheessa olevien pelaajien
+välillä.
+
+Firestore-rakenne: `seurat/{seuraId}/haasteet/{haasteId}` — kentät:
+lahettajaId, vastaanottajaId, tyyppi ('T'), viesti (max 50 merkkiä),
+luotu (Timestamp), tila ('lahetetty'|'hyvaksytty'|'suoritettu'|'vanhentunut'),
+vanhenee (48h luomisesta). Security Rules: pelaaja voi luoda ja lukea
+haasteet joissa on osapuolena, päivittää tilan omissaan.
+
+**Valmentajan asettama haaste (Sprint 3)** kytkee P6-viestinnän jatkuvaksi
+kehitysohjelmaksi. Valmentaja voi lähettää koko joukkueelle tai yksittäiselle
+pelaajalle spesifisen kehitystehtävän viikoksi tai kuukaudeksi. Tämä ei
+korvaa ADAR-havaintoa — se täydentää sitä. Havainto kertoo mitä tapahtui,
+haaste kertoo mitä tehdään seuraavaksi.
+
+**Joukkuehaaste (Sprint 3)** luo kollektiivisen motivaation ilman yksilöllistä
+vertailua. "Joukkueen yhteinen streak tällä viikolla on 87 päivää, tavoite
+on 100." Jokainen pelaajan kirjaus kasvattaa yhteistä lukua. Tämä on
+sosiaalinen haaste joka ei nolaa yhtäkään yksittäistä pelaajaa.
+
+**Kehityshaaste — talenttiohjelmaan kytketty (Sprint 6-8)** aktivoituu kun
+Hidden Gem tai X-Factor -signaali laukeaa. Järjestelmä asettaa automaattisen
+haasteen: "sinun TSI-kehityksesi on poikkeuksellinen — pidä se yllä seuraavat
+30 päivää." Tämä kytkee talenttitunnistuksen suoraan pelaajan arkiseen
+tekemiseen.
+
+---
+
+### 14. Pelaajan omat tavoitteet — yhteinen kehityssuunnitelma
+
+Tämä ei ole talenttiohjelma-ominaisuus vaan kaikkien pelaajien oikeus.
+Tavoiteasetanta on osa jokaisen pelaajan kehitystä ikäluokasta ja tasosta
+riippumatta — se on se hetki jolloin pelaajasta tulee oman kehityksensä
+aktiivinen osapuoli eikä passiivinen tarkkailtava.
+
+**Filosofia:** Valmentaja ei aseta tavoitteita pelaajalle — he asettavat
+ne yhdessä. Tämä perustuu itsemääräytymisteorian (Deci & Ryan) autonomia-
+periaatteeseen: ihminen sitoutuu tavoitteisiin joihin hän on itse vaikuttanut
+huomattavasti voimakkaammin kuin ulkoapäin annettuihin tavoitteisiin.
+Gollwitzerin implementation intention -tutkimus vahvistaa: kun tavoite
+kirjoitetaan eksplisiittisesti ("teen X tilanteessa Y"), saavuttamisen
+todennäköisyys kasvaa merkittävästi.
+
+**Kolme tavoitetasoa:**
+
+Lyhyen aikavälin tavoite (2–4 viikkoa) on konkreettinen tekeminen: "teen
+S-harjoitteen kolme kertaa tällä viikolla" tai "pidän 14 päivän putken yllä."
+Tämä kytkeytyy suoraan päivittäiseen kirjauslogiikkaan ja streak-seurantaan.
+Pelaaja asettaa tämän itse, valmentaja voi kommentoida.
+
+Kauden tavoite (3–6 kuukautta) on kehityspainotus: "haluan parantaa
+lateraaliliikettäni" tai "haluan nostaa TSI:täni 1.5s → 1.0s". Tämä vaatii
+valmentajan osallistumisen koska se pitää kytkeä ohjelmaan — heikoin ketju,
+testausaikataulu, seuranta. Valmentaja vahvistaa kauden tavoitteen samanlaisella
+prosessilla kuin talenttiohjelma-ehdotuksen.
+
+Pitkän aikavälin unelma (ei aikarajaa) on se miksi pelaaja pelaa jalkapalloa.
+"Haluan pelata maajoukkueessa" tai "haluan pelata yliopistossa Saksassa."
+Tämä ei ole mitattava tavoite — se on ankkuri joka antaa merkityksen kaikelle
+muulle. Järjestelmä ei mittaa tätä, se vain tallentaa sen ja näyttää sen
+pelaajalle itselleen silloin kun motivaatio on koetuksella.
+
+**Firestore-rakenne:**
+```
+pelaajat/{id}/tavoitteet/{tavoiteId}
+  tyyppi:        'lyhyt'|'kausi'|'unelma'
+  kuvaus:        string (pelaajan omin sanoin, max 200 merkkiä)
+  luotu:         Timestamp
+  asettaja:      pelaajaId (aina pelaaja itse)
+  vahvistaja:    valmentajaId (vaaditaan kausi-tavoitteille)
+  tila:          'aktiivinen'|'saavutettu'|'muutettu'|'poistunut'
+  saavutettu:    Timestamp|null
+  liittyy_ketjuun: 'SBL'|'SFL'|'LL'|'DIAG'|'DFL'|null
+  liittyy_testiin: 'tsi'|'smjuoksu'|'cmj'|null
+```
+
+**Ikävaiheen huomio:** Alle 13-vuotiaalle tavoite on aina lyhyen aikavälin
+ja konkreettinen — "keksi 5 uutta pallotemppu tällä viikolla" eikä "paranna
+TSI:täni." Kauden tavoitteet ja pitkän aikavälin unelmat ovat 13-vuotiaasta
+eteenpäin. Tämä noudattaa samaa ikävaiheistusta kuin koko testimatriisi ja
+ikäfaasikieli.
+
+**Kytkös AI-moduuleihin (Sprint 6-8):** Behavioural Science -agentti lukee
+pelaajan tavoitteet ja kalibroi viestinsä niihin. Jos pelaajan unelma on
+"pelata Saksassa" ja hänen TSI-kehityksensä on nouseva, agentti kytkee
+nämä yhteen: "sinun tekniikkasi kehittyy tällä hetkellä suuntaan joka
+vie lähemmäs tuota unelmaa." Tämä on se hetki jolloin data muuttuu
+merkitykseksi.
+
+---
+
+### 15. Rakentamisjärjestys — kokonaiskuva
+
+Sprint 1 (nyt valmis): KOTI-näkymä puhdistettu, 70/30-rakenne toteutettu,
+Bola Siempre integroitu, P6-käynnistys korjattu, kehut-säännöt lisätty.
+
+Sprint 2 (seuraava): Bottom navigation (Tänään/Minä/Meistä), FIFA-kortti
+oikealla datalla, FLEI-profiilikartta, kehitysaikajana, kaverihaaste
+perusrakenne, streak VP-dashboardissa.
+
+Sprint 3: Meistä-välilehti (valmentajan viesti, TASO-kalenteri, joukkuehaaste),
+valmentajan asettama haaste, pelaajan omat tavoitteet (lyhyt + kausi),
+TMBus-Firestore-bridge push-notifikaatioita varten.
+
+Sprint 4-5: TASO-integraatio kalenteriin, iCal-vienti, tavoitteiden
+seurantanäkymä pelaajalle ja valmentajalle.
+
+Sprint 6-8: AI-kehitysnarratiivi, Behavioural Science -agentti, kehityshaaste
+talenttiohjelmaan kytkettynä, pitkän aikavälin unelma-ankkuri.
