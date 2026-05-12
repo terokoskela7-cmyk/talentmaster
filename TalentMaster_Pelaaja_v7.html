@@ -409,6 +409,8 @@ function go(s){
   _sc=s;
   document.querySelectorAll('.sp').forEach(b=>b.classList.toggle('on',b.dataset.s===s));
   draw();
+  // C·Kortti — avaa overlay (rCard() poistettu, naytaFcOverlay hoitaa renderöinnin)
+  if (s === 'card' && typeof naytaFcOverlay === 'function') naytaFcOverlay();
 }
 
 /* tab(t) — vaihda päänavigaation välilehti (joukkue/testit/kortti/mina/koti) */
@@ -452,7 +454,7 @@ function draw(){
     else if (_tab==='mina')    html=rMina();
     else                       html=rA1();
   }
-  const card=(_sc==='card'||_cOpen)?rCard():'';
+  const card='';  // rCard() poistettu — FIFA-kortti renderöityy #fcOv overlayhyn (naytaFcOverlay)
   const tabs=hideTabs?'':rTabs();
   body.innerHTML=`<div class="scene">${html}${card}${tabs}</div>`;
   bind();
@@ -483,7 +485,7 @@ function bind(){
   // Card
   const fl=body.querySelector('#flip');   if(fl)fl.addEventListener('click',()=>{_flip=!_flip;draw();});
   const cc=body.querySelector('#cClose'); if(cc)cc.addEventListener('click',()=>{_cOpen=false;if(_sc==='card')go('a1');else draw();});
-  body.querySelectorAll('[data-card]').forEach(el=>el.addEventListener('click',()=>{_cOpen=true;draw();}));
+  body.querySelectorAll('[data-card]').forEach(el=>el.addEventListener('click',()=>{if(typeof naytaFcOverlay==='function')naytaFcOverlay();}));
   body.querySelectorAll('[data-train]').forEach(el=>el.addEventListener('click',()=>go('train')));
   // Offline toggle
   body.querySelectorAll('[data-om]').forEach(b=>b.addEventListener('click',()=>{_oMode=b.dataset.om;draw();}));
@@ -801,7 +803,7 @@ function rJoukkue(){
         <div class="meta">Pelipaikka</div>
       </div>
       <div style="text-align:center;flex:1">
-        <div style="font-family:var(--font-m);font-size:22px;color:var(--text)">${(p?.joukkueId||'KPV U13').toUpperCase()}</div>
+        <div style="font-family:var(--font-m);font-size:22px;color:var(--text)">${(p?.joukkueId||'—').toUpperCase()}</div>
         <div class="meta">Joukkue</div>
       </div>
       <div style="text-align:center;flex:1">
@@ -1141,50 +1143,6 @@ function rTDone(){
   </div>
   <div style="flex:1"></div>
   <button id="dBtn" class="btn-p">${T('backHm')}</button>
-</div>`;
-}
-
-/* C – FIFA CARD */
-function rCard(){
-  const fB='position:absolute;inset:0;border-radius:16px;transition:opacity .4s ease,transform .6s cubic-bezier(.4,0,.2,1);';
-  const fOp=_flip?'opacity:0;transform:scale(.92) rotateY(12deg);pointer-events:none;':'opacity:1;transform:scale(1) rotateY(0);';
-  const bOp=_flip?'opacity:1;transform:scale(1) rotateY(0);':'opacity:0;transform:scale(.92) rotateY(-12deg);pointer-events:none;';
-  const stats=[['PAC',84],['DRI',88],['SHO',79],['DEF',62],['PAS',86],['PHY',74]];
-  const back=[{k:'PAC',v:84,d:'+1',u:true},{k:'DRI',v:88,d:'+2',u:true},{k:'SHO',v:79,d:'0',u:null},{k:'DEF',v:62,d:'−1',u:false},{k:'PAS',v:86,d:'+1',u:true},{k:'PHY',v:74,d:'0',u:null}];
-  return `
-<div class="cov">
-  <button id="cClose" style="position:absolute;top:18px;right:18px;background:rgba(242,239,230,.06);border:.5px solid rgba(242,239,230,.2);color:var(--text);padding:8px;border-radius:20px">${ic('x',14)}</button>
-  <div class="fw">
-    <div style="${fB}${fOp}background:linear-gradient(135deg,#3A2800,#1A1200 45%,#0D0800);border:1px solid rgba(184,134,11,.4);box-shadow:0 20px 60px rgba(0,0,0,.8),inset 0 0 80px rgba(200,136,42,.1);padding:20px 18px;display:flex;flex-direction:column;color:#B8860B;">
-      <div style="font-size:9px;letter-spacing:.3em;font-weight:500;color:rgba(184,134,11,.7)">★ ELITE</div>
-      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:4px">
-        <div><div style="font-family:var(--font-b);font-weight:900;font-size:72px;line-height:.9;letter-spacing:-.02em">87</div><div style="font-size:14px;font-weight:500;letter-spacing:.2em">CAM</div></div>
-        <div style="text-align:right"><div style="font-size:10px;letter-spacing:.2em">FIN</div><div style="font-size:8px;color:rgba(184,134,11,.55);margin-top:8px;font-family:var(--font-m)">TMP-4892</div></div>
-      </div>
-      <div style="margin-top:12px;flex:1;background:rgba(184,134,11,.05);border:.5px solid rgba(184,134,11,.22);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:42px">⚽</div>
-      <div style="font-family:var(--font-b);font-weight:900;font-size:18px;letter-spacing:.5px;text-transform:uppercase;margin-top:10px;border-top:.5px solid rgba(184,134,11,.3);padding-top:8px">A. Mäkinen</div>
-      <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:10px;font-weight:500">
-        ${stats.map(([k,v])=>`<div style="display:flex;justify-content:space-between;color:rgba(184,134,11,.9)"><span>${k}</span><b>${v}</b></div>`).join('')}
-      </div>
-    </div>
-    <div style="${fB}${bOp}background:var(--surface);border:.5px solid var(--border2);padding:18px 18px 14px;display:flex;flex-direction:column;color:var(--text);">
-      <div class="ey ac" style="font-weight:500">Miksi 87?</div>
-      <div style="font-family:var(--font-d);font-weight:400;font-size:17px;line-height:1.3;margin-top:6px">DRI +2 tästä viikosta — CMJ noussut, hallintaketju vakaa.</div>
-      <div style="margin-top:12px;display:flex;flex-direction:column;gap:5px">
-        ${back.map(x=>`<div style="display:grid;grid-template-columns:34px 1fr 42px 38px;align-items:center;gap:8px;font-size:11px">
-          <span style="color:var(--ink3);font-weight:500">${x.k}</span>
-          <div style="height:4px;background:rgba(242,239,230,.08);border-radius:2px;overflow:hidden"><div style="height:100%;width:${x.v}%;background:${x.u===false?'#8A2B2B':'var(--teal)'}"></div></div>
-          <span style="font-family:var(--font-m);text-align:right">${x.v}</span>
-          <span style="font-size:9px;color:${x.u?'#28B090':x.u===false?'#C77575':'var(--ink3)'};text-align:right;letter-spacing:.04em">${x.d}</span>
-        </div>`).join('')}
-      </div>
-      <div style="margin-top:12px;padding:10px 12px;background:rgba(26,122,94,.08);border:.5px solid rgba(26,122,94,.25);border-radius:8px">
-        <div class="ey ac" style="font-weight:500">Miten nouset 88:aan?</div>
-        <div style="font-size:11px;color:rgba(242,239,230,.9);margin-top:4px;line-height:1.45">Yksi DEF-harjoitus viikossa — hallintaketju on lähellä läpimurtoa.</div>
-      </div>
-    </div>
-  </div>
-  <button id="flip" class="btn-g" style="margin-top:22px">${ic('rot',12)} ${_flip?'Etupuoli':'Miksi 87?'}</button>
 </div>`;
 }
 
@@ -2352,6 +2310,10 @@ async function _kirjauduPinilla(pin) {
 
     _pelaaja = found;
     window._seuraId = foundSeura;
+    // P6 — havainto-kuuntelija käynnistyy _kaynnistaAppUI():n sisällä,
+    // joka tarkistaa window._p7Pelaaja:n. Asetetaan se ennen kutsua,
+    // jotta _p6KaynnistakuuntelIja saa oikeat tunnisteet.
+    window._p7Pelaaja = { seuraId: foundSeura, pelaajaId: found.id };
     _kaynnistaAppUI();
 
   } catch(e) {
@@ -2449,7 +2411,8 @@ function _tmToast(text, kind){
 
 /* ══════════════════════════════════════════════════════════
    FIFA KORTTI — Firebase-layer funktiot
-   Täydentää mallin rCard()-funktiota
+   naytaFcOverlay() rakentaa #fcOv overlayn _pelaaja-datasta.
+   Korvasi vanhan rCard()-mockup-funktion (poistettu 2026-05-12).
 ══════════════════════════════════════════════════════════ */
 
 function avaaKortti() {
@@ -3163,87 +3126,6 @@ async function _p6Luetuksi(havId, seuraId, pelaajaId) {
 function _suljeHavainnot() {
   const ov = document.getElementById('havOv');
   if (ov) ov.remove();
-}
-</script>
-
-<script>
-window._havLkm=0;window._havData=[];window._havUnsub=null;
-window._p7Pelaaja=window._p7Pelaaja||{seuraId:null,pelaajaId:null};
-
-function _p6KaynnistakuuntelIja(seuraId,pelaajaId){
-  if(window._havUnsub){window._havUnsub();window._havUnsub=null;}
-  const db=window._db;
-  if(!db||!seuraId||!pelaajaId)return;
-  window._p7Pelaaja={seuraId,pelaajaId};
-  window._havUnsub=db.collection('seurat').doc(seuraId)
-    .collection('pelaajat').doc(pelaajaId)
-    .collection('havainnot')
-    .where('tila','==','valmis')
-    .where('pelaaja_lukenut','==',false)
-    .orderBy('luotu','desc')
-    .onSnapshot(function(snap){
-      window._havLkm=snap.size;
-      window._havData=snap.docs.map(function(d){return Object.assign({_id:d.id},d.data());});
-      _p6PaivitaMerkki();
-      if(snap.size>0&&!snap.metadata.fromCache&&document.visibilityState==='visible'){
-        if(navigator.vibrate)navigator.vibrate([50,30,50]);
-      }
-    },function(e){console.warn('[P6]',e.code);});
-}
-
-function _p6PaivitaMerkki(){
-  const el=document.querySelector('.hav-merkki');
-  if(!el)return;
-  if(window._havLkm>0){
-    el.style.display='inline-flex';
-    el.lastChild.textContent=' '+window._havLkm+' uutta';
-  } else {
-    el.style.display='none';
-  }
-}
-
-function _avaaHavainnot(){
-  const hav=window._havData;
-  if(!hav||!hav.length)return;
-  const {seuraId,pelaajaId}=window._p7Pelaaja;
-  const kortit=hav.map(function(h){
-    const pvm=h.pvm||'';
-    const tekija=h.tekija_nimi||'Valmentaja';
-    const narr=h.narratiivi||'';
-    const oppim=h.oppimisnakokohta||'';
-    return '<div class="hav-card" id="hk-'+h._id+'">' +
-      '<div class="hav-card-hdr"><div class="hav-dot"></div>' +
-      '<div class="hav-from">'+tekija+(pvm?' · '+pvm:'')+'</div>' +
-      '<div class="hav-badge">UUSI</div>' +
-      '<button class="hav-close" onclick="_p6Luetuksi(''+h._id+'',''+seuraId+'',''+pelaajaId+'')">&#215;</button></div>' +
-      (narr?'<div class="hav-narr">'+narr+'</div>':'') +
-      (oppim?'<div class="hav-oppiminen"><strong>Mitä opit:</strong> '+oppim+'</div>':'') +
-      '<button class="hav-luettu-btn" onclick="_p6Luetuksi(''+h._id+'',''+seuraId+'',''+pelaajaId+'')">Merkitse luetuksi &#8594;</button>' +
-    '</div>';
-  }).join('');
-  const ov=document.createElement('div');
-  ov.className='hav-ov';ov.id='havOv';
-  ov.innerHTML='<div class="hav-ov-hdr"><div class="hav-ov-title">Valmentajaltasi</div>' +
-    '<button class="hav-ov-close" onclick="_suljeHavainnot()">&#215;</button></div>'+kortit;
-  document.body.appendChild(ov);
-}
-
-async function _p6Luetuksi(havId,seuraId,pelaajaId){
-  const db=window._db;if(!db)return;
-  try{
-    await db.collection('seurat').doc(seuraId)
-      .collection('pelaajat').doc(pelaajaId)
-      .collection('havainnot').doc(havId)
-      .update({pelaaja_lukenut:true});
-    const el=document.getElementById('hk-'+havId);
-    if(el){el.style.cssText+='transition:opacity .3s,transform .3s;opacity:0;transform:translateX(20px)';
-      setTimeout(function(){el.remove();},320);}
-    setTimeout(function(){if(window._havLkm===0)_suljeHavainnot();},400);
-  }catch(e){console.warn('[P6]',e.message);}
-}
-
-function _suljeHavainnot(){
-  const ov=document.getElementById('havOv');if(ov)ov.remove();
 }
 </script>
 </body>
