@@ -1,0 +1,1228 @@
+<!doctype html>
+<html lang="fi" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>TalentMaster™ — Pelaaja v4</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════
+   TalentMaster™ — Design System tokens (colors_and_type.css inline)
+   Dark theme · Player mobile · Standalone
+═══════════════════════════════════════════════════════ */
+:root {
+  --carbon:    #1C1C1A;  --bone:   #F2EFE6;
+  --teal:      #1A7A5E;  --teal-d: #28B090;
+  --slate:     #585751;  --gold:   #B8860B;
+  --fire:      #B85C38;
+  --green-dim: rgba(26,122,94,.08);   --green-brd: rgba(26,122,94,.2);
+  --amber-dim: rgba(122,90,16,.08);   --amber-brd: rgba(122,90,16,.2);
+  --red-dim:   rgba(138,43,43,.08);   --red-brd:   rgba(138,43,43,.2);
+  --font-d: 'Cormorant Garamond', Georgia, serif;
+  --font-b: 'DM Sans', system-ui, sans-serif;
+  --font-m: 'DM Mono', 'SF Mono', Menlo, monospace;
+  --r-sm:6px; --r-md:10px; --r-lg:14px;
+  /* dark theme */
+  --bg:#111110; --bg2:#161614; --bg3:#1C1C1A; --surface:#1E1E1C; --surface2:#1A1A18;
+  --border:rgba(242,239,230,.06); --border2:rgba(242,239,230,.12); --border3:rgba(242,239,230,.18);
+  --text:#F2EFE6; --ink2:#A8A79F; --ink3:#8BA0BC;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--font-b);font-size:14px;line-height:1.7;background:#0a0a08;color:var(--text);min-height:100dvh;overflow-x:hidden;width:100%;max-width:100%;}
+button{font-family:var(--font-b);cursor:pointer}
+
+/* Keyframes */
+@keyframes flicker{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.85;transform:scale(1.05)}}
+@keyframes cardPop{0%{opacity:0;transform:scale(.7)}100%{opacity:1;transform:scale(1)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes ripple{0%{transform:scale(1);opacity:.8}100%{transform:scale(5);opacity:0}}
+@keyframes dotPop{0%{transform:scale(0)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+
+/* Outer wrapper */
+.wrap{max-width:100%;margin:0 auto;padding:12px 8px 40px;overflow-x:hidden;width:100%;}
+.locale-bar{display:flex;justify-content:center;margin-bottom:8px;width:100%;max-width:100%;}
+.locale-inner{display:inline-flex;gap:2px;background:rgba(242,239,230,.04);padding:2px;border-radius:4px}
+.loc-btn{background:transparent;color:var(--ink3);border:none;padding:4px 8px;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;border-radius:3px;transition:background .12s,color .12s}
+.loc-btn.on{background:var(--teal);color:var(--text)}
+.scene-bar{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:10px;width:100%;max-width:100vw;box-sizing:border-box;}
+.sp{background:rgba(242,239,230,.04);color:var(--ink3);border:.5px solid rgba(242,239,230,.1);padding:5px 9px;font-size:9px;letter-spacing:.18em;text-transform:uppercase;font-weight:500;border-radius:20px;transition:background .12s,color .12s,border-color .12s}
+.sp.on{background:var(--teal);color:var(--text);border-color:var(--teal)}
+
+/* Phone */
+.phone{width:min(390px,100vw);height:min(780px,calc(100vh - 90px));margin:0 auto;background:var(--bg);border-radius:36px;border:1px solid #222;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 8px #1a1a1a;position:relative;font-family:var(--font-b);color:var(--text)}
+.ph-status{height:42px;padding:14px 24px 0;display:flex;justify-content:space-between;align-items:flex-start;font-family:var(--font-m);font-size:12px;font-weight:500}
+.ph-body{height:calc(min(780px,calc(100vh - 90px)) - 42px);overflow:hidden;position:relative}
+.scene{background:var(--bg);height:100%;animation:fadeUp .28s ease;position:relative;background:var(--bg)}
+.scroll{height:100%;overflow-y:auto;padding-bottom:72px;-webkit-overflow-scrolling:touch}
+
+/* Bottom tabs */
+.tabs{position:absolute;bottom:0;left:0;right:0;background:var(--bg2);border-top:.5px solid var(--border2);display:flex;justify-content:space-around;padding:8px 0 14px;z-index:10}
+.tb{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 12px;color:var(--ink3);position:relative;transition:color .12s}
+.tb.on{color:var(--text)}
+.tb svg{width:19px;height:19px;fill:none;stroke:var(--ink3);stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;transition:stroke .12s}
+.tb.on svg{stroke:var(--teal-d);stroke-width:1.8}
+.tb-lbl{font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase}
+.tb-dot{position:absolute;top:-2px;width:3px;height:3px;border-radius:50%;background:var(--teal-d)}
+
+/* Type */
+.ey{font-size:9px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3)}
+.ey.ac{color:var(--teal-d)}
+.sig{font-family:var(--font-d);font-weight:500;font-size:22px;line-height:1.3;color:rgba(242,239,230,.95)}
+.kpi{font-family:var(--font-d);font-weight:300;line-height:1;color:var(--text)}
+.meta{font-size:11px;color:var(--ink3)}
+
+/* Cards */
+.card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--r-md)}
+.card2{background:var(--surface2);border:.5px solid var(--border);border-radius:var(--r-md)}
+.card-teal{background:linear-gradient(180deg,rgba(26,122,94,.12),rgba(26,122,94,.02));border:.5px solid rgba(26,122,94,.35);border-radius:var(--r-lg)}
+.card-gold{background:linear-gradient(135deg,rgba(184,134,11,.1),rgba(184,134,11,.02));border:.5px solid rgba(184,134,11,.3);border-radius:var(--r-md)}
+
+/* Buttons */
+.btn-p{width:100%;background:var(--teal);color:var(--text);border:none;padding:16px;font-size:13px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;gap:10px;transition:background .12s}
+.btn-p:active{background:#155f48}
+.btn-g{background:rgba(242,239,230,.04);color:var(--text);border:.5px solid var(--border3);padding:10px 18px;font-size:10px;letter-spacing:.22em;text-transform:uppercase;font-weight:500;border-radius:20px;display:inline-flex;align-items:center;gap:8px}
+
+/* Row */
+.row{background:var(--surface2);border-radius:8px;border:.5px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:12px;margin-bottom:6px}
+
+/* Section divider */
+.sdiv{display:flex;align-items:center;gap:10px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px}
+.sdiv::after{content:'';flex:1;height:.5px;background:var(--border2)}
+
+/* KPI grid */
+.kgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border2);border:.5px solid var(--border2)}
+.kcell{background:var(--bg2);padding:12px 10px}
+
+/* PIN */
+.pin-av{width:72px;height:72px;margin:0 auto;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(26,122,94,.25),rgba(26,122,94,.05));border:.5px solid rgba(26,122,94,.35);display:flex;align-items:center;justify-content:center;font-family:var(--font-b);font-weight:500;font-size:24px;color:var(--teal-d);letter-spacing:.05em}
+.pin-dots{display:flex;gap:14px;justify-content:center}
+.pd{width:12px;height:12px;border-radius:50%;background:transparent;border:1px solid rgba(242,239,230,.3);transition:background .12s,transform .12s}
+.pd.on{background:var(--teal);transform:scale(1.1);animation:dotPop .2s ease}
+.kpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.key{background:rgba(242,239,230,.04);border:.5px solid var(--border2);color:var(--text);padding:14px 0;font-size:20px;font-weight:400;border-radius:var(--r-sm);transition:background .12s,transform .08s}
+.key:active{background:rgba(26,122,94,.12);transform:scale(.93)}
+
+/* Training progress */
+.prog3{display:flex;gap:6px;align-items:center}
+.pseg{flex:1;height:3px;border-radius:2px;background:rgba(242,239,230,.08);position:relative;overflow:hidden}
+.pseg.done{background:var(--teal)}
+.pseg.act{background:rgba(26,122,94,.35)}
+.pfill{position:absolute;left:0;top:0;bottom:0;background:var(--teal);transition:width 1s linear}
+
+/* Card overlay */
+.cov{position:absolute;inset:0;z-index:200;background:rgba(10,10,8,.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;justify-content:center;animation:cardPop .45s cubic-bezier(.34,1.56,.64,1);}
+.fw{width:240px;height:360px;position:relative}
+.ff{position:absolute;inset:0;border-radius:16px;transition:opacity .4s ease,transform .6s cubic-bezier(.4,0,.2,1)}
+
+/* Skeleton */
+.skel{background:linear-gradient(90deg,rgba(242,239,230,.04),rgba(242,239,230,.1),rgba(242,239,230,.04));background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:4px}
+
+/* Streak */
+.streak-b{display:inline-flex;align-items:center;gap:6px;background:rgba(184,92,56,.12);border:.5px solid rgba(184,92,56,.3);padding:4px 10px;border-radius:20px}
+.fl{animation:flicker 2s ease-in-out infinite}
+.streak-n{font-family:var(--font-m);font-size:12px;font-weight:500;color:#B85C38}
+
+/* XP bar */
+.xpw{margin:0 20px}
+.xpl{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);margin-bottom:6px}
+.xpt{height:6px;background:rgba(242,239,230,.08);border-radius:3px;overflow:hidden}
+.xpf{height:100%;background:linear-gradient(90deg,#1A7A5E,rgba(26,122,94,.6));border-radius:3px}
+
+/* Day grid */
+.dgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.dc{border-radius:6px;padding:8px 4px;text-align:center;border:.5px solid var(--border);background:rgba(242,239,230,.04)}
+.dc.dn{background:rgba(26,122,94,.15);border-color:rgba(26,122,94,.4)}
+.dc.tm{background:var(--teal);border:none}
+
+/* Ripple */
+.rring{position:absolute;width:30px;height:30px;border-radius:50%;border:1px solid rgba(40,176,144,.6)}
+
+@media(max-width:420px){
+  .phone{width:100%;border-radius:0;border:none;box-shadow:none;height:100dvh}
+  .wrap{padding:0}
+  .scene-bar,.locale-bar{display:none}
+}
+
+/* ── FIFA CARD — overlay CSS ──────────────────────────────── */
+.fc-ov{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.88);backdrop-filter:blur(14px);display:none;flex-direction:column;align-items:center;justify-content:center;animation:cardPop .4s cubic-bezier(.34,1.56,.64,1)}
+.fc-ov.active{display:flex}
+.fc-wrap{width:240px;height:360px;position:relative}
+.fc-face{position:absolute;inset:0;border-radius:16px;transition:opacity .4s ease,transform .6s cubic-bezier(.4,0,.2,1);backface-visibility:hidden}
+.fc-front{background:linear-gradient(135deg,#3A2800,#1A1200 45%,#0D0800);border:1px solid rgba(184,134,11,.4);box-shadow:0 20px 60px rgba(0,0,0,.8),inset 0 0 80px rgba(200,136,42,.1);padding:20px 18px;display:flex;flex-direction:column;color:#B8860B}
+.fc-back{background:var(--surface);border:.5px solid var(--border2);padding:18px 18px 14px;display:flex;flex-direction:column;color:var(--text)}
+.fc-flipped .fc-front{opacity:0;transform:scale(.9) rotateY(12deg);pointer-events:none}
+.fc-flipped .fc-back{opacity:1!important;transform:scale(1) rotateY(0)!important;pointer-events:auto!important}
+.fc-back{opacity:0;transform:scale(.9) rotateY(-12deg);pointer-events:none}
+.fc-stats{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:10px;font-weight:500}
+.fc-stat{display:flex;justify-content:space-between;color:rgba(184,134,11,.9)}
+.fc-flip-btn{margin-top:22px;background:rgba(242,239,230,.05);border:.5px solid var(--border3);color:var(--text);padding:10px 20px;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;border-radius:20px;display:flex;align-items:center;gap:8px}
+
+
+/* ── SAMSUNG / PIENI NÄYTTÖ (≤390px) ──────────────────── */
+@media (max-width: 390px) {
+  .phone {
+    width: 100vw !important;
+    height: calc(100vh - 90px) !important;
+    border-radius: 0 !important;
+  }
+  .ph-body {
+    height: calc(100vh - 90px - 42px) !important;
+  }
+  .wrap {
+    width: 100vw;
+    padding: 0;
+  }
+  .scene-bar {
+    gap: 3px;
+    padding: 4px 4px 0;
+  }
+  .sp {
+    font-size: 9px !important;
+    padding: 4px 7px !important;
+  }
+  .locale-inner {
+    gap: 4px;
+  }
+  .loc-btn {
+    padding: 3px 8px !important;
+    font-size: 11px !important;
+  }
+}
+
+</style>
+
+<!-- Firebase v9 compat — sama kuin VP v19 -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+<div class="locale-bar">
+  <div class="locale-inner" id="locBar">
+    <button class="loc-btn on" onclick="setLoc('fi')">FI</button>
+    <button class="loc-btn" onclick="setLoc('en')">EN</button>
+    <button class="loc-btn" onclick="setLoc('sv')">SV</button>
+    <button class="loc-btn" onclick="setLoc('de')">DE</button>
+  </div>
+</div>
+
+<div class="scene-bar" id="sBar">
+  <button class="sp on" data-s="pin" onclick="go('pin')">D · PIN</button>
+  <button class="sp" data-s="a1" onclick="go('a1')">A1 Action</button>
+  <button class="sp" data-s="a2" onclick="go('a2')">A2 Signal</button>
+  <button class="sp" data-s="a3" onclick="go('a3')">A3 Grid</button>
+  <button class="sp" data-s="train" onclick="go('train')">B · Harjoitus</button>
+  <button class="sp" data-s="card" onclick="go('card')">C · Kortti</button>
+  <button class="sp" data-s="haptic" onclick="go('haptic')">G · Haptics</button>
+  <button class="sp" data-s="offline" onclick="go('offline')">H · Offline</button>
+  <button class="sp" data-s="parent" onclick="go('parent')">I · Vanhempi</button>
+</div>
+
+<div class="phone" id="ph">
+  <div class="ph-status">
+    <span>9:41</span>
+    <span style="font-size:11px">● ● ● ▫</span>
+  </div>
+  <div class="ph-body" id="phBody"></div>
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════
+   LOCALE
+══════════════════════════════════════ */
+const STR = {
+  wBack:   {fi:'Tervetuloa takaisin',en:'Welcome back',sv:'Välkommen tillbaka',de:'Willkommen zurück'},
+  today:   {fi:'Tänään',en:'Today',sv:'Idag',de:'Heute'},
+  streak:  {fi:'Streak katkeamassa — tee 5 min tänään.',en:'Streak about to break — do 5 min today.',sv:'Streaken håller på att brytas — gör 5 min idag.',de:'Serie droht zu reißen — mach 5 Min heute.'},
+  start5:  {fi:'Aloita · 5 min',en:'Start · 5 min',sv:'Starta · 5 min',de:'Starten · 5 Min'},
+  xpHint:  {fi:'+40 XP · pitää liekin palamassa',en:'+40 XP · keeps the flame alive',sv:'+40 XP · håller lågan brinnande',de:'+40 XP · hält die Flamme'},
+  speed:   {fi:'Nopeusketju kotona · 3 tehtävää · ~5 min',en:'Speed chain at home · 3 tasks · ~5 min',sv:'Snabbkedja hemma · 3 uppgifter · ~5 min',de:'Speed-Chain zu Hause · 3 Aufgaben · ~5 Min'},
+  otherTdy:{fi:'Muuta tänään',en:'Other today',sv:'Övrigt idag',de:'Weiteres heute'},
+  forgotPw:{fi:'Unohtuiko salasana?',en:'Forgot PIN?',sv:'Glömt PIN?',de:'PIN vergessen?'},
+  back:    {fi:'Takaisin',en:'Back',sv:'Tillbaka',de:'Zurück'},
+  start:   {fi:'Aloita',en:'Start',sv:'Starta',de:'Starten'},
+  ready:   {fi:'Valmistaudu',en:'Get ready',sv:'Gör dig redo',de:'Mach dich bereit'},
+  done:    {fi:'Valmis',en:'Done',sv:'Klar',de:'Fertig'},
+  pause:   {fi:'Tauko',en:'Pause',sv:'Paus',de:'Pause'},
+  resume:  {fi:'Jatka',en:'Resume',sv:'Fortsätt',de:'Weiter'},
+  backHm:  {fi:'Takaisin kotiin',en:'Back home',sv:'Till startsidan',de:'Zurück'},
+};
+let loc = localStorage.getItem('tm_loc')||'fi';
+const T = k => (STR[k]&&STR[k][loc])||k;
+function setLoc(l){
+  loc=l; localStorage.setItem('tm_loc',l);
+  document.querySelectorAll('.loc-btn').forEach(b=>b.classList.toggle('on',b.textContent===l.toUpperCase()));
+  draw();
+}
+
+/* ══════════════════════════════════════
+   ICONS
+══════════════════════════════════════ */
+function ic(name,sz=20,col='currentColor',sw=1.5){
+  const s=`width:${sz}px;height:${sz}px;stroke:${col};stroke-width:${sw};fill:none;stroke-linecap:round;stroke-linejoin:round`;
+  const P={
+    home:`<path d="M3 10L12 3L21 10V20a1 1 0 01-1 1H4a1 1 0 01-1-1Z"/><path d="M9 21V13H15V21"/>`,
+    users:`<circle cx="9" cy="8" r="3.5"/><path d="M3 21v-1a6 6 0 0112 0v1"/><path d="M16 4a3.5 3.5 0 010 7"/><path d="M21 21v-1a6 6 0 00-4-5.65"/>`,
+    zap:`<path d="M13 2L4 14H11L10 22L20 10H13Z"/>`,
+    star:`<path d="M12 2L15 9L22 9.5L17 14.5L18.5 21.5L12 17.8L5.5 21.5L7 14.5L2 9.5L9 9Z"/>`,
+    user:`<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0116 0v1"/>`,
+    play:`<path d="M7 4L19 12L7 20Z" fill="${col}" stroke="none"/>`,
+    pause:`<rect x="7" y="5" width="3.5" height="14" fill="${col}" stroke="none"/><rect x="13.5" y="5" width="3.5" height="14" fill="${col}" stroke="none"/>`,
+    check:`<path d="M4 12L10 18L20 6"/>`,
+    x:`<path d="M6 6L18 18"/><path d="M18 6L6 18"/>`,
+    cR:`<path d="M9 5L16 12L9 19"/>`,
+    aUp:`<path d="M12 20V4"/><path d="M5 11L12 4L19 11"/>`,
+    flame:`<path d="M12 3c2 3 5 5 5 9a5 5 0 01-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z"/>`,
+    rot:`<path d="M3 12a9 9 0 0115-6L21 9"/><path d="M21 3V9H15"/>`,
+    back:`<path d="M15 5L8 12L15 19"/>`,
+  };
+  return `<svg viewBox="0 0 24 24" style="${s}">${P[name]||''}</svg>`;
+}
+
+/* ══════════════════════════════════════
+   STATE
+══════════════════════════════════════ */
+let _sc='pin', _tab='koti', _cOpen=false;
+let _tp='intro', _ts=0, _tsec=0, _tpause=false, _ttimer=null, _gsec=0;
+let _pin='';
+let _oMode='offline';
+let _flip=false;
+let _htimer=null;
+
+function go(s){
+  clearInterval(_ttimer);_ttimer=null;
+  clearInterval(_htimer);_htimer=null;
+  _tp='intro';_ts=0;_tsec=0;_tpause=false;_gsec=0;
+  _pin='';_flip=false;
+  _cOpen=(s==='card');
+  _sc=s;
+  document.querySelectorAll('.sp').forEach(b=>b.classList.toggle('on',b.dataset.s===s));
+  draw();
+}
+
+/* ══════════════════════════════════════
+   EXERCISES
+══════════════════════════════════════ */
+const EX=[
+  {name:'Vauhti · lineaariset askeleet',dur:60,ico:'zap',hint:'Aja täydellä vauhdilla 10m — toista 6×'},
+  {name:'Lähtö · CMJ-hypyt',dur:60,ico:'aUp',hint:'Syvä mutka — räjähtävä ylös · 3 sarjaa · 8 toistoa'},
+  {name:'Hallinta · single leg squat',dur:60,ico:'rot',hint:'Tasapaino — hitaasti alas ja ylös · kumpikin jalka 10×'},
+];
+
+/* ══════════════════════════════════════
+   RENDER
+══════════════════════════════════════ */
+const body=document.getElementById('phBody');
+
+function draw(){
+  const hideTabs=_sc==='pin'||_sc==='train';
+  let html='';
+  if(_sc==='pin')        html=rPin();
+  else if(_sc==='train') html=rTrain();
+  else if(_sc==='a2')    html=rA2();
+  else if(_sc==='a3')    html=rA3();
+  else if(_sc==='haptic')html=rHaptic();
+  else if(_sc==='offline')html=rOffline();
+  else if(_sc==='parent')html=rParent();
+  else                   html=rA1();
+  const card=(_sc==='card'||_cOpen)?rCard():'';
+  const tabs=hideTabs?'':rTabs();
+  body.innerHTML=`<div class="scene">${html}${card}${tabs}</div>`;
+  bind();
+}
+
+/* ──────────────────────────────────────
+   BIND EVENTS
+────────────────────────────────────── */
+function bind(){
+  // PIN keys
+  body.querySelectorAll('.key').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const k=b.dataset.k;
+      if(k==='⌫'){_pin=_pin.slice(0,-1);}
+      else if(_pin.length<4){_pin+=k;}
+      if(_pin.length===4){setTimeout(()=>go('a1'),280);}
+      body.querySelectorAll('.pd').forEach((d,i)=>d.classList.toggle('on',i<_pin.length));
+    });
+  });
+  // Tabs
+  body.querySelectorAll('.tb').forEach(b=>b.addEventListener('click',()=>{_tab=b.dataset.t;draw();}));
+  // Train
+  const sb=body.querySelector('#sTrain'); if(sb)sb.addEventListener('click',()=>{_tp='go';_tsec=0;_gsec=0;draw();startGo();});
+  const pb=body.querySelector('#pBtn');   if(pb)pb.addEventListener('click',()=>{_tpause=!_tpause;draw();if(!_tpause)startEx();else clearInterval(_ttimer);});
+  const nb=body.querySelector('#nBtn');   if(nb)nb.addEventListener('click',()=>{clearInterval(_ttimer);if(_ts+1>=3){_tp='done';_tmKirjaa('T',true);draw();}else{_ts++;_tsec=0;_tp='ex';draw();startEx();}});
+  const db=body.querySelector('#dBtn');   if(db)db.addEventListener('click',()=>{_tmKirjaa('T',true);go('a1');});
+  body.querySelectorAll('[data-exit]').forEach(b=>b.addEventListener('click',()=>go('a1')));
+  // Card
+  const fl=body.querySelector('#flip');   if(fl)fl.addEventListener('click',()=>{_flip=!_flip;draw();});
+  const cc=body.querySelector('#cClose'); if(cc)cc.addEventListener('click',()=>{_cOpen=false;if(_sc==='card')go('a1');else draw();});
+  body.querySelectorAll('[data-card]').forEach(el=>el.addEventListener('click',()=>{_cOpen=true;draw();}));
+  body.querySelectorAll('[data-train]').forEach(el=>el.addEventListener('click',()=>go('train')));
+  // Offline toggle
+  body.querySelectorAll('[data-om]').forEach(b=>b.addEventListener('click',()=>{_oMode=b.dataset.om;draw();}));
+  // Haptics interval
+  if(_sc==='haptic'&&!_htimer){_htimer=setInterval(()=>{},2000);}
+  // Resume train if needed
+  if(_sc==='train'&&_tp==='ex'&&!_tpause&&!_ttimer)startEx();
+  if(_sc==='train'&&_tp==='go')startGo();
+}
+
+/* ──────────────────────────────────────
+   TRAINING TIMERS
+────────────────────────────────────── */
+function startGo(){
+  clearInterval(_ttimer);
+  _ttimer=setInterval(()=>{
+    _gsec++;
+    const n=Math.max(0,4-_gsec);
+    const el=body.querySelector('#goN');
+    if(el){el.textContent=n>0?n:'Nyt';el.style.animation='none';el.offsetHeight;el.style.animation='cardPop .6s cubic-bezier(.34,1.56,.64,1)';}
+    if(_gsec>3){clearInterval(_ttimer);_ttimer=null;_tp='ex';_tsec=0;draw();startEx();}
+  },700);
+}
+function startEx(){
+  clearInterval(_ttimer);
+  _ttimer=setInterval(()=>{
+    if(_tpause)return;
+    _tsec++;
+    const ex=EX[_ts];
+    const pct=(_tsec/ex.dur)*100;
+    const rem=ex.dur-_tsec;
+    const ss=String(rem%60).padStart(2,'0');
+    const r=100,c=2*Math.PI*r;
+    const ring=body.querySelector('#tRing');
+    const time=body.querySelector('#tTime');
+    if(ring){ring.style.strokeDasharray=c;ring.style.strokeDashoffset=c*(1-pct/100);}
+    if(time)time.textContent=`0:${ss}`;
+    const fills=body.querySelectorAll('.pfill');
+    if(fills[_ts])fills[_ts].style.width=pct+'%';
+    if(_tsec>=ex.dur){
+      clearInterval(_ttimer);_ttimer=null;
+      if(_ts+1>=EX.length){_tp='done';draw();}
+      else{_ts++;_tsec=0;draw();startEx();}
+    }
+  },1000);
+}
+
+/* ══════════════════════════════════════
+   SCENE RENDERERS
+══════════════════════════════════════ */
+
+/* D – PIN */
+function rPin(){
+  const keys=['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  return `
+<div style="padding:28px 28px 20px;height:100%;display:flex;flex-direction:column;background:var(--bg)">
+  <div style="text-align:center;margin-top:16px">
+    <div class="pin-av">AM</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin:14px 0 2px;color:var(--text)">Anton</div>
+    <div class="ey" style="letter-spacing:.18em">P14 Musta · TMP-4892</div>
+  </div>
+  <div style="margin-top:22px;padding:14px 16px;background:rgba(184,92,56,.08);border:.5px solid rgba(184,92,56,.25);border-radius:10px;display:flex;align-items:center;gap:12px">
+    <span class="fl" style="font-size:22px">🔥</span>
+    <div style="flex:1">
+      <div class="ey" style="color:rgba(184,92,56,.9);font-weight:500">12 pv streak</div>
+      <div style="font-family:var(--font-d);font-weight:400;font-size:15px;color:rgba(242,239,230,.95);margin-top:2px;line-height:1.35">Olit viimeksi 4 pv sitten — älä anna liekin sammua.</div>
+    </div>
+  </div>
+  <div style="margin-top:18px;display:flex;gap:10px">
+    <div class="card" style="flex:1;padding:10px 12px">
+      <div class="ey">Taso</div>
+      <div class="kpi" style="font-size:24px;margin-top:4px">7</div>
+    </div>
+    <div class="card" style="flex:1;padding:10px 12px">
+      <div class="ey">Kortti</div>
+      <div class="kpi" style="font-size:24px;margin-top:4px;color:#B8860B">87</div>
+    </div>
+  </div>
+  <div class="pin-dots" style="margin-top:22px;margin-bottom:14px">
+    ${[0,1,2,3].map(i=>`<div class="pd${i<_pin.length?' on':''}"></div>`).join('')}
+  </div>
+  <div class="ey" style="text-align:center;margin-bottom:12px;letter-spacing:.2em">Syötä PIN</div>
+  <div class="kpad">
+    ${keys.map(k=>k===''?'<div></div>':`<button class="key" data-k="${k}">${k}</button>`).join('')}
+  </div>
+  <div class="ey" style="text-align:center;margin-top:14px;letter-spacing:.18em">${T('forgotPw')}</div>
+</div>`;
+}
+
+/* A1 – Action-first */
+function rA1(){
+  return `
+<div class="scroll" style="background:var(--bg)">
+  ${hdr('A1 Action-first')}
+  <section style="padding:28px 20px 20px">
+    <div class="ey ac" style="margin-bottom:10px">${T('today')}</div>
+    <div class="sig" style="margin-bottom:14px">${T('streak')}</div>
+    <div class="meta">${T('speed')}</div>
+    ${(()=>{ const w=getWhy(_heikoinKetju(),'T'); return w?`<div style="margin-top:10px;padding:8px 12px;background:rgba(26,122,94,.06);border-left:2px solid rgba(26,122,94,.28);font-size:11px;color:rgba(242,239,230,.7);line-height:1.55;font-style:italic">${w}</div>`:''; })()}
+  </section>
+  <div style="padding:0 20px">
+    <button class="btn-p" data-train>${ic('play',16)} ${T('start5')}</button>
+    <div class="meta" style="text-align:center;margin-top:10px;letter-spacing:.1em">${T('xpHint')}</div>
+  </div>
+
+  <!-- Fiilinki -->
+  <div style="margin:0 20px 14px;background:var(--surface2);border:.5px solid var(--border);padding:14px 16px">
+    <div style="font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px">${ikaCfg().fiiKysymys}</div>
+    <div style="display:flex;justify-content:space-between" id="fiiRow">
+      ${['😞','😐','🙂','😊','🤩'].map((e,i)=>`
+        <button onclick="tmFiilinki(${i+1},this)" style="flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px;border-radius:6px;transition:background .15s;cursor:pointer">
+          <span style="font-size:22px;line-height:1">${e}</span>
+        </button>`).join('')}
+    </div>
+  </div>
+  <div style="padding:26px 20px 0">
+    <div class="sdiv">${T('otherTdy')}</div>
+    ${[{e:'Joukkue',t:'Ti 18:30 harjoitus · Töölö',i:'users'},{e:'Testit',t:'CMJ-testi avoinna',i:'zap'},{e:'IDP',t:'Ensikosketus · 68%',i:'aUp'}].map(x=>`
+      <div class="row">
+        ${ic(x.i,16,'#8BA0BC')}
+        <div style="flex:1">
+          <div class="ey" style="letter-spacing:.18em">${x.e}</div>
+          <div style="font-size:12px;color:var(--text);margin-top:1px">${x.t}</div>
+        </div>
+        ${ic('cR',14,'rgba(242,239,230,.3)')}
+      </div>`).join('')}
+    <div class="card-gold" style="margin-top:14px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:14px" data-card>
+      <div style="font-family:var(--font-b);font-weight:900;font-size:32px;color:#B8860B;line-height:.9">87</div>
+      <div style="flex:1">
+        <div class="ey" style="color:rgba(184,134,11,.7);letter-spacing:.22em">★ Elite · avaa kortti</div>
+        <div style="font-size:12px;color:var(--text);margin-top:2px">+1 tästä viikosta · DRI 88 nousi</div>
+      </div>
+      ${ic('cR',16,'rgba(184,134,11,.6)')}
+    </div>
+  </div>
+</div>`;
+}
+
+/* A2 – Signal CTA */
+function rA2(){
+  return `
+<div class="scroll" style="background:var(--bg)">
+  ${hdr('A2 Signal = CTA')}
+  <section style="margin:24px 20px 20px;padding:28px 24px 24px;cursor:pointer" class="card-teal" data-train>
+    <div class="ey ac" style="margin-bottom:14px">▸ ${T('today')} · tap to start</div>
+    <div class="sig">${T('streak')}</div>
+    <div style="margin-top:18px;padding-top:14px;border-top:.5px solid rgba(26,122,94,.2);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div class="ey" style="letter-spacing:.14em">Nopeusketju · kotona</div>
+        <div style="font-size:12px;color:rgba(242,239,230,.9);margin-top:3px">3 tehtävää · ~5 min · +40 XP</div>
+      </div>
+      <div style="width:44px;height:44px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(26,122,94,.35)">${ic('play',18,'#F2EFE6')}</div>
+    </div>
+  </section>
+  <div class="kgrid" style="margin:0 20px">
+    ${[{l:'Streak',v:'12',u:'päivää'},{l:'XP',v:'620',u:'/ 1000'},{l:'Rating',v:'87',u:'+1'}].map(x=>`
+      <div class="kcell">
+        <div class="ey">${x.l}</div>
+        <div class="kpi" style="font-size:26px;margin-top:4px">${x.v}</div>
+        <div class="meta" style="margin-top:2px">${x.u}</div>
+      </div>`).join('')}
+  </div>
+  <div style="padding:20px 20px 0">
+    <div class="card-gold" style="padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:14px" data-card>
+      <div style="font-family:var(--font-b);font-weight:900;font-size:30px;color:#B8860B">87</div>
+      <div style="flex:1;font-size:12px;color:var(--text)">★ Kortti · DRI +2 tämä viikko</div>
+      ${ic('cR',14,'rgba(184,134,11,.6)')}
+    </div>
+  </div>
+</div>`;
+}
+
+/* A3 – Today Grid */
+function rA3(){
+  return `
+<div class="scroll" style="background:var(--bg)">
+  ${hdr('A3 Today-grid')}
+  <section style="padding:22px 20px 16px">
+    <div class="ey ac" style="margin-bottom:10px">Kehityksen tila</div>
+    <div class="sig">Streak katkeamassa — pidä liekki palamassa.</div>
+  </section>
+  <div style="padding:0 20px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div style="grid-column:1/3;padding:18px;background:var(--teal);border-radius:12px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:14px" data-train>
+      ${ic('play',22)}
+      <div>
+        <div class="ey" style="opacity:.75">Nyt</div>
+        <div style="font-family:var(--font-d);font-weight:400;font-size:19px;margin-top:2px">Nopeusketju · 5 min</div>
+      </div>
+      <div style="margin-left:auto;font-family:var(--font-m);font-size:11px;opacity:.8">+40 XP</div>
+    </div>
+    ${[{e:'Joukkue',t:'Ti 18:30',s:'Töölö',i:'users'},{e:'Testit',t:'CMJ avoinna',s:'Mittaa',i:'zap'},{e:'IDP',t:'68%',s:'Ensikosketus',i:'aUp'}].map(x=>`
+      <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:4px;min-height:90px">
+        ${ic(x.i,16,'#8BA0BC')}
+        <div class="ey" style="margin-top:6px;letter-spacing:.2em">${x.e}</div>
+        <div style="font-size:13px;color:var(--text);font-weight:500">${x.t}</div>
+        <div class="meta">${x.s}</div>
+      </div>`).join('')}
+    <div class="card-gold" style="border-radius:var(--r-md);padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:4px" data-card>
+      ${ic('star',16,'#B8860B')}
+      <div class="ey" style="color:rgba(184,134,11,.8);margin-top:6px;letter-spacing:.2em">★ Kortti</div>
+      <div style="font-family:var(--font-b);font-weight:900;font-size:26px;color:#B8860B;line-height:1">87</div>
+      <div class="meta">+1 · Elite</div>
+    </div>
+  </div>
+</div>`;
+}
+
+/* B – TRAINING */
+function rTrain(){
+  if(_tp==='intro')return rTIntro();
+  if(_tp==='go')   return rTGo();
+  if(_tp==='ex')   return rTEx();
+  return rTDone();
+}
+
+function rTIntro(){
+  return `
+<div style="padding:20px;height:100%;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)">
+  <button data-exit style="background:none;border:none;color:var(--ink3);padding:4px;align-self:flex-start;display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase">
+    ${ic('back',14)} ${T('back')}
+  </button>
+  <div style="margin-top:18px">
+    <div class="ey ac" style="font-weight:500">Tänään · kotona</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:30px;margin-top:8px;color:var(--text);line-height:1.1">Nopeusketju</div>
+    <div class="meta" style="margin-top:10px;line-height:1.6;max-width:300px">Kolme lyhyttä tehtävää, noin 5 min. Tee näin — ja perustelu on alla kunkin kohdalla.</div>
+  </div>
+  <!-- Coach video placeholder -->
+  <div style="margin-top:18px;position:relative;height:160px;background:#0D0D0C;border-radius:12px;overflow:hidden;border:.5px solid var(--border);flex-shrink:0">
+    <div style="position:absolute;inset:0;background:linear-gradient(165deg,#1a3a2a,#0d1f17 40%,#050a07)"></div>
+    <div style="position:absolute;inset:0;opacity:.4;background:repeating-linear-gradient(180deg,transparent 0,transparent 3px,rgba(255,255,255,.02) 3px,rgba(255,255,255,.02) 4px)"></div>
+    <svg viewBox="0 0 100 145" style="position:absolute;inset:0;width:100%;height:100%"><circle cx="50" cy="40" r="9" fill="rgba(242,239,230,.15)"/><path d="M34 60 Q50 54 66 60 L62 95L58 130L52 130L50 105L48 130L42 130L38 95Z" fill="rgba(242,239,230,.12)"/></svg>
+    <div style="position:absolute;top:10px;left:10px;background:rgba(26,122,94,.85);color:var(--text);font-size:8px;letter-spacing:.2em;text-transform:uppercase;font-weight:600;padding:3px 7px;border-radius:3px">● Valmentaja</div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:20px 12px 8px;background:linear-gradient(transparent,rgba(0,0,0,.8))">
+      <div class="ey" style="color:rgba(242,239,230,.6)">Mikko V. · P14 Musta</div>
+      <div style="font-family:var(--font-d);font-size:14px;color:var(--text);margin-top:2px">Näin se tehdään.</div>
+    </div>
+  </div>
+  <div style="margin-top:18px;display:flex;flex-direction:column;gap:6px">
+    ${EX.map((e,i)=>`
+      <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px;border:.5px solid var(--border)">
+        <div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);width:18px">${i+1}</div>
+        ${ic(e.ico,15,'#28B090')}
+        <div style="flex:1;font-size:12px;color:var(--text)">${e.name}</div>
+        <div style="font-family:var(--font-m);font-size:11px;color:var(--ink3)">${e.dur}s</div>
+      </div>`).join('')}
+  </div>
+  <button id="sTrain" class="btn-p" style="margin-top:18px;flex-shrink:0">${ic('play',16)} ${T('start')}</button>
+</div>`;
+}
+
+function rTGo(){
+  const n=Math.max(1,4-_gsec);
+  return `
+<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg)">
+  <div class="ey ac" style="letter-spacing:.3em">${T('ready')}</div>
+  <div id="goN" style="font-family:var(--font-d);font-weight:300;font-size:180px;color:var(--text);line-height:1;margin-top:14px;animation:cardPop .6s cubic-bezier(.34,1.56,.64,1)">${n}</div>
+</div>`;
+}
+
+function rTEx(){
+  const ex=EX[_ts];
+  const pct=(_tsec/ex.dur)*100;
+  const rem=ex.dur-_tsec;
+  const ss=String(rem%60).padStart(2,'0');
+  const r=100,c=2*Math.PI*r;
+  const off=c*(1-pct/100);
+  return `
+<div style="padding:20px;height:100%;display:flex;flex-direction:column;background:var(--bg)">
+  <div class="prog3">
+    ${EX.map((_,i)=>`<div class="pseg${i<_ts?' done':i===_ts?' act':''}">${i===_ts?`<div class="pfill" style="width:${pct}%"></div>`:''}</div>`).join('')}
+    <button data-exit style="background:none;border:none;color:var(--ink3);padding:4px;cursor:pointer;margin-left:8px">${ic('x',16)}</button>
+  </div>
+  <div style="margin-top:22px">
+    <div class="ey ac" style="font-weight:500">Tehtävä ${_ts+1} / ${EX.length}</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:24px;margin-top:8px;color:var(--text);line-height:1.2">${ex.name}</div>
+    <div class="meta" style="margin-top:10px;line-height:1.55;max-width:300px">${ex.hint}</div>
+  </div>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center">
+    <div style="position:relative;width:220px;height:220px">
+      <svg width="220" height="220" style="transform:rotate(-90deg)">
+        <circle cx="110" cy="110" r="${r}" fill="none" stroke="var(--border)" stroke-width="3"/>
+        <circle id="tRing" cx="110" cy="110" r="${r}" fill="none" stroke="var(--teal)" stroke-width="3" stroke-dasharray="${c}" stroke-dashoffset="${off}" style="transition:stroke-dashoffset 1s linear" stroke-linecap="round"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <div id="tTime" style="font-family:var(--font-d);font-weight:300;font-size:72px;color:var(--text);line-height:1">0:${ss}</div>
+        <div class="ey" style="margin-top:6px;letter-spacing:.22em">jäljellä</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:12px">
+    <button id="pBtn" style="flex:1;background:rgba(242,239,230,.04);color:var(--text);border:.5px solid var(--border3);padding:14px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:500;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px">${ic(_tpause?'play':'pause',14)} ${_tpause?T('resume'):T('pause')}</button>
+    <button id="nBtn" style="flex:1;background:var(--teal);color:var(--text);border:none;padding:14px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:500;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px">${ic('check',14)} Valmis</button>
+  </div>
+</div>`;
+}
+
+function rTDone(){
+  return `
+<div style="padding:28px 20px;height:100%;display:flex;flex-direction:column;background:var(--bg)">
+  <div style="margin-top:40px;text-align:center">
+    <div style="width:72px;height:72px;margin:0 auto;border-radius:50%;background:rgba(26,122,94,.15);border:.5px solid rgba(26,122,94,.4);display:flex;align-items:center;justify-content:center;animation:cardPop .6s cubic-bezier(.34,1.56,.64,1)">${ic('check',32,'#28B090',2)}</div>
+    <div class="ey ac" style="margin-top:18px;letter-spacing:.3em">${T('done')}</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:30px;margin-top:10px;line-height:1.1">Liekki pysyy.</div>
+    <div class="meta" style="margin-top:10px;max-width:280px;margin-left:auto;margin-right:auto;line-height:1.6">13 pv streak · +40 XP · kolme tehtävää kirjattu.</div>
+  </div>
+  <div style="margin-top:28px;padding:16px 18px;background:var(--surface);border-radius:10px;border:.5px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px">
+      <span>Taso 7</span><span style="font-family:var(--font-m)">620 → 660 / 1000</span>
+    </div>
+    <div style="height:8px;background:rgba(242,239,230,.08);border-radius:4px;overflow:hidden;position:relative">
+      <div style="position:absolute;left:0;top:0;bottom:0;width:62%;background:rgba(26,122,94,.6)"></div>
+      <div style="position:absolute;left:62%;top:0;bottom:0;width:4%;background:#28B090;animation:fadeUp .8s ease"></div>
+    </div>
+  </div>
+  <div style="margin-top:18px;padding:14px 16px;background:rgba(26,122,94,.06);border:.5px solid rgba(26,122,94,.25);border-radius:10px">
+    <div class="ey ac" style="font-weight:500">Valmentajalle</div>
+    <div style="font-size:12px;color:var(--text);margin-top:4px;line-height:1.55">Tulos lähetetty automaattisesti P14 Mustan valmentajalle.</div>
+  </div>
+  <div style="flex:1"></div>
+  <button id="dBtn" class="btn-p">${T('backHm')}</button>
+</div>`;
+}
+
+/* C – FIFA CARD */
+function rCard(){
+  const fB='position:absolute;inset:0;border-radius:16px;transition:opacity .4s ease,transform .6s cubic-bezier(.4,0,.2,1);';
+  const fOp=_flip?'opacity:0;transform:scale(.92) rotateY(12deg);pointer-events:none;':'opacity:1;transform:scale(1) rotateY(0);';
+  const bOp=_flip?'opacity:1;transform:scale(1) rotateY(0);':'opacity:0;transform:scale(.92) rotateY(-12deg);pointer-events:none;';
+  const stats=[['PAC',84],['DRI',88],['SHO',79],['DEF',62],['PAS',86],['PHY',74]];
+  const back=[{k:'PAC',v:84,d:'+1',u:true},{k:'DRI',v:88,d:'+2',u:true},{k:'SHO',v:79,d:'0',u:null},{k:'DEF',v:62,d:'−1',u:false},{k:'PAS',v:86,d:'+1',u:true},{k:'PHY',v:74,d:'0',u:null}];
+  return `
+<div class="cov">
+  <button id="cClose" style="position:absolute;top:18px;right:18px;background:rgba(242,239,230,.06);border:.5px solid rgba(242,239,230,.2);color:var(--text);padding:8px;border-radius:20px">${ic('x',14)}</button>
+  <div class="fw">
+    <div style="${fB}${fOp}background:linear-gradient(135deg,#3A2800,#1A1200 45%,#0D0800);border:1px solid rgba(184,134,11,.4);box-shadow:0 20px 60px rgba(0,0,0,.8),inset 0 0 80px rgba(200,136,42,.1);padding:20px 18px;display:flex;flex-direction:column;color:#B8860B;">
+      <div style="font-size:9px;letter-spacing:.3em;font-weight:500;color:rgba(184,134,11,.7)">★ ELITE</div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:4px">
+        <div><div style="font-family:var(--font-b);font-weight:900;font-size:72px;line-height:.9;letter-spacing:-.02em">87</div><div style="font-size:14px;font-weight:500;letter-spacing:.2em">CAM</div></div>
+        <div style="text-align:right"><div style="font-size:10px;letter-spacing:.2em">FIN</div><div style="font-size:8px;color:rgba(184,134,11,.55);margin-top:8px;font-family:var(--font-m)">TMP-4892</div></div>
+      </div>
+      <div style="margin-top:12px;flex:1;background:rgba(184,134,11,.05);border:.5px solid rgba(184,134,11,.22);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:42px">⚽</div>
+      <div style="font-family:var(--font-b);font-weight:900;font-size:18px;letter-spacing:.5px;text-transform:uppercase;margin-top:10px;border-top:.5px solid rgba(184,134,11,.3);padding-top:8px">A. Mäkinen</div>
+      <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:10px;font-weight:500">
+        ${stats.map(([k,v])=>`<div style="display:flex;justify-content:space-between;color:rgba(184,134,11,.9)"><span>${k}</span><b>${v}</b></div>`).join('')}
+      </div>
+    </div>
+    <div style="${fB}${bOp}background:var(--surface);border:.5px solid var(--border2);padding:18px 18px 14px;display:flex;flex-direction:column;color:var(--text);">
+      <div class="ey ac" style="font-weight:500">Miksi 87?</div>
+      <div style="font-family:var(--font-d);font-weight:400;font-size:17px;line-height:1.3;margin-top:6px">DRI +2 tästä viikosta — CMJ noussut, hallintaketju vakaa.</div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:5px">
+        ${back.map(x=>`<div style="display:grid;grid-template-columns:34px 1fr 42px 38px;align-items:center;gap:8px;font-size:11px">
+          <span style="color:var(--ink3);font-weight:500">${x.k}</span>
+          <div style="height:4px;background:rgba(242,239,230,.08);border-radius:2px;overflow:hidden"><div style="height:100%;width:${x.v}%;background:${x.u===false?'#8A2B2B':'var(--teal)'}"></div></div>
+          <span style="font-family:var(--font-m);text-align:right">${x.v}</span>
+          <span style="font-size:9px;color:${x.u?'#28B090':x.u===false?'#C77575':'var(--ink3)'};text-align:right;letter-spacing:.04em">${x.d}</span>
+        </div>`).join('')}
+      </div>
+      <div style="margin-top:12px;padding:10px 12px;background:rgba(26,122,94,.08);border:.5px solid rgba(26,122,94,.25);border-radius:8px">
+        <div class="ey ac" style="font-weight:500">Miten nouset 88:aan?</div>
+        <div style="font-size:11px;color:rgba(242,239,230,.9);margin-top:4px;line-height:1.45">Yksi DEF-harjoitus viikossa — hallintaketju on lähellä läpimurtoa.</div>
+      </div>
+    </div>
+  </div>
+  <button id="flip" class="btn-g" style="margin-top:22px">${ic('rot',12)} ${_flip?'Etupuoli':'Miksi 87?'}</button>
+</div>`;
+}
+
+/* G – HAPTICS */
+function rHaptic(){
+  const cues=[
+    {m:'Valmistaudu · 3',a:'Pip · 400Hz · 60ms',h:'Light · ●',c:'#8BA0BC'},
+    {m:'NYT',a:'Pip · 800Hz · 120ms',h:'Medium · ● ●',c:'#28B090'},
+    {m:'Tehtävä valmis',a:'Ding · 1200Hz',h:'Success · ● ● ●',c:'#28B090'},
+    {m:'Streak pelastettu',a:'Chime · Cormorant',h:'Celebratory',c:'#B8860B'},
+  ];
+  return `
+<div style="padding:20px;height:100%;overflow-y:auto;background:var(--bg)">
+  <div class="ey ac" style="font-weight:500">G · Ääni &amp; haptics</div>
+  <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin-top:6px;color:var(--text);line-height:1.2">Neljä hetkeä, neljä aistimusta.</div>
+  <div class="meta" style="margin-top:8px;line-height:1.55">Konsepti — tuottaja täyttää oikeat tiedostot. Tarkoitus on, että app tuntuu kentällä ilman näyttöä.</div>
+  <div style="margin-top:22px;height:140px;background:var(--surface2);border-radius:10px;border:.5px solid var(--border);position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden">
+    <div class="rring" style="animation:ripple 2s ease-out 0s infinite"></div>
+    <div class="rring" style="animation:ripple 2s ease-out 0.5s infinite"></div>
+    <div class="rring" style="animation:ripple 2s ease-out 1s infinite"></div>
+    <div style="width:30px;height:30px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;z-index:2">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="#F2EFE6"><path d="M12 3a4 4 0 014 4v6a4 4 0 01-8 0V7a4 4 0 014-4z"/><path d="M19 11a7 7 0 01-14 0" stroke="#F2EFE6" stroke-width="2" fill="none"/></svg>
+    </div>
+  </div>
+  <div style="margin-top:18px;display:flex;flex-direction:column;gap:1px;background:var(--border);border:.5px solid var(--border);border-radius:8px;overflow:hidden">
+    ${cues.map(c=>`<div style="background:var(--surface2);padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-family:var(--font-d);font-size:15px;color:var(--text);font-weight:400">${c.m}</div>
+        <div style="width:6px;height:6px;border-radius:50%;background:${c.c}"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:60px 1fr;gap:8px;margin-top:8px;font-size:10px">
+        <span class="ey" style="letter-spacing:.18em;font-weight:500">Audio</span>
+        <span style="font-family:var(--font-m);color:rgba(242,239,230,.85)">${c.a}</span>
+        <span class="ey" style="letter-spacing:.18em;font-weight:500">Haptic</span>
+        <span style="font-family:var(--font-m);color:rgba(242,239,230,.85)">${c.h}</span>
+      </div>
+    </div>`).join('')}
+  </div>
+  <div style="margin-top:16px;padding:12px 14px;background:rgba(26,122,94,.06);border:.5px solid rgba(26,122,94,.25);border-radius:8px">
+    <div class="ey ac" style="font-weight:500">Toteutus</div>
+    <div style="font-size:11px;color:rgba(242,239,230,.85);margin-top:4px;line-height:1.55">Web Audio API tai natiivi AVAudioPlayer · Haptic Engine iOS, Vibration API Android. Asetus: ääni/värinä/molemmat/pois.</div>
+  </div>
+</div>`;
+}
+
+/* H – OFFLINE */
+function rOffline(){
+  const om=_oMode;
+  return `
+<div style="padding:20px;height:100%;overflow-y:auto;background:var(--bg)">
+  <div class="ey ac" style="font-weight:500">H · Offline · nopea lataus</div>
+  <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin-top:6px;color:var(--text);line-height:1.2">Kentällä ei ole 4G:tä.</div>
+  <div class="meta" style="margin-top:8px;line-height:1.55">Koko harjoitus toimii offline · latautuu 200 ms:ssa · synkkaa kun verkko palaa.</div>
+  <div style="display:flex;gap:6px;margin-top:18px">
+    ${[['offline','Offline-banneri'],['skeleton','Skeleton-lataus']].map(([k,lbl])=>`
+      <button class="offline-toggle" data-om="${k}" style="background:${om===k?'var(--teal)':'rgba(242,239,230,.04)'};color:${om===k?'var(--text)':'var(--ink3)'};border:.5px solid ${om===k?'var(--teal)':'rgba(242,239,230,.1)'};padding:6px 12px;font-size:9px;letter-spacing:.16em;text-transform:uppercase;font-weight:500;border-radius:16px">${lbl}</button>`).join('')}
+  </div>
+  ${om==='offline'?`
+  <div style="margin-top:18px;padding:10px 14px;background:rgba(184,92,56,.08);border:.5px solid rgba(184,92,56,.3);border-radius:8px;display:flex;align-items:center;gap:10px">
+    <span style="width:6px;height:6px;border-radius:50%;background:#B85C38;animation:pulse 1.8s infinite;flex-shrink:0"></span>
+    <div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#B85C38;font-weight:500;flex:1">Offline · 3 synkkaa odottaa</div>
+    <span style="font-family:var(--font-m);font-size:10px;color:rgba(184,92,56,.9)">→</span>
+  </div>
+  <div style="margin-top:14px;background:var(--surface2);border:.5px solid var(--border);border-radius:8px;overflow:hidden">
+    ${[{l:'Tänään · harjoitus',ok:true},{l:'Valmentaja-video · välimuistissa',ok:true},{l:'Ajastin + XP · paikallisesti',ok:true},{l:'FIFA-kortti · viimeisin tila',ok:true},{l:'Joukkueen live-streak',ok:false},{l:'Uudet AI-signaalit',ok:false}].map((x,i)=>`
+      <div style="padding:10px 14px;display:flex;align-items:center;gap:10px;border-top:${i?'.5px solid rgba(242,239,230,.05)':'none'};opacity:${x.ok?1:.5}">
+        <div style="width:16px;color:${x.ok?'#28B090':'var(--ink3)'}">${x.ok?ic('check',14,'#28B090',2):ic('x',12,'#8BA0BC')}</div>
+        <div style="font-size:12px;color:var(--text);flex:1">${x.l}</div>
+        <div class="ey" style="letter-spacing:.14em">${x.ok?'Käytettävissä':'Kun verkko palaa'}</div>
+      </div>`).join('')}
+  </div>
+  <div style="margin-top:14px;padding:12px 14px;background:rgba(26,122,94,.06);border:.5px solid rgba(26,122,94,.25);border-radius:8px">
+    <div class="ey ac" style="font-weight:500">Toteutus</div>
+    <div style="font-size:11px;color:rgba(242,239,230,.85);margin-top:4px;line-height:1.55">Service Worker + IndexedDB · TanStack Query mutationQueue · background sync API. Ensimmäinen paint &lt;200 ms välimuistista.</div>
+  </div>`:`
+  <div style="margin-top:18px">
+    <div class="ey" style="letter-spacing:.14em;margin-bottom:10px">Ensimmäiset 200 ms</div>
+    <div style="background:var(--surface2);border-radius:10px;padding:16px;border:.5px solid var(--border)">
+      <div class="skel" style="width:40%;height:10px;margin-bottom:12px"></div>
+      <div class="skel" style="width:85%;height:22px;margin-bottom:4px"></div>
+      <div class="skel" style="width:70%;height:22px;margin-bottom:18px"></div>
+      <div class="skel" style="width:90%;height:46px;border-radius:8px;margin-bottom:14px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        <div class="skel" style="height:60px;border-radius:8px"></div>
+        <div class="skel" style="height:60px;border-radius:8px"></div>
+        <div class="skel" style="height:60px;border-radius:8px"></div>
+      </div>
+    </div>
+    <div class="ey" style="letter-spacing:.14em;margin:18px 0 10px">Cormorant-välähdys · logiikka latautuu taustalla</div>
+    <div style="padding:14px 18px;background:#0D0D0C;border-radius:10px;border:.5px solid rgba(26,122,94,.25);font-family:var(--font-d);font-size:22px;color:var(--text);font-weight:300;line-height:1.2">Anton — liekki palaa.</div>
+  </div>`}
+</div>`;
+}
+
+/* I – PARENT */
+function rParent(){
+  const days=['Ma','Ti','Ke','To','Pe','La','Su'];
+  const done=[true,true,false,true,true,true,true];
+  const team=[false,true,false,false,true,false,false];
+  return `
+<div style="height:100%;overflow-y:auto;background:var(--bg)">
+  <div style="padding:16px 20px 0">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="ey">I · Vanhempi · Anniina</div>
+        <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin-top:4px;line-height:1.1">Antonin viikko</div>
+      </div>
+      <div style="background:rgba(26,122,94,.15);border:.5px solid rgba(26,122,94,.4);padding:4px 8px;border-radius:4px;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#28B090;font-weight:500">Uniikki etu</div>
+    </div>
+  </div>
+  <section style="padding:18px 20px 0">
+    <div style="background:linear-gradient(180deg,rgba(26,122,94,.08),rgba(26,122,94,.01));border:.5px solid rgba(26,122,94,.25);border-radius:12px;padding:18px 18px 16px">
+      <div class="ey ac" style="font-weight:500;margin-bottom:10px">Viikon tarina</div>
+      <div style="font-family:var(--font-d);font-size:20px;line-height:1.35;font-weight:400">Anton treenasi 4 kertaa kotona ja 2 harjoituksissa. Ensikosketus nousi — tämä on hänen suurin hyppynsä kolmeen kuukauteen.</div>
+      <div class="meta" style="margin-top:12px;line-height:1.5">Ei numeroita — kertomus. Palloliiton FLEI-malli selittää miksi.</div>
+    </div>
+  </section>
+  <section style="padding:18px 20px 0">
+    <div style="display:flex;align-items:center;gap:10px;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px">
+      <span>Viikko 47</span><span style="flex:1;height:.5px;background:var(--border2)"></span><span style="font-family:var(--font-m);color:#28B090">6 / 7</span>
+    </div>
+    <div class="dgrid">
+      ${days.map((d,i)=>`<div class="dc${team[i]?' tm':done[i]?' dn':''}">
+        <div style="font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:${team[i]?'rgba(242,239,230,.9)':'var(--ink3)'}">${d}</div>
+        <div style="margin-top:6px;height:16px;display:flex;align-items:center;justify-content:center">
+          ${team[i]?'<span style="font-size:8px;letter-spacing:.1em;color:var(--text);font-weight:500">JOUKK</span>':done[i]?'<span style="font-size:10px;color:#28B090">●</span>':''}
+        </div>
+      </div>`).join('')}
+    </div>
+  </section>
+  <section style="padding:18px 20px 0">
+    <div class="ey" style="margin-bottom:10px">Vanhemman tuki</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${[{t:'Kehu Antonia',s:'Lähetä viesti · automaattinen ehdotus',i:'flame',c:'#B85C38'},{t:'Tuo kentälle',s:'Pe 18:00 · Töölön tekonurmi',i:'users',c:'#28B090'},{t:'Kysy valmentajalta',s:'Mikko V. · vastaa yleensä tunnissa',i:'cR',c:'#8BA0BC'}].map(x=>`
+        <div style="background:var(--surface2);border-radius:8px;padding:12px 14px;border:.5px solid var(--border);display:flex;align-items:center;gap:12px">
+          <div style="width:28px;height:28px;border-radius:6px;background:${x.c}15;border:.5px solid ${x.c}40;display:flex;align-items:center;justify-content:center">${ic(x.i,14,x.c)}</div>
+          <div style="flex:1">
+            <div style="font-size:12px;color:var(--text);font-weight:500">${x.t}</div>
+            <div class="meta" style="margin-top:2px">${x.s}</div>
+          </div>
+          ${ic('cR',14,'rgba(242,239,230,.3)')}
+        </div>`).join('')}
+    </div>
+  </section>
+  <section style="padding:18px 20px 40px">
+    <div style="padding:12px 14px;background:rgba(242,239,230,.03);border:.5px dashed var(--border3);border-radius:8px">
+      <div class="ey" style="font-weight:500">Mitä et näe</div>
+      <div style="font-size:11px;color:rgba(242,239,230,.7);margin-top:6px;line-height:1.55">Anton hallitsee mitä jakaa. Yksittäiset harjoitusnumerot, viestit valmentajalle ja kaverirankkeeraukset pysyvät hänen.</div>
+    </div>
+  </section>
+</div>`;
+}
+
+/* BOTTOM TABS */
+function rTabs(){
+  const tbs=[{id:'koti',l:'Koti',i:'home'},{id:'joukkue',l:'Joukkue',i:'users'},{id:'testit',l:'Testit',i:'zap'},{id:'kortti',l:'Kortti',i:'star'},{id:'mina',l:'Minä',i:'user'}];
+  return `<nav class="tabs">${tbs.map(t=>`
+    <button class="tb${_tab===t.id?' on':''}" data-t="${t.id}">
+      ${_tab===t.id?'<div class="tb-dot"></div>':''}
+      ${ic(t.i,19,_tab===t.id?'#28B090':'#8BA0BC',_tab===t.id?1.8:1.4)}
+      <span class="tb-lbl">${t.l}</span>
+    </button>`).join('')}</nav>`;
+}
+
+/* COMMON HEADER */
+function hdr(v){
+  return `
+<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px 0">
+  <div>
+    <div class="ey">${T('wBack')} · ${v}</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin-top:4px;color:var(--text);line-height:1.1">Anton</div>
+  </div>
+  <div class="streak-b"><span class="fl">🔥</span><span class="streak-n">12 pv</span></div>
+</div>
+<div style="padding:14px 20px 0">
+  <div class="xpl"><span>Taso 7</span><span style="font-family:var(--font-m)">620 / 1000 XP</span></div>
+  <div class="xpt"><div class="xpf" style="width:62%"></div></div>
+</div>`;
+}
+
+/* ══════════════════════════════════════════════════════════
+   FIREBASE — v4 auth layer
+   Malli pyörii standalone-moodissa kunnes kirjaudutaan
+   Firebase Auth:lla. Kirjautumisen jälkeen _pelaaja täyttyy
+   Firestoresta ja draw() saa oikean datan.
+══════════════════════════════════════════════════════════ */
+
+const _fbCfg = {
+  apiKey:            'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo',
+  authDomain:        'talentmaster-pilot.firebaseapp.com',
+  projectId:         'talentmaster-pilot',
+  storageBucket:     'talentmaster-pilot.firebasestorage.app',
+  messagingSenderId: '872561784446',
+  appId:             '1:872561784446:web:05c4c7996dfd46ddd14a2f',
+};
+
+let _fbInited = false;
+let _pelaaja  = null;
+let _user     = null;
+let _kirjautuminenKesken = false;
+let _uloskirjautunut     = false;
+let _flei     = {};
+let _stage    = '2_rakentaja';
+
+// URL-params
+const _URL = (() => {
+  const p = new URLSearchParams(location.search);
+  const urlSeuraId = p.get('seura') || p.get('seuraId');
+  if (urlSeuraId) window._seuraId = urlSeuraId;
+  return { pelaajaId: p.get('p'), seuraId: urlSeuraId, demo: p.get('demo')==='1' };
+})();
+
+function _initFirebase() {
+  if (_fbInited) return;
+  firebase.initializeApp(_fbCfg);
+  _fbInited = true;
+
+  const auth = firebase.auth();
+  const db   = firebase.firestore();
+
+  auth.onAuthStateChanged(async user => {
+    if (_kirjautuminenKesken) return;
+    if (_uloskirjautunut) return;
+
+    if (user) {
+      _user = user;
+      if (user.isAnonymous) {
+        // URL-param reitti
+        if (_URL.pelaajaId) {
+          await _lataaProfiiliFirestore(db, _URL.pelaajaId);
+        }
+        return;
+      }
+      await _lataaProfiiliFirestore(db, user.uid);
+    } else {
+      // Ei kirjautunut — URL-param?
+      if (_URL.pelaajaId) {
+        await firebase.auth().signInAnonymously();
+      }
+      // Muutoin jää PIN-näkymään (demo-data)
+    }
+  });
+
+  window._db   = db;
+  window._auth = auth;
+}
+
+async function _lataaProfiiliFirestore(db, uid) {
+  try {
+    // Hae seuraId Custom Claimsista (tokenista)
+    let seuraId = null;
+    try {
+      const tokenResult = await firebase.auth().currentUser?.getIdTokenResult();
+      seuraId = tokenResult?.claims?.seuraId || null;
+    } catch(e) {}
+    window._seuraId = seuraId;
+
+    if (seuraId) {
+      // Oikea polku: seurat/{seuraId}/pelaajat/{uid}
+      const snap = await db.collection('seurat').doc(seuraId)
+        .collection('pelaajat').doc(uid).get();
+      if (snap.exists) {
+        _pelaaja = { id: uid, seuraId, ...snap.data() };
+        _stage = _laskeStage(_pelaaja.syntymaVuosi, _pelaaja.phv_tila);
+        _flei  = _laskeFlei(_pelaaja);
+        _paivitaDemoData();
+        return;
+      }
+    }
+    // Fallback: flat pelaajat/{uid} (legacy / URL-param reitti)
+    const snap2 = await db.collection('pelaajat').doc(uid).get();
+    if (snap2.exists) {
+      _pelaaja = { id: uid, seuraId, ...snap2.data() };
+      _stage = _laskeStage(_pelaaja.syntymaVuosi, _pelaaja.phv_tila);
+      _flei  = _laskeFlei(_pelaaja);
+      _paivitaDemoData();
+    }
+  } catch(e) {
+    console.warn('[v4 profiili]', e.message);
+  }
+}
+
+function _laskeStage(sy, phv) {
+  if (phv === 'huippu') return '1_leikkija';
+  const ika = new Date().getFullYear() - (sy || 2010);
+  if (ika <= 12) return '1_leikkija';
+  if (ika <= 15) return '2_rakentaja';
+  return '3_showcase';
+}
+
+function _laskeFlei(p) {
+  return {
+    SBL:  Math.round((p.sbl  || 2.5) / 3 * 100),
+    SFL:  Math.round((p.sfl  || 2.5) / 3 * 100),
+    LL:   Math.round((p.ll   || 2.5) / 3 * 100),
+    DIAG: Math.round((p.diag || 2.5) / 3 * 100),
+    DFL:  Math.round((p.dfl  || 2.5) / 3 * 100),
+  };
+}
+
+function _heikoinKetju() {
+  if (!Object.keys(_flei).length) return 'SBL';
+  return Object.entries(_flei).sort(([,a],[,b])=>a-b)[0][0];
+}
+
+function _paivitaDemoData() {
+  // Kun Firestore-data ladattu, draw() päivittää näkymän
+  draw();
+}
+
+// Firestore-kirjaus — kutsu aina kun tehty-nappia painetaan
+async function _tmKirjaa(avain, arvo) {
+  if (!_pelaaja?.id || !window._db) return;
+  const pvm = new Date().toISOString().slice(0,10);
+  const seuraId = window._seuraId || _pelaaja?.seuraId || null;
+  try {
+    // Oikea polku: seurat/{seuraId}/pelaajat/{uid}/kirjaukset/{pvm}
+    const ref = seuraId
+      ? window._db.collection('seurat').doc(seuraId)
+          .collection('pelaajat').doc(_pelaaja.id)
+          .collection('kirjaukset').doc(pvm)
+      : window._db.collection('pelaajat').doc(_pelaaja.id)
+          .collection('kirjaukset').doc(pvm); // fallback legacy
+    await ref.set(
+      { [avain]: arvo, paivitetty: firebase.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+  } catch(e) {
+    console.warn('[v4 kirjaus]', e.message);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   WHY-LAUSEET (Tero Koskela, v1.1)
+══════════════════════════════════════════════════════════ */
+const WHY = {
+  SBL:{ T:{ 'leikkija':'Takapuolelta tulee vauhti. Siellä asuu juoksumoottori.', 'rakentaja':'Sprintti käynnistyy takaketjusta — takareisistä ja pakaroista. Tämä opettaa sen liikkeen.', 'showcase':'Posterior chain tuottaa sprintin viisi ensimmäistä metriä. Tekniikka siirtää voiman maahan.' }, D:{ 'leikkija':'Takalihakset herätetään ensin. Sitten ne jaksavat juosta.', 'rakentaja':'Kylmä takaketju repeää helpommin. Lämmittely on vakuutus takareidelle.', 'showcase':'Aktivoitu takalinja vähentää hamstring-strainin riskiä ennen kovaa kuormaa.' }, S:{ 'leikkija':'Vahva takapää juoksee pisimpään. Loppupeli on sen aikaa.', 'rakentaja':'Heikoin lenkki väsyy ensin. Tämä vahvistaa sitä — viime minuutteihin asti nopein.', 'showcase':'Kohdennettu vahvistus ketjun heikoimpaan segmenttiin. Loppupeli ratkaistaan siellä missä vastustajan posterior chain antautuu.' } },
+  SFL:{ T:{ 'leikkija':'Etupuolesta tulee potku ja hyppy.', 'rakentaja':'Ensiaskel ja laukaus syntyvät etulinjasta — etureidestä ja lonkan koukistajista.', 'showcase':'Anterior chain tuottaa laukauksen ja ensiaskeleen räjähdyksen. Tekniikka määrittää kuinka paljon siitä voimasta siirtyy maahan.' }, D:{ 'leikkija':'Etureidet venyvät. Polvet kiittävät.', 'rakentaja':'Kireä etureisi vetää polvea väärään suuntaan. Kasvupyrähdyksessä tämä on kriittistä.', 'showcase':'Etulinjan liikkuvuus suojaa patellaa PHV-vaiheessa, kun luut kasvavat lihaksia nopeammin.' }, S:{ 'leikkija':'Vahva etupuoli tekee hypystä korkeamman ja potkusta kovemman.', 'rakentaja':'Räjähdysmoottori voittaa puolustajan ensimmäisessä askeleessa. Se on tässä.', 'showcase':'Anterior chainin voima = laukauksen vauhti, ponnistuksen korkeus, ensiaskeleen eksplosiivisuus.' } },
+  LL:{ T:{ 'leikkija':'Sivuille liikkumiseen tarvitaan kylkiä.', 'rakentaja':'Sivuaskel ja suunnanmuutos kulkevat sivuketjua pitkin. Tämä opettaa sen reitin.', 'showcase':'Lateral line hallitsee frontaalitason siirtymät. Cutting-liike ja sivuaskel lepäävät tällä.' }, D:{ 'leikkija':'Lantio pysyy suorassa juostessa. Polvi kiittää.', 'rakentaja':'Kun lantio ei tue, polvi kaatuu sisäänpäin. Se on yleisin ACL-vammamekanismi.', 'showcase':'Pelvic stability vähentää valgus-kuormaa polveen. ACL-riskin vähennys alkaa täältä.' }, S:{ 'leikkija':'Vahvat kyljet pitävät kiinni hyökkääjässä.', 'rakentaja':'1v1 on sivuttaisvoimaa. Heikko sivuketju antaa hyökkääjän ohittaa.', 'showcase':'Vahva lateral line = leveämpi puolustettava kaista, tiukempi body-to-body duellissa.' } },
+  DIAG:{ T:{ 'leikkija':'Keho kiertyy kun pallo tulee. Koko kroppa liikkuu yhdessä.', 'rakentaja':'Pallo vastaanotetaan kiertoliikkeellä — olkapää ja vastakkainen lonkka tekevät samaa työtä.', 'showcase':'Spiral line yhdistää vastakkaiset raajat. Vastaanoton kierto ja torson rotaatio syntyvät tästä.' }, D:{ 'leikkija':'Juostessa keho kiertyy pikkuisen. Se on oikein.', 'rakentaja':'Jalkapallo on kiertojen peli mutta harjoitellaan useimmiten suoraan eteenpäin. Tämä korjaa sen.', 'showcase':'Jalkapallon yleisin liikesuunta on rotaatio — muttei se mitä harjoituksissa useimmiten tehdään. Kiertoketju yhdistää vastakkaiset puolet.' }, S:{ 'leikkija':'Kiertovoima tekee laukauksesta kovan.', 'rakentaja':'Laukauksen teho ei tule jalasta vaan vartalon kierrosta. Tämä vahvistaa sen lähteen.', 'showcase':'Rotational power = laukauksen teho, syötön tarkkuus liikkeessä, vartalosuojaus paineen alla.' } },
+  DFL:{ T:{ 'leikkija':'Keskustassa asuu tasapaino. Siitä pysyy pystyssä yhdellä jalalla.', 'rakentaja':'Kontaktitilanteessa pysyt pystyssä ytimen ansiosta. Kaikki muu rakentuu tähän.', 'showcase':'Deep front line on postural kontrollin perusta. Vastaanotto, kontakti ja yhden jalan tarkkuus lepäävät tällä.' }, D:{ 'leikkija':'Syvät lihakset pitävät ryhdin koko päivän.', 'rakentaja':'Kun keskikeho ei tue, muut lihakset paikkaavat — ja väsyvät nopeammin. Tämä on perusta.', 'showcase':'DFL aktivoi kaiken muun. Kun ydin ei tue, voima vuotaa ennen kuin se saavuttaa jalkaa.' }, S:{ 'leikkija':'Vahva keskusta = koko peli ilman kipua.', 'rakentaja':'90 minuuttia kivutta alkaa keskikehon kestävyydestä. Tämä on vakuutus rasitusvammoja vastaan.', 'showcase':'Core endurance vähentää low back -rasitusvammojen ilmaantuvuutta. Pitkä ura alkaa täältä.' } },
+};
+
+function getWhy(ketju, tyyppi) {
+  const ikaMap = {'1_leikkija':'leikkija','2_rakentaja':'rakentaja','3_showcase':'showcase'};
+  return WHY?.[ketju]?.[tyyppi]?.[ikaMap[_stage]] ?? '';
+}
+
+/* ══════════════════════════════════════════════════════════
+   IKÄVAIHE CONFIG
+══════════════════════════════════════════════════════════ */
+const IKA = {
+  '1_leikkija': { fiiKysymys:'Miten tänään meni?', streakViesti: pv=>`${pv} päivää putkea! 🔥`, aiTehty:'Hienoa! Teit tänään hyvää työtä.', ovrNayta:false },
+  '2_rakentaja':{ fiiKysymys:'Miten kehosi reagoi tänään?', streakViesti: pv=>`${pv} pv streak. Rytmi toimii.`, aiTehty:'Takaketju sai hyvän ärsykkeen. Loppupeli kiittää.', ovrNayta:true },
+  '3_showcase': { fiiKysymys:'Arvioi harjoituksen kuormitus', streakViesti: pv=>`Streak: ${pv} pv.`, aiTehty:'Posterior chain kuormitettu. Palautuminen määrittää adaptaation.', ovrNayta:true },
+};
+function ikaCfg() { return IKA[_stage] || IKA['2_rakentaja']; }
+
+/* ══════════════════════════════════════════════════════════
+   KÄYNNISTYS
+══════════════════════════════════════════════════════════ */
+// Käynnistä Firebase auth — ei häiritse malli-drawia
+document.addEventListener('DOMContentLoaded', () => {
+  _initFirebase();
+});
+
+/* ══════════════════════════════════════════════════════════
+   FIFA KORTTI — Firebase-layer funktiot
+   Täydentää mallin rCard()-funktiota
+══════════════════════════════════════════════════════════ */
+
+function avaaKortti() {
+  // Käynnistä mallin go('card') — se hoitaa renderöinnin
+  // Mutta lisäksi avaa myös overlay jos _pelaaja ladattu
+  if (window.go) go('card');
+}
+
+function suljeKortti() {
+  const el = document.getElementById('fcOv');
+  if (el) el.classList.remove('active');
+  if (window.go) go('a1');
+}
+
+function flipKortti() {
+  const wrap = document.getElementById('fcWrap');
+  if (!wrap) return;
+  const flipped = wrap.classList.toggle('fc-flipped');
+  const txt = document.getElementById('flipTxt');
+  if (txt) txt.textContent = flipped ? 'Etupuoli' : 'Miksi?';
+}
+
+function naytaFcOverlay() {
+  // Näyttää erillisen fc-ov overlaysta kun _pelaaja on ladattu
+  const el = document.getElementById('fcOv');
+  if (!el) return;
+  const p = _pelaaja || {};
+  const fleiKa = Object.keys(_flei).length
+    ? Math.round(Object.values(_flei).reduce((a,b)=>a+b,0)/5)
+    : (p.ovr || 70);
+  const stats = [
+    ['PAC', p.sbl  ? Math.round(p.sbl/3*100)  : 82],
+    ['DRI', fleiKa],
+    ['SHO', 74], ['DEF', 58], ['PAS', 80],
+    ['PHY', p.dfl  ? Math.round(p.dfl/3*100)  : 72],
+  ];
+  const why = getWhy(_heikoinKetju(), 'S');
+  el.innerHTML = `
+    <button class="fc-flip-btn" id="flipTxt" onclick="flipKortti()" style="position:absolute;top:18px;right:18px;border-radius:20px;padding:8px">✕</button>
+    <div class="fc-wrap" id="fcWrap">
+      <div class="fc-face fc-front">
+        <div style="font-size:9px;letter-spacing:.3em;font-weight:500;color:rgba(184,134,11,.7)">★ ELITE</div>
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:4px">
+          <div>
+            <div style="font-family:var(--font-b);font-weight:900;font-size:72px;line-height:.9;color:#B8860B">${fleiKa}</div>
+            <div style="font-size:14px;font-weight:500;letter-spacing:.2em;color:#B8860B">${p.pelipaikka||'CAM'}</div>
+          </div>
+          <div style="text-align:right;color:#B8860B">
+            <div style="font-size:10px;letter-spacing:.2em">FIN</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;flex:1;background:rgba(184,134,11,.05);border:.5px solid rgba(184,134,11,.22);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:42px">⚽</div>
+        <div style="font-family:var(--font-b);font-weight:900;font-size:18px;letter-spacing:.5px;text-transform:uppercase;margin-top:10px;border-top:.5px solid rgba(184,134,11,.3);padding-top:8px;color:#B8860B">${(p.sukunimi||'Pelaaja').toUpperCase()}</div>
+        <div class="fc-stats" style="margin-top:6px">${stats.map(([k,v])=>`<div class="fc-stat"><span>${k}</span><b>${v}</b></div>`).join('')}</div>
+      </div>
+      <div class="fc-face fc-back">
+        <div style="font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-d)">Miksi ${fleiKa}?</div>
+        <div style="font-family:var(--font-d);font-size:17px;line-height:1.3;margin-top:6px">${why}</div>
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:6px">
+          ${stats.map(([k,v])=>`<div style="display:grid;grid-template-columns:34px 1fr 38px;align-items:center;gap:8px;font-size:11px"><span style="color:var(--ink3);font-weight:500">${k}</span><div style="height:4px;background:rgba(242,239,230,.08);border-radius:2px;overflow:hidden"><div style="height:100%;width:${v}%;background:var(--teal)"></div></div><span style="font-family:var(--font-m);text-align:right">${v}</span></div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <button class="fc-flip-btn" onclick="flipKortti()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0115-6L21 9"/><path d="M21 3V9H15"/></svg>
+      <span id="flipTxt">Miksi ${fleiKa}?</span>
+    </button>
+    <button onclick="suljeKortti()" style="margin-top:12px;background:none;border:.5px solid var(--border2);color:var(--ink3);padding:8px 16px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;border-radius:20px">Sulje</button>
+  `;
+  el.classList.add('active');
+}
+
+
+function tmFiilinki(arvo, btn) {
+  // Visuaalinen palaute
+  document.querySelectorAll('#fiiRow button').forEach(b => {
+    b.style.background = 'none';
+    b.style.borderColor = 'transparent';
+  });
+  btn.style.background = 'rgba(26,122,94,.1)';
+  btn.style.border = '.5px solid rgba(26,122,94,.25)';
+  // Tallennetaan Firestoreen
+  _tmKirjaa('fiilinki', arvo);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   HARJOITE-INTEGRAATIO
+   harjoitelogiikka_v4.js lataa PANKKI-objektin globaaliin
+   Käytetään rTIntro():ssä EX[]-taulukon sijaan kun data on saatavilla
+══════════════════════════════════════════════════════════ */
+function _haeHarjoiteData(ketju) {
+  // PANKKI = harjoitelogiikka_v4.js:n päärakenne
+  try {
+    if (window.PANKKI?.[ketju]?.length) {
+      return window.PANKKI[ketju].map(h => ({
+        name: h.nimi || h.name || ketju + '-harjoite',
+        dur:  h.kesto || 60,
+        hint: h.kuvaus || h.ohje || '',
+      }));
+    }
+  } catch(e) {}
+  return null;
+}
+
+function _paivitaEXHarjoitelogiikasta() {
+  // Kutsutaan kun harjoitelogiikka on latautunut
+  const heikoin = _heikoinKetju();
+  const data = _haeHarjoiteData(heikoin);
+  if (data?.length >= 3) {
+    // Korvaa EX demo-harjoitteet oikeilla
+    EX[0] = data[0];
+    EX[1] = data[1] || data[0];
+    EX[2] = data[2] || data[0];
+    console.log('[v4] Harjoitteet ladattu PANKKI:sta:', heikoin, data.length, 'kpl');
+  }
+}
+
+/* BOOT */
+draw();
+</script>
+
+<!-- FIFA Card Overlay -->
+<div class="fc-ov" id="fcOv"></div>
+</body>
+</html>
