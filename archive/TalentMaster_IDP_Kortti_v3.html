@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TalentMaster™ — Pelaajan kehityskortti</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/hpp_rehab_protokollat.js"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/tm_ketju_matriisi.js"></script>
+<style>
+/* ── DESIGN TOKENS ───────────────────────────────────────── */
+:root{
+  --bg:#060A12;--bg2:#0B1120;--bg3:#101828;--bg4:#162035;--bg5:#1D2840;
+  --line:rgba(255,255,255,.05);--line2:rgba(255,255,255,.10);--line3:rgba(255,255,255,.18);
+  --ink:#EAF0FF;--ink2:rgba(234,240,255,.65);--ink3:rgba(234,240,255,.35);--ink4:rgba(234,240,255,.12);
+  --teal:#00DDB0;--blue:#3B8BFF;--amber:#FFB020;--red:#FF4060;
+  --green:#20D468;--purple:#A78BFA;--gold:#FFD060;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.6;min-height:100vh;overflow-x:hidden}
+
+/* ── LATAUS ─────────────────────────────────────────────── */
+#lataaja{position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .4s}
+#lataaja.pois{opacity:0;pointer-events:none}
+.spin{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.08);border-top-color:var(--teal);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+/* ── TOPBAR ─────────────────────────────────────────────── */
+.tb{position:sticky;top:0;z-index:100;background:rgba(6,10,18,.94);backdrop-filter:blur(20px);border-bottom:1px solid var(--line);padding:0 16px;height:48px;display:flex;align-items:center;gap:10px}
+.tb-back{font-size:12px;color:var(--ink3);text-decoration:none;transition:color .2s;padding:6px 0;white-space:nowrap}
+.tb-back:hover{color:var(--ink2)}
+.tb-sep{width:1px;height:16px;background:var(--line2);flex-shrink:0}
+.tb-logo{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;white-space:nowrap}
+.tb-logo em{color:var(--teal);font-style:normal}
+.tb-rooli{margin-left:auto;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 9px;border-radius:20px;flex-shrink:0}
+.r-vp{background:rgba(255,176,32,.12);color:var(--amber);border:1px solid rgba(255,176,32,.25)}
+.r-valmentaja{background:rgba(59,139,255,.12);color:var(--blue);border:1px solid rgba(59,139,255,.25)}
+.r-vanhempi{background:rgba(0,221,176,.10);color:var(--teal);border:1px solid rgba(0,221,176,.2)}
+.r-pelaaja{background:rgba(167,139,250,.12);color:var(--purple);border:1px solid rgba(167,139,250,.25)}
+
+/* ── HERO-STRIP — pysyy aina näkyvissä ─────────────────── */
+.hero{position:sticky;top:48px;z-index:90;background:rgba(6,10,18,.96);backdrop-filter:blur(16px);border-bottom:1px solid var(--line2);padding:10px 16px;display:flex;align-items:center;gap:12px}
+.hero-av{width:38px;height:38px;border-radius:50%;background:rgba(59,139,255,.15);border:1.5px solid rgba(59,139,255,.3);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.hero-info{flex:1;min-width:0}
+.hero-nimi{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-tags{display:flex;gap:4px;margin-top:2px;flex-wrap:wrap}
+.htag{font-size:10px;padding:1px 7px;border-radius:10px;background:var(--bg4);color:var(--ink3);border:1px solid var(--line);white-space:nowrap}
+.htag-phv{background:rgba(255,176,32,.08);color:var(--amber);border-color:rgba(255,176,32,.2)}
+.htag-phv-peak{background:rgba(255,64,96,.08);color:var(--red);border-color:rgba(255,64,96,.2)}
+.hero-flei{text-align:right;flex-shrink:0}
+.hero-flei-n{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;line-height:1;color:var(--teal)}
+.hero-flei-l{font-size:9px;color:var(--ink3);letter-spacing:.5px;text-transform:uppercase}
+
+/* ── VÄLILEHTINAVIGAATIO ────────────────────────────────── */
+.tabnav{position:sticky;top:108px;z-index:80;display:flex;background:rgba(11,17,32,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.tab{flex:1;text-align:center;padding:11px 4px 9px;font-size:11px;font-weight:600;letter-spacing:.3px;color:var(--ink3);cursor:pointer;border-bottom:2px solid transparent;transition:all .18s;user-select:none;position:relative}
+.tab.ak{color:var(--teal);border-bottom-color:var(--teal)}
+.tab-dot{width:5px;height:5px;border-radius:50%;background:var(--red);position:absolute;top:8px;right:calc(50% - 12px);display:none}
+.tab-dot.vis{display:block}
+
+/* ── PANEELI ────────────────────────────────────────────── */
+.panel{display:none;padding:14px 16px 100px}
+.panel.ak{display:block}
+
+/* ── SEKTIO ─────────────────────────────────────────────── */
+.sek{background:var(--bg2);border-radius:12px;border:1px solid var(--line);padding:13px;margin-bottom:10px}
+.sek-ot{font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.sek-ot-badge{font-size:9px;padding:1px 6px;border-radius:8px;background:var(--bg4);color:var(--ink3);border:1px solid var(--line)}
+
+/* ── TILANNE: SPIDER ────────────────────────────────────── */
+.spider-wrap{display:flex;justify-content:center;margin-bottom:8px}
+.dim-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dim-k{background:var(--bg3);border-radius:8px;padding:8px 10px;border:1px solid var(--line)}
+.dim-l{font-size:10px;color:var(--ink3);margin-bottom:2px}
+.dim-v{font-size:16px;font-weight:700}
+
+/* ── TILANNE: PHV ───────────────────────────────────────── */
+.phv-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.phv-stat{text-align:center;min-width:40px}
+.phv-stat-n{font-family:'Syne',sans-serif;font-size:17px;font-weight:800}
+.phv-stat-l{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-top:1px}
+.phv-div{width:1px;height:28px;background:var(--line2);flex-shrink:0}
+.phv-bar-wrap{flex:1}
+.phv-bar{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-bottom:5px}
+.phv-fill{height:100%;border-radius:3px;transition:width .4s}
+.phv-t{font-size:11px;line-height:1.45}
+
+/* ── TILANNE: DVI ───────────────────────────────────────── */
+.dvi-box{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border-radius:9px;border:1px solid var(--line)}
+.dvi-ikoni{width:34px;height:34px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.dvi-info{flex:1}
+.dvi-n{font-family:'Syne',sans-serif;font-size:18px;font-weight:800}
+.dvi-label{font-size:11px;color:var(--ink3);margin-top:1px}
+.dvi-tyhja{font-size:12px;color:var(--ink3);line-height:1.5}
+.dvi-aktivoituu{font-size:10px;color:var(--ink3);margin-top:3px;font-style:italic}
+
+/* ── TILANNE: TALENTID ──────────────────────────────────── */
+.tid-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:9px}
+.tid-n{font-family:'Syne',sans-serif;font-size:22px;font-weight:800}
+.tid-track{font-size:10px;padding:2px 8px;border-radius:12px;margin-top:2px;display:inline-block;font-weight:700}
+.hal-lista{display:flex;flex-direction:column;gap:5px;margin-top:6px}
+.hal{display:flex;align-items:flex-start;gap:8px;font-size:11px;padding:7px 10px;border-radius:8px;line-height:1.45}
+.h-krit{background:rgba(255,64,96,.08);color:rgba(255,128,153,.9);border:1px solid rgba(255,64,96,.2)}
+.h-var{background:rgba(255,176,32,.08);color:rgba(255,200,100,.9);border:1px solid rgba(255,176,32,.2)}
+.h-inf{background:rgba(59,139,255,.06);color:rgba(100,160,255,.9);border:1px solid rgba(59,139,255,.15)}
+.h-ik{flex-shrink:0;font-size:12px}
+
+/* ── KETJUT: ACCORDION ──────────────────────────────────── */
+.ketju-item{background:var(--bg2);border-radius:11px;border:1px solid var(--line);margin-bottom:7px;overflow:hidden}
+.ketju-item.diag{border-color:rgba(59,139,255,.3)}
+.ketju-hdr{display:flex;align-items:center;gap:8px;padding:11px 13px;cursor:pointer;user-select:none;transition:background .15s}
+.ketju-hdr:hover{background:var(--bg3)}
+.kj-ikoni{font-size:14px;flex-shrink:0}
+.kj-nimi{font-size:12px;font-weight:700;flex:1;color:var(--ink)}
+.kj-bar-mini{flex:0 0 50px;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.kj-fill-mini{height:100%;border-radius:2px}
+.kj-v{font-size:13px;font-weight:800;min-width:28px;text-align:right}
+.kj-tila{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;flex-shrink:0}
+.kj-chev{font-size:10px;color:var(--ink3);transition:transform .2s;flex-shrink:0}
+.kj-chev.auki{transform:rotate(180deg)}
+.ketju-body{display:none;padding:0 13px 12px;border-top:1px solid var(--line)}
+.ketju-body.auki{display:block}
+.kj-bar-full{height:4px;background:var(--bg4);border-radius:2px;margin:8px 0}
+.pallo-ot{font-size:9px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.8px;margin:8px 0 6px}
+.pallo-i{font-size:11px;color:var(--ink2);margin-bottom:6px;padding:6px 8px 6px 10px;border-left:2px solid var(--line2);line-height:1.45;background:var(--bg3);border-radius:0 7px 7px 0}
+.pallo-laji{font-weight:600;color:var(--ink);display:block;margin-bottom:2px}
+.pallo-cue{color:var(--ink3);font-size:10px;font-style:italic}
+.kj-anatomia{font-size:9px;color:var(--ink3);margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
+.kj-aktivointi{font-size:10px;color:rgba(0,221,176,.8);margin-top:6px;padding:6px 8px;background:rgba(0,221,176,.05);border-radius:7px;border:1px solid rgba(0,221,176,.12)}
+.kj-akt-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--teal);margin-bottom:3px}
+
+/* ── 70/30 JAKO ─────────────────────────────────────────── */
+.jako-row{display:flex;gap:6px;margin-top:8px}
+.jako-70{flex:7;background:rgba(0,221,176,.06);border:1px solid rgba(0,221,176,.15);border-radius:9px;padding:9px 11px}
+.jako-30{flex:3;background:rgba(255,176,32,.06);border:1px solid rgba(255,176,32,.15);border-radius:9px;padding:9px 11px}
+.jako-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
+.jako-ketju{font-size:13px;font-weight:700;margin-bottom:1px}
+.jako-teema{font-size:10px;line-height:1.4}
+.jako-filosofia{font-size:10px;color:var(--ink3);line-height:1.5;margin-top:8px;padding:7px 9px;background:var(--bg3);border-radius:7px;font-style:italic}
+
+/* ── KEHITYS: HAVAINNOT ─────────────────────────────────── */
+.hav-ta{width:100%;font-size:13px;padding:9px 11px;background:var(--bg3);border:1px solid var(--line2);border-radius:9px;color:var(--ink);resize:none;outline:none;font-family:'DM Sans',sans-serif;line-height:1.5;margin-bottom:8px;transition:border-color .2s}
+.hav-ta:focus{border-color:var(--teal)}
+.hav-tyypit{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+.tn{font-size:11px;font-weight:600;padding:5px 11px;border-radius:20px;border:1px solid var(--line2);background:none;color:var(--ink3);cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif}
+.tn.ak{border-color:var(--teal);color:var(--teal);background:rgba(0,221,176,.08)}
+.t-tek.ak{border-color:var(--blue);color:var(--blue);background:rgba(59,139,255,.08)}
+.t-fys.ak{border-color:var(--green);color:var(--green);background:rgba(32,212,104,.08)}
+.t-tak.ak{border-color:var(--amber);color:var(--amber);background:rgba(255,176,32,.08)}
+.t-hen.ak{border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,.08)}
+.sav{padding:9px 20px;background:var(--teal);border:none;border-radius:9px;color:#000;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;transition:opacity .2s}
+.sav:hover{opacity:.9}
+.hav-item{font-size:12px;padding:9px 11px;background:var(--bg3);border-radius:9px;margin-top:6px;border-left:2.5px solid var(--blue);color:var(--ink2);line-height:1.5}
+.hav-meta{font-size:10px;color:var(--ink3);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
+.hav-meta-type{padding:1px 6px;border-radius:6px;font-size:9px;font-weight:700}
+
+/* ── KEHITYS: TEKNIS-TAKTINEN TULOSSA ──────────────────── */
+.tt-tulossa{padding:11px 13px;background:rgba(255,176,32,.04);border:1px solid rgba(255,176,32,.15);border-radius:10px;margin-top:4px}
+.tt-label{font-size:9px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.tt-teksti{font-size:11px;color:var(--ink2);line-height:1.6}
+.tt-esim{font-size:11px;color:var(--ink3);margin-top:5px;padding:6px 8px;background:var(--bg3);border-radius:7px;font-style:italic;line-height:1.5}
+
+/* ── KEHITYS: TAVOITELAUSE ──────────────────────────────── */
+.tavoite-teksti{font-size:13px;color:var(--ink2);font-style:italic;line-height:1.6;padding:10px 12px;background:var(--bg3);border-radius:9px;border-left:3px solid var(--purple)}
+.tavoite-tyhja{font-size:12px;color:var(--ink3);font-style:italic}
+
+/* ── HARJOITE: ALKURUTIINI ──────────────────────────────── */
+.harj-card{background:var(--bg3);border-radius:10px;border:1px solid var(--line);padding:11px 13px;margin-bottom:8px}
+.harj-otsikko{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.harj-tag{font-size:9px;padding:2px 7px;border-radius:8px;font-weight:700;flex-shrink:0}
+.harj-teksti{font-size:11px;color:var(--ink2);line-height:1.55;margin-bottom:6px}
+.harj-cue{font-size:11px;color:var(--teal);padding:6px 9px;background:rgba(0,221,176,.06);border-radius:7px;border:1px solid rgba(0,221,176,.12);line-height:1.45}
+.harj-rajaus{font-size:10px;color:var(--ink3);margin-top:8px;padding:6px 9px;background:var(--bg4);border-radius:7px;line-height:1.45;border-left:2px solid var(--line2)}
+
+/* ── HARJOITE: KLINIKKA ─────────────────────────────────── */
+.klinikka-toggle{display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:10px;background:var(--bg3);border:1px solid var(--line);cursor:pointer;margin-bottom:8px;transition:all .2s;user-select:none}
+.klinikka-toggle:hover{border-color:var(--line2)}
+.klinikka-toggle.ak{border-color:rgba(255,64,96,.3);background:rgba(255,64,96,.05)}
+.kt-dot{width:8px;height:8px;border-radius:50%;background:var(--ink3);flex-shrink:0;transition:background .2s}
+.klinikka-toggle.ak .kt-dot{background:var(--red)}
+.kt-teksti{font-size:12px;color:var(--ink2)}
+.klinikka-banneri{background:rgba(255,64,96,.05);border:1.5px solid rgba(255,64,96,.25);border-radius:12px;padding:13px;margin-bottom:8px}
+.kb-otsikko{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--red);margin-bottom:8px}
+.kb-phv{margin-bottom:8px;padding:7px 10px;background:rgba(255,176,32,.07);border:1px solid rgba(255,176,32,.2);border-radius:7px;font-size:11px;color:var(--amber);line-height:1.5}
+.kb-protokolla{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
+.kb-vaihe{font-size:11px;font-weight:600;padding:5px 11px;border-radius:20px;cursor:pointer;transition:all .18s;border:1px solid transparent;font-family:'DM Sans',sans-serif}
+.kb-vaihe.ak{background:var(--red);color:#fff}
+.kb-vaihe:not(.ak){background:rgba(255,64,96,.08);color:var(--red);border-color:rgba(255,64,96,.2)}
+.kb-kielletyt{margin-bottom:8px;padding:9px 11px;background:rgba(255,40,70,.08);border:1px solid rgba(255,64,96,.25);border-radius:9px}
+.kb-kielletyt-ot{font-size:10px;font-weight:700;color:var(--red);margin-bottom:5px}
+.kb-kielto-item{font-size:11px;color:rgba(255,128,153,.9);display:flex;align-items:flex-start;gap:6px;line-height:1.4;margin-bottom:3px}
+.kb-kielto-item::before{content:'✕';color:var(--red);font-weight:700;flex-shrink:0;margin-top:1px}
+.kb-harjoite-lbl{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:rgba(255,100,120,.7);margin-bottom:4px}
+.kb-harjoite{font-size:11px;color:rgba(255,150,170,.9);line-height:1.6;padding:8px 10px;background:rgba(255,64,96,.04);border-radius:8px}
+.kb-paluu{margin-top:8px;padding:9px 11px;background:rgba(32,212,104,.05);border:1px solid rgba(32,212,104,.15);border-radius:9px}
+.kb-paluu-ot{font-size:10px;font-weight:700;color:var(--green);margin-bottom:5px}
+.kb-paluu-item{font-size:11px;color:rgba(100,220,140,.85);display:flex;gap:6px;line-height:1.4;margin-bottom:3px}
+.kb-aikat-rivit{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.kb-aikat-item{font-size:10px;padding:3px 8px;border-radius:12px;border:1px solid transparent}
+.kb-aikat-liev{background:rgba(32,212,104,.07);color:var(--green);border-color:rgba(32,212,104,.15)}
+.kb-aikat-keski{background:rgba(255,176,32,.07);color:var(--amber);border-color:rgba(255,176,32,.15)}
+.kb-aikat-vak{background:rgba(255,64,96,.07);color:var(--red);border-color:rgba(255,64,96,.15)}
+
+/* ── FLEI KORTTI ────────────────────────────────────────── */
+.flei-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:9px}
+.flei-n{font-family:'Syne',sans-serif;font-size:24px;font-weight:800}
+.flei-info{flex:1}
+.flei-taso{font-size:12px;font-weight:600}
+.flei-kuvaus{font-size:11px;color:var(--ink3);margin-top:1px}
+
+/* ── VANHEMPI-NÄKYMÄ ────────────────────────────────────── */
+.van-o{padding:16px}
+.vank{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:10px}
+.vaney{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+.vanh{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:4px}
+.vanp{font-size:13px;color:var(--ink2);line-height:1.6}
+.vant{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+
+/* ── TOIMINTAPALKKI ─────────────────────────────────────── */
+.toimp{position:fixed;bottom:0;left:0;right:0;z-index:70;background:rgba(6,10,18,.95);backdrop-filter:blur(16px);border-top:1px solid var(--line2);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px}
+.tp{flex:1;padding:10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .18s;text-align:center}
+.tp-p{background:rgba(0,221,176,.1);border:1px solid rgba(0,221,176,.25);color:var(--teal)}
+.tp-s{background:rgba(59,139,255,.1);border:1px solid rgba(59,139,255,.25);color:var(--blue)}
+
+/* ── TOAST ──────────────────────────────────────────────── */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;padding:9px 18px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.vis{opacity:1}
+#toast.ok-t{background:rgba(32,212,104,.15);color:var(--green);border:1px solid rgba(32,212,104,.3)}
+#toast.err-t{background:rgba(255,64,96,.15);color:var(--red);border:1px solid rgba(255,64,96,.3)}
+
+/* ── TYHJA-TILAT ────────────────────────────────────────── */
+.tyhja{font-size:12px;color:var(--ink3);font-style:italic;text-align:center;padding:16px 0}
+
+/* ── DESKTOP LAYOUT ─────────────────────────────────────── */
+/* Kapealla (mobiili kentällä) pysyy yhtenä sarakkeena.
+   Leveällä (toimisto, desktop) jakautuu automaattisesti. */
+@media(min-width:720px){
+  /* Rajoita sisältö järkevään maksimileveyteen ja keskitä */
+  .tb,.hero,.tabnav{max-width:960px;margin-left:auto;margin-right:auto}
+  .tb{padding-left:24px;padding-right:24px}
+  .hero{padding-left:24px;padding-right:24px}
+  .panel{max-width:960px;margin-left:auto;margin-right:auto;padding-left:24px;padding-right:24px}
+
+  /* Tilanne-paneeli: spider vasemmalle, tiedot oikealle */
+  .tilanne-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    align-items:start;
+  }
+  /* Spider vie koko vasemman sarakkeen */
+  .tilanne-spider{grid-column:1;}
+  .tilanne-oikea{grid-column:2;display:flex;flex-direction:column;gap:12px;}
+
+  /* Ketjut: rajoita leveys luettavuuden takia */
+  #p-ketjut .ketju-item{max-width:100%}
+
+  /* Kehitys-paneeli: kirjaus vasemmalla, tiedot oikealla */
+  .kehitys-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    align-items:start;
+  }
+
+  /* Harjoite-paneeli: alkurutiini + T-harjoite vierekkäin */
+  .harjoite-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    align-items:start;
+  }
+
+  /* Spider voi olla isompi leveällä näytöllä */
+  #spiderCanvas{width:300px!important;height:280px!important}
+}
+
+@media(max-width:390px){
+  .hero-nimi{font-size:13px}
+  .hero-flei-n{font-size:20px}
+  .tab{font-size:10px;padding:10px 2px 8px}
+}
+</style>
+</head>
+<body>
+
+<div id="lataaja">
+  <div class="spin"></div>
+  <span style="font-size:11px;color:var(--ink3)">Ladataan kehityskorttia...</span>
+</div>
+
+<div id="sivu" style="display:none">
+
+<!-- TOPBAR -->
+<div class="tb">
+  <a class="tb-back" href="TalentMaster_Master_v9.html">← Takaisin</a>
+  <div class="tb-sep"></div>
+  <div class="tb-logo">Talent<em>Master</em>™</div>
+  <div id="rooliMerkki" class="tb-rooli r-valmentaja">Valmentaja</div>
+</div>
+
+<!-- HERO-STRIP -->
+<div class="hero">
+  <div class="hero-av" id="avatar">⚽</div>
+  <div class="hero-info">
+    <div class="hero-nimi" id="pNimi">—</div>
+    <div class="hero-tags" id="heroTags">
+      <span class="htag" id="pJoukkue">—</span>
+      <span class="htag" id="pIka">—</span>
+      <span class="htag" id="pPos" style="display:none">—</span>
+      <span class="htag" id="pPhvTag" style="display:none">—</span>
+    </div>
+  </div>
+  <div class="hero-flei">
+    <div class="hero-flei-n" id="heroFleiN">—</div>
+    <div class="hero-flei-l">FLEI™</div>
+  </div>
+</div>
+
+<!-- VÄLILEHDET -->
+<div class="tabnav">
+  <div class="tab ak" id="tab-tilanne" onclick="vaihda('tilanne',this)">Tilanne</div>
+  <div class="tab" id="tab-ketjut" onclick="vaihda('ketjut',this)">Ketjut</div>
+  <div class="tab" id="tab-kehitys" onclick="vaihda('kehitys',this)">Kehitys<span class="tab-dot" id="dot-kehitys"></span></div>
+  <div class="tab" id="tab-harjoite" onclick="vaihda('harjoite',this)">Harjoite</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     PANEELI 1 — TILANNE
+═══════════════════════════════════════════════════ -->
+<div id="p-tilanne" class="panel ak">
+<div class="tilanne-grid">
+
+  <!-- VASEN: Spider kaavio -->
+  <div class="tilanne-spider">
+    <div class="sek">
+      <div class="sek-ot">5D-profiili</div>
+      <div class="spider-wrap">
+        <canvas id="spiderCanvas" width="260" height="240"></canvas>
+      </div>
+      <div class="dim-grid" id="dimGrid"></div>
+    </div>
+  </div>
+
+  <!-- OIKEA: TalentID, PHV, DVI -->
+  <div class="tilanne-oikea">
+
+    <!-- TalentID + Hälytykset -->
+    <div class="sek">
+      <div class="sek-ot">TalentID™</div>
+      <div class="tid-row">
+        <div>
+          <div class="tid-n" id="tidNum" style="color:var(--teal)">—</div>
+          <div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px">TalentID™</div>
+          <div class="tid-track" id="tidTrack" style="background:var(--bg4);color:var(--ink3);margin-top:3px">—</div>
+        </div>
+        <div id="raeMerkki" style="display:none;font-size:10px;padding:3px 8px;border-radius:10px;background:rgba(255,176,32,.1);color:var(--amber);border:1px solid rgba(255,176,32,.2)">—</div>
+        <div id="gemMerkki" style="display:none;font-size:10px;padding:3px 8px;border-radius:10px;background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.2)">💎 Hidden Gem</div>
+      </div>
+      <div class="hal-lista" id="halLista"></div>
+    </div>
+
+    <!-- PHV -->
+    <div class="sek">
+      <div class="sek-ot">PHV — biologinen ikä</div>
+      <div class="phv-row">
+        <div class="phv-stat">
+          <div class="phv-stat-n" id="phvK" style="color:var(--ink)">—</div>
+          <div class="phv-stat-l">Kronol.</div>
+        </div>
+        <div class="phv-div"></div>
+        <div class="phv-stat">
+          <div class="phv-stat-n" id="phvB" style="color:var(--teal)">—</div>
+          <div class="phv-stat-l">Biolog.</div>
+        </div>
+        <div class="phv-div"></div>
+        <div class="phv-bar-wrap">
+          <div class="phv-bar"><div class="phv-fill" id="phvFill" style="width:50%;background:var(--teal)"></div></div>
+          <div class="phv-t" id="phvT" style="color:var(--teal)">Lasketaan...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DVI -->
+    <div class="sek">
+      <div class="sek-ot">DVI™ — kehitysvauhti</div>
+      <div id="dviBox"></div>
+    </div>
+
+  </div><!-- /tilanne-oikea -->
+
+</div><!-- /tilanne-grid -->
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     PANEELI 2 — KETJUT
+═══════════════════════════════════════════════════ -->
+<div id="p-ketjut" class="panel">
+
+  <div style="font-size:11px;color:var(--ink3);margin-bottom:10px;line-height:1.55;padding:8px 10px;background:var(--bg2);border-radius:9px;border:1px solid var(--line)">
+    Klikkaa ketjua → näet peliyhteyden ja harjoitecuen. Diagonaaliketju ⭐⭐⭐ on anatomisesti vahvin (Wilke 2016).
+  </div>
+
+  <div id="ketjutLista"></div>
+
+  <!-- FLEI -->
+  <div class="sek">
+    <div class="sek-ot">FLEI™ — kuormituskapasiteetti</div>
+    <div class="flei-row">
+      <canvas id="fleiCanvas" width="52" height="52" style="flex-shrink:0"></canvas>
+      <div class="flei-info">
+        <div class="flei-taso" id="fleiTaso">—</div>
+        <div class="flei-kuvaus" id="fleiKuvaus">Fascia Load Efficiency Index</div>
+      </div>
+      <div class="flei-n" id="fleiNum" style="color:var(--teal)">—</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     PANEELI 3 — KEHITYS
+═══════════════════════════════════════════════════ -->
+<div id="p-kehitys" class="panel">
+<div class="kehitys-grid">
+
+  <!-- VASEN: Havainnot kirjaus + lista -->
+  <div>
+    <!-- Kirjaa havainto (valmentaja/vp) -->
+    <div class="sek" id="havKirjoita" style="display:none">
+      <div class="sek-ot">Kirjaa havainto</div>
+      <textarea class="hav-ta" id="havTa" rows="3" placeholder="Tekninen, fyysinen, taktinen tai henkinen..."></textarea>
+      <div class="hav-tyypit">
+        <button class="tn t-tek ak" data-t="tekninen" onclick="vaihdaTun(this)">Tekninen</button>
+        <button class="tn t-fys" data-t="fyysinen" onclick="vaihdaTun(this)">Fyysinen</button>
+        <button class="tn t-tak" data-t="taktinen" onclick="vaihdaTun(this)">Taktinen</button>
+        <button class="tn t-hen" data-t="henkinen" onclick="vaihdaTun(this)">Henkinen</button>
+      </div>
+      <button class="sav" onclick="tallennaHav()">Tallenna havainto →</button>
+    </div>
+
+    <!-- Havainnot lista -->
+    <div class="sek">
+      <div class="sek-ot">Havainnot</div>
+      <div id="havLista"><div class="tyhja">Ei havaintoja vielä</div></div>
+    </div>
+  </div>
+
+  <!-- OIKEA: 70/30, teknis-taktinen, tavoitelause -->
+  <div>
+    <!-- 70/30 -->
+    <div class="sek">
+      <div class="sek-ot">70/30 — harjoittelupanostus
+        <span class="sek-ot-badge">Alkurutiini</span>
+      </div>
+      <div style="font-size:11px;color:var(--ink3);margin-bottom:7px;line-height:1.55">
+        70/30 koskee alkurutiinia — se 20–30 min ennen kenttäharjoitusta. Kenttäharjoitus on täysin valmentajan.
+      </div>
+      <div class="jako-row" id="jako7030"></div>
+      <div class="jako-filosofia">
+        Neurofysiologinen peruste: siirtovaikutus heikosta osaamisesta peliin vaatii integraatiota vahvempien osaamisalueiden kanssa — ei eristystä. 70% vahvistaa identiteettiä, 30% täyttää aukon.
+      </div>
+    </div>
+
+    <!-- Teknis-taktinen integraatio — tulossa -->
+    <div class="sek">
+      <div class="sek-ot">Pelipaikkakohtainen kehitys</div>
+      <div class="tt-tulossa">
+        <div class="tt-label">🔜 Tulossa — teknis-taktinen integraatio peliin</div>
+        <div class="tt-teksti">
+          Hallintaketjujen siirto pelipaikkakohtaisiin tilanteisiin tulee seuraavassa kehitysvaiheessa. Laitahyökkääjän SM-ketjuharjoite ei ole enää kartiorata — se on 1v1-tilanne laidalla juuri siinä kulmassa jota hänen pelipaikallaan tarvitaan.
+        </div>
+        <div class="tt-esim" id="ttEsim">Vaatii: pienryhmärakenne + pelipaikkakohtaiset vaatimusmäärittelyt.</div>
+      </div>
+    </div>
+
+    <!-- Pelaajan tavoitelause -->
+    <div class="sek">
+      <div class="sek-ot">Minun kauteni
+        <div id="omaTavoiteMuokkaa" style="display:none;margin-left:auto">
+          <button onclick="avaaOmaTavoite()" style="background:none;border:1px solid var(--line2);border-radius:7px;padding:3px 9px;color:var(--ink3);font-size:10px;cursor:pointer;font-family:'DM Sans',sans-serif">✏️ Muokkaa</button>
+        </div>
+      </div>
+      <div id="omaTavoiteTeksti" class="tavoite-teksti" style="display:none"></div>
+      <div id="omaTavoiteTyhja" class="tavoite-tyhja">Ei tavoitelausetta vielä</div>
+      <textarea id="omaTavoiteInput" class="hav-ta" rows="3"
+        placeholder="Kirjoita omin sanoin — mitä haluat tällä kaudella parantaa?"
+        style="display:none;margin-top:8px"></textarea>
+      <div id="omaTavoiteNapit" style="display:none;margin-top:7px;display:none;gap:6px">
+        <button onclick="tallennaTavoitelause()" style="padding:8px 18px;background:var(--teal);border:none;border-radius:8px;color:#000;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Tallenna</button>
+        <button onclick="peruutaTavoitelause()" style="padding:8px 14px;background:var(--bg3);border:1px solid var(--line);border-radius:8px;color:var(--ink3);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif">Peruuta</button>
+      </div>
+    </div>
+  </div><!-- /oikea -->
+
+</div><!-- /kehitys-grid -->
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     PANEELI 4 — HARJOITE
+═══════════════════════════════════════════════════ -->
+<div id="p-harjoite" class="panel">
+
+  <!-- Pelipaikkavalinta (U13+) — koko leveys aina -->
+  <div class="sek" id="ppOsio" style="display:none">
+    <div class="sek-ot">Pelipaikka</div>
+    <select id="ppSel" onchange="vaihdaPelipaikka()" style="width:100%;padding:9px 11px;background:var(--bg3);border:1px solid var(--line2);border-radius:9px;color:var(--ink);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:8px">
+      <option value="">— valitse pelipaikka —</option>
+      <option value="CD">CD — Toppari</option>
+      <option value="FB">FB/WB — Laitapuolustaja</option>
+      <option value="CDM">CDM — Keskikenttäankkuri</option>
+      <option value="CAM">CAM — Pelinrakentaja</option>
+      <option value="W">W — Laitahyökkääjä</option>
+      <option value="ST">ST — Keskushyökkääjä</option>
+    </select>
+    <div id="ppBadge" style="display:none"></div>
+  </div>
+
+  <!-- Harjoite-grid: alkurutiini + T-harjoite vierekkäin -->
+  <div class="harjoite-grid">
+
+    <!-- VASEN: Alkurutiini (kohdennettu + aktivointi) -->
+    <div class="sek">
+      <div class="sek-ot">Alkurutiini
+        <span class="sek-ot-badge">20–30 min</span>
+      </div>
+      <div id="harjKohdennettu">
+        <div class="tyhja">Tee harjoitettavuuskartoitus ensin</div>
+      </div>
+      <div class="harj-rajaus">
+        ⚠️ Kenttäharjoitus on täysin valmentajan — TalentMaster ei koske siihen.
+      </div>
+    </div>
+
+    <!-- OIKEA: T-harjoite pallotekniikka -->
+    <div class="sek">
+      <div class="sek-ot">T-harjoite — pallotekniikka
+        <span class="sek-ot-badge">Päivittäin</span>
+      </div>
+      <div id="harjTekniikka">
+        <div class="tyhja">Ladataan...</div>
+      </div>
+    </div>
+
+  </div><!-- /harjoite-grid -->
+  <!-- Klinikka -->
+  <div id="klinikkaToggle" class="klinikka-toggle" onclick="toggleKlinikka()" style="display:none">
+    <div class="kt-dot"></div>
+    <span id="klinikkaToggleTeksti" class="kt-teksti">🏥 Aktivoi klinikkaprotokolla</span>
+  </div>
+  <div id="kliinikkaBanneri" class="klinikka-banneri" style="display:none">
+    <div class="kb-otsikko" id="kbOtsikko">Klinikkaprotokolla aktiivinen</div>
+    <div id="kbPhv" class="kb-phv" style="display:none"></div>
+    <div id="kbAikataulu" style="display:none">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--ink3);margin-bottom:3px">Arvioitu palautumisaika:</div>
+      <div id="kbAikataulutRivi" class="kb-aikat-rivit"></div>
+    </div>
+    <div class="kb-protokolla">
+      <div class="kb-vaihe ak" onclick="vaihdaVaihe('akuutti',this)">🔴 Akuutti</div>
+      <div class="kb-vaihe" onclick="vaihdaVaihe('subakuutti',this)">🟡 Subakuutti</div>
+      <div class="kb-vaihe" onclick="vaihdaVaihe('krooninen',this)">🟢 Return-to-Sport</div>
+    </div>
+    <div id="kbKielletyt" class="kb-kielletyt" style="display:none">
+      <div class="kb-kielletyt-ot">🚫 EI saa tehdä nyt:</div>
+      <div id="kbKielletytLista"></div>
+    </div>
+    <div class="kb-harjoite-lbl">💊 Harjoite tässä vaiheessa:</div>
+    <div class="kb-harjoite" id="kbHarjoite">—</div>
+    <div id="kbPaluu" class="kb-paluu" style="display:none">
+      <div class="kb-paluu-ot">✅ Paluu peliin kun:</div>
+      <div id="kbPaluuLista"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- VANHEMPI-NÄKYMÄ -->
+<div class="van-o" id="vanNakyma" style="display:none">
+  <div class="vank">
+    <div class="vaney" style="color:var(--teal)">Kehityksen tilanne</div>
+    <div class="vanh" id="vanH">—</div>
+    <div class="vanp" id="vanP">—</div>
+    <div class="vant" id="vanTagit"></div>
+  </div>
+  <div class="vank">
+    <div class="vaney" style="color:var(--ink3)">Harjoittelu</div>
+    <div class="vanh" id="vanLH">—</div>
+    <div class="vanp" id="vanLP">—</div>
+  </div>
+  <div class="vank" id="vanVK" style="display:none">
+    <div class="vaney" style="color:var(--ink3)">Valmentajan palaute</div>
+    <div class="vanp" id="vanVP">—</div>
+  </div>
+  <div style="background:var(--bg2);border-radius:12px;padding:16px;text-align:center;border:1px solid var(--line)">
+    <div style="font-size:11px;color:var(--ink3);line-height:1.7">Lapsesi kehitystiedot ovat turvallisesti TalentMasterissa.<br>Kysymyksissä ota yhteyttä seuran valmennuspäällikköön.</div>
+  </div>
+</div>
+
+<!-- TOIMINTAPALKKI -->
+<div id="toimPalkki" class="toimp" style="display:none">
+  <button class="tp tp-p" onclick="scrollHav()">📝 Kirjaa havainto</button>
+  <button class="tp tp-s" onclick="vaihda('harjoite',document.getElementById('tab-harjoite'))">⚡ Harjoite</button>
+</div>
+
+</div><!-- /sivu -->
+
+<div id="toast"></div>
+
+<script>
+
+// ══════════════════════════════════════════════════════════════
+// HARJOITEKIRJASTO — selkokielinen, pelaajalle ja valmentajalle
+// Rakenne per harjoite: nimi, lyhyt, vaiheet[], miksi, video, ika_huomio, sarjat
+// Ammattitermit poistettu — kaikki kirjoitettu "tee näin" -muodossa
+// ══════════════════════════════════════════════════════════════
+const HARJOITE_KIRJASTO = {
+
+  SBL_aktivointi: {
+    nimi: 'Jalkapohjan herätys',
+    lyhyt: 'Vieritä palloa jalkapohjalla — herätä takaketju ennen harjoitusta',
+    vaiheet: [
+      'Ota tennispallo tai nystyräpallo käteen',
+      'Seiso yhdellä jalalla, laita pallo lattisalle jalan alle',
+      'Vieritä palloa hitaasti koko jalkapohjan alla — kantapäästä varpaisiin',
+      'Kun tunnet jännittyneemmän kohdan, paina sitä kevyesti 5–10 sekuntia',
+      'Tee 60 sekuntia per jalka — älä kiirehdi',
+      'Lopuksi seiso molemmilla jaloilla ja huomaa miltä tuntuu'
+    ],
+    miksi: 'Jalkapohja on koko takaketjun "juuristo". Kun se on herätetty ennen harjoitusta, kiihdytys lähtee paremmin ja takareiden lihakset pysyvät suojassa. Aivan kuten auton moottori tarvitsee lämmittelyä, jalkakin tarvitsee herätyksen.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '1 × 60s / jalka'
+  },
+
+  SBL_taso1: {
+    nimi: 'Lantionnosto yhdellä jalalla',
+    lyhyt: 'Selällään, kantapää korokkeella — nosta lantio ylös, laske hitaasti',
+    vaiheet: [
+      'Asetu selällesi lattialle, toinen kantapää tuolin tai penkin reunalla',
+      'Toinen jalka suorana ilmassa',
+      'Paina lantio ylös niin että keho on suora linja olkapäästä polveen',
+      'Pidä yläasennossa 2 sekuntia — puristele pakaraa',
+      'Laske lantio alas HITAASTI — lasku kestää 3 sekuntia',
+      'Toista 8 kertaa per jalka, 3 sarjaa'
+    ],
+    miksi: 'Tämä harjoite vahvistaa takareiden ja pakaran lihakset jotka vetävät sinua eteenpäin juostessa. Kun takaketju on vahva, 10 metrin kiihdytys paranee ja takareiden venähdysten riski pienenee merkittävästi.',
+    video: 'https://www.youtube.com/watch?v=MSm9WKFWGh8',
+    ika_huomio: 'Alle 13v: tee ilman koroketta, molemmat jalat maassa',
+    sarjat: '3 × 8 / jalka'
+  },
+
+  SBL_taso2: {
+    nimi: 'Takaketjun jarrutuslasku',
+    lyhyt: 'Polvillaan, kaveri pitää nilkoista — laske keho eteenpäin mahdollisimman hitaasti',
+    vaiheet: [
+      'Polvistuu pehmeälle alustalle, pyydä kaveria tai valmentajaa pitämään nilkoistasi kiinni',
+      'Pidä selkä ja lantio SUORANA koko ajan — keho kuin lankku',
+      'Laske vartaloa hitaasti eteenpäin 3–4 sekuntia — anna takareiden jarruttaa',
+      'Kun et enää jaksa jarruttaa, pudota käsille — käsiä käytetään vain pehmentämään putoamista',
+      'Nouse takaisin alkuasentoon käsien avulla — nousua ei lasketa suoritukseksi',
+      'Toista 5 kertaa, 3 sarjaa — laatu on tärkeämpää kuin määrä'
+    ],
+    miksi: 'Tämä on yksi tehokkaimmista harjoitteista takareiden vammojen ehkäisyyn. Ammattilaisseurat kuten Ajax ja Liverpool käyttävät sitä joka viikko. Tutkimusten mukaan yksi sarja viikossa voi puolittaa takareiden vammariskin.',
+    video: 'https://www.youtube.com/watch?v=CqCdBEU7FDE',
+    ika_huomio: 'Alle 14v: älä tee tätä harjoitetta — tee lantionnosto sen sijaan. Kasvupyrähdysvaiheessa: vain 3 toistoa per sarja.',
+    sarjat: '3 × 5'
+  },
+
+  SFL_aktivointi: {
+    nimi: 'Lonkan avaus lattialla',
+    lyhyt: 'Istu molemmat polvet 90° kulmassa — tunne lonkan etuosan venyminen',
+    vaiheet: [
+      'Istu lattialle, oikea jalka edessä (polvi 90°), vasen sivulla (polvi 90°)',
+      'Pidä selkä ryhdikkäänä — älä kallista vartaloa eteenpäin',
+      'Tunnet venytyksen vasemman lonkan etupuolella ja reidessä',
+      'Hengitä rauhallisesti sisään ja ulos — älä pidätä hengitystä',
+      'Pidä asento 45 sekuntia per puoli'
+    ],
+    miksi: 'Lonkan etuosa kiristyy helposti pitkän koulupäivän jälkeen. Kun se on auki ennen harjoitusta, potku lähtee täydellä voimalla eikä lonkka jarruta liikettä. Monet pelaajat huomaavat laukauksen parantuvan jo ensimmäisellä kerralla.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '1 × 45s / puoli'
+  },
+
+  SFL_taso1: {
+    nimi: 'Lonkka-saranaharjoite',
+    lyhyt: 'Seiso keppi selässä — taivuta lonkasta eteen pitäen selkä suorana',
+    vaiheet: [
+      'Ota pitkä keppi tai seinä apuvälineeksi',
+      'Keppi (tai seinä) koskettaa takaraivoa, lapaluita ja alaselkää — kolme kosketuspistettä',
+      'Paina peppu taaksepäin kuin haluaisit istua tuolille joka on kaukana',
+      'Selän pitää pysyä suorana koko ajan — keppi ei saa irrota',
+      'Mene alas kunnes tunnet venytyksen reiden takana',
+      'Nouse takaisin ylös puristamalla pakaroita yhteen',
+      'Toista 10 kertaa hitaasti'
+    ],
+    miksi: 'Tämä opettaa lonkan oikeaa liikettä. Kun lonkka toimii oikein jalkapalloilussa, potku ja lähtönopeus tulevat lonkasta eikä selästä — tämä tekee liikkeestä sekä tehokkaamman että turvallisemman. Väärä lonkan käyttö on yleisin syy nuorten selkäkipuihin.',
+    video: 'https://www.youtube.com/watch?v=YwKQGvKJx3A',
+    ika_huomio: null,
+    sarjat: '3 × 10'
+  },
+
+  SFL_taso2: {
+    nimi: 'Askelkyykky',
+    lyhyt: 'Astu pitkä askel eteen — laske takapolvi kohti lattiaa',
+    vaiheet: [
+      'Seiso ryhdikkäästi, kädet lanteilla tai edessä tasapainoksi',
+      'Ota pitkä askel eteenpäin vasemmalla jalalla',
+      'Laske takapolvi (oikea) kohti lattiaa — ei koske lattiaan',
+      'Etummainen polvi (vasen) ei saa mennä varpaiden etupuolelle — tarkista katsomalla',
+      'Etummainen polvi osoittaa suoraan eteenpäin — ei sisäänpäin',
+      'Nouse takaisin seisomaan etummaisen jalan avulla',
+      'Toista 8 kertaa per jalka'
+    ],
+    miksi: 'Askelkyykky vahvistaa täsmälleen ne lihakset joita käytetään laukaisuasennossa. Hyvä askelkyykky = parempi laukausasento = kovempi ja tarkempi potku.',
+    video: 'https://www.youtube.com/watch?v=D7KaRcUTQeE',
+    ika_huomio: null,
+    sarjat: '3 × 8 / jalka'
+  },
+
+  LL_aktivointi: {
+    nimi: 'Simpukka-aktivointi',
+    lyhyt: 'Kyljellään polvet koukussa — nosta päälimmäinen polvi ylös kuin simpukka',
+    vaiheet: [
+      'Asetu kyljellesi, polvet 90° koukussa, kantapäät yhdessä',
+      'Pidä lantio paikallaan — se ei saa kaatua taaksepäin',
+      'Nosta päälimmäistä polvea ylöspäin pitäen kantapäät yhdessä',
+      'Nosta niin ylös kuin pystyt ilman lantion kääntymistä',
+      'Pidä yläasennossa 2 sekuntia, laske hitaasti alas',
+      'Toista 12 kertaa per puoli — tunnet polttamista reisien ulkosyrjällä'
+    ],
+    miksi: 'Tämä herättää pakaran yläosan joka vastaa sivusuunnan vakauttamisesta. Heikko pakara = polvi menee sisään suunnanmuutoksessa = nilkka ja polvi vaarassa. Tämä yksinkertainen harjoite on sivuketjun tärkein ensiaskel.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '2 × 12 / puoli'
+  },
+
+  LL_taso1: {
+    nimi: 'Sivuaskelkävely kuminauhalla',
+    lyhyt: 'Kuminauha polvien yläpuolella — astu sivulle kyykkyasennossa',
+    vaiheet: [
+      'Laita kuminauha molempien polvien yläpuolelle',
+      'Mene pieneen kyykkyasentoon — selkä suorana, paino kantapäillä',
+      'Pidä nauhan jännitys koko ajan — polvet eivät saa tulla yhteen',
+      'Astu sivulle oikealle 15 askelta',
+      'Astu takaisin vasemmalle 15 askelta — tämä on yksi sarja'
+    ],
+    miksi: 'Sivuliike on jalkapallon tärkein liikesuunta jonka useimmat pelaajat laiminlyövät. Tämä harjoite suojaa polven sivusiteen ja parantaa jarrutuskykyä suunnanmuutoksessa. Näkyy suoraan parempana puolustuspelina ja pujotteluna.',
+    video: 'https://www.youtube.com/watch?v=e1lxNI6TE3U',
+    ika_huomio: null,
+    sarjat: '3 × 15 askelta / suunta'
+  },
+
+  LL_taso2: {
+    nimi: 'Sivuhyppy ja hallittu pysäytys',
+    lyhyt: 'Hyppää sivulle yhdellä jalalla — pysähdy heti ilman pompimista',
+    vaiheet: [
+      'Seiso yhdellä jalalla hyvässä tasapainossa',
+      'Hyppää sivulle noin metrin matka',
+      'Lasku toiselle jalalle — PYSÄHDY heti, älä anna kehon jatkaa liikettä',
+      'Polvi menee varpaiden suuntaan, ei sisäänpäin — tarkista katsomalla',
+      'Pidä pysäytysasento 2 sekuntia ennen seuraavaa hyppyä',
+      'Toista 5 kertaa per suunta'
+    ],
+    miksi: 'Tämä harjoite opettaa jarrutusvoimaa sivusuunnassa — juuri sitä tarvitaan kun käännyt laidalla tai vaihdat suuntaa vastustajan paineessa. Hyvä jarrutus = vähemmän nilkka- ja polvivenähdyksiä.',
+    video: 'https://www.youtube.com/watch?v=Fkq6OqJOi2E',
+    ika_huomio: 'Alle 13v: tee ensin molemmilla jaloilla ennen kuin siirryt yhteen jalkaan',
+    sarjat: '3 × 5 / suunta'
+  },
+
+  DIAG_aktivointi: {
+    nimi: 'Rintakehän kierto',
+    lyhyt: 'Nelinkontin, käsi niskaan — kierrä kyynärpää kattoa kohti',
+    vaiheet: [
+      'Mene nelinkontin — kädet suoraan olkapäiden alla, polvet lonkkien alla',
+      'Laita oikea käsi niskasi taakse — kyynärpää osoittaa sivulle',
+      'Kierrä oikeaa kyynärpäätä kohti kattoa niin pitkälle kuin luonnostaan pääset',
+      'Pidä lantio paikallaan koko ajan — liike tulee rintakehästä',
+      'Palaa hitaasti takaisin',
+      'Toista 10 kertaa per puoli'
+    ],
+    miksi: 'Rintakehän kierto on syöttövoiman lähde. Kun rintakehä liikkuu vapaasti, syöttö tulee kehosta eikä pelkästä jalasta — tämä on juuri se mitä ammattilaisilla näkyy. Jäykkä rintakehä on yleisin syy heikkoon syöttöön vaikka jalat olisivat vahvat.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '2 × 10 / puoli'
+  },
+
+  DIAG_taso1: {
+    nimi: 'Kylkilankku',
+    lyhyt: 'Kyljellään kyynärvarren päällä — pidä keho suorana linjana',
+    vaiheet: [
+      'Asetu kyljellesi, tukena kyynärvarsi ja jalat päällekkäin',
+      'Nosta lantio ylös — keho muodostaa suoran linjan nilkasta päähän',
+      'Älä anna lantion vajota alas tai mennä ylös',
+      'Hengitä rauhallisesti — vedä vatsa kevyesti sisään',
+      'Pidä 30 sekuntia — laske alas, toista toiselle puolelle'
+    ],
+    miksi: 'Kylkilankku vahvistaa kylkien lihakset jotka pitävät sinut pystyssä kun vastustaja töytäisee. Vahva kylki = parempi SM-pallo = vaikea kaataa. Myös syöttövoima kasvaa kun kyljet ovat vahvat.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '3 × 30s / puoli'
+  },
+
+  DIAG_taso2: {
+    nimi: 'Kiertoheitot seinään',
+    lyhyt: 'Seiso sivuttain seinään — heitä pallo kierrättämällä kehoa, ei käsiä',
+    vaiheet: [
+      'Seiso noin 1,5 metrin etäisyydellä seinästä, sivuttain seinään',
+      'Pidä kevyttä lääkintäpalloa tai tavallista palloa',
+      'Kierrä keho ENSIN poispäin seinästä — rintakehä johtaa',
+      'Sitten nopea kierto takaisin — heitä pallo seinään rintakehän kierrosta',
+      'Ota pallo kiinni heti palautumisen jälkeen ja toista',
+      'Liike tulee rintakehästä, ei pelkistä käsistä — kädet seuraavat'
+    ],
+    miksi: 'Tämä on täsmälleen sama liikekaava kuin syötössä ja SM-pallossa. Kun teet tätä päivittäin, syöttövoima kasvaa ja SM-pallon hallinta paineessa paranee. Liikanen 2025: kiertovoima on vahvin yksittäinen ammattilaisuuden ennustaja.',
+    video: 'https://www.youtube.com/watch?v=9nSOapf_REU',
+    ika_huomio: null,
+    sarjat: '3 × 6 / puoli'
+  },
+
+  DFL_aktivointi: {
+    nimi: '360-asteen hengitys',
+    lyhyt: 'Hengitä kylkiin ja selkään — ei rintaan ylös',
+    vaiheet: [
+      'Istu tai seiso mukavasti, laita kädet kylkiesi päälle',
+      'Hengitä sisään nenän kautta — tunne käsien alla kyljet laajenevan sivuille',
+      'Tunne myös selän laajentuvan taaksepäin',
+      'Hengitä ulos suun kautta hitaasti — noin 5 sekuntia',
+      'Toista 5 kertaa',
+      'Tee tämä AINA ennen muita harjoitteita'
+    ],
+    miksi: 'Oikea hengitys aktivoi syvät vatsalihakset automaattisesti. Nämä lihakset ovat koko kehon perusta — kun ne ovat päällä, kaikki muu harjoittelu on tehokkaampaa ja selkä pysyy suojassa. Monet huippu-urheilijat aloittavat päivänsä juuri tällä.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '1 × 5 hengitystä'
+  },
+
+  DFL_taso1: {
+    nimi: 'Lankku',
+    lyhyt: 'Kyynärvarsien ja varpaiden varaan — pidä keho suorana, hengitä',
+    vaiheet: [
+      'Asetu kyynärvarsien ja varpaiden varaan — kyynärpäät suoraan olkapäiden alla',
+      'Nosta lantio niin että keho on suora linja kantapäistä päähän',
+      'Peppu ei saa olla ylöspäin (kolmio) eikä alaspäin (kaari)',
+      'Vedä napa kevyesti sisään — älä pidätä hengitystä',
+      'Katso lattiaan — niska jatkaa selkärangan linjaa',
+      'Lopeta kun tärisee tai asento hajoaa — laatu ratkaisee, ei kesto'
+    ],
+    miksi: 'Lankku on kaiken perusta. Ilman vahvaa keskivartaloa paino ei siirry tehokkaasti jalalta toiselle — se näkyy kömpelönä liikkeenä ja väsyneenä asentona pelin loppupuolella. Kaikki parhaat pelaajat tekevät tätä.',
+    video: null,
+    ika_huomio: null,
+    sarjat: '3 × 20–40s'
+  },
+
+  DFL_taso2: {
+    nimi: 'Kuollut ötökkä',
+    lyhyt: 'Selällään — laske vastakkainen käsi ja jalka alas samanaikaisesti hitaasti',
+    vaiheet: [
+      'Asetu selällesi, kädet suorana kohti kattoa, polvet 90° kulmaan ilmassa',
+      'Litistä alaselkä lattiaan — se pysyy siellä koko harjoitteen ajan',
+      'Laske oikea käsi taaksepäin JA vasen jalka eteenpäin samanaikaisesti',
+      'Mene niin alas kuin pystyt ilman että alaselkä irtoaa lattiasta',
+      'Palauta hitaasti — vaihda puolta',
+      'HIDAS on parempi kuin NOPEA — 3 sekuntia alas, 3 sekuntia ylös'
+    ],
+    miksi: 'Tämä opettaa kehon eri osat toimimaan yhteistyössä. Juuri tätä tarvitaan SM-pallossa — hallitset palloa samalla kun skannaat ympärillesi. Se myös suojaa alaselkää harjoittelun aikana.',
+    video: 'https://www.youtube.com/watch?v=9e4MHaFBM7o',
+    ika_huomio: null,
+    sarjat: '3 × 5 / puoli'
+  },
+};
+
+// Ketju → harjoite-ID -kartoitus FLEI-tason mukaan
+const KETJU_HARJOITTEET = {
+  SBL:  { aktivointi: 'SBL_aktivointi',  taso1: 'SBL_taso1',  taso2: 'SBL_taso2'  },
+  SFL:  { aktivointi: 'SFL_aktivointi',  taso1: 'SFL_taso1',  taso2: 'SFL_taso2'  },
+  LL:   { aktivointi: 'LL_aktivointi',   taso1: 'LL_taso1',   taso2: 'LL_taso2'   },
+  DIAG: { aktivointi: 'DIAG_aktivointi', taso1: 'DIAG_taso1', taso2: 'DIAG_taso2' },
+  DFL:  { aktivointi: 'DFL_aktivointi',  taso1: 'DFL_taso1',  taso2: 'DFL_taso2'  },
+};
+
+// ── POPUP-MEKANISMI ────────────────────────────────────────────
+// Avautuu alhaalta ylöspäin (sheet-tyylinen) — luonteva mobiilissa
+function avaaHarjoitePopup(harjoiteId) {
+  const h = HARJOITE_KIRJASTO[harjoiteId];
+  if (!h) return;
+  const vanha = document.getElementById('harjoitePopup');
+  if (vanha) vanha.remove();
+
+  const videoHtml = h.video
+    ? `<a href="${h.video}" target="_blank" rel="noopener"
+        style="display:flex;align-items:center;gap:8px;padding:9px 12px;
+        background:rgba(255,64,96,.08);border:1px solid rgba(255,64,96,.2);
+        border-radius:9px;color:#FF4060;text-decoration:none;font-size:12px;
+        font-weight:600;margin-top:8px">
+        ▶ Katso video YouTubessa
+       </a>`
+    : `<div style="padding:8px 10px;background:var(--bg4);border-radius:8px;
+        font-size:11px;color:var(--ink3);margin-top:8px;font-style:italic">
+        📹 Video tulossa pian
+       </div>`;
+
+  const ikaHtml = h.ika_huomio
+    ? `<div style="padding:8px 10px;background:rgba(255,176,32,.07);
+        border:1px solid rgba(255,176,32,.2);border-radius:8px;
+        font-size:11px;color:var(--amber);margin-top:8px">
+        ⚠️ ${h.ika_huomio}
+       </div>` : '';
+
+  const vaiheHtml = h.vaiheet.map((v, i) =>
+    `<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">
+      <div style="width:22px;height:22px;border-radius:50%;background:rgba(0,221,176,.15);
+        color:var(--teal);font-size:10px;font-weight:700;display:flex;align-items:center;
+        justify-content:center;flex-shrink:0;margin-top:1px">${i+1}</div>
+      <div style="font-size:13px;color:var(--ink2);line-height:1.55">${v}</div>
+     </div>`).join('');
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="harjoitePopup" onclick="if(event.target.id==='harjoitePopup')suljeHarjoitePopup()"
+      style="position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.8);
+      display:flex;align-items:flex-end;justify-content:center;padding:0">
+      <div style="background:var(--bg2);border:1px solid var(--line2);
+        border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:640px;
+        max-height:88vh;overflow-y:auto;animation:slideUp .25s ease-out">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:800">${h.nimi}</div>
+          <button onclick="suljeHarjoitePopup()" style="background:var(--bg4);border:1px solid var(--line2);
+            border-radius:8px;padding:5px 12px;color:var(--ink3);cursor:pointer;
+            font-family:'DM Sans',sans-serif;font-size:12px">✕ Sulje</button>
+        </div>
+        <div style="display:inline-block;padding:3px 10px;background:rgba(0,221,176,.1);
+          border:1px solid rgba(0,221,176,.2);border-radius:20px;font-size:11px;
+          color:var(--teal);font-weight:600;margin-bottom:14px">${h.sarjat}</div>
+        <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;
+          letter-spacing:.8px;margin-bottom:10px">Tee näin</div>
+        ${vaiheHtml}
+        <div style="margin-top:14px;padding:12px 14px;background:var(--bg3);
+          border-radius:10px;border-left:3px solid var(--teal)">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;
+            letter-spacing:.8px;margin-bottom:6px">Miksi tämä harjoite?</div>
+          <div style="font-size:12px;color:var(--ink2);line-height:1.6">${h.miksi}</div>
+        </div>
+        ${ikaHtml}
+        ${videoHtml}
+      </div>
+    </div>`);
+}
+
+function suljeHarjoitePopup() {
+  const p = document.getElementById('harjoitePopup');
+  if (p) p.remove();
+}
+
+// ══════════════════════════════════════════════════════════════
+// FIREBASE
+// ══════════════════════════════════════════════════════════════
+const FC={apiKey:'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo',authDomain:'talentmaster-pilot.firebaseapp.com',projectId:'talentmaster-pilot',storageBucket:'talentmaster-pilot.firebasestorage.app',messagingSenderId:'872561784446',appId:'1:872561784446:web:05c4c7996dfd46ddd14a2f'};
+if(!firebase.apps.length)firebase.initializeApp(FC);
+const db=firebase.firestore(),auth=firebase.auth();
+
+// ══════════════════════════════════════════════════════════════
+// KETJUDATA — viisi ketjua (DIAG = SL+FL anatomisesti yhtenä)
+// Wilke 2016 · Liikanen & Törmä 2025 · HPP ELITE v9
+// ══════════════════════════════════════════════════════════════
+const KETJU_DATA={
+  SBL:{
+    nimi:'Vauhtiketju', emoji:'⚡',
+    teema:'Kiihdytys & ensimmäiset askeleet',
+    anatomia:'⭐⭐⭐ Vahva (Wilke 2016, 14 tutkimusta)',
+    cue:'Kantapää maassa tukivaiheessa — nopeus syntyy takaa, ei ponnisteta eteen.',
+    aktivointi:'Jalkapohjan rullaus 60s/jalka + SLR-flossing 2×10/jalka',
+    taso1:'SL lantionnosto koroke 3×8/jalka + pohje eksentrinen 3×10 hidas',
+    taso2:'Nordic hamstring taso 1 3×5 + RDL 3×8',
+    taso3:'Nordic hamstring täysi 3×5 + Trap bar DL 3×5',
+    klinikka:'SLR-flossing pakollinen, hamstring neuraalinen vapautus',
+    pallo:[
+      {laji:'Pituuspotku — pääketju',cue:'Tukijalan SBL absorboi iskun ja generoi voimaa. Heikko SBL = potku hajoaa nilkalta.'},
+      {laji:'Kuljetus/laukaus — avustava',cue:'Pohje kiinni maassa — heikko SBL näkyy tasapainon menetyksenä laukaisun jälkeen.'},
+    ],
+  },
+  SFL:{
+    nimi:'Lähtöketju', emoji:'🦵',
+    teema:'Potkutekniikan core-linja',
+    anatomia:'⭐ Kohtalainen — käytä toiminnallista kieltä',
+    cue:'Lonkka auki ensin — sitten jalka heilahtaa.',
+    aktivointi:'90/90 hip flexor passiivinen 2×45s/puoli + Quad rock back 2×10',
+    taso1:'Hip hinge kepillä 3×10 + Anterior chain isometria 3×30s',
+    taso2:'Askelkyykky 3×8/jalka + Hip thrust 3×10',
+    taso3:'Bulgarian split squat 3×6/jalka + Hip thrust lisäpainolla',
+    klinikka:'90/90 vapautus, hip flexor progressio',
+    pallo:[
+      {laji:'Kuljetus/laukaus — pääketju',cue:'Lonkan täysi ojennus laukauksessa. Hip flexor kireys on yleisin syy miksi potku ei lennä.'},
+      {laji:'Syöttö — avustava',cue:'Lonkka avautuu potkuvaiheessa. Thomas positiivinen → syötön voima rajoittuu suoraan.'},
+    ],
+  },
+  LL:{
+    nimi:'Sivuketju', emoji:'↔️',
+    teema:'Suunnanmuutos & jarrutus',
+    anatomia:'⭐⭐ Kohtalainen (Wilke 2016, 10 tutkimusta)',
+    cue:'3 askeleella jarrutus — polvilinja ei murru sisään.',
+    aktivointi:'Clamshell 2×12 + Lateral hip circle 2×10 + SL wall hold 2×20s',
+    taso1:'Lateral band walk 3×15 + SL squat tuella 3×6',
+    taso2:'Lateral bound & stick 3×5/puoli + Pistoolikyykky koroke 3×6',
+    taso3:'Bulgarian split squat 3×6/puoli + Lateral plyometric 3×5',
+    klinikka:'Gluteus medius aktivointi, polvi-valgus korjaus',
+    pallo:[
+      {laji:'Pujottelu — pääketju +9%',cue:'Pujottelu vaatii LL-ketjua toistuvasti. Liikanen 2025: pujottelu +9% erotteli ammattilaiset.'},
+      {laji:'Ponnauttelu — avustava',cue:'Sivuttaiset mukautukset ponnautellessessa. Heikko LL = ponnauttelu epätarkka sivulle.'},
+    ],
+  },
+  DIAG:{
+    // ⭐⭐⭐ VAHVIN — SL+FL anatomisesti yhtenä (Wilke 2016)
+    nimi:'Diagonaaliketju', emoji:'🔄',
+    teema:'Syöttö, SM-pallo, harhautukset — rotaatiovoima',
+    anatomia:'⭐⭐⭐ Vahva (Wilke 2016) — SL + FL yhtenä kokonaisuutena',
+    anatomia_huomio:'SL ja FL toimivat anatomisesti yhtenä. Opeta yhdessä.',
+    cue:'Rintakehä ohjaa — jalka seuraa automaattisesti.',
+    aktivointi:'Thorax rotaatio 2×10 + Adductor rock 2×10 + Diagonal arm swing 2×10/puoli',
+    taso1:'Anti-rotation plank 3×30s + Dead bug vastakk. käsi+jalka 3×5/puoli',
+    taso2:'Rotational med ball throw 3×6 + Cross-body squat reach 3×8',
+    taso3:'Explosive diagonal combo + Pallollinen kiertoharjoite',
+    klinikka:'Thorax rotaatio mobilisointi, adduktori + latissimus vapautus',
+    pallo:[
+      {laji:'Syöttö — pääketju +13%',cue:'Latissimus → kontra-lonkka (FL) + rintakehän rotaatio (SL). Liikanen 2025: vahvin yksittäinen ammattilaisennustaja.'},
+      {laji:'SM-pallo — pääketju +8%',cue:'Rotaatio käännöksessä + diagonaalivoima lähdössä. Käänny rintakehästä — älä vain siirrä painoa.'},
+      {laji:'Kuljetus/laukaus — pääketju',cue:'Whip-efekti: rintakehä auki + latissimus vetää. Käsi vastakkaiselta puolelta eteen — avaa diagonaalin.'},
+      {laji:'Pujottelu — avustava',cue:'Rotaatioimpulssi nopeissa käänteissä. Ensimmäinen askel diagonaaliin — ei suoraan sivulle.'},
+    ],
+  },
+  DFL:{
+    nimi:'Hallintaketju', emoji:'🏗️',
+    teema:'Asento, hengitys & rytmi — perusta kaikelle',
+    anatomia:'⭐⭐ Kohtalainen — hengitysyhteys anatomisesti perusteltu',
+    cue:'Hengitä tasaisesti — älä pidätä hengitystä suorituksen aikana.',
+    aktivointi:'360° palleahengitys 3×5 min + Dead bug taso 1 3×5/puoli',
+    taso1:'Plank 2×20s + Dead bug polvi 3×5/puoli',
+    taso2:'Plank 3×40s + Dead bug jalka suorana 3×5/puoli',
+    taso3:'RKC plank 3×10s + Dead bug täysi 3×8/puoli',
+    klinikka:'DFL-mobilisointi, pallea aktivointi',
+    pallo:[
+      {laji:'Ponnauttelu — pääketju',cue:'Ponnauttelu on DFL:n päivittäinen testi — rytmi, asento ja hengitys integroituna. Forsman 2013: erotteli kaikissa ikäluokissa.'},
+      {laji:'Syöttö — avustava',cue:'DFL pitää lantion vakaana syötön aikana. Heikko DFL → lantio heiluu → syöttö epätarkka.'},
+      {laji:'SM-pallo — avustava',cue:'Asento säilyy läpi koko sarjan — ei lysähdä käänteissä.'},
+    ],
+  },
+};
+
+// Pelipaikka-data — päivitetty DIAG-termistöön
+const PELIPAIKKA_DATA={
+  CD:{nimi:'CD — Toppari',harjoite:'Kiihdytys + puskuharjoittelu',kuvaus:'10m kiihdytysvedot ×6 + puskuharjoittelu yläpallo (CMJ-pohjainen)',paaketju:'SBL',sivuketju:'DFL'},
+  FB:{nimi:'FB/WB — Laitapuolustaja',harjoite:'Flying 20m + laitasyöttö',kuvaus:'Flying 20m ×5 + laitasyöttö juoksusta (SBL + Diagonaaliketju)',paaketju:'SBL',sivuketju:'LL'},
+  CDM:{nimi:'CDM — Keskikenttäankkuri',harjoite:'Reaktiivinen SM + intervalli',kuvaus:'Reaktiivinen SM 4×6 + intervalli 4×4min pallon kanssa',paaketju:'DFL',sivuketju:'DIAG'},
+  CAM:{nimi:'CAM — Pelinrakentaja',harjoite:'Dual-Task Rondo + 1v1',kuvaus:'Dual-Task Rondo + 1v1 ahtaassa tilassa (Peliäly + Diagonaaliketju)',paaketju:'DFL',sivuketju:'DIAG'},
+  W:{nimi:'W — Laitahyökkääjä',harjoite:'Flying 30m + harhautus',kuvaus:'Flying 30–40m ×5 + 1v1 laidalla: harhautus + keskitys/laukaus',paaketju:'SBL',sivuketju:'DIAG'},
+  ST:{nimi:'ST — Keskushyökkääjä',harjoite:'Reaktiolähtö + viimeistely',kuvaus:'Reaktiolähtö 5m ×6 + vastaanotto+käännös+laukaus molemmin jaloin',paaketju:'SFL',sivuketju:'SBL'}
+};
+
+// Klinikka-data
+function getKliniikkaData(){return(typeof window!=='undefined'&&window.HPP_REHAB_PROTOKOLLAT)?window.HPP_REHAB_PROTOKOLLAT:{};}
+function haeProtokolla(oire){
+  const db=getKliniikkaData();
+  if(db[oire])return db[oire];
+  for(const k of Object.keys(db)){if(db[k].nimi===oire)return db[k];}
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════════
+// TILA
+// ══════════════════════════════════════════════════════════════
+const T={rooli:null,seuraId:null,pelaajaId:null,p:null,tun:'tekninen',
+  klinikkaAktiivinen:false,klinikkaVaihe:'akuutti',klinikkaOire:null};
+const $=id=>document.getElementById(id);
+const P=new URLSearchParams(location.search);
+T.seuraId=P.get('seuraId');T.pelaajaId=P.get('pelaajaId');
+
+// ══════════════════════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════════════════════
+let _ok=false;
+auth.onAuthStateChanged(async u=>{
+  if(_ok)return;_ok=true;
+  if(!T.seuraId||!T.pelaajaId){T.seuraId=T.seuraId||'kpv';T.pelaajaId=T.pelaajaId||'demo';}
+  if(u){
+    const tk=await u.getIdTokenResult(false);const c=tk.claims;
+    T.rooli=c.rooli||'vp';
+    if(!['superadmin','super_admin'].includes(T.rooli)){
+      if(c.seuraId&&c.seuraId!==T.seuraId){virhe('Ei oikeutta tämän seuran dataan.');return;}
+      if(!T.seuraId)T.seuraId=c.seuraId;
+    }
+  } else {
+    const r=P.get('rooli');
+    if(r&&['vanhempi','pelaaja'].includes(r))T.rooli=r;
+    else if(P.get('token'))T.rooli='vanhempi';
+    else{virhe('Kirjaudu sisään tai käytä henkilökohtaista linkkiä.');return;}
+  }
+  await lataa();
+});
+
+// ══════════════════════════════════════════════════════════════
+// LATAUS
+// ══════════════════════════════════════════════════════════════
+async function lataa(){
+  try{
+    const s=await db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId).get();
+    if(!s.exists){renderDemo();return;}
+    T.p={id:s.id,...s.data()};
+    const[hS,tS]=await Promise.all([
+      db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId)
+        .collection('havainnot').orderBy('luotu','desc').limit(10).get()
+        .catch(e=>{console.warn('[IDP] havainnot:',e.message);return{docs:[]};}),
+      db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId)
+        .collection('testit').orderBy('pvm','desc').limit(1).get()
+        .catch(e=>{console.warn('[IDP] testit:',e.message);return{docs:[]};})
+    ]);
+    render(T.p,hS.docs.map(d=>({id:d.id,...d.data()})),tS.docs.map(d=>({id:d.id,...d.data()})));
+  }catch(e){console.error(e);renderDemo();}
+}
+
+function renderDemo(){
+  T.p={etunimi:'Demo',sukunimi:'Pelaaja',joukkue:'KPV U14',laji:'Jalkapallo',positio:'Laitahyökkääjä',
+    syntymaaika:{seconds:Date.UTC(2010,3,15)/1000},pituus_cm:168,syntymakk:4,
+    d1:72,d2:68,d3:0,d4:0,d5:0,dvi:0.38,dvilvl:'HIGH',flei:74,
+    flei_ketjut:{SBL:74,SFL:65,LL:72,DIAG:68,DFL:71},
+    lasnaolo:{pito:22,paikalla:18,pois:4}};
+  T.rooli=T.rooli||'vp';render(T.p,[],[]);
+}
+
+// ══════════════════════════════════════════════════════════════
+// PÄÄRENDER
+// ══════════════════════════════════════════════════════════════
+function render(p,hav,testit){
+  const rooli=T.rooli;
+
+  // Roolimerkki
+  const rn={vp:'VP',valmentaja:'Valmentaja',vanhempi:'Vanhempi',pelaaja:'Pelaaja',superadmin:'Admin',super_admin:'Admin'};
+  const rc={vp:'r-vp',valmentaja:'r-valmentaja',vanhempi:'r-vanhempi',pelaaja:'r-pelaaja',superadmin:'r-vp',super_admin:'r-vp'};
+  const rm=$('rooliMerkki');rm.textContent=rn[rooli]||rooli;rm.className='tb-rooli '+(rc[rooli]||'r-vp');
+
+  // Hero
+  $('avatar').textContent={Jalkapallo:'⚽',Jaakiekko:'🏒',Koripallo:'🏀',Salibandy:'🏑'}[p.laji]||'⚽';
+  $('pNimi').textContent=`${p.etunimi||''} ${p.sukunimi||''}`.trim()||'—';
+  $('pJoukkue').textContent=p.joukkue||'—';
+  const ika=Math.floor(ikaTark(p.syntymaaika)||0);
+  $('pIka').textContent=ika?`${ika}v`:'—';
+  if(p.positio){$('pPos').textContent=p.positio;$('pPos').style.display='';}
+
+  // PHV-tagi hero-stripissä
+  const phv=laskePhv(p);
+  if(phv){
+    const phvTag=$('pPhvTag');phvTag.style.display='';
+    if(phv.off<-1){phvTag.textContent='AN — ennen pyrähdystä';phvTag.className='htag';}
+    else if(phv.off<0){phvTag.textContent='⚠️ PHV käynnissä';phvTag.className='htag htag-phv-peak';}
+    else if(phv.off<1.2){phvTag.textContent='Post-PHV';phvTag.className='htag';}
+    else{phvTag.textContent='Vakaa';phvTag.className='htag';}
+  }
+
+  // FLEI hero
+  renderHeroFlei(p.flei);
+
+  // Lasketaan
+  const tid=laskeTID(p);
+  const track=laskeTrack(p,tid);
+  const ika2=ikaTark(p.syntymaaika)||0;
+  const gems=laskeGem(p,tid);
+  const xf=laskeXF(p,tid);
+
+  // Pelipaikka
+  if(ika2>=13&&['vp','valmentaja','superadmin','super_admin'].includes(rooli)){
+    $('ppOsio').style.display='block';
+    const ppMap={Laitahyökkääjä:'W',Sentteri:'ST',Laitapuolustaja:'FB',Toppari:'CD',Pelinrakentaja:'CAM',Keskikenttäankkuri:'CDM'};
+    if(p.positio&&ppMap[p.positio]){
+      $('ppSel').value=ppMap[p.positio];
+      setTimeout(()=>vaihdaPelipaikka(),200);
+    }
+  }
+
+  // Renderöi kaikki
+  renderTID(tid,track);
+  renderRAE(p);
+  renderSpider(p);
+  renderPHV(phv,ika2);
+  renderDVI(p);
+  renderHalytykset(p,phv,tid,gems);
+  renderKetjut(p);
+  renderFLEI(p.flei);
+  renderJako7030(p);
+  renderHarjoite(p);
+  renderHav(hav);
+  renderOmaTavoite(p,rooli);
+
+  // Klinikka-automaatti: FLEI < 40
+  if((p.flei||0)>0&&p.flei<40){T.klinikkaAktiivinen=true;T.klinikkaOire='Yleinen ylikuormitus';paivitaKlinikka();}
+
+  // Näkymä
+  if(['vp','valmentaja','superadmin','super_admin'].includes(rooli)){
+    document.getElementById('p-tilanne').parentElement;// panels exist
+    if(['valmentaja','vp','super_admin','superadmin'].includes(rooli)){
+      $('havKirjoita').style.display='block';
+      $('klinikkaToggle').style.display='flex';
+    }
+    if(rooli==='valmentaja')$('toimPalkki').style.display='flex';
+    // Lisää havainto-piste tab-indikaattori
+    if(hav.length===0)$('dot-kehitys').classList.add('vis');
+  } else {
+    $('vanNakyma').style.display='block';
+    renderVan(p,phv,hav);
+    // piilota tabnavigaatio vanhemmalle
+    document.querySelector('.tabnav').style.display='none';
+  }
+
+  const l=$('lataaja');l.classList.add('pois');
+  $('sivu').style.display='block';
+  setTimeout(()=>l.style.display='none',500);
+}
+
+// ══════════════════════════════════════════════════════════════
+// VÄLILEHTINAVIGAATIO
+// ══════════════════════════════════════════════════════════════
+function vaihda(id,el){
+  ['tilanne','ketjut','kehitys','harjoite'].forEach(t=>{
+    document.getElementById('p-'+t).classList.toggle('ak',t===id);
+  });
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('ak'));
+  if(el)el.classList.add('ak');
+  // Merkitse kehitys-tabi luetuksi
+  if(id==='kehitys')$('dot-kehitys').classList.remove('vis');
+}
+
+// ══════════════════════════════════════════════════════════════
+// HERO FLEI
+// ══════════════════════════════════════════════════════════════
+function renderHeroFlei(flei){
+  if(!flei){$('heroFleiN').textContent='—';return;}
+  const c=flei<40?'#FF4060':flei<60?'#FFB020':flei<80?'#00DDB0':'#20D468';
+  $('heroFleiN').textContent=flei;$('heroFleiN').style.color=c;
+}
+
+// ══════════════════════════════════════════════════════════════
+// TILANNE: SPIDER
+// ══════════════════════════════════════════════════════════════
+function renderSpider(p){
+  const dims=[
+    {n:'Fyysinen',v:p.d1||0,c:'#00DDB0'},
+    {n:'Tekninen',v:p.d2||0,c:'#3B8BFF'},
+    {n:'Psykologinen',v:p.d3||0,c:'#A78BFA'},
+    {n:'Peliäly',v:p.d4||0,c:'#FFB020'},
+    {n:'Sosiaalinen',v:p.d5||0,c:'#20D468'}
+  ];
+  const canvas=$('spiderCanvas');const W=260,H=240,cx=W/2,cy=H/2+4,R=88;
+  canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');
+  const n=dims.length;const ang=i=>Math.PI*2*i/n-Math.PI/2;
+  [.25,.5,.75,1].forEach(r=>{
+    ctx.beginPath();dims.forEach((_,i)=>{const a=ang(i);const x=cx+Math.cos(a)*R*r,y=cy+Math.sin(a)*R*r;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+    ctx.closePath();ctx.strokeStyle=r===1?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)';ctx.lineWidth=r===1?1:.5;ctx.stroke();
+  });
+  dims.forEach((_,i)=>{const a=ang(i);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=.5;ctx.stroke();});
+  ctx.beginPath();dims.forEach((d,i)=>{const v=Math.min(1,Math.max(0,(d.v||0)/100));const a=ang(i),x=cx+Math.cos(a)*R*v,y=cy+Math.sin(a)*R*v;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.closePath();ctx.fillStyle='rgba(0,221,176,.10)';ctx.fill();ctx.strokeStyle='rgba(0,221,176,.55)';ctx.lineWidth=1.5;ctx.stroke();
+  dims.forEach((d,i)=>{
+    const v=Math.min(1,Math.max(0,(d.v||0)/100));const a=ang(i),x=cx+Math.cos(a)*R*v,y=cy+Math.sin(a)*R*v;
+    ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fillStyle=d.c;ctx.fill();
+    const lx=cx+Math.cos(a)*(R+14),ly=cy+Math.sin(a)*(R+14);
+    ctx.font='bold 9px "DM Mono",monospace';ctx.fillStyle='rgba(255,255,255,.38)';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(d.n,lx,ly-4);
+    ctx.font='bold 9px "DM Sans",sans-serif';ctx.fillStyle=d.c;ctx.fillText(d.v||0,lx,ly+5);
+  });
+  // Dimensiopisteet alle spider
+  $('dimGrid').innerHTML=dims.slice(0,4).map(d=>`
+    <div class="dim-k">
+      <div class="dim-l">${d.n}</div>
+      <div class="dim-v" style="color:${d.c}">${d.v||'—'}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+// TILANNE: TalentID
+// ══════════════════════════════════════════════════════════════
+function laskeTID(p){
+  if(!p.d1&&!p.d2&&!p.d3&&!p.d4&&!p.d5)return null;
+  const raw=(p.d1||0)*.40+(p.d2||0)*.25+(p.d3||0)*.15+(p.d4||0)*.10+(p.d5||0)*.10;
+  const rae={Q1:.97,Q2:.98,Q3:1.02,Q4:1.06}[kkQ(p.syntymakk)]||1.0;
+  const phvM={pre:2,peak:-4,post:0,stable:1}[phvVaihe(p)]||0;
+  return Math.min(100,Math.max(0,Math.round(raw*rae+phvM)));
+}
+function laskeTrack(p,tid){
+  if(tid==null)return null;
+  if(tid>75&&p.dvilvl==='HIGH'&&(p.flei||0)>60)return'elite';
+  if(tid>=50)return'development';if(p.dvilvl==='HIGH')return'longterm';return'development';
+}
+function renderTID(tid,track){
+  if(tid==null){$('tidNum').textContent='—';$('tidTrack').textContent='Ei dataa';return;}
+  $('tidNum').textContent=tid;
+  const tI={elite:{c:'var(--teal)',bg:'rgba(0,221,176,.1)',t:'Elite Track'},development:{c:'var(--amber)',bg:'rgba(255,176,32,.1)',t:'Development'},longterm:{c:'var(--purple)',bg:'rgba(167,139,250,.1)',t:'Long-term potential'}};
+  const ti=tI[track]||tI.development;
+  $('tidNum').style.color=ti.c;$('tidTrack').textContent=ti.t;$('tidTrack').style.cssText=`background:${ti.bg};color:${ti.c}`;
+}
+function renderRAE(p){
+  if(!p.syntymakk)return;
+  const q=kkQ(p.syntymakk);
+  if(q==='Q4'){$('raeMerkki').style.display='block';$('raeMerkki').textContent='Q4 — RAE+6%';}
+}
+
+// ══════════════════════════════════════════════════════════════
+// TILANNE: PHV
+// ══════════════════════════════════════════════════════════════
+function ikaTark(ts){if(!ts)return null;const d=ts.toDate?ts.toDate():new Date((ts.seconds||0)*1000||ts);if(isNaN(d))return null;return(Date.now()-d)/(365.25*24*3600*1000);}
+function kkQ(kk){if(!kk)return'Q2';if(kk<=3)return'Q1';if(kk<=6)return'Q2';if(kk<=9)return'Q3';return'Q4';}
+function phvVaihe(p){const ika=ikaTark(p.syntymaaika);if(!ika||!p.pituus_cm)return'stable';const off=ika-14.0;if(off<-1)return'pre';if(off<0)return'peak';if(off<1.2)return'post';return'stable';}
+function laskePhv(p){const ika=ikaTark(p.syntymaaika);if(!ika)return null;return{ika,off:ika-14.0};}
+function renderPHV(phv,ika){
+  if(!phv){$('phvK').textContent=ika?`${Math.floor(ika)}v`:'—';$('phvB').textContent='—';$('phvT').textContent='Biologinen ikä ei laskettu — lisää syntymäpäivä';return;}
+  $('phvK').textContent=`${phv.ika.toFixed(1)}v`;$('phvB').textContent=`${phv.ika.toFixed(1)}v`;
+  const pros=Math.max(0,Math.min(100,((phv.off+2)/4)*100));
+  const fill=$('phvFill');fill.style.width=pros+'%';
+  let t,c;
+  if(phv.off<-1){c='var(--blue)';t='AN — ennen kasvupyrähdystä. Motoristen taitojen herkkyyskausi — tekniikka ensin.';}
+  else if(phv.off<0){c='var(--amber)';t='⚠️ PHV käynnissä — loukkaantumisriski 2×. Tarkista kuorma heti.';}
+  else if(phv.off<1.2){c='var(--green)';t='Post-PHV — keho reagoi harjoitteluun nyt parhaiten.';}
+  else{c='var(--teal)';t='Vakaa — lajiharjoittelun intensiteettiä voidaan nostaa.';}
+  fill.style.background=c;$('phvB').style.color=c;$('phvT').textContent=t;$('phvT').style.color=c;
+}
+
+// ══════════════════════════════════════════════════════════════
+// TILANNE: DVI
+// ══════════════════════════════════════════════════════════════
+function renderDVI(p){
+  const box=$('dviBox');
+  if(!p.dvi){
+    box.innerHTML=`<div class="dvi-box">
+      <div class="dvi-ikoni">📈</div>
+      <div>
+        <div class="dvi-tyhja">Aktivoituu toisen testauskerran jälkeen</div>
+        <div class="dvi-aktivoituu">Mittaa kehitysnopeuden pistettä/kk. Korkea DVI matalalla tasolla = Hidden Gem — pelaaja jota kukaan ei ole vielä huomannut.</div>
+      </div>
+    </div>`;
+    return;
+  }
+  const ti={HIGH:{c:'var(--green)',t:'HIGH — nopea kehitys',d:'Kehittyy yli 0.3p/kk — top 30% ikäluokasta'},NORMAL:{c:'var(--teal)',t:'NORMAL — tasainen',d:'Kehitys seuraa odotettua kaarta'},LOW:{c:'var(--amber)',t:'LOW — hidas',d:'Selvitä hidastumisen syy'},DECLINING:{c:'var(--red)',t:'DECLINING — lasku',d:'Vaatii välittömän huomion'}};
+  const t=ti[p.dvilvl]||{c:'var(--teal)',t:p.dvilvl||'—',d:'p/kk'};
+  box.innerHTML=`<div class="dvi-box">
+    <div class="dvi-ikoni">📈</div>
+    <div class="dvi-info">
+      <div style="display:flex;align-items:baseline;gap:6px">
+        <div class="dvi-n" style="color:${t.c}">${p.dvi.toFixed(2)}</div>
+        <div style="font-size:10px;color:var(--ink3)">p/kk</div>
+      </div>
+      <div class="dvi-label" style="color:${t.c}">${t.t}</div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:2px">${t.d}</div>
+    </div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// TILANNE: HÄLYTYKSET
+// ══════════════════════════════════════════════════════════════
+function laskeGem(p,tid){
+  if(tid==null)return[];const s=[];
+  if(tid<65&&p.dvilvl==='HIGH')s.push({ik:'📈',t:'DVI HIGH mutta TalentID alle 65 — kehitysnopeus ylittää nykyisen tason'});
+  if((p.bio_krono_ero||0)<=-1.2)s.push({ik:'🧬',t:`Bio-ikä ${Math.abs(p.bio_krono_ero).toFixed(1)}v krono-iän jäljessä — kasvupyrähdys tulossa`});
+  if(kkQ(p.syntymakk)==='Q4'&&tid<72)s.push({ik:'📅',t:'Q4-syntynyt — RAE-vääristymä aliarvioi tasoa systemaattisesti'});
+  return s;
+}
+function laskeXF(p,tid){
+  if(tid==null||tid>=85)return null;
+  const dims=[{n:'Fyysinen',v:p.d1,ik:'🏃'},{n:'Tekninen',v:p.d2,ik:'⚽'},{n:'Psykologinen',v:p.d3,ik:'❤️'},{n:'Peliäly',v:p.d4,ik:'🧠'},{n:'Sosiaalinen',v:p.d5,ik:'🤝'}];
+  const x=dims.filter(d=>(d.v||0)>=85);return x.length?x[0]:null;
+}
+function renderHalytykset(p,phv,tid,gems){
+  const al=[];
+  if((p.flei||0)>0&&p.flei<40)al.push({k:'h-krit',ik:'🚨',t:`FLEI™ ${p.flei} — kuormituskapasiteetti kriittisesti alhainen`});
+  if(phv&&phv.off>=-0.5&&phv.off<0.5)al.push({k:'h-var',ik:'⚠️',t:'PHV käynnissä — loukkaantumisriski 2× normaali'});
+  if(!p.suostumus?.annettu)al.push({k:'h-inf',ik:'📋',t:'GDPR-suostumus odottaa huoltajalta'});
+  if(gems.length>=2){$('gemMerkki').style.display='block';al.push({k:'h-inf',ik:'💎',t:`Hidden Gem™ — ${gems.length} tunnistustekijää`});}
+  const las=p.lasnaolo;
+  if(las?.pito>5){const pr=Math.round(las.paikalla/las.pito*100);if(pr<60)al.push({k:'h-var',ik:'📅',t:`Läsnäolo vain ${pr}%`});}
+  $('halLista').innerHTML=al.length?al.map(a=>`<div class="hal ${a.k}"><span class="h-ik">${a.ik}</span><span>${a.t}</span></div>`).join(''):'';
+}
+
+// ══════════════════════════════════════════════════════════════
+// KETJUT: ACCORDION
+// ══════════════════════════════════════════════════════════════
+function renderKetjut(p){
+  // DIAG-fallback vanhalle kuuden ketjun datalle
+  const kRaw=p.flei_ketjut||p.ketjut||{};
+  const k={
+    SBL:  kRaw.SBL  || kRaw.sbl  || 0,
+    SFL:  kRaw.SFL  || kRaw.sfl  || 0,
+    LL:   kRaw.LL   || kRaw.ll   || 0,
+    DIAG: kRaw.DIAG || kRaw.diag || (kRaw.SL && kRaw.FL ? Math.round((kRaw.SL + kRaw.FL) / 2) : kRaw.SL || kRaw.FL || 0),
+    DFL:  kRaw.DFL  || kRaw.dfl  || 0,
+  };
+  const lista=$('ketjutLista');
+  lista.innerHTML=Object.entries(KETJU_DATA).map(([id,kd])=>{
+    const v=k[id]||0;
+    const c=v<40?'#FF4060':v<60?'#FFB020':v<80?'#00DDB0':'#20D468';
+    const tila=v<40?'Riski':v<60?'Tark.':v<80?'OK':'Hyvä';
+    const tilaCs=`background:${v<40?'rgba(255,64,96,.12)':v<60?'rgba(255,176,32,.1)':v<80?'rgba(0,221,176,.1)':'rgba(32,212,104,.1)'};color:${c}`;
+    const isDiag=id==='DIAG';
+
+    const palloHtml=kd.pallo?`
+      <div>
+        <div class="pallo-ot">Pelissä — mitä tämä tarkoittaa</div>
+        ${kd.pallo.map(pt=>`
+          <div class="pallo-i">
+            <span class="pallo-laji">${pt.laji}</span>
+            <span class="pallo-cue">${pt.cue}</span>
+          </div>`).join('')}
+        <div class="kj-anatomia">📊 ${kd.anatomia}${kd.anatomia_huomio?'<br>'+kd.anatomia_huomio:''}</div>
+      </div>` : '';
+
+    const aktivointiHtml=kd.aktivointi?`
+      <div class="kj-aktivointi">
+        <div class="kj-akt-label">Aktivointi (joka harjoitus)</div>
+        ${kd.aktivointi}
+      </div>` : '';
+
+    return`<div class="ketju-item${isDiag?' diag':''}">
+      <div class="ketju-hdr" onclick="toggleKetju('${id}')">
+        <span class="kj-ikoni">${kd.emoji}</span>
+        <span class="kj-nimi"${isDiag?` style="color:var(--blue)"`:''}>${kd.nimi}${isDiag?' ⭐⭐⭐':''}</span>
+        <div class="kj-bar-mini"><div class="kj-fill-mini" style="width:${v}%;background:${c}"></div></div>
+        <span class="kj-v" style="color:${c}">${v||'—'}</span>
+        <span class="kj-tila" style="${tilaCs}">${tila}</span>
+        <span class="kj-chev" id="cv-${id}">▼</span>
+      </div>
+      <div class="ketju-body" id="kb-${id}">
+        <div class="kj-bar-full"><div style="height:100%;border-radius:2px;width:${v}%;background:${c}"></div></div>
+        ${palloHtml}
+        ${aktivointiHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleKetju(id){
+  const body=$('kb-'+id);const chev=$('cv-'+id);
+  const open=body.classList.toggle('auki');
+  chev.classList.toggle('auki',open);
+}
+
+// ══════════════════════════════════════════════════════════════
+// KETJUT: FLEI
+// ══════════════════════════════════════════════════════════════
+function renderFLEI(flei){
+  if(!flei){$('fleiNum').textContent='—';return;}
+  const c=flei<25?'#FF4060':flei<40?'#FFB020':flei<60?'#FFB020':flei<80?'#00DDB0':'#20D468';
+  const taso=flei<25?'Kriittinen — välitön terapia':flei<40?'Korkea riski':flei<60?'Normaali — seuraa kuormaa':flei<80?'Hyvä kapasiteetti':'Optimaalinen';
+  const kuvaus=flei<40?'Ei lisäkuormitusta — ohjaa terapeutille':flei<60?'Kohdennetut fascia-harjoitteet mukaan':'Lajiharjoittelua voidaan tehostaa';
+  $('fleiNum').textContent=flei;$('fleiNum').style.color=c;
+  $('fleiTaso').textContent=taso;$('fleiTaso').style.color=c;
+  $('fleiKuvaus').textContent=kuvaus;
+  const canvas=$('fleiCanvas');if(!canvas)return;
+  const ctx=canvas.getContext('2d');ctx.clearRect(0,0,52,52);
+  const cx=26,cy=26,r=20,sw=5;
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI*.65,Math.PI*2.35);ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=sw;ctx.lineCap='round';ctx.stroke();
+  const pros=Math.max(0,Math.min(100,flei))/100;
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI*.65,Math.PI*.65+(Math.PI*1.7)*pros);ctx.strokeStyle=c;ctx.lineWidth=sw;ctx.lineCap='round';ctx.stroke();
+}
+
+// ══════════════════════════════════════════════════════════════
+// KEHITYS: 70/30
+// ══════════════════════════════════════════════════════════════
+function renderJako7030(p){
+  const kRaw=p.flei_ketjut||p.ketjut||{};
+  const ketjut={
+    SBL:kRaw.SBL||0,SFL:kRaw.SFL||0,LL:kRaw.LL||0,
+    DIAG:kRaw.DIAG||(kRaw.SL&&kRaw.FL?Math.round((kRaw.SL+kRaw.FL)/2):kRaw.SL||kRaw.FL||0),
+    DFL:kRaw.DFL||0,
+  };
+  let vahvinK='SBL',vahvinV=0,heikinK='SBL',heikinV=100;
+  Object.entries(ketjut).forEach(([k,v])=>{
+    if(v>vahvinV){vahvinV=v;vahvinK=k;}
+    if(v>0&&v<heikinV){heikinV=v;heikinK=k;}
+  });
+  const vahvin=KETJU_DATA[vahvinK]||{};const heikin=KETJU_DATA[heikinK]||{};
+  $('jako7030').innerHTML=`
+    <div class="jako-70">
+      <div class="jako-label" style="color:var(--teal)">70% — vahvuus</div>
+      <div class="jako-ketju" style="color:var(--teal)">${vahvin.emoji||''} ${vahvin.nimi||vahvinK}</div>
+      <div class="jako-teema" style="color:rgba(0,221,176,.7)">${vahvin.teema||'—'}</div>
+    </div>
+    <div class="jako-30">
+      <div class="jako-label" style="color:var(--amber)">30% — kehitys</div>
+      <div class="jako-ketju" style="color:var(--amber)">${heikin.emoji||''} ${heikin.nimi||heikinK}</div>
+      <div class="jako-teema" style="color:rgba(255,176,32,.7)">${heikin.teema||'—'}</div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// HARJOITE
+// ══════════════════════════════════════════════════════════════
+function renderHarjoite(p){
+  const kRaw=p.flei_ketjut||p.ketjut||{};
+  const ketjut={
+    SBL:kRaw.SBL||0, SFL:kRaw.SFL||0, LL:kRaw.LL||0,
+    DIAG:kRaw.DIAG||(kRaw.SL&&kRaw.FL?Math.round((kRaw.SL+kRaw.FL)/2):kRaw.SL||kRaw.FL||0),
+    DFL:kRaw.DFL||0,
+  };
+  let heikinK='DFL', heikinV=100;
+  Object.entries(ketjut).forEach(([k,v])=>{if(v>0&&v<heikinV){heikinV=v;heikinK=k;}});
+  const heikin=KETJU_DATA[heikinK]||{};
+  const ika=Math.floor(ikaTark(p.syntymaaika)||14);
+
+  // Valitse taso FLEI-pistemäärän mukaan
+  let tasoKey='taso1';
+  if(heikinV>=60) tasoKey='taso2';
+  if(heikinV>=75) tasoKey='taso3';
+
+  // Harjoite-ID:t kirjastosta
+  const harjIds=KETJU_HARJOITTEET[heikinK]||{};
+
+  // Popup-nappi: avaa selkokielinen ohje + video
+  const popupNappi=(id)=>id
+    ? `<button onclick="avaaHarjoitePopup('${id}')"
+        style="display:flex;align-items:center;gap:5px;padding:6px 11px;
+        background:rgba(59,139,255,.1);border:1px solid rgba(59,139,255,.2);
+        border-radius:8px;color:var(--blue);font-size:11px;font-weight:600;
+        cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:7px"
+        onmouseover="this.style.background='rgba(59,139,255,.18)'"
+        onmouseout="this.style.background='rgba(59,139,255,.1)'">
+        📋 Ohjeet &amp; video →
+       </button>`
+    : '';
+
+  // 30% kohdennettu — heikoimpaan ketjuun
+  $('harjKohdennettu').innerHTML=`
+    <div class="harj-card">
+      <div class="harj-otsikko">
+        30% — ${heikin.emoji||''} ${heikin.nimi||heikinK}
+        <span class="harj-tag" style="background:rgba(255,176,32,.1);color:var(--amber);
+          border:1px solid rgba(255,176,32,.2)">Heikoin ketju</span>
+      </div>
+      <div style="font-size:13px;color:var(--ink);font-weight:600;margin-bottom:3px">
+        ${heikin[tasoKey+'_nimi']||'Harjoite'}
+      </div>
+      <div class="harj-teksti">${heikin[tasoKey]||'—'}</div>
+      <div class="harj-cue">${heikin.cue||'—'}</div>
+      ${popupNappi(harjIds[tasoKey])}
+    </div>
+    <div class="harj-card">
+      <div class="harj-otsikko">
+        Aktivointi
+        <span class="harj-tag" style="background:rgba(0,221,176,.1);color:var(--teal);
+          border:1px solid rgba(0,221,176,.2)">Joka harjoitus</span>
+      </div>
+      <div style="font-size:13px;color:var(--ink);font-weight:600;margin-bottom:3px">
+        ${heikin.aktivointi_nimi||'Aktivointi'}
+      </div>
+      <div class="harj-teksti">${heikin.aktivointi||'—'}</div>
+      ${popupNappi(harjIds.aktivointi)}
+    </div>`;
+
+  // T-harjoite — pallotekniikka ikäryhmän mukaan
+  const gr=ika<13?'u12':ika<16?'u15':'u19';
+  const tHarjOhjeet={
+    syotto:{
+      u12:{teksti:'Seinäsyöttö molemmilla jaloilla — iloinen tekeminen, ei suorituspainetta', sarjat:'3 × 10 / jalka'},
+      u15:{teksti:'Syöttö + liike: syötä seinään, ota askel sivulle ennen paluuta', sarjat:'4 × 8 / puoli'},
+      u19:{teksti:'Syöttö + käännös + vastaanotto liikkeessä — simuloi pelitilannetta', sarjat:'5 × 8'},
+    },
+    pujottelu:{
+      u12:{teksti:'Pujotteluleikki kartioilla vapaasti — ei ajoitusta, leikitään', sarjat:'3 min vapaasti'},
+      u15:{teksti:'T-rata pallolla: mitataan aika, verrataan edelliseen kertaan', sarjat:'4 suoritusta'},
+      u19:{teksti:'Kasirata kilpailunopeudella — aika kirjataan ylös', sarjat:'6 suoritusta'},
+    },
+    ponnauttelu:{
+      u12:{teksti:'Naruhypyt tai pomppuhyppely — rytmi tärkeämpää kuin nopeus', sarjat:'3 × 15s'},
+      u15:{teksti:'Ponnauttelu rytmissä — laske tahti, pidä se tasaisena', sarjat:'3 × 30s'},
+      u19:{teksti:'Reaktioponnauttelu: valmentaja huutaa suunnan muutoksen', sarjat:'4 × 30s'},
+    },
+    smpallo:{
+      u12:{teksti:'Pallonkäsittely kaikilla pinnoin — katse ylös, ei palloon', sarjat:'3 min vapaasti'},
+      u15:{teksti:'SM-pallo: käänny nopeasti ja suojaa pallo vartalolla', sarjat:'3 × 1 min'},
+      u19:{teksti:'SM-pallo paineessa: kaveri häiritsee, pidä pallo', sarjat:'3 × 2 min'},
+    },
+  };
+  const harjoitteet=[
+    {avain:'syotto',nimi:'Syöttö',tag:'+13%',tv:'var(--blue)'},
+    {avain:'pujottelu',nimi:'Pujottelu',tag:'+9%',tv:'var(--blue)'},
+    {avain:'ponnauttelu',nimi:'Ponnauttelu',tag:'Forsman 2013',tv:'var(--green)'},
+    {avain:'smpallo',nimi:'SM-pallo',tag:'+8%',tv:'var(--blue)'},
+  ];
+  $('harjTekniikka').innerHTML=harjoitteet.map(h=>{
+    const info=tHarjOhjeet[h.avain][gr];
+    return `<div class="harj-card">
+      <div class="harj-otsikko">${h.nimi}
+        <span class="harj-tag" style="background:rgba(59,139,255,.08);color:${h.tv};
+          border:1px solid rgba(59,139,255,.15)">${h.tag}</span>
+      </div>
+      <div class="harj-teksti">${info.teksti}</div>
+      <div style="font-size:10px;color:var(--teal);margin-top:5px;padding:3px 8px;
+        background:rgba(0,221,176,.06);border-radius:6px;display:inline-block">${info.sarjat}</div>
+    </div>`;
+  }).join('');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PELIPAIKKA
+// ══════════════════════════════════════════════════════════════
+function vaihdaPelipaikka(){
+  const v=$('ppSel').value;const badge=$('ppBadge');
+  if(!v){badge.style.display='none';return;}
+  const pp=PELIPAIKKA_DATA[v];if(!pp){badge.style.display='none';return;}
+  badge.style.display='block';
+  const ketju=KETJU_DATA[pp.paaketju]||{};
+  badge.innerHTML=`<div class="harj-card" style="margin-top:0">
+    <div class="harj-otsikko">${pp.harjoite}</div>
+    <div class="harj-teksti">${pp.kuvaus}</div>
+    <div class="harj-cue">${ketju.cue||'—'}</div>
+  </div>`;
+  // Teknis-taktinen esimerkki
+  const ttMap={
+    W:'Laitahyökkääjän SM-ketjuharjoite ei ole kartiorata — se on 1v1-tilanne laidalla juuri siinä kulmassa ja tempossa jota pelipaikka vaatii.',
+    CAM:'Pelinrakentajan päätöksentekoharjoite ei ole rondo — se on kahden vaihtoehdon paineistettu syöttötilanne viisi metriä vastustajan edessä.',
+    CDM:'Ankkurin ketteryysharjoite integroi liikeketjun pelipaikkakohtaiseen painekontekstiin — puolustusasento + syöttöasento yhdistettynä.',
+    CD:'Topparin puskuharjoite kytkeytyy SBL-ketjuun — CMJ-lähtö + pää + laskeutuminen yhtenä motorisena ohjelmana.',
+    FB:'Laitapuolustajan hyökkäysharjoite: Flying 20m + laitasyöttö juoksusta simuloi hänen pelitilannettaan.',
+    ST:'Sentteri: reaktiolähtö 5m + käännös + laukaus molemmin jaloin — SFL-ketjun pelitilannesiirto.'
+  };
+  $('ttEsim').textContent=ttMap[v]||'Valitse pelipaikka nähdäksesi konkreettinen esimerkki.';
+}
+
+// ══════════════════════════════════════════════════════════════
+// KLINIKKA
+// ══════════════════════════════════════════════════════════════
+function toggleKlinikka(){
+  T.klinikkaAktiivinen=!T.klinikkaAktiivinen;
+  if(T.klinikkaAktiivinen&&!T.klinikkaOire)naytaOireValinta();
+  paivitaKlinikka();
+}
+function naytaOireValinta(){
+  const dbase=getKliniikkaData();
+  const kategoriat={};
+  Object.values(dbase).forEach(p=>{const kat=p.kategoria||'Muu';kategoriat[kat]=kategoriat[kat]||[];kategoriat[kat].push(p.nimi||'?');});
+  const katJarjestys=['Polvikipu','Nilkka','Alaraaja','Alaraaja lihas','Lonkka/Nivus','Selkä','Yläraaja','Muu'];
+  const ikoniMap={'Polvikipu':'🦵','Nilkka':'👟','Alaraaja':'🏃','Alaraaja lihas':'💪','Lonkka/Nivus':'🔵','Selkä':'🔶','Yläraaja':'🤚','Muu':'⚠️'};
+  const erityiset=['Aivotarahdus','REDS','ACL_akuutti','ACL_leikkaus','Meniskivamma'];
+  const erityisNimet=erityiset.map(k=>dbase[k]?.nimi||k).filter(n=>n);
+  let katHtml='';
+  const sorted=[...new Set([...katJarjestys,...Object.keys(kategoriat)])];
+  for(const kat of sorted){
+    const oireet=kategoriat[kat];if(!oireet?.length)continue;
+    katHtml+=`<div style="margin-bottom:10px"><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);margin-bottom:5px">${ikoniMap[kat]||'•'} ${kat}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">${oireet.map(o=>`<div onclick="valitseOire('${o}')" style="padding:5px 10px;border-radius:8px;cursor:pointer;font-size:11px;background:var(--bg3);border:1px solid var(--line);color:var(--ink2)">${o}</div>`).join('')}</div></div>`;
+  }
+  if(erityisNimet.length)katHtml+=`<div style="margin-top:6px;padding-top:8px;border-top:1px solid var(--line)"><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--red);margin-bottom:5px">🔴 Erityisprotokollat</div><div style="display:flex;flex-wrap:wrap;gap:5px">${erityisNimet.map(o=>`<div onclick="valitseOire('${o}')" style="padding:5px 10px;border-radius:8px;cursor:pointer;font-size:11px;background:rgba(255,64,96,.07);border:1px solid rgba(255,64,96,.2);color:var(--red)">${o}</div>`).join('')}</div></div>`;
+  document.body.insertAdjacentHTML('beforeend',`<div style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:16px" id="oireModal" onclick="if(event.target.id==='oireModal')suljeModal()"><div style="background:var(--bg2);border:1px solid var(--line2);border-radius:16px;padding:20px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">🏥 Valitse oire</div><div style="font-size:10px;color:var(--ink3)">${Object.keys(dbase).length} protokollaa</div></div>${katHtml}<button onclick="suljeModal()" style="width:100%;margin-top:12px;padding:9px;background:var(--bg4);border:1px solid var(--line2);border-radius:9px;color:var(--ink3);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px">Peruuta</button></div></div>`);
+}
+function valitseOire(oire){suljeModal();T.klinikkaOire=oire;T.klinikkaAktiivinen=true;paivitaKlinikka();}
+function suljeModal(){const m=document.getElementById('oireModal');if(m)m.remove();}
+function paivitaKlinikka(){
+  const toggle=$('klinikkaToggle');const banneri=$('kliinikkaBanneri');
+  if(T.klinikkaAktiivinen&&T.klinikkaOire){
+    toggle.classList.add('ak');$('klinikkaToggleTeksti').textContent='🏥 Klinikkaprotokolla aktiivinen — poista';
+    banneri.style.display='block';$('kbOtsikko').textContent=`🏥 ${T.klinikkaOire}`;
+    vaihdaVaihe(T.klinikkaVaihe,null);
+  } else {
+    toggle.classList.remove('ak');$('klinikkaToggleTeksti').textContent='🏥 Aktivoi klinikkaprotokolla';
+    banneri.style.display='none';T.klinikkaAktiivinen=false;T.klinikkaOire=null;
+  }
+}
+function vaihdaVaihe(vaihe,btn){
+  T.klinikkaVaihe=vaihe;
+  document.querySelectorAll('.kb-vaihe').forEach(b=>b.classList.remove('ak'));
+  if(btn)btn.classList.add('ak');
+  else document.querySelectorAll('.kb-vaihe').forEach(b=>{const bv=b.textContent.toLowerCase();if((vaihe==='akuutti'&&bv.includes('akuutti'))||(vaihe==='subakuutti'&&bv.includes('sub'))||(vaihe==='krooninen'&&bv.includes('return')))b.classList.add('ak');});
+  const proto=haeProtokolla(T.klinikkaOire);
+  if(!proto){$('kbHarjoite').textContent='Protokollaa ei löydy';return;}
+  const phvEl=$('kbPhv');
+  if(proto.phv_huomio){phvEl.textContent=proto.phv_huomio;phvEl.style.display='block';}else phvEl.style.display='none';
+  const aikatEl=$('kbAikataulu');
+  if(proto.aikataulut){const at=proto.aikataulut;const liev=at.liev?.kuvaus||at.liev||'';const keski=at.keski?.kuvaus||at.keski||'';const vak=at.vak?.kuvaus||at.vak||'';$('kbAikataulutRivi').innerHTML=[liev?`<span class="kb-aikat-item kb-aikat-liev">Lievä: ${liev}</span>`:'',keski?`<span class="kb-aikat-item kb-aikat-keski">Koht.: ${keski}</span>`:'',vak?`<span class="kb-aikat-item kb-aikat-vak">Vakava: ${vak}</span>`:''].join('');aikatEl.style.display='block';}else aikatEl.style.display='none';
+  const rehab=proto.rehab||{};const vaihObj=rehab[vaihe]||{};
+  $('kbHarjoite').textContent=vaihObj.harjoite||vaihObj.harjoitteet?.[0]||'Ei harjoitesuositusta tälle vaiheelle';
+  const kielEl=$('kbKielletyt');const kielLista=vaihObj.kielletyt||[];
+  if(kielLista.length&&vaihe!=='krooninen'){$('kbKielletytLista').innerHTML=kielLista.map(k=>`<div class="kb-kielto-item">${k}</div>`).join('');kielEl.style.display='block';}else kielEl.style.display='none';
+  const paluuEl=$('kbPaluu');
+  if(vaihe==='krooninen'&&proto.paluu_kriteerit?.length){$('kbPaluuLista').innerHTML=proto.paluu_kriteerit.map(k=>`<div class="kb-paluu-item">${k}</div>`).join('');paluuEl.style.display='block';}else paluuEl.style.display='none';
+}
+
+// ══════════════════════════════════════════════════════════════
+// KEHITYS: HAVAINNOT
+// ══════════════════════════════════════════════════════════════
+function vaihdaTun(n){document.querySelectorAll('.tn').forEach(b=>b.classList.remove('ak'));n.classList.add('ak');T.tun=n.dataset.t;}
+async function tallennaHav(){
+  const ta=$('havTa');const teksti=ta.value.trim();
+  if(!teksti){toast('Kirjoita havainto ensin','err');return;}
+  if(!T.seuraId||!T.pelaajaId){toast('Kirjaudu sisään ensin','err');return;}
+  try{
+    await db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId)
+      .collection('havainnot').add({teksti,tyyppi:T.tun,luotu:firebase.firestore.FieldValue.serverTimestamp(),valmentaja:auth.currentUser?.email||'—'});
+    ta.value='';toast('Havainto tallennettu','ok');
+    // Päivitä lista
+    const hS=await db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId)
+      .collection('havainnot').orderBy('luotu','desc').limit(10).get()
+      .catch(()=>({docs:[]}));
+    renderHav(hS.docs.map(d=>({id:d.id,...d.data()})));
+  }catch(e){console.error(e);toast('Tallennusvirhe — tarkista yhteys','err');}
+}
+function renderHav(hav){
+  const tyyppiV={tekninen:{c:'var(--blue)',l:'Tekninen'},fyysinen:{c:'var(--green)',l:'Fyysinen'},taktinen:{c:'var(--amber)',l:'Taktinen'},henkinen:{c:'var(--purple)',l:'Henkinen'}};
+  $('havLista').innerHTML=hav.length?hav.map(h=>{
+    const tv=tyyppiV[h.tyyppi]||{c:'var(--ink3)',l:h.tyyppi||'—'};
+    return`<div class="hav-item">${h.teksti||'—'}
+      <div class="hav-meta">
+        <span>${pvm(h.luotu)}</span>
+        <span class="hav-meta-type" style="background:rgba(255,255,255,.05);color:${tv.c}">${tv.l}</span>
+        ${h.valmentaja?`<span>${h.valmentaja}</span>`:''}
+      </div></div>`;
+  }).join(''):'<div class="tyhja">Ei havaintoja vielä</div>';
+}
+
+// ══════════════════════════════════════════════════════════════
+// KEHITYS: TAVOITELAUSE
+// ══════════════════════════════════════════════════════════════
+function renderOmaTavoite(p,rooli){
+  const teksti=p.omaTavoitelause||'';
+  const txtEl=$('omaTavoiteTeksti');const tyhjaEl=$('omaTavoiteTyhja');
+  if(teksti){txtEl.textContent=`"${teksti}"`;txtEl.style.display='block';tyhjaEl.style.display='none';}
+  else{txtEl.style.display='none';tyhjaEl.style.display='block';}
+  if(['pelaaja','valmentaja','vp','super_admin','superadmin'].includes(rooli))
+    $('omaTavoiteMuokkaa').style.display='flex';
+}
+function avaaOmaTavoite(){
+  $('omaTavoiteInput').value=T.p?.omaTavoitelause||'';
+  $('omaTavoiteInput').style.display='block';
+  $('omaTavoiteNapit').style.display='flex';
+  $('omaTavoiteMuokkaa').style.display='none';
+}
+function peruutaTavoitelause(){
+  $('omaTavoiteInput').style.display='none';$('omaTavoiteNapit').style.display='none';
+  $('omaTavoiteMuokkaa').style.display='flex';
+}
+async function tallennaTavoitelause(){
+  const v=$('omaTavoiteInput').value.trim();
+  if(!v){toast('Kirjoita tavoitelause ensin','err');return;}
+  try{
+    await db.collection('seurat').doc(T.seuraId).collection('pelaajat').doc(T.pelaajaId).update({omaTavoitelause:v});
+    if(T.p)T.p.omaTavoitelause=v;
+    renderOmaTavoite(T.p,T.rooli);peruutaTavoitelause();toast('Tavoitelause tallennettu','ok');
+  }catch(e){toast('Tallennusvirhe','err');}
+}
+
+// ══════════════════════════════════════════════════════════════
+// VANHEMPI
+// ══════════════════════════════════════════════════════════════
+function renderVan(p,phv,hav){
+  const flei=p.flei||0;
+  const c=flei<40?'var(--red)':flei<60?'var(--amber)':flei<80?'var(--teal)':'var(--green)';
+  const taso=flei<40?'Tarvitsee erityistä huomiota':flei<60?'Kehittyvä vaihe':flei<80?'Hyvässä vauhdissa':'Loistavassa kunnossa';
+  const kuvaus=flei<40?'Valmentaja on yhteydessä sinuun harjoitusohjelman muutoksesta.':flei<60?'Kehitys etenee suunnitelman mukaan.':flei<80?'Pelaaja kehittyy hyvin ja harjoittelee tehokkaasti.':'Pelaajan kehitys on seuran huipputasoa.';
+  $('vanH').textContent=taso;$('vanH').style.color=c;$('vanP').textContent=kuvaus;
+  const las=p.lasnaolo;
+  if(las?.pito>0){
+    const pr=Math.round(las.paikalla/las.pito*100);
+    $('vanLH').textContent=`${pr}% läsnäolo`;$('vanLH').style.color=pr>80?'var(--teal)':pr>60?'var(--amber)':'var(--red)';
+    $('vanLP').textContent=`${las.paikalla||0}/${las.pito||0} harjoitusta tällä kaudella.`;
+  }
+  if(hav.length>0){$('vanVK').style.display='block';$('vanVP').textContent=hav[0].teksti;}
+}
+
+// ══════════════════════════════════════════════════════════════
+// APUFUNKTIOT
+// ══════════════════════════════════════════════════════════════
+function pvm(ts){const d=ts?.toDate?ts.toDate():new Date((ts?.seconds||0)*1000||ts);return isNaN(d)?'':d.toLocaleDateString('fi-FI');}
+function scrollHav(){vaihda('kehitys',$('tab-kehitys'));setTimeout(()=>{const t=$('havTa');if(t){t.scrollIntoView({behavior:'smooth'});setTimeout(()=>t.focus(),400);}},100);}
+function virhe(msg){$('lataaja').innerHTML=`<div style="text-align:center;max-width:320px;padding:32px"><div style="font-size:36px;margin-bottom:14px">🔒</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:8px">Pääsy estetty</div><div style="font-size:13px;color:var(--ink3);line-height:1.6">${msg}</div></div>`;}
+function toast(t,k='ok'){const e=$('toast');e.textContent=t;e.className=`vis ${k}-t`;clearTimeout(e._t);e._t=setTimeout(()=>e.className='',3200);}
+</script>
+</body>
+</html>
