@@ -1,0 +1,1317 @@
+<!doctype html>
+<html lang="fi" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TalentMaster™ — VP + TD v21</title>
+<link rel="stylesheet" href="colors_and_type.css">
+
+<!-- Firebase Compat -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<!-- TalentMaster Bus + VP Adapter -->
+<script src="tm-bus.js?v=3"></script>
+<script src="tm-demo.js?v=3"></script>
+<script src="vp-bus-adapter.js?v=1"></script>
+
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { background:var(--bg); color:var(--ink); font-family:var(--font-body); font-size:14px; line-height:1.55; }
+
+  /* ═ APP SHELL ═ */
+  .app { display:grid; grid-template-rows:auto auto 1fr; min-height:100vh; }
+
+  /* ─ Top bar: brand + context switcher + user */
+  .topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 28px; border-bottom:.5px solid var(--border); background:var(--bg2); }
+  .brand { display:flex; align-items:baseline; gap:12px; }
+  .brand-mark { font-family:var(--font-display); font-size:22px; font-weight:300; letter-spacing:.01em; }
+  .brand-mark em { font-style:italic; color:var(--teal); }
+  .brand-sub { font-family:var(--font-mono); font-size:10px; color:var(--ink3); text-transform:uppercase; letter-spacing:.2em; }
+
+  /* ─ Context switcher (dev-only) */
+  .ctx { display:flex; gap:8px; align-items:center; font-size:11px; color:var(--ink3); font-family:var(--font-mono); }
+  .ctx select { font-family:var(--font-mono); font-size:11px; padding:4px 8px; border:.5px solid var(--border2); background:var(--bg2); color:var(--ink); }
+
+  /* ─ User chip */
+  .user { display:flex; align-items:center; gap:10px; }
+  .user-avatar { width:28px; height:28px; background:var(--teal); color:white; font-size:11px; font-weight:600; display:flex; align-items:center; justify-content:center; }
+  .user-name { font-size:12px; }
+  .user-role { font-size:9px; color:var(--ink3); text-transform:uppercase; letter-spacing:.15em; font-family:var(--font-mono); }
+
+  /* ─ Role banner — shows what "mode" we're in */
+  .mode-banner { padding:8px 28px; font-size:11px; font-family:var(--font-mono); letter-spacing:.1em; text-transform:uppercase; display:flex; align-items:center; gap:12px; border-bottom:.5px solid var(--border); }
+  .mode-banner.vp { background:rgba(26,122,94,.06); color:var(--green); }
+  .mode-banner.td { background:rgba(107,63,160,.06); color:var(--purple); }
+  .mode-banner.both { background:rgba(184,134,11,.08); color:var(--gold); }
+  .mode-banner.unauth { background:rgba(200,50,50,.08); color:var(--red); }
+
+  /* ═ TAB BAR ═ */
+  .tabbar { display:flex; gap:2px; padding:0 28px; background:var(--bg2); border-bottom:.5px solid var(--border); overflow-x:auto; }
+  .tab { background:transparent; border:none; padding:14px 18px; font-family:var(--font-body); font-size:12px; color:var(--ink3); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap; position:relative; transition:all var(--tm-dur-med) var(--tm-ease); }
+  .tab:hover { color:var(--ink2); }
+  .tab.active { color:var(--ink); border-bottom-color:var(--teal); }
+  .tab.td { color:var(--purple); opacity:.75; }
+  .tab.td:hover { opacity:1; }
+  .tab.td.active { color:var(--purple); border-bottom-color:var(--purple); opacity:1; }
+  .tab .dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-left:6px; vertical-align:middle; }
+  .tab .dot.new { background:var(--gold); }
+  .tab .dot.count { width:auto; height:auto; border-radius:0; padding:1px 5px; font-size:9px; color:white; background:var(--red); font-family:var(--font-mono); vertical-align:baseline; }
+
+  /* ═ CONTENT ═ */
+  .content { padding:28px; background:var(--bg); max-width:1400px; width:100%; margin:0 auto; }
+
+  .section-title { font-family:var(--font-display); font-size:28px; font-weight:300; margin-bottom:4px; }
+  .section-sub { font-size:12px; color:var(--ink3); margin-bottom:24px; }
+
+  /* ─ Card */
+  .card { background:var(--bg2); border:.5px solid var(--border); padding:20px; margin-bottom:16px; }
+  .card-title { font-family:var(--font-display); font-size:18px; font-weight:400; margin-bottom:4px; }
+  .card-sub { font-size:11px; color:var(--ink3); text-transform:uppercase; letter-spacing:.15em; font-family:var(--font-mono); margin-bottom:14px; }
+
+  /* ─ KPI grid */
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:14px; margin-bottom:24px; }
+  .kpi { background:var(--bg2); border:.5px solid var(--border); padding:16px 18px; }
+  .kpi-label { font-size:10px; color:var(--ink3); text-transform:uppercase; letter-spacing:.15em; font-family:var(--font-mono); margin-bottom:6px; }
+  .kpi-value { font-family:var(--font-display); font-size:32px; font-weight:300; line-height:1; }
+  .kpi-trend { font-size:11px; color:var(--green); margin-top:4px; }
+
+  /* ─ IDP queue row */
+  .idp-row { display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:14px; padding:12px 14px; align-items:center; border:.5px solid var(--border); background:var(--bg2); margin-bottom:6px; font-size:12px; }
+  .idp-row.pending { border-left:3px solid var(--gold); }
+  .idp-row.approved { border-left:3px solid var(--green); opacity:.65; }
+  .idp-row.rejected { border-left:3px solid var(--red); opacity:.55; }
+  .idp-player { font-weight:500; }
+  .idp-meta { font-size:10px; color:var(--ink3); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.1em; }
+  .idp-goal { color:var(--ink2); }
+  .idp-btns { display:flex; gap:6px; }
+  .btn { background:transparent; border:.5px solid var(--border2); padding:6px 12px; font-size:11px; cursor:pointer; color:var(--ink2); font-family:var(--font-body); }
+  .btn:hover { background:var(--bg3); color:var(--ink); }
+  .btn.primary { background:var(--teal); color:white; border-color:var(--teal); }
+  .btn.primary:hover { background:#28B090; }
+  .btn.danger:hover { background:var(--red-dim); color:var(--red); border-color:var(--red); }
+  .btn.purple { background:var(--purple); color:white; border-color:var(--purple); }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+
+  /* ─ Placeholder block */
+  .placeholder { padding:32px 20px; background:var(--bg3); border:.5px dashed var(--border2); text-align:center; color:var(--ink3); font-size:12px; font-family:var(--font-mono); letter-spacing:.05em; }
+
+  /* ─ Methodology editor */
+  .method-section { margin-bottom:18px; padding:16px 18px; border-left:3px solid var(--purple); background:rgba(107,63,160,.04); border:.5px solid rgba(107,63,160,.18); border-left:3px solid var(--purple); }
+  .method-section h4 { font-family:var(--font-display); font-size:16px; font-weight:400; color:var(--purple); margin-bottom:6px; }
+  .method-section .hint { font-size:10px; color:var(--ink3); font-family:var(--font-mono); margin-bottom:10px; }
+  .principle-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+  .principle { background:var(--bg2); border:.5px solid var(--border); padding:10px; font-size:11px; }
+  .principle strong { display:block; color:var(--purple); margin-bottom:3px; font-size:10px; text-transform:uppercase; letter-spacing:.1em; font-family:var(--font-mono); }
+
+  /* ─ Calibration */
+  .calib-row { display:grid; grid-template-columns:140px repeat(4, 50px) 1fr; gap:8px; padding:6px 10px; font-family:var(--font-mono); font-size:11px; align-items:center; border-bottom:.5px solid var(--border); }
+  .calib-row.header { color:var(--ink3); font-size:9px; text-transform:uppercase; letter-spacing:.1em; border-bottom:.5px solid var(--border2); }
+  .calib-score { text-align:center; }
+  .calib-score.good { color:var(--green); }
+  .calib-score.warn { color:var(--amber); }
+  .calib-score.bad { color:var(--red); }
+  .calib-drift { font-size:10px; color:var(--ink3); padding-left:10px; }
+
+  /* ─ Report block */
+  .report-block { display:grid; grid-template-columns:2fr 1fr 3fr; gap:12px; padding:8px 12px; border-top:.5px solid var(--border); font-size:11px; align-items:baseline; }
+  .report-block:first-child { border-top:none; }
+  .report-tag { font-size:9px; color:var(--gold); text-transform:uppercase; letter-spacing:.1em; font-family:var(--font-mono); }
+
+  /* ─ TD link banner (for VP in large club) */
+  .td-link { background:rgba(107,63,160,.05); border:.5px solid rgba(107,63,160,.22); border-left:3px solid var(--purple); padding:12px 14px; font-size:11px; color:var(--ink2); display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .td-link strong { color:var(--purple); }
+
+  /* ─ Loader */
+  .loader { display:flex; align-items:center; justify-content:center; padding:60px; color:var(--ink3); font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; }
+
+  /* ─ Calendar / event cards */
+  .event-card { background:var(--bg2); border:.5px solid var(--border); padding:14px 16px; margin-bottom:8px; display:grid; grid-template-columns:2fr 1fr 1fr 1fr auto; gap:12px; align-items:center; font-size:12px; }
+  .event-card .event-name { font-weight:500; }
+  .event-card .event-meta { font-size:10px; color:var(--ink3); font-family:var(--font-mono); }
+  .badge { display:inline-block; padding:2px 8px; font-size:9px; text-transform:uppercase; letter-spacing:.1em; font-family:var(--font-mono); }
+  .badge.suunniteltu { background:var(--border); color:var(--ink3); }
+  .badge.avoin { background:rgba(26,122,94,.12); color:var(--teal); }
+  .badge.valmis { background:rgba(26,122,94,.18); color:var(--green); }
+
+  /* ─ Player track cards */
+  .track-card { background:var(--bg2); border:.5px solid var(--border); padding:14px; margin-bottom:8px; display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr 1fr auto; gap:10px; align-items:center; font-size:12px; }
+  .track-card .track-name { font-weight:500; }
+  .track-card .track-tag { font-size:9px; text-transform:uppercase; letter-spacing:.1em; font-family:var(--font-mono); padding:2px 6px; }
+  .track-tag.hidden-gem { background:rgba(184,134,11,.12); color:var(--gold); }
+  .track-tag.x-factor { background:rgba(107,63,160,.12); color:var(--purple); }
+  .track-tag.leadership { background:rgba(26,122,94,.12); color:var(--teal); }
+
+  /* ─ Coach list row */
+  .coach-row { display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr 1fr; gap:10px; padding:10px 14px; align-items:center; border-bottom:.5px solid var(--border); background:var(--bg2); font-size:12px; }
+  .coach-row.header { color:var(--ink3); font-size:9px; text-transform:uppercase; letter-spacing:.1em; font-family:var(--font-mono); border-bottom:.5px solid var(--border2); }
+</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+
+  <style>
+    :root {
+      --bg:    #111110; --bg2: #161614; --bg3: #1C1C1A;
+      --teal:  #28B090; --blue: #2A5DB0; --amber: #E0A040;
+      --ink:   #E8EEF8; --ink2: #9AAAC4; --ink3: #5A7090;
+      --red:   #E05050; --green: #28B090; --accent: #28B090;
+    }
+    /* VP_v21 font override */
+    h1, h2, h3, .section-title, .kpi-value, .event-name {
+      font-family: 'Cormorant Garamond', serif !important;
+    }
+    body, button, input, select, textarea {
+      font-family: 'DM Sans', sans-serif !important;
+    }
+  </style>
+<body>
+<div id="app" class="app"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo, useCallback } = React;
+
+// ═════════════════════════════════════════════════════════════════
+// FIREBASE CONFIG & INIT
+// ═════════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+  authDomain: "talentmaster-pilot.firebaseapp.com",
+  projectId: "talentmaster-pilot",
+  storageBucket: "talentmaster-pilot.firebasestorage.app",
+  messagingSenderId: "872561784446",
+  appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
+};
+
+let db = null;
+let auth = null;
+if (typeof firebase !== 'undefined') {
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  auth = firebase.auth();
+}
+
+// ═════════════════════════════════════════════════════════════════
+// AUTH & ROLES
+// ═════════════════════════════════════════════════════════════════
+const ALLOWED_ROLES = ['head_of_coaching', 'technical_director', 'super_admin'];
+
+function useAuth() {
+  const [user, setUser] = useState(null);
+  const [claims, setClaims] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!auth) { setLoading(false); return; }
+    return auth.onAuthStateChanged(async (u) => {
+      if (u) {
+        setUser(u);
+        try {
+          const token = await u.getIdTokenResult(true);
+          setClaims(token.claims);
+        } catch (e) {
+          setClaims({});
+        }
+      } else {
+        setUser(null);
+        setClaims(null);
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  const role = claims?.role || null;
+  const seuraId = claims?.seuraId || null;
+  const isVP = role === 'head_of_coaching' || role === 'super_admin';
+  const isTD = role === 'technical_director' || role === 'super_admin';
+  const canOperate = isVP;
+
+  return { user, claims, role, seuraId, isVP, isTD, canOperate, loading };
+}
+
+// ═════════════════════════════════════════════════════════════════
+// FIRESTORE DATA LAYER
+// ═════════════════════════════════════════════════════════════════
+function useFirestoreQuery(path, deps = []) {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!db || !path) { setLoading(false); return; }
+    setLoading(true);
+    const unsub = db.collection(path).onSnapshot(
+      snap => { setData(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoading(false); setError(null); },
+      err => { setError(err.message); setLoading(false); }
+    );
+    return unsub;
+  }, deps);
+
+  return { data, loading, error };
+}
+
+function useFirestoreDoc(path, id, deps = []) {
+  const [doc, setDoc] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!db || !path || !id) { setLoading(false); return; }
+    setLoading(true);
+    const unsub = db.collection(path).doc(id).onSnapshot(
+      snap => { setDoc(snap.exists ? { id: snap.id, ...snap.data() } : null); setLoading(false); setError(null); },
+      err => { setError(err.message); setLoading(false); }
+    );
+    return unsub;
+  }, deps);
+
+  return { doc, loading, error };
+}
+
+// ═════════════════════════════════════════════════════════════════
+// KONTEKSTILOGIIKKA
+// ═════════════════════════════════════════════════════════════════
+const CLUBS = {
+  kpv: { id:'kpv', name:'KPV',  archetype:'GRASSROOTS',    hasTD:false, users:{ head_of_coaching:'Mika Laine' } },
+  hjk: { id:'hjk', name:'HJK',  archetype:'PROFESSIONAL',  hasTD:true,  users:{ head_of_coaching:'Mika Laine', technical_director:'Teemu Karhu' } },
+  ajx: { id:'ajx', name:'Ajax', archetype:'ELITE_GLOBAL',  hasTD:true,  users:{ head_of_coaching_lower:'J. van Dam', head_of_coaching_upper:'S. Wijlaars', technical_director:'M. Beuker' } },
+};
+
+function resolveView(clubId, userRole) {
+  const club = CLUBS[clubId];
+  if (!club) return { mode:'UNCONFIGURED', tabs:[] };
+
+  if (!club.hasTD && userRole === 'head_of_coaching') {
+    return { mode:'VP+TD_YHDISTETTY', label:'VP + TD · yhdistetty rooli', tone:'both', showTD:true, showVP:true, clubName:club.name };
+  }
+  if (club.hasTD && userRole === 'head_of_coaching') {
+    return { mode:'VP_RAJATTU', label:'Valmennuspäällikkö · operatiivinen', tone:'vp', showTD:false, showVP:true, clubName:club.name };
+  }
+  if (club.hasTD && userRole === 'technical_director') {
+    return { mode:'TD_VAIN', label:'Tekninen johtaja · metodologia', tone:'td', showTD:true, showVP:false, clubName:club.name };
+  }
+  return { mode:'UNCONFIGURED', label:'—', tabs:[] };
+}
+
+// ═════════════════════════════════════════════════════════════════
+// TABS
+// ═════════════════════════════════════════════════════════════════
+const TABS = [
+  { id:'tilanne',     label:'Tilanne',        scope:'vp' },
+  { id:'valmentajat', label:'Valmentajat',    scope:'vp' },
+  { id:'pelaajapolut',label:'Pelaajapolut',   scope:'vp' },
+  { id:'kalenteri',  label:'Kalenteri',      scope:'vp' },
+  { id:'tavoitteet',  label:'Tavoitteet',     scope:'vp' },
+  { id:'metodologia', label:'Metodologia',    scope:'td', isNew:true },
+  { id:'kalibraatio', label:'Kalibraatio',    scope:'td', isNew:true },
+  { id:'kriteeristo', label:'Kriteeristö',    scope:'td', isNew:true },
+  { id:'benchmark',   label:'Benchmark',      scope:'shared', isNew:true },
+  { id:'raportointi', label:'Raportointi',    scope:'vp', isNew:true },
+];
+
+// ═════════════════════════════════════════════════════════════════
+// APP
+// ═════════════════════════════════════════════════════════════════
+function App() {
+  const authCtx = useAuth();
+  const { user, role, seuraId, isVP, isTD, canOperate, loading: authLoading } = authCtx;
+
+  // Dev fallback (when not logged in via Firebase)
+  const [devClubId, setDevClubId] = useState('kpv');
+  const [devRole, setDevRole] = useState('head_of_coaching');
+
+  // Effective role / club
+  const effectiveRole = role || devRole;
+  const effectiveClubId = seuraId || devClubId;
+
+  const [activeTab, setActiveTab] = useState('tilanne');
+  const view = useMemo(() => resolveView(effectiveClubId, effectiveRole), [effectiveClubId, effectiveRole]);
+
+  // Jos TD-käyttäjä, avaa metodologia-tabi oletuksena
+  useEffect(() => {
+    if (view.mode === 'TD_VAIN' && !['metodologia','kalibraatio','kriteeristo','benchmark'].includes(activeTab)) {
+      setActiveTab('metodologia');
+    } else if (view.mode !== 'TD_VAIN' && activeTab === 'metodologia' && !view.showTD) {
+      setActiveTab('tilanne');
+    }
+  }, [view.mode]);
+
+  const visibleTabs = TABS.filter(t => {
+    if (t.scope === 'vp') return view.showVP;
+    if (t.scope === 'td') return view.showTD;
+    if (t.scope === 'shared') return true;
+    return false;
+  });
+
+  const userName = view.mode === 'TD_VAIN'
+    ? (CLUBS[effectiveClubId]?.users?.technical_director || CLUBS[effectiveClubId]?.users?.head_of_coaching_upper)
+    : CLUBS[effectiveClubId]?.users?.head_of_coaching || CLUBS[effectiveClubId]?.users?.head_of_coaching_upper;
+
+  // Tarkista autentikointi — jos Firebase ei ole käytössä, dev-tila aktiivinen
+  const firebaseReady = !!db && !!auth;
+  const isAuthenticated = firebaseReady ? !!user : true; // dev-tilassa aina "autentikoitu"
+
+  if (authLoading) {
+    return <div className="loader">Tarkistetaan tunnistautuminen…</div>;
+  }
+
+  return (
+    <>
+      <TopBar
+        clubId={effectiveClubId} setClubId={setDevClubId}
+        userRole={effectiveRole} setUserRole={setDevRole}
+        view={view} userName={userName}
+        firebaseReady={firebaseReady} user={user}
+      />
+      <ModeBanner view={view} isAuthenticated={isAuthenticated} role={effectiveRole} />
+      <TabBar tabs={visibleTabs} active={activeTab} onSelect={setActiveTab} />
+      <main className="content">
+        <TabContent tab={activeTab} view={view} clubId={effectiveClubId} seuraId={effectiveClubId} authCtx={authCtx} />
+      </main>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// TOP BAR
+// ─────────────────────────────────────────────────────────────
+function TopBar({ clubId, setClubId, userRole, setUserRole, view, userName, firebaseReady, user }) {
+  return (
+    <div className="topbar">
+      <div className="brand">
+        <div className="brand-mark">Talent<em>Master</em></div>
+        <div className="brand-sub">VP + TD · v21 · Firebase</div>
+      </div>
+      <div className="ctx">
+        {!firebaseReady && <span style={{color:'var(--red)'}}>⚠ Firebase offline</span>}
+        {firebaseReady && user && <span style={{color:'var(--green)'}}>● {user.email}</span>}
+        <span>DEV:</span>
+        <select value={clubId} onChange={e => setClubId(e.target.value)}>
+          <option value="kpv">KPV (grassroots · pieni)</option>
+          <option value="hjk">HJK (professional · iso)</option>
+          <option value="ajx">Ajax (elite · global)</option>
+        </select>
+        <select value={userRole} onChange={e => setUserRole(e.target.value)}>
+          <option value="head_of_coaching">head_of_coaching</option>
+          <option value="technical_director">technical_director</option>
+        </select>
+      </div>
+      <div className="user">
+        <div>
+          <div className="user-role">{view.label}</div>
+          <div className="user-name">{userName || '—'} · {view.clubName}</div>
+        </div>
+        <div className="user-avatar">{(userName||'?').split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODE BANNER
+// ─────────────────────────────────────────────────────────────
+function ModeBanner({ view, isAuthenticated, role }) {
+  const msgs = {
+    'VP+TD_YHDISTETTY': 'Yhdistetty VP + TD — seurassa ei ole erillistä teknistä johtajaa. Metodologia-tabit näkyvät sinulle.',
+    'VP_RAJATTU':       'VP-näkymä — seuran TD vastaa metodologiasta. Näet hänen julkaisemansa linjan Metodologia-bannerissa.',
+    'TD_VAIN':          'TD-näkymä — metodologian omistaja. VP jalkauttaa linjaasi. Näet operatiiviset tabit read-only.',
+  };
+  if (!isAuthenticated) {
+    return <div className="mode-banner unauth">→ Ei kirjautunut · Kirjaudu Firebase Authilla</div>;
+  }
+  return <div className={`mode-banner ${view.tone}`}>→ {msgs[view.mode] || view.mode} {role ? `· rooli: ${role}` : ''}</div>;
+}
+
+// ─────────────────────────────────────────────────────────────
+// TAB BAR
+// ─────────────────────────────────────────────────────────────
+function TabBar({ tabs, active, onSelect }) {
+  return (
+    <nav className="tabbar">
+      {tabs.map(t => (
+        <button key={t.id}
+          className={`tab ${t.scope === 'td' ? 'td' : ''} ${active === t.id ? 'active' : ''}`}
+          onClick={() => onSelect(t.id)}>
+          {t.label}
+          {t.isNew && <span className="dot new" title="Uusi v20"></span>}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// TAB CONTENT — router
+// ─────────────────────────────────────────────────────────────
+function TabContent({ tab, view, clubId, seuraId, authCtx }) {
+  switch (tab) {
+    case 'tilanne':     return <TilanneTab view={view} seuraId={seuraId} authCtx={authCtx} />;
+    case 'valmentajat': return <ValmentajatTab seuraId={seuraId} />;
+    case 'pelaajapolut':return <PelaajapolutTab seuraId={seuraId} />;
+    case 'kalenteri':   return <KalenteriTab seuraId={seuraId} />;
+    case 'tavoitteet':  return <PlaceholderTab title="Tavoitteet" sub="Kausitavoitteet · TD:n linja" />;
+    case 'metodologia': return <MetodologiaTab view={view} />;
+    case 'kalibraatio': return <KalibraatioTab />;
+    case 'kriteeristo': return <KriteeristoTab />;
+    case 'benchmark':   return <BenchmarkTab />;
+    case 'raportointi': return <RaportointiTab seuraId={seuraId} />;
+    default:            return <PlaceholderTab title={tab} sub="" />;
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════
+// TILANNE — IDP-jono + KPI:t reaaliaikaisena
+// ═════════════════════════════════════════════════════════════════
+function TilanneTab({ view, seuraId, authCtx }) {
+  const [idps, setIdps] = useState([]);
+  const [idpsLoading, setIdpsLoading] = useState(true);
+  const [players, setPlayers] = useState([]);
+  const [playersLoading, setPlayersLoading] = useState(true);
+  const [coaches, setCoaches] = useState([]);
+  const [coachesLoading, setCoachesLoading] = useState(true);
+
+  // ─ IDP-jono Firestoresta ─
+  useEffect(() => {
+    if (!db || !seuraId) { setIdps([]); setIdpsLoading(false); return; }
+    setIdpsLoading(true);
+    const unsub = db.collection(`seurat/${seuraId}/idp_jono`)
+      .orderBy('tila')
+      .orderBy('luotuPvm', 'desc')
+      .onSnapshot(snap => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Järjestys: ehdotettu ensin, sitten aikajärjestyksessä
+        list.sort((a, b) => {
+          if (a.tila === 'ehdotettu' && b.tila !== 'ehdotettu') return -1;
+          if (a.tila !== 'ehdotettu' && b.tila === 'ehdotettu') return 1;
+          const ta = a.luotuPvm?.toMillis?.() || a.luotuPvm || 0;
+          const tb = b.luotuPvm?.toMillis?.() || b.luotuPvm || 0;
+          return tb - ta;
+        });
+        setIdps(list);
+        setIdpsLoading(false);
+      }, err => { console.error('IDP-jono error', err); setIdpsLoading(false); });
+    return unsub;
+  }, [seuraId]);
+
+  // ─ Pelaajat KPI:t varten ─
+  useEffect(() => {
+    if (!db || !seuraId) { setPlayers([]); setPlayersLoading(false); return; }
+    setPlayersLoading(true);
+    const unsub = db.collection('seurat').doc(seuraId).collection('pelaajat')
+      .onSnapshot(snap => {
+        setPlayers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setPlayersLoading(false);
+      }, err => { console.error('Pelaajat error', err); setPlayersLoading(false); });
+    return unsub;
+  }, [seuraId]);
+
+  // ─ Valmentajat KPI:t varten ─
+  useEffect(() => {
+    if (!db || !seuraId) { setCoaches([]); setCoachesLoading(false); return; }
+    setCoachesLoading(true);
+    const unsub = db.collection(`seurat/${seuraId}/valmentajat`)
+      .onSnapshot(snap => {
+        setCoaches(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setCoachesLoading(false);
+      }, err => { setCoachesLoading(false); });
+    return unsub;
+  }, [seuraId]);
+
+  // Fallback demo-data kun Firebase ei käytössä
+  const demoIdps = [
+    { id:'idp_001', pelaaja:'Aleksi V.', ikaluokka:'U15', valmentaja:'Anna K.', tavoite:'Vertikaalinen syöttö alta ulos', perustelu:'Pelitavan periaate 3 · FLEI: harjoitettava', tila:'ehdotettu', luotuPvm: Date.now() - 86400000 },
+    { id:'idp_002', pelaaja:'Nooa L.', ikaluokka:'U13', valmentaja:'Mikko L.', tavoite:'1v1-puolustus matalalla', perustelu:'TKI-tekn. 5.8 → tavoite 7.0 jakson loppuun', tila:'ehdotettu', luotuPvm: Date.now() - 172800000 },
+    { id:'idp_003', pelaaja:'Emma S.', ikaluokka:'U17', valmentaja:'Jari T.', tavoite:'Johtaminen kentällä — kapteenin rooli', perustelu:'X-Factor: johtajuus · valmentajan havainto 3 ottelussa', tila:'hyvaksytty', hyvaksyttyPvm: Date.now() - 432000000 },
+    { id:'idp_004', pelaaja:'Joonas R.', ikaluokka:'U13', valmentaja:'Heli S.', tavoite:'Sijoittautuminen pallottomana', perustelu:'Pelitavan periaate 4 (kompakti tila)', tila:'ehdotettu', luotuPvm: Date.now() - 43200000 },
+  ];
+  const activeIdps = (db && seuraId) ? idps : demoIdps;
+  const pendingCount = activeIdps.filter(i => i.tila === 'ehdotettu' || i.status === 'proposed').length;
+
+  // ─ Hyväksy / Hylkää ─
+  async function approve(id) {
+    const idp = activeIdps.find(i => i.id === id);
+    if (!idp) return;
+    const perustelu = prompt('Perustelu hyväksynnälle:', idp.perustelu || '');
+    if (perustelu === null) return;
+
+    if (db && seuraId) {
+      try {
+        await db.collection(`seurat/${seuraId}/idp_jono`).doc(id).update({
+          tila: 'hyvaksytty',
+          vp_uid: authCtx?.user?.uid || 'dev',
+          vp_paatosPvm: firebase.firestore.FieldValue.serverTimestamp(),
+          vp_perustelu: perustelu,
+        });
+      } catch (e) { console.error('IDP approve error', e); alert('Virhe tallennuksessa'); return; }
+    } else {
+      setIdps(list => list.map(i => i.id === id ? { ...i, tila:'hyvaksytty', hyvaksyttyPvm:Date.now(), vp_perustelu:perustelu } : i));
+    }
+    if (window.VPBus) {
+      window.VPBus.approveIDP({ idpId:id, note:perustelu }).catch(err => console.warn('[v21] IDP approve err', err));
+    }
+  }
+
+  async function reject(id) {
+    const idp = activeIdps.find(i => i.id === id);
+    if (!idp) return;
+    const perustelu = prompt('Perustelu hylkäämiselle:', 'Ei linjassa pelitavan kanssa');
+    if (perustelu === null) return;
+
+    if (db && seuraId) {
+      try {
+        await db.collection(`seurat/${seuraId}/idp_jono`).doc(id).update({
+          tila: 'hylatty',
+          vp_perustelu: perustelu,
+        });
+      } catch (e) { console.error('IDP reject error', e); alert('Virhe tallennuksessa'); return; }
+    } else {
+      setIdps(list => list.map(i => i.id === id ? { ...i, tila:'hylatty', vp_perustelu:perustelu } : i));
+    }
+    if (window.VPBus) {
+      window.VPBus.rejectIDP({ idpId:id, reason:perustelu }).catch(err => console.warn('[v21] IDP reject err', err));
+    }
+  }
+
+  // ─ KPI:t ─
+  const playerCount = (db && seuraId) ? players.length : 127;
+  const coachCount = (db && seuraId) ? coaches.length : 14;
+  const fleiValues = (db && seuraId) ? players.map(p => p.flei_viimeisin || p.flei || 0).filter(v => v > 0) : [];
+  const fleiAvg = fleiValues.length > 0 ? (fleiValues.reduce((a,b)=>a+b,0)/fleiValues.length).toFixed(1) : '6.8';
+
+  const isLoading = (db && seuraId) && (idpsLoading || playersLoading);
+
+  return (
+    <>
+      <h1 className="section-title">Tilanne</h1>
+      <div className="section-sub">{view.clubName} · jakso 2/8 · päivitetty reaaliaikaisesti</div>
+
+      {view.mode === 'VP_RAJATTU' && (
+        <div className="td-link">
+          <strong>TD · {CLUBS.hjk.users.technical_director}</strong>
+          <span>Metodologia v3.1 julkaistu 5 pv sitten · 5 periaatetta · FLEI-painot H35 L25 E20 I20</span>
+          <a href="#" style={{marginLeft:'auto', color:'var(--purple)', fontSize:11, textDecoration:'none'}}>Näytä linja →</a>
+        </div>
+      )}
+
+      <div className="kpi-grid">
+        <div className="kpi">
+          <div className="kpi-label">Pelaajia</div>
+          <div className="kpi-value">{isLoading ? '…' : playerCount}</div>
+          <div className="kpi-trend">{db ? 'reaaliaikainen' : 'demo'}</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">Valmentajia</div>
+          <div className="kpi-value">{isLoading ? '…' : coachCount}</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">FLEI ka.</div>
+          <div className="kpi-value">{isLoading ? '…' : fleiAvg}</div>
+          <div className="kpi-trend">{fleiValues.length > 0 ? `${fleiValues.length} pelaajalla` : '+0.2'}</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">IDP odottaa</div>
+          <div className="kpi-value" style={{color: pendingCount ? 'var(--gold)' : 'var(--ink3)'}}>{isLoading ? '…' : pendingCount}</div>
+        </div>
+      </div>
+
+      {/* IDP-hyväksyntäjono */}
+      <div className="card">
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline'}}>
+          <div>
+            <div className="card-title">IDP-hyväksyntäjono</div>
+            <div className="card-sub">Valmentaja ehdottaa · VP tarkistaa kriteeristöä vasten · bus: idp.approved</div>
+          </div>
+          <span style={{fontSize:9, color:'var(--gold)', textTransform:'uppercase', letterSpacing:'.2em', fontFamily:'var(--font-mono)'}}>v21 · Firebase</span>
+        </div>
+        {idpsLoading && db && <div className="loader">Ladataan IDP-jonoa…</div>}
+        {activeIdps.length === 0 && !idpsLoading && <div className="placeholder">Ei IDP-ehdotuksia</div>}
+        {activeIdps.map(idp => (
+          <div key={idp.id} className={`idp-row ${idp.tila || idp.status}`}>
+            <div>
+              <div className="idp-player">{idp.pelaaja || idp.player} · {idp.ikaluokka || idp.age}</div>
+              <div className="idp-meta">Valm: {idp.valmentaja || idp.coach}</div>
+            </div>
+            <div>
+              <div className="idp-goal">{idp.tavoite || idp.goal}</div>
+            </div>
+            <div className="idp-meta">{idp.perustelu || idp.rationale}</div>
+            <div className="idp-btns">
+              {(idp.tila === 'ehdotettu' || idp.status === 'proposed') && (
+                <>
+                  <button className="btn primary" onClick={() => approve(idp.id)}>Hyväksy</button>
+                  <button className="btn danger" onClick={() => reject(idp.id)}>Hylkää</button>
+                </>
+              )}
+              {(idp.tila === 'hyvaksytty' || idp.status === 'approved') && (
+                <span style={{fontSize:10, color:'var(--green)', fontFamily:'var(--font-mono)'}}>
+                  ✓ Hyväksytty {idp.vp_perustelu ? `· ${idp.vp_perustelu}` : ''}
+                </span>
+              )}
+              {(idp.tila === 'hylatty' || idp.status === 'rejected') && (
+                <span style={{fontSize:10, color:'var(--red)', fontFamily:'var(--font-mono)'}}>
+                  × Hylätty {idp.vp_perustelu ? `· ${idp.vp_perustelu}` : ''}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <div className="card-title">Inbox — valmentajien huomiot</div>
+        <div className="card-sub">note.to_coach · parent_log · injury</div>
+        <div className="placeholder">Bus-synk aktiivinen · tyhjä tällä hetkellä</div>
+      </div>
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// KALENTERI — TÄYSIN UUSI · testitapahtumat reaaliaikaisena
+// ═════════════════════════════════════════════════════════════════
+function KalenteriTab({ seuraId }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db || !seuraId) {
+      // Demo-tapahtumat kun Firebase ei käytössä
+      setEvents([
+        { id:'evt_1', nimi:'FLEI-testi · kevät 2026', pvm:'2026-03-15', protokolla:'FLEI v3.1', joukkue:'U15', paikka:'Kippari 1', tila:'suunniteltu' },
+        { id:'evt_2', nimi:'Fyysinen seulonta · U13/U15', pvm:'2026-03-22', protokolla:'Fyysinen baseline', joukkue:'U13', paikka:'Kippari 2', tila:'avoin' },
+        { id:'evt_3', nimi:'TKI + FLEI · U17', pvm:'2026-02-28', protokolla:'FLEI v3.1 + TKI', joukkue:'U17', paikka:'Hallit', tila:'valmis' },
+      ]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const unsub = db.collection(`seurat/${seuraId}/testitapahtumat`)
+      .orderBy('pvm')
+      .onSnapshot(snap => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Järjestä päivämäärän mukaan
+        list.sort((a, b) => {
+          const da = a.pvm || a.paivamaara || '';
+          const db_ = b.pvm || b.paivamaara || '';
+          return da.localeCompare(db_);
+        });
+        setEvents(list);
+        setLoading(false);
+      }, err => { console.error('Kalenteri error', err); setLoading(false); });
+    return unsub;
+  }, [seuraId]);
+
+  function openTestaus(eventId, protokolla, joukkue) {
+    const url = `TalentMaster_Testaus_v8.html?seuraId=${seuraId}&tapahtumaId=${eventId}&protokolla=${encodeURIComponent(protokolla || '')}&joukkue=${encodeURIComponent(joukkue || '')}`;
+    window.open(url, '_blank');
+  }
+  function openLomake(eventId) {
+    const url = `TalentMaster_Harjoitettavuus_Lomake_v4.html?seuraId=${seuraId}&tapahtumaId=${eventId}`;
+    window.open(url, '_blank');
+  }
+  function newEvent() {
+    window.open('TalentMaster_Testaus_v8.html?seuraId=' + seuraId, '_blank');
+  }
+
+  const formatDate = (d) => {
+    if (!d) return '—';
+    if (d.toDate) return d.toDate().toLocaleDateString('fi-FI');
+    if (typeof d === 'string') {
+      const [y,m,day] = d.split('-');
+      return `${day}.${m}.${y}`;
+    }
+    return new Date(d).toLocaleDateString('fi-FI');
+  };
+
+  return (
+    <>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:16}}>
+        <div>
+          <h1 className="section-title">Kalenteri</h1>
+          <div className="section-sub">Testitapahtumat · protokollat · tulosten hallinta</div>
+        </div>
+        <button className="btn primary" onClick={newEvent}>+ Uusi tapahtuma</button>
+      </div>
+
+      {loading && <div className="loader">Ladataan tapahtumia…</div>}
+
+      {events.length === 0 && !loading && (
+        <div className="placeholder">Ei testitapahtumia · Luo uusi "+ Uusi tapahtuma"</div>
+      )}
+
+      {events.map(evt => {
+        const status = evt.tila || evt.status || 'suunniteltu';
+        return (
+          <div key={evt.id} className="event-card">
+            <div>
+              <div className="event-name">{evt.nimi || evt.nimi || 'Testitapahtuma'}</div>
+              <div className="event-meta">{formatDate(evt.pvm || evt.paivamaara)} · {evt.protokolla || '—'} · {evt.joukkue || evt.joukkueId || '—'}</div>
+            </div>
+            <div className="event-meta">{evt.paikka || '—'}</div>
+            <div>
+              <span className={`badge ${status}`}>{status}</span>
+            </div>
+            <div className="event-meta">{evt.osallistujia || evt.osallistujat?.length || 0} osallistujaa</div>
+            <div style={{display:'flex', gap:6}}>
+              {status === 'suunniteltu' && (
+                <button className="btn primary" onClick={() => openTestaus(evt.id, evt.protokolla, evt.joukkue)}>Aloita testi</button>
+              )}
+              {status === 'avoin' && (
+                <button className="btn primary" onClick={() => openLomake(evt.id)}>Kirjaa tulokset</button>
+              )}
+              {status === 'valmis' && (
+                <button className="btn" onClick={() => openLomake(evt.id)}>Näytä tulokset</button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// VALMENTAJAT — reaaliaikainen lista
+// ═════════════════════════════════════════════════════════════════
+function ValmentajatTab({ seuraId }) {
+  const [coaches, setCoaches] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db || !seuraId) {
+      setCoaches([
+        { id:'c1', nimi:'Anna K.', joukkue:'U15', adarViimeisin: 3.8, fleiVaikutus: '+0.3' },
+        { id:'c2', nimi:'Mikko L.', joukkue:'U13', adarViimeisin: 2.9, fleiVaikutus: '+0.1' },
+        { id:'c3', nimi:'Jari T.', joukkue:'U17', adarViimeisin: 4.1, fleiVaikutus: '+0.5' },
+        { id:'c4', nimi:'Heli S.', joukkue:'U13', adarViimeisin: 3.2, fleiVaikutus: '-0.1' },
+      ]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const unsub = db.collection(`seurat/${seuraId}/valmentajat`)
+      .onSnapshot(snap => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setCoaches(list);
+        setLoading(false);
+      }, err => { console.error('Valmentajat error', err); setLoading(false); });
+    return unsub;
+  }, [seuraId]);
+
+  return (
+    <>
+      <h1 className="section-title">Valmentajat</h1>
+      <div className="section-sub">Kalibraatio · FLEI-vaikutus · ADAR-trendi</div>
+
+      {loading && <div className="loader">Ladataan valmentajia…</div>}
+
+      {coaches.length === 0 && !loading && (
+        <div className="placeholder">Kalibraatiotietoja kerätään · ADAR-pajat käynnistyvät Q1/2026</div>
+      )}
+
+      {coaches.length > 0 && (
+        <>
+          <div className="coach-row header">
+            <div>Valmentaja</div>
+            <div>Joukkue</div>
+            <div>ADAR (viimeisin)</div>
+            <div>ADAR-trendi</div>
+            <div>FLEI-vaikutus</div>
+          </div>
+          {coaches.map(c => {
+            const adar = c.adarViimeisin || c.adar || c.adarViimeinen || 0;
+            const adarTrend = c.adarTrendi || c.adarTrend || 0;
+            const fleiImp = c.fleiVaikutus || c.fleiImpact || '—';
+            return (
+              <div key={c.id} className="coach-row">
+                <div><strong>{c.nimi || c.nimi || c.name}</strong></div>
+                <div>{c.joukkue || c.joukkueId || '—'}</div>
+                <div style={{color: adar >= 4 ? 'var(--green)' : adar <= 2.5 ? 'var(--red)' : 'var(--ink2)'}}>{adar.toFixed ? adar.toFixed(1) : adar}</div>
+                <div style={{color: adarTrend > 0 ? 'var(--green)' : adarTrend < 0 ? 'var(--red)' : 'var(--ink3)'}}>
+                  {adarTrend > 0 ? '↑' : adarTrend < 0 ? '↓' : '→'} {Math.abs(adarTrend).toFixed ? Math.abs(adarTrend).toFixed(2) : adarTrend}
+                </div>
+                <div>{fleiImp}</div>
+              </div>
+            );
+          })}
+        </>
+      )}
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// PELAAJAPOLUT — reaaliaikainen · Hidden Gem / X-Factor
+// ═════════════════════════════════════════════════════════════════
+function PelaajapolutTab({ seuraId }) {
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db || !seuraId) {
+      setPlayers([
+        { id:'p1', nimi:'Aleksi V.', ika:14, joukkue:'U15', flei:72, d1:88,d2:60,d3:55,d4:70,d5:65, dvi:12 },
+        { id:'p2', nimi:'Nooa L.', ika:12, joukkue:'U13', flei:58, d1:45,d2:50,d3:55,d4:48,d5:52, dvi:28 },
+        { id:'p3', nimi:'Emma S.', ika:16, joukkue:'U17', flei:74, d1:70,d2:72,d3:75,d4:78,d5:80, dvi:5 },
+        { id:'p4', nimi:'Joonas R.', ika:12, joukkue:'U13', flei:62, d1:55,d2:58,d3:60,d4:65,d5:55, dvi:15 },
+        { id:'p5', nimi:'Lauri M.', ika:15, joukkue:'U15', flei:69, d1:50,d2:55,d3:90,d4:60,d5:55, dvi:8 },
+      ]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const unsub = db.collection('seurat').doc(seuraId).collection('pelaajat')
+      .onSnapshot(snap => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setPlayers(list);
+        setLoading(false);
+      }, err => { console.error('Pelaajapolut error', err); setLoading(false); });
+    return unsub;
+  }, [seuraId]);
+
+  function classifyPlayer(p) {
+    const flei = p.flei_viimeisin || p.flei || 0;
+    const d = [p.d1,p.d2,p.d3,p.d4,p.d5].map(v => v || 0);
+    const dvi = p.dvi || p.kehitysnopeus || 0;
+
+    // X-Factor: jokin dimensio >= 85, muut alle 70
+    const hasHighDim = d.some(v => v >= 85);
+    const allOthersLow = d.filter(v => v < 85).every(v => v < 70);
+    if (hasHighDim && allOthersLow && d.filter(v => v >= 85).length === 1) {
+      return { tag:'X-Factor', cls:'x-factor', desc:`Dimensio ${d.findIndex(v=>v>=85)+1} ≥85, muut <70` };
+    }
+
+    // Hidden Gem: flei < 65 mutta DVI korkea (nousee nopeasti)
+    if (flei < 65 && dvi >= 20) {
+      return { tag:'Hidden Gem', cls:'hidden-gem', desc:`FLEI ${flei} · DVI ${dvi} (nousee nopeasti)` };
+    }
+
+    // Leadership: flei >= 75 + johdonmukainen kaikissa dimensioissa
+    if (flei >= 75 && d.every(v => v >= 60)) {
+      return { tag:'Johtajuus', cls:'leadership', desc:`FLEI ${flei} · tasainen profiili` };
+    }
+
+    return null;
+  }
+
+  // Ryhmittele joukkueittain
+  const byTeam = {};
+  players.forEach(p => {
+    const team = p.joukkue || p.joukkueId || 'Muu';
+    if (!byTeam[team]) byTeam[team] = [];
+    byTeam[team].push(p);
+  });
+
+  return (
+    <>
+      <h1 className="section-title">Pelaajapolut</h1>
+      <div className="section-sub">Hidden Gem · X-Factor · Johtajuus · joukkueittain</div>
+
+      {loading && <div className="loader">Ladataan pelaajia…</div>}
+      {players.length === 0 && !loading && (
+        <div className="placeholder">Ei pelaajatietoja · Lisää pelaajia FLEI-testeillä</div>
+      )}
+
+      {Object.keys(byTeam).sort().map(team => (
+        <div key={team} className="card">
+          <div className="card-title">{team}</div>
+          <div className="card-sub">{byTeam[team].length} pelaajaa</div>
+          {byTeam[team].map(p => {
+            const cls = classifyPlayer(p);
+            const flei = p.flei_viimeisin || p.flei || 0;
+            return (
+              <div key={p.id} className="track-card">
+                <div className="track-name">{p.nimi || p.nimi || p.name}</div>
+                <div>{p.ika || p.ika || '—'} v</div>
+                <div>FLEI {flei}</div>
+                <div>{cls ? <span className={`track-tag ${cls.cls}`}>{cls.tag}</span> : <span style={{color:'var(--ink3)'}}>—</span>}</div>
+                <div style={{fontSize:10, color:'var(--ink3)'}}>{cls ? cls.desc : 'Tasainen profiili'}</div>
+                <div style={{display:'flex', gap:6}}>
+                  <button className="btn" style={{fontSize:10, padding:'4px 8px'}}>Profiili →</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// RAPORTOINTI — Head of Talentille · todelliset pelaajat
+// ═════════════════════════════════════════════════════════════════
+function RaportointiTab({ seuraId }) {
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!db || !seuraId) {
+      setPlayers([
+        { id:'p1', nimi:'Aleksi V.', ikaluokka:'U15', flei:7.2, d1:88,d2:60,d3:55,d4:70,d5:65, tid:82, dvi:12, huomio:'Vahva vertikaalinen peli · PHV-vaiheessa · 3 ottelua peräkkäin yli odotusten' },
+        { id:'p2', nimi:'Emma S.', ikaluokka:'U17', flei:7.4, d1:70,d2:72,d3:75,d4:78,d5:80, tid:88, dvi:5, huomio:'Kapteenin profiili · testit + · FLEI 7.4' },
+        { id:'p3', nimi:'Nooa L.', ikaluokka:'U13', flei:6.8, d1:45,d2:50,d3:55,d4:48,d5:52, tid:58, dvi:28, huomio:'Alkuvaihe mutta FLEI nousee jyrkästi · 5.9 → 6.8 yhdessä jaksossa' },
+        { id:'p4', nimi:'Lauri M.', ikaluokka:'U15', flei:7.1, d1:50,d2:55,d3:90,d4:60,d5:55, tid:75, dvi:8, huomio:'Yksi dimensio erottuu · taktinen lukutaito ≥90' },
+      ]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const unsub = db.collection('seurat').doc(seuraId).collection('pelaajat')
+      .onSnapshot(snap => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setPlayers(list);
+        setLoading(false);
+      }, err => { console.error('Raportointi error', err); setLoading(false); });
+    return unsub;
+  }, [seuraId]);
+
+  function classifyReport(p) {
+    const flei = p.flei_viimeisin || p.flei || 0;
+    const tid = p.tid || p.talenttiIndeksi || 0;
+    const d = [p.d1,p.d2,p.d3,p.d4,p.d5].map(v => v || 0);
+    const dvi = p.dvi || p.kehitysnopeus || 0;
+
+    const hasHighDim = d.some(v => v >= 85);
+    const allOthersLow = d.filter(v => v < 85).every(v => v < 70);
+    if ((flei >= 7.0 || tid >= 75) && hasHighDim && allOthersLow && d.filter(v => v >= 85).length === 1) {
+      return 'X-Factor';
+    }
+    if (flei >= 7.0 && d.every(v => v >= 60)) {
+      return 'Johtajuus';
+    }
+    if ((flei >= 6.5 || tid >= 60) && dvi >= 20) {
+      return 'Hidden Gem';
+    }
+    if (flei >= 7.0 || tid >= 75) {
+      return 'Talentti';
+    }
+    return null;
+  }
+
+  const reportPlayers = players.filter(p => {
+    const flei = p.flei_viimeisin || p.flei || 0;
+    const tid = p.tid || p.talenttiIndeksi || 0;
+    return flei >= 7.0 || tid >= 75;
+  });
+
+  const hotCount = reportPlayers.length;
+  const hiddenGemCount = reportPlayers.filter(p => classifyReport(p) === 'Hidden Gem').length;
+
+  async function sendToHOT() {
+    if (!db || !seuraId) { alert('Firebase ei käytössä · demo-tilassa ei voi lähettää'); return; }
+    if (reportPlayers.length === 0) { alert('Ei talenttisuosituksia lähetettäväksi'); return; }
+    setSending(true);
+    try {
+      const raportti = {
+        seuraId,
+        luotu: firebase.firestore.FieldValue.serverTimestamp(),
+        kausi: 'Q2/2026',
+        pelaajiaYht: players.length,
+        fleiKa: (players.map(p => p.flei_viimeisin || p.flei || 0).filter(v=>v>0).reduce((a,b)=>a+b,0) / Math.max(1, players.length)).toFixed(1),
+        suositukset: reportPlayers.map(p => ({
+          pelaajaId: p.id,
+          nimi: p.nimi || p.nimi || p.name,
+          ikaluokka: p.ikaluokka || p.joukkue,
+          kategoria: classifyReport(p),
+          flei: p.flei_viimeisin || p.flei || 0,
+          tid: p.tid || p.talenttiIndeksi || 0,
+          huomio: p.huomio || 'Automaattikoosto TalentMaster VP v21',
+        })),
+        tila: 'lahetetty',
+      };
+      await db.collection('raportit').add(raportti);
+      alert(`Raportti lähetetty Head of Talentille · ${reportPlayers.length} suositusta`);
+    } catch (e) {
+      console.error('Raportin lähetysvirhe', e);
+      alert('Virhe raportin lähetyksessä');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <>
+      <h1 className="section-title">Raportointi · Head of Talent</h1>
+      <div className="section-sub">Q2 / 2026 · automaattikoosto · lähetä kv-tasolle</div>
+
+      <div className="kpi-grid">
+        <div className="kpi"><div className="kpi-label">Pelaajia</div><div className="kpi-value">{loading ? '…' : players.length}</div></div>
+        <div className="kpi"><div className="kpi-label">FLEI ka.</div><div className="kpi-value">
+          {loading ? '…' : (players.map(p=>p.flei_viimeisin||p.flei||0).filter(v=>v>0).reduce((a,b)=>a+b,0) / Math.max(1,players.filter(p=>(p.flei_viimeisin||p.flei||0)>0).length)).toFixed(1)}
+        </div></div>
+        <div className="kpi"><div className="kpi-label">Talenttia HoT:lle</div><div className="kpi-value">{loading ? '…' : hotCount}</div></div>
+        <div className="kpi"><div className="kpi-label">Hidden Gem</div><div className="kpi-value">{loading ? '…' : hiddenGemCount}</div></div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">Talenttisuositukset kv-tasolle</div>
+        <div className="card-sub">Lähetetään Head of Talentin portfolioon · bus: player.nominated</div>
+
+        {loading && <div className="loader">Ladataan pelaajia…</div>}
+        {reportPlayers.length === 0 && !loading && (
+          <div className="placeholder">Ei talenttisuosituksia tällä hetkellä · FLEI 7.0+ tai TKI 75+ kriteerit</div>
+        )}
+        {reportPlayers.map(p => {
+          const cat = classifyReport(p);
+          return (
+            <div key={p.id} className="report-block">
+              <div><strong>{p.nimi || p.nimi || p.name}</strong> · {p.ikaluokka || p.joukkue}</div>
+              <div className="report-tag">{cat || 'Talentti'}</div>
+              <div style={{color:'var(--ink2)'}}>{p.huomio || `FLEI ${p.flei_viimeisin || p.flei || 0} · TKI ${p.tid || p.talenttiIndeksi || 0}`}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="card" style={{borderLeft:'3px solid var(--gold)'}}>
+        <div className="card-title">Huomiot Head of Talentille</div>
+        <div style={{fontSize:13, color:'var(--ink2)', lineHeight:1.7}}>
+          "U15 ikäluokassa PHV-vaihe tuonut 3 poikaa huomattavaan kehitykseen. Pyydämme aluevalmentajan vierailua 15.6."
+        </div>
+      </div>
+
+      <div style={{display:'flex', gap:8}}>
+        <button className="btn primary" onClick={sendToHOT} disabled={sending || loading}>
+          {sending ? 'Lähetetään…' : 'Lähetä Head of Talentille'}
+        </button>
+        <button className="btn" disabled={loading}>Esikatsele PDF</button>
+      </div>
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// METODOLOGIA — TD:n etusivu, 6 kanonista osiota
+// ═════════════════════════════════════════════════════════════════
+function MetodologiaTab({ view }) {
+  return (
+    <>
+      <h1 className="section-title">Metodologia</h1>
+      <div className="section-sub">
+        Seuran pelaamisen DNA — julkaise tästä linja. Benchmark: Ajax TIPS · City CFG · Barça La Masia.
+        {view.mode === 'VP+TD_YHDISTETTY' && <> · Pieni seura: sinä vastaat sekä määrittelystä että jalkauttamisesta.</>}
+      </div>
+
+      <div style={{display:'flex', justifyContent:'flex-end', marginBottom:14, gap:8}}>
+        <button className="btn">Vedos · v3.2-draft</button>
+        <button className="btn purple">Julkaise → valmentajat</button>
+      </div>
+
+      <div className="method-section">
+        <h4>1 · Seuran identiteetti — 5 periaatetta</h4>
+        <div className="hint">Julkaisun jälkeen kaikki valmentajat näkevät nämät · bus: methodology.published</div>
+        <div className="principle-grid">
+          <div className="principle"><strong>1</strong>Aktiivinen pallonriisto</div>
+          <div className="principle"><strong>2</strong>Rohkea rakentaminen alta</div>
+          <div className="principle"><strong>3</strong>Vertikaalinen peli</div>
+          <div className="principle"><strong>4</strong>Kompakti tila pallottomana</div>
+          <div className="principle"><strong>5</strong>Yksilön rohkeus 1v1</div>
+        </div>
+      </div>
+
+      <div className="method-section">
+        <h4>2 · Pelaajaprofiili — FLEI + TKI + TSI</h4>
+        <div className="hint">TalentMaster native · vastaava Ajaxin TIPS-mallia (Technique · Insight · Personality · Speed)</div>
+        <div style={{fontSize:12, color:'var(--ink2)'}}>
+          FLEI painot: <b>H</b> 35 · <b>L</b> 25 · <b>E</b> 20 · <b>I</b> 20 &nbsp; · &nbsp; TKI: Tekn 40 · Takt 30 · Fyys 15 · Psyyk 15
+        </div>
+      </div>
+
+      <div className="method-section">
+        <h4>3 · Ikäluokkaportaat — U9 → U19</h4>
+        <div className="hint">Jokaiselle ikäluokalle oma fokuspaketti · 6 ikäluokkaa × 4 TKI-ulottuvuutta</div>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:6, marginTop:6}}>
+          {['U9','U11','U13','U15','U17','U19'].map(a => (
+            <div key={a} className="principle" style={{textAlign:'center'}}>
+              <strong style={{color:'var(--teal)'}}>{a}</strong>
+              <div style={{color:'var(--ink3)', fontSize:10}}>3 doc · 8 drillit</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="method-section">
+        <h4>4 · Valmentajaparit + koulutus</h4>
+        <div className="hint">Ajax-pohjainen pariurheilu: didaktinen + yksityiskohtien hallitsija · Ajax Coaching Academy -tyylinen ohjelma</div>
+        <div style={{fontSize:12, color:'var(--ink2)'}}>ADAR-koulutus · 5 liikeketjua · Hidden Gem -seulonta · X-Factor -tunnistus</div>
+      </div>
+
+      <div className="method-section">
+        <h4>5 · Kausirakenne</h4>
+        <div className="hint">8 jaksoa / vuosi · jaksojen sisällön metodologia (ei konkreettinen kalenteri)</div>
+        <div style={{fontSize:12, color:'var(--ink2)'}}>Kehittävä 60% · Kontrolli 25% · Viestintä 10% · Mentorointi 5%</div>
+      </div>
+
+      <div className="method-section">
+        <h4>6 · Benchmark-kytkös</h4>
+        <div className="hint">Read-only vertailu vertaisiin (TM-verkosto) + julkiset referenssit</div>
+        <button className="btn" style={{marginTop:6}}>Katso Benchmark-tabi →</button>
+      </div>
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// KALIBRAATIO — ADAR-hajontatyökalu
+// ═════════════════════════════════════════════════════════════════
+function KalibraatioTab() {
+  const coaches = [
+    { name:'Anna K.',    scores:[4,3,4,3] },
+    { name:'Mikko L.',   scores:[3,2,3,3] },
+    { name:'Jari T.',    scores:[5,4,4,4] },
+    { name:'Heli S.',    scores:[3,3,3,2] },
+    { name:'Aleksi V.',  scores:[4,4,5,4] },
+  ];
+  const avgs = [0,1,2,3].map(i => coaches.reduce((s,c)=>s+c.scores[i],0)/coaches.length);
+  const drift = coaches.map(c => c.scores.map((v,i)=>Math.abs(v-avgs[i])).reduce((a,b)=>a+b,0)/4);
+
+  return (
+    <>
+      <h1 className="section-title">Kalibraatiopaja</h1>
+      <div className="section-sub">Pisteyttääkö tiimi samalla tavalla? · DFB- ja KNVB-benchmark</div>
+
+      <div className="card">
+        <div className="card-title">Aktiivinen sessio — Lasse V. · U15 · 2 min klippi</div>
+        <div className="card-sub">Pallonriistotilanne 3v2 · valmentajien ADAR-arviot</div>
+
+        <div className="calib-row header">
+          <div>Valmentaja</div>
+          <div className="calib-score">A</div>
+          <div className="calib-score">D</div>
+          <div className="calib-score">A</div>
+          <div className="calib-score">R</div>
+          <div className="calib-drift">Hajonta vs. ka.</div>
+        </div>
+        {coaches.map((c,i) => (
+          <div key={c.name} className="calib-row">
+            <div>{c.name}</div>
+            {c.scores.map((s,j) => (
+              <div key={j} className={`calib-score ${s>=4?'good':s<=2?'bad':'warn'}`}>{s}</div>
+            ))}
+            <div className="calib-drift" style={{color: drift[i] > 0.8 ? 'var(--red)' : 'var(--ink3)'}}>
+              Δ {drift[i].toFixed(2)} {drift[i] > 0.8 ? '⚠ kalibroi' : ''}
+            </div>
+          </div>
+        ))}
+
+        <div style={{marginTop:14, padding:12, background:'var(--amber-dim)', borderLeft:'3px solid var(--amber)', fontSize:11}}>
+          <strong style={{color:'var(--amber)'}}>Suositus:</strong> 1:1-kalibraatiosessio Mikko L:n kanssa ennen Q3-arviointia.
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">Historia</div>
+        <div style={{fontSize:12, color:'var(--ink2)'}}>Q1/2026 hajonta 0.9 → Q2 0.7 → <b style={{color:'var(--green)'}}>tavoite Q3 · 0.5</b></div>
+      </div>
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// KRITEERISTÖ — milloin joku on "valmis" johonkin
+// ═════════════════════════════════════════════════════════════════
+function KriteeristoTab() {
+  return (
+    <>
+      <h1 className="section-title">Kriteeristö</h1>
+      <div className="section-sub">Milloin pelaaja on valmis siirtymään? Milloin tavoite on linjassa pelitapaan? · TD omistaa nämä kynnykset</div>
+
+      <div className="card">
+        <div className="card-title">IDP-tavoitteen kriteerit</div>
+        <div className="card-sub">VP käyttää näitä kun hyväksyy valmentajan ehdottaman IDP:n</div>
+        <ul style={{paddingLeft:20, fontSize:13, lineHeight:1.9, color:'var(--ink2)'}}>
+          <li>Tavoite on johdettavissa vähintään yhdestä 5 periaatteesta</li>
+          <li>Ikäluokkaportaan mukainen (ei liian aikainen, ei liian myöhäinen)</li>
+          <li>Mitattavissa FLEI- tai TKI-metriikalla</li>
+          <li>Jaksoon mahtuva (kehittävä vaihe = oppiminen · kilpailuvaihe = soveltaminen)</li>
+        </ul>
+      </div>
+
+      <div className="card">
+        <div className="card-title">Joukkueesta toiseen -siirtymä</div>
+        <div className="card-sub">Pelaajan siirto alasta ylös (esim. U13 → U15)</div>
+        <ul style={{paddingLeft:20, fontSize:13, lineHeight:1.9, color:'var(--ink2)'}}>
+          <li>FLEI 7.0+ kahdessa peräkkäisessä jaksossa</li>
+          <li>Fyysinen ikä tai PHV-vaihe sallii kuormituksen</li>
+          <li>Psykososiaalinen valmius (valmentajan arvio + perhelogi)</li>
+          <li>Hyväksyntä: valmentaja ehdottaa → VP päättää → TD kirjaa kriteerin täyttymisen</li>
+        </ul>
+      </div>
+
+      <div className="card">
+        <div className="card-title">Hidden Gem / X-Factor -kynnykset</div>
+        <div className="card-sub">Talentin tunnistamisen raja-arvot</div>
+        <div className="placeholder">TKI/FLEI-yhdistelmät + signaalit (placeholder · rakennetaan Pelihavainto v3 -jakson jälkeen)</div>
+      </div>
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// BENCHMARK — cross-cutting
+// ═════════════════════════════════════════════════════════════════
+function BenchmarkTab() {
+  const rows = [
+    ['Pelitavan identiteetti määritelty',            100, 'var(--green)'],
+    ['Ikäluokkaportaat (U9-U19)',                    67,  'var(--amber)'],
+    ['Kalibraatio aktiivinen',                       87,  'var(--green)'],
+    ['Pelaajaprofiili-malli (FLEI + TKI + TSI)',    100, 'var(--green)'],
+    ['Valmentajaparit käytössä',                      0,  'var(--red)'],
+    ['Kv-kumppanuuksia',                              0,  'var(--red)'],
+  ];
+  return (
+    <>
+      <h1 className="section-title">Benchmark</h1>
+      <div className="section-sub">Miltä näytämme verrattuna · Ajax, City, Barça, FA EPPP · read-only</div>
+
+      <div className="card">
+        <div className="card-title">Metodologian kypsyys</div>
+        <div className="card-sub">EPPP-tyyppinen arviointimalli</div>
+        {rows.map((r,i) => (
+          <div key={i} style={{display:'grid', gridTemplateColumns:'2fr 3fr 1fr', gap:12, alignItems:'center', padding:'6px 0', fontSize:12, borderTop:i>0?'.5px solid var(--border)':'none'}}>
+            <div>{r[0]}</div>
+            <div style={{height:8, background:'var(--border)', overflow:'hidden'}}>
+              <div style={{width:r[1]+'%', height:'100%', background:r[2]}}/>
+            </div>
+            <div style={{fontFamily:'var(--font-mono)', fontSize:11, color:r[2]}}>{r[1]}%</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <div className="card-title">EPPP-kategoria · nykyinen arvio</div>
+        <div className="card-sub">6 kriteeriä 8:sta täyttyy → Cat 2</div>
+        <div style={{fontSize:12, color:'var(--ink2)'}}>Cat 1:lle puuttuu: <b>pariurheilu</b> + <b>kv-kumppanuus</b> (vähintään yksi).</div>
+      </div>
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// PLACEHOLDER
+// ═════════════════════════════════════════════════════════════════
+function PlaceholderTab({ title, sub }) {
+  return (
+    <>
+      <h1 className="section-title">{title}</h1>
+      <div className="section-sub">{sub}</div>
+      <div className="placeholder">Tämä tabi on v19:n perintöä — säilytetään ennallaan v21-iteraatiossa</div>
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// BOOT
+// ═════════════════════════════════════════════════════════════════
+ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
+</script>
+</body>
+</html>
