@@ -433,12 +433,12 @@ exports.luoKayttaja = functions
     let resetLinkki = null;
     try {
       const roolitusUrl = {
-        valmentaja:           'TalentMaster_Master_v9.html',
-        talenttivalmentaja:   'TalentMaster_Master_v9.html',
-        fysiikkavalmentaja:   'TalentMaster_Master_v9.html',
-        fysioterapeutti:      'TalentMaster_Master_v9.html',
-        testivastaava:        'TalentMaster_Master_v9.html',
-        vp:                   'TalentMaster_VP_v18.html',
+        valmentaja:           'TalentMaster_Master_v16.html',
+        talenttivalmentaja:   'TalentMaster_Master_v16.html',
+        fysiikkavalmentaja:   'TalentMaster_Master_v16.html',
+        fysioterapeutti:      'TalentMaster_Master_v16.html',
+        testivastaava:        'TalentMaster_Master_v16.html',
+        vp:                   'TalentMaster_VP_v22.html',
         seurasihteeri:        'TalentMaster_Seura.html',
         urheilutoimenjohtaja: 'TalentMaster_Seura.html',
       };
@@ -514,10 +514,10 @@ exports.lahetaPelaajaSivuLinkki = functions
     const seuraNimi   = seura || 'TalentMaster-seura';
     const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
     const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster';
-    const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v1.html` +
+    const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v7.html` +
       `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
       `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
-    const vanhempiLinkki = `${baseUrl}/TalentMaster_Vanhempi.html` +
+    const vanhempiLinkki = `${baseUrl}/TalentMaster_Vanhempi_v2.html` +
       `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
       `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
     let salasanaLinkki = null;
