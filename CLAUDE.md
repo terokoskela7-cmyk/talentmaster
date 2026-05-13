@@ -668,7 +668,7 @@ Railgun | Maestro | Shadowstep | Titan
 20. **Super admin seuranvalitsin AINA** — Custom Claimissa ei seuraId:tä, joten automaattinen haku palauttaa satunnaisen seuran
 21. **IIFE-scope:** HTML `onclick=` kutsuu vain `window._`-globaaleja — sisäiset funktiot vaativat `window.fn = function fn()`
 22. **Sukupuoli-konversio:** Excel käyttää P/T, Firestore käyttää M/N — eri asiat, muunna aina
-23. **joukkueet[] + joukkue** — pelaajalla molemmat kentät. `joukkueet` = ID-lista (uusi), `joukkue` = ensisijainen nimi (backward compat)
+23. **joukkueet[] + joukkue** — pelaajalla molemmat kentät. `joukkueet` = ID-lista (uusi), `joukkue` = ensisijainen nimi (backward compat). **Kyselyt aina kaksoiskyselynä Promise.all-rinnakkain:** `where('joukkue','==',joukkueNimi)` + `where('joukkueet','array-contains',joukkueId)`. Yhdistä `Map`-tietorakenteella uniikit pelaajat dokumentti-ID:n perusteella. **EI datamigraatiota** — Excel-tuonnin pelaajilla on vain `joukkue`-string, Seura.html:n pelaajilla `joukkueet`-array; molemmat rakenteet ovat oikein omassa kontekstissaan ja säilyvät rinnakkain pysyvästi. Yhden kentän kysely jättäisi puolet pelaajista pois — bugi joka vaikuttaa kaikkiin seuroihin systemaattisesti
 24. **Excel-sarakenimi "PalloID (vapaaehtoinen)"** rikkoo tuonnin — etsiSarake käyttää `startsWith` haun (`palloidvapaaehtoinen`.startsWith(`palloid`)), mutta sarakeotsikoissa EI pidä olla sulkeita
 25. **`lataaSeurat` = `onSnapshot`-kuuntelija** — EI `.get()` — päivittyy reaaliajassa
 26. **Joukkueet-kokoelma vs. pelaajadata** — Seura.html luo joukkueet `.doc(id)`-metodilla (siisti ID), Admin ei enää luo joukkueita. Näytä molemmat lähteet rinnakkain.
@@ -924,8 +924,10 @@ VP lataa täytetyn Excelin Excel-tuontityökaluun
 ```javascript
 testitapahtumat/{tapahtumaId} {
   nimi: "HH-testi laaja — Syksy 2026",
-  protokolla: "hh_laaja",
-  aktiiviset_testit: ["lin30m", "hyppy_cj", "mas"],  // VP valitsi
+  protokolla: "hh_laaja",  // tai "vapaa" — vapaa testivalinta (Sprint X)
+  aktiiviset_testit: ["lin_5m", "lin_10m", "lin_30m", "hyppy_cj", "mas"],  // VP valitsi
+  // Vapaa-moodissa lisäksi:
+  // omat_testit_meta: [{id:"muu_knee_to_wall", nimi:"Knee-to-wall", yksikko:"cm"}, ...]
   kausi: "2026-syksy",
   pvm_alku: "2026-09-15",
   joukkue: "kpv_u15",
@@ -934,7 +936,7 @@ testitapahtumat/{tapahtumaId} {
   pelaajatData: [{id, etunimi, sukunimi, tunniste(PalloID), phv_tila}],
 
   tulokset/{pelaajaId} {
-    testit: { lin30m: 4.21, hyppy_cj: 38.5, ... },
+    testit: { lin_5m: 1.12, lin_10m: 1.94, lin_30m: 4.21, hyppy_cj: 38.5, ... },
     testauspvm: "2026-09-16",  // pelaajan oma päivä
     kausi: "2026-syksy",
     tunniste: "34650191"  // PalloID
