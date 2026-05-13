@@ -137,6 +137,118 @@ body {
 .drop-zone p { font-size: 13px; }
 .drop-zone .drop-hint { font-size: 11px; color: var(--text3); margin-top: 6px; }
 
+/* ── MOODINVALINTA (Historiapohja-Sprint) ── */
+.moodi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  margin: 12px 0 18px;
+}
+.moodi-option {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.moodi-option:hover { border-color: var(--primary); }
+.moodi-option.aktiivinen {
+  border-color: var(--primary);
+  background: var(--primary-dim);
+}
+.moodi-option-otsikko {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.moodi-option-otsikko input[type="radio"] {
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.moodi-option-kuvaus {
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.4;
+  margin-left: 22px;
+}
+.historia-meta-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.historia-meta-field label {
+  display: block;
+  font-size: 10px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.historia-meta-field input,
+.historia-meta-field select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+}
+.historia-meta-field input:focus,
+.historia-meta-field select:focus { border-color: var(--primary); }
+
+/* PalloID-ristiintarkistus -ryhmät */
+.palloid-ryhmat {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.palloid-ryhma {
+  background: var(--bg3);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  border-left: 3px solid var(--text3);
+}
+.palloid-ryhma.ok    { border-left-color: var(--green); }
+.palloid-ryhma.warn  { border-left-color: var(--amber); }
+.palloid-ryhma.err   { border-left-color: var(--red); }
+.palloid-ryhma-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+}
+.palloid-ryhma-label {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+.palloid-strategia {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.palloid-strategia label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.palloid-strategia input[type="radio"] {
+  accent-color: var(--primary);
+}
+
 /* ── STEP INDICATOR ── */
 .stepit {
   display: flex; gap: 0; margin-bottom: 28px;
@@ -341,11 +453,34 @@ tbody tr:hover { background: rgba(46,213,115,0.04); }
 
     <!-- VAIHE A: Tiedoston lataus -->
     <div id="vaihe-a" class="card">
-      <div class="card-title">📥 Vaihe A: Lataa täytetty Excel-tiedosto</div>
+      <div class="card-title">📥 Vaihe A: Valitse tuontimoodi ja lataa Excel</div>
       <div class="card-sub">
-        Vedä ja pudota TalentMaster-testipäivän Excel-pohja, tai klikkaa valitaksesi tiedoston.
-        Tiedoston tulee olla .xlsx-muodossa ja sisältää meta-tiedot (Kausi + Tapahtuma-ID).
+        Valitse ensin millä tavalla tuot dataa. Tämä määrittää mihin Firestoressa tiedot tallentuvat.
       </div>
+
+      <div class="moodi-row">
+        <label class="moodi-option aktiivinen" id="moodi-opt-tapahtuma" onclick="valitseMoodi('tapahtuma')">
+          <div class="moodi-option-otsikko">
+            <input type="radio" name="tuontimoodi" value="tapahtuma" checked>
+            Tapahtumapohjainen tuonti
+          </div>
+          <div class="moodi-option-kuvaus">
+            Käytä kun olet luonut testitapahtuman Testaus_v8:ssa. Excelin meta-sarakkeessa on Tapahtuma-ID.
+            Tallennus: <code>testitapahtumat/{id}/tulokset/{palloID}</code>.
+          </div>
+        </label>
+        <label class="moodi-option" id="moodi-opt-historia" onclick="valitseMoodi('historia')">
+          <div class="moodi-option-otsikko">
+            <input type="radio" name="tuontimoodi" value="historia">
+            Historiapohjainen tuonti
+          </div>
+          <div class="moodi-option-kuvaus">
+            Käytä kun tuot vanhaa dataa jota ei ole kirjattu järjestelmään aiemmin.
+            Ei vaadi Tapahtuma-ID:tä. Tallennus: <code>pelaajat/{palloID}/testitulokset/{pvm}_{protokolla}</code>.
+          </div>
+        </label>
+      </div>
+
       <div style="margin-top:16px;">
         <div class="drop-zone" id="drop-zone"
           ondragover="event.preventDefault(); this.classList.add('drag-over')"
@@ -446,14 +581,176 @@ let tuontiData = {
   workbook: null,
   sheetData: null,
   headers: null,
-  meta: { kausi: null, tapahtumaId: null },
+  meta: { kausi: null, tapahtumaId: null, protokolla: null },
   pelaajat: [],
   testiSarakkeet: [],
   tapahtumaData: null,
   virheet: [],
   varoitukset: [],
-  valid: false
+  valid: false,
+  // Sprint 3.1 — historiapohja-moodi
+  moodi: 'tapahtuma',           // 'tapahtuma' | 'historia'
+  palloIdTarkistus: null,       // { loytyy: [], ei_loydy: [], tyhja: [] }
+  tuontiStrategia: 'vain_loytyneet' // 'vain_loytyneet' | 'kaikki'
 };
+
+function valitseMoodi(moodi) {
+  tuontiData.moodi = moodi;
+  document.getElementById('moodi-opt-tapahtuma').classList.toggle('aktiivinen', moodi === 'tapahtuma');
+  document.getElementById('moodi-opt-historia').classList.toggle('aktiivinen', moodi === 'historia');
+  document.querySelectorAll('input[name="tuontimoodi"]').forEach(r => {
+    r.checked = (r.value === moodi);
+  });
+}
+
+// ════════════════════════════════════════
+// SPRINT 3.1 — APUFUNKTIOT
+// ════════════════════════════════════════
+// _paivaIso(d): timezone-safe ISO-päivä (CLAUDE.md §11 oppi #2).
+// EI käytä toISOString().slice(0,10) — UTC siirtää EET klo 22+ väärään päivään.
+function _paivaIso(d) {
+  if (!d) return null;
+  if (typeof d === 'string') {
+    // Yritä parsia — jos epäonnistuu, palauta merkkijono sellaisenaan jos ISO-formaatti
+    const ymd = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (ymd) return ymd[1] + '-' + ymd[2] + '-' + ymd[3];
+    const fi = d.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+    if (fi) return fi[3] + '-' + String(fi[2]).padStart(2,'0') + '-' + String(fi[1]).padStart(2,'0');
+    const parsed = new Date(d);
+    if (!isNaN(parsed.getTime())) d = parsed;
+    else return null;
+  }
+  if (!(d instanceof Date) || isNaN(d.getTime())) return null;
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// ════════════════════════════════════════
+// SPRINT 3.1 — TKI-LASKENTA (inline kopio docs/testit_indeksit.js:stä)
+// Lähde: SPL tekniikkakilpailut 2024–2026, ikäluokat 8–13
+// ════════════════════════════════════════
+const TK_MERKKIRAJAT = {
+  P: {
+    ponnauttelu: {
+      8:  { pronssi: 30, hopea: 38, kulta: 46 },
+      9:  { pronssi: 33, hopea: 41, kulta: 49 },
+      10: { pronssi: 36, hopea: 44, kulta: 52 },
+      11: { pronssi: 39, hopea: 47, kulta: 56 },
+      12: { pronssi: 42, hopea: 51, kulta: 60 },
+      13: { pronssi: 44, hopea: 53, kulta: 62 }
+    },
+    syotto: {
+      8:  { pronssi: 8,  hopea: 13, kulta: 18 },
+      9:  { pronssi: 10, hopea: 15, kulta: 20 },
+      10: { pronssi: 12, hopea: 17, kulta: 22 },
+      11: { pronssi: 14, hopea: 19, kulta: 24 },
+      12: { pronssi: 15, hopea: 20, kulta: 25 },
+      13: { pronssi: 16, hopea: 21, kulta: 26 }
+    },
+    pujottelu: {
+      8:  { kulta: 15.0, hopea: 17.5, pronssi: 20.5 },
+      9:  { kulta: 14.0, hopea: 16.5, pronssi: 19.5 },
+      10: { kulta: 13.2, hopea: 15.5, pronssi: 18.5 },
+      11: { kulta: 12.5, hopea: 14.8, pronssi: 17.8 },
+      12: { kulta: 12.0, hopea: 14.2, pronssi: 17.2 },
+      13: { kulta: 11.6, hopea: 13.8, pronssi: 16.8 }
+    },
+    kuljetus_laukaus: {
+      8:  { pronssi: 5,  hopea: 9,  kulta: 13 },
+      9:  { pronssi: 7,  hopea: 11, kulta: 15 },
+      10: { pronssi: 8,  hopea: 12, kulta: 16 },
+      11: { pronssi: 9,  hopea: 13, kulta: 17 },
+      12: { pronssi: 10, hopea: 14, kulta: 18 },
+      13: { pronssi: 11, hopea: 15, kulta: 19 }
+    },
+    pituuspotku: {
+      12: { pronssi: 20, hopea: 25, kulta: 30 },
+      13: { pronssi: 22, hopea: 28, kulta: 33 }
+    }
+  },
+  T: {
+    ponnauttelu: {
+      8:  { pronssi: 28, hopea: 36, kulta: 44 },
+      9:  { pronssi: 31, hopea: 39, kulta: 47 },
+      10: { pronssi: 34, hopea: 42, kulta: 50 },
+      11: { pronssi: 37, hopea: 45, kulta: 54 },
+      12: { pronssi: 40, hopea: 49, kulta: 58 },
+      13: { pronssi: 42, hopea: 51, kulta: 60 }
+    },
+    syotto: {
+      8:  { pronssi: 7,  hopea: 11, kulta: 16 },
+      9:  { pronssi: 9,  hopea: 13, kulta: 18 },
+      10: { pronssi: 11, hopea: 15, kulta: 20 },
+      11: { pronssi: 12, hopea: 17, kulta: 22 },
+      12: { pronssi: 13, hopea: 18, kulta: 23 },
+      13: { pronssi: 14, hopea: 19, kulta: 24 }
+    },
+    pujottelu: {
+      8:  { kulta: 16.0, hopea: 18.8, pronssi: 22.0 },
+      9:  { kulta: 15.0, hopea: 17.7, pronssi: 21.0 },
+      10: { kulta: 14.2, hopea: 16.8, pronssi: 20.0 },
+      11: { kulta: 13.5, hopea: 16.0, pronssi: 19.2 },
+      12: { kulta: 13.0, hopea: 15.4, pronssi: 18.6 },
+      13: { kulta: 12.6, hopea: 15.0, pronssi: 18.2 }
+    },
+    kuljetus_laukaus: {
+      8:  { pronssi: 4,  hopea: 8,  kulta: 12 },
+      9:  { pronssi: 6,  hopea: 10, kulta: 14 },
+      10: { pronssi: 7,  hopea: 11, kulta: 15 },
+      11: { pronssi: 8,  hopea: 12, kulta: 16 },
+      12: { pronssi: 9,  hopea: 13, kulta: 17 },
+      13: { pronssi: 10, hopea: 14, kulta: 18 }
+    },
+    pituuspotku: {
+      12: { pronssi: 16, hopea: 20, kulta: 25 },
+      13: { pronssi: 18, hopea: 23, kulta: 28 }
+    }
+  }
+};
+const TK_LAJIT_META = {
+  ponnauttelu:      { nimi: 'Ponnauttelu',      yksikko: 'krt/30s', kaanteinen: false },
+  syotto:           { nimi: 'Syöttö',           yksikko: 'p',       kaanteinen: false },
+  pujottelu:        { nimi: 'Pujottelu',        yksikko: 's',       kaanteinen: true  },
+  kuljetus_laukaus: { nimi: 'Kuljetus-laukaus', yksikko: 'p',       kaanteinen: false },
+  pituuspotku:      { nimi: 'Pituuspotku',      yksikko: 'm',       kaanteinen: false }
+};
+function tkLaskeMerkki(laji, arvo, ika, sp) {
+  const sukuRajat = TK_MERKKIRAJAT[sp] || TK_MERKKIRAJAT['P'];
+  const lajiRajat = sukuRajat[laji];
+  if (!lajiRajat) return null;
+  const ikaInt = Math.round(ika);
+  const rajat = lajiRajat[ikaInt];
+  if (!rajat) return null;
+  const meta = TK_LAJIT_META[laji];
+  if (!meta) return null;
+  if (meta.kaanteinen) {
+    if (arvo <= rajat.kulta)   return 'kulta';
+    if (arvo <= rajat.hopea)   return 'hopea';
+    if (arvo <= rajat.pronssi) return 'pronssi';
+    return null;
+  } else {
+    if (arvo >= rajat.kulta)   return 'kulta';
+    if (arvo >= rajat.hopea)   return 'hopea';
+    if (arvo >= rajat.pronssi) return 'pronssi';
+    return null;
+  }
+}
+function tkLaskeTKI(merkit) {
+  const merkkiPisteet = { kulta: 3, hopea: 2, pronssi: 1 };
+  const PAINOT = {
+    syotto: 0.40, pujottelu: 0.30, ponnauttelu: 0.20, kuljetus_laukaus: 0.10
+  };
+  let tki = 0;
+  let painoYhteensa = 0;
+  Object.entries(PAINOT).forEach(([laji, paino]) => {
+    const merkki = merkit[laji];
+    if (merkki && merkkiPisteet[merkki]) {
+      tki += merkkiPisteet[merkki] * paino;
+      painoYhteensa += paino;
+    }
+  });
+  if (painoYhteensa === 0) return null;
+  return Math.round((tki / (painoYhteensa * 3)) * 100);
+}
 
 // ════════════════════════════════════════
 // PROTOKOLLAMÄÄRITTELYT (sama kuin Testaus-v8)
@@ -807,7 +1104,23 @@ function prosessoiExcel(wb) {
     return -1;
   };
 
-  const colTunniste   = findCol(['palloid', 'tunniste', 'pallo']);
+  // Sprint 3.1 fix #1 — tunniste-fallback: ensisijaisesti PalloID,
+  // muuten kansallinen "tunniste" tai muu järjestelmätunniste.
+  // SpelareID = Palloliiton PalloID ruotsiksi (GrIFK, VIFK) → palloID-listalla.
+  // PlayerID / Spieler-ID = ei-Palloliiton (tuntematon/ulkomainen) → fallback.
+  const colPalloId    = findCol([
+    'palloid', 'pallo id', 'pallo-id',
+    'spelareid', 'spelare id', 'spelare-id'  // sv: Palloliiton sama tunniste
+  ]);
+  const colTunnisteFb = findCol([
+    'tunniste',
+    'playerid', 'player id', 'player-id',
+    'spielerid', 'spieler id', 'spieler-id'
+  ]);
+  // Yhteensopivuus: jos kumpikaan ei löydy, käytä legacy-hakua jossa palloid|tunniste|pallo
+  const colTunniste   = colPalloId >= 0 ? colPalloId
+                      : colTunnisteFb >= 0 ? colTunnisteFb
+                      : findCol(['palloid', 'tunniste', 'pallo']);
   const colSukunimi   = findCol(['sukunimi']);
   const colEtunimi    = findCol(['etunimi']);
   const colSukupuoli  = findCol(['sukup', 'suk.', 'sukupuoli']);
@@ -874,7 +1187,24 @@ function prosessoiExcel(wb) {
   const baseExcelRow = otsikkoRiviIdx + 2; // Excel rows are 1-based; header is at otsikkoRiviIdx+1
   for (let i = 0; i < dataRivit.length; i++) {
     const rivi = dataRivit[i];
-    const tunniste = colTunniste >= 0 ? String(rivi[colTunniste] || '').trim() : '';
+
+    // Sprint 3.1 fix #1 — selvitä tunniste ja sen tyyppi
+    const palloIdArvo    = colPalloId    >= 0 ? String(rivi[colPalloId]    || '').trim() : '';
+    const tunnisteFbArvo = colTunnisteFb >= 0 ? String(rivi[colTunnisteFb] || '').trim() : '';
+    let tunniste = '';
+    let tunnistetyyppi = 'muu';
+    if (palloIdArvo) {
+      tunniste = palloIdArvo;
+      tunnistetyyppi = 'palloID';
+    } else if (tunnisteFbArvo) {
+      tunniste = tunnisteFbArvo;
+      tunnistetyyppi = 'tunniste';
+    } else if (colTunniste >= 0 && colPalloId < 0 && colTunnisteFb < 0) {
+      // Legacy-yhteensopivuus: vain yksi yleinen sarake (vanha pohja)
+      const legacy = String(rivi[colTunniste] || '').trim();
+      if (legacy) { tunniste = legacy; tunnistetyyppi = 'palloID'; }
+    }
+
     const sukunimi = colSukunimi >= 0 ? String(rivi[colSukunimi] || '').trim() : '';
     const etunimi  = colEtunimi  >= 0 ? String(rivi[colEtunimi]  || '').trim() : '';
 
@@ -884,6 +1214,7 @@ function prosessoiExcel(wb) {
     const p = {
       riviNro: baseExcelRow + i,
       tunniste,
+      tunnistetyyppi,
       sukunimi,
       etunimi,
       sukupuoli: colSukupuoli >= 0 ? String(rivi[colSukupuoli] || '').trim() : '',
@@ -918,6 +1249,11 @@ async function naytaVaiheB() {
   const el = document.getElementById('meta-tiedot');
   const virheEl = document.getElementById('meta-virhe');
   const meta = tuontiData.meta;
+
+  // ─── Sprint 3.1 — historiapohja-moodi: ohita Firestore-tapahtumahaku ───
+  if (tuontiData.moodi === 'historia') {
+    return naytaVaiheBHistoria();
+  }
 
   // Tarkista tapahtuma-ID Firestoresta
   let tapahtumaHtml = '';
@@ -1003,6 +1339,160 @@ async function naytaVaiheB() {
   if (tapahtumaValid) {
     setTimeout(() => suoritaValidointi(), 300);
   }
+}
+
+// Sprint 3.1 fix #3 — generoi kausilista nykyhetkestä (kuluva + 4 edellistä)
+// Järjestys: uusin ensin. Muoto: {vuosi}-{kausi}, esim. "2026-kevat" / "2025-syksy".
+function generoiKausiOptiot() {
+  const tana = new Date().getFullYear();
+  const optiot = [];
+  for (let v = tana; v >= tana - 4; v--) {
+    optiot.push(v + '-syksy');
+    optiot.push(v + '-kevat');
+  }
+  // Suodata pois tulevat kaudet jos nykyinen on kevät
+  // (esim. tammikuussa 2026 ei "2026-syksy" vielä järkevä)
+  const kk = new Date().getMonth() + 1; // 1-12
+  const nykyKausi = (kk >= 7) ? 'syksy' : 'kevat';
+  return optiot.filter(o => {
+    const [v, k] = o.split('-');
+    if (parseInt(v) > tana) return false;
+    if (parseInt(v) === tana && nykyKausi === 'kevat' && k === 'syksy') return false;
+    return true;
+  });
+}
+
+// ── Sprint 3.1 — Historiapohja-moodi: ei tapahtuma-ID:tä, vain kausi + protokolla ──
+function naytaVaiheBHistoria() {
+  const el = document.getElementById('meta-tiedot');
+  const virheEl = document.getElementById('meta-virhe');
+  const meta = tuontiData.meta;
+
+  // Pre-fill jos Excel sisältää meta-tiedot
+  const kausiArvo    = meta.kausi || '';
+  const protoArvo    = meta.protokolla || '';
+  const oletusProto  = protoArvo || arvaaProtokollaTesteista() || 'historia';
+
+  // Kerää käytettävissä olevat protokolla-keyt
+  const protoOptiot = Object.keys(PROTOKOLLAT || {}).map(k => {
+    const sel = k === oletusProto ? ' selected' : '';
+    return '<option value="' + k + '"' + sel + '>' + (PROTOKOLLAT[k].nimi || k) + '</option>';
+  }).join('');
+
+  // Sprint 3.1 fix #3 — kausi-dropdown
+  const kausiVaihtoehdot = generoiKausiOptiot();
+  // Jos Excelistä saatu kausi-arvo löytyy listalta, valitse se; muuten oletuksena uusin
+  const kausiListassa = kausiVaihtoehdot.includes(kausiArvo);
+  const oletusKausi   = kausiListassa ? kausiArvo : kausiVaihtoehdot[0];
+  const muuValittu    = kausiArvo && !kausiListassa;
+  const kausiOptiot = kausiVaihtoehdot.map(k => {
+    const sel = (!muuValittu && k === oletusKausi) ? ' selected' : '';
+    return '<option value="' + k + '"' + sel + '>' + k + '</option>';
+  }).join('') + '<option value="__muu"' + (muuValittu ? ' selected' : '') + '>Muu (kirjoita itse)…</option>';
+
+  let html = '<div style="background:var(--primary-dim);border:1px solid rgba(40,176,144,0.25);border-radius:8px;padding:12px;margin-bottom:12px;">';
+  html += '<div style="font-size:13px;font-weight:600;color:var(--primary);">📚 Historiapohjainen tuonti</div>';
+  html += '<div style="font-size:12px;color:var(--text2);margin-top:4px;">Et tarvitse Tapahtuma-ID:tä. Tulokset tallennetaan polkuun <code>pelaajat/{palloID}/testitulokset/{pvm}_{protokolla}</code>.</div>';
+  html += '</div>';
+
+  html += '<div class="historia-meta-row">';
+  html += '  <div class="historia-meta-field"><label>Kausi *</label>';
+  html += '    <select id="historia-kausi-select" onchange="kausiSelectMuutos(this.value)">' + kausiOptiot + '</select>';
+  html += '    <input id="historia-kausi-muu" type="text" placeholder="esim. 2022-talvi" value="' + (muuValittu ? kausiArvo : '') + '" style="margin-top:6px;display:' + (muuValittu ? 'block' : 'none') + ';" oninput="tuontiData.meta.kausi = this.value">';
+  html += '  </div>';
+  html += '  <div class="historia-meta-field"><label>Protokolla *</label>';
+  html += '    <select id="historia-protokolla" onchange="tuontiData.meta.protokolla = this.value">' + protoOptiot + '</select></div>';
+  html += '  <div class="historia-meta-field"><label>Pelaajia Excelissä</label>';
+  html += '    <input value="' + tuontiData.pelaajat.length + '" disabled></div>';
+  html += '</div>';
+
+  html += '<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">';
+  html += '  <button class="btn btn-primary" onclick="vahvistaHistoriaMeta()">Jatka validointiin →</button>';
+  html += '</div>';
+
+  el.innerHTML = html;
+  virheEl.style.display = 'none';
+  document.getElementById('vaihe-b').style.display = 'block';
+
+  // Aseta default-arvot tuontiDataan jos puuttuvat
+  tuontiData.meta.protokolla = oletusProto;
+  tuontiData.meta.kausi = muuValittu ? kausiArvo : oletusKausi;
+}
+
+// Kausi-dropdownin valinnan käsittely — näytä/piilota "muu"-tekstikenttä
+function kausiSelectMuutos(arvo) {
+  const muuInput = document.getElementById('historia-kausi-muu');
+  if (arvo === '__muu') {
+    muuInput.style.display = 'block';
+    muuInput.focus();
+    tuontiData.meta.kausi = muuInput.value || '';
+  } else {
+    muuInput.style.display = 'none';
+    tuontiData.meta.kausi = arvo;
+  }
+}
+
+// Arvaa protokolla testisarakkeista
+// Sprint 3.1 fix #2 — monikielinen tunnistus (FI/SV/EN). Laskentalogiikka
+// säilyy: lopullinen testi-id pysyy FI-pohjana ('ponnauttelu' jne.) — vain
+// otsikoiden tunnistuslogiikka tukee useaa kieltä.
+const TK_OTSIKKO_SANAT_MONIKIELI = [
+  // pujottelu
+  'pujottelu', 'dribblingslöpning', 'dribbling',
+  // syotto
+  'syotto', 'syöttö', 'passning', 'passing',
+  // ponnauttelu
+  'ponnauttelu', 'studsning', 'juggling',
+  // kuljetus-laukaus
+  'kuljetus-laukaus', 'kuljetuslaukaus',
+  // pituuspotku
+  'pituuspotku'
+];
+
+function arvaaProtokollaTesteista() {
+  const sarakkeet = tuontiData.testiSarakkeet || [];
+  // Ensin: jo tunnistettujen testi-id:iden perusteella
+  const tkLajit = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus', 'pituuspotku'];
+  const onTK = sarakkeet.some(s => s.testiId && tkLajit.includes(s.testiId));
+  if (onTK) return 'tekniikkakilpailu';
+
+  // Sprint 3.1 fix #2 — skannaa raw-otsikot vieraskielisillä sanoilla
+  const headers = (tuontiData.headers || []).map(h => String(h || '').toLowerCase());
+  const osumaTK = headers.some(h => TK_OTSIKKO_SANAT_MONIKIELI.some(sana => h.includes(sana)));
+  if (osumaTK) return 'tekniikkakilpailu';
+
+  // Muuten: tunnistetun protoKey:n ohjaus (harjoitettavuus_u12 jne.)
+  const proto = sarakkeet.find(s => s.protoKey);
+  return proto ? proto.protoKey : null;
+}
+
+function vahvistaHistoriaMeta() {
+  // Sprint 3.1 fix #3 — lue dropdownista tai "muu"-tekstikentästä
+  const sel = document.getElementById('historia-kausi-select');
+  const muuInput = document.getElementById('historia-kausi-muu');
+  let kausi;
+  if (sel && sel.value === '__muu') {
+    kausi = (muuInput && muuInput.value || '').trim();
+  } else if (sel) {
+    kausi = (sel.value || '').trim();
+  } else {
+    kausi = (tuontiData.meta.kausi || '').trim();
+  }
+  if (!kausi) {
+    toast('Anna kausi (esim. 2025-syksy)', 'err'); return;
+  }
+  tuontiData.meta.kausi = kausi;
+  const proto = document.getElementById('historia-protokolla').value;
+  tuontiData.meta.protokolla = proto;
+  // Synteettinen tapahtumaData jotta validointi+esikatselu osaavat lukea protokollan
+  tuontiData.tapahtumaData = {
+    id: null,
+    nimi: 'Historiapohjainen tuonti',
+    protokolla: proto,
+    kausi: kausi,
+    pvm: null
+  };
+  suoritaValidointi();
 }
 
 // ════════════════════════════════════════
@@ -1155,8 +1645,44 @@ function naytaValidointiTulos() {
     varoituksetEl.innerHTML = '';
   }
 
-  // Näytä esikatselu aina
-  naytaEsikatselu();
+  // Sprint 3.1: tarkista PalloID:t Firestoresta rinnakkain, sitten esikatselu
+  tarkistaPalloIDit().then(() => naytaEsikatselu()).catch(e => {
+    console.warn('[tarkistaPalloIDit]', e.message);
+    naytaEsikatselu();
+  });
+}
+
+// Sprint 3.1 — PalloID-ristiintarkistus: Promise.all rinnakkain
+async function tarkistaPalloIDit() {
+  if (!seuraId) return;
+  const tarkistettavat = tuontiData.pelaajat.filter(p => p.tunniste && p.tunniste.trim() !== '');
+  const tyhjat = tuontiData.pelaajat.filter(p => !p.tunniste || p.tunniste.trim() === '');
+
+  const tulokset = await Promise.all(
+    tarkistettavat.map(async p => {
+      try {
+        const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(p.tunniste).get();
+        return {
+          pelaaja: p,
+          loytyy: snap.exists,
+          firestoreNimi: snap.exists ? ((snap.data().etunimi || '') + ' ' + (snap.data().sukunimi || '')).trim() : null,
+          firestoreData: snap.exists ? snap.data() : null
+        };
+      } catch(e) {
+        return { pelaaja: p, loytyy: false, firestoreNimi: null, firestoreData: null, virhe: e.message };
+      }
+    })
+  );
+
+  const loytyy   = tulokset.filter(r => r.loytyy);
+  const eiLoydy  = tulokset.filter(r => !r.loytyy);
+
+  tuontiData.palloIdTarkistus = { loytyy, eiLoydy, tyhja: tyhjat };
+
+  // Liitä tieto pelaajaan itseensä (hyödyntää tallennusvaiheessa)
+  loytyy.forEach(r => { r.pelaaja._loytyyFirestoresta = true;  r.pelaaja._firestoreData = r.firestoreData; });
+  eiLoydy.forEach(r => { r.pelaaja._loytyyFirestoresta = false; });
+  tyhjat.forEach(p   => { p._loytyyFirestoresta = false; p._tyhjaPalloID = true; });
 }
 
 function escapeHtml(s) {
@@ -1171,6 +1697,34 @@ function naytaEsikatselu() {
   asetaStepAktiivinen(3, true);
   asetaStepAktiivinen(4, false);
   document.getElementById('vaihe-d').style.display = 'block';
+
+  // Sprint 3.1 — PalloID-ryhmittely + tuontistrategian valinta
+  const taulukkoOver = document.getElementById('esikatselu-taulukko');
+  const t = tuontiData.palloIdTarkistus;
+  if (t) {
+    let palloHtml = '<div class="palloid-ryhmat">';
+    palloHtml += '<div class="palloid-ryhma ok"><div class="palloid-ryhma-count">' + t.loytyy.length + '</div><div class="palloid-ryhma-label">✅ Löytyy Firestoresta</div></div>';
+    palloHtml += '<div class="palloid-ryhma warn"><div class="palloid-ryhma-count">' + t.eiLoydy.length + '</div><div class="palloid-ryhma-label">⚠ Ei löydy — tunnistamaton PalloID</div></div>';
+    palloHtml += '<div class="palloid-ryhma err"><div class="palloid-ryhma-count">' + t.tyhja.length + '</div><div class="palloid-ryhma-label">❌ Tyhjä PalloID — hylätään</div></div>';
+    palloHtml += '</div>';
+
+    if (t.eiLoydy.length > 0) {
+      palloHtml += '<div class="palloid-strategia">';
+      palloHtml += '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Tuontistrategia tunnistamattomille</div>';
+      palloHtml += '<label><input type="radio" name="palloStrat" value="vain_loytyneet"' + (tuontiData.tuontiStrategia === 'vain_loytyneet' ? ' checked' : '') + ' onchange="tuontiData.tuontiStrategia=this.value"> Tuo vain löydetyt (' + t.loytyy.length + ' pelaajaa) — turvallisin</label>';
+      palloHtml += '<label><input type="radio" name="palloStrat" value="kaikki"' + (tuontiData.tuontiStrategia === 'kaikki' ? ' checked' : '') + ' onchange="tuontiData.tuontiStrategia=this.value"> Tuo kaikki (' + (t.loytyy.length + t.eiLoydy.length) + ' pelaajaa) — tunnistamattomat merkitään <code>lahde:historiapohja</code>, pelaajaprofiilia ei päivitetä</label>';
+      palloHtml += '</div>';
+    }
+
+    // Aseta esikatselu-taulukon eteen
+    const existing = document.getElementById('palloid-yhteenveto');
+    if (existing) existing.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'palloid-yhteenveto';
+    wrap.style.cssText = 'margin-bottom:14px;';
+    wrap.innerHTML = palloHtml;
+    taulukkoOver.parentNode.insertBefore(wrap, taulukkoOver);
+  }
 
   const taulukko = document.getElementById('esikatselu-taulukko');
   taulukko.style.display = 'block';
@@ -1244,18 +1798,53 @@ function paivitaTallennusNappi() {
 }
 
 // ════════════════════════════════════════
-// VAIHE E: FIRESTORE-TALLENNUS
+// VAIHE E: FIRESTORE-TALLENNUS (Sprint 3.1)
+// — WriteBatch (max 400/erä) — TKI-laskenta — moodi-haaroitus —
+// — Piilo-bugfix: serverTimestamp() arrayn sisällä → new Date().toISOString()
 // ════════════════════════════════════════
+const BATCH_KOKO = 400; // Firestore raja 500 — käytä 400 marginaalin kanssa
+
+// Apuri: ikä syntymäVuodesta ja testauspvm:stä
+function laskeIka(syntymaVuosi, testauspvm) {
+  if (!syntymaVuosi) return null;
+  let pvVuosi;
+  if (testauspvm) {
+    const iso = _paivaIso(testauspvm);
+    pvVuosi = iso ? parseInt(iso.slice(0, 4), 10) : new Date().getFullYear();
+  } else {
+    pvVuosi = new Date().getFullYear();
+  }
+  return pvVuosi - syntymaVuosi;
+}
+
+// Apuri: laske TKI yhdelle pelaajalle (vain tekniikkakilpailu-protokollaan)
+function laskeTKIPelaajalle(testit, ika, sukupuoli) {
+  if (ika == null || !sukupuoli) return null;
+  const sp = sukupuoli === 'M' ? 'P' : sukupuoli === 'N' ? 'T' : sukupuoli;
+  const merkit = {};
+  ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'].forEach(laji => {
+    const arvo = parseFloat(testit[laji]);
+    if (!isNaN(arvo)) {
+      const merkki = tkLaskeMerkki(laji, arvo, ika, sp);
+      if (merkki) merkit[laji] = merkki;
+    }
+  });
+  return tkLaskeTKI(merkit);
+}
+
 async function tallennaFirestoreen() {
   if (!tuontiData.valid) {
     toast('Korjaa validointivirheet ennen tallennusta', 'err'); return;
   }
   const tapahtuma = tuontiData.tapahtumaData;
-  if (!tapahtuma || !tapahtuma.id || !seuraId) {
-    toast('Tapahtumaa tai seuraa ei ole valittu', 'err'); return;
+  const moodi = tuontiData.moodi;
+  if (!seuraId) { toast('Seuraa ei ole valittu', 'err'); return; }
+  if (!kayttaja) { toast('Kirjaudu ensin sisään', 'err'); return; }
+  if (moodi === 'tapahtuma' && (!tapahtuma || !tapahtuma.id)) {
+    toast('Tapahtuma puuttuu — käytä Historiapohjaista moodia tai luo tapahtuma Testaus_v8:ssa', 'err'); return;
   }
-  if (!kayttaja) {
-    toast('Kirjaudu ensin sisään', 'err'); return;
+  if (moodi === 'historia' && (!tuontiData.meta.kausi || !tuontiData.meta.protokolla)) {
+    toast('Kausi ja protokolla pakollisia historiapohjaisessa tuonnissa', 'err'); return;
   }
 
   const nappi = document.getElementById('tallenna-nappi');
@@ -1266,113 +1855,168 @@ async function tallennaFirestoreen() {
   nappi.disabled = true;
   progressWrap.style.display = 'block';
 
-  const pelaajat = tuontiData.pelaajat;
-  const okRivit = [];
-  const virheRivit = [];
+  // Suodata pelaajat tuontistrategian mukaan
+  let pelaajat = tuontiData.pelaajat.slice();
+  if (tuontiData.tuontiStrategia === 'vain_loytyneet' && tuontiData.palloIdTarkistus) {
+    pelaajat = pelaajat.filter(p => p._loytyyFirestoresta === true);
+  } else {
+    // 'kaikki' — älä tuo pelaajia joilla on tyhjä PalloID
+    pelaajat = pelaajat.filter(p => p.tunniste && p.tunniste.trim() !== '');
+  }
 
-  for (let i = 0; i < pelaajat.length; i++) {
-    const p = pelaajat[i];
-    const pct = Math.round(((i + 1) / pelaajat.length) * 100);
-    progressFill.style.width = pct + '%';
-    progressText.textContent = `${i + 1} / ${pelaajat.length} pelaajaa tallennettu`;
+  if (pelaajat.length === 0) {
+    toast('Ei tuotavia pelaajia (kaikki hylätty strategian mukaan)', 'err');
+    nappi.disabled = false;
+    return;
+  }
 
-    try {
-      // Rakenna tulokset-objekti
-      const testit = {};
-      for (const ts of tuontiData.testiSarakkeet) {
-        if (ts.testiId && p.testit[ts.testiId] !== '') {
-          const arvo = p.testit[ts.testiId];
-          // Parsi numeeriseksi jos mahdollista
-          const num = parseFloat(arvo);
-          testit[ts.testiId] = isNaN(num) ? arvo : num;
+  const protokollaKey = moodi === 'tapahtuma' ? tapahtuma.protokolla : tuontiData.meta.protokolla;
+  const proto = PROTOKOLLAT[protokollaKey] || {};
+  const onTekniikka = protokollaKey === 'tekniikkakilpailu';
+  const NYT_ISO = new Date().toISOString();
+
+  // Rakenna täydet datapaketit jokaiselle pelaajalle ENNEN batch-kirjoitusta
+  const paketit = pelaajat.map(p => {
+    const testit = {};
+    for (const ts of tuontiData.testiSarakkeet) {
+      if (ts.testiId && p.testit[ts.testiId] !== '') {
+        const arvo = p.testit[ts.testiId];
+        const num = parseFloat(arvo);
+        testit[ts.testiId] = isNaN(num) ? arvo : num;
+      }
+    }
+
+    // FLEI — 1-3p / num -tyyppi
+    let fleiPct = null;
+    if (proto && (proto.tyyppi === '1-3' || proto.tyyppi === 'num')) {
+      let pisteet = 0, maxP = 0;
+      for (const t of (proto.testit || [])) {
+        const yks = t.yksikko || '1-3p';
+        if (['1-3p','pisteet','toistot'].includes(yks) || proto.tyyppi === '1-3') {
+          maxP += 3;
+          const val = parseInt(testit[t.id]);
+          if (!isNaN(val) && val >= 1 && val <= 3) pisteet += val;
         }
       }
-      if (p.phv_tila) testit.phv_tila = p.phv_tila;
+      if (maxP > 0) fleiPct = Math.round((pisteet / maxP) * 100);
+    }
 
-      // Laske FLEI jos harjoitettavuusprotokolla
-      let fleiPct = null;
-      const proto = PROTOKOLLAT[tapahtuma.protokolla];
-      if (proto && (proto.tyyppi === '1-3' || proto.tyyppi === 'num')) {
-        let pisteet = 0, maxP = 0;
-        for (const t of proto.testit || []) {
-          const id = t.id;
-          if (['1-3p','pisteet','toistot'].includes(t.yksikko || '1-3p') || proto.tyyppi === '1-3') {
-            maxP += 3;
-            const val = parseInt(testit[id]);
-            if (!isNaN(val) && val >= 1 && val <= 3) pisteet += val;
-          }
-        }
-        if (maxP > 0) fleiPct = Math.round((pisteet / maxP) * 100);
-      }
+    // TKI — tekniikkakilpailu (vaatii iän + sukupuolen)
+    let tki = null;
+    const syntymaVuosi = (p._firestoreData && p._firestoreData.syntymaVuosi) || null;
+    if (onTekniikka) {
+      const ika = laskeIka(syntymaVuosi, p.testauspvm || (tapahtuma && tapahtuma.pvm));
+      const sp = p.sukupuoli || (p._firestoreData && p._firestoreData.sukupuoli) || null;
+      tki = laskeTKIPelaajalle(testit, ika, sp);
+    }
 
+    const pvmRaw = p.testauspvm || (tapahtuma && tapahtuma.pvm) || NYT_ISO.slice(0,10);
+    const pvmIso = _paivaIso(pvmRaw) || _paivaIso(new Date());
+
+    return { pelaaja: p, testit, fleiPct, tki, pvmIso, syntymaVuosi };
+  });
+
+  // Aja batchina, jaa 400:n eriin
+  let onnistuneet = 0;
+  let epaonnistuneet = 0;
+  const eraMaara = Math.ceil(paketit.length / BATCH_KOKO);
+
+  for (let eIdx = 0; eIdx < eraMaara; eIdx++) {
+    const era = paketit.slice(eIdx * BATCH_KOKO, (eIdx + 1) * BATCH_KOKO);
+    const batch = db.batch();
+
+    era.forEach(pkg => {
+      const { pelaaja: p, testit, fleiPct, tki, pvmIso } = pkg;
+      const docId = p.tunniste || (p.sukunimi + '_' + p.etunimi);
+
+      // Tallennusdata — yhteinen molemmille moodeille
       const tallennusData = {
         testit: testit,
-        pelaajaId: p.tunniste || `${p.sukunimi}_${p.etunimi}`,
+        pelaajaId: docId,
+        tunnistetyyppi: p.tunnistetyyppi || 'palloID',
         sukunimi: p.sukunimi,
         etunimi: p.etunimi,
         phv_tila: p.phv_tila || '',
-        testauspvm: p.testauspvm || tapahtuma.pvm || '',
+        testauspvm: pvmIso,
+        kausi: tuontiData.meta.kausi || (tapahtuma && tapahtuma.kausi) || '',
+        protokolla: protokollaKey,
         tallennettu: firebase.firestore.FieldValue.serverTimestamp(),
-        tallensiUid: kayttaja.uid,
-        ...(fleiPct !== null ? { flei_pct: fleiPct } : {}),
-        ...(p.sukupuoli ? { sukupuoli: p.sukupuoli === 'P' ? 'M' : p.sukupuoli === 'T' ? 'N' : p.sukupuoli } : {}),
-        ...(p.joukkue ? { joukkue: p.joukkue } : {}),
+        tallensiUid: kayttaja.uid
       };
+      if (fleiPct !== null) tallennusData.flei_pct = fleiPct;
+      if (tki !== null)     tallennusData.tki = tki;
+      if (p.sukupuoli)      tallennusData.sukupuoli = p.sukupuoli === 'P' ? 'M' : p.sukupuoli === 'T' ? 'N' : p.sukupuoli;
+      if (p.joukkue)        tallennusData.joukkue = p.joukkue;
 
-      const ref = db.collection('seurat').doc(seuraId)
-        .collection('testitapahtumat').doc(tapahtuma.id)
-        .collection('tulokset').doc(p.tunniste || `${p.sukunimi}_${p.etunimi}`);
-      await ref.set(tallennusData, { merge: true });
-
-      // Päivitä pelaajan profiili
-      if (p.tunniste) {
-        const pelaajaRef = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(p.tunniste);
-        const profiiliUpdate = {
-          ...(fleiPct !== null ? { flei_viimeisin: fleiPct } : {}),
-          ...(p.testauspvm || tapahtuma.pvm ? { flei_pvm: p.testauspvm || tapahtuma.pvm } : {}),
-          ...(p.phv_tila ? { phv_tila: p.phv_tila } : {}),
-          flei_historia: firebase.firestore.FieldValue.arrayUnion({
-            pvm: p.testauspvm || tapahtuma.pvm || '',
-            flei: fleiPct !== null ? fleiPct : null,
-            tapahtumaId: tapahtuma.id,
-            tallennettu: firebase.firestore.FieldValue.serverTimestamp()
-          }),
-        };
-        await pelaajaRef.update(profiiliUpdate).catch(async e => {
-          // Uusi pelaaja — luo dokumentti
-          await pelaajaRef.set({
-            ...(fleiPct !== null ? { flei_viimeisin: fleiPct } : {}),
-            ...(p.testauspvm || tapahtuma.pvm ? { flei_pvm: p.testauspvm || tapahtuma.pvm } : {}),
-            ...(p.phv_tila ? { phv_tila: p.phv_tila } : {}),
-            flei_historia: [{
-              pvm: p.testauspvm || tapahtuma.pvm || '',
-              flei: fleiPct !== null ? fleiPct : null,
-              tapahtumaId: tapahtuma.id,
-              tallennettu: firebase.firestore.FieldValue.serverTimestamp()
-            }],
-            etunimi: p.etunimi || '',
-            sukunimi: p.sukunimi || '',
-          }, { merge: true }).catch(e2 => console.warn('Profiilipäivitys:', e2));
-        });
+      // Polku haaroittuu moodin mukaan
+      let ref;
+      if (moodi === 'tapahtuma') {
+        ref = db.collection('seurat').doc(seuraId)
+          .collection('testitapahtumat').doc(tapahtuma.id)
+          .collection('tulokset').doc(docId);
+        tallennusData.tapahtumaId = tapahtuma.id;
+        tallennusData.lahde = 'tapahtumapohja';
+      } else {
+        // Historia — doc-ID: {pvm}_{protokolla}
+        const docKey = pvmIso + '_' + protokollaKey;
+        ref = db.collection('seurat').doc(seuraId)
+          .collection('pelaajat').doc(docId)
+          .collection('testitulokset').doc(docKey);
+        tallennusData.lahde = 'historiapohja';
+        tallennusData.tuotu = NYT_ISO;
+        tallennusData.tuojaUid = kayttaja.uid;
       }
+      batch.set(ref, tallennusData, { merge: true });
 
-      okRivit.push(p);
-    } catch(e) {
-      virheRivit.push({ pelaaja: p, virhe: e.message });
-      console.error('Tallennusvirhe:', p, e);
+      // Pelaajaprofiilin päivitys — vain jos PalloID löytyy Firestoresta
+      // (CLAUDE.md §17 #7: serverTimestamp ei arrayn sisällä → toISOString)
+      if (p._loytyyFirestoresta === true) {
+        const pelaajaRef = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(docId);
+        const profiiliUpdate = {};
+        if (fleiPct !== null) profiiliUpdate.flei_viimeisin = fleiPct;
+        if (tki !== null)     profiiliUpdate.tki_viimeisin = tki;
+        if (fleiPct !== null) profiiliUpdate.flei_pvm = pvmIso;
+        if (tki !== null)     profiiliUpdate.tki_pvm = pvmIso;
+        if (p.phv_tila)       profiiliUpdate.phv_tila = p.phv_tila;
+        if (fleiPct !== null || tki !== null) {
+          profiiliUpdate.flei_historia = firebase.firestore.FieldValue.arrayUnion({
+            pvm: pvmIso,
+            flei: fleiPct !== null ? fleiPct : null,
+            tki: tki !== null ? tki : null,
+            tapahtumaId: moodi === 'tapahtuma' ? tapahtuma.id : null,
+            lahde: moodi === 'tapahtuma' ? 'tapahtumapohja' : 'historiapohja',
+            tallennettu: NYT_ISO  // ISO-string — EI serverTimestamp (kielletty array:n sisällä)
+          });
+        }
+        if (Object.keys(profiiliUpdate).length > 0) {
+          batch.set(pelaajaRef, profiiliUpdate, { merge: true });
+        }
+      }
+    });
+
+    // Päivitä progress + commit erä
+    progressText.textContent = (eIdx + 1) + ' / ' + eraMaara + ' erä (' + onnistuneet + '/' + paketit.length + ' pelaajaa)';
+    try {
+      await batch.commit();
+      onnistuneet += era.length;
+    } catch (e) {
+      console.error('[batch.commit erä ' + (eIdx+1) + ']', e);
+      epaonnistuneet += era.length;
     }
+    progressFill.style.width = Math.round(((eIdx + 1) / eraMaara) * 100) + '%';
   }
 
   progressFill.style.width = '100%';
-  progressText.textContent = `${okRivit.length} / ${pelaajat.length} tallennettu`;
+  progressText.textContent = onnistuneet + ' / ' + paketit.length + ' tallennettu';
 
-  if (virheRivit.length === 0) {
-    toast(`✅ Kaikki ${okRivit.length} pelaajaa tallennettu Firestoreen!`, 'ok');
+  if (epaonnistuneet === 0) {
+    const moodTeksti = moodi === 'tapahtuma' ? 'tapahtumapohjaisesti' : 'historiapohjaisesti';
+    toast('✅ ' + onnistuneet + ' pelaajaa tallennettu ' + moodTeksti, 'ok');
     asetaStepAktiivinen(4, true);
     asetaStepAktiivinen(5, false);
     nappi.innerHTML = '✅ Tallennettu';
   } else {
-    toast(`${okRivit.length} tallennettu, ${virheRivit.length} virhettä`, 'err');
+    toast(onnistuneet + ' tallennettu, ' + epaonnistuneet + ' erää epäonnistui — katso konsoli', 'err');
     nappi.disabled = false;
     nappi.innerHTML = '💾 Yritä uudelleen';
   }
