@@ -944,6 +944,39 @@ testitapahtumat/{tapahtumaId} {
 }
 ```
 
+### Testi-ID:t — selitykset
+
+Sisäiset testi-ID:t (käytetään Firestoressa, Excel-pohjissa ja indeksilaskennassa):
+
+| ID | Selitys | Yksikkö | Ketju | Logiikka |
+|---|---|---|---|---|
+| `lin_5m` | Lineaarinopeus 5m — räjähtävä kiihdytys | s | SBL | pienempi = parempi |
+| `lin_10m` | Lineaarinopeus 10m — kiihdytysvaiheen maksimi | s | SBL | pienempi = parempi |
+| `lin_30m` | Lineaarinopeus 30m — maksiminopeus (TSI:n perusta) | s | SBL | pienempi = parempi |
+| `505_oikea` / `505_vasen` | 5-0-5 -ketteryystesti per puoli | s | LL | pienempi = parempi |
+| **`kasirata`** | **Ketteryyskasirata — kahdeksikkorata** | s | LL | pienempi = parempi |
+| **`sm_juoksu`** | **Suunnanmuutos-juoksu (SM-juoksu) ilman palloa** | s | DIAG | pienempi = parempi |
+| **`sm_pallo`** | **Suunnanmuutos pallolla (SM-pallo) — lajitekniikka** | s | DIAG | pienempi = parempi |
+| `hyppy_cj` / `hyppy_sj` | Kevennyshyppy (CMJ) / Staattinen hyppy (SJ) | cm | SFL | suurempi = parempi |
+| `mas` | MAS-juoksutesti — maksimaalinen aerobinen nopeus | km/h | SFL | suurempi = parempi |
+| `pujottelu` / `pujottelu_hh` | Pujottelu (tekniikkakilpailu / HH-laji) | s | LL | pienempi = parempi |
+| `syotto` / `syotto_hh` | Syöttö pujotellen (tekniikkakilpailu / HH-laji) | s | DIAG | pienempi = parempi |
+| `ponnauttelu` | Ponnauttelu — pallonkäsittely | krt/30s | DFL | suurempi = parempi |
+| `kuljetus_laukaus` | Kuljetus-laukaus (tarkkuusvähennyksin) | s | DIAG | pienempi = parempi |
+| `pituuspotku` | Pituuspotku — aikabonus = metrit/5 (max 20s) | m | SBL | suurempi = parempi |
+
+**TSI-indeksi (Tekninen suunnanmuutos-indeksi):**
+```
+TSI = sm_pallo − sm_juoksu
+```
+TSI mittaa pelaajan **lajitekniikkaa suhteessa fyysiseen suunnanmuutoskykyyn**:
+- **Positiivinen TSI** → pelaaja menettää aikaa pallon kanssa enemmän kuin ilman → fysiikka vahvempi kuin tekniikka
+- **Negatiivinen TSI** (lähellä nollaa) → pallonhallinta ei juurikaan hidasta → tekniikka vahvempi
+- TSI-tulkinta on suuntaa-antava: hyvä pelaaja häviää ~0.3–0.6 s pallon kanssa; selvästi enemmän → lajitekniikkavaje
+
+**Alustaherkkyys (Testaus_v8.html `ALUSTAHERKAT_TESTIT`):**
+Juoksu- ja ketteryystestit (`lin_*`, `505_*`, `kasirata`, `sm_juoksu`, `sm_pallo`, `kuljetus_laukaus`, `pujottelu*`, `syotto*`, `mas`) vaativat alusta-tiedon, koska tulokset eivät ole vertailukelpoisia eri alustoilla. Liikkuvuus- ja harjoitettavuustestit (kyykky, lankku, etunojapunnerrus jne.) eivät ole alustaherkkiä.
+
 ### Historiapohja-tuonti (Sprint 3.1, 2026-05-13)
 
 Excel_Tuonti.html tukee kahta moodia:
