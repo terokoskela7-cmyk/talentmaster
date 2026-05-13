@@ -1,10 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v2.5
+// TalentMaster™ — firestore.rules v2.6
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: Firebase Console → Firestore → Rules → liitä → Julkaise
 //         (EI GitHub Actionsilla — saa 403, CLAUDE.md §17 #10)
+//
+// Muutokset v2.5 → v2.6 (Sprint 3.1 — Historiapohja-tuonti):
+//   + seurat/{sid}/pelaajat/{pid}/testitulokset/{pvm}_{protokolla} —
+//     Excel_Tuonti.html:n historiapohja-moodin kirjoituspolku. Tukee
+//     vanhan testidatan tuontia ilman testitapahtumaa.
+//     read:  SA | omaSeura (johto|valmentaja) | anonymous (PIN) | huoltaja
+//     write: SA | omaSeura (johto)
 //
 // Muutokset v2.4 → v2.5 (Sprint 3):
 //   * idp_jono — tila-arvo 'odottaa' tuettu rinnakkain 'ehdotettu'-arvon
@@ -189,6 +196,23 @@ service cloud.firestore {
                             && onOmanSeuranValmentaja(seuraId))
                         || (resource.data.naytaPelaajalle == true
                             && onAnonymous());
+          allow create: if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow update: if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow delete: if onSuperAdmin();
+        }
+
+        // ── Testitulokset (v2.6) — historiapohja-tuonti ──────────────────
+        // Excel_Tuonti.html:n historia-moodi kirjoittaa tänne. Doc-ID on
+        // muotoa {pvm}_{protokolla} (esim. "2026-05-13_tekniikkakilpailu")
+        // jotta sama pelaaja samana päivänä eri protokollalla ei ylikirjoita.
+        // Pelaaja näkee omat tuloksensa PIN-tilassa; huoltaja näkee lapsensa.
+        match /testitulokset/{pvmProto} {
+          allow read:   if onSuperAdmin()
+                        || onOmaSeura(seuraId)
+                        || onAnonymous()
+                        || onLapsenHuoltaja(seuraId, pelaajaId);
           allow create: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && onJohtoRooli());
           allow update: if onSuperAdmin()
