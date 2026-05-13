@@ -576,7 +576,7 @@ body {
     <div id="luo-askel-1">
 
       <!-- Protokolla -->
-      <div class="field">
+      <div class="field" id="protokolla-wrap">
         <label class="field-label">PROTOKOLLA</label>
         <select class="field-select" id="luo-protokolla" onchange="_protokollaVaihtunut()">
           <option value="">— Valitse protokolla —</option>
@@ -587,6 +587,26 @@ body {
           <option value="hh_suppea">HH-testi suppea</option>
           <option value="tekniikkakilpailu">Tekniikkakilpailu</option>
         </select>
+        <div style="margin-top:8px;">
+          <button type="button" id="vapaa-toggle-btn" onclick="_avaaVapaaTestivalinta()"
+            style="background:transparent;border:1px dashed var(--border2);color:var(--text2);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;">
+            ✎ Valitse testit itse
+          </button>
+        </div>
+      </div>
+
+      <!-- KORJAUS 3 — Vapaa testivalinta (näkyy kun "Valitse testit itse" klikattu) -->
+      <div class="field" id="vapaa-testivalinta-wrap" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <label class="field-label" style="margin:0;">VAPAA TESTIVALINTA
+            <span style="font-weight:400;color:var(--text3);font-size:11px;margin-left:8px;">— rastita haluamasi testit (vähintään 1)</span>
+          </label>
+          <button type="button" onclick="_suljeVapaaTestivalinta()"
+            style="background:transparent;border:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;">
+            ← Palaa protokollavalintaan
+          </button>
+        </div>
+        <div id="vapaa-testivalinta-lista" style="display:flex;flex-direction:column;gap:14px;"></div>
       </div>
 
       <!-- Testivalinta — ilmestyy kun protokolla valittu -->
@@ -906,8 +926,11 @@ const PROTOKOLLAT = {
     ikäluokka: 'U13+',
     tyyppi: 'seka',
     testit: [
-      { id: 'lin30m',         nimi: 'Lineaarinopeus 30m',      ketju: 'SBL',  yksikko: 's',   yritykset: 3, pienempi_parempi: true,
-        valiajat: ['5m','10m','20m','30m'] }, // kaikki väliajat kirjataan
+      // KORJAUS 2 — Lineaarinopeus kolmena erillisenä testinä (5m kiihdytys, 10m kiihdytysmaksimi, 30m maksiminopeus)
+      // TSI-laskenta käyttää lin_30m-arvoa kuten aiemmin; 5m ja 10m avaavat nopeusprofiilianalyysit (Sprint X+).
+      { id: 'lin_5m',         nimi: 'Lineaarinopeus 5m',       ketju: 'SBL',  yksikko: 's',   yritykset: 3, pienempi_parempi: true },
+      { id: 'lin_10m',        nimi: 'Lineaarinopeus 10m',      ketju: 'SBL',  yksikko: 's',   yritykset: 3, pienempi_parempi: true },
+      { id: 'lin_30m',        nimi: 'Lineaarinopeus 30m',      ketju: 'SBL',  yksikko: 's',   yritykset: 3, pienempi_parempi: true },
       { id: 'kasirata',       nimi: 'Kasirata',                ketju: 'LL',   yksikko: 's',   yritykset: 3, pienempi_parempi: true },
       { id: 'sm_juoksu',      nimi: 'SM-juoksu (ilman palloa)',ketju: 'DIAG', yksikko: 's',   yritykset: 3, pienempi_parempi: true },
       { id: 'sm_pallo',       nimi: 'SM-pallo',                ketju: 'DIAG', yksikko: 's',   yritykset: 2, pienempi_parempi: true },
@@ -923,8 +946,10 @@ const PROTOKOLLAT = {
     ikäluokka: 'U13+',
     tyyppi: 'seka',
     testit: [
-      { id: 'lin30m',         nimi: 'Lineaarinopeus 30m',      ketju: 'SBL',  yksikko: 's',   yritykset: 3, pienempi_parempi: true,
-        valiajat: ['5m','10m','30m'] },
+      // KORJAUS 2 — Lineaarinopeus kolmena erillisenä testinä (ks. hh_laaja:n kommentti)
+      { id: 'lin_5m',         nimi: 'Lineaarinopeus 5m',       ketju: 'SBL',  yksikko: 's',   yritykset: 3, pienempi_parempi: true },
+      { id: 'lin_10m',        nimi: 'Lineaarinopeus 10m',      ketju: 'SBL',  yksikko: 's',   yritykset: 3, pienempi_parempi: true },
+      { id: 'lin_30m',        nimi: 'Lineaarinopeus 30m',      ketju: 'SBL',  yksikko: 's',   yritykset: 3, pienempi_parempi: true },
       { id: 'hyppy_cj',       nimi: 'Kevennyshyppy (CMJ)',     ketju: 'SFL',  yksikko: 'cm',  yritykset: 3, pienempi_parempi: false },
       { id: 'sm_juoksu',      nimi: 'SM-juoksu (ilman palloa)',ketju: 'DIAG', yksikko: 's',   yritykset: 3, pienempi_parempi: true },
       { id: 'mas',            nimi: 'MAS-juoksutesti',         ketju: 'SFL',  yksikko: 'km/h',yritykset: 1, pienempi_parempi: false },
@@ -1226,9 +1251,66 @@ window._lataaTestiExcel = async function _lataaTestiExcel(tapahtumaId, event) {
   }
 }
 
+// KORJAUS 4 — Hakee tapahtuman protokolla-objektin myös 'vapaa'-moodille.
+// Rakentaa pseudo-protokollan aktiiviset_testit + omat_testit_meta -yhdistelmästä.
+// Käytetään kaikkialla missä tapahtumadokumentti ajaa renderöintiä.
+function _haeProto(tap) {
+  if (!tap) return { nimi: '', testit: [] };
+  // Olemassa oleva protokolla (hh_laaja, harjoitettavuus_*, tekniikkakilpailu)
+  if (PROTOKOLLAT[tap.protokolla]) return PROTOKOLLAT[tap.protokolla];
+
+  // Vapaa-moodi: rakenna pseudo-protokolla
+  const aktTestit = tap.aktiiviset_testit || [];
+  const omatMeta = tap.omat_testit_meta || [];
+  const omatById = {};
+  omatMeta.forEach(t => { omatById[t.id] = t; });
+
+  // VAPAA_TESTIPANKKI: hae valmis-testien metatiedot kaikista kategorioista
+  const pankkiById = {};
+  if (typeof VAPAA_TESTIPANKKI !== 'undefined') {
+    Object.values(VAPAA_TESTIPANKKI).forEach(kat => {
+      (kat.testit || []).forEach(t => { pankkiById[t.id] = t; });
+    });
+  }
+
+  const testit = aktTestit.map(id => {
+    if (omatById[id]) {
+      // Käyttäjän oma testi
+      return {
+        id: id,
+        nimi: omatById[id].nimi || id,
+        yksikko: omatById[id].yksikko || '—',
+        yritykset: 1,
+        pienempi_parempi: false
+      };
+    }
+    if (pankkiById[id]) {
+      // Valmis testi VAPAA_TESTIPANKKI:sta
+      return {
+        id: id,
+        nimi: pankkiById[id].nimi,
+        yksikko: pankkiById[id].yksikko,
+        ketju: pankkiById[id].ketju,
+        yritykset: 1,
+        pienempi_parempi: !!pankkiById[id].pienempi_parempi
+      };
+    }
+    // Tuntematon id — käytä id:tä sellaisenaan
+    return {
+      id: id,
+      nimi: id,
+      yksikko: '—',
+      yritykset: 1,
+      pienempi_parempi: false
+    };
+  });
+
+  return { nimi: 'Vapaa testivalinta', tyyppi: 'vapaa', testit: testit };
+}
+
 // Excel-generointi SheetJS:llä
 function _generoiExcel(tap) {
-  const proto = PROTOKOLLAT[tap.protokolla] || {};
+  const proto = _haeProto(tap);
   const aktTestit = tap.aktiiviset_testit || (proto.testit||[]).map(t=>t.id);
   const pelaajat = tap.pelaajatData || [];
   const kausiNimi = { 'kevat':'Kevät','kesa':'Kesä','syksy':'Syksy' }[tap.kausi?.split('-')[1]] || tap.kausi || '';
@@ -1349,7 +1431,7 @@ function _generoiExcel(tap) {
 }
 
 function _luoTapahtumakorttiEl(t) {
-  const protokolla = PROTOKOLLAT[t.protokolla] || {};
+  const protokolla = _haeProto(t);
   const moodiClass = t.moodi === 'rotaatio' ? 'moodi-rotaatio' : t.moodi === 'yksilö' ? 'moodi-yksilö' : 'moodi-seka';
   const moodiTeksti = t.moodi === 'rotaatio' ? '🔄 Rotaatio' : t.moodi === 'yksilö' ? '👤 Yksilö' : '⚡ Sekamalli';
   const el = document.createElement('div');
@@ -1450,6 +1532,196 @@ window._paivitaAktiivisetTestit = function _paivitaAktiivisetTestit(cbTaiId) {
     .map(t => t.id);
 }
 
+// ════════════════════════════════════
+// KORJAUS 3 — VAPAA TESTIVALINTA
+// VP voi ohittaa protokollan ja valita testit itse 4 kategoriasta + omat
+// ════════════════════════════════════
+const VAPAA_TESTIPANKKI = {
+  nopeus_ketteryys: {
+    nimi: '🏃 Nopeus ja ketteryys',
+    testit: [
+      { id: 'lin_5m',    nimi: 'Lineaarinopeus 5m',     yksikko: 's',  ketju: 'SBL',  pienempi_parempi: true },
+      { id: 'lin_10m',   nimi: 'Lineaarinopeus 10m',    yksikko: 's',  ketju: 'SBL',  pienempi_parempi: true },
+      { id: 'lin_30m',   nimi: 'Lineaarinopeus 30m',    yksikko: 's',  ketju: 'SBL',  pienempi_parempi: true },
+      { id: '505_oikea', nimi: '5-0-5 oikea',           yksikko: 's',  ketju: 'LL',   pienempi_parempi: true },
+      { id: '505_vasen', nimi: '5-0-5 vasen',           yksikko: 's',  ketju: 'LL',   pienempi_parempi: true },
+      { id: 'cm_jump',   nimi: 'Kevennyshyppy (CMJ)',   yksikko: 'cm', ketju: 'SFL',  pienempi_parempi: false },
+      { id: 'sj_jump',   nimi: 'Staattinen hyppy (SJ)', yksikko: 'cm', ketju: 'SFL',  pienempi_parempi: false }
+    ]
+  },
+  tekniikka: {
+    nimi: '⚽ Tekniikka',
+    testit: [
+      { id: 'ponnauttelu',      nimi: 'Ponnauttelu',       yksikko: 's', ketju: 'DFL',  pienempi_parempi: false },
+      { id: 'syotto',           nimi: 'Syöttö pujotellen', yksikko: 's', ketju: 'DIAG', pienempi_parempi: true },
+      { id: 'pujottelu',        nimi: 'Pujottelu',         yksikko: 's', ketju: 'LL',   pienempi_parempi: true },
+      { id: 'kuljetus_laukaus', nimi: 'Kuljetus-laukaus',  yksikko: 's', ketju: 'DIAG', pienempi_parempi: true },
+      { id: 'pituuspotku',      nimi: 'Pituuspotku',       yksikko: 'm', ketju: 'SBL',  pienempi_parempi: false }
+    ]
+  },
+  harjoitettavuus: {
+    nimi: '🧘 Harjoitettavuus (FLEI)',
+    testit: [
+      { id: 'sbl',  nimi: 'SBL — superficial back line',     yksikko: '1-3p', ketju: 'SBL' },
+      { id: 'sfl',  nimi: 'SFL — superficial front line',    yksikko: '1-3p', ketju: 'SFL' },
+      { id: 'll',   nimi: 'LL — lateral line',               yksikko: '1-3p', ketju: 'LL'  },
+      { id: 'diag', nimi: 'DIAG — diagonal (spiral)',        yksikko: '1-3p', ketju: 'DIAG'},
+      { id: 'dfl',  nimi: 'DFL — deep front line',           yksikko: '1-3p', ketju: 'DFL' }
+    ]
+  }
+};
+
+// Tila vapaa-moodin omille testeille (muut-kategoria)
+let _vapaaOmatTestit = []; // [{id, nimi, yksikko}]
+
+window._avaaVapaaTestivalinta = function _avaaVapaaTestivalinta() {
+  document.getElementById('protokolla-wrap').style.display = 'none';
+  document.getElementById('testivalinta-wrap').style.display = 'none';
+  document.getElementById('vapaa-testivalinta-wrap').style.display = 'block';
+
+  // Aseta tila: protokolla='vapaa', aktiiviset_testit nollataan kun avaa
+  _luoData.protokolla = 'vapaa';
+  _luoData.aktiiviset_testit = [];
+  _vapaaOmatTestit = [];
+
+  _renderoiVapaaTestipankki();
+}
+
+window._suljeVapaaTestivalinta = function _suljeVapaaTestivalinta() {
+  document.getElementById('vapaa-testivalinta-wrap').style.display = 'none';
+  document.getElementById('protokolla-wrap').style.display = 'block';
+
+  // Palaa protokollavalintaan — tyhjennä vapaa-tila
+  _luoData.protokolla = document.getElementById('luo-protokolla').value || '';
+  _luoData.aktiiviset_testit = [];
+  _vapaaOmatTestit = [];
+
+  // Jos protokolla on edelleen valittuna, näytä sen testivalinta uudelleen
+  if (_luoData.protokolla && PROTOKOLLAT[_luoData.protokolla]) {
+    _protokollaVaihtunut();
+  }
+}
+
+function _renderoiVapaaTestipankki() {
+  const lista = document.getElementById('vapaa-testivalinta-lista');
+  if (!lista) return;
+  let html = '';
+
+  // 3 valmista kategoriaa
+  Object.entries(VAPAA_TESTIPANKKI).forEach(([key, kat]) => {
+    html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;">';
+    html += '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;letter-spacing:0.3px;">' + kat.nimi + '</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+    kat.testit.forEach(t => {
+      const cbId = 'vapaa-cb-' + t.id;
+      const ks = KETJU_EMOJI[t.ketju] || '';
+      html += '<label style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--bg3);border-radius:6px;cursor:pointer;">';
+      html += '<input type="checkbox" id="' + cbId + '" data-testi-id="' + t.id + '" onchange="_paivitaVapaaTestit()"';
+      html += ' style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;">';
+      html += '<span style="flex:1;font-size:13px;">' + t.nimi + '</span>';
+      html += '<span style="font-size:11px;color:var(--text3);">' + t.yksikko + '</span>';
+      html += '<span style="font-size:11px;color:var(--text3);margin-left:4px;">' + ks + '</span>';
+      html += '</label>';
+    });
+    html += '</div></div>';
+  });
+
+  // Muut-kategoria — vapaa tekstikenttä
+  html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;">';
+  html += '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;letter-spacing:0.3px;">🧪 Muut testit (oma määritys)</div>';
+  html += '<div id="vapaa-omat-lista" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 100px auto;gap:6px;">';
+  html += '<input id="vapaa-muu-nimi" type="text" placeholder="Testin nimi (esim. Knee-to-wall)"';
+  html += ' style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 10px;font-size:13px;font-family:inherit;">';
+  html += '<input id="vapaa-muu-yksikko" type="text" placeholder="Yksikkö (s, cm…)"';
+  html += ' style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 10px;font-size:13px;font-family:inherit;">';
+  html += '<button type="button" onclick="_lisaaMuuTesti()"';
+  html += ' style="background:var(--primary);color:#111;border:none;border-radius:6px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:500;font-family:inherit;">+ Lisää</button>';
+  html += '</div></div>';
+
+  // Yhteenveto
+  html += '<div id="vapaa-yhteenveto" style="font-size:11px;color:var(--text3);text-align:center;padding:8px;"></div>';
+
+  lista.innerHTML = html;
+  _renderoiVapaaOmat();
+  _paivitaVapaaTestit();
+}
+
+function _renderoiVapaaOmat() {
+  const wrap = document.getElementById('vapaa-omat-lista');
+  if (!wrap) return;
+  if (_vapaaOmatTestit.length === 0) {
+    wrap.innerHTML = '<div style="font-size:11px;color:var(--text3);font-style:italic;">— Ei omia testejä lisättynä —</div>';
+    return;
+  }
+  wrap.innerHTML = _vapaaOmatTestit.map(t => {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg3);border-radius:6px;">'
+      + '<span style="flex:1;font-size:13px;">✓ ' + _escapeHtml(t.nimi) + '</span>'
+      + '<span style="font-size:11px;color:var(--text3);">' + _escapeHtml(t.yksikko) + '</span>'
+      + '<button type="button" onclick="_poistaMuuTesti(\'' + t.id + '\')"'
+      + ' style="background:transparent;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px;">×</button>'
+      + '</div>';
+  }).join('');
+}
+
+function _escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+window._lisaaMuuTesti = function _lisaaMuuTesti() {
+  const nimiEl = document.getElementById('vapaa-muu-nimi');
+  const yksEl  = document.getElementById('vapaa-muu-yksikko');
+  const nimi = (nimiEl.value || '').trim();
+  const yksikko = (yksEl.value || '').trim() || '—';
+  if (!nimi) { _toast('Anna testin nimi', 'err'); return; }
+  // Generoi turvallinen id pohjautuen nimeen
+  const slug = 'muu_' + nimi.toLowerCase()
+    .replace(/[äå]/g,'a').replace(/ö/g,'o')
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')
+    .substring(0, 40);
+  // Estä duplikaatti
+  if (_vapaaOmatTestit.some(t => t.id === slug)) {
+    _toast('Saman niminen testi on jo lisätty', 'err'); return;
+  }
+  _vapaaOmatTestit.push({ id: slug, nimi: nimi, yksikko: yksikko });
+  nimiEl.value = '';
+  yksEl.value = '';
+  _renderoiVapaaOmat();
+  _paivitaVapaaTestit();
+}
+
+window._poistaMuuTesti = function _poistaMuuTesti(id) {
+  _vapaaOmatTestit = _vapaaOmatTestit.filter(t => t.id !== id);
+  _renderoiVapaaOmat();
+  _paivitaVapaaTestit();
+}
+
+window._paivitaVapaaTestit = function _paivitaVapaaTestit() {
+  if (_luoData.protokolla !== 'vapaa') return;
+  const valitut = [];
+  // 3 kategorian rastit
+  Object.values(VAPAA_TESTIPANKKI).forEach(kat => {
+    kat.testit.forEach(t => {
+      const cb = document.getElementById('vapaa-cb-' + t.id);
+      if (cb && cb.checked) valitut.push(t.id);
+    });
+  });
+  // Omat testit aina mukana
+  _vapaaOmatTestit.forEach(t => valitut.push(t.id));
+
+  _luoData.aktiiviset_testit = valitut;
+
+  // Yhteenveto-teksti
+  const yh = document.getElementById('vapaa-yhteenveto');
+  if (yh) {
+    yh.textContent = valitut.length === 0
+      ? 'Valitse vähintään yksi testi jatkaaksesi'
+      : valitut.length + ' testiä valittu — voit siirtyä Seuraavaan';
+    yh.style.color = valitut.length === 0 ? 'var(--amber)' : 'var(--primary)';
+  }
+}
+
 window._valitseMoodi = function _valitseMoodi(m) {
   _luoData.moodi = m;
   ['rotaatio','yksilö','seka'].forEach(x => {
@@ -1463,13 +1735,20 @@ window._joukkueVaihtunut = function _joukkueVaihtunut() {
 }
 
 window._luoAskel2 = async function _luoAskel2() {
-  const p = document.getElementById('luo-protokolla').value;
+  // KORJAUS 3: protokolla voi olla joko dropdownista tai 'vapaa' (vapaa testivalinta)
+  const protokollaDropdown = document.getElementById('luo-protokolla').value;
+  const vapaaMode = _luoData.protokolla === 'vapaa';
+  const p = vapaaMode ? 'vapaa' : protokollaDropdown;
   const j = document.getElementById('luo-joukkue').value;
   const pvm = document.getElementById('luo-pvm').value;
   if (!p || !j || !pvm) { _toast('Täytä kaikki pakolliset kentät', 'err'); return; }
 
   // Päivitä aktiiviset testit checkboxeista ennen siirtymistä
-  _paivitaAktiivisetTestit(p);
+  if (vapaaMode) {
+    _paivitaVapaaTestit();
+  } else {
+    _paivitaAktiivisetTestit(p);
+  }
   if (_luoData.aktiiviset_testit.length === 0) {
     _toast('Valitse vähintään yksi testi', 'err'); return;
   }
@@ -1489,21 +1768,41 @@ window._luoAskel2 = async function _luoAskel2() {
   _paivitaStepIndikattori(2);
 
   // Lataa pelaajat
+  // KORJAUS 1: kaksoiskysely Promise.all — Excel-tuonnin pelaajilla on joukkue-string,
+  // Seura.html:n pelaajilla joukkueet-array. CLAUDE.md §17 #23 — molemmat rinnakkain.
   const lista = document.getElementById('pelaaja-valinta-lista');
   lista.innerHTML = '<div class="spinner" style="margin:32px auto;"></div>';
+
+  const sel = document.getElementById('luo-joukkue');
+  const joukkueId   = sel.value;                                              // esim. "u13_kpv"
+  const joukkueNimi = sel.options[sel.selectedIndex]
+                        ? sel.options[sel.selectedIndex].textContent.trim()
+                        : '';                                                  // esim. "KPV U13"
+
   try {
-    const snap = await _db.collection('seurat').doc(_seuraId)
-      .collection('pelaajat').where('joukkue', '==', j).orderBy('sukunimi').get();
-    // Suodata aktiiviset — 'tila' voi puuttua vanhemmista dokumenteista
-    _luoData.pelaajat = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(p => p.tila !== 'poistettu' && p.etunimi && p.sukunimi);
+    const [byNimi, byArray] = await Promise.all([
+      _db.collection('seurat').doc(_seuraId).collection('pelaajat')
+        .where('joukkue', '==', joukkueNimi).get(),
+      _db.collection('seurat').doc(_seuraId).collection('pelaajat')
+        .where('joukkueet', 'array-contains', joukkueId).get()
+    ]);
+
+    // Yhdistä uniikit pelaajat dokumentti-ID:n perusteella
+    const kaikki = new Map();
+    byNimi.docs.forEach(d => kaikki.set(d.id, { id: d.id, ...d.data() }));
+    byArray.docs.forEach(d => { if (!kaikki.has(d.id)) kaikki.set(d.id, { id: d.id, ...d.data() }); });
+
+    _luoData.pelaajat = Array.from(kaikki.values())
+      .filter(p => p.tila !== 'poistettu' && p.etunimi && p.sukunimi)
+      .sort((a, b) => (a.sukunimi || '').localeCompare(b.sukunimi || ''));
+
     _renderPelaajaValinta();
   } catch(e) {
-    console.error('Pelaajien lataus epäonnistui:', e.code, e.message, 'seura:', _seuraId, 'joukkue:', j);
+    console.error('Pelaajien lataus epäonnistui:', e.code, e.message,
+      'seura:', _seuraId, 'joukkueId:', joukkueId, 'joukkueNimi:', joukkueNimi);
     lista.innerHTML = '<div class="empty"><div class="empty-teksti">Pelaajien lataus epäonnistui'
       + (e.code === 'permission-denied' ? ' — tarkista Security Rules' : '')
-      + '</div><div class="empty-sub" style="font-size:12px;color:var(--text3);margin-top:4px;">Seura: ' + _seuraId + ' · Joukkue: ' + j + '</div></div>';
+      + '</div><div class="empty-sub" style="font-size:12px;color:var(--text3);margin-top:4px;">Seura: ' + _seuraId + ' · Joukkue: ' + joukkueNimi + ' (' + joukkueId + ')</div></div>';
   }
 }
 
@@ -1692,7 +1991,11 @@ window._tallennaTapahtuma = async function _tallennaTapahtuma() {
   btn.disabled = true;
 
   const pelaajatArr = _luoData.pelaajat.filter(p => _luoData.valitutPelaajat.has(p.id));
-  const protokolla = PROTOKOLLAT[_luoData.protokolla];
+  // KORJAUS 3: vapaa-moodille ei ole PROTOKOLLAT-merkintää — keksitään nimi käsin
+  const vapaaMode = _luoData.protokolla === 'vapaa';
+  const protokolla = vapaaMode
+    ? { nimi: 'Vapaa testivalinta', tyyppi: 'vapaa' }
+    : PROTOKOLLAT[_luoData.protokolla];
 
   // Kausiavain esim. "2026-syksy"
   const kausiAvain = (_luoData.vuosi || '2026') + '-' + (_luoData.kausi || 'syksy');
@@ -1702,6 +2005,10 @@ window._tallennaTapahtuma = async function _tallennaTapahtuma() {
     nimi: protokolla.nimi + ' — ' + kausiNimi + ' ' + (_luoData.vuosi || '2026'),
     protokolla: _luoData.protokolla,
     aktiiviset_testit: _luoData.aktiiviset_testit,   // Seura valitsi
+    // KORJAUS 3: vapaa-moodissa tallennetaan myös omien testien metadata
+    ...(vapaaMode && _vapaaOmatTestit && _vapaaOmatTestit.length > 0
+        ? { omat_testit_meta: _vapaaOmatTestit }
+        : {}),
     joukkue: _luoData.joukkue,
     pvm: _luoData.pvm,                               // Ensimmäinen testipäivä
     pvm_alku: _luoData.pvm,
@@ -1797,7 +2104,7 @@ async function _avaaKentta(tapahtuma) {
   const offline = JSON.parse(localStorage.getItem(offlineKey) || '{}');
   Object.assign(_tulokset, offline);
 
-  const protokolla = PROTOKOLLAT[tapahtuma.protokolla];
+  const protokolla = _haeProto(tapahtuma);
   document.getElementById('kentta-nimi').textContent = tapahtuma.nimi || protokolla?.nimi || tapahtuma.protokolla;
   document.getElementById('kentta-pvm').textContent = tapahtuma.pvm + ' — ' + (tapahtuma.paikka || '');
   // Pelaajan testipäivä — oletuksena tapahtuman pvm, muokattavissa
@@ -1836,7 +2143,7 @@ async function _avaaKentta(tapahtuma) {
 // ROTAATIO-NÄKYMÄ
 // ════════════════════════════════════
 function _renderRotaatioNakyma() {
-  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
+  const protokolla = _haeProto(_aktiivinenTapahtuma);
   const testit = protokolla.testit;
   const pisteet = [...new Set(testit.map(t => t.piste))].sort((a,b) => a-b);
 
@@ -1865,7 +2172,7 @@ function _valitsePiste(piste) {
 }
 
 function _renderRotaatioSyotto(piste) {
-  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
+  const protokolla = _haeProto(_aktiivinenTapahtuma);
   const pisteTestit = protokolla.testit.filter(t => t.piste === piste);
   const pelaajat = _aktiivinenTapahtuma.pelaajatData || [];
   const lista = document.getElementById('rotaatio-syotto-lista');
@@ -1906,7 +2213,7 @@ function _renderYksilöNakyma() {
   const pelaajat = _aktiivinenTapahtuma.pelaajatData || [];
   if (!pelaajat.length) return;
   const p = pelaajat[_yksilöIndeksi];
-  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
+  const protokolla = _haeProto(_aktiivinenTapahtuma);
 
   document.getElementById('yksilö-nimi').textContent = `${p.etunimi} ${p.sukunimi}`;
   document.getElementById('yksilö-pos').textContent = `${_yksilöIndeksi + 1} / ${pelaajat.length} — ${p.phv_tila || '—'}`;
@@ -1965,7 +2272,7 @@ window._sekaTab = function _sekaTab(tab) {
 function _renderSekRotaatio() {
   const wrap = document.getElementById('seka-rotaatio-wrap');
   // Vanhoilla tapahtumilla ei välttämättä ole protokolla-kenttää — null-guard
-  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma?.protokolla];
+  const protokolla = _haeProto(_aktiivinenTapahtuma);
   if (!protokolla) {
     wrap.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:16px;">Protokollaa ei löydy — tapahtuma tallennettu vanhalla rakenteella.</div>';
     return;
@@ -1988,7 +2295,7 @@ function _renderSekRotaatio() {
 }
 
 function _renderSekaPisteSyotto(piste) {
-  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
+  const protokolla = _haeProto(_aktiivinenTapahtuma);
   const pisteTestit = protokolla.testit.filter(t => t.piste === piste);
   const pelaajat = _aktiivinenTapahtuma.pelaajatData || [];
   const lista = document.getElementById('seka-piste-lista');
@@ -2003,7 +2310,7 @@ function _renderSekaPisteSyotto(piste) {
 
 function _renderSekYksilö() {
   const wrap = document.getElementById('seka-yksilö-wrap');
-  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
+  const protokolla = _haeProto(_aktiivinenTapahtuma);
   const yksilöTestit = protokolla.testit.filter(t => typeof t.piste === 'string');
   const pelaajat = _aktiivinenTapahtuma.pelaajatData || [];
   wrap.innerHTML = '<div class="sektiootsikko">Yksilötestit (esim. MAS)</div>';
@@ -2022,7 +2329,7 @@ function _renderSekYksilö() {
 // ════════════════════════════════════
 function _renderTestiSyotto(testi, pelaajaId, nykyarvo) {
   const inputId = `ti_${pelaajaId}_${testi.id}`;
-  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma?.protokolla] || {};
+  const protokolla = _haeProto(_aktiivinenTapahtuma) || {};
 
   // ── 1–3 pisteasteikko (harjoitettavuus) ──────────────────────────
   if (testi.yksikko === undefined) {
@@ -2325,7 +2632,7 @@ function _tallennaTulos(pelaajaId, testiId, arvo) {
         ? Object.fromEntries(Object.entries(_tulokset[pelaajaId]||{}).filter(([k]) => aktTestit.includes(k)))
         : (_tulokset[pelaajaId]||{});
       // Laske FLEI ja ketjupisteet tallennusta varten
-      const protokolla_t = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
+      const protokolla_t = _haeProto(_aktiivinenTapahtuma);
       const ketjuPisteet_t = { SBL:[], SFL:[], LL:[], DIAG:[], DFL:[] };
       if (protokolla_t && protokolla_t.tyyppi === '1-3') {
         (protokolla_t.testit || []).forEach(t => {
@@ -2413,7 +2720,7 @@ async function _synkronoiOfflineData() {
 // VALMIS-TARKISTUS JA EDISTYMINEN
 // ════════════════════════════════════
 function _tarkistaValmis(pelaajaId) {
-  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
+  const protokolla = _haeProto(_aktiivinenTapahtuma);
   const tulokset_p = _tulokset[pelaajaId] || {};
   const valmis = protokolla.testit.every(t => tulokset_p[t.id] !== undefined);
 
@@ -2425,7 +2732,7 @@ function _tarkistaValmis(pelaajaId) {
 function _paivitaEdistyminen() {
   if (!_aktiivinenTapahtuma) return;
   const pelaajat = _aktiivinenTapahtuma.pelaajatData || [];
-  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
+  const protokolla = _haeProto(_aktiivinenTapahtuma);
   let valmista = 0;
   pelaajat.forEach(p => {
     const t = _tulokset[p.id] || {};
@@ -2443,7 +2750,7 @@ function _paivitaEdistyminen() {
 const KETJU_MAP = { SBL:[], SFL:[], LL:[], DIAG:[], DFL:[] };
 
 function _paivitaFLEI(pelaajaId) {
-  const protokolla = PROTOKOLLAT[_aktiivinenTapahtuma.protokolla];
+  const protokolla = _haeProto(_aktiivinenTapahtuma);
   if (protokolla.tyyppi !== '1-3') return; // FLEI vain 1-3 pisteasteikolla
   const tulokset_p = _tulokset[pelaajaId] || {};
   const ketjuPisteet = { SBL:[], SFL:[], LL:[], DIAG:[], DFL:[] };
