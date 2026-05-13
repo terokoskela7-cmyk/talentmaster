@@ -162,7 +162,7 @@ toisen `translateX`. Admin.html toimi heti koska vain yksi lohko.
 | `TalentMaster_IDP_Kortti_v4.html` | IDP-kortti | ✅ UUSIN 2026-05-01 |
 | `TalentMaster_Rekisterointi_Suostumus.html` | GDPR-suostumuslomake | ✅ |
 | `TalentMaster_Testaus_v8.html` | Kenttätestauslomake | ✅ UUSI 2026-05-01 |
-| `TalentMaster_Excel_Tuonti.html` | Massatuontityökalu VP:lle | ✅ UUSI 2026-05-01 |
+| `TalentMaster_Excel_Tuonti.html` | Massatuontityökalu VP:lle — Sprint 3.1 (historiapohja-moodi + writeBatch + TKI + PalloID-ristiintarkistus) | ✅ Sprint 3.1 valmis 2026-05-13 |
 | `TalentMaster_Harjoitettavuus_Lomake_v4.html` | Harjoitettavuuskartoituslomake | ✅ UUSI 2026-05-01 |
 | `TalentMaster_Pelaajarekisteri.xlsx` | Excel-rekisteripohja | ✅ |
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ |
@@ -941,6 +941,87 @@ testitapahtumat/{tapahtumaId} {
   }
 }
 ```
+
+### Historiapohja-tuonti (Sprint 3.1, 2026-05-13)
+
+Excel_Tuonti.html tukee kahta moodia:
+
+**Moodi A — Tapahtumapohjainen** (default): vaatii Tapahtuma-ID:n, tallentaa
+`seurat/{sid}/testitapahtumat/{tid}/tulokset/{palloID}` — kuten ennenkin.
+
+**Moodi B — Historiapohjainen** (uusi): EI vaadi tapahtumaa. Tallentaa
+seuraan vapaaseen alikokoelmaan:
+
+```javascript
+seurat/{sid}/pelaajat/{palloID}/testitulokset/{pvm}_{protokolla} {
+  testit: { ponnauttelu: 48, syotto: 22, pujottelu: 13.5, ... },
+  kausi: "2025-syksy",
+  protokolla: "tekniikkakilpailu"|"hh_laaja"|"harjoitettavuus_u12",
+  lahde: "historiapohja",
+  testauspvm: "2025-09-15",      // _paivaIso-muodossa
+  tuotu: "2026-05-13T08:42:00Z",
+  tuojaUid: "<vp-uid>",
+  flei_pct: 67,                   // jos protokolla 1-3 / num
+  tki: 72,                        // jos protokolla=tekniikkakilpailu + ikä≤13
+  phv_tila: "AN"|"PH"|"VA"|"",
+  tallennettu: serverTimestamp()
+}
+```
+
+**Doc-ID-konventio:** `{pvm}_{protokolla}` — esim.
+`2025-09-15_tekniikkakilpailu`. Tämä estää konfliktit kun sama pelaaja
+tekee useita protokollia samana päivänä.
+
+**Pelaajaprofiilin päivitys** (`pelaajat/{palloID}` -dokumentti):
+päivitetään VAIN jos PalloID löytyy Firestoresta esikatselun
+ristiintarkistuksessa. Tunnistamattomat ja tyhjät PalloID:t voi tuoda
+mutta vain `testitulokset`-alikokoelmaan — profiilia ei luoda eikä
+päivitetä (review-jono jälkikäteen).
+
+**WriteBatch:** Sprint 3.1 toteutti `db.batch()` -atomisuuden, max 400
+dokumenttia per erä (Firestoren raja 500). Pelaajaprofiilin
+`flei_historia`-array käyttää `new Date().toISOString()`-leimaa
+(CLAUDE.md §17 #7 — serverTimestamp() ei toimi array:n sisällä).
+
+**TKI-laskenta tuonnin yhteydessä:** Excel_Tuonti.html sisältää inlinen
+kopion `tkLaskeMerkki` + `tkLaskeTKI` + `TK_MERKKIRAJAT` -funktioista
+(`docs/testit_indeksit.js`). Lasketaan vain kun
+`protokolla === 'tekniikkakilpailu'` JA pelaajan ikä on 8–13 (TK_MERKKIRAJAT
+ei kata vanhempia → TKI=null on semanttisesti "ei mitattu").
+
+### Pelaajatunniste-arkkitehtuuri (Sprint 3.1, 2026-05-13)
+
+Pelaajan tunnistus on monitasoinen, koska eri maiden jalkapalloliitot
+käyttävät eri formaatteja. TalentMaster säilyttää tunnistearvon yhdessä
+kentässä ja erikseen `tunnistetyyppi`-metakentässä, jotta jälkikäteen
+tiedetään mistä lähteestä tunniste on.
+
+- **Suomi:** PalloID — Palloliiton virallinen tunniste, sama fi/sv-kielisille
+  seuroille (GrIFK, VIFK, palloiirot)
+- **Muut maat:** kukin liitto käyttää omaa tunnisteformaattiaan
+  (DFB-ID, UEFA-ID, NIF-ID, jne.) — eivät vielä tiedossa eivätkä
+  toteutettu, lisätään maakohtaisesti pilotin tullessa
+- **Firestore-kenttä:** `tunniste` (tai legacy `palloID`) sisältää
+  varsinaisen arvon. `tunnistetyyppi`-metakenttä on yksi seuraavista:
+  - `'palloID'` — virallinen Palloliiton tunniste (Suomi)
+  - `'tunniste'` — seuran oma tai muu järjestelmätunniste
+    (Excel-sarake `Tunniste`, `PlayerID`, `SpelareID`, `Spieler-ID`)
+  - `'muu'` — fallback, ei luotettavaa tunnistetta löytynyt
+- **Excel-tuonti** (Excel_Tuonti.html): tunnistaa sarakkeet
+  monikielisesti — `PalloID` / `Tunniste` / `PlayerID` / `SpelareID`
+  / `Spieler-ID`. Sarake-prioriteetti: ensisijaisesti PalloID, fallback
+  järjestelmätunnisteet. Tallentaa erikseen `tunnistetyyppi`-arvon
+  tallennusdataan.
+- **Kansainvälinen laajennus:** ennen ensimmäisen ei-suomalaisen seuran
+  pilottia tarvitaan maakohtainen liitto-konfiguraatio
+  (`seurat/{sid}/konfiguraatio/tunnistetyyppi: 'DFB-ID' | 'NIF-ID' | ...`)
+  + monikielinen otsikkohaku Excel-tuontityökaluun. Sprint 3.1 lisäsi
+  jo SV/EN-tunnistuksen otsikoille — saksankielinen `Dribbeln` /
+  `Pass` / `Jonglieren` jää Sprint 3.2:een.
+
+Tämä arkkitehtuuri mahdollistaa että sama Firestore-rakenne palvelee
+kotimaista ja kansainvälistä dataa ilman migraatiota — `tunnistetyyppi`
+toimii datan alkuperän audit-jälkenä.
 
 ---
 
