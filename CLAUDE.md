@@ -153,7 +153,7 @@ toisen `translateX`. Admin.html toimi heti koska vain yksi lohko.
 | `TalentMaster_Admin.html` | Super Admin -hallintapaneeli | ✅ Tilastot + mobiili |
 | `TalentMaster_VP_v20.html` | VP strateginen dashboard | Arkisto |
 | `TalentMaster_VP_v21.html` | VP Firebase-pohjainen | Arkisto |
-| `TalentMaster_VP_v22.html` | VP — sivupalkki + mentorointi | ✅ UUSIN 2026-05-02 |
+| `TalentMaster_VP_v22.html` | VP — sivupalkki + mentorointi + Sprint 3 (signaalit/BQ/IDP) | ✅ Sprint 3 valmis 2026-05-13 |
 | `TalentMaster_Master_v15.html` | Valmentajan näkymä | Arkisto |
 | `TalentMaster_Master_v16.html` | Valmentajan näkymä + Testit-työtila | ✅ UUSIN 2026-05-02 |
 | `TalentMaster_ADAR_Pikakortti.html` | Kenttähavainto + ADAR Vision | ✅ |
@@ -227,8 +227,10 @@ pelaajat/{palloID}
     benchmark: {ok, pvm, versio}
 
   kirjaukset/{pv}
-    tyyppi: T|D|S|P
+    tyyppi: 'T'|'D'|'S'|'P'|'jalkapallo'|'muu_urheilu'|'lepo'
     tehty: bool, kesto_min, rpe: 1-10
+    kirjaustapa: 'heti'|'jalkikateen'|'auto'    ← lisätty 2026-05-12 (takautuva-tuki)
+    takautuva: { tyyppi, kesto_min, lisatty }    ← valinnainen — jos pvm-doc oli jo olemassa
     fiilinki: 1-5, aika: ilta|aamu|paiva
 
   idp_kausi/{vuosi}
@@ -282,11 +284,13 @@ seurat/{seuraId}/
       luotu: ISO-string
 
     kirjaukset/{pvm}/
-      tyyppi: T|D|S|P
+      tyyppi: 'T'|'D'|'S'|'P'|'jalkapallo'|'muu_urheilu'|'lepo'
       tehty, xp, kesto_min, rpe: 1-10
       fiilinki: 1-5, aika: ilta|aamu|paiva
       lahde: 'manuaalinen'|'catapult'|'polar'|'taso'   ← pakollinen, integraatioekosysteemi
       lahde_id: string|null                               ← alkuperäinen ID lähejärjestelmässä
+      kirjaustapa: 'heti'|'jalkikateen'|'auto'            ← lisätty 2026-05-12 (takautuva-tuki)
+      takautuva: { tyyppi, kesto_min, lisatty }           ← valinnainen — jos pvm-doc oli jo olemassa
 
   kayttajat/{uid}/
     email, rooli, etunimi, sukunimi
@@ -451,7 +455,7 @@ _pikaTallenna()                               // → tila:'luonnos' (ei heti 'va
 
 ---
 
-## 13. PELAAJAN APP (TalentMaster_Pelaaja_v7.html) — v=24
+## 13. PELAAJAN APP (TalentMaster_Pelaaja_v7.html) — v=25
 
 ### Kirjautuminen
 ```javascript
@@ -1058,7 +1062,7 @@ ADAR Pikakortti on `TalentMaster_ADAR_Pikakortti.html` — ei `TalentMaster_Pela
 | VP_v19 | Arkisto | Vaalea teema, ei Firebase. Pelaajapolut-filtterit, Kausirakenne-tabi |
 | VP_v20 | Arkisto | VP+TD yhdistetty rooli, Kalibraatiopaja, Benchmark |
 | VP_v21 | Käytössä | Firebase live-data, tumma teema, React-pohjainen |
-| **VP_v22** | **UUSIN** | Sivupalkki = Master_v16-pariteetti, mentorointi-loop, joukkuepulssi |
+| **VP_v22** | **tuotanto — Sprint 3 valmis 2026-05-13** (signaalit + BQ-stack + IDP-jono) | Sivupalkki = Master_v16-pariteetti, mentorointi-loop, joukkuepulssi, VAI, dynaaminen renderSignals, RAE-BQ-jakauma + Underdog, IDP-jono Firestoressa |
 
 ### VP_v22 rakenne (canonical)
 ```
@@ -1079,6 +1083,17 @@ ASETUKSET (sivupalkin pohja):
 ### Valmentajan mentorointi-loop (natiivi TalentMasterissa)
 VP kirjoittaa viestin valmentajalle → `seurat/{id}/viestit/{valmentajaUid}` → näkyy valmentajan Inboxissa.
 Ei sähköpostia, ei Slack-linkkiä. Kaikki TalentMasterin sisällä.
+
+### Sprint 4 -backlog (jää avoimeksi 2026-05-13 jälkeen)
+
+| # | Tehtävä | Peruste |
+|---|---|---|
+| 1 | **`viimKirjausPvm`-aggregaattikenttä** pelaajadokumenttiin | renderSignals S5 tekee nyt N+1 -kyselyn `kirjaukset`-alikokoelmaan per PHV-pelaaja. Aggregaatti pelaajadokumenttiin (päivitetään kirjauksen yhteydessä) tekee tästä yhden kyselyn. |
+| 2 | **`idp_jono` 'ehdotettu' → 'odottaa' migraatio** | Sprint 3 tukee molempia rinnakkain (IN-clause + Rules), mutta vanha data pitää siivota Cloud Functionilla `migrateIdpJonoTila`. |
+| 3 | **`renderTalentCards()`** Tilanne-tabin loppuun | v24-referenssin `.talent`-osio: Hidden Gem / X-Factor / Erityistuki -kategoriakortit dynaamisesti `_pelaajat`-datasta. |
+| 4 | **Underdog-filtteri Pelaajat-tabiin** | 7. filter-button `BQ4 + FLEI ≥ 60` Morganti 2025 -pohjainen (renderTeamPulse näyttää nyt vain laskurin per joukkue). |
+| 5 | **i18n-engine (v24 I18N + t() + applyI18n)** | FI/EN/SV täydellinen — vaatii data-i18n-attribuuttien lisäyksen koko UI:hin. |
+| 6 | **Filter-laskurit** suodatinnappuloihin | v24:n malli — chip-numero per kategoria. |
 
 ---
 
