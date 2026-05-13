@@ -1,10 +1,21 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v2.3
+// TalentMaster™ — firestore.rules v2.5
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: Firebase Console → Firestore → Rules → liitä → Julkaise
 //         (EI GitHub Actionsilla — saa 403, CLAUDE.md §17 #10)
+//
+// Muutokset v2.4 → v2.5 (Sprint 3):
+//   * idp_jono — tila-arvo 'odottaa' tuettu rinnakkain 'ehdotettu'-arvon
+//     kanssa (uusi standardi). Valmentaja saa muokata omaa ehdotustaan
+//     niin kauan kuin tila in ['ehdotettu','odottaa'].
+//   + meta/{key} — VP:n metadatakanava (esim. phv_snapshot Sprint 3
+//     signaaleille — VP/UTJ/seurasihteeri kirjoittaa, koko seura lukee).
+//
+// Muutokset v2.3 → v2.4 (Sprint 2):
+//   + seurat/{sid}/pelaajat/{pid}/vp_muistiinpanot/{mid} — VP:n muistiinpanot
+//     pelaajalle, näkyvyys-flageilla naytaValmentajalle / naytaPelaajalle
 //
 // Muutokset v2.1.0 → v2.3:
 //   + onLapsenHuoltaja(seuraId, pelaajaId) — vanhempi tunnistetaan
@@ -166,6 +177,25 @@ service cloud.firestore {
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
 
+        // ── VP-muistiinpanot per pelaajalle (v2.4) ────────────────────────
+        // VP tekee muistiinpanon pelaajasta. Näkyvyys flaggeilla:
+        // naytaValmentajalle: valmentaja-roolit saavat lukea
+        // naytaPelaajalle:    anonyymi PIN-pelaaja saa lukea
+        // Default: vain VP/UTJ/seurasihteeri näkevät.
+        match /vp_muistiinpanot/{muistiId} {
+          allow read:   if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && onJohtoRooli())
+                        || (resource.data.naytaValmentajalle == true
+                            && onOmanSeuranValmentaja(seuraId))
+                        || (resource.data.naytaPelaajalle == true
+                            && onAnonymous());
+          allow create: if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow update: if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow delete: if onSuperAdmin();
+        }
+
         // ── Kehut — vanhemman lähettämä kehu pelaajalle (v2.3) ────────────
         // Yksityinen vanhempi → pelaaja -kanava. Valmentajalla EI lukuoikeutta:
         // pedagoginen suoja, kehu on perheen sisäinen viestintä.
@@ -269,16 +299,27 @@ service cloud.firestore {
 
       // ── IDP_JONO — IDP-aktivointiehdotusten jono ──────────────────────
       // Valmentaja ehdottaa IDP:tä → VP/UTJ hyväksyy. Valmentaja saa
-      // muokata omaa ehdotustaan vain niin kauan kuin tila on 'ehdotettu'.
+      // muokata omaa ehdotustaan niin kauan kuin tila on 'ehdotettu' tai
+      // 'odottaa' (v2.5 — uusi standardi käyttöön rinnakkain vanhan kanssa).
       match /idp_jono/{idpId} {
         allow read:   if onSuperAdmin() || onOmaSeura(seuraId);
         allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
         allow update: if onSuperAdmin()
                       || (onOmaSeura(seuraId) && onJohtoRooli())
                       || (onOmanSeuranValmentaja(seuraId)
-                          && resource.data.tila == 'ehdotettu'
+                          && resource.data.tila in ['ehdotettu', 'odottaa']
                           && resource.data.valmentajaUid == request.auth.uid);
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+      }
+
+      // ── META — VP:n metadatakanava (Sprint 3) ─────────────────────────
+      // Esim. phv_snapshot — kasvuvaiheessa olevien pelaajien lukumäärä
+      // viime laskennalta, jotta renderSignals voi tunnistaa kasvun.
+      // Koko seura lukee (signaali näkyy myös valmentajalle), VP/UTJ
+      // /seurasihteeri kirjoittaa.
+      match /meta/{metaKey} {
+        allow read:  if onSuperAdmin() || onOmaSeura(seuraId);
+        allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
       }
 
       // ── VALMENTAJAT — valmentajan oma datatila (CLAUDE.md §10) ────────
