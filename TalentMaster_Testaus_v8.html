@@ -2444,20 +2444,28 @@ window._tallennaTapahtuma = async function _tallennaTapahtuma() {
   };
 
   try {
+    // POLKU 1 — pää-tallennus (kriittinen, ei saa epäonnistua)
     const tapRef = await _db.collection('seurat').doc(_seuraId)
       .collection('testitapahtumat').add(tapData);
 
-    // Lisää joukkueen kalenteriin
-    await _db.collection('seurat').doc(_seuraId)
-      .collection('joukkueet').doc(_luoData.joukkue)
-      .collection('kalenteri').doc(tapRef.id).set({
-        tyyppi: 'testi',
-        ref: 'testitapahtumat/' + tapRef.id,
-        pvm: _luoData.pvm,
-        nimi: tapData.nimi,
-        protokolla: _luoData.protokolla,
-        luotu: firebase.firestore.FieldValue.serverTimestamp()
-      });
+    // POLKU 2 — kalenterikopio joukkueeseen (convenience, ei kriittinen).
+    // Erillinen try/catch: jos Rules-blokki kalenterille puuttuu tai
+    // joukkuedokumentti puuttuu, pää-tapahtuma silti onnistuu.
+    try {
+      await _db.collection('seurat').doc(_seuraId)
+        .collection('joukkueet').doc(_luoData.joukkue)
+        .collection('kalenteri').doc(tapRef.id).set({
+          tyyppi: 'testi',
+          ref: 'testitapahtumat/' + tapRef.id,
+          pvm: _luoData.pvm,
+          nimi: tapData.nimi,
+          protokolla: _luoData.protokolla,
+          luotu: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (kalE) {
+      console.warn('[kalenterikopio]', kalE.code || '', kalE.message,
+        '— testitapahtuma luotu silti (id=' + tapRef.id + ')');
+    }
 
     _toast('Tapahtuma luotu!', 'ok');
     // Nollaa lomake
