@@ -1,10 +1,18 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v2.6
+// TalentMaster™ — firestore.rules v2.7
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: Firebase Console → Firestore → Rules → liitä → Julkaise
 //         (EI GitHub Actionsilla — saa 403, CLAUDE.md §17 #10)
+//
+// Muutokset v2.6 → v2.7 (Testaus_v8 kalenterikopio):
+//   + seurat/{sid}/joukkueet/{jid}/kalenteri/{kid} — alikokoelma jonka
+//     Testaus_v8._tallennaTapahtuma kirjoittaa testitapahtuman luonnin
+//     yhteydessä (pikaviittaus joukkueen kalenteriin). Aiemmin puuttuva
+//     match-blokki aiheutti "Missing or insufficient permissions"-virheen
+//     vaikka pää-testitapahtuma tallentui onnistuneesti.
+//     CLAUDE.md §17 #18 — Rules eivät periydy alikokoelmiin automaattisesti.
 //
 // Muutokset v2.5 → v2.6 (Sprint 3.1 — Historiapohja-tuonti):
 //   + seurat/{sid}/pelaajat/{pid}/testitulokset/{pvm}_{protokolla} —
@@ -263,6 +271,17 @@ service cloud.firestore {
       match /joukkueet/{joukkueId} {
         allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
         allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+
+        // ── kalenteri/{kalenteriId} (v2.7) ────────────────────────────────
+        // Testaus_v8._tallennaTapahtuma kirjoittaa tänne pikaviittauksen
+        // luodusta testitapahtumasta (tyyppi:'testi', ref, pvm, nimi…).
+        // Sallittu valmentaja-rooleille kaikkien seuran sisällä.
+        match /kalenteri/{kalenteriId} {
+          allow read:   if onSuperAdmin() || onOmaSeura(seuraId);
+          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        }
       }
 
       // ── KUTSUT ────────────────────────────────────────────────────────
