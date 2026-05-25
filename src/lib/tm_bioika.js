@@ -47,6 +47,49 @@ const YLI_IKAISYYS_KYNNYS = {
   12: [14.0500, 12.1500],
 };
 
+// ── Sukupuolen normalisointi ──────────────────────────────────────────────
+// Mirwald/KR-kaavat käyttävät 'P' (poika) / 'T' (tyttö).
+// Firestore tallentaa 'M'/'N' (CLAUDE.md §17 #13) — tuetaan myös vanhoja muotoja.
+// HUOM: aiempi versio ei tunnistanut 'N':ää → tyttö laski poikien kaavalla.
+function normSukupuoli(sp) {
+  var s = String(sp == null ? '' : sp).toLowerCase();
+  if (s === 't' || s === 'n' || s === 'tytto' || s === 'tyttö' ||
+      s === 'nainen' || s === 'f' || s === 'girl' || s === 'female') return 'T';
+  return 'P';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// KHAMIS-ROCHE — integraatiopinta (LASKENTA LUKITTU)
+//
+// Kertoimet ovat IMPERIAALISIA (pituus tuumina, paino paunoina, midparent
+// tuumina), ikä- ja sukupuolikohtaisia 4.0–17.5v puolen vuoden välein.
+// Lähde joka pitää käyttää: Khamis & Roche, Pediatrics 1994;94:504-507
+//   + erratum Pediatrics 1995;95(3):457 (alkuperäiset kertoimet väärin).
+//
+// EI VIELÄ VERIFIOITU → KR_KERTOIMET on tyhjä ja laskeKR() palauttaa
+//   { error: 'KR_KERTOIMET_PUUTTUU' }. §30: virheellinen aikuispituusennuste
+//   on pahempi kuin ei ennustetta lainkaan — älä keksi kertoimia.
+// ════════════════════════════════════════════════════════════════════════
+var KR_KERTOIMET = {
+  // ika(desim) -> [B0, b_pituus_in, b_paino_lb, b_midparent_in]  (imperiaalinen)
+  P: {},
+  T: {},
+};
+var KR_VERIFIOITU = false; // → true vasta kun KR_KERTOIMET täytetty + ristiintarkistettu
+
+// Vanhempien pituuksien fallback puuttuville (THL FinRavinto 2017, 25–34v) — §30
+var VANHEMPI_FALLBACK_CM = { isa: 179, aiti: 166 };
+// Vanhempien itseraportoinnin yliarviointikorjaus (Epstein 1995)
+var VANHEMPI_KORJAUS_CM = { isa: 1.5, aiti: 1.0 };
+
+// Käyttäytymis-/tulkintavaroitukset — näytetään AINA KR-tuloksen yhteydessä
+var BIOIKA_VAROITUKSET = {
+  kr_estimoitu:     'Toinen/molemmat vanhempien pituudet puuttuvat — tulos on arvio',
+  kr_epaluotettava: 'KR-menetelmä on epätarkempi murrosiässä (±5–7 cm)',
+  phv_circa:        'Pelaaja on kasvupyrähdyksessä — erityishuomio kuormituksessa',
+  monietninen:      'KR perustuu eurooppalaiseen aineistoon — sovellettava harkiten',
+};
+
 // ════════════════════════════════════════════════════════════════════════
 // MIRWALD 2002 — maturity offset laskenta
 //
@@ -142,9 +185,7 @@ function laskeMirwald(m) {
  * @returns {Object|null}
  */
 function laskeBioIkaDokumentti(syote) {
-  const sp = syote.sukupuoli || 'P';
-  const sukupuoli = (sp === 'T' || sp === 'tytto' || sp === 'F' || sp === 'girl')
-    ? 'T' : 'P';
+  const sukupuoli = normSukupuoli(syote.sukupuoli);
 
   // Mittauspäivä voi erota muista testeistä — tämä on keskeinen arkkitehtuuriperiaate
   const mittauspaiva   = syote.mittauspaiva ? new Date(syote.mittauspaiva) : new Date();
@@ -300,17 +341,119 @@ function phvTilaVari(koodi) {
   })[koodi] ?? 'var(--color-text-secondary)';
 }
 
+// ════════════════════════════════════════════════════════════════════════
+// APUFUNKTIOT — ikä + vanhempien pituudet
+// ════════════════════════════════════════════════════════════════════════
+
+/** Muuntaa Date | Firestore Timestamp | ISO-string | 'YYYY-MM-DD' Dateksi. */
+function _bioToDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  if (typeof v.toDate === 'function') return v.toDate();       // Firestore Timestamp
+  if (typeof v.seconds === 'number') return new Date(v.seconds * 1000);
+  if (typeof v === 'string') {
+    var m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);                // 'YYYY-MM-DD' → UTC (§17 #2)
+    if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    var d = new Date(v); return isNaN(d) ? null : d;
+  }
+  return null;
+}
+
+/**
+ * Desimaalinen ikä vuosina referenssipäivänä (EI new Date() oletuksena ellei
+ * refPvm puutu). Esim. 12.75.
+ */
+function laskeIkaDesimaalinen(syntyma, refPvm) {
+  var s = _bioToDate(syntyma);
+  var r = refPvm ? _bioToDate(refPvm) : new Date();
+  if (!s || !r) return null;
+  return Math.round(((r - s) / (365.25 * 24 * 3600 * 1000)) * 100) / 100;
+}
+
+/** Palauttaa puuttuvan vanhemman pituuden väestöfallbackin (§30). */
+function estimoiPuuttuvaVanhempi(kumpi) {
+  var cm = (String(kumpi).toLowerCase().indexOf('isa') === 0 ||
+            String(kumpi).toLowerCase().indexOf('isä') === 0)
+    ? VANHEMPI_FALLBACK_CM.isa : VANHEMPI_FALLBACK_CM.aiti;
+  return { cm: cm, on_estimoitu: true };
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// KHAMIS-ROCHE — laskenta (LUKITTU kunnes KR_KERTOIMET verifioitu)
+//
+// Rakentaa kaiken muun (midparent, yliarviointikorjaus, fallback,
+// virhemarginaali, varoitukset) mutta palauttaa
+// { error: 'KR_KERTOIMET_PUUTTUU' } kunnes verifioidut kertoimet on lisätty.
+// Integraatiopinta on siis valmis — kun KR_KERTOIMET täytetään ja
+// KR_VERIFIOITU=true, numeroennuste aktivoituu automaattisesti.
+// ════════════════════════════════════════════════════════════════════════
+
+/**
+ * @param {Object} p
+ * @param {number} p.pituus_cm      Lapsen seisomapituus cm
+ * @param {number} p.paino_kg       Lapsen paino kg
+ * @param {number} p.ika_desim      Desimaalinen ikä vuosina
+ * @param {string} p.sukupuoli      'M'/'P'/'N'/'T' tms.
+ * @param {number|null} p.isa_cm_raw   Isän raportoima pituus cm (tai null)
+ * @param {number|null} p.aiti_cm_raw  Äidin raportoima pituus cm (tai null)
+ */
+function laskeKR(p) {
+  p = p || {};
+  var sp = normSukupuoli(p.sukupuoli);
+  var varoitukset = [];
+
+  // 1. Vanhempien pituudet: yliarviointikorjaus (Epstein) tai väestöfallback
+  var on_estimoitu = false;
+  var isaRaw  = (p.isa_cm_raw  != null && p.isa_cm_raw  !== '') ? parseFloat(p.isa_cm_raw)  : null;
+  var aitiRaw = (p.aiti_cm_raw != null && p.aiti_cm_raw !== '') ? parseFloat(p.aiti_cm_raw) : null;
+  var isa  = (isaRaw  != null && !isNaN(isaRaw))  ? isaRaw  - VANHEMPI_KORJAUS_CM.isa  : (on_estimoitu = true, VANHEMPI_FALLBACK_CM.isa);
+  var aiti = (aitiRaw != null && !isNaN(aitiRaw)) ? aitiRaw - VANHEMPI_KORJAUS_CM.aiti : (on_estimoitu = true, VANHEMPI_FALLBACK_CM.aiti);
+  if (on_estimoitu) varoitukset.push(BIOIKA_VAROITUKSET.kr_estimoitu);
+
+  // 2. Midparent-korkeus (sukupuolikorjattu, cm)
+  var midparent_cm = sp === 'P' ? (isa + aiti + 13) / 2 : (isa + aiti - 13) / 2;
+  midparent_cm = Math.round(midparent_cm * 10) / 10;
+
+  // 3. Virhemarginaali (näytetään AINA)
+  var ika = p.ika_desim;
+  var virhe_cm = (ika >= 11 && ika <= 15) ? 2.5 : 2.0;
+  if (on_estimoitu) virhe_cm += 1.5;
+  if (ika >= 11 && ika <= 15) varoitukset.push(BIOIKA_VAROITUKSET.kr_epaluotettava);
+
+  // 4. GATE: ilman verifioituja kertoimia ei numeroennustetta
+  if (!KR_VERIFIOITU || !KR_KERTOIMET[sp] || Object.keys(KR_KERTOIMET[sp]).length === 0) {
+    return {
+      error: 'KR_KERTOIMET_PUUTTUU',
+      saatavilla: false,
+      midparent_cm: midparent_cm,
+      on_estimoitu: on_estimoitu,
+      virhe_cm: virhe_cm,
+      varoitukset: varoitukset,
+    };
+  }
+
+  // 5. (Aktivoituu kun KR_KERTOIMET täytetty — Pediatrics 1995 erratum)
+  //    Muunna imperiaalisiksi, hae ikäinterpoloidut kertoimet, laske:
+  //      ennustettu_in = B0 + b1*pituus_in + b2*paino_lb + b3*midparent_in
+  //      ennustettu_cm = ennustettu_in * 2.54
+  //      pah_prosentti = pituus_cm / ennustettu_cm * 100
+  //    Toistaiseksi tähän ei päästä (GATE yllä).
+  return { error: 'KR_LASKENTA_EI_TOTEUTETTU', saatavilla: false };
+}
+
 // ── Eksportointi ──────────────────────────────────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     laskeBioIkaDokumentti, bioIkaTallennusOperaatiot, laskeMirwald,
     bioIkaTiivistelma, yliIkaisyysMerkki, phvTilaVari,
-    YLI_IKAISYYS_KYNNYS,
+    laskeKR, laskeIkaDesimaalinen, estimoiPuuttuvaVanhempi, normSukupuoli,
+    YLI_IKAISYYS_KYNNYS, BIOIKA_VAROITUKSET,
   };
 } else if (typeof window !== 'undefined') {
   window.TM_BioIka = {
     laskeBioIkaDokumentti, bioIkaTallennusOperaatiot, laskeMirwald,
     bioIkaTiivistelma, yliIkaisyysMerkki, phvTilaVari,
-    YLI_IKAISYYS_KYNNYS,
+    laskeKR, laskeIkaDesimaalinen, estimoiPuuttuvaVanhempi, normSukupuoli,
+    YLI_IKAISYYS_KYNNYS, BIOIKA_VAROITUKSET,
   };
 }

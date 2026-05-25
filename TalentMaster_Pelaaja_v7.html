@@ -1043,6 +1043,53 @@ function rMinaProfiili() {
   return h;
 }
 
+// Kehitysvaihe-kortti — PHV (Mirwald) + biologinen ikä (KR tulossa myöhemmin)
+// Lukee pelaajadokumentin pikakentät phv_tila + biologinenIka_viimeisin.
+// Piilotetaan kokonaan jos kasvumittausta ei ole tehty (ei phv_tila).
+function rMinaKehitysvaihe() {
+  const p = _pelaaja || {};
+  const koodi = p.phv_tila;
+  if (!koodi) return '';  // ei kasvumittausta → ei tyhjää korttia
+
+  // Koodit PRE/LAH/PH/POST/AN (tm_bioika §30) + vanha 'huippu'/'PHV' yhteensopivuus
+  const phvHuom = 'Tärkeä vaihe — kerro valmentajallesi';
+  const tilat = {
+    PRE:    { vari:'#585751', teksti:'Ennen kasvupyrähdystä' },
+    LAH:    { vari:'#E0A040', teksti:'Lähestyy kasvupyrähdystä 🔶' },
+    PH:     { vari:'#D85A5A', teksti:'Kasvupyrähdyksessä ⚠️', huom:phvHuom },
+    POST:   { vari:'#28B090', teksti:'Kasvupyrähdyksen jälkeen' },
+    AN:     { vari:'#5FB87A', teksti:'Kehittynyt vaihe' },
+    huippu: { vari:'#D85A5A', teksti:'Kasvupyrähdyksessä ⚠️', huom:phvHuom },
+    PHV:    { vari:'#D85A5A', teksti:'Kasvupyrähdyksessä ⚠️', huom:phvHuom }
+  };
+  const t = tilat[koodi] || { vari:'#585751', teksti:'Kasvuvaihe mitattu' };
+  const viim = p.biologinenIka_viimeisin || {};
+  const mitattu = viim.mittauspaiva ? ('Mitattu ' + viim.mittauspaiva) : '';
+
+  const lbl = (txt) => '<div style="font-family:\'DM Sans\',sans-serif;font-size:9px;letter-spacing:.18em;color:#585751;text-transform:uppercase">' + txt + '</div>';
+
+  let h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:14px;letter-spacing:.01em">Kehitysvaihe</div>';
+
+  // Kasvuvaihe (PHV)
+  h += '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">';
+  h +=   lbl('Kasvuvaihe');
+  h +=   '<div style="font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:600;color:' + t.vari + ';text-align:right">' + t.teksti + '</div>';
+  h += '</div>';
+  if (mitattu) h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:10px;color:#585751;text-align:right;margin-top:2px">' + mitattu + '</div>';
+  h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:10px;color:#585751;text-align:right;margin-top:2px">±0.5 v epävarmuus</div>';
+  if (t.huom) h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:' + t.vari + ';margin-top:10px;line-height:1.4">' + t.huom + '</div>';
+
+  // Biologinen ikä (Khamis-Roche) — tulossa myöhemmin (kertoimet vahvistettava)
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:14px;border-top:.5px solid rgba(242,239,230,.08)">';
+  h +=   lbl('Biologinen ikä');
+  h +=   '<div style="font-family:\'DM Sans\',sans-serif;font-size:12px;color:#585751;font-style:italic;text-align:right">Tulossa myöhemmin</div>';
+  h += '</div>';
+
+  h += '</div>';
+  return h;
+}
+
 // Stub-kortti — Cormorant otsikko + DM Sans "Tulossa pian"
 function _rMinaStub(otsikko) {
   return '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">' +
@@ -1072,6 +1119,7 @@ function rMina() {
   return '<div class="scroll" style="background:var(--bg)">'
     + hdr('Minä')
     + rMinaProfiili()
+    + rMinaKehitysvaihe()
     + rMinaFLEI()
     + rMinaStreak()
     + rMinaTestit()
@@ -2215,7 +2263,7 @@ function _streakViesti(streak) {
 }
 
 function _laskeStage(sy, phv) {
-  if (phv === 'huippu') return '1_leikkija';
+  if (phv === 'huippu' || phv === 'PH') return '1_leikkija';  // PH = PHV-huippu (tm_bioika §30)
   const ika = new Date().getFullYear() - (sy || 2010);
   if (ika <= 12) return '1_leikkija';
   if (ika <= 15) return '2_rakentaja';
@@ -3231,8 +3279,8 @@ function _tarkistaSignaalit() {
   // X-Factor: streak ≥ 7
   if (_streak >= 7) signaalit.push({ tyyppi:'x-factor', teksti:'X-Factor — ${_streak} päivän putki', vari:'#28B090' });
   
-  // PHV-varoitus
-  if (_pelaaja?.phv_tila === 'PHV') {
+  // PHV-varoitus — uusi koodi 'PH' (tm_bioika §30), vanha 'PHV' yhteensopivuus
+  if (_pelaaja?.phv_tila === 'PH' || _pelaaja?.phv_tila === 'PHV') {
     signaalit.push({ tyyppi:'phv', teksti:'PHV-kasvupyrähdys — kuorma max 60%', vari:'#D85A5A' });
   }
   

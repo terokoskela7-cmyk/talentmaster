@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="src/lib/tm_bioika.js?v=2"></script>
 
 <style>
 /* ═══════════════════════════════════════════════════════════════
@@ -615,6 +616,7 @@ input, select, textarea { font-family: inherit; }
               <option value="hh_laaja">HH-testi laaja</option>
               <option value="hh_suppea">HH-testi suppea</option>
               <option value="tekniikkakilpailu">Tekniikkakilpailu</option>
+              <option value="kasvumittaus">Kasvumittaus (PHV / biologinen ikä)</option>
             </select>
             <div style="margin-top:8px;">
               <button type="button" class="btn btn-sm btn-outline" onclick="_v1AvaaVapaa()">✎ Valitse testit itse</button>
@@ -1010,6 +1012,17 @@ const PROTOKOLLAT = {
       { id: 'lantionnosto',       nimi: 'Lantionnosto',           ketju: 'SBL' },
       { id: 'thomas_testi',       nimi: 'Thomas-testi',           ketju: 'SFL' },
       { id: 'lonkan_akt_oj',      nimi: 'Lonkan aktiivinen ojennus', ketju: 'SFL' }
+    ]
+  },
+  kasvumittaus: {
+    nimi: 'Kasvumittaus (Mirwald PHV)',
+    ikäluokka: 'U10–U19',
+    tyyppi: 'kasvu',
+    kuvaus: 'Pituus, paino ja istumapituus PHV-laskentaa varten (Mirwald 2002)',
+    testit: [
+      { id: 'pituus',       nimi: 'Seisomapituus', yksikko: 'cm', yritykset: 2, laskentatapa: 'keskiarvo', pienempi_parempi: false, ohje: 'Mittaa ilman kenkiä, selkä seinää vasten, katse vaakatasossa' },
+      { id: 'paino',        nimi: 'Paino',         yksikko: 'kg', yritykset: 2, laskentatapa: 'keskiarvo', pienempi_parempi: false, ohje: 'Mittaa kevyissä vaatteissa, mieluiten aamulla' },
+      { id: 'istumapituus', nimi: 'Istumapituus',  yksikko: 'cm', yritykset: 1, ohje: 'Istuu suorassa kovalla alustalla — mittaa istuintasosta päälakeen' }
     ]
   },
   hh_laaja: {
@@ -2481,8 +2494,17 @@ window._v5SyotaYritys = function _v5SyotaYritys(pelaajaId, testiId, yritysNro, i
   // Laske paras
   const arvot = [];
   for (let i = 1; i <= 6; i++) if (obj['y' + i] !== undefined && obj['y' + i] !== null) arvot.push(obj['y' + i]);
-  if (arvot.length === 0) delete obj.paras;
-  else obj.paras = pienempiParempi ? Math.min(...arvot) : Math.max(...arvot);
+  if (arvot.length === 0) {
+    delete obj.paras;
+  } else {
+    // Kasvumittaus (pituus/paino) → keskiarvo; muut testit → paras (min/max)
+    const td = (_v5AktiivisetTestit() || []).find(t => t.id === testiId);
+    if (td && td.laskentatapa === 'keskiarvo') {
+      obj.paras = Math.round((arvot.reduce((a, b) => a + b, 0) / arvot.length) * 100) / 100;
+    } else {
+      obj.paras = pienempiParempi ? Math.min(...arvot) : Math.max(...arvot);
+    }
+  }
   _v5Valahda(input, arvo !== null);
   _tallennaTulosKentta(pelaajaId, testiId, obj);
   _v5PaivitaKompaktiBar(_v5NakyvatPelaajat());
@@ -2673,6 +2695,7 @@ window._tallennaTapahtuma = async function _tallennaTapahtuma() {
       etunimi: p.etunimi || '',
       sukunimi: p.sukunimi || '',
       syntymapaiva: p.syntymapaiva || p.syntymaaika || '',
+      sukupuoli: p.sukupuoli || null,
       phv_tila: p.phv_tila || null,
       palloID: p.palloID || p.tunniste || null
     })),
@@ -2808,12 +2831,82 @@ window._v6MerkitseValmiiksi = async function _v6MerkitseValmiiksi() {
       .update({ tila: 'valmis', valmistettu: new Date().toISOString(), valmistaja: _kayttaja.uid });
     _aktiivinenTapahtuma.tila = 'valmis';
     _toast('✓ Tapahtuma merkitty valmiiksi', 'ok');
+
+    // Kasvumittaus → laske PHV (Mirwald) ja tallenna jokaiselle pelaajalle
+    if (_aktiivinenTapahtuma.protokolla === 'kasvumittaus') {
+      await _kasvuTallennaKaikkiPHV();
+    }
+
     _v6Renderoi();
     await _lataaTapahtumat();
   } catch(e) {
     _toast('Merkintä epäonnistui: ' + e.message, 'err');
   }
 };
+
+/* ── Kasvumittaus → PHV (Mirwald) → Firestore ──────────────────────────────
+   Tallennus kahteen polkuun (§30):
+     1) seurat/{sid}/pelaajat/{pid}/biologinen_ika/{mittauspvm}  ← historia
+     2) pelaajat/{pid}.{biologinenIka_viimeisin, phv_tila}        ← VP-pikakenttä
+   Käyttää src/lib/tm_bioika.js:n bioIkaTallennusOperaatiot():a (Excel-verifioitu).
+*/
+async function _kasvuTallennaKaikkiPHV() {
+  if (!window.TM_BioIka) { console.warn('[kasvu] TM_BioIka ei ladattu'); return; }
+  const pelaajat = _aktiivinenTapahtuma.pelaajatData || [];
+  let ok = 0, ohi = 0;
+  for (const p of pelaajat) {
+    const r = await _kasvuTallennaPHV(p);
+    if (r === true) ok++; else ohi++;
+  }
+  if (ok > 0) _toast('✓ PHV laskettu ' + ok + ' pelaajalle', 'ok');
+  if (ohi > 0) console.warn('[kasvu] ohitettu ' + ohi + ' (puutteelliset mittaukset tai puuttuva sukupuoli/syntymäaika)');
+}
+
+async function _kasvuTallennaPHV(p) {
+  const tul = _tulokset[p.id] || {};
+  const _paras = (v) => (v && typeof v === 'object') ? v.paras : v;
+  const pituus = _paras(tul.pituus);
+  const paino  = _paras(tul.paino);
+  const istuma = _paras(tul.istumapituus);
+  if (pituus == null || paino == null || istuma == null) return false; // puutteellinen
+
+  // pelaajatData ei välttämättä sisällä sukupuolta/syntymäaikaa → haetaan pelaajadoc
+  let sukupuoli = p.sukupuoli || null;
+  let syntyma   = p.syntymapaiva || p.syntymaaika || null;
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).get();
+    if (snap.exists) {
+      const d = snap.data();
+      sukupuoli = d.sukupuoli || sukupuoli;
+      syntyma   = d.syntymaaika || d.syntymapaiva || syntyma;
+    }
+  } catch(e) { console.warn('[kasvu] pelaajadoc-haku', e.message); }
+  if (!sukupuoli || !syntyma) return false;
+  if (syntyma && typeof syntyma.toDate === 'function') syntyma = syntyma.toDate(); // Firestore Timestamp
+
+  const ops = window.TM_BioIka.bioIkaTallennusOperaatiot({
+    sukupuoli: sukupuoli,
+    syntymapvm: syntyma,
+    mittauspaiva: _aktiivinenTapahtuma.pvm || new Date(),
+    pituus: pituus, paino: paino, istumapituus: istuma,
+    konteksti: 'kasvumittaus',
+    mittaaja: _kayttaja ? _kayttaja.email : null
+  });
+  if (!ops) return false;
+
+  const baseRef = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
+  try {
+    await baseRef.collection('biologinen_ika').doc(ops.mittausPvmId).set(ops.dokumentti);
+    await baseRef.update({
+      biologinenIka_viimeisin: ops.dokumentti,
+      phv_tila: ops.dokumentti.phv_tila_koodi   // 'PRE'|'LAH'|'PH'|'POST'|'AN'
+    });
+    return true;
+  } catch(e) {
+    console.warn('[kasvu] tallennus', p.id, e.code, e.message);
+    return false;
+  }
+}
 
 /* ── VAIHE 7 — Tarkastelu ───────────────────────────── */
 function _v7Alusta() {

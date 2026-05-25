@@ -146,6 +146,28 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     </div>
   </div>
 
+  <div class="card">
+    <div class="card-head"><div class="card-icon">&#128208;</div><div class="card-title">Biologisen ian arviointi (vapaaehtoinen)</div></div>
+    <div class="card-body">
+      <div class="info"><div class="info-t">Miksi tata kysytaan?</div><p>Vanhempien pituustiedot mahdollistavat biologisen ian arvioinnin myohemmin. Vapaaehtoinen. Tiedot ovat luottamuksellisia eika niita jaeta kolmansille osapuolille.</p></div>
+      <div class="grid">
+        <div class="f">
+          <label>Isan pituus (cm)</label>
+          <input id="i_isa" type="number" inputmode="numeric" min="120" max="230" step="1" placeholder="esim. 179">
+          <label class="hint" style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px;"><input type="checkbox" id="i_isa_ei" onchange="biPituusToggle()" style="width:auto;"> Ei tiedossa</label>
+        </div>
+        <div class="f">
+          <label>Aidin pituus (cm)</label>
+          <input id="i_aiti" type="number" inputmode="numeric" min="120" max="220" step="1" placeholder="esim. 166">
+          <label class="hint" style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px;"><input type="checkbox" id="i_aiti_ei" onchange="biPituusToggle()" style="width:auto;"> Ei tiedossa</label>
+        </div>
+        <div class="f span2">
+          <label class="hint" style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="i_adopt" onchange="biPituusToggle()" style="width:auto;"> Pelaaja on adoptoitu tai biologisten vanhempien tietoja ei ole saatavilla</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="nav"><div></div><button class="btn btn-p" id="btn1" onclick="toStep2()">Seuraava</button></div>
 </div>
 
@@ -348,6 +370,20 @@ function toStep2() {
 }
 function toStep1() { setStep(1); }
 
+// Vanhempien pituuskentat: kytke pois kun "ei tiedossa" tai adoptoitu valittu
+function biPituusToggle() {
+  var adopt = el('i_adopt') && el('i_adopt').checked;
+  [['i_isa','i_isa_ei'], ['i_aiti','i_aiti_ei']].forEach(function(pair) {
+    var inp = el(pair[0]); var ei = el(pair[1]);
+    if (!inp) return;
+    var pois = adopt || (ei && ei.checked);
+    inp.disabled = !!pois;
+    inp.style.opacity = pois ? '.4' : '1';
+    if (pois) inp.value = '';
+    if (ei) ei.disabled = !!adopt;
+  });
+}
+
 function toStep3() {
   var suostumusKoodit = [
     {id:'c1',avain:'rekisteri',pakollinen:true},
@@ -374,6 +410,28 @@ function toStep3() {
   var aikaleima = new Date().toLocaleString('fi-FI');
   var rid       = 'TM-' + Date.now().toString(36).toUpperCase();
   var palloId   = val('i_pid') || null;
+
+  // ── Vanhempien pituudet (vapaaehtoinen — biologinen ikä / KR myöhemmin) ──
+  var biAdopt = el('i_adopt') && el('i_adopt').checked;
+  function _biPituus(inputId, eiId) {
+    if (biAdopt) return null;
+    if (el(eiId) && el(eiId).checked) return null;
+    var raw = val(inputId);
+    if (!raw) return null;
+    var n = parseFloat(String(raw).replace(',', '.'));
+    return isNaN(n) ? null : n;
+  }
+  var isaPituus  = _biPituus('i_isa', 'i_isa_ei');
+  var aitiPituus = _biPituus('i_aiti', 'i_aiti_ei');
+  // Pehmeä varoitus epätavallisesta arvosta — EI estä tallennusta
+  var biEpailyttava = [isaPituus, aitiPituus].some(function(v){ return v != null && (v < 150 || v > 200); });
+  if (biEpailyttava) toast('Tarkistathan vanhemman pituusmittauksen (epatavallinen arvo) — tallennetaan silti', false);
+  var bioPituudet = {
+    isa_pituus_cm:           isaPituus,
+    aiti_pituus_cm:          aitiPituus,
+    vanhempi_pituus_puuttuu: (isaPituus == null || aitiPituus == null),
+    vanhempi_pituus_pvm:     new Date().toISOString()
+  };
 
   // Tämä on se kriittinen tieto: onko dokumentti jo olemassa?
   // _pelaajaId tarkoittaa kutsupohjaista flowta — dokumentti on jo Firestoressa.
@@ -402,6 +460,11 @@ function toStep3() {
           ? (val('h_etu') + ' ' + val('h_suku')).trim()
           : (val('i_etu') + ' ' + val('i_suku')).trim(),
         muokattu:            nyt,
+        // Vanhempien pituudet (biologinen ikä) — pelaajat-update ei rajaa kenttiä (ei hasOnly)
+        isa_pituus_cm:           bioPituudet.isa_pituus_cm,
+        aiti_pituus_cm:          bioPituudet.aiti_pituus_cm,
+        vanhempi_pituus_puuttuu: bioPituudet.vanhempi_pituus_puuttuu,
+        vanhempi_pituus_pvm:     bioPituudet.vanhempi_pituus_pvm,
         // Suostumusdata tallennetaan omaan kenttään joka on myös listassa
         // Huom: 'suostumus'-objekti ei ole hasOnly()-listassa, joten
         // tallennetaan se erillisiin kenttiin tai laajennetaan listaa rules:ssa.
@@ -454,6 +517,10 @@ function toStep3() {
           hyvaksytyt:  suostumusMap,
           aikaleima:   aikaleima,
         },
+        isa_pituus_cm:           bioPituudet.isa_pituus_cm,
+        aiti_pituus_cm:          bioPituudet.aiti_pituus_cm,
+        vanhempi_pituus_puuttuu: bioPituudet.vanhempi_pituus_puuttuu,
+        vanhempi_pituus_pvm:     bioPituudet.vanhempi_pituus_pvm,
         kutsuId:          _kutsuId || null,
         rekisterointiId:  rid,
         suostumusTila:    'annettu',

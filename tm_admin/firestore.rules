@@ -1,10 +1,18 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v2.7
+// TalentMaster™ — firestore.rules v2.8
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: Firebase Console → Firestore → Rules → liitä → Julkaise
 //         (EI GitHub Actionsilla — saa 403, CLAUDE.md §17 #10)
+//
+// Muutokset v2.7 → v2.8 (Bio-ikä — PHV/Mirwald):
+//   + seurat/{sid}/pelaajat/{pid}/biologinen_ika/{mittausPvm} — Testaus_v9:n
+//     kasvumittaus-protokolla kirjoittaa PHV-mittaushistorian tänne.
+//     VP-pikakentät (phv_tila, biologinenIka_viimeisin) menevät suoraan
+//     pelaajadokumenttiin (pelaajat-update sallii valmentajan jo ennestään).
+//     Vanhempien pituudet (isa_pituus_cm/aiti_pituus_cm) tallennetaan
+//     rekisteröinnissä pelaajadokumenttiin — ei vaadi uutta blokkia.
 //
 // Muutokset v2.6 → v2.7 (Testaus_v8 kalenterikopio):
 //   + seurat/{sid}/joukkueet/{jid}/kalenteri/{kid} — alikokoelma jonka
@@ -225,6 +233,23 @@ service cloud.firestore {
                         || (onOmaSeura(seuraId) && onJohtoRooli());
           allow update: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow delete: if onSuperAdmin();
+        }
+
+        // ── Biologinen ikä (v2.8) — Mirwald PHV -mittaushistoria ──────────
+        // Testaus_v9 (kasvumittaus-protokolla) kirjoittaa tänne; doc-ID on
+        // mittauspäivä (esim. "2026-05-25"). VP-pikakentät (phv_tila,
+        // biologinenIka_viimeisin) kirjoitetaan suoraan pelaajadokumenttiin
+        // (pelaajat-update sallii valmentajan, ei hasOnly-rajoitusta).
+        // Pelaaja näkee oman PHV-tilansa PIN-tilassa; huoltaja näkee lapsensa.
+        // Firestore EI periydy alikokoelmiin → oma blokki pakollinen (§17 #18).
+        match /biologinen_ika/{mittausPvm} {
+          allow read:   if onSuperAdmin()
+                        || onOmaSeura(seuraId)
+                        || onAnonymous()
+                        || onLapsenHuoltaja(seuraId, pelaajaId);
+          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
           allow delete: if onSuperAdmin();
         }
 
