@@ -676,7 +676,9 @@ function tkLaskeTKI(kokonaistulos, ika, sp) {
   if (!rajat || kokonaistulos == null || kokonaistulos <= 0) return null;
   let tki;
   if (kokonaistulos <= rajat.kulta) {
-    tki = Math.max(80, Math.min(100, 80 + 20 * (rajat.kulta / kokonaistulos)));
+    // Vyöhyke 4: interpoloi 80→99 (ideaali = puolet kultarajasta); kultarajalla 80, ei koskaan 100.
+    const ideaali = rajat.kulta * 0.5;
+    tki = Math.max(80, Math.min(99, 80 + 20 * ((rajat.kulta - kokonaistulos) / (rajat.kulta - ideaali))));
   } else if (kokonaistulos <= rajat.hopea) {
     tki = 60 + 20 * ((rajat.hopea - kokonaistulos) / (rajat.hopea - rajat.kulta));
   } else if (kokonaistulos <= rajat.pronssi) {

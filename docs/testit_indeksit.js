@@ -472,8 +472,11 @@ function tkLaskeTKI(kokonaistulos, ika, sp) {
   if (!rajat || kokonaistulos == null || kokonaistulos <= 0) return null;
   let tki;
   if (kokonaistulos <= rajat.kulta) {
-    tki = 80 + 20 * (rajat.kulta / kokonaistulos);
-    tki = Math.max(80, Math.min(100, tki));
+    // Vyöhyke 4: interpoloi 80→99 kultarajalta kohti ideaalia (puolet kultarajasta).
+    // Kultarajalla täsmälleen 80; ei koskaan täyttä 100:aa (se olisi nollasuoritus).
+    const ideaali = rajat.kulta * 0.5;
+    tki = 80 + 20 * ((rajat.kulta - kokonaistulos) / (rajat.kulta - ideaali));
+    tki = Math.max(80, Math.min(99, tki));
   } else if (kokonaistulos <= rajat.hopea) {
     tki = 60 + 20 * ((rajat.hopea - kokonaistulos) / (rajat.hopea - rajat.kulta));
   } else if (kokonaistulos <= rajat.pronssi) {
