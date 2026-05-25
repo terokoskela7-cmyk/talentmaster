@@ -106,7 +106,7 @@ syntymaVuosi:   2013 (15.3.2013)
 sukupuoli:      "M"   (EI "poika")
 joukkue:        "KPV U13"
 seuraId:        "kpv"
-tunniste:       "34650191"   ← PalloID-kenttä
+tunniste:       "12345678"   ← PalloID-kenttä (TESTIARVO, ei oikea — 34650191 kuuluu toiselle pelaajalle)
 huoltajaEmail:  "TeroKoskela7@gmail.com"
 flei_viimeisin: 62
 sbl:2.16  sfl:2.30  ll:2.10 (HEIKOIN 55%)  diag:2.40  dfl:2.20

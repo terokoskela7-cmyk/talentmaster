@@ -205,7 +205,7 @@ sukupuoli: "M"      (EI "poika")
 joukkue: "KPV U13"
 seuraId: "kpv"
 huoltajaEmail: "TeroKoskela7@gmail.com"
-tunniste (PalloID): "34650191"
+tunniste (PalloID): "12345678"  ← TESTIARVO, ei oikea PalloID (34650191 kuuluu toiselle pelaajalle)
 flei_viimeisin: 62
 sbl:2.16  sfl:2.30  ll:2.10  diag:2.40  dfl:2.20
 Heikoin ketju: LL (55%) → harjoitteet ohjautuvat lateraaliketjulle
@@ -963,7 +963,7 @@ testitapahtumat/{tapahtumaId} {
     testit: { lin_5m: 1.12, lin_10m: 1.94, lin_30m: 4.21, hyppy_cj: 38.5, ... },
     testauspvm: "2026-09-16",  // pelaajan oma päivä
     kausi: "2026-syksy",
-    tunniste: "34650191"  // PalloID
+    tunniste: "12345678"  // PalloID (Topiaksen testiarvo)
   }
 }
 ```
