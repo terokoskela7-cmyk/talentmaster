@@ -1319,7 +1319,7 @@ a { color: inherit; text-decoration: none; }
         <div class="caps">Omatoiminen tällä viikolla</div>
         <span class="sect-link" onclick="toast('Kaikki omatoimiset →', 'self-all')">Kaikki →</span>
       </div>
-      <div class="cal-self-grid">
+      <div class="cal-self-grid" id="calSelfGrid">
         <div class="cal-self-card">
           <div class="cal-self-lbl">Osallistumisaste</div>
           <div class="cal-self-val" id="calSelfPct">14/16</div>
@@ -3386,6 +3386,12 @@ function _renderMetrics() {
 function _renderAdar() {
   const el = document.getElementById('adarList');
   if (!el) return;
+  // Kirjautuneena EI demo-havaintoja. Oikeat havainnot tulevat ADAR-kirjauksista (ei vielä
+  // lähdettä Masterissa) → tyhjätila kunnes ensimmäinen havainto on kirjattu.
+  if (!_demo) {
+    el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:18px 4px;text-align:center;line-height:1.5;">Ei havaintoja vielä — lisää ensimmäinen havainto harjoitusten jälkeen</div>';
+    return;
+  }
   el.innerHTML = DEMO.adar.map(a => {
     const dimHtml = ['assess','decide','act','reassess'].map(d => {
       const v = a.dims[d];
@@ -3958,6 +3964,15 @@ function renderCal() {
         </div>`).join('');
     }
   }
+
+  // Omatoiminen-kooste — ei kovakoodattuja numeroita. Neutraali tila kunnes dataa kertyy.
+  const _selfPct = document.getElementById('calSelfPct');
+  if (!_demo && _selfPct) {
+    _selfPct.textContent = '—';
+    const _sm = document.getElementById('calSelfMin'); if (_sm) _sm.textContent = '—';
+    const _sc = document.getElementById('calSelfChallenges'); if (_sc) _sc.textContent = '—';
+    document.querySelectorAll('#calSelfGrid .cal-self-desc').forEach(d => { d.textContent = 'Dataa kertyy kun pelaajat kirjaavat omatoimisia.'; });
+  }
 }
 
 function setCalMode(m) {
@@ -4226,7 +4241,8 @@ function drillDo(label) {
 /* ════════════════════════════════════════════════════════════
    COMMAND PALETTE (⌘K)
 ════════════════════════════════════════════════════════════ */
-const CP_CMDS = [
+// Kiinteät komennot (ei kovakoodattuja pelaajanimiä). Pelaajat rakennetaan dynaamisesti.
+const CP_BASE = [
   { section:'Työtilat', label:'Inbox — perheiden kirjaukset', sub:'', ico:'ic-inbox', fn: ()=>setWs('inbox') },
   { section:'Työtilat', label:'Pulssi — joukkueen viikko', sub:'', ico:'ic-pulse', fn: ()=>setWs('pulse') },
   { section:'Työtilat', label:'Tänään-työtila', sub:'', ico:'ic-home', fn: ()=>setWs('today') },
@@ -4234,20 +4250,27 @@ const CP_CMDS = [
   { section:'Työtilat', label:'Kausi-työtila', sub:'', ico:'ic-season', fn: ()=>setWs('season') },
   { section:'Työtilat', label:'Kalenteri — viikko', sub:'', ico:'ic-cal', fn: ()=>setWs('cal') },
   { section:'Työtilat', label:'Testit — tapahtumat', sub:'', ico:'ic-test', fn: ()=>setWs('testit') },
-  { section:'Pelaajat', label:'Avaa Teemu Salo — aikajana', sub:'#7 · KH', ico:'ic-dev', fn: ()=>{setWs('dev');pickPlayer('teemu');} },
-  { section:'Pelaajat', label:'Avaa Oiva Heikkinen — aikajana', sub:'#11 · HM · Piilohelmi', ico:'ic-gem', fn: ()=>{setWs('dev');pickPlayer('oiva');} },
-  { section:'Pelaajat', label:'Avaa Luukas Haapala — aikajana', sub:'#4 · PM', ico:'ic-dev', fn: ()=>{setWs('dev');pickPlayer('luukas');} },
   { section:'Kirjaukset', label:'Kirjaa RPE joukkueelle', sub:'', ico:'ic-drill', fn: ()=>openDrill('rpe') },
   { section:'Kirjaukset', label:'Uusi ADAR-havainto', sub:'', ico:'ic-obs', fn: ()=>openDrill('adar') },
-  { section:'Kirjaukset', label:'@teemu ADAR decide 4 ratkaisi 3v2', sub:'Pikahavainto', ico:'ic-adar', fn: ()=>drillDo('@teemu ADAR decide 4 tallennettu') },
-  { section:'Kirjaukset', label:'@oiva ADAR act 4 kaksi ohitusta', sub:'Pikahavainto', ico:'ic-adar', fn: ()=>drillDo('@oiva ADAR act 4 tallennettu') },
-  { section:'Haku', label:'Hae: kaikki X-Factor-havainnot', sub:'', ico:'ic-xfactor', fn: ()=>toast('Haku: X-Factor-havainnot') },
-  { section:'Haku', label:'Hae: 3v2-ratkaisut kaudelta', sub:'', ico:'ic-search', fn: ()=>toast('Haku: 3v2-tilanteet') },
   { section:'Näkymä', label:'Vaihda: tumma / vaalea', sub:'', ico:'ic-sun', fn: toggleTheme },
   { section:'Näkymä', label:'Kirjaudu ulos', sub:'', ico:'ic-logout', fn: logout },
 ];
 
-let _cpFiltered = [...CP_CMDS];
+// Koko komentolista = työtilat + dynaamiset pelaajat (_pelaajatData) + muut.
+function cpCmds() {
+  const pelaajat = (_pelaajatData || []).slice(0, 30).map(p => {
+    const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.nimi || p.id;
+    const sub = [p.pelipaikka || p.positio, p.joukkue].filter(Boolean).join(' · ');
+    const id = p.id;
+    return { section:'Pelaajat', label:'Avaa ' + nimi + ' — aikajana', sub: sub, ico:'ic-dev',
+      fn: function(){ setWs('dev'); pickPlayer(id); } };
+  });
+  const tyotilat = CP_BASE.filter(c => c.section === 'Työtilat');
+  const muut     = CP_BASE.filter(c => c.section !== 'Työtilat');
+  return tyotilat.concat(pelaajat, muut);
+}
+
+let _cpFiltered = cpCmds();
 
 function initCmdPalette() {
   renderCp('');
@@ -4271,9 +4294,10 @@ function closeCmd() {
 
 function filterCmd() {
   const q = document.getElementById('cpInput').value.toLowerCase();
+  const all = cpCmds();
   _cpFiltered = q
-    ? CP_CMDS.filter(c => c.label.toLowerCase().includes(q) || c.sub.toLowerCase().includes(q) || c.section.toLowerCase().includes(q))
-    : [...CP_CMDS];
+    ? all.filter(c => c.label.toLowerCase().includes(q) || (c.sub||'').toLowerCase().includes(q) || c.section.toLowerCase().includes(q))
+    : all;
   renderCp(q);
   _cpFocusIdx = -1;
 }
@@ -4287,7 +4311,7 @@ function renderCp(q) {
     return `
       <div class="cp-section-hdr">${sec}</div>
       ${items.map((c,i) => `
-        <div class="cp-item" onclick="execCmd(${CP_CMDS.indexOf(c)})">
+        <div class="cp-item" onclick="execCmd(${_cpFiltered.indexOf(c)})">
           <div class="cp-item-icon"><svg width="13" height="13"><use href="#${c.ico}"/></svg></div>
           <div class="cp-item-label">
             <div style="font-size:13px">${c.label}</div>
@@ -4299,7 +4323,7 @@ function renderCp(q) {
 
 function execCmd(idx) {
   closeCmd();
-  setTimeout(() => CP_CMDS[idx]?.fn(), 100);
+  setTimeout(() => { if (_cpFiltered[idx]) _cpFiltered[idx].fn(); }, 100);
 }
 
 /* ════════════════════════════════════════════════════════════
