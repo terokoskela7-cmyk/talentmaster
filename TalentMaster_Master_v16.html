@@ -1292,7 +1292,8 @@ a { color: inherit; text-decoration: none; }
             <button class="cal-mode" data-mode="month" onclick="setCalMode('month')">Kuukausi</button>
             <button class="cal-mode" data-mode="season" onclick="setCalMode('season')">Kausi</button>
           </div>
-          <button class="cal-add-btn" onclick="_avaaTestausV9()">+ Tapahtuma</button>
+          <button class="cal-add-btn" style="background:var(--card2);color:var(--ink);border:.5px solid var(--line2);letter-spacing:.08em;" onclick="_avaaUusiTapahtuma(new Date().toISOString().slice(0,10), '17:00')">📅 Lisää harjoitus / ottelu</button>
+          <button class="cal-add-btn" style="letter-spacing:.08em;" onclick="_avaaTestausV9()">🏃 Luo testitapahtuma →</button>
         </div>
       </div>
 
@@ -1301,20 +1302,16 @@ a { color: inherit; text-decoration: none; }
         <button onclick="calNav(1)" aria-label="Seuraava"><svg width="14" height="14"><use href="#ic-arrow-r"/></svg></button>
         <span class="cal-wk-label" id="calWkLabel">Viikko 17 · 20.–26. huhtikuuta</span>
         <span class="cal-wk-sub" id="calWkSub">Kausi 25/26 · 17/36</span>
-      <button onclick="_avaaUusiTapahtuma(new Date().toISOString().slice(0,10), '17:00')"
-        style="background:var(--teal);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:500;cursor:pointer;">
-        + Luo tapahtuma
-      </button>
       </div>
 
       <div class="cal-week" id="calWeek"></div>
 
       <div class="cal-legend">
-        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:rgba(26,122,94,.10);border-color:var(--teal)"></span>Joukkue-harjoitus</span>
-        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:rgba(184,92,56,.10);border-color:#B85C38"></span>Ottelu</span>
-        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:rgba(184,134,11,.10);border-color:#B8860B"></span>Voima · oheinen</span>
-        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:rgba(139,160,188,.10);border-color:#2A5DB0"></span>Omatoiminen (pelaajat)</span>
-        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:rgba(242,239,230,.03);border-color:rgba(242,239,230,.3)"></span>Lepo</span>
+        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:#2A5DB01f;border-color:#2A5DB0"></span>Joukkueharjoitus</span>
+        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:#C0392B1f;border-color:#C0392B"></span>Ottelu</span>
+        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:#28B0901f;border-color:#28B090"></span>Testitapahtuma (all-day)</span>
+        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:#7B68EE1f;border-color:#7B68EE"></span>Mentorointi (all-day)</span>
+        <span class="cal-legend-item"><span class="cal-legend-sw" style="background:#7A8B991f;border-color:#7A8B99"></span>Muu</span>
       </div>
 
       <!-- Omatoimisen koostekortit -->
@@ -3799,6 +3796,42 @@ function renderSeason() {
 let _calMode = 'week';
 let _calWkOffset = 0; // 0 = nykyinen, -1 = edellinen jne.
 
+// ── Värikoodi + teksti kalenteritapahtumalle (KORJAUS 2) ──
+function _protokollaLyhenne(p) {
+  if (!p) return 'Testi';
+  if (p.indexOf('harjoitettavuus') === 0) return 'Harjoitettavuus';
+  if (p === 'hh_laaja' || p === 'hh_suppea') return 'H-H';
+  if (p === 'tekniikkakilpailu') return 'TK';
+  if (p === 'kasvumittaus') return 'Kasvu';
+  if (p === 'vapaa') return 'Vapaa';
+  return p;
+}
+function _calEvtTyyli(t, src) {
+  if (src === 'testi') return { vari:'#28B090', teksti:_protokollaLyhenne(t.protokolla) };
+  const ty = t.tyyppi || 'muu';
+  if (ty === 'harjoitus')   return { vari:'#2A5DB0', teksti:'Joukkueharjoitus' };
+  if (ty === 'ottelu')      return { vari:'#C0392B', teksti:'Ottelu' + (t.vastustaja ? ' · ' + t.vastustaja : '') };
+  if (ty === 'mentorointi') return { vari:'#7B68EE', teksti:'Mentorointi' };
+  if (ty === 'kokous')      return { vari:'#7B68EE', teksti:'Kokous' };
+  return { vari:'#7A8B99', teksti: t.nimi || 'Muu' };
+}
+// Kalenterichip — pale tausta + värillinen (tumma) teksti; joukkueen nimi jos useita näkyvissä
+function _calChip(sty, t, lisaaJoukkue, onclick, aika) {
+  let teksti = sty.teksti;
+  if (lisaaJoukkue) {
+    const jn = t.joukkue_nimi || t.joukkue || '';
+    if (jn) teksti += ' · ' + jn;
+  }
+  const clickAttr = onclick ? ' onclick="' + onclick + '"' : '';
+  const cursor = onclick ? 'cursor:pointer;' : 'cursor:default;';
+  const metaHtml = aika ? '<div class="cal-evt-meta">' + aika + '</div>' : '';
+  return '<div class="cal-evt"' + clickAttr
+    + ' style="background:' + sty.vari + '1f;border-left:2px solid ' + sty.vari + ';' + cursor + '"'
+    + ' title="' + teksti + '">'
+    + '<div class="cal-evt-title" style="color:' + sty.vari + ';">' + teksti + '</div>'
+    + metaHtml + '</div>';
+}
+
 function renderCal() {
   const today = new Date();
   const dayOfWeek = (today.getDay() + 6) % 7;
@@ -3827,102 +3860,71 @@ function renderCal() {
   const days = ['Ma','Ti','Ke','To','Pe','La','Su'];
   const todayStr = today.toISOString().slice(0,10);
 
-  // ── Kaikki tapahtumat kalenterimuotoon ──
-  // Testitapahtumat (klo 9) + valmentajan luomat tapahtumat (omalla kellolla)
+  // ── Tapahtumat: testit + mentoroinnit = all-day (ylärivi); harjoitukset/ottelut = tuntiruudukko ──
   const suodataJoukkue = t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue;
+  const lisaaJoukkue = !_joukkue; // näytä joukkueen nimi chipissä kun useita joukkueita näkyvissä
+  const dayIdxOf = (pvm) => dates.findIndex(dd => dd.toISOString().slice(0,10) === pvm);
 
-  const testiEvts = (_testitapahtumat || [])
-    .filter(suodataJoukkue)
-    .map(t => {
-      const dayIdx = dates.findIndex(dd => dd.toISOString().slice(0,10) === t.pvm);
-      return { ...t, _dayIdx: dayIdx, _hour: 9, _src: 'testi' };
-    }).filter(t => t._dayIdx >= 0);
+  // Testitapahtumat → all-day (teal). Ei kellonaikaan sidottuja.
+  const testiEvts = (_testitapahtumat || []).filter(suodataJoukkue)
+    .map(t => ({ ...t, _dayIdx: dayIdxOf(t.pvm), _src:'testi' }))
+    .filter(t => t._dayIdx >= 0);
 
-  // Kalenteritapahtumat (harjoitukset, ottelut, muut)
-  const kalEvts = (_kalenteriTapahtumat || [])
-    .filter(suodataJoukkue)
-    .map(t => {
-      const dayIdx = dates.findIndex(dd => dd.toISOString().slice(0,10) === t.pvm);
-      // Hae tunti alkuajasta (esim "17:00" → 17)
-      const tunti = t.alkaa ? parseInt(t.alkaa.split(':')[0]) : 17;
-      return { ...t, _dayIdx: dayIdx, _hour: tunti, _src: 'kalenteri' };
-    }).filter(t => t._dayIdx >= 0);
+  // Kalenteritapahtumat → erottele mentoroinnit (all-day) ja tuntisidotut (harjoitus/ottelu/muu)
+  const kalEvts = (_kalenteriTapahtumat || []).filter(suodataJoukkue)
+    .map(t => ({ ...t, _dayIdx: dayIdxOf(t.pvm), _hour: t.alkaa ? parseInt(t.alkaa.split(':')[0]) : 17, _src:'kalenteri' }))
+    .filter(t => t._dayIdx >= 0);
+  const mentEvts  = kalEvts.filter(t => t.tyyppi === 'mentorointi' || t.tyyppi === 'kokous');
+  const tuntiEvts = kalEvts.filter(t => t.tyyppi !== 'mentorointi' && t.tyyppi !== 'kokous');
 
-  const kaikkiEvts = [...testiEvts, ...kalEvts];
-
-  // ── Kalenteritunnit: käytä aina realistista harjoitusaikaa ──
   const c = { hours:[15,16,17,18,19,20], events:[], players:[] };
-  // Demo-tilassa lisätään DEMO.cal.events
   if (_demo && typeof DEMO !== 'undefined' && DEMO.cal) {
     c.events = DEMO.cal.events || [];
     c.players = DEMO.cal.players || [];
   }
-  // Kirjautuneena: ei demo-tapahtumia — kaikki data Firestoresta
 
   const wk = document.getElementById('calWeek');
   if (!wk) return;
 
-  // ── Rakenna grid ──
+  // ── Rakenna grid: päiväotsikot ──
   let html = '<div class="cal-day-hdr" style="background:var(--card)"></div>';
   days.forEach((d,i) => {
-    const dateStr = dates[i].toISOString().slice(0,10);
-    const isToday = dateStr === todayStr;
-    // Laske testit tälle päivälle (badge)
-    const paivaTesti = (_testitapahtumat||[]).filter(t => t.pvm === dateStr);
-    const testiBadge = paivaTesti.length > 0
-      ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--teal);margin-left:4px;vertical-align:middle;"></span>`
-      : '';
-    html += `<div class="cal-day-hdr${isToday?' today':''}">
-      <div class="cal-day-name">${d}</div>
-      <div class="cal-day-num">${dates[i].getDate()}${testiBadge}</div>
-    </div>`;
+    const isToday = dates[i].toISOString().slice(0,10) === todayStr;
+    html += '<div class="cal-day-hdr' + (isToday?' today':'') + '">'
+      + '<div class="cal-day-name">' + d + '</div>'
+      + '<div class="cal-day-num">' + dates[i].getDate() + '</div>'
+      + '</div>';
   });
 
-  (c.hours || [15,16,17,18,19,20]).forEach(h => {
-    html += `<div class="cal-time-lbl">${h}:00</div>`;
+  // ── All-day -rivi: testitapahtumat (teal) + mentoroinnit (violetti) — ei kellonaikaa ──
+  html += '<div class="cal-time-lbl" style="display:flex;align-items:center;">Koko pvm</div>';
+  for (let d = 0; d < 7; d++) {
+    const isToday = dates[d].toISOString().slice(0,10) === todayStr;
+    let chips = '';
+    testiEvts.filter(t => t._dayIdx === d).forEach(t => {
+      chips += _calChip(_calEvtTyyli(t,'testi'), t, lisaaJoukkue, "event.stopPropagation();_avaaKentta('" + t.id + "')", '');
+    });
+    mentEvts.filter(t => t._dayIdx === d).forEach(t => {
+      chips += _calChip(_calEvtTyyli(t,'kalenteri'), t, lisaaJoukkue, '', (t.aika || t.alkaa || ''));
+    });
+    html += '<div class="cal-cell' + (isToday?' today-col':'') + '" style="min-height:auto;">' + chips + '</div>';
+  }
+
+  // ── Tuntiruudukko: harjoitukset / ottelut / muu (kellonaikaan sidotut) ──
+  c.hours.forEach(h => {
+    html += '<div class="cal-time-lbl">' + h + ':00</div>';
     for (let d = 0; d < 7; d++) {
-      const dateStr = dates[d].toISOString().slice(0,10);
-      const isToday = dateStr === todayStr;
-
-      // Demo-harjoitukset vain demo-tilassa
-      const demoEvts = _demo ? (c.events||[]).filter(e => e.day === d && e.hour === h) : [];
-
-      // Testitapahtumat klo 9:00 + kalenteritapahtumat omalla tunnillaan
-      const tapahtumatTallaTunnilla = kaikkiEvts.filter(t => t._dayIdx === d && t._hour === h);
-      const allEvts = [
-        ...demoEvts,
-        ...tapahtumatTallaTunnilla.map(t => {
-          if (t._src === 'testi') {
-            return {
-              type: t.tila === 'suljettu' ? 'test done' : 'test',
-              title: (t.nimi || 'Testi').split(' — ')[0],
-              meta: (t.joukkue || '') + (t.tila === 'suljettu' ? ' · valmis' : ' · avoin'),
-              _testId: t.id
-            };
-          } else {
-            // Kalenteritapahtuma (harjoitus, ottelu, muu)
-            const tyyppivari = t.tyyppi === 'ottelu' ? 'match' : t.tyyppi === 'testi' ? 'test' : 'team';
-            return {
-              type: tyyppivari,
-              title: t.nimi || t.tyyppi || 'Tapahtuma',
-              meta: (t.alkaa||'') + (t.paattyy ? '–'+t.paattyy : '') + (t.joukkue ? ' · '+t.joukkue : ''),
-              _kalId: t.id
-            };
-          }
-        })
-      ];
-
-      const inner = allEvts.map(e => {
-        const clickFn = e._testId
-          ? `event.stopPropagation();setWs('testit');`
-          : `event.stopPropagation();calEventClick('${e.type}',${d},${h});`;
-        return `<div class="cal-evt ${e.type}" onclick="${clickFn}" title="${e.title}">
-          <div class="cal-evt-title">${e.title}</div>
-          <div class="cal-evt-meta">${e.meta}</div>
-        </div>`;
-      }).join('');
-
-      html += `<div class="cal-cell${isToday?' today-col':''}" onclick="calSlotClick(${d},${h})">${inner}</div>`;
+      const isToday = dates[d].toISOString().slice(0,10) === todayStr;
+      let chips = '';
+      if (_demo) (c.events||[]).filter(e => e.day === d && e.hour === h).forEach(e => {
+        chips += '<div class="cal-evt ' + (e.type||'team') + '" onclick="event.stopPropagation();calEventClick(\'' + (e.type||'team') + '\',' + d + ',' + h + ')" title="' + (e.title||'') + '"><div class="cal-evt-title">' + (e.title||'') + '</div><div class="cal-evt-meta">' + (e.meta||'') + '</div></div>';
+      });
+      tuntiEvts.filter(t => t._dayIdx === d && t._hour === h).forEach(t => {
+        const sty = _calEvtTyyli(t,'kalenteri');
+        const aika = (t.alkaa||'') + (t.paattyy ? '–'+t.paattyy : '');
+        chips += _calChip(sty, t, lisaaJoukkue, "event.stopPropagation();calEventClick('" + (t.tyyppi||'muu') + "'," + d + "," + h + ")", aika);
+      });
+      html += '<div class="cal-cell' + (isToday?' today-col':'') + '" onclick="calSlotClick(' + d + ',' + h + ')">' + chips + '</div>';
     }
   });
 
