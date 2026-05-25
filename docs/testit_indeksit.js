@@ -293,92 +293,36 @@ const HH_TESTIT_META = {
 //
 // Lähteet: SPL tekniikkakilpailut 2024–2026
 // ─────────────────────────────────────────────────────────────────────────────
-const TK_MERKKIRAJAT = {
+// Kokonaistulosrajat SEKUNTEINA per ikä+sukupuoli (tekniikkakilpailu, pienempi parempi).
+// Korvasi aiemmat lajikohtaiset TK_MERKKIRAJAT — kaikki 5 lajia ovat nyt aikatestejä.
+// Lähde: SPL tekniikkakilpailut + pilottikalibrointi 2026-05.
+const TK_KOKONAISRAJAT = {
   P: {
-    ponnauttelu: { // kertaa 30 sekunnissa
-      8:  { pronssi: 30, hopea: 38, kulta: 46 },
-      9:  { pronssi: 33, hopea: 41, kulta: 49 },
-      10: { pronssi: 36, hopea: 44, kulta: 52 },
-      11: { pronssi: 39, hopea: 47, kulta: 56 },
-      12: { pronssi: 42, hopea: 51, kulta: 60 },
-      13: { pronssi: 44, hopea: 53, kulta: 62 },
-    },
-    syotto: { // pisteet (tarkkuus + tekniikka)
-      8:  { pronssi: 8,  hopea: 13, kulta: 18 },
-      9:  { pronssi: 10, hopea: 15, kulta: 20 },
-      10: { pronssi: 12, hopea: 17, kulta: 22 },
-      11: { pronssi: 14, hopea: 19, kulta: 24 },
-      12: { pronssi: 15, hopea: 20, kulta: 25 },
-      13: { pronssi: 16, hopea: 21, kulta: 26 },
-    },
-    pujottelu: { // sekuntia (KÄÄNTEINEN — pienempi on parempi)
-      8:  { kulta: 15.0, hopea: 17.5, pronssi: 20.5 },
-      9:  { kulta: 14.0, hopea: 16.5, pronssi: 19.5 },
-      10: { kulta: 13.2, hopea: 15.5, pronssi: 18.5 },
-      11: { kulta: 12.5, hopea: 14.8, pronssi: 17.8 },
-      12: { kulta: 12.0, hopea: 14.2, pronssi: 17.2 },
-      13: { kulta: 11.6, hopea: 13.8, pronssi: 16.8 },
-    },
-    kuljetus_laukaus: { // pisteet (tarkkuus + nopeus)
-      8:  { pronssi: 5,  hopea: 9,  kulta: 13 },
-      9:  { pronssi: 7,  hopea: 11, kulta: 15 },
-      10: { pronssi: 8,  hopea: 12, kulta: 16 },
-      11: { pronssi: 9,  hopea: 13, kulta: 17 },
-      12: { pronssi: 10, hopea: 14, kulta: 18 },
-      13: { pronssi: 11, hopea: 15, kulta: 19 },
-    },
-    pituuspotku: { // metriä
-      12: { pronssi: 20, hopea: 25, kulta: 30 },
-      13: { pronssi: 22, hopea: 28, kulta: 33 },
-    },
+    8:  { kulta: 95,  hopea: 105, pronssi: 120 },
+    9:  { kulta: 85,  hopea: 100, pronssi: 115 },
+    10: { kulta: 100, hopea: 120, pronssi: 140 },
+    11: { kulta: 90,  hopea: 110, pronssi: 130 },
+    12: { kulta: 80,  hopea: 90,  pronssi: 105 },
+    13: { kulta: 75,  hopea: 85,  pronssi: 100 },
   },
   T: {
-    ponnauttelu: {
-      8:  { pronssi: 28, hopea: 36, kulta: 44 },
-      9:  { pronssi: 31, hopea: 39, kulta: 47 },
-      10: { pronssi: 34, hopea: 42, kulta: 50 },
-      11: { pronssi: 37, hopea: 45, kulta: 54 },
-      12: { pronssi: 40, hopea: 49, kulta: 58 },
-      13: { pronssi: 42, hopea: 51, kulta: 60 },
-    },
-    syotto: {
-      8:  { pronssi: 7,  hopea: 11, kulta: 16 },
-      9:  { pronssi: 9,  hopea: 13, kulta: 18 },
-      10: { pronssi: 11, hopea: 15, kulta: 20 },
-      11: { pronssi: 12, hopea: 17, kulta: 22 },
-      12: { pronssi: 13, hopea: 18, kulta: 23 },
-      13: { pronssi: 14, hopea: 19, kulta: 24 },
-    },
-    pujottelu: {
-      8:  { kulta: 16.0, hopea: 18.8, pronssi: 22.0 },
-      9:  { kulta: 15.0, hopea: 17.7, pronssi: 21.0 },
-      10: { kulta: 14.2, hopea: 16.8, pronssi: 20.0 },
-      11: { kulta: 13.5, hopea: 16.0, pronssi: 19.2 },
-      12: { kulta: 13.0, hopea: 15.4, pronssi: 18.6 },
-      13: { kulta: 12.6, hopea: 15.0, pronssi: 18.2 },
-    },
-    kuljetus_laukaus: {
-      8:  { pronssi: 4,  hopea: 8,  kulta: 12 },
-      9:  { pronssi: 6,  hopea: 10, kulta: 14 },
-      10: { pronssi: 7,  hopea: 11, kulta: 15 },
-      11: { pronssi: 8,  hopea: 12, kulta: 16 },
-      12: { pronssi: 9,  hopea: 13, kulta: 17 },
-      13: { pronssi: 10, hopea: 14, kulta: 18 },
-    },
-    pituuspotku: {
-      12: { pronssi: 16, hopea: 20, kulta: 25 },
-      13: { pronssi: 18, hopea: 23, kulta: 28 },
-    },
+    8:  { kulta: 110, hopea: 125, pronssi: 140 },
+    9:  { kulta: 105, hopea: 120, pronssi: 135 },
+    10: { kulta: 110, hopea: 135, pronssi: 155 },
+    11: { kulta: 105, hopea: 125, pronssi: 145 },
+    12: { kulta: 95,  hopea: 115, pronssi: 135 },
+    13: { kulta: 90,  hopea: 110, pronssi: 130 },
   },
 };
 
 // Tekniikkakilpailut — lajit ja metadata
+// Kaikki tekniikkakilpailun lajit ovat aikatestejä (sekunnit), pienempi parempi.
 const TK_LAJIT_META = {
-  ponnauttelu:      { nimi: 'Ponnauttelu',       yksikko: 'krt/30s', kaanteinen: false },
-  syotto:           { nimi: 'Syöttö',            yksikko: 'p',       kaanteinen: false },
-  pujottelu:        { nimi: 'Pujottelu',          yksikko: 's',       kaanteinen: true  },
-  kuljetus_laukaus: { nimi: 'Kuljetus-laukaus',  yksikko: 'p',       kaanteinen: false },
-  pituuspotku:      { nimi: 'Pituuspotku',        yksikko: 'm',       kaanteinen: false },
+  ponnauttelu:      { nimi: 'Ponnauttelu',        yksikko: 's', kaanteinen: true },
+  syotto:           { nimi: 'Syöttö pujotellen',  yksikko: 's', kaanteinen: true },
+  pujottelu:        { nimi: 'Pujottelu',          yksikko: 's', kaanteinen: true },
+  kuljetus_laukaus: { nimi: 'Kuljetus-laukaus',   yksikko: 's', kaanteinen: true },
+  pituuspotku:      { nimi: 'Pituuspotku',        yksikko: 's', kaanteinen: true },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -503,31 +447,15 @@ function hhLaskeOVR(tasot) {
  * @param {string} sp     - 'P'|'T'
  * @returns {string|null} 'kulta'|'hopea'|'pronssi'|null
  */
-function tkLaskeMerkki(laji, arvo, ika, sp) {
-  const sukuRajat = TK_MERKKIRAJAT[sp] || TK_MERKKIRAJAT['P'];
-  const lajiRajat = sukuRajat[laji];
-  if (!lajiRajat) return null;
-
-  const ikaInt = Math.round(ika);
-  const rajat = lajiRajat[ikaInt];
-  if (!rajat) return null;
-
-  const meta = TK_LAJIT_META[laji];
-  if (!meta) return null;
-
-  if (meta.kaanteinen) {
-    // Pienempi on parempi (pujottelu)
-    if (arvo <= rajat.kulta)   return 'kulta';
-    if (arvo <= rajat.hopea)   return 'hopea';
-    if (arvo <= rajat.pronssi) return 'pronssi';
-    return null;
-  } else {
-    // Suurempi on parempi
-    if (arvo >= rajat.kulta)   return 'kulta';
-    if (arvo >= rajat.hopea)   return 'hopea';
-    if (arvo >= rajat.pronssi) return 'pronssi';
-    return null;
-  }
+// Merkki KOKONAISTULOKSESTA (sekuntia, pienempi parempi) — ei enää lajikohtainen.
+function tkLaskeMerkki(kokonaistulos, ika, sp) {
+  const sukuRajat = TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'];
+  const rajat = sukuRajat[Math.round(ika)];
+  if (!rajat || kokonaistulos == null) return null;
+  if (kokonaistulos <= rajat.kulta)   return 'kulta';
+  if (kokonaistulos <= rajat.hopea)   return 'hopea';
+  if (kokonaistulos <= rajat.pronssi) return 'pronssi';
+  return null;
 }
 
 /**
@@ -537,29 +465,89 @@ function tkLaskeMerkki(laji, arvo, ika, sp) {
  * @param {object} merkit - {syotto:'kulta', pujottelu:'hopea', ...}
  * @returns {number} TKI 0–100
  */
-function tkLaskeTKI(merkit) {
-  const merkkiPisteet = { kulta: 3, hopea: 2, pronssi: 1 };
-  const PAINOT = {
-    syotto:           0.40,
-    pujottelu:        0.30,
-    ponnauttelu:      0.20,
-    kuljetus_laukaus: 0.10,
+// TKI 0–100 nelivyöhykkeellä KOKONAISTULOKSESTA (sekuntia, pienempi parempi).
+function tkLaskeTKI(kokonaistulos, ika, sp) {
+  const sukuRajat = TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'];
+  const rajat = sukuRajat[Math.round(ika)];
+  if (!rajat || kokonaistulos == null || kokonaistulos <= 0) return null;
+  let tki;
+  if (kokonaistulos <= rajat.kulta) {
+    tki = 80 + 20 * (rajat.kulta / kokonaistulos);
+    tki = Math.max(80, Math.min(100, tki));
+  } else if (kokonaistulos <= rajat.hopea) {
+    tki = 60 + 20 * ((rajat.hopea - kokonaistulos) / (rajat.hopea - rajat.kulta));
+  } else if (kokonaistulos <= rajat.pronssi) {
+    tki = 40 + 20 * ((rajat.pronssi - kokonaistulos) / (rajat.pronssi - rajat.hopea));
+  } else {
+    const maksimi = rajat.pronssi * 1.5;
+    tki = 40 * ((maksimi - kokonaistulos) / (maksimi - rajat.pronssi));
+    tki = Math.max(0, tki);
+  }
+  return Math.round(tki);
+}
+
+// Pituuspotku-aikabonus: paras potku metreinä / 5, max 20 s.
+function tkPituuspotkuBonus(metrit) {
+  if (!metrit || isNaN(metrit) || metrit <= 0) return 0;
+  return Math.min(20, metrit / 5);
+}
+
+// Kokonaistulos sekunteina (pienempi parempi): 4 aikalajia (kuljetus_laukaus.tulos sisältää
+// tarkkuusvähennykset + ennenaikaisrangaistukset), miinus pituuspotku-aikabonus (vain ikä >= 12).
+function laskeKokonaistulos(testit, ika, sp) {
+  if (!testit) return null;
+  const aikaArvo = (id) => {
+    const v = testit[id];
+    if (v == null) return null;
+    if (typeof v === 'object') return (v.tulos != null ? v.tulos : v.paras);
+    return v;
   };
+  const lajit = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'];
+  let summa = 0, n = 0;
+  lajit.forEach(id => { const a = aikaArvo(id); if (a != null && !isNaN(a)) { summa += a; n++; } });
+  if (n === 0) return null;
+  if (ika >= 12) {
+    const pp = testit.pituuspotku;
+    const metrit = (pp && typeof pp === 'object') ? (pp.metrit != null ? pp.metrit : pp.paras) : pp;
+    summa -= tkPituuspotkuBonus(metrit);
+  }
+  return Math.round(summa * 100) / 100;
+}
 
-  let tki = 0;
-  let painoYhteensa = 0;
-
-  Object.entries(PAINOT).forEach(([laji, paino]) => {
-    const merkki = merkit[laji];
-    if (merkki && merkkiPisteet[merkki]) {
-      tki += merkkiPisteet[merkki] * paino;
-      painoYhteensa += paino;
+// Vahvuudet ja kehityskohteet lajiosuuksien perusteella (4 aikalajia; pituuspotku pois).
+// Pienempi osuus kokonaisajasta = suhteessa nopeampi = vahvuus; suurempi osuus = kehityskohde.
+function _laskeVahvuudetJaKehityskohteet(tulokset, pelaaja, tap) {
+  const t = (tulokset && tulokset.testit) ? tulokset.testit : (tulokset || {});
+  const lajit = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'];
+  const aikaArvo = (id) => {
+    const v = t[id];
+    if (v == null) return null;
+    if (typeof v === 'object') return (v.tulos != null ? v.tulos : v.paras);
+    return v;
+  };
+  const out = { vahvuudet: [], kehityskohteet: [], trendi: null };
+  const arvot = {}; let summa = 0, n = 0;
+  lajit.forEach(id => { const a = aikaArvo(id); if (a != null && !isNaN(a) && a > 0) { arvot[id] = a; summa += a; n++; } });
+  if (n === 0 || summa <= 0) return out;
+  const tasainen = 1 / n;
+  const ika = (pelaaja && pelaaja.ika != null) ? pelaaja.ika : 12;
+  const leikkija = ika <= 10;
+  Object.keys(arvot).forEach(id => {
+    const osuus = arvot[id] / summa;
+    const poikkeama = (osuus - tasainen) / tasainen; // <0 = vahvuus, >0 = kehityskohde
+    const taso = Math.round((tasainen / osuus) * 100);
+    const nimi = (TK_LAJIT_META[id] && TK_LAJIT_META[id].nimi) || id;
+    if (poikkeama <= -0.10) {
+      out.vahvuudet.push({ laji: id, nimi: nimi, taso: taso,
+        teksti: leikkija ? 'Tämä sujuu sinulta hienosti!' : 'Vahvuutesi — ikäistesi kärkeä tässä lajissa' });
+    } else if (poikkeama >= 0.15) {
+      out.kehityskohteet.push({ laji: id, nimi: nimi, taso: taso,
+        teksti: leikkija ? 'Tässä voit harjoitella vielä lisää' : 'Tässä sinulla on eniten kasvunvaraa juuri nyt' });
     }
   });
-
-  if (painoYhteensa === 0) return null;
-  // Normalisoi: max = 3 (kaikki kulta) → 100
-  return Math.round((tki / (painoYhteensa * 3)) * 100);
+  out.vahvuudet.sort((a, b) => b.taso - a.taso);
+  out.kehityskohteet.sort((a, b) => a.taso - b.taso);
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -668,45 +656,29 @@ function laskeJoukkuenHHAvainluvut(pelaajaTulokset) {
  * @returns {object}
  */
 function laskeJoukkuenTKIAvainluvut(pelaajaTulokset) {
-  const lajiKa = {};
-  const merkkiJakauma = {}; // per laji: {kulta, hopea, pronssi, ei}
-  const lajit = Object.keys(TK_LAJIT_META);
-
-  lajit.forEach(l => {
-    merkkiJakauma[l] = { kulta: 0, hopea: 0, pronssi: 0, ei: 0 };
-  });
-
+  // Kokonaistuloksen merkkijakauma (ei enää lajikohtainen)
+  const merkkiJakauma = { kulta: 0, hopea: 0, pronssi: 0, ei: 0 };
   let tkiYhteensa = 0;
   let tkiLkm = 0;
 
   pelaajaTulokset.forEach(pelaaja => {
-    const merkit = {};
-    lajit.forEach(laji => {
-      const arvo = pelaaja.tulokset && pelaaja.tulokset[laji];
-      if (arvo != null) {
-        const merkki = tkLaskeMerkki(laji, arvo, pelaaja.ika, pelaaja.sp || 'P');
-        merkit[laji] = merkki;
-        merkkiJakauma[laji][merkki || 'ei']++;
-      }
-    });
-    const tki = tkLaskeTKI(merkit);
+    const sp = pelaaja.sp || 'P';
+    const kt = laskeKokonaistulos(pelaaja.tulokset, pelaaja.ika, sp);
+    if (kt == null) return;
+    const merkki = tkLaskeMerkki(kt, pelaaja.ika, sp);
+    merkkiJakauma[merkki || 'ei']++;
+    const tki = tkLaskeTKI(kt, pelaaja.ika, sp);
     if (tki != null) { tkiYhteensa += tki; tkiLkm++; }
   });
 
-  // Kultamitalistien osuus per laji
-  const kultaOsuus = {};
-  lajit.forEach(l => {
-    const yhteensa = merkkiJakauma[l].kulta + merkkiJakauma[l].hopea +
-                     merkkiJakauma[l].pronssi + merkkiJakauma[l].ei;
-    kultaOsuus[l] = yhteensa > 0 ? Math.round(merkkiJakauma[l].kulta / yhteensa * 100) : 0;
-  });
+  const yhteensaMerkit = merkkiJakauma.kulta + merkkiJakauma.hopea + merkkiJakauma.pronssi + merkkiJakauma.ei;
+  const kultaOsuus = yhteensaMerkit > 0 ? Math.round(merkkiJakauma.kulta / yhteensaMerkit * 100) : 0;
 
   return {
     tkiKa:           tkiLkm > 0 ? Math.round(tkiYhteensa / tkiLkm) : null,
     pelaajiaMitattu:  tkiLkm,
-    merkkiJakauma,
-    kultaOsuus,
-    // TKI-taso per joukkue
+    merkkiJakauma,   // { kulta, hopea, pronssi, ei } kokonaistuloksesta
+    kultaOsuus,      // kultamerkin osuus % kokonaistuloksesta
     tkiTaso: tkiLkm > 0 ? (
       Math.round(tkiYhteensa / tkiLkm) >= 80 ? 'erinomainen' :
       Math.round(tkiYhteensa / tkiLkm) >= 60 ? 'hyvä' :
@@ -1182,11 +1154,11 @@ if (typeof module !== 'undefined' && module.exports) {
     // H-H normitaulukot
     HH_NORMIT, HH_KAANTEINEN, HH_TESTIT_META,
     // Tekniikkakilpailut
-    TK_MERKKIRAJAT, TK_LAJIT_META,
+    TK_KOKONAISRAJAT, TK_LAJIT_META,
     // H-H laskenta
     hhLaskeTaso, hhLaskeMetrikat, hhLaskeOVR,
     // TKI laskenta
-    tkLaskeMerkki, tkLaskeTKI,
+    tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
     // Joukkueen avainluvut
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     // Räjähtävyysprofiili
@@ -1198,9 +1170,9 @@ if (typeof module !== 'undefined' && module.exports) {
 } else {
   window.TM_TESTIT = {
     HH_NORMIT, HH_KAANTEINEN, HH_TESTIT_META,
-    TK_MERKKIRAJAT, TK_LAJIT_META,
+    TK_KOKONAISRAJAT, TK_LAJIT_META,
     hhLaskeTaso, hhLaskeMetrikat, hhLaskeOVR,
-    tkLaskeMerkki, tkLaskeTKI,
+    tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     laskeEI, laskeFVP, laskeVNE,
     ADAR_DIMENSIOT, ADAR_SKENAARIOT, ADAR_IKATASOT,
