@@ -1,21 +1,17 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
-# Päivitetty: 2026-05-12 (ilta)
+# Päivitetty: 2026-05-25
 
 ---
 
 ## Projektin tila
 
-TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase-backend
-toimii Blaze-suunnitelmalla. Pilottiseurat aktiivisia, ~316 pelaajaa järjestelmässä.
-Repositorio siivottu Claude Codella. Pelaajan app (v7) on läpikäynyt merkittävän
-uudistuksen — se on nyt arkkitehtuurisesti puhdas, brand-periaatteiden mukainen, ja
-sisältää Palloliiton liikuntaseurantalogiikan.
+TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase-backend toimii Blaze-suunnitelmalla. Pilottiseurat ovat aktiivisia — SJK Juniorit on tuotu järjestelmään (40 pelaajaa, 4 joukkuetta). Seurahallinta on refaktoroitu ja tuotantovalmis. Talenttiohjelma-arkkitehtuuri on suunniteltu ja dokumentoitu.
 
-**Filosofia:** "Pelaaja ensin, hallinto vahvistaa."
-**Kilpailupositiointi:** "Transfermarkt shows what. TalentMasterID shows how."
-**Palloliiton myyntiargumentti:** "TalentMasterilla täytätte Palloliiton
-liikuntaseurantavelvoitteen automaattisesti — ilman erillistä Excel-taulukkoa."
+**Tilanne 2026-05-25:** Työkansio on nyt GitHub Desktop -klooni `talentmaster-github` (vanha `talentmaster-main` = lukuarkisto). Testaus_v9 on GitHubissa ja livenä. **Bio-ikä PHV toteutettu ja pushattu** (commit f6d7769): kasvumittausprotokolla v9:ssä, vanhempien pituudet rekisteröinnissä, PHV-kehitysvaihekortti Pelaaja_v7:ssä, `tm_bioika.js` laajennettu KR-rungolla (gatettu). **Rules v2.8** (biologinen_ika) — ⏳ deployaa Consolesta. Khamis-Roche LUKITTU (`KR_KERTOIMET_PUUTTUU`) kunnes verifioidut Pediatrics 1995 erratum -kertoimet saadaan.
+
+**Filosofia:** *"Pelaaja ensin, hallinto vahvistaa"*
+**Kilpailupositiointi:** *"Transfermarkt shows what. TalentMasterID shows how."*
 
 ---
 
@@ -27,16 +23,16 @@ https://terokoskela7-cmyk.github.io/talentmaster/
 ```
 
 Deployment: manuaalinen tiedostolataus GitHub-webin kautta (palomuuri estää Git CLI).
-CDN-cache: Fastly ~10 min. Testaa aina ?v=N.
-Cloud Functions deploy: automaattinen kun functions/** muuttuu main-branchissa.
-Rules-deploy: Firebase Console → Firestore → Rules → liitä → Julkaise (EI GitHub Actionsilla).
+CDN-cache: GitHub Pages käyttää Fastly CDN:ää (~10 min). Testaa aina `?v=N` + tarkista `raw.githubusercontent.com`.
 
 ---
 
 ## Firebase
 
-Projekti: talentmaster-pilot (Blaze). Tietokanta: Firestore eur3 multi-region.
-Auth: Email/Password + Anonymous (PIN) + Google Sign-In (SA). Functions: europe-west1 AINA.
+- **Projekti:** `talentmaster-pilot` (Blaze plan)
+- **Tietokanta:** Firestore `eur3` multi-region
+- **Auth:** Email/Password + Anonymous (PIN) + **Google Sign-In** (SA käyttää)
+- **Functions:** `europe-west1` — AINA eksplisiittisesti
 
 ```javascript
 const firebaseConfig = {
@@ -47,264 +43,352 @@ const firebaseConfig = {
   messagingSenderId: "872561784446",
   appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
 };
+// KRIITTINEN: firebase.app().functions('europe-west1') — EI firebase.functions() (→ us-central1, hiljaa epäonnistuu)
 ```
 
 ---
 
 ## Käyttäjät
 
-SA: talentmasterid@gmail.com / UID: dqUzvJA61Wb9fgj5UiK0riSA4NI2 (Google Sign-In)
-VP GrIFK: vp.grifk@talentmaster.fi / UID: lBCx0ivDYVWLmxD9TGKsvYrFrlo1
-VP SJK: vp.sjk@talentmaster.fi / UID: 1eHyfKsuTSRAAsPu9kRZ22E4hwo2
-VP Pallo-Iirot: vp.palloiirot@talentmaster.fi / UID: fBf1c60rjXTPxYlsV03EfrHZ2xM2
+| Sähköposti | UID | Rooli | Huomio |
+|---|---|---|---|
+| talentmasterid@gmail.com | dqUzvJA61Wb9fgj5UiK0riSA4NI2 | Super Admin | Google Sign-In |
+| rasmus_broberg@icloud.com | YPOLkJE2BCeoUXZtXDD6L56... | VP KPV | vp.kpv EI ole Authissa |
+| vp.fcl@talentmaster.fi | dpYcfa154ZOHshZzHrVaTZ2iTHE3 | VP | FC Lahti Juniorit |
+| vp.palloiirot@talentmaster.fi | fBf1c60rjXTPxYlsV03EfrHZ2xM2 | VP | Pallo-Iirot |
+| vp.yvies@talentmaster.fi | U21RwOm7OYdrAQB8wTXXlDQksEk2 | VP | Ylöjärven Ilves |
+| vp.sjk@talentmaster.fi | 1eHyfKsuTSRAAsPu9kRZ22E4hwo2 | VP | SJK Juniorit |
+| vp.grifk@talentmaster.fi | lBCx0ivDYVWLmxD9TGKsvYrFrlo1 | VP | GrIFK |
+
+---
+
+## Firestore-rakenne
+
+```
+seurat/{seuraId}/
+  pelaajat/{pelaajaId}
+    joukkueet: ["sjk_u13", "sjk_u15"]   ← uusi 2026-05-09, ID-viittaukset
+    joukkue:   "SJK U13"                 ← backward compat, ensisijainen
+    talenttiOhjelma: bool                ← uusi 2026-05-09
+    talenttiTaso:    "perus"|"laajennettu"
+    talenttiAlku:    Timestamp
+    talenttiAktivoi: uid
+    kirjaukset/{pvm}                     ← pelaajan päivittäiset kirjaukset (LUKITTU rakenne alla)
+    havainnot/{havaintoId}               ← valmentajan kenttähavainnot
+    omatoimi_ohjelmat/
+  joukkueet/{joukkueId}                  ← Seura.html luo .doc(id)-metodilla (siisti ID)
+  kayttajat/{uid}
+  kutsut/{kutsuId}
+
+admins/{uid}
+testitapahtumat/                         ← EI tapahtumat — testidataa
+```
+
+**Kirjausrakenne Firestoressä (LUKITTU — AI-moduulit riippuvat tästä):**
+```
+pelaajat/{id}/kirjaukset/{pvm}
+  tyyppi:    'T'|'D'|'S'|'P'
+  tehty:     bool
+  kesto_min: number
+  rpe:       number
+  fiilinki:  number
+  aika:      'ilta'|'aamu'|'paiva'
+```
 
 ---
 
 ## Testipelaaja: Topias Koskela (KPV)
 
-Dokumentti: seurat/kpv/pelaajat/m93GBdOaGCUuenMiCL0I — KAKSI u:ta!
-PIN: 9278 / syntymaVuosi: 2013 / sukupuoli: "M"
-huoltajaEmail: "TeroKoskela7@gmail.com" / flei_viimeisin: 62
-
----
-
-## Pilottiseurojen tila (2026-05-12)
-
-KPV: 34 ✅ | SJK: 40 ✅ | GrIFK: 162 ✅ (tuotu 2026-05-12) | Pallo-Iirot: 67 ✅
-Demo: 13. Yhteensä ~316 pelaajaa.
-
----
-
-## Kirjausrakenne Firestoressä (LUKITTU — päivitetty 2026-05-12)
-
 ```
-pelaajat/{id}/kirjaukset/{pvm}   ← pvm = YYYY-MM-DD PAIKALLISELLA ajalla (_paivaIso)
-  tyyppi:      'T'|'D'|'S'|'P'|'jalkapallo'|'muu_urheilu'|'lepo'
-  tehty:       bool
-  kesto_min:   number
-  rpe:         number|null        ← null takautuvissa
-  fiilinki:    number|null        ← null takautuvissa
-  aika:        'ilta'|'aamu'|'paiva'|null
-  lahde:       'manuaalinen'|'catapult'|'polar'|'taso'
-  lahde_id:    string|null
-  kirjaustapa: 'heti'|'jalkikateen'|'auto'    ← UUSI 2026-05-12
-  takautuva:   {tyyppi, kesto_min, lisatty}   ← UUSI, vain jos doc oli jo olemassa
+Dokumentti: seurat/kpv/pelaajat/m93GBdOaGCUuenMiCL0I  ← KAKSI u:ta!
+PIN:            9278
+syntymaVuosi:   2013 (15.3.2013)
+sukupuoli:      "M"   (EI "poika")
+joukkue:        "KPV U13"
+seuraId:        "kpv"
+tunniste:       "34650191"   ← PalloID-kenttä
+huoltajaEmail:  "TeroKoskela7@gmail.com"
+flei_viimeisin: 62
+sbl:2.16  sfl:2.30  ll:2.10 (HEIKOIN 55%)  diag:2.40  dfl:2.20
+isDemoUser:     false
 ```
 
-KRIITTINEN: Käytä _paivaIso(d) -helperia kaikkialle — EI toISOString().slice(0,10).
-Syy: UTC-aikavirhe EET-vyöhykkeellä klo 22+ tallentaa väärän päivän.
+---
+
+## Pilottiseurojen tila (2026-05-11)
+
+| Seura | ID | Pelaajia | Joukkueet | Tila |
+|---|---|---|---|---|
+| FC Demo | demo | 13 | demo_u13, demo_u15, demo_u17 | Demo-data |
+| KPV | kpv | 34 | KPV T18 (33), KPV U13 (1) | ✅ Aktiivinen pilotti |
+| SJK Juniorit | sjk | 40 | SJK P14(6), P16(14), T14(9), T16(11) | ✅ Tuotu 2026-05-09 |
+| GrIFK | grifk | 0 | — | Seura luotu |
+| Pallo-Iirot | palloiirot | 0 | — | Seura luotu |
+| Sibbo-Vargarna | sibbovargarna | 0 | — | Seura luotu |
+| VIFK | vifk | 0 | — | Seura luotu |
+
+SJK:n T14/T16 tytöt merkitty talenttiohjelma laajennettu-tasolle tuonnin yhteydessä.
 
 ---
 
-## Tuotantotiedostot (kanoninen lista 2026-05-12)
+## Tiedostojen tila (2026-05-15)
 
-TalentMaster_Seura.html ✅ linkit korjattu
-TalentMaster_Admin.html ✅
-TalentMaster_VP_v22.html ✅ mobiilituki + tm:logout
-TalentMaster_Master_v16.html ✅
-TalentMaster_ADAR_Pikakortti.html ✅
-TalentMaster_Pelaaja_v7.html ✅ SUURI UUDISTUS 2026-05-12 (paikallisesti valmis, ei vielä GitHubissa)
-TalentMaster_Vanhempi_v2.html ⚠️ kovakoodattu nimi (P3 auki)
-TalentMaster_IDP_Kortti_v4.html ✅
-TalentMaster_Rekisterointi_Suostumus.html ✅
-TalentMaster_Testaus_v8.html ✅
-TalentMaster_Excel_Tuonti.html ✅
-TalentMaster_Harjoitettavuus_Lomake_v4.html ✅
-functions/index.js ✅ deploattu 2026-05-12
-tm_admin/firestore.rules ✅ v2.3 deploattu
-tm_why_lauseet.js ✅ v1.3 D-lauseet positiivisiksi
-
-archive/-kansiossa (ei käytössä): Master_v9*, v12, v15, VP_v19*, v20, v21,
-Pelaaja_v3*, v4, v4_auth, Harjoitettavuus_Lomake, v3, IDP_Kortti_v3.
-(* = edelleen live viittausten takia, arkistoidaan myöhemmin)
-
----
-
-## Sessio 2026-05-12 — Mitä tehtiin
-
-### Repositorion siivous (Claude Code)
-9 HTML arkistoitu, 8 rikkinäistä linkkiä korjattu functions/index.js:ssä
-(Master_v9→v16, VP→v22, Pelaaja_v1→v7, Vanhempi→v2). deploy_functions.yml
-auto-trigger lisätty. VP_v22 mobiilituki + tm:logout. Deploattu onnistuneesti ✅.
-
-### Security Rules v2.3
-kehut-alikokoelma, onLapsenHuoltaja get()-kuvio, .lower()-vertailu.
-Testattu live: ✅ huoltaja näkee Topiaksen, ✅ PIN toimii, ✅ tuntematon deny.
-
-### GrIFK 162 pelaajaa tuotu
-8 joukkuetta P7–P13, T11, T13. Excel-pohja generoitu Python+openpyxl:lla.
-
-### Claude Code -asennus
-Versio 2.1.138, C:\Users\TeroKoskela\.local\bin\claude.exe.
-Claude Max + Opus 4.7 + 1M context. Git puuttuu (palomuuri) → Desktop ei toimi.
-Projekti: C:\Users\TeroKoskela\talentmaster\talentmaster-main\
-
-### Pelaajan app v7 — suuri uudistus (PAIKALLISESTI VALMIS, EI VIELÄ GITHUBISSA)
-
-Vaihe 1 — Tekninen velka: P6-käynnistymisbugi korjattu (window._p7Pelaaja
-PIN-callbackiin), kehut-alikokoelma Security Rulesiin, duplikaatti-P6 poistettu,
-rCard() mockup poistettu → naytaFcOverlay(), 'KPV U13' → '—'.
-
-Vaihe A — Siivous: Demo-napit gated, 'Anton' → '', 'P14·MUSTA' → '—',
-"Muuta tänään" poistettu, FIFA-kortti dynaamiseksi, XP poistettu UI:sta.
-
-Vaihe B1 — Bottom navigation: 3 tabia TÄNÄÄN/MINÄ/MEISTÄ, suomi-ID:t,
-default aina 'tanaan', rMeista-stub.
-
-70/30-rakenne: D-kortti iso (gradient-teal) → S-kortti pienempi → T-kortti
-kevyin (dashed). Kaikki kirjaavat tyyppi D/S/T. XP Firestoreen mutta EI UI:hin.
-
-Positiivinen psykologia: Streak 4 tilaa positiivisesti kehystettynä.
-"✓ Tehty — hyvä työ, {etunimi}!" FIFA: "Kehittyy kohti huippua".
-tm_why_lauseet.js v1.3: D-lauseet vahvuus-kehykseen (ei loss aversion).
-
-Takautuva liikuntakirjaus + Palloliiton viikkologiikka:
-_paivaIso() aikavyöhykekorjaus 5 paikkaan. kirjaustapa-kenttä.
-Uudet tyypit: jalkapallo, muu_urheilu, lepo. takautuva-alikenttä konfliktistrategiana.
-laskePalloliittoViikot() funktio. "+ Lisää mennyt päivä" modal.
-
-### ADAR-tiedostojen analyysi
-4 tiedostoa analysoitu — kaikki offline (localStorage, ei Firestore).
-CoachProfile.html pisimmälle: sertifikaattitasot + RAE-kalibrointi valmiina.
-Firebase-integraatio Sprint 4+.
-
-### Dokumentit päivitetty
-KOMMUNIKAATIOFLOW.md, TALENTTIOHJELMA_ARKKITEHTUURI.md (luvut 11-15 lisätty),
-CLAUDE.md (integraatioarkkitehtuuri, brand-invariantit).
+| Tiedosto | Tila |
+|---|---|
+| `TalentMaster_Testaus_v9.html` | ✅ GitHubissa + livenä — **+ kasvumittausprotokolla (PHV) 2026-05-25** |
+| `TalentMaster_Testaus_v8.html` | ⚠️ Arkistoidaan kun v9 testattu pilottiseuralla |
+| `TalentMaster_Harjoitettavuus_Lomake_v4.html` | ⚠️ Arkistoidaan kun v9 testattu pilottiseuralla |
+| `TalentMaster_VP_v22.html` | ✅ GitHubissa — Sprint 3 valmis (signaalit + BQ-stack + IDP-jono) |
+| `TalentMaster_Excel_Tuonti.html` | ✅ GitHubissa — Sprint 3.1 (historiapohja + writeBatch + TKI + PalloID-ristiintarkistus) |
+| `TalentMaster_Admin.html` | ✅ GitHubissa |
+| `TalentMaster_Seura.html` | ✅ GitHubissa |
+| `TalentMaster_Master_v16.html` | ✅ GitHubissa |
+| `TalentMaster_Pelaajarekisteri.xlsx` | ✅ GitHubissa |
+| `CLAUDE.md` | ✅ GitHubissa — päivitetty 2026-05-15 (§30 Bio-ikä-arkkitehtuuri) |
+| `SESSION_SUMMARY.md` | ✅ Päivitetty 2026-05-15 |
+| `docs/TALENTTIOHJELMA_ARKKITEHTUURI.md` | ✅ GitHubissa |
+| `TalentMaster_Pelaaja_v7.html` | ✅ GitHubissa (v=24) |
+| `TalentMaster_ADAR_Pikakortti.html` | ✅ GitHubissa |
+| `TalentMaster_Vanhempi_v2.html` | ⚠️ Kovakoodattu nimi — P3 auki |
+| `tm_eerikkila_normit.js` | ✅ GitHubissa |
+| `tm_lang.js` | ✅ fi/sv/en, 144 käännöstä |
+| `src/lib/tm_bioika.js` | ✅ Mirwald PHV (Excel-verifioitu) + **KR-runko gatettu** (`laskeKR`→`KR_KERTOIMET_PUUTTUU`) + sukupuoli N→T -korjaus (2026-05-25) |
+| `functions/index.js` | ✅ 7 Cloud Functionia + aiProxy deployattu |
+| `tm_admin/firestore.rules` | **v2.8 2026-05-25** (+ pelaajat/{id}/biologinen_ika) — ⏳ deployaa Consolesta (v2.7 deployattu 2026-05-14) |
 
 ---
 
-## Brand-invariantit (uudet 2026-05-12)
+## Sessio 2026-05-25 — Bio-ikä PHV + työkansion vaihto
 
-§17:28 — UI ei näytä XP-lukuja, progressbarsia eikä loss aversion -kieltä.
-XP Firestoreen AI-agenttia varten, ei renderöidä. Streak positiivisesti
-kehystettynä 4 tilassa. Peruste: Seligman PERMA + Deci & Ryan SDT.
+**Työkansio vaihdettu:** virallinen työrepo on nyt GitHub Desktop -klooni `C:\Users\TeroKoskela\talentmaster\talentmaster-github` (remote terokoskela7-cmyk/talentmaster). Vanha `talentmaster-main` (purettu ZIP) = lukuarkisto, ei muokata. Git CLI ei PATH:lla, mutta GitHub Desktopin bundlattu git.exe toimii commit/pushiin.
 
-§17:29 — _paivaIso(d) AINA päivämääriin. EI toISOString().slice(0,10).
+**Bio-ikä PHV toteutettu** (commit f6d7769, 5 tiedostoa):
+- **`src/lib/tm_bioika.js` laajennettu** (EI uutta tiedostoa, §30): `laskeKR()`-runko gatettu palauttamaan `{ error:'KR_KERTOIMET_PUUTTUU' }` (laskee silti midparentin, Epstein-korjauksen isä −1.5/äiti −1.0, fallback 179/166, virhemarginaalin); apufunktiot `laskeIkaDesimaalinen`, `estimoiPuuttuvaVanhempi`, `BIOIKA_VAROITUKSET`. **Bugikorjaus:** sukupuoli `'N'`→`'T'` (tyttö laski aiemmin poikien Mirwald-kaavalla).
+- **`TalentMaster_Testaus_v9.html`:** uusi `kasvumittaus`-protokolla (pituus 2× + paino 2× + istumapituus 1×, `laskentatapa:'keskiarvo'`), `_v5SyotaYritys` osaa keskiarvon, "Merkitse valmiiksi" laskee PHV:n (Mirwald) ja tallentaa kahteen polkuun: `pelaajat/{id}/biologinen_ika/{pvm}` + pelaajadoc-pikakentät (`phv_tila`, `biologinenIka_viimeisin`). Lataa `src/lib/tm_bioika.js`.
+- **`TalentMaster_Rekisterointi_Suostumus.html`:** vapaaehtoinen vanhempien pituuskortti (isä/äiti cm + ei tiedossa/adoptoitu, pehmeä varoitus <150/>200, ei estä) → `isa_pituus_cm`/`aiti_pituus_cm`/`vanhempi_pituus_puuttuu`/`vanhempi_pituus_pvm` molempiin tallennuspolkuihin.
+- **`TalentMaster_Pelaaja_v7.html`:** `rMinaKehitysvaihe()`-kortti (PHV-värikoodit, ±0.5v aina näkyvissä, KR-rivi "Tulossa myöhemmin", piiloon jos ei mittausta); `_laskeStage`/signaalit yhtenäistetty lukemaan koodi `'PH'` (+ vanha 'huippu'/'PHV').
+- **Rules v2.7 → v2.8:** `match /seurat/{sid}/pelaajat/{pid}/biologinen_ika/{mittausPvm}`. ⏳ Deployaa Firebase Consolesta ennen kentällä käyttöä.
 
-§17:30 — kirjaustapa-kenttä pakollinen uusissa kirjauksissa.
-takautuva-alikenttä konfliktistrategiana — ei ylikirjoita olemassa olevaa.
-
----
-
-## Avoimet tehtävät prioriteettijärjestyksessä
-
-### 🔴 VÄLITÖN — Push GitHubiin
-
-Kaikki muutokset ovat paikallisella koneella. Vie GitHubiin:
-1. TalentMaster_Pelaaja_v7.html (isoin muutos)
-2. TalentMaster_VP_v22.html
-3. TalentMaster_Seura.html
-4. tm_why_lauseet.js (v1.3)
-5. tm_admin/firestore.rules (v2.3)
-6. CLAUDE.md (uudet invariantit)
-7. functions/index.js
-8. .github/workflows/deploy_functions.yml
-9. archive/-kansio (9 tiedostoa)
-10. docs/TALENTTIOHJELMA_ARKKITEHTUURI.md
-
-Deployaa Security Rules v2.3 Firebase Consolesta manuaalisesti.
-
-### 🔴 Sprint 2 — Minä-tabi + kriittiset bugit
-
-Ensin korjattava kaksi bugia Pelaaja v7:ssä:
-a) Streak-ristiriita: header "8 pv" mutta teksti "Aloita tänään" (streak==0).
-   _pelaaja.streak on undefined — synkronoi _lataaCStreak:n tulos streak-viestiin.
-b) S-kortti ei renderöidy DOM:ssa — vain D ja T näkyvät. Tarkista rA1():n
-   S-kortin renderöintiehto.
-
-Sen jälkeen rMina-laajennus kuudella aliosiolla:
-rMinaProfiili (nimi, ikäluokka, pelipaikka, joukkue, PalloID),
-rMinaFLEI (5 pylvästä, heikoin korostettuna),
-rMinaStreak (streak + 30pv aktiivisuuskalenteri),
-rMinaTestit (testitulokset Firestoresta),
-rMinaKortti (FIFA-esikatselu + overlay-nappi),
-rMinaAsetukset (kieli, logout, "Jaa linkki vanhemmalle").
-
-Palloliitto-progress Minä-tabissa: laskePalloliittoViikot() on valmis,
-tarvitaan vain UI joka näyttää X/20 viikkoa + deadline 31.12.2026.
-
-Harjoitteen popup-ohjekortti: pelaaja napauttaa harjoitteen nimeä →
-overlay jossa suomenkielinen nimi, mielikuva leikkijoille, toistot, kesto.
-PANKKIin lisättävä: kesto_min, toistot, ohje_lyhyt, mielikuva.
-
-Fiilinki ikäfaasikohtaiseksi:
-leikkija: "Miltä tänään tuntuu?" + 3 emojia (😴🙂🤩)
-rakentaja: "Miten keho tuntuu tänään?" + 5 emojia
-showcase: "Valmius tänään?" + 5 + kuormitushallintateksti
-
-### 🟡 Sprint 3
-
-Meistä-tabi: joukkueen jäsenet, valmentajat, viestit, P6-havainnot, kalenteri.
-Kaverihaaste (T-tyyppi, läsnäolohaaste — EI suoritushaaste).
-Valmentajan asettama haaste.
-Pelaajan omat tavoitteet (lyhyt/kausi/unelma). Firestore: pelaajat/{id}/tavoitteet/{id}.
-P3 — Vanhemman app: where('huoltajaEmail','==',email) → oikea nimi.
-
-Palloliiton liikuntaseurannan hallinta VP:lle:
-seurat/{id}: palloliitto_seuranta: bool, palloliitto_malli: 'kevyt'|'vaativa'
-pelaajat/{id}: palloliitto_seuranta: bool
-VP aktivoi joukkuekohtaisesti Seura.html:ssä.
-VP-dashboardissa joukkuekohtainen seurantaraportti.
-
-TMBus → Firestore-bridge push-notifikaatioille (cross-device).
-
-### 🟢 Sprint 4-5
-
-TASO-kalenteri + pelidata, iCal-vienti, testidatan tuontirakenne.
-GrIFKin taitokilpailutulokset 2025 Firestoreen.
-Kausittainen raportti pelaajalle ja vanhemmalle.
-ADAR Firebase-integraatio (CoachProfile → Firestore ensin).
-
-### Sprint 6-8
-
-AI-kehitysnarratiivi, Behavioural Science -agentti (vaatii 4vk dataa),
-kehityshaaste talenttiohjelmaan, unelma-ankkuri.
+**phv_tila canonical = PRE/LAH/PH/POST/AN.** KR-numerolaskenta integraatiovalmis mutta lukittu: avoimesta verkosta ei saatu verifioituja kerrointaulukoita (vain malli/yksiköt/yksi datapiste). Tarvitaan Pediatrics 1995 erratum -kertoimet (imperiaaliset, ikäkohtaiset 4–17.5v) → `KR_KERTOIMET` + `KR_VERIFIOITU=true`. **Testaamatta ajamalla** (node ei käytettävissä) — testaa kasvumittaus end-to-end super_adminilla.
 
 ---
 
-## Arkkitehtuurin invariantit (kriittiset)
+## Sessio 2026-05-12 → 2026-05-15 (Sprint 1+2+3 yhdessä)
 
-1. SA UID dqUzvJA61Wb9fgj5UiK0riSA4NI2 — Google Sign-In, tunnistus adminSnap.exists
-2. Cloud Functions AINA europe-west1 eksplisiittisesti
-3. super_admin (alaviiva) — ei superAdmin
-4. FLEI = 5 ketjua: SBL, SFL, LL, DIAG, DFL. Normalisointi (arvo-1)/2×100
-5. serverTimestamp() EI array:n sisällä → new Date().toISOString()
-6. Firestore Rules: allow create JA allow update molemmat
-7. testitapahtumat (EI tapahtumat)
-8. Nested template literals → string concatenation (+) AINA
-9. PIN login: await user.getIdToken(true) ennen Firestore-kirjoitusta
-10. huoltajaEmail .lower()-vertailu Security Rulesissa AINA
-11. functions/index.js → automaattinen deploy push:lla (functions/**)
-12. tm_auth.js juuri = TmAuth.* (tuotanto). src/lib/ = TM.* (ei adoptoitu). ÄLÄ sekoita.
-13. _paivaIso(d) AINA päivämääriin — ei toISOString().slice(0,10)
-14. XP tallennetaan Firestoreen mutta EI renderöidä pelaajalle
-15. Streak aina positiivisesti kehystettynä — ei loss aversion -kieltä
-16. kirjaustapa-kenttä pakollinen uusissa kirjauksissa
-17. takautuva-alikenttä konfliktistrategiana — ei ylikirjoita
-18. Tapahtumat-skeema: seurat/{id}/tapahtumat/{id} (ei joukkueet/{id}/tapahtumat)
-19. Kaverihaaste = aina T-tyyppi (läsnäolohaaste, ei suoritushaaste)
-20. Palloliitto-seuranta tallentaa kirjaustapa-kentän — takautuvatkin lasketaan
+### Sprint 3 — VP_v22 Tilanne-näkymä (johtamisjärjestelmä, 2026-05-13)
+`renderSignals(seuraId)` — 5 prioritisoitua signaaliperhettä dynaamisesti Firestore-pohjaisena. `renderTeamPulse` + BQ-stack (Morganti 2025 RAE) joukkuekorttiin: Q1/Q2/Q3/Q4 palkki + Underdog-laskuri (BQ4 + FLEI ≥ 60). IDP-jono Firestore-pohjaiseksi (`'odottaa'`-tila + hylkäysmodaali + audit-trail). `meta/phv_snapshot` -kirjoitusoptimointi (vain muuttuneet arvot). CLAUDE.md §17 #23 — joukkuetunnisteen kaksirakenteisuus dokumentoitu.
+
+### Sprint 3.1 — Excel_Tuonti historiapohja-moodi (2026-05-13)
+Kaksi moodia: A) tapahtumapohjainen (ennallaan), B) historiapohjainen vanhalle Exceldatalle ilman tapahtuma-ID:tä. `pelaajat/{palloID}/testitulokset/{pvm}_{protokolla}` -uusi alikokoelma. WriteBatch (400/erä) atominen kirjoitus. TKI-laskenta tuonnin yhteydessä (tkLaskeMerkki + tkLaskeTKI + TK_MERKKIRAJAT inline). PalloID-ristiintarkistus Promise.all-rinnakkaisesti + 3-ryhmäluokitus. Monikielinen tunnistus: SpelareID = PalloID (sv), PlayerID/Spieler-ID = fallback. Kausi-dropdown automaattisilla vaihtoehdoilla. Bugfix: `serverTimestamp()` arrayn sisällä → `new Date().toISOString()` (CLAUDE.md §17 #7).
+
+### Testaus_v8 — useita iteraatioita (2026-05-13–14)
+Pelaajahaku Promise.all-kaksoiskysely (joukkue-nimi + joukkueet-array). Lineaarinopeus 3 erillisenä testinä (lin_5m, lin_10m, lin_30m). Vapaa testivalinta 4 kategoriaa + omat testit. `_haeProto(tap)`-yhtenäistys 13 paikassa. Paikka-kentän neutralisointi + seuran kotihalli-fallback. Oikeat harjoitettavuustestit `VAPAA_TESTIPANKKI`:ssa. ℹ-tooltip kenttäohjeineen (`TESTI_OHJEET` 20 testille). Testialusta-dropdown 8 vaihtoehdolla + pakollisuus juoksutesteille. Kasirata → "Ketteryys — kasirata" + TSI-kaava CLAUDE.md §23:een.
+
+### Testaus_v9 — strateginen yhdistäminen (2026-05-14) ⭐
+**3112 riviä, kolmen sovelluksen kokonaisuus yhden tiedoston sisällä:**
+- **Sovellus 1 — Suunnittelu** (vaiheet 1–4): protokolla + alusta + joukkue + osallistujat + ryhmäjako
+- **Sovellus 2 — Kenttänäkymä** (vaihe 5): korttinäkymä yksi pelaaja kerrallaan · rotaatio · **offline-ensin (localStorage→Firestore)** · välitön vahvistus (vihreä välähdys 800ms) · 1–3p pisteytys · ℹ-modaali kenttäohjeineen · Palloliiton virallinen kuljetus-laukaus-erikoissyöttö (raaka + 4 rangaistuskenttää + auto-tulos) · reaaliaikainen TKI + merkki
+- **Sovellus 3 — Tarkastelu** (vaiheet 6–8): sync-status per pelaaja · "Merkitse valmiiksi" · FLEI/TKI/TSI värikoodattu taulukko · **A4-print per pelaaja** print-CSS:llä
+
+Kalenteri-kirjoitus kahteen polkuun: `testitapahtumat/{id}` (POLKU 1) + `joukkueet/{jid}/kalenteri/{kid}` (POLKU 2, try-catch). Jälkimmäinen vaati Rules v2.7:n kalenteri-alikokoelmablokin.
+
+**Rinnakkainen v8:n ja Harjoitettavuus_v4:n kanssa kunnes pilotti vahvistaa — sitten molemmat arkistoidaan.**
+
+### Firestore Rules v2.7 deployattu (2026-05-14)
+Versiopolku tässä sessiossa: v2.4 → v2.5 → v2.6 → v2.7. Kriittisin lisäys: `joukkueet/{id}/kalenteri/{kid}` -alikokoelmablokki (Testaus_v9 vaati). Lisäksi: `idp_jono` `'odottaa'`-tila, `meta/phv_snapshot` -kanava, `pelaajat/{pid}/testitulokset/{pvm}_{proto}` historiapohjalle, `errors/` luonti PIN-sessioista.
+
+### Bio-ikä-analyysi (2026-05-14, read-only)
+`tm_bioika.js` 287 riviä ja `TalentMaster_BioIka.xlsx` (purettu ZIP-XML-tasolla) käyttävät **IDENTTISIÄ Mirwald 2002 -kaavoja** — vertailtu kerrointasolla, 11 kerrointa pojat+tytöt + 5 PHV-tilan kynnystä + 12 kk × 2 sukupuolta yli-ikäisyystaulukko. Khamis-Roche ei käytössä — intentionaalisesti poistettu, koska alkuperäiset 1994-kertoimet eivät verifioitavissa.
+
+### Bio-ikä-arkkitehtuuri lukittu (2026-05-15)
+Eerikkilän/Palloliiton MyEWay-linjauksen pohjalta päätös: **molemmat menetelmät rinnakkain, eivät kilpaile**. PHV (Mirwald) → "mitä nyt tapahtuu?" → harjoittelun ohjaus. KR → "kuinka kypsä suhteessa muihin?" → bio-banding. KR:n implementaatio Sprint 4:ään: Pediatrics 1995 erratum -kertoimet, lineaarinen interpolointi puolen vuoden intervallien välillä, vanhempien pituudet suostumuslomakkeelta. Fallback THL FinRavinto 2017: isät 179 cm, äidit 166 cm (korjaa aiemmin käytetyn yläkanttiin olevan 181/168 cm). Ks. CLAUDE.md §30.
 
 ---
 
-## Claude Code -ohjeet
+## Sessioiden yhteenveto — mitä tehty (05-08 + 05-09)
 
-cd C:\Users\TeroKoskela\talentmaster\talentmaster-main
-claude
+### Admin-sivu v2 (05-08)
+Massakutsu uudelleenrakennettu: tallentaa `suostumusTila:'odottaa'`, EI sähköpostia. Joukkueet-sivu dynaaminen. `palloID` (iso I) korjattu. `lataaSeurat` muutettu `onSnapshot`-kuuntelijaksi. Nappi muutettu: "💾 Tuo pelaajat järjestelmään" + iso amber-varoituslaatikko VAIHE 1/2.
 
-Versio 2.1.138, Claude Max + Opus 4.7 + 1M context. CLAUDE.md luetaan automaattisesti.
+### Master v16 (05-08)
+`onAuthStateChanged` korjattu (`_kirjautuminenKesken` poistettu). Google Sign-In lisätty. SA:n joukkuevalitsin dynaamiseksi. Kalenteri- ja testitapahtumabugi korjattu.
+
+### Seurahallinta Seura.html (05-09) — isot muutokset
+Joukkueet[]-arkkitehtuuri: pelaajalla nyt `joukkueet[]` (ID-viittaukset) + `joukkue` (backward compat). Muokkausmodaalin dropdown → checkboxit (useaan joukkueeseen). Joukkueen nimen muokkaus + batch-päivitys kaikille pelaajille. Talenttiohjelma-toggle + perus/laajennettu-valinta. KORI poistettu. Uusi Talentit-välilehti. Excel-pohja dynaaminen (SheetJS + Firestore-joukkueet). Duplikaattisuoja kahdella tasolla (palloID + nimi+joukkue). Joukkuesuodatus dynaamisilla nappuloilla. `suodataPelaajat` refaktoroitu kolmeksi erilliseksi funktioksi (`pelaajaRivi`, `paivitaNappienUlkoasu`, `renderPelaajaLista`).
+
+### SJK-pelaajat tuotu (05-09)
+40 pelaajaa, 4 joukkuetta. T14/T16 nimikorjaus batch-päivityksellä konsolista. PalloID-duplikaatti korjattu. Tyttöjen talenttiohjelma asetettu.
+
+### Talenttitunnistuksen arkkitehtuuri dokumentoitu (05-09)
+Täydellinen kuvaus: `docs/TALENTTIOHJELMA_ARKKITEHTUURI.md`. Ks. lyhyennos alla.
+
+---
+
+## Massakutsu — kaksivaiheinen prosessi (TÄRKEÄ)
+
+Vaihe 1 nyt: Excel → Firestoreen `suostumusTila:'odottaa'`. EI sähköpostia.
+Vaihe 2 tuleva: "Lähetä suostumuspyynnöt" -nappi kun kaikki näkymät tarkastettu.
+
+---
+
+## Kenttänimien canonical
+
+| Oikein | Väärin |
+|---|---|
+| `palloID` (iso I) | `palloId` |
+| `joukkue` (string) + `joukkueet` (array) | `joukkueNimi` |
+| `suostumusTila` | `suostumus` |
+| `syntymaVuosi` (integer) | `syntymavuosi` |
+| `sukupuoli: "M"/"N"` | `"poika"/"tyttö"` |
+| `super_admin` (alaviiva) | `superAdmin` |
+| `testitapahtumat` (kokoelma) | `tapahtumat` |
+| `tunniste` (PalloID Firestoressä) | `palloId` |
+
+---
+
+## Cloud Functions (7 kpl, europe-west1)
+
+| Funktio | Tarkoitus |
+|---|---|
+| `lahetaRekisteriKutsu` | Rekisteröintikutsu huoltajalle |
+| `luoKayttaja` | Auth + Firestore + custom claims + salasanalinkki |
+| `lahetaHuoltajaKutsu` | Huoltajan suostumuskutsu |
+| `deaktivioiKayttaja` | Deaktivoi käyttäjä |
+| `lahetaPelaajaSivuLinkki` | Linkit + salasananollaus |
+| `tasoHaeSeuranOttelut` | TASO API |
+| `aiProxy` | AI-kutsujen välittäjä (Anthropic/OpenAI/Gemini) |
+
+---
+
+## Eerikkilä-normitaulukot (`tm_eerikkila_normit.js`)
+
+11 testiä, pojat P10–M ja tytöt T10–N. **Tallennetaan AINA raakadata Firestoreen, taso lasketaan lennossa.**
+
+```javascript
+eerikkilaTaso(arvo, testi, ika, sukupuoli)  // → 1–5 (tai 1–3 tekniikalle)
+eerikkilaProfiilit(pelaaja)                  // → {nopeus_30m: 3, hyppy_cj: 4, ...}
+laskeEI(cj_cm, sj_cm)                       // elastisuusindeksi (CMJ−SJ)
+laskeFVP(n5m_s, n30m_s)                     // voima-nopeus-profiili
+laskeTSI(smjuoksu_s, smpallo_s)             // tekniikka-nopeus-indeksi ← kriittisin talentti-indikaattori
+```
+
+Tekniikkatestit (pujottelu, syöttö): 3-portainen asteikko. Muut: 5-portainen.
+
+---
+
+## Talenttitunnistus — avainasiat (täydellinen kuvaus docs/TALENTTIOHJELMA_ARKKITEHTUURI.md)
+
+**TSI** (SM-pallo − SM-juoksu) on kriittisin yksittäinen talentti-indikaattori. SM-juoksu ja SM-pallo ovat H-H patteriston suunnanmuutostestejä — eivät erillisiä lajitekniikatestejä. H-H taso 3 = kansallinen, taso 4–5 = kansainvälinen.
+
+**Kehitysvauhti on tärkeämpi kuin hetkellinen taso** — tämä on kansainvälisen tutkimuksen konsensus.
+
+**Hidden Gem** = kehitysvauhti nouseva + biologinen alijäämä (Q3/Q4 tai pre-PHV) + taso alle mediaanin. **X-Factor** = jo korkea taso (≥4) + poikkeuksellinen erottuvuus yhdellä osa-alueella.
+
+**Talenttiohjelma-prosessi:** Valmentaja ehdottaa → VP/TV vahvistaa datalla → 30pv aikaraja → kahden roolin hyväksyntä tallennetaan. Poistuminen vaatii VP:n aktiivisen päätöksen + perustelun. Talenttinimitys alkaa 13v:sta. Pienessä seurassa voi olla vain 5 talenttia — järjestelmä suosittelee realistisen määrän eikä pakota 20:een.
+
+---
+
+## Avoimet tehtävät (2026-05-15)
+
+**Välittömät pilottivalmiuteen:**
+- ⏳ Vie `TalentMaster_Testaus_v9.html` GitHubiin (manuaalinen web-UI)
+- ⏳ Pilottitesti Testaus_v9: KPV/GrIFK kokeilee → palautteen jälkeen v8 ja Harjoitettavuus_v4 arkistoidaan
+- ⏳ VP_v22 testaus KPV:llä (`rasmus_broberg@icloud.com`)
+
+**Bio-ikä — tehty 2026-05-25:**
+- ✅ Vanhempien pituuskentät rekisteröintilomakkeeseen (`isa_pituus_cm`/`aiti_pituus_cm` + ei tiedossa/adoptoitu)
+- ✅ Kasvumittausprotokolla Testaus_v9:ään (pituus 2× + paino 2× + istumapituus 1× + `laskentatapa:'keskiarvo'`, PHV-tallennus pikakentät + `biologinen_ika/{pvm}`)
+- ✅ Rules v2.8 sisältää `biologinen_ika`-alikokoelmablokin
+- ✅ PHV-kehitysvaihekortti Pelaaja_v7:ään
+
+**Bio-ikä — vielä auki:**
+- ⏳ **Deployaa Rules v2.8 Consolesta** (muuten biologinen_ika-kirjoitus kaatuu)
+- ⏳ **Khamis-Roche -kertoimet:** `laskeKR()` lukittu (`KR_KERTOIMET_PUUTTUU`). Tarvitaan verifioidut Pediatrics 1995 erratum -kertoimet (imperiaaliset, ikäkohtaiset). Avointa verkkoa ei voitu verifioida 2026-05-25 → lähde julkaisusta tai Eerikkilä/MyEWaystä. Kun saatu → täytä `KR_KERTOIMET` + `KR_VERIFIOITU=true`.
+- ⏳ **Testaa kasvumittaus end-to-end** super_adminilla (koodi testaamatta ajamalla)
+
+**Kriittiset ennen laajentumista:**
+
+| # | Tehtävä | Prioriteetti |
+|---|---|---|
+| P3 | Vanhemman app: kovakoodattu "Eemeli" → `where('huoltajaEmail','==',email)` | 🔴 |
+| P4 | Firestore Rules vanhemmalle: `resource.data.huoltajaEmail == request.auth.token.email` | 🔴 |
+| P6 | Valmentajan kenttähavainto → Firestore → pelaajan näkymä (ketju puuttuu) | 🔴 |
+| — | Streak → Firestore — pakollinen ennen AI-moduuleja | 🔴 |
+| — | Suostumusprosessi vaihe 2 — "Lähetä suostumuspyynnöt" -nappi | 🟡 |
+| P5 | Fiilinki ikäfaasikohtaiseksi (U13 leikkija-kieli) | 🟡 |
+| P7 | IDP-aktivointilogiikka (3 reittiä: manuaalinen/HG-signaali/XF-signaali) | 🟡 |
+| — | RAE BQ-jakauma VP_v22:ssa | ✅ Sprint 3 |
+| — | Tyttöjen PHV-kaava ennen SJK U14/15T -aktivointia | 🟡 (KR tarkempi tytöillä, 4.3 cm vs. poikien 5.6 cm) |
+| — | SPF/DKIM — sähköpostit roskapostiin | 🟡 |
+
+---
+
+## Arkkitehtuurin invariantit — ei saa koskaan rikkoa
+
+1. **SA** (`talentmasterid@gmail.com`, UID:`dqUzvJA61Wb9fgj5UiK0riSA4NI2`) — Google Sign-In, tunnistus `adminSnap.exists`
+2. **Cloud Functions** AINA `europe-west1` eksplisiittisesti — `firebase.functions()` menee `us-central1`
+3. **Rooli canonical:** `super_admin` (alaviiva, ei camelCase)
+4. **FLEI = 5 ketjua:** SBL, SFL, LL, DIAG, DFL. Asteikko 1–3, normalisointi `(arvo-1)/2×100`. Default `2.0` (50%) kun ei dataa.
+5. **`serverTimestamp()`** EI array:n sisällä → käytä `new Date().toISOString()`
+6. **Firestore Rules:** `allow create` JA `allow update` molemmat pakollisia
+7. **Firestore Rules** EI periydy alikokoelmiin — jokainen vaatii oman blokin
+8. **`testitapahtumat`** EI `tapahtumat` testien kokoelmana
+9. **Joukkueet:** Seura.html luo `.doc(id)`:llä (siisti ID), Admin ei luo joukkueita
+10. **Massakutsu** = datantuonti vain — EI sähköpostia (vaihe 2 erikseen)
+11. **Nested template literals** rikkovat parserin → string concatenation (`+`)
+12. **PIN login:** `await user.getIdToken(true)` ennen Firestore-kirjoitusta
+13. **GitHub CDN** ~10 min → `?v=N` + tarkista `raw.githubusercontent.com`
+14. **`palloID`** isolla I kaikkialla — `tunniste`-kenttä tallentaa PalloID:n pelaajadokumenttiin
+15. **Anonyymeillä Auth-käyttäjillä** (PIN) oltava eksplisiittinen pääsy Security Rules:ssa
+16. **`window._pelaajaMap`** välimuistittaa `{tunniste, nimi, joukkue}` per Firebase ID
+17. **Raakadata Firestoreen** — normalisointi koodissa. Älä tallenna `taso:3`, tallenna `arvo:4.42s`
+18. **`syntymaVuosi`** numerona — `syntymaaika` on Timestamp erikseen
+19. **`Date.UTC(y, m-1, d)`** päivämääräjäsentämiseen — EI `new Date(string)`
+20. **Topias dokumentti-ID:** `m93GBdOaGCUuenMiCL0I` — **kaksi u:ta**
+21. **`joukkueet[]` + `joukkue`** molemmat pelaajalla — uusi array + backward compat string
+22. **Excel-sarakeotsikoissa EI suluissa olevaa tekstiä** — rikkoo `etsiSarake` (vaikka `startsWith` korjaa)
+23. **SA kirjautuu Google Sign-In:llä** — ei email/salasana
+24. **Bio-ikä-arkkitehtuuri:** PHV (Mirwald) ja KR (Khamis-Roche) eivät kilpaile — molemmat tarvitaan eri tarkoituksiin. Mirwald `tm_bioika.js`:ssä on Excel-verifioitu auktoritatiivinen. KR Sprint 4: Pediatrics 1995 erratum -kertoimet, ei alkuperäisiä 1994-kertoimia. Ks. CLAUDE.md §30.
+25. **Testaus_v9 on uusin yhdistetty kenttätyökalu** — v8 ja Harjoitettavuus_v4 arkistoidaan pilotin jälkeen. Älä korjaile v8:aa — kaikki uusi v9:ään.
+
+---
+
+## AI-arkkitehtuuri (Sprint 6–8)
+
+Kaikki AI-kutsut: `TM_AI.call()` → `aiProxy` Cloud Function (europe-west1) → provider. API-avaimet EIVÄT koskaan selaimessa.
+
+Rakentamisjärjestys: 1) Pelihavainto AI (GPT-4o Vision → ADAR), 2) Äänikirjaus (Whisper-1 → Firestore), 3) Kehitysnarratiivi (Assistants API, thread per pelaaja), 4) Behavioural Science -agentti (Anthropic, vaatii 2–4 vk kirjausdataa).
+
+Kriittisin riski: Streak → Firestore liian myöhään → Moduuli 4 ei ehdi aktivoitua pilottikauden aikana.
+
+---
+
+## Pelaajan app — Piilotettu scene-bar (`display:none`)
+
+Kehitysnavigaatio — näkyy vain SA:lle/kehittäjälle. Tuotannossa vain D·PIN ja A1 KOTI.
+
+| Nappi | Nimi | Tila |
+|---|---|---|
+| D · PIN | PIN-kirjautuminen | ✅ Tuotanto |
+| A1 | KOTI | ✅ Tuotanto |
+| A2 | Signal / CTA-versio | 🔵 Konsepti |
+| B | Harjoitus + valmentajavideo | 🔵 Konsepti |
+| C | FIFA-tyylinen pelaajakortti (OVR 87) | 🔵 Konsepti |
+| I | Vanhempi (viikkotarina, kalenteri, kehuviesti) | 🔵 Konsepti |
+
+Seuraavaksi rakentaa: C (OVR-kortti) ja I (Vanhempi-konsepti).
 
 ---
 
 ## Aloita uusi sessio näin
 
+```
 Jatketaan TalentMaster-pilottia. SESSION_SUMMARY.md on liitetty.
 Ensimmäinen tehtävä: [kirjoita tehtävä tähän]
 
 Live:  https://terokoskela7-cmyk.github.io/talentmaster/
 Admin: https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Admin.html
+Seura: https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Seura.html
 SA:    talentmasterid@gmail.com (Google Sign-In)
 PIN:   9278 (Topias Koskela, KPV)
-
-Claude Code: cd C:\Users\TeroKoskela\talentmaster\talentmaster-main → claude
+```
