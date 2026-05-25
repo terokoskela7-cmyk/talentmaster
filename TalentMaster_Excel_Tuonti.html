@@ -13,6 +13,8 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- pdf.js — Palloliiton PDF-tuonti (ei npm, Node.js ei käytettävissä) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <style>
 :root {
@@ -427,6 +429,21 @@ tbody tr:hover { background: rgba(46,213,115,0.04); }
 <div id="sivu-paa" class="page">
   <div class="container">
 
+    <!-- Tuontityypin valinta: Excel vs Palloliiton PDF -->
+    <div class="tuontityyppi-tabit" style="display:flex;gap:10px;margin-bottom:18px;">
+      <button id="tt-excel" type="button" onclick="vaihtoTuontityyppi('excel')"
+        style="flex:1;background:var(--bg3);border:1px solid var(--primary);border-radius:10px;padding:13px;color:var(--primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">
+        📊 Excel-tuonti
+      </button>
+      <button id="tt-pdf" type="button" onclick="vaihtoTuontityyppi('pdf')"
+        style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:13px;color:var(--text2);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">
+        📄 Palloliiton PDF
+      </button>
+    </div>
+
+    <!-- ════ EXCEL-OSIO ════ -->
+    <div id="osio-excel">
+
     <!-- Stepit -->
     <div class="stepit">
       <div class="step active" id="step-1">
@@ -544,6 +561,49 @@ tbody tr:hover { background: rgba(46,213,115,0.04); }
       </div>
     </div>
 
+    </div><!-- /osio-excel -->
+
+    <!-- ════ PALLOLIITON PDF-OSIO ════ -->
+    <div id="osio-pdf" style="display:none;">
+      <div class="card">
+        <div class="card-title">📄 Palloliiton PDF — tekniikkakilpailun tulokset</div>
+        <div class="card-sub">
+          Lataa Palloliiton vakiomuotoinen tulostiedosto (PDF). Järjestelmä parsii ikäluokan,
+          merkkirajat ja pelaajarivit, yhdistää PalloID:t nimellä ja laskee TKI:n.
+          Uusia pelaajia ei luoda — vain järjestelmästä löytyvät yhdistetään.
+        </div>
+        <div style="margin-top:16px;">
+          <div class="drop-zone" id="pdf-drop-zone"
+            ondragover="event.preventDefault(); this.classList.add('drag-over')"
+            ondragleave="this.classList.remove('drag-over')"
+            ondrop="kasittelePdfDrop(event)">
+            <div class="drop-icon">📄</div>
+            <p><strong>Vedä PDF-tiedosto tähän</strong></p>
+            <p class="drop-hint">tai klikkaa valitaksesi (.pdf)</p>
+          </div>
+          <input type="file" id="pdf-file-input" accept=".pdf" style="display:none"
+            onchange="kasittelePdfTiedosto(this.files[0])">
+        </div>
+        <div id="pdf-status" style="margin-top:12px;font-size:13px;color:var(--text2);"></div>
+      </div>
+
+      <div id="pdf-tulos-kortti" class="card" style="display:none;">
+        <div class="card-title">👁 Esikatselu ja PalloID-yhdistäminen</div>
+        <div id="pdf-meta" style="margin-top:10px;"></div>
+        <div id="pdf-taulukko" class="table-wrap" style="margin-top:14px;"></div>
+        <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-primary" id="pdf-tallenna-nappi" onclick="tallennaPdfFirestoreen()" disabled>
+            💾 Tallenna yhdistetyt Firestoreen
+          </button>
+          <span id="pdf-tallenna-status" style="font-size:12px;color:var(--text2);"></span>
+        </div>
+        <div id="pdf-progress" style="display:none;margin-top:12px;">
+          <div class="progress-wrap"><div class="progress-fill" id="pdf-progress-fill" style="width:0%"></div></div>
+          <div class="progress-text" id="pdf-progress-text"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -593,6 +653,33 @@ let tuontiData = {
   palloIdTarkistus: null,       // { loytyy: [], ei_loydy: [], tyhja: [] }
   tuontiStrategia: 'vain_loytyneet' // 'vain_loytyneet' | 'kaikki'
 };
+
+// Palloliiton PDF-tuonti -tila
+let pdfData = {
+  tiedostonimi: '',
+  ikaluokka: '',     // esim. 'P12'
+  sukupuoli: '',     // 'P' | 'T'
+  ika: null,         // 12
+  merkkirajat: null, // { kulta, hopea, pronssi }
+  rivit: [],         // parsitut pelaajarivit
+  valmis: false
+};
+
+// Tuontityypin vaihto: 'excel' | 'pdf'
+function vaihtoTuontityyppi(tyyppi) {
+  const onPdf = (tyyppi === 'pdf');
+  const ex = document.getElementById('osio-excel');
+  const pdf = document.getElementById('osio-pdf');
+  if (ex)  ex.style.display  = onPdf ? 'none' : 'block';
+  if (pdf) pdf.style.display = onPdf ? 'block' : 'none';
+  const aktivoi = (el, on) => {
+    if (!el) return;
+    el.style.borderColor = on ? 'var(--primary)' : 'var(--border)';
+    el.style.color = on ? 'var(--primary)' : 'var(--text2)';
+  };
+  aktivoi(document.getElementById('tt-excel'), !onPdf);
+  aktivoi(document.getElementById('tt-pdf'), onPdf);
+}
 
 function valitseMoodi(moodi) {
   tuontiData.moodi = moodi;
@@ -915,6 +1002,153 @@ function tunnistaTestiId(otsikkoTeksti) {
 }
 
 // ════════════════════════════════════════
+// MONISUORITUSPARSINTA (_1/_2/_3) — jaettu pohjaSarakkeet()-skeema ohjaa lukua
+// ════════════════════════════════════════
+
+// Käännä KAIKKIEN protokollien pohjaSarakkeet()-otsikot takaisin metatiedoksi.
+// Eksakti osuma uusille pohjille; cachataan koska PROTOKOLLAT ei muutu ajossa.
+let _pohjaHeaderMapCache = null;
+function _pohjaHeaderMap() {
+  if (_pohjaHeaderMapCache) return _pohjaHeaderMapCache;
+  const map = {};
+  for (const pk of Object.keys(PROTOKOLLAT)) {
+    const proto = PROTOKOLLAT[pk];
+    let sar = [];
+    try { sar = pohjaSarakkeet(pk) || []; } catch(e) { sar = []; }
+    for (const s of sar) {
+      const real = (proto.testit || []).find(t => t.id === s.testId) || null;
+      const yks = _yksikkoOtsikosta(s.header);
+      // Jos PROTOKOLLAT ei tunne testiä (esim. pohjan ja taulukon nimieron takia),
+      // synteettinen testiData yksiköllä otsikosta → validointi+suunta toimivat silti.
+      const testiData = real || { id: s.testId, nimi: s.testId, yksikko: yks, pienempi_parempi: (yks === 's') };
+      map[s.header.toLowerCase()] = { testId: s.testId, kind: s.kind, yritys: s.yritys, testiData: testiData, protoKey: pk };
+    }
+  }
+  _pohjaHeaderMapCache = map;
+  return map;
+}
+
+// Päättele yksikkö otsikon suffiksista (_kmh ennen _m/_s; cmj-tyyppiset eivät häiritse).
+function _yksikkoOtsikosta(h) {
+  const l = String(h).toLowerCase();
+  if (/_kmh(_|$)/.test(l) || /km\/?h/.test(l)) return 'km/h';
+  if (/_cm(_|$)/.test(l)) return 'cm';
+  if (/_kg(_|$)/.test(l)) return 'kg';
+  if (/_m(_|$)/.test(l))  return 'm';
+  if (/_s(_|$)/.test(l))  return 's';
+  if (/_p(_|$)/.test(l))  return '1-3p';
+  return null;
+}
+
+// Parsi yksittäisen sarakeotsikon metatieto: ensin eksakti pohjaSarakkeet-osuma,
+// sitten fallback tunnistaTestiId() + _1/_2/_3-suffiksin riisunta (vanhat pohjat).
+function _parsiSarakeMeta(otsikko) {
+  const lower = String(otsikko).trim().toLowerCase();
+  const map = _pohjaHeaderMap();
+  if (map[lower]) return map[lower];
+  // Fallback — riisu yrityssuffiksi _1/_2/_3 ja tunnista perusnimestä
+  let base = String(otsikko).trim();
+  let yritys = 1;
+  const m = base.match(/_(\d)\s*$/);
+  if (m) { yritys = parseInt(m[1], 10); base = base.slice(0, m.index); }
+  let tunnistettu = tunnistaTestiId(base);
+  if (!tunnistettu) tunnistettu = tunnistaTestiId(otsikko);
+  if (!tunnistettu) return null;
+  return { testId: tunnistettu.id, kind: 'arvo', yritys: yritys, testiData: tunnistettu.testi, protoKey: tunnistettu.proto };
+}
+
+// Onko pienempi parempi: TK_LAJIT_META → testiData → yksikön päättely.
+function _testiPienempiParempi(testId, testiData) {
+  if (typeof TK_LAJIT_META !== 'undefined' && TK_LAJIT_META[testId]) return !!TK_LAJIT_META[testId].kaanteinen;
+  if (testiData && typeof testiData.pienempi_parempi === 'boolean') return testiData.pienempi_parempi;
+  const yks = testiData && testiData.yksikko;
+  if (yks === 'cm' || yks === 'm' || yks === 'km/h' || yks === 'toistot' || yks === 'pisteet') return false;
+  return true; // s ja oletus
+}
+
+// Paras tulos yrityksistä suunnan mukaan (suodata null/NaN).
+function laskeParas(yritykset, pienempiParempi) {
+  const arvot = (yritykset || []).filter(v => v != null && !isNaN(v));
+  if (arvot.length === 0) return null;
+  return pienempiParempi ? Math.min.apply(null, arvot) : Math.max.apply(null, arvot);
+}
+
+// Laske yhden testiryhmän skalaari (paras) + rakenteinen objekti Firestorea varten.
+// Palauttaa { skalaari, rakenne }. rakenne===null kun vain 1 sarake (vanha pohja → skalaari).
+function _laskeTestiRyhma(testId, ryhma, rivi) {
+  const lue = (idx) => {
+    const raw = rivi[idx];
+    if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+    const n = parseFloat(String(raw).trim().replace(',', '.'));
+    return isNaN(n) ? null : n;
+  };
+
+  // ── Kuljetus-laukaus: raaka − vähennys per yritys, paras = min netto ──
+  if (testId === 'kuljetus_laukaus') {
+    const yritykset = {};
+    for (const c of ryhma.columns) {
+      const y = c.yritys || 1;
+      if (!yritykset[y]) yritykset[y] = {};
+      if (c.kind === 'kl_vahennys') yritykset[y].vahennys = lue(c.index);
+      else yritykset[y].raaka = lue(c.index);
+    }
+    const rakenne = {};
+    const netot = [];
+    Object.keys(yritykset).sort().forEach(y => {
+      const o = yritykset[y];
+      if (o.raaka == null) return;
+      const vah = o.vahennys || 0;
+      const netto = Math.round((o.raaka - vah) * 100) / 100;
+      rakenne['y' + y] = { raaka: o.raaka, vahennys: vah, netto: netto };
+      netot.push(netto);
+    });
+    if (netot.length === 0) return { skalaari: null, rakenne: null };
+    const paras = Math.min.apply(null, netot);
+    rakenne.paras = paras;
+    rakenne.tulos = paras; // laskeKokonaistulos lukee v.tulos
+    return { skalaari: paras, rakenne: rakenne };
+  }
+
+  // ── Pituuspotku: paras per jalka (max metrit), paras_m + metrit + aikabonus ──
+  if (testId === 'pituuspotku') {
+    const jalat = { oikea: {}, vasen: {} };
+    for (const c of ryhma.columns) {
+      const y = c.yritys || 1;
+      const v = lue(c.index);
+      if (c.kind === 'pp_vasen') jalat.vasen['y' + y] = v;
+      else jalat.oikea['y' + y] = v;
+    }
+    const parasJalka = (obj) => {
+      const arvot = Object.keys(obj).filter(k => k.charAt(0) === 'y').map(k => obj[k]).filter(v => v != null);
+      obj.paras = arvot.length ? Math.max.apply(null, arvot) : null;
+      return obj.paras;
+    };
+    const po = parasJalka(jalat.oikea);
+    const pv = parasJalka(jalat.vasen);
+    const kaikki = [po, pv].filter(v => v != null);
+    if (kaikki.length === 0) return { skalaari: null, rakenne: null };
+    const parasM = Math.max.apply(null, kaikki);
+    const aikabonus = Math.round(Math.min(parasM / 5, 20) * 100) / 100;
+    const rakenne = { oikea: jalat.oikea, vasen: jalat.vasen, paras_m: parasM, metrit: parasM, aikabonus_s: aikabonus };
+    return { skalaari: parasM, rakenne: rakenne }; // skalaari = metrit → laskeKokonaistulos bonus
+  }
+
+  // ── Yleinen: 1–3 yritystä, paras suunnan mukaan ──
+  const arvot = [];
+  const rakenne = {};
+  ryhma.columns.slice().sort((a, b) => (a.yritys || 1) - (b.yritys || 1)).forEach(c => {
+    const v = lue(c.index);
+    if (v != null) { rakenne['y' + (c.yritys || 1)] = v; arvot.push(v); }
+  });
+  if (arvot.length === 0) return { skalaari: null, rakenne: null };
+  const pp = _testiPienempiParempi(testId, ryhma.testiData);
+  const paras = laskeParas(arvot, pp);
+  rakenne.paras = paras;
+  const monta = ryhma.columns.length > 1;
+  return { skalaari: paras, rakenne: monta ? rakenne : null };
+}
+
+// ════════════════════════════════════════
 // AUTH
 // ════════════════════════════════════════
 auth.onAuthStateChanged(async (u) => {
@@ -1209,21 +1443,50 @@ function prosessoiExcel(wb) {
   tuontiData.meta = { kausi: metaKausi, tapahtumaId: metaTapahtumaId };
 
   // Tunnista testi-sarakkeet (sarakkeet PHV-tilan ja meta-sarakkeiden välissä)
-  const testiSarakkeet = [];
   const testiAlku = Math.max(colPhv, 0) + 1;
   const testiLoppu = colKausi >= 0 ? colKausi : headers.length;
 
+  // Vaihe 1 — parsi jokaisen sarakkeen meta (testId/kind/yritys), monisuoritus mukaan
+  const sarMetat = [];
   for (let i = testiAlku; i < testiLoppu && i < headers.length; i++) {
     const otsikko = headers[i];
     if (!otsikko || String(otsikko).trim() === '') continue;
-    const tunnistettu = tunnistaTestiId(otsikko);
-    testiSarakkeet.push({
-      index: i,
-      otsikko: otsikko,
-      testiId: tunnistettu ? tunnistettu.id : null,
-      testiData: tunnistettu ? tunnistettu.testi : null,
-      protoKey: tunnistettu ? tunnistettu.proto : null
+    const meta = _parsiSarakeMeta(otsikko);
+    sarMetat.push({
+      index: i, otsikko: otsikko,
+      testId:   meta ? meta.testId   : null,
+      kind:     meta ? meta.kind     : 'arvo',
+      yritys:   meta ? meta.yritys   : 1,
+      testiData:meta ? meta.testiData: null,
+      protoKey: meta ? meta.protoKey : null
     });
+  }
+
+  // Vaihe 2 — ryhmittele tunnistetut sarakkeet testId:n mukaan (_1/_2/_3 + raaka/vahennys + oikea/vasen)
+  const ryhmat = {};
+  for (const s of sarMetat) {
+    if (!s.testId) continue;
+    if (!ryhmat[s.testId]) {
+      ryhmat[s.testId] = { testId: s.testId, columns: [], testiData: s.testiData, protoKey: s.protoKey, otsikko: s.otsikko };
+    }
+    ryhmat[s.testId].columns.push({ index: s.index, kind: s.kind, yritys: s.yritys, otsikko: s.otsikko });
+  }
+  tuontiData.testiRyhmat = ryhmat;
+
+  // Vaihe 3 — testiSarakkeet: yksi rivi per testiryhmä (validointi/esikatselu/tallennus iteroivat tätä).
+  // Tunnistamattomat sarakkeet säilyvät testiId:null (ohitetaan alavirran logiikassa kuten ennenkin).
+  const testiSarakkeet = [];
+  const lisatyt = {};
+  for (const s of sarMetat) {
+    if (s.testId) {
+      if (lisatyt[s.testId]) continue;
+      lisatyt[s.testId] = true;
+      const r = ryhmat[s.testId];
+      const label = (r.testiData && r.testiData.nimi) ? r.testiData.nimi : s.otsikko;
+      testiSarakkeet.push({ index: s.index, otsikko: label, testiId: s.testId, testiData: r.testiData, protoKey: r.protoKey });
+    } else {
+      testiSarakkeet.push({ index: s.index, otsikko: s.otsikko, testiId: null, testiData: null, protoKey: null });
+    }
   }
   tuontiData.testiSarakkeet = testiSarakkeet;
 
@@ -1266,15 +1529,15 @@ function prosessoiExcel(wb) {
       joukkue: colJoukkue >= 0 ? String(rivi[colJoukkue] || '').trim() : '',
       testauspvm: colTestauspvm >= 0 ? String(rivi[colTestauspvm] || '').trim() : '',
       phv_tila: colPhv >= 0 ? String(rivi[colPhv] || '').trim().toUpperCase() : '',
-      testit: {}
+      testit: {},        // skalaari (paras) per testId — validointi/esikatselu/TKI
+      testitRakenne: {}  // rakenteinen objekti per testId — Firestore (vain monisuoritus)
     };
 
-    // Lue testiarvot
-    for (const ts of testiSarakkeet) {
-      if (ts.testiId) {
-        const arvo = rivi[ts.index];
-        p.testit[ts.testiId] = arvo !== undefined && arvo !== '' ? String(arvo).trim().replace(',', '.') : '';
-      }
+    // Lue testiarvot — ryhmittele monisuoritus (_1/_2/_3) + kuljetus/pituuspotku-erikoiskäsittely
+    for (const testId of Object.keys(ryhmat)) {
+      const tulos = _laskeTestiRyhma(testId, ryhmat[testId], rivi);
+      p.testit[testId] = (tulos.skalaari != null) ? String(tulos.skalaari) : '';
+      if (tulos.rakenne != null) p.testitRakenne[testId] = tulos.rakenne;
     }
 
     pelaajat.push(p);
@@ -1593,7 +1856,16 @@ function suoritaValidointi() {
       // Nopeustestit (s)
       else if (yksikko === 's') {
         const num = parseFloat(arvoStr);
-        if (isNaN(num) || num < 0 || num > 120) {
+        if (isNaN(num)) {
+          virheet.push({ rivi: idx, kentta: ts.otsikko, msg: `${riviLabel}: "${arvoStr}" s — ei numeerinen aika` });
+        } else if (num < 0) {
+          virheet.push({ rivi: idx, kentta: ts.otsikko, msg: `${riviLabel}: "${arvoStr}" s — ei voi olla negatiivinen` });
+        } else if (protoTyyppi === 'tk') {
+          // Tekniikkakilpailu: älä estä tallennusta — varoita vain selvästi virheellisistä (>200 s tai <1 s)
+          if (num > 200 || num < 1) {
+            varoitukset.push({ rivi: idx, kentta: ts.otsikko, msg: `${riviLabel}: "${arvoStr}" s — epätavallinen aika (tarkista)` });
+          }
+        } else if (num > 120) {
           virheet.push({ rivi: idx, kentta: ts.otsikko, msg: `${riviLabel}: "${arvoStr}" s — ei validi aika (0–120 s)` });
         } else if (num > 60) {
           varoitukset.push({ rivi: idx, kentta: ts.otsikko, msg: `${riviLabel}: "${arvoStr}" s — epätavallisen hidas aika` });
@@ -1915,16 +2187,21 @@ async function tallennaFirestoreen() {
 
   // Rakenna täydet datapaketit jokaiselle pelaajalle ENNEN batch-kirjoitusta
   const paketit = pelaajat.map(p => {
+    // Kaksi karttaa: skalaari (TKI/FLEI/validointi) + tallennus (rakenne jos monisuoritus)
+    const testitSkalaari = {};
     const testit = {};
     for (const ts of tuontiData.testiSarakkeet) {
-      if (ts.testiId && p.testit[ts.testiId] !== '') {
+      if (ts.testiId && p.testit[ts.testiId] !== '' && p.testit[ts.testiId] !== undefined) {
         const arvo = p.testit[ts.testiId];
         const num = parseFloat(arvo);
-        testit[ts.testiId] = isNaN(num) ? arvo : num;
+        const skal = isNaN(num) ? arvo : num;
+        testitSkalaari[ts.testiId] = skal;
+        testit[ts.testiId] = (p.testitRakenne && p.testitRakenne[ts.testiId] != null)
+          ? p.testitRakenne[ts.testiId] : skal;
       }
     }
 
-    // FLEI — 1-3p / num -tyyppi
+    // FLEI — 1-3p / num -tyyppi (skalaareista)
     let fleiPct = null;
     if (proto && (proto.tyyppi === '1-3' || proto.tyyppi === 'num')) {
       let pisteet = 0, maxP = 0;
@@ -1932,20 +2209,20 @@ async function tallennaFirestoreen() {
         const yks = t.yksikko || '1-3p';
         if (['1-3p','pisteet','toistot'].includes(yks) || proto.tyyppi === '1-3') {
           maxP += 3;
-          const val = parseInt(testit[t.id]);
+          const val = parseInt(testitSkalaari[t.id]);
           if (!isNaN(val) && val >= 1 && val <= 3) pisteet += val;
         }
       }
       if (maxP > 0) fleiPct = Math.round((pisteet / maxP) * 100);
     }
 
-    // TKI — tekniikkakilpailu (vaatii iän + sukupuolen)
+    // TKI — tekniikkakilpailu (vaatii iän + sukupuolen) — skalaareista
     let tki = null;
     const syntymaVuosi = (p._firestoreData && p._firestoreData.syntymaVuosi) || null;
     if (onTekniikka) {
       const ika = laskeIka(syntymaVuosi, p.testauspvm || (tapahtuma && tapahtuma.pvm));
       const sp = p.sukupuoli || (p._firestoreData && p._firestoreData.sukupuoli) || null;
-      tki = laskeTKIPelaajalle(testit, ika, sp);
+      tki = laskeTKIPelaajalle(testitSkalaari, ika, sp);
     }
 
     const pvmRaw = p.testauspvm || (tapahtuma && tapahtuma.pvm) || NYT_ISO.slice(0,10);
@@ -2078,10 +2355,428 @@ function asetaStepAktiivinen(nro, valmis) {
 }
 
 // ════════════════════════════════════════
+// PALLOLIITON PDF-TUONTI (pdf.js) — tekniikkakilpailu
+// HUOM: parsinta on heuristinen Palloliiton vakiotulosteelle. Esikatselu näyttää
+// kaiken parsitun jotta käyttäjä voi tarkistaa ennen tallennusta.
+// ════════════════════════════════════════
+function kasittelePdfDrop(event) {
+  event.preventDefault();
+  document.getElementById('pdf-drop-zone').classList.remove('drag-over');
+  const file = event.dataTransfer.files[0];
+  if (file) kasittelePdfTiedosto(file);
+}
+
+async function kasittelePdfTiedosto(file) {
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.pdf')) { toast('Vain .pdf-tiedostot tuetaan', 'err'); return; }
+  if (typeof pdfjsLib === 'undefined') { toast('PDF-kirjasto ei latautunut', 'err'); return; }
+  const statusEl = document.getElementById('pdf-status');
+  statusEl.innerHTML = 'Luetaan PDF…';
+  try {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const sivut = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const tc = await page.getTextContent();
+      sivut.push(tc.items.map(it => ({
+        str: String(it.str || ''),
+        x: it.transform ? it.transform[4] : 0,
+        y: it.transform ? it.transform[5] : 0
+      })));
+    }
+    pdfData = { tiedostonimi: file.name, ikaluokka: '', sukupuoli: '', ika: null, merkkirajat: null, rivit: [], valmis: false };
+    parsiPalloliittoPdf(sivut);
+    if (pdfData.rivit.length === 0) {
+      statusEl.innerHTML = '<span style="color:var(--amber)">Ei tunnistettu pelaajarivejä — tarkista että PDF on Palloliiton vakiomuotoinen tuloste.</span>';
+      document.getElementById('pdf-tulos-kortti').style.display = 'none';
+      return;
+    }
+    statusEl.innerHTML = '<span style="color:var(--green)">Parsittu ' + pdfData.rivit.length + ' riviä'
+      + (pdfData.ikaluokka ? ' · ikäluokka ' + pdfData.ikaluokka : '') + '.</span>';
+    await pdfYhdistaPalloIDt();
+    naytaPdfEsikatselu();
+  } catch(e) {
+    console.error('[PDF]', e);
+    statusEl.innerHTML = '<span style="color:var(--red)">PDF:n lukeminen epäonnistui: ' + escapeHtml(e.message) + '</span>';
+  }
+}
+
+// Ryhmittele tekstipalat riveiksi y-koordinaatin mukaan, lajittele x:n mukaan
+function _pdfRyhmiteleRiveiksi(items) {
+  const TOL = 3.5;
+  const sorted = items.filter(it => it.str && it.str.trim() !== '').slice().sort((a, b) => b.y - a.y || a.x - b.x);
+  const rivit = [];
+  sorted.forEach(it => {
+    let rivi = null;
+    for (const r of rivit) { if (Math.abs(r.y - it.y) <= TOL) { rivi = r; break; } }
+    if (!rivi) { rivi = { y: it.y, cells: [] }; rivit.push(rivi); }
+    rivi.cells.push({ x: it.x, str: it.str.trim() });
+  });
+  rivit.forEach(r => r.cells.sort((a, b) => a.x - b.x));
+  return rivit;
+}
+
+// Tunnista sarakkeet otsikkorivistä → [{ x, kentta }]
+function _pdfTunnistaSarakkeet(cells) {
+  const mapKentta = (s) => {
+    const l = s.toLowerCase();
+    if (l.indexOf('sija') >= 0) return 'sija';
+    if (l.indexOf('nimi') >= 0) return 'nimi';
+    if (l.indexOf('seura') >= 0) return 'seura';
+    if (l.indexOf('bonus') >= 0) return 'pituuspotku_bonus_s';
+    if (l.indexOf('pituus') >= 0) return 'pituuspotku_ov';
+    if (l.indexOf('lopput') >= 0) return 'lopputulos';
+    if (l.indexOf('merkki') >= 0) return 'merkki';
+    if (l.indexOf('syöt') >= 0 || l.indexOf('syot') >= 0) return 'syotto_s';
+    if (l.indexOf('pujott') >= 0) return 'pujottelu_s';
+    if (l.indexOf('ponn') >= 0) return 'ponnauttelu_s';
+    if ((l.indexOf('väh') >= 0 || l.indexOf('vah') >= 0) && (l.indexOf('kl') >= 0 || l.indexOf('kulj') >= 0 || l.indexOf('rang') >= 0)) return 'kl_vahennys';
+    if ((l.indexOf('kl') >= 0 || l.indexOf('kulj') >= 0) && l.indexOf('tulos') >= 0) return 'kuljetus_laukaus_s';
+    if ((l.indexOf('kl') >= 0 || l.indexOf('kulj') >= 0) && l.indexOf('aika') >= 0) return 'kl_aika';
+    if (l.indexOf('väh') >= 0 || l.indexOf('vah') >= 0) return 'kl_vahennys';
+    if (l === 'tulos') return 'lopputulos';
+    return null;
+  };
+  const cols = [];
+  cells.forEach(c => { const k = mapKentta(c.str); if (k && !cols.some(x => x.kentta === k)) cols.push({ x: c.x, kentta: k }); });
+  return cols.length >= 4 ? cols : null;
+}
+
+function parsiPalloliittoPdf(sivut) {
+  let header = null;
+  const dataRivit = [];
+  sivut.forEach(items => {
+    const rivit = _pdfRyhmiteleRiveiksi(items);
+    rivit.forEach(rivi => {
+      const teksti = rivi.cells.map(c => c.str).join(' ').replace(/\s+/g, ' ').trim();
+      if (!teksti) return;
+
+      // Ikäluokka (P8–P13 / T8–T13)
+      if (!pdfData.ikaluokka) {
+        const ml = teksti.match(/\b([PT])\s?(\d{1,2})\b/);
+        if (ml && +ml[2] >= 8 && +ml[2] <= 13) {
+          pdfData.ikaluokka = ml[1] + ml[2];
+          pdfData.sukupuoli = ml[1];
+          pdfData.ika = +ml[2];
+        }
+      }
+      // Merkkirajat (3 peräkkäistä lukua, esim. "80 90 105")
+      if (!pdfData.merkkirajat && /raja|kulta|merkki|hopea|pronssi/i.test(teksti)) {
+        const nums = teksti.match(/\b\d{2,3}([.,]\d+)?\b/g);
+        if (nums && nums.length >= 3) {
+          const v = nums.slice(0, 3).map(n => parseFloat(n.replace(',', '.')));
+          if (v[0] < v[1] && v[1] < v[2]) pdfData.merkkirajat = { kulta: v[0], hopea: v[1], pronssi: v[2] };
+        }
+      }
+
+      const tl = teksti.toLowerCase();
+      // Otsikkorivi
+      if (!header && tl.indexOf('nimi') >= 0 && (tl.indexOf('tulos') >= 0 || tl.indexOf('merkki') >= 0 || tl.indexOf('seura') >= 0)) {
+        header = _pdfTunnistaSarakkeet(rivi.cells);
+        return;
+      }
+      // Datarivi: alkaa numerolla (Sija) tai viivalla
+      if (/^[-\d]/.test(teksti)) dataRivit.push(rivi);
+    });
+  });
+
+  dataRivit.forEach(rivi => {
+    const p = _pdfParsiPelaajarivi(rivi, header);
+    if (p) pdfData.rivit.push(p);
+  });
+  pdfData.valmis = true;
+}
+
+function _pdfParsiPelaajarivi(rivi, header) {
+  const cells = rivi.cells;
+  if (!cells || cells.length < 3) return null;
+  if (header && header.length) {
+    const arvot = {};
+    cells.forEach(c => {
+      let best = null, bestd = Infinity;
+      header.forEach(h => { const d = Math.abs(h.x - c.x); if (d < bestd) { bestd = d; best = h; } });
+      if (best) arvot[best.kentta] = arvot[best.kentta] ? (arvot[best.kentta] + ' ' + c.str) : c.str;
+    });
+    return _pdfRakennaPelaaja(arvot);
+  }
+  return _pdfParsiTokenein(cells);
+}
+
+// Fallback ilman otsikkoriviä: tokenipohjainen layoutin mukaan
+function _pdfParsiTokenein(cells) {
+  const toks = cells.map(c => c.str).filter(s => s !== '');
+  let i = 0;
+  if (toks.length && /^\d{1,2}\.?$/.test(toks[0])) i = 1; // sija
+  const nimiOsat = [];
+  while (i < toks.length) {
+    const t = toks[i];
+    if (/^(19|20)\d{2}$/.test(t)) { nimiOsat.push(t); i++; continue; } // syntymävuosi nimessä
+    if (/^[\d.,\-]+$/.test(t) || /^es$/i.test(t)) break;
+    nimiOsat.push(t); i++;
+  }
+  const loput = toks.slice(i);
+  const N = loput.filter(t => /^[\d.,\-]+$/.test(t) || /^es$/i.test(t));
+  const arvot = { nimi: nimiOsat.join(' ') };
+  const onU12 = pdfData.ika && pdfData.ika >= 12;
+  let k = 0;
+  const next = () => (k < N.length ? N[k++] : null);
+  // Layout: KL_Aika, KL_Vah, KL_Tulos, Syotto, Pujottelu, [PituusOV, PituusBonus,] Ponnauttelu, Lopputulos
+  arvot.kl_aika = next(); arvot.kl_vahennys = next(); arvot.kuljetus_laukaus_s = next();
+  arvot.syotto_s = next(); arvot.pujottelu_s = next();
+  if (onU12) { arvot.pituuspotku_ov = next(); arvot.pituuspotku_bonus_s = next(); }
+  arvot.ponnauttelu_s = next(); arvot.lopputulos = next();
+  return _pdfRakennaPelaaja(arvot);
+}
+
+function _pdfRakennaPelaaja(arvot) {
+  const numTai = (s) => {
+    if (s == null) return null;
+    const t = String(s).trim();
+    if (t === '' || /^es$/i.test(t)) return null; // ES = ei suoritusta
+    const n = parseFloat(t.replace(',', '.').replace(/[^\d.\-]/g, ''));
+    return isNaN(n) ? null : n;
+  };
+  let nimiRaw = (arvot.nimi || '').trim();
+  let syntymaVuosi = null;
+  const vm = nimiRaw.match(/\b(19|20)\d{2}\b/);
+  if (vm) { syntymaVuosi = parseInt(vm[0], 10); nimiRaw = nimiRaw.replace(vm[0], '').trim(); }
+  const osat = nimiRaw.split(/\s+/).filter(Boolean);
+  let sukunimi = '', etunimi = '';
+  if (osat.length >= 2) { sukunimi = osat[0]; etunimi = osat.slice(1).join(' '); }
+  else { sukunimi = osat[0] || ''; }
+  if (!sukunimi && !etunimi) return null;
+
+  const kl_aika = numTai(arvot.kl_aika);
+  const kl_vah = numTai(arvot.kl_vahennys);
+  let kl_tulos = numTai(arvot.kuljetus_laukaus_s);
+  if (kl_tulos == null && kl_aika != null) kl_tulos = Math.round((kl_aika - (kl_vah || 0)) * 100) / 100;
+  const syotto = numTai(arvot.syotto_s);
+  const pujottelu = numTai(arvot.pujottelu_s);
+  const ponnauttelu = numTai(arvot.ponnauttelu_s);
+  const pituusBonus = numTai(arvot.pituuspotku_bonus_s);
+  let lopputulos = numTai(arvot.lopputulos);
+  if (lopputulos == null) {
+    const osatN = [syotto, pujottelu, ponnauttelu, kl_tulos].filter(v => v != null);
+    if (osatN.length) {
+      lopputulos = osatN.reduce((a, b) => a + b, 0) - (pituusBonus || 0);
+      lopputulos = Math.round(lopputulos * 100) / 100;
+    }
+  }
+  let tki = null, merkki = null;
+  if (lopputulos != null && pdfData.ika && pdfData.sukupuoli) {
+    tki = tkLaskeTKI(lopputulos, pdfData.ika, pdfData.sukupuoli);
+    merkki = tkLaskeMerkki(lopputulos, pdfData.ika, pdfData.sukupuoli);
+  }
+  return {
+    sukunimi: sukunimi, etunimi: etunimi, syntymaVuosi: syntymaVuosi,
+    kl_aika: kl_aika, kl_vah: kl_vah, kuljetus_laukaus_s: kl_tulos,
+    syotto_s: syotto, pujottelu_s: pujottelu, ponnauttelu_s: ponnauttelu,
+    pituuspotku_bonus_s: pituusBonus,
+    kokonaistulos_s: lopputulos,
+    tki: tki, merkki: merkki,
+    osumat: [], pelaajaId: null, _firestoreData: null, tila: 'pending'
+  };
+}
+
+// Yhdistä PalloID nimellä — 1 osuma auto, 2+ manuaali, 0 ei löydy
+async function pdfYhdistaPalloIDt() {
+  if (!seuraId) return;
+  await Promise.all(pdfData.rivit.map(async (r) => {
+    if (!r.sukunimi || !r.etunimi) { r.tila = 'ei_loydy'; return; }
+    try {
+      const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat')
+        .where('sukunimi', '==', r.sukunimi).where('etunimi', '==', r.etunimi).get();
+      r.osumat = snap.docs.map(d => ({ id: d.id, data: d.data() }));
+      if (r.osumat.length === 1) { r.pelaajaId = r.osumat[0].id; r._firestoreData = r.osumat[0].data; r.tila = 'loytyy'; }
+      else if (r.osumat.length >= 2) { r.tila = 'monta'; }
+      else { r.tila = 'ei_loydy'; }
+    } catch(e) { r.tila = 'ei_loydy'; r._virhe = e.message; }
+  }));
+}
+
+function _pdfNum(v) { return (v == null || isNaN(v)) ? '—' : v; }
+
+function naytaPdfEsikatselu() {
+  document.getElementById('pdf-tulos-kortti').style.display = 'block';
+  const loytyy = pdfData.rivit.filter(r => r.tila === 'loytyy').length;
+  const monta = pdfData.rivit.filter(r => r.tila === 'monta').length;
+  const eiloydy = pdfData.rivit.filter(r => r.tila === 'ei_loydy').length;
+
+  // Meta + ryhmät
+  let mh = '<div class="palloid-ryhmat">';
+  mh += '<div class="palloid-ryhma ok"><div class="palloid-ryhma-count">' + loytyy + '</div><div class="palloid-ryhma-label">✅ Löytyi (yhdistetään)</div></div>';
+  mh += '<div class="palloid-ryhma warn"><div class="palloid-ryhma-count">' + monta + '</div><div class="palloid-ryhma-label">⚠ Monta osumaa — valitse</div></div>';
+  mh += '<div class="palloid-ryhma err"><div class="palloid-ryhma-count">' + eiloydy + '</div><div class="palloid-ryhma-label">❌ Ei löydy TalentMasterista</div></div>';
+  mh += '</div>';
+  mh += '<div style="margin-top:10px;font-size:12px;color:var(--text2);">Tiedosto: <code>' + escapeHtml(pdfData.tiedostonimi) + '</code>';
+  if (pdfData.ikaluokka) mh += ' · Ikäluokka: <strong>' + pdfData.ikaluokka + '</strong>';
+  if (pdfData.merkkirajat) mh += ' · Merkkirajat: ' + pdfData.merkkirajat.kulta + ' / ' + pdfData.merkkirajat.hopea + ' / ' + pdfData.merkkirajat.pronssi + ' s';
+  mh += '</div>';
+  const tanaan = _paivaIso(new Date());
+  mh += '<div style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">';
+  mh += '  <label style="font-size:12px;color:var(--text2);display:block;">Tapahtuman nimi<br><input id="pdf-tapahtuma-nimi" type="text" placeholder="esim. Eteläinen aluetaitokilpailu" style="margin-top:4px;min-width:240px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;"></label>';
+  mh += '  <label style="font-size:12px;color:var(--text2);display:block;">Kilpailupäivä<br><input id="pdf-pvm" type="date" value="' + tanaan + '" style="margin-top:4px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;"></label>';
+  mh += '</div>';
+  document.getElementById('pdf-meta').innerHTML = mh;
+
+  // Taulukko
+  const onU12 = pdfData.ika && pdfData.ika >= 12;
+  let h = '<table><thead><tr>';
+  h += '<th>Tila</th><th class="col-player">Pelaaja</th><th>Synt.</th><th>PalloID</th>';
+  h += '<th title="Kuljetus-laukaus (tulos)">KL</th><th>Syöttö</th><th>Pujottelu</th>';
+  if (onU12) h += '<th title="Pituuspotku-bonus">Pituus⁺</th>';
+  h += '<th>Ponnauttelu</th><th>Lopputulos</th><th>TKI</th><th>Merkki</th></tr></thead><tbody>';
+
+  pdfData.rivit.forEach((r, idx) => {
+    let tilaSolu, palloSolu, rowClass = '';
+    if (r.tila === 'loytyy') { tilaSolu = '<span class="cell-ok">✅</span>'; palloSolu = '<code>' + escapeHtml(r.pelaajaId) + '</code>'; }
+    else if (r.tila === 'monta') {
+      tilaSolu = '<span class="cell-warn">⚠</span>'; rowClass = 'cell-warn';
+      let opts = '<option value="">— valitse —</option>';
+      r.osumat.forEach(o => {
+        const sv = o.data && o.data.syntymaVuosi ? (' · ' + o.data.syntymaVuosi) : '';
+        const jk = o.data && o.data.joukkue ? (' · ' + o.data.joukkue) : '';
+        opts += '<option value="' + escapeHtml(o.id) + '"' + (r.pelaajaId === o.id ? ' selected' : '') + '>' + escapeHtml(o.id) + sv + jk + '</option>';
+      });
+      palloSolu = '<select onchange="pdfAsetaPelaaja(' + idx + ', this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:inherit;font-size:11px;padding:3px 5px;">' + opts + '</select>';
+    } else { tilaSolu = '<span class="cell-err">❌</span>'; palloSolu = '<span style="color:var(--text3);">ei löydy</span>'; }
+
+    h += '<tr>';
+    h += '<td>' + tilaSolu + '</td>';
+    h += '<td class="col-player ' + rowClass + '">' + escapeHtml((r.sukunimi || '?') + ', ' + (r.etunimi || '?')) + '</td>';
+    h += '<td>' + (r.syntymaVuosi || '—') + '</td>';
+    h += '<td>' + palloSolu + '</td>';
+    h += '<td>' + _pdfNum(r.kuljetus_laukaus_s) + '</td>';
+    h += '<td>' + _pdfNum(r.syotto_s) + '</td>';
+    h += '<td>' + _pdfNum(r.pujottelu_s) + '</td>';
+    if (onU12) h += '<td>' + _pdfNum(r.pituuspotku_bonus_s) + '</td>';
+    h += '<td>' + _pdfNum(r.ponnauttelu_s) + '</td>';
+    h += '<td><strong>' + _pdfNum(r.kokonaistulos_s) + '</strong></td>';
+    h += '<td>' + (r.tki != null ? r.tki : '—') + '</td>';
+    h += '<td>' + (r.merkki || '—') + '</td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table>';
+  document.getElementById('pdf-taulukko').innerHTML = h;
+
+  pdfPaivitaTallennusNappi();
+}
+
+function pdfAsetaPelaaja(idx, pid) {
+  const r = pdfData.rivit[idx];
+  if (!r) return;
+  r.pelaajaId = pid || null;
+  const o = r.osumat.find(x => x.id === pid);
+  r._firestoreData = o ? o.data : null;
+  pdfPaivitaTallennusNappi();
+}
+
+function pdfPaivitaTallennusNappi() {
+  const nappi = document.getElementById('pdf-tallenna-nappi');
+  const status = document.getElementById('pdf-tallenna-status');
+  const n = pdfData.rivit.filter(r => r.pelaajaId).length;
+  nappi.disabled = (n === 0);
+  status.textContent = n > 0 ? (n + ' pelaajaa valmiina tallennukseen') : 'Ei yhdistettyjä pelaajia';
+}
+
+async function tallennaPdfFirestoreen() {
+  if (!seuraId) { toast('Seuraa ei valittu', 'err'); return; }
+  if (!kayttaja) { toast('Kirjaudu ensin sisään', 'err'); return; }
+  const tallennettavat = pdfData.rivit.filter(r => r.pelaajaId);
+  if (!tallennettavat.length) { toast('Ei yhdistettyjä pelaajia tallennettavaksi', 'err'); return; }
+
+  const tapahtumaNimi = (document.getElementById('pdf-tapahtuma-nimi') || {}).value || '';
+  const pvmInput = document.getElementById('pdf-pvm');
+  const pvmIso = (pvmInput && pvmInput.value) ? pvmInput.value : _paivaIso(new Date());
+  const NYT_ISO = new Date().toISOString();
+  const sp = pdfData.sukupuoli === 'P' ? 'M' : pdfData.sukupuoli === 'T' ? 'N' : '';
+
+  const nappi = document.getElementById('pdf-tallenna-nappi');
+  const prog = document.getElementById('pdf-progress');
+  const fill = document.getElementById('pdf-progress-fill');
+  const ptxt = document.getElementById('pdf-progress-text');
+  nappi.disabled = true; prog.style.display = 'block';
+
+  let ok = 0, fail = 0;
+  const eraMaara = Math.ceil(tallennettavat.length / BATCH_KOKO);
+  for (let e = 0; e < eraMaara; e++) {
+    const era = tallennettavat.slice(e * BATCH_KOKO, (e + 1) * BATCH_KOKO);
+    const batch = db.batch();
+    era.forEach(r => {
+      const docId = r.pelaajaId;
+      // testit:{}-map Pelaaja_v7-renderöintiä varten (sama muoto kuin kenttätyökalu)
+      const testit = {};
+      if (r.ponnauttelu_s != null) testit.ponnauttelu = r.ponnauttelu_s;
+      if (r.syotto_s != null) testit.syotto = r.syotto_s;
+      if (r.pujottelu_s != null) testit.pujottelu = r.pujottelu_s;
+      if (r.kuljetus_laukaus_s != null) testit.kuljetus_laukaus = { raaka: r.kl_aika, vahennys: r.kl_vah, tulos: r.kuljetus_laukaus_s };
+      if (r.pituuspotku_bonus_s != null) {
+        const metrit = Math.round(r.pituuspotku_bonus_s * 5 * 100) / 100;
+        testit.pituuspotku = { aikabonus_s: r.pituuspotku_bonus_s, metrit: metrit, paras_m: metrit };
+      }
+
+      // Litteät kentät (yhteensopivuus vanhemman koodin kanssa)
+      const data = {
+        protokolla: 'tekniikkakilpailu',
+        pvm: pvmIso,
+        ikaluokka: pdfData.ikaluokka || '',
+        syotto_s: r.syotto_s,
+        pujottelu_s: r.pujottelu_s,
+        kuljetus_laukaus_s: r.kuljetus_laukaus_s,
+        ponnauttelu_s: r.ponnauttelu_s,
+        pituuspotku_bonus_s: r.pituuspotku_bonus_s,
+        kokonaistulos_s: r.kokonaistulos_s,
+        tki: r.tki,
+        merkki: r.merkki,
+        testit: testit,
+        sukunimi: r.sukunimi,
+        etunimi: r.etunimi,
+        sukupuoli: sp,
+        kausi: '',
+        testauspvm: pvmIso,
+        lahde: 'palloliitto_pdf',
+        tapahtuma: tapahtumaNimi,
+        lahde_tiedosto: pdfData.tiedostonimi,
+        tallennettu: firebase.firestore.FieldValue.serverTimestamp(),
+        tuotu: NYT_ISO,
+        tuojaUid: kayttaja.uid
+      };
+      const ref = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(docId)
+        .collection('testitulokset').doc(pvmIso + '_tekniikkakilpailu');
+      batch.set(ref, data, { merge: true });
+
+      // Pikakentät pelaajadokumenttiin
+      if (r.tki != null) {
+        const pref = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(docId);
+        batch.set(pref, { tki_viimeisin: r.tki, tki_pvm: pvmIso }, { merge: true });
+      }
+    });
+    ptxt.textContent = (e + 1) + ' / ' + eraMaara + ' erä';
+    try { await batch.commit(); ok += era.length; }
+    catch(err) { console.error('[PDF batch ' + (e + 1) + ']', err); fail += era.length; }
+    fill.style.width = Math.round(((e + 1) / eraMaara) * 100) + '%';
+  }
+  fill.style.width = '100%';
+  ptxt.textContent = ok + ' / ' + tallennettavat.length + ' tallennettu';
+  if (fail === 0) { toast('✅ ' + ok + ' pelaajaa tallennettu PDF:stä', 'ok'); nappi.innerHTML = '✅ Tallennettu'; }
+  else { toast(ok + ' tallennettu, ' + fail + ' epäonnistui — katso konsoli', 'err'); nappi.disabled = false; }
+}
+
+// ════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
   asetaStepAktiivinen(1, false);
+  // pdf.js worker
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  // PDF drop-zone klikkaus → tiedostovalitsin
+  const pdfDz = document.getElementById('pdf-drop-zone');
+  if (pdfDz) pdfDz.addEventListener('click', () => document.getElementById('pdf-file-input').click());
+  // Oletustyyppi: Excel
+  vaihtoTuontityyppi('excel');
 });
 </script>
 </body>
