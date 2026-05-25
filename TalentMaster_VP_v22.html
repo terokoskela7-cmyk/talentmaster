@@ -1559,7 +1559,7 @@ function getViikko() {
 
 // ─── DATA LOADING ────────────────────────────────────────
 async function lataaKaikki() {
-  await Promise.all([lataaPelaajat(), lataaValmentajat(), lataaTapahtumat(), lataaIdpJono(), lataaMuutTapahtumat(), lataaVpKalenteri()]);
+  await Promise.all([lataaPelaajat(), lataaValmentajat(), lataaTapahtumat(), lataaIdpJono(), lataaMuutTapahtumat(), lataaVpKalenteri(), lataaJoukkueNimet()]);
   renderTilanne();
   renderTeamPulse();
   renderValmentajat();
@@ -2602,6 +2602,28 @@ let _vpWeekOffset = 0;  // viikkosiirtymä
 let _vpCalView = 'kuukausi'; // 'kuukausi' | 'viikko'
 let _muutTapahtumat = []; // tapahtumat-kokoelma (mentorointi/kokous)
 let _vpKalenteri = [];    // vp_kalenteri-kokoelma (deadlinet)
+let _joukkueNimet = {};   // joukkueId -> nimi (joukkueet-kokoelmasta — fallback kun joukkue_nimi puuttuu)
+
+// Joukkueen luettava nimi: tapahtuman oma joukkue_nimi → ID→nimi-kartta → raaka ID
+function jNimi(t) { return (t && (t.joukkue_nimi || _joukkueNimet[t.joukkue] || t.joukkue)) || '—'; }
+
+// Näytä kalenterissa VAIN aidot testitapahtumat. Yleistapahtumat (ottelu/harjoitus/
+// kokous/mentorointi/muu) ja protokollattomat (esim. "Matsi") suodatetaan pois.
+function _onTestitapahtuma(t) {
+  const yleis = ['ottelu','harjoitus','kokous','muu','mentorointi'];
+  if (yleis.indexOf(t.tyyppi) >= 0) return false;
+  return !!(t.protokolla || (t.aktiiviset_testit && t.aktiiviset_testit.length));
+}
+
+async function lataaJoukkueNimet() {
+  if (!_seuraId) { _joukkueNimet = {}; return; }
+  try {
+    const snap = await db.collection('seurat').doc(_seuraId).collection('joukkueet').get();
+    const m = {};
+    snap.docs.forEach(d => { m[d.id] = (d.data().nimi) || d.id; });
+    _joukkueNimet = m;
+  } catch(e) { console.warn('lataaJoukkueNimet:', e.message); _joukkueNimet = {}; }
+}
 
 function vpCalPrev() { if (_vpCalView === 'viikko') _vpWeekOffset--; else _vpCalOffset--; renderKalenteri(); }
 function vpCalNext() { if (_vpCalView === 'viikko') _vpWeekOffset++; else _vpCalOffset++; renderKalenteri(); }
@@ -2668,7 +2690,7 @@ function renderVpViikko(testit) {
     const ds = iso(d);
     const isToday = ds === todayStr;
     let evHtml = '';
-    (testit||[]).filter(t => t.pvm === ds).forEach(t => { nTest++; evHtml += vpWeekEvt('var(--teal)', t.nimi || t.protokolla || 'Testi', t.joukkue_nimi || t.joukkue || '', '', "avaaTapahtumaV9('" + t.id + "')"); });
+    (testit||[]).filter(t => t.pvm === ds).forEach(t => { nTest++; evHtml += vpWeekEvt('var(--teal)', t.nimi || t.protokolla || 'Testi', jNimi(t), '', "avaaTapahtumaV9('" + t.id + "')"); });
     (_muutTapahtumat||[]).filter(t => (t.pvm || t.paiva) === ds).forEach(t => { if (t.tyyppi==='mentorointi') nMent++; evHtml += vpWeekEvt('#2A5DB0', t.aihe || t.nimi || (t.tyyppi==='kokous'?'Kokous':'Mentorointi'), t.osallistujaNimi || t.osallistuja || '', t.aika || t.klo || '', ''); });
     (_vpKalenteri||[]).filter(t => (t.pvm || t.paiva) === ds).forEach(t => { nDl++; evHtml += vpWeekEvt('var(--amber)', t.nimi || t.aihe || 'Deadline', t.kenelle || '', t.aika || '', ''); });
     html += '<div onclick="vpWeekSlotClick(\'' + ds + '\')" title="Klikkaa lisätäksesi mentorointi" style="min-height:120px;padding:4px;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);cursor:pointer;' + (isToday ? 'background:rgba(40,176,144,.06);' : '') + '">';
@@ -2791,7 +2813,7 @@ function renderKalenteri() {
     // Näytä luettava nimi (joukkue_nimi), pidä arvona ID (joukkue) jotta suodatus toimii.
     // joukkue_nimi tulee Testaus_v9:stä; jos puuttuu (vanha data), fallback ID.
     const nimet = {};
-    (_tapahtumat||[]).forEach(t => { if (t.joukkue && !(t.joukkue in nimet)) nimet[t.joukkue] = t.joukkue_nimi || t.joukkue; });
+    (_tapahtumat||[]).filter(_onTestitapahtuma).forEach(t => { if (t.joukkue && !(t.joukkue in nimet)) nimet[t.joukkue] = jNimi(t); });
     Object.keys(nimet).sort((a,b) => nimet[a].localeCompare(nimet[b])).forEach(id => {
       const o = document.createElement('option');
       o.value = id; o.textContent = nimet[id];
@@ -2800,9 +2822,10 @@ function renderKalenteri() {
   }
 
   // Suodata tapahtumat
-  const suodatetut = valittuJoukkue
-    ? (_tapahtumat||[]).filter(t => t.joukkue === valittuJoukkue)
-    : (_tapahtumat||[]);
+  // Vain aidot testitapahtumat (KORJAUS B: rajaa lista testeihin) + joukkuesuodatin
+  const suodatetut = (_tapahtumat||[])
+    .filter(_onTestitapahtuma)
+    .filter(t => !valittuJoukkue || t.joukkue === valittuJoukkue);
 
   // Näkymänvaihto: viikko vs kuukausi
   const _monthGridEl = document.getElementById('vpCalGrid');
@@ -2850,7 +2873,7 @@ function renderKalenteri() {
           style="font-size:10px;padding:2px 4px;border-radius:3px;margin-top:2px;
             background:rgba(40,176,144,.12);color:${tilaColor};
             border-left:2px solid ${tilaColor};cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
-          title="${proto} · ${t.joukkue_nimi || t.joukkue || ''}">
+          title="${proto} · ${jNimi(t)}">
           ${proto.length > 12 ? proto.slice(0,12)+'…' : proto}
         </div>`;
       }).join('');
@@ -2894,7 +2917,7 @@ function renderKalenteri() {
     return '<div class="event-card">'
       + '<div class="event-top"><div>'
       +   '<div class="event-name">' + (t.nimi || '—') + '</div>'
-      +   '<div class="event-meta">' + pvm + ' · ' + (t.paikka||'—') + ' · ' + (t.protokolla||'—') + ' · ' + (t.joukkue_nimi || t.joukkue || '—') + '</div>'
+      +   '<div class="event-meta">' + pvm + ' · ' + (t.paikka||'—') + ' · ' + (t.protokolla||'—') + ' · ' + jNimi(t) + '</div>'
       + '</div>' + badge + '</div>'
       + '<div class="event-actions">'
       +   '<button class="btn-ev ev-primary" onclick="avaaTapahtumaV9(\'' + t.id + '\')">' + st.btn + '</button>'
