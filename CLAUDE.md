@@ -1536,3 +1536,46 @@ if (testi.laskentatapa === 'keskiarvo' && arvot.length > 0) {
 ---
 
 *Lisäykset CLAUDE.md:hen — §30 lisätty 2026-05-15 (sessio 2026-05-12 → 2026-05-15)*
+
+---
+
+## 31. BIO-IKÄ — INVARIANTIT (LISÄTTY 2026-05-25)
+
+> Tiivis viiteosio. Arkkitehtuurin tausta §30:ssa, toteutus `src/lib/tm_bioika.js`.
+
+### PHV-tilakoodi (`tm_bioika.js` — CANONICAL, käytä näitä KAIKKIALLA)
+
+| Koodi | Merkitys | maturity_offset |
+|---|---|---|
+| `PRE`  | Ennen kasvupyrähdystä | < −1.0 |
+| `LAH`  | Lähestyy | −1.0 … −0.5 |
+| `PH`   | Kasvupyrähdyksessä ⚠️ **VAROITUSTILA** | −0.5 … +0.5 |
+| `POST` | Kasvupyrähdyksen jälkeen | +0.5 … +1.0 |
+| `AN`   | Jälki-PHV | > +1.0 |
+
+**EI** `pre_phv`/`circa_phv`/`huippu`/`PHV` — vanhat koodit luetaan vain backward-compatina (Pelaaja_v7 `_laskeStage`/signaalit). `PH` aktivoi kuormarajoittimen.
+
+### Firestore
+- **Historia:** `seurat/{sid}/pelaajat/{pid}/biologinen_ika/{pvm}` — oma dokumentti per mittauspäivä
+- **Pikakentät pelaajadokumentissa:** `phv_tila` (koodi) + `biologinenIka_viimeisin` (koko viimeisin mittausdokumentti)
+- **Vanhempien pituudet pelaajadokumentissa:** `isa_pituus_cm` / `aiti_pituus_cm` / `vanhempi_pituus_puuttuu` (kerätään rekisteröinnissä)
+- Rules-blokki **pakollinen** (v2.8) — Firestore ei periydy alikokoelmiin (§17 #18). Deploy Consolesta.
+
+### Khamis-Roche — LUKITTU
+- `KR_VERIFIOITU = false` → `laskeKR()` palauttaa `{ error: 'KR_KERTOIMET_PUUTTUU' }`
+- Aktivoituu vasta kun **Pediatrics 1995 erratum** -kertoimet lisätään `KR_KERTOIMET`:iin + `KR_VERIFIOITU = true`
+- Kertoimet **imperiaalisia** (pituus tuumina, paino paunoina, midparent tuumina) — muunna cm/kg ennen laskentaa, tulos takaisin cm:ksi
+- **Vanhempien fallback** (puuttuville): isä 179 cm, äiti 166 cm (THL FinRavinto 2017)
+- **Epstein-korjaus** (itseraportoinnin yliarviointi): isä −1.5 cm, äiti −1.0 cm
+- **Midparent:** pojat `(isä+äiti+13)/2`, tytöt `(isä+äiti−13)/2`
+- Virhe näytetään AINA: 11–15v ±2.5 cm, muu ±2.0 cm, +1.5 cm jos estimoitu
+
+### Kasvumittaus (Testaus_v9 `kasvumittaus`-protokolla)
+- Pituus 2× + paino 2× (keskiarvo, `laskentatapa:'keskiarvo'`) + istumapituus 1×
+- PHV lasketaan + tallennetaan kahteen polkuun "Merkitse valmiiksi" -toiminnossa
+- **Älä kopioi `tm_bioika.js`:ää** — laajenna olemassa olevaa `src/lib/tm_bioika.js`:ää (§30)
+- Sukupuoli normalisoidaan: `M`→`P`, `N`→`T` (`normSukupuoli()`)
+
+---
+
+*Lisäykset CLAUDE.md:hen — §31 lisätty 2026-05-25 (Bio-ikä PHV -sessio)*
