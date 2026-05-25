@@ -412,6 +412,13 @@ body {
 .signal-prio.warn { color: var(--amber); }
 .signal-prio.info { color: var(--blue); }
 .signal-prio.good { color: var(--teal); }
+/* KORJAUS 2 — kriittisten/varoitusten hienovarainen hehku (erottaa hierarkian ilman virheilmoitusmaisuutta) */
+.signal-card.crit, .signal-card.alert { box-shadow: 0 0 0 1px rgba(201,64,64,0.15); }
+.signal-card.warn { box-shadow: 0 0 0 1px rgba(204,138,58,0.12); }
+/* KORJAUS 3 — signaalin prioriteettipiste (emojin tilalle — yhtenäinen renderöinti) */
+.sig-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+.sig-dot--crit { background: var(--red); }
+.sig-dot--warn { background: var(--amber); }
 
 /* Sprint 3 — RAE BQ-jakauma (Morganti 2025) */
 .bq-stack {
@@ -1228,15 +1235,15 @@ body {
 
       <div class="season-bar">
         <div>
-          <div class="season-phase">Kausi 2025/26 · Jakso 2/4</div>
-          <div class="season-label">Kilpailukausi — kevät</div>
-          <div class="season-meta">1.4.2026 — 30.6.2026</div>
+          <div class="season-phase" id="season-phase">Kausi —</div>
+          <div class="season-label" id="season-label">Kilpailukausi</div>
+          <div class="season-meta" id="season-meta">—</div>
         </div>
         <div class="season-progress-wrap">
           <div class="season-progress-track">
-            <div class="season-progress-fill" style="width:38%"></div>
+            <div class="season-progress-fill" id="season-fill" style="width:0%"></div>
           </div>
-          <div class="season-progress-label">Viikko 7/18 · 38% jakson kaudesta käyty</div>
+          <div class="season-progress-label" id="season-prog-label">—</div>
         </div>
         <div class="season-deadline">
           <div class="deadline-label">Seuraava deadline</div>
@@ -1275,7 +1282,7 @@ body {
         <div class="kpi-card">
           <div class="kpi-label">Avoimet testit</div>
           <div class="kpi-value" id="kpi-testit">—</div>
-          <div class="kpi-delta">testitapahtumaa</div>
+          <div class="kpi-delta" id="kpi-testit-d">testitapahtumaa</div>
         </div>
       </div>
 
@@ -1695,16 +1702,102 @@ async function lataaIdpJono() {
 }
 
 // ─── RENDER TILANNE ──────────────────────────────────────
+// ─── KORJAUS 1: Kausilaskenta — yksi totuuslähde (ei kovakoodattuja päivämääriä HTML:ssä) ───
+// Kevät 1.4–30.6 · Syksy 1.8–28.2 (seuraava vuosi). Tammi–maalis = syyskauden jatko/loppu.
+function _laskeKausi(nyt) {
+  nyt = nyt || new Date();
+  const v = nyt.getFullYear();
+  const kk = nyt.getMonth() + 1; // 1-12
+  const l2 = (y) => String(y).slice(-2);
+  let alku, loppu, label, vuosiLabel;
+  if (kk >= 4 && kk <= 7) {            // kevätkausi (heinäkuu = kevään loppuhäntä)
+    alku = new Date(v, 3, 1); loppu = new Date(v, 5, 30);
+    label = 'Kilpailukausi — kevät'; vuosiLabel = (v - 1) + '/' + l2(v);
+  } else if (kk >= 8) {                // syyskausi (1.8 → 28.2 seuraava vuosi)
+    alku = new Date(v, 7, 1); loppu = new Date(v + 1, 1, 28);
+    label = 'Kilpailukausi — syksy'; vuosiLabel = v + '/' + l2(v + 1);
+  } else {                             // tammi–maalis: syyskausi jatkuu edelliseltä vuodelta
+    alku = new Date(v - 1, 7, 1); loppu = new Date(v, 1, 28);
+    label = 'Kilpailukausi — syksy'; vuosiLabel = (v - 1) + '/' + l2(v);
+  }
+  const VKO = 7 * 86400000;
+  const kokonaisViikot = Math.max(1, Math.ceil((loppu - alku) / VKO));
+  let nykyViikko = Math.ceil((nyt - alku) / VKO);
+  nykyViikko = Math.max(1, Math.min(nykyViikko, kokonaisViikot));
+  const pct = Math.max(0, Math.min(100, Math.round((nykyViikko / kokonaisViikot) * 100)));
+  return { alku, loppu, label, vuosiLabel, nykyViikko, kokonaisViikot, pct };
+}
+function _pvmFiVP(d) { return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear(); }
+function _renderKausipalkki() {
+  const k = _laskeKausi(new Date());
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('season-phase', 'Kausi ' + k.vuosiLabel);
+  set('season-label', k.label);
+  set('season-meta', _pvmFiVP(k.alku) + ' — ' + _pvmFiVP(k.loppu));
+  const fill = document.getElementById('season-fill');
+  if (fill) fill.style.width = k.pct + '%';
+  set('season-prog-label', 'Viikko ' + k.nykyViikko + '/' + k.kokonaisViikot + ' · ' + k.pct + '% kaudesta käyty');
+}
+
+// ─── KORJAUS 4: KPI-konteksti (vain jo ladatusta datasta — ei uusia kyselyjä) ───
+function _kpiPelaajatKonteksti() {
+  const map = {};
+  _pelaajat.forEach(p => { const j = (p.joukkue && p.joukkue !== '—') ? p.joukkue : null; if (j) map[j] = (map[j] || 0) + 1; });
+  const parit = Object.keys(map).map(j => ({ j: j, n: map[j] })).sort((a, b) => b.n - a.n);
+  if (!parit.length) return _pelaajat.length + ' rekisteröity';
+  return parit.slice(0, 3).map(x => x.n + ' ' + x.j).join(' · ');
+}
+function _kpiFleiTrendi() {
+  // Vertaa samaa populaatiota: pelaajat joilla ≥2 flei_historia-mittausta (viimeisin vs edellinen).
+  let last = 0, prev = 0, n = 0;
+  _pelaajat.forEach(p => {
+    const h = Array.isArray(p.flei_historia) ? p.flei_historia.filter(e => e && e.flei != null) : [];
+    if (h.length < 2) return;
+    const s = h.slice().sort((a, b) => String(a.pvm).localeCompare(String(b.pvm)));
+    last += s[s.length - 1].flei; prev += s[s.length - 2].flei; n++;
+  });
+  if (n === 0) return null; // ei historiaa → jätä alateksti pois
+  if (last > prev) return '↑ edellisestä mittauksesta';
+  if (last < prev) return '↓ edellisestä mittauksesta';
+  return '→ ennallaan edellisestä';
+}
+function _kpiTestitKonteksti() {
+  const avoimet = _tapahtumat.filter(t => t.tila === 'avoin');
+  if (!avoimet.length) return null;
+  let vanhin = null;
+  avoimet.forEach(t => {
+    const ds = t.pvm_alku || t.pvm;
+    if (!ds) return;
+    const d = new Date(ds);
+    if (isNaN(d.getTime())) return;
+    if (!vanhin || d < vanhin) vanhin = d;
+  });
+  if (!vanhin) return null;
+  const pv = Math.floor((Date.now() - vanhin.getTime()) / 86400000);
+  return pv >= 0 ? ('vanhin ' + pv + ' pv sitten') : null;
+}
+
 function renderTilanne() {
+  // KORJAUS 1 — dynaaminen kausipalkki
+  _renderKausipalkki();
+
   // KPI:t
   document.getElementById('kpi-pelaajat').textContent = _pelaajat.length;
-  document.getElementById('kpi-pelaajat-d').textContent = _pelaajat.length + ' rekisteröity';
+  document.getElementById('kpi-pelaajat-d').textContent = _kpiPelaajatKonteksti();
 
   const fleiat = _pelaajat.filter(p => p.flei_viimeisin).map(p => p.flei_viimeisin);
   const fleiKa = fleiat.length ? (fleiat.reduce((a,b)=>a+b,0)/fleiat.length).toFixed(1) : '—';
   document.getElementById('kpi-flei').textContent = fleiKa;
   document.getElementById('kpi-idp').textContent  = _idpJono.length;
   document.getElementById('kpi-testit').textContent = _tapahtumat.filter(t=>t.tila==='avoin').length;
+
+  // KORJAUS 4 — kontekstialatekstit (vain jos laskettavissa; muuten oletusteksti säilyy)
+  const fleiTrendi = _kpiFleiTrendi();
+  if (fleiTrendi) document.getElementById('kpi-flei-d').textContent = fleiTrendi;
+  const testitKtx = _kpiTestitKonteksti();
+  const testitDEl = document.getElementById('kpi-testit-d');
+  if (testitKtx && testitDEl) testitDEl.textContent = testitKtx;
+  // IDP "käsitelty tällä viikolla" ei ole laskettavissa ladatusta datasta (vain odottavat ladattu) → oletusteksti säilyy
 
   // Sprint 3 — Signaalit dynaamisina Firestore-pohjaisina
   renderSignals(_seuraId);
@@ -1864,7 +1957,9 @@ async function renderSignals(seuraId) {
   } else {
     lista.innerHTML = top5.map(s => {
       const action = (s.action || '').replace(/"/g, '&quot;');
-      const prioTxt = s.prio === 'crit' ? '🔴 KRIITTINEN' : s.prio === 'warn' ? '🟡 HUOMIO' : s.prio === 'info' ? 'INFO' : '✓ HYVÄ';
+      const prioTxt = s.prio === 'crit' ? '<span class="sig-dot sig-dot--crit"></span>KRIITTINEN'
+                    : s.prio === 'warn' ? '<span class="sig-dot sig-dot--warn"></span>HUOMIO'
+                    : s.prio === 'info' ? 'INFO' : 'HYVÄ';
       return '<div class="signal-card ' + s.prio + '" onclick="' + action + '">' +
         '<div class="signal-icon">' + s.icon + '</div>' +
         '<div class="signal-text">' +
