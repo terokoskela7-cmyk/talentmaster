@@ -788,6 +788,108 @@ const PROTOKOLLAT = {
   }
 };
 
+// ════════════════════════════════════════
+// EXCEL-POHJAGENERAATTORI — protokollakohtaiset sarakkeet (SheetJS)
+// Sama sarakeskeema ohjaa sekä pohjan generointia että lukua (prosessoiExcel).
+// ════════════════════════════════════════
+const POHJA_YLEISET = ['PalloID', 'Etunimi', 'Sukunimi', 'Sukupuoli(P/T)', 'SyntymaVuosi', 'TestiPvm(pp.kk.vvvv)'];
+
+function _pohjaTestiNimi(nimi) {
+  return String(nimi).replace(/\(.*?\)/g, '').trim()
+    .replace(/ä/g,'a').replace(/ö/g,'o').replace(/Ä/g,'A').replace(/Ö/g,'O')
+    .replace(/[^a-zA-Z0-9 ]/g, '').split(/\s+/).filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+}
+
+// Palauttaa sarakemääritykset: { header, testId, kind, yritys }
+// kind: 'arvo' | 'kl_raaka' | 'kl_vahennys' | 'pp_oikea' | 'pp_vasen'
+function pohjaSarakkeet(protokolla) {
+  const aika = (base, testId, yrit) => {
+    const arr = [];
+    for (let i = 1; i <= yrit; i++) arr.push({ header: base + '_' + i, testId: testId, kind: 'arvo', yritys: i });
+    return arr;
+  };
+  if (protokolla === 'tekniikkakilpailu') {
+    return [].concat(
+      aika('Ponnauttelu_s', 'ponnauttelu', 2),
+      aika('Syotto_pujotellen_s', 'syotto', 2),
+      aika('Pujottelu_s', 'pujottelu', 2),
+      [ { header:'KuljetusLaukaus_raaka_s_1',    testId:'kuljetus_laukaus', kind:'kl_raaka',    yritys:1 },
+        { header:'KuljetusLaukaus_vahennys_s_1', testId:'kuljetus_laukaus', kind:'kl_vahennys', yritys:1 },
+        { header:'KuljetusLaukaus_raaka_s_2',    testId:'kuljetus_laukaus', kind:'kl_raaka',    yritys:2 },
+        { header:'KuljetusLaukaus_vahennys_s_2', testId:'kuljetus_laukaus', kind:'kl_vahennys', yritys:2 } ],
+      [ { header:'Pituuspotku_oikea_m_1', testId:'pituuspotku', kind:'pp_oikea', yritys:1 },
+        { header:'Pituuspotku_oikea_m_2', testId:'pituuspotku', kind:'pp_oikea', yritys:2 },
+        { header:'Pituuspotku_vasen_m_1', testId:'pituuspotku', kind:'pp_vasen', yritys:1 },
+        { header:'Pituuspotku_vasen_m_2', testId:'pituuspotku', kind:'pp_vasen', yritys:2 } ]
+    );
+  }
+  if (protokolla === 'hh_laaja') {
+    return [].concat(
+      aika('Lin5m_s','lin5m',3), aika('Lin10m_s','lin10m',3), aika('Lin30m_s','lin30m',3),
+      aika('Hyppy_CMJ_cm','hyppy_cj',3), aika('Hyppy_SJ_cm','hyppy_sj',3),
+      [ { header:'MAS_kmh', testId:'mas', kind:'arvo', yritys:1 } ],
+      aika('SM_juoksu_s','sm_juoksu',2), aika('SM_pallo_s','sm_pallo',2), aika('Kasirata_s','kasirata',2)
+    );
+  }
+  if (protokolla === 'hh_suppea') {
+    return [].concat(
+      aika('Lin30m_s','lin30m',3), aika('Hyppy_CMJ_cm','hyppy_cj',2),
+      [ { header:'MAS_kmh', testId:'mas', kind:'arvo', yritys:1 } ],
+      aika('SM_juoksu_s','sm_juoksu',2), aika('SM_pallo_s','sm_pallo',2)
+    );
+  }
+  // Harjoitettavuus + muut: 1 suoritus per testi
+  const proto = PROTOKOLLAT[protokolla];
+  if (!proto) return [];
+  const yks = (proto.tyyppi === '1-3') ? 'p' : null;
+  return (proto.testit || []).map(t => ({
+    header: _pohjaTestiNimi(t.nimi) + '_' + (yks || t.yksikko || 'arvo'),
+    testId: t.id, kind: 'arvo', yritys: 1
+  }));
+}
+
+function _pohjaPienempiParempi(protokolla, testId) {
+  const proto = PROTOKOLLAT[protokolla];
+  const t = proto && (proto.testit || []).find(x => x.id === testId);
+  return t ? !!t.pienempi_parempi : true;
+}
+
+function generoiExcelPohja(protokolla, joukkueNimi) {
+  if (typeof XLSX === 'undefined') { toast('Excel-kirjasto ei latautunut', 'err'); return; }
+  const proto = PROTOKOLLAT[protokolla];
+  if (!proto) { toast('Tuntematon protokolla: ' + protokolla, 'err'); return; }
+  const sar = pohjaSarakkeet(protokolla);
+  const otsikot = POHJA_YLEISET.concat(sar.map(s => s.header));
+  const rivit = [otsikot];
+  if (protokolla === 'tekniikkakilpailu') {
+    rivit.push(['12345678','Matti','Meikäläinen','P','2013','15.05.2026',
+      '32.5','31.8','45.2','44.1','14.5','13.9','26.5','13.0','27.0','12.5','28.0','30.0','25.0','27.0']);
+  }
+  const wsData = XLSX.utils.aoa_to_sheet(rivit);
+  const ohje = [
+    ['TalentMaster — tuontipohja: ' + proto.nimi],
+    ['Joukkue', joukkueNimi || '(täytä halutessasi)'],
+    [''],
+    ['OHJEET'],
+    ['• Suorituksia voi olla 1-3 (sarakkeet _1, _2, _3). Jätä tyhjäksi jos suoritusta ei tehty.'],
+    ['• Järjestelmä valitsee parhaan tuloksen automaattisesti.'],
+    ['• Sukupuoli: P = poika/mies, T = tyttö/nainen'],
+    ['• Päivämäärä muodossa pp.kk.vvvv (esim. 15.05.2026)'],
+    ['• PalloID löytyy Palloliiton pelaajasivulta'],
+  ];
+  if (protokolla === 'tekniikkakilpailu') {
+    ohje.push(['• Pituuspotku vain U12-U13 — jätä tyhjäksi nuoremmilla.']);
+    ohje.push(['• Kuljetus-laukaus: raaka = suoritusaika, vahennys = tarkkuusvähennys sekunteina.']);
+  }
+  const wsOhje = XLSX.utils.aoa_to_sheet(ohje);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsData, 'Tulokset');
+  XLSX.utils.book_append_sheet(wb, wsOhje, 'Ohjeet');
+  XLSX.writeFile(wb, 'TM_pohja_' + protokolla + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast('Ladattu pohja: ' + proto.nimi, 'ok');
+}
+
 // Apufunktio: etsi testi-ID otsikkotekstistä
 function tunnistaTestiId(otsikkoTeksti) {
   const txt = otsikkoTeksti.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -931,6 +1033,11 @@ async function lataaKayttajatiedot(u) {
   if (urlTapahtumaId && seuraId) {
     // Pre-validate tapahtuma
     await tarkistaTapahtuma(urlTapahtumaId);
+  }
+  // ?lataa={protokolla} — lataa Excel-pohja automaattisesti (VP/Master "suljettu silmukka")
+  const urlLataa = urlParams.get('lataa');
+  if (urlLataa && PROTOKOLLAT[urlLataa]) {
+    setTimeout(() => generoiExcelPohja(urlLataa, urlParams.get('joukkue') || ''), 700);
   }
 }
 
