@@ -985,7 +985,7 @@ Sisäiset testi-ID:t (käytetään Firestoressa, Excel-pohjissa ja indeksilasken
 | `mas` | MAS-juoksutesti — maksimaalinen aerobinen nopeus | km/h | SFL | suurempi = parempi |
 | `pujottelu` / `pujottelu_hh` | Pujottelu (tekniikkakilpailu / HH-laji) | s | LL | pienempi = parempi |
 | `syotto` / `syotto_hh` | Syöttö pujotellen (tekniikkakilpailu / HH-laji) | s | DIAG | pienempi = parempi |
-| `ponnauttelu` | Ponnauttelu — pallonkäsittely | krt/30s | DFL | suurempi = parempi |
+| `ponnauttelu` | Ponnauttelu — sarjan suoritusaika (ikäkohtainen sarja) | s | DFL | pienempi = parempi |
 | `kuljetus_laukaus` | Kuljetus-laukaus (tarkkuusvähennyksin) | s | DIAG | pienempi = parempi |
 | `pituuspotku` | Pituuspotku — aikabonus = metrit/5 (max 20s) | m | SBL | suurempi = parempi |
 
@@ -1042,11 +1042,17 @@ dokumenttia per erä (Firestoren raja 500). Pelaajaprofiilin
 `flei_historia`-array käyttää `new Date().toISOString()`-leimaa
 (CLAUDE.md §17 #7 — serverTimestamp() ei toimi array:n sisällä).
 
-**TKI-laskenta tuonnin yhteydessä:** Excel_Tuonti.html sisältää inlinen
-kopion `tkLaskeMerkki` + `tkLaskeTKI` + `TK_MERKKIRAJAT` -funktioista
-(`docs/testit_indeksit.js`). Lasketaan vain kun
-`protokolla === 'tekniikkakilpailu'` JA pelaajan ikä on 8–13 (TK_MERKKIRAJAT
-ei kata vanhempia → TKI=null on semanttisesti "ei mitattu").
+**TKI-laskenta — AIKAPOHJAINEN (päivitetty 2026-05-25):** Kaikki 5 tekniikkakilpailun
+lajia (ponnauttelu, syotto, pujottelu, kuljetus_laukaus, pituuspotku) ovat **aikatestejä,
+sekunteina, pienempi parempi** (TK_LAJIT_META kaikki `kaanteinen:true`). Vanhat lajikohtaiset
+`TK_MERKKIRAJAT` (krt/pisteet/metrit) on **korvattu** `TK_KOKONAISRAJAT`:lla — kokonaistulosrajat
+sekunteina per ikä+sukupuoli (8–13). **Kokonaistulos** = ponnauttelu + syotto + pujottelu +
+kuljetus_laukaus.tulos (sis. tarkkuusvähennykset + ennenaikaiset ×10s) − pituuspotku-aikabonus
+(metrit/5, max 20s, vain ikä ≥ 12). **TKI** lasketaan nelivyöhykkeellä kokonaistuloksesta:
+Kulta (≤kultaraja → 80–100), kulta–hopea (60–80), hopea–pronssi (40–60), pronssin alle
+(0–40, vertailupohja pronssi×1.5). `tkLaskeMerkki(kokonaistulos, ika, sp)` + `tkLaskeTKI(kokonaistulos, ika, sp)`
++ `laskeKokonaistulos(testit, ika, sp)` + `_laskeVahvuudetJaKehityskohteet()` `docs/testit_indeksit.js`:ssä,
+inline-kopiot Testaus_v9 + Excel_Tuonti. Lasketaan kun ikä 8–13 (TK_KOKONAISRAJAT ei kata vanhempia → TKI=null).
 
 ### Pelaajatunniste-arkkitehtuuri (Sprint 3.1, 2026-05-13)
 
