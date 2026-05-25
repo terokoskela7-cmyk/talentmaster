@@ -1020,9 +1020,9 @@ const PROTOKOLLAT = {
     tyyppi: 'kasvu',
     kuvaus: 'Pituus, paino ja istumapituus PHV-laskentaa varten (Mirwald 2002)',
     testit: [
-      { id: 'pituus',       nimi: 'Seisomapituus', yksikko: 'cm', yritykset: 2, laskentatapa: 'keskiarvo', pienempi_parempi: false, ohje: 'Mittaa ilman kenkiä, selkä seinää vasten, katse vaakatasossa' },
-      { id: 'paino',        nimi: 'Paino',         yksikko: 'kg', yritykset: 2, laskentatapa: 'keskiarvo', pienempi_parempi: false, ohje: 'Mittaa kevyissä vaatteissa, mieluiten aamulla' },
-      { id: 'istumapituus', nimi: 'Istumapituus',  yksikko: 'cm', yritykset: 1, ohje: 'Istuu suorassa kovalla alustalla — mittaa istuintasosta päälakeen' }
+      { id: 'pituus',       nimi: 'Seisomapituus', yksikko: 'cm', yritykset: 2, laskentatapa: 'keskiarvo', ohje: 'Mittaa ilman kenkiä, selkä seinää vasten, katse vaakatasossa' },
+      { id: 'paino',        nimi: 'Paino',         yksikko: 'kg', yritykset: 1, ohje: 'Mittaa kevyissä vaatteissa, mieluiten aamulla' },
+      { id: 'istumapituus', nimi: 'Istumapituus',  yksikko: 'cm', yritykset: 2, laskentatapa: 'keskiarvo', ohje: 'Istuu suorassa kovalla alustalla — mittaa istuintasosta päälakeen' }
     ]
   },
   hh_laaja: {
@@ -2393,8 +2393,13 @@ function _v5RenderoiTesti(testi, pelaajaId) {
   const yritykset = testi.yritykset || 1;
   if (yritykset > 1) {
     const d = arvo && typeof arvo === 'object' ? arvo : {};
+    // Kasvumittaus = antropometrinen mittaus, ei suoritustesti → ei "parempi"-tekstiä
+    const onKasvu = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.protokolla === 'kasvumittaus')
+                    || ['pituus','paino','istumapituus'].indexOf(testi.id) >= 0;
+    const parempiTeksti = onKasvu ? '' : (testi.pienempi_parempi ? 'pienempi parempi' : 'suurempi parempi');
+    const metaTeksti = yritykset + ' yritystä' + (parempiTeksti ? ' · ' + parempiTeksti : '');
     let html = '<div class="mob-testi-rivi">'
-      + '<div class="mob-testi-label">' + _escapeHtml(testi.nimi) + ' <span style="color:var(--ink-3);font-weight:400;">· ' + yritykset + ' yritystä · ' + (testi.pienempi_parempi ? 'pienempi parempi' : 'suurempi parempi') + '</span></div>'
+      + '<div class="mob-testi-label">' + _escapeHtml(testi.nimi) + ' <span style="color:var(--ink-3);font-weight:400;">· ' + metaTeksti + '</span></div>'
       + '<div style="display:grid;grid-template-columns:repeat(' + Math.min(yritykset, 3) + ',1fr);gap:8px;">';
     for (let yn = 1; yn <= yritykset; yn++) {
       const yArvo = (d['y' + yn] !== undefined) ? d['y' + yn] : '';
@@ -2408,7 +2413,8 @@ function _v5RenderoiTesti(testi, pelaajaId) {
     }
     html += '</div>';
     if (d.paras !== undefined && d.paras !== null) {
-      html += '<div style="font-size:11px;color:var(--green);text-align:center;margin-top:6px;">✓ Paras: ' + d.paras + ' ' + testi.yksikko + '</div>';
+      const tulosLabel = (testi.laskentatapa === 'keskiarvo') ? 'Keskiarvo' : 'Paras';
+      html += '<div style="font-size:11px;color:var(--green);text-align:center;margin-top:6px;">✓ ' + tulosLabel + ': ' + d.paras + ' ' + testi.yksikko + '</div>';
     }
     html += '</div>';
     return html;
