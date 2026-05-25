@@ -1994,6 +1994,21 @@ function naytaValidointiTulos() {
   });
 }
 
+// Hae pelaaja PalloID:llä KENTÄSTÄ (ei doc-ID:llä) — PalloID on tallennettu
+// dokumentin kenttään (tunniste tai palloID), ei dokumentin ID:ksi (joka on Firebase UID).
+// Järjestys: tunniste-kenttä → palloID-kenttä → legacy doc-ID (vanhat Excel-tuonnit).
+async function _haePelaajaPalloIdilla(palloIdStr) {
+  const col = db.collection('seurat').doc(seuraId).collection('pelaajat');
+  let snap = await col.where('tunniste', '==', palloIdStr).limit(1).get();
+  if (!snap.empty) return snap.docs[0];
+  snap = await col.where('palloID', '==', palloIdStr).limit(1).get();
+  if (!snap.empty) return snap.docs[0];
+  // Legacy-yhteensopivuus: dokumentin ID == PalloID (tämän työkalun vanhat tuonnit)
+  const d = await col.doc(palloIdStr).get();
+  if (d.exists) return d;
+  return null;
+}
+
 // Sprint 3.1 — PalloID-ristiintarkistus: Promise.all rinnakkain
 async function tarkistaPalloIDit() {
   if (!seuraId) return;
@@ -2005,15 +2020,16 @@ async function tarkistaPalloIDit() {
       try {
         // PalloID AINA merkkijonoksi ennen Firestore-hakua — SheetJS voi lukea numerona
         const palloIdStr = String(p.tunniste == null ? '' : p.tunniste).trim();
-        const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(palloIdStr).get();
+        const doc = await _haePelaajaPalloIdilla(palloIdStr);
         return {
           pelaaja: p,
-          loytyy: snap.exists,
-          firestoreNimi: snap.exists ? ((snap.data().etunimi || '') + ' ' + (snap.data().sukunimi || '')).trim() : null,
-          firestoreData: snap.exists ? snap.data() : null
+          loytyy: !!doc,
+          firestoreNimi: doc ? ((doc.data().etunimi || '') + ' ' + (doc.data().sukunimi || '')).trim() : null,
+          firestoreData: doc ? doc.data() : null,
+          firestoreDocId: doc ? doc.id : null
         };
       } catch(e) {
-        return { pelaaja: p, loytyy: false, firestoreNimi: null, firestoreData: null, virhe: e.message };
+        return { pelaaja: p, loytyy: false, firestoreNimi: null, firestoreData: null, firestoreDocId: null, virhe: e.message };
       }
     })
   );
@@ -2024,8 +2040,13 @@ async function tarkistaPalloIDit() {
   tuontiData.palloIdTarkistus = { loytyy, eiLoydy, tyhja: tyhjat };
 
   // Liitä tieto pelaajaan itseensä (hyödyntää tallennusvaiheessa)
-  loytyy.forEach(r => { r.pelaaja._loytyyFirestoresta = true;  r.pelaaja._firestoreData = r.firestoreData; });
-  eiLoydy.forEach(r => { r.pelaaja._loytyyFirestoresta = false; });
+  // _firestoreDocId = löydetyn dokumentin OIKEA ID (Firebase UID) → tallennuspolku
+  loytyy.forEach(r => {
+    r.pelaaja._loytyyFirestoresta = true;
+    r.pelaaja._firestoreData = r.firestoreData;
+    r.pelaaja._firestoreDocId = r.firestoreDocId;
+  });
+  eiLoydy.forEach(r => { r.pelaaja._loytyyFirestoresta = false; r.pelaaja._firestoreDocId = null; });
   tyhjat.forEach(p   => { p._loytyyFirestoresta = false; p._tyhjaPalloID = true; });
 }
 
@@ -2269,8 +2290,9 @@ async function tallennaFirestoreen() {
 
     era.forEach(pkg => {
       const { pelaaja: p, testit, fleiPct, tki, pvmIso } = pkg;
-      // PalloID AINA merkkijonoksi — doc-ID ja tunniste-kenttä yhteneväisiksi haun kanssa
-      const docId = String(p.tunniste == null ? '' : p.tunniste).trim() || (p.sukunimi + '_' + p.etunimi);
+      // Löydetyn pelaajan OIKEA dokumentti-ID (Firebase UID) → tallennuspolku.
+      // Jos pelaajaa ei löytynyt (strategia 'kaikki'), fallback PalloID-stringiin (review-jono).
+      const docId = p._firestoreDocId || String(p.tunniste == null ? '' : p.tunniste).trim() || (p.sukunimi + '_' + p.etunimi);
 
       // Tallennusdata — yhteinen molemmille moodeille
       const tallennusData = {
