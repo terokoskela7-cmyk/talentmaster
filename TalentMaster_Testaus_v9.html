@@ -1462,6 +1462,10 @@ _auth.onAuthStateChanged(async (u) => {
   const url = new URL(window.location.href);
   const tParam = url.searchParams.get('t');
   if (tParam) _avaaTapahtuma(tParam);
+
+  // ?joukkue= — esivalitse joukkue Vaihe 1:ssä (arvo voi olla joukkue-ID tai nimi)
+  const jParam = url.searchParams.get('joukkue');
+  if (jParam) _luoData.joukkue = jParam;
 });
 
 async function _tunnistaSeuraJaRooli(u) {
@@ -1478,6 +1482,13 @@ async function _tunnistaSeuraJaRooli(u) {
     }
   } catch(e) {}
 
+  // ?seura= — esivalitse seura jos Custom Claim ei asettanut (esim. super-admin avaa VP/Master-linkistä).
+  // Normaali VP ohittaa tämän, koska _seuraId tulee jo claimsista.
+  if (!_seuraId) {
+    const _seuraParam = new URL(window.location.href).searchParams.get('seura');
+    if (_seuraParam) _seuraId = _seuraParam;
+  }
+
   // Super admin -tarkistus admins/{uid}
   if (!_superAdmin && !_seuraId) {
     try {
@@ -1493,8 +1504,10 @@ async function _tunnistaSeuraJaRooli(u) {
       const seurat = sSnap.docs.map(d => ({ id: d.id, nimi: d.data().nimi || d.id }))
         .sort((a,b) => a.nimi.localeCompare(b.nimi));
       if (seurat.length > 0) {
-        _seuraId = seurat[0].id;
-        _seuraNimi = seurat[0].nimi;
+        // Kunnioita ?seura=-parametria (jos asetettu yllä), muuten ensimmäinen seura
+        const _valittu = seurat.find(s => s.id === _seuraId) || seurat[0];
+        _seuraId = _valittu.id;
+        _seuraNimi = _valittu.nimi;
         const sDoc = sSnap.docs.find(d => d.id === _seuraId);
         if (sDoc) _lataaSeuraOletukset(sDoc.data());
 
@@ -1505,6 +1518,7 @@ async function _tunnistaSeuraJaRooli(u) {
           seurat.forEach(s => {
             const op = document.createElement('option');
             op.value = s.id; op.textContent = s.nimi;
+            if (s.id === _seuraId) op.selected = true;
             sel.appendChild(op);
           });
           sel.onchange = async function() {
@@ -1685,9 +1699,14 @@ async function _v1LataaJoukkueet() {
   try {
     const snap = await _db.collection('seurat').doc(_seuraId).collection('joukkueet').get();
     snap.docs.forEach(d => {
+      const nimi = d.data().nimi || d.id;
       const op = document.createElement('option');
-      op.value = d.id; op.textContent = d.data().nimi || d.id;
-      if (d.id === _luoData.joukkue) op.selected = true;
+      op.value = d.id; op.textContent = nimi;
+      // Esivalinta: täsmää joko joukkue-ID:hen tai nimeen (?joukkue= voi olla kumpi tahansa)
+      if (d.id === _luoData.joukkue || nimi === _luoData.joukkue) {
+        op.selected = true;
+        _luoData.joukkue = d.id; _luoData.joukkueNimi = nimi;
+      }
       sel.appendChild(op);
     });
   } catch(e) {}

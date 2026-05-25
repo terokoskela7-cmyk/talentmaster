@@ -2608,10 +2608,13 @@ function renderKalenteri() {
   const joukkueFilter = document.getElementById('vpJoukkueFilter');
   const valittuJoukkue = joukkueFilter ? joukkueFilter.value : '';
   if (joukkueFilter && joukkueFilter.options.length <= 1) {
-    const joukkueet = [...new Set((_tapahtumat||[]).map(t => t.joukkue).filter(Boolean))].sort();
-    joukkueet.forEach(j => {
+    // Näytä luettava nimi (joukkue_nimi), pidä arvona ID (joukkue) jotta suodatus toimii.
+    // joukkue_nimi tulee Testaus_v9:stä; jos puuttuu (vanha data), fallback ID.
+    const nimet = {};
+    (_tapahtumat||[]).forEach(t => { if (t.joukkue && !(t.joukkue in nimet)) nimet[t.joukkue] = t.joukkue_nimi || t.joukkue; });
+    Object.keys(nimet).sort((a,b) => nimet[a].localeCompare(nimet[b])).forEach(id => {
       const o = document.createElement('option');
-      o.value = j; o.textContent = j;
+      o.value = id; o.textContent = nimet[id];
       joukkueFilter.appendChild(o);
     });
   }
@@ -2653,11 +2656,11 @@ function renderKalenteri() {
       const tapEvts = paivaTapahtumat.map(t => {
         const tilaColor = t.tila==='suljettu' ? 'var(--ink3)' : t.tila==='avoin' ? 'var(--teal)' : 'var(--amber)';
         const proto = t.nimi || t.protokolla || 'Testi';
-        return `<div onclick="event.stopPropagation();setWs('kalenteri')"
+        return `<div onclick="event.stopPropagation();avaaTapahtumaV9('${t.id}')"
           style="font-size:10px;padding:2px 4px;border-radius:3px;margin-top:2px;
             background:rgba(40,176,144,.12);color:${tilaColor};
             border-left:2px solid ${tilaColor};cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
-          title="${proto} · ${t.joukkue||''}">
+          title="${proto} · ${t.joukkue_nimi || t.joukkue || ''}">
           ${proto.length > 12 ? proto.slice(0,12)+'…' : proto}
         </div>`;
       }).join('');
@@ -2703,12 +2706,12 @@ function renderKalenteri() {
       <div class="event-top">
         <div>
           <div class="event-name">${t.nimi}</div>
-          <div class="event-meta">${pvm} · ${t.paikka||'—'} · ${t.protokolla||'—'} · ${t.joukkue||'—'}</div>
+          <div class="event-meta">${pvm} · ${t.paikka||'—'} · ${t.protokolla||'—'} · ${t.joukkue_nimi || t.joukkue || '—'}</div>
         </div>
         <span class="status-pill ${t.tila==='avoin'?'open':'plan'}">${statusLabel}</span>
       </div>
       <div class="event-actions">
-        <button class="btn-ev ev-primary" onclick="window.open('${base}','_blank')">🏟 Avaa kenttänäkymä</button>
+        <button class="btn-ev ev-primary" onclick="avaaTapahtumaV9('${t.id}')">🏟 Avaa kenttänäkymä</button>
         <button class="btn-ev" onclick="window.open('${lomake}','_blank')">📝 Täytä lomake</button>
         <button class="btn-ev" onclick="toast('Excel ladataan...','ok')">⬇ Excel</button>
         <button class="btn-ev" onclick="suljeTapahtuma('${t.id}')">✕ Sulje</button>
@@ -2722,7 +2725,7 @@ function renderKalenteri() {
     list.innerHTML += `<div class="section-hd">Päättyneet tapahtumat</div>` +
       paat.map(t => {
         const pvm = t.pvm ? new Date(t.pvm).toLocaleDateString('fi-FI') : '—';
-        return `<div class="event-card done"><div class="event-top"><div><div class="event-name">${t.nimi}</div><div class="event-meta">${pvm} · ${t.joukkue||'—'}</div></div><span class="status-pill done">Valmis</span></div></div>`;
+        return `<div class="event-card done"><div class="event-top"><div><div class="event-name">${t.nimi}</div><div class="event-meta">${pvm} · ${t.joukkue_nimi || t.joukkue || '—'}</div></div><span class="status-pill done">Valmis</span></div></div>`;
       }).join('');
   }
 }
@@ -2739,7 +2742,7 @@ function vpCalDayClick(dateStr) {
   // Klikkaus kalenteripäivään — näytä tapahtumat tai luo uusi
   const paivaTapahtumat = (_tapahtumat||[]).filter(t => t.pvm === dateStr);
   if (paivaTapahtumat.length === 0) {
-    const url = `TalentMaster_Testaus_v8.html?seuraId=${encodeURIComponent(_seuraId)}&pvm=${dateStr}`;
+    const url = 'TalentMaster_Testaus_v9.html?seura=' + encodeURIComponent(_seuraId || '') + '&pvm=' + dateStr;
     if (confirm('Päivälle ' + dateStr + ' ei ole tapahtumia. Luodaanko uusi?')) {
       window.open(url, '_blank');
     }
@@ -2752,7 +2755,14 @@ function vpCalDayClick(dateStr) {
 }
 
 function avaaUusiTapahtuma() {
-  window.open(`TalentMaster_Testaus_v8.html?seuraId=${encodeURIComponent(_seuraId)}`, '_blank');
+  window.open('TalentMaster_Testaus_v9.html?seura=' + encodeURIComponent(_seuraId || ''), '_blank');
+}
+
+// Avaa olemassa oleva tapahtuma suoraan Testaus_v9:n kenttänäkymään
+function avaaTapahtumaV9(tapahtumaId) {
+  const url = 'TalentMaster_Testaus_v9.html?t=' + encodeURIComponent(tapahtumaId)
+            + '&seura=' + encodeURIComponent(_seuraId || '');
+  window.open(url, '_blank');
 }
 
 // ─── RENDER RAPORTOINTI ──────────────────────────────────
