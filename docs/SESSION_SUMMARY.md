@@ -1,6 +1,6 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
-# Päivitetty: 2026-05-15
+# Päivitetty: 2026-05-25
 
 ---
 
@@ -8,7 +8,7 @@
 
 TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase-backend toimii Blaze-suunnitelmalla. Pilottiseurat ovat aktiivisia — SJK Juniorit on tuotu järjestelmään (40 pelaajaa, 4 joukkuetta). Seurahallinta on refaktoroitu ja tuotantovalmis. Talenttiohjelma-arkkitehtuuri on suunniteltu ja dokumentoitu.
 
-**Tilanne 2026-05-15:** Sprint 1 (POHJA) on pääosin valmis, Sprint 2 (RAE-näkyvyys) ja Sprint 3 (signaalit/BQ/IDP) osittain. Testaus_v9 — yhdistetty kenttätestaustyökalu — on valmis (3112 riviä) ja odottaa GitHub-pushia + pilottitestausta. Rules v2.7 deployattu. Bio-ikä-arkkitehtuuri lukittu: Mirwald PHV toimii (Excel-verifioitu), Khamis-Roche Sprint 4 -tehtävänä (Pediatrics 1995 erratum -kertoimet verifioitava).
+**Tilanne 2026-05-25:** Työkansio on nyt GitHub Desktop -klooni `talentmaster-github` (vanha `talentmaster-main` = lukuarkisto). Testaus_v9 on GitHubissa ja livenä. **Bio-ikä PHV toteutettu ja pushattu** (commit f6d7769): kasvumittausprotokolla v9:ssä, vanhempien pituudet rekisteröinnissä, PHV-kehitysvaihekortti Pelaaja_v7:ssä, `tm_bioika.js` laajennettu KR-rungolla (gatettu). **Rules v2.8** (biologinen_ika) — ⏳ deployaa Consolesta. Khamis-Roche LUKITTU (`KR_KERTOIMET_PUUTTUU`) kunnes verifioidut Pediatrics 1995 erratum -kertoimet saadaan.
 
 **Filosofia:** *"Pelaaja ensin, hallinto vahvistaa"*
 **Kilpailupositiointi:** *"Transfermarkt shows what. TalentMasterID shows how."*
@@ -135,7 +135,7 @@ SJK:n T14/T16 tytöt merkitty talenttiohjelma laajennettu-tasolle tuonnin yhteyd
 
 | Tiedosto | Tila |
 |---|---|
-| `TalentMaster_Testaus_v9.html` | ⏳ **Valmis paikallisesti (3112 riviä, 2026-05-14) — vie GitHubiin + pilottitesti** |
+| `TalentMaster_Testaus_v9.html` | ✅ GitHubissa + livenä — **+ kasvumittausprotokolla (PHV) 2026-05-25** |
 | `TalentMaster_Testaus_v8.html` | ⚠️ Arkistoidaan kun v9 testattu pilottiseuralla |
 | `TalentMaster_Harjoitettavuus_Lomake_v4.html` | ⚠️ Arkistoidaan kun v9 testattu pilottiseuralla |
 | `TalentMaster_VP_v22.html` | ✅ GitHubissa — Sprint 3 valmis (signaalit + BQ-stack + IDP-jono) |
@@ -152,9 +152,24 @@ SJK:n T14/T16 tytöt merkitty talenttiohjelma laajennettu-tasolle tuonnin yhteyd
 | `TalentMaster_Vanhempi_v2.html` | ⚠️ Kovakoodattu nimi — P3 auki |
 | `tm_eerikkila_normit.js` | ✅ GitHubissa |
 | `tm_lang.js` | ✅ fi/sv/en, 144 käännöstä |
-| `src/lib/tm_bioika.js` | ✅ 287 riviä — Mirwald 2002 PHV + yli-ikäisyyssääntö (Excel-verifioitu identtiseksi) |
+| `src/lib/tm_bioika.js` | ✅ Mirwald PHV (Excel-verifioitu) + **KR-runko gatettu** (`laskeKR`→`KR_KERTOIMET_PUUTTUU`) + sukupuoli N→T -korjaus (2026-05-25) |
 | `functions/index.js` | ✅ 7 Cloud Functionia + aiProxy deployattu |
-| `tm_admin/firestore.rules` | ✅ **v2.7 deployattu 2026-05-14** — idp_jono + meta/phv_snapshot + testitulokset + joukkueet/{id}/kalenteri |
+| `tm_admin/firestore.rules` | **v2.8 2026-05-25** (+ pelaajat/{id}/biologinen_ika) — ⏳ deployaa Consolesta (v2.7 deployattu 2026-05-14) |
+
+---
+
+## Sessio 2026-05-25 — Bio-ikä PHV + työkansion vaihto
+
+**Työkansio vaihdettu:** virallinen työrepo on nyt GitHub Desktop -klooni `C:\Users\TeroKoskela\talentmaster\talentmaster-github` (remote terokoskela7-cmyk/talentmaster). Vanha `talentmaster-main` (purettu ZIP) = lukuarkisto, ei muokata. Git CLI ei PATH:lla, mutta GitHub Desktopin bundlattu git.exe toimii commit/pushiin.
+
+**Bio-ikä PHV toteutettu** (commit f6d7769, 5 tiedostoa):
+- **`src/lib/tm_bioika.js` laajennettu** (EI uutta tiedostoa, §30): `laskeKR()`-runko gatettu palauttamaan `{ error:'KR_KERTOIMET_PUUTTUU' }` (laskee silti midparentin, Epstein-korjauksen isä −1.5/äiti −1.0, fallback 179/166, virhemarginaalin); apufunktiot `laskeIkaDesimaalinen`, `estimoiPuuttuvaVanhempi`, `BIOIKA_VAROITUKSET`. **Bugikorjaus:** sukupuoli `'N'`→`'T'` (tyttö laski aiemmin poikien Mirwald-kaavalla).
+- **`TalentMaster_Testaus_v9.html`:** uusi `kasvumittaus`-protokolla (pituus 2× + paino 2× + istumapituus 1×, `laskentatapa:'keskiarvo'`), `_v5SyotaYritys` osaa keskiarvon, "Merkitse valmiiksi" laskee PHV:n (Mirwald) ja tallentaa kahteen polkuun: `pelaajat/{id}/biologinen_ika/{pvm}` + pelaajadoc-pikakentät (`phv_tila`, `biologinenIka_viimeisin`). Lataa `src/lib/tm_bioika.js`.
+- **`TalentMaster_Rekisterointi_Suostumus.html`:** vapaaehtoinen vanhempien pituuskortti (isä/äiti cm + ei tiedossa/adoptoitu, pehmeä varoitus <150/>200, ei estä) → `isa_pituus_cm`/`aiti_pituus_cm`/`vanhempi_pituus_puuttuu`/`vanhempi_pituus_pvm` molempiin tallennuspolkuihin.
+- **`TalentMaster_Pelaaja_v7.html`:** `rMinaKehitysvaihe()`-kortti (PHV-värikoodit, ±0.5v aina näkyvissä, KR-rivi "Tulossa myöhemmin", piiloon jos ei mittausta); `_laskeStage`/signaalit yhtenäistetty lukemaan koodi `'PH'` (+ vanha 'huippu'/'PHV').
+- **Rules v2.7 → v2.8:** `match /seurat/{sid}/pelaajat/{pid}/biologinen_ika/{mittausPvm}`. ⏳ Deployaa Firebase Consolesta ennen kentällä käyttöä.
+
+**phv_tila canonical = PRE/LAH/PH/POST/AN.** KR-numerolaskenta integraatiovalmis mutta lukittu: avoimesta verkosta ei saatu verifioituja kerrointaulukoita (vain malli/yksiköt/yksi datapiste). Tarvitaan Pediatrics 1995 erratum -kertoimet (imperiaaliset, ikäkohtaiset 4–17.5v) → `KR_KERTOIMET` + `KR_VERIFIOITU=true`. **Testaamatta ajamalla** (node ei käytettävissä) — testaa kasvumittaus end-to-end super_adminilla.
 
 ---
 
@@ -280,11 +295,16 @@ Tekniikkatestit (pujottelu, syöttö): 3-portainen asteikko. Muut: 5-portainen.
 - ⏳ Pilottitesti Testaus_v9: KPV/GrIFK kokeilee → palautteen jälkeen v8 ja Harjoitettavuus_v4 arkistoidaan
 - ⏳ VP_v22 testaus KPV:llä (`rasmus_broberg@icloud.com`)
 
-**Sprint 4 -työnä (KR + kasvumittaus):**
-- Vanhempien pituuskentät suostumuslomakkeeseen (kr_isa_cm, kr_aiti_cm — vapaaehtoiset, validointi 140–220 / 130–200 cm)
-- Khamis-Roche -implementointi tm_bioika.js:ään — Pediatrics 1995 erratum -kertoimet, lineaarinen interpolointi
-- Kasvumittausprotokolla Testaus_v9:ään — 3 testiä (pituus 2×, paino 2×, istumapituus 1×) + `laskentatapa: 'keskiarvo'` -lippu + tm_bioika.js inline + pikakentät pelaajadokumenttiin
-- Tarkista että Rules v2.7 sisältää `biologinen_ika`-alikokoelmablokin — lisää tarvittaessa
+**Bio-ikä — tehty 2026-05-25:**
+- ✅ Vanhempien pituuskentät rekisteröintilomakkeeseen (`isa_pituus_cm`/`aiti_pituus_cm` + ei tiedossa/adoptoitu)
+- ✅ Kasvumittausprotokolla Testaus_v9:ään (pituus 2× + paino 2× + istumapituus 1× + `laskentatapa:'keskiarvo'`, PHV-tallennus pikakentät + `biologinen_ika/{pvm}`)
+- ✅ Rules v2.8 sisältää `biologinen_ika`-alikokoelmablokin
+- ✅ PHV-kehitysvaihekortti Pelaaja_v7:ään
+
+**Bio-ikä — vielä auki:**
+- ⏳ **Deployaa Rules v2.8 Consolesta** (muuten biologinen_ika-kirjoitus kaatuu)
+- ⏳ **Khamis-Roche -kertoimet:** `laskeKR()` lukittu (`KR_KERTOIMET_PUUTTUU`). Tarvitaan verifioidut Pediatrics 1995 erratum -kertoimet (imperiaaliset, ikäkohtaiset). Avointa verkkoa ei voitu verifioida 2026-05-25 → lähde julkaisusta tai Eerikkilä/MyEWaystä. Kun saatu → täytä `KR_KERTOIMET` + `KR_VERIFIOITU=true`.
+- ⏳ **Testaa kasvumittaus end-to-end** super_adminilla (koodi testaamatta ajamalla)
 
 **Kriittiset ennen laajentumista:**
 

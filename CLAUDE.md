@@ -2,7 +2,7 @@
 
 > Tämä tiedosto on ensimmäinen asia jonka liität uuteen Claude-sessioon.
 > Se korvaa kaikki aiemmat SESSION_SUMMARY.md -tiedostot.
-> Viimeksi päivitetty: 2026-05-15
+> Viimeksi päivitetty: 2026-05-25
 
 ---
 
@@ -167,8 +167,8 @@ toisen `translateX`. Admin.html toimi heti koska vain yksi lohko.
 | `TalentMaster_Harjoitettavuus_Lomake_v4.html` | Harjoitettavuuskartoituslomake | ⚠️ Arkistoidaan kun v9 testattu pilottiseuralla |
 | `TalentMaster_Pelaajarekisteri.xlsx` | Excel-rekisteripohja | ✅ |
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ |
-| `tm_admin/firestore.rules` | Security Rules v2.7 — CONSOLESTA (idp_jono + meta/phv_snapshot + testitulokset + joukkueet/{id}/kalenteri) | ✅ Deployattu 2026-05-14 |
-| `src/lib/tm_bioika.js` | Biologisen iän laskenta — Mirwald 2002 PHV + yli-ikäisyyssääntö (Excel-verifioitu identtiseksi) | ✅ 287 riviä |
+| `tm_admin/firestore.rules` | Security Rules **v2.8** — CONSOLESTA (+ pelaajat/{id}/biologinen_ika) | ⏳ Deployaa Consolesta (v2.8 2026-05-25) |
+| `src/lib/tm_bioika.js` | Biologisen iän laskenta — Mirwald 2002 PHV (Excel-verifioitu) + KR-runko gatettu (`laskeKR`→`KR_KERTOIMET_PUUTTUU`) + sukupuoli N→T -korjaus | ✅ Laajennettu 2026-05-25 |
 | `tm_eerikkila_normit.js` | Eerikkilä-normitaulukot | ✅ |
 | `tm_lang.js` | fi/sv/en, 144 käännöstä | ✅ |
 | `harjoitelogiikka_v4.js` | Harjoitusohjelman generointi (144KB) | ⚠️ Tarkista onko GitHubissa |
@@ -810,9 +810,11 @@ loss aversion, temptation bundling (Milkman)
 - [ ] **IDP-aktivointilogiikka (P7):** 3 reittiä (manuaalinen/X-Factor/KORI)
 - [ ] **Firestore kirjausrakenne lukitaan** → AI agent -aktivointi
 - [ ] **RAG** kun 500+ pelaajaa
-- [ ] **Bio-ikä — kasvumittausprotokolla v9:ään** (3 testiä: pituus 2×, paino 2×, istumapituus 1× + `laskentatapa: 'keskiarvo'` -lippu + tm_bioika.js inline — Mirwald valmis, ks. §30)
-- [ ] **Vanhempien pituuskentät suostumuslomakkeeseen** — kerätään Khamis-Roche -laskentaa varten (Sprint 4, ks. §30)
-- [ ] **Khamis-Roche -implementointi** — Pediatrics 1995 erratum -kertoimet verifioitava (Sprint 4)
+- [x] **Bio-ikä — kasvumittausprotokolla v9:ään** ✅ 2026-05-25 (pituus 2× + paino 2× + istumapituus 1×, `laskentatapa:'keskiarvo'`, PHV laskenta+tallennus "Merkitse valmiiksi" → `biologinen_ika/{pvm}` + pikakentät)
+- [x] **Vanhempien pituuskentät suostumuslomakkeeseen** ✅ 2026-05-25 (isä/äiti cm + ei tiedossa/adoptoitu → `isa_pituus_cm`/`aiti_pituus_cm`)
+- [x] **PHV-kehitysvaihekortti Pelaaja_v7:ään** ✅ 2026-05-25 (KR-rivi "Tulossa myöhemmin")
+- [ ] **Khamis-Roche -kertoimet** — `laskeKR()` integraatiovalmis mutta LUKITTU (`KR_KERTOIMET_PUUTTUU`). Tarvitaan verifioidut **Pediatrics 1995 erratum** -kertoimet (imperiaaliset, ikäkohtaiset 4–17.5v). Kun toimitettu → täytä `KR_KERTOIMET` + `KR_VERIFIOITU=true`. **Avointa verkkoa ei voitu verifioida (2026-05-25)** — lähde: julkaisu tai Eerikkilä/MyEWay.
+- [ ] **Deployaa Rules v2.8 Consolesta** — ennen tätä `biologinen_ika`-alikokoelman kirjoitus kaatuu
 
 ---
 
@@ -1411,7 +1413,7 @@ FIFA Art. 19bis compliance (pelaajien rekisteröinti alle 18v) = B2G-tuote liito
 | Menetelmä | Kysymys | Käyttötarkoitus | Tila |
 |---|---|---|---|
 | **PHV (Mirwald 2002)** | "Mitä pelaajassa tapahtuu nyt?" | Harjoittelun ohjaus, kuormarajoitin PHV-huipulla, loukkaantumisriski | ✅ Toteutettu — `src/lib/tm_bioika.js` |
-| **Khamis-Roche (1995 erratum)** | "Kuinka kypsä pelaaja on suhteessa muihin?" | Bio-banding, ryhmittelypäätökset, kypsyysprosentti %PAH | ⏳ Sprint 4 — kertoimet verifioitava |
+| **Khamis-Roche (1995 erratum)** | "Kuinka kypsä pelaaja on suhteessa muihin?" | Bio-banding, ryhmittelypäätökset, kypsyysprosentti %PAH | ⏳ `laskeKR()`-runko valmis mutta LUKITTU (`KR_KERTOIMET_PUUTTUU`) — kertoimet verifioitava |
 
 Tämä jako tuli Eerikkilän/Palloliiton virallisesta MyEWay-linjauksesta. **Ei pidä valita vain toista — molemmat tarvitaan**, mutta eri tarkoituksiin.
 
@@ -1490,9 +1492,9 @@ match /seurat/{seuraId}/pelaajat/{pelaajaId}/biologinen_ika/{mittausPvm} {
 }
 ```
 
-⚠️ **TARKISTA — onko tämä blokki Rules v2.7:ssä?** Jos ei, lisättävä ennen kasvumittausprotokollan aktivointia.
+✅ **Lisätty Rules v2.8:aan 2026-05-25** (`match /seurat/{sid}/pelaajat/{pid}/biologinen_ika/{mittausPvm}`). ⏳ Deployaa Firebase Consolesta ennen kuin kasvumittaus tallentaa kentällä.
 
-### Kasvumittausprotokolla Testaus_v9:ään (suunniteltu)
+### Kasvumittausprotokolla Testaus_v9:ään (✅ TOTEUTETTU 2026-05-25)
 
 **PROTOKOLLAT-objektiin lisättävä:**
 ```javascript
@@ -1508,7 +1510,7 @@ kasvumittaus: {
 }
 ```
 
-**KRIITTINEN bugi v9:n nykyisessä logiikassa:** `_v5SyotaYritys` laskee "parhaan" (pienin/suurin) eikä keskiarvoa. Kasvumittaukselle pitää lisätä uusi laskentatapa:
+**Keskiarvobugi KORJATTU 2026-05-25:** `_v5SyotaYritys` laski "parhaan" (pienin/suurin). Nyt: jos testillä `laskentatapa==='keskiarvo'` (haetaan `_v5AktiivisetTestit()`-listasta), `obj.paras` = yritysten keskiarvo:
 ```javascript
 if (testi.laskentatapa === 'keskiarvo' && arvot.length > 0) {
   obj.paras = +(arvot.reduce((a,b) => a+b, 0) / arvot.length).toFixed(2);
