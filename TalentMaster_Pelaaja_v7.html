@@ -296,6 +296,7 @@ button{font-family:var(--font-b);cursor:pointer}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="docs/testit_indeksit.js?v=2"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
@@ -1090,6 +1091,94 @@ function rMinaKehitysvaihe() {
   return h;
 }
 
+// ── TEKNIIKKAPROFIILI — TKI + merkki + vahvuus/kehityskohde + lajipalkit + trendi ──
+// Lukee pelaajan tekniikkakilpailutulokset Firestoresta (testitulokset-alikokoelma).
+// Laskenta window.TM_TESTIT (docs/testit_indeksit.js, aikapohjainen).
+let _tekniikkaData = null;
+async function _lataaTekniikka() {
+  try {
+    if (!_pelaaja || !_pelaaja.seuraId || !_pelaaja.id || !window._db || !window.TM_TESTIT) return;
+    const snap = await window._db.collection('seurat').doc(_pelaaja.seuraId)
+      .collection('pelaajat').doc(_pelaaja.id).collection('testitulokset').get();
+    const tk = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(x => x.protokolla === 'tekniikkakilpailu')
+      .sort((a, b) => String(a.testauspvm || a.id || '').localeCompare(String(b.testauspvm || b.id || '')));
+    if (tk.length === 0) { _tekniikkaData = { tyhja: true }; draw(); return; }
+    const T = window.TM_TESTIT;
+    const sp = (String(_pelaaja.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
+    const ikaPvm = (pvm) => {
+      const y = parseInt(String(pvm || '').slice(0, 4));
+      return (!isNaN(y) && _pelaaja.syntymaVuosi) ? (y - _pelaaja.syntymaVuosi) : null;
+    };
+    const viim = tk[tk.length - 1];
+    const ika = ikaPvm(viim.testauspvm || viim.id) || (new Date().getFullYear() - (_pelaaja.syntymaVuosi || 2013));
+    const kt = T.laskeKokonaistulos(viim.testit, ika, sp);
+    const vk = T._laskeVahvuudetJaKehityskohteet(viim.testit, { ika: ika }, null);
+    let trendi = null;
+    if (tk.length >= 2) {
+      const eka = tk[0];
+      const ktEka = T.laskeKokonaistulos(eka.testit, ikaPvm(eka.testauspvm || eka.id) || ika, sp);
+      if (ktEka != null && kt != null) {
+        const ero = +(ktEka - kt).toFixed(1); // >0 = aika pienentynyt = parani
+        if (Math.abs(ero) >= 1) trendi = { ero: Math.abs(ero), parani: ero > 0 };
+      }
+    }
+    _tekniikkaData = {
+      tki: (kt != null) ? T.tkLaskeTKI(kt, ika, sp) : null,
+      merkki: (kt != null) ? T.tkLaskeMerkki(kt, ika, sp) : null,
+      vahvuudet: vk.vahvuudet, kehityskohteet: vk.kehityskohteet,
+      testit: viim.testit, trendi: trendi, kpl: tk.length
+    };
+    draw();
+  } catch (e) { console.warn('[tekniikka]', e.message); }
+}
+
+function rMinaTekniikkaprofiili() {
+  const d = _tekniikkaData;
+  if (!d || d.tyhja) return ''; // ei tuloksia → piiloon
+  const merkkiVari = { kulta: '#D4AF37', hopea: '#9AA0A6', pronssi: '#B87333' };
+  const lajiNimi = { ponnauttelu: 'Ponnauttelu', syotto: 'Syöttö', pujottelu: 'Pujottelu', kuljetus_laukaus: 'Kuljetus-laukaus' };
+  let h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:12px;letter-spacing:.01em">Tekniikkaprofiili</div>';
+  h += '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:40px;font-weight:300;color:#28B090;line-height:1">' + (d.tki != null ? d.tki : '—') + '</div>';
+  h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:#585751">TKI</div>';
+  if (d.merkki) h += '<div style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:' + (merkkiVari[d.merkki] || '#585751') + '22;color:' + (merkkiVari[d.merkki] || '#585751') + ';text-transform:capitalize">' + d.merkki + '</div>';
+  h += '</div>';
+  const v = d.vahvuudet && d.vahvuudet[0];
+  const k = d.kehityskohteet && d.kehityskohteet[0];
+  if (v) h += '<div style="font-size:12px;color:var(--text);margin-top:8px">⭐ <b>Vahvuutesi:</b> ' + v.nimi + '<div style="font-size:11px;color:#585751;margin-top:2px">' + v.teksti + '</div></div>';
+  if (k) h += '<div style="font-size:12px;color:var(--text);margin-top:8px">📈 <b>Kehityskohde:</b> ' + k.nimi + '<div style="font-size:11px;color:#585751;margin-top:2px">' + k.teksti + '</div></div>';
+  // Lajipalkit (aika sekunteina, lyhyempi = nopeampi)
+  const lajit = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'];
+  const arvo = (id) => { const x = d.testit[id]; if (x == null) return null; if (typeof x === 'object') return (x.tulos != null ? x.tulos : x.paras); return x; };
+  const vals = lajit.map(id => ({ id: id, val: parseFloat(arvo(id)) })).filter(x => !isNaN(x.val));
+  if (vals.length) {
+    const max = Math.max.apply(null, vals.map(x => x.val));
+    h += '<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">';
+    vals.forEach(x => {
+      const pct = Math.round((x.val / max) * 100);
+      const onV = (d.vahvuudet || []).some(z => z.laji === x.id);
+      const onK = (d.kehityskohteet || []).some(z => z.laji === x.id);
+      const vari = onV ? '#28B090' : onK ? '#E0A040' : '#585751';
+      h += '<div style="display:flex;align-items:center;gap:8px">'
+        + '<div style="width:96px;font-size:10px;color:#585751;text-align:right">' + (lajiNimi[x.id] || x.id) + '</div>'
+        + '<div style="flex:1;background:rgba(242,239,230,.06);border-radius:3px;height:14px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:' + vari + '"></div></div>'
+        + '<div style="width:42px;font-size:10px;color:var(--text);text-align:right">' + x.val.toFixed(1) + 's</div>'
+        + '</div>';
+    });
+    h += '</div>';
+  }
+  if (d.trendi) {
+    const tt = d.trendi.parani
+      ? ('Kokonaistuloksesi on parantunut ' + d.trendi.ero + ' s 🚀')
+      : ('Kokonaisaikasi on kasvanut ' + d.trendi.ero + ' s — jatketaan harjoittelua');
+    h += '<div style="font-size:11px;color:' + (d.trendi.parani ? '#28B090' : '#E0A040') + ';margin-top:10px">' + tt + '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
 // Stub-kortti — Cormorant otsikko + DM Sans "Tulossa pian"
 function _rMinaStub(otsikko) {
   return '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">' +
@@ -1120,6 +1209,7 @@ function rMina() {
     + hdr('Minä')
     + rMinaProfiili()
     + rMinaKehitysvaihe()
+    + rMinaTekniikkaprofiili()
     + rMinaFLEI()
     + rMinaStreak()
     + rMinaTestit()
@@ -2209,6 +2299,9 @@ function _kaynnistaAppUI() {
 
   // Hae vanhemman lähettämät kehut
   _haePerhekehu().catch(e => console.warn('[kehu]', e.message));
+
+  // Tekniikkaprofiili (TKI + vahvuudet) — lataa taustalla, re-renderöi kun valmis
+  if (!_isDemoUser) { _tekniikkaData = null; _lataaTekniikka(); }
 
   // Siirry tänään-näkymään
   go('a1');
