@@ -1874,7 +1874,7 @@ async function _lataaTestitapahtumat() {
     // Etsi tämän päivän testit
     const tanaan = new Date().toISOString().slice(0,10);
     // Suodata joukkueen mukaan myös tänään-tapahtumat
-    _todayTestit = _testitapahtumat.filter(t => t.pvm === tanaan && t.tila !== 'suljettu' && (!_joukkue || !t.joukkue || t.joukkue === _joukkue));
+    _todayTestit = _testitapahtumat.filter(t => t.pvm === tanaan && t.tila !== 'suljettu' && (!_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue));
     // Päivitä badget
     const avoimet = _testitapahtumat.filter(t => t.tila !== 'suljettu').length;
     const badge = document.getElementById('wsTestitBadge');
@@ -2244,7 +2244,7 @@ function renderTestit() {
 
   // Suodata joukkueen mukaan jos joukkue on valittu
   // Jos tapahtumalla ei ole joukkuetta, se näkyy kaikille (seuratason tapahtuma)
-  const _suodataJoukkue = (t) => !_joukkue || !t.joukkue || t.joukkue === _joukkue;
+  const _suodataJoukkue = (t) => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue;
   const avoimet = (_testitapahtumat || []).filter(t => t.tila !== 'suljettu' && _suodataJoukkue(t));
   const suljetut = (_testitapahtumat || []).filter(t => t.tila === 'suljettu' && _suodataJoukkue(t));
 
@@ -2257,13 +2257,20 @@ function renderTestit() {
     : '<div class="testit-empty">Ei päättyneitä tapahtumia.</div>';
 }
 
+// Status pvm + tila -logiikalla (sama kuin VP:llä): Tuleva / Kesken / Valmis
+function _testiStatus(t) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (t.tila === 'valmis' || t.tila === 'suljettu') return { label:'Valmis', color:'var(--teal)', btn:'Katso tulokset →' };
+  if (t.pvm && t.pvm < today)                       return { label:'Kesken', color:'var(--amber)', btn:'Jatka kirjausta →' };
+  return { label:'Tuleva', color:'#3DA35D', btn:'Avaa kenttänäkymä →' };
+}
+
 function _testiCardHtml(t) {
   const proto = PROTOKOLLAT[t.protokolla] || {};
   const pelaajia = (t.pelaajatData || []).length || (t.pelaajat || []).length || 0;
   const moodiCls = 'testit-moodi-' + (t.moodi || 'seka');
-  const tilaCls = t.tila === 'suljettu' ? 'testit-tila-suljettu' : 'testit-tila-avoin';
-  const tilaTxt = t.tila === 'suljettu' ? 'Suljettu' : 'Avoin';
   const suljettu = t.tila === 'suljettu';
+  const st = _testiStatus(t);
 
   return `<div class="testit-card">
     <div class="testit-card-header">
@@ -2273,7 +2280,7 @@ function _testiCardHtml(t) {
           <span><b class="mono">${t.pvm || '—'}</b></span>
           <span>${t.paikka || ''}</span>
           <span class="testit-moodi-badge ${moodiCls}">${t.moodi || 'sekamalli'}</span>
-          <span class="${tilaCls}">${tilaTxt}</span>
+          <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;background:${st.color}1f;color:${st.color};">${st.label}</span>
         </div>
       </div>
       <div style="font-size:11px;color:var(--ink2);">
@@ -2283,7 +2290,7 @@ function _testiCardHtml(t) {
     <div style="font-size:11px;color:var(--ink3);">${proto.nimi || t.protokolla || ''}</div>
     <div class="testit-actions">
       <button class="testit-btn primary" onclick="_avaaKentta('${t.id}')">
-        <svg width="12" height="12"><use href="#ic-external"/></svg>Avaa kenttänäkymä
+        <svg width="12" height="12"><use href="#ic-external"/></svg>${st.btn}
       </button>
       <button class="testit-btn" onclick="_avaaLomake('${t.id}')">
         <svg width="12" height="12"><use href="#ic-form"/></svg>Täytä lomake
@@ -2475,14 +2482,14 @@ async function _lataaKalenteriTapahtumat() {
         ...data,
         joukkue: data.joukkue || data.joukkueNimi || ''
       };
-    }).filter(t => !_joukkue || !t.joukkue || t.joukkue === _joukkue);
+    }).filter(t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue);
   } catch(e) {
     // Indeksi saattaa puuttua — hae ilman orderBy
     try {
       const snap2 = await _db.collection('seurat').doc(_seuraId)
         .collection('tapahtumat').get();
       _kalenteriTapahtumat = snap2.docs.map(d => ({id: d.id, ...d.data()}))
-        .filter(t => !_joukkue || !t.joukkue || t.joukkue === _joukkue)
+        .filter(t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue)
         .sort((a,b) => (a.pvm||'').localeCompare(b.pvm||''));
     } catch(e2) {
       console.warn('[kalenteri]', e2.message);
@@ -3822,7 +3829,7 @@ function renderCal() {
 
   // ── Kaikki tapahtumat kalenterimuotoon ──
   // Testitapahtumat (klo 9) + valmentajan luomat tapahtumat (omalla kellolla)
-  const suodataJoukkue = t => !_joukkue || !t.joukkue || t.joukkue === _joukkue;
+  const suodataJoukkue = t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue;
 
   const testiEvts = (_testitapahtumat || [])
     .filter(suodataJoukkue)
