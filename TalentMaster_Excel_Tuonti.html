@@ -942,6 +942,29 @@ function _pohjaPienempiParempi(protokolla, testId) {
   return t ? !!t.pienempi_parempi : true;
 }
 
+// Pakota sarake (0-indeksoitu) tekstimuotoon: olemassa olevat solut t:'s' + z:'@',
+// ja esimuotoile tyhjät solut bufferRiviin asti, jotta käyttäjän syöttämä PalloID
+// (esim. 34650191) säilyy merkkijonona eikä SheetJS lue sitä numerona Firestore-hakuun.
+function _pohjaPakotaTekstisarake(ws, colIdx, bufferRivit) {
+  if (typeof XLSX === 'undefined' || !ws) return;
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  const maxRow = Math.max(range.e.r, (bufferRivit || 0));
+  for (let r = 1; r <= maxRow; r++) { // r=0 = otsikko, jätetään ennalleen
+    const ref = XLSX.utils.encode_cell({ c: colIdx, r: r });
+    const cell = ws[ref];
+    if (cell) {
+      if (cell.v != null) cell.v = String(cell.v);
+      cell.t = 's';
+      cell.z = '@';
+    } else {
+      ws[ref] = { t: 's', v: '', z: '@' };
+    }
+  }
+  range.e.r = Math.max(range.e.r, maxRow);
+  if (range.e.c < colIdx) range.e.c = colIdx;
+  ws['!ref'] = XLSX.utils.encode_range(range);
+}
+
 function generoiExcelPohja(protokolla, joukkueNimi) {
   if (typeof XLSX === 'undefined') { toast('Excel-kirjasto ei latautunut', 'err'); return; }
   const proto = PROTOKOLLAT[protokolla];
@@ -954,6 +977,8 @@ function generoiExcelPohja(protokolla, joukkueNimi) {
       '32.5','31.8','45.2','44.1','14.5','13.9','26.5','13.0','27.0','12.5','28.0','30.0','25.0','27.0']);
   }
   const wsData = XLSX.utils.aoa_to_sheet(rivit);
+  // PalloID = POHJA_YLEISET[0] → sarake A tekstimuotoon (estää numeroluvun)
+  _pohjaPakotaTekstisarake(wsData, 0, 300);
   const ohje = [
     ['TalentMaster — tuontipohja: ' + proto.nimi],
     ['Joukkue', joukkueNimi || '(täytä halutessasi)'],
@@ -1978,7 +2003,9 @@ async function tarkistaPalloIDit() {
   const tulokset = await Promise.all(
     tarkistettavat.map(async p => {
       try {
-        const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(p.tunniste).get();
+        // PalloID AINA merkkijonoksi ennen Firestore-hakua — SheetJS voi lukea numerona
+        const palloIdStr = String(p.tunniste == null ? '' : p.tunniste).trim();
+        const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(palloIdStr).get();
         return {
           pelaaja: p,
           loytyy: snap.exists,
@@ -2242,7 +2269,8 @@ async function tallennaFirestoreen() {
 
     era.forEach(pkg => {
       const { pelaaja: p, testit, fleiPct, tki, pvmIso } = pkg;
-      const docId = p.tunniste || (p.sukunimi + '_' + p.etunimi);
+      // PalloID AINA merkkijonoksi — doc-ID ja tunniste-kenttä yhteneväisiksi haun kanssa
+      const docId = String(p.tunniste == null ? '' : p.tunniste).trim() || (p.sukunimi + '_' + p.etunimi);
 
       // Tallennusdata — yhteinen molemmille moodeille
       const tallennusData = {
