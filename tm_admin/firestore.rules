@@ -1,10 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v2.8
+// TalentMaster™ — firestore.rules v2.9
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: Firebase Console → Firestore → Rules → liitä → Julkaise
 //         (EI GitHub Actionsilla — saa 403, CLAUDE.md §17 #10)
+//
+// Muutokset v2.8 → v2.9 (VP kalenteri):
+//   + seurat/{sid}/tapahtumat/{id} — SEURATASON yleistapahtumat +
+//     VP_v22:n mentorointi-pikamalli (tyyppi:'mentorointi'/'kokous').
+//     Ilman tätä mentoroinnin tallennus + viikkonäkymän luku kaatuvat.
+//     HUOM: eri kuin pelaajatason legacy /pelaajat/{id}/tapahtumat.
+//   + seurat/{sid}/vp_kalenteri/{id} — VP:n deadlinet/muistutukset (amber).
 //
 // Muutokset v2.7 → v2.8 (Bio-ikä — PHV/Mirwald):
 //   + seurat/{sid}/pelaajat/{pid}/biologinen_ika/{mittausPvm} — Testaus_v9:n
@@ -363,6 +370,25 @@ service cloud.firestore {
           allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
+      }
+
+      // ── TAPAHTUMAT (seurataso, v2.9) — yleistapahtumat + mentoroinnit ──
+      // VP_v22 mentorointi-pikamalli (tyyppi:'mentorointi') + Master_v16
+      // yleistapahtumat (harjoitus/ottelu/kokous). EI sama kuin pelaajatason
+      // legacy /pelaajat/{id}/tapahtumat eikä testitapahtumat.
+      match /tapahtumat/{tapahtumaId} {
+        allow read:   if onSuperAdmin() || onOmaSeura(seuraId);
+        allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId)
+                      || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId)
+                      || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+      }
+
+      // ── VP_KALENTERI (v2.9) — VP:n deadlinet ja muistutukset (amber) ───
+      match /vp_kalenteri/{id} {
+        allow read:  if onSuperAdmin() || onOmaSeura(seuraId);
+        allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
       }
 
       // ── IDP_JONO — IDP-aktivointiehdotusten jono ──────────────────────
