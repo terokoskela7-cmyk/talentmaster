@@ -816,6 +816,46 @@ function _tkiMerkki(tki) {
   return null;
 }
 
+// ── H-H taso (inline kopio docs/testit_indeksit.js — vain pikakentän avaintestit 30m/cmj/mas) ──
+// Eerikkilä-normit: [t2,t3,t4,t5] = tasojen 1→2,2→3,3→4,4→5 rajat per ikä.
+const HH_NORMIT_PIKA = {
+  P: {
+    '30m': {10:[5.40,5.10,4.90,4.70],11:[5.20,4.95,4.75,4.55],12:[5.00,4.75,4.55,4.35],13:[4.80,4.55,4.35,4.15],14:[4.60,4.35,4.18,4.00],15:[4.45,4.20,4.05,3.88],16:[4.30,4.10,3.93,3.78],17:[4.18,3.98,3.83,3.68],18:[4.10,3.90,3.75,3.60],19:[4.05,3.85,3.70,3.55]},
+    cmj: {10:[20,25,30,36],11:[22,27,33,39],12:[25,30,36,43],13:[28,34,40,47],14:[32,38,45,52],15:[36,43,50,57],16:[40,47,54,61],17:[43,50,57,64],18:[45,52,59,66],19:[46,53,60,67]},
+    mas: {10:[9.0,10.0,11.0,12.0],11:[9.5,10.5,11.5,12.5],12:[10.0,11.0,12.0,13.0],13:[10.5,11.5,12.5,13.5],14:[11.0,12.0,13.0,14.0],15:[11.5,12.5,13.5,14.5],16:[12.0,13.0,14.0,15.0],17:[12.5,13.5,14.5,15.5],18:[13.0,14.0,15.0,16.0],19:[13.5,14.5,15.5,16.5]}
+  },
+  T: {
+    '30m': {10:[5.70,5.40,5.20,5.00],11:[5.50,5.20,5.00,4.80],12:[5.30,5.00,4.82,4.62],13:[5.15,4.85,4.67,4.47],14:[5.05,4.75,4.58,4.38],15:[4.98,4.70,4.53,4.33],16:[4.93,4.65,4.48,4.29],17:[4.90,4.62,4.46,4.27],18:[4.88,4.60,4.44,4.25],19:[4.87,4.59,4.43,4.24]},
+    cmj: {10:[16,20,25,30],11:[18,22,27,33],12:[20,25,30,36],13:[23,28,33,39],14:[25,30,36,42],15:[27,32,38,44],16:[28,34,39,45],17:[29,35,40,46],18:[30,36,41,47],19:[30,36,42,48]},
+    mas: {10:[8.5,9.5,10.5,11.5],11:[9.0,10.0,11.0,12.0],12:[9.5,10.5,11.5,12.5],13:[10.0,11.0,12.0,13.0],14:[10.5,11.5,12.5,13.5],15:[11.0,12.0,13.0,14.0],16:[11.2,12.2,13.2,14.2],17:[11.4,12.4,13.4,14.4],18:[11.5,12.5,13.5,14.5],19:[11.5,12.5,13.5,14.5]}
+  }
+};
+const HH_KAANTEINEN_PIKA = new Set(['30m']); // 30m: pienempi parempi; cmj/mas: suurempi parempi
+function hhLaskeTaso(testi, arvo, ika, sp) {
+  const sukuNormit = HH_NORMIT_PIKA[sp] || HH_NORMIT_PIKA['P'];
+  const testiNormit = sukuNormit[testi];
+  if (!testiNormit || arvo == null || isNaN(arvo)) return null;
+  const ikaInt = Math.round(Math.max(10, Math.min(19, ika)));
+  const rajat = testiNormit[ikaInt];
+  if (!rajat) return null;
+  const t2 = rajat[0], t3 = rajat[1], t4 = rajat[2], t5 = rajat[3];
+  if (HH_KAANTEINEN_PIKA.has(testi)) {
+    if (arvo > t2) return 1; if (arvo > t3) return 2; if (arvo > t4) return 3; if (arvo > t5) return 4; return 5;
+  }
+  if (arvo < t2) return 1; if (arvo < t3) return 2; if (arvo < t4) return 3; if (arvo < t5) return 4; return 5;
+}
+// Kokonais-H-H-taso pikakenttään: avaintestit 30m/cmj/mas, keskiarvo niistä joilla arvo.
+function laskeHHTaso(testit, ika, sp) {
+  if (ika == null || !sp || !testit) return null;
+  const spN = sp === 'M' ? 'P' : sp === 'N' ? 'T' : sp;
+  const skal = (id) => { const v = testit[id]; if (v == null) return null; return (typeof v === 'object') ? (v.paras != null ? v.paras : null) : parseFloat(v); };
+  const parit = [['30m', skal('lin30m')], ['cmj', skal('hyppy_cj')], ['mas', skal('mas')]];
+  const tasot = [];
+  parit.forEach(p => { const v = p[1]; if (v != null && !isNaN(v)) { const t = hhLaskeTaso(p[0], v, ika, spN); if (t != null) tasot.push(t); } });
+  if (!tasot.length) return null;
+  return Math.round((tasot.reduce((a, b) => a + b, 0) / tasot.length) * 10) / 10;
+}
+
 // ════════════════════════════════════════
 // PROTOKOLLAMÄÄRITTELYT (sama kuin Testaus-v8)
 // ════════════════════════════════════════
@@ -2270,6 +2310,7 @@ async function tallennaFirestoreen() {
   const protokollaKey = moodi === 'tapahtuma' ? tapahtuma.protokolla : tuontiData.meta.protokolla;
   const proto = PROTOKOLLAT[protokollaKey] || {};
   const onTekniikka = protokollaKey === 'tekniikkakilpailu';
+  const onHH = (protokollaKey === 'hh_laaja' || protokollaKey === 'hh_suppea');
   const NYT_ISO = new Date().toISOString();
 
   // Rakenna täydet datapaketit jokaiselle pelaajalle ENNEN batch-kirjoitusta
@@ -2303,12 +2344,14 @@ async function tallennaFirestoreen() {
       if (maxP > 0) fleiPct = Math.round((pisteet / maxP) * 100);
     }
 
+    // Ikä + sukupuoli (yhteinen TKI:lle ja H-H:lle)
+    const syntymaVuosi = (p._firestoreData && p._firestoreData.syntymaVuosi) || null;
+    const ika = laskeIka(syntymaVuosi, p.testauspvm || (tapahtuma && tapahtuma.pvm));
+    const sp = p.sukupuoli || (p._firestoreData && p._firestoreData.sukupuoli) || null;
+
     // TKI — tekniikkakilpailu (vaatii iän + sukupuolen) — skalaareista
     let tki = null, merkki = null, vahvuus = null, kehityskohde = null;
-    const syntymaVuosi = (p._firestoreData && p._firestoreData.syntymaVuosi) || null;
     if (onTekniikka) {
-      const ika = laskeIka(syntymaVuosi, p.testauspvm || (tapahtuma && tapahtuma.pvm));
-      const sp = p.sukupuoli || (p._firestoreData && p._firestoreData.sukupuoli) || null;
       tki = laskeTKIPelaajalle(testitSkalaari, ika, sp);
       merkki = _tkiMerkki(tki);
       const vk = _laskeVahvuudetJaKehityskohteet({ testit: testitSkalaari }, { ika: ika });
@@ -2316,10 +2359,21 @@ async function tallennaFirestoreen() {
       kehityskohde = (vk.kehityskohteet[0] && vk.kehityskohteet[0].laji) || null;
     }
 
+    // H-H — fyysistestit (hh_laaja / hh_suppea): pikakentät {lin30m,cmj,mas} + taso 1-5
+    let hhViimeisin = null, hhTaso = null;
+    if (onHH) {
+      const num = (id) => { const v = testitSkalaari[id]; return (v != null && !isNaN(v)) ? v : null; };
+      const lin30m = num('lin30m'), cmj = num('hyppy_cj'), mas = num('mas');
+      if (lin30m != null || cmj != null || mas != null) {
+        hhViimeisin = { lin30m: lin30m, cmj: cmj, mas: mas };
+        hhTaso = laskeHHTaso(testitSkalaari, ika, sp);
+      }
+    }
+
     const pvmRaw = p.testauspvm || (tapahtuma && tapahtuma.pvm) || NYT_ISO.slice(0,10);
     const pvmIso = _paivaIso(pvmRaw) || _paivaIso(new Date());
 
-    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, pvmIso, syntymaVuosi };
+    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, syntymaVuosi };
   });
 
   // Aja batchina, jaa 400:n eriin
@@ -2332,7 +2386,7 @@ async function tallennaFirestoreen() {
     const batch = db.batch();
 
     era.forEach(pkg => {
-      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, pvmIso } = pkg;
+      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso } = pkg;
       // Löydetyn pelaajan OIKEA dokumentti-ID (Firebase UID) → tallennuspolku.
       // Jos pelaajaa ei löytynyt (strategia 'kaikki'), fallback PalloID-stringiin (review-jono).
       const docId = p._firestoreDocId || String(p.tunniste == null ? '' : p.tunniste).trim() || (p.sukunimi + '_' + p.etunimi);
@@ -2389,6 +2443,8 @@ async function tallennaFirestoreen() {
         if (merkki)           profiiliUpdate.tki_merkki = merkki;
         if (vahvuus)          profiiliUpdate.tki_vahvuus = vahvuus;
         if (kehityskohde)     profiiliUpdate.tki_kehityskohde = kehityskohde;
+        if (hhViimeisin)      { profiiliUpdate.hh_viimeisin = hhViimeisin; profiiliUpdate.hh_pvm = pvmIso; }
+        if (hhTaso != null)   profiiliUpdate.hh_taso = hhTaso;
         if (p.phv_tila)       profiiliUpdate.phv_tila = p.phv_tila;
         if (fleiPct !== null || tki !== null) {
           profiiliUpdate.flei_historia = firebase.firestore.FieldValue.arrayUnion({

@@ -923,11 +923,11 @@ body {
   padding: 14px 16px;
 }
 .tp-name { font-size: 14px; font-weight: 500; margin-bottom: 10px; }
-.tp-metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+.tp-metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; }
 .tp-metric { text-align: center; }
 .tp-val {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 20px; font-weight: 300; line-height: 1;
+  font-size: 18px; font-weight: 300; line-height: 1;
 }
 .tp-val.good { color: var(--teal); }
 .tp-val.warn { color: var(--amber); }
@@ -1599,6 +1599,11 @@ async function lataaPelaajat() {
         tki_viimeisin: data.tki_viimeisin ?? null,
         tki_pvm: data.tki_pvm ?? null,
         tki_merkki: data.tki_merkki ?? null,
+        hh_taso: data.hh_taso ?? null,
+        hh_viimeisin: data.hh_viimeisin ?? null,
+        adar_viimeisin: data.adar_viimeisin ?? null,
+        adar_havaintoja: data.adar_havaintoja ?? 0,
+        adar_pvm: data.adar_pvm ?? null,
         phv_tila: data.phv_tila || null,
         signaali: data.signaali || null,
         joukkue: data.joukkue || data.joukkueNimi || '—',
@@ -1878,6 +1883,55 @@ async function renderSignals(seuraId) {
       sortKey: -_idpJono.length
     });
   }
+
+  // Signaalit 6-9 — joukkuetason mittarikattavuus (mittaristoarkkitehtuuri §34).
+  // Kaikki jo ladatusta _pelaajat-datasta (pikakentät) — EI uusia Firestore-kyselyjä.
+  const _sigJoukkueet = {};
+  _pelaajat.forEach(p => {
+    const j = p.joukkue || 'Tuntematon';
+    if (!_sigJoukkueet[j]) _sigJoukkueet[j] = [];
+    _sigJoukkueet[j].push(p);
+  });
+  const ADAR_30PV = NYT - 30 * 86400000;
+  Object.keys(_sigJoukkueet).forEach(j => {
+    const pel = _sigJoukkueet[j];
+    const koko = pel.length;
+    // S6/S7/S8 — kattavuus < 40% (vain ≥3 pelaajan joukkueet, ettei pienistä tule kohinaa)
+    const kattavuusSig = (lkm, teksti) => {
+      const pct = koko > 0 ? Math.round(lkm / koko * 100) : 0;
+      if (koko >= 3 && pct < 40) {
+        signaalit.push({
+          prio: 'warn', icon: '○',
+          title: j + ' — ' + teksti + ' ' + (koko - lkm) + '/' + koko + ':ltä',
+          sub: 'Kattavuus ' + pct + '% · alle 40%',
+          cta: 'Avaa testit →', ctaClass: 'amber-cta',
+          action: "setWs('kalenteri')",
+          sortKey: -(40 - pct)
+        });
+      }
+    };
+    kattavuusSig(pel.filter(p => p.tki_viimeisin != null).length, 'tekniikkatulokset puuttuvat');           // S6
+    kattavuusSig(pel.filter(p => p.hh_taso != null || p.hh_viimeisin).length, 'fyysistestit puuttuvat');     // S7
+    kattavuusSig(pel.filter(p => p.flei_viimeisin != null).length, 'liikehallintatestit puuttuvat');         // S8
+    // S9 — ADAR-havainnointi: >5 pelaajaa, mutta <30% saanut ≥3 havaintoa viim. 30 pv.
+    // Mittaa valmentajan aktiivisuutta pelaajien havainnoinnissa (ERI kuin S1 = ei kirjauksia lainkaan).
+    if (koko > 5) {
+      const havainnoidut = pel.filter(p =>
+        (p.adar_havaintoja || 0) >= 3 && p.adar_pvm && new Date(p.adar_pvm).getTime() >= ADAR_30PV
+      ).length;
+      const pct = Math.round(havainnoidut / koko * 100);
+      if (pct < 30) {
+        signaalit.push({
+          prio: 'warn', icon: '◔',
+          title: j + ' — valmentaja ei ole havainnoinut pelaajia riittävästi (' + havainnoidut + '/' + koko + ' pelaajaa)',
+          sub: 'Alle 30% pelaajista ≥3 ADAR-havaintoa viim. 30 pv',
+          cta: 'Avaa valmentajan näkymä →', ctaClass: 'amber-cta',
+          action: "setWs('valmentajat')",
+          sortKey: -(30 - pct) - 5
+        });
+      }
+    }
+  });
 
   // Promise.all rinnakkaiskyselyt: PHV-snapshot + 14pv-cross-join
   let phvCount = 0;
@@ -3258,6 +3312,24 @@ function laskeBQJakauma(pelaajat) {
   };
 }
 
+// Per-mittari suunta joukkueelle flei_historiasta (kenttä 'flei' tai 'tki').
+// Vertaa joukkueen keskiarvon muutosta (viimeisin vs edellinen). ≥2 mittausta vaaditaan.
+// >+1.0 ↑ · -1.0..+1.0 → · <-1.0 ↓. Ei historiaa → '' (esim. H-H, ADAR).
+function _pulssiSuunta(pelaajat, kentta) {
+  let last = 0, prev = 0, n = 0;
+  pelaajat.forEach(p => {
+    const h = Array.isArray(p.flei_historia) ? p.flei_historia.filter(e => e && e[kentta] != null) : [];
+    if (h.length < 2) return;
+    const s = h.slice().sort((a, b) => String(a.pvm).localeCompare(String(b.pvm)));
+    last += s[s.length - 1][kentta]; prev += s[s.length - 2][kentta]; n++;
+  });
+  if (n === 0) return '';
+  const d = (last - prev) / n;
+  if (d > 1.0) return '↑';
+  if (d < -1.0) return '↓';
+  return '→';
+}
+
 // ─── JOUKKUEPULSSI (Sprint 2: laskeJoukkueTrendi -integraatio) ──
 function renderTeamPulse() {
   const el = document.getElementById('teamPulseGrid');
@@ -3296,6 +3368,26 @@ function renderTeamPulse() {
       const pct = fleiKa !== '—' ? Math.min(100, Number(fleiKa)) : 0;
       const barColor = pct >= 70 ? 'var(--teal)' : pct >= 55 ? '#5B8FE0' : 'var(--amber)';
 
+      // §34 — neliosainen mittaristo: FLEI · TKI · H-H · ADAR (ka + kattavuus n/koko + suunta)
+      const koko = pelaajat.length;
+      const ka = (vals) => vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+      const fleiVals = pelaajat.filter(p=>p.flei_viimeisin!=null).map(p=>p.flei_viimeisin);
+      const tkiVals  = pelaajat.filter(p=>p.tki_viimeisin!=null).map(p=>p.tki_viimeisin);
+      const hhVals   = pelaajat.filter(p=>p.hh_taso!=null).map(p=>p.hh_taso);
+      const adarVals = pelaajat.filter(p=>p.adar_viimeisin && (p.adar_havaintoja||0)>=3 && p.adar_viimeisin.yht!=null).map(p=>p.adar_viimeisin.yht);
+      const fleiAvg = ka(fleiVals), tkiAvg = ka(tkiVals), hhAvg = ka(hhVals), adarAvg = ka(adarVals);
+      const tpCell = (label, valStr, arrow, lkm, vClass) =>
+        '<div class="tp-metric">' +
+          '<div class="tp-val ' + (vClass||'') + '">' + valStr + (arrow ? ' <span style="font-size:11px;font-family:var(--font-m)">' + arrow + '</span>' : '') + '</div>' +
+          '<div class="tp-lbl">' + label + '</div>' +
+          '<div class="tp-lbl" style="opacity:.6;font-size:9px">n=' + lkm + '/' + koko + '</div>' +
+        '</div>';
+      const tpMetricsHtml =
+        tpCell('FLEI ka.', fleiAvg!=null?Math.round(fleiAvg):'—', _pulssiSuunta(pelaajat,'flei'), fleiVals.length, fleiAvg!=null?(fleiAvg>=70?'good':fleiAvg>=55?'':'warn'):'') +
+        tpCell('TKI ka.',  tkiAvg!=null?Math.round(tkiAvg):'—',  _pulssiSuunta(pelaajat,'tki'),  tkiVals.length,  tkiAvg!=null?(tkiAvg>=60?'good':tkiAvg>=40?'':'warn'):'') +
+        tpCell('H-H taso', hhAvg!=null?hhAvg.toFixed(1):'—',      '',                            hhVals.length,   hhAvg!=null?(hhAvg>=3.5?'good':hhAvg>=2.5?'':'warn'):'') +
+        tpCell('ADAR ka.', adarAvg!=null?(adarAvg.toFixed(1)+'/5'):'—', '',                      adarVals.length, adarAvg!=null?(adarAvg>=3.5?'good':adarAvg>=2.5?'':'warn'):'');
+
       // Sprint 2: SPL-trendi -indikaattori (joukkuepulssi)
       const tIkoni = trendi.tila === 'nousu' ? '↑' : trendi.tila === 'lasku' ? '↓' : trendi.tila === 'vakaa' ? '→' : '·';
       const tVari  = trendi.tila === 'nousu' ? '#28B090' : trendi.tila === 'lasku' ? '#E0A040' : trendi.tila === 'vakaa' ? '#5B8FE0' : '#5A5A5A';
@@ -3320,11 +3412,7 @@ function renderTeamPulse() {
           '<span>' + nimi + '</span>' +
           '<span style="font-size:11px;color:' + tVari + ';font-family:var(--font-m)">' + tIkoni + ' ' + tText + '</span>' +
         '</div>' +
-        '<div class="tp-metrics">' +
-          '<div class="tp-metric"><div class="tp-val ' + fleiClass + '">' + fleiKa + '</div><div class="tp-lbl">FLEI ka.</div></div>' +
-          '<div class="tp-metric"><div class="tp-val">' + pelaajat.length + '</div><div class="tp-lbl">Pelaajaa</div></div>' +
-          '<div class="tp-metric"><div class="tp-val ' + ((xfCount+hgCount)>0?'good':'') + '">' + (xfCount+hgCount) + '</div><div class="tp-lbl">X/HG</div></div>' +
-        '</div>' +
+        '<div class="tp-metrics">' + tpMetricsHtml + '</div>' +
         '<div class="tp-bar"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + barColor + '"></div></div>' +
         '<div class="bq-stack" title="Q1 ' + bq.q1Pct + '% · Q2 ' + bq.q2Pct + '% · Q3 ' + bq.q3Pct + '% · Q4 ' + bq.q4Pct + '%">' +
           '<div class="bq-1" style="width:' + bq.q1Pct + '%"></div>' +

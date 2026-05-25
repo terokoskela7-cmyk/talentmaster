@@ -4297,6 +4297,56 @@ function drillDo(label) {
 }
 
 /* ════════════════════════════════════════════════════════════
+   ADAR-PIKAKENTÄT (mittaristoarkkitehtuuri — CLAUDE.md §34)
+   Lukee pelaajan havainnot ja kirjoittaa pikakentät pelaajadokumenttiin:
+     adar_viimeisin {a,d,ac,r,yht,pvm} · adar_pvm · adar_havaintoja
+     adar_vahvin/adar_heikoin (viim. 10 havainnon dimensiokeskiarvoista)
+   KUTSU ADAR-tallennuksen JÄLKEEN. HUOM: Master_v16:n drilli (openDrill('adar'))
+   on tällä hetkellä UI-mockup eikä persistoi havaintoa eikä pelaajavalintaa —
+   varsinainen ADAR-kirjaus on ADAR_Pikakortti.html saveCard(). Tämä funktio on
+   valmis kutsuttavaksi sieltä (tai kun Master-drilli tehdään toimivaksi).
+   Älä riko olemassa olevaa ADAR-kirjauslogiikkaa — tämä vain päivittää pikakentät.
+════════════════════════════════════════════════════════════ */
+async function paivitaAdarPikakentat(pelaajaId) {
+  if (!_seuraId || !pelaajaId || _demo) return;
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId)
+      .collection('pelaajat').doc(pelaajaId).collection('havainnot').get();
+    const havainnot = snap.docs.map(d => d.data())
+      .filter(h => h && h.pisteet)
+      .sort((a, b) => String(b.luotu || '').localeCompare(String(a.luotu || '')));
+    if (!havainnot.length) return;
+    const viim10 = havainnot.slice(0, 10);
+    const KENTAT = { assess: 'A', decide: 'D', act: 'Act', reassess: 'R' };
+    const summat = { assess: 0, decide: 0, act: 0, reassess: 0 };
+    const lkmt   = { assess: 0, decide: 0, act: 0, reassess: 0 };
+    const dim = (h, avain) => { const p = h.pisteet || {}; return (p[avain] != null && !isNaN(p[avain])) ? p[avain] : null; };
+    viim10.forEach(h => {
+      Object.keys(KENTAT).forEach(nimi => { const v = dim(h, KENTAT[nimi]); if (v != null) { summat[nimi] += v; lkmt[nimi]++; } });
+    });
+    let vahvin = null, heikoin = null, max = -Infinity, min = Infinity;
+    Object.keys(KENTAT).forEach(nimi => {
+      if (!lkmt[nimi]) return;
+      const ka = summat[nimi] / lkmt[nimi];
+      if (ka > max) { max = ka; vahvin = nimi; }
+      if (ka < min) { min = ka; heikoin = nimi; }
+    });
+    const v0 = viim10[0];
+    const a = dim(v0, 'A'), d = dim(v0, 'D'), ac = dim(v0, 'Act'), r = dim(v0, 'R');
+    const dims = [a, d, ac, r].filter(x => x != null);
+    const yht = dims.length ? Math.round((dims.reduce((s, x) => s + x, 0) / dims.length) * 10) / 10 : null;
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).set({
+      adar_viimeisin: { a: a, d: d, ac: ac, r: r, yht: yht, pvm: v0.luotu || null },
+      adar_pvm: v0.luotu || null,
+      adar_havaintoja: havainnot.length,
+      adar_vahvin: vahvin,
+      adar_heikoin: heikoin
+    }, { merge: true });
+  } catch (e) { console.warn('[paivitaAdarPikakentat]', e.message); }
+}
+window.paivitaAdarPikakentat = paivitaAdarPikakentat;
+
+/* ════════════════════════════════════════════════════════════
    COMMAND PALETTE (⌘K)
 ════════════════════════════════════════════════════════════ */
 // Kiinteät komennot (ei kovakoodattuja pelaajanimiä). Pelaajat rakennetaan dynaamisesti.

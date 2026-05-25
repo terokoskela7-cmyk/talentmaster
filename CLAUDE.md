@@ -1665,6 +1665,52 @@ Molemmat näkyvät Pelaaja_v7:n Tekniikkaprofiilissa lähdemerkinnällä.
 - **KPI-kontekstitekstit** (vain ladatusta datasta): Pelaajia → joukkuejakauma · FLEI ka. → ↑/↓ trendi (jos `flei_historia`) ·
   Avoimet testit → "vanhin X pv sitten". IDP-konteksti jätetty pois (käsitellyt eivät ladatussa datassa).
 
-**Avoin:** Raportointi-näkymän "Lähetä HoT:lle" = vain `toast()` (ei oikeaa toteutusta). 3 uutta signaalia (testikattavuus, BQ-bias, TKI puuttuu) odottaa. Ks. §27 Sprint 4 -backlog.
+**Avoin:** Raportointi-näkymän "Lähetä HoT:lle" = vain `toast()` (ei oikeaa toteutusta). Ks. §27 Sprint 4 -backlog.
 
 *§33 lisätty 2026-05-26.*
+
+---
+
+## 34. MITTARISTOARKKITEHTUURI (LISÄTTY 2026-05-26)
+
+**Periaate:** jokainen testidatasetti joka tallennetaan Firestoreen tuottaa automaattisesti
+neljä asiaa: **(1) pikakentät** pelaajadokumenttiin (viimeisin arvo + pvm), **(2) joukkuetason KPI:t**
+VP-dashboardiin (keskiarvo + kattavuus n/koko), **(3) suunnan** (↑ nousu / → vakaa / ↓ lasku) kun
+≥2 mittausta, **(4) kattavuussignaalin** kun kattavuus heikko. Pikakentät luetaan dashboardissa
+suoraan pelaajadokumentista — **ei alikokoelmakyselyjä** renderöinnissä.
+
+### Pikakentät per datasetti
+
+| Datasetti | Pikakentät | Tila |
+|---|---|---|
+| **TKI** | `tki_viimeisin` · `tki_pvm` · `tki_merkki` · `tki_vahvuus` · `tki_kehityskohde` | ✅ Excel/PDF-tuonti kirjoittaa |
+| **H-H** | `hh_viimeisin {lin30m, cmj, mas}` · `hh_pvm` · `hh_taso` (1–5, `laskeHHTaso` Eerikkilä-normeista) | ✅ Excel-tuonti (hh_laaja/hh_suppea) |
+| **FLEI** | `flei_viimeisin` · `flei_pvm` · `flei_historia[]` | ✅ (odottaa dataa kentältä) |
+| **PHV** | `phv_tila` · `biologinenIka_viimeisin` (sis. offset + pvm) | ✅ Testaus_v9 kasvumittaus |
+| **Kasvu** | `biologinen_ika/{pvm}` (pituus, paino, istumapituus) + PHV-pikakentät | ✅ |
+| **ADAR** | `adar_viimeisin {a,d,ac,r,yht,pvm}` · `adar_pvm` · `adar_havaintoja` · `adar_vahvin` · `adar_heikoin` | ⚠️ helper valmis, kirjoituspiste auki (ks. alla) |
+
+### Joukkuepulssi (VP_v22 `renderTeamPulse`)
+Neliosainen mittaririvi per joukkue: **FLEI ka. · TKI ka. · H-H taso · ADAR ka.**, kukin
+`ka` + `n=testattu/koko` + suunta (`_pulssiSuunta` flei_historiasta FLEI/TKI:lle; H-H/ADAR ei
+historiaa → ei nuolta). ADAR ka. = `adar_viimeisin.yht` keskiarvo pelaajista joilla **≥3 havaintoa**
+(alle 3 ei riitä luotettavaan kuvaan).
+
+### Kattavuussignaalit (VP_v22 `renderSignals`)
+Kaikki ladatusta `_pelaajat`-datasta (pikakentät), ei uusia kyselyjä:
+- **S6** TKI-kattavuus < 40% → amber "tekniikkatulokset puuttuvat X/Y:ltä"
+- **S7** H-H-kattavuus < 40% → amber "fyysistestit puuttuvat X/Y:ltä"
+- **S8** FLEI-kattavuus < 40% → amber "liikehallintatestit puuttuvat X/Y:ltä"
+- **S9** ADAR-havainnointi: joukkue > 5 pelaajaa mutta < 30% saanut ≥3 havaintoa viim. 30 pv → amber.
+  **Eri kuin S1** (S1 = valmentaja ei kirjaa lainkaan; S9 = kirjaa, mutta ei havainnoi pelaajia tarpeeksi).
+- S6–S8 vaativat ≥3 pelaajan joukkueen (ei kohinaa pienistä).
+
+### ADAR — erityispiirre (kirjoituspiste auki)
+ADAR on jatkuva, subjektiivinen havainnointimittari. Pikakentät lasketaan **viim. 10 havainnon**
+keskiarvosta (`paivitaAdarPikakentat(pelaajaId)` Master_v16:ssa: `adar_vahvin/heikoin` = dimensioiden
+ka, `adar_viimeisin.yht` = uusimman havainnon 4 dimension ka /5). **HUOM:** Master_v16:n ADAR-drilli on
+UI-mockup (ei persistoi havaintoa eikä pelaajavalintaa) — varsinainen kirjaus on `ADAR_Pikakortti.html`
+`saveCard()` (bundler-tiedosto). Helper on valmis kutsuttavaksi sieltä; kunnes se kytketään, ADAR-pikakentät
+eivät täyty oikeasta kenttäkäytöstä. Lukupuoli (joukkuepulssi + S9) toimii heti kun pikakentät ovat olemassa.
+
+*§34 lisätty 2026-05-26.*
