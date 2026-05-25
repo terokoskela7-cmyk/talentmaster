@@ -1319,7 +1319,7 @@ body {
       <table class="player-table">
         <thead>
           <tr>
-            <th>Pelaaja</th><th>Joukkue</th><th>FLEI</th><th>Signaali</th><th>PHV</th><th></th>
+            <th>Pelaaja</th><th>Joukkue</th><th>FLEI</th><th>TKI</th><th>Signaali</th><th>PHV</th><th></th>
           </tr>
         </thead>
         <tbody id="playerTableBody">
@@ -1589,6 +1589,9 @@ async function lataaPelaajat() {
         ...data,
         // Normalisoi — Firestore saattaa puuttua näitä
         flei_viimeisin: data.flei_viimeisin ?? data.flei ?? null,
+        tki_viimeisin: data.tki_viimeisin ?? null,
+        tki_pvm: data.tki_pvm ?? null,
+        tki_merkki: data.tki_merkki ?? null,
         phv_tila: data.phv_tila || null,
         signaali: data.signaali || null,
         joukkue: data.joukkue || data.joukkueNimi || '—',
@@ -3252,6 +3255,23 @@ function filterPlayers(filter) {
   renderPelaajatFiltered();
 }
 
+// TKI-merkki: käytä tallennettua tki_merkki -kenttää tai johda TKI-luvusta (≥80/≥60/≥40).
+function _tkiMerkkiVP(tki, merkkiKentta) {
+  const m = merkkiKentta || (tki == null ? null : tki >= 80 ? 'kulta' : tki >= 60 ? 'hopea' : tki >= 40 ? 'pronssi' : null);
+  if (m === 'kulta')   return { emoji: '🥇', nimi: 'Kulta' };
+  if (m === 'hopea')   return { emoji: '🥈', nimi: 'Hopea' };
+  if (m === 'pronssi') return { emoji: '🥉', nimi: 'Pronssi' };
+  return null;
+}
+// TKI-solu pelaajalistaan — luetaan pikakentästä tki_viimeisin (ei alikokoelmakyselyä).
+function _tkiSoluVP(p) {
+  const tki = (p.tki_viimeisin != null) ? p.tki_viimeisin : null;
+  if (tki == null) return '<span style="color:var(--ink3)">—</span>';
+  const m = _tkiMerkkiVP(tki, p.tki_merkki);
+  const merkkiHtml = m ? ' <span style="font-size:11px" title="' + m.nimi + '">' + m.emoji + '</span>' : '';
+  return '<strong>' + tki + '</strong>' + merkkiHtml;
+}
+
 function renderPelaajatFiltered() {
   const tbody = document.getElementById('playerTableBody');
   let filtered = _pelaajat;
@@ -3270,7 +3290,7 @@ function renderPelaajatFiltered() {
   }
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:32px">
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--ink3);padding:32px">
       Ei pelaajia tässä kategoriassa</td></tr>`;
     return;
   }
@@ -3295,6 +3315,7 @@ function renderPelaajatFiltered() {
             <span class="flei-num">${flei||'—'}</span>
           </div>
         </td>
+        <td>${_tkiSoluVP(p)}</td>
         <td>${sig}</td>
         <td style="font-size:12px;${phvColor}">${p.phv_tila||'—'}</td>
         <td>

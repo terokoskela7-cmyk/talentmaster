@@ -777,6 +777,45 @@ function tkLaskeTKI(kokonaistulos, ika, sp) {
   return Math.round(tki);
 }
 
+// Vahvuudet ja kehityskohteet lajiosuuksien perusteella (4 aikalajia; pituuspotku pois).
+// Pienempi osuus kokonaisajasta = suhteessa nopeampi = vahvuus; suurempi osuus = kehityskohde.
+// (Kanoninen versio docs/testit_indeksit.js — porttina tähän pikakenttien laskentaan.)
+function _laskeVahvuudetJaKehityskohteet(tulokset, pelaaja) {
+  const t = (tulokset && tulokset.testit) ? tulokset.testit : (tulokset || {});
+  const lajit = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'];
+  const aikaArvo = (id) => {
+    const v = t[id];
+    if (v == null) return null;
+    if (typeof v === 'object') return (v.tulos != null ? v.tulos : v.paras);
+    return parseFloat(v);
+  };
+  const out = { vahvuudet: [], kehityskohteet: [] };
+  const arvot = {}; let summa = 0, n = 0;
+  lajit.forEach(id => { const a = aikaArvo(id); if (a != null && !isNaN(a) && a > 0) { arvot[id] = a; summa += a; n++; } });
+  if (n === 0 || summa <= 0) return out;
+  const tasainen = 1 / n;
+  Object.keys(arvot).forEach(id => {
+    const osuus = arvot[id] / summa;
+    const poikkeama = (osuus - tasainen) / tasainen; // <0 = vahvuus, >0 = kehityskohde
+    const taso = Math.round((tasainen / osuus) * 100);
+    const nimi = (TK_LAJIT_META[id] && TK_LAJIT_META[id].nimi) || id;
+    if (poikkeama <= -0.10) out.vahvuudet.push({ laji: id, nimi: nimi, taso: taso });
+    else if (poikkeama >= 0.15) out.kehityskohteet.push({ laji: id, nimi: nimi, taso: taso });
+  });
+  out.vahvuudet.sort((a, b) => b.taso - a.taso);
+  out.kehityskohteet.sort((a, b) => a.taso - b.taso);
+  return out;
+}
+
+// TKI-vyöhyke → merkki (vyöhykerajat = merkkirajat: ≥80 kulta, ≥60 hopea, ≥40 pronssi).
+function _tkiMerkki(tki) {
+  if (tki == null || isNaN(tki)) return null;
+  if (tki >= 80) return 'kulta';
+  if (tki >= 60) return 'hopea';
+  if (tki >= 40) return 'pronssi';
+  return null;
+}
+
 // ════════════════════════════════════════
 // PROTOKOLLAMÄÄRITTELYT (sama kuin Testaus-v8)
 // ════════════════════════════════════════
@@ -2265,18 +2304,22 @@ async function tallennaFirestoreen() {
     }
 
     // TKI — tekniikkakilpailu (vaatii iän + sukupuolen) — skalaareista
-    let tki = null;
+    let tki = null, merkki = null, vahvuus = null, kehityskohde = null;
     const syntymaVuosi = (p._firestoreData && p._firestoreData.syntymaVuosi) || null;
     if (onTekniikka) {
       const ika = laskeIka(syntymaVuosi, p.testauspvm || (tapahtuma && tapahtuma.pvm));
       const sp = p.sukupuoli || (p._firestoreData && p._firestoreData.sukupuoli) || null;
       tki = laskeTKIPelaajalle(testitSkalaari, ika, sp);
+      merkki = _tkiMerkki(tki);
+      const vk = _laskeVahvuudetJaKehityskohteet({ testit: testitSkalaari }, { ika: ika });
+      vahvuus = (vk.vahvuudet[0] && vk.vahvuudet[0].laji) || null;
+      kehityskohde = (vk.kehityskohteet[0] && vk.kehityskohteet[0].laji) || null;
     }
 
     const pvmRaw = p.testauspvm || (tapahtuma && tapahtuma.pvm) || NYT_ISO.slice(0,10);
     const pvmIso = _paivaIso(pvmRaw) || _paivaIso(new Date());
 
-    return { pelaaja: p, testit, fleiPct, tki, pvmIso, syntymaVuosi };
+    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, pvmIso, syntymaVuosi };
   });
 
   // Aja batchina, jaa 400:n eriin
@@ -2289,7 +2332,7 @@ async function tallennaFirestoreen() {
     const batch = db.batch();
 
     era.forEach(pkg => {
-      const { pelaaja: p, testit, fleiPct, tki, pvmIso } = pkg;
+      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, pvmIso } = pkg;
       // Löydetyn pelaajan OIKEA dokumentti-ID (Firebase UID) → tallennuspolku.
       // Jos pelaajaa ei löytynyt (strategia 'kaikki'), fallback PalloID-stringiin (review-jono).
       const docId = p._firestoreDocId || String(p.tunniste == null ? '' : p.tunniste).trim() || (p.sukunimi + '_' + p.etunimi);
@@ -2310,6 +2353,7 @@ async function tallennaFirestoreen() {
       };
       if (fleiPct !== null) tallennusData.flei_pct = fleiPct;
       if (tki !== null)     tallennusData.tki = tki;
+      if (merkki)           tallennusData.merkki = merkki;
       if (p.sukupuoli)      tallennusData.sukupuoli = p.sukupuoli === 'P' ? 'M' : p.sukupuoli === 'T' ? 'N' : p.sukupuoli;
       if (p.joukkue)        tallennusData.joukkue = p.joukkue;
 
@@ -2342,6 +2386,9 @@ async function tallennaFirestoreen() {
         if (tki !== null)     profiiliUpdate.tki_viimeisin = tki;
         if (fleiPct !== null) profiiliUpdate.flei_pvm = pvmIso;
         if (tki !== null)     profiiliUpdate.tki_pvm = pvmIso;
+        if (merkki)           profiiliUpdate.tki_merkki = merkki;
+        if (vahvuus)          profiiliUpdate.tki_vahvuus = vahvuus;
+        if (kehityskohde)     profiiliUpdate.tki_kehityskohde = kehityskohde;
         if (p.phv_tila)       profiiliUpdate.phv_tila = p.phv_tila;
         if (fleiPct !== null || tki !== null) {
           profiiliUpdate.flei_historia = firebase.firestore.FieldValue.arrayUnion({
@@ -2799,7 +2846,15 @@ async function tallennaPdfFirestoreen() {
       // Pikakentät pelaajadokumenttiin
       if (r.tki != null) {
         const pref = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(docId);
-        batch.set(pref, { tki_viimeisin: r.tki, tki_pvm: pvmIso }, { merge: true });
+        const vk = _laskeVahvuudetJaKehityskohteet({ testit: {
+          ponnauttelu: r.ponnauttelu_s, syotto: r.syotto_s,
+          pujottelu: r.pujottelu_s, kuljetus_laukaus: r.kuljetus_laukaus_s
+        } }, { ika: pdfData.ika });
+        const pika = { tki_viimeisin: r.tki, tki_pvm: pvmIso };
+        if (r.merkki) pika.tki_merkki = r.merkki;
+        if (vk.vahvuudet[0]) pika.tki_vahvuus = vk.vahvuudet[0].laji;
+        if (vk.kehityskohteet[0]) pika.tki_kehityskohde = vk.kehityskohteet[0].laji;
+        batch.set(pref, pika, { merge: true });
       }
     });
     ptxt.textContent = (e + 1) + ' / ' + eraMaara + ' erä';

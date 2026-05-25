@@ -3560,6 +3560,25 @@ function _renderPlayerPickerFirestore() {
 }
 
 
+// TKI-merkki: tallennettu tki_merkki tai johdettu TKI-luvusta (≥80/≥60/≥40).
+function _tkiMerkkiM(tki, merkkiKentta) {
+  const m = merkkiKentta || (tki == null ? null : tki >= 80 ? 'kulta' : tki >= 60 ? 'hopea' : tki >= 40 ? 'pronssi' : null);
+  if (m === 'kulta')   return { emoji:'🥇', nimi:'Kulta' };
+  if (m === 'hopea')   return { emoji:'🥈', nimi:'Hopea' };
+  if (m === 'pronssi') return { emoji:'🥉', nimi:'Pronssi' };
+  return null;
+}
+// Tekniikkalajin luettava nimi (pikakenttä tallentaa laji-id:n).
+function _tkLajiNimi(id) {
+  const MAP = { ponnauttelu:'Ponnauttelu', syotto:'Syöttö pujotellen', pujottelu:'Pujottelu', kuljetus_laukaus:'Kuljetus-laukaus', pituuspotku:'Pituuspotku' };
+  return MAP[id] || id;
+}
+function _pvmFiM(iso) {
+  if (!iso) return '';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? (parseInt(m[3],10) + '.' + parseInt(m[2],10) + '.' + m[1]) : String(iso);
+}
+
 function _renderPinfoFirestore(p) {
   const el = document.getElementById('pinfoCard');
   if (!el) return;
@@ -3570,10 +3589,19 @@ function _renderPinfoFirestore(p) {
   // Hae pelaajan testejä _testitapahtumat:sta
   const suoritetut = (_testitapahtumat||[]).filter(t => t.tila === 'suljettu').length;
 
+  // TKI — luetaan pikakentistä (ei alikokoelmakyselyä)
+  const tki = (p.tki_viimeisin != null) ? p.tki_viimeisin : null;
+  const tkiM = _tkiMerkkiM(tki, p.tki_merkki);
+  const tkiColor = tki == null ? 'var(--ink3)' : tki >= 60 ? 'var(--teal)' : tki >= 40 ? 'var(--amber)' : 'var(--red)';
+  const tkiPvm = p.tki_pvm ? _pvmFiM(p.tki_pvm) : null;
+
   const stats = [
     { lbl:'FLEI', val: flei > 0 ? flei + '%' : '—',
       delta: flei > 0 ? (flei>=65?'Hyvä taso':flei>=50?'Kehittyvä':'Tarvitsee tukea') : 'Ei mittauksia',
       color: fleiColor },
+    { lbl:'TKI', val: tki != null ? (tki + (tkiM ? ' ' + tkiM.emoji : '')) : '—',
+      delta: tki != null ? (tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu') : 'Ei mittauksia',
+      color: tkiColor },
     { lbl:'Joukkue', val: p.joukkue || _joukkue || '—', delta: p.pelipaikka||'—', color:'var(--ink)' },
     { lbl:'Testikertoja', val: suoritetut || '—', delta: 'suoritettu', color:'var(--ink)' },
     { lbl:'Streak', val: p.streak > 0 ? p.streak + ' pv' : '—',
@@ -3583,6 +3611,17 @@ function _renderPinfoFirestore(p) {
 
   const synt = p.syntymaVuosi ? p.syntymaVuosi : null;
   const ika  = synt ? (new Date().getFullYear() - synt) + 'v' : '—';
+
+  // Vahvuus / kehityskohde — pikakentistä (laji-id → luettava nimi)
+  const vahvuus = p.tki_vahvuus ? _tkLajiNimi(p.tki_vahvuus) : null;
+  const kehitys = p.tki_kehityskohde ? _tkLajiNimi(p.tki_kehityskohde) : null;
+  let lisaHtml = '';
+  if (vahvuus || kehitys) {
+    lisaHtml = '<div style="grid-column:1/-1;margin-top:6px;font-size:12px;display:flex;gap:20px;flex-wrap:wrap">';
+    if (vahvuus) lisaHtml += '<span style="color:var(--teal)">💪 Vahvuus: ' + vahvuus + '</span>';
+    if (kehitys) lisaHtml += '<span style="color:var(--amber)">🎯 Kehityskohde: ' + kehitys + '</span>';
+    lisaHtml += '</div>';
+  }
 
   el.innerHTML = `
     <div style="grid-column:1/-1">
@@ -3594,7 +3633,8 @@ function _renderPinfoFirestore(p) {
         <div class="pstat-lbl">${s.lbl}</div>
         <div class="pstat-val serif" style="color:${s.color}">${s.val}</div>
         <div class="pstat-delta mono" style="font-size:11px;color:var(--ink3)">${s.delta}</div>
-      </div>`).join('')}`;
+      </div>`).join('')}
+    ${lisaHtml}`;
 }
 
 function _renderPlayerPicker() {
