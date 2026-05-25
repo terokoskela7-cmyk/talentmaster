@@ -2,7 +2,7 @@
 
 > Tämä tiedosto on ensimmäinen asia jonka liität uuteen Claude-sessioon.
 > Se korvaa kaikki aiemmat SESSION_SUMMARY.md -tiedostot.
-> Viimeksi päivitetty: 2026-05-25
+> Viimeksi päivitetty: 2026-05-26
 
 ---
 
@@ -167,7 +167,7 @@ toisen `translateX`. Admin.html toimi heti koska vain yksi lohko.
 | `TalentMaster_Harjoitettavuus_Lomake_v4.html` | Harjoitettavuuskartoituslomake | ⚠️ Arkistoidaan kun v9 testattu pilottiseuralla |
 | `TalentMaster_Pelaajarekisteri.xlsx` | Excel-rekisteripohja | ✅ |
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ |
-| `tm_admin/firestore.rules` | Security Rules **v2.8** — CONSOLESTA (+ pelaajat/{id}/biologinen_ika) | ⏳ Deployaa Consolesta (v2.8 2026-05-25) |
+| `tm_admin/firestore.rules` | Security Rules **v2.9** — CONSOLESTA (biologinen_ika + seura-tapahtumat + vp_kalenteri) | ✅ Deployattu Consolesta 2026-05-26 |
 | `src/lib/tm_bioika.js` | Biologisen iän laskenta — Mirwald 2002 PHV (Excel-verifioitu) + KR-runko gatettu (`laskeKR`→`KR_KERTOIMET_PUUTTUU`) + sukupuoli N→T -korjaus | ✅ Laajennettu 2026-05-25 |
 | `tm_eerikkila_normit.js` | Eerikkilä-normitaulukot | ✅ |
 | `tm_lang.js` | fi/sv/en, 144 käännöstä | ✅ |
@@ -205,12 +205,18 @@ sukupuoli: "M"      (EI "poika")
 joukkue: "KPV U13"
 seuraId: "kpv"
 huoltajaEmail: "TeroKoskela7@gmail.com"
-tunniste (PalloID): "12345678"  ← TESTIARVO, ei oikea PalloID (34650191 kuuluu toiselle pelaajalle)
+tunniste (PalloID): "12345678"  ← TESTIARVO (string), ei oikea PalloID (34650191 kuuluu toiselle pelaajalle)
+Firebase doc ID:    m93GBdOaGCUuenMiCL0I  ← EI sama kuin PalloID! tunniste on KENTTÄ, ei doc-ID
 flei_viimeisin: 62
 sbl:2.16  sfl:2.30  ll:2.10  diag:2.40  dfl:2.20
 Heikoin ketju: LL (55%) → harjoitteet ohjautuvat lateraaliketjulle
 isDemoUser: false — oikea Firestore-data
 ```
+
+**PalloID-haku (korjattu 2026-05-26):** PalloID on dokumentin **kenttä** (`tunniste` tai `palloID`),
+EI dokumentin ID:tä — doc-ID on Firebase UID (`m93GBdOaGCUuenMiCL0I`). Hae aina `where('tunniste','==',String(palloId))`
+→ fallback `where('palloID','==',...)` → legacy doc-ID. `.doc(palloId)` palauttaa "not found" rekisteröidyille
+pelaajille. Topiaksella tunniste-kenttä = "12345678" (string). Ks. §32.
 
 ---
 
@@ -814,7 +820,7 @@ loss aversion, temptation bundling (Milkman)
 - [x] **Vanhempien pituuskentät suostumuslomakkeeseen** ✅ 2026-05-25 (isä/äiti cm + ei tiedossa/adoptoitu → `isa_pituus_cm`/`aiti_pituus_cm`)
 - [x] **PHV-kehitysvaihekortti Pelaaja_v7:ään** ✅ 2026-05-25 (KR-rivi "Tulossa myöhemmin")
 - [ ] **Khamis-Roche -kertoimet** — `laskeKR()` integraatiovalmis mutta LUKITTU (`KR_KERTOIMET_PUUTTUU`). Tarvitaan verifioidut **Pediatrics 1995 erratum** -kertoimet (imperiaaliset, ikäkohtaiset 4–17.5v). Kun toimitettu → täytä `KR_KERTOIMET` + `KR_VERIFIOITU=true`. **Avointa verkkoa ei voitu verifioida (2026-05-25)** — lähde: julkaisu tai Eerikkilä/MyEWay.
-- [ ] **Deployaa Rules v2.8 Consolesta** — ennen tätä `biologinen_ika`-alikokoelman kirjoitus kaatuu
+- [x] **Rules v2.9 deployattu Consolesta** ✅ 2026-05-26 (biologinen_ika + seura-tapahtumat + vp_kalenteri)
 
 ---
 
@@ -929,20 +935,32 @@ VP lataa täytetyn Excelin Excel-tuontityökaluun
   → Firestore batch write
 ```
 
-### Tekniikkakilpailu — 5 lajia (U8–U13)
-| Laji | Yritykset | Erikoislogiikka |
-|---|---|---|
-| Ponnauttelu | 2 | Parempi aika |
-| Syöttö pujotellen | 2 | Parempi aika |
-| Pujottelu | 2 | Parempi aika |
-| Kuljetus-laukaus | 2 | Raaka-aika − tarkkuusvähennykset |
-| Pituuspotku | 2+2 (oik+vas) | metrit/5 → aikabonus, max 20s, vain U12–13 |
+### Tekniikkakilpailu — 5 lajia (U8–U13) — AIKAPOHJAINEN (päivitetty 2026-05-26)
 
-**Kuljetus-laukaus vähennykset:**
-- Nurkka ilmassa: −5s
-- Nurkka maata: −2s
-- Keski ilmassa: −3s
-- Keski maata: −1s
+**Kaikki 5 lajia mitataan sekunteina, pienempi = parempi.** Ei enää lajikohtaisia merkkirajoja
+(krt/pisteet/metrit) — käytössä **`TK_KOKONAISRAJAT`** (kokonaistulosrajat sekunteina per ikä+sukupuoli 8–13).
+
+| Laji | Yritykset | Yksikkö | Erikoislogiikka |
+|---|---|---|---|
+| Ponnauttelu | 2 | s | Sarjan suoritusaika, paras (pienin) |
+| **Syöttö pujotellen** | 2 | s | Paras aika (virallinen nimi — EI "Syöttö") |
+| Pujottelu | 2 | s | Paras aika |
+| Kuljetus-laukaus | 2 | s | Raaka-aika − tarkkuusvähennykset (+ ennenaikaiset ×10 s) |
+| Pituuspotku | 2+2 (oik+vas) | m | metrit/5 → aikabonus (max 20 s) **vähennetään** kokonaisajasta, vain U12–13 |
+
+**Kuljetus-laukaus vähennykset:** Nurkka ilmassa −5 s · Nurkka maata −2 s · Keski ilmassa −3 s · Keski maata −1 s.
+
+**Kokonaistulos** = ponnauttelu + syotto + pujottelu + kuljetus_laukaus.tulos − pituuspotku-aikabonus (ika ≥ 12).
+
+**TKI — nelivyöhyke (kokonaistuloksesta, ei lajeittain):**
+- **Vyöhyke 1** kulta (≤ kultaraja): TKI **80–99** (interpolointi; kultarajalla 80, ideaali = kulta×0.5 → 99, ei koskaan 100)
+- **Vyöhyke 2** kulta–hopea: TKI **60–80**
+- **Vyöhyke 3** hopea–pronssi: TKI **40–60**
+- **Vyöhyke 4** pronssin alle: TKI **0–40** (vertailupohja pronssi×1.5)
+- Merkki johdetaan TKI:stä: ≥80 🥇 kulta · ≥60 🥈 hopea · ≥40 🥉 pronssi. Lasketaan vain ika 8–13 (muuten TKI=null).
+
+Canonical: `tkLaskeMerkki` / `tkLaskeTKI` / `laskeKokonaistulos` / `_laskeVahvuudetJaKehityskohteet` `docs/testit_indeksit.js`:ssä,
+inline-kopiot Testaus_v9 + Excel_Tuonti.
 
 ### Tapahtuma-Firestore-rakenne (lukittu)
 ```javascript
@@ -1563,9 +1581,10 @@ if (testi.laskentatapa === 'keskiarvo' && arvot.length > 0) {
 
 ### Firestore
 - **Historia:** `seurat/{sid}/pelaajat/{pid}/biologinen_ika/{pvm}` — oma dokumentti per mittauspäivä
-- **Pikakentät pelaajadokumentissa:** `phv_tila` (koodi) + `biologinenIka_viimeisin` (koko viimeisin mittausdokumentti)
+- **Bio-pikakentät pelaajadokumentissa:** `phv_tila` (koodi) + `biologinenIka_viimeisin` (koko viimeisin mittausdokumentti)
+- **TKI-pikakentät pelaajadokumentissa** (Excel/PDF-tuonti kirjoittaa, VP_v22 + Master_v16 lukevat — ei alikokoelmakyselyä): `tki_viimeisin` · `tki_pvm` · `tki_merkki` (kulta/hopea/pronssi) · `tki_vahvuus` (laji-id) · `tki_kehityskohde` (laji-id). Ks. §32/§33.
 - **Vanhempien pituudet pelaajadokumentissa:** `isa_pituus_cm` / `aiti_pituus_cm` / `vanhempi_pituus_puuttuu` (kerätään rekisteröinnissä)
-- Rules-blokki **pakollinen** (v2.8) — Firestore ei periydy alikokoelmiin (§17 #18). Deploy Consolesta.
+- Rules-blokki **pakollinen** — Firestore ei periydy alikokoelmiin (§17 #18). ✅ **Rules v2.9 deployattu Firebase Consolesta 2026-05-26** (`biologinen_ika`, seura-tason `tapahtumat`, `vp_kalenteri`).
 
 ### Khamis-Roche — LUKITTU
 - `KR_VERIFIOITU = false` → `laskeKR()` palauttaa `{ error: 'KR_KERTOIMET_PUUTTUU' }`
@@ -1585,3 +1604,67 @@ if (testi.laskentatapa === 'keskiarvo' && arvot.length > 0) {
 ---
 
 *Lisäykset CLAUDE.md:hen — §31 lisätty 2026-05-25 (Bio-ikä PHV -sessio)*
+
+---
+
+## 32. EXCEL-TUONTI JA PALLOLIITON PDF-PARSERI (LISÄTTY 2026-05-26)
+
+> `TalentMaster_Excel_Tuonti.html` — kaksi tuontityyppiä: 📊 Excel ja 📄 Palloliiton PDF.
+
+### PalloID-haku — KENTÄLLÄ, EI doc-ID:llä (KRIITTINEN, korjattu 2026-05-26)
+Pelaajan Firebase-dokumentin ID on **UID** (esim. `m93GBdOaGCUuenMiCL0I`) — **EI** PalloID. PalloID on kentässä.
+`_haePelaajaPalloIdilla(palloIdStr)` hakee järjestyksessä:
+1. `where('tunniste','==',String(palloId))` `.limit(1)` — ensisijainen
+2. `where('palloID','==',String(palloId))` — fallback
+3. `.doc(palloIdStr)` legacy — vanhat tuonnit joissa doc-ID oli PalloID
+
+Tallennuspolku käyttää **löydetyn dokumentin oikeaa ID:tä** (`_firestoreDocId`), ei PalloID:tä.
+`.doc(palloId)` palautti ennen aina "not found" rekisteröidyille pelaajille — se oli juurisyy.
+
+### String-muunnos (SheetJS lukee numerona)
+PalloID **aina** `String(palloId).trim()` ennen hakua/tallennusta. Pohjageneraattori pakottaa
+PalloID-sarakkeen (A) tekstimuotoon (`t:'s'`, `z:'@'`, esimuotoillut tyhjät solut) — `_pohjaPakotaTekstisarake`.
+
+### Monisuoritusparsinta (`_1/_2/_3`)
+`_pohjaHeaderMap()` kääntää `pohjaSarakkeet()`-otsikot takaisin `{testId, kind, yritys}`-metaksi (eksakti),
+fallback `tunnistaTestiId()` + suffiksin riisunta (vanhat yksisarakkeiset pohjat toimivat). Per testiryhmä:
+- **Skalaari** (paras suunnan mukaan, `laskeParas`) → `p.testit` (validointi/TKI)
+- **Rakenne** → `p.testitRakenne` (Firestore, vain monisuoritus)
+- **Kuljetus-laukaus:** `{ y1:{raaka,vahennys,netto}, y2:{…}, paras, tulos }` (netto = raaka−vähennys, paras = min)
+- **Pituuspotku:** `{ oikea:{y1,y2,paras}, vasen:{…}, paras_m, metrit, aikabonus_s }` (`metrit` → `laskeKokonaistulos` lukee bonuksen)
+
+Tallennus kirjoittaa TKI + `merkki` testitulokset-dokumenttiin ja pikakentät pelaajaan (§31). TK-aikavalidointi
+lievennetty: ei estä tallennusta, >200 s / <1 s → keltainen varoitus.
+
+### Palloliiton PDF-tuonti
+- **pdf.js CDN 3.11.174** (ei npm — Node.js ei käytettävissä) + worker
+- Parsii ikäluokan (P/T 8–13), merkkirajat, taulukkorivit (x-pohjainen sarakekartoitus + token-fallback);
+  `ES`→null, syntymävuosi erotellaan nimestä, U12–U13 pituuspotku-sarakkeet
+- **Yhdistää nimellä:** `where('sukunimi','==')`+`where('etunimi','==')` → 1 osuma auto, 2+ manuaalivalinta, 0 ei löydy.
+  **EI luo uusia pelaajia automaattisesti.**
+- Tallennus: `pelaajat/{pid}/testitulokset/{pvm}_tekniikkakilpailu`, **litteät kentät** (`syotto_s`…`kokonaistulos_s`)
+  **+ `testit:{}`-map** (Pelaaja_v7-renderöinti). `lahde:'palloliitto_pdf'` (vrt. kenttätyökalu `lahde:'kenttakirjaus'`/`historiapohja`)
+- TKI/merkki lasketaan kanonisella `tkLaskeTKI`/`tkLaskeMerkki`:llä (johdonmukaisuus kaikkien lähteiden yli)
+
+### Kahden lähteen periaate
+Kenttätyökalu (Testaus_v9) = seuran kontrolliharjoitus; Palloliiton PDF = virallinen kilpailu.
+Molemmat näkyvät Pelaaja_v7:n Tekniikkaprofiilissa lähdemerkinnällä.
+
+*§32 lisätty 2026-05-26.*
+
+---
+
+## 33. VP_V22 — TILA (2026-05-26)
+
+- **Kausipalkki dynaaminen:** `_laskeKausi(nyt)` — yksi totuuslähde (kevät 1.4–30.6, syksy 1.8–28.2).
+  Laskee viikon/prosentin tästä päivästä. EI enää kovakoodattua "Viikko 7/18 · 38%".
+- **TKI-sarake pelaajalistassa:** FLEI | **TKI** | Signaali | PHV. Luetaan pikakentästä `tki_viimeisin`
+  (`_tkiSoluVP`), merkki johdetaan TKI:stä tai `tki_merkki`-kentästä. Ei alikokoelmakyselyä.
+- **Signaalihehku:** `.signal-card.crit/.alert` → `box-shadow 0 0 0 1px rgba(201,64,64,.15)`, `.warn` → `rgba(204,138,58,.12)`.
+- **Emojit → CSS-pisteet:** `.sig-dot--crit/--warn` (yhtenäinen renderöinti alustojen yli; vain Tilanne-signaalit).
+- **KPI-kontekstitekstit** (vain ladatusta datasta): Pelaajia → joukkuejakauma · FLEI ka. → ↑/↓ trendi (jos `flei_historia`) ·
+  Avoimet testit → "vanhin X pv sitten". IDP-konteksti jätetty pois (käsitellyt eivät ladatussa datassa).
+
+**Avoin:** Raportointi-näkymän "Lähetä HoT:lle" = vain `toast()` (ei oikeaa toteutusta). 3 uutta signaalia (testikattavuus, BQ-bias, TKI puuttuu) odottaa. Ks. §27 Sprint 4 -backlog.
+
+*§33 lisätty 2026-05-26.*

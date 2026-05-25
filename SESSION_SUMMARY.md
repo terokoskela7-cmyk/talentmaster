@@ -1,6 +1,6 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
-# Päivitetty: 2026-05-25
+# Päivitetty: 2026-05-26
 
 ---
 
@@ -8,10 +8,37 @@
 
 TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase-backend toimii Blaze-suunnitelmalla. Pilottiseurat ovat aktiivisia — SJK Juniorit on tuotu järjestelmään (40 pelaajaa, 4 joukkuetta). Seurahallinta on refaktoroitu ja tuotantovalmis. Talenttiohjelma-arkkitehtuuri on suunniteltu ja dokumentoitu.
 
-**Tilanne 2026-05-25:** Työkansio on nyt GitHub Desktop -klooni `talentmaster-github` (vanha `talentmaster-main` = lukuarkisto). Testaus_v9 on GitHubissa ja livenä. **Bio-ikä PHV toteutettu ja pushattu** (commit f6d7769): kasvumittausprotokolla v9:ssä, vanhempien pituudet rekisteröinnissä, PHV-kehitysvaihekortti Pelaaja_v7:ssä, `tm_bioika.js` laajennettu KR-rungolla (gatettu). **Rules v2.8** (biologinen_ika) — ⏳ deployaa Consolesta. Khamis-Roche LUKITTU (`KR_KERTOIMET_PUUTTUU`) kunnes verifioidut Pediatrics 1995 erratum -kertoimet saadaan.
+**Tilanne 2026-05-26:** Työkansio on GitHub Desktop -klooni `talentmaster-github` (vanha `talentmaster-main` = lukuarkisto; git CLI ei PATH:lla mutta bundled `git.exe` toimii commit/push). Tekniikkakilpailu on **täysin aikapohjainen** (TK_KOKONAISRAJAT, TKI nelivyöhyke). Excel-tuonti tukee monisuoritusparsintaa (`_1/_2/_3`) ja **Palloliiton PDF-tuonti** (pdf.js) on toteutettu. PalloID-haku korjattu **kentällä** (where tunniste/palloID), ei doc-ID:llä. TKI näkyy VP_v22 pelaajalistassa ja Master_v16 kehityskortilla (pikakentät). **Rules v2.9 deployattu Consolesta** (biologinen_ika + seura-tapahtumat + vp_kalenteri). Khamis-Roche edelleen LUKITTU (`KR_KERTOIMET_PUUTTUU`) kunnes verifioidut Pediatrics 1995 erratum -kertoimet saadaan.
 
 **Filosofia:** *"Pelaaja ensin, hallinto vahvistaa"*
 **Kilpailupositiointi:** *"Transfermarkt shows what. TalentMasterID shows how."*
+
+---
+
+## Tämän session työ (2026-05-26)
+
+### Rakennettu tänään
+- **Bio-ikä PHV (Mirwald)** + KR-lukitus (`KR_KERTOIMET_PUUTTUU`) + vanhempien pituudet rekisteröinnissä; `src/lib/tm_bioika.js` laajennettu (Excel-verifioitu, ei kopioitu).
+- **Testaus_v9 tekniikkakilpailu aikapohjaiseksi:** `TK_KOKONAISRAJAT` (kokonaistulosrajat s, ei lajikohtaiset), **TKI nelivyöhyke** (80–99 / 60–80 / 40–60 / 0–40), K1–K5-korjaukset, kasvumittausprotokolla.
+- **Tekniikkaprofiili-kortti Pelaaja_v7:ään** (TKI + merkki + vahvuudet/kehityskohteet).
+- **Excel-tuonti monisuoritusparsinta** (`_1/_2/_3` → paras): kuljetus-laukaus `{y1:{raaka,vahennys,netto}, paras}`, pituuspotku `{oikea, vasen, paras_m, metrit, aikabonus_s}`. Pohja generoi PalloID-sarakkeen tekstinä.
+- **Palloliiton PDF-tuonti** (pdf.js CDN 3.11.174, ei npm): nimiyhdistys (`sukunimi`+`etunimi` where), `lahde:'palloliitto_pdf'`, EI luo uusia pelaajia automaattisesti.
+- **PalloID-bugi korjattu:** haku kentällä (`where tunniste/palloID`), tallennus löydetyn dokumentin oikeaan UID:hen. Pelaajan Firebase doc-ID ≠ PalloID.
+- **VP_v22 kalenteri:** viikkonäkymä, statusbadget (Tuleva/Kesken/Valmis), luettavat joukkuenimet, Testaus_v9-deep-linkit, mentorointi-pikalisäys; Rules vp_kalenteri + tapahtumat.
+- **Master_v16 kalenteri:** all-day-chipit + tuntiruudukko, värikoodit (protokolla), nappiselkeytys, joukkuesuodatin-korjaus; hardkoodatun demo-datan gattaus (`_renderAdar`, komentopaletti, tilastot).
+- **VP_v22 kerros 1:** kausipalkki dynaaminen (`_laskeKausi()`), signaalihehku-CSS (crit/warn box-shadow), KPI-kontekstitekstit, emojit → CSS-pisteet.
+- **TKI VP_v22 pelaajalistaan** (FLEI | TKI | Signaali | PHV, pikakentästä) **+ Master_v16 kehityskortille** (TKI + vahvuus/kehityskohde pikakentistä).
+- **Rules v2.9 deployattu Firebase Consolesta** (biologinen_ika, seura-tason tapahtumat, vp_kalenteri).
+
+### Avoimet askeleet
+- **Raportointi-näkymä:** "Lähetä HoT:lle" on vain `toast()` — oikea toteutus puuttuu.
+- **3 uutta signaalia** Tilanne-näkymään: testikattavuus, BQ-bias, TKI puuttuu.
+- **Master_v16 hardkoodattu demo-data** loppuun poistaminen (osa gatettu, tarkista jäänteet).
+- **KR-kertoimet** (Pediatrics 1995 erratum) — `laskeKR()` lukittu kunnes verifioidut kertoimet + `KR_VERIFIOITU=true`.
+- **GrIFK + Sibbo PDF-tuonti oikealla datalla** — PDF-parseri on heuristinen, kalibroitava oikealla Palloliiton tulosteella (sarakkeiden x-sijainnit, otsikkosanat, nimijärjestys).
+
+### Tämän session commitit (talentmaster-github, main)
+`907dc33` Excel-pohjageneraattori → `d0cc5e4` monisuoritus + PDF-tuonti → `3810c7c` PalloID string-muunnos → `6e1bb6c` PalloID kenttähaku → `c222642` TKI pelaajalistaan + pikakentät → `0a628ae` VP_v22 kerros 1.
 
 ---
 
