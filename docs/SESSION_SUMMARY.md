@@ -1,12 +1,14 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
-# Päivitetty: 2026-05-11
+# Päivitetty: 2026-05-15
 
 ---
 
 ## Projektin tila
 
 TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase-backend toimii Blaze-suunnitelmalla. Pilottiseurat ovat aktiivisia — SJK Juniorit on tuotu järjestelmään (40 pelaajaa, 4 joukkuetta). Seurahallinta on refaktoroitu ja tuotantovalmis. Talenttiohjelma-arkkitehtuuri on suunniteltu ja dokumentoitu.
+
+**Tilanne 2026-05-15:** Sprint 1 (POHJA) on pääosin valmis, Sprint 2 (RAE-näkyvyys) ja Sprint 3 (signaalit/BQ/IDP) osittain. Testaus_v9 — yhdistetty kenttätestaustyökalu — on valmis (3112 riviä) ja odottaa GitHub-pushia + pilottitestausta. Rules v2.7 deployattu. Bio-ikä-arkkitehtuuri lukittu: Mirwald PHV toimii (Excel-verifioitu), Khamis-Roche Sprint 4 -tehtävänä (Pediatrics 1995 erratum -kertoimet verifioitava).
 
 **Filosofia:** *"Pelaaja ensin, hallinto vahvistaa"*
 **Kilpailupositiointi:** *"Transfermarkt shows what. TalentMasterID shows how."*
@@ -129,25 +131,62 @@ SJK:n T14/T16 tytöt merkitty talenttiohjelma laajennettu-tasolle tuonnin yhteyd
 
 ---
 
-## Tiedostojen tila
+## Tiedostojen tila (2026-05-15)
 
 | Tiedosto | Tila |
 |---|---|
-| `TalentMaster_Admin.html` | ✅ Valmis — **vie GitHubiin** |
-| `TalentMaster_Seura.html` | ✅ Valmis — **vie GitHubiin** |
-| `TalentMaster_Master_v16.html` | ✅ Valmis — **vie GitHubiin** |
-| `TalentMaster_Pelaajarekisteri.xlsx` | ✅ Valmis — **vie GitHubiin** |
-| `CLAUDE.md` | ✅ Päivitetty 2026-05-09 — **vie GitHubiin** |
-| `SESSION_SUMMARY.md` | ✅ Tämä tiedosto — **vie GitHubiin** |
-| `docs/TALENTTIOHJELMA_ARKKITEHTUURI.md` | ✅ Uusi — **vie GitHubiin** (luo docs/-kansio) |
-| `TalentMaster_VP_v22.html` | ✅ GitHubissa |
+| `TalentMaster_Testaus_v9.html` | ⏳ **Valmis paikallisesti (3112 riviä, 2026-05-14) — vie GitHubiin + pilottitesti** |
+| `TalentMaster_Testaus_v8.html` | ⚠️ Arkistoidaan kun v9 testattu pilottiseuralla |
+| `TalentMaster_Harjoitettavuus_Lomake_v4.html` | ⚠️ Arkistoidaan kun v9 testattu pilottiseuralla |
+| `TalentMaster_VP_v22.html` | ✅ GitHubissa — Sprint 3 valmis (signaalit + BQ-stack + IDP-jono) |
+| `TalentMaster_Excel_Tuonti.html` | ✅ GitHubissa — Sprint 3.1 (historiapohja + writeBatch + TKI + PalloID-ristiintarkistus) |
+| `TalentMaster_Admin.html` | ✅ GitHubissa |
+| `TalentMaster_Seura.html` | ✅ GitHubissa |
+| `TalentMaster_Master_v16.html` | ✅ GitHubissa |
+| `TalentMaster_Pelaajarekisteri.xlsx` | ✅ GitHubissa |
+| `CLAUDE.md` | ✅ GitHubissa — päivitetty 2026-05-15 (§30 Bio-ikä-arkkitehtuuri) |
+| `SESSION_SUMMARY.md` | ✅ Päivitetty 2026-05-15 |
+| `docs/TALENTTIOHJELMA_ARKKITEHTUURI.md` | ✅ GitHubissa |
 | `TalentMaster_Pelaaja_v7.html` | ✅ GitHubissa (v=24) |
 | `TalentMaster_ADAR_Pikakortti.html` | ✅ GitHubissa |
 | `TalentMaster_Vanhempi_v2.html` | ⚠️ Kovakoodattu nimi — P3 auki |
 | `tm_eerikkila_normit.js` | ✅ GitHubissa |
 | `tm_lang.js` | ✅ fi/sv/en, 144 käännöstä |
+| `src/lib/tm_bioika.js` | ✅ 287 riviä — Mirwald 2002 PHV + yli-ikäisyyssääntö (Excel-verifioitu identtiseksi) |
 | `functions/index.js` | ✅ 7 Cloud Functionia + aiProxy deployattu |
-| `tm_admin/firestore.rules` | ✅ v2.1.0 deployattu |
+| `tm_admin/firestore.rules` | ✅ **v2.7 deployattu 2026-05-14** — idp_jono + meta/phv_snapshot + testitulokset + joukkueet/{id}/kalenteri |
+
+---
+
+## Sessio 2026-05-12 → 2026-05-15 (Sprint 1+2+3 yhdessä)
+
+### Sprint 3 — VP_v22 Tilanne-näkymä (johtamisjärjestelmä, 2026-05-13)
+`renderSignals(seuraId)` — 5 prioritisoitua signaaliperhettä dynaamisesti Firestore-pohjaisena. `renderTeamPulse` + BQ-stack (Morganti 2025 RAE) joukkuekorttiin: Q1/Q2/Q3/Q4 palkki + Underdog-laskuri (BQ4 + FLEI ≥ 60). IDP-jono Firestore-pohjaiseksi (`'odottaa'`-tila + hylkäysmodaali + audit-trail). `meta/phv_snapshot` -kirjoitusoptimointi (vain muuttuneet arvot). CLAUDE.md §17 #23 — joukkuetunnisteen kaksirakenteisuus dokumentoitu.
+
+### Sprint 3.1 — Excel_Tuonti historiapohja-moodi (2026-05-13)
+Kaksi moodia: A) tapahtumapohjainen (ennallaan), B) historiapohjainen vanhalle Exceldatalle ilman tapahtuma-ID:tä. `pelaajat/{palloID}/testitulokset/{pvm}_{protokolla}` -uusi alikokoelma. WriteBatch (400/erä) atominen kirjoitus. TKI-laskenta tuonnin yhteydessä (tkLaskeMerkki + tkLaskeTKI + TK_MERKKIRAJAT inline). PalloID-ristiintarkistus Promise.all-rinnakkaisesti + 3-ryhmäluokitus. Monikielinen tunnistus: SpelareID = PalloID (sv), PlayerID/Spieler-ID = fallback. Kausi-dropdown automaattisilla vaihtoehdoilla. Bugfix: `serverTimestamp()` arrayn sisällä → `new Date().toISOString()` (CLAUDE.md §17 #7).
+
+### Testaus_v8 — useita iteraatioita (2026-05-13–14)
+Pelaajahaku Promise.all-kaksoiskysely (joukkue-nimi + joukkueet-array). Lineaarinopeus 3 erillisenä testinä (lin_5m, lin_10m, lin_30m). Vapaa testivalinta 4 kategoriaa + omat testit. `_haeProto(tap)`-yhtenäistys 13 paikassa. Paikka-kentän neutralisointi + seuran kotihalli-fallback. Oikeat harjoitettavuustestit `VAPAA_TESTIPANKKI`:ssa. ℹ-tooltip kenttäohjeineen (`TESTI_OHJEET` 20 testille). Testialusta-dropdown 8 vaihtoehdolla + pakollisuus juoksutesteille. Kasirata → "Ketteryys — kasirata" + TSI-kaava CLAUDE.md §23:een.
+
+### Testaus_v9 — strateginen yhdistäminen (2026-05-14) ⭐
+**3112 riviä, kolmen sovelluksen kokonaisuus yhden tiedoston sisällä:**
+- **Sovellus 1 — Suunnittelu** (vaiheet 1–4): protokolla + alusta + joukkue + osallistujat + ryhmäjako
+- **Sovellus 2 — Kenttänäkymä** (vaihe 5): korttinäkymä yksi pelaaja kerrallaan · rotaatio · **offline-ensin (localStorage→Firestore)** · välitön vahvistus (vihreä välähdys 800ms) · 1–3p pisteytys · ℹ-modaali kenttäohjeineen · Palloliiton virallinen kuljetus-laukaus-erikoissyöttö (raaka + 4 rangaistuskenttää + auto-tulos) · reaaliaikainen TKI + merkki
+- **Sovellus 3 — Tarkastelu** (vaiheet 6–8): sync-status per pelaaja · "Merkitse valmiiksi" · FLEI/TKI/TSI värikoodattu taulukko · **A4-print per pelaaja** print-CSS:llä
+
+Kalenteri-kirjoitus kahteen polkuun: `testitapahtumat/{id}` (POLKU 1) + `joukkueet/{jid}/kalenteri/{kid}` (POLKU 2, try-catch). Jälkimmäinen vaati Rules v2.7:n kalenteri-alikokoelmablokin.
+
+**Rinnakkainen v8:n ja Harjoitettavuus_v4:n kanssa kunnes pilotti vahvistaa — sitten molemmat arkistoidaan.**
+
+### Firestore Rules v2.7 deployattu (2026-05-14)
+Versiopolku tässä sessiossa: v2.4 → v2.5 → v2.6 → v2.7. Kriittisin lisäys: `joukkueet/{id}/kalenteri/{kid}` -alikokoelmablokki (Testaus_v9 vaati). Lisäksi: `idp_jono` `'odottaa'`-tila, `meta/phv_snapshot` -kanava, `pelaajat/{pid}/testitulokset/{pvm}_{proto}` historiapohjalle, `errors/` luonti PIN-sessioista.
+
+### Bio-ikä-analyysi (2026-05-14, read-only)
+`tm_bioika.js` 287 riviä ja `TalentMaster_BioIka.xlsx` (purettu ZIP-XML-tasolla) käyttävät **IDENTTISIÄ Mirwald 2002 -kaavoja** — vertailtu kerrointasolla, 11 kerrointa pojat+tytöt + 5 PHV-tilan kynnystä + 12 kk × 2 sukupuolta yli-ikäisyystaulukko. Khamis-Roche ei käytössä — intentionaalisesti poistettu, koska alkuperäiset 1994-kertoimet eivät verifioitavissa.
+
+### Bio-ikä-arkkitehtuuri lukittu (2026-05-15)
+Eerikkilän/Palloliiton MyEWay-linjauksen pohjalta päätös: **molemmat menetelmät rinnakkain, eivät kilpaile**. PHV (Mirwald) → "mitä nyt tapahtuu?" → harjoittelun ohjaus. KR → "kuinka kypsä suhteessa muihin?" → bio-banding. KR:n implementaatio Sprint 4:ään: Pediatrics 1995 erratum -kertoimet, lineaarinen interpolointi puolen vuoden intervallien välillä, vanhempien pituudet suostumuslomakkeelta. Fallback THL FinRavinto 2017: isät 179 cm, äidit 166 cm (korjaa aiemmin käytetyn yläkanttiin olevan 181/168 cm). Ks. CLAUDE.md §30.
 
 ---
 
@@ -234,9 +273,18 @@ Tekniikkatestit (pujottelu, syöttö): 3-portainen asteikko. Muut: 5-portainen.
 
 ---
 
-## Avoimet tehtävät
+## Avoimet tehtävät (2026-05-15)
 
-**Välittömät:** Security Rules v2.3 deploy Firebase Consolesta. VP_v22 testaus KPV:llä (`rasmus_broberg@icloud.com`). Vie kaikki listatut tiedostot GitHubiin.
+**Välittömät pilottivalmiuteen:**
+- ⏳ Vie `TalentMaster_Testaus_v9.html` GitHubiin (manuaalinen web-UI)
+- ⏳ Pilottitesti Testaus_v9: KPV/GrIFK kokeilee → palautteen jälkeen v8 ja Harjoitettavuus_v4 arkistoidaan
+- ⏳ VP_v22 testaus KPV:llä (`rasmus_broberg@icloud.com`)
+
+**Sprint 4 -työnä (KR + kasvumittaus):**
+- Vanhempien pituuskentät suostumuslomakkeeseen (kr_isa_cm, kr_aiti_cm — vapaaehtoiset, validointi 140–220 / 130–200 cm)
+- Khamis-Roche -implementointi tm_bioika.js:ään — Pediatrics 1995 erratum -kertoimet, lineaarinen interpolointi
+- Kasvumittausprotokolla Testaus_v9:ään — 3 testiä (pituus 2×, paino 2×, istumapituus 1×) + `laskentatapa: 'keskiarvo'` -lippu + tm_bioika.js inline + pikakentät pelaajadokumenttiin
+- Tarkista että Rules v2.7 sisältää `biologinen_ika`-alikokoelmablokin — lisää tarvittaessa
 
 **Kriittiset ennen laajentumista:**
 
@@ -247,11 +295,10 @@ Tekniikkatestit (pujottelu, syöttö): 3-portainen asteikko. Muut: 5-portainen.
 | P6 | Valmentajan kenttähavainto → Firestore → pelaajan näkymä (ketju puuttuu) | 🔴 |
 | — | Streak → Firestore — pakollinen ennen AI-moduuleja | 🔴 |
 | — | Suostumusprosessi vaihe 2 — "Lähetä suostumuspyynnöt" -nappi | 🟡 |
-| — | Security Rules v2.3 deploy Firebase Consolesta | 🟡 |
 | P5 | Fiilinki ikäfaasikohtaiseksi (U13 leikkija-kieli) | 🟡 |
 | P7 | IDP-aktivointilogiikka (3 reittiä: manuaalinen/HG-signaali/XF-signaali) | 🟡 |
-| — | RAE BQ-jakauma VP_v22:ssa | 🟡 |
-| — | Tyttöjen PHV-kaava ennen SJK U14/15T -aktivointia | 🟡 |
+| — | RAE BQ-jakauma VP_v22:ssa | ✅ Sprint 3 |
+| — | Tyttöjen PHV-kaava ennen SJK U14/15T -aktivointia | 🟡 (KR tarkempi tytöillä, 4.3 cm vs. poikien 5.6 cm) |
 | — | SPF/DKIM — sähköpostit roskapostiin | 🟡 |
 
 ---
@@ -281,6 +328,8 @@ Tekniikkatestit (pujottelu, syöttö): 3-portainen asteikko. Muut: 5-portainen.
 21. **`joukkueet[]` + `joukkue`** molemmat pelaajalla — uusi array + backward compat string
 22. **Excel-sarakeotsikoissa EI suluissa olevaa tekstiä** — rikkoo `etsiSarake` (vaikka `startsWith` korjaa)
 23. **SA kirjautuu Google Sign-In:llä** — ei email/salasana
+24. **Bio-ikä-arkkitehtuuri:** PHV (Mirwald) ja KR (Khamis-Roche) eivät kilpaile — molemmat tarvitaan eri tarkoituksiin. Mirwald `tm_bioika.js`:ssä on Excel-verifioitu auktoritatiivinen. KR Sprint 4: Pediatrics 1995 erratum -kertoimet, ei alkuperäisiä 1994-kertoimia. Ks. CLAUDE.md §30.
+25. **Testaus_v9 on uusin yhdistetty kenttätyökalu** — v8 ja Harjoitettavuus_v4 arkistoidaan pilotin jälkeen. Älä korjaile v8:aa — kaikki uusi v9:ään.
 
 ---
 

@@ -2,7 +2,7 @@
 
 > Tämä tiedosto on ensimmäinen asia jonka liität uuteen Claude-sessioon.
 > Se korvaa kaikki aiemmat SESSION_SUMMARY.md -tiedostot.
-> Viimeksi päivitetty: 2026-05-11
+> Viimeksi päivitetty: 2026-05-15
 
 ---
 
@@ -161,12 +161,14 @@ toisen `translateX`. Admin.html toimi heti koska vain yksi lohko.
 | `TalentMaster_Vanhempi_v2.html` | Vanhemman näkymä | ⚠️ Kovakoodattu nimi |
 | `TalentMaster_IDP_Kortti_v4.html` | IDP-kortti | ✅ UUSIN 2026-05-01 |
 | `TalentMaster_Rekisterointi_Suostumus.html` | GDPR-suostumuslomake | ✅ |
-| `TalentMaster_Testaus_v8.html` | Kenttätestauslomake | ✅ UUSI 2026-05-01 |
+| `TalentMaster_Testaus_v8.html` | Kenttätestauslomake | ⚠️ Arkistoidaan kun v9 testattu pilottiseuralla |
+| `TalentMaster_Testaus_v9.html` | Yhdistetty kenttätestaustyökalu — wizard + korttinäkymä + offline-ensin (yhdistää v8 + Harjoitettavuus_v4) | ✅ Valmis 2026-05-14 (3112 riviä) |
 | `TalentMaster_Excel_Tuonti.html` | Massatuontityökalu VP:lle — Sprint 3.1 (historiapohja-moodi + writeBatch + TKI + PalloID-ristiintarkistus) | ✅ Sprint 3.1 valmis 2026-05-13 |
-| `TalentMaster_Harjoitettavuus_Lomake_v4.html` | Harjoitettavuuskartoituslomake | ✅ UUSI 2026-05-01 |
+| `TalentMaster_Harjoitettavuus_Lomake_v4.html` | Harjoitettavuuskartoituslomake | ⚠️ Arkistoidaan kun v9 testattu pilottiseuralla |
 | `TalentMaster_Pelaajarekisteri.xlsx` | Excel-rekisteripohja | ✅ |
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ |
-| `tm_admin/firestore.rules` | Security Rules v2.1.0 — CONSOLESTA | ✅ Päivitetty 2026-05-01 |
+| `tm_admin/firestore.rules` | Security Rules v2.7 — CONSOLESTA (idp_jono + meta/phv_snapshot + testitulokset + joukkueet/{id}/kalenteri) | ✅ Deployattu 2026-05-14 |
+| `src/lib/tm_bioika.js` | Biologisen iän laskenta — Mirwald 2002 PHV + yli-ikäisyyssääntö (Excel-verifioitu identtiseksi) | ✅ 287 riviä |
 | `tm_eerikkila_normit.js` | Eerikkilä-normitaulukot | ✅ |
 | `tm_lang.js` | fi/sv/en, 144 käännöstä | ✅ |
 | `harjoitelogiikka_v4.js` | Harjoitusohjelman generointi (144KB) | ⚠️ Tarkista onko GitHubissa |
@@ -782,14 +784,16 @@ loss aversion, temptation bundling (Milkman)
 
 ---
 
-## 20. AVOIMET TEHTÄVÄT (päivitetty 2026-05-09)
+## 20. AVOIMET TEHTÄVÄT (päivitetty 2026-05-15)
 
-### KRIITTISET — deploy ensin
-- [ ] **Security Rules v2.3 deploy** Firebase Consolesta (idp_jono, valmentajat, viestit)
+### KRIITTISET — pilottivalmius
+- [x] **Security Rules v2.7 deploy** Firebase Consolesta ✅ 2026-05-14
+- [x] **VP_v22 + Excel_Tuonti + Testaus_v8 + Rules + CLAUDE.md GitHubiin** ✅ 2026-05-14
+- [ ] **Vie GitHubiin:** TalentMaster_Testaus_v9.html (paikallisesti valmis)
+- [ ] **Testaus_v9 pilottitesti** — KPV/GrIFK kokeilee → palautteen jälkeen v8 ja Harjoitettavuus_v4 arkistoidaan
 - [ ] **P6-käynnistys:** PIN-callback → `window._p7Pelaaja = {seuraId, pelaajaId}`
 - [ ] **Streak → Firestore** — pakollinen ennen AI-moduuleja (nyt localStoragessa)
 - [ ] **Testaa VP_v22 KPV:llä** — kirjaudu rasmus_broberg@icloud.com
-- [ ] **Vie GitHubiin:** Admin.html, Seura.html, Master_v16.html, Pelaajarekisteri.xlsx, CLAUDE.md
 
 ### TÄRKEÄT
 - [ ] **P3 Vanhemman app:** "Eemeli" → `where('huoltajaEmail','==',email)`
@@ -802,10 +806,13 @@ loss aversion, temptation bundling (Milkman)
 
 ### SEURAAVAT SPRINNIT
 - [ ] **HH-testit Excel-kierto** — testaa KPV:llä end-to-end
-- [ ] **Harjoitettavuuslomake → Testaus-integraatio** — linkki tapahtumakortista
+- [x] **Harjoitettavuuslomake → Testaus-integraatio** ✅ Testaus_v9 yhdistää molemmat 2026-05-14
 - [ ] **IDP-aktivointilogiikka (P7):** 3 reittiä (manuaalinen/X-Factor/KORI)
 - [ ] **Firestore kirjausrakenne lukitaan** → AI agent -aktivointi
 - [ ] **RAG** kun 500+ pelaajaa
+- [ ] **Bio-ikä — kasvumittausprotokolla v9:ään** (3 testiä: pituus 2×, paino 2×, istumapituus 1× + `laskentatapa: 'keskiarvo'` -lippu + tm_bioika.js inline — Mirwald valmis, ks. §30)
+- [ ] **Vanhempien pituuskentät suostumuslomakkeeseen** — kerätään Khamis-Roche -laskentaa varten (Sprint 4, ks. §30)
+- [ ] **Khamis-Roche -implementointi** — Pediatrics 1995 erratum -kertoimet verifioitava (Sprint 4)
 
 ---
 
@@ -876,13 +883,28 @@ saman infrastruktuurin. FIFA Art. 19bis compliance on B2G-tuote liitoille.
 
 ## 23. TESTAUSINFRASTRUKTUURI — LISÄTTY 2026-05-01
 
-### Testikerrosjärjestelmä (3 kerrosta)
+### Testikerrosjärjestelmä (4 kerrosta — v9 yhdistää v8 + Harjoitettavuus)
 
 | Kerros | Tiedosto | Käyttötapa | Firestore-polku |
 |---|---|---|---|
+| **Yhdistetty (UUSI)** | `TalentMaster_Testaus_v9.html` | **Wizard + korttinäkymä + offline-ensin — yhdistää v8 + Harjoitettavuus_v4** | `testitapahtumat/{id}/tulokset/{pelaajaId}` + `joukkueet/{jid}/kalenteri/{kid}` |
 | Kenttätestaus | `TalentMaster_Testaus_v8.html` | Reaaliaikainen kirjaus testipäivänä | `testitapahtumat/{id}/tulokset/{pelaajaId}` |
 | Harjoitettavuus | `TalentMaster_Harjoitettavuus_Lomake_v4.html` | U12/U15/U19 protokolla | `testitapahtumat/{id}/tulokset/` + `kartoitukset/` fallback |
 | Massatuonti | `TalentMaster_Excel_Tuonti.html` | Historiallinen data kerralla | `testit/`, `kartoitukset/`, `tekniikka/` |
+
+### Testaus_v9 — kolmen sovelluksen rakenne (2026-05-14)
+
+V9 on rinnakkainen v8:n + Harjoitettavuus_v4:n kanssa kunnes pilottiseura on testannut, sen jälkeen molemmat arkistoidaan.
+
+| # | Sovellus | Vaiheet | Avainominaisuudet |
+|---|---|---|---|
+| 1 | **Suunnittelu** (toimistossa) | 1–4 | Protokolla + alusta + joukkue + osallistujat + ryhmäjako (myös harjoitettavuudelle) |
+| 2 | **Kenttänäkymä** (testipäivänä) | 5 | Korttinäkymä yksi pelaaja kerrallaan · rotaatio · **offline-ensin (localStorage→Firestore)** · välitön vahvistus (vihreä välähdys 800ms) · 1–3p pisteytys · ℹ-modaali kenttäohjeineen · **Palloliiton virallinen kuljetus-laukaus-erikoissyöttö** (raaka + 4 rangaistuskenttää + auto-tulos) · reaaliaikainen TKI + merkki tekniikkakilpailulle |
+| 3 | **Tarkastelu** (jälkeen) | 6–8 | Sync-status per pelaaja · "Merkitse valmiiksi" -nappi · FLEI/TKI/TSI värikoodattu taulukko · **A4-print per pelaaja** print-CSS:llä (Carbon → valkoinen) |
+
+**Kalenteri-kirjoitus:** v9 luo testitapahtuman **kahteen paikkaan** — `testitapahtumat/{id}` (POLKU 1) + `joukkueet/{jid}/kalenteri/{kid}` (POLKU 2, try-catch). Jälkimmäinen vaati Rules v2.7:n kalenteri-alikokoelmablokin. POLKU 2 on best-effort: jos epäonnistuu, testitapahtuma on silti tallennettu.
+
+**Offline-ensin -arkkitehtuuri:** kentällä syötetty data tallennetaan ensin localStorageen, synkronoidaan taustalla Firestoreen kun verkko on auki. Kenttätyöskentely ei kaadu vaikka verkko olisi epävarma.
 
 ### Excel-kiertokulku (testit ilman nettiä kentällä)
 ```
@@ -1267,13 +1289,15 @@ FIFA Art. 19bis compliance (pelaajien rekisteröinti alle 18v) = B2G-tuote liito
 
 > Sprintti = 2 viikkoa. Pilotti käynnissä, kaikki kehitys testattava pilottiseuroilla.
 
-### Sprint 1 — POHJA (nyt käynnissä, 2026-05-02–16)
+### Sprint 1 — POHJA (2026-05-02–16) ✅ PÄÄOSIN VALMIS
 **Tavoite:** VP_v22 pilottiseuroille, testausketju toimii
 
 - [x] VP_v22.html GitHubiin — sivupalkki, mentorointi, joukkuepulssi
-- [ ] **Security Rules v2.3 deploy** Firebase Consolesta (idp_jono, valmentajat, viestit)
-- [ ] **VP_v22 testaus KPV:llä** — kirjaudu vp.kpv@talentmaster.fi, tarkista data
-- [ ] **Testausketju end-to-end:** Testaus_v8 → Excel → Harjoitettavuuslomake → VP_v22 Kalenteri
+- [x] **Security Rules v2.7 deploy** Firebase Consolesta ✅ 2026-05-14
+- [ ] **VP_v22 testaus KPV:llä** — kirjaudu rasmus_broberg@icloud.com, tarkista data
+- [x] **Testausketju end-to-end:** Testaus_v9 yhdistää v8 + Harjoitettavuus_v4 + Excel-tuonnin ✅ 2026-05-14
+- [x] **BONUS — Testaus_v9** 3112 riviä, yhdistää kolme sovellusta yhden tiedoston sisällä (Suunnittelu, Kenttänäkymä, Tarkastelu) ✅ 2026-05-14
+- [x] **BONUS — Excel_Tuonti Sprint 3.1** historiapohja-moodi + writeBatch + TKI + PalloID-ristiintarkistus ✅ 2026-05-13
 - [ ] **Valmentajat-kokoelma Firestoreen** — demo-data KPV:lle (Matti, Sari, Jari)
 - [ ] **Viestit-kokoelma** — mentorointi-loop testaus VP → valmentaja Inbox
 
@@ -1377,3 +1401,136 @@ FIFA Art. 19bis compliance (pelaajien rekisteröinti alle 18v) = B2G-tuote liito
 ---
 
 *Lisäykset CLAUDE.md:hen — 2026-05-02*
+
+---
+
+## 30. BIOLOGINEN IKÄ — ARKKITEHTUURI (LUKITTU 2026-05-15)
+
+### Kahden menetelmän jako — eivät kilpaile
+
+| Menetelmä | Kysymys | Käyttötarkoitus | Tila |
+|---|---|---|---|
+| **PHV (Mirwald 2002)** | "Mitä pelaajassa tapahtuu nyt?" | Harjoittelun ohjaus, kuormarajoitin PHV-huipulla, loukkaantumisriski | ✅ Toteutettu — `src/lib/tm_bioika.js` |
+| **Khamis-Roche (1995 erratum)** | "Kuinka kypsä pelaaja on suhteessa muihin?" | Bio-banding, ryhmittelypäätökset, kypsyysprosentti %PAH | ⏳ Sprint 4 — kertoimet verifioitava |
+
+Tämä jako tuli Eerikkilän/Palloliiton virallisesta MyEWay-linjauksesta. **Ei pidä valita vain toista — molemmat tarvitaan**, mutta eri tarkoituksiin.
+
+### PHV — Mirwald 2002 (Excel-verifioitu identtiseksi)
+
+**Lähde:** Mirwald RL et al. Med Sci Sports Exerc 2002;34(4):689-694
+**Toteutus:** `src/lib/tm_bioika.js` — `laskeMirwald()` + `laskeBioIkaDokumentti()` + `bioIkaTallennusOperaatiot()`
+**Verifiointi:** `TalentMaster_BioIka.xlsx` purettu ZIP-XML-tasolla 2026-05-14 → kaikki 11 kerrointa identtiset (pojat 5 kerrointa, tytöt 6 kerrointa) + PHV-tilan kynnykset (5 kategoriaa) + yli-ikäisyystaulukko (12 kk × 2 sukupuolta).
+
+**Tarvittavat muuttujat (kaikki pakolliset):**
+- `ika` (vuosi, desimaali) — lasketaan `syntymapaiva`-kentästä `Date.UTC()`-jäsennyksellä
+- `pituus` (cm) — seisomapituus, **2× mittausta keskiarvolla**
+- `paino` (kg) — **2× mittausta keskiarvolla**
+- `istumapituus` (cm) — **1× mittaus** (kriittinen — ilman tätä Mirwaldia ei voi laskea)
+- `sukupuoli` (`'P'` / `'T'`) — erilliset kaavat pojille ja tytöille
+
+**Tulosmuuttujat:**
+- `maturity_offset` — vuosia PHV-huipusta (negatiivinen = ennen, positiivinen = jälkeen)
+- `phv_ika = ika − offset`
+- `phv_tila_koodi`: `PRE` (< −1.0v) · `LAH` (−1.0 .. −0.5v) · `PH` (±0.5v) · `POST` (+0.5 .. +1.0v) · `AN` (> +1.0v)
+- `yli_ikaisyys.poikkeuslupa` — Palloliiton virallisen taulukon mukaan (sis. `tm_bioika.js`:ssä)
+
+**`phv_tila === 'PH'` → kuormarajoitin aktivoituu:** voimaharjoittelu max 80% 1RM, hyppyvolyymi -20%, juoksuvolyymi seurattava.
+
+### Khamis-Roche — Sprint 4 (kertoimet verifioitava)
+
+**KRIITTINEN:** Alkuperäinen Khamis & Roche 1994 -julkaisu sisälsi **virheellisesti kirjattuja kertoimia**. Käytettävä **korjattua versiota**: Pediatrics 1995;95:457 erratum. Tämä selittää miksi KR oli aiemmin "intentionaalisesti poistettu" — eri kirjallisuuslähteissä oli eri versioita.
+
+**Tarvittavat lisäykset:**
+1. `kr_isa_cm` ja `kr_aiti_cm` pelaajadokumenttiin (kerätään suostumuslomakkeella)
+2. KR-kertoimet 4 ikäryhmälle (4–9v, 9–14v, 14–18v) × 2 sukupuolta — puolen vuoden intervallit + lineaarinen interpolointi
+3. `predicted_adult_height_cm` ja `pah_pct = pituus / predicted × 100` -laskenta
+4. UI: pelaajakortissa "%PAH" -kypsyysprosentti PHV:n rinnalle
+
+**Midparent height (sukupuolikorjattu):**
+- Pojat: `(isa + aiti + 13) / 2`
+- Tytöt: `(isa + aiti − 13) / 2`
+
+**Fallback puuttuville vanhempien pituuksille** (THL FinRavinto 2017, 25–34v ikäryhmä):
+- Isät: 179 cm (EI 181 — aiemmin käytetty arvo oli yläkanttiin)
+- Äidit: 166 cm (EI 168)
+- **Pakollinen:** UI merkitsee selvästi "arvio — vanhempien pituudet puuttuvat"
+
+**Tyttöjen KR:** Julkaistu keskivirhe pojilla 5.6 cm, tytöillä 4.3 cm → KR on tytöillä tarkempi kuin pojilla. SJK U14/15T voidaan aktivoida KR:n osalta kunhan Erratum-kertoimet implementoitu.
+
+**Etninen kalibrointi:** KR kehitettiin Fels Longitudinal Study -aineistosta (valkoihoiset pohjoisamerikkalaiset). Suomalainen populaatio on homogeeninen → KR toimii hyvin, mutta maahanmuuttajataustaisten pelaajien osalta tarkkuus voi heiketä. Ei estä käyttöä — kirjataan rajoituksena.
+
+### Vanhempien pituuksien tiedonkeruu
+
+**Päätös 2026-05-14:** Suostumuslomake on luontevin keruupiste. Huoltaja on jo lomakkeella, motivaatio täyttää on korkea (rekisteröinti edellyttää).
+
+**Rekisteröintilomakkeeseen lisättävät kentät (Sprint 4):**
+- "Isän pituus senttimetreinä (vapaaehtoinen, esim. 179)" — validointi 140–220 cm
+- "Äidin pituus senttimetreinä (vapaaehtoinen, esim. 166)" — validointi 130–200 cm
+- Pakollisia EIVÄT ole — adoptio, yksinhuoltajuus, biologinen vanhempi tuntematon. Null-arvoilla käytetään fallbackia merkillä "arvio".
+- **GDPR:** Informointitekstiin lisättävä maininta — vanhempien pituutta käytetään biologisen kypsyyden arviointiin
+- **Päivitettävyys:** Seura.html:n muokkausmodaaliin ja/tai Admin-näkymään lisätään kr_isa_cm / kr_aiti_cm -kentät myöhempää korjausta varten
+
+### Firestore-rakenne
+
+**Pelaajadokumentti** `seurat/{sid}/pelaajat/{pid}` — pikakentät (päivitetään uusimman mittauksen yhteydessä):
+```
+biologinenIka_viimeisin: { ... koko viimeisin mittausdokumentti ... }
+phv_tila: 'PRE'|'LAH'|'PH'|'POST'|'AN'   // VP-näkymä lukee tästä
+kr_isa_cm: number | null                  // Sprint 4
+kr_aiti_cm: number | null                 // Sprint 4
+```
+
+**Mittaushistoria** `seurat/{sid}/pelaajat/{pid}/biologinen_ika/{mittauspvm}` — kasvun seuranta yli ajan. **TARVITSEE OMAN RULES-BLOKIN** (Firestore ei periydy alikokoelmiin):
+```javascript
+match /seurat/{seuraId}/pelaajat/{pelaajaId}/biologinen_ika/{mittausPvm} {
+  allow read:   if onSuperAdmin() || onSeuranJasen(seuraId) || onHuoltaja();
+  allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+  allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+  allow delete: if onSuperAdmin();
+}
+```
+
+⚠️ **TARKISTA — onko tämä blokki Rules v2.7:ssä?** Jos ei, lisättävä ennen kasvumittausprotokollan aktivointia.
+
+### Kasvumittausprotokolla Testaus_v9:ään (suunniteltu)
+
+**PROTOKOLLAT-objektiin lisättävä:**
+```javascript
+kasvumittaus: {
+  nimi: 'Kasvumittaus (Mirwald PHV)',
+  ikäluokka: 'U10–U19',
+  tyyppi: 'kasvu',
+  testit: [
+    { id: 'pituus',       nimi: 'Seisomapituus', yksikko: 'cm', yritykset: 2, laskentatapa: 'keskiarvo' },
+    { id: 'paino',        nimi: 'Paino',         yksikko: 'kg', yritykset: 2, laskentatapa: 'keskiarvo' },
+    { id: 'istumapituus', nimi: 'Istumapituus',  yksikko: 'cm', yritykset: 1 }
+  ]
+}
+```
+
+**KRIITTINEN bugi v9:n nykyisessä logiikassa:** `_v5SyotaYritys` laskee "parhaan" (pienin/suurin) eikä keskiarvoa. Kasvumittaukselle pitää lisätä uusi laskentatapa:
+```javascript
+if (testi.laskentatapa === 'keskiarvo' && arvot.length > 0) {
+  obj.paras = +(arvot.reduce((a,b) => a+b, 0) / arvot.length).toFixed(2);
+}
+```
+
+**Tallennus kahteen polkuun** (kuten testitapahtumat):
+1. Alikokoelma `biologinen_ika/{mittauspvm}` — historia
+2. Pelaajadokumentin pikakentät — VP:n nopea haku
+
+**Mittausaika kentällä:** ~3–4 min / pelaaja → 20 pelaajan joukkue ~80 min, sopii yhteen treenisessioon.
+
+**Mittausväli:** U10–U12 2×/v · U13–U15 3×/v (paras seuranta PHV-vaiheessa) · U16–U19 1–2×/v
+
+### Periaate — älä toista näitä virheitä
+
+- **Älä kopioi tm_bioika.js:ää uudelleen** — repon versio on auktoritatiivinen (287 riviä, Excel-verifioitu). Aiempien sessioiden aikana kirjoitettu kopio `laskeKaikki()` / `muodostaFirestoreData()` -APIlla on tarpeeton.
+- **Älä lisää KR:tä ilman Erratum 1995 -kertoimien verifiointia** — virheellinen aikuispituusennuste on pahempi kuin ei ennustetta lainkaan
+- **Älä unohda interpolointia** — KR-kertoimet on julkaistu puolen vuoden intervalleilla, murto-iille tarvitaan lineaarinen interpolointi
+- **Älä käytä yläkanttiin olevaa fallbackia** vanhempien pituuksille — johtaa systemaattisesti liian suuriin ennusteisiin
+- **Mittaa pituus ja paino 2×, istumapituus 1×** — Excelin protokolla, älä yksinkertaista
+
+---
+
+*Lisäykset CLAUDE.md:hen — §30 lisätty 2026-05-15 (sessio 2026-05-12 → 2026-05-15)*
