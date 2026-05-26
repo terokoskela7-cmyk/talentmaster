@@ -1,4 +1,4 @@
-<!-- v2026-05-26-jonotusmalli-otsikkoraja -->
+<!-- v2026-05-26-kaksipassi-v1 -->
 <!DOCTYPE html>
 <!-- cache-bust: 2026-05-26 build-2 -->
 <html lang="fi">
@@ -2639,108 +2639,52 @@ function parsiPalloliittoPdf(sivut) {
   const kaikkiRivit = [];
   sivut.forEach(items => { _pdfRyhmiteleRiveiksi(items).forEach(r => kaikkiRivit.push(r)); });
 
-  // JONOTUSMALLI: Palloliiton PDF:ssä kaikki ikäluokkaotsikot tulevat peräkkäin ENNEN dataa
-  // (P12, P10, P9), sitten data järjestyksessä. Otsikot jonotetaan; data aktivoi ne vuorollaan.
-  // Taulukkoraja tunnistetaan SIJA-numeron palautumisesta 1:een (ainoa luotettava raja P10↔P9
-  // joilla on identtinen 7-numeroinen rivimuoto).
-  const taulukot = [];
-  let jono = [];             // jonotetut ikäluokkaotsikot (odottavat dataa)
-  let nyt = null;            // aktiivinen taulukko
-  let pendingRajat = null;   // rajat ennen ikäluokkariviä
-  let edellinenSija = null;  // edellisen datarivin sija (taulukkorajan tunnistus)
-  let nytNumerot = null;     // aktiivisen taulukon vakiintunut numerosarakemäärä (10=P12-P13 pituuspotku mukana, 7=P9-P11)
+  // KAKSIPASSINEN PARSINTA (korvaa jono/sija-reset/sarakemäärä/otsikkoraja-heuristiikan):
+  // Passi 1 etsii ikäluokkaotsikot + niiden rivivälit; Passi 2 parsii kunkin osion erikseen.
 
-  kaikkiRivit.forEach(rivi => {
-    const teksti = rivi.cells.map(c => c.str).join(' ').replace(/\s+/g, ' ').trim();
-    if (!teksti) return;
-
-    // Ikäluokkaotsikko → JONOTA (ei aktivoida ennen kuin data alkaa). Dedupe: ei samaa kahdesti.
-    const ml = teksti.match(/\b([PT])\s?(\d{1,2})\b/);
-    if (ml && +ml[2] >= 8 && +ml[2] <= 13) {
-      const ikaluokka = ml[1] + ml[2];
-      const jonossa = jono.some(t => t.ikaluokka === ikaluokka);
-      const joTiedossa = (nyt && nyt.ikaluokka === ikaluokka)
-        || jonossa
-        || taulukot.some(t => t.ikaluokka === ikaluokka);
-      if (!joTiedossa) {
-        const uusi = { ikaluokka: ikaluokka, sukupuoli: ml[1], ika: +ml[2],
-          merkkirajat: pendingRajat || _pdfPoimiRajat(teksti), rivit: [] };
-        pendingRajat = null;
-        if (nyt && nyt.rivit.length > 0) {
-          // Edellisellä taulukolla on dataa → tämä otsikko on taulukkoraja
-          // uusi menee jonon perään, jonon kärki aktivoituu (säilyttää järjestyksen)
-          jono.push(uusi);
-          console.log('OTSIKKORAJA:', 'valmis:', nyt.ikaluokka, nyt.rivit.length, '| seuraava:', jono[0].ikaluokka, '| jono:', jono.map(t=>t.ikaluokka));
-          taulukot.push(nyt);
-          nyt = jono.shift();
-          nytNumerot = null;
-          edellinenSija = null;
-        } else if (nyt && nyt.rivit.length === 0) {
-          // nyt on tyhjä (ei vielä dataa) → jono
-          jono.push(uusi);
-          console.log('JONO+:', ikaluokka, '| jono nyt:', jono.map(t=>t.ikaluokka));
-        } else {
-          // nyt === null → ensimmäinen otsikko
-          jono.push(uusi);
-          console.log('JONO+:', ikaluokka, '| jono nyt:', jono.map(t=>t.ikaluokka));
-        }
-      } else if (jonossa && nyt && jono.length > 0 && jono[0].ikaluokka === ikaluokka) {
-        // Sivunvaihto-toisto: jonossa oleva ikäluokka näkyy uudelleen otsikkona
-        // ja nykyisellä taulukolla on jo dataa → taulukkoraja
-        console.log('SIVUNVAIHTO-RAJA:', 'valmis:', nyt.ikaluokka, nyt.rivit.length, '| seuraava:', jono[0]?.ikaluokka);
-        taulukot.push(nyt);
-        nyt = jono.shift();
-        nytNumerot = null;
-        edellinenSija = null;
-      }
-      return; // ikäluokkarivi ei ole datariviä
-    }
-
-    // Merkkirajat-rivi (avainsanalla) — liitä viimeksi jonotettuun/aktiiviseen tai puskuroi
-    if (/raja|kulta|merkki|hopea|pronssi/i.test(teksti) && !/^\s*([0-9]+|[-–])[\s,.]/.test(teksti)) {
-      const r = _pdfPoimiRajat(teksti);
-      if (r) {
-        const kohde = jono.length ? jono[jono.length - 1] : nyt;
-        if (kohde && !kohde.merkkirajat) kohde.merkkirajat = r; else pendingRajat = r;
-      }
-    }
-
-    // Datarivi: alkaa sijalla (numero) tai viivalla (sijoittamaton). Sija-reset = taulukkoraja.
-    if (/^\s*([0-9]+|[-–])[\s,.]/.test(teksti)) {
-      const sm = teksti.match(/^\s*(\d{1,3}|[-–])/);
-      const sijaRaw = sm ? sm[1] : null;
-      const sija = (sijaRaw && /^\d+$/.test(sijaRaw)) ? parseInt(sijaRaw, 10) : null; // viiva → null
-      const sijaOnYksi = (sija === 1);
-
-      const numerot = _pdfNumeroitaRivilla(rivi);
-
-      if (!nyt && jono.length > 0 && sijaOnYksi) {
-        nyt = jono.shift();                                   // 1. datarivi → aktivoi jonon ensimmäinen
-        nytNumerot = numerot;                                 // vakiinnuta sarakemäärä (P12-P13=10, P9-P11=7)
-        console.log('AKTIVOI:', nyt?.ikaluokka, '| sija:', sija, '| numeroita:', numerot);
-      } else if (nyt && jono.length > 0 && nyt.rivit.length > 0
-                 && ( (nytNumerot != null && numerot >= 6 && numerot < nytNumerot)   // sarakemäärä putosi (10→7) = ikäluokka vaihtui (P12→P10)
-                      || (sijaOnYksi && edellinenSija !== 1) )) {                      // tai sija palasi 1:een (P10→P9, sama sarakemäärä)
-        const syy = (nytNumerot != null && numerot < nytNumerot) ? 'sarake ' + nytNumerot + '->' + numerot : 'sija-reset';
-        console.log('TAULUKKORAJA (' + syy + '):', 'valmis:', nyt?.ikaluokka, nyt?.rivit?.length, '| seuraava:', jono[0]?.ikaluokka);
-        taulukot.push(nyt);                                   // raja tunnistettu JA nykyisellä dataa → uusi taulukko
-        nyt = jono.shift();
-        nytNumerot = numerot;                                 // uuden taulukon sarakemäärä
-        edellinenSija = null;                                 // nollaa sija-reset-konteksti uudelle taulukolle
-      } else if (nyt && sijaOnYksi && edellinenSija !== 1 && jono.length === 0) {
-        console.warn('[PDF] Taulukkoraja mutta jono tyhjä — rivit liitetään nykyiseen (' + nyt.ikaluokka + ')');
-      }
-
-      if (nyt) {
-        const p = _pdfParsiPelaajarivi(rivi, nyt);
-        if (p) nyt.rivit.push(p);
-        edellinenSija = sija; // myös viiva (null) → seuraava sija-1 tunnistaa rajan
-      } else {
-        console.log('OHITETTU:', teksti.slice(0,40));
-      }
+  // PASSI 1: kerää otsikot ja indeksit
+  const osiot = []; // {ikaluokka, sukupuoli, ika, merkkirajat, alku, loppu}
+  const IKAOTSIKKO = /^(T|P)(\d+)$/i;
+  kaikkiRivit.forEach((rivi, idx) => {
+    const teksti = rivi.cells.map(c => c.str).join(' ').trim();
+    const ml = teksti.match(IKAOTSIKKO);
+    if (ml) {
+      if (osiot.length > 0) osiot[osiot.length-1].loppu = idx;
+      osiot.push({ ikaluokka: ml[0].toUpperCase(), sukupuoli: ml[1].toUpperCase(),
+        ika: +ml[2], merkkirajat: null, alku: idx, loppu: kaikkiRivit.length });
     }
   });
-  if (nyt && nyt.rivit.length) taulukot.push(nyt);
+
+  // Yhdistä saman ikäluokan duplikaatit: sama otsikko (esim. P9) voi toistua sivulla 1 JA 2.
+  // Laajenna ensimmäisen esiintymän loppu viimeiseen → yksi osio per ikäluokka. Duplikaatti-
+  // otsikkorivit ohitetaan Passi 2:ssa (_pdfParsiPelaajarivi palauttaa null otsikkoriville).
+  const osiotDeduped = [];
+  osiot.forEach(o => {
+    const prev = osiotDeduped.find(x => x.ikaluokka === o.ikaluokka);
+    if (prev) prev.loppu = o.loppu;   // laajenna edellisen loppua
+    else osiotDeduped.push(o);
+  });
+
+  // PASSI 2: parsitaan jokainen osio erikseen
+  const taulukot = [];
+  osiotDeduped.forEach(osio => {
+    const taulukko = { ikaluokka: osio.ikaluokka, sukupuoli: osio.sukupuoli,
+      ika: osio.ika, merkkirajat: null, rivit: [] };
+    // ctx OBJEKTINA — _pdfParsiPelaajarivi/_pdfRakennaPelaaja lukevat ctx.ika (onU12-sarakemappaus)
+    // + ctx.sukupuoli + ctx.ikaluokka (TKI/merkki). Pelkkä string rikkoisi P12-sarakekartoituksen.
+    const ctx = { ikaluokka: osio.ikaluokka, ika: osio.ika, sukupuoli: osio.sukupuoli };
+    for (let i = osio.alku + 1; i < osio.loppu; i++) {
+      const rivi = kaikkiRivit[i];
+      const pelaajarivi = _pdfParsiPelaajarivi(rivi, ctx);
+      if (pelaajarivi) taulukko.rivit.push(pelaajarivi);
+      else {
+        const rajat = _pdfPoimiRajat(rivi.cells.map(c=>c.str).join(' '));
+        if (rajat) taulukko.merkkirajat = rajat;
+      }
+    }
+    if (taulukko.rivit.length > 0) taulukot.push(taulukko);
+    console.log('OSIO:', osio.ikaluokka, '| rivit:', taulukko.rivit.length, '| alku:', osio.alku, '| loppu:', osio.loppu);
+  });
 
   pdfData.taulukot = taulukot;
   // Litteä yhdiste (taaksepäin-yhteensopivuus esikatselulle/yhdistykselle/tallennukselle)
@@ -3154,7 +3098,7 @@ async function tallennaPdfFirestoreen() {
 // VERSIO + CDN-STALENESS-VAROITUS
 // ════════════════════════════════════════
 // Ladatun version tunniste — sama merkkijono on const-määrittelyssä jota raw-vertailu lukee.
-const PDF_VERSIO = 'jonotusmalli+otsikkoraja2';
+const PDF_VERSIO = 'kaksipassi-v1';
 const PDF_RAW_URL = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_Excel_Tuonti.html';
 
 // Näytä amber-banneri jos ladattu versio on vanhempi kuin mainin tuorein (CDN-cache vanha).
