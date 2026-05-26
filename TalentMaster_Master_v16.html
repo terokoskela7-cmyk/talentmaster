@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TalentMaster™ — Valmentaja v13</title>
-<!-- TalentMaster_Master_v13.html — V10-typografia + V12-rakenne + Pelaaja v4 -kytkös -->
+<title>TalentMaster™ — Valmentaja v16</title>
+<!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <!-- Firebase v9 compat -->
@@ -3498,23 +3498,6 @@ function _renderPlayersToday() {
   }).join('');
 }
 
-function openPelaaja(pid) {
-  // Demo: URL-parametrit vastaavat Pelaaja v4:n oletuksia
-  // Tuotannossa: seuraId tulee valmentajan profiilista, pelaajaId on UID
-  const pelaajaIdMap = {
-    teemu:  { sid:'kpv', pid:'demo-teemu',  nimi:'Teemu Salo' },
-    oiva:   { sid:'kpv', pid:'demo-oiva',   nimi:'Oiva Heikkinen' },
-    luukas: { sid:'kpv', pid:'demo-luukas', nimi:'Luukas Haapala' },
-    milo:   { sid:'kpv', pid:'demo-milo',   nimi:'Milo Korhonen' },
-    oskari: { sid:'kpv', pid:'demo-oskari', nimi:'Oskari Mäki' },
-  };
-  const t = pelaajaIdMap[pid];
-  if (!t) { toast('Pelaajaa ei löytynyt'); return; }
-  const url = `Pelaaja v4.html?seuraId=${t.sid}&pelaajaId=${t.pid}&nimi=${encodeURIComponent(t.nimi)}`;
-  window.open(url, '_blank', 'noopener');
-  toast('Avataan: ' + t.nimi + ' → Pelaaja v4', 'pelaaja');
-}
-
 /* ════════════════════════════════════════════════════════════
    KEHITYS
 ════════════════════════════════════════════════════════════ */
@@ -4254,10 +4237,13 @@ function openDrill(type) {
       <div class="drill-section">
         <div class="caps" style="margin-bottom:12px">Havainto</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-          ${(!_demo && _pelaajatData.length > 0 ? _pelaajatData.slice(0,5).map(p => ({
-              name: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim(),
-              id: p.id
-            })) : (typeof DEMO !== 'undefined' ? DEMO.players.slice(0,5) : [])).map(p=>`
+          ${(_demo
+              ? (typeof DEMO !== 'undefined' ? DEMO.players.slice(0,5) : [])
+              : _pelaajatData.slice(0,5).map(p => ({
+                  name: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim(),
+                  id: p.id
+                }))
+            ).map(p=>`
             <div onclick="this.style.background='var(--teal-bg)';this.style.color='var(--teal)';this.style.borderColor='var(--teal-brd)'"
               style="padding:6px 12px;border-radius:20px;border:.5px solid var(--line2);font-size:12px;cursor:pointer;transition:all .12s">
               ${p.name.split(' ')[0]}
