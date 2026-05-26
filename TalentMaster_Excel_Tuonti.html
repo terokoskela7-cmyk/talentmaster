@@ -2761,19 +2761,22 @@ function _pdfParsiPelaajarivi(rivi, ctx) {
   const etunimi  = nimiOsat.slice(1).join(' ');
   const n = nums.length;
 
-  // BUGI 2/3: kartoita lukumäärän mukaan. lopputulos = VIIMEINEN numeerinen arvo.
-  // P12-P13 (≥10): KL_aika, KL_vah, KL_tulos, syotto, pujottelu, pp_o, pp_v, pp_bonus, ponnauttelu, lopputulos
-  // P9-P11 (7):    KL_aika, KL_vah, KL_tulos, syotto, pujottelu, ponnauttelu, lopputulos
-  const onU12 = (ctx.ika != null && ctx.ika >= 12 && n >= 10);
+  // LOPPUANKKUROITU kartoitus (KORJAUS: P12:n pituuspotku-sarakkeet O/V/Väh. siirsivät
+  // indeksejä → kokonaistulos luki pujottelua eikä lopputulosta). Loppu vakaa KAIKILLE:
+  //   lopputulos = nums[n-1] (viimeinen) · ponnauttelu = nums[n-2] (toiseksi viimeinen).
+  // Etu vakaa: KL_aika, KL_vah, KL_tulos, syotto, pujottelu (0-4).
+  // Väliin (5 .. n-3) jäävät pituuspotku-sarakkeet (O/V/bonus) — vain P12-P13:lla.
+  console.log('PDF rivi NUMS:', ctx.ikaluokka, 'n=' + n, nums);   // DEBUG TEMP — poista kun P12 todettu
   const arvot = { sukunimi: sukunimi, etunimi: etunimi, syntymaVuosi: syntymaVuosi, ikaluokka: ctx.ikaluokka };
-  arvot.lopputulos = nums[n - 1];
+  arvot.lopputulos    = nums[n - 1];
+  arvot.ponnauttelu_s = nums[n - 2];
   arvot.kl_aika = nums[0]; arvot.kl_vahennys = nums[1]; arvot.kuljetus_laukaus_s = nums[2];
   arvot.syotto_s = nums[3]; arvot.pujottelu_s = nums[4];
-  if (onU12) {
-    arvot.pituuspotku_o = nums[5]; arvot.pituuspotku_v = nums[6]; arvot.pituuspotku_bonus_s = nums[7];
-    arvot.ponnauttelu_s = nums[8];
-  } else {
-    arvot.ponnauttelu_s = nums[5];
+  // Pituuspotku = pujottelun (idx 4) ja ponnauttelun (idx n-2) väliset sarakkeet (vain P12-P13)
+  if (ctx.ika >= 12 && n >= 8) {
+    arvot.pituuspotku_o = nums[5];
+    if (n >= 9) arvot.pituuspotku_v = nums[6];
+    arvot.pituuspotku_bonus_s = nums[n - 3];     // viimeinen välisarake ennen ponnauttelua
   }
   return _pdfRakennaPelaaja(arvot, ctx);
 }
