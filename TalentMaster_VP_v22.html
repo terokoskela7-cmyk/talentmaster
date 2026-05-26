@@ -2406,6 +2406,132 @@ async function _tallennaPMP(pelaajaId, pelaajaNimi) {
 }
 window._tallennaPMP = _tallennaPMP;
 
+// ─── JOUKKUEEN SYVÄNÄKYMÄ (pulssikortin klikkaus) — 3 välilehteä, vain ladatusta _pelaajat-datasta ───
+const TK_LAJI_NIMET = { ponnauttelu:'Ponnauttelu', syotto:'Syöttö pujotellen', pujottelu:'Pujottelu', kuljetus_laukaus:'Kuljetus-laukaus', pituuspotku:'Pituuspotku' };
+function _vpTkLaji(id) { return TK_LAJI_NIMET[id] || id || 'Ei tietoa'; }
+function _jsvEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _jsvTkiVari(tki) {
+  if (tki == null) return '#5A5A5A';
+  if (tki >= 80) return 'var(--teal)';
+  if (tki >= 60) return '#5B8FE0';
+  if (tki >= 40) return 'var(--amber)';
+  return '#5A5A5A';
+}
+function _jsvVaihda(n) {
+  for (let i = 0; i < 3; i++) {
+    const tab = document.getElementById('_jsvTab' + i);
+    const btn = document.getElementById('_jsvBtn' + i);
+    if (tab) tab.style.display = (i === n) ? 'block' : 'none';
+    if (btn) btn.classList.toggle('on', i === n);
+  }
+}
+window._jsvVaihda = _jsvVaihda;
+function _jsvLuoTapahtuma(joukkue) {
+  const url = 'TalentMaster_Testaus_v9.html?seura=' + encodeURIComponent(_seuraId || '') + '&joukkue=' + encodeURIComponent(joukkue || '');
+  window.open(url, '_blank');
+}
+window._jsvLuoTapahtuma = _jsvLuoTapahtuma;
+
+function avaaJoukkueSyvanakyma(joukkueNimi) {
+  const vanha = document.getElementById('_jsvModal'); if (vanha) vanha.remove();
+  const pelaajat = _pelaajat.filter(p => (p.joukkue || 'Tuntematon') === joukkueNimi);
+  const n = pelaajat.length;
+  const jescNimi = String(joukkueNimi).replace(/['"\\]/g, '');
+
+  // ── Välilehti 1: TEKNIIKKA (TKI-ranking, paras ensin; ei-tuloksia harmaana lopussa) ──
+  let t1;
+  if (n === 0) { t1 = '<div style="color:var(--ink3);font-style:italic;padding:12px">Ei pelaajia</div>'; }
+  else {
+    const withTki = pelaajat.filter(p => p.tki_viimeisin != null).slice().sort((a,b) => b.tki_viimeisin - a.tki_viimeisin);
+    const noTki = pelaajat.filter(p => p.tki_viimeisin == null);
+    t1 = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      + '<thead><tr style="text-align:left;color:var(--ink3);font-size:10px;text-transform:uppercase;letter-spacing:.06em">'
+      + '<th style="padding:6px 8px">Pelaaja</th><th style="padding:6px 8px">TKI</th><th style="padding:6px 8px">Merkki</th>'
+      + '<th style="padding:6px 8px">Vahvuus</th><th style="padding:6px 8px">Kehityskohde</th></tr></thead><tbody>';
+    withTki.forEach(p => {
+      const tki = p.tki_viimeisin;
+      const w = Math.max(4, Math.min(100, tki));
+      const m = _tkiMerkkiVP(tki, p.tki_merkki);
+      t1 += '<tr style="border-top:.5px solid var(--border)">'
+        + '<td style="padding:6px 8px;color:var(--ink)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + '</td>'
+        + '<td style="padding:6px 8px"><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:6px;min-width:46px;max-width:80px;background:rgba(255,255,255,.07);border-radius:3px"><div style="height:100%;width:' + w + '%;background:' + _jsvTkiVari(tki) + ';border-radius:3px"></div></div><span style="color:var(--ink);font-family:var(--font-m)">' + tki + '</span></div></td>'
+        + '<td style="padding:6px 8px">' + (m ? m.emoji : '—') + '</td>'
+        + '<td style="padding:6px 8px;color:var(--ink2)">' + _jsvEsc(p.tki_vahvuus ? _vpTkLaji(p.tki_vahvuus) : '—') + '</td>'
+        + '<td style="padding:6px 8px;color:var(--ink2)">' + _jsvEsc(p.tki_kehityskohde ? _vpTkLaji(p.tki_kehityskohde) : '—') + '</td></tr>';
+    });
+    noTki.forEach(p => {
+      t1 += '<tr style="border-top:.5px solid var(--border)"><td style="padding:6px 8px;color:var(--ink3)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + '</td><td colspan="4" style="padding:6px 8px;color:var(--ink3);font-style:italic">Ei tuloksia vielä</td></tr>';
+    });
+    t1 += '</tbody></table>';
+  }
+
+  // ── Välilehti 2: TUKI (ryhmittely kehityskohteen mukaan) ──
+  let t2;
+  if (n === 0) { t2 = '<div style="color:var(--ink3);font-style:italic;padding:12px">Ei pelaajia</div>'; }
+  else {
+    const ryhmat = {};
+    pelaajat.forEach(p => { const k = p.tki_kehityskohde || '__ei'; (ryhmat[k] = ryhmat[k] || []).push(p); });
+    const avaimet = Object.keys(ryhmat).filter(k => k !== '__ei').sort((a,b) => ryhmat[b].length - ryhmat[a].length);
+    if (ryhmat['__ei']) avaimet.push('__ei');
+    t2 = '';
+    avaimet.forEach(k => {
+      const lista = ryhmat[k];
+      const otsikko = (k === '__ei') ? 'Ei tietoa' : _vpTkLaji(k);
+      t2 += '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">' + _jsvEsc(otsikko) + ' <span style="color:var(--ink3);font-weight:400">(' + lista.length + ' pelaajaa)</span></div>';
+      lista.forEach(p => { t2 += '<div style="font-size:12px;color:var(--ink2);padding:3px 0 3px 12px">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + '</div>'; });
+      t2 += '</div>';
+    });
+  }
+
+  // ── Välilehti 3: YHTEENVETO ──
+  let kulta=0, hopea=0, pronssi=0, eiM=0, testattu=0; const vC = {}, kC = {};
+  pelaajat.forEach(p => {
+    if (p.tki_viimeisin != null) { testattu++; const t = p.tki_viimeisin; if (t>=80) kulta++; else if (t>=60) hopea++; else if (t>=40) pronssi++; else eiM++; }
+    if (p.tki_vahvuus) vC[p.tki_vahvuus] = (vC[p.tki_vahvuus]||0) + 1;
+    if (p.tki_kehityskohde) kC[p.tki_kehityskohde] = (kC[p.tki_kehityskohde]||0) + 1;
+  });
+  const _top = (o) => { const ks = Object.keys(o); if (!ks.length) return null; ks.sort((a,b) => o[b]-o[a]); return { laji: ks[0], n: o[ks[0]] }; };
+  const yV = _top(vC), yK = _top(kC);
+  let t3 = '<div style="font-size:13px;color:var(--ink2);line-height:1.9">';
+  t3 += '<div style="font-size:10px;letter-spacing:.1em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">TKI-jakauma</div>';
+  t3 += '<div style="display:flex;gap:16px;margin-bottom:16px;font-family:var(--font-m)"><span style="color:var(--teal)">🥇 ' + kulta + '</span><span style="color:#5B8FE0">🥈 ' + hopea + '</span><span style="color:var(--amber)">🥉 ' + pronssi + '</span><span style="color:var(--ink3)">— ' + eiM + '</span></div>';
+  t3 += '<div><strong style="color:var(--ink)">Yleisin vahvuus:</strong> ' + (yV ? (_jsvEsc(_vpTkLaji(yV.laji)) + ' — ' + yV.n + '/' + n + ' pelaajalla') : '—') + '</div>';
+  t3 += '<div><strong style="color:var(--ink)">Yleisin kehityskohde:</strong> ' + (yK ? (_jsvEsc(_vpTkLaji(yK.laji)) + ' — ' + yK.n + '/' + n + ' pelaajalla') : '—') + '</div>';
+  t3 += '<div><strong style="color:var(--ink)">Testikattavuus:</strong> ' + testattu + '/' + n + ' testattu</div>';
+  t3 += '</div>';
+
+  // ── Modaali ──
+  let h = '<div id="_jsvModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">';
+  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:680px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column" onclick="event.stopPropagation()">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 12px">';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + _jsvEsc(joukkueNimi) + ' · ' + n + ' pelaajaa</div>';
+  h += '<button onclick="document.getElementById(\'_jsvModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
+  h += '</div>';
+  h += '<div style="display:flex;gap:6px;padding:0 24px 12px;border-bottom:.5px solid var(--border)">';
+  ['Tekniikka','Tuki','Yhteenveto'].forEach((lbl,i) => {
+    h += '<button id="_jsvBtn' + i + '" class="' + (i===0?'on':'') + '" onclick="_jsvVaihda(' + i + ')" style="padding:7px 14px;font-size:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;border-radius:5px;font-family:\'DM Sans\',sans-serif">' + lbl + '</button>';
+  });
+  h += '</div>';
+  h += '<style>#_jsvModal [id^="_jsvBtn"].on{background:rgba(40,176,144,.18)!important;border-color:rgba(40,176,144,.5)!important;color:#28B090!important}</style>';
+  h += '<div style="padding:18px 24px;overflow-y:auto;flex:1">';
+  h += '<div id="_jsvTab0">' + t1 + '</div>';
+  h += '<div id="_jsvTab1" style="display:none">' + t2 + '</div>';
+  h += '<div id="_jsvTab2" style="display:none">' + t3 + '</div>';
+  h += '</div>';
+  h += '<div style="display:flex;gap:10px;padding:14px 24px;border-top:.5px solid var(--border);flex-wrap:wrap">';
+  h += '<button onclick="document.getElementById(\'_jsvModal\').remove();_jsvLuoTapahtuma(\'' + jescNimi + '\')" style="padding:10px 16px;background:var(--teal);color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">📋 Luo harjoitustapahtuma →</button>';
+  h += '<button onclick="document.getElementById(\'_jsvModal\').remove();setWs(\'pelaajat\')" style="padding:10px 16px;background:transparent;color:var(--ink);border:.5px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:\'DM Sans\',sans-serif">📊 Avaa pelaajat →</button>';
+  h += '</div>';
+  h += '</div></div>';
+
+  const wrap = document.createElement('div');
+  wrap.innerHTML = h;
+  const modal = wrap.firstChild;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+window.avaaJoukkueSyvanakyma = avaaJoukkueSyvanakyma;
+
 
 function renderValmentajat() {
   const grid = document.getElementById('coachGrid');
@@ -3407,7 +3533,7 @@ function renderTeamPulse() {
         ? '<span class="underdog-star">★ ' + underdogCount + ' Underdog</span>'
         : '<span>n=' + bq.n + '</span>';
 
-      return '<div class="tp-card" onclick="avaaJoukkueTrendiModal(\'' + safeNimi + '\',\'' + safeNimi + '\')" style="cursor:pointer">' +
+      return '<div class="tp-card" onclick="avaaJoukkueSyvanakyma(\'' + safeNimi + '\')" style="cursor:pointer">' +
         '<div class="tp-name" style="display:flex;justify-content:space-between;align-items:baseline">' +
           '<span>' + nimi + '</span>' +
           '<span style="font-size:11px;color:' + tVari + ';font-family:var(--font-m)">' + tIkoni + ' ' + tText + '</span>' +
