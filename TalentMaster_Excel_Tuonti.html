@@ -2949,12 +2949,19 @@ async function pdfAsetaPelaaja(idx, pid) {
 function pdfPaivitaTallennusNappi() {
   const nappi = document.getElementById('pdf-tallenna-nappi');
   const status = document.getElementById('pdf-tallenna-status');
-  const n = pdfData.rivit.filter(r => _pdfTallennetaanko(r)).length;
+  // Tallennettavat = löydetyt, EI ohitettavia duplikaatteja (uudet + korvattavat).
+  const tallennettavat = pdfData.rivit.filter(r => _pdfTallennetaanko(r));
+  const n = tallennettavat.length;
+  const korvaaN = tallennettavat.filter(r => r._dup && r._dup.tila === 'duplikaatti' && r._dup.strategia === 'korvaa').length;
+  const uusiN = n - korvaaN;
   const ohitettu = pdfData.rivit.filter(r => r.pelaajaId && !_pdfTallennetaanko(r)).length;
   nappi.disabled = (n === 0);
-  status.textContent = n > 0
-    ? (n + ' tallennetaan' + (ohitettu > 0 ? ' · ' + ohitettu + ' ohitetaan' : ''))
-    : 'Ei tallennettavia (kaikki ohitetaan tai ei yhdistettyjä)';
+  // Nappiteksti: duplikaatit EIVÄT lasketa mukaan ohitettaessa
+  nappi.innerHTML = n > 0 ? ('💾 Tallenna ' + n + ' Firestoreen') : '💾 Ei tallennettavia';
+  const osat = [uusiN + ' uutta'];
+  if (korvaaN > 0) osat.push(korvaaN + ' korvataan');
+  if (ohitettu > 0) osat.push(ohitettu + ' duplikaattia ohitetaan');
+  status.textContent = n > 0 ? osat.join(' · ') : 'Kaikki ohitetaan tai ei yhdistettyjä pelaajia';
 }
 
 async function tallennaPdfFirestoreen() {
