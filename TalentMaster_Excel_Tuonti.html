@@ -2366,8 +2366,10 @@ async function tallennaFirestoreen() {
     // TKI — tekniikkakilpailu (vaatii iän + sukupuolen) — skalaareista
     let tki = null, merkki = null, vahvuus = null, kehityskohde = null;
     if (onTekniikka) {
-      tki = laskeTKIPelaajalle(testitSkalaari, ika, sp);
-      merkki = _tkiMerkki(tki);
+      const spN = (sp === 'M') ? 'P' : (sp === 'N') ? 'T' : sp;
+      const ktE = laskeKokonaistulos(testitSkalaari, ika, spN);
+      tki = (ktE != null) ? tkLaskeTKI(ktE, ika, spN) : null;
+      merkki = tkLaskeMerkki(ktE, ika, spN);   // merkki KOKONAISTULOKSESTA (ei TKI:stä) → yhtenäinen <-rajalogiikka
       const vk = _laskeVahvuudetJaKehityskohteet({ testit: testitSkalaari }, { ika: ika });
       vahvuus = (vk.vahvuudet[0] && vk.vahvuudet[0].laji) || null;
       kehityskohde = (vk.kehityskohteet[0] && vk.kehityskohteet[0].laji) || null;
