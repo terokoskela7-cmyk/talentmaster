@@ -752,16 +752,16 @@ function laskeKokonaistulos(testit, ika, sp) {
   }
   return Math.round(summa * 100) / 100;
 }
-function tkLaskeMerkki(kokonaistulos, ika, sp) {
-  const rajat = (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
+function tkLaskeMerkki(kokonaistulos, ika, sp, rajatOverride) {
+  const rajat = rajatOverride || (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
   if (!rajat || kokonaistulos == null) return null;
   if (kokonaistulos <= rajat.kulta)   return 'kulta';
   if (kokonaistulos <= rajat.hopea)   return 'hopea';
   if (kokonaistulos <= rajat.pronssi) return 'pronssi';
   return null;
 }
-function tkLaskeTKI(kokonaistulos, ika, sp) {
-  const rajat = (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
+function tkLaskeTKI(kokonaistulos, ika, sp, rajatOverride) {
+  const rajat = rajatOverride || (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
   if (!rajat || kokonaistulos == null || kokonaistulos <= 0) return null;
   let tki;
   if (kokonaistulos <= rajat.kulta) {
@@ -2696,6 +2696,8 @@ function parsiPalloliittoPdf(sivut) {
         if (rajat) taulukko.merkkirajat = rajat;
       }
     }
+    // Liitä taulukon merkkirajat jokaiseen riviin → tallennus säilyttää PDF:n omat rajat (recalc käyttää niitä)
+    taulukko.rivit.forEach(r => { r.merkkirajat = taulukko.merkkirajat || null; });
     if (taulukko.rivit.length > 0) taulukot.push(taulukko);
     console.log('OSIO:', osio.ikaluokka, '| rivit:', taulukko.rivit.length, '| alku:', osio.alku, '| loppu:', osio.loppu);
   });
@@ -3091,6 +3093,7 @@ async function tallennaPdfFirestoreen() {
         kokonaistulos_s: r.kokonaistulos_s,
         tki: r.tki,
         merkki: r.merkki,
+        merkkirajat: r.merkkirajat || null,
         testit: testit,
         sukunimi: r.sukunimi,
         etunimi: r.etunimi,
@@ -3173,9 +3176,10 @@ async function _adminLaskeTkiUudelleen() {
                : (d.sukupuoli === 'M' ? 'P' : d.sukupuoli === 'N' ? 'T' : null);
       const ika = il ? parseInt(il.replace(/\D/g, ''), 10) : null;
       if (!sp || !ika) { ohitettu++; return; }
-      const tki = tkLaskeTKI(d.kokonaistulos_s, ika, sp);
+      const rajatOverride = d.merkkirajat || null;  // käytä PDF:ään tallennettuja rajoja jos saatavilla
+      const tki = tkLaskeTKI(d.kokonaistulos_s, ika, sp, rajatOverride);
       if (tki == null) { ohitettu++; return; }
-      const merkki = tkLaskeMerkki(d.kokonaistulos_s, ika, sp);
+      const merkki = tkLaskeMerkki(d.kokonaistulos_s, ika, sp, rajatOverride);
       const vk = _laskeVahvuudetJaKehityskohteet({ testit: d.testit || {} }, { ika: ika });
       const pika = { tki_viimeisin: tki, tki_pvm: d.pvm || d.testauspvm || '' };
       if (merkki) pika.tki_merkki = merkki;
