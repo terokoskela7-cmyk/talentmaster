@@ -2660,9 +2660,12 @@ function parsiPalloliittoPdf(sivut) {
       if (!nyt && jono.length > 0 && sijaOnYksi) {
         nyt = jono.shift();                                   // 1. datarivi → aktivoi jonon ensimmäinen
         console.log('AKTIVOI:', nyt?.ikaluokka, '| sija:', sija);
-      } else if (nyt && sijaOnYksi && edellinenSija !== 1 && jono.length > 0) {
+      } else if (nyt && sijaOnYksi && edellinenSija !== 1 && jono.length > 0 && nyt.rivit.length > 0) {
+        // Vaihda taulukkoa VAIN jos nykyisellä on jo dataa. Muuten sija=1 = nykyisen
+        // (vielä tyhjän) taulukon ENSIMMÄINEN rivi — esim. P12 aktivoituu mutta sen data
+        // tulee vasta P10/P9-otsikoiden jälkeen. Ilman tätä tyhjä P12 hylättäisiin.
         console.log('SIJA-RESET:', 'valmis:', nyt?.ikaluokka, nyt?.rivit?.length, '| seuraava:', jono[0]?.ikaluokka);
-        if (nyt.rivit.length > 0) taulukot.push(nyt);         // sija palasi 1:een → uusi taulukko
+        taulukot.push(nyt);                                   // sija palasi 1:een JA nykyisellä dataa → uusi taulukko
         nyt = jono.shift();
       } else if (nyt && sijaOnYksi && edellinenSija !== 1 && jono.length === 0) {
         console.warn('[PDF] Sija palasi 1:een mutta jono tyhjä — rivit liitetään nykyiseen (' + nyt.ikaluokka + ')');
