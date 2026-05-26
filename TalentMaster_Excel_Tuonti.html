@@ -2538,16 +2538,19 @@ async function kasittelePdfTiedosto(file) {
         y: it.transform ? it.transform[5] : 0
       })));
     }
-    pdfData = { tiedostonimi: file.name, ikaluokka: '', sukupuoli: '', ika: null, merkkirajat: null, rivit: [], valmis: false };
+    pdfData = { tiedostonimi: file.name, ikaluokka: '', sukupuoli: '', ika: null, merkkirajat: null,
+                rivit: [], taulukot: [], pvm: _paivaIso(new Date()), tapahtuma: '', valmis: false };
     parsiPalloliittoPdf(sivut);
     if (pdfData.rivit.length === 0) {
       statusEl.innerHTML = '<span style="color:var(--amber)">Ei tunnistettu pelaajarivejä — tarkista että PDF on Palloliiton vakiomuotoinen tuloste.</span>';
       document.getElementById('pdf-tulos-kortti').style.display = 'none';
       return;
     }
-    statusEl.innerHTML = '<span style="color:var(--green)">Parsittu ' + pdfData.rivit.length + ' riviä'
-      + (pdfData.ikaluokka ? ' · ikäluokka ' + pdfData.ikaluokka : '') + '.</span>';
+    const taulTeksti = pdfData.taulukot.map(t => t.ikaluokka + ' ' + t.rivit.length).join(' · ');
+    statusEl.innerHTML = '<span style="color:var(--green)">Parsittu ' + pdfData.rivit.length + ' riviä · '
+      + pdfData.taulukot.length + ' taulukko' + (pdfData.taulukot.length === 1 ? '' : 'a') + ' (' + taulTeksti + ').</span>';
     await pdfYhdistaPalloIDt();
+    await tarkistaDuplikaatit();
     naytaPdfEsikatselu();
   } catch(e) {
     console.error('[PDF]', e);
@@ -2589,47 +2592,78 @@ function _pdfPoistaSeura(teksti) {
   return t.replace(/\s+/g, ' ').trim();
 }
 
+// Apuri: poimi merkkirajat (3 nousevaa lukua) tekstistä
+function _pdfPoimiRajat(teksti) {
+  const nums = teksti.match(/\b\d{2,3}([.,]\d+)?\b/g);
+  if (nums && nums.length >= 3) {
+    const v = nums.slice(0, 3).map(n => parseFloat(n.replace(',', '.')));
+    if (v[0] < v[1] && v[1] < v[2]) return { kulta: v[0], hopea: v[1], pronssi: v[2] };
+  }
+  return null;
+}
+
+// Monipöytäparsinta: sama PDF voi sisältää useita ikäluokkataulukoita peräkkäin
+// (esim. P12, P10, P9). Jokainen taulukko parsitaan OMALLA ika/sukupuoli-kontekstilla.
 function parsiPalloliittoPdf(sivut) {
-  const dataRivit = [];
-  sivut.forEach(items => {
-    const rivit = _pdfRyhmiteleRiveiksi(items);
-    rivit.forEach(rivi => {
-      const teksti = rivi.cells.map(c => c.str).join(' ').replace(/\s+/g, ' ').trim();
-      if (!teksti) return;
+  // Litistä kaikki rivit yhteen järjestettyyn listaan (sivujärjestys säilyy)
+  const kaikkiRivit = [];
+  sivut.forEach(items => { _pdfRyhmiteleRiveiksi(items).forEach(r => kaikkiRivit.push(r)); });
 
-      // Ikäluokka (P8–P13 / T8–T13)
-      if (!pdfData.ikaluokka) {
-        const ml = teksti.match(/\b([PT])\s?(\d{1,2})\b/);
-        if (ml && +ml[2] >= 8 && +ml[2] <= 13) {
-          pdfData.ikaluokka = ml[1] + ml[2];
-          pdfData.sukupuoli = ml[1];
-          pdfData.ika = +ml[2];
-        }
+  const taulukot = [];
+  let nyt = null;            // nykyinen taulukko
+  let pendingRajat = null;   // rajat ennen ikäluokkariviä → liitetään seuraavaan taulukkoon
+
+  kaikkiRivit.forEach(rivi => {
+    const teksti = rivi.cells.map(c => c.str).join(' ').replace(/\s+/g, ' ').trim();
+    if (!teksti) return;
+
+    // Uusi ikäluokkatunniste (P8–P13 / T8–T13) → uusi taulukko (vain jos eri kuin nykyinen)
+    const ml = teksti.match(/\b([PT])\s?(\d{1,2})\b/);
+    if (ml && +ml[2] >= 8 && +ml[2] <= 13) {
+      const ikaluokka = ml[1] + ml[2];
+      if (!nyt || nyt.ikaluokka !== ikaluokka) {
+        if (nyt && nyt.rivit.length) taulukot.push(nyt);
+        nyt = { ikaluokka: ikaluokka, sukupuoli: ml[1], ika: +ml[2], merkkirajat: pendingRajat, rivit: [] };
+        pendingRajat = null;
+        // Rajat voivat olla samalla rivillä (esim. "… P12 80 90 105")
+        if (!nyt.merkkirajat) nyt.merkkirajat = _pdfPoimiRajat(teksti);
       }
-      // Merkkirajat (3 peräkkäistä lukua, esim. "80 90 105")
-      if (!pdfData.merkkirajat && /raja|kulta|merkki|hopea|pronssi/i.test(teksti)) {
-        const nums = teksti.match(/\b\d{2,3}([.,]\d+)?\b/g);
-        if (nums && nums.length >= 3) {
-          const v = nums.slice(0, 3).map(n => parseFloat(n.replace(',', '.')));
-          if (v[0] < v[1] && v[1] < v[2]) pdfData.merkkirajat = { kulta: v[0], hopea: v[1], pronssi: v[2] };
-        }
-      }
+      return; // ikäluokkarivi ei ole datariviä
+    }
 
-      // Datarivi: alkaa sijoitusnumerolla tai viivalla (otsikkorivi "Sija Nimi…" alkaa kirjaimella → ohitetaan)
-      if (/^\s*([0-9]+|[-–])[\s,.]/.test(teksti)) dataRivit.push(rivi);
-    });
-  });
+    // Merkkirajat-rivi (avainsanalla) — liitä nykyiseen tai puskuroi seuraavalle taulukolle
+    if (/raja|kulta|merkki|hopea|pronssi/i.test(teksti) && !/^\s*([0-9]+|[-–])[\s,.]/.test(teksti)) {
+      const r = _pdfPoimiRajat(teksti);
+      if (r) { if (nyt && !nyt.merkkirajat) nyt.merkkirajat = r; else pendingRajat = r; }
+    }
 
-  dataRivit.forEach(rivi => {
-    const p = _pdfParsiPelaajarivi(rivi);
-    if (p) pdfData.rivit.push(p);
+    // Datarivi: alkaa sijoitusnumerolla tai viivalla (otsikkorivi "Sija Nimi…" alkaa kirjaimella)
+    if (nyt && /^\s*([0-9]+|[-–])[\s,.]/.test(teksti)) {
+      const p = _pdfParsiPelaajarivi(rivi, nyt);
+      if (p) nyt.rivit.push(p);
+    }
   });
+  if (nyt && nyt.rivit.length) taulukot.push(nyt);
+
+  pdfData.taulukot = taulukot;
+  // Litteä yhdiste (taaksepäin-yhteensopivuus esikatselulle/yhdistykselle/tallennukselle)
+  pdfData.rivit = [];
+  taulukot.forEach(t => t.rivit.forEach(r => pdfData.rivit.push(r)));
+  // Meta: yksi taulukko → suora konteksti; monta → yhdistelmä
+  if (taulukot.length === 1) {
+    pdfData.ikaluokka = taulukot[0].ikaluokka; pdfData.ika = taulukot[0].ika;
+    pdfData.sukupuoli = taulukot[0].sukupuoli; pdfData.merkkirajat = taulukot[0].merkkirajat;
+  } else if (taulukot.length > 1) {
+    pdfData.ikaluokka = taulukot.map(t => t.ikaluokka).join(', ');
+    pdfData.ika = null; pdfData.sukupuoli = ''; pdfData.merkkirajat = null;
+  }
   pdfData.valmis = true;
 }
 
 // Positiopohjainen rivinparsinta (BUGI 1/2/3): sija → nimi (seura poistettu) → numeroketju
 // lukumäärän mukaan. EI x-lähikartoitusta (joka konkatenoi sarakkeet) eikä numerofuusiota.
-function _pdfParsiPelaajarivi(rivi) {
+function _pdfParsiPelaajarivi(rivi, ctx) {
+  ctx = ctx || { ikaluokka: pdfData.ikaluokka, ika: pdfData.ika, sukupuoli: pdfData.sukupuoli };
   const cells = rivi.cells;
   if (!cells || cells.length < 3) return null;
   // Koko rivi tekstinä (solut jo x-järjestyksessä)
@@ -2672,8 +2706,8 @@ function _pdfParsiPelaajarivi(rivi) {
   // BUGI 2/3: kartoita lukumäärän mukaan. lopputulos = VIIMEINEN numeerinen arvo.
   // P12-P13 (≥10): KL_aika, KL_vah, KL_tulos, syotto, pujottelu, pp_o, pp_v, pp_bonus, ponnauttelu, lopputulos
   // P9-P11 (7):    KL_aika, KL_vah, KL_tulos, syotto, pujottelu, ponnauttelu, lopputulos
-  const onU12 = (pdfData.ika != null && pdfData.ika >= 12 && n >= 10);
-  const arvot = { sukunimi: sukunimi, etunimi: etunimi, syntymaVuosi: syntymaVuosi };
+  const onU12 = (ctx.ika != null && ctx.ika >= 12 && n >= 10);
+  const arvot = { sukunimi: sukunimi, etunimi: etunimi, syntymaVuosi: syntymaVuosi, ikaluokka: ctx.ikaluokka };
   arvot.lopputulos = nums[n - 1];
   arvot.kl_aika = nums[0]; arvot.kl_vahennys = nums[1]; arvot.kuljetus_laukaus_s = nums[2];
   arvot.syotto_s = nums[3]; arvot.pujottelu_s = nums[4];
@@ -2683,10 +2717,11 @@ function _pdfParsiPelaajarivi(rivi) {
   } else {
     arvot.ponnauttelu_s = nums[5];
   }
-  return _pdfRakennaPelaaja(arvot);
+  return _pdfRakennaPelaaja(arvot, ctx);
 }
 
-function _pdfRakennaPelaaja(arvot) {
+function _pdfRakennaPelaaja(arvot, ctx) {
+  ctx = ctx || { ikaluokka: arvot.ikaluokka || pdfData.ikaluokka, ika: pdfData.ika, sukupuoli: pdfData.sukupuoli };
   // EI [^\d.\-]-fuusiota (BUGI 2): per-arvo-parsinta. Numerot tulevat jo numeroina.
   const numTai = (s) => {
     if (s == null) return null;
@@ -2726,19 +2761,22 @@ function _pdfRakennaPelaaja(arvot) {
       lopputulos = Math.round(lopputulos * 100) / 100;
     }
   }
+  // TKI/merkki taulukon OMALLA ika/sukupuoli-kontekstilla (rajat = TK_KOKONAISRAJAT[ika], joka
+  // täsmää PDF:n merkkirajoihin: P12 80/90/105, P10 100/120/140, P9 85/100/115).
   let tki = null, merkki = null;
-  if (lopputulos != null && pdfData.ika && pdfData.sukupuoli) {
-    tki = tkLaskeTKI(lopputulos, pdfData.ika, pdfData.sukupuoli);
-    merkki = tkLaskeMerkki(lopputulos, pdfData.ika, pdfData.sukupuoli);
+  if (lopputulos != null && ctx.ika && ctx.sukupuoli) {
+    tki = tkLaskeTKI(lopputulos, ctx.ika, ctx.sukupuoli);
+    merkki = tkLaskeMerkki(lopputulos, ctx.ika, ctx.sukupuoli);
   }
   return {
     sukunimi: sukunimi, etunimi: etunimi, syntymaVuosi: syntymaVuosi,
+    ikaluokka: ctx.ikaluokka || arvot.ikaluokka || '', ika: ctx.ika, sukupuoli: ctx.sukupuoli,
     kl_aika: kl_aika, kl_vah: kl_vah, kuljetus_laukaus_s: kl_tulos,
     syotto_s: syotto, pujottelu_s: pujottelu, ponnauttelu_s: ponnauttelu,
     pituuspotku_bonus_s: pituusBonus,
     kokonaistulos_s: lopputulos,
     tki: tki, merkki: merkki,
-    osumat: [], pelaajaId: null, _firestoreData: null, tila: 'pending'
+    osumat: [], pelaajaId: null, _firestoreData: null, tila: 'pending', _dup: null
   };
 }
 
@@ -2760,6 +2798,57 @@ async function pdfYhdistaPalloIDt() {
   }));
 }
 
+// Valittu kilpailupäivä (input → pdfData.pvm → tänään)
+function _pdfValittuPvm() {
+  const el = document.getElementById('pdf-pvm');
+  if (el && el.value) return el.value;
+  return pdfData.pvm || _paivaIso(new Date());
+}
+function _pdfDocKey(pvmIso, ikaluokka) { return pvmIso + '_tekniikkakilpailu_' + (ikaluokka || ''); }
+
+// Duplikaattitarkistus — VASTA PalloID-yhdistämisen jälkeen. Vain löydetyille (pelaajaId).
+// Promise.all rinnakkain (ei N peräkkäistä pyyntöä). 🟡 = sama pvm + ikäluokka jo tallennettu.
+async function tarkistaDuplikaatit() {
+  pdfData.rivit.forEach(r => { r._dup = r.pelaajaId ? { tila: 'uusi', strategia: null, vanhaTulos: null } : null; });
+  if (!seuraId) return;
+  const pvmIso = _pdfValittuPvm();
+  const loydetyt = pdfData.rivit.filter(r => r.pelaajaId);
+  const tulokset = await Promise.all(loydetyt.map(r => {
+    const docKey = _pdfDocKey(pvmIso, r.ikaluokka);
+    return db.collection('seurat').doc(seuraId).collection('pelaajat').doc(r.pelaajaId)
+      .collection('testitulokset').doc(docKey).get()
+      .then(snap => ({ r: r, exists: snap.exists, data: snap.exists ? snap.data() : null }))
+      .catch(() => ({ r: r, exists: false, data: null }));
+  }));
+  tulokset.forEach(t => {
+    if (t.exists) {
+      t.r._dup = {
+        tila: 'duplikaatti',
+        strategia: (t.r._dup && t.r._dup.strategia) || 'ohita', // säilytä käyttäjän valinta
+        vanhaTulos: (t.data && t.data.kokonaistulos_s != null) ? t.data.kokonaistulos_s : null
+      };
+    }
+  });
+}
+
+// Kilpailupäivän muutos → tarkista duplikaatit uudelleen + päivitä esikatselu
+async function pdfPvmMuutos(arvo) {
+  pdfData.pvm = arvo || _pdfValittuPvm();
+  await tarkistaDuplikaatit();
+  naytaPdfEsikatselu();
+}
+// Duplikaatin tallennusstrategia (ohita/korvaa)
+function pdfDupStrategia(idx, strategia) {
+  const r = pdfData.rivit[idx];
+  if (r && r._dup) { r._dup.strategia = strategia; naytaPdfEsikatselu(); }
+}
+// Tallennetaanko rivi? (löydetty JA ei (duplikaatti+ohita))
+function _pdfTallennetaanko(r) {
+  if (!r.pelaajaId) return false;
+  if (r._dup && r._dup.tila === 'duplikaatti' && r._dup.strategia === 'ohita') return false;
+  return true;
+}
+
 function _pdfNum(v) { return (v == null || isNaN(v)) ? '—' : v; }
 
 function naytaPdfEsikatselu() {
@@ -2767,6 +2856,10 @@ function naytaPdfEsikatselu() {
   const loytyy = pdfData.rivit.filter(r => r.tila === 'loytyy').length;
   const monta = pdfData.rivit.filter(r => r.tila === 'monta').length;
   const eiloydy = pdfData.rivit.filter(r => r.tila === 'ei_loydy').length;
+  const found = pdfData.rivit.filter(r => r.pelaajaId);
+  const dupN = found.filter(r => r._dup && r._dup.tila === 'duplikaatti').length;
+  const ohitetaanN = found.filter(r => r._dup && r._dup.tila === 'duplikaatti' && r._dup.strategia === 'ohita').length;
+  const uusiN = found.length - dupN;
 
   // Meta + ryhmät
   let mh = '<div class="palloid-ryhmat">';
@@ -2774,24 +2867,25 @@ function naytaPdfEsikatselu() {
   mh += '<div class="palloid-ryhma warn"><div class="palloid-ryhma-count">' + monta + '</div><div class="palloid-ryhma-label">⚠ Monta osumaa — valitse</div></div>';
   mh += '<div class="palloid-ryhma err"><div class="palloid-ryhma-count">' + eiloydy + '</div><div class="palloid-ryhma-label">❌ Ei löydy TalentMasterista</div></div>';
   mh += '</div>';
+  const taulY = pdfData.taulukot.map(t => t.ikaluokka + ' ' + t.rivit.length).join(' · ');
   mh += '<div style="margin-top:10px;font-size:12px;color:var(--text2);">Tiedosto: <code>' + escapeHtml(pdfData.tiedostonimi) + '</code>';
-  if (pdfData.ikaluokka) mh += ' · Ikäluokka: <strong>' + pdfData.ikaluokka + '</strong>';
-  if (pdfData.merkkirajat) mh += ' · Merkkirajat: ' + pdfData.merkkirajat.kulta + ' / ' + pdfData.merkkirajat.hopea + ' / ' + pdfData.merkkirajat.pronssi + ' s';
+  if (pdfData.taulukot.length) mh += ' · Taulukot: <strong>' + escapeHtml(taulY) + '</strong>';
   mh += '</div>';
-  const tanaan = _paivaIso(new Date());
+  // Tallennusyhteenveto (duplikaatit)
+  mh += '<div style="margin-top:8px;font-size:13px;font-weight:600;">' + uusiN + ' uutta · ' + dupN + ' duplikaattia (' + ohitetaanN + ' ohitetaan)</div>';
+  const pvmArvo = pdfData.pvm || _paivaIso(new Date());
   mh += '<div style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">';
-  mh += '  <label style="font-size:12px;color:var(--text2);display:block;">Tapahtuman nimi<br><input id="pdf-tapahtuma-nimi" type="text" placeholder="esim. Eteläinen aluetaitokilpailu" style="margin-top:4px;min-width:240px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;"></label>';
-  mh += '  <label style="font-size:12px;color:var(--text2);display:block;">Kilpailupäivä<br><input id="pdf-pvm" type="date" value="' + tanaan + '" style="margin-top:4px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;"></label>';
+  mh += '  <label style="font-size:12px;color:var(--text2);display:block;">Tapahtuman nimi<br><input id="pdf-tapahtuma-nimi" type="text" value="' + escapeHtml(pdfData.tapahtuma || '') + '" placeholder="esim. Eteläinen aluetaitokilpailu" oninput="pdfData.tapahtuma=this.value" style="margin-top:4px;min-width:240px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;"></label>';
+  mh += '  <label style="font-size:12px;color:var(--text2);display:block;">Kilpailupäivä<br><input id="pdf-pvm" type="date" value="' + pvmArvo + '" onchange="pdfPvmMuutos(this.value)" style="margin-top:4px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;"></label>';
   mh += '</div>';
+  mh += '<div style="margin-top:6px;font-size:11px;color:var(--text3);">Duplikaatti = sama pelaaja, sama päivä + ikäluokka jo tallennettu. Päivämäärän muutos tarkistaa uudelleen.</div>';
   document.getElementById('pdf-meta').innerHTML = mh;
 
-  // Taulukko
-  const onU12 = pdfData.ika && pdfData.ika >= 12;
+  // Taulukko — Pituus⁺ aina mukana (sekoittuneet ikäluokat); Ikäluokka- ja Tallennus-sarakkeet
   let h = '<table><thead><tr>';
-  h += '<th>Tila</th><th class="col-player">Pelaaja</th><th>Synt.</th><th>PalloID</th>';
-  h += '<th title="Kuljetus-laukaus (tulos)">KL</th><th>Syöttö</th><th>Pujottelu</th>';
-  if (onU12) h += '<th title="Pituuspotku-bonus">Pituus⁺</th>';
-  h += '<th>Ponnauttelu</th><th>Lopputulos</th><th>TKI</th><th>Merkki</th></tr></thead><tbody>';
+  h += '<th>PalloID</th><th class="col-player">Pelaaja</th><th>Ikäl.</th><th>Synt.</th><th>Tunniste</th>';
+  h += '<th title="Kuljetus-laukaus (tulos)">KL</th><th>Syöttö</th><th>Pujottelu</th><th title="Pituuspotku-bonus">Pituus⁺</th>';
+  h += '<th>Ponnauttelu</th><th>Lopputulos</th><th>TKI</th><th>Merkki</th><th>Tallennus</th></tr></thead><tbody>';
 
   pdfData.rivit.forEach((r, idx) => {
     let tilaSolu, palloSolu, rowClass = '';
@@ -2807,19 +2901,32 @@ function naytaPdfEsikatselu() {
       palloSolu = '<select onchange="pdfAsetaPelaaja(' + idx + ', this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:inherit;font-size:11px;padding:3px 5px;">' + opts + '</select>';
     } else { tilaSolu = '<span class="cell-err">❌</span>'; palloSolu = '<span style="color:var(--text3);">ei löydy</span>'; }
 
+    // Tallennus-tila (duplikaatti)
+    let dupSolu;
+    if (!r.pelaajaId) { dupSolu = '<span style="color:var(--text3);">—</span>'; }
+    else if (r._dup && r._dup.tila === 'duplikaatti') {
+      const vanha = r._dup.vanhaTulos != null ? r._dup.vanhaTulos : '?';
+      const sel = '<select onchange="pdfDupStrategia(' + idx + ', this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:inherit;font-size:11px;padding:2px 4px;">' +
+        '<option value="ohita"' + (r._dup.strategia === 'ohita' ? ' selected' : '') + '>Ohita</option>' +
+        '<option value="korvaa"' + (r._dup.strategia === 'korvaa' ? ' selected' : '') + '>Korvaa</option></select>';
+      dupSolu = '<span class="cell-warn" title="Tallennettu: ' + vanha + 's · Uusi: ' + _pdfNum(r.kokonaistulos_s) + 's">🟡</span> ' + sel;
+    } else { dupSolu = '<span class="cell-ok">🟢 Uusi</span>'; }
+
     h += '<tr>';
     h += '<td>' + tilaSolu + '</td>';
     h += '<td class="col-player ' + rowClass + '">' + escapeHtml((r.sukunimi || '?') + ', ' + (r.etunimi || '?')) + '</td>';
+    h += '<td>' + escapeHtml(r.ikaluokka || '—') + '</td>';
     h += '<td>' + (r.syntymaVuosi || '—') + '</td>';
     h += '<td>' + palloSolu + '</td>';
     h += '<td>' + _pdfNum(r.kuljetus_laukaus_s) + '</td>';
     h += '<td>' + _pdfNum(r.syotto_s) + '</td>';
     h += '<td>' + _pdfNum(r.pujottelu_s) + '</td>';
-    if (onU12) h += '<td>' + _pdfNum(r.pituuspotku_bonus_s) + '</td>';
+    h += '<td>' + _pdfNum(r.pituuspotku_bonus_s) + '</td>';
     h += '<td>' + _pdfNum(r.ponnauttelu_s) + '</td>';
     h += '<td><strong>' + _pdfNum(r.kokonaistulos_s) + '</strong></td>';
     h += '<td>' + (r.tki != null ? r.tki : '—') + '</td>';
     h += '<td>' + (r.merkki || '—') + '</td>';
+    h += '<td>' + dupSolu + '</td>';
     h += '</tr>';
   });
   h += '</tbody></table>';
@@ -2828,34 +2935,38 @@ function naytaPdfEsikatselu() {
   pdfPaivitaTallennusNappi();
 }
 
-function pdfAsetaPelaaja(idx, pid) {
+async function pdfAsetaPelaaja(idx, pid) {
   const r = pdfData.rivit[idx];
   if (!r) return;
   r.pelaajaId = pid || null;
   const o = r.osumat.find(x => x.id === pid);
   r._firestoreData = o ? o.data : null;
-  pdfPaivitaTallennusNappi();
+  // Uusi yhdistys → tarkista duplikaatit uudelleen (uudelle pelaajalle)
+  await tarkistaDuplikaatit();
+  naytaPdfEsikatselu();
 }
 
 function pdfPaivitaTallennusNappi() {
   const nappi = document.getElementById('pdf-tallenna-nappi');
   const status = document.getElementById('pdf-tallenna-status');
-  const n = pdfData.rivit.filter(r => r.pelaajaId).length;
+  const n = pdfData.rivit.filter(r => _pdfTallennetaanko(r)).length;
+  const ohitettu = pdfData.rivit.filter(r => r.pelaajaId && !_pdfTallennetaanko(r)).length;
   nappi.disabled = (n === 0);
-  status.textContent = n > 0 ? (n + ' pelaajaa valmiina tallennukseen') : 'Ei yhdistettyjä pelaajia';
+  status.textContent = n > 0
+    ? (n + ' tallennetaan' + (ohitettu > 0 ? ' · ' + ohitettu + ' ohitetaan' : ''))
+    : 'Ei tallennettavia (kaikki ohitetaan tai ei yhdistettyjä)';
 }
 
 async function tallennaPdfFirestoreen() {
   if (!seuraId) { toast('Seuraa ei valittu', 'err'); return; }
   if (!kayttaja) { toast('Kirjaudu ensin sisään', 'err'); return; }
-  const tallennettavat = pdfData.rivit.filter(r => r.pelaajaId);
-  if (!tallennettavat.length) { toast('Ei yhdistettyjä pelaajia tallennettavaksi', 'err'); return; }
+  // Tallennetaan vain löydetyt JOTKA EIVÄT ole ohitettavia duplikaatteja
+  const tallennettavat = pdfData.rivit.filter(r => _pdfTallennetaanko(r));
+  if (!tallennettavat.length) { toast('Ei tallennettavia (kaikki ohitetaan tai ei yhdistettyjä)', 'err'); return; }
 
-  const tapahtumaNimi = (document.getElementById('pdf-tapahtuma-nimi') || {}).value || '';
-  const pvmInput = document.getElementById('pdf-pvm');
-  const pvmIso = (pvmInput && pvmInput.value) ? pvmInput.value : _paivaIso(new Date());
+  const tapahtumaNimi = (document.getElementById('pdf-tapahtuma-nimi') || {}).value || pdfData.tapahtuma || '';
+  const pvmIso = _pdfValittuPvm();
   const NYT_ISO = new Date().toISOString();
-  const sp = pdfData.sukupuoli === 'P' ? 'M' : pdfData.sukupuoli === 'T' ? 'N' : '';
 
   const nappi = document.getElementById('pdf-tallenna-nappi');
   const prog = document.getElementById('pdf-progress');
@@ -2881,11 +2992,12 @@ async function tallennaPdfFirestoreen() {
         testit.pituuspotku = { aikabonus_s: r.pituuspotku_bonus_s, metrit: metrit, paras_m: metrit };
       }
 
+      const spRivi = r.sukupuoli === 'P' ? 'M' : r.sukupuoli === 'T' ? 'N' : '';
       // Litteät kentät (yhteensopivuus vanhemman koodin kanssa)
       const data = {
         protokolla: 'tekniikkakilpailu',
         pvm: pvmIso,
-        ikaluokka: pdfData.ikaluokka || '',
+        ikaluokka: r.ikaluokka || '',
         syotto_s: r.syotto_s,
         pujottelu_s: r.pujottelu_s,
         kuljetus_laukaus_s: r.kuljetus_laukaus_s,
@@ -2897,7 +3009,7 @@ async function tallennaPdfFirestoreen() {
         testit: testit,
         sukunimi: r.sukunimi,
         etunimi: r.etunimi,
-        sukupuoli: sp,
+        sukupuoli: spRivi,
         kausi: '',
         testauspvm: pvmIso,
         lahde: 'palloliitto_pdf',
@@ -2908,7 +3020,7 @@ async function tallennaPdfFirestoreen() {
         tuojaUid: kayttaja.uid
       };
       const ref = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(docId)
-        .collection('testitulokset').doc(pvmIso + '_tekniikkakilpailu');
+        .collection('testitulokset').doc(_pdfDocKey(pvmIso, r.ikaluokka));
       batch.set(ref, data, { merge: true });
 
       // Pikakentät pelaajadokumenttiin
@@ -2917,7 +3029,7 @@ async function tallennaPdfFirestoreen() {
         const vk = _laskeVahvuudetJaKehityskohteet({ testit: {
           ponnauttelu: r.ponnauttelu_s, syotto: r.syotto_s,
           pujottelu: r.pujottelu_s, kuljetus_laukaus: r.kuljetus_laukaus_s
-        } }, { ika: pdfData.ika });
+        } }, { ika: r.ika });
         const pika = { tki_viimeisin: r.tki, tki_pvm: pvmIso };
         if (r.merkki) pika.tki_merkki = r.merkki;
         if (vk.vahvuudet[0]) pika.tki_vahvuus = vk.vahvuudet[0].laji;
