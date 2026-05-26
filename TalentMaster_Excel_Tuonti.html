@@ -2884,10 +2884,18 @@ async function pdfPvmMuutos(arvo) {
   await tarkistaDuplikaatit();
   naytaPdfEsikatselu();
 }
-// Duplikaatin tallennusstrategia (ohita/korvaa)
+// Duplikaatin tallennusstrategia (ohita/korvaa) — suora asetus (säilytetty yhteensopivuus)
 function pdfDupStrategia(idx, strategia) {
   const r = pdfData.rivit[idx];
   if (r && r._dup) { r._dup.strategia = strategia; naytaPdfEsikatselu(); }
+}
+// Duplikaatin ohita/korvaa -toggle (oletus ohita → korvaa → ohita). Esikatselun nappi käyttää tätä.
+function pdfDupToggle(idx) {
+  const r = pdfData.rivit[idx];
+  if (r && r._dup) {
+    r._dup.strategia = (r._dup.strategia === 'korvaa') ? 'ohita' : 'korvaa';
+    naytaPdfEsikatselu();
+  }
 }
 // Tallennetaanko rivi? (löydetty JA ei (duplikaatti+ohita))
 function _pdfTallennetaanko(r) {
@@ -2953,10 +2961,21 @@ function naytaPdfEsikatselu() {
     if (!r.pelaajaId) { dupSolu = '<span style="color:var(--text3);">—</span>'; }
     else if (r._dup && r._dup.tila === 'duplikaatti') {
       const vanha = r._dup.vanhaTulos != null ? r._dup.vanhaTulos : '?';
-      const sel = '<select onchange="pdfDupStrategia(' + idx + ', this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:inherit;font-size:11px;padding:2px 4px;">' +
-        '<option value="ohita"' + (r._dup.strategia === 'ohita' ? ' selected' : '') + '>Ohita</option>' +
-        '<option value="korvaa"' + (r._dup.strategia === 'korvaa' ? ' selected' : '') + '>Korvaa</option></select>';
-      dupSolu = '<span class="cell-warn" title="Tallennettu: ' + vanha + 's · Uusi: ' + _pdfNum(r.kokonaistulos_s) + 's">🟡</span> ' + sel;
+      const tip = 'Tallennettu: ' + vanha + 's · Uusi: ' + _pdfNum(r.kokonaistulos_s) + 's';
+      const korvataan = r._dup.strategia === 'korvaa';
+      // Toggle-nappi: oletus ohita (🟡), klikkaus → korvaa (🟢) joka ylikirjoittaa vanhan;
+      // napin teksti vaihtuu tilan mukaan (Korvaa ↔ Ohita).
+      const tila = korvataan
+        ? '<span class="cell-ok" title="' + tip + '">🟢 Korvataan</span>'
+        : '<span class="cell-warn" title="' + tip + '">🟡 Ohitetaan</span>';
+      const nappiTyyli = korvataan
+        ? 'background:var(--bg3);border:1px solid var(--border);color:var(--text2);'
+        : 'background:var(--green);border:1px solid var(--green);color:#fff;';
+      const nappi = '<button onclick="pdfDupToggle(' + idx + ')" title="' +
+        (korvataan ? 'Palauta: ohita tämä rivi' : 'Korvaa vanha tulos tällä') +
+        '" style="' + nappiTyyli + 'border-radius:5px;font-family:inherit;font-size:11px;font-weight:600;padding:3px 11px;cursor:pointer;margin-left:8px;">' +
+        (korvataan ? 'Ohita' : 'Korvaa') + '</button>';
+      dupSolu = tila + nappi;
     } else { dupSolu = '<span class="cell-ok">🟢 Uusi</span>'; }
 
     h += '<tr>';
