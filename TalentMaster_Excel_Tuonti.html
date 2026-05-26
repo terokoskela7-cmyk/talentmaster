@@ -2627,13 +2627,18 @@ function parsiPalloliittoPdf(sivut) {
     if (ml && +ml[2] >= 8 && +ml[2] <= 13) {
       const ikaluokka = ml[1] + ml[2];
       console.log('IKÄLUOKKA:', ikaluokka, '| rivi:', teksti.slice(0, 60)); // DEBUG 1
-      if (!nyt || nyt.ikaluokka !== ikaluokka) {
-        if (nyt && nyt.rivit.length) { console.log('TAULUKKO VALMIS:', nyt.ikaluokka, nyt.rivit.length, 'pelaajaa'); taulukot.push(nyt); } // DEBUG 2
-        nyt = { ikaluokka: ikaluokka, sukupuoli: ml[1], ika: +ml[2], merkkirajat: pendingRajat, rivit: [] };
-        pendingRajat = null;
-        // Rajat voivat olla samalla rivillä (esim. "… P12 80 90 105")
-        if (!nyt.merkkirajat) nyt.merkkirajat = _pdfPoimiRajat(teksti);
-      }
+      // KORJAUS 2: sama ikäluokka kuin nykyinen → duplikaatti-/väliotsikko, älä vaihda
+      if (nyt && nyt.ikaluokka === ikaluokka) return;
+      // KORJAUS 1+2: nykyinen taulukko vielä TYHJÄ → tämä on tyhjä väliotsikko (esim.
+      //   sivunvaihto-P9 joka muuten keskeyttäisi vasta-aloitetun P12:n ennen sen rivejä).
+      //   Älä vaihda pois nykyisestä eikä työnnä tyhjää — säilytä nykyinen.
+      if (nyt && nyt.rivit.length === 0) { console.log('OHITETAAN TYHJÄ VÄLIOTSIKKO:', ikaluokka, '— nykyinen', nyt.ikaluokka, 'vielä tyhjä'); return; }
+      // Nykyinen ei-tyhjä → valmis. Työnnä ja aloita uusi taulukko.
+      if (nyt && nyt.rivit.length) { console.log('TAULUKKO VALMIS:', nyt.ikaluokka, nyt.rivit.length, 'pelaajaa'); taulukot.push(nyt); } // DEBUG 2
+      nyt = { ikaluokka: ikaluokka, sukupuoli: ml[1], ika: +ml[2], merkkirajat: pendingRajat, rivit: [] };
+      pendingRajat = null;
+      // Rajat voivat olla samalla rivillä (esim. "… P12 80 90 105")
+      if (!nyt.merkkirajat) nyt.merkkirajat = _pdfPoimiRajat(teksti);
       return; // ikäluokkarivi ei ole datariviä
     }
 
