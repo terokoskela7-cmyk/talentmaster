@@ -755,9 +755,9 @@ function laskeKokonaistulos(testit, ika, sp) {
 function tkLaskeMerkki(kokonaistulos, ika, sp, rajatOverride) {
   const rajat = rajatOverride || (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
   if (!rajat || kokonaistulos == null) return null;
-  if (kokonaistulos <= rajat.kulta)   return 'kulta';
-  if (kokonaistulos <= rajat.hopea)   return 'hopea';
-  if (kokonaistulos <= rajat.pronssi) return 'pronssi';
+  if (kokonaistulos < rajat.kulta)   return 'kulta';
+  if (kokonaistulos < rajat.hopea)   return 'hopea';
+  if (kokonaistulos < rajat.pronssi) return 'pronssi';
   return null;
 }
 function tkLaskeTKI(kokonaistulos, ika, sp, rajatOverride) {
@@ -3216,6 +3216,44 @@ async function _adminLaskeTkiUudelleen() {
     if (btn) { btn.disabled = false; btn.textContent = '↻ Laske TKI uudelleen'; }
   }
 }
+
+// ════════════════════════════════════════
+// SA-KONSOLITYÖKALU — siivoa bugiset testitulokset
+// Poistaa testitulos-dokumentit joissa kokonaistulos_s < maxKokonais annetusta ikäluokasta.
+// Käyttö konsolista SA:na:
+//   siivoaBugisetTulokset('sibbovargarna','P12',60)        → DRY-RUN (oletus, ei poista)
+//   siivoaBugisetTulokset('sibbovargarna','P12',60,false)  → POISTAA
+// ════════════════════════════════════════
+window.siivoaBugisetTulokset = async function(seuraId, ikaluokka, maxKokonais, dryRun) {
+  if (dryRun === undefined) dryRun = true;   // turvallinen oletus
+  if (!superAdmin) { console.warn('[siivoa] Vain Super Admin'); return; }
+  if (!seuraId || !ikaluokka || maxKokonais == null) {
+    console.warn('[siivoa] Käyttö: siivoaBugisetTulokset(seuraId, ikaluokka, maxKokonais, dryRun=true)'); return;
+  }
+  const pel = await db.collection('seurat').doc(seuraId).collection('pelaajat').get();
+  let osumat = 0, poistettu = 0;
+  for (const doc of pel.docs) {
+    const tulokset = await db.collection('seurat').doc(seuraId)
+      .collection('pelaajat').doc(doc.id).collection('testitulokset')
+      .where('ikaluokka', '==', ikaluokka).get();
+    for (const t of tulokset.docs) {
+      const k = t.data().kokonaistulos_s;
+      if (k != null && k < maxKokonais) {
+        osumat++;
+        const nimi = (doc.data().sukunimi || '?') + ', ' + (doc.data().etunimi || '?');
+        if (dryRun) {
+          console.log('[DRY] poistuisi:', nimi, '|', t.id, '| kokonaistulos:', k);
+        } else {
+          await t.ref.delete();
+          poistettu++;
+          console.log('[POISTETTU]', nimi, '|', t.id, '| kokonaistulos:', k);
+        }
+      }
+    }
+  }
+  if (dryRun) console.log('[siivoa] DRY-RUN valmis — poistuisi ' + osumat + ' dokumenttia (kokonaistulos_s < ' + maxKokonais + '). Aja dryRun=false poistaaksesi.');
+  else        console.log('[siivoa] Valmis — poistettu ' + poistettu + '/' + osumat + ' dokumenttia.');
+};
 
 // ════════════════════════════════════════
 // VERSIO + CDN-STALENESS-VAROITUS
