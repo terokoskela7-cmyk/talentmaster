@@ -2752,6 +2752,10 @@ function _pdfParsiPelaajarivi(rivi, ctx) {
     if (onES(t))    { nums.push(null); i++; continue; }
     if (onVuosi(t)) { i++; continue; }                       // ylimääräinen vuosi → ohita
     if (onLuku(t))  { nums.push(parseFloat(t.replace(',', '.'))); i++; continue; }
+    // Pituuspotku O+V -yhdistelmäsolu "18+26" (P12) → kaksi arvoa (pp_o + pp_v).
+    // Ilman tätä onLuku ei matchaa → loop pysähtyy → n jää vajaaksi (esim. 5 eikä 10).
+    const plus = t.match(/^(\d+(?:[.,]\d+)?)\+(\d+(?:[.,]\d+)?)$/);
+    if (plus) { nums.push(parseFloat(plus[1].replace(',', '.'))); nums.push(parseFloat(plus[2].replace(',', '.'))); i++; continue; }
     break;                                                   // merkki (kulta/hopea/pronssi) → lopeta
   }
 
