@@ -2636,6 +2636,7 @@ function parsiPalloliittoPdf(sivut) {
         jono.push({ ikaluokka: ikaluokka, sukupuoli: ml[1], ika: +ml[2],
           merkkirajat: pendingRajat || _pdfPoimiRajat(teksti), rivit: [] });
         pendingRajat = null;
+        console.log('JONO+:', ikaluokka, '| jono nyt:', jono.map(t=>t.ikaluokka));
       }
       return; // ikäluokkarivi ei ole datariviä
     }
@@ -2658,7 +2659,9 @@ function parsiPalloliittoPdf(sivut) {
 
       if (!nyt && jono.length > 0 && sijaOnYksi) {
         nyt = jono.shift();                                   // 1. datarivi → aktivoi jonon ensimmäinen
+        console.log('AKTIVOI:', nyt?.ikaluokka, '| sija:', sija);
       } else if (nyt && sijaOnYksi && edellinenSija !== 1 && jono.length > 0) {
+        console.log('SIJA-RESET:', 'valmis:', nyt?.ikaluokka, nyt?.rivit?.length, '| seuraava:', jono[0]?.ikaluokka);
         if (nyt.rivit.length > 0) taulukot.push(nyt);         // sija palasi 1:een → uusi taulukko
         nyt = jono.shift();
       } else if (nyt && sijaOnYksi && edellinenSija !== 1 && jono.length === 0) {
@@ -2669,6 +2672,8 @@ function parsiPalloliittoPdf(sivut) {
         const p = _pdfParsiPelaajarivi(rivi, nyt);
         if (p) nyt.rivit.push(p);
         edellinenSija = sija; // myös viiva (null) → seuraava sija-1 tunnistaa rajan
+      } else {
+        console.log('OHITETTU:', teksti.slice(0,40));
       }
     }
   });
