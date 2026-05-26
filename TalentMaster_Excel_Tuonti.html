@@ -1344,6 +1344,18 @@ async function lataaKayttajatiedot(u) {
           };
           const logout = topbar.querySelector('.topbar-logout');
           topbar.insertBefore(sel, logout);
+          // Admin: "Laske TKI uudelleen" -nappi (vain Super Admin)
+          if (!document.getElementById('sa-recalc-tki')) {
+            const rbtn = document.createElement('button');
+            rbtn.id = 'sa-recalc-tki';
+            rbtn.textContent = '↻ Laske TKI uudelleen';
+            rbtn.title = 'Laske jokaisen pelaajan tki_viimeisin uudelleen viimeisimmästä testituloksesta (ei vaadi PDF:ää)';
+            rbtn.style.cssText = 'background:rgba(40,176,144,.18);border:1px solid #28B090;'
+              + 'border-radius:6px;color:#7FE9CE;font-family:DM Sans,sans-serif;font-size:12px;'
+              + 'padding:4px 10px;cursor:pointer;margin-right:8px;';
+            rbtn.onclick = _adminLaskeTkiUudelleen;
+            topbar.insertBefore(rbtn, logout);
+          }
         }
       }
     } catch(e) {}
@@ -3119,6 +3131,79 @@ async function tallennaPdfFirestoreen() {
   ptxt.textContent = ok + ' / ' + tallennettavat.length + ' tallennettu';
   if (fail === 0) { toast('✅ ' + ok + ' pelaajaa tallennettu PDF:stä', 'ok'); nappi.innerHTML = '✅ Tallennettu'; }
   else { toast(ok + ' tallennettu, ' + fail + ' epäonnistui — katso konsoli', 'err'); nappi.disabled = false; }
+}
+
+// ════════════════════════════════════════
+// ADMIN — Laske TKI uudelleen (vain Super Admin)
+// Hakee jokaisen seuran pelaajan viimeisimmän tekniikkakilpailu-testituloksen
+// (kokonaistulos_s != null), laskee TKI:n uudelleen tkLaskeTKI:llä ja kirjoittaa
+// pikakentät (tki_viimeisin/_pvm/_merkki/_vahvuus/_kehityskohde) pelaajadokumenttiin.
+// EI vaadi PDF:n latausta. Korjaa puuttuvat/vanhentuneet tki_viimeisin-kentät.
+// ════════════════════════════════════════
+async function _adminLaskeTkiUudelleen() {
+  if (!superAdmin) { toast('Vain Super Admin', 'err'); return; }
+  if (!seuraId) { toast('Valitse seura ensin', 'err'); return; }
+  if (!confirm('Laske TKI uudelleen kaikille seuran "' + (seuraNimi || seuraId) + '" pelaajille '
+      + 'viimeisimmästä tekniikkakilpailu-tuloksesta?\n\nKirjoittaa tki_viimeisin-pikakentät pelaajadokumentteihin.')) return;
+
+  const btn = document.getElementById('sa-recalc-tki');
+  if (btn) { btn.disabled = true; btn.textContent = '↻ Lasketaan…'; }
+  try {
+    const pelSnap = await db.collection('seurat').doc(seuraId).collection('pelaajat').get();
+    let paivitetty = 0, ohitettu = 0, virhe = 0;
+
+    // Hae jokaisen pelaajan testitulokset rinnakkain
+    const tulokset = await Promise.all(pelSnap.docs.map(pd =>
+      db.collection('seurat').doc(seuraId).collection('pelaajat').doc(pd.id)
+        .collection('testitulokset').get()
+        .then(ts => ({ pid: pd.id, docs: ts.docs }))
+        .catch(() => ({ pid: pd.id, docs: [] }))
+    ));
+
+    // Laske pikakentät — viimeisin tekniikkakilpailu-tulos per pelaaja
+    const paivitykset = [];
+    tulokset.forEach(t => {
+      const tk = t.docs.map(d => d.data()).filter(x => x && x.kokonaistulos_s != null);
+      if (!tk.length) { ohitettu++; return; }
+      tk.sort((a, b) => String(b.pvm || b.testauspvm || '').localeCompare(String(a.pvm || a.testauspvm || '')));
+      const d = tk[0];
+      // ika + sp ensisijaisesti ikaluokasta (esim. "P12"), fallback sukupuoli M/N
+      const il = String(d.ikaluokka || '');
+      const sp = (il[0] === 'P' || il[0] === 'T') ? il[0]
+               : (d.sukupuoli === 'M' ? 'P' : d.sukupuoli === 'N' ? 'T' : null);
+      const ika = il ? parseInt(il.replace(/\D/g, ''), 10) : null;
+      if (!sp || !ika) { ohitettu++; return; }
+      const tki = tkLaskeTKI(d.kokonaistulos_s, ika, sp);
+      if (tki == null) { ohitettu++; return; }
+      const merkki = tkLaskeMerkki(d.kokonaistulos_s, ika, sp);
+      const vk = _laskeVahvuudetJaKehityskohteet({ testit: d.testit || {} }, { ika: ika });
+      const pika = { tki_viimeisin: tki, tki_pvm: d.pvm || d.testauspvm || '' };
+      if (merkki) pika.tki_merkki = merkki;
+      if (vk.vahvuudet[0]) pika.tki_vahvuus = vk.vahvuudet[0].laji;
+      if (vk.kehityskohteet[0]) pika.tki_kehityskohde = vk.kehityskohteet[0].laji;
+      paivitykset.push({ pid: t.pid, pika: pika });
+    });
+
+    // Kirjoita batcheina (BATCH_KOKO marginaalilla)
+    const eria = Math.ceil(paivitykset.length / BATCH_KOKO);
+    for (let e = 0; e < eria; e++) {
+      const era = paivitykset.slice(e * BATCH_KOKO, (e + 1) * BATCH_KOKO);
+      const batch = db.batch();
+      era.forEach(u => {
+        const ref = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(u.pid);
+        batch.set(ref, u.pika, { merge: true });
+      });
+      try { await batch.commit(); paivitetty += era.length; }
+      catch (err) { console.error('[recalc TKI batch ' + (e + 1) + ']', err); virhe += era.length; }
+    }
+    toast('TKI laskettu: ' + paivitetty + ' päivitetty · ' + ohitettu + ' ohitettu (ei tulosta)'
+      + (virhe ? ' · ' + virhe + ' virhe' : ''), virhe ? 'err' : 'ok');
+  } catch (e) {
+    console.error('[recalc TKI]', e);
+    toast('TKI-laskenta epäonnistui: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Laske TKI uudelleen'; }
+  }
 }
 
 // ════════════════════════════════════════
