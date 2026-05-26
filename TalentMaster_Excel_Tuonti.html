@@ -2613,16 +2613,22 @@ function parsiPalloliittoPdf(sivut) {
   let nyt = null;            // nykyinen taulukko
   let pendingRajat = null;   // rajat ennen ikäluokkariviä → liitetään seuraavaan taulukkoon
 
-  kaikkiRivit.forEach(rivi => {
+  kaikkiRivit.forEach((rivi, riviLaskuri) => {
     const teksti = rivi.cells.map(c => c.str).join(' ').replace(/\s+/g, ' ').trim();
     if (!teksti) return;
+
+    // DEBUG 4 — ensimmäiset 8 riviä raakana (nähdään missä muodossa P12-tagi on)
+    if (riviLaskuri < 8) console.log('RAAKARIIVI ' + riviLaskuri + ':', teksti.slice(0, 80));
+    // DEBUG 3 — datarivi ENNEN ensimmäistä ikäluokkatagia (ohitetaan hiljaa)
+    if (!nyt && /^\s*([0-9]+|[-–])[\s,.]/.test(teksti)) console.log('DATARIVI ENNEN IKÄLUOKKAA (ohitetaan):', teksti.slice(0, 60));
 
     // Uusi ikäluokkatunniste (P8–P13 / T8–T13) → uusi taulukko (vain jos eri kuin nykyinen)
     const ml = teksti.match(/\b([PT])\s?(\d{1,2})\b/);
     if (ml && +ml[2] >= 8 && +ml[2] <= 13) {
       const ikaluokka = ml[1] + ml[2];
+      console.log('IKÄLUOKKA:', ikaluokka, '| rivi:', teksti.slice(0, 60)); // DEBUG 1
       if (!nyt || nyt.ikaluokka !== ikaluokka) {
-        if (nyt && nyt.rivit.length) taulukot.push(nyt);
+        if (nyt && nyt.rivit.length) { console.log('TAULUKKO VALMIS:', nyt.ikaluokka, nyt.rivit.length, 'pelaajaa'); taulukot.push(nyt); } // DEBUG 2
         nyt = { ikaluokka: ikaluokka, sukupuoli: ml[1], ika: +ml[2], merkkirajat: pendingRajat, rivit: [] };
         pendingRajat = null;
         // Rajat voivat olla samalla rivillä (esim. "… P12 80 90 105")
@@ -2643,7 +2649,7 @@ function parsiPalloliittoPdf(sivut) {
       if (p) nyt.rivit.push(p);
     }
   });
-  if (nyt && nyt.rivit.length) taulukot.push(nyt);
+  if (nyt && nyt.rivit.length) { console.log('TAULUKKO VALMIS:', nyt.ikaluokka, nyt.rivit.length, 'pelaajaa'); taulukot.push(nyt); } // DEBUG 2
 
   pdfData.taulukot = taulukot;
   // Litteä yhdiste (taaksepäin-yhteensopivuus esikatselulle/yhdistykselle/tallennukselle)
