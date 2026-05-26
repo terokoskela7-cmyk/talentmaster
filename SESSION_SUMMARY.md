@@ -34,6 +34,7 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 - **PDF monipöytätuki + duplikaattisuojaus:** **jonotusmalli + sija-reset** tunnistaa P12+P10+P9 samasta PDF:stä (kaikki otsikot ensin → data, taulukkoraja = sija palautuu 1:een). Duplikaatti = `{pvm}_tekniikkakilpailu_{ikäluokka}` jo tallennettu → 🟡 esikatselussa [Ohita]/[Korvaa], ohitus **vain tallennuksessa** (kaikki rivit näkyvät).
 - **CDN-versiovaroitus:** `PDF_VERSIO`-vakio + raw.githubusercontent.com-vertailu → amber-banneri jos ladattu versio vanhempi kuin mainin tuorein (vain GitHub Pages -hostilla).
 - **VP joukkueen syvänäkymä:** pulssikortin klikkaus → modaali, 3 välilehteä (Tekniikka TKI-ranking · Tuki kehityskohteittain · Yhteenveto) + CTA-napit (Testaus_v9 / Pelaajat). Vain ladatusta `_pelaajat`-datasta.
+- **Master_v16 demo-datan siivous (audit + fix):** `DEMO`-objekti todettu jo hyvin gatetuksi (`_demo`-lippu kaikissa render-funktioissa, kirjautuneet saavat Firestore-datan + siistit tyhjätilat). Korjatut jäänteet: (1) poistettu kuollut `openPelaaja()` (ei kutsuttu mistään, osoitti olemattomaan `Pelaaja v4.html`:hen), (2) ADAR-drillin pelaajachipit gatettu (`_demo`-tilassa DEMO.players, muuten `_pelaajatData` — kirjautunut 0 pelaajalla näki ennen demonimet), (3) title+otsikkokommentti v13→v16. **Demo-tila itse säilyy** (tarkoituksellinen — "Kokeile demona →").
 
 ### Avoimet askeleet
 - **PDF-tuonti oikealla datalla loppuun:** parseri kalibroitu Sibbon kolmen taulukon rakenteelle (jono + sija-reset). **Riippuvuus:** jonotusmalli olettaa että jokainen ikäluokka alkaa **sijalla 1** — jos jokin tuloste ei resetoi rankingia, P10/P9 voivat sulautua (konsoli varoittaa jos jono jää vajaaksi). Testaa GrIFK/muut tulosteet.
@@ -41,11 +42,11 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 - **GitHub Pages deploy:** varmista **Settings → Pages → Source = main / (root)** ja että Actions "pages build and deployment" on vihreä — buildi jumitti kertaalleen. Jos live ei päivity, vika on tässä (ei gitissä; kaikki commitit ovat mainissa).
 - **Raportointi-näkymä:** "Lähetä HoT:lle" on vain `toast()` — oikea toteutus puuttuu.
 - **3 uutta signaalia** Tilanne-näkymään: BQ-bias, fiilinki, kuormahuippu (S6–S9 kattavuus jo tehty).
-- **Master_v16 hardkoodattu demo-data** loppuun poistaminen (osa gatettu, tarkista jäänteet).
+- ✅ **Master_v16 hardkoodattu demo-data** — audit tehty + jäänteet korjattu (`0a9d084`). Demo-data oli jo hyvin gatettu; ei laajaa poistettavaa. **Huom:** ADAR-drilli on yhä ei-persistoiva mockup — varsinainen kirjauspiste on `ADAR_Pikakortti.html` `saveCard()` (sama riippuvuus kuin ADAR-pikakenttien KIRJOITUS yllä).
 - **KR-kertoimet** (Pediatrics 1995 erratum) — `laskeKR()` lukittu kunnes verifioidut kertoimet + `KR_VERIFIOITU=true`.
 
 ### Tämän session commitit (talentmaster-github, main)
-`907dc33` Excel-pohjageneraattori → `d0cc5e4` monisuoritus + PDF-tuonti → `3810c7c` PalloID string-muunnos → `6e1bb6c` PalloID kenttähaku → `c222642` TKI pelaajalistaan + pikakentät → `0a628ae` VP_v22 kerros 1 → `01b78d9` dokumentit → `5e634ea` mittaristoarkkitehtuuri (§34) → `7329cab` PDF positiokorjaus → `8490fc7` PDF monipöytä + dup → `4aa9e91` dup-näkyvyys → `149d1e7` PDF jono + sija-reset → `1d9924a` CDN-varoitus → `fe9dab0` VP joukkueen syvänäkymä. (välissä cache-bust/versio-choreja).
+`907dc33` Excel-pohjageneraattori → `d0cc5e4` monisuoritus + PDF-tuonti → `3810c7c` PalloID string-muunnos → `6e1bb6c` PalloID kenttähaku → `c222642` TKI pelaajalistaan + pikakentät → `0a628ae` VP_v22 kerros 1 → `01b78d9` dokumentit → `5e634ea` mittaristoarkkitehtuuri (§34) → `7329cab` PDF positiokorjaus → `8490fc7` PDF monipöytä + dup → `4aa9e91` dup-näkyvyys → `149d1e7` PDF jono + sija-reset → `1d9924a` CDN-varoitus → `fe9dab0` VP joukkueen syvänäkymä → `0a9d084` Master_v16 demo-siivous. (välissä cache-bust/versio-choreja).
 
 ---
 
