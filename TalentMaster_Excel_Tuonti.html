@@ -1,4 +1,4 @@
-<!-- v2026-05-26-kaksipassi-v3 -->
+<!-- v2026-05-26-kaksipassi-v5 -->
 <!DOCTYPE html>
 <!-- cache-bust: 2026-05-26 build-2 -->
 <html lang="fi">
@@ -807,15 +807,6 @@ function _laskeVahvuudetJaKehityskohteet(tulokset, pelaaja) {
   out.vahvuudet.sort((a, b) => b.taso - a.taso);
   out.kehityskohteet.sort((a, b) => a.taso - b.taso);
   return out;
-}
-
-// TKI-vyöhyke → merkki (vyöhykerajat = merkkirajat: ≥80 kulta, ≥60 hopea, ≥40 pronssi).
-function _tkiMerkki(tki) {
-  if (tki == null || isNaN(tki)) return null;
-  if (tki >= 80) return 'kulta';
-  if (tki >= 60) return 'hopea';
-  if (tki >= 40) return 'pronssi';
-  return null;
 }
 
 // ── H-H taso (inline kopio docs/testit_indeksit.js — vain pikakentän avaintestit 30m/cmj/mas) ──
@@ -2620,34 +2611,6 @@ function _pdfPoimiRajat(teksti) {
 
 // Monipöytäparsinta: sama PDF voi sisältää useita ikäluokkataulukoita peräkkäin
 // (esim. P12, P10, P9). Jokainen taulukko parsitaan OMALLA ika/sukupuoli-kontekstilla.
-// Laske datarivin numerosarakkeiden määrä (P12-P13=10 pituuspotku mukana, P9-P11=7).
-// Sama tokenisointi kuin _pdfParsiPelaajarivi — ES lasketaan mukaan (säilyttää position).
-// Taulukkorajan tunnistus: sarakemäärän pudotus 10→7 = ikäluokka vaihtui (luotettavampi kuin sija-reset,
-// koska pituuspotku mitataan vain U12–13:lle).
-function _pdfNumeroitaRivilla(rivi) {
-  const cells = rivi.cells;
-  if (!cells || cells.length < 3) return 0;
-  let teksti = cells.map(c => c.str).join(' ').replace(/\s+/g, ' ').trim();
-  teksti = teksti.replace(/^\s*(\d{1,3}|[-–])[\s,.]+/, '').trim();   // poista johtava sija
-  teksti = _pdfPoistaSeura(teksti);
-  const toks = teksti.split(/\s+/).filter(Boolean);
-  const onLuku  = (t) => /^-?\d+([.,]\d+)?$/.test(t);
-  const onVuosi = (t) => /^(19|20)\d{2}$/.test(t);
-  const onES    = (t) => /^es$/i.test(t);
-  let i = 0;
-  while (i < toks.length && !onLuku(toks[i]) && !onVuosi(toks[i]) && !onES(toks[i])) i++;  // ohita nimi
-  if (i < toks.length && onVuosi(toks[i])) i++;                                            // ohita syntymävuosi
-  let n = 0;
-  while (i < toks.length) {
-    const t = toks[i];
-    if (onES(t))    { n++; i++; continue; }
-    if (onVuosi(t)) { i++; continue; }
-    if (onLuku(t))  { n++; i++; continue; }
-    break;
-  }
-  return n;
-}
-
 function parsiPalloliittoPdf(sivut) {
   // Litistä kaikki rivit yhteen järjestettyyn listaan (sivujärjestys säilyy)
   const kaikkiRivit = [];
@@ -2772,7 +2735,6 @@ function _pdfParsiPelaajarivi(rivi, ctx) {
   //   lopputulos = nums[n-1] (viimeinen) · ponnauttelu = nums[n-2] (toiseksi viimeinen).
   // Etu vakaa: KL_aika, KL_vah, KL_tulos, syotto, pujottelu (0-4).
   // Väliin (5 .. n-3) jäävät pituuspotku-sarakkeet (O/V/bonus) — vain P12-P13:lla.
-  console.log('PDF rivi NUMS:', ctx.ikaluokka, 'n=' + n, nums);   // DEBUG TEMP — poista kun P12 todettu
   const arvot = { sukunimi: sukunimi, etunimi: etunimi, syntymaVuosi: syntymaVuosi, ikaluokka: ctx.ikaluokka };
   arvot.lopputulos    = nums[n - 1];
   arvot.ponnauttelu_s = nums[n - 2];
@@ -3261,7 +3223,7 @@ window.siivoaBugisetTulokset = async function(seuraId, ikaluokka, maxKokonais, d
 // VERSIO + CDN-STALENESS-VAROITUS
 // ════════════════════════════════════════
 // Ladatun version tunniste — sama merkkijono on const-määrittelyssä jota raw-vertailu lukee.
-const PDF_VERSIO = 'kaksipassi-v4';
+const PDF_VERSIO = 'kaksipassi-v5';
 const PDF_RAW_URL = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_Excel_Tuonti.html';
 
 // Näytä amber-banneri jos ladattu versio on vanhempi kuin mainin tuorein (CDN-cache vanha).
