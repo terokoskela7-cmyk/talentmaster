@@ -2851,7 +2851,12 @@ function _pdfDocKey(pvmIso, ikaluokka) { return pvmIso + '_tekniikkakilpailu_' +
 // Duplikaattitarkistus — VASTA PalloID-yhdistämisen jälkeen. Vain löydetyille (pelaajaId).
 // Promise.all rinnakkain (ei N peräkkäistä pyyntöä). 🟡 = sama pvm + ikäluokka jo tallennettu.
 async function tarkistaDuplikaatit() {
-  pdfData.rivit.forEach(r => { r._dup = r.pelaajaId ? { tila: 'uusi', strategia: null, vanhaTulos: null } : null; });
+  // Säilytä käyttäjän aiempi ohita/korvaa-valinta uudelleentarkistuksen yli
+  // (pvm-muutos / PalloID-vaihto ei saa nollata valintaa takaisin 'ohita':ksi)
+  pdfData.rivit.forEach(r => {
+    const edellinenStrategia = (r._dup && r._dup.strategia) || null;
+    r._dup = r.pelaajaId ? { tila: 'uusi', strategia: edellinenStrategia, vanhaTulos: null } : null;
+  });
   if (!seuraId) return;
   const pvmIso = _pdfValittuPvm();
   const loydetyt = pdfData.rivit.filter(r => r.pelaajaId);
