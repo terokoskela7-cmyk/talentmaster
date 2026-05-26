@@ -943,7 +943,7 @@ VP lataa täytetyn Excelin Excel-tuontityökaluun
 | Laji | Yritykset | Yksikkö | Erikoislogiikka |
 |---|---|---|---|
 | Ponnauttelu | 2 | s | Sarjan suoritusaika, paras (pienin) |
-| **Syöttö pujotellen** | 2 | s | Paras aika (virallinen nimi — EI "Syöttö") |
+| **Syöttö** | 2 | s | Paras aika. **Yhtenäinen näyttönimi koko sovelluksessa = "Syöttö"** (päivitetty 2026-05-27; ent. "Syöttö pujotellen"). Sisäinen testi-id on yhä `syotto`. |
 | Pujottelu | 2 | s | Paras aika |
 | Kuljetus-laukaus | 2 | s | Raaka-aika − tarkkuusvähennykset (+ ennenaikaiset ×10 s) |
 | Pituuspotku | 2+2 (oik+vas) | m | metrit/5 → aikabonus (max 20 s) **vähennetään** kokonaisajasta, vain U12–13 |
@@ -1002,7 +1002,7 @@ Sisäiset testi-ID:t (käytetään Firestoressa, Excel-pohjissa ja indeksilasken
 | `hyppy_cj` / `hyppy_sj` | Kevennyshyppy (CMJ) / Staattinen hyppy (SJ) | cm | SFL | suurempi = parempi |
 | `mas` | MAS-juoksutesti — maksimaalinen aerobinen nopeus | km/h | SFL | suurempi = parempi |
 | `pujottelu` / `pujottelu_hh` | Pujottelu (tekniikkakilpailu / HH-laji) | s | LL | pienempi = parempi |
-| `syotto` / `syotto_hh` | Syöttö pujotellen (tekniikkakilpailu / HH-laji) | s | DIAG | pienempi = parempi |
+| `syotto` / `syotto_hh` | Syöttö (tekniikkakilpailu / HH-laji) | s | DIAG | pienempi = parempi |
 | `ponnauttelu` | Ponnauttelu — sarjan suoritusaika (ikäkohtainen sarja) | s | DFL | pienempi = parempi |
 | `kuljetus_laukaus` | Kuljetus-laukaus (tarkkuusvähennyksin) | s | DIAG | pienempi = parempi |
 | `pituuspotku` | Pituuspotku — aikabonus = metrit/5 (max 20s) | m | SBL | suurempi = parempi |

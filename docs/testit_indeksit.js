@@ -319,7 +319,7 @@ const TK_KOKONAISRAJAT = {
 // Kaikki tekniikkakilpailun lajit ovat aikatestejä (sekunnit), pienempi parempi.
 const TK_LAJIT_META = {
   ponnauttelu:      { nimi: 'Ponnauttelu',        yksikko: 's', kaanteinen: true },
-  syotto:           { nimi: 'Syöttö pujotellen',  yksikko: 's', kaanteinen: true },
+  syotto:           { nimi: 'Syöttö',  yksikko: 's', kaanteinen: true },
   pujottelu:        { nimi: 'Pujottelu',          yksikko: 's', kaanteinen: true },
   kuljetus_laukaus: { nimi: 'Kuljetus-laukaus',   yksikko: 's', kaanteinen: true },
   pituuspotku:      { nimi: 'Pituuspotku',        yksikko: 's', kaanteinen: true },
