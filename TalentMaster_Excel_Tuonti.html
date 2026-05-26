@@ -1,4 +1,4 @@
-<!-- v2026-05-26-jonotusmalli-sivunvaihto -->
+<!-- v2026-05-26-jonotusmalli-otsikkoraja -->
 <!DOCTYPE html>
 <!-- cache-bust: 2026-05-26 build-2 -->
 <html lang="fi">
@@ -2663,10 +2663,25 @@ function parsiPalloliittoPdf(sivut) {
         || jonossa
         || taulukot.some(t => t.ikaluokka === ikaluokka);
       if (!joTiedossa) {
-        jono.push({ ikaluokka: ikaluokka, sukupuoli: ml[1], ika: +ml[2],
-          merkkirajat: pendingRajat || _pdfPoimiRajat(teksti), rivit: [] });
+        const uusi = { ikaluokka: ikaluokka, sukupuoli: ml[1], ika: +ml[2],
+          merkkirajat: pendingRajat || _pdfPoimiRajat(teksti), rivit: [] };
         pendingRajat = null;
-        console.log('JONO+:', ikaluokka, '| jono nyt:', jono.map(t=>t.ikaluokka));
+        if (nyt && nyt.rivit.length > 0) {
+          // Edellisellä taulukolla on dataa → tämä otsikko on taulukkoraja
+          console.log('OTSIKKORAJA:', 'valmis:', nyt.ikaluokka, nyt.rivit.length, '| seuraava:', ikaluokka);
+          taulukot.push(nyt);
+          nyt = uusi;
+          nytNumerot = null;
+          edellinenSija = null;
+        } else if (nyt && nyt.rivit.length === 0) {
+          // nyt on tyhjä (ei vielä dataa) → jono
+          jono.push(uusi);
+          console.log('JONO+:', ikaluokka, '| jono nyt:', jono.map(t=>t.ikaluokka));
+        } else {
+          // nyt === null → ensimmäinen otsikko
+          jono.push(uusi);
+          console.log('JONO+:', ikaluokka, '| jono nyt:', jono.map(t=>t.ikaluokka));
+        }
       } else if (jonossa && nyt && jono.length > 0 && jono[0].ikaluokka === ikaluokka) {
         // Sivunvaihto-toisto: jonossa oleva ikäluokka näkyy uudelleen otsikkona
         // ja nykyisellä taulukolla on jo dataa → taulukkoraja
@@ -3137,7 +3152,7 @@ async function tallennaPdfFirestoreen() {
 // VERSIO + CDN-STALENESS-VAROITUS
 // ════════════════════════════════════════
 // Ladatun version tunniste — sama merkkijono on const-määrittelyssä jota raw-vertailu lukee.
-const PDF_VERSIO = 'jonotusmalli+sija-reset+sivunvaihto2';
+const PDF_VERSIO = 'jonotusmalli+otsikkoraja';
 const PDF_RAW_URL = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_Excel_Tuonti.html';
 
 // Näytä amber-banneri jos ladattu versio on vanhempi kuin mainin tuorein (CDN-cache vanha).
