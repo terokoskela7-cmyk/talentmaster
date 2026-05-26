@@ -724,7 +724,7 @@ const TK_KOKONAISRAJAT = {
 };
 const TK_LAJIT_META = {
   ponnauttelu:      { nimi: 'Ponnauttelu',       yksikko: 's', kaanteinen: true },
-  syotto:           { nimi: 'Syöttö pujotellen', yksikko: 's', kaanteinen: true },
+  syotto:           { nimi: 'Syöttö', yksikko: 's', kaanteinen: true },
   pujottelu:        { nimi: 'Pujottelu',         yksikko: 's', kaanteinen: true },
   kuljetus_laukaus: { nimi: 'Kuljetus-laukaus',  yksikko: 's', kaanteinen: true },
   pituuspotku:      { nimi: 'Pituuspotku',       yksikko: 'm', kaanteinen: false }
@@ -766,7 +766,7 @@ function tkLaskeTKI(kokonaistulos, ika, sp, rajatOverride) {
   let tki;
   if (kokonaistulos <= rajat.kulta) {
     // Vyöhyke 4: interpoloi 80→99 (ideaali = puolet kultarajasta); kultarajalla 80, ei koskaan 100.
-    const ideaali = rajat.kulta * 0.5;
+    const ideaali = Math.min(rajat.kulta * 0.5, kokonaistulos * 0.5);
     tki = Math.max(80, Math.min(99, 80 + 20 * ((rajat.kulta - kokonaistulos) / (rajat.kulta - ideaali))));
   } else if (kokonaistulos <= rajat.hopea) {
     tki = 60 + 20 * ((rajat.hopea - kokonaistulos) / (rajat.hopea - rajat.kulta));
@@ -948,7 +948,7 @@ const PROTOKOLLAT = {
     tyyppi: 'tk',
     testit: [
       { id: 'ponnauttelu', nimi: 'Ponnauttelu', ketju: 'DFL', yksikko: 's', yritykset: 2, ikaluokat: 'kaikki' },
-      { id: 'syotto', nimi: 'Syöttö pujotellen', ketju: 'DIAG', yksikko: 's', yritykset: 2, ikaluokat: 'kaikki' },
+      { id: 'syotto', nimi: 'Syöttö', ketju: 'DIAG', yksikko: 's', yritykset: 2, ikaluokat: 'kaikki' },
       { id: 'pujottelu', nimi: 'Pujottelu', ketju: 'LL', yksikko: 's', yritykset: 2, ikaluokat: 'kaikki' },
       { id: 'kuljetus_laukaus', nimi: 'Kuljetus-laukaus', ketju: 'DIAG', yksikko: 's', yritykset: 2, ikaluokat: 'kaikki', lajiLogiikka: 'kuljetus_laukaus' },
       { id: 'pituuspotku', nimi: 'Pituuspotku', ketju: 'SBL', yksikko: 'm', yritykset: 4, ikaluokat: 'U12-U13', lajiLogiikka: 'pituuspotku' }
@@ -980,7 +980,7 @@ function pohjaSarakkeet(protokolla) {
   if (protokolla === 'tekniikkakilpailu') {
     return [].concat(
       aika('Ponnauttelu_s', 'ponnauttelu', 2),
-      aika('Syotto_pujotellen_s', 'syotto', 2),
+      aika('Syotto_s', 'syotto', 2),
       aika('Pujottelu_s', 'pujottelu', 2),
       [ { header:'KuljetusLaukaus_raaka_s_1',    testId:'kuljetus_laukaus', kind:'kl_raaka',    yritys:1 },
         { header:'KuljetusLaukaus_vahennys_s_1', testId:'kuljetus_laukaus', kind:'kl_vahennys', yritys:1 },
