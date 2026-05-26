@@ -2613,28 +2613,20 @@ function parsiPalloliittoPdf(sivut) {
   let nyt = null;            // nykyinen taulukko
   let pendingRajat = null;   // rajat ennen ikäluokkariviä → liitetään seuraavaan taulukkoon
 
-  kaikkiRivit.forEach((rivi, riviLaskuri) => {
+  kaikkiRivit.forEach(rivi => {
     const teksti = rivi.cells.map(c => c.str).join(' ').replace(/\s+/g, ' ').trim();
     if (!teksti) return;
 
-    // DEBUG 4 — ensimmäiset 8 riviä raakana (nähdään missä muodossa P12-tagi on)
-    if (riviLaskuri < 8) console.log('RAAKARIIVI ' + riviLaskuri + ':', teksti.slice(0, 80));
-    // DEBUG 3 — datarivi ENNEN ensimmäistä ikäluokkatagia (ohitetaan hiljaa)
-    if (!nyt && /^\s*([0-9]+|[-–])[\s,.]/.test(teksti)) console.log('DATARIVI ENNEN IKÄLUOKKAA (ohitetaan):', teksti.slice(0, 60));
-
-    // Uusi ikäluokkatunniste (P8–P13 / T8–T13) → uusi taulukko (vain jos eri kuin nykyinen)
+    // Uusi ikäluokkatunniste (P8–P13 / T8–T13)
     const ml = teksti.match(/\b([PT])\s?(\d{1,2})\b/);
     if (ml && +ml[2] >= 8 && +ml[2] <= 13) {
       const ikaluokka = ml[1] + ml[2];
-      console.log('IKÄLUOKKA:', ikaluokka, '| rivi:', teksti.slice(0, 60)); // DEBUG 1
-      // KORJAUS 2: sama ikäluokka kuin nykyinen → duplikaatti-/väliotsikko, älä vaihda
+      // Sama ikäluokka kuin nykyinen → duplikaatti-/väliotsikko, ei vaihtoa
       if (nyt && nyt.ikaluokka === ikaluokka) return;
-      // KORJAUS 1+2: nykyinen taulukko vielä TYHJÄ → tämä on tyhjä väliotsikko (esim.
-      //   sivunvaihto-P9 joka muuten keskeyttäisi vasta-aloitetun P12:n ennen sen rivejä).
-      //   Älä vaihda pois nykyisestä eikä työnnä tyhjää — säilytä nykyinen.
-      if (nyt && nyt.rivit.length === 0) { console.log('OHITETAAN TYHJÄ VÄLIOTSIKKO:', ikaluokka, '— nykyinen', nyt.ikaluokka, 'vielä tyhjä'); return; }
-      // Nykyinen ei-tyhjä → valmis. Työnnä ja aloita uusi taulukko.
-      if (nyt && nyt.rivit.length) { console.log('TAULUKKO VALMIS:', nyt.ikaluokka, nyt.rivit.length, 'pelaajaa'); taulukot.push(nyt); } // DEBUG 2
+      // Vaihtoehto B: tallenna nykyinen VAIN jos siinä on rivejä. Tyhjä taulukko (esim.
+      // sivunvaihdon P9-väliotsikko) hylätään hiljaa eikä se enää keskeytä segmentointia:
+      // tyhjästä stray-tagista voidaan vaihtaa suoraan seuraavaan oikeaan ikäluokkaan.
+      if (nyt && nyt.rivit.length > 0) taulukot.push(nyt);
       nyt = { ikaluokka: ikaluokka, sukupuoli: ml[1], ika: +ml[2], merkkirajat: pendingRajat, rivit: [] };
       pendingRajat = null;
       // Rajat voivat olla samalla rivillä (esim. "… P12 80 90 105")
@@ -2654,7 +2646,7 @@ function parsiPalloliittoPdf(sivut) {
       if (p) nyt.rivit.push(p);
     }
   });
-  if (nyt && nyt.rivit.length) { console.log('TAULUKKO VALMIS:', nyt.ikaluokka, nyt.rivit.length, 'pelaajaa'); taulukot.push(nyt); } // DEBUG 2
+  if (nyt && nyt.rivit.length) taulukot.push(nyt);
 
   pdfData.taulukot = taulukot;
   // Litteä yhdiste (taaksepäin-yhteensopivuus esikatselulle/yhdistykselle/tallennukselle)
