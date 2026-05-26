@@ -29,16 +29,23 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 - **VP_v22 kerros 1:** kausipalkki dynaaminen (`_laskeKausi()`), signaalihehku-CSS (crit/warn box-shadow), KPI-kontekstitekstit, emojit → CSS-pisteet.
 - **TKI VP_v22 pelaajalistaan** (FLEI | TKI | Signaali | PHV, pikakentästä) **+ Master_v16 kehityskortille** (TKI + vahvuus/kehityskohde pikakentistä).
 - **Rules v2.9 deployattu Firebase Consolesta** (biologinen_ika, seura-tason tapahtumat, vp_kalenteri).
+- **Yhtenäinen mittaristoarkkitehtuuri (§34):** jokainen datasetti → pikakentät + joukkue-KPI + suunta + kattavuussignaali. **H-H pikakentät** (`hh_viimeisin{lin30m,cmj,mas}`, `hh_pvm`, `hh_taso` Eerikkilä-normeista, `hhLaskeTaso` inline Excel_Tuontiin). **ADAR pikakentät** (`adar_viimeisin{a,d,ac,r,yht}`, `adar_vahvin/heikoin` — helper `paivitaAdarPikakentat` Master_v16:ssa). **Neliosainen joukkuepulssi** (FLEI · TKI · H-H · ADAR, ka+kattavuus+suunta). **Kattavuussignaalit S6–S9** (TKI/H-H/FLEI < 40 %, ADAR-havainnointi < 30 %).
+- **PDF-parserin kalibrointi (4 bugia):** positiopohjainen sarakekartoitus (poisti x-lähikartoituksen numerofuusion), nimen erotus sijasta + seuraNimi-poistolla, lukumääräpohjainen sarakemappi (P12 10 num / P9-P11 7 num), lopputulos = viimeinen numero.
+- **PDF monipöytätuki + duplikaattisuojaus:** **jonotusmalli + sija-reset** tunnistaa P12+P10+P9 samasta PDF:stä (kaikki otsikot ensin → data, taulukkoraja = sija palautuu 1:een). Duplikaatti = `{pvm}_tekniikkakilpailu_{ikäluokka}` jo tallennettu → 🟡 esikatselussa [Ohita]/[Korvaa], ohitus **vain tallennuksessa** (kaikki rivit näkyvät).
+- **CDN-versiovaroitus:** `PDF_VERSIO`-vakio + raw.githubusercontent.com-vertailu → amber-banneri jos ladattu versio vanhempi kuin mainin tuorein (vain GitHub Pages -hostilla).
+- **VP joukkueen syvänäkymä:** pulssikortin klikkaus → modaali, 3 välilehteä (Tekniikka TKI-ranking · Tuki kehityskohteittain · Yhteenveto) + CTA-napit (Testaus_v9 / Pelaajat). Vain ladatusta `_pelaajat`-datasta.
 
 ### Avoimet askeleet
+- **PDF-tuonti oikealla datalla loppuun:** parseri kalibroitu Sibbon kolmen taulukon rakenteelle (jono + sija-reset). **Riippuvuus:** jonotusmalli olettaa että jokainen ikäluokka alkaa **sijalla 1** — jos jokin tuloste ei resetoi rankingia, P10/P9 voivat sulautua (konsoli varoittaa jos jono jää vajaaksi). Testaa GrIFK/muut tulosteet.
+- **ADAR-pikakenttien KIRJOITUS auki:** `paivitaAdarPikakentat()` valmis Master_v16:ssa, mutta Master-drilli on UI-mockup (ei persistoi). Varsinainen ADAR-kirjaus on `ADAR_Pikakortti.html` `saveCard()` (bundler) → helper kytkettävä sinne, jotta ADAR-pikakentät täyttyvät kentältä. Lukupuoli (joukkuepulssi + S9 + syvänäkymä) toimii heti kun kentät ovat.
+- **GitHub Pages deploy:** varmista **Settings → Pages → Source = main / (root)** ja että Actions "pages build and deployment" on vihreä — buildi jumitti kertaalleen. Jos live ei päivity, vika on tässä (ei gitissä; kaikki commitit ovat mainissa).
 - **Raportointi-näkymä:** "Lähetä HoT:lle" on vain `toast()` — oikea toteutus puuttuu.
-- **3 uutta signaalia** Tilanne-näkymään: testikattavuus, BQ-bias, TKI puuttuu.
+- **3 uutta signaalia** Tilanne-näkymään: BQ-bias, fiilinki, kuormahuippu (S6–S9 kattavuus jo tehty).
 - **Master_v16 hardkoodattu demo-data** loppuun poistaminen (osa gatettu, tarkista jäänteet).
 - **KR-kertoimet** (Pediatrics 1995 erratum) — `laskeKR()` lukittu kunnes verifioidut kertoimet + `KR_VERIFIOITU=true`.
-- **GrIFK + Sibbo PDF-tuonti oikealla datalla** — PDF-parseri on heuristinen, kalibroitava oikealla Palloliiton tulosteella (sarakkeiden x-sijainnit, otsikkosanat, nimijärjestys).
 
 ### Tämän session commitit (talentmaster-github, main)
-`907dc33` Excel-pohjageneraattori → `d0cc5e4` monisuoritus + PDF-tuonti → `3810c7c` PalloID string-muunnos → `6e1bb6c` PalloID kenttähaku → `c222642` TKI pelaajalistaan + pikakentät → `0a628ae` VP_v22 kerros 1.
+`907dc33` Excel-pohjageneraattori → `d0cc5e4` monisuoritus + PDF-tuonti → `3810c7c` PalloID string-muunnos → `6e1bb6c` PalloID kenttähaku → `c222642` TKI pelaajalistaan + pikakentät → `0a628ae` VP_v22 kerros 1 → `01b78d9` dokumentit → `5e634ea` mittaristoarkkitehtuuri (§34) → `7329cab` PDF positiokorjaus → `8490fc7` PDF monipöytä + dup → `4aa9e91` dup-näkyvyys → `149d1e7` PDF jono + sija-reset → `1d9924a` CDN-varoitus → `fe9dab0` VP joukkueen syvänäkymä. (välissä cache-bust/versio-choreja).
 
 ---
 
@@ -49,8 +56,8 @@ https://github.com/terokoskela7-cmyk/talentmaster
 https://terokoskela7-cmyk.github.io/talentmaster/
 ```
 
-Deployment: manuaalinen tiedostolataus GitHub-webin kautta (palomuuri estää Git CLI).
-CDN-cache: GitHub Pages käyttää Fastly CDN:ää (~10 min). Testaa aina `?v=N` + tarkista `raw.githubusercontent.com`.
+Deployment: **bundled git.exe** (GitHub Desktopin mukana) toimii commit/push (git CLI ei PATH:lla). GitHub Desktop synkronoi paikallisen kloonin automaattisesti — **älä muokkaa samaa tiedostoa webissä ja CLI:llä yhtä aikaa** (ristiriitariski).
+CDN-cache: GitHub Pages käyttää Fastly CDN:ää (~10 min). Pakota tuore: `?v=N` tai kova päivitys. `raw.githubusercontent.com` ohittaa CDN:n mutta näyttää **lähdekoodin** (text/plain), ei renderöityä sovellusta. Sivulla on CDN-versiovaroitusbanneri (vertaa `PDF_VERSIO` rawiin).
 
 ---
 

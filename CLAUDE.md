@@ -1636,21 +1636,24 @@ fallback `tunnistaTestiId()` + suffiksin riisunta (vanhat yksisarakkeiset pohjat
 Tallennus kirjoittaa TKI + `merkki` testitulokset-dokumenttiin ja pikakentät pelaajaan (§31). TK-aikavalidointi
 lievennetty: ei estä tallennusta, >200 s / <1 s → keltainen varoitus.
 
-### Palloliiton PDF-tuonti
-- **pdf.js CDN 3.11.174** (ei npm — Node.js ei käytettävissä) + worker
-- Parsii ikäluokan (P/T 8–13), merkkirajat, taulukkorivit (x-pohjainen sarakekartoitus + token-fallback);
-  `ES`→null, syntymävuosi erotellaan nimestä, U12–U13 pituuspotku-sarakkeet
-- **Yhdistää nimellä:** `where('sukunimi','==')`+`where('etunimi','==')` → 1 osuma auto, 2+ manuaalivalinta, 0 ei löydy.
-  **EI luo uusia pelaajia automaattisesti.**
-- Tallennus: `pelaajat/{pid}/testitulokset/{pvm}_tekniikkakilpailu`, **litteät kentät** (`syotto_s`…`kokonaistulos_s`)
-  **+ `testit:{}`-map** (Pelaaja_v7-renderöinti). `lahde:'palloliitto_pdf'` (vrt. kenttätyökalu `lahde:'kenttakirjaus'`/`historiapohja`)
-- TKI/merkki lasketaan kanonisella `tkLaskeTKI`/`tkLaskeMerkki`:llä (johdonmukaisuus kaikkien lähteiden yli)
+### Palloliiton PDF-tuonti (pdf.js — kalibroitu Sibbon tulosteelle 2026-05-26)
+- **pdf.js CDN 3.11.174** (ei npm — Node.js ei käytettävissä) + worker.
+- **Rivinparsinta on POSITIOPOHJAINEN, EI x-lähikartoitus** (vanha x-nearest konkatenoi sarakkeet → lopputulos 10× liian suuri). Nyt: solut x-järjestyksessä → tokenit → numerot lukumäärän mukaan. **lopputulos = viimeinen numeerinen arvo.** Layout: P12–P13 = 10 numeroa (pituuspotku mukana), P9–P11 = 7. Sija/viiva strippataan nimen alusta; **seuranimi poistetaan tekstistä** (`PDF_SEURANIMET` + valittu `seuraNimi`) jotta nimi erottuu; `ES`→null; syntymävuosi (`\d{4}`) erotellaan nimestä.
+- **MONIPÖYTÄTUKI — jonotusmalli + sija-reset:** sama PDF voi sisältää useita ikäluokkia (P12+P10+P9), joissa **kaikki otsikot tulevat ensin, sitten data järjestyksessä**. Otsikot jonotetaan (`jono`), 1. datarivi aktivoi jonon ensimmäisen, ja **taulukkoraja tunnistetaan kun SIJA-numero palautuu 1:een** (ainoa luotettava raja P10↔P9, joilla identtinen 7-numeroinen rivimuoto). Riippuvuus: jokainen ikäluokka alkaa sijalla 1.
+- **Yhdistää nimellä:** `where('sukunimi','==')`+`where('etunimi','==')` → 1 osuma auto, 2+ manuaalivalinta, 0 ei löydy. **EI luo uusia pelaajia automaattisesti.**
+- **Duplikaattisuojaus:** docKey = **`{pvm}_tekniikkakilpailu_{ikäluokka}`**. PalloID-yhdistämisen JÄLKEEN `tarkistaDuplikaatit()` (Promise.all) tarkistaa löydetyt. Sama pvm+ikäluokka jo tallennettu → 🟡 esikatselussa "Tallennettu X · Uusi Y" + [Ohita]/[Korvaa] (oletus Ohita). **Kaikki rivit näkyvät esikatselussa**, ohitus tapahtuu **vain tallennuksessa** (`_pdfTallennetaanko`).
+- Tallennus: per rivi oma `ikaluokka`/`sukupuoli`; **litteät kentät** (`syotto_s`…`kokonaistulos_s`) **+ `testit:{}`-map** (Pelaaja_v7-renderöinti). `lahde:'palloliitto_pdf'`. TKI/merkki kanonisella `tkLaskeTKI`/`tkLaskeMerkki`:llä per rivin `ika` (rajat = `TK_KOKONAISRAJAT` = PDF:n merkkirajat).
 
 ### Kahden lähteen periaate
 Kenttätyökalu (Testaus_v9) = seuran kontrolliharjoitus; Palloliiton PDF = virallinen kilpailu.
 Molemmat näkyvät Pelaaja_v7:n Tekniikkaprofiilissa lähdemerkinnällä.
 
-*§32 lisätty 2026-05-26.*
+### CDN-versiovaroitus
+`const PDF_VERSIO` -tunniste konsolissa + `_tarkistaCdnVersio()` vertaa raw.githubusercontent.com:in tuoreimpaan
+(vain `terokoskela7-cmyk.github.io`-hostilla) → amber-banneri jos ladattu versio vanha. **Huom:** raw-linkki näyttää
+lähdekoodin (text/plain), ei renderöi — todellinen tuoreutus on `?v=`/kova päivitys.
+
+*§32 lisätty 2026-05-26, PDF-osio kalibroitu (monipöytä + duplikaatti) samana päivänä.*
 
 ---
 
@@ -1664,10 +1667,13 @@ Molemmat näkyvät Pelaaja_v7:n Tekniikkaprofiilissa lähdemerkinnällä.
 - **Emojit → CSS-pisteet:** `.sig-dot--crit/--warn` (yhtenäinen renderöinti alustojen yli; vain Tilanne-signaalit).
 - **KPI-kontekstitekstit** (vain ladatusta datasta): Pelaajia → joukkuejakauma · FLEI ka. → ↑/↓ trendi (jos `flei_historia`) ·
   Avoimet testit → "vanhin X pv sitten". IDP-konteksti jätetty pois (käsitellyt eivät ladatussa datassa).
+- **Neliosainen joukkuepulssi** (`renderTeamPulse`): FLEI · TKI · H-H taso · ADAR ka., kukin ka + `n=testattu/koko` + suunta (`_pulssiSuunta` flei_historiasta FLEI/TKI:lle). Ks. §34.
+- **Kattavuussignaalit S6–S9** (`renderSignals`, ladatusta `_pelaajat`-datasta): S6 TKI / S7 H-H / S8 FLEI < 40 % · S9 ADAR-havainnointi < 30 %. Ks. §34.
+- **Joukkueen syvänäkymä** (`avaaJoukkueSyvanakyma`): pulssikortin klikkaus → modaali, 3 välilehteä — **Tekniikka** (TKI-ranking, värikoodattu palkki), **Tuki** (ryhmittely kehityskohteittain), **Yhteenveto** (TKI-jakauma + yleisin vahvuus/kehityskohde + testikattavuus). CTA: Testaus_v9 / Pelaajat. Vain pikakentistä, ei kyselyjä. (Korvasi `avaaJoukkueTrendiModal`:n kortin klikkauksessa.)
 
 **Avoin:** Raportointi-näkymän "Lähetä HoT:lle" = vain `toast()` (ei oikeaa toteutusta). Ks. §27 Sprint 4 -backlog.
 
-*§33 lisätty 2026-05-26.*
+*§33 lisätty 2026-05-26, päivitetty samana päivänä (neliosainen pulssi, S6–S9, syvänäkymä).*
 
 ---
 
