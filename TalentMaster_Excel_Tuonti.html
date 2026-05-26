@@ -2570,34 +2570,26 @@ function _pdfRyhmiteleRiveiksi(items) {
   return rivit;
 }
 
-// Tunnista sarakkeet otsikkorivistä → [{ x, kentta }]
-function _pdfTunnistaSarakkeet(cells) {
-  const mapKentta = (s) => {
-    const l = s.toLowerCase();
-    if (l.indexOf('sija') >= 0) return 'sija';
-    if (l.indexOf('nimi') >= 0) return 'nimi';
-    if (l.indexOf('seura') >= 0) return 'seura';
-    if (l.indexOf('bonus') >= 0) return 'pituuspotku_bonus_s';
-    if (l.indexOf('pituus') >= 0) return 'pituuspotku_ov';
-    if (l.indexOf('lopput') >= 0) return 'lopputulos';
-    if (l.indexOf('merkki') >= 0) return 'merkki';
-    if (l.indexOf('syöt') >= 0 || l.indexOf('syot') >= 0) return 'syotto_s';
-    if (l.indexOf('pujott') >= 0) return 'pujottelu_s';
-    if (l.indexOf('ponn') >= 0) return 'ponnauttelu_s';
-    if ((l.indexOf('väh') >= 0 || l.indexOf('vah') >= 0) && (l.indexOf('kl') >= 0 || l.indexOf('kulj') >= 0 || l.indexOf('rang') >= 0)) return 'kl_vahennys';
-    if ((l.indexOf('kl') >= 0 || l.indexOf('kulj') >= 0) && l.indexOf('tulos') >= 0) return 'kuljetus_laukaus_s';
-    if ((l.indexOf('kl') >= 0 || l.indexOf('kulj') >= 0) && l.indexOf('aika') >= 0) return 'kl_aika';
-    if (l.indexOf('väh') >= 0 || l.indexOf('vah') >= 0) return 'kl_vahennys';
-    if (l === 'tulos') return 'lopputulos';
-    return null;
-  };
-  const cols = [];
-  cells.forEach(c => { const k = mapKentta(c.str); if (k && !cols.some(x => x.kentta === k)) cols.push({ x: c.x, kentta: k }); });
-  return cols.length >= 4 ? cols : null;
+// Tunnetut seuranimet — poistetaan rivin tekstistä jotta nimi erottuu seurasta (BUGI 1).
+// Pisimmät ensin (esim. "IF Sibbo-Vargarna" ennen "Sibbo-Vargarna").
+const PDF_SEURANIMET = [
+  'IF Sibbo-Vargarna', 'Sibbo-Vargarna', 'Kuopion Palloseura', 'KPV',
+  'Pallo-Iirot', 'Ylöjärven Ilves', 'SJK Juniorit', 'FC Lahti Juniorit',
+  'GrIFK', 'VIFK', 'FC Demo'
+];
+function _pdfPoistaSeura(teksti) {
+  // Lisää valittu seuraNimi (jos saatavilla) listan kärkeen
+  const lista = (typeof seuraNimi === 'string' && seuraNimi) ? [seuraNimi].concat(PDF_SEURANIMET) : PDF_SEURANIMET.slice();
+  let t = ' ' + teksti + ' ';
+  lista.sort((a, b) => b.length - a.length).forEach(nimi => {
+    if (!nimi) return;
+    const esc = String(nimi).replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+    t = t.replace(new RegExp(esc, 'gi'), ' ');
+  });
+  return t.replace(/\s+/g, ' ').trim();
 }
 
 function parsiPalloliittoPdf(sivut) {
-  let header = null;
   const dataRivit = [];
   sivut.forEach(items => {
     const rivit = _pdfRyhmiteleRiveiksi(items);
@@ -2623,81 +2615,99 @@ function parsiPalloliittoPdf(sivut) {
         }
       }
 
-      const tl = teksti.toLowerCase();
-      // Otsikkorivi
-      if (!header && tl.indexOf('nimi') >= 0 && (tl.indexOf('tulos') >= 0 || tl.indexOf('merkki') >= 0 || tl.indexOf('seura') >= 0)) {
-        header = _pdfTunnistaSarakkeet(rivi.cells);
-        return;
-      }
-      // Datarivi: alkaa numerolla (Sija) tai viivalla
-      if (/^[-\d]/.test(teksti)) dataRivit.push(rivi);
+      // Datarivi: alkaa sijoitusnumerolla tai viivalla (otsikkorivi "Sija Nimi…" alkaa kirjaimella → ohitetaan)
+      if (/^\s*([0-9]+|[-–])[\s,.]/.test(teksti)) dataRivit.push(rivi);
     });
   });
 
   dataRivit.forEach(rivi => {
-    const p = _pdfParsiPelaajarivi(rivi, header);
+    const p = _pdfParsiPelaajarivi(rivi);
     if (p) pdfData.rivit.push(p);
   });
   pdfData.valmis = true;
 }
 
-function _pdfParsiPelaajarivi(rivi, header) {
+// Positiopohjainen rivinparsinta (BUGI 1/2/3): sija → nimi (seura poistettu) → numeroketju
+// lukumäärän mukaan. EI x-lähikartoitusta (joka konkatenoi sarakkeet) eikä numerofuusiota.
+function _pdfParsiPelaajarivi(rivi) {
   const cells = rivi.cells;
   if (!cells || cells.length < 3) return null;
-  if (header && header.length) {
-    const arvot = {};
-    cells.forEach(c => {
-      let best = null, bestd = Infinity;
-      header.forEach(h => { const d = Math.abs(h.x - c.x); if (d < bestd) { bestd = d; best = h; } });
-      if (best) arvot[best.kentta] = arvot[best.kentta] ? (arvot[best.kentta] + ' ' + c.str) : c.str;
-    });
-    return _pdfRakennaPelaaja(arvot);
-  }
-  return _pdfParsiTokenein(cells);
-}
+  // Koko rivi tekstinä (solut jo x-järjestyksessä)
+  let teksti = cells.map(c => c.str).join(' ').replace(/\s+/g, ' ').trim();
+  // BUGI 1: poista johtava sijoitusnumero (myös "1," / "1.") tai viiva
+  teksti = teksti.replace(/^\s*(\d{1,3}|[-–])[\s,.]+/, '').trim();
+  // (a): poista tunnettu seuranimi → nimi erottuu seurasta
+  teksti = _pdfPoistaSeura(teksti);
 
-// Fallback ilman otsikkoriviä: tokenipohjainen layoutin mukaan
-function _pdfParsiTokenein(cells) {
-  const toks = cells.map(c => c.str).filter(s => s !== '');
-  let i = 0;
-  if (toks.length && /^\d{1,2}\.?$/.test(toks[0])) i = 1; // sija
+  const toks = teksti.split(/\s+/).filter(Boolean);
+  const onLuku  = (t) => /^-?\d+([.,]\d+)?$/.test(t);
+  const onVuosi = (t) => /^(19|20)\d{2}$/.test(t);
+  const onES    = (t) => /^es$/i.test(t);
+
+  // Nimi = johtava ei-numeerinen (ei vuosi, ei ES) -tokenijono
   const nimiOsat = [];
+  let i = 0;
+  while (i < toks.length && !onLuku(toks[i]) && !onVuosi(toks[i]) && !onES(toks[i])) {
+    nimiOsat.push(toks[i]); i++;
+  }
+  // Syntymävuosi (jos heti nimen jälkeen, esim. "Blomstedt Christian 2015")
+  let syntymaVuosi = null;
+  if (i < toks.length && onVuosi(toks[i])) { syntymaVuosi = parseInt(toks[i], 10); i++; }
+
+  // Numeroketju (ES → null säilyttää position) kunnes tulee tekstiarvo (merkki) → lopeta
+  const nums = [];
   while (i < toks.length) {
     const t = toks[i];
-    if (/^(19|20)\d{2}$/.test(t)) { nimiOsat.push(t); i++; continue; } // syntymävuosi nimessä
-    if (/^[\d.,\-]+$/.test(t) || /^es$/i.test(t)) break;
-    nimiOsat.push(t); i++;
+    if (onES(t))    { nums.push(null); i++; continue; }
+    if (onVuosi(t)) { i++; continue; }                       // ylimääräinen vuosi → ohita
+    if (onLuku(t))  { nums.push(parseFloat(t.replace(',', '.'))); i++; continue; }
+    break;                                                   // merkki (kulta/hopea/pronssi) → lopeta
   }
-  const loput = toks.slice(i);
-  const N = loput.filter(t => /^[\d.,\-]+$/.test(t) || /^es$/i.test(t));
-  const arvot = { nimi: nimiOsat.join(' ') };
-  const onU12 = pdfData.ika && pdfData.ika >= 12;
-  let k = 0;
-  const next = () => (k < N.length ? N[k++] : null);
-  // Layout: KL_Aika, KL_Vah, KL_Tulos, Syotto, Pujottelu, [PituusOV, PituusBonus,] Ponnauttelu, Lopputulos
-  arvot.kl_aika = next(); arvot.kl_vahennys = next(); arvot.kuljetus_laukaus_s = next();
-  arvot.syotto_s = next(); arvot.pujottelu_s = next();
-  if (onU12) { arvot.pituuspotku_ov = next(); arvot.pituuspotku_bonus_s = next(); }
-  arvot.ponnauttelu_s = next(); arvot.lopputulos = next();
+
+  if (!nimiOsat.length || nums.length < 6) return null;      // ei kelvollinen pelaajarivi
+  const sukunimi = nimiOsat[0];
+  const etunimi  = nimiOsat.slice(1).join(' ');
+  const n = nums.length;
+
+  // BUGI 2/3: kartoita lukumäärän mukaan. lopputulos = VIIMEINEN numeerinen arvo.
+  // P12-P13 (≥10): KL_aika, KL_vah, KL_tulos, syotto, pujottelu, pp_o, pp_v, pp_bonus, ponnauttelu, lopputulos
+  // P9-P11 (7):    KL_aika, KL_vah, KL_tulos, syotto, pujottelu, ponnauttelu, lopputulos
+  const onU12 = (pdfData.ika != null && pdfData.ika >= 12 && n >= 10);
+  const arvot = { sukunimi: sukunimi, etunimi: etunimi, syntymaVuosi: syntymaVuosi };
+  arvot.lopputulos = nums[n - 1];
+  arvot.kl_aika = nums[0]; arvot.kl_vahennys = nums[1]; arvot.kuljetus_laukaus_s = nums[2];
+  arvot.syotto_s = nums[3]; arvot.pujottelu_s = nums[4];
+  if (onU12) {
+    arvot.pituuspotku_o = nums[5]; arvot.pituuspotku_v = nums[6]; arvot.pituuspotku_bonus_s = nums[7];
+    arvot.ponnauttelu_s = nums[8];
+  } else {
+    arvot.ponnauttelu_s = nums[5];
+  }
   return _pdfRakennaPelaaja(arvot);
 }
 
 function _pdfRakennaPelaaja(arvot) {
+  // EI [^\d.\-]-fuusiota (BUGI 2): per-arvo-parsinta. Numerot tulevat jo numeroina.
   const numTai = (s) => {
     if (s == null) return null;
+    if (typeof s === 'number') return isNaN(s) ? null : s;
     const t = String(s).trim();
     if (t === '' || /^es$/i.test(t)) return null; // ES = ei suoritusta
-    const n = parseFloat(t.replace(',', '.').replace(/[^\d.\-]/g, ''));
+    const n = parseFloat(t.replace(',', '.'));
     return isNaN(n) ? null : n;
   };
-  let nimiRaw = (arvot.nimi || '').trim();
-  let syntymaVuosi = null;
-  const vm = nimiRaw.match(/\b(19|20)\d{2}\b/);
-  if (vm) { syntymaVuosi = parseInt(vm[0], 10); nimiRaw = nimiRaw.replace(vm[0], '').trim(); }
-  const osat = nimiRaw.split(/\s+/).filter(Boolean);
-  let sukunimi = '', etunimi = '';
-  if (osat.length >= 2) { sukunimi = osat[0]; etunimi = osat.slice(1).join(' '); }
-  else { sukunimi = osat[0] || ''; }
+  // Nimi: ensisijaisesti esiparsittu (_pdfParsiPelaajarivi); fallback nimi-stringistä
+  let sukunimi = arvot.sukunimi || '';
+  let etunimi  = arvot.etunimi || '';
+  let syntymaVuosi = (arvot.syntymaVuosi != null) ? arvot.syntymaVuosi : null;
+  if (!sukunimi && !etunimi && arvot.nimi) {
+    let nimiRaw = String(arvot.nimi).trim().replace(/^\s*(\d+|[-–])[\s,.]+/, '').trim();
+    const vm = nimiRaw.match(/\b(19|20)\d{2}\b/);
+    if (vm) { syntymaVuosi = parseInt(vm[0], 10); nimiRaw = nimiRaw.replace(vm[0], '').trim(); }
+    const osat = nimiRaw.split(/\s+/).filter(Boolean);
+    if (osat.length >= 2) { sukunimi = osat[0]; etunimi = osat.slice(1).join(' '); }
+    else { sukunimi = osat[0] || ''; }
+  }
   if (!sukunimi && !etunimi) return null;
 
   const kl_aika = numTai(arvot.kl_aika);
@@ -2738,6 +2748,8 @@ async function pdfYhdistaPalloIDt() {
   await Promise.all(pdfData.rivit.map(async (r) => {
     if (!r.sukunimi || !r.etunimi) { r.tila = 'ei_loydy'; return; }
     try {
+      // BUGI 4 — debug: varmista todellinen seuraId + parsittu nimi ennen kuin muutetaan mitään
+      console.log('PDF-parseri hakee seurasta:', seuraId, '| sukunimi:', r.sukunimi, '| etunimi:', r.etunimi);
       const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat')
         .where('sukunimi', '==', r.sukunimi).where('etunimi', '==', r.etunimi).get();
       r.osumat = snap.docs.map(d => ({ id: d.id, data: d.data() }));
