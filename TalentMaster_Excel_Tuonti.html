@@ -2646,8 +2646,10 @@ function parsiPalloliittoPdf(sivut) {
   const osiot = []; // {ikaluokka, sukupuoli, ika, merkkirajat, alku, loppu}
   const IKAOTSIKKO = /^(T|P)(\d+)$/i;
   kaikkiRivit.forEach((rivi, idx) => {
-    const teksti = rivi.cells.map(c => c.str).join(' ').trim();
-    const ml = teksti.match(IKAOTSIKKO);
+    // Otsikkorivi tunnistetaan ensimmäisestä solusta (esim. "P12"), ei koko rivistä
+    const ekaStr = (rivi.cells[0]?.str || '').trim();
+    const ml = ekaStr.match(IKAOTSIKKO);
+    const teksti = ml ? ekaStr : ''; // ei tarvita muuhun
     if (ml) {
       if (osiot.length > 0) osiot[osiot.length-1].loppu = idx;
       osiot.push({ ikaluokka: ml[0].toUpperCase(), sukupuoli: ml[1].toUpperCase(),
@@ -3098,7 +3100,7 @@ async function tallennaPdfFirestoreen() {
 // VERSIO + CDN-STALENESS-VAROITUS
 // ════════════════════════════════════════
 // Ladatun version tunniste — sama merkkijono on const-määrittelyssä jota raw-vertailu lukee.
-const PDF_VERSIO = 'kaksipassi-v1';
+const PDF_VERSIO = 'kaksipassi-v2';
 const PDF_RAW_URL = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_Excel_Tuonti.html';
 
 // Näytä amber-banneri jos ladattu versio on vanhempi kuin mainin tuorein (CDN-cache vanha).
