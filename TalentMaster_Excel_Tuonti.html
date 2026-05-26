@@ -2609,41 +2609,65 @@ function parsiPalloliittoPdf(sivut) {
   const kaikkiRivit = [];
   sivut.forEach(items => { _pdfRyhmiteleRiveiksi(items).forEach(r => kaikkiRivit.push(r)); });
 
+  // JONOTUSMALLI: Palloliiton PDF:ssä kaikki ikäluokkaotsikot tulevat peräkkäin ENNEN dataa
+  // (P12, P10, P9), sitten data järjestyksessä. Otsikot jonotetaan; data aktivoi ne vuorollaan.
+  // Taulukkoraja tunnistetaan SIJA-numeron palautumisesta 1:een (ainoa luotettava raja P10↔P9
+  // joilla on identtinen 7-numeroinen rivimuoto).
   const taulukot = [];
-  let nyt = null;            // nykyinen taulukko
-  let pendingRajat = null;   // rajat ennen ikäluokkariviä → liitetään seuraavaan taulukkoon
+  let jono = [];             // jonotetut ikäluokkaotsikot (odottavat dataa)
+  let nyt = null;            // aktiivinen taulukko
+  let pendingRajat = null;   // rajat ennen ikäluokkariviä
+  let edellinenSija = null;  // edellisen datarivin sija (taulukkorajan tunnistus)
 
   kaikkiRivit.forEach(rivi => {
     const teksti = rivi.cells.map(c => c.str).join(' ').replace(/\s+/g, ' ').trim();
     if (!teksti) return;
 
-    // Uusi ikäluokkatunniste (P8–P13 / T8–T13)
+    // Ikäluokkaotsikko → JONOTA (ei aktivoida ennen kuin data alkaa). Dedupe: ei samaa kahdesti.
     const ml = teksti.match(/\b([PT])\s?(\d{1,2})\b/);
     if (ml && +ml[2] >= 8 && +ml[2] <= 13) {
       const ikaluokka = ml[1] + ml[2];
-      // Sama ikäluokka kuin nykyinen → duplikaatti-/väliotsikko, ei vaihtoa
-      if (nyt && nyt.ikaluokka === ikaluokka) return;
-      // Vaihtoehto B: tallenna nykyinen VAIN jos siinä on rivejä. Tyhjä taulukko (esim.
-      // sivunvaihdon P9-väliotsikko) hylätään hiljaa eikä se enää keskeytä segmentointia:
-      // tyhjästä stray-tagista voidaan vaihtaa suoraan seuraavaan oikeaan ikäluokkaan.
-      if (nyt && nyt.rivit.length > 0) taulukot.push(nyt);
-      nyt = { ikaluokka: ikaluokka, sukupuoli: ml[1], ika: +ml[2], merkkirajat: pendingRajat, rivit: [] };
-      pendingRajat = null;
-      // Rajat voivat olla samalla rivillä (esim. "… P12 80 90 105")
-      if (!nyt.merkkirajat) nyt.merkkirajat = _pdfPoimiRajat(teksti);
+      const joTiedossa = (nyt && nyt.ikaluokka === ikaluokka)
+        || jono.some(t => t.ikaluokka === ikaluokka)
+        || taulukot.some(t => t.ikaluokka === ikaluokka);
+      if (!joTiedossa) {
+        jono.push({ ikaluokka: ikaluokka, sukupuoli: ml[1], ika: +ml[2],
+          merkkirajat: pendingRajat || _pdfPoimiRajat(teksti), rivit: [] });
+        pendingRajat = null;
+      }
       return; // ikäluokkarivi ei ole datariviä
     }
 
-    // Merkkirajat-rivi (avainsanalla) — liitä nykyiseen tai puskuroi seuraavalle taulukolle
+    // Merkkirajat-rivi (avainsanalla) — liitä viimeksi jonotettuun/aktiiviseen tai puskuroi
     if (/raja|kulta|merkki|hopea|pronssi/i.test(teksti) && !/^\s*([0-9]+|[-–])[\s,.]/.test(teksti)) {
       const r = _pdfPoimiRajat(teksti);
-      if (r) { if (nyt && !nyt.merkkirajat) nyt.merkkirajat = r; else pendingRajat = r; }
+      if (r) {
+        const kohde = jono.length ? jono[jono.length - 1] : nyt;
+        if (kohde && !kohde.merkkirajat) kohde.merkkirajat = r; else pendingRajat = r;
+      }
     }
 
-    // Datarivi: alkaa sijoitusnumerolla tai viivalla (otsikkorivi "Sija Nimi…" alkaa kirjaimella)
-    if (nyt && /^\s*([0-9]+|[-–])[\s,.]/.test(teksti)) {
-      const p = _pdfParsiPelaajarivi(rivi, nyt);
-      if (p) nyt.rivit.push(p);
+    // Datarivi: alkaa sijalla (numero) tai viivalla (sijoittamaton). Sija-reset = taulukkoraja.
+    if (/^\s*([0-9]+|[-–])[\s,.]/.test(teksti)) {
+      const sm = teksti.match(/^\s*(\d{1,3}|[-–])/);
+      const sijaRaw = sm ? sm[1] : null;
+      const sija = (sijaRaw && /^\d+$/.test(sijaRaw)) ? parseInt(sijaRaw, 10) : null; // viiva → null
+      const sijaOnYksi = (sija === 1);
+
+      if (!nyt && jono.length > 0 && sijaOnYksi) {
+        nyt = jono.shift();                                   // 1. datarivi → aktivoi jonon ensimmäinen
+      } else if (nyt && sijaOnYksi && edellinenSija !== 1 && jono.length > 0) {
+        if (nyt.rivit.length > 0) taulukot.push(nyt);         // sija palasi 1:een → uusi taulukko
+        nyt = jono.shift();
+      } else if (nyt && sijaOnYksi && edellinenSija !== 1 && jono.length === 0) {
+        console.warn('[PDF] Sija palasi 1:een mutta jono tyhjä — rivit liitetään nykyiseen (' + nyt.ikaluokka + ')');
+      }
+
+      if (nyt) {
+        const p = _pdfParsiPelaajarivi(rivi, nyt);
+        if (p) nyt.rivit.push(p);
+        edellinenSija = sija; // myös viiva (null) → seuraava sija-1 tunnistaa rajan
+      }
     }
   });
   if (nyt && nyt.rivit.length) taulukot.push(nyt);
@@ -2789,8 +2813,6 @@ async function pdfYhdistaPalloIDt() {
   await Promise.all(pdfData.rivit.map(async (r) => {
     if (!r.sukunimi || !r.etunimi) { r.tila = 'ei_loydy'; return; }
     try {
-      // BUGI 4 — debug: varmista todellinen seuraId + parsittu nimi ennen kuin muutetaan mitään
-      console.log('PDF-parseri hakee seurasta:', seuraId, '| sukunimi:', r.sukunimi, '| etunimi:', r.etunimi);
       const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat')
         .where('sukunimi', '==', r.sukunimi).where('etunimi', '==', r.etunimi).get();
       r.osumat = snap.docs.map(d => ({ id: d.id, data: d.data() }));
@@ -3062,7 +3084,7 @@ async function tallennaPdfFirestoreen() {
 // INIT
 // ════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('PDF-parseri versio: 4aa9e91 (' + new Date().toISOString().slice(0,10) + ')');
+  console.log('PDF-parseri versio: jonotusmalli+sija-reset (' + new Date().toISOString().slice(0,10) + ')');
   asetaStepAktiivinen(1, false);
   // pdf.js worker
   if (typeof pdfjsLib !== 'undefined') {
