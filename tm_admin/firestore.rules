@@ -1,10 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v2.9
+// TalentMaster™ — firestore.rules v3.0
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: Firebase Console → Firestore → Rules → liitä → Julkaise
 //         (EI GitHub Actionsilla — saa 403, CLAUDE.md §17 #10)
+//
+// Muutokset v2.9 → v3.0 (Master_v16 — TKI-palaute + harjoitusprioriteetti):
+//   + seurat/{sid}/pelaajat/{pid}/palautteet/{pvm}_tki — valmentajan TKI-palaute
+//     pelaajalle. nakyvyys-flag ('pelaaja'|'vain_valmentaja') gateaa pelaajan luvun.
+//   + seurat/{sid}/joukkueet/{jid}/harjoitusprioriteetti/{id} — joukkueen
+//     harjoitusprioriteetti testidatasta (doc 'aktiivinen'); koko seura lukee.
+//   Firestore EI periydy alikokoelmiin → omat blokit pakolliset (§17 #18).
 //
 // Muutokset v2.8 → v2.9 (VP kalenteri):
 //   + seurat/{sid}/tapahtumat/{id} — SEURATASON yleistapahtumat +
@@ -277,6 +284,20 @@ service cloud.firestore {
                                .hasOnly(['nahty', 'nahtyKlo']));
           allow delete: if onSuperAdmin();
         }
+
+        // ── PALAUTTEET (v3.0) — valmentajan TKI-palaute pelaajalle ────────
+        // Master_v16 Testit→Tulokset. nakyvyys:'pelaaja' → pelaaja (PIN +
+        // huoltaja) näkee; 'vain_valmentaja' → vain seuran henkilöstö.
+        // Doc-ID {pvm}_tki. Firestore ei periydy → oma blokki (§17 #18).
+        match /palautteet/{palauteId} {
+          allow read:   if onSuperAdmin()
+                        || onOmaSeura(seuraId)
+                        || (resource.data.nakyvyys == 'pelaaja'
+                            && (onAnonymous() || onLapsenHuoltaja(seuraId, pelaajaId)));
+          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        }
       }
 
       // ── KAYTTAJAT (seuran henkilöstö — Henkilöstö-näkymä) ─────────────
@@ -310,6 +331,17 @@ service cloud.firestore {
         // Sallittu valmentaja-rooleille kaikkien seuran sisällä.
         match /kalenteri/{kalenteriId} {
           allow read:   if onSuperAdmin() || onOmaSeura(seuraId);
+          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        }
+
+        // ── harjoitusprioriteetti/{id} (v3.0) ─────────────────────────────
+        // Master_v16: valmentaja asettaa joukkueen harjoitusprioriteetin
+        // testidatasta (doc 'aktiivinen'). Koko seura lukee (Tänään-fokus +
+        // mahdollinen Pelaaja-näkymä). Firestore ei periydy → oma blokki.
+        match /harjoitusprioriteetti/{prioriteettiId} {
+          allow read:   if onSuperAdmin() || onOmaSeura(seuraId) || onAnonymous();
           allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
           allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());

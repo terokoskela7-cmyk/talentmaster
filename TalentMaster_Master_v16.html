@@ -1166,6 +1166,9 @@ a { color: inherit; text-decoration: none; }
     <!-- ══ TYÖTILA: TÄNÄÄN ══ -->
     <div class="ws-view" data-view="today">
 
+      <!-- Harjoitusprioriteetti testidatasta — TÄNÄÄN FOKUS -->
+      <div id="todayFokus" style="display:none;margin-bottom:18px;"></div>
+
       <!-- Signaali — V10-typografia -->
       <div class="signal-block" id="signalBlock" onclick="openDrill('signal')">
         <div class="signal-caps">
@@ -1375,6 +1378,9 @@ a { color: inherit; text-decoration: none; }
           <option value="harjoitettavuus_u15">Harjoitettavuus U15</option>
           <option value="harjoitettavuus_u19">Harjoitettavuus U19</option>
         </select>
+        <button class="testit-btn" style="background:rgba(224,160,64,.12);color:var(--amber);border-color:var(--amber);" onclick="_avaaPrioriteettiModal()">
+          📋 Aseta harjoitusprioriteetti testien perusteella
+        </button>
       </div>
 
       <div class="testit-sect-hdr">
@@ -1386,10 +1392,59 @@ a { color: inherit; text-decoration: none; }
         <div class="testit-sect-title">Päättyneet tapahtumat</div>
       </div>
       <div id="testitSuljetut"></div>
+
+      <div class="testit-sect-hdr" style="margin-top:28px;">
+        <div class="testit-sect-title">Tulokset</div>
+      </div>
+      <div id="testitTulokset"></div>
     </div><!-- /testit -->
 
   </main>
 </div><!-- /layout -->
+
+<!-- ══ MODAALI: TKI-palaute pelaajalle ══ -->
+<div id="palauteModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--card);border:.5px solid var(--line2);border-radius:12px;max-width:460px;width:100%;padding:22px;max-height:90vh;overflow:auto;">
+    <div id="palauteOtsikko" class="serif" style="font-size:18px;margin-bottom:14px;">Palaute</div>
+    <div style="background:var(--card2);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.9;">
+      <div>⭐ Vahvuutesi: <b id="palauteVahvuus" style="color:var(--teal);">—</b></div>
+      <div>📈 Kehityskohde: <b id="palauteKehitys" style="color:var(--amber);">—</b></div>
+    </div>
+    <textarea id="palauteTeksti" placeholder="Kirjoita henkilökohtainen palaute..." rows="4" style="width:100%;background:var(--card2);border:.5px solid var(--line2);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:inherit;font-size:13px;resize:vertical;outline:none;margin-bottom:14px;box-sizing:border-box;"></textarea>
+    <div style="font-size:13px;margin-bottom:16px;">
+      <div class="caps" style="margin-bottom:8px;">Näkyvyys</div>
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;"><input type="radio" name="palauteNak" value="vain_valmentaja"> Vain valmentajalle (muistiinpano)</label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="palauteNak" value="pelaaja" checked> Pelaajalle näkyvä (näkyy Pelaaja-sovelluksessa)</label>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="testit-btn" onclick="_suljePalauteModal()">Peruuta</button>
+      <button class="testit-btn primary" onclick="_tallennaPalaute()">Tallenna palaute</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAALI: Joukkueen harjoitusprioriteetti ══ -->
+<div id="prioriteettiModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--card);border:.5px solid var(--line2);border-radius:12px;max-width:460px;width:100%;padding:22px;max-height:90vh;overflow:auto;">
+    <div class="serif" style="font-size:18px;margin-bottom:10px;">Harjoitusprioriteetti</div>
+    <div id="prioInfo" style="font-size:13px;color:var(--ink2);margin-bottom:14px;line-height:1.6;"></div>
+    <div class="caps" style="margin-bottom:6px;">Harjoitusprioriteetti</div>
+    <select id="prioLaji" class="testit-btn" style="width:100%;cursor:pointer;margin-bottom:14px;box-sizing:border-box;"></select>
+    <div class="caps" style="margin-bottom:6px;">Viesti joukkueelle</div>
+    <textarea id="prioViesti" placeholder="Vapaaehtoinen viesti joukkueelle..." rows="3" style="width:100%;background:var(--card2);border:.5px solid var(--line2);border-radius:8px;padding:10px 12px;color:var(--ink);font-family:inherit;font-size:13px;resize:vertical;outline:none;margin-bottom:14px;box-sizing:border-box;"></textarea>
+    <div style="font-size:13px;margin-bottom:16px;">
+      <div class="caps" style="margin-bottom:8px;">Voimassa</div>
+      <label style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;cursor:pointer;"><input type="radio" name="prioVoimassa" value="7" checked> Tämä viikko</label>
+      <label style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;cursor:pointer;"><input type="radio" name="prioVoimassa" value="14"> 2 viikkoa</label>
+      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><input type="radio" name="prioVoimassa" value="180"> Koko kausi</label>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="testit-btn" onclick="_suljePrioriteettiModal()">Peruuta</button>
+      <button class="testit-btn primary" onclick="_tallennaPrioriteetti()">Tallenna</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- /sDash -->
 
 <!-- DRILL-IN PANEL -->
@@ -2261,6 +2316,8 @@ function renderTestit() {
   suljetutEl.innerHTML = suljetut.length
     ? suljetut.map(t => _testiCardHtml(t)).join('')
     : '<div class="testit-empty">Ei päättyneitä tapahtumia.</div>';
+
+  _renderTestitTulokset();
 }
 
 // Status pvm + tila -logiikalla (sama kuin VP:llä): Tuleva / Kesken / Valmis
@@ -2317,6 +2374,199 @@ function _testiCardHtml(t) {
       </button>
     </div>
   </div>`;
+}
+
+/* ════════════════════════════════════════════════════════════
+   TESTITULOKSET + TKI-PALAUTE + HARJOITUSPRIORITEETTI (2026-05-26)
+   Lukee TKI-pikakentät _pelaajatData:sta (tki_viimeisin/_merkki/_vahvuus/
+   _kehityskohde/_pvm) — EI uusia testitulos-kyselyjä. Joukkuetunniste johdetaan
+   _joukkue-nimestä (auth-konteksti), ei kovakoodata. String-concat, ei nested
+   template literals. Tallennus new Date().toISOString() (ei serverTimestamp).
+════════════════════════════════════════════════════════════ */
+
+// HTML-escape vapaalle tekstille (valmentajan viestit)
+function _palauteEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Joukkuetunniste = slug _joukkue-nimestä (auth-kontekstista). Sama kirjoituksessa JA luvussa.
+function _joukkueTunniste() {
+  if (!_joukkue) return null;
+  return String(_joukkue).trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+}
+
+function _pelaajaNimi(p) { return ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id; }
+
+// Joukkueen TKI-yhteenveto pikakentistä (ei alikokoelmakyselyä)
+function _tkiYhteenveto() {
+  const mukana = (_pelaajatData || []).filter(p => p.tki_viimeisin != null);
+  if (!mukana.length) return null;
+  const ka = Math.round(mukana.reduce((s, p) => s + (+p.tki_viimeisin || 0), 0) / mukana.length);
+  const paras = mukana.slice().sort((a, b) => (+b.tki_viimeisin || 0) - (+a.tki_viimeisin || 0))[0];
+  const moodi = (kentta) => {
+    const lkm = {};
+    mukana.forEach(p => { const v = p[kentta]; if (v) lkm[v] = (lkm[v] || 0) + 1; });
+    let id = null, n = 0;
+    Object.keys(lkm).forEach(k => { if (lkm[k] > n) { n = lkm[k]; id = k; } });
+    return id ? { id: id, n: n } : null;
+  };
+  const pvmt = mukana.map(p => p.tki_pvm).filter(Boolean).sort();
+  return { n: mukana.length, koko: (_pelaajatData || []).length, ka: ka, paras: paras,
+    vahvuus: moodi('tki_vahvuus'), kehityskohde: moodi('tki_kehityskohde'),
+    viimeisinPvm: pvmt.length ? pvmt[pvmt.length - 1] : null };
+}
+
+// KOKONAISUUS 1 — Tulokset-alasektio Testit-välilehdellä
+function _renderTestitTulokset() {
+  const el = document.getElementById('testitTulokset');
+  if (!el) return;
+  const y = _tkiYhteenveto();
+  if (!y) { el.innerHTML = '<div class="testit-empty">Ei testituloksia vielä.</div>'; return; }
+
+  let html = '';
+  html += '<div style="background:var(--card2);border:.5px solid var(--line);border-radius:8px;padding:14px 18px;margin-bottom:14px;">';
+  if (y.viimeisinPvm) html += '<div class="caps" style="margin-bottom:8px;">Viimeisin mittaus · ' + _pvmFiM(y.viimeisinPvm) + '</div>';
+  html += '<div style="font-size:13px;color:var(--ink);line-height:1.9;">';
+  html += 'TKI ka. <b style="color:var(--teal);">' + y.ka + '</b> · Paras: <b>' + _pelaajaNimi(y.paras) + '</b> (TKI ' + (+y.paras.tki_viimeisin) + ')<br>';
+  if (y.kehityskohde) html += 'Yleisin kehityskohde: <b style="color:var(--amber);">' + _tkLajiNimi(y.kehityskohde.id) + '</b> (' + y.kehityskohde.n + '/' + y.n + ' pelaajalla)<br>';
+  if (y.vahvuus) html += 'Yleisin vahvuus: <b style="color:var(--teal);">' + _tkLajiNimi(y.vahvuus.id) + '</b> (' + y.vahvuus.n + '/' + y.n + ' pelaajalla)';
+  html += '</div></div>';
+
+  const lista = (_pelaajatData || []).filter(p => p.tki_viimeisin != null)
+    .sort((a, b) => (+b.tki_viimeisin || 0) - (+a.tki_viimeisin || 0));
+  html += '<div style="display:flex;flex-direction:column;gap:1px;">';
+  lista.forEach(p => {
+    const tki = +p.tki_viimeisin;
+    const vari = tki >= 60 ? 'var(--teal)' : tki >= 40 ? 'var(--amber)' : 'var(--red)';
+    const vah = p.tki_vahvuus ? _tkLajiNimi(p.tki_vahvuus) : '—';
+    const keh = p.tki_kehityskohde ? _tkLajiNimi(p.tki_kehityskohde) : '—';
+    html += '<div onclick="_avaaPalauteModal(\'' + p.id + '\')" style="display:grid;grid-template-columns:1fr 44px 1.1fr 1.1fr 16px;gap:10px;align-items:center;padding:10px 12px;background:var(--card);border-radius:6px;cursor:pointer;font-size:13px;">';
+    html += '<div style="font-weight:500;">' + _palauteEsc(_pelaajaNimi(p)) + '</div>';
+    html += '<div class="mono" style="color:' + vari + ';font-weight:600;text-align:center;">' + tki + '</div>';
+    html += '<div style="color:var(--teal);font-size:12px;">' + vah + '</div>';
+    html += '<div style="color:var(--amber);font-size:12px;">' + keh + '</div>';
+    html += '<div style="color:var(--ink3);text-align:right;">→</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// KOKONAISUUS 2 — Palautemodaali yksittäiselle pelaajalle
+let _palautePid = null;
+function _avaaPalauteModal(pid) {
+  const p = (_pelaajatData || []).find(x => x.id === pid);
+  if (!p) { toast('Pelaajaa ei löytynyt'); return; }
+  _palautePid = pid;
+  const tki = (p.tki_viimeisin != null) ? p.tki_viimeisin : '—';
+  document.getElementById('palauteOtsikko').textContent = 'Palaute — ' + _pelaajaNimi(p) + ' · TKI ' + tki;
+  document.getElementById('palauteVahvuus').textContent = p.tki_vahvuus ? _tkLajiNimi(p.tki_vahvuus) : '—';
+  document.getElementById('palauteKehitys').textContent = p.tki_kehityskohde ? _tkLajiNimi(p.tki_kehityskohde) : '—';
+  document.getElementById('palauteTeksti').value = '';
+  const r = document.querySelector('input[name="palauteNak"][value="pelaaja"]');
+  if (r) r.checked = true;
+  document.getElementById('palauteModal').style.display = 'flex';
+}
+function _suljePalauteModal() {
+  const m = document.getElementById('palauteModal');
+  if (m) m.style.display = 'none';
+  _palautePid = null;
+}
+async function _tallennaPalaute() {
+  if (!_seuraId || !_palautePid) { toast('Ei pelaajaa valittuna'); return; }
+  const p = (_pelaajatData || []).find(x => x.id === _palautePid);
+  const teksti = (document.getElementById('palauteTeksti').value || '').trim();
+  if (!teksti) { toast('Kirjoita palaute ensin'); return; }
+  const nakEl = document.querySelector('input[name="palauteNak"]:checked');
+  const nakyvyys = (nakEl && nakEl.value === 'vain_valmentaja') ? 'vain_valmentaja' : 'pelaaja';
+  const pvm = new Date().toISOString();
+  const data = {
+    tyyppi: 'tki_palaute',
+    pvm: pvm,
+    tki: (p && p.tki_viimeisin != null) ? +p.tki_viimeisin : null,
+    vahvuus: (p && p.tki_vahvuus) || null,
+    kehityskohde: (p && p.tki_kehityskohde) || null,
+    teksti: teksti,
+    nakyvyys: nakyvyys,
+    valmentaja_uid: (firebase.auth().currentUser && firebase.auth().currentUser.uid) || null
+  };
+  const docId = pvm.slice(0, 10) + '_tki';
+  try {
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(_palautePid)
+      .collection('palautteet').doc(docId).set(data, { merge: true });
+    toast('Palaute tallennettu');
+    _suljePalauteModal();
+  } catch (e) { console.warn('[v16 palaute]', e.message); toast('Tallennus epäonnistui — tarkista Rules (palautteet)'); }
+}
+
+// KOKONAISUUS 3 — Joukkueen harjoitusprioriteetti testidatasta
+function _avaaPrioriteettiModal() {
+  if (!_joukkue) { toast('Valitse joukkue ensin'); return; }
+  const y = _tkiYhteenveto();
+  const LAJIT = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus', 'pituuspotku'];
+  let opts = '';
+  LAJIT.forEach(id => { opts += '<option value="' + id + '">' + _tkLajiNimi(id) + '</option>'; });
+  const sel = document.getElementById('prioLaji');
+  sel.innerHTML = opts;
+  sel.value = (y && y.kehityskohde) ? y.kehityskohde.id : 'syotto';
+  const info = document.getElementById('prioInfo');
+  info.textContent = (y && y.kehityskohde)
+    ? 'Joukkueessa yleisin kehityskohde: ' + _tkLajiNimi(y.kehityskohde.id) + ' — ' + y.kehityskohde.n + '/' + y.n + ' pelaajalla'
+    : 'Ei testidataa — valitse harjoitusprioriteetti manuaalisesti.';
+  document.getElementById('prioViesti').value = '';
+  const r = document.querySelector('input[name="prioVoimassa"][value="7"]');
+  if (r) r.checked = true;
+  document.getElementById('prioriteettiModal').style.display = 'flex';
+}
+function _suljePrioriteettiModal() {
+  const m = document.getElementById('prioriteettiModal');
+  if (m) m.style.display = 'none';
+}
+async function _tallennaPrioriteetti() {
+  const tunniste = _joukkueTunniste();
+  if (!_seuraId || !tunniste) { toast('Joukkuetta ei tunnistettu (valitse joukkue)'); return; }
+  const laji = document.getElementById('prioLaji').value;
+  const viesti = (document.getElementById('prioViesti').value || '').trim();
+  const vEl = document.querySelector('input[name="prioVoimassa"]:checked');
+  const paivat = vEl ? +vEl.value : 7;
+  const nyt = Date.now();
+  const data = {
+    laji: laji,
+    viesti: viesti,
+    asetettu_pvm: new Date(nyt).toISOString(),
+    voimassa_asti: new Date(nyt + paivat * 86400000).toISOString(),
+    asettaja_uid: (firebase.auth().currentUser && firebase.auth().currentUser.uid) || null
+  };
+  try {
+    await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(tunniste)
+      .collection('harjoitusprioriteetti').doc('aktiivinen').set(data, { merge: true });
+    toast('Harjoitusprioriteetti asetettu');
+    _suljePrioriteettiModal();
+    _renderTodayFokus();
+  } catch (e) { console.warn('[v16 prioriteetti]', e.message); toast('Tallennus epäonnistui — tarkista Rules (harjoitusprioriteetti)'); }
+}
+
+// FOKUS — Tänään-näkymässä, lukee voimassa olevan harjoitusprioriteetin
+async function _renderTodayFokus() {
+  const el = document.getElementById('todayFokus');
+  if (!el) return;
+  const tunniste = _joukkueTunniste();
+  if (!_seuraId || !tunniste || _demo) { el.style.display = 'none'; return; }
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(tunniste)
+      .collection('harjoitusprioriteetti').doc('aktiivinen').get();
+    if (!snap.exists) { el.style.display = 'none'; return; }
+    const d = snap.data();
+    if (d.voimassa_asti && d.voimassa_asti < new Date().toISOString()) { el.style.display = 'none'; return; }
+    let html = '<div class="signal-block" style="border-color:var(--amber);background:rgba(224,160,64,.07);cursor:default;">';
+    html += '<div class="signal-caps"><div class="signal-dot" style="background:var(--amber);"></div><span class="caps">Tänään fokus</span></div>';
+    html += '<div class="signal-title">' + _tkLajiNimi(d.laji) + '</div>';
+    if (d.viesti) html += '<div class="signal-sub">' + _palauteEsc(d.viesti) + '</div>';
+    html += '</div>';
+    el.innerHTML = html;
+    el.style.display = 'block';
+  } catch (e) { el.style.display = 'none'; }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -3285,6 +3535,7 @@ function renderToday() {
   _renderAdar();
   _renderPlayersToday();
   _renderTodayTestit();
+  _renderTodayFokus();
 }
 
 function _renderTodayTestit() {
