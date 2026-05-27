@@ -1653,7 +1653,16 @@ Molemmat näkyvät Pelaaja_v7:n Tekniikkaprofiilissa lähdemerkinnällä.
 (vain `terokoskela7-cmyk.github.io`-hostilla) → amber-banneri jos ladattu versio vanha. **Huom:** raw-linkki näyttää
 lähdekoodin (text/plain), ei renderöi — todellinen tuoreutus on `?v=`/kova päivitys.
 
-*§32 lisätty 2026-05-26; PDF-parseri uudelleenkirjoitettu **kaksipassiseksi** (`kaksipassi-v3`) samana päivänä — toimii (P12 23 · P10 26 · P9 15, 0 duplikaattia). Per-rivin parsinta (`_pdfParsiPelaajarivi`, POSITIOPOHJAINEN) säilyi ennallaan; vain taulukoiden jako muuttui.*
+### TKI-laskenta + admin-työkalut (korjattu/lisätty 2026-05-27)
+- **P12 sarakekartoitus — LOPPUANKKUROINTI:** `lopputulos = nums[n-1]`, `ponnauttelu = nums[n-2]` (vakaa KAIKILLE ikäluokille); etu vakaa (kl_aika/vah/tulos, syotto, pujottelu = 0–4); pituuspotku = väliin (5..n-3) jäävät sarakkeet (vain P12-P13, ehto `ctx.ika>=12 && n>=8`). Korvasi hauraan `onU12 = n>=10`-ehdon — vajaa P12-rivi mappautui ennen P9-kaavalla → väärä kokonaistulos.
+- **O+V "X+Y"-muoto:** pituuspotkun O+V-yhdistelmäsolu (esim. "18+26") puretaan num-loopissa **kahdeksi** numeroksi (pp_o, pp_v). Ilman tätä `onLuku` ei matchannut → loop pysähtyi → n jäi vajaaksi (esim. 5 eikä 10).
+- **`tkLaskeTKI` kultavyöhyke ei ylivuoda:** `ideaali = Math.min(rajat.kulta*0.5, kokonaistulos*0.5)` → sileä gradientti 80–99 (erittäin nopeat eivät litisty 99:ään).
+- **`tkLaskeMerkki` käyttää `<` ei `<=`:** rajat ovat "alle X" (tasan rajalla EI saa merkkiä). Valinnainen 4. param `rajatOverride` — käyttää testitulokseen tallennettua `merkkirajat`-kenttää jos saatavilla, muuten `TK_KOKONAISRAJAT`.
+- **Merkki AINA kokonaistuloksesta** (`tkLaskeMerkki(kokonaistulos,…)`), EI TKI:stä. Excel/PDF-tuonti + recalc johtavat merkin kokonaistuloksesta. Renderöinti `_tkiMerkkiM`/`_tkiMerkkiVP` lukee **VAIN `tki_merkki`-kentästä** (ei TKI-johdettua fallbackia, `const m = merkkiKentta || null`). Recalc kirjoittaa `tki_merkki: null` myös puuttuessa → ylikirjoittaa vanhan väärän merkin. ⚠️ **AVOIN bugi:** recalc ohittaa pelaajan kun `tki == null` → ei nollaa vanhaa.
+- **Admin-työkalut (SA only):** **↻ Laske TKI uudelleen** -nappi Excel-tuonnin topbarissa — laskee `tki_viimeisin` + pikakentät uudelleen kunkin pelaajan viimeisimmästä tekniikkakilpailu-tuloksesta (ika+sp ikäluokasta, esim. "P12"→12/'P'), ei vaadi PDF:ää. **`siivoaBugisetTulokset(seuraId, ikaluokka, maxKokonais, dryRun=true)`** konsolifunktio — poistaa testitulokset joissa `kokonaistulos_s < maxKokonais` (dry-run oletus listaa, `false` poistaa).
+- **Excel-pohjan sarake:** `Syotto_s` (ei enää `Syotto_pujotellen_s`); UI-näyttönimi yhtenäisesti "Syöttö" (ks. §23). **`PDF_VERSIO = 'kaksipassi-v5'`.** Debug-lokit (NUMS) + kuolleet funktiot (`_pdfNumeroitaRivilla`, `_tkiMerkki`) poistettu.
+
+*§32 lisätty 2026-05-26; PDF-parseri kaksipassiseksi samana päivänä. **Päivitetty 2026-05-27:** loppuankkurointi + X+Y-pituuspotku, TKI/merkki korjattu (kultavyöhyke, `<`, merkki kokonaistuloksesta), admin-recalc + `siivoaBugisetTulokset`, `kaksipassi-v5`. Per-rivin parsinta (`_pdfParsiPelaajarivi`) POSITIOPOHJAINEN ennallaan.*
 
 ---
 

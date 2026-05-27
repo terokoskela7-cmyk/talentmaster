@@ -1,6 +1,6 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
-# Päivitetty: 2026-05-26
+# Päivitetty: 2026-05-27
 
 ---
 
@@ -12,6 +12,35 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 
 **Filosofia:** *"Pelaaja ensin, hallinto vahvistaa"*
 **Kilpailupositiointi:** *"Transfermarkt shows what. TalentMasterID shows how."*
+
+---
+
+## Sessio 2026-05-27 — TKI-laskenta + PDF-parserin viimeistely
+
+### Valmistui tässä sessiossa
+- **PDF kaksipassi-parseri** (Sibbo: P12 23 · P10 26 · P9 15, 0 duplikaattia) — `54e2965`. Korvasi jonotusmalli+sija-reset-heuristiikan: Passi 1 kerää otsikot+indeksit, Passi 2 parsii osiot erikseen + dedup sivunvaihdon yli. Ks. CLAUDE.md §32.
+- **P12 sarakekartoitus korjattu** — loppuankkurointi (`lopputulos=nums[n-1]`, `ponnauttelu=nums[n-2]`) + O+V pituuspotku **"X+Y"-muoto** (esim. "18+26") puretaan kahdeksi numeroksi — `5169010` + `0bee2c5`.
+- **TKI-laskenta korjattu:** kultavyöhyke ei ylivuoda (`ideaali = Math.min(kulta*0.5, kokonaistulos*0.5)`), `tkLaskeMerkki` käyttää `<` ei `<=`, merkki lasketaan **aina kokonaistuloksesta** ei TKI:stä — `abbec43` + `a6b0244`.
+- **Recalc kirjoittaa `tki_merkki: null`** myös kun merkki puuttuu → poistaa vanhan väärän merkin — `f6cd5da`.
+- **VP_v22 + Master_v16 merkki-fallback poistettu** — `_tkiMerkkiVP`/`_tkiMerkkiM` lukevat VAIN `tki_merkki`-kentästä (ei TKI-johdettua fallbackia) — `ab478f7`.
+- **Admin: ↻ Laske TKI uudelleen** (SA-only nappi Excel-tuonnin topbarissa) — `tki_viimeisin` uudelleen viimeisimmästä testituloksesta — `e9c4dda`.
+- **`siivoaBugisetTulokset(seuraId, ikaluokka, maxKokonais, dryRun=true)`** SA-konsolifunktio — poistaa testitulokset joissa kokonaistulos_s < maxKokonais (dry-run oletus) — `61ed4b7`.
+- **Master_v16 testipalaute + harjoitusprioriteetti** — Testit→Tulokset (TKI-pikakentistä) + palautemodaali (`palautteet/{pvm}_tki`) + joukkueprioriteetti (`harjoitusprioriteetti/aktiivinen`) → Tänään-fokus — `8e78d1f`.
+- **merkkirajat tallennetaan testitulokseen** + recalc käyttää niitä (`rajatOverride`) — `abb152c`.
+- **"Syöttö pujotellen" → "Syöttö"** koko sovelluksessa (Master_v16, VP_v22, Testaus_v9, Testituonti_Master, docs/testit_indeksit.js, CLAUDE.md §23; Excel-otsikko `Syotto_s`) — `abbec43` + `87ae6d1`.
+- ✅ **NUMS-debug-loki + kuolleet funktiot poistettu** (`_pdfNumeroitaRivilla`, `_tkiMerkki`), `PDF_VERSIO = 'kaksipassi-v5'` — `af43325`.
+- ✅ **Firestore Rules v3.0 deployattu Consolesta** (`palautteet`, `harjoitusprioriteetti`) — Master_v16 testipalaute-toiminto on nyt testattavissa.
+
+### Avoimet asiat (seuraava sessio)
+- **GrIFK-tekniikkatulokset + Sibbon loput tulokset syötettävä** (PDF-tuonti) — dataa puuttuu vielä.
+- **FC Lahti P12 — pelaajat rekisteröitävä ENNEN PDF-tuontia** (PDF EI luo pelaajia automaattisesti, yhdistää vain nimellä).
+- **Recalc-bugi:** `_adminLaskeTkiUudelleen` ohittaa pelaajan kun `tki == null` (`if (tki == null) { ohitettu++; return; }`) → ei nollaa vanhaa `tki_viimeisin`/`tki_merkki`:ä pelaajadokumentista. Pitäisi kirjoittaa null myös tässä tapauksessa.
+- **Osasuoritukset näkymiin** — pelaaja/valmentaja/VP: omat ajat per laji, delta edellisestä, ennätys.
+- **ADAR-pikakenttien KIRJOITUS** — `paivitaAdarPikakentat()` valmis, kytkettävä `ADAR_Pikakortti.html` `saveCard()`:iin.
+- **KR-kertoimet** (Pediatrics 1995 erratum) — `laskeKR()` lukittu kunnes verifioidut kertoimet.
+
+### Commitit (uusin viimeisenä)
+`8e78d1f` testipalaute+prioriteetti → `abb152c` merkkirajat tallennus → `7cf15df` dup korvaa-säilytys → `4f2e2ae` dup-toggle → `61ed4b7` siivoaBugiset + merkki `<` → `a6b0244` merkki kokonaistuloksesta → `87ae6d1` Syöttö-yhtenäistys → `5169010` P12 sarakekartoitus → `0bee2c5` X+Y pituuspotku → `e9c4dda` admin recalc → `af43325` siivous (v5) → `ab478f7` merkki-fallback pois → `f6cd5da` recalc kirjoittaa null. (välissä PDF_VERSIO-bumppeja v1→v5 + GitHub-web-muokkauksia.)
 
 ---
 
