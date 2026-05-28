@@ -3142,22 +3142,24 @@ async function _adminLaskeTkiUudelleen() {
       tk.sort((a, b) => String(b.pvm || b.testauspvm || '').localeCompare(String(a.pvm || a.testauspvm || '')));
       const d = tk[0];
       const pelData = t.pelData || {};
-      // ika = pelaajan OIKEA ikä syntymävuodesta (kilpailuvuosi 2026); fallback testituloksen ikäluokkaan
+      // ika = pelaajan OIKEA ikä syntymävuodesta suhteessa kilpailuvuoteen (testituloksen pvm); fallback ikäluokkaan
       const syntymaVuosi = pelData.syntymaVuosi || null;
+      const kilpailuVuosi = parseInt(String(d.pvm || d.testauspvm || '').slice(0, 4)) || (new Date()).getFullYear();
       const ika = syntymaVuosi
-        ? (2026 - parseInt(syntymaVuosi))
+        ? (kilpailuVuosi - parseInt(syntymaVuosi))
         : (parseInt(String(d.ikaluokka || '').slice(1)) || null);
       // sukupuoli pelaajadokumentista (M/N → P/T), fallback testitulokseen
       const spRaaka = pelData.sukupuoli || d.sukupuoli || 'M';
       const sp = (spRaaka === 'N' || spRaaka === 'T') ? 'T' : 'P';
       if (!sp || !ika) { ohitettu++; return; }
       const rajatOverride = d.merkkirajat || null;  // käytä PDF:ään tallennettuja rajoja jos saatavilla
+      // tki/merkki voivat olla null (esim. ika sarjan 8–13 ulkopuolella → ei rajaa). Kirjoitetaan SILTI null
+      // (EI ohiteta pelaajaa) jotta vanha väärä arvo nollautuu pelaajadokumentista.
       const tki = tkLaskeTKI(d.kokonaistulos_s, ika, sp, rajatOverride);
-      if (tki == null) { ohitettu++; return; }
       const merkki = tkLaskeMerkki(d.kokonaistulos_s, ika, sp, rajatOverride);
       const vk = _laskeVahvuudetJaKehityskohteet({ testit: d.testit || {} }, { ika: ika });
-      const pika = { tki_viimeisin: tki, tki_pvm: d.pvm || d.testauspvm || '' };
-      pika.tki_merkki = merkki || null;   // kirjoita AINA (myös null) → ylikirjoittaa vanhan väärän merkin
+      const pika = { tki_viimeisin: (tki == null ? null : tki), tki_pvm: d.pvm || d.testauspvm || '' };
+      pika.tki_merkki = merkki || null;   // kirjoita AINA (myös null)
       if (vk.vahvuudet[0]) pika.tki_vahvuus = vk.vahvuudet[0].laji;
       if (vk.kehityskohteet[0]) pika.tki_kehityskohde = vk.kehityskohteet[0].laji;
       paivitykset.push({ pid: t.pid, pika: pika });
