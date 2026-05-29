@@ -22,6 +22,7 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 - **P12 sarakekartoitus korjattu** — loppuankkurointi (`lopputulos=nums[n-1]`, `ponnauttelu=nums[n-2]`) + O+V pituuspotku **"X+Y"-muoto** (esim. "18+26") puretaan kahdeksi numeroksi — `5169010` + `0bee2c5`.
 - **TKI-laskenta korjattu:** kultavyöhyke ei ylivuoda (`ideaali = Math.min(kulta*0.5, kokonaistulos*0.5)`), `tkLaskeMerkki` käyttää `<` ei `<=`, merkki lasketaan **aina kokonaistuloksesta** ei TKI:stä — `abbec43` + `a6b0244`.
 - **Recalc kirjoittaa `tki_merkki: null`** myös kun merkki puuttuu → poistaa vanhan väärän merkin — `f6cd5da`.
+- **Recalc syntymävuosikorjaus + null-nollaus + kilpailuvuosi pvm-kentästä** — recalc johtaa iän pelaajan `syntymaVuosi`-kentästä (ei testituloksen ikäluokasta), kilpailuvuosi luetaan `d.pvm`-kentästä, ja kun `tki == null` recalc **nollaa** `tki_viimeisin`/`tki_merkki` pelaajadokumentista (ei enää ohita pelaajaa) — `8e5957f` + `9ee081e`.
 - **VP_v22 + Master_v16 merkki-fallback poistettu** — `_tkiMerkkiVP`/`_tkiMerkkiM` lukevat VAIN `tki_merkki`-kentästä (ei TKI-johdettua fallbackia) — `ab478f7`.
 - **Admin: ↻ Laske TKI uudelleen** (SA-only nappi Excel-tuonnin topbarissa) — `tki_viimeisin` uudelleen viimeisimmästä testituloksesta — `e9c4dda`.
 - **`siivoaBugisetTulokset(seuraId, ikaluokka, maxKokonais, dryRun=true)`** SA-konsolifunktio — poistaa testitulokset joissa kokonaistulos_s < maxKokonais (dry-run oletus) — `61ed4b7`.
@@ -34,13 +35,12 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 ### Avoimet asiat (seuraava sessio)
 - **GrIFK-tekniikkatulokset + Sibbon loput tulokset syötettävä** (PDF-tuonti) — dataa puuttuu vielä.
 - **FC Lahti P12 — pelaajat rekisteröitävä ENNEN PDF-tuontia** (PDF EI luo pelaajia automaattisesti, yhdistää vain nimellä).
-- **Recalc-bugi:** `_adminLaskeTkiUudelleen` ohittaa pelaajan kun `tki == null` (`if (tki == null) { ohitettu++; return; }`) → ei nollaa vanhaa `tki_viimeisin`/`tki_merkki`:ä pelaajadokumentista. Pitäisi kirjoittaa null myös tässä tapauksessa.
 - **Osasuoritukset näkymiin** — pelaaja/valmentaja/VP: omat ajat per laji, delta edellisestä, ennätys.
 - **ADAR-pikakenttien KIRJOITUS** — `paivitaAdarPikakentat()` valmis, kytkettävä `ADAR_Pikakortti.html` `saveCard()`:iin.
 - **KR-kertoimet** (Pediatrics 1995 erratum) — `laskeKR()` lukittu kunnes verifioidut kertoimet.
 
 ### Commitit (uusin viimeisenä)
-`8e78d1f` testipalaute+prioriteetti → `abb152c` merkkirajat tallennus → `7cf15df` dup korvaa-säilytys → `4f2e2ae` dup-toggle → `61ed4b7` siivoaBugiset + merkki `<` → `a6b0244` merkki kokonaistuloksesta → `87ae6d1` Syöttö-yhtenäistys → `5169010` P12 sarakekartoitus → `0bee2c5` X+Y pituuspotku → `e9c4dda` admin recalc → `af43325` siivous (v5) → `ab478f7` merkki-fallback pois → `f6cd5da` recalc kirjoittaa null. (välissä PDF_VERSIO-bumppeja v1→v5 + GitHub-web-muokkauksia.)
+`8e78d1f` testipalaute+prioriteetti → `abb152c` merkkirajat tallennus → `7cf15df` dup korvaa-säilytys → `4f2e2ae` dup-toggle → `61ed4b7` siivoaBugiset + merkki `<` → `a6b0244` merkki kokonaistuloksesta → `87ae6d1` Syöttö-yhtenäistys → `5169010` P12 sarakekartoitus → `0bee2c5` X+Y pituuspotku → `e9c4dda` admin recalc → `af43325` siivous (v5) → `ab478f7` merkki-fallback pois → `f6cd5da` recalc kirjoittaa null → `8e5957f` recalc TKI syntymävuodesta → `9ee081e` recalc null-nollaus + kilpailuvuosi pvm-kentästä. (välissä PDF_VERSIO-bumppeja v1→v5 + GitHub-web-muokkauksia.)
 
 ---
 
