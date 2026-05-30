@@ -214,6 +214,10 @@ SJK:n T14/T16 tytöt merkitty talenttiohjelma laajennettu-tasolle tuonnin yhteyd
 | `TalentMaster_Pelaaja_v7.html` | ✅ GitHubissa (v=24) |
 | `TalentMaster_ADAR_Pikakortti.html` | ✅ GitHubissa |
 | `TalentMaster_Vanhempi_v2.html` | ⚠️ Kovakoodattu nimi — P3 auki |
+| `TalentMaster_Player_Home.html` | ✅ **Solo (B2C "Player™")** — onboarding (Sprint 4, 2026-05-29) |
+| `TalentMaster_Solo_Profiili.html` | ✅ **Solo** — profiili + tkk-tulokset + kotimittarit + PlayerCode |
+| `TalentMaster_Kortti_Demo.html` | ✅ **Solo** — FIFA-kortti Starter/Sharp/Elite |
+| `TalentMaster_Solo_Arviointi.html` | ⏳ Solo-alkuarviointi PENDING (ROADMAP.md) |
 | `tm_eerikkila_normit.js` | ✅ GitHubissa |
 | `tm_lang.js` | ✅ fi/sv/en, 144 käännöstä |
 | `src/lib/tm_bioika.js` | ✅ Mirwald PHV (Excel-verifioitu) + **KR-runko gatettu** (`laskeKR`→`KR_KERTOIMET_PUUTTUU`) + sukupuoli N→T -korjaus (2026-05-25) |

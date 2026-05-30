@@ -159,6 +159,10 @@ toisen `translateX`. Admin.html toimi heti koska vain yksi lohko.
 | `TalentMaster_ADAR_Pikakortti.html` | Kenttähavainto + ADAR Vision | ✅ |
 | `TalentMaster_Pelaaja_v7.html` | Pelaajan mobiiliapp | ✅ korjattu 2026-05-01 |
 | `TalentMaster_Vanhempi_v2.html` | Vanhemman näkymä | ⚠️ Kovakoodattu nimi |
+| `TalentMaster_Player_Home.html` | **Solo (B2C "Player™")** — onboarding: splash → nimi → syntymäaika → FIFA-kortin paljastus | ✅ Sprint 4 (luotu 2026-05-29) |
+| `TalentMaster_Solo_Profiili.html` | **Solo** — pelaajaprofiili: tkk-tulokset + fyysiset testit + kotimittarit + seuralinkitys (PlayerCode) | ✅ Sprint 4 |
+| `TalentMaster_Kortti_Demo.html` | **Solo** — FIFA-korttitasot Starter/Sharp/Elite | ✅ Sprint 4 |
+| `TalentMaster_Solo_Arviointi.html` | **Solo** — alkuarviointi (3-kerroksinen) | ⏳ PENDING (ROADMAP.md) |
 | `TalentMaster_IDP_Kortti_v4.html` | IDP-kortti | ✅ UUSIN 2026-05-01 |
 | `TalentMaster_Rekisterointi_Suostumus.html` | GDPR-suostumuslomake | ✅ |
 | `TalentMaster_Testaus_v8.html` | Kenttätestauslomake | ⚠️ Arkistoidaan kun v9 testattu pilottiseuralla |
@@ -174,6 +178,13 @@ toisen `translateX`. Admin.html toimi heti koska vain yksi lohko.
 | `harjoitelogiikka_v4.js` | Harjoitusohjelman generointi (144KB) | ⚠️ Tarkista onko GitHubissa |
 | `tm-profile.js` | Pelaajaprofiilin laskentamoottori | ⚠️ Tarkista onko GitHubissa |
 | `tm-kortit.js` | Gamification — idolikortit | ⚠️ Tarkista onko GitHubissa |
+
+> **Solo-tuote (B2C, "TalentMaster Player™"):** erillinen seurapohjaisesta Club-tuotteesta.
+> Solo-pelaaja → `players/{playerId}` (**litteä**, `seuraId: null`), data localStoragessa
+> (`tm_solo_profiili`, `tm_tkk_historia`, `tm_player_code`). **Silta:** PlayerCode `TMP-XXXX` →
+> pelaaja jakaa seuralle → seuran testitulokset valuvat Solo-profiiliin + `seuraId` täyttyy.
+> Sama tekniikkakilpailu-/FLEI-metodologia. Status: Sprint 4 valmis; Firebase + Google Sign-In +
+> Stripe (4,99 €/kk) + OrsaSport-pilotti Sprint 6–8. Täysi kuvaus: `docs/ARKKITEHTUURI.md` §11.
 
 ---
 
