@@ -1347,6 +1347,18 @@ async function lataaKayttajatiedot(u) {
             rbtn.onclick = _adminLaskeTkiUudelleen;
             topbar.insertBefore(rbtn, logout);
           }
+          // Admin: "Recalc (ikaluokasta)" — korjaa TKI testituloksen ikaluokasta kun syntymaVuosi puuttuu (Sibbo P10 -bugi)
+          if (!document.getElementById('sa-recalc-ika')) {
+            const rbtn2 = document.createElement('button');
+            rbtn2.id = 'sa-recalc-ika';
+            rbtn2.textContent = '↻ Recalc (ikaluokasta)';
+            rbtn2.title = 'Laske TKI uudelleen testituloksen ikaluokasta (kun syntymaVuosi puuttuu) — ohittaa tallennetut merkkirajat. Dry-run ensin, sitten vahvistus.';
+            rbtn2.style.cssText = 'background:rgba(42,93,176,.18);border:1px solid #2A5DB0;'
+              + 'border-radius:6px;color:#9FC0F0;font-family:DM Sans,sans-serif;font-size:12px;'
+              + 'padding:4px 10px;cursor:pointer;margin-right:8px;';
+            rbtn2.onclick = _adminRecalcIkaluokasta;
+            topbar.insertBefore(rbtn2, logout);
+          }
         }
       }
     } catch(e) {}
@@ -3184,6 +3196,120 @@ async function _adminLaskeTkiUudelleen() {
     toast('TKI-laskenta epäonnistui: ' + e.message, 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '↻ Laske TKI uudelleen'; }
+  }
+}
+
+// ════════════════════════════════════════
+// ADMIN — Recalc TKI IKÄLUOKASTA (vain Super Admin)
+// Korjaa väärin lasketut TKI:t kun pelaajalta PUUTTUU syntymaVuosi (esim. Sibbo PDF-tuonti).
+// Johtaa iän + sukupuolen testituloksen 'ikaluokka'-kentästä ("P10" → ika 10, sp 'P') ja laskee
+// TKI:n uudelleen TK_KOKONAISRAJAT[sp][ika]:lla. EI käytä tallennettua 'merkkirajat'-kenttää —
+// juuri se voi sisältää väärät rajat (esim. P10-pelaajille tallennettu P9-rajat → TKI 33 eikä 54).
+// Päivittää sekä pelaajan pikakentät että testitulos-dokumentin (tki/merkki/merkkirajat).
+// Käyttö konsolista SA:na (dryRun oletuksena true → ei kirjoita):
+//   recalcIkaluokasta('sibbovargarna', 'Sibbo-Vargarna P10')          → DRY-RUN
+//   recalcIkaluokasta('sibbovargarna', 'Sibbo-Vargarna P10', false)   → KIRJOITTAA
+//   recalcIkaluokasta('sibbovargarna', null, false)                   → koko seura
+// ════════════════════════════════════════
+window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
+  if (dryRun === undefined) dryRun = true;   // turvallinen oletus
+  if (!superAdmin) { console.warn('[recalcIka] Vain Super Admin'); return; }
+  const sid = seuraIdArg || seuraId;
+  if (!sid) { console.warn('[recalcIka] Käyttö: recalcIkaluokasta(seuraId, suodatusJoukkue=null, dryRun=true)'); return; }
+
+  const pelSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+  const tulokset = await Promise.all(pelSnap.docs.map(function(pd) {
+    return db.collection('seurat').doc(sid).collection('pelaajat').doc(pd.id)
+      .collection('testitulokset').get()
+      .then(function(ts) { return { ref: pd.ref, pel: pd.data(), docs: ts.docs }; })
+      .catch(function() { return { ref: pd.ref, pel: pd.data(), docs: [] }; });
+  }));
+
+  const muutokset = [];
+  let ohitettu = 0;
+  tulokset.forEach(function(t) {
+    if (suodatusJoukkue && t.pel.joukkue !== suodatusJoukkue) return;
+    const tk = t.docs.map(function(d) { return { ref: d.ref, data: d.data() }; })
+      .filter(function(x) { return x.data && x.data.protokolla === 'tekniikkakilpailu' && x.data.kokonaistulos_s != null; });
+    if (!tk.length) { ohitettu++; return; }
+    tk.sort(function(a, b) { return String(b.data.pvm || b.data.testauspvm || '').localeCompare(String(a.data.pvm || a.data.testauspvm || '')); });
+    const d = tk[0].data;
+    const ikaluokka = String(d.ikaluokka || '');
+    const sp = (ikaluokka.charAt(0).toUpperCase() === 'T') ? 'T' : 'P';   // TK_KOKONAISRAJAT-avaimet P/T (EI M/N)
+    const ika = parseInt(ikaluokka.replace(/[^0-9]/g, ''), 10);
+    if (!ika || ika < 8 || ika > 13) { ohitettu++; return; }
+    const kt = d.kokonaistulos_s;
+    // EI rajatOverride → TK_KOKONAISRAJAT[sp][ika] (ohittaa mahd. väärän tallennetun merkkirajat-kentän)
+    const tki = tkLaskeTKI(kt, ika, sp);
+    const merkki = tkLaskeMerkki(kt, ika, sp);
+    const oikeatRajat = ((TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT.P)[ika]) || null;
+    const vk = _laskeVahvuudetJaKehityskohteet({ testit: d.testit || {} }, { ika: ika });
+    muutokset.push({
+      pelRef: t.ref, tulRef: tk[0].ref,
+      nimi: (t.pel.etunimi || '') + ' ' + (t.pel.sukunimi || ''),
+      joukkue: t.pel.joukkue || '', ikaluokka: ikaluokka, kt: kt, pvm: d.pvm || d.testauspvm || '',
+      vanhaTki: (t.pel.tki_viimeisin === undefined ? '—' : t.pel.tki_viimeisin),
+      tki: tki, merkki: merkki, rajat: oikeatRajat, vk: vk
+    });
+  });
+
+  muutokset.forEach(function(m) {
+    console.log((dryRun ? '[DRY-RUN] ' : '[recalcIka] OK ') + m.nimi + ' (' + m.joukkue + ' · ' + m.ikaluokka
+      + ' · ' + m.kt + 's) TKI: ' + m.vanhaTki + ' -> ' + m.tki + ' · ' + (m.merkki || '—'));
+  });
+
+  if (dryRun) {
+    console.log('[DRY-RUN] ' + muutokset.length + ' pelaajaa päivitettäisiin · ' + ohitettu + ' ohitettu.');
+    console.log('[DRY-RUN] Aja oikeasti: recalcIkaluokasta(\'' + sid + '\', '
+      + (suodatusJoukkue ? '\'' + suodatusJoukkue + '\'' : 'null') + ', false)');
+    return { dryRun: true, kpl: muutokset.length, ohitettu: ohitettu };
+  }
+
+  // Kirjoita batcheina — 2 kirjoitusta/pelaaja (pelaaja + testitulos) → max 200/erä (400 ≤ 500)
+  const ERA = Math.min(200, BATCH_KOKO);
+  let paivitetty = 0, virhe = 0;
+  const eria = Math.ceil(muutokset.length / ERA);
+  for (let e = 0; e < eria; e++) {
+    const era = muutokset.slice(e * ERA, (e + 1) * ERA);
+    const batch = db.batch();
+    era.forEach(function(m) {
+      const pika = { tki_viimeisin: (m.tki == null ? null : m.tki), tki_merkki: m.merkki || null, tki_pvm: m.pvm || '' };
+      if (m.vk.vahvuudet[0]) pika.tki_vahvuus = m.vk.vahvuudet[0].laji;
+      if (m.vk.kehityskohteet[0]) pika.tki_kehityskohde = m.vk.kehityskohteet[0].laji;
+      batch.set(m.pelRef, pika, { merge: true });
+      batch.set(m.tulRef, { tki: (m.tki == null ? null : m.tki), merkki: m.merkki || null, merkkirajat: m.rajat }, { merge: true });
+    });
+    try { await batch.commit(); paivitetty += era.length; }
+    catch (err) { console.error('[recalcIka batch ' + (e + 1) + ']', err); virhe += era.length; }
+  }
+  console.log('[recalcIka] Valmis — päivitetty: ' + paivitetty + ' · ohitettu: ' + ohitettu + ' · virheitä: ' + virhe);
+  if (typeof toast === 'function') toast('Recalc (ikaluokasta): ' + paivitetty + ' päivitetty' + (virhe ? ' · ' + virhe + ' virhe' : ''), virhe ? 'err' : 'ok');
+  return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, virhe: virhe };
+};
+
+// Topbar-napin käsittelijä: dry-run → vahvistus → oikea ajo
+async function _adminRecalcIkaluokasta() {
+  if (!superAdmin) { toast('Vain Super Admin', 'err'); return; }
+  if (!seuraId) { toast('Valitse seura ensin', 'err'); return; }
+  const jk = prompt('Recalc TKI ikaluokasta — rajaa joukkueeseen (tyhjä = koko seura "'
+    + (seuraNimi || seuraId) + '").\n\nEsim. Sibbo-Vargarna P10', '');
+  if (jk === null) return;   // peruttu
+  const suodatus = jk.trim() || null;
+  const btn = document.getElementById('sa-recalc-ika');
+  if (btn) { btn.disabled = true; btn.textContent = '↻ Dry-run…'; }
+  try {
+    const dry = await window.recalcIkaluokasta(seuraId, suodatus, true);
+    if (!dry || !dry.kpl) { toast('Ei päivitettäviä pelaajia (katso konsoli)', 'err'); return; }
+    if (!confirm('DRY-RUN: ' + dry.kpl + ' pelaajaa päivitettäisiin (' + (suodatus || 'koko seura')
+      + ').\nKatso muutokset konsolista.\n\nKirjoitetaanko Firestoreen?')) {
+      toast('Peruttu — vain dry-run ajettu (ei kirjoitettu)', 'ok'); return;
+    }
+    if (btn) btn.textContent = '↻ Kirjoitetaan…';
+    await window.recalcIkaluokasta(seuraId, suodatus, false);
+  } catch (e) {
+    console.error('[recalcIka]', e); toast('Recalc epäonnistui: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Recalc (ikaluokasta)'; }
   }
 }
 
