@@ -935,6 +935,13 @@ body {
 .tp-lbl { font-size: 10px; color: var(--ink3); margin-top: 2px; }
 .tp-bar { height: 3px; background: var(--bg3); border-radius: 2px; margin-top: 10px; overflow:hidden; }
 .tp-bar-fill { height: 100%; border-radius: 2px; }
+/* Sibbo ym. — osittainen data: tyhjät mittarit himmennettyinä (TKI näkyy normaalisti) */
+.tp-val.tyhja { opacity: .32; color: var(--ink3); font-weight: 400; }
+/* Pieni joukkue (<3 pelaajaa) — ei luotettava analyysiin */
+.tp-card.pieni-joukkue { opacity: .6; border-style: dashed; }
+.tp-status { font-size: 10px; color: var(--amber); margin-top: 8px; }
+/* RAE/BQ piilotettu kun syntymäaikadata puuttuu */
+.bq-puuttuu { font-size: 10px; color: var(--ink3); opacity: .7; margin-top: 10px; }
 
 /* Pelaajapolku-suodattimet */
 .filter-row {
@@ -3468,6 +3475,16 @@ function _pulssiSuunta(pelaajat, kentta) {
   return '→';
 }
 
+// Lyhennä joukkuenimi korttiin: "Sibbo-Vargarna P10" → "P10", "KPV U13" → "U13".
+// Ensisijaisesti ikäluokkaosa (P/T/U + numero loppuosineen); fallback: pudota ensimmäinen sana (seuranimi).
+function lyhennaNimi(nimi) {
+  if (!nimi) return nimi;
+  const m = String(nimi).match(/[PTU]\s?\d{1,2}.*/i);
+  if (m) return m[0].trim();
+  const osat = String(nimi).trim().split(/\s+/);
+  return osat.length > 1 ? osat.slice(1).join(' ') : nimi;
+}
+
 // ─── JOUKKUEPULSSI (Sprint 2: laskeJoukkueTrendi -integraatio) ──
 function renderTeamPulse() {
   const el = document.getElementById('teamPulseGrid');
@@ -3516,7 +3533,7 @@ function renderTeamPulse() {
       const fleiAvg = ka(fleiVals), tkiAvg = ka(tkiVals), hhAvg = ka(hhVals), adarAvg = ka(adarVals);
       const tpCell = (label, valStr, arrow, lkm, vClass) =>
         '<div class="tp-metric">' +
-          '<div class="tp-val ' + (vClass||'') + '">' + valStr + (arrow ? ' <span style="font-size:11px;font-family:var(--font-m)">' + arrow + '</span>' : '') + '</div>' +
+          '<div class="tp-val ' + (valStr === '—' ? 'tyhja' : (vClass||'')) + '">' + valStr + (arrow ? ' <span style="font-size:11px;font-family:var(--font-m)">' + arrow + '</span>' : '') + '</div>' +
           '<div class="tp-lbl">' + label + '</div>' +
           '<div class="tp-lbl" style="opacity:.6;font-size:9px">n=' + lkm + '/' + koko + '</div>' +
         '</div>';
@@ -3529,7 +3546,7 @@ function renderTeamPulse() {
       // Sprint 2: SPL-trendi -indikaattori (joukkuepulssi)
       const tIkoni = trendi.tila === 'nousu' ? '↑' : trendi.tila === 'lasku' ? '↓' : trendi.tila === 'vakaa' ? '→' : '·';
       const tVari  = trendi.tila === 'nousu' ? '#28B090' : trendi.tila === 'lasku' ? '#E0A040' : trendi.tila === 'vakaa' ? '#5B8FE0' : '#5A5A5A';
-      const tText  = trendi.delta!=null ? (trendi.delta>=0?'+':'') + trendi.delta : 'ei dataa';
+      const tText  = trendi.delta!=null ? (trendi.delta>=0?'+':'') + trendi.delta : '—';
 
       // Sprint 3: BQ-jakauma (Morganti 2025 — RAE-bias)
       const bq = laskeBQJakauma(pelaajat);
@@ -3538,27 +3555,34 @@ function renderTeamPulse() {
         laskeBQ(p) === 4 && (p.flei_viimeisin || 0) >= 60
       ).length;
       const safeNimi = nimi.replace(/['"]/g,'');
+      const pieni = koko < 3;                              // liian pieni joukkue luotettavaan analyysiin
+      const bqKattavuus = koko ? (bq.n / koko) : 0;        // osuus pelaajista joilla syntymäaika → BQ
       const bqMetaLeft = bqWarn
         ? '<span class="warn">⚠ Q1 ' + bq.q1Pct + '% · RAE</span>'
         : '<span>Q1 ' + bq.q1Pct + '% · Q4 ' + bq.q4Pct + '%</span>';
       const bqMetaRight = underdogCount > 0
         ? '<span class="underdog-star">★ ' + underdogCount + ' Underdog</span>'
         : '<span>n=' + bq.n + '</span>';
+      // BQ-jakauma vain jos ≥50% pelaajista on syntymäaika (muuten laskeBQJakauma palauttaa valheellisen 25/25/25/25)
+      const bqHtml = (bqKattavuus >= 0.5)
+        ? '<div class="bq-stack" title="Q1 ' + bq.q1Pct + '% · Q2 ' + bq.q2Pct + '% · Q3 ' + bq.q3Pct + '% · Q4 ' + bq.q4Pct + '%">' +
+            '<div class="bq-1" style="width:' + bq.q1Pct + '%"></div>' +
+            '<div class="bq-2" style="width:' + bq.q2Pct + '%"></div>' +
+            '<div class="bq-3" style="width:' + bq.q3Pct + '%"></div>' +
+            '<div class="bq-4" style="width:' + bq.q4Pct + '%"></div>' +
+          '</div>' +
+          '<div class="bq-meta">' + bqMetaLeft + bqMetaRight + '</div>'
+        : '<div class="bq-puuttuu">RAE: syntymäaika puuttuu (' + bq.n + '/' + koko + ')</div>';
 
-      return '<div class="tp-card" onclick="avaaJoukkueSyvanakyma(\'' + safeNimi + '\')" style="cursor:pointer">' +
+      return '<div class="tp-card' + (pieni ? ' pieni-joukkue' : '') + '" onclick="avaaJoukkueSyvanakyma(\'' + safeNimi + '\')" style="cursor:pointer">' +
         '<div class="tp-name" style="display:flex;justify-content:space-between;align-items:baseline">' +
-          '<span>' + nimi + '</span>' +
+          '<span title="' + nimi.replace(/"/g,'&quot;') + '">' + lyhennaNimi(nimi) + '</span>' +
           '<span style="font-size:11px;color:' + tVari + ';font-family:var(--font-m)">' + tIkoni + ' ' + tText + '</span>' +
         '</div>' +
         '<div class="tp-metrics">' + tpMetricsHtml + '</div>' +
         '<div class="tp-bar"><div class="tp-bar-fill" style="width:' + pct + '%;background:' + barColor + '"></div></div>' +
-        '<div class="bq-stack" title="Q1 ' + bq.q1Pct + '% · Q2 ' + bq.q2Pct + '% · Q3 ' + bq.q3Pct + '% · Q4 ' + bq.q4Pct + '%">' +
-          '<div class="bq-1" style="width:' + bq.q1Pct + '%"></div>' +
-          '<div class="bq-2" style="width:' + bq.q2Pct + '%"></div>' +
-          '<div class="bq-3" style="width:' + bq.q3Pct + '%"></div>' +
-          '<div class="bq-4" style="width:' + bq.q4Pct + '%"></div>' +
-        '</div>' +
-        '<div class="bq-meta">' + bqMetaLeft + bqMetaRight + '</div>' +
+        bqHtml +
+        (pieni ? '<div class="tp-status">' + koko + (koko === 1 ? ' pelaaja' : ' pelaajaa') + ' — liian vähän analyysiin</div>' : '') +
       '</div>';
     }).join('');
   }).catch(e => {
