@@ -140,7 +140,8 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 |---|---|---|
 | `TalentMaster_Seura.html` | Seurahallinta (VP, sihteeri, UTJ) | ✅ mobiili OK |
 | `TalentMaster_Admin.html` | Super Admin -hallintapaneeli | ✅ |
-| `TalentMaster_VP_v22.html` | VP-dashboard (signaalit/BQ/IDP) | ✅ Sprint 3 valmis, tila §19 |
+| `TalentMaster_VP_v22.html` | VP-dashboard (signaalit/BQ/IDP) | ✅ tuotanto, tila §19 |
+| `TalentMaster_VP_v25.html` | VP-dashboard v24-design (migraatio v22→v24) | ⏳ Vaihe 1+2 valmis (`4468a3e`); omat luokkanimet `greeting-*`/`joukkue-taulukko`, ei spec'in. Firebase = v22. SA-testi kesken |
 | `TalentMaster_Master_v16.html` | Valmentajan näkymä + Testit-työtila | ✅ uusin |
 | `TalentMaster_ADAR_Pikakortti.html` | Kenttähavainto + ADAR Vision (bundler) | ✅ |
 | `TalentMaster_Pelaaja_v7.html` | Pelaajan mobiiliapp (v=25) | ✅ |
@@ -651,6 +652,9 @@ PalloID-yhdistämisen jälkeen `tarkistaDuplikaatit()` (Promise.all) → 🟡 "T
   Kun `tki == null` recalc **NOLLAA** `tki_viimeisin` + `tki_merkki` (poistaa vanhan väärän arvon).
 - **`siivoaBugisetTulokset(seuraId, ikaluokka, maxKokonais, dryRun=true)`** konsolifunktio — poistaa testitulokset
   joissa `kokonaistulos_s < maxKokonais` (dry-run oletus listaa, `false` poistaa).
+- **`recalcIkaluokasta(seuraId, joukkue, dryRun=true)`** (topbar-nappi + konsoli, SA): recalc kun **`syntymaVuosi` puuttuu**
+  (esim. Sibbo). Johtaa iän+sp testituloksen **`ikaluokka`-kentästä** ("P10"→10/'P'), **OHITTAA tallennetun `merkkirajat`-kentän**
+  (= P10→P9-bugin lähde) → `TK_KOKONAISRAJAT[sp][ika]`. Valitsee pelaajan **joukkueen** ikäluokkaa vastaavan tuloksen (ohittaa stray-docit).
 
 **CDN-versiovaroitus:** `PDF_VERSIO` konsolissa + `_tarkistaCdnVersio()` vertaa raw.githubusercontent.com:iin (vain
 github.io-hostilla) → amber-banneri jos vanha. Raw-linkki näyttää lähdekoodin (text/plain) — todellinen tuoreutus on `?v=`.

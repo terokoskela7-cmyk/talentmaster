@@ -1,6 +1,6 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
-# Päivitetty: 2026-06-01
+# Päivitetty: 2026-06-02
 
 ---
 
@@ -15,7 +15,36 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 
 ---
 
-## Sessio 2026-06-01 — Käyttäjäkutsu: linkki aina + WhatsApp-jako  ⏳ VARMISTAMATTA
+## Sessio 2026-06-01 → 06-02 (Mac) — CLAUDE.md-auditointi · mobiili/kontrasti · Sibbo-TKI-recalc · VP_v25-migraatio
+
+> **Ympäristö:** siirrytty Macille (`/Users/terokoskela/projects/talentmaster`). Node v26, git SSH toimii, `gh` CLI puuttuu (Actions-tila tarkistettu REST-API:lla). **Chrome-MCP** (chrome-devtools-mcp) asennettu local-scopeen. **Huom:** SA-visuaalitesti ei onnistu MCP:llä — Google estää automaatio-Sign-In:n + Chrome 148 estää oletusprofiilin remote-debugin → validointi koodiauditilla + demo-tilalla + käyttäjän omalla selaimella.
+
+### 1. CLAUDE.md auditoitu + tiivistetty — `b2e77dd`
+1742 → **747 riviä** (−57 %). Numerointi korjattu (tupla-§23 + numeroimaton osio → juokseva 1–27), 4 hajanaista footeria poistettu. Duplikaatit yhdistetty (RAE ×3, kv ×2, bio-ikä, TKI, Rules). **Strategia/RAE-tiede/sprintit/bisnesmalli eriytetty → `docs/STRATEGIA.md`** (uusi). Kaikki tekniset invariantit säilytetty.
+
+### 2. Kutsu-sprint (`9b0a48b`) varmistettu Macilla + WhatsApp-korjaus — `72b15cf`
+GitHub Actions `deploy_functions` **vihreä** commitille 9b0a48b → CF redeployattu (`emailSent`-tila toimii). Lisäksi: kutsu-WhatsApp-nappi (Seura Henkilöstö + Admin) **aina aktiivinen** — gatettiin puhelimeen; nyt `wa.me/?text=` fallback ilman puhelinta (kuten toimivassa Rekisteröintikutsussa).
+
+### 3. Mobiili + WCAG-kontrastit (6 näkymää) — `c135de6` · `3583f31` · `830b044`
+`--ink3`-kontrasti nostettu AA-tasolle (~4.5–5:1), `::placeholder { opacity:1 }`, mobiilikorjaukset. **VP_v22 juurisyy** (`3583f31`): sidebar on `position:fixed` mutta `#main { margin-left:var(--sb) }` jäi → sisältö leikkautui mobiilissa → nollattu 768-lohkossa. **Master_v16** (`830b044`): light-teeman teal-teksti #28B090→**#1A7A5E** (2.8→4.7:1), kuollut `--slate` poistettu. Canonical §5 bg/accent-tokenit koskematta.
+
+### 4. Sibbo TKI-recalc (P10-bugi) — `792f963` · `4454b46`  ⏳ AJAMATTA
+Sibbon 25 P10-pelaajaa laskettu **P9-rajoilla** (TKI 33 eikä 54). Juurisyy: tallennettu väärä `merkkirajat`-kenttä + olemassa oleva recalc kunnioittaa sitä (`rajatOverride`); lisäksi Sibbolta **puuttuu `syntymaVuosi`**. **Uusi SA-työkalu** `recalcIkaluokasta(seuraId, joukkue, dryRun=true)` (Excel_Tuonti + topbar-nappi): johtaa iän+sp testituloksen `ikaluokka`-kentästä, **OHITTAA** tallennetun merkkirajat-kentän → `TK_KOKONAISRAJAT[sp][ika]`, valitsee joukkueen ikäluokkaa vastaavan tuloksen (ohittaa stray-docit). Node-verifioitu: 33→54/pronssi. **Käyttäjä ajaa SA-konsolissa:** `recalcIkaluokasta('sibbovargarna','Sibbo-Vargarna P10')` → dry-run OK → `…, false`.
+
+### 5. VP_v22 joukkuepulssi — `e4ec723`
+Sibbo (vain TKI-dataa) näytti tyhjältä. Korjaus: tyhjät mittarit himmennetään (TKI näkyy), lyhyet nimet (`lyhennaNimi`, P/T säilyy), BQ piilotetaan kun syntymäaika puuttuu, pienet joukkueet (<3) merkitään.
+
+### 6. VP_v25 migraatio (v24-design) — `e1f6d3b` (Vaihe 1) · `2a36bee`+`4468a3e` (Vaihe 2)
+`cp v22 → v25`, **Firebase-koodi koskematon**. **Vaihe 1:** typografia (Cormorant italic + DM Mono) + tokenit, topbar (breadcrumb/haku/kielivalinta/käyttäjäprofiili), greeting-hero, **joukkuepulssi kortit→TAULUKKO**. **Vaihe 2:** toimenpidekeskeinen **signaalimoottori** `renderSignaalit` (S1–S8, osio "02" ennen taulukkoa) + dynaaminen greeting + **kontekstiäly** `laskeKayttoVaihe` (vaihe 1 = ohjattu 3-askeleen aloitus, season-bar piiloon; 2 = seuraava testi; 3 = normaali) + FLEI-signaali seuratasolle + joukkuejärjestys P8→P13→T8→T13. Validoitu chrome-MCP demo-tilassa (mobiili+desktop). **HUOM: omat luokkanimet** (`greeting-*`/`joukkue-taulukko`), ei spec'in (`tm-hero`/`teams-table`); v24-referenssi on bundler (purku `/tmp/vp_v24_ref.html`).
+
+### Avoimet (käyttäjän SA-selaimessa, `?v=`)
+- **Sibbo P10 recalc** ajamatta (kohta 4) — aja konsolissa.
+- **VP_v25 SA-testi** Sibbo/KPV/SJK oikealla datalla (vaihe 1/2/3 + signaalit). Tiedosto `…github.io/talentmaster/TalentMaster_VP_v25.html`.
+- **VP_v25 Vaihe 3** (seuraavat komponentit) odottaa määrittelyä. v22 on tuotanto, koskematon.
+
+---
+
+## Sessio 2026-06-01 — Käyttäjäkutsu: linkki aina + WhatsApp-jako  ✅ varmistettu Macilla (CF-deploy vihreä `9b0a48b`)
 
 > **HANDOFF (kone vaihtui Windows → Mac):** tämä sprint on **committattu ja pushattu**, mutta
 > deploy + selaintesti vielä tekemättä. Jatka tästä kun avaat Macin.
