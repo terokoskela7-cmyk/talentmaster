@@ -32,6 +32,11 @@
   --gold:   #D9A441;
   --purple: #8B6FBF;
   --border: rgba(255,255,255,.08);
+  /* Vaihe 2 — alias-tokenit spec-yhteensopivuus (osoittavat olemassa oleviin arvoihin, teema säilyy) */
+  --font-d: var(--font-serif);  --font-b: var(--font-sans);  --font-m: var(--font-mono);
+  --ink-2: var(--ink2);  --ink-3: var(--ink3);  --ink-4: rgba(232,238,248,.30);
+  --surface: var(--bg3);  --surface-2: var(--bg2);  --surface-3: #2A2A28;
+  --gold-tint: rgba(217,164,65,.13);  --purple-tint: rgba(139,111,191,.12);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1119,6 +1124,25 @@ body {
 .rae-varoitus { font-size:10px; color:var(--amber); margin-left:6px; }
 .valmentaja-nimi { font-size:13px; color:var(--ink2); }
 
+/* ═══ Vaihe 2: signaalimoottori ═══ */
+.signaalit-lista { display:flex; flex-direction:column; gap:2px; }
+.signaali-rivi { display:flex; align-items:flex-start; gap:16px; padding:16px 20px; border-left:2px solid transparent; border-bottom:1px solid var(--border); transition:background .15s; }
+.signaali-rivi:hover { background:var(--surface); }
+.sig-kriittinen   { border-left-color:var(--red); }
+.sig-seuranta     { border-left-color:var(--amber); }
+.sig-positiivinen { border-left-color:var(--teal); }
+.sig-ikooni { font-family:var(--font-m); font-size:13px; width:20px; text-align:center; flex-shrink:0; margin-top:2px; }
+.sig-kriittinen   .sig-ikooni { color:var(--red); }
+.sig-seuranta     .sig-ikooni { color:var(--amber); }
+.sig-positiivinen .sig-ikooni { color:var(--teal); }
+.sig-sisalto { flex:1; min-width:0; }
+.sig-otsikko { font-size:13px; font-weight:500; margin-bottom:3px; color:var(--ink); }
+.sig-kuvaus { font-size:12px; color:var(--ink-3); line-height:1.5; }
+.sig-toiminto { flex-shrink:0; }
+.sig-cta { font-family:var(--font-m); font-size:11px; letter-spacing:.04em; color:var(--teal); background:none; border:1px solid var(--teal); padding:5px 10px; cursor:pointer; transition:background .15s; white-space:nowrap; border-radius:6px; }
+.sig-cta:hover { background:rgba(40,176,144,.1); }
+.signaali-tyhja { padding:24px 20px; font-size:13px; color:var(--ink-3); font-family:var(--font-m); }
+
 @media (max-width: 900px) {
   :root { --sb: 240px; }
   .kpi-row { grid-template-columns: repeat(2,1fr); }
@@ -1372,6 +1396,15 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         </div>
       </div>
 
+      <section class="tm-section" id="sec-signaalit">
+        <div class="section-header">
+          <span class="section-num">02</span>
+          <h2 class="section-title">Kriittiset <em>signaalit</em></h2>
+          <span class="section-hint" id="signaalit-meta">Ladataan...</span>
+        </div>
+        <div id="signaalit-lista" class="signaalit-lista"></div>
+      </section>
+
       <section class="tm-section" id="section-joukkueet">
         <div class="section-header">
           <span class="section-num">03</span>
@@ -1395,15 +1428,6 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
           </table>
         </div>
       </section>
-
-      <div class="section-hd">Kriittiset signaalit</div>
-      <div class="signal-list" id="signaalitLista">
-        <div class="empty-state">
-          <div class="empty-icon">✓</div>
-          <div class="empty-title">Ei kriittisiä signaaleja</div>
-          <div class="empty-sub">Kaikki joukkueet toimivat normaalisti</div>
-        </div>
-      </div>
 
       <div class="kpi-row" id="tilanneKpis">
         <div class="kpi-card">
@@ -1706,12 +1730,12 @@ function naytaDash(user, isSuperAdmin) {
   document.getElementById('tbRooli').textContent  = isSuperAdmin ? 'Super Admin' : 'VP';
 
   const h = new Date().getHours();
-  const greet = h < 12 ? 'Hyvää aamua' : h < 17 ? 'Hyvää päivää' : 'Hyvää iltaa';
+  const greet = _greeting();
   const _setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
   const _y = new Date().getFullYear();
   const _kausi = (new Date().getMonth() >= 6) ? (_y + '/' + (_y + 1)) : ((_y - 1) + '/' + _y);
   _setTxt('greeting-tervehdys', greet);
-  _setTxt('greeting-name', user.displayName || user.email.split('@')[0]);
+  _setTxt('greeting-name', _greetingNimi(user, isSuperAdmin));
   _setTxt('greeting-summary', seuraLabel + ' · joukkueiden pulssi ja kriittiset signaalit reaaliaikaisesti.');
   _setTxt('greeting-kausi', 'Kausi ' + _kausi);
   _setTxt('greeting-viikko', 'Viikko ' + getViikko());
@@ -1956,8 +1980,8 @@ function renderTilanne() {
   if (testitKtx && testitDEl) testitDEl.textContent = testitKtx;
   // IDP "käsitelty tällä viikolla" ei ole laskettavissa ladatusta datasta (vain odottavat ladattu) → oletusteksti säilyy
 
-  // Sprint 3 — Signaalit dynaamisina Firestore-pohjaisina
-  renderSignals(_seuraId);
+  // Vaihe 2 — toimenpidekeskeinen signaalimoottori (korvaa §26 renderSignals)
+  renderSignaalit(_seuraId, _pelaajat, []).catch(function(e){ console.warn('[signaalit]', e.message); });
 
   // IDP-jono tilanne-näkymässä
   renderIdpJono('tilanneIdpJono');
@@ -1973,6 +1997,162 @@ function renderTilanne() {
 const PHV_KIRJAUS_RAJA_PV = 14;
 const VALMENTAJA_HILJAA_PV = 14;
 const HIDDEN_GEM_FLEI = 65;
+
+// ─── VAIHE 2 — DYNAAMINEN GREETING + TOIMENPIDEKESKEINEN SIGNAALIMOOTTORI ───
+function _greeting() {
+  const h = new Date().getHours();
+  if (h < 5)  return 'Hyvää yötä';
+  if (h < 12) return 'Hyvää aamua';
+  if (h < 17) return 'Hyvää päivää';
+  if (h < 22) return 'Hyvää iltaa';
+  return 'Hyvää yötä';
+}
+function _greetingNimi(user, onSuperAdmin) {
+  if (onSuperAdmin) return 'Super Admin';
+  if (user && user.displayName) return user.displayName.split(' ')[0];
+  const etuosa = ((user && user.email) || '').split('@')[0];
+  return etuosa ? (etuosa.charAt(0).toUpperCase() + etuosa.slice(1)) : 'valmentaja';
+}
+
+// Lukee jo ladattua _pelaajat-/_idpJono-dataa — ei uusia Firestore-kyselyjä.
+async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
+  const signaalit = [];
+  const joukkueMap = {};
+  pelaajatData.forEach(function(p) {
+    const jk = p.joukkue || '(tuntematon)';
+    if (!joukkueMap[jk]) joukkueMap[jk] = [];
+    joukkueMap[jk].push(p);
+  });
+  const sj = function(s){ return String(s || '').replace(/['"]/g, ''); };   // turvallinen onclick-arg
+
+  // 🔴 KRIITTISET
+  // S1: harjoitettavuuskartoitus (FLEI) tekemättä
+  Object.keys(joukkueMap).forEach(function(jkNimi) {
+    const pelaajat = joukkueMap[jkNimi];
+    const ilmanFlei = pelaajat.filter(function(p){ return p.flei_viimeisin == null; });
+    const kattavuus = 1 - ilmanFlei.length / Math.max(pelaajat.length, 1);
+    if (kattavuus < 0.4) {
+      signaalit.push({ tyyppi:'kriittinen', ikooni:'!',
+        otsikko: lyhennaNimi(jkNimi) + ' — harjoitettavuuskartoitus tekemättä',
+        kuvaus: ilmanFlei.length + '/' + pelaajat.length + ' pelaajalta puuttuu FLEI-profiili. Valmentaja ei pysty yksilöllistämään harjoittelua.',
+        cta:'Avaa kartoituslomake →', ctaFn:"avaaHarjoitettavuus('" + sj(jkNimi) + "')", prioriteetti:1 });
+    }
+  });
+  // S2: TKI-keskiarvo kriittisen alhainen
+  Object.keys(joukkueMap).forEach(function(jkNimi) {
+    const pelaajat = joukkueMap[jkNimi];
+    const tkiArvot = pelaajat.filter(function(p){ return p.tki_viimeisin != null; }).map(function(p){ return p.tki_viimeisin; });
+    if (tkiArvot.length < 3) return;
+    const tkiKa = tkiArvot.reduce(function(a,b){ return a+b; }, 0) / tkiArvot.length;
+    if (tkiKa < 20) {
+      signaalit.push({ tyyppi:'kriittinen', ikooni:'!',
+        otsikko: lyhennaNimi(jkNimi) + ' — tekniikkataso tarvitsee tukea',
+        kuvaus:'TKI-keskiarvo ' + Math.round(tkiKa) + '/100. Suositus: omatoimiharjoittelu-ohjelma valmentajalle.',
+        cta:'Katso harjoitussuositukset →', ctaFn:"avaaHarjoitussuositukset('" + sj(jkNimi) + "')", prioriteetti:2 });
+    }
+  });
+  // S3: IDP-jono odottaa (käytä jo ladattua _idpJono:a — ei uutta kyselyä)
+  if (typeof _idpJono !== 'undefined' && _idpJono && _idpJono.length > 0) {
+    signaalit.push({ tyyppi:'kriittinen', ikooni:'!',
+      otsikko: _idpJono.length + ' IDP-ehdotusta odottaa hyväksyntää',
+      kuvaus:'Valmentaja on ehdottanut kehityspolkua — vahvista tai hylkää.',
+      cta:'Avaa jono →', ctaFn:'avaaIdpJono()', prioriteetti:3 });
+  }
+
+  // 🟡 SEURANTA
+  // S4: TKI-kattavuus alle 60 %
+  Object.keys(joukkueMap).forEach(function(jkNimi) {
+    const pelaajat = joukkueMap[jkNimi];
+    const tkiKatt = pelaajat.filter(function(p){ return p.tki_viimeisin != null; }).length / Math.max(pelaajat.length, 1);
+    if (tkiKatt < 0.6 && tkiKatt >= 0.1) {
+      signaalit.push({ tyyppi:'seuranta', ikooni:'i',
+        otsikko: lyhennaNimi(jkNimi) + ' — TKI-data puuttuu osalta',
+        kuvaus: Math.round(tkiKatt * 100) + '% pelaajista testattu. Lisää testipäivä ennen kauden loppua.',
+        cta:null, prioriteetti:4 });
+    }
+  });
+  // S5: lähellä pronssia (TKI 35–54, ei vielä merkkiä)
+  Object.keys(joukkueMap).forEach(function(jkNimi) {
+    const pelaajat = joukkueMap[jkNimi];
+    const lahella = pelaajat.filter(function(p){ return p.tki_viimeisin != null && p.tki_viimeisin >= 35 && p.tki_viimeisin < 55 && !p.tki_merkki; });
+    if (lahella.length >= 2) {
+      signaalit.push({ tyyppi:'seuranta', ikooni:'i',
+        otsikko: lyhennaNimi(jkNimi) + ' — ' + lahella.length + ' pelaajaa lähellä pronssia',
+        kuvaus:'TKI 35–54. Fokusoi omatoimiharjoittelu — pronssi on saavutettavissa seuraavassa kilpailussa.',
+        cta:null, prioriteetti:5 });
+    }
+  });
+  // S6: ilman suostumusta
+  const rekisteroimattomat = pelaajatData.filter(function(p){ return p.suostumusTila === 'odottaa' || !p.suostumusTila; });
+  if (rekisteroimattomat.length > 5) {
+    signaalit.push({ tyyppi:'seuranta', ikooni:'i',
+      otsikko: rekisteroimattomat.length + ' pelaajaa ilman suostumusta',
+      kuvaus:'Huoltajille ei ole lähetetty rekisteröintikutsua tai suostumus on kesken.',
+      cta:'Lähetä kutsut →', ctaFn:'avaaKutsut()', prioriteetti:6 });
+  }
+
+  // ✦ POSITIIVISET
+  // S7: seuran korkein TKI
+  const kaikillaTki = pelaajatData.filter(function(p){ return p.tki_viimeisin != null; });
+  if (kaikillaTki.length > 0) {
+    const paras = kaikillaTki.reduce(function(a,b){ return a.tki_viimeisin > b.tki_viimeisin ? a : b; });
+    if (paras.tki_viimeisin >= 50) {
+      signaalit.push({ tyyppi:'positiivinen', ikooni:'✦',
+        otsikko: (paras.etunimi || '') + ' ' + (paras.sukunimi || '') + ' — seuran korkein TKI',
+        kuvaus:'TKI ' + paras.tki_viimeisin + (paras.tki_merkki ? ' · ' + paras.tki_merkki : '') + ' · ' + (paras.joukkue || ''),
+        cta:'Katso profiili →', ctaFn:"avaaPelaaja('" + sj(paras.id) + "')", prioriteetti:7 });
+    }
+  }
+  // S8: kulta/hopea-saavuttajat
+  const merkkiSaavuttajat = pelaajatData.filter(function(p){ return p.tki_merkki === 'kulta' || p.tki_merkki === 'hopea'; });
+  if (merkkiSaavuttajat.length > 0) {
+    signaalit.push({ tyyppi:'positiivinen', ikooni:'✦',
+      otsikko: merkkiSaavuttajat.length + ' pelaajaa saavutti kulta- tai hopea-merkin',
+      kuvaus: merkkiSaavuttajat.slice(0,3).map(function(p){ return (p.etunimi||'') + ' ' + (p.sukunimi||'') + ' (' + lyhennaNimi(p.joukkue||'') + ' · ' + p.tki_merkki + ')'; }).join(' · '),
+      cta:null, prioriteetti:8 });
+  }
+
+  signaalit.sort(function(a,b){ return a.prioriteetti - b.prioriteetti; });
+  _renderSignaaliLista(signaalit);
+
+  const kriittiset = signaalit.filter(function(s){ return s.tyyppi === 'kriittinen'; }).length;
+  const summaryEl = document.getElementById('greeting-summary');
+  if (summaryEl) summaryEl.textContent = kriittiset > 0
+    ? (kriittiset + ' signaalia odottaa toimenpidettä tänään.')
+    : 'Kaikki kunnossa — ei kriittisiä signaaleja.';
+}
+
+function _renderSignaaliLista(signaalit) {
+  const container = document.getElementById('signaalit-lista');
+  if (!container) return;
+  if (signaalit.length === 0) {
+    container.innerHTML = '<div class="signaali-tyhja">Ei avoimia signaaleja tänään.</div>';
+  } else {
+    container.innerHTML = signaalit.map(function(s) {
+      const luokka = s.tyyppi === 'kriittinen' ? 'sig-kriittinen' : s.tyyppi === 'positiivinen' ? 'sig-positiivinen' : 'sig-seuranta';
+      const ctaHtml = s.cta ? '<button class="sig-cta" onclick="' + s.ctaFn + '">' + s.cta + '</button>' : '';
+      return '<div class="signaali-rivi ' + luokka + '">' +
+        '<div class="sig-ikooni">' + s.ikooni + '</div>' +
+        '<div class="sig-sisalto"><div class="sig-otsikko">' + s.otsikko + '</div>' +
+          '<div class="sig-kuvaus">' + s.kuvaus + '</div></div>' +
+        (ctaHtml ? '<div class="sig-toiminto">' + ctaHtml + '</div>' : '') +
+      '</div>';
+    }).join('');
+  }
+  const kriittiset = signaalit.filter(function(s){ return s.tyyppi === 'kriittinen'; }).length;
+  const metaEl = document.getElementById('signaalit-meta');
+  if (metaEl) metaEl.textContent = kriittiset > 0 ? (kriittiset + ' vaatii toimenpidettä') : 'Ei kriittisiä';
+  const badge = document.getElementById('tilanne-badge');
+  if (badge) badge.textContent = kriittiset > 0 ? kriittiset : '';
+}
+
+// CTA-stubit — määritellään vain jos oikeaa funktiota ei ole (ei ylikirjoiteta olemassa olevia)
+function _sigStub(msg){ if (typeof toast === 'function') toast(msg, 'ok'); else console.log('[signaali]', msg); }
+window.avaaHarjoitettavuus     = window.avaaHarjoitettavuus     || function(jk){ _sigStub('Harjoitettavuuskartoitus: ' + jk + ' — tulossa'); };
+window.avaaHarjoitussuositukset = window.avaaHarjoitussuositukset || function(jk){ _sigStub('Harjoitussuositukset: ' + jk + ' — tulossa'); };
+window.avaaIdpJono             = window.avaaIdpJono             || function(){ _sigStub('IDP-jono — avaa Pelaajat-välilehti'); };
+window.avaaKutsut              = window.avaaKutsut              || function(){ _sigStub('Kutsut — avaa Seurahallinta'); };
+window.avaaPelaaja             = window.avaaPelaaja             || function(id){ _sigStub('Pelaaja: ' + id + ' — tulossa'); };
 
 async function renderSignals(seuraId) {
   const lista = document.getElementById('signaalitLista');
