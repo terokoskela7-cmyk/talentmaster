@@ -3233,7 +3233,12 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
       .filter(function(x) { return x.data && x.data.protokolla === 'tekniikkakilpailu' && x.data.kokonaistulos_s != null; });
     if (!tk.length) { ohitettu++; return; }
     tk.sort(function(a, b) { return String(b.data.pvm || b.data.testauspvm || '').localeCompare(String(a.data.pvm || a.data.testauspvm || '')); });
-    const d = tk[0].data;
+    // Valitse pelaajan JOUKKUEEN ikäluokkaa vastaava tulos (esim. joukkue "... P10" → ikaluokka "P10"),
+    // muuten uusin. Estää väärän/stray-docin (esim. 2026-04-01 P12) valinnan kun pelaajalla on monta tulosta.
+    const jkIka = (String(t.pel.joukkue || '').match(/[PpTt]\s*\d{1,2}/) || [''])[0].replace(/\s/g, '').toUpperCase();
+    let valittu = jkIka ? tk.find(function(x) { return String(x.data.ikaluokka || '').toUpperCase() === jkIka; }) : null;
+    if (!valittu) valittu = tk[0];
+    const d = valittu.data;
     const ikaluokka = String(d.ikaluokka || '');
     const sp = (ikaluokka.charAt(0).toUpperCase() === 'T') ? 'T' : 'P';   // TK_KOKONAISRAJAT-avaimet P/T (EI M/N)
     const ika = parseInt(ikaluokka.replace(/[^0-9]/g, ''), 10);
@@ -3244,8 +3249,10 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
     const merkki = tkLaskeMerkki(kt, ika, sp);
     const oikeatRajat = ((TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT.P)[ika]) || null;
     const vk = _laskeVahvuudetJaKehityskohteet({ testit: d.testit || {} }, { ika: ika });
+    // Ohita vain jos pelaajan PIKAKENTÄT ovat JO oikein (vertaa pikakenttiin, EI testitulokseen)
+    if (t.pel.tki_viimeisin === tki && t.pel.tki_merkki === (merkki || null)) { ohitettu++; return; }
     muutokset.push({
-      pelRef: t.ref, tulRef: tk[0].ref,
+      pelRef: t.ref, tulRef: valittu.ref,
       nimi: (t.pel.etunimi || '') + ' ' + (t.pel.sukunimi || ''),
       joukkue: t.pel.joukkue || '', ikaluokka: ikaluokka, kt: kt, pvm: d.pvm || d.testauspvm || '',
       vanhaTki: (t.pel.tki_viimeisin === undefined ? '—' : t.pel.tki_viimeisin),
