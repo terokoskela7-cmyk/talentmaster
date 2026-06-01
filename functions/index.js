@@ -430,7 +430,14 @@ exports.luoKayttaja = functions
       console.warn('[luoKayttaja] Custom claims -asetus epäonnistui:', e.message);
     }
 
+    // ── SALASANALINKKI + SÄHKÖPOSTI (ERIYTETTY) ────────────────────────────────
+    // Linkki generoidaan AINA ja palautetaan clientille — myös silloin kun
+    // sähköpostilähetys epäonnistuu (esim. SendGrid "Maximum credits exceeded").
+    // Näin kutsuja voi jakaa kirjautumislinkin manuaalisesti (sähköposti/
+    // WhatsApp/kopioi) eikä uusi käyttäjä jää koskaan ilman pääsyä.
     let resetLinkki = null;
+    let emailSent   = false;
+    let emailError  = null;
     try {
       const roolitusUrl = {
         valmentaja:           'TalentMaster_Master_v16.html',
@@ -448,20 +455,40 @@ exports.luoKayttaja = functions
         url: kohdeUrl,
         handleCodeInApp: false,
       });
-      await lahetaSahkoposti({
-        to: email,
-        subject: 'TalentMaster™ — Tervetuloa! Aseta salasanasi',
-        fromName: 'TalentMaster™',
-        html: pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }),
-      });
     } catch (e) {
-      console.warn('[luoKayttaja] Salasanasähköposti epäonnistui:', e.message);
+      console.warn('[luoKayttaja] Salasanalinkin generointi epäonnistui:', e.message);
+      emailError = e.message;
+    }
+    // Sähköposti lähetetään vain jos linkki saatiin — virhe ei kaada luontia.
+    if (resetLinkki) {
+      try {
+        await lahetaSahkoposti({
+          to: email,
+          subject: 'TalentMaster™ — Tervetuloa! Aseta salasanasi',
+          fromName: 'TalentMaster™',
+          html: pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }),
+        });
+        emailSent = true;
+      } catch (e) {
+        emailError = e.message;
+        console.warn('[luoKayttaja] Sähköposti epäonnistui:', e.message);
+      }
     }
     await db.collection('audit').add({
       toiminto: 'kayttaja_luotu', kohde_uid: uid, kohde_email: email,
       kohde_rooli: rooli, seuraId, tekija_uid: kutsujaUid, aikaleima: nyt,
     }).catch(() => {});
-    return { uid, email, resetLinkki, viesti: `${etunimi || email} lisätty onnistuneesti.` };
+    return {
+      uid,
+      email,
+      rooli,
+      etunimi: etunimi || '',
+      resetLinkki,                      // backward compat (Admin/Seura lukevat tätä)
+      passwordResetLink: resetLinkki,   // sama linkki — AINA mukana jakamista varten
+      emailSent,                        // true/false
+      emailError,                       // virheen syy jos sähköposti ei lähtenyt
+      viesti: `${etunimi || email} lisätty onnistuneesti.`,
+    };
   });
 // ─────────────────────────────────────────────────────────────────────────────
 // deaktivioiKayttaja

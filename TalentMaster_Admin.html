@@ -297,6 +297,25 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
         placeholder="valmentaja@seura.fi" autocapitalize="none">
     </div>
 
+    <!-- Puhelinnumero (WhatsApp) — valinnainen -->
+    <div class="kenttaRyhma">
+      <label class="kenttaLabel">Puhelinnumero (WhatsApp)</label>
+      <div style="display:flex;gap:8px;">
+        <select class="kenttaInput" id="uusiSuuntakoodi" style="max-width:90px;">
+          <option value="+358">🇫🇮 +358</option>
+          <option value="+46">🇸🇪 +46</option>
+          <option value="+47">🇳🇴 +47</option>
+          <option value="+45">🇩🇰 +45</option>
+          <option value="+372">🇪🇪 +372</option>
+        </select>
+        <input class="kenttaInput" type="tel" id="uusiPuhelin"
+          placeholder="040 123 4567" style="flex:1;">
+      </div>
+      <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
+        Valinnainen — mahdollistaa WhatsApp-jaon
+      </span>
+    </div>
+
     <hr class="formDivider">
 
     <!-- ROOLI JA SEURA -->
@@ -378,7 +397,7 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
 
     <!-- LÄHETÄ-NAPPI -->
     <button class="nappi" id="luoKayttajaNappi" onclick="luoUusiKayttaja()" style="margin-top:8px;">
-      Luo tunnus ja lähetä kutsu
+      Luo käyttäjätunnus
     </button>
 
     <div class="virheViesti" id="kayttajaVirhe"></div>
@@ -388,6 +407,17 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
       <div class="modalOnniOtsikko">✅ Käyttäjä luotu onnistuneesti!</div>
       <div class="modalOnniTeksti" id="kayttajaOnniTeksti"></div>
       <a class="modalOnniLinkki" id="kayttajaOnniLinkki" href="#" target="_blank"></a>
+
+      <!-- Jaa kirjautumislinkki: sähköposti / WhatsApp / kopioi -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);margin:16px 0 8px;">Jaa kirjautumislinkki</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="nappi" style="flex:1;min-width:120px;margin:0;" onclick="window._adminKutsuJaaSahkoposti()">📧 Sähköposti</button>
+        <button class="nappi" id="adminKutsuWhatsappBtn"
+          style="flex:1;min-width:120px;margin:0;background:rgba(37,211,102,.15);border:1px solid rgba(37,211,102,.4);color:#25d366;"
+          onclick="window._adminKutsuJaaWhatsapp()">💬 WhatsApp</button>
+        <button class="nappi" style="flex:1;min-width:120px;margin:0;" onclick="window._adminKutsuKopioi()">📋 Kopioi</button>
+      </div>
+      <div id="adminKutsuEmailStatus" style="font-size:12px;margin-top:10px;"></div>
     </div>
   </div>
 </div>
@@ -1264,13 +1294,15 @@ async function renderTilastot(alue) {
 // ─────────────────────────────────────────
 function avaaKayttajaModal() {
   // Nollataan lomake
-  ['uusiEtunimi','uusiSukunimi','uusiEmail','uusiJoukkue','uusiJoukkueNimi']
+  ['uusiEtunimi','uusiSukunimi','uusiEmail','uusiPuhelin','uusiJoukkue','uusiJoukkueNimi']
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  const suuntaEl = document.getElementById('uusiSuuntakoodi');
+  if (suuntaEl) suuntaEl.value = '+358';
   document.getElementById('uusiRooli').value = '';
   document.getElementById('kayttajaVirhe').classList.remove('nakyvilla');
   document.getElementById('kayttajaOnnistui').classList.remove('nakyvilla');
   document.getElementById('luoKayttajaNappi').disabled = false;
-  document.getElementById('luoKayttajaNappi').textContent = 'Luo tunnus ja lähetä kutsu';
+  document.getElementById('luoKayttajaNappi').textContent = 'Luo käyttäjätunnus';
   document.getElementById('joukkueSektio').classList.remove('nakyvilla');
   // Nollataan resetLinkki-elementti — muuten style.display='none' jää edelliseltä kerralta
   const linkNollaus = document.getElementById('kayttajaOnniLinkki');
@@ -1443,22 +1475,48 @@ async function luoUusiKayttaja() {
     }
 
     // Onnistui — näytetään vahvistusviesti
-    nappi.textContent = 'Lähetä uusi kutsu';
+    nappi.textContent = 'Luo toinen käyttäjä';
     nappi.disabled    = false;
 
     document.getElementById('kayttajaOnniTeksti').textContent =
-      `${etunimi ? etunimi + ' ' + sukunimi : email} sai sähköpostiinsa linkin ` +
-      `jonka kautta hän asettaa oman salasanansa. ` +
+      `${etunimi ? etunimi + ' ' + sukunimi : email} — ` +
       `Rooli: ${rooli} | Seura: ${lopullinenSeuraId}` +
       (joukkue ? ` | Joukkue: ${joukkueNimi || joukkue}` : '');
 
-    // Näytetään reset-linkki varmuudeksi VP:lle
+    // ── Jaa kirjautumislinkki: linkki muistiin (sähköposti/WhatsApp/kopioi) ──
+    // Linkki tulee luoKayttaja-funktiosta AINA, myös jos sähköposti epäonnistui.
+    const linkki = data.passwordResetLink || data.resetLinkki || null;
+    window._adminKutsuLinkki  = linkki;
+    window._adminKutsuEmail   = email;
+    window._adminKutsuEtunimi = etunimi;
+
+    // Rakennetaan kansainvälinen puhelinnumero WhatsApp-jakoa varten
+    const aSuunta   = document.getElementById('uusiSuuntakoodi')?.value || '+358';
+    const aPuhRaaka = (document.getElementById('uusiPuhelin')?.value || '').replace(/\D/g, '');
+    window._adminKutsuPuhelin = aPuhRaaka ? (aSuunta.replace('+', '') + aPuhRaaka.replace(/^0+/, '')) : null;
+    const aWaBtn = document.getElementById('adminKutsuWhatsappBtn');
+    if (aWaBtn) aWaBtn.style.display = window._adminKutsuPuhelin ? '' : 'none';
+
+    // Näytetään reset-linkki varmuudeksi
     const linkEl = document.getElementById('kayttajaOnniLinkki');
-    if (data.resetLinkki) {
-      linkEl.href        = data.resetLinkki;
-      linkEl.textContent = '↗ Kopioi salasananvaihtolinkki varmuudeksi';
+    if (linkki) {
+      linkEl.href         = linkki;
+      linkEl.style.display = '';
+      linkEl.textContent  = '↗ Avaa salasananvaihtolinkki';
     } else {
       linkEl.style.display = 'none';
+    }
+
+    // Sähköpostin tila
+    const aStatus = document.getElementById('adminKutsuEmailStatus');
+    if (aStatus) {
+      if (data.emailSent) {
+        aStatus.textContent = '📧 Sähköposti lähetetty onnistuneesti osoitteeseen ' + email;
+        aStatus.style.color = 'var(--teal)';
+      } else {
+        aStatus.textContent = '⚠️ Sähköposti ei lähtenyt — jaa linkki manuaalisesti yllä olevilla napeilla.';
+        aStatus.style.color = 'var(--amber)';
+      }
     }
 
     onniEl.classList.add('nakyvilla');
@@ -1472,7 +1530,7 @@ async function luoUusiKayttaja() {
 
   } catch (virhe) {
     nappi.disabled    = false;
-    nappi.textContent = 'Luo tunnus ja lähetä kutsu';
+    nappi.textContent = 'Luo käyttäjätunnus';
 
     // Cloud Functions heittää HttpsError -objektin
     const viesti = virhe.message || 'Tuntematon virhe.';
@@ -1480,6 +1538,37 @@ async function luoUusiKayttaja() {
     console.error('luoKayttaja virhe:', virhe);
   }
 }
+
+// ─────────────────────────────────────────
+// KÄYTTÄJÄKUTSU — linkin jako (sähköposti / WhatsApp / kopioi)
+// Ei riippuvuutta SendGridistä: linkki on jo muistissa window._adminKutsuLinkki.
+// ─────────────────────────────────────────
+window._adminKutsuJaaSahkoposti = function() {
+  if (!window._adminKutsuLinkki) return;
+  const subject = encodeURIComponent('TalentMaster™ — aseta salasanasi');
+  const body = encodeURIComponent(
+    'Hei ' + (window._adminKutsuEtunimi || '') + '!\n\n' +
+    'Tervetuloa TalentMaster-järjestelmään. Aseta salasanasi tästä linkistä:\n' +
+    window._adminKutsuLinkki
+  );
+  window.open('mailto:' + (window._adminKutsuEmail || '') + '?subject=' + subject + '&body=' + body, '_blank');
+};
+
+window._adminKutsuJaaWhatsapp = function() {
+  if (!window._adminKutsuPuhelin || !window._adminKutsuLinkki) return;
+  const teksti = encodeURIComponent(
+    'Hei ' + (window._adminKutsuEtunimi || '') + '! Tervetuloa TalentMaster-järjestelmään. ' +
+    'Aseta salasanasi tästä linkistä: ' + window._adminKutsuLinkki
+  );
+  window.open('https://wa.me/' + window._adminKutsuPuhelin + '?text=' + teksti, '_blank');
+};
+
+window._adminKutsuKopioi = function() {
+  if (!window._adminKutsuLinkki) return;
+  navigator.clipboard.writeText(window._adminKutsuLinkki)
+    .then(() => naytaToast('📋 Linkki kopioitu!', 'ok'))
+    .catch(() => naytaToast('Kopiointi epäonnistui — kopioi linkki manuaalisesti.', 'virhe'));
+};
 
 
 
