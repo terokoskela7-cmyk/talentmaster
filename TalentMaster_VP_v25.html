@@ -1143,6 +1143,20 @@ body {
 .sig-cta:hover { background:rgba(40,176,144,.1); }
 .signaali-tyhja { padding:24px 20px; font-size:13px; color:var(--ink-3); font-family:var(--font-m); }
 
+/* Vaihe 2 — kontekstiälykäs aloitus/deadline-palkki */
+.hero-deadline { margin-top:16px; }
+.hero-deadline .deadline-label { font-family:var(--font-m); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); margin-right:10px; }
+.hero-deadline .deadline-nimi { font-size:14px; color:var(--ink); margin-right:10px; }
+.hero-deadline .deadline-pv { font-family:var(--font-m); font-size:13px; color:var(--amber); }
+.aloitus-askeleet { display:flex; flex-direction:column; gap:8px; }
+.aloitus-otsikko { font-family:var(--font-m); font-size:10px; letter-spacing:.08em; color:var(--ink-3); text-transform:uppercase; margin-bottom:4px; }
+.aloitus-askel { display:flex; align-items:center; gap:10px; padding:8px 12px; background:rgba(255,253,247,.03); border:.5px solid rgba(255,253,247,.08); border-radius:8px; }
+.askel-num { font-family:var(--font-m); font-size:13px; color:var(--teal); flex-shrink:0; }
+.askel-teksti { font-size:12px; color:var(--ink); flex:1; }
+.askel-status.done { font-family:var(--font-m); font-size:11px; color:var(--teal); }
+.askel-cta { font-family:var(--font-m); font-size:10px; color:var(--teal); background:none; border:.5px solid var(--teal); padding:4px 8px; cursor:pointer; white-space:nowrap; letter-spacing:.04em; border-radius:6px; }
+.askel-cta:hover { background:rgba(40,176,144,.1); }
+
 @media (max-width: 900px) {
   :root { --sb: 240px; }
   .kpi-row { grid-template-columns: repeat(2,1fr); }
@@ -1375,6 +1389,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
           <span class="meta-sep">·</span>
           <span id="greeting-pvm">—</span>
         </div>
+        <div class="hero-deadline" id="hero-deadline" style="display:none"></div>
       </div>
 
 
@@ -2014,6 +2029,68 @@ function _greetingNimi(user, onSuperAdmin) {
   return etuosa ? (etuosa.charAt(0).toUpperCase() + etuosa.slice(1)) : 'valmentaja';
 }
 
+// Käyttövaihe (kontekstiäly): 1 = uusi (alku), 2 = kasvava, 3 = vakiintunut
+function laskeKayttoVaihe(pelaajatData, seuraId) {
+  const nyt = Date.now();
+  const vanhimmat = pelaajatData
+    .filter(function(p){ return p.tallennettu || p.luotu; })
+    .map(function(p){ const t = p.tallennettu || p.luotu; return t && t.seconds ? t.seconds * 1000 : new Date(t).getTime(); })
+    .filter(function(ms){ return !isNaN(ms); });
+  const tkiData = pelaajatData.filter(function(p){ return p.tki_viimeisin != null; }).length;
+  if (vanhimmat.length === 0) return 1;
+  const vanhinMs = Math.min.apply(null, vanhimmat);
+  const pvSitten = (nyt - vanhinMs) / (1000 * 60 * 60 * 24);
+  if (pvSitten < 14 || tkiData < 5) return 1;
+  if (pvSitten < 60 || tkiData < 20) return 2;
+  return 3;
+}
+
+// Kontekstiälykäs aloitus/deadline-palkki (hero-deadline). 1 = ohjattu aloitus, 2 = seuraava testi, 3 = normaali kausipalkki.
+function renderDeadlinePalkki(vaihe, testitapahtumat, pelaajaMaara) {
+  const el = document.getElementById('hero-deadline');
+  const seasonBar = document.querySelector('.season-bar');
+  if (!el) return;
+  if (vaihe === 1) {
+    el.innerHTML =
+      '<div class="aloitus-askeleet">' +
+        '<div class="aloitus-otsikko">Aloita näistä kolmesta</div>' +
+        '<div class="aloitus-askel"><span class="askel-num">①</span>' +
+          '<span class="askel-teksti">Tarkista joukkuelistasi</span>' +
+          '<span class="askel-status done">✓ ' + pelaajaMaara + ' pelaajaa tuotu</span></div>' +
+        '<div class="aloitus-askel"><span class="askel-num">②</span>' +
+          '<span class="askel-teksti">Suunnittele ensimmäinen testipäivä</span>' +
+          '<button class="askel-cta" onclick="avaaUusiTestiModaali()">Luo testi →</button></div>' +
+        '<div class="aloitus-askel"><span class="askel-num">③</span>' +
+          '<span class="askel-teksti">Kutsu valmentajat järjestelmään</span>' +
+          '<button class="askel-cta" onclick="avaaKutsuValmentaja()">Kutsu →</button></div>' +
+      '</div>';
+    el.style.display = 'block';
+    if (seasonBar) seasonBar.style.display = 'none';
+  } else if (vaihe === 2) {
+    const suunnitellut = (testitapahtumat || [])
+      .filter(function(t){ return t.tila === 'suunniteltu'; })
+      .sort(function(a,b){ return new Date(a.pvm_alku) - new Date(b.pvm_alku); });
+    const seuraavaTesti = suunnitellut[0];
+    if (seuraavaTesti) {
+      const pvJaljella = Math.round((new Date(seuraavaTesti.pvm_alku) - new Date()) / (1000*60*60*24));
+      el.innerHTML =
+        '<span class="deadline-label">Seuraava testi</span>' +
+        '<span class="deadline-nimi">' + (seuraavaTesti.nimi || 'Testipäivä') + '</span>' +
+        '<span class="deadline-pv">' + pvJaljella + ' päivää</span>';
+    } else {
+      el.innerHTML =
+        '<span class="deadline-label">Vinkki</span>' +
+        '<span class="deadline-nimi">Suunnittele toinen testipäivä vertailua varten</span>' +
+        '<button class="askel-cta" onclick="avaaUusiTestiModaali()">Luo testi →</button>';
+    }
+    el.style.display = 'block';
+    if (seasonBar) seasonBar.style.display = 'none';
+  } else {
+    el.style.display = 'none';
+    if (seasonBar) seasonBar.style.display = '';
+  }
+}
+
 // Lukee jo ladattua _pelaajat-/_idpJono-dataa — ei uusia Firestore-kyselyjä.
 async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
   const signaalit = [];
@@ -2026,18 +2103,18 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
   const sj = function(s){ return String(s || '').replace(/['"]/g, ''); };   // turvallinen onclick-arg
 
   // 🔴 KRIITTISET
-  // S1: harjoitettavuuskartoitus (FLEI) tekemättä
-  Object.keys(joukkueMap).forEach(function(jkNimi) {
-    const pelaajat = joukkueMap[jkNimi];
-    const ilmanFlei = pelaajat.filter(function(p){ return p.flei_viimeisin == null; });
-    const kattavuus = 1 - ilmanFlei.length / Math.max(pelaajat.length, 1);
-    if (kattavuus < 0.4) {
-      signaalit.push({ tyyppi:'kriittinen', ikooni:'!',
-        otsikko: lyhennaNimi(jkNimi) + ' — harjoitettavuuskartoitus tekemättä',
-        kuvaus: ilmanFlei.length + '/' + pelaajat.length + ' pelaajalta puuttuu FLEI-profiili. Valmentaja ei pysty yksilöllistämään harjoittelua.',
-        cta:'Avaa kartoituslomake →', ctaFn:"avaaHarjoitettavuus('" + sj(jkNimi) + "')", prioriteetti:1 });
-    }
-  });
+  // S1: FLEI — yksi seuratason signaali (ei per joukkue)
+  const ilmanFlei = pelaajatData.filter(function(p){ return p.flei_viimeisin == null; });
+  const fleiKattavuus = 1 - ilmanFlei.length / Math.max(pelaajatData.length, 1);
+  if (fleiKattavuus < 0.4) {
+    const joukkueetIlmanFlei = Object.keys(joukkueMap).filter(function(jk){
+      return joukkueMap[jk].every(function(p){ return p.flei_viimeisin == null; });
+    }).length;
+    signaalit.push({ tyyppi:'kriittinen', ikooni:'!',
+      otsikko: 'Harjoitettavuuskartoitus tekemättä — ' + joukkueetIlmanFlei + ' joukkuetta',
+      kuvaus: ilmanFlei.length + '/' + pelaajatData.length + ' pelaajalta puuttuu FLEI-profiili. Valmentajat eivät pysty yksilöllistämään harjoittelua ilman kartoitusta.',
+      cta:'Avaa kartoituslomake →', ctaFn:'avaaHarjoitettavuus()', prioriteetti:1 });
+  }
   // S2: TKI-keskiarvo kriittisen alhainen
   Object.keys(joukkueMap).forEach(function(jkNimi) {
     const pelaajat = joukkueMap[jkNimi];
@@ -2115,11 +2192,21 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
   signaalit.sort(function(a,b){ return a.prioriteetti - b.prioriteetti; });
   _renderSignaaliLista(signaalit);
 
+  // Kontekstiäly: käyttövaihe ohjaa hero-summarya + aloitus/deadline-palkkia
+  const vaihe = laskeKayttoVaihe(pelaajatData, seuraId);
+  window._kayttoVaihe = vaihe;
   const kriittiset = signaalit.filter(function(s){ return s.tyyppi === 'kriittinen'; }).length;
   const summaryEl = document.getElementById('greeting-summary');
-  if (summaryEl) summaryEl.textContent = kriittiset > 0
-    ? (kriittiset + ' signaalia odottaa toimenpidettä tänään.')
-    : 'Kaikki kunnossa — ei kriittisiä signaaleja.';
+  if (summaryEl) {
+    if (vaihe === 1) {
+      summaryEl.textContent = 'Tervetuloa TalentMasteriin. ' + pelaajatData.length + ' pelaajaa tuotu — aloitetaan ensimmäisellä testipäivällä.';
+    } else if (kriittiset > 0) {
+      summaryEl.textContent = kriittiset + ' asiaa odottaa toimenpidettä tänään.';
+    } else {
+      summaryEl.textContent = 'Kaikki kunnossa — ei kriittisiä signaaleja.';
+    }
+  }
+  renderDeadlinePalkki(vaihe, (typeof _tapahtumat !== 'undefined' ? _tapahtumat : []), pelaajatData.length);
 }
 
 function _renderSignaaliLista(signaalit) {
@@ -2153,6 +2240,8 @@ window.avaaHarjoitussuositukset = window.avaaHarjoitussuositukset || function(jk
 window.avaaIdpJono             = window.avaaIdpJono             || function(){ _sigStub('IDP-jono — avaa Pelaajat-välilehti'); };
 window.avaaKutsut              = window.avaaKutsut              || function(){ _sigStub('Kutsut — avaa Seurahallinta'); };
 window.avaaPelaaja             = window.avaaPelaaja             || function(id){ _sigStub('Pelaaja: ' + id + ' — tulossa'); };
+window.avaaUusiTestiModaali    = window.avaaUusiTestiModaali    || function(){ _sigStub('Luo testi — avaa Testaus_v9 / Kalenteri'); };
+window.avaaKutsuValmentaja     = window.avaaKutsuValmentaja     || function(){ _sigStub('Kutsu valmentaja — avaa Seurahallinta'); };
 
 async function renderSignals(seuraId) {
   const lista = document.getElementById('signaalitLista');
@@ -3806,6 +3895,14 @@ function lyhennaNimi(nimi) {
 }
 
 // ─── JOUKKUEPULSSI (Sprint 2: laskeJoukkueTrendi -integraatio) ──
+// Joukkuejärjestys: P8→P13, sitten T8→T13 (sukupuoli erikseen, ikä nousevasti)
+function joukkueJarjestys(nimi) {
+  const lyhyt = lyhennaNimi(nimi || '');
+  const sp = (lyhyt.charAt(0).toUpperCase() === 'T') ? 1 : 0;
+  const ika = parseInt(lyhyt.replace(/[^0-9]/g, ''), 10) || 99;
+  return sp * 100 + ika;
+}
+
 // v25: joukkuepulssi TAULUKKONA (kortit → rivit). Ryhmittely joukkue-nimellä säilyttää P/T-erottelun.
 function renderTeamPulse() {
   const tbody = document.getElementById('joukkue-taulukko-body');
@@ -3817,7 +3914,7 @@ function renderTeamPulse() {
     if (!joukkueet[j]) joukkueet[j] = [];
     joukkueet[j].push(p);
   });
-  const nimet = Object.keys(joukkueet).sort((a, b) => a.localeCompare(b, 'fi'));
+  const nimet = Object.keys(joukkueet).sort((a, b) => joukkueJarjestys(a) - joukkueJarjestys(b));
   if (nimet.length === 0) {
     tbody.innerHTML = '<tr><td colspan="7" style="color:var(--ink3);font-size:13px;padding:16px">Ei joukkuetietoja saatavilla</td></tr>';
     return;
