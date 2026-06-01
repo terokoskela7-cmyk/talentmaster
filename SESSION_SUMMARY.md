@@ -1,6 +1,6 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
-# Päivitetty: 2026-05-27
+# Päivitetty: 2026-06-01
 
 ---
 
@@ -12,6 +12,39 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 
 **Filosofia:** *"Pelaaja ensin, hallinto vahvistaa"*
 **Kilpailupositiointi:** *"Transfermarkt shows what. TalentMasterID shows how."*
+
+---
+
+## Sessio 2026-06-01 — Käyttäjäkutsu: linkki aina + WhatsApp-jako  ⏳ VARMISTAMATTA
+
+> **HANDOFF (kone vaihtui Windows → Mac):** tämä sprint on **committattu ja pushattu**, mutta
+> deploy + selaintesti vielä tekemättä. Jatka tästä kun avaat Macin.
+
+### Valmistui tässä sessiossa — commit `9b0a48b`
+**Ongelma:** `luoKayttaja` loi käyttäjän (200) mutta SendGrid-sähköposti epäonnistui
+("Maximum credits exceeded") → käyttäjä jäi ilman kirjautumislinkkiä.
+
+**Ratkaisu — sama pattern kuin Rekisteröintikutsussa** (luo → generoi linkki → näytä jako-optiot):
+- **`functions/index.js` `luoKayttaja`:** linkin generointi **eriytetty** sähköpostin lähetyksestä.
+  Palauttaa nyt AINA `passwordResetLink` (+ `resetLinkki` backward-compat), `emailSent`,
+  `emailError`, `email`, `rooli`, `etunimi`. SendGrid-virhe ei enää kaada linkin saantia.
+- **`TalentMaster_Seura.html`** (kutsuModal / `tallennaKutsu`): puhelinkenttä (`kutsu_suuntakoodi`
+  +358/46/47/45/372 + `kutsu_puhelin`), nappi **"Luo käyttäjätunnus"**, tuloskortti `#kutsuTulos`
+  jako-napeilla 📧/💬/📋. Jako-funktiot `window._kutsuJaaSahkoposti/Whatsapp/Kopioi/Uusi`.
+- **`TalentMaster_Admin.html`** (`luoUusiKayttaja`): sama puhelinkenttä (`uusiSuuntakoodi`/`uusiPuhelin`),
+  jako-napit `#kayttajaOnnistui`-korttiin, `window._adminKutsu*`-funktiot.
+- **Fallback molemmissa:** `data.passwordResetLink || data.resetLinkki` (Seura.html:3348, Admin.html:1488)
+  → WhatsApp/jako toimii myös vanhalla CF:llä, ei odota redeployta.
+- WhatsApp: `wa.me/<maakoodi+puhelin>` (johtonollat stripattu); sähköpostin tila-rivi `emailSent`-kentästä.
+
+### Avoimet asiat (TEE MACILLA ENSIN)
+1. **GitHub Actions deploy:** `deploy_functions.yml` triggeröityy `functions/**`-pushista →
+   CF redeployaa automaattisesti (ei manuaalia). **Varmista että commitin `9b0a48b` ajo on vihreä:**
+   https://github.com/terokoskela7-cmyk/talentmaster/actions/workflows/deploy_functions.yml
+   — vasta sitten `emailSent`-tilanäyttö ("📧 lähetetty" / "⚠️ ei lähtenyt") toimii.
+2. **Selaintesti SA:na** (talentmasterid@gmail.com, Google Sign-In): Seura.html + Admin.html →
+   Kutsu uusi käyttäjä → täytä + puhelin → "Luo käyttäjätunnus" → tuloskortti näkyy? WhatsApp-nappi
+   avaa oikean `wa.me`-linkin? Kopioi toimii? Muista `?v=N` (CDN ~10 min).
 
 ---
 
