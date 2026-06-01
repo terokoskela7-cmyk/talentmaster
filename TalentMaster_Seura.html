@@ -3364,9 +3364,10 @@ async function tallennaKutsu() {
     document.getElementById('kutsuTulosEmail').textContent  = email;
     document.getElementById('kutsuTulosLinkki').textContent = linkki || '(linkkiä ei saatu — yritä uudelleen)';
 
-    // Näytä/piilota WhatsApp-nappi puhelinnumeron mukaan
+    // WhatsApp-nappi on AINA käytettävissä (kuten Rekisteröintikutsussa):
+    // puhelin annettu → suora chat; ei puhelinta → yleinen jako (wa.me/?text=)
     const waBtn = document.getElementById('kutsuWhatsappBtn');
-    if (waBtn) waBtn.style.display = window._kutsuPuhelin ? '' : 'none';
+    if (waBtn) waBtn.style.display = '';
 
     // Sähköpostin tila
     const statusEl = document.getElementById('kutsuEmailStatus');
@@ -3415,12 +3416,16 @@ window._kutsuJaaSahkoposti = function() {
 };
 
 window._kutsuJaaWhatsapp = function() {
-  if (!window._kutsuPuhelin || !window._kutsuLinkki) return;
+  if (!window._kutsuLinkki) return;
   const teksti = encodeURIComponent(
     'Hei ' + (window._kutsuEtunimi || '') + '! Tervetuloa TalentMaster-järjestelmään. ' +
     'Aseta salasanasi tästä linkistä: ' + window._kutsuLinkki
   );
-  window.open('https://wa.me/' + window._kutsuPuhelin + '?text=' + teksti, '_blank');
+  // Puhelin annettu → suora chat; muuten yleinen WhatsApp-jako (valitse vastaanottaja)
+  const url = window._kutsuPuhelin
+    ? 'https://wa.me/' + window._kutsuPuhelin + '?text=' + teksti
+    : 'https://wa.me/?text=' + teksti;
+  window.open(url, '_blank');
 };
 
 window._kutsuKopioi = function() {

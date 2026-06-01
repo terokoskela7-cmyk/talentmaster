@@ -1494,8 +1494,10 @@ async function luoUusiKayttaja() {
     const aSuunta   = document.getElementById('uusiSuuntakoodi')?.value || '+358';
     const aPuhRaaka = (document.getElementById('uusiPuhelin')?.value || '').replace(/\D/g, '');
     window._adminKutsuPuhelin = aPuhRaaka ? (aSuunta.replace('+', '') + aPuhRaaka.replace(/^0+/, '')) : null;
+    // WhatsApp-nappi on AINA käytettävissä (kuten Rekisteröintikutsussa):
+    // puhelin annettu → suora chat; ei puhelinta → yleinen jako (wa.me/?text=)
     const aWaBtn = document.getElementById('adminKutsuWhatsappBtn');
-    if (aWaBtn) aWaBtn.style.display = window._adminKutsuPuhelin ? '' : 'none';
+    if (aWaBtn) aWaBtn.style.display = '';
 
     // Näytetään reset-linkki varmuudeksi
     const linkEl = document.getElementById('kayttajaOnniLinkki');
@@ -1555,12 +1557,16 @@ window._adminKutsuJaaSahkoposti = function() {
 };
 
 window._adminKutsuJaaWhatsapp = function() {
-  if (!window._adminKutsuPuhelin || !window._adminKutsuLinkki) return;
+  if (!window._adminKutsuLinkki) return;
   const teksti = encodeURIComponent(
     'Hei ' + (window._adminKutsuEtunimi || '') + '! Tervetuloa TalentMaster-järjestelmään. ' +
     'Aseta salasanasi tästä linkistä: ' + window._adminKutsuLinkki
   );
-  window.open('https://wa.me/' + window._adminKutsuPuhelin + '?text=' + teksti, '_blank');
+  // Puhelin annettu → suora chat; muuten yleinen WhatsApp-jako (valitse vastaanottaja)
+  const url = window._adminKutsuPuhelin
+    ? 'https://wa.me/' + window._adminKutsuPuhelin + '?text=' + teksti
+    : 'https://wa.me/?text=' + teksti;
+  window.open(url, '_blank');
 };
 
 window._adminKutsuKopioi = function() {
