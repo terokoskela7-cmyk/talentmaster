@@ -1442,6 +1442,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
                 <th class="col-team">JOUKKUE</th>
                 <th class="col-players">PEL.</th>
                 <th class="col-tki">TKI ka.</th>
+                <th class="col-hh">H-H ka.</th>
                 <th class="col-benchmark">SUHDE KANSALLISEEN</th>
                 <th class="col-taso">TASO</th>
                 <th class="col-merkit">MERKIT</th>
@@ -1521,11 +1522,11 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <table class="player-table">
         <thead>
           <tr>
-            <th>Pelaaja</th><th>Joukkue</th><th>FLEI</th><th>TKI</th><th>Signaali</th><th>PHV</th><th></th>
+            <th>Pelaaja</th><th>Joukkue</th><th>FLEI</th><th>TKI</th><th>H-H</th><th>Signaali</th><th>PHV</th><th></th>
           </tr>
         </thead>
         <tbody id="playerTableBody">
-          <tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:40px">Ladataan...</td></tr>
+          <tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:40px">Ladataan...</td></tr>
         </tbody>
       </table>
     </div>
@@ -1822,9 +1823,9 @@ async function lataaPelaajat() {
     console.warn('lataaPelaajat:', e.message);
     // Demo fallback
     _pelaajat = [
-      { id:'p1', etunimi:'Topias', sukunimi:'Koskela', joukkue:'KPV U13', flei_viimeisin:62, phv_tila:'AN', signaali:'hidden' },
-      { id:'p2', etunimi:'Matias', sukunimi:'Leinonen', joukkue:'KPV U15', flei_viimeisin:74, phv_tila:'PH', signaali:'xfactor' },
-      { id:'p3', etunimi:'Aleksi', sukunimi:'Mäkinen', joukkue:'KPV U17', flei_viimeisin:58, phv_tila:'VA', signaali:'' },
+      { id:'p1', etunimi:'Topias', sukunimi:'Koskela', joukkue:'KPV U13', flei_viimeisin:62, phv_tila:'AN', signaali:'hidden', hh_viimeisin:{lin30m:4.6,cmj:33,mas:14.5}, hh_taso:4.3 },
+      { id:'p2', etunimi:'Matias', sukunimi:'Leinonen', joukkue:'KPV U15', flei_viimeisin:74, phv_tila:'PH', signaali:'xfactor', hh_viimeisin:{lin30m:4.4,cmj:36,mas:15.2}, hh_taso:3.7 },
+      { id:'p3', etunimi:'Aleksi', sukunimi:'Mäkinen', joukkue:'KPV U17', flei_viimeisin:58, phv_tila:'VA', signaali:'', hh_viimeisin:{lin30m:5.0,cmj:28,mas:12.8}, hh_taso:2.4 },
       { id:'p4', etunimi:'Aino', sukunimi:'Saarinen', joukkue:'KPV U15', flei_viimeisin:71, phv_tila:'PH', signaali:'' },
       { id:'p5', etunimi:'Eemeli', sukunimi:'Korhonen', joukkue:'KPV U13', flei_viimeisin:45, phv_tila:'AN', signaali:'' },
     ];
@@ -3787,9 +3788,9 @@ function demoMode() {
   document.getElementById('sDash').style.display  = 'flex';
   // Demo data
   _pelaajat=[
-    {id:'p1',etunimi:'Topias',sukunimi:'Koskela',joukkue:'FC Demo U13',flei_viimeisin:62,phv_tila:'AN',signaali:'hidden'},
-    {id:'p2',etunimi:'Matias',sukunimi:'Leinonen',joukkue:'FC Demo U15',flei_viimeisin:74,phv_tila:'PH',signaali:'xfactor'},
-    {id:'p3',etunimi:'Aleksi',sukunimi:'Mäkinen',joukkue:'FC Demo U17',flei_viimeisin:58,phv_tila:'VA',signaali:''},
+    {id:'p1',etunimi:'Topias',sukunimi:'Koskela',joukkue:'FC Demo U13',flei_viimeisin:62,phv_tila:'AN',signaali:'hidden',hh_viimeisin:{lin30m:4.6,cmj:33,mas:14.5},hh_taso:4.3},
+    {id:'p2',etunimi:'Matias',sukunimi:'Leinonen',joukkue:'FC Demo U15',flei_viimeisin:74,phv_tila:'PH',signaali:'xfactor',hh_viimeisin:{lin30m:4.4,cmj:36,mas:15.2},hh_taso:3.7},
+    {id:'p3',etunimi:'Aleksi',sukunimi:'Mäkinen',joukkue:'FC Demo U17',flei_viimeisin:58,phv_tila:'VA',signaali:'',hh_viimeisin:{lin30m:5.0,cmj:28,mas:12.8},hh_taso:2.4},
     {id:'p4',etunimi:'Aino',sukunimi:'Saarinen',joukkue:'FC Demo U15',flei_viimeisin:71,phv_tila:'PH',signaali:''},
     {id:'p5',etunimi:'Eemeli',sukunimi:'Korhonen',joukkue:'FC Demo U13',flei_viimeisin:45,phv_tila:'AN',signaali:''},
   ];
@@ -3949,6 +3950,13 @@ function tkiVari(taso) {
   const map = { erinomainen: '#1D9E75', hyva: '#639922', kehitys: '#ba7517', prioriteetti: '#c94444' };
   return map[taso] || '#888';
 }
+// H-H taso 1–5 → väri: 1–2 punainen · 3 keltainen · 4–5 vihreä. (hh_taso = Eerikkilä-osatasojen ka.)
+function hhTasoVari(taso) {
+  if (taso == null) return '#888';
+  if (taso < 3) return '#c94444';   // 1–2 punainen
+  if (taso < 4) return '#ba7517';   // 3 keltainen
+  return '#1D9E75';                 // 4–5 vihreä
+}
 function tkiBenchmarkPalkki(tkiKa, ikaluokka) {
   const bm = TK_KANSALLINEN_BENCHMARK[ikaluokka];
   if (!bm || tkiKa == null) return '<span class="data-puuttuu">—</span>';
@@ -3997,7 +4005,7 @@ function renderTeamPulse() {
   });
   const nimet = Object.keys(joukkueet).sort((a, b) => joukkueJarjestys(a) - joukkueJarjestys(b));
   if (nimet.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--ink3);font-size:13px;padding:16px">Ei joukkuetietoja saatavilla</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="color:var(--ink3);font-size:13px;padding:16px">Ei joukkuetietoja saatavilla</td></tr>';
     return;
   }
 
@@ -4013,6 +4021,11 @@ function renderTeamPulse() {
     const tkiAvg = ka(tkiVals);
     const tkiKa = tkiAvg != null ? Math.round(tkiAvg) : null;
     const taso = tkiTaso(tkiKa);
+
+    // H-H ka. — pikakentästä hh_taso (1–5), keskiarvo 1 desimaalilla. Ei alikokoelmakyselyä.
+    const hhVals = pelaajat.filter(p => p.hh_taso != null).map(p => p.hh_taso);
+    const hhAvg = ka(hhVals);
+    const hhKa = hhAvg != null ? Math.round(hhAvg * 10) / 10 : null;
     const vari = tkiVari(taso);
     const riviLuokka = (tkiKa == null) ? 'rivi-ei-dataa' : '';   // ei TKI-dataa → himmennä rivi
     const metaTeksti = (phvCount > 0) ? (koko + ' pel · ' + phvCount + ' PHV') : (koko + ' pel');
@@ -4023,6 +4036,9 @@ function renderTeamPulse() {
       '<td class="col-players"><span class="arvo-iso">' + koko + '</span></td>' +
       '<td class="col-tki">' + (tkiKa != null
         ? '<span class="arvo-iso" style="color:' + vari + '">' + tkiKa + '</span>'
+        : '<span class="data-puuttuu">—</span>') + '</td>' +
+      '<td class="col-hh">' + (hhKa != null
+        ? '<span class="arvo-iso" style="color:' + hhTasoVari(hhKa) + '">' + hhKa + '</span>'
         : '<span class="data-puuttuu">—</span>') + '</td>' +
       '<td class="col-benchmark">' + tkiBenchmarkPalkki(tkiKa, ikaluokka) + '</td>' +
       '<td class="col-taso">' + (taso
@@ -4075,6 +4091,11 @@ function _tkiSoluVP(p) {
   const merkkiHtml = m ? ' <span style="font-size:11px" title="' + m.nimi + '">' + m.emoji + '</span>' : '';
   return '<strong>' + tki + '</strong>' + merkkiHtml;
 }
+// H-H-solu pelaajalistaan — pikakentästä hh_taso (1–5), näytetään vain jos hh_viimeisin olemassa. Ei alikokoelmakyselyä.
+function _hhSoluVP(p) {
+  if (!p.hh_viimeisin || p.hh_taso == null) return '<span style="color:var(--ink3)">—</span>';
+  return '<strong style="color:' + hhTasoVari(p.hh_taso) + '">' + p.hh_taso + '</strong>';
+}
 
 function renderPelaajatFiltered() {
   const tbody = document.getElementById('playerTableBody');
@@ -4094,7 +4115,7 @@ function renderPelaajatFiltered() {
   }
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--ink3);padding:32px">
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:32px">
       Ei pelaajia tässä kategoriassa</td></tr>`;
     return;
   }
@@ -4120,6 +4141,7 @@ function renderPelaajatFiltered() {
           </div>
         </td>
         <td>${_tkiSoluVP(p)}</td>
+        <td>${_hhSoluVP(p)}</td>
         <td>${sig}</td>
         <td style="font-size:12px;${phvColor}">${p.phv_tila||'—'}</td>
         <td>
