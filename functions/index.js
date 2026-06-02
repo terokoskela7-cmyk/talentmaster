@@ -524,8 +524,10 @@ exports.lahetaResetLinkki = functions
         'Sähköposti ei kuulu tämän seuran henkilöstöön.');
     }
     // 3) Generoi reset-linkki (ei muuta salasanaa, ei kirjoita dataa, ei lähetä sähköpostia)
+    // actionCodeSettings vaatii validin continue-url:n (kuten luoKayttaja) — muuten 500.
     try {
-      const resetLinkki = await auth.generatePasswordResetLink(email, { handleCodeInApp: false });
+      const kohdeUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Seura.html';
+      const resetLinkki = await auth.generatePasswordResetLink(email, { url: kohdeUrl, handleCodeInApp: false });
       return { passwordResetLink: resetLinkki, resetLinkki: resetLinkki, email: email };
     } catch (e) {
       throw new functions.https.HttpsError('internal',
