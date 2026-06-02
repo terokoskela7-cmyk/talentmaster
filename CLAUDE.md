@@ -141,7 +141,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `TalentMaster_Seura.html` | Seurahallinta (VP, sihteeri, UTJ) | ✅ mobiili OK |
 | `TalentMaster_Admin.html` | Super Admin -hallintapaneeli | ✅ |
 | `TalentMaster_VP_v22.html` | VP-dashboard (signaalit/BQ/IDP) | ✅ tuotanto, tila §19 |
-| `TalentMaster_VP_v25.html` | VP-dashboard v24-design (migraatio v22→v24) | ⏳ Vaihe 1+2 valmis (`4468a3e`); omat luokkanimet `greeting-*`/`joukkue-taulukko`, ei spec'in. Firebase = v22. SA-testi kesken |
+| `TalentMaster_VP_v25.html` | VP-dashboard v24-design (migraatio v22→v24) | ⏳ Vaihe 1+2+3 valmis (TKI-benchmark, `edae410`); omat luokkanimet `greeting-*`/`joukkue-taulukko`, ei spec'in. Firebase = v22. `?seura=` luetaan URL:sta |
 | `TalentMaster_Master_v16.html` | Valmentajan näkymä + Testit-työtila | ✅ uusin |
 | `TalentMaster_ADAR_Pikakortti.html` | Kenttähavainto + ADAR Vision (bundler) | ✅ |
 | `TalentMaster_Pelaaja_v7.html` | Pelaajan mobiiliapp (v=25) | ✅ |
@@ -306,8 +306,10 @@ Logout → dispatch `tm:logout` → odota 50 ms → `signOut()`.
 | `haeOrLuoHuoltajaAuth` | Huoltajan autentikointi |
 | `aiProxy` | AI-välitys: GPT-4o Vision, Whisper, narratiivi |
 | `tasoHaeSeuranOttelut` | TASO-integraatio (deployattu) |
+| `lahetaResetLinkki` | Henkilöstön salasana-reset-linkki (authz: SA/seuran johto `tarkistaOikeus`, kohde-email seuran kayttajat:issa) — ei datakirjoitusta |
 
 `OPENAI_API_KEY`: Google Cloud Secret Manager + GitHub Actions Secrets. API-avaimet ei ikinä selaimessa.
+**Reset-linkin continueUrl (HOLD 2026-06-02):** `generatePasswordResetLink(email, {url, handleCodeInApp:false})` — `url` PAKOLLINEN (ilman → 500). Käyttäjä laskeutuu Firebasen reset-sivulle, sitten `url`. Yhtenäistä `url` halutuksi landingiksi `luoKayttaja`/`lahetaResetLinkki`/`lahetaPelaajaSivuLinkki`-funktioissa.
 
 ---
 
@@ -593,6 +595,9 @@ ei TKI-johdettua fallbackia). Recalc kirjoittaa `tki_merkki:null` myös puuttues
 
 **Canonical-funktiot** `docs/testit_indeksit.js`: `tkLaskeMerkki` · `tkLaskeTKI` · `laskeKokonaistulos` ·
 `_laskeVahvuudetJaKehityskohteet`. Inline-kopiot Testaus_v9 + Excel_Tuonti.
+
+**TKI-benchmark (VP_v25):** `TK_KANSALLINEN_BENCHMARK` -vakio (valtak. tekniikkakilpailut 2022–2025), **P ja T erikseen**
+(esim. P10=85, T12=87). `lyhennaNimi(nimi)` → benchmark-avain; ei avainta → palkki "—". Taso: ≥80 erinomainen · ≥60 hyvä · ≥40 kehitys · <40 prioriteetti.
 
 ---
 

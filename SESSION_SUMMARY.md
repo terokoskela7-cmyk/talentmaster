@@ -15,7 +15,7 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 
 ---
 
-## Sessio 2026-06-01 → 06-02 (Mac) — CLAUDE.md-auditointi · mobiili/kontrasti · Sibbo-TKI-recalc · VP_v25-migraatio
+## Sessio 2026-06-02 (Mac) — VP_v25 migraatio (Vaihe 1–3) + kutsuinfra + Sibbo-data
 
 > **Ympäristö:** siirrytty Macille (`/Users/terokoskela/projects/talentmaster`). Node v26, git SSH toimii, `gh` CLI puuttuu (Actions-tila tarkistettu REST-API:lla). **Chrome-MCP** (chrome-devtools-mcp) asennettu local-scopeen. **Huom:** SA-visuaalitesti ei onnistu MCP:llä — Google estää automaatio-Sign-In:n + Chrome 148 estää oletusprofiilin remote-debugin → validointi koodiauditilla + demo-tilalla + käyttäjän omalla selaimella.
 
@@ -23,24 +23,34 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 1742 → **747 riviä** (−57 %). Numerointi korjattu (tupla-§23 + numeroimaton osio → juokseva 1–27), 4 hajanaista footeria poistettu. Duplikaatit yhdistetty (RAE ×3, kv ×2, bio-ikä, TKI, Rules). **Strategia/RAE-tiede/sprintit/bisnesmalli eriytetty → `docs/STRATEGIA.md`** (uusi). Kaikki tekniset invariantit säilytetty.
 
 ### 2. Kutsu-sprint (`9b0a48b`) varmistettu Macilla + WhatsApp-korjaus — `72b15cf`
-GitHub Actions `deploy_functions` **vihreä** commitille 9b0a48b → CF redeployattu (`emailSent`-tila toimii). Lisäksi: kutsu-WhatsApp-nappi (Seura Henkilöstö + Admin) **aina aktiivinen** — gatettiin puhelimeen; nyt `wa.me/?text=` fallback ilman puhelinta (kuten toimivassa Rekisteröintikutsussa).
+Kutsu-CF (`9b0a48b`) varmistettu vihreäksi. Kutsu-/reset-WhatsApp **aina aktiivinen** (`wa.me/?text=` fallback) kaikissa virroissa (`72b15cf`).
+- **Henkilöstön muokkausmodaali** (Seura Henkilöstö): etunimi/sukunimi/**puhelin** → `kayttajat/{uid}` (Rules sallii SA/johto) — `76aa3c2`. Tallennettu puhelin → WhatsApp suoraan `wa.me/<numero>`.
+- **Uusi CF `lahetaResetLinkki`** (SA/johto-authz, `generatePasswordResetLink`, ei datakirjoitusta) → henkilöstön reset 3-nappi-jakona — `fe0e5ae`; 500-bugi (puuttui `url` actionCodeSettings:istä) korjattu — `c381f29`.
+- Admin osoitti VP_v18:aan → korjattu v25:een; greeting tyhjä ennen kirjautumista; VP_v25 lukee `?seura=` URL:sta (SA avautuu oikealla seuralla) — `7f73220` · `22c2787`.
 
 ### 3. Mobiili + WCAG-kontrastit (6 näkymää) — `c135de6` · `3583f31` · `830b044`
 `--ink3`-kontrasti nostettu AA-tasolle (~4.5–5:1), `::placeholder { opacity:1 }`, mobiilikorjaukset. **VP_v22 juurisyy** (`3583f31`): sidebar on `position:fixed` mutta `#main { margin-left:var(--sb) }` jäi → sisältö leikkautui mobiilissa → nollattu 768-lohkossa. **Master_v16** (`830b044`): light-teeman teal-teksti #28B090→**#1A7A5E** (2.8→4.7:1), kuollut `--slate` poistettu. Canonical §5 bg/accent-tokenit koskematta.
 
-### 4. Sibbo TKI-recalc (P10-bugi) — `792f963` · `4454b46`  ⏳ AJAMATTA
-Sibbon 25 P10-pelaajaa laskettu **P9-rajoilla** (TKI 33 eikä 54). Juurisyy: tallennettu väärä `merkkirajat`-kenttä + olemassa oleva recalc kunnioittaa sitä (`rajatOverride`); lisäksi Sibbolta **puuttuu `syntymaVuosi`**. **Uusi SA-työkalu** `recalcIkaluokasta(seuraId, joukkue, dryRun=true)` (Excel_Tuonti + topbar-nappi): johtaa iän+sp testituloksen `ikaluokka`-kentästä, **OHITTAA** tallennetun merkkirajat-kentän → `TK_KOKONAISRAJAT[sp][ika]`, valitsee joukkueen ikäluokkaa vastaavan tuloksen (ohittaa stray-docit). Node-verifioitu: 33→54/pronssi. **Käyttäjä ajaa SA-konsolissa:** `recalcIkaluokasta('sibbovargarna','Sibbo-Vargarna P10')` → dry-run OK → `…, false`.
+### 4. Sibbo-Vargarna data + TKI-recalc — `792f963` · `4454b46`  ✅ ajettu
+3 PDF:ää tuotu (P8–P13 + T8–T13, ~158 pelaajaa). **P10 TKI-bugi** (P9-rajoilla → TKI 33 ≠ 54): juurisyy = väärä tallennettu `merkkirajat` + puuttuva `syntymaVuosi`. Työkalu `recalcIkaluokasta` (Excel_Tuonti, SA): johtaa iän+sp `ikaluokka`-kentästä, **OHITTAA** merkkirajat → `TK_KOKONAISRAJAT[sp][ika]`. **Ajettu: 147 pelaajaa, 0 virhettä** (`recalcIkaluokasta('sibbovargarna', null, false)`).
 
 ### 5. VP_v22 joukkuepulssi — `e4ec723`
 Sibbo (vain TKI-dataa) näytti tyhjältä. Korjaus: tyhjät mittarit himmennetään (TKI näkyy), lyhyet nimet (`lyhennaNimi`, P/T säilyy), BQ piilotetaan kun syntymäaika puuttuu, pienet joukkueet (<3) merkitään.
 
-### 6. VP_v25 migraatio (v24-design) — `e1f6d3b` (Vaihe 1) · `2a36bee`+`4468a3e` (Vaihe 2)
-`cp v22 → v25`, **Firebase-koodi koskematon**. **Vaihe 1:** typografia (Cormorant italic + DM Mono) + tokenit, topbar (breadcrumb/haku/kielivalinta/käyttäjäprofiili), greeting-hero, **joukkuepulssi kortit→TAULUKKO**. **Vaihe 2:** toimenpidekeskeinen **signaalimoottori** `renderSignaalit` (S1–S8, osio "02" ennen taulukkoa) + dynaaminen greeting + **kontekstiäly** `laskeKayttoVaihe` (vaihe 1 = ohjattu 3-askeleen aloitus, season-bar piiloon; 2 = seuraava testi; 3 = normaali) + FLEI-signaali seuratasolle + joukkuejärjestys P8→P13→T8→T13. Validoitu chrome-MCP demo-tilassa (mobiili+desktop). **HUOM: omat luokkanimet** (`greeting-*`/`joukkue-taulukko`), ei spec'in (`tm-hero`/`teams-table`); v24-referenssi on bundler (purku `/tmp/vp_v24_ref.html`).
+### 6. VP_v25 migraatio (v22→v24-design) — `e1f6d3b` `2a36bee` `4468a3e` `edae410`
+`cp v22 → v25`, **Firebase-koodi koskematon**. **Vaihe 1:** typografia + tokenit, topbar (breadcrumb/haku/kieli/profiili), greeting-hero, joukkuepulssi kortit→taulukko. **Vaihe 2:** signaalimoottori `renderSignaalit` (S1–S8, osio "02"), dynaaminen greeting + **kontekstiäly** `laskeKayttoVaihe` (1 ohjattu aloitus / 2 kasvava / 3 normaali), FLEI-signaali seuratasolle, järjestys P8→P13→T8→T13. **Vaihe 3:** **TKI-benchmark-taulukko** — `TK_KANSALLINEN_BENCHMARK` (valtak. tekniikkakilpailut 2022–2025, P/T erikseen), benchmark-palkki + ★ kansallinen-merkki, taso-badget, merkit/paras-sarakkeet. Validoitu chrome-MCP demossa. **Omat luokkanimet** (`greeting-*`/`joukkue-taulukko`), ei spec'in; v24-ref on bundler (`/tmp/vp_v24_ref.html`).
 
-### Avoimet (käyttäjän SA-selaimessa, `?v=`)
-- **Sibbo P10 recalc** ajamatta (kohta 4) — aja konsolissa.
-- **VP_v25 SA-testi** Sibbo/KPV/SJK oikealla datalla (vaihe 1/2/3 + signaalit). Tiedosto `…github.io/talentmaster/TalentMaster_VP_v25.html`.
-- **VP_v25 Vaihe 3** (seuraavat komponentit) odottaa määrittelyä. v22 on tuotanto, koskematon.
+### Commitit
+`b2e77dd` `72b15cf` `c135de6` `3583f31` `830b044` `792f963` `4454b46` `e4ec723` `e1f6d3b` `2a36bee` `4468a3e` `cc52515` `7f73220` `22c2787` `fe0e5ae` `c381f29` `76aa3c2` `edae410`
+
+### Avoimet seuraavaan sessioon
+1. **VP_v25 Vaihe 4:** nominointikortit (Hidden Gem / X-Factor / Erityistuki).
+2. **FC Lahti P12** — pelaajat rekisteröitävä ENNEN PDF-tuontia.
+3. **GrIFK** tekniikkatulokset — PDF-tuonti.
+4. **SendGrid aktivointi** — ~400 huoltajakutsua jonossa.
+5. **Reset continueUrl HOLD:** `lahetaResetLinkki` url = Seura.html; halutaanko VP_v25-landing? Yhtenäistä luoKayttaja/lahetaResetLinkki/lahetaPelaajaSivuLinkki.
+6. **VP→Seura-linkki** VP_v25:een (puuttuu).
+- SA-testi oikealla datalla: VP_v25 (Sibbo/KPV/SJK) + henkilöstön reset.
 
 ---
 
