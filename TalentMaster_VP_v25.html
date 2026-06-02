@@ -1684,10 +1684,12 @@ auth.onAuthStateChanged(async user => {
       ).join('');
       sel.style.display = 'inline-block';
 
-      // Muista viimeksi valittu seura
+      // Seura URL-parametrista (?seura=, avattu Seurahallinnasta) ohittaa muistetun
+      const urlSeura = new URLSearchParams(location.search).get('seura');
       const muistettu = localStorage.getItem('tm-sa-seura');
-      _seuraId = (muistettu && seurat.find(s => s.id === muistettu))
-        ? muistettu : seurat[0]?.id || 'demo';
+      _seuraId = (urlSeura && seurat.find(s => s.id === urlSeura)) ? urlSeura
+               : (muistettu && seurat.find(s => s.id === muistettu)) ? muistettu
+               : (seurat[0] && seurat[0].id) || 'demo';
       sel.value = _seuraId;
     } catch(e) {
       console.warn('Seurojen lataus:', e.message);
