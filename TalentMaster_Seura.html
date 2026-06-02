@@ -2421,6 +2421,7 @@ async function renderHenkilosto(alue) {
               <td>
                 <div>${h.etunimi||''} ${h.sukunimi||''}</div>
                 <div style="font-size:11px;color:var(--ink3);">${h.email||h.id}</div>
+                ${h.puhelin ? ('<div style="font-size:11px;color:var(--ink3);">📞 ' + (h.suuntakoodi||'+358') + ' ' + h.puhelin + '</div>') : '<div style="font-size:11px;color:var(--amber);">📞 ei puhelinta</div>'}
               </td>
               <td><span class="badge ${rooliLuokat[h.rooli]||'muu'}">${rooliNimet[h.rooli]||h.rooli||'—'}</span></td>
               <td style="font-size:12px;color:var(--ink3);">${h.joukkueNimi||h.joukkue||'—'}</td>
@@ -2429,12 +2430,31 @@ async function renderHenkilosto(alue) {
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
                   <button class="toimNappi sininen"
                     data-uid="${h.id}"
+                    data-etunimi="${(h.etunimi||'').replace(/"/g,'&quot;')}"
+                    data-sukunimi="${(h.sukunimi||'').replace(/"/g,'&quot;')}"
+                    data-email="${(h.email||'').replace(/"/g,'&quot;')}"
+                    data-suuntakoodi="${(h.suuntakoodi||'+358').replace(/"/g,'&quot;')}"
+                    data-puhelin="${(h.puhelin||'').replace(/"/g,'&quot;')}"
+                    data-rooli="${(h.rooli||'').replace(/"/g,'&quot;')}"
+                    onclick="avaaHenkiloMuokkausNapista(this)">
+                    Muokkaa
+                  </button>
+                  <button class="toimNappi"
+                    data-uid="${h.id}"
+                    data-email="${(h.email||'').replace(/"/g,'&quot;')}"
+                    data-etunimi="${(h.etunimi||'').replace(/"/g,'&quot;')}"
+                    data-suuntakoodi="${(h.suuntakoodi||'+358').replace(/"/g,'&quot;')}"
+                    data-puhelin="${(h.puhelin||'').replace(/"/g,'&quot;')}"
+                    onclick="lahetaSalasanaResetNapista(this)">
+                    Salasana
+                  </button>
+                  <button class="toimNappi"
+                    data-uid="${h.id}"
                     data-email="${(h.email||'').replace(/"/g,'&quot;')}"
                     data-joukkueet="${JSON.stringify(h.joukkueet||[h.joukkue].filter(Boolean)).replace(/"/g,'&quot;')}"
                     onclick="avaaJoukkueMuutosNapista(this)">
                     Joukkueet
                   </button>
-                  <button class="toimNappi" onclick="window._lahetaSalasanaReset('${h.id}','${(h.email||'').replace(/'/g,"\\'")}','${(h.etunimi||'').replace(/'/g,"\\'")}')">Salasana</button>
                   <button class="toimNappi vaara" onclick="deaktivoiKayttaja('${h.id}','${(h.email||'').replace(/'/g,"\\'")}')">Deaktivoi</button>
                 </div>
               </td>
@@ -3468,7 +3488,7 @@ async function lahetaSalasana(email) {
 }
 
 // ── Henkilöstön salasana-reset: generoi linkki (CF lahetaResetLinkki, SA/johto) + 3-nappi-jako ──
-window._lahetaSalasanaReset = async function(uid, email, etunimi) {
+window._lahetaSalasanaReset = async function(uid, email, etunimi, suuntakoodi, puhelin) {
   if (!email) { naytaToast('Sähköposti puuttuu', 'virhe'); return; }
   naytaToast('🔑 Generoidaan linkkiä...', 'info');
   try {
@@ -3479,6 +3499,10 @@ window._lahetaSalasanaReset = async function(uid, email, etunimi) {
     window._resetLinkki = linkki;
     window._resetEmail = email;
     window._resetEtunimi = etunimi || '';
+    // Tallennettu puhelin → suora wa.me/<numero> (muuten yleinen jako)
+    const _pRaaka = String(puhelin || '').replace(/\D/g, '');
+    const _maa = String(suuntakoodi || '+358').replace('+', '');
+    window._resetPuhelin = _pRaaka ? (_maa + _pRaaka.replace(/^0+/, '')) : null;
     document.getElementById('reset-jako-nimi').textContent = etunimi || email;
     document.getElementById('reset-jako-email').textContent = email;
     document.getElementById('reset-jako-modal').classList.add('auki');
@@ -3497,7 +3521,10 @@ window._resetJaaWhatsapp = function() {
   if (!window._resetLinkki) return;
   const teksti = encodeURIComponent('Hei ' + (window._resetEtunimi || '') +
     '! Aseta TalentMaster-salasanasi: ' + window._resetLinkki);
-  window.open('https://wa.me/?text=' + teksti, '_blank');
+  const url = window._resetPuhelin
+    ? 'https://wa.me/' + window._resetPuhelin + '?text=' + teksti
+    : 'https://wa.me/?text=' + teksti;
+  window.open(url, '_blank');
 };
 window._resetKopioi = function() {
   if (!window._resetLinkki) return;
@@ -3505,6 +3532,98 @@ window._resetKopioi = function() {
     .then(function(){ naytaToast('📋 Linkki kopioitu!', 'ok'); })
     .catch(function(){ naytaToast('Kopiointi epäonnistui — kopioi linkki manuaalisesti.', 'virhe'); });
 };
+
+// Salasana-reset henkilöstörivin napista (data-attrs) → välitä puhelin suoraa WhatsApp-jakoa varten
+function lahetaSalasanaResetNapista(btn) {
+  window._lahetaSalasanaReset(
+    btn.getAttribute('data-uid'),
+    btn.getAttribute('data-email') || '',
+    btn.getAttribute('data-etunimi') || '',
+    btn.getAttribute('data-suuntakoodi') || '+358',
+    btn.getAttribute('data-puhelin') || ''
+  );
+}
+
+// ── Henkilön (toimihenkilön) tietojen muokkaus — puhelin ym. kayttajat-dokumenttiin ──
+function avaaHenkiloMuokkausNapista(btn) {
+  avaaHenkiloMuokkaus(
+    btn.getAttribute('data-uid'),
+    btn.getAttribute('data-etunimi') || '',
+    btn.getAttribute('data-sukunimi') || '',
+    btn.getAttribute('data-email') || '',
+    btn.getAttribute('data-suuntakoodi') || '+358',
+    btn.getAttribute('data-puhelin') || '',
+    btn.getAttribute('data-rooli') || ''
+  );
+}
+function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin, rooli) {
+  let modal = document.getElementById('henkiloMuokkausModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'henkiloMuokkausModal';
+    modal.className = 'modalTausta';
+    document.body.appendChild(modal);
+  }
+  const esc = function(s){ return String(s || '').replace(/"/g, '&quot;'); };
+  modal.innerHTML =
+    '<div class="modalSisalto" style="max-width:440px;">' +
+      '<div class="modalOtsikko"><span>✏️ Muokkaa henkilön tietoja</span>' +
+        '<button class="modalSuljeNappi" onclick="document.getElementById(\'henkiloMuokkausModal\').classList.remove(\'auki\')">✕</button></div>' +
+      '<div style="padding:20px;">' +
+        '<input type="hidden" id="hm_uid" value="' + esc(uid) + '">' +
+        '<div class="kenttaRyhma" style="margin-bottom:12px;">' +
+          '<label class="kenttaLabel">Sähköposti (ei muokattavissa)</label>' +
+          '<input class="kenttaInput" value="' + esc(email) + '" disabled style="opacity:.6;">' +
+          (rooli ? ('<span style="font-size:11px;color:var(--ink3);">Rooli: ' + esc(rooli) + ' — muutos vaatii uudelleenkutsun (custom claims)</span>') : '') +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
+          '<div class="kenttaRyhma"><label class="kenttaLabel">Etunimi</label>' +
+            '<input id="hm_etunimi" class="kenttaInput" value="' + esc(etunimi) + '"></div>' +
+          '<div class="kenttaRyhma"><label class="kenttaLabel">Sukunimi</label>' +
+            '<input id="hm_sukunimi" class="kenttaInput" value="' + esc(sukunimi) + '"></div>' +
+        '</div>' +
+        '<div class="kenttaRyhma" style="margin-bottom:8px;">' +
+          '<label class="kenttaLabel">Puhelinnumero (WhatsApp)</label>' +
+          '<div style="display:flex;gap:8px;">' +
+            '<select class="kenttaInput" id="hm_suunta" style="max-width:90px;">' +
+              '<option value="+358">🇫🇮 +358</option><option value="+46">🇸🇪 +46</option>' +
+              '<option value="+47">🇳🇴 +47</option><option value="+45">🇩🇰 +45</option>' +
+              '<option value="+372">🇪🇪 +372</option></select>' +
+            '<input class="kenttaInput" type="tel" id="hm_puhelin" value="' + esc(puhelin) + '" placeholder="40 123 4567" style="flex:1;"></div>' +
+          '<span style="font-size:11px;color:var(--ink3);">Mahdollistaa WhatsApp-jaon suoraan numeroon (kutsu + salasanalinkki).</span>' +
+        '</div>' +
+        '<div id="hm_status" style="font-size:12px;color:var(--ink3);margin:8px 0;min-height:16px;"></div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
+          '<button class="toimNappi" onclick="document.getElementById(\'henkiloMuokkausModal\').classList.remove(\'auki\')">Peruuta</button>' +
+          '<button class="toimNappi sininen" style="font-weight:700;" onclick="tallennaHenkiloMuutos()">💾 Tallenna</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  modal.classList.add('auki');
+  const sel = document.getElementById('hm_suunta');
+  if (sel) sel.value = suuntakoodi || '+358';
+  setTimeout(function(){ const e = document.getElementById('hm_puhelin'); if (e) e.focus(); }, 100);
+}
+async function tallennaHenkiloMuutos() {
+  const uid = document.getElementById('hm_uid') && document.getElementById('hm_uid').value;
+  if (!uid) return;
+  const etunimi     = (document.getElementById('hm_etunimi').value || '').trim();
+  const sukunimi    = (document.getElementById('hm_sukunimi').value || '').trim();
+  const suuntakoodi = document.getElementById('hm_suunta').value || '+358';
+  const puhelin     = (document.getElementById('hm_puhelin').value || '').replace(/[^\d]/g, '');
+  const status = document.getElementById('hm_status');
+  if (status) status.textContent = 'Tallennetaan...';
+  try {
+    await db.collection('seurat').doc(tila.seuraId).collection('kayttajat').doc(uid)
+      .set({ etunimi: etunimi, sukunimi: sukunimi, suuntakoodi: suuntakoodi, puhelin: puhelin }, { merge: true });
+    document.getElementById('henkiloMuokkausModal').classList.remove('auki');
+    naytaToast('Henkilön tiedot tallennettu', 'ok');
+    renderHenkilosto(document.getElementById('nakymaAlue'));
+  } catch (e) {
+    if (status) status.textContent = 'Virhe: ' + e.message;
+    naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe');
+  }
+}
 
 // ── Lähetä pelaajasivu-linkki huoltajalle uudelleen ──────────────────────────
 async function lahetaPelaajaLinkki(pelaajaId, seuraId, etunimi, sukunimi, hEmail, joukkue) {
