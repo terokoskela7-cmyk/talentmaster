@@ -1462,6 +1462,44 @@ function kasitteleTiedosto(file) {
   reader.readAsArrayBuffer(file);
 }
 
+// ── MAS-aika → nopeus (1200 m -juoksu) ──────────────────────────────────────
+// Hyväksyy "4,40 min" / "4.40" / "4:40" / "4 min 40 s" (kellomerkintä: kokonaisosa=minuutit,
+// desimaali=sekunnit KIRJAIMELLISESTI, "40"→40 s, "05"→5 s; oletus 2 numeroa). Suora km/h-syöttö
+// (arvo ≥ 8) tunnistetaan eikä muunneta ajaksi — MAS-aika 1200 m ei realistisesti ole < 8 "min".
+// Palauttaa { mas_aika_s, mas_nopeus_ms (3 des), mas_kmh (1 des) } tai null jos ei tulkittavissa.
+const MAS_MATKA_M = 1200;
+function parseMasAika(str) {
+  if (str == null) return null;
+  let s = String(str).toLowerCase().trim();
+  if (s === '') return null;
+  let aika_s = null;
+  let m;
+  if ((m = s.match(/(\d+)\s*min\w*\s+(\d+)/))) {            // "4 min 40 s" / "4 min 40"
+    aika_s = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  } else if (s.indexOf(':') >= 0) {                         // "4:40"
+    const o = s.split(':');
+    aika_s = (parseInt(o[0], 10) || 0) * 60 + (parseInt(o[1], 10) || 0);
+  } else {
+    s = s.replace(/\s*min\w*$/, '').replace(/\s*km\/?h$/, '').trim();   // riisu pelkkä yksikkösuffiksi
+    const num = parseFloat(s.replace(',', '.'));
+    if (isNaN(num)) return null;
+    if (num >= 8) {                                         // jo km/h (suora syöttö)
+      const kmh = Math.round(num * 10) / 10;
+      return { mas_aika_s: null, mas_nopeus_ms: Math.round((kmh / 3.6) * 1000) / 1000, mas_kmh: kmh };
+    }
+    const min = Math.floor(num);                            // kellomerkintä "4,40" → 4:40
+    const des = (s.replace(',', '.').split('.')[1] || '0');
+    aika_s = min * 60 + (parseInt(des, 10) || 0);
+  }
+  if (aika_s == null || aika_s <= 0) return null;
+  const ms = MAS_MATKA_M / aika_s;
+  return {
+    mas_aika_s: aika_s,
+    mas_nopeus_ms: Math.round(ms * 1000) / 1000,
+    mas_kmh: Math.round(ms * 3.6 * 10) / 10
+  };
+}
+
 function prosessoiExcel(wb) {
   // Etsi Testituloset-lehti
   const tulosSheetName = wb.SheetNames.find(n => n.includes('Testitulos') || n.includes('testi') || n.includes('📝'));
@@ -1659,6 +1697,24 @@ function prosessoiExcel(wb) {
       const tulos = _laskeTestiRyhma(testId, ryhmat[testId], rivi);
       p.testit[testId] = (tulos.skalaari != null) ? String(tulos.skalaari) : '';
       if (tulos.rakenne != null) p.testitRakenne[testId] = tulos.rakenne;
+    }
+
+    // MAS — jos sarake on aikamuodossa ("4,40 min"), muunna nopeudeksi.
+    // testit.mas = km/h (Eerikkilä-normit ovat km/h → HH-taso laskee oikein); johdannaiset talteen.
+    const masSar = testiSarakkeet.find(s => s.testiId === 'mas');
+    if (masSar) {
+      const masRaaka = String(rivi[masSar.index] == null ? '' : rivi[masSar.index]).trim();
+      if (masRaaka !== '') {
+        const masP = parseMasAika(masRaaka);
+        if (masP) {
+          p.testit.mas = String(masP.mas_kmh);            // km/h → HH-taso / hh_viimeisin.mas
+          p.testit.mas_kmh = String(masP.mas_kmh);
+          p.testit.mas_nopeus_ms = String(masP.mas_nopeus_ms);
+          if (masP.mas_aika_s != null) p.testit.mas_aika_s = String(masP.mas_aika_s);
+        } else {
+          p._masPuuttuu = true;                           // arvo oli, mutta ei tulkittavissa → varoitus
+        }
+      }
     }
 
     pelaajat.push(p);
@@ -1962,6 +2018,16 @@ function suoritaValidointi() {
     // 4) PHV-tila
     if (p.phv_tila && !['AN','PH','VA',''].includes(p.phv_tila)) {
       virheet.push({ rivi: idx, kentta: 'PHV-tila', msg: `${riviLabel}: PHV-tila "${p.phv_tila}" — sallittu: AN, PH, VA` });
+    }
+
+    // 4b) MAS-aika (kun MAS-sarake aikamuodossa) — varoitus, EI virhe (null OK)
+    if (p._masPuuttuu) {
+      varoitukset.push({ rivi: idx, kentta: 'MAS', msg: `${riviLabel}: MAS-aika puuttuu / ei tulkittavissa` });
+    } else if (p.testit && p.testit.mas_aika_s !== undefined && p.testit.mas_aika_s !== '') {
+      const masS = parseFloat(p.testit.mas_aika_s);
+      if (isNaN(masS) || masS <= 0 || masS > 600) {
+        varoitukset.push({ rivi: idx, kentta: 'MAS', msg: `${riviLabel}: MAS-aika ${p.testit.mas_aika_s} s epävalidi (0–600 s)` });
+      }
     }
 
     // 5) Testiarvojen validointi
@@ -2319,13 +2385,21 @@ function naytaEsikatselu() {
 
       let luokka = 'cell-empty';
       let nayta = '—';
+      let soluTitle = '';
       if (arvo !== '' && arvo !== undefined) {
         nayta = arvo;
         if (hasError) luokka = 'cell-err';
         else if (hasWarn) luokka = 'cell-warn';
         else luokka = 'cell-ok';
+        // MAS — näytä km/h; m/s + aika title-vihjeenä
+        if (ts.testiId === 'mas') {
+          nayta = arvo + ' km/h';
+          const ms = p.testit.mas_nopeus_ms, sek = p.testit.mas_aika_s;
+          if (ms !== undefined && ms !== '') soluTitle = ms + ' m/s' + (sek ? ' · ' + sek + ' s' : '');
+        }
       }
-      html += `<td class="${luokka}">${escapeHtml(nayta)}</td>`;
+      const titleAttr = soluTitle ? ` title="${escapeHtml(soluTitle)}"` : '';
+      html += `<td class="${luokka}"${titleAttr}>${escapeHtml(nayta)}</td>`;
     }
     html += '</tr>';
   }
@@ -2438,6 +2512,15 @@ async function tallennaFirestoreen() {
           ? p.testitRakenne[ts.testiId] : skal;
       }
     }
+
+    // MAS-johdannaiset (mas_aika_s / mas_nopeus_ms / mas_kmh) eivät ole testiSarakkeita → kopioi erikseen
+    ['mas_aika_s', 'mas_nopeus_ms', 'mas_kmh'].forEach(k => {
+      if (p.testit[k] !== '' && p.testit[k] !== undefined) {
+        const n = parseFloat(p.testit[k]);
+        testit[k] = isNaN(n) ? p.testit[k] : n;
+        testitSkalaari[k] = testit[k];
+      }
+    });
 
     // FLEI — 1-3p / num -tyyppi (skalaareista)
     let fleiPct = null;
