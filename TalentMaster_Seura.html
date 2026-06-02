@@ -675,6 +675,23 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 </div>
 
 <!-- ══ JOUKKUE-MODAL ══ -->
+<div class="modalTausta" id="reset-jako-modal">
+  <div class="modalKortti">
+    <button class="modalSuljeNappi" onclick="document.getElementById('reset-jako-modal').classList.remove('auki')">✕ Sulje</button>
+    <div class="linkkiBoksi nakyvilla">
+      <div class="linkkiBoksiOtsikko">🔑 Salasanan asetuslinkki luotu</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:2px;" id="reset-jako-nimi">—</div>
+      <div style="font-size:12px;color:var(--ink3);margin-bottom:12px;" id="reset-jako-email">—</div>
+      <div class="linkkiBoksiOtsikko" style="margin-top:4px;">Jaa kirjautumislinkki</div>
+      <div class="linkkiNapit">
+        <button class="linkkiNappi teal" onclick="window._resetJaaSahkoposti()">📧 Sähköposti</button>
+        <button class="linkkiNappi" style="background:rgba(37,211,102,.15);border-color:rgba(37,211,102,.4);color:#25d366;" onclick="window._resetJaaWhatsapp()">💬 WhatsApp</button>
+        <button class="linkkiNappi" onclick="window._resetKopioi()">📋 Kopioi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modalTausta" id="joukkueModal">
   <div class="modalKortti">
     <button class="modalSuljeNappi" onclick="suljeModal('joukkueModal')">✕ Sulje</button>
@@ -2417,7 +2434,7 @@ async function renderHenkilosto(alue) {
                     onclick="avaaJoukkueMuutosNapista(this)">
                     Joukkueet
                   </button>
-                  <button class="toimNappi" onclick="lahetaSalasana('${h.email}')">Salasana</button>
+                  <button class="toimNappi" onclick="window._lahetaSalasanaReset('${h.id}','${(h.email||'').replace(/'/g,"\\'")}','${(h.etunimi||'').replace(/'/g,"\\'")}')">Salasana</button>
                   <button class="toimNappi vaara" onclick="deaktivoiKayttaja('${h.id}','${(h.email||'').replace(/'/g,"\\'")}')">Deaktivoi</button>
                 </div>
               </td>
@@ -3449,6 +3466,45 @@ async function lahetaSalasana(email) {
     naytaToast('Lähetys epäonnistui.', 'virhe');
   }
 }
+
+// ── Henkilöstön salasana-reset: generoi linkki (CF lahetaResetLinkki, SA/johto) + 3-nappi-jako ──
+window._lahetaSalasanaReset = async function(uid, email, etunimi) {
+  if (!email) { naytaToast('Sähköposti puuttuu', 'virhe'); return; }
+  naytaToast('🔑 Generoidaan linkkiä...', 'info');
+  try {
+    const fn = firebase.app().functions('europe-west1').httpsCallable('lahetaResetLinkki');
+    const tulos = await fn({ email: email, seuraId: tila.seuraId });
+    const linkki = (tulos.data && (tulos.data.passwordResetLink || tulos.data.resetLinkki)) || null;
+    if (!linkki) throw new Error('Linkki puuttuu');
+    window._resetLinkki = linkki;
+    window._resetEmail = email;
+    window._resetEtunimi = etunimi || '';
+    document.getElementById('reset-jako-nimi').textContent = etunimi || email;
+    document.getElementById('reset-jako-email').textContent = email;
+    document.getElementById('reset-jako-modal').classList.add('auki');
+  } catch (e) {
+    naytaToast('Reset epäonnistui: ' + e.message, 'virhe');
+  }
+};
+window._resetJaaSahkoposti = function() {
+  if (!window._resetLinkki) return;
+  const subject = encodeURIComponent('TalentMaster™ — aseta uusi salasana');
+  const body = encodeURIComponent('Hei ' + (window._resetEtunimi || '') + '!\n\n' +
+    'Aseta TalentMaster-salasanasi tästä linkistä:\n' + window._resetLinkki);
+  window.open('mailto:' + (window._resetEmail || '') + '?subject=' + subject + '&body=' + body, '_blank');
+};
+window._resetJaaWhatsapp = function() {
+  if (!window._resetLinkki) return;
+  const teksti = encodeURIComponent('Hei ' + (window._resetEtunimi || '') +
+    '! Aseta TalentMaster-salasanasi: ' + window._resetLinkki);
+  window.open('https://wa.me/?text=' + teksti, '_blank');
+};
+window._resetKopioi = function() {
+  if (!window._resetLinkki) return;
+  navigator.clipboard.writeText(window._resetLinkki)
+    .then(function(){ naytaToast('📋 Linkki kopioitu!', 'ok'); })
+    .catch(function(){ naytaToast('Kopiointi epäonnistui — kopioi linkki manuaalisesti.', 'virhe'); });
+};
 
 // ── Lähetä pelaajasivu-linkki huoltajalle uudelleen ──────────────────────────
 async function lahetaPelaajaLinkki(pelaajaId, seuraId, etunimi, sukunimi, hEmail, joukkue) {

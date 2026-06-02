@@ -490,6 +490,48 @@ exports.luoKayttaja = functions
       viesti: `${etunimi || email} lisätty onnistuneesti.`,
     };
   });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// lahetaResetLinkki — generoi salasanan reset-linkin OLEMASSA OLEVALLE henkilöstölle.
+// Authz: kutsuja = super_admin TAI kohdeseuran johto (tarkistaOikeus) JA kohde-email
+// kuuluu kyseisen seuran kayttajat-kokoelmaan. Ei kirjoita dataa eikä lähetä sähköpostia
+// — palauttaa vain linkin jaettavaksi (📧/💬/📋). generatePasswordResetLink ei muuta salasanaa.
+// ─────────────────────────────────────────────────────────────────────────────
+exports.lahetaResetLinkki = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu sisään.');
+    }
+    const { email, seuraId } = data;
+    if (!email || !email.includes('@')) {
+      throw new functions.https.HttpsError('invalid-argument', 'Virheellinen sähköposti.');
+    }
+    if (!seuraId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Seura pakollinen.');
+    }
+    // 1) Kutsujalla oltava oikeus tähän seuraan (SA tai seuran johto)
+    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
+    if (!oikeus.sallittu) {
+      throw new functions.https.HttpsError('permission-denied',
+        `Ei oikeuksia seuralle "${seuraId}".`);
+    }
+    // 2) Kohde-email kuuluttava tämän seuran henkilöstöön (estää mielivaltaiset resetit)
+    const kSnap = await db.collection('seurat').doc(seuraId)
+      .collection('kayttajat').where('email', '==', email).limit(1).get();
+    if (kSnap.empty) {
+      throw new functions.https.HttpsError('permission-denied',
+        'Sähköposti ei kuulu tämän seuran henkilöstöön.');
+    }
+    // 3) Generoi reset-linkki (ei muuta salasanaa, ei kirjoita dataa, ei lähetä sähköpostia)
+    try {
+      const resetLinkki = await auth.generatePasswordResetLink(email, { handleCodeInApp: false });
+      return { passwordResetLink: resetLinkki, resetLinkki: resetLinkki, email: email };
+    } catch (e) {
+      throw new functions.https.HttpsError('internal',
+        `Reset-linkin generointi epäonnistui: ${e.message}`);
+    }
+  });
 // ─────────────────────────────────────────────────────────────────────────────
 // deaktivioiKayttaja
 // ─────────────────────────────────────────────────────────────────────────────
