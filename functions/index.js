@@ -445,7 +445,7 @@ exports.luoKayttaja = functions
         fysiikkavalmentaja:   'TalentMaster_Master_v16.html',
         fysioterapeutti:      'TalentMaster_Master_v16.html',
         testivastaava:        'TalentMaster_Master_v16.html',
-        vp:                   'TalentMaster_VP_v25.html',
+        vp:                   'TalentMaster_Seura.html',
         seurasihteeri:        'TalentMaster_Seura.html',
         urheilutoimenjohtaja: 'TalentMaster_Seura.html',
       };
