@@ -1937,9 +1937,16 @@ function suoritaValidointi() {
   pelaajat.forEach((p, idx) => {
     const riviLabel = `Rivi ${p.riviNro} (${p.sukunimi || '?'}, ${p.etunimi || '?'})`;
 
-    // 1) Tunniste
-    if (!p.tunniste || p.tunniste.trim() === '') {
-      virheet.push({ rivi: idx, kentta: 'PalloID', msg: `${riviLabel}: PalloID puuttuu` });
+    // 1) Tunniste — PalloID pakollinen tapahtumamoodissa. Historiapohjassa PalloID EI ole
+    //    pakollinen jos etu- ja sukunimi löytyvät → pelaaja yhdistetään nimellä
+    //    (yhdistaPelaajaXlsxNimella, tarkistaPalloIDit). Tunnistamaton nimi → varoitus, ei virhe.
+    const onPalloId = p.tunniste && p.tunniste.trim() !== '';
+    if (!onPalloId) {
+      if (tuontiData.moodi === 'historia' && p.sukunimi && p.sukunimi.trim() !== '' && p.etunimi && p.etunimi.trim() !== '') {
+        varoitukset.push({ rivi: idx, kentta: 'PalloID', msg: `${riviLabel}: ei PalloID:tä — yhdistetään nimellä` });
+      } else {
+        virheet.push({ rivi: idx, kentta: 'PalloID', msg: `${riviLabel}: PalloID puuttuu` });
+      }
     }
 
     // 2) Sukunimi
@@ -2105,6 +2112,43 @@ async function _haePelaajaPalloIdilla(palloIdStr) {
   return null;
 }
 
+// Nimi-yhdistys Excel-polulle (historiapohja, kun PalloID puuttuu). Malli: PDF:n pdfYhdistaPalloIDt.
+// Kokoelma seurat/{seuraId}/pelaajat on jo seura-rajattu → ei erillistä where('seuraId') (kuten PDF).
+// Robustius: kokeilee myös KÄÄNTEISTÄ nimijärjestystä (Excelissä "Etunimi Sukunimi" voi mäpätä käänteisesti).
+// Palauttaa { tila:'loytyy'|'monta'|'ei_loydy', uid, osumat:[{id,data}] }.
+async function yhdistaPelaajaXlsxNimella(sukunimi, etunimi, seuraIdArg) {
+  const sid = seuraIdArg || seuraId;
+  const su = (sukunimi || '').trim(), et = (etunimi || '').trim();
+  if (!sid || !su || !et) return { tila: 'ei_loydy', uid: null, osumat: [] };
+  const col = db.collection('seurat').doc(sid).collection('pelaajat');
+  const hae = (a, b) => col.where('sukunimi', '==', a).where('etunimi', '==', b).get();
+  let snap = await hae(su, et);
+  if (snap.empty) snap = await hae(et, su);          // fallback: käänteinen nimijärjestys
+  const osumat = snap.docs.map(d => ({ id: d.id, data: d.data() }));
+  if (osumat.length === 1) return { tila: 'loytyy',   uid: osumat[0].id, osumat: osumat };
+  if (osumat.length >= 2)  return { tila: 'monta',    uid: null,         osumat: osumat };
+  return                          { tila: 'ei_loydy', uid: null,         osumat: [] };
+}
+
+// Manuaalivalinta nimi-yhdistyksen 'monta'-tilaan (esikatselun dropdown). Malli: pdfAsetaPelaaja.
+window.asetaXlsxPelaaja = function(pIdx, uid) {
+  const p = tuontiData.pelaajat[pIdx];
+  if (!p) return;
+  if (uid) {
+    const o = (p._nimiOsumat || []).find(x => x.id === uid);
+    p._firestoreDocId = uid;
+    p._firestoreData = o ? o.data : null;
+    p._loytyyFirestoresta = true;
+    p._nimiTila = 'loytyy';
+  } else {
+    p._firestoreDocId = null;
+    p._firestoreData = null;
+    p._loytyyFirestoresta = false;
+    p._nimiTila = 'monta';
+  }
+  naytaEsikatselu();
+};
+
 // Sprint 3.1 — PalloID-ristiintarkistus: Promise.all rinnakkain
 async function tarkistaPalloIDit() {
   if (!seuraId) return;
@@ -2133,8 +2177,6 @@ async function tarkistaPalloIDit() {
   const loytyy   = tulokset.filter(r => r.loytyy);
   const eiLoydy  = tulokset.filter(r => !r.loytyy);
 
-  tuontiData.palloIdTarkistus = { loytyy, eiLoydy, tyhja: tyhjat };
-
   // Liitä tieto pelaajaan itseensä (hyödyntää tallennusvaiheessa)
   // _firestoreDocId = löydetyn dokumentin OIKEA ID (Firebase UID) → tallennuspolku
   loytyy.forEach(r => {
@@ -2143,7 +2185,34 @@ async function tarkistaPalloIDit() {
     r.pelaaja._firestoreDocId = r.firestoreDocId;
   });
   eiLoydy.forEach(r => { r.pelaaja._loytyyFirestoresta = false; r.pelaaja._firestoreDocId = null; });
-  tyhjat.forEach(p   => { p._loytyyFirestoresta = false; p._tyhjaPalloID = true; });
+
+  // ── Historiapohja: nimi-yhdistys pelaajille joilla EI ole PalloID:tä ──
+  // (Malli: PDF-polku.) Tapahtumapohjaisessa moodissa PalloID on pakollinen → tyhjät jäävät tunnistamatta.
+  const nimiLoytyy = [], nimiMonta = [], nimiEiLoydy = [];
+  if (tuontiData.moodi === 'historia' && tyhjat.length > 0) {
+    await Promise.all(tyhjat.map(async p => {
+      const res = await yhdistaPelaajaXlsxNimella(p.sukunimi, p.etunimi, seuraId);
+      p._nimiOsumat = res.osumat;
+      p._tyhjaPalloID = true;        // edelleen ilman PalloID:tä, mutta nimellä yhdistetty
+      if (res.tila === 'loytyy') {
+        p._loytyyFirestoresta = true;
+        p._firestoreDocId = res.uid;
+        p._firestoreData = (res.osumat[0] && res.osumat[0].data) || null;
+        p._nimiTila = 'loytyy';
+        nimiLoytyy.push(p);
+      } else if (res.tila === 'monta') {
+        p._loytyyFirestoresta = false; p._firestoreDocId = null; p._nimiTila = 'monta';
+        nimiMonta.push(p);
+      } else {
+        p._loytyyFirestoresta = false; p._firestoreDocId = null; p._nimiTila = 'ei_loydy';
+        nimiEiLoydy.push(p);
+      }
+    }));
+  } else {
+    tyhjat.forEach(p => { p._loytyyFirestoresta = false; p._tyhjaPalloID = true; });
+  }
+
+  tuontiData.palloIdTarkistus = { loytyy, eiLoydy, tyhja: tyhjat, nimiLoytyy, nimiMonta, nimiEiLoydy };
 }
 
 function escapeHtml(s) {
@@ -2164,9 +2233,17 @@ function naytaEsikatselu() {
   const t = tuontiData.palloIdTarkistus;
   if (t) {
     let palloHtml = '<div class="palloid-ryhmat">';
-    palloHtml += '<div class="palloid-ryhma ok"><div class="palloid-ryhma-count">' + t.loytyy.length + '</div><div class="palloid-ryhma-label">✅ Löytyy Firestoresta</div></div>';
+    palloHtml += '<div class="palloid-ryhma ok"><div class="palloid-ryhma-count">' + t.loytyy.length + '</div><div class="palloid-ryhma-label">✅ Löytyy PalloID:llä</div></div>';
     palloHtml += '<div class="palloid-ryhma warn"><div class="palloid-ryhma-count">' + t.eiLoydy.length + '</div><div class="palloid-ryhma-label">⚠ Ei löydy — tunnistamaton PalloID</div></div>';
-    palloHtml += '<div class="palloid-ryhma err"><div class="palloid-ryhma-count">' + t.tyhja.length + '</div><div class="palloid-ryhma-label">❌ Tyhjä PalloID — hylätään</div></div>';
+    // Historiapohja: nimellä yhdistetyt; muuten tyhjä PalloID hylätään
+    const onNimiYhdistys = t.nimiLoytyy && (t.nimiLoytyy.length + t.nimiMonta.length + t.nimiEiLoydy.length) > 0;
+    if (onNimiYhdistys) {
+      palloHtml += '<div class="palloid-ryhma ok"><div class="palloid-ryhma-count">' + t.nimiLoytyy.length + '</div><div class="palloid-ryhma-label">✅ Yhdistetty nimellä</div></div>';
+      if (t.nimiMonta.length > 0)   palloHtml += '<div class="palloid-ryhma warn"><div class="palloid-ryhma-count">' + t.nimiMonta.length + '</div><div class="palloid-ryhma-label">⚠ Monta osumaa — valitse</div></div>';
+      if (t.nimiEiLoydy.length > 0)  palloHtml += '<div class="palloid-ryhma err"><div class="palloid-ryhma-count">' + t.nimiEiLoydy.length + '</div><div class="palloid-ryhma-label">❌ Nimellä ei löydy</div></div>';
+    } else {
+      palloHtml += '<div class="palloid-ryhma err"><div class="palloid-ryhma-count">' + t.tyhja.length + '</div><div class="palloid-ryhma-label">❌ Tyhjä PalloID — hylätään</div></div>';
+    }
     palloHtml += '</div>';
 
     if (t.eiLoydy.length > 0) {
@@ -2211,8 +2288,24 @@ function naytaEsikatselu() {
     const nimiLuokka = (!p.sukunimi || !p.etunimi) ? 'cell-err' : 'cell-ok';
     html += `<td class="col-player ${nimiLuokka}">${escapeHtml(nimi)}</td>`;
 
-    const tunnisteLuokka = !p.tunniste ? 'cell-err' : 'cell-ok';
-    html += `<td class="${tunnisteLuokka}">${escapeHtml(p.tunniste || '—')}</td>`;
+    if (p.tunniste && String(p.tunniste).trim() !== '') {
+      html += `<td class="cell-ok">${escapeHtml(p.tunniste)}</td>`;
+    } else if (p._nimiTila === 'loytyy') {
+      const yhdNimi = p._firestoreData ? ((p._firestoreData.etunimi || '') + ' ' + (p._firestoreData.sukunimi || '')).trim() : '';
+      html += `<td class="cell-ok" title="${escapeHtml(yhdNimi)}">🔗 nimellä</td>`;
+    } else if (p._nimiTila === 'monta') {
+      // Manuaalivalinta (malli: PDF pdfAsetaPelaaja → asetaXlsxPelaaja)
+      let opts = '<option value="">— valitse —</option>';
+      (p._nimiOsumat || []).forEach(o => {
+        const lbl = ((o.data.etunimi || '') + ' ' + (o.data.sukunimi || '')).trim() + (o.data.joukkue ? ' · ' + o.data.joukkue : '');
+        opts += '<option value="' + escapeHtml(o.id) + '"' + (p._firestoreDocId === o.id ? ' selected' : '') + '>' + escapeHtml(lbl) + '</option>';
+      });
+      html += '<td class="cell-warn"><select onchange="asetaXlsxPelaaja(' + pIdx + ', this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:inherit;font-size:11px;padding:3px 5px;">' + opts + '</select></td>';
+    } else if (p._nimiTila === 'ei_loydy') {
+      html += '<td class="cell-err">❌ ei löydy</td>';
+    } else {
+      html += '<td class="cell-err">—</td>';
+    }
 
     const phvLuokka = (p.phv_tila && !['AN','PH','VA',''].includes(p.phv_tila)) ? 'cell-err' :
                       (!p.phv_tila) ? 'cell-empty' : 'cell-ok';
