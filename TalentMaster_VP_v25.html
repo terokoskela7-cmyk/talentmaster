@@ -1123,6 +1123,15 @@ body {
 .bq-teksti { font-size:10px; color:var(--ink3); font-family:var(--font-mono); }
 .rae-varoitus { font-size:10px; color:var(--amber); margin-left:6px; }
 .valmentaja-nimi { font-size:13px; color:var(--ink2); }
+/* TKI-benchmark: tasomerkit + selite */
+.taso-badge { font-size:10px; padding:2px 7px; border-radius:3px; font-weight:500; white-space:nowrap; font-family:var(--font-m); }
+.taso-prioriteetti { background:rgba(201,68,68,0.15); color:#e06060; }
+.taso-kehitys      { background:rgba(186,117,23,0.15); color:#d4922a; }
+.taso-hyva         { background:rgba(99,153,34,0.15);  color:#7ab83e; }
+.taso-erinomainen  { background:rgba(29,158,117,0.15); color:#28B090; }
+.benchmark-selite { display:flex; gap:16px; padding:8px 12px; font-size:10px; color:var(--ink3);
+  font-family:var(--font-m); letter-spacing:.04em; border-top:.5px solid var(--border); flex-wrap:wrap; }
+.benchmark-selite .nat-marker { color:#1D9E75; }
 
 /* ═══ Vaihe 2: signaalimoottori ═══ */
 .signaalit-lista { display:flex; flex-direction:column; gap:2px; }
@@ -1430,17 +1439,22 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
           <table class="joukkue-taulukko">
             <thead>
               <tr>
-                <th class="col-joukkue">JOUKKUE</th>
-                <th class="col-pelaajat">PELAAJAT</th>
-                <th class="col-flei">FLEI</th>
-                <th class="col-bq">BQ-JAKAUMA</th>
-                <th class="col-tki">TKI</th>
-                <th class="col-adar">ADAR</th>
-                <th class="col-valmentaja">PÄÄVALMENTAJA</th>
+                <th class="col-team">JOUKKUE</th>
+                <th class="col-players">PEL.</th>
+                <th class="col-tki">TKI ka.</th>
+                <th class="col-benchmark">SUHDE KANSALLISEEN</th>
+                <th class="col-taso">TASO</th>
+                <th class="col-merkit">MERKIT</th>
+                <th class="col-paras">PARAS</th>
               </tr>
             </thead>
             <tbody id="joukkue-taulukko-body"></tbody>
           </table>
+        </div>
+        <div class="benchmark-selite">
+          <span>Benchmark: valtakunnalliset tekniikkakilpailut 2022–2025</span>
+          <span class="nat-marker">| ★ kansallinen voittajataso</span>
+          <span>Vyöhykkeet: &lt;40 Prioriteetti · 40–59 Kehitys · 60–79 Hyvä · ≥80 Erinomainen</span>
         </div>
       </section>
 
@@ -3905,7 +3919,72 @@ function joukkueJarjestys(nimi) {
   return sp * 100 + ika;
 }
 
-// v25: joukkuepulssi TAULUKKONA (kortit → rivit). Ryhmittely joukkue-nimellä säilyttää P/T-erottelun.
+// ─── TKI-BENCHMARK (valtakunnalliset tekniikkakilpailut 2022–2025) — VAKIO, ei Firestoresta ───
+// P ja T eri arvot; lyhennaNimi palauttaa avaimen (P10/T12...). Tytöt/pojat erikseen.
+const TK_KANSALLINEN_BENCHMARK = {
+  P8:  { kansallinen: 85, vuodet: '2022-2025', n: 2 },
+  P9:  { kansallinen: 87, vuodet: '2022-2025', n: 3 },
+  P10: { kansallinen: 85, vuodet: '2022-2025', n: 4 },
+  P11: { kansallinen: 83, vuodet: '2022-2025', n: 2 },
+  P12: { kansallinen: 82, vuodet: '2022-2025', n: 4 },
+  P13: { kansallinen: 78, vuodet: '2022-2025', n: 1 },
+  T9:  { kansallinen: 90, vuodet: '2022-2025', n: 3 },
+  T10: { kansallinen: 85, vuodet: '2022-2025', n: 4 },
+  T11: { kansallinen: 84, vuodet: '2022-2025', n: 4 },
+  T12: { kansallinen: 87, vuodet: '2022-2025', n: 3 },
+  T13: { kansallinen: 91, vuodet: '2022-2025', n: 1 },
+};
+function tkiTaso(tki) {
+  if (tki == null) return null;
+  if (tki >= 80) return 'erinomainen';
+  if (tki >= 60) return 'hyva';
+  if (tki >= 40) return 'kehitys';
+  return 'prioriteetti';
+}
+function tkiTasoLabel(taso) {
+  const map = { erinomainen: 'Erinomainen', hyva: 'Hyvä', kehitys: 'Kehitys', prioriteetti: 'Prioriteetti' };
+  return map[taso] || '—';
+}
+function tkiVari(taso) {
+  const map = { erinomainen: '#1D9E75', hyva: '#639922', kehitys: '#ba7517', prioriteetti: '#c94444' };
+  return map[taso] || '#888';
+}
+function tkiBenchmarkPalkki(tkiKa, ikaluokka) {
+  const bm = TK_KANSALLINEN_BENCHMARK[ikaluokka];
+  if (!bm || tkiKa == null) return '<span class="data-puuttuu">—</span>';
+  const nat = bm.kansallinen;
+  const vari = tkiVari(tkiTaso(tkiKa));
+  const pct = Math.min(Math.round(tkiKa), 99);
+  const natPct = Math.min(Math.round(nat), 99);
+  return '<div style="display:flex;flex-direction:column;gap:3px;width:100%">' +
+    '<div style="position:relative;height:4px;background:rgba(255,253,247,0.1);border-radius:2px">' +
+      '<div style="position:absolute;left:0;top:0;height:4px;width:' + pct + '%;background:' + vari + ';border-radius:2px"></div>' +
+      '<div style="position:absolute;left:' + natPct + '%;top:-2px;width:1px;height:8px;background:#1D9E75"></div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:9px;color:rgba(255,253,247,0.4);font-family:var(--font-m)">' +
+      '<span>0</span><span style="color:#1D9E75">' + nat + ' ★ nat.</span><span>100</span>' +
+    '</div>' +
+  '</div>';
+}
+function tkiMerkkiJakauma(pelaajat) {
+  const kulta = pelaajat.filter(function(p){ return p.tki_merkki === 'kulta'; }).length;
+  const hopea = pelaajat.filter(function(p){ return p.tki_merkki === 'hopea'; }).length;
+  const pronssi = pelaajat.filter(function(p){ return p.tki_merkki === 'pronssi'; }).length;
+  const osat = [];
+  if (kulta > 0) osat.push('<span style="color:#c8960c;font-size:10px">★ ' + kulta + '</span>');
+  if (hopea > 0) osat.push('<span style="color:#888;font-size:10px">● ' + hopea + '</span>');
+  if (pronssi > 0) osat.push('<span style="color:#b08040;font-size:10px">◆ ' + pronssi + '</span>');
+  return osat.length > 0 ? osat.join(' ') : '<span class="data-puuttuu">—</span>';
+}
+function tkiParasPelaaja(pelaajat) {
+  const datalla = pelaajat.filter(function(p){ return p.tki_viimeisin != null; });
+  if (datalla.length === 0) return '<span class="data-puuttuu">—</span>';
+  const paras = datalla.reduce(function(a, b){ return a.tki_viimeisin > b.tki_viimeisin ? a : b; });
+  return '<span style="font-size:13px;font-weight:500;font-family:var(--font-m)">' + paras.tki_viimeisin + '</span>' +
+    '<span style="font-size:10px;color:var(--ink3);margin-left:4px">' + (paras.sukunimi || '') + '</span>';
+}
+
+// v25: joukkuepulssi TKI-BENCHMARK-TAULUKKONA. Ryhmittely joukkue-nimellä säilyttää P/T-erottelun.
 function renderTeamPulse() {
   const tbody = document.getElementById('joukkue-taulukko-body');
   if (!tbody) return;
@@ -3928,38 +4007,29 @@ function renderTeamPulse() {
     const koko = pelaajat.length;
     const safeNimi = nimi.replace(/['"]/g, '');
     const phvCount = pelaajat.filter(p => p.phv_tila === 'PH').length;
+    const ikaluokka = lyhennaNimi(nimi);                         // benchmark-avain (P10/T12...)
 
-    const fleiVals = pelaajat.filter(p => p.flei_viimeisin != null).map(p => p.flei_viimeisin);
-    const tkiVals  = pelaajat.filter(p => p.tki_viimeisin != null).map(p => p.tki_viimeisin);
-    const adarVals = pelaajat.filter(p => p.adar_viimeisin && (p.adar_havaintoja || 0) >= 3 && p.adar_viimeisin.yht != null).map(p => p.adar_viimeisin.yht);
-    const fleiAvg = ka(fleiVals), tkiAvg = ka(tkiVals), adarAvg = ka(adarVals);
-    const fleiKatt = koko ? Math.round(fleiVals.length / koko * 100) : 0;
-
-    // Osittainen data: rivi himmenee jos osa/kaikki mittarit puuttuu (Sibbo = vain TKI)
-    const onDataa = fleiAvg != null || tkiAvg != null || adarAvg != null;
-    const onTaysi = fleiAvg != null && tkiAvg != null && adarAvg != null;
-    const riviLuokka = !onDataa ? 'rivi-ei-dataa' : (!onTaysi ? 'rivi-osittainen' : '');
-
-    const bq = laskeBQJakauma(pelaajat);
-    const bqKatt = koko ? (bq.n / koko) : 0;
-    const bqHtml = renderBQPalkki(bq, bqKatt);
-
-    const fleiTd = fleiAvg != null
-      ? '<span class="arvo-iso">' + Math.round(fleiAvg) + '</span><span class="arvo-kattavuus">' + fleiKatt + '%</span>'
-      : '<span class="data-puuttuu">—</span>';
-    const tkiTd  = tkiAvg  != null ? '<span class="arvo-iso">' + Math.round(tkiAvg) + '</span>' : '<span class="data-puuttuu">—</span>';
-    const adarTd = adarAvg != null ? '<span class="arvo-iso">' + adarAvg.toFixed(1) + '</span>' : '<span class="data-puuttuu">—</span>';
+    const tkiVals = pelaajat.filter(p => p.tki_viimeisin != null).map(p => p.tki_viimeisin);
+    const tkiAvg = ka(tkiVals);
+    const tkiKa = tkiAvg != null ? Math.round(tkiAvg) : null;
+    const taso = tkiTaso(tkiKa);
+    const vari = tkiVari(taso);
+    const riviLuokka = (tkiKa == null) ? 'rivi-ei-dataa' : '';   // ei TKI-dataa → himmennä rivi
     const metaTeksti = (phvCount > 0) ? (koko + ' pel · ' + phvCount + ' PHV') : (koko + ' pel');
 
     return '<tr class="joukkue-rivi ' + riviLuokka + '" onclick="avaaJoukkueSyvanakyma(\'' + safeNimi + '\')">' +
-      '<td class="col-joukkue"><div class="jk-nimi-iso" title="' + nimi.replace(/"/g, '&quot;') + '">' + lyhennaNimi(nimi) + '</div>' +
+      '<td class="col-team"><div class="jk-nimi-iso" title="' + nimi.replace(/"/g, '&quot;') + '">' + ikaluokka + '</div>' +
         '<div class="jk-meta">' + metaTeksti + '</div></td>' +
-      '<td class="col-pelaajat"><span class="arvo-iso">' + koko + '</span></td>' +
-      '<td class="col-flei">' + fleiTd + '</td>' +
-      '<td class="col-bq">' + bqHtml + '</td>' +
-      '<td class="col-tki">' + tkiTd + '</td>' +
-      '<td class="col-adar">' + adarTd + '</td>' +
-      '<td class="col-valmentaja"><span class="valmentaja-nimi">—</span></td>' +
+      '<td class="col-players"><span class="arvo-iso">' + koko + '</span></td>' +
+      '<td class="col-tki">' + (tkiKa != null
+        ? '<span class="arvo-iso" style="color:' + vari + '">' + tkiKa + '</span>'
+        : '<span class="data-puuttuu">—</span>') + '</td>' +
+      '<td class="col-benchmark">' + tkiBenchmarkPalkki(tkiKa, ikaluokka) + '</td>' +
+      '<td class="col-taso">' + (taso
+        ? '<span class="taso-badge taso-' + taso + '">' + tkiTasoLabel(taso) + '</span>'
+        : '<span class="data-puuttuu">—</span>') + '</td>' +
+      '<td class="col-merkit">' + tkiMerkkiJakauma(pelaajat) + '</td>' +
+      '<td class="col-paras">' + tkiParasPelaaja(pelaajat) + '</td>' +
     '</tr>';
   }).join('');
 }
