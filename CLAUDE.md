@@ -3,7 +3,7 @@
 > Ensimmäinen tiedosto jonka liität uuteen Claude-sessioon. Keskittyy **teknisiin invariantteihin**.
 > Strategia, RAE-tiede, kansainvälistyminen, bisnesmalli, sprintit ja avoimet tehtävät: **`docs/STRATEGIA.md`**.
 > Operatiivinen roadmap-historia: `docs/ROADMAP.md`. Solo-tuotteen täysi kuvaus: `docs/ARKKITEHTUURI.md §11`.
-> Viimeksi päivitetty: 2026-05-31 (auditoitu + tiivistetty)
+> Viimeksi päivitetty: 2026-06-04 (+ §28 kehitysikkunat — signaloinnin biologinen perusta)
 
 ---
 
@@ -754,3 +754,28 @@ oikeasta kenttäkäytöstä. Lukupuoli (joukkuepulssi + S9) toimii heti kun pika
 4. **CDN-cache** ~10 min → `?v=N`, tarkista `raw.githubusercontent.com`
 5. **Security Rules:** Firebase Consolesta JA `tm_admin/firestore.rules` (erilliset)
 6. **Chrome MCP:** Firestore-kirjoitukset app-tabista (Firebase alustettu)
+
+---
+
+## 28. KEHITYSIKKUNAT — herkkyysvaiheet (KOKO SIGNALOINNIN BIOLOGINEN PERUSTA)
+
+> Hidden Gem, X-Factor, pikakenttäpainotukset ja VP:n toimenpide-ehdotukset ovat **kaikki tämän biologisen totuuden käyttöliittymä.** Täysi tieteellinen perustelu: `docs/STRATEGIA.md §2`. Liittyy §14 (metodologia) + §25 (PHV).
+
+**Perusperiaate:** herkkyysikkuna ≠ "milloin ominaisuus on tärkeä", vaan **milloin sen kehittäminen on poikkeuksellisen herkkää** — sama harjoitusmäärä tuottaa moninkertaisen vaikutuksen. Ikkunan sulkeuduttua sama tulos vaatii 3–5× työn — tai jää saavuttamatta.
+
+| Ominaisuus (mittari) | Herkkyysikkuna | Mekanismi | **Signaali-invariantti (koodi)** |
+|---|---|---|---|
+| **Taito/tekniikka** (D2: TSI, SM-pallo) | **~6–13 v (pre-PHV)** | hermoston plastisuus, motoriset ohjelmat | **TSI = kriittisin yksittäinen indikaattori** — paljastaa onko ikkuna käytetty. U14+ uusi perustaito 3–5× työ |
+| **Koordinaatio/liikehallinta** (FLEI) | pre-PHV | faskiaalinen adaptoituvuus | matala FLEI pre-PHV = **vakava** (perustaidot jäivät rakentumatta). FLEI≥65 U12 = poikkeuksellinen. Post-PHV nousee hitaammin |
+| **Kiihdytys 5–10m** (D1 osa) | **KAKSI ikkunaa:** ~7–13 (neuraalinen) + post-PHV (voima) | SSC, aktivaationopeus → myöh. lihasmassa | 5m/10m osittain harjoiteltavissa jo pre-PHV (poikkeus muista nopeusmittareista) |
+| **Maksiminopeus 30m + aerobinen** (MAS) (D1) | **post-PHV** (P ~U14–18, T ~U12–16) | testosteroni/GH | **pre-PHV heikko 30m/MAS = NEUTRAALI, ei negatiivinen signaali** |
+| **Voima** (CMJ, 5RM) | **post-PHV** | anaboliset hormonit | **CMJ pre-PHV = koordinaation mittari, EI voiman.** Post-PHV 3–4× voimakasvu |
+| **Peliäly** (D4: ADAR) | laaja ~U10→U19 (kortikaalinen) | strateginen taso kypsyy myöhään | **ADAR-kynnykset ikävaihekohtaisia** — U11 ≠ U16, ei suoraa vertailua |
+
+### Signaloinnin invariantit (Hidden Gem & FVP — ÄLÄ KOODAA ILMAN NÄITÄ)
+1. **Hidden Gem on PHV-tilakohtainen.** korkea D2 + matala D1 **PRE-PHV** = aito gem (fysiikka tulee automaattisesti 2–4 v sisällä). **POST-PHV** sama profiili = fyysinen nousuvara EI enää tule automaattisesti → hyvä pelaaja, mutta ei "jalostamaton timantti". Sama luku, eri merkitys.
+2. **FVP (5m/30m) tulkittava PHV-kontekstissa.** matala FVP pre-PHV = normaali (nopeusprofiili odotettu); post-PHV = aito voimanpuute. **Ilman PHV-dataa (Sibbo/SJK) FVP-arvoa EI saa tulkita voimaksi** — VP:lle näytettävä ilman voimajohtopäätöstä.
+3. **Pre-PHV heikko 30m/MAS/CMJ ei laske talenttiarviota** — biologisesti odotettua, ei kehityskohde.
+4. **Kullankimpale:** korkea FLEI + korkea D2 **pre-PHV** = molemmat kriittiset ikkunat käytetty samanaikaisesti → ansaitsee oman merkin/painokertoimen Hidden Gem -logiikassa.
+
+**Käytännön rajoite (2026-06):** pilottidatassa ei vielä PHV:tä → Hidden Gem porrastettava: **ehdokas** (korkea D2 + matala D1, toimii nyt) → **vahvistettu** (+ PRE-PHV, kun bio-ikä mitattu).

@@ -27,8 +27,10 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 - **Signaalitriage** (`66ded9a`): signaaliväsymys → konsolidointi (sama ryhmä monessa joukkueessa → 1 kortti + erittely) + kolmiportainen hierarkia (KRIITTISET auki · Seuranta suljettu · Onnistumiset suljettu). Sibbo 8 riviä → 2 näkyvää + 2 otsikkoa.
 
 ### Roadmap — Sprint B & C (VP_v25-dashboard-track, käyttäjän määrittely 2026-06-04)
+> **Biologinen perusta lukittu** (CLAUDE.md §28 + STRATEGIA §2.1): kehitysikkunat = herkkyysvaiheet. Hidden Gem -kynnykset perustuvat näihin, EI mielivaltaisiin lukuihin. **Koodaa Hidden Gem vasta kun §28 invariantit luettu.** Avainsäännöt: korkea D2 + matala D1 = AITO gem vain PRE-PHV (post-PHV fysiikka ei tule automaattisesti); FVP sidottava PHV-tilaan (ilman PHV-dataa ei voimajohtopäätöstä); pre-PHV heikko 30m/MAS/CMJ = neutraali ei negatiivinen; korkea FLEI + korkea D2 pre-PHV = kullankimpale (oma merkki/paino).
+
 **SPRINT B (seuraava sessio):**
-- **Hidden Gem -logiikka** — korkea D2 + matala D1 + PRE-PHV (myöhäiskypsyvä lahjakkuus: tekninen pohja valmis, fysiikka tulee kasvun myötä). Vaatii 2+ mittausta täysitehoisena. Korvaa/tarkentaa nykyisen FLEI-pohjaisen Hidden Gemin (`HIDDEN_GEM_FLEI`). Esimerkkiprofiilit SJK: Vakkila Sara (D2 4.5, tasapainoinen huippu), Lahti Eeli (SM-juoksu 5 / SM-pallo 3, D2 4 — nopeus on, tekniikan kehitys tuottaa nopeimman hyödyn), Nieminen Onni-Matti (D2 1.5, pallo hidastaa).
+- **Hidden Gem -logiikka** — korkea D2 + matala D1 + PRE-PHV (myöhäiskypsyvä lahjakkuus: tekninen ikkuna ~6–13 v käytetty, fyysinen nousuvara biologisesti edessä). **PHV-porrastus** (pilotissa ei vielä PHV-dataa): ehdokas (D2-korkea + D1-matala, toimii nyt) → vahvistettu (+ PRE-PHV). Korvaa/tarkentaa nykyisen FLEI-pohjaisen Hidden Gemin (`HIDDEN_GEM_FLEI`). Esimerkkiprofiilit SJK: Vakkila Sara (D2 4.5, tasapainoinen huippu), Lahti Eeli (SM-juoksu 5 / SM-pallo 3, D2 4 — HUOM: tämä on nopeus-on-tekniikka-jäljessä eli TSI-kehityskohde, ei def-mukainen Hidden Gem), Nieminen Onni-Matti (D2 1.5, pallo hidastaa).
 - **Kehitysvauhti-laskenta** — aktivoituu kun `hh_taso_edellinen`-pikakenttä täyttyy 2. mittauksesta.
 - **PHV + RAE -integraatio.**
 

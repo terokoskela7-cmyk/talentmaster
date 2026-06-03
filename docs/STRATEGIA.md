@@ -46,6 +46,29 @@ hypothesis") · Vänttinen & KIHU 2015 (talent wastage Suomessa) · Mirwald 2002
 Q4>25 % teal) · "BQ4-pelaajat"-filtteri · RAE-bias-skenaariot Kalibraatiopajaan · ADAR-kortin
 BQ-kvartiili-chip + "Underdog"-badge · Pelaaja_v7 motivaatioviesti BQ4:lle · RAE-jakauma HoT-raporttiin.
 
+### 2.1 KEHITYSIKKUNAT — herkkyysvaiheet (signaloinnin biologinen perusta)
+
+> Tiivis koodattava invarianttitaulukko: `CLAUDE.md §28`. Tämä on **miksi** kynnykset ovat juuri nämä.
+
+**Perusperiaate:** Tärkein erottelu ei ole missä iässä ominaisuus on tärkeä, vaan **milloin sen kehittäminen on erityisen herkkää** — milloin sama harjoitusmäärä tuottaa moninkertaisen vaikutuksen. Herkkyysvaihe ei tarkoita ettei ominaisuus kehittyisi muulloin, mutta **suljetun ikkunan jälkeen sama tulos vaatii 3–5× työn — tai jää saavuttamatta.** Tämä on koko TalentMaster-signaloinnin (Hidden Gem, X-Factor, pikakenttäpainot, toimenpide-ehdotukset) biologinen pohja.
+
+**Taito ja tekniikka (D2 — TSI, SM-pallo)** — tiukin ikkuna. Hermosto plastisimmillaan ~6–13 v: motoristen ohjelmien (pysyvien liiketapojen) rakentaminen onnistuu nopeasti ja syvästi. Jokainen 10 000 kontaktia U8–U12 rakentaa uran kestäviä neuraalisia ratoja — Palloliiton valmennuslinjan *"taitojen oppimisen kultakausi"*. U14-jälkeen aivot oppivat yhä, mutta uuden perusteknisen taidon (ei-dominantti jalka, ensikosketus) vakiinnuttaminen vie 3–5× harjoitusmäärän. **Siksi TSI on kriittisin yksittäinen indikaattori: se paljastaa onko ikkuna käytetty.**
+
+**Koordinaatio ja liikehallinta (FLEI)** — lähes yhtä tiukka. Faskiaalinen adaptoituvuus ja liikekontrolli huipussaan pre-PHV. FLEI ≥ 65 % U12 = poikkeuksellinen liikelaatu + keho reagoi harjoitteluun tehokkaasti. **Matala FLEI pre-PHV = vakava signaali** (perustaidot jäivät rakentumatta kun se oli helpointa). Post-PHV nousee yhä, mutta hitaammin ja vaatii rakennetyötä.
+
+**Kiihdytysnopeus 5–10m (D1 osa)** — poikkeus: KAKSI ikkunaa. Varhainen ~7–13 v on **neuraalinen** (lihasten aktivointinopeus, jalan isku, SSC-sykli) → 5m/10m osittain harjoiteltavissa jo ennen puberteettia. Toinen avautuu **post-PHV** kun anaboliset hormonit kasvattavat lihasmassaa → 5m paranee voiman, ei koordinaation, kautta.
+
+**Maksiminopeus ja aerobinen teho (30m, MAS — D1 pääosin)** — voimakkaasti PHV-riippuvaisia, vastaavat testosteroniin ja GH:hon → post-PHV (P ~U14–18, T ~U12–16) ylivoimaisesti tehokkain kausi. **Pre-PHV heikot 30m/MAS = NEUTRAALI viesti, ei negatiivinen signaali.**
+
+**Voima (CMJ, 5RM)** — odottaa PHV:ta. Pre-puberteetti: voimaharjoittelu parantaa koordinaatiota + liikeratoja, mutta lihasmassaa ei kerry (ei hormoneja). Post-PHV: sama määrä → 3–4× voimakasvu. **CMJ pre-PHV = koordinaation/SSC-mittari, ei voiman.**
+
+**Peliäly ja kognitio (D4 — ADAR)** — seuraa aivokuoren kehitystä läpi nuoruuden. Havainnoinnin perusta (skannaus, tilannelukeminen, reaktio) kehittyy ~U10:stä, mutta strateginen taso ("jos-niin"-ketjut, ennakointi) kypsyy U17–U19 asti. **ADAR harjoitettavissa laajalla jaksolla, mutta tulkintakynnykset ikävaihekohtaisia** — U11 ≠ U16.
+
+**Implikaatiot signalointiin:**
+1. **Korkea D2 + matala D1 on eri signaali eri PHV-tiloissa.** Pre-PHV: harvinainen tekninen laatu rakennettu helpoimmillaan + fyysinen vaje biologisesti ohimenevä (keho voimistuu 2–4 v) = **aito Hidden Gem.** Post-PHV: tekniikka hyvä mutta fysiikka jäänyt jälkeen vaikka puberteetti ohi → nousuvara ei tule automaattisesti = hyvä pelaaja, ei "jalostamaton timantti".
+2. **FVP (5m/30m) sidottava PHV-tilaan.** Matala FVP pre-PHV = normaali; post-PHV = aito voimanpuute. Ilman PHV-dataa (Sibbo/SJK) FVP-arvoa ei saa esittää voimajohtopäätöksenä.
+3. **Kullankimpalein löytö:** korkea FLEI + korkea D2 pre-PHV = molemmat kriittiset ikkunat käytetty samanaikaisesti → ansaitsee oman merkin/painokertoimen.
+
 ---
 
 ## 3. KANSAINVÄLISTYMINEN
