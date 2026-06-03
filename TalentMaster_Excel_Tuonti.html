@@ -17,6 +17,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- pdf.js — Palloliiton PDF-tuonti (ei npm, Node.js ei käytettävissä) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
+<script src="lib/tm_eerikkila_normit.js"></script>
 
 <style>
 :root {
@@ -2651,6 +2653,30 @@ async function tallennaFirestoreen() {
             profiiliUpdate.tsi_pvm = pvmIso;
           }
         }
+        // SM-tasot (Eerikkilä 1–5) + D2-taso. Ikä/sp joukkuenimestä (fallback syntymaVuosi/sukupuoli).
+        if (typeof eerikkilaTaso === 'function' && testit && testit.sm_juoksu != null && testit.sm_pallo != null) {
+          const jk = p.joukkue || (p._firestoreData && p._firestoreData.joukkue) || '';
+          const jm = String(jk).match(/\b([PTU])\s?(\d{1,2})\b/i);
+          const syntV = (p._firestoreData && p._firestoreData.syntymaVuosi) || p.syntymaVuosi || null;
+          const _ika = jm ? parseInt(jm[2],10) : (syntV ? (new Date().getFullYear() - syntV) : null);
+          const _sp = (jm && /[PT]/i.test(jm[1])) ? (jm[1].toUpperCase()==='P'?'M':'N')
+                    : (p.sukupuoli === 'N' || p.sukupuoli === 'T') ? 'N' : (p.sukupuoli === 'M' || p.sukupuoli === 'P') ? 'M' : null;
+          if (_ika && _sp) {
+            const smJTaso = eerikkilaTaso(parseFloat(testit.sm_juoksu), 'sm_juoksu', _ika, _sp);
+            const smPTaso = eerikkilaTaso(parseFloat(testit.sm_pallo), 'sm_pallo', _ika, _sp);
+            profiiliUpdate.sm_juoksu_taso = smJTaso;
+            profiiliUpdate.sm_pallo_taso = smPTaso;
+            profiiliUpdate.d2_taso = Math.round((smJTaso + smPTaso) / 2 * 10) / 10;
+          }
+        }
+        // EI = CMJ − SJ (jos molemmat hyppytestit mitattu; sj_jump = Testaus_v9 vanha id)
+        if (testit) {
+          const cmjA = (testit.hyppy_cj != null) ? parseFloat(testit.hyppy_cj) : null;
+          const sjA  = (testit.hyppy_sj != null) ? parseFloat(testit.hyppy_sj) : (testit.sj_jump != null ? parseFloat(testit.sj_jump) : null);
+          if (cmjA != null && !isNaN(cmjA) && sjA != null && !isNaN(sjA)) {
+            profiiliUpdate.ei_viimeisin = Math.round((cmjA - sjA) * 10) / 10;
+          }
+        }
         if (fleiPct !== null || tki !== null) {
           profiiliUpdate.flei_historia = firebase.firestore.FieldValue.arrayUnion({
             pvm: pvmIso,
@@ -3611,6 +3637,78 @@ window.recalcTSI = async function(seuraIdArg, dryRun) {
   }
   console.log('[recalcTSI] valmis: ' + paivitetty + ' / ' + pelSnap.docs.length + ' pelaajaa · ohitettu: ' + ohitettu + ' · virheitä: ' + virhe);
   if (typeof toast === 'function') toast('recalcTSI: ' + paivitetty + ' päivitetty' + (virhe ? ' · ' + virhe + ' virhe' : ''), virhe ? 'err' : 'ok');
+  return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, virhe: virhe };
+};
+
+// recalcSMtasot(seuraId, dryRun=true) — SM-juoksu/SM-pallo Eerikkilä-tasot (1–5) + D2-taso (ka.) + EI (CMJ−SJ)
+// pelaajan pikakentistä. Ikä+sp joukkuenimestä (fallback syntymaVuosi/sukupuoli). SA-only. Vaatii eerikkilaTaso (lib).
+window.recalcSMtasot = async function(seuraIdArg, dryRun) {
+  if (dryRun === undefined) dryRun = true;
+  if (!superAdmin) { console.warn('[recalcSMtasot] Vain Super Admin'); return; }
+  if (typeof eerikkilaTaso !== 'function') { console.warn('[recalcSMtasot] eerikkilaTaso puuttuu — tarkista lib/tm_eerikkila_normit.js lataus'); return; }
+  const sid = seuraIdArg || seuraId;
+  if (!sid) { console.warn('[recalcSMtasot] Käyttö: recalcSMtasot(seuraId, dryRun=true)'); return; }
+  if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true);
+
+  const pelSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+  const muutokset = [];
+  let ohitettu = 0;
+  pelSnap.docs.forEach(function(pelDoc){
+    const p = pelDoc.data();
+    const joukkue = p.joukkue || (Array.isArray(p.joukkueet) ? p.joukkueet[0] : '') || '';
+    const m = String(joukkue).match(/\b([PTU])\s?(\d{1,2})\b/i);
+    const ika = m ? parseInt(m[2],10) : (p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null);
+    const sp = (m && /[PT]/i.test(m[1])) ? (m[1].toUpperCase()==='P'?'M':'N')
+             : (p.sukupuoli === 'N' || p.sukupuoli === 'T') ? 'N' : (p.sukupuoli === 'M' || p.sukupuoli === 'P') ? 'M' : null;
+
+    // SM-tasot (vaatii molemmat SM-pikakentät + ikä + sp)
+    let smJtaso = null, smPtaso = null, d2 = null;
+    if (p.sm_juoksu_viimeisin != null && p.sm_pallo_viimeisin != null && ika && sp) {
+      smJtaso = eerikkilaTaso(p.sm_juoksu_viimeisin, 'sm_juoksu', ika, sp);
+      smPtaso = eerikkilaTaso(p.sm_pallo_viimeisin, 'sm_pallo', ika, sp);
+      d2 = Math.round((smJtaso + smPtaso) / 2 * 10) / 10;
+    }
+    // EI = CMJ − SJ (riippumaton SM-tasoista)
+    const cmj = (p.hh_viimeisin && p.hh_viimeisin.cmj != null) ? p.hh_viimeisin.cmj : null;
+    const sj = (p.hyppy_sj_viimeisin != null) ? p.hyppy_sj_viimeisin : null;
+    const ei = (cmj != null && sj != null) ? Math.round((cmj - sj) * 10) / 10 : null;
+
+    if (d2 == null && ei == null) { ohitettu++; return; }
+    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''),
+      smJuoksu: p.sm_juoksu_viimeisin, smPallo: p.sm_pallo_viimeisin, smJtaso: smJtaso, smPtaso: smPtaso, d2: d2, ei: ei,
+      pvm: p.tsi_pvm || new Date().toISOString().slice(0,10) });
+  });
+
+  muutokset.forEach(function(m2){
+    let s = (dryRun ? '[DRY-RUN] ' : '[recalcSMtasot] OK ') + m2.nimi;
+    if (m2.d2 != null) s += ' · SM-juoksu ' + m2.smJuoksu + '→taso ' + m2.smJtaso + ' · SM-pallo ' + m2.smPallo + '→taso ' + m2.smPtaso + ' · D2 ' + m2.d2;
+    if (m2.ei != null) s += ' · EI ' + m2.ei + ' cm';
+    console.log(s);
+  });
+
+  if (dryRun) {
+    console.log('[DRY-RUN] recalcSMtasot: ' + muutokset.length + ' päivitettäisiin · ' + ohitettu + ' ohitettu.');
+    console.log('[DRY-RUN] Aja oikeasti: recalcSMtasot(\'' + sid + '\', false)');
+    return { dryRun: true, kpl: muutokset.length, ohitettu: ohitettu };
+  }
+
+  const ERA = Math.min(400, BATCH_KOKO);
+  let paivitetty = 0, virhe = 0;
+  const eria = Math.ceil(muutokset.length / ERA);
+  for (let e = 0; e < eria; e++) {
+    const era = muutokset.slice(e*ERA, (e+1)*ERA);
+    const batch = db.batch();
+    era.forEach(function(m2){
+      const upd = {};
+      if (m2.d2 != null) { upd.sm_juoksu_taso = m2.smJtaso; upd.sm_pallo_taso = m2.smPtaso; upd.d2_taso = m2.d2; upd.d2_taso_recalc = true; upd.d2_pvm = m2.pvm; }
+      if (m2.ei != null) upd.ei_viimeisin = m2.ei;
+      batch.set(m2.ref, upd, { merge: true });
+    });
+    try { await batch.commit(); paivitetty += era.length; if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true); }
+    catch (err) { console.error('[recalcSMtasot batch '+(e+1)+']', err); virhe += era.length; }
+  }
+  console.log('[recalcSMtasot] valmis: ' + paivitetty + ' / ' + pelSnap.docs.length + ' · ohitettu: ' + ohitettu + ' · virheitä: ' + virhe);
+  if (typeof toast === 'function') toast('recalcSMtasot: ' + paivitetty + ' päivitetty' + (virhe ? ' · '+virhe+' virhe' : ''), virhe ? 'err' : 'ok');
   return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, virhe: virhe };
 };
 
