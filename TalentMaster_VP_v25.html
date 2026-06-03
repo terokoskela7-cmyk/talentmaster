@@ -1214,6 +1214,26 @@ body {
 }
 /* Popup-pelaajarivin mobiilimeta piilossa desktopilla (näytetään @media ≤768px) */
 .dimpop-pmeta { display: none; }
+
+/* ── Kerros 2: Fyysinen-testirivi (kortti) + hero D-kortit (--muted = --ink3) ── */
+.hh-testirivi { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.hh-testirivi-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.hh-label { font-family: var(--font-mono); font-size: 13px; letter-spacing: .05em; color: var(--ink3); }
+.hh-taso-badge { width: 28px; height: 28px; border-radius: 50%; font-family: var(--font-sans); font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; color: #fff; }
+.hh-testirivi-body { display: flex; align-items: center; gap: 10px; }
+.hh-palkki-wrap { height: 8px; background: rgba(255,253,247,.10); flex: 1; }
+.hh-palkki-taytto { height: 100%; background: var(--teal); }
+.hh-arvo { font-family: var(--font-mono); font-weight: 600; font-size: 16px; color: var(--ink); min-width: 62px; text-align: right; }
+.dim-kortit { display: flex; gap: 8px; padding: 12px 0; border-top: .5px solid var(--border); border-bottom: .5px solid var(--border); margin-bottom: 14px; }
+.dim-kortti { flex: 1; padding: 12px 8px; border: 1px solid var(--border); text-align: center; }
+.dim-label { display: block; font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); margin-bottom: 6px; }
+.dim-numero { font-family: var(--font-sans); font-weight: 700; font-size: 32px; line-height: 1; }
+.dim-yksikko { font-family: var(--font-sans); font-weight: 400; font-size: 16px; color: var(--ink3); }
+.dim-palkki-seg { display: flex; gap: 4px; margin-top: 8px; }
+.dim-palkki-seg .seg { flex: 1; height: 8px; }
+.dim-palkki-seg .seg.taytto { background: var(--teal); }
+.dim-palkki-seg .seg.tyhja { background: rgba(255,253,247,.10); }
+
 @media (max-width: 768px) {
   #hamburgeri { display: flex !important; }
   #topbar .logo { display: none; }
@@ -1265,7 +1285,6 @@ body {
   /* Popup välilehtinapit + CTA + hero-numero — touch target + data hero */
   .dimpop-tab { padding: 12px 16px !important; font-size: 14px !important; }
   .dimpop-cta { flex: 1 1 100% !important; padding: 14px 16px !important; font-size: 15px !important; font-weight: 600 !important; }
-  .dimpop-heronum { font-size: 32px !important; font-weight: 700 !important; }
 }
 /* Placeholder-teksti luettavaksi (WCAG) — globaali, ei selaimen oletushimmennystä */
 input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
@@ -3045,23 +3064,23 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
 
   // ── TAB 1: FYYSINEN (H-H osatasot) ──
   const hv = p.hh_viimeisin || {};
-  const friv = function(lbl, key, arvo, yks) {
-    const taso = (arvo != null && ika && sp) ? hhLaskeTaso(key, arvo, ika, sp) : null;
-    return '<tr style="border-top:.5px solid var(--border)">'
-      + '<td style="padding:7px 8px;color:var(--ink2)">' + lbl + '</td>'
-      + '<td style="padding:7px 8px">' + _dimSeg(taso) + '</td>'
-      + '<td style="padding:7px 8px;font-family:var(--font-m);color:' + (taso==null?'var(--ink3)':hhTasoVari(taso)) + '">' + (taso != null ? taso + '/5' : '—') + '</td>'
-      + '<td style="padding:7px 8px;font-family:var(--font-m);color:var(--ink2)">' + (arvo != null ? arvo + ' ' + yks : '—') + '</td></tr>';
+  // Yksi Fyysinen-testirivi (kortti): label + tasoympyrä-badge + 100%-palkki + arvo. taso 1–5 → palkki taso/5.
+  const friv = function(lbl, taso, arvo, yks, korostus) {
+    const vari = (taso == null) ? 'var(--ink3)' : hhTasoVari(taso);
+    const w = (taso != null) ? Math.max(0, Math.min(100, (taso / 5) * 100)) : 0;
+    return '<div class="hh-testirivi"' + (korostus ? ' style="border-bottom:none"' : '') + '>'
+      + '<div class="hh-testirivi-header">'
+      + '<span class="hh-label"' + (korostus ? ' style="color:var(--ink);font-weight:600"' : '') + '>' + lbl + '</span>'
+      + '<div class="hh-taso-badge" style="background:' + vari + '">' + (taso != null ? taso : '–') + '</div></div>'
+      + '<div class="hh-testirivi-body"><div class="hh-palkki-wrap"><div class="hh-palkki-taytto" style="width:' + w + '%"></div></div>'
+      + '<span class="hh-arvo">' + (arvo != null ? arvo + ' ' + yks : '—') + '</span></div></div>';
   };
-  let f1 = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
-    + friv('Nopeus (30m)', '30m', hv.lin30m, 's')
-    + friv('Räjähtävyys (CMJ)', 'cmj', hv.cmj, 'cm')
-    + friv('Kestävyys (MAS)', 'mas', hv.mas, 'km/h')
-    + '<tr style="border-top:1px solid var(--border)"><td style="padding:8px;color:var(--ink);font-weight:600">H-H kokonais</td>'
-    + '<td style="padding:8px">' + _dimSeg(d1) + '</td>'
-    + '<td style="padding:8px;font-family:var(--font-m);color:' + (d1==null?'var(--ink3)':hhTasoVari(d1)) + '">' + (d1!=null?d1+'/5':'—') + '</td><td></td></tr>'
-    + '</tbody></table>'
-    + '<div style="font-size:10px;color:var(--ink3);margin-top:8px">Suunta (↑↓→) vaatii testihistorian — Sprint 2. Ikä/sp johdettu joukkueesta: ' + (ika||'?') + ' · ' + (sp||'?') + '</div>';
+  const tasoOf = function(key, arvo) { return (arvo != null && ika && sp) ? hhLaskeTaso(key, arvo, ika, sp) : null; };
+  let f1 = friv('Nopeus (30m)', tasoOf('30m', hv.lin30m), hv.lin30m, 's', false)
+    + friv('Räjähtävyys (CMJ)', tasoOf('cmj', hv.cmj), hv.cmj, 'cm', false)
+    + friv('Kestävyys (MAS)', tasoOf('mas', hv.mas), hv.mas, 'km/h', false)
+    + friv('H-H kokonais', d1, (d1 != null ? d1 : null), '/5', true)
+    + '<div style="font-size:11px;color:var(--ink3);margin-top:10px">Suunta (↑↓→) vaatii testihistorian — Sprint 2. Ikä/sp johdettu joukkueesta: ' + (ika||'?') + ' · ' + (sp||'?') + '</div>';
 
   // ── TAB 2: TEKNINEN (TKI + FLEI) ──
   const tsi = (p.sm_pallo != null && p.sm_juoksu != null) ? (Math.round((p.sm_pallo - p.sm_juoksu)*100)/100) : null;
@@ -4181,14 +4200,6 @@ function _dimIkaSp(joukkue, p) {
 // Normalisoinnit 1–5-asteikolle (hero-dimensiot)
 function _dimNorm5Tki(tki)  { return (tki == null)  ? null : Math.round((tki / 20) * 10) / 10; }       // TKI 0–100 → 0–5
 function _dimNorm5Adar(yht) { return (yht == null)  ? null : Math.round((yht / 12 * 5) * 10) / 10; }    // ADAR yht 4–12 → ~1.7–5
-// 5-segmenttinen palkki (1–5); täytetty = tasoväri, tyhjä = himmeä luu. taso null → kaikki tyhjät.
-function _dimSeg(taso) {
-  const vari = hhTasoVari(taso);
-  const fill = (taso == null) ? 0 : Math.max(0, Math.min(5, Math.round(taso)));
-  let s = '<span style="display:inline-flex;gap:2px;vertical-align:middle">';
-  for (let i = 1; i <= 5; i++) s += '<span style="width:9px;height:9px;background:' + (i <= fill ? vari : 'rgba(255,253,247,0.10)') + '"></span>';
-  return s + '</span>';
-}
 // Vaaka-arvopalkki (0–max), teal-täyttö himmeällä pohjalla — FLEI/ketjut/ADAR-osat
 function _dimBar(arvo, max, vari) {
   const pct = (arvo == null || max <= 0) ? 0 : Math.max(0, Math.min(100, (arvo / max) * 100));
@@ -4198,14 +4209,20 @@ function _dimBar(arvo, max, vari) {
 const _PHV_LABEL = { PRE:'Ennen kasvupyrähdystä', LAH:'Lähestyy', PH:'Kasvupyrähdyksessä ⚠', POST:'Jälkeen', AN:'Jälki-PHV', VA:'Vakaa' };
 function _phvVari(t) { return (t === 'PH') ? 'var(--amber)' : (t === 'PRE' || t === 'LAH') ? 'var(--ink2)' : 'var(--teal)'; }
 // Hero-dimensiorivi D1/D2/D4 (taso 1–5 tai null) — Kerros 1 (joukkueen ka.) + Kerros 2 (pelaaja)
+// 5×8px-segmenttirivi D-korttiin (täytetty = round(taso), teal; tyhjä = himmeä)
+function _dimSegRivi(taso) {
+  const fill = (taso == null) ? 0 : Math.max(0, Math.min(5, Math.round(taso)));
+  let s = '<div class="dim-palkki-seg">';
+  for (let i = 1; i <= 5; i++) s += '<span class="seg ' + (i <= fill ? 'taytto' : 'tyhja') + '"></span>';
+  return s + '</div>';
+}
 function _dimHero(d1, d2, d4) {
-  const solu = (lbl, sub, taso) => '<div style="flex:1;text-align:center">'
-    + '<div style="font-family:var(--font-m);font-size:10px;letter-spacing:.08em;color:var(--ink3)">' + lbl + '</div>'
-    + '<div style="margin:5px 0">' + _dimSeg(taso) + '</div>'
-    + '<div class="dimpop-heronum" style="font-family:var(--font-m);font-size:14px;color:' + (taso == null ? 'var(--ink3)' : hhTasoVari(taso)) + '">' + (taso == null ? '—' : taso) + '</div>'
-    + '<div style="font-size:10px;color:var(--ink3)">' + sub + '</div></div>';
-  return '<div style="display:flex;gap:8px;padding:12px 0;border-top:.5px solid var(--border);border-bottom:.5px solid var(--border);margin-bottom:14px">'
-    + solu('D1', 'Fyysinen', d1) + solu('D2', 'Tekninen', d2) + solu('D4', 'Pelitieto', d4) + '</div>';
+  const kortti = (lbl, taso) => '<div class="dim-kortti">'
+    + '<span class="dim-label">' + lbl + '</span>'
+    + '<div><span class="dim-numero" style="color:' + (taso == null ? 'var(--ink3)' : hhTasoVari(taso)) + '">' + (taso == null ? '—' : taso) + '</span>'
+    + (taso == null ? '' : '<span class="dim-yksikko"> /5</span>') + '</div>'
+    + _dimSegRivi(taso) + '</div>';
+  return '<div class="dim-kortit">' + kortti('D1 Fyysinen', d1) + kortti('D2 Tekninen', d2) + kortti('D4 Peli', d4) + '</div>';
 }
 function _dimKa(arr) { const v = arr.filter(x => x != null); return v.length ? Math.round((v.reduce((a,b)=>a+b,0)/v.length)*10)/10 : null; }
 function tkiBenchmarkPalkki(tkiKa, ikaluokka) {
