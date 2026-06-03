@@ -1717,6 +1717,13 @@ function _naytaLogin() {
   document.getElementById('sDash').classList.add('hidden');
 }
 
+// Näytä selkeä virheviesti login-näkymässä (esim. vanhentunut istunto / puuttuva claim)
+function naytaVirhe(viesti) {
+  const errEl = document.getElementById('lErr');
+  if (errEl) errEl.textContent = viesti;
+  _naytaLogin();
+}
+
 function _naytaDash() {
   document.getElementById('sLogin').classList.add('hidden');
   document.getElementById('sDash').classList.remove('hidden');
@@ -1782,9 +1789,12 @@ function logout() {
 
 async function _lataaValmentaja(uid) {
   try {
-    // Hae Custom Claims ensin — nopein tapa
-    const token = await _auth.currentUser.getIdTokenResult(false).catch(() => null);
+    // Hae Custom Claims — (true) pakottaa TUOREEN tokenin → claims aina ajan tasalla.
+    // Estää vanhentuneen välimuistitokenin → tyhjä seuraId → väärä 'kpv'-fallback → auth timeout.
+    // Vain tämä kertaluontoinen kirjautumistarkistus (network-kutsu, ei suorituskykyongelma).
+    const token = await _auth.currentUser.getIdTokenResult(true).catch(() => null);
     const claims = token?.claims || {};
+    console.log('[Master] claims:', { rooli: claims.rooli, seuraId: claims.seuraId, claimsAsetettu: claims.claimsAsetettu });
 
     // Super admin -tarkistus (admins-kokoelma)
     const adminSnap = await _db.collection('admins').doc(uid).get().catch(() => null);
@@ -1861,7 +1871,15 @@ async function _lataaValmentaja(uid) {
     }
 
     // Hae kayttajat-kokoelmasta (oikea polku: seurat/{id}/kayttajat/{uid})
-    const seuraIdToUse = _seuraId || 'kpv';
+    // Ei enää 'kpv'-fallbackia: väärä seura → permission-denied → 8s auth-timeout (näytti uloskirjautumiselta).
+    // SA on jo palannut yllä (admins-haara) ennen tätä → guard koskee vain seura-rooleja.
+    const seuraIdToUse = claims.seuraId;
+    if (!seuraIdToUse) {
+      console.error('[Master] seuraId puuttuu claimsista:', claims);
+      naytaVirhe('Istunto vanhentunut tai käyttöoikeudet puuttuvat. Kirjaudu uudelleen sisään.');
+      await _auth.signOut();
+      return;
+    }
     const snap = await _db.collection('seurat').doc(seuraIdToUse)
       .collection('kayttajat').doc(uid).get();
 
