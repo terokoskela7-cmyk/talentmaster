@@ -3075,10 +3075,13 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   }
 
   // ── Hero: joukkueen dimensiokeskiarvot D1/D2/D4 (1–5) ──
+  const _teamD2Lahde = pelaajat.some(function(p){ return p.tki_viimeisin != null; }) ? 'tki'
+                     : pelaajat.some(function(p){ return p.d2_taso != null; }) ? 'sm' : null;
   const teamHero = _dimHero(
     _dimKa(pelaajat.map(p => p.hh_taso)),
-    _dimKa(pelaajat.map(p => _dimNorm5Tki(p.tki_viimeisin))),
-    _dimKa(pelaajat.map(p => _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht)))
+    _dimKa(pelaajat.map(p => laskeD2Taso(p))),
+    _dimKa(pelaajat.map(p => _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht))),
+    _teamD2Lahde
   );
 
   // ── Välilehti 2: TUKI (ryhmittely kehityskohteen mukaan) ──
@@ -3174,9 +3177,9 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
 
   // Hero — tämän pelaajan D1/D2/D4
   const d1 = (p.hh_taso != null) ? p.hh_taso : null;
-  const d2 = _dimNorm5Tki(p.tki_viimeisin);
+  const d2 = laskeD2Taso(p);   // TKI > SM-pohjainen d2_taso
   const d4 = _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht);
-  const hero = _dimHero(d1, d2, d4);
+  const hero = _dimHero(d1, d2, d4, _d2Lahde(p));
 
   // ── TAB 1: FYYSINEN (H-H osatasot) ──
   const hv = p.hh_viimeisin || {};
@@ -4323,13 +4326,24 @@ function _dimSegRivi(taso) {
   for (let i = 1; i <= 5; i++) s += '<span class="seg ' + (i <= fill ? 'taytto' : 'tyhja') + '"></span>';
   return s + '</div>';
 }
-function _dimHero(d1, d2, d4) {
+// D2-taso prioriteetilla: TKI (0–100 → 1–5) > SM-pohjainen d2_taso (jo 1–5) > null.
+// Skaalautuu: kun TKI joskus täyttyy, se korvaa SM-pohjaisen automaattisesti.
+function laskeD2Taso(p) {
+  if (p.tki_viimeisin != null) return Math.round((p.tki_viimeisin / 20) * 10) / 10;
+  if (p.d2_taso != null) return p.d2_taso;
+  return null;
+}
+function _d2Lahde(p) { return (p.tki_viimeisin != null) ? 'tki' : (p.d2_taso != null) ? 'sm' : null; }
+
+function _dimHero(d1, d2, d4, d2Lahde) {
   const kortti = (lbl, taso) => '<div class="dim-kortti">'
     + '<span class="dim-label">' + lbl + '</span>'
     + '<div><span class="dim-numero" style="color:' + (taso == null ? 'var(--ink3)' : hhTasoVari(taso)) + '">' + (taso == null ? '—' : taso) + '</span>'
     + (taso == null ? '' : '<span class="dim-yksikko"> /5</span>') + '</div>'
     + _dimSegRivi(taso) + '</div>';
-  return '<div class="dim-kortit">' + kortti('D1 Fyysinen', d1) + kortti('D2 Tekninen', d2) + kortti('D4 Peli', d4) + '</div>';
+  const d2Label = (d2Lahde === 'sm') ? 'D2 Tekninen¹' : 'D2 Tekninen';   // ¹ = SM-pohjainen, ei TKI
+  const rivi = '<div class="dim-kortit">' + kortti('D1 Fyysinen', d1) + kortti(d2Label, d2) + kortti('D4 Peli', d4) + '</div>';
+  return rivi + (d2Lahde === 'sm' ? '<div style="font-size:10px;color:var(--ink3);margin:-8px 0 12px;padding:0 2px">¹ SM-testi (Eerikkilä) — TKI tulossa</div>' : '');
 }
 function _dimKa(arr) { const v = arr.filter(x => x != null); return v.length ? Math.round((v.reduce((a,b)=>a+b,0)/v.length)*10)/10 : null; }
 
@@ -4384,16 +4398,39 @@ function renderKehitysKortti(pelaajat) {
     return a.length ? (a.reduce(function(s,p){ return s + p[kentta]; }, 0) / a.length) : null; };
   const adA = pelaajat.filter(function(p){ return p.adar_viimeisin && p.adar_viimeisin.yht != null; });
   const adKa = adA.length ? (adA.reduce(function(s,p){ return s + p.adar_viimeisin.yht; }, 0) / adA.length) : null;
-  const hhKa = ka('hh_taso'), tkiKa = ka('tki_viimeisin'), fleiKa = ka('flei_viimeisin');
+  const hhKa = ka('hh_taso'), fleiKa = ka('flei_viimeisin');
 
   // väri 1–5-normalisoidusta arvosta: ≥3.5 teal · 2.5–3.4 amber · <2.5 red
   const vari = function(t5){ return (t5 == null) ? 'var(--ink3)' : t5 >= 3.5 ? 'var(--teal)' : t5 >= 2.5 ? 'var(--amber)' : 'var(--red)'; };
 
+  // Tekninen-kortti — prioriteetti: TKI (≥3) → TSI/D2 (≥3) → tyhjä. TSI sekunteina (väri <1.3 teal · <1.7 amber · muu red).
+  const tekn = (function(){
+    const tkiP = pelaajat.filter(function(p){ return p.tki_viimeisin != null; });
+    if (tkiP.length >= 3) {
+      const tkiKa = tkiP.reduce(function(s,p){ return s + p.tki_viimeisin; }, 0) / tkiP.length;
+      return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:String(Math.round(tkiKa)), sub:'/100 · TKI', t5:_dimNorm5Tki(tkiKa), pct:Math.max(0,Math.min(100,Math.round(tkiKa))), next:null };
+    }
+    const tsiP = pelaajat.filter(function(p){ return p.tsi_viimeisin != null; });
+    if (tsiP.length >= 3) {
+      const tsiKa = tsiP.reduce(function(s,p){ return s + p.tsi_viimeisin; }, 0) / tsiP.length;
+      const d2P = pelaajat.filter(function(p){ return p.d2_taso != null; });
+      const d2Ka = d2P.length >= 3 ? (d2P.reduce(function(s,p){ return s + p.d2_taso; }, 0) / d2P.length) : null;
+      const tsiVari = tsiKa < 1.3 ? 'var(--teal)' : tsiKa < 1.7 ? 'var(--amber)' : 'var(--red)';
+      if (d2Ka != null) {
+        return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:d2Ka.toFixed(1), sub:'/5 · Eerikkilä',
+          vari:(d2Ka>=3.5?'var(--teal)':d2Ka>=2.5?'var(--amber)':'var(--red)'), pct:Math.round(d2Ka/5*100),
+          konteksti:'TSI ka. '+tsiKa.toFixed(2)+' s · '+tsiP.length+' pel.', next:'Suunnittele TKK' };
+      }
+      return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:tsiKa.toFixed(1), sub:'s · TSI',
+        vari:tsiVari, pct:Math.min(100,Math.round((1/tsiKa)*80)), konteksti:tsiP.length+' pelaajaa', next:'Suunnittele TKK' };
+    }
+    return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:'—', sub:'TKI', t5:null, pct:0, next:'Suunnittele TKK' };
+  })();
+
   const kortit = [
     { ikoni:'ti-bolt',          nimi:'Fyysinen', arvo: hhKa  != null ? hhKa.toFixed(1) : '—', sub:'/5 · H-H', t5: hhKa,
       pct: hhKa  != null ? Math.round(hhKa/5*100) : 0, next: null },
-    { ikoni:'ti-ball-football', nimi:'Tekninen', arvo: tkiKa != null ? String(Math.round(tkiKa)) : '—', sub:'TKI', t5: _dimNorm5Tki(tkiKa),
-      pct: tkiKa != null ? Math.max(0,Math.min(100,Math.round(tkiKa))) : 0, next: tkiKa == null ? 'Suunnittele TKK' : null },
+    tekn,
     { ikoni:'ti-run',           nimi:'FLEI', arvo: fleiKa != null ? String(Math.round(fleiKa)) : '—', sub:'/100', t5: _dimNorm5Tki(fleiKa),
       pct: fleiKa != null ? Math.max(0,Math.min(100,Math.round(fleiKa))) : 0, next: fleiKa == null ? 'Aloita kartoitus' : null },
     { ikoni:'ti-compass',       nimi:'Peli', arvo: adKa  != null ? (Math.round(adKa*10)/10 + '/12') : '—', sub:'ADAR', t5: _dimNorm5Adar(adKa),
@@ -4402,13 +4439,14 @@ function renderKehitysKortti(pelaajat) {
 
   let html = '<div class="keh-grid">';
   kortit.forEach(function(k){
-    const v = vari(k.t5);
+    const v = k.vari || vari(k.t5);   // k.vari = override (esim. TSI-väri sekunneista)
     const tyhja = (k.arvo === '—');
     html += '<div class="keh-card">'
       + '<div class="keh-label"><i class="ti ' + k.ikoni + '" aria-hidden="true"></i> ' + k.nimi + '</div>'
       + '<div class="keh-value" style="color:' + (tyhja ? 'var(--ink3)' : v) + '">' + k.arvo + '</div>'
       + '<div class="keh-sub">' + k.sub + '</div>'
       + '<div class="keh-bar"><div class="keh-bar-fill" style="width:' + k.pct + '%;background:' + v + '"></div></div>'
+      + (k.konteksti ? '<div class="keh-sub" style="margin-top:6px">' + k.konteksti + '</div>' : '')
       + (k.next ? '<div class="keh-next"><i class="ti ti-arrow-right" aria-hidden="true"></i> ' + k.next + '</div>' : '')
       + '</div>';
   });
