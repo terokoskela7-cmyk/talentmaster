@@ -15,6 +15,23 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 
 ---
 
+## Sessio 2026-06-04 (Mac) — 10m/5m+FVP, ⓘ-testitulkinta, 5D-radar, Sibbo-tasapaino, signaalitriage
+
+> VP_v25-jatkokehitys. Kaikki diff-tarkistettu + node-syntaksitarkistus ennen committia.
+
+- **10m/5m split-ajat + kiihdytysprofiili** (`0082000`,`1f5ffff`): `hh_viimeisin += lin10m/lin5m` (Excel), `recalcHHsplits`-backfill (SJK 38/40), VP Fyysinen-välilehti näyttää 5m/10m Eerikkilä-tasot. `lib/tm_eerikkila_normit.js` ladattu VP:hen. **FVP** (5m+30m) + **`laskeKiihdytysprofiili(t10,t30)`** (10m+30m-fallback, lentävä väliaika): <1.35 kiihdytys · 1.35–1.50 tasapainoinen · >1.50 huippunopeus.
+- **ⓘ-testitulkinta** (`c964125`): `TM_TESTI_OHJEET`-sanakirja + `_tmInfo`-overlay + `_tmIBtn` — koulutus rakennettuna näkymään (mitä mittaa + tulkinta + valmennusvihje), 13 mittaria.
+- **5D-tutkakaavio** (`f34281d`,`7a56151`,`2fa4fa5`): `_tmRadar5D` kevyt SVG (ei kirjastoja). Korvasi hero-rivin pelaajan pikakatsauksessa JA joukkueen syvänäkymässä. D1/D2/D4 mitattu, **D3/D5 "tulossa"** (katkoviiva). Koodi lukee `d3_taso`/`d5_taso` jo defensiivisesti.
+- **Pelaajat-välilehti** (`f34281d`): TKI-sarake → **Tekninen** (`_tekninenSoluVP`: TKI > TSI/D2, aina 1–5).
+- **Sibbo-tasapaino** (`e68a1be`): TKI-only-seura sai 0 toimenpidettä → `TP_SIGNAALIT += tki_alhainen/tki_lahella_merkkia/flei_kartoitus_puuttuu`. **`_tarvitseeTuki(p)`**: tuen tarve = MITATTU heikko (FLEI<50/H-H<2.5), ei puuttuva data (loppui valekriittiset Erityistuki-tagit).
+- **Signaalitriage** (`66ded9a`): signaaliväsymys → konsolidointi (sama ryhmä monessa joukkueessa → 1 kortti + erittely) + kolmiportainen hierarkia (KRIITTISET auki · Seuranta suljettu · Onnistumiset suljettu). Sibbo 8 riviä → 2 näkyvää + 2 otsikkoa.
+
+### Deferred — Sprint C (VP_v25-dashboard-track)
+- **Toimenpiteet-paneeli: eräpäiväpohjainen lajittelu** (EI signaalien kolmiportaista hierarkiaa). Peruste: signaali (hero-insightin "aamukatse", mitä pitää tietää nyt) ≠ toimenpide (jo syntynyt reaktio signaaliin). Toimenpiteen tärkeys = eräpäivä + vastuuhenkilö + tila (ehdotus/kuittaus/hylätty), ei kriittinen/seuranta-jako. Tarve: erääntyneet ylös → tulevat viikot → kuitatut piiloon. Oma sprinttinsä, ei sekoiteta käsitteitä nyt.
+- **D3 Psyykkinen + D5 Sosiaalinen -datankeruu** (radar täyttyy automaattisesti kun `d3_taso`/`d5_taso` syntyvät).
+
+---
+
 ## Sessio 2026-06-03 (Mac) — SJK H-H-tuonti, MAS/TSI/SM-tasot, VP_v25 Sprint A+B, universaali testiarkkitehtuuri
 
 > **Iso sessio.** Päämuutokset: Excel-tuonnin nimi-yhdistys (SJK ilman PalloID:tä), MAS-aika→nopeus, recalc-työkalut (HH/TSI/SM-tasot), VP_v25:n koko etusivu-uudistus (dimensiopopup, mobiili-first, 2×2-grid, hero-insight, toimenpiteet), Master_v16 auth-fix, ja **universaali testirekisteri** (Sprint B). Kaikki diff-tarkistettu ennen committia.
