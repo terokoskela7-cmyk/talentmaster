@@ -1279,6 +1279,27 @@ body {
 .adapt-arvo { font-family: var(--font-mono); font-weight: 600; font-size: 15px; min-width: 48px; text-align: right; }
 .adapt-seuraava { margin-top: 12px; font-family: var(--font-sans); font-weight: 500; font-size: 13px; color: var(--teal); display: flex; align-items: center; gap: 6px; }
 
+/* Hero-tilaindikaattorit (väripisteet per joukkue + toimenpidelaskuri) */
+.hero-tilaindikaattorit { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; }
+.hero-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.hero-vaatii { font-family: var(--font-mono); font-size: 11px; color: var(--ink2); margin-left: 8px; letter-spacing: .04em; }
+.hero-vaatii.ok { color: var(--ink3); }
+
+/* Joukkuekortit (korvaavat pulssitaulukon) — H-H + suunta + Eerikkilä% */
+.jk-kortit { display: flex; flex-direction: column; }
+.jk-kortti { border: 1px solid rgba(255,255,255,.08); padding: 14px 16px; margin-bottom: 8px; cursor: pointer; transition: background .15s; }
+.jk-kortti:hover, .jk-kortti:active { background: rgba(255,255,255,.04); }
+.jk-ylarivi { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.jk-nimi { font-size: 17px; font-weight: 700; color: var(--ink); flex: 1; }
+.jk-pelaajat { font-size: 12px; color: var(--ink3); }
+.jk-arvo { font-size: 20px; font-weight: 700; font-family: var(--font-mono); }
+.jk-suunta { font-size: 14px; font-weight: 600; }
+.jk-palkki-wrap { height: 5px; background: rgba(255,255,255,.08); margin-bottom: 8px; }
+.jk-palkki-fill { height: 100%; }
+.jk-alarivi { display: flex; align-items: center; justify-content: space-between; }
+.jk-eerikkila { font-size: 12px; color: var(--ink3); }
+.ensimmainen-info { font-size: 11px; color: var(--ink3); display: flex; align-items: center; gap: 4px; margin-top: 4px; padding: 4px 0; border-top: 1px solid rgba(255,255,255,.04); }
+
 @media (max-width: 768px) {
   #hamburgeri { display: flex !important; }
   #topbar .logo { display: none; }
@@ -1501,6 +1522,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         <div class="greeting-label"><span class="live-dot"></span><span id="greeting-status">TILANNE · LIVE</span></div>
         <h1 class="greeting-text"><span id="greeting-tervehdys">Hyvää päivää</span>, <em id="greeting-name"></em>.</h1>
         <p class="greeting-summary" id="greeting-summary">Ladataan tilannetta...</p>
+        <div class="hero-tilaindikaattorit" id="heroIndikaattorit"></div>
         <div class="greeting-meta">
           <span id="greeting-kausi">—</span>
           <span class="meta-sep">·</span>
@@ -1545,28 +1567,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
           <h2 class="section-title">Joukkueiden <em>pulssi</em></h2>
           <span class="section-hint">Klikkaa joukkuetta avataksesi tiiminäkymän</span>
         </div>
-        <div class="joukkue-taulukko-wrapper">
-          <table class="joukkue-taulukko">
-            <thead>
-              <tr>
-                <th class="col-team">JOUKKUE</th>
-                <th class="col-players">PEL.</th>
-                <th class="col-tki">TKI ka.</th>
-                <th class="col-hh">H-H ka.</th>
-                <th class="col-benchmark">SUHDE KANSALLISEEN</th>
-                <th class="col-taso">TASO</th>
-                <th class="col-merkit">MERKIT</th>
-                <th class="col-paras">PARAS</th>
-              </tr>
-            </thead>
-            <tbody id="joukkue-taulukko-body"></tbody>
-          </table>
-        </div>
-        <div class="benchmark-selite">
-          <span>Benchmark: valtakunnalliset tekniikkakilpailut 2022–2025</span>
-          <span class="nat-marker">| ★ kansallinen voittajataso</span>
-          <span>Vyöhykkeet: &lt;40 Prioriteetti · 40–59 Kehitys · 60–79 Hyvä · ≥80 Erinomainen</span>
-        </div>
+        <div id="joukkuekortit" class="jk-kortit"></div>
       </section>
 
       <div id="kehitysKortti"></div>
@@ -2109,6 +2110,25 @@ function renderTilanne() {
   // Feature B — adaptiivinen kehityskortti (näyttää vain saatavilla olevat mittarit)
   const _kkEl = document.getElementById('kehitysKortti');
   if (_kkEl) _kkEl.innerHTML = renderKehitysKortti(_pelaajat);
+
+  // OSA 1 — sääntöpohjainen hero-insight + tilaindikaattorit (väripiste per joukkue + toimenpidelaskuri)
+  const _hsEl = document.getElementById('greeting-summary');
+  if (_hsEl) _hsEl.textContent = laskeHeroInsight(_pelaajat);
+  const _hiEl = document.getElementById('heroIndikaattorit');
+  if (_hiEl) {
+    const jt = {};
+    _pelaajat.forEach(function(p){ const j = p.joukkue || 'Tuntematon'; (jt[j] = jt[j] || []).push(p); });
+    let dots = '', vaatii = 0;
+    Object.keys(jt).sort(function(a,b){ return joukkueJarjestys(a) - joukkueJarjestys(b); }).forEach(function(j){
+      const hh = jt[j].filter(function(p){ return p.hh_taso != null; }).map(function(p){ return p.hh_taso; });
+      const k = hh.length ? (hh.reduce(function(a,b){ return a+b; }, 0) / hh.length) : null;
+      if (k != null && k < 2.5) vaatii++;
+      dots += '<span class="hero-dot" title="' + lyhennaNimi(j).replace(/"/g, '') + '" style="background:' + (k == null ? 'var(--ink3)' : hhTasoVari(k)) + '"></span>';
+    });
+    _hiEl.innerHTML = dots + (vaatii > 0
+      ? '<span class="hero-vaatii">' + vaatii + ' vaatii toimenpiteitä</span>'
+      : '<span class="hero-vaatii ok">Ei kriittisiä havaintoja</span>');
+  }
 
   // KPI:t
   document.getElementById('kpi-pelaajat').textContent = _pelaajat.length;
@@ -4406,61 +4426,93 @@ function tkiParasPelaaja(pelaajat) {
 }
 
 // v25: joukkuepulssi TKI-BENCHMARK-TAULUKKONA. Ryhmittely joukkue-nimellä säilyttää P/T-erottelun.
+// Joukkueen H-H-suunta: vertaa hh_taso vs hh_taso_edellinen (pikakentät). Ei 2. mittausta → 'ensimmainen_mittaus'.
+function laskeJoukkueSuunta(joukkuePelaajat) {
+  const ps = joukkuePelaajat.filter(function(p){ return p.hh_taso != null && p.hh_taso_edellinen != null; });
+  if (ps.length === 0) return { symboli: null, delta: null, tila: 'ensimmainen_mittaus', vari: 'var(--ink3)' };
+  const deltat = ps.map(function(p){ return p.hh_taso - p.hh_taso_edellinen; });
+  const dKa = deltat.reduce(function(a,b){ return a+b; }, 0) / deltat.length;
+  if (dKa > 0.15)  return { symboli: '↑', delta: '+' + dKa.toFixed(1), tila: 'nousu',    vari: 'var(--teal)' };
+  if (dKa < -0.15) return { symboli: '↓', delta: dKa.toFixed(1),       tila: 'lasku',    vari: 'var(--red)'  };
+  return                  { symboli: '→', delta: '→',                  tila: 'tasainen', vari: 'var(--ink3)' };
+}
+
+// Joukkuekortit (korvaavat pulssitaulukon) — H-H ka. + suunta + Eerikkilä%; klikkaus → syvänäkymä (täysi TKI).
 function renderTeamPulse() {
-  const tbody = document.getElementById('joukkue-taulukko-body');
-  if (!tbody) return;
-
+  const cont = document.getElementById('joukkuekortit');
+  if (!cont) return;
   const joukkueet = {};
-  _pelaajat.forEach(p => {
-    const j = p.joukkue || 'Tuntematon';
-    if (!joukkueet[j]) joukkueet[j] = [];
-    joukkueet[j].push(p);
-  });
-  const nimet = Object.keys(joukkueet).sort((a, b) => joukkueJarjestys(a) - joukkueJarjestys(b));
-  if (nimet.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="color:var(--ink3);font-size:13px;padding:16px">Ei joukkuetietoja saatavilla</td></tr>';
-    return;
-  }
+  _pelaajat.forEach(function(p){ const j = p.joukkue || 'Tuntematon'; (joukkueet[j] = joukkueet[j] || []).push(p); });
+  const nimet = Object.keys(joukkueet).sort(function(a,b){ return joukkueJarjestys(a) - joukkueJarjestys(b); });
+  if (nimet.length === 0) { cont.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:16px">Ei joukkuetietoja saatavilla</div>'; return; }
+  const ka = function(vals){ return vals.length ? (vals.reduce(function(a,b){ return a+b; }, 0) / vals.length) : null; };
 
-  const ka = (vals) => vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-  tbody.innerHTML = nimet.map(nimi => {
+  cont.innerHTML = nimet.map(function(nimi){
     const pelaajat = joukkueet[nimi];
     const koko = pelaajat.length;
     const safeNimi = nimi.replace(/['"]/g, '');
-    const phvCount = pelaajat.filter(p => p.phv_tila === 'PH').length;
-    const ikaluokka = lyhennaNimi(nimi);                         // benchmark-avain (P10/T12...)
-
-    const tkiVals = pelaajat.filter(p => p.tki_viimeisin != null).map(p => p.tki_viimeisin);
-    const tkiAvg = ka(tkiVals);
-    const tkiKa = tkiAvg != null ? Math.round(tkiAvg) : null;
-    const taso = tkiTaso(tkiKa);
-
-    // H-H ka. — pikakentästä hh_taso (1–5), keskiarvo 1 desimaalilla. Ei alikokoelmakyselyä.
-    const hhVals = pelaajat.filter(p => p.hh_taso != null).map(p => p.hh_taso);
+    const ikaluokka = lyhennaNimi(nimi);
+    const hhVals = pelaajat.filter(function(p){ return p.hh_taso != null; }).map(function(p){ return p.hh_taso; });
     const hhAvg = ka(hhVals);
-    const hhKa = hhAvg != null ? Math.round(hhAvg * 10) / 10 : null;
-    const vari = tkiVari(taso);
-    const riviLuokka = (tkiKa == null && hhKa == null) ? 'rivi-ei-dataa' : '';   // himmennä vain jos EI TKI EIKÄ H-H (KORJAUS 2: H-H-only-rivit eivät himmenny)
-    const metaTeksti = (phvCount > 0) ? (koko + ' pel · ' + phvCount + ' PHV') : (koko + ' pel');
+    const hhKa = (hhAvg != null) ? Math.round(hhAvg * 10) / 10 : null;
+    const pct = (hhKa != null) ? Math.round((hhKa / 5) * 100) : 0;
+    const vari = (hhKa == null) ? 'var(--ink3)' : hhTasoVari(hhKa);
+    const suunta = laskeJoukkueSuunta(pelaajat);
 
-    return '<tr class="joukkue-rivi ' + riviLuokka + '" onclick="avaaJoukkueSyvanakyma(\'' + safeNimi + '\')">' +
-      '<td class="col-team"><div class="jk-nimi-iso" title="' + nimi.replace(/"/g, '&quot;') + '">' + ikaluokka + '</div>' +
-        '<div class="jk-meta">' + metaTeksti + '</div></td>' +
-      '<td class="col-players"><span class="arvo-iso">' + koko + '</span></td>' +
-      '<td class="col-tki">' + (tkiKa != null
-        ? '<span class="arvo-iso" style="color:' + vari + '">' + tkiKa + '</span>'
-        : '<span class="data-puuttuu">—</span>') + '</td>' +
-      '<td class="col-hh">' + (hhKa != null
-        ? '<span class="arvo-iso" style="color:' + hhTasoVari(hhKa) + '">' + hhKa + '</span>'
-        : '<span class="data-puuttuu">—</span>') + '</td>' +
-      '<td class="col-benchmark">' + _suhdeKansalliseen(pelaajat, ikaluokka, tkiKa) + '</td>' +
-      '<td class="col-taso">' + (taso
-        ? '<span class="taso-badge taso-' + taso + '">' + tkiTasoLabel(taso) + '</span>'
-        : '<span class="data-puuttuu">—</span>') + '</td>' +
-      '<td class="col-merkit">' + tkiMerkkiJakauma(pelaajat) + '</td>' +
-      '<td class="col-paras">' + tkiParasPelaaja(pelaajat) + '</td>' +
-    '</tr>';
+    let h = '<div class="jk-kortti" onclick="avaaJoukkueSyvanakyma(\'' + safeNimi + '\')">';
+    h += '<div class="jk-ylarivi">';
+    h += '<div class="jk-nimi">' + ikaluokka + '</div>';
+    h += '<div class="jk-pelaajat">' + koko + ' pelaajaa</div>';
+    h += '<div class="jk-arvo" style="color:' + vari + '">' + (hhKa != null ? hhKa : '—') + '</div>';
+    if (suunta.symboli) h += '<div class="jk-suunta" style="color:' + suunta.vari + '">' + suunta.symboli + ' ' + suunta.delta + '</div>';
+    h += '</div>';
+    h += '<div class="jk-palkki-wrap"><div class="jk-palkki-fill" style="width:' + pct + '%;background:' + vari + '"></div></div>';
+    h += '<div class="jk-alarivi"><span class="jk-eerikkila">H-H ' + (hhKa != null ? hhKa : '—') + ' · Eerikkilä ' + pct + '%</span></div>';
+    if (suunta.tila === 'ensimmainen_mittaus' && hhKa != null) {
+      h += '<div class="ensimmainen-info"><i class="ti ti-info-circle" aria-hidden="true"></i> Suunta selviää seuraavalla mittauksella</div>';
+    }
+    h += '</div>';
+    return h;
   }).join('');
+}
+
+// OSA 1 — sääntöpohjainen hero-insight (prioriteettijärjestys 1→5)
+function laskeHeroInsight(pelaajat) {
+  const jt = {};
+  pelaajat.forEach(function(p){ const j = p.joukkue || 'Tuntematon'; (jt[j] = jt[j] || []).push(p); });
+  const joukkueKa = Object.keys(jt).map(function(j){
+    const hh = jt[j].filter(function(p){ return p.hh_taso != null; }).map(function(p){ return p.hh_taso; });
+    return { joukkue: j, ka: hh.length ? (hh.reduce(function(a,b){ return a+b; }, 0) / hh.length) : null };
+  }).filter(function(x){ return x.ka != null; });
+
+  const hhP = pelaajat.filter(function(p){ return p.hh_taso != null; });
+  const tkiP = pelaajat.filter(function(p){ return p.tki_viimeisin != null; });
+  const DEFAULT = 'Ensimmäiset mittaukset kirjattu. Jatka mittauksia — suunta selviää seuraavalla kerralla.';
+  if (hhP.length === 0) return DEFAULT;
+
+  // 1: ≥50 % pelaajista hh_taso < 2.5
+  const alle = hhP.filter(function(p){ return p.hh_taso < 2.5; }).length;
+  if (alle / hhP.length >= 0.5) {
+    const alleJ = joukkueKa.filter(function(j){ return j.ka < 2.5; }).length;
+    return 'Fyysinen taso vaatii pikahuomiota. ' + alleJ + ' joukkuetta alle kansallisen tason.';
+  }
+  // 2: H-H saatavilla mutta TKI puuttuu kaikilta
+  if (tkiP.length === 0) {
+    return 'Fyysinen perusta rakentumassa. Tekniikkamittaukset puuttuvat kaikilta joukkueilta.';
+  }
+  // 3: yksi joukkue selkeästi heikompi (ylin − alin > 1.0)
+  if (joukkueKa.length >= 2) {
+    const s = joukkueKa.slice().sort(function(a,b){ return a.ka - b.ka; });
+    const alin = s[0], ylin = s[s.length - 1];
+    if (ylin.ka - alin.ka > 1.0) {
+      return lyhennaNimi(alin.joukkue) + ' tarvitsee erityishuomiota — ' + (ylin.ka - alin.ka).toFixed(1) + ' pistettä muita heikompi.';
+    }
+  }
+  // 4: kaikki ≥ 3.0
+  if (joukkueKa.length && joukkueKa.every(function(j){ return j.ka >= 3.0; })) {
+    return 'Fyysinen kehitys hyvällä tasolla. Seuraava askel: tekniikkamittaukset.';
+  }
+  return DEFAULT;
 }
 
 // BQ-palkki taulukkoon — käyttää laskeBQJakauma-kenttiä (q1Pct..q4Pct + n). Piilotetaan jos <50 % syntymäaika.
