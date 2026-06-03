@@ -1261,6 +1261,24 @@ body {
 .flei-ketju-palkki div { height: 100%; background: var(--teal); }
 .flei-pvm { font-family: var(--font-mono); font-weight: 400; font-size: 12px; color: var(--ink3); display: block; margin-top: 10px; }
 
+/* Adaptiivinen seurakortti (Tilanne) */
+.adapt-kortti { padding: 16px; border: 1px solid var(--border); margin-bottom: 16px; }
+.adapt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.adapt-otsikko { font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); }
+.adapt-meta { font-family: var(--font-mono); font-weight: 400; font-size: 12px; color: var(--ink3); }
+.adapt-rivi { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+.adapt-rivi:last-of-type { border-bottom: none; }
+.adapt-puuttuu { opacity: .4; }
+.adapt-vasen { display: flex; align-items: center; gap: 8px; min-width: 140px; }
+.adapt-vasen i { font-size: 16px; color: var(--ink2); }
+.adapt-label { font-family: var(--font-sans); font-weight: 500; font-size: 14px; color: var(--ink2); }
+.adapt-oikea { display: flex; align-items: center; gap: 10px; flex: 1; }
+.adapt-palkki { flex: 1; height: 6px; background: rgba(255,253,247,.10); }
+.adapt-palkki-taytto { height: 100%; }
+.adapt-palkki-tyhja { flex: 1; height: 6px; background: rgba(255,253,247,.05); }
+.adapt-arvo { font-family: var(--font-mono); font-weight: 600; font-size: 15px; min-width: 48px; text-align: right; }
+.adapt-seuraava { margin-top: 12px; font-family: var(--font-sans); font-weight: 500; font-size: 13px; color: var(--teal); display: flex; align-items: center; gap: 6px; }
+
 @media (max-width: 768px) {
   #hamburgeri { display: flex !important; }
   #topbar .logo { display: none; }
@@ -1290,9 +1308,13 @@ body {
   .greeting-meta { font-size: 12px; }
   .section-title { font-size: 20px; }
 
-  /* Joukkuepulssi → 3 saraketta (JOUKKUE | PEL. | H-H ka.); muut piiloon */
-  .joukkue-taulukko .col-tki, .joukkue-taulukko .col-benchmark, .joukkue-taulukko .col-taso,
+  /* Joukkuepulssi → 4 saraketta (JOUKKUE | PEL. | H-H ka. | SUHDE); TKI/TASO/MERKIT/PARAS piiloon */
+  .joukkue-taulukko .col-tki, .joukkue-taulukko .col-taso,
   .joukkue-taulukko .col-merkit, .joukkue-taulukko .col-paras { display: none; }
+  .joukkue-taulukko .col-team { width: 40%; }
+  .joukkue-taulukko .col-players { width: 15%; }
+  .joukkue-taulukko .col-hh { width: 25%; }
+  .joukkue-taulukko .col-benchmark { width: 20%; }
   .joukkue-rivi td { padding: 16px 12px; }                 /* ~52px touch-rivi */
   .jk-nimi-iso { font-size: 16px; font-weight: 600; }
   .jk-meta { font-size: 13px; }
@@ -1546,6 +1568,8 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
           <span>Vyöhykkeet: &lt;40 Prioriteetti · 40–59 Kehitys · 60–79 Hyvä · ≥80 Erinomainen</span>
         </div>
       </section>
+
+      <div id="kehitysKortti"></div>
 
       <div class="kpi-row" id="tilanneKpis">
         <div class="kpi-card">
@@ -2081,6 +2105,10 @@ function _kpiTestitKonteksti() {
 function renderTilanne() {
   // KORJAUS 1 — dynaaminen kausipalkki
   _renderKausipalkki();
+
+  // Feature B — adaptiivinen kehityskortti (näyttää vain saatavilla olevat mittarit)
+  const _kkEl = document.getElementById('kehitysKortti');
+  if (_kkEl) _kkEl.innerHTML = renderKehitysKortti(_pelaajat);
 
   // KPI:t
   document.getElementById('kpi-pelaajat').textContent = _pelaajat.length;
@@ -4289,6 +4317,59 @@ function renderFleiKortti(p) {
     + (p.flei_pvm ? '<span class="flei-pvm">Päivitetty: ' + _jsvEsc(p.flei_pvm) + '</span>' : '')
     + '</div>';
 }
+
+// Adaptiivinen seuratason kehityskortti — näyttää H-H/TKI/FLEI-keskiarvot (puuttuvat himmennettyinä)
+// + seuraava suositeltu mittaus. flei = 0–100, tki = 0–100, hh = 1–5 (§14).
+function renderKehitysKortti(pelaajat) {
+  const ka = function(kentta){ const a = pelaajat.filter(function(p){ return p[kentta] != null; });
+    return a.length ? (a.reduce(function(s,p){ return s + p[kentta]; }, 0) / a.length) : null; };
+  const hhKa = ka('hh_taso'), tkiKa = ka('tki_viimeisin'), fleiKa = ka('flei_viimeisin');
+
+  const rivit = [
+    (hhKa != null) ? { label:'H-H fyysinen', arvo: hhKa.toFixed(1) + '/5', pct: Math.round((hhKa/5)*100), ikoni:'ti-bolt', tila:'ok' }
+                   : { label:'H-H fyysinen', arvo:'—', pct:0, ikoni:'ti-bolt', tila:'puuttuu' },
+    (tkiKa != null) ? { label:'TKI tekniikka', arvo: Math.round(tkiKa) + '', pct: Math.round(tkiKa), ikoni:'ti-ball-football', tila:'ok' }
+                    : { label:'TKI tekniikka', arvo:'—', pct:0, ikoni:'ti-ball-football', tila:'puuttuu' },
+    (fleiKa != null) ? { label:'FLEI liikehallinta', arvo: Math.round(fleiKa) + '/100', pct: Math.round(fleiKa), ikoni:'ti-run', tila:'ok' }
+                     : { label:'FLEI liikehallinta', arvo:'—', pct:0, ikoni:'ti-run', tila:'puuttuu' }
+  ];
+
+  let riviHtml = '';
+  rivit.forEach(function(r){
+    const vari = r.tila === 'puuttuu' ? 'var(--ink3)' : r.pct >= 70 ? 'var(--teal)' : r.pct >= 40 ? 'var(--amber)' : 'var(--red)';
+    riviHtml += '<div class="adapt-rivi' + (r.tila === 'puuttuu' ? ' adapt-puuttuu' : '') + '">'
+      + '<div class="adapt-vasen"><i class="ti ' + r.ikoni + '" aria-hidden="true"></i><span class="adapt-label">' + r.label + '</span></div>'
+      + '<div class="adapt-oikea">'
+      + (r.tila === 'ok'
+          ? '<div class="adapt-palkki"><div class="adapt-palkki-taytto" style="width:' + r.pct + '%;background:' + vari + '"></div></div>'
+          : '<div class="adapt-palkki-tyhja"></div>')
+      + '<span class="adapt-arvo" style="color:' + vari + '">' + r.arvo + '</span>'
+      + '</div></div>';
+  });
+
+  const seuraava = (hhKa == null) ? 'H-H kenttätestit' : (tkiKa == null) ? 'Tekniikkakilpailu' : (fleiKa == null) ? 'Harjoitettavuuskartoitus' : null;
+  const seuraavaHtml = seuraava
+    ? '<div class="adapt-seuraava"><i class="ti ti-arrow-right" aria-hidden="true"></i> Seuraava: ' + seuraava + '</div>'
+    : '';
+
+  return '<div class="adapt-kortti">'
+    + '<div class="adapt-header"><span class="adapt-otsikko">Pelaajien kehitys</span><span class="adapt-meta">' + pelaajat.length + ' pelaajaa</span></div>'
+    + riviHtml + seuraavaHtml + '</div>';
+}
+// SUHDE KANSALLISEEN — prioriteetti: TKI-benchmark (≥3 TKI-pelaajaa), muuten H-H Eerikkilä-% (≥3 H-H), muuten —
+function _suhdeKansalliseen(pelaajat, ikaluokka, tkiKa) {
+  const tkiN = pelaajat.filter(function(p){ return p.tki_viimeisin != null; }).length;
+  if (tkiN >= 3 && tkiKa != null) return tkiBenchmarkPalkki(tkiKa, ikaluokka);   // TKI-logiikka ennallaan
+  const hh = pelaajat.filter(function(p){ return p.hh_taso != null; }).map(function(p){ return p.hh_taso; });
+  if (hh.length >= 3) {
+    const ka = hh.reduce(function(s,v){ return s+v; }, 0) / hh.length;
+    const pct = Math.round((ka / 5) * 100);
+    const vari = pct >= 80 ? 'var(--teal)' : pct >= 60 ? 'var(--amber)' : 'var(--red)';
+    return '<span style="color:' + vari + ';font-weight:600">' + pct + '%</span> '
+      + '<span style="font-size:11px;color:var(--ink3)">H-H/Eerikkilä</span>';
+  }
+  return '<span class="data-puuttuu">—</span>';
+}
 function tkiBenchmarkPalkki(tkiKa, ikaluokka) {
   const bm = TK_KANSALLINEN_BENCHMARK[ikaluokka];
   if (!bm || tkiKa == null) return '<span class="data-puuttuu">—</span>';
@@ -4359,7 +4440,7 @@ function renderTeamPulse() {
     const hhAvg = ka(hhVals);
     const hhKa = hhAvg != null ? Math.round(hhAvg * 10) / 10 : null;
     const vari = tkiVari(taso);
-    const riviLuokka = (tkiKa == null) ? 'rivi-ei-dataa' : '';   // ei TKI-dataa → himmennä rivi
+    const riviLuokka = (tkiKa == null && hhKa == null) ? 'rivi-ei-dataa' : '';   // himmennä vain jos EI TKI EIKÄ H-H (KORJAUS 2: H-H-only-rivit eivät himmenny)
     const metaTeksti = (phvCount > 0) ? (koko + ' pel · ' + phvCount + ' PHV') : (koko + ' pel');
 
     return '<tr class="joukkue-rivi ' + riviLuokka + '" onclick="avaaJoukkueSyvanakyma(\'' + safeNimi + '\')">' +
@@ -4372,7 +4453,7 @@ function renderTeamPulse() {
       '<td class="col-hh">' + (hhKa != null
         ? '<span class="arvo-iso" style="color:' + hhTasoVari(hhKa) + '">' + hhKa + '</span>'
         : '<span class="data-puuttuu">—</span>') + '</td>' +
-      '<td class="col-benchmark">' + tkiBenchmarkPalkki(tkiKa, ikaluokka) + '</td>' +
+      '<td class="col-benchmark">' + _suhdeKansalliseen(pelaajat, ikaluokka, tkiKa) + '</td>' +
       '<td class="col-taso">' + (taso
         ? '<span class="taso-badge taso-' + taso + '">' + tkiTasoLabel(taso) + '</span>'
         : '<span class="data-puuttuu">—</span>') + '</td>' +
