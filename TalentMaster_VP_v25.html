@@ -1306,6 +1306,9 @@ body {
 .tp-muokkaa { flex: 1; padding: 8px; font-size: 11px; color: var(--ink3); background: none; border: none; border-right: 1px solid rgba(255,255,255,.06); cursor: pointer; }
 .tp-hylkaa { padding: 8px 12px; font-size: 13px; color: var(--ink3); background: none; border: none; cursor: pointer; }
 .tp-tyhja { font-size: 13px; color: var(--ink3); font-family: var(--font-mono); padding: 12px 0; }
+.tp-ryhma-otsikko { display: flex; align-items: center; gap: 6px; padding: 8px 16px 4px; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink3); }
+.tp-ryhma-piste { width: 6px; height: 6px; border-radius: 50%; }
+.tp-nayta-kaikki { width: 100%; padding: 10px; margin: 0 0 16px; font-size: 12px; font-weight: 600; color: var(--teal); background: rgba(40,176,144,.06); border: 1px solid rgba(40,176,144,.15); cursor: pointer; }
 .tp-modaali-tausta { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
 .tp-modaali { background: var(--bg2); border: 1px solid rgba(255,255,255,.12); padding: 20px; width: 100%; max-width: 340px; }
 .tp-modaali-otsikko { font-family: var(--font-serif); font-size: 18px; color: var(--ink); }
@@ -4617,24 +4620,88 @@ function _tpPvm(ts) {
 }
 function _tpVari(sig) { return sig === 'suunta_lasku' ? 'var(--red)' : sig === 'hh_taso_alhainen' ? 'var(--amber)' : 'var(--teal)'; }
 
+// Prioriteetti per signaali (UI-ryhmittely). kiireinen ennen suunnittele.
+const SIGNAALI_PRIORITEETTI = { hh_taso_alhainen: 'kiireinen', suunta_lasku: 'kiireinen', tkk_puuttuu: 'suunnittele' };
+const TP_PRIO_META = { kiireinen: { nimi: 'Kiireinen', vari: 'var(--red)', jarj: 0 }, suunnittele: { nimi: 'Suunnittele', vari: 'var(--ink3)', jarj: 1 } };
+
+// Dedup VAIN renderöinnissä (Firestoreen jää per-joukkue-dokumentit → audit). Sama signaali → yksi kortti, ids[] kaikista.
+function dedupToimenpiteet(lista) {
+  const g = {};
+  lista.forEach(function(e){
+    const key = e.signaali || ('_' + e.id);   // ilman signaalia → ei yhdistetä
+    if (!g[key]) { g[key] = { signaali: e.signaali, teksti: e.teksti, joukkue: e.joukkue, luotu: e.luotu, joukkueet: [e.joukkue], ids: [e.id] }; }
+    else { g[key].joukkueet.push(e.joukkue); g[key].ids.push(e.id); }
+  });
+  return Object.keys(g).map(function(k){
+    const x = g[k];
+    if (x.joukkueet.length > 1) {
+      const lyh = x.joukkueet.map(function(j){ return lyhennaNimi(j || ''); }).join(', ');
+      if (x.signaali === 'tkk_puuttuu') {
+        x.teksti = 'Kaikki joukkueet — tekniikkamittaukset puuttuvat ' + x.joukkueet.length + ':lta joukkueelta. Suunnittele tekniikkakilpailu.';
+        x.joukkue = 'Kaikki joukkueet';
+      } else if (x.signaali === 'hh_taso_alhainen') {
+        x.teksti = lyh + ' — pelaajia alle Eerikkilä-tason. Aloita yksilöllinen ohjelma.'; x.joukkue = lyh;
+      } else if (x.signaali === 'suunta_lasku') {
+        x.teksti = lyh + ' — H-H taso laskussa. Tarkista kuormitus.'; x.joukkue = lyh;
+      } else { x.joukkue = lyh; }
+    }
+    return x;
+  });
+}
+
+function _tpKorttiHtml(g) {
+  const prio = SIGNAALI_PRIORITEETTI[g.signaali] || 'suunnittele';
+  const vari = (TP_PRIO_META[prio] || {}).vari || 'var(--ink3)';
+  const idStr = g.ids.join(',');   // pilkulla erotetut id:t → kuittaus/hylkäys/muokkaus batchina
+  let h = '<div class="tp-kortti">';
+  h += '<div class="tp-ylarivi"><div class="tp-piste" style="background:' + vari + '"></div>';
+  h += '<div class="tp-joukkue">' + _jsvEsc(g.joukkue || '') + '</div>';
+  h += '<div class="tp-pvm">' + _tpPvm(g.luotu) + '</div></div>';
+  h += '<div class="tp-teksti">' + _jsvEsc(g.teksti || '') + '</div>';
+  h += '<div class="tp-napit">';
+  h += '<button class="tp-kuittaa" onclick="_kuittaaToimenpide(\'' + idStr + '\')"><i class="ti ti-check"></i> Kuittaa</button>';
+  h += '<button class="tp-muokkaa" onclick="_muokkaaToimenpide(\'' + idStr + '\')"><i class="ti ti-edit"></i> Muokkaa</button>';
+  h += '<button class="tp-hylkaa" onclick="_hylkaaToimenpide(\'' + idStr + '\')" title="Hylkää"><i class="ti ti-x"></i></button>';
+  h += '</div></div>';
+  return h;
+}
+
 function renderToimenpiteet() {
   const cont = document.getElementById('toimenpiteet-lista');
   if (!cont) return;
   if (!_toimenpiteet.length) { cont.innerHTML = '<div class="tp-tyhja">Ei avoimia toimenpiteitä — hyvä työ.</div>'; return; }
-  cont.innerHTML = _toimenpiteet.map(function(t){
-    let h = '<div class="tp-kortti" data-id="' + t.id + '">';
-    h += '<div class="tp-ylarivi"><div class="tp-piste" style="background:' + _tpVari(t.signaali) + '"></div>';
-    h += '<div class="tp-joukkue">' + _jsvEsc(lyhennaNimi(t.joukkue || '')) + '</div>';
-    h += '<div class="tp-pvm">' + _tpPvm(t.luotu) + '</div></div>';
-    h += '<div class="tp-teksti">' + _jsvEsc(t.teksti || '') + '</div>';
-    h += '<div class="tp-napit">';
-    h += '<button class="tp-kuittaa" onclick="_kuittaaToimenpide(\'' + t.id + '\')"><i class="ti ti-check"></i> Kuittaa</button>';
-    h += '<button class="tp-muokkaa" onclick="_muokkaaToimenpide(\'' + t.id + '\')"><i class="ti ti-edit"></i> Muokkaa</button>';
-    h += '<button class="tp-hylkaa" onclick="_hylkaaToimenpide(\'' + t.id + '\')" title="Hylkää"><i class="ti ti-x"></i></button>';
-    h += '</div></div>';
-    return h;
-  }).join('');
+
+  const dedup = dedupToimenpiteet(_toimenpiteet).sort(function(a,b){
+    const pa = (TP_PRIO_META[SIGNAALI_PRIORITEETTI[a.signaali] || 'suunnittele'] || {}).jarj;
+    const pb = (TP_PRIO_META[SIGNAALI_PRIORITEETTI[b.signaali] || 'suunnittele'] || {}).jarj;
+    return (pa == null ? 9 : pa) - (pb == null ? 9 : pb);
+  });
+
+  let lyhyt = '', loput = '', edPrio = null;
+  dedup.forEach(function(g, idx){
+    const prio = SIGNAALI_PRIORITEETTI[g.signaali] || 'suunnittele';
+    let pala = '';
+    if (prio !== edPrio) {
+      const m = TP_PRIO_META[prio] || {};
+      pala += '<div class="tp-ryhma-otsikko"><div class="tp-ryhma-piste" style="background:' + (m.vari || 'var(--ink3)') + '"></div>' + (m.nimi || '') + '</div>';
+      edPrio = prio;
+    }
+    pala += _tpKorttiHtml(g);
+    if (idx < 3) lyhyt += pala; else loput += pala;
+  });
+
+  let out = '<div id="tp-lista-lyhyt">' + lyhyt + '</div>';
+  out += '<div id="tp-lista-loput" style="display:none">' + loput + '</div>';
+  if (dedup.length > 3) {
+    out += '<button class="tp-nayta-kaikki" onclick="_naytaKaikkiTp()">Näytä kaikki ' + dedup.length + ' toimenpidettä →</button>';
+  }
+  cont.innerHTML = out;
 }
+
+window._naytaKaikkiTp = function() {
+  const lop = document.getElementById('tp-lista-loput'); if (lop) lop.style.display = 'block';
+  const btn = document.querySelector('.tp-nayta-kaikki'); if (btn) btn.style.display = 'none';
+};
 
 async function _alustaToimenpiteet() {
   const cont = document.getElementById('toimenpiteet-lista');
@@ -4650,30 +4717,43 @@ async function _alustaToimenpiteet() {
   }
 }
 
+// id = pilkulla erotetut id:t (dedupatun kortin kaikki Firestore-dokumentit) → kuittaa kaikki batchina
 window._kuittaaToimenpide = async function(id) {
+  const ids = String(id).split(',').filter(Boolean);
+  if (!ids.length) return;
   try {
-    const u = await _tpTuoreToken();
-    await db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(id).update({
-      tila: 'kuitattu', kuitattu_pvm: firebase.firestore.FieldValue.serverTimestamp(), kuitattu_uid: u ? u.uid : null
+    const u = await _tpTuoreToken();   // getIdToken(true) ennen kirjoitusta
+    const batch = db.batch();
+    ids.forEach(function(i){
+      batch.update(db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(i),
+        { tila: 'kuitattu', kuitattu_pvm: firebase.firestore.FieldValue.serverTimestamp(), kuitattu_uid: u ? u.uid : null });
     });
-    _toimenpiteet = _toimenpiteet.filter(function(t){ return t.id !== id; });
+    await batch.commit();
+    _toimenpiteet = _toimenpiteet.filter(function(t){ return ids.indexOf(t.id) < 0; });
     renderToimenpiteet();
-    if (typeof toast === 'function') toast('Toimenpide kuitattu', 'ok');
+    if (typeof toast === 'function') toast(ids.length > 1 ? (ids.length + ' toimenpidettä kuitattu') : 'Toimenpide kuitattu', 'ok');
   } catch (e) { console.warn('[kuittaa]', e.message); if (typeof toast === 'function') toast('Kuittaus epäonnistui', 'err'); }
 };
 
 window._hylkaaToimenpide = async function(id) {
+  const ids = String(id).split(',').filter(Boolean);
+  if (!ids.length) return;
   try {
     await _tpTuoreToken();
-    await db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(id).update({ tila: 'hylatty' });
-    _toimenpiteet = _toimenpiteet.filter(function(t){ return t.id !== id; });
+    const batch = db.batch();
+    ids.forEach(function(i){ batch.update(db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(i), { tila: 'hylatty' }); });
+    await batch.commit();
+    _toimenpiteet = _toimenpiteet.filter(function(t){ return ids.indexOf(t.id) < 0; });
     renderToimenpiteet();
   } catch (e) { console.warn('[hylkaa]', e.message); if (typeof toast === 'function') toast('Hylkäys epäonnistui', 'err'); }
 };
 
 window._muokkaaToimenpide = function(id) {
-  const t = _toimenpiteet.find(function(x){ return x.id === id; });
-  if (t) renderMuokkaaModaali(id, t.teksti || '');
+  const ids = String(id).split(',').filter(Boolean);
+  const dedup = dedupToimenpiteet(_toimenpiteet);
+  const g = dedup.find(function(x){ return x.ids.join(',') === ids.join(','); });
+  const teksti = g ? g.teksti : ((_toimenpiteet.find(function(t){ return t.id === ids[0]; }) || {}).teksti || '');
+  renderMuokkaaModaali(id, teksti);
 };
 
 // OSA 4 — muokkaa-modaali (VP kirjoittaa oman version)
@@ -4700,14 +4780,18 @@ window._tallennaVpToimenpide = async function(id) {
   const ta = document.getElementById('tp-muokkaa-textarea');
   const teksti = ta ? ta.value.trim() : '';
   if (!teksti) return;
+  const ids = String(id).split(',').filter(Boolean);
+  if (!ids.length) return;
   try {
     const u = await _tpTuoreToken();
-    await db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(id).update({
-      tila: 'muokattu', vp_teksti: teksti,
-      kuitattu_pvm: firebase.firestore.FieldValue.serverTimestamp(), kuitattu_uid: u ? u.uid : null
+    const batch = db.batch();
+    ids.forEach(function(i){
+      batch.update(db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(i),
+        { tila: 'muokattu', vp_teksti: teksti, kuitattu_pvm: firebase.firestore.FieldValue.serverTimestamp(), kuitattu_uid: u ? u.uid : null });
     });
+    await batch.commit();
     _suljeTpModaali();
-    _toimenpiteet = _toimenpiteet.filter(function(t){ return t.id !== id; });
+    _toimenpiteet = _toimenpiteet.filter(function(t){ return ids.indexOf(t.id) < 0; });
     renderToimenpiteet();
     if (typeof toast === 'function') toast('Oma versio tallennettu', 'ok');
   } catch (e) { console.warn('[muokkaa-tallenna]', e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'err'); }
