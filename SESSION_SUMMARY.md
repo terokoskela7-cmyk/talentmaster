@@ -26,9 +26,21 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 - **Sibbo-tasapaino** (`e68a1be`): TKI-only-seura sai 0 toimenpidettä → `TP_SIGNAALIT += tki_alhainen/tki_lahella_merkkia/flei_kartoitus_puuttuu`. **`_tarvitseeTuki(p)`**: tuen tarve = MITATTU heikko (FLEI<50/H-H<2.5), ei puuttuva data (loppui valekriittiset Erityistuki-tagit).
 - **Signaalitriage** (`66ded9a`): signaaliväsymys → konsolidointi (sama ryhmä monessa joukkueessa → 1 kortti + erittely) + kolmiportainen hierarkia (KRIITTISET auki · Seuranta suljettu · Onnistumiset suljettu). Sibbo 8 riviä → 2 näkyvää + 2 otsikkoa.
 
-### Deferred — Sprint C (VP_v25-dashboard-track)
-- **Toimenpiteet-paneeli: eräpäiväpohjainen lajittelu** (EI signaalien kolmiportaista hierarkiaa). Peruste: signaali (hero-insightin "aamukatse", mitä pitää tietää nyt) ≠ toimenpide (jo syntynyt reaktio signaaliin). Toimenpiteen tärkeys = eräpäivä + vastuuhenkilö + tila (ehdotus/kuittaus/hylätty), ei kriittinen/seuranta-jako. Tarve: erääntyneet ylös → tulevat viikot → kuitatut piiloon. Oma sprinttinsä, ei sekoiteta käsitteitä nyt.
-- **D3 Psyykkinen + D5 Sosiaalinen -datankeruu** (radar täyttyy automaattisesti kun `d3_taso`/`d5_taso` syntyvät).
+### Roadmap — Sprint B & C (VP_v25-dashboard-track, käyttäjän määrittely 2026-06-04)
+**SPRINT B (seuraava sessio):**
+- **Hidden Gem -logiikka** — korkea D2 + matala D1 + PRE-PHV (myöhäiskypsyvä lahjakkuus: tekninen pohja valmis, fysiikka tulee kasvun myötä). Vaatii 2+ mittausta täysitehoisena. Korvaa/tarkentaa nykyisen FLEI-pohjaisen Hidden Gemin (`HIDDEN_GEM_FLEI`). Esimerkkiprofiilit SJK: Vakkila Sara (D2 4.5, tasapainoinen huippu), Lahti Eeli (SM-juoksu 5 / SM-pallo 3, D2 4 — nopeus on, tekniikan kehitys tuottaa nopeimman hyödyn), Nieminen Onni-Matti (D2 1.5, pallo hidastaa).
+- **Kehitysvauhti-laskenta** — aktivoituu kun `hh_taso_edellinen`-pikakenttä täyttyy 2. mittauksesta.
+- **PHV + RAE -integraatio.**
+
+**SPRINT C (kun dataa enemmän):**
+- **AI-insight** (aiProxy → narratiivi).
+- **Historiatrendit sparkline-kaavioina.**
+- **Toimenpiteiden seuranta** (kuinka moni toteutui).
+
+### Backlog (UI-hienosäätö, ei sidottu sprinttiin)
+- **Toimenpiteet-paneeli: eräpäiväpohjainen lajittelu** (EI signaalien kolmiportaista hierarkiaa). Peruste: signaali (hero-insightin "aamukatse") ≠ toimenpide (jo syntynyt reaktio). Tärkeys = eräpäivä + vastuuhenkilö + tila, ei kriittinen/seuranta. Tarve: erääntyneet ylös → tulevat viikot → kuitatut piiloon.
+- **D3 Psyykkinen + D5 Sosiaalinen -datankeruu** (5D-radar täyttyy automaattisesti kun `d3_taso`/`d5_taso` syntyvät).
+- **Ruotsinkieliset sivut** — GrIFK/VIFK/Sibbo tulokset tuodaan suomeksi (parseri OK nyt), mutta käyttöliittymän sv-lokalisointi tärkeä tulevaisuudessa. PDF-parserin `IKAOTSIKKO`-regex laajennettava F=Flickor kun sv-tulosteita tulee.
 
 ---
 
