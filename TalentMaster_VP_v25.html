@@ -13,6 +13,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
+<script src="lib/tm_eerikkila_normit.js"></script>
 <style>
 :root {
   --bg:    #111110;
@@ -3225,11 +3227,23 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
       + '<span class="hh-arvo">' + (arvo != null ? arvo + ' ' + yks : '—') + '</span></div></div>';
   };
   const tasoOf = function(key, arvo) { return (arvo != null && ika && sp) ? hhLaskeTaso(key, arvo, ika, sp) : null; };
-  let f1 = friv('Nopeus (30m)', tasoOf('30m', hv.lin30m), hv.lin30m, 's', false)
+  // 5m/10m eivät ole HH_NORMIT_PIKA:ssa → lib:n eerikkilaTaso (nopeus_5m/10m). sp 'P'/'T' → 'M'/'N'.
+  const spMN = (sp === 'P' || sp === 'M') ? 'M' : (sp === 'T' || sp === 'N') ? 'N' : null;
+  const tasoEk = function(ekKey, arvo) { return (arvo != null && ika && spMN && typeof eerikkilaTaso === 'function') ? eerikkilaTaso(arvo, ekKey, ika, spMN) : null; };
+  let f1 = '';
+  if (hv.lin5m  != null) f1 += friv('Nopeus (5m)',  tasoEk('nopeus_5m',  hv.lin5m),  hv.lin5m,  's', false);
+  if (hv.lin10m != null) f1 += friv('Nopeus (10m) · kiihdytys', tasoEk('nopeus_10m', hv.lin10m), hv.lin10m, 's', false);
+  f1 += friv('Nopeus (30m)', tasoOf('30m', hv.lin30m), hv.lin30m, 's', false)
     + friv('Räjähtävyys (CMJ)', tasoOf('cmj', hv.cmj), hv.cmj, 'cm', false)
     + friv('Kestävyys (MAS)', tasoOf('mas', hv.mas), hv.mas, 'km/h', false)
-    + friv('H-H kokonais', d1, (d1 != null ? d1 : null), '/5', true)
-    + '<div style="font-size:11px;color:var(--ink3);margin-top:10px">Suunta (↑↓→) vaatii testihistorian — Sprint 2. Ikä/sp johdettu joukkueesta: ' + (ika||'?') + ' · ' + (sp||'?') + '</div>';
+    + friv('H-H kokonais', d1, (d1 != null ? d1 : null), '/5', true);
+  // FVP — voima-nopeus-profiili (5m + 30m). Kiihdytys- vs huippunopeustyyppi → valmennusvipu.
+  const fvp = (typeof laskeFVP === 'function' && hv.lin5m != null && hv.lin30m != null) ? laskeFVP(hv.lin5m, hv.lin30m) : null;
+  if (fvp != null) {
+    const fvpTyyppi = fvp < 0.90 ? 'nopeusprofiili — huippunopeus vahvuus' : fvp <= 1.10 ? 'tasapainoinen profiili' : 'voimaprofiili — kiihdytys vahvuus';
+    f1 += '<div style="font-size:11px;color:var(--ink3);margin-top:8px">FVP ' + fvp.toFixed(2) + ' · ' + fvpTyyppi + '</div>';
+  }
+  f1 += '<div style="font-size:11px;color:var(--ink3);margin-top:10px">Suunta (↑↓→) vaatii testihistorian — Sprint 2. Ikä/sp: ' + (ika||'?') + ' · ' + (spMN||'?') + '</div>';
 
   // ── TAB 2: TEKNINEN (SM-tasot + TSI + TKI + FLEI) ──
   const tsi = (p.tsi_viimeisin != null) ? p.tsi_viimeisin : null;   // pikakentästä (§19); recalcTSI/tuonti täyttää
