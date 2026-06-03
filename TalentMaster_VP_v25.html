@@ -3073,11 +3073,23 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
       const tsi = (p.tsi_viimeisin != null) ? p.tsi_viimeisin : null;
       const adarY = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht : null;
       const m = _tkiMerkkiVP(tki, p.tki_merkki);
-      // Tekninen-solu: TKI > TSI¹ > — (sama prioriteetti kuin KPI/hero/joukkuekortit)
+      // Tekninen-solu = sama 1–5-TASO kuin hero (laskeD2Taso: TKI÷20 > d2_taso). TSI/TKI raaka = diagnostinen
+      // alarivi (ei pääarvo). ¹ = SM-pohjainen taso. → taulukko, hero ja KPI näyttävät saman mittarin.
+      const d2val = laskeD2Taso(p);
+      const d2src = _d2Lahde(p);
       let teknSolu, teknMeta;
-      if (tki != null) { teknSolu = tki + (m ? ' ' + m.emoji : ''); teknMeta = 'TKI ' + tki; }
-      else if (tsi != null) { teknSolu = tsi.toFixed(2) + 's<sup>¹</sup>'; teknMeta = 'TSI ' + tsi.toFixed(2) + 's'; _tsiFootnote = true; }
-      else { teknSolu = '<span style="color:var(--ink3)">—</span>'; teknMeta = null; }
+      if (d2val != null) {
+        if (d2src === 'sm') _tsiFootnote = true;
+        const dv = hhTasoVari(d2val);
+        const alarivi = (d2src === 'sm') ? (tsi != null ? 'TSI ' + tsi.toFixed(2) + 's' : '')
+                      : ('TKI ' + tki + (m ? ' ' + m.emoji : ''));
+        teknSolu = '<span style="color:' + dv + ';font-family:var(--font-m)">' + d2val + (d2src === 'sm' ? '<sup>¹</sup>' : '') + '</span>'
+          + (alarivi ? '<div style="font-size:9px;color:var(--ink3);font-family:var(--font-m);margin-top:1px">' + alarivi + '</div>' : '');
+        teknMeta = (d2src === 'tki') ? ('TKI ' + tki) : ('D2 ' + d2val + (tsi != null ? ' · TSI ' + tsi.toFixed(2) + 's' : ''));
+      } else {
+        teknSolu = '<span style="color:var(--ink3)">—</span>';
+        teknMeta = null;
+      }
       // Mobiilimeta (näkyy vain @media ≤768px): joukkue · H-H · Tekninen · PHV
       const pmeta = lyhennaNimi(joukkueNimi) + ' · H-H ' + (hh != null ? hh : '—') + (teknMeta ? ' · ' + teknMeta : '') + ' · ' + (p.phv_tila || '—');
       t1 += '<tr class="dimpop-prow" style="border-top:.5px solid var(--border);cursor:pointer" onclick="_avaaPerPelaajaPikakatsaus(' + idx + ',\'' + jescNimi + '\')">'
