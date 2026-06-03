@@ -3226,6 +3226,9 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   ];
   h += '<div style="padding:6px 24px 0">' + window._tmRadar5D(teamRadarDims)
     + '<div style="font-size:10px;color:var(--ink3);text-align:center;margin-top:2px">5D-profiili · joukkueen keskiarvo (1–5) · katkoviiva = täydentyy kun D3/D5 mitattu' + (_teamD2Lahde === 'sm' ? ' · ¹ SM-pohjainen (TSI)' : '') + '</div></div>';
+  const _tIka = (function(){ const m = String(joukkueNimi).match(/(\d{1,2})/); return m ? parseInt(m[1], 10) : null; })();
+  const _kehysT = _ikavaiheBanneri(_tIka);
+  if (_kehysT) h += '<div style="padding:8px 24px 0">' + _kehysT + '</div>';
   h += '<div style="display:flex;gap:6px;padding:8px 24px 12px;border-bottom:.5px solid var(--border)">';
   ['Pelaajat','Tuki','Yhteenveto'].forEach((lbl,i) => {
     h += '<button id="_jsvBtn' + i + '" class="dimpop-tab ' + (i===0?'on':'') + '" onclick="_jsvVaihda(' + i + ')" style="padding:7px 14px;font-size:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;border-radius:5px;font-family:\'DM Sans\',sans-serif">' + lbl + '</button>';
@@ -3456,6 +3459,8 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   ];
   h += '<div style="padding:6px 24px 0">' + window._tmRadar5D(radarDims)
     + '<div style="font-size:10px;color:var(--ink3);text-align:center;margin-top:2px">5D-profiili (1–5) · katkoviiva = täydentyy kun D3/D5 mitattu' + (_d2Lahde(p) === 'sm' ? ' · ¹ SM-pohjainen (TSI)' : '') + '</div></div>';
+  const _kehysP = _ikavaiheBanneri(ika);
+  if (_kehysP) h += '<div style="padding:8px 24px 0">' + _kehysP + '</div>';
   h += '<div style="display:flex;gap:6px;padding:0 24px 4px;border-bottom:.5px solid var(--border)">';
   [['ti-bolt','Fyysinen'],['ti-ball-football','Tekninen'],['ti-compass','Peli'],['ti-trending-up','Kehitys']].forEach(function(t,i) {
     h += '<button id="_jspBtn' + i + '" class="dim-tab ' + (i===0?'on':'') + '" onclick="_jspVaihda(' + i + ')"><i class="ti ' + t[0] + '"></i>' + t[1] + '</button>';
@@ -4567,6 +4572,18 @@ function _onTalenttisuositus(p) {
   if (p.signaali === 'xfactor' || p.signaali === 'hidden') return true;
   const hg = laskeHiddenGem(p);
   return hg.dHG || hg.fleiHG;
+}
+// Ikävaihekehys (§28) — estää pre-PHV-fysiikan väärintulkinnan VP:lle/valmentajalle.
+function _ikavaiheKehys(ika) {
+  if (ika == null) return null;
+  if (ika <= 12) return { vari:'var(--teal)', teksti:'Ikävaihe ≤12 · tekninen ikkuna auki. <strong>D2 (tekniikka) on kriittisin mittari</strong> — fyysiset (30m/MAS/voima) kehittyvät vasta PHV:n jälkeen, joten heikko D1 nyt on <strong>neutraali, ei kehityskohde</strong>.' };
+  if (ika <= 15) return { vari:'var(--amber)', teksti:'Ikävaihe 13–15 · PHV-herkkä. Tekninen ikkuna sulkeutumassa; fyysinen kehitys kiihtyy PHV:n myötä — seuraa kuormaa ja PHV-tilaa.' };
+  return { vari:'var(--ink3)', teksti:'Ikävaihe 16+ · fyysiset ikkunat auki (voima, huippunopeus). Uuden perustekniikan vakiinnuttaminen vaatii moninkertaisen työn (ikkuna sulkeutunut).' };
+}
+function _ikavaiheBanneri(ika) {
+  const k = _ikavaiheKehys(ika);
+  if (!k) return '';
+  return '<div style="padding:8px 10px;border-left:2px solid ' + k.vari + ';background:rgba(255,255,255,.03);border-radius:0 4px 4px 0;font-size:11px;color:var(--ink2);line-height:1.5">🎯 ' + k.teksti + '</div>';
 }
 
 function _dimHero(d1, d2, d4, d2Lahde) {

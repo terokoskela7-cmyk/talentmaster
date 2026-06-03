@@ -50,6 +50,9 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 - **Historiatrendit sparkline-kaavioina.**
 - **Toimenpiteiden seuranta** (kuinka moni toteutui).
 
+### Tuleva sprintti — "Bola sempre" -silta (mittaa → tunnista → määrää → toista)
+- **TUKI → päivittäinen harjoite (A, käyttäjä prio):** joukkueen `tki_kehityskohde` (heikoin laji, esim. syöttö 8/14) → konkreettinen päivittäinen harjoitesuositus → kytkeytyy **Pelaaja_v7 T-kirjaukseen** ("bola sempre" = pallo joka päivä) **ja IDP-korttiin**. Periaate jo §14:ssä ("T-harjoite joka päivä", "S kohdistuu heikoimpaan ketjuun") — puuttuu silta kehityskohteesta päivittäiseen harjoitteeseen. Loop: tekniikkakilpailu (mittaa) → TUKI (tunnista heikoin) → harjoitemääräys (bola sempre) → T-kirjaus (toista) → seur. kilpailu (mittaa uudelleen). Konteksti: tekniikan herkkyysikkuna 6–13 v (§28) — U8–12 matala D2 = kiireellinen mutta korjattavissa, ikkuna vielä auki.
+
 ### Backlog (UI-hienosäätö, ei sidottu sprinttiin)
 - **Toimenpiteet-paneeli: eräpäiväpohjainen lajittelu** (EI signaalien kolmiportaista hierarkiaa). Peruste: signaali (hero-insightin "aamukatse") ≠ toimenpide (jo syntynyt reaktio). Tärkeys = eräpäivä + vastuuhenkilö + tila, ei kriittinen/seuranta. Tarve: erääntyneet ylös → tulevat viikot → kuitatut piiloon.
 - **D3 Psyykkinen + D5 Sosiaalinen -datankeruu** (5D-radar täyttyy automaattisesti kun `d3_taso`/`d5_taso` syntyvät).
