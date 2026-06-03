@@ -1,6 +1,6 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
-# Päivitetty: 2026-06-02
+# Päivitetty: 2026-06-03
 
 ---
 
@@ -12,6 +12,48 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 
 **Filosofia:** *"Pelaaja ensin, hallinto vahvistaa"*
 **Kilpailupositiointi:** *"Transfermarkt shows what. TalentMasterID shows how."*
+
+---
+
+## Sessio 2026-06-03 (Mac) — SJK H-H-tuonti, MAS/TSI/SM-tasot, VP_v25 Sprint A+B, universaali testiarkkitehtuuri
+
+> **Iso sessio.** Päämuutokset: Excel-tuonnin nimi-yhdistys (SJK ilman PalloID:tä), MAS-aika→nopeus, recalc-työkalut (HH/TSI/SM-tasot), VP_v25:n koko etusivu-uudistus (dimensiopopup, mobiili-first, 2×2-grid, hero-insight, toimenpiteet), Master_v16 auth-fix, ja **universaali testirekisteri** (Sprint B). Kaikki diff-tarkistettu ennen committia.
+
+### 1. Excel-tuonti: nimi-yhdistys + MAS + recalcHH
+- **`yhdistaPelaajaXlsxNimella`** (historia-moodi, kun PalloID puuttuu): `where(sukunimi)+where(etunimi)` → 1 auto · 2+ manuaalivalinta (`asetaXlsxPelaaja`) · 0 ei_loydy. Kokeilee myös käänteisen nimijärjestyksen. **Validointi relaksoitu:** historia-moodissa PalloID ei pakollinen jos nimet löytyvät. (SJK: 40 pelaajaa, vain nimet.)
+- **`parseMasAika`**: "4,40 min"/"4.40"/"4:40" → m/s + km/h. **`testit.mas` = km/h** (HH_NORMIT_PIKA on km/h → HH-taso laskee oikein). `mas_aika_s/mas_nopeus_ms/mas_kmh` talteen.
+- **`recalcHH(seuraId, dryRun)`** (SA-konsoli, Excel_Tuonti): laskee `hh_taso` olemassa olevasta `hh_viimeisin`:stä kun tuonnin ika/sp puuttui. **cmj→hyppy_cj remap** pakollinen. Ikä/sp joukkuenimestä.
+
+### 2. VP_v25 etusivu-uudistus (iso, monta committia)
+- **H-H-sarake** joukkuepulssiin + pelaajalistaan (`hhTasoVari`, pikakentät).
+- **Kaksikerroksinen dimensiopopup:** Kerros 1 (joukkue) → klikkaus → Kerros 2 (`_avaaPerPelaajaPikakatsaus`, 4 dimensiovälilehteä Fyysinen/Tekninen/Peli/Kehitys, ← edell./seur.→ nav).
+- **Mobiili-first** (yksi `@media`): typografia, pulssi 3→4-saraketta, pelaajakortit, touch 44–48px, Tabler-tab-ikonit (CDN `@tabler/icons-webfont@3`), Fyysinen-testirivit (hh-testirivi) + hero D-kortit.
+- **2×2-grid:** KPI-kortit (`keh-*`, EI `kpi-*` koska kpi-rivi varattu) + joukkuekortit (`jk-grid`) + kompakti toimenpidelista.
+- **Sprint A:** `laskeHeroInsight` (5 sääntöä, hero-summary), joukkuekortit suunnalla (`laskeJoukkueSuunta`, vaatii `hh_taso_edellinen` jota ei vielä kirjoiteta → "2. mittaus puuttuu"), **toimenpiteet** (Firestore `toimenpiteet`-kokoelma: auto-ehdotus→kuittaus/muokkaus/hylkäys, dedup signaaleittain + prioriteettiryhmät + max 3).
+- **4 UI-korjausta:** signaalimobiili, pulssi-kontrasti (juurisyy: `rivi-ei-dataa` opacity dimmaa H-H-only-rivit → korjattu), dynaaminen FLEI-kortti (3 tilaa). **SUHDE KANSALLISEEN H-H-fallback** (`_suhdeKansalliseen`: ≥3 TKI → benchmark, ≥3 H-H → Eerikkilä-%).
+
+### 3. Master_v16 auth-fix — Joakim (Sibbo testivastaava) ~30s uloskirjautuminen
+Juurisyy: `getIdTokenResult(false)` palautti vanhan tokenin → `claims.seuraId` tyhjä → **`seuraIdToUse='kpv'` (väärä fallback)** → KPV-luku → permission-denied → 8s auth-timeout. **Korjaus:** `(false→true)` tuore token + **kpv-fallback poistettu** (puuttuva seuraId → `naytaVirhe` + signOut). SA turvassa (admins-haara palaa ennen guardia).
+
+### 4. TSI + SM-tasot + EI (§22: TSI = SM-pallo − SM-juoksu)
+- **`recalcTSI`** + Excel profiiliUpdate `tsi_viimeisin`/`sm_juoksu_viimeisin`/`sm_pallo_viimeisin`. VP popup lukee `tsi_viimeisin` (§19).
+- **`recalcSMtasot`**: SM-juoksu/SM-pallo Eerikkilä-tasot (1–5) + `d2_taso` (ka.) + `ei_viimeisin` (CMJ−SJ). Avaimet `sm_juoksu`/`sm_pallo` (EI `_s`).
+- **Tekninen-mittarin prioriteetti TKI > TSI/D2 > —** läpi KOKO VP_v25:n (KPI-kortti, joukkuekortti D2-rivi, joukkue/pelaaja-hero, popup-pelaajataulukko). SM-pohjainen → ¹-merkintä + footnote. Skaalautuu TKI:hin kun se täyttyy.
+
+### 5. Universaali testiarkkitehtuuri (Sprint B) — `lib/tm_eerikkila_normit.js`
+**Mittaus universaali, normi paikallinen.** `UNIVERSAALI_TESTIREKISTERI` (13 testiä, D1/D2/D4, kv-aliakset DE/NL/EN, pikakentät) + `KOMPOSIITTI_INDIKAATTORIT` (hh_taso/tsi/ei) + `NORMIREKISTERI` (FI nyt; DFB/KNVB tuleva) + `NORMI_OLETUS`. `eerikkilaProfiilit` refaktoroitu rekisteripohjaiseksi. **lib ladataan nyt Excel_Tuontiin `<script>`-tagilla** (eerikkilaTaso globaaliksi). Testaus_v9 hyppy-id:t kanonisoitu (`cm_jump→hyppy_cj`, `sj_jump→hyppy_sj`) → EI laskee kenttämittauksista.
+
+### Keskeiset committit (uusin viim.)
+nimi-yhdistys → MAS → recalcHH → H-H-sarake → dimensiopopup → mobiili-first → 4 UI-korjausta → SUHDE/kehityskortti → Sprint A (hero/kortit/toimenpiteet `f66bf9d`/`5e1c417`) → Rules v3.1 `d534f4b` → 2×2-grid `494cd5b` → toimenpide-dedup `d993157` → Master_v16 auth `08d7938` → TSI `0f242ce` → Sprint B (`a7c3b4d` lib · `8fc0bf8` Excel · `5b80cbb` VP/rules/Testaus) → KPI/D2-fallback `0f3977c` → joukkuekortit D1+D2 `e9ab245` → popup Tekninen-sarake `eb9933a`.
+
+### ⚠ Avoimet seuraavaan sessioon (tärkeät)
+1. **DEPLOY Rules Consolesta:** `tm_admin/firestore.rules` **v3.2** (toimenpiteet v3.1 + konfiguraatio v3.2) — kunnes deployattu, toimenpiteet-kirjoitukset → permission-denied (graceful placeholder).
+2. **Aja SA-konsolista (Excel_Tuonti, SJK):** `recalcTSI('sjk',false)` → `recalcSMtasot('sjk',false)` (recalcSMtasot lukee TSI:n SM-pikakentät; recalcHH jos hh_taso puuttuu). Tarkista dry-run ensin.
+3. **`hh_taso_edellinen`** — suuntanuolet (↑↓→) aktivoituvat vasta kun tuonti kirjoittaa edellisen mittauksen pikakentän (nyt "2. mittaus puuttuu").
+4. **`eerikkilaProfiilit`:** `hh_viimeisin_lin30m/cmj/mas` ovat flat-nimiä mutta data nested (`hh_viimeisin.{}`) → eivät resolvoidu; SM-testit (flat) toimivat.
+5. **Testaus_v8** (arkistoitava) sisältää yhä `cm_jump`/`sj_jump` — kanonisoi jos v8 vielä käytössä.
+6. Demo-dataan d2_taso/tsi jos halutaan TSI/D2 näkyviin demo-tilassa.
+7. (Edellisestä) VP_v25 Vaihe 4 nominointikortit · FC Lahti P12 · GrIFK PDF · SendGrid ~400 kutsua.
 
 ---
 
