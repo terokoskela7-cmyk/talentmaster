@@ -2641,6 +2641,16 @@ async function tallennaFirestoreen() {
         if (hhViimeisin)      { profiiliUpdate.hh_viimeisin = hhViimeisin; profiiliUpdate.hh_pvm = pvmIso; }
         if (hhTaso != null)   profiiliUpdate.hh_taso = hhTaso;
         if (p.phv_tila)       profiiliUpdate.phv_tila = p.phv_tila;
+        // TSI-pikakentät — SM-juoksu + SM-pallo testituloksesta. TSI = SM-pallo − SM-juoksu (§22).
+        if (testit && testit.sm_juoksu != null && testit.sm_pallo != null) {
+          const smJ = parseFloat(testit.sm_juoksu), smP = parseFloat(testit.sm_pallo);
+          if (!isNaN(smJ) && !isNaN(smP)) {
+            profiiliUpdate.tsi_viimeisin = Math.round((smP - smJ) * 100) / 100;
+            profiiliUpdate.sm_juoksu_viimeisin = smJ;
+            profiiliUpdate.sm_pallo_viimeisin = smP;
+            profiiliUpdate.tsi_pvm = pvmIso;
+          }
+        }
         if (fleiPct !== null || tki !== null) {
           profiiliUpdate.flei_historia = firebase.firestore.FieldValue.arrayUnion({
             pvm: pvmIso,
@@ -3542,6 +3552,66 @@ window.recalcHH = async function(seuraIdArg, dryRun) {
     + ohitettu + ' · skipattu (ei ikä/sp): ' + eiLaskettavissa + ' · virheitä: ' + virhe);
   if (typeof toast === 'function') toast('recalcHH: ' + paivitetty + ' päivitetty' + (virhe ? ' · ' + virhe + ' virhe' : ''), virhe ? 'err' : 'ok');
   return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, eiLaskettavissa: eiLaskettavissa, virhe: virhe };
+};
+
+// recalcTSI(seuraId, dryRun=true) — täyttää TSI-pikakentät (tsi_viimeisin + sm_juoksu/sm_pallo_viimeisin)
+// tuoreimmasta testituloksesta jossa MOLEMMAT SM-testit. TSI = SM-pallo − SM-juoksu (§22; lähellä nollaa =
+// tekniikka vahva, pallo ei hidasta). HUOM avaimet testit.sm_juoksu / testit.sm_pallo (id:t, EI _s-suffiksia). SA-only.
+window.recalcTSI = async function(seuraIdArg, dryRun) {
+  if (dryRun === undefined) dryRun = true;
+  if (!superAdmin) { console.warn('[recalcTSI] Vain Super Admin'); return; }
+  const sid = seuraIdArg || seuraId;
+  if (!sid) { console.warn('[recalcTSI] Käyttö: recalcTSI(seuraId, dryRun=true)'); return; }
+  if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true);
+
+  const pelSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+  const muutokset = [];
+  let ohitettu = 0;
+  for (const pelDoc of pelSnap.docs) {
+    const p = pelDoc.data();
+    const tulSnap = await db.collection('seurat').doc(sid).collection('pelaajat').doc(pelDoc.id)
+      .collection('testitulokset').get().catch(function(){ return { docs: [] }; });
+    // tuorein doc jossa molemmat SM-testit (lajittelu client-puolella → ei indeksiriippuvuutta)
+    const docs = tulSnap.docs.map(function(t){ return t.data(); })
+      .filter(function(d){ const tt = d.testit || {}; return tt.sm_juoksu != null && tt.sm_pallo != null; })
+      .sort(function(a,b){ return String(b.testauspvm||b.pvm||'').localeCompare(String(a.testauspvm||a.pvm||'')); });
+    if (!docs.length) { ohitettu++; continue; }
+    const d = docs[0];
+    const smJuoksu = parseFloat(d.testit.sm_juoksu), smPallo = parseFloat(d.testit.sm_pallo);
+    if (isNaN(smJuoksu) || isNaN(smPallo)) { ohitettu++; continue; }
+    const tsi = Math.round((smPallo - smJuoksu) * 100) / 100;   // §22: SM-pallo − SM-juoksu
+    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'') + ', ' + (p.etunimi||''),
+      smJuoksu: smJuoksu, smPallo: smPallo, tsi: tsi, pvm: d.testauspvm || d.pvm || null });
+  }
+
+  muutokset.forEach(function(m){
+    console.log((dryRun ? '[DRY-RUN] ' : '[recalcTSI] OK ') + m.nimi + ' · SM-juoksu ' + m.smJuoksu + ' · SM-pallo ' + m.smPallo + ' → TSI ' + m.tsi);
+  });
+
+  if (dryRun) {
+    console.log('[DRY-RUN] recalcTSI: ' + muutokset.length + ' päivitettäisiin · ' + ohitettu + ' ohitettu (ei SM-testejä).');
+    console.log('[DRY-RUN] Aja oikeasti: recalcTSI(\'' + sid + '\', false)');
+    return { dryRun: true, kpl: muutokset.length, ohitettu: ohitettu };
+  }
+
+  const ERA = Math.min(400, BATCH_KOKO);
+  let paivitetty = 0, virhe = 0;
+  const eria = Math.ceil(muutokset.length / ERA);
+  for (let e = 0; e < eria; e++) {
+    const era = muutokset.slice(e * ERA, (e + 1) * ERA);
+    const batch = db.batch();
+    era.forEach(function(m){
+      batch.set(m.ref, {
+        tsi_viimeisin: m.tsi, sm_juoksu_viimeisin: m.smJuoksu, sm_pallo_viimeisin: m.smPallo,
+        tsi_pvm: m.pvm || new Date().toISOString().slice(0,10), tsi_recalc: true
+      }, { merge: true });
+    });
+    try { await batch.commit(); paivitetty += era.length; if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true); }
+    catch (err) { console.error('[recalcTSI batch ' + (e+1) + ']', err); virhe += era.length; }
+  }
+  console.log('[recalcTSI] valmis: ' + paivitetty + ' / ' + pelSnap.docs.length + ' pelaajaa · ohitettu: ' + ohitettu + ' · virheitä: ' + virhe);
+  if (typeof toast === 'function') toast('recalcTSI: ' + paivitetty + ' päivitetty' + (virhe ? ' · ' + virhe + ' virhe' : ''), virhe ? 'err' : 'ok');
+  return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, virhe: virhe };
 };
 
 // Topbar-napin käsittelijä: dry-run → vahvistus → oikea ajo
