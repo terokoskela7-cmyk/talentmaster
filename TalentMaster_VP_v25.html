@@ -4799,6 +4799,24 @@ const TP_SIGNAALIT = [
       const ilman = kaikki.filter(function(p){ return p.tki_viimeisin == null; });
       return (kaikki.length > 0 && ilman.length === kaikki.length) ? { joukkue: j, signaali: 'tkk_puuttuu',
         teksti: j + ' — tekniikkamittaukset puuttuvat kaikilta pelaajilta. Suunnittele tekniikkakilpailu.' } : null;
+    } },
+  // TKI-pohjaiset toimenpiteet — antavat TKI-only-seuroille (esim. Sibbo) konstruktiivisen "mitä tehdä",
+  // samalla tavalla kuin H-H-data tuottaa toimenpiteitä SJK:lle. Tasapainottaa kriittiset signaalit toiminnalla.
+  { id: 'tki_alhainen', tarkista: function(j, pp){
+      const a = pp.filter(function(p){ return p.joukkue === j && p.tki_viimeisin != null && p.tki_viimeisin < 40; });
+      return a.length >= 2 ? { joukkue: j, signaali: 'tki_alhainen',
+        teksti: j + ' — ' + a.length + ' pelaajaa alle pronssitason (TKI < 40). Fokusoi tekniikkaharjoittelu yleisimpään kehityskohteeseen.' } : null;
+    } },
+  { id: 'tki_lahella_merkkia', tarkista: function(j, pp){
+      const a = pp.filter(function(p){ return p.joukkue === j && p.tki_viimeisin != null && p.tki_viimeisin >= 35 && p.tki_viimeisin < 55 && !p.tki_merkki; });
+      return a.length >= 2 ? { joukkue: j, signaali: 'tki_lahella_merkkia',
+        teksti: j + ' — ' + a.length + ' pelaajaa lähellä pronssia (TKI 35–54). Kohdenna omatoimiharjoittelu — merkki on saavutettavissa seuraavassa kilpailussa.' } : null;
+    } },
+  { id: 'flei_kartoitus_puuttuu', tarkista: function(j, pp){
+      const kaikki = pp.filter(function(p){ return p.joukkue === j; });
+      const ilman = kaikki.filter(function(p){ return p.flei_viimeisin == null; });
+      return (kaikki.length >= 3 && ilman.length === kaikki.length) ? { joukkue: j, signaali: 'flei_kartoitus_puuttuu',
+        teksti: j + ' — harjoitettavuuskartoitus (FLEI) tekemättä. Varaa kartoituspäivä, jotta harjoittelua voi yksilöllistää.' } : null;
     } }
 ];
 
@@ -4836,10 +4854,10 @@ function _tpPvm(ts) {
   if (!ts) return '';
   try { const d = ts.toDate ? ts.toDate() : new Date(ts); return d.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' }); } catch (e) { return ''; }
 }
-function _tpVari(sig) { return sig === 'suunta_lasku' ? 'var(--red)' : sig === 'hh_taso_alhainen' ? 'var(--amber)' : 'var(--teal)'; }
+function _tpVari(sig) { return (sig === 'suunta_lasku' || sig === 'tki_alhainen') ? 'var(--red)' : sig === 'hh_taso_alhainen' ? 'var(--amber)' : 'var(--teal)'; }
 
 // Prioriteetti per signaali (UI-ryhmittely). kiireinen ennen suunnittele.
-const SIGNAALI_PRIORITEETTI = { hh_taso_alhainen: 'kiireinen', suunta_lasku: 'kiireinen', tkk_puuttuu: 'suunnittele' };
+const SIGNAALI_PRIORITEETTI = { hh_taso_alhainen: 'kiireinen', suunta_lasku: 'kiireinen', tki_alhainen: 'kiireinen', tkk_puuttuu: 'suunnittele', tki_lahella_merkkia: 'suunnittele', flei_kartoitus_puuttuu: 'suunnittele' };
 const TP_PRIO_META = { kiireinen: { nimi: 'Kiireinen', vari: 'var(--red)', jarj: 0 }, suunnittele: { nimi: 'Suunnittele', vari: 'var(--ink3)', jarj: 1 } };
 
 // Dedup VAIN renderöinnissä (Firestoreen jää per-joukkue-dokumentit → audit). Sama signaali → yksi kortti, ids[] kaikista.
@@ -4861,6 +4879,13 @@ function dedupToimenpiteet(lista) {
         x.teksti = lyh + ' — pelaajia alle Eerikkilä-tason. Aloita yksilöllinen ohjelma.'; x.joukkue = lyh;
       } else if (x.signaali === 'suunta_lasku') {
         x.teksti = lyh + ' — H-H taso laskussa. Tarkista kuormitus.'; x.joukkue = lyh;
+      } else if (x.signaali === 'tki_alhainen') {
+        x.teksti = lyh + ' — pelaajia alle pronssitason (TKI < 40). Fokusoi tekniikkaharjoittelu.'; x.joukkue = lyh;
+      } else if (x.signaali === 'tki_lahella_merkkia') {
+        x.teksti = lyh + ' — pelaajia lähellä pronssia. Kohdenna omatoimiharjoittelu, merkki saavutettavissa.'; x.joukkue = lyh;
+      } else if (x.signaali === 'flei_kartoitus_puuttuu') {
+        x.teksti = 'Kaikki joukkueet — harjoitettavuuskartoitus (FLEI) tekemättä ' + x.joukkueet.length + ':lta joukkueelta. Varaa kartoituspäivä.';
+        x.joukkue = 'Kaikki joukkueet';
       } else { x.joukkue = lyh; }
     }
     return x;
@@ -5056,6 +5081,13 @@ function _tkiSoluVP(p) {
   const merkkiHtml = m ? ' <span style="font-size:11px" title="' + m.nimi + '">' + m.emoji + '</span>' : '';
   return '<strong>' + tki + '</strong>' + merkkiHtml;
 }
+// Tuen tarve = MITATTU heikko tulos, ei puuttuva data. Puuttuva FLEI ei tee pelaajasta erityistukitapausta
+// (esim. Sibbo/SJK ilman FLEI:tä ei saa enää koko listaa punaisena). FLEI<50 TAI H-H<2.5 TAI eksplisiittinen lippu.
+function _tarvitseeTuki(p) {
+  return (p.flei_viimeisin != null && p.flei_viimeisin < 50)
+      || (p.hh_taso != null && p.hh_taso < 2.5)
+      || p.erityistuki === true;
+}
 // Yhtenäinen Tekninen-solu (sama kuin pikakatsaus): TKI > SM-pohjainen TSI/d2_taso, aina 1–5-taso. ¹ = SM-lähde.
 function _tekninenSoluVP(p) {
   const taso = laskeD2Taso(p);   // tki/20 > d2_taso > null
@@ -5077,7 +5109,7 @@ function renderPelaajatFiltered() {
   let filtered = _pelaajat;
 
   if (_activeFilter === 'erityistuki') {
-    filtered = _pelaajat.filter(p => (p.flei_viimeisin||0) < 50 || p.erityistuki);
+    filtered = _pelaajat.filter(p => _tarvitseeTuki(p));
   } else if (_activeFilter === 'phv') {
     filtered = _pelaajat.filter(p => p.phv_tila === 'PH');
   } else if (_activeFilter === 'idppuuttuu') {
@@ -5100,7 +5132,7 @@ function renderPelaajatFiltered() {
     const pct  = Math.min(100, flei);
     const sig = p.signaali === 'xfactor' ? '<span class="tag xfactor">X-Factor</span>'
               : p.signaali === 'hidden'   ? '<span class="tag hidden">Hidden Gem</span>'
-              : (p.flei_viimeisin||0) < 50 ? '<span class="tag" style="background:rgba(201,64,64,.15);color:var(--red)">Erityistuki</span>'
+              : _tarvitseeTuki(p) ? '<span class="tag" style="background:rgba(201,64,64,.15);color:var(--red)">Erityistuki</span>'
               : '—';
     const phvColor = p.phv_tila === 'PH' ? 'color:var(--amber)' : '';
     return `
