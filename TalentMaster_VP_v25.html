@@ -1683,13 +1683,14 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <table class="player-table">
         <thead>
           <tr>
-            <th>Pelaaja</th><th>Joukkue</th><th>FLEI</th><th>TKI</th><th>H-H</th><th>Signaali</th><th>PHV</th><th></th>
+            <th>Pelaaja</th><th>Joukkue</th><th>FLEI</th><th>Tekninen</th><th>H-H</th><th>Signaali</th><th>PHV</th><th></th>
           </tr>
         </thead>
         <tbody id="playerTableBody">
           <tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:40px">Ladataan...</td></tr>
         </tbody>
       </table>
+      <div style="font-size:11px;color:var(--ink3);margin-top:8px">Tekninen-taso 1–5 · ensisijaisesti TKI (🥇🥈🥉), muuten <sup>1</sup> SM-pohjainen (TSI). FLEI ja H-H samalla 1–5-asteikolla.</div>
     </div>
 
     <!-- ── KALENTERI ── -->
@@ -3232,6 +3233,44 @@ window._tmInfo = function(avain) {
   document.body.appendChild(modal);
 };
 
+// ── 5D-tutkakaavio (profiilikartta) — kevyt SVG, ei kirjastoja. dims=[{key,label,arvo(0–5|null),lahde?}] N=5.
+// Akselit: D1 ylhäällä, myötäpäivään. Puuttuvat ulottuvuudet → "tulossa", ei pistettä. Katkoviiva = profiili kesken.
+window._tmRadar5D = function(dims) {
+  const N = dims.length;
+  const W = 260, H = 232, cx = W / 2, cy = H / 2 + 4, R = 68;
+  const ang = function(i) { return (-90 + i * (360 / N)) * Math.PI / 180; };
+  const pt = function(i, v) { const r = (Math.max(0, Math.min(5, v)) / 5) * R; const a = ang(i); return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="max-width:300px;display:block;margin:0 auto">';
+  for (let L = 1; L <= 5; L++) {
+    let pts = '';
+    for (let i = 0; i < N; i++) { const xy = pt(i, L); pts += (i ? ' ' : '') + xy[0].toFixed(1) + ',' + xy[1].toFixed(1); }
+    svg += '<polygon points="' + pts + '" fill="none" stroke="rgba(255,255,255,' + (L === 5 ? '.16' : '.06') + ')" stroke-width="' + (L === 5 ? 1 : 0.5) + '"/>';
+  }
+  for (let i = 0; i < N; i++) {
+    const sp = pt(i, 5);
+    svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + sp[0].toFixed(1) + '" y2="' + sp[1].toFixed(1) + '" stroke="rgba(255,255,255,.06)" stroke-width="0.5"/>';
+    const lp = pt(i, 5.6);
+    const d = dims[i]; const has = d.arvo != null;
+    const anchor = (Math.abs(lp[0] - cx) < 8) ? 'middle' : (lp[0] > cx ? 'start' : 'end');
+    const ydy = (lp[1] < cy - 12) ? -1 : (lp[1] > cy + 12 ? 10 : 3);
+    svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy).toFixed(1) + '" text-anchor="' + anchor + '" font-size="9" font-family="DM Sans,sans-serif" fill="' + (has ? 'var(--ink2)' : 'var(--ink3)') + '">' + d.key + ' ' + d.label + '</text>';
+    svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy + 10).toFixed(1) + '" text-anchor="' + anchor + '" font-size="8" font-family="DM Mono,monospace" fill="' + (has ? 'var(--teal)' : 'var(--ink3)') + '">' + (has ? (d.arvo + (d.lahde === 'sm' ? '¹' : '')) : 'tulossa') + '</text>';
+  }
+  const av = [];
+  for (let i = 0; i < N; i++) { if (dims[i].arvo != null) av.push(pt(i, dims[i].arvo)); }
+  const dash = (av.length === N) ? '0' : '3 2';
+  if (av.length >= 3) {
+    let dp = '';
+    for (let k = 0; k < av.length; k++) { dp += (k ? ' ' : '') + av[k][0].toFixed(1) + ',' + av[k][1].toFixed(1); }
+    svg += '<polygon points="' + dp + '" fill="rgba(40,176,144,.16)" stroke="var(--teal)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="' + dash + '"/>';
+  } else if (av.length === 2) {
+    svg += '<line x1="' + av[0][0].toFixed(1) + '" y1="' + av[0][1].toFixed(1) + '" x2="' + av[1][0].toFixed(1) + '" y2="' + av[1][1].toFixed(1) + '" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="' + dash + '"/>';
+  }
+  for (let i = 0; i < N; i++) { if (dims[i].arvo != null) { const xy = pt(i, dims[i].arvo); svg += '<circle cx="' + xy[0].toFixed(1) + '" cy="' + xy[1].toFixed(1) + '" r="3" fill="var(--teal)"/>'; } }
+  svg += '</svg>';
+  return svg;
+};
+
 window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const lista = window._jsvPelaajat || [];
   const nP = lista.length;
@@ -3342,6 +3381,16 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   h += '<button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
   h += '</div>';
   h += '<div style="padding:0 24px">' + hero + '</div>';
+  // 5D-profiilikartta (tutkakaavio) — D1/D2/D4 mitattu, D3/D5 tulossa. Katkoviiva = profiili kesken.
+  const radarDims = [
+    { key: 'D1', label: 'Fyysinen',    arvo: (d1 != null ? d1 : null) },
+    { key: 'D2', label: 'Tekninen',    arvo: (d2 != null ? d2 : null), lahde: _d2Lahde(p) },
+    { key: 'D3', label: 'Psyykkinen',  arvo: (p.d3_taso != null ? p.d3_taso : null) },
+    { key: 'D4', label: 'Peliäly',     arvo: (d4 != null ? d4 : null) },
+    { key: 'D5', label: 'Sosiaalinen', arvo: (p.d5_taso != null ? p.d5_taso : null) }
+  ];
+  h += '<div style="padding:6px 24px 0">' + window._tmRadar5D(radarDims)
+    + '<div style="font-size:10px;color:var(--ink3);text-align:center;margin-top:2px">5D-profiili (1–5) · katkoviiva = täydentyy kun D3/D5 mitattu' + (_d2Lahde(p) === 'sm' ? ' · ¹ SM-pohjainen (TSI)' : '') + '</div></div>';
   h += '<div style="display:flex;gap:6px;padding:0 24px 4px;border-bottom:.5px solid var(--border)">';
   [['ti-bolt','Fyysinen'],['ti-ball-football','Tekninen'],['ti-compass','Peli'],['ti-trending-up','Kehitys']].forEach(function(t,i) {
     h += '<button id="_jspBtn' + i + '" class="dim-tab ' + (i===0?'on':'') + '" onclick="_jspVaihda(' + i + ')"><i class="ti ' + t[0] + '"></i>' + t[1] + '</button>';
@@ -4999,6 +5048,16 @@ function _tkiSoluVP(p) {
   const merkkiHtml = m ? ' <span style="font-size:11px" title="' + m.nimi + '">' + m.emoji + '</span>' : '';
   return '<strong>' + tki + '</strong>' + merkkiHtml;
 }
+// Yhtenäinen Tekninen-solu (sama kuin pikakatsaus): TKI > SM-pohjainen TSI/d2_taso, aina 1–5-taso. ¹ = SM-lähde.
+function _tekninenSoluVP(p) {
+  const taso = laskeD2Taso(p);   // tki/20 > d2_taso > null
+  if (taso == null) return '<span style="color:var(--ink3)">—</span>';
+  const lahde = _d2Lahde(p);
+  let extra = '';
+  if (lahde === 'tki') { const m = _tkiMerkkiVP(p.tki_viimeisin, p.tki_merkki); if (m) extra = ' <span style="font-size:11px" title="' + m.nimi + ' · TKI ' + p.tki_viimeisin + '">' + m.emoji + '</span>'; }
+  else if (lahde === 'sm') { extra = '<sup style="color:var(--ink3);font-size:9px" title="SM-pohjainen (TSI) — TKI tulossa">1</sup>'; }
+  return '<strong style="color:' + hhTasoVari(taso) + '">' + taso + '</strong>' + extra;
+}
 // H-H-solu pelaajalistaan — pikakentästä hh_taso (1–5), näytetään vain jos hh_viimeisin olemassa. Ei alikokoelmakyselyä.
 function _hhSoluVP(p) {
   if (!p.hh_viimeisin || p.hh_taso == null) return '<span style="color:var(--ink3)">—</span>';
@@ -5048,7 +5107,7 @@ function renderPelaajatFiltered() {
             <span class="flei-num">${flei||'—'}</span>
           </div>
         </td>
-        <td>${_tkiSoluVP(p)}</td>
+        <td>${_tekninenSoluVP(p)}</td>
         <td>${_hhSoluVP(p)}</td>
         <td>${sig}</td>
         <td style="font-size:12px;${phvColor}">${p.phv_tila||'—'}</td>
