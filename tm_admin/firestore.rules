@@ -1,10 +1,14 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.1
+// TalentMaster™ — firestore.rules v3.2
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: Firebase Console → Firestore → Rules → liitä → Julkaise
 //         (EI GitHub Actionsilla — saa 403, CLAUDE.md §17 #10)
+//
+// Muutokset v3.1 → v3.2 (universaali testi-arkkitehtuuri):
+//   + seurat/{sid}/konfiguraatio/{konfId} — seuran normijärjestelmä (maa/kieli).
+//     Ladataan tuonti/analyysihetkellä; mahdollistaa kv-normit (DFB/KNVB) tulevaisuudessa.
 //
 // Muutokset v3.0 → v3.1 (VP_v25 Sprint A):
 //   + seurat/{sid}/toimenpiteet/{tid} —
@@ -163,6 +167,15 @@ service cloud.firestore {
         allow read:   if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         allow create: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         allow update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+      }
+
+      // ── KONFIGURAATIO (v3.2) — seuran normijärjestelmä (normijarjestelma/maa/kieli) ──
+      // Rules EIVÄT periydy alikokoelmiin → oma blokki. Luku koko seuralle; kirjoitus VP/SA.
+      match /konfiguraatio/{konfId} {
+        allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId));
+        allow create: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow delete: if onSuperAdmin();
       }
 
       // ── PELAAJAT ────────────────────────────────────────────────────────

@@ -3198,12 +3198,19 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     + friv('H-H kokonais', d1, (d1 != null ? d1 : null), '/5', true)
     + '<div style="font-size:11px;color:var(--ink3);margin-top:10px">Suunta (↑↓→) vaatii testihistorian — Sprint 2. Ikä/sp johdettu joukkueesta: ' + (ika||'?') + ' · ' + (sp||'?') + '</div>';
 
-  // ── TAB 2: TEKNINEN (TKI + FLEI) ──
+  // ── TAB 2: TEKNINEN (SM-tasot + TSI + TKI + FLEI) ──
   const tsi = (p.tsi_viimeisin != null) ? p.tsi_viimeisin : null;   // pikakentästä (§19); recalcTSI/tuonti täyttää
+  const tsiKtx = (tsi == null) ? null : (tsi < 1.2 ? 'Teknisesti vahva' : tsi < 1.6 ? 'Kansallinen taso' : tsi < 2.0 ? 'Kehitettävää' : 'Prioriteetti');
   const m2 = _tkiMerkkiVP(p.tki_viimeisin, p.tki_merkki);
   const tRiv = function(lbl, val) { return '<tr style="border-top:.5px solid var(--border)"><td style="padding:6px 8px;color:var(--ink2)">' + lbl + '</td><td style="padding:6px 8px;font-family:var(--font-m);color:var(--ink)">' + val + '</td></tr>'; };
-  let f2 = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
-    + tRiv('TSI (SM-pallo − SM-juoksu)', tsi != null ? tsi + ' s' : '—')
+  // SM-juoksu/SM-pallo Eerikkilä-tasot — sama hh-testirivi-tyyli kuin Fyysinen (friv: badge + palkki + arvo)
+  let f2 = '';
+  if (p.sm_juoksu_taso != null || p.sm_juoksu_viimeisin != null)
+    f2 += friv('Nopeus (SM-juoksu)', (p.sm_juoksu_taso != null ? p.sm_juoksu_taso : null), (p.sm_juoksu_viimeisin != null ? p.sm_juoksu_viimeisin : null), 's', false);
+  if (p.sm_pallo_taso != null || p.sm_pallo_viimeisin != null)
+    f2 += friv('Tekniikka (SM-pallo)', (p.sm_pallo_taso != null ? p.sm_pallo_taso : null), (p.sm_pallo_viimeisin != null ? p.sm_pallo_viimeisin : null), 's', false);
+  f2 += '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px"><tbody>'
+    + tRiv('TSI (SM-pallo − SM-juoksu)', tsi != null ? (tsi + ' s' + (tsiKtx ? ' · ' + tsiKtx : '')) : '—')
     + tRiv('TKI', p.tki_viimeisin != null ? p.tki_viimeisin : '—')
     + tRiv('Merkki', m2 ? (m2.emoji + ' ' + m2.nimi) : '—')
     + '</tbody></table>';
