@@ -30,7 +30,12 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 > **Biologinen perusta lukittu** (CLAUDE.md §28 + STRATEGIA §2.1): kehitysikkunat = herkkyysvaiheet. Hidden Gem -kynnykset perustuvat näihin, EI mielivaltaisiin lukuihin. **Koodaa Hidden Gem vasta kun §28 invariantit luettu.** Avainsäännöt: korkea D2 + matala D1 = AITO gem vain PRE-PHV (post-PHV fysiikka ei tule automaattisesti); FVP sidottava PHV-tilaan (ilman PHV-dataa ei voimajohtopäätöstä); pre-PHV heikko 30m/MAS/CMJ = neutraali ei negatiivinen; korkea FLEI + korkea D2 pre-PHV = kullankimpale (oma merkki/paino).
 
 **SPRINT B (seuraava sessio):**
-- **Hidden Gem -logiikka** — korkea D2 + matala D1 + PRE-PHV (myöhäiskypsyvä lahjakkuus: tekninen ikkuna ~6–13 v käytetty, fyysinen nousuvara biologisesti edessä). **PHV-porrastus** (pilotissa ei vielä PHV-dataa): ehdokas (D2-korkea + D1-matala, toimii nyt) → vahvistettu (+ PRE-PHV). Korvaa/tarkentaa nykyisen FLEI-pohjaisen Hidden Gemin (`HIDDEN_GEM_FLEI`). Esimerkkiprofiilit SJK: Vakkila Sara (D2 4.5, tasapainoinen huippu), Lahti Eeli (SM-juoksu 5 / SM-pallo 3, D2 4 — HUOM: tämä on nopeus-on-tekniikka-jäljessä eli TSI-kehityskohde, ei def-mukainen Hidden Gem), Nieminen Onni-Matti (D2 1.5, pallo hidastaa).
+- **Hidden Gem -logiikka** — korkea D2 + matala D1 + PRE-PHV (myöhäiskypsyvä lahjakkuus: tekninen ikkuna ~6–13 v käytetty, fyysinen nousuvara biologisesti edessä). **Kolmiportainen vahvistus:**
+  1. **Ehdokas** = korkea D2 + matala D1 (poikkileikkaus, toimii nyt pilottidatalla).
+  2. **Vahvistettu** = + PRE-PHV (fyysinen nousuvara edessä; vaatii bio-ikädatan).
+  3. **Tekninen varhaiskehitys vahvistettu** = + tekniikkakilpailun **kulta/hopea U8–U12** (longitudinaalinen: tekninen ohjelma rakentui plastisimmassa ikkunassa → motorinen automatisaatio → vapauttaa kognition peliälylle). **Vahvin signaali**, eri luokka kuin pelkkä korkea D2 tänään. Ks. CLAUDE.md §28 invariantti 5.
+  - **Toteutus:** pikakenttä `tekninen_varhaiskehitys: {merkki, ika, pvm}` (null jos ei) — laske tuonnissa/recalcissa `testitulokset/`-alikokoelmasta (paras kulta/hopea, ika 8–12). EI alikokoelmakyselyä renderöinnissä (§26).
+  - Korvaa/tarkentaa nykyisen FLEI-pohjaisen Hidden Gemin (`HIDDEN_GEM_FLEI`). Esimerkkiprofiilit SJK: Vakkila Sara (D2 4.5, tasapainoinen huippu), Lahti Eeli (SM-juoksu 5 / SM-pallo 3, D2 4 — HUOM: nopeus-on-tekniikka-jäljessä = TSI-kehityskohde, ei def-mukainen Hidden Gem), Nieminen Onni-Matti (D2 1.5, pallo hidastaa).
 - **Kehitysvauhti-laskenta** — aktivoituu kun `hh_taso_edellinen`-pikakenttä täyttyy 2. mittauksesta.
 - **PHV + RAE -integraatio.**
 
