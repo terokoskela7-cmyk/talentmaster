@@ -2876,32 +2876,41 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   const n = pelaajat.length;
   const jescNimi = String(joukkueNimi).replace(/['"\\]/g, '');
 
-  // ── Välilehti 1: TEKNIIKKA (TKI-ranking, paras ensin; ei-tuloksia harmaana lopussa) ──
+  // Tallenna joukkueen pelaajalista (sukunimen mukaan) Kerros 2:n navigointia varten (idx-viittaus)
+  pelaajat.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
+  window._jsvPelaajat = pelaajat;
+  window._jsvJoukkue = joukkueNimi;
+
+  // ── Välilehti 1: PELAAJAT (monidimensiotaulukko — rivi klikattava → Kerros 2 pikakatsaus) ──
   let t1;
   if (n === 0) { t1 = '<div style="color:var(--ink3);font-style:italic;padding:12px">Ei pelaajia</div>'; }
   else {
-    const withTki = pelaajat.filter(p => p.tki_viimeisin != null).slice().sort((a,b) => b.tki_viimeisin - a.tki_viimeisin);
-    const noTki = pelaajat.filter(p => p.tki_viimeisin == null);
     t1 = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
       + '<thead><tr style="text-align:left;color:var(--ink3);font-size:10px;text-transform:uppercase;letter-spacing:.06em">'
-      + '<th style="padding:6px 8px">Pelaaja</th><th style="padding:6px 8px">TKI</th><th style="padding:6px 8px">Merkki</th>'
-      + '<th style="padding:6px 8px">Vahvuus</th><th style="padding:6px 8px">Kehityskohde</th></tr></thead><tbody>';
-    withTki.forEach(p => {
-      const tki = p.tki_viimeisin;
-      const w = Math.max(4, Math.min(100, tki));
+      + '<th style="padding:6px 8px">Pelaaja</th><th style="padding:6px 8px">H-H</th><th style="padding:6px 8px">TKI</th>'
+      + '<th style="padding:6px 8px">ADAR</th><th style="padding:6px 8px">PHV</th><th style="padding:6px 8px"></th></tr></thead><tbody>';
+    pelaajat.forEach((p, idx) => {
+      const hh = (p.hh_taso != null) ? p.hh_taso : null;
+      const tki = (p.tki_viimeisin != null) ? p.tki_viimeisin : null;
+      const adarY = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht : null;
       const m = _tkiMerkkiVP(tki, p.tki_merkki);
-      t1 += '<tr style="border-top:.5px solid var(--border)">'
-        + '<td style="padding:6px 8px;color:var(--ink)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + '</td>'
-        + '<td style="padding:6px 8px"><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:6px;min-width:46px;max-width:80px;background:rgba(255,255,255,.07);border-radius:3px"><div style="height:100%;width:' + w + '%;background:' + _jsvTkiVari(tki) + ';border-radius:3px"></div></div><span style="color:var(--ink);font-family:var(--font-m)">' + tki + '</span></div></td>'
-        + '<td style="padding:6px 8px">' + (m ? m.emoji : '—') + '</td>'
-        + '<td style="padding:6px 8px;color:var(--ink2)">' + _jsvEsc(p.tki_vahvuus ? _vpTkLaji(p.tki_vahvuus) : '—') + '</td>'
-        + '<td style="padding:6px 8px;color:var(--ink2)">' + _jsvEsc(p.tki_kehityskohde ? _vpTkLaji(p.tki_kehityskohde) : '—') + '</td></tr>';
-    });
-    noTki.forEach(p => {
-      t1 += '<tr style="border-top:.5px solid var(--border)"><td style="padding:6px 8px;color:var(--ink3)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + '</td><td colspan="4" style="padding:6px 8px;color:var(--ink3);font-style:italic">Ei tuloksia vielä</td></tr>';
+      t1 += '<tr style="border-top:.5px solid var(--border);cursor:pointer" onclick="_avaaPerPelaajaPikakatsaus(' + idx + ',\'' + jescNimi + '\')">'
+        + '<td style="padding:7px 8px;color:var(--ink)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + '</td>'
+        + '<td style="padding:7px 8px">' + (hh != null ? '<span style="color:' + hhTasoVari(hh) + ';font-family:var(--font-m)">' + hh + '</span>' : '<span style="color:var(--ink3)">—</span>') + '</td>'
+        + '<td style="padding:7px 8px;font-family:var(--font-m)">' + (tki != null ? tki + (m ? ' ' + m.emoji : '') : '<span style="color:var(--ink3)">—</span>') + '</td>'
+        + '<td style="padding:7px 8px;font-family:var(--font-m);color:var(--ink2)">' + (adarY != null ? adarY + '/12' : '<span style="color:var(--ink3)">—</span>') + '</td>'
+        + '<td style="padding:7px 8px;color:' + (p.phv_tila === 'PH' ? 'var(--amber)' : 'var(--ink2)') + '">' + _jsvEsc(p.phv_tila || '—') + '</td>'
+        + '<td style="padding:7px 8px;color:var(--ink3);text-align:right">→</td></tr>';
     });
     t1 += '</tbody></table>';
   }
+
+  // ── Hero: joukkueen dimensiokeskiarvot D1/D2/D4 (1–5) ──
+  const teamHero = _dimHero(
+    _dimKa(pelaajat.map(p => p.hh_taso)),
+    _dimKa(pelaajat.map(p => _dimNorm5Tki(p.tki_viimeisin))),
+    _dimKa(pelaajat.map(p => _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht)))
+  );
 
   // ── Välilehti 2: TUKI (ryhmittely kehityskohteen mukaan) ──
   let t2;
@@ -2945,8 +2954,9 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + _jsvEsc(joukkueNimi) + ' · ' + n + ' pelaajaa</div>';
   h += '<button onclick="document.getElementById(\'_jsvModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
   h += '</div>';
+  h += '<div style="padding:0 24px">' + teamHero + '</div>';
   h += '<div style="display:flex;gap:6px;padding:0 24px 12px;border-bottom:.5px solid var(--border)">';
-  ['Tekniikka','Tuki','Yhteenveto'].forEach((lbl,i) => {
+  ['Pelaajat','Tuki','Yhteenveto'].forEach((lbl,i) => {
     h += '<button id="_jsvBtn' + i + '" class="' + (i===0?'on':'') + '" onclick="_jsvVaihda(' + i + ')" style="padding:7px 14px;font-size:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;border-radius:5px;font-family:\'DM Sans\',sans-serif">' + lbl + '</button>';
   });
   h += '</div>';
@@ -2969,6 +2979,143 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   document.body.appendChild(modal);
 }
 window.avaaJoukkueSyvanakyma = avaaJoukkueSyvanakyma;
+
+// ═══ KERROS 2: per-pelaaja pikakatsaus (drill-down joukkuepopupista) — 4 dimensiovälilehteä ═══
+window._jspVaihda = function(n) {
+  for (let i = 0; i < 4; i++) {
+    const tab = document.getElementById('_jspTab' + i);
+    const btn = document.getElementById('_jspBtn' + i);
+    if (tab) tab.style.display = (i === n) ? 'block' : 'none';
+    if (btn) btn.classList.toggle('on', i === n);
+  }
+};
+window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
+  const lista = window._jsvPelaajat || [];
+  const nP = lista.length;
+  if (!nP) return;
+  idx = ((idx % nP) + nP) % nP;                 // kierrä listan ympäri
+  const p = lista[idx];
+  if (!p) return;
+  const vanha = document.getElementById('_jspModal'); if (vanha) vanha.remove();
+
+  const jesc = String(joukkueNimi).replace(/['"\\]/g, '');
+  const isp = _dimIkaSp(joukkueNimi, p);
+  const ika = isp.ika, sp = isp.sp;
+  const nimi = (p.etunimi || '') + ' ' + (p.sukunimi || '');
+
+  // Hero — tämän pelaajan D1/D2/D4
+  const d1 = (p.hh_taso != null) ? p.hh_taso : null;
+  const d2 = _dimNorm5Tki(p.tki_viimeisin);
+  const d4 = _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht);
+  const hero = _dimHero(d1, d2, d4);
+
+  // ── TAB 1: FYYSINEN (H-H osatasot) ──
+  const hv = p.hh_viimeisin || {};
+  const friv = function(lbl, key, arvo, yks) {
+    const taso = (arvo != null && ika && sp) ? hhLaskeTaso(key, arvo, ika, sp) : null;
+    return '<tr style="border-top:.5px solid var(--border)">'
+      + '<td style="padding:7px 8px;color:var(--ink2)">' + lbl + '</td>'
+      + '<td style="padding:7px 8px">' + _dimSeg(taso) + '</td>'
+      + '<td style="padding:7px 8px;font-family:var(--font-m);color:' + (taso==null?'var(--ink3)':hhTasoVari(taso)) + '">' + (taso != null ? taso + '/5' : '—') + '</td>'
+      + '<td style="padding:7px 8px;font-family:var(--font-m);color:var(--ink2)">' + (arvo != null ? arvo + ' ' + yks : '—') + '</td></tr>';
+  };
+  let f1 = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
+    + friv('Nopeus (30m)', '30m', hv.lin30m, 's')
+    + friv('Räjähtävyys (CMJ)', 'cmj', hv.cmj, 'cm')
+    + friv('Kestävyys (MAS)', 'mas', hv.mas, 'km/h')
+    + '<tr style="border-top:1px solid var(--border)"><td style="padding:8px;color:var(--ink);font-weight:600">H-H kokonais</td>'
+    + '<td style="padding:8px">' + _dimSeg(d1) + '</td>'
+    + '<td style="padding:8px;font-family:var(--font-m);color:' + (d1==null?'var(--ink3)':hhTasoVari(d1)) + '">' + (d1!=null?d1+'/5':'—') + '</td><td></td></tr>'
+    + '</tbody></table>'
+    + '<div style="font-size:10px;color:var(--ink3);margin-top:8px">Suunta (↑↓→) vaatii testihistorian — Sprint 2. Ikä/sp johdettu joukkueesta: ' + (ika||'?') + ' · ' + (sp||'?') + '</div>';
+
+  // ── TAB 2: TEKNINEN (TKI + FLEI) ──
+  const tsi = (p.sm_pallo != null && p.sm_juoksu != null) ? (Math.round((p.sm_pallo - p.sm_juoksu)*100)/100) : null;
+  const m2 = _tkiMerkkiVP(p.tki_viimeisin, p.tki_merkki);
+  const tRiv = function(lbl, val) { return '<tr style="border-top:.5px solid var(--border)"><td style="padding:6px 8px;color:var(--ink2)">' + lbl + '</td><td style="padding:6px 8px;font-family:var(--font-m);color:var(--ink)">' + val + '</td></tr>'; };
+  let f2 = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
+    + tRiv('TSI (SM-pallo − SM-juoksu)', tsi != null ? tsi + ' s' : '—')
+    + tRiv('TKI', p.tki_viimeisin != null ? p.tki_viimeisin : '—')
+    + tRiv('Merkki', m2 ? (m2.emoji + ' ' + m2.nimi) : '—')
+    + '</tbody></table>';
+  const ket = function(a) { return (a-1)/2*100; };   // 1.0–3.0 → 0–100
+  const fleiRiv = function(lbl, arvo, normFn) {
+    const bar = (arvo != null) ? _dimBar(normFn ? normFn(arvo) : arvo, 100, 'var(--teal)') : _dimBar(null, 100);
+    return '<tr style="border-top:.5px solid var(--border)"><td style="padding:6px 8px;color:var(--ink2)">' + lbl + '</td>'
+      + '<td style="padding:6px 8px">' + bar + '</td>'
+      + '<td style="padding:6px 8px;font-family:var(--font-m);color:var(--ink)">' + (arvo != null ? arvo : '—') + '</td></tr>';
+  };
+  f2 += '<div style="margin-top:14px;font-size:10px;letter-spacing:.1em;color:var(--ink3);text-transform:uppercase;margin-bottom:4px">FLEI</div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
+    + fleiRiv('FLEI kokonais', p.flei_viimeisin, null)
+    + fleiRiv('Räjähtävyysketju (SBL)', p.sbl, ket)
+    + fleiRiv('Lähtö-jarrutus (SFL)', p.sfl, ket)
+    + fleiRiv('Sivuttaisketju (LL)', p.ll, ket)
+    + fleiRiv('Kiertoketju (DIAG)', p.diag, ket)
+    + fleiRiv('Hallintaketju (DFL)', p.dfl, ket)
+    + '</tbody></table>';
+
+  // ── TAB 3: PELI (ADAR) ──
+  let f3;
+  const av = p.adar_viimeisin;
+  if (!av) { f3 = '<div style="color:var(--ink3);font-style:italic;padding:12px">Ei havaintoja vielä</div>'; }
+  else {
+    const ar = function(lbl, val) {
+      return '<tr style="border-top:.5px solid var(--border)"><td style="padding:7px 8px;color:var(--ink2)">' + lbl + '</td>'
+        + '<td style="padding:7px 8px;font-family:var(--font-m);color:var(--ink)">' + (val != null ? val + '/3' : '—') + '</td>'
+        + '<td style="padding:7px 8px">' + _dimBar(val, 3, 'var(--teal)') + '</td></tr>';
+    };
+    f3 = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
+      + ar('Awareness', av.a) + ar('Decision', av.d) + ar('Action', av.ac) + ar('Reaction', av.r)
+      + '<tr style="border-top:1px solid var(--border)"><td style="padding:8px;color:var(--ink);font-weight:600">ADAR kokonais</td>'
+      + '<td style="padding:8px;font-family:var(--font-m);color:var(--ink)">' + (av.yht != null ? av.yht + '/12' : '—') + '</td><td></td></tr>'
+      + '</tbody></table>';
+  }
+
+  // ── TAB 4: KEHITYS ──
+  const dRiv = function(lbl, val) { return '<tr style="border-top:.5px solid var(--border)"><td style="padding:7px 8px;color:var(--ink2)">' + lbl + '</td><td style="padding:7px 8px;color:var(--ink)">' + val + '</td></tr>'; };
+  const phvTxt = p.phv_tila ? ('<span style="color:' + _phvVari(p.phv_tila) + '">' + _jsvEsc(p.phv_tila) + ' · ' + (_PHV_LABEL[p.phv_tila] || '') + '</span>') : 'Ei mittausta';
+  let f4 = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
+    + dRiv('PHV-vaihe', phvTxt)
+    + dRiv('Bio-ikä', '<span style="color:var(--ink3)">Tulossa (KR-kertoimet)</span>')
+    + dRiv('Viimeisin H-H', p.hh_pvm ? _jsvEsc(p.hh_pvm) : '—')
+    + dRiv('Viimeisin TKI', p.tki_pvm ? _jsvEsc(p.tki_pvm) : '—')
+    + '</tbody></table>';
+
+  // ── Modaali (_jspModal, z 320 → Kerros 1:n päälle) ──
+  let h = '<div id="_jspModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:320;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">';
+  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:640px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column" onclick="event.stopPropagation()">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px 24px 10px">';
+  h += '<div><button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;padding:0;font-family:\'DM Sans\',sans-serif">← ' + _jsvEsc(joukkueNimi) + '</button>';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink);margin-top:2px">' + _jsvEsc(nimi) + '</div></div>';
+  h += '<button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
+  h += '</div>';
+  h += '<div style="padding:0 24px">' + hero + '</div>';
+  h += '<div style="display:flex;gap:6px;padding:0 24px 12px;border-bottom:.5px solid var(--border)">';
+  ['🏃 Fyysinen','⚽ Tekninen','🧠 Peli','📈 Kehitys'].forEach(function(lbl,i) {
+    h += '<button id="_jspBtn' + i + '" class="' + (i===0?'on':'') + '" onclick="_jspVaihda(' + i + ')" style="padding:7px 11px;font-size:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;border-radius:5px;font-family:\'DM Sans\',sans-serif">' + lbl + '</button>';
+  });
+  h += '</div>';
+  h += '<style>#_jspModal [id^="_jspBtn"].on{background:rgba(40,176,144,.18)!important;border-color:rgba(40,176,144,.5)!important;color:#28B090!important}</style>';
+  h += '<div style="padding:18px 24px;overflow-y:auto;flex:1">';
+  h += '<div id="_jspTab0">' + f1 + '</div>';
+  h += '<div id="_jspTab1" style="display:none">' + f2 + '</div>';
+  h += '<div id="_jspTab2" style="display:none">' + f3 + '</div>';
+  h += '<div id="_jspTab3" style="display:none">' + f4 + '</div>';
+  h += '</div>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:.5px solid var(--border)">';
+  h += '<button onclick="_avaaPerPelaajaPikakatsaus(' + (idx-1) + ',\'' + jesc + '\')" style="padding:8px 14px;background:transparent;color:var(--ink);border:.5px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:\'DM Sans\',sans-serif">← Edellinen</button>';
+  h += '<span style="font-size:11px;color:var(--ink3);font-family:var(--font-m)">' + (idx+1) + ' / ' + nP + '</span>';
+  h += '<button onclick="_avaaPerPelaajaPikakatsaus(' + (idx+1) + ',\'' + jesc + '\')" style="padding:8px 14px;background:transparent;color:var(--ink);border:.5px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:\'DM Sans\',sans-serif">Seuraava →</button>';
+  h += '</div>';
+  h += '</div></div>';
+
+  const wrap = document.createElement('div');
+  wrap.innerHTML = h;
+  const modal = wrap.firstChild;
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+};
 
 
 function renderValmentajat() {
@@ -3957,6 +4104,76 @@ function hhTasoVari(taso) {
   if (taso < 4) return '#ba7517';   // 3 keltainen
   return '#1D9E75';                 // 4–5 vihreä
 }
+
+// ─── H-H osatasot (inline-kopio Excel_Tuonti / docs/testit_indeksit.js — avaintestit 30m/cmj/mas) ───
+// HUOM: avaimet '30m'/'cmj'/'mas' (EI lin30m/hyppy_cj); sukupuoli 'P'/'T' (EI M/N).
+const HH_NORMIT_PIKA = {
+  P: {
+    '30m': {10:[5.40,5.10,4.90,4.70],11:[5.20,4.95,4.75,4.55],12:[5.00,4.75,4.55,4.35],13:[4.80,4.55,4.35,4.15],14:[4.60,4.35,4.18,4.00],15:[4.45,4.20,4.05,3.88],16:[4.30,4.10,3.93,3.78],17:[4.18,3.98,3.83,3.68],18:[4.10,3.90,3.75,3.60],19:[4.05,3.85,3.70,3.55]},
+    cmj: {10:[20,25,30,36],11:[22,27,33,39],12:[25,30,36,43],13:[28,34,40,47],14:[32,38,45,52],15:[36,43,50,57],16:[40,47,54,61],17:[43,50,57,64],18:[45,52,59,66],19:[46,53,60,67]},
+    mas: {10:[9.0,10.0,11.0,12.0],11:[9.5,10.5,11.5,12.5],12:[10.0,11.0,12.0,13.0],13:[10.5,11.5,12.5,13.5],14:[11.0,12.0,13.0,14.0],15:[11.5,12.5,13.5,14.5],16:[12.0,13.0,14.0,15.0],17:[12.5,13.5,14.5,15.5],18:[13.0,14.0,15.0,16.0],19:[13.5,14.5,15.5,16.5]}
+  },
+  T: {
+    '30m': {10:[5.70,5.40,5.20,5.00],11:[5.50,5.20,5.00,4.80],12:[5.30,5.00,4.82,4.62],13:[5.15,4.85,4.67,4.47],14:[5.05,4.75,4.58,4.38],15:[4.98,4.70,4.53,4.33],16:[4.93,4.65,4.48,4.29],17:[4.90,4.62,4.46,4.27],18:[4.88,4.60,4.44,4.25],19:[4.87,4.59,4.43,4.24]},
+    cmj: {10:[16,20,25,30],11:[18,22,27,33],12:[20,25,30,36],13:[23,28,33,39],14:[25,30,36,42],15:[27,32,38,44],16:[28,34,39,45],17:[29,35,40,46],18:[30,36,41,47],19:[30,36,42,48]},
+    mas: {10:[8.5,9.5,10.5,11.5],11:[9.0,10.0,11.0,12.0],12:[9.5,10.5,11.5,12.5],13:[10.0,11.0,12.0,13.0],14:[10.5,11.5,12.5,13.5],15:[11.0,12.0,13.0,14.0],16:[11.2,12.2,13.2,14.2],17:[11.4,12.4,13.4,14.4],18:[11.5,12.5,13.5,14.5],19:[11.5,12.5,13.5,14.5]}
+  }
+};
+const HH_KAANTEINEN_PIKA = new Set(['30m']); // 30m: pienempi parempi; cmj/mas: suurempi parempi
+function hhLaskeTaso(testi, arvo, ika, sp) {
+  const sukuNormit = HH_NORMIT_PIKA[sp] || HH_NORMIT_PIKA['P'];
+  const testiNormit = sukuNormit[testi];
+  if (!testiNormit || arvo == null || isNaN(arvo)) return null;
+  const ikaInt = Math.round(Math.max(10, Math.min(19, ika)));
+  const rajat = testiNormit[ikaInt];
+  if (!rajat) return null;
+  const t2 = rajat[0], t3 = rajat[1], t4 = rajat[2], t5 = rajat[3];
+  if (HH_KAANTEINEN_PIKA.has(testi)) {
+    if (arvo > t2) return 1; if (arvo > t3) return 2; if (arvo > t4) return 3; if (arvo > t5) return 4; return 5;
+  }
+  if (arvo < t2) return 1; if (arvo < t3) return 2; if (arvo < t4) return 3; if (arvo < t5) return 4; return 5;
+}
+
+// ─── Jaetut apurit dimensiopopupille (Kerros 1 + Kerros 2) ───
+// Ikä + sukupuoli joukkuenimestä (sama logiikka kuin recalcHH); sp palautetaan P/T (hhLaskeTaso-muoto).
+function _dimIkaSp(joukkue, p) {
+  const m = String(joukkue || '').match(/\b([PTU])\s?(\d{1,2})\b/i);
+  const ika = m ? parseInt(m[2], 10)
+            : (p && p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null);
+  const sp = (m && /[PT]/i.test(m[1])) ? m[1].toUpperCase()
+           : (p && p.sukupuoli ? (p.sukupuoli === 'M' ? 'P' : p.sukupuoli === 'N' ? 'T' : p.sukupuoli) : null);
+  return { ika: ika, sp: sp };
+}
+// Normalisoinnit 1–5-asteikolle (hero-dimensiot)
+function _dimNorm5Tki(tki)  { return (tki == null)  ? null : Math.round((tki / 20) * 10) / 10; }       // TKI 0–100 → 0–5
+function _dimNorm5Adar(yht) { return (yht == null)  ? null : Math.round((yht / 12 * 5) * 10) / 10; }    // ADAR yht 4–12 → ~1.7–5
+// 5-segmenttinen palkki (1–5); täytetty = tasoväri, tyhjä = himmeä luu. taso null → kaikki tyhjät.
+function _dimSeg(taso) {
+  const vari = hhTasoVari(taso);
+  const fill = (taso == null) ? 0 : Math.max(0, Math.min(5, Math.round(taso)));
+  let s = '<span style="display:inline-flex;gap:2px;vertical-align:middle">';
+  for (let i = 1; i <= 5; i++) s += '<span style="width:9px;height:9px;background:' + (i <= fill ? vari : 'rgba(255,253,247,0.10)') + '"></span>';
+  return s + '</span>';
+}
+// Vaaka-arvopalkki (0–max), teal-täyttö himmeällä pohjalla — FLEI/ketjut/ADAR-osat
+function _dimBar(arvo, max, vari) {
+  const pct = (arvo == null || max <= 0) ? 0 : Math.max(0, Math.min(100, (arvo / max) * 100));
+  return '<span style="display:inline-block;width:64px;height:6px;background:rgba(255,253,247,0.10);vertical-align:middle">'
+    + '<span style="display:block;height:6px;width:' + pct + '%;background:' + (vari || 'var(--teal)') + '"></span></span>';
+}
+const _PHV_LABEL = { PRE:'Ennen kasvupyrähdystä', LAH:'Lähestyy', PH:'Kasvupyrähdyksessä ⚠', POST:'Jälkeen', AN:'Jälki-PHV', VA:'Vakaa' };
+function _phvVari(t) { return (t === 'PH') ? 'var(--amber)' : (t === 'PRE' || t === 'LAH') ? 'var(--ink2)' : 'var(--teal)'; }
+// Hero-dimensiorivi D1/D2/D4 (taso 1–5 tai null) — Kerros 1 (joukkueen ka.) + Kerros 2 (pelaaja)
+function _dimHero(d1, d2, d4) {
+  const solu = (lbl, sub, taso) => '<div style="flex:1;text-align:center">'
+    + '<div style="font-family:var(--font-m);font-size:10px;letter-spacing:.08em;color:var(--ink3)">' + lbl + '</div>'
+    + '<div style="margin:5px 0">' + _dimSeg(taso) + '</div>'
+    + '<div style="font-family:var(--font-m);font-size:14px;color:' + (taso == null ? 'var(--ink3)' : hhTasoVari(taso)) + '">' + (taso == null ? '—' : taso) + '</div>'
+    + '<div style="font-size:10px;color:var(--ink3)">' + sub + '</div></div>';
+  return '<div style="display:flex;gap:8px;padding:12px 0;border-top:.5px solid var(--border);border-bottom:.5px solid var(--border);margin-bottom:14px">'
+    + solu('D1', 'Fyysinen', d1) + solu('D2', 'Tekninen', d2) + solu('D4', 'Pelitieto', d4) + '</div>';
+}
+function _dimKa(arr) { const v = arr.filter(x => x != null); return v.length ? Math.round((v.reduce((a,b)=>a+b,0)/v.length)*10)/10 : null; }
 function tkiBenchmarkPalkki(tkiKa, ikaluokka) {
   const bm = TK_KANSALLINEN_BENCHMARK[ikaluokka];
   if (!bm || tkiKa == null) return '<span class="data-puuttuu">—</span>';
