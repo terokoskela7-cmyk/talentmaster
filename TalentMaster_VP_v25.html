@@ -3237,11 +3237,14 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     + friv('Räjähtävyys (CMJ)', tasoOf('cmj', hv.cmj), hv.cmj, 'cm', false)
     + friv('Kestävyys (MAS)', tasoOf('mas', hv.mas), hv.mas, 'km/h', false)
     + friv('H-H kokonais', d1, (d1 != null ? d1 : null), '/5', true);
-  // FVP — voima-nopeus-profiili (5m + 30m). Kiihdytys- vs huippunopeustyyppi → valmennusvipu.
+  // Kiihdytysprofiili — valmennusvipu. Ensisijaisesti 5m-FVP; fallback 10m+30m (lentävä väliaika) datalla joka useimmilla on.
   const fvp = (typeof laskeFVP === 'function' && hv.lin5m != null && hv.lin30m != null) ? laskeFVP(hv.lin5m, hv.lin30m) : null;
   if (fvp != null) {
     const fvpTyyppi = fvp < 0.90 ? 'nopeusprofiili — huippunopeus vahvuus' : fvp <= 1.10 ? 'tasapainoinen profiili' : 'voimaprofiili — kiihdytys vahvuus';
     f1 += '<div style="font-size:11px;color:var(--ink3);margin-top:8px">FVP ' + fvp.toFixed(2) + ' · ' + fvpTyyppi + '</div>';
+  } else {
+    const kp = (typeof laskeKiihdytysprofiili === 'function' && hv.lin10m != null && hv.lin30m != null) ? laskeKiihdytysprofiili(hv.lin10m, hv.lin30m) : null;
+    if (kp != null) f1 += '<div style="font-size:11px;color:var(--ink3);margin-top:8px">Kiihdytysprofiili (10–30m) ' + kp.suhde.toFixed(2) + ' · ' + kp.tyyppi + '</div>';
   }
   f1 += '<div style="font-size:11px;color:var(--ink3);margin-top:10px">Suunta (↑↓→) vaatii testihistorian — Sprint 2. Ikä/sp: ' + (ika||'?') + ' · ' + (spMN||'?') + '</div>';
 
