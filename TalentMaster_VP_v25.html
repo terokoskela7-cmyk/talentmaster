@@ -4536,6 +4536,39 @@ function laskeD2Taso(p) {
 }
 function _d2Lahde(p) { return (p.tki_viimeisin != null) ? 'tki' : (p.d2_taso != null) ? 'sm' : null; }
 
+// ── Hidden Gem -luokitin (CLAUDE.md §28). Biologinen perusta: korkea D2 + matala D1 = aito gem VAIN pre-PHV.
+// D1=hh_taso · D2=laskeD2Taso · PHV=phv_tila · mitali=tekninen_varhaiskehitys (pikakenttä) · FLEI=flei_viimeisin.
+// Porras (korkein voittaa): eliitti (mitali U8–12, longitudinaalinen) > vahvistettu (PRE-PHV) > ehdokas (poikkileikkaus).
+// Kynnykset (kalibroitavissa oikealla datalla): D2≥3.5 · D1≤2.5 · erotus≥1.0. FLEI-HG = flei≥65 (erillinen). Molemmat → kullankimpale.
+function laskeHiddenGem(p) {
+  const d1 = (p.hh_taso != null) ? p.hh_taso : null;
+  const d2 = laskeD2Taso(p);
+  const dCrit = (d1 != null && d2 != null && d2 >= 3.5 && d1 <= 2.5 && (d2 - d1) >= 1.0);
+  const prePhv = (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+  const tv = p.tekninen_varhaiskehitys;
+  const mitali = !!(tv && (tv.merkki === 'kulta' || tv.merkki === 'hopea'));
+  let taso = null;
+  if (dCrit) { taso = mitali ? 'eliitti' : prePhv ? 'vahvistettu' : 'ehdokas'; }
+  const fleiHG = ((p.flei_viimeisin || 0) >= HIDDEN_GEM_FLEI) && p.talenttiOhjelma !== true;
+  return { taso: taso, dHG: !!taso, fleiHG: fleiHG, kimpale: (!!taso && fleiHG), mitali: mitali, prePhv: prePhv, d1: d1, d2: d2 };
+}
+// HG-badge pelaajalle (null jos ei mikään). Kullankimpale ohittaa muut. Stored signaali:'xfactor' hoidetaan erikseen.
+function _hgBadge(p) {
+  const hg = laskeHiddenGem(p);
+  if (hg.kimpale) return '<span class="tag" style="background:var(--gold-tint);color:var(--gold)" title="Kullankimpale — korkea FLEI + tekninen Hidden Gem, molemmat kriittiset ikkunat käytetty (§28)">💎 Kullankimpale</span>';
+  if (hg.taso === 'eliitti')     return '<span class="tag hidden" title="Hidden Gem (eliitti) — tekninen varhaiskehitys vahvistettu, mitali U8–12">Hidden Gem ★</span>';
+  if (hg.taso === 'vahvistettu') return '<span class="tag hidden" title="Hidden Gem (vahvistettu) — korkea D2 + matala D1 + PRE-PHV: fyysinen nousuvara edessä">Hidden Gem ✓</span>';
+  if (hg.taso === 'ehdokas')     return '<span class="tag hidden" title="Hidden Gem -ehdokas — korkea D2 + matala D1 (PHV-data vahvistaisi)">Hidden Gem ?</span>';
+  if (hg.fleiHG)                 return '<span class="tag hidden" title="FLEI Hidden Gem — liikevalmius poikkeuksellinen (FLEI ≥ 65)">Hidden Gem (FLEI)</span>';
+  return null;
+}
+// Onko pelaaja talenttisuositus (X-Factor stored TAI mikä tahansa Hidden Gem -tunnistus)
+function _onTalenttisuositus(p) {
+  if (p.signaali === 'xfactor' || p.signaali === 'hidden') return true;
+  const hg = laskeHiddenGem(p);
+  return hg.dHG || hg.fleiHG;
+}
+
 function _dimHero(d1, d2, d4, d2Lahde) {
   const kortti = (lbl, taso) => '<div class="dim-kortti">'
     + '<span class="dim-label">' + lbl + '</span>'
@@ -5173,7 +5206,7 @@ function renderPelaajatFiltered() {
     const idpIds = new Set(_idpJono.map(i => i.pelaajaId));
     filtered = _pelaajat.filter(p => !idpIds.has(p.id) && !p.idpAktiivinen);
   } else if (_activeFilter === 'talenttisuositus') {
-    filtered = _pelaajat.filter(p => p.signaali === 'xfactor' || p.signaali === 'hidden');
+    filtered = _pelaajat.filter(p => _onTalenttisuositus(p));
   } else if (_activeFilter === 'siirtopaatos') {
     filtered = _pelaajat.filter(p => p.siirtopaatos);
   }
@@ -5188,9 +5221,7 @@ function renderPelaajatFiltered() {
     const flei = p.flei_viimeisin || 0;
     const pct  = Math.min(100, flei);
     const sig = p.signaali === 'xfactor' ? '<span class="tag xfactor">X-Factor</span>'
-              : p.signaali === 'hidden'   ? '<span class="tag hidden">Hidden Gem</span>'
-              : _tarvitseeTuki(p) ? '<span class="tag" style="background:rgba(201,64,64,.15);color:var(--red)">Erityistuki</span>'
-              : '—';
+              : (_hgBadge(p) || (_tarvitseeTuki(p) ? '<span class="tag" style="background:rgba(201,64,64,.15);color:var(--red)">Erityistuki</span>' : '—'));
     const phvColor = p.phv_tila === 'PH' ? 'color:var(--amber)' : '';
     return `
       <tr>
