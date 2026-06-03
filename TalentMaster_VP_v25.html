@@ -1293,6 +1293,14 @@ body {
 .jk-badge { font-size: 9px; color: var(--ink3); background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06); border-radius: 4px; padding: 2px 5px; margin-top: 6px; display: inline-flex; align-items: center; gap: 3px; }
 .jk-badge i { font-size: 10px; }
 .jk-suunta { font-size: 12px; font-weight: 600; margin-top: 4px; }
+/* Joukkuekortin dimensiorivit (D1/D2 rinnakkain) */
+.jk-dim-rivi { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.jk-dim-label { font-size: 9px; font-weight: 700; letter-spacing: .06em; color: var(--ink3); width: 16px; flex-shrink: 0; }
+.jk-palkki-wrap { flex: 1; height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; }
+.jk-palkki-fill { height: 100%; border-radius: 2px; }
+.jk-dim-arvo { font-size: 13px; font-weight: 700; font-family: var(--font-mono); min-width: 28px; text-align: right; }
+.jk-dim-ctx { font-size: 9px; color: var(--ink3); min-width: 44px; }
+.jk-dim-puuttuu { opacity: .35; }
 
 /* Toimenpiteet (TalentMaster ehdottaa → VP päättää) */
 .tp-kortti { border: 1px solid rgba(255,255,255,.07); border-radius: 10px; overflow: hidden; margin-bottom: 6px; }
@@ -1392,6 +1400,7 @@ body {
   .keh-value { font-size: 22px; }
   .jk-nimi { font-size: 18px; }
   .jk-arvo { font-size: 20px; }
+  .jk-dim-ctx { display: none; }   /* Eerikkilä/SM-testi-teksti piiloon mobiilissa — numerot+palkit riittävät */
 }
 /* Placeholder-teksti luettavaksi (WCAG) — globaali, ei selaimen oletushimmennystä */
 input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
@@ -4513,7 +4522,23 @@ function laskeJoukkueSuunta(joukkuePelaajat) {
   return                  { symboli: '→', delta: '→',                  tila: 'tasainen', vari: 'var(--ink3)' };
 }
 
-// Joukkuekortit 2×2-grid — H-H ka. + suunta/badge + Eerikkilä%; klikkaus → syvänäkymä (täysi TKI).
+// Joukkueen D2-taso (1–5) + lähde. Sama prioriteetti kuin laskeD2Taso, mutta joukkuetasolla ≥3-kynnyksellä
+// per lähde → { arvo, lahde:'tki'|'sm' } tai null (ei näytetä riviä). 'sm' → ¹-merkintä kortissa.
+function laskeJoukkueD2(joukkuePelaajat) {
+  const tkiPel = joukkuePelaajat.filter(function(p){ return p.tki_viimeisin != null; });
+  if (tkiPel.length >= 3) {
+    const ka = tkiPel.reduce(function(s,p){ return s + (p.tki_viimeisin / 20); }, 0) / tkiPel.length;
+    return { arvo: Math.round(ka * 10) / 10, lahde: 'tki' };
+  }
+  const d2Pel = joukkuePelaajat.filter(function(p){ return p.d2_taso != null; });
+  if (d2Pel.length >= 3) {
+    const ka = d2Pel.reduce(function(s,p){ return s + p.d2_taso; }, 0) / d2Pel.length;
+    return { arvo: Math.round(ka * 10) / 10, lahde: 'sm' };
+  }
+  return null;
+}
+
+// Joukkuekortit 2×2-grid — D1 (H-H) + D2 (TKI/SM) rinnakkain; klikkaus → syvänäkymä.
 function renderTeamPulse() {
   const cont = document.getElementById('joukkuekortit');
   if (!cont) return;
@@ -4538,10 +4563,23 @@ function renderTeamPulse() {
     const suunta = laskeJoukkueSuunta(pelaajat);
 
     let h = '<div class="jk" onclick="avaaJoukkueSyvanakyma(\'' + safeNimi + '\')">';
-    h += '<div class="jk-top"><div><div class="jk-nimi">' + ikaluokka + '</div><div class="jk-pel">' + koko + ' pel.</div></div>';
-    h += '<div class="jk-arvo" style="color:' + vari + '">' + (hhKa != null ? hhKa : '—') + '</div></div>';
-    h += '<div class="jk-bar"><div class="jk-bar-fill" style="width:' + pct + '%;background:' + vari + '"></div></div>';
-    h += '<div class="jk-bottom"><span class="jk-eerikkila">Eerikkilä ' + pct + '%</span></div>';
+    h += '<div class="jk-top"><div class="jk-nimi">' + ikaluokka + '</div><div class="jk-pel">' + koko + ' pel.</div></div>';
+    // D1 Fyysinen (H-H)
+    h += '<div class="jk-dim-rivi"><span class="jk-dim-label">D1</span>'
+      + '<div class="jk-palkki-wrap"><div class="jk-palkki-fill" style="width:' + pct + '%;background:' + vari + '"></div></div>'
+      + '<span class="jk-dim-arvo" style="color:' + vari + '">' + (hhKa != null ? hhKa : '—') + '</span>'
+      + '<span class="jk-dim-ctx">Eerikkilä</span></div>';
+    // D2 Tekninen (TKI > SM) — rivi vain jos dataa ≥3 pelaajalla
+    const d2 = laskeJoukkueD2(pelaajat);
+    if (d2 != null) {
+      const d2Vari = d2.arvo >= 3.5 ? 'var(--teal)' : d2.arvo >= 2.5 ? 'var(--amber)' : 'var(--red)';
+      h += '<div class="jk-dim-rivi"><span class="jk-dim-label">D2</span>'
+        + '<div class="jk-palkki-wrap"><div class="jk-palkki-fill" style="width:' + Math.round(d2.arvo/5*100) + '%;background:' + d2Vari + '"></div></div>'
+        + '<span class="jk-dim-arvo" style="color:' + d2Vari + '">' + d2.arvo + (d2.lahde === 'sm' ? '¹' : '') + '</span>'
+        + '<span class="jk-dim-ctx">' + (d2.lahde === 'sm' ? 'SM-testi' : 'TKI') + '</span></div>';
+    } else {
+      h += '<div class="jk-dim-rivi jk-dim-puuttuu"><span class="jk-dim-label">D2</span><span class="jk-dim-ctx" style="min-width:auto">— SM-testi puuttuu</span></div>';
+    }
     if (suunta.tila === 'ensimmainen_mittaus') {
       h += '<div class="jk-badge"><i class="ti ti-refresh" aria-hidden="true"></i> 2. mittaus puuttuu</div>';
     } else if (suunta.symboli) {
