@@ -2608,6 +2608,7 @@ async function tallennaFirestoreen() {
       if (fleiPct !== null) tallennusData.flei_pct = fleiPct;
       if (tki !== null)     tallennusData.tki = tki;
       if (merkki)           tallennusData.merkki = merkki;
+      if (ika != null)      tallennusData.ika = ika;   // ikä kilpailuhetkellä → Hidden Gem -eliitti (varhaiskehitys, §28)
       if (p.sukupuoli)      tallennusData.sukupuoli = p.sukupuoli === 'P' ? 'M' : p.sukupuoli === 'T' ? 'N' : p.sukupuoli;
       if (p.joukkue)        tallennusData.joukkue = p.joukkue;
 
@@ -3765,6 +3766,68 @@ window.recalcHHsplits = async function(seuraIdArg, dryRun) {
   }
   console.log('[recalcHHsplits] valmis: ' + paivitetty + ' / ' + pelSnap.docs.length + ' · ohitettu: ' + ohitettu + ' · virheitä: ' + virhe);
   if (typeof toast === 'function') toast('recalcHHsplits: ' + paivitetty + ' päivitetty' + (virhe ? ' · '+virhe+' virhe' : ''), virhe ? 'err' : 'ok');
+  return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, virhe: virhe };
+};
+
+// recalcVarhaiskehitys(seuraId, dryRun=true) — backfill Hidden Gem -eliittiportaalle (CLAUDE.md §28).
+// Skannaa testitulokset, etsii tekniikkakilpailun kulta/hopea iässä 8–12 → pikakenttä
+// tekninen_varhaiskehitys:{merkki,ika,pvm} (paras: kulta>hopea, sama merkki → nuorin ikä). SA-only.
+window.recalcVarhaiskehitys = async function(seuraIdArg, dryRun) {
+  if (dryRun === undefined) dryRun = true;
+  if (!superAdmin) { console.warn('[recalcVarhaiskehitys] Vain Super Admin'); return; }
+  const sid = seuraIdArg || seuraId;
+  if (!sid) { console.warn('[recalcVarhaiskehitys] Käyttö: recalcVarhaiskehitys(seuraId, dryRun=true)'); return; }
+  if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true);
+  // Ikä kilpailuhetkellä: ikaluokka-kenttä ("P10"→10) → ika-kenttä → kilpailuvuosi−syntymaVuosi.
+  const ikaTuloksesta = function(d, p) {
+    if (d.ikaluokka) { const m = String(d.ikaluokka).match(/(\d{1,2})/); if (m) return parseInt(m[1], 10); }
+    if (d.ika != null && !isNaN(parseInt(d.ika, 10))) return parseInt(d.ika, 10);
+    const pvm = d.testauspvm || d.pvm; const sv = p.syntymaVuosi;
+    if (pvm && sv) { const y = parseInt(String(pvm).slice(0, 4), 10); if (!isNaN(y)) return y - sv; }
+    return null;
+  };
+  const pelSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+  const muutokset = [];
+  let ohitettu = 0;
+  for (const pelDoc of pelSnap.docs) {
+    const p = pelDoc.data();
+    const tulSnap = await db.collection('seurat').doc(sid).collection('pelaajat').doc(pelDoc.id)
+      .collection('testitulokset').get().catch(function(){ return { docs: [] }; });
+    // Kandidaatit: kulta/hopea, ikä 8–12
+    const kand = [];
+    tulSnap.docs.forEach(function(t){
+      const d = t.data();
+      if (d.merkki !== 'kulta' && d.merkki !== 'hopea') return;
+      const ika = ikaTuloksesta(d, p);
+      if (ika == null || ika < 8 || ika > 12) return;
+      kand.push({ merkki: d.merkki, ika: ika, pvm: d.testauspvm || d.pvm || null });
+    });
+    if (!kand.length) { ohitettu++; continue; }
+    // Paras: kulta ennen hopeaa, sitten nuorin ikä (vahvin signaali)
+    kand.sort(function(a,b){ if (a.merkki !== b.merkki) return a.merkki === 'kulta' ? -1 : 1; return a.ika - b.ika; });
+    const paras = kand[0];
+    const ny = p.tekninen_varhaiskehitys;
+    if (ny && ny.merkki === paras.merkki && ny.ika === paras.ika) { ohitettu++; continue; }   // jo ajan tasalla
+    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''), tv: { merkki: paras.merkki, ika: paras.ika, pvm: paras.pvm } });
+  }
+  muutokset.forEach(function(m){ console.log((dryRun?'[DRY-RUN] ':'[recalcVarhaiskehitys] OK ')+m.nimi+' · '+m.tv.merkki+' U'+m.tv.ika); });
+  if (dryRun) {
+    console.log('[DRY-RUN] recalcVarhaiskehitys: '+muutokset.length+' saa eliitti-merkinnän · '+ohitettu+' ohitettu.');
+    console.log('[DRY-RUN] Aja oikeasti: recalcVarhaiskehitys(\''+sid+'\', false)');
+    return { dryRun: true, kpl: muutokset.length, ohitettu: ohitettu };
+  }
+  const ERA = Math.min(400, BATCH_KOKO);
+  let paivitetty = 0, virhe = 0;
+  const eria = Math.ceil(muutokset.length / ERA);
+  for (let e = 0; e < eria; e++) {
+    const era = muutokset.slice(e*ERA, (e+1)*ERA);
+    const batch = db.batch();
+    era.forEach(function(m){ batch.set(m.ref, { tekninen_varhaiskehitys: m.tv }, { merge: true }); });
+    try { await batch.commit(); paivitetty += era.length; if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true); }
+    catch (err) { console.error('[recalcVarhaiskehitys batch '+(e+1)+']', err); virhe += era.length; }
+  }
+  console.log('[recalcVarhaiskehitys] valmis: ' + paivitetty + ' / ' + pelSnap.docs.length + ' · ohitettu: ' + ohitettu + ' · virheitä: ' + virhe);
+  if (typeof toast === 'function') toast('recalcVarhaiskehitys: ' + paivitetty + ' eliitti-merkintää' + (virhe ? ' · '+virhe+' virhe' : ''), virhe ? 'err' : 'ok');
   return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, virhe: virhe };
 };
 
