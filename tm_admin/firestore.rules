@@ -150,6 +150,15 @@ service cloud.firestore {
       allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
       allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
 
+      // ── TOIMENPITEET — TalentMasterin ehdotukset + VP:n kuittaukset (v3.1) ──
+      // Rules EIVÄT periydy alikokoelmiin → oma blokki. Ei delete: historia/audit-jälki
+      // säilyy aina (tila ehdotus|kuitattu|muokattu|hylatty). VP/SA luo + päivittää.
+      match /toimenpiteet/{tid} {
+        allow read:   if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow create: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+      }
+
       // ── PELAAJAT ────────────────────────────────────────────────────────
       // read: super admin | oma seura | anonyymi PIN | huoltaja (v2.3)
       // Anonyymi PIN -lukuoikeus on pakollinen: Pelaaja-näkymä hakee oman

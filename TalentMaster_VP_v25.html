@@ -1300,6 +1300,30 @@ body {
 .jk-eerikkila { font-size: 12px; color: var(--ink3); }
 .ensimmainen-info { font-size: 11px; color: var(--ink3); display: flex; align-items: center; gap: 4px; margin-top: 4px; padding: 4px 0; border-top: 1px solid rgba(255,255,255,.04); }
 
+/* Toimenpiteet (TalentMaster ehdottaa → VP päättää) */
+.tp-kortti { border: 1px solid rgba(255,255,255,.08); padding: 14px 16px; margin-bottom: 8px; }
+.tp-ylarivi { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.tp-piste { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.tp-joukkue { font-size: 13px; font-weight: 600; color: var(--ink); flex: 1; }
+.tp-pvm { font-size: 11px; color: var(--ink3); font-family: var(--font-mono); }
+.tp-teksti { font-size: 14px; color: var(--ink2); line-height: 1.45; margin-bottom: 12px; }
+.tp-napit { display: flex; gap: 8px; align-items: center; }
+.tp-kuittaa { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--teal); background: rgba(40,176,144,.08); border: 1px solid rgba(40,176,144,.2); padding: 7px 14px; cursor: pointer; flex: 1; justify-content: center; }
+.tp-muokkaa { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; color: var(--ink2); background: transparent; border: 1px solid rgba(255,255,255,.1); padding: 7px 14px; cursor: pointer; flex: 1; justify-content: center; }
+.tp-hylkaa { font-size: 16px; color: var(--ink3); background: transparent; border: none; padding: 7px 10px; cursor: pointer; }
+.tp-tyhja { font-size: 13px; color: var(--ink3); font-family: var(--font-mono); padding: 12px 0; }
+.tp-modaali-tausta { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+.tp-modaali { background: var(--bg2); border: 1px solid rgba(255,255,255,.12); padding: 20px; width: 100%; max-width: 340px; }
+.tp-modaali-otsikko { font-family: var(--font-serif); font-size: 18px; color: var(--ink); }
+.tp-alkuperainen { background: rgba(255,255,255,.04); border-left: 2px solid var(--teal); padding: 10px 12px; margin: 12px 0; }
+.tp-alkup-label { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--teal); margin-bottom: 4px; }
+.tp-alkup-teksti { font-size: 13px; color: var(--ink2); line-height: 1.4; }
+.tp-modaali textarea { width: 100%; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: var(--ink); font-family: var(--font-sans); font-size: 14px; padding: 10px; resize: vertical; box-sizing: border-box; }
+.tp-modaali-napit { display: flex; gap: 8px; margin-top: 14px; }
+.tp-modaali-napit button { flex: 1; padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); }
+.tp-modaali-napit button:first-child { background: var(--teal); color: #fff; border: none; }
+.tp-modaali-napit button:last-child { background: transparent; color: var(--ink2); border: 1px solid rgba(255,255,255,.1); }
+
 @media (max-width: 768px) {
   #hamburgeri { display: flex !important; }
   #topbar .logo { display: none; }
@@ -1571,6 +1595,15 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       </section>
 
       <div id="kehitysKortti"></div>
+
+      <section style="margin-top:8px">
+        <div class="section-header">
+          <span class="section-num">04</span>
+          <h2 class="section-title">Toimen<em>piteet</em></h2>
+          <span class="section-hint">TalentMaster ehdottaa — sinä päätät</span>
+        </div>
+        <div id="toimenpiteet-lista"></div>
+      </section>
 
       <div class="kpi-row" id="tilanneKpis">
         <div class="kpi-card">
@@ -1905,6 +1938,7 @@ async function lataaKaikki() {
   renderPelaajat();
   renderKalenteri();
   renderRaportointi();
+  _alustaToimenpiteet();   // OSA 3 — generoi + lataa toimenpiteet (async, try/catch sisällä; demossa placeholder)
 }
 
 async function lataaPelaajat() {
@@ -4075,7 +4109,7 @@ function demoMode() {
   _idpJono=[
     {id:'i1',pelaajaNimi:'Topias Koskela',pelaajaId:'p1',joukkue:'FC Demo U13',tavoite:'Vertikaalinen syöttö alta ulos',valmentaja:'Matti Korhonen',perustelu:'FLEI 62',tila:'ehdotettu'},
   ];
-  renderTilanne(); renderTeamPulse(); renderValmentajat(); renderKalib(); renderDI(); renderPelaajat(); renderKalenteri(); renderRaportointi();
+  renderTilanne(); renderTeamPulse(); renderValmentajat(); renderKalib(); renderDI(); renderPelaajat(); renderKalenteri(); renderRaportointi(); _alustaToimenpiteet();
 }
 
 // MOBIILI — sivupalkin slide-in (CLAUDE.md §6)
@@ -4514,6 +4548,176 @@ function laskeHeroInsight(pelaajat) {
   }
   return DEFAULT;
 }
+
+// ════════ OSA 3 — TOIMENPITEET (Firestore: ehdotus → kuittaus/muokkaus/hylkäys → historia) ════════
+let _toimenpiteet = [];
+
+// §12 — tuore token ennen JOKAISTA kirjoitusta
+async function _tpTuoreToken() { const u = firebase.auth().currentUser; if (u) await u.getIdToken(true); return u; }
+
+async function tallennaToimenpide(seuraId, d) {
+  await _tpTuoreToken();
+  const ref = db.collection('seurat').doc(seuraId).collection('toimenpiteet').doc();
+  await ref.set({
+    tyyppi: d.tyyppi || 'automaattinen', signaali: d.signaali || null, joukkue: d.joukkue || null,
+    teksti: d.teksti, tila: 'ehdotus', vp_teksti: null,
+    luotu: firebase.firestore.FieldValue.serverTimestamp(),   // ei array → serverTimestamp OK
+    kuitattu_pvm: null, kuitattu_uid: null
+  });
+  return ref.id;
+}
+
+// Automaattiset signaalit (joukkue, kaikki pelaajat) → {joukkue, signaali, teksti} tai null
+const TP_SIGNAALIT = [
+  { id: 'hh_taso_alhainen', tarkista: function(j, pp){
+      const a = pp.filter(function(p){ return p.joukkue === j && p.hh_taso != null && p.hh_taso < 2.5; });
+      return a.length >= 2 ? { joukkue: j, signaali: 'hh_taso_alhainen',
+        teksti: j + ' — ' + a.length + ' pelaajaa alle Eerikkilä-tason (H-H < 2.5). Aloita yksilöllinen harjoitusohjelma.' } : null;
+    } },
+  { id: 'suunta_lasku', tarkista: function(j, pp){
+      const l = pp.filter(function(p){ return p.joukkue === j && p.hh_taso != null && p.hh_taso_edellinen != null && (p.hh_taso - p.hh_taso_edellinen) < -0.3; });
+      return l.length >= 2 ? { joukkue: j, signaali: 'suunta_lasku',
+        teksti: j + ' — H-H taso laskussa ' + l.length + ' pelaajalla. Tarkista kuormitus.' } : null;
+    } },
+  { id: 'tkk_puuttuu', tarkista: function(j, pp){
+      const kaikki = pp.filter(function(p){ return p.joukkue === j; });
+      const ilman = kaikki.filter(function(p){ return p.tki_viimeisin == null; });
+      return (kaikki.length > 0 && ilman.length === kaikki.length) ? { joukkue: j, signaali: 'tkk_puuttuu',
+        teksti: j + ' — tekniikkamittaukset puuttuvat kaikilta pelaajilta. Suunnittele tekniikkakilpailu.' } : null;
+    } }
+];
+
+// Lataa avoimet ehdotukset. Lajittelu client-puolella → ei tarvita komposiitti-indeksiä (tila + luotu).
+async function lataaAvoimetToimenpiteet(seuraId) {
+  const snap = await db.collection('seurat').doc(seuraId).collection('toimenpiteet')
+    .where('tila', '==', 'ehdotus').limit(25).get();
+  const arr = snap.docs.map(function(d){ const o = d.data(); o.id = d.id; return o; });
+  arr.sort(function(a,b){ const ta = (a.luotu && a.luotu.seconds) || 0, tb = (b.luotu && b.luotu.seconds) || 0; return tb - ta; });
+  return arr.slice(0, 10);
+}
+
+// Generoi ehdotukset + tallenna Firestoreen VAIN jos samaa avointa (signaali+joukkue) ei jo ole (dedup)
+async function generoimToimenpideEhdotukset(pelaajat) {
+  if (!_seuraId || _seuraId === 'demo') return 0;
+  const avoimet = await lataaAvoimetToimenpiteet(_seuraId);
+  const onJo = {};
+  avoimet.forEach(function(t){ onJo[(t.signaali || '') + '|' + (t.joukkue || '')] = true; });
+  const joukkueet = [];
+  pelaajat.forEach(function(p){ const j = p.joukkue || 'Tuntematon'; if (joukkueet.indexOf(j) < 0) joukkueet.push(j); });
+  const uudet = [];
+  joukkueet.forEach(function(j){
+    TP_SIGNAALIT.forEach(function(sig){
+      const r = sig.tarkista(j, pelaajat);
+      if (r) { const avain = r.signaali + '|' + r.joukkue; if (!onJo[avain]) { onJo[avain] = true; uudet.push(r); } }
+    });
+  });
+  for (let i = 0; i < uudet.length; i++) {
+    await tallennaToimenpide(_seuraId, { tyyppi: 'automaattinen', signaali: uudet[i].signaali, joukkue: uudet[i].joukkue, teksti: uudet[i].teksti });
+  }
+  return uudet.length;
+}
+
+function _tpPvm(ts) {
+  if (!ts) return '';
+  try { const d = ts.toDate ? ts.toDate() : new Date(ts); return d.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' }); } catch (e) { return ''; }
+}
+function _tpVari(sig) { return sig === 'suunta_lasku' ? 'var(--red)' : sig === 'hh_taso_alhainen' ? 'var(--amber)' : 'var(--teal)'; }
+
+function renderToimenpiteet() {
+  const cont = document.getElementById('toimenpiteet-lista');
+  if (!cont) return;
+  if (!_toimenpiteet.length) { cont.innerHTML = '<div class="tp-tyhja">Ei avoimia toimenpiteitä — hyvä työ.</div>'; return; }
+  cont.innerHTML = _toimenpiteet.map(function(t){
+    let h = '<div class="tp-kortti" data-id="' + t.id + '">';
+    h += '<div class="tp-ylarivi"><div class="tp-piste" style="background:' + _tpVari(t.signaali) + '"></div>';
+    h += '<div class="tp-joukkue">' + _jsvEsc(lyhennaNimi(t.joukkue || '')) + '</div>';
+    h += '<div class="tp-pvm">' + _tpPvm(t.luotu) + '</div></div>';
+    h += '<div class="tp-teksti">' + _jsvEsc(t.teksti || '') + '</div>';
+    h += '<div class="tp-napit">';
+    h += '<button class="tp-kuittaa" onclick="_kuittaaToimenpide(\'' + t.id + '\')"><i class="ti ti-check"></i> Kuittaa</button>';
+    h += '<button class="tp-muokkaa" onclick="_muokkaaToimenpide(\'' + t.id + '\')"><i class="ti ti-edit"></i> Muokkaa</button>';
+    h += '<button class="tp-hylkaa" onclick="_hylkaaToimenpide(\'' + t.id + '\')" title="Hylkää"><i class="ti ti-x"></i></button>';
+    h += '</div></div>';
+    return h;
+  }).join('');
+}
+
+async function _alustaToimenpiteet() {
+  const cont = document.getElementById('toimenpiteet-lista');
+  if (!cont) return;
+  if (_seuraId === 'demo' || _isDemoMode) { cont.innerHTML = '<div class="tp-tyhja">Toimenpiteet näkyvät kirjautuneessa seurassa.</div>'; return; }
+  try {
+    await generoimToimenpideEhdotukset(_pelaajat);
+    _toimenpiteet = await lataaAvoimetToimenpiteet(_seuraId);
+    renderToimenpiteet();
+  } catch (e) {
+    console.warn('[toimenpiteet]', e.message);
+    cont.innerHTML = '<div class="tp-tyhja">Toimenpiteitä ei voitu ladata — tarkista että Rules v3.1 on deployattu.</div>';
+  }
+}
+
+window._kuittaaToimenpide = async function(id) {
+  try {
+    const u = await _tpTuoreToken();
+    await db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(id).update({
+      tila: 'kuitattu', kuitattu_pvm: firebase.firestore.FieldValue.serverTimestamp(), kuitattu_uid: u ? u.uid : null
+    });
+    _toimenpiteet = _toimenpiteet.filter(function(t){ return t.id !== id; });
+    renderToimenpiteet();
+    if (typeof toast === 'function') toast('Toimenpide kuitattu', 'ok');
+  } catch (e) { console.warn('[kuittaa]', e.message); if (typeof toast === 'function') toast('Kuittaus epäonnistui', 'err'); }
+};
+
+window._hylkaaToimenpide = async function(id) {
+  try {
+    await _tpTuoreToken();
+    await db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(id).update({ tila: 'hylatty' });
+    _toimenpiteet = _toimenpiteet.filter(function(t){ return t.id !== id; });
+    renderToimenpiteet();
+  } catch (e) { console.warn('[hylkaa]', e.message); if (typeof toast === 'function') toast('Hylkäys epäonnistui', 'err'); }
+};
+
+window._muokkaaToimenpide = function(id) {
+  const t = _toimenpiteet.find(function(x){ return x.id === id; });
+  if (t) renderMuokkaaModaali(id, t.teksti || '');
+};
+
+// OSA 4 — muokkaa-modaali (VP kirjoittaa oman version)
+function renderMuokkaaModaali(id, alkuperainen) {
+  const vanha = document.getElementById('tp-modaali'); if (vanha) vanha.remove();
+  let h = '<div class="tp-modaali-tausta" id="tp-modaali">';
+  h += '<div class="tp-modaali" onclick="event.stopPropagation()">';
+  h += '<div class="tp-modaali-otsikko">Muokkaa toimenpidettä</div>';
+  h += '<div class="tp-alkuperainen"><div class="tp-alkup-label">TalentMasterin ehdotus</div>';
+  h += '<div class="tp-alkup-teksti">' + _jsvEsc(alkuperainen) + '</div></div>';
+  h += '<textarea id="tp-muokkaa-textarea" rows="4" placeholder="Kirjoita oma versio..."></textarea>';
+  h += '<div class="tp-modaali-napit"><button onclick="_tallennaVpToimenpide(\'' + id + '\')">Tallenna</button>';
+  h += '<button onclick="_suljeTpModaali()">Peruuta</button></div>';
+  h += '</div></div>';
+  const wrap = document.createElement('div'); wrap.innerHTML = h;
+  const modal = wrap.firstChild;
+  modal.addEventListener('click', function(e){ if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+  const ta = document.getElementById('tp-muokkaa-textarea'); if (ta) ta.focus();
+}
+window._suljeTpModaali = function() { const m = document.getElementById('tp-modaali'); if (m) m.remove(); };
+
+window._tallennaVpToimenpide = async function(id) {
+  const ta = document.getElementById('tp-muokkaa-textarea');
+  const teksti = ta ? ta.value.trim() : '';
+  if (!teksti) return;
+  try {
+    const u = await _tpTuoreToken();
+    await db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(id).update({
+      tila: 'muokattu', vp_teksti: teksti,
+      kuitattu_pvm: firebase.firestore.FieldValue.serverTimestamp(), kuitattu_uid: u ? u.uid : null
+    });
+    _suljeTpModaali();
+    _toimenpiteet = _toimenpiteet.filter(function(t){ return t.id !== id; });
+    renderToimenpiteet();
+    if (typeof toast === 'function') toast('Oma versio tallennettu', 'ok');
+  } catch (e) { console.warn('[muokkaa-tallenna]', e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'err'); }
+};
 
 // BQ-palkki taulukkoon — käyttää laskeBQJakauma-kenttiä (q1Pct..q4Pct + n). Piilotetaan jos <50 % syntymäaika.
 function renderBQPalkki(bq, kattavuus) {
