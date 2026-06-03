@@ -2328,7 +2328,8 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
       signaalit.push({ tyyppi:'kriittinen', ikooni:'!',
         otsikko: lyhennaNimi(jkNimi) + ' — tekniikkataso tarvitsee tukea',
         kuvaus:'TKI-keskiarvo ' + Math.round(tkiKa) + '/100. Suositus: omatoimiharjoittelu-ohjelma valmentajalle.',
-        cta:'Katso harjoitussuositukset →', ctaFn:"avaaHarjoitussuositukset('" + sj(jkNimi) + "')", prioriteetti:2 });
+        cta:'Katso harjoitussuositukset →', ctaFn:"avaaHarjoitussuositukset('" + sj(jkNimi) + "')", prioriteetti:2,
+        ryhma:'tekniikka_tuki', ryhmaNimi:'Tekniikkataso tarvitsee tukea · {j} joukkuetta', ryhmaKuvaus:'omatoimiharjoittelu-ohjelma valmentajille', joukkue:jkNimi, detalji:'TKI '+Math.round(tkiKa), maara:1 });
     }
   });
   // S3: IDP-jono odottaa (käytä jo ladattua _idpJono:a — ei uutta kyselyä)
@@ -2348,7 +2349,8 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
       signaalit.push({ tyyppi:'seuranta', ikooni:'i',
         otsikko: lyhennaNimi(jkNimi) + ' — TKI-data puuttuu osalta',
         kuvaus: Math.round(tkiKatt * 100) + '% pelaajista testattu. Lisää testipäivä ennen kauden loppua.',
-        cta:null, prioriteetti:4 });
+        cta:null, prioriteetti:4,
+        ryhma:'tki_kattavuus', ryhmaNimi:'TKI-data puuttuu osalta · {j} joukkuetta', ryhmaKuvaus:'lisää testipäivä ennen kauden loppua', joukkue:jkNimi, detalji:Math.round(tkiKatt*100)+'%', maara:1 });
     }
   });
   // S5: lähellä pronssia (TKI 35–54, ei vielä merkkiä)
@@ -2359,7 +2361,8 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
       signaalit.push({ tyyppi:'seuranta', ikooni:'i',
         otsikko: lyhennaNimi(jkNimi) + ' — ' + lahella.length + ' pelaajaa lähellä pronssia',
         kuvaus:'TKI 35–54. Fokusoi omatoimiharjoittelu — pronssi on saavutettavissa seuraavassa kilpailussa.',
-        cta:null, prioriteetti:5 });
+        cta:null, prioriteetti:5,
+        ryhma:'lahella_pronssi', ryhmaNimi:'{n} pelaajaa lähellä pronssia · {j} joukkuetta', ryhmaKuvaus:'TKI 35–54, pronssi saavutettavissa seuraavassa kilpailussa', joukkue:jkNimi, detalji:lahella.length+' pel.', maara:lahella.length });
     }
   });
   // S6: ilman suostumusta
@@ -2406,24 +2409,78 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
   renderDeadlinePalkki(vaihe, (typeof _tapahtumat !== 'undefined' ? _tapahtumat : []), pelaajatData.length);
 }
 
+// Yksi signaalirivi (kortti)
+function _sigRivi(s) {
+  const luokka = s.tyyppi === 'kriittinen' ? 'sig-kriittinen' : s.tyyppi === 'positiivinen' ? 'sig-positiivinen' : 'sig-seuranta';
+  const ctaHtml = s.cta ? '<button class="sig-cta" onclick="' + s.ctaFn + '">' + s.cta + '</button>' : '';
+  return '<div class="signaali-rivi ' + luokka + '">'
+    + '<div class="sig-ikooni">' + s.ikooni + '</div>'
+    + '<div class="sig-sisalto"><div class="sig-otsikko">' + s.otsikko + '</div>'
+    + '<div class="sig-kuvaus">' + s.kuvaus + '</div></div>'
+    + (ctaHtml ? '<div class="sig-toiminto">' + ctaHtml + '</div>' : '')
+    + '</div>';
+}
+// Suljettavan osion otsikko (seuranta/onnistumiset)
+function _sigOsioHeader(key, label, vari, n) {
+  return '<div onclick="_sigToggle(\'' + key + '\')" style="display:flex;align-items:center;gap:7px;padding:9px 4px;cursor:pointer;font-size:12px;font-weight:600;color:' + vari + ';border-top:.5px solid var(--border);margin-top:8px;user-select:none">'
+    + '<span id="sig-chev-' + key + '" style="display:inline-block;transition:transform .15s;color:var(--ink3);font-size:10px">▸</span>'
+    + '<span>' + label + '</span><span style="color:var(--ink3);font-weight:400">· ' + n + '</span></div>';
+}
+window._sigToggle = function(key) {
+  const c = document.getElementById('sig-osio-' + key);
+  const ch = document.getElementById('sig-chev-' + key);
+  if (!c) return;
+  const auki = c.style.display !== 'none';
+  c.style.display = auki ? 'none' : 'block';
+  if (ch) ch.style.transform = auki ? 'rotate(0deg)' : 'rotate(90deg)';
+};
+
 function _renderSignaaliLista(signaalit) {
   const container = document.getElementById('signaalit-lista');
   if (!container) return;
-  if (signaalit.length === 0) {
+
+  // ── 1) Konsolidoi toistuvat (sama ryhma monessa joukkueessa → yksi kortti) ──
+  const ryhmat = {}, kaikki = [];
+  signaalit.forEach(function(s){ if (s.ryhma) { (ryhmat[s.ryhma] = ryhmat[s.ryhma] || []).push(s); } else kaikki.push(s); });
+  Object.keys(ryhmat).forEach(function(k){
+    const arr = ryhmat[k];
+    if (arr.length === 1) { kaikki.push(arr[0]); return; }   // yksi joukkue → alkuperäinen yksityiskohtainen viesti
+    const totN = arr.reduce(function(a,b){ return a + (b.maara || 0); }, 0);
+    const erittely = arr.map(function(s){ return lyhennaNimi(s.joukkue || '') + (s.detalji ? ' ' + s.detalji : ''); }).join(' · ');
+    const m = arr[0];
+    kaikki.push({ tyyppi:m.tyyppi, ikooni:m.ikooni, prioriteetti:m.prioriteetti,
+      otsikko: String(m.ryhmaNimi || '').replace('{n}', totN).replace('{j}', arr.length),
+      kuvaus: erittely + (m.ryhmaKuvaus ? ' — ' + m.ryhmaKuvaus : ''),
+      cta:m.cta, ctaFn:m.ctaFn });
+  });
+
+  // ── 2) Jaa kolmeen tasoon, lajittele prioriteetilla ──
+  const tasot = { kriittinen: [], seuranta: [], positiivinen: [] };
+  kaikki.forEach(function(s){ (tasot[s.tyyppi] || tasot.seuranta).push(s); });
+  Object.keys(tasot).forEach(function(t){ tasot[t].sort(function(a,b){ return (a.prioriteetti || 9) - (b.prioriteetti || 9); }); });
+
+  const kriittiset = tasot.kriittinen.length;
+  if (!kaikki.length) {
     container.innerHTML = '<div class="signaali-tyhja">Ei avoimia signaaleja tänään.</div>';
   } else {
-    container.innerHTML = signaalit.map(function(s) {
-      const luokka = s.tyyppi === 'kriittinen' ? 'sig-kriittinen' : s.tyyppi === 'positiivinen' ? 'sig-positiivinen' : 'sig-seuranta';
-      const ctaHtml = s.cta ? '<button class="sig-cta" onclick="' + s.ctaFn + '">' + s.cta + '</button>' : '';
-      return '<div class="signaali-rivi ' + luokka + '">' +
-        '<div class="sig-ikooni">' + s.ikooni + '</div>' +
-        '<div class="sig-sisalto"><div class="sig-otsikko">' + s.otsikko + '</div>' +
-          '<div class="sig-kuvaus">' + s.kuvaus + '</div></div>' +
-        (ctaHtml ? '<div class="sig-toiminto">' + ctaHtml + '</div>' : '') +
-      '</div>';
-    }).join('');
+    let html = '';
+    // 🔴 Kriittiset — aina auki
+    if (tasot.kriittinen.length) {
+      html += '<div style="font-size:11px;font-weight:600;color:var(--red);letter-spacing:.05em;padding:0 4px 6px">KRIITTISET · ' + tasot.kriittinen.length + '</div>';
+      html += tasot.kriittinen.map(_sigRivi).join('');
+    }
+    // 🟡 Seuranta — suljettu oletuksena
+    if (tasot.seuranta.length) {
+      html += _sigOsioHeader('seuranta', 'Seuranta', 'var(--amber)', tasot.seuranta.length);
+      html += '<div id="sig-osio-seuranta" style="display:none">' + tasot.seuranta.map(_sigRivi).join('') + '</div>';
+    }
+    // ✦ Onnistumiset — suljettu oletuksena
+    if (tasot.positiivinen.length) {
+      html += _sigOsioHeader('pos', 'Onnistumiset', 'var(--teal)', tasot.positiivinen.length);
+      html += '<div id="sig-osio-pos" style="display:none">' + tasot.positiivinen.map(_sigRivi).join('') + '</div>';
+    }
+    container.innerHTML = html;
   }
-  const kriittiset = signaalit.filter(function(s){ return s.tyyppi === 'kriittinen'; }).length;
   const metaEl = document.getElementById('signaalit-meta');
   if (metaEl) metaEl.textContent = kriittiset > 0 ? (kriittiset + ' vaatii toimenpidettä') : 'Ei kriittisiä';
   const badge = document.getElementById('tilanne-badge');
