@@ -2383,16 +2383,10 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
   const vaihe = laskeKayttoVaihe(pelaajatData, seuraId);
   window._kayttoVaihe = vaihe;
   const kriittiset = signaalit.filter(function(s){ return s.tyyppi === 'kriittinen'; }).length;
+  // OSA 1 — hero-insight on auktoritatiivinen (korvaa vanhan kayttoVaihe-summaryn).
+  // Signaalimäärä näkyy hero-tilaindikaattoreissa ("X vaatii toimenpiteitä").
   const summaryEl = document.getElementById('greeting-summary');
-  if (summaryEl) {
-    if (vaihe === 1) {
-      summaryEl.textContent = 'Tervetuloa TalentMasteriin. ' + pelaajatData.length + ' pelaajaa tuotu — aloitetaan ensimmäisellä testipäivällä.';
-    } else if (kriittiset > 0) {
-      summaryEl.textContent = kriittiset + ' asiaa odottaa toimenpidettä tänään.';
-    } else {
-      summaryEl.textContent = 'Kaikki kunnossa — ei kriittisiä signaaleja.';
-    }
-  }
+  if (summaryEl) summaryEl.textContent = laskeHeroInsight(pelaajatData);
   renderDeadlinePalkki(vaihe, (typeof _tapahtumat !== 'undefined' ? _tapahtumat : []), pelaajatData.length);
 }
 
