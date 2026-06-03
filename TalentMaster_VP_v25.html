@@ -3159,8 +3159,17 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + _jsvEsc(joukkueNimi) + ' · ' + n + ' pelaajaa</div>';
   h += '<button onclick="document.getElementById(\'_jsvModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
   h += '</div>';
-  h += '<div style="padding:0 24px">' + teamHero + '</div>';
-  h += '<div style="display:flex;gap:6px;padding:0 24px 12px;border-bottom:.5px solid var(--border)">';
+  // 5D-profiilikartta (joukkueen keskiarvo) korvaa hero-rivin — sama D1/D2/D4 mutta hahmona
+  const teamRadarDims = [
+    { key: 'D1', label: 'Fyysinen',   arvo: _dimKa(pelaajat.map(p => p.hh_taso)) },
+    { key: 'D2', label: 'Tekninen',   arvo: _dimKa(pelaajat.map(p => laskeD2Taso(p))), lahde: _teamD2Lahde },
+    { key: 'D3', label: 'Psyykkinen', arvo: _dimKa(pelaajat.map(p => p.d3_taso)) },
+    { key: 'D4', label: 'Peliäly',    arvo: _dimKa(pelaajat.map(p => _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht))) },
+    { key: 'D5', label: 'Sosiaal.',   arvo: _dimKa(pelaajat.map(p => p.d5_taso)) }
+  ];
+  h += '<div style="padding:6px 24px 0">' + window._tmRadar5D(teamRadarDims)
+    + '<div style="font-size:10px;color:var(--ink3);text-align:center;margin-top:2px">5D-profiili · joukkueen keskiarvo (1–5) · katkoviiva = täydentyy kun D3/D5 mitattu' + (_teamD2Lahde === 'sm' ? ' · ¹ SM-pohjainen (TSI)' : '') + '</div></div>';
+  h += '<div style="display:flex;gap:6px;padding:8px 24px 12px;border-bottom:.5px solid var(--border)">';
   ['Pelaajat','Tuki','Yhteenveto'].forEach((lbl,i) => {
     h += '<button id="_jsvBtn' + i + '" class="dimpop-tab ' + (i===0?'on':'') + '" onclick="_jsvVaihda(' + i + ')" style="padding:7px 14px;font-size:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;border-radius:5px;font-family:\'DM Sans\',sans-serif">' + lbl + '</button>';
   });
