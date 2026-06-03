@@ -1212,6 +1212,8 @@ body {
   background: rgba(0,0,0,.5);
   z-index: 85;
 }
+/* Popup-pelaajarivin mobiilimeta piilossa desktopilla (näytetään @media ≤768px) */
+.dimpop-pmeta { display: none; }
 @media (max-width: 768px) {
   #hamburgeri { display: flex !important; }
   #topbar .logo { display: none; }
@@ -1234,6 +1236,36 @@ body {
   .player-table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
   /* Valmentajapaneeli koko leveydeltä mobiilissa (oli kiinteä 420px) */
   #coachPanel { width: 100vw; max-width: 100vw; }
+
+  /* ── Mobiili-first: typografia + data-hierarkia ── */
+  .greeting-text { font-size: 28px; font-weight: 700; }
+  .greeting-summary { font-size: 15px; }
+  .greeting-meta { font-size: 12px; }
+  .section-title { font-size: 20px; }
+
+  /* Joukkuepulssi → 3 saraketta (JOUKKUE | PEL. | H-H ka.); muut piiloon */
+  .joukkue-taulukko .col-tki, .joukkue-taulukko .col-benchmark, .joukkue-taulukko .col-taso,
+  .joukkue-taulukko .col-merkit, .joukkue-taulukko .col-paras { display: none; }
+  .joukkue-rivi td { padding: 16px 12px; }                 /* ~52px touch-rivi */
+  .jk-nimi-iso { font-size: 16px; font-weight: 600; }
+  .jk-meta { font-size: 13px; }
+  .joukkue-taulukko .col-hh .arvo-iso { font-size: 22px; font-weight: 600; }
+
+  /* Pelaajataulu (työtila) — isompi data + kosketus */
+  .player-table td { padding: 14px; font-size: 16px; white-space: normal; }
+  .player-table th { font-size: 11px; }
+
+  /* Popup Kerros 1 — pelaajarivi kortiksi: piilota datasolut, meta nimen alle */
+  .dimpop-pcol { display: none; }
+  .dimpop-prow td { padding: 12px 10px !important; }
+  .dimpop-pname { font-size: 18px; font-weight: 600; }
+  .dimpop-pmeta { display: block; font-size: 13px; font-weight: 400; color: var(--ink3); margin-top: 3px; }
+  .dimpop-parrow { width: 44px; font-size: 20px !important; text-align: right; }
+
+  /* Popup välilehtinapit + CTA + hero-numero — touch target + data hero */
+  .dimpop-tab { padding: 12px 16px !important; font-size: 14px !important; }
+  .dimpop-cta { flex: 1 1 100% !important; padding: 14px 16px !important; font-size: 15px !important; font-weight: 600 !important; }
+  .dimpop-heronum { font-size: 32px !important; font-weight: 700 !important; }
 }
 /* Placeholder-teksti luettavaksi (WCAG) — globaali, ei selaimen oletushimmennystä */
 input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
@@ -2894,13 +2926,15 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
       const tki = (p.tki_viimeisin != null) ? p.tki_viimeisin : null;
       const adarY = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht : null;
       const m = _tkiMerkkiVP(tki, p.tki_merkki);
-      t1 += '<tr style="border-top:.5px solid var(--border);cursor:pointer" onclick="_avaaPerPelaajaPikakatsaus(' + idx + ',\'' + jescNimi + '\')">'
-        + '<td style="padding:7px 8px;color:var(--ink)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + '</td>'
-        + '<td style="padding:7px 8px">' + (hh != null ? '<span style="color:' + hhTasoVari(hh) + ';font-family:var(--font-m)">' + hh + '</span>' : '<span style="color:var(--ink3)">—</span>') + '</td>'
-        + '<td style="padding:7px 8px;font-family:var(--font-m)">' + (tki != null ? tki + (m ? ' ' + m.emoji : '') : '<span style="color:var(--ink3)">—</span>') + '</td>'
-        + '<td style="padding:7px 8px;font-family:var(--font-m);color:var(--ink2)">' + (adarY != null ? adarY + '/12' : '<span style="color:var(--ink3)">—</span>') + '</td>'
-        + '<td style="padding:7px 8px;color:' + (p.phv_tila === 'PH' ? 'var(--amber)' : 'var(--ink2)') + '">' + _jsvEsc(p.phv_tila || '—') + '</td>'
-        + '<td style="padding:7px 8px;color:var(--ink3);text-align:right">→</td></tr>';
+      // Mobiilimeta (näkyy vain @media ≤768px) — yhdistää joukkue · H-H · PHV nimen alle (kortti-tunnelma)
+      const pmeta = lyhennaNimi(joukkueNimi) + ' · H-H ' + (hh != null ? hh : '—') + ' · ' + (p.phv_tila || '—');
+      t1 += '<tr class="dimpop-prow" style="border-top:.5px solid var(--border);cursor:pointer" onclick="_avaaPerPelaajaPikakatsaus(' + idx + ',\'' + jescNimi + '\')">'
+        + '<td class="dimpop-pname" style="padding:7px 8px;color:var(--ink)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + '<div class="dimpop-pmeta">' + _jsvEsc(pmeta) + '</div></td>'
+        + '<td class="dimpop-pcol" style="padding:7px 8px">' + (hh != null ? '<span style="color:' + hhTasoVari(hh) + ';font-family:var(--font-m)">' + hh + '</span>' : '<span style="color:var(--ink3)">—</span>') + '</td>'
+        + '<td class="dimpop-pcol" style="padding:7px 8px;font-family:var(--font-m)">' + (tki != null ? tki + (m ? ' ' + m.emoji : '') : '<span style="color:var(--ink3)">—</span>') + '</td>'
+        + '<td class="dimpop-pcol" style="padding:7px 8px;font-family:var(--font-m);color:var(--ink2)">' + (adarY != null ? adarY + '/12' : '<span style="color:var(--ink3)">—</span>') + '</td>'
+        + '<td class="dimpop-pcol" style="padding:7px 8px;color:' + (p.phv_tila === 'PH' ? 'var(--amber)' : 'var(--ink2)') + '">' + _jsvEsc(p.phv_tila || '—') + '</td>'
+        + '<td class="dimpop-parrow" style="padding:7px 8px;color:var(--ink3);text-align:right">→</td></tr>';
     });
     t1 += '</tbody></table>';
   }
@@ -2957,7 +2991,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   h += '<div style="padding:0 24px">' + teamHero + '</div>';
   h += '<div style="display:flex;gap:6px;padding:0 24px 12px;border-bottom:.5px solid var(--border)">';
   ['Pelaajat','Tuki','Yhteenveto'].forEach((lbl,i) => {
-    h += '<button id="_jsvBtn' + i + '" class="' + (i===0?'on':'') + '" onclick="_jsvVaihda(' + i + ')" style="padding:7px 14px;font-size:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;border-radius:5px;font-family:\'DM Sans\',sans-serif">' + lbl + '</button>';
+    h += '<button id="_jsvBtn' + i + '" class="dimpop-tab ' + (i===0?'on':'') + '" onclick="_jsvVaihda(' + i + ')" style="padding:7px 14px;font-size:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;border-radius:5px;font-family:\'DM Sans\',sans-serif">' + lbl + '</button>';
   });
   h += '</div>';
   h += '<style>#_jsvModal [id^="_jsvBtn"].on{background:rgba(40,176,144,.18)!important;border-color:rgba(40,176,144,.5)!important;color:#28B090!important}</style>';
@@ -2967,8 +3001,8 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   h += '<div id="_jsvTab2" style="display:none">' + t3 + '</div>';
   h += '</div>';
   h += '<div style="display:flex;gap:10px;padding:14px 24px;border-top:.5px solid var(--border);flex-wrap:wrap">';
-  h += '<button onclick="document.getElementById(\'_jsvModal\').remove();_jsvLuoTapahtuma(\'' + jescNimi + '\')" style="padding:10px 16px;background:var(--teal);color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">📋 Luo harjoitustapahtuma →</button>';
-  h += '<button onclick="document.getElementById(\'_jsvModal\').remove();setWs(\'pelaajat\')" style="padding:10px 16px;background:transparent;color:var(--ink);border:.5px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:\'DM Sans\',sans-serif">📊 Avaa pelaajat →</button>';
+  h += '<button class="dimpop-cta" onclick="document.getElementById(\'_jsvModal\').remove();_jsvLuoTapahtuma(\'' + jescNimi + '\')" style="padding:10px 16px;background:var(--teal);color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">📋 Luo harjoitustapahtuma →</button>';
+  h += '<button class="dimpop-cta" onclick="document.getElementById(\'_jsvModal\').remove();setWs(\'pelaajat\')" style="padding:10px 16px;background:transparent;color:var(--ink);border:.5px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:\'DM Sans\',sans-serif">📊 Avaa pelaajat →</button>';
   h += '</div>';
   h += '</div></div>';
 
@@ -3093,7 +3127,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   h += '<div style="padding:0 24px">' + hero + '</div>';
   h += '<div style="display:flex;gap:6px;padding:0 24px 12px;border-bottom:.5px solid var(--border)">';
   ['🏃 Fyysinen','⚽ Tekninen','🧠 Peli','📈 Kehitys'].forEach(function(lbl,i) {
-    h += '<button id="_jspBtn' + i + '" class="' + (i===0?'on':'') + '" onclick="_jspVaihda(' + i + ')" style="padding:7px 11px;font-size:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;border-radius:5px;font-family:\'DM Sans\',sans-serif">' + lbl + '</button>';
+    h += '<button id="_jspBtn' + i + '" class="dimpop-tab ' + (i===0?'on':'') + '" onclick="_jspVaihda(' + i + ')" style="padding:7px 11px;font-size:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;border-radius:5px;font-family:\'DM Sans\',sans-serif">' + lbl + '</button>';
   });
   h += '</div>';
   h += '<style>#_jspModal [id^="_jspBtn"].on{background:rgba(40,176,144,.18)!important;border-color:rgba(40,176,144,.5)!important;color:#28B090!important}</style>';
@@ -4168,7 +4202,7 @@ function _dimHero(d1, d2, d4) {
   const solu = (lbl, sub, taso) => '<div style="flex:1;text-align:center">'
     + '<div style="font-family:var(--font-m);font-size:10px;letter-spacing:.08em;color:var(--ink3)">' + lbl + '</div>'
     + '<div style="margin:5px 0">' + _dimSeg(taso) + '</div>'
-    + '<div style="font-family:var(--font-m);font-size:14px;color:' + (taso == null ? 'var(--ink3)' : hhTasoVari(taso)) + '">' + (taso == null ? '—' : taso) + '</div>'
+    + '<div class="dimpop-heronum" style="font-family:var(--font-m);font-size:14px;color:' + (taso == null ? 'var(--ink3)' : hhTasoVari(taso)) + '">' + (taso == null ? '—' : taso) + '</div>'
     + '<div style="font-size:10px;color:var(--ink3)">' + sub + '</div></div>';
   return '<div style="display:flex;gap:8px;padding:12px 0;border-top:.5px solid var(--border);border-bottom:.5px solid var(--border);margin-bottom:14px">'
     + solu('D1', 'Fyysinen', d1) + solu('D2', 'Tekninen', d2) + solu('D4', 'Pelitieto', d4) + '</div>';
