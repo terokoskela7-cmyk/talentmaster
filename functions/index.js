@@ -2,8 +2,9 @@
  * TalentMaster™ — Firebase Cloud Functions
  * functions/index.js
  *
- * Päivitetty: 2026-04-04
+ * Päivitetty: 2026-06-04
  * Sähköpostiratkaisu: SendGrid HTTP API (ei Nodemailer, ei SMTP)
+ * SendGrid-avaimet: GitHub-repo-Secretit → .env (CI) → process.env. EI Secret Manager runWith.
  */
 const functions = require('firebase-functions');
 const admin     = require('firebase-admin');
