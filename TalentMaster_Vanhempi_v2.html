@@ -802,6 +802,8 @@ async function _perheKirjaa(){
   const urlUid   = _qs.get('uid')   || _qs.get('pelaajaId');
 
   if (_db && urlSeura && urlUid) {
+    // Reaalitila: tallenna Firestoreen. Epäonnistuminen EI saa näkyä hiljaa (oli aiemmin
+    // pelkkä console.warn → "treeni kirjattu" -toast valehteli vaikka mitään ei tallentunut).
     try {
       await _db.collection('seurat').doc(urlSeura)
         .collection('pelaajat').doc(urlUid)
@@ -809,20 +811,28 @@ async function _perheKirjaa(){
         .set({
           tyyppi:     paatyyppi,        // 'T' tai 'vapaa'
           tyypit:     tyypit,           // ['pihapeli','pallo'] jne.
-          kesto_min:  _pMinuutit,
+          kesto_min:  _pMinuutit,       // kesto minuutteina (nappivalinta 15–120)
           fiilis:     fiilisMap[_pFiilis] || 4,
           lahde:      'vanhempi',       // kuka kirjasi
           teksti:     _pTeksti || null,
           luotu:      firebase.firestore.FieldValue.serverTimestamp(),
           tehty:      true,
-        }, { merge: true });           // merge: ei ylikirjoita jos kirjaus jo olemassa
+        }, { merge: true });
     } catch(e) {
-      console.warn('[perheKirjaa Firestore]', e.message);
-      // Ei katkaista — TMBus-viesti meni läpi vaikka Firestore epäonnistui
+      console.warn('[perheKirjaa Firestore]', e.code, e.message);
+      _toast(e.code === 'permission-denied'
+        ? 'Kirjaus ei tallentunut — vanhemman kirjausoikeus puuttuu. Ota yhteyttä seuraan.'
+        : 'Kirjaus ei tallentunut — tarkista verkkoyhteys ja yritä uudelleen.');
+      return;   // ÄLÄ tyhjennä lomaketta — vanhempi voi yrittää uudelleen
     }
+  } else if (_db && (!urlSeura || !urlUid)) {
+    // Firestore käytössä mutta linkin parametrit puuttuvat → ei voida tallentaa
+    _toast('Kirjausta ei voitu tallentaa — avaa linkki uudelleen seuran viestistä.');
+    return;   // ÄLÄ tyhjennä lomaketta
   }
+  // else: demo-tila (ei _db) → TMBus-julkaisu hoiti, jatketaan vahvistukseen
 
-  // Tyhjennä tila
+  // Onnistui (tai demo) — tyhjennä tila + vahvista
   _pTyypit   = new Set();
   _pFiilis   = null;
   _pTeksti   = '';
