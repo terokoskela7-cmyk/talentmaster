@@ -1170,17 +1170,77 @@ try {
   console.warn('[VanA Firebase]', e.message);
 }
 
+/* ── P3/Bug2: käsittele ladattu pelaajadokumentti (nimi/ryhmä/hero + synttäri) ──
+   Ajetaan AINA kun lapsi on ladattu — sekä suoralla uid-reitillä että huoltajaEmail-haulla. */
+function _kasitteleLapsi(lapsi) {
+  if (!lapsi) return;
+  window._lapsi = lapsi;
+  const ika = new Date().getFullYear() - (lapsi.syntymaVuosi || 2012);
+  _age = ika <= 12 ? 'u12' : ika <= 15 ? 'u15' : 'u19';
+  const _demoNimi = IKA[_age].nimi;                          // demo-nimi (Eemeli/Aino/Joonas) ennen ylikirjoitusta
+  const _realNimi = lapsi.etunimi || IKA[_age].nimi;
+  IKA[_age].nimi  = _realNimi;
+  IKA[_age].ryhma = lapsi.joukkue || lapsi.joukkueNimi || IKA[_age].ryhma;
+  // Poista kovakoodattu demo-nimi myös valmentaja/vinkki-teksteistä (korvaa oikealla nimellä).
+  if (_demoNimi && _realNimi && _demoNimi !== _realNimi) {
+    const _swap = function(s) { return (typeof s === 'string') ? s.split(_demoNimi).join(_realNimi) : s; };
+    IKA[_age].valmentaja = _swap(IKA[_age].valmentaja);
+    IKA[_age].vinkki     = _swap(IKA[_age].vinkki);
+  }
+  // Hero-fallback (näkyy vain kun ei vielä kirjausta): neutraali tervetuloa — EI keksittyä aktiviteettia.
+  IKA[_age].hero = {
+    t: _realNimi + ' — tervetuloa TalentMasteriin',
+    s: 'Kun ' + _genetiivi(_realNimi) + ' treenit alkavat näkyä, näet ne tässä.'
+  };
+  setAge(_age);
+  draw();
+  // ── Syntymäpäiväviesti vanhemmalle — synttäri TÄLLÄ VIIKOLLA (ma–su) ──
+  if (lapsi.syntymaaika) {
+    const syn = lapsi.syntymaaika.toDate ? lapsi.syntymaaika.toDate() : new Date(lapsi.syntymaaika);
+    const nyt = new Date();
+    const synTanaVuonna = new Date(nyt.getFullYear(), syn.getMonth(), syn.getDate());
+    const _viikonAlku = function(d) {
+      const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      x.setDate(x.getDate() - ((x.getDay() + 6) % 7));  // ma = viikon alku
+      x.setHours(0, 0, 0, 0);
+      return x;
+    };
+    const onTanaan        = synTanaVuonna.getMonth() === nyt.getMonth() && synTanaVuonna.getDate() === nyt.getDate();
+    const onTallaViikolla = _viikonAlku(synTanaVuonna).getTime() === _viikonAlku(nyt).getTime();
+    if (onTanaan || onTallaViikolla) {
+      const ikaluku = nyt.getFullYear() - syn.getFullYear();
+      _toast(onTanaan
+        ? ('🎂 Tänään on ' + _genetiivi(_realNimi) + ' ' + ikaluku + '. syntymäpäivä! Muistitko onnitella?')
+        : ('🎂 ' + _genetiivi(_realNimi) + ' ' + ikaluku + '. syntymäpäivä on tällä viikolla — muistathan onnitella!'),
+        6000);
+    }
+  }
+}
+
 /* ── Hae lapsen viimeisin T-kirjaus Firestoresta ── */
 async function _haeViimeisinKirjaus() {
   if (!_db) return;
-  // P3: let (ei const) — arvot voidaan päivittää huoltajaEmail-haun jälkeen
-  let urlSeura = new URLSearchParams(location.search).get('seura') || 'kpv';
-  let urlUid   = new URLSearchParams(location.search).get('uid');
-  // P3: Jos urlUid puuttuu → hae lapsi pilottiseuroista huoltajaEmail:lla
-  if (!urlUid) {
+  // Bug 1: hyväksy molemmat param-nimet — reset-linkki emittoi pelaajaId/seuraId, legacy uid/seura.
+  const _qs = new URLSearchParams(location.search);
+  let urlSeura = _qs.get('seura') || _qs.get('seuraId') || 'kpv';
+  let urlUid   = _qs.get('uid')   || _qs.get('pelaajaId') || null;
+
+  // Bug 2: lataa pelaajadokumentti AINA kun uid+seura tiedossa — riippumatta reitistä.
+  if (urlUid && urlSeura) {
+    // Suora linkki: lue pelaajadoc suoraan (huoltaja-lukuoikeus sallii, onLapsenHuoltaja).
+    try {
+      const pd = await _db.collection('seurat').doc(urlSeura)
+        .collection('pelaajat').doc(urlUid).get();
+      if (pd.exists) _kasitteleLapsi(pd.data());
+    } catch(e) {
+      console.warn('[Perhe] suora pelaajalataus epäonnistui:', e.message);
+    }
+  } else {
+    // Fallback: ei uid:ia URL:ssa → hae huoltajaEmaililla. HUOM: tämä vaatii seurat-kokoelman
+    // luvun, jota pelkällä vanhempi-roolilla EI ole → toimii vain henkilöstöroolilla. Vanhempi
+    // tulee aina linkin kautta (uid+seura mukana), joten tämä on vain henkilöstön apureitti.
     const user = _auth.currentUser;
     if (!user || !user.email) return;
-    // P3: Hae seurat dynaamisesti Firestoresta — ei kovakoodattu lista
     try {
       let lapsiDoc = null;
       const seuraSnap = await _db.collection('seurat').get();
@@ -1196,54 +1256,9 @@ async function _haeViimeisinKirjaus() {
         console.warn('[Perhe] Ei löydy pelaajaa huoltajaEmail:lla', user.email);
         return;
       }
-      window._lapsi = lapsiDoc.data();
-      // Päivitä IKA-objekti oikeilla tiedoilla
-      const ika = new Date().getFullYear() - (window._lapsi.syntymaVuosi || 2012);
-      _age = ika <= 12 ? 'u12' : ika <= 15 ? 'u15' : 'u19';
-      const _demoNimi = IKA[_age].nimi;                          // demo-nimi (Eemeli/Aino/Joonas) ennen ylikirjoitusta
-      const _realNimi = window._lapsi.etunimi || IKA[_age].nimi;
-      IKA[_age].nimi  = _realNimi;
-      IKA[_age].ryhma = window._lapsi.joukkue || window._lapsi.joukkueNimi || IKA[_age].ryhma;
-      // P3: poista kovakoodattu demo-nimi myös valmentaja/vinkki-teksteistä (korvaa oikealla nimellä).
-      if (_demoNimi && _realNimi && _demoNimi !== _realNimi) {
-        const _swap = function(s) { return (typeof s === 'string') ? s.split(_demoNimi).join(_realNimi) : s; };
-        IKA[_age].valmentaja = _swap(IKA[_age].valmentaja);
-        IKA[_age].vinkki     = _swap(IKA[_age].vinkki);
-      }
-      // Hero-fallback (näkyy vain kun ei vielä kirjausta): neutraali tervetuloa — EI keksittyä aktiviteettia.
-      IKA[_age].hero = {
-        t: _realNimi + ' — tervetuloa TalentMasteriin',
-        s: 'Kun ' + _genetiivi(_realNimi) + ' treenit alkavat näkyä, näet ne tässä.'
-      };
-      // P3 fix: let → nyt voidaan sijoittaa
       urlSeura = lapsiDoc.ref.parent.parent.id;
       urlUid   = lapsiDoc.id;
-      // Päivitä ikätila-nappi UI:ssa
-      setAge(_age);
-      draw();
-      // ── Syntymäpäiväviesti vanhemmalle (P3) — synttäri TÄLLÄ VIIKOLLA (ma–su) ──
-      if (window._lapsi.syntymaaika) {
-        const syn = window._lapsi.syntymaaika.toDate
-          ? window._lapsi.syntymaaika.toDate()
-          : new Date(window._lapsi.syntymaaika);
-        const nyt = new Date();
-        const synTanaVuonna = new Date(nyt.getFullYear(), syn.getMonth(), syn.getDate());
-        const _viikonAlku = function(d) {
-          const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-          x.setDate(x.getDate() - ((x.getDay() + 6) % 7));  // ma = viikon alku
-          x.setHours(0, 0, 0, 0);
-          return x;
-        };
-        const onTanaan        = synTanaVuonna.getMonth() === nyt.getMonth() && synTanaVuonna.getDate() === nyt.getDate();
-        const onTallaViikolla = _viikonAlku(synTanaVuonna).getTime() === _viikonAlku(nyt).getTime();
-        if (onTanaan || onTallaViikolla) {
-          const ikaluku = nyt.getFullYear() - syn.getFullYear();
-          _toast(onTanaan
-            ? ('🎂 Tänään on ' + _genetiivi(_realNimi) + ' ' + ikaluku + '. syntymäpäivä! Muistitko onnitella?')
-            : ('🎂 ' + _genetiivi(_realNimi) + ' ' + ikaluku + '. syntymäpäivä on tällä viikolla — muistathan onnitella!'),
-            6000);
-        }
-      }
+      _kasitteleLapsi(lapsiDoc.data());
     } catch(e) {
       console.warn('[Perhe] huoltajaEmail-haku epäonnistui:', e.message);
       return;
