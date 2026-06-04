@@ -628,6 +628,75 @@ exports.lahetaPelaajaSivuLinkki = functions
     }
   });
 // ─────────────────────────────────────────────────────────────────────────────
+// vahvistaSuostumus — huoltajan suostumuksen palvelinvarmennettu vahvistus
+//
+// MIKSI CF: suostumustilan ('annettu') merkitseminen on turvakriittinen — sitä
+// ei saa voida tehdä suoralla selainkirjoituksella. Tämä funktio varmistaa
+// Admin SDK:lla että kutsuja todella on pelaajaan liitetty huoltaja (hEmail ===
+// tallennettu huoltajaEmail) ennen kuin suostumus merkitään. Lisäksi luo/hakee
+// huoltajan Auth-tilin ja palauttaa salasanan asetuslinkin (sama kaava kuin
+// lahetaPelaajaSivuLinkki / lahetaResetLinkki — url PAKOLLINEN, muuten 500, ks. §13).
+// Käytössä: TalentMaster_Rekisterointi_Suostumus.html (kutsuflow).
+// ─────────────────────────────────────────────────────────────────────────────
+exports.vahvistaSuostumus = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    const { seuraId, pelaajaId, hEmail, suostumusTeksti } = data || {};
+    if (!seuraId || !pelaajaId || !hEmail) {
+      throw new functions.https.HttpsError('invalid-argument',
+        'seuraId, pelaajaId ja hEmail ovat pakollisia.');
+    }
+    const hEmailNorm = String(hEmail).trim().toLowerCase();
+
+    // 2. Varmenna huoltajan sähköposti Admin SDK:lla pelaajadokumentista
+    const pelRef = db.collection('seurat').doc(seuraId)
+      .collection('pelaajat').doc(pelaajaId);
+    const snap = await pelRef.get();
+    if (!snap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Pelaajaa ei löytynyt.');
+    }
+    const tallennettuEmail = String(snap.get('huoltajaEmail') || '').trim().toLowerCase();
+    if (!tallennettuEmail || tallennettuEmail !== hEmailNorm) {
+      throw new functions.https.HttpsError('permission-denied',
+        'Huoltajan sähköposti ei täsmää pelaajan tietoihin.');
+    }
+
+    // 3. Merkitse suostumus annetuksi
+    try {
+      await pelRef.update({
+        suostumusTila:    'annettu',
+        suostumusAnnettu: admin.firestore.FieldValue.serverTimestamp(),
+        suostumusTeksti:  suostumusTeksti || null,
+      });
+    } catch (e) {
+      throw new functions.https.HttpsError('internal',
+        `Suostumuksen tallennus epäonnistui: ${e.message}`);
+    }
+
+    // 4. + 5. Luo/hae huoltajan Auth-tili ja generoi salasanan asetuslinkki.
+    // Suostumus on jo tallennettu — linkin generoinnin epäonnistuminen ei saa
+    // hukata sitä, joten linkki palautetaan null:ina virhetilanteessa (graceful).
+    //
+    // TODO: Kun SendGrid korjattu: siirrä sähköpostilähetys tähän best-effort
+    // try/catch -lohkoon, poista QR UI:sta.
+    try {
+      const etunimi  = snap.get('etunimi')  || '';
+      const sukunimi = snap.get('sukunimi') || '';
+      await haeOrLuoHuoltajaAuth(hEmailNorm, etunimi, sukunimi);
+      const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster';
+      const continueUrl = `${baseUrl}/TalentMaster_Vanhempi_v2.html` +
+        `?pelaajaId=${encodeURIComponent(pelaajaId)}&seuraId=${encodeURIComponent(seuraId)}`;
+      const passwordResetLink = await auth.generatePasswordResetLink(hEmailNorm, {
+        url: continueUrl,
+        handleCodeInApp: false,
+      });
+      return { ok: true, passwordResetLink };
+    } catch (e) {
+      console.warn('[vahvistaSuostumus] Reset-linkki epäonnistui:', e.message);
+      return { ok: true, passwordResetLink: null, linkkiVirhe: e.message };
+    }
+  });
+// ─────────────────────────────────────────────────────────────────────────────
 // TASO-INTEGRAATIO — Palloliiton tulospalvelu
 // ─────────────────────────────────────────────────────────────────────────────
 const TASO_BASE = 'https://spl.torneopal.fi/taso/rest';

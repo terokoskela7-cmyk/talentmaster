@@ -307,6 +307,7 @@ Logout → dispatch `tm:logout` → odota 50 ms → `signOut()`.
 | `aiProxy` | AI-välitys: GPT-4o Vision, Whisper, narratiivi |
 | `tasoHaeSeuranOttelut` | TASO-integraatio (deployattu) |
 | `lahetaResetLinkki` | Henkilöstön salasana-reset-linkki (authz: SA/seuran johto `tarkistaOikeus`, kohde-email seuran kayttajat:issa) — ei datakirjoitusta |
+| `vahvistaSuostumus` | Suostumuksen vahvistus + Auth-luonti + reset-linkki (Admin SDK varmentaa huoltajaEmail-täsmäyksen → suostumusTila 'annettu' → haeOrLuoHuoltajaAuth → passwordResetLink; Rekisterointi_Suostumus.html kutsuflow) |
 
 `OPENAI_API_KEY`: Google Cloud Secret Manager + GitHub Actions Secrets. API-avaimet ei ikinä selaimessa.
 **Reset-linkin continueUrl (HOLD 2026-06-02):** `generatePasswordResetLink(email, {url, handleCodeInApp:false})` — `url` PAKOLLINEN (ilman → 500). Käyttäjä laskeutuu Firebasen reset-sivulle, sitten `url`. Yhtenäistä `url` halutuksi landingiksi `luoKayttaja`/`lahetaResetLinkki`/`lahetaPelaajaSivuLinkki`-funktioissa.

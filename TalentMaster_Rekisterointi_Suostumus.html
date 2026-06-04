@@ -452,26 +452,39 @@ function toStep3() {
       var pelRef = colRef.doc(dokumenttiId);
       var tallId = dokumenttiId;
 
-      var suostumusUpdate = {
-        suostumusTila:       'annettu',
-        tila:                'aktiivinen',
-        suostumusPvm:        nyt,
-        suostumuksenAntaja:  age < 18
-          ? (val('h_etu') + ' ' + val('h_suku')).trim()
-          : (val('i_etu') + ' ' + val('i_suku')).trim(),
-        muokattu:            nyt,
-        // Vanhempien pituudet (biologinen ikä) — pelaajat-update ei rajaa kenttiä (ei hasOnly)
-        isa_pituus_cm:           bioPituudet.isa_pituus_cm,
-        aiti_pituus_cm:          bioPituudet.aiti_pituus_cm,
-        vanhempi_pituus_puuttuu: bioPituudet.vanhempi_pituus_puuttuu,
-        vanhempi_pituus_pvm:     bioPituudet.vanhempi_pituus_pvm,
-        // Suostumusdata tallennetaan omaan kenttään joka on myös listassa
-        // Huom: 'suostumus'-objekti ei ole hasOnly()-listassa, joten
-        // tallennetaan se erillisiin kenttiin tai laajennetaan listaa rules:ssa.
-        // Nyt tallennetaan vain pakolliset kentät jotka rules sallii.
-      };
+      // ── Suostumuksen merkintä ('annettu') tehdään palvelinvarmennetusti ──
+      // vahvistaSuostumus-CF (Admin SDK) tarkistaa että hEmail === tallennettu
+      // huoltajaEmail (permission-denied jos ei), merkitsee suostumuksen ja luo
+      // salasanan asetuslinkin. Tämä sivu on autentikoimaton (ei auth-compat),
+      // joten turvakriittistä suostumustilaa EI kirjoiteta suoraan selaimesta.
+      // seuraId/pelaajaId/hEmail tulevat kutsulinkin URL-parametreista.
+      var hEmailParam = (_urlParams.hEmail || raporttiEmail || '').toLowerCase();
+      var suostumusTekstiStr = 'Hyväksytyt suostumukset (' + suostumusNimet.length + ' kpl): '
+        + (suostumusNimet.join(', ') || '—') + ' · versio 2026-v1 · ' + aikaleima;
+      var vahvistaFn = firebase.app().functions('europe-west1').httpsCallable('vahvistaSuostumus');
 
-      tallennusPromise = pelRef.update(suostumusUpdate)
+      tallennusPromise = vahvistaFn({
+          seuraId:         _seuraId,
+          pelaajaId:       dokumenttiId,
+          hEmail:          hEmailParam,
+          suostumusTeksti: suostumusTekstiStr
+        })
+        .then(function(res) {
+          // CF palauttaa salasanan asetuslinkin → näytetään onnistumisnäytöllä (QR + kopioi)
+          window._suostumusResetLinkki = (res && res.data && res.data.passwordResetLink) || null;
+          // Ei-turvakriittiset aux-kentät (CF ei kirjoita näitä): bio-pituudet, tila, antaja
+          return pelRef.update({
+            tila:               'aktiivinen',
+            suostumuksenAntaja: age < 18
+              ? (val('h_etu') + ' ' + val('h_suku')).trim()
+              : (val('i_etu') + ' ' + val('i_suku')).trim(),
+            muokattu:           nyt,
+            isa_pituus_cm:           bioPituudet.isa_pituus_cm,
+            aiti_pituus_cm:          bioPituudet.aiti_pituus_cm,
+            vanhempi_pituus_puuttuu: bioPituudet.vanhempi_pituus_puuttuu,
+            vanhempi_pituus_pvm:     bioPituudet.vanhempi_pituus_pvm,
+          });
+        })
         .then(function() {
           if (_kutsuId) {
             return _fbDb.collection('seurat').doc(_seuraId).collection('kutsut').doc(_kutsuId)
@@ -556,21 +569,9 @@ function toStep3() {
 
   tallennusPromise
     .then(function() {
-      // Lähetetään linkki pelaajan/vanhemman sivulle
-      try {
-        if (_fbDb && _seuraId && typeof firebase.functions === 'function') {
-          var fn = firebase.app().functions('europe-west1').httpsCallable('lahetaPelaajaSivuLinkki');
-          fn({
-            hEmail:    raporttiEmail,
-            pelaajaId: dokumenttiId || rid,
-            seuraId:   _seuraId,
-            etunimi:   val('i_etu'),
-            sukunimi:  val('i_suku'),
-            seura:     val('i_seura'),
-            joukkue:   val('i_jou'),
-          }).catch(function(e) { console.warn('[Pelaajasivulinkki]', e.message); });
-        }
-      } catch(e2) { console.warn('[Pelaajasivulinkki]', e2.message); }
+      // HUOM: lahetaPelaajaSivuLinkki-kutsu poistettu — se generoi oman reset-linkin,
+      // joka invalidoisi vahvistaSuostumus-CF:n palauttaman QR-linkin ENNEN skannausta.
+      // vahvistaSuostumus hoitaa nyt Auth-luonnin + reset-linkin (näytetään QR + kopioi).
 
       el('receipt').innerHTML =
         '<div class="rrow"><span class="rk">Rekisterointitunnus</span><span class="rv">'+rid+'</span></div>'
@@ -585,6 +586,23 @@ function toStep3() {
           ?'<div class="rrow"><span class="rk">Tallennettu</span><span class="rv" style="color:var(--teal)">TalentMaster-rekisteriin</span></div>'
           :'<div class="rrow"><span class="rk">Tila</span><span class="rv" style="color:var(--amber)">Odottaa synkronointia</span></div>');
 
+      // Salasanan asetuslinkki (vahvistaSuostumus-CF) — QR + kopioitava linkki (Seura.html-kaava)
+      if (window._suostumusResetLinkki) {
+        var _rl = window._suostumusResetLinkki;
+        var _qr = 'https://api.qrserver.com/v1/create-qr-code/?size=170x170&margin=8&data=' + encodeURIComponent(_rl);
+        el('receipt').innerHTML +=
+          '<div style="margin-top:14px;padding:14px;background:var(--ink3);border:1px solid var(--line2);border-radius:9px">'
+          + '<div style="font-size:13px;font-weight:700;color:var(--teal);margin-bottom:4px">&#128273; Aseta salasanasi</div>'
+          + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Lue QR-koodi puhelimella tai kopioi linkki — paaset asettamaan TalentMaster-salasanasi.</div>'
+          + '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
+          +   '<img src="' + _qr + '" alt="QR-koodi" width="120" height="120" style="background:#fff;border-radius:6px;padding:4px" onerror="this.style.display=\'none\'">'
+          +   '<div style="flex:1;min-width:180px">'
+          +     '<div style="font-size:11px;color:var(--text);word-break:break-all;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;margin-bottom:8px">' + _rl + '</div>'
+          +     '<button type="button" onclick="window._suostumusKopioiLinkki()" style="background:var(--teal);color:#0b1118;border:none;border-radius:7px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">&#128203; Kopioi linkki</button>'
+          +   '</div>'
+          + '</div></div>';
+      }
+
       // Näytetään sähköpostiosoite vahvistusnäytöllä
       var confEmail = document.getElementById('conf_email');
       if (confEmail) confEmail.textContent = raporttiEmail || hEmail || '';
@@ -596,6 +614,19 @@ function toStep3() {
       if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja laheta'; }
     });
 }
+
+// Kopioi salasanan asetuslinkki leikepöydälle (sama kaava kuin Seura.html _resetKopioi)
+window._suostumusKopioiLinkki = function() {
+  var l = window._suostumusResetLinkki;
+  if (!l) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(l)
+      .then(function(){ toast('Linkki kopioitu leikepoydalle!', false); })
+      .catch(function(){ toast('Kopioi linkki manuaalisesti', true); });
+  } else {
+    toast('Kopioi linkki manuaalisesti', true);
+  }
+};
 </script>
 </body>
 </html>
