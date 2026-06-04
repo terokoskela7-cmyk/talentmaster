@@ -649,10 +649,11 @@ exports.vahvistaSuostumus = functions
   // Ei sähköpostia vielä (ks. TODO) → ei SendGrid-riippuvuutta. Kun lähetys siirretään tänne,
   // SENDGRID_API_KEY tulee process.env:stä .env:n kautta (CI-injektio), kuten lahetaRekisteriKutsu.
   .https.onCall(async (data, context) => {
-    // antaja/bioPituudet/kutsuId: ei-arkaluonteiset aux-kentät jotka lomake kirjoitti ennen
-    // suoraan client-puolelta — siirretty tänne, koska Rekisterointi_Suostumus.html on
-    // autentikoimaton ja Rules estää sen suorat update-kirjoitukset (permission-denied).
-    const { seuraId, pelaajaId, hEmail, suostumusTeksti, antaja, bioPituudet, kutsuId } = data || {};
+    // antaja/bioPituudet/kutsuId + syntyma/sukupuoli/suostumukset/suostumusMap/antajaRooli/aikaleima:
+    // ei-arkaluonteiset kentät jotka lomake kirjoitti ennen suoraan client-puolelta — siirretty tänne,
+    // koska Rekisterointi_Suostumus.html on autentikoimaton ja Rules estää sen suorat update-kirjoitukset.
+    const { seuraId, pelaajaId, hEmail, suostumusTeksti, antaja, bioPituudet, kutsuId,
+            syntyma, sukupuoli, suostumukset, suostumusMap, antajaRooli, aikaleima } = data || {};
     if (!seuraId || !pelaajaId || !hEmail) {
       throw new functions.https.HttpsError('invalid-argument',
         'seuraId, pelaajaId ja hEmail ovat pakollisia.');
@@ -688,6 +689,40 @@ exports.vahvistaSuostumus = functions
       paivitys.vanhempi_pituus_puuttuu = !!bioPituudet.vanhempi_pituus_puuttuu;
       paivitys.vanhempi_pituus_pvm     = bioPituudet.vanhempi_pituus_pvm || null;
     }
+
+    // huoltajaEmail — vahvistus että varmennettu osoite tallentuu pelaajaprofiiliin
+    paivitys.huoltajaEmail = hEmailNorm;
+
+    // syntymäaika lomakkeen/URL:n ISO-päivästä (YYYY-MM-DD) → Timestamp + syntymaVuosi.
+    // syntymapaiva Date.UTC():llä (§7 #11), vain validi 1990–2025.
+    if (syntyma && /^\d{4}-\d{2}-\d{2}$/.test(String(syntyma))) {
+      const osat = String(syntyma).split('-');
+      const yy = parseInt(osat[0], 10), mm = parseInt(osat[1], 10), dd = parseInt(osat[2], 10);
+      if (yy >= 1990 && yy <= 2025) {
+        paivitys.syntymaaika  = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(yy, mm - 1, dd)));
+        paivitys.syntymaVuosi = yy;
+      }
+    }
+
+    // sukupuoli — normalisoi P/T → M/N (§7 #12). Kirjoitetaan vain jos tunnistettu arvo.
+    if (sukupuoli) {
+      const sp = String(sukupuoli).trim().toUpperCase();
+      const norm = (sp === 'P' || sp === 'M') ? 'M' : (sp === 'T' || sp === 'N') ? 'N' : null;
+      if (norm) paivitys.sukupuoli = norm;
+    }
+
+    // suostumukset — array kaikista hyväksytyistä suostumuksista + täysi suostumus-objekti
+    // (sama rakenne kuin uusi-rekisteröinti-haaran .set(), §14: raakadata talteen).
+    if (Array.isArray(suostumukset)) paivitys.suostumukset = suostumukset;
+    paivitys.suostumus = {
+      annettu:     TS,
+      antaja:      antaja ? String(antaja) : null,
+      antajaRooli: antajaRooli || null,
+      versio:      '2026-v1',
+      hyvaksytyt:  (suostumusMap && typeof suostumusMap === 'object') ? suostumusMap : null,
+      aikaleima:   aikaleima || null,
+    };
+
     try {
       await pelRef.update(paivitys);
     } catch (e) {

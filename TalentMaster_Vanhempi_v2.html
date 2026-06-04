@@ -1200,24 +1200,48 @@ async function _haeViimeisinKirjaus() {
       // Päivitä IKA-objekti oikeilla tiedoilla
       const ika = new Date().getFullYear() - (window._lapsi.syntymaVuosi || 2012);
       _age = ika <= 12 ? 'u12' : ika <= 15 ? 'u15' : 'u19';
-      IKA[_age].nimi  = window._lapsi.etunimi || IKA[_age].nimi;
+      const _demoNimi = IKA[_age].nimi;                          // demo-nimi (Eemeli/Aino/Joonas) ennen ylikirjoitusta
+      const _realNimi = window._lapsi.etunimi || IKA[_age].nimi;
+      IKA[_age].nimi  = _realNimi;
       IKA[_age].ryhma = window._lapsi.joukkue || window._lapsi.joukkueNimi || IKA[_age].ryhma;
+      // P3: poista kovakoodattu demo-nimi myös valmentaja/vinkki-teksteistä (korvaa oikealla nimellä).
+      if (_demoNimi && _realNimi && _demoNimi !== _realNimi) {
+        const _swap = function(s) { return (typeof s === 'string') ? s.split(_demoNimi).join(_realNimi) : s; };
+        IKA[_age].valmentaja = _swap(IKA[_age].valmentaja);
+        IKA[_age].vinkki     = _swap(IKA[_age].vinkki);
+      }
+      // Hero-fallback (näkyy vain kun ei vielä kirjausta): neutraali tervetuloa — EI keksittyä aktiviteettia.
+      IKA[_age].hero = {
+        t: _realNimi + ' — tervetuloa TalentMasteriin',
+        s: 'Kun ' + _genetiivi(_realNimi) + ' treenit alkavat näkyä, näet ne tässä.'
+      };
       // P3 fix: let → nyt voidaan sijoittaa
       urlSeura = lapsiDoc.ref.parent.parent.id;
       urlUid   = lapsiDoc.id;
       // Päivitä ikätila-nappi UI:ssa
       setAge(_age);
       draw();
-      // ── Syntymäpäivä-kehuviesti vanhemmalle (P3) ──
+      // ── Syntymäpäiväviesti vanhemmalle (P3) — synttäri TÄLLÄ VIIKOLLA (ma–su) ──
       if (window._lapsi.syntymaaika) {
         const syn = window._lapsi.syntymaaika.toDate
           ? window._lapsi.syntymaaika.toDate()
           : new Date(window._lapsi.syntymaaika);
         const nyt = new Date();
-        if (syn.getMonth() === nyt.getMonth() && syn.getDate() === nyt.getDate()) {
-          const nimi = window._lapsi.etunimi || IKA[_age].nimi;
+        const synTanaVuonna = new Date(nyt.getFullYear(), syn.getMonth(), syn.getDate());
+        const _viikonAlku = function(d) {
+          const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+          x.setDate(x.getDate() - ((x.getDay() + 6) % 7));  // ma = viikon alku
+          x.setHours(0, 0, 0, 0);
+          return x;
+        };
+        const onTanaan        = synTanaVuonna.getMonth() === nyt.getMonth() && synTanaVuonna.getDate() === nyt.getDate();
+        const onTallaViikolla = _viikonAlku(synTanaVuonna).getTime() === _viikonAlku(nyt).getTime();
+        if (onTanaan || onTallaViikolla) {
           const ikaluku = nyt.getFullYear() - syn.getFullYear();
-          _toast('🎂 Tänään on ' + _genetiivi(nimi) + ' ' + ikaluku + '. syntymäpäivä! Muistitko onnitella?', 6000);
+          _toast(onTanaan
+            ? ('🎂 Tänään on ' + _genetiivi(_realNimi) + ' ' + ikaluku + '. syntymäpäivä! Muistitko onnitella?')
+            : ('🎂 ' + _genetiivi(_realNimi) + ' ' + ikaluku + '. syntymäpäivä on tällä viikolla — muistathan onnitella!'),
+            6000);
         }
       }
     } catch(e) {

@@ -461,6 +461,9 @@ function toStep3() {
       var antajaNimi = age < 18
         ? (val('h_etu') + ' ' + val('h_suku')).trim()
         : (val('i_etu') + ' ' + val('i_suku')).trim();
+      // syntymä/sukupuoli: ensisijaisesti URL-parametri (kutsulinkki), muuten lomakekenttä
+      var syntymaParam   = (_urlParams.syntyma || el('i_syn').value || '');
+      var sukupuoliParam = (_urlParams.sukupuoli || (el('i_sp') ? el('i_sp').value : '') || '');
       var vahvistaFn = firebase.app().functions('europe-west1').httpsCallable('vahvistaSuostumus');
 
       tallennusPromise = vahvistaFn({
@@ -470,7 +473,13 @@ function toStep3() {
           suostumusTeksti: suostumusTekstiStr,
           antaja:          antajaNimi,
           bioPituudet:     bioPituudet,
-          kutsuId:         _kutsuId || null
+          kutsuId:         _kutsuId || null,
+          syntyma:         syntymaParam,
+          sukupuoli:       sukupuoliParam,
+          suostumukset:    suostumusNimet,
+          suostumusMap:    suostumusMap,
+          antajaRooli:     age < 18 ? 'huoltaja' : 'itse',
+          aikaleima:       aikaleima
         })
         .then(function(res) {
           // CF palauttaa salasanan asetuslinkin → näytetään onnistumisnäytöllä (QR + kopioi)
