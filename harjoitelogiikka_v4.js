@@ -2537,3 +2537,240 @@ function generoimViikoOhjelma(pelaaja, joukkuePaivat) {
 /* ═══════════════════════════════════════════════════════════════════
    VIIKKOTESTI — tulostaa koko viikko-ohjelman
    ═══════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════
+   OMATOIMIHARJOITTELU v1 — kehityskohde-prioriteettiketju + Bola Sempre
+   (Shea & Morgan 1979: teema pysyy 2–4 vk, harjoite vaihtuu päivittäin)
+
+   Lisätty: laskeTekninenKehityskohde · valitsePaivanHarjoite · generoiMiksiteksti
+   PANKKI:n T-harjoitteet eivät olleet kehityskohde-suodatettavissa → mesosyklit
+   tagataan (T_MESOSYKLI_KOHDE) + uudet ponnauttelu/nopeus-harjoitteet (T_KOHDE_PANKKI).
+   ═══════════════════════════════════════════════════════════════════ */
+
+// Olemassa olevat mesosyklit → kehityskohde (ei uutta sisältöä, vain tagi)
+const T_MESOSYKLI_KOHDE = {
+  kaka:    'pallonhallinta',   // Vastaanottaminen / ensikosketus
+  perus:   'pallonhallinta',   // Päivittäinen pallokosketus
+  affelay: 'koordinaatio',     // Dribbelin perusta
+  ronaldo: 'koordinaatio',     // 1v1-liikkeet
+  beckham: 'syotto',           // Syöttäminen ja laukaus
+};
+
+// Raaka TKI-laji → bank-kehityskohde (Sibbon tki_kehityskohde voi olla mikä tahansa laji)
+const TKI_LAJI_KOHDE = {
+  syotto: 'syotto', ponnauttelu: 'ponnauttelu',
+  pujottelu: 'koordinaatio', kuljetus_laukaus: 'nopeus', pituuspotku: 'syotto',
+};
+
+// Uudet T-harjoitteet aukoille (ponnauttelu, nopeus) — täysi 3-ikävaihe-ohjeistus
+const T_KOHDE_PANKKI = {
+  ponnauttelu: [
+    { nimi: 'Pomppulaskuri', kehityskohde: 'ponnauttelu', kesto: '10 min', xp: 20,
+      ohje_leikkija: 'Pomputa palloa jalalla — montako kertaa peräkkäin saat ennen kuin se tippuu? Laske ja kirjaa ennätys. Yritä päihittää eilinen!',
+      ohje_rakentaja: 'Ponnauttelu vahvalla jalalla, tavoite 30 peräkkäistä. Pidä pallo matalalla (polven alapuolella), nilkka lukossa. Kun 30 onnistuu, vaihda heikkoon jalkaan.',
+      ohje_showcase: 'Ponnauttelu molemmin jaloin vuorotellen, pallo polven korkeudella, tavoite 50 peräkkäistä. Lisää reisi- ja olkapääkosketukset sekaan rytmiä rikkomatta.',
+      cue: 'Ronaldinho: ponnauttelu opettaa pallon kielen — kuinka se reagoi jokaiseen kosketukseen.',
+      viikkotavoite: 'Paranna peräkkäisten ponnautusten ennätystä' },
+    { nimi: 'Reisi–jalka-rytmi', kehityskohde: 'ponnauttelu', kesto: '10 min', xp: 20,
+      ohje_leikkija: 'Pomputa näin: reisi → jalka → reisi → jalka. Pidä rytmi kuin laulussa. Montako kierrosta jaksat ilman tippumista?',
+      ohje_rakentaja: 'Yhdistelmäponnauttelu: reisi–jalka–reisi yhdellä jalalla, sitten vaihto toiseen. 5 kierrosta ilman tippumista. Kontrolli ennen vauhtia.',
+      ohje_showcase: 'Vapaa ponnauttelusarja: reisi, sisäjalka, ulkojalka, olkapää — vaihtele kosketuspintaa rytmiä menettämättä. 2 min yhtäjaksoisesti.',
+      cue: 'Pallo tottelee sitä jolla on tuntuma jokaisesta pinnasta.',
+      viikkotavoite: 'Reisi–jalka 5 kierrosta putkeen' },
+    { nimi: 'Seinäponnautus', kehityskohde: 'ponnauttelu', kesto: '12 min', xp: 25,
+      ohje_leikkija: 'Potkaise pallo seinään ilmaan ja ota se haltuun ilmasta ennen kuin se osuu maahan. 10 onnistunutta!',
+      ohje_rakentaja: 'Seinäponnautus: syötä seinään ilmaan, vastaanota ilmasta yhdellä pehmeällä kosketuksella, ponnauta takaisin. 15 kosketusta ilman maahantippumista.',
+      ohje_showcase: 'Seinäponnautus vuorojaloin: ensimmäinen kosketus pehmentää, toinen syöttää. 20 toistoa + skannaa: nimeä kohde ennen jokaista syöttöä.',
+      cue: 'Ilmapallon hallinta erottaa pelaajan joka pelaa nopeudella.',
+      viikkotavoite: 'Seinäponnautus 15 kosketusta ilman maahantippumista' },
+  ],
+  nopeus: [
+    { nimi: 'Kiihdytys pallon kanssa', kehityskohde: 'nopeus', kesto: '12 min', xp: 20,
+      ohje_leikkija: 'Kuljeta pallo niin nopeasti kuin pystyt 10 metriä, pysäytä, ja takaisin. Pallo pysyy lähellä! 6 kertaa täysillä, hengähdä välissä.',
+      ohje_rakentaja: 'Kiihdytysvedot pallon kanssa: 0–15 m maksimivauhtia, pallo enintään askeleen päässä. 6 toistoa, täysi palautus välissä. Pysyykö pallo hallinnassa täydessä vauhdissa?',
+      ohje_showcase: 'Kiihdytys pallolla 20 m, viimeiset 5 m ilman katsetta palloon (skannaa eteen). 8 toistoa. Vertaa: kuljetus ilman palloa vs. pallon kanssa (TSI-erotus).',
+      cue: 'Mbappé: nopeus pallon kanssa on eri taito kuin nopeus ilman — sitä harjoitellaan erikseen.',
+      viikkotavoite: 'Pallo hallinnassa 15 m täysvauhdissa' },
+    { nimi: 'Suunnanmuutos kartioilla', kehityskohde: 'nopeus', kesto: '12 min', xp: 25,
+      ohje_leikkija: '3 merkkiä lattiaan — kivi, reppu tai paita käy — 5 metrin välein. Kuljeta pallo, käänny terävästi jokaisella, kiihdytä. 8 kertaa.',
+      ohje_rakentaja: 'Suunnanmuutosrata: kartiot 5 m välein, terävä 90° käännös jokaisella + välitön kiihdytys ulos. Pallo lähellä käännöksessä. 8 läpimenoa, ajanotto.',
+      ohje_showcase: 'Suunnanmuutos täydessä vauhdissa: 180° käännös pysäytyksellä + räjähtävä lähtö vastakkaiseen suuntaan, molemmat jalat. 10 toistoa, mittaa palautumisaika.',
+      cue: 'Pelin nopeus on suunnanmuutosnopeutta, ei suoraa juoksua.',
+      viikkotavoite: 'Terävä käännös ilman pallon karkaamista' },
+    { nimi: 'Reaktiolähtö', kehityskohde: 'nopeus', kesto: '10 min', xp: 20,
+      ohje_leikkija: 'Kaveri huutaa "NYT!" — lähde silloin pallon kanssa täysillä 5 metriä. Tai heittämäsi pallo pomppaa merkiksi — lähde heti! 8 kertaa.',
+      ohje_rakentaja: 'Reaktiolähtö: odota merkkiä (kaverin huuto tai käsimerkki), lähde pallolla räjähtävästi 5–10 m. 8 toistoa. Kuinka nopeasti reagoit ja olet täydessä vauhdissa?',
+      ohje_showcase: 'Reaktiolähtö valinnalla: kaveri osoittaa suunnan merkkihetkellä, lähde sinne pallolla. 10 toistoa. Yhdistä havainto + kiihdytys — tämä on pelin lähtö.',
+      cue: 'Ensimmäinen askel ratkaisee — reaktio + kiihdytys voittaa metrit.',
+      viikkotavoite: 'Lähtö merkistä ilman viivettä' },
+  ],
+};
+
+// Miksi-lause2 -matriisi: 5 kehityskohdetta × 3 ikävaihetta
+const MIKSI_LAUSE2 = {
+  pallonhallinta: {
+    leikkija:  'Jokainen kosketus tekee pallosta tutumman.',
+    rakentaja: 'Automatisoimalla hallinnan vapautat ajattelun peliin.',
+    showcase:  'Tekninen automaatio on se mikä erottaa ammattitason harrastelijatasosta.',
+  },
+  koordinaatio: {
+    leikkija:  'Keho oppii liikkumaan paremmin yhdessä.',
+    rakentaja: 'Koordinaatio on pohja kaikelle muulle.',
+    showcase:  'Liikehallinta täydessä vauhdissa on se mihin tekniikka nojaa.',
+  },
+  nopeus: {
+    leikkija:  'Nopeat jalat tekevät pelistä hauskempaa.',
+    rakentaja: 'Nopeus pallon kanssa on oma taitonsa — sitä voi harjoitella.',
+    showcase:  'Neuromuskulaarinen harjoittelu rakentaa räjähtävyyttä.',
+  },
+  syotto: {
+    leikkija:  'Tarkka syöttö pitää pallon kavereilla.',
+    rakentaja: 'Syöttö on joukkueen kieli — tarkkuus avaa pelin.',
+    showcase:  'Syötön tarkkuus ja painotus ratkaisevat hyökkäyksen tempon.',
+  },
+  ponnauttelu: {
+    leikkija:  'Ponnauttelu opettaa pallon liikkeet.',
+    rakentaja: 'Ponnauttelu rakentaa kosketustarkkuuden jokaiseen pintaan.',
+    showcase:  'Ilmapallon hallinta on perusta ensimmäiselle kosketukselle paineessa.',
+  },
+};
+
+const KOHDE_NIMET = { pallonhallinta: 'pallonhallinta', koordinaatio: 'koordinaatio', nopeus: 'nopeus', syotto: 'syöttö', ponnauttelu: 'ponnauttelu' };
+
+// Päivänumero epochista — Date.UTC date-only -stringeille (OSA 3 -invariantti), muuten millis
+function _pvmEpochPaiva(x) {
+  if (x == null) return null;
+  if (typeof x === 'object') {
+    if (typeof x.toDate === 'function') return Math.floor(x.toDate().getTime() / 86400000);
+    if (typeof x.seconds === 'number')  return Math.floor((x.seconds * 1000) / 86400000);
+    if (x instanceof Date)              return Math.floor(x.getTime() / 86400000);
+  }
+  var s = String(x);
+  var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return Math.floor(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000);
+  var t = Date.parse(s);
+  return isNaN(t) ? null : Math.floor(t / 86400000);
+}
+
+// Ikävaihe pelaajasta: syntymaVuosi (SJK) tai ikaluokka 'P10'/'T14' (Sibbo) → leikkija/rakentaja/showcase
+function _laskeIkavaihe(pelaaja) {
+  var ika = null;
+  if (pelaaja && pelaaja.syntymaVuosi)      ika = (new Date().getFullYear()) - Number(pelaaja.syntymaVuosi);
+  else if (pelaaja && pelaaja.ika != null)  ika = Number(pelaaja.ika);
+  else if (pelaaja && pelaaja.ikaluokka)    { var mm = String(pelaaja.ikaluokka).match(/(\d+)/); if (mm) ika = +mm[1]; }
+  if (ika == null) return 'rakentaja';   // turvallinen oletus kun ikä tuntematon
+  return ika <= 12 ? 'leikkija' : ika <= 15 ? 'rakentaja' : 'showcase';
+}
+
+function _ohjeIkavaiheelle(h, iv) {
+  return h['ohje_' + iv] || h.ohje_rakentaja || h.ohje_leikkija || h.ohje_showcase || h.ohje || '';
+}
+
+// ── 1A: Kehityskohteen prioriteettiketju ──────────────────────────────
+// Palauttaa { kohde, lahde, varmuus, rawKohde }
+function laskeTekninenKehityskohde(pelaaja) {
+  pelaaja = pelaaja || {};
+  // P1 — TKI-kehityskohde (Sibbo, varmuus korkea)
+  if (pelaaja.tki_kehityskohde) {
+    var raw = String(pelaaja.tki_kehityskohde);
+    var kohde = TKI_LAJI_KOHDE[raw] || (KOHDE_NIMET[raw] ? raw : 'pallonhallinta');
+    return { kohde: kohde, lahde: 'tki', varmuus: 'korkea', rawKohde: raw };
+  }
+  // P2 — TSI-johdettu (SJK, varmuus kohtalainen)
+  if (pelaaja.tsi_viimeisin != null) {
+    var tsi = Number(pelaaja.tsi_viimeisin);
+    var k2 = tsi > 1.5 ? 'pallonhallinta' : tsi >= 0.8 ? 'koordinaatio' : 'nopeus';
+    return { kohde: k2, lahde: 'tsi', varmuus: 'kohtalainen', rawKohde: null };
+  }
+  // P3 — H-H-taso (varmuus matala)
+  if (pelaaja.hh_taso != null) {
+    var k3 = Number(pelaaja.hh_taso) < 2.0 ? 'koordinaatio' : 'nopeus';
+    return { kohde: k3, lahde: 'hh', varmuus: 'matala', rawKohde: null };
+  }
+  // P4 — oletus (universaali pohja)
+  return { kohde: 'pallonhallinta', lahde: 'ikavaihe', varmuus: 'oletus', rawKohde: null };
+}
+
+// ── 1B: Päivittäinen harjoitevalinta (teema pysyy, harjoite vaihtuu) ───
+// Palauttaa valitun harjoitteen normalisoituna, TAI null jos kohteelle ei harjoitteita
+// (kutsuja tekee tällöin EX-fallbackin ikävaiheella).
+function valitsePaivanHarjoite(pelaaja, pankki, pvm) {
+  pankki = pankki || (typeof PANKKI !== 'undefined' ? PANKKI : null);
+  var kk = laskeTekninenKehityskohde(pelaaja);
+  var kohde = kk.kohde;
+  var iv = _laskeIkavaihe(pelaaja);
+
+  // Kerää kehityskohteen harjoitteet: tagatut mesosyklit + erillispankki
+  var harjoitteet = [];
+  if (pankki && pankki.T) {
+    for (var meso in T_MESOSYKLI_KOHDE) {
+      if (T_MESOSYKLI_KOHDE[meso] !== kohde) continue;
+      var series = pankki.T[meso];
+      if (!series) continue;
+      ['vk1', 'vk2', 'vk3', 'vk4'].forEach(function (vk) { if (series[vk]) harjoitteet.push(series[vk]); });
+    }
+  }
+  if (T_KOHDE_PANKKI[kohde]) harjoitteet = harjoitteet.concat(T_KOHDE_PANKKI[kohde]);
+
+  if (!harjoitteet.length) {
+    console.warn('[PANKKI] Ei harjoitteita kohteelle:', kohde);
+    return null;
+  }
+
+  // Deterministinen päiväindeksi
+  var pvmPaiva = _pvmEpochPaiva(pvm);
+  var aloitusPaiva = _pvmEpochPaiva(pelaaja && (pelaaja.luotu || pelaaja.tuotu));
+  var paiviaAktiivinen = (pvmPaiva != null && aloitusPaiva != null) ? (pvmPaiva - aloitusPaiva) : 0;
+  if (paiviaAktiivinen < 0) paiviaAktiivinen = 0;
+
+  var indeksi;
+  if (paiviaAktiivinen <= 2) indeksi = 0;                                              // 3 ensimmäistä pv: sama
+  else if (iv === 'leikkija') indeksi = Math.floor(paiviaAktiivinen / 2) % harjoitteet.length; // hitaampi vaihto
+  else indeksi = paiviaAktiivinen % harjoitteet.length;                                // päivittäin
+
+  var h = harjoitteet[indeksi];
+  return {
+    nimi: h.nimi, ohje: _ohjeIkavaiheelle(h, iv),
+    kesto: h.kesto || null, xp: h.xp || 20, yt: h.yt || null,
+    cue: h.cue || null, viikkotavoite: h.viikkotavoite || null,
+    kehityskohde: kohde, tyyppi: 'T', paiviaAktiivinen: paiviaAktiivinen,
+  };
+}
+
+// ── 1C: Miksi-tekstin generointi (3 lausetta) ─────────────────────────
+function generoiMiksiteksti(pelaaja, kehityskohde, ikavaihe) {
+  pelaaja = pelaaja || {};
+  var kohde = kehityskohde.kohde, lahde = kehityskohde.lahde;
+  var kohdeNimi = KOHDE_NIMET[kohde] || kohde;
+
+  var l1;
+  if (lahde === 'tki')      l1 = 'Tekniikkakilpailusi näytti että ' + kohdeNimi + ' on kasvun paikka.';
+  else if (lahde === 'tsi') { var s = (pelaaja.tsi_viimeisin != null) ? Number(pelaaja.tsi_viimeisin).toFixed(1) : '?'; l1 = 'Mittaus kertoo että pallo hidastaa sinua ' + s + ' sekuntia.'; }
+  else if (lahde === 'hh')  l1 = 'Fyysinen profiilisi kertoo missä kehittyminen tuottaa eniten.';
+  else l1 = ikavaihe === 'leikkija' ? 'Olet juuri oikeassa iässä oppimaan tämän.'
+          : ikavaihe === 'rakentaja' ? 'Nyt on se hetki jolloin tämä taito uppoaa syvimmälle.'
+          : 'Tämä on se osa-alue joka erottaa hyvän pelaajan erinomaisesta.';
+
+  var m = MIKSI_LAUSE2[kohde] || MIKSI_LAUSE2.pallonhallinta;
+  var l2 = m[ikavaihe] || m.rakentaja;
+
+  var l3 = ikavaihe === 'leikkija' ? 'Tee tämä joka päivä ja pallo alkaa totella.'
+                                   : 'Tee tämä 14 päivää → testaat uudelleen → näet eron.';
+
+  return { miksi_lause1: l1, miksi_lause2: l2, miksi_lause3: l3 };
+}
+
+// Node-testattavuus (browser: ei module → ei vaikutusta; <script src> käyttää globaaleja)
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    PANKKI: (typeof PANKKI !== 'undefined' ? PANKKI : null),
+    laskeKetjuProfiili: (typeof laskeKetjuProfiili !== 'undefined' ? laskeKetjuProfiili : null),
+    generoimTehtavat: (typeof generoimTehtavat !== 'undefined' ? generoimTehtavat : null),
+    laskeTekninenKehityskohde: laskeTekninenKehityskohde,
+    valitsePaivanHarjoite: valitsePaivanHarjoite,
+    generoiMiksiteksti: generoiMiksiteksti,
+    _laskeIkavaihe: _laskeIkavaihe,
+    T_MESOSYKLI_KOHDE: T_MESOSYKLI_KOHDE,
+    T_KOHDE_PANKKI: T_KOHDE_PANKKI,
+  };
+}
