@@ -265,6 +265,9 @@ function pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }) {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.lahetaRekisteriKutsu = functions
   .region('europe-west1')
+  // SENDGRID_API_KEY Secret Managerista (lahetaSahkoposti lukee process.env:stä).
+  // SENDGRID_FROM_EMAIL tulee .env:stä (ei-salainen). Sama kaava kuin vahvistaSuostumus.
+  .runWith({ secrets: ['SENDGRID_API_KEY'] })
   .https.onCall(async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
@@ -640,6 +643,9 @@ exports.lahetaPelaajaSivuLinkki = functions
 // ─────────────────────────────────────────────────────────────────────────────
 exports.vahvistaSuostumus = functions
   .region('europe-west1')
+  // SENDGRID_API_KEY Secret Managerista — sama kaava kuin lahetaRekisteriKutsu.
+  // Ei vielä sähköpostia (ks. TODO), mutta secret-sidonta valmiina kun lähetys siirretään tänne.
+  .runWith({ secrets: ['SENDGRID_API_KEY'] })
   .https.onCall(async (data, context) => {
     const { seuraId, pelaajaId, hEmail, suostumusTeksti } = data || {};
     if (!seuraId || !pelaajaId || !hEmail) {
