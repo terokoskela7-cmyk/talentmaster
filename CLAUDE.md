@@ -753,6 +753,9 @@ oikeasta kenttäkäytöstä. Lukupuoli (joukkuepulssi + S9) toimii heti kun pika
 2. **Inkrementaalinen** — testaa jokaisen muutoksen jälkeen, myös super-adminilla
 3. **Tiedostojen jakelu:** outputs → GitHub
 4. **CDN-cache** ~10 min → `?v=N`, tarkista `raw.githubusercontent.com`
+   - **PWA cache-versiot — nosta AINA kun HTML päivittyy** (muuten Service Worker tarjoaa vanhaa Cache First -strategialla):
+     · Pelaaja: `tm-pelaaja-v1` (`sw_pelaaja.js`) · Vanhempi: `tm-vanhempi-v1` (`sw_vanhempi.js`)
+     · Nosta SW:n cache-versio **samalla kun nostat HTML:n `?v=N`-numeron**. PWA-tiedostot: `manifest_pelaaja/vanhempi.json`, `sw_pelaaja/vanhempi.js`, `assets/pwa/icon-*.png`. Scope `/talentmaster/`, polut absoluuttisia.
 5. **Security Rules:** Firebase Consolesta JA `tm_admin/firestore.rules` (erilliset)
 6. **Chrome MCP:** Firestore-kirjoitukset app-tabista (Firebase alustettu)
 
