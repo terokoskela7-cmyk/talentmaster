@@ -33,7 +33,8 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 - `laskeHiddenGem(p)` + `_hgBadge` + `_onTalenttisuositus` VP_v25:ssä — Pelaajat-taulukko + talenttisuositus-suodatin näyttävät lasketun HG:n (ehdokas/vahvistettu/eliitti/FLEI/kullankimpale). Kynnykset D2≥3.5/D1≤2.5/erotus≥1.0 (kalibroitavissa).
 - `recalcVarhaiskehitys(seuraId, dryRun)` Excel_Tuonti SA-konsoli — eliittiportaan pikakenttä `tekninen_varhaiskehitys` testituloksista.
 - **KÄYTTÄJÄN AJO:** `recalcVarhaiskehitys('sibbovargarna', true)` → `false` (Sibbon eliitit näkyviin).
-- **Kesken:** HG-badge per-pelaaja-popupiin/radariin, DI/Raportointi-laskurit lukemaan laskettua HG:tä (nyt yhä `p.signaali`), kynnyskalibrointi 300+ pelaajalla.
+- **HG-badge + laskurit TOTEUTETTU 2026-06-04:** `_hgBadge(p)` per-pelaaja-pikakatsaus-popupin headerissa (nimen alla, 5D-radarin yläpuolella); `renderRaportointi` (rap-hg + nominee-lista/tagit) ja `renderDI` (joukkuekortin HG-luku) lukevat nyt `laskeHiddenGem`/`_onTalenttisuositus` vanhan `p.signaali`-kentän sijaan. X-Factor (stored) säilyy erillisenä. rap-hg laskee vain lasketun HG:n; nominee-lista sisältää myös legacy stored `signaali==='hidden'` (eri metriikat, tarkoituksellinen).
+- **Kesken:** kynnyskalibrointi 300+ pelaajalla (D2≥3.5/D1≤2.5/erotus≥1.0).
 
 **SPRINT B (alkup. määrittely):**
 - **Hidden Gem -logiikka** — korkea D2 + matala D1 + PRE-PHV (myöhäiskypsyvä lahjakkuus: tekninen ikkuna ~6–13 v käytetty, fyysinen nousuvara biologisesti edessä). **Kolmiportainen vahvistus:**

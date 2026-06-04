@@ -3353,6 +3353,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const isp = _dimIkaSp(joukkueNimi, p);
   const ika = isp.ika, sp = isp.sp;
   const nimi = (p.etunimi || '') + ' ' + (p.sukunimi || '');
+  const hgBadge = _hgBadge(p);   // Hidden Gem -badge (laskettu §28-luokitin) — null jos ei mikään
 
   // Hero — tämän pelaajan D1/D2/D4
   const d1 = (p.hh_taso != null) ? p.hh_taso : null;
@@ -3446,7 +3447,8 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:640px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column" onclick="event.stopPropagation()">';
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px 24px 10px">';
   h += '<div><button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;padding:0;font-family:\'DM Sans\',sans-serif">← ' + _jsvEsc(joukkueNimi) + '</button>';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink);margin-top:2px">' + _jsvEsc(nimi) + '</div></div>';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink);margin-top:2px">' + _jsvEsc(nimi) + '</div>'
+    + (hgBadge ? '<div style="margin-top:5px">' + hgBadge + '</div>' : '') + '</div>';
   h += '<button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
   h += '</div>';
   // 5D-profiilikartta (tutkakaavio) korvaa erillisen hero-rivin — sama D1/D2/D4 mutta hahmona. Säästää pystytilan tuloksille.
@@ -4215,8 +4217,9 @@ function avaaTapahtumaV9(tapahtumaId) {
 function renderRaportointi() {
   const fleiat = _pelaajat.filter(p=>p.flei_viimeisin).map(p=>p.flei_viimeisin);
   const fleiKa = fleiat.length ? (fleiat.reduce((a,b)=>a+b,0)/fleiat.length).toFixed(1) : '—';
-  const talents = _pelaajat.filter(p => p.signaali === 'xfactor' || p.signaali === 'hidden');
-  const hidden  = _pelaajat.filter(p => p.signaali === 'hidden');
+  // Lasketaan Hidden Gem §28-luokittimella (laskeHiddenGem), ei vanhasta p.signaali-kentästä.
+  const talents = _pelaajat.filter(p => _onTalenttisuositus(p));   // X-Factor (stored) TAI laskettu Hidden Gem
+  const hidden  = _pelaajat.filter(p => { const hg = laskeHiddenGem(p); return hg.dHG || hg.fleiHG; });
 
   document.getElementById('rap-p').textContent  = _pelaajat.length;
   document.getElementById('rap-f').textContent  = fleiKa;
@@ -4230,7 +4233,7 @@ function renderRaportointi() {
     nomEl.innerHTML = talents.map(p => `
       <div class="nominee-row">
         <div class="nom-name"><strong>${p.etunimi} ${p.sukunimi}</strong> · ${p.joukkue}</div>
-        <span class="tag ${p.signaali==='xfactor'?'xfactor':'hidden'}">${p.signaali==='xfactor'?'X-Factor':'Hidden Gem'}</span>
+        ${p.signaali==='xfactor' ? '<span class="tag xfactor">X-Factor</span>' : (_hgBadge(p) || '<span class="tag hidden">Hidden Gem</span>')}
         <div class="nom-detail">FLEI ${p.flei_viimeisin}</div>
       </div>`).join('');
   }
@@ -5333,7 +5336,7 @@ function renderDI() {
     const deltaClass = Number(delta) > 0 ? 'up' : Number(delta) < -1 ? 'down' : 'flat';
     const deltaIcon = Number(delta) > 0 ? '↑' : Number(delta) < 0 ? '↓' : '→';
     const xf = pelaajat.filter(p=>p.signaali==='xfactor').length;
-    const hg = pelaajat.filter(p=>p.signaali==='hidden').length;
+    const hg = pelaajat.filter(p=>{ const h = laskeHiddenGem(p); return h.dHG || h.fleiHG; }).length;   // laskettu HG (§28), ei p.signaali
     const phv = pelaajat.filter(p=>p.phv_tila==='PH').length;
 
     return `
