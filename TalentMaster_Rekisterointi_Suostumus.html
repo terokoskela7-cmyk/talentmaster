@@ -449,47 +449,32 @@ function toStep3() {
       // ── KUTSUFLOW: dokumentti on jo olemassa, päivitetään vain suostumustiedot ──
       // Tämä on tarkasti rajattu update joka vastaa rules-hasOnly()-listaa.
       // Lomake EI kirjoita etunimi/sukunimi/joukkue jne. koska ne ovat jo oikein.
-      var pelRef = colRef.doc(dokumenttiId);
-      var tallId = dokumenttiId;
-
-      // ── Suostumuksen merkintä ('annettu') tehdään palvelinvarmennetusti ──
-      // vahvistaSuostumus-CF (Admin SDK) tarkistaa että hEmail === tallennettu
-      // huoltajaEmail (permission-denied jos ei), merkitsee suostumuksen ja luo
-      // salasanan asetuslinkin. Tämä sivu on autentikoimaton (ei auth-compat),
-      // joten turvakriittistä suostumustilaa EI kirjoiteta suoraan selaimesta.
+      // ── Koko kutsuflow'n kirjoitus tehdään palvelinvarmennetusti vahvistaSuostumus-CF:llä ──
+      // Sivu on autentikoimaton (ei auth-compat) → Firestore Rules estää KAIKKI suorat
+      // update-kirjoitukset (permission-denied). CF (Admin SDK) tarkistaa hEmail === tallennettu
+      // huoltajaEmail, merkitsee suostumuksen + aux-kentät (tila/antaja/bio-pituudet) + kutsun
+      // hyväksytyksi, ja palauttaa salasanan asetuslinkin. EI suoria client-kirjoituksia tässä.
       // seuraId/pelaajaId/hEmail tulevat kutsulinkin URL-parametreista.
       var hEmailParam = (_urlParams.hEmail || raporttiEmail || '').toLowerCase();
       var suostumusTekstiStr = 'Hyväksytyt suostumukset (' + suostumusNimet.length + ' kpl): '
         + (suostumusNimet.join(', ') || '—') + ' · versio 2026-v1 · ' + aikaleima;
+      var antajaNimi = age < 18
+        ? (val('h_etu') + ' ' + val('h_suku')).trim()
+        : (val('i_etu') + ' ' + val('i_suku')).trim();
       var vahvistaFn = firebase.app().functions('europe-west1').httpsCallable('vahvistaSuostumus');
 
       tallennusPromise = vahvistaFn({
           seuraId:         _seuraId,
           pelaajaId:       dokumenttiId,
           hEmail:          hEmailParam,
-          suostumusTeksti: suostumusTekstiStr
+          suostumusTeksti: suostumusTekstiStr,
+          antaja:          antajaNimi,
+          bioPituudet:     bioPituudet,
+          kutsuId:         _kutsuId || null
         })
         .then(function(res) {
           // CF palauttaa salasanan asetuslinkin → näytetään onnistumisnäytöllä (QR + kopioi)
           window._suostumusResetLinkki = (res && res.data && res.data.passwordResetLink) || null;
-          // Ei-turvakriittiset aux-kentät (CF ei kirjoita näitä): bio-pituudet, tila, antaja
-          return pelRef.update({
-            tila:               'aktiivinen',
-            suostumuksenAntaja: age < 18
-              ? (val('h_etu') + ' ' + val('h_suku')).trim()
-              : (val('i_etu') + ' ' + val('i_suku')).trim(),
-            muokattu:           nyt,
-            isa_pituus_cm:           bioPituudet.isa_pituus_cm,
-            aiti_pituus_cm:          bioPituudet.aiti_pituus_cm,
-            vanhempi_pituus_puuttuu: bioPituudet.vanhempi_pituus_puuttuu,
-            vanhempi_pituus_pvm:     bioPituudet.vanhempi_pituus_pvm,
-          });
-        })
-        .then(function() {
-          if (_kutsuId) {
-            return _fbDb.collection('seurat').doc(_seuraId).collection('kutsut').doc(_kutsuId)
-              .update({ tila: 'hyvaksytty', hyvaksyttyPvm: nyt, pelaajaId: tallId, muokattu: nyt });
-          }
         });
 
     } else {

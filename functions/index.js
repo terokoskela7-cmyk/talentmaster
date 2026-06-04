@@ -637,8 +637,10 @@ exports.lahetaPelaajaSivuLinkki = functions
 // MIKSI CF: suostumustilan ('annettu') merkitseminen on turvakriittinen — sitä
 // ei saa voida tehdä suoralla selainkirjoituksella. Tämä funktio varmistaa
 // Admin SDK:lla että kutsuja todella on pelaajaan liitetty huoltaja (hEmail ===
-// tallennettu huoltajaEmail) ennen kuin suostumus merkitään. Lisäksi luo/hakee
-// huoltajan Auth-tilin ja palauttaa salasanan asetuslinkin (sama kaava kuin
+// tallennettu huoltajaEmail) ennen kuin suostumus merkitään. Kirjoittaa palvelinpuolella
+// KAIKKI kutsuflow'n kirjoitukset (suostumusTila + aux-kentät tila/antaja/bio-pituudet +
+// kutsut→'hyvaksytty'), koska sivu on autentikoimaton eikä saa kirjoittaa Firestoreen suoraan.
+// Lisäksi luo/hakee huoltajan Auth-tilin ja palauttaa salasanan asetuslinkin (sama kaava kuin
 // lahetaPelaajaSivuLinkki / lahetaResetLinkki — url PAKOLLINEN, muuten 500, ks. §13).
 // Käytössä: TalentMaster_Rekisterointi_Suostumus.html (kutsuflow).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -647,7 +649,10 @@ exports.vahvistaSuostumus = functions
   // Ei sähköpostia vielä (ks. TODO) → ei SendGrid-riippuvuutta. Kun lähetys siirretään tänne,
   // SENDGRID_API_KEY tulee process.env:stä .env:n kautta (CI-injektio), kuten lahetaRekisteriKutsu.
   .https.onCall(async (data, context) => {
-    const { seuraId, pelaajaId, hEmail, suostumusTeksti } = data || {};
+    // antaja/bioPituudet/kutsuId: ei-arkaluonteiset aux-kentät jotka lomake kirjoitti ennen
+    // suoraan client-puolelta — siirretty tänne, koska Rekisterointi_Suostumus.html on
+    // autentikoimaton ja Rules estää sen suorat update-kirjoitukset (permission-denied).
+    const { seuraId, pelaajaId, hEmail, suostumusTeksti, antaja, bioPituudet, kutsuId } = data || {};
     if (!seuraId || !pelaajaId || !hEmail) {
       throw new functions.https.HttpsError('invalid-argument',
         'seuraId, pelaajaId ja hEmail ovat pakollisia.');
@@ -667,16 +672,37 @@ exports.vahvistaSuostumus = functions
         'Huoltajan sähköposti ei täsmää pelaajan tietoihin.');
     }
 
-    // 3. Merkitse suostumus annetuksi
+    // 3. Merkitse suostumus annetuksi + kirjoita ei-arkaluonteiset aux-kentät palvelinpuolella.
+    const TS = admin.firestore.FieldValue.serverTimestamp();
+    const paivitys = {
+      suostumusTila:    'annettu',
+      suostumusAnnettu: TS,
+      suostumusTeksti:  suostumusTeksti || null,
+      tila:             'aktiivinen',
+      muokattu:         TS,
+    };
+    if (antaja) paivitys.suostumuksenAntaja = String(antaja);
+    if (bioPituudet && typeof bioPituudet === 'object') {
+      paivitys.isa_pituus_cm           = (bioPituudet.isa_pituus_cm  != null) ? bioPituudet.isa_pituus_cm  : null;
+      paivitys.aiti_pituus_cm          = (bioPituudet.aiti_pituus_cm != null) ? bioPituudet.aiti_pituus_cm : null;
+      paivitys.vanhempi_pituus_puuttuu = !!bioPituudet.vanhempi_pituus_puuttuu;
+      paivitys.vanhempi_pituus_pvm     = bioPituudet.vanhempi_pituus_pvm || null;
+    }
     try {
-      await pelRef.update({
-        suostumusTila:    'annettu',
-        suostumusAnnettu: admin.firestore.FieldValue.serverTimestamp(),
-        suostumusTeksti:  suostumusTeksti || null,
-      });
+      await pelRef.update(paivitys);
     } catch (e) {
       throw new functions.https.HttpsError('internal',
         `Suostumuksen tallennus epäonnistui: ${e.message}`);
+    }
+
+    // 3b. Merkitse kutsu hyväksytyksi (best-effort — puuttuva kutsut-doc ei saa kaataa suostumusta)
+    if (kutsuId) {
+      try {
+        await db.collection('seurat').doc(seuraId).collection('kutsut').doc(String(kutsuId))
+          .update({ tila: 'hyvaksytty', hyvaksyttyPvm: TS, pelaajaId, muokattu: TS });
+      } catch (e) {
+        console.warn('[vahvistaSuostumus] kutsut-update epäonnistui:', e.message);
+      }
     }
 
     // 4. + 5. Luo/hae huoltajan Auth-tili ja generoi salasanan asetuslinkki.
