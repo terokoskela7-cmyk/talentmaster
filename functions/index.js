@@ -723,6 +723,19 @@ exports.vahvistaSuostumus = functions
       aikaleima:   aikaleima || null,
     };
 
+    // PIN — 4-numeroinen, uniikki seurassa (sama logiikka kuin Seura.html luoPelaajaPIN +
+    // duplikaattitarkistus). Idempotentti: älä vaihda jos pelaajalla on jo validi PIN.
+    let pin = (snap.get('pin') && /^\d{4}$/.test(String(snap.get('pin')))) ? String(snap.get('pin')) : null;
+    if (!pin) {
+      const pelaajatCol = db.collection('seurat').doc(seuraId).collection('pelaajat');
+      for (let yritys = 0; yritys < 20 && !pin; yritys++) {
+        const ehdokas = String(Math.floor(1000 + Math.random() * 9000));
+        const kaytossa = await pelaajatCol.where('pin', '==', ehdokas).limit(1).get();
+        if (kaytossa.empty || kaytossa.docs[0].id === pelaajaId) pin = ehdokas;
+      }
+      if (pin) paivitys.pin = pin;
+    }
+
     try {
       await pelRef.update(paivitys);
     } catch (e) {
@@ -757,10 +770,10 @@ exports.vahvistaSuostumus = functions
         url: continueUrl,
         handleCodeInApp: false,
       });
-      return { ok: true, passwordResetLink };
+      return { ok: true, passwordResetLink, pin };
     } catch (e) {
       console.warn('[vahvistaSuostumus] Reset-linkki epäonnistui:', e.message);
-      return { ok: true, passwordResetLink: null, linkkiVirhe: e.message };
+      return { ok: true, passwordResetLink: null, linkkiVirhe: e.message, pin };
     }
   });
 // ─────────────────────────────────────────────────────────────────────────────

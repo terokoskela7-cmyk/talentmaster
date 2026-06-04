@@ -484,6 +484,7 @@ function toStep3() {
         .then(function(res) {
           // CF palauttaa salasanan asetuslinkin → näytetään onnistumisnäytöllä (QR + kopioi)
           window._suostumusResetLinkki = (res && res.data && res.data.passwordResetLink) || null;
+          window._suostumusPin = (res && res.data && res.data.pin) || null;
         });
 
     } else {
@@ -579,6 +580,16 @@ function toStep3() {
         +(_seuraId
           ?'<div class="rrow"><span class="rk">Tallennettu</span><span class="rv" style="color:var(--teal)">TalentMaster-rekisteriin</span></div>'
           :'<div class="rrow"><span class="rk">Tila</span><span class="rv" style="color:var(--amber)">Odottaa synkronointia</span></div>');
+
+      // Pelaajan PIN-koodi (vahvistaSuostumus-CF generoi) — näkyvästi, annetaan pelaajalle
+      if (window._suostumusPin) {
+        el('receipt').innerHTML +=
+          '<div style="margin-top:14px;padding:16px;background:var(--ink3);border:1px solid var(--teal);border-radius:9px;text-align:center">'
+          + '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">&#128100; Pelaajan PIN-koodi</div>'
+          + '<div style="font-family:\'Bebas Neue\',monospace;font-size:38px;letter-spacing:8px;color:var(--teal);font-weight:700">' + window._suostumusPin + '</div>'
+          + '<div style="font-size:12px;color:var(--text);margin-top:6px">Anna t&auml;m&auml; pelaajalle &mdash; h&auml;n kirjautuu omaan n&auml;kym&auml;&auml;ns&auml; PIN-koodilla.</div>'
+          + '</div>';
+      }
 
       // Salasanan asetuslinkki (vahvistaSuostumus-CF) — QR + kopioitava linkki (Seura.html-kaava)
       if (window._suostumusResetLinkki) {

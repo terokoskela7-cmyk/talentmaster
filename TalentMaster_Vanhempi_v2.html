@@ -504,22 +504,8 @@ function _kotiU15(d){
   <!-- Tarinanäkymä ilman dataa -->
   <div style="padding:8px 2px 14px">
     <div class="ey" style="margin-bottom:8px">Mitä viikossa tapahtui</div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      ${[
-        {t:'Maanantai · joukkueharjoitus', s:'Ei loukkauksia. Aino näytti motivoituneelta.', c:'teal'},
-        {t:'Tiistai · omaehtoinen 30 min', s:'Pomputteli ja kuvasi itsensä. Postasi TikTokiin.', c:'teal'},
-        {t:'Keskiviikko · lepo', s:'Koulu ja kavereita. Hyvä niin.', c:'slate'},
-        {t:'Torstai · joukkueharjoitus', s:'Valmentaja kehui asennetta. Kysy, jos hän haluaa kertoa.', c:'teal'},
-        {t:'Perjantai · ei tietoa', s:'Ei kirjausta. Ei syytä huoleen — ei joka päivä tarvitse.', c:'slate'},
-      ].map(r=>`
-        <div style="display:flex;gap:12px;padding:2px 0">
-          <div style="width:3px;background:${r.c==='teal'?'var(--teal)':'rgba(242,239,230,.1)'};border-radius:2px;flex-shrink:0"></div>
-          <div style="flex:1">
-            <div style="font-size:12px;font-weight:600;color:var(--text)">${r.t}</div>
-            <div style="font-size:11px;color:var(--ink2);line-height:1.55;margin-top:2px">${r.s}</div>
-          </div>
-        </div>
-      `).join('')}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${_viikkoRivitHtml()}
     </div>
   </div>
 
@@ -613,60 +599,45 @@ function _kotiU19(d){
 }
 
 /* ══ VIIKKO ══ */
+// Viikkokirjaukset OIKEASTA Firestore-datasta (_viikkoKirjaukset) tai tyhjä tila.
+// EI keksittyä sisältöä — vain todellinen data tai empty state.
+function _viikkoRivitHtml(){
+  const _esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+  if (!_viikkoKirjaukset || _viikkoKirjaukset.length === 0) {
+    return `<div class="card" style="padding:24px 18px;text-align:center">
+      <div style="font-size:13px;color:var(--ink3);line-height:1.6">Treenitiedot näkyvät kun valmentaja kirjaa harjoituksia.</div>
+    </div>`;
+  }
+  const tyyppiLabel = { T:'Pallotreeni', D:'Kehonhuolto', S:'Lihaskunto', P:'Peli', vapaa:'Omaehtoinen', pihapeli:'Pihapeli', pallo:'Leikkiä pallolla' };
+  return _viikkoKirjaukset.map(function(k){
+    const aika = (k.luotu && k.luotu.toDate) ? k.luotu.toDate() : (k.luotu ? new Date(k.luotu) : null);
+    const aikaStr = aika ? aika.toLocaleDateString('fi-FI', {weekday:'short', day:'numeric', month:'numeric'}) : _esc(k.id || '');
+    const otsikko = tyyppiLabel[k.tyyppi] || 'Harjoitus';
+    const osat = [];
+    if (k.kesto_min) osat.push(k.kesto_min + ' min');
+    if (k.fiilis)    osat.push('fiilis ' + k.fiilis + '/5');
+    if (k.teksti)    osat.push(k.teksti);
+    const lahde = k.lahde === 'vanhempi' ? ' · vanhempi' : (k.lahde === 'valmentaja' ? ' · valmentaja' : '');
+    return `<div class="card" style="padding:12px 14px">
+      <div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);margin-bottom:2px">${aikaStr}${lahde}</div>
+      <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px">${_esc(otsikko)}</div>
+      ${osat.length ? `<div style="font-size:11px;color:var(--ink3);line-height:1.5">${_esc(osat.join(' · '))}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
 function rViikko(){
   const d=IKA[_age];
   return `
 <div class="scroll">
   <div style="padding:16px 4px 16px">
-    <div class="ey" style="margin-bottom:4px">Viikko 17</div>
+    <div class="ey" style="margin-bottom:4px">Tämä viikko</div>
     <div style="font-family:var(--font-d);font-weight:300;font-size:26px;line-height:1.1;color:var(--text)">
       Mitä ${d.nimi} teki
     </div>
   </div>
-
-  ${[
-    {pvm:'Ma 20.4', tapahtumat:[
-      {aika:'17:30', t:'Joukkueharjoitus', s:'Töölön kenttä · 90 min', tyyppi:'joukkue'},
-    ]},
-    {pvm:'Ti 21.4', tapahtumat:[
-      {aika:'16:42', t:'Omaehtoinen · pihapeli', s:'30 min · 2 kaveria · fiilis 4/5', tyyppi:'oma'},
-    ]},
-    {pvm:'Ke 22.4', tapahtumat:[
-      {aika:'–', t:'Lepopäivä', s:'Ei kirjausta — ja se on ok', tyyppi:'lepo'},
-    ]},
-    {pvm:'To 23.4', tapahtumat:[
-      {aika:'18:00', t:'Joukkueharjoitus', s:'Töölön kenttä · 90 min · ADAR: A4 D3 A4 R4', tyyppi:'joukkue'},
-      {aika:'20:10', t:'Valmentajan viesti', s:'"Hyvä asenne tänään"', tyyppi:'viesti'},
-    ]},
-    {pvm:'Pe 24.4', tapahtumat:[
-      {aika:'Tänään', t:'Ei vielä kirjausta', s:'Normaali — päivää ei ole vielä eletty', tyyppi:'pending'},
-    ]},
-  ].map(p=>`
-    <div style="margin-bottom:20px">
-      <div class="ey" style="margin-bottom:8px;color:${p.pvm.includes('Tänään')?'var(--teal-d)':''}">${p.pvm}</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${p.tapahtumat.map(t=>`
-          <div class="card" style="padding:12px 14px;display:flex;gap:12px">
-            <div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);width:42px;flex-shrink:0;padding-top:1px">${t.aika}</div>
-            <div style="flex:1">
-              <div style="font-size:13px;font-weight:500;color:${t.tyyppi==='lepo'?'var(--ink2)':'var(--text)'};margin-bottom:2px">${t.t}</div>
-              <div style="font-size:11px;color:var(--ink3);line-height:1.5">${t.s}</div>
-            </div>
-            ${t.tyyppi==='oma'?`<div style="color:var(--gold);font-size:14px;flex-shrink:0">★</div>`:''}
-            ${t.tyyppi==='joukkue'?`<div style="color:var(--teal-d);font-size:14px;flex-shrink:0">●</div>`:''}
-            ${t.tyyppi==='viesti'?`<div style="color:var(--ink3);font-size:14px;flex-shrink:0">✉</div>`:''}
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `).join('')}
-
-  <!-- Yhteenveto -->
-  <div class="card-teal" style="padding:16px;margin-top:10px">
-    <div class="ey ac" style="margin-bottom:8px">Viikon tunne</div>
-    <div style="font-size:13px;color:var(--text);line-height:1.6">
-      Tasapainoinen viikko. 3 tehtyä päivää, 1 lepopäivä, 1 vielä edessä. Ei loukkauksia, valmentajan viesti positiivinen.
-    </div>
+  <div style="display:flex;flex-direction:column;gap:8px;padding:0 4px 16px">
+    ${_viikkoRivitHtml()}
   </div>
 </div>`;
 }
