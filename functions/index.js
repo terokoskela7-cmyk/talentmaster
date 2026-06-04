@@ -265,9 +265,9 @@ function pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }) {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.lahetaRekisteriKutsu = functions
   .region('europe-west1')
-  // SENDGRID_API_KEY Secret Managerista (lahetaSahkoposti lukee process.env:stä).
-  // SENDGRID_FROM_EMAIL tulee .env:stä (ei-salainen). Sama kaava kuin vahvistaSuostumus.
-  .runWith({ secrets: ['SENDGRID_API_KEY'] })
+  // SENDGRID_API_KEY luetaan process.env:stä — CI injektoi sen .env:hen GitHub-repo-Secretistä
+  // (deploy_functions.yml), kuten ANTHROPIC/OPENAI. EI runWith({secrets}): GitHub Actions -SA:lta
+  // puuttuu secretmanager.versions.get → deploy-aikainen Secret Manager -validointi kaatuu (403).
   .https.onCall(async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
@@ -643,9 +643,8 @@ exports.lahetaPelaajaSivuLinkki = functions
 // ─────────────────────────────────────────────────────────────────────────────
 exports.vahvistaSuostumus = functions
   .region('europe-west1')
-  // SENDGRID_API_KEY Secret Managerista — sama kaava kuin lahetaRekisteriKutsu.
-  // Ei vielä sähköpostia (ks. TODO), mutta secret-sidonta valmiina kun lähetys siirretään tänne.
-  .runWith({ secrets: ['SENDGRID_API_KEY'] })
+  // Ei sähköpostia vielä (ks. TODO) → ei SendGrid-riippuvuutta. Kun lähetys siirretään tänne,
+  // SENDGRID_API_KEY tulee process.env:stä .env:n kautta (CI-injektio), kuten lahetaRekisteriKutsu.
   .https.onCall(async (data, context) => {
     const { seuraId, pelaajaId, hEmail, suostumusTeksti } = data || {};
     if (!seuraId || !pelaajaId || !hEmail) {
