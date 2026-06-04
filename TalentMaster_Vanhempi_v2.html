@@ -123,44 +123,44 @@ button{font-family:var(--font-b);cursor:pointer}
    U15: Tuki     — näkee, rohkaisee, ei kirjaa
    U19: Vieras   — viikkokooste, kepeä kieli
 ════════════════════════════════════════════════ */
+// Demo-OLETUKSET (ikävaihekehys). Nimi/ryhmä/hero/ika ylikirjoitetaan oikealla
+// pelaajadatalla _kasitteleLapsi():ssä. valmentaja ei käytössä (haetaan Firestoresta).
+// vinkki = yleinen ohje vanhemmalle (ei pelaajakohtaista keksittyä dataa).
 const IKA = {
   u12: {
-    nimi:'Eemeli', ika:11, ryhma:'KPV U12 · Sininen',
+    nimi:'Pelaaja', ika:11, ryhma:'Joukkue',
     otsikko:(e)=>_genetiivi(e)+' viikko',
-    hero: { t:'Eemeli treenasi eilen 45 min', s:'Pihalla Jaakon ja Lauran kanssa. Hyvä fiilis.' },
+    hero: { t:'Tervetuloa', s:'Treenitiedot näkyvät kun valmentaja kirjaa harjoituksia.' },
     vinkki: 'Pikkuiselle on tänään hyvä päivä levätä. Katso lempeästi, että hän ei treenaa kolmatta päivää putkeen.',
     kirjaaNakyva: true,
-    valmentaja: 'Hyvä kun Eemeli oli pihalla! Ei välttämätöntä kirjata kaikkea — rentous on tärkeintä tässä iässä.',
+    valmentaja: '',
   },
   u15: {
-    nimi:'Aino', ika:14, ryhma:'KPV U15 · Tytöt',
+    nimi:'Pelaaja', ika:14, ryhma:'Joukkue',
     otsikko:(e)=>_genetiivi(e)+' viikko',
-    hero: { t:'Aino on ollut aktiivinen', s:'4 treeniä tällä viikolla · kaikki omasta aloitteesta.' },
+    hero: { t:'Tervetuloa', s:'Treenitiedot näkyvät kun valmentaja kirjaa harjoituksia.' },
     vinkki: 'Nuori alkaa ottaa vastuuta itse. Ei tarvitse kysyä joka päivä — viesti kannattaa säästää viikon lopuksi.',
     kirjaaNakyva: false,
-    valmentaja: 'Aino teki tällä viikolla vahvaa työtä kaikilla osa-alueilla. Vanhemmalle vinkki: anna hänen hengittää, hän tietää mitä tekee.',
+    valmentaja: '',
   },
   u19: {
-    nimi:'Joonas', ika:17, ryhma:'KPV U19 · Mustat',
+    nimi:'Pelaaja', ika:17, ryhma:'Joukkue',
     otsikko:(e)=>_genetiivi(e)+' kooste',
-    hero: { t:'Joonas on kehittynyt 6 kk ajan', s:'Stage-matka: 2 → 3. Ammattilaisuuden rakennuttamisen vaihe.' },
+    hero: { t:'Tervetuloa', s:'Treenitiedot näkyvät kun valmentaja kirjaa harjoituksia.' },
     vinkki: 'Hän on lähes aikuinen pelaaja. Rooli muuttuu: olet läsnä, mutta et ohjaaja. Kuukausikooste riittää — älä häiritse arkea.',
     kirjaaNakyva: false,
-    valmentaja: 'Joonas on kilpa-uraan kypsymässä. Kommunikoidaan suoraan pelaajan kanssa. Kuukausikooste tulee automaattisesti.',
+    valmentaja: '',
   },
 };
 
-// Suomen genetiivi etunimelle — Topias→Topiaksen, Eemeli→Eemelin, Aino→Ainon
+// Suomen genetiivi etunimelle (esim. -s → -ksen, vokaali → -n, konsonantti → -in)
 function _genetiivi(nimi) {
   if (!nimi) return '';
   const n = nimi.trim();
   const viim = n[n.length-1].toLowerCase();
-  // Päättyy s:ään (Topias, Joonas, Markus) → poista s, lisää ksen
-  if (viim === 's') return n.slice(0,-1) + 'ksen';
-  // Päättyy vokaaliin (Eemeli, Aino, Petra) → lisää n
-  if ('aeiouäöy'.includes(viim)) return n + 'n';
-  // Muut (konsonantti) → lisää in
-  return n + 'in';
+  if (viim === 's') return n.slice(0,-1) + 'ksen';     // päättyy s:ään → -ksen
+  if ('aeiouäöy'.includes(viim)) return n + 'n';        // päättyy vokaaliin → -n
+  return n + 'in';                                       // konsonantti → -in
 }
 
 let _age='u12';
@@ -173,6 +173,7 @@ let _auth = null;
 // Lapsen viimeisin kirjaus (Firestoresta)
 let _viimeisinKirjaus = null;   // { tyyppi, kesto_min, fiilis, aika, pvm }
 let _viikkoKirjaukset = [];     // koko viikon kirjaukset tarina-generaattorille
+let _valmentajaViestit = [];    // valmentajan viestit (havainnot, tyyppi:'valmentaja_viesti')
 let _kehuLahetetty = false;     // nappi harmaa lähetyksen jälkeen
 
 function setAge(a){
@@ -441,18 +442,12 @@ function rKoti(){
 
 function _kotiU12(d){
   return `
-  <!-- Viikko visuaalisesti -->
+  <!-- Tämä viikko (oikea data tai tyhjä tila) -->
   <div style="padding:0 2px;margin-bottom:16px">
     <div class="ey" style="margin-bottom:10px">Tämä viikko</div>
-    <div class="week-dots">
-      ${['Ma','Ti','Ke','To','Pe','La','Su'].map((p,i)=>{
-        const done=i<4; const today=i===4; const miss=i>=5;
-        return `<div class="wd ${done?'done':''} ${today?'today':''} ${miss?'miss':''}">${p}</div>`;
-      }).join('')}
-    </div>
-    <div style="font-size:10px;color:var(--ink3);margin-top:8px;text-align:center">
-      4 päivää tehty · tänään levätään
-    </div>
+    ${(_viikkoKirjaukset && _viikkoKirjaukset.length)
+      ? `<div style="font-size:13px;color:var(--text)">${_viikkoKirjaukset.length} kirjausta tällä viikolla</div>`
+      : `<div style="font-size:12px;color:var(--ink3);line-height:1.5">Treenitiedot näkyvät kun valmentaja kirjaa harjoituksia.</div>`}
   </div>
 
   <!-- Kirjaus-nopeakiinnitys (VAIN U12) -->
@@ -467,26 +462,10 @@ function _kotiU12(d){
 
   <div class="divider"></div>
 
-  <!-- Valmentajan viesti -->
+  <!-- Valmentajan viesti (oikea data tai tyhjä tila) -->
   <div style="padding:0 2px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div class="ey">Valmentajalta</div>
-      <div style="font-size:9px;color:var(--gold);letter-spacing:.14em">Eilen 18:42</div>
-    </div>
-    <div class="card" style="padding:16px">
-      <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px">
-        <div style="width:34px;height:34px;border-radius:50%;background:var(--surface2);border:.5px solid rgba(26,122,94,.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#28B090">MV</div>
-        <div>
-          <div style="font-size:12px;font-weight:600;color:var(--text)">Mika Virtanen</div>
-          <div style="font-size:10px;color:var(--ink3)">Päävalmentaja</div>
-        </div>
-      </div>
-      <div style="font-size:12px;color:var(--text);line-height:1.6;font-style:italic">"${d.valmentaja}"</div>
-      <div style="margin-top:10px;display:flex;gap:6px">
-        <button style="flex:1;padding:8px;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.3);border-radius:6px;color:var(--teal-d);font-size:11px;font-weight:600">👍 Kiitos</button>
-        <button style="flex:1;padding:8px;background:var(--surface2);border:.5px solid var(--border2);border-radius:6px;color:var(--text);font-size:11px;font-weight:600">Vastaa</button>
-      </div>
-    </div>
+    <div class="ey" style="margin-bottom:10px">Valmentajalta</div>
+    ${_valmentajaUusinHtml()}
   </div>
 
   <div class="divider"></div>
@@ -511,28 +490,10 @@ function _kotiU15(d){
 
   <div class="divider"></div>
 
-  <!-- Rohkaisu-ehdotus -->
-  <div class="card" style="padding:16px">
-    <div class="ey ac" style="margin-bottom:8px">Ehdotus</div>
-    <div style="font-size:13px;color:var(--text);line-height:1.5;margin-bottom:12px">
-      Aino on tehnyt hyvää viikkoa. Pieni viesti voi ilahduttaa — ilman että tuntuu kontrolloinnilta.
-    </div>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      ${['"Hieno viikko! 💪"','"Näin sun postauksen — hyvää työtä!"','"Haluatko että teen sulle iltapalan?"'].map(v=>`
-        <button style="text-align:left;padding:10px 12px;background:var(--surface2);border:.5px solid var(--border2);border-radius:8px;color:var(--text);font-size:11px;font-style:italic;cursor:pointer">${v}</button>
-      `).join('')}
-    </div>
-  </div>
-
-  <div class="divider"></div>
-
-  <!-- Valmentaja -->
-  <div class="card2" style="padding:14px;display:flex;gap:10px;align-items:flex-start">
-    ${ic('msg',16,'#28B090',1.5)}
-    <div style="flex:1">
-      <div style="font-size:10px;color:var(--ink3);margin-bottom:4px">Valmentajalta · tällä viikolla</div>
-      <div style="font-size:12px;color:var(--text);line-height:1.55;font-style:italic">"${d.valmentaja}"</div>
-    </div>
+  <!-- Valmentaja (oikea data tai tyhjä tila) -->
+  <div style="padding:0 2px">
+    <div class="ey" style="margin-bottom:8px">Valmentajalta</div>
+    ${_valmentajaUusinHtml()}
   </div>
 
   <div class="divider"></div>
@@ -546,47 +507,20 @@ function _kotiU15(d){
 
 function _kotiU19(d){
   return `
-  <!-- Pitkä kaari -->
+  <!-- Kehityskaari (oikea data tai tyhjä tila) -->
   <div style="padding:8px 2px 16px">
-    <div class="ey" style="margin-bottom:10px">6 kk kehityskaari</div>
-    <!-- Stage progress bar -->
-    <div style="padding:18px 16px;background:var(--surface);border:.5px solid var(--border);border-radius:10px">
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--ink3);margin-bottom:10px;letter-spacing:.08em">
-        <span>LEIKKIJÄ</span><span>RAKENTAJA</span><span style="color:var(--teal-d)">SHOWCASE</span><span>AMMATTILAINEN</span>
-      </div>
-      <div style="height:6px;background:var(--surface2);border-radius:3px;position:relative;margin-bottom:12px">
-        <div style="position:absolute;left:0;top:0;height:100%;width:62%;background:linear-gradient(90deg,var(--teal),var(--teal-d));border-radius:3px"></div>
-        <div style="position:absolute;left:62%;top:-4px;width:14px;height:14px;border-radius:50%;background:var(--teal-d);transform:translateX(-50%);box-shadow:0 0 10px rgba(40,176,144,.5)"></div>
-      </div>
-      <div style="font-size:11px;color:var(--text);line-height:1.55">
-        Joonas on rakentaja-vaiheen lopussa, matkalla showcase:en. <span style="color:var(--teal-d)">Noin 8 kk kuluttua</span> hän on valmis vakavaan näyttövaiheeseen.
-      </div>
+    <div class="ey" style="margin-bottom:10px">Kehityskaari</div>
+    <div class="card" style="padding:24px 18px;text-align:center">
+      <div style="font-size:13px;color:var(--ink3);line-height:1.6">Kehityskaari ja kuukausikooste näkyvät kun seuran data on kirjattu.</div>
     </div>
-  </div>
-
-  <!-- Kuukaudet -->
-  <div style="padding:0 2px 14px">
-    <div class="ey" style="margin-bottom:10px">Kuukaudet</div>
-    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:10px">
-      ${['Mar','Huh','Tou','Kes','Hei','Elo'].map((k,i)=>`
-        <div style="padding:8px 2px;text-align:center;background:${i>=3?'rgba(26,122,94,.12)':'var(--surface2)'};border:.5px solid ${i>=3?'rgba(26,122,94,.3)':'var(--border)'};border-radius:6px">
-          <div style="font-size:9px;color:var(--ink3);letter-spacing:.08em;margin-bottom:2px">${k}</div>
-          <div style="font-size:13px;font-weight:600;color:${i>=3?'#28B090':'var(--ink2)'}">${[12,8,14,18,22,25][i]}</div>
-        </div>
-      `).join('')}
-    </div>
-    <div style="font-size:10px;color:var(--ink3);text-align:center">Treenikerrat kuukaudessa · omaehtoiset ja joukkue</div>
   </div>
 
   <div class="divider"></div>
 
-  <!-- Valmentajan linja -->
-  <div class="card" style="padding:18px">
-    <div class="ey ac" style="margin-bottom:10px">Valmentajan linja tällä kaudella</div>
-    <div style="font-size:12px;color:var(--text);line-height:1.6;font-style:italic">"${d.valmentaja}"</div>
-    <div style="margin-top:14px;padding-top:12px;border-top:.5px solid var(--border)">
-      <div style="font-size:10px;color:var(--ink3);line-height:1.55">Kuukausikooste lähetetään automaattisesti sähköpostiin. Halutessasi voit ottaa yhteyttä suoraan valmentajaan.</div>
-    </div>
+  <!-- Valmentajalta (oikea data tai tyhjä tila) -->
+  <div style="padding:0 2px">
+    <div class="ey ac" style="margin-bottom:10px">Valmentajalta</div>
+    ${_valmentajaUusinHtml()}
   </div>
 
   <div class="divider"></div>
@@ -622,6 +556,47 @@ function _viikkoRivitHtml(){
       <div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);margin-bottom:2px">${aikaStr}${lahde}</div>
       <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px">${_esc(otsikko)}</div>
       ${osat.length ? `<div style="font-size:11px;color:var(--ink3);line-height:1.5">${_esc(osat.join(' · '))}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// Yhteinen escape.
+function _vEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function _vViestiTeksti(v){ return v.teksti || v.sisalto || v.narratiivi || v.viesti || ''; }
+function _vViestiPvm(v){
+  const a = (v.luotu && v.luotu.toDate) ? v.luotu.toDate() : (v.luotu ? new Date(v.luotu) : null);
+  return a ? a.toLocaleDateString('fi-FI', {day:'numeric', month:'numeric'}) : '';
+}
+
+// Valmentajan UUSIN viesti OIKEASTA Firestore-datasta (_valmentajaViestit) tai tyhjä tila.
+function _valmentajaUusinHtml(){
+  if (!_valmentajaViestit || _valmentajaViestit.length === 0) {
+    return `<div class="card2" style="padding:16px;text-align:center">
+      <div style="font-size:12px;color:var(--ink3);line-height:1.6">Valmentajan viesti näkyy tässä kun valmentaja on kirjannut.</div>
+    </div>`;
+  }
+  const v = _valmentajaViestit[0];
+  const pvm = _vViestiPvm(v);
+  return `<div class="card2" style="padding:14px;display:flex;gap:10px;align-items:flex-start">
+    <div style="flex:1">
+      <div style="font-size:10px;color:var(--ink3);margin-bottom:4px">Valmentajalta${pvm?' · '+pvm:''}</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.6;font-style:italic">"${_vEsc(_vViestiTeksti(v))}"</div>
+    </div>
+  </div>`;
+}
+
+// Valmentajan KAIKKI viestit (Viestit-tab) tai tyhjä tila.
+function _valmentajaListaHtml(){
+  if (!_valmentajaViestit || _valmentajaViestit.length === 0) {
+    return `<div class="card" style="padding:24px 18px;text-align:center">
+      <div style="font-size:13px;color:var(--ink3);line-height:1.6">Valmentajan viesti näkyy tässä kun valmentaja on kirjannut.</div>
+    </div>`;
+  }
+  return _valmentajaViestit.map(function(v){
+    const pvm = _vViestiPvm(v);
+    return `<div class="card2" style="padding:14px;margin-bottom:8px">
+      <div style="font-size:10px;color:var(--teal-d);letter-spacing:.12em;font-weight:600;margin-bottom:6px">${pvm}</div>
+      <div style="font-size:12px;color:var(--ink2);line-height:1.55">${_vEsc(_vViestiTeksti(v))}</div>
     </div>`;
   }).join('');
 }
@@ -870,40 +845,8 @@ function rValmentaja(){
     <div style="font-family:var(--font-d);font-weight:300;font-size:26px;line-height:1.1;color:var(--text)">Valmentajalta</div>
   </div>
 
-  <!-- Uusin viesti -->
-  <div class="card" style="padding:18px;margin-bottom:14px">
-    <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-      <div style="width:42px;height:42px;border-radius:50%;background:var(--surface2);border:.5px solid rgba(26,122,94,.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#28B090;flex-shrink:0">MV</div>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:600;color:var(--text)">Mika Virtanen</div>
-        <div style="font-size:10px;color:var(--ink3);margin-top:1px">Päävalmentaja · ${d.ryhma}</div>
-      </div>
-      <div style="font-size:10px;color:var(--ink3)">Eilen</div>
-    </div>
-    <div style="font-family:var(--font-d);font-weight:300;font-size:18px;line-height:1.35;color:var(--text);font-style:italic">
-      "${d.valmentaja}"
-    </div>
-    <div style="margin-top:16px;padding-top:14px;border-top:.5px solid var(--border);display:flex;gap:8px">
-      <button style="flex:1;padding:10px;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.3);border-radius:8px;color:var(--teal-d);font-size:11px;font-weight:600">👍 Kiitos viestistä</button>
-      <button style="padding:10px 14px;background:var(--surface2);border:.5px solid var(--border2);border-radius:8px;color:var(--text);font-size:11px;font-weight:600">Vastaa</button>
-    </div>
-  </div>
-
-  <!-- Aikaisemmat -->
-  <div class="ey" style="margin:16px 2px 8px">Aikaisemmat</div>
-  ${[
-    {pvm:'Vk 16', sisalto:'Hyvä viikko. Pelaaja osallistuu aktiivisesti joukkueharjoituksiin ja on löytänyt oman paikkansa ryhmässä.'},
-    {pvm:'Vk 15', sisalto:'Pientä nihkeyttä — ehkä kausi on pitkä ja väsyttää. Lepo tulee tarpeeseen.'},
-    {pvm:'Vk 14', sisalto:'ADAR-havainnot kehittyneet: toiminta nopeampaa ja rohkeampaa. Hyvä suunta.'},
-  ].map(v=>`
-    <div class="card2" style="padding:14px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-        <div style="font-size:10px;color:var(--teal-d);letter-spacing:.14em;font-weight:600">${v.pvm}</div>
-        <div style="font-size:10px;color:var(--ink3)">›</div>
-      </div>
-      <div style="font-size:12px;color:var(--ink2);line-height:1.55">${v.sisalto}</div>
-    </div>
-  `).join('')}
+  <!-- Valmentajan viestit (oikea Firestore-data tai tyhjä tila) -->
+  ${_valmentajaListaHtml()}
 
   <!-- Tieto -->
   <div style="margin-top:18px;padding:12px 14px;background:rgba(242,239,230,.03);border-radius:8px;font-size:10px;color:var(--ink3);line-height:1.55">
@@ -915,6 +858,7 @@ function rValmentaja(){
 /* ══ KAUSIKORTTI ══ */
 function rKortti(){
   const d=IKA[_age];
+  const L = window._lapsi || {};   // oikeat arvot pelaajadokumentista — ei keksittyjä lukuja
   return `
 <div class="scroll">
   <div style="padding:14px 2px 14px;text-align:center">
@@ -930,10 +874,10 @@ function rKortti(){
       <div>
         <div class="ey" style="color:rgba(184,134,11,.8);margin-bottom:3px">Kausipassi</div>
         <div style="font-family:var(--font-d);font-weight:500;font-size:22px;color:var(--text);line-height:1">${d.nimi}</div>
-        <div style="font-size:10px;color:var(--ink3);margin-top:4px;letter-spacing:.06em">${d.ryhma} · #${_age==='u12'?'7':_age==='u15'?'11':'9'}</div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:4px;letter-spacing:.06em">${d.ryhma}${L.pelinumero!=null?' · #'+L.pelinumero:''}</div>
       </div>
       <div style="text-align:right">
-        <div style="font-family:var(--font-d);font-weight:300;font-size:44px;color:var(--gold);line-height:1">${_age==='u12'?'82':_age==='u15'?'87':'91'}</div>
+        <div style="font-family:var(--font-d);font-weight:300;font-size:44px;color:var(--gold);line-height:1">${L.kortti!=null?L.kortti:'—'}</div>
         <div class="ey" style="color:rgba(184,134,11,.8)">Kortti</div>
       </div>
     </div>
@@ -942,9 +886,9 @@ function rKortti(){
 
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
       ${[
-        {l:'Streak',v:_age==='u12'?'14':_age==='u15'?'23':'47',u:'pv'},
-        {l:'Treenejä',v:_age==='u12'?'38':_age==='u15'?'52':'124',u:'kausi'},
-        {l:'Stage',v:_age==='u12'?'Leikkijä':_age==='u15'?'Rakentaja':'Showcase',u:''},
+        {l:'Streak',v:(L.streak!=null?L.streak:0),u:'pv'},
+        {l:'Treenejä',v:(L.treeneja_kausi!=null?L.treeneja_kausi:0),u:'kausi'},
+        {l:'Stage',v:(L.stage||'—'),u:''},
       ].map(s=>`
         <div>
           <div class="ey" style="color:rgba(184,134,11,.6);font-size:8px;margin-bottom:2px">${s.l}</div>
@@ -954,11 +898,13 @@ function rKortti(){
       `).join('')}
     </div>
 
-    <!-- Signaalit -->
-    ${_age!=='u12'?`
+    <!-- Signaali (oikea data _lapsi.signaali, vain jos olemassa) -->
+    ${L.signaali==='xfactor'?`
     <div style="display:flex;gap:6px;margin-top:10px">
-      <div style="padding:4px 10px;background:rgba(26,122,94,.15);border:.5px solid rgba(26,122,94,.35);border-radius:12px;font-size:9px;font-weight:600;color:#28B090;letter-spacing:.1em">★ X-FACTOR</div>
-      ${_age==='u19'?`<div style="padding:4px 10px;background:rgba(184,134,11,.15);border:.5px solid rgba(184,134,11,.35);border-radius:12px;font-size:9px;font-weight:600;color:var(--gold);letter-spacing:.1em">◆ GEM</div>`:''}
+      <div style="padding:4px 10px;background:rgba(26,122,94,.15);border:.5px solid rgba(26,122,94,.35);border-radius:12px;font-size:9px;font-weight:600;color:#28B090;letter-spacing:.1em">★ X-Factor</div>
+    </div>`:L.signaali==='hidden'?`
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <div style="padding:4px 10px;background:rgba(184,134,11,.15);border:.5px solid rgba(184,134,11,.35);border-radius:12px;font-size:9px;font-weight:600;color:var(--gold);letter-spacing:.1em">◆ Hidden Gem</div>
     </div>`:''}
   </div>
 
@@ -986,6 +932,11 @@ function rKortti(){
 /* ══ ASETUKSET ══ */
 function rAsetukset(){
   const d=IKA[_age];
+  const L = window._lapsi || {};
+  const huoltajaNimi = L.suostumuksenAntaja
+    || (_auth && _auth.currentUser && (_auth.currentUser.displayName || _auth.currentUser.email))
+    || '—';
+  const pin = (L.pin != null && /^[0-9]{4}$/.test(String(L.pin))) ? String(L.pin) : null;
   return `
 <div class="scroll">
   <div style="padding:14px 2px 18px">
@@ -997,10 +948,22 @@ function rAsetukset(){
   <div class="card" style="padding:16px;margin-bottom:14px;display:flex;gap:14px;align-items:center">
     <div style="width:48px;height:48px;border-radius:50%;background:var(--surface2);border:.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--ink2)">P</div>
     <div style="flex:1">
-      <div style="font-size:13px;font-weight:600;color:var(--text)">Petri Kinnunen</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text)">${_vEsc(huoltajaNimi)}</div>
       <div style="font-size:11px;color:var(--ink3)">${_genetiivi(d.nimi)} huoltaja</div>
     </div>
     ${ic('edit',16,'#8BA0BC',1.5)}
+  </div>
+
+  <!-- Pelaajan PIN-koodi (oikea _lapsi.pin tai ohje) -->
+  <div class="ey" style="margin:16px 2px 10px">Pelaajan kirjautuminen</div>
+  <div class="card2" style="padding:16px;margin-bottom:14px">
+    ${pin
+      ? `<div style="font-size:11px;color:var(--ink3);margin-bottom:8px">Pelaajan PIN-koodi — ${_genetiivi(d.nimi)} kirjautuu tällä omaan näkymäänsä</div>
+         <div style="display:flex;align-items:center;gap:12px">
+           <div style="font-family:var(--font-m);font-size:30px;letter-spacing:7px;color:var(--teal-d);font-weight:700">${pin}</div>
+           <button onclick="_kopioiPin('${pin}')" style="padding:8px 14px;background:rgba(26,122,94,.12);border:.5px solid rgba(26,122,94,.35);border-radius:8px;color:var(--teal-d);font-size:11px;font-weight:600;cursor:pointer">Kopioi</button>
+         </div>`
+      : `<div style="font-size:12px;color:var(--ink3);line-height:1.6">PIN-koodia ei ole vielä asetettu. Ota yhteyttä seuraan saadaksesi pelaajan PIN-koodin.</div>`}
   </div>
 
   <!-- Ikä-säätö -->
@@ -1014,7 +977,7 @@ function rAsetukset(){
       <div class="ey ac">${_age.toUpperCase()}</div>
     </div>
     <div style="font-size:10px;color:var(--ink3);line-height:1.55;padding:10px;background:rgba(242,239,230,.02);border-radius:6px">
-      ${_age==='u12'?'Alle 13-vuotiaalla GDPR edellyttää huoltajan roolia. Saat näkyvyyden kaikkeen ja voit kirjata puolesta.':_age==='u15'?'Nuori ottaa vastuuta. Sinä tuet — et hallitse. Aino voi halutessaan piilottaa yksityiskohtia.':'Joonas hallitsee omaa dataansa. Sinulle lähtee viikottainen/kuukausittainen kooste — ei reaaliaikaa.'}
+      ${_age==='u12'?'Alle 13-vuotiaalla GDPR edellyttää huoltajan roolia. Saat näkyvyyden kaikkeen ja voit kirjata puolesta.':_age==='u15'?('Nuori ottaa vastuuta. Sinä tuet — et hallitse. '+d.nimi+' voi halutessaan piilottaa yksityiskohtia.'):(d.nimi+' hallitsee omaa dataansa. Sinulle lähtee viikoittainen/kuukausittainen kooste — ei reaaliaikaa.')}
     </div>
   </div>
 
@@ -1045,7 +1008,7 @@ function rAsetukset(){
   <div class="card2" style="padding:16px;margin-bottom:14px">
     <div style="font-size:12px;color:var(--text);font-weight:500;margin-bottom:6px">${d.nimi} hallitsee dataa</div>
     <div style="font-size:11px;color:var(--ink3);line-height:1.55">
-      ${_age==='u12'?'Alaikäisen tietoja käsittelet sinä. Oikeus korjata tai poistaa kuuluu teille molemmille.':_age==='u15'?'Yli 13-vuotiaalla on lain mukaan oma tietosuojaoikeus. Aino voi piilottaa sinulta asioita, jotka ovat hänestä henkilökohtaisia.':'Joonas on täysi-ikäistymässä. Hän päättää mitä jaetaan vanhemmille, seuralle ja ulkopuolisille. Tietoja ei jaeta ilman hänen lupaansa.'}
+      ${_age==='u12'?'Alaikäisen tietoja käsittelet sinä. Oikeus korjata tai poistaa kuuluu teille molemmille.':_age==='u15'?('Yli 13-vuotiaalla on lain mukaan oma tietosuojaoikeus. '+d.nimi+' voi piilottaa sinulta asioita, jotka ovat hänestä henkilökohtaisia.'):(d.nimi+' päättää mitä jaetaan vanhemmille, seuralle ja ulkopuolisille. Tietoja ei jaeta ilman hänen lupaansa.')}
     </div>
     <button style="margin-top:12px;width:100%;padding:10px;background:transparent;border:.5px solid var(--border2);border-radius:8px;color:var(--ink2);font-size:11px;font-weight:500;cursor:pointer">Lue GDPR-selvitys</button>
   </div>
@@ -1077,7 +1040,7 @@ function rTabs(){
 }
 
 // Init — linkitä TMBus
-let _childId = 'eemeli';
+let _childId = null;
 try{
   const u=new URL(location.href);
   const pid=u.searchParams.get('pid');
@@ -1148,16 +1111,10 @@ function _kasitteleLapsi(lapsi) {
   window._lapsi = lapsi;
   const ika = new Date().getFullYear() - (lapsi.syntymaVuosi || 2012);
   _age = ika <= 12 ? 'u12' : ika <= 15 ? 'u15' : 'u19';
-  const _demoNimi = IKA[_age].nimi;                          // demo-nimi (Eemeli/Aino/Joonas) ennen ylikirjoitusta
   const _realNimi = lapsi.etunimi || IKA[_age].nimi;
   IKA[_age].nimi  = _realNimi;
+  IKA[_age].ika   = ika;
   IKA[_age].ryhma = lapsi.joukkue || lapsi.joukkueNimi || IKA[_age].ryhma;
-  // Poista kovakoodattu demo-nimi myös valmentaja/vinkki-teksteistä (korvaa oikealla nimellä).
-  if (_demoNimi && _realNimi && _demoNimi !== _realNimi) {
-    const _swap = function(s) { return (typeof s === 'string') ? s.split(_demoNimi).join(_realNimi) : s; };
-    IKA[_age].valmentaja = _swap(IKA[_age].valmentaja);
-    IKA[_age].vinkki     = _swap(IKA[_age].vinkki);
-  }
   // Hero-fallback (näkyy vain kun ei vielä kirjausta): neutraali tervetuloa — EI keksittyä aktiviteettia.
   IKA[_age].hero = {
     t: _realNimi + ' — tervetuloa TalentMasteriin',
@@ -1272,6 +1229,21 @@ async function _haeViimeisinKirjaus() {
 
     _viikkoKirjaukset = viikkoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     _kehuLahetetty = false;
+
+    // Valmentajan viestit (havainnot, tyyppi:'valmentaja_viesti'). Suodatus client-puolella
+    // (ei vaadi composite-indeksiä); järjestys luotu desc.
+    try {
+      const vSnap = await _db.collection('seurat').doc(urlSeura)
+        .collection('pelaajat').doc(urlUid).collection('havainnot')
+        .where('tyyppi', '==', 'valmentaja_viesti').limit(20).get();
+      _valmentajaViestit = vSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort(function(a, b){
+          const ta = (a.luotu && a.luotu.toDate) ? a.luotu.toDate().getTime() : 0;
+          const tb = (b.luotu && b.luotu.toDate) ? b.luotu.toDate().getTime() : 0;
+          return tb - ta;
+        });
+    } catch(e) { console.warn('[valmentajaViestit]', e.message); _valmentajaViestit = []; }
+
     draw();
   } catch(e) {
     console.warn('[haeKirjaus]', e.message);
@@ -1357,6 +1329,16 @@ function _tarinaKuvaus(k) {
   return osat.join(' ') || 'Hyvää työtä tänään.';
 }
 
+
+/* ── Kopioi pelaajan PIN leikepöydälle ── */
+function _kopioiPin(pin) {
+  if (!pin) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(String(pin))
+      .then(function(){ _toast('PIN kopioitu leikepöydälle'); })
+      .catch(function(){ _toast('Kopioi PIN manuaalisesti'); });
+  } else { _toast('Kopioi PIN manuaalisesti'); }
+}
 
 /* ── Kirjaudu ulos ── */
 function _kirjauduUlos() {
