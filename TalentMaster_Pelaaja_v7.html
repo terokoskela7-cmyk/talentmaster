@@ -79,6 +79,10 @@ button{font-family:var(--font-b);cursor:pointer}
 .sig{font-family:var(--font-d);font-weight:500;font-size:22px;line-height:1.3;color:rgba(242,239,230,.95)}
 .kpi{font-family:var(--font-d);font-weight:300;line-height:1;color:var(--text)}
 .meta{font-size:11px;color:var(--ink3)}
+.miksi-kortti{margin-top:18px;padding:14px 16px;background:var(--surface);border:.5px solid var(--border)}
+.miksi-kortti__otsikko{font-size:9px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--teal-d);margin-bottom:8px}
+.miksi-kortti__teksti{font-size:12px;color:var(--text);line-height:1.6;margin:0 0 6px}
+.miksi-kortti__teksti--tulevaisuus{color:var(--ink3);font-style:italic;margin-bottom:0}
 
 /* Cards */
 .card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--r-md)}
@@ -1230,27 +1234,64 @@ function rTrain(){
 }
 
 function rTIntro(){
+  // OSA 2: kompleksisuustaso (viikko 1=1 · 2=2 · 3+=3) + kehityskohde-pohjainen T-harjoite
+  const taso = window._kompleksisuusTaso || 1;
+  const iv = (typeof _laskeIkavaihe === 'function' && _pelaaja) ? _laskeIkavaihe(_pelaaja) : 'rakentaja';
+  let paivanT = null, kohde = null, miksi = null;
+  if (typeof valitsePaivanHarjoite === 'function' && _pelaaja && window.PANKKI) {
+    try {
+      paivanT = valitsePaivanHarjoite(_pelaaja, window.PANKKI, _paivaIso());
+      const kk = laskeTekninenKehityskohde(_pelaaja);
+      kohde = kk.kohde;
+      miksi = generoiMiksiteksti(_pelaaja, kk, iv);
+    } catch(e){ console.warn('[omatoimi rTIntro]', e.message); }
+  }
+  const _sek = function(kesto, oletus){ const m = kesto ? String(kesto).match(/(\d+)/) : null; return m ? (+m[1])*60 : (oletus||600); };
+  const tH = paivanT ? { name: paivanT.nimi, dur: _sek(paivanT.kesto, 600), ico:'flame' } : (EX && EX[0]);
+  // Tasokohtainen lista: 1 = vain T · 2 = T+D · 3 = täysi (T+S+D)
+  let lista;
+  if (taso === 1) lista = [tH].filter(Boolean);
+  else if (taso === 2) lista = [tH, (EX && EX[2])].filter(Boolean);
+  else lista = (EX || []).map((e,i)=> (i===0 && tH) ? tH : e);
+  const KOHDE_OTS = { pallonhallinta:'Pallonhallinta', koordinaatio:'Koordinaatio', nopeus:'Nopeus', syotto:'Syöttö', ponnauttelu:'Ponnauttelu' };
+  const yloteema = kohde ? (KOHDE_OTS[kohde] || kohde) : 'Tänään · kotona';
+  const otsikkoIso = taso===1 ? 'Tänään yksi asia' : taso===2 ? 'Päivän kaksi asiaa' : 'Päivän ohjelma';
+  // Leikkijälle yksinkertainen harjoitekohtainen lause (lause2) — täysi miksi-kortti olisi liian abstrakti.
+  const alaTeksti = (iv==='leikkija' && miksi) ? miksi.miksi_lause2
+                  : taso===2 ? 'T = tekniikka · D = aktivointi'
+                  : taso===1 ? 'Yksi harjoite tänään — pidä putki elossa.'
+                  : 'Kolme lyhyttä tehtävää.';
+  // Miksi-kortti — piilotettu leikkijältä (liian abstrakti tälle ikäryhmälle)
+  const miksiKortti = (miksi && iv !== 'leikkija')
+    ? '<div class="miksi-kortti">'
+      + '<div class="miksi-kortti__otsikko">Miksi tänään tämä?</div>'
+      + '<p class="miksi-kortti__teksti">' + miksi.miksi_lause1 + '</p>'
+      + '<p class="miksi-kortti__teksti">' + miksi.miksi_lause2 + '</p>'
+      + '<p class="miksi-kortti__teksti miksi-kortti__teksti--tulevaisuus">' + miksi.miksi_lause3 + '</p>'
+      + '</div>'
+    : '';
   return `
 <div style="padding:20px;height:100%;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)">
   <button data-exit style="background:none;border:none;color:var(--ink3);padding:4px;align-self:flex-start;display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase">
     ${ic('back',14)} ${T('back')}
   </button>
   <div style="margin-top:18px">
-    <div class="ey ac" style="font-weight:500">Tänään · kotona</div>
-    <div style="font-family:var(--font-d);font-weight:300;font-size:30px;margin-top:8px;color:var(--text);line-height:1.1">Nopeusketju</div>
-    <div class="meta" style="margin-top:10px;line-height:1.6;max-width:300px">Kolme lyhyttä tehtävää, noin 5 min. Tee näin — ja perustelu on alla kunkin kohdalla.</div>
+    <div class="ey ac" style="font-weight:500">${otsikkoIso}</div>
+    <div style="font-family:var(--font-d);font-weight:300;font-size:30px;margin-top:8px;color:var(--text);line-height:1.1">${yloteema}</div>
+    <div class="meta" style="margin-top:10px;line-height:1.6;max-width:300px">${alaTeksti}</div>
   </div>
-  <!-- Harjoitevideo — tyhjä tila (ei keksittyä valmentajaa/sisältöä; oikea video tulossa) -->
+  ${miksiKortti}
+  <!-- Harjoitevideo — tyhjä tila (oikea video tulossa) -->
   <div style="margin-top:18px;position:relative;height:120px;background:#0D0D0C;border-radius:12px;overflow:hidden;border:.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center">
     <div style="font-size:11px;color:var(--ink3);letter-spacing:.04em">Harjoitevideo tulossa</div>
   </div>
   <div style="margin-top:18px;display:flex;flex-direction:column;gap:6px">
-    ${EX.map((e,i)=>`
+    ${lista.map((e,i)=>`
       <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px;border:.5px solid var(--border)">
         <div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);width:18px">${i+1}</div>
-        ${ic(e.ico,15,'#28B090')}
+        ${ic(e.ico||'flame',15,'#28B090')}
         <div style="flex:1;font-size:12px;color:var(--text)">${e.name}</div>
-        <div style="font-family:var(--font-m);font-size:11px;color:var(--ink3)">${e.dur}s</div>
+        <div style="font-family:var(--font-m);font-size:11px;color:var(--ink3)">${e.dur ? Math.max(1,Math.round(e.dur/60)) + ' min' : ''}</div>
       </div>`).join('')}
   </div>
   <button id="sTrain" class="btn-p" style="margin-top:18px;flex-shrink:0">${ic('play',16)} ${T('start')}</button>
@@ -1304,27 +1345,41 @@ function rTEx(){
 }
 
 function rTDone(){
-  // Merkitään tehty + kirjataan streak
+  const iv = (typeof _laskeIkavaihe==='function' && _pelaaja) ? _laskeIkavaihe(_pelaaja) : 'rakentaja';
+  const taso = window._kompleksisuusTaso || 1;
+  const tXP = taso===1 ? 20 : taso===2 ? 30 : 40;
+  // lause3 (tulevaisuus) palautteeseen
+  let lause3 = '';
+  if (typeof generoiMiksiteksti==='function' && typeof laskeTekninenKehityskohde==='function' && _pelaaja) {
+    try { lause3 = generoiMiksiteksti(_pelaaja, laskeTekninenKehityskohde(_pelaaja), iv).miksi_lause3; } catch(e){}
+  }
+  // Merkitään tehty + kirjataan (auto, kerran). XP/konteksti tason mukaan.
   if (!_tdoneCalled) {
     _tdoneCalled = true;
-    // T-harjoite (joukkuetreeni): 40 XP, kaikki=true, RPE tulee rRPE-valinnan mukaan
-    _tallennaKirjaus('T', 40, true, {
-      kesto_min: Math.round(EX.reduce((s,e)=>s+e.dur,0)/60),
+    _tallennaKirjaus('T', tXP, true, {
+      kesto_min: Math.round((EX||[]).reduce((s,e)=>s+(e.dur||0),0)/60) || null,
       fiilinki:  _fiilis || null,
-      konteksti: 'joukkuetreeni',
+      konteksti: taso===1 ? 'bola_sempre' : 'paivan_ohjelma',
     }).catch(e => console.warn('[treeni kirjaus]', e.message));
   }
+  // Ikävaihe-kohtainen kirjausmoodi (2D): leikkijä = 3 emojia · muut = RPE + kesto
+  const kirjausUI = (iv === 'leikkija')
+    ? '<div style="margin-top:20px;display:flex;gap:12px;justify-content:center">'
+      + [['😅',1],['😊',3],['🔥',5]].map(function(e){ return '<button onclick="kirjaaRPE('+e[1]+')" style="width:64px;height:64px;border-radius:50%;border:.5px solid var(--border2);background:var(--surface2);font-size:30px;cursor:pointer">'+e[0]+'</button>'; }).join('')
+      + '</div>'
+    : '<div style="margin-top:20px;padding:0 20px">' + rRPE()
+      + '<div style="margin-top:14px"><div style="font-size:9px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">Kesto (min)</div>'
+      + '<input type="number" inputmode="numeric" min="1" max="180" placeholder="esim. 20" oninput="_tmKirjaa(\'kesto_min\', parseInt(this.value,10)||null)" style="width:100%;padding:10px 12px;background:var(--surface2);border:.5px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box"></div>'
+      + '</div>';
   return `
 <div style="padding:28px 20px;height:100%;display:flex;flex-direction:column;background:var(--bg)">
   <div style="margin-top:40px;text-align:center">
     <div style="width:72px;height:72px;margin:0 auto;border-radius:50%;background:rgba(26,122,94,.15);border:.5px solid rgba(26,122,94,.4);display:flex;align-items:center;justify-content:center;animation:cardPop .6s cubic-bezier(.34,1.56,.64,1)">${ic('check',32,'#28B090',2)}</div>
     <div class="ey ac" style="margin-top:18px;letter-spacing:.3em">${T('done')}</div>
-    <!-- RPE kirjaus -->
-    <div style="margin-top:20px;padding:0 20px">
-      ${rRPE()}
-    </div>
-    <div style="font-family:var(--font-d);font-weight:300;font-size:30px;margin-top:10px;line-height:1.1">Liekki pysyy.</div>
-    <div class="meta" style="margin-top:10px;max-width:280px;margin-left:auto;margin-right:auto;line-height:1.6">${(_streak||0)} pv streak · +40 XP · kolme tehtävää kirjattu.</div>
+    ${kirjausUI}
+    <div style="font-family:var(--font-d);font-weight:300;font-size:30px;margin-top:16px;line-height:1.1">Liekki pysyy.</div>
+    <div class="meta" style="margin-top:10px;max-width:280px;margin-left:auto;margin-right:auto;line-height:1.6">Päivä ${_streak||1}.${lause3 ? ' ' + lause3 : ''}</div>
+    <div class="meta" style="margin-top:6px;font-size:11px;color:var(--ink3)">🔥 ${_streak||0} pv streak · +${tXP} XP</div>
   </div>
   ${(()=>{ const xp=_pelaaja?.xp||0; const taso=_pelaaja?.taso||1; const xpNext=taso*1000; const pct=Math.min(100,Math.round((xp/xpNext)*100)); const newPct=Math.min(100,Math.round(((xp+40)/xpNext)*100)); return `
   <div style="margin-top:28px;padding:16px 18px;background:var(--surface);border-radius:10px;border:.5px solid var(--border)">
@@ -2287,9 +2342,11 @@ function _kaynnistaAppUI() {
     _paivitaEXHarjoitelogiikasta();
   }
 
-  // Streak Firestorestä
-  if (!_isDemoUser && typeof _lataaCStreak === 'function') {
-    _lataaCStreak().catch(e => console.warn('[streak]', e.message));
+  // Streak + kompleksisuustaso kirjaushistoriasta (OSA 2). Demo: täysi ohjelma.
+  if (!_isDemoUser) {
+    _alustaOmatoimi().catch(e => console.warn('[omatoimi]', e.message));
+  } else {
+    window._kompleksisuusTaso = 3;
   }
 
   // Hae vanhemman lähettämät kehut
@@ -3194,6 +3251,56 @@ async function _kuittaaKehu() {
     _viimeisinKehu = null;
     draw();
   } catch(e) { console.warn('[kuittaaKehu]', e.message); }
+}
+
+/* ══ OSA 2E — streak laskettuna kirjaushistoriasta (ei kenttää Firestoressa, Date.UTC) ══
+   kirjaukset: array {pvm:'YYYY-MM-DD'} | {id} | 'YYYY-MM-DD'. Putki taaksepäin tästä päivästä.
+   0 jos ei kirjauksia TAI eilinen puuttuu (tänään kesken sallitaan: putki säilyy eiliseen asti). */
+function _laskeStreak(kirjaukset) {
+  var pvmt = (kirjaukset || []).map(function(k){ return (typeof k === 'string') ? k : (k && (k.pvm || k.id)) || ''; })
+                               .filter(function(s){ return /^\d{4}-\d{2}-\d{2}$/.test(s); });
+  var setti = {}; pvmt.forEach(function(s){ setti[s] = true; });
+  var DAY = 86400000;
+  function iso(ms){ var d = new Date(ms); return d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0') + '-' + String(d.getUTCDate()).padStart(2,'0'); }
+  var now = new Date();
+  var cur = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (!setti[iso(cur)]) {                  // ei kirjattu tänään
+    if (setti[iso(cur - DAY)]) cur -= DAY; // mutta eilen on → putki elossa, tänään kesken
+    else return 0;                         // ei tänään eikä eilen → ei putkea
+  }
+  var streak = 0;
+  while (setti[iso(cur)]) { streak++; cur -= DAY; }
+  return streak;
+}
+
+/* ══ OSA 2A — kirjausten kokonaismäärä (kompleksisuustasoa varten) ══ */
+async function _laskePelaajanKirjaukset(seuraId, pelaajaId) {
+  if (!window._db || !seuraId || !pelaajaId) return 0;
+  try {
+    var snap = await window._db.collection('seurat').doc(seuraId)
+      .collection('pelaajat').doc(pelaajaId).collection('kirjaukset').limit(60).get();
+    return snap.size;
+  } catch (e) { console.warn('[kirjausmäärä]', e.message); return 0; }
+}
+
+/* ══ Omatoimi-alustus: yksi haku → streak + kirjausmäärä + kompleksisuustaso (1/2/3) ══ */
+async function _alustaOmatoimi() {
+  window._kompleksisuusTaso = 1;
+  window._kirjauksiaYhteensa = 0;
+  if (!_pelaaja || !_pelaaja.id || !window._db) { _streak = 0; return; }
+  var seuraId = window._seuraId || _pelaaja.seuraId;
+  if (!seuraId) return;
+  try {
+    var snap = await window._db.collection('seurat').doc(seuraId)
+      .collection('pelaajat').doc(_pelaaja.id).collection('kirjaukset')
+      .orderBy('paivitetty', 'desc').limit(60).get();
+    var ids = snap.docs.map(function(d){ return d.id; });
+    _streak = _laskeStreak(ids);
+    _streakLastDate = ids.filter(function(s){ return /^\d{4}-\d{2}-\d{2}$/.test(s); }).sort().reverse()[0] || null;
+    window._kirjauksiaYhteensa = snap.size;
+    window._kompleksisuusTaso = snap.size < 7 ? 1 : snap.size < 14 ? 2 : 3;  // OSA 2: viikko 1 / 2 / 3+
+    draw();
+  } catch (e) { console.warn('[omatoimi alustus]', e.message); }
 }
 
 async function _lataaCStreak() {
