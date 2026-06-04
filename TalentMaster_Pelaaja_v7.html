@@ -2404,7 +2404,7 @@ async function _tmKirjaa(avain, arvo) {
       : window._db.collection('pelaajat').doc(_pelaaja.id)
           .collection('kirjaukset').doc(pvm); // fallback legacy
     await ref.set(
-      { [avain]: arvo, paivitetty: firebase.firestore.FieldValue.serverTimestamp() },
+      { [avain]: arvo, lahde: 'pelaaja', paivitetty: firebase.firestore.FieldValue.serverTimestamp() },
       { merge: true }
     );
   } catch(e) {
@@ -2447,6 +2447,7 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
   const kirjausData = {
     tyyppi,
     tehty: true,
+    lahde: 'pelaaja',   // PÄÄTÖS 1: kirjauksen tekijä — pelaaja kirjaa itse PIN-tilassa
     xp: xp || 0,
     aika,
     pvm,
@@ -2568,7 +2569,7 @@ async function _kirjaaTakautuva(pvm, tyyppi, kestoMin) {
         pvm,
         xp: 0,
         rpe: null, fiilinki: null, aika: null,
-        lahde: 'manuaalinen',
+        lahde: 'pelaaja',   // PÄÄTÖS 1: tekijä = pelaaja (oli 'manuaalinen' = ei sallittu arvo)
         paivitetty: firebase.firestore.FieldValue.serverTimestamp()
       });
     }

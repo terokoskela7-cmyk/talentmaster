@@ -1,10 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.2
+// TalentMaster™ — firestore.rules v3.3
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: Firebase Console → Firestore → Rules → liitä → Julkaise
 //         (EI GitHub Actionsilla — saa 403, CLAUDE.md §17 #10)
+//
+// Muutokset v3.2 → v3.3 (kirjaus-permissionit, PÄÄTÖS 1+2):
+//   + kirjaukset: VP + talenttivalmentaja (oma seura) eksplisiittinen kirjoitusoikeus.
+//   + onU12Huoltaja() — huoltaja saa kirjata alle 13v -lapselle kun lahde=='vanhempi'.
+//     Kaikissa kirjauksissa pakollinen lahde-kenttä (valmentaja|pelaaja|vanhempi|vp|talenttivalmentaja).
 //
 // Muutokset v3.1 → v3.2 (universaali testi-arkkitehtuuri):
 //   + seurat/{sid}/konfiguraatio/{konfId} — seuran normijärjestelmä (maa/kieli).
@@ -145,6 +150,19 @@ service cloud.firestore {
              == pelaajaData(seuraId, pelaajaId).huoltajaEmail.lower();
     }
 
+    // v3.3 (PÄÄTÖS 2) — huoltaja saa KIRJATA U12-lapselle (alle 13v) kun lahde=='vanhempi'.
+    //   1) sähköposti täsmää huoltajaEmail-kenttään (onLapsenHuoltaja)
+    //   2) pelaaja alle 13v: syntymaVuosi >= kuluva vuosi − 12 (sama kuin sovelluksen u12-vaihe)
+    //   3) kirjauksen lahde == 'vanhempi'
+    //   HUOM: request.time.year() antaa kalenterivuoden (käyttäjän toMillis-kaavasta puuttui
+    //   1970-offset → olisi ollut aina tosi).
+    function onU12Huoltaja(seuraId, pelaajaId) {
+      return onLapsenHuoltaja(seuraId, pelaajaId)
+          && pelaajaData(seuraId, pelaajaId).syntymaVuosi is int
+          && pelaajaData(seuraId, pelaajaId).syntymaVuosi >= (request.time.year() - 12)
+          && request.resource.data.lahde == 'vanhempi';
+    }
+
     // ──────────────────────────────────────────────────────────────────────
     // ADMINS — super admin -taulukko
     // ──────────────────────────────────────────────────────────────────────
@@ -211,6 +229,10 @@ service cloud.firestore {
         }
 
         // ── Päivittäiset kirjaukset (T/D/S/P) ─────────────────────────────
+        // PÄÄTÖS 1: jokaisessa kirjauksessa lahde-kenttä (valmentaja|pelaaja|vanhempi|vp|talenttivalmentaja).
+        // PÄÄTÖS 2: VP + talenttivalmentaja (oma seura) saavat kirjata eksplisiittisesti (sisältyvät jo
+        //   onOmanSeuranValmentaja():iin — klausuulit selventävät policy-päätöksen); huoltaja saa kirjata
+        //   U12-lapselle kun lahde=='vanhempi' (onU12Huoltaja).
         match /kirjaukset/{pvm} {
           allow read:   if onSuperAdmin()
                         || onOmaSeura(seuraId)
@@ -219,11 +241,17 @@ service cloud.firestore {
           allow create: if onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || onAnonymous()   // pelaaja kirjaa itse PIN-tilassa
-                        || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId);
+                        || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
+                        || (onOmaSeura(seuraId) && request.auth.token.rooli == 'vp')
+                        || (onOmaSeura(seuraId) && request.auth.token.rooli == 'talenttivalmentaja')
+                        || onU12Huoltaja(seuraId, pelaajaId);
           allow update: if onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || onAnonymous()
-                        || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId);
+                        || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
+                        || (onOmaSeura(seuraId) && request.auth.token.rooli == 'vp')
+                        || (onOmaSeura(seuraId) && request.auth.token.rooli == 'talenttivalmentaja')
+                        || onU12Huoltaja(seuraId, pelaajaId);
         }
 
         // ── Tapahtumat (LEGACY — käytä mieluummin testitapahtumat) ────────

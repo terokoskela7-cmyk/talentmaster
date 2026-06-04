@@ -157,7 +157,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `TalentMaster_Testaus_v8.html` · `..._Harjoitettavuus_Lomake_v4.html` | Edeltäjät | ⚠️ arkistoidaan kun v9 pilottitestattu |
 | `TalentMaster_VP_v20/v21.html` · `..._Master_v15.html` | Vanhat versiot | Arkisto |
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ §13 |
-| `tm_admin/firestore.rules` | Security Rules **v2.9** (Consolesta) | ✅ deployattu 2026-05-26 |
+| `tm_admin/firestore.rules` | Security Rules **v3.3** (Consolesta) | ⏳ v3.3 odottaa Console-deployta (kirjaus-permissionit PÄÄTÖS 1+2) |
 | `src/lib/tm_bioika.js` | Bio-ikä — Mirwald 2002 PHV (Excel-verifioitu) + KR-runko (lukittu) | ✅ §25 |
 | `docs/testit_indeksit.js` | Canonical TKI/TSI/FLEI-laskenta | ✅ §23 |
 | `tm_eerikkila_normit.js` | Eerikkilä-normitaulukot | ✅ |
