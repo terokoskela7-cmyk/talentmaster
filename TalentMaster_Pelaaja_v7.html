@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="TM Pelaaja">
 <link rel="apple-touch-icon" href="/talentmaster/assets/pwa/icon-192.png">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════
    TalentMaster™ — Design System tokens (colors_and_type.css inline)
@@ -115,12 +115,12 @@ button{font-family:var(--font-b);cursor:pointer}
 
 /* PIN */
 .pin-av{width:52px;height:52px;margin:0 auto;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(26,122,94,.25),rgba(26,122,94,.05));border:.5px solid rgba(26,122,94,.35);display:flex;align-items:center;justify-content:center;font-family:var(--font-b);font-weight:500;font-size:24px;color:var(--teal-d);letter-spacing:.05em}
-.pin-dots{display:flex;gap:14px;justify-content:center}
-.pd{width:12px;height:12px;border-radius:50%;background:transparent;border:1px solid rgba(242,239,230,.3);transition:background .12s,transform .12s}
-.pd.on{background:var(--teal);transform:scale(1.1);animation:dotPop .2s ease}
-.kpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.key{background:rgba(242,239,230,.04);border:.5px solid var(--border2);color:var(--text);padding:10px 0;font-size:18px;font-weight:400;border-radius:var(--r-sm);transition:background .12s,transform .08s}
-.key:active{background:rgba(26,122,94,.12);transform:scale(.93)}
+.pin-dots{display:flex;gap:12px;justify-content:center}
+.pd{width:10px;height:10px;border-radius:0;background:transparent;border:1px solid rgba(242,239,230,.25);transition:background .12s}
+.pd.on{background:#28B090;border-color:#28B090}
+.kpad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.key{background:transparent;border:1px solid rgba(242,239,230,.08);color:#F2EFE6;height:44px;font-family:var(--font-b);font-size:18px;font-weight:500;border-radius:0;transition:background .12s,border-color .12s}
+.key:hover,.key:active{background:rgba(40,176,144,.1);border-color:rgba(40,176,144,.3)}
 
 /* Training progress */
 .prog3{display:flex;gap:6px;align-items:center}
@@ -311,6 +311,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="docs/testit_indeksit.js?v=4"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=4"></script>
+<script src="lib/tm-microcycles.js?v=1"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 <script src="tm_why_lauseet.js?v=1"></script>
@@ -573,66 +574,97 @@ function startEx(){
 function rPin(){
   const keys=['1','2','3','4','5','6','7','8','9','','0','⌫'];
   const p=_pelaaja;
-  const streakViesti=_streak>0?ikaCfg().streakViesti(_streak):'';
+  const streak=_haeStreak();
+  // Idol-teema tm-microcycles.js:n laskeViikkoTeema():sta; fallback "Bellingham · Vastaanotto".
+  let idolNimi='Bellingham', idolTeema='Vastaanotto';
+  try {
+    const vt = (window.TM && window.TM.microcycles && window.TM.microcycles.laskeViikkoTeema)
+      ? window.TM.microcycles.laskeViikkoTeema() : null;
+    if (vt && vt.idoliNimi) { idolNimi = vt.idoliNimi; idolTeema = vt.teema || idolTeema; }
+  } catch(e) { /* fallback */ }
+  const idolAlku = (String(idolNimi).trim()[0] || 'B').toUpperCase();
+  const hhTaso = (p && p.hh_taso != null) ? p.hh_taso : '—';
+  const xp = (p && p.xp != null) ? p.xp : '—';
   return `
-<div style="height:100%;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)">
-  <div style="padding:16px 20px 0;text-align:center">
-    <div class="pin-av" style="width:52px;height:52px;font-size:18px;margin:0 auto">${(p?.etunimi?.[0]||'')+(p?.sukunimi?.[0]||'')}</div>
-    <div style="font-family:var(--font-d);font-weight:300;font-size:22px;margin:8px 0 1px;color:var(--text)">${p?.etunimi||''}</div>
-    <div class="ey" style="letter-spacing:.18em">${[p?.pelipaikka, p?.joukkueId?.toUpperCase()].filter(Boolean).join(' · ')||'—'}</div>
-  </div>
-  ${_streak>0?`<div style="margin:10px 14px 0;padding:10px 12px;background:rgba(184,92,56,.08);border:.5px solid rgba(184,92,56,.22);border-radius:8px;display:flex;align-items:center;gap:10px">
-    <span style="font-size:18px">🔥</span>
-    <div style="flex:1">
-      <div class="ey" style="color:rgba(184,92,56,.9);font-weight:500">${_streak} pv streak</div>
-      <div style="font-size:12px;color:rgba(242,239,230,.75);margin-top:1px;line-height:1.3">${streakViesti}</div>
-    </div>
-  </div>`:''}
-  <div style="margin:10px 14px 0;display:flex;gap:8px">
-    <div class="card" style="flex:1;padding:8px 10px">
-      <div class="ey">Taso</div>
-      <div class="kpi" style="font-size:20px;margin-top:2px">${p?.taso||'—'}</div>
-    </div>
-    <div class="card" style="flex:1;padding:8px 10px">
-      <div class="ey">Kortti</div>
-      <div class="kpi" style="font-size:20px;margin-top:2px;color:#B8860B">${p?Math.round((p.flei_viimeisin||0)*0.9+10):'—'}</div>
-    </div>
-  </div>
-  <div class="pin-dots" style="margin:14px 0 6px">
-    ${[0,1,2,3].map(i=>`<div class="pd${i<_pin.length?' on':''}"></div>`).join('')}
-  </div>
-  <div class="ey" style="text-align:center;margin-bottom:8px;letter-spacing:.2em">Syötä PIN</div>
-  <div id="pinVirhe" style="font-size:11px;color:#E05C38;min-height:16px;margin-top:2px;text-align:center;letter-spacing:.04em"></div>
-  <div class="kpad">
-    ${keys.map(k=>k===''?'<div></div>':`<button class="key" data-k="${k}">${k}</button>`).join('')}
-  </div>
-  ${_isDemoUser ? `<div style="margin:8px 14px 10px;display:flex;gap:6px">
-    <button onclick="demoKirjaudu('aleksi')" style="flex:1;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.22);color:#28B090;padding:7px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.08em">⚡ ALEKSI DEMO</button>
-    <button onclick="demoKirjaudu('eeli')"   style="flex:1;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.22);color:#28B090;padding:7px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.08em">📈 EELI DEMO</button>
-  </div>` : ''}
+<div style="height:100%;display:flex;flex-direction:column;background:#1C1C1A;color:#F2EFE6">
 
-  <!-- Sähköpostikirjautuminen — vanhemmille ja pelaajille joilla on Firebase-tili -->
-  <div id="emailLoginWrap" style="margin:4px 14px 0;border-top:.5px solid rgba(242,239,230,.08);padding-top:10px">
-    <button onclick="_toggleEmailLogin()"
-      style="width:100%;background:transparent;border:none;color:rgba(242,239,230,.45);
-             font-size:10px;letter-spacing:.16em;cursor:pointer;padding:4px 0;text-align:center">
-      ${T('forgotPw')} · KIRJAUDU SÄHKÖPOSTILLA
-    </button>
-    <div id="emailLoginForm" style="display:none;margin-top:10px">
-      <input id="pinEmail" type="email" placeholder="sähköposti@osoite.fi" autocomplete="email"
-        style="width:100%;background:rgba(242,239,230,.06);border:.5px solid rgba(242,239,230,.18);
-               border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;
-               box-sizing:border-box;margin-bottom:8px;outline:none;font-family:var(--font-s)">
-      <input id="pinPassword" type="password" placeholder="Salasana" autocomplete="current-password"
-        style="width:100%;background:rgba(242,239,230,.06);border:.5px solid rgba(242,239,230,.18);
-               border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;
-               box-sizing:border-box;margin-bottom:8px;outline:none;font-family:var(--font-s)">
-      <div id="emailLoginErr" style="color:#F04E4E;font-size:11px;text-align:center;margin-bottom:6px;display:none"></div>
-      <button onclick="_kirjauduEmaililla()"
-        style="width:100%;background:var(--teal);border:none;border-radius:8px;padding:11px;
-               color:#fff;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.08em">
-        KIRJAUDU SISÄÄN
+  <!-- WORDMARK -->
+  <div style="padding:16px 20px 0">
+    <div style="font-family:var(--font-m);font-size:10px;font-weight:500;letter-spacing:.15em;color:#28B090">TalentMaster™</div>
+  </div>
+
+  <!-- HERO -->
+  <div style="flex:1;min-height:0;overflow-y:auto;padding:20px">
+
+    <!-- STREAK-BLOKKI -->
+    <div style="display:flex;align-items:center;gap:16px">
+      <span style="font-size:40px;line-height:1;flex-shrink:0">🔥</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--font-d);font-size:72px;font-weight:600;color:#F2EFE6;letter-spacing:-2px;line-height:.85">${streak}</div>
+        <div style="font-family:var(--font-m);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:rgba(242,239,230,.5);margin-top:6px">päivän putki</div>
+        <div style="font-family:var(--font-b);font-size:13px;color:#28B090;margin-top:6px">Jatka tänään →</div>
+      </div>
+    </div>
+
+    <!-- DIVIDER -->
+    <div style="height:1px;background:rgba(242,239,230,.08);margin:20px 0"></div>
+
+    <!-- IDOL-KORTTI -->
+    <div style="border:1px solid rgba(40,176,144,.25);padding:12px 14px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--font-m);font-size:10px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#28B090">Tällä viikolla</div>
+        <div style="font-family:var(--font-d);font-size:22px;font-weight:600;color:#F2EFE6;margin-top:2px;line-height:1.1">${idolNimi}</div>
+        <div style="font-family:var(--font-b);font-size:12px;color:rgba(242,239,230,.5);margin-top:1px">${idolTeema}</div>
+      </div>
+      <div style="width:40px;height:40px;border:1px solid rgba(40,176,144,.3);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-size:20px;color:#28B090;flex-shrink:0">${idolAlku}</div>
+    </div>
+
+    <!-- KPI-RIVIT -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div style="border:1px solid rgba(242,239,230,.08);padding:10px 12px">
+        <div style="font-family:var(--font-m);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(242,239,230,.5)">Taso</div>
+        <div style="font-family:var(--font-d);font-size:20px;color:#F2EFE6;margin-top:2px;line-height:1">${hhTaso}</div>
+      </div>
+      <div style="border:1px solid rgba(242,239,230,.08);padding:10px 12px">
+        <div style="font-family:var(--font-m);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(242,239,230,.5)">Viikon XP</div>
+        <div style="font-family:var(--font-d);font-size:20px;color:#F2EFE6;margin-top:2px;line-height:1">${xp}</div>
+      </div>
+    </div>
+
+    ${_isDemoUser ? `<div style="display:flex;gap:6px;margin-top:14px">
+      <button onclick="demoKirjaudu('aleksi')" style="flex:1;background:rgba(40,176,144,.1);border:1px solid rgba(40,176,144,.22);color:#28B090;padding:7px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.08em">⚡ ALEKSI DEMO</button>
+      <button onclick="demoKirjaudu('eeli')" style="flex:1;background:rgba(40,176,144,.1);border:1px solid rgba(40,176,144,.22);color:#28B090;padding:7px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.08em">📈 EELI DEMO</button>
+    </div>` : ''}
+  </div>
+
+  <!-- PIN-ALUE (kiinteä alareuna) -->
+  <div style="background:#111110;border-top:1px solid rgba(242,239,230,.06);padding:14px 20px 20px">
+    <div style="font-family:var(--font-m);font-size:10px;text-align:center;color:rgba(242,239,230,.35);text-transform:uppercase;letter-spacing:.15em">Syötä PIN</div>
+    <div class="pin-dots" style="margin:12px 0 12px">
+      ${[0,1,2,3].map(i=>`<div class="pd${i<_pin.length?' on':''}"></div>`).join('')}
+    </div>
+    <div id="pinVirhe" style="font-size:11px;color:#E05C38;min-height:15px;text-align:center;letter-spacing:.04em;margin-bottom:6px"></div>
+    <div class="kpad">
+      ${keys.map(k=>k===''?'<div></div>':`<button class="key" data-k="${k}"${k==='⌫'?' style="font-size:14px;opacity:.5"':''}>${k}</button>`).join('')}
+    </div>
+
+    <!-- Sähköpostikirjautuminen — vanhemmille ja pelaajille joilla on Firebase-tili -->
+    <div id="emailLoginWrap" style="margin-top:16px">
+      <button onclick="_toggleEmailLogin()"
+        style="width:100%;background:transparent;border:none;font-family:var(--font-b);font-size:11px;color:rgba(242,239,230,.3);cursor:pointer;padding:2px 0;text-align:center">
+        ${T('forgotPw')} · <span style="color:rgba(40,176,144,.7)">KIRJAUDU SÄHKÖPOSTILLA</span>
       </button>
+      <div id="emailLoginForm" style="display:none;margin-top:10px">
+        <input id="pinEmail" type="email" placeholder="sähköposti@osoite.fi" autocomplete="email"
+          style="width:100%;background:rgba(242,239,230,.06);border:1px solid rgba(242,239,230,.18);padding:10px 12px;color:#F2EFE6;font-size:14px;box-sizing:border-box;margin-bottom:8px;outline:none;font-family:var(--font-b)">
+        <input id="pinPassword" type="password" placeholder="Salasana" autocomplete="current-password"
+          style="width:100%;background:rgba(242,239,230,.06);border:1px solid rgba(242,239,230,.18);padding:10px 12px;color:#F2EFE6;font-size:14px;box-sizing:border-box;margin-bottom:8px;outline:none;font-family:var(--font-b)">
+        <div id="emailLoginErr" style="color:#F04E4E;font-size:11px;text-align:center;margin-bottom:6px;display:none"></div>
+        <button onclick="_kirjauduEmaililla()"
+          style="width:100%;background:#28B090;border:none;padding:11px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.08em">
+          KIRJAUDU SISÄÄN
+        </button>
+      </div>
     </div>
   </div>
 </div>`
