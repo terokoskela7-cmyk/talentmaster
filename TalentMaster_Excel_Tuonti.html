@@ -1467,40 +1467,50 @@ function kasitteleTiedosto(file) {
 }
 
 // ── MAS-aika → nopeus (1200 m -juoksu) ──────────────────────────────────────
-// Hyväksyy "4,40 min" / "4.40" / "4:40" / "4 min 40 s" (kellomerkintä: kokonaisosa=minuutit,
-// desimaali=sekunnit KIRJAIMELLISESTI, "40"→40 s, "05"→5 s; oletus 2 numeroa). Suora km/h-syöttö
-// (arvo ≥ 8) tunnistetaan eikä muunneta ajaksi — MAS-aika 1200 m ei realistisesti ole < 8 "min".
-// Palauttaa { mas_aika_s, mas_nopeus_ms (3 des), mas_kmh (1 des) } tai null jos ei tulkittavissa.
+// Syöteformaatit: "4,53" / "4:53" / "4.53" (= 4 min 53 s, desimaali/erotin = sekunnit KIRJAIMELLISESTI,
+// "53"→53 s, "08"→8 s) tai "4 min 53 s". Suora km/h-syöttö (arvo > 10, esim "15.8") tunnistetaan
+// eikä muunneta ajaksi. Kaava (Palloliitto FINAL2024, johdettu Leo 4:53 → 4.40 m/s):
+//   korjattuAika = sek − 20 (käännöskorjaus) · ms = 1200/korjattuAika (pyöristä 2 desimaaliin ENNEN ×3.6)
+//   km/h = ms × 3.6. Tarkistusarvo: "4,53" → 4.40 m/s → 15.84 km/h.
+// Palauttaa { mas_aika_s, mas_aika_min, mas_nopeus_ms, mas_ms, mas_kmh } tai null jos ei tulkittavissa.
 const MAS_MATKA_M = 1200;
+const MAS_KAANNOSKORJAUS_S = 20;
 function parseMasAika(str) {
   if (str == null) return null;
   let s = String(str).toLowerCase().trim();
   if (s === '') return null;
   let aika_s = null;
   let m;
-  if ((m = s.match(/(\d+)\s*min\w*\s+(\d+)/))) {            // "4 min 40 s" / "4 min 40"
+  if ((m = s.match(/(\d+)\s*min\w*\s+(\d+)/))) {            // "4 min 53 s" / "4 min 53"
     aika_s = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
-  } else if (s.indexOf(':') >= 0) {                         // "4:40"
+  } else if (s.indexOf(':') >= 0) {                         // "4:53"
     const o = s.split(':');
     aika_s = (parseInt(o[0], 10) || 0) * 60 + (parseInt(o[1], 10) || 0);
   } else {
     s = s.replace(/\s*min\w*$/, '').replace(/\s*km\/?h$/, '').trim();   // riisu pelkkä yksikkösuffiksi
     const num = parseFloat(s.replace(',', '.'));
     if (isNaN(num)) return null;
-    if (num >= 8) {                                         // jo km/h (suora syöttö)
-      const kmh = Math.round(num * 10) / 10;
-      return { mas_aika_s: null, mas_nopeus_ms: Math.round((kmh / 3.6) * 1000) / 1000, mas_kmh: kmh };
+    if (num > 10) {                                        // jo km/h (suora syöttö, > 10)
+      const kmh = Math.round(num * 100) / 100;
+      const ms = Math.round((kmh / 3.6) * 100) / 100;
+      return { mas_aika_s: null, mas_aika_min: null, mas_nopeus_ms: ms, mas_ms: ms, mas_kmh: kmh };
     }
-    const min = Math.floor(num);                            // kellomerkintä "4,40" → 4:40
+    const min = Math.floor(num);                            // kellomerkintä "4,53" → 4:53
     const des = (s.replace(',', '.').split('.')[1] || '0');
     aika_s = min * 60 + (parseInt(des, 10) || 0);
   }
   if (aika_s == null || aika_s <= 0) return null;
-  const ms = MAS_MATKA_M / aika_s;
+  const korjattuAika = aika_s - MAS_KAANNOSKORJAUS_S;       // käännöskorjaus
+  if (korjattuAika <= 0) return null;
+  const ms = Math.round((MAS_MATKA_M / korjattuAika) * 100) / 100;  // m/s, 2 desimaalia ENNEN ×3.6
+  const kmh = Math.round(ms * 3.6 * 100) / 100;
+  const mm = Math.floor(aika_s / 60), ss = aika_s % 60;
   return {
     mas_aika_s: aika_s,
-    mas_nopeus_ms: Math.round(ms * 1000) / 1000,
-    mas_kmh: Math.round(ms * 3.6 * 10) / 10
+    mas_aika_min: mm + ':' + String(ss).padStart(2, '0'),  // alkuperäinen aika referenssiä varten
+    mas_nopeus_ms: ms,
+    mas_ms: ms,
+    mas_kmh: kmh
   };
 }
 
@@ -1714,7 +1724,9 @@ function prosessoiExcel(wb) {
           p.testit.mas = String(masP.mas_kmh);            // km/h → HH-taso / hh_viimeisin.mas
           p.testit.mas_kmh = String(masP.mas_kmh);
           p.testit.mas_nopeus_ms = String(masP.mas_nopeus_ms);
+          p.testit.mas_ms = String(masP.mas_ms);
           if (masP.mas_aika_s != null) p.testit.mas_aika_s = String(masP.mas_aika_s);
+          if (masP.mas_aika_min != null) p.testit.mas_aika_min = masP.mas_aika_min;
         } else {
           p._masPuuttuu = true;                           // arvo oli, mutta ei tulkittavissa → varoitus
         }
@@ -2517,14 +2529,18 @@ async function tallennaFirestoreen() {
       }
     }
 
-    // MAS-johdannaiset (mas_aika_s / mas_nopeus_ms / mas_kmh) eivät ole testiSarakkeita → kopioi erikseen
-    ['mas_aika_s', 'mas_nopeus_ms', 'mas_kmh'].forEach(k => {
+    // MAS-johdannaiset (numeeriset) eivät ole testiSarakkeita → kopioi erikseen
+    ['mas_aika_s', 'mas_nopeus_ms', 'mas_ms', 'mas_kmh'].forEach(k => {
       if (p.testit[k] !== '' && p.testit[k] !== undefined) {
         const n = parseFloat(p.testit[k]);
         testit[k] = isNaN(n) ? p.testit[k] : n;
         testitSkalaari[k] = testit[k];
       }
     });
+    // mas_aika_min = alkuperäinen aika-merkkijono ("4:53") → säilytä tekstinä (ei parseFloat)
+    if (p.testit.mas_aika_min !== '' && p.testit.mas_aika_min !== undefined) {
+      testit.mas_aika_min = p.testit.mas_aika_min;
+    }
 
     // FLEI — 1-3p / num -tyyppi (skalaareista)
     let fleiPct = null;
@@ -2573,9 +2589,13 @@ async function tallennaFirestoreen() {
     }
 
     const pvmRaw = p.testauspvm || (tapahtuma && tapahtuma.pvm) || NYT_ISO.slice(0,10);
-    const pvmIso = _paivaIso(pvmRaw) || _paivaIso(new Date());
+    // OSA 4: jos TestiPvm ei ole parsittavissa (esim "Kevät 2026") → Wallsport-testipäivä 2026-01-20
+    // (näkyy Leon MyWay-datassa). Säilytä alkuperäinen tekstimuoto jos se eroaa parsitusta.
+    const WALLSPORT_FALLBACK = '2026-01-20';
+    const pvmIso = _paivaIso(pvmRaw) || WALLSPORT_FALLBACK;
+    const pvmTeksti = (String(pvmRaw).trim() !== pvmIso && String(pvmRaw).trim() !== '') ? String(pvmRaw).trim() : null;
 
-    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, syntymaVuosi };
+    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, syntymaVuosi };
   });
 
   // Aja batchina, jaa 400:n eriin
@@ -2588,7 +2608,7 @@ async function tallennaFirestoreen() {
     const batch = db.batch();
 
     era.forEach(pkg => {
-      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso } = pkg;
+      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti } = pkg;
       // Löydetyn pelaajan OIKEA dokumentti-ID (Firebase UID) → tallennuspolku.
       // Jos pelaajaa ei löytynyt (strategia 'kaikki'), fallback PalloID-stringiin (review-jono).
       const docId = p._firestoreDocId || String(p.tunniste == null ? '' : p.tunniste).trim() || (p.sukunimi + '_' + p.etunimi);
@@ -2607,6 +2627,7 @@ async function tallennaFirestoreen() {
         tallennettu: firebase.firestore.FieldValue.serverTimestamp(),
         tallensiUid: kayttaja.uid
       };
+      if (pvmTeksti)        tallennusData.testauspvm_teksti = pvmTeksti;  // OSA 4: alkuperäinen ("Kevät 2026")
       if (fleiPct !== null) tallennusData.flei_pct = fleiPct;
       if (tki !== null)     tallennusData.tki = tki;
       if (merkki)           tallennusData.merkki = merkki;
@@ -2648,6 +2669,10 @@ async function tallennaFirestoreen() {
         if (kehityskohde)     profiiliUpdate.tki_kehityskohde = kehityskohde;
         if (hhViimeisin)      { profiiliUpdate.hh_viimeisin = hhViimeisin; profiiliUpdate.hh_pvm = pvmIso; }
         if (hhTaso != null)   profiiliUpdate.hh_taso = hhTaso;
+        // MAS-johdannaiset profiiliin → VP/Pelaaja syvä analyysi (km/h, m/s, alkuperäinen aika)
+        if (testit.mas_kmh != null)      profiiliUpdate.mas_kmh = testit.mas_kmh;
+        if (testit.mas_ms != null)       profiiliUpdate.mas_ms = testit.mas_ms;
+        if (testit.mas_aika_min != null) profiiliUpdate.mas_aika_min = testit.mas_aika_min;
         if (p.phv_tila)       profiiliUpdate.phv_tila = p.phv_tila;
         // TSI-pikakentät — SM-juoksu + SM-pallo testituloksesta. TSI = SM-pallo − SM-juoksu (§22).
         if (testit && testit.sm_juoksu != null && testit.sm_pallo != null) {

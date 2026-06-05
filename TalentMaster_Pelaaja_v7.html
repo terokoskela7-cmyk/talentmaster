@@ -1168,6 +1168,60 @@ async function _lataaTekniikka() {
   } catch (e) { console.warn('[tekniikka]', e.message); }
 }
 
+// MAS-kortti — ikävaiheen kielellä (Leikkijä/Rakentaja/Showcase). Näkyy kun MAS-data olemassa.
+function rMinaMAS() {
+  if (!_pelaaja) return '';
+  const hv = _pelaaja.hh_viimeisin || {};
+  const masKmh = (_pelaaja.mas_kmh != null) ? _pelaaja.mas_kmh : (hv.mas != null ? hv.mas : null);
+  if (masKmh == null) return '';
+  const masMs = (_pelaaja.mas_ms != null) ? _pelaaja.mas_ms : Math.round((masKmh / 3.6) * 100) / 100;
+  const sp = (String(_pelaaja.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
+  const ika = new Date().getFullYear() - (_pelaaja.syntymaVuosi || 2013);
+  const taso = (typeof hhLaskeTaso === 'function') ? hhLaskeTaso('mas', masKmh, ika, sp) : null;
+  const stage = (typeof _laskeStage === 'function') ? _laskeStage(_pelaaja.syntymaVuosi, _pelaaja.phv_tila) : '2_rakentaja';
+  const r1 = function(x){ return Math.round(x * 10) / 10; };
+  const box = function(inner){ return '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">' + inner + '</div>'; };
+  const ots = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:12px;letter-spacing:.01em">Juoksumoottori</div>';
+
+  if (stage === '1_leikkija') {  // U12 — leikkijä
+    return box(ots
+      + '<div style="display:flex;align-items:baseline;gap:10px">'
+      + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:40px;font-weight:300;color:#28B090;line-height:1">' + r1(masKmh) + '</div>'
+      + '<div style="font-size:22px">⚡</div></div>'
+      + '<div style="font-size:12px;color:var(--text);margin-top:10px">Mitä isompi luku, sitä pidempään jaksat juosta kovaa pelissä.</div>');
+  }
+  if (stage === '2_rakentaja') {  // U13–U15 — rakentaja
+    return box(ots
+      + '<div style="font-size:13px;color:var(--text);font-weight:600">Aerobinen kapasiteetti: taso ' + (taso != null ? taso : '–') + '/5</div>'
+      + '<div style="font-size:11px;color:#8C8B86;margin-top:10px;font-weight:600">Harjoitteluvyöhykkeesi tänään</div>'
+      + '<div style="font-size:12px;color:var(--text);margin-top:4px">🟢 Kevyt: alle ' + r1(masKmh * 0.75) + ' km/h</div>'
+      + '<div style="font-size:12px;color:var(--text)">🟡 Kehittävä: ' + r1(masKmh * 0.80) + '–' + r1(masKmh * 0.90) + ' km/h</div>'
+      + '<div style="font-size:12px;color:var(--text)">🔴 Kova: yli ' + r1(masKmh * 0.95) + ' km/h</div>');
+  }
+  // 3_showcase — U16+ täysi tekninen näkymä
+  let trend = '';
+  const hist = Array.isArray(_pelaaja.mas_historia) ? _pelaaja.mas_historia.filter(function(x){ return x != null; }) : [];
+  if (hist.length >= 2) {
+    const toMs = function(h){ return (h.ms != null) ? h.ms : (h.kmh != null ? h.kmh / 3.6 : null); };
+    const a = toMs(hist[0]), b = toMs(hist[hist.length - 1]);
+    if (a != null && b != null) {
+      const dd = Math.round((b - a) * 100) / 100;
+      trend = '<div style="font-size:12px;margin-top:10px;color:' + (dd > 0.05 ? '#28B090' : dd < -0.05 ? '#D4A017' : '#8C8B86') + '">'
+        + (Math.abs(dd) < 0.05 ? '→ Ei muutosta — tarkista harjoitteluärsyke'
+           : (dd > 0 ? '↑ +' : '↓ ') + dd.toFixed(2) + ' m/s — ' + (dd > 0 ? 'hyvä kehityssuunta' : 'lasku, tarkista kuormitus')) + '</div>';
+    }
+  }
+  return box(ots
+    + '<div style="display:flex;align-items:baseline;gap:10px">'
+    + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:40px;font-weight:300;color:#28B090;line-height:1">' + masMs.toFixed(2) + '</div>'
+    + '<div style="font-size:11px;color:#8C8B86">m/s · ' + r1(masKmh) + ' km/h · taso ' + (taso != null ? taso : '–') + '/5</div></div>'
+    + '<div style="font-size:11px;color:#8C8B86;margin-top:10px;font-weight:600">Harjoitteluvyöhykkeet</div>'
+    + '<div style="font-size:12px;color:var(--text);margin-top:4px">🟢 Perus (65–75 %): ' + r1(masKmh * 0.65) + '–' + r1(masKmh * 0.75) + ' km/h</div>'
+    + '<div style="font-size:12px;color:var(--text)">🟡 Kehitys (80–90 %): ' + r1(masKmh * 0.80) + '–' + r1(masKmh * 0.90) + ' km/h</div>'
+    + '<div style="font-size:12px;color:var(--text)">🔴 Huippu (95–105 %): ' + r1(masKmh * 0.95) + '–' + r1(masKmh * 1.05) + ' km/h</div>'
+    + trend);
+}
+
 function rMinaTekniikkaprofiili() {
   const d = _tekniikkaData;
   if (!d || d.tyhja) return ''; // ei tuloksia → piiloon
@@ -1245,6 +1299,7 @@ function rMina() {
     + rMinaProfiili()
     + rMinaKehitysvaihe()
     + rMinaTekniikkaprofiili()
+    + rMinaMAS()
     + rMinaFLEI()
     + rMinaStreak()
     + rMinaTestit()
