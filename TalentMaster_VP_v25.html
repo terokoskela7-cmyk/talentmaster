@@ -1860,12 +1860,17 @@ auth.onAuthStateChanged(async user => {
     await auth.signOut(); window.location.reload(); return;
   }
 
-  // OSA 3 — defensiivinen rooli-sync (KORJATTU: retry + loop-suoja). setCustomUserClaims/
-  // revokeRefreshTokens jälkeen claims voi propagoitua VIIVEELLÄ → yritä tuoreella tokenilla
-  // (viive) ENNEN uloskirjausta, ei heti signOut. Jos claims ei mitenkään synkronoidu (esim. rooli
-  // vaihdettu vain Firestoreen ilman vaihdaKayttajanRooli-CF:ää) → kirjaudu ulos KERRAN (sessionStorage-
-  // loop-suoja), sitten jatka varoituksella — EI uloskirjaus-looppia. Ei koske super-adminia.
-  if (!isSuperAdmin && token.claims.seuraId) {
+  // OSA 3 — defensiivinen rooli-sync (KORJATTU 2: aja VAIN KERRAN per uid/sivulataus).
+  // Firebase päivittää tokenin automaattisesti ~60s välein → onAuthStateChanged re-laukeaa →
+  // ilman vahtia tarkistus ajettiin uudelleen → uloskirjautui ~60s kirjautumisen jälkeen.
+  // window._rooliSyncTehty (muistimuuttuja) varmistaa että rooli-sync ajetaan vain kertaalleen
+  // tämän sivulatauksen aikana; token-refresh re-fire ohittaa sen → ei 60s-uloskirjausta.
+  // setCustomUserClaims/revokeRefreshTokens jälkeen claims voi propagoitua viiveellä → retry+viive
+  // ENNEN uloskirjausta. sessionStorage (säilyy uudelleenlatauksen yli, eri tarkoitus kuin muisti-Set)
+  // = loop-suoja: jos claims ei synkronoidu lainkaan → ulos KERRAN, ei reload-looppia. Ei super-adminia.
+  if (!window._rooliSyncTehty) window._rooliSyncTehty = new Set();
+  if (!isSuperAdmin && token.claims.seuraId && !window._rooliSyncTehty.has(user.uid)) {
+    window._rooliSyncTehty.add(user.uid);   // tarkista vain kerran/uid/sivulataus → 60s re-fire ohittaa
     const _syncKey = 'tm_roolisync_' + user.uid;
     try {
       const _kd = await db.collection('seurat').doc(token.claims.seuraId).collection('kayttajat').doc(user.uid).get();
@@ -5543,7 +5548,7 @@ document.getElementById('lPass').addEventListener('keydown', e => { if(e.key==='
 // VERSIO + CDN-STALENESS-VAROITUS (sama kuvio kuin Excel_Tuonti)
 // Bumppaa VP_VERSIO joka kerta kun HH-normit tai muu laskenta muuttuu.
 // ════════════════════════════════════════
-const VP_VERSIO = 'roolisync-2026-06-06'; // HH_NORMIT_PIKA → Palloliitto FINAL2024 (pojat + tytöt)
+const VP_VERSIO = 'roolisync-2026-06-06b'; // HH_NORMIT_PIKA → Palloliitto FINAL2024 (pojat + tytöt)
 const VP_RAW_URL = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_VP_v25.html';
 function _vpNaytaCdnVaroitus(tuoreVersio) {
   if (document.getElementById('cdn-varoitus')) return;
