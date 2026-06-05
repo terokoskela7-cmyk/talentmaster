@@ -2533,9 +2533,16 @@ function _paivitaDemoData() {
 
 // Firestore-kirjaus — kutsu aina kun tehty-nappia painetaan
 async function _tmKirjaa(avain, arvo) {
-  if (!_pelaaja?.id || !window._db) return;
+  if (_isDemoUser) return true;                        // demo: ei Firestore-kirjoitusta, UI reagoi silti
+  if (!_pelaaja?.id || !window._db) return false;
   const pvm = _paivaIso();
   const seuraId = window._seuraId || _pelaaja?.seuraId || null;
+  // Varmista tuore token ennen kirjoitusta (kuten _tallennaKirjaus) — vanhentunut sessio →
+  // muuten permission-denied joka aiemmin niellettiin = valeonnistuminen (ks. silent-failure-muistiinpano).
+  try {
+    const u = window._auth?.currentUser || firebase.auth().currentUser;
+    if (u) await u.getIdToken(true);
+  } catch (_) { /* ei estä kirjausta */ }
   try {
     // Oikea polku: seurat/{seuraId}/pelaajat/{uid}/kirjaukset/{pvm}
     const ref = seuraId
@@ -2548,8 +2555,10 @@ async function _tmKirjaa(avain, arvo) {
       { [avain]: arvo, lahde: 'pelaaja', paivitetty: firebase.firestore.FieldValue.serverTimestamp() },
       { merge: true }
     );
+    return true;
   } catch(e) {
-    console.warn('[v4 kirjaus]', e.message);
+    console.warn('[v4 kirjaus]', e.code || '', e.message);
+    return false;   // älä niele — kutsuja näyttää toimintaohje-toastin
   }
 }
 
@@ -2732,6 +2741,11 @@ async function _paivitaTehtyNapit() {
     [['D', 'dKirjausBtn'], ['S', 'sKirjausBtn'], ['T', 'tKirjausBtn']].forEach(function (p) {
       if (d['tehty_' + p[0]] === true) _merkitseNappiTehdyksi(p[1]);
     });
+    // Säilytä tallennettu fiilinki-valinta: korosta vastaava emoji-nappi uudelleenlatauksessa.
+    if (typeof d.fiilinki === 'number') {
+      const fb = document.querySelectorAll('#fiiRow button')[d.fiilinki - 1];
+      if (fb) { fb.style.background = 'rgba(26,122,94,.1)'; fb.style.border = '.5px solid rgba(26,122,94,.25)'; }
+    }
   } catch (e) { console.warn('[tehty-napit]', e.message); }
 }
 
@@ -3108,7 +3122,7 @@ function naytaFcOverlay() {
 }
 
 
-function tmFiilinki(arvo, btn) {
+async function tmFiilinki(arvo, btn) {
   // Visuaalinen palaute
   document.querySelectorAll('#fiiRow button').forEach(b => {
     b.style.background = 'none';
@@ -3116,8 +3130,14 @@ function tmFiilinki(arvo, btn) {
   });
   btn.style.background = 'rgba(26,122,94,.1)';
   btn.style.border = '.5px solid rgba(26,122,94,.25)';
-  // Tallennetaan Firestoreen
-  _tmKirjaa('fiilinki', arvo);
+  // Tallennetaan Firestoreen — näytä onnistuminen/epäonnistuminen (ei valeonnistumista)
+  const ok = await _tmKirjaa('fiilinki', arvo);
+  if (ok) {
+    _naytaInfoToast('Fiilis tallennettu.');
+  } else {
+    btn.style.background = 'none'; btn.style.borderColor = 'transparent';   // peru korostus
+    _naytaKirjausVirhe('Fiiliksen tallennus ei onnistunut — kirjaudu uudelleen PIN-koodilla.');
+  }
 }
 
 
