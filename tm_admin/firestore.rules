@@ -115,9 +115,11 @@ service cloud.firestore {
     }
 
     function onValmentajaRooli() {
+      // HUOM: seurasihteeri + testivastaava POISTETTU tästä (2026-06-05) — ne eivät saa
+      // broad valmennusdata-kirjoitusta. Rajatut oikeudet onSeuraSihteeri/onTestivastaava-kautta.
       return request.auth.token.rooli in [
         'valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja',
-        'vp', 'urheilutoimenjohtaja', 'seurasihteeri', 'testivastaava'
+        'vp', 'urheilutoimenjohtaja'
       ];
     }
 
@@ -125,6 +127,17 @@ service cloud.firestore {
       return request.auth.token.rooli in [
         'vp', 'urheilutoimenjohtaja', 'seurasihteeri'
       ];
+    }
+
+    // Seurasihteeri — luku + hallinto (seurat/joukkueet/kayttajat onJohtoRooli:n kautta),
+    // EI valmennusdata-kirjoitusta (kirjaukset/havainnot/testitulokset/idp).
+    function onSeuraSihteeri(seuraId) {
+      return request.auth.token.rooli == 'seurasihteeri' && onOmaSeura(seuraId);
+    }
+
+    // Testivastaava — kirjoittaa VAIN testitapahtumat + testitulokset, lukee pelaajaprofiilit.
+    function onTestivastaava(seuraId) {
+      return request.auth.token.rooli == 'testivastaava' && onOmaSeura(seuraId);
     }
 
     function onOmanSeuranValmentaja(seuraId) {
@@ -243,6 +256,7 @@ service cloud.firestore {
                         || onAnonymous()   // pelaaja kirjaa itse PIN-tilassa
                         || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'vp')
+                        || (onOmaSeura(seuraId) && request.auth.token.rooli == 'urheilutoimenjohtaja')
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'talenttivalmentaja')
                         || onU12Huoltaja(seuraId, pelaajaId);
           allow update: if onSuperAdmin()
@@ -250,6 +264,7 @@ service cloud.firestore {
                         || onAnonymous()
                         || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'vp')
+                        || (onOmaSeura(seuraId) && request.auth.token.rooli == 'urheilutoimenjohtaja')
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'talenttivalmentaja')
                         || onU12Huoltaja(seuraId, pelaajaId);
         }
@@ -299,10 +314,15 @@ service cloud.firestore {
                         || onOmaSeura(seuraId)
                         || onAnonymous()
                         || onLapsenHuoltaja(seuraId, pelaajaId);
+          // Kirjoitus: VP/UTJ (johto) + testivastaava. EI seurasihteeri (valmennusdata).
           allow create: if onSuperAdmin()
-                        || (onOmaSeura(seuraId) && onJohtoRooli());
+                        || (onOmaSeura(seuraId) && (request.auth.token.rooli == 'vp'
+                                                    || request.auth.token.rooli == 'urheilutoimenjohtaja'))
+                        || onTestivastaava(seuraId);
           allow update: if onSuperAdmin()
-                        || (onOmaSeura(seuraId) && onJohtoRooli());
+                        || (onOmaSeura(seuraId) && (request.auth.token.rooli == 'vp'
+                                                    || request.auth.token.rooli == 'urheilutoimenjohtaja'))
+                        || onTestivastaava(seuraId);
           allow delete: if onSuperAdmin();
         }
 
@@ -443,8 +463,8 @@ service cloud.firestore {
       // Kirjoittajat: Testaus_v8, Harjoitettavuus_Lomake_v4, Excel_Tuonti
       match /testitapahtumat/{tapahtumaId} {
         allow read:   if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
-        allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
-        allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+        allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId) || onTestivastaava(seuraId);
+        allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId) || onTestivastaava(seuraId);
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
 
         // tulokset/{pelaajaId} — pelaajakohtaiset testitulokset.
@@ -454,8 +474,8 @@ service cloud.firestore {
                         || onOmaSeura(seuraId)
                         || onAnonymous()
                         || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
-          allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId) || onTestivastaava(seuraId);
+          allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId) || onTestivastaava(seuraId);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
       }

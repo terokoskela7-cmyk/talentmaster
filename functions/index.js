@@ -502,7 +502,7 @@ exports.luoKayttaja = functions
 // request.auth.token.rooli -claimia, ei Firestore-kenttää).
 // HUOM: kayttajat on alikokoelma seurat/{seuraId}/kayttajat/{uid} (EI top-level).
 // ─────────────────────────────────────────────────────────────────────────────
-const SALLITUT_ROOLIT_VAIHTO = ['vp', 'valmentaja', 'talenttivalmentaja', 'seura_admin'];
+const SALLITUT_ROOLIT_VAIHTO = ['vp', 'valmentaja', 'talenttivalmentaja', 'urheilutoimenjohtaja', 'seurasihteeri', 'testivastaava'];
 exports.vaihdaKayttajanRooli = functions
   .region('europe-west1')
   .https.onCall(async (data, context) => {
