@@ -3614,6 +3614,55 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
   return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, eiLaskettavissa: eiLaskettavissa, virhe: virhe };
 };
 
+// migroiJoukkueNimet(seuraId, dryRun=true) — normalisoi pienellä/alaviivalla kirjoitetut joukkue-NÄYTTÖnimet
+// ('sjk_p14' → 'SJK P14'). EI koske joukkueet-arrayhin (slug-muoto on oikea array-contains-hakuun). SA-only.
+// HUOM: lippaa minkä tahansa ei-normalisoidun arvon (myös 'GrIFK P14' → 'GRIFK P14') → tarkista dry-run per seura.
+function _normalisioiJoukkue(joukkue) {
+  if (!joukkue) return joukkue;
+  return joukkue.replace(/_/g, ' ').toUpperCase()
+    .replace(/([A-Z]{2,})\s([PTU])(\d+)/, (_, s, sp, i) => s + ' ' + sp + i);
+}
+window.migroiJoukkueNimet = async function(seuraIdArg, dryRun) {
+  if (dryRun === undefined) dryRun = true;            // turvallinen oletus
+  if (!superAdmin) { console.warn('[migroiJoukkue] Vain Super Admin'); return; }
+  const sid = seuraIdArg || seuraId;
+  if (!sid) { console.warn('[migroiJoukkue] Käyttö: migroiJoukkueNimet(seuraId, dryRun=true)'); return; }
+
+  const snap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+  const muutokset = [];
+  snap.docs.forEach(function(pd) {
+    const j = pd.data().joukkue;
+    if (j == null || j === '') return;
+    const norm = _normalisioiJoukkue(j);
+    if (norm !== j) muutokset.push({ ref: pd.ref,
+      nimi: (pd.data().sukunimi || '') + ', ' + (pd.data().etunimi || ''), vanha: j, uusi: norm });
+  });
+
+  muutokset.forEach(function(m) {
+    console.log((dryRun ? '[DRY-RUN] ' : '[migroiJoukkue] OK ') + m.nimi + ': "' + m.vanha + '" → "' + m.uusi + '"');
+  });
+
+  if (dryRun) {
+    console.log('[DRY-RUN] migroiJoukkueNimet: ' + muutokset.length + ' pelaajan joukkue-näyttönimi normalisoitaisiin.');
+    console.log('[DRY-RUN] Aja oikeasti: migroiJoukkueNimet(\'' + sid + '\', false)');
+    return { dryRun: true, kpl: muutokset.length };
+  }
+
+  const ERA = Math.min(400, BATCH_KOKO);
+  let paivitetty = 0, virhe = 0;
+  const eria = Math.ceil(muutokset.length / ERA);
+  for (let e = 0; e < eria; e++) {
+    const era = muutokset.slice(e * ERA, (e + 1) * ERA);
+    const batch = db.batch();
+    era.forEach(function(m) { batch.set(m.ref, { joukkue: m.uusi }, { merge: true }); });
+    try { await batch.commit(); paivitetty += era.length; }
+    catch (err) { console.error('[migroiJoukkue batch ' + (e + 1) + ']', err); virhe += era.length; }
+  }
+  console.log('[migroiJoukkue] valmis: ' + paivitetty + ' / ' + muutokset.length + ' pelaajaa · virheitä: ' + virhe);
+  if (typeof toast === 'function') toast('Joukkuenimet: ' + paivitetty + ' normalisoitu' + (virhe ? ' · ' + virhe + ' virhe' : ''), virhe ? 'err' : 'ok');
+  return { dryRun: false, paivitetty: paivitetty, virhe: virhe };
+};
+
 // recalcTSI(seuraId, dryRun=true) — täyttää TSI-pikakentät (tsi_viimeisin + sm_juoksu/sm_pallo_viimeisin)
 // tuoreimmasta testituloksesta jossa MOLEMMAT SM-testit. TSI = SM-pallo − SM-juoksu (§22; lähellä nollaa =
 // tekniikka vahva, pallo ei hidasta). HUOM avaimet testit.sm_juoksu / testit.sm_pallo (id:t, EI _s-suffiksia). SA-only.

@@ -2796,6 +2796,16 @@ async function _lataaKalenteriTapahtumat() {
 }
 
 /* ── SA JOUKKUEVALITSIN ── */
+// Normalisoi joukkuenimi näyttömuotoon: 'sjk_p14' → 'SJK P14', 'SJK P14' → 'SJK P14' (ei muutu).
+// Yhdenmukaistaa duplikaattijoukkueet (Excel-tuonti vs slug) joukkuelistauksessa.
+function normalisioiJoukkue(joukkue) {
+  if (!joukkue) return joukkue;
+  return joukkue
+    .replace(/_/g, ' ')
+    .toUpperCase()
+    .replace(/([A-Z]{2,})\s([PTU])(\d+)/, (_, seura, sukupuoli, ika) => seura + ' ' + sukupuoli + ika);
+}
+
 async function _rakennaSAJoukkueValitsin(seuraId) {
   // Poista vanha valitsin
   document.getElementById('sa-joukkue-valitsin')?.remove();
@@ -2805,11 +2815,11 @@ async function _rakennaSAJoukkueValitsin(seuraId) {
     const snap = await _db.collection('seurat').doc(seuraId)
       .collection('pelaajat').get();
 
-    // Kerää uniikit joukkueet
+    // Kerää uniikit joukkueet — NORMALISOITUNA (FIX: 'sjk_p14' ja 'SJK P14' eivät enää erillisiä)
     const joukkueetSet = new Set();
     snap.docs.forEach(d => {
       const j = d.data().joukkue;
-      if (j) joukkueetSet.add(j);
+      if (j) joukkueetSet.add(normalisioiJoukkue(j));
     });
     const joukkueet = [...joukkueetSet].sort();
 

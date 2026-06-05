@@ -1957,6 +1957,15 @@ async function lataaKaikki() {
   _alustaToimenpiteet();   // OSA 3 — generoi + lataa toimenpiteet (async, try/catch sisällä; demossa placeholder)
 }
 
+// Normalisoi joukkuenimi näyttömuotoon: 'sjk_p14' → 'SJK P14' (estää duplikaattijoukkueet groupingissa).
+function normalisioiJoukkue(joukkue) {
+  if (!joukkue) return joukkue;
+  return joukkue
+    .replace(/_/g, ' ')
+    .toUpperCase()
+    .replace(/([A-Z]{2,})\s([PTU])(\d+)/, (_, seura, sukupuoli, ika) => seura + ' ' + sukupuoli + ika);
+}
+
 async function lataaPelaajat() {
   try {
     const snap = await db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
@@ -1977,7 +1986,7 @@ async function lataaPelaajat() {
         adar_pvm: data.adar_pvm ?? null,
         phv_tila: data.phv_tila || null,
         signaali: data.signaali || null,
-        joukkue: data.joukkue || data.joukkueNimi || '—',
+        joukkue: normalisioiJoukkue(data.joukkue || data.joukkueNimi || '—'),
       };
     });
     // Lajittele sukunimen mukaan
