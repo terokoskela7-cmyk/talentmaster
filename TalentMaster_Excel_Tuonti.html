@@ -2659,7 +2659,7 @@ async function tallennaFirestoreen() {
     const pvmIso = _paivaIso(pvmRaw) || WALLSPORT_FALLBACK;
     const pvmTeksti = (String(pvmRaw).trim() !== pvmIso && String(pvmRaw).trim() !== '') ? String(pvmRaw).trim() : null;
 
-    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, syntymaVuosi };
+    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, syntymaVuosi, ika };
   });
 
   // Aja batchina, jaa 400:n eriin
@@ -2672,7 +2672,7 @@ async function tallennaFirestoreen() {
     const batch = db.batch();
 
     era.forEach(pkg => {
-      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti } = pkg;
+      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, ika } = pkg;   // ika: laskettu paketinrakennuksessa (laskeIka) → välitetään forEach:iin (korjaa ReferenceError rivi 2698)
       // Löydetyn pelaajan OIKEA dokumentti-ID (Firebase UID) → tallennuspolku.
       // Jos pelaajaa ei löytynyt (strategia 'kaikki'), fallback PalloID-stringiin (review-jono).
       const docId = p._firestoreDocId || String(p.tunniste == null ? '' : p.tunniste).trim() || (p.sukunimi + '_' + p.etunimi);
