@@ -3576,7 +3576,14 @@ function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin
         '<div class="kenttaRyhma" style="margin-bottom:12px;">' +
           '<label class="kenttaLabel">Sähköposti (ei muokattavissa)</label>' +
           '<input class="kenttaInput" value="' + esc(email) + '" disabled style="opacity:.6;">' +
-          (rooli ? ('<span style="font-size:11px;color:var(--ink3);">Rooli: ' + esc(rooli) + ' — muutos vaatii uudelleenkutsun (custom claims)</span>') : '') +
+        '</div>' +
+        '<div class="kenttaRyhma" style="margin-bottom:12px;">' +
+          '<label class="kenttaLabel">Rooli</label>' +
+          '<input type="hidden" id="hm_rooli_orig" value="' + esc(rooli) + '">' +
+          '<select class="kenttaInput" id="muokkaus-rooli">' +
+            (function(){ var sallitut=['vp','valmentaja','talenttivalmentaja','urheilutoimenjohtaja','seurasihteeri','testivastaava']; var nimet={vp:'Valmennuspäällikkö (VP)',valmentaja:'Valmentaja',talenttivalmentaja:'Talenttivalmentaja',urheilutoimenjohtaja:'Urheilutoimenjohtaja',seurasihteeri:'Seurasihteeri',testivastaava:'Testivastaava',seura_admin:'Seuran admin'}; var lista=sallitut.slice(); if(rooli && lista.indexOf(rooli)<0) lista.unshift(rooli); /* nykyinen rooli (esim. seura_admin) mukaan → ei vahinkomuutosta */ return lista.map(function(r){ return '<option value="'+r+'"'+(r===rooli?' selected':'')+'>'+(nimet[r]||r)+'</option>'; }).join(''); })() +
+          '</select>' +
+          '<span style="font-size:11px;color:var(--ink3);">Roolinvaihto päivittää oikeudet (custom claims) ja vaatii käyttäjältä uudelleenkirjautumisen.</span>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
           '<div class="kenttaRyhma"><label class="kenttaLabel">Etunimi</label>' +
@@ -3618,8 +3625,18 @@ async function tallennaHenkiloMuutos() {
   try {
     await db.collection('seurat').doc(tila.seuraId).collection('kayttajat').doc(uid)
       .set({ etunimi: etunimi, sukunimi: sukunimi, suuntakoodi: suuntakoodi, puhelin: puhelin }, { merge: true });
+    // OSA 2 — roolinvaihto AINA vaihdaKayttajanRooli-CF:n kautta (Firestore + claims + revoke).
+    // Suora Firestore-kirjoitus EI päivitä Rules-oikeuksia (CLAUDE.md: roolinvaihto-invariantit).
+    const uusiRooli = (document.getElementById('muokkaus-rooli') || {}).value;
+    const origRooli = (document.getElementById('hm_rooli_orig') || {}).value;
+    if (uusiRooli && uusiRooli !== origRooli) {
+      const fn = firebase.app().functions('europe-west1').httpsCallable('vaihdaKayttajanRooli');
+      const tulos = await fn({ uid: uid, seuraId: tila.seuraId, uusiRooli: uusiRooli });
+      naytaToast((tulos.data && tulos.data.huomio) || ('Rooli vaihdettu: ' + uusiRooli), 'ok');
+    } else {
+      naytaToast('Henkilön tiedot tallennettu', 'ok');
+    }
     document.getElementById('henkiloMuokkausModal').classList.remove('auki');
-    naytaToast('Henkilön tiedot tallennettu', 'ok');
     renderHenkilosto(document.getElementById('nakymaAlue'));
   } catch (e) {
     if (status) status.textContent = 'Virhe: ' + e.message;
