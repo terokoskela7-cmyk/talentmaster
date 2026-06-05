@@ -310,7 +310,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="docs/testit_indeksit.js?v=4"></script>
-<script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=3"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=4"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 <script src="tm_why_lauseet.js?v=1"></script>
@@ -364,7 +364,7 @@ const STR = {
   streak:  {fi:'🔥 Aloita putki tänään.',en:'🔥 Start your streak today.',sv:'🔥 Börja din serie idag.',de:'🔥 Starte deine Serie heute.'},
   start5:  {fi:'Aloita · 5 min',en:'Start · 5 min',sv:'Starta · 5 min',de:'Starten · 5 Min'},
   xpHint:  {fi:'+40 XP · pitää liekin palamassa',en:'+40 XP · keeps the flame alive',sv:'+40 XP · håller lågan brinnande',de:'+40 XP · hält die Flamme'},
-  speed:   {fi:'Nopeusketju kotona · 3 tehtävää · ~5 min',en:'Speed chain at home · 3 tasks · ~5 min',sv:'Snabbkedja hemma · 3 uppgifter · ~5 min',de:'Speed-Chain zu Hause · 3 Aufgaben · ~5 Min'},
+  speed:   {fi:'Päivän henkilökohtainen ohjelma',en:'Your personal program today',sv:'Dagens personliga program',de:'Dein persönliches Tagesprogramm'},
   otherTdy:{fi:'Muuta tänään',en:'Other today',sv:'Övrigt idag',de:'Weiteres heute'},
   tanaan:  {fi:'Tänään', en:'Today',    sv:'Idag',     de:'Heute'},
   mina:    {fi:'Minä',   en:'Me',       sv:'Jag',      de:'Ich'},
@@ -489,6 +489,7 @@ function draw(){
   const tabs=hideTabs?'':rTabs();
   body.innerHTML=`<div class="scene">${html}${card}${tabs}</div>`;
   bind();
+  if (typeof _paivitaTehtyNapit === 'function') _paivitaTehtyNapit();   // KORJAUS 1: "✓ Tehty jo" -napit KOTI-latauksessa
 }
 
 /* ──────────────────────────────────────
@@ -707,7 +708,8 @@ function rA1(){
           const kk = laskeTekninenKehityskohde(_pelaaja);
           const iv = _laskeIkavaihe(_pelaaja);
           const KOHDE_OTS = { pallonhallinta:'Pallonhallinta', koordinaatio:'Koordinaatio', nopeus:'Nopeus', syotto:'Syöttö', ponnauttelu:'Ponnauttelu' };
-          const why = generoiMiksiteksti(_pelaaja, kk, iv).miksi_lause2;  // yksinkertainen lause kaikille ikävaiheille
+          // KORJAUS 2: näytä idol-ohje (paivanT.ohje/cue, esim. Bellingham-vinkki) geneerisen miksi-lauseen sijaan.
+          const why = paivanT.ohje || paivanT.cue || generoiMiksiteksti(_pelaaja, kk, iv).miksi_lause2;
           return _dKortti(KOHDE_OTS[kk.kohde] || kk.kohde, paivanT.nimi, why);
         }
       } catch(e){ console.warn('[KOTI kehityskohde-T]', e.message); }
@@ -2598,6 +2600,7 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
     kirjaustapa: 'heti',  // reaaliaikainen kirjaus — vrt. 'jalkikateen' (takautuva)
     paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
   };
+  kirjausData['tehty_' + tyyppi] = true;   // KORJAUS 1: tyyppikohtainen dedup-merkintä (päivädoc = yksi, merge)
 
   try {
     const batch = db.batch();
@@ -2644,6 +2647,12 @@ async function _kirjaaHarjoite(tyyppi) {
   const kontekstiMap = { D: 'paivan_ohjelma', S: 'kohdennettu', T: 'bola_siempre' };
   const btnIdMap     = { D: 'dKirjausBtn',    S: 'sKirjausBtn',  T: 'tKirjausBtn' };
   if (!(tyyppi in xpMap)) return;
+  // KORJAUS 1 — DEDUP: sama harjoite voidaan kirjata vain kerran/päivä → estää tuplakirjauksen + tupla-XP:n.
+  if (await _onkoKirjattuTanaan(tyyppi)) {
+    _naytaInfoToast('Tämä harjoite on jo kirjattu tänään.');
+    _merkitseNappiTehdyksi(btnIdMap[tyyppi]);
+    return;
+  }
   try {
     const ok = await _tallennaKirjaus(tyyppi, xpMap[tyyppi], false, { konteksti: kontekstiMap[tyyppi] });
     if (ok) {
@@ -2681,6 +2690,58 @@ function _harjoiteVahvistus(btnId) {
   btn.style.opacity = '0.55';
   btn.style.cursor = 'default';
   if (navigator.vibrate) navigator.vibrate(40);
+}
+
+/* ══ KORJAUS 1 — DEDUP-APURIT ═══════════════════════════════════
+   Päiväkirjaus tallentuu yhteen doc:iin (id=pvm, merge). Tyyppikohtainen
+   merkintä tehty_<tyyppi> kertoo onko D/S/T jo kirjattu tänään.
+═════════════════════════════════════════════════════════════════ */
+async function _onkoKirjattuTanaan(tyyppi) {
+  if (_isDemoUser) return false;
+  if (!_pelaaja?.id || !window._db) return false;
+  const sid = window._seuraId || _pelaaja?.seuraId, pid = _pelaaja.id;
+  if (!sid || !pid) return false;
+  try {
+    const snap = await window._db.collection('seurat').doc(sid)
+      .collection('pelaajat').doc(pid).collection('kirjaukset').doc(_paivaIso()).get();
+    return !!(snap.exists && snap.data() && snap.data()['tehty_' + tyyppi] === true);
+  } catch (e) { console.warn('[dedup luku]', e.message); return false; }  // luku ei onnistu → ei estetä kirjausta
+}
+
+function _merkitseNappiTehdyksi(btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '✓ Tehty jo';
+  btn.style.opacity = '0.55';
+  btn.style.cursor = 'default';
+}
+
+// KOTI-latauksessa: merkitse tänään jo kirjatut napit "✓ Tehty jo" -tilaan (yksi doc-luku).
+async function _paivitaTehtyNapit() {
+  if (_isDemoUser) return;
+  if (!_pelaaja?.id || !window._db) return;
+  if (!document.getElementById('dKirjausBtn') && !document.getElementById('sKirjausBtn') && !document.getElementById('tKirjausBtn')) return;
+  const sid = window._seuraId || _pelaaja?.seuraId, pid = _pelaaja.id;
+  if (!sid || !pid) return;
+  try {
+    const snap = await window._db.collection('seurat').doc(sid)
+      .collection('pelaajat').doc(pid).collection('kirjaukset').doc(_paivaIso()).get();
+    if (!snap.exists) return;
+    const d = snap.data() || {};
+    [['D', 'dKirjausBtn'], ['S', 'sKirjausBtn'], ['T', 'tKirjausBtn']].forEach(function (p) {
+      if (d['tehty_' + p[0]] === true) _merkitseNappiTehdyksi(p[1]);
+    });
+  } catch (e) { console.warn('[tehty-napit]', e.message); }
+}
+
+// Neutraali info-toast (vrt. _naytaKirjausVirhe = punainen virhe).
+function _naytaInfoToast(viesti) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);max-width:88vw;background:#14201d;border:.5px solid rgba(40,176,144,.45);color:#28B090;padding:11px 18px;border-radius:8px;font-size:12px;font-weight:500;line-height:1.4;text-align:center;z-index:999;animation:toastIn .2s ease';
+  t.textContent = viesti;
+  document.body.appendChild(t);
+  setTimeout(function () { t.remove(); }, 3500);
 }
 
 // CLAUDE.md §17 #21: HTML onclick= vaatii window._-globaaleja
