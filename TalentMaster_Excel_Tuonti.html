@@ -1592,6 +1592,7 @@ function prosessoiExcel(wb) {
   const colSukunimi   = findCol(['sukunimi']);
   const colEtunimi    = findCol(['etunimi']);
   const colSukupuoli  = findCol(['sukup', 'suk.', 'sukupuoli']);
+  const colSyntymaVuosi = findCol(['syntymavuosi', 'syntymävuosi', 'syntymä', 'syntyma']);
   const colJoukkue    = findCol(['joukkue']);
   const colTestauspvm = findCol(['testaus-pvm', 'testauspvm', 'testipäivä']);
   const colPhv        = findCol(['phv', 'phv-tila']);
@@ -1715,6 +1716,7 @@ function prosessoiExcel(wb) {
       sukunimi,
       etunimi,
       sukupuoli: colSukupuoli >= 0 ? String(rivi[colSukupuoli] || '').trim() : '',
+      syntymaVuosi: colSyntymaVuosi >= 0 ? (parseInt(String(rivi[colSyntymaVuosi] || '').replace(/[^0-9]/g, ''), 10) || null) : null,
       joukkue: colJoukkue >= 0 ? String(rivi[colJoukkue] || '').trim() : '',
       testauspvm: colTestauspvm >= 0 ? String(rivi[colTestauspvm] || '').trim() : '',
       phv_tila: colPhv >= 0 ? String(rivi[colPhv] || '').trim().toUpperCase() : '',
@@ -2528,14 +2530,20 @@ function _kausiPvm(kausi) {
 
 function laskeIka(syntymaVuosi, testauspvm) {
   if (!syntymaVuosi) return null;
-  let pvVuosi;
+  // Vain syntymävuosi tiedossa → oletetaan syntymäpäivä keskelle vuotta (1.7.) ja lasketaan
+  // KRONOLOGINEN ikä testihetkellä. Kevättesti (ennen 1.7.) → syntymäpäivää ei vielä ohitettu →
+  // nuorempi ikäluokka (esim. 2012-syntyinen 12.4.2026 → 13, ei 14). Tarkka pvm vaatisi koko syntymäajan.
+  let pvVuosi, kuukausi;
   if (testauspvm) {
     const iso = _paivaIso(testauspvm);
-    pvVuosi = iso ? parseInt(iso.slice(0, 4), 10) : new Date().getFullYear();
+    if (iso) { pvVuosi = parseInt(iso.slice(0, 4), 10); kuukausi = parseInt(iso.slice(5, 7), 10); }
+    else { const nd = new Date(); pvVuosi = nd.getFullYear(); kuukausi = nd.getMonth() + 1; }
   } else {
-    pvVuosi = new Date().getFullYear();
+    const nd = new Date(); pvVuosi = nd.getFullYear(); kuukausi = nd.getMonth() + 1;
   }
-  return pvVuosi - syntymaVuosi;
+  let ika = pvVuosi - syntymaVuosi;
+  if (kuukausi < 7) ika -= 1;   // ennen 1.7. → oletettu syntymäpäivä ohittamatta
+  return ika;
 }
 
 // Apuri: laske TKI yhdelle pelaajalle (vain tekniikkakilpailu-protokollaan)
@@ -2716,7 +2724,7 @@ async function tallennaFirestoreen() {
     const batch = db.batch();
 
     era.forEach(pkg => {
-      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, ika } = pkg;   // ika: laskettu paketinrakennuksessa (laskeIka) → välitetään forEach:iin (korjaa ReferenceError rivi 2698)
+      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, ika, syntymaVuosi } = pkg;   // ika/syntymaVuosi: laskettu paketinrakennuksessa → välitetään forEach:iin
       // Löydetyn pelaajan OIKEA dokumentti-ID (Firebase UID) → tallennuspolku.
       // Jos pelaajaa ei löytynyt (strategia 'kaikki'), fallback PalloID-stringiin (review-jono).
       const docId = p._firestoreDocId || String(p.tunniste == null ? '' : p.tunniste).trim() || (p.sukunimi + '_' + p.etunimi);
@@ -2777,6 +2785,7 @@ async function tallennaFirestoreen() {
         if (kehityskohde)     profiiliUpdate.tki_kehityskohde = kehityskohde;
         if (hhViimeisin)      { profiiliUpdate.hh_viimeisin = hhViimeisin; profiiliUpdate.hh_pvm = pvmIso; }
         if (hhTaso != null)   profiiliUpdate.hh_taso = hhTaso;
+        if (syntymaVuosi)     profiiliUpdate.syntymaVuosi = syntymaVuosi;   // Excel-SyntymaVuosi → profiili (tarkka ikä)
         // MAS-johdannaiset profiiliin → VP/Pelaaja syvä analyysi (km/h, m/s, alkuperäinen aika)
         if (testit.mas_kmh != null)      profiiliUpdate.mas_kmh = testit.mas_kmh;
         if (testit.mas_ms != null)       profiiliUpdate.mas_ms = testit.mas_ms;
