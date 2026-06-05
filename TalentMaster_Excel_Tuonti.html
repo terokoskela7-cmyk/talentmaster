@@ -991,14 +991,15 @@ function pohjaSarakkeet(protokolla) {
     return [].concat(
       aika('Lin5m_s','lin5m',3), aika('Lin10m_s','lin10m',3), aika('Lin30m_s','lin30m',3),
       aika('Hyppy_CMJ_cm','hyppy_cj',3), aika('Hyppy_SJ_cm','hyppy_sj',3),
-      [ { header:'MAS_kmh', testId:'mas', kind:'arvo', yritys:1 } ],
-      aika('SM_juoksu_s','sm_juoksu',2), aika('SM_pallo_s','sm_pallo',2), aika('Kasirata_s','kasirata',2)
+      [ { header:'MAS_aika_(min,sek)', testId:'mas', kind:'arvo', yritys:1 } ],   // aika min,sek → parseMasAika
+      aika('SM_juoksu_s','sm_juoksu',2), aika('SM_pallo_s','sm_pallo',2), aika('Kasirata_s','kasirata',2),
+      aika('Pujottelu_hh_s','pujottelu_hh',2)   // H-H-protokolla, aika sekunteina
     );
   }
   if (protokolla === 'hh_suppea') {
     return [].concat(
-      aika('Lin30m_s','lin30m',3), aika('Hyppy_CMJ_cm','hyppy_cj',2),
-      [ { header:'MAS_kmh', testId:'mas', kind:'arvo', yritys:1 } ],
+      aika('Lin30m_s','lin30m',2), aika('Hyppy_CMJ_cm','hyppy_cj',2),   // 30m: 2 suoritusta (H-H)
+      [ { header:'MAS_aika_(min,sek)', testId:'mas', kind:'arvo', yritys:1 } ],   // aika min,sek → parseMasAika
       aika('SM_juoksu_s','sm_juoksu',2), aika('SM_pallo_s','sm_pallo',2)
     );
   }
@@ -1069,6 +1070,21 @@ function generoiExcelPohja(protokolla, joukkueNimi) {
   if (protokolla === 'tekniikkakilpailu') {
     ohje.push(['• Pituuspotku vain U12-U13 — jätä tyhjäksi nuoremmilla.']);
     ohje.push(['• Kuljetus-laukaus: raaka = suoritusaika, vahennys = tarkkuusvähennys sekunteina.']);
+  }
+  if (protokolla === 'hh_laaja' || protokolla === 'hh_suppea') {
+    ohje.push(['']);
+    ohje.push(['MAS-testi (aerobinen kestävyys):']);
+    ohje.push(['Syötä testirata-aika muodossa minuutit,sekunnit']);
+    ohje.push(['Esimerkki: 4 min 53 sek → kirjoita 4,53']);
+    ohje.push(['Esimerkki: 5 min 08 sek → kirjoita 5,08']);
+    ohje.push(['Järjestelmä muuntaa ajan automaattisesti. ÄLÄ kirjoita km/h-arvoa.']);
+    ohje.push(['Testiohje: 1200m Bronco-testi Palloliiton protokollan mukaisesti.']);
+  }
+  if (protokolla === 'hh_laaja') {
+    ohje.push(['']);
+    ohje.push(['Pujottelu (H-H-protokolla):']);
+    ohje.push(['Aika sekunteina, yhden desimaalin tarkkuudella. Esim. 22,5 sekuntia → kirjoita 22,5']);
+    ohje.push(['Käytä H-H-testimanuaalin protokollaa. (Tekniikkakilpailun pujottelu on eri lomake.)']);
   }
   const wsOhje = XLSX.utils.aoa_to_sheet(ohje);
   const wb = XLSX.utils.book_new();
