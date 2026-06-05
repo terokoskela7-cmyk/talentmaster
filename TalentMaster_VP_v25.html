@@ -1850,7 +1850,52 @@ auth.onAuthStateChanged(async user => {
   const isSuperAdmin = adminSnap && adminSnap.exists;
 
   // Resolve seuraId — Claims ensin, super admin kaikki seurat
-  const token = await user.getIdTokenResult(true);
+  let token;
+  try {
+    token = await user.getIdTokenResult(true);   // pakottaa tuoreen tokenin
+  } catch (e) {
+    // Refresh-token mitätöity (esim. roolinvaihto → revokeRefreshTokens) → kirjaudu uudelleen
+    console.warn('[auth] token-refresh epäonnistui (mahd. revoked):', e.message);
+    alert('Oikeutesi ovat muuttuneet. Kirjaudu uudelleen.');
+    await auth.signOut(); window.location.reload(); return;
+  }
+
+  // OSA 3 — defensiivinen rooli-sync (KORJATTU: retry + loop-suoja). setCustomUserClaims/
+  // revokeRefreshTokens jälkeen claims voi propagoitua VIIVEELLÄ → yritä tuoreella tokenilla
+  // (viive) ENNEN uloskirjausta, ei heti signOut. Jos claims ei mitenkään synkronoidu (esim. rooli
+  // vaihdettu vain Firestoreen ilman vaihdaKayttajanRooli-CF:ää) → kirjaudu ulos KERRAN (sessionStorage-
+  // loop-suoja), sitten jatka varoituksella — EI uloskirjaus-looppia. Ei koske super-adminia.
+  if (!isSuperAdmin && token.claims.seuraId) {
+    const _syncKey = 'tm_roolisync_' + user.uid;
+    try {
+      const _kd = await db.collection('seurat').doc(token.claims.seuraId).collection('kayttajat').doc(user.uid).get();
+      const _fsRooli = _kd.exists ? _kd.data().rooli : null;
+      if (_fsRooli && token.claims.rooli !== _fsRooli) {
+        // Retry: pakota tuore token + viive, kunnes claims synkronoituu tai 3 yritystä (propagointi).
+        let _synkroitui = false;
+        for (let _y = 0; _y < 3 && !_synkroitui; _y++) {
+          try { await user.getIdToken(true); } catch (e) { /* revoked → uloskirjaus alla */ }
+          await new Promise(function (r) { setTimeout(r, 500); });
+          const _tuore = await user.getIdTokenResult(true).catch(function () { return null; });
+          if (_tuore && _tuore.claims.rooli === _fsRooli) { token = _tuore; _synkroitui = true; }
+        }
+        if (_synkroitui) {
+          sessionStorage.removeItem(_syncKey);                         // synkronoitui uuteen rooliin → jatka
+        } else if (sessionStorage.getItem(_syncKey) !== _fsRooli) {
+          sessionStorage.setItem(_syncKey, _fsRooli);                  // ensimmäinen kerta → ulos KERRAN
+          alert('Oikeutesi ovat muuttuneet. Kirjaudu uudelleen.');
+          await auth.signOut(); window.location.reload(); return;
+        } else {
+          // Uloskirjauksen jälkeenkin sama mismatch → claims ei synkronoidu. EI looppia: jatketaan.
+          // Korjaus: vaihda rooli vaihdaKayttajanRooli-CF:n kautta (pelkkä Firestore-muutos ei päivitä claimseja).
+          console.warn('[rooli-sync] claims (' + token.claims.rooli + ') ≠ Firestore (' + _fsRooli
+            + ') retryn + uloskirjauksen jälkeenkin → vaatii vaihdaKayttajanRooli-CF:n. Jatketaan, ei uloskirjausta.');
+        }
+      } else {
+        sessionStorage.removeItem(_syncKey);                           // täsmää → nollaa loop-suoja
+      }
+    } catch (e) { console.warn('[rooli-sync]', e.message); }
+  }
 
   if (isSuperAdmin) {
     // Super Admin: lataa kaikki seurat, näytä valitsin
@@ -5498,7 +5543,7 @@ document.getElementById('lPass').addEventListener('keydown', e => { if(e.key==='
 // VERSIO + CDN-STALENESS-VAROITUS (sama kuvio kuin Excel_Tuonti)
 // Bumppaa VP_VERSIO joka kerta kun HH-normit tai muu laskenta muuttuu.
 // ════════════════════════════════════════
-const VP_VERSIO = 'normit-2026-06-05b'; // HH_NORMIT_PIKA → Palloliitto FINAL2024 (pojat + tytöt)
+const VP_VERSIO = 'roolisync-2026-06-06'; // HH_NORMIT_PIKA → Palloliitto FINAL2024 (pojat + tytöt)
 const VP_RAW_URL = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_VP_v25.html';
 function _vpNaytaCdnVaroitus(tuoreVersio) {
   if (document.getElementById('cdn-varoitus')) return;
