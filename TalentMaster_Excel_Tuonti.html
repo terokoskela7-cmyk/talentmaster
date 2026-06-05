@@ -3516,11 +3516,13 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
 // pelaajille joilta taso puuttuu (esim. SJK: syntymaVuosi puuttui tuonnista → laskeHHTaso palautti null).
 // Ikä + sukupuoli johdetaan joukkuenimestä (P14→14/M · T16→16/N · U13→13 + sp profiilista). SA-only konsolifunktio.
 // KRIITTINEN: laskeHHTaso lukee avaimen 'hyppy_cj', mutta hh_viimeisin käyttää 'cmj' → remap pakollinen.
-window.recalcHH = async function(seuraIdArg, dryRun) {
+window.recalcHH = async function(seuraIdArg, dryRun, force) {
   if (dryRun === undefined) dryRun = true;            // turvallinen oletus
+  // force=true → laskee hh_taso uudelleen MYÖS pelaajille joilla se jo on (normimigraatio).
+  // force=false (oletus) → vain puuttuvat (alkup. käytös).
   if (!superAdmin) { console.warn('[recalcHH] Vain Super Admin'); return; }
   const sid = seuraIdArg || seuraId;
-  if (!sid) { console.warn('[recalcHH] Käyttö: recalcHH(seuraId, dryRun=true)'); return; }
+  if (!sid) { console.warn('[recalcHH] Käyttö: recalcHH(seuraId, dryRun=true, force=false)'); return; }
 
   const pelSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
   const muutokset = [];
@@ -3529,7 +3531,7 @@ window.recalcHH = async function(seuraIdArg, dryRun) {
   pelSnap.docs.forEach(function(pd) {
     const p = pd.data();
     if (p.hh_viimeisin == null) return;                // ei raakatestejä → ei kuulu joukkoon
-    if (p.hh_taso != null) { ohitettu++; return; }      // taso jo olemassa → ei lasketa uudelleen
+    if (p.hh_taso != null && !force) { ohitettu++; return; } // taso jo olemassa & ei force → ei lasketa uudelleen
 
     // Ikä + sukupuoli joukkuenimestä — yksi P/T/U-ankkuroitu osuma (välttää nimessä olevan vuosiluvun)
     const joukkue = p.joukkue || (Array.isArray(p.joukkueet) ? p.joukkueet[0] : '') || '';
@@ -3554,19 +3556,20 @@ window.recalcHH = async function(seuraIdArg, dryRun) {
       return;
     }
     muutokset.push({ ref: pd.ref, nimi: (p.sukunimi||'') + ', ' + (p.etunimi||''),
-      joukkue: joukkue, ika: ika, sp: sp, taso: taso });
+      joukkue: joukkue, ika: ika, sp: sp, taso: taso, vanha: p.hh_taso });
   });
 
   muutokset.forEach(function(m2) {
     console.log((dryRun ? '[DRY-RUN] ' : '[recalcHH] OK ') + m2.nimi + ' (' + m2.joukkue
-      + ' · ' + m2.ika + ' · ' + m2.sp + ') → hh_taso = ' + m2.taso);
+      + ' · ' + m2.ika + ' · ' + m2.sp + ') → hh_taso = ' + m2.taso
+      + (m2.vanha != null ? ' (oli ' + m2.vanha + ')' : ''));
   });
 
   if (dryRun) {
     console.log('[DRY-RUN] recalcHH: ' + muutokset.length + ' päivitettäisiin · ' + ohitettu
-      + ' jo OK · ' + eiLaskettavissa + ' ei laskettavissa (ei ikä/sp).');
-    console.log('[DRY-RUN] Aja oikeasti: recalcHH(\'' + sid + '\', false)');
-    return { dryRun: true, kpl: muutokset.length, ohitettu: ohitettu, eiLaskettavissa: eiLaskettavissa };
+      + (force ? ' ohitettu' : ' jo OK (force=true laskisi nämäkin)') + ' · ' + eiLaskettavissa + ' ei laskettavissa (ei ikä/sp).');
+    console.log('[DRY-RUN] Aja oikeasti: recalcHH(\'' + sid + '\', false' + (force ? ', true' : '') + ')');
+    return { dryRun: true, kpl: muutokset.length, ohitettu: ohitettu, eiLaskettavissa: eiLaskettavissa, force: !!force };
   }
 
   // Kirjoita batcheina — 1 kirjoitus/pelaaja → max 400/erä (≤ 500)
@@ -3901,7 +3904,7 @@ window.siivoaBugisetTulokset = async function(seuraId, ikaluokka, maxKokonais, d
 // VERSIO + CDN-STALENESS-VAROITUS
 // ════════════════════════════════════════
 // Ladatun version tunniste — sama merkkijono on const-määrittelyssä jota raw-vertailu lukee.
-const PDF_VERSIO = 'kaksipassi-v7';
+const PDF_VERSIO = 'kaksipassi-v8';
 const PDF_RAW_URL = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_Excel_Tuonti.html';
 
 // Näytä amber-banneri jos ladattu versio on vanhempi kuin mainin tuorein (CDN-cache vanha).
