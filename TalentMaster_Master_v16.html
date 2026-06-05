@@ -1918,11 +1918,24 @@ async function _lataaValmentaja(uid) {
 async function _lataaPelaajat() {
   if (!_seuraId) return;
   try {
-    // Hae joukkueen pelaajat — jos joukkue tiedossa, suodata sillä
-    let ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat');
-    if (_joukkue) ref = ref.where('joukkue', '==', _joukkue);
-    const snap = await ref.get();
-    _pelaajatData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const col = _db.collection('seurat').doc(_seuraId).collection('pelaajat');
+    let docs;
+    if (_joukkue) {
+      // §18: kaksoiskysely — joukkue (näyttönimi "SJK P14") + joukkueet[] (id "sjk_p14").
+      // Pelaajalla voi olla vain toinen (esim. kutsuflow'n Kerkko: joukkue="sjk_p14").
+      const jId = _joukkue.toLowerCase().replace(/\s+/g, '_');
+      const [s1, s2] = await Promise.all([
+        col.where('joukkue', '==', _joukkue).get(),
+        col.where('joukkueet', 'array-contains', jId).get().catch(() => ({ docs: [] }))
+      ]);
+      const m = new Map();
+      s1.docs.forEach(d => m.set(d.id, d));
+      s2.docs.forEach(d => m.set(d.id, d));
+      docs = [...m.values()];
+    } else {
+      docs = (await col.get()).docs;
+    }
+    _pelaajatData = docs.map(d => ({ id: d.id, ...d.data() }));
     _pelaajatData.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
     if (!_demo) {
       // Renderöi kaikki pelaajadataa käyttävät näkymät
@@ -2212,10 +2225,21 @@ async function _generoiExcel(tap) {
     pelaajat = tap.pelaajatData;
   } else if (!_demo && _seuraId) {
     try {
-      let ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat');
-      if (_joukkue) ref = ref.where('joukkue','==',_joukkue);
-      const snap = await ref.get();
-      pelaajat = snap.docs.map(d => ({id:d.id,...d.data()}));
+      const col = _db.collection('seurat').doc(_seuraId).collection('pelaajat');
+      if (_joukkue) {
+        // §18 kaksoiskysely (sama kuin _lataaPelaajat)
+        const jId = _joukkue.toLowerCase().replace(/\s+/g, '_');
+        const [s1, s2] = await Promise.all([
+          col.where('joukkue','==',_joukkue).get(),
+          col.where('joukkueet','array-contains',jId).get().catch(() => ({ docs: [] }))
+        ]);
+        const m = new Map();
+        s1.docs.forEach(d => m.set(d.id, d));
+        s2.docs.forEach(d => m.set(d.id, d));
+        pelaajat = [...m.values()].map(d => ({id:d.id,...d.data()}));
+      } else {
+        pelaajat = (await col.get()).docs.map(d => ({id:d.id,...d.data()}));
+      }
     } catch(e) {}
   }
   pelaajat.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));

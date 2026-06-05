@@ -682,29 +682,51 @@ function rA1(){
     ${_signaaliLabel()}
   </section>
 
-  <!-- D-KORTTI — Tänään (70%, iso pääkortti, ohjelmaharjoite _luoOhjelma:sta) -->
+  <!-- D-KORTTI — Tänään (iso pääkortti). FIX 2: ensisijaisesti kehityskohde-T
+       (valitsePaivanHarjoite, toimii ilman FLEI:tä); fallback vanhaan _luoOhjelma:an. -->
   ${(()=>{
-    const ohj = (_pelaaja && window.PANKKI) ? _luoOhjelma(_pelaaja) : null;
-    if (!ohj?.tHarjoite) return '';
-    const dWhy = (typeof getWhyLause === 'function') ? getWhyLause(ohj.tKetju, 'D', ohj.stage) : '';
-    return `
+    const _dKortti = function(label, nimi, why){
+      return `
     <div style="margin:14px 20px;padding:18px 18px;background:linear-gradient(135deg,rgba(40,176,144,.14),rgba(40,176,144,.04));border:1px solid rgba(40,176,144,.45);border-radius:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--teal)">${T('today')}</div>
-        <div style="font-size:9px;color:var(--ink3);letter-spacing:.14em">${ohj.tKetju}</div>
+        <div style="font-size:9px;color:var(--ink3);letter-spacing:.14em">${label}</div>
       </div>
-      <div style="font-family:var(--font-d);font-size:18px;font-weight:500;color:var(--text);line-height:1.3;margin-bottom:${dWhy?'8px':'14px'}">${ohj.tHarjoite.nimi||'—'}</div>
-      ${dWhy ? `<div style="font-size:12px;color:var(--ink2);line-height:1.5;margin-bottom:14px;font-style:italic">${dWhy}</div>` : ''}
+      <div style="font-family:var(--font-d);font-size:18px;font-weight:500;color:var(--text);line-height:1.3;margin-bottom:${why?'8px':'14px'}">${nimi||'—'}</div>
+      ${why ? `<div style="font-size:12px;color:var(--ink2);line-height:1.5;margin-bottom:14px;font-style:italic">${why}</div>` : ''}
       <button id="dKirjausBtn" onclick="_kirjaaHarjoite('D')" class="btn-p" style="width:100%;margin-top:0">
         ✓ Kirjaa tehdyksi
       </button>
     </div>`;
+    };
+    // 1) Kehityskohde-T (data-asianmukainen: TKI/TSI/HH → kohde, ei FLEI:tä)
+    if (typeof valitsePaivanHarjoite === 'function' && _pelaaja && window.PANKKI) {
+      try {
+        const paivanT = valitsePaivanHarjoite(_pelaaja, window.PANKKI, _paivaIso());
+        if (paivanT) {
+          const kk = laskeTekninenKehityskohde(_pelaaja);
+          const iv = _laskeIkavaihe(_pelaaja);
+          const KOHDE_OTS = { pallonhallinta:'Pallonhallinta', koordinaatio:'Koordinaatio', nopeus:'Nopeus', syotto:'Syöttö', ponnauttelu:'Ponnauttelu' };
+          const why = generoiMiksiteksti(_pelaaja, kk, iv).miksi_lause2;  // yksinkertainen lause kaikille ikävaiheille
+          return _dKortti(KOHDE_OTS[kk.kohde] || kk.kohde, paivanT.nimi, why);
+        }
+      } catch(e){ console.warn('[KOTI kehityskohde-T]', e.message); }
+    }
+    // 2) Fallback: vanha FLEI-pohjainen ohjelma (jos kehityskohde-logiikka ei latautunut)
+    const ohj = (_pelaaja && window.PANKKI) ? _luoOhjelma(_pelaaja) : null;
+    if (!ohj?.tHarjoite) return '';
+    const dWhy = (typeof getWhyLause === 'function') ? getWhyLause(ohj.tKetju, 'D', ohj.stage) : '';
+    return _dKortti(ohj.tKetju, ohj.tHarjoite.nimi, dWhy);
   })()}
 
   <!-- S-KORTTI — Kohdennettu kehitys (30%, heikoin FLEI-ketju)
        Defensiivinen: renderöityy aina kun _luoOhjelma onnistui,
        getSHarjoiteWhy:n heitto tai sHarjoite=null ei estä korttia. -->
   ${(()=>{
+    // FIX 2: S-kortti on FLEI-heikoimman ketjun kohdennettu kehitys. Ilman FLEI-dataa
+    // (SJK/Sibbo/Kerkko) se olisi mielivaltainen (default 2.0) → ei renderöidä lainkaan.
+    const onFlei = !!(_pelaaja && _pelaaja.flei_viimeisin != null);
+    if (!onFlei) return '';
     const ohj = (_pelaaja && window.PANKKI) ? _luoOhjelma(_pelaaja) : null;
     if (!ohj) return '';  // EI _pelaaja:a TAI EI PANKKI:a → ei renderöidä
     // _laskeFlei normalisoi raakadatan 1-3 → 0-100 (CLAUDE.md §4 invariantti).
@@ -1367,7 +1389,12 @@ function rTDone(){
       kesto_min: Math.round((EX||[]).reduce((s,e)=>s+(e.dur||0),0)/60) || null,
       fiilinki:  _fiilis || null,
       konteksti: taso===1 ? 'bola_sempre' : 'paivan_ohjelma',
-    }).catch(e => console.warn('[treeni kirjaus]', e.message));
+    }).catch(e => {
+      console.warn('[treeni kirjaus]', e.code || '', e.message);
+      if (typeof _naytaKirjausVirhe === 'function') _naytaKirjausVirhe((e && e.code === 'permission-denied')
+        ? 'Kirjaus ei tallentunut — kirjaudu uudelleen PIN-koodilla.'
+        : 'Kirjaus ei tallentunut — tarkista verkkoyhteys ja yritä uudelleen.');
+    });
   }
   // Ikävaihe-kohtainen kirjausmoodi (2D): leikkijä = 3 emojia · muut = RPE + kesto
   const kirjausUI = (iv === 'leikkija')
@@ -2474,11 +2501,12 @@ async function _tmKirjaa(avain, arvo) {
 ═════════════════════════════════════════════════════════════════ */
 async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
   // ekstra: { rpe, fiilinki, kesto_min, konteksti } — AI-agentti lukee nämä myöhemmin
-  if (_isDemoUser || !_pelaaja || !window._db) return;
+  if (_isDemoUser) return true;                 // demo: ei Firestore-kirjoitusta, UI reagoi silti
+  if (!_pelaaja || !window._db) return false;
 
   const sid = window._seuraId || _pelaaja.seuraId;
   const pid = _pelaaja.id;
-  if (!sid || !pid || pid === 'super_admin_view') return;
+  if (!sid || !pid || pid === 'super_admin_view') return false;
 
   // Varmista tuore token ennen Firestore-kirjoitusta — sessio voi vanhentua
   // pitkän tauon jälkeen (esim. puhelimen nukkuessa). getIdToken(true) pakottaa
@@ -2541,10 +2569,11 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
 
     await batch.commit();
     console.log('[v5] Kirjaus OK:', tyyppi, xp, 'XP | streak:', _streak);
+    return true;
 
   } catch(e) {
-    console.warn('[v5 kirjaus virhe]', e.message);
-    // Graceful degradation: kirjaus ei tallennu mutta UI toimii
+    console.warn('[v5 kirjaus virhe]', e.code || '', e.message);
+    throw e;   // FIX 1: ÄLÄ niele — kutsuja näyttää pelaajalle toimintaohje-toastin
   }
 }
 
@@ -2561,14 +2590,31 @@ async function _kirjaaHarjoite(tyyppi) {
   const btnIdMap     = { D: 'dKirjausBtn',    S: 'sKirjausBtn',  T: 'tKirjausBtn' };
   if (!(tyyppi in xpMap)) return;
   try {
-    await _tallennaKirjaus(tyyppi, xpMap[tyyppi], false, { konteksti: kontekstiMap[tyyppi] });
-    _harjoiteVahvistus(btnIdMap[tyyppi]);
-    // Päivitä streak (kirjaukset-kokoelmasta laskettu) viiveellä,
-    // jotta Firestore-write ehtii valmistua ennen lukua.
-    if (typeof _lataaCStreak === 'function') setTimeout(_lataaCStreak, 400);
+    const ok = await _tallennaKirjaus(tyyppi, xpMap[tyyppi], false, { konteksti: kontekstiMap[tyyppi] });
+    if (ok) {
+      _harjoiteVahvistus(btnIdMap[tyyppi]);
+      // Päivitä streak (kirjaukset-kokoelmasta laskettu) viiveellä, jotta Firestore-write ehtii valmistua.
+      if (typeof _lataaCStreak === 'function') setTimeout(_lataaCStreak, 400);
+    } else {
+      // Ei tallentunut (puuttuva istunto/seura) — kerro pelaajalle mitä tehdä.
+      _naytaKirjausVirhe('Kirjausta ei voitu tallentaa — kirjaudu uudelleen PIN-koodilla.');
+    }
   } catch (e) {
-    console.warn('[kirjaaHarjoite]', tyyppi, e.message);
+    console.warn('[kirjaaHarjoite]', tyyppi, e.code || '', e.message);
+    // Rules sallivat anonyymin PIN-kirjauksen → permission-denied = istunto vanhentunut → kirjaudu uudelleen.
+    _naytaKirjausVirhe((e && e.code === 'permission-denied')
+      ? 'Kirjaus ei tallentunut — kirjaudu uudelleen PIN-koodilla.'
+      : 'Kirjaus ei tallentunut — tarkista verkkoyhteys ja yritä uudelleen.');
   }
+}
+
+// Toimintaohje-toast kirjausvirheelle (sama tyyli kuin kirjaaRPE).
+function _naytaKirjausVirhe(viesti) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);max-width:88vw;background:#1a1a18;border:.5px solid rgba(216,90,90,.4);color:#E07A5F;padding:11px 18px;border-radius:8px;font-size:12px;font-weight:500;line-height:1.4;text-align:center;z-index:999;animation:toastIn .2s ease';
+  t.textContent = viesti;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
 }
 
 function _harjoiteVahvistus(btnId) {
