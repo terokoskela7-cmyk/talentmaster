@@ -732,6 +732,14 @@ suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 | **PHV** | `phv_tila` · `biologinenIka_viimeisin` (offset + pvm) | ✅ Testaus_v9 |
 | **ADAR** | `adar_viimeisin {a,d,ac,r,yht,pvm}` · `adar_pvm` · `adar_havaintoja` · `adar_vahvin` · `adar_heikoin` | ⚠️ helper valmis, kirjoituspiste auki |
 
+> **⚠️ NORMIPÄIVITYS 2026-06-05 — aja `recalcHH` ennen VP-käyttöä.** `HH_NORMIT_PIKA` (Excel_Tuonti.html, VP_v25.html)
+> ja `HH_NORMIT` (`docs/testit_indeksit.js`) yhdenmukaistettiin Palloliiton **FINAL2024**-virallisiin arvoihin
+> (pojat 30m/CMJ/MAS, ikäluokat 10–19 **+ M**; tytöt koskemattomat). **MAS muunnettu m/s → km/h ×3.6.** Vaikutus:
+> 30m & CMJ lievenivät ±1–3 tasoa, **MAS koveni ~4 tasoa koko ikähaarukassa** (vanha km/h-skaala oli väärä).
+> **Firestoressa olevat `hh_taso`-arvot ovat nyt vanhentuneet** — aja `recalcHH` kaikille pilottiseuroille
+> (**sjk, sibbo, kpv, grifk, palloiirot**) ennen kuin VP-dashboardin H-H-tasot näytetään valmentajille/vanhemmille.
+> Huom: `hhLaskeTaso`-lookup cappaa iän 19:ään, joten M-rivi on datassa valmiina mutta käyttöön vasta jos lookup laajennetaan.
+
 **Joukkuepulssi (`renderTeamPulse`):** neliosainen rivi per joukkue — **FLEI · TKI · H-H taso · ADAR ka.**,
 kukin `ka` + `n=testattu/koko` + suunta (`_pulssiSuunta` flei_historiasta FLEI/TKI:lle; H-H/ADAR ei historiaa → ei nuolta).
 ADAR ka. = `adar_viimeisin.yht` keskiarvo pelaajista joilla **≥3 havaintoa**.
