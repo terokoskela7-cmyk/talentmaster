@@ -496,6 +496,74 @@ exports.luoKayttaja = functions
   });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// vaihdaKayttajanRooli — vaihtaa olemassa olevan käyttäjän roolin TURVALLISESTI:
+// Firestore.update + setCustomUserClaims + revokeRefreshTokens. Korjaa bugin jossa
+// pelkkä Firestore-kentän muutos jätti Rules-oikeudet vanhaan rooliin (Rules lukee
+// request.auth.token.rooli -claimia, ei Firestore-kenttää).
+// HUOM: kayttajat on alikokoelma seurat/{seuraId}/kayttajat/{uid} (EI top-level).
+// ─────────────────────────────────────────────────────────────────────────────
+const SALLITUT_ROOLIT_VAIHTO = ['vp', 'valmentaja', 'talenttivalmentaja', 'seura_admin'];
+exports.vaihdaKayttajanRooli = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu sisään.');
+    }
+    const kutsujaUid = context.auth.uid;
+    const { uid, seuraId, uusiRooli } = data;
+    if (!uid)     throw new functions.https.HttpsError('invalid-argument', 'uid pakollinen.');
+    if (!seuraId) throw new functions.https.HttpsError('invalid-argument', 'seuraId pakollinen.');
+    if (!SALLITUT_ROOLIT_VAIHTO.includes(uusiRooli)) {
+      throw new functions.https.HttpsError('invalid-argument', `Virheellinen rooli: ${uusiRooli}`);
+    }
+
+    // 1. Oikeustarkistus — vain SA, VP tai seura_admin (sama tarkistaOikeus kuin muualla)
+    const oikeus = await tarkistaOikeus(kutsujaUid, seuraId);
+    if (!oikeus.sallittu) {
+      throw new functions.https.HttpsError('permission-denied', `Ei oikeuksia seuralle "${seuraId}".`);
+    }
+
+    // 2. Varmista että kohdekäyttäjä kuuluu seuraId:hen
+    const kRef = db.collection('seurat').doc(seuraId).collection('kayttajat').doc(uid);
+    const kDoc = await kRef.get();
+    if (!kDoc.exists) {
+      throw new functions.https.HttpsError('not-found', `Käyttäjää ${uid} ei löydy seurasta ${seuraId}.`);
+    }
+    if (kDoc.data().seuraId && kDoc.data().seuraId !== seuraId) {
+      throw new functions.https.HttpsError('permission-denied', 'Käyttäjän seuraId ei täsmää parametriin.');
+    }
+
+    // 3. Firestore-rooli
+    await kRef.update({ rooli: uusiRooli });
+
+    // 4. Custom claims — PUUTTUVA PALA: pitää tokenin ja Firestore-dokumentin synkrona
+    await auth.setCustomUserClaims(uid, { rooli: uusiRooli, seuraId: seuraId });
+
+    // 5. vp_uid-hallinta (hyväksytty kompromissi)
+    const sRef = db.collection('seurat').doc(seuraId);
+    if (uusiRooli === 'vp') {
+      await sRef.update({ vp_uid: uid });
+    } else {
+      const sDoc = await sRef.get();
+      if (sDoc.exists && sDoc.data().vp_uid === uid) {
+        await sRef.update({ vp_uid: null });
+      }
+      // muuten: stale vp_uid jätetään koskematta (tietoinen kompromissi — ei demota toista VP:tä)
+    }
+
+    // 6. Mitätöi vanhat refresh-tokenit. HUOM: aktiivinen sessio kestää ~1h ellei client
+    //    pakota refreshiä → OSA 3 (defensiivinen claims-vs-Firestore-tarkistus) on välttämätön pari.
+    await auth.revokeRefreshTokens(uid);
+
+    console.log(`[vaihdaKayttajanRooli] ${uid} → ${uusiRooli} (seura ${seuraId}): Firestore+claims+revoke OK`);
+    return {
+      ok: true,
+      uusiRooli,
+      huomio: 'Käyttäjän tulee kirjautua uudelleen oikeuksien aktivoimiseksi'
+    };
+  });
+
+// ─────────────────────────────────────────────────────────────────────────────
 // lahetaResetLinkki — generoi salasanan reset-linkin OLEMASSA OLEVALLE henkilöstölle.
 // Authz: kutsuja = super_admin TAI kohdeseuran johto (tarkistaOikeus) JA kohde-email
 // kuuluu kyseisen seuran kayttajat-kokoelmaan. Ei kirjoita dataa eikä lähetä sähköpostia

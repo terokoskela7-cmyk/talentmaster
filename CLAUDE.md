@@ -307,10 +307,18 @@ Logout → dispatch `tm:logout` → odota 50 ms → `signOut()`.
 | `aiProxy` | AI-välitys: GPT-4o Vision, Whisper, narratiivi |
 | `tasoHaeSeuranOttelut` | TASO-integraatio (deployattu) |
 | `lahetaResetLinkki` | Henkilöstön salasana-reset-linkki (authz: SA/seuran johto `tarkistaOikeus`, kohde-email seuran kayttajat:issa) — ei datakirjoitusta |
+| `vaihdaKayttajanRooli` | Vaihtaa käyttäjän roolin: `seurat/{seuraId}/kayttajat/{uid}.rooli` update + `setCustomUserClaims` + `revokeRefreshTokens` + vp_uid-hallinta. Params `{uid, seuraId, uusiRooli}`, sallitut `vp`/`valmentaja`/`talenttivalmentaja`/`seura_admin`. Authz `tarkistaOikeus` |
 | `vahvistaSuostumus` | Suostumuksen vahvistus + Auth-luonti + reset-linkki. Admin SDK varmentaa huoltajaEmail-täsmäyksen (permission-denied jos ei) → kirjoittaa palvelinpuolella KOKO kutsuflow'n (suostumusTila 'annettu' + aux-kentät tila/antaja/bio-pituudet + kutsut→'hyvaksytty') koska Rekisterointi_Suostumus.html on autentikoimaton → haeOrLuoHuoltajaAuth → passwordResetLink. Kirjoittaa myös huoltajaEmail (vahvistus), syntymaaika+syntymaVuosi, sukupuoli (P/T→M/N), suostumukset[] + suostumus{}-objekti. Params: seuraId/pelaajaId/hEmail/suostumusTeksti/antaja/bioPituudet/kutsuId/syntyma/sukupuoli/suostumukset/suostumusMap/antajaRooli/aikaleima |
 
 `OPENAI_API_KEY`: Google Cloud Secret Manager + GitHub Actions Secrets. API-avaimet ei ikinä selaimessa.
 **Reset-linkin continueUrl (HOLD 2026-06-02):** `generatePasswordResetLink(email, {url, handleCodeInApp:false})` — `url` PAKOLLINEN (ilman → 500). Käyttäjä laskeutuu Firebasen reset-sivulle, sitten `url`. Yhtenäistä `url` halutuksi landingiksi `luoKayttaja`/`lahetaResetLinkki`/`lahetaPelaajaSivuLinkki`-funktioissa.
+
+**Roolinvaihto-invariantit:**
+- Roolinvaihto AINA `vaihdaKayttajanRooli`-CF:n kautta — ei suoraan Firestoreen.
+- CF tekee aina: `Firestore.update` + `setCustomUserClaims` + `revokeRefreshTokens`.
+- Ilman `setCustomUserClaims` Rules ei näe muutosta (Rules lukee `request.auth.token.rooli`-claimia).
+- `revokeRefreshTokens` yksin EI pudota aktiivisia sessioita — defensiivinen UI-tarkistus (claims vs Firestore `kayttajat.rooli`, onAuthStateChanged) on välttämätön pari. Toteutettu VP_v25:ssä.
+- `tarkistaOikeus` lukee `vp_uid`:tä eikä pelkkiä claimseja — stale `vp_uid` voi antaa palvelinpuolen VP-oikeudet demotoinnin jälkeen ~hetken. Tietoinen kompromissi, korjataan omassa sprintissä.
 
 ---
 
