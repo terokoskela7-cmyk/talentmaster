@@ -761,6 +761,15 @@ suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 > Tekn. huom: `hhLaskeTaso` yleistetty taulukon pituuden mukaan (4→1-5, 2→1-3); 3-portaiset normalisoidaan
 > OVR:ssä 5-portaiselle skaalalle (1→1, 2→3, 3→5). `hhLaskeTaso`-ikälookup cappaa 19:ään → M/N-rivit datassa
 > valmiina mutta käyttöön vasta jos lookup laajennetaan; 3-portaiset 16+ → null (ei bogus-tasoa).
+>
+> **⚠️ IKÄLÄHDE-EPÄJOHDONMUKAISUUS (recalcHH vs Excel-tuonti, 2026-06):**
+> - `recalcHH` käyttää iän lähteenä **JOUKKUENIMEÄ** (`"SJK P14"` → 14), EI syntymävuotta.
+> - Excel-tuonti (`laskeIka`) käyttää **kronologista ikää** kun SyntymaVuosi-sarake on täytetty:
+>   oletettu syntymäpäivä **1.7.**, kevättesti (ennen 1.7.) → nuorempi ikäluokka (esim. 2012-syntyinen
+>   12.4.2026 → 13, ei 14). Ilman syntymävuotta → fallback joukkuenimeen kuten recalcHH.
+> - **Seuraus:** recalcHH ja Excel-tuonti voivat antaa **eri `hh_tason`** samalle pelaajalle, jos syntymäkuukausi
+>   on ennen/jälkeen 1.7. (esim. P14-joukkueen kevättestattu 2012-syntyinen → recalcHH 14, Excel-tuonti 13).
+> - **Korjaus myöhemmin:** vie sama kronologinen logiikka `recalcHH`:hon kun syntymävuosi löytyy Firestoresta.
 
 **Joukkuepulssi (`renderTeamPulse`):** neliosainen rivi per joukkue — **FLEI · TKI · H-H taso · ADAR ka.**,
 kukin `ka` + `n=testattu/koko` + suunta (`_pulssiSuunta` flei_historiasta FLEI/TKI:lle; H-H/ADAR ei historiaa → ei nuolta).
