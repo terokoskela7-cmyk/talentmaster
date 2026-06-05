@@ -225,7 +225,11 @@ service cloud.firestore {
         allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
         allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId)
                       || onTestivastaava(seuraId)   // testituonnin profiili-pikakentät (hh_taso/hh_viimeisin/mas_kmh)
-                      || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId);
+                      || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
+                      // PIN-pelaaja (anonyymi) saa päivittää VAIN oman xp/streak-pelillistyksen
+                      // (_tallennaKirjaus-batch). Sama luottamusmalli kuin kirjaukset-onAnonymous.
+                      || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['xp', 'streak', 'streak_paivitetty']));
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
 
         // ── Havainnot — pelaajan henkilökohtaiset ADAR-kortit ─────────────

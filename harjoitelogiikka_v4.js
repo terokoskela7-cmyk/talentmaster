@@ -2695,7 +2695,10 @@ function laskeTekninenKehityskohde(pelaaja) {
 // Palauttaa valitun harjoitteen normalisoituna, TAI null jos kohteelle ei harjoitteita
 // (kutsuja tekee tällöin EX-fallbackin ikävaiheella).
 function valitsePaivanHarjoite(pelaaja, pankki, pvm) {
-  pankki = pankki || (typeof PANKKI !== 'undefined' ? PANKKI : null);
+  // KORJAUS: käytä mesosykli-PANKKIa (T-haara). Jos kutsuja antoi eri rakenteen — esim.
+  // Pelaaja_v7:n ketju-pohjainen window.PANKKI ({SBL,SFL,...} ilman .T:tä) — fallback
+  // moduulin omaan PANKKI:in, muuten mesosykli-loop ei löydä mitään ("Ei harjoitteita").
+  pankki = (pankki && pankki.T) ? pankki : (typeof PANKKI !== 'undefined' ? PANKKI : null);
   var kk = laskeTekninenKehityskohde(pelaaja);
   var kohde = kk.kohde;
   var iv = _laskeIkavaihe(pelaaja);
