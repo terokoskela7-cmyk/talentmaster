@@ -2393,6 +2393,25 @@ function naytaEsikatselu() {
     taulukkoOver.parentNode.insertBefore(el, taulukkoOver);
   })();
 
+  // B+ — varoitus puuttuvasta TestiPvm:stä. Historia-moodissa puuttuva pvm johdetaan kaudesta
+  // (parempi kuin tämänpäiväinen); tämä kertoo käyttäjälle mitä päivää käytetään ennen tallennusta.
+  (function() {
+    document.getElementById('pvm-varoitus-paneeli')?.remove();
+    if (tuontiData.meta && tuontiData.meta.tapahtumaId) return;   // tapahtuma-moodissa pvm tulee tapahtumasta
+    const puuttuu = (tuontiData.pelaajat || []).filter(p => !String(p.testauspvm || '').trim()).length;
+    if (puuttuu === 0) return;
+    const kausi = (tuontiData.meta && tuontiData.meta.kausi) || '';
+    const kpvm = _kausiPvm(kausi);
+    const kaytetty = kpvm || _paivaIso(new Date());
+    const lahde = kpvm ? ('kauden "' + escapeHtml(kausi) + '" päivä') : '⚠ tämänpäiväinen — kausi ei tunnistettu';
+    const el = document.createElement('div');
+    el.id = 'pvm-varoitus-paneeli';
+    el.style.cssText = 'margin-bottom:14px;padding:12px 14px;background:rgba(224,160,64,.12);border:.5px solid rgba(224,160,64,.5);border-radius:8px;font-size:12px;color:var(--text);';
+    el.innerHTML = '⚠ <strong>' + puuttuu + ' pelaajalla ei TestiPvm:ää</strong> → testipäiväksi tallentuu <strong>' + kaytetty + '</strong> (' + lahde + ').'
+      + '<div style="font-size:11px;color:var(--text2);margin-top:4px;">Halutessasi tarkan testipäivän: lisää TestiPvm-sarake Exceliin. Kausi on vain varapäivä, ei korvaa tarkkaa päivämäärää.</div>';
+    taulukkoOver.parentNode.insertBefore(el, taulukkoOver);
+  })();
+
   const taulukko = document.getElementById('esikatselu-taulukko');
   taulukko.style.display = 'block';
 
@@ -2496,6 +2515,17 @@ function paivitaTallennusNappi() {
 const BATCH_KOKO = 400; // Firestore raja 500 — käytä 400 marginaalin kanssa
 
 // Apuri: ikä syntymäVuodesta ja testauspvm:stä
+// B+: johda kaudesta edustava testipäivä kun TestiPvm puuttuu. Muoto "2026-kevat" / "kevät 2026" /
+// "2025-syksy" / "2022-talvi". Ankkurit: kevät→01-20 (Wallsport, sama kuin OSA 4), syksy→09-01, talvi→01-15.
+function _kausiPvm(kausi) {
+  if (!kausi) return null;
+  const s = String(kausi).toLowerCase();
+  const v = (s.match(/(20\d{2})/) || [])[1];
+  if (!v) return null;
+  const mmdd = /kev[aä]t/.test(s) ? '01-20' : /syksy/.test(s) ? '09-01' : /talvi/.test(s) ? '01-15' : null;
+  return mmdd ? (v + '-' + mmdd) : null;
+}
+
 function laskeIka(syntymaVuosi, testauspvm) {
   if (!syntymaVuosi) return null;
   let pvVuosi;
@@ -2652,12 +2682,17 @@ async function tallennaFirestoreen() {
       }
     });
 
-    const pvmRaw = p.testauspvm || (tapahtuma && tapahtuma.pvm) || NYT_ISO.slice(0,10);
-    // OSA 4: jos TestiPvm ei ole parsittavissa (esim "Kevät 2026") → Wallsport-testipäivä 2026-01-20
-    // (näkyy Leon MyWay-datassa). Säilytä alkuperäinen tekstimuoto jos se eroaa parsitusta.
+    const pvmRaw = p.testauspvm || (tapahtuma && tapahtuma.pvm) || '';
+    // B+ (2026-06): prioriteetti TestiPvm → (ei-parsittava esim "Kevät 2026" → Wallsport 2026-01-20)
+    //   → KAUSI-johdettu pvm (parempi kuin tämänpäiväinen; kausi on pakollinen historia-moodissa)
+    //   → viimeisenä tänään. Esikatselu varoittaa puuttuvasta TestiPvm:stä (_puuttuvaTestiPvmVaroitus).
     const WALLSPORT_FALLBACK = '2026-01-20';
-    const pvmIso = _paivaIso(pvmRaw) || WALLSPORT_FALLBACK;
-    const pvmTeksti = (String(pvmRaw).trim() !== pvmIso && String(pvmRaw).trim() !== '') ? String(pvmRaw).trim() : null;
+    // _kausiPvm(pvmRaw) ENSIN: jos TestiPvm itse on kausi-teksti ("Kevät 2026") → ankkuripvm (V8:n
+    // new Date("Kevät 2026")=01-01 ei enää harhauta). Oikeat pvm:t → _kausiPvm null → _paivaIso.
+    const pvmIso = (String(pvmRaw).trim() !== '')
+      ? (_kausiPvm(pvmRaw) || _paivaIso(pvmRaw) || WALLSPORT_FALLBACK)
+      : (_kausiPvm(tuontiData.meta.kausi) || _paivaIso(new Date()));
+    const pvmTeksti = (String(pvmRaw).trim() !== '' && String(pvmRaw).trim() !== pvmIso) ? String(pvmRaw).trim() : null;
 
     return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, syntymaVuosi, ika };
   });
