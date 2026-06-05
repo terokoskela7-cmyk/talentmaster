@@ -2635,9 +2635,18 @@ async function tallennaFirestoreen() {
     }
 
     // Ikä + sukupuoli (yhteinen TKI:lle ja H-H:lle)
-    const syntymaVuosi = (p._firestoreData && p._firestoreData.syntymaVuosi) || null;
-    const ika = laskeIka(syntymaVuosi, p.testauspvm || (tapahtuma && tapahtuma.pvm));
-    const sp = p.sukupuoli || (p._firestoreData && p._firestoreData.sukupuoli) || null;
+    const syntymaVuosi = (p._firestoreData && p._firestoreData.syntymaVuosi) || p.syntymaVuosi || null;
+    let ika = laskeIka(syntymaVuosi, p.testauspvm || (tapahtuma && tapahtuma.pvm));
+    let sp = p.sukupuoli || (p._firestoreData && p._firestoreData.sukupuoli) || null;
+    // FALLBACK (KORJAUS 2026-06): jos syntymävuosi/sukupuoli puuttuu (esim. SJK P15) → johda
+    // joukkuenimestä ("SJK P15" → ika 15 / sp M) kuten recalcHH. Muuten laskeHHTaso → null → hh_taso
+    // jää kirjoittamatta (pulssi tyhjä) vaikka hh_viimeisin tallentuu.
+    if (ika == null || sp == null) {
+      const _jk = p.joukkue || (p._firestoreData && p._firestoreData.joukkue) || '';
+      const _jm = String(_jk).match(/\b([PTU])\s?(\d{1,2})\b/i);
+      if (ika == null && _jm) ika = parseInt(_jm[2], 10);
+      if (sp == null && _jm && /[PT]/i.test(_jm[1])) sp = (_jm[1].toUpperCase() === 'P') ? 'M' : 'N';
+    }
 
     // TKI — tekniikkakilpailu (vaatii iän + sukupuolen) — skalaareista
     let tki = null, merkki = null, vahvuus = null, kehityskohde = null;
