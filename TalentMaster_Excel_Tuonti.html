@@ -2346,6 +2346,37 @@ function naytaEsikatselu() {
     taulukkoOver.parentNode.insertBefore(wrap, taulukkoOver);
   }
 
+  // TEHTÄVÄ 3 — Pujottelu/Syöttö protokollavalinta (H-H 3-portainen vs TK/TKI). Näkyy kun sarake löytyy.
+  (function() {
+    document.getElementById('proto-valinta-paneeli')?.remove();
+    const sar = tuontiData.testiSarakkeet || [];
+    const onPuj = sar.some(s => s.testiId === 'pujottelu' || s.testiId === 'pujottelu_hh');
+    const onSyo = sar.some(s => s.testiId === 'syotto' || s.testiId === 'syotto_hh');
+    if (!onPuj && !onSyo) return;
+    const onTekn = (tuontiData.meta.protokolla === 'tekniikkakilpailu');
+    if (!tuontiData.meta.protoValinta) tuontiData.meta.protoValinta = {};
+    const pv = tuontiData.meta.protoValinta;
+    if (onPuj && !pv.pujottelu) pv.pujottelu = onTekn ? 'tk' : 'hh';   // oletus tiedoston protokollasta
+    if (onSyo && !pv.syotto)    pv.syotto    = onTekn ? 'tk' : 'hh';
+    const rivi = function(avain, nimi) {
+      const v = pv[avain];
+      return '<div style="margin-bottom:8px"><div style="font-size:12px;margin-bottom:4px;color:var(--text)">'
+        + nimi + '-sarake löytyi. Kumpi protokolla?</div>'
+        + '<label style="margin-right:14px;font-size:12px;cursor:pointer"><input type="radio" name="proto-' + avain + '" value="hh"'
+        + (v === 'hh' ? ' checked' : '') + ' onchange="tuontiData.meta.protoValinta.' + avain + '=this.value"> H-H testimanuaali (aika → taso 1–3)</label>'
+        + '<label style="font-size:12px;cursor:pointer"><input type="radio" name="proto-' + avain + '" value="tk"'
+        + (v === 'tk' ? ' checked' : '') + ' onchange="tuontiData.meta.protoValinta.' + avain + '=this.value"> Tekniikkakilpailu (aika → TKI-laskenta)</label></div>';
+    };
+    let h = '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Protokollavalinta — pujottelu/syöttö</div>';
+    if (onPuj) h += rivi('pujottelu', 'Pujottelu');
+    if (onSyo) h += rivi('syotto', 'Syöttö');
+    const el = document.createElement('div');
+    el.id = 'proto-valinta-paneeli';
+    el.style.cssText = 'margin-bottom:14px;padding:12px 14px;background:var(--card2);border:.5px solid var(--line2);border-radius:8px;';
+    el.innerHTML = h;
+    taulukkoOver.parentNode.insertBefore(el, taulukkoOver);
+  })();
+
   const taulukko = document.getElementById('esikatselu-taulukko');
   taulukko.style.display = 'block';
 
@@ -2587,6 +2618,23 @@ async function tallennaFirestoreen() {
         hhTaso = laskeHHTaso(testitSkalaari, ika, sp);   // hh_taso vain 30m/cmj/mas (avaintestit) — 10m/5m ei muuta sitä
       }
     }
+
+    // TEHTÄVÄ 3: pujottelu/syöttö protokollareititys. Valinta meta.protoValinta:sta (oletus tiedoston protokollasta).
+    // H-H → hh_viimeisin.{pujottelu|syotto} (raaka aika; 3-portainen taso lasketaan näytöllä eerikkilaTaso:lla) +
+    // testit.{id}_protokolla:'hh'. TK → arvo on jo testitSkalaari:ssa TKI-laskentaan (onTekniikka) + protokolla:'tk'.
+    const protoValinta = (tuontiData.meta && tuontiData.meta.protoValinta) || {};
+    [['pujottelu', 'pujottelu_hh'], ['syotto', 'syotto_hh']].forEach(function(pari) {
+      const avain = pari[0];
+      const raaka = (testitSkalaari[pari[0]] != null && !isNaN(testitSkalaari[pari[0]])) ? testitSkalaari[pari[0]]
+                  : (testitSkalaari[pari[1]] != null && !isNaN(testitSkalaari[pari[1]])) ? testitSkalaari[pari[1]] : null;
+      if (raaka == null) return;
+      const valinta = protoValinta[avain] || (onTekniikka ? 'tk' : 'hh');
+      testit[avain + '_protokolla'] = valinta;          // protokollamerkintä testitulos-dokumenttiin
+      if (valinta === 'hh') {
+        if (!hhViimeisin) hhViimeisin = {};
+        hhViimeisin[avain] = raaka;                      // H-H 3-portainen testi → hh_viimeisin
+      }
+    });
 
     const pvmRaw = p.testauspvm || (tapahtuma && tapahtuma.pvm) || NYT_ISO.slice(0,10);
     // OSA 4: jos TestiPvm ei ole parsittavissa (esim "Kevät 2026") → Wallsport-testipäivä 2026-01-20

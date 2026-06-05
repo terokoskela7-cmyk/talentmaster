@@ -746,6 +746,10 @@ suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 >    + mitalit. Fyysisesti sama rata, eri protokolla ja normi. Sama tulos voidaan tallentaa molempiin.
 > 6. **Tyttöjen PDF (FINAL2024) = sama normisto kuin pojilla**, eri raja-arvot.
 >
+> **INVARIANTTI — protokollavalinta (Excel-tuonti):** Pujottelu ja syöttö voivat olla H-H tai TK protokollalla
+> — protokollavalinta pakollinen Excel-tuonnissa (esikatselun valintapaneeli; H-H → `hh_viimeisin.{pujottelu|syotto}`
+> + `testit.{id}_protokolla:'hh'`; TK → TKI-laskenta + `'tk'`). **Ponnauttelu = aina TK. 10m/30m/CMJ = aina H-H.**
+>
 > Tekn. huom: `hhLaskeTaso` yleistetty taulukon pituuden mukaan (4→1-5, 2→1-3); 3-portaiset normalisoidaan
 > OVR:ssä 5-portaiselle skaalalle (1→1, 2→3, 3→5). `hhLaskeTaso`-ikälookup cappaa 19:ään → M/N-rivit datassa
 > valmiina mutta käyttöön vasta jos lookup laajennetaan; 3-portaiset 16+ → null (ei bogus-tasoa).
