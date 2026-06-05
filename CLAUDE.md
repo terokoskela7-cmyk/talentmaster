@@ -732,13 +732,23 @@ suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 | **PHV** | `phv_tila` · `biologinenIka_viimeisin` (offset + pvm) | ✅ Testaus_v9 |
 | **ADAR** | `adar_viimeisin {a,d,ac,r,yht,pvm}` · `adar_pvm` · `adar_havaintoja` · `adar_vahvin` · `adar_heikoin` | ⚠️ helper valmis, kirjoituspiste auki |
 
-> **⚠️ NORMIPÄIVITYS 2026-06-05 — aja `recalcHH` ennen VP-käyttöä.** `HH_NORMIT_PIKA` (Excel_Tuonti.html, VP_v25.html)
-> ja `HH_NORMIT` (`docs/testit_indeksit.js`) yhdenmukaistettiin Palloliiton **FINAL2024**-virallisiin arvoihin
-> (pojat 30m/CMJ/MAS, ikäluokat 10–19 **+ M**; tytöt koskemattomat). **MAS muunnettu m/s → km/h ×3.6.** Vaikutus:
-> 30m & CMJ lievenivät ±1–3 tasoa, **MAS koveni ~4 tasoa koko ikähaarukassa** (vanha km/h-skaala oli väärä).
-> **Firestoressa olevat `hh_taso`-arvot ovat nyt vanhentuneet** — aja `recalcHH` kaikille pilottiseuroille
-> (**sjk, sibbo, kpv, grifk, palloiirot**) ennen kuin VP-dashboardin H-H-tasot näytetään valmentajille/vanhemmille.
-> Huom: `hhLaskeTaso`-lookup cappaa iän 19:ään, joten M-rivi on datassa valmiina mutta käyttöön vasta jos lookup laajennetaan.
+> **⚠️ Normipäivitys 2026-06-05 (pojat + tytöt VALMIS):** Kaikki H-H-normit päivitetty Palloliiton
+> **FINAL2024**-virallisiin arvoihin. Identtiset MyWayn kanssa. Koskee: 5m, 10m, 20m, 30m, kasirata,
+> SM-juoksu, SM-pallo, CMJ, MAS, pujottelu (3-portainen), syöttö (3-portainen).
+> **PAKOLLINEN: aja `recalcHH` kaikille pilottiseuroille ennen VP-näyttöä:** sjk, sibbo, kpv, grifk, palloiirot.
+>
+> **Normiarkkitehtuurin periaatteet (pysyvät):**
+> 1. **`EERIKKILA_NORMIT` (`tm_eerikkila_normit.js`) on single source of truth** kaikille H-H-normeille.
+> 2. **`HH_NORMIT_PIKA`** (Excel_Tuonti + VP_v25) sisältää vain 30m/CMJ/MAS — muut haetaan EERIKKILA-libistä.
+> 3. **`testit_indeksit.js` `HH_NORMIT`** on täydellinen kopio kaikista testeistä, molemmat sukupuolet.
+> 4. **10m ja 20m: EI `HH_NORMIT`:ssa** — EERIKKILA lib on ainoa lähde (VP lukee ne `eerikkilaTaso`:lla).
+> 5. **H-H pujottelu/syöttö = 3-portainen normisto** (taso 1-3, vain P/T 10-15). TK pujottelu/syöttö = TKI-laskenta
+>    + mitalit. Fyysisesti sama rata, eri protokolla ja normi. Sama tulos voidaan tallentaa molempiin.
+> 6. **Tyttöjen PDF (FINAL2024) = sama normisto kuin pojilla**, eri raja-arvot.
+>
+> Tekn. huom: `hhLaskeTaso` yleistetty taulukon pituuden mukaan (4→1-5, 2→1-3); 3-portaiset normalisoidaan
+> OVR:ssä 5-portaiselle skaalalle (1→1, 2→3, 3→5). `hhLaskeTaso`-ikälookup cappaa 19:ään → M/N-rivit datassa
+> valmiina mutta käyttöön vasta jos lookup laajennetaan; 3-portaiset 16+ → null (ei bogus-tasoa).
 
 **Joukkuepulssi (`renderTeamPulse`):** neliosainen rivi per joukkue — **FLEI · TKI · H-H taso · ADAR ka.**,
 kukin `ka` + `n=testattu/koko` + suunta (`_pulssiSuunta` flei_historiasta FLEI/TKI:lle; H-H/ADAR ei historiaa → ei nuolta).
