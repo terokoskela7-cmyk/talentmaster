@@ -1388,6 +1388,11 @@ body {
   .dimpop-tab { padding: 12px 16px !important; font-size: 14px !important; }
   .dimpop-cta { flex: 1 1 100% !important; padding: 14px 16px !important; font-size: 15px !important; font-weight: 600 !important; }
 
+  /* Joukkuemoduuli (kaksiosainen modaali) — kolumnit pinoutuvat, vasen kompakti (§17: yksi @media/tiedosto) */
+  #_jsvModal .jsv-box { height: 92vh; max-height: 92vh; }
+  #_jsvModal .jsv-body { flex-direction: column; }
+  #_jsvModal .jsv-vasen { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid rgba(242,239,230,.12); max-height: 200px; }
+
   /* Signaalit — luettava teksti mobiilissa (sig-sisalto min-width:0 + sig-toiminto flex-shrink:0 jo perus-CSS:ssä) */
   .signaali-rivi { padding: 12px 14px; gap: 12px; }
   .sig-otsikko { font-size: 14px; line-height: 1.4; }
@@ -3116,6 +3121,41 @@ function _jsvLuoTapahtuma(joukkue) {
 }
 window._jsvLuoTapahtuma = _jsvLuoTapahtuma;
 
+// Joukkuemoduulin kaksiosaisen modaalin tyylit (skoopattu #_jsvModal:iin). Design-tokenit: var(--*).
+const _JSV_TYYLIT = '<style>'
+  + '#_jsvModal .jsv-box{background:var(--bg2);border:.5px solid var(--border);width:95vw;max-width:920px;height:88vh;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}'
+  + '#_jsvModal .jsv-header{display:flex;justify-content:space-between;align-items:center;height:48px;min-height:48px;padding:0 20px;border-bottom:1px solid rgba(242,239,230,.12)}'
+  + '#_jsvModal .jsv-title{font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)}'
+  + '#_jsvModal .jsv-close{background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px;line-height:1}'
+  + '#_jsvModal .jsv-body{display:flex;flex:1;overflow:hidden}'
+  + '#_jsvModal .jsv-vasen{width:300px;min-width:300px;border-right:1px solid rgba(242,239,230,.12);overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}'
+  + '#_jsvModal .jsv-oikea{flex:1;overflow:hidden;display:flex;flex-direction:column;min-width:0}'
+  + '#_jsvModal .jsv-radar{max-height:160px;overflow:hidden;display:flex;align-items:center;justify-content:center}'
+  + '#_jsvModal .jsv-radar svg{max-width:178px}'
+  + '#_jsvModal .jsv-legend{display:flex;justify-content:center;gap:10px;font-family:var(--font-m);font-size:10px;color:var(--ink3);letter-spacing:.04em}'
+  + '#_jsvModal .jsv-legend-item{display:flex;align-items:center;gap:4px}'
+  + '#_jsvModal .jsv-dot{width:6px;height:6px;border-radius:50%;display:inline-block}'
+  + '#_jsvModal .jsv-kpi-block{display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(242,239,230,.12);border-bottom:1px solid rgba(242,239,230,.12);padding:12px 0}'
+  + '#_jsvModal .jsv-kpi{display:flex;align-items:center;gap:8px}'
+  + '#_jsvModal .jsv-kpi-nimi{font-family:var(--font-m);font-size:11px;color:var(--ink3);width:74px;flex-shrink:0}'
+  + '#_jsvModal .jsv-kpi-arvo{font-family:var(--font-sans);font-size:13px;font-weight:600;color:var(--ink);width:28px;text-align:right;flex-shrink:0}'
+  + '#_jsvModal .jsv-kpi-palkki{flex:1;height:6px;background:rgba(255,255,255,.06);position:relative;overflow:hidden}'
+  + '#_jsvModal .jsv-kpi-kpl{background:none;font-family:var(--font-m);font-size:10px;color:var(--ink3);height:auto;display:flex;align-items:center}'
+  + '#_jsvModal .jsv-kpi-fill{position:absolute;left:0;top:0;height:100%}'
+  + '#_jsvModal .jsv-insight{font-size:11px;color:var(--ink2);line-height:1.5}'
+  + '#_jsvModal .jsv-insight.jsv-clamp{max-height:54px;overflow:hidden}'
+  + '#_jsvModal .jsv-insight-toggle{align-self:flex-start;background:none;border:none;color:var(--teal);font-size:11px;cursor:pointer;padding:0;font-family:var(--font-sans)}'
+  + '#_jsvModal .jsv-tabs{display:flex;gap:6px;align-items:center;height:40px;min-height:40px;padding:0 16px;border-bottom:1px solid rgba(242,239,230,.12)}'
+  + '#_jsvModal .jsv-tab{padding:5px 12px;font-size:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;font-family:var(--font-sans)}'
+  + '#_jsvModal [id^="_jsvBtn"].on{background:rgba(40,176,144,.18);border-color:rgba(40,176,144,.5);color:#28B090}'
+  + '#_jsvModal .jsv-tabbody{flex:1;overflow-y:auto;padding:0 16px 16px}'
+  + '#_jsvModal .jsv-tabbody table thead th{position:sticky;top:0;background:#1C1C1A;z-index:1}'
+  + '#_jsvModal .jsv-tabbody .dimpop-prow td{height:44px}'
+  + '#_jsvModal .jsv-footer{display:flex;gap:10px;padding:12px 16px;border-top:1px solid rgba(242,239,230,.12);flex-wrap:wrap}'
+  + '#_jsvModal .jsv-cta{padding:10px 16px;background:transparent;color:var(--ink);border:.5px solid var(--border);font-size:12px;cursor:pointer;font-family:var(--font-sans)}'
+  + '#_jsvModal .jsv-cta-primary{background:var(--teal);color:#fff;border:none;font-weight:600}'
+  + '</style>';  // mobiilisäännöt (≤768px) head-lohkossa — §17: yksi @media/tiedosto
+
 function avaaJoukkueSyvanakyma(joukkueNimi) {
   const vanha = document.getElementById('_jsvModal'); if (vanha) vanha.remove();
   const pelaajat = _pelaajat.filter(p => (p.joukkue || 'Tuntematon') === joukkueNimi);
@@ -3218,14 +3258,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   t3 += '<div><strong style="color:var(--ink)">Testikattavuus:</strong> ' + testattu + '/' + n + ' testattu</div>';
   t3 += '</div>';
 
-  // ── Modaali ──
-  let h = '<div id="_jsvModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:680px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 12px">';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + _jsvEsc(joukkueNimi) + ' · ' + n + ' pelaajaa</div>';
-  h += '<button onclick="document.getElementById(\'_jsvModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
-  h += '</div>';
-  // 5D-profiilikartta (joukkueen keskiarvo) korvaa hero-rivin — sama D1/D2/D4 mutta hahmona
+  // ── KPI- ja radar-data (vasen kolumni) ──
   const teamRadarDims = [
     { key: 'D1', label: 'Fyysinen',   arvo: _dimKa(pelaajat.map(p => p.hh_taso)) },
     { key: 'D2', label: 'Tekninen',   arvo: _dimKa(pelaajat.map(p => laskeD2Taso(p))), lahde: _teamD2Lahde },
@@ -3233,25 +3266,58 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
     { key: 'D4', label: 'Peliäly',    arvo: _dimKa(pelaajat.map(p => _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht))) },
     { key: 'D5', label: 'Sosiaal.',   arvo: _dimKa(pelaajat.map(p => p.d5_taso)) }
   ];
-  h += '<div style="padding:6px 24px 0">' + window._tmRadar5D(teamRadarDims)
-    + '<div style="font-size:10px;color:var(--ink3);text-align:center;margin-top:2px">5D-profiili · joukkueen keskiarvo (1–5) · katkoviiva = täydentyy kun D3/D5 mitattu' + (_teamD2Lahde === 'sm' ? ' · ¹ SM-pohjainen (TSI)' : '') + '</div></div>';
+  const _hhKa = teamRadarDims[0].arvo, _teknKa = teamRadarDims[1].arvo;
+  const _hgN = pelaajat.filter(function(p){ return _onTalenttisuositus(p); }).length;
   const _tIka = (function(){ const m = String(joukkueNimi).match(/(\d{1,2})/); return m ? parseInt(m[1], 10) : null; })();
   const _kehysT = _ikavaiheBanneri(_tIka);
-  if (_kehysT) h += '<div style="padding:8px 24px 0">' + _kehysT + '</div>';
-  h += '<div style="display:flex;gap:6px;padding:8px 24px 12px;border-bottom:.5px solid var(--border)">';
-  ['Pelaajat','Tuki','Yhteenveto'].forEach((lbl,i) => {
-    h += '<button id="_jsvBtn' + i + '" class="dimpop-tab ' + (i===0?'on':'') + '" onclick="_jsvVaihda(' + i + ')" style="padding:7px 14px;font-size:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;border-radius:5px;font-family:\'DM Sans\',sans-serif">' + lbl + '</button>';
+  const _kpiRivi = function(nimi, arvo) {
+    const pct = (arvo != null) ? Math.max(0, Math.min(100, (arvo / 5) * 100)) : 0;
+    const vari = (arvo != null) ? hhTasoVari(arvo) : 'var(--teal)';
+    return '<div class="jsv-kpi"><span class="jsv-kpi-nimi">' + nimi + '</span><span class="jsv-kpi-arvo">'
+      + (arvo != null ? arvo : '—') + '</span><span class="jsv-kpi-palkki"><span class="jsv-kpi-fill" style="width:'
+      + pct + '%;background:' + vari + '"></span></span></div>';
+  };
+  let _legenda = '<div class="jsv-legend">';
+  teamRadarDims.forEach(function(d){ _legenda += '<span class="jsv-legend-item"><span class="jsv-dot" style="background:'
+    + (d.arvo != null ? 'var(--teal)' : 'var(--ink3)') + '"></span>' + d.key + '</span>'; });
+  _legenda += '</div>';
+
+  // ── Modaali — kaksiosainen layout (vasen = radar/KPI/insight · oikea = pelaajataulukko) ──
+  let h = '<div id="_jsvModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">';
+  h += _JSV_TYYLIT;
+  h += '<div class="jsv-box" onclick="event.stopPropagation()">';
+  // HEADER (kiinteä ~48px)
+  h += '<div class="jsv-header"><div class="jsv-title">' + _jsvEsc(joukkueNimi) + ' · ' + n + ' pelaajaa</div>'
+    + '<button class="jsv-close" onclick="document.getElementById(\'_jsvModal\').remove()">×</button></div>';
+  // BODY (kaksi kolumnia)
+  h += '<div class="jsv-body">';
+  // VASEN
+  h += '<div class="jsv-vasen">';
+  h += '<div class="jsv-radar">' + window._tmRadar5D(teamRadarDims) + '</div>';
+  h += _legenda;
+  h += '<div class="jsv-kpi-block">' + _kpiRivi('H-H ka', _hhKa) + _kpiRivi('Tekninen', _teknKa)
+    + '<div class="jsv-kpi"><span class="jsv-kpi-nimi">Hidden Gem</span><span class="jsv-kpi-arvo">' + _hgN
+    + '</span><span class="jsv-kpi-palkki jsv-kpi-kpl">kpl</span></div></div>';
+  if (_kehysT) h += '<div class="jsv-insight jsv-clamp" id="_jsvInsight">' + _kehysT + '</div>'
+    + '<button class="jsv-insight-toggle" onclick="var b=document.getElementById(\'_jsvInsight\');var c=b.classList.toggle(\'jsv-clamp\');this.textContent=c?\'näytä lisää\':\'näytä vähemmän\'">näytä lisää</button>';
+  h += '</div>';
+  // OIKEA
+  h += '<div class="jsv-oikea">';
+  h += '<div class="jsv-tabs">';
+  ['Pelaajat','Tuki','Yhteenveto'].forEach(function(lbl,i){
+    h += '<button id="_jsvBtn' + i + '" class="jsv-tab dimpop-tab ' + (i===0?'on':'') + '" onclick="_jsvVaihda(' + i + ')">' + lbl + '</button>';
   });
   h += '</div>';
-  h += '<style>#_jsvModal [id^="_jsvBtn"].on{background:rgba(40,176,144,.18)!important;border-color:rgba(40,176,144,.5)!important;color:#28B090!important}</style>';
-  h += '<div style="padding:18px 24px;overflow-y:auto;flex:1">';
+  h += '<div class="jsv-tabbody">';
   h += '<div id="_jsvTab0">' + t1 + '</div>';
-  h += '<div id="_jsvTab1" style="display:none">' + t2 + '</div>';
-  h += '<div id="_jsvTab2" style="display:none">' + t3 + '</div>';
-  h += '</div>';
-  h += '<div style="display:flex;gap:10px;padding:14px 24px;border-top:.5px solid var(--border);flex-wrap:wrap">';
-  h += '<button class="dimpop-cta" onclick="document.getElementById(\'_jsvModal\').remove();_jsvLuoTapahtuma(\'' + jescNimi + '\')" style="padding:10px 16px;background:var(--teal);color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">📋 Luo harjoitustapahtuma →</button>';
-  h += '<button class="dimpop-cta" onclick="document.getElementById(\'_jsvModal\').remove();setWs(\'pelaajat\')" style="padding:10px 16px;background:transparent;color:var(--ink);border:.5px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:\'DM Sans\',sans-serif">📊 Avaa pelaajat →</button>';
+  h += '<div id="_jsvTab1" style="display:none;padding-top:14px">' + t2 + '</div>';
+  h += '<div id="_jsvTab2" style="display:none;padding-top:14px">' + t3 + '</div>';
+  h += '</div></div>';   // /tabbody /oikea
+  h += '</div>';         // /body
+  // FOOTER (kiinteä)
+  h += '<div class="jsv-footer">';
+  h += '<button class="jsv-cta jsv-cta-primary" onclick="document.getElementById(\'_jsvModal\').remove();_jsvLuoTapahtuma(\'' + jescNimi + '\')">📋 Luo harjoitustapahtuma →</button>';
+  h += '<button class="jsv-cta" onclick="document.getElementById(\'_jsvModal\').remove();setWs(\'pelaajat\')">📊 Avaa pelaajat →</button>';
   h += '</div>';
   h += '</div></div>';
 
