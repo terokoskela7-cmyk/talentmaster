@@ -770,6 +770,11 @@ suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 > - **Seuraus:** recalcHH ja Excel-tuonti voivat antaa **eri `hh_tason`** samalle pelaajalle, jos syntymäkuukausi
 >   on ennen/jälkeen 1.7. (esim. P14-joukkueen kevättestattu 2012-syntyinen → recalcHH 14, Excel-tuonti 13).
 > - **Korjaus myöhemmin:** vie sama kronologinen logiikka `recalcHH`:hon kun syntymävuosi löytyy Firestoresta.
+>
+> **TODO (2026-06): `recalcHH` pitää tallentaa `d1_taso` erikseen.** Firestoressa on `d2_taso` (esim. SJK 50/54
+> pelaajaa) mutta **`d1_taso` puuttuu kaikilta** → Master_v16 Kehitys-näkymän D1/D2-KPI on piilossa kunnes
+> recalcHH tallentaa `d1_taso`:n (esim. lin30m/mas-tasosta). Ei johdeta lennossa raakadatasta (`hh_viimeisin` =
+> raa'at arvot, ei tasoja) — fabrikoitu taso rikkoisi "näytä mitä on" -periaatteen.
 
 **Joukkuepulssi (`renderTeamPulse`):** neliosainen rivi per joukkue — **FLEI · TKI · H-H taso · ADAR ka.**,
 kukin `ka` + `n=testattu/koko` + suunta (`_pulssiSuunta` flei_historiasta FLEI/TKI:lle; H-H/ADAR ei historiaa → ei nuolta).

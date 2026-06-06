@@ -3895,14 +3895,32 @@ function _renderPinfoFirestore(p) {
   }
   // MITTARI 2: TKI → TSI → piilota
   if (tki != null) {
-    stats.push({ lbl:'TKI', val: tki + (tkiM ? ' ' + tkiM.emoji : ''),
-      delta: tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu', color: tkiColor });
+    // KORJAUS 3: ilman mitalia (tki_merkki null) nosta kehityskohde valmentajalle deltaan.
+    const tkiDelta = tkiM
+      ? (tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu')
+      : (p.tki_kehityskohde ? 'Kehitä: ' + _tkLajiNimi(p.tki_kehityskohde)
+         : (tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu'));
+    stats.push({ lbl:'TKI', val: tki + (tkiM ? ' ' + tkiM.emoji : ''), delta: tkiDelta, color: tkiColor });
   } else if (p.tsi_viimeisin != null) {
+    // KORJAUS 2: TSI selitetään — mitä luku tarkoittaa (pallon vaikutus nopeuteen).
     const tsi = +p.tsi_viimeisin;
-    stats.push({ lbl:'TSI', val: (tsi>0?'+':'') + tsi + ' s', delta:'Tekninen suoritusindeksi',
-      color: tsi>0?'var(--teal)':tsi<0?'var(--red)':'var(--ink)' });
+    let tsiLbl, tsiTip, tsiColor;
+    if (tsi <= 0) {
+      tsiLbl = '🔥 Pallo nopeuttaa'; tsiColor = 'var(--teal)';
+      tsiTip = 'Pallo nopeuttaa pelaajaa ' + Math.abs(tsi) + 's verrattuna pallottomaan nopeuteen.';
+    } else if (tsi <= 0.5) {
+      tsiLbl = '✅ Tekninen vapaus'; tsiColor = 'var(--teal)';
+      tsiTip = 'Pallo hidastaa vain ' + tsi + 's — tekninen vapaus. Tavoite: alle 0.5s.';
+    } else {
+      tsiLbl = '⚠️ Pallo hidastaa'; tsiColor = 'var(--amber)';
+      tsiTip = 'Pallo hidastaa pelaajaa ' + tsi + 's verrattuna pallottomaan nopeuteen. Tavoite: alle 0.5s.';
+    }
+    stats.push({ lbl:'TSI', val: (tsi <= 0 ? Math.abs(tsi) : tsi) + ' s', delta: tsiLbl, title: tsiTip, color: tsiColor });
   }
-  // MITTARI 3: D1/D2 (vain jos molemmat) — korvaa entisen JOUKKUE-mittarin (joukkue näkyy alaotsikossa)
+  // MITTARI 3: D1/D2 — KORJAUS 1: d1_taso EI ole Firestoressa kenelläkään (vain d2_taso) → piilossa
+  // kunnes recalcHH tallentaa d1_taso:n. EI johdeta lennossa raakadatasta (hh_viimeisin = raa'at
+  // arvot, ei tasoja) — fabrikoitu taso rikkoisi "näytä mitä on" -periaatteen.
+  // TODO: recalcHH pitää tallentaa d1_taso erikseen (esim. lin30m/mas-tasosta).
   if (p.d1_taso != null && p.d2_taso != null) {
     stats.push({ lbl:'D1 / D2', val: '🔵 ' + p.d1_taso + ' / 🟢 ' + p.d2_taso, delta:'Defensiivinen jako', color:'var(--ink)' });
   }
@@ -3933,7 +3951,7 @@ function _renderPinfoFirestore(p) {
       <div class="pinfo-sub">${ika} · ${p.pelipaikka||'—'} · ${p.joukkue||_joukkue||'—'}</div>
     </div>
     ${stats.map(s=>`
-      <div>
+      <div${s.title ? ` title="${s.title}"` : ''}>
         <div class="pstat-lbl">${s.lbl}</div>
         <div class="pstat-val serif" style="color:${s.color}">${s.val}</div>
         <div class="pstat-delta mono" style="font-size:11px;color:var(--ink3)">${s.delta}</div>
@@ -4067,12 +4085,16 @@ function _renderNarrative(p) {
     erikoisNarr.push({ kk: _pvmFiM(p.hh_pvm), txt: 'H-H-testi · taso ' + p.hh_taso, badgeHtml: bd.join(' ') });
   }
   if (p.tki_viimeisin != null) {
+    // KORJAUS 4: kehityskohde + vahvuus tekstiin; mitali-badge VAIN jos tki_merkki !== null.
+    let txt = 'Tekniikkakilpailu · TKI ' + p.tki_viimeisin;
+    if (p.tki_kehityskohde) txt += ' · Kehitä: ' + _tkLajiNimi(p.tki_kehityskohde);
+    if (p.tki_vahvuus) txt += ' · Vahvuus: ' + _tkLajiNimi(p.tki_vahvuus);
     const bd = [];
-    const tkiMer = _tkiMerkkiM(p.tki_viimeisin, p.tki_merkki);
-    const kultaLajeissa = Array.isArray(p.tki_lajit) && p.tki_lajit.some(l => /kulta/i.test(typeof l === 'string' ? l : JSON.stringify(l == null ? '' : l)));
-    if (tkiMer) bd.push('<span class="tag tag-gem">' + tkiMer.emoji + ' ' + tkiMer.nimi + '</span>');
-    else if (kultaLajeissa) bd.push('<span class="tag tag-gem">🥇 Kulta</span>');
-    erikoisNarr.push({ kk: _pvmFiM(p.tki_pvm), txt: 'Tekniikkakilpailu · TKI ' + p.tki_viimeisin, badgeHtml: bd.join(' ') });
+    if (p.tki_merkki != null) {
+      const tkiMer = _tkiMerkkiM(p.tki_viimeisin, p.tki_merkki);
+      if (tkiMer) bd.push('<span class="tag tag-gem">' + tkiMer.emoji + ' ' + tkiMer.nimi + '</span>');
+    }
+    erikoisNarr.push({ kk: _pvmFiM(p.tki_pvm), txt: txt, badgeHtml: bd.join(' ') });
   }
   const kaikkiNarr = [...erikoisNarr, ...testiNarr, ...(p.narrative || [])];
   el.innerHTML = kaikkiNarr.map(n => `
