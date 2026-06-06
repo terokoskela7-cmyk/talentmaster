@@ -3813,9 +3813,11 @@ function renderDev(pid) {
     _renderPlayerPickerFirestore();
     if (_activePelaaja) {
       const fp = _pelaajatData.find(p => p.id === _activePelaaja);
-      if (fp) _renderPinfoFirestore(fp);
+      if (fp) { _renderPinfoFirestore(fp); _renderTimeline(fp); _renderNarrative(fp); }
+      else _renderTimeline(null);
+    } else {
+      _renderTimeline(null);
     }
-    _renderTimeline(null);  // Aikajana testitulosdata pohjalta
     return;
   }
   // Demo
@@ -3880,19 +3882,36 @@ function _renderPinfoFirestore(p) {
   const tkiColor = tki == null ? 'var(--ink3)' : tki >= 60 ? 'var(--teal)' : tki >= 40 ? 'var(--amber)' : 'var(--red)';
   const tkiPvm = p.tki_pvm ? _pvmFiM(p.tki_pvm) : null;
 
-  const stats = [
-    { lbl:'FLEI', val: flei > 0 ? flei + '%' : '—',
-      delta: flei > 0 ? (flei>=65?'Hyvä taso':flei>=50?'Kehittyvä':'Tarvitsee tukea') : 'Ei mittauksia',
-      color: fleiColor },
-    { lbl:'TKI', val: tki != null ? (tki + (tkiM ? ' ' + tkiM.emoji : '')) : '—',
-      delta: tki != null ? (tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu') : 'Ei mittauksia',
-      color: tkiColor },
-    { lbl:'Joukkue', val: p.joukkue || _joukkue || '—', delta: p.pelipaikka||'—', color:'var(--ink)' },
-    { lbl:'Testikertoja', val: suoritetut || '—', delta: 'suoritettu', color:'var(--ink)' },
-    { lbl:'Streak', val: p.streak > 0 ? p.streak + ' pv' : '—',
-      delta: p.streak > 5 ? 'Aktiivinen' : p.streak > 0 ? 'Aloitettu' : 'Ei kirjauksia',
-      color: p.streak > 5 ? 'var(--teal)' : 'var(--ink)' },
-  ];
+  // OSA 1 — prioriteettihierarkia: näytä mitä on, piilota mitä ei ole (ei "Ei mittauksia").
+  const stats = [];
+  // MITTARI 1: FLEI → H-H → piilota
+  if (flei > 0) {
+    stats.push({ lbl:'FLEI', val: flei + '%',
+      delta: flei>=65?'Hyvä taso':flei>=50?'Kehittyvä':'Tarvitsee tukea', color: fleiColor });
+  } else if (p.hh_taso != null) {
+    const hh = +p.hh_taso;
+    stats.push({ lbl:'H-H', val: String(hh), delta: hh>=4?'Vahva':hh>=3?'Keskitaso':'Kehittyvä',
+      color: hh>=4?'var(--teal)':hh>=3?'var(--amber)':'var(--red)' });
+  }
+  // MITTARI 2: TKI → TSI → piilota
+  if (tki != null) {
+    stats.push({ lbl:'TKI', val: tki + (tkiM ? ' ' + tkiM.emoji : ''),
+      delta: tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu', color: tkiColor });
+  } else if (p.tsi_viimeisin != null) {
+    const tsi = +p.tsi_viimeisin;
+    stats.push({ lbl:'TSI', val: (tsi>0?'+':'') + tsi + ' s', delta:'Tekninen suoritusindeksi',
+      color: tsi>0?'var(--teal)':tsi<0?'var(--red)':'var(--ink)' });
+  }
+  // MITTARI 3: D1/D2 (vain jos molemmat) — korvaa entisen JOUKKUE-mittarin (joukkue näkyy alaotsikossa)
+  if (p.d1_taso != null && p.d2_taso != null) {
+    stats.push({ lbl:'D1 / D2', val: '🔵 ' + p.d1_taso + ' / 🟢 ' + p.d2_taso, delta:'Defensiivinen jako', color:'var(--ink)' });
+  }
+  // MITTARI 4: Testikertoja (säilyy)
+  stats.push({ lbl:'Testikertoja', val: suoritetut || '—', delta:'suoritettu', color:'var(--ink)' });
+  // MITTARI 5: Streak (säilyy)
+  stats.push({ lbl:'Streak', val: p.streak > 0 ? p.streak + ' pv' : '—',
+    delta: p.streak > 5 ? 'Aktiivinen' : p.streak > 0 ? 'Aloitettu' : 'Ei kirjauksia',
+    color: p.streak > 5 ? 'var(--teal)' : 'var(--ink)' });
 
   const synt = p.syntymaVuosi ? p.syntymaVuosi : null;
   const ika  = synt ? (new Date().getFullYear() - synt) + 'v' : '—';
@@ -3957,6 +3976,7 @@ function _renderPinfo(p) {
 function _renderTimeline(p) {
   const el = document.getElementById('tlWrap');
   if (!el) return;
+  p = p || {};   // OSA 2: kirjautuneena p = Firestore-pelaaja; null-suoja kenttähauille
   const months = ['LOKA','MARRAS','JOULU','TAMMI','HELMI','MAALIS','HUHTI','TOUKO','KESÄ','HEINÄ'];
   // Laske testitapahtumat kuukausittain
   const kuukausiIndeksit = { '01':3,'02':4,'03':5,'04':6,'05':7,'06':8,'07':9,'10':0,'11':1,'12':2 };
@@ -3968,17 +3988,35 @@ function _renderTimeline(p) {
   });
   // Kirjautuneena: käytä vain todellista Firestore-dataa
   // Demo-tilassa: käytä kovakoodattua demo-dataa
-  const rows = !_demo && _seuraId ? [
-    // Testit: laskettu testitapahtumista
-    { lbl:'Testit', color:'var(--teal)',
-      data: testiCountPerMonth },
-    // ADAR-kirjaukset: tulossa Sprint 6 — tällä hetkellä tyhjä
-    { lbl:'ADAR-kirjaukset', color:'var(--blue)',
-      data: new Array(10).fill(0) },
-    // Fiilinki: tulossa kirjauksista — tällä hetkellä tyhjä
-    { lbl:'Fiilinki', color:'var(--amber)',
-      data: new Array(10).fill(0) },
-  ] : [
+  const rows = !_demo && _seuraId ? (function(){
+    // OSA 2 — ehdolliset rivit per pelaaja: näytä vain se data jota on.
+    const r = [{ lbl:'Testit', color:'var(--teal)', data: testiCountPerMonth }];
+    // Ankkurikuukausi arvoille joilla ei omaa pvm:ää: viimeisin testikuukausi, muuten nykyhetki/HEINÄ.
+    let ankkuri = kuukausiIndeksit[String(new Date().getMonth()+1).padStart(2,'0')];
+    for (let i=9;i>=0;i--) if (testiCountPerMonth[i] > 0) { ankkuri = i; break; }
+    if (ankkuri === undefined) ankkuri = 9;
+    // H-H TASO (SJK) — jos hh_pvm; väri arvon mukaan (≤2 punainen, 3 keltainen, ≥4 vihreä)
+    if (p.hh_pvm && p.hh_taso != null) {
+      const d = new Array(10).fill(0);
+      const idx = kuukausiIndeksit[String(p.hh_pvm).split('-')[1]];
+      d[(idx !== undefined ? idx : ankkuri)] = +p.hh_taso;
+      r.push({ lbl:'H-H taso', data:d, max:5, variFn:(v)=> v>=4?'var(--teal)':v===3?'var(--amber)':'var(--red)' });
+    }
+    // TKI (Sibbo) — jos tki_viimeisin (0–100)
+    if (p.tki_viimeisin != null) {
+      const d = new Array(10).fill(0);
+      const idx = p.tki_pvm ? kuukausiIndeksit[String(p.tki_pvm).split('-')[1]] : undefined;
+      d[(idx !== undefined ? idx : ankkuri)] = +p.tki_viimeisin;
+      r.push({ lbl:'TKI', color:'var(--blue)', data:d, max:100 });
+    }
+    // FLEI — vain jos flei_viimeisin > 0 (piilota SJK/Sibbo joilla ei FLEI-dataa)
+    if ((p.flei_viimeisin||0) > 0) {
+      const d = new Array(10).fill(0);
+      d[ankkuri] = +p.flei_viimeisin;
+      r.push({ lbl:'FLEI', color:'var(--amber)', data:d, max:100 });
+    }
+    return r;
+  })() : [
     // Demo-moodi: kovakoodattu data
     { lbl:'ADAR', color:'var(--teal)',   data:[3,4,5,6,5,4,6,0,0,0] },
     { lbl:'Testit', color:'var(--blue)', data: testiCountPerMonth.some(c=>c>0) ? testiCountPerMonth : [1,0,0,1,1,0,0,0,0,0] },
@@ -3993,14 +4031,17 @@ function _renderTimeline(p) {
       <div class="tl-month-hdr" style="text-align:left">Kerros</div>
       ${months.map(m=>`<div class="tl-month-hdr">${m}</div>`).join('')}
     </div>
-    ${rows.map((r,ri)=>`
+    ${rows.map((r,ri)=>{
+      const rmax = r.max || maxPerRow[ri] || 1;   // OSA 2: kiinteä asteikko (H-H=5, TKI/FLEI=100) tai rivin oma max
+      return `
       <div class="tl-row">
         <div class="tl-row-lbl">${r.lbl}</div>
-        ${r.data.map((v,mi)=>`
-          <div class="tl-cell">
-            ${v > 0 ? `<div class="tl-bar" style="background:${r.color};opacity:${0.3 + 0.7*(v/maxPerRow[ri])};width:${60+40*(v/maxPerRow[ri])}%"></div>` : ''}
-          </div>`).join('')}
-      </div>`).join('')}`;
+        ${r.data.map((v,mi)=>{
+          const frac = Math.min((v||0)/rmax, 1);
+          return `<div class="tl-cell">
+            ${v > 0 ? `<div class="tl-bar" style="background:${r.variFn?r.variFn(v):r.color};opacity:${(0.3 + 0.7*frac).toFixed(2)};width:${(60+40*frac).toFixed(0)}%"></div>` : ''}
+          </div>`;}).join('')}
+      </div>`;}).join('')}`;
 }
 
 function _renderNarrative(p) {
@@ -4017,15 +4058,31 @@ function _renderNarrative(p) {
       tag: t.tila === 'suljettu' ? 'gem' : null
     };
   });
-  const kaikkiNarr = [...testiNarr, ...(p.narrative || [])];
+  // OSA 3 — erikoistapahtumat data-tietoisesti (H-H-testi, TKI-tekniikkakilpailu)
+  const erikoisNarr = [];
+  if (p.hh_pvm && p.hh_taso != null) {
+    const bd = [];
+    if (p.signaali === 'hidden') bd.push('<span class="tag tag-gem">Piilohelmi</span>');
+    if (+p.hh_taso >= 4) bd.push('<span class="tag tag-x">Fyysinen XF</span>');
+    erikoisNarr.push({ kk: _pvmFiM(p.hh_pvm), txt: 'H-H-testi · taso ' + p.hh_taso, badgeHtml: bd.join(' ') });
+  }
+  if (p.tki_viimeisin != null) {
+    const bd = [];
+    const tkiMer = _tkiMerkkiM(p.tki_viimeisin, p.tki_merkki);
+    const kultaLajeissa = Array.isArray(p.tki_lajit) && p.tki_lajit.some(l => /kulta/i.test(typeof l === 'string' ? l : JSON.stringify(l == null ? '' : l)));
+    if (tkiMer) bd.push('<span class="tag tag-gem">' + tkiMer.emoji + ' ' + tkiMer.nimi + '</span>');
+    else if (kultaLajeissa) bd.push('<span class="tag tag-gem">🥇 Kulta</span>');
+    erikoisNarr.push({ kk: _pvmFiM(p.tki_pvm), txt: 'Tekniikkakilpailu · TKI ' + p.tki_viimeisin, badgeHtml: bd.join(' ') });
+  }
+  const kaikkiNarr = [...erikoisNarr, ...testiNarr, ...(p.narrative || [])];
   el.innerHTML = kaikkiNarr.map(n => `
     <div class="narrative-item">
       <div class="narr-month">${n.kk}</div>
       <div class="narr-text">${n.txt}</div>
       <div class="narr-tag">
-        ${n.tag ? `<span class="tag ${tagMap[n.tag]||''}">
+        ${n.badgeHtml ? n.badgeHtml : (n.tag ? `<span class="tag ${tagMap[n.tag]||''}">
           ${n.tag==='x'?'X-Factor':n.tag==='gem'?'Piilohelmi':n.tag==='warn'?'Huomio':''}
-        </span>` : ''}
+        </span>` : '')}
       </div>
     </div>`).join('');
 }
