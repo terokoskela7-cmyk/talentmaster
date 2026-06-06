@@ -1932,6 +1932,21 @@ async function _lataaPelaajat() {
       s1.docs.forEach(d => m.set(d.id, d));
       s2.docs.forEach(d => m.set(d.id, d));
       docs = [...m.values()];
+      // KORJAUS: Firestore where on case-sensitive. Jos dropdown-arvo ("SIBBO-VARGARNA P10") ei
+      // täsmää tallennettuun ("Sibbo-Vargarna P10") → 0 osumaa → "Ladataan…" jää jumiin. Fallback:
+      // hae kaikki seuran pelaajat ja suodata clientissa case-insensitively (joukkue TAI joukkueet[]).
+      if (docs.length === 0) {
+        const jLow = _joukkue.toLowerCase().trim();
+        const kaikki = (await col.get()).docs;
+        docs = kaikki.filter(d => {
+          const data = d.data();
+          const jk = String(data.joukkue || data.joukkueNimi || '').toLowerCase().trim();
+          if (jk === jLow) return true;
+          const arr = Array.isArray(data.joukkueet) ? data.joukkueet : [];
+          return arr.some(x => { const xl = String(x).toLowerCase().trim(); return xl === jLow || xl === jId; });
+        });
+        console.warn('[v16] joukkue case-insensitive fallback:', _joukkue, '→', docs.length, 'pelaajaa');
+      }
     } else {
       docs = (await col.get()).docs;
     }
