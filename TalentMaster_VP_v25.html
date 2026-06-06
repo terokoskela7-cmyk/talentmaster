@@ -4934,12 +4934,15 @@ function tkiParasPelaaja(pelaajat) {
 // Joukkueen H-H-suunta: vertaa hh_taso vs hh_taso_edellinen (pikakentät). Ei 2. mittausta → 'ensimmainen_mittaus'.
 function laskeJoukkueSuunta(joukkuePelaajat) {
   const ps = joukkuePelaajat.filter(function(p){ return p.hh_taso != null && p.hh_taso_edellinen != null; });
-  if (ps.length === 0) return { symboli: null, delta: null, tila: 'ensimmainen_mittaus', vari: 'var(--ink3)' };
+  if (ps.length === 0) return { symboli: null, delta: null, tila: 'ensimmainen_mittaus', vari: 'var(--ink3)', n: 0, parantunut: 0 };
   const deltat = ps.map(function(p){ return p.hh_taso - p.hh_taso_edellinen; });
   const dKa = deltat.reduce(function(a,b){ return a+b; }, 0) / deltat.length;
-  if (dKa > 0.15)  return { symboli: '↑', delta: '+' + dKa.toFixed(1), tila: 'nousu',    vari: 'var(--teal)' };
-  if (dKa < -0.15) return { symboli: '↓', delta: dKa.toFixed(1),       tila: 'lasku',    vari: 'var(--red)'  };
-  return                  { symboli: '→', delta: '→',                  tila: 'tasainen', vari: 'var(--ink3)' };
+  // VAIHE 2: montako pelaajaa aidosti parantunut (delta > 0.05) → "(12/20 parantunut)".
+  const parantunut = deltat.filter(function(d){ return d > 0.05; }).length;
+  const meta = { n: ps.length, parantunut: parantunut };
+  if (dKa > 0.15)  return Object.assign({ symboli: '↑', delta: '+' + dKa.toFixed(1), tila: 'nousu',    vari: 'var(--teal)' }, meta);
+  if (dKa < -0.15) return Object.assign({ symboli: '↓', delta: dKa.toFixed(1),       tila: 'lasku',    vari: 'var(--red)'  }, meta);
+  return                  Object.assign({ symboli: '→', delta: '0.0',                tila: 'tasainen', vari: 'var(--ink3)' }, meta);
 }
 
 // Joukkueen D2-taso (1–5) + lähde. Sama prioriteetti kuin laskeD2Taso, mutta joukkuetasolla ≥3-kynnyksellä
@@ -5003,7 +5006,10 @@ function renderTeamPulse() {
     if (suunta.tila === 'ensimmainen_mittaus') {
       h += '<div class="jk-badge"><i class="ti ti-refresh" aria-hidden="true"></i> 2. mittaus puuttuu</div>';
     } else if (suunta.symboli) {
-      h += '<div class="jk-suunta" style="color:' + suunta.vari + '">' + suunta.symboli + ' ' + suunta.delta + '</div>';
+      const _dlt = (suunta.tila === 'tasainen') ? '' : (suunta.delta + ' ');
+      h += '<div class="jk-suunta" style="color:' + suunta.vari + '" title="Joukkueen keskimääräinen H-H-muutos edellisestä testistä">'
+        + suunta.symboli + ' ' + _dlt + 'H-H <span style="color:var(--ink3);font-weight:400;font-size:.88em">('
+        + suunta.parantunut + '/' + suunta.n + ' parantunut)</span></div>';
     }
     h += '</div>';
     return h;
@@ -5548,7 +5554,7 @@ document.getElementById('lPass').addEventListener('keydown', e => { if(e.key==='
 // VERSIO + CDN-STALENESS-VAROITUS (sama kuvio kuin Excel_Tuonti)
 // Bumppaa VP_VERSIO joka kerta kun HH-normit tai muu laskenta muuttuu.
 // ════════════════════════════════════════
-const VP_VERSIO = 'roolisync-2026-06-06b'; // HH_NORMIT_PIKA → Palloliitto FINAL2024 (pojat + tytöt)
+const VP_VERSIO = 'vaihe2-delta-2026-06-06'; // HH_NORMIT_PIKA → Palloliitto FINAL2024 (pojat + tytöt)
 const VP_RAW_URL = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_VP_v25.html';
 function _vpNaytaCdnVaroitus(tuoreVersio) {
   if (document.getElementById('cdn-varoitus')) return;

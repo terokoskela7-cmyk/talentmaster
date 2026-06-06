@@ -3943,6 +3943,19 @@ function _tasoPallot(taso, maks) {
 }
 function _devNimi(p) { return ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id; }
 
+// VAIHE 2 — kehitysvauhti: delta-badge KPI-arvon viereen (↑+ vihreä / ↓− punainen / → harmaa).
+// nyt/edel = nykyinen ja edellinen arvo; des = desimaalit (H-H taso 1, TKI 0).
+function _deltaBadge(nyt, edel, des) {
+  if (edel == null || nyt == null) return '';
+  const d = (+nyt) - (+edel);
+  des = (des == null) ? 1 : des;
+  const kynnys = (des === 0) ? 0.5 : 0.05;
+  if (Math.abs(d) < kynnys) return ' <span style="color:var(--ink3);font-size:11px;font-weight:600">→</span>';
+  const ylos = d > 0;
+  return ' <span title="edellinen ' + edel + '" style="color:' + (ylos ? 'var(--teal)' : 'var(--red)')
+    + ';font-size:11px;font-weight:600;margin-left:2px">' + (ylos ? '↑+' : '↓−') + Math.abs(d).toFixed(des) + '</span>';
+}
+
 const _HH_SUOSITUS = {
   nopeus_30m: 'Lähtönopeusharjoittelu 2×/vk — räjähtävät 10–20 m kiihdytykset.',
   nopeus_10m: 'Reaktio + lähtö: merkistä lähdöt, 6×10 m.',
@@ -4097,7 +4110,8 @@ function _renderPinfoFirestore(p) {
       delta: flei>=65?'Hyvä taso':flei>=50?'Kehittyvä':'Tarvitsee tukea', color: fleiColor });
   } else if (p.hh_taso != null) {
     const hh = +p.hh_taso;
-    stats.push({ lbl:'H-H', val: String(hh), delta: hh>=4?'Vahva':hh>=3?'Keskitaso':'Kehittyvä',
+    stats.push({ lbl:'H-H', val: String(hh) + _deltaBadge(hh, p.hh_taso_edellinen, 1),
+      delta: hh>=4?'Vahva':hh>=3?'Keskitaso':'Kehittyvä',
       color: hh>=4?'var(--teal)':hh>=3?'var(--amber)':'var(--red)', detalji:'hh' });
   }
   // MITTARI 2: TKI → TSI → piilota
@@ -4107,7 +4121,7 @@ function _renderPinfoFirestore(p) {
       ? (tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu')
       : (p.tki_kehityskohde ? 'Kehitä: ' + _tkLajiNimi(p.tki_kehityskohde)
          : (tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu'));
-    stats.push({ lbl:'TKI', val: tki + (tkiM ? ' ' + tkiM.emoji : ''), delta: tkiDelta, color: tkiColor, detalji:'tki' });
+    stats.push({ lbl:'TKI', val: tki + (tkiM ? ' ' + tkiM.emoji : '') + _deltaBadge(tki, p.tki_edellinen, 0), delta: tkiDelta, color: tkiColor, detalji:'tki' });
   } else if (p.tsi_viimeisin != null) {
     // KORJAUS 2: TSI selitetään — mitä luku tarkoittaa (pallon vaikutus nopeuteen).
     const tsi = +p.tsi_viimeisin;

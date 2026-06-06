@@ -2785,6 +2785,19 @@ async function tallennaFirestoreen() {
         if (kehityskohde)     profiiliUpdate.tki_kehityskohde = kehityskohde;
         if (hhViimeisin)      { profiiliUpdate.hh_viimeisin = hhViimeisin; profiiliUpdate.hh_pvm = pvmIso; }
         if (hhTaso != null)   profiiliUpdate.hh_taso = hhTaso;
+        // VAIHE 2 — kehitysvauhti: vangitse EDELLINEN taso vain aidolla uudella testillä (eri pvm)
+        // ennen ylikirjoitusta → mielekäs delta (pvm-vahti estää re-importin nolladeltan).
+        {
+          const _fd = p._firestoreData || {};
+          if (hhTaso != null && _fd.hh_taso != null && _fd.hh_pvm && _fd.hh_pvm !== pvmIso) {
+            profiiliUpdate.hh_taso_edellinen = _fd.hh_taso;
+            profiiliUpdate.hh_taso_edellinen_pvm = _fd.hh_pvm;
+          }
+          if (tki !== null && _fd.tki_viimeisin != null && _fd.tki_pvm && _fd.tki_pvm !== pvmIso) {
+            profiiliUpdate.tki_edellinen = _fd.tki_viimeisin;
+            profiiliUpdate.tki_edellinen_pvm = _fd.tki_pvm;
+          }
+        }
         if (syntymaVuosi)     profiiliUpdate.syntymaVuosi = syntymaVuosi;   // Excel-SyntymaVuosi → profiili (tarkka ikä)
         // MAS-johdannaiset profiiliin → VP/Pelaaja syvä analyysi (km/h, m/s, alkuperäinen aika)
         if (testit.mas_kmh != null)      profiiliUpdate.mas_kmh = testit.mas_kmh;
@@ -3616,6 +3629,8 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
       nimi: (t.pel.etunimi || '') + ' ' + (t.pel.sukunimi || ''),
       joukkue: t.pel.joukkue || '', ikaluokka: ikaluokka, kt: kt, pvm: d.pvm || d.testauspvm || '',
       vanhaTki: (t.pel.tki_viimeisin === undefined ? '—' : t.pel.tki_viimeisin),
+      vanhaTkiRaaka: (t.pel.tki_viimeisin == null ? null : t.pel.tki_viimeisin),
+      vanhaPvm: t.pel.tki_pvm || null,
       tki: tki, merkki: merkki, rajat: oikeatRajat, vk: vk
     });
   });
@@ -3641,6 +3656,11 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
     const batch = db.batch();
     era.forEach(function(m) {
       const pika = { tki_viimeisin: (m.tki == null ? null : m.tki), tki_merkki: m.merkki || null, tki_pvm: m.pvm || '' };
+      // VAIHE 2 — kehitysvauhti: edellinen vain aidolla uudella testillä (eri pvm) → pvm-vahti.
+      if (m.vanhaTkiRaaka != null && m.vanhaPvm && m.pvm && m.vanhaPvm !== m.pvm) {
+        pika.tki_edellinen = m.vanhaTkiRaaka;
+        pika.tki_edellinen_pvm = m.vanhaPvm;
+      }
       if (m.vk.vahvuudet[0]) pika.tki_vahvuus = m.vk.vahvuudet[0].laji;
       if (m.vk.kehityskohteet[0]) pika.tki_kehityskohde = m.vk.kehityskohteet[0].laji;
       batch.set(m.pelRef, pika, { merge: true });
@@ -4095,7 +4115,7 @@ window.siivoaBugisetTulokset = async function(seuraId, ikaluokka, maxKokonais, d
 // VERSIO + CDN-STALENESS-VAROITUS
 // ════════════════════════════════════════
 // Ladatun version tunniste — sama merkkijono on const-määrittelyssä jota raw-vertailu lukee.
-const PDF_VERSIO = 'kaksipassi-v8';
+const PDF_VERSIO = 'vaihe2-delta-2026-06-06';
 const PDF_RAW_URL = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_Excel_Tuonti.html';
 
 // Näytä amber-banneri jos ladattu versio on vanhempi kuin mainin tuorein (CDN-cache vanha).
