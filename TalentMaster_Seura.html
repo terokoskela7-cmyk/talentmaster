@@ -4509,93 +4509,153 @@ async function tallennaJoukkueMuutos() {
 // Super Admin ja VP voivat käyttää tätä.
 // ─────────────────────────────────────────────────────────────────────────────
 function avaaMassakutsuModal() {
-  const modal = document.getElementById('massakutsuModal');
+  var modal = document.getElementById('massakutsuModal');
   if (!modal) {
-    // Luodaan modal dynaamisesti jos ei ole HTML:ssä
-    const div = document.createElement('div');
+    var div = document.createElement('div');
     div.className = 'modalTausta auki';
     div.id = 'massakutsuModal';
-    div.innerHTML = `
-      <div class="modalKortti" style="max-width:640px;">
-        <button class="modalSuljeNappi" onclick="document.getElementById('massakutsuModal').classList.remove('auki')">✕ Sulje</button>
-        <div class="modalOtsikko" style="clear:both;">📨 Massakutsu huoltajille</div>
-        <div class="modalKuvaus">
-          Lataa Excel-tiedosto jossa on pelaajien tiedot. Järjestelmä lähettää
-          jokaiselle huoltajalle henkilökohtaisen rekisteröintilinkin.
-        </div>
-
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px;">
-          <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-bottom:8px;">TIEDOSTON RAKENNE</div>
-          <div style="font-family:monospace;font-size:12px;color:var(--teal);">
-            PalloID | Etunimi | Sukunimi | HuoltajaEmail | Joukkue
-          </div>
-          <div style="font-size:11px;color:var(--ink3);margin-top:6px;">
-            HuoltajaEmail on pakollinen. PalloID suositellaan — ilman sitä pelaaja rekisteröidään nimellä.
-          </div>
-          <button onclick="lataaExcelMalli()" style="margin-top:10px;background:none;border:1px solid var(--border);
-            border-radius:6px;padding:5px 12px;font-size:12px;color:var(--ink3);cursor:pointer;">
-            ⬇ Lataa Excel-malli
-          </button>
-        </div>
-
-        <input type="file" id="massakutsuFile" accept=".xlsx,.csv"
-          style="display:none" onchange="kasitteleMassakutsuTiedosto(event)">
-        <button onclick="document.getElementById('massakutsuFile').click()"
-          style="width:100%;padding:12px;background:var(--bg3);border:2px dashed var(--border);
-          border-radius:8px;color:var(--ink3);cursor:pointer;font-size:13px;margin-bottom:12px;">
-          📁 Valitse Excel tai CSV -tiedosto
-        </button>
-
-        <div id="massakutsuJoukkueSuodatin" style="display:none;margin-bottom:12px;">
-          <label style="font-size:12px;font-weight:600;color:var(--ink3);">Joukkuesuodatin:</label>
-          <select id="massakutsuJoukkueValinta" onchange="suodataMassakutsuJoukkue()"
-            style="margin-left:8px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);
-            background:var(--bg3);color:var(--ink1);font-size:13px;">
-            <option value="">Kaikki joukkueet</option>
-          </select>
-          <span id="massakutsuSuodatettuLkm" style="margin-left:8px;font-size:12px;color:var(--ink3);"></span>
-        </div>
-
-        <div id="massakutsuEsikatselu" style="display:none;margin-bottom:14px;">
-          <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-bottom:8px;"
-               id="massakutsuLkm"></div>
-          <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
-            <table style="width:100%">
-              <thead><tr style="background:var(--bg3);">
-                <th style="padding:8px;font-size:11px;text-align:left;">Nimi</th>
-                <th style="padding:8px;font-size:11px;text-align:left;">Joukkue</th>
-                <th style="padding:8px;font-size:11px;text-align:left;">HuoltajaEmail</th>
-                <th style="padding:8px;font-size:11px;text-align:left;">Status</th>
-              </tr></thead>
-              <tbody id="massakutsuTbody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div id="massakutsuProgress" style="display:none;margin-bottom:12px;">
-          <div style="background:var(--bg3);border-radius:6px;height:6px;overflow:hidden;">
-            <div id="massakutsuBar" style="height:100%;background:var(--teal);width:0%;transition:width .3s;"></div>
-          </div>
-          <div id="massakutsuStatus" style="font-size:12px;color:var(--ink3);margin-top:6px;text-align:center;"></div>
-        </div>
-
-        <button id="massakutsuLahetaNappi" onclick="lahetaMassakutsu()"
-          style="width:100%;padding:13px;background:var(--teal);border:none;border-radius:10px;
-          color:#000;font-size:15px;font-weight:700;cursor:pointer;" disabled>
-          📨 Lähetä kutsut sähköpostilla
-        </button>
-        <div id="massakutsuVirhe" style="color:var(--red);font-size:13px;margin-top:8px;text-align:center;"></div>
-      </div>
-    `;
+    div.innerHTML = '<div class="modalKortti" style="max-width:640px;">'
+      + '<button class="modalSuljeNappi" onclick="document.getElementById(\'massakutsuModal\').classList.remove(\'auki\')">✕ Sulje</button>'
+      + '<div class="modalOtsikko" style="clear:both;">📨 Massakutsu huoltajille</div>'
+      + '<div class="modalKuvaus">'
+      +   'Valitse joukkue tai koko seura. Järjestelmä lähettää jokaiselle huoltajalle '
+      +   'henkilökohtaisen rekisteröintilinkin sähköpostilla.'
+      + '</div>'
+      // Joukkuevalinta
+      + '<div style="margin-bottom:16px;">'
+      +   '<label style="font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:6px;">Valitse kohderyhmä</label>'
+      +   '<select id="massakutsuJoukkueValinta" onchange="suodataMassakutsuJoukkue()"'
+      +     ' style="width:100%;padding:10px 13px;border-radius:8px;border:1px solid var(--border);'
+      +     'background:var(--bg3);color:var(--ink1);font-size:14px;">'
+      +     '<option value="">Ladataan...</option>'
+      +   '</select>'
+      +   '<div id="massakutsuSuodatettuLkm" style="margin-top:6px;font-size:12px;color:var(--ink3);"></div>'
+      + '</div>'
+      // Info: suodatettu
+      + '<div id="massakutsuInfoBoksi" style="display:none;background:rgba(42,93,176,.08);border:1px solid rgba(42,93,176,.2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--ink2);line-height:1.5;">'
+      + '</div>'
+      // Esikatselu
+      + '<div id="massakutsuEsikatselu" style="display:none;margin-bottom:14px;">'
+      +   '<div style="font-size:12px;font-weight:600;color:var(--ink3);margin-bottom:8px;" id="massakutsuLkm"></div>'
+      +   '<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">'
+      +     '<table style="width:100%">'
+      +       '<thead><tr style="background:var(--bg3);">'
+      +         '<th style="padding:8px;font-size:11px;text-align:left;">Nimi</th>'
+      +         '<th style="padding:8px;font-size:11px;text-align:left;">Joukkue</th>'
+      +         '<th style="padding:8px;font-size:11px;text-align:left;">HuoltajaEmail</th>'
+      +         '<th style="padding:8px;font-size:11px;text-align:left;">Tila</th>'
+      +         '<th style="padding:8px;font-size:11px;text-align:left;">Status</th>'
+      +       '</tr></thead>'
+      +       '<tbody id="massakutsuTbody"></tbody>'
+      +     '</table>'
+      +   '</div>'
+      + '</div>'
+      // Progress
+      + '<div id="massakutsuProgress" style="display:none;margin-bottom:12px;">'
+      +   '<div style="background:var(--bg3);border-radius:6px;height:6px;overflow:hidden;">'
+      +     '<div id="massakutsuBar" style="height:100%;background:var(--teal);width:0%;transition:width .3s;"></div>'
+      +   '</div>'
+      +   '<div id="massakutsuStatus" style="font-size:12px;color:var(--ink3);margin-top:6px;text-align:center;"></div>'
+      + '</div>'
+      // Nappi
+      + '<button id="massakutsuLahetaNappi" onclick="lahetaMassakutsu()"'
+      +   ' style="width:100%;padding:13px;background:var(--teal);border:none;border-radius:10px;'
+      +   'color:#000;font-size:15px;font-weight:700;cursor:pointer;" disabled>'
+      +   '📨 Lähetä kutsut sähköpostilla'
+      + '</button>'
+      + '<div id="massakutsuVirhe" style="color:var(--red);font-size:13px;margin-top:8px;text-align:center;"></div>'
+      + '</div>';
     document.body.appendChild(div);
-    div.addEventListener('click', (e) => { if (e.target === div) div.classList.remove('auki'); });
+    div.addEventListener('click', function(e) { if (e.target === div) div.classList.remove('auki'); });
   } else {
     modal.classList.add('auki');
   }
+  // Hae pelaajat Firestoresta aina kun modaali avataan
+  _lataaMassakutsuPelaajat();
 }
 
 let _massakutsuData = [];
-let _massakutsuDataKaikki = []; // ennen joukkuesuodatusta
+let _massakutsuDataKaikki = [];
+
+async function _lataaMassakutsuPelaajat() {
+  var jkSelect = document.getElementById('massakutsuJoukkueValinta');
+  var infoBoksi = document.getElementById('massakutsuInfoBoksi');
+  var esiEl = document.getElementById('massakutsuEsikatselu');
+  var lkmEl = document.getElementById('massakutsuSuodatettuLkm');
+  if (jkSelect) jkSelect.innerHTML = '<option value="">Ladataan...</option>';
+  if (esiEl) esiEl.style.display = 'none';
+  if (lkmEl) lkmEl.textContent = '';
+
+  if (!tila.seuraId) {
+    if (jkSelect) jkSelect.innerHTML = '<option value="">Ei seuraa valittuna</option>';
+    return;
+  }
+
+  try {
+    var snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').get();
+    var pelaajat = [];
+    snap.forEach(function(doc) {
+      var d = doc.data();
+      pelaajat.push({
+        pelaajaId:     doc.id,
+        palloId:       d.tunniste || d.palloID || d.palloId || '',
+        etunimi:       d.etunimi || '',
+        sukunimi:      d.sukunimi || '',
+        huoltajaEmail: d.huoltajaEmail || '',
+        joukkue:       d.joukkue || '',
+        suostumusTila: d.suostumusTila || '',
+      });
+    });
+
+    // Suodata: vain pelaajat joilla huoltajaEmail JA suostumus ei vielä annettu
+    var lahetettavat = pelaajat.filter(function(p) {
+      return p.huoltajaEmail && p.suostumusTila !== 'annettu';
+    });
+    var eiEmailia = pelaajat.filter(function(p) { return !p.huoltajaEmail; }).length;
+    var joAnnettu = pelaajat.filter(function(p) { return p.suostumusTila === 'annettu'; }).length;
+
+    _massakutsuDataKaikki = lahetettavat.sort(function(a,b) {
+      return (a.sukunimi || '').localeCompare(b.sukunimi || '');
+    });
+    _massakutsuData = _massakutsuDataKaikki.slice();
+
+    // Joukkueet dropdowniin
+    var joukkueetMap = {};
+    _massakutsuDataKaikki.forEach(function(p) {
+      var j = p.joukkue || '(ei joukkuetta)';
+      if (!joukkueetMap[j]) joukkueetMap[j] = 0;
+      joukkueetMap[j]++;
+    });
+    var joukkueet = Object.keys(joukkueetMap).sort();
+
+    if (jkSelect) {
+      jkSelect.innerHTML = '<option value="">Koko seura (' + _massakutsuDataKaikki.length + ' pelaajaa)</option>';
+      joukkueet.forEach(function(j) {
+        var opt = document.createElement('option');
+        opt.value = j;
+        opt.textContent = j + ' (' + joukkueetMap[j] + ')';
+        jkSelect.appendChild(opt);
+      });
+    }
+
+    // Infolaatikko
+    if (infoBoksi) {
+      var osat = [];
+      osat.push('Yhteensä ' + pelaajat.length + ' pelaajaa seurassa.');
+      if (joAnnettu > 0) osat.push(joAnnettu + ' suostumus jo annettu (ei lähetetä uudelleen).');
+      if (eiEmailia > 0) osat.push(eiEmailia + ' ilman huoltajan sähköpostia (ei voi lähettää).');
+      osat.push('<strong>' + lahetettavat.length + ' pelaajaa valmiina lähetettäväksi.</strong>');
+      infoBoksi.innerHTML = osat.join('<br>');
+      infoBoksi.style.display = '';
+    }
+
+    _renderMassakutsuEsikatselu();
+
+  } catch(err) {
+    console.error('[Massakutsu] Firestore-virhe:', err);
+    if (jkSelect) jkSelect.innerHTML = '<option value="">Virhe: ' + err.message + '</option>';
+  }
+}
 
 function suodataMassakutsuJoukkue() {
   var valinta = document.getElementById('massakutsuJoukkueValinta');
@@ -4617,87 +4677,20 @@ function _renderMassakutsuEsikatselu() {
   var lkm   = document.getElementById('massakutsuLkm');
   var esi   = document.getElementById('massakutsuEsikatselu');
   if (tbody) tbody.innerHTML = _massakutsuData.map(function(r) {
+    var tilaVari = r.suostumusTila === 'pilotti' ? 'var(--ink3)' : (r.suostumusTila === 'odottaa' ? 'var(--amber)' : 'var(--ink3)');
+    var tilaTeksti = r.suostumusTila || 'ei tilaa';
     return '<tr>'
       + '<td style="padding:7px 8px;font-size:12px;">' + r.etunimi + ' ' + r.sukunimi + '</td>'
       + '<td style="padding:7px 8px;font-size:12px;color:var(--ink3);">' + (r.joukkue || '—') + '</td>'
-      + '<td style="padding:7px 8px;font-size:12px;color:var(--teal);">' + (r.huoltajaEmail || '⚠️ puuttuu') + '</td>'
+      + '<td style="padding:7px 8px;font-size:12px;color:var(--teal);">' + r.huoltajaEmail + '</td>'
+      + '<td style="padding:7px 8px;font-size:11px;color:' + tilaVari + ';">' + tilaTeksti + '</td>'
       + '<td style="padding:7px 8px;font-size:11px;color:var(--ink3);">⏳ Odottaa</td>'
       + '</tr>';
   }).join('');
   if (lkm) lkm.textContent = _massakutsuData.length + ' pelaajaa lähetysjonossa';
-  if (esi) esi.style.display = '';
+  if (esi) esi.style.display = _massakutsuData.length > 0 ? '' : 'none';
   var nappi = document.getElementById('massakutsuLahetaNappi');
   if (nappi) nappi.disabled = _massakutsuData.length === 0;
-}
-
-function kasitteleMassakutsuTiedosto(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      let rivit = [];
-
-      if (file.name.endsWith('.csv')) {
-        // CSV-parsinta
-        const teksti = new TextDecoder('utf-8').decode(e.target.result);
-        const lines  = teksti.split('\n').map(r => r.trim()).filter(r => r);
-        const otsikot = lines[0].split(/[,;\t]/).map(o => o.trim().toLowerCase());
-        rivit = lines.slice(1).map(line => {
-          const arvot = line.split(/[,;\t]/);
-          const obj = {};
-          otsikot.forEach((o, i) => obj[o] = (arvot[i] || '').trim().replace(/^"|"$/g,''));
-          return obj;
-        });
-      } else {
-        // Excel-parsinta SheetJS:llä
-        const data = new Uint8Array(e.target.result);
-        const wb   = XLSX.read(data, { type: 'array' });
-        const ws   = wb.Sheets[wb.SheetNames[0]];
-        rivit = XLSX.utils.sheet_to_json(ws, { raw: false });
-      }
-
-      // Normalisoidaan kenttänimet
-      _massakutsuData = rivit.map(r => ({
-        palloId:      r['palloid'] || r['palloid'] || r['PalloID'] || r['palloID'] || '',
-        etunimi:      r['etunimi'] || r['Etunimi'] || '',
-        sukunimi:     r['sukunimi'] || r['Sukunimi'] || '',
-        huoltajaEmail: r['huoltajaemail'] || r['HuoltajaEmail'] || r['email'] || r['Email'] || '',
-        joukkue:      r['joukkue'] || r['Joukkue'] || '',
-      })).filter(r => r.huoltajaEmail || r.etunimi);
-      _massakutsuDataKaikki = _massakutsuData.slice(); // alkuperäinen ennen suodatusta
-
-      // Populoidaan joukkuesuodatin
-      var joukkueet = [...new Set(_massakutsuData.map(r => r.joukkue).filter(Boolean))].sort();
-      var jkSelect = document.getElementById('massakutsuJoukkueValinta');
-      var jkSuodatin = document.getElementById('massakutsuJoukkueSuodatin');
-      if (jkSelect) {
-        jkSelect.innerHTML = '<option value="">Kaikki joukkueet (' + _massakutsuData.length + ')</option>';
-        joukkueet.forEach(function(j) {
-          var n = _massakutsuData.filter(function(r) { return r.joukkue === j; }).length;
-          var opt = document.createElement('option');
-          opt.value = j;
-          opt.textContent = j + ' (' + n + ')';
-          jkSelect.appendChild(opt);
-        });
-      }
-      if (jkSuodatin && joukkueet.length > 1) jkSuodatin.style.display = '';
-
-      // Näytetään esikatselu
-      _renderMassakutsuEsikatselu();
-
-    } catch(err) {
-      const virhe = document.getElementById('massakutsuVirhe');
-      if (virhe) virhe.textContent = 'Tiedoston luku epäonnistui: ' + err.message;
-    }
-  };
-
-  if (file.name.endsWith('.csv')) {
-    reader.readAsArrayBuffer(file);
-  } else {
-    reader.readAsArrayBuffer(file);
-  }
 }
 
 async function lahetaMassakutsu() {
@@ -4737,6 +4730,7 @@ async function lahetaMassakutsu() {
         seuraId:  tila.seuraId,
         seura:    seuraNimi,
       });
+      if (p.pelaajaId)     params.set('pelaajaId', p.pelaajaId);
       if (p.palloId)       params.set('palloid',  p.palloId);
       if (p.etunimi)       params.set('etunimi',  p.etunimi);
       if (p.sukunimi)      params.set('sukunimi', p.sukunimi);
@@ -4754,6 +4748,7 @@ async function lahetaMassakutsu() {
         tyyppi:        'massakutsu',
         hEmail:        p.huoltajaEmail,
         pelaajaNimi:   (p.etunimi + ' ' + p.sukunimi).trim(),
+        pelaajaId:     p.pelaajaId || null,
         palloId:       p.palloId || null,
         joukkue:       p.joukkue || null,
         linkki:        linkkiKutsuId,
@@ -4777,14 +4772,22 @@ async function lahetaMassakutsu() {
         mailOk = true;
         sahkopostiOk++;
         await kutsuRef.update({ tila: 'lahetetty', lahetetty: firebase.firestore.FieldValue.serverTimestamp() });
+        // Päivitetään pelaajan suostumusTila → 'odottaa' (kutsu lähetetty)
+        if (p.pelaajaId && p.suostumusTila !== 'odottaa') {
+          try {
+            await db.collection('seurat').doc(tila.seuraId)
+              .collection('pelaajat').doc(p.pelaajaId)
+              .update({ suostumusTila: 'odottaa' });
+          } catch(e) { console.warn('[Massakutsu] suostumusTila-päivitys:', e.message); }
+        }
       } catch(mailErr) {
         console.warn('[Massakutsu] Sähköposti epäonnistui rivillä', i + 1, ':', mailErr.message);
         sahkopostiVirhe++;
       }
 
-      // Päivitetään taulukon rivi
+      // Päivitetään taulukon rivi (Status = 5. sarake, indeksi 4)
       if (tbody && tbody.rows[i]) {
-        tbody.rows[i].cells[3].innerHTML = mailOk
+        tbody.rows[i].cells[4].innerHTML = mailOk
           ? '<span style="color:var(--teal);">✅ Lähetetty</span>'
           : '<span style="color:#E0A040;">⚠️ Linkki luotu, sähköposti ei lähtenyt</span>';
       }
@@ -4792,7 +4795,7 @@ async function lahetaMassakutsu() {
 
     } catch(err) {
       if (tbody && tbody.rows[i]) {
-        tbody.rows[i].cells[3].innerHTML =
+        tbody.rows[i].cells[4].innerHTML =
           '<span style="color:var(--red);">❌ ' + err.message + '</span>';
       }
       epaonnistui++;
