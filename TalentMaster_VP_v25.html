@@ -3180,8 +3180,8 @@ const _JSV_TYYLIT = '<style>'
   + '#_jsvModal .jsv-body{display:flex;flex:1;overflow:hidden}'
   + '#_jsvModal .jsv-vasen{width:300px;min-width:300px;border-right:1px solid rgba(242,239,230,.12);overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}'
   + '#_jsvModal .jsv-oikea{flex:1;overflow:hidden;display:flex;flex-direction:column;min-width:0}'
-  + '#_jsvModal .jsv-radar{max-height:160px;overflow:hidden;display:flex;align-items:center;justify-content:center}'
-  + '#_jsvModal .jsv-radar svg{max-width:178px}'
+  + '#_jsvModal .jsv-radar{max-height:260px;overflow:hidden;display:flex;align-items:center;justify-content:center}'
+  + '#_jsvModal .jsv-radar svg{max-width:270px}'
   + '#_jsvModal .jsv-legend{display:flex;justify-content:center;gap:10px;font-family:var(--font-m);font-size:10px;color:var(--ink3);letter-spacing:.04em}'
   + '#_jsvModal .jsv-legend-item{display:flex;align-items:center;gap:4px}'
   + '#_jsvModal .jsv-dot{width:6px;height:6px;border-radius:50%;display:inline-block}'
@@ -3431,25 +3431,36 @@ window._tmInfo = function(avain) {
 // Akselit: D1 ylhäällä, myötäpäivään. Puuttuvat ulottuvuudet → "tulossa", ei pistettä. Katkoviiva = profiili kesken.
 window._tmRadar5D = function(dims) {
   const N = dims.length;
-  const W = 236, H = 188, cx = W / 2, cy = H / 2 + 2, R = 52;
+  const W = 320, H = 280, cx = W / 2, cy = H / 2 + 6, R = 90;
   const ang = function(i) { return (-90 + i * (360 / N)) * Math.PI / 180; };
   const pt = function(i, v) { const r = (Math.max(0, Math.min(5, v)) / 5) * R; const a = ang(i); return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
-  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="max-width:236px;display:block;margin:0 auto">';
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="max-width:320px;display:block;margin:0 auto">';
+  // Taustaruudukko 1-5
   for (let L = 1; L <= 5; L++) {
     let pts = '';
     for (let i = 0; i < N; i++) { const xy = pt(i, L); pts += (i ? ' ' : '') + xy[0].toFixed(1) + ',' + xy[1].toFixed(1); }
     svg += '<polygon points="' + pts + '" fill="none" stroke="rgba(255,255,255,' + (L === 5 ? '.16' : '.06') + ')" stroke-width="' + (L === 5 ? 1 : 0.5) + '"/>';
   }
+  // Akselilinjat + skaalanumerot D1-akselille (ylös)
   for (let i = 0; i < N; i++) {
     const sp = pt(i, 5);
     svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + sp[0].toFixed(1) + '" y2="' + sp[1].toFixed(1) + '" stroke="rgba(255,255,255,.06)" stroke-width="0.5"/>';
-    const lp = pt(i, 5.6);
+    // Skaalanumerot vain D1-akselille (i=0, suoraan ylös) — selkeä eikä tuki muita labeleja
+    if (i === 0) {
+      for (let sL = 1; sL <= 5; sL++) {
+        const sxy = pt(0, sL);
+        svg += '<text x="' + (sxy[0] + 8).toFixed(1) + '" y="' + (sxy[1] + 3).toFixed(1) + '" font-size="8" font-family="DM Mono,monospace" fill="rgba(255,255,255,.28)">' + sL + '</text>';
+      }
+    }
+    // Dimension-labelit
+    const lp = pt(i, 5.8);
     const d = dims[i]; const has = d.arvo != null;
-    const anchor = (Math.abs(lp[0] - cx) < 8) ? 'middle' : (lp[0] > cx ? 'start' : 'end');
-    const ydy = (lp[1] < cy - 12) ? -1 : (lp[1] > cy + 12 ? 10 : 3);
-    svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy).toFixed(1) + '" text-anchor="' + anchor + '" font-size="9" font-family="DM Sans,sans-serif" fill="' + (has ? 'var(--ink2)' : 'var(--ink3)') + '">' + d.key + ' ' + d.label + '</text>';
-    svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy + 10).toFixed(1) + '" text-anchor="' + anchor + '" font-size="8" font-family="DM Mono,monospace" fill="' + (has ? 'var(--teal)' : 'var(--ink3)') + '">' + (has ? (d.arvo + (d.lahde === 'sm' ? '¹' : '')) : 'tulossa') + '</text>';
+    const anchor = (Math.abs(lp[0] - cx) < 12) ? 'middle' : (lp[0] > cx ? 'start' : 'end');
+    const ydy = (lp[1] < cy - 20) ? -2 : (lp[1] > cy + 20 ? 12 : 4);
+    svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" font-family="DM Sans,sans-serif" fill="' + (has ? 'var(--ink2)' : 'var(--ink3)') + '">' + d.key + ' ' + d.label + '</text>';
+    svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy + 13).toFixed(1) + '" text-anchor="' + anchor + '" font-size="10" font-family="DM Mono,monospace" fill="' + (has ? 'var(--teal)' : 'var(--ink3)') + '">' + (has ? (d.arvo + (d.lahde === 'sm' ? '¹' : '')) : 'tulossa') + '</text>';
   }
+  // Datapisteet — monikulmio
   const av = [];
   for (let i = 0; i < N; i++) { if (dims[i].arvo != null) av.push(pt(i, dims[i].arvo)); }
   const dash = (av.length === N) ? '0' : '3 2';
@@ -3460,7 +3471,7 @@ window._tmRadar5D = function(dims) {
   } else if (av.length === 2) {
     svg += '<line x1="' + av[0][0].toFixed(1) + '" y1="' + av[0][1].toFixed(1) + '" x2="' + av[1][0].toFixed(1) + '" y2="' + av[1][1].toFixed(1) + '" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="' + dash + '"/>';
   }
-  for (let i = 0; i < N; i++) { if (dims[i].arvo != null) { const xy = pt(i, dims[i].arvo); svg += '<circle cx="' + xy[0].toFixed(1) + '" cy="' + xy[1].toFixed(1) + '" r="3" fill="var(--teal)"/>'; } }
+  for (let i = 0; i < N; i++) { if (dims[i].arvo != null) { const xy = pt(i, dims[i].arvo); svg += '<circle cx="' + xy[0].toFixed(1) + '" cy="' + xy[1].toFixed(1) + '" r="4" fill="var(--teal)"/>'; } }
   svg += '</svg>';
   return svg;
 };
@@ -3620,11 +3631,10 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:640px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column" onclick="event.stopPropagation()">';
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px 24px 10px">';
   h += '<div><button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;padding:0;font-family:\'DM Sans\',sans-serif">← ' + _jsvEsc(joukkueNimi) + '</button>';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink);margin-top:2px">' + _jsvEsc(nimi) + '</div>'
-    + (hgBadge ? '<div style="margin-top:5px">' + hgBadge + '</div>' : '') + '</div>';
+  h += '</div>';
   h += '<button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
   h += '</div>';
-  // 5D-profiilikartta (tutkakaavio) korvaa erillisen hero-rivin — sama D1/D2/D4 mutta hahmona. Säästää pystytilan tuloksille.
+  // Hero-rivi: nimi + badge vasemmalla, radar oikealla — säästää pystytilan tuloksille
   const radarDims = [
     { key: 'D1', label: 'Fyysinen',    arvo: (d1 != null ? d1 : null) },
     { key: 'D2', label: 'Tekninen',    arvo: (d2 != null ? d2 : null), lahde: _d2Lahde(p) },
@@ -3632,8 +3642,16 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     { key: 'D4', label: 'Peliäly',     arvo: (d4 != null ? d4 : null) },
     { key: 'D5', label: 'Sosiaal.', arvo: (p.d5_taso != null ? p.d5_taso : null) }
   ];
-  h += '<div style="padding:6px 24px 0">' + window._tmRadar5D(radarDims)
-    + '<div style="font-size:10px;color:var(--ink3);text-align:center;margin-top:2px">5D-profiili (1–5) · katkoviiva = täydentyy kun D3/D5 mitattu' + (_d2Lahde(p) === 'sm' ? ' · ¹ SM-pohjainen (TSI)' : '') + '</div></div>';
+  h += '<div style="display:flex;align-items:center;gap:16px;padding:0 24px 6px">';
+  // Vasen: nimi + badge
+  h += '<div style="flex:1;min-width:0">';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">' + _jsvEsc(nimi) + '</div>';
+  if (hgBadge) h += '<div style="margin-top:5px">' + hgBadge + '</div>';
+  h += '<div style="font-size:10px;color:var(--ink3);margin-top:8px">5D-profiili (1–5)' + (_d2Lahde(p) === 'sm' ? ' · ¹ SM-pohjainen' : '') + '</div>';
+  h += '</div>';
+  // Oikea: radar (kompakti, max 220px)
+  h += '<div style="flex-shrink:0;width:220px">' + window._tmRadar5D(radarDims) + '</div>';
+  h += '</div>';
   const _kehysP = _ikavaiheBanneri(ika);
   if (_kehysP) h += '<div style="padding:8px 24px 0">' + _kehysP + '</div>';
   h += '<div style="display:flex;gap:6px;padding:0 24px 4px;border-bottom:.5px solid var(--border)">';
