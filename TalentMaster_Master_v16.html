@@ -3803,9 +3803,26 @@ function _renderPlayersToday() {
 /* ════════════════════════════════════════════════════════════
    KEHITYS
 ════════════════════════════════════════════════════════════ */
+let _devFetchKey = null;   // estää renderDev→_lataaPelaajat-silmukan samalle seura/joukkue-kontekstille
 function renderDev(pid) {
-  if (!_demo && _seuraId && _pelaajatData.length > 0) {
-    // Kirjautunut: käytä Firestore-pelaajia
+  // KORJAUS: kirjautuneena (ei _demo) Kehitys käyttää AINA Firestore-dataa (_pelaajatData) —
+  // EI koskaan demo-/TMBus-seediä. Aiemmin gate vaati _pelaajatData.length>0 → tyhjällä datalla
+  // putosi demo-haaraan (DEMO.pelaajat) ja näytti demopelaajia tuotannossa. TMBus jää demoa varten.
+  if (!_demo && _seuraId) {
+    if (!_pelaajatData.length) {
+      // Ei (vielä) Firestore-pelaajia → lataustila, EI demoa. Varmista lataus kerran per konteksti.
+      const pk = document.getElementById('playerPicker');
+      if (pk) pk.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">Ladataan pelaajia…</div>';
+      const pc = document.getElementById('pinfoCard');
+      if (pc) pc.innerHTML = '';
+      const avain = _seuraId + '|' + (_joukkue || '');
+      if (_devFetchKey !== avain && typeof _lataaPelaajat === 'function') {
+        _devFetchKey = avain;
+        _lataaPelaajat();   // täyttää _pelaajatData:n ja kutsuu renderDev() uudelleen (rivi ~1944)
+      }
+      _renderTimeline(null);
+      return;
+    }
     if (pid) _activePelaaja = pid;
     // Jos _activePelaaja on demo-id (teemu/aino jne.), vaihda ensimmäiseen oikeaan
     const isRealPlayer = _pelaajatData.some(p => p.id === _activePelaaja);
@@ -3820,7 +3837,7 @@ function renderDev(pid) {
     }
     return;
   }
-  // Demo
+  // Demo (VAIN kun _demo === true)
   if (pid) _activePelaaja = pid;
   const p = DEMO.pelaajat[_activePelaaja] || DEMO.pelaajat.teemu;
   _renderPlayerPicker();
