@@ -4546,6 +4546,16 @@ function avaaMassakutsuModal() {
           📁 Valitse Excel tai CSV -tiedosto
         </button>
 
+        <div id="massakutsuJoukkueSuodatin" style="display:none;margin-bottom:12px;">
+          <label style="font-size:12px;font-weight:600;color:var(--ink3);">Joukkuesuodatin:</label>
+          <select id="massakutsuJoukkueValinta" onchange="suodataMassakutsuJoukkue()"
+            style="margin-left:8px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);
+            background:var(--bg3);color:var(--ink1);font-size:13px;">
+            <option value="">Kaikki joukkueet</option>
+          </select>
+          <span id="massakutsuSuodatettuLkm" style="margin-left:8px;font-size:12px;color:var(--ink3);"></span>
+        </div>
+
         <div id="massakutsuEsikatselu" style="display:none;margin-bottom:14px;">
           <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-bottom:8px;"
                id="massakutsuLkm"></div>
@@ -4572,7 +4582,7 @@ function avaaMassakutsuModal() {
         <button id="massakutsuLahetaNappi" onclick="lahetaMassakutsu()"
           style="width:100%;padding:13px;background:var(--teal);border:none;border-radius:10px;
           color:#000;font-size:15px;font-weight:700;cursor:pointer;" disabled>
-          📨 Lähetä kaikille huoltajille
+          📨 Lähetä kutsut sähköpostilla
         </button>
         <div id="massakutsuVirhe" style="color:var(--red);font-size:13px;margin-top:8px;text-align:center;"></div>
       </div>
@@ -4585,6 +4595,40 @@ function avaaMassakutsuModal() {
 }
 
 let _massakutsuData = [];
+let _massakutsuDataKaikki = []; // ennen joukkuesuodatusta
+
+function suodataMassakutsuJoukkue() {
+  var valinta = document.getElementById('massakutsuJoukkueValinta');
+  var joukkue = valinta ? valinta.value : '';
+  if (joukkue) {
+    _massakutsuData = _massakutsuDataKaikki.filter(function(r) { return r.joukkue === joukkue; });
+  } else {
+    _massakutsuData = _massakutsuDataKaikki.slice();
+  }
+  _renderMassakutsuEsikatselu();
+  var lkmEl = document.getElementById('massakutsuSuodatettuLkm');
+  if (lkmEl) lkmEl.textContent = joukkue
+    ? _massakutsuData.length + '/' + _massakutsuDataKaikki.length + ' valittu'
+    : '';
+}
+
+function _renderMassakutsuEsikatselu() {
+  var tbody = document.getElementById('massakutsuTbody');
+  var lkm   = document.getElementById('massakutsuLkm');
+  var esi   = document.getElementById('massakutsuEsikatselu');
+  if (tbody) tbody.innerHTML = _massakutsuData.map(function(r) {
+    return '<tr>'
+      + '<td style="padding:7px 8px;font-size:12px;">' + r.etunimi + ' ' + r.sukunimi + '</td>'
+      + '<td style="padding:7px 8px;font-size:12px;color:var(--ink3);">' + (r.joukkue || '—') + '</td>'
+      + '<td style="padding:7px 8px;font-size:12px;color:var(--teal);">' + (r.huoltajaEmail || '⚠️ puuttuu') + '</td>'
+      + '<td style="padding:7px 8px;font-size:11px;color:var(--ink3);">⏳ Odottaa</td>'
+      + '</tr>';
+  }).join('');
+  if (lkm) lkm.textContent = _massakutsuData.length + ' pelaajaa lähetysjonossa';
+  if (esi) esi.style.display = '';
+  var nappi = document.getElementById('massakutsuLahetaNappi');
+  if (nappi) nappi.disabled = _massakutsuData.length === 0;
+}
 
 function kasitteleMassakutsuTiedosto(event) {
   const file = event.target.files[0];
@@ -4622,26 +4666,26 @@ function kasitteleMassakutsuTiedosto(event) {
         huoltajaEmail: r['huoltajaemail'] || r['HuoltajaEmail'] || r['email'] || r['Email'] || '',
         joukkue:      r['joukkue'] || r['Joukkue'] || '',
       })).filter(r => r.huoltajaEmail || r.etunimi);
+      _massakutsuDataKaikki = _massakutsuData.slice(); // alkuperäinen ennen suodatusta
+
+      // Populoidaan joukkuesuodatin
+      var joukkueet = [...new Set(_massakutsuData.map(r => r.joukkue).filter(Boolean))].sort();
+      var jkSelect = document.getElementById('massakutsuJoukkueValinta');
+      var jkSuodatin = document.getElementById('massakutsuJoukkueSuodatin');
+      if (jkSelect) {
+        jkSelect.innerHTML = '<option value="">Kaikki joukkueet (' + _massakutsuData.length + ')</option>';
+        joukkueet.forEach(function(j) {
+          var n = _massakutsuData.filter(function(r) { return r.joukkue === j; }).length;
+          var opt = document.createElement('option');
+          opt.value = j;
+          opt.textContent = j + ' (' + n + ')';
+          jkSelect.appendChild(opt);
+        });
+      }
+      if (jkSuodatin && joukkueet.length > 1) jkSuodatin.style.display = '';
 
       // Näytetään esikatselu
-      const tbody = document.getElementById('massakutsuTbody');
-      const lkm   = document.getElementById('massakutsuLkm');
-      const esi   = document.getElementById('massakutsuEsikatselu');
-
-      if (tbody) tbody.innerHTML = _massakutsuData.map(r => `
-        <tr>
-          <td style="padding:7px 8px;font-size:12px;">${r.etunimi} ${r.sukunimi}</td>
-          <td style="padding:7px 8px;font-size:12px;color:var(--ink3);">${r.joukkue || '—'}</td>
-          <td style="padding:7px 8px;font-size:12px;color:var(--teal);">${r.huoltajaEmail || '⚠️ puuttuu'}</td>
-          <td style="padding:7px 8px;font-size:11px;color:var(--ink3);">⏳ Odottaa</td>
-        </tr>
-      `).join('');
-
-      if (lkm) lkm.textContent = _massakutsuData.length + ' pelaajaa tunnistettu tiedostosta';
-      if (esi) esi.style.display = '';
-
-      const nappi = document.getElementById('massakutsuLahetaNappi');
-      if (nappi) nappi.disabled = _massakutsuData.length === 0;
+      _renderMassakutsuEsikatselu();
 
     } catch(err) {
       const virhe = document.getElementById('massakutsuVirhe');
@@ -4673,13 +4717,17 @@ async function lahetaMassakutsu() {
   if (progress) progress.style.display = '';
 
   const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+  const seuraNimi = tila.seuraNimi || tila.seuraId;
+  const lahetaFn = firebase.app().functions('europe-west1').httpsCallable('lahetaRekisteriKutsu');
   let onnistui = 0;
   let epaonnistui = 0;
+  let sahkopostiOk = 0;
+  let sahkopostiVirhe = 0;
 
   for (let i = 0; i < _massakutsuData.length; i++) {
     const p = _massakutsuData[i];
     if (bar)    bar.style.width = Math.round((i + 1) / _massakutsuData.length * 100) + '%';
-    if (status) status.textContent = `${i + 1}/${_massakutsuData.length} — ${p.etunimi} ${p.sukunimi}`;
+    if (status) status.textContent = (i + 1) + '/' + _massakutsuData.length + ' — ' + p.etunimi + ' ' + p.sukunimi;
 
     if (!p.huoltajaEmail) { epaonnistui++; continue; }
 
@@ -4687,54 +4735,85 @@ async function lahetaMassakutsu() {
       // Rakennetaan henkilökohtainen rekisteröintilinkki
       const params = new URLSearchParams({
         seuraId:  tila.seuraId,
-        seura:    tila.seuraNimi || tila.seuraId,
-        ...(p.palloId   && { palloid:  p.palloId }),
-        ...(p.etunimi   && { etunimi:  p.etunimi }),
-        ...(p.sukunimi  && { sukunimi: p.sukunimi }),
-        ...(p.joukkue   && { joukkue:  p.joukkue }),
-        ...(p.huoltajaEmail && { hEmail: p.huoltajaEmail }),
+        seura:    seuraNimi,
       });
-      const linkki = `${baseUrl}?${params.toString()}`;
+      if (p.palloId)       params.set('palloid',  p.palloId);
+      if (p.etunimi)       params.set('etunimi',  p.etunimi);
+      if (p.sukunimi)      params.set('sukunimi', p.sukunimi);
+      if (p.joukkue)       params.set('joukkue',  p.joukkue);
+      if (p.huoltajaEmail) params.set('hEmail',   p.huoltajaEmail);
+      const linkki = baseUrl + '?' + params.toString();
 
-      // Tallennetaan kutsu Firestoreen
-      await db.collection('seurat').doc(tila.seuraId)
-        .collection('kutsut').add({
-          tyyppi:        'massakutsu',
-          hEmail:        p.huoltajaEmail,
-          pelaajaNimi:   `${p.etunimi} ${p.sukunimi}`.trim(),
-          palloId:       p.palloId || null,
-          joukkue:       p.joukkue || null,
-          linkki,
-          tila:          'luotu',
-          luotu:         firebase.firestore.FieldValue.serverTimestamp(),
-          lahettaja:     tila.kayttaja?.uid || 'tuntematon',
+      // Tallennetaan kutsu Firestoreen — luodaan ID etukäteen (kutsuId linkkiin)
+      const kutsuRef = db.collection('seurat').doc(tila.seuraId)
+        .collection('kutsut').doc();
+      const kutsuId = kutsuRef.id;
+      const linkkiKutsuId = linkki + '&kutsuId=' + kutsuId;
+
+      await kutsuRef.set({
+        tyyppi:        'massakutsu',
+        hEmail:        p.huoltajaEmail,
+        pelaajaNimi:   (p.etunimi + ' ' + p.sukunimi).trim(),
+        palloId:       p.palloId || null,
+        joukkue:       p.joukkue || null,
+        linkki:        linkkiKutsuId,
+        tila:          'odottaa',
+        luotu:         firebase.firestore.FieldValue.serverTimestamp(),
+        lahettaja:     tila.kayttaja?.uid || 'tuntematon',
+      });
+
+      // Lähetetään sähköposti Cloud Functionin kautta
+      var mailOk = false;
+      try {
+        await lahetaFn({
+          hEmail:   p.huoltajaEmail,
+          linkki:   linkkiKutsuId,
+          seura:    seuraNimi,
+          seuraId:  tila.seuraId,
+          etunimi:  p.etunimi,
+          sukunimi: p.sukunimi,
+          joukkue:  p.joukkue,
         });
+        mailOk = true;
+        sahkopostiOk++;
+        await kutsuRef.update({ tila: 'lahetetty', lahetetty: firebase.firestore.FieldValue.serverTimestamp() });
+      } catch(mailErr) {
+        console.warn('[Massakutsu] Sähköposti epäonnistui rivillä', i + 1, ':', mailErr.message);
+        sahkopostiVirhe++;
+      }
 
       // Päivitetään taulukon rivi
       if (tbody && tbody.rows[i]) {
-        tbody.rows[i].cells[3].innerHTML =
-          `<span style="color:var(--teal);">✅ Linkki luotu</span>`;
+        tbody.rows[i].cells[3].innerHTML = mailOk
+          ? '<span style="color:var(--teal);">✅ Lähetetty</span>'
+          : '<span style="color:#E0A040;">⚠️ Linkki luotu, sähköposti ei lähtenyt</span>';
       }
       onnistui++;
 
     } catch(err) {
       if (tbody && tbody.rows[i]) {
         tbody.rows[i].cells[3].innerHTML =
-          `<span style="color:var(--red);">❌ ${err.message}</span>`;
+          '<span style="color:var(--red);">❌ ' + err.message + '</span>';
       }
       epaonnistui++;
     }
 
-    // Pieni viive ettei Firestore ylikuormitu
-    await new Promise(r => setTimeout(r, 100));
+    // Viive: 200 ms per rivi (SendGrid + Firestore)
+    await new Promise(function(r) { setTimeout(r, 200); });
   }
 
-  if (status) status.textContent = `Valmis! ${onnistui} linkkiä luotu, ${epaonnistui} epäonnistui.`;
+  var viestiOsat = [];
+  if (sahkopostiOk > 0)    viestiOsat.push(sahkopostiOk + ' sähköpostia lähetetty');
+  if (sahkopostiVirhe > 0) viestiOsat.push(sahkopostiVirhe + ' sähköpostia epäonnistui');
+  if (epaonnistui > 0)     viestiOsat.push(epaonnistui + ' epäonnistui');
+  var yhteenveto = viestiOsat.join(' · ') || 'Valmis';
+
+  if (status) status.textContent = 'Valmis! ' + yhteenveto;
   if (nappi)  { nappi.textContent = '✅ Valmis'; }
 
   naytaToast(
-    `Massakutsu valmis: ${onnistui}/${_massakutsuData.length} linkkiä luotu`,
-    onnistui === _massakutsuData.length ? 'ok' : 'varoitus'
+    'Massakutsu: ' + sahkopostiOk + '/' + _massakutsuData.length + ' lähetetty',
+    epaonnistui === 0 && sahkopostiVirhe === 0 ? 'ok' : 'varoitus'
   );
 
   // Päivitetään KPI-luvut
