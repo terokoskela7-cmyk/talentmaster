@@ -898,3 +898,23 @@ taso-3-kynnys · `tkLaskeMerkki` · `tkLaskeTKI` (syöttö·0.40+pujottelu·0.30
 
 **Tutkimusperusta (roadmap, canonical doc §9):** FIFA 11+ Kids (Sprint 5) · FMS+YBT+CMJ-seulonta (Sprint 5–6) ·
 rotaatiotaito/DIAG-harjoitteet (Sprint 5) · bio-banding = kehitysikkunat (VAIHE 3) · quadrant/HRV (Sprint 6+).
+
+---
+
+## 31. TK PER-LAJI VIITETASOT (Sprint 5)
+
+> (Numero §31, koska §29 on jo SULJETTU KEHITYSSILMUKKA — sisältö = käyttäjän "§29 TK per-laji"-linjaus.)
+
+Tekniikkakilpailu = **kokonaisaikakilpailu**. Mitali jaetaan **VAIN kokonaisajasta** (`TK_KOKONAISRAJAT[sp][ika]`,
+`tkLaskeMerkki(kokonaistulos, ika, sp)`). **Per-laji mitaleja EI OLE — SPL ei anna niitä.**
+
+`docs/testit_indeksit.js`: **`TK_MERKKIRAJAT` per-laji EI OLE koodissa** — vanhat kommentit riveillä 290/299 ovat
+harhaanjohtavia (kuvaavat rakennetta jota ei ole / viittaavat poistettuun dataan). Per-laji-kynnyksiä ei ole;
+`TK_LAJIT_META` sisältää vain nimi/yksikkö/suunta. Per-laji-ulottuvuus joka on olemassa = **suhteellinen
+vahvuus/kehityskohde** (lajin osuus kokonaisajasta, `_laskeVahvuudetJaKehityskohteet`).
+
+**Sprint 5:** per-laji viitetasot (erinomainen/hyvä/kehitettävä) rakennetaan **valtakunnallisesta
+loppukilpailudatasta 2024–2025**. Vaatii: per-laji raaka-arvojen tallennus TK-tuonnissa pikakentiksi.
+
+**Nykyinen detail (oikea siihen asti):** kokonaisaika-mitalirajat (🥇/🥈/🥉 `TK_KOKONAISRAJAT`) +
+suhteellinen vahvuus/kehityskohde (★/←). Ks. myös §23 (TKI aikapohjainen) + canonical doc §3/§4.

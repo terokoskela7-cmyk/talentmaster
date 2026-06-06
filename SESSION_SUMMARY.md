@@ -25,6 +25,11 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 - **Master pelaajalistaus AINA Firestoresta** (`69b8cf6`): renderDev-gate `!_demo && _seuraId` (ei `length>0`) → ei demo-pelaajia tuotannossa. **Case-insensitive joukkue-fallback** (`f9c9c66`): "SIBBO-VARGARNA P10" ≠ "Sibbo-Vargarna P10" → 0 osumaa korjattu (hae kaikki + suodata clientissa).
 - **Roolinvaihto** (`1f68c6e`,`274b073`): Seura rooli-pudotusvalikko → `vaihdaKayttajanRooli`-CF; VP OSA 3 rooli-sync (retry + 1×/sivulataus → ei 60s-uloskirjautumista). Seura-roolit kuuluvat Seura.html:ään (Admin.html kirjaa ne ulos by design).
 - **Pelaaja_v7** (`6117b93`,`3c9f27a`,`aac3ab0`…`33031b7`): harjoite-dedup (kerran/päivä, `tehty_<tyyppi>`), idol-ohje KOTI-D-korttiin, **fiilinki token-refresh + ei valeonnistumista** ([[silent-failure]]), PIN-kirjautumisnäytön redesign (streak-hero + idol + KPI; DM Sans streak-numero).
+- **KPI Master Architecture kanoniseksi** (`1f76408`): `docs/KPI_MASTER_ARCHITECTURE.md` (17 testiä, 10 indeksiä, detail-spec, signaalit, seuradatakartta, Firestore-kentät, tutkimusperusta) + **CLAUDE.md §30** tiivistys. Ristiriidassa täysi doc voittaa.
+- **Detail-paneelien SSOT-linjaus** (`75fef10`): TSI 5. vyöhyke (>1.5s 🔴 Kriittinen), **EI/FVP/VNE** H-H detailiin (laaja H-H; `testit_indeksit.js` ladattu Masteriin), TKI kokonaisaika-mitalirajat. Hidden Gem -kynnys VP:ssä **täsmäsi jo** dokumenttiin (ei muutosta).
+- **TK per-laji selvennys** (`docs`): tekniikkakilpailu = **kokonaisaikakilpailu**, mitali vain kokonaisajasta (`TK_KOKONAISRAJAT`). Per-laji `TK_MERKKIRAJAT` **ei ole koodissa** (rivit 290/299 harhaanjohtavia). Per-laji viitetasot → **Sprint 5** valtakunnallisesta loppukilpailudatasta. **CLAUDE.md §31.**
+
+**Lopputilanne:** kaikki työ pushattu `origin/main` (HEAD `4341994`/§31-commit). Työpuu puhdas (vain `docs/research/` seuraamattomana — käyttäjän taustamateriaali). VAIHE 1–2 livenä; seuraavat avoimet: VAIHE 3 kehitysikkunat, VAIHE 4 reseptimalli, TK per-laji viitetasot (Sprint 5), detail-kultaikkuna 3-portainen.
 
 ---
 
