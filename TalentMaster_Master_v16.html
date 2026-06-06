@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_eerikkila_normit.js?v=1"></script>
+<script src="docs/testit_indeksit.js?v=4"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -3998,6 +3999,19 @@ function _buildHHDetail(p) {
     heikoin = validit.reduce((a,b) => b.taso < a.taso ? b : a);
   }
   const suositus = heikoin ? (_HH_SUOSITUS[heikoin.key] || 'Kohdenna harjoittelu heikoimpaan osa-alueeseen.') : null;
+  // SSOT-linjaus: räjähtävyysprofiili (EI/FVP/VNE) kun laaja H-H (SJ + lin5m + lin30m) saatavilla.
+  let rajahtavyys = '';
+  if (hv.sj != null && hv.lin5m != null && hv.lin30m != null && typeof laskeVNE === 'function') {
+    const taso30m = (ika != null) ? eerikkilaTaso(+hv.lin30m, 'nopeus_30m', ika, sp) : null;
+    const ei  = (typeof laskeEI  === 'function') ? laskeEI(+hv.cmj, +hv.sj, ika) : null;
+    const fvp = (typeof laskeFVP === 'function') ? laskeFVP(+hv.lin5m, +hv.lin30m, p.pelipaikka) : null;
+    const vne = laskeVNE({ cmj:+hv.cmj, sj:+hv.sj, m5:+hv.lin5m, m30:+hv.lin30m, taso30m:taso30m, ika:ika, pelipaikka:p.pelipaikka });
+    const osat = [];
+    if (ei  && ei.arvo  != null) osat.push('EI: ' + ei.arvo + ' cm (' + ei.tulkinta + (ei.tavoite!=null?', tavoite ≥'+ei.tavoite+' cm':'') + ')');
+    if (fvp && fvp.arvo != null) osat.push('FVP: ' + fvp.arvo + ' (' + String(fvp.profiili).replace(/_/g,' ') + ')');
+    if (vne && vne.profiiliKuvaus) osat.push('VNE: ' + vne.profiiliKuvaus);
+    if (osat.length) rajahtavyys = '<div class="detail-yhteenveto"><b>Räjähtävyysprofiili</b><br>' + osat.join('<br>') + '</div>';
+  }
   return `
     <button class="detail-sulje" onclick="_suljeDetail()">×</button>
     <div class="detail-otsikko">Fyysinen profiili — ${_devNimi(p)}${ika!=null?', '+ika+'v':''}</div>
@@ -4013,6 +4027,7 @@ function _buildHHDetail(p) {
     </div>
     ${vahvin ? `<div class="detail-yhteenveto">Vahvin: <b>${vahvin.label}</b> (taso ${vahvin.taso}) · Heikoin: <b>${heikoin.label}</b> (taso ${heikoin.taso})</div>`
              : (ika==null ? '<div class="detail-yhteenveto">Ikä/sukupuoli puuttuu → normivertailua ei voida laskea.</div>' : '')}
+    ${rajahtavyys}
     ${suositus ? `<div class="detail-suositus">→ Suositus: ${suositus}</div>` : ''}
   `;
 }
@@ -4025,8 +4040,9 @@ function _buildTSIDetail(p) {
   if (t != null) {
     if (t <= 0)       { tulkinta = '🔥 Pallo nopeuttaa ' + Math.abs(t).toFixed(2) + 's'; vari = 'var(--teal)'; suositus = 'Ylläpidä — pallollinen nopeus on pallotonta parempi.'; }
     else if (t <= 0.5){ tulkinta = '✅ Tekninen vapaus (' + t.toFixed(2) + 's)';         vari = 'var(--teal)'; suositus = 'Ylläpidä — pallo hidastaa alle tavoiterajan.'; }
-    else if (t <= 1.0){ tulkinta = 'Pallo hidastaa ' + t.toFixed(2) + 's (hyvä taso)';    vari = 'var(--amber)'; suositus = 'Päivittäinen pallokuljetus vauhdissa — sama rata pallolla ja ilman.'; }
-    else              { tulkinta = '⚠️ Pallo hidastaa ' + t.toFixed(2) + 's';             vari = 'var(--red)';   suositus = 'Prioriteetti: pallokuljetus täydessä vauhdissa joka päivä.'; }
+    else if (t <= 1.0){ tulkinta = 'Kehitettävä — pallo hidastaa ' + t.toFixed(2) + 's';  vari = 'var(--amber)'; suositus = 'Päivittäinen pallokuljetus vauhdissa — sama rata pallolla ja ilman.'; }
+    else if (t <= 1.5){ tulkinta = '⚠️ Pallo hidastaa ' + t.toFixed(2) + 's';             vari = 'var(--red)';   suositus = 'Prioriteetti: pallokuljetus täydessä vauhdissa joka päivä.'; }
+    else              { tulkinta = '🔴 Kriittinen — pallo hidastaa ' + t.toFixed(2) + 's, tekniikkatyö välttämätön'; vari = 'var(--red)'; suositus = 'Kriittinen: päivittäinen pallonkäsittely vauhdissa + tekninen perustyö joka päivä.'; }
   }
   return `
     <button class="detail-sulje" onclick="_suljeDetail()">×</button>
@@ -4043,6 +4059,10 @@ function _buildTSIDetail(p) {
 
 function _buildTKIDetail(p) {
   const np = _devIkaSp(p); const ika = np.ika;
+  // SSOT-huom: per-laji TK_MERKKIRAJAT korvattu TK_KOKONAISRAJAT-kokonaisajalla → näytä ikäluokan
+  // kokonaisaika-mitalirajat (per-laji kulta/hopea/pronssi -kynnyksiä ei ole enää tallennettu).
+  const tkSp = (np.sp === 'N') ? 'T' : 'P';
+  const _tkr = (typeof TK_KOKONAISRAJAT !== 'undefined' && ika != null && TK_KOKONAISRAJAT[tkSp]) ? TK_KOKONAISRAJAT[tkSp][ika] : null;
   const tki = p.tki_viimeisin;
   const merkki = (typeof _tkiMerkkiM === 'function') ? _tkiMerkkiM(tki, p.tki_merkki) : null;
   const kehitys = p.tki_kehityskohde ? _tkLajiNimi(p.tki_kehityskohde) : null;
@@ -4060,6 +4080,7 @@ function _buildTKIDetail(p) {
         return `<div class="detail-rivi"><span>${_tkLajiNimi(l)}</span><span style="color:${onV?'var(--teal)':onK?'var(--amber)':'var(--ink3)'}">${onV?'★ vahvuus':onK?'← kehitä':''}</span></div>`;
       }).join('')}
     </div>
+    ${_tkr ? `<div class="detail-yhteenveto">Ikäluokan mitalirajat (kokonaisaika, ${ika}v): 🥇 ≤${_tkr.kulta}s · 🥈 ≤${_tkr.hopea}s · 🥉 ≤${_tkr.pronssi}s</div>` : ''}
     ${kultaikkuna ? '<div class="detail-yhteenveto">Kultaikkuna U8–12: nyt on tehokkain aika kehittää tekniikkaa.</div>' : ''}
     ${(kehitys||vahvuus) ? `<div class="detail-suositus">${kehitys?'🎯 Kehitä: '+kehitys:''}${(kehitys&&vahvuus)?' · ':''}${vahvuus?'💪 Vahvuus: '+vahvuus:''}</div>` : ''}
     <div class="detail-suositus">→ Suositus: ${suositus}</div>
