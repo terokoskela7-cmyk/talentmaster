@@ -852,3 +852,49 @@ oikeasta kenttäkäytöstä. Lukupuoli (joukkuepulssi + S9) toimii heti kun pika
 - **Joukkue-haku case-insensitive fallback** (`_lataaPelaajat`): Firestore `where` on case-sensitive → "SIBBO-VARGARNA P10" ≠ "Sibbo-Vargarna P10" → 0 osumaa. Jos tarkka kysely = 0, hae kaikki seuran pelaajat + suodata clientissa case-insensitively (joukkue/joukkueet[]).
 - **D1/D2-KPI piilossa** kunnes recalcHH tallentaa `d1_taso` (Firestoressa vain `d2_taso`) — ks. §26 TODO. EI johdeta lennossa raakadatasta.
 - KPI-prioriteetti (`_renderPinfoFirestore`): M1 FLEI→H-H, M2 TKI→TSI, M3 D1/D2 (ei JOUKKUE). "Näytä mitä on, piilota mitä ei" — ei "Ei mittauksia".
+
+---
+
+## 30. KPI MASTER ARCHITECTURE — kanoninen viite indeksi-/mittari-/detail-työlle (2026-06-07)
+
+> **Täysi kanoninen doc: [`docs/KPI_MASTER_ARCHITECTURE.md`](docs/KPI_MASTER_ARCHITECTURE.md)** — 17 testiä, 10 indeksiä,
+> detail-spec, signaalit, seuradatakartta, Firestore-kenttäluettelo, tutkimusperusta. Ristiriidassa **täysi doc voittaa**.
+> Tämä §30 = tiivistys avainluvuilla. Lue ennen kaikkea indeksi-/mittari-/detail-paneelityötä.
+
+**11 arkkitehtuuriperiaatetta (pysyvät):** raakadata Firestoreen, indeksit lennossa · Eerikkilä = SSOT fyysinen (5-port) ·
+TK-merkkirajat = SSOT tekninen · H-H pujottelu/syöttö = FINAL2024 3-port · mittaus universaali, normit lokaalit ·
+sama testi + eri protokolla → **molemmat rinnakkain** · data-tietoinen UI · **OVR ei aktivoidu ennen ≥3 dimensiota** ·
+**FLEI = pohjavalmiusindeksi, EI dimensio** · **RAE-korjaus** (Q1 0.92 · Q2 0.96 · Q3 1.02 · Q4 1.06) ·
+**PHV ohittaa kronologisen iän AINA**.
+
+**Raakadata = 17 testiä:** D1 fyysinen `hh_viimeisin.{lin5m,lin10m,lin30m,cmj,sj,mas,kasirata}` (Eerikkilä 5-port) ·
+`sm_juoksu`(D1→D2-silta)/`sm_pallo`(D2) · H-H tekniikka `pujottelu/syotto` (FINAL2024 3-port) ·
+TK U8–13 (ponnauttelu/syöttö/pujottelu/kulj-laukaus/pituuspotku, merkkirajat) · FLEI 5 ketjua (SBL/SFL/LL/DIAG/DFL, 1–3).
+FLEI-normalisointi `(arvo-1)/2×100` = 0–100 %; **<40 % → klinikkalähetys**. **MAS tallennettu km/h, normi m/s → ÷3.6 laskentaan.**
+
+**Johdetut indeksit — Kerros B (koodi valmis, UI puuttuu, `docs/testit_indeksit.js`):**
+- **EI** = CMJ − SJ (näytä kun SJ saatavilla; tavoite ikäkohtainen, esim. ≥5 cm)
+- **FVP** = Lin5m / (Lin30m/6) — <0.90 nopeus · >1.10 voima · väliin tasapainoinen
+- **VNE** = EI+FVP+nopeus → Räjähdys/Jousi/Moottori/Rakentaja/Perusta
+- **OVR** = D1·0.40+D2·0.25+D3·0.15+D4·0.10+D5·0.10 — **EI VIELÄ** (vaatii ≥3 dim) + RAE-korjaus myöhemmin
+
+**Pujottelu/syöttö — kaksi protokollaa, yksi rata:** H-H = populaationormi ("vertaa kaikkiin ikäisiin",
+`eerikkilaTaso` 3-port) · TK = huippukynnys ("mitalitasolla?", `TK_MERKKIRAJAT`/`tkLaskeMerkki`) → **molemmat rinnakkain**.
+
+**Detail-paneelien laajennukset (VAIHE 1 jatko, §29):** H-H-detailiin **EI/FVP/VNE** kun laaja H-H (SJ+lin5m) ·
+TSI-detailiin **H-H pujottelu/syöttö** (3-port) kun saatavilla · TKI-detailiin **per-laji TK_MERKKIRAJAT-kynnykset**
+(kulta/hopea/pronssi näkyviin) + kultaikkuna-konteksti (≤12 🔥 auki · 13–14 ⚡ sulkeutuu · ≥15 📊 toistot).
+
+**Signaalit (kynnykset):** Hidden Gem = **D2≥3.5 + D1≤2.5 + erotus≥1.0** · X-Factor = mikä tahansa testi taso 5 ·
+Kehitysvauhti ↓ delta<−0.3 / ↑ >+0.5 · FLEI<40 % → KLINIKKA · TSI>1.5s → PALLO ⚠️ · Kultaikkuna = ikä≤12 + TKI<40.
+
+**Normifunktiot (lennossa, EI tallenneta):** `eerikkilaTaso(arvo,testi,ika,sp)` 1–5/1–3 · `eerikkilaNormiarvo(testi,ika,sp)`
+taso-3-kynnys · `tkLaskeMerkki` · `tkLaskeTKI` (syöttö·0.40+pujottelu·0.30+ponnauttelu·0.20+KL·0.10) ·
+`laskeEI(cmj,sj,ika)` · `laskeFVP(m5,m30,paikka)` · `laskeVNE(...)` · `laskeTSI(smPallo,smJuoksu)`.
+
+**Seuradatakartta (mitä kentät per seura on):** **SJK** = hh_taso/hh_viimeisin/d2/tsi (ei TKI/FLEI) ·
+**Sibbo** = tki + kehityskohde/vahvuus, merkki usein null (ei H-H/FLEI) · **Demo/KPV** = FLEI + ketjut + TKI + H-H.
+`d1_taso` puuttuu kaikilta (TODO recalcHH, §26). Täysi kartta + Firestore-kenttäluettelo: canonical doc §8/§11.
+
+**Tutkimusperusta (roadmap, canonical doc §9):** FIFA 11+ Kids (Sprint 5) · FMS+YBT+CMJ-seulonta (Sprint 5–6) ·
+rotaatiotaito/DIAG-harjoitteet (Sprint 5) · bio-banding = kehitysikkunat (VAIHE 3) · quadrant/HRV (Sprint 6+).
