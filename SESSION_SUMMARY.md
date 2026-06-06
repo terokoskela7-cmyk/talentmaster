@@ -1,6 +1,6 @@
 # TalentMaster™ — Session Summary
 # Briefingi uusia Claude-sessioita varten
-# Päivitetty: 2026-06-03
+# Päivitetty: 2026-06-06
 
 ---
 
@@ -12,6 +12,19 @@ TalentMaster on jalkapallon pelaajankehitysalusta (SaaS, multi-tenant). Firebase
 
 **Filosofia:** *"Pelaaja ensin, hallinto vahvistaa"*
 **Kilpailupositiointi:** *"Transfermarkt shows what. TalentMasterID shows how."*
+
+---
+
+## Sessio 2026-06-06 (Mac) — Suljettu kehityssilmukka (VAIHE 1–2), roolinvaihto, Pelaaja-korjaukset
+
+> Master_v16 Kehitys + Pelaaja_v7 + roolinvaihto. Kaikki diff-tarkistettu + `node --check` ennen committia.
+
+- **VAIHE 1 — detail-paneelit** (`8fcbb13`): KPI-kortin klikkaus → normikonteksti. H-H (Eerikkilä-tasot `hh_viimeisin`:stä lennossa, uusi `eerikkilaNormiarvo`), TSI (SM-juoksu/pallo), TKI (lajit + mitali + kultaikkuna) + suositus. **MAS-yksikkö: data km/h, Eerikkilä-normi m/s → ÷3.6** (muuten taso aina 5). `lib/tm_eerikkila_normit.js` ladattu Masteriin.
+- **VAIHE 2 — kehitysvauhti/delta** (`993616f`): uudet kentät `hh_taso_edellinen`/`tki_edellinen`(+`_pvm`) vangitaan Excel-tuonnissa **vain aidolla uudella testillä** (pvm-vahti). Master KPI-delta-badge (↑+/↓−/→), VP-pulssikortti "(n/N parantunut)". recalcHH EI vangitse (recompute = norm-migraatio).
+- **Master Kehitys data-tietoiseksi** (`586746e`,`7214777`): KPI-prioriteetti FLEI→H-H, TKI→TSI, D1/D2; "näytä mitä on, piilota mitä ei". TSI selitetty (⚠️ Pallo hidastaa / ✅ Tekninen vapaus). Sibbo: TKI ilman mitalia + kehityskohde/vahvuus. **D1/D2 piilossa kunnes recalcHH tallentaa `d1_taso`** (TODO §26).
+- **Master pelaajalistaus AINA Firestoresta** (`69b8cf6`): renderDev-gate `!_demo && _seuraId` (ei `length>0`) → ei demo-pelaajia tuotannossa. **Case-insensitive joukkue-fallback** (`f9c9c66`): "SIBBO-VARGARNA P10" ≠ "Sibbo-Vargarna P10" → 0 osumaa korjattu (hae kaikki + suodata clientissa).
+- **Roolinvaihto** (`1f68c6e`,`274b073`): Seura rooli-pudotusvalikko → `vaihdaKayttajanRooli`-CF; VP OSA 3 rooli-sync (retry + 1×/sivulataus → ei 60s-uloskirjautumista). Seura-roolit kuuluvat Seura.html:ään (Admin.html kirjaa ne ulos by design).
+- **Pelaaja_v7** (`6117b93`,`3c9f27a`,`aac3ab0`…`33031b7`): harjoite-dedup (kerran/päivä, `tehty_<tyyppi>`), idol-ohje KOTI-D-korttiin, **fiilinki token-refresh + ei valeonnistumista** ([[silent-failure]]), PIN-kirjautumisnäytön redesign (streak-hero + idol + KPI; DM Sans streak-numero).
 
 ---
 

@@ -1,5 +1,14 @@
 # TalentMaster™ — Kehityssuunnitelma (Roadmap)
-## Päivitetty 2026-04-19
+## Päivitetty 2026-06-06
+
+---
+
+## ✅ TEHTY — Suljettu kehityssilmukka, Sprint 4 (2026-06)
+- [x] **VAIHE 1 — detail-paneelit** (Master_v16 Kehitys): KPI-klikkaus → Eerikkilä-normivertailu (H-H/TSI/TKI) + suositus. `eerikkilaNormiarvo`, MAS-yksikkökorjaus km/h↔m/s.
+- [x] **VAIHE 2 — kehitysvauhti/delta**: `hh_taso_edellinen`/`tki_edellinen` (pvm-vahti, vain uusi testi) → Master KPI-badge ↑/↓ + VP pulssikortti "(n/N parantunut)".
+- [ ] **VAIHE 3 — kehitysikkunat** (motorinen/PHV/voima biologinen konteksti detail-paneeliin)
+- [ ] **VAIHE 4 — reseptimalli** (valmentajan hyväksyntä → Pelaaja_v7 KOTI, suljettu silmukka)
+- [x] Roolinvaihto: Seura-pudotusvalikko → `vaihdaKayttajanRooli`-CF + VP rooli-sync. Master Kehitys data-tietoiseksi + AINA Firestore (ei demo) + joukkue case-insensitive. (Ks. CLAUDE.md §29.)
 
 ---
 

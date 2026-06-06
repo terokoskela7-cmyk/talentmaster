@@ -830,3 +830,25 @@ oikeasta kenttäkäytöstä. Lukupuoli (joukkuepulssi + S9) toimii heti kun pika
 **Toteutus:** tekniikkakilpailutulokset ovat `testitulokset/`-alikokoelmassa (`merkki`/`ika`/`pvm`), mutta §26 = ei alikokoelmakyselyjä renderöinnissä → **pikakenttä** `tekninen_varhaiskehitys: {merkki, ika, pvm}` (null jos ei) lasketaan tuonnissa/recalcissa pelaajan tekniikkakilpailuhistoriasta (paras kulta/hopea kun ika 8–12).
 
 **Käytännön rajoite (2026-06):** pilottidatassa ei vielä PHV:tä → Hidden Gem porrastettava: **ehdokas** (korkea D2 + matala D1, toimii nyt) → **vahvistettu** (+ PRE-PHV, kun bio-ikä mitattu) → **varhaiskehitys vahvistettu** (+ tekniikkamitali U8–U12, longitudinaalinen).
+
+---
+
+## 29. SULJETTU KEHITYSSILMUKKA — Testi→Diagnoosi→Resepti→Seuranta (Master_v16 Kehitys, 2026-06)
+
+> Suunnitelma 4 vaihetta: **1** detail-paneelit · **2** kehitysvauhti/delta · **3** kehitysikkunat · **4** reseptimalli. VAIHE 1–2 toteutettu.
+
+**VAIHE 1 — detail-paneelit** (`_avaaDetail` → `_buildHHDetail`/`_buildTSIDetail`/`_buildTKIDetail`, modal `#detailModal`). KPI-kortin (H-H/TKI/TSI, →-vihje) klikkaus → mistä numero koostuu + Eerikkilä-normivertailu + suositus.
+- Normit lennossa: `eerikkilaTaso` + uusi **`eerikkilaNormiarvo(testi,ika,sp)`** (taso-3 kynnys = ikäluokan keskitaso, "Normi"-sarake). `lib/tm_eerikkila_normit.js` ladataan Masteriin (`?v=1`).
+- Ikä/sp: `syntymaVuosi` tai **joukkuenimi-fallback** ("SJK P15"→15/M) — pilottidatassa syntymaVuosi usein puuttuu.
+- **⚠️ MAS-yksikkö:** data on **km/h**, Eerikkilä-normi **m/s** → `eerikkilaTaso(mas/3.6,…)` laskentaan, normi ×3.6 näyttöön. Ilman muunnosta MAS näyttää aina tasoa 5. (30m/CMJ/SM-juoksu ei muunnosta.)
+
+**VAIHE 2 — kehitysvauhti (delta)** — "kertoo kehittyykö pelaaja, ei vain missä on".
+- Uudet pelaajakentät **`hh_taso_edellinen`/`tki_edellinen`** (+`_pvm`). Vangitaan **vain aidolla uudella testillä** — **pvm-vahti** `vanhaPvm !== uusiPvm` (Excel-pää­tuonti `p._firestoreData`:sta + recalcIkaluokasta). Estää re-importin nolladeltan.
+- **recalcHH EI vangitse edellistä** (laskee saman datan uudelleen = norm-migraatio, ei kehitys). Vangitseminen vain aidossa uuden testin tuonnissa.
+- Näkymä: Master KPI-badge `_deltaBadge` (↑+ vihreä / ↓− punainen / → harmaa, H-H 1 des / TKI 0 des). VP `laskeJoukkueSuunta` (käytti jo `hh_taso_edellinen`) → pulssikortin H-H-suunta + **"(n/N parantunut)"**. Delta syttyy 2. testillä.
+
+**Tämän kierroksen Kehitys-invariantit:**
+- **renderDev kirjautuneena AINA Firestore** (`!_demo && _seuraId`, EI `_pelaajatData.length>0`) → tyhjällä datalla lataustila, ei demo-/TMBus-seediä tuotannossa.
+- **Joukkue-haku case-insensitive fallback** (`_lataaPelaajat`): Firestore `where` on case-sensitive → "SIBBO-VARGARNA P10" ≠ "Sibbo-Vargarna P10" → 0 osumaa. Jos tarkka kysely = 0, hae kaikki seuran pelaajat + suodata clientissa case-insensitively (joukkue/joukkueet[]).
+- **D1/D2-KPI piilossa** kunnes recalcHH tallentaa `d1_taso` (Firestoressa vain `d2_taso`) — ks. §26 TODO. EI johdeta lennossa raakadatasta.
+- KPI-prioriteetti (`_renderPinfoFirestore`): M1 FLEI→H-H, M2 TKI→TSI, M3 D1/D2 (ei JOUKKUE). "Näytä mitä on, piilota mitä ei" — ei "Ei mittauksia".
