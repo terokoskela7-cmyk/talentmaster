@@ -4607,19 +4607,24 @@ async function _lataaMassakutsuPelaajat() {
       });
     });
 
-    // Suodata: vain pelaajat joilla huoltajaEmail JA suostumus ei vielä annettu
-    var lahetettavat = pelaajat.filter(function(p) {
-      return p.huoltajaEmail && p.suostumusTila !== 'annettu';
-    });
+    // Luokittelu: uudet (pilotti/tyhjä) vs jo kutsutut (odottaa) vs suostumus annettu
     var eiEmailia = pelaajat.filter(function(p) { return !p.huoltajaEmail; }).length;
     var joAnnettu = pelaajat.filter(function(p) { return p.suostumusTila === 'annettu'; }).length;
+    var joKutsutut = pelaajat.filter(function(p) {
+      return p.huoltajaEmail && p.suostumusTila === 'odottaa';
+    });
+    var uudetPelaajat = pelaajat.filter(function(p) {
+      return p.huoltajaEmail && p.suostumusTila !== 'annettu' && p.suostumusTila !== 'odottaa';
+    });
 
-    _massakutsuDataKaikki = lahetettavat.sort(function(a,b) {
+    // Oletuksena vain uudet (ei vielä kutsutut). Tallennetaan myös kutsutut erikseen.
+    window._massakutsuJoKutsutut = joKutsutut;
+    _massakutsuDataKaikki = uudetPelaajat.sort(function(a,b) {
       return (a.sukunimi || '').localeCompare(b.sukunimi || '');
     });
     _massakutsuData = _massakutsuDataKaikki.slice();
 
-    // Joukkueet dropdowniin
+    // Joukkueet dropdowniin (kaikista lähetettävistä)
     var joukkueetMap = {};
     _massakutsuDataKaikki.forEach(function(p) {
       var j = p.joukkue || '(ei joukkuetta)';
@@ -4629,22 +4634,34 @@ async function _lataaMassakutsuPelaajat() {
     var joukkueet = Object.keys(joukkueetMap).sort();
 
     if (jkSelect) {
-      jkSelect.innerHTML = '<option value="">Koko seura (' + _massakutsuDataKaikki.length + ' pelaajaa)</option>';
+      jkSelect.innerHTML = '<option value="">Koko seura (' + _massakutsuDataKaikki.length + ' uutta)</option>';
       joukkueet.forEach(function(j) {
         var opt = document.createElement('option');
         opt.value = j;
         opt.textContent = j + ' (' + joukkueetMap[j] + ')';
         jkSelect.appendChild(opt);
       });
+      // Lisää "uudelleenlähetys"-vaihtoehto jos on jo kutsuttuja
+      if (joKutsutut.length > 0) {
+        var sep = document.createElement('option');
+        sep.disabled = true;
+        sep.textContent = '── Uudelleenlähetys ──';
+        jkSelect.appendChild(sep);
+        var reOpt = document.createElement('option');
+        reOpt.value = '__jo_kutsutut__';
+        reOpt.textContent = '🔄 Jo kutsutut — odottaa (' + joKutsutut.length + ')';
+        jkSelect.appendChild(reOpt);
+      }
     }
 
     // Infolaatikko
     if (infoBoksi) {
       var osat = [];
       osat.push('Yhteensä ' + pelaajat.length + ' pelaajaa seurassa.');
-      if (joAnnettu > 0) osat.push(joAnnettu + ' suostumus jo annettu (ei lähetetä uudelleen).');
-      if (eiEmailia > 0) osat.push(eiEmailia + ' ilman huoltajan sähköpostia (ei voi lähettää).');
-      osat.push('<strong>' + lahetettavat.length + ' pelaajaa valmiina lähetettäväksi.</strong>');
+      if (joAnnettu > 0) osat.push('✅ ' + joAnnettu + ' suostumus jo annettu (ei lähetetä).');
+      if (joKutsutut.length > 0) osat.push('📨 ' + joKutsutut.length + ' kutsu jo lähetetty (valitse "Jo kutsutut" lähettääksesi uudelleen).');
+      if (eiEmailia > 0) osat.push('⚠️ ' + eiEmailia + ' ilman huoltajan sähköpostia.');
+      osat.push('<strong>📋 ' + uudetPelaajat.length + ' uutta pelaajaa valmiina lähetettäväksi.</strong>');
       infoBoksi.innerHTML = osat.join('<br>');
       infoBoksi.style.display = '';
     }
@@ -4660,16 +4677,29 @@ async function _lataaMassakutsuPelaajat() {
 function suodataMassakutsuJoukkue() {
   var valinta = document.getElementById('massakutsuJoukkueValinta');
   var joukkue = valinta ? valinta.value : '';
-  if (joukkue) {
+  if (joukkue === '__jo_kutsutut__') {
+    // Uudelleenlähetys: näytä jo kutsutut pelaajat
+    _massakutsuData = (window._massakutsuJoKutsutut || []).slice();
+  } else if (joukkue) {
     _massakutsuData = _massakutsuDataKaikki.filter(function(r) { return r.joukkue === joukkue; });
   } else {
     _massakutsuData = _massakutsuDataKaikki.slice();
   }
   _renderMassakutsuEsikatselu();
   var lkmEl = document.getElementById('massakutsuSuodatettuLkm');
-  if (lkmEl) lkmEl.textContent = joukkue
-    ? _massakutsuData.length + '/' + _massakutsuDataKaikki.length + ' valittu'
-    : '';
+  if (lkmEl) {
+    if (joukkue === '__jo_kutsutut__') {
+      lkmEl.innerHTML = '<span style="color:var(--amber);">⚠️ Uudelleenlähetys — nämä pelaajat ovat jo saaneet kutsun</span>';
+    } else if (joukkue) {
+      lkmEl.textContent = _massakutsuData.length + '/' + _massakutsuDataKaikki.length + ' valittu';
+    } else {
+      lkmEl.textContent = '';
+    }
+  }
+}
+
+function _escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function _renderMassakutsuEsikatselu() {
@@ -4677,13 +4707,13 @@ function _renderMassakutsuEsikatselu() {
   var lkm   = document.getElementById('massakutsuLkm');
   var esi   = document.getElementById('massakutsuEsikatselu');
   if (tbody) tbody.innerHTML = _massakutsuData.map(function(r) {
-    var tilaVari = r.suostumusTila === 'pilotti' ? 'var(--ink3)' : (r.suostumusTila === 'odottaa' ? 'var(--amber)' : 'var(--ink3)');
-    var tilaTeksti = r.suostumusTila || 'ei tilaa';
+    var tilaVari = r.suostumusTila === 'odottaa' ? 'var(--amber)' : 'var(--ink3)';
+    var tilaTeksti = r.suostumusTila || 'pilotti';
     return '<tr>'
-      + '<td style="padding:7px 8px;font-size:12px;">' + r.etunimi + ' ' + r.sukunimi + '</td>'
-      + '<td style="padding:7px 8px;font-size:12px;color:var(--ink3);">' + (r.joukkue || '—') + '</td>'
-      + '<td style="padding:7px 8px;font-size:12px;color:var(--teal);">' + r.huoltajaEmail + '</td>'
-      + '<td style="padding:7px 8px;font-size:11px;color:' + tilaVari + ';">' + tilaTeksti + '</td>'
+      + '<td style="padding:7px 8px;font-size:12px;">' + _escHtml(r.etunimi) + ' ' + _escHtml(r.sukunimi) + '</td>'
+      + '<td style="padding:7px 8px;font-size:12px;color:var(--ink3);">' + _escHtml(r.joukkue || '—') + '</td>'
+      + '<td style="padding:7px 8px;font-size:12px;color:var(--teal);">' + _escHtml(r.huoltajaEmail) + '</td>'
+      + '<td style="padding:7px 8px;font-size:11px;color:' + tilaVari + ';">' + _escHtml(tilaTeksti) + '</td>'
       + '<td style="padding:7px 8px;font-size:11px;color:var(--ink3);">⏳ Odottaa</td>'
       + '</tr>';
   }).join('');
@@ -4699,6 +4729,17 @@ async function lahetaMassakutsu() {
     document.getElementById('massakutsuVirhe').textContent = 'Seura ei ole valittuna.';
     return;
   }
+
+  // #1 Vahvistus ennen lähetystä — estää vahinkoklikkauksella massalähetyksen
+  var uudet = _massakutsuData.filter(function(p) { return p.suostumusTila !== 'odottaa'; }).length;
+  var uudelleen = _massakutsuData.length - uudet;
+  var vahvistusViesti = 'Lähetetään ' + _massakutsuData.length + ' kutsua sähköpostilla.';
+  if (uudelleen > 0) {
+    vahvistusViesti += '\n\n⚠️ ' + uudelleen + ' pelaajalle on jo lähetetty kutsu aiemmin (tila: odottaa). '
+      + 'He saavat kutsun UUDELLEEN.';
+  }
+  vahvistusViesti += '\n\nJatketaanko?';
+  if (!confirm(vahvistusViesti)) return;
 
   const nappi    = document.getElementById('massakutsuLahetaNappi');
   const progress = document.getElementById('massakutsuProgress');
