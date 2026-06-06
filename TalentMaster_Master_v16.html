@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="lib/tm_eerikkila_normit.js?v=1"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -419,6 +420,23 @@ a { color: inherit; text-decoration: none; }
 .tag-x   { color: var(--teal);  background: var(--teal-bg);  border-color: var(--teal-brd); }
 .tag-gem { color: var(--purple); background: rgba(176,138,224,.08); border-color: rgba(176,138,224,.2); }
 .tag-warn{ color: var(--amber);  background: var(--amber-bg); border-color: rgba(224,166,83,.2); }
+
+/* Detail-paneeli (VAIHE 1 — suljettu kehityssilmukka) */
+.detail-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
+.detail-modal.auki{display:flex}
+.detail-box{background:#16171a;border:1px solid var(--line2,#2a2c31);border-radius:12px;max-width:540px;width:100%;max-height:85vh;overflow-y:auto;padding:22px 22px 20px;box-shadow:0 24px 64px rgba(0,0,0,.55)}
+.detail-otsikko{font-size:18px;color:var(--ink,#e8eef8);margin-bottom:14px;font-weight:600}
+.detail-taulukko{font-size:12px;margin-bottom:12px}
+.detail-rivi{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:.5px solid rgba(255,255,255,.05)}
+.detail-rivi span{text-align:right;white-space:nowrap}
+.detail-rivi span:first-child{flex:1;text-align:left;white-space:normal}
+.detail-otsikkorivi{color:var(--ink3);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.detail-summa{font-weight:600;border-bottom:none;border-top:1px solid rgba(255,255,255,.12);margin-top:2px;padding-top:8px}
+.detail-yhteenveto{font-size:12px;color:var(--ink2,#aeb4c0);line-height:1.5;margin:10px 0;padding:10px 12px;background:rgba(255,255,255,.03);border-radius:8px}
+.detail-suositus{font-size:13px;color:var(--teal,#28b090);line-height:1.5;margin-top:8px}
+.detail-sulje{float:right;background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;line-height:1;margin:-8px -4px 0 0}
+.pstat-klik{cursor:pointer}
+.pstat-klik:hover{opacity:.85}
 .tag-inj { color: var(--red);    background: var(--red-bg);   border-color: rgba(216,90,90,.2); }
 
 /* ADAR-lista — palautettu V10:stä */
@@ -1484,6 +1502,11 @@ a { color: inherit; text-decoration: none; }
       <button class="primary" onclick="sendReply()">Lähetä</button>
     </div>
   </div>
+</div>
+
+<!-- ══ DETAIL-PANEELI (VAIHE 1 — normikonteksti) ══ -->
+<div id="detailModal" class="detail-modal" onclick="if(event.target===this)_suljeDetail()">
+  <div class="detail-box" id="detailBox"></div>
 </div>
 
 <script>
@@ -3898,6 +3921,158 @@ function _pvmFiM(iso) {
   return m ? (parseInt(m[3],10) + '.' + parseInt(m[2],10) + '.' + m[1]) : String(iso);
 }
 
+/* ══ VAIHE 1 — DETAIL-PANEELIT (normikonteksti + suositus) ══════════
+   KPI-kortin klikkaus → mistä numero koostuu, miten suhtautuu normiin,
+   mitä valmentajan kannattaa tehdä. Eerikkilä-normit lasketaan lennossa.
+═══════════════════════════════════════════════════════════════════ */
+function _devIkaSp(p) {
+  let ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
+  let sp = (p.sukupuoli === 'P' || p.sukupuoli === 'M') ? 'M'
+         : (p.sukupuoli === 'T' || p.sukupuoli === 'N') ? 'N' : null;
+  const jm = String(p.joukkue || '').match(/\b([PTU])\s?(\d{1,2})\b/i);   // "SJK P15" → 15 / P
+  if (ika == null && jm) ika = parseInt(jm[2], 10);
+  if (sp == null && jm) sp = (jm[1].toUpperCase() === 'T') ? 'N' : 'M';
+  if (sp == null) sp = 'M';
+  return { ika: ika, sp: sp };
+}
+function _tasoPallot(taso, maks) {
+  maks = maks || 5; taso = taso || 0;
+  let s = '';
+  for (let i = 1; i <= maks; i++) s += (i <= taso) ? '●' : '○';
+  return s;
+}
+function _devNimi(p) { return ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id; }
+
+const _HH_SUOSITUS = {
+  nopeus_30m: 'Lähtönopeusharjoittelu 2×/vk — räjähtävät 10–20 m kiihdytykset.',
+  nopeus_10m: 'Reaktio + lähtö: merkistä lähdöt, 6×10 m.',
+  hyppy_cj:   'Plyometria + elastisuus: hyppelyt, loikat, pehmeät alastulot.',
+  mas:        'Aerobinen kapasiteetti: intervalliveto 15/15–30/30.',
+  sm_juoksu:  'Suunnanmuutosnopeus: ketteryysradat, jarrutus–kiihdytys.',
+};
+
+function _buildHHDetail(p) {
+  const np = _devIkaSp(p);
+  const ika = np.ika, sp = np.sp;
+  const hv = (p.hh_viimeisin && typeof p.hh_viimeisin === 'object') ? p.hh_viimeisin : {};
+  const lahteet = [
+    { label:'30m',       key:'nopeus_30m', arvo: hv.lin30m,             yks:'s' },
+    { label:'CMJ',       key:'hyppy_cj',   arvo: hv.cmj,                yks:'cm' },
+    { label:'MAS',       key:'mas',        arvo: hv.mas,                yks:'km/h' },
+    { label:'SM-juoksu', key:'sm_juoksu',  arvo: p.sm_juoksu_viimeisin, yks:'s' },
+  ].filter(t => t.arvo != null);
+  const onMoottori = (typeof eerikkilaTaso === 'function');
+  const rivit = lahteet.map(t => {
+    // MAS: data on km/h, Eerikkilä-normi m/s → muunna arvo m/s:ksi laskentaan, normi km/h:ksi näyttöön.
+    const onMas = (t.key === 'mas');
+    const arvoMoottorille = onMas ? (+t.arvo / 3.6) : +t.arvo;
+    const taso = (onMoottori && ika != null) ? eerikkilaTaso(arvoMoottorille, t.key, ika, sp) : 0;
+    let normi = (typeof eerikkilaNormiarvo === 'function' && ika != null) ? eerikkilaNormiarvo(t.key, ika, sp) : null;
+    if (normi != null && onMas) normi = Math.round(normi * 3.6 * 10) / 10;   // m/s → km/h
+    const pp = (typeof EERIKKILA_NORMIT !== 'undefined' && EERIKKILA_NORMIT[t.key]) ? EERIKKILA_NORMIT[t.key].pienempi_parempi : null;
+    let suunta = '—', svari = 'var(--ink3)';
+    if (normi != null && pp != null) {
+      if (Math.abs(+t.arvo - normi) < 1e-9) { suunta = '→ taso'; }
+      else if (pp ? (+t.arvo < normi) : (+t.arvo > normi)) { suunta = '▲ yli'; svari = 'var(--teal)'; }
+      else { suunta = '▼ alle'; svari = 'var(--red)'; }
+    }
+    return { label:t.label, yks:t.yks, arvo:t.arvo, taso:taso, normi:normi, suunta:suunta, svari:svari, key:t.key };
+  });
+  const validit = rivit.filter(r => r.taso > 0);
+  let vahvin = null, heikoin = null;
+  if (validit.length) {
+    vahvin  = validit.reduce((a,b) => b.taso > a.taso ? b : a);
+    heikoin = validit.reduce((a,b) => b.taso < a.taso ? b : a);
+  }
+  const suositus = heikoin ? (_HH_SUOSITUS[heikoin.key] || 'Kohdenna harjoittelu heikoimpaan osa-alueeseen.') : null;
+  return `
+    <button class="detail-sulje" onclick="_suljeDetail()">×</button>
+    <div class="detail-otsikko">Fyysinen profiili — ${_devNimi(p)}${ika!=null?', '+ika+'v':''}</div>
+    <div class="detail-taulukko">
+      <div class="detail-rivi detail-otsikkorivi"><span>Testi</span><span>Taso</span><span>Arvo</span><span>Normi</span><span>Suunta</span></div>
+      ${rivit.map(r => `<div class="detail-rivi">
+        <span>${r.label}</span>
+        <span class="mono">${_tasoPallot(r.taso)}</span>
+        <span>${r.arvo}${r.yks}</span>
+        <span>${r.normi!=null ? r.normi+r.yks : '—'}</span>
+        <span style="color:${r.svari}">${r.suunta}</span>
+      </div>`).join('')}
+    </div>
+    ${vahvin ? `<div class="detail-yhteenveto">Vahvin: <b>${vahvin.label}</b> (taso ${vahvin.taso}) · Heikoin: <b>${heikoin.label}</b> (taso ${heikoin.taso})</div>`
+             : (ika==null ? '<div class="detail-yhteenveto">Ikä/sukupuoli puuttuu → normivertailua ei voida laskea.</div>' : '')}
+    ${suositus ? `<div class="detail-suositus">→ Suositus: ${suositus}</div>` : ''}
+  `;
+}
+
+function _buildTSIDetail(p) {
+  const juoksu = p.sm_juoksu_viimeisin, pallo = p.sm_pallo_viimeisin;
+  const t = (p.tsi_viimeisin != null) ? +p.tsi_viimeisin
+          : (juoksu != null && pallo != null) ? Math.round((pallo - juoksu) * 100) / 100 : null;
+  let tulkinta = '—', vari = 'var(--ink3)', suositus = '';
+  if (t != null) {
+    if (t <= 0)       { tulkinta = '🔥 Pallo nopeuttaa ' + Math.abs(t).toFixed(2) + 's'; vari = 'var(--teal)'; suositus = 'Ylläpidä — pallollinen nopeus on pallotonta parempi.'; }
+    else if (t <= 0.5){ tulkinta = '✅ Tekninen vapaus (' + t.toFixed(2) + 's)';         vari = 'var(--teal)'; suositus = 'Ylläpidä — pallo hidastaa alle tavoiterajan.'; }
+    else if (t <= 1.0){ tulkinta = 'Pallo hidastaa ' + t.toFixed(2) + 's (hyvä taso)';    vari = 'var(--amber)'; suositus = 'Päivittäinen pallokuljetus vauhdissa — sama rata pallolla ja ilman.'; }
+    else              { tulkinta = '⚠️ Pallo hidastaa ' + t.toFixed(2) + 's';             vari = 'var(--red)';   suositus = 'Prioriteetti: pallokuljetus täydessä vauhdissa joka päivä.'; }
+  }
+  return `
+    <button class="detail-sulje" onclick="_suljeDetail()">×</button>
+    <div class="detail-otsikko">Tekniikka-nopeus — ${_devNimi(p)}</div>
+    <div class="detail-taulukko">
+      <div class="detail-rivi"><span>SM-juoksu (ilman palloa)</span><span>${juoksu!=null?juoksu+'s':'—'}</span><span class="mono">${p.sm_juoksu_taso?_tasoPallot(p.sm_juoksu_taso):''}</span></div>
+      <div class="detail-rivi"><span>SM-pallo (pallon kanssa)</span><span>${pallo!=null?pallo+'s':'—'}</span><span class="mono">${p.sm_pallo_taso?_tasoPallot(p.sm_pallo_taso):''}</span></div>
+      <div class="detail-rivi detail-summa"><span>TSI erotus</span><span style="color:${vari}">${t!=null?(t>0?'+':'')+t.toFixed(2)+'s':'—'}</span><span></span></div>
+    </div>
+    <div class="detail-yhteenveto" style="color:${vari}">${tulkinta} · Tavoite: alle 0.50s</div>
+    ${suositus ? `<div class="detail-suositus">→ Suositus: ${suositus}</div>` : ''}
+  `;
+}
+
+function _buildTKIDetail(p) {
+  const np = _devIkaSp(p); const ika = np.ika;
+  const tki = p.tki_viimeisin;
+  const merkki = (typeof _tkiMerkkiM === 'function') ? _tkiMerkkiM(tki, p.tki_merkki) : null;
+  const kehitys = p.tki_kehityskohde ? _tkLajiNimi(p.tki_kehityskohde) : null;
+  const vahvuus = p.tki_vahvuus ? _tkLajiNimi(p.tki_vahvuus) : null;
+  const LAJIT = ['ponnauttelu','syotto','pujottelu','kuljetus_laukaus','pituuspotku'];
+  const kultaikkuna = (ika != null && ika >= 8 && ika <= 12);
+  const suositus = kehitys ? (kehitys + ' joka päivä — lyhyt, laadukas toistosarja.') : 'Jatka monipuolista tekniikkaharjoittelua.';
+  return `
+    <button class="detail-sulje" onclick="_suljeDetail()">×</button>
+    <div class="detail-otsikko">Tekniikkaprofiili — ${_devNimi(p)}${ika!=null?', '+ika+'v':''}</div>
+    <div class="detail-rivi detail-summa"><span>TKI</span><span>${tki!=null?tki:'—'}${merkki?' '+merkki.emoji+' '+merkki.nimi:''}</span></div>
+    <div class="detail-taulukko" style="margin-top:10px">
+      ${LAJIT.map(l => {
+        const onK = p.tki_kehityskohde === l, onV = p.tki_vahvuus === l;
+        return `<div class="detail-rivi"><span>${_tkLajiNimi(l)}</span><span style="color:${onV?'var(--teal)':onK?'var(--amber)':'var(--ink3)'}">${onV?'★ vahvuus':onK?'← kehitä':''}</span></div>`;
+      }).join('')}
+    </div>
+    ${kultaikkuna ? '<div class="detail-yhteenveto">Kultaikkuna U8–12: nyt on tehokkain aika kehittää tekniikkaa.</div>' : ''}
+    ${(kehitys||vahvuus) ? `<div class="detail-suositus">${kehitys?'🎯 Kehitä: '+kehitys:''}${(kehitys&&vahvuus)?' · ':''}${vahvuus?'💪 Vahvuus: '+vahvuus:''}</div>` : ''}
+    <div class="detail-suositus">→ Suositus: ${suositus}</div>
+  `;
+}
+
+function _avaaDetail(tyyppi) {
+  const p = (_pelaajatData || []).find(x => x.id === _activePelaaja);
+  if (!p) return;
+  let html = '';
+  if (tyyppi === 'hh') html = _buildHHDetail(p);
+  else if (tyyppi === 'tsi') html = _buildTSIDetail(p);
+  else if (tyyppi === 'tki') html = _buildTKIDetail(p);
+  else return;
+  const box = document.getElementById('detailBox');
+  const modal = document.getElementById('detailModal');
+  if (box) box.innerHTML = html;
+  if (modal) modal.classList.add('auki');
+}
+function _suljeDetail() {
+  const modal = document.getElementById('detailModal');
+  if (modal) modal.classList.remove('auki');
+}
+window._avaaDetail = _avaaDetail;
+window._suljeDetail = _suljeDetail;
+
 function _renderPinfoFirestore(p) {
   const el = document.getElementById('pinfoCard');
   if (!el) return;
@@ -3923,7 +4098,7 @@ function _renderPinfoFirestore(p) {
   } else if (p.hh_taso != null) {
     const hh = +p.hh_taso;
     stats.push({ lbl:'H-H', val: String(hh), delta: hh>=4?'Vahva':hh>=3?'Keskitaso':'Kehittyvä',
-      color: hh>=4?'var(--teal)':hh>=3?'var(--amber)':'var(--red)' });
+      color: hh>=4?'var(--teal)':hh>=3?'var(--amber)':'var(--red)', detalji:'hh' });
   }
   // MITTARI 2: TKI → TSI → piilota
   if (tki != null) {
@@ -3932,7 +4107,7 @@ function _renderPinfoFirestore(p) {
       ? (tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu')
       : (p.tki_kehityskohde ? 'Kehitä: ' + _tkLajiNimi(p.tki_kehityskohde)
          : (tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu'));
-    stats.push({ lbl:'TKI', val: tki + (tkiM ? ' ' + tkiM.emoji : ''), delta: tkiDelta, color: tkiColor });
+    stats.push({ lbl:'TKI', val: tki + (tkiM ? ' ' + tkiM.emoji : ''), delta: tkiDelta, color: tkiColor, detalji:'tki' });
   } else if (p.tsi_viimeisin != null) {
     // KORJAUS 2: TSI selitetään — mitä luku tarkoittaa (pallon vaikutus nopeuteen).
     const tsi = +p.tsi_viimeisin;
@@ -3947,7 +4122,7 @@ function _renderPinfoFirestore(p) {
       tsiLbl = '⚠️ Pallo hidastaa'; tsiColor = 'var(--amber)';
       tsiTip = 'Pallo hidastaa pelaajaa ' + tsi + 's verrattuna pallottomaan nopeuteen. Tavoite: alle 0.5s.';
     }
-    stats.push({ lbl:'TSI', val: (tsi <= 0 ? Math.abs(tsi) : tsi) + ' s', delta: tsiLbl, title: tsiTip, color: tsiColor });
+    stats.push({ lbl:'TSI', val: (tsi <= 0 ? Math.abs(tsi) : tsi) + ' s', delta: tsiLbl, title: tsiTip, color: tsiColor, detalji:'tsi' });
   }
   // MITTARI 3: D1/D2 — KORJAUS 1: d1_taso EI ole Firestoressa kenelläkään (vain d2_taso) → piilossa
   // kunnes recalcHH tallentaa d1_taso:n. EI johdeta lennossa raakadatasta (hh_viimeisin = raa'at
@@ -3983,8 +4158,8 @@ function _renderPinfoFirestore(p) {
       <div class="pinfo-sub">${ika} · ${p.pelipaikka||'—'} · ${p.joukkue||_joukkue||'—'}</div>
     </div>
     ${stats.map(s=>`
-      <div${s.title ? ` title="${s.title}"` : ''}>
-        <div class="pstat-lbl">${s.lbl}</div>
+      <div${s.title ? ` title="${s.title}"` : ''}${s.detalji ? ` class="pstat-klik" onclick="_avaaDetail('${s.detalji}')"` : ''}>
+        <div class="pstat-lbl">${s.lbl}${s.detalji ? ' <span style="color:var(--teal)">→</span>' : ''}</div>
         <div class="pstat-val serif" style="color:${s.color}">${s.val}</div>
         <div class="pstat-delta mono" style="font-size:11px;color:var(--ink3)">${s.delta}</div>
       </div>`).join('')}
