@@ -963,3 +963,21 @@ Reaktiot (❤️💪⭐🔥) + "Viestitä perheelle →" -nappi jokaisessa korti
 - ADAR-pikakenttien kirjoituspiste (`paivitaAdarPikakentat`) ei vielä kytketty ADAR_Pikakorttiin (§26 TODO)
 - Sähköposti-/push-notifikaatiot — pilotissa ei tarvita, lisätään Sprint 6–7
 - Pelaaja ei voi vastata valmentajalle (yksisuuntainen toistaiseksi)
+
+## 33. SKAALAUTUVUUS & TEKNINEN VELKA — Sprint 6 + SaaS-suunta (2026-06-07)
+
+Täysi suunnitelma: **`docs/SKAALAUTUVUUS_JA_TEKNINEN_VELKA.md`** (kanoninen). Tislaus:
+
+**Lähtötila:** datakerros (multi-tenant, server-authz, domain-logiikka) skaalautuu. Este avoimelle
+kehitykselle = insinöörikuri puuttuu: 0 testiä, ei index-as-codea (lisätty nyt), Rules käsin Consolesta,
+frontend 6 000-rivisiä monoliitteja, funktio-törmäyksiä. Tähänastiset bugit = **hiljaisia failit**.
+
+**Sprint 6 (P0) — maksa ennen toista kehittäjää:**
+- A1 ✅ `firestore.indexes.json` luotu (havainnot/kehut/mentoroinnit) → `firebase deploy --only firestore:indexes`. Sitten koodi voi palata server-side-queryihin (luopua limit-ikkuna-kompromissista 333c36a/786f43e).
+- A2 KPI-yksikkötestit (Vitest): tkLaskeTKI, eerikkilaTaso, MAS-yksikkö, laskeEI/FVP/VNE, TSI-vyöhykkeet.
+- A3 funktio-törmäysten purku (laskeEI ym. 2 tiedostossa, last-loaded-wins) — A2:n edellytys.
+- A4 Rules-testit (`@firebase/rules-unit-testing`) + Rules CI:hin (selvitä GitHub Actions 403 = SA-rooli).
+- A5 `luotu`-kentän tyyppiristiriita: Master vertaa merkkijonona (`>= rajaPvm`), Pelaaja `toDate()` Timestampina → valitse Timestamp, migroi.
+- A6 repo-siivous: poista Master_v9/Pelaaja_v3, yhdistä tm_auth.js/tm-auth.js, versio pois tiedostonimestä.
+
+**SaaS-suunta:** B1 frontend moduuleiksi (Vite, strangler) · B2 observability (Sentry — hiljaiset failit näkyviin) · B3 tenant-self-service onboarding · **B4 GDPR (alaikäisten dataa EU — riski + kilpailuetu): retention, oikeus tulla unohdetuksi, audit, field-level Rules** · B5 suorituskyky/kustannus · B6 datamallin versiointi · B7 white-label/API/AI-insightit.
