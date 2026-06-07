@@ -1224,7 +1224,7 @@ a { color: inherit; text-decoration: none; }
           <button class="inbox-filter active" data-fil="unseen" onclick="setInboxFilter('unseen')">Näkemättä</button>
           <button class="inbox-filter" data-fil="attention" onclick="setInboxFilter('attention')">Huomio</button>
           <button class="inbox-filter" data-fil="parent" onclick="setInboxFilter('parent')">Vanhemmat</button>
-          <button class="inbox-filter" onclick="kuittaaKaikki()" style="margin-left:auto;font-size:10px;color:var(--ink3)">✓ Kuittaa kaikki</button>
+          <button onclick="kuittaaKaikki()" id="kuittaaKaikkiBtn" style="margin-left:auto;padding:7px 14px;background:var(--teal,#28B090);color:#fff;border:none;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;display:none;align-items:center;gap:6px;white-space:nowrap">✓ Merkitse kaikki luetuiksi</button>
         </div>
       </div>
       <div class="inbox-list" id="inboxList"></div>
@@ -3343,6 +3343,9 @@ function renderInbox(){
   const wsB=document.getElementById('wsInboxBadge');
   if(sbB){sbB.textContent=unseenN;sbB.style.display=unseenN?'inline-flex':'none';}
   if(wsB){wsB.textContent=unseenN;wsB.style.display=unseenN?'inline-flex':'none';}
+  // "Merkitse kaikki luetuiksi" -nappi: näkyy vain kun näkemättömiä, laskuri mukana
+  const kkBtn=document.getElementById('kuittaaKaikkiBtn');
+  if(kkBtn){kkBtn.style.display=unseenN>0?'inline-flex':'none';kkBtn.textContent='✓ Merkitse kaikki luetuiksi ('+unseenN+')';}
   // sub
   if(sub){
     const total=_getInboxEvents().length;
@@ -3459,6 +3462,7 @@ function renderInbox(){
       </div>
       <div class="inbox-actions" onclick="event.stopPropagation()">
         <button class="inbox-reply" onclick="openReply('${e.playerId}','${p.name}','${e.id}')">Viestitä perheelle →</button>
+        <button onclick="markSeen('${e.id}')" title="Merkitse luetuksi" style="padding:6px 10px;background:transparent;border:.5px solid var(--line);border-radius:8px;color:var(--ink2);font-size:11px;cursor:pointer;white-space:nowrap">✓ Luettu</button>
       </div>
     </div>`;
   }).join('');
