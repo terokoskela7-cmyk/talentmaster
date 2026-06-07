@@ -1182,21 +1182,21 @@ function laskeKokonaistulos(testit, ika, sp) {
   }
   return Math.round(summa * 100) / 100;
 }
-function tkLaskeMerkki(kokonaistulos, ika, sp) {
-  const rajat = (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
+function tkLaskeMerkki(kokonaistulos, ika, sp, rajatOverride) {
+  const rajat = rajatOverride || (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
   if (!rajat || kokonaistulos == null) return null;
-  if (kokonaistulos <= rajat.kulta)   return 'kulta';
-  if (kokonaistulos <= rajat.hopea)   return 'hopea';
-  if (kokonaistulos <= rajat.pronssi) return 'pronssi';
+  if (kokonaistulos < rajat.kulta)   return 'kulta';
+  if (kokonaistulos < rajat.hopea)   return 'hopea';
+  if (kokonaistulos < rajat.pronssi) return 'pronssi';
   return null;
 }
-function tkLaskeTKI(kokonaistulos, ika, sp) {
-  const rajat = (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
+function tkLaskeTKI(kokonaistulos, ika, sp, rajatOverride) {
+  var sukuRajat = rajatOverride || (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P']);
+  var rajat = (rajatOverride && rajatOverride.kulta != null) ? rajatOverride : (sukuRajat[Math.round(ika)] || null);
   if (!rajat || kokonaistulos == null || kokonaistulos <= 0) return null;
   let tki;
   if (kokonaistulos <= rajat.kulta) {
-    // Vyöhyke 4: interpoloi 80→99 (ideaali = puolet kultarajasta); kultarajalla 80, ei koskaan 100.
-    const ideaali = rajat.kulta * 0.5;
+    const ideaali = Math.min(rajat.kulta * 0.5, kokonaistulos * 0.5);
     tki = Math.max(80, Math.min(99, 80 + 20 * ((rajat.kulta - kokonaistulos) / (rajat.kulta - ideaali))));
   } else if (kokonaistulos <= rajat.hopea) {
     tki = 60 + 20 * ((rajat.hopea - kokonaistulos) / (rajat.hopea - rajat.kulta));

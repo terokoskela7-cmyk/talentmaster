@@ -449,13 +449,12 @@ function hhLaskeOVR(tasot) {
  * @returns {string|null} 'kulta'|'hopea'|'pronssi'|null
  */
 // Merkki KOKONAISTULOKSESTA (sekuntia, pienempi parempi) — ei enää lajikohtainen.
-function tkLaskeMerkki(kokonaistulos, ika, sp) {
-  const sukuRajat = TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'];
-  const rajat = sukuRajat[Math.round(ika)];
+function tkLaskeMerkki(kokonaistulos, ika, sp, rajatOverride) {
+  const rajat = rajatOverride || (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
   if (!rajat || kokonaistulos == null) return null;
-  if (kokonaistulos <= rajat.kulta)   return 'kulta';
-  if (kokonaistulos <= rajat.hopea)   return 'hopea';
-  if (kokonaistulos <= rajat.pronssi) return 'pronssi';
+  if (kokonaistulos < rajat.kulta)   return 'kulta';
+  if (kokonaistulos < rajat.hopea)   return 'hopea';
+  if (kokonaistulos < rajat.pronssi) return 'pronssi';
   return null;
 }
 
@@ -467,15 +466,18 @@ function tkLaskeMerkki(kokonaistulos, ika, sp) {
  * @returns {number} TKI 0–100
  */
 // TKI 0–100 nelivyöhykkeellä KOKONAISTULOKSESTA (sekuntia, pienempi parempi).
-function tkLaskeTKI(kokonaistulos, ika, sp) {
-  const sukuRajat = TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'];
-  const rajat = sukuRajat[Math.round(ika)];
+function tkLaskeTKI(kokonaistulos, ika, sp, rajatOverride) {
+  var sukuRajat = rajatOverride || (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P']);
+  // rajatOverride voi olla suoraan {kulta,hopea,pronssi} tai sukupuolittainen {P:{8:{...}}}
+  var rajat = (rajatOverride && rajatOverride.kulta != null)
+    ? rajatOverride
+    : (sukuRajat[Math.round(ika)] || null);
   if (!rajat || kokonaistulos == null || kokonaistulos <= 0) return null;
   let tki;
   if (kokonaistulos <= rajat.kulta) {
-    // Vyöhyke 4: interpoloi 80→99 kultarajalta kohti ideaalia (puolet kultarajasta).
-    // Kultarajalla täsmälleen 80; ei koskaan täyttä 100:aa (se olisi nollasuoritus).
-    const ideaali = rajat.kulta * 0.5;
+    // Vyöhyke 4: interpoloi 80→99 kultarajalta kohti ideaalia.
+    // Math.min estää ideaalin kasvamisen suuremmaksi kuin kokonaistulos
+    const ideaali = Math.min(rajat.kulta * 0.5, kokonaistulos * 0.5);
     tki = 80 + 20 * ((rajat.kulta - kokonaistulos) / (rajat.kulta - ideaali));
     tki = Math.max(80, Math.min(99, tki));
   } else if (kokonaistulos <= rajat.hopea) {
