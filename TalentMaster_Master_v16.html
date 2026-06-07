@@ -2082,8 +2082,11 @@ async function _lataaKirjaukset() {
       tulokset.forEach(r => kaikki.push(...r));
     }
 
-    // Järjestä uusimmasta vanhimpaan
-    _kirjaukset = kaikki.sort((a,b) => b.t - a.t).slice(0, 100);
+    // Järjestä uusimmasta vanhimpaan — näytä vain viimeisen 14 pv kirjaukset
+    const _14pvSitten = Date.now() - 14 * 86400000;
+    _kirjaukset = kaikki
+      .filter(k => k.t >= _14pvSitten)
+      .sort((a,b) => b.t - a.t).slice(0, 100);
     _kirjauksetLadattu = true;
 
     // Jos ei yhtään kirjausta löytynyt, yritä hakea suoraan pelaajadatasta

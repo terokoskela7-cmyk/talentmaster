@@ -2104,24 +2104,32 @@ async function lataaValmentajat() {
       return (rOrder[a.rooli]??5) - (rOrder[b.rooli]??5);
     });
 
-    // Hae viimeisin mentorointi per valmentaja
-    await Promise.all(_valmentajat.map(async v => {
-      try {
-        const mSnap = await db.collection('seurat').doc(_seuraId)
-          .collection('mentoroinnit')
-          .where('valmentajaId','==',v.id)
-          .orderBy('aika','desc').limit(1).get();
-        if (!mSnap.empty) {
-          const m = mSnap.docs[0].data();
+    // Hae KAIKKI mentoroinnit kerran (ei composite indexiä), ryhmittele clientissa
+    try {
+      const mAllSnap = await db.collection('seurat').doc(_seuraId)
+        .collection('mentoroinnit')
+        .orderBy('aika','desc').limit(100).get();
+      // Ryhmittele per valmentaja — ensimmäinen = viimeisin
+      var mentorMap = {};
+      mAllSnap.docs.forEach(function(d) {
+        var data = d.data();
+        var vid = data.valmentajaId;
+        if (vid && !mentorMap[vid]) mentorMap[vid] = data;
+      });
+      _valmentajat.forEach(function(v) {
+        var m = mentorMap[v.id];
+        if (m) {
           v.viimMentorointi = m.aika?.toDate ? m.aika.toDate() : new Date(m.aika);
           v.viimMentorointiPvm = v.viimMentorointi.toLocaleDateString('fi-FI');
           v.mentorointiPvt = Math.floor((Date.now() - v.viimMentorointi)/86400000);
         } else {
           v.viimMentorointi = null;
-          v.mentorointiPvt = 999; // ei koskaan mentoroitu
+          v.mentorointiPvt = 999;
         }
-      } catch(e) { v.mentorointiPvt = 999; }
-    }));
+      });
+    } catch(e) {
+      _valmentajat.forEach(function(v) { v.mentorointiPvt = 999; });
+    }
 
     // Sprint 2: VAI-arvojen laskenta rinnakkain — jokainen valmentaja saa _vai-kentän
     await lataaVAIArvot();
@@ -4097,17 +4105,19 @@ async function _lataaCoachHistoria(valmentajaId) {
   const el = document.getElementById('mentorHistoria');
   if (!el) return;
   try {
+    // Yksinkertaistettu query — ei vaadi composite indexiä.
+    // Hae kaikki mentoroinnit ja suodata clientissa per valmentaja.
     const snap = await db.collection('seurat').doc(_seuraId)
       .collection('mentoroinnit')
-      .where('valmentajaId','==',valmentajaId)
-      .orderBy('aika','desc').limit(10).get();
+      .orderBy('aika','desc').limit(50).get();
+    const docs = snap.docs.filter(function(d) { return d.data().valmentajaId === valmentajaId; }).slice(0, 10);
 
-    if (snap.empty) {
+    if (docs.length === 0) {
       el.innerHTML = '<div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px;">Ei mentorointihistoriaa — tee ensimmäinen kenttäkäynti tai lähetä viesti</div>';
       return;
     }
 
-    el.innerHTML = snap.docs.map(d => {
+    el.innerHTML = docs.map(d => {
       const m = d.data();
       const aika = m.aika?.toDate ? m.aika.toDate().toLocaleDateString('fi-FI') : '—';
       const onKenttakaynti = m.tyyppi === 'kenttäkäynti';
