@@ -973,8 +973,8 @@ kehitykselle = insinöörikuri puuttuu: 0 testiä, ei index-as-codea (lisätty n
 frontend 6 000-rivisiä monoliitteja, funktio-törmäyksiä. Tähänastiset bugit = **hiljaisia failit**.
 
 **Sprint 6 (P0) — maksa ennen toista kehittäjää:**
-- A1 ✅ `firestore.indexes.json` luotu (havainnot/kehut/mentoroinnit) → `firebase deploy --only firestore:indexes`. Sitten koodi voi palata server-side-queryihin (luopua limit-ikkuna-kompromissista 333c36a/786f43e).
-- A2 KPI-yksikkötestit (Vitest): tkLaskeTKI, eerikkilaTaso, MAS-yksikkö, laskeEI/FVP/VNE, TSI-vyöhykkeet.
+- A1 ✅ `firestore.indexes.json` luotu (havainnot/kehut/mentoroinnit). DEPLOY VIELÄ TEKEMÄTTÄ: `firebase deploy --only firestore:indexes`. Sitten koodi voi palata server-side-queryihin (luopua limit-ikkuna-kompromissista 333c36a/786f43e).
+- A2 🟡 ALOITETTU: `test/kpi.test.js` (8 testiä vihreät) + `npm test` (=`node --test`, EI Vitest — nolla riippuvuutta) + CI `.github/workflows/test.yml`. Kattaa EI/FVP/TKI/MAS-yksikkö-regressio. Lisää vielä: laskeVNE, TSI-vyöhykkeet, Hidden Gem. Root package.json oli väärin nimetty tsconfig → siirretty tsconfig.json:ksi.
 - A3 funktio-törmäysten purku (laskeEI ym. 2 tiedostossa, last-loaded-wins) — A2:n edellytys.
 - A4 Rules-testit (`@firebase/rules-unit-testing`) + Rules CI:hin (selvitä GitHub Actions 403 = SA-rooli).
 - A5 `luotu`-kentän tyyppiristiriita: Master vertaa merkkijonona (`>= rajaPvm`), Pelaaja `toDate()` Timestampina → valitse Timestamp, migroi.

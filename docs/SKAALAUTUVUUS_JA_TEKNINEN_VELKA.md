@@ -32,14 +32,22 @@ manuaalisesti (composite-index-failit, kentännimi-mismatchit, logout-tilavuodot
 - **Miksi:** index-as-code = uusi query ei pääse tuotantoon ilman, että sen indeksi on repossa.
   Tämä estää pysyvästi sen bugiluokan, jota jahtasimme commiteissa 333c36a / 786f43e.
 
-### A2. KPI-laskennan yksikkötestit (suurin tuotto)
-- **Työkalu:** Vitest (tai Jest). Aja `node --test` / CI:ssä.
-- **Kohteet:** `docs/testit_indeksit.js` + `tm_eerikkila_normit.js` puhtaat funktiot:
-  - `tkLaskeTKI`, `laskeKokonaistulos`, `tkLaskeMerkki` (kokonaisaika-logiikka)
-  - `eerikkilaTaso`, `eerikkilaNormiarvo` (+ MAS-yksikkömuunnos km/h↔m/s — tämä bugasi jo kerran)
-  - `laskeEI`, `laskeFVP`, `laskeVNE` (Layer B -indeksit)
-  - TSI-vyöhykkeet (5-vyöhyke), Hidden Gem -kynnys
-- **Fixturet:** käytä validoituja tapauksia (esim. Miko Alho MAS taso 2, TSI 1.4 → ⚠ ei 🔴).
+### A2. KPI-laskennan yksikkötestit (suurin tuotto) — 🟡 ALOITETTU 2026-06-07
+- **Työkaluvalinta:** **`node:test`** (Node sisäänrakennettu), EI Vitest. Perustelu: nolla
+  riippuvuutta, ei `npm install`/node_modules-paisetta repoon jolla ei vielä ole build-stepiä.
+  Sekä `docs/testit_indeksit.js` että `lib/tm_eerikkila_normit.js` ovat jo UMD (`module.exports`)
+  → importtautuvat suoraan. **Vitest on migraatiokohde kun B1 tuo build-stepin** (watch, coverage).
+- **Tehty (8 testiä, kaikki vihreät):** `test/kpi.test.js` + `package.json` (`npm test` = `node --test`)
+  + CI-workflow `.github/workflows/test.yml` (ajaa jokaisessa push/PR). Kattaa:
+  - EI = CMJ−SJ (+ A3-törmäysvartija: molemmat moduuliversiot samaa mieltä ydinarvosta)
+  - FVP = Lin5m/(Lin30m/6)
+  - TKI kokonaisaika → merkki → piste + monotonisuus (nopeampi aika ei laske TKI:tä)
+  - **MAS-yksikkö-REGRESSIO:** eerikkilaTaso odottaa m/s; km/h (14.4) saturoi taso 5 → muunnos /3.6 pakollinen
+  - eerikkilaNormiarvo m/s + taso 1–5 -kelvollisuus
+- **Vielä lisättävää:** `laskeVNE`, TSI-vyöhykkeet (5-vyöhyke, `laskeTSI`), Hidden Gem -kynnys,
+  ADAR-pisteet. Lisää validoituja fixtureita (esim. Miko Alho TSI 1.4 → ⚠ ei 🔴).
+- **Sivulöydös (→ A6):** root `package.json` sisälsi tsconfig-sisältöä (väärin nimetty) → siirretty
+  oikeaan `tsconfig.json`:ään, luotu oikea `package.json`.
 - **Miksi:** ilman näitä kuka tahansa contributor rikkoo laskennan hiljaa — eikä manuaalinen
   `node --check` huomaa logiikkavirhettä, vain syntaksin.
 
