@@ -1,10 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.3
+// TalentMaster™ — firestore.rules v3.4
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: Firebase Console → Firestore → Rules → liitä → Julkaise
 //         (EI GitHub Actionsilla — saa 403, CLAUDE.md §17 #10)
+//
+// Muutokset v3.3 → v3.4 (kalenteri-kokoelma):
+//   + seurat/{sid}/kalenteri/{tapahtumaId} — seuran pääkalenteri (KALENTERI_ARKKITEHTUURI.md §3).
+//     VP/johto: full CRUD. Valmentaja: create + field-level update (muistiinpanot, tila, soft-delete).
+//     Ei hard-deletea (audit-jälki, soft-delete update-kautta).
+//   + seurat/{sid}/kalenteri/{tapahtumaId}/lasnaolijat/{uid} — läsnäolovahvistukset.
+//     Osallistuja saa päivittää oman läsnäolonsa.
 //
 // Muutokset v3.2 → v3.3 (kirjaus-permissionit, PÄÄTÖS 1+2):
 //   + kirjaukset: VP + talenttivalmentaja (oma seura) eksplisiittinen kirjoitusoikeus.
@@ -502,6 +509,50 @@ service cloud.firestore {
       match /vp_kalenteri/{id} {
         allow read:  if onSuperAdmin() || onOmaSeura(seuraId);
         allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+      }
+
+      // ── KALENTERI (v3.4) — seuran pääkalenteri (KALENTERI_ARKKITEHTUURI.md §3) ──
+      // Korvaa legacy tapahtumat + vp_kalenteri + joukkueet/{jid}/kalenteri yhdellä
+      // kokoelmalla. Kaikki tapahtumatyypit: testi, ottelu, harjoitus, palaveri,
+      // mentorointi, kalibraatiopaja, IDP-seuranta, talenttileiri, muu.
+      //
+      // Soft-delete: poistettu=true, EI oikeaa deletea (audit-jälki).
+      // Valmentajan field-level -rajoitus (KIMI K1): vain muistiinpanot + aikaleima.
+      match /kalenteri/{tapahtumaId} {
+        allow read:   if onSuperAdmin()
+                      || (onKirjautunut() && onOmaSeura(seuraId));
+
+        // Luonti: VP/johto + valmentajaroolit (oma seura)
+        allow create: if onSuperAdmin()
+                      || (onOmaSeura(seuraId) && onJohtoRooli())
+                      || onOmanSeuranValmentaja(seuraId);
+
+        // Päivitys: VP/johto saa muokata kaikkea.
+        // Valmentaja saa muokata VAIN muistiinpanot + paivitetty + muokkaaja_uid
+        // (KALENTERI_ARKKITEHTUURI.md §7, KIMI K1).
+        allow update: if onSuperAdmin()
+                      || (onOmaSeura(seuraId) && onJohtoRooli())
+                      || (onOmanSeuranValmentaja(seuraId)
+                          && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['muistiinpanot', 'paivitetty', 'muokkaaja_uid',
+                                       'tila', 'poistettu', 'poistettu_uid', 'poistettu_pvm']));
+
+        // Ei hard-deletea — soft-delete (poistettu:true) update-kautta
+        allow delete: if onSuperAdmin();
+
+        // ── Läsnäolijat (alikokoelma) ──
+        // Pelaaja/valmentajan läsnäolovahvistus per tapahtuma.
+        match /lasnaolijat/{osallistujaId} {
+          allow read:   if onSuperAdmin()
+                        || (onKirjautunut() && onOmaSeura(seuraId));
+          allow create: if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && onJohtoRooli())
+                        || onOmanSeuranValmentaja(seuraId);
+          allow update: if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && onJohtoRooli())
+                        || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId);
+          allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        }
       }
 
       // ── IDP_JONO — IDP-aktivointiehdotusten jono ──────────────────────

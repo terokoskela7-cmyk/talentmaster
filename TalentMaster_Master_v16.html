@@ -2811,30 +2811,41 @@ function _renderInboxOhjaus(el) {
 /* ── KALENTERI TAPAHTUMAT FIRESTORESTA ── */
 async function _lataaKalenteriTapahtumat() {
   if (!_seuraId || _demo) return;
+  var legacy = [];
+  var uudet = [];
+  // 1) Legacy tapahtumat-kokoelma (mentorointi/kokous/harjoitus/ottelu)
   try {
-    let ref = _db.collection('seurat').doc(_seuraId).collection('tapahtumat');
-    // Hae kuluvan kauden tapahtumat (6 kk taaksepäin, 6 kk eteenpäin)
-    const snap = await ref.orderBy('pvm', 'asc').get();
-    _kalenteriTapahtumat = snap.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        ...data,
+    var snap = await _db.collection('seurat').doc(_seuraId).collection('tapahtumat').get();
+    legacy = snap.docs.map(function(d) {
+      var data = d.data();
+      return Object.assign({ id: d.id, _lahde: 'legacy' }, data, {
         joukkue: data.joukkue || data.joukkueNimi || ''
-      };
-    }).filter(t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue);
-  } catch(e) {
-    // Indeksi saattaa puuttua — hae ilman orderBy
-    try {
-      const snap2 = await _db.collection('seurat').doc(_seuraId)
-        .collection('tapahtumat').get();
-      _kalenteriTapahtumat = snap2.docs.map(d => ({id: d.id, ...d.data()}))
-        .filter(t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue)
-        .sort((a,b) => (a.pvm||'').localeCompare(b.pvm||''));
-    } catch(e2) {
-      console.warn('[kalenteri]', e2.message);
-    }
-  }
+      });
+    });
+  } catch(e) { console.warn('[kalenteri-legacy]', e.message); }
+  // 2) Uusi kalenteri-kokoelma (KALENTERI_ARKKITEHTUURI.md §3)
+  try {
+    var snap2 = await _db.collection('seurat').doc(_seuraId)
+      .collection('kalenteri').where('poistettu', '==', false).get();
+    uudet = snap2.docs.map(function(d) {
+      var data = d.data();
+      // Muunna Timestamp → pvm/alkaa/paattyy string (yhteensopivuus renderCal:n kanssa)
+      var alkaaD = data.alkaa && data.alkaa.toDate ? data.alkaa.toDate() : null;
+      var paattyyD = data.paattyy && data.paattyy.toDate ? data.paattyy.toDate() : null;
+      var pvmStr = alkaaD ? alkaaD.toISOString().slice(0, 10) : '';
+      var alkaaStr = alkaaD ? (String(alkaaD.getHours()).padStart(2,'0') + ':' + String(alkaaD.getMinutes()).padStart(2,'0')) : '';
+      var paattyyStr = paattyyD ? (String(paattyyD.getHours()).padStart(2,'0') + ':' + String(paattyyD.getMinutes()).padStart(2,'0')) : '';
+      return Object.assign({ id: d.id, _lahde: 'kalenteri' }, data, {
+        pvm: pvmStr, alkaa: alkaaStr, paattyy: paattyyStr,
+        joukkue: data.joukkue_nimi || data.joukkue || ''
+      });
+    });
+  } catch(e2) { console.warn('[kalenteri-uusi]', e2.message); }
+  // Yhdistä + suodata joukkueella
+  var kaikki = legacy.concat(uudet);
+  _kalenteriTapahtumat = kaikki.filter(function(t) {
+    return !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue;
+  }).sort(function(a,b) { return (a.pvm||'').localeCompare(b.pvm||''); });
   renderCal();
 }
 
@@ -4482,11 +4493,16 @@ function _protokollaLyhenne(p) {
 }
 function _calEvtTyyli(t, src) {
   if (src === 'testi') return { vari:'#28B090', teksti:_protokollaLyhenne(t.protokolla) };
-  const ty = t.tyyppi || 'muu';
-  if (ty === 'harjoitus')   return { vari:'#2A5DB0', teksti:'Joukkueharjoitus' };
-  if (ty === 'ottelu')      return { vari:'#C0392B', teksti:'Ottelu' + (t.vastustaja ? ' · ' + t.vastustaja : '') };
-  if (ty === 'mentorointi') return { vari:'#7B68EE', teksti:'Mentorointi' };
-  if (ty === 'kokous')      return { vari:'#7B68EE', teksti:'Kokous' };
+  var ty = t.tyyppi || 'muu';
+  if (ty === 'harjoitus')              return { vari:'#3DA35D', teksti:'Joukkueharjoitus' };
+  if (ty === 'ottelu')                 return { vari:'#2A5DB0', teksti:'Ottelu' + (t.vastustaja ? ' · ' + t.vastustaja : '') };
+  if (ty === 'testitapahtuma')         return { vari:'#28B090', teksti:'🧪 ' + (t.nimi || 'Testi') };
+  if (ty === 'mentorointi' || ty === 'mentorointitapaaminen') return { vari:'#2A5DB0', teksti:'🎓 Mentorointi' };
+  if (ty === 'kokous' || ty === 'valmentajapalaveri' || ty === 'jaksopalaveri' || ty === 'tiimipalaveri')
+    return { vari:'var(--amber)', teksti:'👥 ' + (t.nimi || 'Palaveri') };
+  if (ty === 'kalibraatiopaja')        return { vari:'#2A5DB0', teksti:'⚖️ Kalibraatiopaja' };
+  if (ty === 'idp_seuranta')           return { vari:'#28B090', teksti:'📊 IDP-seuranta' };
+  if (ty === 'talenttileiri')          return { vari:'#28B090', teksti:'⭐ Talenttileiri' };
   return { vari:'#7A8B99', teksti: t.nimi || 'Muu' };
 }
 // Kalenterichip — pale tausta + värillinen (tumma) teksti; joukkueen nimi jos useita näkyvissä
@@ -4698,12 +4714,14 @@ function _avaaUusiTapahtuma(pvm, klo) {
   hdr.appendChild(suljeBtn);
   box.appendChild(hdr);
 
-  // Tapahtumatyyppi
+  // Tapahtumatyyppi — yhdenmukainen KALENTERI_ARKKITEHTUURI.md §3 kanssa
   const tyypit = [
-    { id:'harjoitus', label:'🏃 Joukkueharjoitus',  color:'var(--teal)' },
-    { id:'ottelu',    label:'⚽ Ottelu',             color:'#E24B4A' },
-    { id:'testi',     label:'📋 Testitapahtuma',    color:'var(--amber)' },
-    { id:'muu',       label:'📌 Muu tapahtuma',     color:'var(--ink3)' },
+    { id:'harjoitus',             label:'🏃 Joukkueharjoitus',      color:'#3DA35D' },
+    { id:'ottelu',                label:'⚽ Ottelu',                 color:'#2A5DB0' },
+    { id:'testitapahtuma',        label:'🧪 Testitapahtuma',        color:'var(--teal)' },
+    { id:'valmentajapalaveri',    label:'👥 Valmentajapalaveri',     color:'var(--amber)' },
+    { id:'mentorointitapaaminen', label:'🎓 Mentorointi',            color:'#2A5DB0' },
+    { id:'muu',                   label:'📌 Muu tapahtuma',         color:'var(--ink3)' },
   ];
 
   let valittuTyyppi = 'harjoitus';
@@ -4773,14 +4791,42 @@ function _avaaUusiTapahtuma(pvm, klo) {
 
     if (!_demo && _seuraId) {
       try {
-        await _db.collection('seurat').doc(_seuraId).collection('tapahtumat').add({
-          nimi, tyyppi: valittuTyyppi,
-          pvm, alkaa, paattyy,
-          joukkue: _joukkue || '',
-          luotu: new Date().toISOString(),
-          luoja: firebase.auth().currentUser?.uid || ''
+        var alkaaTs = new Date(pvm + 'T' + (alkaa || '00:00') + ':00');
+        var paattyyTs = new Date(pvm + 'T' + (paattyy || alkaa || '00:00') + ':00');
+        var uid = (firebase.auth().currentUser && firebase.auth().currentUser.uid) || '';
+        await _db.collection('seurat').doc(_seuraId).collection('kalenteri').add({
+          nimi: nimi,
+          tyyppi: valittuTyyppi,
+          alkaa: firebase.firestore.Timestamp.fromDate(alkaaTs),
+          paattyy: firebase.firestore.Timestamp.fromDate(paattyyTs),
+          koko_paiva: false,
+          joukkue: _joukkue || null,
+          joukkue_nimi: _joukkue || null,
+          joukkueet: _joukkue ? [_joukkue] : [],
+          osallistujat_uid: uid ? [uid] : [],
+          pelaajat_id: [],
+          paikka: null,
+          paikka_id: null,
+          testitapahtuma_id: null,
+          myclub_event_id: null,
+          taso_ottelu_id: null,
+          toistuvuus: null,
+          toistuvuus_sarja_id: null,
+          luoja_uid: uid,
+          luotu: firebase.firestore.FieldValue.serverTimestamp(),
+          paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
+          muokkaaja_uid: null,
+          tila: 'suunniteltu',
+          poistettu: false,
+          poistettu_uid: null,
+          poistettu_pvm: null,
+          muistiinpanot: null,
+          lahde: 'manuaalinen',
+          lahde_id: null,
+          viimeisin_synkka: null
         });
         toast('✓ Tapahtuma tallennettu: ' + nimi, 'ok');
+        await _lataaKalenteriTapahtumat();
       } catch(e) {
         toast('Virhe tallennuksessa: ' + e.message, 'err');
       }
@@ -4788,7 +4834,6 @@ function _avaaUusiTapahtuma(pvm, klo) {
       toast('✓ ' + nimi + ' · ' + pvm + ' ' + alkaa + '–' + paattyy, 'ok');
     }
     modal.remove();
-    renderCal();
   };
   box.appendChild(tallBtn);
 
