@@ -4595,7 +4595,7 @@ function renderCal() {
       chips += _calChip(_calEvtTyyli(t,'testi'), t, lisaaJoukkue, "event.stopPropagation();_avaaKentta('" + t.id + "')", '');
     });
     mentEvts.filter(t => t._dayIdx === d).forEach(t => {
-      chips += _calChip(_calEvtTyyli(t,'kalenteri'), t, lisaaJoukkue, '', (t.aika || t.alkaa || ''));
+      chips += _calChip(_calEvtTyyli(t,'kalenteri'), t, lisaaJoukkue, "event.stopPropagation();calEventClick('" + t.id + "')", (t.aika || t.alkaa || ''));
     });
     html += '<div class="cal-cell' + (isToday?' today-col':'') + '" style="min-height:auto;">' + chips + '</div>';
   }
@@ -4612,7 +4612,7 @@ function renderCal() {
       tuntiEvts.filter(t => t._dayIdx === d && t._hour === h).forEach(t => {
         const sty = _calEvtTyyli(t,'kalenteri');
         const aika = (t.alkaa||'') + (t.paattyy ? '–'+t.paattyy : '');
-        chips += _calChip(sty, t, lisaaJoukkue, "event.stopPropagation();calEventClick('" + (t.tyyppi||'muu') + "'," + d + "," + h + ")", aika);
+        chips += _calChip(sty, t, lisaaJoukkue, "event.stopPropagation();calEventClick('" + t.id + "')", aika);
       });
       html += '<div class="cal-cell' + (isToday?' today-col':'') + '" onclick="calSlotClick(' + d + ',' + h + ')">' + chips + '</div>';
     }
@@ -4672,9 +4672,74 @@ function calNav(dir) {
   toast((dir>0?'Seuraava':'Edellinen') + ' viikko', 'cal-nav');
 }
 
-function calEventClick(type, day, hour) {
-  const labels = { team:'Joukkueharjoitus', match:'Ottelu', gym:'Voima/oheinen', self:'Omatoiminen koonti', rest:'Lepo' };
-  toast('Avattu: ' + (labels[type]||type), 'cal-evt');
+function calEventClick(tapahtumaId) {
+  // Etsi tapahtuma kalenteri-datasta
+  var t = (_kalenteriTapahtumat||[]).find(function(x) { return x.id === tapahtumaId; });
+  if (!t) { toast('Tapahtumaa ei löydy', 'err'); return; }
+
+  // Poista vanha modaali
+  var vanha = document.getElementById('calDetailModal');
+  if (vanha) vanha.remove();
+
+  var sty = _calEvtTyyli(t, 'kalenteri');
+  var modal = document.createElement('div');
+  modal.id = 'calDetailModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--card);border-radius:10px;padding:24px;width:420px;max-width:100%;display:flex;flex-direction:column;gap:10px';
+
+  // Otsikko
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:4px';
+  hdr.innerHTML = '<span style="font-size:22px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:' + sty.vari + '18;">' + (sty.teksti.match(/^[\u{1F300}-\u{1FAFF}]/u) ? sty.teksti.slice(0,2) : '📅') + '</span>' +
+    '<div><div style="font-size:16px;font-weight:500;">' + (t.nimi || sty.teksti) + '</div>' +
+    '<div style="font-size:12px;color:var(--ink3);">' + sty.teksti + '</div></div>';
+  box.appendChild(hdr);
+
+  // Tietoruudukko
+  var grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;margin-top:4px';
+
+  function addRow(label, value) {
+    if (!value) return;
+    grid.innerHTML += '<span style="color:var(--ink3);">' + label + '</span><span>' + value + '</span>';
+  }
+
+  // Pvm & aika
+  var pvmStr = t.pvm || '—';
+  var aikaStr = '';
+  if (t.alkaa) aikaStr = t.alkaa;
+  if (t.paattyy) aikaStr += ' – ' + t.paattyy;
+  addRow('Päivä', pvmStr);
+  addRow('Aika', aikaStr || '—');
+  addRow('Joukkue', t.joukkue_nimi || t.joukkue || 'Koko seura');
+  addRow('Paikka', t.paikka || null);
+  addRow('Valmentaja', t.mentoroitava_nimi || t.osallistujaNimi || null);
+  addRow('Tila', t.tila || '—');
+  box.appendChild(grid);
+
+  // Muistiinpanot
+  if (t.muistiinpanot) {
+    var note = document.createElement('div');
+    note.style.cssText = 'margin-top:6px;padding:8px 10px;background:var(--surface);border-radius:6px;font-size:12px;color:var(--ink2)';
+    note.textContent = t.muistiinpanot;
+    box.appendChild(note);
+  }
+
+  // Sulje-nappi
+  var btnRivi = document.createElement('div');
+  btnRivi.style.cssText = 'display:flex;gap:8px;margin-top:8px';
+  var suljeBtn = document.createElement('button');
+  suljeBtn.textContent = 'Sulje';
+  suljeBtn.style.cssText = 'flex:1;padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer';
+  suljeBtn.onclick = function() { modal.remove(); };
+  btnRivi.appendChild(suljeBtn);
+  box.appendChild(btnRivi);
+
+  modal.appendChild(box);
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
 }
 function calSlotClick(day, hour) {
   // Laske klikattu päivämäärä
@@ -4761,6 +4826,47 @@ function _avaaUusiTapahtuma(pvm, klo) {
   box.appendChild(nimiLabel);
   box.appendChild(nimiInput);
 
+  // Valmentajavalinta (näkyy vain mentorointitapaaminen-tyypille)
+  var mentWrap = document.createElement('div');
+  mentWrap.id = 'mentValmentajaWrap';
+  mentWrap.style.display = 'none';
+  var mentLabel = document.createElement('label');
+  mentLabel.style.cssText = 'font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3)';
+  mentLabel.textContent = 'Mentoroitava valmentaja';
+  var mentSel = document.createElement('select');
+  mentSel.id = 'mentValmentajaSel';
+  mentSel.style.cssText = 'width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;box-sizing:border-box';
+  var mentO0 = document.createElement('option'); mentO0.value = ''; mentO0.textContent = '— Valitse valmentaja —'; mentSel.appendChild(mentO0);
+  // Hae seuran valmentajat
+  if (_seuraId && !_demo) {
+    _db.collection('seurat').doc(_seuraId).collection('kayttajat').get().then(function(snap) {
+      snap.docs.forEach(function(d) {
+        var data = d.data();
+        if (data.aktiivinen === false) return;
+        var r = data.rooli || '';
+        if (r === 'valmentaja' || r === 'talenttivalmentaja' || r === 'fysiikkavalmentaja' || r === 'testivastaava') {
+          var o = document.createElement('option'); o.value = d.id;
+          o.textContent = ((data.etunimi || '') + ' ' + (data.sukunimi || '')).trim() || data.email || d.id;
+          mentSel.appendChild(o);
+        }
+      });
+    }).catch(function() {});
+  }
+  mentWrap.appendChild(mentLabel);
+  mentWrap.appendChild(mentSel);
+  box.appendChild(mentWrap);
+
+  // Päivitä valmentaja-wrap näkyvyys tyypin mukaan
+  tyypit.forEach(function(t) {
+    var origOnclick = document.getElementById('tapahtumatyyppi_' + t.id);
+    if (!origOnclick) return;
+    var vanhaClick = origOnclick.onclick;
+    origOnclick.onclick = function() {
+      vanhaClick.call(this);
+      mentWrap.style.display = valittuTyyppi === 'mentorointitapaaminen' ? 'block' : 'none';
+    };
+  });
+
   // Kellonaika
   const aikaRivi = document.createElement('div');
   aikaRivi.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px';
@@ -4788,8 +4894,21 @@ function _avaaUusiTapahtuma(pvm, klo) {
     const nimi = nimiInput.value.trim() || (tyypit.find(t=>t.id===valittuTyyppi)?.label || 'Tapahtuma').replace(/^\S+\s/,'');
     const alkaa = document.getElementById('tapahtumaAlkaa').value;
     const paattyy = document.getElementById('tapahtumaPaattyy').value;
+    var mSel = document.getElementById('mentValmentajaSel');
+    var mentUid = (mSel && mSel.value) || null;
+    var mentNimi = null;
+    if (mentUid && mSel) {
+      var valittu = mSel.options[mSel.selectedIndex];
+      mentNimi = valittu ? valittu.textContent : null;
+    }
+
+    if (valittuTyyppi === 'mentorointitapaaminen' && !mentUid) {
+      toast('Valitse mentoroitava valmentaja', 'err');
+      return;
+    }
 
     if (!_demo && _seuraId) {
+      tallBtn.disabled = true; tallBtn.textContent = 'Tallennetaan…';
       try {
         var alkaaTs = new Date(pvm + 'T' + (alkaa || '00:00') + ':00');
         var paattyyTs = new Date(pvm + 'T' + (paattyy || alkaa || '00:00') + ':00');
@@ -4823,12 +4942,16 @@ function _avaaUusiTapahtuma(pvm, klo) {
           muistiinpanot: null,
           lahde: 'manuaalinen',
           lahde_id: null,
-          viimeisin_synkka: null
+          viimeisin_synkka: null,
+          mentoroitava_uid: mentUid,
+          mentoroitava_nimi: mentNimi
         });
         toast('✓ Tapahtuma tallennettu: ' + nimi, 'ok');
         await _lataaKalenteriTapahtumat();
       } catch(e) {
         toast('Virhe tallennuksessa: ' + e.message, 'err');
+        tallBtn.disabled = false; tallBtn.textContent = 'Tallenna tapahtuma';
+        return;
       }
     } else {
       toast('✓ ' + nimi + ' · ' + pvm + ' ' + alkaa + '–' + paattyy, 'ok');
