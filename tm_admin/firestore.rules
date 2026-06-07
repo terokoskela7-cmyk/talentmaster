@@ -183,6 +183,25 @@ service cloud.firestore {
           && request.resource.data.lahde == 'vanhempi';
     }
 
+    // ── A5: aikaleima-kentän eheys (luotu) ────────────────────────────────
+    // Estää orderBy/where-näkymättömyyden kahdesta syystä:
+    //   • luotu PUUTTUU  → orderBy('luotu') jättää dokumentin kokonaan pois
+    //   • luotu ISO-STRING → Firestoren tyyppijärjestys erottaa sen Timestampeista
+    //     (timestamp < string) → limit/where-kyselyt eivät näe sitä.
+    // create: luotu pakollinen + timestamp.
+    // update: jos luotu on muuttuvien kenttien joukossa, sen on oltava timestamp;
+    //   muuten ohitus → lukukuittaukset (nahty ym.) ja muut field-level-päivitykset
+    //   toimivat eikä luotu-kenttää voi pudottaa overwrite-setillä.
+    // ⚠ DEPLOY VASTA kun kirjoittajat korjattu + olemassa oleva data migroitu
+    //   (havainnot/kirjaukset). Ks. docs/SKAALAUTUVUUS_JA_TEKNINEN_VELKA.md §A5.
+    function luotuLuontiKelpaa() {
+      return request.resource.data.luotu is timestamp;
+    }
+    function luotuPaivitysKelpaa() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['luotu'])
+          || request.resource.data.luotu is timestamp;
+    }
+
     // ──────────────────────────────────────────────────────────────────────
     // ADMINS — super admin -taulukko
     // ──────────────────────────────────────────────────────────────────────
@@ -247,9 +266,11 @@ service cloud.firestore {
                         || onOmaSeura(seuraId)
                         || onAnonymous()
                         || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
-          allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId)
-                        || onAnonymous();
+          allow create: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId))
+                        && luotuLuontiKelpaa();                       // A5
+          allow update: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)
+                        || onAnonymous())
+                        && luotuPaivitysKelpaa();                     // A5
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
 
@@ -263,22 +284,24 @@ service cloud.firestore {
                         || onOmaSeura(seuraId)
                         || onAnonymous()
                         || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow create: if onSuperAdmin()
+          allow create: if (onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || onAnonymous()   // pelaaja kirjaa itse PIN-tilassa
                         || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'vp')
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'urheilutoimenjohtaja')
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'talenttivalmentaja')
-                        || onU12Huoltaja(seuraId, pelaajaId);
-          allow update: if onSuperAdmin()
+                        || onU12Huoltaja(seuraId, pelaajaId))
+                        && luotuLuontiKelpaa();                       // A5
+          allow update: if (onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || onAnonymous()
                         || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'vp')
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'urheilutoimenjohtaja')
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'talenttivalmentaja')
-                        || onU12Huoltaja(seuraId, pelaajaId);
+                        || onU12Huoltaja(seuraId, pelaajaId))
+                        && luotuPaivitysKelpaa();                     // A5
         }
 
         // ── Tapahtumat (LEGACY — käytä mieluummin testitapahtumat) ────────
@@ -364,12 +387,14 @@ service cloud.firestore {
           allow read:   if onSuperAdmin()
                         || onAnonymous()
                         || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow create: if onSuperAdmin()
-                        || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow update: if onSuperAdmin()
+          allow create: if (onSuperAdmin()
+                        || onLapsenHuoltaja(seuraId, pelaajaId))
+                        && luotuLuontiKelpaa();                       // A5
+          allow update: if (onSuperAdmin()
                         || (onAnonymous()
                             && request.resource.data.diff(resource.data).affectedKeys()
-                               .hasOnly(['nahty', 'nahtyKlo']));
+                               .hasOnly(['nahty', 'nahtyKlo'])))
+                        && luotuPaivitysKelpaa();                     // A5
           allow delete: if onSuperAdmin();
         }
 

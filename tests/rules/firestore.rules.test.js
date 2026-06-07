@@ -410,7 +410,7 @@ describe('Roolipohjainen kirjoitus', () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     await assertSucceeds(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'new-hav'),
-      { tyyppi: 'adar', tila: 'luonnos', narratiivi: 'Näppärä tekniikka' }
+      { tyyppi: 'adar', tila: 'luonnos', narratiivi: 'Näppärä tekniikka', luotu: new Date() }
     ));
   });
 
@@ -434,7 +434,7 @@ describe('Roolipohjainen kirjoitus', () => {
     const db = sihteeriContext(SEURA_A).firestore();
     await assertFails(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'sih-hav'),
-      { tyyppi: 'adar', narratiivi: 'Ei pitäisi onnistua' }
+      { tyyppi: 'adar', narratiivi: 'Ei pitäisi onnistua', luotu: new Date() }
     ));
   });
 
@@ -464,7 +464,7 @@ describe('Roolipohjainen kirjoitus', () => {
     const db = testivastaavaContext(SEURA_A).firestore();
     await assertFails(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'tv-hav'),
-      { tyyppi: 'adar', narratiivi: 'Ei saa' }
+      { tyyppi: 'adar', narratiivi: 'Ei saa', luotu: new Date() }
     ));
   });
 
@@ -524,7 +524,7 @@ describe('Huoltaja (vanhempi)', () => {
     const db = huoltajaContext().firestore();
     await assertSucceeds(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kehut', 'kehu-new'),
-      { emoji: '⭐', teksti: 'Hienoa!', lahettaja: 'Vanhempi', luotu: new Date().toISOString(), nahty: false }
+      { emoji: '⭐', teksti: 'Hienoa!', lahettaja: 'Vanhempi', luotu: new Date(), nahty: false }
     ));
   });
 
@@ -539,7 +539,7 @@ describe('Huoltaja (vanhempi)', () => {
     const db = huoltajaContext().firestore();
     await assertFails(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav-huolt'),
-      { tyyppi: 'adar', narratiivi: 'Vanhemman injektio' }
+      { tyyppi: 'adar', narratiivi: 'Vanhemman injektio', luotu: new Date() }
     ));
   });
 
@@ -548,7 +548,7 @@ describe('Huoltaja (vanhempi)', () => {
     const db = huoltajaContext().firestore();
     await assertSucceeds(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-06-07'),
-      { tyyppi: 'T', tehty: true, kesto_min: 20, lahde: 'vanhempi' }
+      { tyyppi: 'T', tehty: true, kesto_min: 20, lahde: 'vanhempi', luotu: new Date() }
     ));
   });
 
@@ -556,7 +556,7 @@ describe('Huoltaja (vanhempi)', () => {
     const db = huoltajaContext().firestore();
     await assertFails(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-06-07'),
-      { tyyppi: 'T', tehty: true, kesto_min: 20, lahde: 'valmentaja' }
+      { tyyppi: 'T', tehty: true, kesto_min: 20, lahde: 'valmentaja', luotu: new Date() }
     ));
   });
 });
@@ -799,6 +799,69 @@ describe('IDP-jono', () => {
     await assertSucceeds(updateDoc(
       doc(db, 'seurat', SEURA_A, 'idp_jono', 'idp-approved'),
       { tila: 'hyvaksytty', arvio: 'VP kommentti' }
+    ));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 11. AIKALEIMA-VARTIJA (A5) — luotu pakollinen + timestamp
+//     Estää orderBy/where-näkymättömyyden: puuttuva luotu → poissuljettu,
+//     ISO-string-luotu → eri tyyppiblokki kuin Timestampit.
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Aikaleima-vartija (A5)', () => {
+  beforeEach(async () => {
+    await seedSeuraAndPelaaja();
+  });
+
+  it('Valmentaja EI luo havaintoa ilman luotu-kenttää', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'no-luotu'),
+      { tyyppi: 'adar', narratiivi: 'puuttuu luotu' }
+    ));
+  });
+
+  it('Valmentaja EI luo havaintoa ISO-string-luotu:lla (bugi torjuttu)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'iso-luotu'),
+      { tyyppi: 'adar', narratiivi: 'ISO-string', luotu: new Date().toISOString() }
+    ));
+  });
+
+  it('Valmentaja luo havainnon Timestamp-luotu:lla', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'ts-luotu'),
+      { tyyppi: 'adar', narratiivi: 'Timestamp', luotu: new Date() }
+    ));
+  });
+
+  it('Huoltaja EI luo kehua ISO-string-luotu:lla', async () => {
+    const db = huoltajaContext().firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kehut', 'iso-kehu'),
+      { emoji: '⭐', teksti: 'x', lahettaja: 'Vanhempi', luotu: new Date().toISOString(), nahty: false }
+    ));
+  });
+
+  it('Huoltaja EI kirjaa ilman luotu-kenttää', async () => {
+    const db = huoltajaContext().firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-06-08'),
+      { tyyppi: 'T', tehty: true, kesto_min: 20, lahde: 'vanhempi' }
+    ));
+  });
+
+  it('Lukukuittaus (anon) toimii vaikka luotu puuttuu — affectedKeys ohittaa vartijan', async () => {
+    // Regressiosuoja: update-vartija ei saa estää lukukuittausta luotu-puuttuvassa
+    // (vanhassa) dokumentissa. seedHavainto luo hav1:n ILMAN luotu-kenttää.
+    await seedHavainto();
+    const db = anonContext().firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1'),
+      { pelaaja_lukenut: true }
     ));
   });
 });

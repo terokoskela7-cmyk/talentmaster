@@ -71,13 +71,25 @@ manuaalisesti (composite-index-failit, kentännimi-mismatchit, logout-tilavuodot
   GitHub Actions sai 403 (todennäk. SA:lta puuttuu `firebaserules.admin` / Firebase Admin -rooli).
   Tämä poistaa "deployasinko oikean version?" -luottamusriskin.
 
-### A5. `luotu`-kentän tyyppiristiriidan korjaus
-- **Bugi:** `havainnot.luotu` tallennetaan/luetaan epäyhtenäisesti:
-  - Master_v16: `data.luotu >= rajaPvm` (ISO-**merkkijono**vertailu)
-  - Pelaaja_v7: `data.luotu.toDate()` (**Timestamp**)
-- Sekamuotoinen kenttä rikkoo sekä orderByn (A1-indeksi) että range-suodatuksen.
-- **Korjaus:** valitse yksi (suositus: `firebase.firestore.Timestamp`), migroi olemassa oleva data,
-  lukitse kirjoituspisteet. Sama tarkistus `aika`-kentälle (mentoroinnit).
+### A5. `luotu`-kentän tyyppiristiriita + puuttuva kenttä — 🟡 KÄYNNISSÄ
+- **KAKSI vikaluokkaa** (molemmat → orderBy/where-näkymättömyys, sama oire):
+  - **Tyyppi-mismatch:** `havainnot.luotu` = ISO-string (Master 3498/3537) vs Timestamp-kyselyt
+    (Vanhempi `where Timestamp`, Pelaaja `orderBy`). Firestore-tyyppijärjestys (timestamp < string)
+    erottaa ne → limit/where näkee vain toisen tyypin.
+  - **Puuttuva kenttä:** Pelaaja kirjoittaa `paivitetty` muttei `luotu`:a → Vanhempi `orderBy('luotu')`
+    sulkee pelaajan kirjaukset **kokonaan** pois (orderBy palauttaa vain kentän omaavat docit).
+- **Cascade:** kun Master kirjoittaa `luotu`:n Timestampina, Masterin omat string-vertailut hajoavat
+  (3861/3879 `>= rajaPvm` → false, 5500 `String(Timestamp)` sort) → korjattava lukkoaskelin.
+- **Sekvenssi (plan B — regressio ensin mahdottomaksi):**
+  1. ✅ **Rules-vartija + testit** (TÄSSÄ): `luotuLuontiKelpaa`/`luotuPaivitysKelpaa` (havainnot/kirjaukset/kehut).
+     create: luotu pakollinen + timestamp. update: `affectedKeys`-pohjainen (lukukuittaus ei riko).
+     6 uutta rules-testiä. Kääntyy ✓, **EI deployattu** (live-ruleset varmistettu puhtaaksi).
+  2. ⬜ Korjaa kirjoittajat (Master 3498/3537 → serverTimestamp; Pelaaja lisää `luotu` 2 kohtaan)
+     + cascade-luvut (Master 3861/3879/5500). takautuva: harkitse `Timestamp.fromDate(pvm)`.
+  3. ⬜ Heterogeeninen migraatio (`collectionGroup`): havainnot konvertoi string→Timestamp;
+     kirjaukset **backfill** `luotu = paivitetty`. Dry-run-first, idempotentti, batch ≤450.
+  4. ⬜ **Deploy vartija VIIMEISENÄ** (kun kirjoittajat + migraatio valmiit) → regressio mahdoton.
+- **Myöhemmin:** sama `aika`-kentälle (mentoroinnit, VP + tm_import) — oma vartija + writer-fix.
 
 ### A6. Repo-siivous
 - Poista vanhat versiotiedostot: `TalentMaster_Master_v9.html`, `TalentMaster_Pelaaja_v3.html`
