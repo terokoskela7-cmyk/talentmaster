@@ -564,6 +564,95 @@ exports.vaihdaKayttajanRooli = functions
   });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// korjaaJoukkueenTestipvm — bulk-korjaa joukkueen testipäivä (väärin tuotu historiadata).
+// Authz palvelimella (Admin SDK ohittaa client-Rulesin, joten toimii myös VP/seurasihteerille
+// joilla ei ole client-pelaajat-update-oikeutta): super-admin / vp / seurasihteeri / UTJ /
+// seura_admin (tarkistaOikeus) TAI testivastaava. Päivittää pvm-pikakentät joukkueen pelaajille,
+// VAIN kentät jotka pelaajalla jo on (ei luo uutta tsi_pvm:ää TSI-testaamattomalle). Audit-jälki.
+// data: { seuraId, joukkue, testityyppi: 'hh'|'tki'|'flei', uusiPvm: 'YYYY-MM-DD', vanhaPvm? }
+// ─────────────────────────────────────────────────────────────────────────────
+exports.korjaaJoukkueenTestipvm = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
+    }
+    const { seuraId, joukkue, testityyppi, uusiPvm, vanhaPvm } = data;
+    if (!seuraId || !joukkue || !testityyppi || !uusiPvm) {
+      throw new functions.https.HttpsError('invalid-argument',
+        'seuraId, joukkue, testityyppi ja uusiPvm ovat pakollisia.');
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(uusiPvm)) {
+      throw new functions.https.HttpsError('invalid-argument', 'uusiPvm muodossa YYYY-MM-DD.');
+    }
+    // Testityyppi → pvm-pikakentät (H-H = fyysinen testisessio sisältää myös TSI:n SM-testit).
+    const KENTAT = { hh: ['hh_pvm', 'tsi_pvm'], tki: ['tki_pvm'], flei: ['flei_pvm'] };
+    const kentat = KENTAT[testityyppi];
+    if (!kentat) {
+      throw new functions.https.HttpsError('invalid-argument', `Virheellinen testityyppi: ${testityyppi}`);
+    }
+
+    const kutsujaUid = context.auth.uid;
+    // 1. Auktorisointi — tarkistaOikeus (super-admin/vp/seurasihteeri/UTJ/seura_admin) + testivastaava.
+    const oikeus = await tarkistaOikeus(kutsujaUid, seuraId);
+    let sallittu = oikeus.sallittu, rooli = oikeus.rooli;
+    if (!sallittu) {
+      const kd = await db.collection('seurat').doc(seuraId).collection('kayttajat').doc(kutsujaUid).get();
+      if (kd.exists && kd.data().rooli === 'testivastaava') { sallittu = true; rooli = 'testivastaava'; }
+    }
+    if (!sallittu) {
+      throw new functions.https.HttpsError('permission-denied', `Ei oikeuksia seuralle "${seuraId}".`);
+    }
+
+    // 2. Hae seuran pelaajat, suodata joukkue case-insensitively (sama logiikka kuin VP/Master).
+    const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat').get();
+    const jLow = String(joukkue).toLowerCase().trim();
+    const jId = jLow.replace(/\s+/g, '_');
+    const kohteet = [];
+    snap.forEach(function (doc) {
+      const d = doc.data();
+      const jk = String(d.joukkue || d.joukkueNimi || '').toLowerCase().trim();
+      const arr = Array.isArray(d.joukkueet) ? d.joukkueet.map(function (x) { return String(x).toLowerCase().trim(); }) : [];
+      if (jk !== jLow && arr.indexOf(jLow) < 0 && arr.indexOf(jId) < 0) return;
+      // Vain pelaajat joilla on jokin korjattava kenttä (testattu tässä sessiossa).
+      const omatKentat = kentat.filter(function (k) { return d[k] != null && d[k] !== ''; });
+      if (!omatKentat.length) return;
+      // Valinnainen vanhaPvm-suodatin: korjaa vain jos nykyinen pvm == vanhaPvm.
+      if (vanhaPvm && !omatKentat.some(function (k) { return d[k] === vanhaPvm; })) return;
+      kohteet.push({ ref: doc.ref, kentat: omatKentat });
+    });
+
+    if (kohteet.length === 0) {
+      return { ok: true, paivitetty: 0, viesti: 'Ei korjattavia pelaajia.' };
+    }
+
+    // 3. Batch-päivitys (chunk 400, raja 500/batch).
+    let paivitetty = 0;
+    for (let i = 0; i < kohteet.length; i += 400) {
+      const era = kohteet.slice(i, i + 400);
+      const batch = db.batch();
+      era.forEach(function (item) {
+        const upd = {};
+        item.kentat.forEach(function (k) { upd[k] = uusiPvm; });
+        batch.update(item.ref, upd);
+      });
+      await batch.commit();
+      paivitetty += era.length;
+    }
+
+    // 4. Audit-jälki.
+    await db.collection('audit').add({
+      toiminto: 'testipvm_korjattu',
+      seuraId, joukkue, testityyppi, kentat, uusiPvm, vanhaPvm: vanhaPvm || null,
+      paivitetty, tekija_uid: kutsujaUid, tekija_rooli: rooli,
+      aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+    }).catch(function () {});
+
+    console.log(`[korjaaJoukkueenTestipvm] ${seuraId}/${joukkue} ${testityyppi} → ${uusiPvm}: ${paivitetty} pelaajaa (${rooli})`);
+    return { ok: true, paivitetty, kentat };
+  });
+
+// ─────────────────────────────────────────────────────────────────────────────
 // lahetaResetLinkki — generoi salasanan reset-linkin OLEMASSA OLEVALLE henkilöstölle.
 // Authz: kutsuja = super_admin TAI kohdeseuran johto (tarkistaOikeus) JA kohde-email
 // kuuluu kyseisen seuran kayttajat-kokoelmaan. Ei kirjoita dataa eikä lähetä sähköpostia

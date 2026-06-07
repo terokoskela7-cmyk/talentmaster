@@ -2871,68 +2871,110 @@ async function laskeVAI(valmentajaUid) {
   const raja = new Date(Date.now() - 30 * 86400000);
 
   try {
+    // Etsi valmentajan joukkue kehitys-komponenttia varten
+    var vObj = _valmentajat.find(function(x) { return x.id === valmentajaUid; });
+    var joukkueNimi = (vObj && vObj.joukkue) ? vObj.joukkue : null;
+
     const [havSnap, mentSnap, userDoc] = await Promise.all([
-      // 1. ADAR-havainnot viim. 30pv — sekä valmentajaUid että legacy valmentajaId
+      // 1. ADAR-havainnot viim. 30pv
       db.collection('seurat').doc(_seuraId).collection('havainnot')
         .where('valmentajaUid','==',valmentajaUid)
         .where('luotu','>=', raja.toISOString())
-        .get().catch(()=>({docs:[]})),
-      // 2+3. Mentoroinnit viim. 30pv (käynnit + splKa) — käytä valmentajaId koska olemassa oleva data
+        .get().catch(function() { return {docs:[]}; }),
+      // 2+3. Mentoroinnit viim. 30pv (käynnit + splKa)
       db.collection('seurat').doc(_seuraId).collection('mentoroinnit')
         .where('valmentajaId','==',valmentajaUid)
-        .orderBy('aika','desc').limit(30).get().catch(()=>({docs:[]})),
+        .orderBy('aika','desc').limit(30).get().catch(function() { return {docs:[]}; }),
       // 4. Kontakti — viimeisinKirjautuminen
-      db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(valmentajaUid).get().catch(()=>null)
+      db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(valmentajaUid).get().catch(function() { return null; })
     ]);
 
     // 1. ADAR-komponentti: havainto-määrä, norm 0–8 → 0–100
     const adarCount = havSnap.docs.length;
     const n1 = Math.min(100, Math.round(adarCount / 8 * 100));
 
-    // 2+3. Mentoroinnit viim. 30pv (suodatetaan koodissa kun where('aika','>=') ei taivu serverTimestamp:lla)
+    // 2+3. Mentoroinnit viim. 30pv
     const nytMs = Date.now();
-    const mentRecent = mentSnap.docs.map(d => d.data()).filter(m => {
-      const aika = m.aika?.toDate ? m.aika.toDate().getTime() : 0;
+    const mentRecent = mentSnap.docs.map(function(d) { return d.data(); }).filter(function(m) {
+      var aika = m.aika && m.aika.toDate ? m.aika.toDate().getTime() : 0;
       return aika >= raja.getTime();
     });
 
     // 2. Käyntimäärä-komponentti: 0–4+ käyntiä → 0–100
-    const kayntiCount = mentRecent.filter(m => m.tyyppi === 'kenttäkäynti').length;
+    var kayntiCount = mentRecent.filter(function(m) { return m.tyyppi === 'kenttäkäynti'; }).length;
     const n2 = Math.min(100, Math.round(kayntiCount / 4 * 100));
 
     // 3. Harjoitteluarviointi-komponentti: splKa-keskiarvo 1.0–10.0 → 0–100
-    const splKaArvot = mentRecent.map(m => m.keskiarvo || m.splKa).filter(v => v != null);
-    const splKaAvg = splKaArvot.length
-      ? splKaArvot.reduce((a,b) => a+b, 0) / splKaArvot.length
+    var splKaArvot = mentRecent.map(function(m) { return m.keskiarvo || m.splKa; }).filter(function(v) { return v != null; });
+    var splKaAvg = splKaArvot.length
+      ? splKaArvot.reduce(function(a,b) { return a+b; }, 0) / splKaArvot.length
       : null;
     const n3 = splKaAvg !== null ? Math.round((splKaAvg - 1) / 9 * 100) : 0;
 
     // 4. Kontakti-komponentti: päiviä sitten viimeisinKirjautuminen, 30+pv=0, 0–1pv=100
-    let n4 = 0;
+    var n4 = 0;
     if (userDoc && userDoc.exists) {
-      const u = userDoc.data();
-      const vk = u.viimeisinKirjautuminen?.toDate
+      var u = userDoc.data();
+      var vk = u.viimeisinKirjautuminen && u.viimeisinKirjautuminen.toDate
         ? u.viimeisinKirjautuminen.toDate()
         : u.viimeisinKirjautuminen ? new Date(u.viimeisinKirjautuminen) : null;
       if (vk) {
-        const paivia = Math.max(0, Math.floor((nytMs - vk.getTime())/86400000));
+        var paivia = Math.max(0, Math.floor((nytMs - vk.getTime())/86400000));
         n4 = Math.max(0, Math.round(100 - paivia / 30 * 100));
       }
     }
 
-    const vai = Math.round(0.35*n1 + 0.25*n2 + 0.25*n3 + 0.15*n4);
+    // 5. Kehitys-komponentti (Vaihe B): joukkueen pelaajien TKI/H-H delta
+    //    Laskee montako joukkueen pelaajaa on parantunut (hh_taso_edellinen/tki_edellinen → nykytila)
+    //    Normalisointi: 0 parannusta → 0, 50%+ → 100
+    var n5 = 0;
+    var kehitysInfo = { parantunut:0, mitattu:0, joukkue:joukkueNimi };
+    if (joukkueNimi && _pelaajat && _pelaajat.length > 0) {
+      var joukkueenPelaajat = _pelaajat.filter(function(p) {
+        return p.joukkue === joukkueNimi || (p.joukkueet && p.joukkueet.indexOf(joukkueNimi) >= 0);
+      });
+      var mitattu = 0;
+      var parantunut = 0;
+      for (var pi = 0; pi < joukkueenPelaajat.length; pi++) {
+        var pl = joukkueenPelaajat[pi];
+        // H-H delta
+        var hhNyt = pl.hh_taso || pl.d2_taso;
+        var hhEd = pl.hh_taso_edellinen;
+        if (hhNyt != null && hhEd != null) {
+          mitattu++;
+          if (hhNyt > hhEd) parantunut++;
+        }
+        // TKI delta
+        var tkiNyt = pl.tki_viimeisin;
+        var tkiEd = pl.tki_edellinen;
+        if (tkiNyt != null && tkiEd != null) {
+          mitattu++;
+          if (tkiNyt > tkiEd) parantunut++;
+        }
+      }
+      kehitysInfo.parantunut = parantunut;
+      kehitysInfo.mitattu = mitattu;
+      if (mitattu > 0) {
+        var pct = parantunut / mitattu;
+        n5 = Math.min(100, Math.round(pct * 200)); // 50% parantunut = 100
+      }
+    }
 
-    // Hälytykset (näytetään detail-popupissa)
-    const halytykset = [];
+    // VAI+ painotukset (Vaihe B): ADAR 30%, Käynnit 20%, Harjoittelu 20%, Kontakti 15%, Kehitys 15%
+    var vai = Math.round(0.30*n1 + 0.20*n2 + 0.20*n3 + 0.15*n4 + 0.15*n5);
+
+    // Hälytykset
+    var halytykset = [];
     if (n1 < 20) halytykset.push({ taso:'red',   teksti:'Ei havaintoja 30pv' });
     if (n4 < 10) halytykset.push({ taso:'red',   teksti:'Ei kirjautunut 30pv' });
     if (n2 < 30) halytykset.push({ taso:'amber', teksti:'Vähän käyntejä' });
     if (n3 < 40 && splKaArvot.length > 0) halytykset.push({ taso:'amber', teksti:'Harjoitteluarviot puutteellisia' });
+    if (n5 === 0 && kehitysInfo.mitattu > 0) halytykset.push({ taso:'amber', teksti:'Joukkueen kehitys pysähtynyt' });
 
-    return { vai, adar:n1, kaynti:n2, harjoittelu:n3, kontakti:n4, halytykset, trendi:null };
+    return { vai:vai, adar:n1, kaynti:n2, harjoittelu:n3, kontakti:n4, kehitys:n5, kehitysInfo:kehitysInfo, halytykset:halytykset, trendi:null };
   } catch(e) {
     console.warn('[laskeVAI]', valmentajaUid, e.message);
-    return { vai:0, adar:0, kaynti:0, harjoittelu:0, kontakti:0, halytykset:[{taso:'red',teksti:'Laskenta epäonnistui'}], trendi:null };
+    return { vai:0, adar:0, kaynti:0, harjoittelu:0, kontakti:0, kehitys:0, kehitysInfo:null, halytykset:[{taso:'red',teksti:'Laskenta epäonnistui'}], trendi:null };
   }
 }
 
@@ -3362,9 +3404,19 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
     pelaajat.forEach(function(p){ [p.hh_pvm, p.tki_pvm, p.tsi_pvm, p.flei_pvm].forEach(function(d){ if (d && String(d) > viim) viim = String(d); }); });
     var vm = String(viim).match(/^(\d{4})-(\d{2})-(\d{2})/);
     var viimFi = vm ? (parseInt(vm[3],10) + '.' + parseInt(vm[2],10) + '.' + vm[1]) : '—';
+    // #3 (B1): korjaa-konteksti + nappi (väärin tuotu testipäivä → korjaaJoukkueenTestipvm-CF)
+    var tyypit = [];
+    if (kHH > 0)   tyypit.push({ k:'hh',   nimi:'H-H' });
+    if (kTKI > 0)  tyypit.push({ k:'tki',  nimi:'TKI' });
+    if (kFLEI > 0) tyypit.push({ k:'flei', nimi:'FLEI' });
+    var vmIso = (String(viim).match(/^(\d{4}-\d{2}-\d{2})/) || [])[1] || '';
+    window._jsvKorjausCtx = { joukkue: joukkueNimi, seuraId: _seuraId, tyypit: tyypit, pvm: vmIso };
+    var korjBtn = tyypit.length
+      ? ' <button onclick="_avaaKorjaaTestipvm()" title="Korjaa väärin tuotu testipäivä koko joukkueelle" style="background:none;border:.5px solid var(--border);color:var(--ink2);border-radius:5px;padding:1px 6px;font-size:10px;cursor:pointer;margin-left:6px">✎ Korjaa</button>'
+      : '';
     return '<div style="margin-top:8px;font-size:11px;color:var(--ink3);line-height:1.7">'
       + (osat.length ? '<div><strong style="color:var(--ink2)">Kattavuus:</strong> ' + osat.join(' · ') + '</div>' : '')
-      + '<div><strong style="color:var(--ink2)">Viimeisin testi:</strong> ' + viimFi + '</div>'
+      + '<div><strong style="color:var(--ink2)">Viimeisin testi:</strong> ' + viimFi + korjBtn + '</div>'
       + '</div>';
   })();
   if (_kehysT) h += '<div class="jsv-insight jsv-clamp" id="_jsvInsight">' + _kehysT + '</div>'
@@ -3397,6 +3449,56 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   document.body.appendChild(modal);
 }
 window.avaaJoukkueSyvanakyma = avaaJoukkueSyvanakyma;
+
+// #3 (B1) — joukkue-bulk "Korjaa testipäivä" → korjaaJoukkueenTestipvm-CF (palvelinauktorisointi + audit).
+function _avaaKorjaaTestipvm() {
+  var ctx = window._jsvKorjausCtx;
+  if (!ctx || !ctx.tyypit || !ctx.tyypit.length || !ctx.seuraId) return;
+  var tyyppiOpt = ctx.tyypit.map(function(t){ return '<option value="' + t.k + '">' + t.nimi + '</option>'; }).join('');
+  var h = '<div id="_korjModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:340;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">'
+    + '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:12px;max-width:380px;width:100%;padding:20px" onclick="event.stopPropagation()">'
+    + '<div style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:4px">Korjaa testipäivä</div>'
+    + '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px">' + _jsvEsc(ctx.joukkue) + ' — korjaa väärin tuotu testipäivä koko joukkueelle.</div>'
+    + '<label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px">Testityyppi</label>'
+    + '<select id="_korjTyyppi" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--ink);margin-bottom:12px">' + tyyppiOpt + '</select>'
+    + '<label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px">Uusi päivämäärä</label>'
+    + '<input type="date" id="_korjPvm" value="' + (ctx.pvm || '') + '" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--ink);margin-bottom:12px;box-sizing:border-box">'
+    + '<label style="font-size:11px;color:var(--ink2);display:flex;align-items:center;gap:6px;margin-bottom:14px;cursor:pointer"><input type="checkbox" id="_korjVain" checked style="width:auto"> Vain pelaajat joiden nykyinen pvm = ' + (ctx.pvm || '—') + '</label>'
+    + '<div id="_korjStatus" style="font-size:12px;color:var(--ink3);min-height:16px;margin-bottom:10px"></div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button onclick="_suoritaKorjaaTestipvm()" style="flex:1;padding:10px;background:var(--teal);border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer">Korjaa</button>'
+    + '<button onclick="document.getElementById(\'_korjModal\').remove()" style="padding:10px 16px;background:none;border:.5px solid var(--border);border-radius:8px;color:var(--ink2);cursor:pointer">Peru</button>'
+    + '</div></div></div>';
+  var w = document.createElement('div'); w.innerHTML = h; document.body.appendChild(w.firstChild);
+}
+async function _suoritaKorjaaTestipvm() {
+  var ctx = window._jsvKorjausCtx; if (!ctx) return;
+  var tyyppi = document.getElementById('_korjTyyppi').value;
+  var pvm = document.getElementById('_korjPvm').value;
+  var vain = document.getElementById('_korjVain').checked;
+  var st = document.getElementById('_korjStatus');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(pvm)) { st.textContent = 'Anna kelvollinen päivämäärä.'; return; }
+  var tnimi = (ctx.tyypit.filter(function(t){ return t.k === tyyppi; })[0] || {}).nimi || tyyppi;
+  if (!confirm('Korjataan joukkueen "' + ctx.joukkue + '" ' + tnimi + '-testipäivä → ' + pvm
+      + (vain && ctx.pvm ? ' (vain nykyinen ' + ctx.pvm + ')' : ' (kaikki)') + '?')) return;
+  st.textContent = 'Korjataan…';
+  try {
+    var fn = firebase.app().functions('europe-west1').httpsCallable('korjaaJoukkueenTestipvm');
+    var res = await fn({ seuraId: ctx.seuraId, joukkue: ctx.joukkue, testityyppi: tyyppi, uusiPvm: pvm, vanhaPvm: (vain && ctx.pvm) ? ctx.pvm : null });
+    var pv = (res && res.data && res.data.paivitetty) || 0;
+    st.textContent = '✅ ' + pv + ' pelaajaa korjattu.';
+    if (typeof lataaPelaajat === 'function') { try { await lataaPelaajat(); } catch(e){} }
+    setTimeout(function(){
+      var km = document.getElementById('_korjModal'); if (km) km.remove();
+      var jm = document.getElementById('_jsvModal'); if (jm) jm.remove();
+      avaaJoukkueSyvanakyma(ctx.joukkue);
+    }, 1100);
+  } catch(e) {
+    st.textContent = '❌ ' + (e.message || 'Korjaus epäonnistui');
+  }
+}
+window._avaaKorjaaTestipvm = _avaaKorjaaTestipvm;
+window._suoritaKorjaaTestipvm = _suoritaKorjaaTestipvm;
 
 // ═══ KERROS 2: per-pelaaja pikakatsaus (drill-down joukkuepopupista) — 4 dimensiovälilehteä ═══
 window._jspVaihda = function(n) {
@@ -3734,10 +3836,16 @@ function renderValmentajat() {
     const vai = v._vai?.vai;
     const vaiClass = vai >= 70 ? 'good' : vai >= 50 ? '' : 'warn';
     const vaiVari  = vai >= 70 ? 'var(--teal)' : vai >= 50 ? '#E0A040' : 'var(--red)';
+    // Vaihe A: lisenssibadge kortissa
+    const _LIS = {grassroots:{n:'GR',c:'#6B7280'},c:{n:'C',c:'#E0A040'},b:{n:'B',c:'#2A5DB0'},a:{n:'A',c:'#28B090'},pro:{n:'Pro',c:'#C9A040'}};
+    const lisInfo = _LIS[v.lisenssitaso||''] || null;
+    const lisBadge = lisInfo
+      ? '<span style="font-size:9px;font-weight:600;color:' + lisInfo.c + ';border:.5px solid ' + lisInfo.c + ';padding:1px 5px;border-radius:8px;margin-left:6px">' + lisInfo.n + '</span>'
+      : '';
     return `
     <div class="coach-card" onclick="avaaCoachPanel('${v.id}')">
       <div class="coach-avatar">${initials}</div>
-      <div class="coach-name">${nim}</div>
+      <div class="coach-name">${nim}${lisBadge}</div>
       <div class="coach-team">${rooliLabel} · ${v.joukkue||'—'}</div>
       <div class="coach-stats">
         <div class="cs-item">
@@ -3780,8 +3888,82 @@ function avaaCoachPanel(id) {
   const initials = nim.split(' ').filter(Boolean).map(n=>n[0]).join('').substring(0,2).toUpperCase();
   const adarTrend = (v.adarTrendi||0) > 0 ? `↑ +${v.adarTrendi}` : (v.adarTrendi||0) < 0 ? `↓ ${v.adarTrendi}` : '→ vakaa';
 
-  // Sprint 2: VAI-erittely 4 progress-bar:lla + hälytykset
-  const vaiData = v._vai || { vai:null, adar:0, kaynti:0, harjoittelu:0, kontakti:0, halytykset:[] };
+  // ── Vaihe A: Profiili — lisenssitaso, erikoistuminen, CPD ──
+  var _LISENSSI_TASOT = [
+    { id:'grassroots', nimi:'Grassroots', vari:'#6B7280' },
+    { id:'c', nimi:'UEFA C', vari:'#E0A040' },
+    { id:'b', nimi:'UEFA B', vari:'#2A5DB0' },
+    { id:'a', nimi:'UEFA A', vari:'#28B090' },
+    { id:'pro', nimi:'UEFA Pro', vari:'#C9A040' }
+  ];
+  var lisTaso = _LISENSSI_TASOT.find(function(t) { return t.id === (v.lisenssitaso||''); });
+  var lisLabel = lisTaso ? lisTaso.nimi : 'Ei asetettu';
+  var lisVari  = lisTaso ? lisTaso.vari : 'var(--ink3)';
+  var erikoistuminen = v.erikoistuminen || '';
+  var cpdTunnit = v.cpd_tunnit_kausi || 0;
+  var koulutukset = v.koulutukset || [];
+
+  var lisOptionsHtml = '<option value="">— Valitse —</option>';
+  for (var li = 0; li < _LISENSSI_TASOT.length; li++) {
+    var sel = _LISENSSI_TASOT[li].id === (v.lisenssitaso||'') ? ' selected' : '';
+    lisOptionsHtml += '<option value="' + _LISENSSI_TASOT[li].id + '"' + sel + '>' + _LISENSSI_TASOT[li].nimi + '</option>';
+  }
+
+  var koulutusListaHtml = '';
+  if (koulutukset.length > 0) {
+    koulutusListaHtml = '<div style="margin-top:6px;display:flex;flex-direction:column;gap:2px">';
+    for (var ki = 0; ki < koulutukset.length; ki++) {
+      koulutusListaHtml += '<div style="font-size:10px;color:var(--ink2)">• ' + (koulutukset[ki].nimi||'') + ' (' + (koulutukset[ki].vuosi||'') + ')</div>';
+    }
+    koulutusListaHtml += '</div>';
+  }
+
+  var profiiliHtml = '<div style="margin-top:14px;padding:14px;background:rgba(242,239,230,.04);border:.5px solid var(--border)">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+      '<div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase">Profiili &amp; pätevyys</div>' +
+      '<button onclick="toggleProfiiliMuokkaus()" id="profMuokkausBtn" style="background:none;border:.5px solid var(--border);color:var(--ink2);font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer">✏️ Muokkaa</button>' +
+    '</div>' +
+    '<div id="profNakyma">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+        '<div style="font-size:11px;color:var(--ink2)">Lisenssi:</div>' +
+        '<div style="font-size:11px;font-weight:600;color:' + lisVari + ';padding:2px 8px;border:.5px solid ' + lisVari + ';border-radius:10px">' + lisLabel + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:16px;margin-bottom:4px">' +
+        '<div style="font-size:11px;color:var(--ink2)">Erikoistuminen: <span style="color:var(--ink)">' + (erikoistuminen || '—') + '</span></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:16px">' +
+        '<div style="font-size:11px;color:var(--ink2)">CPD-tunnit (kausi): <span style="color:var(--ink);font-weight:500">' + cpdTunnit + ' h</span></div>' +
+      '</div>' +
+      koulutusListaHtml +
+    '</div>' +
+    '<div id="profMuokkaus" style="display:none">' +
+      '<div style="display:flex;flex-direction:column;gap:6px">' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<label style="width:90px;font-size:11px;color:var(--ink2)">Lisenssi</label>' +
+          '<select id="profLisenssi" style="flex:1;padding:4px 6px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:11px">' + lisOptionsHtml + '</select>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<label style="width:90px;font-size:11px;color:var(--ink2)">Erikoistuminen</label>' +
+          '<input id="profErik" type="text" value="' + (erikoistuminen||'').replace(/"/g,'&quot;') + '" placeholder="esim. Maalivahti, Fysiikka" style="flex:1;padding:4px 6px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:11px">' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<label style="width:90px;font-size:11px;color:var(--ink2)">CPD-tunnit</label>' +
+          '<input id="profCpd" type="number" min="0" max="999" value="' + cpdTunnit + '" style="width:60px;padding:4px 6px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:11px;text-align:center">' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<label style="width:90px;font-size:11px;color:var(--ink2)">Koulutus</label>' +
+          '<input id="profKoulutusNimi" type="text" placeholder="Koulutuksen nimi" style="flex:1;padding:4px 6px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:11px">' +
+          '<input id="profKoulutusVuosi" type="number" min="2000" max="2030" placeholder="Vuosi" style="width:60px;padding:4px 6px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:11px;text-align:center">' +
+          '<button onclick="lisaaKoulutus()" style="background:var(--teal);color:#fff;border:none;font-size:10px;padding:4px 8px;border-radius:4px;cursor:pointer">+</button>' +
+        '</div>' +
+        '<div id="profKoulutuslista">' + koulutusListaHtml + '</div>' +
+      '</div>' +
+      '<button onclick="tallennaProfiili(\'' + v.id + '\')" style="width:100%;margin-top:8px;padding:7px;border-radius:6px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Tallenna profiili</button>' +
+    '</div>' +
+  '</div>';
+
+  // Sprint 2+B: VAI-erittely 5 progress-bar:lla + hälytykset + kehitys
+  const vaiData = v._vai || { vai:null, adar:0, kaynti:0, harjoittelu:0, kontakti:0, kehitys:0, kehitysInfo:null, halytykset:[] };
   const vaiVari = vaiData.vai >= 70 ? '#28B090' : vaiData.vai >= 50 ? '#E0A040' : '#C94040';
   const compRow = (label, value) => {
     const colorBar = value >= 70 ? '#28B090' : value >= 40 ? '#E0A040' : '#C94040';
@@ -3809,16 +3991,19 @@ function avaaCoachPanel(id) {
     <div class="panel-name">${nim}</div>
     <div class="panel-meta">${v.rooli||'Valmentaja'} · ${v.joukkue||'—'}</div>
 
+    ${profiiliHtml}
+
     <!-- Sprint 2: VAI-paneeli -->
     <div style="margin-top:14px;padding:14px;background:rgba(242,239,230,.04);border:.5px solid var(--border)">
       <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase">VAI · Aktiivisuusindeksi</div>
         <div style="font-family:'Cormorant Garamond',serif;font-size:32px;color:${vaiVari};line-height:1">${vaiData.vai!=null?vaiData.vai:'—'}</div>
       </div>
-      ${compRow('ADAR 35%',        vaiData.adar)}
-      ${compRow('Käynnit 25%',     vaiData.kaynti)}
-      ${compRow('Harjoittelu 25%', vaiData.harjoittelu)}
+      ${compRow('ADAR 30%',        vaiData.adar)}
+      ${compRow('Käynnit 20%',     vaiData.kaynti)}
+      ${compRow('Harjoittelu 20%', vaiData.harjoittelu)}
       ${compRow('Kontakti 15%',    vaiData.kontakti)}
+      ${compRow('Kehitys 15%',     vaiData.kehitys||0)}
       ${halytyksetHtml}
     </div>
 
@@ -3835,6 +4020,15 @@ function avaaCoachPanel(id) {
         <div class="psr-val" style="font-size:14px;margin-top:4px">${v.viimKirjaus||'—'}</div>
         <div class="psr-lbl">Viim. kirjaus</div>
       </div>
+    </div>
+
+    <div style="margin-top:10px;padding:10px;background:rgba(242,239,230,.04);border:.5px solid var(--border)">
+      <div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">Joukkueen kehitys</div>
+      <div style="display:flex;gap:16px;align-items:baseline">
+        <div style="font-size:11px;color:var(--ink2)">Parantunut: <span style="font-weight:600;color:${(vaiData.kehitysInfo?.parantunut||0)>0?'var(--teal)':'var(--ink3)'}">${vaiData.kehitysInfo?.parantunut||0}/${vaiData.kehitysInfo?.mitattu||0}</span> mittausta</div>
+        <div style="font-size:10px;color:var(--ink3)">${vaiData.kehitysInfo?.joukkue||'—'}</div>
+      </div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:4px">TKI + H-H delta · ≥2 mittausta per pelaaja</div>
     </div>
 
     <div class="mentor-area">
@@ -3972,6 +4166,78 @@ async function _lataaCoachHistoria(valmentajaId) {
 function suljePaneeli() {
   document.getElementById('coachPanel').classList.remove('open');
   document.getElementById('coachPanelOverlay').classList.remove('open');
+}
+
+/* ════════════════════════════════════════════════════════════
+   PROFIILI — lisenssitaso, erikoistuminen, CPD (Vaihe A)
+════════════════════════════════════════════════════════════ */
+var _profiiliKoulutuksetTemp = []; // väliaikainen muokkauslista
+
+function toggleProfiiliMuokkaus() {
+  var nakyma = document.getElementById('profNakyma');
+  var muokkaus = document.getElementById('profMuokkaus');
+  var btn = document.getElementById('profMuokkausBtn');
+  if (!nakyma || !muokkaus) return;
+  var open = muokkaus.style.display === 'none';
+  nakyma.style.display = open ? 'none' : 'block';
+  muokkaus.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '✕ Peruuta' : '✏️ Muokkaa';
+}
+
+function lisaaKoulutus() {
+  var nimiEl = document.getElementById('profKoulutusNimi');
+  var vuosiEl = document.getElementById('profKoulutusVuosi');
+  if (!nimiEl || !nimiEl.value.trim()) { toast('Syötä koulutuksen nimi', 'warn'); return; }
+  _profiiliKoulutuksetTemp.push({ nimi: nimiEl.value.trim(), vuosi: parseInt(vuosiEl.value) || new Date().getFullYear() });
+  nimiEl.value = ''; vuosiEl.value = '';
+  var lista = document.getElementById('profKoulutuslista');
+  if (lista) {
+    var h = '<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px">';
+    for (var i = 0; i < _profiiliKoulutuksetTemp.length; i++) {
+      h += '<div style="font-size:10px;color:var(--ink2)">• ' + _profiiliKoulutuksetTemp[i].nimi + ' (' + _profiiliKoulutuksetTemp[i].vuosi + ')</div>';
+    }
+    lista.innerHTML = h + '</div>';
+  }
+  toast('Koulutus lisätty — tallenna profiili', 'ok');
+}
+
+async function tallennaProfiili(uid) {
+  var lisenssi = document.getElementById('profLisenssi');
+  var erik = document.getElementById('profErik');
+  var cpd = document.getElementById('profCpd');
+  if (!lisenssi || !uid || !_seuraId) { toast('Profiilia ei voitu tallentaa', 'error'); return; }
+
+  var updateData = {
+    lisenssitaso: lisenssi.value || null,
+    erikoistuminen: (erik ? erik.value.trim() : '') || null,
+    cpd_tunnit_kausi: parseInt(cpd ? cpd.value : 0) || 0,
+    profiili_paivitetty: new Date().toISOString()
+  };
+  // Yhdistä olemassaolevat + uudet koulutukset
+  var v = _valmentajat.find(function(x) { return x.id === uid; });
+  var olemassa = (v && v.koulutukset) ? v.koulutukset : [];
+  if (_profiiliKoulutuksetTemp.length > 0) {
+    updateData.koulutukset = olemassa.concat(_profiiliKoulutuksetTemp);
+    _profiiliKoulutuksetTemp = [];
+  }
+
+  try {
+    await db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(uid).update(updateData);
+    // Päivitä paikallinen data
+    if (v) {
+      v.lisenssitaso = updateData.lisenssitaso;
+      v.erikoistuminen = updateData.erikoistuminen;
+      v.cpd_tunnit_kausi = updateData.cpd_tunnit_kausi;
+      if (updateData.koulutukset) v.koulutukset = updateData.koulutukset;
+    }
+    toast('✓ Profiili tallennettu', 'ok');
+    toggleProfiiliMuokkaus();
+    renderValmentajat();
+    avaaCoachPanel(uid); // refresh panel
+  } catch(e) {
+    toast('Virhe: ' + e.message, 'error');
+    console.warn('[tallennaProfiili]', uid, e.message);
+  }
 }
 
 function lahetaMentorointiViesti(coachId, coachNimi) {
