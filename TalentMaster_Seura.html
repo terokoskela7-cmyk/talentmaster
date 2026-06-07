@@ -2844,7 +2844,9 @@ async function lahetaRekisteriSahkoposti() {
 
   const etunimi  = document.getElementById('rek_etunimi')?.value.trim() || '';
   const sukunimi = document.getElementById('rek_sukunimi')?.value.trim() || '';
-  const joukkue  = document.getElementById('rek_joukkue')?.value || '';
+  const joukkueId  = document.getElementById('rek_joukkue')?.value || '';
+  const joukkueObj2 = tila.joukkueet.find(j => j.id === joukkueId);
+  const joukkue     = joukkueObj2?.nimi || joukkueId;
 
   try {
     // VAIHE 1: Tarkistetaan ensin onko pelaaja jo olemassa
@@ -4302,7 +4304,7 @@ async function tallennaPelaajanJoukkue(pelaajaId) {
       .collection('pelaajat').doc(pelaajaId)
       .update({
         joukkueet:   valitutIds,
-        joukkue:     valitutIds[0],      // ensisijainen joukkue (vanha kenttä)
+        joukkue:     valitutNimet[0] || valitutIds[0],  // ensisijainen joukkue — NIMI, ei ID
         joukkueNimi: valitutNimet[0] || null,
         muokattu:    firebase.firestore.FieldValue.serverTimestamp(),
         muokkaajaUid: tila.kayttaja?.uid || 'superadmin',
@@ -4459,7 +4461,7 @@ async function tallennaJoukkueMuutos() {
         joukkueet:     valitutIds,
         joukkueetNimet: valitutNimet,
         // Yhteensopivuus vanhan koodin kanssa — poistetaan kun kaikki on päivitetty
-        joukkue:     valitutIds[0] || null,
+        joukkue:     valitutNimet[0] || valitutIds[0] || null,
         joukkueNimi: valitutNimet[0] || null,
         muokattu:    firebase.firestore.FieldValue.serverTimestamp(),
       });
