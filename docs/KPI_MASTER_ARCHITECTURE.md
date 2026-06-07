@@ -421,5 +421,68 @@ laskeTSI(smPallo, smJuoksu)              // → sekuntia (+ = pallo hidastaa)
 
 ---
 
+## 12. VP JOUKKUE-MODAALI — sisältöspeksi (`_jsvModal` + `_jspModal`)
+
+> VP_v25 joukkuenäkymä: pulssikortin klikkaus → joukkue-modaali → per-pelaaja pikakatsaus.
+> Tämä osio määrittelee mitä tietoa näytetään. Toteutusjärjestys Sprint 5.
+
+### A. Joukkue-modaali (`_jsvModal`, kaksipalstainen)
+
+**Vasen sarake (radar + joukkue-KPI):**
+
+| Elementti | Lähde | Tila |
+|-----------|-------|------|
+| 5D-radar (D1–D5) | joukkueen pelaajien ka. dimensioittain | ✅ toteutettu |
+| Radar skaala 1–5 | D1-akseli | ✅ toteutettu |
+| Kattavuusprosentti | "H-H 14/18 · TKI 8/18 · FLEI 3/18" — testattu/koko per datasetti | ⏳ UUSI |
+| Viimeisin testipvm | joukkueen viimeisin `hh_pvm` / `tki_pvm` | ⏳ UUSI |
+| Hidden Gem -ehdokkaat | lukumäärä joukkueessa (§7 ehto) | ⏳ UUSI |
+
+**Oikea sarake (pelaajataulukko):**
+
+| Sarake | Lähde | Tila |
+|--------|-------|------|
+| Nimi | pelaajadok | ✅ |
+| H-H taso | `hh_taso` | ✅ |
+| TKI / FLEI | `tki_viimeisin` / `flei_viimeisin` | ✅ |
+| PHV-tila | `phv_tila` (PRE/LÄH/PH/POST/AN) | ⏳ UUSI — kriittinen §28 tulkinnalle |
+| Delta H-H | `hh_taso` − `hh_taso_edellinen` → ↑/↓/→ | ⏳ UUSI |
+| Delta TKI | `tki_viimeisin` − `tki_edellinen` → ↑/↓/→ | ⏳ UUSI |
+| Viimeisin testi | max(`hh_pvm`, `tki_pvm`) → "vanhentunut" jos >90pv | ⏳ UUSI |
+| → pikakatsaus | klikkaus avaa `_jspModal` | ✅ |
+
+### B. Per-pelaaja pikakatsaus (`_jspModal`, 640px)
+
+**Hero-rivi (toteutettu):** nimi + badge vasemmalla, 5D-radar oikealla (kompakti 220px).
+
+**Välilehdet (nykyiset):** Fyysinen · Tekninen · Peli · Kehitys.
+
+**Lisättävät elementit per välilehti:**
+
+| Välilehti | Lisäys | Lähde | Tila |
+|-----------|--------|-------|------|
+| Fyysinen | EI/FVP/VNE (kun laaja H-H) | §3 Kerros B | ⏳ kuten §4 H-H detail |
+| Fyysinen | H-H pujottelu/syöttö 3-port | §5 | ⏳ kuten §4 TSI detail |
+| Tekninen | Per-laji kynnysarvot (kulta/hopea/pronssi) | §4 TKI detail | ⏳ |
+| Tekninen | Kultaikkuna-konteksti (ikäperustainen) | §4 TKI detail | ⏳ |
+| Peli | ADAR-viimeisin (A/D/Act/R) + havaintomäärä | `adar_viimeisin` | ⏳ |
+| Kehitys | Delta-aikajana (2 viimeistä mittausta) | `_edellinen`-kentät | ⏳ |
+
+### C. Signaalit joukkue-modaalissa
+
+VP:n joukkue-modaali näyttää joukkuetason signaalit (§7) suoraan radarin alla:
+
+| Signaali | Ehto | Näyttö |
+|----------|------|--------|
+| Hidden Gem | ≥1 joukkueessa | "🔷 2 piilohelmiehdokasta" (klikkaa → listaa nimet) |
+| X-Factor | ≥1 taso 5 | "⭐ 1 X-Factor" |
+| PHV ⚠️ | ≥1 PH-tilassa | "⚠️ 3 kasvupyrähdyksessä — kuormarajoitin" |
+| FLEI kriittinen | ≥1 <40% | "🔴 1 klinikkalähetys" |
+| Kehitysvauhti ↓ | ≥1 delta<−0.3 | "↓ 2 laskussa" |
+
+Kaikki pikakentistä — ei alikokoelmakyselyjä (§1 periaate 1+7).
+
+---
+
 *KPI Master Architecture + Tutkimusperusta · TalentMaster™ · 2026-06-07*
 *Lähde: käyttäjän kanoninen referenssi. Tislaus CLAUDE.md §30.*
