@@ -1814,8 +1814,22 @@ async function loginDemo() {
   } catch(e) { _kirjautuminenKesken = false; }
 }
 
-function logout() {
-  _auth.signOut();
+async function logout() {
+  // Sulje onSnapshot-kuuntelijat ensin
+  if (_vpViestitUnsub) { _vpViestitUnsub(); _vpViestitUnsub = null; }
+  // Nollaa tila
+  _uid = null;
+  _seuraId = null;
+  _joukkue = null;
+  _rooli = null;
+  _superAdmin = false;
+  _pelaajatData = [];
+  _kirjaukset = [];
+  _vpViestit = [];
+  _kirjauksetLadattu = false;
+  window._valmentajaData = null;
+  // Odota signOut ennen UI-vaihtoa
+  await _auth.signOut();
   _naytaLogin();
 }
 
@@ -3388,6 +3402,26 @@ function inboxReact(eid,emoji,nimi,pid){
   _doneReacts[eid][emoji]=true;
   localStorage.setItem('tm-inbox-reacts',JSON.stringify(_doneReacts));
   markSeen(eid);
+  // Tallenna Firestoreen → pelaaja näkee P6-kuuntelijan kautta
+  if (_seuraId && _uid && pid) {
+    var vNimi = (window._valmentajaData && _valmentajaData.etunimi
+      ? _valmentajaData.etunimi + ' ' + (_valmentajaData.sukunimi||'')
+      : 'Valmentaja').trim();
+    _db.collection('seurat').doc(_seuraId)
+      .collection('pelaajat').doc(pid)
+      .collection('havainnot').add({
+        tyyppi: 'valmentaja_viesti',
+        tila: 'valmis',
+        teksti: emoji,
+        valmentajaUid: _uid,
+        valmentajaNimi: vNimi,
+        pelaajaId: pid,
+        seuraId: _seuraId,
+        luotu: new Date().toISOString(),
+        pelaaja_lukenut: false,
+        vanhempi_lukenut: false
+      }).catch(function(e) { console.warn('[v16] reaktio:', e.message); });
+  }
   if(window.TMBus){
     TMBus.publish('coach_react',{playerId:pid,emoji:emoji,refEventId:eid});
   }
