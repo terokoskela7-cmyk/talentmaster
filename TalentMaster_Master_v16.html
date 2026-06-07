@@ -517,6 +517,69 @@ a { color: inherit; text-decoration: none; }
               line-height: 1; }
 .pstat-delta { font-size: 11px; font-family: 'DM Mono', monospace; margin-top: 3px; }
 
+/* Valmentajan oma KPI-kortti */
+.coach-self-card {
+  background: var(--card); border: .5px solid var(--line2);
+  border-radius: 10px; padding: 18px 22px; margin-bottom: 20px;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center;
+  cursor: pointer; transition: border-color .2s;
+}
+.coach-self-card:hover { border-color: var(--teal); }
+.coach-self-badge {
+  width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 600; font-family: 'DM Sans', sans-serif;
+  color: #fff; flex-shrink: 0;
+}
+.coach-self-name { font-family: 'Cormorant Garamond', serif; font-weight: 400; font-size: 20px; line-height: 1.1; }
+.coach-self-sub { font-size: 11px; color: var(--ink2); margin-top: 3px; }
+.coach-self-metrics {
+  display: flex; gap: 20px; align-items: center; flex-shrink: 0;
+}
+.coach-self-metric { text-align: center; min-width: 48px; }
+.coach-self-metric-val {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 24px; line-height: 1;
+}
+.coach-self-metric-lbl {
+  font-size: 8px; font-weight: 500; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--ink3); margin-top: 3px;
+}
+@media (max-width: 768px) {
+  .coach-self-card { grid-template-columns: auto 1fr; }
+  .coach-self-metrics { grid-column: 1 / -1; justify-content: space-around; }
+}
+/* Valmentajan profiili-modaali */
+.coach-profile-modal {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
+}
+.coach-profile-inner {
+  background: var(--bg); border: .5px solid var(--line2);
+  border-radius: 14px; width: min(520px, 92vw); max-height: 85vh;
+  overflow-y: auto; padding: 28px 32px;
+}
+.coach-profile-inner h3 {
+  font-family: 'Cormorant Garamond', serif; font-weight: 400; font-size: 26px;
+  margin-bottom: 6px;
+}
+.cp-section { margin-top: 20px; }
+.cp-section-title {
+  font-size: 9px; font-weight: 500; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--ink3); margin-bottom: 8px;
+}
+.cp-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: .5px solid var(--line); font-size: 13px; }
+.cp-row-label { color: var(--ink2); }
+.cp-row-val { color: var(--ink); font-weight: 500; }
+.cp-badge-license {
+  display: inline-block; padding: 3px 10px; border-radius: 100px;
+  font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+}
+.cp-progress-wrap { margin-bottom: 10px; }
+.cp-progress-label { font-size: 12px; color: var(--ink2); margin-bottom: 4px; display: flex; justify-content: space-between; }
+.cp-progress-track { height: 6px; background: var(--card2); border-radius: 3px; overflow: hidden; }
+.cp-progress-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+
 /* Aikajana */
 .timeline-wrap {
   background: var(--card); border: .5px solid var(--line2);
@@ -1117,6 +1180,9 @@ a { color: inherit; text-decoration: none; }
         Komennot <kbd>⌘K</kbd>
       </button>
     </div>
+
+    <!-- VALMENTAJAN OMA KORTTI -->
+    <div id="coachSelfCard" style="display:none"></div>
 
     <!-- WSBAR -->
     <div class="wsbar">
@@ -3663,6 +3729,7 @@ function _alusta(nimi) {
   _naytaDash();
   _setGreet(nimi);
   _setDate();
+  renderCoachSelfCard();
   renderInbox();
   renderToday();
   renderSeason();
@@ -3722,6 +3789,231 @@ function _getVk(d) {
   const startOfYear = new Date(d.getFullYear(),0,1);
   return Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
 }
+
+/* ════════════════════════════════════════════════════════════
+   VALMENTAJAN OMA KPI-KORTTI
+════════════════════════════════════════════════════════════ */
+var _coachActivity = null; // {havainnot, viestit, kirjauksetVastaanotettu} — haetaan Firestoresta
+
+function renderCoachSelfCard() {
+  var el = document.getElementById('coachSelfCard');
+  if (!el) return;
+  var d = window._valmentajaData;
+  if (!d && !_superAdmin) { el.style.display = 'none'; return; }
+
+  var nimi = _superAdmin ? 'Super Admin' : ((d.etunimi || '') + ' ' + (d.sukunimi || '')).trim() || 'Valmentaja';
+  var rooli = _superAdmin ? 'super_admin' : (_rooli || d.rooli || 'valmentaja');
+  var rooliTxt = {'vp':'Vastuuvalmentaja','valmentaja':'Valmentaja','talenttivalmentaja':'Talenttivalmentaja','fysiikkavalmentaja':'Fysiikkavalmentaja','testivastaava':'Testivastaava','super_admin':'Super Admin'}[rooli] || rooli;
+
+  // Lisenssi
+  var lis = d ? (d.lisenssitaso || '') : '';
+  var lisMap = {'grassroots':{'t':'GR','c':'#5a8f7b'},'c':{'t':'C','c':'#4a7ed9'},'b':{'t':'B','c':'#8b6cc1'},'a':{'t':'A','c':'#c9a040'},'pro':{'t':'PRO','c':'#c94040'}};
+  var lisBg = (lisMap[lis] || {c:'var(--ink3)'}).c;
+  var lisLbl = (lisMap[lis] || {t: nimi.charAt(0).toUpperCase()}).t;
+
+  // Erikoistuminen + CPD
+  var erikoistuminen = d ? (d.erikoistuminen || '') : '';
+  var cpd = d ? (d.cpd_tunnit_kausi || 0) : 0;
+
+  var subParts = [rooliTxt];
+  if (_joukkue) subParts.push(_joukkue);
+  if (lis) subParts.push('UEFA ' + (lisMap[lis] || {t:lis.toUpperCase()}).t);
+  if (erikoistuminen) subParts.push(erikoistuminen);
+
+  // Metriikat (päivitetään kun _coachActivity ladattu)
+  var act = _coachActivity || {};
+  var havM = typeof act.havainnot === 'number' ? act.havainnot : '–';
+  var msgM = typeof act.viestit === 'number' ? act.viestit : '–';
+  var cpdM = cpd || '–';
+
+  el.innerHTML = '<div class="coach-self-card" onclick="avaaCoachProfiili()">'
+    + '<div class="coach-self-badge" style="background:' + lisBg + '">' + lisLbl + '</div>'
+    + '<div>'
+    + '<div class="coach-self-name">' + nimi + '</div>'
+    + '<div class="coach-self-sub">' + subParts.join(' · ') + '</div>'
+    + '</div>'
+    + '<div class="coach-self-metrics">'
+    + '<div class="coach-self-metric"><div class="coach-self-metric-val">' + havM + '</div><div class="coach-self-metric-lbl">Havaintoa</div></div>'
+    + '<div class="coach-self-metric"><div class="coach-self-metric-val">' + msgM + '</div><div class="coach-self-metric-lbl">Viestiä</div></div>'
+    + '<div class="coach-self-metric"><div class="coach-self-metric-val">' + cpdM + '</div><div class="coach-self-metric-lbl">CPD h</div></div>'
+    + '</div>'
+    + '</div>';
+  el.style.display = '';
+
+  // Hae aktiivisuusdata Firestoresta (async, päivittää kortin)
+  if (_seuraId && _uid && !_coachActivity) _lataaCoachActivity();
+}
+
+async function _lataaCoachActivity() {
+  if (!_seuraId || !_uid) return;
+  try {
+    // Hae valmentajan tekemät havainnot (30 pv)
+    var rajaPvm = new Date(Date.now() - 30 * 86400000).toISOString();
+    var havSnap = await _db.collection('seurat').doc(_seuraId)
+      .collection('havainnot')
+      .where('valmentajaUid', '==', _uid)
+      .get().catch(function() { return {docs:[]}; });
+    // Suodata 30 pv clientissa (ei composite indexiä)
+    var havLkm = 0;
+    havSnap.docs.forEach(function(d) {
+      var data = d.data();
+      var luotu = data.luotu || '';
+      if (luotu >= rajaPvm) havLkm++;
+    });
+
+    // Hae lähetetyt viestit perheille (havainnot/{id} tyyppi valmentaja_viesti, kaikki pelaajat)
+    // Ei voi hakea alikokoelmista suoraan → käytetään jo ladattua _pelaajatData:a
+    var viestiLkm = 0;
+    if (_pelaajatData && _pelaajatData.length > 0) {
+      var viestiPromiset = _pelaajatData.slice(0, 30).map(function(p) {
+        return _db.collection('seurat').doc(_seuraId)
+          .collection('pelaajat').doc(p.id)
+          .collection('havainnot')
+          .where('valmentajaUid', '==', _uid)
+          .get().catch(function() { return {docs:[]}; });
+      });
+      var snaps = await Promise.all(viestiPromiset);
+      snaps.forEach(function(s) {
+        s.docs.forEach(function(d) {
+          var data = d.data();
+          if (data.tyyppi === 'valmentaja_viesti' && (data.luotu || '') >= rajaPvm) viestiLkm++;
+        });
+      });
+    }
+
+    _coachActivity = { havainnot: havLkm, viestit: viestiLkm };
+    renderCoachSelfCard(); // Re-render kortti päivitetyillä luvuilla
+  } catch(e) {
+    console.warn('[v16] coach activity:', e.message);
+  }
+}
+
+window.avaaCoachProfiili = function avaaCoachProfiili() {
+  var d = window._valmentajaData || {};
+  var nimi = _superAdmin ? 'Super Admin' : ((d.etunimi || '') + ' ' + (d.sukunimi || '')).trim() || 'Valmentaja';
+  var rooli = _superAdmin ? 'super_admin' : (_rooli || d.rooli || 'valmentaja');
+  var rooliTxt = {'vp':'Vastuuvalmentaja','valmentaja':'Valmentaja','talenttivalmentaja':'Talenttivalmentaja','fysiikkavalmentaja':'Fysiikkavalmentaja','testivastaava':'Testivastaava','super_admin':'Super Admin'}[rooli] || rooli;
+
+  var lis = d.lisenssitaso || '';
+  var lisMap = {'grassroots':{'t':'Grassroots','c':'#5a8f7b'},'c':{'t':'UEFA C','c':'#4a7ed9'},'b':{'t':'UEFA B','c':'#8b6cc1'},'a':{'t':'UEFA A','c':'#c9a040'},'pro':{'t':'UEFA Pro','c':'#c94040'}};
+  var lisInfo = lisMap[lis] || null;
+  var erikoistuminen = d.erikoistuminen || '–';
+  var cpd = d.cpd_tunnit_kausi || 0;
+  var koulutukset = d.koulutukset || [];
+  var act = _coachActivity || {};
+
+  var html = '<div class="coach-profile-modal" onclick="if(event.target===this)this.remove()">'
+    + '<div class="coach-profile-inner">'
+    + '<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+    + '<div><h3>' + nimi + '</h3>'
+    + '<div style="font-size:13px;color:var(--ink2)">' + rooliTxt + (_joukkue ? ' · ' + _joukkue : '') + '</div></div>'
+    + '<button onclick="this.closest(\'.coach-profile-modal\').remove()" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:20px;padding:4px 8px">✕</button>'
+    + '</div>';
+
+  // Lisenssi ja koulutus
+  html += '<div class="cp-section"><div class="cp-section-title">Pätevyys</div>';
+  if (lisInfo) {
+    html += '<div style="margin-bottom:10px"><span class="cp-badge-license" style="background:' + lisInfo.c + ';color:#fff">' + lisInfo.t + '</span></div>';
+  }
+  html += '<div class="cp-row"><span class="cp-row-label">Erikoistuminen</span><span class="cp-row-val">' + erikoistuminen + '</span></div>';
+  html += '<div class="cp-row"><span class="cp-row-label">CPD-tunnit (kausi)</span><span class="cp-row-val">' + cpd + ' h</span></div>';
+  if (koulutukset.length > 0) {
+    html += '<div style="margin-top:10px;font-size:12px;color:var(--ink2)">';
+    koulutukset.forEach(function(k) { html += '<div style="padding:2px 0">' + (k.nimi || '') + (k.vuosi ? ' (' + k.vuosi + ')' : '') + '</div>'; });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // Aktiivisuus 30 pv
+  html += '<div class="cp-section"><div class="cp-section-title">Aktiivisuus · 30 päivää</div>';
+  var havLkm = typeof act.havainnot === 'number' ? act.havainnot : 0;
+  var msgLkm = typeof act.viestit === 'number' ? act.viestit : 0;
+  // Havainnot progress (tavoite 10/kk)
+  html += '<div class="cp-progress-wrap">'
+    + '<div class="cp-progress-label"><span>Havainnot</span><span>' + havLkm + ' / 10</span></div>'
+    + '<div class="cp-progress-track"><div class="cp-progress-fill" style="width:' + Math.min(100, havLkm * 10) + '%;background:var(--teal)"></div></div>'
+    + '</div>';
+  // Viestit progress (tavoite 15/kk)
+  html += '<div class="cp-progress-wrap">'
+    + '<div class="cp-progress-label"><span>Viestit perheille</span><span>' + msgLkm + ' / 15</span></div>'
+    + '<div class="cp-progress-track"><div class="cp-progress-fill" style="width:' + Math.min(100, Math.round(msgLkm / 15 * 100)) + '%;background:var(--blue)"></div></div>'
+    + '</div>';
+  // CPD progress (tavoite 20h/kausi)
+  html += '<div class="cp-progress-wrap">'
+    + '<div class="cp-progress-label"><span>CPD-tunnit</span><span>' + cpd + ' / 20 h</span></div>'
+    + '<div class="cp-progress-track"><div class="cp-progress-fill" style="width:' + Math.min(100, Math.round(cpd / 20 * 100)) + '%;background:var(--amber, #E0A040)"></div></div>'
+    + '</div>';
+  html += '</div>';
+
+  // Profiilin muokkaus
+  html += '<div class="cp-section">'
+    + '<button onclick="_muokkaaCoachProfiilia()" style="width:100%;padding:10px;background:var(--card2);border:.5px solid var(--line2);border-radius:8px;color:var(--ink);font-size:13px;cursor:pointer;font-family:\'DM Sans\',sans-serif">✏️ Muokkaa profiilia</button>'
+    + '</div>';
+
+  html += '</div></div>';
+
+  var modal = document.createElement('div');
+  modal.innerHTML = html;
+  document.body.appendChild(modal.firstElementChild);
+};
+
+window._muokkaaCoachProfiilia = function _muokkaaCoachProfiilia() {
+  // Sulje nykyinen modaali
+  var existing = document.querySelector('.coach-profile-modal');
+  if (existing) existing.remove();
+
+  var d = window._valmentajaData || {};
+  var html = '<div class="coach-profile-modal" onclick="if(event.target===this)this.remove()">'
+    + '<div class="coach-profile-inner">'
+    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">'
+    + '<h3>Muokkaa profiilia</h3>'
+    + '<button onclick="this.closest(\'.coach-profile-modal\').remove()" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:20px;padding:4px 8px">✕</button>'
+    + '</div>'
+    + '<div style="margin-bottom:14px"><label style="font-size:12px;color:var(--ink2);display:block;margin-bottom:4px">Lisenssitaso</label>'
+    + '<select id="cpEditLisenssi" style="width:100%;padding:8px;background:var(--card2);border:.5px solid var(--line2);border-radius:6px;color:var(--ink);font-size:13px">'
+    + '<option value="">– Ei valittu –</option>'
+    + '<option value="grassroots"' + (d.lisenssitaso==='grassroots'?' selected':'') + '>Grassroots</option>'
+    + '<option value="c"' + (d.lisenssitaso==='c'?' selected':'') + '>UEFA C</option>'
+    + '<option value="b"' + (d.lisenssitaso==='b'?' selected':'') + '>UEFA B</option>'
+    + '<option value="a"' + (d.lisenssitaso==='a'?' selected':'') + '>UEFA A</option>'
+    + '<option value="pro"' + (d.lisenssitaso==='pro'?' selected':'') + '>UEFA Pro</option>'
+    + '</select></div>'
+    + '<div style="margin-bottom:14px"><label style="font-size:12px;color:var(--ink2);display:block;margin-bottom:4px">Erikoistuminen</label>'
+    + '<input id="cpEditErikoist" value="' + (d.erikoistuminen||'').replace(/"/g,'&quot;') + '" style="width:100%;padding:8px;background:var(--card2);border:.5px solid var(--line2);border-radius:6px;color:var(--ink);font-size:13px;box-sizing:border-box" placeholder="esim. Maalivahdit, Fysiikka, Tekniikka"></div>'
+    + '<div style="margin-bottom:18px"><label style="font-size:12px;color:var(--ink2);display:block;margin-bottom:4px">CPD-tunnit (kausi)</label>'
+    + '<input id="cpEditCpd" type="number" min="0" value="' + (d.cpd_tunnit_kausi||0) + '" style="width:100%;padding:8px;background:var(--card2);border:.5px solid var(--line2);border-radius:6px;color:var(--ink);font-size:13px;box-sizing:border-box"></div>'
+    + '<button onclick="_tallennaCoachProfiili()" style="width:100%;padding:10px;background:var(--teal);border:none;border-radius:8px;color:#fff;font-size:13px;cursor:pointer;font-weight:500;font-family:\'DM Sans\',sans-serif">Tallenna</button>'
+    + '</div></div>';
+  var m = document.createElement('div');
+  m.innerHTML = html;
+  document.body.appendChild(m.firstElementChild);
+};
+
+window._tallennaCoachProfiili = async function _tallennaCoachProfiili() {
+  if (!_seuraId || !_uid) return;
+  var lis = document.getElementById('cpEditLisenssi').value;
+  var erik = document.getElementById('cpEditErikoist').value.trim();
+  var cpd = parseInt(document.getElementById('cpEditCpd').value) || 0;
+  try {
+    await _auth.currentUser.getIdToken(true);
+    await _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(_uid).update({
+      lisenssitaso: lis, erikoistuminen: erik, cpd_tunnit_kausi: cpd,
+      profiili_paivitetty: new Date().toISOString()
+    });
+    // Päivitä lokaali data
+    if (window._valmentajaData) {
+      window._valmentajaData.lisenssitaso = lis;
+      window._valmentajaData.erikoistuminen = erik;
+      window._valmentajaData.cpd_tunnit_kausi = cpd;
+    }
+    var modal = document.querySelector('.coach-profile-modal');
+    if (modal) modal.remove();
+    renderCoachSelfCard();
+    toast('Profiili päivitetty');
+  } catch(e) {
+    toast('Virhe: ' + e.message);
+  }
+};
 
 /* ════════════════════════════════════════════════════════════
    WORKSPACE
