@@ -195,11 +195,15 @@ service cloud.firestore {
     // ⚠ DEPLOY VASTA kun kirjoittajat korjattu + olemassa oleva data migroitu
     //   (havainnot/kirjaukset). Ks. docs/SKAALAUTUVUUS_JA_TEKNINEN_VELKA.md §A5.
     function luotuLuontiKelpaa() {
-      return request.resource.data.luotu is timestamp;
+      // 'luotu' in ... ENNEN is timestamp -tarkistusta: estää evaluointivirheen
+      // ("Property luotu is undefined") kun kenttä puuttuu → siisti false (= hylkää).
+      return 'luotu' in request.resource.data
+          && request.resource.data.luotu is timestamp;
     }
     function luotuPaivitysKelpaa() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['luotu'])
-          || request.resource.data.luotu is timestamp;
+          || ('luotu' in request.resource.data
+              && request.resource.data.luotu is timestamp);
     }
 
     // ──────────────────────────────────────────────────────────────────────

@@ -338,7 +338,7 @@ describe('Anonymous PIN (pelaaja)', () => {
     const db = anonContext().firestore();
     await assertSucceeds(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-06-07'),
-      { tyyppi: 'T', tehty: true, kesto_min: 30, fiilinki: 4, rpe: 6, lahde: 'pelaaja' }
+      { tyyppi: 'T', tehty: true, kesto_min: 30, fiilinki: 4, rpe: 6, lahde: 'pelaaja', luotu: new Date() }
     ));
   });
 
