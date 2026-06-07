@@ -3,7 +3,7 @@
 > Ensimmäinen tiedosto jonka liität uuteen Claude-sessioon. Keskittyy **teknisiin invariantteihin**.
 > Strategia, RAE-tiede, kansainvälistyminen, bisnesmalli, sprintit ja avoimet tehtävät: **`docs/STRATEGIA.md`**.
 > Operatiivinen roadmap-historia: `docs/ROADMAP.md`. Solo-tuotteen täysi kuvaus: `docs/ARKKITEHTUURI.md §11`.
-> Viimeksi päivitetty: 2026-06-04 (+ §28 kehitysikkunat — signaloinnin biologinen perusta)
+> Viimeksi päivitetty: 2026-06-07 (+ §31 viestiketju, coach-modaali, kirjauskorjaus)
 
 ---
 
@@ -131,6 +131,8 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 20. **`lataaSeurat` = `onSnapshot`**, ei `.get()` (reaaliaikainen)
 21. **Joukkueet-kokoelma:** Seura.html luo `.doc(id)`-metodilla (siisti ID), Admin ei enää luo joukkueita — näytä molemmat lähteet rinnakkain
 22. **XP/progressbar/loss aversion -kieltä EI renderöidä pelaajalle.** XP tallennetaan Firestoreen vain AI-agentille. Streak aina positiivisesti kehystettynä 4 tilassa (0pv / 1–6 / 7–13 / 14+). Peruste: Seligman PERMA + Deci & Ryan SDT (intrinsic > extrinsic); Kahneman loss aversion → pitkällä aikavälillä ahdistusta
+23. **orderBy-kenttä AINA sama kuin write-kenttä.** Pelaaja_v7 kirjoittaa `paivitetty`, Master_v16 kysyi `fiilinki_paivitetty` → 0 tulosta. Firestore palauttaa tyhjän tuloksen orderBy-kentällä jota ei ole — ei virheilmoitusta. Timestamp-kenttä: käytä `.toDate()` ennen `.getTime()` (serverTimestamp → Firestore Timestamp-objekti, ei ISO-string)
+24. **Security Rules -kenttänimet = koodi-kenttänimet.** Rules lukee `vastaanottajaUid`/`lahettajaUid` → kirjoittavan koodin PAKKO asettaa nämä kentät (ei pelkkä `to`/`from`). Tarkista Rules ENNEN kirjoituskoodia
 
 ---
 
@@ -142,7 +144,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `TalentMaster_Admin.html` | Super Admin -hallintapaneeli | ✅ |
 | `TalentMaster_VP_v22.html` | VP-dashboard (signaalit/BQ/IDP) | ✅ tuotanto, tila §19 |
 | `TalentMaster_VP_v25.html` | VP-dashboard v24-design (migraatio v22→v24) | ⏳ Vaihe 1+2+3 valmis (TKI-benchmark, `edae410`); omat luokkanimet `greeting-*`/`joukkue-taulukko`, ei spec'in. Firebase = v22. `?seura=` luetaan URL:sta |
-| `TalentMaster_Master_v16.html` | Valmentajan näkymä + Testit-työtila | ✅ uusin |
+| `TalentMaster_Master_v16.html` | Valmentajan näkymä + Testit-työtila + VP-viestit Inbox | ✅ uusin |
 | `TalentMaster_ADAR_Pikakortti.html` | Kenttähavainto + ADAR Vision (bundler) | ✅ |
 | `TalentMaster_Pelaaja_v7.html` | Pelaajan mobiiliapp (v=25) | ✅ |
 | `TalentMaster_Vanhempi_v2.html` | Vanhemman näkymä | ⚠️ kovakoodattu nimi |
@@ -396,12 +398,19 @@ tehty, xp, kesto_min, rpe 1-10, fiilinki 1-5, aika ilta|aamu|paiva.
 
 **PHV-kehitysvaihekortti:** lukee `phv_tila` (§25); KR-rivi "Tulossa myöhemmin".
 
-### P6 — Valmentajan havainto → Pelaajan näkymä (AVOIN)
+### P6 — Valmentajan havainto + viesti → Pelaajan näkymä (✅ 2026-06-07)
 ```javascript
 _p6KaynnistakuuntelIja(seuraId, pelaajaId)  // onSnapshot: tila=='valmis' && pelaaja_lukenut==false
 // → "1 uutta" merkki → _avaaHavainnot() overlay narratiivilla (ei pisteitä) → _p6Luetuksi(): pelaaja_lukenut:true
-// ONGELMA: PIN-callback ei aseta window._p7Pelaaja → kuuntelija ei käynnisty.
-// KORJAUS: PIN success → window._p7Pelaaja = {seuraId, pelaajaId}
+// PIN success asettaa window._p7Pelaaja = {seuraId, pelaajaId} → kuuntelija käynnistyy
+```
+**Valmentajan viestit:** `tyyppi:'valmentaja_viesti'` + `tila:'valmis'` → P6-kuuntelija näkee automaattisesti.
+Fallback: `h.teksti` (viesti) || `h.narratiivi` (ADAR). Tekijä: `h.valmentajaNimi` || `h.tekija_nimi`.
+
+### Perhekehu ← Vanhempi (✅ toteutettu)
+```javascript
+_haePerhekehu()  // lukee seurat/{sid}/pelaajat/{pid}/kehut, luotu >= 48h, nahty==false
+// → hav-card KOTI-näkymässä → _kuittaaKehu() → nahty:true
 ```
 
 ---
@@ -449,9 +458,9 @@ mentorointi-paneeli + kalibraatiopaja + kehitysindeksit) · Pelaajat (IDP-jono +
 Kalenteri (testitapahtumat + linkki Testaus) · Raportointi (Head of Talent -koosto + talenttisuositukset).
 **Työkalut:** Arvioi harjoitus (Sprint 4). **Asetukset:** Metodologia · Kalibraatio · Kriteeristö · Benchmark.
 
-**Mentorointi-loop (natiivi):** VP → `seurat/{id}/viestit/{valmentajaUid}` → valmentajan Inbox. Ei sähköpostia/Slackia.
+**Mentorointi-loop (natiivi):** VP → `seurat/{id}/viestit/` (kentät `lahettajaUid`, `vastaanottajaUid`, `teksti`, `aika`, `luettu`) → valmentajan Inbox (Master_v16 `_kuunteleVpViestit` onSnapshot). Ei sähköpostia/Slackia.
 
-**Tekninen tila (2026-05-26):**
+**Tekninen tila (2026-06-07):**
 - **Kausipalkki dynaaminen:** `_laskeKausi(nyt)` — yksi totuuslähde (kevät 1.4–30.6, syksy 1.8–28.2). Ei kovakoodattua.
 - **Pelaajalista-sarakkeet:** FLEI | TKI | Signaali | PHV. TKI pikakentästä `tki_viimeisin` (`_tkiSoluVP`), merkki `tki_merkki`-kentästä. Ei alikokoelmakyselyjä.
 - **Signaalihehku:** `.signal-card.crit/.alert` → box-shadow rgba(201,64,64,.15); `.warn` → rgba(204,138,58,.12). Emojit → CSS-pisteet `.sig-dot--crit/--warn`.
@@ -459,6 +468,7 @@ Kalenteri (testitapahtumat + linkki Testaus) · Raportointi (Head of Talent -koo
 - **Neliosainen joukkuepulssi** `renderTeamPulse` (§26) + **kattavuussignaalit S6–S9** `renderSignals` (§26).
 - **Joukkueen syvänäkymä** `avaaJoukkueSyvanakyma`: pulssikortin klikkaus → modaali 3 välilehteä (Tekniikka TKI-ranking · Tuki ryhmittely kehityskohteittain · Yhteenveto TKI-jakauma). Vain pikakentistä. (Korvasi `avaaJoukkueTrendiModal`:n.)
 - **VAI+ (5-komponenttinen):** ADAR 30% · Käynnit 20% · Harjoittelu 20% · Kontakti 15% · **Kehitys 15%** (joukkueen TKI/H-H Δ pelaajadatasta). Profiilipaneeli: UEFA-lisenssitaso (Grassroots/C/B/A/Pro) + erikoistuminen + CPD-tunnit + koulutushistoria. Lisenssibadge coach-kortissa.
+- **Coach-modaali (2026-06-07):** `avaaCoachPanel(id)` → dynaaminen center-modal (`#coachModal`) 4 välilehteä: Profiili (lisenssi+CPD+koulutukset) | VAI+ (5 progress bar + hälytykset + kehitysinfo) | Harjoituslaatu (SPL 7 kriteeriä) | Mentorointi (viesti+historia). `_cmTab(idx)` vaihtaa tabit. Seuraa `avaaJoukkueSyvanakyma`-patternia. `suljePaneeli()` = `modal.remove()`.
 - **Avoin:** Raportointi "Lähetä HoT:lle" = vain `toast()`.
 
 ---
@@ -922,3 +932,34 @@ loppukilpailudatasta 2024–2025**. Vaatii: per-laji raaka-arvojen tallennus TK-
 
 **Nykyinen detail (oikea siihen asti):** kokonaisaika-mitalirajat (🥇/🥈/🥉 `TK_KOKONAISRAJAT`) +
 suhteellinen vahvuus/kehityskohde (★/←). Ks. myös §23 (TKI aikapohjainen) + canonical doc §3/§4.
+
+---
+
+## 32. VIESTIKETJU — roolien välinen kommunikaatio (2026-06-07)
+
+> Kaikki viestintäpolut Firestore-pohjaisia (persistoituja). TMBus = demo-yhteensopivuus.
+> Rules: `viestit/` (v2.3), `havainnot/` (v3.4) — molemmat livenä, ei deployta tarvita.
+
+### Polut ja Firestore-rakenteet
+
+| Suunta | Firestore-polku | Tyyppi/kenttä | Luku | Kirjoitus |
+|---|---|---|---|---|
+| **VP → Valmentaja** | `seurat/{sid}/viestit/{id}` | `lahettajaUid`, `vastaanottajaUid`, `teksti`, `aika`, `luettu`, `fromRole:'vp'` | Master_v16 `_kuunteleVpViestit()` (onSnapshot, `vastaanottajaUid==uid`) | VP_v25 `lahetaMentorointiViesti()` |
+| **Valmentaja → Pelaaja+Vanhempi** | `seurat/{sid}/pelaajat/{pid}/havainnot/{id}` | `tyyppi:'valmentaja_viesti'`, `tila:'valmis'`, `teksti`, `valmentajaNimi`, `pelaaja_lukenut`, `vanhempi_lukenut` | Pelaaja_v7 `_p6KaynnistakuuntelIja` (onSnapshot) · Vanhempi_v2 `.where('tyyppi','==','valmentaja_viesti')` | Master_v16 `sendReply()` |
+| **Pelaaja → Valmentaja** | `seurat/{sid}/pelaajat/{pid}/kirjaukset/{pvm}` | `tyyppi`, `kesto_min`, `fiilinki`, `rpe`, `lahde:'pelaaja'`, `paivitetty` (serverTimestamp) | Master_v16 `_lataaKirjaukset()` (`.orderBy('paivitetty')`) | Pelaaja_v7 `_tallennaKirjaus()` |
+| **Vanhempi → Pelaaja** | `seurat/{sid}/pelaajat/{pid}/kehut/{id}` | `emoji`, `teksti`, `lahettaja:'Vanhempi'`, `luotu`, `nahty`, `kirjausId` | Pelaaja_v7 `_haePerhekehu()` (luotu>=48h, nahty==false) | Vanhempi_v2 `_lahetaKehu()` |
+| **Vanhempi ← Valmentaja** | sama `havainnot/` kuin yllä | | Vanhempi_v2 Viestit-tab | (kuten yllä) |
+
+### Master_v16 Inbox — yhdistetty syöte
+`_getInboxEvents()` yhdistää `_kirjaukset` (pelaajien omatoimiset) + `_vpViestit` (VP:n mentorointi),
+järjestää aikaleiman mukaan. VP-viestit purple-tagilla `note.to_coach`, pelaajien kirjaukset fiilis-emojilla.
+Reaktiot (❤️💪⭐🔥) + "Viestitä perheelle →" -nappi jokaisessa kortissa.
+
+### Korjatut bugit (2026-06-07)
+- **`fiilinki_paivitetty` → `paivitetty`** (Master_v16): kirjaukset eivät näkyneet valmentajalle koska orderBy-kenttä ei ollut olemassa. Lisätty Timestamp `toDate()`-käsittely.
+- **`from/to` → `lahettajaUid/vastaanottajaUid`** (VP_v25): Security Rules odottivat eri kenttänimiä kuin koodi kirjoitti.
+
+### Ei toteutettu (tietoinen rajaus)
+- ADAR-pikakenttien kirjoituspiste (`paivitaAdarPikakentat`) ei vielä kytketty ADAR_Pikakorttiin (§26 TODO)
+- Sähköposti-/push-notifikaatiot — pilotissa ei tarvita, lisätään Sprint 6–7
+- Pelaaja ei voi vastata valmentajalle (yksisuuntainen toistaiseksi)
