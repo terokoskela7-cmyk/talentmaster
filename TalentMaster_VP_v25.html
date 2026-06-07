@@ -3348,6 +3348,25 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   h += '<div class="jsv-kpi-block">' + _kpiRivi('H-H ka', _hhKa) + _kpiRivi('Tekninen', _teknKa)
     + '<div class="jsv-kpi"><span class="jsv-kpi-nimi">Hidden Gem</span><span class="jsv-kpi-arvo">' + _hgN
     + '</span><span class="jsv-kpi-palkki jsv-kpi-kpl">kpl</span></div></div>';
+  // VAIHE 1 — kattavuus + viimeisin testipvm. Kytkentä _pelaajat-pikakentistä, EI uusia kyselyjä.
+  // Data-tietoinen: näytä vain ne kategoriat joilla joukkueella on dataa (Sibbo=TKI, SJK=H-H jne.).
+  h += (function(){
+    var kHH = pelaajat.filter(function(p){ return p.hh_taso != null || p.hh_pvm; }).length;
+    var kTKI = pelaajat.filter(function(p){ return p.tki_viimeisin != null; }).length;
+    var kFLEI = pelaajat.filter(function(p){ return (p.flei_viimeisin || 0) > 0; }).length;
+    var osat = [];
+    if (kHH > 0)   osat.push('H-H ' + kHH + '/' + n);
+    if (kTKI > 0)  osat.push('TKI ' + kTKI + '/' + n);
+    if (kFLEI > 0) osat.push('FLEI ' + kFLEI + '/' + n);
+    var viim = '';
+    pelaajat.forEach(function(p){ [p.hh_pvm, p.tki_pvm, p.tsi_pvm, p.flei_pvm].forEach(function(d){ if (d && String(d) > viim) viim = String(d); }); });
+    var vm = String(viim).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    var viimFi = vm ? (parseInt(vm[3],10) + '.' + parseInt(vm[2],10) + '.' + vm[1]) : '—';
+    return '<div style="margin-top:8px;font-size:11px;color:var(--ink3);line-height:1.7">'
+      + (osat.length ? '<div><strong style="color:var(--ink2)">Kattavuus:</strong> ' + osat.join(' · ') + '</div>' : '')
+      + '<div><strong style="color:var(--ink2)">Viimeisin testi:</strong> ' + viimFi + '</div>'
+      + '</div>';
+  })();
   if (_kehysT) h += '<div class="jsv-insight jsv-clamp" id="_jsvInsight">' + _kehysT + '</div>'
     + '<button class="jsv-insight-toggle" onclick="var b=document.getElementById(\'_jsvInsight\');var c=b.classList.toggle(\'jsv-clamp\');this.textContent=c?\'näytä lisää\':\'näytä vähemmän\'">näytä lisää</button>';
   h += '</div>';
