@@ -1558,6 +1558,8 @@ let _testitapahtumat = [];   // seurat/{sid}/testitapahtumat
 let _todayTestit = [];       // tänään olevat testitapahtumat
 let _kirjaukset = [];        // seurat/{sid}/pelaajat/{pid}/kirjaukset — omatoimiset kirjaukset
 let _kirjauksetLadattu = false;
+let _vpViestit = [];         // seurat/{sid}/viestit — VP:n mentorointi valmentajalle
+let _vpViestitUnsub = null;  // onSnapshot unsubscribe
 let _kalenteriTapahtumat = []; // seurat/{sid}/tapahtumat — harjoitukset, ottelut, muut
 
 
@@ -1987,6 +1989,7 @@ async function _lataaPelaajat() {
       renderDev();
       renderToday();   // päivitä myös tänään-metriikat
       _lataaKirjaukset();
+      _kuunteleVpViestit();
     }
   } catch(e) { console.warn('[v16] Pelaajien lataus:', e.message); }
 }
@@ -2097,6 +2100,35 @@ async function _lataaKirjaukset() {
   } catch(e) {
     console.warn('[v16] kirjaukset:', e.message);
   }
+}
+
+function _kuunteleVpViestit() {
+  if (!_seuraId || _demo || !_uid) return;
+  if (_vpViestitUnsub) _vpViestitUnsub();
+  _vpViestitUnsub = _db.collection('seurat').doc(_seuraId)
+    .collection('viestit')
+    .where('vastaanottajaUid', '==', _uid)
+    .orderBy('aika', 'desc')
+    .limit(20)
+    .onSnapshot(function(snap) {
+      _vpViestit = snap.docs.map(function(d) {
+        var data = d.data();
+        var ts = data.aika ? (data.aika.toDate ? data.aika.toDate().getTime() : new Date(data.aika).getTime()) : Date.now();
+        return {
+          id: 'vp_' + d.id,
+          type: 'note.to_coach',
+          source: 'vp',
+          t: ts,
+          teksti: data.teksti || '',
+          note: data.teksti || '',
+          fromRole: data.fromRole || 'vp',
+          fromNimi: data.fromNimi || 'VP',
+          luettu: data.luettu || false,
+          _firestoreId: d.id
+        };
+      });
+      renderInbox();
+    }, function(e) { console.warn('[v16] VP-viestit:', e.message); });
 }
 
 async function _lataaTestitulokset(tapahtumaId) {
@@ -3156,13 +3188,19 @@ function setInboxFilter(f){
 }
 
 function _getInboxEvents(){
-  // Oikealla kirjautumisella: käytä Firestoren kirjauksia
+  // Oikealla kirjautumisella: käytä Firestoren kirjauksia + VP-viestejä
   if (!_demo && _seuraId) {
-    // Palauta Firestore-kirjaukset jos ladattu
+    var yhdistetty = [];
     if (_kirjauksetLadattu && _kirjaukset.length > 0) {
-      return _kirjaukset;
+      yhdistetty = yhdistetty.concat(_kirjaukset);
     }
-    // Vielä latautuu — palauta tyhjä (renderInbox näyttää latausviestin)
+    if (_vpViestit.length > 0) {
+      yhdistetty = yhdistetty.concat(_vpViestit);
+    }
+    if (yhdistetty.length > 0) {
+      return yhdistetty.sort(function(a,b) { return (b.t||0) - (a.t||0); });
+    }
+    if (!_kirjauksetLadattu) return [];
     return [];
   }
   // Demo-tila: käytä TMBus-dataa
@@ -3367,13 +3405,35 @@ function openReply(pid,pname,eid){
 }
 function closeReply(){ document.getElementById('replyOverlay')?.classList.remove('on'); }
 function sendReply(){
-  const txt=document.getElementById('replyText')?.value.trim();
-  if(!txt||!_replyCtx) return;
-  if(window.TMBus){
-    TMBus.publish('coach_message',{playerId:_replyCtx.pid,channel:'family',text:txt,refEventId:_replyCtx.eid});
+  var txt = document.getElementById('replyText');
+  var msg = txt ? txt.value.trim() : '';
+  if (!msg || !_replyCtx) return;
+  // Firestore-tallennus: havainnot-kokoelmaan (vanhempi + pelaaja lukevat)
+  if (_seuraId && _uid && _replyCtx.pid) {
+    var havaintoData = {
+      tyyppi: 'valmentaja_viesti',
+      tila: 'valmis',
+      teksti: msg,
+      valmentajaUid: _uid,
+      valmentajaNimi: (window._valmentajaData && _valmentajaData.etunimi ? _valmentajaData.etunimi + ' ' + (_valmentajaData.sukunimi||'') : 'Valmentaja').trim(),
+      pelaajaId: _replyCtx.pid,
+      seuraId: _seuraId,
+      luotu: new Date().toISOString(),
+      pelaaja_lukenut: false,
+      vanhempi_lukenut: false
+    };
+    _db.collection('seurat').doc(_seuraId)
+      .collection('pelaajat').doc(_replyCtx.pid)
+      .collection('havainnot').add(havaintoData)
+      .then(function() { console.log('[v16] Viesti tallennettu havaintoihin'); })
+      .catch(function(e) { console.warn('[v16] Viesti-tallennus:', e.message); });
+  }
+  // TMBus (demo-yhteensopivuus)
+  if (window.TMBus) {
+    TMBus.publish('coach_message', {playerId:_replyCtx.pid, channel:'family', text:msg, refEventId:_replyCtx.eid});
   }
   markSeen(_replyCtx.eid);
-  toast(`Viesti lähetetty ${_replyCtx.pname}:n perheelle`);
+  toast('Viesti lähetetty ' + _replyCtx.pname + ':n perheelle');
   closeReply();
 }
 
