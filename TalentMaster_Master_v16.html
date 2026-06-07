@@ -1539,6 +1539,7 @@ let _user     = null;
 let _seura    = null;
 let _joukkue  = null;
 let _seuraId  = null;
+let _uid      = null;   // Firebase Auth UID — tarvitaan VP-viestikuunteluun + perheviestiin
 let _rooli    = null;
 let _demo     = false;
 let _superAdmin = false;
@@ -1717,6 +1718,7 @@ _auth.onAuthStateChanged(async user => {
     // Kirjautunut käyttäjä — aina lataa, riippumatta _kirjautuminenKesken
     _kirjautuminenKesken = false; // varmista nollaus
     _user = user;
+    _uid  = user.uid;   // VP-viestikuuntelu + perheviesti tarvitsevat tämän
     await _lataaValmentaja(user.uid);
   } else if (user && user.isAnonymous) {
     _kaynnistaDemoTila();
@@ -1918,6 +1920,7 @@ async function _lataaValmentaja(uid) {
       _seuraId = d.seuraId || seuraIdToUse;
       _rooli   = d.rooli || claims.rooli || 'valmentaja';
       _joukkue = d.joukkue || d.joukkueNimi || (d.joukkueet||[])[0] || '';
+      window._valmentajaData = d;  // sendReply tarvitsee valmentajan nimen
       const nimi = (d.etunimi || '') + ' ' + (d.sukunimi || '');
       // Hae seuran nimi
       const sSnap = await _db.collection('seurat').doc(_seuraId).get().catch(()=>null);
