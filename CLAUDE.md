@@ -242,7 +242,10 @@ seurat/{seuraId}/
     kirjaukset/{pvm}/   (kuten pääkokoelma + lahde 'manuaalinen'|'catapult'|'polar'|'taso' pakollinen, lahde_id)
     biologinen_ika/{pvm}/   (§25)   testitulokset/{pvm}_{protokolla}/   (§23 historiapohja)   pelidata/{otteluId}/ (TASO, §20)
 
-  kayttajat/{uid}/: email, rooli, etunimi, sukunimi, seuraId, aktiivinen
+  kayttajat/{uid}/: email, rooli, etunimi, sukunimi, seuraId, aktiivinen,
+    lisenssitaso 'grassroots'|'c'|'b'|'a'|'pro' (UEFA-hierarkia, kv-mapattavissa DFB/FA/AFC),
+    erikoistuminen (vapaa teksti), cpd_tunnit_kausi (int), koulutukset [{nimi,vuosi}],
+    profiili_paivitetty (ISO-string)
   joukkueet/{joukkueId}/, kutsut/, havainnot/, adar/, tapahtumat/{otteluId} (ottelut), vp_kalenteri/
   valmentajat/{uid}/kontribuutio/{palloID}, valmentajat/{uid}/tuloskortti/
   alumni/{palloID}/, konfiguraatio/{paketti|kpi_painotukset|mittarit|idp_template|viestinta}
@@ -455,6 +458,7 @@ Kalenteri (testitapahtumat + linkki Testaus) · Raportointi (Head of Talent -koo
 - **KPI-kontekstitekstit** (vain ladatusta datasta): Pelaajia → joukkuejakauma · FLEI ka. → ↑/↓ trendi (`flei_historia`) · Avoimet testit → "vanhin X pv sitten".
 - **Neliosainen joukkuepulssi** `renderTeamPulse` (§26) + **kattavuussignaalit S6–S9** `renderSignals` (§26).
 - **Joukkueen syvänäkymä** `avaaJoukkueSyvanakyma`: pulssikortin klikkaus → modaali 3 välilehteä (Tekniikka TKI-ranking · Tuki ryhmittely kehityskohteittain · Yhteenveto TKI-jakauma). Vain pikakentistä. (Korvasi `avaaJoukkueTrendiModal`:n.)
+- **VAI+ (5-komponenttinen):** ADAR 30% · Käynnit 20% · Harjoittelu 20% · Kontakti 15% · **Kehitys 15%** (joukkueen TKI/H-H Δ pelaajadatasta). Profiilipaneeli: UEFA-lisenssitaso (Grassroots/C/B/A/Pro) + erikoistuminen + CPD-tunnit + koulutushistoria. Lisenssibadge coach-kortissa.
 - **Avoin:** Raportointi "Lähetä HoT:lle" = vain `toast()`.
 
 ---
