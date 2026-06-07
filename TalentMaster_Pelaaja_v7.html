@@ -2488,11 +2488,6 @@ function _kaynnistaAppUI() {
   if (window._p7Pelaaja && window._p7Pelaaja.seuraId && window._p7Pelaaja.pelaajaId) {
     _p6KaynnistakuuntelIja(window._p7Pelaaja.seuraId, window._p7Pelaaja.pelaajaId);
   }
-
-  // P6: käynnistä havainto-kuuntelija
-  if(window._p7Pelaaja&&window._p7Pelaaja.seuraId&&window._p7Pelaaja.pelaajaId){
-    _p6KaynnistakuuntelIja(window._p7Pelaaja.seuraId,window._p7Pelaaja.pelaajaId);
-  }
 }
 
 
@@ -3436,20 +3431,26 @@ async function _haePerhekehu() {
 
   try {
     // Hae viimeisin kehu viimeiseltä 48 tunnilta
-    const raja = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    // Yksinkertaistettu query: vain orderBy (ei composite indexiä), suodatus clientissa
+    const raja = Date.now() - 48 * 60 * 60 * 1000;
     const snap = await db.collection('seurat').doc(seuraId)
       .collection('pelaajat').doc(uid)
       .collection('kehut')
-      .where('luotu', '>=', firebase.firestore.Timestamp.fromDate(raja))
-      .where('nahty', '==', false)
       .orderBy('luotu', 'desc')
-      .limit(1)
+      .limit(10)
       .get();
+    // Suodata clientissa: nahty==false ja luotu >= 48h sitten
+    const docs = snap.docs.filter(function(d) {
+      var data = d.data();
+      if (data.nahty !== false) return false;
+      var ts = data.luotu && data.luotu.toDate ? data.luotu.toDate().getTime() : 0;
+      return ts >= raja;
+    });
 
-    if (!snap.empty) {
-      const d = snap.docs[0].data();
+    if (docs.length > 0) {
+      const d = docs[0].data();
       _viimeisinKehu = {
-        id: snap.docs[0].id,
+        id: docs[0].id,
         teksti: d.teksti || '❤️',
         lahettaja: d.lahettaja || 'Vanhempi',
         emoji: d.emoji || '❤️',
@@ -3849,16 +3850,20 @@ function _p6KaynnistakuuntelIja(seuraId, pelaajaId) {
   window._p7Pelaaja = { seuraId, pelaajaId };
 
   // reaaliaikainen kuuntelija — reagoi välittömästi kun valmentaja tallentaa
+  // Yksinkertaistettu query: vain tila=='valmis' + limit (ei vaadi composite indexiä).
+  // pelaaja_lukenut suodatetaan clientissa.
   window._havUnsub = db
     .collection('seurat').doc(seuraId)
     .collection('pelaajat').doc(pelaajaId)
     .collection('havainnot')
     .where('tila', '==', 'valmis')
-    .where('pelaaja_lukenut', '==', false)
-    .orderBy('luotu', 'desc')
+    .limit(50)
     .onSnapshot(function(snap) {
-      window._havLkm  = snap.size;
-      window._havData = snap.docs.map(function(d) {
+      var lukemattomat = snap.docs.filter(function(d) {
+        return d.data().pelaaja_lukenut === false;
+      });
+      window._havLkm  = lukemattomat.length;
+      window._havData = lukemattomat.map(function(d) {
         return Object.assign({ _id: d.id }, d.data());
       });
       // Päivitä KOTI-näkymän merkki jos se on renderöitynä
