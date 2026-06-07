@@ -3495,7 +3495,7 @@ function inboxReact(eid,emoji,nimi,pid){
         valmentajaNimi: vNimi,
         pelaajaId: pid,
         seuraId: _seuraId,
-        luotu: new Date().toISOString(),
+        luotu: firebase.firestore.FieldValue.serverTimestamp(),   // A5: havainto on reaaliaikainen → serverTimestamp (ei ISO-string)
         pelaaja_lukenut: false,
         vanhempi_lukenut: false
       }).catch(function(e) { console.warn('[v16] reaktio:', e.message); });
@@ -3534,7 +3534,7 @@ function sendReply(){
       valmentajaNimi: (window._valmentajaData && _valmentajaData.etunimi ? _valmentajaData.etunimi + ' ' + (_valmentajaData.sukunimi||'') : 'Valmentaja').trim(),
       pelaajaId: _replyCtx.pid,
       seuraId: _seuraId,
-      luotu: new Date().toISOString(),
+      luotu: firebase.firestore.FieldValue.serverTimestamp(),   // A5: viesti on reaaliaikainen → serverTimestamp (ei ISO-string)
       pelaaja_lukenut: false,
       vanhempi_lukenut: false
     };
@@ -3844,11 +3844,20 @@ function renderCoachSelfCard() {
   if (_seuraId && _uid && !_coachActivity) _lataaCoachActivity();
 }
 
+// A5: luotu voi olla Timestamp (uusi) tai ISO-string (vanha, ennen migraatiota)
+// → tyyppiturvallinen millis-muunnos transition-ikkunaa varten (ei kaadu kumpaankaan).
+function _luotuToMs(v) {
+  if (!v) return 0;
+  if (v.toDate) return v.toDate().getTime();
+  var t = new Date(v).getTime();
+  return isNaN(t) ? 0 : t;
+}
+
 async function _lataaCoachActivity() {
   if (!_seuraId || !_uid) return;
   try {
     // Hae valmentajan tekemät havainnot (30 pv)
-    var rajaPvm = new Date(Date.now() - 30 * 86400000).toISOString();
+    var rajaMs = Date.now() - 30 * 86400000;
     var havSnap = await _db.collection('seurat').doc(_seuraId)
       .collection('havainnot')
       .where('valmentajaUid', '==', _uid)
@@ -3857,8 +3866,7 @@ async function _lataaCoachActivity() {
     var havLkm = 0;
     havSnap.docs.forEach(function(d) {
       var data = d.data();
-      var luotu = data.luotu || '';
-      if (luotu >= rajaPvm) havLkm++;
+      if (_luotuToMs(data.luotu) >= rajaMs) havLkm++;   // A5: tyyppiturvallinen
     });
 
     // Hae lähetetyt viestit perheille (havainnot/{id} tyyppi valmentaja_viesti, kaikki pelaajat)
@@ -3876,7 +3884,7 @@ async function _lataaCoachActivity() {
       snaps.forEach(function(s) {
         s.docs.forEach(function(d) {
           var data = d.data();
-          if (data.tyyppi === 'valmentaja_viesti' && (data.luotu || '') >= rajaPvm) viestiLkm++;
+          if (data.tyyppi === 'valmentaja_viesti' && _luotuToMs(data.luotu) >= rajaMs) viestiLkm++;   // A5: tyyppiturvallinen
         });
       });
     }
@@ -5497,7 +5505,7 @@ async function paivitaAdarPikakentat(pelaajaId) {
       .collection('pelaajat').doc(pelaajaId).collection('havainnot').get();
     const havainnot = snap.docs.map(d => d.data())
       .filter(h => h && h.pisteet)
-      .sort((a, b) => String(b.luotu || '').localeCompare(String(a.luotu || '')));
+      .sort((a, b) => _luotuToMs(b.luotu) - _luotuToMs(a.luotu));   // A5: tyyppiturvallinen desc (Timestamp tai ISO-string)
     if (!havainnot.length) return;
     const viim10 = havainnot.slice(0, 10);
     const KENTAT = { assess: 'A', decide: 'D', act: 'Act', reassess: 'R' };
@@ -5518,9 +5526,13 @@ async function paivitaAdarPikakentat(pelaajaId) {
     const a = dim(v0, 'A'), d = dim(v0, 'D'), ac = dim(v0, 'Act'), r = dim(v0, 'R');
     const dims = [a, d, ac, r].filter(x => x != null);
     const yht = dims.length ? Math.round((dims.reduce((s, x) => s + x, 0) / dims.length) * 10) / 10 : null;
+    // A5: adar_pvm pidetään ISO-stringinä (historiallinen tyyppi) — VP lukee sen
+    // `new Date(p.adar_pvm)`:llä, joka rikkoutuisi Timestamp-objektista. _luotuToMs
+    // normalisoi sekä Timestampin että vanhan ISO-stringin.
+    const v0pvm = v0.luotu ? new Date(_luotuToMs(v0.luotu)).toISOString() : null;
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).set({
-      adar_viimeisin: { a: a, d: d, ac: ac, r: r, yht: yht, pvm: v0.luotu || null },
-      adar_pvm: v0.luotu || null,
+      adar_viimeisin: { a: a, d: d, ac: ac, r: r, yht: yht, pvm: v0pvm },
+      adar_pvm: v0pvm,
       adar_havaintoja: havainnot.length,
       adar_vahvin: vahvin,
       adar_heikoin: heikoin

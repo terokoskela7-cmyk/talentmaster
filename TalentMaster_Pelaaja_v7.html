@@ -2637,6 +2637,7 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
     fiilinki:  ekstra?.fiilinki  || null,
     konteksti: ekstra?.konteksti || null,
     kirjaustapa: 'heti',  // reaaliaikainen kirjaus — vrt. 'jalkikateen' (takautuva)
+    luotu: firebase.firestore.Timestamp.fromDate(new Date(pvm)),   // A5: treenipäivä (idempotentti merge, kronologinen feed)
     paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
   };
   kirjausData['tehty_' + tyyppi] = true;   // KORJAUS 1: tyyppikohtainen dedup-merkintä (päivädoc = yksi, merge)
@@ -2833,6 +2834,7 @@ async function _kirjaaTakautuva(pvm, tyyppi, kestoMin) {
         xp: 0,
         rpe: null, fiilinki: null, aika: null,
         lahde: 'pelaaja',   // PÄÄTÖS 1: tekijä = pelaaja (oli 'manuaalinen' = ei sallittu arvo)
+        luotu: firebase.firestore.Timestamp.fromDate(new Date(pvm)),   // A5: takautuva treenipäivä → feed oikeaan kohtaan
         paivitetty: firebase.firestore.FieldValue.serverTimestamp()
       });
     }

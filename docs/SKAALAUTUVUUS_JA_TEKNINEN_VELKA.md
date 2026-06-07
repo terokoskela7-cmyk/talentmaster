@@ -84,10 +84,15 @@ manuaalisesti (composite-index-failit, kentännimi-mismatchit, logout-tilavuodot
   1. ✅ **Rules-vartija + testit** (TÄSSÄ): `luotuLuontiKelpaa`/`luotuPaivitysKelpaa` (havainnot/kirjaukset/kehut).
      create: luotu pakollinen + timestamp. update: `affectedKeys`-pohjainen (lukukuittaus ei riko).
      6 uutta rules-testiä. Kääntyy ✓, **EI deployattu** (live-ruleset varmistettu puhtaaksi).
-  2. ⬜ Korjaa kirjoittajat (Master 3498/3537 → serverTimestamp; Pelaaja lisää `luotu` 2 kohtaan)
-     + cascade-luvut (Master 3861/3879/5500). takautuva: harkitse `Timestamp.fromDate(pvm)`.
+  2. ✅ **Writer-fix + cascade** (TÄSSÄ): Master 3498/3537 → `serverTimestamp()` (havainnot=reaaliaikainen);
+     Pelaaja kirjausData + takautuva → `Timestamp.fromDate(new Date(pvm))` (TUOTEPÄÄTÖS: `luotu`=treenipäivä,
+     idempotentti merge + kronologinen feed; `paivitetty`=kirjaushetki). Cascade-luvut Master 3861/3879/5508
+     → `_luotuToMs()` (tyyppiturvallinen Timestamp|string→ms). **Lisä-cascade löytyi:** `adar_pvm` (5530)
+     pidettävä ISO-stringinä (VP `new Date(p.adar_pvm)` rikkoutuisi Timestampista); `_tarinaOtsikko`
+     (Vanhempi) verifioitu turvalliseksi (saa aina Daten). Kaikki lukijat (Vanhempi/VP/Pelaaja) defensiivisiä
+     tai turvallisia. Syntaksi ✓, KPI-testit 85 ✓.
   3. ⬜ Heterogeeninen migraatio (`collectionGroup`): havainnot konvertoi string→Timestamp;
-     kirjaukset **backfill** `luotu = paivitetty`. Dry-run-first, idempotentti, batch ≤450.
+     kirjaukset **backfill** `luotu = Timestamp.fromDate(new Date(pvm))` (doc-ID=pvm). Dry-run-first, idempotentti, batch ≤450.
   4. ⬜ **Deploy vartija VIIMEISENÄ** (kun kirjoittajat + migraatio valmiit) → regressio mahdoton.
 - **Myöhemmin:** sama `aika`-kentälle (mentoroinnit, VP + tm_import) — oma vartija + writer-fix.
 
