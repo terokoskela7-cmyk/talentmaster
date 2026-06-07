@@ -1,27 +1,39 @@
-name: KPI-yksikkötestit
+# TalentMaster — CI: KPI-yksikkötestit + Firestore Rules -testit
+# Ajetaan joka pushilla ja PR:llä. Rules-testit vaativat Java 21 (Firebase Emulator).
 
-# Sprint 6 / A2: ajaa KPI-laskennan yksikkötestit (Vitest) jokaisessa pushissa + PR:ssä.
-# Estää KPI-logiikan hiljaiset regressiot ennen mergeä.
+name: Tests
 
 on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:
+    branches: [main]
 
 jobs:
-  test:
+  # KPI-yksikkötestit (nopea, ei emulaattoria)
+  unit-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
 
-      - name: Asenna riippuvuudet
-        run: npm ci
-
-      - name: Aja KPI-yksikkötestit
-        run: npm test
+  # Firestore Security Rules -testit (vaatii emulaattorin)
+  rules-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npx firebase emulators:exec --only firestore 'npx vitest run tests/rules'

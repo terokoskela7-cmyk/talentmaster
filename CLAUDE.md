@@ -977,7 +977,7 @@ frontend 6 000-rivisiä monoliitteja, funktio-törmäyksiä. Tähänastiset bugi
 - A2 ✅ VALMIS: **Vitest** (`npm test`=`vitest run`), `tests/*.test.js` = 85 testiä vihreät (testit_indeksit 64 + eerikkila 21, sis. MAS km/h→m/s -saturaatioregressio) + CI `.github/workflows/test.yml` (`npm ci && npm test`). Root package.json oli väärin nimetty tsconfig → tsconfig.json. Lisää vielä: TSI-vyöhykerajat, Hidden Gem, ADAR.
 - A3 ✅ VALMIS: `laskeEI/laskeFVP` eerikkilä-libissä → `_simple` + backward-compat alias (Master lataa molemmat→rikas objekti; VP vain eerikkilän→simple numero). `tkLaskeMerkki/tkLaskeTKI` saivat `rajatOverride`-paramin + `<=→<` (§23).
 - A3 funktio-törmäysten purku (laskeEI ym. 2 tiedostossa, last-loaded-wins) — A2:n edellytys.
-- A4 Rules-testit (`@firebase/rules-unit-testing`) + Rules CI:hin (selvitä GitHub Actions 403 = SA-rooli).
+- A4 ✅ VALMIS: **Rules-testit** (`@firebase/rules-unit-testing` v5 + Vitest), `tests/rules/firestore.rules.test.js` = 69 testiä (10 describe-ryhmää: SA, tenant isolation, anon PIN, roolipohjainen kirjoitus, huoltaja, viestit, kehut-yksityisyys, kalenteri field-level, suostumukset, IDP-jono). CI `.github/workflows/test.yml` kaksi jobi: `unit-tests` (npm test, ei emulaattoria) + `rules-tests` (Java 21 + firebase emulators:exec). Ajo lokaali: `npm run test:rules` (vaatii Java ≥21). `npm test` excludaa rules-testit (ei tarvitse emulaattoria). HUOM: GitHub Actions 403 = Rules **deploy** ongelma (SA-rooli), ei koske emulaattori-testejä.
 - A5 `luotu`-kentän tyyppiristiriita: Master vertaa merkkijonona (`>= rajaPvm`), Pelaaja `toDate()` Timestampina → valitse Timestamp, migroi.
 - A6 repo-siivous: poista Master_v9/Pelaaja_v3, yhdistä tm_auth.js/tm-auth.js, versio pois tiedostonimestä.
 
