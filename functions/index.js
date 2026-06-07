@@ -1562,3 +1562,41 @@ exports.aiProxy = functions
       });
     }
   });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// haeLapsiHuoltajalle — resolvoi vanhemman lapsi/lapset autentikoidusta emailista.
+// Vanhempi-appi kutsuu tätä loginin jälkeen kun linkkiä (?seura=&uid=) ei ole.
+// Client EI voi tehdä tätä: Rules estävät cross-seura-haun eikä huoltajalla ole
+// seuraId-claimia. Admin SDK ohittaa Rulesit. Turvallinen: palauttaa VAIN ne lapset
+// joiden huoltajaEmail == kutsujan autentikoitu (Firebase Auth lowercasaa) email.
+// Vaatii collectionGroup-indeksin pelaajat.huoltajaEmail (firestore.indexes.json).
+// ─────────────────────────────────────────────────────────────────────────────
+exports.haeLapsiHuoltajalle = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth || !context.auth.token.email) {
+      throw new functions.https.HttpsError('unauthenticated', 'Kirjautuminen vaaditaan.');
+    }
+    // Firebase Auth -tokenin email on jo lowercase; data normalisoitu samaan (migraatio).
+    const email = String(context.auth.token.email).toLowerCase().trim();
+    try {
+      const snap = await admin.firestore()
+        .collectionGroup('pelaajat')
+        .where('huoltajaEmail', '==', email)
+        .limit(10)
+        .get();
+      if (snap.empty) {
+        return { found: false, lapset: [] };
+      }
+      const lapset = snap.docs.map((d) => ({
+        seura:    d.ref.parent.parent.id,
+        uid:      d.id,
+        etunimi:  d.data().etunimi  || '',
+        sukunimi: d.data().sukunimi || '',
+      }));
+      return { found: true, lapset };
+    } catch (e) {
+      console.error('[haeLapsiHuoltajalle]', email, e.message);
+      throw new functions.https.HttpsError('internal', 'Lapsen haku epäonnistui.');
+    }
+  });

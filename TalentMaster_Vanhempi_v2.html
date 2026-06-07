@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Perhe v1</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1780874198599';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1780876678417';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- PWA (vaihe 1) — asennettavuus -->
 <link rel="manifest" href="/talentmaster/manifest_vanhempi.json">
 <meta name="theme-color" content="#1A7A5E">
@@ -90,6 +90,7 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -1191,31 +1192,31 @@ async function _haeViimeisinKirjaus() {
       console.warn('[Perhe] suora pelaajalataus epäonnistui:', e.message);
     }
   } else {
-    // Fallback: ei uid:ia URL:ssa → hae huoltajaEmaililla. HUOM: tämä vaatii seurat-kokoelman
-    // luvun, jota pelkällä vanhempi-roolilla EI ole → toimii vain henkilöstöroolilla. Vanhempi
-    // tulee aina linkin kautta (uid+seura mukana), joten tämä on vain henkilöstön apureitti.
+    // Fallback: ei uid:ia URL:ssa → resolvoi lapsi autentikoidusta emailista Cloud Functionilla.
+    // Client EI voi tehdä tätä: Rules estävät seurat-listauksen + cross-seura-haun, eikä
+    // huoltajalla ole seuraId-claimia. CF (Admin SDK) ohittaa Rulesit ja palauttaa VAIN ne
+    // lapset joiden huoltajaEmail == kutsujan autentikoitu email. (Linkin kautta tultaessa
+    // uid+seura on jo URL:ssa eikä tätä tarvita.)
     const user = _auth.currentUser;
     if (!user || !user.email) return;
     try {
-      let lapsiDoc = null;
-      const seuraSnap = await _db.collection('seurat').get();
-      for (const seuraDoc of seuraSnap.docs) {
-        const q = await _db.collection('seurat').doc(seuraDoc.id)
-          .collection('pelaajat')
-          .where('huoltajaEmail', '==', user.email)
-          .limit(1)
-          .get();
-        if (!q.empty) { lapsiDoc = q.docs[0]; break; }
-      }
-      if (!lapsiDoc) {
+      const haeLapsi = firebase.app().functions('europe-west1').httpsCallable('haeLapsiHuoltajalle');
+      const res = await haeLapsi();
+      const lapset = (res.data && res.data.lapset) || [];
+      if (!lapset.length) {
         console.warn('[Perhe] Ei löydy pelaajaa huoltajaEmail:lla', user.email);
+        _toast('Tunnukseesi ei ole liitetty lasta. Ota yhteyttä seuraan.');
         return;
       }
-      urlSeura = lapsiDoc.ref.parent.parent.id;
-      urlUid   = lapsiDoc.id;
-      _kasitteleLapsi(lapsiDoc.data());
+      const lapsi = lapset[0];   // useampi lapsi → oletuksena ensimmäinen
+      urlSeura = lapsi.seura;
+      urlUid   = lapsi.uid;
+      const pSnap = await _db.collection('seurat').doc(urlSeura)
+        .collection('pelaajat').doc(urlUid).get();
+      if (pSnap.exists) _kasitteleLapsi(pSnap.data());
     } catch(e) {
-      console.warn('[Perhe] huoltajaEmail-haku epäonnistui:', e.message);
+      console.warn('[Perhe] lapsi-haku epäonnistui:', e.code || '', e.message);
+      _toast('Lapsen haku epäonnistui — tarkista verkkoyhteys ja yritä uudelleen.');
       return;
     }
   }
