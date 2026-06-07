@@ -2039,7 +2039,7 @@ async function _lataaKirjaukset() {
           const snap = await _db.collection('seurat').doc(_seuraId)
             .collection('pelaajat').doc(p.id)
             .collection('kirjaukset')
-            .orderBy('fiilinki_paivitetty', 'desc').limit(7).get();
+            .orderBy('paivitetty', 'desc').limit(7).get();
           return snap.docs.map(d => ({
             ...d.data(),
             _pelaajaId: p.id,
@@ -2049,8 +2049,8 @@ async function _lataaKirjaukset() {
             id: p.id + '_' + d.id,
             type: 'training',
             source: 'self',
-            t: d.data().fiilinki_paivitetty
-              ? new Date(d.data().fiilinki_paivitetty).getTime()
+            t: d.data().paivitetty
+              ? (d.data().paivitetty.toDate ? d.data().paivitetty.toDate().getTime() : new Date(d.data().paivitetty).getTime())
               : Date.now(),
             fiilis: d.data().fiilinki || 0,
             playerId: p.id,
