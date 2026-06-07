@@ -32,30 +32,35 @@ manuaalisesti (composite-index-failit, kentännimi-mismatchit, logout-tilavuodot
 - **Miksi:** index-as-code = uusi query ei pääse tuotantoon ilman, että sen indeksi on repossa.
   Tämä estää pysyvästi sen bugiluokan, jota jahtasimme commiteissa 333c36a / 786f43e.
 
-### A2. KPI-laskennan yksikkötestit (suurin tuotto) — 🟡 ALOITETTU 2026-06-07
-- **Työkaluvalinta:** **`node:test`** (Node sisäänrakennettu), EI Vitest. Perustelu: nolla
-  riippuvuutta, ei `npm install`/node_modules-paisetta repoon jolla ei vielä ole build-stepiä.
-  Sekä `docs/testit_indeksit.js` että `lib/tm_eerikkila_normit.js` ovat jo UMD (`module.exports`)
-  → importtautuvat suoraan. **Vitest on migraatiokohde kun B1 tuo build-stepin** (watch, coverage).
-- **Tehty (8 testiä, kaikki vihreät):** `test/kpi.test.js` + `package.json` (`npm test` = `node --test`)
-  + CI-workflow `.github/workflows/test.yml` (ajaa jokaisessa push/PR). Kattaa:
-  - EI = CMJ−SJ (+ A3-törmäysvartija: molemmat moduuliversiot samaa mieltä ydinarvosta)
-  - FVP = Lin5m/(Lin30m/6)
-  - TKI kokonaisaika → merkki → piste + monotonisuus (nopeampi aika ei laske TKI:tä)
-  - **MAS-yksikkö-REGRESSIO:** eerikkilaTaso odottaa m/s; km/h (14.4) saturoi taso 5 → muunnos /3.6 pakollinen
-  - eerikkilaNormiarvo m/s + taso 1–5 -kelvollisuus
-- **Vielä lisättävää:** `laskeVNE`, TSI-vyöhykkeet (5-vyöhyke, `laskeTSI`), Hidden Gem -kynnys,
-  ADAR-pisteet. Lisää validoituja fixtureita (esim. Miko Alho TSI 1.4 → ⚠ ei 🔴).
-- **Sivulöydös (→ A6):** root `package.json` sisälsi tsconfig-sisältöä (väärin nimetty) → siirretty
-  oikeaan `tsconfig.json`:ään, luotu oikea `package.json`.
+### A2. KPI-laskennan yksikkötestit (suurin tuotto) — ✅ VALMIS 2026-06-07
+- **Työkalu:** **Vitest** (`npm test` = `vitest run`, `test:watch` = `vitest`). Aloitin node:testillä
+  (nolla riippuvuutta), mutta vaihdoimme Vitestiin paremman DX:n vuoksi (watch, coverage, expect-API).
+  Molemmat KPI-moduulit ovat UMD (`module.exports`) → `createRequire`-import toimii suoraan.
+- **Tehty (85 testiä, kaikki vihreät):** `tests/testit_indeksit.test.js` (64) +
+  `tests/eerikkila_normit.test.js` (21) + `vitest.config.js` (`include: tests/**`) +
+  CI `.github/workflows/test.yml` (`npm ci && npm test`, verifioitu vihreäksi). Kattaa:
+  - `tkLaskeMerkki`, `tkLaskeTKI`, `laskeKokonaistulos`, `tkPituuspotkuBonus`,
+    `_laskeVahvuudetJaKehityskohteet`, `hhLaskeTaso`, `laskeEI`, `laskeFVP`, `laskeVNE`
+  - `eerikkilaTaso`, `eerikkilaNormiarvo`, `laskeTSI`
+  - **MAS-yksikkö-REGRESSIO:** km/h (14.4) saturoi taso 5; m/s (4.0) → oikea taso → muunnos /3.6 pakollinen
+- **Sivulöydökset:** (1→A6) root `package.json` oli väärin nimetty tsconfig → siirretty `tsconfig.json`:ään;
+  (2) puhtaassa `npm install`issa rollup-natiivibinääri jäi asentumatta (npm optional-deps-bugi) —
+  `npm ci` korjaa, joten CI on kunnossa.
+- **Vielä lisättävää (myöhemmin):** TSI 5-vyöhyke-rajat eksplisiittisesti, Hidden Gem -kynnys,
+  ADAR-pisteet + lisää validoituja fixtureita (esim. Miko Alho TSI 1.4 → ⚠ ei 🔴).
 - **Miksi:** ilman näitä kuka tahansa contributor rikkoo laskennan hiljaa — eikä manuaalinen
   `node --check` huomaa logiikkavirhettä, vain syntaksin.
 
-### A3. Funktio-törmäysten purku (A2:n edellytys)
-- `laskeEI/laskeFVP/laskeVNE` on kahdessa tiedostossa (rikkaampi `docs/testit_indeksit.js`,
-  yksinkertaisempi number-versio `tm_eerikkila_normit.js`) → last-loaded-wins ratkaisee.
-- **Korjaus:** yksi kanoninen toteutus, nimeä toinen uudelleen tai poista. Testit (A2) eivät ole
-  luotettavia ennen kuin tiedetään KUMPI versio ajetaan.
+### A3. Funktio-törmäysten purku (A2:n edellytys) — ✅ VALMIS 2026-06-07
+- **Ongelma oli:** `laskeEI`/`laskeFVP` määritelty BÅDE `docs/testit_indeksit.js` (rikas → objekti)
+  ETTÄ `lib/tm_eerikkila_normit.js` (yksinkertainen → numero) → last-loaded-wins.
+- **Ratkaisu:** eerikkilä-libin versiot nimetty `laskeEI_simple`/`laskeFVP_simple` + backward-compat
+  alias `if (typeof laskeEI === 'undefined') { var laskeEI = laskeEI_simple; }`. Latausjärjestys
+  ratkaisee oikein: **Master** lataa molemmat (eerikkilä→testit_indeksit) → rikas voittaa (3-arg-kutsut);
+  **VP** lataa vain eerikkilän → simple-numero (2-arg-kutsut). Kumpikin kutsupaikka säilyy ennallaan.
+- **Lisäksi (TK-invariantti §23):** `tkLaskeMerkki`/`tkLaskeTKI` saivat `rajatOverride`-parametrin
+  (yhtenäistetty Excel_Tuontin kanssa) + `<= → <` kaikissa kopioissa + `Math.min`-guard.
+- **Vartioitu:** A2-testit varmistavat että molemmat `laskeEI`-versiot antavat saman ydinarvon.
 
 ### A4. Security Rules -testit + Rules CI
 - **Työkalu:** `@firebase/rules-unit-testing` + emulaattori.

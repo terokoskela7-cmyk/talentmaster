@@ -973,8 +973,9 @@ kehitykselle = insinöörikuri puuttuu: 0 testiä, ei index-as-codea (lisätty n
 frontend 6 000-rivisiä monoliitteja, funktio-törmäyksiä. Tähänastiset bugit = **hiljaisia failit**.
 
 **Sprint 6 (P0) — maksa ennen toista kehittäjää:**
-- A1 ✅ `firestore.indexes.json` luotu (havainnot/kehut/mentoroinnit). DEPLOY VIELÄ TEKEMÄTTÄ: `firebase deploy --only firestore:indexes`. Sitten koodi voi palata server-side-queryihin (luopua limit-ikkuna-kompromissista 333c36a/786f43e).
-- A2 🟡 ALOITETTU: `test/kpi.test.js` (8 testiä vihreät) + `npm test` (=`node --test`, EI Vitest — nolla riippuvuutta) + CI `.github/workflows/test.yml`. Kattaa EI/FVP/TKI/MAS-yksikkö-regressio. Lisää vielä: laskeVNE, TSI-vyöhykkeet, Hidden Gem. Root package.json oli väärin nimetty tsconfig → siirretty tsconfig.json:ksi.
+- A1 ✅ VALMIS: `firestore.indexes.json` = täydellinen totuus (9 indeksiä + 1 field override, vedetty `firebase firestore:indexes`-dumpilla) + deployattu tuotantoon + `firebase.json` kytketty. Composite-queryt voivat nyt palata server-side-muotoon (luopua limit-ikkuna-kompromissista 333c36a/786f43e).
+- A2 ✅ VALMIS: **Vitest** (`npm test`=`vitest run`), `tests/*.test.js` = 85 testiä vihreät (testit_indeksit 64 + eerikkila 21, sis. MAS km/h→m/s -saturaatioregressio) + CI `.github/workflows/test.yml` (`npm ci && npm test`). Root package.json oli väärin nimetty tsconfig → tsconfig.json. Lisää vielä: TSI-vyöhykerajat, Hidden Gem, ADAR.
+- A3 ✅ VALMIS: `laskeEI/laskeFVP` eerikkilä-libissä → `_simple` + backward-compat alias (Master lataa molemmat→rikas objekti; VP vain eerikkilän→simple numero). `tkLaskeMerkki/tkLaskeTKI` saivat `rajatOverride`-paramin + `<=→<` (§23).
 - A3 funktio-törmäysten purku (laskeEI ym. 2 tiedostossa, last-loaded-wins) — A2:n edellytys.
 - A4 Rules-testit (`@firebase/rules-unit-testing`) + Rules CI:hin (selvitä GitHub Actions 403 = SA-rooli).
 - A5 `luotu`-kentän tyyppiristiriita: Master vertaa merkkijonona (`>= rajaPvm`), Pelaaja `toDate()` Timestampina → valitse Timestamp, migroi.
