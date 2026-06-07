@@ -91,9 +91,14 @@ manuaalisesti (composite-index-failit, kentännimi-mismatchit, logout-tilavuodot
      pidettävä ISO-stringinä (VP `new Date(p.adar_pvm)` rikkoutuisi Timestampista); `_tarinaOtsikko`
      (Vanhempi) verifioitu turvalliseksi (saa aina Daten). Kaikki lukijat (Vanhempi/VP/Pelaaja) defensiivisiä
      tai turvallisia. Syntaksi ✓, KPI-testit 85 ✓.
-  3. ⬜ Heterogeeninen migraatio (`collectionGroup`): havainnot konvertoi string→Timestamp;
-     kirjaukset **backfill** `luotu = Timestamp.fromDate(new Date(pvm))` (doc-ID=pvm). Dry-run-first, idempotentti, batch ≤450.
-  4. ⬜ **Deploy vartija VIIMEISENÄ** (kun kirjoittajat + migraatio valmiit) → regressio mahdoton.
+  3. ✅ **Migraatio ajettu** (`scripts/migrate_luotu_a5.js`, REST, dry-run-first, idempotentti):
+     havainnot 1 ISO→Timestamp, kirjaukset **144 backfill** `Timestamp.fromDate(new Date(docId=pvm))`,
+     kehut 0. = **145 dokumenttia, 0 virhettä.** Re-run dry-run → konvertoi=0 (idempotenssi ✓).
+     Paljasti: 144 pelaajan kirjausta oli näkymättömiä vanhemmille.
+  4. ✅ **Vartija deployattu** (`firebase deploy --only firestore:rules`, CLI toimi tokenilla).
+     Pre-deploy-audit: KAIKKI live-kirjoittajat (ml. linkitetty Master_v9) sisältävät timestamp-luotun;
+     `.update()`-kutsut koskevat vain nahty/lukenut (affectedKeys ohittaa). Functions = Admin SDK (ohittaa).
+     Live-ruleset REST-varmistettu sisältämään vartijan → **regressio mahdoton.**
 - **Myöhemmin:** sama `aika`-kentälle (mentoroinnit, VP + tm_import) — oma vartija + writer-fix.
 
 ### A6. Repo-siivous
