@@ -7,7 +7,7 @@
  * ╚══════════════════════════════════════════════════════════════╝
  *
  * Käyttö:  node guardian.js [tiedosto.html]
- * Oletus:  ../TalentMaster_Pelaaja_v3.html
+ * Oletus:  ../TalentMaster_Pelaaja_v7.html
  *
  * Tarkistusalueet:
  *   A. Rakenne    — DOCTYPE, style-tagit, script-tagit, HTML eheys
@@ -44,7 +44,7 @@ let PASS = 0, FAIL = 0, WARNS = 0;
 
 // ── Tiedosto ───────────────────────────────────────────────────
 const FILE = process.argv[2] ||
-  path.resolve(__dirname, '../TalentMaster_Pelaaja_v3.html');
+  path.resolve(__dirname, '../TalentMaster_Pelaaja_v7.html');
 
 if (!fs.existsSync(FILE)) {
   console.error(`${C.red}❌ Tiedostoa ei löydy: ${FILE}${C.reset}`);
