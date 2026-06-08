@@ -2752,7 +2752,7 @@ function valitsePaivanHarjoite(pelaaja, pankki, pvm) {
   return {
     nimi: h.nimi, ohje: _ohjeIkavaiheelle(h, iv),
     kesto: h.kesto || null, xp: h.xp || 20, yt: h.yt || null,
-    cue: h.cue || null, viikkotavoite: h.viikkotavoite || null,
+    cue: h.cue || null, tarina: h.tarina || null, viikkotavoite: h.viikkotavoite || null,
     kehityskohde: kohde, tyyppi: 'T', paiviaAktiivinen: paiviaAktiivinen,
   };
 }
