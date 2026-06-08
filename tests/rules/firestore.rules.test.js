@@ -123,7 +123,7 @@ async function seedViesti() {
     const db = context.firestore();
     await setDoc(doc(db, 'seurat', SEURA_A, 'viestit', 'viesti1'), {
       lahettajaUid: VP_A_UID, vastaanottajaUid: VALM_A_UID,
-      teksti: 'Huomenta', aika: new Date().toISOString(), luettu: false,
+      teksti: 'Huomenta', aika: new Date(), luettu: false,
       fromRole: 'vp',
     });
   });
@@ -593,7 +593,23 @@ describe('Viestit', () => {
     const db = vpContext(SEURA_A).firestore();
     await assertSucceeds(setDoc(
       doc(db, 'seurat', SEURA_A, 'viestit', 'viesti-new'),
-      { lahettajaUid: VP_A_UID, vastaanottajaUid: VALM_A_UID, teksti: 'Uusi', aika: new Date().toISOString(), luettu: false }
+      { lahettajaUid: VP_A_UID, vastaanottajaUid: VALM_A_UID, teksti: 'Uusi', aika: new Date(), luettu: false }
+    ));
+  });
+
+  it('A5-jälki: VP EI luo viestiä ISO-string-aika:lla (vartija)', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'viestit', 'aika-iso'),
+      { lahettajaUid: VP_A_UID, vastaanottajaUid: VALM_A_UID, teksti: 'x', aika: new Date().toISOString(), luettu: false }
+    ));
+  });
+
+  it('A5-jälki: VP luo viestin Timestamp-aika:lla', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'viestit', 'aika-ts'),
+      { lahettajaUid: VP_A_UID, vastaanottajaUid: VALM_A_UID, teksti: 'x', aika: new Date(), luettu: false }
     ));
   });
 
@@ -601,7 +617,7 @@ describe('Viestit', () => {
     const db = vpContext(SEURA_A).firestore();
     await assertFails(setDoc(
       doc(db, 'seurat', SEURA_A, 'viestit', 'viesti-spoof'),
-      { lahettajaUid: 'someone-else', vastaanottajaUid: VALM_A_UID, teksti: 'Huijaus' }
+      { lahettajaUid: 'someone-else', vastaanottajaUid: VALM_A_UID, teksti: 'Huijaus', aika: new Date() }
     ));
   });
 

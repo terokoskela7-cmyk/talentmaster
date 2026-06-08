@@ -136,11 +136,8 @@ service cloud.firestore {
       ];
     }
 
-    // Seurasihteeri — luku + hallinto (seurat/joukkueet/kayttajat onJohtoRooli:n kautta),
-    // EI valmennusdata-kirjoitusta (kirjaukset/havainnot/testitulokset/idp).
-    function onSeuraSihteeri(seuraId) {
-      return request.auth.token.rooli == 'seurasihteeri' && onOmaSeura(seuraId);
-    }
+    // (Seurasihteerin oikeudet hoituvat onJohtoRooli():n kautta — erillinen onSeuraSihteeri
+    //  poistettu 2026-06-08 käyttämättömänä; kompilaattori varoitti unused + invalid 'request'.)
 
     // Testivastaava — kirjoittaa VAIN testitapahtumat + testitulokset, lukee pelaajaprofiilit.
     function onTestivastaava(seuraId) {
@@ -204,6 +201,17 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['luotu'])
           || ('luotu' in request.resource.data
               && request.resource.data.luotu is timestamp);
+    }
+    // A5-jälki: sama `aika`-kentälle (mentorointiviestit seurat/{}/viestit) — estää regression
+    // (data + VP_v25-writer ovat jo Timestamp; vartija lukitsee).
+    function aikaLuontiKelpaa() {
+      return 'aika' in request.resource.data
+          && request.resource.data.aika is timestamp;
+    }
+    function aikaPaivitysKelpaa() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['aika'])
+          || ('aika' in request.resource.data
+              && request.resource.data.aika is timestamp);
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -656,13 +664,15 @@ service cloud.firestore {
                           && (request.auth.uid == resource.data.vastaanottajaUid
                               || request.auth.uid == resource.data.lahettajaUid
                               || onJohtoRooli()));
-        allow create: if onSuperAdmin()
+        allow create: if (onSuperAdmin()
                       || (onOmaSeura(seuraId)
                           && onKirjautunut()
-                          && request.resource.data.lahettajaUid == request.auth.uid);
-        allow update: if onSuperAdmin()
+                          && request.resource.data.lahettajaUid == request.auth.uid))
+                      && aikaLuontiKelpaa();                          // A5-jälki
+        allow update: if (onSuperAdmin()
                       || (onOmaSeura(seuraId)
-                          && request.auth.uid == resource.data.vastaanottajaUid);
+                          && request.auth.uid == resource.data.vastaanottajaUid))
+                      && aikaPaivitysKelpaa();                        // A5-jälki
         allow delete: if onSuperAdmin();
       }
     }
