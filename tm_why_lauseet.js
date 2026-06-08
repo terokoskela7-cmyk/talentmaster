@@ -206,12 +206,40 @@ function getTHarjoiteWhy(stage) {
     '3_showcase': 'showcase', showcase: 'showcase',
   };
   const ika = map[stage];
-  const T = {
-    leikkija:  'Mitä enemmän kosketuksia, sitä paremmin pallo tottelee. Vähän joka päivä — niin pallosta tulee kaveri.',
-    rakentaja: 'Päivittäiset kosketukset rakentavat automaation: pallonkäsittely siirtyy selkäytimeen eikä vie ajatuksia pelitilanteessa.',
-    showcase:  'Huipun ero syntyy toistomäärästä. Tuhannet päivittäiset kosketukset tekevät ensikosketuksesta aseen, joka erottaa pelaajat.',
+  if (!ika) return '';
+  // Päivittäin vaihtuva kannustus pihapeleihin + pallolla leikkimiseen.
+  // Kultainen ikkuna (leikkijä): pihapelit ja kosketukset tärkeimpiä juuri nyt.
+  const TEHTAVAT = {
+    leikkija: [
+      'Mene pihalle pelaamaan! Pihapelit kavereiden kanssa tekevät sinusta taiturin.',
+      'Jongleeraa pallolla — montako kosketusta saat putkeen?',
+      'Potki palloa seinään ja ota haltuun. Kaverin kanssa vielä hauskempaa.',
+      'Pujottele pallo jalkojen välistä pihalla. Keksi oma rata!',
+      'Pelaa pihapeliä — seinäfutis, kuningaspallo, mitä vaan. Pääasia: pallo jalassa.',
+      'Kokeile molemmilla jaloilla. Heikko jalka oppii nyt leikkien helpoimmin.',
+      'Ulos pallon kanssa! Tässä iässä joka kosketus on kultaa.',
+    ],
+    rakentaja: [
+      'Pihapeli kavereiden kanssa — paras tapa pitää tekniikka terävänä.',
+      'Jongleeraus: tavoittele uutta ennätystä molemmilla jaloilla.',
+      'Seinäsyötöt heikolla jalalla — montako vauhdilla?',
+      'Tee pihalle pujottelurata: nopeus ja hallinta yhtä aikaa.',
+      'Ota pallo mukaan ulos. Päivittäinen kosketus tekee siitä automaattista.',
+      'Pelaa pienpeliä ahtaassa tilassa — siellä tekniikka pakotetaan teräväksi.',
+      'Tänään kaikki kosketukset heikolla jalalla. Sieltä ero syntyy.',
+    ],
+    showcase: [
+      'Pihapeli tai pienpeli — tiukassa tilassa tekniikka testataan.',
+      'Jongleeraus + terävä ensikosketus. Laatu ennen määrää.',
+      'Heikko jalka aseeksi: tee tänään tietoisesti kaikki sillä.',
+      'Seinäsyötöt vauhdilla, ensikosketus täsmälleen jalkaan.',
+      'Pallonhallinta paineessa: nopea pujottelu, pää ylhäällä.',
+      'Ota pallo ulos vaikka 15 min. Toistot ratkaisevat huipulla.',
+      'Pelaa kavereiden kanssa — pelistä oppii sen mitä harjoitus ei opeta.',
+    ],
   };
-  return ika ? (T[ika] || '') : '';
+  const lista = TEHTAVAT[ika];
+  return lista[new Date().getDay() % lista.length];   // 0=su … 6=la, kiertää viikoittain
 }
 
 if (typeof module !== 'undefined' && module.exports) {
