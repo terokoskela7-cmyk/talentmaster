@@ -62,7 +62,7 @@ manuaalisesti (composite-index-failit, kentännimi-mismatchit, logout-tilavuodot
   (yhtenäistetty Excel_Tuontin kanssa) + `<= → <` kaikissa kopioissa + `Math.min`-guard.
 - **Vartioitu:** A2-testit varmistavat että molemmat `laskeEI`-versiot antavat saman ydinarvon.
 
-### A4. Security Rules -testit + Rules CI
+### A4. Security Rules -testit + Rules CI — ✅ VALMIS 2026-06-07
 - **Työkalu:** `@firebase/rules-unit-testing` + emulaattori.
 - **Kriittiset testit:** valmentaja EI voi lukea toisen seuran dataa; valmentaja VOI päivittää
   oman `kayttajat/{uid}`-profiilin mutta EI toisen; johto-roolit (vp/UTJ/sihteeri) EIVÄT
@@ -71,7 +71,7 @@ manuaalisesti (composite-index-failit, kentännimi-mismatchit, logout-tilavuodot
   GitHub Actions sai 403 (todennäk. SA:lta puuttuu `firebaserules.admin` / Firebase Admin -rooli).
   Tämä poistaa "deployasinko oikean version?" -luottamusriskin.
 
-### A5. `luotu`-kentän tyyppiristiriita + puuttuva kenttä — 🟡 KÄYNNISSÄ
+### A5. `luotu`-kentän tyyppiristiriita + puuttuva kenttä — ✅ VALMIS 2026-06-08 (kaikki 4 stepiä)
 - **KAKSI vikaluokkaa** (molemmat → orderBy/where-näkymättömyys, sama oire):
   - **Tyyppi-mismatch:** `havainnot.luotu` = ISO-string (Master 3498/3537) vs Timestamp-kyselyt
     (Vanhempi `where Timestamp`, Pelaaja `orderBy`). Firestore-tyyppijärjestys (timestamp < string)
@@ -101,14 +101,23 @@ manuaalisesti (composite-index-failit, kentännimi-mismatchit, logout-tilavuodot
      Live-ruleset REST-varmistettu sisältämään vartijan → **regressio mahdoton.**
 - **Myöhemmin:** sama `aika`-kentälle (mentoroinnit, VP + tm_import) — oma vartija + writer-fix.
 
-### A6. Repo-siivous
-- Poista vanhat versiotiedostot: `TalentMaster_Master_v9.html`, `TalentMaster_Pelaaja_v3.html`
-  (varmista ettei mikään HTML linkitä niitä).
+### A6. Repo-siivous — ⬜ JÄLJELLÄ (A1–A5 valmiit)
+- Poista/relinkkaa vanhat versiotiedostot: `TalentMaster_Master_v9.html` (HUOM: **on linkitetty** —
+  ADAR_Koulutus + IDP_Kortti "← Takaisin" → relinkkaa Master_v16:een), `TalentMaster_Pelaaja_v3.html`.
 - Yhdistä `tm_auth.js` + `tm-auth.js` (kaksi lähes identtistä nimeä = törmäysriski).
 - **Pidemmällä:** poista versio tiedostonimestä → `master.html` + git-tagit/CHANGELOG hoitavat version.
 
 **Sprint 6 -DoD:** CI ajaa A2+A4 testit jokaisessa PR:ssä; A1+A5 indeksit/kentät yhtenäiset;
 A3+A6 törmäykset purettu. Tämän jälkeen toinen kehittäjä voi tehdä PR:n rikkomatta tuotantoa hiljaa.
+
+### Sprint 6 -backlog (noussut pilotissa 2026-06-07/08)
+- **A5-jälki:** sama timestamp-käsittely `aika`-kentälle (mentoroinnit, VP + tm_import) — oma vartija + writer-fix + migraatio.
+- **A2-jälki:** lisää KPI-testejä — TSI 5-vyöhyke-rajat eksplisiittisesti, Hidden Gem -kynnys, ADAR-pisteet.
+- **A4-jälki / Rules-siivous:** deploy varoittaa `142:14 Invalid variable name: request` + `onSeuraSihteeri` käyttämätön → korjaa.
+- **Inbox seen-state → Firestore** (per-käyttäjä, cross-device) — nyt localStorage; niputa B2-notifikaatiokerrokseen. Pilotissa OK (oma laite).
+- **Versio-tarkistus henkilöstötyökaluihin** (Admin/Seura/Rekisterointi puuttuu — vain Master/Pelaaja/Vanhempi katettu).
+- **⏰ Node 20 -runtime decommission 2026-10-30** (functions deploy varoittaa): päivitä `firebase.json` runtime nodejs20→nodejs22 + `firebase-functions` SDK 4.9→≥5.1 **ennen tätä päivää**, muuten functions-deploy estyy.
+- **huoltajaEmail lowercase write-side** ✅ tehty (kaikki kirjoituspisteet); ei toistu.
 
 ---
 
