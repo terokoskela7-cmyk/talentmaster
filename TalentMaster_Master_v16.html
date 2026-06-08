@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1780876678417';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1780900655515';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -1222,11 +1222,9 @@ a { color: inherit; text-decoration: none; }
           <div class="inbox-sub" id="inboxSub">Perheiden ja pelaajien kirjaukset</div>
         </div>
         <div class="inbox-filters">
-          <button class="inbox-filter" data-fil="all" onclick="setInboxFilter('all')">Kaikki</button>
-          <button class="inbox-filter active" data-fil="unseen" onclick="setInboxFilter('unseen')">Näkemättä</button>
-          <button class="inbox-filter" data-fil="attention" onclick="setInboxFilter('attention')">Huomio</button>
-          <button class="inbox-filter" data-fil="parent" onclick="setInboxFilter('parent')">Vanhemmat</button>
-          <button onclick="kuittaaKaikki()" id="kuittaaKaikkiBtn" style="margin-left:auto;padding:7px 14px;background:var(--teal,#28B090);color:#fff;border:none;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;display:none;align-items:center;gap:6px;white-space:nowrap">✓ Merkitse kaikki luetuiksi</button>
+          <button class="inbox-filter active" data-fil="unseen" onclick="setInboxFilter('unseen')">Inbox</button>
+          <button class="inbox-filter" data-fil="seen" onclick="setInboxFilter('seen')">Arkisto</button>
+          <button onclick="kuittaaKaikki()" id="kuittaaKaikkiBtn" style="margin-left:auto;padding:7px 12px;background:transparent;color:var(--ink2);border:.5px solid var(--line);border-radius:20px;font-size:10px;font-weight:600;cursor:pointer;display:none;align-items:center;gap:5px;white-space:nowrap">Kuittaa kaikki</button>
         </div>
       </div>
       <div class="inbox-list" id="inboxList"></div>
@@ -3335,19 +3333,21 @@ function renderInbox(){
   const sub=document.getElementById('inboxSub');
   if(!list) return;
   let evts=_getInboxEvents();
-  // suodattimet
-  if(_inboxFilter==='unseen')    evts=evts.filter(e=>!_seenEvents[e.id]);
-  if(_inboxFilter==='attention') evts=evts.filter(e=>e.type==='injury'||e.fiilis===1||e.fiilis===2);
-  if(_inboxFilter==='parent')    evts=evts.filter(e=>e.source==='parent');
+  // Inbox = käsittelemättömät; Arkisto = kuitatut. Kuittaus siirtää Inboxista Arkistoon.
+  if(_inboxFilter==='seen') evts=evts.filter(e=>_seenEvents[e.id]);
+  else                      evts=evts.filter(e=>!_seenEvents[e.id]);   // 'unseen' = Inbox (oletus)
+  // Huomio-kortit (loukkaantuminen / huono fiilis / interventio) ylös Inboxissa
+  const _onHuomio=e=>(e.type==='injury'||e.fiilis===1||e.fiilis===2||e.type==='intervention.requested'||(e.payload&&e.payload.priority==='high'));
+  if(_inboxFilter!=='seen') evts=evts.slice().sort((a,b)=>{const A=_onHuomio(a),B=_onHuomio(b);if(A!==B)return A?-1:1;return (b.t||0)-(a.t||0);});
   // badge
   const unseenN = _getInboxEvents().filter(e=>!_seenEvents[e.id]).length;
   const sbB=document.getElementById('sbInboxBadge');
   const wsB=document.getElementById('wsInboxBadge');
   if(sbB){sbB.textContent=unseenN;sbB.style.display=unseenN?'inline-flex':'none';}
   if(wsB){wsB.textContent=unseenN;wsB.style.display=unseenN?'inline-flex':'none';}
-  // "Merkitse kaikki luetuiksi" -nappi: näkyy vain kun näkemättömiä, laskuri mukana
+  // "Kuittaa kaikki" -nappi: näkyy vain Inbox-välilehdellä kun näkemättömiä (toissijainen toiminto)
   const kkBtn=document.getElementById('kuittaaKaikkiBtn');
-  if(kkBtn){kkBtn.style.display=unseenN>0?'inline-flex':'none';kkBtn.textContent='✓ Merkitse kaikki luetuiksi ('+unseenN+')';}
+  if(kkBtn){const _show=_inboxFilter!=='seen'&&unseenN>0;kkBtn.style.display=_show?'inline-flex':'none';kkBtn.textContent='Kuittaa kaikki ('+unseenN+')';}
   // sub
   if(sub){
     const total=_getInboxEvents().length;
@@ -3357,11 +3357,14 @@ function renderInbox(){
   if(!evts.length){
     if (empty) empty.style.display = 'none';
     const _total = _getInboxEvents().length;
-    if (_inboxFilter==='unseen' && _total>0) {
-      // Kaikki kuitattu — viestit ovat tallessa, historia löytyy "Kaikki"-filtteristä
-      list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3);font-size:14px;">✓ Kaikki kuitattu<br><span style="font-size:12px">Vaihda <b>Kaikki</b> nähdäksesi historian</span></div>';
+    if (_inboxFilter==='seen') {
+      // Arkisto tyhjä
+      list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3);font-size:14px;">Arkisto on tyhjä<br><span style="font-size:12px">Kuitatut kirjaukset siirtyvät tänne</span></div>';
+    } else if (_total>0) {
+      // Inbox tyhjä mutta kirjauksia on → kaikki kuitattu (löytyvät Arkistosta)
+      list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3);font-size:14px;">✓ Kaikki kuitattu<br><span style="font-size:12px">Kuitatut löytyvät <b>Arkisto</b>-välilehdeltä</span></div>';
     } else if (!_demo && _seuraId) {
-      _renderInboxOhjaus(list);   // vaihekohtainen ohje
+      _renderInboxOhjaus(list);   // vaihekohtainen ohje (ei vielä yhtään kirjausta)
     } else {
       if (empty) empty.style.display = 'block';
       list.innerHTML = '';
@@ -3444,7 +3447,7 @@ function renderInbox(){
 
     const evtTime = e.at || e.t || e.publishedAt || Date.now();
     return `
-    <div class="${cls.join(' ')}" onclick="markSeen('${e.id}')">
+    <div class="${cls.join(' ')}">
       <div class="inbox-avatar" ${vpEra?'style="background:#6B3FA0;color:#fff"':''}>${vpEra?'VP':_initials(p.name)}</div>
       <div class="inbox-body">
         <div class="inbox-meta">
@@ -3464,7 +3467,9 @@ function renderInbox(){
       </div>
       <div class="inbox-actions" onclick="event.stopPropagation()">
         <button class="inbox-reply" onclick="openReply('${e.playerId}','${p.name}','${e.id}')">Viestitä perheelle →</button>
-        <button onclick="markSeen('${e.id}')" title="Merkitse luetuksi" style="padding:6px 10px;background:transparent;border:.5px solid var(--line);border-radius:8px;color:var(--ink2);font-size:11px;cursor:pointer;white-space:nowrap">✓ Luettu</button>
+        ${_seenEvents[e.id]
+          ? `<button onclick="palautaInbox('${e.id}')" title="Palauta Inboxiin" style="padding:6px 12px;background:transparent;border:.5px solid var(--line);border-radius:8px;color:var(--ink2);font-size:11px;cursor:pointer;white-space:nowrap">↩ Palauta</button>`
+          : `<button onclick="markSeen('${e.id}')" title="Kuittaa — siirrä Arkistoon" style="padding:6px 12px;background:var(--teal,#28B090);border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">✓ Kuittaa</button>`}
       </div>
     </div>`;
   }).join('');
@@ -3473,6 +3478,14 @@ function renderInbox(){
 function markSeen(eid){
   if(_seenEvents[eid]) return;
   _seenEvents[eid]=Date.now();
+  localStorage.setItem('tm-inbox-seen',JSON.stringify(_seenEvents));
+  renderInbox();
+}
+
+// Palauta kuitattu kirjaus Arkistosta takaisin Inboxiin
+function palautaInbox(eid){
+  if(!_seenEvents[eid]) return;
+  delete _seenEvents[eid];
   localStorage.setItem('tm-inbox-seen',JSON.stringify(_seenEvents));
   renderInbox();
 }
