@@ -111,9 +111,9 @@ manuaalisesti (composite-index-failit, kentännimi-mismatchit, logout-tilavuodot
 A3+A6 törmäykset purettu. Tämän jälkeen toinen kehittäjä voi tehdä PR:n rikkomatta tuotantoa hiljaa.
 
 ### Sprint 6 -backlog (noussut pilotissa 2026-06-07/08)
-- **A5-jälki:** sama timestamp-käsittely `aika`-kentälle (mentoroinnit, VP + tm_import) — oma vartija + writer-fix + migraatio.
+- **A5-jälki:** ✅ VALMIS 2026-06-08. `aika` oli jo Timestamp (VP_v25 serverTimestamp + Master defensiivinen read + data 5/5 Timestamp) → vain vartija lisätty (regression-esto, `aikaLuontiKelpaa`/`aikaPaivitysKelpaa` viestit-blokkiin) + 2 testiä. Ei migraatiota. Deployattu.
 - **A2-jälki:** lisää KPI-testejä — TSI 5-vyöhyke-rajat eksplisiittisesti, Hidden Gem -kynnys, ADAR-pisteet.
-- **A4-jälki / Rules-siivous:** deploy varoittaa `142:14 Invalid variable name: request` + `onSeuraSihteeri` käyttämätön → korjaa.
+- **A4-jälki / Rules-siivous:** ✅ VALMIS 2026-06-08. Käyttämätön `onSeuraSihteeri` poistettu → varoitukset 141/142 poissa. Rules kääntyy puhtaasti. Deployattu.
 - **Inbox seen-state → Firestore** (per-käyttäjä, cross-device) — nyt localStorage; niputa B2-notifikaatiokerrokseen. Pilotissa OK (oma laite).
 - **Versio-tarkistus henkilöstötyökaluihin** (Admin/Seura/Rekisterointi puuttuu — vain Master/Pelaaja/Vanhempi katettu).
 - **⏰ Node 20 -runtime decommission 2026-10-30** (functions deploy varoittaa): päivitä `firebase.json` runtime nodejs20→nodejs22 + `firebase-functions` SDK 4.9→≥5.1 **ennen tätä päivää**, muuten functions-deploy estyy.
