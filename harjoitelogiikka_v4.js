@@ -139,6 +139,7 @@ const PANKKI = {
         kesto: '15 min', xp: 20,
         yt: 'fHbM1v9G6xk',
         cue: 'Bellingham (Real Madrid): ensimmäinen kosketus on jo seuraava liike.',
+        tarina: 'Bellingham liittyi Birminghamin akatemiaan 8-vuotiaana ja nousi U18-joukkueeseen jo 14-vuotiaana — kaksi ikäluokkaa muita edellä, koska hänen ensikosketuksensa oli niin varma.',
         viikkotavoite: 'Sisäterävastaanotto — 8/10 lähtee suoraan menosuuntaan',
       },
       vk2: { // Taso 1+: vastaanotto + suunnanvaihto, nopeus kasvaa
@@ -149,6 +150,7 @@ const PANKKI = {
         kesto: '15 min', xp: 20,
         yt: 'fHbM1v9G6xk',
         cue: 'Bellingham: vastaanotto on jo hyökkäys — käänny sinne missä on tilaa.',
+        tarina: 'Ennen debyyttiään Bellingham harjoitteli kuukausia Birminghamin senioripelaajien kanssa ja matkusti joukkueen mukana pääsarjaotteluihin seuratakseen ammattilaisten ensikosketusta läheltä.',
         viikkotavoite: 'Vastaanotto + käännös yhdellä kosketuksella 20/24',
       },
       vk3: { // Taso 2: passiivinen vastustaja — suojaus
@@ -159,6 +161,7 @@ const PANKKI = {
         kesto: '20 min', xp: 25,
         yt: 'fHbM1v9G6xk',
         cue: 'Bellingham: keho pallon ja vastustajan väliin — silloin pallo on aina sinun.',
+        tarina: '14-vuotias Bellingham tuli vaihtoon Leicesterin U16:ta vastaan tappioasemassa 0–2. Vastustaja huusi: "Miksi tuo lapsi on kentällä?" Bellingham teki neljä maalia 30 minuutissa ja käänsi pelin 6–2.',
         viikkotavoite: 'Suojattu vastaanotto auki paineesta 15/20',
       },
       vk4: { // Taso 3: mittaus + oma arvio
@@ -169,6 +172,7 @@ const PANKKI = {
         kesto: '20 min', xp: 30,
         yt: 'fHbM1v9G6xk',
         cue: 'Bellingham: ilman mittausta et tiedä paraneeko ensikosketuksesi.',
+        tarina: 'Bellinghamista tuli Birminghamin kaikkien aikojen nuorin liigapelaaja 16 vuoden ja 38 päivän iässä — ennätys joka oli kestänyt 49 vuotta. Hänet valittiin myös ottelun parhaaksi pelaajaksi.',
         viikkotavoite: 'Suuntaava ensikosketus: montako 20:stä menosuuntaan?',
       },
     },
@@ -188,6 +192,7 @@ const PANKKI = {
         kesto: '15 min', xp: 20,
         yt: 'PKe-qpMbHgg',
         cue: 'Affelay (PSV/Barcelona): nämä 4 taitoa ovat pohja jolle kaikki muu rakennetaan.',
+        tarina: 'Affelay aloitti jalkapallon 7-vuotiaana Utrechtin Elinkwijk-seurassa. Hän kuljetti palloa joka päivä lähiön kaduilla — katupeli opetti katseennoston ja nopeat suunnanvaihdot ennen kuin mikään akatemia ehti.',
         viikkotavoite: 'Kuljeta 20 m silmät ylhäällä ilman palloa putoamasta',
       },
       vk2: {
@@ -198,6 +203,7 @@ const PANKKI = {
         kesto: '15 min', xp: 20,
         yt: 'PKe-qpMbHgg',
         cue: 'Räjähtävyys: tärkeää ei ole mitä liikettä teet vaan milloin ja kuinka nopeasti kiihdytät sen jälkeen.',
+        tarina: 'PSV Eindhoven löysi Affelayn 10-vuotiaana. Hän harjoitteli samassa akatemiassa 10 vuotta ja hioi dribbeling-tekniikkaansa päivä päivältä — eikä vaihtanut seuraa ennen kuin taito oli valmis.',
         viikkotavoite: '0–15m pallo mukana, alle 3 s',
       },
       vk3: {
@@ -208,6 +214,7 @@ const PANKKI = {
         kesto: '20 min', xp: 25,
         yt: 'PKe-qpMbHgg',
         cue: 'Noordster: hallitse liike ensin yksin, sitten passiivista vastaan, sitten täydessä 1v1:ssä.',
+        tarina: '17-vuotiaana Affelay debytoi PSV:n edustusjoukkueessa ja haastoi heti kokeneemmat Eredivisie-puolustajat. Vuosien akatemiahionta näkyi: hän uskalsi kuljettaa vastustajaa päin, koska tekniikka kesti paineen.',
         viikkotavoite: 'Ohita passiivinen puolustaja 15/20 kertaa',
       },
       vk4: {
@@ -218,6 +225,7 @@ const PANKKI = {
         kesto: '20 min', xp: 30,
         yt: 'PKe-qpMbHgg',
         cue: 'La Masia: mittaa kehitystä, älä vain harjoittele — ilman mittausta et tiedä oletko kehittynyt.',
+        tarina: 'PSV:n virallinen sivusto kuvailee Affelayta pelaajana joka "nöyryytti puolustajia hämmästyttävillä dribblingeillä." Se tyyli syntyi Utrechtin katupelissä ja PSV:n akatemian toistoissa — ei yhdessä yössä.',
         viikkotavoite: 'Pujottelu 10 m — paranna lokakuun alun aikaa',
       },
     },
@@ -237,6 +245,7 @@ const PANKKI = {
         kesto: '20 min', xp: 20,
         yt: 'eoR91TNIWDQ',
         cue: 'Noordster-sääntö: "Koko sarja täytyy hallita ilman vastustajaa ennen kuin siirrytään passiiviseen."',
+        tarina: 'Pikkupoikana Madeiralla Ronaldo harjoitteli yksin seinää vasten kunnes pimeys pakotti lopettamaan. Kun muut lapset leikkivät, hän toisti samaa liikettä yhä uudelleen.',
         viikkotavoite: 'U-käännös onnistuu 10/10 molemmilla jaloilla',
       },
       vk2: {
@@ -247,6 +256,7 @@ const PANKKI = {
         kesto: '20 min', xp: 20,
         yt: 'eoR91TNIWDQ',
         cue: 'Räjähtävyys: tärkeää ei ole mitä liikettä — vaan kuinka nopeasti kiihdytät sen jälkeen.',
+        tarina: '12-vuotiaana Sporting Lissabon löysi Ronaldon, mutta hän oli niin koti-ikävissään että itki öisin ja harkitsi lopettamista. Hän purki kaiken harjoitteluun ja jäi aina viimeisenä kentälle.',
         viikkotavoite: 'Liike + 5 m kiihdytys alle 2 sekunnissa',
       },
       vk3: {
@@ -257,6 +267,7 @@ const PANKKI = {
         kesto: '20 min', xp: 25,
         yt: 'eoR91TNIWDQ',
         cue: 'Noordster Taso 2: liikkeen täytyy toimia täydessä nopeudessa ennen siirtymistä täyteen 1v1:een.',
+        tarina: '14-vuotias Ronaldo halusi harjoitella kuntosalilla, mutta Sportingin akatemia kielsi lasten salitreenit. Hän hiipi yöllä saliin salaa — kunnes valmentajat löysivät hänet ja lukitsivat salin riippulukolla.',
         viikkotavoite: 'Ohita passiivinen puolustaja 15/20 kertaa valitulla liikkeellä',
       },
       vk4: {
@@ -267,6 +278,7 @@ const PANKKI = {
         kesto: '20 min', xp: 30,
         yt: 'eoR91TNIWDQ',
         cue: 'Fulham-mittaus: toimiiko liike oikeassa pelissä? Jos ei — palaa vk 1:een.',
+        tarina: '18-vuotias Ronaldo pelasi harjoituspelissä Manchester Unitedia vastaan Lissabonissa. Hän ohitti puolustajan toisensa jälkeen niin vakuuttavasti, että Sir Alex Ferguson kieltäytyi lähtemästä Portugalista ilman allekirjoitettua sopimusta.',
         viikkotavoite: 'Vähintään 1 onnistunut ohitus per pelitilanne',
       },
     },
@@ -286,6 +298,7 @@ const PANKKI = {
         kesto: '20 min', xp: 20,
         yt: 'yGHMHi9mMOQ',
         cue: 'Beckham (ManUtd/Real Madrid): tukijalka ratkaisee suunnan. Wreeffi ratkaisee nopeuden.',
+        tarina: 'Isä Ted Beckham ohjasi Davidin syöttöharjoituksia Ridgeway Parkissa myöhään iltoihin asti. Hän maksoi pojalle 50 pennyn palkinnon jokaisesta osumasta poikkipalkkiin — David toisti laukauksia satoja kertoja illassa.',
         viikkotavoite: '10 peräkkäistä sisäjalkasyöttöä samaan kohtaan',
       },
       vk2: {
@@ -296,6 +309,7 @@ const PANKKI = {
         kesto: '20 min', xp: 20,
         yt: 'yGHMHi9mMOQ',
         cue: 'La Masia: teknisesti taitavat pelaajat pystyvät pitämään pallon liikkeessä joka etäisyydellä.',
+        tarina: 'Beckham osallistui Bobby Charltonin jalkapallokouluun 10-vuotiaana. 11-vuotiaana hän voitti koko koulun taitokilpailun — palkinnoksi hän sai kahden viikon leirin Barcelonassa, ja Charlton soitti suoraan Manchester Unitedille.',
         viikkotavoite: '20 m sisäjalkasyöttö 8/10 osuu kohteeseen',
       },
       vk3: {
@@ -306,6 +320,7 @@ const PANKKI = {
         kesto: '20 min', xp: 25,
         yt: 'yGHMHi9mMOQ',
         cue: 'Ajax: syöttö on kommunikaatiota. Pallo kertoo joukkuekaverille minne mennä.',
+        tarina: '14-vuotiaana Beckham allekirjoitti Manchester Unitediin. Hän harjoitteli legendaarisen Class of \'92 -ryhmän kanssa — Giggs, Neville, Scholes — ja he voittivat yhdessä FA Youth Cupin 1992.',
         viikkotavoite: 'Syöttö liikkuvaan kohteeseen 12/20 oikein ajoitettu',
       },
       vk4: {
@@ -316,6 +331,7 @@ const PANKKI = {
         kesto: '20 min', xp: 30,
         yt: 'yGHMHi9mMOQ',
         cue: 'Fulham: viidennen viikon periaate — harjoittele sitä missä tulos jäi heikoimmaksi.',
+        tarina: 'Beckhamin isä opetti: "Katso kuinka Bobby Charlton lyö pallon — sulava liike molemmin jaloin." David harjoitteli laukaisutekniikkaa molemmilla jaloilla niin kauan, kunnes oikea ja vasen olivat yhtä tarkat.',
         viikkotavoite: 'Syöttöhaaste 15/20 pistettä',
       },
     },
@@ -331,6 +347,7 @@ const PANKKI = {
         kesto: '15–20 min', xp: 20,
         yt: 'PKe-qpMbHgg',
         cue: 'Ajax: "daily touches" — joka päivä pallo, myös lepopäivinä.',
+        tarina: 'Ajaxin akatemiassa jokainen pelaaja koskettaa palloa joka päivä — myös lepopäivinä. Cruijff, Bergkamp, de Jong — kaikki aloittivat samalla säännöllä: pallo jalkaan joka ikinen päivä.',
         viikkotavoite: 'Tee pallokosketus joka päivä',
       },
     },
