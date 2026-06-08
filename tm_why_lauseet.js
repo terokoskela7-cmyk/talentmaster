@@ -192,6 +192,28 @@ function getSHarjoiteWhy(flei, stage) {
   return { ketju: heikoin, lause: getWhyLause(heikoin, 'S', stage) };
 }
 
+/**
+ * T-harjoitteen ("Pallo joka päivä" / Bola Siempre) miksi-teksti per vaihe.
+ * Ketju-agnostinen — päivittäinen pallokosketus on universaali tekniikkahabit,
+ * ei sidottu yhteen ketjuun (siksi oma funktio, ei getWhyLause(ketju,...)).
+ * @param {string} stage  '1_leikkija' | '2_rakentaja' | '3_showcase'
+ * @returns {string}
+ */
+function getTHarjoiteWhy(stage) {
+  const map = {
+    '1_leikkija': 'leikkija', leikkija: 'leikkija',
+    '2_rakentaja': 'rakentaja', rakentaja: 'rakentaja',
+    '3_showcase': 'showcase', showcase: 'showcase',
+  };
+  const ika = map[stage];
+  const T = {
+    leikkija:  'Mitä enemmän kosketuksia, sitä paremmin pallo tottelee. Vähän joka päivä — niin pallosta tulee kaveri.',
+    rakentaja: 'Päivittäiset kosketukset rakentavat automaation: pallonkäsittely siirtyy selkäytimeen eikä vie ajatuksia pelitilanteessa.',
+    showcase:  'Huipun ero syntyy toistomäärästä. Tuhannet päivittäiset kosketukset tekevät ensikosketuksesta aseen, joka erottaa pelaajat.',
+  };
+  return ika ? (T[ika] || '') : '';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { WHY_LAUSEET, getWhyLause, getSHarjoiteWhy };
+  module.exports = { WHY_LAUSEET, getWhyLause, getSHarjoiteWhy, getTHarjoiteWhy };
 }
