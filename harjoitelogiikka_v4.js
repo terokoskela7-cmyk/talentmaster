@@ -371,7 +371,7 @@ const PANKKI = {
       {
         stage: [3, 4, 5], // U13+
         nimi: 'Naruhypyt + pohjeeksentrinen',
-        ohje_leikkija: null,
+        ohje_leikkija: 'Hypi narulla tai kuvittele naru 2x15 sekuntia — pysy varpailla! Sitten seiso portaan reunalla: nouse varpaille ylös ja laske kantapäät hitaasti alas. 8 kertaa. Tämä pitää nilkat vahvoina.',
         ohje_rakentaja: 'Naruhypyt 3×15s päkiäkontaktilla (ei kantapää maahan). Tolpan reunalla: varpaille ylös → kantapää hitaasti alas reunan ali. 3×10. Ei kipuun.',
         ohje_showcase: 'Naruhypyt 3×15s — seuraa rytmiä, ei nopeutta. Pohjeeksentrinen tolpan reunalla 3×10 kontrolloidusti. SBL: takaketju aktivoituu jalkapohjasta selkään.',
         kesto: '7 min', xp: 15,
@@ -396,7 +396,7 @@ const PANKKI = {
       {
         stage: [3, 4, 5],
         nimi: 'Hip flexor + askelkyykky-kävely',
-        ohje_leikkija: null,
+        ohje_leikkija: 'Polvistu maahan ja työnnä lantiota eteenpäin — tunnet venytyksen reiden etuosassa. 30 sekuntia per puoli. Sitten kävele isoin askelin 10m: astu pitkälle ja laske polvi lähelle maata. 2 kertaa.',
         ohje_rakentaja: 'Hip flexor 90/90 2×45s per puoli: polvi maahan, eteen kunnes tunnet venytyksen. Sitten askelkyykky-kävely 2×10m — iso askel, polvi lähelle lattiaa.',
         ohje_showcase: 'Hip flexor 90/90 2×45s per puoli. Askelkyykky-kävely 2×10m. SFL: lonkankoukistaja → quadriceps. Potku lähtee lonkasta.',
         kesto: '6 min', xp: 15,
@@ -421,7 +421,7 @@ const PANKKI = {
       {
         stage: [3, 4, 5],
         nimi: 'Clamshell + sivulankku',
-        ohje_leikkija: null,
+        ohje_leikkija: 'Kädy kyljelleen, polvet koukussa. Avaa päällimmäinen polvi ylös kuin simpukka — lantio paikallaan! 10 kertaa per puoli. Sitten sivulankku: nojaa kyynärpäähän ja nosta lantio ilmaan 15 sekuntia per puoli.',
         ohje_rakentaja: 'Clamshell 2×12 per puoli: kylkimakuulla, polvet yhteen, avaa ylös (lantio paikallaan). Sitten sivulankku 2×20s per puoli: keho suorana sivulta.',
         ohje_showcase: 'Clamshell 2×12 gluteus medius -aktivaatiolla. Sivulankku 2×20s. LL: gluteus medius estää valgus-kollapsın suunnanmuutoksissa.',
         kesto: '5 min', xp: 15,
@@ -449,7 +449,7 @@ const PANKKI = {
       {
         stage: [3, 4, 5],
         nimi: 'Seinäsyöttö + ponnauttelu — DIAG päivittäin',
-        ohje_leikkija: null,
+        ohje_leikkija: 'Syötä palloa seinään vuorojaloilla 2x20 kertaa — yhdellä kosketuksella takaisin. Sitten ponnauttele palloa jaloilla 1 minuutti ilman taukoa. Kokeile molempia jalkoja!',
         ohje_rakentaja: 'Seinäsyöttö vuorojaloilla 3×20 (1-kosketus takaisin). Sitten ponnauttelu 3×1 min: molemmat jalat vuorotellen, laske ääneen. Tavoite 20+ per min.',
         ohje_showcase: 'Seinäsyöttö 3×20 vuorojaloilla — 1 kosketus, ei pysähdystä. Ponnauttelu 3×1 min. SL: kiertoketju lähtee rintakehästä. Mittaa ponnauttelu per min.',
         kesto: '6 min', xp: 15,
@@ -475,7 +475,7 @@ const PANKKI = {
       {
         stage: [3, 4, 5],
         nimi: '360° hengitys + dead bug',
-        ohje_leikkija: null,
+        ohje_leikkija: 'Kädy selälleen. Hengitä sisään niin että vatsa ja kyljet pullistuvat — kuin täytät ilmapallon! 5 kertaa. Sitten: nosta käsivarret ja jalat ylös, ojenna vastakkainen käsi ja jalka hitaasti. 8 kertaa per puoli. Selkä pysyy lattiassa!',
         ohje_rakentaja: '360° palleahengitys 3×5: hengitä sisään niin että vatsa, kyljet JA selkä laajenevat. Dead bug 3×5 per puoli: alaselkä maassa koko ajan, laske vastakkainen käsi + jalka hitaasti.',
         ohje_showcase: '360° palleahengitys 3×5. Dead bug 3×5 per puoli — alaselkä koko ajan maassa. DFL: pallea on ainoa lihas joka toimii sekä hengityslihaksena että lantion stabilaattorina.',
         kesto: '6 min', xp: 15,
@@ -500,7 +500,7 @@ const PANKKI = {
       {
         stage: [3, 4, 5],
         nimi: 'Skannausrutiini — katso ensin',
-        ohje_leikkija: null,
+        ohje_leikkija: 'Syötä palloa seinään 2 minuuttia. ENNEN kuin otat pallon vastaan, katso nopeasti taakse ja nimeä ääneen jokin minkä näeit. Sitten syötä. Toista — yritä katsoa joka kerta!',
         ohje_rakentaja: 'Seinäsyöttö 3×2 min: syötä, ENNEN vastaanottoa katso ylös ja nimeä 3 asiaa ympärillä. Kasvata nopeutta progressiivisesti sarjan sisällä.',
         ohje_showcase: 'Seinäsyöttö 3×2 min — pre-scanning: katso ylös ja nimeä 3 asiaa ennen vastaanottoa. Kasvata nopeutta. ADAR: Anticipation-vaihe. Mittaa: kuinka moni kerta katse ylös per 2 min.',
         kesto: '6 min', xp: 15,
@@ -536,7 +536,7 @@ const PANKKI = {
           {
             stage: [3, 4],
             nimi: 'Reaktiolähtö + pallonhallinta',
-            ohje_leikkija: null,
+            ohje_leikkija: 'Aseta pallo 5m eteesi. Kaveri huutaa "NYT!" ja juokset palloon täysillä, otat haltuun ja kuljetat 15m. 5 toistoa. Vaihda huutajaa! Kuka on nopein?',
             ohje_rakentaja: 'Pallo 5m eteen — räjähtävä lähtö, vastaanota ja kuljeta 15m. 6 toistoa täydellä palautuksella. Pallo laukaisee lähdön — ei odoteta.',
             ohje_showcase: 'Pallo 5m eteen. Reaktiivinen sprint → vastaanota → kuljeta 15m. 6 toistoa / täysi palautus. Seuraa: reaktioaika paranee vai ei?',
             kesto: '15 min', xp: 30,
@@ -548,7 +548,7 @@ const PANKKI = {
           {
             stage: [5],
             nimi: 'Reaktiolähtö + laukaus maaliin',
-            ohje_leikkija: null, ohje_rakentaja: null,
+            ohje_leikkija: 'Pallo edessä, kaveri huutaa — juokse palloon, kuljeta ja laukaise maaliin! 5 toistoa. Tähtää nurkkiin!', ohje_rakentaja: null,
             ohje_showcase: 'Pallo 5m eteen → sprint → vastaanota → kuljeta 15m → laukaus maaliin. 6 toistoa. Mittaa: osumakohta maalissa (nurkkailma / nurkkamaa / keski). Laukaustarkkuus kirjataan.',
             kesto: '15 min', xp: 35,
             yt: 'oJOefmeDrx8',
@@ -576,7 +576,7 @@ const PANKKI = {
           {
             stage: [3, 4],
             nimi: '5-loikka ajalla + Nordic curl',
-            ohje_leikkija: null,
+            ohje_leikkija: 'Loiki 5 pitkällä loikalla eteenpäin — kuka pääsee pisimmälle? 3 kertaa. Sitten: polvistu ja kaadu hitaasti eteenpäin käsi edessä, palauta itsesi käsillä työntäen. 5 kertaa. Tuntuu takareidessä!',
             ohje_rakentaja: '5-loikka 3× maksimilla, mittaa matka. Sitten Nordic curl avustettu: kumppaani tai seinä pitää kantapäistä, laske HITAASTI eteen 3×5. Palaa käsillä.',
             ohje_showcase: '5-loikka 3× — mittaa ja vertaa edelliseen kertaan. Nordic curl eksentrinen 3×5: laske hallitusti, palaa käsillä. SBL: hamstring eksentrisenä = loukkaantumissuoja.',
             kesto: '15 min', xp: 30,
@@ -588,7 +588,7 @@ const PANKKI = {
           {
             stage: [5],
             nimi: '5-loikka + Nordic curl täysi',
-            ohje_leikkija: null, ohje_rakentaja: null,
+            ohje_leikkija: 'Loiki 5 pitkällä loikalla — mittaa matka! 3 kertaa. Sitten polvistu ja kaadu hitaasti eteenpäin ilman apua, palauta käsillä. 5 kertaa.', ohje_rakentaja: null,
             ohje_showcase: '5-loikka 3× — kirjaa matka, vertaa kauden alkuun. Nordic curl täysi 3×5 (ei käsiapua). SBL eksentrisenä huipputasolla. Seuraa asymmetriaa: oikea vs vasen.',
             kesto: '15 min', xp: 35,
             yt: 'a7UGb10ViSM',
@@ -619,7 +619,7 @@ const PANKKI = {
           {
             stage: [3, 4],
             nimi: 'T-rata pallolla + reaktio',
-            ohje_leikkija: null,
+            ohje_leikkija: 'Tee T-muotoinen rata (10m eteen, sitten 5m oikealle ja vasemmalle). Kuljeta pallo T:n läpi 4 kertaa — pallo pysyy lähellä jalkaa! Ota aika ja yritä parantaa.',
             ohje_rakentaja: 'T-rata pallon kanssa — pallo pysyy lähellä käänteissä. 4 toistoa, ota aika. Sitten reaktio-SM: partneri osoittaa suunnan, lähde heti. 6× per puoli.',
             ohje_showcase: 'T-rata pallollinen 4× — ota aika, vertaa pallottomaan. Reaktio-SM 6× per puoli. Pallollinen vs. palloton ero kertoo teknisestä tasosta.',
             kesto: '15 min', xp: 30,
@@ -631,7 +631,7 @@ const PANKKI = {
           {
             stage: [5],
             nimi: 'T-rata + 1v1-feinti',
-            ohje_leikkija: null, ohje_rakentaja: null,
+            ohje_leikkija: 'Kuljeta pallo T-radan läpi 3 kertaa täysillä! Sitten pelaa 1 vastaan 1 pienellä alueella — yritä ohittaa kaveri harhautuksella. 2 minuuttia kerrallaan.', ohje_rakentaja: null,
             ohje_showcase: 'T-rata maksimiteholla 3×. Sitten 1v1-peli pienellä alueella (5×5m): ohita vastustaja feintillä 3×2 min. Peli ratkaisee — ei harjoitusnumero.',
             kesto: '15 min', xp: 35,
             yt: 'X9O1XMEpzW4',
@@ -659,7 +659,7 @@ const PANKKI = {
           {
             stage: [3, 4],
             nimi: 'YJ-laskeutuminen sivulle + pito',
-            ohje_leikkija: null,
+            ohje_leikkija: 'Hyppää sivulle yhdellä jalalla ja laskeudu hallitusti — pidä 2 sekuntia paikallaan! Polvi osoittaa suoraan eteenpäin, ei sisäänpäin. 5 kertaa per jalka, 3 kierrosta.',
             ohje_rakentaja: 'Hyppää sivulle yhdellä jalalla → laske hallitusti kyykkyyn → pidä 2s. Polvi suoraan jalkaterän yli — ei sisäänpäin! 5 toistoa per jalka × 3 sarjaa.',
             ohje_showcase: 'Lateraalinen YJ-laskeutuminen 5× per jalka × 3 sarjaa. Pito 2s. Seuraa: polvi sisäänpäin = gluteus medius heikko. Valgus-kollapsi = ACL-riski.',
             kesto: '15 min', xp: 30,
@@ -671,7 +671,7 @@ const PANKKI = {
           {
             stage: [5],
             nimi: 'Reaktiivinen YJ-loikka — ei pitoa',
-            ohje_leikkija: null, ohje_rakentaja: null,
+            ohje_leikkija: 'Loiki sivulle ja heti takaisin — nopeasti kuin pingispallo! 8 loikkaa per suunta, 3 kierrosta. Pidä tasapaino!', ohje_rakentaja: null,
             ohje_showcase: 'Reaktiivinen sivuloikka ilman pitoa: loiki sivulle → välittömästi takaisin. 3×8 per suunta. Kosketusnopeus tavoite alle 0.3s. Tasapainolauta laskeutuessa (Everton Stage 5).',
             kesto: '15 min', xp: 35,
             yt: 'AqvkWRVYaKs',
@@ -702,7 +702,7 @@ const PANKKI = {
           {
             stage: [3, 4],
             nimi: 'Progressiivinen lankku + tasapaino',
-            ohje_leikkija: null,
+            ohje_leikkija: 'Lankku: nojaa kyynärpäihisi ja pidä keho suorana 30 sekuntia. Sitten sivulankku 20 sekuntia per puoli. Bird dog: konttausasennossa ojenna vastakkainen käsi ja jalka 8 kertaa per puoli. Lopuksi seiso yhdellä jalalla silmät kiinni 20 sekuntia!',
             ohje_rakentaja: 'Lankku 3×30s → kasvaa viikoittain 10s. Sivulankku 3×20s per puoli. Bird dog 3×8. Sitten yhden jalan seisonta silmät kiinni 3×20s.',
             ohje_showcase: 'Lankku 3×35s. Sivulankku 3×25s per puoli. Bird dog 3×10. YJ-seisonta silmät kiinni 3×25s. Seuraa lankun kestoa — tavoite 20s → 60s 6 viikossa.',
             kesto: '15 min', xp: 30,
@@ -714,7 +714,7 @@ const PANKKI = {
           {
             stage: [5],
             nimi: 'Karhukävely + pistoolikyykky',
-            ohje_leikkija: null, ohje_rakentaja: null,
+            ohje_leikkija: 'Karhukävely: kävele nelinkontin 10m eteenpäin — lantio ei heiluu! 2 kertaa. Sitten yhden jalan kyykky seinää vasten: laske hitaasti alas ja nouse. 5 kertaa per jalka.', ohje_rakentaja: null,
             ohje_showcase: 'Karhukävely 2×10m (Everton Stage 1→4: lantio ei heiluu). Sitten pistoolikyykky ilman seinää 3×5 per jalka. Sitten pallolla tasapainoistunta YJ:llä 3×30s. DFL-huipputaso.',
             kesto: '15 min', xp: 35,
             yt: 'pSHjTRCQxIw',
@@ -742,7 +742,7 @@ const PANKKI = {
           {
             stage: [3, 4],
             nimi: 'YJ-tasapaino silmät kiinni + pistoolikyykky',
-            ohje_leikkija: null,
+            ohje_leikkija: 'Seiso yhdellä jalalla ja sulje silmät — kokeile kestää 30 sekuntia per jalka! 3 kertaa. Sitten yhden jalan kyykky seinää vasten hitaasti 5 kertaa per jalka.',
             ohje_rakentaja: 'YJ-seisonta silmät kiinni 3×30s per jalka. Sitten pistoolikyykky seinää vasten 3×5 per jalka — hidas ja hallittu. Laatu ennen nopeutta.',
             ohje_showcase: 'YJ-seisonta silmät kiinni 3×35s. Pistoolikyykky seinää vasten → tavoite ilman seinää 3×5. DFL: tasapaino + unilateraalinen voima samassa.',
             kesto: '15 min', xp: 30,
@@ -754,7 +754,7 @@ const PANKKI = {
           {
             stage: [5],
             nimi: 'Tasapainolauta + karhukävely + pistoolikyykky',
-            ohje_leikkija: null, ohje_rakentaja: null,
+            ohje_leikkija: 'Seiso yhdellä jalalla tyynyn päällä 30 sekuntia per jalka. Sitten karhukävely 10m (nelinkontin, lantio paikallaan). Lopuksi yhden jalan kyykky seinää vasten 5 kertaa per jalka.', ohje_rakentaja: null,
             ohje_showcase: 'YJ tasapainolauta 3×30s. Karhukävely 2×10m (lantio paikallaan). Pistoolikyykky ilman tukea 3×5. DFL Stage 5 — kaikki kolme samassa sessiossa.',
             kesto: '15 min', xp: 35,
             yt: 'XUmYcNasrCs',
@@ -787,7 +787,7 @@ const PANKKI = {
           {
             stage: [3, 4],
             nimi: 'Päätöksenteko numeroilla',
-            ohje_leikkija: null,
+            ohje_leikkija: 'Seiso 10m seinästä. Kaveri näyttää sormilla numeron (1-4): 1=vasen, 2=oikea, 3=ylös, 4=alas. Syötä heti sinne minne numero kertoo! 2 minuuttia, sitten vaihto. Kuka reagoi nopeimmin?',
             ohje_rakentaja: 'Seiso 10m seinästä. Kädessä paperi (1=vasen 2=oikea 3=ylä 4=ala). Nosta numero → syötä HETI oikeaan suuntaan. 4×2 min. Nopeuta progressiivisesti.',
             ohje_showcase: 'Reaktiivinen päätöksenteko 4×2 min: numero → syöttö alle 0.5s. Seuraa: kuinka monta oikeaa reaktiota per 2 min? Kasvata nopeutta joka sarja.',
             kesto: '15 min', xp: 30,
@@ -799,7 +799,7 @@ const PANKKI = {
           {
             stage: [5],
             nimi: 'ADAR Honey Trap',
-            ohje_leikkija: null, ohje_rakentaja: null,
+            ohje_leikkija: 'Seinäsyöttö — mutta välillä kaveri heittää toisen pallon eri suuntaan! Reagoi heti uuteen palloon. 3 minuuttia kerrallaan, 3 kierrosta. Montako oikeaa reaktiota sait?', ohje_rakentaja: null,
             ohje_showcase: 'Seinäsyöttö — välillä toinen pallo heitetään yllättäen eri suuntaan. Reagoi välittömästi uuteen palloon. 3×3 min. Kirjaa: oikeat reaktiot / 10 tilannetta. ADAR: kaikki 4 vaihetta samaan aikaan.',
             kesto: '15 min', xp: 35,
             yt: 'eqUBbHHzY1U',
@@ -827,7 +827,7 @@ const PANKKI = {
           {
             stage: [3, 4],
             nimi: 'Peliälyvideo + skannaus',
-            ohje_leikkija: null,
+            ohje_leikkija: 'Katso 5 minuuttia lempijalkapalloilijan pelivideoita — kiinnitä huomiota mihin hän katsoo ennen kuin saa pallon. Kirjoita 2 havaintoa ylös. Sitten seinäsyöttö 2 minuuttia ja katso aina ylös ennen vastaanottoa!',
             ohje_rakentaja: 'Katso 5 min huippupelaajan videota (sama pelipaikka). Kirjaa 2 havaintoa heidän katseen käytöstä. Sitten seinäsyöttö skannauksen kanssa 3×2 min.',
             ohje_showcase: 'Katso 5 min videota (oma peli tai huippu). Kirjaa: kuinka usein pelaaja katsoo ylös per minuutti? Sitten ADAR-skannaus 3×2 min. Vertaa omaa videoon.',
             kesto: '15 min', xp: 30,
@@ -839,7 +839,7 @@ const PANKKI = {
           {
             stage: [5],
             nimi: 'Dual-task seinärondo',
-            ohje_leikkija: null, ohje_rakentaja: null,
+            ohje_leikkija: 'Syötä palloa seinään yhdellä kosketuksella ja laske samalla ääneen parilliset luvut (2, 4, 6, 8...). Jos menee sekaisin — ei haittaa, jatka! 3 minuuttia, 3 kierrosta.', ohje_rakentaja: null,
             ohje_showcase: 'Seinärondo + kognitiivinen tehtävä: syötä 1-kosketuksella samalla kun lasket ääneen parillisia lukuja (2,4,6...). 3×3 min. Virhe kognitiivisessa tai teknisessä → jatka silti.',
             kesto: '15 min', xp: 35,
             yt: 'eqUBbHHzY1U',
@@ -873,7 +873,7 @@ const PANKKI = {
           {
             stage: [3, 4],
             nimi: 'Hip flexor 90/90 + askelkyykky-kiihdytys',
-            ohje_leikkija: null,
+            ohje_leikkija: 'Polvistu ja työnnä lantiota eteenpäin 30 sekuntia per puoli — tunnet venytyksen reidessä. Sitten kävele isoilla askeleilla 10m (polvi lähelle maata). Lopuksi juokse 4x15m kiihdytys — lähde räjähtävästi!',
             ohje_rakentaja: 'Hip flexor 90/90 2×45s per puoli. Sitten: askelkyykky-kävely 2×10m, ja lopuksi 4×15m kiihdytys — ensimmäinen askel lonkasta, ei polvesta. Laske: kuinka nopeasti olet täydessä vauhdissa?',
             ohje_showcase: 'Hip flexor 90/90 2×45s. Askelkyykky 2×10m. SFL-kiihdytys: 4×15m — arvioi ensimmäisen 5m reaktiivisuus. Lonkka ohjaa, polvi seuraa.',
             kesto: '15 min', xp: 30,
@@ -885,7 +885,7 @@ const PANKKI = {
           {
             stage: [5],
             nimi: 'Thomas-venytys + pelispesifi kiihdytyssarjat',
-            ohje_leikkija: null, ohje_rakentaja: null,
+            ohje_leikkija: 'Venytä reiden etuosaa 30 sekuntia per puoli (polvistu, työnnä lantiota). Sitten 4 kertaa: kaveri heittää pallon ja juokset sen kiinni täysillä 10m. Kuka saa pallon ensin?', ohje_rakentaja: null,
             ohje_showcase: 'Thomas-venytys 2×45s per puoli + 90/90 2×45s. Sitten pelispesifi: 6×10m kiihdytys reaktioärsykkeestä (pallo, käsimerki). Mittaa: aikaa ensimmäiseen 5m:iin paranee kauden aikana?',
             kesto: '20 min', xp: 35,
             yt: 'UcGAOOBMYMU',
@@ -913,7 +913,7 @@ const PANKKI = {
           {
             stage: [3, 4, 5],
             nimi: 'Pistoolikyykky + Nordic curl yhdistelmä',
-            ohje_leikkija: null,
+            ohje_leikkija: 'Yhden jalan kyykky (seinää tukena) 8 kertaa per jalka, 3 kierrosta. Sitten polvistu ja kaadu hitaasti eteenpäin — käsesi ottavat vastaan. 5 kertaa. Tuntuu takareisien töistä!',
             ohje_rakentaja: 'Pistoolikyykky 3×8 per jalka (ilman tukea tai kevyt tuki). Sitten Nordic curl avustettu 3×5: kumppanikäsin kantapäistä, laske hitaasti eteen, palaa käsillä.',
             ohje_showcase: 'Pistoolikyykky 3×8 (täysi liike). Nordic curl eksentrinen 3×5: laske hallitusti, palaa käsillä. SFL-yhdistelmä: etuketjun voima + takareiden suoja = lähtö + jarruttaminen.',
             kesto: '20 min', xp: 30,
@@ -2680,7 +2680,14 @@ function _laskeIkavaihe(pelaaja) {
 }
 
 function _ohjeIkavaiheelle(h, iv) {
-  return h['ohje_' + iv] || h.ohje_rakentaja || h.ohje_leikkija || h.ohje_showcase || h.ohje || '';
+  // Ensisijainen: oikean ikävaiheen ohje
+  var tarkka = h['ohje_' + iv];
+  if (tarkka) return tarkka;
+  // Fallback: leikkijälle EI rakentajan drilliä (§28 ikätasoisuus)
+  // → cue/tarina (ikäneutraali) ennen ylempää tasoa
+  if (iv === 'leikkija') return h.cue || h.ohje_leikkija || h.ohje || '';
+  // Rakentaja/showcase: normaali fallback-ketju
+  return h.ohje_rakentaja || h.ohje_leikkija || h.ohje_showcase || h.ohje || '';
 }
 
 // ── 1A: Kehityskohteen prioriteettiketju ──────────────────────────────
