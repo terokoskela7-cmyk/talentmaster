@@ -107,6 +107,29 @@ manuaalisesti (composite-index-failit, kentännimi-mismatchit, logout-tilavuodot
 - Yhdistä `tm_auth.js` + `tm-auth.js` (kaksi lähes identtistä nimeä = törmäysriski).
 - **Pidemmällä:** poista versio tiedostonimestä → `master.html` + git-tagit/CHANGELOG hoitavat version.
 
+### A7. Harjoitepankki-konvention yhtenäistäminen — ⬜ JÄLJELLÄ (oma sprint)
+
+**Ongelma:** 4 limittyvää PANKKI-rakennetta, 3 eri kenttäkonventiota, 2 domainia sekoittuvat:
+- **Rakenne A** `const PANKKI` (harjoitelogiikka_v4:92) — idoli/tekniikka, `ohje_leikkija/rakentaja/showcase` + `cue` + `tarina`
+- **Rakenne B** `window.PANKKI` (Pelaaja_v7:3359) — fysiikka/FLEI-ketjut, `kuvaus` (1 teksti per harjoite)
+- **Rakenne C** `T_KOHDE_PANKKI` (harjoitelogiikka_v4:2583) — kehityskohde, samat kentät kuin A
+- **Rakenne D** `HARJOITEPANKKI` (harjoitelogiikka_v4:1410) — ketjupohjainen, `generoimViikoOhjelma` käyttää
+
+D-kortti saa datan A/C:stä (`valitsePaivanHarjoite` fallback), S-kortti B:stä (`_luoOhjelma`).
+`ohje_leikkija/rakentaja/showcase` (195 ohjetekstiä) olivat kuollutta dataa kunnes Vaihe 0 kytki ne.
+`_ohjeIkavaiheelle()` on testattu helper mutta render kutsui sitä vain paluuobjektiin, ei UI:hin.
+
+**Riski:** refaktorointi ilman testejä = hiljainen fail (sama luokka kuin A3 funktio-törmäykset).
+
+**Vaiheistus (järjestyksessä):**
+1. **Karakterisointitestit:** kaappaa `valitsePaivanHarjoite` + `generoimViikoOhjelma` output näytepelaajille → turvaverkko. Harjoitegenerointi ei ole minkään testin alla (A2 testaa KPI:t).
+2. **Standardoi kenttäkonventio → `ohje_*`** (3-vaiheinen, ikätasoinen). `kuvaus` = degeneroitunut tapaus (1 vaihe). Migroi window.PANKKI:n rikastetut kuvaukset → `ohje_*`-muotoon. Juuri tehty kuvaus-sisältö on tämän migraation raaka-aine.
+3. **Ko-lokoi data:** siirrä window.PANKKI Pelaaja_v7:n inlinestä omaan moduuliin (`pankki_ketjut.js`). Kaikki sisältö data-tiedostoissa, ei HTML:ssä.
+4. **Konsolidoi ketjupankit:** HARJOITEPANKKI ↔ window.PANKKI (riskialttein, vaatii vaiheen 1 testit). ÄLÄ mergeä domaineja (tekniikka ≠ fysiikka) — standardoi konventio ja sijainti.
+5. **Korjaa `valitsePaivanHarjoite`-parametri:** `window.PANKKI` annetaan mutta hylätään (`.T` puuttuu → fallback). Joko käytä annettua pankkia tai poista harhaanjohtava parametri.
+
+**Domain-invariantti:** A (tekniikka/idoli) ja B (fysiikka/ketju) ovat eri domaineja — naiivi mergeäminen sekoittaisi ne. Yhtenäistetään konventio, ei sisältöä.
+
 **Sprint 6 -DoD:** CI ajaa A2+A4 testit jokaisessa PR:ssä; A1+A5 indeksit/kentät yhtenäiset;
 A3+A6 törmäykset purettu. Tämän jälkeen toinen kehittäjä voi tehdä PR:n rikkomatta tuotantoa hiljaa.
 
