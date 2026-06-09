@@ -4031,7 +4031,21 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div class="kenttaRyhma">
           <label class="kenttaLabel">Pelipaikka</label>
-          <input id="mp_pelipaikka" class="kenttaInput" placeholder="esim. KH, TK, HY" value="${p.pelipaikka||p.positio||''}">
+          <select id="mp_pelipaikka" class="kenttaInput">
+            ${(function(){
+              // Arvo=lyhenne (yhtenäistää datan); labelit täsmäävät Pelaaja-näkymän POS-mappiin.
+              var PP=[['MV','Maalivahti'],['KP','Keskuspuolustaja'],['LP','Laitapuolustaja'],['KK','Keskikenttä'],['HM','Hyökkäävä keskik.'],['LH','Laitahyökkääjä'],['KH','Keskushyökkääjä']];
+              var nyk=String(p.pelipaikka||p.positio||'').trim();
+              // Esivalinta: nykyinen arvo voi olla lyhenne ("LH") TAI kokonimi ("Laitahyökkääjä")
+              var match=PP.find(function(x){return x[0].toLowerCase()===nyk.toLowerCase()||x[1].toLowerCase()===nyk.toLowerCase();});
+              var sel=match?match[0]:nyk;
+              var opts='<option value=""'+(sel?'':' selected')+'>— Valitse pelipaikka —</option>';
+              opts+=PP.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===sel?' selected':'')+'>'+x[1]+'</option>';}).join('');
+              // Tuntematon vanha vapaa teksti → säilytetään ettei katoa
+              if(nyk && !match) opts+='<option value="'+nyk+'" selected>'+nyk+' (nykyinen)</option>';
+              return opts;
+            })()}
+          </select>
         </div>
         <div class="kenttaRyhma">
           <label class="kenttaLabel">Huoltajan sähköposti</label>
