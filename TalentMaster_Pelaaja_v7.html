@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1780932819501';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781035258471';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- PWA (vaihe 1) — asennettavuus -->
 <link rel="manifest" href="/talentmaster/manifest_pelaaja.json">
 <meta name="theme-color" content="#1A7A5E">
@@ -590,32 +590,43 @@ function rPin(){
   return `
 <div style="height:100%;overflow-y:auto;display:flex;flex-direction:column;background:#1C1C1A;color:#F2EFE6">
 
-  <!-- WORDMARK -->
+  <!-- WORDMARK + TERVETULOA (selkeä hierarkia ylhäällä) -->
   <div style="padding:16px 20px 0">
     <div style="font-family:var(--font-m);font-size:10px;font-weight:500;letter-spacing:.15em;color:#28B090">TalentMaster™</div>
+    ${p?.etunimi ? `<div style="font-family:var(--font-b);font-size:13px;color:rgba(242,239,230,.45);margin-top:8px">Tervetuloa takaisin, ${p.etunimi}</div>` : ''}
   </div>
 
   <!-- HERO (flex:1 0 auto → ei sisäscrollia: KPI on aina layout-virrassa; lyhyellä näytöllä koko näkymä skrollaa) -->
   <div style="flex:1 0 auto;padding:20px">
 
-    <!-- STREAK-BLOKKI -->
+    <!-- STREAK-BLOKKI (liekki + numero samalla keskilinjalla) -->
     <div style="display:flex;align-items:center;gap:16px">
-      <span style="font-size:40px;line-height:1;flex-shrink:0">🔥</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-family:var(--font-b);${streak>0?'font-size:72px;font-weight:600;color:#F2EFE6':'font-size:56px;font-weight:400;color:rgba(242,239,230,.45)'};letter-spacing:-1px;line-height:1;background:none">${streak>0?streak:'—'}</div>
-        <div style="font-family:var(--font-m);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:rgba(242,239,230,.5);margin-top:6px">päivän putki</div>
-        <div style="font-family:var(--font-b);font-size:13px;color:#28B090;margin-top:6px">Jatka tänään →</div>
+      <span style="font-size:44px;line-height:1;flex-shrink:0">🔥</span>
+      <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:12px">
+        <div style="font-family:var(--font-b);${streak>0?'font-size:68px;font-weight:600;color:#F2EFE6':'font-size:52px;font-weight:400;color:rgba(242,239,230,.45)'};letter-spacing:-1.5px;line-height:.9;background:none">${streak>0?streak:'—'}</div>
+        <div style="font-family:var(--font-m);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:rgba(242,239,230,.5);padding-bottom:4px;line-height:1.25">päivän<br>putki</div>
       </div>
+      <div style="font-family:var(--font-b);font-size:13px;color:#28B090;flex-shrink:0;padding-bottom:6px">Jatka →</div>
     </div>
 
-    <!-- TERVETULOA (vain jos etunimi tiedossa) -->
-    ${p?.etunimi ? `<div style="font-family:var(--font-b);font-size:13px;color:#F2EFE6;opacity:.4;margin-top:14px">Tervetuloa takaisin, ${p.etunimi}</div>` : ''}
+    <!-- VIIKKONAUHA (konkretisoi putken — johdettu streakista, _haeViikkoPaivat()) -->
+    <div style="display:flex;gap:7px;margin-top:14px">
+      ${_haeViikkoPaivat().map(function(x){
+        var bar = x.done ? '#28B090' : (x.today ? 'rgba(40,176,144,.28)' : 'rgba(242,239,230,.08)');
+        var lblc = x.today ? '#28B090' : 'rgba(242,239,230,.32)';
+        var lblw = x.today ? '600' : '400';
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">'
+          + '<div style="width:100%;height:4px;border-radius:2px;background:'+bar+'"></div>'
+          + '<span style="font-family:var(--font-m);font-size:9px;letter-spacing:.04em;color:'+lblc+';font-weight:'+lblw+'">'+x.lbl+'</span>'
+          + '</div>';
+      }).join('')}
+    </div>
 
     <!-- DIVIDER -->
     <div style="height:1px;background:rgba(242,239,230,.08);margin:20px 0"></div>
 
-    <!-- IDOL-KORTTI -->
-    <div style="border:1px solid rgba(40,176,144,.25);padding:12px 14px;display:flex;align-items:center;gap:12px">
+    <!-- IDOL-KORTTI (vasen teal-aksentti) -->
+    <div style="border:1px solid rgba(40,176,144,.22);border-left:2px solid #28B090;padding:12px 14px;display:flex;align-items:center;gap:12px">
       <div style="flex:1;min-width:0">
         <div style="font-family:var(--font-m);font-size:10px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#28B090">Tällä viikolla</div>
         <div style="font-family:var(--font-d);font-size:22px;font-weight:600;color:#F2EFE6;margin-top:2px;line-height:1.1">${idolNimi}</div>
@@ -1122,17 +1133,34 @@ function rMinaProfiili() {
   const syntymaVuosi = p.syntymaVuosi;
   const ikaluokka    = syntymaVuosi ? ('U' + (new Date().getFullYear() - syntymaVuosi)) : '—';
   const seura        = (p.seuraId || '—').toUpperCase();
-  const joukkue      = p.joukkue || p.joukkueId || '—';
-  // PalloID: tarkista palloID, sitten palloId, sitten tunniste (synonyymit per CLAUDE.md §10)
-  const palloID      = p.palloID || p.palloId || p.tunniste || '—';
+  // Joukkue: viimeinen segmentti isoin kirjaimin. Splitataan VÄLILYÖNNILLE + alaviivalle
+  // → toimii sekä "KPV U13"→"U13" (meidän data) että "kpv_u13"→"U13".
+  const joukkueRaaka = p.joukkue || p.joukkueId || '';
+  const joukkue      = joukkueRaaka ? String(joukkueRaaka).split(/[_ ]/).pop().toUpperCase() : '—';
+  // PalloID: synonyymit (CLAUDE.md §10). Tyhjä → "Ei vielä" himmennettynä.
+  const palloIDraaka = p.palloID || p.palloId || p.tunniste || null;
+  const palloID      = palloIDraaka || 'Ei vielä';
   const pelipaikka   = p.pelipaikka || p.positio || '—';
+  // Pelipaikka: POS (lyhenne→kokonimi) + POS_REV (kokonimi→lyhenne). Grid=kokonimi, chip=lyhenne.
+  // Toimii sekä lyhenne- ("LH") että kokonimi-datalle ("Laitahyökkääjä", meidän tallennusmuoto).
+  const POS = { KH:'Keskushyökkääjä', H:'Hyökkääjä', HM:'Hyökkäävä keskik.', KK:'Keskikenttä', KP:'Keskuspuolustaja', LP:'Laitapuolustaja', LH:'Laitahyökkääjä', MV:'Maalivahti', P:'Puolustaja' };
+  const POS_REV = Object.fromEntries(Object.entries(POS).map(([k, v]) => [v, k]));
+  const pelipaikkaPitka   = POS[pelipaikka] || pelipaikka;        // grid: kokonimi
+  const pelipaikkaLyhenne = POS_REV[pelipaikka] || pelipaikka;    // chip: lyhenne
 
-  // Apufunktio info-gridin solulle (label + value, DM Sans)
-  const cell = (label, value) =>
+  // Apufunktio info-gridin solulle (label + value, DM Sans). muted=tyhjä arvo himmennetään.
+  const cell = (label, value, muted) =>
     '<div style="background:var(--bg3);padding:14px 16px">' +
       '<div style="font-family:\'DM Sans\',sans-serif;font-size:9px;letter-spacing:.18em;color:#8C8B86;text-transform:uppercase;margin-bottom:4px">' + label + '</div>' +
-      '<div style="font-family:\'DM Sans\',sans-serif;font-size:13px;color:var(--text);font-weight:500">' + value + '</div>' +
+      '<div style="font-family:\'DM Sans\',sans-serif;font-size:13px;color:' + (muted ? 'rgba(242,239,230,.35)' : 'var(--text)') + ';font-weight:500">' + value + '</div>' +
     '</div>';
+
+  // Apufunktio chipille (ikäluokka/pelipaikka/seura nimen alla). accent=teal-korostus.
+  const chip = (txt, accent) =>
+    '<span style="font-family:\'DM Sans\',sans-serif;font-size:10px;font-weight:600;letter-spacing:.08em;padding:4px 9px;border-radius:4px;' +
+      'background:' + (accent ? 'rgba(40,176,144,.12)' : 'rgba(242,239,230,.06)') + ';' +
+      'border:.5px solid ' + (accent ? 'rgba(40,176,144,.3)' : 'rgba(242,239,230,.12)') + ';' +
+      'color:' + (accent ? '#28B090' : 'rgba(242,239,230,.7)') + '">' + txt + '</span>';
 
   let h = '<div style="background:var(--bg3);padding:24px 20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
 
@@ -1146,8 +1174,8 @@ function rMinaProfiili() {
   h +=       '<span style="text-transform:uppercase">' + sukunimi + '</span>';
   h +=       (etunimi ? ' <span style="font-weight:300">' + etunimi + '</span>' : '');
   h +=     '</div>';
-  h +=     '<div style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:#8C8B86;letter-spacing:.06em;margin-top:6px">';
-  h +=       seura + ' · ' + ikaluokka + ' · ' + pelipaikka;
+  h +=     '<div style="display:flex;gap:6px;margin-top:11px;flex-wrap:wrap">';
+  h +=       chip(ikaluokka, true) + chip(pelipaikkaLyhenne) + chip(seura);
   h +=     '</div>';
   h +=   '</div>';
   h += '</div>';
@@ -1156,8 +1184,8 @@ function rMinaProfiili() {
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(242,239,230,.08);border-radius:4px;overflow:hidden">';
   h +=   cell('Seura',     seura);
   h +=   cell('Joukkue',   joukkue);
-  h +=   cell('PalloID',   palloID);
-  h +=   cell('Ikäluokka', ikaluokka);
+  h +=   cell('PalloID',    palloID, !palloIDraaka);
+  h +=   cell('Pelipaikka', pelipaikkaPitka);
   h += '</div>';
 
   h += '</div>';
@@ -1355,9 +1383,9 @@ function rMinaTekniikkaprofiili() {
 
 // Stub-kortti — Cormorant otsikko + DM Sans "Tulossa pian"
 function _rMinaStub(otsikko) {
-  return '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">' +
-    '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:6px;letter-spacing:.01em">' + otsikko + '</div>' +
-    '<div style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:#8C8B86;letter-spacing:.04em">Tulossa pian</div>' +
+  return '<div style="background:var(--bg3);height:56px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08);padding:0 18px;display:flex;align-items:center;justify-content:space-between;gap:12px">' +
+    '<div style="flex:1;min-width:0;font-family:\'Cormorant Garamond\',serif;font-size:17px;font-weight:400;color:var(--text);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + otsikko + '</div>' +
+    '<span style="font-family:\'DM Mono\',monospace;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:rgba(242,239,230,.3);border:.5px solid rgba(242,239,230,.12);padding:3px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0">Tulossa</span>' +
   '</div>';
 }
 
@@ -2554,6 +2582,26 @@ function _haeStreak() {
   return _streak || _pelaaja?.streak || 0;
 }
 window._haeStreak = _haeStreak;
+
+/* ══════════════════════════════════════════════════════════
+   _haeViikkoPaivat — aloitusnäytön viikkonauha (ma–su).
+   Johdettu _haeStreak():sta: positiivinen putki = peräkkäisiä päiviä
+   tähän/eiliseen asti → menneet viikonpäivät joiden etäisyys ≤ streak
+   ovat tehtyjä. Tänään korostetaan erikseen ("kesken"), tulevat neutraaleja.
+   (PIN-näkymä on pre-login → vain streak saatavilla, ei kirjauslokia.)
+══════════════════════════════════════════════════════════ */
+function _haeViikkoPaivat() {
+  var labels = ['M','T','K','T','P','L','S'];   // ma..su
+  var streak = (typeof _haeStreak === 'function') ? _haeStreak() : 0;
+  var dow = new Date().getDay() || 7;            // ma=1 .. su=7
+  var out = [];
+  for (var i = 1; i <= 7; i++) {
+    var daysAgo = dow - i;                        // >0 mennyt, 0 tänään, <0 tuleva
+    out.push({ lbl: labels[i - 1], today: (i === dow), done: (daysAgo >= 1 && daysAgo <= streak) });
+  }
+  return out;
+}
+window._haeViikkoPaivat = _haeViikkoPaivat;
 
 /* ══════════════════════════════════════════════════════════
    STREAK-VIESTI — positiivinen kehys (Seligman PERMA + Deci & Ryan SDT)
