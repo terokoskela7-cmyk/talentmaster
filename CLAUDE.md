@@ -811,9 +811,19 @@ oikeasta kenttäkäytöstä. Lukupuoli (joukkuepulssi + S9) toimii heti kun pika
 2. **Inkrementaalinen** — testaa jokaisen muutoksen jälkeen, myös super-adminilla
 3. **Tiedostojen jakelu:** outputs → GitHub
 4. **CDN-cache** ~10 min → `?v=N`, tarkista `raw.githubusercontent.com`
-   - **PWA cache-versiot — nosta AINA kun HTML päivittyy** (muuten Service Worker tarjoaa vanhaa Cache First -strategialla):
-     · Pelaaja: `tm-pelaaja-v1` (`sw_pelaaja.js`) · Vanhempi: `tm-vanhempi-v1` (`sw_vanhempi.js`)
-     · Nosta SW:n cache-versio **samalla kun nostat HTML:n `?v=N`-numeron**. PWA-tiedostot: `manifest_pelaaja/vanhempi.json`, `sw_pelaaja/vanhempi.js`, `assets/pwa/icon-*.png`. Scope `/talentmaster/`, polut absoluuttisia.
+   - **SW EI SAA CACHETTAA MUIDEN APPIEN SIVUJA — ALLOWLIST-PERIAATE (korjattu 2026-06-11).**
+     Pelaaja/Vanhempi-SW:t jakavat scopen `/talentmaster/`. Aiempi Cache First -strategia cachetti
+     KAIKKI scopen fetchit → VP/Master/Excel-sivut jäätyivät SW-cacheen (`?v=` ei auttanut, SW vastaa ennen verkkoa).
+     Juurisyy mm. "recalc vanhalla Excel_Tuonnilla 2026-06-10". **Nyt:** `sw_pelaaja.js`/`sw_vanhempi.js`
+     cachettaa VAIN omat tiedostot (allowlist: oma HTML network-first, oma manifest/ikonit/JS-moduulit +
+     versioidut fontit/SDK cache-first). **Kaikki muu → `fetch` suoraan, EI cachea** (toisten appien sivut
+     menevät tuoreena verkosta). `onOmaHtml`/`onAllowlist`-funktiot SW:ssä.
+   - **PWA cache-versiot — nosta AINA kun HTML/SW-strategia päivittyy** (activate siivoaa kaikki muut cachet
+     kuin nykyisen → poisoned cachet tyhjenevät käyttäjiltä SW-päivityksen yhteydessä; `skipWaiting`+`clients.claim`):
+     · Pelaaja: `tm-pelaaja-v2` (`sw_pelaaja.js`) · Vanhempi: `tm-vanhempi-v2` (`sw_vanhempi.js`)
+     · Nosta SW:n cache-versio kun SW-logiikka muuttuu. PWA-tiedostot: `manifest_pelaaja/vanhempi.json`,
+     `sw_pelaaja/vanhempi.js`, `assets/pwa/icon-*.png`. Scope `/talentmaster/` (SW juuressa → ei kavennettavissa,
+     allowlist hoitaa rajaamisen), polut absoluuttisia.
 5. **Security Rules:** Firebase Consolesta JA `tm_admin/firestore.rules` (erilliset)
 6. **Chrome MCP:** Firestore-kirjoitukset app-tabista (Firebase alustettu)
 
