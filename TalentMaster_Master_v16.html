@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781041477348';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781121831027';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_eerikkila_normit.js?v=1"></script>
-<script src="docs/testit_indeksit.js?v=4"></script>
+<script src="docs/testit_indeksit.js?v=5"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -4505,34 +4505,111 @@ function _buildTSIDetail(p) {
   `;
 }
 
+// TKI-analyysimalli VAIHE 1 (docs/TKI_ANALYYSIMALLI.md §5.2): per-laji-viitetasot + sekuntibudjetti +
+// kehitysvauhti. Lukee VAIN pikakentistä (§26, ei alikokoelmakyselyä). Per-laji = VIITETASO loppukilpailu-
+// datasta, EI mitali (§31). String concatenation (§7.1). Jos tk_lajit_viimeisin puuttuu → vanha paneeli.
 function _buildTKIDetail(p) {
   const np = _devIkaSp(p); const ika = np.ika;
-  // SSOT-huom: per-laji TK_MERKKIRAJAT korvattu TK_KOKONAISRAJAT-kokonaisajalla → näytä ikäluokan
-  // kokonaisaika-mitalirajat (per-laji kulta/hopea/pronssi -kynnyksiä ei ole enää tallennettu).
   const tkSp = (np.sp === 'N') ? 'T' : 'P';
   const _tkr = (typeof TK_KOKONAISRAJAT !== 'undefined' && ika != null && TK_KOKONAISRAJAT[tkSp]) ? TK_KOKONAISRAJAT[tkSp][ika] : null;
   const tki = p.tki_viimeisin;
   const merkki = (typeof _tkiMerkkiM === 'function') ? _tkiMerkkiM(tki, p.tki_merkki) : null;
   const kehitys = p.tki_kehityskohde ? _tkLajiNimi(p.tki_kehityskohde) : null;
   const vahvuus = p.tki_vahvuus ? _tkLajiNimi(p.tki_vahvuus) : null;
-  const LAJIT = ['ponnauttelu','syotto','pujottelu','kuljetus_laukaus','pituuspotku'];
-  const kultaikkuna = (ika != null && ika >= 8 && ika <= 12);
   const suositus = kehitys ? (kehitys + ' joka päivä — lyhyt, laadukas toistosarja.') : 'Jatka monipuolista tekniikkaharjoittelua.';
-  return `
-    <button class="detail-sulje" onclick="_suljeDetail()">×</button>
-    <div class="detail-otsikko">Tekniikkaprofiili — ${_devNimi(p)}${ika!=null?', '+ika+'v':''}</div>
-    <div class="detail-rivi detail-summa"><span>TKI</span><span>${tki!=null?tki:'—'}${merkki?' '+merkki.emoji+' '+merkki.nimi:''}</span></div>
-    <div class="detail-taulukko" style="margin-top:10px">
-      ${LAJIT.map(l => {
-        const onK = p.tki_kehityskohde === l, onV = p.tki_vahvuus === l;
-        return `<div class="detail-rivi"><span>${_tkLajiNimi(l)}</span><span style="color:${onV?'var(--teal)':onK?'var(--amber)':'var(--ink3)'}">${onV?'★ vahvuus':onK?'← kehitä':''}</span></div>`;
-      }).join('')}
-    </div>
-    ${_tkr ? `<div class="detail-yhteenveto">Ikäluokan mitalirajat (kokonaisaika, ${ika}v): 🥇 ≤${_tkr.kulta}s · 🥈 ≤${_tkr.hopea}s · 🥉 ≤${_tkr.pronssi}s</div>` : ''}
-    ${kultaikkuna ? '<div class="detail-yhteenveto">Kultaikkuna U8–12: nyt on tehokkain aika kehittää tekniikkaa.</div>' : ''}
-    ${(kehitys||vahvuus) ? `<div class="detail-suositus">${kehitys?'🎯 Kehitä: '+kehitys:''}${(kehitys&&vahvuus)?' · ':''}${vahvuus?'💪 Vahvuus: '+vahvuus:''}</div>` : ''}
-    <div class="detail-suositus">→ Suositus: ${suositus}</div>
-  `;
+  const NIMET = { ponnauttelu: 'Ponnauttelu', syotto: 'Syöttö', pujottelu: 'Pujottelu', kuljetus_laukaus: 'Kuljetus-laukaus', pituuspotku_bonus: 'Pituuspotku (bonus)' };
+
+  // Per-laji-viitetasot pikakentästä (gapit järjestetty gap_s laskevasti). Jos puuttuu → vanha geneerinen taulukko.
+  const lajit = p.tk_lajit_viimeisin;
+  const gapit = (lajit && typeof tkLajiGapit === 'function' && ika != null) ? tkLajiGapit(lajit, ika, tkSp) : [];
+  let taulukkoHtml = '', budjettiHtml = '', vauhtiHtml = '';
+
+  if (gapit.length) {
+    const maxGap = gapit[0].gap_s;
+    let nMin = null, rivit = '';
+    gapit.forEach(function(g) {
+      if (g.viite && g.viite.n != null) nMin = (nMin == null) ? g.viite.n : Math.min(nMin, g.viite.n);
+      const kaanteinen = (g.laji === 'pituuspotku_bonus');
+      const viiteTeksti = kaanteinen ? ('hyvä ≥' + g.viite.hyva + 's') : ('hyvä ≤' + g.viite.hyva + 's');
+      const onErin = (g.taso === 'erinomainen');
+      const onKohde = (g.gap_s === maxGap && maxGap > 0);
+      const mvari = onErin ? 'var(--teal)' : (onKohde ? 'var(--amber)' : 'var(--ink3)');
+      const gapTeksti = (g.gap_s > 0) ? ('+' + g.gap_s + 's') : '★';
+      const merkinta = onErin ? ' ★' : (onKohde ? ' ← kehityskohde' : '');
+      rivit += '<div class="detail-rivi"><span>' + (NIMET[g.laji] || g.laji) + ' ' + g.arvo + 's</span>'
+        + '<span style="color:' + mvari + '">' + viiteTeksti + ' · ' + gapTeksti + merkinta + '</span></div>';
+    });
+    const otsikko = 'Loppukilpailutaso 2023–25' + ((nMin != null && nMin < 10) ? ' (suuntaa-antava, n=' + nMin + ')' : '');
+    taulukkoHtml = '<div class="detail-yhteenveto" style="margin-top:10px">' + otsikko + '</div>'
+      + '<div class="detail-taulukko">' + rivit + '</div>';
+
+    // Sekuntibudjetti seuraavaan saavuttamattomaan mitaliin + 2–3 suurinta gappia.
+    const kok = p.tk_kokonaistulos_viimeisin;
+    if (kok != null && typeof tkSekuntibudjetti === 'function') {
+      const budj = tkSekuntibudjetti(kok, ika, tkSp);
+      const MITALI = { kulta: 'Kultaan', hopea: 'Hopeaan', pronssi: 'Pronssiin' };
+      if (budj) {
+        const top = gapit.filter(function(g) { return g.gap_s > 0; }).slice(0, 3)
+          .map(function(g) { return (NIMET[g.laji] || g.laji) + ' ' + g.gap_s + 's'; }).join(' · ');
+        budjettiHtml = '<div class="detail-suositus">⏱ ' + (MITALI[budj.tavoite] || budj.tavoite) + ' puuttuu ' + budj.gap_s + 's'
+          + (top ? ' → ' + top : '') + '</div>';
+      } else {
+        budjettiHtml = '<div class="detail-suositus" style="color:var(--teal)">⏱ Huipputaso — ylläpidä tekniikkaa.</div>';
+      }
+    }
+
+    // Vauhtirivi: abs-delta + vaadittu vuosivauhti (kun edellinen kokonaistulos on). ikaEd johdettu pvm-vuosista
+    // → tkAbsDelta tunnistaa 9→10-rataston ylityksen → vain TKI-delta (§3.3.1).
+    const kokEd = p.tk_kokonaistulos_edellinen;
+    if (kok != null && kokEd != null && typeof tkAbsDelta === 'function') {
+      const vNyt = parseInt(String(p.tk_lajit_pvm || '').slice(0, 4), 10);
+      const vEd = parseInt(String(p.tk_kokonaistulos_edellinen_pvm || '').slice(0, 4), 10);
+      const ikaEd = (!isNaN(vNyt) && !isNaN(vEd)) ? (ika - (vNyt - vEd)) : ika;
+      // bonus_osuus vain P11→P12-siirtymässä (§3.3.2): edellinen ika < 12 → bonus on uusi osa parannuksesta.
+      // P12→P13 (molemmilla bonus, edellistä bonusta ei tallennettu) → 0, ei harhaanjohtavaa attribuutiota.
+      const bonusNyt = (ikaEd < 12 && lajit.pituuspotku_bonus_s != null) ? lajit.pituuspotku_bonus_s : 0;
+      const ad = tkAbsDelta(kok, kokEd, ika, ikaEd, bonusNyt, 0);
+      if (ad.validi && ad.abs_s != null) {
+        const vauhti = (typeof tkVaadittuVuosivauhti === 'function') ? tkVaadittuVuosivauhti(ika, tkSp, 'hopea') : null;
+        const suunta = ad.abs_s > 0 ? 'Parani ' + ad.abs_s + 's ✅' : ad.abs_s < 0 ? 'Hidastui ' + Math.abs(ad.abs_s) + 's' : 'Ennallaan';
+        const vaat = (vauhti != null) ? ' · ikäluokkavaatimus kovenee ' + vauhti + 's/v' : '';
+        const bonus = (ad.bonus_osuus_s > 0) ? ' (josta pituuspotkubonus ' + ad.bonus_osuus_s + 's)' : '';
+        vauhtiHtml = '<div class="detail-suositus">📈 ' + suunta + vaat + bonus + '</div>';
+      } else {
+        vauhtiHtml = '<div class="detail-suositus">📈 Eri ikäluokkarata — vertaa suhteellista TKI-kehitystä.</div>';
+      }
+    }
+  } else {
+    // Vanha geneerinen taulukko (ei lajipikakenttää, esim. vanha data ennen recalcia) — periaate 7.
+    const LAJIT = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus', 'pituuspotku'];
+    let rivit = '';
+    LAJIT.forEach(function(l) {
+      const onK = p.tki_kehityskohde === l, onV = p.tki_vahvuus === l;
+      rivit += '<div class="detail-rivi"><span>' + _tkLajiNimi(l) + '</span>'
+        + '<span style="color:' + (onV ? 'var(--teal)' : onK ? 'var(--amber)' : 'var(--ink3)') + '">'
+        + (onV ? '★ vahvuus' : onK ? '← kehitä' : '') + '</span></div>';
+    });
+    taulukkoHtml = '<div class="detail-taulukko" style="margin-top:10px">' + rivit + '</div>';
+  }
+
+  // 3-tason kultaikkuna-konteksti (≤12 🔥 / 13–14 ⚡ / ≥15 📊).
+  let ikkuna = '';
+  if (ika != null) {
+    if (ika <= 12)      ikkuna = '🔥 Motorinen kultaikkuna (≤12v) — nyt tehokkain aika kehittää tekniikkaa.';
+    else if (ika <= 14) ikkuna = '⚡ Kultaikkuna sulkeutumassa (13–14v) — tekniikka vaatii pian enemmän työtä.';
+    else                ikkuna = '📊 Toistovaihe (≥15v) — tekniikan ylläpito ja terävöitys.';
+  }
+
+  let h = '';
+  h += '<button class="detail-sulje" onclick="_suljeDetail()">×</button>';
+  h += '<div class="detail-otsikko">Tekniikkaprofiili — ' + _devNimi(p) + (ika != null ? ', ' + ika + 'v' : '') + '</div>';
+  h += '<div class="detail-rivi detail-summa"><span>TKI</span><span>' + (tki != null ? tki : '—') + (merkki ? ' ' + merkki.emoji + ' ' + merkki.nimi : '') + '</span></div>';
+  h += taulukkoHtml + budjettiHtml + vauhtiHtml;
+  if (_tkr) h += '<div class="detail-yhteenveto">Ikäluokan mitalirajat (kokonaisaika, ' + ika + 'v): 🥇 ≤' + _tkr.kulta + 's · 🥈 ≤' + _tkr.hopea + 's · 🥉 ≤' + _tkr.pronssi + 's</div>';
+  if (ikkuna) h += '<div class="detail-yhteenveto">' + ikkuna + '</div>';
+  if (kehitys || vahvuus) h += '<div class="detail-suositus">' + (kehitys ? '🎯 Kehitä: ' + kehitys : '') + ((kehitys && vahvuus) ? ' · ' : '') + (vahvuus ? '💪 Vahvuus: ' + vahvuus : '') + '</div>';
+  h += '<div class="detail-suositus">→ Suositus: ' + suositus + '</div>';
+  return h;
 }
 
 function _avaaDetail(tyyppi) {

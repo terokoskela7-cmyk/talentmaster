@@ -754,6 +754,36 @@ function laskeKokonaistulos(testit, ika, sp) {
   }
   return Math.round(summa * 100) / 100;
 }
+// TKI-analyysimalli VAIHE 1 — per-laji pikakentät kokonaistuloksen komponenteista.
+// Sama aikaArvo-logiikka kuin laskeKokonaistulos (kuljetus_laukaus = netto/tulos);
+// pituuspotku_bonus = aikabonus sekunteina (suurempi=parempi) vain ika>=12.
+// Kanoninen lähde: docs/testit_indeksit.js (TK_LAJIVIITTEET + tkLajiGapit) — pidä synkassa.
+function _tkLajitPikakentat(testit, ika) {
+  if (!testit) return null;
+  const aikaArvo = function(id) {
+    const v = testit[id];
+    if (v == null) return null;
+    if (typeof v === 'object') return (v.tulos != null ? v.tulos : v.paras);
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  };
+  const out = {};
+  const p1 = aikaArvo('ponnauttelu');      if (p1 != null) out.ponnauttelu_s = p1;
+  const s1 = aikaArvo('syotto');           if (s1 != null) out.syotto_s = s1;
+  const pu = aikaArvo('pujottelu');        if (pu != null) out.pujottelu_s = pu;
+  const kl = aikaArvo('kuljetus_laukaus'); if (kl != null) out.kuljetus_laukaus_s = kl;
+  if (ika != null && ika >= 12) {
+    const pp = testit.pituuspotku;
+    let bonus = null;
+    if (pp && typeof pp === 'object' && pp.aikabonus_s != null) bonus = parseFloat(pp.aikabonus_s);
+    else {
+      const metrit = (pp && typeof pp === 'object') ? (pp.metrit != null ? pp.metrit : (pp.paras_m != null ? pp.paras_m : pp.paras)) : pp;
+      if (metrit != null && !isNaN(parseFloat(metrit))) bonus = tkPituuspotkuBonus(parseFloat(metrit));
+    }
+    if (bonus != null && !isNaN(bonus)) out.pituuspotku_bonus_s = Math.round(bonus * 100) / 100;
+  }
+  return (Object.keys(out).length > 0) ? out : null;
+}
 function tkLaskeMerkki(kokonaistulos, ika, sp, rajatOverride) {
   const rajat = rajatOverride || (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
   if (!rajat || kokonaistulos == null) return null;
@@ -2657,10 +2687,11 @@ async function tallennaFirestoreen() {
     }
 
     // TKI — tekniikkakilpailu (vaatii iän + sukupuolen) — skalaareista
-    let tki = null, merkki = null, vahvuus = null, kehityskohde = null;
+    let tki = null, merkki = null, vahvuus = null, kehityskohde = null, kokonaistulos = null;
     if (onTekniikka) {
       const spN = (sp === 'M') ? 'P' : (sp === 'N') ? 'T' : sp;
       const ktE = laskeKokonaistulos(testitSkalaari, ika, spN);
+      kokonaistulos = ktE;   // TKI-analyysimalli VAIHE 1 — abs-deltaa varten (tk_kokonaistulos_*)
       tki = (ktE != null) ? tkLaskeTKI(ktE, ika, spN) : null;
       merkki = tkLaskeMerkki(ktE, ika, spN);   // merkki KOKONAISTULOKSESTA (ei TKI:stä) → yhtenäinen <-rajalogiikka
       const vk = _laskeVahvuudetJaKehityskohteet({ testit: testitSkalaari }, { ika: ika });
@@ -2711,7 +2742,7 @@ async function tallennaFirestoreen() {
       : (_kausiPvm(tuontiData.meta.kausi) || _paivaIso(new Date()));
     const pvmTeksti = (String(pvmRaw).trim() !== '' && String(pvmRaw).trim() !== pvmIso) ? String(pvmRaw).trim() : null;
 
-    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, syntymaVuosi, ika };
+    return { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, syntymaVuosi, ika, kokonaistulos };
   });
 
   // Aja batchina, jaa 400:n eriin
@@ -2724,7 +2755,7 @@ async function tallennaFirestoreen() {
     const batch = db.batch();
 
     era.forEach(pkg => {
-      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, ika, syntymaVuosi } = pkg;   // ika/syntymaVuosi: laskettu paketinrakennuksessa → välitetään forEach:iin
+      const { pelaaja: p, testit, fleiPct, tki, merkki, vahvuus, kehityskohde, hhViimeisin, hhTaso, pvmIso, pvmTeksti, ika, syntymaVuosi, kokonaistulos } = pkg;   // ika/syntymaVuosi: laskettu paketinrakennuksessa → välitetään forEach:iin
       // Löydetyn pelaajan OIKEA dokumentti-ID (Firebase UID) → tallennuspolku.
       // Jos pelaajaa ei löytynyt (strategia 'kaikki'), fallback PalloID-stringiin (review-jono).
       const docId = p._firestoreDocId || String(p.tunniste == null ? '' : p.tunniste).trim() || (p.sukunimi + '_' + p.etunimi);
@@ -2783,6 +2814,10 @@ async function tallennaFirestoreen() {
         if (merkki)           profiiliUpdate.tki_merkki = merkki;
         if (vahvuus)          profiiliUpdate.tki_vahvuus = vahvuus;
         if (kehityskohde)     profiiliUpdate.tki_kehityskohde = kehityskohde;
+        // TKI-analyysimalli VAIHE 1 — per-laji + kokonaistulos-pikakentät (detail-paneeli + abs-delta)
+        const _tkLajit = (tki !== null) ? _tkLajitPikakentat(testit, ika) : null;
+        if (_tkLajit)             { profiiliUpdate.tk_lajit_viimeisin = _tkLajit; profiiliUpdate.tk_lajit_pvm = pvmIso; }
+        if (kokonaistulos != null) profiiliUpdate.tk_kokonaistulos_viimeisin = kokonaistulos;
         if (hhViimeisin)      { profiiliUpdate.hh_viimeisin = hhViimeisin; profiiliUpdate.hh_pvm = pvmIso; }
         if (hhTaso != null)   profiiliUpdate.hh_taso = hhTaso;
         // VAIHE 2 — kehitysvauhti: vangitse EDELLINEN taso vain aidolla uudella testillä (eri pvm)
@@ -2796,6 +2831,11 @@ async function tallennaFirestoreen() {
           if (tki !== null && _fd.tki_viimeisin != null && _fd.tki_pvm && _fd.tki_pvm !== pvmIso) {
             profiiliUpdate.tki_edellinen = _fd.tki_viimeisin;
             profiiliUpdate.tki_edellinen_pvm = _fd.tki_pvm;
+          }
+          // TKI-analyysimalli VAIHE 1 — kokonaistulos-abs-delta: edellinen vain aidolla uudella testillä
+          if (kokonaistulos != null && _fd.tk_kokonaistulos_viimeisin != null && _fd.tk_lajit_pvm && _fd.tk_lajit_pvm !== pvmIso) {
+            profiiliUpdate.tk_kokonaistulos_edellinen = _fd.tk_kokonaistulos_viimeisin;
+            profiiliUpdate.tk_kokonaistulos_edellinen_pvm = _fd.tk_lajit_pvm;
           }
         }
         if (syntymaVuosi)     profiiliUpdate.syntymaVuosi = syntymaVuosi;   // Excel-SyntymaVuosi → profiili (tarkka ikä)
@@ -3478,6 +3518,16 @@ async function tallennaPdfFirestoreen() {
         if (r.merkki) pika.tki_merkki = r.merkki;
         if (vk.vahvuudet[0]) pika.tki_vahvuus = vk.vahvuudet[0].laji;
         if (vk.kehityskohteet[0]) pika.tki_kehityskohde = vk.kehityskohteet[0].laji;
+        // TKI-analyysimalli VAIHE 1 — per-laji + kokonaistulos-pikakentät (PDF-rivin valmiit _s-kentät).
+        // _edellinen ei vangita PDF-pisteessä (kuten ei tki_edellinen:kään) — Excel-päätuonti/recalcIka hoitaa.
+        const _tkLajit = {};
+        if (r.ponnauttelu_s != null)      _tkLajit.ponnauttelu_s = r.ponnauttelu_s;
+        if (r.syotto_s != null)           _tkLajit.syotto_s = r.syotto_s;
+        if (r.pujottelu_s != null)        _tkLajit.pujottelu_s = r.pujottelu_s;
+        if (r.kuljetus_laukaus_s != null) _tkLajit.kuljetus_laukaus_s = r.kuljetus_laukaus_s;
+        if (r.ika != null && r.ika >= 12 && r.pituuspotku_bonus_s != null) _tkLajit.pituuspotku_bonus_s = r.pituuspotku_bonus_s;
+        if (Object.keys(_tkLajit).length) { pika.tk_lajit_viimeisin = _tkLajit; pika.tk_lajit_pvm = pvmIso; }
+        if (r.kokonaistulos_s != null)    pika.tk_kokonaistulos_viimeisin = r.kokonaistulos_s;
         batch.set(pref, pika, { merge: true });
       }
     });
@@ -3547,6 +3597,12 @@ async function _adminLaskeTkiUudelleen() {
       pika.tki_merkki = merkki || null;   // kirjoita AINA (myös null)
       if (vk.vahvuudet[0]) pika.tki_vahvuus = vk.vahvuudet[0].laji;
       if (vk.kehityskohteet[0]) pika.tki_kehityskohde = vk.kehityskohteet[0].laji;
+      // TKI-analyysimalli VAIHE 1 — per-laji + kokonaistulos (null kun ei TKI:tä → nollaa vanha).
+      // recalc EI vangitse _edellinen (norm-migraatio ≠ kehitys, §29).
+      const _tkLajit = (tki == null) ? null : _tkLajitPikakentat(d.testit || {}, ika);
+      pika.tk_lajit_viimeisin = _tkLajit;
+      pika.tk_lajit_pvm = _tkLajit ? (d.pvm || d.testauspvm || '') : null;
+      pika.tk_kokonaistulos_viimeisin = (tki == null ? null : d.kokonaistulos_s);
       paivitykset.push({ pid: t.pid, pika: pika });
     });
 
@@ -3622,8 +3678,9 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
     const merkki = tkLaskeMerkki(kt, ika, sp);
     const oikeatRajat = ((TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT.P)[ika]) || null;
     const vk = _laskeVahvuudetJaKehityskohteet({ testit: d.testit || {} }, { ika: ika });
-    // Ohita vain jos pelaajan PIKAKENTÄT ovat JO oikein (vertaa pikakenttiin, EI testitulokseen)
-    if (t.pel.tki_viimeisin === tki && t.pel.tki_merkki === (merkki || null)) { ohitettu++; return; }
+    // Ohita vain jos pelaajan PIKAKENTÄT ovat JO oikein (vertaa pikakenttiin, EI testitulokseen).
+    // VAIHE 1: ohita vasta kun MYÖS tk_lajit_viimeisin on olemassa → ensimmäinen ajo populoi lajipikakentät.
+    if (t.pel.tki_viimeisin === tki && t.pel.tki_merkki === (merkki || null) && t.pel.tk_lajit_viimeisin != null) { ohitettu++; return; }
     muutokset.push({
       pelRef: t.ref, tulRef: valittu.ref,
       nimi: (t.pel.etunimi || '') + ' ' + (t.pel.sukunimi || ''),
@@ -3631,7 +3688,10 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
       vanhaTki: (t.pel.tki_viimeisin === undefined ? '—' : t.pel.tki_viimeisin),
       vanhaTkiRaaka: (t.pel.tki_viimeisin == null ? null : t.pel.tki_viimeisin),
       vanhaPvm: t.pel.tki_pvm || null,
-      tki: tki, merkki: merkki, rajat: oikeatRajat, vk: vk
+      tki: tki, merkki: merkki, rajat: oikeatRajat, vk: vk,
+      // TKI-analyysimalli VAIHE 1 — per-laji + edellinen kokonaistulos (pvm-vahti kirjoitusvaiheessa)
+      tkLajit: ((tki == null) ? null : _tkLajitPikakentat(d.testit || {}, ika)),
+      vanhaKt: (t.pel.tk_kokonaistulos_viimeisin == null ? null : t.pel.tk_kokonaistulos_viimeisin)
     });
   });
 
@@ -3660,6 +3720,14 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
       if (m.vanhaTkiRaaka != null && m.vanhaPvm && m.pvm && m.vanhaPvm !== m.pvm) {
         pika.tki_edellinen = m.vanhaTkiRaaka;
         pika.tki_edellinen_pvm = m.vanhaPvm;
+      }
+      // TKI-analyysimalli VAIHE 1 — per-laji + kokonaistulos; edellinen samalla pvm-vahdilla kuin tki_edellinen.
+      pika.tk_lajit_viimeisin = m.tkLajit;
+      pika.tk_lajit_pvm = m.tkLajit ? (m.pvm || '') : null;
+      pika.tk_kokonaistulos_viimeisin = (m.tki == null ? null : m.kt);
+      if (m.vanhaKt != null && m.vanhaPvm && m.pvm && m.vanhaPvm !== m.pvm) {
+        pika.tk_kokonaistulos_edellinen = m.vanhaKt;
+        pika.tk_kokonaistulos_edellinen_pvm = m.vanhaPvm;
       }
       if (m.vk.vahvuudet[0]) pika.tki_vahvuus = m.vk.vahvuudet[0].laji;
       if (m.vk.kehityskohteet[0]) pika.tki_kehityskohde = m.vk.kehityskohteet[0].laji;

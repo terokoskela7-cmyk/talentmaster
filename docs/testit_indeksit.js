@@ -328,6 +328,74 @@ const TK_LAJIT_META = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TK_LAJIVIITTEET — per-laji viitetasot valtakunnallisista loppukilpailuista 2023–2025.
+// Generoitu automaattisesti PDF-tuloksista (84 riviä, summavalidointi 0 virhettä).
+// Lähde: docs/tk_lajiviitteet.js (generoitu — pidä tämä kopio synkassa siihen).
+// erinomainen = finalistien P25 · hyva = P50 · kehitettävä = > hyva (ei tallenneta).
+// pituuspotku_bonus: SUUREMPI = parempi (erinomainen = P75).
+// EI MITALI — mitali jaetaan vain kokonaisajasta (CLAUDE.md §31). Per-laji = VIITETASO.
+// kuljetus_laukaus = NETTOTULOS (raaka − vähennykset), sama kuin testit.kuljetus_laukaus.tulos.
+// P11 puuttuu: n=2 (vain 2023) — ei riittävä otos. Radat ikäluokkakohtaisia → EI interpolointia.
+const TK_LAJIVIITTEET = {
+  P: {
+    9: { // n=16, vuodet 2023+2024+2025
+      syotto: { erinomainen: 23.0, hyva: 23.7 },
+      pujottelu: { erinomainen: 27.4, hyva: 28.3 },
+      ponnauttelu: { erinomainen: 5.1, hyva: 6.2 },
+      kuljetus_laukaus: { erinomainen: 16.8, hyva: 18.5 },
+      _n: 16,
+    },
+    10: { // n=8, vuodet 2023+2024+2025
+      syotto: { erinomainen: 36.4, hyva: 37.2 },
+      pujottelu: { erinomainen: 25.7, hyva: 26.2 },
+      ponnauttelu: { erinomainen: 12.1, hyva: 13.1 },
+      kuljetus_laukaus: { erinomainen: 10.7, hyva: 13.8 },
+      _n: 8,
+    },
+    // 11: poistettu — n=2 < 5
+    12: { // n=12, vuodet 2023+2024+2025
+      syotto: { erinomainen: 34.0, hyva: 34.8 },
+      pujottelu: { erinomainen: 24.2, hyva: 24.9 },
+      ponnauttelu: { erinomainen: 15.2, hyva: 16.2 },
+      kuljetus_laukaus: { erinomainen: 13.5, hyva: 14.5 },
+      pituuspotku_bonus: { erinomainen: 13.2, hyva: 12.4 },
+      _n: 12,
+    },
+  },
+  T: {
+    9: { // n=18, vuodet 2023+2024+2025
+      syotto: { erinomainen: 25.8, hyva: 27.0 },
+      pujottelu: { erinomainen: 29.3, hyva: 30.7 },
+      ponnauttelu: { erinomainen: 7.7, hyva: 10.0 },
+      kuljetus_laukaus: { erinomainen: 23.1, hyva: 24.4 },
+      _n: 18,
+    },
+    10: { // n=13, vuodet 2023+2024+2025
+      syotto: { erinomainen: 44.3, hyva: 44.6 },
+      pujottelu: { erinomainen: 28.9, hyva: 30.3 },
+      ponnauttelu: { erinomainen: 6.1, hyva: 6.6 },
+      kuljetus_laukaus: { erinomainen: 20.9, hyva: 22.5 },
+      _n: 13,
+    },
+    11: { // n=8, vuodet 2023+2024+2025
+      syotto: { erinomainen: 39.9, hyva: 41.2 },
+      pujottelu: { erinomainen: 26.6, hyva: 27.4 },
+      ponnauttelu: { erinomainen: 13.2, hyva: 15.1 },
+      kuljetus_laukaus: { erinomainen: 14.7, hyva: 17.4 },
+      _n: 8,
+    },
+    12: { // n=7, vuodet 2023+2025
+      syotto: { erinomainen: 36.5, hyva: 37.0 },
+      pujottelu: { erinomainen: 25.8, hyva: 26.7 },
+      ponnauttelu: { erinomainen: 19.5, hyva: 22.0 },
+      kuljetus_laukaus: { erinomainen: 13.4, hyva: 16.4 },
+      pituuspotku_bonus: { erinomainen: 12.2, hyva: 10.8 },
+      _n: 7,
+    },
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // LASKENTAFUNKTIOT
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -554,6 +622,95 @@ function _laskeVahvuudetJaKehityskohteet(tulokset, pelaaja, tap) {
   out.vahvuudet.sort((a, b) => b.taso - a.taso);
   out.kehityskohteet.sort((a, b) => a.taso - b.taso);
   return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TKI-ANALYYSIMALLI VAIHE 1 — per-laji viite · gap · sekuntibudjetti · vauhti · abs-delta
+// (docs/TKI_ANALYYSIMALLI.md). Per-laji = VIITETASO loppukilpailudatasta, EI mitali (§31).
+// Mitalivertailu < ei <= (§23). TKI vain ika 8–13. EI interpolointia puuttuville ikäluokille.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Yhden lajin viitetaso. laji = bare-nimi ('pujottelu'|'syotto'|'ponnauttelu'|
+// 'kuljetus_laukaus'|'pituuspotku_bonus'). → { erinomainen, hyva, n } | null.
+function tkLajiViite(laji, ika, sp) {
+  const sukuV = TK_LAJIVIITTEET[sp];
+  if (!sukuV) return null;
+  const ikaV = sukuV[Math.round(ika)];
+  if (!ikaV) return null;            // esim. P11, ika>12, ika<9 → ei riviä
+  const v = ikaV[laji];
+  if (!v) return null;               // esim. pituuspotku_bonus kun ika<12
+  return { erinomainen: v.erinomainen, hyva: v.hyva, n: ikaV._n };
+}
+
+// Per-laji gapit vs viitetaso, järjestettynä gap_s laskevasti (suurin potentiaali ensin).
+// tkLajit = { ponnauttelu_s, syotto_s, pujottelu_s, kuljetus_laukaus_s, pituuspotku_bonus_s }.
+// Aikalajit pienempi=parempi → gap_s = max(0, arvo − hyva). pituuspotku_bonus KÄÄNTEINEN
+// (suurempi=parempi) → gap_s = max(0, hyva − arvo). Lajit ilman arvoa TAI ilman viitettä → pois.
+function tkLajiGapit(tkLajit, ika, sp) {
+  if (!tkLajit) return [];
+  const MAP = [
+    { kentta: 'ponnauttelu_s',       laji: 'ponnauttelu',       kaanteinen: false },
+    { kentta: 'syotto_s',            laji: 'syotto',            kaanteinen: false },
+    { kentta: 'pujottelu_s',         laji: 'pujottelu',         kaanteinen: false },
+    { kentta: 'kuljetus_laukaus_s',  laji: 'kuljetus_laukaus',  kaanteinen: false },
+    { kentta: 'pituuspotku_bonus_s', laji: 'pituuspotku_bonus', kaanteinen: true  },
+  ];
+  const r1 = function(x) { return Math.round(x * 10) / 10; };
+  const out = [];
+  MAP.forEach(function(m) {
+    const arvo = tkLajit[m.kentta];
+    if (arvo == null || isNaN(arvo)) return;
+    const viite = tkLajiViite(m.laji, ika, sp);
+    if (!viite) return;
+    let gap_s, taso;
+    if (m.kaanteinen) {
+      gap_s = Math.max(0, viite.hyva - arvo);
+      taso = (arvo >= viite.erinomainen) ? 'erinomainen' : (arvo >= viite.hyva ? 'hyva' : 'kehitettava');
+    } else {
+      gap_s = Math.max(0, arvo - viite.hyva);
+      taso = (arvo <= viite.erinomainen) ? 'erinomainen' : (arvo <= viite.hyva ? 'hyva' : 'kehitettava');
+    }
+    out.push({ laji: m.laji, arvo: arvo, viite: viite, gap_s: r1(gap_s), taso: taso });
+  });
+  out.sort(function(a, b) { return b.gap_s - a.gap_s; });
+  return out;
+}
+
+// Sekuntibudjetti seuraavaan SAAVUTTAMATTOMAAN mitalitasoon (kokonaisajasta, < ei <=, §23).
+// tulos < kulta → null (huipulla, ylläpito). ika 8–13, muuten null.
+function tkSekuntibudjetti(kokonaistulos, ika, sp) {
+  const rajat = (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
+  if (!rajat || kokonaistulos == null) return null;
+  const r1 = function(x) { return Math.round(x * 10) / 10; };
+  if (kokonaistulos < rajat.kulta)   return null;                                       // jo kulta → ylläpito
+  if (kokonaistulos < rajat.hopea)   return { tavoite: 'kulta',   gap_s: r1(kokonaistulos - rajat.kulta) };
+  if (kokonaistulos < rajat.pronssi) return { tavoite: 'hopea',   gap_s: r1(kokonaistulos - rajat.hopea) };
+  return                                    { tavoite: 'pronssi', gap_s: r1(kokonaistulos - rajat.pronssi) };
+}
+
+// Vaadittu vuosiparannus pitääkseen mitalitason (rajat kovenevat iän myötä).
+// = TK_KOKONAISRAJAT[sp][ika][taso] − [ika+1][taso]; positiivinen = rajat kovenevat.
+// null jos ika+1 > 13 TAI siirtymä 9→10 (rata/protokolla muuttuu — ei validi, §3.3).
+function tkVaadittuVuosivauhti(ika, sp, taso) {
+  const i = Math.round(ika);
+  if (i + 1 > 13 || i === 9) return null;
+  const sukuRajat = TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'];
+  const nyt = sukuRajat[i], seur = sukuRajat[i + 1];
+  if (!nyt || !seur || nyt[taso] == null || seur[taso] == null) return null;
+  return nyt[taso] - seur[taso];
+}
+
+// Absoluuttinen kehitysdelta saman rataston sisällä. abs_s = ed − nyt (+ = parani; pienempi=parempi).
+// validi=false jos ikäpari ylittää 9→10-rajan tai ika ei 8–13. bonus_osuus_s = bonusosuuden muutos
+// (P11→P12: osa "parannuksesta" tulee uudesta pituuspotkubonuksesta, §3.3.2).
+function tkAbsDelta(kokonaisNyt, kokonaisEd, ikaNyt, ikaEd, bonusNyt, bonusEd) {
+  const r1 = function(x) { return Math.round(x * 10) / 10; };
+  const abs_s = (kokonaisNyt != null && kokonaisEd != null) ? r1(kokonaisEd - kokonaisNyt) : null;
+  const iNyt = Math.round(ikaNyt), iEd = Math.round(ikaEd);
+  let validi = true;
+  if (isNaN(iNyt) || isNaN(iEd) || iNyt < 8 || iNyt > 13 || iEd < 8 || iEd > 13) validi = false;
+  if (Math.min(iNyt, iEd) <= 9 && Math.max(iNyt, iEd) >= 10) validi = false;            // 9→10-rajan yli
+  return { abs_s: abs_s, validi: validi, bonus_osuus_s: r1((bonusNyt || 0) - (bonusEd || 0)) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1160,11 +1317,13 @@ if (typeof module !== 'undefined' && module.exports) {
     // H-H normitaulukot
     HH_NORMIT, HH_KAANTEINEN, HH_TESTIT_META,
     // Tekniikkakilpailut
-    TK_KOKONAISRAJAT, TK_LAJIT_META,
+    TK_KOKONAISRAJAT, TK_LAJIT_META, TK_LAJIVIITTEET,
     // H-H laskenta
     hhLaskeTaso, hhLaskeMetrikat, hhLaskeOVR,
     // TKI laskenta
     tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
+    // TKI-analyysimalli VAIHE 1 (per-laji viite, gap, budjetti, vauhti, abs-delta)
+    tkLajiViite, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta,
     // Joukkueen avainluvut
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     // Räjähtävyysprofiili
@@ -1176,9 +1335,10 @@ if (typeof module !== 'undefined' && module.exports) {
 } else {
   window.TM_TESTIT = {
     HH_NORMIT, HH_KAANTEINEN, HH_TESTIT_META,
-    TK_KOKONAISRAJAT, TK_LAJIT_META,
+    TK_KOKONAISRAJAT, TK_LAJIT_META, TK_LAJIVIITTEET,
     hhLaskeTaso, hhLaskeMetrikat, hhLaskeOVR,
     tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
+    tkLajiViite, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta,
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     laskeEI, laskeFVP, laskeVNE,
     ADAR_DIMENSIOT, ADAR_SKENAARIOT, ADAR_IKATASOT,
