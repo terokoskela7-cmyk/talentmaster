@@ -3572,7 +3572,9 @@ async function _adminLaskeTkiUudelleen() {
     // Laske pikakentät — viimeisin tekniikkakilpailu-tulos per pelaaja
     const paivitykset = [];
     tulokset.forEach(t => {
-      const tk = t.docs.map(d => d.data()).filter(x => x && x.kokonaistulos_s != null);
+      // KORJAUS: hyväksy myös historiapohja-docit (lahde:'historiapohja', §22 Moodi B) joissa on vain
+      // testit-map (ei litteää kokonaistulos_s) — kokonaistulos lasketaan kanonisella laskeKokonaistulos:lla.
+      const tk = t.docs.map(d => d.data()).filter(x => x && (x.kokonaistulos_s != null || (x.protokolla === 'tekniikkakilpailu' && x.testit && Object.keys(x.testit).length > 0)));
       if (!tk.length) { ohitettu++; return; }
       tk.sort((a, b) => String(b.pvm || b.testauspvm || '').localeCompare(String(a.pvm || a.testauspvm || '')));
       const d = tk[0];
@@ -3588,10 +3590,12 @@ async function _adminLaskeTkiUudelleen() {
       const sp = (spRaaka === 'N' || spRaaka === 'T') ? 'T' : 'P';
       if (!sp || !ika) { ohitettu++; return; }
       const rajatOverride = d.merkkirajat || null;  // käytä PDF:ään tallennettuja rajoja jos saatavilla
+      // kokonaistulos: litteä kenttä jos on, muuten laske testit-mapista (käsittelee pituuspotku-bonuksen ika>=12).
+      const kt = (d.kokonaistulos_s != null) ? d.kokonaistulos_s : laskeKokonaistulos(d.testit || {}, ika, sp);
       // tki/merkki voivat olla null (esim. ika sarjan 8–13 ulkopuolella → ei rajaa). Kirjoitetaan SILTI null
       // (EI ohiteta pelaajaa) jotta vanha väärä arvo nollautuu pelaajadokumentista.
-      const tki = tkLaskeTKI(d.kokonaistulos_s, ika, sp, rajatOverride);
-      const merkki = tkLaskeMerkki(d.kokonaistulos_s, ika, sp, rajatOverride);
+      const tki = tkLaskeTKI(kt, ika, sp, rajatOverride);
+      const merkki = tkLaskeMerkki(kt, ika, sp, rajatOverride);
       const vk = _laskeVahvuudetJaKehityskohteet({ testit: d.testit || {} }, { ika: ika });
       const pika = { tki_viimeisin: (tki == null ? null : tki), tki_pvm: d.pvm || d.testauspvm || '' };
       pika.tki_merkki = merkki || null;   // kirjoita AINA (myös null)
@@ -3602,7 +3606,7 @@ async function _adminLaskeTkiUudelleen() {
       const _tkLajit = (tki == null) ? null : _tkLajitPikakentat(d.testit || {}, ika);
       pika.tk_lajit_viimeisin = _tkLajit;
       pika.tk_lajit_pvm = _tkLajit ? (d.pvm || d.testauspvm || '') : null;
-      pika.tk_kokonaistulos_viimeisin = (tki == null ? null : d.kokonaistulos_s);
+      pika.tk_kokonaistulos_viimeisin = (tki == null ? null : kt);
       paivitykset.push({ pid: t.pid, pika: pika });
     });
 
@@ -3658,8 +3662,9 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
   let ohitettu = 0;
   tulokset.forEach(function(t) {
     if (suodatusJoukkue && t.pel.joukkue !== suodatusJoukkue) return;
+    // KORJAUS: hyväksy myös historiapohja-docit (vain testit-map, ei litteää kokonaistulos_s) — lasketaan alla.
     const tk = t.docs.map(function(d) { return { ref: d.ref, data: d.data() }; })
-      .filter(function(x) { return x.data && x.data.protokolla === 'tekniikkakilpailu' && x.data.kokonaistulos_s != null; });
+      .filter(function(x) { return x.data && x.data.protokolla === 'tekniikkakilpailu' && (x.data.kokonaistulos_s != null || (x.data.testit && Object.keys(x.data.testit).length > 0)); });
     if (!tk.length) { ohitettu++; return; }
     tk.sort(function(a, b) { return String(b.data.pvm || b.data.testauspvm || '').localeCompare(String(a.data.pvm || a.data.testauspvm || '')); });
     // Valitse pelaajan JOUKKUEEN ikäluokkaa vastaava tulos (esim. joukkue "... P10" → ikaluokka "P10"),
@@ -3672,7 +3677,8 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
     const sp = (ikaluokka.charAt(0).toUpperCase() === 'T') ? 'T' : 'P';   // TK_KOKONAISRAJAT-avaimet P/T (EI M/N)
     const ika = parseInt(ikaluokka.replace(/[^0-9]/g, ''), 10);
     if (!ika || ika < 8 || ika > 13) { ohitettu++; return; }
-    const kt = d.kokonaistulos_s;
+    // kokonaistulos: litteä kenttä jos on, muuten laske testit-mapista (pituuspotku-bonus ika>=12 mukana).
+    const kt = (d.kokonaistulos_s != null) ? d.kokonaistulos_s : laskeKokonaistulos(d.testit || {}, ika, sp);
     // EI rajatOverride → TK_KOKONAISRAJAT[sp][ika] (ohittaa mahd. väärän tallennetun merkkirajat-kentän)
     const tki = tkLaskeTKI(kt, ika, sp);
     const merkki = tkLaskeMerkki(kt, ika, sp);
