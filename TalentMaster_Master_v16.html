@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781129614301';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781133319806';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=1"></script>
+<script src="lib/tm_eerikkila_normit.js?v=2"></script>
 <script src="docs/testit_indeksit.js?v=6"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -4473,6 +4473,39 @@ function _buildHHDetail(p) {
     if (vne && vne.profiiliKuvaus) osat.push('VNE: ' + vne.profiiliKuvaus);
     if (osat.length) rajahtavyys = '<div class="detail-yhteenveto"><b>Räjähtävyysprofiili</b><br>' + osat.join('<br>') + '</div>';
   }
+  // VAIHE 1 — Seuraava taso (gap), PHV-suodatin, vauhti. String concat (§7.1). Funktiot lib/tm_eerikkila_normit.js (globaalit).
+  const _labelKey = { '30m': 'lin30m', 'CMJ': 'cmj', 'MAS': 'mas' };
+  const _gapit = [];
+  if (typeof hhSeuraavaTaso === 'function' && ika != null) {
+    rivit.forEach(function (r) {
+      const k = _labelKey[r.label]; if (!k) return;
+      const st = hhSeuraavaTaso(k, +r.arvo, ika, sp);
+      if (st && st.gap != null) _gapit.push({ label: r.label, gap: st.gap, yks: st.yksikko });
+    });
+  }
+  let _phvVarmuus = null;
+  if (typeof hhKehityskohde === 'function' && ika != null) {
+    const _hvK = Object.assign({}, hv);
+    if (_hvK.sm_pallo == null && p.sm_pallo_viimeisin != null) _hvK.sm_pallo = p.sm_pallo_viimeisin;
+    _phvVarmuus = hhKehityskohde(_hvK, ika, sp, p.phv_tila || null).phvVarmuus;
+  }
+  // Yksikköbudjetti-rivi: 2–3 suurinta gapia (vain vajaat, gap>0). PHV-suodatus tapahtui jo hhKehityskohteessa (varmuus-merkintä).
+  let _budjettiHtml = '';
+  const _isot = _gapit.filter(function (g) { return g.gap > 0; }).sort(function (a, b) { return b.gap - a.gap; }).slice(0, 3);
+  if (_isot.length) _budjettiHtml = '<div class="detail-suositus">⏱ Seuraavaan tasoon: '
+    + _isot.map(function (g) { return g.label + ' +' + g.gap + ' ' + g.yks; }).join(' · ') + '</div>';
+  // PHV-rivi (vain phv_tila puuttuu → ikaoletus/epavarma)
+  let _phvHtml = '';
+  if (_phvVarmuus === 'ikaoletus') _phvHtml = '<div class="detail-yhteenveto" style="color:var(--amber)">Fyysiset kehityskohteet ikäoletuksella — kasvumittaus tarkentaa.</div>';
+  else if (_phvVarmuus === 'epavarma') _phvHtml = '<div class="detail-yhteenveto" style="color:var(--amber)">Fyysiset kehityskohteet varmistuvat kasvumittauksella — toistaiseksi vain pallollinen (SM-pallo) suositus on luotettava.</div>';
+  // Vauhtirivi: taso-delta + vaadittu vuosivauhti (heikoimman testin tasolle)
+  let _vauhtiHtml = '';
+  if (p.hh_taso_edellinen != null && p.hh_taso != null && heikoin) {
+    const _absD = Math.round((p.hh_taso - p.hh_taso_edellinen) * 10) / 10;
+    const _vaad = (typeof hhVaadittuVuosivauhti === 'function' && ika != null) ? hhVaadittuVuosivauhti(_labelKey[heikoin.label] || 'lin30m', ika, sp, heikoin.taso) : null;
+    const _su = _absD > 0 ? 'taso ↑ ' + _absD : _absD < 0 ? 'taso ↓ ' + Math.abs(_absD) : 'taso ennallaan';
+    _vauhtiHtml = '<div class="detail-suositus">📈 ' + _su + (_vaad != null ? ' · normi kiristyy ' + _vaad + ' ' + (heikoin.yks || '') + '/v' : '') + '</div>';
+  }
   return `
     <button class="detail-sulje" onclick="_suljeDetail()">×</button>
     <div class="detail-otsikko">Fyysinen profiili — ${_devNimi(p)}${ika!=null?', '+ika+'v':''}</div>
@@ -4489,6 +4522,9 @@ function _buildHHDetail(p) {
     ${vahvin ? `<div class="detail-yhteenveto">Vahvin: <b>${vahvin.label}</b> (taso ${vahvin.taso}) · Heikoin: <b>${heikoin.label}</b> (taso ${heikoin.taso})</div>`
              : (ika==null ? '<div class="detail-yhteenveto">Ikä/sukupuoli puuttuu → normivertailua ei voida laskea.</div>' : '')}
     ${rajahtavyys}
+    ${_budjettiHtml}
+    ${_vauhtiHtml}
+    ${_phvHtml}
     ${suositus ? `<div class="detail-suositus">→ Suositus: ${suositus}</div>` : ''}
   `;
 }
@@ -4505,6 +4541,16 @@ function _buildTSIDetail(p) {
     else if (t <= 1.5){ tulkinta = '⚠️ Pallo hidastaa ' + t.toFixed(2) + 's';             vari = 'var(--red)';   suositus = 'Prioriteetti: pallokuljetus täydessä vauhdissa joka päivä.'; }
     else              { tulkinta = '🔴 Kriittinen — pallo hidastaa ' + t.toFixed(2) + 's, tekniikkatyö välttämätön'; vari = 'var(--red)'; suositus = 'Kriittinen: päivittäinen pallonkäsittely vauhdissa + tekninen perustyö joka päivä.'; }
   }
+  // VAIHE 1 — TSI-delta (tsi_edellinen pikakenttä, pvm-vahti tuonnissa) + vyöhykesiirtymä. String concat (§7.1).
+  let _tsiDelta = '';
+  if (p.tsi_edellinen != null && t != null) {
+    const _ed = +p.tsi_edellinen;
+    const _d = Math.round((_ed - t) * 100) / 100;   // >0 = parani (TSI pieneni, pallo hidastaa vähemmän)
+    const _vyo = function (v) { return v <= 0 ? 0 : v <= 0.5 ? 1 : v <= 1.0 ? 2 : v <= 1.5 ? 3 : 4; };
+    const _siirtyma = (_vyo(_ed) !== _vyo(t)) ? ' · vyöhyke vaihtui' : '';
+    const _su = _d > 0 ? '↑ parani ' + _d + ' s' : _d < 0 ? '↓ heikkeni ' + Math.abs(_d) + ' s' : 'ennallaan';
+    _tsiDelta = '<div class="detail-suositus">📈 TSI ' + _ed.toFixed(2) + ' s → ' + t.toFixed(2) + ' s · ' + _su + _siirtyma + '</div>';
+  }
   return `
     <button class="detail-sulje" onclick="_suljeDetail()">×</button>
     <div class="detail-otsikko">Tekniikka-nopeus — ${_devNimi(p)}</div>
@@ -4514,6 +4560,7 @@ function _buildTSIDetail(p) {
       <div class="detail-rivi detail-summa"><span>TSI erotus</span><span style="color:${vari}">${t!=null?(t>0?'+':'')+t.toFixed(2)+'s':'—'}</span><span></span></div>
     </div>
     <div class="detail-yhteenveto" style="color:${vari}">${tulkinta} · Tavoite: alle 0.50s</div>
+    ${_tsiDelta}
     ${suositus ? `<div class="detail-suositus">→ Suositus: ${suositus}</div>` : ''}
   `;
 }

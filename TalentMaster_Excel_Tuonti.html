@@ -18,7 +18,7 @@
 <!-- pdf.js — Palloliiton PDF-tuonti (ei npm, Node.js ei käytettävissä) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
-<script src="lib/tm_eerikkila_normit.js"></script>
+<script src="lib/tm_eerikkila_normit.js?v=2"></script>
 
 <style>
 :root {
@@ -2852,6 +2852,12 @@ async function tallennaFirestoreen() {
             profiiliUpdate.sm_juoksu_viimeisin = smJ;
             profiiliUpdate.sm_pallo_viimeisin = smP;
             profiiliUpdate.tsi_pvm = pvmIso;
+            // VAIHE 1 — kehitysvauhti: edellinen TSI vain aidolla uudella testillä (eri pvm) → pvm-vahti (§29).
+            const _fdT = p._firestoreData || {};
+            if (_fdT.tsi_viimeisin != null && _fdT.tsi_pvm && _fdT.tsi_pvm !== pvmIso) {
+              profiiliUpdate.tsi_edellinen = _fdT.tsi_viimeisin;
+              profiiliUpdate.tsi_edellinen_pvm = _fdT.tsi_pvm;
+            }
           }
         }
         // SM-tasot (Eerikkilä 1–5) + D2-taso. Ikä/sp joukkuenimestä (fallback syntymaVuosi/sukupuoli).
@@ -3769,13 +3775,18 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
     if (p.hh_viimeisin == null) return;                // ei raakatestejä → ei kuulu joukkoon
     if (p.hh_taso != null && !force) { ohitettu++; return; } // taso jo olemassa & ei force → ei lasketa uudelleen
 
-    // Ikä + sukupuoli joukkuenimestä — yksi P/T/U-ankkuroitu osuma (välttää nimessä olevan vuosiluvun)
+    // Ikä DESIMAALINA, tarkin lähde: syntymaaika → syntymaVuosi (1.7. oletus) → joukkuenimi.
+    // §26 ikälähde-korjaus: sama kronologinen logiikka kuin Excel-tuonnin laskeIka (ei enää joukkuenimi ensin).
     const joukkue = p.joukkue || (Array.isArray(p.joukkueet) ? p.joukkueet[0] : '') || '';
-    const m = String(joukkue).match(/\b([PTU])\s?(\d{1,2})\b/i);
-    const ika = m ? parseInt(m[2], 10)
-              : (p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null);
-    const sp = (m && /[PT]/i.test(m[1])) ? (m[1].toUpperCase() === 'P' ? 'M' : 'N')
-             : (p.sukupuoli || null);                  // U-joukkue tai ei osumaa → sukupuoli profiilista
+    const jm = String(joukkue).match(/\b([PTU])\s?(\d{1,2})\b/i);
+    const joukkueIka = jm ? parseInt(jm[2], 10) : null;
+    const spRaaka = (jm && /[PT]/i.test(jm[1])) ? jm[1].toUpperCase() : (p.sukupuoli || null);
+    const sp = (spRaaka === 'P' || spRaaka === 'M') ? 'M' : (spRaaka === 'T' || spRaaka === 'N') ? 'N' : null;
+    let ikaDes = null;
+    if (p.syntymaaika && p.syntymaaika.toDate) ikaDes = (Date.now() - p.syntymaaika.toDate().getTime()) / (365.25 * 864e5);
+    else if (p.syntymaVuosi) ikaDes = (Date.now() - new Date(p.syntymaVuosi, 6, 1).getTime()) / (365.25 * 864e5);
+    else ikaDes = joukkueIka;
+    const ika = (ikaDes != null) ? Math.round(ikaDes) : null;
 
     if (!ika || !sp) {
       eiLaskettavissa++;
@@ -3791,8 +3802,23 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
       console.log('[recalcHH] SKIP (taso null): ' + (p.sukunimi||'') + ' ' + (p.etunimi||'') + ' · ika ' + ika + ' sp ' + sp);
       return;
     }
+    // VAIHE 1 — d1_taso (D1-testien tasojen ka, §26 TODO) + hh_kehityskohde/vahvuus (PHV-suodatettu §0/§28, EI UI:ssa)
+    let d1sum = 0, d1n = 0;
+    if (typeof HH_TESTI_MAP !== 'undefined' && typeof eerikkilaTaso === 'function') {
+      ['lin10m', 'lin30m', 'cmj', 'mas', 'kasirata'].forEach(function (t) {
+        const a = hv[t];
+        if (a == null || isNaN(a) || !HH_TESTI_MAP[t]) return;
+        const tt = eerikkilaTaso((t === 'mas') ? a / 3.6 : a, HH_TESTI_MAP[t].eerikkila, ika, sp);
+        if (tt) { d1sum += tt; d1n++; }
+      });
+    }
+    const d1_taso = d1n ? Math.round(d1sum / d1n * 10) / 10 : null;
+    const hvK = Object.assign({}, hv);
+    if (hvK.sm_pallo == null && p.sm_pallo_viimeisin != null) hvK.sm_pallo = p.sm_pallo_viimeisin;
+    const kk = (typeof hhKehityskohde === 'function') ? hhKehityskohde(hvK, ikaDes, sp, p.phv_tila || null) : null;
     muutokset.push({ ref: pd.ref, nimi: (p.sukunimi||'') + ', ' + (p.etunimi||''),
-      joukkue: joukkue, ika: ika, sp: sp, taso: taso, vanha: p.hh_taso });
+      joukkue: joukkue, ika: ika, sp: sp, taso: taso, vanha: p.hh_taso,
+      d1_taso: d1_taso, hh_kehityskohde: kk ? kk.kehityskohde : null, hh_vahvuus: kk ? kk.vahvuus : null });
   });
 
   muutokset.forEach(function(m2) {
@@ -3815,7 +3841,7 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
   for (let e = 0; e < eria; e++) {
     const era = muutokset.slice(e * ERA, (e + 1) * ERA);
     const batch = db.batch();
-    era.forEach(function(m2) { batch.set(m2.ref, { hh_taso: m2.taso, hh_taso_recalc: true }, { merge: true }); });
+    era.forEach(function(m2) { batch.set(m2.ref, { hh_taso: m2.taso, hh_taso_recalc: true, d1_taso: m2.d1_taso, hh_kehityskohde: m2.hh_kehityskohde, hh_vahvuus: m2.hh_vahvuus }, { merge: true }); });
     try { await batch.commit(); paivitetty += era.length; }
     catch (err) { console.error('[recalcHH batch ' + (e + 1) + ']', err); virhe += era.length; }
   }
