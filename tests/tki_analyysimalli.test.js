@@ -23,23 +23,32 @@ const {
 // tkLajiViite — viitetaso loppukilpailudatasta, EI interpolointia
 // ═══════════════════════════════════════════════════════════════════
 describe('tkLajiViite', () => {
-  it('P12 pujottelu → P25/P50-viite + n', () => {
-    expect(tkLajiViite('pujottelu', 12, 'P')).toEqual({ erinomainen: 24.2, hyva: 24.9, n: 12 });
+  it('P12 pujottelu → valtakunnallinen viite + n + lahde', () => {
+    expect(tkLajiViite('pujottelu', 12, 'P')).toEqual({ erinomainen: 24.2, hyva: 24.9, n: 12, lahde: 'valtakunnallinen' });
   });
-  it('T12 syotto → oikea viite + n=7', () => {
-    expect(tkLajiViite('syotto', 12, 'T')).toEqual({ erinomainen: 36.5, hyva: 37.0, n: 7 });
+  it('T12 syotto → valtakunnallinen + n=7', () => {
+    expect(tkLajiViite('syotto', 12, 'T')).toEqual({ erinomainen: 36.5, hyva: 37.0, n: 7, lahde: 'valtakunnallinen' });
   });
-  it('P11 → null (n=2, poistettu, EI interpolointia)', () => {
-    expect(tkLajiViite('pujottelu', 11, 'P')).toBeNull();
+  it('P11 → ALUEELLINEN viite (resync: ei enää null)', () => {
+    expect(tkLajiViite('pujottelu', 11, 'P')).toEqual({ erinomainen: 26.4, hyva: 26.8, n: 20, lahde: 'alueellinen' });
   });
-  it('ika > 12 (P13) → null (ei riviä, ei interpolointia)', () => {
-    expect(tkLajiViite('pujottelu', 13, 'P')).toBeNull();
+  it('P13 → ALUEELLINEN viite (resync: ei enää null)', () => {
+    expect(tkLajiViite('pujottelu', 13, 'P')).toEqual({ erinomainen: 24.0, hyva: 25.3, n: 7, lahde: 'alueellinen' });
+  });
+  it('P8 + T8 + T13 → alueellinen viite löytyy', () => {
+    expect(tkLajiViite('syotto', 8, 'P').lahde).toBe('alueellinen');
+    expect(tkLajiViite('syotto', 8, 'T').lahde).toBe('alueellinen');
+    expect(tkLajiViite('pujottelu', 13, 'T')).toEqual({ erinomainen: 24.6, hyva: 25.4, n: 11, lahde: 'alueellinen' });
+  });
+  it('ika 14 → null (rajojen 8–13 ulkopuolella, EI interpolointia)', () => {
+    expect(tkLajiViite('pujottelu', 14, 'P')).toBeNull();
+    expect(tkLajiViite('pujottelu', 7, 'P')).toBeNull();
   });
   it('pituuspotku_bonus ika < 12 (P10) → null (lajia ei ole alle 12)', () => {
     expect(tkLajiViite('pituuspotku_bonus', 10, 'P')).toBeNull();
   });
   it('pituuspotku_bonus P12 → käänteinen viite löytyy', () => {
-    expect(tkLajiViite('pituuspotku_bonus', 12, 'P')).toEqual({ erinomainen: 13.2, hyva: 12.4, n: 12 });
+    expect(tkLajiViite('pituuspotku_bonus', 12, 'P')).toEqual({ erinomainen: 13.2, hyva: 12.4, n: 12, lahde: 'valtakunnallinen' });
   });
   it('tuntematon laji / sp → null', () => {
     expect(tkLajiViite('xxx', 12, 'P')).toBeNull();
@@ -78,8 +87,11 @@ describe('tkLajiGapit', () => {
     expect(r.length).toBe(1);
     expect(r[0].laji).toBe('pujottelu');
   });
-  it('ei viitettä (P11) → tyhjä lista', () => {
-    expect(tkLajiGapit({ pujottelu_s: 24.0, syotto_s: 40.0 }, 11, 'P')).toEqual([]);
+  it('ei viitettä (ika 14, rajojen ulkop.) → tyhjä lista', () => {
+    expect(tkLajiGapit({ pujottelu_s: 24.0, syotto_s: 40.0 }, 14, 'P')).toEqual([]);
+  });
+  it('P11 (resync: nyt alueellinen viite) → ei-tyhjä lista', () => {
+    expect(tkLajiGapit({ pujottelu_s: 30.0 }, 11, 'P').length).toBe(1);
   });
   it('tyhjä/puuttuva input → tyhjä lista', () => {
     expect(tkLajiGapit(null, 12, 'P')).toEqual([]);
@@ -108,6 +120,10 @@ describe('tkSekuntibudjetti', () => {
   });
   it('ika ulkopuolella (7) → null', () => {
     expect(tkSekuntibudjetti(100, 7, 'P')).toBeNull();
+  });
+  it('T13 pronssi = 135 (resync §8.8): tasan rajalla → tavoite pronssi gap 0', () => {
+    expect(TK_KOKONAISRAJAT.T[13].pronssi).toBe(135);
+    expect(tkSekuntibudjetti(135, 13, 'T')).toEqual({ tavoite: 'pronssi', gap_s: 0 });
   });
 });
 

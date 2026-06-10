@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781125248527';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781127325464';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_eerikkila_normit.js?v=1"></script>
-<script src="docs/testit_indeksit.js?v=5"></script>
+<script src="docs/testit_indeksit.js?v=6"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -4553,7 +4553,12 @@ function _buildTKIDetail(p) {
       rivit += '<div class="' + rowClass + '"><span>' + (NIMET[g.laji] || g.laji) + ' <span class="detail-arvo">' + g.arvo + 's</span></span>'
         + '<span><span class="detail-viite">' + viiteTeksti + '</span> <span class="detail-gap" style="color:' + mvari + '">' + gapTeksti + merkinta + '</span></span></div>';
     });
-    const otsikko = 'Loppukilpailutaso 2023–25' + ((nMin != null && nMin < 10) ? ' (suuntaa-antava, n=' + nMin + ')' : '');
+    // Dynaaminen viite-label _lahde-kentästä (valtakunnallinen vs alueellinen). nMin = pienin n (suuntaa-antava < 10).
+    const _vref = (function(){ for (var i = 0; i < gapit.length; i++) { if (gapit[i].viite) return gapit[i].viite; } return null; })();
+    const _nStr = (nMin != null && nMin < 10) ? (', n=' + nMin) : '';
+    const otsikko = (_vref && _vref.lahde === 'alueellinen')
+      ? ('Alueellinen huipputaso 2024–25 (suuntaa-antava' + _nStr + ')')
+      : ('Loppukilpailutaso 2023–25' + (_nStr ? (' (n=' + nMin + ')') : ''));
     taulukkoHtml = '<div class="detail-yhteenveto" style="margin-top:10px">' + otsikko + '</div>'
       + '<div class="detail-taulukko">' + rivit + '</div>';
 
