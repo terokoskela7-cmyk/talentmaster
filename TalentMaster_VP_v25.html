@@ -3245,11 +3245,262 @@ function _jsvVaihda(n) {
   }
 }
 window._jsvVaihda = _jsvVaihda;
-function _jsvLuoTapahtuma(joukkue) {
-  const url = 'TalentMaster_Testaus_v9.html?seura=' + encodeURIComponent(_seuraId || '') + '&joukkue=' + encodeURIComponent(joukkue || '');
+function _jsvLuoTapahtuma(joukkue, teema) {
+  // A5: esitäytä teema (suurin per-laji-gap) tapahtumalomakkeeseen. Jos lomake ei tue → URL-param + nimen oletus.
+  let url = 'TalentMaster_Testaus_v9.html?seura=' + encodeURIComponent(_seuraId || '') + '&joukkue=' + encodeURIComponent(joukkue || '');
+  if (teema) url += '&teema=' + encodeURIComponent(teema);
   window.open(url, '_blank');
 }
 window._jsvLuoTapahtuma = _jsvLuoTapahtuma;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TKI-analyysimalli VAIHE 1 — inline-kopio docs/testit_indeksit.js:stä (VP ei lataa sitä).
+// Pidä SYNKASSA kanoniseen lähteeseen (sama pattern kuin H-H osatasot ~5380).
+// Per-laji = VIITETASO loppukilpailudatasta, EI mitali (§31). Mitalivertailu < (§23). EI interpolointia.
+// ─────────────────────────────────────────────────────────────────────────────
+const TK_LAJIVIITTEET = {
+  P: {
+    9:  { syotto:{erinomainen:23.0,hyva:23.7}, pujottelu:{erinomainen:27.4,hyva:28.3}, ponnauttelu:{erinomainen:5.1,hyva:6.2}, kuljetus_laukaus:{erinomainen:16.8,hyva:18.5}, _n:16 },
+    10: { syotto:{erinomainen:36.4,hyva:37.2}, pujottelu:{erinomainen:25.7,hyva:26.2}, ponnauttelu:{erinomainen:12.1,hyva:13.1}, kuljetus_laukaus:{erinomainen:10.7,hyva:13.8}, _n:8 },
+    12: { syotto:{erinomainen:34.0,hyva:34.8}, pujottelu:{erinomainen:24.2,hyva:24.9}, ponnauttelu:{erinomainen:15.2,hyva:16.2}, kuljetus_laukaus:{erinomainen:13.5,hyva:14.5}, pituuspotku_bonus:{erinomainen:13.2,hyva:12.4}, _n:12 },
+  },
+  T: {
+    9:  { syotto:{erinomainen:25.8,hyva:27.0}, pujottelu:{erinomainen:29.3,hyva:30.7}, ponnauttelu:{erinomainen:7.7,hyva:10.0}, kuljetus_laukaus:{erinomainen:23.1,hyva:24.4}, _n:18 },
+    10: { syotto:{erinomainen:44.3,hyva:44.6}, pujottelu:{erinomainen:28.9,hyva:30.3}, ponnauttelu:{erinomainen:6.1,hyva:6.6}, kuljetus_laukaus:{erinomainen:20.9,hyva:22.5}, _n:13 },
+    11: { syotto:{erinomainen:39.9,hyva:41.2}, pujottelu:{erinomainen:26.6,hyva:27.4}, ponnauttelu:{erinomainen:13.2,hyva:15.1}, kuljetus_laukaus:{erinomainen:14.7,hyva:17.4}, _n:8 },
+    12: { syotto:{erinomainen:36.5,hyva:37.0}, pujottelu:{erinomainen:25.8,hyva:26.7}, ponnauttelu:{erinomainen:19.5,hyva:22.0}, kuljetus_laukaus:{erinomainen:13.4,hyva:16.4}, pituuspotku_bonus:{erinomainen:12.2,hyva:10.8}, _n:7 },
+  },
+};
+const TK_KOKONAISRAJAT = {
+  P: { 8:{kulta:95,hopea:105,pronssi:120}, 9:{kulta:85,hopea:100,pronssi:115}, 10:{kulta:100,hopea:120,pronssi:140}, 11:{kulta:90,hopea:110,pronssi:130}, 12:{kulta:80,hopea:90,pronssi:105}, 13:{kulta:75,hopea:85,pronssi:100} },
+  T: { 8:{kulta:110,hopea:125,pronssi:140}, 9:{kulta:105,hopea:120,pronssi:135}, 10:{kulta:110,hopea:135,pronssi:155}, 11:{kulta:105,hopea:125,pronssi:145}, 12:{kulta:95,hopea:115,pronssi:135}, 13:{kulta:90,hopea:110,pronssi:130} },
+};
+function tkLajiViite(laji, ika, sp) {
+  const sukuV = TK_LAJIVIITTEET[sp]; if (!sukuV) return null;
+  const ikaV = sukuV[Math.round(ika)]; if (!ikaV) return null;
+  const v = ikaV[laji]; if (!v) return null;
+  return { erinomainen: v.erinomainen, hyva: v.hyva, n: ikaV._n };
+}
+function tkSekuntibudjetti(kokonaistulos, ika, sp) {
+  const rajat = (TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'])[Math.round(ika)];
+  if (!rajat || kokonaistulos == null) return null;
+  const r1 = function(x){ return Math.round(x*10)/10; };
+  if (kokonaistulos < rajat.kulta)   return null;
+  if (kokonaistulos < rajat.hopea)   return { tavoite:'kulta',   gap_s: r1(kokonaistulos - rajat.kulta) };
+  if (kokonaistulos < rajat.pronssi) return { tavoite:'hopea',   gap_s: r1(kokonaistulos - rajat.hopea) };
+  return                                    { tavoite:'pronssi', gap_s: r1(kokonaistulos - rajat.pronssi) };
+}
+function tkVaadittuVuosivauhti(ika, sp, taso) {
+  const i = Math.round(ika);
+  if (i + 1 > 13 || i === 9) return null;
+  const sukuRajat = TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT['P'];
+  const nyt = sukuRajat[i], seur = sukuRajat[i + 1];
+  if (!nyt || !seur || nyt[taso] == null || seur[taso] == null) return null;
+  return nyt[taso] - seur[taso];
+}
+
+// Ikä/sp johdetaan joukkuenimestä ("Sibbo-Vargarna P13" → 13/'P"). sp 'P'/'T' (TK-avaimet).
+function _jsvJoukkueIkaSp(joukkueNimi) {
+  const s = String(joukkueNimi || '');
+  const mSp = s.match(/\b([PT])\s?\d/i);
+  const mIka = s.match(/\b[PTU]?\s?(\d{1,2})\b/i) || s.match(/(\d{1,2})/);
+  return { ika: mIka ? parseInt(mIka[1] || mIka[0], 10) : null, sp: (mSp && mSp[1].toUpperCase() === 'T') ? 'T' : 'P' };
+}
+// Pelaajan ikä syntymävuodesta (fallback joukkueen ikään). Kilpailuvuosi = kuluva vuosi.
+function _jsvPelaajaIka(p, teamIka) {
+  if (p && p.syntymaVuosi) { const v = parseInt(p.syntymaVuosi, 10); if (v) return (new Date()).getFullYear() - v; }
+  return teamIka;
+}
+// A3: laajenna/supista nimilista (ei uutta modaalia).
+function _jsvNearBlock(mitali, nimet, id) {
+  const lid = '_jsvNear_' + id;
+  return '<div class="jsv-an-rivi"><span class="jsv-near-toggle" onclick="var e=document.getElementById(\'' + lid
+    + '\');e.style.display=(e.style.display===\'none\'?\'block\':\'none\')">' + nimet.length + ' pelaajaa ≤10 s ' + mitali + ' ▾</span>'
+    + '<div id="' + lid + '" style="display:none;padding-left:14px;color:var(--ink3);font-size:11px;line-height:1.6">'
+    + nimet.map(_jsvEsc).join('<br>') + '</div></div>';
+}
+// B2: kopioi ryhmän nimet leikepöydälle (rivinvaihdoin).
+function _jsvKopioiRyhma(id) {
+  const e = document.getElementById(id); if (!e) return;
+  const t = (e.textContent || '').trim();
+  if (navigator.clipboard && t) navigator.clipboard.writeText(t).then(function(){
+    if (typeof toast === 'function') toast('Kopioitu (' + t.split('\n').length + ' nimeä)', 'ok');
+  });
+}
+
+// ── YHTEENVETO-välilehti (A1–A5) — laskenta vain pikakentistä (§26), string concat (§7.1) ──
+function _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n) {
+  const tisp = _jsvJoukkueIkaSp(joukkueNimi);
+  const teamIka = tisp.ika, sp = tisp.sp;
+  const onTkiIka = (teamIka != null && teamIka >= 8 && teamIka <= 13);
+  let h = '';
+
+  // A1 — TKI-jakauma histogrammi + mitalilaskuri
+  const buckets = [0,0,0,0,0]; let kulta=0,hopea=0,pronssi=0,eiM=0,testattu=0;
+  pelaajat.forEach(function(p){
+    if (p.tki_viimeisin != null) {
+      testattu++; const t = p.tki_viimeisin;
+      buckets[t>=80?4:t>=60?3:t>=40?2:t>=20?1:0]++;
+      if (t>=80) kulta++; else if (t>=60) hopea++; else if (t>=40) pronssi++; else eiM++;
+    }
+  });
+  h += '<div class="jsv-an-otsikko">TKI-jakauma</div>';
+  if (testattu > 0) {
+    const LBL = ['0–20','20–40','40–60','60–80','80+'];
+    const COL = ['var(--red)','var(--amber)','var(--amber)','#5B8FE0','var(--teal)'];
+    const maxB = Math.max.apply(null, buckets) || 1;
+    buckets.forEach(function(b,i){
+      h += '<div class="jsv-hist-rivi"><span class="jsv-hist-lbl">' + LBL[i] + '</span>'
+        + '<span class="jsv-hist-bar"><span class="jsv-hist-fill" style="width:' + Math.round((b/maxB)*100) + '%;background:' + COL[i] + '"></span></span>'
+        + '<span class="jsv-hist-n">' + b + ' · ' + Math.round(b/testattu*100) + '%</span></div>';
+    });
+    h += '<div class="jsv-medal">🥇 ' + kulta + ' · 🥈 ' + hopea + ' · 🥉 ' + pronssi + ' · — ' + eiM + '</div>';
+  } else {
+    h += '<div class="jsv-an-tyhja">Ei TKI-dataa tällä joukkueella.</div>';
+  }
+
+  // A2 — per-laji joukkueprofiili
+  const LAJIT = [
+    { kentta:'ponnauttelu_s',       laji:'ponnauttelu',       nimi:'Ponnauttelu',         kaant:false },
+    { kentta:'syotto_s',            laji:'syotto',            nimi:'Syöttö',              kaant:false },
+    { kentta:'pujottelu_s',         laji:'pujottelu',         nimi:'Pujottelu',           kaant:false },
+    { kentta:'kuljetus_laukaus_s',  laji:'kuljetus_laukaus',  nimi:'Kulj-laukaus',        kaant:false },
+    { kentta:'pituuspotku_bonus_s', laji:'pituuspotku_bonus', nimi:'Pituuspotku (bonus)', kaant:true  },
+  ];
+  const profiilit = []; let suurinGap = null, suurinGapLaji = null;
+  LAJIT.forEach(function(L){
+    if (L.kaant && !(teamIka != null && teamIka >= 12)) return;
+    let sum=0, cnt=0;
+    pelaajat.forEach(function(p){
+      const v = p.tk_lajit_viimeisin && p.tk_lajit_viimeisin[L.kentta];
+      if (v != null && !isNaN(v)) { sum += Number(v); cnt++; }
+    });
+    if (cnt === 0) return;
+    const ka = Math.round(sum/cnt*10)/10;
+    const viite = (teamIka != null) ? tkLajiViite(L.laji, teamIka, sp) : null;
+    let gap = null, gapPct = null;
+    if (viite) {
+      gap = L.kaant ? Math.round((viite.hyva - ka)*10)/10 : Math.round((ka - viite.hyva)*10)/10;
+      gapPct = viite.hyva ? Math.abs(gap)/viite.hyva : 0;
+    }
+    profiilit.push({ nimi:L.nimi, laji:L.laji, ka:ka, viite:viite, gap:gap, gapPct:gapPct, kaant:L.kaant });
+    if (viite && gap != null && gap > 0 && (suurinGap == null || gap > suurinGap)) { suurinGap = gap; suurinGapLaji = L; }
+  });
+  if (profiilit.length) {
+    h += '<div class="jsv-an-otsikko">Joukkueprofiili lajeittain</div>';
+    profiilit.forEach(function(pr){
+      let vari, gapTxt, bar;
+      if (!pr.viite) {
+        vari = 'var(--ink3)'; gapTxt = '<span class="jsv-an-ctx">—</span>'; bar = '<span class="jsv-an-bar"></span>';
+      } else {
+        vari = (pr.gap <= 0) ? 'var(--teal)' : (pr.gapPct <= 0.20 ? 'var(--amber)' : 'var(--red)');
+        gapTxt = (pr.gap <= 0) ? '★' : '+' + pr.gap + 's';
+        const w = (pr.gap <= 0) ? 100 : Math.max(6, Math.min(100, Math.round(100 - pr.gapPct*100)));
+        bar = '<span class="jsv-an-bar"><span class="jsv-an-fill" style="width:' + w + '%;background:' + vari + '"></span></span>';
+      }
+      const viiteTxt = pr.viite ? ((pr.kaant ? 'hyvä ≥' : 'hyvä ≤') + pr.viite.hyva + 's') : 'viite ei saatavilla';
+      h += '<div class="jsv-an-lajirivi"><span class="jsv-an-laji">' + pr.nimi + '</span>'
+        + '<span class="jsv-an-ka">ka ' + pr.ka + 's</span>'
+        + '<span class="jsv-an-viite">' + viiteTxt + '</span>' + bar
+        + '<span class="jsv-an-gap" style="color:' + vari + '">' + gapTxt + '</span></div>';
+    });
+    if (profiilit.some(function(pr){ return !pr.viite; }) && teamIka != null) {
+      h += '<div class="jsv-an-huom">Loppukilpailuviite ei saatavilla ikäluokalle ' + teamIka + '.</div>';
+    }
+  }
+
+  // A3 — lähellä merkkiä (≤10 s), vain ika 8–13
+  if (onTkiIka) {
+    const near = { pronssi:[], hopea:[], kulta:[] };
+    pelaajat.forEach(function(p){
+      const kok = p.tk_kokonaistulos_viimeisin; if (kok == null) return;
+      const b = tkSekuntibudjetti(kok, _jsvPelaajaIka(p, teamIka), sp);
+      if (!b || b.gap_s > 10) return;
+      near[b.tavoite].push((p.sukunimi||'') + ', ' + (p.etunimi||''));
+    });
+    const osat = [];
+    if (near.pronssi.length) osat.push(_jsvNearBlock('pronssista', near.pronssi, 'p'));
+    if (near.hopea.length)   osat.push(_jsvNearBlock('hopeasta', near.hopea, 'h'));
+    if (near.kulta.length)   osat.push(_jsvNearBlock('kullasta', near.kulta, 'k'));
+    if (osat.length) h += '<div class="jsv-an-otsikko">Lähellä merkkiä</div>' + osat.join('');
+  }
+
+  // A4 — kehitysvauhti (§3.2: ei punaista pelkästä TKI-laskusta; näytä myös abs-parannus)
+  let parani=0, ennallaan=0, laski=0, absParani=0, absTotal=0, vauhtiN=0;
+  pelaajat.forEach(function(p){
+    if (p.tki_edellinen == null || p.tki_viimeisin == null) return;
+    vauhtiN++; const d = p.tki_viimeisin - p.tki_edellinen;
+    if (d > 0) parani++; else if (d < 0) laski++; else ennallaan++;
+    if (p.tk_kokonaistulos_edellinen != null && p.tk_kokonaistulos_viimeisin != null) {
+      absTotal++; if (p.tk_kokonaistulos_edellinen - p.tk_kokonaistulos_viimeisin > 0) absParani++;
+    }
+  });
+  if (vauhtiN > 0) {
+    const vauhti = (teamIka != null) ? tkVaadittuVuosivauhti(teamIka, sp, 'hopea') : null;
+    h += '<div class="jsv-an-otsikko">Kehitysvauhti</div>';
+    h += '<div class="jsv-an-rivi">' + parani + '/' + vauhtiN + ' paransi TKI:tä'
+      + (vauhti != null ? ' · ikäluokkavaatimus kovenee ' + vauhti + ' s/v' : '') + '</div>';
+    if (absTotal > 0) h += '<div class="jsv-an-rivi" style="color:var(--ink3)">' + absParani + '/' + absTotal + ' paransi kokonaisaikaa</div>';
+  }
+
+  // A5 — treeniteema-suositus + CTA-esitäyttö (window._jsvTreema)
+  if (suurinGapLaji) {
+    const kohdeN = pelaajat.filter(function(p){ return p.tki_kehityskohde === suurinGapLaji.laji; }).length;
+    h += '<div class="jsv-an-suositus">💡 Suositus: ' + suurinGapLaji.nimi.toLowerCase() + '-teema 2 vko'
+      + (kohdeN ? ' (' + kohdeN + '/' + n + ' kehityskohde)' : '') + '</div>';
+    window._jsvTreema = suurinGapLaji.laji;
+  } else { window._jsvTreema = null; }
+
+  return h;
+}
+
+// ── TUKI-välilehti (B1–B3): gap-järjestys + harjoitusryhmäjako + aito taantuma -merkki ──
+function _jsvTukiHTML(pelaajat, joukkueNimi, n) {
+  if (n === 0) return '<div style="color:var(--ink3);font-style:italic;padding:12px">Ei pelaajia</div>';
+  const tisp = _jsvJoukkueIkaSp(joukkueNimi);
+  const teamIka = tisp.ika, sp = tisp.sp;
+  const ryhmat = {};
+  pelaajat.forEach(function(p){ const k = p.tki_kehityskohde || '__ei'; (ryhmat[k] = ryhmat[k] || []).push(p); });
+  const avaimet = Object.keys(ryhmat).filter(function(k){ return k !== '__ei'; }).sort(function(a,b){ return ryhmat[b].length - ryhmat[a].length; });
+  if (ryhmat['__ei']) avaimet.push('__ei');
+  let h = '';
+  avaimet.forEach(function(k){
+    const lista = ryhmat[k].slice();
+    const otsikko = (k === '__ei') ? 'Ei tietoa' : _vpTkLaji(k);
+    const kentta = (k === '__ei') ? null : (k + '_s');
+    const viite = (k !== '__ei' && teamIka != null) ? tkLajiViite(k, teamIka, sp) : null;
+    lista.forEach(function(p){
+      const v = (kentta && p.tk_lajit_viimeisin) ? p.tk_lajit_viimeisin[kentta] : null;
+      p.__arvo = (v != null && !isNaN(v)) ? Number(v) : null;
+      p.__gap = (viite && p.__arvo != null) ? Math.round((p.__arvo - viite.hyva)*10)/10 : null;
+    });
+    // B1: gap laskevasti (viite puuttuu → lajin arvon mukaan)
+    lista.sort(function(a,b){
+      if (a.__gap != null && b.__gap != null) return b.__gap - a.__gap;
+      if (a.__arvo != null && b.__arvo != null) return b.__arvo - a.__arvo;
+      return 0;
+    });
+    const cid = '_jsvGrp_' + k;
+    h += '<div style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      + '<span style="font-size:13px;font-weight:600;color:var(--ink)">' + _jsvEsc(otsikko) + '-ryhmä <span style="color:var(--ink3);font-weight:400">(' + lista.length + ')</span></span>'
+      + (k !== '__ei' ? '<button onclick="_jsvKopioiRyhma(\'' + cid + '\')" title="Kopioi nimet leikepöydälle" style="background:none;border:.5px solid var(--border);color:var(--ink2);border-radius:5px;padding:1px 7px;font-size:11px;cursor:pointer">📋</button>' : '')
+      + '</div>';
+    h += '<div id="' + cid + '" style="display:none">' + lista.map(function(p){ return _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')); }).join('\n') + '</div>';
+    lista.forEach(function(p){
+      let taantuma = '';
+      if (p.tki_edellinen != null && p.tki_viimeisin != null && p.tk_kokonaistulos_edellinen != null && p.tk_kokonaistulos_viimeisin != null) {
+        const tkiD = p.tki_viimeisin - p.tki_edellinen;
+        const absD = p.tk_kokonaistulos_edellinen - p.tk_kokonaistulos_viimeisin;
+        if (tkiD < 0 && absD < 0) taantuma = ' <span title="Kokonaisaika heikkeni edellisestä" style="color:var(--red)">●</span>';
+      }
+      const arvoTxt = (p.__arvo != null) ? (' · ' + _vpTkLaji(k) + ' ' + p.__arvo + 's') : '';
+      const gapTxt = (p.__gap != null && p.__gap > 0) ? (' <span style="color:var(--amber)">+' + p.__gap + 's</span>') : '';
+      h += '<div style="font-size:12px;color:var(--ink2);padding:3px 0 3px 12px">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + arvoTxt + gapTxt + taantuma + '</div>';
+    });
+    h += '</div>';
+  });
+  return h;
+}
 
 // Joukkuemoduulin kaksiosaisen modaalin tyylit (skoopattu #_jsvModal:iin). Design-tokenit: var(--*).
 const _JSV_TYYLIT = '<style>'
@@ -3284,6 +3535,33 @@ const _JSV_TYYLIT = '<style>'
   + '#_jsvModal .jsv-footer{display:flex;gap:10px;padding:12px 16px;border-top:1px solid rgba(242,239,230,.12);flex-wrap:wrap}'
   + '#_jsvModal .jsv-cta{padding:10px 16px;background:transparent;color:var(--ink);border:.5px solid var(--border);font-size:12px;cursor:pointer;font-family:var(--font-sans)}'
   + '#_jsvModal .jsv-cta-primary{background:var(--teal);color:#fff;border:none;font-weight:600}'
+  // Yhteenveto-/Tuki-analytiikka (VAIHE 1)
+  + '#_jsvModal .jsv-an-otsikko{font-size:10px;letter-spacing:.1em;color:var(--ink3);text-transform:uppercase;margin:16px 0 7px}'
+  + '#_jsvModal .jsv-an-otsikko:first-child{margin-top:2px}'
+  + '#_jsvModal .jsv-an-tyhja{font-size:12px;color:var(--ink3);font-style:italic}'
+  + '#_jsvModal .jsv-an-rivi{font-size:12px;color:var(--ink2);line-height:1.7}'
+  + '#_jsvModal .jsv-hist-rivi{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-family:var(--font-m);font-size:11px}'
+  + '#_jsvModal .jsv-hist-lbl{width:42px;color:var(--ink3);flex-shrink:0}'
+  + '#_jsvModal .jsv-hist-bar{flex:1;height:10px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}'
+  + '#_jsvModal .jsv-hist-fill{display:block;height:100%}'
+  + '#_jsvModal .jsv-hist-n{width:56px;text-align:right;color:var(--ink2);flex-shrink:0}'
+  + '#_jsvModal .jsv-medal{font-family:var(--font-m);font-size:12px;color:var(--ink2);margin-top:6px;letter-spacing:.02em}'
+  + '#_jsvModal .jsv-an-lajirivi{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px}'
+  + '#_jsvModal .jsv-an-laji{width:96px;color:var(--ink);flex-shrink:0}'
+  + '#_jsvModal .jsv-an-ka{width:60px;font-family:var(--font-m);color:var(--ink2);flex-shrink:0}'
+  + '#_jsvModal .jsv-an-viite{width:88px;color:var(--ink3);flex-shrink:0}'
+  + '#_jsvModal .jsv-an-bar{flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;min-width:24px}'
+  + '#_jsvModal .jsv-an-fill{display:block;height:100%}'
+  + '#_jsvModal .jsv-an-gap{width:48px;text-align:right;font-family:var(--font-m);font-weight:600;flex-shrink:0}'
+  + '#_jsvModal .jsv-an-ctx{color:var(--ink3)}'
+  + '#_jsvModal .jsv-an-huom{font-size:11px;color:var(--ink3);font-style:italic;margin-top:4px}'
+  + '#_jsvModal .jsv-near-toggle{color:var(--teal);cursor:pointer;font-size:12px}'
+  + '#_jsvModal .jsv-an-suositus{font-size:12px;color:var(--teal);background:rgba(40,176,144,.08);border-radius:6px;padding:8px 10px;margin-top:14px;line-height:1.5}'
+  + '#_jsvModal .jsv-dimkortti{display:flex;flex-direction:column;gap:6px;padding:6px 0}'
+  + '#_jsvModal .jsv-dk-rivi{display:flex;justify-content:space-between;align-items:center;font-size:13px}'
+  + '#_jsvModal .jsv-dk-label{color:var(--ink2)}'
+  + '#_jsvModal .jsv-dk-arvo{font-family:var(--font-m);font-weight:700;font-size:18px}'
+  + '#_jsvModal .jsv-dk-tulossa{font-size:11px;color:var(--ink3);margin-top:2px}'
   + '</style>';  // mobiilisäännöt (≤768px) head-lohkossa — §17: yksi @media/tiedosto
 
 function avaaJoukkueSyvanakyma(joukkueNimi) {
@@ -3353,40 +3631,11 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
     _teamD2Lahde
   );
 
-  // ── Välilehti 2: TUKI (ryhmittely kehityskohteen mukaan) ──
-  let t2;
-  if (n === 0) { t2 = '<div style="color:var(--ink3);font-style:italic;padding:12px">Ei pelaajia</div>'; }
-  else {
-    const ryhmat = {};
-    pelaajat.forEach(p => { const k = p.tki_kehityskohde || '__ei'; (ryhmat[k] = ryhmat[k] || []).push(p); });
-    const avaimet = Object.keys(ryhmat).filter(k => k !== '__ei').sort((a,b) => ryhmat[b].length - ryhmat[a].length);
-    if (ryhmat['__ei']) avaimet.push('__ei');
-    t2 = '';
-    avaimet.forEach(k => {
-      const lista = ryhmat[k];
-      const otsikko = (k === '__ei') ? 'Ei tietoa' : _vpTkLaji(k);
-      t2 += '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">' + _jsvEsc(otsikko) + ' <span style="color:var(--ink3);font-weight:400">(' + lista.length + ' pelaajaa)</span></div>';
-      lista.forEach(p => { t2 += '<div style="font-size:12px;color:var(--ink2);padding:3px 0 3px 12px">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + '</div>'; });
-      t2 += '</div>';
-    });
-  }
+  // ── Välilehti 2: TUKI (gap-järjestys + harjoitusryhmäjako + aito taantuma -merkki, VAIHE 1 B) ──
+  let t2 = _jsvTukiHTML(pelaajat, joukkueNimi, n);
 
-  // ── Välilehti 3: YHTEENVETO ──
-  let kulta=0, hopea=0, pronssi=0, eiM=0, testattu=0; const vC = {}, kC = {};
-  pelaajat.forEach(p => {
-    if (p.tki_viimeisin != null) { testattu++; const t = p.tki_viimeisin; if (t>=80) kulta++; else if (t>=60) hopea++; else if (t>=40) pronssi++; else eiM++; }
-    if (p.tki_vahvuus) vC[p.tki_vahvuus] = (vC[p.tki_vahvuus]||0) + 1;
-    if (p.tki_kehityskohde) kC[p.tki_kehityskohde] = (kC[p.tki_kehityskohde]||0) + 1;
-  });
-  const _top = (o) => { const ks = Object.keys(o); if (!ks.length) return null; ks.sort((a,b) => o[b]-o[a]); return { laji: ks[0], n: o[ks[0]] }; };
-  const yV = _top(vC), yK = _top(kC);
-  let t3 = '<div style="font-size:13px;color:var(--ink2);line-height:1.9">';
-  t3 += '<div style="font-size:10px;letter-spacing:.1em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">TKI-jakauma</div>';
-  t3 += '<div style="display:flex;gap:16px;margin-bottom:16px;font-family:var(--font-m)"><span style="color:var(--teal)">🥇 ' + kulta + '</span><span style="color:#5B8FE0">🥈 ' + hopea + '</span><span style="color:var(--amber)">🥉 ' + pronssi + '</span><span style="color:var(--ink3)">— ' + eiM + '</span></div>';
-  t3 += '<div><strong style="color:var(--ink)">Yleisin vahvuus:</strong> ' + (yV ? (_jsvEsc(_vpTkLaji(yV.laji)) + ' — ' + yV.n + '/' + n + ' pelaajalla') : '—') + '</div>';
-  t3 += '<div><strong style="color:var(--ink)">Yleisin kehityskohde:</strong> ' + (yK ? (_jsvEsc(_vpTkLaji(yK.laji)) + ' — ' + yK.n + '/' + n + ' pelaajalla') : '—') + '</div>';
-  t3 += '<div><strong style="color:var(--ink)">Testikattavuus:</strong> ' + testattu + '/' + n + ' testattu</div>';
-  t3 += '</div>';
+  // ── Välilehti 3: YHTEENVETO (A1 jakauma · A2 lajiprofiili · A3 lähellä merkkiä · A4 vauhti · A5 teema) ──
+  let t3 = _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n);
 
   // ── KPI- ja radar-data (vasen kolumni) ──
   const teamRadarDims = [
@@ -3423,8 +3672,22 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   h += '<div class="jsv-body">';
   // VASEN
   h += '<div class="jsv-vasen">';
-  h += '<div class="jsv-radar">' + window._tmRadar5D(teamRadarDims) + '</div>';
-  h += _legenda;
+  // C: radar vie puolet modaalista tyhjänä jos vain D2 (esim. Sibbo). <3 dimensiota → kompakti dimensiokortti.
+  var _dimSaat = teamRadarDims.filter(function(d){ return d.arvo != null; });
+  if (_dimSaat.length >= 3) {
+    h += '<div class="jsv-radar">' + window._tmRadar5D(teamRadarDims) + '</div>';
+    h += _legenda;
+  } else {
+    var _dk = '<div class="jsv-dimkortti">';
+    _dimSaat.forEach(function(d){
+      _dk += '<div class="jsv-dk-rivi"><span class="jsv-dk-label">' + d.key + ' ' + d.label + '</span>'
+        + '<span class="jsv-dk-arvo" style="color:' + hhTasoVari(d.arvo) + '">' + d.arvo + '</span></div>';
+    });
+    var _tulossa = teamRadarDims.filter(function(d){ return d.arvo == null; }).map(function(d){ return d.key; });
+    if (_tulossa.length) _dk += '<div class="jsv-dk-tulossa">' + _tulossa.join('/') + ' tulossa</div>';
+    _dk += '</div>';
+    h += _dk;
+  }
   h += '<div class="jsv-kpi-block">' + _kpiRivi('H-H ka', _hhKa) + _kpiRivi('Tekninen', _teknKa)
     + '<div class="jsv-kpi"><span class="jsv-kpi-nimi">Hidden Gem</span><span class="jsv-kpi-arvo">' + _hgN
     + '</span><span class="jsv-kpi-palkki jsv-kpi-kpl">kpl</span></div></div>';
@@ -3475,7 +3738,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   h += '</div>';         // /body
   // FOOTER (kiinteä)
   h += '<div class="jsv-footer">';
-  h += '<button class="jsv-cta jsv-cta-primary" onclick="document.getElementById(\'_jsvModal\').remove();_jsvLuoTapahtuma(\'' + jescNimi + '\')">📋 Luo harjoitustapahtuma →</button>';
+  h += '<button class="jsv-cta jsv-cta-primary" onclick="document.getElementById(\'_jsvModal\').remove();_jsvLuoTapahtuma(\'' + jescNimi + '\', window._jsvTreema)">📋 Luo harjoitustapahtuma →</button>';
   h += '<button class="jsv-cta" onclick="document.getElementById(\'_jsvModal\').remove();setWs(\'pelaajat\')">📊 Avaa pelaajat →</button>';
   h += '</div>';
   h += '</div></div>';
