@@ -5658,18 +5658,34 @@ function tkiParasPelaaja(pelaajat) {
 }
 
 // v25: joukkuepulssi TKI-BENCHMARK-TAULUKKONA. Ryhmittely joukkue-nimellä säilyttää P/T-erottelun.
-// Joukkueen H-H-suunta: vertaa hh_taso vs hh_taso_edellinen (pikakentät). Ei 2. mittausta → 'ensimmainen_mittaus'.
+// Joukkueen suunta: ensisijainen H-H (hh_taso vs hh_taso_edellinen), fallback TKI (tki_viimeisin vs
+// tki_edellinen) — esim. Sibbo: vain tekniikkakilpailudataa, ei H-H:ta. lahde:'hh'|'tki' kertoo kumpi.
+// Vasta jos MOLEMMAT puuttuvat → 'ensimmainen_mittaus'.
 function laskeJoukkueSuunta(joukkuePelaajat) {
-  const ps = joukkuePelaajat.filter(function(p){ return p.hh_taso != null && p.hh_taso_edellinen != null; });
-  if (ps.length === 0) return { symboli: null, delta: null, tila: 'ensimmainen_mittaus', vari: 'var(--ink3)', n: 0, parantunut: 0 };
-  const deltat = ps.map(function(p){ return p.hh_taso - p.hh_taso_edellinen; });
-  const dKa = deltat.reduce(function(a,b){ return a+b; }, 0) / deltat.length;
-  // VAIHE 2: montako pelaajaa aidosti parantunut (delta > 0.05) → "(12/20 parantunut)".
-  const parantunut = deltat.filter(function(d){ return d > 0.05; }).length;
-  const meta = { n: ps.length, parantunut: parantunut };
-  if (dKa > 0.15)  return Object.assign({ symboli: '↑', delta: '+' + dKa.toFixed(1), tila: 'nousu',    vari: 'var(--teal)' }, meta);
-  if (dKa < -0.15) return Object.assign({ symboli: '↓', delta: dKa.toFixed(1),       tila: 'lasku',    vari: 'var(--red)'  }, meta);
-  return                  Object.assign({ symboli: '→', delta: '0.0',                tila: 'tasainen', vari: 'var(--ink3)' }, meta);
+  // Ensisijainen: H-H
+  const hhPs = joukkuePelaajat.filter(function(p){ return p.hh_taso != null && p.hh_taso_edellinen != null; });
+  if (hhPs.length > 0) {
+    const deltat = hhPs.map(function(p){ return p.hh_taso - p.hh_taso_edellinen; });
+    const dKa = deltat.reduce(function(a,b){ return a+b; }, 0) / deltat.length;
+    // VAIHE 2: montako pelaajaa aidosti parantunut (delta > 0.05) → "(12/20 parantunut)".
+    const parantunut = deltat.filter(function(d){ return d > 0.05; }).length;
+    const meta = { n: hhPs.length, parantunut: parantunut, lahde: 'hh' };
+    if (dKa > 0.15)  return Object.assign({ symboli: '↑', delta: '+' + dKa.toFixed(1), tila: 'nousu',    vari: 'var(--teal)' }, meta);
+    if (dKa < -0.15) return Object.assign({ symboli: '↓', delta: dKa.toFixed(1),       tila: 'lasku',    vari: 'var(--red)'  }, meta);
+    return                  Object.assign({ symboli: '→', delta: '0.0',                tila: 'tasainen', vari: 'var(--ink3)' }, meta);
+  }
+  // Fallback: TKI (0–100, positiivinen delta = parantunut). Kynnykset skaalattu: ±2 p ≈ H-H ±0.15.
+  const tkiPs = joukkuePelaajat.filter(function(p){ return p.tki_viimeisin != null && p.tki_edellinen != null; });
+  if (tkiPs.length > 0) {
+    const deltat = tkiPs.map(function(p){ return p.tki_viimeisin - p.tki_edellinen; });
+    const dKa = deltat.reduce(function(a,b){ return a+b; }, 0) / deltat.length;
+    const parantunut = deltat.filter(function(d){ return d > 0.5; }).length;
+    const meta = { n: tkiPs.length, parantunut: parantunut, lahde: 'tki' };
+    if (dKa > 2)  return Object.assign({ symboli: '↑', delta: '+' + Math.round(dKa), tila: 'nousu',    vari: 'var(--teal)' }, meta);
+    if (dKa < -2) return Object.assign({ symboli: '↓', delta: '' + Math.round(dKa),  tila: 'lasku',    vari: 'var(--red)'  }, meta);
+    return               Object.assign({ symboli: '→', delta: '0',                   tila: 'tasainen', vari: 'var(--ink3)' }, meta);
+  }
+  return { symboli: null, delta: null, tila: 'ensimmainen_mittaus', vari: 'var(--ink3)', n: 0, parantunut: 0, lahde: null };
 }
 
 // Joukkueen D2-taso (1–5) + lähde. Sama prioriteetti kuin laskeD2Taso, mutta joukkuetasolla ≥3-kynnyksellä
@@ -5734,8 +5750,12 @@ function renderTeamPulse() {
       h += '<div class="jk-badge"><i class="ti ti-refresh" aria-hidden="true"></i> 2. mittaus puuttuu</div>';
     } else if (suunta.symboli) {
       const _dlt = (suunta.tila === 'tasainen') ? '' : (suunta.delta + ' ');
-      h += '<div class="jk-suunta" style="color:' + suunta.vari + '" title="Joukkueen keskimääräinen H-H-muutos edellisestä testistä">'
-        + suunta.symboli + ' ' + _dlt + 'H-H <span style="color:var(--ink3);font-weight:400;font-size:.88em">('
+      const _lhd = (suunta.lahde === 'tki') ? 'TKI' : 'H-H';
+      const _ttl = (suunta.lahde === 'tki')
+        ? 'Joukkueen keskimääräinen TKI-muutos edellisestä tekniikkakilpailusta'
+        : 'Joukkueen keskimääräinen H-H-muutos edellisestä testistä';
+      h += '<div class="jk-suunta" style="color:' + suunta.vari + '" title="' + _ttl + '">'
+        + suunta.symboli + ' ' + _dlt + _lhd + ' <span style="color:var(--ink3);font-weight:400;font-size:.88em">('
         + suunta.parantunut + '/' + suunta.n + ' parantunut)</span></div>';
     }
     h += '</div>';
@@ -6091,13 +6111,24 @@ function _tkiMerkkiVP(tki, merkkiKentta) {
   if (m === 'pronssi') return { emoji: '🥉', nimi: 'Pronssi' };
   return null;
 }
+// VAIHE 2 -deltabadge: tki_viimeisin vs tki_edellinen (pikakentät, syttyy 2. testillä). Tooltipissa
+// edellinen arvo + pvm. ↑ teal · ↓ red · → ink3.
+function _tkiDeltaBadgeVP(p) {
+  if (p.tki_viimeisin == null || p.tki_edellinen == null) return '';
+  const d = p.tki_viimeisin - p.tki_edellinen;
+  const nuoli = d > 0 ? '↑' : d < 0 ? '↓' : '→';
+  const vari = d > 0 ? 'var(--teal)' : d < 0 ? 'var(--red)' : 'var(--ink3)';
+  const pvm = p.tki_edellinen_pvm ? (' (' + p.tki_edellinen_pvm + ')') : '';
+  return ' <span style="font-size:11px;color:' + vari + '" title="Edellinen TKI ' + p.tki_edellinen + pvm + '">'
+    + nuoli + (d > 0 ? '+' : '') + d + '</span>';
+}
 // TKI-solu pelaajalistaan — luetaan pikakentästä tki_viimeisin (ei alikokoelmakyselyä).
 function _tkiSoluVP(p) {
   const tki = (p.tki_viimeisin != null) ? p.tki_viimeisin : null;
   if (tki == null) return '<span style="color:var(--ink3)">—</span>';
   const m = _tkiMerkkiVP(tki, p.tki_merkki);
   const merkkiHtml = m ? ' <span style="font-size:11px" title="' + m.nimi + '">' + m.emoji + '</span>' : '';
-  return '<strong>' + tki + '</strong>' + merkkiHtml;
+  return '<strong>' + tki + '</strong>' + merkkiHtml + _tkiDeltaBadgeVP(p);
 }
 // Tuen tarve = MITATTU heikko tulos, ei puuttuva data. Puuttuva FLEI ei tee pelaajasta erityistukitapausta
 // (esim. Sibbo/SJK ilman FLEI:tä ei saa enää koko listaa punaisena). FLEI<50 TAI H-H<2.5 TAI eksplisiittinen lippu.
@@ -6114,12 +6145,31 @@ function _tekninenSoluVP(p) {
   let extra = '';
   if (lahde === 'tki') { const m = _tkiMerkkiVP(p.tki_viimeisin, p.tki_merkki); if (m) extra = ' <span style="font-size:11px" title="' + m.nimi + ' · TKI ' + p.tki_viimeisin + '">' + m.emoji + '</span>'; }
   else if (lahde === 'sm') { extra = '<sup style="color:var(--ink3);font-size:9px" title="SM-pohjainen (TSI) — TKI tulossa">1</sup>'; }
-  return '<strong style="color:' + hhTasoVari(taso) + '">' + taso + '</strong>' + extra;
+  // D2-taso (1–5) ei kanna suoraa deltaa → TKI-delta nuolena + tooltip (vain TKI-lähteellä).
+  let deltaHtml = '';
+  if (lahde === 'tki' && p.tki_edellinen != null && p.tki_viimeisin != null) {
+    const d = p.tki_viimeisin - p.tki_edellinen;
+    const nuoli = d > 0 ? '↑' : d < 0 ? '↓' : '→';
+    const vari = d > 0 ? 'var(--teal)' : d < 0 ? 'var(--red)' : 'var(--ink3)';
+    deltaHtml = ' <span style="font-size:11px;color:' + vari + '" title="TKI-muutos ' + (d > 0 ? '+' : '') + d
+      + ' (edellinen ' + p.tki_edellinen + ')">' + nuoli + '</span>';
+  }
+  return '<strong style="color:' + hhTasoVari(taso) + '">' + taso + '</strong>' + extra + deltaHtml;
 }
 // H-H-solu pelaajalistaan — pikakentästä hh_taso (1–5), näytetään vain jos hh_viimeisin olemassa. Ei alikokoelmakyselyä.
+// VAIHE 2 -delta: hh_taso vs hh_taso_edellinen, 1 desimaali, kynnys ±0.05 (sama kuin laskeJoukkueSuunta).
 function _hhSoluVP(p) {
   if (!p.hh_viimeisin || p.hh_taso == null) return '<span style="color:var(--ink3)">—</span>';
-  return '<strong style="color:' + hhTasoVari(p.hh_taso) + '">' + p.hh_taso + '</strong>';
+  let deltaHtml = '';
+  if (p.hh_taso_edellinen != null) {
+    const d = p.hh_taso - p.hh_taso_edellinen;
+    const nuoli = d > 0.05 ? '↑' : d < -0.05 ? '↓' : '→';
+    const vari = d > 0.05 ? 'var(--teal)' : d < -0.05 ? 'var(--red)' : 'var(--ink3)';
+    const pvm = p.hh_taso_edellinen_pvm ? (' (' + p.hh_taso_edellinen_pvm + ')') : '';
+    deltaHtml = ' <span style="font-size:11px;color:' + vari + '" title="Edellinen H-H ' + p.hh_taso_edellinen + pvm + '">'
+      + nuoli + (d > 0 ? '+' : '') + d.toFixed(1) + '</span>';
+  }
+  return '<strong style="color:' + hhTasoVari(p.hh_taso) + '">' + p.hh_taso + '</strong>' + deltaHtml;
 }
 
 function renderPelaajatFiltered() {
