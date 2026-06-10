@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781128840456';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781129614301';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- PWA (vaihe 1) — asennettavuus -->
 <link rel="manifest" href="/talentmaster/manifest_pelaaja.json">
 <meta name="theme-color" content="#1A7A5E">
@@ -734,14 +734,15 @@ function rA1(){
   <!-- D-KORTTI — Tänään (iso pääkortti). FIX 2: ensisijaisesti kehityskohde-T
        (valitsePaivanHarjoite, toimii ilman FLEI:tä); fallback vanhaan _luoOhjelma:an. -->
   ${(()=>{
-    const _dKortti = function(label, nimi, why, ohje){
+    const _dKortti = function(label, nimi, why, ohje, saate){
       return `
     <div style="margin:14px 20px;padding:18px 18px;background:linear-gradient(135deg,rgba(40,176,144,.14),rgba(40,176,144,.04));border:1px solid rgba(40,176,144,.45);border-radius:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--teal)">${T('today')}</div>
         <div style="font-size:9px;color:var(--ink3);letter-spacing:.14em">${label}</div>
       </div>
-      <div style="font-family:var(--font-d);font-size:18px;font-weight:500;color:var(--text);line-height:1.3;margin-bottom:${why?'8px':'14px'}">${nimi||'—'}</div>
+      <div style="font-family:var(--font-d);font-size:18px;font-weight:500;color:var(--text);line-height:1.3;margin-bottom:${(why||saate)?'8px':'14px'}">${nimi||'—'}</div>
+      ${saate ? '<div style="font-size:13px;color:var(--teal);font-weight:500;line-height:1.4;margin-bottom:' + (why||ohje ? '8' : '14') + 'px">🎯 ' + saate + '</div>' : ''}
       ${why ? '<div style="font-size:12px;color:var(--ink2);line-height:1.5;margin-bottom:' + (ohje ? '8' : '14') + 'px;font-style:italic">' + why + '</div>' : ''}
       ${ohje ? '<div style="font-size:12px;color:var(--ink2);line-height:1.5;margin-bottom:14px;padding:10px 12px;background:rgba(40,176,144,.06);border-radius:8px;border-left:2px solid rgba(40,176,144,.4)"><span style="font-size:9px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:4px">Näin teet</span>' + ohje + '</div>' : ''}
       <button id="dKirjausBtn" onclick="_kirjaaHarjoite('D')" class="btn-p" style="width:100%;margin-top:0">
@@ -757,9 +758,9 @@ function rA1(){
           const kk = laskeTekninenKehityskohde(_pelaaja);
           const iv = _laskeIkavaihe(_pelaaja);
           const KOHDE_OTS = { pallonhallinta:'Pallonhallinta', koordinaatio:'Koordinaatio', nopeus:'Nopeus', syotto:'Syöttö', ponnauttelu:'Ponnauttelu' };
-          // D-kortti: tarina/cue (inspiroiva) + ohje (konkreettinen, _ohjeIkavaiheelle)
+          // D-kortti: tarina/cue (inspiroiva) + ohje (konkreettinen) + saate (kytkös kehityskohde-tavoitteeseen, osatehtävä C)
           const why = paivanT.tarina || paivanT.cue || generoiMiksiteksti(_pelaaja, kk, iv).miksi_lause2;
-          return _dKortti(KOHDE_OTS[kk.kohde] || kk.kohde, paivanT.nimi, why, paivanT.ohje || null);
+          return _dKortti(KOHDE_OTS[kk.kohde] || kk.kohde, paivanT.nimi, why, paivanT.ohje || null, _tekTavoiteSaate(_pelaaja));
         }
       } catch(e){ console.warn('[KOTI kehityskohde-T]', e.message); }
     }
@@ -1336,9 +1337,113 @@ function rMinaMAS() {
     + trend);
 }
 
+// §5.3 tekniikkatavoite LAPSEN KIELELLÄ — luetaan pikakentistä (§26), tkLajiViite-vertailu (window.TM_TESTIT).
+// §7.22 EHDOTON: ei XP/progressbar/loss aversion ("menetät/putoat/sulkeutuu"), ei vertailua muihin,
+// ei sijoituksia, ei "indeksi/gap/viitetaso". TKI-laskua EI näytetä — vain abs-PARANNUS kun positiivinen.
+// Yksi kehityskohde kerrallaan. String concatenation (§7.1). Fallback vanhaan dataan kun tk_lajit puuttuu.
+function _minaTekLajiNimi(id) {
+  const NIMI = { ponnauttelu: 'Ponnauttelu', syotto: 'Syöttö', pujottelu: 'Pujottelu', kuljetus_laukaus: 'Kuljetus-laukaus', pituuspotku_bonus: 'Pituuspotku' };
+  return NIMI[id] || id;
+}
+// Välitavoite: saavutettava askel, ei koko matka. gap ≤ 3 s → viite.hyva; muuten arvo − 3 s (0.5 s tarkkuus).
+function _minaValitavoite(arvo, viite, kaant) {
+  const gap = kaant ? (viite.hyva - arvo) : (arvo - viite.hyva);
+  let t = (gap <= 3) ? viite.hyva : (kaant ? (arvo + 3) : (arvo - 3));
+  return Math.round(t * 2) / 2;
+}
+function _minaTavoiteRivit(p, d) {
+  const lajit = p && p.tk_lajit_viimeisin;
+  // Fallback: ei pikakenttä-lajidataa → vanhat yksinkertaiset rivit (nykyinen käytös säilyy)
+  if (!lajit) {
+    let h0 = '';
+    const v0 = d && d.vahvuudet && d.vahvuudet[0];
+    const k0 = d && d.kehityskohteet && d.kehityskohteet[0];
+    if (v0) h0 += '<div style="font-size:13px;color:var(--text);margin-top:10px">⭐ <b>Vahvuutesi:</b> ' + v0.nimi + '<div style="font-size:12px;color:#8C8B86;margin-top:2px">' + v0.teksti + '</div></div>';
+    if (k0) h0 += '<div style="font-size:13px;color:var(--text);margin-top:8px">🎯 <b>Seuraava askel:</b> ' + k0.nimi + '<div style="font-size:12px;color:#8C8B86;margin-top:2px">' + k0.teksti + '</div></div>';
+    return h0;
+  }
+  const T = window.TM_TESTIT;
+  const sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
+  const ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
+  const viiteOf = function (laji) { return (T && T.tkLajiViite && ika != null) ? T.tkLajiViite(laji, ika, sp) : null; };
+  let h = '';
+
+  // ★ Vahvuus (pikakenttä) — AINA ensin. "kärkitasoa" vain jos taso erinomainen.
+  if (p.tki_vahvuus && _minaTekLajiNimi(p.tki_vahvuus)) {
+    const va = lajit[p.tki_vahvuus + '_s'];
+    const vv = viiteOf(p.tki_vahvuus);
+    const kaantV = (p.tki_vahvuus === 'pituuspotku_bonus');
+    const karki = (vv && va != null && (kaantV ? va >= vv.erinomainen : va <= vv.erinomainen));
+    h += '<div style="font-size:13px;color:var(--text);margin-top:10px">⭐ <b>Vahvuutesi:</b> ' + _minaTekLajiNimi(p.tki_vahvuus)
+      + '<div style="font-size:12px;color:#8C8B86;margin-top:2px">' + (karki ? 'Olet tässä kärkitasoa — hieno juttu!' : 'Tämä on vahvin lajisi — pidä siitä kiinni!') + '</div></div>';
+  }
+
+  // 🎯 Seuraava askel (yksi kehityskohde) — saavutettava sekuntitavoite
+  if (p.tki_kehityskohde && _minaTekLajiNimi(p.tki_kehityskohde)) {
+    const kk = p.tki_kehityskohde;
+    const arvo = lajit[kk + '_s'];
+    const kv = viiteOf(kk);
+    h += '<div style="font-size:13px;color:var(--text);margin-top:10px">🎯 <b>Seuraava askel:</b> ' + _minaTekLajiNimi(kk);
+    if (arvo != null && kv) {
+      const kaant = (kk === 'pituuspotku_bonus');
+      const tavoite = _minaValitavoite(arvo, kv, kaant);
+      const nyt = Math.round(arvo * 10) / 10;
+      h += '<div style="font-size:12px;color:#8C8B86;margin-top:2px">Nyt: ' + nyt + ' s → Tavoite: ' + tavoite + ' s</div>'
+        + '<div style="font-size:12px;color:#8C8B86">Pieni parannus joka treenissä riittää.</div>';
+    }
+    h += '</div>';
+  }
+
+  // 🏅 Mitali-juhla (pikakenttä) + matka seuraavaan VAIN positiivisena ja vain jos lähellä (≤ 15 s)
+  if (p.tki_merkki) {
+    const MN = { kulta: 'kultamerkki', hopea: 'hopeamerkki', pronssi: 'pronssimerkki' };
+    h += '<div style="font-size:13px;color:#28B090;margin-top:10px;font-weight:600">🏅 Sinulla on ' + (MN[p.tki_merkki] || 'mitali') + '!</div>';
+  }
+  if (T && T.tkSekuntibudjetti && p.tk_kokonaistulos_viimeisin != null && ika != null) {
+    const budj = T.tkSekuntibudjetti(p.tk_kokonaistulos_viimeisin, ika, sp);
+    const MM = { kulta: 'kultaan', hopea: 'hopeaan', pronssi: 'pronssiin' };
+    if (budj && budj.gap_s > 0 && budj.gap_s <= 15) {
+      h += '<div style="font-size:12px;color:var(--text);margin-top:6px">Matka ' + (MM[budj.tavoite] || '') + ': ' + budj.gap_s + ' s — hyvällä tiellä! 💪</div>';
+    }
+  }
+
+  // 📈 Parannus VAIN jos abs-delta > 0 (§3.2). Ei "et parantunut" -kehystä.
+  if (p.tk_kokonaistulos_edellinen != null && p.tk_kokonaistulos_viimeisin != null) {
+    const absD = Math.round((p.tk_kokonaistulos_edellinen - p.tk_kokonaistulos_viimeisin) * 10) / 10;
+    if (absD > 0) h += '<div style="font-size:13px;color:#28B090;margin-top:10px">📈 Paransit kokonaisaikaasi ' + absD + ' sekuntia viime kerrasta!</div>';
+  }
+
+  // 🔥 Kultaikkuna lapsen kielellä, VAIN ≤ 12 v — EI uhkakehystä
+  if (ika != null && ika <= 12) {
+    h += '<div style="font-size:12px;color:#8C8B86;margin-top:10px">🔥 Nyt on paras ikä oppia uusia temppuja pallon kanssa!</div>';
+  }
+  return h;
+}
+// Osatehtävä C — TÄNÄÄN-T-harjoitteen saateteksti: kytkee päivän tekniikkatehtävän kehityskohde-tavoitteeseen.
+function _tekTavoiteSaate(p) {
+  if (!p || !p.tki_kehityskohde || !p.tk_lajit_viimeisin) return '';
+  const kk = p.tki_kehityskohde;
+  const nimi = _minaTekLajiNimi(kk); if (nimi === kk) return '';
+  const arvo = p.tk_lajit_viimeisin[kk + '_s'];
+  const T = window.TM_TESTIT;
+  const sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
+  const ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
+  const viite = (T && T.tkLajiViite && ika != null && arvo != null) ? T.tkLajiViite(kk, ika, sp) : null;
+  if (!viite || arvo == null) return 'Tämä vie sinua kohti tavoitettasi: ' + nimi.toLowerCase();
+  const kaant = (kk === 'pituuspotku_bonus');
+  const tavoite = _minaValitavoite(arvo, viite, kaant);
+  return 'Tämä vie kohti tavoitettasi: ' + nimi.toLowerCase() + (kaant ? ' yli ' : ' alle ') + tavoite + ' s';
+}
+
 function rMinaTekniikkaprofiili() {
   const d = _tekniikkaData;
-  if (!d || d.tyhja) return ''; // ei tuloksia → piiloon
+  if (!d) return ''; // ei vielä ladattu → tyhjä (latauksen aikana)
+  if (d.tyhja) {
+    // §7.22 positiivinen tyhjätila (EI "Ei tuloksia")
+    return '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">'
+      + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:10px;letter-spacing:.01em">Tekniikkaprofiili</div>'
+      + '<div style="font-size:13px;color:var(--text)">⚽ Tekniikkakisa tulossa — silloin näet tuloksesi täällä!</div></div>';
+  }
   const merkkiVari = { kulta: '#D4AF37', hopea: '#9AA0A6', pronssi: '#B87333' };
   const lajiNimi = { ponnauttelu: 'Ponnauttelu', syotto: 'Syöttö', pujottelu: 'Pujottelu', kuljetus_laukaus: 'Kuljetus-laukaus' };
   let h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
@@ -1348,10 +1453,8 @@ function rMinaTekniikkaprofiili() {
   h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:#8C8B86">TKI</div>';
   if (d.merkki) h += '<div style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:' + (merkkiVari[d.merkki] || '#8C8B86') + '22;color:' + (merkkiVari[d.merkki] || '#8C8B86') + ';text-transform:capitalize">' + d.merkki + '</div>';
   h += '</div>';
-  const v = d.vahvuudet && d.vahvuudet[0];
-  const k = d.kehityskohteet && d.kehityskohteet[0];
-  if (v) h += '<div style="font-size:12px;color:var(--text);margin-top:8px">⭐ <b>Vahvuutesi:</b> ' + v.nimi + '<div style="font-size:11px;color:#8C8B86;margin-top:2px">' + v.teksti + '</div></div>';
-  if (k) h += '<div style="font-size:12px;color:var(--text);margin-top:8px">📈 <b>Kehityskohde:</b> ' + k.nimi + '<div style="font-size:11px;color:#8C8B86;margin-top:2px">' + k.teksti + '</div></div>';
+  // §5.3 tavoiterivit (pikakentät) — korvaa vanhat yksinkertaiset vahvuus/kehityskohde-rivit; fallback sisällä
+  h += _minaTavoiteRivit(_pelaaja, d);
   // Lajipalkit (aika sekunteina, lyhyempi = nopeampi)
   const lajit = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'];
   const arvo = (id) => { const x = d.testit[id]; if (x == null) return null; if (typeof x === 'object') return (x.tulos != null ? x.tulos : x.paras); return x; };
@@ -1359,13 +1462,16 @@ function rMinaTekniikkaprofiili() {
   if (vals.length) {
     const max = Math.max.apply(null, vals.map(x => x.val));
     h += '<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">';
+    const tkiV = _pelaaja && _pelaaja.tki_vahvuus, tkiK = _pelaaja && _pelaaja.tki_kehityskohde;
     vals.forEach(x => {
       const pct = Math.round((x.val / max) * 100);
-      const onV = (d.vahvuudet || []).some(z => z.laji === x.id);
-      const onK = (d.kehityskohteet || []).some(z => z.laji === x.id);
+      const onV = (x.id === tkiV) || (d.vahvuudet || []).some(z => z.laji === x.id);
+      const onK = (x.id === tkiK) || (d.kehityskohteet || []).some(z => z.laji === x.id);
       const vari = onV ? '#28B090' : onK ? '#E0A040' : '#8C8B86';
+      // §B: ★ vahvuuslajin riville, 🎯 kehityskohteen riville (pikakentistä). EI ↑-nuolta — ei per-laji-historiaa (§3.3.1 epävarma → ei nuolta).
+      const mark = (x.id === tkiV) ? ' ★' : (x.id === tkiK) ? ' 🎯' : '';
       h += '<div style="display:flex;align-items:center;gap:8px">'
-        + '<div style="width:96px;font-size:10px;color:#8C8B86;text-align:right">' + (lajiNimi[x.id] || x.id) + '</div>'
+        + '<div style="width:96px;font-size:11px;color:#8C8B86;text-align:right">' + (lajiNimi[x.id] || x.id) + mark + '</div>'
         + '<div style="flex:1;background:rgba(242,239,230,.06);border-radius:3px;height:14px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:' + vari + '"></div></div>'
         + '<div style="width:42px;font-size:10px;color:var(--text);text-align:right">' + x.val.toFixed(1) + 's</div>'
         + '</div>';
