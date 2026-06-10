@@ -206,13 +206,16 @@ tkAbsDelta(nyt, edellinen, ikaNyt, ikaEd)   // → {abs_s, validi:bool, bonus_os
 
 ## 7. TOTEUTUSJÄRJESTYS
 
-1. **Loppukilpailudatan aggregointi** → `TK_LAJIVIITTEET` (blokkaa kaiken muun;
-   tarvitaan 2024–25 PDF:t)
-2. `tk_lajit_viimeisin` + `tk_kokonaistulos_*` pikakentät tuontiin + recalciin
-3. Uudet funktiot + Vitest-testit (A2-infra on jo)
-4. Master_v16 TKI-detail laajennos (§5.2)
-5. VP kehityskohde-klusterointi + vauhtisignaali (§5.1)
-6. Pelaaja_v7 tekniikkatavoite-kortti (§5.3)
+1. ✅ VALMIS (2026-06-10): Loppukilpailudata 2023–25 → `TK_LAJIVIITTEET`
+2. ✅ VALMIS (commit 3e47a68): pikakentät 4 kirjoituspisteeseen, `_tkLajitPikakentat`-
+   helper, `_edellinen` pvm-vahdilla (Excel + recalcIka), recalc nollaa kun ei TK:ta
+3. ✅ VALMIS (3e47a68): 5 funktiota + 30 Vitest-testiä (115 vihreää yht.)
+4. ✅ VALMIS (3e47a68): Master_v16 `_buildTKIDetail` — per-laji-rivit + sekuntibudjetti
+   + vauhtirivi + 3-tason kultaikkuna; fallback vanhaan paneeliin kun ei pikakenttiä
+   ⚠️ DATA: `tk_lajit_viimeisin` täyttyy vasta kun "↻ Laske TKI uudelleen" -recalc
+   ajetaan Sibbolle + KPV:lle (Excel_Tuonti, SA)
+5. ⏳ VAIHE 2: VP kehityskohde-klusterointi + vauhtisignaali (§5.1)
+6. ⏳ VAIHE 2: Pelaaja_v7 tekniikkatavoite-kortti (§5.3, §7.22-kehystys)
 
 ## 8. AVOIMET KYSYMYKSET — PÄIVITETTY 2026-06-10 (data saatu ja parsittu)
 1. ✅ RATKAISTU: Loppukilpailudata 2023+2024+2025 parsittu (84 riviä, summavalidointi
@@ -232,3 +235,19 @@ tkAbsDelta(nyt, edellinen, ikaNyt, ikaEd)   // → {abs_s, validi:bool, bonus_os
    T10 hopea 2023 = 133, koodi/2024–25 = 135 — ei toimenpidettä, koodi seuraa uusinta).
 6. UUSI: Viitetasot päivitetään vuosittain uuden loppukilpailun jälkeen ajamalla
    parseri uudella PDF:llä (`docs/data/parse_taitokisa.py`).
+7. ✅ TOTEUTETTU 2026-06-10: **viitetasot ikäluokille joita ei ole valtakunnallisissa
+   rakennettu alueellisten kilpailujen parhaista — TÄYSI KATTAVUUS P8–P13 + T8–T13.**
+   - Lähteet (298 kelvollista riviä, summavalidointi): Eteläinen alue 5.10.2025
+     (FC Lahti) + Pohjoinen alue 13.10.2024 (ONS) + Eteläinen alue 28.9.2025 (TuPS).
+     Poolattu, top-20 kokonaisajalla per ikä/sp → P25/P50.
+   - `docs/tk_lajiviitteet.js` regeneroitu: `_lahde: 'valtakunnallinen'|'alueellinen'`.
+     Alueellisina: **P8 (n=20) · P11 (n=20) · P13 (n=7) · T8 (n=18) · T13 (n=11)**.
+     Valtakunnalliset säilyvät 9/10/12-v + T11:lle (vahvempi kohortti voittaa aina).
+   - Parseri: `docs/data/parse_taitokisa_alue.py` (LAHTEET-lista — uusi alueellinen
+     PDF lisätään listaan ja ajetaan uudelleen). Raakadata:
+     `docs/data/taitokisa_alue_2024_2025.json`.
+   - P13 n=7 ja T13 n=11 → UI näyttää "(suuntaa-antava, n=X)" kun n<10–12.
+8. ⚠️ KOODIKORJAUS SUOSITELTU: **TK_KOKONAISRAJAT T13 pronssi = 130 koodissa, mutta
+   KAKSI riippumatonta alueellista PDF:ää (Pohjoinen 2024 + Eteläinen 2025) näyttävät
+   135.** Suositus: päivitä koodiin 135 (docs/testit_indeksit.js + inline-kopiot) —
+   varmista halutessasi SPL:n sääntödokumentista. Muut rajat (P8–P13, T8–T12) täsmäävät.
