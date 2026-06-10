@@ -74,4 +74,24 @@ describe('hhKehityskohde — PHV-suodatin (§0/§28)', () => {
     expect(r.phvVarmuus).toBe('mitattu');
     expect(r.vahvuus).toBe('lin30m');          // taso 5 ≥ 4
   });
+
+  // ── REGRESSIO: epavarma-fallback EI saa vuotaa fyysiseen (SJK P14 -bugi) ──
+  // mas 14.4 km/h ika14 M = taso 1 (alin) → ilman korjausta valikoitui kehityskohteeksi.
+  // §0: epavarma + ei sm_pallo-dataa → kehityskohde null (EI fyysistä fallbackia).
+  it('epavarma + EI sm_pallo-dataa (mas taso 1, lin30m) → kehityskohde null', () => {
+    const r = hhKehityskohde({ lin30m: 4.34, mas: 14.4 }, 14, 'M', null);
+    expect(r.phvVarmuus).toBe('epavarma');
+    expect(r.kehityskohde).toBeNull();         // mas EI vuoda (oli 'mas' ennen korjausta)
+  });
+  it('epavarma + sm_pallo löytyy → sm_pallo (ei mas taso 1)', () => {
+    const r = hhKehityskohde({ lin30m: 4.34, mas: 14.4, sm_pallo: 8.9 }, 14, 'M', null);
+    expect(r.phvVarmuus).toBe('epavarma');
+    expect(r.kehityskohde).toBe('sm_pallo');
+  });
+  // Sama vuoto suljettu myös mitatuissa PRE/LAH/PH-poluissa (sallitutFyysiset=false).
+  it('PRE-tila + EI sm_pallo-dataa (mas taso 1) → kehityskohde null', () => {
+    const r = hhKehityskohde({ lin30m: 4.34, mas: 14.4 }, 14, 'M', 'PRE');
+    expect(r.phvVarmuus).toBe('mitattu');
+    expect(r.kehityskohde).toBeNull();
+  });
 });
