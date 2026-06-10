@@ -3,7 +3,7 @@
 > Ensimmäinen tiedosto jonka liität uuteen Claude-sessioon. Keskittyy **teknisiin invariantteihin**.
 > Strategia, RAE-tiede, kansainvälistyminen, bisnesmalli, sprintit ja avoimet tehtävät: **`docs/STRATEGIA.md`**.
 > Operatiivinen roadmap-historia: `docs/ROADMAP.md`. Solo-tuotteen täysi kuvaus: `docs/ARKKITEHTUURI.md §11`.
-> Viimeksi päivitetty: 2026-06-07 (+ §31 viestiketju, coach-modaali, kirjauskorjaus)
+> Viimeksi päivitetty: 2026-06-11 (+ §34 TKI-analyysimalli · §16/§19/§23/§24/§26/§27/§31 synkronointi · tehtäväarkisto)
 
 ---
 
@@ -161,8 +161,11 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ §13 |
 | `tm_admin/firestore.rules` | Security Rules **v3.3** (Consolesta) | ⏳ v3.3 odottaa Console-deployta (kirjaus-permissionit PÄÄTÖS 1+2) |
 | `src/lib/tm_bioika.js` | Bio-ikä — Mirwald 2002 PHV (Excel-verifioitu) + KR-runko (lukittu) | ✅ §25 |
-| `docs/testit_indeksit.js` | Canonical TKI/TSI/FLEI-laskenta | ✅ §23 |
-| `tm_eerikkila_normit.js` | Eerikkilä-normitaulukot | ✅ |
+| `docs/testit_indeksit.js` | Canonical TKI/TSI/FLEI-laskenta + TKI-analyysimalli (§34) | ✅ §23/§34 |
+| `docs/TKI_ANALYYSIMALLI.md` | Kanoninen TKI-analyysimalli (3 viitekehystä + kehitysvauhti) | ✅ §34 |
+| `docs/tk_lajiviitteet.js` | Generoitu `TK_LAJIVIITTEET` (SSOT mergelle, älä poista) | ✅ §34 |
+| `docs/data/taitokisa_*.json` + `parse_taitokisa*.py` | TK-viitedatan raakadata + parserit (vuosipäivitys) | ✅ §34 |
+| `tm_eerikkila_normit.js` (`lib/`-alla) | Eerikkilä-normitaulukot | ✅ |
 | `tm_lang.js` | fi/sv/en, 144 käännöstä | ✅ |
 | `harjoitelogiikka_v4.js` · `tm-profile.js` · `tm-kortit.js` | Generointi/profiili/kortit | ⚠️ tarkista GitHub |
 
@@ -390,6 +393,14 @@ await havaintoRef.set({
 **Kirjautuminen:** `_kirjauduPinilla(pin)` → Anonymous Auth → haku `seurat/{id}/pelaajat` jossa `pin==arvo` → `_kaynnistaAppUI()`.
 **`getIdToken(true)`** pakollinen ennen Firestore-kirjoitusta (sessio vanhentuu).
 
+**Tekniikkatavoite (MINÄ → Tekniikkaprofiili, 2026-06-11, §34/§5.3):** tavoiterivit pikakentistä (§26) lapsen kielellä —
+⭐vahvuus (`tki_vahvuus`; "kärkitasoa" vain jos taso erinomainen, `tkLajiViite`) · 🎯seuraava askel (välitavoite: gap≤3s→`viite.hyva`,
+muuten arvo−3s/0.5s tarkkuus — **saavutettava askel, ei koko matka**) · 🏅mitalimatka VAIN positiivisena ja vain ≤15s · 📈abs-parannus
+VAIN >0 · 🔥kultaikkuna ≤12v ILMAN uhkakehystä. Tyhjätila "Tekniikkakisa tulossa" (ei "Ei tuloksia"). TÄNÄÄN-T-kortti saa saatteen
+kehityskohteesta (`_tekTavoiteSaate`). **§7.22-EHDOTON:** ei XP/progressbaria/loss aversion -kieltä ("menetät/putoat/sulkeutuu"),
+ei vertailua muihin, **TKI-laskua EI näytetä pelaajalle lainkaan** (vain abs-parannus kun positiivinen, §34 §3.2). Pelaaja lataa
+`docs/testit_indeksit.js` → funktiot `window.TM_TESTIT`:stä, EI inline-kopiota. SW `tm-pelaaja-v3` (§27.4).
+
 **Kirjausrakenne:** `pelaajat/{id}/kirjaukset/{pvm}` — tyyppi 'T'|'D'|'S'|'P' (Tekniikka/Dual/Strength/Peli),
 tehty, xp, kesto_min, rpe 1-10, fiilinki 1-5, aika ilta|aamu|paiva.
 
@@ -457,6 +468,14 @@ Nappi "💾 Tuo pelaajat järjestelmään" + amber-varoitus "VAIHE 1/2". Vaihe 2
 mentorointi-paneeli + kalibraatiopaja + kehitysindeksit) · Pelaajat (IDP-jono + 6 suodatinta + taulukko) ·
 Kalenteri (testitapahtumat + linkki Testaus) · Raportointi (Head of Talent -koosto + talenttisuositukset).
 **Työkalut:** Arvioi harjoitus (Sprint 4). **Asetukset:** Metodologia · Kalibraatio · Kriteeristö · Benchmark.
+
+**Syvänäkymä-analytiikka (VP_v25, 2026-06-11, §34):** joukkue-syvänäkymä (`avaaJoukkueSyvanakyma`) Yhteenveto-välilehti = TKI-histogrammi +
+per-laji joukkueprofiili vs `tkLajiViite`-eliittiviite (label AINA `_lahde`-kentästä) + "lähellä merkkiä" (`tkSekuntibudjetti`) + kehitysvauhti
+(abs + TKI, §3.2) + treeniteema-CTA (`_jsvLuoTapahtuma` esitäyttö). **Tuki**-välilehti = gap-järjestys + harjoitusryhmäjako (📋 leikepöytä) +
+**aito taantuma -merkki (TKI<0 JA abs<0)**. Radar <3 dim → kompakti dimensiokortti. Per-pelaaja `_jspModal` Tekninen = per-laji + sekuntibudjetti
++ delta/vauhti + kultaikkuna (jaetut `_jsvPerLajiHTML`/`_jsvBudjettiRivi`; TSI-rivi piiloon kun ei SM-dataa). Joukkuekorttien suunta = H-H
+ensisijainen → **TKI-fallback** (`lahde`-kenttä) → "2. mittaus puuttuu" vasta kun molemmat puuttuvat; pelaajalistan delta-badget (H-H + TKI).
+Kanoniset TKI-funktiot + `TK_LAJIVIITTEET`/`TK_KOKONAISRAJAT` **inline-kopioituna VP:hen** (synkassa testit_indeksit.js:ään; `jsv-an-*` globaalit → toimivat myös `_jspModal`issa).
 
 **Mentorointi-loop (natiivi):** VP → `seurat/{id}/viestit/` (kentät `lahettajaUid`, `vastaanottajaUid`, `teksti`, `aika`, `luettu`) → valmentajan Inbox (Master_v16 `_kuunteleVpViestit` onSnapshot). Ei sähköpostia/Slackia.
 
@@ -617,7 +636,10 @@ Renderöinti (`_tkiMerkkiM`/`_tkiMerkkiVP`) lukee **VAIN `tki_merkki`-kentästä
 ei TKI-johdettua fallbackia). Recalc kirjoittaa `tki_merkki:null` myös puuttuessa → ylikirjoittaa vanhan väärän.
 
 **Canonical-funktiot** `docs/testit_indeksit.js`: `tkLaskeMerkki` · `tkLaskeTKI` · `laskeKokonaistulos` ·
-`_laskeVahvuudetJaKehityskohteet`. Inline-kopiot Testaus_v9 + Excel_Tuonti.
+`_laskeVahvuudetJaKehityskohteet` + **TKI-analyysimalli (§34):** `tkLajiViite` · `tkLajiGapit` · `tkSekuntibudjetti` ·
+`tkVaadittuVuosivauhti` · `tkAbsDelta`. Inline-kopiot Testaus_v9 + Excel_Tuonti (+ VP_v25 analyysifunktiot, synkronointikommentilla).
+**KORJAUS 2026-06-11: `TK_KOKONAISRAJAT` T13 pronssi = 135** (oli 130; kaksi riippumatonta alueellista PDF:ää vahvisti, TKI_ANALYYSIMALLI.md §8.8).
+Korjattu 3 kopioon (testit_indeksit + Excel_Tuonti + VP_v25). Päivitä Vitest-odotukset jos muutat.
 
 **TKI-benchmark (VP_v25):** `TK_KANSALLINEN_BENCHMARK` -vakio (valtak. tekniikkakilpailut 2022–2025), **P ja T erikseen**
 (esim. P10=85, T12=87). `lyhennaNimi(nimi)` → benchmark-avain; ei avainta → palkki "—". Taso: ≥80 erinomainen · ≥60 hyvä · ≥40 kehitys · <40 prioriteetti.
@@ -683,6 +705,9 @@ PalloID-yhdistämisen jälkeen `tarkistaDuplikaatit()` (Promise.all) → 🟡 "T
 - **`recalcIkaluokasta(seuraId, joukkue, dryRun=true)`** (topbar-nappi + konsoli, SA): recalc kun **`syntymaVuosi` puuttuu**
   (esim. Sibbo). Johtaa iän+sp testituloksen **`ikaluokka`-kentästä** ("P10"→10/'P'), **OHITTAA tallennetun `merkkirajat`-kentän**
   (= P10→P9-bugin lähde) → `TK_KOKONAISRAJAT[sp][ika]`. Valitsee pelaajan **joukkueen** ikäluokkaa vastaavan tuloksen (ohittaa stray-docit).
+- **Molemmat recalc-funktiot hyväksyvät historiapohja-docit (KORJAUS 80cb332):** suodatin = `kokonaistulos_s != null` **TAI**
+  (`protokolla=='tekniikkakilpailu'` && ei-tyhjä `testit`-map). Kokonaistulos lasketaan kanonisella `laskeKokonaistulos(d.testit, ika, sp)`:lla
+  kun litteä `kokonaistulos_s` puuttuu (§22 Moodi B -tuonnit eivät enää ohitu hiljaa). pvm-vahti + `_edellinen`-logiikka ennallaan.
 
 **CDN-versiovaroitus:** `PDF_VERSIO` konsolissa + `_tarkistaCdnVersio()` vertaa raw.githubusercontent.com:iin (vain
 github.io-hostilla) → amber-banneri jos vanha. Raw-linkki näyttää lähdekoodin (text/plain) — todellinen tuoreutus on `?v=`.
@@ -748,7 +773,8 @@ suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 
 | Datasetti | Pikakentät | Tila |
 |---|---|---|
-| **TKI** | `tki_viimeisin` · `tki_pvm` · `tki_merkki` (kulta/hopea/pronssi) · `tki_vahvuus` · `tki_kehityskohde` (laji-id) | ✅ Excel/PDF |
+| **TKI** | `tki_viimeisin` · `tki_pvm` · `tki_merkki` (kulta/hopea/pronssi) · `tki_vahvuus` · `tki_kehityskohde` (laji-id) · `tki_edellinen`(+`_pvm`) | ✅ Excel/PDF |
+| **TK-lajit** (§34) | `tk_lajit_viimeisin {ponnauttelu_s, syotto_s, pujottelu_s, kuljetus_laukaus_s (NETTO), pituuspotku_bonus_s (vain ≥12v)}` · `tk_lajit_pvm` · `tk_kokonaistulos_viimeisin/_edellinen/_edellinen_pvm` (pvm-vahti; **recalc EI vangitse edellistä**) | ✅ Excel/PDF/recalc×2 (`_tkLajitPikakentat`) |
 | **H-H** | `hh_viimeisin {lin30m, cmj, mas}` · `hh_pvm` · `hh_taso` (1–5, `laskeHHTaso` Eerikkilä) | ✅ Excel (hh_laaja/suppea) |
 | **FLEI** | `flei_viimeisin` · `flei_pvm` · `flei_historia[]` | ✅ (odottaa kenttädataa) |
 | **PHV** | `phv_tila` · `biologinenIka_viimeisin` (offset + pvm) | ✅ Testaus_v9 |
@@ -820,10 +846,13 @@ oikeasta kenttäkäytöstä. Lukupuoli (joukkuepulssi + S9) toimii heti kun pika
      menevät tuoreena verkosta). `onOmaHtml`/`onAllowlist`-funktiot SW:ssä.
    - **PWA cache-versiot — nosta AINA kun HTML/SW-strategia päivittyy** (activate siivoaa kaikki muut cachet
      kuin nykyisen → poisoned cachet tyhjenevät käyttäjiltä SW-päivityksen yhteydessä; `skipWaiting`+`clients.claim`):
-     · Pelaaja: `tm-pelaaja-v2` (`sw_pelaaja.js`) · Vanhempi: `tm-vanhempi-v2` (`sw_vanhempi.js`)
+     · Pelaaja: `tm-pelaaja-v3` (`sw_pelaaja.js`) · Vanhempi: `tm-vanhempi-v2` (`sw_vanhempi.js`)
      · Nosta SW:n cache-versio kun SW-logiikka muuttuu. PWA-tiedostot: `manifest_pelaaja/vanhempi.json`,
      `sw_pelaaja/vanhempi.js`, `assets/pwa/icon-*.png`. Scope `/talentmaster/` (SW juuressa → ei kavennettavissa,
      allowlist hoitaa rajaamisen), polut absoluuttisia.
+   - **PRECACHE-polkujen PAKKO palauttaa 200 — `cache.addAll` on ATOMINEN:** yksikin 404 kaataa koko installin → SW ei
+     aktivoidu (FC-bonuslöydös: vanha PRECACHE viittasi `/talentmaster/tm_eerikkila_normit.js` joka on `lib/`-alla → 404).
+     Pidä PRECACHE minimaalisena (vain oma shell-HTML); versioidut JS-moduulit allowlist cachettaa pyydettäessä.
 5. **Security Rules:** Firebase Consolesta JA `tm_admin/firestore.rules` (erilliset)
 6. **Chrome MCP:** Firestore-kirjoitukset app-tabista (Firebase alustettu)
 
@@ -937,11 +966,13 @@ harhaanjohtavia (kuvaavat rakennetta jota ei ole / viittaavat poistettuun dataan
 `TK_LAJIT_META` sisältää vain nimi/yksikkö/suunta. Per-laji-ulottuvuus joka on olemassa = **suhteellinen
 vahvuus/kehityskohde** (lajin osuus kokonaisajasta, `_laskeVahvuudetJaKehityskohteet`).
 
-**Sprint 5:** per-laji viitetasot (erinomainen/hyvä/kehitettävä) rakennetaan **valtakunnallisesta
-loppukilpailudatasta 2024–2025**. Vaatii: per-laji raaka-arvojen tallennus TK-tuonnissa pikakentiksi.
+**✅ TOTEUTETTU 2026-06 (§34):** per-laji viitetasot ovat **`TK_LAJIVIITTEET`** (testit_indeksit.js; P8–13 + T8–13,
+`_lahde` valtakunnallinen/alueellinen). Per-laji-taso = **VIITETASO** loppukilpailu-/aluedatasta (`tkLajiViite` → erinomainen/hyvä/kehitettävä),
+**EI mitali** — tämä invariantti SÄILYY (mitali jaetaan vain kokonaisajasta). TK-raaka-arvot tallennetaan pikakentiksi (`tk_lajit_viimeisin`, §26).
+Sekuntibudjetti/gap/vauhti johdetaan näistä (§34). Eliittiviite näkyy VP-Yhteenvedossa, valmentajan TKI-detailissa ja pelaajan tavoiteriveissä.
 
-**Nykyinen detail (oikea siihen asti):** kokonaisaika-mitalirajat (🥇/🥈/🥉 `TK_KOKONAISRAJAT`) +
-suhteellinen vahvuus/kehityskohde (★/←). Ks. myös §23 (TKI aikapohjainen) + canonical doc §3/§4.
+**Detail (kokonaiskuva):** kokonaisaika-mitalirajat (🥇/🥈/🥉 `TK_KOKONAISRAJAT`) + per-laji-eliittiviite (`TK_LAJIVIITTEET`, §34) +
+suhteellinen vahvuus/kehityskohde (★/←). Ks. myös §23 (TKI aikapohjainen) + §34 + canonical doc §3/§4.
 
 ---
 
@@ -994,3 +1025,35 @@ frontend 6 000-rivisiä monoliitteja, funktio-törmäyksiä. Tähänastiset bugi
 **⚠ DEPLOY-TYÖNKULKU (versio-tarkistus):** GitHub Pages cachettaa HTML:n 10 min (max-age=600) → moni "ei toimi" on ollut cache. Ratkaisu: `version.json` + `APP_VERSION` jokaisessa apissa (Master/Pelaaja/Vanhempi), `<head>`-skripti pakottaa reloadin uudesta versiosta. **Ennen käyttäjille tärkeää pushia aja `npm run version:bump`** (leimaa version.json + apit) → selaimet hakevat tuoreen version automaattisesti. Jos unohtuu, käyttäjä näkee vanhaa ≤10 min tai hard-reloadiin asti.
 
 **SaaS-suunta:** B1 frontend moduuleiksi (Vite, strangler) · B2 observability (Sentry — hiljaiset failit näkyviin) · B3 tenant-self-service onboarding · **B4 GDPR (alaikäisten dataa EU — riski + kilpailuetu): retention, oikeus tulla unohdetuksi, audit, field-level Rules** · B5 suorituskyky/kustannus · B6 datamallin versiointi · B7 white-label/API/AI-insightit.
+
+---
+
+## 34. TKI-ANALYYSIMALLI — kolme viitekehystä + kehitysvauhti (2026-06)
+
+> **Täysi kanoninen doc: [`docs/TKI_ANALYYSIMALLI.md`](docs/TKI_ANALYYSIMALLI.md)** — viitekehykset, roolinäkymät (VP/valmentaja/pelaaja),
+> kehitysvauhti, H-H-triangulaatio, datalähteet. **Ristiriidassa täysi doc voittaa** (sama pattern kuin §30). Tämä §34 = tislaus.
+> Täydentää §23 (TKI aikapohjainen) + §31 (per-laji = viite, ei mitali) + §26 (pikakentät). Suljettu ketju: sama totuus VP:lle, valmentajalle ja pelaajalle.
+
+**Kolme viitekehystä — sama tulos, kolme vertailua:**
+- **A Kriteeriviite (mitali):** `TK_KOKONAISRAJAT[sp][ika]` — 🥇🥈🥉 **VAIN kokonaisajasta**. Kertoo TASON.
+- **B Eliittiviite (per-laji):** `TK_LAJIVIITTEET[sp][ika][laji] = {erinomainen, hyva}` + `_n` + `_lahde`. **EI mitali** (§31). Kertoo KOHTEEN + MÄÄRÄN (sekunteina).
+- **C Populaatioviite (H-H):** FINAL2024 3-portainen (`eerikkilaTaso`, vain pujottelu+syöttö). Kertoo POHJAN.
+
+**`TK_LAJIVIITTEET` (testit_indeksit.js + inline-kopiot Excel/VP):** kattavuus **P8–P13, T8–T13**. erinomainen=P25 · hyva=P50 ·
+pituuspotku_bonus käänteinen (P75/P50). Lähteet: **valtakunnalliset** loppukilpailut 2023–25 (P9/P10/P12 + T9/T10/T11/T12) ·
+**alueelliset** Eteläinen 2025 ×2 (FC Lahti + TuPS) + Pohjoinen 2024 (ONS) top-20 kokonaisajalla (P8/P11/P13/T8/T13).
+**UI-label AINA `_lahde`-kentästä:** valtakunnallinen→"Loppukilpailutaso 2023–25" · alueellinen→"Alueellinen huipputaso 2024–25 (suuntaa-antava)" · `_n<10`→"(n=X)".
+**EI interpolointia** puuttuville ikäluokille (`tkLajiViite` → null kun ika<8 / >13; radat ikäluokkakohtaisia). Vuosipäivitys:
+`docs/data/parse_taitokisa.py` (valtak.) + `parse_taitokisa_alue.py` (alue, LAHTEET-lista) → regeneroi `docs/tk_lajiviitteet.js` → merge.
+
+**Kanoniset funktiot (testit_indeksit.js, §23):** `tkLajiViite(laji,ika,sp)` →{erinomainen,hyva,n,lahde}|null · `tkLajiGapit(tkLajit,ika,sp)`
+(järjestetty gap laskevasti) · `tkSekuntibudjetti(kokonaistulos,ika,sp)` →seuraava saavuttamaton mitali (`<` ei `<=`; <kulta→null) ·
+`tkVaadittuVuosivauhti(ika,sp,taso)` (= `[ika]−[ika+1]`; **9→10 null** rata muuttuu; ika+1>13 null) · `tkAbsDelta(...)` →{abs_s, validi, bonus_osuus_s}.
+
+**KAKSI DELTAA -INVARIANTTI (§3.2 — EHDOTON):** abs-delta (kehittyikö suoritus) JA TKI-delta (riittikö vauhti ikäluokkavaatimukseen)
+näytetään AINA erikseen. **TKI-laskua EI saa näyttää punaisena jos abs-delta on positiivinen** (pelaaja kehittyy, vaatimus koveni enemmän).
+**Pelaajalle TKI-laskua ei näytetä lainkaan** (§16/§7.22) — vain abs-parannus kun positiivinen. Vaadittu vuosivauhti ~5–10 s/v;
+**P11→P12 −20 s** (sis. uuden pituuspotkubonuksen → `tkAbsDelta.bonus_osuus_s` erottaa aidon parannuksen bonuksesta).
+
+**Roolinäkymät (sama data, kolme kieltä):** VP_v25 joukkue-Yhteenveto + Tuki (§19) · valmentaja Master TKI-detail (§29/§30) ·
+pelaaja MINÄ-tavoiterivit + TÄNÄÄN-saate (§16). Kaikki pikakentistä (§26), ei alikokoelmakyselyjä.

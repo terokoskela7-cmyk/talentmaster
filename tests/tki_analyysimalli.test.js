@@ -1,7 +1,7 @@
 /**
  * TalentMaster™ — TKI-analyysimalli VAIHE 1 -yksikkötestit
  * Funktiot: tkLajiViite, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta
- * Speksi: docs/TKI_ANALYYSIMALLI.md · docs/TEHTAVA_TKI_VAIHE1.md
+ * Speksi: docs/TKI_ANALYYSIMALLI.md · docs/tehtavat_arkisto/TEHTAVA_TKI_VAIHE1.md
  *
  * Ajetaan: npm test
  */

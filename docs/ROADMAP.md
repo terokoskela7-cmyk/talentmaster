@@ -1,5 +1,15 @@
 # TalentMaster™ — Kehityssuunnitelma (Roadmap)
-## Päivitetty 2026-06-06
+## Päivitetty 2026-06-11
+
+---
+
+## ✅ TEHTY — TKI-analyysiketju + SW-korjaus (2026-06-10/11)
+- [x] **TKI-analyysimalli VAIHE 1** (CLAUDE.md §34, `docs/TKI_ANALYYSIMALLI.md`): `TK_LAJIVIITTEET` (per-laji eliittiviite, P8–13 + T8–13, `_lahde` valtak./alueellinen) + funktiot `tkLajiViite`/`tkLajiGapit`/`tkSekuntibudjetti`/`tkVaadittuVuosivauhti`/`tkAbsDelta` + Vitest (119 testiä).
+- [x] **Pikakentät** `tk_lajit_viimeisin` + `tk_kokonaistulos_*` 4 kirjoituspisteeseen (Excel/PDF/recalc×2, `_tkLajitPikakentat`). T13 pronssi 130→135.
+- [x] **Suljettu ketju — kolme yleisöä:** VP_v25 syvänäkymä-analytiikka (histogrammi · per-laji joukkueprofiili · lähellä merkkiä · kehitysvauhti · Tuki gap+ryhmäjako+taantuma · radar→dimensiokortti · _jspModal per-laji) · valmentaja Master TKI-detail · pelaaja MINÄ-tavoiterivit + TÄNÄÄN-saate (lapsen kieli, §7.22).
+- [x] **UI-typografia**: Master detail-paneelit + VP joukkuekortit luettavuusasteikko.
+- [x] **SW-cachebugi korjattu** (§27.4): allowlist-periaate — Pelaaja/Vanhempi-SW ei enää kaappaa muiden appien sivuja (oli juurisyy "vanha versio ajossa" -ongelmiin). Cache v2/v3, network-first oma HTML.
+- [x] **Bugi**: "Laske TKI uudelleen" huomioi nyt historiapohja-tuonnit (laskee kokonaistuloksen testit-mapista).
 
 ---
 
