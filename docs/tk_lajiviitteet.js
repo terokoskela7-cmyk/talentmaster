@@ -102,4 +102,102 @@ const TK_LAJIVIITTEET = {
     },
   },
 };
-if (typeof module !== 'undefined') module.exports = { TK_LAJIVIITTEET };
+
+// TK_LAJITASOT — populaatiotasot 1–5 KOKO kilpailupoolista (ei top-20).
+// Rajat = kohortin P20/P40/P60/P80. taso 5 = paras 20 % · taso 3 = kohortin keskitaso · taso 1 = hitain 20 %.
+// Logiikka STRICT <: taso=5 jos arvo<r[0], 4 jos <r[1], 3 jos <r[2], 2 jos <r[3], muuten 1
+// (tasan rajalla alempi taso — sama konventio kuin tkLaskeMerkki; maksimiajat 40/60 s → taso 1).
+// Otos = kilpailuihin osallistuneet (kilpailukohortti, EI väestönormi) — dokumentoi UI:ssa.
+// Käyttö: valmentaja/VP + D2/OVR-input. Pelaajalle EI tasolukua (§7.22).
+// H-H pujottelu/syöttö arvioidaan FINAL2024-normilla, TK-tulos näillä — ei ristiin (§30).
+const TK_LAJITASOT = {
+  P: {
+    8: { // pooli n=433
+      syotto: [29.6, 32.6, 36.6, 43.6],
+      pujottelu: [33.5, 35.9, 39.0, 43.1],
+      ponnauttelu: [7.9, 10.0, 13.2, 21.8],
+      kuljetus_laukaus: [22.1, 26.0, 29.0, 33.0],
+      _n: 433,
+    },
+    9: { // pooli n=459
+      syotto: [25.9, 29.0, 32.1, 38.0],
+      pujottelu: [30.5, 32.5, 35.4, 38.6],
+      ponnauttelu: [11.1, 16.0, 24.9, 40.0],
+      kuljetus_laukaus: [22.0, 25.0, 27.4, 30.9],
+      _n: 459,
+    },
+    10: { // pooli n=490
+      syotto: [44.1, 48.0, 53.7, 60.0],
+      pujottelu: [29.2, 31.0, 33.0, 35.2],
+      ponnauttelu: [28.7, 40.0, 40.0, 40.0],
+      kuljetus_laukaus: [20.0, 23.1, 25.9, 29.0],
+      _n: 490,
+    },
+    11: { // pooli n=410
+      syotto: [42.2, 45.9, 49.6, 56.3],
+      pujottelu: [28.0, 29.7, 31.3, 33.7],
+      ponnauttelu: [37.4, 40.0, 40.0, 40.0],
+      kuljetus_laukaus: [18.2, 21.0, 23.5, 27.6],
+      _n: 410,
+    },
+    12: { // pooli n=309
+      syotto: [39.3, 42.0, 46.3, 50.6],
+      pujottelu: [26.9, 28.2, 29.9, 31.8],
+      ponnauttelu: [29.0, 40.0, 40.0, 40.0],
+      kuljetus_laukaus: [15.9, 18.8, 21.1, 24.6],
+      _n: 309,
+    },
+    13: { // pooli n=176
+      syotto: [38.8, 41.0, 44.0, 50.1],
+      pujottelu: [26.7, 28.0, 29.2, 32.2],
+      ponnauttelu: [25.9, 35.0, 40.0, 40.0],
+      kuljetus_laukaus: [15.0, 18.1, 21.0, 25.0],
+      _n: 176,
+    },
+  },
+  T: {
+    8: { // pooli n=139
+      syotto: [33.8, 37.7, 41.9, 46.4],
+      pujottelu: [37.0, 40.5, 42.2, 48.8],
+      ponnauttelu: [9.6, 13.2, 22.0, 35.6],
+      kuljetus_laukaus: [26.1, 28.3, 31.4, 34.3],
+      _n: 139,
+    },
+    9: { // pooli n=204
+      syotto: [29.8, 32.9, 36.3, 42.5],
+      pujottelu: [33.6, 36.0, 38.8, 42.7],
+      ponnauttelu: [17.7, 26.0, 40.0, 40.0],
+      kuljetus_laukaus: [25.4, 27.7, 30.1, 33.1],
+      _n: 204,
+    },
+    10: { // pooli n=203
+      syotto: [48.7, 53.0, 56.5, 60.0],
+      pujottelu: [31.3, 33.5, 35.5, 37.5],
+      ponnauttelu: [11.3, 16.3, 26.2, 40.0],
+      kuljetus_laukaus: [23.5, 25.6, 27.7, 30.2],
+      _n: 203,
+    },
+    11: { // pooli n=274
+      syotto: [45.1, 48.3, 52.0, 58.7],
+      pujottelu: [29.2, 31.1, 32.9, 35.8],
+      ponnauttelu: [29.0, 40.0, 40.0, 40.0],
+      kuljetus_laukaus: [19.9, 22.7, 25.4, 28.4],
+      _n: 274,
+    },
+    12: { // pooli n=236
+      syotto: [41.2, 44.5, 49.7, 54.4],
+      pujottelu: [27.8, 29.5, 31.1, 33.4],
+      ponnauttelu: [34.5, 40.0, 40.0, 40.0],
+      kuljetus_laukaus: [17.5, 19.5, 21.9, 25.4],
+      _n: 236,
+    },
+    13: { // pooli n=144
+      syotto: [39.2, 42.7, 46.3, 52.2],
+      pujottelu: [27.5, 28.5, 29.9, 32.8],
+      ponnauttelu: [31.9, 40.0, 40.0, 40.0],
+      kuljetus_laukaus: [15.2, 18.5, 21.3, 24.4],
+      _n: 144,
+    },
+  },
+};
+if (typeof module !== 'undefined') module.exports = { TK_LAJIVIITTEET, TK_LAJITASOT };

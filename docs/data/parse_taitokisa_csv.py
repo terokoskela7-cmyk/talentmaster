@@ -155,6 +155,30 @@ for sp in ('P', 'T'):
             L += blokki(a, ika, 'alueellinen', 'n=%d (pool %d), alueelliset 2023–25, top-20' % (a['n'], a['pool']))
     L.append('  },')
 L.append('};')
-L.append("if (typeof module !== 'undefined') module.exports = { TK_LAJIVIITTEET };")
+L.append('')
+L.append('// TK_LAJITASOT — populaatiotasot 1–5 KOKO kilpailupoolista (ei top-20).')
+L.append('// Rajat = kohortin P20/P40/P60/P80. taso 5 = paras 20 % · taso 3 = kohortin keskitaso · taso 1 = hitain 20 %.')
+L.append('// Logiikka STRICT <: taso=5 jos arvo<r[0], 4 jos <r[1], 3 jos <r[2], 2 jos <r[3], muuten 1')
+L.append('// (tasan rajalla alempi taso — sama konventio kuin tkLaskeMerkki; maksimiajat 40/60 s → taso 1).')
+L.append('// Otos = kilpailuihin osallistuneet (kilpailukohortti, EI väestönormi) — dokumentoi UI:ssa.')
+L.append('// Käyttö: valmentaja/VP + D2/OVR-input. Pelaajalle EI tasolukua (§7.22).')
+L.append('// H-H pujottelu/syöttö arvioidaan FINAL2024-normilla, TK-tulos näillä — ei ristiin (§30).')
+L.append('const TK_LAJITASOT = {')
+for sp in ('P', 'T'):
+    L.append('  %s: {' % sp)
+    for ika in range(8, 14):
+        rs = [r for r in rows_d if r['sp'] == sp and r['ika'] == ika]
+        if len(rs) < 80:
+            continue
+        L.append('    %d: { // pooli n=%d' % (ika, len(rs)))
+        for key, nimi in LAJIT:
+            vals = [r[key] for r in rs if r.get(key) is not None]
+            rajat = [pct(vals, q) for q in (.2, .4, .6, .8)]
+            L.append('      %s: [%s],' % (nimi, ', '.join('%.1f' % v for v in rajat)))
+        L.append("      _n: %d," % len(rs))
+        L.append('    },')
+    L.append('  },')
+L.append('};')
+L.append("if (typeof module !== 'undefined') module.exports = { TK_LAJIVIITTEET, TK_LAJITASOT };")
 open(os.path.join(OUT, '..', 'tk_lajiviitteet.js'), 'w').write('\n'.join(L) + '\n')
 print('\nKirjoitettu docs/tk_lajiviitteet.js')
