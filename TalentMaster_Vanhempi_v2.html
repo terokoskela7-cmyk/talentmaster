@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Perhe v1</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781137761226';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781168826558';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- PWA (vaihe 1) — asennettavuus -->
 <link rel="manifest" href="/talentmaster/manifest_vanhempi.json">
 <meta name="theme-color" content="#1A7A5E">
@@ -1112,6 +1112,37 @@ try {
   _auth.signInAnonymously().catch(() => {});
 
   // Hae pelaajan viimeisimmät kirjaukset kun autentikointi ok
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window._tmDeferredPrompt = e; });
+  // PWA-asennuskehote (kotinäyttö) — diskreetti banneri kirjautumisen JÄLKEEN. Max 1×/sessio, [×]→14 pv, ei standalone-tilassa.
+  window._tmPwaKehote = function (appNimi) {
+    try {
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
+      if (window.navigator.standalone === true) return;
+      if (sessionStorage.getItem('tm_pwa_kehote_nayt')) return;
+      const oh = localStorage.getItem('tm_pwa_kehote_ohitettu');
+      if (oh && (Date.now() - parseInt(oh, 10)) < 14 * 864e5) return;
+      const iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream;
+      if (!window._tmDeferredPrompt && !iOS) return;
+      sessionStorage.setItem('tm_pwa_kehote_nayt', '1');
+      const teksti = iOS ? 'Napauta Jaa-kuvaketta ja valitse "Lisää Kotivalikkoon".' : 'Aina yhden napautuksen päässä.';
+      const b = document.createElement('div');
+      b.id = '_tmPwaBanner';
+      b.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;background:#161614;border:1px solid rgba(40,176,144,.45);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);font-family:\'DM Sans\',sans-serif;max-width:480px;margin:0 auto';
+      b.innerHTML = '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;color:#F2EFE6">📲 Lisää ' + appNimi + ' kotinäytölle</div>'
+        + '<div style="font-size:12px;color:rgba(242,239,230,.6);margin-top:2px">' + teksti + '</div></div>'
+        + (iOS ? '' : '<button id="_tmPwaLisaa" style="background:#28B090;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Lisää</button>')
+        + '<button id="_tmPwaSulje" style="background:none;border:none;color:rgba(242,239,230,.5);font-size:20px;cursor:pointer;padding:0 4px;line-height:1">×</button>';
+      document.body.appendChild(b);
+      const sulje = function (muista) { if (muista) localStorage.setItem('tm_pwa_kehote_ohitettu', String(Date.now())); if (b.parentNode) b.remove(); };
+      document.getElementById('_tmPwaSulje').onclick = function () { sulje(true); };
+      const lisaa = document.getElementById('_tmPwaLisaa');
+      if (lisaa) lisaa.onclick = function () {
+        const dp = window._tmDeferredPrompt;
+        if (dp && dp.prompt) { dp.prompt(); dp.userChoice && dp.userChoice.then(function () { window._tmDeferredPrompt = null; }); }
+        sulje(false);
+      };
+    } catch (e) {}
+  };
   _auth.onAuthStateChanged(async (user) => {
     if (user && !user.isAnonymous) {
       // Oikea, tunnistettu käyttäjä → siirry kotiin
@@ -1120,6 +1151,7 @@ try {
       if (_sc === 'login') {
         _sc = 'koti';
         draw();
+        setTimeout(function () { _tmPwaKehote('vanhemman sivu'); }, 1500);   // kirjautumisen jälkeen, ei login-ruudussa
       }
       await _haeViimeisinKirjaus();
     } else {

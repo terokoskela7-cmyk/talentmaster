@@ -160,7 +160,7 @@ function pohjaHeader(seuraNimi) {
   return `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
       <div style="background:#06090F;padding:24px;border-radius:12px;margin-bottom:24px;">
-        <h1 style="color:#3EC9A7;margin:0;font-size:22px;">TalentMaster™</h1>
+        <h1 style="color:#28B090;margin:0;font-size:22px;">TalentMaster™</h1>
         <p style="color:#aaa;margin:4px 0 0;font-size:13px;">${seuraNimi}</p>
       </div>`;
 }
@@ -183,7 +183,7 @@ function pohjaRekisteriKutsu({ seuraNimi, pelaajaNimi, joukkueNimi, linkki }) {
     </p>
     <div style="text-align:center;margin:32px 0;">
       <a href="${linkki}"
-        style="background:#3EC9A7;color:#000;padding:14px 32px;
+        style="background:#28B090;color:#000;padding:14px 32px;
         border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;
         display:inline-block;">
         Rekisteröidy ja anna suostumus →
@@ -198,7 +198,7 @@ function pohjaPelaajaSivu({
   salasanaLinkki, vanhempiLinkki, pelaajaLinkki, hEmail
 }) {
   const salasanaOsio = salasanaLinkki ? `
-    <div style="background:#f0fdf8;border:2px solid #3EC9A7;border-radius:12px;
+    <div style="background:#f0fdf8;border:2px solid #28B090;border-radius:12px;
                 padding:20px;margin:24px 0;">
       <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">
         ① Aseta ensin salasanasi
@@ -208,12 +208,15 @@ function pohjaPelaajaSivu({
       </p>
       <div style="text-align:center;">
         <a href="${salasanaLinkki}"
-          style="background:#3EC9A7;color:#000;padding:14px 32px;
+          style="background:#28B090;color:#000;padding:14px 32px;
           border-radius:8px;text-decoration:none;font-weight:bold;
           font-size:16px;display:inline-block;">
           Aseta salasana →
         </a>
       </div>
+      <p style="margin:12px 0 0;font-size:13px;color:#555;line-height:1.5;">
+        Jos linkki ehti vanhentua, ei hätää — käytä Vanhemman sivun "Unohtuiko salasana?" -toimintoa.
+      </p>
     </div>
     <p style="font-size:14px;color:#555;font-weight:bold;margin:24px 0 8px;">
       ② Kun salasana on asetettu, pääset sivuille:
@@ -231,29 +234,36 @@ function pohjaPelaajaSivu({
     <div style="text-align:center;margin:24px 0;display:flex;
                 flex-direction:column;gap:12px;align-items:center;">
       <a href="${vanhempiLinkki}"
-        style="background:#3EC9A7;color:#000;padding:16px 36px;
+        style="background:#28B090;color:#000;padding:16px 36px;
         border-radius:8px;text-decoration:none;font-weight:bold;
         font-size:16px;display:inline-block;width:280px;">
         👨‍👩‍👦 Vanhemman sivu →
       </a>
       <a href="${pelaajaLinkki}"
-        style="background:#1A2235;color:#3EC9A7;padding:14px 36px;
-        border:1px solid #3EC9A7;border-radius:8px;text-decoration:none;
+        style="background:#1A2235;color:#28B090;padding:14px 36px;
+        border:1px solid #28B090;border-radius:8px;text-decoration:none;
         font-weight:bold;font-size:15px;display:inline-block;width:280px;">
         ⚽ Pelaajan oma sivu →
       </a>
-    </div>` + pohjaFooter(seuraNimi);
+    </div>
+    <p style="font-size:13px;color:#555;line-height:1.5;margin:4px 0 16px;text-align:center;">
+      ⚽ Pelaaja kirjautuu omalla PIN-koodillaan. PIN näkyy Vanhemman sivulla kirjautumisen jälkeen.
+    </p>
+    <p style="font-size:13px;color:#555;line-height:1.6;margin:20px 0 0;">
+      💡 Lisää sivut puhelimen kotinäytölle (selaimen valikosta "Lisää aloitusnäytölle"), niin ne ovat aina tallessa.
+      Osoitteen voi aina palauttaa mieleen: <strong>talentmasterid.com</strong>
+    </p>` + pohjaFooter(seuraNimi);
 }
 function pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }) {
   return `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-      <h2 style="color:#3EC9A7;">Tervetuloa TalentMasteriin!</h2>
+      <h2 style="color:#28B090;">Tervetuloa TalentMasteriin!</h2>
       <p>Hei ${etunimi || ''},</p>
       <p>Sinut on lisätty järjestelmään roolilla <strong>${rooli}</strong>.</p>
       <p>Aseta oma salasanasi klikkaamalla alla olevaa linkkiä:</p>
       <div style="text-align:center;margin:24px 0;">
         <a href="${resetLinkki}"
-          style="background:#3EC9A7;color:#000;padding:12px 28px;
+          style="background:#28B090;color:#000;padding:12px 28px;
           border-radius:8px;text-decoration:none;font-weight:bold;">
           Aseta salasana →
         </a>
