@@ -1046,6 +1046,11 @@ pituuspotku_bonus käänteinen (P75/P50). Lähteet: **valtakunnalliset** loppuki
 **EI interpolointia** puuttuville ikäluokille (`tkLajiViite` → null kun ika<8 / >13; radat ikäluokkakohtaisia). Vuosipäivitys:
 `docs/data/parse_taitokisa.py` (valtak.) + **`parse_taitokisa_csv.py`** (alue, lisää uusi CSV) → regeneroi `docs/tk_lajiviitteet.js` → synkkaa inline-kopiot. **Koko historia 2013–22 EI viitteisiin** (taso noussut).
 
+**`TK_LAJITASOT` (1–5 populaatioviite — neljäs vertailutaso, testit_indeksit.js + VP_v25):** kohortin P20/P40/P60/P80-rajat
+KOKO kilpailupoolista (ei top-20). `tkLajiTaso(laji, arvo, ika, sp)` → 1–5 **STRICT <** (maksimiajat 40/60 s → taso 1;
+välitasot voivat degeneroitua nuorimmissa). Valmentaja/VP-viite + tuleva D2/OVR-input — **pelaajalle EI tasolukua (§7.22)**;
+H-H pujottelu/syöttö FINAL2024-normilla, TK-tulos TK_LAJITASOT:illa — **ei ristiin (§30)**. Otos = kilpailukohortti, ei väestönormi.
+
 **Kanoniset funktiot (testit_indeksit.js, §23):** `tkLajiViite(laji,ika,sp)` →{erinomainen,hyva,n,lahde}|null · `tkLajiGapit(tkLajit,ika,sp)`
 (järjestetty gap laskevasti) · `tkSekuntibudjetti(kokonaistulos,ika,sp)` →seuraava saavuttamaton mitali (`<` ei `<=`; <kulta→null) ·
 `tkVaadittuVuosivauhti(ika,sp,taso)` (= `[ika]−[ika+1]`; **9→10 null** rata muuttuu; ika+1>13 null) · `tkAbsDelta(...)` →{abs_s, validi, bonus_osuus_s}.

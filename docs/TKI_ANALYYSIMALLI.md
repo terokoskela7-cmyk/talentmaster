@@ -253,3 +253,15 @@ tkAbsDelta(nyt, edellinen, ikaNyt, ikaEd)   // → {abs_s, validi:bool, bonus_os
    KAKSI riippumatonta alueellista PDF:ää (Pohjoinen 2024 + Eteläinen 2025) näyttävät
    135.** Suositus: päivitä koodiin 135 (docs/testit_indeksit.js + inline-kopiot) —
    varmista halutessasi SPL:n sääntödokumentista. Muut rajat (P8–P13, T8–T12) täsmäävät.
+10. ✅ TOTEUTETTU 2026-06-11: **NELJÄS VERTAILUTASO — `TK_LAJITASOT` (1–5 populaatioviite).**
+    Erona eliittiviitteeseen (top-20 → erinomainen/hyvä) tasot lasketaan **KOKO kilpailupoolista**
+    (rajat = kohortin P20/P40/P60/P80; `tkLajiTaso` STRICT <). Käyttö: valmentaja/VP-populaatioviite +
+    tuleva D2/OVR-input. **Pelaajalle EI tasolukua (§7.22).**
+    - **Otosvaraus:** otos = kilpailuihin OSALLISTUNEET (kilpailukohortti) ≠ väestönormi → taso kuvaa
+      sijoittumista kisaajien joukossa, ei koko ikäluokassa. Dokumentoitava UI:ssa.
+    - **Cap-saturaatio:** keskeyttäneet/maksimiajat (40 s ponnauttelu, 60 s syöttö) → taso 1. Nuorimmissa
+      (esim. P10–P12 ponnauttelu) iso osa kohortista maksimiajassa → **välitasot 2–3 degeneroituvat**
+      (rajat romahtavat maksimiin); tarkoituksellista — taso erottelee vain kärjen.
+    - **Empiirinen FINAL2024-ankkurointi** (todennettu pujottelu+syöttö P10–P13 / T10–T13, desimaalin tarkkuudella):
+      H-H **taso 3 = kohortin top 0–6 % ≈ TK-mitalitaso**; H-H **taso 2 = top 15–33 % ≈ TK taso 5 -raja**.
+      H-H pujottelu/syöttö arvioidaan silti FINAL2024-normilla, TK-tulos `TK_LAJITASOT`:illa — **EI ristiin (§30).**
