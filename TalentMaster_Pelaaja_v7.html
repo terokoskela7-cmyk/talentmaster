@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781200001059';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781200439524';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- PWA (vaihe 1) — asennettavuus -->
 <link rel="manifest" href="/talentmaster/manifest_pelaaja.json">
 <meta name="theme-color" content="#1A7A5E">
@@ -1513,10 +1513,18 @@ function rMinaTekniikkaprofiili() {
   const vals = lajit.map(id => ({ id: id, val: parseFloat(arvo(id)) })).filter(x => !isNaN(x.val));
   if (vals.length) {
     const max = Math.max.apply(null, vals.map(x => x.val));
+    // Palkin täyttö = HYVYYS (ei aika): täysi = eliittiviitteen erinomainen-taso, min 10 % (ettei katoa).
+    // Pienempi aika → pidempi palkki. tkLajiViite window.TM_TESTIT:stä; ilman viitettä KÄÄNNETTY suhteutus (max−arvo).
+    const T = window.TM_TESTIT;
+    const sp = (String(_pelaaja && _pelaaja.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
+    const ika = (_pelaaja && _pelaaja.syntymaVuosi) ? (new Date().getFullYear() - _pelaaja.syntymaVuosi) : null;
     h += '<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">';
     const tkiV = _pelaaja && _pelaaja.tki_vahvuus, tkiK = _pelaaja && _pelaaja.tki_kehityskohde;
     vals.forEach(x => {
-      const pct = Math.round((x.val / max) * 100);
+      const viite = (T && T.tkLajiViite && ika != null) ? T.tkLajiViite(x.id, ika, sp) : null;
+      const pct = (viite && viite.erinomainen && x.val > 0)
+        ? Math.round(Math.max(10, Math.min(100, 100 * viite.erinomainen / x.val)))
+        : Math.round(Math.max(10, Math.min(100, ((max - x.val) / max) * 100)));
       const onV = (x.id === tkiV) || (d.vahvuudet || []).some(z => z.laji === x.id);
       const onK = (x.id === tkiK) || (d.kehityskohteet || []).some(z => z.laji === x.id);
       const vari = onV ? '#28B090' : onK ? '#E0A040' : '#8C8B86';
