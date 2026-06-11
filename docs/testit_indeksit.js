@@ -353,6 +353,28 @@ const TK_LAJIVIITTEET = {
   },
 };
 
+// TK_LAJITASOT — populaatiotasot 1–5 KOKO kilpailupoolista (ei top-20). Rajat = kohortin P20/P40/P60/P80.
+// taso 5 = paras 20 % · taso 3 = kohortin keskitaso · taso 1 = hitain 20 %. STRICT < (maksimiajat 40/60 s → taso 1).
+// Otos = kilpailukohortti (EI väestönormi). Valmentaja/VP + D2/OVR-input — pelaajalle EI tasolukua (§7.22). Lähde tk_lajiviitteet.js.
+const TK_LAJITASOT = {
+  P: {
+    8:  { syotto:[29.6,32.6,36.6,43.6], pujottelu:[33.5,35.9,39,43.1], ponnauttelu:[7.9,10,13.2,21.8], kuljetus_laukaus:[22.1,26,29,33], _n:433 },
+    9:  { syotto:[25.9,29,32.1,38], pujottelu:[30.5,32.5,35.4,38.6], ponnauttelu:[11.1,16,24.9,40], kuljetus_laukaus:[22,25,27.4,30.9], _n:459 },
+    10: { syotto:[44.1,48,53.7,60], pujottelu:[29.2,31,33,35.2], ponnauttelu:[28.7,40,40,40], kuljetus_laukaus:[20,23.1,25.9,29], _n:490 },
+    11: { syotto:[42.2,45.9,49.6,56.3], pujottelu:[28,29.7,31.3,33.7], ponnauttelu:[37.4,40,40,40], kuljetus_laukaus:[18.2,21,23.5,27.6], _n:410 },
+    12: { syotto:[39.3,42,46.3,50.6], pujottelu:[26.9,28.2,29.9,31.8], ponnauttelu:[29,40,40,40], kuljetus_laukaus:[15.9,18.8,21.1,24.6], _n:309 },
+    13: { syotto:[38.8,41,44,50.1], pujottelu:[26.7,28,29.2,32.2], ponnauttelu:[25.9,35,40,40], kuljetus_laukaus:[15,18.1,21,25], _n:176 },
+  },
+  T: {
+    8:  { syotto:[33.8,37.7,41.9,46.4], pujottelu:[37,40.5,42.2,48.8], ponnauttelu:[9.6,13.2,22,35.6], kuljetus_laukaus:[26.1,28.3,31.4,34.3], _n:139 },
+    9:  { syotto:[29.8,32.9,36.3,42.5], pujottelu:[33.6,36,38.8,42.7], ponnauttelu:[17.7,26,40,40], kuljetus_laukaus:[25.4,27.7,30.1,33.1], _n:204 },
+    10: { syotto:[48.7,53,56.5,60], pujottelu:[31.3,33.5,35.5,37.5], ponnauttelu:[11.3,16.3,26.2,40], kuljetus_laukaus:[23.5,25.6,27.7,30.2], _n:203 },
+    11: { syotto:[45.1,48.3,52,58.7], pujottelu:[29.2,31.1,32.9,35.8], ponnauttelu:[29,40,40,40], kuljetus_laukaus:[19.9,22.7,25.4,28.4], _n:274 },
+    12: { syotto:[41.2,44.5,49.7,54.4], pujottelu:[27.8,29.5,31.1,33.4], ponnauttelu:[34.5,40,40,40], kuljetus_laukaus:[17.5,19.5,21.9,25.4], _n:236 },
+    13: { syotto:[39.2,42.7,46.3,52.2], pujottelu:[27.5,28.5,29.9,32.8], ponnauttelu:[31.9,40,40,40], kuljetus_laukaus:[15.2,18.5,21.3,24.4], _n:144 },
+  },
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LASKENTAFUNKTIOT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -598,6 +620,19 @@ function tkLajiViite(laji, ika, sp) {
   const v = ikaV[laji];
   if (!v) return null;               // esim. pituuspotku_bonus kun ika < 12
   return { erinomainen: v.erinomainen, hyva: v.hyva, n: ikaV._n, lahde: ikaV._lahde };
+}
+
+// TK-lajitaso 1–5 kilpailukohorttia vasten (TK_LAJITASOT, rajat P20/P40/P60/P80). STRICT < — tasan rajalla alempi (§23).
+// Degeneroituneet rajat (esim. P11 ponnauttelu [37.4,40,40,40]) romahduttavat välitasot (40.0→taso 1). null jos ika<8/>13.
+function tkLajiTaso(laji, arvo, ika, sp) {
+  var lk = TK_LAJITASOT[sp] && TK_LAJITASOT[sp][ika];
+  var r = lk && lk[laji];
+  if (!r || arvo == null) return null;
+  if (arvo < r[0]) return 5;
+  if (arvo < r[1]) return 4;
+  if (arvo < r[2]) return 3;
+  if (arvo < r[3]) return 2;
+  return 1;
 }
 
 // Per-laji gapit vs viitetaso, järjestettynä gap_s laskevasti (suurin potentiaali ensin).
@@ -1275,13 +1310,13 @@ if (typeof module !== 'undefined' && module.exports) {
     // H-H normitaulukot
     HH_NORMIT, HH_KAANTEINEN, HH_TESTIT_META,
     // Tekniikkakilpailut
-    TK_KOKONAISRAJAT, TK_LAJIT_META, TK_LAJIVIITTEET,
+    TK_KOKONAISRAJAT, TK_LAJIT_META, TK_LAJIVIITTEET, TK_LAJITASOT,
     // H-H laskenta
     hhLaskeTaso, hhLaskeMetrikat, hhLaskeOVR,
     // TKI laskenta
     tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
     // TKI-analyysimalli VAIHE 1 (per-laji viite, gap, budjetti, vauhti, abs-delta)
-    tkLajiViite, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta,
+    tkLajiViite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta,
     // Joukkueen avainluvut
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     // Räjähtävyysprofiili
@@ -1293,10 +1328,10 @@ if (typeof module !== 'undefined' && module.exports) {
 } else {
   window.TM_TESTIT = {
     HH_NORMIT, HH_KAANTEINEN, HH_TESTIT_META,
-    TK_KOKONAISRAJAT, TK_LAJIT_META, TK_LAJIVIITTEET,
+    TK_KOKONAISRAJAT, TK_LAJIT_META, TK_LAJIVIITTEET, TK_LAJITASOT,
     hhLaskeTaso, hhLaskeMetrikat, hhLaskeOVR,
     tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
-    tkLajiViite, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta,
+    tkLajiViite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta,
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     laskeEI, laskeFVP, laskeVNE,
     ADAR_DIMENSIOT, ADAR_SKENAARIOT, ADAR_IKATASOT,

@@ -11,11 +11,13 @@ const require = createRequire(import.meta.url);
 
 const {
   tkLajiViite,
+  tkLajiTaso,
   tkLajiGapit,
   tkSekuntibudjetti,
   tkVaadittuVuosivauhti,
   tkAbsDelta,
   TK_LAJIVIITTEET,
+  TK_LAJITASOT,
   TK_KOKONAISRAJAT,
 } = require('../docs/testit_indeksit.js');
 
@@ -171,5 +173,36 @@ describe('tkAbsDelta', () => {
   });
   it('puuttuva kokonaistulos → abs_s null', () => {
     expect(tkAbsDelta(null, 90, 12, 12).abs_s).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// tkLajiTaso — populaatiotaso 1–5 (TK_LAJITASOT, STRICT <, §23). P11 pujottelu=[28.0,29.7,31.3,33.7].
+// ═══════════════════════════════════════════════════════════════════
+describe('tkLajiTaso', () => {
+  it('paras 20 % → taso 5 (alle P20-rajan)', () => {
+    expect(tkLajiTaso('pujottelu', 26.4, 11, 'P')).toBe(5);   // 26.4 < 28.0
+  });
+  it('STRICT <: tasan rajalla (28.0) → taso 4, EI 5', () => {
+    expect(tkLajiTaso('pujottelu', 28.0, 11, 'P')).toBe(4);
+  });
+  it('vyöhykkeet 4/3/2/1', () => {
+    expect(tkLajiTaso('pujottelu', 29.0, 11, 'P')).toBe(4);   // <29.7
+    expect(tkLajiTaso('pujottelu', 30.0, 11, 'P')).toBe(3);   // <31.3
+    expect(tkLajiTaso('pujottelu', 32.0, 11, 'P')).toBe(2);   // <33.7
+    expect(tkLajiTaso('pujottelu', 35.0, 11, 'P')).toBe(1);   // >= 33.7
+  });
+  it('cap-saturaatio: ponnauttelu 40.0 (maksimiaika) → taso 1', () => {
+    expect(tkLajiTaso('ponnauttelu', 40.0, 11, 'P')).toBe(1);
+  });
+  it('P11 ponnauttelu -degeneraatio [37.4,40,40,40]: 39 → taso 4 (välitasot 3/2 tyhjiä)', () => {
+    expect(tkLajiTaso('ponnauttelu', 39.0, 11, 'P')).toBe(4); // <40 (r[1]); r[2]=r[3]=40 ei laukea
+    expect(tkLajiTaso('ponnauttelu', 30.0, 11, 'P')).toBe(5); // <37.4
+  });
+  it('tuntematon ikäluokka (ika<8 / >13) / laji → null', () => {
+    expect(tkLajiTaso('syotto', 30, 7, 'P')).toBeNull();
+    expect(tkLajiTaso('pujottelu', 26, 14, 'P')).toBeNull();
+    expect(tkLajiTaso('xxx', 26, 11, 'P')).toBeNull();
+    expect(tkLajiTaso('pujottelu', null, 11, 'P')).toBeNull();
   });
 });
