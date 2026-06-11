@@ -17,6 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_eerikkila_normit.js?v=5"></script>
 <style>
+[onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root {
   --bg:    #111110;
   --bg2:   #161614;
@@ -3343,7 +3344,17 @@ function tkVaadittuVuosivauhti(ika, sp, taso) {
 
 // Ikä/sp johdetaan joukkuenimestä ("Sibbo-Vargarna P13" → 13/'P"). sp 'P'/'T' (TK-avaimet).
 // Selitesanasto-tooltip (TM_SELITTEET lib:stä, VAIHE 3 osatehtävä C). Palauttaa title-attribuutin tai tyhjän.
-function _vpSelTip(k) { return (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET[k]) ? (' title="' + TM_SELITTEET[k] + '"') : ''; }
+// Selite-attribuutit: hover-title + klikkaus → toast (kosketusystävällinen). Avain k on yksinkertainen
+// merkkijono → upotetaan onclickiin; selitetekstiä EI upoteta attribuuttiin (§7.1). Cursor: globaali CSS-sääntö.
+function _vpSelTip(k) {
+  if (typeof TM_SELITTEET === 'undefined' || !TM_SELITTEET[k]) return '';
+  return ' title="' + TM_SELITTEET[k] + '" onclick="_vpSelInfo(\'' + k + '\')"';
+}
+// §7.17 IIFE-scope → onclick vaatii globaalin. Pitkä kesto (~6 s) jotta selite ehtii lukea.
+window._vpSelInfo = function(k) {
+  var t = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET[k]) ? TM_SELITTEET[k] : '';
+  if (t && typeof toast === 'function') toast(t, 'ok', 6000);
+};
 function _jsvJoukkueIkaSp(joukkueNimi) {
   const s = String(joukkueNimi || '');
   const mSp = s.match(/\b([PT])\s?\d/i);
@@ -3833,7 +3844,7 @@ const _JSV_TYYLIT = '<style>'
   + '.jsv-an-bar{flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;min-width:24px}'
   + '.jsv-an-fill{display:block;height:100%}'
   + '.jsv-an-gap{width:48px;text-align:right;font-family:var(--font-m);font-weight:600;flex-shrink:0}'
-  + '.jsv-taso-badge{flex-shrink:0;min-width:22px;text-align:center;font-family:var(--font-m);font-size:10px;font-weight:700;color:var(--bg);border-radius:4px;padding:1px 4px;cursor:help}'
+  + '.jsv-taso-badge{flex-shrink:0;min-width:22px;text-align:center;font-family:var(--font-m);font-size:10px;font-weight:700;color:var(--bg);border-radius:4px;padding:1px 4px;cursor:pointer}'
   + '.jsv-taso-seg{flex-shrink:0;min-width:24px;text-align:center;font-family:var(--font-m);font-size:10px;font-weight:700;color:var(--bg);border-radius:3px;padding:1px 0;margin-left:3px}'
   + '.jsv-an-ctx{color:var(--ink3)}'
   + '.jsv-an-huom{font-size:11px;color:var(--ink3);font-style:italic;margin-top:4px}'
@@ -5844,12 +5855,12 @@ function kirjauduUlos() {
 
 // ─── TOAST ───────────────────────────────────────────────
 let _toastTimer;
-function toast(msg, type='ok') {
+function toast(msg, type='ok', dur=3000) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.className = `show ${type}`;
   clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+  _toastTimer = setTimeout(() => { el.className = ''; }, dur);
 }
 
 
@@ -6921,7 +6932,7 @@ document.getElementById('lPass').addEventListener('keydown', e => { if(e.key==='
 // VERSIO + CDN-STALENESS-VAROITUS (sama kuvio kuin Excel_Tuonti)
 // Bumppaa VP_VERSIO joka kerta kun HH-normit tai muu laskenta muuttuu.
 // ════════════════════════════════════════
-const VP_VERSIO = 'vaihe2-delta-2026-06-06'; // HH_NORMIT_PIKA → Palloliitto FINAL2024 (pojat + tytöt)
+const VP_VERSIO = 'selite-klikkaus-2026-06-11'; // klikattavat TM_SELITTEET-selitteet (toast) + tasojakaumat/D2 (vaihe2-delta pohja)
 const VP_RAW_URL = 'https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_VP_v25.html';
 function _vpNaytaCdnVaroitus(tuoreVersio) {
   if (document.getElementById('cdn-varoitus')) return;
