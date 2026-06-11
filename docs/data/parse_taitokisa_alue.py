@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SUPERSEDED: aluelähde on parse_taitokisa_csv.py (2026-06-11). Säilytetty PDF-parsintaesimerkkinä.
 """Alueellisen taitokilpailu-PDF:n parseri (FC Lahti / Eteläinen alue -formaatti).
 Erot valtakunnalliseen: ei Piiri-saraketta, sija voi olla '-', osalta riveistä
 puuttuu KL aika+vähennys (vain netto), merkki voi puuttua. Summavalidointi

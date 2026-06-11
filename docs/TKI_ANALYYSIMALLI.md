@@ -237,16 +237,18 @@ tkAbsDelta(nyt, edellinen, ikaNyt, ikaEd)   // → {abs_s, validi:bool, bonus_os
    parseri uudella PDF:llä (`docs/data/parse_taitokisa.py`).
 7. ✅ TOTEUTETTU 2026-06-10: **viitetasot ikäluokille joita ei ole valtakunnallisissa
    rakennettu alueellisten kilpailujen parhaista — TÄYSI KATTAVUUS P8–P13 + T8–T13.**
-   - Lähteet (298 kelvollista riviä, summavalidointi): Eteläinen alue 5.10.2025
-     (FC Lahti) + Pohjoinen alue 13.10.2024 (ONS) + Eteläinen alue 28.9.2025 (TuPS).
-     Poolattu, top-20 kokonaisajalla per ikä/sp → P25/P50.
-   - `docs/tk_lajiviitteet.js` regeneroitu: `_lahde: 'valtakunnallinen'|'alueellinen'`.
-     Alueellisina: **P8 (n=20) · P11 (n=20) · P13 (n=7) · T8 (n=18) · T13 (n=11)**.
-     Valtakunnalliset säilyvät 9/10/12-v + T11:lle (vahvempi kohortti voittaa aina).
-   - Parseri: `docs/data/parse_taitokisa_alue.py` (LAHTEET-lista — uusi alueellinen
-     PDF lisätään listaan ja ajetaan uudelleen). Raakadata:
-     `docs/data/taitokisa_alue_2024_2025.json`.
-   - P13 n=7 ja T13 n=11 → UI näyttää "(suuntaa-antava, n=X)" kun n<10–12.
+   - **PÄIVITETTY 2026-06-11:** alueviite = **Palloliiton tuloskooste 2023–2025** (CSV).
+     ~60 kilpailua / 4 aluetta, **3 477 uniikkia pelaajaa** dedup-validoinnin jälkeen;
+     summavalidointi + järkevyyssuodatus; **top-20 kokonaisajalla** per ikä/sp → erinomainen=P25 · hyva=P50.
+   - Generaattori: **`docs/data/parse_taitokisa_csv.py`** (korvaa aluelähteenä parse_taitokisa_alue.py:n;
+     vuosipäivitys = lisää uusi CSV + aja). Raakadata: `taitokisa_alue_2023.csv`/`_2024.csv`/`_2025.csv`
+     + aggregaatti `taitokisa_alue_2023_2025.json`.
+   - Alueellisina (kaikki **_n=20**, pooli 139–490/luokka): **P8 · P11 · P13 · T8 · T13.**
+     Valtakunnalliset säilyvät 9/10/12-v + T11:lle. Pooli ei enää suuntaa-antava → label "(suuntaa-antava)" pudotettu.
+   - Muutokset edelliseen: P8/T8 kiristyivät selvästi (laajempi pooli), P11 ponnauttelu/KL kiristyivät,
+     P13 vahvistui (n 7→20), T13 KL 11.0→14.1 (vanha tuli 11 pelaajan otoksesta).
+9. PÄÄTÖS 2026-06-11: **koko historia 2013–2022 EI viitteisiin** — taso on noussut, vanha data
+   löysentäisi tavoitteita. 2013– data varattu **trendi-/seura-analyysiin** (tuleva).
 8. ⚠️ KOODIKORJAUS SUOSITELTU: **TK_KOKONAISRAJAT T13 pronssi = 130 koodissa, mutta
    KAKSI riippumatonta alueellista PDF:ää (Pohjoinen 2024 + Eteläinen 2025) näyttävät
    135.** Suositus: päivitä koodiin 135 (docs/testit_indeksit.js + inline-kopiot) —

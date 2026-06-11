@@ -30,15 +30,15 @@ describe('tkLajiViite', () => {
     expect(tkLajiViite('syotto', 12, 'T')).toEqual({ erinomainen: 36.5, hyva: 37.0, n: 7, lahde: 'valtakunnallinen' });
   });
   it('P11 → ALUEELLINEN viite (resync: ei enää null)', () => {
-    expect(tkLajiViite('pujottelu', 11, 'P')).toEqual({ erinomainen: 26.4, hyva: 26.8, n: 20, lahde: 'alueellinen' });
+    expect(tkLajiViite('pujottelu', 11, 'P')).toEqual({ erinomainen: 25.7, hyva: 26.4, n: 20, lahde: 'alueellinen' });
   });
   it('P13 → ALUEELLINEN viite (resync: ei enää null)', () => {
-    expect(tkLajiViite('pujottelu', 13, 'P')).toEqual({ erinomainen: 24.0, hyva: 25.3, n: 7, lahde: 'alueellinen' });
+    expect(tkLajiViite('pujottelu', 13, 'P')).toEqual({ erinomainen: 24.8, hyva: 25.3, n: 20, lahde: 'alueellinen' });
   });
   it('P8 + T8 + T13 → alueellinen viite löytyy', () => {
     expect(tkLajiViite('syotto', 8, 'P').lahde).toBe('alueellinen');
     expect(tkLajiViite('syotto', 8, 'T').lahde).toBe('alueellinen');
-    expect(tkLajiViite('pujottelu', 13, 'T')).toEqual({ erinomainen: 24.6, hyva: 25.4, n: 11, lahde: 'alueellinen' });
+    expect(tkLajiViite('pujottelu', 13, 'T')).toEqual({ erinomainen: 24.6, hyva: 25.6, n: 20, lahde: 'alueellinen' });
   });
   it('ika 14 → null (rajojen 8–13 ulkopuolella, EI interpolointia)', () => {
     expect(tkLajiViite('pujottelu', 14, 'P')).toBeNull();

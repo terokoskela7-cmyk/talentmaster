@@ -1041,10 +1041,10 @@ frontend 6 000-rivisiä monoliitteja, funktio-törmäyksiä. Tähänastiset bugi
 
 **`TK_LAJIVIITTEET` (testit_indeksit.js + inline-kopiot Excel/VP):** kattavuus **P8–P13, T8–T13**. erinomainen=P25 · hyva=P50 ·
 pituuspotku_bonus käänteinen (P75/P50). Lähteet: **valtakunnalliset** loppukilpailut 2023–25 (P9/P10/P12 + T9/T10/T11/T12) ·
-**alueelliset** Eteläinen 2025 ×2 (FC Lahti + TuPS) + Pohjoinen 2024 (ONS) top-20 kokonaisajalla (P8/P11/P13/T8/T13).
-**UI-label AINA `_lahde`-kentästä:** valtakunnallinen→"Loppukilpailutaso 2023–25" · alueellinen→"Alueellinen huipputaso 2024–25 (suuntaa-antava)" · `_n<10`→"(n=X)".
+**alueelliset** = Palloliiton tuloskooste 2023–25 (~60 kilpailua / 4 aluetta, 3 477 pelaajaa dedup, top-20 kokonaisajalla) (P8/P11/P13/T8/T13, kaikki _n=20).
+**UI-label AINA `_lahde`-kentästä:** valtakunnallinen→"Loppukilpailutaso 2023–25" · alueellinen→"Alueellinen huipputaso 2023–25" · `_n<10`→"(n=X)" (ei enää laukea).
 **EI interpolointia** puuttuville ikäluokille (`tkLajiViite` → null kun ika<8 / >13; radat ikäluokkakohtaisia). Vuosipäivitys:
-`docs/data/parse_taitokisa.py` (valtak.) + `parse_taitokisa_alue.py` (alue, LAHTEET-lista) → regeneroi `docs/tk_lajiviitteet.js` → merge.
+`docs/data/parse_taitokisa.py` (valtak.) + **`parse_taitokisa_csv.py`** (alue, lisää uusi CSV) → regeneroi `docs/tk_lajiviitteet.js` → synkkaa inline-kopiot. **Koko historia 2013–22 EI viitteisiin** (taso noussut).
 
 **Kanoniset funktiot (testit_indeksit.js, §23):** `tkLajiViite(laji,ika,sp)` →{erinomainen,hyva,n,lahde}|null · `tkLajiGapit(tkLajit,ika,sp)`
 (järjestetty gap laskevasti) · `tkSekuntibudjetti(kokonaistulos,ika,sp)` →seuraava saavuttamaton mitali (`<` ei `<=`; <kulta→null) ·
