@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Perhe v1</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781200439524';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781201742927';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- PWA (vaihe 1) — asennettavuus -->
 <link rel="manifest" href="/talentmaster/manifest_vanhempi.json">
 <meta name="theme-color" content="#1A7A5E">
@@ -91,6 +91,7 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
+<script src="docs/testit_indeksit.js?v=8"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -884,6 +885,102 @@ function rValmentaja(){
 }
 
 /* ══ KAUSIKORTTI ══ */
+/* ══ TEKNIIKKAPROFIILI + "MITEN TUKEA" (perheviestinnän §7.22) ══
+   Sama positiivinen kehys kuin Pelaaja_v7:llä (commit 0ec7cab / lajipalkkikorjaus d17c528),
+   + vanhemmalle suunnattu tukikerros. EI tasolukuja, EI vertailua, EI TKI-laskua/punaisia deltoja.
+   Data pelaajadokumentin pikakentistä (window._lapsi, §26). tkLajiViite/tkSekuntibudjetti window.TM_TESTIT:stä. */
+const _VANH_LAJINIMI = { ponnauttelu:'Ponnauttelu', syotto:'Syöttö', pujottelu:'Pujottelu', kuljetus_laukaus:'Kuljetus-laukaus', pituuspotku_bonus:'Pituuspotku' };
+const TUKIVINKIT = {
+  syotto: 'Syöttötarkkuus kehittyy leikinomaisella toistolla — 10 min pihapeliä seinää tai sinua vasten riittää. Kehu yrittämistä, älä aikaa.',
+  pujottelu: 'Pujottelu vaatii pallotuntumaa — kartioiksi käyvät kengät tai pullot. Tee siitä leikki, älä suoritus.',
+  ponnauttelu: 'Ponnauttelu on kärsivällisyyslaji — ennätykset tulevat aaltoina. Juhlikaa pieniä onnistumisia yhdessä.',
+  kuljetus_laukaus: 'Kuljetus ja laukaus kehittyvät vapaassa pelissä parhaiten — pihapelit ja vapaa pallottelu ovat arvokkainta harjoitusta.',
+  pituuspotku: 'Potkuvoima kasvaa kehon mukana — tekniikka ratkaisee. Pitkät syötöt pihalla ovat hyvä yhteisharjoitus.'
+};
+// Saavutettava välitavoite (sama logiikka kuin Pelaaja_v7 _minaValitavoite).
+function _vanhValitavoite(arvo, viite, kaant) {
+  const gap = kaant ? (viite.hyva - arvo) : (arvo - viite.hyva);
+  let t = (gap <= 3) ? viite.hyva : (kaant ? (arvo + 3) : (arvo - 3));
+  return Math.round(t * 2) / 2;
+}
+function rVanhempiTekniikka(){
+  const L = window._lapsi || {};
+  const nimi = (IKA[_age] && IKA[_age].nimi) || L.etunimi || 'lapsesi';
+  const lajit = L.tk_lajit_viimeisin;
+  const box = (inner) => `<div class="card2" style="padding:16px;margin-bottom:12px">
+    <div class="ey ac" style="margin-bottom:10px">Tekniikkaprofiili</div>${inner}</div>`;
+  // Tyhjätila (positiivinen, §7.22) — ei TK-dataa
+  if (!lajit || L.tki_viimeisin == null) {
+    return box(`<div style="font-size:12px;color:var(--ink2);line-height:1.6">⚽ Tekniikkakisa tulossa — täältä näet sitten ${_genetiivi(nimi)} vahvuudet ja miten voit tukea harjoittelua.</div>`);
+  }
+  const T = window.TM_TESTIT;
+  const sp = (String(L.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
+  const ika = L.syntymaVuosi ? (new Date().getFullYear() - L.syntymaVuosi) : null;
+  const viiteOf = (laji) => (T && T.tkLajiViite && ika != null) ? T.tkLajiViite(laji, ika, sp) : null;
+  const arvoOf = (id) => { const x = lajit[id + '_s']; return (x == null || isNaN(x)) ? null : Number(x); };
+  const merkkiVari = { kulta:'#D4AF37', hopea:'#9AA0A6', pronssi:'#B87333' };
+  let inner = '';
+  // 1. TKI + merkki + mitattu pvm
+  inner += `<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+    <div style="font-family:var(--font-d);font-weight:300;font-size:40px;color:#28B090;line-height:1">${L.tki_viimeisin != null ? L.tki_viimeisin : '—'}</div>
+    <div style="font-size:11px;color:var(--ink3)">TKI</div>
+    ${L.tki_merkki ? `<div style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:${(merkkiVari[L.tki_merkki]||'#8C8B86')}22;color:${merkkiVari[L.tki_merkki]||'#8C8B86'};text-transform:capitalize">${L.tki_merkki}</div>` : ''}</div>`;
+  if (L.tk_lajit_pvm) inner += `<div style="font-size:10px;color:var(--ink3);margin-bottom:6px">Mitattu ${L.tk_lajit_pvm}</div>`;
+  // 2. Vahvuus ensin (prosessikehu)
+  if (L.tki_vahvuus && _VANH_LAJINIMI[L.tki_vahvuus]) {
+    inner += `<div style="font-size:13px;color:var(--text);margin-top:10px">⭐ <b>Vahvuus:</b> ${_VANH_LAJINIMI[L.tki_vahvuus]}
+      <div style="font-size:12px;color:var(--ink2);margin-top:2px">Tämä on ${_genetiivi(nimi)} vahvin laji!</div></div>`;
+  }
+  // 3. Seuraava askel — yksi kehityskohde + saavutettava välitavoite
+  if (L.tki_kehityskohde && _VANH_LAJINIMI[L.tki_kehityskohde]) {
+    const kk = L.tki_kehityskohde, arvo = arvoOf(kk), kv = viiteOf(kk);
+    inner += `<div style="font-size:13px;color:var(--text);margin-top:10px">🎯 <b>Seuraava askel:</b> ${_VANH_LAJINIMI[kk]}`;
+    if (arvo != null && kv) {
+      const kaant = (kk === 'pituuspotku_bonus');
+      inner += `<div style="font-size:12px;color:var(--ink2);margin-top:2px">Nyt: ${Math.round(arvo*10)/10} s → Tavoite: ${_vanhValitavoite(arvo, kv, kaant)} s</div>
+        <div style="font-size:12px;color:var(--ink2)">Pieni parannus joka treenissä riittää.</div>`;
+    }
+    inner += `</div>`;
+  }
+  // 4. Mitalimatka — vain ≤15 s, positiivisesti
+  if (T && T.tkSekuntibudjetti && L.tk_kokonaistulos_viimeisin != null && ika != null) {
+    const budj = T.tkSekuntibudjetti(L.tk_kokonaistulos_viimeisin, ika, sp);
+    const MM = { kulta:'kultaan', hopea:'hopeaan', pronssi:'pronssiin' };
+    if (budj && budj.gap_s > 0 && budj.gap_s <= 15) {
+      inner += `<div style="font-size:12px;color:var(--text);margin-top:6px">Matka ${MM[budj.tavoite]||''}: ${budj.gap_s} s 💪</div>`;
+    }
+  }
+  // 5. Lajipalkit — täyttö = HYVYYS (clamp(100×erinomainen/arvo,10,100)); fallback käännetty suhteutus
+  const PALKIT = ['ponnauttelu','syotto','pujottelu','kuljetus_laukaus'];
+  const vals = PALKIT.map(id => ({ id, val: arvoOf(id) })).filter(x => x.val != null);
+  if (vals.length) {
+    const max = Math.max.apply(null, vals.map(x => x.val));
+    inner += `<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">`;
+    vals.forEach(x => {
+      const viite = viiteOf(x.id);
+      const pct = (viite && viite.erinomainen && x.val > 0)
+        ? Math.round(Math.max(10, Math.min(100, 100 * viite.erinomainen / x.val)))
+        : Math.round(Math.max(10, Math.min(100, ((max - x.val) / max) * 100)));
+      const onV = (x.id === L.tki_vahvuus), onK = (x.id === L.tki_kehityskohde);
+      const vari = onV ? '#28B090' : onK ? '#E0A040' : '#8C8B86';
+      const mark = onV ? ' ★' : onK ? ' 🎯' : '';
+      inner += `<div style="display:flex;align-items:center;gap:8px">
+        <div style="width:96px;font-size:11px;color:var(--ink3);text-align:right">${_VANH_LAJINIMI[x.id]||x.id}${mark}</div>
+        <div style="flex:1;background:rgba(242,239,230,.06);border-radius:3px;height:14px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${vari}"></div></div>
+        <div style="width:42px;font-size:10px;color:var(--text);text-align:right">${x.val.toFixed(1)}s</div></div>`;
+    });
+    inner += `</div>`;
+  }
+  // 6. 💛 Miten tukea kotona — näkymän ydin (kehityskohteen mukaan) + pysyvä periaaterivi
+  const tukiKey = (L.tki_kehityskohde || '').replace('_bonus','');
+  const tuki = TUKIVINKIT[tukiKey];
+  inner += `<div style="margin-top:14px;padding:12px;background:rgba(184,134,11,.06);border:.5px solid rgba(184,134,11,.25);border-radius:8px">
+    <div style="font-size:12px;font-weight:600;color:var(--gold);margin-bottom:6px">💛 Miten tukea kotona</div>`;
+  if (tuki) inner += `<div style="font-size:12px;color:var(--ink2);line-height:1.6">${tuki}</div>`;
+  inner += `<div style="font-size:11px;color:var(--ink3);line-height:1.6;margin-top:${tuki?'8px':'0'}">Tärkeintä: kehu yrittämistä ja harjoittelua, ei tulosta. Kiinnostus kantaa pidemmälle kuin paine.</div></div>`;
+  return box(inner);
+}
+
 function rKortti(){
   const d=IKA[_age];
   const L = window._lapsi || {};   // oikeat arvot pelaajadokumentista — ei keksittyjä lukuja
@@ -935,6 +1032,9 @@ function rKortti(){
       <div style="padding:4px 10px;background:rgba(184,134,11,.15);border:.5px solid rgba(184,134,11,.35);border-radius:12px;font-size:9px;font-weight:600;color:var(--gold);letter-spacing:.1em">◆ Hidden Gem</div>
     </div>`:''}
   </div>
+
+  <!-- Tekniikkaprofiili + miten tukea (perheviestinnän §7.22) — kausikortin alle -->
+  ${rVanhempiTekniikka()}
 
   <!-- Sanasto -->
   <div class="card2" style="padding:14px;margin-bottom:12px">

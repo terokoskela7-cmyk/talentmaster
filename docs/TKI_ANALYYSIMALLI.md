@@ -125,7 +125,7 @@ molemmat). Ponnauttelu/kuljetus-laukaus/pituuspotku: ei H-H-vastinetta → vain 
 
 ---
 
-## 5. ROOLINÄKYMÄT — sama data, kolme kieltä
+## 5. ROOLINÄKYMÄT — sama data, neljä kieltä
 
 ### 5.1 VP (VP_v25)
 - **TKI-jakauma vs `TK_KANSALLINEN_BENCHMARK`** — olemassa.
@@ -163,6 +163,21 @@ Kehitysvauhti: abs +6.0s/v ✅ · vaadittu −10s/v (P12→P13: −5s/v) ⚠️
 - Yksi kehityskohde kerrallaan, konkreettinen sekuntitavoite.
 - Abs-delta aina ensin; TKI-laskua ei näytetä punaisena jos abs-delta ≥ 0.
 - Ei sijoituksia, ei muiden tuloksia, ei "putoat pronssilta" -kieltä.
+
+### 5.4 Vanhempi (Vanhempi_v2 Kortti-tab) — neljäs kieli: tukemisen kieli (§7.22-perheviestintä)
+```
+⭐ Vahvuus: Kuljetus-laukaus — tämä on Topiaksen vahvin laji!
+🎯 Seuraava askel: Syöttö (nyt 44.1 s → tavoite 41.0 s)
+   Pieni parannus joka treenissä riittää.
+💛 Miten tukea kotona: Syöttötarkkuus kehittyy leikinomaisella toistolla…
+   Tärkeintä: kehu yrittämistä ja harjoittelua, ei tulosta.
+```
+- **SAMA data ja positiivinen kehys kuin pelaajalla** — ei enempää dataa, vaan enemmän kontekstia.
+- Vahvuus ensin · prosessikehu tuloskehun sijaan (Dweck) · autonomiaa tukevat vinkit (Deci & Ryan SDT).
+- Vanhemmalle EI KOSKAAN: kohorttitasolukuja (T1–T5)/percentiilejä · TKI-laskua/punaisia deltoja ·
+  vertailua muihin · uhka-/kiirekehystä. Painostusmekanismi: lapsi ei ahdistu datasta vaan vanhemman
+  paineesta (vanhempien tulosvertailu = nuorisourheilun dropout-tekijä) → tukikieli, ei tuloskieli.
+- Lajipalkit: täyttö = hyvyys (sama clamp(100×erinomainen/arvo,10,100) kuin Pelaaja_v7).
 
 ---
 

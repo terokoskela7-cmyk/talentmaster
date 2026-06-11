@@ -401,6 +401,12 @@ kehityskohteesta (`_tekTavoiteSaate`). **§7.22-EHDOTON:** ei XP/progressbaria/l
 ei vertailua muihin, **TKI-laskua EI näytetä pelaajalle lainkaan** (vain abs-parannus kun positiivinen, §34 §3.2). Pelaaja lataa
 `docs/testit_indeksit.js` → funktiot `window.TM_TESTIT`:stä, EI inline-kopiota. SW `tm-pelaaja-v3` (§27.4).
 
+**Perheviestintä (Vanhempi_v2 Kortti-tab, 2026-06-11, §34/§5.4):** vanhemmalle SAMA §7.22-kehys kuin pelaajalle +
+"miten tukea" -kerros (`rVanhempiTekniikka`, `TUKIVINKIT`). Ei tasolukuja (T1–T5)/percentiilejä, ei vertailua muihin,
+ei TKI-laskua/punaisia deltoja vanhemmallekaan — **painostusmekanismi**: lapsi ei ahdistu datasta vaan vanhemman
+paineesta. AINA: vahvuus ensin · prosessikehu (Dweck) · autonomiaa tukevat vinkit (Deci & Ryan SDT). Data pikakentistä
+(§26), `tkLajiViite`/`tkSekuntibudjetti` `window.TM_TESTIT`:stä (lib script-tagilla, ei inline). SW `tm-vanhempi-v4`.
+
 **Kirjausrakenne:** `pelaajat/{id}/kirjaukset/{pvm}` — tyyppi 'T'|'D'|'S'|'P' (Tekniikka/Dual/Strength/Peli),
 tehty, xp, kesto_min, rpe 1-10, fiilinki 1-5, aika ilta|aamu|paiva.
 
