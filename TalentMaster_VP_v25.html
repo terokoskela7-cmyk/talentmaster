@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=3"></script>
+<script src="lib/tm_eerikkila_normit.js?v=4"></script>
 <style>
 :root {
   --bg:    #111110;
@@ -3307,6 +3307,8 @@ function tkVaadittuVuosivauhti(ika, sp, taso) {
 }
 
 // Ikä/sp johdetaan joukkuenimestä ("Sibbo-Vargarna P13" → 13/'P"). sp 'P'/'T' (TK-avaimet).
+// Selitesanasto-tooltip (TM_SELITTEET lib:stä, VAIHE 3 osatehtävä C). Palauttaa title-attribuutin tai tyhjän.
+function _vpSelTip(k) { return (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET[k]) ? (' title="' + TM_SELITTEET[k] + '"') : ''; }
 function _jsvJoukkueIkaSp(joukkueNimi) {
   const s = String(joukkueNimi || '');
   const mSp = s.match(/\b([PT])\s?\d/i);
@@ -3788,7 +3790,10 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
     let _tsiFootnote = false;
     t1 = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
       + '<thead><tr style="text-align:left;color:var(--ink3);font-size:10px;text-transform:uppercase;letter-spacing:.06em">'
-      + '<th style="padding:6px 8px">Pelaaja</th><th style="padding:6px 8px">H-H</th><th style="padding:6px 8px">D1</th><th style="padding:6px 8px">Tekninen</th>'
+      + '<th style="padding:6px 8px">Pelaaja</th>'
+      + '<th style="padding:6px 8px"' + _vpSelTip('hh_taso') + '>H-H</th>'
+      + '<th style="padding:6px 8px"' + _vpSelTip('d1') + '>D1</th>'
+      + '<th style="padding:6px 8px"' + _vpSelTip('d2') + '>Tekninen</th>'
       + '<th style="padding:6px 8px">ADAR</th><th style="padding:6px 8px">PHV</th><th style="padding:6px 8px"></th></tr></thead><tbody>';
     pelaajat.forEach((p, idx) => {
       const hh = (p.hh_taso != null) ? p.hh_taso : null;
