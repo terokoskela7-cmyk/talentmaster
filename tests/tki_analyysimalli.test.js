@@ -12,6 +12,7 @@ const require = createRequire(import.meta.url);
 const {
   tkLajiViite,
   tkLajiTaso,
+  laskeD2Tekninen,
   tkLajiGapit,
   tkSekuntibudjetti,
   tkVaadittuVuosivauhti,
@@ -204,5 +205,33 @@ describe('tkLajiTaso', () => {
     expect(tkLajiTaso('pujottelu', 26, 14, 'P')).toBeNull();
     expect(tkLajiTaso('xxx', 26, 11, 'P')).toBeNull();
     expect(tkLajiTaso('pujottelu', null, 11, 'P')).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// laskeD2Tekninen — D2-input keskiarvo TK-lajitasoista (≥2 lajia, 1 desimaali, §8.7)
+// P11: pujottelu=[28.0,29.7,31.3,33.7], syotto=[42.2,45.9,49.6,56.3], ponnauttelu=[37.4,40,40,40].
+// ═══════════════════════════════════════════════════════════════════
+describe('laskeD2Tekninen', () => {
+  it('2 lajia → keskiarvo (1 desimaali)', () => {
+    // pujottelu 26.4 → taso 5 (<28.0); syotto 42.2 → taso 4 (ei <42.2, STRICT) → ka 4.5
+    expect(laskeD2Tekninen({ pujottelu_s: 26.4, syotto_s: 42.2 }, 11, 'P')).toBe(4.5);
+  });
+  it('1 laji → null (yksi laji ei riitä D2-arvioon)', () => {
+    expect(laskeD2Tekninen({ pujottelu_s: 28.0 }, 11, 'P')).toBeNull();
+  });
+  it('null-arvot ohitetaan; ≥2 jäljellä → ka', () => {
+    // pujottelu 26.4→5, syotto null→skip, ponnauttelu 30.0→5 (<37.4) → tasot [5,5] → 5.0
+    expect(laskeD2Tekninen({ pujottelu_s: 26.4, syotto_s: null, ponnauttelu_s: 30.0 }, 11, 'P')).toBe(5.0);
+  });
+  it('pituuspotku_bonus EI tuota tasoa → jää 1 laji → null', () => {
+    expect(laskeD2Tekninen({ pujottelu_s: 26.4, pituuspotku_bonus_s: 5 }, 11, 'P')).toBeNull();
+  });
+  it('ika sarjan ulkopuolella (7) → kaikki tasot null → null', () => {
+    expect(laskeD2Tekninen({ pujottelu_s: 26.4, syotto_s: 42.2 }, 7, 'P')).toBeNull();
+  });
+  it('tyhjä/null input → null', () => {
+    expect(laskeD2Tekninen(null, 11, 'P')).toBeNull();
+    expect(laskeD2Tekninen({}, 11, 'P')).toBeNull();
   });
 });

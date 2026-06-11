@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781179447188';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781198485207';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,8 +13,8 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=4"></script>
-<script src="docs/testit_indeksit.js?v=7"></script>
+<script src="lib/tm_eerikkila_normit.js?v=5"></script>
+<script src="docs/testit_indeksit.js?v=8"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -439,6 +439,7 @@ a { color: inherit; text-decoration: none; }
 .detail-arvo{font-weight:600;font-size:15px}
 .detail-viite{font-size:12px;color:var(--ink3)}
 .detail-gap{font-size:13px;font-weight:600}
+.detail-taso-badge{display:inline-block;min-width:22px;text-align:center;font-family:var(--font-m,monospace);font-size:11px;font-weight:700;color:var(--bg);border-radius:4px;padding:1px 5px;margin-left:6px}
 .detail-rivi.detail-kohde{background:rgba(224,160,64,.07);border-radius:6px;padding-left:6px;padding-right:6px}
 .detail-kpi{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:32px;line-height:1}
 .detail-5col .detail-rivi span:nth-child(2){width:82px;text-align:center;flex-shrink:0}
@@ -4597,8 +4598,12 @@ function _buildTKIDetail(p) {
       const gapTeksti = (g.gap_s > 0) ? ('+' + g.gap_s + 's') : '★';
       const merkinta = onErin ? ' ★' : (onKohde ? ' ←' : '');
       const rowClass = onKohde ? 'detail-rivi detail-kohde' : 'detail-rivi';
+      // TK-lajitaso 1–5 populaatiokohortista (vari5; pituuspotku → null → ei badgea). Lennossa pikakentästä (§26).
+      const tkTaso = (typeof tkLajiTaso === 'function') ? tkLajiTaso(g.laji, g.arvo, ika, tkSp) : null;
+      const tasoVari = (tkTaso == null) ? 'var(--ink3)' : tkTaso >= 3.5 ? 'var(--teal)' : tkTaso >= 2.5 ? 'var(--amber)' : 'var(--red)';
+      const tasoBadge = (tkTaso != null) ? ('<span class="detail-taso-badge" style="background:' + tasoVari + '">T' + tkTaso + '</span>') : '';
       rivit += '<div class="' + rowClass + '"><span>' + (NIMET[g.laji] || g.laji) + ' <span class="detail-arvo">' + g.arvo + 's</span></span>'
-        + '<span><span class="detail-viite">' + viiteTeksti + '</span> <span class="detail-gap" style="color:' + mvari + '">' + gapTeksti + merkinta + '</span></span></div>';
+        + '<span><span class="detail-viite">' + viiteTeksti + '</span> <span class="detail-gap" style="color:' + mvari + '">' + gapTeksti + merkinta + '</span>' + tasoBadge + '</span></div>';
     });
     // Dynaaminen viite-label _lahde-kentästä (valtakunnallinen vs alueellinen). nMin = pienin n (suuntaa-antava < 10).
     const _vref = (function(){ for (var i = 0; i < gapit.length; i++) { if (gapit[i].viite) return gapit[i].viite; } return null; })();
@@ -4606,7 +4611,9 @@ function _buildTKIDetail(p) {
     const otsikko = (_vref && _vref.lahde === 'alueellinen')
       ? ('Alueellinen huipputaso 2023–25' + _nStr)
       : ('Loppukilpailutaso 2023–25' + _nStr);
-    taulukkoHtml = '<div class="detail-yhteenveto" style="margin-top:10px">' + otsikko + '</div>'
+    const tasoInfo = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET.tk_lajitaso)
+      ? ' · Taso 1–5 <span title="' + TM_SELITTEET.tk_lajitaso + '" style="cursor:help;opacity:.65">ℹ️</span>' : '';
+    taulukkoHtml = '<div class="detail-yhteenveto" style="margin-top:10px">' + otsikko + tasoInfo + '</div>'
       + '<div class="detail-taulukko">' + rivit + '</div>';
 
     // Sekuntibudjetti seuraavaan saavuttamattomaan mitaliin + 2–3 suurinta gappia.

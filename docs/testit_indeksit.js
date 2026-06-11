@@ -635,6 +635,27 @@ function tkLajiTaso(laji, arvo, ika, sp) {
   return 1;
 }
 
+// D2-tekninen-input komposiitti: keskiarvo TK-lajitasoista (1–5). tkLajit = tk_lajit_viimeisin-objekti.
+// Laji-mapping: syotto_s→syotto, pujottelu_s→pujottelu, ponnauttelu_s→ponnauttelu, kuljetus_laukaus_s→kuljetus_laukaus
+// (pituuspotku_bonus EI mukana — ei TK_LAJITASOT:issa). Vaatii ≥2 lajia jolla taso != null, muuten null. 1 desimaali.
+function laskeD2Tekninen(tkLajit, ika, sp) {
+  if (!tkLajit) return null;
+  var MAP = [
+    { kentta: 'ponnauttelu_s',      laji: 'ponnauttelu'      },
+    { kentta: 'syotto_s',           laji: 'syotto'           },
+    { kentta: 'pujottelu_s',        laji: 'pujottelu'        },
+    { kentta: 'kuljetus_laukaus_s', laji: 'kuljetus_laukaus' },
+  ];
+  var tasot = [];
+  MAP.forEach(function(m) {
+    var t = tkLajiTaso(m.laji, tkLajit[m.kentta], ika, sp);
+    if (t != null) tasot.push(t);
+  });
+  if (tasot.length < 2) return null;
+  var summa = tasot.reduce(function(a, b) { return a + b; }, 0);
+  return Math.round((summa / tasot.length) * 10) / 10;
+}
+
 // Per-laji gapit vs viitetaso, järjestettynä gap_s laskevasti (suurin potentiaali ensin).
 // tkLajit = { ponnauttelu_s, syotto_s, pujottelu_s, kuljetus_laukaus_s, pituuspotku_bonus_s }.
 // Aikalajit pienempi=parempi → gap_s = max(0, arvo − hyva). pituuspotku_bonus KÄÄNTEINEN
@@ -1316,7 +1337,7 @@ if (typeof module !== 'undefined' && module.exports) {
     // TKI laskenta
     tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
     // TKI-analyysimalli VAIHE 1 (per-laji viite, gap, budjetti, vauhti, abs-delta)
-    tkLajiViite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta,
+    tkLajiViite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta, laskeD2Tekninen,
     // Joukkueen avainluvut
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     // Räjähtävyysprofiili
@@ -1331,7 +1352,7 @@ if (typeof module !== 'undefined' && module.exports) {
     TK_KOKONAISRAJAT, TK_LAJIT_META, TK_LAJIVIITTEET, TK_LAJITASOT,
     hhLaskeTaso, hhLaskeMetrikat, hhLaskeOVR,
     tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
-    tkLajiViite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta,
+    tkLajiViite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta, laskeD2Tekninen,
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     laskeEI, laskeFVP, laskeVNE,
     ADAR_DIMENSIOT, ADAR_SKENAARIOT, ADAR_IKATASOT,
