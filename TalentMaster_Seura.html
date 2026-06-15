@@ -3739,13 +3739,17 @@ async function naytaPelaajaTiedot(pelaajaId) {
       }).join('')
     : '<div style="color:var(--ink3);font-size:12px;">Ei kutsuhistoriaa</div>';
 
-  // Huoltajan tiedot
+  // Huoltajan tiedot — kutsuflow (vahvistaSuostumus-CF) tallentaa LITTEÄN huoltajaEmail:in,
+  // uusi-rekisteröinti huoltaja-OBJEKTIN. Lue molemmat: objekti ensisijaisesti, muuten litteä email
+  // (muuten kortti näytti "—" vaikka huoltajaEmail oli tallessa — kaikki kutsuflow-rekisteröinnit).
   const huoltaja = p.huoltaja;
-  const huoltajaHtml = huoltaja
+  const huoltajaEmailNayta = (huoltaja && huoltaja.email) || p.huoltajaEmail || '';
+  const huoltajaNimiNayta  = huoltaja ? `${huoltaja.etunimi || ''} ${huoltaja.sukunimi || ''}`.trim() : '';
+  const huoltajaHtml = (huoltajaNimiNayta || huoltajaEmailNayta)
     ? `<div style="font-size:13px;color:var(--ink2);">
-        ${huoltaja.etunimi || ''} ${huoltaja.sukunimi || ''}
-        ${huoltaja.email ? `<span style="color:var(--ink3);margin-left:8px;">${huoltaja.email}</span>` : ''}
-        ${huoltaja.puhelin ? `<span style="color:var(--ink3);margin-left:8px;">${huoltaja.puhelin}</span>` : ''}
+        ${huoltajaNimiNayta}
+        ${huoltajaEmailNayta ? `<span style="color:var(--ink3);margin-left:8px;">${huoltajaEmailNayta}</span>` : ''}
+        ${huoltaja && huoltaja.puhelin ? `<span style="color:var(--ink3);margin-left:8px;">${huoltaja.puhelin}</span>` : ''}
        </div>`
     : `<div style="color:var(--ink3);font-size:12px;">—</div>`;
 

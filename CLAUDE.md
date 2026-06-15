@@ -3,7 +3,7 @@
 > Ensimmäinen tiedosto jonka liität uuteen Claude-sessioon. Keskittyy **teknisiin invariantteihin**.
 > Strategia, RAE-tiede, kansainvälistyminen, bisnesmalli, sprintit ja avoimet tehtävät: **`docs/STRATEGIA.md`**.
 > Operatiivinen roadmap-historia: `docs/ROADMAP.md`. Solo-tuotteen täysi kuvaus: `docs/ARKKITEHTUURI.md §11`.
-> Viimeksi päivitetty: 2026-06-11 (+ §34 TKI-analyysimalli · §16/§19/§23/§24/§26/§27/§31 synkronointi · tehtäväarkisto)
+> Viimeksi päivitetty: 2026-06-15 (live-tila §9 + §26 `d1_taso` VALMIS + §29/§30 seuradatakartta live-luvuilla · edellinen 06-11: §34 TKI-analyysimalli · §16/§19/§23/§24/§26/§27/§31 synkronointi · tehtäväarkisto)
 
 ---
 
@@ -190,6 +190,13 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | hjk | HJK Juniorit | vp.hjk@talentmaster.fi | |
 | sibbovargarna | Sibbo-Vargarna | — | sv-kieli |
 | eps | EPS (Espoon PS) | — | Teams Heini PENDING |
+
+> **PILOTIN LIVE-TILA (2026-06-15) — Firestoresta luettu, dokumentit olivat jäljessä:**
+> Excel-tuonti TOIMII (ent. "kriittisin pullonkaula" ratkaistu). Pelaajia tuotu: **sjk 61 · grifk 145 ·
+> sibbovargarna 223 · palloiirot 67 · kpv 34**. Datan kypsyys vaihtelee paljon — ks. §30 seuradatakartta.
+> **SJK-rekisteröinti käynnistyi tänään:** 58 huoltajakutsua → 6/61 antanut suostumuksen (PIN generoitu).
+> Vaihe = **pilotin käyttöönotto** (rakennus + analyysimallit lukittu, nyt datankeruu + adoptio).
+> **PIN cross-club-törmäysriski:** seurataan `scripts/check_pin_collisions.js`:llä (0 törmäystä 06-15).
 
 ---
 
@@ -817,10 +824,13 @@ suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 >   on ennen/jälkeen 1.7. (esim. P14-joukkueen kevättestattu 2012-syntyinen → recalcHH 14, Excel-tuonti 13).
 > - **Korjaus myöhemmin:** vie sama kronologinen logiikka `recalcHH`:hon kun syntymävuosi löytyy Firestoresta.
 >
-> **TODO (2026-06): `recalcHH` pitää tallentaa `d1_taso` erikseen.** Firestoressa on `d2_taso` (esim. SJK 50/54
-> pelaajaa) mutta **`d1_taso` puuttuu kaikilta** → Master_v16 Kehitys-näkymän D1/D2-KPI on piilossa kunnes
-> recalcHH tallentaa `d1_taso`:n (esim. lin30m/mas-tasosta). Ei johdeta lennossa raakadatasta (`hh_viimeisin` =
-> raa'at arvot, ei tasoja) — fabrikoitu taso rikkoisi "näytä mitä on" -periaatteen.
+> **✅ VALMIS (2026-06-15): `recalcHH` tallentaa `d1_taso`:n.** `recalcHH` (Excel_Tuonti.html:3877–3916) laskee ja
+> kirjoittaa `d1_taso`:n `merge`-setillä. **Ajettu SJK:lle: 58/61 pelaajalla `d1_taso` + `d2_taso` 56** → Master_v16
+> Kehitys-näkymän D1/D2-KPI näkyy nyt SJK:lle. **`d1_taso` = D1-fyysisen dimension taso (1–5) = keskiarvo Eerikkilä-tasoista**
+> testeistä `lin10m, lin30m, cmj, mas (÷3.6 → m/s), kasirata` — vain niistä jotka pelaajalla on, pyöristys 1 des, null jos 0 testiä.
+> **HUOM:** laajempi kuin `hh_taso` (joka käyttää vain `lin30m/cmj/mas`). Ei johdeta lennossa raakadatasta (`hh_viimeisin` =
+> raa'at arvot, ei tasoja) — fabrikoitu taso rikkoisi "näytä mitä on" -periaatteen. **Aja muille seuroille kun H-H-data tuodaan**
+> (06-15: vain SJK:lla H-H-mittaukset; grifk/palloiirot rosterit ilman testidataa, Sibbo TKI-only). `d1_lahde`/`d1_pvm` ei vielä erikseen.
 
 **Joukkuepulssi (`renderTeamPulse`):** neliosainen rivi per joukkue — **FLEI · TKI · H-H taso · ADAR ka.**,
 kukin `ka` + `n=testattu/koko` + suunta (`_pulssiSuunta` flei_historiasta FLEI/TKI:lle; H-H/ADAR ei historiaa → ei nuolta).
@@ -909,7 +919,7 @@ oikeasta kenttäkäytöstä. Lukupuoli (joukkuepulssi + S9) toimii heti kun pika
 **Tämän kierroksen Kehitys-invariantit:**
 - **renderDev kirjautuneena AINA Firestore** (`!_demo && _seuraId`, EI `_pelaajatData.length>0`) → tyhjällä datalla lataustila, ei demo-/TMBus-seediä tuotannossa.
 - **Joukkue-haku case-insensitive fallback** (`_lataaPelaajat`): Firestore `where` on case-sensitive → "SIBBO-VARGARNA P10" ≠ "Sibbo-Vargarna P10" → 0 osumaa. Jos tarkka kysely = 0, hae kaikki seuran pelaajat + suodata clientissa case-insensitively (joukkue/joukkueet[]).
-- **D1/D2-KPI piilossa** kunnes recalcHH tallentaa `d1_taso` (Firestoressa vain `d2_taso`) — ks. §26 TODO. EI johdeta lennossa raakadatasta.
+- **D1/D2-KPI näkyy kun `d1_taso`+`d2_taso` olemassa** — recalcHH kirjoittaa `d1_taso`:n (✅ ajettu SJK 2026-06-15, 58/61), §26. Seurat ilman H-H-recalcia → KPI piilossa (ei lennossa-johtoa raakadatasta).
 - KPI-prioriteetti (`_renderPinfoFirestore`): M1 FLEI→H-H, M2 TKI→TSI, M3 D1/D2 (ei JOUKKUE). "Näytä mitä on, piilota mitä ei" — ei "Ei mittauksia".
 
 ---
@@ -951,9 +961,12 @@ Kehitysvauhti ↓ delta<−0.3 / ↑ >+0.5 · FLEI<40 % → KLINIKKA · TSI>1.5s
 taso-3-kynnys · `tkLaskeMerkki` · `tkLaskeTKI` (syöttö·0.40+pujottelu·0.30+ponnauttelu·0.20+KL·0.10) ·
 `laskeEI(cmj,sj,ika)` · `laskeFVP(m5,m30,paikka)` · `laskeVNE(...)` · `laskeTSI(smPallo,smJuoksu)`.
 
-**Seuradatakartta (mitä kentät per seura on):** **SJK** = hh_taso/hh_viimeisin/d2/tsi (ei TKI/FLEI) ·
-**Sibbo** = tki + kehityskohde/vahvuus, merkki usein null (ei H-H/FLEI) · **Demo/KPV** = FLEI + ketjut + TKI + H-H.
-`d1_taso` puuttuu kaikilta (TODO recalcHH, §26). Täysi kartta + Firestore-kenttäluettelo: canonical doc §8/§11.
+**Seuradatakartta (LIVE 2026-06-15, Firestoresta luettu):**
+**SJK** (n=61) = `d1_taso`/`hh_taso` 58 · `d2_taso` 56 · hh_viimeisin/tsi — **EI TKI/FLEI/PHV** · recalcHH ajettu ·
+**Sibbo** (n=223) = `tki_viimeisin` 214 (+ kehityskohde/vahvuus, merkki usein null) — **EI H-H/FLEI/PHV** ·
+**KPV** (n=34) = vain Topias-testipelaaja (FLEI + ketjut + TKI + d2 + PHV, ei d1/hh) ·
+**palloiirot** (n=67) / **grifk** (n=145) = **pelkät rosterit, 0 mittausta** (odottaa testidataa).
+`d1_taso` ✅ ajettu SJK:lle (§26). Täysi kartta + Firestore-kenttäluettelo: canonical doc §8/§11.
 
 **Tutkimusperusta (roadmap, canonical doc §9):** FIFA 11+ Kids (Sprint 5) · FMS+YBT+CMJ-seulonta (Sprint 5–6) ·
 rotaatiotaito/DIAG-harjoitteet (Sprint 5) · bio-banding = kehitysikkunat (VAIHE 3) · quadrant/HRV (Sprint 6+).

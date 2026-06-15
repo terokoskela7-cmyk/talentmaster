@@ -1,5 +1,22 @@
 # TalentMaster™ — Kehityssuunnitelma (Roadmap)
-## Päivitetty 2026-06-11
+## Päivitetty 2026-06-15
+
+---
+
+## 🚦 LIVE-TILA 2026-06-15 (Firestoresta luettu — aiemmat tilatekstit olivat jäljessä)
+
+**Vaihe: pilotin käyttöönotto.** Rakennus + analyysimallit (TKI/H-H/FLEI/PHV) lukittu ja testattu;
+nyt datankeruu + perheiden adoptio.
+
+- ✅ **Excel → Firestore -tuontityökalu TOIMII** (ent. "kriittisin pullonkaula" → ratkaistu). Pelaajia tuotu:
+  **sjk 61 · grifk 145 · sibbovargarna 223 · palloiirot 67 · kpv 34.**
+- ✅ **`d1_taso` recalcHH ajettu SJK:lle** (58/61) → Master D1/D2-KPI näkyy. (CLAUDE.md §26.)
+- 🟢 **SJK-rekisteröinti käynnistyi tänään:** 58 huoltajakutsua → **6/61 suostumus annettu** (PIN generoitu suostumuksessa).
+- ⚠️ **PIN cross-club-törmäys:** seurataan `scripts/check_pin_collisions.js`:llä — 0 törmäystä 06-15 (rakennekorjaus myöhemmin).
+- 🔴 **Datan kypsyys vaihtelee:** SJK = H-H (d1/d2/hh/tsi, EI TKI/FLEI/PHV) · Sibbo = TKI-only (214) · KPV = vain Topias ·
+  palloiirot/grifk = pelkät rosterit, 0 mittausta. Ks. CLAUDE.md §30 seuradatakartta.
+
+**Lähin työ:** SJK kasvumittaus (PHV 0/61) · `recalcHH` muille kun H-H-data tulee · ADAR-pikakenttien kirjoituspiste.
 
 ---
 
@@ -161,11 +178,11 @@
 - [ ] Pelaajat rekisteröidään (ilman suostumusta aluksi)
 - [ ] SJK toimittaa testidatan Excel-tuontipohjan muodossa
 
-### Excel → Firestore tuontityökalu ⚠️ KOKO PILOTIN KRIITTISIN PULLONKAULA
-- [ ] SheetJS lukee Excel-pohjan selaimessa
-- [ ] Cloud Function kirjoittaa Firestoreen oikeaan rakenteeseen (openpyxl)
-- [ ] VP tarkistaa → sitten suostumuslomakkeet + pelaajatunnukset
-- [ ] Kaikki 9 seuraa odottavat tätä ennen datan tuontia
+### Excel → Firestore tuontityökalu ✅ RATKAISTU (ent. kriittisin pullonkaula)
+- [x] SheetJS lukee Excel-pohjan selaimessa (`TalentMaster_Excel_Tuonti.html`, CLAUDE.md §24)
+- [x] Kirjoittaa Firestoreen oikeaan rakenteeseen (selaimessa, PalloID-haku kentällä; ei openpyxl-CF:ää)
+- [x] Käytetty tuotannossa: ~500 pelaajaa tuotu (sjk/grifk/sibbo/palloiirot/kpv)
+- [x] Palloliiton PDF-parseri (tekniikkakilpailut) + monipöytätuki + duplikaattisuoja
 
 ### Pending deploy GitHubiin
 - [ ] `TalentMaster_Koukutus.html` — 3-yleisön engagement ⏳
@@ -195,8 +212,8 @@
 ### SJK — aktivointi (kun data OK)
 - [ ] Suostumuslomakkeet huoltajille
 - [ ] Pelaajatunnukset aktivoidaan
-- [ ] **Tyttöjen PHV-kaava** (Mirwald eri parametrit) — PAKOLLINEN ennen U14/15T
-  ⚠️ Ilman tätä tyttöpelaajat saavat väärän PHV-statuksen → väärät suositukset
+- [x] **Tyttöjen PHV-kaava** ✅ TEHTY — `tm_bioika.js` erilliset Mirwald 2002 -kaavat pojille (Table 1, offset −9.236)
+  ja tytöille (Table 2, offset −9.376); `normSukupuoli` N→T. Jäljellä vain **mittaus** (SJK kasvumittaus 0/61).
 
 ### Infrastruktuuri
 - [ ] Kenttähavainto → Firestore (`havainnot`-kokoelma)
@@ -237,24 +254,24 @@
 
 ---
 
-## 🏟️ Pilottiseurojen tila (2026-04-19)
+## 🏟️ Pilottiseurojen tila (LIVE 2026-06-15, Firestoresta luettu)
 
-| Seura | Tunnukset | Data | Pelaajat | Seuraava askel |
+| Seura | Tunnukset | Data (live) | Pelaajat | Seuraava askel |
 |---|---|---|---|---|
-| KPV | ✅ | 🟡 Harjoitettavuus puuttuu | 🟡 Testipelaaja (Topias) | **Tuontityökalu → data sisään** |
-| FC Lahti | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Testidatan tuonti |
-| Pallo-Iirot | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Tuonti (3 joukkuetta) |
-| Ylöjärven Ilves | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Testidatan tuonti |
-| SJK Juniorit | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | VP-tunnukset → joukkueet → tyttöjen PHV → data |
-| GrIFK | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Testidatan tuonti (sv) |
-| VIFK | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Testidatan tuonti (sv) |
-| HJK Juniorit | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Testidatan tuonti |
+| SJK Juniorit | ✅ | 🟢 H-H: d1/d2/hh/tsi (58/61), EI TKI/FLEI/PHV | 🟢 **61** (6 rekisteröity) | **Rekisteröinti käynnissä** · kasvumittaus (PHV) |
+| Sibbo-Vargarna | ✅ | 🟡 TKI 214, EI H-H/FLEI/PHV | 🟢 **223** | recalc/merkit · H-H-mittaus |
+| GrIFK | ✅ | 🔴 vain rosteri, 0 mittausta | 🟢 **145** | Testidatan tuonti (sv) |
+| Pallo-Iirot | ✅ | 🔴 vain rosteri, 0 mittausta | 🟢 **67** | Testidatan tuonti |
+| KPV | ✅ | 🟡 vain Topias (FLEI/TKI/PHV) | 🟡 **34** (1 testattu) | recalcHH joukkueille |
+| FC Lahti | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Pelaajien tuonti |
+| Ylöjärven Ilves | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Pelaajien tuonti |
+| VIFK | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Pelaajien tuonti (sv) |
+| HJK Juniorit | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Pelaajien tuonti |
 | EPS | ✅ | 🔴 Ei dataa | 🔴 Ei pelaajia | Teams-puhelu Heini (PENDING) |
 
-**Kriittisin pullonkaula kaikilla seuroilla:** Excel → Firestore tuontityökalu.
-Excel-pohja on valmis — tuontityökalu Sprint 4:ssä.
+**Tuontipullonkaula ratkaistu** (ks. yllä). Datan kypsyys vaihtelee seuroittain — analyysimallit hoitavat tyhjätilat (§30).
 
-**Aktiivinen mittari:** tavoite on 1 seura end-to-end toimivana (KPV) ennen muita.
+**Aktiivinen mittari:** SJK-rekisteröintikonversio (6/61 → tavoite >70 % / viikko, PILOTTI_RUNBOOK go-live-kriteeri).
 
 ---
 
@@ -268,7 +285,7 @@ Excel-pohja on valmis — tuontityökalu Sprint 4:ssä.
 - **`testitapahtumat`** oikea kokoelmanimi (EI `tapahtumat`)
 - **`_avaaValmentajaPopup`** GLOBAALI — ei saa olla nested funktio
 - **Firebase Functions:** AINA `europe-west1` eksplisiittisesti
-- **Tyttöjen PHV:** Mirwald eri parametrit — tarkistettava ennen SJK U14/15T
+- **Tyttöjen PHV:** ✅ kaava tehty (`tm_bioika.js`, Mirwald Table 1/2) — jäljellä vain kasvumittaus
 - **Cloud Scheduler API:** aktivoi tarvittaessa Firebase-konsolista
 - **Ei VP + Admin samassa selaimessa** (Firebase yksi auth-sessio per projekti)
 - **Huoltajaluku Rules:** `resource.data.huoltajaEmail == request.auth.token.email`
