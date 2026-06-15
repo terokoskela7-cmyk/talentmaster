@@ -1,4 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════
+   CANONICAL SOURCE — Pelaaja_v7 lataa tämän suoraan GitHub Pagesista.
+   src/lib/harjoitelogiikka_v4.js on re-export tänne (ks. A7 Vaihe 0).
    TalentMaster™ — Harjoitelogiikka v4
    
    UUTTA v2:een verrattuna:
