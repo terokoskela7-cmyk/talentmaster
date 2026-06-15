@@ -14,12 +14,20 @@
 | Club | Seurat | 400 €/kausi + 2 €/pelaaja/kk |
 | Network | Palloliitto, liitot, UEFA | B2G-lisenssi |
 | Scout | Scoutit, agentit | Transaktio per pääsy |
+| **ADAR™ (standalone)** *(suunnitteilla 2026-06-15)* | Seurat/valmentajat ilman koko Clubia · liitot · koulutus | Erikseen myytävä moduuli — hinnoittelu + paketointi avoin |
 
 **Kilpailijat:** Catapult, VALD, Smartabase, Kitman Labs, PlayMetrics, 360Player, Playbook365.
 **Key advisor:** Marko Kauppinen — "Think Global, Act Local".
 
 **FIFA-ikäpisteet:** 15 v scout window avautuu · 16 v EU/ETA-siirto (FIFA Art. 19) ·
 18 v täysi omistajuus (pelaaja ottaa datan hallinnan).
+
+**ADAR™ erillistuotteena (PÄÄTÖS 2026-06-15):** ADAR (peliäly-/havainnointityökalu — `ADAR_Pikakortti.html`
++ ADAR Vision + D3-kyselylomake) tuotteistetaan Clubista irrallaan myytäväksi moduuliksi. Tekninen pohja valmis:
+Pikakortti persistoi Firestoreen + V0-pikakentät kytketty (CLAUDE.md §15/§26). Avoimet kysymykset → oma
+scoping-sessio: (1) erillinen auth/tenant vai Club-lisäosa · (2) hinnoittelu + paketointi · (3) sisältyykö
+D3-kyselylomake + AI-narratiivi · (4) kohderyhmä (yksittäiset valmentajat / liitot / koulutusorganisaatiot) ·
+(5) mitä ADAR-data näyttää ilman muuta TalentMaster-kontekstia (ikävaihekynnykset, RAE-korjaus).
 
 ---
 
