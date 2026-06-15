@@ -9,7 +9,7 @@
   'use strict';
 
   // ⚠️ LIITÄ EU-DSN TÄHÄN ENNEN KÄYTTÖÄ. Placeholderilla init ohitetaan hallitusti (guard).
-  var TM_SENTRY_DSN = '<<LIITÄ_EU_DSN_TÄHÄN>>';
+  var TM_SENTRY_DSN = 'https://5ee45f46c735176690c07995ca09f321@o4511571051741184.ingest.de.sentry.io/4511571104890960';
 
   var TMS = window.TM_SENTRY = window.TM_SENTRY || {};
   var APP = TMS.app || 'tuntematon';
