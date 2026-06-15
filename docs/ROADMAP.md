@@ -29,6 +29,18 @@ nyt datankeruu + perheiden adoptio.
 
 ---
 
+## ✅ TEHTY — B2 Sentry observability (2026-06-15)
+- [x] **Virheseuranta onboarding-kriittisiin 3 appiin** (Pelaaja_v7 · Vanhempi_v2 · Rekisterointi_Suostumus) + jaettu `tm_sentry.js`. Commitit: `1e8cb59` (perus + PII-skrubi) → `723f062` (email-mask + SRI) → `6c4c5a5` (EU-DSN + deploy).
+- [x] **SDK:** Sentry Browser **v10.58.0**, errors-only `bundle.min.js` CDN:stä + **SRI-integrity** (verifioitu palvellusta tiedostosta, ei docsista kopioitu). **EU-region** (`ingest.de.sentry.io`, org talentmasterid).
+- [x] **Privacy-invariantit:** `tracesSampleRate:0` (VAIN virheet — EI performance-tracingia, EI Session Replayta → siksi EI Loader Scriptiä joka kytkisi replayn) · `sendDefaultPii:false`. Tietoinen valinta alaikäisdatassa (§33 B4).
+- [x] **PII-skrubi** (beforeSend/beforeBreadcrumb): deny-list `email|nimi|etunimi|sukunimi|huoltaja|pin|puhelin|osoite` → `[redacted]`; email-regex → `[email]`; 4-num → `****`; `user` → vain `{id}`; query/cookies/headers pois; **skrubin heittäessä event PUDOTETAAN** (PII-turva > virhenäkyvyys). Sallitut tagit vain pseudonyymit `app/seuraId/rooli/uid` (`window.tmSentryContext`).
+- [x] **GUARD:** Sentry undefined / DSN placeholder → kaikki no-op, appi ei kaadu (offline-first PWA säilyy).
+- [x] **SW:** `sw_pelaaja` v6→v7, `sw_vanhempi` v4→v5; `tm_sentry.js` allowlistissa; Sentry CDN+ingest pass-through (ei cachea).
+- [x] **VERIFIOITU TUOTANNOSSA:** testievent saapui EU-dashboardiin; PII-skrubi todennettu ("login fail email [email] pin ****").
+- [ ] Avoinna (§33): B1 frontend moduuleiksi · B3 tenant-self-service · B4 GDPR-syvyys (retention/oikeus-unohtua/audit/field-level).
+
+---
+
 ## ✅ TEHTY — TKI-analyysiketju + SW-korjaus (2026-06-10/11)
 - [x] **TKI-analyysimalli VAIHE 1** (CLAUDE.md §34, `docs/TKI_ANALYYSIMALLI.md`): `TK_LAJIVIITTEET` (per-laji eliittiviite, P8–13 + T8–13, `_lahde` valtak./alueellinen) + funktiot `tkLajiViite`/`tkLajiGapit`/`tkSekuntibudjetti`/`tkVaadittuVuosivauhti`/`tkAbsDelta` + Vitest (119 testiä).
 - [x] **Pikakentät** `tk_lajit_viimeisin` + `tk_kokonaistulos_*` 4 kirjoituspisteeseen (Excel/PDF/recalc×2, `_tkLajitPikakentat`). T13 pronssi 130→135.

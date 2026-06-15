@@ -3,7 +3,7 @@
 > Ensimmäinen tiedosto jonka liität uuteen Claude-sessioon. Keskittyy **teknisiin invariantteihin**.
 > Strategia, RAE-tiede, kansainvälistyminen, bisnesmalli, sprintit ja avoimet tehtävät: **`docs/STRATEGIA.md`**.
 > Operatiivinen roadmap-historia: `docs/ROADMAP.md`. Solo-tuotteen täysi kuvaus: `docs/ARKKITEHTUURI.md §11`.
-> Viimeksi päivitetty: 2026-06-15 (live-tila §9 + §26 `d1_taso` VALMIS + §29/§30 seuradatakartta live-luvuilla · edellinen 06-11: §34 TKI-analyysimalli · §16/§19/§23/§24/§26/§27/§31 synkronointi · tehtäväarkisto)
+> Viimeksi päivitetty: 2026-06-15 (B2 Sentry deployattu + verifioitu §33 · ADAR kenttävalmis + pikakentät §26/§32 · live-tila §9 + §26 `d1_taso` VALMIS + §29/§30 seuradatakartta live-luvuilla · edellinen 06-11: §34 TKI-analyysimalli · §16/§19/§23/§24/§26/§27/§31 synkronointi · tehtäväarkisto)
 
 ---
 
@@ -1048,7 +1048,8 @@ frontend 6 000-rivisiä monoliitteja, funktio-törmäyksiä. Tähänastiset bugi
 
 **⚠ DEPLOY-TYÖNKULKU (versio-tarkistus):** GitHub Pages cachettaa HTML:n 10 min (max-age=600) → moni "ei toimi" on ollut cache. Ratkaisu: `version.json` + `APP_VERSION` jokaisessa apissa (Master/Pelaaja/Vanhempi), `<head>`-skripti pakottaa reloadin uudesta versiosta. **Ennen käyttäjille tärkeää pushia aja `npm run version:bump`** (leimaa version.json + apit) → selaimet hakevat tuoreen version automaattisesti. Jos unohtuu, käyttäjä näkee vanhaa ≤10 min tai hard-reloadiin asti.
 
-**SaaS-suunta:** B1 frontend moduuleiksi (Vite, strangler) · B2 observability (Sentry — hiljaiset failit näkyviin) · B3 tenant-self-service onboarding · **B4 GDPR (alaikäisten dataa EU — riski + kilpailuetu): retention, oikeus tulla unohdetuksi, audit, field-level Rules** · B5 suorituskyky/kustannus · B6 datamallin versiointi · B7 white-label/API/AI-insightit.
+**SaaS-suunta:** B1 frontend moduuleiksi (Vite, strangler) · **B2 observability ✅ VALMIS (2026-06-15)** · B3 tenant-self-service onboarding · **B4 GDPR (alaikäisten dataa EU — riski + kilpailuetu): retention, oikeus tulla unohdetuksi, audit, field-level Rules** · B5 suorituskyky/kustannus · B6 datamallin versiointi · B7 white-label/API/AI-insightit.
+- **B2 ✅ VALMIS (2026-06-15):** Sentry Browser **v10.58.0** errors-only `bundle.min.js` (`tracesSampleRate:0`, EI Session Replayta → tietoisesti EI Loader Scriptiä joka kytkisi replayn; alaikäisdata), **EU-region** `ingest.de.sentry.io`. `beforeSend`/`beforeBreadcrumb` **PII-skrubi**: deny-list (`email|nimi|etunimi|sukunimi|huoltaja|pin|puhelin|osoite`→`[redacted]`) + email→`[email]` + 4-num→`****` + `user`→`{id}` + query/cookies/headers pois; `sendDefaultPii:false`; skrubin heitto→event drop. **GUARD** (Sentry/DSN puuttuu→no-op, offline-first säilyy). **SRI-integrity** (verifioitu palvellusta tiedostosta, ei docsista). **SW** `tm-pelaaja-v7`/`tm-vanhempi-v5`, `tm_sentry.js` allowlistissa, Sentry CDN+ingest pass-through. Scope: Pelaaja_v7/Vanhempi_v2/Rekisterointi + jaettu `tm_sentry.js` (`window.tmSentryContext` = pseudonyymitagit `app/seuraId/rooli/uid`). Commitit `1e8cb59`→`723f062`→`6c4c5a5`. **Verifioitu tuotannossa** (testievent EU-dashboardiin, PII todennettu).
 
 ---
 
