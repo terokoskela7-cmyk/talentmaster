@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentMaster — Kehityskortti v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400;1,600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --carbon:#111110;
+    --card:#161614;
+    --deep:#1C1C1A;
+    --teal:#28B090;
+    --blue:#2A5DB0;
+    --amber:#E0A040;
+    --ink:#F3F1EC;
+    --muted:#8C887E;
+    --faint:#5A574F;
+    --line:rgba(243,241,236,.08);
+
+    /* ---- TIER PALETTES ---- */
+    --st-frame:linear-gradient(150deg,#5E86C9,#2A5DB0 38%,#16315E 70%,#3D6BBE);
+    --st-main:#9BB6E3;
+    --st-soft:rgba(155,182,227,.45);
+    --st-bg:radial-gradient(ellipse 110% 55% at 50% -4%, rgba(42,93,176,.20), transparent 58%);
+    --st-glow:0 0 26px rgba(42,93,176,.32), 0 0 58px rgba(42,93,176,.14);
+
+    --sh-frame:linear-gradient(150deg,#F0C883,#E0A040 28%,#9A6A1E 58%,#5F4112 80%,#C88A30 92%,#E8B45A);
+    --sh-main:#EEC98A;
+    --sh-soft:rgba(224,160,64,.50);
+    --sh-bg:radial-gradient(ellipse 110% 58% at 50% -4%, rgba(224,160,64,.20), transparent 60%);
+    --sh-glow:0 0 28px rgba(224,160,64,.34), 0 0 62px rgba(224,160,64,.15);
+
+    --el-frame:linear-gradient(150deg,#EEF1F8,#C6CEDF 30%,#828BA6 60%,#525A75 80%,#9097AE 92%,#D2D9E6);
+    --el-main:#E4E9F2;
+    --el-soft:rgba(206,214,229,.48);
+    --el-bg:radial-gradient(ellipse 110% 55% at 50% -4%, rgba(206,214,229,.13), transparent 56%);
+    --el-glow:0 0 28px rgba(190,200,222,.30), 0 0 62px rgba(150,165,200,.14);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:
+      radial-gradient(1100px 600px at 50% -10%, rgba(42,93,176,.10), transparent 60%),
+      radial-gradient(900px 500px at 85% 110%, rgba(40,176,144,.06), transparent 55%),
+      var(--carbon);
+    color:var(--ink);
+    font-family:'DM Sans',sans-serif;
+    min-height:100vh;
+    padding:56px 24px 80px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- PAGE HEADER ---------- */
+  .page-head{max-width:1380px;margin:0 auto 50px;text-align:center;}
+  .brand{
+    font-family:'DM Sans';font-weight:600;font-size:11px;letter-spacing:.42em;
+    text-transform:uppercase;color:var(--teal);margin-bottom:18px;
+  }
+  .page-head h1{
+    font-family:'Cormorant Garamond';font-weight:300;font-size:48px;
+    letter-spacing:.5px;line-height:1.05;
+  }
+  .page-head h1 em{font-style:italic;color:var(--amber);font-weight:400;}
+  .page-head p{
+    color:var(--muted);font-size:14px;font-weight:400;
+    margin-top:14px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.6;
+  }
+
+  /* ---------- LAYOUT ---------- */
+  .deck{
+    max-width:1380px;margin:0 auto;
+    display:flex;flex-wrap:wrap;justify-content:center;
+    gap:56px 44px;align-items:flex-start;
+  }
+  .slot{display:flex;flex-direction:column;align-items:center;gap:22px;}
+  .slot-label{text-align:center;}
+  .slot-label .tag{
+    font-family:'DM Sans';font-weight:600;font-size:10px;letter-spacing:.28em;
+    text-transform:uppercase;color:var(--faint);
+  }
+  .slot-label .ttl{
+    font-family:'Cormorant Garamond';font-weight:400;font-size:25px;
+    margin-top:4px;letter-spacing:.3px;
+  }
+  .slot-label .ttl.blue{color:var(--blue);}
+  .slot-label .ttl.gold{color:var(--amber);}
+  .slot-label .ttl.elite{color:#C6CEDF;}
+  .slot-label .ttl.party{color:var(--teal);}
+
+  /* ============================================================
+     CARD SHELL
+     ============================================================ */
+  .card-wrap{position:relative;animation:rise 1s cubic-bezier(.22,1,.36,1) both;}
+  @keyframes rise{
+    from{opacity:0;transform:translateY(46px) scale(.94);}
+    to  {opacity:1;transform:translateY(0) scale(1);}
+  }
+  .card-frame{
+    width:286px;border-radius:24px;padding:2.5px;position:relative;
+  }
+  .card-body{
+    border-radius:21px;overflow:hidden;position:relative;
+    height:470px;display:flex;flex-direction:column;
+    padding:16px 17px 14px;
+    background:linear-gradient(168deg, var(--deep) 0%, var(--card) 52%, #111110 100%);
+  }
+  .card-body .tint{position:absolute;inset:0;pointer-events:none;z-index:0;mix-blend-mode:screen;}
+  .card-body .grain{
+    position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.5;
+    background:
+      radial-gradient(360px 200px at 28% 6%, rgba(255,255,255,.045), transparent 60%),
+      radial-gradient(300px 280px at 90% 96%, rgba(255,255,255,.02), transparent 62%);
+  }
+  .card-body > *{position:relative;}
+
+  /* shimmer sweep */
+  .shimmer{position:absolute;inset:0;border-radius:21px;z-index:6;pointer-events:none;overflow:hidden;}
+  .shimmer::after{
+    content:'';position:absolute;top:0;bottom:0;left:-110%;width:55%;
+    background:linear-gradient(105deg,transparent 22%,
+      rgba(255,255,255,.05) 46%,rgba(255,255,255,.13) 50%,
+      rgba(255,255,255,.05) 54%,transparent 78%);
+    transform:skewX(-11deg);
+    animation:shimmerSlide 6s 1.8s ease-in-out infinite;
+  }
+  @keyframes shimmerSlide{
+    0%{left:-110%;opacity:0;}
+    6%{opacity:1;}
+    42%,100%{left:150%;opacity:0;}
+  }
+
+  /* ---------- TOP ROW ---------- */
+  .top-row{display:flex;align-items:flex-start;justify-content:space-between;z-index:2;}
+  .ovr-block{display:flex;flex-direction:column;line-height:.8;}
+  .ovr-num{
+    font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:68px;
+    letter-spacing:-3px;line-height:.78;
+    text-shadow:2px 2px 0 rgba(0,0,0,.6);
+    animation:popIn 1s .6s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes popIn{
+    from{opacity:0;transform:scale(.35) rotate(-9deg);}
+    to  {opacity:1;transform:scale(1) rotate(0);}
+  }
+  .ovr-tag{
+    font-family:'DM Sans';font-weight:600;font-size:9px;letter-spacing:.30em;
+    text-transform:uppercase;margin-top:5px;margin-left:2px;opacity:.55;
+  }
+  /* building variant headline */
+  .building-head{display:flex;flex-direction:column;}
+  .building-head .bh-ttl{
+    font-family:'Cormorant Garamond';font-weight:300;font-size:26px;
+    letter-spacing:.3px;line-height:1.02;color:var(--ink);
+  }
+  .building-head .bh-sub{
+    font-family:'DM Sans';font-weight:500;font-size:9px;letter-spacing:.20em;
+    text-transform:uppercase;color:var(--muted);margin-top:7px;
+  }
+
+  .top-right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;padding-top:3px;}
+  .pos-pill{
+    display:inline-flex;align-items:center;gap:5px;
+    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;
+    letter-spacing:1px;line-height:1;
+    padding:4px 9px;border-radius:8px;border:1px solid var(--line);
+  }
+  .pos-pill .pi{font-size:13px;}
+  /* U13 "multi-position" chip — NOT a fixed position */
+  .multi-pill{
+    display:inline-flex;align-items:center;gap:5px;
+    font-family:'DM Sans';font-weight:600;font-size:9.5px;letter-spacing:.04em;
+    line-height:1.15;text-align:right;
+    padding:5px 10px;border-radius:9px;border:1px dashed;
+    max-width:142px;
+  }
+  .multi-pill .pi{font-size:13px;}
+  .team-line{font-size:10px;font-weight:500;letter-spacing:.06em;color:var(--muted);}
+  .tier-badge{
+    display:inline-flex;align-items:center;gap:4px;margin-top:3px;
+    font-family:'DM Sans';font-weight:600;font-size:9.5px;letter-spacing:.14em;
+    text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid;
+  }
+  .meta-row{display:flex;align-items:center;gap:6px;margin-top:5px;}
+  .flag{
+    width:21px;height:14px;border-radius:2px;position:relative;background:#fff;
+    box-shadow:0 1px 2px rgba(0,0,0,.5);overflow:hidden;
+  }
+  .flag .h{position:absolute;left:0;right:0;top:5px;height:3.4px;background:#2A5DB0;}
+  .flag .v{position:absolute;top:0;bottom:0;left:6px;width:3.4px;background:#2A5DB0;}
+  .ctry{font-size:10px;font-weight:600;letter-spacing:.12em;color:var(--muted);}
+
+  /* ---------- AVATAR ---------- */
+  .avatar-zone{display:flex;align-items:center;justify-content:center;z-index:2;margin:8px 0 4px;}
+  .avatar{
+    width:82px;height:82px;border-radius:50%;position:relative;
+    display:flex;align-items:center;justify-content:center;
+    border:1.5px solid var(--line);
+    background:linear-gradient(180deg,#22221F,#181816);
+    box-shadow:inset 0 2px 12px rgba(0,0,0,.5);
+    animation:iconFloat 5s 1.3s ease-in-out infinite;
+  }
+  @keyframes iconFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+  .avatar .ini{
+    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:32px;
+    letter-spacing:0;line-height:1;
+  }
+  .avatar .flagchip{
+    position:absolute;bottom:0px;right:0px;width:20px;height:14px;border-radius:3px;
+    background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.6);overflow:hidden;border:1px solid rgba(0,0,0,.2);
+  }
+  .avatar .flagchip .h{position:absolute;left:0;right:0;top:5px;height:3px;background:#2A5DB0;}
+  .avatar .flagchip .v{position:absolute;top:0;bottom:0;left:6px;width:3px;background:#2A5DB0;}
+
+  /* ---------- NAME ---------- */
+  .player-name{
+    text-align:center;z-index:2;
+    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:27px;
+    letter-spacing:1.6px;text-transform:uppercase;line-height:1;
+    text-shadow:1px 1px 0 rgba(0,0,0,.6);
+    animation:slideUp .9s .5s ease both;
+  }
+  @keyframes slideUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+  .name-sub{
+    text-align:center;font-family:'Cormorant Garamond';font-weight:400;font-style:italic;
+    font-size:14px;letter-spacing:.3px;color:var(--muted);margin-top:2px;z-index:2;
+  }
+
+  .divider{height:1px;margin:9px 6px;z-index:2;}
+
+  /* ---------- DREAM / IDOL STRIP ---------- */
+  .dream{
+    z-index:2;margin:0 1px 9px;border-radius:11px;padding:8px 11px;
+    display:flex;align-items:center;gap:9px;
+    border:1px solid;position:relative;overflow:hidden;
+  }
+  .dream .dream-ic{
+    width:26px;height:26px;border-radius:50%;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:14px;
+    border:1px solid;
+  }
+  .dream .dream-tx{display:flex;flex-direction:column;line-height:1.15;}
+  .dream .dream-lbl{
+    font-family:'DM Sans';font-weight:600;font-size:7.5px;letter-spacing:.20em;
+    text-transform:uppercase;color:var(--faint);
+  }
+  .dream .dream-main{
+    font-family:'Cormorant Garamond';font-weight:600;font-style:italic;font-size:14.5px;
+    letter-spacing:.2px;margin-top:1px;
+  }
+  .dream .dream-main b{font-style:normal;font-weight:600;}
+
+  /* ---------- 5D STATS GRID ---------- */
+  .stats{
+    display:grid;grid-template-columns:repeat(5,1fr);gap:5px;z-index:2;
+  }
+  .stat{
+    text-align:center;padding:7px 2px 6px;border-radius:9px;
+    border:1px solid var(--line);position:relative;overflow:hidden;
+    transition:transform .2s;
+  }
+  .stat-v{
+    font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:25px;
+    line-height:1;letter-spacing:-.5px;
+  }
+  .stat-k{
+    font-family:'DM Sans';font-weight:600;font-size:7.5px;letter-spacing:.08em;
+    text-transform:uppercase;margin-top:3px;color:var(--muted);
+  }
+  .stat-d{font-family:'DM Sans';font-weight:600;font-size:6.5px;letter-spacing:.04em;color:var(--faint);margin-top:1px;}
+  /* generic locked (club-gated): neutral, never red */
+  .stat.locked{opacity:.5;}
+  .stat.locked .stat-v{font-family:'DM Sans';font-weight:500;font-size:14px;color:var(--faint);}
+  .stat.locked .stat-k{color:var(--faint);}
+  .stat.locked .stat-d{color:var(--faint);font-size:6px;}
+  /* PHV "growing" state — positive, teal-tinted, NOT a low red number */
+  .stat.grow{border-color:rgba(40,176,144,.22);background:rgba(40,176,144,.06);}
+  .stat.grow .stat-v{font-family:'DM Sans';font-weight:600;font-size:15px;color:#7fd9c1;}
+  .stat.grow .stat-k{color:#7fd9c1;}
+  .stat.grow .stat-d{color:rgba(127,217,193,.7);}
+
+  /* locked->reveal flip */
+  .stat.reveal{transform-style:preserve-3d;animation:revealFlip 1s 2.4s cubic-bezier(.34,1.4,.5,1) both;}
+  @keyframes revealFlip{
+    0%{transform:rotateY(-90deg);opacity:0;}
+    55%{opacity:1;}
+    100%{transform:rotateY(0);opacity:1;}
+  }
+
+  /* small caption row under stats explaining the special states */
+  .stat-note{
+    z-index:2;margin-top:7px;font-family:'DM Sans';font-weight:500;
+    font-size:8px;line-height:1.4;letter-spacing:.02em;color:var(--muted);
+    display:flex;gap:6px;align-items:flex-start;
+  }
+  .stat-note .nb{flex-shrink:0;font-size:9px;line-height:1.2;}
+  .stat-note.grow{color:#7fd9c1;}
+
+  /* ============================================================
+     JOURNEY / MATKA HERO — co-equal with OVR
+     ============================================================ */
+  .journey{
+    z-index:2;margin-top:10px;border-radius:13px;padding:10px 12px 11px;
+    border:1px solid;position:relative;overflow:hidden;
+  }
+  .journey .j-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+  .journey .j-lbl{
+    font-family:'DM Sans';font-weight:700;font-size:9px;letter-spacing:.18em;text-transform:uppercase;
+  }
+  .journey .j-delta{
+    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15px;letter-spacing:.4px;
+    display:inline-flex;align-items:center;gap:3px;
+  }
+  /* path: start -> now -> next */
+  .j-path{display:flex;align-items:center;gap:0;}
+  .j-node{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:54px;text-align:center;}
+  .j-dot{
+    width:13px;height:13px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:8px;border:1.5px solid;margin-bottom:4px;
+  }
+  .j-node .j-cap{font-family:'DM Sans';font-weight:600;font-size:7px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);line-height:1.2;}
+  .j-node .j-cap b{display:block;font-family:'Barlow Condensed';font-weight:700;font-size:11px;letter-spacing:.2px;margin-top:1px;}
+  .j-line{flex:1;height:2px;border-radius:2px;position:relative;top:-9px;}
+  .j-now .j-dot{transform:scale(1.25);}
+  .j-now .j-cap{color:var(--ink);}
+  .j-next .j-cap{color:var(--muted);}
+  .journey .j-foot{
+    margin-top:9px;font-family:'DM Sans';font-weight:500;font-size:9px;line-height:1.45;letter-spacing:.01em;
+  }
+  .journey .j-foot b{font-weight:700;}
+
+  /* ============================================================
+     MY GOAL — child autonomy (SDT)
+     ============================================================ */
+  .mygoal{
+    z-index:2;margin-top:9px;border-radius:11px;padding:8px 11px;
+    display:flex;align-items:center;gap:9px;
+    background:rgba(243,241,236,.025);border:1px dashed var(--line);
+  }
+  .mygoal .mg-ic{font-size:14px;line-height:1;}
+  .mygoal .mg-tx{display:flex;flex-direction:column;line-height:1.2;}
+  .mygoal .mg-lbl{font-family:'DM Sans';font-weight:600;font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);}
+  .mygoal .mg-main{font-family:'Cormorant Garamond';font-weight:400;font-style:italic;font-size:14px;letter-spacing:.2px;color:var(--ink);margin-top:1px;}
+
+  /* ---------- TRAITS ---------- */
+  .traits{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;z-index:2;}
+  .trait{
+    display:inline-flex;align-items:center;gap:4px;
+    font-family:'DM Sans';font-size:9px;font-weight:600;letter-spacing:.02em;
+    padding:4px 8px;border-radius:999px;border:1px solid;
+  }
+  .trait .em{font-size:10px;line-height:1;}
+  .trait.t-teal{background:rgba(40,176,144,.10);border-color:rgba(40,176,144,.24);color:#7fd9c1;}
+  .trait.t-gold{background:rgba(224,160,64,.12);border-color:rgba(224,160,64,.30);color:#eec98a;}
+  .trait.t-blue{background:rgba(42,93,176,.14);border-color:rgba(42,93,176,.32);color:#9bb6e3;}
+  .trait.t-plat{background:rgba(198,206,223,.10);border-color:rgba(198,206,223,.26);color:#cdd4e2;}
+  .trait.unlock{animation:traitPop 1s 3.0s cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes traitPop{from{opacity:0;transform:scale(.4);}to{opacity:1;transform:scale(1);}}
+
+  /* footer micro */
+  .micro{
+    margin-top:auto;padding-top:10px;display:flex;align-items:center;justify-content:space-between;z-index:2;
+    font-family:'DM Sans';font-size:8px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);
+  }
+  .micro .dot{width:5px;height:5px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle;}
+
+  /* ---------- BIRTHDAY VARIANT ---------- */
+  .confetti{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:hidden;border-radius:21px;}
+  .confetti i{position:absolute;width:6px;height:9px;border-radius:1px;opacity:.9;animation:fall linear infinite;}
+  @keyframes fall{
+    0%{transform:translateY(-20px) rotate(0);opacity:0;}
+    12%{opacity:.95;}
+    100%{transform:translateY(500px) rotate(440deg);opacity:0;}
+  }
+  .ribbon{
+    position:absolute;z-index:8;top:22px;left:-44px;transform:rotate(-38deg);
+    background:linear-gradient(90deg,var(--amber),#f0bc6a);
+    color:#1a1509;font-family:'DM Sans';font-weight:700;font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+    padding:5px 52px;box-shadow:0 4px 12px rgba(0,0,0,.5);
+  }
+  .bday-note{
+    text-align:center;z-index:2;margin-top:2px;
+    font-family:'DM Sans';font-size:9px;font-weight:500;letter-spacing:.08em;color:#eec98a;
+  }
+  .bday-note .big{
+    font-family:'Cormorant Garamond';font-weight:400;font-style:italic;font-size:15px;
+    display:block;color:var(--amber);letter-spacing:.4px;margin-bottom:2px;
+  }
+  .party .ovr-num{animation:popIn 1s .6s cubic-bezier(.34,1.56,.64,1) both, bdayGlow 3.2s 1.6s ease-in-out infinite;}
+  @keyframes bdayGlow{0%,100%{text-shadow:0 0 18px rgba(224,160,64,.35),2px 2px 0 rgba(0,0,0,.6);}50%{text-shadow:0 0 32px rgba(224,160,64,.7),2px 2px 0 rgba(0,0,0,.6);}}
+
+  /* ============================================================
+     BACK CARD
+     ============================================================ */
+  .card-frame.back{width:312px;}
+  .card-frame.back .card-body{height:470px;}
+  .b-head{display:flex;align-items:flex-start;justify-content:space-between;z-index:2;}
+  .b-q{font-family:'Cormorant Garamond';font-weight:400;font-size:25px;letter-spacing:.3px;line-height:1.05;}
+  .b-q b{color:var(--amber);font-weight:600;}
+  .b-sub{font-family:'DM Sans';font-size:9px;font-weight:500;letter-spacing:.20em;text-transform:uppercase;color:var(--faint);margin-top:3px;}
+  .b-ovr{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:42px;color:var(--amber);line-height:.85;letter-spacing:-2px;text-align:right;}
+  .b-ovrtag{font-family:'DM Sans';font-size:8.5px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--faint);text-align:right;margin-top:2px;}
+
+  /* back: journey-first */
+  .back-journey{
+    z-index:2;margin-top:14px;border-radius:13px;padding:11px 13px;
+    border:1px solid rgba(40,176,144,.20);background:rgba(40,176,144,.06);
+  }
+  .back-journey .bj-lbl{font-family:'DM Sans';font-weight:700;font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:#7fd9c1;margin-bottom:8px;}
+
+  .bars{margin-top:12px;display:flex;flex-direction:column;gap:9px;z-index:2;}
+  .brow{display:flex;align-items:center;gap:10px;}
+  .brow .lab{width:84px;display:flex;flex-direction:column;}
+  .brow .lab .code{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:.06em;color:var(--ink);}
+  .brow .lab .nm{font-family:'DM Sans';font-size:8px;font-weight:400;color:var(--faint);letter-spacing:.02em;}
+  .brow .track{flex:1;height:7px;border-radius:5px;background:rgba(243,241,236,.06);overflow:hidden;}
+  .brow .track > i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--blue),var(--teal));}
+  .brow .val{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:17px;width:24px;text-align:right;}
+  .brow.lockrow .lab .code{color:var(--faint);}
+  .brow.lockrow .track{background:rgba(243,241,236,.04);}
+  .brow.lockrow .val{font-family:'DM Sans';font-weight:600;font-size:13px;color:var(--faint);}
+
+  .support-box{
+    margin-top:auto;padding:11px 13px;border-radius:13px;z-index:2;
+    background:rgba(42,93,176,.07);border:1px solid rgba(42,93,176,.20);
+    display:flex;align-items:flex-start;gap:11px;
+  }
+  .support-box .arrow{font-family:'Barlow Condensed';font-size:24px;color:#9bb6e3;font-weight:900;line-height:1;}
+  .support-box .txt{font-size:10.5px;font-weight:500;line-height:1.42;color:var(--ink);}
+  .support-box .txt b{color:#9bb6e3;font-weight:700;}
+  .support-box .txt span{display:block;color:var(--muted);font-size:9.5px;letter-spacing:.02em;margin-top:2px;}
+
+  /* footnote */
+  .foot{max-width:920px;margin:66px auto 0;text-align:center;color:var(--faint);font-size:11px;line-height:1.7;letter-spacing:.02em;}
+  .foot b{color:var(--muted);font-weight:600;}
+  .foot .pills{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px;}
+  .foot .pills span{
+    border:1px solid var(--line);border-radius:999px;padding:5px 12px;
+    font-size:10px;font-weight:500;letter-spacing:.04em;color:var(--muted);
+  }
+</style>
+</head>
+<body>
+
+  <div class="page-head">
+    <div class="brand">TalentMaster&trade;</div>
+    <h1>Pelaajan <em>kehityskortti</em> &middot; v3</h1>
+    <p>Kortti el&auml;&auml; matkan varrella. <strong style="color:var(--ink);font-weight:600;">Matka, unelma ja tuki ovat yht&auml; n&auml;kyvi&auml; kuin numero.</strong>
+       Pelipaikka lukitaan vasta U14:ss&auml; &mdash; sit&auml; ennen monipuolisuus. Kasvu ja kannustus edell&auml;.</p>
+  </div>
+
+  <div class="deck">
+
+    <!-- ===================================================================
+         TILA 1: U13 "RAKENTUU" — tärkein kortti
+         · EI pelipaikkaa → "Monipuolinen"
+         · vain D2 TEK mitattu
+         · D1 = PHV-kasvuviesti (positiivinen, ei punainen)
+         · D3 + D5 = "Seurasi ei ole vielä avannut tätä"
+         · MATKA-hero co-equal · UNELMA-strip · MINUN TAVOITTEENI
+    =================================================================== -->
+    <div class="slot">
+      <div class="slot-label">
+        <div class="tag">Tila 1 &middot; U13 &middot; t&auml;rkein</div>
+        <div class="ttl blue">Kortti rakentuu</div>
+      </div>
+      <div class="card-wrap">
+        <div class="card-frame" style="background:var(--st-frame);box-shadow:var(--st-glow);">
+          <div class="card-body">
+            <div class="tint" style="background:var(--st-bg);"></div>
+            <div class="grain"></div>
+            <div class="shimmer"></div>
+
+            <div class="top-row">
+              <div class="building-head">
+                <div class="bh-ttl">Kortti<br>rakentuu</div>
+                <div class="bh-sub">Hieno alku &middot; 1/5 avattu</div>
+              </div>
+              <div class="top-right">
+                <!-- U13: NO fixed position. Multi-position chip. -->
+                <div class="multi-pill" style="color:var(--st-main);border-color:var(--st-soft);">
+                  <span class="pi">&#128293;</span>Monipuolinen<br>kokeilee kaikkia paikkoja
+                </div>
+                <div class="team-line" style="margin-top:2px;">KPV U13 &middot; 8v8</div>
+                <div class="tier-badge" style="color:var(--st-main);border-color:var(--st-soft);background:rgba(42,93,176,.10);">
+                  &#11088; Starter
+                </div>
+                <div class="meta-row">
+                  <span class="flag"><span class="h"></span><span class="v"></span></span>
+                  <span class="ctry">FIN &middot; 13 v</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="avatar-zone">
+              <div class="avatar" style="border-color:var(--st-soft);box-shadow:inset 0 2px 12px rgba(0,0,0,.5), 0 0 22px rgba(42,93,176,.18);">
+                <span class="ini" style="color:var(--st-main);">TK</span>
+                <span class="flagchip"><span class="h"></span><span class="v"></span></span>
+              </div>
+            </div>
+
+            <div class="player-name" style="color:var(--st-main);">Topias K.</div>
+            <div class="name-sub">U13 &middot; pelaa joka paikassa</div>
+
+            <div class="divider" style="background:linear-gradient(90deg,transparent,var(--st-soft) 20%,#cfe0ff 50%,var(--st-soft) 80%,transparent);"></div>
+
+            <!-- DREAM strip — motivation engine -->
+            <div class="dream" style="border-color:rgba(42,93,176,.26);background:rgba(42,93,176,.06);">
+              <div class="dream-ic" style="border-color:var(--st-soft);color:var(--st-main);background:rgba(42,93,176,.12);">&#11088;</div>
+              <div class="dream-tx">
+                <div class="dream-lbl">Unelma</div>
+                <div class="dream-main" style="color:var(--st-main);">Kuin <b>Bellingham</b> &mdash; rohkea joka paikassa</div>
+              </div>
+            </div>
+
+            <div class="stats">
+              <!-- D1: PHV growing state, positive -->
+              <div class="stat grow">
+                <div class="stat-v">&#127807;</div><div class="stat-k">FYS</div><div class="stat-d">Kasvaa</div>
+              </div>
+              <!-- D2: the only measured dim -->
+              <div class="stat" style="border-color:var(--st-soft);background:rgba(42,93,176,.07);">
+                <div class="stat-v" style="color:var(--st-main);text-shadow:0 0 12px var(--st-soft);">78</div>
+                <div class="stat-k" style="color:var(--st-main);">TEK</div><div class="stat-d">Tekniikka</div>
+              </div>
+              <!-- D3 + D5: club-gated -->
+              <div class="stat locked"><div class="stat-v">&#128274;</div><div class="stat-k">PSY</div><div class="stat-d">Seura avaa</div></div>
+              <div class="stat locked"><div class="stat-v">&#128274;</div><div class="stat-k">&Auml;LY</div><div class="stat-d">Tulossa</div></div>
+              <div class="stat locked"><div class="stat-v">&#128274;</div><div class="stat-k">SOS</div><div class="stat-d">Seura avaa</div></div>
+            </div>
+
+            <!-- PHV child-language note -->
+            <div class="stat-note grow">
+              <span class="nb">&#127807;</span>
+              <span>Kehosi kasvaa viel&auml; &mdash; voima ja nopeus tulevat my&ouml;hemmin. Nyt rakennat tekniikkaa.</span>
+            </div>
+
+            <!-- JOURNEY hero — co-equal with the number -->
+            <div class="journey" style="border-color:rgba(42,93,176,.22);background:rgba(42,93,176,.05);">
+              <div class="j-top">
+                <span class="j-lbl" style="color:var(--st-main);">Sinun matkasi</span>
+                <span class="j-delta" style="color:#7fd9c1;">&#8599; Tekniikka +4</span>
+              </div>
+              <div class="j-path">
+                <div class="j-node j-start">
+                  <span class="j-dot" style="border-color:var(--faint);color:var(--faint);">&#10003;</span>
+                  <span class="j-cap">Aloitit<b>1 osa-alue</b></span>
+                </div>
+                <div class="j-line" style="background:linear-gradient(90deg,var(--blue),var(--st-main));"></div>
+                <div class="j-node j-now">
+                  <span class="j-dot" style="border-color:var(--st-main);color:var(--st-main);background:rgba(42,93,176,.18);">&#9733;</span>
+                  <span class="j-cap" style="color:var(--st-main);">T&auml;ss&auml; nyt<b>Starter</b></span>
+                </div>
+                <div class="j-line" style="background:rgba(243,241,236,.08);"></div>
+                <div class="j-node j-next">
+                  <span class="j-dot" style="border-color:var(--faint);color:var(--faint);">&#128274;</span>
+                  <span class="j-cap">Seuraava<b>Sharp</b></span>
+                </div>
+              </div>
+              <div class="j-foot" style="color:var(--muted);">
+                <b style="color:var(--st-main);">Hieno alku, Topias!</b> Yksi mittaus tehty &mdash; jokainen treeni avaa korttia lis&auml;&auml;.
+              </div>
+            </div>
+
+            <!-- MY GOAL — autonomy -->
+            <div class="mygoal">
+              <span class="mg-ic">&#127919;</span>
+              <div class="mg-tx">
+                <div class="mg-lbl">Minun tavoitteeni</div>
+                <div class="mg-main">&ldquo;Opin sy&ouml;tt&auml;m&auml;&auml;n molemmilla jaloilla&rdquo;</div>
+              </div>
+            </div>
+
+            <div class="micro">
+              <span><span class="dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue);"></span>Hyv&auml; alku</span>
+              <span>Matka alkoi</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         TILA 2: U14+ "SHARP" — pelipaikka NÄKYY
+    =================================================================== -->
+    <div class="slot">
+      <div class="slot-label">
+        <div class="tag">Tila 2 &middot; U14+ &middot; pelipaikka</div>
+        <div class="ttl gold">Sharp</div>
+      </div>
+      <div class="card-wrap">
+        <div class="card-frame" style="background:var(--sh-frame);box-shadow:var(--sh-glow);">
+          <div class="card-body">
+            <div class="tint" style="background:var(--sh-bg);"></div>
+            <div class="grain"></div>
+            <div class="shimmer"></div>
+
+            <div class="top-row">
+              <div class="ovr-block">
+                <div class="ovr-num" style="color:var(--sh-main);text-shadow:0 0 22px var(--sh-soft),2px 2px 0 rgba(0,0,0,.6);">79</div>
+                <div class="ovr-tag" style="color:var(--sh-soft);">OVR &middot; 4 osa-aluetta</div>
+              </div>
+              <div class="top-right">
+                <!-- U14+: position appears (11v11 transition) -->
+                <div class="pos-pill" style="color:var(--sh-main);border-color:var(--sh-soft);">
+                  <span class="pi">&#9889;</span>KHK
+                </div>
+                <div class="team-line">KPV U15 &middot; 11v11</div>
+                <div class="tier-badge" style="color:var(--sh-main);border-color:var(--sh-soft);background:rgba(224,160,64,.10);">
+                  &#11088;&#11088; Sharp
+                </div>
+                <div class="meta-row">
+                  <span class="flag"><span class="h"></span><span class="v"></span></span>
+                  <span class="ctry">FIN &middot; 15 v</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="avatar-zone">
+              <div class="avatar" style="border-color:var(--sh-soft);background:linear-gradient(180deg,#231F18,#181714);box-shadow:inset 0 2px 12px rgba(0,0,0,.5), 0 0 22px rgba(224,160,64,.2);">
+                <span class="ini" style="color:var(--sh-main);">TK</span>
+                <span class="flagchip"><span class="h"></span><span class="v"></span></span>
+              </div>
+            </div>
+
+            <div class="player-name" style="color:var(--sh-main);">Topias K.</div>
+            <div class="name-sub">U15 &middot; Hy&ouml;kk&auml;&auml;v&auml; keskikentt&auml;</div>
+
+            <div class="divider" style="background:linear-gradient(90deg,transparent,var(--sh-soft) 20%,#ffe6b0 50%,var(--sh-soft) 80%,transparent);"></div>
+
+            <!-- DREAM strip — aspiration toward next tier -->
+            <div class="dream" style="border-color:rgba(224,160,64,.26);background:rgba(224,160,64,.06);">
+              <div class="dream-ic" style="border-color:var(--sh-soft);color:var(--sh-main);background:rgba(224,160,64,.12);">&#127942;</div>
+              <div class="dream-tx">
+                <div class="dream-lbl">Matkalla</div>
+                <div class="dream-main" style="color:var(--sh-main);">Kohti <b>Eliteä</b> &middot; idoli <b>De Bruyne</b></div>
+              </div>
+            </div>
+
+            <div class="stats">
+              <div class="stat" style="border-color:var(--sh-soft);background:rgba(224,160,64,.06);">
+                <div class="stat-v" style="color:var(--sh-main);">76</div><div class="stat-k" style="color:var(--sh-main);">FYS</div><div class="stat-d">Fyysinen</div>
+              </div>
+              <div class="stat" style="border-color:var(--sh-soft);background:rgba(224,160,64,.06);">
+                <div class="stat-v" style="color:var(--sh-main);text-shadow:0 0 10px var(--sh-soft);">88</div><div class="stat-k" style="color:var(--sh-main);">TEK</div><div class="stat-d">Tekniikka</div>
+              </div>
+              <div class="stat reveal" style="border-color:var(--sh-soft);background:rgba(224,160,64,.06);">
+                <div class="stat-v" style="color:var(--sh-main);">81</div><div class="stat-k" style="color:var(--sh-main);">PSY</div><div class="stat-d">Psyykk.</div>
+              </div>
+              <div class="stat" style="border-color:var(--sh-soft);background:rgba(224,160,64,.06);">
+                <div class="stat-v" style="color:var(--sh-main);">74</div><div class="stat-k" style="color:var(--sh-main);">&Auml;LY</div><div class="stat-d">Peli&auml;ly</div>
+              </div>
+              <div class="stat locked"><div class="stat-v">&#128274;</div><div class="stat-k">SOS</div><div class="stat-d">Seura avaa</div></div>
+            </div>
+
+            <div class="stat-note">
+              <span class="nb">&#128274;</span>
+              <span>Sosiaalinen avautuu kun seurasi ottaa ty&ouml;kalun k&auml;ytt&ouml;&ouml;n.</span>
+            </div>
+
+            <!-- JOURNEY hero — strong +6 -->
+            <div class="journey" style="border-color:rgba(224,160,64,.22);background:rgba(224,160,64,.05);">
+              <div class="j-top">
+                <span class="j-lbl" style="color:var(--sh-main);">Sinun matkasi</span>
+                <span class="j-delta" style="color:#7fd9c1;">&#8599; +6 t&auml;ll&auml; kaudella</span>
+              </div>
+              <div class="j-path">
+                <div class="j-node j-start">
+                  <span class="j-dot" style="border-color:var(--faint);color:var(--faint);">&#10003;</span>
+                  <span class="j-cap">Syksy<b>73</b></span>
+                </div>
+                <div class="j-line" style="background:linear-gradient(90deg,#c88a30,var(--sh-main));"></div>
+                <div class="j-node j-now">
+                  <span class="j-dot" style="border-color:var(--sh-main);color:var(--sh-main);background:rgba(224,160,64,.18);">&#9733;</span>
+                  <span class="j-cap" style="color:var(--sh-main);">Nyt<b>79</b></span>
+                </div>
+                <div class="j-line" style="background:rgba(243,241,236,.08);"></div>
+                <div class="j-node j-next">
+                  <span class="j-dot" style="border-color:#cdd4e2;color:#cdd4e2;">&#9650;</span>
+                  <span class="j-cap" style="color:#cdd4e2;">Elite<b>5/5</b></span>
+                </div>
+              </div>
+              <div class="j-foot" style="color:var(--muted);">
+                <b style="color:#7fd9c1;">Kova ty&ouml; n&auml;kyy.</b> Avaa viimeinen osa-alue &rarr; Elite-taso odottaa.
+              </div>
+            </div>
+
+            <div class="mygoal">
+              <span class="mg-ic">&#127919;</span>
+              <div class="mg-tx">
+                <div class="mg-lbl">Minun tavoitteeni</div>
+                <div class="mg-main">&ldquo;Nopeampi ensimm&auml;inen kosketus ahtaalla&rdquo;</div>
+              </div>
+            </div>
+
+            <div class="traits">
+              <span class="trait t-gold"><span class="em">&#129351;</span> Tekniikkamestari</span>
+              <span class="trait t-teal"><span class="em">&#128293;</span> 8 pv putki</span>
+            </div>
+
+            <div class="micro">
+              <span><span class="dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber);"></span>Sharp-taso</span>
+              <span>4/5 mitattu</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         TILA 3: U16 "ELITE" — täysi 5D, platina, matkalla huipulle
+    =================================================================== -->
+    <div class="slot">
+      <div class="slot-label">
+        <div class="tag">Tila 3 &middot; U16 &middot; t&auml;ysi 5D</div>
+        <div class="ttl elite">Elite</div>
+      </div>
+      <div class="card-wrap">
+        <div class="card-frame" style="background:var(--el-frame);box-shadow:var(--el-glow);">
+          <div class="card-body">
+            <div class="tint" style="background:var(--el-bg);"></div>
+            <div class="grain"></div>
+            <div class="shimmer"></div>
+
+            <div class="top-row">
+              <div class="ovr-block">
+                <div class="ovr-num" style="color:var(--el-main);text-shadow:0 0 22px var(--el-soft),2px 2px 0 rgba(0,0,0,.55);">86</div>
+                <div class="ovr-tag" style="color:var(--el-soft);">OVR &middot; 5 osa-aluetta</div>
+              </div>
+              <div class="top-right">
+                <div class="pos-pill" style="color:var(--el-main);border-color:var(--el-soft);">
+                  <span class="pi">&#9889;</span>KHK
+                </div>
+                <div class="team-line">KPV U16 &middot; 11v11</div>
+                <div class="tier-badge" style="color:var(--el-main);border-color:var(--el-soft);background:rgba(198,206,223,.08);">
+                  &#11088;&#11088;&#11088; Elite
+                </div>
+                <div class="meta-row">
+                  <span class="flag"><span class="h"></span><span class="v"></span></span>
+                  <span class="ctry">FIN &middot; 16 v</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="avatar-zone">
+              <div class="avatar" style="border-color:var(--el-soft);background:linear-gradient(180deg,#1B1C24,#16161B);box-shadow:inset 0 2px 12px rgba(0,0,0,.5), 0 0 24px rgba(170,182,210,.18);">
+                <span class="ini" style="color:var(--el-main);">TK</span>
+                <span class="flagchip"><span class="h"></span><span class="v"></span></span>
+              </div>
+            </div>
+
+            <div class="player-name" style="color:var(--el-main);">Topias K.</div>
+            <div class="name-sub">U16 &middot; Hy&ouml;kk&auml;&auml;v&auml; keskikentt&auml;</div>
+
+            <div class="divider" style="background:linear-gradient(90deg,transparent,var(--el-soft) 20%,#eef1f8 50%,var(--el-soft) 80%,transparent);"></div>
+
+            <!-- DREAM strip — toward the top -->
+            <div class="dream" style="border-color:rgba(198,206,223,.24);background:rgba(198,206,223,.05);">
+              <div class="dream-ic" style="border-color:var(--el-soft);color:var(--el-main);background:rgba(198,206,223,.10);">&#128081;</div>
+              <div class="dream-tx">
+                <div class="dream-lbl">Unelma</div>
+                <div class="dream-main" style="color:var(--el-main);">Matkalla <b>huipulle</b> &middot; idoli <b>Modri&cacute;</b></div>
+              </div>
+            </div>
+
+            <div class="stats">
+              <div class="stat" style="border-color:var(--el-soft);background:rgba(198,206,223,.05);"><div class="stat-v" style="color:var(--el-main);">82</div><div class="stat-k" style="color:#cdd4e2;">FYS</div><div class="stat-d">Fyysinen</div></div>
+              <div class="stat" style="border-color:var(--el-soft);background:rgba(198,206,223,.05);"><div class="stat-v" style="color:var(--el-main);text-shadow:0 0 10px var(--el-soft);">88</div><div class="stat-k" style="color:#cdd4e2;">TEK</div><div class="stat-d">Tekniikka</div></div>
+              <div class="stat" style="border-color:var(--el-soft);background:rgba(198,206,223,.05);"><div class="stat-v" style="color:var(--el-main);">85</div><div class="stat-k" style="color:#cdd4e2;">PSY</div><div class="stat-d">Psyykk.</div></div>
+              <div class="stat" style="border-color:var(--el-soft);background:rgba(198,206,223,.05);"><div class="stat-v" style="color:var(--el-main);">84</div><div class="stat-k" style="color:#cdd4e2;">&Auml;LY</div><div class="stat-d">Peli&auml;ly</div></div>
+              <div class="stat reveal" style="border-color:var(--el-soft);background:rgba(198,206,223,.05);"><div class="stat-v" style="color:var(--el-main);">87</div><div class="stat-k" style="color:#cdd4e2;">SOS</div><div class="stat-d">Sosiaal.</div></div>
+            </div>
+
+            <div class="stat-note">
+              <span class="nb">&#9733;</span>
+              <span>Kaikki viisi osa-aluetta avattu &mdash; t&auml;ysi kortti.</span>
+            </div>
+
+            <!-- JOURNEY hero — full path completed -->
+            <div class="journey" style="border-color:rgba(198,206,223,.2);background:rgba(198,206,223,.04);">
+              <div class="j-top">
+                <span class="j-lbl" style="color:#cdd4e2;">Sinun matkasi</span>
+                <span class="j-delta" style="color:#7fd9c1;">&#8599; +13 kolmessa vuodessa</span>
+              </div>
+              <div class="j-path">
+                <div class="j-node j-start">
+                  <span class="j-dot" style="border-color:#9bb6e3;color:#9bb6e3;">&#10003;</span>
+                  <span class="j-cap" style="color:#9bb6e3;">Starter<b>73</b></span>
+                </div>
+                <div class="j-line" style="background:linear-gradient(90deg,var(--blue),var(--amber));"></div>
+                <div class="j-node">
+                  <span class="j-dot" style="border-color:var(--amber);color:var(--amber);">&#10003;</span>
+                  <span class="j-cap" style="color:var(--amber);">Sharp<b>79</b></span>
+                </div>
+                <div class="j-line" style="background:linear-gradient(90deg,var(--amber),var(--el-main));"></div>
+                <div class="j-node j-now">
+                  <span class="j-dot" style="border-color:var(--el-main);color:var(--el-main);background:rgba(198,206,223,.18);">&#9733;</span>
+                  <span class="j-cap" style="color:var(--el-main);">Elite<b>86</b></span>
+                </div>
+              </div>
+              <div class="j-foot" style="color:var(--muted);">
+                <b style="color:#cdd4e2;">Koko matka n&auml;kyviss&auml;.</b> Kolme kautta, kolme tasoa &mdash; ja matka jatkuu.
+              </div>
+            </div>
+
+            <div class="traits">
+              <span class="trait t-gold"><span class="em">&#129351;</span> Tekniikkamestari</span>
+              <span class="trait t-blue"><span class="em">&#128142;</span> Piilohelmi</span>
+              <span class="trait t-teal unlock"><span class="em">&#9889;</span> Varhaiskehitt&auml;j&auml;</span>
+            </div>
+
+            <div class="micro">
+              <span><span class="dot" style="background:#cdd4e2;box-shadow:0 0 6px #cdd4e2;"></span>Elite-taso</span>
+              <span>5/5 mitattu</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         TILA 4: SYNTYMÄPÄIVÄ
+    =================================================================== -->
+    <div class="slot">
+      <div class="slot-label">
+        <div class="tag">Tila 4 &middot; virstanpylv&auml;s</div>
+        <div class="ttl party">Syntym&auml;p&auml;iv&auml;</div>
+      </div>
+      <div class="card-wrap">
+        <div class="card-frame party" style="background:var(--sh-frame);box-shadow:var(--sh-glow);">
+          <div class="card-body">
+            <div class="tint" style="background:radial-gradient(ellipse 110% 60% at 50% 0%, rgba(224,160,64,.22), transparent 58%),radial-gradient(ellipse 90% 80% at 88% 98%, rgba(40,176,144,.12), transparent 60%);"></div>
+            <div class="grain"></div>
+            <div class="confetti" id="confetti"></div>
+            <div class="ribbon">Onnea!</div>
+            <div class="shimmer"></div>
+
+            <div class="top-row">
+              <div class="ovr-block">
+                <div class="ovr-num" style="color:var(--sh-main);">79</div>
+                <div class="ovr-tag" style="color:var(--sh-soft);">OVR</div>
+              </div>
+              <div class="top-right">
+                <div class="pos-pill" style="color:var(--sh-main);border-color:var(--sh-soft);">
+                  <span class="pi">&#9889;</span>KHK
+                </div>
+                <div class="team-line">KPV U15 &middot; 11v11</div>
+                <div class="tier-badge" style="color:var(--sh-main);border-color:var(--sh-soft);background:rgba(224,160,64,.10);">
+                  &#127881; Juhlap&auml;iv&auml;
+                </div>
+                <div class="meta-row">
+                  <span class="flag"><span class="h"></span><span class="v"></span></span>
+                  <span class="ctry">FIN &middot; 15 v t&auml;n&auml;&auml;n</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="avatar-zone">
+              <div class="avatar" style="border-color:var(--sh-soft);background:linear-gradient(180deg,#231F18,#181714);box-shadow:inset 0 2px 12px rgba(0,0,0,.5), 0 0 26px rgba(224,160,64,.28);">
+                <span class="ini" style="color:var(--sh-main);">TK</span>
+                <span class="flagchip"><span class="h"></span><span class="v"></span></span>
+              </div>
+            </div>
+
+            <div class="player-name" style="color:var(--sh-main);">Topias K.</div>
+            <div class="bday-note">
+              <span class="big">Hyv&auml;&auml; syntym&auml;p&auml;iv&auml;&auml;!</span>
+              vuosi vahvempi &middot; vuosi viisaampi
+            </div>
+
+            <div class="divider" style="margin-top:9px;background:linear-gradient(90deg,transparent,var(--sh-soft) 20%,#ffe6b0 50%,var(--sh-soft) 80%,transparent);"></div>
+
+            <!-- birthday: journey reframed as "your year" -->
+            <div class="journey" style="border-color:rgba(224,160,64,.26);background:rgba(224,160,64,.06);">
+              <div class="j-top">
+                <span class="j-lbl" style="color:var(--sh-main);">Vuotesi matka</span>
+                <span class="j-delta" style="color:#7fd9c1;">&#8599; +6 &middot; uusi osa-alue avattu</span>
+              </div>
+              <div class="j-path">
+                <div class="j-node j-start">
+                  <span class="j-dot" style="border-color:var(--faint);color:var(--faint);">&#10003;</span>
+                  <span class="j-cap">14 v<b>73</b></span>
+                </div>
+                <div class="j-line" style="background:linear-gradient(90deg,#c88a30,var(--sh-main));"></div>
+                <div class="j-node j-now">
+                  <span class="j-dot" style="border-color:var(--sh-main);color:var(--sh-main);background:rgba(224,160,64,.2);">&#127881;</span>
+                  <span class="j-cap" style="color:var(--sh-main);">15 v t&auml;n&auml;&auml;n<b>79</b></span>
+                </div>
+                <div class="j-line" style="background:rgba(243,241,236,.08);"></div>
+                <div class="j-node j-next">
+                  <span class="j-dot" style="border-color:#cdd4e2;color:#cdd4e2;">&#9733;</span>
+                  <span class="j-cap" style="color:#cdd4e2;">Edess&auml;<b>16 v</b></span>
+                </div>
+              </div>
+              <div class="j-foot" style="color:var(--muted);">
+                <b style="color:var(--sh-main);">Mahtava vuosi takana, Topias!</b> Tekniikka, peli&auml;ly ja psyykkinen kasvoivat. Eteenp&auml;in.
+              </div>
+            </div>
+
+            <div class="stats">
+              <div class="stat" style="border-color:var(--sh-soft);background:rgba(224,160,64,.06);"><div class="stat-v" style="color:var(--sh-main);">76</div><div class="stat-k" style="color:var(--sh-main);">FYS</div></div>
+              <div class="stat" style="border-color:var(--sh-soft);background:rgba(224,160,64,.06);"><div class="stat-v" style="color:var(--sh-main);text-shadow:0 0 10px var(--sh-soft);">88</div><div class="stat-k" style="color:var(--sh-main);">TEK</div></div>
+              <div class="stat" style="border-color:var(--sh-soft);background:rgba(224,160,64,.06);"><div class="stat-v" style="color:var(--sh-main);">81</div><div class="stat-k" style="color:var(--sh-main);">PSY</div></div>
+              <div class="stat" style="border-color:var(--sh-soft);background:rgba(224,160,64,.06);"><div class="stat-v" style="color:var(--sh-main);">74</div><div class="stat-k" style="color:var(--sh-main);">&Auml;LY</div></div>
+              <div class="stat locked"><div class="stat-v">&#128274;</div><div class="stat-k">SOS</div></div>
+            </div>
+
+            <div class="traits">
+              <span class="trait t-gold"><span class="em">&#127881;</span> Synt&auml;risankari</span>
+              <span class="trait t-teal"><span class="em">&#11088;</span> Vuoden matka</span>
+            </div>
+
+            <div class="micro">
+              <span><span class="dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber);"></span>Juhlap&auml;iv&auml;</span>
+              <span>Onnea, Topias!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         TAKAPUOLI — "Miksi tämä kortti?" matka + tuki edellä
+    =================================================================== -->
+    <div class="slot">
+      <div class="slot-label">
+        <div class="tag">Takapuoli</div>
+        <div class="ttl gold">Miksi t&auml;m&auml; kortti?</div>
+      </div>
+      <div class="card-wrap">
+        <div class="card-frame back" style="background:var(--sh-frame);box-shadow:var(--sh-glow);">
+          <div class="card-body">
+            <div class="tint" style="background:radial-gradient(ellipse 110% 55% at 50% -4%, rgba(224,160,64,.12), transparent 60%);"></div>
+            <div class="grain"></div>
+            <div class="shimmer"></div>
+
+            <div class="b-head">
+              <div>
+                <div class="b-q">Miksi <b>79</b>?</div>
+                <div class="b-sub">Matka &amp; tuki edell&auml;</div>
+              </div>
+              <div>
+                <div class="b-ovr">79</div>
+                <div class="b-ovrtag">OVR</div>
+              </div>
+            </div>
+
+            <!-- JOURNEY FIRST on the back -->
+            <div class="back-journey">
+              <div class="bj-lbl">&#8599; Matka t&auml;ll&auml; kaudella</div>
+              <div class="j-path">
+                <div class="j-node j-start">
+                  <span class="j-dot" style="border-color:var(--faint);color:var(--faint);">&#10003;</span>
+                  <span class="j-cap">Syksy<b>73</b></span>
+                </div>
+                <div class="j-line" style="background:linear-gradient(90deg,#c88a30,var(--sh-main));"></div>
+                <div class="j-node j-now">
+                  <span class="j-dot" style="border-color:var(--sh-main);color:var(--sh-main);background:rgba(224,160,64,.18);">&#9733;</span>
+                  <span class="j-cap" style="color:var(--sh-main);">Nyt<b>79</b></span>
+                </div>
+                <div class="j-line" style="background:rgba(243,241,236,.08);"></div>
+                <div class="j-node j-next">
+                  <span class="j-dot" style="border-color:#cdd4e2;color:#cdd4e2;">&#9650;</span>
+                  <span class="j-cap" style="color:#cdd4e2;">Tavoite<b>Elite</b></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bars">
+              <div class="brow">
+                <div class="lab"><span class="code">FYS</span><span class="nm">Fyysinen</span></div>
+                <div class="track"><i style="width:76%"></i></div>
+                <div class="val">76</div>
+              </div>
+              <div class="brow">
+                <div class="lab"><span class="code">TEK</span><span class="nm">Tekniikka</span></div>
+                <div class="track"><i style="width:88%;background:linear-gradient(90deg,var(--blue),var(--amber));"></i></div>
+                <div class="val" style="color:var(--amber);">88</div>
+              </div>
+              <div class="brow">
+                <div class="lab"><span class="code">PSY</span><span class="nm">Psyykkinen</span></div>
+                <div class="track"><i style="width:81%"></i></div>
+                <div class="val">81</div>
+              </div>
+              <div class="brow">
+                <div class="lab"><span class="code">&Auml;LY</span><span class="nm">Peli&auml;ly</span></div>
+                <div class="track"><i style="width:74%"></i></div>
+                <div class="val">74</div>
+              </div>
+              <div class="brow lockrow">
+                <div class="lab"><span class="code">SOS</span><span class="nm">Sosiaalinen</span></div>
+                <div class="track"><i style="width:0%"></i></div>
+                <div class="val">&#128274;</div>
+              </div>
+            </div>
+
+            <!-- support framing: club-gated lock + how the family supports -->
+            <div class="support-box">
+              <div class="arrow">&#128154;</div>
+              <div class="txt">
+                <b>Sosiaalinen odottaa seuraa.</b>
+                <span>Seurasi ei ole viel&auml; avannut t&auml;t&auml; osa-aluetta &mdash; ei kiire. N&auml;in tuet Topiasta: kysy mit&auml; h&auml;n oppi t&auml;n&auml;&auml;n, kehu yritt&auml;mist&auml;.</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <b>v3-periaatteet (kovat s&auml;&auml;nn&ouml;t):</b> Pelipaikkaa ei n&auml;ytet&auml; U13:lle ja nuoremmille &mdash; sen tilalla
+    &ldquo;Monipuolinen&rdquo;. Matka/kasvu on yht&auml; n&auml;kyv&auml; kuin OVR. Unelma/idoli on motivaatiomoottori, ei kielto.
+    D3+D5-lukot kehystet&auml;&auml;n seuran valintana (&ldquo;Seurasi ei ole viel&auml; avannut t&auml;t&auml;&rdquo;), ei lapsen puutteena.
+    PHV-fysiikka kasvuviestin&auml;, ei punaisena lukuna. Ei XP-palkkia, ei leaderboardia, ei menetyskehyst&auml;.
+    <div class="pills">
+      <span>&#128293; U13: ei pelipaikkaa</span>
+      <span>&#8599; Matka = hero</span>
+      <span>&#11088; Unelma &amp; idoli</span>
+      <span>&#128274; D3/D5 = seura avaa</span>
+      <span>&#127807; PHV positiivisesti</span>
+      <span>&#127919; Minun tavoitteeni</span>
+    </div>
+  </div>
+
+<script>
+  /* confetti for birthday card */
+  (function(){
+    var c = document.getElementById('confetti');
+    if(!c) return;
+    var colors = ['#E0A040','#28B090','#2A5DB0','#f0bc6a','#43c9a9','#EEC98A'];
+    for (var i=0;i<30;i++){
+      var s = document.createElement('i');
+      s.style.left = (Math.random()*100)+'%';
+      s.style.background = colors[i % colors.length];
+      s.style.animationDuration = (2.6 + Math.random()*2.4)+'s';
+      s.style.animationDelay = (-Math.random()*4)+'s';
+      s.style.transform = 'rotate('+(Math.random()*360)+'deg)';
+      if (Math.random() > .6){ s.style.borderRadius='50%'; s.style.width='6px'; s.style.height='6px'; }
+      c.appendChild(s);
+    }
+  })();
+
+  /* tier-up sparks burst — fires once on Sharp + Elite cards */
+  function sparkBurst(targetEl, palette){
+    var host = document.createElement('div');
+    host.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden;';
+    document.body.appendChild(host);
+    var rect = targetEl.getBoundingClientRect();
+    var cx = rect.left + rect.width/2;
+    var cy = rect.top + rect.height*0.28;
+    for(var i=0;i<26;i++){
+      (function(i){
+        setTimeout(function(){
+          var el = document.createElement('div');
+          var angle = Math.random()*Math.PI*2;
+          var r = 50+Math.random()*150;
+          var sz = 1.5+Math.random()*3;
+          el.style.cssText = 'position:absolute;border-radius:50%;left:'+cx+'px;top:'+cy+'px;width:'+sz+'px;height:'+sz+'px;background:'+(Math.random()>.4?palette[0]:palette[1])+';box-shadow:0 0 6px '+palette[0]+';';
+          host.appendChild(el);
+          el.animate([
+            {opacity:1,transform:'translate(0,0) scale(1)'},
+            {opacity:0,transform:'translate('+(Math.cos(angle)*r)+'px,'+(Math.sin(angle)*r)+'px) scale(0)'}
+          ],{duration:600+Math.random()*600,easing:'cubic-bezier(.22,1,.36,1)',fill:'both'});
+          setTimeout(function(){el.remove();},1400);
+        }, i*34);
+      })(i);
+    }
+    setTimeout(function(){host.remove();}, 2600);
+  }
+
+  window.addEventListener('load', function(){
+    var cards = document.querySelectorAll('.card-frame');
+    /* Sharp = index 1 (gold), Elite = index 2 (platinum) */
+    setTimeout(function(){ if(cards[1]) sparkBurst(cards[1], ['#FFE0A0','#E0A040']); }, 2300);
+    setTimeout(function(){ if(cards[2]) sparkBurst(cards[2], ['#EEF1F8','#C6CEDF']); }, 2700);
+  });
+</script>
+</body>
+</html>

@@ -170,19 +170,83 @@ button{font-family:var(--font-b);cursor:pointer}
   .scene-bar,.locale-bar{display:none}
 }
 
-/* ── FIFA CARD — overlay CSS ──────────────────────────────── */
-.fc-ov{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.88);backdrop-filter:blur(14px);display:none;flex-direction:column;align-items:center;justify-content:center;animation:cardPop .4s cubic-bezier(.34,1.56,.64,1)}
+/* ── FIFA CARD v2 — 5D pikakentät · tier-paletit (mockup v3) · §5 design-tokenit (Cormorant/DM Sans) ── */
+.fc-ov{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.9);backdrop-filter:blur(14px);display:none;flex-direction:column;align-items:center;justify-content:center;animation:cardPop .4s cubic-bezier(.34,1.56,.64,1);overflow-y:auto;padding:16px 0}
 .fc-ov.active{display:flex}
-.fc-wrap{width:240px;height:360px;position:relative}
-.fc-face{position:absolute;inset:0;border-radius:16px;transition:opacity .4s ease,transform .6s cubic-bezier(.4,0,.2,1);backface-visibility:hidden}
-.fc-front{background:linear-gradient(135deg,#3A2800,#1A1200 45%,#0D0800);border:1px solid rgba(184,134,11,.4);box-shadow:0 20px 60px rgba(0,0,0,.8),inset 0 0 80px rgba(200,136,42,.1);padding:20px 18px;display:flex;flex-direction:column;color:#B8860B}
-.fc-back{background:var(--surface);border:.5px solid var(--border2);padding:18px 18px 14px;display:flex;flex-direction:column;color:var(--text)}
-.fc-flipped .fc-front{opacity:0;transform:scale(.9) rotateY(12deg);pointer-events:none}
+.fc-wrap{width:286px;height:470px;position:relative;flex-shrink:0}
+.fc-face{position:absolute;inset:0;border-radius:22px;transition:opacity .45s ease,transform .6s cubic-bezier(.4,0,.2,1);backface-visibility:hidden;overflow:hidden;animation:fcRise 1s cubic-bezier(.22,1,.36,1) both}
+.fc-flipped .fc-front{opacity:0;transform:scale(.92) rotateY(12deg);pointer-events:none}
 .fc-flipped .fc-back{opacity:1!important;transform:scale(1) rotateY(0)!important;pointer-events:auto!important}
-.fc-back{opacity:0;transform:scale(.9) rotateY(-12deg);pointer-events:none}
-.fc-stats{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:10px;font-weight:500}
-.fc-stat{display:flex;justify-content:space-between;color:rgba(184,134,11,.9)}
-.fc-flip-btn{margin-top:22px;background:rgba(242,239,230,.05);border:.5px solid var(--border3);color:var(--text);padding:10px 20px;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;border-radius:20px;display:flex;align-items:center;gap:8px}
+.fc-back{opacity:0;transform:scale(.92) rotateY(-12deg);pointer-events:none;background:linear-gradient(168deg,#1C1C1A,#161614 55%,#111110);border:1px solid var(--cf-soft,rgba(242,239,230,.12));border-radius:22px;padding:18px 17px 14px;display:flex;flex-direction:column;color:var(--text)}
+/* tier-paletit (CSS-muuttujat .fc-front:lle ja .fc-back:lle) */
+.tier-starter{--cf-frame:linear-gradient(150deg,#5E86C9,#2A5DB0 38%,#16315E 70%,#3D6BBE);--cf-main:#9BB6E3;--cf-soft:rgba(155,182,227,.45);--cf-bg:radial-gradient(ellipse 110% 55% at 50% -4%,rgba(42,93,176,.20),transparent 58%);--cf-glow:0 0 26px rgba(42,93,176,.32),0 0 58px rgba(42,93,176,.14)}
+.tier-sharp{--cf-frame:linear-gradient(150deg,#F0C883,#E0A040 28%,#9A6A1E 58%,#5F4112 80%,#C88A30 92%,#E8B45A);--cf-main:#EEC98A;--cf-soft:rgba(224,160,64,.50);--cf-bg:radial-gradient(ellipse 110% 58% at 50% -4%,rgba(224,160,64,.20),transparent 60%);--cf-glow:0 0 28px rgba(224,160,64,.34),0 0 62px rgba(224,160,64,.15)}
+.tier-elite{--cf-frame:linear-gradient(150deg,#EEF1F8,#C6CEDF 30%,#828BA6 60%,#525A75 80%,#9097AE 92%,#D2D9E6);--cf-main:#E4E9F2;--cf-soft:rgba(206,214,229,.48);--cf-bg:radial-gradient(ellipse 110% 55% at 50% -4%,rgba(206,214,229,.13),transparent 56%);--cf-glow:0 0 28px rgba(190,200,222,.30),0 0 62px rgba(150,165,200,.14)}
+.fc-front{padding:2.5px;border-radius:22px;background:var(--cf-frame);box-shadow:var(--cf-glow),0 24px 60px rgba(0,0,0,.7)}
+.fc-body{position:relative;border-radius:20px;overflow:hidden;height:100%;display:flex;flex-direction:column;padding:15px 15px 13px;background:linear-gradient(168deg,#1C1C1A 0%,#161614 52%,#111110 100%)}
+.fc-tint{position:absolute;inset:0;background:var(--cf-bg);pointer-events:none}
+.fc-shim{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.fc-shim::after{content:'';position:absolute;top:0;bottom:0;left:-110%;width:62%;background:linear-gradient(105deg,transparent 22%,rgba(255,255,255,.05) 46%,rgba(255,255,255,.13) 50%,rgba(255,255,255,.05) 54%,transparent 78%);animation:fcShim 6s 1.8s ease-in-out infinite}
+.fc-body>*{position:relative;z-index:2}
+.fc-num{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:62px;line-height:.82;letter-spacing:-1px;color:var(--cf-main);text-shadow:0 0 22px var(--cf-soft),2px 2px 0 rgba(0,0,0,.5);animation:fcPop 1s .5s cubic-bezier(.34,1.56,.64,1) both}
+.fc-numtag{font-family:'DM Sans',sans-serif;font-weight:600;font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--cf-soft);margin-top:4px;opacity:.7}
+.fc-build{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:24px;line-height:1.05;color:var(--text)}
+.fc-buildsub{font-family:'DM Sans',sans-serif;font-weight:500;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);margin-top:6px}
+.fc-pill{display:inline-flex;align-items:center;gap:4px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:9.5px;letter-spacing:.04em;padding:4px 9px;border-radius:20px;border:1px solid var(--cf-soft);color:var(--cf-main);background:rgba(255,255,255,.03)}
+.fc-tier{display:inline-block;font-family:'DM Sans',sans-serif;font-weight:600;font-size:9px;letter-spacing:.1em;padding:3px 9px;border-radius:5px;border:1px solid var(--cf-soft);color:var(--cf-main);background:rgba(255,255,255,.04);margin-top:5px}
+.fc-meta{font-family:'DM Sans',sans-serif;font-size:9px;color:var(--ink3);margin-top:5px;display:flex;align-items:center;gap:5px;justify-content:flex-end}
+.fc-flag{width:14px;height:10px;border-radius:1px;background:linear-gradient(90deg,#fff 38%,#003580 38%,#003580 50%,#fff 50%,#fff 56%,#003580 56%);position:relative;flex-shrink:0;border:.5px solid rgba(0,0,0,.3)}
+.fc-flag::after{content:'';position:absolute;left:0;right:0;top:38%;height:24%;background:#003580}
+.fc-av{width:62px;height:62px;border-radius:50%;border:1.5px solid var(--cf-soft);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--cf-main);background:rgba(255,255,255,.04);box-shadow:inset 0 2px 12px rgba(0,0,0,.5),0 0 22px var(--cf-soft);animation:fcFloat 5s 1.3s ease-in-out infinite}
+.fc-name{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:24px;color:var(--cf-main);line-height:1.05;animation:fcSlide .9s .5s ease both}
+.fc-namesub{font-family:'DM Sans',sans-serif;font-size:9px;color:var(--ink3);margin-top:2px}
+.fc-div{height:1px;margin:9px 0;background:linear-gradient(90deg,transparent,var(--cf-soft) 22%,rgba(255,255,255,.35) 50%,var(--cf-soft) 78%,transparent)}
+.fc-dream{border:1px solid var(--cf-soft);background:rgba(255,255,255,.03);border-radius:11px;padding:7px 10px;display:flex;align-items:center;gap:9px}
+.fc-dream .di{width:24px;height:24px;border-radius:50%;border:1px solid var(--cf-soft);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;color:var(--cf-main)}
+.fc-dream .dl{font-family:'DM Sans',sans-serif;font-weight:600;font-size:7px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
+.fc-dream .dm{font-family:'Cormorant Garamond',serif;font-weight:600;font-style:italic;font-size:14px;color:var(--cf-main);margin-top:1px;line-height:1.15}
+.fc-s5{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:9px}
+.fc-st{text-align:center;padding:7px 1px 6px;border-radius:9px;border:1px solid rgba(242,239,230,.08);overflow:hidden}
+.fc-st .sv{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:23px;line-height:1;color:var(--cf-main);text-shadow:0 0 10px var(--cf-soft)}
+.fc-st .sk{font-family:'DM Sans',sans-serif;font-weight:700;font-size:7.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--cf-main);margin-top:1px}
+.fc-st .sd{font-family:'DM Sans',sans-serif;font-weight:600;font-size:6.5px;color:var(--ink3);margin-top:1px;line-height:1.1}
+.fc-st.measured{border-color:var(--cf-soft);background:rgba(255,255,255,.04);animation:fcReveal .9s 2.2s cubic-bezier(.34,1.4,.5,1) both}
+.fc-st.locked{opacity:.5}.fc-st.locked .sv{font-family:'DM Sans',sans-serif;font-weight:500;font-size:13px;color:var(--ink3)}.fc-st.locked .sk{color:var(--ink3)}
+.fc-st.grow{border-color:rgba(40,176,144,.22);background:rgba(40,176,144,.06)}.fc-st.grow .sv{font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;color:#7fd9c1}.fc-st.grow .sk{color:#7fd9c1}.fc-st.grow .sd{color:rgba(127,217,193,.75)}
+.fc-st.early .sv{font-size:19px;opacity:.85}.fc-st.early .sd{color:#E0A653}
+.fc-j{border:1px solid var(--cf-soft);background:rgba(255,255,255,.03);border-radius:12px;padding:9px 11px;margin-top:9px}
+.fc-j .jt{display:flex;justify-content:space-between;align-items:baseline}
+.fc-j .jl{font-family:'DM Sans',sans-serif;font-weight:600;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--cf-main)}
+.fc-j .jd{font-family:'DM Sans',sans-serif;font-weight:600;font-size:9px;color:#7fd9c1}
+.fc-j .jp{display:flex;align-items:center;margin-top:7px}
+.fc-j .jn{display:flex;flex-direction:column;align-items:center;width:54px;text-align:center;flex-shrink:0}
+.fc-j .jdot{width:13px;height:13px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;border:1.5px solid var(--ink3);color:var(--ink3);margin-bottom:4px}
+.fc-j .jn.now .jdot{border-color:var(--cf-main);color:var(--cf-main);background:rgba(255,255,255,.08);transform:scale(1.2)}
+.fc-j .jcap{font-family:'DM Sans',sans-serif;font-weight:600;font-size:7px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink3);line-height:1.2}
+.fc-j .jn.now .jcap{color:var(--cf-main)}
+.fc-j .jcap b{display:block;font-family:'Cormorant Garamond',serif;font-weight:600;font-size:12px;margin-top:1px;letter-spacing:0}
+.fc-j .jline{flex:1;height:2px;border-radius:2px;position:relative;top:-9px}
+.fc-j .jfoot{margin-top:8px;font-family:'DM Sans',sans-serif;font-weight:500;font-size:9px;line-height:1.45;color:var(--ink2)}
+.fc-goal{margin-top:8px;border:1px dashed rgba(242,239,230,.14);border-radius:11px;padding:7px 11px;display:flex;align-items:center;gap:9px;cursor:pointer}
+.fc-goal .gl{font-family:'DM Sans',sans-serif;font-weight:600;font-size:7px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)}
+.fc-goal .gm{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;color:var(--text);margin-top:1px;line-height:1.15}
+.fc-bar{display:grid;grid-template-columns:34px 1fr 30px;align-items:center;gap:8px;font-size:11px;margin-bottom:7px}
+.fc-bar .bk{color:var(--ink3);font-weight:600;font-family:'DM Sans',sans-serif;font-size:10px}
+.fc-bar .bt{height:5px;background:rgba(242,239,230,.08);border-radius:3px;overflow:hidden}
+.fc-bar .bf{height:100%;border-radius:3px;background:var(--teal)}
+.fc-bar .bv{text-align:right;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text)}
+.fc-trait{display:inline-flex;align-items:center;gap:4px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:9px;padding:4px 8px;border-radius:20px;border:1px solid var(--cf-soft);color:var(--cf-main);background:rgba(255,255,255,.03);margin:3px 3px 0 0}
+.fc-confetti{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:hidden;border-radius:20px}
+.fc-confetti i{position:absolute;width:6px;height:9px;border-radius:1px;opacity:.9;animation:fcFall linear infinite}
+.fc-ribbon{position:absolute;z-index:8;top:20px;left:-46px;transform:rotate(-38deg);background:linear-gradient(90deg,#E0A040,#f0bc6a);color:#1a1509;font-family:'DM Sans',sans-serif;font-weight:700;font-size:9px;letter-spacing:.14em;text-transform:uppercase;padding:5px 52px;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.fc-flip-btn{margin-top:18px;background:rgba(242,239,230,.05);border:.5px solid var(--border3);color:var(--text);padding:10px 20px;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;border-radius:20px;display:flex;align-items:center;gap:8px;cursor:pointer}
+@keyframes fcRise{from{opacity:0;transform:translateY(40px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes fcShim{0%{left:-110%;opacity:0}6%{opacity:1}42%,100%{left:150%;opacity:0}}
+@keyframes fcPop{from{opacity:0;transform:scale(.4) rotate(-8deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes fcSlide{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fcFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes fcReveal{0%{transform:rotateY(-80deg);opacity:0}55%{opacity:1}100%{transform:rotateY(0);opacity:1}}
+@keyframes fcFall{0%{transform:translateY(-20px) rotate(0);opacity:0}12%{opacity:.95}100%{transform:translateY(470px) rotate(440deg);opacity:0}}
 
 
 /* ── SAMSUNG / PIENI NÄYTTÖ (≤390px) ──────────────────── */
@@ -3398,54 +3462,178 @@ function flipKortti() {
   if (txt) txt.textContent = flipped ? 'Etupuoli' : 'Miksi?';
 }
 
+// FIFA-kortti v2 — 5D pikakentistä (§26, EI alikokoelmakyselyjä), data-aware OVR + RAE + PHV,
+// U14-pelipaikkaportti (§7.1), journey/dream/goal (§7), §7.22-turvallinen (ei lasku/vertailu/XP).
 function naytaFcOverlay() {
-  // Näyttää erillisen fc-ov overlaysta kun _pelaaja on ladattu
   const el = document.getElementById('fcOv');
   if (!el) return;
   const p = _pelaaja || {};
-  const fleiKa = Object.keys(_flei).length
-    ? Math.round(Object.values(_flei).reduce((a,b)=>a+b,0)/5)
-    : (p.ovr || 70);
-  const stats = [
-    ['PAC', p.sbl  ? Math.round(((p.sbl)-1)/2*100)  : 75],
-    ['DRI', fleiKa],
-    ['SHO', 74], ['DEF', 58], ['PAS', 80],
-    ['PHY', p.dfl  ? Math.round(((p.dfl)-1)/2*100)  : 65],
-  ];
-  const why = getWhy(_heikoinKetju(), 'S');
-  el.innerHTML = `
-    <button class="fc-flip-btn" id="flipTxt" onclick="flipKortti()" style="position:absolute;top:18px;right:18px;border-radius:20px;padding:8px">✕</button>
-    <div class="fc-wrap" id="fcWrap">
-      <div class="fc-face fc-front">
-        <div style="font-size:9px;letter-spacing:.3em;font-weight:500;color:rgba(184,134,11,.7)">★ ELITE</div>
-        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:4px">
-          <div>
-            <div style="font-family:var(--font-b);font-weight:900;font-size:72px;line-height:.9;color:#B8860B">${fleiKa}</div>
-            <div style="font-size:14px;font-weight:500;letter-spacing:.2em;color:#B8860B">${p.pelipaikka||'CAM'}</div>
-          </div>
-          <div style="text-align:right;color:#B8860B">
-            <div style="font-size:10px;letter-spacing:.2em">FIN</div>
-          </div>
-        </div>
-        <div style="margin-top:12px;flex:1;background:rgba(184,134,11,.05);border:.5px solid rgba(184,134,11,.22);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:42px">⚽</div>
-        <div style="font-family:var(--font-b);font-weight:900;font-size:18px;letter-spacing:.5px;text-transform:uppercase;margin-top:10px;border-top:.5px solid rgba(184,134,11,.3);padding-top:8px;color:#B8860B">${(p.sukunimi||'Pelaaja').toUpperCase()}</div>
-        <div class="fc-stats" style="margin-top:6px">${stats.map(([k,v])=>`<div class="fc-stat"><span>${k}</span><b>${v}</b></div>`).join('')}</div>
-      </div>
-      <div class="fc-face fc-back">
-        <div style="font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-d)">Miksi ${fleiKa}?</div>
-        <div style="font-family:var(--font-d);font-size:17px;line-height:1.3;margin-top:6px">${why}</div>
-        <div style="margin-top:14px;display:flex;flex-direction:column;gap:6px">
-          ${stats.map(([k,v])=>`<div style="display:grid;grid-template-columns:34px 1fr 38px;align-items:center;gap:8px;font-size:11px"><span style="color:var(--ink3);font-weight:500">${k}</span><div style="height:4px;background:rgba(242,239,230,.08);border-radius:2px;overflow:hidden"><div style="height:100%;width:${v}%;background:var(--teal)"></div></div><span style="font-family:var(--font-m);text-align:right">${v}</span></div>`).join('')}
-        </div>
-      </div>
-    </div>
-    <button class="fc-flip-btn" onclick="flipKortti()">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0115-6L21 9"/><path d="M21 3V9H15"/></svg>
-      <span id="flipTxt">Miksi ${fleiKa}?</span>
-    </button>
-    <button onclick="suljeKortti()" style="margin-top:12px;background:none;border:.5px solid var(--border2);color:var(--ink3);padding:8px 16px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;border-radius:20px">Sulje</button>
-  `;
+  const nyt = new Date();
+  const norm5 = t => Math.round(((t - 1) / 4) * 99);
+  // Ikä: syntymaVuosi tai joukkueen ikäluokasta (P15/T14)
+  let ika = p.syntymaVuosi ? (nyt.getFullYear() - p.syntymaVuosi) : null;
+  if (ika == null && p.joukkue) { const m = String(p.joukkue).match(/[PT](\d+)/i); if (m) ika = +m[1]; }
+  const phvKasvu = (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+
+  // ── 5D ulottuvuudet pikakentistä ──
+  const dims = [];
+  // D1 FYS ← d1_taso (PHV-tietoinen §28: pre-PHV → kasvaa, ei punaista)
+  if (p.d1_taso != null && phvKasvu) dims.push({ key:'FYS', lbl:'Kasvaa', val:null, state:'grow', w:.40, counts:true, ovrVal:norm5(p.d1_taso) });
+  else if (p.d1_taso != null)        dims.push({ key:'FYS', lbl:'Voima', val:norm5(p.d1_taso), state:'measured', w:.40, counts:true });
+  else                                dims.push({ key:'FYS', lbl:'Tulossa', val:null, state:'soon', w:.40, counts:false });
+  // D2 TEK ← tki_viimeisin (0–99) || d2_taso
+  const d2 = (p.tki_viimeisin != null) ? Math.round(p.tki_viimeisin) : (p.d2_taso != null ? norm5(p.d2_taso) : null);
+  dims.push(d2 != null ? { key:'TEK', lbl:'Tekniikka', val:d2, state:'measured', w:.25, counts:true }
+                       : { key:'TEK', lbl:'Tulossa', val:null, state:'soon', w:.25, counts:false });
+  // D3 PSY ← d3_viimeisin || seura-lukko
+  let d3ka = null;
+  if (p.d3_viimeisin && p.d3_viimeisin.pisteet) {
+    const a = Object.values(p.d3_viimeisin.pisteet).map(x => (x && x.avg != null) ? x.avg : x).filter(x => typeof x === 'number');
+    if (a.length) d3ka = a.reduce((s,x)=>s+x,0)/a.length;
+  }
+  dims.push(d3ka != null ? { key:'PSY', lbl:'Pää', val:norm5(d3ka), state:'measured', w:.15, counts:true }
+                         : { key:'PSY', lbl:'Seura avaa', val:null, state:'club', w:.15, counts:false });
+  // D4 ÄLY ← adar_viimeisin.yht (0–12); luotettava vasta ≥3 havaintoa
+  const ad = p.adar_viimeisin;
+  if (ad && ad.yht != null) {
+    const v = Math.round((ad.yht / 12) * 99), luot = (p.adar_havaintoja || 0) >= 3;
+    dims.push({ key:'ÄLY', lbl: luot ? 'Peliäly' : 'varhainen', val:v, state: luot ? 'measured' : 'early', w:.10, counts:luot });
+  } else dims.push({ key:'ÄLY', lbl:'Tulossa', val:null, state:'soon', w:.10, counts:false });
+  // D5 SOS ← seura-lukko (ei mittaria)
+  dims.push({ key:'SOS', lbl:'Seura avaa', val:null, state:'club', w:.10, counts:false });
+
+  const mitatut = dims.filter(d => d.counts);
+  const rakentuu = mitatut.length < 3;
+
+  // ── OVR (data-aware + RAE, §2/§30) ──
+  let ovr = null;
+  if (!rakentuu) {
+    let kk = null;
+    if (p.syntymaaika && p.syntymaaika.toDate) kk = p.syntymaaika.toDate().getMonth() + 1;
+    else if (p.syntymaaika && p.syntymaaika.seconds) kk = new Date(p.syntymaaika.seconds * 1000).getMonth() + 1;
+    const rae = (kk != null) ? [.92,.96,1.02,1.06][Math.ceil(kk/3) - 1] : 1.0;  // vain kk → RAE; muuten 1.0
+    let sum = 0, wsum = 0;
+    dims.forEach(d => { if (!d.counts) return; const v = (d.ovrVal != null) ? d.ovrVal : d.val; if (v != null) { sum += v * d.w; wsum += d.w; } });
+    ovr = wsum ? Math.round(rae * (sum / wsum)) : null;
+  }
+  const tier = rakentuu ? 'starter' : (mitatut.length >= 5 && ovr >= 75 ? 'elite' : 'sharp');
+  const tierNimi = tier === 'elite' ? 'Elite' : tier === 'sharp' ? 'Sharp' : 'Starter';
+  const seuraavaTier = tier === 'starter' ? 'Sharp' : tier === 'sharp' ? 'Elite' : 'Mestaruus';
+
+  // ── Pelipaikkaportti (§7.1: U14+ vasta) ──
+  const naytaPaikka = (ika != null && ika >= 14 && p.pelipaikka);
+  // ── Idoli/unelma ──
+  let idoli = 'Bellingham', idolTeema = 'rohkea joka paikassa';
+  try { const vt = (window.TM && window.TM.microcycles && window.TM.microcycles.laskeViikkoTeema) ? window.TM.microcycles.laskeViikkoTeema() : null; if (vt && vt.idoliNimi) { idoli = vt.idoliNimi; idolTeema = vt.teema || idolTeema; } } catch(e){}
+  // ── Avatar / nimi ──
+  const ini = (((p.etunimi||'')[0]||'') + ((p.sukunimi||'')[0]||'')).toUpperCase() || 'TM';
+  const nimi = (p.etunimi || 'Pelaaja') + (p.sukunimi ? (' ' + p.sukunimi[0] + '.') : '');
+  // ── Oma tavoite (autonomia, localStorage — kevyt) ──
+  const goalKey = 'tm_oma_tavoite_' + (p.id || p.pelaajaId || 'x');
+  const goal = p.oma_tavoite || localStorage.getItem(goalKey) || '';
+  // ── Synttäri ──
+  const synttari = (typeof _onkoSynttari === 'function') ? _onkoSynttari(p) : false;
+  // ── Traits olemassa olevista signaaleista ──
+  const traits = [];
+  if (p.tki_merkki) traits.push('🥇 Tekniikkamestari');
+  if (p.tekninen_varhaiskehitys) traits.push('⚡ Varhaiskehittäjä');
+  if (p.hidden_gem) traits.push('💎 Piilohelmi');
+  const streak = (typeof _haeStreak === 'function') ? _haeStreak() : 0;
+  if (streak >= 3) traits.push('🔥 ' + streak + ' pv putki');
+  // ── Journey-delta (vain positiivinen, §7.22) ──
+  let jDelta = '';
+  if (p.tki_edellinen != null && p.tki_viimeisin != null) { const dd = Math.round(p.tki_viimeisin - p.tki_edellinen); if (dd > 0) jDelta = '↗ Tekniikka +' + dd; }
+
+  // ── 5D-statti (etupuoli) ──
+  const st = d => {
+    if (d.state === 'measured') return '<div class="fc-st measured"><div class="sv">' + d.val + '</div><div class="sk">' + d.key + '</div><div class="sd">' + d.lbl + '</div></div>';
+    if (d.state === 'grow')     return '<div class="fc-st grow"><div class="sv">🌱</div><div class="sk">' + d.key + '</div><div class="sd">' + d.lbl + '</div></div>';
+    if (d.state === 'early')    return '<div class="fc-st early"><div class="sv">' + d.val + '</div><div class="sk">' + d.key + '</div><div class="sd">' + d.lbl + '</div></div>';
+    return '<div class="fc-st locked"><div class="sv">🔒</div><div class="sk">' + d.key + '</div><div class="sd">' + d.lbl + '</div></div>';
+  };
+  // ── 5D-palkki (takapuoli) ──
+  const bar = d => {
+    if (d.state === 'club') return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:9px;color:var(--ink3)">Seurasi ei ole vielä avannut tätä</div></div>';
+    if (d.state === 'soon') return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:9px;color:var(--ink3)">🔒 Tulossa — mittaus avaa</div></div>';
+    const v = (d.ovrVal != null) ? d.ovrVal : d.val;
+    const lbl = d.state === 'grow' ? '🌱' : v;
+    return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div class="bt"><div class="bf" style="width:' + (v||0) + '%"></div></div><span class="bv">' + lbl + '</span></div>';
+  };
+
+  const headHtml = rakentuu
+    ? '<div class="fc-build">Kortti<br>rakentuu</div><div class="fc-buildsub">' + mitatut.length + '/5 avattu · hieno alku</div>'
+    : '<div class="fc-num">' + ovr + '</div><div class="fc-numtag">OVR · ' + mitatut.length + ' osa-aluetta</div>';
+  const posHtml = naytaPaikka
+    ? '<div class="fc-pill">⚡ ' + p.pelipaikka + '</div>'
+    : '<div class="fc-pill">🔥 Monipuolinen</div><div style="font-family:\'DM Sans\';font-size:8px;color:var(--ink3);margin-top:3px;text-align:right">kokeilee kaikkia paikkoja</div>';
+  const ikaTxt = (ika != null ? ('U' + ika) : '') + (naytaPaikka ? '' : (ika != null && ika <= 13 ? ' · 8v8' : ''));
+
+  el.innerHTML =
+    '<div class="fc-wrap" id="fcWrap">' +
+      '<div class="fc-face fc-front tier-' + tier + '">' +
+        (synttari ? '<div class="fc-ribbon">Onnea!</div>' : '') +
+        '<div class="fc-body">' +
+          '<div class="fc-tint"></div><div class="fc-shim"></div>' +
+          (synttari ? '<div class="fc-confetti" id="fcConfetti"></div>' : '') +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">' +
+            '<div>' + headHtml + '</div>' +
+            '<div style="text-align:right">' + posHtml +
+              '<div style="font-family:\'DM Sans\';font-size:8.5px;color:var(--ink3);margin-top:4px">' + ((p.seuraId||'').toUpperCase() + (ikaTxt?(' '+ikaTxt):'')) + '</div>' +
+              '<div class="fc-tier">⭐ ' + tierNimi + '</div>' +
+              '<div class="fc-meta"><span class="fc-flag"></span>FIN' + (ika!=null?(' · '+ika+' v'):'') + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:center;margin-top:10px"><div class="fc-av">' + ini + '</div></div>' +
+          '<div style="text-align:center"><div class="fc-name">' + nimi + '</div>' +
+            '<div class="fc-namesub">' + (synttari ? '🎂 Hyvää syntymäpäivää!' : (naytaPaikka ? p.pelipaikka : 'pelaa joka paikassa')) + '</div></div>' +
+          '<div class="fc-div"></div>' +
+          '<div class="fc-dream"><div class="di">⭐</div><div><div class="dl">Unelma</div><div class="dm">Kuin <b>' + idoli + '</b> — ' + idolTeema + '</div></div></div>' +
+          '<div class="fc-s5">' + dims.map(st).join('') + '</div>' +
+          '<div class="fc-j"><div class="jt"><span class="jl">Sinun matkasi</span>' + (jDelta?('<span class="jd">'+jDelta+'</span>'):'') + '</div>' +
+            '<div class="jp">' +
+              '<div class="jn"><span class="jdot">✓</span><span class="jcap">Aloitit<b>' + Math.max(1,mitatut.length) + ' os.</b></span></div>' +
+              '<div class="jline" style="background:linear-gradient(90deg,#2A5DB0,var(--cf-main))"></div>' +
+              '<div class="jn now"><span class="jdot">★</span><span class="jcap">Tässä nyt<b>' + tierNimi + '</b></span></div>' +
+              '<div class="jline" style="background:rgba(243,241,236,.08)"></div>' +
+              '<div class="jn"><span class="jdot">🔒</span><span class="jcap">Seuraava<b>' + seuraavaTier + '</b></span></div>' +
+            '</div>' +
+            '<div class="jfoot">' + (rakentuu ? ('Hieno alku' + (p.etunimi?(', '+p.etunimi):'') + '! Jokainen treeni ja mittaus avaa korttiasi lisää.') : 'Vahvuutesi vie eteenpäin — kortti kirkastuu kun kehityt.') + '</div>' +
+          '</div>' +
+          '<div class="fc-goal" onclick="_fcAsetaTavoite()"><span style="font-size:13px">🎯</span><div><div class="gl">Minun tavoitteeni</div><div class="gm">' + (goal ? ('"' + goal + '"') : 'Kosketa ja kirjoita oma tavoitteesi') + '</div></div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="fc-face fc-back tier-' + tier + '">' +
+        '<div style="font-family:\'DM Sans\';font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--cf-main)">' + (rakentuu ? 'Miksi tämä kortti?' : ('Miksi ' + ovr + '?')) + '</div>' +
+        '<div style="font-family:\'Cormorant Garamond\',serif;font-size:16px;font-style:italic;line-height:1.35;margin:7px 0 12px;color:var(--text)">' + (rakentuu ? 'Korttisi rakentuu mittaus kerrallaan — joka treeni avaa uuden osa-alueen. Tämä on sinun matkasi, ei kilpailu muita vastaan.' : 'Numero kertoo missä olet juuri nyt. Vahvuutesi vievät eteenpäin — kortti kirkastuu kun kehityt.') + '</div>' +
+        dims.map(bar).join('') +
+        (traits.length ? ('<div style="margin-top:10px"><div style="font-family:\'DM Sans\';font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:5px">Erikoismerkit</div>' + traits.map(t => '<span class="fc-trait">' + t + '</span>').join('') + '</div>') : '') +
+        '<div style="margin-top:auto;font-family:\'DM Sans\';font-size:9px;color:var(--ink3);line-height:1.4;padding-top:10px">Lukitut osa-alueet (Pää · Joukkue) avautuvat kun seurasi ottaa työkalut käyttöön — ei sinusta kiinni.</div>' +
+      '</div>' +
+    '</div>' +
+    '<button class="fc-flip-btn" onclick="flipKortti()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0115-6L21 9"/><path d="M21 3V9H15"/></svg><span id="flipTxt">Miksi tämä kortti?</span></button>' +
+    '<button onclick="suljeKortti()" style="margin-top:10px;background:none;border:.5px solid var(--border2);color:var(--ink3);padding:8px 16px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;border-radius:20px;cursor:pointer">Sulje</button>';
   el.classList.add('active');
+
+  // Synttäri-konfetti (mockup-generaattori)
+  if (synttari) {
+    const c = document.getElementById('fcConfetti');
+    if (c) { const cols = ['#E0A040','#28B090','#2A5DB0','#f0bc6a','#43c9a9','#EEC98A'];
+      for (let i = 0; i < 26; i++) { const s = document.createElement('i');
+        s.style.left = (Math.random()*100) + '%'; s.style.background = cols[i % cols.length];
+        s.style.animationDuration = (2.6 + Math.random()*2.4) + 's'; s.style.animationDelay = (-Math.random()*4) + 's';
+        s.style.transform = 'rotate(' + (Math.random()*360) + 'deg)';
+        if (Math.random() > .6) { s.style.borderRadius = '50%'; s.style.width = '6px'; s.style.height = '6px'; }
+        c.appendChild(s); } }
+  }
+}
+
+// Oma tavoite — autonomia (§7.5), kevyt localStorage-tallennus, ei pakollinen
+function _fcAsetaTavoite() {
+  const p = _pelaaja || {};
+  const key = 'tm_oma_tavoite_' + (p.id || p.pelaajaId || 'x');
+  const nyky = localStorage.getItem(key) || '';
+  const uusi = window.prompt('Oma tavoitteesi (esim. "Opin syöttämään molemmilla jaloilla"):', nyky);
+  if (uusi != null) { localStorage.setItem(key, uusi.trim()); naytaFcOverlay(); }
 }
 
 
