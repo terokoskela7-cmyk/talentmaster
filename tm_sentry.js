@@ -25,7 +25,12 @@
   // URL-kentistä strippataan query-parametrit. EI koskaan email/nimi/displayName eventteihin.
   var SENSITIVE = /email|nimi|etunimi|sukunimi|huoltaja|pin|puhelin|osoite/i;
   function _stripQuery(u) { return (typeof u === 'string') ? u.split('?')[0].split('#')[0] : u; }
-  function _maskPin(s)    { return (typeof s === 'string') ? s.replace(/\b\d{4}\b/g, '****') : s; }
+  function _maskPin(s) {
+    if (typeof s !== 'string') return s;
+    return s
+      .replace(/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/gi, '[email]')   // emailit ensin
+      .replace(/\b\d{4}\b/g, '****');                          // sitten 4-num PIN
+  }
   function _redact(node, depth) {
     if (node == null || depth > 8) return node;
     if (typeof node === 'string') return _maskPin(node);
