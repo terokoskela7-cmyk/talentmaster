@@ -20,6 +20,15 @@ nyt datankeruu + perheiden adoptio.
 
 ---
 
+## ✅ TEHTY — A7 Harjoitepankki: kanoonisuus + characterization-testit (2026-06-15)
+- [x] **A7 Vaihe 0 — kanoonisuus lukittu:** `src/lib/harjoitelogiikka_v4.js` (2139r, vanha stub) → re-export rootiin (`module.exports = require('../../harjoitelogiikka_v4.js')`). Kanon-kommentti root-tiedostoon. Root (2803r, Jun 9) = ainoa totuus; Pelaaja_v7 lataa Pagesista `?v=6`.
+- [x] **A7 Vaihe 1 — characterization-testit:** `tests/harjoitelogiikka.characterization.test.js` (21 testiä). Pinnaa `valitsePaivanHarjoite`/`laskeTekninenKehityskohde`/`generoiMiksiteksti`/`generoimTehtavat` + invariantit ennen refaktorointia. **3 spec-korjausta todellisuuteen:** (1) `lahde:'ikavaihe'`+`varmuus:'oletus'` (ei `lahde:'oletus'`); (2) `generoiMiksiteksti(null)` heittää (siksi Pelaaja_v7:1719 try/catch); (3) ADAR-override vaatii numeerisen `adar_pisteet<40` (ei `{ac}`-objektia). Vitest: **167 testiä vihreänä** (146 vanhaa + 21 uutta).
+- [ ] **A7 Vaihe 2** (seuraava, ei vielä) — konvention yhtenäistys: `ohje_*` → nested `ohje:{}`, `phv+phv_xp` → `phv:{ohje,xp}`. Characterization-testit turvaverkko.
+- [ ] **A7 Vaihe 3** — datan co-location (T/D/S/T_KOHDE → `HARJOITTEET[id]`).
+- [ ] **A7 Vaihe 4** — dead coden poisto: R5 `HARJOITEPANKKI`+`generoimTehtavatV2` (0 HTML-kutsua), `generoimViikoOhjelma` (ei exported, 0 kutsuja), `src/lib`-stub (re-export riittää). Korkein riski → viimeisenä.
+
+---
+
 ## ✅ TEHTY — TKI-analyysiketju + SW-korjaus (2026-06-10/11)
 - [x] **TKI-analyysimalli VAIHE 1** (CLAUDE.md §34, `docs/TKI_ANALYYSIMALLI.md`): `TK_LAJIVIITTEET` (per-laji eliittiviite, P8–13 + T8–13, `_lahde` valtak./alueellinen) + funktiot `tkLajiViite`/`tkLajiGapit`/`tkSekuntibudjetti`/`tkVaadittuVuosivauhti`/`tkAbsDelta` + Vitest (119 testiä).
 - [x] **Pikakentät** `tk_lajit_viimeisin` + `tk_kokonaistulos_*` 4 kirjoituspisteeseen (Excel/PDF/recalc×2, `_tkLajitPikakentat`). T13 pronssi 130→135.

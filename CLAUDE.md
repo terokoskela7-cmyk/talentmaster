@@ -133,6 +133,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 22. **XP/progressbar/loss aversion -kieltä EI renderöidä pelaajalle.** XP tallennetaan Firestoreen vain AI-agentille. Streak aina positiivisesti kehystettynä 4 tilassa (0pv / 1–6 / 7–13 / 14+). Peruste: Seligman PERMA + Deci & Ryan SDT (intrinsic > extrinsic); Kahneman loss aversion → pitkällä aikavälillä ahdistusta
 23. **orderBy-kenttä AINA sama kuin write-kenttä.** Pelaaja_v7 kirjoittaa `paivitetty`, Master_v16 kysyi `fiilinki_paivitetty` → 0 tulosta. Firestore palauttaa tyhjän tuloksen orderBy-kentällä jota ei ole — ei virheilmoitusta. Timestamp-kenttä: käytä `.toDate()` ennen `.getTime()` (serverTimestamp → Firestore Timestamp-objekti, ei ISO-string)
 24. **Security Rules -kenttänimet = koodi-kenttänimet.** Rules lukee `vastaanottajaUid`/`lahettajaUid` → kirjoittavan koodin PAKKO asettaa nämä kentät (ei pelkkä `to`/`from`). Tarkista Rules ENNEN kirjoituskoodia
+25. **`harjoitelogiikka_v4.js` — root on ainoa totuus (A7 2026-06-15).** `src/lib/`-versio on re-export rootiin, EI itsenäinen tiedosto. Pelaaja_v7 lataa rootin Pagesista `?v=6`. `generoimTehtavatV2` + `generoimViikoOhjelma` = dead code (0 HTML-kutsua, ei module.exports) — älä käytä. `valitsePaivanHarjoite(pelaaja, pankki, pvm)` — jos `pankki.T` puuttuu (kuten `window.PANKKI`-stub), funktio ignoroi argumentin ja käyttää sisäistä PANKKIa. `generoiMiksiteksti(p, null, iv)` HEITTÄÄ — kietoa aina try/catchiin. `laskeTekninenKehityskohde` ei-datalle: `{lahde:'ikavaihe', varmuus:'oletus'}` (ei `lahde:'oletus'`). ADAR-override: `adar_pisteet < 40` NUMERONA (ei `{ac}`-objektina). Characterization-testit: `tests/harjoitelogiikka.characterization.test.js` (21 testiä) — aja ennen muutoksia.
 
 ---
 
@@ -167,7 +168,9 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `docs/data/taitokisa_*.json` + `parse_taitokisa*.py` | TK-viitedatan raakadata + parserit (vuosipäivitys) | ✅ §34 |
 | `tm_eerikkila_normit.js` (`lib/`-alla) | Eerikkilä-normitaulukot | ✅ |
 | `tm_lang.js` | fi/sv/en, 144 käännöstä | ✅ |
-| `harjoitelogiikka_v4.js` · `tm-profile.js` · `tm-kortit.js` | Generointi/profiili/kortit | ⚠️ tarkista GitHub |
+| `harjoitelogiikka_v4.js` | **CANONICAL** harjoitegeneraattori (2803r) — Pelaaja_v7 lataa Pagesista `?v=6` | ✅ §A7 |
+| `src/lib/harjoitelogiikka_v4.js` | Re-export rootiin (`module.exports = require('../../harjoitelogiikka_v4.js')`) — EI muokata | ✅ §A7 |
+| `tm-profile.js` · `tm-kortit.js` | Generointi/profiili/kortit | ⚠️ tarkista GitHub |
 
 > **Solo (B2C "Player™")** — erillinen Club-tuotteesta. Solo-pelaaja → `players/{playerId}` (**litteä**,
 > `seuraId: null`), data localStoragessa (`tm_solo_profiili`, `tm_tkk_historia`, `tm_player_code`).
@@ -791,7 +794,7 @@ suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 | **H-H** | `hh_viimeisin {lin30m, cmj, mas}` · `hh_pvm` · `hh_taso` (1–5, `laskeHHTaso` Eerikkilä) | ✅ Excel (hh_laaja/suppea) |
 | **FLEI** | `flei_viimeisin` · `flei_pvm` · `flei_historia[]` | ✅ (odottaa kenttädataa) |
 | **PHV** | `phv_tila` · `biologinenIka_viimeisin` (offset + pvm) | ✅ Testaus_v9 |
-| **ADAR** | `adar_viimeisin {a,d,ac,r,yht,pvm}` · `adar_pvm` · `adar_havaintoja` · `adar_vahvin` · `adar_heikoin` | ⚠️ helper valmis, kirjoituspiste auki |
+| **ADAR** | `adar_viimeisin {a,d,ac,r,yht,pvm}` · `adar_pvm` · `adar_havaintoja` · `adar_vahvin` · `adar_heikoin` | ✅ kytketty: ADAR_Pikakortti `saveCard()` kirjoittaa (kanoninen replika Master-helperistä, 2026-06-15) |
 
 > **⚠️ Normipäivitys 2026-06-05 (pojat + tytöt VALMIS):** Kaikki H-H-normit päivitetty Palloliiton
 > **FINAL2024**-virallisiin arvoihin. Identtiset MyWayn kanssa. Koskee: 5m, 10m, 20m, 30m, kasirata,
@@ -840,10 +843,12 @@ ADAR ka. = `adar_viimeisin.yht` keskiarvo pelaajista joilla **≥3 havaintoa**.
 - **S6** TKI < 40 % · **S7** H-H < 40 % · **S8** FLEI < 40 % → amber (vaativat ≥3 pelaajan joukkueen)
 - **S9** ADAR: joukkue > 5 pelaajaa mutta < 30 % saanut ≥3 havaintoa viim. 30 pv → amber. **Eri kuin S1** (S1 = valmentaja ei kirjaa lainkaan; S9 = kirjaa mutta ei havainnoi tarpeeksi)
 
-**ADAR — kirjoituspiste auki:** pikakentät viim. 10 havainnon keskiarvosta (`paivitaAdarPikakentat(pelaajaId)`
-Master_v16:ssa). HUOM: Master_v16:n ADAR-drilli on UI-mockup (ei persistoi) — varsinainen kirjaus on
-`ADAR_Pikakortti.html` `saveCard()`. Helper valmis kutsuttavaksi sieltä; kunnes kytketään, pikakentät eivät täyty
-oikeasta kenttäkäytöstä. Lukupuoli (joukkuepulssi + S9) toimii heti kun pikakentät ovat olemassa.
+**ADAR — kirjoituspiste KYTKETTY (2026-06-15):** pikakentät viim. 10 havainnon dimensiokeskiarvosta. Kanoninen
+logiikka `paivitaAdarPikakentat(pelaajaId)` Master_v16:ssa; **`ADAR_Pikakortti.html` `saveCard()` REPLIKOI sen
+inline** (eri bundlattu tiedosto → ei voi kutsua Master-helperiä; pidä synkassa). `.get()` kaikki + client-sort
+`_luotuToMs`:llä (EI komposiitti-indeksiä), vahvin/heikoin = `'assess'/'decide'/'act'/'reassess'`, `adar_pvm` ISO.
+Master_v16:n `openDrill('adar')` OHJAA nyt Pikakorttiin (ei enää mockup). **Launcher:** Master sidebar + VP_v25
+"Työkalut"→ADAR-kenttätyökalu, molemmat `?seuraId=`. Lukupuoli (joukkuepulssi + S9 + VAI+) toimii kun pikakentät täyttyvät.
 
 ---
 
@@ -1020,7 +1025,7 @@ Reaktiot (❤️💪⭐🔥) + "Viestitä perheelle →" -nappi jokaisessa korti
 - **`from/to` → `lahettajaUid/vastaanottajaUid`** (VP_v25): Security Rules odottivat eri kenttänimiä kuin koodi kirjoitti.
 
 ### Ei toteutettu (tietoinen rajaus)
-- ADAR-pikakenttien kirjoituspiste (`paivitaAdarPikakentat`) ei vielä kytketty ADAR_Pikakorttiin (§26 TODO)
+- ✅ ADAR-pikakenttien kirjoituspiste KYTKETTY (2026-06-15): ADAR_Pikakortti `saveCard()` replikoi kanonisen logiikan (§26)
 - Sähköposti-/push-notifikaatiot — pilotissa ei tarvita, lisätään Sprint 6–7
 - Pelaaja ei voi vastata valmentajalle (yksisuuntainen toistaiseksi)
 

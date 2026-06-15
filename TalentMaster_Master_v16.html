@@ -5610,40 +5610,10 @@ function openDrill(type) {
       <button class="drill-btn" style="margin-top:4px" onclick="closeDrill()">Peru</button>`;
 
   } else if (type === 'adar') {
-    titleEl.textContent = 'ADAR-havainto';
-    contentEl.innerHTML = `
-      <div class="drill-section">
-        <div class="caps" style="margin-bottom:12px">Havainto</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-          ${(_demo
-              ? (typeof DEMO !== 'undefined' ? DEMO.players.slice(0,5) : [])
-              : _pelaajatData.slice(0,5).map(p => ({
-                  name: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim(),
-                  id: p.id
-                }))
-            ).map(p=>`
-            <div onclick="this.style.background='var(--teal-bg)';this.style.color='var(--teal)';this.style.borderColor='var(--teal-brd)'"
-              style="padding:6px 12px;border-radius:20px;border:.5px solid var(--line2);font-size:12px;cursor:pointer;transition:all .12s">
-              ${p.name.split(' ')[0]}
-            </div>`).join('')}
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-          ${[
-            { lbl:'Tarkkailla (A)', sub:'Pelikentän hahmottaminen' },
-            { lbl:'Päättää (D)', sub:'Valinnan laatu' },
-            { lbl:'Toimi (A)', sub:'Suorituksen laatu' },
-            { lbl:'Arvioi (R)', sub:'Reflektio' },
-          ].map(d=>`
-            <div onclick="this.style.background='var(--teal-bg)';this.style.borderColor='var(--teal-brd)'"
-              style="padding:10px 12px;border-radius:6px;border:.5px solid var(--line2);cursor:pointer;transition:all .12s">
-              <div style="font-weight:600;font-size:12px">${d.lbl}</div>
-              <div style="font-size:11px;color:var(--ink3);margin-top:2px">${d.sub}</div>
-            </div>`).join('')}
-        </div>
-        <textarea placeholder="Kirjoita havainto..." rows="3"
-          style="width:100%;background:var(--card);border:.5px solid var(--line2);border-radius:6px;padding:10px 12px;color:var(--ink);font-family:inherit;font-size:13px;resize:none;outline:none"></textarea>
-      </div>`;
-    actionsEl.innerHTML = `<button class="drill-btn" onclick="drillDo('ADAR-havainto tallennettu')">Tallenna havainto</button>`;
+    // Ohjataan ADAR_Pikakortti.html:ään — se on ainoa kenttätyökalu joka persistoi Firestoreen.
+    // Tämä Master-drilli oli UI-mockup (drillDo() = vain toast, ei tallennusta) — §ADAR_JATKOKEHITYS.
+    window.open('TalentMaster_ADAR_Pikakortti.html?seuraId=' + (_seuraId || ''), '_blank');
+    return; // Ei avata drill-paneelia
   }
 
   document.getElementById('drillBack').classList.add('open');
@@ -5665,10 +5635,11 @@ function drillDo(label) {
    Lukee pelaajan havainnot ja kirjoittaa pikakentät pelaajadokumenttiin:
      adar_viimeisin {a,d,ac,r,yht,pvm} · adar_pvm · adar_havaintoja
      adar_vahvin/adar_heikoin (viim. 10 havainnon dimensiokeskiarvoista)
-   KUTSU ADAR-tallennuksen JÄLKEEN. HUOM: Master_v16:n drilli (openDrill('adar'))
-   on tällä hetkellä UI-mockup eikä persistoi havaintoa eikä pelaajavalintaa —
-   varsinainen ADAR-kirjaus on ADAR_Pikakortti.html saveCard(). Tämä funktio on
-   valmis kutsuttavaksi sieltä (tai kun Master-drilli tehdään toimivaksi).
+   KUTSU ADAR-tallennuksen JÄLKEEN. TILA 2026-06-15: Master_v16:n openDrill('adar')
+   OHJAA nyt ADAR_Pikakortti.html:ään (ei enää mockup) — varsinainen ADAR-kirjaus +
+   pikakenttä-päivitys tapahtuu siellä saveCard():ssa, joka REPLIKOI tämän kanonisen
+   logiikan (ei voi kutsua tätä funktiota — eri bundlattu tiedosto). Pidä molemmat
+   synkassa. Tämä helper jää Master-puolen mahdollista käyttöä varten.
    Älä riko olemassa olevaa ADAR-kirjauslogiikkaa — tämä vain päivittää pikakentät.
 ════════════════════════════════════════════════════════════ */
 async function paivitaAdarPikakentat(pelaajaId) {
