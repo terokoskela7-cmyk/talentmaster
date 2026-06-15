@@ -70,6 +70,7 @@ jos mitatut_dim ≥ 3:  OVR = RAE_kerroin × Σ(Dn × paino_n) / Σ(paino_n läs
 3. D3-kysely `saveToPlayer()` → `d3_viimeisin` (avaa D3-statsin; ADAR-scopingin §3 -työ).
 4. D5-mittari (myöhempi).
 5. Toteutus Code-komennolla speksin + hyväksytyn visuaalin pohjalta (pikakentistä, ei alikokoelmakyselyjä §26).
+6. **PHV-OVR-lattia:** PRE/LAH-tilassa D1 lasketaan OVR:ään raakana (paino .40) → late-developer putoaa epäreilusti (§28-vastainen). Korjaa lattia/neutralointi tai D1-painon pudotus ennen kuin seura saa ≥3 dim + PHV-datan. Ei live-vaikutusta nyt (0 pelaajaa ≥3 dim + phv).
 
 ---
 
