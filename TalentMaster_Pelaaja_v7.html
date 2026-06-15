@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781552263072';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781559769518';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -4076,28 +4076,44 @@ function _signaaliLabel() {
 /* ═══════════════════════════════════════════════════════════
    ADAR-NÄYTTÖ v5
    Awareness · Decision · Action · Reading
-   Valmentajan kirjaamat pisteet 1–5 näkyy pelaajalle
+   Valmentajan kirjaamat pisteet 1–3 näkyy pelaajalle
 ═══════════════════════════════════════════════════════════ */
 function rAdar() {
-  const adar = _pelaaja?.adar || null;
-  if (!adar) return '<div style="color:var(--ink3);font-size:12px;padding:12px 0">Ei ADAR-arviota vielä — valmentaja kirjaa havaintonsa harjoituksessa.</div>';
-  
+  // ADAR-pikakenttä (kanoninen adar_viimeisin {a,d,ac,r,yht}); legacy _pelaaja.adar fallback.
+  const av = _pelaaja?.adar_viimeisin || _pelaaja?.adar || null;
+  const DIM_KEYS = ['a','d','ac','r'];
+  // Tyhjätila: ei dataa TAI kaikki dimensiot arvioimatta (Taso 1/2 ennen täyttä kirjausta)
+  if (!av || DIM_KEYS.every(k => av[k] == null)) return '<div style="color:var(--ink3);font-size:12px;padding:12px 0">Ei ADAR-arviota vielä — valmentaja kirjaa havaintonsa harjoituksessa.</div>';
+
   const dims = [
-    {k:'A', lbl:'Awareness', kuvaus:'Skannaat ennen — peliälytietoisuus'},
-    {k:'D', lbl:'Decision',  kuvaus:'Oikea ratkaisu oikeaan aikaan'},
-    {k:'A2',lbl:'Action',    kuvaus:'Toteutus paineen alla'},
-    {k:'R', lbl:'Reading',   kuvaus:'Luet pelin kulun'},
+    {key:'a',  lbl:'Awareness', kuvaus:'Skannaat ennen — peliälytietoisuus'},
+    {key:'d',  lbl:'Decision',  kuvaus:'Oikea ratkaisu oikeaan aikaan'},
+    {key:'ac', lbl:'Action',    kuvaus:'Toteutus paineen alla'},
+    {key:'r',  lbl:'Reading',   kuvaus:'Luet pelin kulun'},
   ];
-  
+
   return '<div style="margin-top:8px">' +
     dims.map(d => {
-      const val = adar[d.k.toLowerCase()] || 0;
-      const pct = (val/5)*100;
-      const c = val >= 4 ? '#28B090' : val >= 3 ? '#E0A653' : '#D85A5A';
+      const val = av[d.key];
+      const arvioitu = (val != null && !isNaN(val));
+      // NULL-dimensio (osittainen kirjaus): neutraali — EI punaista "0/3" (§7.22)
+      if (!arvioitu) {
+        return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <div style="font-size:11px;font-weight:600;color:var(--ink2)">${d.lbl}</div>
+          <div style="font-size:11px;font-family:var(--font-m);color:var(--ink3)">– ei vielä arvioitu</div>
+        </div>
+        <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden"></div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:3px">${d.kuvaus}</div>
+      </div>`;
+      }
+      // ASTEIKKO 1–3: pct=(val/3)*100; >=3 teal · >=2 amber · else punainen
+      const pct = (val/3)*100;
+      const c = val >= 3 ? '#28B090' : val >= 2 ? '#E0A653' : '#D85A5A';
       return `<div style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
           <div style="font-size:11px;font-weight:600;color:var(--ink2)">${d.lbl}</div>
-          <div style="font-size:11px;font-family:var(--font-m);color:${c}">${val}/5</div>
+          <div style="font-size:11px;font-family:var(--font-m);color:${c}">${val}/3</div>
         </div>
         <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
           <div style="height:100%;width:${pct}%;background:${c};border-radius:2px;transition:width .4s"></div>
