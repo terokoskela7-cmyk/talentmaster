@@ -8,7 +8,7 @@
    - Omat staattiset assetit (manifest, ikonit) + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-vanhempi-v4';
+const CACHE = 'tm-vanhempi-v5';
 const SHELL = '/talentmaster/TalentMaster_Vanhempi_v2.html';
 const PRECACHE = [SHELL];
 
@@ -50,11 +50,14 @@ function onOmaHtml(url) {
 // (URL sisältää version → cache-first ei vanhene väärin). EI muiden appien JS/HTML:ää.
 function onAllowlist(url) {
   if (url.indexOf('/talentmaster/manifest_vanhempi.json') !== -1) return true;
+  if (url.indexOf('/talentmaster/tm_sentry.js') !== -1) return true;             // B2 Sentry-wrapper (?v= → cache-first)
   if (url.indexOf('/talentmaster/docs/testit_indeksit.js') !== -1) return true;  // TKI-laskenta (?v= → cache-first ei vanhene väärin)
   if (url.indexOf('/talentmaster/assets/pwa/') !== -1) return true;       // omat ikonit
   if (url.indexOf('gstatic.com/firebasejs/') !== -1) return true;         // Firebase SDK (versioitu URL)
   if (url.indexOf('fonts.googleapis.com') !== -1) return true;            // Google Fonts CSS
   if (url.indexOf('fonts.gstatic.com') !== -1) return true;               // Google Fonts -fontit
+  // HUOM: Sentry CDN (browser.sentry-cdn.com) + ingest (*.ingest.*.sentry.io) EIVÄT ole allowlistissa
+  // → suora verkko, EI cachea (cross-origin telemetria ei kuulu PWA-cacheen). Tietoinen valinta.
   return false;
 }
 

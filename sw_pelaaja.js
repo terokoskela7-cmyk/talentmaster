@@ -8,7 +8,7 @@
    - Omat JS-moduulit + manifest + ikonit + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-pelaaja-v6';
+const CACHE = 'tm-pelaaja-v7';
 const SHELL = '/talentmaster/TalentMaster_Pelaaja_v7.html';
 // VAIN oma shell — JS-moduulit ovat ?v=-versioituja (bare-polku ei matchaisi), allowlist cachettaa ne
 // pyydettäessä. (Vanha PRECACHE viittasi /talentmaster/tm_eerikkila_normit.js → 404, jota Pelaaja ei lataa
@@ -55,7 +55,9 @@ function onAllowlist(url) {
   if (url.indexOf('/talentmaster/manifest_pelaaja.json') !== -1) return true;
   if (url.indexOf('/talentmaster/assets/pwa/') !== -1) return true;       // omat ikonit
   // Pelaajan tarvitsemat omat JS-moduulit (URL:ssä ?v= → versioitu, cache-first turvallinen)
-  if (/\/talentmaster\/(harjoitelogiikka_v4|tm_why_lauseet|tm-bus|tm-demo)\.js/.test(url)) return true;
+  if (/\/talentmaster\/(harjoitelogiikka_v4|tm_why_lauseet|tm-bus|tm-demo|tm_sentry)\.js/.test(url)) return true;
+  // HUOM: Sentry CDN (browser.sentry-cdn.com) + ingest (*.ingest.*.sentry.io) EIVÄT ole allowlistissa
+  // → suora verkko, EI cachea (cross-origin telemetria ei kuulu PWA-cacheen). Tietoinen valinta.
   if (url.indexOf('/talentmaster/lib/tm-microcycles.js') !== -1) return true;
   if (url.indexOf('/talentmaster/lib/tm_eerikkila_normit.js') !== -1) return true;
   if (url.indexOf('/talentmaster/docs/testit_indeksit.js') !== -1) return true;
