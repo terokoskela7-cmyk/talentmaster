@@ -297,4 +297,26 @@ describe('perTestTasot', () => {
     expect(perTestTasot({}, 10, 'M')).toEqual([]);
     expect(perTestTasot(null, 10, 'M')).toEqual([]);
   });
+
+  it('gap seuraavaan tasoon: 5-port (hhSeuraavaTaso) + 3-port + suunta (pienempi)', () => {
+    const r = perTestTasot({ hh_viimeisin: { lin30m: 5.05, syotto: 41.0, mas: 14.0 }, phv_tila: 'POST' }, 10, 'M');
+    const m30 = r.find(x => x.label === '30m');
+    expect(m30.seuraavaTaso).toBe(m30.taso + 1);
+    expect(m30.gap).toBeGreaterThan(0);
+    expect(m30.pienempi).toBe(true);        // aika → −gap
+    const sy = r.find(x => x.label === 'Syöttö');
+    expect(sy.gap).toBeCloseTo(2.3, 1);     // 41.0 − 38.7 (P10 taso-3-kynnys)
+    expect(sy.seuraavaTaso).toBe(3);
+    const mas = r.find(x => x.label === 'MAS');
+    expect(mas.pienempi).toBe(false);       // km/h → +gap
+  });
+
+  it('gap null kun ika/sp puuttuu tai huipputaso', () => {
+    const r0 = perTestTasot({ hh_viimeisin: { lin30m: 5.05 } }, null, 'M');
+    expect(r0[0].gap).toBeNull();
+    // huipputaso (erittäin nopea 30m) → seuraavaa tasoa ei ole → gap null
+    const r5 = perTestTasot({ hh_viimeisin: { lin30m: 4.0 }, phv_tila: 'POST' }, 10, 'M');
+    expect(r5[0].taso).toBe(5);
+    expect(r5[0].gap).toBeNull();
+  });
 });

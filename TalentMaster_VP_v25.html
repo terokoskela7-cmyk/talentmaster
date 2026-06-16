@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=7"></script>
+<script src="lib/tm_eerikkila_normit.js?v=8"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root {
@@ -4459,27 +4459,16 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   h += '</div>';
   const _kehysP = _ikavaiheBanneri(ika);
   if (_kehysP) h += '<div style="padding:8px 24px 0">' + _kehysP + '</div>';
-  // §8 PER-TEST-NAUHA — yksittäisten testien TM-normitasot HETI yläosaan (ennen välilehtiä, näkyy ilman tab-vaihtoa).
-  // Kanoninen perTestTasot (sama kuin Master; ei kopioitua logiikkaa). Toimii myös ilman aggregaattia (Pallo-Iirot).
-  if (typeof perTestTasot === 'function') {
-    const _ptt = perTestTasot(p, ika, sp);   // perTestTasot normalisoi sp 'P'/'T' → 'M'/'N'
-    if (_ptt.length) {
-      const _n5 = r => (r.taso == null) ? null : (r.asteikko === 3 ? ((r.taso - 1) / 2 * 4 + 1) : r.taso);
-      let _kehL = null, _kehMin = Infinity;
-      _ptt.forEach(r => { if (r.taso != null && !r.neutraali && !r.xfactor) { const n = _n5(r); if (n < _kehMin) { _kehMin = n; _kehL = r.label; } } });
-      const _dots = (t, maks) => { let s = ''; for (let i = 1; i <= maks; i++) s += (i <= t) ? '●' : '○'; return s; };
-      const _chip = r => {
-        const tag = r.lahde === 'tk' ? '<sup style="opacity:.45;font-size:8px">tk</sup>' : '';
-        if (r.taso == null) return '<span style="color:var(--ink3)">' + r.label + tag + ' <span style="opacity:.6">' + r.arvo + r.yks + '</span></span>';
-        let icon = '', col = 'var(--ink)';
-        if (r.xfactor)                       { icon = '⭐'; col = 'var(--teal)'; }     // X-Factor (taso 5 / 3-port 3)
-        else if (r.neutraali && r.taso <= 3) { icon = '🌱'; col = 'var(--teal)'; }     // §28 pre-PHV heikko → kasvaa, EI punainen
-        else if (r.label === _kehL)          { col = 'var(--amber)'; }                 // matalin validi ei-neutraali = kehityskohde
-        return '<span style="color:' + col + ';white-space:nowrap">' + r.label + tag + ' ' + icon + '<span style="font-size:10px;letter-spacing:-1px;font-family:var(--font-m)">' + _dots(r.taso, r.asteikko) + '</span></span>';
-      };
-      h += '<div style="display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;padding:8px 24px 10px;font-size:11px;border-top:.5px solid var(--border)">'
-        + '<span style="color:var(--ink3);font-size:10px;letter-spacing:.04em">TESTIT</span>'
-        + _ptt.map(_chip).join('<span style="color:var(--ink3);opacity:.4">·</span>') + '</div>';
+  // §8 KEHITYSKORTTI — D1/D2-mittarikortit + per-test-rivit (Sibbon malli) modaalin yläosaan ENNEN välilehtiä (näkyy ilman tab-vaihtoa).
+  // Kanoninen renderKehityskorttiHTML (SAMA kuin Master, ei kopioitua UI-logiikkaa). perTestTasot normalisoi sp 'P'/'T'→'M'/'N'.
+  const _fiPvm = s => { const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : String(s); };
+  const _testPvm = p.hh_pvm ? _fiPvm(p.hh_pvm) : (p.tki_pvm ? _fiPvm(p.tki_pvm) : null);
+  if (typeof renderKehityskorttiHTML === 'function') {
+    const _keh = renderKehityskorttiHTML(p, ika, sp);
+    if (_keh) {
+      h += '<div style="padding:6px 24px 12px;border-top:.5px solid var(--border)">'
+        + (_testPvm ? '<div style="font-size:10px;color:var(--ink3);margin-bottom:6px">testattu ' + _testPvm + '</div>' : '')
+        + _keh + '</div>';
     }
   }
   h += '<div style="display:flex;gap:6px;padding:0 24px 4px;border-bottom:.5px solid var(--border)">';

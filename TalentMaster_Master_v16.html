@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781649540235';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781652536895';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=7"></script>
+<script src="lib/tm_eerikkila_normit.js?v=8"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -4750,14 +4750,8 @@ function _renderPinfoFirestore(p) {
     stats.push({ lbl:'H-H', val: String(hh) + _deltaBadge(hh, p.hh_taso_edellinen, 1),
       delta: hh>=4?'Vahva':hh>=3?'Keskitaso':'Kehittyvä',
       color: hh>=4?'var(--teal)':hh>=3?'var(--amber)':'var(--red)', detalji:'hh' });
-  } else if (p.d1_taso != null && p.d2_taso == null) {
-    // §30 joustava: H-H-recalc tuotti d1_taso:n vaikkei hh_taso:a (esim. 10m/30m muttei cmj/mas).
-    // Näytä fyysinen headline. (Pari d2:n kanssa → MITTARI 3 hoitaa, ei kahdennusta.)
-    const d1 = +p.d1_taso;
-    stats.push({ lbl:'D1 Fyysinen', val: String(d1) + (p.d1_kattavuus ? ' <span style="font-size:10px;opacity:.6">(' + p.d1_kattavuus + ' testiä)</span>' : ''),
-      delta: d1>=4?'Vahva':d1>=3?'Keskitaso':'Kehittyvä',
-      color: d1>=4?'var(--teal)':d1>=3?'var(--amber)':'var(--red)', detalji:'hh' });
   }
+  // (D1/D2 + per-test-rivit → kanoninen renderKehityskorttiHTML alla, ei enää erillistä KPI-korttia)
   // MITTARI 2: TKI → TSI → piilota
   if (tki != null) {
     // KORJAUS 3: ilman mitalia (tki_merkki null) nosta kehityskohde valmentajalle deltaan.
@@ -4782,27 +4776,12 @@ function _renderPinfoFirestore(p) {
     }
     stats.push({ lbl:'TSI', val: (tsi <= 0 ? Math.abs(tsi) : tsi) + ' s', delta: tsiLbl, title: tsiTip, color: tsiColor, detalji:'tsi' });
   }
-  // MITTARI 3: D1/D2 — §30 JOUSTAVA: d1_taso/d2_taso lasketaan saatavilla olevista testeistä (d2 myös
-  // H-H syöttö/pujottelusta, ei vain TKI/SM). recalcHH backfillaa. EI johdeta lennossa raakadatasta tässä
-  // (pikakentät kannetaan tuonnista). Lähde + kattavuus näkyviin (§29). d2_lahde: tki/sm/hh/tk.
-  if (p.d1_taso != null && p.d2_taso != null) {
-    const _d2src = (p.d2_lahde && p.d2_lahde !== 'tki') ? ({ sm:'SM', hh:'H-H', tk:'TK' }[p.d2_lahde] || p.d2_lahde) : null;
-    const _d2note = (_d2src ? ' · D2: ' + _d2src + (p.d2_kattavuus ? ' (' + p.d2_kattavuus + ')' : '') : '');
-    stats.push({ lbl:'D1 / D2' + ((typeof TM_SELITTEET !== 'undefined') ? ' <span title="' + TM_SELITTEET.d1 + ' · ' + TM_SELITTEET.d2 + '" style="cursor:help;font-size:11px;opacity:.65">ℹ️</span>' : ''), val: '🔵 ' + p.d1_taso + ' / 🟢 ' + p.d2_taso, delta:'🔵 fyysinen · 🟢 tekninen (taso 1–5)' + _d2note, color:'var(--ink)' });
-  } else if (p.d2_taso != null) {
-    // D2 yksin (ei d1-paria) — esim. vain tekniikkadataa. Lähde näkyviin.
-    const _d2src = ({ sm:'SM', hh:'H-H', tk:'TK', tki:'TKI' }[p.d2_lahde] || 'tekninen');
-    stats.push({ lbl:'D2 Tekninen', val: '🟢 ' + p.d2_taso, delta: _d2src + (p.d2_kattavuus ? ' (' + p.d2_kattavuus + ' testiä)' : ''), color:'var(--ink)' });
-  }
-  // MITTARI 4: Testikertoja (säilyy)
-  stats.push({ lbl:'Testikertoja', val: suoritetut || '—', delta:'suoritettu', color:'var(--ink)' });
-  // MITTARI 5: Streak (säilyy)
-  stats.push({ lbl:'Streak', val: p.streak > 0 ? p.streak + ' pv' : '—',
-    delta: p.streak > 5 ? 'Aktiivinen' : p.streak > 0 ? 'Aloitettu' : 'Ei kirjauksia',
-    color: p.streak > 5 ? 'var(--teal)' : 'var(--ink)' });
+  // (Testikertoja/Streak → vaimea sekundääririvi alla, vain jos dataa — ei tyhjiä "—" KPI:itä ykkösriville.)
 
   const synt = p.syntymaVuosi ? p.syntymaVuosi : null;
   const ika  = synt ? (new Date().getFullYear() - synt) + 'v' : '—';
+  // Testipäivä korttiotsikkoon (H-H ensisijaisesti, muuten TKI)
+  const testPvm = p.hh_pvm ? _pvmFiM(p.hh_pvm) : (p.tki_pvm ? _pvmFiM(p.tki_pvm) : null);
 
   // Vahvuus / kehityskohde — pikakentistä (laji-id → luettava nimi)
   const vahvuus = p.tki_vahvuus ? _tkLajiNimi(p.tki_vahvuus) : null;
@@ -4815,36 +4794,24 @@ function _renderPinfoFirestore(p) {
     lisaHtml += '</div>';
   }
 
-  // §8 PER-TEST-NAUHA — yksittäisten testien TM-normitasot näkyvänä kerroksena indeksin rinnalla (ei detailin takana).
-  // Kanoninen perTestTasot (lib) — toimii myös kun d1/d2-aggregaatti puuttuu (Pallo-Iirot). Tyhjä → ei nauhaa.
-  let _pttHtml = '';
-  if (typeof perTestTasot === 'function') {
+  // §8 KEHITYSKORTTI — D1/D2-mittarikortit + per-test-rivit (Sibbon malli, gap-vihje + tasomerkki) + legenda.
+  // Kanoninen renderKehityskorttiHTML (lib) — SAMA Master+VP, ei kopioita. Toimii ilman aggregaattia (Pallo-Iirot). Tyhjä → ei lohkoa.
+  let _kehHtml = '';
+  if (typeof renderKehityskorttiHTML === 'function') {
     const _is = _devIkaSp(p);
-    const _ptt = perTestTasot(p, _is.ika, _is.sp);
-    if (_ptt.length) {
-      const _n5 = r => (r.taso == null) ? null : (r.asteikko === 3 ? ((r.taso - 1) / 2 * 4 + 1) : r.taso);
-      let _kehL = null, _kehMin = Infinity;
-      _ptt.forEach(r => { if (r.taso != null && !r.neutraali && !r.xfactor) { const n = _n5(r); if (n < _kehMin) { _kehMin = n; _kehL = r.label; } } });
-      const _chip = r => {
-        const tag = r.lahde === 'tk' ? '<sup style="opacity:.45;font-size:8px">tk</sup>' : '';
-        if (r.taso == null) return '<span style="color:var(--ink3)">' + r.label + tag + ' <span style="opacity:.6">' + r.arvo + r.yks + '</span></span>';
-        const dots = _tasoPallot(r.taso, r.asteikko);
-        let icon = '', col = 'var(--ink)';
-        if (r.xfactor)                       { icon = '⭐'; col = 'var(--teal)'; }     // X-Factor (taso 5 / 3-port 3)
-        else if (r.neutraali && r.taso <= 3) { icon = '🌱'; col = 'var(--teal)'; }     // §28 pre-PHV heikko → kasvaa, EI punainen
-        else if (r.label === _kehL)          { col = 'var(--amber)'; }                 // matalin validi ei-neutraali = kehityskohde
-        return '<span style="color:' + col + ';white-space:nowrap">' + r.label + tag + ' ' + icon + '<span class="mono" style="font-size:10px;letter-spacing:-1px">' + dots + '</span></span>';
-      };
-      _pttHtml = '<div style="grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:.5px solid rgba(242,239,230,.1);display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;align-items:center">'
-        + '<span style="color:var(--ink3);font-size:10px;letter-spacing:.04em">TESTIT</span>'
-        + _ptt.map(_chip).join('<span style="color:var(--ink3);opacity:.4">·</span>') + '</div>';
-    }
+    const _k = renderKehityskorttiHTML(p, _is.ika, _is.sp);
+    if (_k) _kehHtml = '<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:.5px solid rgba(242,239,230,.1)">' + _k + '</div>';
   }
+  // Vaimea sekundääririvi: testikertoja/streak vain jos dataa (ei tyhjiä "—" ykkösriville)
+  const _sek = [];
+  if (suoritetut) _sek.push(suoritetut + ' testikertaa');
+  if (p.streak > 0) _sek.push(p.streak + ' pv streak');
+  const _sekHtml = _sek.length ? '<div style="grid-column:1/-1;margin-top:8px;font-size:11px;color:var(--ink3)">' + _sek.join(' · ') + '</div>' : '';
 
   el.innerHTML = `
     <div style="grid-column:1/-1">
       <div class="pinfo-name serif">${nimi}</div>
-      <div class="pinfo-sub">${ika} · ${p.pelipaikka||'—'} · ${p.joukkue||_joukkue||'—'}</div>
+      <div class="pinfo-sub">${ika} · ${p.pelipaikka||'—'} · ${p.joukkue||_joukkue||'—'}${testPvm ? ' · <span style="color:var(--ink3)">testattu '+testPvm+'</span>' : ''}</div>
     </div>
     ${stats.map(s=>`
       <div${s.title ? ` title="${s.title}"` : ''}${s.detalji ? ` class="pstat-klik" onclick="_avaaDetail('${s.detalji}')"` : ''}>
@@ -4852,8 +4819,9 @@ function _renderPinfoFirestore(p) {
         <div class="pstat-val serif" style="color:${s.color}">${s.val}</div>
         <div class="pstat-delta mono" style="font-size:11px;color:var(--ink3)">${s.delta}</div>
       </div>`).join('')}
-    ${_pttHtml}
-    ${lisaHtml}`;
+    ${_kehHtml}
+    ${lisaHtml}
+    ${_sekHtml}`;
 }
 
 function _renderPlayerPicker() {
