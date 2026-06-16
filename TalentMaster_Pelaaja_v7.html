@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781602394537';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781639374775';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -3478,7 +3478,9 @@ function naytaFcOverlay() {
   // ── 5D ulottuvuudet pikakentistä ──
   const dims = [];
   // D1 FYS ← d1_taso (PHV-tietoinen §28: pre-PHV → kasvaa, ei punaista)
-  if (p.d1_taso != null && phvKasvu) dims.push({ key:'FYS', lbl:'Kasvaa', val:null, state:'grow', w:.40, counts:true, ovrVal:norm5(p.d1_taso) });
+  // §28 OVR-lattia: PRE/LAH-tilassa raaka D1 ei saa vetää OVR:ää neutraalin (50) alle — pre-PHV
+  // fyysinen ei rankaise late-developeria. Kortti näyttää yhä 🌱; vain OVR-osuus lattioidaan.
+  if (p.d1_taso != null && phvKasvu) dims.push({ key:'FYS', lbl:'Kasvaa', val:null, state:'grow', w:.40, counts:true, ovrVal:Math.max(norm5(p.d1_taso), 50) });
   else if (p.d1_taso != null)        dims.push({ key:'FYS', lbl:'Voima', val:norm5(p.d1_taso), state:'measured', w:.40, counts:true });
   else                                dims.push({ key:'FYS', lbl:'Tulossa', val:null, state:'soon', w:.40, counts:false });
   // D2 TEK ← tki_viimeisin (0–99) || d2_taso
