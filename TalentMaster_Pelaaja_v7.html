@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781565603763';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781602394537';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -4404,6 +4404,33 @@ function _p6KaynnistakuuntelIja(seuraId, pelaajaId) {
   // Sentry-konteksti — VAIN pseudonyymit (uid=pelaajaId, ei nimeä/emailia)
   if (window.tmSentryContext) window.tmSentryContext({ seuraId: seuraId, uid: pelaajaId, rooli: 'pelaaja' });
 
+  // AJOITUSKORJAUS (2026-06-16): varmista anon-token VALMIS ennen onSnapshot-tilausta.
+  // Aiemmin listener käynnistyi heti signInAnonymously jälkeen ennen tokenin propagoitumista
+  // → transientti permission-denied → listener kuoli (ei retryä) → havainnot eivät tavoittaneet pelaajaa.
+  const auth = window._auth || (window.firebase && firebase.auth ? firebase.auth() : null);
+  if (auth && auth.currentUser) {
+    auth.currentUser.getIdToken().then(function(){ _p6Tilaa(seuraId, pelaajaId, 0); })
+                                 .catch(function(){ _p6Tilaa(seuraId, pelaajaId, 0); });
+  } else if (auth) {
+    // currentUser ei vielä valmis → odota onAuthStateChanged (bounded ~3 s)
+    var valmis = false;
+    var unsub = auth.onAuthStateChanged(function(u){
+      if (u && !valmis) { valmis = true; if (unsub) unsub();
+        u.getIdToken().then(function(){ _p6Tilaa(seuraId, pelaajaId, 0); })
+                      .catch(function(){ _p6Tilaa(seuraId, pelaajaId, 0); }); }
+    });
+    setTimeout(function(){ if (!valmis) { valmis = true; if (unsub) unsub(); _p6Tilaa(seuraId, pelaajaId, 0); } }, 3000);
+  } else {
+    _p6Tilaa(seuraId, pelaajaId, 0);
+  }
+}
+
+// P6 onSnapshot-tilaus (eroteltu omaksi funktioksi retryä varten). yritys = retry-laskuri.
+function _p6Tilaa(seuraId, pelaajaId, yritys) {
+  const db = window._db;
+  if (!db) return;
+  if (window._havUnsub) { window._havUnsub(); window._havUnsub = null; }   // pura ennen uutta tilausta (retry)
+
   // reaaliaikainen kuuntelija — reagoi välittömästi kun valmentaja tallentaa
   // Yksinkertaistettu query: vain tila=='valmis' + limit (ei vaadi composite indexiä).
   // pelaaja_lukenut suodatetaan clientissa.
@@ -4429,7 +4456,12 @@ function _p6KaynnistakuuntelIja(seuraId, pelaajaId) {
       }
     }, function(err) {
       // Oikeusvirhe demo-tilassa tai jos Firestore-säännöt eivät salli — ohitetaan
-      console.warn('[P6]', err.code);
+      console.warn('[P6]', err.code, yritys ? ('(yritys ' + yritys + ')') : '');
+      // Bounded retry transientille permission-deniedille (token-ajoitus) — max 3 yritystä, ei loopia
+      if (err.code === 'permission-denied' && yritys < 3) {
+        if (window._havUnsub) { window._havUnsub(); window._havUnsub = null; }
+        setTimeout(function(){ _p6Tilaa(seuraId, pelaajaId, yritys + 1); }, 1500);
+      }
     });
 }
 

@@ -22,7 +22,7 @@ import {
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { setDoc, getDoc, doc, collection, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { setDoc, getDoc, doc, collection, addDoc, updateDoc, deleteDoc, query, where, limit, getDocs } from 'firebase/firestore';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RULES_PATH = resolve(__dirname, '../../tm_admin/firestore.rules');
@@ -879,5 +879,34 @@ describe('Aikaleima-vartija (A5)', () => {
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1'),
       { pelaaja_lukenut: true }
     ));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P6 — ANON HAVAINNOT LISTEN (bugi-diagnoosi 2026-06-16)
+// Erottaa: rikkooko havainnot read-ehdon get()-haara (onLapsenHuoltaja →
+// pelaajaData()=get) LIST-kyselyn, vaikka onAnonymous() on OR:ssa sitä ENNEN?
+// Vrt. pelaajat-LIST (where pin==) toimii anonyyminä — sen viimeinen OR-haara
+// käyttää resource.data:aa (sallittu list:ssä), EI get():iä.
+// ═══════════════════════════════════════════════════════════════════════════
+describe('P6 anon havainnot LISTEN (bugi-diagnoosi)', () => {
+  it('anon GET yksittäinen havainto → sallittu (baseline)', async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja(); await seedHavainto();
+    const db = anonContext().firestore();
+    await assertSucceeds(getDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')
+    ));
+  });
+
+  it('anon LIST-query where(tila==valmis).limit(50) → RATKAISEVA (P6-bugi)', async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja(); await seedHavainto();
+    const db = anonContext().firestore();
+    const q = query(
+      collection(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot'),
+      where('tila', '==', 'valmis'), limit(50)
+    );
+    // assertFails → get()-haara rikkoo LIST-kyselyn → rule-korjaus (allow get/list -jako).
+    // assertSucceeds → rule OK → bugi on ajoitus/client (Pelaaja_v7 P6-listener).
+    await assertSucceeds(getDocs(q));
   });
 });
