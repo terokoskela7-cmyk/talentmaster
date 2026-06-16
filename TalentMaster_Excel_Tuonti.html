@@ -3893,18 +3893,29 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
     if (p.hh_viimeisin == null) return;                // ei raakatestejä → ei kuulu joukkoon
     if (p.hh_taso != null && !force) { ohitettu++; return; } // taso jo olemassa & ei force → ei lasketa uudelleen
 
-    // Ikä DESIMAALINA, tarkin lähde: syntymaaika → syntymaVuosi (1.7. oletus) → joukkuenimi.
-    // §26 ikälähde-korjaus: sama kronologinen logiikka kuin Excel-tuonnin laskeIka (ei enää joukkuenimi ensin).
+    // Ikälähde (§24/§26): syntymaVuosi (laskeIka, yhdenmukainen tuonnin kanssa) → syntymaaika → joukkuenimi (viimeisenä).
     const joukkue = p.joukkue || (Array.isArray(p.joukkueet) ? p.joukkueet[0] : '') || '';
     const jm = String(joukkue).match(/\b([PTU])\s?(\d{1,2})\b/i);
     const joukkueIka = jm ? parseInt(jm[2], 10) : null;
     const spRaaka = (jm && /[PT]/i.test(jm[1])) ? jm[1].toUpperCase() : (p.sukupuoli || null);
     const sp = (spRaaka === 'P' || spRaaka === 'M') ? 'M' : (spRaaka === 'T' || spRaaka === 'N') ? 'N' : null;
-    let ikaDes = null;
-    if (p.syntymaaika && p.syntymaaika.toDate) ikaDes = (Date.now() - p.syntymaaika.toDate().getTime()) / (365.25 * 864e5);
-    else if (p.syntymaVuosi) ikaDes = (Date.now() - new Date(p.syntymaVuosi, 6, 1).getTime()) / (365.25 * 864e5);
-    else ikaDes = joukkueIka;
-    const ika = (ikaDes != null) ? Math.round(ikaDes) : null;
+    // NORMI-IKÄ = ikä TESTIHETKELLÄ (hh_pvm), EI Date.now() (§24-invariantti). Historiatesti (esim. hh_pvm 2025,
+    // 2015-synt) skooraataan oikeaa ikäluokkaa vasten → ei aliarviointia. Sama kronologinen logiikka kuin tuonnin laskeIka.
+    const _testIso = p.hh_pvm ? _paivaIso(p.hh_pvm) : null;
+    const _testDate = _testIso ? new Date(_testIso + 'T00:00:00') : null;
+    let ikaDes = null, ika = null;
+    if (p.syntymaVuosi) {
+      ika = laskeIka(p.syntymaVuosi, p.hh_pvm);   // integer, ikä testihetkellä (laskeIka käyttää nykyhetkeä vain jos hh_pvm puuttuu)
+      const _ref = _testDate || new Date();
+      ikaDes = (_ref.getTime() - new Date(p.syntymaVuosi, 6, 1).getTime()) / (365.25 * 864e5);   // desimaali hhKehityskohteelle (1.7.-oletus, testihetkellä)
+    } else if (p.syntymaaika && p.syntymaaika.toDate) {
+      const _ref = _testDate || new Date();
+      ikaDes = (_ref.getTime() - p.syntymaaika.toDate().getTime()) / (365.25 * 864e5);   // tarkka ikä TESTIHETKELLÄ
+      ika = Math.round(ikaDes);
+    } else {
+      ikaDes = (joukkueIka != null) ? joukkueIka : null;   // viimeinen fallback — joukkue = NYKYINEN ikäluokka, epätarkka historialle
+      ika = (joukkueIka != null) ? joukkueIka : null;
+    }
 
     if (!ika || !sp) {
       eiLaskettavissa++;
