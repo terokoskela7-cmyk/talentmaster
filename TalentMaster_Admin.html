@@ -251,6 +251,9 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
     <div class="navNappi" onclick="vaihdaNakyma('tilastot',this)">
       <span class="navIkoni">📊</span>Tilastot
     </div>
+    <div class="navNappi" onclick="vaihdaNakyma('pilotti',this)">
+      <span class="navIkoni">🛰️</span>Pilotin tila
+    </div>
     <div class="navNappi" onclick="vaihdaNakyma('pelaajat',this)">
       <span class="navIkoni">👤</span>Pelaajat
     </div>
@@ -921,6 +924,7 @@ function renderoi(nakyma) {
     case 'seurat':    renderSeurat(alue);    break;
     case 'kayttajat': renderKayttajat(alue); break;
     case 'tilastot':   renderTilastot(alue);   break;
+    case 'pilotti':    renderPilotinTila(alue); break;
     case 'pelaajat':   renderPelaajat(alue);   break;
     case 'joukkueet':  renderJoukkueet(alue);  break;
     case 'massakutsu': renderMassakutsu(alue); break;
@@ -1347,6 +1351,103 @@ async function renderTilastot(alue) {
   } catch(e) {
     const el = document.getElementById('tilastotSisalto');
     if (el) el.innerHTML = '<div style="color:var(--red);padding:20px;">Tilastojen lataus epäonnistui: ' + e.message + '</div>';
+  }
+}
+
+// ─────────────────────────────────────────
+// NÄKYMÄ: 🛰️ PILOTIN TILA — komentokeskus (read-only, pikakentistä §26).
+// Datalähde = sama per-seura pelaajat.get() kuin renderTilastot. EI alikokoelmakyselyjä.
+// Spec: docs/PILOTIN_TILA_SPEC.md
+// ─────────────────────────────────────────
+function _ptPvmMs(d) {
+  if (!d) return 0;
+  if (d.toDate) return d.toDate().getTime();
+  if (d.seconds != null) return d.seconds * 1000;
+  const t = new Date(d).getTime();
+  return isNaN(t) ? 0 : t;
+}
+async function renderPilotinTila(alue) {
+  alue.innerHTML = '<div class="sivuOtsikko"><div class="sivuEyebrow">Komentokeskus</div><div class="sivuH1">🛰️ Pilotin tila</div></div>'
+    + '<div id="pilottiSisalto"><div style="display:flex;align-items:center;gap:10px;color:var(--ink3);font-size:13px;padding:20px 0;"><div class="spinner"></div> Ladataan pilotin tilaa kaikista seuroista…</div></div>';
+  try {
+    const seurat = tila.seurat || [];
+    const rivit = [];
+    for (const seura of seurat) {
+      try {
+        // Sama latauspattern kuin renderTilastot — vain pelaajat-dokumentit (pikakentät). Ei alikokoelmia.
+        const plSnap = await db.collection('seurat').doc(seura.id).collection('pelaajat').get();
+        const pd = plSnap.docs.map(d => d.data());
+        const n = pd.length;
+        // A. Suppilo (suostumusTila)
+        const pilotti = pd.filter(p => p.suostumusTila === 'pilotti').length;
+        const odottaa = pd.filter(p => p.suostumusTila === 'odottaa').length;
+        const annettu = pd.filter(p => p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)).length;
+        const konv = (odottaa + annettu) > 0 ? Math.round(annettu / (odottaa + annettu) * 100) : 0;
+        // B. Datakypsyys (pikakentät §26)
+        const testattu   = pd.filter(p => p.hh_viimeisin || p.tki_viimeisin != null || p.d1_taso != null).length;
+        const adar       = pd.filter(p => (p.adar_havaintoja || 0) >= 1).length;
+        const phv        = pd.filter(p => p.phv_tila).length;
+        const flei       = pd.filter(p => p.flei_viimeisin != null).length;
+        const indeksoitu = pd.filter(p => p.hh_taso != null || p.d1_taso != null || p.tki_viimeisin != null || p.tki_merkki).length;
+        // C. Viimeisin aktiviteetti = tuorein mittauspvm pikakentistä
+        let viimMs = 0;
+        pd.forEach(p => { [p.tki_pvm, p.hh_pvm, p.adar_pvm, p.flei_pvm].forEach(d => { const ms = _ptPvmMs(d); if (ms > viimMs) viimMs = ms; }); });
+        // D. Blokkeri (tärkein, sääntöpohjainen spec §3.D)
+        let blok = null, toim = null;
+        if (n === 0)                            { blok = 'Ei pelaajia';                         toim = 'Tuo rosteri'; }
+        else if (testattu === 0 && adar === 0)  { blok = '0 mittausta — odottaa testidataa';    toim = 'Tuo testidata / aja testaus'; }
+        else if (konv < 70 && odottaa > 0)      { blok = odottaa + ' kutsua odottaa vastausta'; toim = 'Muistuta (nudge, vaihe 2)'; }
+        else if (indeksoitu === 0)              { blok = 'Mittaus tuotu, indeksit laskematta';  toim = 'Aja recalcHH / TKI'; }
+        else if (phv === 0)                     { blok = '0 kasvumittausta → PHV lukossa';      toim = 'Aja kasvumittaus (Testaus_v9)'; }
+        rivit.push({ id: seura.id, nimi: seura.nimi || seura.id, n, pilotti, odottaa, annettu, konv, testattu, adar, phv, flei, viimMs, blok, toim });
+      } catch (e) {
+        rivit.push({ id: seura.id, nimi: seura.nimi || seura.id, virhe: e.message });
+      }
+    }
+    // Yläkooste — koko pilotin suppilo
+    const Spil = rivit.reduce((s, r) => s + (r.pilotti || 0), 0);
+    const Sod  = rivit.reduce((s, r) => s + (r.odottaa || 0), 0);
+    const San  = rivit.reduce((s, r) => s + (r.annettu || 0), 0);
+    const Skonv = (Sod + San) > 0 ? Math.round(San / (Sod + San) * 100) : 0;
+    const konvVari = k => k >= 70 ? 'var(--teal)' : k >= 40 ? 'var(--amber)' : 'var(--red)';
+    const pct = (x, tot) => tot > 0 ? Math.round(x / tot * 100) : 0;
+    const pvSitten = ms => { if (!ms) return '—'; const d = Math.floor((Date.now() - ms) / 86400000); return d <= 0 ? 'tänään' : d + ' pv sitten'; };
+
+    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:22px">';
+    [['Tuotu', Spil, 'var(--ink3)'], ['Kutsuttu', Sod, 'var(--amber)'], ['Suostumus', San, 'var(--teal)'], ['Konversio', Skonv + '%', konvVari(Skonv)]].forEach(([lbl, v, clr]) => {
+      html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;border-left:3px solid ' + clr + '">'
+        + '<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">' + lbl + '</div>'
+        + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:34px;font-weight:300;line-height:1;color:' + clr + '">' + v + '</div></div>';
+    });
+    html += '</div>';
+    html += '<div style="font-size:11px;color:var(--ink3);margin-bottom:10px">' + rivit.length + ' pilottiseuraa · go-live-kriteeri konversio &gt;70 % · 🟠 = blokkeri</div>';
+
+    rivit.forEach(r => {
+      if (r.virhe) { html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px"><b>' + _auditEsc(r.nimi) + '</b> <span style="color:var(--red);font-size:12px">Virhe: ' + _auditEsc(r.virhe) + '</span></div>'; return; }
+      const total = r.pilotti + r.odottaa + r.annettu;
+      const w = x => total > 0 ? (x / total * 100) : 0;
+      const chip = (lbl, p) => '<span style="font-size:11px;padding:3px 9px;border-radius:5px;background:rgba(255,255,255,.05);color:' + (p >= 50 ? 'var(--teal)' : p > 0 ? 'var(--amber)' : 'var(--ink3)') + ';margin-right:6px;display:inline-block;margin-bottom:4px">' + lbl + ' ' + p + '%</span>';
+      html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:10px' + (r.blok ? ';border-left:3px solid var(--amber)' : '') + '">'
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:10px">'
+        +   '<div><span style="font-weight:600;font-size:14px">' + _auditEsc(r.nimi) + '</span> <span style="font-size:11px;color:var(--ink3)">' + r.n + ' pelaajaa · viimeisin mittaus ' + pvSitten(r.viimMs) + '</span></div>'
+        +   '<div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;font-weight:300;color:' + konvVari(r.konv) + '">' + r.konv + '% <span style="font-size:11px;font-family:\'DM Sans\',sans-serif;color:var(--ink3)">konversio</span></div>'
+        + '</div>'
+        + '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:rgba(255,255,255,.05);margin-bottom:6px">'
+        +   '<div style="width:' + w(r.pilotti) + '%;background:rgba(255,255,255,.18)"></div>'
+        +   '<div style="width:' + w(r.odottaa) + '%;background:var(--amber)"></div>'
+        +   '<div style="width:' + w(r.annettu) + '%;background:var(--teal)"></div>'
+        + '</div>'
+        + '<div style="font-size:11px;color:var(--ink3);margin-bottom:10px">Tuotu ' + r.pilotti + ' · Kutsuttu ' + r.odottaa + ' · Suostumus ' + r.annettu + '</div>'
+        + '<div style="margin-bottom:' + (r.blok ? '10' : '0') + 'px">' + chip('Testattu', pct(r.testattu, r.n)) + chip('ADAR', pct(r.adar, r.n)) + chip('PHV', pct(r.phv, r.n)) + chip('FLEI', pct(r.flei, r.n)) + '</div>'
+        + (r.blok ? ('<div style="font-size:12px;color:var(--text);background:rgba(224,160,64,.12);border-radius:8px;padding:8px 11px">🟠 <b>' + _auditEsc(r.blok) + '</b> → <span style="color:var(--amber)">' + _auditEsc(r.toim) + '</span></div>') : '<div style="font-size:12px;color:var(--teal)">✓ Etenee — ei blokkeria</div>')
+        + '</div>';
+    });
+    html += '<div style="margin-top:8px;font-size:11px;color:var(--ink3)">Read-only · laskettu pikakentistä (§26), ei uusia Firestore-kyselyjä. Suppilo-palkki: ▪tuotu · ▪kutsuttu (amber) · ▪suostumus (teal).</div>';
+    const el = document.getElementById('pilottiSisalto');
+    if (el) el.innerHTML = html;
+  } catch (e) {
+    const el = document.getElementById('pilottiSisalto');
+    if (el) el.innerHTML = '<div style="color:var(--red);padding:20px">Pilotin tilan lataus epäonnistui: ' + (e && e.message) + '</div>';
   }
 }
 
