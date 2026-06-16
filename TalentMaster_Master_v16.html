@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781644155482';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781648137941';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -4432,6 +4432,8 @@ function _buildHHDetail(p) {
   const ika = np.ika, sp = np.sp;
   const hv = (p.hh_viimeisin && typeof p.hh_viimeisin === 'object') ? p.hh_viimeisin : {};
   const lahteet = [
+    { label:'5m',        key:'nopeus_5m',  arvo: hv.lin5m,              yks:'s' },
+    { label:'10m',       key:'nopeus_10m', arvo: hv.lin10m,             yks:'s' },
     { label:'30m',       key:'nopeus_30m', arvo: hv.lin30m,             yks:'s' },
     { label:'CMJ',       key:'hyppy_cj',   arvo: hv.cmj,                yks:'cm' },
     { label:'MAS',       key:'mas',        arvo: hv.mas,                yks:'km/h' },
@@ -4475,7 +4477,7 @@ function _buildHHDetail(p) {
     if (osat.length) rajahtavyys = '<div class="detail-yhteenveto"><b>Räjähtävyysprofiili</b><br>' + osat.join('<br>') + '</div>';
   }
   // VAIHE 1 — Seuraava taso (gap), PHV-suodatin, vauhti. String concat (§7.1). Funktiot lib/tm_eerikkila_normit.js (globaalit).
-  const _labelKey = { '30m': 'lin30m', 'CMJ': 'cmj', 'MAS': 'mas' };
+  const _labelKey = { '5m': 'lin5m', '10m': 'lin10m', '30m': 'lin30m', 'CMJ': 'cmj', 'MAS': 'mas' };
   const _gapit = [];
   if (typeof hhSeuraavaTaso === 'function' && ika != null) {
     rivit.forEach(function (r) {
@@ -4786,7 +4788,7 @@ function _renderPinfoFirestore(p) {
   if (p.d1_taso != null && p.d2_taso != null) {
     const _d2src = (p.d2_lahde && p.d2_lahde !== 'tki') ? ({ sm:'SM', hh:'H-H', tk:'TK' }[p.d2_lahde] || p.d2_lahde) : null;
     const _d2note = (_d2src ? ' · D2: ' + _d2src + (p.d2_kattavuus ? ' (' + p.d2_kattavuus + ')' : '') : '');
-    stats.push({ lbl:'D1 / D2' + ((typeof TM_SELITTEET !== 'undefined') ? ' <span title="' + TM_SELITTEET.d1 + ' · ' + TM_SELITTEET.d2 + '" style="cursor:help;font-size:11px;opacity:.65">ℹ️</span>' : ''), val: '🔵 ' + p.d1_taso + ' / 🟢 ' + p.d2_taso, delta:'Defensiivinen jako' + _d2note, color:'var(--ink)' });
+    stats.push({ lbl:'D1 / D2' + ((typeof TM_SELITTEET !== 'undefined') ? ' <span title="' + TM_SELITTEET.d1 + ' · ' + TM_SELITTEET.d2 + '" style="cursor:help;font-size:11px;opacity:.65">ℹ️</span>' : ''), val: '🔵 ' + p.d1_taso + ' / 🟢 ' + p.d2_taso, delta:'🔵 fyysinen · 🟢 tekninen (taso 1–5)' + _d2note, color:'var(--ink)' });
   } else if (p.d2_taso != null) {
     // D2 yksin (ei d1-paria) — esim. vain tekniikkadataa. Lähde näkyviin.
     const _d2src = ({ sm:'SM', hh:'H-H', tk:'TK', tki:'TKI' }[p.d2_lahde] || 'tekninen');

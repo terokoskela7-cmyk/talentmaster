@@ -3534,6 +3534,27 @@ function _jsvFyysinenHTML(pelaajat, joukkueNimi, n) {
     });
   }
 
+  // A2b — H-H lajitekniikka (syöttö/pujottelu, 3-portainen eerikkilaTaso). EROTETTU fyysisistä (eri asteikko 1–3).
+  // Pallo-Iirot ym. tallentavat syötön/pujottelun H-H-protokollalla (hh_viimeisin) — ilman tätä ne eivät näkyneet missään.
+  if (typeof eerikkilaTaso === 'function' && ika != null) {
+    const _TEKN = [ { label:'Syöttö', key:'syotto' }, { label:'Pujottelu', key:'pujottelu' } ];
+    let _trows = '';
+    _TEKN.forEach(function(T){
+      let s=0, c=0, ts=0, tn=0;
+      pelaajat.forEach(function(p){ const v=(p.hh_viimeisin&&p.hh_viimeisin[T.key]); if(v!=null&&!isNaN(v)){ s+=Number(v); c++; const t3=eerikkilaTaso(Number(v),T.key,ika,spMN); if(t3>0){ts+=t3;tn++;} } });
+      if (c === 0) return;
+      const ka = Math.round(s/c*10)/10, kaT = tn ? Math.round(ts/tn*10)/10 : null;
+      const tvari = (kaT==null) ? 'var(--ink3)' : kaT>=2.5 ? 'var(--teal)' : kaT>=1.5 ? 'var(--amber)' : 'var(--red)';
+      const katt = (c/n < 0.8) ? ' <span class="jsv-an-ctx">n=' + c + '/' + n + '</span>' : '';
+      _trows += '<div class="jsv-an-lajirivi"><span class="jsv-an-laji">' + T.label + '</span>'
+        + '<span class="jsv-an-ka">' + ka + ' s</span>'
+        + '<span class="jsv-an-viite">' + (kaT!=null ? ('ka taso ' + kaT + '/3') : '') + '</span>'
+        + '<span class="jsv-an-gap" style="color:' + tvari + '">' + (kaT!=null ? (kaT>=2.5?'★':'') : '') + '</span>' + katt + '</div>';
+    });
+    if (_trows) h += '<div class="jsv-an-otsikko">Lajitekniikka (H-H, taso 1–3)</div>' + _trows
+      + '<div class="jsv-an-lahde">Eerikkilä 3-portainen — taso 3 ≈ valtakunnan kärki. Eri asteikko kuin fyysinen 1–5.</div>';
+  }
+
   // A3 — kehityskohde-klusterointi (hh_kehityskohde-pikakentät, PHV-suodatin tehty jo funktiossa)
   const klust = {}; let odottaa = 0;
   pelaajat.forEach(function(p){
@@ -4331,6 +4352,17 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     + tRiv('TKI' + window._tmIBtn('tki'), p.tki_viimeisin != null ? p.tki_viimeisin : '—')
     + tRiv('Merkki', m2 ? (m2.emoji + ' ' + m2.nimi) : '—')
     + '</tbody></table>';
+  // H-H lajitekniikka (syöttö/pujottelu 3-port) — näkyy myös ilman TKI-dataa (Pallo-Iirot ym.). Eri asteikko (1–3)
+  // kuin fyysinen 1–5 → oma rivi, ei friv-badgea (joka olisi 1–5). Pienempi aika = parempi.
+  if (typeof eerikkilaTaso === 'function' && ika != null && hv && (hv.syotto != null || hv.pujottelu != null)) {
+    const _TT = [ { label:'Syöttö', key:'syotto' }, { label:'Pujottelu', key:'pujottelu' } ].filter(function(t){ return hv[t.key] != null && !isNaN(hv[t.key]); });
+    let _tr = '';
+    _TT.forEach(function(t){ const t3 = eerikkilaTaso(Number(hv[t.key]), t.key, ika, spMN);
+      const tvari = (t3>0) ? (t3>=3 ? 'var(--teal)' : t3>=2 ? 'var(--amber)' : 'var(--red)') : 'var(--ink3)';
+      _tr += '<div class="jsv-an-rivi"><span class="jsv-an-laji">' + t.label + ' (H-H)</span> ' + hv[t.key] + ' s'
+        + (t3>0 ? ' · <span style="color:' + tvari + '">taso ' + t3 + '/3</span>' : '') + '</div>'; });
+    if (_tr) f2 += '<div class="jsv-an-otsikko" style="margin-top:10px">Lajitekniikka (H-H, taso 1–3)</div>' + _tr;
+  }
   // VAIHE 1 — per-pelaaja Tekninen-analyysi (pikakentät §26): per-laji + budjetti + delta/vauhti + kultaikkuna.
   // Yhteinen renderöinti joukkueen Yhteenveto A2:n kanssa (_jsvPerLajiHTML / _jsvBudjettiRivi).
   if (p.tk_lajit_viimeisin) {
