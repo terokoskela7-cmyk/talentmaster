@@ -18,6 +18,7 @@ const {
   laskeD1Joustava,
   laskeD2HH,
   laskeD2Joustava,
+  perTestTasot,
 } = require('../lib/tm_eerikkila_normit.js');
 
 // ═══════════════════════════════════════════════════════════════════
@@ -228,5 +229,72 @@ describe('laskeD2Joustava (prioriteetti TKI → H-H → d2_taso)', () => {
   });
   it('tyhjä → null', () => {
     expect(laskeD2Joustava({}, 10, 'M')).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// perTestTasot — §8 per-test TM-normitasot (kanoninen, näkyvä kerros)
+// ═══════════════════════════════════════════════════════════════════
+describe('perTestTasot', () => {
+  // nopeus_30m P10: [4.88,5.01,5.15,5.31] (pienempi parempi): ≤4.88→5, ≤5.01→4, ...
+  it('5-port: hyvä 30m → korkea taso, asteikko 5, lahde hh', () => {
+    const r = perTestTasot({ hh_viimeisin: { lin30m: 4.85 }, phv_tila: 'POST' }, 10, 'M');
+    const m30 = r.find(x => x.label === '30m');
+    expect(m30.taso).toBe(5);
+    expect(m30.asteikko).toBe(5);
+    expect(m30.lahde).toBe('hh');
+    expect(m30.xfactor).toBe(true);     // taso 5
+    expect(m30.neutraali).toBe(false);  // POST-PHV → ei neutraali
+  });
+
+  it('3-port: syöttö/pujottelu → asteikko 3, xfactor kun taso 3', () => {
+    // syotto P10 [38.7,44.9]: ≤38.7→3; pujottelu P10 [26.3,29.1]: ≤29.1→2
+    const r = perTestTasot({ hh_viimeisin: { syotto: 38.0, pujottelu: 27.0 } }, 10, 'M');
+    const sy = r.find(x => x.label === 'Syöttö');
+    const pu = r.find(x => x.label === 'Pujottelu');
+    expect(sy.asteikko).toBe(3);
+    expect(sy.taso).toBe(3);
+    expect(sy.xfactor).toBe(true);      // 3-port taso 3
+    expect(pu.taso).toBe(2);
+    expect(pu.xfactor).toBe(false);
+    expect(sy.neutraali).toBe(false);   // tekniikka ei koskaan neutraali
+  });
+
+  it('§28 PRE-PHV: heikko 30m/mas/cmj → neutraali:true; 5m/10m/syöttö EIVÄT', () => {
+    const r = perTestTasot({ hh_viimeisin: { lin5m: 1.2, lin10m: 2.5, lin30m: 6.0, cmj: 18, mas: 50, syotto: 50 }, phv_tila: 'PRE' }, 10, 'M');
+    expect(r.find(x => x.label === '30m').neutraali).toBe(true);
+    expect(r.find(x => x.label === 'CMJ').neutraali).toBe(true);
+    expect(r.find(x => x.label === 'MAS').neutraali).toBe(true);
+    expect(r.find(x => x.label === '5m').neutraali).toBe(false);
+    expect(r.find(x => x.label === '10m').neutraali).toBe(false);
+    expect(r.find(x => x.label === 'Syöttö').neutraali).toBe(false);
+  });
+
+  it('§28: phv_tila puuttuu → 30m myös neutraali', () => {
+    const r = perTestTasot({ hh_viimeisin: { lin30m: 6.0 } }, 10, 'M');
+    expect(r.find(x => x.label === '30m').neutraali).toBe(true);
+  });
+
+  it('ika null → taso:null (raaka, ei väärää tasoa), rivi silti palautuu', () => {
+    const r = perTestTasot({ hh_viimeisin: { lin30m: 4.85, syotto: 38.0 } }, null, 'M');
+    expect(r.length).toBe(2);
+    expect(r.every(x => x.taso === null)).toBe(true);
+    expect(r.find(x => x.label === '30m').arvo).toBe(4.85);
+  });
+
+  it('sp null → taso:null', () => {
+    const r = perTestTasot({ hh_viimeisin: { lin30m: 4.85 } }, 10, null);
+    expect(r[0].taso).toBeNull();
+  });
+
+  it('Pallo-Iirot-tyyppinen (10m/30m/syöttö/pujottelu, ei cmj/mas/TKI) → 4 riviä tasoineen', () => {
+    const r = perTestTasot({ hh_viimeisin: { lin10m: 2.10, lin30m: 5.05, syotto: 41.0, pujottelu: 28.0 } }, 10, 'M');
+    expect(r.length).toBe(4);
+    expect(r.filter(x => x.taso != null).length).toBe(4);   // kaikki saavat TM-tason ilman aggregaattia
+  });
+
+  it('tyhjä pelaaja → []', () => {
+    expect(perTestTasot({}, 10, 'M')).toEqual([]);
+    expect(perTestTasot(null, 10, 'M')).toEqual([]);
   });
 });

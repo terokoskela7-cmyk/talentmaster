@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781648137941';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781649540235';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=6"></script>
+<script src="lib/tm_eerikkila_normit.js?v=7"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -4815,6 +4815,32 @@ function _renderPinfoFirestore(p) {
     lisaHtml += '</div>';
   }
 
+  // §8 PER-TEST-NAUHA — yksittäisten testien TM-normitasot näkyvänä kerroksena indeksin rinnalla (ei detailin takana).
+  // Kanoninen perTestTasot (lib) — toimii myös kun d1/d2-aggregaatti puuttuu (Pallo-Iirot). Tyhjä → ei nauhaa.
+  let _pttHtml = '';
+  if (typeof perTestTasot === 'function') {
+    const _is = _devIkaSp(p);
+    const _ptt = perTestTasot(p, _is.ika, _is.sp);
+    if (_ptt.length) {
+      const _n5 = r => (r.taso == null) ? null : (r.asteikko === 3 ? ((r.taso - 1) / 2 * 4 + 1) : r.taso);
+      let _kehL = null, _kehMin = Infinity;
+      _ptt.forEach(r => { if (r.taso != null && !r.neutraali && !r.xfactor) { const n = _n5(r); if (n < _kehMin) { _kehMin = n; _kehL = r.label; } } });
+      const _chip = r => {
+        const tag = r.lahde === 'tk' ? '<sup style="opacity:.45;font-size:8px">tk</sup>' : '';
+        if (r.taso == null) return '<span style="color:var(--ink3)">' + r.label + tag + ' <span style="opacity:.6">' + r.arvo + r.yks + '</span></span>';
+        const dots = _tasoPallot(r.taso, r.asteikko);
+        let icon = '', col = 'var(--ink)';
+        if (r.xfactor)                       { icon = '⭐'; col = 'var(--teal)'; }     // X-Factor (taso 5 / 3-port 3)
+        else if (r.neutraali && r.taso <= 3) { icon = '🌱'; col = 'var(--teal)'; }     // §28 pre-PHV heikko → kasvaa, EI punainen
+        else if (r.label === _kehL)          { col = 'var(--amber)'; }                 // matalin validi ei-neutraali = kehityskohde
+        return '<span style="color:' + col + ';white-space:nowrap">' + r.label + tag + ' ' + icon + '<span class="mono" style="font-size:10px;letter-spacing:-1px">' + dots + '</span></span>';
+      };
+      _pttHtml = '<div style="grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:.5px solid rgba(242,239,230,.1);display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;align-items:center">'
+        + '<span style="color:var(--ink3);font-size:10px;letter-spacing:.04em">TESTIT</span>'
+        + _ptt.map(_chip).join('<span style="color:var(--ink3);opacity:.4">·</span>') + '</div>';
+    }
+  }
+
   el.innerHTML = `
     <div style="grid-column:1/-1">
       <div class="pinfo-name serif">${nimi}</div>
@@ -4826,6 +4852,7 @@ function _renderPinfoFirestore(p) {
         <div class="pstat-val serif" style="color:${s.color}">${s.val}</div>
         <div class="pstat-delta mono" style="font-size:11px;color:var(--ink3)">${s.delta}</div>
       </div>`).join('')}
+    ${_pttHtml}
     ${lisaHtml}`;
 }
 

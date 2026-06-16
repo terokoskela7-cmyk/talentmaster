@@ -991,6 +991,14 @@ taso-3-kynnys · `tkLaskeMerkki` · `tkLaskeTKI` (syöttö·0.40+pujottelu·0.30
 **Tutkimusperusta (roadmap, canonical doc §9):** FIFA 11+ Kids (Sprint 5) · FMS+YBT+CMJ-seulonta (Sprint 5–6) ·
 rotaatiotaito/DIAG-harjoitteet (Sprint 5) · bio-banding = kehitysikkunat (VAIHE 3) · quadrant/HRV (Sprint 6+).
 
+**🔭 ROADMAP — seuratason longitudinaalikoonti (gate = ≥2 mittausta/pelaaja, useampi kausi):** kun pituussuuntaista dataa
+on tarpeeksi, seuran laajuinen koonti kahdesta kysymyksestä — **(1) kehitysvauhti-%** = kuinka moni kehittynyt vähintään
+ikäluokkavaatimuksen mukaisesti (aggregoi `hh_taso_edellinen`/`tki_edellinen`/`tk_kokonaistulos_edellinen`-deltat yli joukkueiden;
+**§3.2/§34-invariantti: vauhti abs-parannuksesta, EI pelkästä TKI-laskusta**) · **(2) taso-≥3-osuus** = montako pelaajaa
+normitaso ≥3 (`hh_taso`/`d1_taso`/`d2_taso` + `perTestTasot`-helper §8, laske `≥3`-osuus poolista). **EI uutta arkkitehtuuria** —
+`perTestTasot` (§8) + delta-kentät (§29) ovat rakennuspalikat; luonteva sijainti Admin "Pilotin tila" (§33) tai VP-raportointi.
+Kytkeytyy §29 suljettuun kehityssilmukkaan. Ei rakenneta ennen kuin datamäärä riittää (pullonkaula = datapisteet, ei koodi).
+
 ---
 
 ## 31. TK PER-LAJI VIITETASOT (Sprint 5)
