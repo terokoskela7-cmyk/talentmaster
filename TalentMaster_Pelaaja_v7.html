@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781639374775';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781644155482';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -380,7 +380,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=4"></script>
+<script src="lib/tm_eerikkila_normit.js?v=6"></script>
 <script src="docs/testit_indeksit.js?v=7"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=7"></script>
 <script src="lib/tm-microcycles.js?v=2"></script>
@@ -1323,7 +1323,15 @@ async function _lataaTekniikka() {
     const tk = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .filter(x => x.protokolla === 'tekniikkakilpailu')
       .sort((a, b) => String(a.testauspvm || a.id || '').localeCompare(String(b.testauspvm || b.id || '')));
-    if (tk.length === 0) { _tekniikkaData = { tyhja: true }; draw(); return; }
+    if (tk.length === 0) {
+      // §30 joustava + §7.22: ei tekniikkakilpailua → fallback H-H syöttö/pujottelu LAPSEN KIELELLÄ (sekunnit, EI tasolukuja).
+      const _hh = _pelaaja.hh_viimeisin || {};
+      const _hhTekn = [];
+      if (_hh.syotto != null)    _hhTekn.push({ laji: 'syotto',    nimi: 'Syöttö',    aika: _hh.syotto });
+      if (_hh.pujottelu != null) _hhTekn.push({ laji: 'pujottelu', nimi: 'Pujottelu', aika: _hh.pujottelu });
+      _tekniikkaData = { tyhja: true, hhTekn: _hhTekn.length ? _hhTekn : null };
+      draw(); return;
+    }
     const T = window.TM_TESTIT;
     const sp = (String(_pelaaja.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
     const ikaPvm = (pvm) => {
@@ -1560,10 +1568,23 @@ function rMinaTekniikkaprofiili() {
   const d = _tekniikkaData;
   if (!d) return ''; // ei vielä ladattu → tyhjä (latauksen aikana)
   if (d.tyhja) {
-    // §7.22 positiivinen tyhjätila (EI "Ei tuloksia")
+    // §7.22 positiivinen tyhjätila (EI "Ei tuloksia"). §30 joustava: jos H-H syöttö/pujottelu on tehty,
+    // näytä ne lapsen kielellä (sekunnit + ⚽, EI tasolukuja/vertailua) — muuten "kisa tulossa".
+    let _body;
+    if (d.hhTekn && d.hhTekn.length) {
+      _body = '<div style="font-size:13px;color:var(--text);margin-bottom:10px">⚽ Sinä olet harjoitellut näitä pallotaitoja!</div>'
+        + d.hhTekn.map(function (r) {
+            return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-top:.5px solid rgba(242,239,230,.08)">'
+              + '<span style="font-size:14px;color:var(--text)">' + r.nimi + '</span>'
+              + '<span style="font-family:\'DM Sans\',sans-serif;font-size:15px;color:#28B090">' + r.aika + ' s</span></div>';
+          }).join('')
+        + '<div style="font-size:12px;color:#8C8B86;margin-top:10px">⚽ Tekniikkakisassa näet vielä enemmän!</div>';
+    } else {
+      _body = '<div style="font-size:13px;color:var(--text)">⚽ Tekniikkakisa tulossa — silloin näet tuloksesi täällä!</div>';
+    }
     return '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">'
       + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:10px;letter-spacing:.01em">Tekniikkaprofiili</div>'
-      + '<div style="font-size:13px;color:var(--text)">⚽ Tekniikkakisa tulossa — silloin näet tuloksesi täällä!</div></div>';
+      + _body + '</div>';
   }
   const merkkiVari = { kulta: '#D4AF37', hopea: '#9AA0A6', pronssi: '#B87333' };
   const lajiNimi = { ponnauttelu: 'Ponnauttelu', syotto: 'Syöttö', pujottelu: 'Pujottelu', kuljetus_laukaus: 'Kuljetus-laukaus' };

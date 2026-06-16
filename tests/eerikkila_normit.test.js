@@ -15,6 +15,9 @@ const {
   eerikkilaTaso,
   eerikkilaNormiarvo,
   laskeTSI,
+  laskeD1Joustava,
+  laskeD2HH,
+  laskeD2Joustava,
 } = require('../lib/tm_eerikkila_normit.js');
 
 // ═══════════════════════════════════════════════════════════════════
@@ -158,5 +161,72 @@ describe('laskeTSI', () => {
   it('palauttaa null kun parametrit puuttuvat', () => {
     expect(laskeTSI(null, 5.0)).toBeNull();
     expect(laskeTSI(5.0, null)).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// JOUSTAVA INDEKSILASKENTA (D1/D2) — §30/§14
+// ═══════════════════════════════════════════════════════════════════
+describe('laskeD2HH (D2 H-H syöttö/pujottelu, 3-port → 1–5)', () => {
+  // EERIKKILA_NORMIT P10: syotto [38.7,44.9] (≤38.7→3,≤44.9→2,else1); pujottelu [26.3,29.1] (≤26.3→3,≤29.1→2,else1)
+  it('molemmat taso 3 → normalisoitu 5.0', () => {
+    const r = laskeD2HH({ syotto: 38.0, pujottelu: 26.0 }, 10, 'M');
+    expect(r.taso).toBe(5);            // (3-1)*2+1 = 5
+    expect(r.lahde).toBe('hh');
+    expect(r.kattavuus).toBe(2);
+  });
+  it('molemmat taso 2 → normalisoitu 3.0', () => {
+    const r = laskeD2HH({ syotto: 40.0, pujottelu: 27.0 }, 10, 'M');
+    expect(r.taso).toBe(3);            // (2-1)*2+1 = 3
+    expect(r.kattavuus).toBe(2);
+  });
+  it('vain syöttö → kattavuus 1', () => {
+    const r = laskeD2HH({ syotto: 38.0 }, 10, 'M');
+    expect(r.kattavuus).toBe(1);
+    expect(r.taso).toBe(5);
+  });
+  it('ei syöttö/pujottelu → null', () => {
+    expect(laskeD2HH({ lin30m: 5.0 }, 10, 'M')).toBeNull();
+    expect(laskeD2HH(null, 10, 'M')).toBeNull();
+    expect(laskeD2HH({ syotto: 38.0 }, null, 'M')).toBeNull();
+  });
+});
+
+describe('laskeD1Joustava (D1 fyysinen, ka saatavilla olevista)', () => {
+  it('laskee vain mitatuista testeistä, kattavuus = lukumäärä', () => {
+    const r = laskeD1Joustava({ lin10m: 2.0, lin30m: 5.0 }, 10, 'M');
+    expect(r.lahde).toBe('hh');
+    expect(r.kattavuus).toBe(2);
+    expect(r.maxKattavuus).toBe(6);
+    expect(r.taso).toBeGreaterThan(0);
+  });
+  it('sm_pallo (tekniikka) EI lasketa D1:een', () => {
+    const r = laskeD1Joustava({ sm_pallo: 5.0 }, 10, 'M');
+    expect(r).toBeNull();            // ei fyysisiä → null
+  });
+  it('null kun ei dataa/ikä', () => {
+    expect(laskeD1Joustava(null, 10, 'M')).toBeNull();
+    expect(laskeD1Joustava({ lin30m: 5.0 }, null, 'M')).toBeNull();
+  });
+});
+
+describe('laskeD2Joustava (prioriteetti TKI → H-H → d2_taso)', () => {
+  it('TKI ensisijainen: tki/20', () => {
+    const r = laskeD2Joustava({ tki_viimeisin: 80 }, 10, 'M');
+    expect(r.taso).toBe(4);
+    expect(r.lahde).toBe('tki');
+  });
+  it('ei TKI → H-H syöttö/pujottelu', () => {
+    const r = laskeD2Joustava({ hh_viimeisin: { syotto: 38.0, pujottelu: 26.0 } }, 10, 'M');
+    expect(r.lahde).toBe('hh');
+    expect(r.taso).toBe(5);
+  });
+  it('ei TKI/H-H → olemassa oleva d2_taso (SM/TK)', () => {
+    const r = laskeD2Joustava({ d2_taso: 2.5, d2_lahde: 'sm' }, 10, 'M');
+    expect(r.taso).toBe(2.5);
+    expect(r.lahde).toBe('sm');
+  });
+  it('tyhjä → null', () => {
+    expect(laskeD2Joustava({}, 10, 'M')).toBeNull();
   });
 });

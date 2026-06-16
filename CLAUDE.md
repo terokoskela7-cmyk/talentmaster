@@ -834,6 +834,19 @@ suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 > **HUOM:** laajempi kuin `hh_taso` (joka käyttää vain `lin30m/cmj/mas`). Ei johdeta lennossa raakadatasta (`hh_viimeisin` =
 > raa'at arvot, ei tasoja) — fabrikoitu taso rikkoisi "näytä mitä on" -periaatteen. **Aja muille seuroille kun H-H-data tuodaan**
 > (06-15: vain SJK:lla H-H-mittaukset; grifk/palloiirot rosterit ilman testidataa, Sibbo TKI-only). `d1_lahde`/`d1_pvm` ei vielä erikseen.
+>
+> **✅ JOUSTAVA INDEKSILASKENTA (2026-06-17, §30/§14):** indeksit lasketaan *niistä testeistä jotka on tehty* — ei vaadita kiinteää
+> patteria (ulkomaiset/erilaiset testit: esim. Pallo-Iirot P10 = H-H 10m/30m + syöttö/pujottelu, ei cmj/mas/TKI). **Kanoniset funktiot
+> `lib/tm_eerikkila_normit.js`** (ladattu KAIKISSA: Excel_Tuonti + Master/VP/Pelaaja/Vanhempi → ei kopioita):
+> `laskeD1Joustava(hh,ika,sp)` (fyysisten H-H-tasojen ka, sm_pallo pois), `laskeD2HH(hh,ika,sp)` (**D2 myös syöttö/pujottelusta**:
+> ka `eerikkilaTaso` 3-portaisista 1–3 → normalisoitu 1–5 kaavalla `(t-1)*2+1`), `laskeD2Joustava(p,ika,sp)` (prioriteetti TKI→H-H→d2_taso).
+> **Kirjoitus:** `prosessoiExcel` (~2967) + `recalcHH` (~3905, käyttää kanonisia) → pikakentät `d1_taso/d1_lahde/d1_kattavuus`
+> + `d2_taso/d2_lahde('tki'|'sm'|'hh'|'tk')/d2_kattavuus`. recalcHH **backfillaa jo tuodun H-H-datan** (aja `recalcHH(seuraId,false,true)`).
+> TKI/SM/TK-pelaajat ennallaan (H-H vain lisätty fallbackiksi). **Luku:** näkymät lukevat pikakentät + näyttävät **lähteen ja kattavuuden**
+> (§29: "näytä mitä on") — Master MITTARI 1 fallback `d1_taso`, MITTARI 3 D2-lähdemerkintä; VP `_d2Lahde`/`laskeJoukkueD2`/hero/solu
+> tunnistavat 'hh'/'tk'; Pelaaja FIFA-kortti lukee `d2_taso` (norm5) + `rMinaTekniikkaprofiili` näyttää H-H syöttö/pujottelun **lapsen
+> kielellä sekunteina (§7.22: EI tasolukuja pelaajalle)**. Testit: `tests/eerikkila_normit.test.js` (15 uutta). **Vaihe 2:** kansainvälinen
+> testi→dimensio-mäppäys (ei-Eerikkilä-testit).
 
 **Joukkuepulssi (`renderTeamPulse`):** neliosainen rivi per joukkue — **FLEI · TKI · H-H taso · ADAR ka.**,
 kukin `ka` + `n=testattu/koko` + suunta (`_pulssiSuunta` flei_historiasta FLEI/TKI:lle; H-H/ADAR ei historiaa → ei nuolta).

@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=5"></script>
+<script src="lib/tm_eerikkila_normit.js?v=6"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root {
@@ -1731,7 +1731,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
           <tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:40px">Ladataan...</td></tr>
         </tbody>
       </table>
-      <div style="font-size:11px;color:var(--ink3);margin-top:8px">Tekninen-taso 1–5 · ensisijaisesti TKI (🥇🥈🥉), muuten <sup>1</sup> SM-pohjainen (TSI). FLEI ja H-H samalla 1–5-asteikolla.</div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:8px">Tekninen-taso 1–5 · ensisijaisesti TKI (🥇🥈🥉), muuten <sup>1</sup> muu lähde (SM/TSI, H-H syöttö/pujottelu tai TK-lajit). FLEI ja H-H samalla 1–5-asteikolla.</div>
     </div>
 
     <!-- ── KALENTERI ── -->
@@ -3904,11 +3904,15 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
       if (d2val != null) {
         if (d2src === 'sm') _tsiFootnote = true;
         const dv = hhTasoVari(d2val);
-        const alarivi = (d2src === 'sm') ? (tsi != null ? 'TSI ' + tsi.toFixed(2) + 's' : '')
-                      : ('TKI ' + tki + (m ? ' ' + m.emoji : ''));
-        teknSolu = '<span style="color:' + dv + ';font-family:var(--font-m)">' + d2val + (d2src === 'sm' ? '<sup>¹</sup>' : '') + '</span>'
+        // §30 joustava: D2-lähde tki/sm/hh/tk. ¹ = ei-TKI. Alarivi = diagnostinen lähde.
+        const alarivi = (d2src === 'tki') ? ('TKI ' + tki + (m ? ' ' + m.emoji : ''))
+                      : (d2src === 'sm') ? (tsi != null ? 'TSI ' + tsi.toFixed(2) + 's' : 'SM-pohjainen')
+                      : (d2src === 'hh') ? 'H-H syöttö/pujottelu'
+                      : (d2src === 'tk') ? 'TK-lajit'
+                      : '';
+        teknSolu = '<span style="color:' + dv + ';font-family:var(--font-m)">' + d2val + (d2src !== 'tki' ? '<sup>¹</sup>' : '') + '</span>'
           + (alarivi ? '<div style="font-size:9px;color:var(--ink3);font-family:var(--font-m);margin-top:1px">' + alarivi + '</div>' : '');
-        teknMeta = (d2src === 'tki') ? ('TKI ' + tki) : ('D2 ' + d2val + (tsi != null ? ' · TSI ' + tsi.toFixed(2) + 's' : ''));
+        teknMeta = (d2src === 'tki') ? ('TKI ' + tki) : ('D2 ' + d2val + (d2src === 'hh' ? ' · H-H' : d2src === 'tk' ? ' · TK' : (tsi != null ? ' · TSI ' + tsi.toFixed(2) + 's' : '')));
       } else {
         teknSolu = '<span style="color:var(--ink3)">—</span>';
         teknMeta = null;
@@ -4187,7 +4191,7 @@ window._tmRadar5D = function(dims) {
     const anchor = (Math.abs(lp[0] - cx) < 12) ? 'middle' : (lp[0] > cx ? 'start' : 'end');
     const ydy = (lp[1] < cy - 20) ? -2 : (lp[1] > cy + 20 ? 12 : 4);
     svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" font-weight="500" font-family="DM Sans,sans-serif" fill="' + (has ? 'var(--ink)' : 'var(--ink3)') + '">' + d.key + ' ' + d.label + '</text>';
-    svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy + 13).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" font-weight="600" font-family="DM Mono,monospace" fill="' + (has ? 'var(--teal)' : 'var(--ink3)') + '">' + (has ? (d.arvo + (d.lahde === 'sm' ? '¹' : '')) : 'tulossa') + '</text>';
+    svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy + 13).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" font-weight="600" font-family="DM Mono,monospace" fill="' + (has ? 'var(--teal)' : 'var(--ink3)') + '">' + (has ? (d.arvo + (d.lahde && d.lahde !== 'tki' ? '¹' : '')) : 'tulossa') + '</text>';
   }
   // Datapisteet — monikulmio
   const av = [];
@@ -4416,7 +4420,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   h += '<div style="flex:1;min-width:0">';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">' + _jsvEsc(nimi) + '</div>';
   if (hgBadge) h += '<div style="margin-top:5px">' + hgBadge + '</div>';
-  h += '<div style="font-size:10px;color:var(--ink3);margin-top:8px">5D-profiili (1–5)' + (_d2Lahde(p) === 'sm' ? ' · ¹ SM-pohjainen' : '') + '</div>';
+  h += '<div style="font-size:10px;color:var(--ink3);margin-top:8px">5D-profiili (1–5)' + (_d2Lahde(p) && _d2Lahde(p) !== 'tki' ? ' · ¹ ' + _d2LahdeLbl(_d2Lahde(p)) : '') + '</div>';
   h += '</div>';
   // Oikea: radar (kompakti, max 220px)
   h += '<div style="flex-shrink:0;width:220px">' + window._tmRadar5D(radarDims) + '</div>';
@@ -6054,7 +6058,8 @@ function laskeD2Taso(p) {
   if (p.d2_taso != null) return p.d2_taso;
   return null;
 }
-function _d2Lahde(p) { return (p.tki_viimeisin != null) ? 'tki' : (p.d2_taso != null) ? 'sm' : null; }
+function _d2Lahde(p) { return (p.tki_viimeisin != null) ? 'tki' : (p.d2_taso != null) ? (p.d2_lahde || 'sm') : null; }   // §30 joustava: sm/hh/tk
+function _d2LahdeLbl(l) { return { tki:'TKI', sm:'SM-pohjainen', hh:'H-H (syöttö/pujottelu)', tk:'TK-lajit' }[l] || ''; }
 
 // ── Hidden Gem -luokitin (CLAUDE.md §28). Biologinen perusta: korkea D2 + matala D1 = aito gem VAIN pre-PHV.
 // D1=hh_taso · D2=laskeD2Taso · PHV=phv_tila · mitali=tekninen_varhaiskehitys (pikakenttä) · FLEI=flei_viimeisin.
@@ -6107,9 +6112,10 @@ function _dimHero(d1, d2, d4, d2Lahde) {
     + '<div><span class="dim-numero" style="color:' + (taso == null ? 'var(--ink3)' : hhTasoVari(taso)) + '">' + (taso == null ? '—' : taso) + '</span>'
     + (taso == null ? '' : '<span class="dim-yksikko"> /5</span>') + '</div>'
     + _dimSegRivi(taso) + '</div>';
-  const d2Label = (d2Lahde === 'sm') ? 'D2 Tekninen¹' : 'D2 Tekninen';   // ¹ = SM-pohjainen, ei TKI
+  const _eiTki = (d2Lahde && d2Lahde !== 'tki');   // §30 joustava: sm/hh/tk → ¹
+  const d2Label = _eiTki ? 'D2 Tekninen¹' : 'D2 Tekninen';
   const rivi = '<div class="dim-kortit">' + kortti('D1 Fyysinen', d1) + kortti(d2Label, d2) + kortti('D4 Peli', d4) + '</div>';
-  return rivi + (d2Lahde === 'sm' ? '<div style="font-size:10px;color:var(--ink3);margin:-8px 0 12px;padding:0 2px">¹ SM-testi (Eerikkilä) — TKI tulossa</div>' : '');
+  return rivi + (_eiTki ? '<div style="font-size:10px;color:var(--ink3);margin:-8px 0 12px;padding:0 2px">¹ ' + _d2LahdeLbl(d2Lahde) + ' — TKI tulossa</div>' : '');
 }
 function _dimKa(arr) { const v = arr.filter(x => x != null); return v.length ? Math.round((v.reduce((a,b)=>a+b,0)/v.length)*10)/10 : null; }
 
@@ -6309,7 +6315,11 @@ function laskeJoukkueD2(joukkuePelaajat) {
   const d2Pel = joukkuePelaajat.filter(function(p){ return p.d2_taso != null; });
   if (d2Pel.length >= 3) {
     const ka = d2Pel.reduce(function(s,p){ return s + p.d2_taso; }, 0) / d2Pel.length;
-    return { arvo: Math.round(ka * 10) / 10, lahde: 'sm' };
+    // §30 joustava: johda lähde-label d2_lahteesta (sm/tk/hh) — yleisin voittaa; 'sm' oletus (vanha data ilman lähdettä).
+    const lkm = {};
+    d2Pel.forEach(function(p){ const l = p.d2_lahde || 'sm'; lkm[l] = (lkm[l]||0) + 1; });
+    const lahde = Object.keys(lkm).sort(function(a,b){ return lkm[b] - lkm[a]; })[0] || 'sm';
+    return { arvo: Math.round(ka * 10) / 10, lahde: lahde };
   }
   return null;
 }
@@ -6349,12 +6359,14 @@ function renderTeamPulse() {
     const d2 = laskeJoukkueD2(pelaajat);
     if (d2 != null) {
       const d2Vari = d2.arvo >= 3.5 ? 'var(--teal)' : d2.arvo >= 2.5 ? 'var(--amber)' : 'var(--red)';
+      // §30 joustava: D2-lähde voi olla tki/sm/hh/tk. ¹ = ei-TKI-pohjainen (sm/hh/tk).
+      const _d2Lbl = { tki:'TKI', sm:'SM-testi', hh:'H-H', tk:'TK' }[d2.lahde] || 'TKI';
       h += '<div class="jk-dim-rivi"><span class="jk-dim-label">D2</span>'
         + '<div class="jk-palkki-wrap"><div class="jk-palkki-fill" style="width:' + Math.round(d2.arvo/5*100) + '%;background:' + d2Vari + '"></div></div>'
-        + '<span class="jk-dim-arvo" style="color:' + d2Vari + '">' + d2.arvo + (d2.lahde === 'sm' ? '¹' : '') + '</span>'
-        + '<span class="jk-dim-ctx">' + (d2.lahde === 'sm' ? 'SM-testi' : 'TKI') + '</span></div>';
+        + '<span class="jk-dim-arvo" style="color:' + d2Vari + '">' + d2.arvo + (d2.lahde !== 'tki' ? '¹' : '') + '</span>'
+        + '<span class="jk-dim-ctx">' + _d2Lbl + '</span></div>';
     } else {
-      h += '<div class="jk-dim-rivi jk-dim-puuttuu"><span class="jk-dim-label">D2</span><span class="jk-dim-ctx" style="min-width:auto">— SM-testi puuttuu</span></div>';
+      h += '<div class="jk-dim-rivi jk-dim-puuttuu"><span class="jk-dim-label">D2</span><span class="jk-dim-ctx" style="min-width:auto">— Tekninen mittaus puuttuu</span></div>';
     }
     if (suunta.tila === 'ensimmainen_mittaus') {
       h += '<div class="jk-badge"><i class="ti ti-refresh" aria-hidden="true"></i> 2. mittaus puuttuu</div>';
@@ -6754,7 +6766,7 @@ function _tekninenSoluVP(p) {
   const lahde = _d2Lahde(p);
   let extra = '';
   if (lahde === 'tki') { const m = _tkiMerkkiVP(p.tki_viimeisin, p.tki_merkki); if (m) extra = ' <span style="font-size:12px" title="' + m.nimi + ' · TKI ' + p.tki_viimeisin + '">' + m.emoji + '</span>'; }
-  else if (lahde === 'sm') { extra = '<sup style="color:var(--ink3);font-size:9px" title="SM-pohjainen (TSI) — TKI tulossa">1</sup>'; }
+  else if (lahde && lahde !== 'tki') { extra = '<sup style="color:var(--ink3);font-size:9px" title="' + _d2LahdeLbl(lahde) + ' — TKI tulossa">1</sup>'; }   // §30 joustava: sm/hh/tk
   // D2-taso (1–5) ei kanna suoraa deltaa → TKI-delta nuolena + tooltip (vain TKI-lähteellä).
   let deltaHtml = '';
   if (lahde === 'tki' && p.tki_edellinen != null && p.tki_viimeisin != null) {

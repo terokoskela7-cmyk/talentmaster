@@ -18,7 +18,7 @@
 <!-- pdf.js — Palloliiton PDF-tuonti (ei npm, Node.js ei käytettävissä) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
-<script src="lib/tm_eerikkila_normit.js?v=5"></script>
+<script src="lib/tm_eerikkila_normit.js?v=6"></script>
 
 <style>
 :root {
@@ -2949,6 +2949,9 @@ async function tallennaFirestoreen() {
             profiiliUpdate.sm_juoksu_taso = smJTaso;
             profiiliUpdate.sm_pallo_taso = smPTaso;
             profiiliUpdate.d2_taso = Math.round((smJTaso + smPTaso) / 2 * 10) / 10;
+            profiiliUpdate.d2_lahde = 'sm';                 // §30 joustava: lähdemerkintä (oli puuttuva → näkymät eivät tienneet 'sm')
+            profiiliUpdate.d2_kattavuus = 2;
+            profiiliUpdate.d2_pvm = pvmIso;
           }
         }
         // D2-tekninen TK-lajitasoista (§8.7): vain jos SM-d2:ta EI kirjoiteta tässä päivityksessä JA
@@ -2959,6 +2962,21 @@ async function tallennaFirestoreen() {
             const _spD2 = (sp === 'M') ? 'P' : (sp === 'N') ? 'T' : sp;
             const _d2tk = laskeD2Tekninen(_tkLajit, ika, _spD2);
             if (_d2tk != null) { profiiliUpdate.d2_taso = _d2tk; profiiliUpdate.d2_lahde = 'tk'; profiiliUpdate.d2_pvm = pvmIso; }
+          }
+        }
+        // JOUSTAVA INDEKSILASKENTA (§30): d1_taso (fyysiset H-H-tasot) + d2_taso H-H-fallback (syöttö/pujottelu).
+        // Laskee saatavilla olevista H-H-testeistä — fiksaa ulkomaiset/erilaiset patterit (esim. Pallo-Iirot P10).
+        // Kanoniset funktiot lib/tm_eerikkila_normit.js (sama logiikka kuin recalcHH). Jos ikä/sp puuttuu → recalcHH backfillaa.
+        if (hhViimeisin && ika && sp && typeof laskeD1Joustava === 'function') {
+          const _d1 = laskeD1Joustava(hhViimeisin, ika, sp);
+          if (_d1) { profiiliUpdate.d1_taso = _d1.taso; profiiliUpdate.d1_lahde = _d1.lahde; profiiliUpdate.d1_kattavuus = _d1.kattavuus; profiiliUpdate.d1_pvm = pvmIso; }
+          // D2 H-H-fallback: vain jos SM/TK ei kirjoittanut d2:ta tässä päivityksessä (älä ylikirjoita parempaa lähdettä)
+          if (profiiliUpdate.d2_taso == null && typeof laskeD2HH === 'function') {
+            const _fdHH = p._firestoreData || {};
+            if (_fdHH.d2_taso == null || _fdHH.d2_lahde === 'hh') {
+              const _d2hh = laskeD2HH(hhViimeisin, ika, sp);
+              if (_d2hh) { profiiliUpdate.d2_taso = _d2hh.taso; profiiliUpdate.d2_lahde = _d2hh.lahde; profiiliUpdate.d2_kattavuus = _d2hh.kattavuus; profiiliUpdate.d2_pvm = pvmIso; }
+            }
           }
         }
         // EI = CMJ − SJ (jos molemmat hyppytestit mitattu; sj_jump = Testaus_v9 vanha id)
@@ -3902,29 +3920,30 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
       console.log('[recalcHH] SKIP (taso null): ' + (p.sukunimi||'') + ' ' + (p.etunimi||'') + ' · ika ' + ika + ' sp ' + sp);
       return;
     }
-    // VAIHE 1 — d1_taso (D1-testien tasojen ka, §26 TODO) + hh_kehityskohde/vahvuus (PHV-suodatettu §0/§28, EI UI:ssa)
-    let d1sum = 0, d1n = 0;
-    if (typeof HH_TESTI_MAP !== 'undefined' && typeof eerikkilaTaso === 'function') {
-      ['lin10m', 'lin30m', 'cmj', 'mas', 'kasirata'].forEach(function (t) {
-        const a = hv[t];
-        if (a == null || isNaN(a) || !HH_TESTI_MAP[t]) return;
-        const tt = eerikkilaTaso((t === 'mas') ? a / 3.6 : a, HH_TESTI_MAP[t].eerikkila, ika, sp);
-        if (tt) { d1sum += tt; d1n++; }
-      });
-    }
-    const d1_taso = d1n ? Math.round(d1sum / d1n * 10) / 10 : null;
+    // JOUSTAVA INDEKSILASKENTA (§30, kanoninen lib) — d1_taso (fyysiset H-H-tasot) + d2_taso (H-H syöttö/pujottelu).
+    // Backfillaa myös jo tuodun Pallo-Iirot-tyyppisen H-H-datan. + hh_kehityskohde/vahvuus (PHV-suodatettu §0/§28, EI UI:ssa).
+    const _d1o = (typeof laskeD1Joustava === 'function') ? laskeD1Joustava(hv, ika, sp) : null;
+    const d1_taso = _d1o ? _d1o.taso : null;
+    const d1_kattavuus = _d1o ? _d1o.kattavuus : null;
+    // D2 H-H (syöttö/pujottelu) — vain jos ei parempaa lähdettä (TKI/SM/TK); älä ylikirjoita.
+    const d2_hh = (typeof laskeD2HH === 'function' && p.tki_viimeisin == null && (p.d2_taso == null || p.d2_lahde === 'hh'))
+                ? laskeD2HH(hv, ika, sp) : null;
     const hvK = Object.assign({}, hv);
     if (hvK.sm_pallo == null && p.sm_pallo_viimeisin != null) hvK.sm_pallo = p.sm_pallo_viimeisin;
     const kk = (typeof hhKehityskohde === 'function') ? hhKehityskohde(hvK, ikaDes, sp, p.phv_tila || null) : null;
     muutokset.push({ ref: pd.ref, nimi: (p.sukunimi||'') + ', ' + (p.etunimi||''),
       joukkue: joukkue, ika: ika, sp: sp, taso: taso, vanha: p.hh_taso,
-      d1_taso: d1_taso, hh_kehityskohde: kk ? kk.kehityskohde : null, hh_vahvuus: kk ? kk.vahvuus : null });
+      d1_taso: d1_taso, d1_kattavuus: d1_kattavuus,
+      d2_taso: d2_hh ? d2_hh.taso : null, d2_kattavuus: d2_hh ? d2_hh.kattavuus : null,
+      hh_kehityskohde: kk ? kk.kehityskohde : null, hh_vahvuus: kk ? kk.vahvuus : null });
   });
 
   muutokset.forEach(function(m2) {
     console.log((dryRun ? '[DRY-RUN] ' : '[recalcHH] OK ') + m2.nimi + ' (' + m2.joukkue
       + ' · ' + m2.ika + ' · ' + m2.sp + ') → hh_taso = ' + m2.taso
-      + (m2.vanha != null ? ' (oli ' + m2.vanha + ')' : ''));
+      + (m2.vanha != null ? ' (oli ' + m2.vanha + ')' : '')
+      + (m2.d1_taso != null ? ' · D1 ' + m2.d1_taso + ' (' + m2.d1_kattavuus + ' testiä)' : '')
+      + (m2.d2_taso != null ? ' · D2-HH ' + m2.d2_taso + ' (' + m2.d2_kattavuus + '/2)' : ''));
   });
 
   if (dryRun) {
@@ -3941,7 +3960,12 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
   for (let e = 0; e < eria; e++) {
     const era = muutokset.slice(e * ERA, (e + 1) * ERA);
     const batch = db.batch();
-    era.forEach(function(m2) { batch.set(m2.ref, { hh_taso: m2.taso, hh_taso_recalc: true, d1_taso: m2.d1_taso, hh_kehityskohde: m2.hh_kehityskohde, hh_vahvuus: m2.hh_vahvuus }, { merge: true }); });
+    era.forEach(function(m2) {
+      const _u = { hh_taso: m2.taso, hh_taso_recalc: true, d1_taso: m2.d1_taso, hh_kehityskohde: m2.hh_kehityskohde, hh_vahvuus: m2.hh_vahvuus };
+      if (m2.d1_taso != null) { _u.d1_lahde = 'hh'; _u.d1_kattavuus = m2.d1_kattavuus; }
+      if (m2.d2_taso != null) { _u.d2_taso = m2.d2_taso; _u.d2_lahde = 'hh'; _u.d2_kattavuus = m2.d2_kattavuus; _u.d2_taso_recalc = true; }   // §30 H-H-d2 backfill
+      batch.set(m2.ref, _u, { merge: true });
+    });
     try { await batch.commit(); paivitetty += era.length; }
     catch (err) { console.error('[recalcHH batch ' + (e + 1) + ']', err); virhe += era.length; }
   }
