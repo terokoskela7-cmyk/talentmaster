@@ -50,7 +50,7 @@ Tuorein mittauspäivä per seura = `max(tki_pvm, hh_pvm, adar_pvm, ...)` pikaken
 
 ## 5. RAJAUS (ensimmäinen versio EI sisällä)
 
-- **Nudge-lähetys** (muistutus vastaamattomille) → vaihe 2, vaatii CF:n + sähköpostin.
+- ~~**Nudge-lähetys** (muistutus vastaamattomille) → vaihe 2~~ → ✅ **TOTEUTETTU 2026-06-16:** CF `lahetaMuistutukset` (freq-cap MIN_DAYS=5 / MAX_KPL=3, vain korjatut osoitteet, lempeä `pohjaMuistutus`) + Admin Pilotin tila "🔔 Muistuta odottavia" -nappi (kuivaAjo→confirm→lähetys). Ks. CLAUDE.md §33.
 - **Tarkka "kutsu lähetetty X pv sitten"** → vaatii `kutsut`-kokoelman/audit-luvun (kevyt lisäys myöhemmin); ensimmäinen versio listaa vain `odottaa`-pelaajat.
 - **Käyttö/login-aktiivisuus** ("kirjautuuko kukaan, streakit, valmentajat jotka eivät kirjaa") → vaatii aktiviteetti-pikakentän (esim. `viimeisin_kirjautuminen`) jota ei vielä ole → vaihe 2.
 - **GDPR-ops (B4, vienti/poisto/audit)** · **laskutus (SaaS)** · **täysi Sentry-terveysdashboard** → omat hankkeensa, eivät tähän.

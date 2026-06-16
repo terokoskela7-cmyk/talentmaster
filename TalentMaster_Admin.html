@@ -1440,6 +1440,7 @@ async function renderPilotinTila(alue) {
         + '<div style="font-size:11px;color:var(--ink3);margin-bottom:10px">Tuotu ' + r.pilotti + ' · Kutsuttu ' + r.odottaa + ' · Suostumus ' + r.annettu + '</div>'
         + '<div style="margin-bottom:' + (r.blok ? '10' : '0') + 'px">' + chip('Testattu', pct(r.testattu, r.n)) + chip('ADAR', pct(r.adar, r.n)) + chip('PHV', pct(r.phv, r.n)) + chip('FLEI', pct(r.flei, r.n)) + '</div>'
         + (r.blok ? ('<div style="font-size:12px;color:var(--text);background:rgba(224,160,64,.12);border-radius:8px;padding:8px 11px">🟠 <b>' + _auditEsc(r.blok) + '</b> → <span style="color:var(--amber)">' + _auditEsc(r.toim) + '</span></div>') : '<div style="font-size:12px;color:var(--teal)">✓ Etenee — ei blokkeria</div>')
+        + (r.odottaa > 0 ? ('<button onclick="muistutaSeuraa(\'' + r.id + '\',' + r.odottaa + ')" style="margin-top:10px;font-size:12px;padding:7px 13px;border:.5px solid var(--teal);background:rgba(40,176,144,.1);color:var(--teal);border-radius:6px;cursor:pointer">🔔 Muistuta odottavia (' + r.odottaa + ')</button>') : '')
         + '</div>';
     });
     html += '<div style="margin-top:8px;font-size:11px;color:var(--ink3)">Read-only · laskettu pikakentistä (§26), ei uusia Firestore-kyselyjä. Suppilo-palkki: ▪tuotu · ▪kutsuttu (amber) · ▪suostumus (teal).</div>';
@@ -1448,6 +1449,39 @@ async function renderPilotinTila(alue) {
   } catch (e) {
     const el = document.getElementById('pilottiSisalto');
     if (el) el.innerHTML = '<div style="color:var(--red);padding:20px">Pilotin tilan lataus epäonnistui: ' + (e && e.message) + '</div>';
+  }
+}
+
+// Nudge — kutsumuistutus odottaville (lahetaMuistutukset-CF). Kuivaajo→confirm→lähetys.
+function _ohSyyt(oh) {
+  const m = {}; (oh || []).forEach(o => { m[o.syy] = (m[o.syy] || 0) + 1; });
+  const nimet = { ei_emailia: 'ei sähköpostia', liian_pian: 'liian pian edellisestä', max_saavutettu: 'max muistutukset täynnä', lahetys_epaonnistui: 'lähetysvirhe' };
+  return Object.keys(m).map(s => (nimet[s] || s) + ' ' + m[s]).join(', ');
+}
+async function muistutaSeuraa(seuraId, n) {
+  try {
+    // KRIITTINEN: app().functions('europe-west1') (ei firebase.functions())
+    const fn = firebase.app().functions('europe-west1').httpsCallable('lahetaMuistutukset');
+    naytaToast('Tarkistetaan…', 'ok');
+    const dry = await fn({ seuraId, kuivaAjo: true });
+    const d = dry.data || {};
+    const lah = d.lahetetty || 0;
+    const oh = d.ohitettu || [];
+    if (lah === 0) {
+      alert('Ei muistutettavia juuri nyt: kaikki ' + oh.length + ' ohitetaan (' + _ohSyyt(oh) + ').');
+      return;
+    }
+    let viesti = '🔔 Lähettää sähköpostimuistutuksen ' + lah + ' huoltajalle (alaikäiset).';
+    if (oh.length) viesti += '\nOhitetaan ' + oh.length + ': ' + _ohSyyt(oh) + '.';
+    viesti += '\n\nJatketaanko?';
+    if (!confirm(viesti)) return;
+    naytaToast('Lähetetään muistutuksia…', 'ok');
+    const res = await fn({ seuraId, kuivaAjo: false });
+    const rd = res.data || {};
+    naytaToast('✓ Muistutus lähetetty ' + (rd.lahetetty || 0) + ' huoltajalle' + ((rd.ohitettu && rd.ohitettu.length) ? (' · ' + rd.ohitettu.length + ' ohitettu') : ''), 'ok');
+    renderPilotinTila(document.getElementById('nakymaAlue'));   // päivitä näkymä (muistutus_pvm/kpl muuttui)
+  } catch (e) {
+    naytaToast('Muistutus epäonnistui: ' + ((e && e.message) || 'tuntematon') + ((e && e.code === 'permission-denied') ? ' (ei oikeutta)' : ''), 'virhe');
   }
 }
 

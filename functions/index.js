@@ -193,6 +193,30 @@ function pohjaRekisteriKutsu({ seuraNimi, pelaajaNimi, joukkueNimi, linkki }) {
       Linkki on henkilökohtainen — älkää jakako eteenpäin.
     </p>` + pohjaFooter(seuraNimi);
 }
+// Lempeä muistutus (nudge) — EI painostava (alaikäiset/GDPR). Reuse pohjaRekisteriKutsu-rakenne.
+function pohjaMuistutus({ seuraNimi, pelaajaNimi, linkki }) {
+  return pohjaHeader(seuraNimi) + `
+    <p style="font-size:16px;color:#333;">Hei,</p>
+    <p style="font-size:15px;color:#333;line-height:1.6;">
+      <strong>${seuraNimi}</strong> odottaa vielä rekisteröitymistänne
+      ${pelaajaNimi ? `(<strong>${pelaajaNimi}</strong>)` : ''} TalentMasteriin.
+      Lähetämme linkin uudelleen siltä varalta, että aiempi viesti jäi huomaamatta.
+    </p>
+    <p style="font-size:15px;color:#333;line-height:1.6;">
+      Ei kiirettä — voitte rekisteröityä silloin kun teille sopii.
+    </p>
+    <div style="text-align:center;margin:32px 0;">
+      <a href="${linkki}"
+        style="background:#28B090;color:#000;padding:14px 32px;
+        border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;
+        display:inline-block;">
+        Rekisteröidy ja anna suostumus →
+      </a>
+    </div>
+    <p style="font-size:12px;color:#999;text-align:center;">
+      Linkki on henkilökohtainen — älkää jakako eteenpäin.
+    </p>` + pohjaFooter(seuraNimi);
+}
 function pohjaPelaajaSivu({
   seuraNimi, pelaajaNimi, joukkueNimi,
   salasanaLinkki, vanhempiLinkki, pelaajaLinkki, hEmail
@@ -310,6 +334,94 @@ exports.lahetaRekisteriKutsu = functions
       console.error('lahetaRekisteriKutsu virhe:', e.message);
       throw new functions.https.HttpsError('internal', `Lähetys epäonnistui: ${e.message}`);
     }
+  });
+// ─────────────────────────────────────────────────────────────────────────────
+// lahetaMuistutukset — nudge (kutsumuistutus odottaville). Operaattorin käynnistämä,
+// frekvenssikatto (MIN_DAYS=5 / MAX_KPL=3), vain server-side luettuihin (korjattuihin) osoitteisiin.
+// ─────────────────────────────────────────────────────────────────────────────
+const MUISTUTUS_MIN_DAYS = 5;
+const MUISTUTUS_MAX_KPL  = 3;
+exports.lahetaMuistutukset = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
+    }
+    const { seuraId, pelaajaId, kuivaAjo } = data || {};
+    if (!seuraId) {
+      throw new functions.https.HttpsError('invalid-argument', 'seuraId on pakollinen.');
+    }
+    // authz — sama kuin lahetaHuoltajaKutsu (SA/VP/seurasihteeri/UTJ/seura_admin oma seura)
+    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
+    if (!oikeus.sallittu) {
+      throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
+    }
+    const dry = !!kuivaAjo;
+    const seuraDoc = await db.collection('seurat').doc(seuraId).get();
+    const seuraNimi = (seuraDoc.exists && seuraDoc.data().nimi) || seuraId;
+    const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster';
+
+    // Kohde: yksittäinen pelaaja TAI kaikki odottavat
+    let docs;
+    if (pelaajaId) {
+      const d = await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId).get();
+      docs = d.exists ? [d] : [];
+    } else {
+      const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat')
+        .where('suostumusTila', '==', 'odottaa').get();
+      docs = snap.docs;
+    }
+
+    const MS_PER_DAY = 86400000;
+    const nyt = Date.now();
+    const lahetettavat = [];
+    const ohitettu = [];
+    for (const d of docs) {
+      const p = d.data();
+      const etunimi = p.etunimi || '';
+      const hEmail = String(p.huoltajaEmail || '').trim();   // server-side luettu = vain korjattu osoite
+      if (!hEmail) { ohitettu.push({ pelaajaId: d.id, etunimi, syy: 'ei_emailia' }); continue; }
+      const mPvm = p.muistutus_pvm;
+      if (mPvm) {
+        const ms = mPvm.toDate ? mPvm.toDate().getTime() : (mPvm.seconds ? mPvm.seconds * 1000 : new Date(mPvm).getTime());
+        if (ms && (nyt - ms) < MUISTUTUS_MIN_DAYS * MS_PER_DAY) { ohitettu.push({ pelaajaId: d.id, etunimi, syy: 'liian_pian' }); continue; }
+      }
+      if ((p.muistutus_kpl || 0) >= MUISTUTUS_MAX_KPL) { ohitettu.push({ pelaajaId: d.id, etunimi, syy: 'max_saavutettu' }); continue; }
+      lahetettavat.push({ ref: d.ref, pelaajaId: d.id, etunimi, hEmail, pelaajaNimi: [p.etunimi, p.sukunimi].filter(Boolean).join(' ') || 'pelaaja' });
+    }
+
+    if (dry) {
+      return { ok: true, kuivaAjo: true, lahetetty: lahetettavat.length,
+        lahetettavat: lahetettavat.map(x => ({ pelaajaId: x.pelaajaId, etunimi: x.etunimi })),
+        ohitettu, yhteensa: docs.length };
+    }
+
+    let lahetetty = 0;
+    for (const x of lahetettavat) {
+      const linkki = `${baseUrl}/TalentMaster_Rekisterointi_Suostumus.html?seura=${seuraId}&pelaaja=${x.pelaajaId}`;
+      try {
+        await lahetaSahkoposti({
+          to: x.hEmail,
+          subject: 'Muistutus: rekisteröityminen TalentMasteriin',
+          fromName: seuraNimi,
+          html: pohjaMuistutus({ seuraNimi, pelaajaNimi: x.pelaajaNimi, linkki }),
+        });
+        await x.ref.update({
+          muistutus_pvm: admin.firestore.FieldValue.serverTimestamp(),
+          muistutus_kpl: admin.firestore.FieldValue.increment(1),
+        });
+        db.collection('audit').add({
+          toiminto: 'muistutus_lahetetty', severity: 'info',
+          pelaajaId: x.pelaajaId, seuraId, hEmail: x.hEmail,
+          tekija_uid: context.auth.uid,
+          aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => {});
+        lahetetty++;
+      } catch (e) {
+        ohitettu.push({ pelaajaId: x.pelaajaId, etunimi: x.etunimi, syy: 'lahetys_epaonnistui' });
+      }
+    }
+    return { ok: true, kuivaAjo: false, lahetetty, ohitettu, yhteensa: docs.length };
   });
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaHuoltajaKutsu
