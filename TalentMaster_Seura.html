@@ -2746,6 +2746,17 @@ function luoRekisteriLinkki() {
     return;
   }
 
+  // Onboarding-integriteetti (warn-not-block, §A): sama huoltajaEmail jo toisella seuran pelaajalla?
+  // Käytä jo ladattua rosteria (window._pelaajatKaikki) — ei uutta Firestore-kyselyä. Sisarukset = laillinen.
+  var _hLower = hEmail.toLowerCase();
+  var _samaEmail = (window._pelaajatKaikki || []).filter(function(pp) {
+    return pp.id !== tila._rekPelaajaId && String(pp.huoltajaEmail || '').toLowerCase().trim() === _hLower;
+  });
+  if (_samaEmail.length) {
+    var _nimet = _samaEmail.map(function(pp) { return ((pp.etunimi || '') + ' ' + (pp.sukunimi || '')).trim(); }).join(', ');
+    if (!confirm('🟡 Sama huoltajaEmail jo pelaajalla: ' + _nimet + ' (sisarus?). Tallenna silti?')) return;
+  }
+
   document.getElementById('rekisteriVirhe').classList.remove('nakyvilla');
 
   // Rakennetaan kutsulink​ki
@@ -4757,6 +4768,17 @@ async function lahetaMassakutsu() {
   if (uudelleen > 0) {
     vahvistusViesti += '\n\n⚠️ ' + uudelleen + ' pelaajalle on jo lähetetty kutsu aiemmin (tila: odottaa). '
       + 'He saavat kutsun UUDELLEEN.';
+  }
+  // Onboarding-integriteetti (warn-not-block, §A): sama huoltajaEmail usealla valitulla? (sisarukset vai ristiin?)
+  var _emRyhmat = {};
+  _massakutsuData.forEach(function(p) {
+    var e = String(p.huoltajaEmail || '').toLowerCase().trim();
+    if (e) { (_emRyhmat[e] = _emRyhmat[e] || []).push(((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim()); }
+  });
+  var _jaetut = Object.keys(_emRyhmat).filter(function(e) { return _emRyhmat[e].length > 1; });
+  if (_jaetut.length) {
+    vahvistusViesti += '\n\n🟡 Sama huoltajaEmail usealla pelaajalla (sisarukset vai ristiin? Tarkista):\n'
+      + _jaetut.map(function(e) { return '• ' + e + ': ' + _emRyhmat[e].join(', '); }).join('\n');
   }
   vahvistusViesti += '\n\nJatketaanko?';
   if (!confirm(vahvistusViesti)) return;

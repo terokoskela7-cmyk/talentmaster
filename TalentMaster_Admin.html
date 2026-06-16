@@ -2383,6 +2383,20 @@ async function lahetaAdminMassakutsu() {
     return;
   }
 
+  // Onboarding-integriteetti (warn-not-block, §A): sama huoltajaEmail usealla tuotavalla? (sisarukset vai ristiin?)
+  const _emR = {};
+  _adminMassaData.forEach(p => {
+    const e = String(p.huoltajaEmail || '').toLowerCase().trim();
+    if (e) { (_emR[e] = _emR[e] || []).push(`${p.etunimi || ''} ${p.sukunimi || ''}`.trim()); }
+  });
+  const _jaetutEmailit = Object.keys(_emR).filter(e => _emR[e].length > 1);
+  if (_jaetutEmailit.length) {
+    const _viesti = '🟡 Sama huoltajaEmail usealla pelaajalla (sisarukset vai ristiin? Tarkista):\n\n'
+      + _jaetutEmailit.map(e => `• ${e}: ${_emR[e].join(', ')}`).join('\n')
+      + '\n\nTuo silti?';
+    if (!confirm(_viesti)) return;
+  }
+
   const nappi    = document.getElementById('adminMassaLahetaNappi');
   const progress = document.getElementById('adminMassaProgress');
   const bar      = document.getElementById('adminMassaBar');

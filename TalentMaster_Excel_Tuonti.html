@@ -2491,6 +2491,33 @@ function naytaEsikatselu() {
     taulukkoOver.parentNode.insertBefore(el, taulukkoOver);
   })();
 
+  // Onboarding-integriteetti (warn-not-block, §A): erän sisäiset duplikaatit. Excel_Tuonti = testidata
+  // (ei huoltajaEmailia) → tarkista dup PalloID + dup nimi+joukkue + puuttuva PalloID. Tuonti silti sallittu.
+  (function() {
+    document.getElementById('integ-varoitus-paneeli')?.remove();
+    var rivit = tuontiData.pelaajat || [];
+    var byPid = {}, byNimi = {}, puuttuu = 0;
+    rivit.forEach(function(p) {
+      var pid = String(p.tunniste || '').trim();
+      if (pid) (byPid[pid] = byPid[pid] || []).push(p); else puuttuu++;
+      var nk = String(p.etunimi || '').toLowerCase().trim() + '|' + String(p.sukunimi || '').toLowerCase().trim() + '|' + String(p.joukkue || '').toLowerCase().trim();
+      if (nk.replace(/\|/g, '').length) (byNimi[nk] = byNimi[nk] || []).push(p);
+    });
+    var dupPid  = Object.keys(byPid).filter(function(k) { return byPid[k].length > 1; });
+    var dupNimi = Object.keys(byNimi).filter(function(k) { return byNimi[k].length > 1; });
+    if (!dupPid.length && !dupNimi.length && !puuttuu) return;
+    var nimiOf = function(p) { return String(p.sukunimi || '?') + ', ' + String(p.etunimi || '?'); };
+    var h = '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🟡 Tarkista ennen tuontia (varoitus, ei esto)</div>';
+    if (dupPid.length)  h += '<div style="margin-bottom:5px">⚠ <strong>Sama PalloID usealla rivillä</strong> (tunnistuskonflikti): ' + dupPid.map(function(k) { return escapeHtml(k) + ' (' + escapeHtml(byPid[k].map(nimiOf).join('; ')) + ')'; }).join(' · ') + '</div>';
+    if (dupNimi.length) h += '<div style="margin-bottom:5px">⚠ <strong>Sama nimi + joukkue usealla rivillä</strong> (duplikaatti?): ' + dupNimi.map(function(k) { return escapeHtml(nimiOf(byNimi[k][0])) + ' ×' + byNimi[k].length; }).join(' · ') + '</div>';
+    if (puuttuu)        h += '<div>⚠ <strong>' + puuttuu + ' rivillä puuttuu PalloID</strong> — tunnistus nojaa nimeen.</div>';
+    var el = document.createElement('div');
+    el.id = 'integ-varoitus-paneeli';
+    el.style.cssText = 'margin-bottom:14px;padding:12px 14px;background:rgba(224,160,64,.12);border:.5px solid rgba(224,160,64,.5);border-radius:8px;font-size:12px;color:var(--text);';
+    el.innerHTML = h;
+    taulukkoOver.parentNode.insertBefore(el, taulukkoOver);
+  })();
+
   const taulukko = document.getElementById('esikatselu-taulukko');
   taulukko.style.display = 'block';
 
