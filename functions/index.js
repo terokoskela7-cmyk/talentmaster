@@ -337,6 +337,13 @@ exports.lahetaHuoltajaKutsu = functions
         lahetetty: admin.firestore.FieldValue.serverTimestamp(),
         lahettaja_uid: context.auth.uid,
       });
+    // Onboarding-integriteetti B1 — audit (best-effort, ei saa kaataa operaatiota)
+    db.collection('audit').add({
+      toiminto: 'huoltajakutsu_lahetetty', severity: 'info',
+      pelaajaId, seuraId, hEmail: huoltajaEmail,
+      tekija_uid: (context.auth && context.auth.uid) || null,
+      aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+    }).catch(() => {});
     return { ok: true, linkki: suostumusLinkki };
   });
 // ─────────────────────────────────────────────────────────────────────────────
@@ -836,6 +843,12 @@ exports.vahvistaSuostumus = functions
     }
     const tallennettuEmail = String(snap.get('huoltajaEmail') || '').trim().toLowerCase();
     if (!tallennettuEmail || tallennettuEmail !== hEmailNorm) {
+      // Onboarding-integriteetti B1 — väärä-lapsi-yritys (email-ristiriita) → HÄLYTYS. Best-effort ENNEN throwia.
+      db.collection('audit').add({
+        toiminto: 'suostumus_estetty_email_ristiriita', severity: 'alert',
+        pelaajaId, seuraId, yritettyEmail: hEmailNorm,
+        aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => {});
       throw new functions.https.HttpsError('permission-denied',
         'Huoltajan sähköposti ei täsmää pelaajan tietoihin.');
     }
@@ -920,6 +933,15 @@ exports.vahvistaSuostumus = functions
       }
     }
 
+    // Onboarding-integriteetti B1 — suostumus annettu (best-effort). Autentikoimaton sivu → uid usein null,
+    // siksi kirjataan antaja + hEmail jäljitettävyyttä varten.
+    db.collection('audit').add({
+      toiminto: 'suostumus_annettu', severity: 'info',
+      pelaajaId, seuraId, hEmail: hEmailNorm, antaja: antaja || null,
+      tekija_uid: (context.auth && context.auth.uid) || null,
+      aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+    }).catch(() => {});
+
     // 4. + 5. Luo/hae huoltajan Auth-tili ja generoi salasanan asetuslinkki.
     // Suostumus on jo tallennettu — linkin generoinnin epäonnistuminen ei saa
     // hukata sitä, joten linkki palautetaan null:ina virhetilanteessa (graceful).
@@ -942,6 +964,37 @@ exports.vahvistaSuostumus = functions
       console.warn('[vahvistaSuostumus] Reset-linkki epäonnistui:', e.message);
       return { ok: true, passwordResetLink: null, linkkiVirhe: e.message, pin };
     }
+  });
+// ─────────────────────────────────────────────────────────────────────────────
+// haeAuditLoki — SA-only audit-loki-lukija (Admin "Audit-loki / Hälytykset" -näkymä).
+// Audit pysyy EI-client-luettavana (Rules); SA lukee VAIN tämän callable-CF:n kautta.
+// ─────────────────────────────────────────────────────────────────────────────
+exports.haeAuditLoki = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu sisään.');
+    }
+    // SA-gate (sama onSuperAdmin-pattern kuin tarkistaOikeus)
+    const adminDoc = await db.collection('admins').doc(context.auth.uid).get();
+    const ad = adminDoc.exists ? adminDoc.data() : null;
+    const onSA = ad && (ad.superAdmin === true || ad.rooli === 'super_admin' || ad.rooli === 'superadmin');
+    if (!onSA) {
+      throw new functions.https.HttpsError('permission-denied', 'Vain super-admin.');
+    }
+    const limit = Math.min(Math.max(parseInt((data && data.limit) || 100, 10) || 100, 1), 500);
+    const severity = (data && data.severity) ? String(data.severity) : null;
+    // orderBy(aikaleima desc) = yksikenttäinen auto-indeksi (ei composite-indeksiä tarvita).
+    // severity suodatetaan tässä CF:ssä haetun ikkunan yli → EI vaadi audit-composite-indeksiä eikä index-deployta.
+    const hakuLimit = severity ? Math.max(limit, 300) : limit;
+    const snap = await db.collection('audit').orderBy('aikaleima', 'desc').limit(hakuLimit).get();
+    let rivit = snap.docs.map((d) => {
+      const x = d.data();
+      const ts = (x.aikaleima && x.aikaleima.toDate) ? x.aikaleima.toDate().toISOString() : null;
+      return { id: d.id, ...x, aikaleima: ts };
+    });
+    if (severity) rivit = rivit.filter((r) => r.severity === severity);
+    return { ok: true, rivit: rivit.slice(0, limit), n: rivit.length };
   });
 // ─────────────────────────────────────────────────────────────────────────────
 // TASO-INTEGRAATIO — Palloliiton tulospalvelu

@@ -260,6 +260,9 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
     <div class="navNappi" onclick="vaihdaNakyma('massakutsu',this)">
       <span class="navIkoni">📋</span>Massakutsu
     </div>
+    <div class="navNappi" onclick="vaihdaNakyma('audit',this)">
+      <span class="navIkoni">🔍</span>Audit-loki
+    </div>
   </div>
 
   <div class="sisalto">
@@ -921,7 +924,65 @@ function renderoi(nakyma) {
     case 'pelaajat':   renderPelaajat(alue);   break;
     case 'joukkueet':  renderJoukkueet(alue);  break;
     case 'massakutsu': renderMassakutsu(alue); break;
+    case 'audit':      renderAudit(alue);      break;
   }
+}
+
+// ─────────────────────────────────────────
+// NÄKYMÄ: AUDIT-LOKI / HÄLYTYKSET (SA-only, haeAuditLoki-CF). Read-only.
+// Audit-kokoelma pysyy EI-client-luettavana (Rules) → luetaan VAIN callable-CF:llä.
+// ─────────────────────────────────────────
+let _auditVainHalytykset = false;
+async function renderAudit(alue) {
+  alue.innerHTML = `
+    <div class="sivuOtsikko">
+      <div class="sivuEyebrow">Valvonta</div>
+      <div class="sivuH1">Audit-loki / Hälytykset</div>
+    </div>
+    <div style="margin:12px 0;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="auditVainHal" ${_auditVainHalytykset ? 'checked' : ''}
+          onchange="_auditVainHalytykset=this.checked;renderAudit(document.getElementById('nakymaAlue'))">
+        Vain hälytykset (🟠 alert)
+      </label>
+      <button onclick="renderAudit(document.getElementById('nakymaAlue'))"
+        style="font-size:12px;padding:6px 12px;border:.5px solid var(--ink3);background:none;color:var(--ink3);border-radius:6px;cursor:pointer">↻ Päivitä</button>
+    </div>
+    <div id="auditSisalto" style="font-size:13px;color:var(--ink3)">Ladataan…</div>`;
+  const sis = document.getElementById('auditSisalto');
+  try {
+    const fn = firebase.app().functions('europe-west1').httpsCallable('haeAuditLoki');
+    const res = await fn({ limit: 200, severity: _auditVainHalytykset ? 'alert' : null });
+    const rivit = (res && res.data && res.data.rivit) || [];
+    if (!rivit.length) {
+      sis.innerHTML = '<div style="padding:20px 0">Ei audit-rivejä' + (_auditVainHalytykset ? ' (hälytyksiä)' : '') + '.</div>';
+      return;
+    }
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--ink3)">'
+      + '<th style="padding:6px 8px">Aika</th><th style="padding:6px 8px">Toiminto</th><th style="padding:6px 8px">Kohde</th><th style="padding:6px 8px">Tekijä</th></tr></thead><tbody>';
+    rivit.forEach((r) => {
+      const onAlert = r.severity === 'alert';
+      const aika = r.aikaleima ? new Date(r.aikaleima).toLocaleString('fi-FI') : '—';
+      const kohde = [r.pelaajaId, r.seuraId, r.hEmail || r.yritettyEmail].filter(Boolean).join(' · ') || '—';
+      const tekija = r.antaja || r.tekija_uid || '—';
+      const rivityyli = 'border-top:.5px solid rgba(242,239,230,.1);' + (onAlert ? 'background:rgba(224,160,64,.14);' : '');
+      const merkki = onAlert ? '<span style="color:var(--amber);font-weight:700">🟠 </span>' : '';
+      html += '<tr style="' + rivityyli + '">'
+        + '<td style="padding:6px 8px;white-space:nowrap;color:var(--ink3)">' + aika + '</td>'
+        + '<td style="padding:6px 8px">' + merkki + _auditEsc(r.toiminto || '—') + '</td>'
+        + '<td style="padding:6px 8px;color:var(--ink2)">' + _auditEsc(kohde) + '</td>'
+        + '<td style="padding:6px 8px;color:var(--ink3)">' + _auditEsc(tekija) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    html += '<div style="margin-top:10px;font-size:11px;color:var(--ink3)">' + rivit.length + ' riviä (read-only). Audit on palvelinpuolinen — ei client-luettava; haettu SA-callable-CF:llä.</div>';
+    sis.innerHTML = html;
+  } catch (e) {
+    sis.innerHTML = '<div style="padding:16px;color:#D85A5A">Audit-lokin haku epäonnistui: '
+      + _auditEsc((e && e.message) || 'tuntematon') + ((e && e.code === 'permission-denied') ? ' (vain super-admin)' : '') + '</div>';
+  }
+}
+function _auditEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
 }
 
 // ─────────────────────────────────────────
