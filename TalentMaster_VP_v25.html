@@ -1410,6 +1410,18 @@ body {
 .vkk-cta { flex: 0 0 auto; background: var(--teal); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; min-height: 40px; }
 .vkk-cta:hover { opacity: .9; }
 .vkk-link { color: var(--teal); cursor: pointer; font-size: 13px; }
+#onbSheet { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.onb-back { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+.onb-card { position: relative; background: var(--bg3); border: .5px solid var(--border); border-radius: 16px; width: min(440px, 94vw); max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 12px 48px rgba(0,0,0,.4); }
+.onb-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.onb-prog { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--teal); font-weight: 600; }
+.onb-ohita-x { background: none; border: none; color: var(--ink3); font-size: 22px; cursor: pointer; line-height: 1; }
+.onb-txt { font-size: 19px; color: var(--ink); line-height: 1.5; margin-bottom: 20px; font-family: var(--font-serif); }
+.onb-cta { display: block; width: 100%; background: var(--teal); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 500; cursor: pointer; font-family: inherit; min-height: 48px; }
+.onb-cta:hover { opacity: .92; }
+.onb-ohita { display: block; width: 100%; background: none; border: none; color: var(--ink3); font-size: 13px; cursor: pointer; margin-top: 10px; padding: 8px; }
+.onb-valmis { font-size: 42px; margin-bottom: 6px; }
+.onb-otsikko { font-family: var(--font-serif); font-size: 26px; color: var(--ink); margin-bottom: 8px; }
 .vpkoti-tyhja { background: var(--bg3); border: .5px dashed var(--border); border-radius: 12px; padding: 28px 22px; text-align: center; color: var(--ink2); font-size: 15px; line-height: 1.6; }
 
 @media (max-width: 768px) {
@@ -1650,6 +1662,10 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
       </svg>
       Arvioi harjoitus
+    </div>
+    <div class="sb-item" onclick="naytaOnboarding(true)" title="Avaa aloitusopastus uudelleen">
+      <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l7-6 7 6v8a1 1 0 0 1-1 1h-3v-5H7v5H4a1 1 0 0 1-1-1z"/></svg>
+      Aloita tästä
     </div>
     <div class="sb-item" onclick="avaaAdarKenttatyokalu()">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -2137,6 +2153,7 @@ async function lataaKaikki() {
   renderKalenteri();
   renderRaportointi();
   renderKotiVP();   // §IA
+  naytaOnboarding();   // §IA slice 3 — ensikäynnillä (gate)
   _alustaToimenpiteet();   // OSA 3 — generoi + lataa toimenpiteet (async, try/catch sisällä; demossa placeholder)
 }
 
@@ -6016,11 +6033,50 @@ function renderKotiVP() {
     h += '<div style="margin-top:14px"><span class="vkk-link" onclick="setWs(\'tilanne\')">Kaikki signaalit yksityiskohtaisesti →</span></div>';
   } else {
     h += '<div class="vpkoti-tyhja">✅ <b>Ei kriittisiä signaaleja juuri nyt.</b><br>'
-      + '<span style="font-size:13px;color:var(--ink3)">Kun valmentaja hiljenee, nostoehdokas ilmaantuu tai kehityskohteita kasaantuu, näet ne täällä toimenpiteinä.</span></div>';
+      + '<span style="font-size:13px;color:var(--ink3)">Kun valmentaja hiljenee, nostoehdokas ilmaantuu tai kehityskohteita kasaantuu, näet ne täällä toimenpiteinä.</span><br><button class="vkk-cta" style="margin-top:12px" onclick="naytaOnboarding(true)">Aloita tästä →</button></div>';
   }
   el.innerHTML = h;
 }
 window.renderKotiVP = renderKotiVP;
+
+/* ════════════════════════════════════════════════════════════
+   §IA slice 3 — ONBOARDING "Aloita tästä" (VP-flow). Strangler: napit olemassa oleviin funktioihin.
+   Näytä kerran (localStorage tm_onb_vp_<uid>), ohitettavissa, palautettavissa. Ei XP/pakotusta. Flow appista.
+════════════════════════════════════════════════════════════ */
+const _ONB_VP = [
+  { txt: 'Katso joukkuepulssi ja sen syvänäkymä.', nappi: 'Avaa joukkuepulssi', fn: function(){
+      const jk = (typeof _pelaajat !== 'undefined' && _pelaajat[0] && _pelaajat[0].joukkue) || null;
+      if (jk && typeof avaaJoukkueSyvanakyma === 'function') avaaJoukkueSyvanakyma(jk); else setWs('pelaajat');
+    } },
+  { txt: 'Avaa yhden pelaajan syvänäkymä.', nappi: 'Avaa Joukkueet', fn: function(){ setWs('pelaajat'); } },
+  { txt: 'Lähetä yksi mentorointiviesti valmentajalle.', nappi: 'Avaa Valmentajat', fn: function(){ setWs('valmentajat'); } },
+];
+let _onbStep = 0;
+function _onbAvain(){ const u = (typeof _uid !== 'undefined' && _uid) || (typeof firebase !== 'undefined' && firebase.auth().currentUser && firebase.auth().currentUser.uid) || 'anon'; return 'tm_onb_vp_' + u; }
+function naytaOnboarding(pakota){ if (!pakota && localStorage.getItem(_onbAvain()) === 'done') return; _onbStep = 0; _onbRender(); }
+function _onbRender(){
+  let el = document.getElementById('onbSheet');
+  if (!el) { el = document.createElement('div'); el.id = 'onbSheet'; document.body.appendChild(el); }
+  if (_onbStep >= _ONB_VP.length) {
+    el.innerHTML = '<div class="onb-back" onclick="_onbSulje()"></div><div class="onb-card" style="text-align:center">'
+      + '<div class="onb-valmis">✅</div><div class="onb-otsikko">Olet valmis.</div>'
+      + '<div class="onb-txt" style="font-family:inherit;font-size:15px">Koti kokoaa kriittiset signaalit toimenpiteiksi.</div>'
+      + '<button class="onb-cta" onclick="_onbSulje()">Aloita käyttö →</button></div>';
+    return;
+  }
+  const s = _ONB_VP[_onbStep];
+  el.innerHTML = '<div class="onb-back" onclick="_onbSulje()"></div><div class="onb-card">'
+    + '<div class="onb-head"><span class="onb-prog">Aloita tästä · ' + (_onbStep+1) + '/' + _ONB_VP.length + '</span>'
+    + '<button class="onb-ohita-x" onclick="_onbSulje()" title="Ohita">×</button></div>'
+    + '<div class="onb-txt">' + s.txt + '</div>'
+    + '<button class="onb-cta" onclick="_onbToiminto()">' + s.nappi + ' →</button>'
+    + '<button class="onb-ohita" onclick="_onbSeuraava()">Ohita askel</button></div>';
+}
+function _onbToiminto(){ const s = _ONB_VP[_onbStep]; try { s.fn(); } catch(e){ console.warn('[onb]', e.message); } _onbStep++; _onbRender(); }
+function _onbSeuraava(){ _onbStep++; _onbRender(); }
+function _onbSulje(){ try { localStorage.setItem(_onbAvain(), 'done'); } catch(e){} const el = document.getElementById('onbSheet'); if (el) el.remove(); }
+window.naytaOnboarding = naytaOnboarding;
+window._onbToiminto = _onbToiminto; window._onbSeuraava = _onbSeuraava; window._onbSulje = _onbSulje;
 
 function setWs(ws) {
   _currentWs = ws;
