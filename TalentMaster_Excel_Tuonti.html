@@ -3946,6 +3946,7 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
       joukkue: joukkue, ika: ika, sp: sp, taso: taso, vanha: p.hh_taso,
       d1_taso: d1_taso, d1_kattavuus: d1_kattavuus,
       d2_taso: d2_hh ? d2_hh.taso : null, d2_kattavuus: d2_hh ? d2_hh.kattavuus : null,
+      hhPvm: p.hh_pvm || null,
       hh_kehityskohde: kk ? kk.kehityskohde : null, hh_vahvuus: kk ? kk.vahvuus : null });
   });
 
@@ -3973,8 +3974,8 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
     const batch = db.batch();
     era.forEach(function(m2) {
       const _u = { hh_taso: m2.taso, hh_taso_recalc: true, d1_taso: m2.d1_taso, hh_kehityskohde: m2.hh_kehityskohde, hh_vahvuus: m2.hh_vahvuus };
-      if (m2.d1_taso != null) { _u.d1_lahde = 'hh'; _u.d1_kattavuus = m2.d1_kattavuus; }
-      if (m2.d2_taso != null) { _u.d2_taso = m2.d2_taso; _u.d2_lahde = 'hh'; _u.d2_kattavuus = m2.d2_kattavuus; _u.d2_taso_recalc = true; }   // §30 H-H-d2 backfill
+      if (m2.d1_taso != null) { _u.d1_lahde = 'hh'; _u.d1_kattavuus = m2.d1_kattavuus; if (m2.hhPvm) _u.d1_pvm = m2.hhPvm; }   // BUG-fix: pvm aikajanan laajennukselle
+      if (m2.d2_taso != null) { _u.d2_taso = m2.d2_taso; _u.d2_lahde = 'hh'; _u.d2_kattavuus = m2.d2_kattavuus; _u.d2_taso_recalc = true; if (m2.hhPvm) _u.d2_pvm = m2.hhPvm; }   // §30 H-H-d2 backfill
       batch.set(m2.ref, _u, { merge: true });
     });
     try { await batch.commit(); paivitetty += era.length; }

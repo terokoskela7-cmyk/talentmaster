@@ -260,6 +260,30 @@ describe('perTestTasot', () => {
     expect(sy.neutraali).toBe(false);   // tekniikka ei koskaan neutraali
   });
 
+  it('§28 ikätietoinen: PHV-null + ika≥13 → oletus:true (taso näkyy), ika≤12 → neutraali:true', () => {
+    // PHV puuttuu, ika 14 → 30m näyttää tason, oletus-lippu
+    const r14 = perTestTasot({ hh_viimeisin: { lin30m: 6.0 } }, 14, 'M').find(x => x.label === '30m');
+    expect(r14.neutraali).toBe(false);
+    expect(r14.oletus).toBe(true);
+    expect(r14.taso).toBeGreaterThan(0);
+    // PHV puuttuu, ika 11 → neutraali (pre-PHV todennäköinen)
+    const r11 = perTestTasot({ hh_viimeisin: { lin30m: 6.0 } }, 11, 'M').find(x => x.label === '30m');
+    expect(r11.neutraali).toBe(true);
+    expect(r11.oletus).toBe(false);
+    // PHV PRE, ika 14 → neutraali (vahvistettu pre-PHV, mikä ikä tahansa)
+    const rPre = perTestTasot({ hh_viimeisin: { lin30m: 6.0 }, phv_tila: 'PRE' }, 14, 'M').find(x => x.label === '30m');
+    expect(rPre.neutraali).toBe(true);
+    expect(rPre.oletus).toBe(false);
+    // PHV POST, ika 14 → ei kumpaakaan
+    const rPost = perTestTasot({ hh_viimeisin: { lin30m: 6.0 }, phv_tila: 'POST' }, 14, 'M').find(x => x.label === '30m');
+    expect(rPost.neutraali).toBe(false);
+    expect(rPost.oletus).toBe(false);
+    // 5m EI saa oletus/neutraali (ei NEUTR-testi)
+    const r5 = perTestTasot({ hh_viimeisin: { lin5m: 1.5 } }, 14, 'M').find(x => x.label === '5m');
+    expect(r5.neutraali).toBe(false);
+    expect(r5.oletus).toBe(false);
+  });
+
   it('§28 PRE-PHV: heikko 30m/mas/cmj → neutraali:true; 5m/10m/syöttö EIVÄT', () => {
     const r = perTestTasot({ hh_viimeisin: { lin5m: 1.2, lin10m: 2.5, lin30m: 6.0, cmj: 18, mas: 50, syotto: 50 }, phv_tila: 'PRE' }, 10, 'M');
     expect(r.find(x => x.label === '30m').neutraali).toBe(true);
