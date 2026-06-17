@@ -1393,6 +1393,10 @@ body {
 
 /* §IA VP — Koti-etusivu + mobiili tab-bar (desktop: tabbar piilossa, sidebar) */
 .tabbar { display: none; }
+.jsv-vastaus { display: flex; align-items: center; gap: 12px; background: rgba(40,176,144,.08); border: .5px solid rgba(40,176,144,.3); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; flex-wrap: wrap; }
+.jsv-vastaus-txt { flex: 1; font-size: 14px; color: var(--ink); min-width: 160px; }
+.jsv-vastaus-cta { flex: 0 0 auto; background: var(--teal); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; min-height: 40px; }
+.jsv-vastaus-cta:hover { opacity: .9; }
 .vpkoti-otsikko { font-family: var(--font-serif); font-weight: 300; font-size: 24px; color: var(--ink); margin-bottom: 14px; }
 .vpkoti-strippi { display: flex; align-items: center; gap: 10px; background: var(--bg3); border: .5px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
 .vpkoti-strippi > div { text-align: center; }
@@ -1467,7 +1471,7 @@ body {
   .dimpop-cta { flex: 1 1 100% !important; padding: 14px 16px !important; font-size: 15px !important; font-weight: 600 !important; }
 
   /* Joukkuemoduuli (kaksiosainen modaali) — kolumnit pinoutuvat, vasen kompakti (§17: yksi @media/tiedosto) */
-  #_jsvModal .jsv-box { height: 92vh; max-height: 92vh; }
+  #_jsvModal .jsv-box { width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; }   /* §IA VAIHE B: täysleveä mobiilimodaali (ei ahdas, ei leikkausta) */
   #_jsvModal .jsv-body { flex-direction: column; }
   #_jsvModal .jsv-vasen { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid rgba(242,239,230,.12); max-height: 200px; }
 
@@ -3749,6 +3753,17 @@ function _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n) {
   });
   const _a2 = _jsvPerLajiHTML(_avg, teamIka, sp, 'Joukkueprofiili lajeittain');
   h += _a2.html;
+  // §IA VAIHE B — JOHDA VASTAUKSELLA: answer-first -banneri ylimmäs (heikoin laji + toimenpide-CTA)
+  if (_a2 && _a2.suurinGapLaji) {
+    const _hlNimi = (typeof _vpTkLaji === 'function') ? _vpTkLaji(_a2.suurinGapLaji) : _a2.suurinGapLaji;
+    const _hlN = pelaajat.filter(function(p){ return (p.tki_kehityskohde === _a2.suurinGapLaji) || (p.hh_kehityskohde === _a2.suurinGapLaji); }).length;
+    const _je = String(joukkueNimi || '').replace(/['"\\]/g, '');
+    const _le = String(_hlNimi).replace(/['"\\]/g, '');
+    h = '<div class="jsv-vastaus">'
+      + '<div class="jsv-vastaus-txt">🎯 Heikoin: <b>' + _hlNimi + '</b>' + (_hlN ? ' · ' + _hlN + ' pelaajalla kehityskohteena' : '') + '</div>'
+      + '<button class="jsv-vastaus-cta" onclick="_jsvLuoTapahtuma(\'' + _je + '\',\'' + _le + '\')">Luo treeniteema →</button>'
+      + '</div>' + h;
+  }
 
   // A2b — TK-lajitaso-jakauma per laji (populaatiotaso 1–5, tkLajiTaso lennossa per pelaaja, §8.7). Ei pituuspotku.
   if (onTK) {
@@ -5897,8 +5912,51 @@ function renderRaportointi() {
 }
 
 function lahetaRaportti() {
-  const huomiot = document.getElementById('rap-huomiot').value;
-  toast('Raportti lähetetty Head of Talentille ✓','ok');
+  // §IA VAIHE B — oikea raporttikoonti (ei pelkkä toast): kausikooste + RAE/taso-≥3 (§30) + signaalit + huomiot → kopioitava.
+  const huomiot = (document.getElementById('rap-huomiot')?.value || '').trim();
+  const P = _pelaajat || [];
+  const fleiat = P.filter(p => p.flei_viimeisin).map(p => p.flei_viimeisin);
+  const fleiKa = fleiat.length ? (fleiat.reduce((a,b)=>a+b,0)/fleiat.length).toFixed(1) : '—';
+  const talents = P.filter(p => _onTalenttisuositus(p));
+  const hidden = P.filter(p => { const hg = laskeHiddenGem(p); return hg.dHG || hg.fleiHG; });
+  const lvl = p => { const a = [p.d1_taso, p.hh_taso, p.d2_taso].filter(v => v != null); return a.length ? Math.max.apply(null, a) : null; };
+  const onTaso = P.filter(p => lvl(p) != null);
+  const taso3 = onTaso.filter(p => lvl(p) >= 3).length;
+  const taso3pct = onTaso.length ? Math.round(taso3 / onTaso.length * 100) : null;
+  const klinikka = P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40).length;
+  const hiljaa = (_valmentajat || []).filter(v => (v.mentorointiPvt == null ? 999 : v.mentorointiPvt) >= VALMENTAJA_HILJAA_PV).length;
+  const seuraNimi = (typeof _seuraId !== 'undefined' ? _seuraId : '') || '';
+  const pvm = new Date().toLocaleDateString('fi-FI');
+  const L = [];
+  L.push('TALENTMASTER — RAPORTTI HEAD OF TALENTILLE');
+  L.push('Seura: ' + seuraNimi + ' · ' + pvm);
+  L.push(''); L.push('KAUSIKOOSTE');
+  L.push('· Pelaajia: ' + P.length);
+  L.push('· FLEI keskiarvo: ' + fleiKa);
+  L.push('· Talenttisuosituksia (X-Factor): ' + talents.length);
+  L.push('· Hidden Gem -ehdokkaita: ' + hidden.length);
+  if (taso3pct != null) L.push('· Taso ≥3 -osuus (D1/D2/H-H): ' + taso3pct + '% (' + taso3 + '/' + onTaso.length + ') [§30]');
+  L.push(''); L.push('SIGNAALIT');
+  if (hiljaa) L.push('· ' + hiljaa + ' valmentajaa ilman mentorointikirjausta (' + VALMENTAJA_HILJAA_PV + ' pv)');
+  if (klinikka) L.push('· ' + klinikka + ' pelaajaa FLEI alle 40 (klinikkalähetys)');
+  if (talents.length) L.push('· Nostoehdokkaat: ' + talents.map(p => (p.etunimi||'') + ' ' + (p.sukunimi||'') + ' (' + (p.joukkue||'') + ', FLEI ' + p.flei_viimeisin + ')').join('; '));
+  if (!hiljaa && !klinikka && !talents.length) L.push('· Ei kriittisiä signaaleja.');
+  if (huomiot) { L.push(''); L.push('VP:N HUOMIOT'); L.push(huomiot); }
+  const raportti = L.join('\n');
+  const vanha = document.getElementById('hotRaporttiModal'); if (vanha) vanha.remove();
+  const modal = document.createElement('div');
+  modal.id = 'hotRaporttiModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(17,17,16,.6);z-index:9100;display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.onclick = e => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = '<div style="background:var(--bg3);border:.5px solid var(--border);border-radius:12px;max-width:560px;width:100%;max-height:86vh;overflow-y:auto;padding:20px 22px" onclick="event.stopPropagation()">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-family:var(--font-serif);font-size:20px;color:var(--ink)">Raportti Head of Talentille</div>'
+    + '<button onclick="document.getElementById(\'hotRaporttiModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
+    + '<textarea id="hotRaporttiTxt" readonly style="width:100%;height:300px;background:var(--bg2);color:var(--ink);border:.5px solid var(--border);border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:12px;line-height:1.5;resize:vertical">' + raportti.replace(/</g, '&lt;') + '</textarea>'
+    + '<div style="display:flex;gap:10px;margin-top:12px">'
+    + '<button onclick="(function(){var t=document.getElementById(\'hotRaporttiTxt\');t.select();try{document.execCommand(\'copy\');}catch(e){} (typeof toast===\'function\')&&toast(\'Raportti kopioitu ✓\',\'ok\');})()" style="background:var(--teal);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:500;cursor:pointer">📋 Kopioi raportti</button>'
+    + '<button onclick="document.getElementById(\'hotRaporttiModal\').remove()" style="background:transparent;color:var(--ink2);border:.5px solid var(--border);border-radius:8px;padding:10px 18px;font-size:13px;cursor:pointer">Sulje</button>'
+    + '</div></div>';
+  document.body.appendChild(modal);
 }
 
 // ─── NAVIGATION ──────────────────────────────────────────
