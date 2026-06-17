@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781689850633';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781692170656';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=9"></script>
+<script src="lib/tm_eerikkila_normit.js?v=10"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -4415,7 +4415,8 @@ function _pvmFiM(iso) {
    mitä valmentajan kannattaa tehdä. Eerikkilä-normit lasketaan lennossa.
 ═══════════════════════════════════════════════════════════════════ */
 function _devIkaSp(p) {
-  let ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
+  const _pvm = p.hh_pvm || p.d1_pvm || p.tki_pvm || p.d2_pvm || null;   // §24/§26: norminhaun ika TESTIPÄIVÄSTÄ, ei Date.now()
+  let ika = (typeof normiIka === "function") ? normiIka(p.syntymaVuosi, _pvm, p.joukkue) : (p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null);
   let sp = (p.sukupuoli === 'P' || p.sukupuoli === 'M') ? 'M'
          : (p.sukupuoli === 'T' || p.sukupuoli === 'N') ? 'N' : null;
   const jm = String(p.joukkue || '').match(/\b([PTU])\s?(\d{1,2})\b/i);   // "SJK P15" → 15 / P

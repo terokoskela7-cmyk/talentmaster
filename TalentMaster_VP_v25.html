@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=9"></script>
+<script src="lib/tm_eerikkila_normit.js?v=10"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -3420,6 +3420,12 @@ function _jsvJoukkueIkaSp(joukkueNimi) {
 }
 // Pelaajan ikä syntymävuodesta (fallback joukkueen ikään). Kilpailuvuosi = kuluva vuosi.
 function _jsvPelaajaIka(p, teamIka) {
+  // §24/§26: norminhaun ika TESTIPÄIVÄSTÄ (normiIka), joukkueikä fallbackina.
+  if (p && p.syntymaVuosi && typeof normiIka === 'function') {
+    const _pvm = p.hh_pvm || p.d1_pvm || p.tki_pvm || p.d2_pvm || null;
+    const v = normiIka(p.syntymaVuosi, _pvm);
+    if (v != null) return v;
+  }
   if (p && p.syntymaVuosi) { const v = parseInt(p.syntymaVuosi, 10); if (v) return (new Date()).getFullYear() - v; }
   return teamIka;
 }
@@ -6118,8 +6124,10 @@ function hhLaskeTaso(testi, arvo, ika, sp) {
 // Ikä + sukupuoli joukkuenimestä (sama logiikka kuin recalcHH); sp palautetaan P/T (hhLaskeTaso-muoto).
 function _dimIkaSp(joukkue, p) {
   const m = String(joukkue || '').match(/\b([PTU])\s?(\d{1,2})\b/i);
-  const ika = m ? parseInt(m[2], 10)
-            : (p && p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null);
+  // §24/§26: per-pelaaja norminhaun ika TESTIPÄIVÄSTÄ (normiIka), joukkuenimi fallbackina (ei Date.now()).
+  const _pvm = p ? (p.hh_pvm || p.d1_pvm || p.tki_pvm || p.d2_pvm || null) : null;
+  let ika = (p && typeof normiIka === 'function') ? normiIka(p.syntymaVuosi, _pvm, joukkue) : null;
+  if (ika == null) ika = m ? parseInt(m[2], 10) : (p && p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null);
   const sp = (m && /[PT]/i.test(m[1])) ? m[1].toUpperCase()
            : (p && p.sukupuoli ? (p.sukupuoli === 'M' ? 'P' : p.sukupuoli === 'N' ? 'T' : p.sukupuoli) : null);
   return { ika: ika, sp: sp };

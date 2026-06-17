@@ -818,14 +818,18 @@ suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 > OVR:ssä 5-portaiselle skaalalle (1→1, 2→3, 3→5). `hhLaskeTaso`-ikälookup cappaa 19:ään → M/N-rivit datassa
 > valmiina mutta käyttöön vasta jos lookup laajennetaan; 3-portaiset 16+ → null (ei bogus-tasoa).
 >
-> **⚠️ IKÄLÄHDE-EPÄJOHDONMUKAISUUS (recalcHH vs Excel-tuonti, 2026-06):**
-> - `recalcHH` käyttää iän lähteenä **JOUKKUENIMEÄ** (`"SJK P14"` → 14), EI syntymävuotta.
-> - Excel-tuonti (`laskeIka`) käyttää **kronologista ikää** kun SyntymaVuosi-sarake on täytetty:
->   oletettu syntymäpäivä **1.7.**, kevättesti (ennen 1.7.) → nuorempi ikäluokka (esim. 2012-syntyinen
->   12.4.2026 → 13, ei 14). Ilman syntymävuotta → fallback joukkuenimeen kuten recalcHH.
-> - **Seuraus:** recalcHH ja Excel-tuonti voivat antaa **eri `hh_tason`** samalle pelaajalle, jos syntymäkuukausi
->   on ennen/jälkeen 1.7. (esim. P14-joukkueen kevättestattu 2012-syntyinen → recalcHH 14, Excel-tuonti 13).
-> - **Korjaus myöhemmin:** vie sama kronologinen logiikka `recalcHH`:hon kun syntymävuosi löytyy Firestoresta.
+> **✅ IKÄLÄHDE-EPÄJOHDONMUKAISUUS — RATKAISTU (§24/§26, 2026-06-17, docs/IKAKONVENTIO_SPEC.md):**
+> Aiemmin recalcHH + Excel-tuonti käyttivät eri ikää (joukkuenimi vs 1.7.-kronologinen) → eri `hh_taso` samalle
+> pelaajalle. **Yksi kanoninen `normiIka(syntymaVuosi, pvm, joukkue)` lib:ssä** (`tm_eerikkila_normit.js`):
+> **norminhaun ikä = ikäluokka = `year(testipvm) − syntymaVuosi`** (EI 1.7.-vähennystä — normit ovat ikäluokkapohjaisia).
+> Pvm puuttuu → currentYear; syntymaVuosi puuttuu → joukkuenimi-fallback. **Bio-ika (Mirwald/PHV §25) pidetään
+> erillään desimaalina** (`syntymaaika`/365.25, EI normiIka:n läpi). Korvattu: Excel `laskeIka` (→normiIka), recalcHH
+> ikäjohto (idempotentti — ika deterministinen tallennetuista kentistä), `perTestTasot`-kutsut, `_devIkaSp` (Master,
+> testipvm:stä ei Date.now()), `_dimIkaSp`/`_jsvPelaajaIka` (VP, per-pelaaja). TKI-pää (§24) oli jo oikein → ei muutettu.
+> **RAE (§14/§30):** `raeKvartaali(syntymaaika)` → pikakenttä `rae_kvartaali` (tuonti+recalc) + `RAE_KERROIN`
+> {Q1:0.92·Q2:0.96·Q3:1.02·Q4:1.06} lib:ssä valmiina; **sovelluskohta talent/OVR-laskennassa = TODO** (ei keksitty OVR-logiikkaa).
+> Vitest: normiIka (3 haaraa) · raeKvartaali (Q-rajat) · idempotenssi · bio erillään. **Re-backfill = erillinen
+> runtime-vaihe** vasta kun seurojen `hh_pvm` on korjattu (SJK: korjaa testipäivä ✎-napilla ensin; spec §6).
 >
 > **✅ VALMIS (2026-06-15): `recalcHH` tallentaa `d1_taso`:n.** `recalcHH` (Excel_Tuonti.html:3877–3916) laskee ja
 > kirjoittaa `d1_taso`:n `merge`-setillä. **Ajettu SJK:lle: 58/61 pelaajalla `d1_taso` + `d2_taso` 56** → Master_v16

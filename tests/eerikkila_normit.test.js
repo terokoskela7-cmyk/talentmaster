@@ -19,6 +19,9 @@ const {
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
+  normiIka,
+  raeKvartaali,
+  RAE_KERROIN,
 } = require('../lib/tm_eerikkila_normit.js');
 
 // ═══════════════════════════════════════════════════════════════════
@@ -342,5 +345,54 @@ describe('perTestTasot', () => {
     const r5 = perTestTasot({ hh_viimeisin: { lin30m: 4.0 }, phv_tila: 'POST' }, 10, 'M');
     expect(r5[0].taso).toBe(5);
     expect(r5[0].gap).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// IKÄKONVENTIO §24/§26 — normiIka / raeKvartaali (docs/IKAKONVENTIO_SPEC.md)
+// ═══════════════════════════════════════════════════════════════════
+describe('normiIka (norminhaun ikäluokka)', () => {
+  it('haara 1: year(testipvm) − syntymaVuosi, EI 1.7.-vähennystä', () => {
+    expect(normiIka(2015, '2025-06-10')).toBe(10);   // kevättesti → silti 10 (ei 9)
+    expect(normiIka(2015, '2025-11-20')).toBe(10);
+    expect(normiIka(2015, '10.6.2025')).toBe(10);     // pp.kk.vvvv
+    expect(Number.isInteger(normiIka(2015, '2025-06-10'))).toBe(true);  // kokonaisluku (ikäluokka)
+  });
+  it('haara 2: pvm puuttuu → currentYear − syntymaVuosi', () => {
+    expect(normiIka(2015, null)).toBe(new Date().getFullYear() - 2015);
+  });
+  it('haara 3: syntymaVuosi puuttuu → joukkuenimi-fallback', () => {
+    expect(normiIka(null, '2025-06-10', 'SJK P14')).toBe(14);
+    expect(normiIka(null, null, 'EPS T11')).toBe(11);
+    expect(normiIka(null, null, 'U15')).toBe(15);
+    expect(normiIka(null, null, null)).toBeNull();
+  });
+  it('idempotentti: sama tulos toistuvilla kutsuilla (recalcHH-determinismi)', () => {
+    expect(normiIka(2015, '2025-06-10')).toBe(normiIka(2015, '2025-06-10'));
+    // sama ika → sama d1-taso (recalcHH:n taso-determinismi: ika tallennetuista kentistä, ei Date.now)
+    const hh = { lin10m: 2.1, lin30m: 5.05 };
+    const a = laskeD1Joustava(hh, normiIka(2015, '2025-06-10'), 'M');
+    const b = laskeD1Joustava(hh, normiIka(2015, '2025-06-10'), 'M');
+    expect(a.taso).toBe(b.taso);
+  });
+});
+
+describe('raeKvartaali + RAE_KERROIN (§14/§30)', () => {
+  it('kk → Q-rajat (Jan-1-katkaisu)', () => {
+    expect(raeKvartaali('2015-01-15')).toBe('Q1');
+    expect(raeKvartaali('2015-03-31')).toBe('Q1');
+    expect(raeKvartaali('2015-04-01')).toBe('Q2');
+    expect(raeKvartaali('2015-06-30')).toBe('Q2');
+    expect(raeKvartaali('2015-07-01')).toBe('Q3');
+    expect(raeKvartaali('2015-09-30')).toBe('Q3');
+    expect(raeKvartaali('2015-10-01')).toBe('Q4');
+    expect(raeKvartaali('2015-12-31')).toBe('Q4');
+  });
+  it('null/virheellinen → null', () => {
+    expect(raeKvartaali(null)).toBeNull();
+    expect(raeKvartaali('')).toBeNull();
+  });
+  it('RAE_KERROIN määritelty (§30)', () => {
+    expect(RAE_KERROIN).toEqual({ Q1: 0.92, Q2: 0.96, Q3: 1.02, Q4: 1.06 });
   });
 });

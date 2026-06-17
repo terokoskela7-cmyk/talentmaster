@@ -18,7 +18,7 @@
 <!-- pdf.js — Palloliiton PDF-tuonti (ei npm, Node.js ei käytettävissä) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
-<script src="lib/tm_eerikkila_normit.js?v=6"></script>
+<script src="lib/tm_eerikkila_normit.js?v=10"></script>
 
 <style>
 :root {
@@ -2633,22 +2633,16 @@ function _kausiPvm(kausi) {
   return mmdd ? (v + '-' + mmdd) : null;
 }
 
+// NORMINHAUN IKÄ = ikäluokka (§24/§26, docs/IKAKONVENTIO_SPEC.md): year(testipvm) − syntymaVuosi.
+// EI 1.7.-vähennystä — normit ovat ikäluokkapohjaisia. Bio-ika (Mirwald/PHV §25) lasketaan erikseen desimaalina.
+// Delegoi kanoniseen normiIka:an (lib/tm_eerikkila_normit.js).
 function laskeIka(syntymaVuosi, testauspvm) {
   if (!syntymaVuosi) return null;
-  // Vain syntymävuosi tiedossa → oletetaan syntymäpäivä keskelle vuotta (1.7.) ja lasketaan
-  // KRONOLOGINEN ikä testihetkellä. Kevättesti (ennen 1.7.) → syntymäpäivää ei vielä ohitettu →
-  // nuorempi ikäluokka (esim. 2012-syntyinen 12.4.2026 → 13, ei 14). Tarkka pvm vaatisi koko syntymäajan.
-  let pvVuosi, kuukausi;
-  if (testauspvm) {
-    const iso = _paivaIso(testauspvm);
-    if (iso) { pvVuosi = parseInt(iso.slice(0, 4), 10); kuukausi = parseInt(iso.slice(5, 7), 10); }
-    else { const nd = new Date(); pvVuosi = nd.getFullYear(); kuukausi = nd.getMonth() + 1; }
-  } else {
-    const nd = new Date(); pvVuosi = nd.getFullYear(); kuukausi = nd.getMonth() + 1;
-  }
-  let ika = pvVuosi - syntymaVuosi;
-  if (kuukausi < 7) ika -= 1;   // ennen 1.7. → oletettu syntymäpäivä ohittamatta
-  return ika;
+  if (typeof normiIka === 'function') return normiIka(syntymaVuosi, testauspvm);
+  // Fallback jos lib ei ladattu: year(pvm) − syntymaVuosi
+  const iso = _paivaIso(testauspvm);
+  const v = iso ? parseInt(iso.slice(0, 4), 10) : new Date().getFullYear();
+  return v - syntymaVuosi;
 }
 
 // Apuri: laske TKI yhdelle pelaajalle (vain tekniikkakilpailu-protokollaan)
@@ -2978,6 +2972,11 @@ async function tallennaFirestoreen() {
               if (_d2hh) { profiiliUpdate.d2_taso = _d2hh.taso; profiiliUpdate.d2_lahde = _d2hh.lahde; profiiliUpdate.d2_kattavuus = _d2hh.kattavuus; profiiliUpdate.d2_pvm = pvmIso; }
             }
           }
+        }
+        // RAE-kvartaali (§14/§30) syntymäajasta → pikakenttä (kerroin RAE_KERROIN, sovellus TODO). Vain jos syntymaaika.
+        if (typeof raeKvartaali === 'function') {
+          const _rae = raeKvartaali((p._firestoreData && p._firestoreData.syntymaaika) || p.syntymaaika);
+          if (_rae) profiiliUpdate.rae_kvartaali = _rae;
         }
         // EI = CMJ − SJ (jos molemmat hyppytestit mitattu; sj_jump = Testaus_v9 vanha id)
         if (testit) {
@@ -3899,23 +3898,16 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
     const joukkueIka = jm ? parseInt(jm[2], 10) : null;
     const spRaaka = (jm && /[PT]/i.test(jm[1])) ? jm[1].toUpperCase() : (p.sukupuoli || null);
     const sp = (spRaaka === 'P' || spRaaka === 'M') ? 'M' : (spRaaka === 'T' || spRaaka === 'N') ? 'N' : null;
-    // NORMI-IKÄ = ikä TESTIHETKELLÄ (hh_pvm), EI Date.now() (§24-invariantti). Historiatesti (esim. hh_pvm 2025,
-    // 2015-synt) skooraataan oikeaa ikäluokkaa vasten → ei aliarviointia. Sama kronologinen logiikka kuin tuonnin laskeIka.
+    // NORMI-IKÄ = ikäluokka (§24/§26): year(hh_pvm) − syntymaVuosi (kanon. normiIka, EI 1.7.). IDEMPOTENTTI —
+    // deterministinen tallennetuista kentistä (hh_pvm + syntymaVuosi), ei Date.now():a tasoihin. Bio-ika erillään.
+    const ika = (typeof normiIka === 'function') ? normiIka(p.syntymaVuosi, p.hh_pvm, joukkue) : laskeIka(p.syntymaVuosi, p.hh_pvm);
+    // Bio-ika (§25) desimaalina hhKehityskohteelle — tarkka syntymaaika kun on, muuten 1.7.-oletus. Pidetään ERILLÄÄN normihausta.
     const _testIso = p.hh_pvm ? _paivaIso(p.hh_pvm) : null;
-    const _testDate = _testIso ? new Date(_testIso + 'T00:00:00') : null;
-    let ikaDes = null, ika = null;
-    if (p.syntymaVuosi) {
-      ika = laskeIka(p.syntymaVuosi, p.hh_pvm);   // integer, ikä testihetkellä (laskeIka käyttää nykyhetkeä vain jos hh_pvm puuttuu)
-      const _ref = _testDate || new Date();
-      ikaDes = (_ref.getTime() - new Date(p.syntymaVuosi, 6, 1).getTime()) / (365.25 * 864e5);   // desimaali hhKehityskohteelle (1.7.-oletus, testihetkellä)
-    } else if (p.syntymaaika && p.syntymaaika.toDate) {
-      const _ref = _testDate || new Date();
-      ikaDes = (_ref.getTime() - p.syntymaaika.toDate().getTime()) / (365.25 * 864e5);   // tarkka ikä TESTIHETKELLÄ
-      ika = Math.round(ikaDes);
-    } else {
-      ikaDes = (joukkueIka != null) ? joukkueIka : null;   // viimeinen fallback — joukkue = NYKYINEN ikäluokka, epätarkka historialle
-      ika = (joukkueIka != null) ? joukkueIka : null;
-    }
+    const _ref = (_testIso ? new Date(_testIso + 'T00:00:00') : new Date());
+    let ikaDes = null;
+    if (p.syntymaaika && p.syntymaaika.toDate) ikaDes = (_ref.getTime() - p.syntymaaika.toDate().getTime()) / (365.25 * 864e5);
+    else if (p.syntymaVuosi) ikaDes = (_ref.getTime() - new Date(p.syntymaVuosi, 6, 1).getTime()) / (365.25 * 864e5);
+    else ikaDes = (joukkueIka != null) ? joukkueIka : null;
 
     if (!ika || !sp) {
       eiLaskettavissa++;
@@ -3947,6 +3939,7 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
       d1_taso: d1_taso, d1_kattavuus: d1_kattavuus,
       d2_taso: d2_hh ? d2_hh.taso : null, d2_kattavuus: d2_hh ? d2_hh.kattavuus : null,
       hhPvm: p.hh_pvm || null,
+      raeKvartaali: (typeof raeKvartaali === 'function') ? raeKvartaali(p.syntymaaika) : null,   // §14/§30 RAE-pikakenttä
       hh_kehityskohde: kk ? kk.kehityskohde : null, hh_vahvuus: kk ? kk.vahvuus : null });
   });
 
@@ -3976,6 +3969,7 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
       const _u = { hh_taso: m2.taso, hh_taso_recalc: true, d1_taso: m2.d1_taso, hh_kehityskohde: m2.hh_kehityskohde, hh_vahvuus: m2.hh_vahvuus };
       if (m2.d1_taso != null) { _u.d1_lahde = 'hh'; _u.d1_kattavuus = m2.d1_kattavuus; if (m2.hhPvm) _u.d1_pvm = m2.hhPvm; }   // BUG-fix: pvm aikajanan laajennukselle
       if (m2.d2_taso != null) { _u.d2_taso = m2.d2_taso; _u.d2_lahde = 'hh'; _u.d2_kattavuus = m2.d2_kattavuus; _u.d2_taso_recalc = true; if (m2.hhPvm) _u.d2_pvm = m2.hhPvm; }   // §30 H-H-d2 backfill
+      if (m2.raeKvartaali) _u.rae_kvartaali = m2.raeKvartaali;   // §14/§30 RAE-pikakenttä (kerroin RAE_KERROIN, sovellus TODO)
       batch.set(m2.ref, _u, { merge: true });
     });
     try { await batch.commit(); paivitetty += era.length; }
