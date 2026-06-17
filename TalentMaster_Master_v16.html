@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781726004429';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781728560178';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=11"></script>
+<script src="lib/tm_eerikkila_normit.js?v=12"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
@@ -5054,6 +5054,15 @@ function _renderPinfoFirestore(p) {
   if (_tv && (_tv.merkki === 'kulta' || _tv.merkki === 'hopea')) {
     const _mv = _tv.merkki === 'kulta' ? '#D4AF37' : '#9AA0A6';
     _identChips.push('<span title="Tekniikkamitali' + (_tv.ika != null ? ' ' + _tv.ika + 'v' : '') + ' — varhaiskehitys vahvistettu (§28)" style="font-size:10px;padding:2px 9px;border-radius:20px;border:.5px solid ' + _mv + ';color:' + _mv + '">' + (_tv.merkki === 'kulta' ? '🥇' : '🥈') + ' Varhaistekniikka</span>');
+  }
+  // §RAE-näkyvyys — syntymäkvartaali-chip (Q1 amber / Q4 teal / Q2–Q3 neutraali) + underdog (Q4 + taso≥3). Vain näkyvyys.
+  if (typeof raeChip === 'function') {
+    const _rc = raeChip(p);
+    if (_rc.q) {
+      const _qv = _rc.q === 'Q1' ? 'var(--amber)' : _rc.q === 'Q4' ? 'var(--teal)' : 'var(--ink3)';
+      _identChips.push('<span style="font-size:10px;padding:2px 9px;border-radius:20px;border:.5px solid ' + _qv + ';color:' + _qv + '">' + _rc.q + ' synt.' + (typeof _mSelBtn === 'function' ? _mSelBtn('rae') : '') + '</span>');
+      if (_rc.underdog) _identChips.push('<span title="Q4 (ikäluokan nuorin) + taso ≥3 → poikkeuksellinen pitkän tähtäimen lupaus" style="font-size:10px;padding:2px 9px;border-radius:20px;background:var(--teal);color:#fff">⭐ Underdog</span>');
+    }
   }
   const _identHtml = _identChips.length ? '<div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin:-8px 0 6px">' + _identChips.join('') + '</div>' : '';
 

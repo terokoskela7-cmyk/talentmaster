@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=11"></script>
+<script src="lib/tm_eerikkila_normit.js?v=12"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -4072,7 +4072,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
       // Mobiilimeta (näkyy vain @media ≤768px): joukkue · H-H · Tekninen · PHV
       const pmeta = lyhennaNimi(joukkueNimi) + ' · H-H ' + (hh != null ? hh : '—') + (teknMeta ? ' · ' + teknMeta : '') + ' · ' + (p.phv_tila || '—');
       t1 += '<tr class="dimpop-prow" style="border-top:.5px solid var(--border);cursor:pointer" onclick="_avaaPerPelaajaPikakatsaus(' + idx + ',\'' + jescNimi + '\')">'
-        + '<td class="dimpop-pname" style="padding:7px 8px;color:var(--ink)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + '<div class="dimpop-pmeta">' + _jsvEsc(pmeta) + '</div></td>'
+        + '<td class="dimpop-pname" style="padding:7px 8px;color:var(--ink)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + ' ' + _vpRaeChip(p) + '<div class="dimpop-pmeta">' + _jsvEsc(pmeta) + '</div></td>'
         + '<td class="dimpop-pcol" style="padding:7px 8px">' + (hh != null ? '<span style="color:' + hhTasoVari(hh) + ';font-family:var(--font-m)">' + hh + '</span>' : '<span style="color:var(--ink3)">—</span>') + '</td>'
         + '<td class="dimpop-pcol" style="padding:7px 8px">' + (p.d1_taso != null ? '<span style="color:' + hhTasoVari(p.d1_taso) + ';font-family:var(--font-m)">' + p.d1_taso + '</span>' : '<span style="color:var(--ink3)">—</span>') + '</td>'
         + '<td class="dimpop-pcol" style="padding:7px 8px;font-family:var(--font-m)">' + teknSolu + '</td>'
@@ -4583,6 +4583,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   h += '<div style="flex:1;min-width:0">';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">' + _jsvEsc(nimi) + '</div>';
   if (hgBadge) h += '<div style="margin-top:5px">' + hgBadge + '</div>';
+  { var _rcM = _vpRaeChip(p, 'iso'); if (_rcM) h += '<div style="margin-top:5px;display:flex;gap:4px;align-items:center">' + _rcM + '</div>'; }
   h += '<div style="font-size:10px;color:var(--ink3);margin-top:8px">5D-profiili (1–5)' + (_d2Lahde(p) && _d2Lahde(p) !== 'tki' ? ' · ¹ ' + _d2LahdeLbl(_d2Lahde(p)) : '') + '</div>';
   h += '</div>';
   // Oikea: radar (kompakti, max 220px)
@@ -6403,6 +6404,16 @@ function laskeHiddenGem(p) {
   return { taso: taso, dHG: !!taso, fleiHG: fleiHG, kimpale: (!!taso && fleiHG), mitali: mitali, prePhv: prePhv, d1: d1, d2: d2 };
 }
 // HG-badge pelaajalle (null jos ei mikään). Kullankimpale ohittaa muut. Stored signaali:'xfactor' hoidetaan erikseen.
+// §RAE-näkyvyys — syntymäkvartaali-chip (Q1 amber/Q4 teal/Q2-Q3 neutraali) + underdog (Q4+taso≥3). ℹ️ _vpSelTip(rae). Vain näkyvyys.
+function _vpRaeChip(p, koko) {
+  if (typeof raeChip !== "function") return "";
+  var rc = raeChip(p);
+  if (!rc.q) return "";
+  var qv = rc.q === "Q1" ? "var(--amber)" : rc.q === "Q4" ? "var(--teal)" : "var(--ink3)";
+  var fs = koko === "iso" ? "10px" : "9px";
+  return '<span style="font-size:' + fs + ';padding:1px 7px;border-radius:20px;border:.5px solid ' + qv + ';color:' + qv + ';cursor:help"' + _vpSelTip('rae') + '>' + rc.q + ' synt.</span>'
+    + (rc.underdog ? '<span title="Q4 (nuorin) + taso ≥3 → underdog, pitkän tähtäimen lupaus" style="font-size:' + fs + ';color:var(--teal);margin-left:4px">⭐</span>' : '');
+}
 function _hgBadge(p) {
   const hg = laskeHiddenGem(p);
   if (hg.kimpale) return '<span class="tag" style="background:var(--gold-tint);color:var(--gold)" title="Kullankimpale — korkea FLEI + tekninen Hidden Gem, molemmat kriittiset ikkunat käytetty (§28)">💎 Kullankimpale</span>';
