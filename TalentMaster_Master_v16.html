@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781724885864';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781726004429';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -573,6 +573,18 @@ a { color: inherit; text-decoration: none; }
 .kk-txt { flex: 1; font-size: 14px; color: var(--ink); line-height: 1.4; }
 .kk-cta { flex: 0 0 auto; background: var(--teal); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; min-height: 40px; }
 .kk-cta:hover { opacity: .9; }
+#onbSheet { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.onb-back { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+.onb-card { position: relative; background: var(--card); border: .5px solid var(--line2); border-radius: 16px; width: min(440px, 94vw); max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: var(--shadow-lg); }
+.onb-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.onb-prog { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--teal); font-weight: 600; }
+.onb-ohita-x { background: none; border: none; color: var(--ink3); font-size: 22px; cursor: pointer; line-height: 1; }
+.onb-txt { font-size: 19px; color: var(--ink); line-height: 1.5; margin-bottom: 20px; font-family: 'Cormorant Garamond', serif; }
+.onb-cta { display: block; width: 100%; background: var(--teal); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 500; cursor: pointer; font-family: inherit; min-height: 48px; }
+.onb-cta:hover { opacity: .92; }
+.onb-ohita { display: block; width: 100%; background: none; border: none; color: var(--ink3); font-size: 13px; cursor: pointer; margin-top: 10px; padding: 8px; }
+.onb-valmis { font-size: 42px; margin-bottom: 6px; }
+.onb-otsikko { font-family: 'Cormorant Garamond', serif; font-size: 26px; color: var(--ink); margin-bottom: 8px; }
 .koti-tyhja { background: var(--card); border: .5px dashed var(--line2); border-radius: 12px; padding: 28px 22px; text-align: center; color: var(--ink2); font-size: 15px; line-height: 1.6; }
 @media (max-width: 768px) {
   .coach-self-card { grid-template-columns: auto 1fr; }
@@ -1203,6 +1215,9 @@ a { color: inherit; text-decoration: none; }
       </div>
       <div class="sb-item" onclick="openDrill('rpe')">
         <svg width="16" height="16"><use href="#ic-drill"/></svg>Kirjaa RPE
+      </div>
+      <div class="sb-item" onclick="naytaOnboarding(true)" title="Avaa aloitusopastus uudelleen">
+        <svg width="16" height="16"><use href="#ic-home"/></svg>Aloita tästä
       </div>
     </nav>
 
@@ -3888,6 +3903,7 @@ function _alusta(nimi) {
   }
   // §IA — aktivoi oikea näkymä (Koti oletus / palautettu) + tab-barit
   setWs(_ws);
+  naytaOnboarding();   // §IA slice 3 — ensikäynnillä (localStorage-gate)
 }
 
 function _setGreet(nimi) {
@@ -4232,6 +4248,47 @@ function toggleTyokalut(force) {
   const open = (force != null) ? force : !document.body.classList.contains('nav-drawer-open');
   document.body.classList.toggle('nav-drawer-open', open);   // §IA mobiilin Työkalut-drawer (sidebar overlay)
 }
+/* ════════════════════════════════════════════════════════════
+   §IA slice 3 — ONBOARDING "Aloita tästä" (valmentaja-flow, Master)
+   Strangler: napit kutsuvat olemassa olevia funktioita. Näytä kerran (localStorage), ohitettavissa,
+   palautettavissa. Ei XP/pakotusta (§7.22-henki). Flow appista (Master = valmentaja), ei rooli-stringistä.
+════════════════════════════════════════════════════════════ */
+const _ONB_COACH = [
+  { txt: 'Havainnoi yksi pelaaja kentällä.', nappi: 'Avaa ADAR-työkalu', fn: function(){ openDrill('adar'); } },
+  { txt: 'Katso havainnoimasi pelaajan kehityskortti.', nappi: 'Avaa Pelaajat', fn: function(){ setWs('dev'); } },
+  { txt: 'Lähetä pelaajan perheelle yksi kannustava viesti.', nappi: 'Avaa Viestit', fn: function(){ setWs('inbox'); } },
+];
+let _onbStep = 0;
+function _onbAvain(){ const u = (typeof firebase !== 'undefined' && firebase.auth().currentUser && firebase.auth().currentUser.uid) || 'anon'; return 'tm_onb_coach_' + u; }
+function naytaOnboarding(pakota){
+  if (!pakota && localStorage.getItem(_onbAvain()) === 'done') return;
+  _onbStep = 0; _onbRender();
+}
+function _onbRender(){
+  let el = document.getElementById('onbSheet');
+  if (!el) { el = document.createElement('div'); el.id = 'onbSheet'; document.body.appendChild(el); }
+  if (_onbStep >= _ONB_COACH.length) {
+    el.innerHTML = '<div class="onb-back" onclick="_onbSulje()"></div><div class="onb-card" style="text-align:center">'
+      + '<div class="onb-valmis">✅</div>'
+      + '<div class="onb-otsikko">Olet valmis.</div>'
+      + '<div class="onb-txt" style="font-family:inherit;font-size:15px">Koti näyttää jatkossa mitä sinun pitää tehdä.</div>'
+      + '<button class="onb-cta" onclick="_onbSulje()">Aloita käyttö →</button></div>';
+    return;
+  }
+  const s = _ONB_COACH[_onbStep];
+  el.innerHTML = '<div class="onb-back" onclick="_onbSulje()"></div><div class="onb-card">'
+    + '<div class="onb-head"><span class="onb-prog">Aloita tästä · ' + (_onbStep+1) + '/' + _ONB_COACH.length + '</span>'
+    + '<button class="onb-ohita-x" onclick="_onbSulje()" title="Ohita">×</button></div>'
+    + '<div class="onb-txt">' + s.txt + '</div>'
+    + '<button class="onb-cta" onclick="_onbToiminto()">' + s.nappi + ' →</button>'
+    + '<button class="onb-ohita" onclick="_onbSeuraava()">Ohita askel</button></div>';
+}
+function _onbToiminto(){ const s = _ONB_COACH[_onbStep]; try { s.fn(); } catch(e){ console.warn('[onb]', e.message); } _onbStep++; _onbRender(); }
+function _onbSeuraava(){ _onbStep++; _onbRender(); }
+function _onbSulje(){ try { localStorage.setItem(_onbAvain(), 'done'); } catch(e){} const el = document.getElementById('onbSheet'); if (el) el.remove(); }
+window.naytaOnboarding = naytaOnboarding;
+window._onbToiminto = _onbToiminto; window._onbSeuraava = _onbSeuraava; window._onbSulje = _onbSulje;
+
 function setWs(ws) {
   _ws = ws;
   document.body.classList.remove('nav-drawer-open');   // §IA sulje mobiili-drawer kun näkymä vaihtuu
