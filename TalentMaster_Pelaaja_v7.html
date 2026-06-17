@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781728560178';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781730309439';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -1661,6 +1661,86 @@ function rMinaAsetukset() {
   return h;
 }
 
+/* §C D3 — pelaajan itsearvio (lapsen kieli, §7.22: EI tasolukuja/arvosanaa, kannustava).
+   Kirjoittaa pisteet[dim].pelaaja omaan dokumenttiin (anon PIN), laskee avg + d3_taso uudelleen.
+   Valmentajan arvot (pisteet[dim].valmentaja) säilyvät — merge, ei ylikirjoiteta. */
+var _MINA_D3_KYS = [
+  { key: 'inner_drive',       q: 'Haluan kehittyä myös omalla ajalla' },
+  { key: 'coachability',      q: 'Kuuntelen ohjeita ja kokeilen niitä' },
+  { key: 'resilience',        q: 'Jatkan vaikka epäonnistun' },
+  { key: 'focus',             q: 'Pysyn mukana koko treenin' },
+  { key: 'emotional_control', q: 'Pysyn rauhallisena kun ärsyttää' }
+];
+var _MINA_D3_VAIHT = ['Harvoin', 'Joskus', 'Aika usein', 'Usein', 'Melkein aina']; // mapataan 1–5, numeroa EI näytetä
+var _minaD3 = {};
+function rMinaItsearvio() {
+  var d = _pelaaja;
+  if (d && d.d3_viimeisin && d.d3_viimeisin.pisteet) {
+    _MINA_D3_KYS.forEach(function (k) {
+      var pt = d.d3_viimeisin.pisteet[k.key];
+      if (pt && pt.pelaaja != null && _minaD3[k.key] == null) _minaD3[k.key] = pt.pelaaja;
+    });
+  }
+  var h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:6px;letter-spacing:.01em">Miten sinä koet itsesi?</div>';
+  h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:12px;color:#8C8B86;margin-bottom:14px;line-height:1.5">⭐ Tämä ei ole testi eikä arvosana — vain sinun oma fiiliksesi. Rehellinen vastaus auttaa eniten.</div>';
+  _MINA_D3_KYS.forEach(function (k) {
+    h += '<div style="padding:12px 0;border-top:.5px solid rgba(242,239,230,.06)">';
+    h += '<div style="font-size:14px;color:var(--text);margin-bottom:9px">' + k.q + '</div>';
+    h += '<div style="display:flex;gap:5px;flex-wrap:wrap">';
+    _MINA_D3_VAIHT.forEach(function (v, i) {
+      var on = (_minaD3[k.key] === (i + 1));
+      h += '<button onclick="_minaD3Valitse(\'' + k.key + '\',' + (i + 1) + ')" id="mia_' + k.key + '_' + (i + 1) + '" '
+        + 'style="flex:1;min-width:58px;min-height:44px;border:.5px solid rgba(242,239,230,.15);'
+        + 'background:' + (on ? '#28B090' : 'transparent') + ';color:' + (on ? '#fff' : 'var(--text)') + ';'
+        + 'border-radius:8px;font-size:11px;font-family:\'DM Sans\',sans-serif;cursor:pointer">' + v + '</button>';
+    });
+    h += '</div></div>';
+  });
+  h += '<button onclick="_tallennaItsearvio()" style="display:block;width:100%;margin-top:16px;background:#28B090;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;min-height:48px;font-family:\'DM Sans\',sans-serif">Valmis! 🎉</button>';
+  h += '</div>';
+  return h;
+}
+function _minaD3Valitse(dim, n) {
+  _minaD3[dim] = n;
+  for (var i = 1; i <= 5; i++) {
+    var b = document.getElementById('mia_' + dim + '_' + i);
+    if (b) { var on = (i === n); b.style.background = on ? '#28B090' : 'transparent'; b.style.color = on ? '#fff' : 'var(--text)'; }
+  }
+}
+async function _tallennaItsearvio() {
+  if (!_pelaaja || !_pelaaja.id || !_pelaaja.seuraId || !window._db) return;
+  var annettu = Object.keys(_minaD3).filter(function (k) { return _minaD3[k] != null; });
+  if (!annettu.length) return;
+  var pisteet = (_pelaaja.d3_viimeisin && _pelaaja.d3_viimeisin.pisteet)
+    ? JSON.parse(JSON.stringify(_pelaaja.d3_viimeisin.pisteet)) : {};
+  annettu.forEach(function (k) { pisteet[k] = pisteet[k] || {}; pisteet[k].pelaaja = _minaD3[k]; });
+  // per-dim avg = saatavilla olevien valmentaja/pelaaja keskiarvo; d3_taso = avg-arvojen keskiarvo (1 desimaali)
+  var avgs = [];
+  Object.keys(pisteet).forEach(function (k) {
+    var pt = pisteet[k], vals = [];
+    if (pt.valmentaja != null) vals.push(pt.valmentaja);
+    if (pt.pelaaja != null) vals.push(pt.pelaaja);
+    if (vals.length) { pt.avg = Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length * 10) / 10; avgs.push(pt.avg); }
+  });
+  var d3_taso = avgs.length ? Math.round(avgs.reduce(function (a, b) { return a + b; }, 0) / avgs.length * 10) / 10 : null;
+  var onV = false, onP = false;
+  Object.keys(pisteet).forEach(function (k) { if (pisteet[k].valmentaja != null) onV = true; if (pisteet[k].pelaaja != null) onP = true; });
+  var lahteet = []; if (onV) lahteet.push('valmentaja'); if (onP) lahteet.push('pelaaja');
+  var d3v = { pisteet: pisteet, pvm: new Date().toISOString().slice(0, 10), lahteet: lahteet };
+  try {
+    await window._db.collection('seurat').doc(_pelaaja.seuraId)
+      .collection('pelaajat').doc(_pelaaja.id)
+      .set({ d3_viimeisin: d3v, d3_taso: d3_taso, d3_pvm: d3v.pvm }, { merge: true });
+    _pelaaja.d3_viimeisin = d3v; _pelaaja.d3_taso = d3_taso;
+    alert('Kiitos! 🎉 Tallensin sinun ajatuksesi. Tämä auttaa valmentajaa tukemaan sinua.');
+    if (typeof draw === 'function') draw();
+  } catch (e) { console.warn('[itsearvio]', e && e.message); }
+}
+window.rMinaItsearvio = rMinaItsearvio;
+window._minaD3Valitse = _minaD3Valitse;
+window._tallennaItsearvio = _tallennaItsearvio;
+
 function rMina() {
   // Render-pattern: draw() injektoi tämän stringin #phBody:hyn.
   // Tarkistus: _pelaaja voi olla null jos kirjautuminen ei ole vielä valmis.
@@ -1671,6 +1751,7 @@ function rMina() {
     + rMinaTekniikkaprofiili()
     + rMinaFyysinenTavoite()
     + rMinaMAS()
+    + rMinaItsearvio()
     + rMinaFLEI()
     + rMinaStreak()
     + rMinaTestit()

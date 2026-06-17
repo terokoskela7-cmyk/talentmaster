@@ -267,7 +267,12 @@ service cloud.firestore {
                       // PIN-pelaaja (anonyymi) saa päivittää VAIN oman xp/streak-pelillistyksen
                       // (_tallennaKirjaus-batch). Sama luottamusmalli kuin kirjaukset-onAnonymous.
                       || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
-                          .hasOnly(['xp', 'streak', 'streak_paivitetty']));
+                          .hasOnly(['xp', 'streak', 'streak_paivitetty']))
+                      // PIN-pelaaja: D3-psyykkinen itsearvio (§C) — vain d3-pikakentät omaan dokumenttiin.
+                      // Valmentajan pisteet[dim].valmentaja säilyvät: client tekee merge nykyisistä (sama
+                      // anon-luottamusmalli kuin xp/kirjaukset; nested-validointia rules ei tee).
+                      || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['d3_viimeisin', 'd3_taso', 'd3_pvm']));
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
 
         // ── Havainnot — pelaajan henkilökohtaiset ADAR-kortit ─────────────

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781728560178';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781730309439';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -584,6 +584,14 @@ a { color: inherit; text-decoration: none; }
 .onb-cta:hover { opacity: .92; }
 .onb-ohita { display: block; width: 100%; background: none; border: none; color: var(--ink3); font-size: 13px; cursor: pointer; margin-top: 10px; padding: 8px; }
 .onb-valmis { font-size: 42px; margin-bottom: 6px; }
+.d3-card { background: var(--card); border: .5px solid var(--line2); border-radius: 14px; width: min(480px, 94vw); max-height: 88vh; overflow-y: auto; padding: 22px; }
+.d3-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.d3-otsikko { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--ink); }
+.d3-rivi { padding: 10px 0; border-top: .5px solid rgba(242,239,230,.08); }
+.d3-q { margin-bottom: 8px; color: var(--ink); font-size: 13px; line-height: 1.4; }
+.d3-likert { display: flex; gap: 6px; }
+.d3-nap { flex: 1; min-height: 42px; border: .5px solid var(--line2); background: none; color: var(--ink2); border-radius: 8px; font-size: 15px; cursor: pointer; font-family: inherit; }
+.d3-tallenna { display: block; width: 100%; margin-top: 16px; background: var(--teal); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 500; cursor: pointer; font-family: inherit; min-height: 48px; }
 .onb-otsikko { font-family: 'Cormorant Garamond', serif; font-size: 26px; color: var(--ink); margin-bottom: 8px; }
 .koti-tyhja { background: var(--card); border: .5px dashed var(--line2); border-radius: 12px; padding: 28px 22px; text-align: center; color: var(--ink2); font-size: 15px; line-height: 1.6; }
 @media (max-width: 768px) {
@@ -2918,7 +2926,26 @@ function _renderOhjaavaSignaali() {
     const msg = aktivoitujen === 0
       ? `Kutsutaan <em>${pelaajia} pelaajaa</em> mukaan — kukaan ei ole vielä kirjannut.`
       : `${aktivoitujen} / ${pelaajia} pelaajaa on aloittanut kirjaukset. ${pelaajia - aktivoitujen > 0 ? 'Muistuta lopuille.' : 'Hyvä alku!'}`;
-    el.innerHTML = `
+    // §C D3 PSYKOLOGINEN -lohko: d3_taso + 5 ulottuvuutta (valmentaja/pelaaja) + Arvioi-nappi (pikakentät §26)
+  let _d3Html = '';
+  {
+    const d3v = p.d3_viimeisin;
+    const onD3 = d3v && d3v.pisteet && Object.keys(d3v.pisteet).length;
+    const _d3rivi = d => {
+      const pt = (onD3 && d3v.pisteet[d.key]) || {};
+      const avg = pt.avg != null ? pt.avg : null;
+      const col = avg == null ? 'var(--ink3)' : avg >= 4 ? 'var(--teal)' : avg >= 2.5 ? 'var(--amber)' : 'var(--red)';
+      const lahde = (pt.valmentaja != null && pt.pelaaja != null) ? ('V' + pt.valmentaja + '·P' + pt.pelaaja) : (pt.valmentaja != null) ? ('valm. ' + pt.valmentaja) : (pt.pelaaja != null) ? ('pelaaja ' + pt.pelaaja) : '';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:3px 0;font-size:12px"><span style="flex:1;color:var(--ink2)">' + d.nimi + '</span><span style="font-size:9px;color:var(--ink3)">' + lahde + '</span><span style="font-family:var(--font-m,monospace);color:' + col + ';min-width:24px;text-align:right">' + (avg != null ? avg : '—') + '</span></div>';
+    };
+    _d3Html = '<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:.5px solid rgba(242,239,230,.1)">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
+      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">D3 Psykologinen' + (onD3 && p.d3_taso != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + p.d3_taso + '<span style="font-size:11px;color:var(--ink3)">/5</span></span>' : '') + (typeof _mSelBtn === 'function' ? _mSelBtn('d3') : '') + '</span>'
+      + '<button onclick="_avaaD3Arvio(\'' + p.id + '\')" style="background:var(--teal);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">' + (onD3 ? 'Päivitä arvio' : 'Arvioi') + '</button></div>'
+      + (onD3 ? _D3_DIMS.map(_d3rivi).join('') : '<div style="font-size:11px;color:var(--ink3)">Psyykkinen profiili täydentyy kun arvioit pelaajan + pelaaja tekee itsearvion.</div>')
+      + '</div>';
+  }
+  el.innerHTML = `
       <div class="signal-icon">💡</div>
       <div class="signal-body">
         <div class="signal-title">${msg}</div>
@@ -5129,6 +5156,7 @@ function _renderPinfoFirestore(p) {
       </div>`).join('')}
     ${_kehHtml}
     ${_adarHtml}
+    ${_d3Html}
     ${_reseptiHtml}
     ${lisaHtml}
     ${_sekHtml}`;
@@ -6032,6 +6060,81 @@ function calPlayerClick(name) {
 /* ════════════════════════════════════════════════════════════
    DRILL-IN PANEL
 ════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════
+   §C D3 PSYYKKINEN — valmentaja-arvio (5 Likert 1–5) + ka pelaajan itsearvion kanssa.
+   Kirjoittaa seurat/{sid}/pelaajat/{pid}: d3_viimeisin{pisteet,pvm,lahteet} + d3_taso. Pikakentät (§26).
+════════════════════════════════════════════════════════════ */
+const _D3_DIMS = [
+  { key:'inner_drive',       nimi:'Sisäinen motivaatio', vQ:'Harjoittelee omaehtoisesti, ei vain käskystä' },
+  { key:'coachability',      nimi:'Valmennettavuus',     vQ:'Ottaa palautteen vastaan ja soveltaa sitä' },
+  { key:'resilience',        nimi:'Sinnikkyys',          vQ:'Ei luovuta vastoinkäymisissä' },
+  { key:'focus',             nimi:'Keskittyminen',       vQ:'Pysyy tehtävässä koko harjoituksen' },
+  { key:'emotional_control', nimi:'Tunteiden hallinta',  vQ:'Hallitsee turhautumisen pelitilanteissa' },
+];
+let _d3Vastaukset = {};
+function _laskeD3Avg(pisteet) {
+  const avgs = [];
+  Object.keys(pisteet).forEach(function (k) {
+    const pt = pisteet[k]; const vals = [];
+    if (pt.valmentaja != null) vals.push(pt.valmentaja);
+    if (pt.pelaaja != null) vals.push(pt.pelaaja);
+    if (vals.length) { pt.avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10; avgs.push(pt.avg); }
+  });
+  return avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length * 10) / 10 : null;
+}
+function _avaaD3Arvio(pid) {
+  const p = (_pelaajatData || []).find(x => x.id === pid);
+  if (!p) { toast('Valitse pelaaja ensin'); return; }
+  _d3Vastaukset = {};
+  const nyk = (p.d3_viimeisin && p.d3_viimeisin.pisteet) || {};
+  _D3_DIMS.forEach(d => { _d3Vastaukset[d.key] = (nyk[d.key] && nyk[d.key].valmentaja != null) ? nyk[d.key].valmentaja : null; });
+  const vanha = document.getElementById('d3Modal'); if (vanha) vanha.remove();
+  const m = document.createElement('div'); m.id = 'd3Modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9200;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.onclick = e => { if (e.target === m) m.remove(); };
+  let h = '<div class="d3-card" onclick="event.stopPropagation()">'
+    + '<div class="d3-head"><div class="d3-otsikko">D3 Psykologinen — ' + ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() + '</div>'
+    + '<button onclick="document.getElementById(\'d3Modal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
+    + '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px">Valmentaja-arvio · 1 (harvoin) – 5 (lähes aina). Yhdistyy pelaajan itsearvioon keskiarvona.</div>';
+  _D3_DIMS.forEach(d => {
+    h += '<div class="d3-rivi"><div class="d3-q"><b>' + d.nimi + '</b><br><span style="font-size:11px;color:var(--ink3)">' + d.vQ + '</span></div>'
+      + '<div class="d3-likert">' + [1,2,3,4,5].map(n =>
+        '<button class="d3-nap" data-dim="' + d.key + '" data-n="' + n + '" onclick="_d3Valitse(\'' + d.key + '\',' + n + ')"' + (_d3Vastaukset[d.key] === n ? ' style="background:var(--teal);color:#fff;border-color:var(--teal)"' : '') + '>' + n + '</button>').join('') + '</div></div>';
+  });
+  h += '<button class="d3-tallenna" onclick="_tallennaD3(\'' + pid + '\')">Tallenna arvio</button></div>';
+  m.innerHTML = h; document.body.appendChild(m);
+}
+function _d3Valitse(dim, n) {
+  _d3Vastaukset[dim] = n;
+  document.querySelectorAll('.d3-nap[data-dim="' + dim + '"]').forEach(b => {
+    const on = (+b.dataset.n === n);
+    b.style.background = on ? 'var(--teal)' : ''; b.style.color = on ? '#fff' : ''; b.style.borderColor = on ? 'var(--teal)' : '';
+  });
+}
+async function _tallennaD3(pid) {
+  const p = (_pelaajatData || []).find(x => x.id === pid); if (!p) return;
+  const annettu = _D3_DIMS.filter(d => _d3Vastaukset[d.key] != null);
+  if (!annettu.length) { toast('Anna vähintään yksi arvio'); return; }
+  const pisteet = JSON.parse(JSON.stringify((p.d3_viimeisin && p.d3_viimeisin.pisteet) || {}));
+  _D3_DIMS.forEach(d => {
+    if (_d3Vastaukset[d.key] != null) { pisteet[d.key] = pisteet[d.key] || {}; pisteet[d.key].valmentaja = _d3Vastaukset[d.key]; }
+  });
+  const d3_taso = _laskeD3Avg(pisteet);
+  const lahteet = []; let onP = false, onV = false;
+  Object.keys(pisteet).forEach(k => { if (pisteet[k].valmentaja != null) onV = true; if (pisteet[k].pelaaja != null) onP = true; });
+  if (onV) lahteet.push('valmentaja'); if (onP) lahteet.push('pelaaja');
+  const d3v = { pisteet: pisteet, pvm: new Date().toISOString().slice(0,10), lahteet: lahteet };
+  try {
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid)
+      .set({ d3_viimeisin: d3v, d3_taso: d3_taso, d3_pvm: d3v.pvm }, { merge: true });
+    p.d3_viimeisin = d3v; p.d3_taso = d3_taso; p.d3_pvm = d3v.pvm;   // päivitä lokaali
+    toast('D3-arvio tallennettu ✓', 'ok');
+    document.getElementById('d3Modal')?.remove();
+    if (_activePelaaja === pid) _renderPinfoFirestore(p);
+  } catch (e) { toast('Tallennus epäonnistui: ' + e.message); console.warn('[d3]', e); }
+}
+window._avaaD3Arvio = _avaaD3Arvio; window._d3Valitse = _d3Valitse; window._tallennaD3 = _tallennaD3;
+
 function openDrill(type) {
   _drillType = type;
   const titleEl   = document.getElementById('drillTitle');
@@ -6082,6 +6185,8 @@ function openDrill(type) {
       <button class="drill-btn" onclick="drillDo('RPE '+document.getElementById('rpeSlider').value+' kirjattu')">Kirjaa joukkueelle</button>
       <button class="drill-btn" style="margin-top:4px" onclick="closeDrill()">Peru</button>`;
 
+  } else if (type === 'd3') {
+    _avaaD3Arvio(_activePelaaja); return;
   } else if (type === 'adar') {
     // Ohjataan ADAR_Pikakortti.html:ään — se on ainoa kenttätyökalu joka persistoi Firestoreen.
     // Tämä Master-drilli oli UI-mockup (drillDo() = vain toast, ei tallennusta) — §ADAR_JATKOKEHITYS.

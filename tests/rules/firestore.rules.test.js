@@ -350,6 +350,26 @@ describe('Anonymous PIN (pelaaja)', () => {
     ));
   });
 
+  it('Anon päivittää d3-itsearvion pikakentät (§C D3, rajattu affectedKeys)', async () => {
+    const db = anonContext().firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
+      {
+        d3_viimeisin: { pisteet: { inner_drive: { pelaaja: 4, avg: 4 } }, pvm: '2026-06-15', lahteet: ['pelaaja'] },
+        d3_taso: 4,
+        d3_pvm: '2026-06-15'
+      }
+    ));
+  });
+
+  it('Anon EI päivitä d3:n ohella muuta kenttää', async () => {
+    const db = anonContext().firestore();
+    await assertFails(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
+      { d3_taso: 4, hh_taso: 5 }
+    ));
+  });
+
   it('Anon EI päivitä pelaajan muita kenttiä', async () => {
     const db = anonContext().firestore();
     await assertFails(updateDoc(
