@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781732085159';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781735246160';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -2056,9 +2056,7 @@ async function _lataaValmentaja(uid) {
             await _lataaPelaajat();
             await _lataaTestitapahtumat();
             await _lataaKalenteriTapahtumat();
-            renderInbox();
-            renderTestit();
-            renderCal();
+            _paivitaKaikkiNakymat();   // kaikki näkymät (ml. Koti+Havainnot) uudelle seuralle
           };
           const sbNav = document.querySelector('.sb-nav');
           if (sbNav) sbNav.insertBefore(sel, sbNav.firstChild);
@@ -2168,12 +2166,8 @@ async function _lataaPelaajat() {
     _pelaajatData = docs.map(d => ({ id: d.id, ...d.data() }));
     _pelaajatData.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
     if (!_demo) {
-      // Renderöi kaikki pelaajadataa käyttävät näkymät
-      renderCal();
-      renderPulse();
-      renderDev();
-      renderToday();   // päivitä myös tänään-metriikat
-      renderKoti(); renderHavainnot();   // §IA — Koti/Havainnot päivittyvät kun pelaajadata saapuu
+      // Renderöi kaikki pelaajadataa käyttävät näkymät (alkulataus + jokainen lataus)
+      _paivitaKaikkiNakymat();
       _lataaKirjaukset();
       _kuunteleVpViestit();
     }
@@ -3168,14 +3162,8 @@ async function _rakennaSAJoukkueValitsin(seuraId) {
       await _lataaTestitapahtumat();
       await _lataaKalenteriTapahtumat();
 
-      // Päivitä kaikki näkymät
-      renderInbox();
-      renderPulse();
-      renderDev();
-      renderToday();
-      renderTestit();
-      renderCal();
-      renderSeason();
+      // Päivitä kaikki näkymät (ml. Koti+Havainnot — aiemmin puuttuivat → jäivät vanhaan joukkueeseen)
+      _paivitaKaikkiNakymat();
     };
 
     // Lisää seuranvalitsimen alle
@@ -3718,8 +3706,9 @@ function renderPulse(){
   let players = {};   // { id: {name, num, streak} }
   let evts    = [];   // [{playerId, t}]
 
-  if (!_demo && _seuraId && _pelaajatData.length > 0) {
-    // Firestore-pelaajat
+  if (!_demo && _seuraId) {
+    // Firestore-pelaajat (kirjautuneena AINA — myös 0 pelaajaa → tyhjä heatmap, EI TMBus-demoa).
+    // Aiemmin gate vaati length>0 → tyhjällä joukkueella putosi demo-haaraan ja näytti demopelaajia.
     _pelaajatData.forEach(p => {
       players[p.id] = {
         name: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id,
@@ -4203,6 +4192,24 @@ function _iaMs(s) {
   return m ? new Date(+m[1], +m[2]-1, +m[3]).getTime() : null;
 }
 function _iaNimi(p) { return ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id; }
+/* Jaettu: aja KAIKKI pelaajadataa käyttävät näkymärenderit kontekstin (seura/joukkue) vaihduttua
+   tai alkulatauksessa, jotta mikään välilehti ei jää vanhan kontekstin dataan (ml. Koti + Havainnot,
+   jotka aiemmin puuttuivat valitsin-handlereista). Kukin render guardaa oman elementtinsä ja
+   käyttää AINA Firestore-dataa (ei TMBus-demoa) kun !_demo && _seuraId. Yksi kaatuva render ei
+   estä muita (try/catch). */
+function _paivitaKaikkiNakymat() {
+  const renderit = [
+    ['koti', renderKoti], ['havainnot', renderHavainnot], ['inbox', renderInbox],
+    ['pulse', renderPulse], ['dev', renderDev], ['today', renderToday],
+    ['testit', renderTestit], ['cal', renderCal], ['season', renderSeason]
+  ];
+  renderit.forEach(function (r) {
+    try { if (typeof r[1] === 'function') r[1](); }
+    catch (e) { console.warn('[render ' + r[0] + ']', e && e.message); }
+  });
+}
+window._paivitaKaikkiNakymat = _paivitaKaikkiNakymat;
+
 function renderKoti() {
   const el = document.getElementById('kotiView');
   if (!el) return;
@@ -4502,8 +4509,9 @@ function _renderPlayersToday() {
   const el = document.getElementById('playersTodayList');
   if (!el) return;
 
-  // Kirjautuneena: käytä Firestoren pelaajadataa
-  if (!_demo && _seuraId && _pelaajatData.length > 0) {
+  // Kirjautuneena: käytä AINA Firestoren pelaajadataa (myös 0 pelaajaa → tyhjä/OK-tila, EI demoa).
+  // Aiemmin gate vaati length>0 → tyhjällä joukkueella putosi demo-haaraan ja näytti demopelaajia.
+  if (!_demo && _seuraId) {
     // Näytä huomioitavat pelaajat: matala fiilinki, pitkä poissaolo tai X-Factor
     const huomio = _pelaajatData.filter(p =>
       p.fiilinki <= 2 || p.streak === 0 || p.signaali === 'xfactor' || p.signaali === 'hidden'
