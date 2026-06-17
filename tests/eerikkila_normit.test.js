@@ -22,6 +22,8 @@ const {
   normiIka,
   raeKvartaali,
   RAE_KERROIN,
+  d3Varmuus,
+  d3VarmuusChip,
 } = require('../lib/tm_eerikkila_normit.js');
 
 // ═══════════════════════════════════════════════════════════════════
@@ -394,5 +396,29 @@ describe('raeKvartaali + RAE_KERROIN (§14/§30)', () => {
   });
   it('RAE_KERROIN määritelty (§30)', () => {
     expect(RAE_KERROIN).toEqual({ Q1: 0.92, Q2: 0.96, Q3: 1.02, Q4: 1.06 });
+  });
+});
+
+describe('d3Varmuus (D3_KALIBRAATIO_SPEC malli A)', () => {
+  it('pelaaja + valmentaja → trianguloitu', () => {
+    expect(d3Varmuus(['valmentaja', 'pelaaja'])).toBe('trianguloitu');
+    expect(d3Varmuus(['pelaaja', 'valmentaja'])).toBe('trianguloitu');
+  });
+  it('vain pelaaja → itsearvio', () => {
+    expect(d3Varmuus(['pelaaja'])).toBe('itsearvio');
+  });
+  it('vain valmentaja → valmentaja', () => {
+    expect(d3Varmuus(['valmentaja'])).toBe('valmentaja');
+  });
+  it('tyhjä/null → null', () => {
+    expect(d3Varmuus([])).toBeNull();
+    expect(d3Varmuus(null)).toBeNull();
+    expect(d3Varmuus(undefined)).toBeNull();
+  });
+  it('chip: tunnettu tila → HTML, tuntematon/null → tyhjä', () => {
+    expect(d3VarmuusChip('itsearvio')).toContain('itsearvio');
+    expect(d3VarmuusChip('trianguloitu')).toContain('trianguloitu');
+    expect(d3VarmuusChip(null)).toBe('');
+    expect(d3VarmuusChip('outo')).toBe('');
   });
 });

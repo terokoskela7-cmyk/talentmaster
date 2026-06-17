@@ -357,7 +357,8 @@ describe('Anonymous PIN (pelaaja)', () => {
       {
         d3_viimeisin: { pisteet: { inner_drive: { pelaaja: 4, avg: 4 } }, pvm: '2026-06-15', lahteet: ['pelaaja'] },
         d3_taso: 4,
-        d3_pvm: '2026-06-15'
+        d3_pvm: '2026-06-15',
+        d3_varmuus: 'itsearvio'
       }
     ));
   });

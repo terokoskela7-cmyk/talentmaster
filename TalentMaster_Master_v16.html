@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781735246160';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781736916016';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=13"></script>
+<script src="lib/tm_eerikkila_normit.js?v=14"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
@@ -2934,7 +2934,7 @@ function _renderOhjaavaSignaali() {
     };
     _d3Html = '<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:.5px solid rgba(242,239,230,.1)">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
-      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">D3 Psykologinen' + (onD3 && p.d3_taso != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + p.d3_taso + '<span style="font-size:11px;color:var(--ink3)">/5</span></span>' : '') + (typeof _mSelBtn === 'function' ? _mSelBtn('d3') : '') + '</span>'
+      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">D3 Psykologinen' + (onD3 && p.d3_taso != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + p.d3_taso + '<span style="font-size:11px;color:var(--ink3)">/5</span></span>' : '') + (onD3 && p.d3_varmuus && typeof d3VarmuusChip === 'function' ? ' ' + d3VarmuusChip(p.d3_varmuus) : '') + (typeof _mSelBtn === 'function' ? _mSelBtn('d3') : '') + '</span>'
       + '<button onclick="_avaaD3Arvio(\'' + p.id + '\')" style="background:var(--teal);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">' + (onD3 ? 'Päivitä arvio' : 'Arvioi') + '</button></div>'
       + (onD3 ? _D3_DIMS.map(_d3rivi).join('') : '<div style="font-size:11px;color:var(--ink3)">Psyykkinen profiili täydentyy kun arvioit pelaajan + pelaaja tekee itsearvion.</div>')
       + '</div>';
@@ -4231,6 +4231,9 @@ function renderKoti() {
   if (heikoinKohde) kortit.push({ ikoni:'🎯', txt: (typeof _tkLajiNimi === 'function' ? _tkLajiNimi(heikoinKohde) : heikoinKohde) + ' heikoin kehityskohde (' + kohdeLkm[heikoinKohde] + ' pelaajalla)', cta:'Katso', fn:"setWs('dev')", vari:'var(--teal)' });
   const klinikka = P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40);
   if (klinikka.length) kortit.push({ ikoni:'🏥', txt: klinikka.length + ' pelaajaa FLEI alle 40 (klinikkalähetys)', cta:'Katso', fn:"setWs('dev')", vari:'var(--red)' });
+  // D3-flag: pelaaja teki itsearvion mutta valmentaja ei ole vielä vahvistanut → trianguloi (d3_varmuus elää 'trianguloitu':ksi).
+  const d3Itse = P.filter(p => p.d3_varmuus === 'itsearvio');
+  if (d3Itse.length) kortit.push({ ikoni:'🧠', txt: d3Itse.length + ' pelaajaa teki psyykkisen itsearvion — vahvista valmentajan näkemys', cta:'Arvioi', fn:"_avaaD3Arvio('" + d3Itse[0].id + "')", vari:'var(--blue)' });
 
   const aktiivisia = P.filter(p => kirjVko[p.id]).length;
   const ka = a => a.length ? (Math.round(a.reduce((s,v)=>s+v,0)/a.length*10)/10) : '—';
@@ -6132,10 +6135,12 @@ async function _tallennaD3(pid) {
   Object.keys(pisteet).forEach(k => { if (pisteet[k].valmentaja != null) onV = true; if (pisteet[k].pelaaja != null) onP = true; });
   if (onV) lahteet.push('valmentaja'); if (onP) lahteet.push('pelaaja');
   const d3v = { pisteet: pisteet, pvm: new Date().toISOString().slice(0,10), lahteet: lahteet };
+  // d3_varmuus pikakenttä (§26): elää kun toinen lähde tulee — valmentaja itsearvion päälle → 'trianguloitu'
+  const d3_varmuus = (typeof d3Varmuus === 'function') ? d3Varmuus(lahteet) : null;
   try {
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid)
-      .set({ d3_viimeisin: d3v, d3_taso: d3_taso, d3_pvm: d3v.pvm }, { merge: true });
-    p.d3_viimeisin = d3v; p.d3_taso = d3_taso; p.d3_pvm = d3v.pvm;   // päivitä lokaali
+      .set({ d3_viimeisin: d3v, d3_taso: d3_taso, d3_pvm: d3v.pvm, d3_varmuus: d3_varmuus }, { merge: true });
+    p.d3_viimeisin = d3v; p.d3_taso = d3_taso; p.d3_pvm = d3v.pvm; p.d3_varmuus = d3_varmuus;   // päivitä lokaali
     toast('D3-arvio tallennettu ✓', 'ok');
     document.getElementById('d3Modal')?.remove();
     if (_activePelaaja === pid) _renderPinfoFirestore(p);
