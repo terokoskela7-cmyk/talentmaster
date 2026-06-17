@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781703577280';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781713179221';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -560,6 +560,20 @@ a { color: inherit; text-decoration: none; }
   font-size: 8px; font-weight: 500; letter-spacing: .15em;
   text-transform: uppercase; color: var(--ink3); margin-top: 3px;
 }
+/* §IA — KOTI-etusivu + mobiili tab-bar (desktop: tabbar piilossa) */
+.tabbar { display: none; }
+.koti-otsikko { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 26px; color: var(--ink); margin-bottom: 14px; }
+.koti-strippi { display: flex; gap: 12px; background: var(--card); border: .5px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
+.koti-strippi > div { flex: 1; min-width: 70px; text-align: center; }
+.ks-luku { font-family: 'Cormorant Garamond', serif; font-size: 28px; color: var(--ink); line-height: 1.1; }
+.ks-lbl { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); }
+.koti-kortit { display: flex; flex-direction: column; gap: 10px; }
+.koti-kortti { display: flex; align-items: center; gap: 14px; background: var(--card); border: .5px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.kk-ikoni { font-size: 22px; flex: 0 0 auto; }
+.kk-txt { flex: 1; font-size: 14px; color: var(--ink); line-height: 1.4; }
+.kk-cta { flex: 0 0 auto; background: var(--teal); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; min-height: 40px; }
+.kk-cta:hover { opacity: .9; }
+.koti-tyhja { background: var(--card); border: .5px dashed var(--line2); border-radius: 12px; padding: 28px 22px; text-align: center; color: var(--ink2); font-size: 15px; line-height: 1.6; }
 @media (max-width: 768px) {
   .coach-self-card { grid-template-columns: auto 1fr; }
   .coach-self-metrics { grid-column: 1 / -1; justify-content: space-around; }
@@ -569,6 +583,16 @@ a { color: inherit; text-decoration: none; }
   .detail-rivi span { white-space: normal; }
   .detail-rivi span:last-child { flex: 1 1 100%; text-align: left; color: var(--ink3); }
   .detail-arvo { font-size: 14px; }
+  /* §IA mobiili: ala-tab-bar näkyviin, wsbar pois, tilaa barille, Koti-kortit täysleveiksi */
+  .tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 150; background: var(--bg2); border-top: .5px solid var(--line); padding: 4px; }
+  .tabbar-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; background: none; border: none; color: var(--ink3); cursor: pointer; font-family: inherit; padding: 4px; border-radius: 8px; }
+  .tabbar-item.active { color: var(--teal); }
+  .tabbar-item .tb-ic { font-size: 19px; line-height: 1; }
+  .tabbar-item .tb-lbl { font-size: 10px; }
+  .wsbar { display: none; }
+  .main { padding-bottom: 78px; }
+  .koti-kortti { flex-wrap: wrap; }
+  .koti-kortti .kk-cta { flex: 1 1 100%; }
 }
 /* Valmentajan profiili-modaali */
 .coach-profile-modal {
@@ -1141,19 +1165,28 @@ a { color: inherit; text-decoration: none; }
     </div>
 
     <nav class="sb-nav">
-      <div class="sb-section">Työtilat</div>
-      <div class="sb-item active" data-ws="inbox" onclick="setWs('inbox')">
-        <svg width="16" height="16"><use href="#ic-inbox"/></svg>Inbox
+      <div class="sb-section">Valikko</div>
+      <div class="sb-item" data-ws="koti" onclick="setWs('koti')">
+        <svg width="16" height="16"><use href="#ic-home"/></svg>Koti
+      </div>
+      <div class="sb-item" data-ws="dev" onclick="setWs('dev')">
+        <svg width="16" height="16"><use href="#ic-dev"/></svg>Pelaajat
+      </div>
+      <div class="sb-item" data-ws="havainnot" onclick="setWs('havainnot')">
+        <svg width="16" height="16"><use href="#ic-obs"/></svg>Havainnot
+      </div>
+      <div class="sb-item" data-ws="inbox" onclick="setWs('inbox')">
+        <svg width="16" height="16"><use href="#ic-inbox"/></svg>Viestit
         <span class="sb-badge" id="sbInboxBadge" style="display:none"></span>
       </div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section">Työkalut</div>
       <div class="sb-item" data-ws="today" onclick="setWs('today')">
         <svg width="16" height="16"><use href="#ic-home"/></svg>Tänään
       </div>
       <div class="sb-item" data-ws="pulse" onclick="setWs('pulse')">
         <svg width="16" height="16"><use href="#ic-pulse"/></svg>Pulssi
-      </div>
-      <div class="sb-item" data-ws="dev" onclick="setWs('dev')">
-        <svg width="16" height="16"><use href="#ic-dev"/></svg>Kehitys
       </div>
       <div class="sb-item" data-ws="season" onclick="setWs('season')">
         <svg width="16" height="16"><use href="#ic-season"/></svg>Kausi
@@ -1164,17 +1197,8 @@ a { color: inherit; text-decoration: none; }
       <div class="sb-item" data-ws="testit" onclick="setWs('testit')">
         <svg width="16" height="16"><use href="#ic-test"/></svg>Testit
       </div>
-
-      <div class="sb-divider"></div>
-      <div class="sb-section">Työkalut</div>
       <div class="sb-item" onclick="openDrill('rpe')">
         <svg width="16" height="16"><use href="#ic-drill"/></svg>Kirjaa RPE
-      </div>
-      <div class="sb-item" onclick="openDrill('adar')">
-        <svg width="16" height="16"><use href="#ic-obs"/></svg>Havainto
-      </div>
-      <div class="sb-item" onclick="setWs('season');toast('Kartoitukset avattu')">
-        <svg width="16" height="16"><use href="#ic-test"/></svg>Kartoitukset
       </div>
     </nav>
 
@@ -1234,8 +1258,18 @@ a { color: inherit; text-decoration: none; }
       </div>
     </div>
 
+    <!-- ══ §IA TYÖTILA: KOTI (oletus, toimenpide-ensin) ══ -->
+    <div class="ws-view active" data-view="koti">
+      <div id="kotiView"></div>
+    </div>
+
+    <!-- ══ §IA TYÖTILA: HAVAINNOT (ADAR-työkalu + havaintohistoria) ══ -->
+    <div class="ws-view" data-view="havainnot">
+      <div id="havainnotView"></div>
+    </div>
+
     <!-- ══ TYÖTILA: INBOX ══ -->
-    <div class="ws-view active" data-view="inbox">
+    <div class="ws-view" data-view="inbox">
       <div class="inbox-header">
         <div>
           <div class="caps" style="margin-bottom:6px"><span class="live-dot"></span>Live · Joukkueen pulssi</div>
@@ -1518,6 +1552,15 @@ a { color: inherit; text-decoration: none; }
     </div><!-- /testit -->
 
   </main>
+
+  <!-- §IA MOBIILI ALA-TAB-BAR (4 kohtaa) — näkyy vain ≤768px (sidebar desktopilla) -->
+  <nav class="tabbar" id="mobTabbar">
+    <button class="tabbar-item" data-ws="koti" onclick="setWs('koti')"><span class="tb-ic">🏠</span><span class="tb-lbl">Koti</span></button>
+    <button class="tabbar-item" data-ws="dev" onclick="setWs('dev')"><span class="tb-ic">👤</span><span class="tb-lbl">Pelaajat</span></button>
+    <button class="tabbar-item" data-ws="havainnot" onclick="setWs('havainnot')"><span class="tb-ic">👁</span><span class="tb-lbl">Havainnot</span></button>
+    <button class="tabbar-item" data-ws="inbox" onclick="setWs('inbox')"><span class="tb-ic">✉️</span><span class="tb-lbl">Viestit</span></button>
+  </nav>
+
 </div><!-- /layout -->
 
 <!-- ══ MODAALI: TKI-palaute pelaajalle ══ -->
@@ -1639,7 +1682,7 @@ let _uid      = null;   // Firebase Auth UID — tarvitaan VP-viestikuunteluun +
 let _rooli    = null;
 let _demo     = false;
 let _superAdmin = false;
-let _ws       = 'today';
+let _ws       = 'koti';
 let _kirjautuminenKesken = false;
 let _drillType = null;
 let _lastAction = null;
@@ -2101,6 +2144,7 @@ async function _lataaPelaajat() {
       renderPulse();
       renderDev();
       renderToday();   // päivitä myös tänään-metriikat
+      renderKoti(); renderHavainnot();   // §IA — Koti/Havainnot päivittyvät kun pelaajadata saapuu
       _lataaKirjaukset();
       _kuunteleVpViestit();
     }
@@ -2183,6 +2227,7 @@ async function _lataaKirjaukset() {
       .filter(k => k.t >= _14pvSitten)
       .sort((a,b) => b.t - a.t).slice(0, 100);
     _kirjauksetLadattu = true;
+    if (_ws === 'koti') renderKoti();   // §IA Koti-refresh kun kirjaukset saapuvat
 
     // Jos ei yhtään kirjausta löytynyt, yritä hakea suoraan pelaajadatasta
     // (streak, fiilinki voivat olla tallennettu pelaajadokumenttiin)
@@ -2245,6 +2290,7 @@ function _kuunteleVpViestit() {
         };
       });
       renderInbox();
+      if (_ws === 'koti') renderKoti();   // §IA Koti-refresh kun VP-viestit saapuvat
     }, function(e) { console.warn('[v16] VP-viestit:', e.message); });
 }
 
@@ -3792,7 +3838,7 @@ function _initBus(){
   });
 }
 function _alusta(nimi) {
-  _ws = 'inbox';
+  _ws = (localStorage.getItem('tm-ws') || 'koti');   // §IA oletusnäkymä = Koti
   // Päivitä TMBus-konteksti
   if (_seuraId && window.TMBus) {
     window.__TM_SEURA = _seuraId;
@@ -3834,11 +3880,8 @@ function _alusta(nimi) {
     _lataaTestitapahtumat();
     _lataaKalenteriTapahtumat();  // harjoitukset, ottelut, muut
   }
-  // Aktivoi inbox-tabi visuaalisesti
-  document.querySelectorAll('.sb-item[data-ws]').forEach(t =>
-    t.classList.toggle('active', t.dataset.ws === 'inbox'));
-  document.querySelectorAll('.ws-tab[data-ws]').forEach(t =>
-    t.classList.toggle('active', t.dataset.ws === 'inbox'));
+  // §IA — aktivoi oikea näkymä (Koti oletus / palautettu) + tab-barit
+  setWs(_ws);
 }
 
 function _setGreet(nimi) {
@@ -4098,13 +4141,97 @@ window._tallennaCoachProfiili = async function _tallennaCoachProfiili() {
 /* ════════════════════════════════════════════════════════════
    WORKSPACE
 ════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════
+   §IA — KOTI (toimenpide-ensin etusivu) + HAVAINNOT (strangler-kuori)
+   Lukee vain jo ladatusta datasta (_pelaajatData/_kirjaukset/_vpViestit) +
+   pikakentistä (§26). EI uusia kyselyjä. CTA:t kytkevät olemassa oleviin funktioihin.
+════════════════════════════════════════════════════════════ */
+function _iaMs(s) {
+  if (!s) return null;
+  if (typeof s === 'object' && s.toDate) { try { return s.toDate().getTime(); } catch (e) { return null; } }
+  if (s instanceof Date) return s.getTime();
+  const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? new Date(+m[1], +m[2]-1, +m[3]).getTime() : null;
+}
+function _iaNimi(p) { return ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id; }
+function renderKoti() {
+  const el = document.getElementById('kotiView');
+  if (!el) return;
+  const P = _pelaajatData || [];
+  const nyt = Date.now(), VKO = 7*864e5, KK = 30*864e5;
+  const kirjVko = {};
+  (_kirjaukset || []).forEach(k => { const pid = k._pelaajaId || k.playerId; const t = k.t || 0; if (pid && (nyt - t) <= VKO) kirjVko[pid] = true; });
+
+  const kortit = [];
+  const ilmanAdar = P.filter(p => { const ms = _iaMs(p.adar_pvm); return (p.adar_havaintoja||0) === 0 || (ms && (nyt - ms) > KK); });
+  if (ilmanAdar.length) kortit.push({ ikoni:'👁', txt: ilmanAdar.length + ' pelaajaa ilman tuoretta havaintoa (30 pv)', cta:'Havainnoi', fn:"openDrill('adar')", vari:'var(--amber)' });
+  const lukematta = (_vpViestit || []).filter(v => v.luettu === false).length;
+  if (lukematta) kortit.push({ ikoni:'✉️', txt: lukematta + ' lukematon viesti valmennuspäälliköltä', cta:'Avaa', fn:"setWs('inbox')", vari:'var(--blue)' });
+  const passiiviset = P.filter(p => !kirjVko[p.id]);
+  if (P.length && passiiviset.length) kortit.push({ ikoni:'💤', txt: passiiviset.length + ' pelaajaa ilman omatoimikirjausta tällä viikolla', cta:'Viestitä', fn:"setWs('inbox')", vari:'var(--ink2)' });
+  const kohdeLkm = {};
+  P.forEach(p => { const k = p.tki_kehityskohde || p.hh_kehityskohde; if (k) kohdeLkm[k] = (kohdeLkm[k]||0) + 1; });
+  const heikoinKohde = Object.keys(kohdeLkm).sort((a,b) => kohdeLkm[b] - kohdeLkm[a])[0];
+  if (heikoinKohde) kortit.push({ ikoni:'🎯', txt: (typeof _tkLajiNimi === 'function' ? _tkLajiNimi(heikoinKohde) : heikoinKohde) + ' heikoin kehityskohde (' + kohdeLkm[heikoinKohde] + ' pelaajalla)', cta:'Katso', fn:"setWs('dev')", vari:'var(--teal)' });
+  const klinikka = P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40);
+  if (klinikka.length) kortit.push({ ikoni:'🏥', txt: klinikka.length + ' pelaajaa FLEI alle 40 (klinikkalähetys)', cta:'Katso', fn:"setWs('dev')", vari:'var(--red)' });
+
+  const aktiivisia = P.filter(p => kirjVko[p.id]).length;
+  const ka = a => a.length ? (Math.round(a.reduce((s,v)=>s+v,0)/a.length*10)/10) : '—';
+  const strippi = '<div class="koti-strippi">'
+    + '<div><div class="ks-luku">' + P.length + '</div><div class="ks-lbl">pelaajaa</div></div>'
+    + '<div><div class="ks-luku">' + aktiivisia + '</div><div class="ks-lbl">aktiivista/vko</div></div>'
+    + '<div><div class="ks-luku">' + ka(P.map(p=>p.d1_taso).filter(v=>v!=null)) + '</div><div class="ks-lbl">D1 ka</div></div>'
+    + '<div><div class="ks-luku">' + ka(P.map(p=>p.d2_taso).filter(v=>v!=null)) + '</div><div class="ks-lbl">D2 ka</div></div></div>';
+
+  let h = '<div class="koti-otsikko serif">Mitä sinun pitää tehdä</div>' + strippi;
+  if (kortit.length) {
+    h += '<div class="koti-kortit">' + kortit.map(k =>
+      '<div class="koti-kortti" style="border-left:3px solid ' + k.vari + '">'
+      + '<div class="kk-ikoni">' + k.ikoni + '</div>'
+      + '<div class="kk-txt">' + k.txt + '</div>'
+      + '<button class="kk-cta" onclick="' + k.fn + '">' + k.cta + ' →</button></div>').join('') + '</div>';
+  } else {
+    h += '<div class="koti-tyhja">⚽ <b>Aloita havainnoimalla pelaaja.</b><br>'
+      + '<span style="font-size:13px;color:var(--ink3)">Avaa ADAR-kenttätyökalu ja kirjaa ensimmäinen peliälyhavainto — sitten näet täällä mitä tehdä seuraavaksi.</span><br>'
+      + '<button class="kk-cta" style="margin-top:12px" onclick="openDrill(\'adar\')">Havainnoi pelaaja →</button></div>';
+  }
+  el.innerHTML = h;
+}
+function renderHavainnot() {
+  const el = document.getElementById('havainnotView');
+  if (!el) return;
+  const P = _pelaajatData || [];
+  const havaitut = P.filter(p => (p.adar_havaintoja||0) >= 1 && p.adar_pvm).sort((a,b) => (_iaMs(b.adar_pvm)||0) - (_iaMs(a.adar_pvm)||0));
+  let h = '<div class="koti-otsikko serif">Havainnot</div>';
+  h += '<button class="kk-cta" style="font-size:15px;padding:12px 22px" onclick="openDrill(\'adar\')">👁 Avaa ADAR-kenttätyökalu →</button>';
+  h += '<div class="koti-otsikko serif" style="font-size:18px;margin-top:26px">Havaintohistoria</div>';
+  if (havaitut.length) {
+    h += '<div class="koti-kortit">' + havaitut.map(p => {
+      const ms = _iaMs(p.adar_pvm);
+      const pvmTxt = ms ? _pvmFiM(new Date(ms).toISOString().slice(0,10)) : '';
+      const yht = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht + '/12' : '—';
+      return '<div class="koti-kortti" style="cursor:pointer" onclick="pickPlayer(\'' + p.id + '\');setWs(\'dev\')">'
+        + '<div class="kk-ikoni">🧠</div>'
+        + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · ADAR ' + yht + ' · ' + p.adar_havaintoja + ' havaintoa' + (pvmTxt ? ' · ' + pvmTxt : '') + '</div>'
+        + '<span style="color:var(--teal)">→</span></div>';
+    }).join('') + '</div>';
+  } else {
+    h += '<div class="koti-tyhja">Ei havaintoja vielä. Avaa ADAR-työkalu ja kirjaa ensimmäinen peliälyhavainto.</div>';
+  }
+  el.innerHTML = h;
+}
+
 function setWs(ws) {
   _ws = ws;
   document.querySelectorAll('.ws-view').forEach(v => v.classList.toggle('active', v.dataset.view === ws));
   document.querySelectorAll('.ws-tab').forEach(t  => t.classList.toggle('active',  t.dataset.ws === ws));
   document.querySelectorAll('.sb-item[data-ws]').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
+  document.querySelectorAll('.tabbar-item').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
   localStorage.setItem('tm-ws', ws);
   // View-specific rendering
+  if (ws === 'koti') renderKoti();
+  if (ws === 'havainnot') renderHavainnot();
   if (ws === 'inbox') renderInbox();
   if (ws === 'pulse') renderPulse();
   if (ws === 'testit') renderTestit();
@@ -6107,7 +6234,7 @@ function toggleTheme() {
 // Palauta tallennettu työtila
 (function() {
   const ws = localStorage.getItem('tm-ws');
-  if (ws && ['inbox','today','pulse','dev','season','cal','testit'].includes(ws)) _ws = ws;
+  if (ws && ['koti','havainnot','inbox','today','pulse','dev','season','cal','testit'].includes(ws)) _ws = ws;
 })();
 
 /* ════════════════════════════════════════════════════════════
