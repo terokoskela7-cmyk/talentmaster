@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781713179221';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781720411540';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -177,8 +177,7 @@ a { color: inherit; text-decoration: none; }
 }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
-  .sidebar.open { display: flex; position: fixed; inset: 0; z-index: 200; width: 260px; }
+  /* sidebar-piilotus siirretty @media(768):aan (lähdejärjestys voittaa base .sidebar:n) — §6 */
 }
 
 /* ── SIDEBAR ── */
@@ -562,6 +561,7 @@ a { color: inherit; text-decoration: none; }
 }
 /* §IA — KOTI-etusivu + mobiili tab-bar (desktop: tabbar piilossa) */
 .tabbar { display: none; }
+.sb-backdrop { display: none; }
 .koti-otsikko { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 26px; color: var(--ink); margin-bottom: 14px; }
 .koti-strippi { display: flex; gap: 12px; background: var(--card); border: .5px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
 .koti-strippi > div { flex: 1; min-width: 70px; text-align: center; }
@@ -593,6 +593,10 @@ a { color: inherit; text-decoration: none; }
   .main { padding-bottom: 78px; }
   .koti-kortti { flex-wrap: wrap; }
   .koti-kortti .kk-cta { flex: 1 1 100%; }
+  /* §IA mobiili nav: sidebar piiloon (voittaa base .sidebar lähdejärjestyksellä); Lisää-tabista drawer + backdrop */
+  .sidebar { display: none; }
+  body.nav-drawer-open .sidebar { display: flex; position: fixed; inset: 0 auto 0 0; width: 264px; max-width: 84vw; z-index: 200; box-shadow: 0 0 40px rgba(0,0,0,.4); }
+  body.nav-drawer-open .sb-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 199; }
 }
 /* Valmentajan profiili-modaali */
 .coach-profile-modal {
@@ -1559,7 +1563,9 @@ a { color: inherit; text-decoration: none; }
     <button class="tabbar-item" data-ws="dev" onclick="setWs('dev')"><span class="tb-ic">👤</span><span class="tb-lbl">Pelaajat</span></button>
     <button class="tabbar-item" data-ws="havainnot" onclick="setWs('havainnot')"><span class="tb-ic">👁</span><span class="tb-lbl">Havainnot</span></button>
     <button class="tabbar-item" data-ws="inbox" onclick="setWs('inbox')"><span class="tb-ic">✉️</span><span class="tb-lbl">Viestit</span></button>
+    <button class="tabbar-item" onclick="toggleTyokalut()"><span class="tb-ic">⋯</span><span class="tb-lbl">Lisää</span></button>
   </nav>
+  <div class="sb-backdrop" onclick="toggleTyokalut(false)"></div>
 
 </div><!-- /layout -->
 
@@ -4222,8 +4228,13 @@ function renderHavainnot() {
   el.innerHTML = h;
 }
 
+function toggleTyokalut(force) {
+  const open = (force != null) ? force : !document.body.classList.contains('nav-drawer-open');
+  document.body.classList.toggle('nav-drawer-open', open);   // §IA mobiilin Työkalut-drawer (sidebar overlay)
+}
 function setWs(ws) {
   _ws = ws;
+  document.body.classList.remove('nav-drawer-open');   // §IA sulje mobiili-drawer kun näkymä vaihtuu
   document.querySelectorAll('.ws-view').forEach(v => v.classList.toggle('active', v.dataset.view === ws));
   document.querySelectorAll('.ws-tab').forEach(t  => t.classList.toggle('active',  t.dataset.ws === ws));
   document.querySelectorAll('.sb-item[data-ws]').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
