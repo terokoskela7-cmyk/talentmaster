@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781692170656';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781700733069';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -15,6 +15,12 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_eerikkila_normit.js?v=10"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
+<!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
+<script src="harjoitelogiikka_v4.js?v=7"></script>
+<script src="lib/tm-methodology.js?v=1"></script>
+<script src="lib/tm-profile.js?v=1"></script>
+<script src="lib/tm-microcycles.js?v=1"></script>
+<script src="lib/tm-prescription.js?v=1"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -1377,6 +1383,9 @@ a { color: inherit; text-decoration: none; }
 
       <!-- D1/D2-tasohistogrammit + PHV-vaihejakauma + kattavuussignaalit -->
       <div id="seasonHist" style="margin-bottom:24px"></div>
+
+      <!-- §B2 Harjoitesuunnitelma (S-pre-harkka, tm-prescription) -->
+      <div id="seasonHarkka" style="margin-bottom:24px"></div>
 
       <div class="season-grid" id="seasonGrid"></div>
 
@@ -4879,6 +4888,29 @@ function _renderPinfoFirestore(p) {
       + '</div>';
   }
 
+  // ── §B1/B3 RESEPTI — "mitä tehdä" -ulostulo diagnoosista: T-harjoite moottorista (harjoitelogiikka_v4).
+  // Näytä kun tekninen kehityskohde on dataa (TKI/TSI/H-H). null pankki → moottorin sisäinen PANKKI (§A7). try/catch.
+  let _reseptiHtml = '';
+  if (typeof valitsePaivanHarjoite === 'function' && typeof laskeTekninenKehityskohde === 'function') {
+    try {
+      const _kk = laskeTekninenKehityskohde(p);
+      if (_kk && _kk.lahde !== 'oletus') {   // §B3: näytä kun diagnoosissa on dataa (ei pelkkä universaali oletus)
+        const _iso = (new Date()).toISOString().slice(0, 10);
+        const _t = valitsePaivanHarjoite(p, null, _iso);
+        if (_t && _t.nimi) {
+          const _lahdeLbl = ({ tki: 'TKI', tsi: 'TSI', hh: 'H-H' }[_kk.lahde] || '');
+          _reseptiHtml = '<div style="grid-column:1/-1;margin-top:10px;padding:12px 14px;background:rgba(40,176,144,.06);border:.5px solid rgba(40,176,144,.2);border-radius:8px">'
+            + '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);margin-bottom:4px">⚽ Resepti — T-harjoite tänään' + (_lahdeLbl ? ' · lähde ' + _lahdeLbl : '') + '</div>'
+            + '<div style="font-size:14px;color:var(--ink);font-weight:500">' + _t.nimi + '</div>'
+            + (_t.ohje ? '<div style="font-size:12px;color:var(--ink2);margin-top:3px;line-height:1.5">' + _t.ohje + '</div>' : '')
+            + (_t.cue ? '<div style="font-size:11px;color:var(--ink3);margin-top:4px">💡 ' + _t.cue + '</div>' : '')
+            + (_t.yt ? '<div style="font-size:10px;color:var(--ink3);margin-top:3px">Yhteistyötaito: ' + _t.yt + '</div>' : '')
+            + '</div>';
+        }
+      }
+    } catch (e) { console.warn('[resepti B1]', e.message); }
+  }
+
   el.innerHTML = `
     <div style="grid-column:1/-1">
       <div class="pinfo-name serif">${nimi}</div>
@@ -4893,6 +4925,7 @@ function _renderPinfoFirestore(p) {
       </div>`).join('')}
     ${_kehHtml}
     ${_adarHtml}
+    ${_reseptiHtml}
     ${lisaHtml}
     ${_sekHtml}`;
 }
@@ -5038,12 +5071,25 @@ function _renderNarrative(p) {
   const el = document.getElementById('narrativeList');
   if (!el) return;
   const tagMap = { x:'tag-x', gem:'tag-gem', warn:'tag-warn', null:null };
+  // §A — sortattava aikaleima (ISO/FI/Firestore Timestamp/Date) + Timestamp-tietoinen FI-näyttö
+  const _pvmMs = (pvm) => {
+    if (pvm == null) return null;
+    if (typeof pvm === 'object' && pvm.toDate) { try { return pvm.toDate().getTime(); } catch (e) { return null; } }
+    if (pvm instanceof Date) return pvm.getTime();
+    const m = String(pvm).match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return new Date(+m[1], +m[2]-1, +m[3]).getTime();
+    const f = String(pvm).match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/); if (f) return new Date(+f[3], +f[2]-1, +f[1]).getTime();
+    return null;
+  };
+  const _pvmFiX = (pvm) => {
+    if (pvm == null) return '';
+    if (typeof pvm === 'object' && pvm.toDate) { try { const d = pvm.toDate(); return d.getDate() + '.' + (d.getMonth()+1) + '.' + d.getFullYear(); } catch (e) { return ''; } }
+    return _pvmFiM(pvm);
+  };
   // Lisää testitulokset narratiiviin
   const testiNarr = (_testitapahtumat || []).slice(0, 3).map(t => {
     const proto = PROTOKOLLAT[t.protokolla];
-    const kk = (t.pvm || '').split('-').slice(1).reverse().join('/');
     return {
-      kk: kk || '—',
+      kk: _pvmFiX(t.pvm) || '—', _d: _pvmMs(t.pvm),
       txt: (proto?.nimi || t.protokolla || 'Testi') + (t.tila === 'suljettu' ? ' · <b>valmis</b>' : ' · avoin'),
       tag: t.tila === 'suljettu' ? 'gem' : null
     };
@@ -5054,10 +5100,9 @@ function _renderNarrative(p) {
     const bd = [];
     if (p.signaali === 'hidden') bd.push('<span class="tag tag-gem">Piilohelmi</span>');
     if (+p.hh_taso >= 4) bd.push('<span class="tag tag-x">Fyysinen XF</span>');
-    erikoisNarr.push({ kk: _pvmFiM(p.hh_pvm), txt: 'H-H-testi · taso ' + p.hh_taso, badgeHtml: bd.join(' ') });
+    erikoisNarr.push({ kk: _pvmFiM(p.hh_pvm), _d: _pvmMs(p.hh_pvm), txt: 'H-H-testi · taso ' + p.hh_taso, badgeHtml: bd.join(' ') });
   }
   if (p.tki_viimeisin != null) {
-    // KORJAUS 4: kehityskohde + vahvuus tekstiin; mitali-badge VAIN jos tki_merkki !== null.
     let txt = 'Tekniikkakilpailu · TKI ' + p.tki_viimeisin;
     if (p.tki_kehityskohde) txt += ' · Kehitä: ' + _tkLajiNimi(p.tki_kehityskohde);
     if (p.tki_vahvuus) txt += ' · Vahvuus: ' + _tkLajiNimi(p.tki_vahvuus);
@@ -5066,9 +5111,39 @@ function _renderNarrative(p) {
       const tkiMer = _tkiMerkkiM(p.tki_viimeisin, p.tki_merkki);
       if (tkiMer) bd.push('<span class="tag tag-gem">' + tkiMer.emoji + ' ' + tkiMer.nimi + '</span>');
     }
-    erikoisNarr.push({ kk: _pvmFiM(p.tki_pvm), txt: txt, badgeHtml: bd.join(' ') });
+    erikoisNarr.push({ kk: _pvmFiM(p.tki_pvm), _d: _pvmMs(p.tki_pvm), txt: txt, badgeHtml: bd.join(' ') });
+  }
+  // §A BIOGRAFIA-MILESTONET (datamallista §11/§26, vain päivätyt — ei uusia kenttiä/kyselyjä)
+  const _tv = p.tekninen_varhaiskehitys;
+  if (_tv && _tv.pvm && (_tv.merkki === 'kulta' || _tv.merkki === 'hopea')) {
+    erikoisNarr.push({ kk: _pvmFiX(_tv.pvm), _d: _pvmMs(_tv.pvm), txt: 'Tekniikkamitali · varhaiskehitys vahvistettu',
+      badgeHtml: '<span class="tag tag-gem">' + (_tv.merkki === 'kulta' ? '🥇' : '🥈') + ' Varhaistekniikka' + (_tv.ika != null ? ' U' + _tv.ika : '') + '</span>' });
+  }
+  if (p.talenttiAlku) {
+    erikoisNarr.push({ kk: _pvmFiX(p.talenttiAlku), _d: _pvmMs(p.talenttiAlku),
+      txt: 'Talenttiohjelma aloitettu' + (p.talenttiTaso ? ' · ' + (p.talenttiTaso === 'laajennettu' ? 'laajennettu' : 'perustaso') : '') });
+  }
+  if (p.luotu) {
+    erikoisNarr.push({ kk: _pvmFiX(p.luotu), _d: _pvmMs(p.luotu), txt: 'Liittyi TalentMasteriin' });
+  }
+  if (p.adar_pvm && (p.adar_havaintoja || 0) >= 1) {
+    erikoisNarr.push({ kk: _pvmFiX(p.adar_pvm), _d: _pvmMs(p.adar_pvm),
+      txt: 'ADAR-havainto · ' + p.adar_havaintoja + ' yhteensä' + (p.adar_viimeisin && p.adar_viimeisin.yht != null ? ' (yht ' + p.adar_viimeisin.yht + '/12)' : '') });
+  }
+  if (p.phv_tila === 'PH') {
+    const _phvPvm = p.biologinenIka_pvm || p.phv_pvm || p.hh_pvm || null;
+    erikoisNarr.push({ kk: _pvmFiX(_phvPvm), _d: _pvmMs(_phvPvm),
+      txt: 'Kasvupyrähdys (PHV) · varotila' + (p.biologinenIka_viimeisin != null ? ' · bioikä ' + p.biologinenIka_viimeisin : ''),
+      badgeHtml: '<span class="tag tag-warn">⚠ PHV</span>' });
   }
   const kaikkiNarr = [...erikoisNarr, ...testiNarr, ...(p.narrative || [])];
+  // §A — järjestä päivämäärän mukaan (uusin ensin); päivättömät (demo) loppuun
+  kaikkiNarr.sort((a, b) => {
+    if (a._d == null && b._d == null) return 0;
+    if (a._d == null) return 1;
+    if (b._d == null) return -1;
+    return b._d - a._d;
+  });
   el.innerHTML = kaikkiNarr.map(n => `
     <div class="narrative-item">
       <div class="narr-month">${n.kk}</div>
@@ -5143,6 +5218,28 @@ function renderSeason() {
         + card('PHV-vaiheet', '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + phvVaiheet.map(v => phvChip(v, phvLkm[v])).join('') + (phvTuntematon ? '<span style="font-size:10px;color:var(--ink3)">' + phvTuntematon + ' ei mittausta</span>' : '') + '</div>' + (phvLkm.PH ? '<div style="font-size:10px;color:var(--amber);margin-top:6px">⚠ ' + phvLkm.PH + ' kuormarajoitettua (PH)</div>' : ''))
         + card('Kattavuus (§26)', '<div style="display:flex;flex-direction:column;gap:4px">' + cov('Testattu', nTestattu) + cov('ADAR ≥3', nAdar) + cov('PHV', nPhv) + cov('FLEI', nFlei) + '</div>')
         + '</div>';
+    }
+
+    // ── §B2 HARJOITESUUNNITELMA (S-pre-harkka, tm-prescription) — datatietoinen: vaatii FLEI:n; ei kaadu ──
+    const harkkaEl = document.getElementById('seasonHarkka');
+    if (harkkaEl) {
+      const onFlei = P.some(p => (p.flei_viimeisin || 0) > 0);
+      if (!onFlei) {
+        harkkaEl.innerHTML = '<div style="background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:16px;font-size:12px;color:var(--ink3)">🏃 <b style="color:var(--ink2)">Pre-harkka</b> vaatii FLEI-mittauksen — kun ketjudataa on, tähän generoituu joukkueen pre-harkka (aktivointi · vahvuus · kohdistettu · pelillinen).</div>';
+      } else if (typeof TM !== 'undefined' && TM.prescription && typeof TM.prescription.generoimPreHarkka === 'function') {
+        try {
+          const _ph = TM.prescription.generoimPreHarkka({ pelaajat: P }, { paiva: new Date() });
+          if (_ph && _ph.blokit && _ph.blokit.length) {
+            const _bk = b => '<div style="flex:1;min-width:185px;background:var(--card);border:.5px solid var(--line);border-radius:8px;padding:12px 14px">'
+              + '<div style="font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--teal)">' + (b.tyyppi || b.vaihe || '') + (b.ketjuEmoji ? ' ' + b.ketjuEmoji : '') + '</div>'
+              + '<div style="font-size:13px;color:var(--ink);font-weight:500;margin-top:3px">' + (b.nimi || b.otsikko || '') + '</div>'
+              + (b.ohje ? '<div style="font-size:11px;color:var(--ink2);margin-top:3px;line-height:1.45">' + b.ohje + '</div>' : '')
+              + (b.phv_muistutus ? '<div style="font-size:10px;color:var(--amber);margin-top:4px">' + b.phv_muistutus + '</div>' : '') + '</div>';
+            harkkaEl.innerHTML = '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Harjoitesuunnitelma · S-pre-harkka (heikoin ketju ohjaa)</div>'
+              + '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _ph.blokit.map(_bk).join('') + '</div>';
+          } else harkkaEl.innerHTML = '';
+        } catch (e) { console.warn('[preharkka B2]', e.message); harkkaEl.innerHTML = ''; }
+      } else { harkkaEl.innerHTML = ''; }
     }
 
     // ── 3. SIGNAALIROSTER: X-Factor / Piilohelmi / klinikka (FLEI<40) / kuormarajoitin (PHV PH) ──
