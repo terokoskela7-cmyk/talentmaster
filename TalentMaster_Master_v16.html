@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781720411540';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781724885864';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=10"></script>
+<script src="lib/tm_eerikkila_normit.js?v=11"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
@@ -4917,11 +4917,11 @@ function _renderPinfoFirestore(p) {
   const stats = [];
   // MITTARI 1: FLEI → H-H → piilota
   if (flei > 0) {
-    stats.push({ lbl:'FLEI', val: flei + '%',
+    stats.push({ lbl:'FLEI'+_mSelBtn('flei'), val: flei + '%',
       delta: flei>=65?'Hyvä taso':flei>=50?'Kehittyvä':'Tarvitsee tukea', color: fleiColor });
   } else if (p.hh_taso != null) {
     const hh = +p.hh_taso;
-    stats.push({ lbl:'H-H', val: String(hh) + _deltaBadge(hh, p.hh_taso_edellinen, 1),
+    stats.push({ lbl:'H-H'+_mSelBtn('hh_taso'), val: String(hh) + _deltaBadge(hh, p.hh_taso_edellinen, 1),
       delta: hh>=4?'Vahva':hh>=3?'Keskitaso':'Kehittyvä',
       color: hh>=4?'var(--teal)':hh>=3?'var(--amber)':'var(--red)', detalji:'hh' });
   }
@@ -4933,7 +4933,7 @@ function _renderPinfoFirestore(p) {
       ? (tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu')
       : (p.tki_kehityskohde ? 'Kehitä: ' + _tkLajiNimi(p.tki_kehityskohde)
          : (tkiPvm ? 'Mitattu ' + tkiPvm : 'Tekniikkakilpailu'));
-    stats.push({ lbl:'TKI', val: tki + (tkiM ? ' ' + tkiM.emoji : '') + _deltaBadge(tki, p.tki_edellinen, 0), delta: tkiDelta, color: tkiColor, detalji:'tki' });
+    stats.push({ lbl:'TKI'+_mSelBtn('tki'), val: tki + (tkiM ? ' ' + tkiM.emoji : '') + _deltaBadge(tki, p.tki_edellinen, 0), delta: tkiDelta, color: tkiColor, detalji:'tki' });
   } else if (p.tsi_viimeisin != null) {
     // KORJAUS 2: TSI selitetään — mitä luku tarkoittaa (pallon vaikutus nopeuteen).
     const tsi = +p.tsi_viimeisin;
@@ -4948,7 +4948,7 @@ function _renderPinfoFirestore(p) {
       tsiLbl = '⚠️ Pallo hidastaa'; tsiColor = 'var(--amber)';
       tsiTip = 'Pallo hidastaa pelaajaa ' + tsi + 's verrattuna pallottomaan nopeuteen. Tavoite: alle 0.5s.';
     }
-    stats.push({ lbl:'TSI', val: (tsi <= 0 ? Math.abs(tsi) : tsi) + ' s', delta: tsiLbl, title: tsiTip, color: tsiColor, detalji:'tsi' });
+    stats.push({ lbl:'TSI'+_mSelBtn('tsi'), val: (tsi <= 0 ? Math.abs(tsi) : tsi) + ' s', delta: tsiLbl, title: tsiTip, color: tsiColor, detalji:'tsi' });
   }
   // (Testikertoja/Streak → vaimea sekundääririvi alla, vain jos dataa — ei tyhjiä "—" KPI:itä ykkösriville.)
 
@@ -6207,6 +6207,9 @@ function undoAction(key) {
 
 // Selitteen näyttö klikkauksella (kosketusystävällinen). EI undo-nappia → ei käytä toast():ia.
 // textContent estää HTML-injektion. §7.17 IIFE-scope → globaali. Pitkä kesto (~6 s).
+// §IA ℹ️-infonappi KPI-/testiotsikoihin — selite aina TM_SELITTEET:istä (yksi lähde). Klikkaus → _mSelInfo.
+function _mSelBtn(k){ var t=(typeof TM_SELITTEET!=='undefined' && TM_SELITTEET[k])?TM_SELITTEET[k]:null; return t?' <span onclick="event.stopPropagation();_mSelInfo(\''+k+'\')" title="'+String(t).replace(/"/g,'&quot;')+'" style="cursor:help;color:var(--ink3);font-size:10px;opacity:.7">ⓘ</span>':''; }
+window._mSelBtn = _mSelBtn;
 window._mSelInfo = function(k) {
   var t = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET[k]) ? TM_SELITTEET[k] : '';
   if (!t) return;
