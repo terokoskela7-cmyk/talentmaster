@@ -1278,6 +1278,9 @@ body {
 }
 /* Popup-pelaajarivin mobiilimeta piilossa desktopilla (näytetään @media ≤768px) */
 .dimpop-pmeta { display: none; }
+.dpk-chip { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; border: .5px solid var(--border); color: var(--ink2); margin: 2px 4px 2px 0; }
+.dpk-chip.dpk-red { border-color: var(--red); color: var(--red); }
+.dpk-arrow { color: var(--ink3); margin-left: auto; align-self: center; }
 .pop-footnote { font-size: 10px; color: var(--ink3); padding: 6px 0 0; font-family: var(--font-mono); }
 
 /* ── Kerros 2: Fyysinen-testirivi (kortti) + hero D-kortit (--muted = --ink3) ── */
@@ -1475,8 +1478,9 @@ body {
   .dimpop-pcol { display: none; }
   .dimpop-prow td { padding: 12px 10px !important; }
   .dimpop-pname { font-size: 18px; font-weight: 600; }
-  .dimpop-pmeta { display: block; font-size: 13px; font-weight: 400; color: var(--ink3); margin-top: 3px; }
-  .dimpop-parrow { width: 44px; font-size: 20px !important; text-align: right; }
+  .dimpop-pmeta { display: flex; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+  .dimpop-parrow { display: none; }
+  .dimpop-table thead { display: none; }   /* orpo sarakeotsikko pois mobiilissa */
 
   /* Popup välilehtinapit + CTA + hero-numero — touch target + data hero */
   .dimpop-tab { padding: 12px 16px !important; font-size: 14px !important; }
@@ -4037,7 +4041,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   if (n === 0) { t1 = '<div style="color:var(--ink3);font-style:italic;padding:12px">Ei pelaajia</div>'; }
   else {
     let _tsiFootnote = false;
-    t1 = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    t1 = '<table class="dimpop-table" style="width:100%;border-collapse:collapse;font-size:12px">'
       + '<thead><tr style="text-align:left;color:var(--ink3);font-size:10px;text-transform:uppercase;letter-spacing:.06em">'
       + '<th style="padding:6px 8px">Pelaaja</th>'
       + '<th style="padding:6px 8px"' + _vpSelTip('hh_taso') + '>H-H</th>'
@@ -4071,10 +4075,16 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
         teknSolu = '<span style="color:var(--ink3)">—</span>';
         teknMeta = null;
       }
-      // Mobiilimeta (näkyy vain @media ≤768px): joukkue · H-H · Tekninen · PHV
-      const pmeta = lyhennaNimi(joukkueNimi) + ' · H-H ' + (hh != null ? hh : '—') + (teknMeta ? ' · ' + teknMeta : '') + ' · ' + (p.phv_tila || '—');
+      // Mobiilikortti (≤768px): vain ei-tyhjät arvot diskreetteinä chipeinä + → (ei '—'-kohinaa, ei orpoa otsikkoa)
+      var _ch = [];
+      if (p.flei_viimeisin != null && p.flei_viimeisin < 40) _ch.push('<span class="dpk-chip dpk-red">🏥 FLEI ' + p.flei_viimeisin + '</span>');
+      if (hh != null) _ch.push('<span class="dpk-chip" style="border-color:' + hhTasoVari(hh) + ';color:' + hhTasoVari(hh) + '">H-H ' + hh + '</span>');
+      if (d2val != null) _ch.push('<span class="dpk-chip" style="border-color:' + hhTasoVari(d2val) + ';color:' + hhTasoVari(d2val) + '">D2 ' + d2val + (d2src === 'tki' ? ' TKI' : d2src ? ' ' + ({sm:'SM',hh:'H-H',tk:'TK'}[d2src]||'') : '') + '</span>');
+      if (p.phv_tila) _ch.push('<span class="dpk-chip"' + (p.phv_tila === 'PH' ? ' style="border-color:var(--amber);color:var(--amber)"' : '') + '>' + (p.phv_tila === 'PH' ? '⚠ ' : '') + 'PHV ' + p.phv_tila + '</span>');
+      if ((p.adar_havaintoja||0) >= 3 && adarY != null) _ch.push('<span class="dpk-chip">ADAR ' + adarY + '/12</span>');
+      var _kortti = (_ch.length ? _ch.join('') : '<span style="color:var(--ink3);font-size:11px">Ei mittauksia vielä</span>') + '<span class="dpk-arrow">→</span>';
       t1 += '<tr class="dimpop-prow" style="border-top:.5px solid var(--border);cursor:pointer" onclick="_avaaPerPelaajaPikakatsaus(' + idx + ',\'' + jescNimi + '\')">'
-        + '<td class="dimpop-pname" style="padding:7px 8px;color:var(--ink)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + ' ' + _vpRaeChip(p) + '<div class="dimpop-pmeta">' + _jsvEsc(pmeta) + '</div></td>'
+        + '<td class="dimpop-pname" style="padding:7px 8px;color:var(--ink)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + ' ' + _vpRaeChip(p) + '<div class="dimpop-pmeta">' + _kortti + '</div></td>'
         + '<td class="dimpop-pcol" style="padding:7px 8px">' + (hh != null ? '<span style="color:' + hhTasoVari(hh) + ';font-family:var(--font-m)">' + hh + '</span>' : '<span style="color:var(--ink3)">—</span>') + '</td>'
         + '<td class="dimpop-pcol" style="padding:7px 8px">' + (p.d1_taso != null ? '<span style="color:' + hhTasoVari(p.d1_taso) + ';font-family:var(--font-m)">' + p.d1_taso + '</span>' : '<span style="color:var(--ink3)">—</span>') + '</td>'
         + '<td class="dimpop-pcol" style="padding:7px 8px;font-family:var(--font-m)">' + teknSolu + '</td>'
