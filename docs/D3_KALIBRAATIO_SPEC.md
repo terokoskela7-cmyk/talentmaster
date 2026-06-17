@@ -21,7 +21,7 @@ VP:n ydintyö: kalibrointi + valmentajan mentorointi. Tämä on aito tuoteominai
 
 - **`d3_taso` = aikuisarvioiden ka, valmentaja ensisijainen** (kuten §C). **VP-arvio EI sulaudu `d3_taso`:on** — koska VP arvioi **valikoiden** (talenttiohjelma / kalibraationäyte, ei kaikkia 200:aa) → keskiarvoistus vääristäisi vertailtavuuden.
 - VP-arvio = **kalibraatiomerkki + vertailunäkymä**, ei talentti-pisteen osa.
-- `d3Varmuus` (merkintä+flag-passista) säilyy: itsearvio → trianguloitu (pelaaja+valmentaja). VP-arvio lisää kalibraatiosignaalin, ei muuta varmuustasoa.
+- `d3Varmuus(lahteet)` (merkintä+flag-passista, toteutettu lib:issä) — **kolme tilaa:** `'itsearvio'` (vain pelaaja) · `'valmentaja'` (vain valmentaja) · `'trianguloitu'` (pelaaja+valmentaja). VP-arvio lisää kalibraatiosignaalin erikseen, **ei muuta `d3Varmuus`-tasoa eikä `d3_taso`:a** (malli A). (Mahdollinen jatko: oma merkki kun VP mukana, esim. 'kalibroitu' — päätetään komento 2:ssa.)
 
 ---
 

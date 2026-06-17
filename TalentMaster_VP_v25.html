@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=14"></script>
+<script src="lib/tm_eerikkila_normit.js?v=15"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -4614,6 +4614,18 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
         + _keh + '</div>';
     }
   }
+  // §D3 VP-kalibraatio (malli A): kolmen näkökulman vertailu + VP-arviointinappi. VP-arvio EI muuta d3_taso:a.
+  {
+    const _d3pt = (p.d3_viimeisin && p.d3_viimeisin.pisteet) || null;
+    const _onVp = _d3pt && Object.keys(_d3pt).some(function(k){ return _d3pt[k] && _d3pt[k].vp != null; });
+    h += '<div style="padding:8px 24px 12px;border-top:.5px solid var(--border)">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">D3 Psyykkinen — kalibraatio'
+      + (p.d3_taso != null && p.d3_varmuus && typeof d3VarmuusChip === 'function' ? ' ' + d3VarmuusChip(p.d3_varmuus) : '') + '</span>'
+      + '<button onclick="_avaaVpD3Arvio(\'' + p.id + '\')" style="background:var(--blue);color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + (_onVp ? 'Päivitä VP-arvio' : 'Arvioi (VP)') + '</button></div>';
+    h += '<div id="_jspD3Vertailu">' + (_d3pt && typeof renderD3VertailuHTML === 'function' ? renderD3VertailuHTML(_d3pt) : '<div style="font-size:11px;color:var(--ink3)">Ei vielä D3-arvioita. VP-arvio aloittaa kalibraation.</div>') + '</div>';
+    h += '</div>';
+  }
   h += '<div style="display:flex;gap:6px;padding:0 24px 4px;border-bottom:.5px solid var(--border)">';
   [['ti-bolt','Fyysinen'],['ti-ball-football','Tekninen'],['ti-compass','Peli'],['ti-trending-up','Kehitys']].forEach(function(t,i) {
     h += '<button id="_jspBtn' + i + '" class="dim-tab ' + (i===0?'on':'') + '" onclick="_jspVaihda(' + i + ')"><i class="ti ' + t[0] + '"></i>' + t[1] + '</button>';
@@ -4639,6 +4651,70 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   document.body.appendChild(modal);
 };
 
+/* ── §D3 VP-KALIBRAATIOARVIO (D3_KALIBRAATIO_SPEC malli A) ──────────────────────
+   VP arvioi valikoiden (talenttiohjelma/kalibraationäyte) → pisteet[dim].vp + d3_vp_pvm.
+   EI muuta d3_taso:a eikä d3_varmuus:ta — erillinen kalibraatiokerros. lahteet += 'vp'. */
+let _vpD3Vastaukset = {};
+function _vpD3PelaajaById(pid) {
+  const lista = window._jsvPelaajat || (typeof _pelaajat !== 'undefined' ? _pelaajat : []) || [];
+  return lista.find(x => x.id === pid) || null;
+}
+window._avaaVpD3Arvio = function(pid) {
+  const p = _vpD3PelaajaById(pid);
+  if (!p) { if (typeof toast === 'function') toast('Pelaajaa ei löytynyt'); return; }
+  _vpD3Vastaukset = {};
+  const nyk = (p.d3_viimeisin && p.d3_viimeisin.pisteet) || {};
+  D3_DIMS.forEach(d => { _vpD3Vastaukset[d.key] = (nyk[d.key] && nyk[d.key].vp != null) ? nyk[d.key].vp : null; });
+  const vanha = document.getElementById('_vpD3Modal'); if (vanha) vanha.remove();
+  const m = document.createElement('div'); m.id = '_vpD3Modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:340;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(8px)';
+  m.onclick = e => { if (e.target === m) m.remove(); };
+  const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id;
+  let h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:min(480px,94vw);max-height:90vh;overflow-y:auto;padding:20px 22px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
+    + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">D3 VP-kalibraatio — ' + nimi + '</div>'
+    + '<button onclick="document.getElementById(\'_vpD3Modal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>';
+  h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px;line-height:1.5">Kokonaiskuva-arvio · 1 (harvoin) – 5 (lähes aina). EI sulaudu d3_tasoon — kalibraatiomerkki + vertailu valmentajan/pelaajan kanssa.</div>';
+  D3_DIMS.forEach(d => {
+    h += '<div style="padding:10px 0;border-top:.5px solid var(--border)"><div style="font-size:13px;color:var(--ink);margin-bottom:2px"><b>' + d.nimi + '</b></div>'
+      + '<div style="font-size:11px;color:var(--ink3);margin-bottom:8px">' + d.vpQ + '</div>'
+      + '<div style="display:flex;gap:6px">' + [1,2,3,4,5].map(n =>
+        '<button class="_vpd3nap" data-dim="' + d.key + '" data-n="' + n + '" onclick="_vpD3Valitse(\'' + d.key + '\',' + n + ')" style="flex:1;min-height:42px;border:.5px solid var(--border);background:' + (_vpD3Vastaukset[d.key] === n ? 'var(--blue)' : 'transparent') + ';color:' + (_vpD3Vastaukset[d.key] === n ? '#fff' : 'var(--ink)') + ';border-radius:6px;font-size:13px;cursor:pointer">' + n + '</button>').join('') + '</div></div>';
+  });
+  h += '<button onclick="_tallennaVpD3(\'' + pid + '\')" style="display:block;width:100%;margin-top:16px;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;min-height:46px;font-family:\'DM Sans\',sans-serif">Tallenna VP-arvio</button>';
+  h += '</div>';
+  m.innerHTML = h; document.body.appendChild(m);
+};
+window._vpD3Valitse = function(dim, n) {
+  _vpD3Vastaukset[dim] = n;
+  document.querySelectorAll('._vpd3nap[data-dim="' + dim + '"]').forEach(b => {
+    const on = (+b.dataset.n === n);
+    b.style.background = on ? 'var(--blue)' : 'transparent'; b.style.color = on ? '#fff' : 'var(--ink)';
+  });
+};
+window._tallennaVpD3 = async function(pid) {
+  const p = _vpD3PelaajaById(pid); if (!p) return;
+  const annettu = D3_DIMS.filter(d => _vpD3Vastaukset[d.key] != null);
+  if (!annettu.length) { if (typeof toast === 'function') toast('Anna vähintään yksi arvio'); return; }
+  // Säilytä valmentaja/pelaaja/avg — lisää VAIN vp. EI kosketa d3_taso/d3_varmuus (malli A).
+  const pisteet = JSON.parse(JSON.stringify((p.d3_viimeisin && p.d3_viimeisin.pisteet) || {}));
+  D3_DIMS.forEach(d => { if (_vpD3Vastaukset[d.key] != null) { pisteet[d.key] = pisteet[d.key] || {}; pisteet[d.key].vp = _vpD3Vastaukset[d.key]; } });
+  const vanhatL = (p.d3_viimeisin && p.d3_viimeisin.lahteet) || [];
+  const lahteet = vanhatL.slice(); if (lahteet.indexOf('vp') < 0) lahteet.push('vp');   // d3Varmuus ohittaa vp:n → varmuus ennallaan
+  const pvm = new Date().toISOString().slice(0,10);
+  const d3v = Object.assign({}, p.d3_viimeisin || {}, { pisteet: pisteet, lahteet: lahteet });
+  if (!d3v.pvm) d3v.pvm = pvm;
+  try {
+    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid)
+      .set({ d3_viimeisin: d3v, d3_vp_pvm: pvm }, { merge: true });   // EI d3_taso/d3_varmuus
+    p.d3_viimeisin = d3v; p.d3_vp_pvm = pvm;
+    if (typeof toast === 'function') toast('VP-kalibraatioarvio tallennettu ✓', 'ok');
+    document.getElementById('_vpD3Modal')?.remove();
+    const vert = document.getElementById('_jspD3Vertailu');   // päivitä avoinna oleva vertailu paikan päällä
+    if (vert && typeof renderD3VertailuHTML === 'function') vert.innerHTML = renderD3VertailuHTML(pisteet);
+    if (typeof renderKotiVP === 'function') renderKotiVP();   // päivitä Kodin kuilu-signaali
+  } catch(e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + e.message); console.warn('[vpD3]', e); }
+};
 
 function renderValmentajat() {
   const grid = document.getElementById('coachGrid');
@@ -5968,6 +6044,9 @@ function lahetaRaportti() {
   L.push(''); L.push('SIGNAALIT');
   if (hiljaa) L.push('· ' + hiljaa + ' valmentajaa ilman mentorointikirjausta (' + VALMENTAJA_HILJAA_PV + ' pv)');
   if (klinikka) L.push('· ' + klinikka + ' pelaajaa FLEI alle 40 (klinikkalähetys)');
+  // §D3 kalibraatiokuilu (malli A): valmentajan ja VP:n arvio eroaa ≥1.5
+  const d3kuilu = P.filter(p => p.d3_viimeisin && typeof d3VpKuiluPelaajalla === 'function' && d3VpKuiluPelaajalla(p.d3_viimeisin.pisteet)).length;
+  if (d3kuilu) L.push('· ' + d3kuilu + ' pelaajalla valmentajan ja VP:n D3-arvio eroaa (kalibraatio/mentorointi)');
   if (talents.length) L.push('· Nostoehdokkaat: ' + talents.map(p => (p.etunimi||'') + ' ' + (p.sukunimi||'') + ' (' + (p.joukkue||'') + ', FLEI ' + p.flei_viimeisin + ')').join('; '));
   if (!hiljaa && !klinikka && !talents.length) L.push('· Ei kriittisiä signaaleja.');
   // §RAE VAIHE B — BQ-jakauma + underdog-lista + bias
@@ -6036,6 +6115,9 @@ function renderKotiVP() {
   const annettu = P.filter(p => p.suostumusTila === 'annettu').length;
   const konv = (odottaa + annettu) > 0 ? Math.round(annettu / (odottaa + annettu) * 100) : null;
   if (konv != null && konv < 70 && odottaa > 0) kortit.push({ ik:'📋', sev:T.amber, txt: 'Rekisteröintikonversio ' + konv + '% · ' + odottaa + ' odottaa vastausta', cta:'Muistuta odottavia', fn:"setWs('tilanne')" });
+  // 6. D3-kalibraatiokuilu (malli A): valmentajan ja VP:n arvio eroaa ≥1.5 → kalibraatio/mentorointi
+  const d3Kuilu = P.filter(p => p.d3_viimeisin && typeof d3VpKuiluPelaajalla === 'function' && d3VpKuiluPelaajalla(p.d3_viimeisin.pisteet));
+  if (d3Kuilu.length) kortit.push({ ik:'⚖️', sev:T.blue, txt: 'Valmentajan ja VP:n D3-arvio eroaa ' + d3Kuilu.length + ' pelaajalla → kalibraatio', cta:'Katso', fn:"setWs('pelaajat')" });
 
   const strippi = '<div class="vpkoti-strippi">'
     + '<div><div class="vks-luku">' + (tuotu + odottaa + annettu) + '</div><div class="vks-lbl">tuotu</div></div>'

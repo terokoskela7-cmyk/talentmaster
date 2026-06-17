@@ -24,6 +24,9 @@ const {
   RAE_KERROIN,
   d3Varmuus,
   d3VarmuusChip,
+  D3_DIMS,
+  renderD3VertailuHTML,
+  d3VpKuiluPelaajalla,
 } = require('../lib/tm_eerikkila_normit.js');
 
 // ═══════════════════════════════════════════════════════════════════
@@ -420,5 +423,29 @@ describe('d3Varmuus (D3_KALIBRAATIO_SPEC malli A)', () => {
     expect(d3VarmuusChip('trianguloitu')).toContain('trianguloitu');
     expect(d3VarmuusChip(null)).toBe('');
     expect(d3VarmuusChip('outo')).toBe('');
+  });
+});
+
+describe('D3 kalibraatio (renderD3VertailuHTML + d3VpKuiluPelaajalla, malli A)', () => {
+  it('D3_DIMS = 5 kanonista ulottuvuutta', () => {
+    expect(D3_DIMS.map(d => d.key)).toEqual(['inner_drive', 'coachability', 'resilience', 'focus', 'emotional_control']);
+  });
+  it('vertailu: tyhjä → tyhjä string', () => {
+    expect(renderD3VertailuHTML(null)).toBe('');
+    expect(renderD3VertailuHTML({})).toBe('');
+  });
+  it('vertailu: ⚠ kun kuilu ≥1.5 (max−min)', () => {
+    const html = renderD3VertailuHTML({ inner_drive: { pelaaja: 5, valmentaja: 2 }, focus: { valmentaja: 3, vp: 3 } });
+    expect(html).toContain('⚠');
+    expect(html).toContain('Sisäinen motivaatio');
+  });
+  it('vpKuilu: VAIN valmentaja vs vp ≥1.5 → true', () => {
+    expect(d3VpKuiluPelaajalla({ resilience: { valmentaja: 4, vp: 2 } })).toBe(true);
+    expect(d3VpKuiluPelaajalla({ resilience: { valmentaja: 4, vp: 3 } })).toBe(false);
+    expect(d3VpKuiluPelaajalla({ resilience: { valmentaja: 4 } })).toBe(false);
+    expect(d3VpKuiluPelaajalla(null)).toBe(false);
+  });
+  it('vpKuilu EI laukea pelkästä pelaaja–vp erosta (malli A: vain valmentaja vs vp)', () => {
+    expect(d3VpKuiluPelaajalla({ x: { pelaaja: 5, vp: 1 } })).toBe(false);
   });
 });

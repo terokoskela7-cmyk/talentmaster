@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781736916016';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781738005149';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=14"></script>
+<script src="lib/tm_eerikkila_normit.js?v=15"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
@@ -2937,6 +2937,12 @@ function _renderOhjaavaSignaali() {
       + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">D3 Psykologinen' + (onD3 && p.d3_taso != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + p.d3_taso + '<span style="font-size:11px;color:var(--ink3)">/5</span></span>' : '') + (onD3 && p.d3_varmuus && typeof d3VarmuusChip === 'function' ? ' ' + d3VarmuusChip(p.d3_varmuus) : '') + (typeof _mSelBtn === 'function' ? _mSelBtn('d3') : '') + '</span>'
       + '<button onclick="_avaaD3Arvio(\'' + p.id + '\')" style="background:var(--teal);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">' + (onD3 ? 'Päivitä arvio' : 'Arvioi') + '</button></div>'
       + (onD3 ? _D3_DIMS.map(_d3rivi).join('') : '<div style="font-size:11px;color:var(--ink3)">Psyykkinen profiili täydentyy kun arvioit pelaajan + pelaaja tekee itsearvion.</div>')
+      // §D3 kalibraatio (malli A): kolmen näkökulman vertailu näkyy kun VP on arvioinut. Kuilu → mentorointihenkinen vihje.
+      + (onD3 && d3v.pisteet && Object.keys(d3v.pisteet).some(k => d3v.pisteet[k] && d3v.pisteet[k].vp != null) && typeof renderD3VertailuHTML === 'function'
+          ? renderD3VertailuHTML(d3v.pisteet)
+            + (typeof d3VpKuiluPelaajalla === 'function' && d3VpKuiluPelaajalla(d3v.pisteet)
+                ? '<div style="font-size:10px;color:var(--amber);margin-top:4px">⚠ Arviosi eroaa VP:n näkemyksestä — hyvä keskustelunaihe kalibrointiin.</div>' : '')
+          : '')
       + '</div>';
   }
   el.innerHTML = `
