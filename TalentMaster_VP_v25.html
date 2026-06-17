@@ -1814,6 +1814,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         <button class="filter-btn f-idppuuttuu" data-filter="idppuuttuu" onclick="filterPlayers('idppuuttuu')">○ IDP puuttuu</button>
         <button class="filter-btn f-talenttisuositus" data-filter="talenttisuositus" onclick="filterPlayers('talenttisuositus')">★ Talenttisuositus</button>
         <button class="filter-btn f-siirtopaatos" data-filter="siirtopaatos" onclick="filterPlayers('siirtopaatos')">→ Siirtopäätös</button>
+        <button class="filter-btn f-bq4" data-filter="bq4" onclick="filterPlayers('bq4')" title="Q4 = ikäluokan nuorimmat (loka–joulu) — suojattavat/underdog">Q4 nuorimmat</button>
       </div>
 
       <div class="section-hd" style="margin-top:28px">Kaikki pelaajat</div>
@@ -3859,6 +3860,7 @@ function _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n) {
 
   // VAIHE 2 — FYYSINEN (H-H) -osio TKI-lohkojen jälkeen (data-tietoinen: tyhjä jos ei H-H-dataa)
   h += _jsvFyysinenHTML(pelaajat, joukkueNimi, n);
+  h += _vpRaeRakenneHTML(pelaajat);   // §RAE VAIHE B — joukkueen BQ-rakenne
 
   return h;
 }
@@ -5959,6 +5961,17 @@ function lahetaRaportti() {
   if (klinikka) L.push('· ' + klinikka + ' pelaajaa FLEI alle 40 (klinikkalähetys)');
   if (talents.length) L.push('· Nostoehdokkaat: ' + talents.map(p => (p.etunimi||'') + ' ' + (p.sukunimi||'') + ' (' + (p.joukkue||'') + ', FLEI ' + p.flei_viimeisin + ')').join('; '));
   if (!hiljaa && !klinikka && !talents.length) L.push('· Ei kriittisiä signaaleja.');
+  // §RAE VAIHE B — BQ-jakauma + underdog-lista + bias
+  if (typeof raeChip === 'function') {
+    var BQ = { Q1:0,Q2:0,Q3:0,Q4:0 }, bn = 0, underdogit = [];
+    P.forEach(function(p){ var rc = raeChip(p); if (rc.q){ BQ[rc.q]++; bn++; } if (rc.underdog) underdogit.push((p.etunimi||'')+' '+(p.sukunimi||'')+' ('+(p.joukkue||'')+')'); });
+    if (bn) {
+      L.push(''); L.push('SYNTYMÄKVARTAALI-JAKAUMA (RAE)');
+      ['Q1','Q2','Q3','Q4'].forEach(function(q){ L.push('· '+q+': '+BQ[q]+' ('+Math.round(BQ[q]/bn*100)+'%)'); });
+      if (Math.round(BQ.Q1/bn*100) > 40) L.push('· ⚠ Ikäharha: Q1 yliedustettu — valintaprofiili nojaa ikäetuun?');
+      if (underdogit.length) L.push('· ⭐ Underdog (Q4 + taso ≥3): ' + underdogit.join('; '));
+    }
+  }
   if (huomiot) { L.push(''); L.push('VP:N HUOMIOT'); L.push(huomiot); }
   const raportti = L.join('\n');
   const vanha = document.getElementById('hotRaporttiModal'); if (vanha) vanha.remove();
@@ -6036,6 +6049,7 @@ function renderKotiVP() {
     h += '<div class="vpkoti-tyhja">✅ <b>Ei kriittisiä signaaleja juuri nyt.</b><br>'
       + '<span style="font-size:13px;color:var(--ink3)">Kun valmentaja hiljenee, nostoehdokas ilmaantuu tai kehityskohteita kasaantuu, näet ne täällä toimenpiteinä.</span><br><button class="vkk-cta" style="margin-top:12px" onclick="naytaOnboarding(true)">Aloita tästä →</button></div>';
   }
+  { var _bq = _vpRaeRakenneHTML(P); if (_bq) h += '<div style="margin-top:20px">' + _bq + '</div>'; }   // §RAE VAIHE B — BQ-rakenne Kotiin
   el.innerHTML = h;
 }
 window.renderKotiVP = renderKotiVP;
@@ -6404,6 +6418,39 @@ function laskeHiddenGem(p) {
   return { taso: taso, dHG: !!taso, fleiHG: fleiHG, kimpale: (!!taso && fleiHG), mitali: mitali, prePhv: prePhv, d1: d1, d2: d2 };
 }
 // HG-badge pelaajalle (null jos ei mikään). Kullankimpale ohittaa muut. Stored signaali:'xfactor' hoidetaan erikseen.
+// §RAE-näkyvyys VAIHE B — joukkueen BQ-rakenne (jakauma + bias + talentti×kvartaali) + Q4-suodatin. Pikakentät, ei kerrointa.
+function _vpRaeRakenneHTML(pelaajat) {
+  if (!pelaajat || !pelaajat.length || typeof raeChip !== 'function') return '';
+  var Q = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 }, n = 0, karki = [];
+  pelaajat.forEach(function (p) {
+    var rc = raeChip(p);
+    if (rc.q) { Q[rc.q]++; n++; }
+    var maxT = Math.max((p.d1_taso || 0), (p.d2_taso || 0), (p.hh_taso || 0));
+    if (rc.q && (p.talenttiOhjelma === true || maxT >= 4 || (p.tki_viimeisin != null && p.tki_viimeisin >= 80))) karki.push(rc.q);
+  });
+  if (!n) return '';
+  var pct = function (q) { return Math.round(Q[q] / n * 100); };
+  var COL = { Q1: 'var(--amber)', Q2: 'var(--ink3)', Q3: 'var(--ink3)', Q4: 'var(--teal)' };
+  var palkit = ['Q1', 'Q2', 'Q3', 'Q4'].map(function (q) {
+    return '<div style="display:flex;align-items:center;gap:8px;margin:3px 0">'
+      + '<span style="flex:0 0 22px;font-size:11px;color:' + COL[q] + '">' + q + '</span>'
+      + '<span style="flex:1;height:8px;border-radius:4px;background:var(--ov-2);overflow:hidden"><span style="display:block;height:8px;width:' + pct(q) + '%;background:' + COL[q] + '"></span></span>'
+      + '<span style="flex:0 0 58px;font-size:11px;color:var(--ink2);text-align:right">' + Q[q] + ' · ' + pct(q) + '%</span></div>';
+  }).join('');
+  var h = '<div class="jsv-an-otsikko">Syntymäkvartaali-rakenne (RAE)' + _vpSelTip('rae') + '</div>' + palkit;
+  if (pct('Q1') > 40) h += '<div style="font-size:11px;color:var(--amber);margin-top:6px">⚠ Ikäharha: Q1 ' + pct('Q1') + '% — valitaanko taitoa vai ikää?</div>';
+  if (n >= 6 && pct('Q4') < 15) h += '<div style="font-size:11px;color:var(--amber);margin-top:4px">⚠ Q4 aliedustettu (' + pct('Q4') + '%) — myöhäissyntyneet karsiutuvat?</div>';
+  if (karki.length) {
+    var kPct = Math.round(karki.filter(function (q) { return q === 'Q1'; }).length / karki.length * 100);
+    h += '<div style="font-size:11px;color:var(--ink2);margin-top:6px">Kärjestä <b>' + kPct + '% Q1</b> (' + karki.length + ' kärkipelaajaa) → '
+      + (kPct >= 50 ? 'valintaprofiili nojaa ikäetuun.' : 'jakautunut → valitaan taitoa.') + '</div>';
+  }
+  h += '<div style="margin-top:8px"><button class="vkk-cta" style="font-size:12px;padding:8px 14px;min-height:36px" onclick="_vpSuodataBQ4()">Tarkastele Q4-pelaajat →</button></div>';
+  return h;
+}
+function _vpSuodataBQ4() { setWs('pelaajat'); if (typeof filterPlayers === 'function') filterPlayers('bq4'); }
+window._vpSuodataBQ4 = _vpSuodataBQ4;
+
 // §RAE-näkyvyys — syntymäkvartaali-chip (Q1 amber/Q4 teal/Q2-Q3 neutraali) + underdog (Q4+taso≥3). ℹ️ _vpSelTip(rae). Vain näkyvyys.
 function _vpRaeChip(p, koko) {
   if (typeof raeChip !== "function") return "";
@@ -7145,6 +7192,8 @@ function renderPelaajatFiltered() {
     filtered = _pelaajat.filter(p => _onTalenttisuositus(p));
   } else if (_activeFilter === 'siirtopaatos') {
     filtered = _pelaajat.filter(p => p.siirtopaatos);
+  } else if (_activeFilter === 'bq4') {
+    filtered = _pelaajat.filter(p => typeof raeChip === 'function' && raeChip(p).q === 'Q4');   // §RAE BQ4-suodatin
   }
 
   if (filtered.length === 0) {
