@@ -1391,6 +1391,23 @@ body {
 .tp-modaali-napit button:first-child { background: var(--teal); color: #fff; border: none; }
 .tp-modaali-napit button:last-child { background: transparent; color: var(--ink2); border: 1px solid var(--ov-3); }
 
+/* §IA VP — Koti-etusivu + mobiili tab-bar (desktop: tabbar piilossa, sidebar) */
+.tabbar { display: none; }
+.vpkoti-otsikko { font-family: var(--font-serif); font-weight: 300; font-size: 24px; color: var(--ink); margin-bottom: 14px; }
+.vpkoti-strippi { display: flex; align-items: center; gap: 10px; background: var(--bg3); border: .5px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
+.vpkoti-strippi > div { text-align: center; }
+.vks-luku { font-family: var(--font-serif); font-size: 26px; color: var(--ink); line-height: 1.1; }
+.vks-lbl { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); }
+.vks-arrow { color: var(--ink3); font-size: 16px; }
+.vpkoti-kortit { display: flex; flex-direction: column; gap: 10px; }
+.vpkoti-kortti { display: flex; align-items: center; gap: 14px; background: var(--bg3); border: .5px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.vkk-ik { font-size: 20px; flex: 0 0 auto; }
+.vkk-txt { flex: 1; font-size: 14px; color: var(--ink); line-height: 1.4; }
+.vkk-cta { flex: 0 0 auto; background: var(--teal); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; min-height: 40px; }
+.vkk-cta:hover { opacity: .9; }
+.vkk-link { color: var(--teal); cursor: pointer; font-size: 13px; }
+.vpkoti-tyhja { background: var(--bg3); border: .5px dashed var(--border); border-radius: 12px; padding: 28px 22px; text-align: center; color: var(--ink2); font-size: 15px; line-height: 1.6; }
+
 @media (max-width: 768px) {
   #hamburgeri { display: flex !important; }
   #topbar .logo { display: none; }
@@ -1470,6 +1487,15 @@ body {
   .jk-nimi { font-size: 18px; }
   .jk-arvo { font-size: 20px; }
   .jk-dim-ctx { display: none; }   /* Eerikkilä/SM-testi-teksti piiloon mobiilissa — numerot+palkit riittävät */
+  /* §IA mobiili: ala-tab-bar näkyviin, tilaa barille, Koti-kortit täysleveiksi */
+  .tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 150; background: var(--bg3); border-top: .5px solid var(--border); padding: 4px; }
+  .tabbar-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; background: none; border: none; color: var(--ink3); cursor: pointer; font-family: inherit; padding: 4px; border-radius: 8px; }
+  .tabbar-item.active { color: var(--teal); }
+  .tabbar-item .tb-ic { font-size: 19px; line-height: 1; }
+  .tabbar-item .tb-lbl { font-size: 10px; }
+  #main { padding-bottom: 80px; }
+  .vpkoti-kortti { flex-wrap: wrap; }
+  .vpkoti-kortti .vkk-cta { flex: 1 1 100%; }
 }
 /* Placeholder-teksti luettavaksi (WCAG) — globaali, ei selaimen oletushimmennystä */
 input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
@@ -1551,6 +1577,14 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
   <div id="sivupalkkiOverlay" onclick="_toggleSivupalkki()"></div>
 
+  <nav class="tabbar">
+    <button class="tabbar-item" data-ws="koti" onclick="setWs('koti')"><span class="tb-ic">🏠</span><span class="tb-lbl">Koti</span></button>
+    <button class="tabbar-item" data-ws="pelaajat" onclick="setWs('pelaajat')"><span class="tb-ic">👥</span><span class="tb-lbl">Joukkueet</span></button>
+    <button class="tabbar-item" data-ws="valmentajat" onclick="setWs('valmentajat')"><span class="tb-ic">🧑‍🏫</span><span class="tb-lbl">Valmentajat</span></button>
+    <button class="tabbar-item" data-ws="raportointi" onclick="setWs('raportointi')"><span class="tb-ic">📊</span><span class="tb-lbl">Raportit</span></button>
+    <button class="tabbar-item" onclick="_toggleSivupalkki()"><span class="tb-ic">⋯</span><span class="tb-lbl">Lisää</span></button>
+  </nav>
+
   <!-- SIDEBAR -->
   <div id="sidebar">
     <div class="sb-user">
@@ -1560,7 +1594,13 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
     </div>
 
     <div class="sb-section-label">Työtilat</div>
-    <div class="sb-item active" data-ws="tilanne" onclick="setWs('tilanne')">
+    <div class="sb-item active" data-ws="koti" onclick="setWs('koti')">
+      <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M3 9l7-6 7 6v8a1 1 0 0 1-1 1h-3v-5H7v5H4a1 1 0 0 1-1-1z"/>
+      </svg>
+      Koti
+    </div>
+    <div class="sb-item" data-ws="tilanne" onclick="setWs('tilanne')">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
         <circle cx="10" cy="10" r="3"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2"/>
       </svg>
@@ -1629,7 +1669,11 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
   <div id="main">
 
     <!-- ── TILANNE ── -->
-    <div class="ws-view active" id="ws-tilanne">
+    <div class="ws-view active" id="ws-koti">
+      <div id="vpKotiView"></div>
+    </div>
+
+    <div class="ws-view" id="ws-tilanne">
       <div class="tm-greeting">
         <div class="greeting-label"><span class="live-dot"></span><span id="greeting-status">TILANNE · LIVE</span></div>
         <h1 class="greeting-text"><span id="greeting-tervehdys">Hyvää päivää</span>, <em id="greeting-name"></em>.</h1>
@@ -1911,7 +1955,7 @@ const db   = firebase.firestore();
 // ─── STATE ───────────────────────────────────────────────
 let _seuraId = null, _uid = null, _isDemoMode = false;
 let _pelaajat = [], _valmentajat = [], _tapahtumat = [], _idpJono = [];
-let _currentWs = 'tilanne';
+let _currentWs = 'koti';   // §IA oletusnäkymä = Koti
 const SUPER_ADMIN_UID = 'dqUzvJA61Wb9fgj5UiK0riSA4NI2';
 
 // ─── AUTH ────────────────────────────────────────────────
@@ -2088,6 +2132,7 @@ async function lataaKaikki() {
   renderPelaajat();
   renderKalenteri();
   renderRaportointi();
+  renderKotiVP();   // §IA
   _alustaToimenpiteet();   // OSA 3 — generoi + lataa toimenpiteet (async, try/catch sisällä; demossa placeholder)
 }
 
@@ -5857,8 +5902,74 @@ function lahetaRaportti() {
 }
 
 // ─── NAVIGATION ──────────────────────────────────────────
+/* ════════════════════════════════════════════════════════════
+   §IA VP — KOTI (kriittiset signaalit toimenpidekortteina, oletusnäkymä)
+   Lukee jo ladatusta _pelaajat/_valmentajat-datasta + pikakentistä (§26). Ei uusia kyselyjä.
+   CTA:t kytkevät olemassa oleviin funktioihin/näkymiin. Strangler: 'tilanne'-näkymä = porautuminen.
+════════════════════════════════════════════════════════════ */
+function renderKotiVP() {
+  const el = document.getElementById('vpKotiView');
+  if (!el) return;
+  const P = _pelaajat || [], V = _valmentajat || [];
+  const T = { teal:'var(--teal)', amber:'var(--amber)', red:'var(--red)', blue:'var(--blue)', ink3:'var(--ink3)' };
+  const esc = s => String(s == null ? '' : s).replace(/'/g, '');
+  const kortit = [];
+  // 1. Valmentaja hiljaa (mentorointiPvt ≥ raja)
+  const hiljaa = V.filter(v => (v.mentorointiPvt == null ? 999 : v.mentorointiPvt) >= VALMENTAJA_HILJAA_PV);
+  if (hiljaa.length) kortit.push({ ik:'🔴', sev:T.red, txt: hiljaa.length + ' valmentaja' + (hiljaa.length > 1 ? 'a' : '') + ' ilman mentorointikirjausta (' + VALMENTAJA_HILJAA_PV + ' pv)', cta:'Mentoroi', fn:"setWs('valmentajat')" });
+  // 2. Hidden Gem / X-Factor (FLEI ≥ kynnys, ei talenttiohjelmassa)
+  const nostot = P.filter(p => (p.flei_viimeisin || 0) >= HIDDEN_GEM_FLEI && p.talenttiOhjelma !== true);
+  if (nostot.length) kortit.push({ ik:'✦', sev:T.amber, txt: nostot.length + ' Hidden Gem -nostoehdokasta (FLEI ≥' + HIDDEN_GEM_FLEI + ')', cta:'Ehdota IDP', fn:"setWs('pelaajat')" });
+  // 3. Joukkueen heikoin kehityskohde → treeniteema
+  const kohdeLkm = {}, kohdeJoukkue = {};
+  P.forEach(p => { const k = p.tki_kehityskohde || p.hh_kehityskohde; if (k) { kohdeLkm[k] = (kohdeLkm[k] || 0) + 1; (kohdeJoukkue[k] = kohdeJoukkue[k] || {}); const j = p.joukkue || ''; kohdeJoukkue[k][j] = (kohdeJoukkue[k][j] || 0) + 1; } });
+  const heikoin = Object.keys(kohdeLkm).sort((a, b) => kohdeLkm[b] - kohdeLkm[a])[0];
+  if (heikoin) {
+    const jk = Object.keys(kohdeJoukkue[heikoin] || {}).sort((a, b) => kohdeJoukkue[heikoin][b] - kohdeJoukkue[heikoin][a])[0] || '';
+    const kn = (typeof _vpTkLaji === 'function' ? _vpTkLaji(heikoin) : heikoin);
+    kortit.push({ ik:'🎯', sev:T.teal, txt: kn + ' heikoin kehityskohde (' + kohdeLkm[heikoin] + ' pelaajalla' + (jk ? ', mm. ' + jk : '') + ')', cta:'Luo treeniteema', fn:"_jsvLuoTapahtuma('" + esc(jk) + "','" + esc(kn) + "')" });
+  }
+  // 4. FLEI < 40 → klinikka
+  const klinikka = P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40);
+  if (klinikka.length) kortit.push({ ik:'🏥', sev:T.red, txt: klinikka.length + ' pelaajaa FLEI alle 40 (klinikkalähetys)', cta:'Katso', fn:"setWs('pelaajat')" });
+  // 5. Rekisteröintikonversio < 70 %
+  const tuotu = P.filter(p => p.suostumusTila === 'pilotti').length;
+  const odottaa = P.filter(p => p.suostumusTila === 'odottaa' || !p.suostumusTila).length;
+  const annettu = P.filter(p => p.suostumusTila === 'annettu').length;
+  const konv = (odottaa + annettu) > 0 ? Math.round(annettu / (odottaa + annettu) * 100) : null;
+  if (konv != null && konv < 70 && odottaa > 0) kortit.push({ ik:'📋', sev:T.amber, txt: 'Rekisteröintikonversio ' + konv + '% · ' + odottaa + ' odottaa vastausta', cta:'Muistuta odottavia', fn:"setWs('tilanne')" });
+
+  const strippi = '<div class="vpkoti-strippi">'
+    + '<div><div class="vks-luku">' + (tuotu + odottaa + annettu) + '</div><div class="vks-lbl">tuotu</div></div>'
+    + '<div class="vks-arrow">→</div>'
+    + '<div><div class="vks-luku">' + odottaa + '</div><div class="vks-lbl">kutsuttu</div></div>'
+    + '<div class="vks-arrow">→</div>'
+    + '<div><div class="vks-luku" style="color:var(--teal)">' + annettu + '</div><div class="vks-lbl">suostumus</div></div>'
+    + (konv != null ? '<div><div class="vks-luku">' + konv + '%</div><div class="vks-lbl">konversio</div></div>' : '')
+    + '</div>';
+
+  let h = '<div class="vpkoti-otsikko">Kriittiset signaalit</div>' + strippi;
+  if (kortit.length) {
+    h += '<div class="vpkoti-kortit">' + kortit.map(k =>
+      '<div class="vpkoti-kortti" style="border-left:3px solid ' + k.sev + '">'
+      + '<div class="vkk-ik">' + k.ik + '</div>'
+      + '<div class="vkk-txt">' + k.txt + '</div>'
+      + '<button class="vkk-cta" onclick="' + k.fn + '">' + k.cta + ' →</button></div>').join('') + '</div>';
+    h += '<div style="margin-top:14px"><span class="vkk-link" onclick="setWs(\'tilanne\')">Kaikki signaalit yksityiskohtaisesti →</span></div>';
+  } else {
+    h += '<div class="vpkoti-tyhja">✅ <b>Ei kriittisiä signaaleja juuri nyt.</b><br>'
+      + '<span style="font-size:13px;color:var(--ink3)">Kun valmentaja hiljenee, nostoehdokas ilmaantuu tai kehityskohteita kasaantuu, näet ne täällä toimenpiteinä.</span></div>';
+  }
+  el.innerHTML = h;
+}
+window.renderKotiVP = renderKotiVP;
+
 function setWs(ws) {
   _currentWs = ws;
+  if (ws === 'koti') renderKotiVP();
+  document.querySelectorAll('.tabbar-item[data-ws]').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
+  document.getElementById('sidebar')?.classList.remove('auki');
+  document.getElementById('sivupalkkiOverlay')?.classList.remove('auki');
   document.querySelectorAll('.ws-view').forEach(v => v.classList.remove('active'));
   const el = document.getElementById(`ws-${ws}`);
   if (el) el.classList.add('active');
@@ -5937,7 +6048,7 @@ function demoMode() {
   _idpJono=[
     {id:'i1',pelaajaNimi:'Topias Koskela',pelaajaId:'p1',joukkue:'FC Demo U13',tavoite:'Vertikaalinen syöttö alta ulos',valmentaja:'Matti Korhonen',perustelu:'FLEI 62',tila:'ehdotettu'},
   ];
-  renderTilanne(); renderTeamPulse(); renderValmentajat(); renderKalib(); renderDI(); renderPelaajat(); renderKalenteri(); renderRaportointi(); _alustaToimenpiteet();
+  renderTilanne(); renderTeamPulse(); renderValmentajat(); renderKalib(); renderDI(); renderPelaajat(); renderKalenteri(); renderRaportointi(); renderKotiVP(); _alustaToimenpiteet();
 }
 
 // MOBIILI — sivupalkin slide-in (CLAUDE.md §6)
