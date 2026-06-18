@@ -1489,7 +1489,8 @@ body {
   /* Joukkuemoduuli (kaksiosainen modaali) — kolumnit pinoutuvat, vasen kompakti (§17: yksi @media/tiedosto) */
   #_jsvModal .jsv-box { width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; }   /* §IA VAIHE B: täysleveä mobiilimodaali (ei ahdas, ei leikkausta) */
   #_jsvModal .jsv-body { flex-direction: column; }
-  #_jsvModal .jsv-vasen { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid rgba(242,239,230,.12); max-height: 200px; }
+  #_jsvModal .jsv-oikea { order: -1; }   /* pelaajataulukko + välilehdet ENSIN mobiilissa (varsinainen työ ylhäällä) */
+  #_jsvModal .jsv-vasen { width: 100%; min-width: unset; border-right: none; border-top: 1px solid rgba(242,239,230,.12); max-height: 200px; order: 0; }   /* radar/KPI alle; separaattori yläreunaan */
 
   /* Signaalit — luettava teksti mobiilissa (sig-sisalto min-width:0 + sig-toiminto flex-shrink:0 jo perus-CSS:ssä) */
   .signaali-rivi { padding: 12px 14px; gap: 12px; }
@@ -6115,7 +6116,7 @@ function renderKotiVP() {
   const odottaa = P.filter(p => p.suostumusTila === 'odottaa' || !p.suostumusTila).length;
   const annettu = P.filter(p => p.suostumusTila === 'annettu').length;
   const konv = (odottaa + annettu) > 0 ? Math.round(annettu / (odottaa + annettu) * 100) : null;
-  if (konv != null && konv < 70 && odottaa > 0) kortit.push({ ik:'📋', sev:T.amber, txt: 'Rekisteröintikonversio ' + konv + '% · ' + odottaa + ' odottaa vastausta', cta:'Muistuta odottavia', fn:"setWs('tilanne')" });
+  if (konv != null && konv < 70 && odottaa > 0) kortit.push({ ik:'📋', sev:T.amber, txt: 'Rekisteröintikonversio ' + konv + '% · ' + odottaa + ' odottaa vastausta', cta:'Muistuta odottavia', fn:"vpMuistutaOdottavia()" });
   // 6. D3-kalibraatiokuilu (malli A): valmentajan ja VP:n arvio eroaa ≥1.5 → kalibraatio/mentorointi
   const d3Kuilu = P.filter(p => p.d3_viimeisin && typeof d3VpKuiluPelaajalla === 'function' && d3VpKuiluPelaajalla(p.d3_viimeisin.pisteet));
   if (d3Kuilu.length) kortit.push({ ik:'⚖️', sev:T.blue, txt: 'Valmentajan ja VP:n D3-arvio eroaa ' + d3Kuilu.length + ' pelaajalla → kalibraatio', cta:'Katso', fn:"setWs('pelaajat')" });
@@ -6129,7 +6130,7 @@ function renderKotiVP() {
     + (konv != null ? '<div><div class="vks-luku">' + konv + '%</div><div class="vks-lbl">konversio</div></div>' : '')
     + '</div>';
 
-  let h = '<div class="vpkoti-otsikko">Kriittiset signaalit</div>' + strippi;
+  let h = '<div class="vpkoti-otsikko">Kriittiset signaalit</div>';
   if (kortit.length) {
     h += '<div class="vpkoti-kortit">' + kortit.map(k =>
       '<div class="vpkoti-kortti" style="border-left:3px solid ' + k.sev + '">'
@@ -6141,9 +6142,33 @@ function renderKotiVP() {
     h += '<div class="vpkoti-tyhja">✅ <b>Ei kriittisiä signaaleja juuri nyt.</b><br>'
       + '<span style="font-size:13px;color:var(--ink3)">Kun valmentaja hiljenee, nostoehdokas ilmaantuu tai kehityskohteita kasaantuu, näet ne täällä toimenpiteinä.</span><br><button class="vkk-cta" style="margin-top:12px" onclick="naytaOnboarding(true)">Aloita tästä →</button></div>';
   }
+  h += '<div style="margin-top:14px">' + strippi + '</div>';   // status (tuotu→suostumus) toimintojen ALLE
   { var _bq = _vpRaeRakenneHTML(P); if (_bq) h += '<div style="margin-top:20px">' + _bq + '</div>'; }   // §RAE VAIHE B — BQ-rakenne Kotiin
   el.innerHTML = h;
 }
+
+// "Muistuta odottavia" → lahetaMuistutukset-CF (kuivaAjo→confirm alaikäisvaroitus→lähetys→toast). Replikoi Adminin muistutaSeuraa-flow.
+function _ohSyytVP(oh){ const m={}; (oh||[]).forEach(o=>{m[o.syy]=(m[o.syy]||0)+1;});
+  const nimet={ei_emailia:'ei sähköpostia',liian_pian:'liian pian edellisestä',max_saavutettu:'max muistutukset täynnä',lahetys_epaonnistui:'lähetysvirhe'};
+  return Object.keys(m).map(s=>(nimet[s]||s)+' '+m[s]).join(', '); }
+async function vpMuistutaOdottavia(){
+  try{
+    const fn=firebase.app().functions('europe-west1').httpsCallable('lahetaMuistutukset');   // KRIITTINEN: app().functions('europe-west1')
+    if(typeof toast==='function') toast('Tarkistetaan…','ok');
+    const dry=await fn({seuraId:_seuraId,kuivaAjo:true}); const d=dry.data||{};
+    const lah=d.lahetetty||0, oh=d.ohitettu||[];
+    if(lah===0){ alert('Ei muistutettavia juuri nyt: kaikki '+oh.length+' ohitetaan ('+_ohSyytVP(oh)+').'); return; }
+    let v='🔔 Lähettää sähköpostimuistutuksen '+lah+' huoltajalle (alaikäiset).';
+    if(oh.length) v+='\nOhitetaan '+oh.length+': '+_ohSyytVP(oh)+'.';
+    v+='\n\nJatketaanko?';
+    if(!confirm(v)) return;
+    if(typeof toast==='function') toast('Lähetetään muistutuksia…','ok');
+    const res=await fn({seuraId:_seuraId,kuivaAjo:false}); const rd=res.data||{};
+    if(typeof toast==='function') toast('✓ Muistutus lähetetty '+(rd.lahetetty||0)+' huoltajalle'+((rd.ohitettu&&rd.ohitettu.length)?(' · '+rd.ohitettu.length+' ohitettu'):''),'ok');
+    renderKotiVP();
+  }catch(e){ if(typeof toast==='function') toast('Muistutus epäonnistui: '+((e&&e.message)||'tuntematon')+((e&&e.code==='permission-denied')?' (ei oikeutta)':''),'virhe'); }
+}
+window.vpMuistutaOdottavia = vpMuistutaOdottavia;
 window.renderKotiVP = renderKotiVP;
 
 /* ════════════════════════════════════════════════════════════
