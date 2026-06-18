@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781779646678';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781781493231';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=15"></script>
+<script src="lib/tm_eerikkila_normit.js?v=16"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
@@ -5518,14 +5518,18 @@ window._avaaKausiPelaajat = function(dim) {
   const _vari = t => t==null?'var(--ink3)':t>=4?'var(--teal)':t>=3?'var(--amber)':'var(--red)';   // 1–5 sama skaala kuin muualla
   const rivit = [];
   P.forEach(p => {
-    let taso=null, raaka='';
+    let taso=null, raaka='', chips='';
     if (dim==='d1') {
-      if (p.d1_taso==null) return; taso=p.d1_taso;
-      const hv=p.hh_viimeisin||{}, osat=[];
-      if (hv.lin30m!=null) osat.push('30m '+hv.lin30m+'s');
-      if (hv.cmj!=null) osat.push('CMJ '+hv.cmj+'cm');
-      if (hv.mas!=null) osat.push('MAS '+hv.mas+'km/h');
-      raaka=osat.join(' · ');
+      if (p.d1_taso==null) return; taso=p.d1_taso;   // jako d1_taso-koosteen mukaan; chipit = osaindeksit
+      const _is=_devIkaSp(p);
+      const oi=(typeof laskeD1Osaindeksit==='function')?laskeD1Osaindeksit(p.hh_viimeisin,_is.ika,_is.sp):null;
+      const hv=p.hh_viimeisin||{};
+      const CH=[['kiihdytys','Kiihdytys', hv.lin10m!=null?('10m '+hv.lin10m+'s'):(hv.lin5m!=null?('5m '+hv.lin5m+'s'):'')],
+                ['maksinopeus','Maksinopeus', hv.lin30m!=null?('30m '+hv.lin30m+'s'):''],
+                ['voima','Voima', hv.cmj!=null?('CMJ '+hv.cmj+'cm'):''],
+                ['ketteryys','Ketteryys', hv.kasirata!=null?(hv.kasirata+'s'):''],
+                ['aerobinen','Aerobinen', hv.mas!=null?('MAS '+hv.mas+'km/h'):'']];
+      chips = oi ? CH.filter(c=>oi[c[0]]!=null).map(c=>{ const lv=oi[c[0]], col=_vari(lv); return '<span style="display:inline-block;font-size:9px;padding:1px 7px;margin:2px 3px 0 0;border-radius:10px;border:.5px solid '+col+';color:'+col+'">'+c[1]+' '+lv+(c[2]?' <span style="color:var(--ink3)">· '+c[2]+'</span>':'')+'</span>'; }).join('') : '';
     } else if (dim==='d2') {
       const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')?laskeD2Joustava(p,_is.ika,_is.sp):null;
       taso = r ? r.taso : (p.d2_taso!=null?p.d2_taso:null);
@@ -5541,7 +5545,7 @@ window._avaaKausiPelaajat = function(dim) {
       const kand=[['D1',(p.d1_taso!=null?p.d1_taso:p.hh_taso)],['D2',(d2j?d2j.taso:p.d2_taso)]].filter(x=>x[1]!=null).sort((a,b)=>b[1]-a[1]);
       raaka = kand.length ? ('paras: '+kand[0][0]+' '+kand[0][1]) : '';
     }
-    rivit.push({ p, taso, raaka });
+    rivit.push({ p, taso, raaka, chips });
   });
   rivit.sort((a,b)=>a.taso-b.taso);   // nouseva — heikoin (kehityskohde) ensin
   const kehitys=rivit.filter(r=>r.taso<3), vahvuus=rivit.filter(r=>r.taso>=3);
@@ -5551,11 +5555,15 @@ window._avaaKausiPelaajat = function(dim) {
   const m=document.createElement('div'); m.id='kausiPelModal';
   m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9200;display:flex;align-items:center;justify-content:center;padding:16px';
   m.onclick=e=>{ if(e.target===m) m.remove(); };
-  const rivihtml = r => '<div onclick="pickPlayer(\''+r.p.id+'\');setWs(\'dev\');var _x=document.getElementById(\'kausiPelModal\');if(_x)_x.remove()" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:.5px solid var(--line);cursor:pointer">'
-    + '<span style="flex:1;min-width:0;font-size:14px;color:var(--ink)">'+_nimi(r.p)+'</span>'
-    + (r.raaka?'<span style="font-size:9px;color:var(--ink3);max-width:170px;text-align:right">'+r.raaka+'</span>':'')
-    + '<span style="min-width:30px;text-align:center;font-family:var(--font-m,monospace);font-weight:600;color:'+_vari(r.taso)+'">'+r.taso+'</span>'
-    + '<span style="color:var(--teal)">→</span></div>';
+  const rivihtml = r => {
+    const ylos = '<div style="display:flex;align-items:center;gap:10px">'
+      + '<span style="flex:1;min-width:0;font-size:14px;color:var(--ink)">'+_nimi(r.p)+'</span>'
+      + (r.raaka?'<span style="font-size:9px;color:var(--ink3);max-width:170px;text-align:right">'+r.raaka+'</span>':'')
+      + '<span style="min-width:30px;text-align:center;font-family:var(--font-m,monospace);font-weight:600;color:'+_vari(r.taso)+'">'+r.taso+'</span>'
+      + '<span style="color:var(--teal)">→</span></div>';
+    const alas = r.chips ? '<div style="margin-top:3px;display:flex;flex-wrap:wrap">'+r.chips+'</div>' : '';
+    return '<div onclick="pickPlayer(\''+r.p.id+'\');setWs(\'dev\');var _x=document.getElementById(\'kausiPelModal\');if(_x)_x.remove()" style="padding:10px 0;border-top:.5px solid var(--line);cursor:pointer">'+ylos+alas+'</div>';
+  };
   const osio = (otsk,arr,col) => arr.length ? '<div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:'+col+';margin:16px 0 2px">'+otsk+' ('+arr.length+')</div>'+arr.map(rivihtml).join('') : '';
   const body = rivit.length
     ? osio('🎯 Kehityskohteet (taso < 3)',kehitys,'var(--amber)') + osio('⭐ Vahvuudet (taso ≥ 3)',vahvuus,'var(--teal)')
@@ -5617,16 +5625,32 @@ function renderSeason() {
     // ── 2. D1/D2-tasohistogrammit + PHV-vaihejakauma + kattavuussignaalit (§26) ──
     const histEl = document.getElementById('seasonHist');
     if (histEl) {
-      const hist = key => { const h = [0,0,0,0,0]; P.forEach(p => { const v = p[key]; if (v != null) { const b = Math.max(1, Math.min(5, Math.round(v))); h[b-1]++; } }); return h; };
+      const hist = key => { const h = [0,0,0,0,0]; P.forEach(p => { const v = p[key]; if (v != null) { const b = Math.max(1, Math.min(5, Math.floor(v))); h[b-1]++; } }); return h; };   // floor-binnaus: 2,5 → pylväs 2 (johdonmukainen Taso≥3/modaalin raakatason kanssa)
       const histBars = (h, vari) => { const mx = Math.max(1, ...h); return '<div style="display:flex;align-items:flex-end;gap:4px;height:48px">' + h.map((c,i) => '<div style="flex:1;text-align:center"><div style="height:' + (c/mx*34).toFixed(0) + 'px;background:' + vari + ';opacity:' + (0.4 + 0.5*(i/4)).toFixed(2) + ';border-radius:2px 2px 0 0;min-height:' + (c?2:0) + 'px"></div><div style="font-size:9px;color:var(--ink3);margin-top:2px">' + (i+1) + '</div><div style="font-size:9px;color:var(--ink2)">' + (c||'') + '</div></div>').join('') + '</div>'; };
       // §26 TKI-tietoinen D2: funktiopohjainen histogrammi + D2-arvonpoimija (laskeD2Joustava: TKI→D2, sama kanoninen johto kuin VP-syvänäkymä).
-      const histF = getVal => { const h=[0,0,0,0,0]; P.forEach(p=>{ const v=getVal(p); if(v!=null){ const b=Math.max(1,Math.min(5,Math.round(v))); h[b-1]++; } }); return h; };
+      const histF = getVal => { const h=[0,0,0,0,0]; P.forEach(p=>{ const v=getVal(p); if(v!=null){ const b=Math.max(1,Math.min(5,Math.floor(v))); h[b-1]++; } }); return h; };   // floor-binnaus (sama kuin hist)
       const d2Val = p => { const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')?laskeD2Joustava(p,_is.ika,_is.sp):null; return r?r.taso:(p.d2_taso!=null?p.d2_taso:null); };
       // §29: D1 EI johdeta raakadatasta (jää tyhjäksi ilman H-H) → selkeä tyhjätila. D2-johto TKI:stä on sallittu.
       const onD1 = P.some(p => p.d1_taso != null || p.hh_taso != null);
       const onD2 = P.some(p => d2Val(p) != null);
       const tyhjaMs = txt => '<div style="font-size:11px;color:var(--ink3);padding:6px 0">' + txt + '</div>';
       const d2Alaviite = P.some(p => { const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')&&laskeD2Joustava(p,_is.ika,_is.sp); return r && r.lahde==='tki'; }) ? '<div style="font-size:9px;color:var(--ink3);margin-top:4px">¹ TKI-pohjainen</div>' : '';
+      // D1 osaindeksiprofiili: joukkueen ka per osa-alue (Kiihdytys/Maksiminopeus/Voima/Ketteryys/Aerobinen) mini-palkkeina, vain ei-null (§29).
+      const _D1_OSAT = [['kiihdytys','Kiihdytys'],['maksinopeus','Maksiminopeus'],['voima','Voima'],['ketteryys','Ketteryys'],['aerobinen','Aerobinen']];
+      const d1OsaProfiili = () => {
+        if (typeof laskeD1Osaindeksit !== 'function') return histBars(hist('d1_taso'),'var(--teal)');   // fallback jos lib vanha
+        const summa = {}, lkm = {}; _D1_OSAT.forEach(k => { summa[k[0]] = 0; lkm[k[0]] = 0; });
+        P.forEach(p => { const _is=_devIkaSp(p); const oi = laskeD1Osaindeksit(p.hh_viimeisin, _is.ika, _is.sp); if (!oi) return; _D1_OSAT.forEach(k => { if (oi[k[0]] != null) { summa[k[0]] += oi[k[0]]; lkm[k[0]]++; } }); });
+        const rivit = _D1_OSAT.filter(k => lkm[k[0]] > 0).map(k => {
+          const ka = Math.round(summa[k[0]] / lkm[k[0]] * 10) / 10;
+          const col = ka >= 4 ? 'var(--teal)' : ka >= 3 ? 'var(--amber)' : 'var(--red)';
+          return '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'
+            + '<span style="flex:0 0 84px;font-size:10px;color:var(--ink2)">' + k[1] + '</span>'
+            + '<span style="flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden"><span style="display:block;height:7px;width:' + (ka/5*100).toFixed(0) + '%;background:' + col + '"></span></span>'
+            + '<span style="flex:0 0 26px;font-size:11px;font-family:var(--font-m,monospace);color:' + col + ';text-align:right">' + ka + '</span></div>';
+        });
+        return rivit.length ? rivit.join('') : tyhjaMs('Ei fyysistä osaindeksiä vielä (H-H raakatulokset puuttuvat).');
+      };
       const phvVaiheet = ['PRE','LAH','PH','POST','AN'];
       const phvLkm = {}; phvVaiheet.forEach(v => phvLkm[v] = 0); let phvTuntematon = 0;
       P.forEach(p => { if (p.phv_tila && phvLkm[p.phv_tila] != null) phvLkm[p.phv_tila]++; else phvTuntematon++; });
@@ -5661,7 +5685,7 @@ function renderSeason() {
         }
       }
       histEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
-        + card('D1 Fyysinen — tasojakauma' + _mSelBtn('d1'), onD1 ? histBars(hist('d1_taso'),'var(--teal)') : tyhjaMs('Ei fyysistä mittausta (H-H) — tämä seura on TKI-pohjainen.'), onD1 ? 'd1' : null)
+        + card('D1 Fyysinen — osaindeksit' + _mSelBtn('d1'), onD1 ? d1OsaProfiili() : tyhjaMs('Ei fyysistä mittausta (H-H) — tämä seura on TKI-pohjainen.'), onD1 ? 'd1' : null)
         + card('D2 Tekninen — tasojakauma' + _mSelBtn('d2'), onD2 ? histBars(histF(d2Val),'var(--blue)') + d2Alaviite : tyhjaMs('Ei teknistä mittausta vielä.'), onD2 ? 'd2' : null)
         + card('PHV-vaiheet', '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + phvVaiheet.map(v => phvChip(v, phvLkm[v])).join('') + (phvTuntematon ? '<span style="font-size:10px;color:var(--ink3)">' + phvTuntematon + ' ei mittausta</span>' : '') + '</div>' + (phvLkm.PH ? '<div style="font-size:10px;color:var(--amber);margin-top:6px">⚠ ' + phvLkm.PH + ' kuormarajoitettua (PH)</div>' : ''))
         + card('Kattavuus (§26)', '<div style="display:flex;flex-direction:column;gap:4px">' + cov('Testattu', nTestattu) + cov('Peliäly ≥3', nAdar) + cov('PHV', nPhv) + cov('FLEI', nFlei) + '</div>')

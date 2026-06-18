@@ -16,6 +16,7 @@ const {
   eerikkilaNormiarvo,
   laskeTSI,
   laskeD1Joustava,
+  laskeD1Osaindeksit,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -216,6 +217,34 @@ describe('laskeD1Joustava (D1 fyysinen, ka saatavilla olevista)', () => {
   it('null kun ei dataa/ikä', () => {
     expect(laskeD1Joustava(null, 10, 'M')).toBeNull();
     expect(laskeD1Joustava({ lin30m: 5.0 }, null, 'M')).toBeNull();
+  });
+});
+
+describe('laskeD1Osaindeksit (D1 osaindeksit, additiivinen §29)', () => {
+  it('null kun hh/ikä/sp puuttuu', () => {
+    expect(laskeD1Osaindeksit(null, 10, 'M')).toBeNull();
+    expect(laskeD1Osaindeksit({ lin30m: 5.0 }, null, 'M')).toBeNull();
+    expect(laskeD1Osaindeksit({ lin30m: 5.0 }, 10, null)).toBeNull();
+  });
+  it('osaindeksi = null kun testi puuttuu; maksinopeus lin30m:stä', () => {
+    const r = laskeD1Osaindeksit({ lin30m: 5.0 }, 10, 'M');
+    expect(r.kiihdytys).toBeNull();   // ei lin5m/lin10m
+    expect(r.voima).toBeNull();       // ei cmj/sj
+    expect(r.ketteryys).toBeNull();   // ei kasirata
+    expect(r.aerobinen).toBeNull();   // ei mas
+    expect(r.maksinopeus).toBe(eerikkilaTaso(5.0, 'nopeus_30m', 10, 'M') || null);
+    expect(r.maksinopeus).toBeGreaterThan(0);
+  });
+  it('aerobinen muuntaa MAS km/h → m/s (÷3,6)', () => {
+    const r = laskeD1Osaindeksit({ mas: 14.4 }, 14, 'M');
+    expect(r.aerobinen).toBe(eerikkilaTaso(14.4 / 3.6, 'mas', 14, 'M') || null);
+  });
+  it('kiihdytys = ka kahdesta tasosta (lin5m + lin10m)', () => {
+    const tt = (a, e) => eerikkilaTaso(a, e, 12, 'M') || null;
+    const vals = [tt(1.1, 'nopeus_5m'), tt(2.0, 'nopeus_10m')].filter(x => x != null);
+    const odotus = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10 : null;
+    const r = laskeD1Osaindeksit({ lin5m: 1.1, lin10m: 2.0 }, 12, 'M');
+    expect(r.kiihdytys).toBe(odotus);
   });
 });
 
