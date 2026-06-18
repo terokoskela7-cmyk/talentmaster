@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781772125032';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781772623670';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -5503,17 +5503,18 @@ function renderSeason() {
     const taso3 = onTaso.filter(p => lvl(p) >= 3).length;
     const pulseEl = document.getElementById('seasonPulse');
     if (pulseEl) {
-      const metr = (lbl, n, d, vihje) => {
+      const metr = (lbl, n, d, vihje, selite) => {
         const pct = d ? Math.round(n / d * 100) : null;
         const col = pct == null ? 'var(--ink3)' : pct >= 60 ? 'var(--teal)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
-        return '<div style="flex:1;min-width:200px;background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:16px 18px">'
-          + '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">' + lbl + '</div>'
+        const _t = selite ? ' title="' + String(selite).replace(/"/g, '&quot;') + '"' : '';
+        return '<div' + _t + ' style="flex:1;min-width:200px;background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:16px 18px' + (selite ? ';cursor:help' : '') + '">'
+          + '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">' + lbl + (selite ? ' <span style="opacity:.6">ⓘ</span>' : '') + '</div>'
           + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:38px;line-height:1.1;color:' + col + '">' + (pct == null ? '—' : pct + '%') + '</div>'
           + '<div style="font-size:11px;color:var(--ink3)">' + vihje + '</div></div>';
       };
       pulseEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
-        + metr('Kehittynyt (abs)', parani, mitattuKahdesti, mitattuKahdesti ? parani + '/' + mitattuKahdesti + ' kahdesti mitattua parani' : 'tarvitsee 2 mittausta/pelaaja')
-        + metr('Taso ≥3', taso3, onTaso.length, onTaso.length ? taso3 + '/' + onTaso.length + ' ikäluokan keskitaso+' : 'ei tasodataa')
+        + metr('Kehittynyt (abs)', parani, mitattuKahdesti, mitattuKahdesti ? parani + '/' + mitattuKahdesti + ' kahdesti mitattua parani' : 'tarvitsee 2 mittausta/pelaaja', 'Osuus kahdesti mitatuista pelaajista, joiden taso nousi (absoluuttinen kehitys §30). Vaatii ≥2 mittausta/pelaaja — ei vertaa muihin, vaan pelaajan omaan lähtötasoon.')
+        + metr('Taso ≥3', taso3, onTaso.length, onTaso.length ? taso3 + '/' + onTaso.length + ' ikäluokan keskitaso+' : 'ei tasodataa', 'Osuus pelaajista, joiden paras dimensiotaso (D1/D2/H-H) on ≥3 = ikäluokan keskitaso tai parempi (1–5-asteikko).')
         + '</div>';
     }
 
@@ -5532,11 +5533,31 @@ function renderSeason() {
       const nPhv = P.filter(p => p.phv_tila).length;
       const nFlei = P.filter(p => (p.flei_viimeisin||0) > 0).length;
       const card = (t,inner) => '<div style="flex:1;min-width:208px;background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:14px 16px"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">' + t + '</div>' + inner + '</div>';
+      // RAE-rakenne (syntymäkvartaali Q1–Q4 + ikäharha Q1>40% + underdog) — raeChip:llä, sama logiikka kuin VP:n _vpRaeRakenneHTML.
+      let _raeCardHtml = '';
+      if (typeof raeChip === 'function') {
+        const Q = { Q1:0, Q2:0, Q3:0, Q4:0 }; let rn = 0; const underdogit = [];
+        P.forEach(p => { const rc = raeChip(p); if (rc.q) { Q[rc.q]++; rn++; } if (rc.underdog) underdogit.push(nimi(p)); });
+        if (rn) {
+          const pctQ = q => Math.round(Q[q] / rn * 100);
+          const COL = { Q1:'var(--amber)', Q2:'var(--ink3)', Q3:'var(--ink3)', Q4:'var(--teal)' };
+          const palkit = ['Q1','Q2','Q3','Q4'].map(q =>
+            '<div style="display:flex;align-items:center;gap:8px;margin:3px 0">'
+            + '<span style="flex:0 0 22px;font-size:11px;color:' + COL[q] + '">' + q + '</span>'
+            + '<span style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden"><span style="display:block;height:8px;width:' + pctQ(q) + '%;background:' + COL[q] + '"></span></span>'
+            + '<span style="flex:0 0 56px;font-size:11px;color:var(--ink2);text-align:right">' + Q[q] + ' · ' + pctQ(q) + '%</span></div>').join('');
+          let _raeInner = palkit;
+          if (pctQ('Q1') > 40) _raeInner += '<div style="font-size:10px;color:var(--amber);margin-top:6px">⚠ Ikäharha: Q1 ' + pctQ('Q1') + '% — valitaanko taitoa vai ikää?</div>';
+          if (underdogit.length) _raeInner += '<div style="font-size:10px;color:var(--teal);margin-top:6px">⭐ Underdog (Q4 + taso ≥3): ' + underdogit.join(', ') + '</div>';
+          _raeCardHtml = card('Syntymäkvartaali (RAE)' + _mSelBtn('rae'), _raeInner);
+        }
+      }
       histEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
-        + card('D1 Fyysinen — tasojakauma', histBars(hist('d1_taso'),'var(--teal)'))
-        + card('D2 Tekninen — tasojakauma', histBars(hist('d2_taso'),'var(--blue)'))
+        + card('D1 Fyysinen — tasojakauma' + _mSelBtn('d1'), histBars(hist('d1_taso'),'var(--teal)'))
+        + card('D2 Tekninen — tasojakauma' + _mSelBtn('d2'), histBars(hist('d2_taso'),'var(--blue)'))
         + card('PHV-vaiheet', '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + phvVaiheet.map(v => phvChip(v, phvLkm[v])).join('') + (phvTuntematon ? '<span style="font-size:10px;color:var(--ink3)">' + phvTuntematon + ' ei mittausta</span>' : '') + '</div>' + (phvLkm.PH ? '<div style="font-size:10px;color:var(--amber);margin-top:6px">⚠ ' + phvLkm.PH + ' kuormarajoitettua (PH)</div>' : ''))
         + card('Kattavuus (§26)', '<div style="display:flex;flex-direction:column;gap:4px">' + cov('Testattu', nTestattu) + cov('ADAR ≥3', nAdar) + cov('PHV', nPhv) + cov('FLEI', nFlei) + '</div>')
+        + _raeCardHtml
         + '</div>';
     }
 
