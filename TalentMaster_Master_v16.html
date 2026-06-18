@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781772623670';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781773028515';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -2272,7 +2272,6 @@ async function _lataaKirjaukset() {
       .filter(k => k.t >= _14pvSitten)
       .sort((a,b) => b.t - a.t).slice(0, 100);
     _kirjauksetLadattu = true;
-    if (_ws === 'koti') renderKoti();   // §IA Koti-refresh kun kirjaukset saapuvat
 
     // Jos ei yhtään kirjausta löytynyt, yritä hakea suoraan pelaajadatasta
     // (streak, fiilinki voivat olla tallennettu pelaajadokumenttiin)
@@ -2302,8 +2301,11 @@ async function _lataaKirjaukset() {
       }
     }
 
-    renderInbox();
-    renderPulse();   // päivitä PULSSI-luvut kirjauksilla
+    // Kirjaukset ladattu (lopullinen _kirjaukset incl. synteettinen fallback) → renderöi KAIKKI
+    // joukkuetason näkymät uudelleen, jotta Tänään-signaali/Koti/Pulssi/Kausi laskevat kirjauksista
+    // (ei vain Inbox-laiskasti). Aiemmin Tänään & Kausi jäivät vanhaan "kukaan ei kirjannut" -tilaan.
+    if (typeof _paivitaKaikkiNakymat === 'function') _paivitaKaikkiNakymat();
+    else { renderInbox(); renderPulse(); }
   } catch(e) {
     console.warn('[v16] kirjaukset:', e.message);
   }
@@ -2954,11 +2956,15 @@ function _renderOhjaavaSignaali() {
   const { vaihe, kirjauksia, pelaajia, paiviaKaytossa } = _laskeVaihe();
 
   if (vaihe === 1) {
-    // VAIHE 1: Käynnistys — konkreettiset ensiaskeleet
-    const aktivoitujen = (_pelaajatData||[]).filter(p => p.streak > 0).length;
+    // VAIHE 1: Käynnistys — laske kirjanneet OIKEISTA kirjauksista (sama kirjVko-logiikka kuin renderKoti),
+    // EI p.streak:stä (jota ei aseteta) → "kukaan ei kirjannut" vain kun kirjauksia todella 0.
+    const _nyt = Date.now(), _VKO = 7 * 864e5;
+    const _kirjanneet = new Set();
+    (_kirjaukset || []).forEach(k => { const pid = k._pelaajaId || k.playerId; const t = k.t || 0; if (pid && (_nyt - t) <= _VKO) _kirjanneet.add(pid); });
+    const aktivoitujen = _kirjanneet.size;
     const msg = aktivoitujen === 0
       ? `Kutsutaan <em>${pelaajia} pelaajaa</em> mukaan — kukaan ei ole vielä kirjannut.`
-      : `${aktivoitujen} / ${pelaajia} pelaajaa on aloittanut kirjaukset. ${pelaajia - aktivoitujen > 0 ? 'Muistuta lopuille.' : 'Hyvä alku!'}`;
+      : `${aktivoitujen}/${pelaajia} pelaajaa aloittanut omatoimikirjaukset${pelaajia - aktivoitujen > 0 ? ' — muistuta lopuille.' : ' — hyvä alku!'}`;
   el.innerHTML = `
       <div class="signal-icon">💡</div>
       <div class="signal-body">
