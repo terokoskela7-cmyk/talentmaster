@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781771707399';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781772125032';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -1365,22 +1365,10 @@ a { color: inherit; text-decoration: none; }
       <!-- Harjoitusprioriteetti testidatasta — TÄNÄÄN FOKUS -->
       <div id="todayFokus" style="display:none;margin-bottom:18px;"></div>
 
-      <!-- Signaali — V10-typografia -->
-      <div class="signal-block" id="signalBlock" onclick="openDrill('signal')">
-        <div class="signal-caps">
-          <div class="signal-dot"></div>
-          <span class="caps">Joukkueen tila · klikkaa syventääksesi</span>
-        </div>
-        <div class="signal-title" id="signalTitle">
-          Kuormitus nousussa viikon kolmannella päivällä —
-          <em>kevennä 20&nbsp;% tänään.</em>
-        </div>
-        <div class="signal-sub" id="signalSub">
-          Perustuu RPE-trendiin (7&nbsp;pv&nbsp;ka&nbsp;7.2, baseline&nbsp;5.8) ja kolmen
-          pelaajan poissaoloon. Kolme keinoa: lyhennä tehot, vähennä toistoja,
-          siirrä tekniikkaosuus alkuun.
-        </div>
-      </div>
+      <!-- Signaali — sisältö + onclick renderöidään _renderOhjaavaSignaali():ssa.
+           Demo: kuormitusesimerkki (klikattava). Non-demo: vaihe-signaali (ei klikattava) tai piilo.
+           EI kovakoodattua demo-sisältöä eikä kiinteää onclickia (esti demo-vuodon kirjautuneelle). -->
+      <div class="signal-block" id="signalBlock" style="display:none"></div>
 
       <!-- Testitapahtuma tänään (dynaaminen) -->
       <div id="todayTestitBlock" style="display:none;margin-bottom:22px;"></div>
@@ -2945,10 +2933,23 @@ function _renderOhjaavaSignaali() {
   if (!el) return;
 
   if (_demo) {
-    // Demo: näytä esimerkkisignaali
+    // Demo: kuormitusesimerkki + klikattava demo-drill (RPE 7.2 ym.). VAIN demo-tilassa.
+    el.innerHTML = `
+      <div class="signal-caps">
+        <div class="signal-dot"></div>
+        <span class="caps">Joukkueen tila · klikkaa syventääksesi</span>
+      </div>
+      <div class="signal-title">Kuormitus nousussa viikon kolmannella päivällä — <em>kevennä 20&nbsp;% tänään.</em></div>
+      <div class="signal-sub">Perustuu RPE-trendiin (7&nbsp;pv&nbsp;ka&nbsp;7.2, baseline&nbsp;5.8) ja kolmen pelaajan poissaoloon. Kolme keinoa: lyhennä tehot, vähennä toistoja, siirrä tekniikkaosuus alkuun.</div>`;
+    el.onclick = () => openDrill('signal');
+    el.style.cursor = 'pointer';
     el.style.display = '';
     return;
   }
+
+  // Non-demo: reaalisignaalit EIVÄT linkitä demo-drilliin → ei klikattavia (real-drill myöhemmin §21).
+  el.onclick = null;
+  el.style.cursor = 'default';
 
   const { vaihe, kirjauksia, pelaajia, paiviaKaytossa } = _laskeVaihe();
 
@@ -3009,8 +3010,9 @@ function _renderOhjaavaSignaali() {
     el.style.display = '';
 
   } else {
-    // Demo-tila: piilotetaan signaali (renderöidään DEMO.signal)
-    el.style.display = '';
+    // Ei reaalisignaalia (vaihe 0 / ei dataa) → piilota lohko, ei vanhaa/staattista sisältöä.
+    el.innerHTML = '';
+    el.style.display = 'none';
   }
 }
 
@@ -6230,6 +6232,9 @@ function openDrill(type) {
   const actionsEl = document.getElementById('drillActions');
 
   if (type === 'signal') {
+    // Kuormitussignaali-drill (RPE 7.2/ACWR/poissaolot) on §21 Sprint 6 — demo-mockup VAIN demo-tilassa,
+    // ei tuotannossa (estää demo-vuodon kirjautuneelle, esim. SA/SJK).
+    if (!_demo) { if (typeof toast === 'function') toast('Kuormitusseuranta tulossa (§21)'); return; }
     titleEl.textContent = 'Signaalin syy — miksi tämä suositus';
     contentEl.innerHTML = `
       <div class="drill-section" style="padding-bottom:16px">
