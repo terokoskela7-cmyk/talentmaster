@@ -3608,13 +3608,27 @@ function _jsvBudjettiRivi(kok, lajit, ika, sp) {
 // ── FYYSINEN (H-H) -osio Yhteenvetoon (HH_TSI_ANALYYSIMALLI.md §3.1) — vain pikakentistä (§26).
 // EERIKKILA_NORMIT/lib-funktiot SSOT (lib ?v=3 ladattu VP:hen). MAS km/h↔m/s. PHV-suodatin EI UI:ssa
 // (kehityskohde luetaan hh_kehityskohde-pikakentästä). String concat (§7.1).
+// Fyysiset testit ryhmiteltynä osaindeksiin (laatu = laskeD1Osaindeksit-avain). VAIN HH_TESTI_MAP:in fyysiset (ei SM).
 const _JSV_FYYS_TESTIT = [
-  { label:'10m',       avain:'lin10m',             src:'hv', eerikkila:'nopeus_10m', yks:'s',    pienempi:true,  kmh:false },
-  { label:'30m',       avain:'lin30m',             src:'hv', eerikkila:'nopeus_30m', yks:'s',    pienempi:true,  kmh:false },
-  { label:'CMJ',       avain:'cmj',                src:'hv', eerikkila:'hyppy_cj',   yks:'cm',   pienempi:false, kmh:false },
-  { label:'MAS',       avain:'mas',                src:'hv', eerikkila:'mas',        yks:'km/h', pienempi:false, kmh:true  },
+  { label:'5m',       avain:'lin5m',    src:'hv', eerikkila:'nopeus_5m',  yks:'s',    pienempi:true,  kmh:false, laatu:'kiihdytys' },
+  { label:'10m',      avain:'lin10m',   src:'hv', eerikkila:'nopeus_10m', yks:'s',    pienempi:true,  kmh:false, laatu:'kiihdytys' },
+  { label:'30m',      avain:'lin30m',   src:'hv', eerikkila:'nopeus_30m', yks:'s',    pienempi:true,  kmh:false, laatu:'maksinopeus' },
+  { label:'CMJ',      avain:'cmj',      src:'hv', eerikkila:'hyppy_cj',   yks:'cm',   pienempi:false, kmh:false, laatu:'voima' },
+  { label:'Käsirata', avain:'kasirata', src:'hv', eerikkila:'kasirata',   yks:'s',    pienempi:true,  kmh:false, laatu:'ketteryys' },
+  { label:'MAS',      avain:'mas',      src:'hv', eerikkila:'mas',        yks:'km/h', pienempi:false, kmh:true,  laatu:'aerobinen' },
+];
+// SM-testit (suunnanmuutos) — siirretty pois fyysisestä; SM-pallo on tekninen. Syöttävät TSI-jakaumaa (A4).
+const _JSV_SM_TESTIT = [
   { label:'SM-juoksu', avain:'sm_juoksu_viimeisin',src:'p',  eerikkila:'sm_juoksu',  yks:'s',    pienempi:true,  kmh:false },
   { label:'SM-pallo',  avain:'sm_pallo_viimeisin', src:'p',  eerikkila:'sm_pallo',   yks:'s',    pienempi:true,  kmh:false },
+];
+// Osaindeksiryhmät järjestyksessä (laatu = laskeD1Osaindeksit-avain, nimi = näyttönimi).
+const _JSV_OSAINDEKSIT = [
+  { laatu:'kiihdytys',   nimi:'Kiihdytys' },
+  { laatu:'maksinopeus', nimi:'Maksiminopeus' },
+  { laatu:'voima',       nimi:'Voima' },
+  { laatu:'ketteryys',   nimi:'Ketteryys' },
+  { laatu:'aerobinen',   nimi:'Aerobinen' },
 ];
 const _JSV_HH_TEEMA = { lin10m:'nopeus', lin30m:'nopeus', cmj:'nopeusvoima', mas:'kestävyys', kasirata:'ketteryys', sm_pallo:'pallollinen nopeus' };
 function _jsvFyysinenHTML(pelaajat, joukkueNimi, n) {
@@ -3627,7 +3641,7 @@ function _jsvFyysinenHTML(pelaajat, joukkueNimi, n) {
 
   // A1 — hh_taso-jakauma (1–5) + ka + kattavuus
   const bk = [0,0,0,0,0]; let summa=0, nT=0;
-  pelaajat.forEach(function(p){ if (p.hh_taso != null) { const t=Math.round(p.hh_taso); if(t>=1&&t<=5){bk[t-1]++;} summa+=p.hh_taso; nT++; } });
+  pelaajat.forEach(function(p){ if (p.hh_taso != null) { const t=Math.floor(p.hh_taso); if(t>=1&&t<=5){bk[t-1]++;} summa+=p.hh_taso; nT++; } });   // floor-binnaus: 2,5 → Taso 2 (täsmää raakaan ≥3-kynnykseen, kuten valmentajan Kausi)
   if (nT > 0) {
     const ka = Math.round(summa/nT*10)/10, maxB = Math.max.apply(null, bk) || 1;
     h += '<div class="jsv-an-otsikko">Tasojakauma · ka <span style="color:' + vari5(ka) + '">' + ka + '</span> · n=' + nT + '/' + n + '</div>';
@@ -3638,27 +3652,43 @@ function _jsvFyysinenHTML(pelaajat, joukkueNimi, n) {
     });
   }
 
-  // A2 — per-testi joukkueprofiili: ka vs taso-3-kynnys (eerikkilaNormiarvo). MAS km/h↔m/s.
+  // A2 — per-testi joukkueprofiili RYHMITELTYNÄ osaindekseihin (yhdistää sanaston valmentajan Kausi-korttiin).
+  // ka vs taso-3-kynnys (eerikkilaNormiarvo). MAS km/h↔m/s. Vain ryhmät joilla dataa (§29).
   if (typeof eerikkilaNormiarvo === 'function' && ika != null) {
-    h += '<div class="jsv-an-otsikko">Profiili testeittäin · taso-3-viite</div>';
-    _JSV_FYYS_TESTIT.forEach(function(T){
+    const _jsvTestiRivi = function(T){
       let s=0, c=0;
       pelaajat.forEach(function(p){ const v=(T.src==='hv')?(p.hh_viimeisin&&p.hh_viimeisin[T.avain]):p[T.avain]; if(v!=null&&!isNaN(v)){s+=Number(v);c++;} });
-      if (c === 0) return;
+      if (c === 0) return '';
       const ka = Math.round(s/c*10)/10;
       let kynnys = eerikkilaNormiarvo(T.eerikkila, ika, spMN);
-      if (kynnys == null) return;
+      if (kynnys == null) return '';
       if (T.kmh) kynnys = Math.round(kynnys * 3.6 * 10) / 10;       // m/s → km/h näyttöön
       const gap = Math.round((T.pienempi ? (ka - kynnys) : (kynnys - ka)) * 10) / 10;   // >0 = vajaa
       const vari = gap <= 0 ? 'var(--teal)' : (Math.abs(gap)/kynnys <= 0.05 ? 'var(--amber)' : 'var(--red)');
       const w = gap <= 0 ? 100 : Math.max(6, Math.min(100, Math.round(100 - Math.abs(gap)/kynnys*100*4)));
       const katt = (c / n < 0.8) ? ' <span class="jsv-an-ctx">n=' + c + '/' + n + '</span>' : '';
-      h += '<div class="jsv-an-lajirivi"><span class="jsv-an-laji">' + T.label + '</span>'
+      return '<div class="jsv-an-lajirivi"><span class="jsv-an-laji">' + T.label + '</span>'
         + '<span class="jsv-an-ka">' + ka + ' ' + T.yks + '</span>'
         + '<span class="jsv-an-viite">taso-3 ' + (T.pienempi ? '≤' : '≥') + kynnys + '</span>'
         + '<span class="jsv-an-bar"><span class="jsv-an-fill" style="width:' + w + '%;background:' + vari + '"></span></span>'
         + '<span class="jsv-an-gap" style="color:' + vari + '">' + (gap <= 0 ? '★' : '+' + gap) + '</span>' + katt + '</div>';
+    };
+    h += '<div class="jsv-an-otsikko">Profiili testeittäin · taso-3-viite</div>';
+    _JSV_OSAINDEKSIT.forEach(function(G){
+      const rivit = _JSV_FYYS_TESTIT.filter(function(T){ return T.laatu === G.laatu; }).map(_jsvTestiRivi).filter(Boolean).join('');
+      // ryhmän ka-osaindeksi (laskeD1Osaindeksit pelaajista, ei-null)
+      let os=0, oc=0;
+      if (typeof laskeD1Osaindeksit === 'function') pelaajat.forEach(function(p){ const oi=laskeD1Osaindeksit(p.hh_viimeisin, ika, spMN); if(oi && oi[G.laatu]!=null){ os+=oi[G.laatu]; oc++; } });
+      const kaOsa = oc ? Math.round(os/oc*10)/10 : null;
+      if (!rivit && kaOsa == null) return;   // §29: piiloon jos ei dataa (esim. Kiihdytys ilman 5/10m)
+      h += '<div class="jsv-an-osaryhma" style="margin-top:8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">' + G.nimi
+        + (kaOsa != null ? ' · ka <span style="color:' + vari5(kaOsa) + ';font-weight:600">' + kaOsa + '</span>' : '') + '</div>' + rivit;
     });
+    // SM-testit (suunnanmuutos) — fyysisen ryhmien JÄLKEEN, ei FYYSINEN-otsikon alle
+    let _smrows = '';
+    _JSV_SM_TESTIT.forEach(function(T){ _smrows += _jsvTestiRivi(T); });
+    if (_smrows) h += '<div class="jsv-an-otsikko" style="margin-top:12px">Suunnanmuutos (D1→D2 silta)</div>' + _smrows
+      + '<div class="jsv-an-lahde">SM-pallo on tekninen (ei fyysinen); molemmat syöttävät TSI-jakaumaa. Eivät kuulu fyysiseen osaindeksiin.</div>';
   }
 
   // A2b — H-H lajitekniikka (syöttö/pujottelu, 3-portainen eerikkilaTaso). EROTETTU fyysisistä (eri asteikko 1–3).
