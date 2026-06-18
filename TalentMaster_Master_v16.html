@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781769258131';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781770236314';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -510,6 +510,13 @@ a { color: inherit; text-decoration: none; }
 }
 .player-pill:hover  { border-color: var(--teal-brd); color: var(--teal); }
 .player-pill.active { background: var(--teal-bg); border-color: var(--teal-brd); color: var(--teal); }
+
+/* §Vastaus-ensin: aikajana+narratiivi taitettuna (sekundääri) */
+.dev-historia { margin-top: 22px; border-top: .5px solid var(--line); }
+.dev-historia-sum { cursor: pointer; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); padding: 12px 0; list-style: none; user-select: none; }
+.dev-historia-sum::-webkit-details-marker { display: none; }
+.dev-historia-sum::before { content: '▸'; color: var(--ink3); margin-right: 8px; display: inline-block; }
+.dev-historia[open] .dev-historia-sum::before { content: '▾'; }
 
 /* Pelaajan yläkortti */
 .pinfo-card {
@@ -1425,17 +1432,19 @@ a { color: inherit; text-decoration: none; }
       <!-- Pelaajan yläkortti -->
       <div class="pinfo-card" id="pinfoCard"></div>
 
-      <!-- Aikajana -->
-      <div class="sect-hdr" style="margin-bottom:12px">
-        <div class="caps">Kehitysaikajana</div>
-      </div>
-      <div class="timeline-wrap" id="tlWrap"></div>
+      <!-- Aikajana + narratiivi — taitettu (sekundääri konteksti vastauksen jälkeen, avaa tarvittaessa) -->
+      <details class="dev-historia">
+        <summary class="dev-historia-sum">Kehityshistoria — aikajana &amp; merkittävät tapahtumat</summary>
+        <div class="sect-hdr" style="margin:14px 0 12px">
+          <div class="caps">Kehitysaikajana</div>
+        </div>
+        <div class="timeline-wrap" id="tlWrap"></div>
 
-      <!-- Narratiivi -->
-      <div class="sect-hdr" style="margin-top:24px;margin-bottom:12px">
-        <div class="caps">Merkittävät tapahtumat</div>
-      </div>
-      <div class="narrative-list" id="narrativeList"></div>
+        <div class="sect-hdr" style="margin-top:24px;margin-bottom:12px">
+          <div class="caps">Merkittävät tapahtumat</div>
+        </div>
+        <div class="narrative-list" id="narrativeList"></div>
+      </details>
 
     </div><!-- /dev -->
 
@@ -4663,14 +4672,29 @@ function pickPlayer(pid) {
 function _renderPlayerPickerFirestore() {
   const el = document.getElementById('playerPicker');
   if (!el) return;
-  el.innerHTML = _pelaajatData.map(p => {
+  const pillit = _pelaajatData.map(p => {
     const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id;
     // Näytä numero vain jos se on olemassa Firestoressa
     const numTeksti = p.numero ? ` <span style="color:var(--ink3);font-size:11px;margin-left:4px">#${p.numero}</span>` : '';
-    return `<div class="player-pill${_activePelaaja===p.id?' active':''}"
+    const haku = (nimi + ' ' + (p.numero || '')).toLowerCase().replace(/"/g, '');
+    return `<div class="player-pill${_activePelaaja===p.id?' active':''}" data-haku="${haku}"
       onclick="pickPlayer('${p.id}')">${nimi}${numTeksti}</div>`;
   }).join('');
+  // Nimihaku vasta isolla listalla (>12) — pienellä joukkueella pillit riittävät
+  const haku = _pelaajatData.length > 12
+    ? '<input type="text" id="pelHaku" placeholder="🔍 Hae pelaajaa…" oninput="_suodataPelaajat(this.value)" autocomplete="off" '
+      + 'style="flex:1 1 100%;margin-bottom:4px;padding:8px 12px;background:var(--card);border:.5px solid var(--line2);border-radius:8px;color:var(--ink);font-size:13px;font-family:inherit">'
+    : '';
+  el.innerHTML = haku + pillit;
 }
+function _suodataPelaajat(q) {
+  q = (q || '').trim().toLowerCase();
+  document.querySelectorAll('#playerPicker .player-pill').forEach(el => {
+    const h = el.getAttribute('data-haku') || '';
+    el.style.display = (!q || h.indexOf(q) >= 0) ? '' : 'none';
+  });
+}
+window._suodataPelaajat = _suodataPelaajat;
 
 
 // TKI-merkki: VAIN tallennettu tki_merkki (ei TKI-johdettua fallbackia — yhtenäinen <-rajalogiikan kanssa).
@@ -5148,7 +5172,7 @@ function _renderPinfoFirestore(p) {
   let _adarHtml = '';
   const _av = p.adar_viimeisin;
   if (_av && (_av.a != null || _av.d != null || _av.ac != null || _av.r != null)) {
-    const _osat = [['Havainnointi', _av.a], ['Päätös', _av.d], ['Toteutus', _av.ac], ['Reagointi', _av.r]].filter(o => o[1] != null);
+    const _osat = [['Havaitse', _av.a], ['Päätä', _av.d], ['Toimi', _av.ac], ['Arvioi', _av.r]].filter(o => o[1] != null);
     const _gate = (p.adar_havaintoja || 0) >= 3;
     const _bar = o => {
       const v = o[1], pct = Math.max(8, Math.min(100, v / 3 * 100));
@@ -5161,12 +5185,12 @@ function _renderPinfoFirestore(p) {
     _osat.forEach(o => { if (!_vah || o[1] > _vah[1]) _vah = o; if (!_heik || o[1] < _heik[1]) _heik = o; });
     _adarHtml = '<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:.5px solid rgba(242,239,230,.1)">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
-      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">ADAR · Peliäly' + (_av.yht != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + _av.yht + '<span style="font-size:11px;color:var(--ink3)">/12</span></span>' : '') + '</span>'
-      + '<span style="font-size:10px;color:var(--ink3)">' + (p.adar_havaintoja || 0) + ' havaintoa' + (_gate ? '' : ' · ⚠ ≥3 luotettavuuteen') + ' · <span style="color:var(--teal);cursor:pointer" onclick="openDrill(\'adar\')">ADAR-työkalu →</span></span></div>'
+      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">Peliäly' + (_av.yht != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + _av.yht + '<span style="font-size:11px;color:var(--ink3)">/12</span></span>' : '') + '</span>'
+      + '<span style="font-size:10px;color:var(--ink3)">' + (p.adar_havaintoja || 0) + ' havaintoa' + (_gate ? '' : ' · ⚠ ≥3 luotettavuuteen') + ' · <span style="color:var(--teal);cursor:pointer" onclick="openDrill(\'adar\')">Peliälytyökalu →</span></span></div>'
       + (_gate
           ? '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _osat.map(_bar).join('') + '</div>'
             + (_vah && _heik && _vah !== _heik ? '<div style="font-size:10px;color:var(--ink3);margin-top:7px">💪 Vahvin: <span style="color:var(--teal)">' + _vah[0] + '</span> · 🎯 Kehitä: <span style="color:var(--amber)">' + _heik[0] + '</span></div>' : '')
-          : '<div style="font-size:11px;color:var(--ink3)">Peliälyarvio tarkentuu kun havaintoja on ≥3 (' + (p.adar_havaintoja || 0) + '/3). Yksittäiset havainnot ovat ADAR-työkalussa.</div>')
+          : '<div style="font-size:11px;color:var(--ink3)">Peliälyarvio tarkentuu kun havaintoja on ≥3 (' + (p.adar_havaintoja || 0) + '/3). Yksittäiset havainnot ovat peliälytyökalussa.</div>')
       + '</div>';
   }
 
@@ -5199,6 +5223,8 @@ function _renderPinfoFirestore(p) {
       <div class="pinfo-sub">${ika} · ${p.pelipaikka||'—'} · ${p.joukkue||_joukkue||'—'}${testPvm ? ' · <span style="color:var(--ink3)">testattu '+testPvm+'</span>' : ''}</div>
     </div>
     ${_identHtml}
+    ${lisaHtml}
+    ${_reseptiHtml}
     ${stats.map(s=>`
       <div${s.title ? ` title="${s.title}"` : ''}${s.detalji ? ` class="pstat-klik" onclick="_avaaDetail('${s.detalji}')"` : ''}>
         <div class="pstat-lbl">${s.lbl}${s.detalji ? ' <span style="color:var(--teal)">→</span>' : ''}</div>
@@ -5208,8 +5234,6 @@ function _renderPinfoFirestore(p) {
     ${_kehHtml}
     ${_adarHtml}
     ${_d3Html}
-    ${_reseptiHtml}
-    ${lisaHtml}
     ${_sekHtml}`;
 }
 
