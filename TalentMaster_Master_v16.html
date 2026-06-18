@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781770236314';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781770758975';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -2100,7 +2100,10 @@ async function _lataaValmentaja(uid) {
         await _lataaTestitapahtumat();
       }
 
-      _alusta('Super Admin');
+      // Juurisyy: jos jokin _alusta-render heittää SA:lle (data jo ladattu), heitto ei saa pudota
+      // ulompaan demo-catchiin → näkymät on jo renderöity _lataaPelaajat→_paivitaKaikkiNakymat:ssa.
+      try { _alusta('Super Admin'); }
+      catch (e) { console.error('[v16 SA] _alusta heitti (näkymät renderöity latauksessa, EI demoa):', e); }
       return;
     }
 
@@ -2148,7 +2151,11 @@ async function _lataaValmentaja(uid) {
     }
   } catch(e) {
     console.warn('[v16 auth]', e.message);
-    _kaynnistaDemoTila();
+    // Demo VAIN anonyymille / ei-kirjautuneelle. Kirjautuneella (SA/valmentaja) lataus on jo voinut onnistua
+    // (esim. 20 pelaajaa + _paivitaKaikkiNakymat) — älä putoa demoon vaikka render heitti.
+    const _cu = _auth.currentUser;
+    if (!_cu || _cu.isAnonymous) _kaynnistaDemoTila();
+    else console.error('[v16 auth] kirjautuneen lataus/render heitti — EI demoa:', e);
   }
 }
 
@@ -2358,6 +2365,10 @@ async function _lataaTestitulokset(tapahtumaId) {
 
 
 function _kaynnistaDemoTila() {
+  // Vartija: kirjautunut EI-anonyymi käyttäjä ei saa KOSKAAN demoa — estää demo-vuodon kun oikea
+  // lataus/render heittää poikkeuksen kesken (esim. SA-haaran _alusta). Vain anon / ei käyttäjää → demo.
+  var _cu = (typeof _auth !== 'undefined' && _auth.currentUser) || (typeof firebase !== 'undefined' && firebase.auth().currentUser) || null;
+  if (_cu && !_cu.isAnonymous) { console.warn('[demo] estetty — kirjautunut ei-anonyymi käyttäjä (ei demo-vuotoa)'); return; }
   _demo = true;
   // Lataa demo-data vasta nyt kun tiedetään että tarvitaan
   if (typeof DEMO === 'undefined') {

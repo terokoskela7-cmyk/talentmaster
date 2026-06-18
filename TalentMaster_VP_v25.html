@@ -2056,6 +2056,7 @@ auth.onAuthStateChanged(async user => {
       const sSnap = await db.collection('seurat').get();
       const seurat = sSnap.docs
         .map(d => ({ id: d.id, nimi: d.data().nimi || d.id }))
+        .filter(s => s.id !== 'demo')   // demo = fixture, ei valittavissa kirjautuneelle SA:lle (estä demo-vuoto)
         .sort((a,b) => a.nimi.localeCompare(b.nimi));
 
       const sel = document.getElementById('sa-seura-sel');
@@ -2069,11 +2070,11 @@ auth.onAuthStateChanged(async user => {
       const muistettu = localStorage.getItem('tm-sa-seura');
       _seuraId = (urlSeura && seurat.find(s => s.id === urlSeura)) ? urlSeura
                : (muistettu && seurat.find(s => s.id === muistettu)) ? muistettu
-               : (seurat[0] && seurat[0].id) || 'demo';
-      sel.value = _seuraId;
+               : (seurat[0] && seurat[0].id) || null;   // EI 'demo'-fallbackia kirjautuneelle SA:lle
+      if (_seuraId) sel.value = _seuraId;
     } catch(e) {
       console.warn('Seurojen lataus:', e.message);
-      _seuraId = 'demo';
+      _seuraId = null;   // EI demoa kirjautuneelle SA:lle — naytaLogin hoitaa (estä demo-vuoto)
     }
   } else {
     _seuraId = token.claims.seuraId || null;
@@ -6228,6 +6229,9 @@ function kirjaudu() {
 }
 
 function demoMode() {
+  // Vartija: kirjautunut ei-anonyymi käyttäjä ei saa KOSKAAN demoa (estää demo-vuodon).
+  var _cu = (typeof auth !== 'undefined' && auth.currentUser) || (typeof firebase !== 'undefined' && firebase.auth().currentUser) || null;
+  if (_cu && !_cu.isAnonymous) { console.warn('[demo] estetty — kirjautunut ei-anonyymi käyttäjä (ei demo-vuotoa)'); return; }
   _isDemoMode = true;
   _seuraId = 'demo'; _uid = 'demo';
   document.getElementById('tbEmail').textContent = 'demo@talentmaster.fi';
