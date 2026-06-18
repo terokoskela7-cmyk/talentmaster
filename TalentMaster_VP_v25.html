@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=16"></script>
+<script src="lib/tm_eerikkila_normit.js?v=17"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -1742,9 +1742,18 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         <div id="signaalit-lista" class="signaalit-lista"></div>
       </section>
 
-      <section class="tm-section" id="section-joukkueet">
+      <section class="tm-section" id="section-poikkeamat">
         <div class="section-header">
           <span class="section-num">03</span>
+          <h2 class="section-title">Joukkueiden <em>poikkeamat</em></h2>
+          <span class="section-hint">Missä joukkue poikkeaa odotuksesta (taso 3)</span>
+        </div>
+        <div id="poikkeamat-lista"></div>
+      </section>
+
+      <section class="tm-section" id="section-joukkueet">
+        <div class="section-header">
+          <span class="section-num">04</span>
           <h2 class="section-title">Joukkueiden <em>pulssi</em></h2>
           <span class="section-hint">Klikkaa joukkuetta avataksesi tiiminäkymän</span>
         </div>
@@ -1755,7 +1764,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
       <section style="margin-top:8px">
         <div class="section-header">
-          <span class="section-num">04</span>
+          <span class="section-num">05</span>
           <h2 class="section-title">Toimen<em>piteet</em></h2>
           <span class="section-hint">TalentMaster ehdottaa — sinä päätät</span>
         </div>
@@ -2424,6 +2433,9 @@ function renderTilanne() {
 
   // Vaihe 2 — toimenpidekeskeinen signaalimoottori (korvaa §26 renderSignals)
   renderSignaalit(_seuraId, _pelaajat, []).catch(function(e){ console.warn('[signaalit]', e.message); });
+
+  // POIKKEUSKEHYS roll-up (suoritusprofiilin poikkeamat — eri kerros kuin tehtäväsignaalit)
+  try { renderPoikkeamat(); } catch(e){ console.warn('[poikkeamat]', e.message); }
 
   // IDP-jono tilanne-näkymässä
   renderIdpJono('tilanneIdpJono');
@@ -6858,6 +6870,38 @@ function laskeJoukkueD2(joukkuePelaajat) {
 }
 
 // Joukkuekortit 2×2-grid — D1 (H-H) + D2 (TKI/SM) rinnakkain; klikkaus → syvänäkymä.
+// POIKKEUSKEHYS roll-up (docs/POIKKEUSKEHYS_SPEC §5A) — per joukkue laskeJoukkuePoikkeamat, litistä + lajittele globaalisti.
+function renderPoikkeamat() {
+  const el = document.getElementById('poikkeamat-lista');
+  if (!el) return;
+  if (typeof laskeJoukkuePoikkeamat !== 'function') { el.innerHTML = ''; return; }
+  const joukkueet = {};
+  _pelaajat.forEach(function(p){ const j = p.joukkue || 'Tuntematon'; (joukkueet[j] = joukkueet[j] || []).push(p); });
+  const nimet = Object.keys(joukkueet).sort(function(a,b){ return joukkueJarjestys(a) - joukkueJarjestys(b); });
+  const SEV = { punainen:0, amber:1, info:2 }, VARI = { punainen:'var(--red)', amber:'var(--amber)', info:'var(--ink3)' };
+  let rivit = [];
+  nimet.forEach(function(nimi){
+    const isp = _jsvJoukkueIkaSp(nimi);
+    const pk = laskeJoukkuePoikkeamat(joukkueet[nimi], isp.ika, (isp.sp === 'T') ? 'N' : 'M');
+    pk.forEach(function(x){ rivit.push({ joukkue:nimi, x:x }); });
+  });
+  rivit.sort(function(a,b){ if (SEV[a.x.vakavuus] !== SEV[b.x.vakavuus]) return SEV[a.x.vakavuus] - SEV[b.x.vakavuus]; const av=a.x.arvo==null?Infinity:a.x.arvo, bv=b.x.arvo==null?Infinity:b.x.arvo; return av-bv; });
+  if (!rivit.length) {
+    el.innerHTML = '<div style="padding:14px 16px;color:var(--teal);font-size:13px;background:rgba(40,176,144,.06);border:.5px solid rgba(40,176,144,.2);border-radius:8px">✅ Ei poikkeamia — kaikki joukkueet odotetulla tasolla.</div>';
+    return;
+  }
+  el.innerHTML = rivit.map(function(r){
+    const x = r.x, col = VARI[x.vakavuus], safe = r.joukkue.replace(/['"]/g, '');
+    const cav = x.ikavaiheOdotettu ? ' <span style="font-size:10px;color:var(--ink3);border:.5px solid var(--ink3);border-radius:3px;padding:0 4px">ikävaihe-odotettu</span>' : '';
+    return '<div onclick="avaaJoukkueSyvanakyma(\'' + safe + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:.5px solid var(--border);cursor:pointer">'
+      + '<span style="flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:' + col + '"></span>'
+      + '<span style="flex:0 0 60px;font-size:12px;color:var(--ink2);font-weight:600">' + lyhennaNimi(r.joukkue) + '</span>'
+      + '<span style="flex:1;min-width:0;font-size:12px;color:var(--ink);line-height:1.4">' + x.teema + cav + '</span>'
+      + '<span style="color:' + col + ';font-size:14px;flex:0 0 auto">→</span></div>';
+  }).join('');
+}
+window.renderPoikkeamat = renderPoikkeamat;
+
 function renderTeamPulse() {
   const cont = document.getElementById('joukkuekortit');
   if (!cont) return;
@@ -6900,6 +6944,23 @@ function renderTeamPulse() {
         + '<span class="jk-dim-ctx">' + _d2Lbl + '</span></div>';
     } else {
       h += '<div class="jk-dim-rivi jk-dim-puuttuu"><span class="jk-dim-label">D2</span><span class="jk-dim-ctx" style="min-width:auto">— Tekninen mittaus puuttuu</span></div>';
+    }
+    // POIKKEUSKEHYS-lippu (pahin) — exception-kerros D1/D2-palkkien päälle. Normaali joukkue → ei lippua.
+    if (typeof laskeJoukkuePoikkeamat === 'function') {
+      const _isp = _jsvJoukkueIkaSp(nimi);
+      const _pk = laskeJoukkuePoikkeamat(pelaajat, _isp.ika, (_isp.sp === 'T') ? 'N' : 'M');
+      if (_pk.length) {
+        const _w = _pk[0];
+        const _vc = { punainen:'var(--red)', amber:'var(--amber)', info:'var(--ink3)' }[_w.vakavuus];
+        const _ik = { alle_normin:'⚠', profiilipoikkeama:'◑', laskeva:'↘', hajonta:'◑', talenttiydin:'★', kattavuus:'ⓘ' }[_w.tyyppi] || '⚠';
+        const _lbl = _w.osaAlue ? (_w.osaAlue.charAt(0).toUpperCase() + _w.osaAlue.slice(1)) : '';
+        const _txt = _w.tyyppi === 'alle_normin' ? (_lbl + ' alle normin')
+                   : _w.tyyppi === 'laskeva' ? 'Taso laskussa'
+                   : _w.tyyppi === 'hajonta' ? 'Sisäinen hajonta'
+                   : _w.tyyppi === 'profiilipoikkeama' ? (_lbl + ' jää jälkeen')
+                   : _w.tyyppi === 'talenttiydin' ? 'Talenttiydin alle normin' : 'Datapuute';
+        h += '<div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:2px 8px;border-radius:20px;border:.5px solid ' + _vc + ';color:' + _vc + (_w.ikavaiheOdotettu ? ';opacity:.6' : '') + '">' + _ik + ' ' + _txt + '</div>';
+      }
     }
     if (suunta.tila === 'ensimmainen_mittaus') {
       h += '<div class="jk-badge"><i class="ti ti-refresh" aria-hidden="true"></i> 2. mittaus puuttuu</div>';

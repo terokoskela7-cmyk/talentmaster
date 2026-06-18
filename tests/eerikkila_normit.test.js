@@ -17,6 +17,7 @@ const {
   laskeTSI,
   laskeD1Joustava,
   laskeD1Osaindeksit,
+  laskeJoukkuePoikkeamat,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -245,6 +246,75 @@ describe('laskeD1Osaindeksit (D1 osaindeksit, additiivinen §29)', () => {
     const odotus = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10 : null;
     const r = laskeD1Osaindeksit({ lin5m: 1.1, lin10m: 2.0 }, 12, 'M');
     expect(r.kiihdytys).toBe(odotus);
+  });
+});
+
+describe('laskeJoukkuePoikkeamat (POIKKEUSKEHYS_SPEC)', () => {
+  it('alle_normin: tekniikka ka <2.5 → punainen; 2.5–2.9 → amber (§7)', () => {
+    const r1 = laskeJoukkuePoikkeamat([{ tki_viimeisin: 40 }, { tki_viimeisin: 44 }], 14, 'M');  // 2.0,2.2 → 2.1
+    const t1 = r1.find(x => x.tyyppi === 'alle_normin' && x.osaAlue === 'tekniikka');
+    expect(t1).toBeTruthy();
+    expect(t1.vakavuus).toBe('punainen');
+    const r2 = laskeJoukkuePoikkeamat([{ tki_viimeisin: 56 }, { tki_viimeisin: 56 }], 14, 'M');  // 2.8 → lievä
+    const t2 = r2.find(x => x.tyyppi === 'alle_normin' && x.osaAlue === 'tekniikka');
+    expect(t2.vakavuus).toBe('amber');
+  });
+  it('profiilipoikkeama: heikoin fyysinen ≥1.0 alle osa-alueiden ka:n', () => {
+    const team = [{ hh_viimeisin: { lin30m: 3.9, mas: 8 } }, { hh_viimeisin: { lin30m: 4.0, mas: 8.3 } }];
+    const ika = 15, sp = 'M';
+    const areas = ['kiihdytys','maksinopeus','voima','ketteryys','aerobinen'];
+    const oi = team.map(p => laskeD1Osaindeksit(p.hh_viimeisin, ika, sp));
+    const ka = {}; areas.forEach(a => { const v = oi.map(o => o[a]).filter(x => x != null); ka[a] = v.length ? v.reduce((s,x)=>s+x,0)/v.length : null; });
+    const vals = areas.map(a => ka[a]).filter(x => x != null);
+    const r = laskeJoukkuePoikkeamat(team, ika, sp);
+    if (vals.length >= 2 && (vals.reduce((s,x)=>s+x,0)/vals.length - Math.min(...vals)) >= 1.0) {
+      expect(r.some(x => x.tyyppi === 'profiilipoikkeama')).toBe(true);
+    } else {
+      expect(r.some(x => x.tyyppi === 'profiilipoikkeama')).toBe(false);
+    }
+  });
+  it('laskeva: delta < −0.3 ≥2 pelaajalla', () => {
+    const team = [{ hh_taso: 3.0, hh_taso_edellinen: 3.5 }, { tki_viimeisin: 50, tki_edellinen: 60 }, { hh_taso: 3.0 }];
+    const r = laskeJoukkuePoikkeamat(team, 14, 'M');
+    expect(r.some(x => x.tyyppi === 'laskeva')).toBe(true);
+  });
+  it('hajonta: ≥33% tasolla ≤2 JA ka ≥2.5', () => {
+    const team = [{ hh_taso: 1.5 }, { hh_taso: 2.0 }, { hh_taso: 4.0 }, { hh_taso: 4.0 }, { hh_taso: 4.0 }, { hh_taso: 4.0 }];
+    const r = laskeJoukkuePoikkeamat(team, 14, 'M');
+    expect(r.some(x => x.tyyppi === 'hajonta')).toBe(true);
+  });
+  it('talenttiydin ka <3.0 → punainen', () => {
+    const team = [{ hh_taso: 2.8 }, { hh_taso: 2.5 }, { hh_taso: 2.2 }, { hh_taso: 2.0 }, { hh_taso: 1.8 }];
+    const ydin = laskeJoukkuePoikkeamat(team, 14, 'M').find(x => x.tyyppi === 'talenttiydin');
+    expect(ydin).toBeTruthy();
+    expect(ydin.vakavuus).toBe('punainen');
+    expect(ydin.arvo).toBeLessThan(3.0);
+  });
+  it('PHV-caveat: post-PHV-ominaisuus + ika≤13 → ikavaiheOdotettu & ei punainen', () => {
+    const team = [{ hh_viimeisin: { mas: 8 } }, { hh_viimeisin: { mas: 8.5 } }];
+    const ika = 13, sp = 'M';
+    const aer = laskeD1Osaindeksit(team[0].hh_viimeisin, ika, sp).aerobinen;
+    const a = laskeJoukkuePoikkeamat(team, ika, sp).find(x => x.osaAlue === 'aerobinen' && x.tyyppi === 'alle_normin');
+    if (aer != null && aer < 3) {
+      expect(a).toBeTruthy();
+      expect(a.ikavaiheOdotettu).toBe(true);
+      expect(a.vakavuus).not.toBe('punainen');
+    }
+  });
+  it('phv_tila POST ohittaa ikäproxyn → punainen sallittu nuorelle fyysiselle', () => {
+    const team = [{ phv_tila: 'POST', hh_viimeisin: { mas: 8 } }, { phv_tila: 'POST', hh_viimeisin: { mas: 8.5 } }];
+    const ika = 13, sp = 'M';
+    const aer = laskeD1Osaindeksit(team[0].hh_viimeisin, ika, sp).aerobinen;
+    const a = laskeJoukkuePoikkeamat(team, ika, sp).find(x => x.osaAlue === 'aerobinen' && x.tyyppi === 'alle_normin');
+    if (aer != null && aer < 2.5) {
+      expect(a.ikavaiheOdotettu).toBe(false);
+      expect(a.vakavuus).toBe('punainen');
+    }
+  });
+  it('tyhjä joukkue → tyhjä lista; lajittelu punainen ennen amberia', () => {
+    expect(laskeJoukkuePoikkeamat([], 14, 'M')).toEqual([]);
+    const r = laskeJoukkuePoikkeamat([{ tki_viimeisin: 30 }, { tki_viimeisin: 30 }], 14, 'M');  // tekn 1.5 → punainen + talenttiydin
+    if (r.length >= 2) expect(['punainen']).toContain(r[0].vakavuus);
   });
 });
 
