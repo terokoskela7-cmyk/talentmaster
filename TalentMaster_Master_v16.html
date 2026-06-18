@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781773028515';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781773706233';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -1759,13 +1759,13 @@ const DEMO = {
   },
   actions: [
     { num:1, title:'Päivitä 70/30-ohjelma — laske tehot', mins:2, aika:'AAMU', sub:'harjoitus klo 18:00', priority:true, key:'ohjelma' },
-    { num:2, title:'Kirjaa RPE ja 0–3 ADAR-havaintoa', mins:4, aika:'ILTAPÄIVÄ', sub:'harjoituksen jälkeen', priority:false, key:'rpe' },
+    { num:2, title:'Kirjaa RPE ja 0–3 peliälyhavaintoa', mins:4, aika:'ILTAPÄIVÄ', sub:'harjoituksen jälkeen', priority:false, key:'rpe' },
     { num:3, title:'Katso Teemun X-Factor-trendi — neljäs nousu peräkkäin', mins:1, aika:'ILTA', sub:'pelaajanäkymä', priority:false, key:'xfactor' },
   ],
   metrics: [
     { lbl:'Fiilinki — joukkue', val:'3.4', delta:'−0.2 vs. viime vk', trend:'down', sparks:[3.6,3.8,3.5,3.6,3.4], ctx:'14/16 vastasi eilen', trendClass:'trend-down bad' },
     { lbl:'Kuormitus · RPE 7 pv', val:'7.2', delta:'+1.4 vs. baseline', trend:'up', sparks:[5.8,6.1,6.4,6.8,7.2], ctx:'ACWR 1.48 · varovaisuus', trendClass:'trend-up' },
-    { lbl:'ADAR — viikko', val:'17', delta:'+4 vs. viime vk', trend:'up', sparks:[11,13,12,15,17], ctx:'6 pelaajaa · 2 X-Factor', trendClass:'trend-up good' },
+    { lbl:'Peliäly — viikko', val:'17', delta:'+4 vs. viime vk', trend:'up', sparks:[11,13,12,15,17], ctx:'6 pelaajaa · 2 X-Factor', trendClass:'trend-up good' },
     { lbl:'Paikalla — eilen', val:'14', unit:'/16', delta:'sama kuin vk', trend:'flat', sparks:[16,15,14,16,14], ctx:'2 loukk. · 0 sairaana', trendClass:'trend-flat' },
   ],
   adar: [
@@ -4295,7 +4295,7 @@ function renderKoti() {
   } else {
     // Ei pelaajia → aloitusohje + ADAR-CTA, EI strippiä tyhjillä luvuilla
     h += '<div class="koti-tyhja">⚽ <b>Aloita havainnoimalla pelaaja.</b><br>'
-      + '<span style="font-size:13px;color:var(--ink3)">Avaa ADAR-kenttätyökalu ja kirjaa ensimmäinen peliälyhavainto — sitten näet täällä mitä tehdä seuraavaksi.</span><br>'
+      + '<span style="font-size:13px;color:var(--ink3)">Avaa peliälytyökalu ja kirjaa ensimmäinen peliälyhavainto — sitten näet täällä mitä tehdä seuraavaksi.</span><br>'
       + '<button class="kk-cta" style="margin-top:12px" onclick="openDrill(\'adar\')">Havainnoi pelaaja →</button></div>';
   }
   el.innerHTML = h;
@@ -4304,9 +4304,30 @@ function renderHavainnot() {
   const el = document.getElementById('havainnotView');
   if (!el) return;
   const P = _pelaajatData || [];
+  const nyt = Date.now(), KK = 30 * 864e5;
+  // Havainnoimatta = sama logiikka kuin renderKoti:n ilmanAdar (0 havaintoa TAI tuorein >30 pv)
+  const ilmanAdar = P.filter(p => { const ms = _iaMs(p.adar_pvm); return (p.adar_havaintoja||0) === 0 || (ms && (nyt - ms) > KK); });
   const havaitut = P.filter(p => (p.adar_havaintoja||0) >= 1 && p.adar_pvm).sort((a,b) => (_iaMs(b.adar_pvm)||0) - (_iaMs(a.adar_pvm)||0));
-  let h = '<div class="koti-otsikko serif">Havainnot</div>';
-  h += '<button class="kk-cta" style="font-size:15px;padding:12px 22px" onclick="openDrill(\'adar\')">👁 Avaa ADAR-kenttätyökalu →</button>';
+  let h = '<div class="koti-otsikko serif">Peliälyhavainnot</div>';
+  h += '<button class="kk-cta" style="font-size:15px;padding:12px 22px" onclick="openDrill(\'adar\')">👁 Avaa peliälytyökalu →</button>';
+
+  // ── Havainnoimatta-osio (ENNEN historiaa) — kohdista valmentajan työ ──
+  h += '<div class="koti-otsikko serif" style="font-size:18px;margin-top:26px">Havainnoimatta (' + ilmanAdar.length + ')</div>';
+  if (ilmanAdar.length) {
+    h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:10px">Ei tuoretta peliälyhavaintoa (0 tai yli 30 pv) — napauta havainnoidaksesi.</div>';
+    h += '<div class="koti-kortit">' + ilmanAdar.map(p => {
+      const ms = _iaMs(p.adar_pvm);
+      const tila = (p.adar_havaintoja||0) === 0 ? 'ei havaintoja' : 'viimeksi ' + (ms ? _pvmFiM(new Date(ms).toISOString().slice(0,10)) : '—');
+      return '<div class="koti-kortti" style="cursor:pointer" onclick="openDrill(\'adar\')">'
+        + '<div class="kk-ikoni">👁</div>'
+        + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · ' + tila + '</div>'
+        + '<span style="color:var(--amber)">Havainnoi →</span></div>';
+    }).join('') + '</div>';
+  } else {
+    h += '<div class="koti-tyhja" style="font-size:13px">✅ Kaikki pelaajat havainnoitu tuoreesti (30 pv).</div>';
+  }
+
+  // ── Havaintohistoria ──
   h += '<div class="koti-otsikko serif" style="font-size:18px;margin-top:26px">Havaintohistoria</div>';
   if (havaitut.length) {
     h += '<div class="koti-kortit">' + havaitut.map(p => {
@@ -4315,11 +4336,11 @@ function renderHavainnot() {
       const yht = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht + '/12' : '—';
       return '<div class="koti-kortti" style="cursor:pointer" onclick="pickPlayer(\'' + p.id + '\');setWs(\'dev\')">'
         + '<div class="kk-ikoni">🧠</div>'
-        + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · ADAR ' + yht + ' · ' + p.adar_havaintoja + ' havaintoa' + (pvmTxt ? ' · ' + pvmTxt : '') + '</div>'
+        + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · Peliäly ' + yht + ' · ' + p.adar_havaintoja + ' havaintoa' + (pvmTxt ? ' · ' + pvmTxt : '') + '</div>'
         + '<span style="color:var(--teal)">→</span></div>';
     }).join('') + '</div>';
   } else {
-    h += '<div class="koti-tyhja">Ei havaintoja vielä. Avaa ADAR-työkalu ja kirjaa ensimmäinen peliälyhavainto.</div>';
+    h += '<div class="koti-tyhja">Ei havaintoja vielä. Avaa peliälytyökalu ja kirjaa ensimmäinen peliälyhavainto.</div>';
   }
   el.innerHTML = h;
 }
@@ -4334,7 +4355,7 @@ function toggleTyokalut(force) {
    palautettavissa. Ei XP/pakotusta (§7.22-henki). Flow appista (Master = valmentaja), ei rooli-stringistä.
 ════════════════════════════════════════════════════════════ */
 const _ONB_COACH = [
-  { txt: 'Havainnoi yksi pelaaja kentällä.', nappi: 'Avaa ADAR-työkalu', fn: function(){ openDrill('adar'); } },
+  { txt: 'Havainnoi yksi pelaaja kentällä.', nappi: 'Avaa peliälytyökalu', fn: function(){ openDrill('adar'); } },
   { txt: 'Katso havainnoimasi pelaajan kehityskortti.', nappi: 'Avaa Pelaajat', fn: function(){ setWs('dev'); } },
   { txt: 'Lähetä pelaajan perheelle yksi kannustava viesti.', nappi: 'Avaa Viestit', fn: function(){ setWs('inbox'); } },
 ];
@@ -4432,7 +4453,7 @@ function _renderActions() {
       testit.length > 0
         ? { priority:true, aika:'TÄNÄÄN', title: testit[0].nimi + ' — testipäivä', sub: testit[0].joukkue || '', key:'testi' }
         : { priority:false, aika:'', title: 'Ei testitapahtumia tänään', sub: '', key:'' },
-      { priority:false, aika:'', title: 'Kirjaa ADAR-havainto harjoitusten jälkeen', sub:'4 min', key:'adar' },
+      { priority:false, aika:'', title: 'Kirjaa peliälyhavainto harjoitusten jälkeen', sub:'4 min', key:'adar' },
     ];
     el.innerHTML = actions.filter(a => a.title).map(a => {
       // Käytä data-key-attribuuttia onclick:n sijaan — turvallinen tapa
@@ -5270,7 +5291,7 @@ function _renderPinfo(p) {
   if (!el) return;
   const stats = [
     { lbl:'FLEI', val:p.flei, delta:p.fleiDelta, color: p.flei>=65?'var(--teal)':p.flei>=55?'var(--amber)':'var(--red)' },
-    { lbl:'ADAR-kirjauksia', val:p.adar, delta:p.xfactor+' X-Factor', color:'var(--ink)' },
+    { lbl:'Peliälyhavaintoja', val:p.adar, delta:p.xfactor+' X-Factor', color:'var(--ink)' },
     { lbl:'Testit', val:p.testit, delta:'suoritettu', color:'var(--ink)' },
     { lbl:'Fiilinki', val:p.fiilinki.split(' ')[0], delta:p.fiilinki.split(' ').slice(1).join(' '), color:'var(--ink)' },
     { lbl:'Ottelut / loukk.', val:p.ottelut+'/'+p.loukk, delta:p.loukk>0?'Huomio':'Kaikki ok', color:'var(--ink)' },
@@ -5324,7 +5345,7 @@ function _renderTimeline(p) {
     { date: D(p.tki_pvm), val: p.tki_viimeisin }
   ], tkiDelta);
   if ((p.adar_havaintoja||0) >= 3 && p.adar_viimeisin && p.adar_viimeisin.yht != null) {
-    pushLayer('ADAR', 'var(--teal)', 12, [{ date: D(p.adar_pvm), val: p.adar_viimeisin.yht }]);
+    pushLayer('Peliäly', 'var(--teal)', 12, [{ date: D(p.adar_pvm), val: p.adar_viimeisin.yht }]);
   }
   if (p.flei_pvm && (p.flei_viimeisin||0) > 0) {
     pushLayer('FLEI', 'var(--amber)', 100, [{ date: D(p.flei_pvm), val: p.flei_viimeisin }]);
@@ -5454,7 +5475,7 @@ function _renderNarrative(p) {
   }
   if (p.adar_pvm && (p.adar_havaintoja || 0) >= 1) {
     erikoisNarr.push({ kk: _pvmFiX(p.adar_pvm), _d: _pvmMs(p.adar_pvm),
-      txt: 'ADAR-havainto · ' + p.adar_havaintoja + ' yhteensä' + (p.adar_viimeisin && p.adar_viimeisin.yht != null ? ' (yht ' + p.adar_viimeisin.yht + '/12)' : '') });
+      txt: 'Peliälyhavainto · ' + p.adar_havaintoja + ' yhteensä' + (p.adar_viimeisin && p.adar_viimeisin.yht != null ? ' (yht ' + p.adar_viimeisin.yht + '/12)' : '') });
   }
   if (p.phv_tila === 'PH') {
     const _phvPvm = p.biologinenIka_pvm || p.phv_pvm || p.hh_pvm || null;
@@ -5562,7 +5583,7 @@ function renderSeason() {
         + card('D1 Fyysinen — tasojakauma' + _mSelBtn('d1'), histBars(hist('d1_taso'),'var(--teal)'))
         + card('D2 Tekninen — tasojakauma' + _mSelBtn('d2'), histBars(hist('d2_taso'),'var(--blue)'))
         + card('PHV-vaiheet', '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + phvVaiheet.map(v => phvChip(v, phvLkm[v])).join('') + (phvTuntematon ? '<span style="font-size:10px;color:var(--ink3)">' + phvTuntematon + ' ei mittausta</span>' : '') + '</div>' + (phvLkm.PH ? '<div style="font-size:10px;color:var(--amber);margin-top:6px">⚠ ' + phvLkm.PH + ' kuormarajoitettua (PH)</div>' : ''))
-        + card('Kattavuus (§26)', '<div style="display:flex;flex-direction:column;gap:4px">' + cov('Testattu', nTestattu) + cov('ADAR ≥3', nAdar) + cov('PHV', nPhv) + cov('FLEI', nFlei) + '</div>')
+        + card('Kattavuus (§26)', '<div style="display:flex;flex-direction:column;gap:4px">' + cov('Testattu', nTestattu) + cov('Peliäly ≥3', nAdar) + cov('PHV', nPhv) + cov('FLEI', nFlei) + '</div>')
         + _raeCardHtml
         + '</div>';
     }
@@ -6396,7 +6417,7 @@ const CP_BASE = [
   { section:'Työtilat', label:'Kalenteri — viikko', sub:'', ico:'ic-cal', fn: ()=>setWs('cal') },
   { section:'Työtilat', label:'Testit — tapahtumat', sub:'', ico:'ic-test', fn: ()=>setWs('testit') },
   { section:'Kirjaukset', label:'Kirjaa RPE joukkueelle', sub:'', ico:'ic-drill', fn: ()=>openDrill('rpe') },
-  { section:'Kirjaukset', label:'Uusi ADAR-havainto', sub:'', ico:'ic-obs', fn: ()=>openDrill('adar') },
+  { section:'Kirjaukset', label:'Uusi peliälyhavainto', sub:'', ico:'ic-obs', fn: ()=>openDrill('adar') },
   { section:'Näkymä', label:'Vaihda: tumma / vaalea', sub:'', ico:'ic-sun', fn: toggleTheme },
   { section:'Näkymä', label:'Kirjaudu ulos', sub:'', ico:'ic-logout', fn: logout },
 ];
