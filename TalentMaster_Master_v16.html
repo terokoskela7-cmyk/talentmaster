@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781770758975';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781771707399';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -2958,31 +2958,6 @@ function _renderOhjaavaSignaali() {
     const msg = aktivoitujen === 0
       ? `Kutsutaan <em>${pelaajia} pelaajaa</em> mukaan — kukaan ei ole vielä kirjannut.`
       : `${aktivoitujen} / ${pelaajia} pelaajaa on aloittanut kirjaukset. ${pelaajia - aktivoitujen > 0 ? 'Muistuta lopuille.' : 'Hyvä alku!'}`;
-    // §C D3 PSYKOLOGINEN -lohko: d3_taso + 5 ulottuvuutta (valmentaja/pelaaja) + Arvioi-nappi (pikakentät §26)
-  let _d3Html = '';
-  {
-    const d3v = p.d3_viimeisin;
-    const onD3 = d3v && d3v.pisteet && Object.keys(d3v.pisteet).length;
-    const _d3rivi = d => {
-      const pt = (onD3 && d3v.pisteet[d.key]) || {};
-      const avg = pt.avg != null ? pt.avg : null;
-      const col = avg == null ? 'var(--ink3)' : avg >= 4 ? 'var(--teal)' : avg >= 2.5 ? 'var(--amber)' : 'var(--red)';
-      const lahde = (pt.valmentaja != null && pt.pelaaja != null) ? ('V' + pt.valmentaja + '·P' + pt.pelaaja) : (pt.valmentaja != null) ? ('valm. ' + pt.valmentaja) : (pt.pelaaja != null) ? ('pelaaja ' + pt.pelaaja) : '';
-      return '<div style="display:flex;align-items:center;gap:10px;padding:3px 0;font-size:12px"><span style="flex:1;color:var(--ink2)">' + d.nimi + '</span><span style="font-size:9px;color:var(--ink3)">' + lahde + '</span><span style="font-family:var(--font-m,monospace);color:' + col + ';min-width:24px;text-align:right">' + (avg != null ? avg : '—') + '</span></div>';
-    };
-    _d3Html = '<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:.5px solid rgba(242,239,230,.1)">'
-      + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
-      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">D3 Psykologinen' + (onD3 && p.d3_taso != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + p.d3_taso + '<span style="font-size:11px;color:var(--ink3)">/5</span></span>' : '') + (onD3 && p.d3_varmuus && typeof d3VarmuusChip === 'function' ? ' ' + d3VarmuusChip(p.d3_varmuus) : '') + (typeof _mSelBtn === 'function' ? _mSelBtn('d3') : '') + '</span>'
-      + '<button onclick="_avaaD3Arvio(\'' + p.id + '\')" style="background:var(--teal);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">' + (onD3 ? 'Päivitä arvio' : 'Arvioi') + '</button></div>'
-      + (onD3 ? _D3_DIMS.map(_d3rivi).join('') : '<div style="font-size:11px;color:var(--ink3)">Psyykkinen profiili täydentyy kun arvioit pelaajan + pelaaja tekee itsearvion.</div>')
-      // §D3 kalibraatio (malli A): kolmen näkökulman vertailu näkyy kun VP on arvioinut. Kuilu → mentorointihenkinen vihje.
-      + (onD3 && d3v.pisteet && Object.keys(d3v.pisteet).some(k => d3v.pisteet[k] && d3v.pisteet[k].vp != null) && typeof renderD3VertailuHTML === 'function'
-          ? renderD3VertailuHTML(d3v.pisteet)
-            + (typeof d3VpKuiluPelaajalla === 'function' && d3VpKuiluPelaajalla(d3v.pisteet)
-                ? '<div style="font-size:10px;color:var(--amber);margin-top:4px">⚠ Arviosi eroaa VP:n näkemyksestä — hyvä keskustelunaihe kalibrointiin.</div>' : '')
-          : '')
-      + '</div>';
-  }
   el.innerHTML = `
       <div class="signal-icon">💡</div>
       <div class="signal-body">
@@ -5228,6 +5203,31 @@ function _renderPinfoFirestore(p) {
     } catch (e) { console.warn('[resepti B1]', e.message); }
   }
 
+    // §C D3 PSYKOLOGINEN -lohko: d3_taso + 5 ulottuvuutta (valmentaja/pelaaja) + Arvioi-nappi (pikakentät §26)
+  let _d3Html = '';
+  {
+    const d3v = p.d3_viimeisin;
+    const onD3 = d3v && d3v.pisteet && Object.keys(d3v.pisteet).length;
+    const _d3rivi = d => {
+      const pt = (onD3 && d3v.pisteet[d.key]) || {};
+      const avg = pt.avg != null ? pt.avg : null;
+      const col = avg == null ? 'var(--ink3)' : avg >= 4 ? 'var(--teal)' : avg >= 2.5 ? 'var(--amber)' : 'var(--red)';
+      const lahde = (pt.valmentaja != null && pt.pelaaja != null) ? ('V' + pt.valmentaja + '·P' + pt.pelaaja) : (pt.valmentaja != null) ? ('valm. ' + pt.valmentaja) : (pt.pelaaja != null) ? ('pelaaja ' + pt.pelaaja) : '';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:3px 0;font-size:12px"><span style="flex:1;color:var(--ink2)">' + d.nimi + '</span><span style="font-size:9px;color:var(--ink3)">' + lahde + '</span><span style="font-family:var(--font-m,monospace);color:' + col + ';min-width:24px;text-align:right">' + (avg != null ? avg : '—') + '</span></div>';
+    };
+    _d3Html = '<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:.5px solid rgba(242,239,230,.1)">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
+      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">D3 Psykologinen' + (onD3 && p.d3_taso != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + p.d3_taso + '<span style="font-size:11px;color:var(--ink3)">/5</span></span>' : '') + (onD3 && p.d3_varmuus && typeof d3VarmuusChip === 'function' ? ' ' + d3VarmuusChip(p.d3_varmuus) : '') + (typeof _mSelBtn === 'function' ? _mSelBtn('d3') : '') + '</span>'
+      + '<button onclick="_avaaD3Arvio(\'' + p.id + '\')" style="background:var(--teal);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer">' + (onD3 ? 'Päivitä arvio' : 'Arvioi') + '</button></div>'
+      + (onD3 ? _D3_DIMS.map(_d3rivi).join('') : '<div style="font-size:11px;color:var(--ink3)">Psyykkinen profiili täydentyy kun arvioit pelaajan + pelaaja tekee itsearvion.</div>')
+      // §D3 kalibraatio (malli A): kolmen näkökulman vertailu näkyy kun VP on arvioinut. Kuilu → mentorointihenkinen vihje.
+      + (onD3 && d3v.pisteet && Object.keys(d3v.pisteet).some(k => d3v.pisteet[k] && d3v.pisteet[k].vp != null) && typeof renderD3VertailuHTML === 'function'
+          ? renderD3VertailuHTML(d3v.pisteet)
+            + (typeof d3VpKuiluPelaajalla === 'function' && d3VpKuiluPelaajalla(d3v.pisteet)
+                ? '<div style="font-size:10px;color:var(--amber);margin-top:4px">⚠ Arviosi eroaa VP:n näkemyksestä — hyvä keskustelunaihe kalibrointiin.</div>' : '')
+          : '')
+      + '</div>';
+  }
   el.innerHTML = `
     <div style="grid-column:1/-1">
       <div class="pinfo-name serif">${nimi}</div>
