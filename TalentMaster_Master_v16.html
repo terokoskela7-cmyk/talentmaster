@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781778355449';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781779646678';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -596,6 +596,9 @@ a { color: inherit; text-decoration: none; }
 .koti-strippi-alas > div { display: flex; align-items: baseline; gap: 6px; }
 .ksa-luku { font-family: 'Cormorant Garamond', serif; font-size: 19px; color: var(--ink); line-height: 1; }
 .ksa-lbl { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); }
+/* Kausi: klikattavat tasojakauma-/Taso≥3-kortit → pelaajalista */
+.kausi-klik { cursor: pointer; transition: border-color .12s, background .12s; }
+.kausi-klik:hover { border-color: var(--teal-brd); background: var(--card2); }
 #onbSheet { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .onb-back { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
 .onb-card { position: relative; background: var(--card); border: .5px solid var(--line2); border-radius: 16px; width: min(440px, 94vw); max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: var(--shadow-lg); }
@@ -5506,6 +5509,64 @@ function _renderNarrative(p) {
 /* ════════════════════════════════════════════════════════════
    KAUSI
 ════════════════════════════════════════════════════════════ */
+// Kausi-tasojakauma/Taso≥3-kortin klikkaus → pelaajalista (lukee jo ladattua _pelaajatData:a, EI uusia kyselyjä).
+// dim: 'd1' (p.d1_taso + 30m/CMJ/MAS) · 'd2' (laskeD2Joustava: TKI/H-H/TSI/TK) · 'taso' (lvl, TKI-tietoinen, paras dim).
+window._avaaKausiPelaajat = function(dim) {
+  const P = _pelaajatData || [];
+  const _nimi = p => ((p.etunimi||'')+' '+(p.sukunimi||'')).trim() || p.id;
+  const _lvl = p => { const _is=_devIkaSp(p); const d2j=(typeof laskeD2Joustava==='function')?laskeD2Joustava(p,_is.ika,_is.sp):null; const a=[p.d1_taso,p.hh_taso,p.d2_taso,d2j?d2j.taso:null].filter(v=>v!=null); return a.length?Math.max(...a):null; };
+  const _vari = t => t==null?'var(--ink3)':t>=4?'var(--teal)':t>=3?'var(--amber)':'var(--red)';   // 1–5 sama skaala kuin muualla
+  const rivit = [];
+  P.forEach(p => {
+    let taso=null, raaka='';
+    if (dim==='d1') {
+      if (p.d1_taso==null) return; taso=p.d1_taso;
+      const hv=p.hh_viimeisin||{}, osat=[];
+      if (hv.lin30m!=null) osat.push('30m '+hv.lin30m+'s');
+      if (hv.cmj!=null) osat.push('CMJ '+hv.cmj+'cm');
+      if (hv.mas!=null) osat.push('MAS '+hv.mas+'km/h');
+      raaka=osat.join(' · ');
+    } else if (dim==='d2') {
+      const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')?laskeD2Joustava(p,_is.ika,_is.sp):null;
+      taso = r ? r.taso : (p.d2_taso!=null?p.d2_taso:null);
+      if (taso==null) return;
+      if (r && r.lahde==='tki') { const mk=_tkiMerkkiM(p.tki_viimeisin,p.tki_merkki); raaka='TKI '+(p.tki_viimeisin!=null?p.tki_viimeisin:'—')+(mk?' '+mk.emoji:''); }
+      else if (r && r.lahde==='hh') raaka='H-H syöttö/pujottelu';
+      else if (r && r.lahde==='sm') raaka='TSI '+(p.tsi_viimeisin!=null?p.tsi_viimeisin+'s':'—');
+      else if (r && r.lahde==='tk') raaka='TK-lajit';
+      else raaka='tekninen';
+    } else {
+      taso=_lvl(p); if (taso==null) return;
+      const _is=_devIkaSp(p); const d2j=(typeof laskeD2Joustava==='function')?laskeD2Joustava(p,_is.ika,_is.sp):null;
+      const kand=[['D1',(p.d1_taso!=null?p.d1_taso:p.hh_taso)],['D2',(d2j?d2j.taso:p.d2_taso)]].filter(x=>x[1]!=null).sort((a,b)=>b[1]-a[1]);
+      raaka = kand.length ? ('paras: '+kand[0][0]+' '+kand[0][1]) : '';
+    }
+    rivit.push({ p, taso, raaka });
+  });
+  rivit.sort((a,b)=>a.taso-b.taso);   // nouseva — heikoin (kehityskohde) ensin
+  const kehitys=rivit.filter(r=>r.taso<3), vahvuus=rivit.filter(r=>r.taso>=3);
+  const otsikko = dim==='d1'?'D1 Fyysinen':dim==='d2'?'D2 Tekninen':'Taso ≥3';
+
+  const vanha=document.getElementById('kausiPelModal'); if(vanha) vanha.remove();
+  const m=document.createElement('div'); m.id='kausiPelModal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9200;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.onclick=e=>{ if(e.target===m) m.remove(); };
+  const rivihtml = r => '<div onclick="pickPlayer(\''+r.p.id+'\');setWs(\'dev\');var _x=document.getElementById(\'kausiPelModal\');if(_x)_x.remove()" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:.5px solid var(--line);cursor:pointer">'
+    + '<span style="flex:1;min-width:0;font-size:14px;color:var(--ink)">'+_nimi(r.p)+'</span>'
+    + (r.raaka?'<span style="font-size:9px;color:var(--ink3);max-width:170px;text-align:right">'+r.raaka+'</span>':'')
+    + '<span style="min-width:30px;text-align:center;font-family:var(--font-m,monospace);font-weight:600;color:'+_vari(r.taso)+'">'+r.taso+'</span>'
+    + '<span style="color:var(--teal)">→</span></div>';
+  const osio = (otsk,arr,col) => arr.length ? '<div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:'+col+';margin:16px 0 2px">'+otsk+' ('+arr.length+')</div>'+arr.map(rivihtml).join('') : '';
+  const body = rivit.length
+    ? osio('🎯 Kehityskohteet (taso < 3)',kehitys,'var(--amber)') + osio('⭐ Vahvuudet (taso ≥ 3)',vahvuus,'var(--teal)')
+    : '<div style="padding:24px 0;color:var(--ink3);font-size:13px;text-align:center">'+(dim==='d1'?'Ei fyysistä mittausta tällä joukkueella':'Ei dataa tässä ulottuvuudessa')+'</div>';
+  let h='<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--line);border-radius:12px;width:min(520px,96vw);max-height:88vh;overflow-y:auto;padding:20px 22px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink)">'+otsikko+' · '+rivit.length+' pelaajaa</div>'
+    + '<button onclick="var _x=document.getElementById(\'kausiPelModal\');if(_x)_x.remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>';
+  h+=body+'</div>';
+  m.innerHTML=h; document.body.appendChild(m);
+};
+
 function renderSeason() {
   // Kirjautuneena: KEHITYSKOKPIT Firestoresta (korvaa kalenterimetronomin)
   if (!_demo && _seuraId) {
@@ -5535,18 +5596,21 @@ function renderSeason() {
     const taso3 = onTaso.filter(p => lvl(p) >= 3).length;
     const pulseEl = document.getElementById('seasonPulse');
     if (pulseEl) {
-      const metr = (lbl, n, d, vihje, selite) => {
+      const metr = (lbl, n, d, vihje, selite, klikDim) => {
         const pct = d ? Math.round(n / d * 100) : null;
         const col = pct == null ? 'var(--ink3)' : pct >= 60 ? 'var(--teal)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
         const _t = selite ? ' title="' + String(selite).replace(/"/g, '&quot;') + '"' : '';
-        return '<div' + _t + ' style="flex:1;min-width:200px;background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:16px 18px' + (selite ? ';cursor:help' : '') + '">'
+        const klik = klikDim ? ' class="kausi-klik" onclick="_avaaKausiPelaajat(\'' + klikDim + '\')"' : '';
+        const curs = klikDim ? ';cursor:pointer' : (selite ? ';cursor:help' : '');
+        return '<div' + _t + klik + ' style="flex:1;min-width:200px;background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:16px 18px' + curs + '">'
           + '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">' + lbl + (selite ? ' <span style="opacity:.6">ⓘ</span>' : '') + '</div>'
           + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:38px;line-height:1.1;color:' + col + '">' + (pct == null ? '—' : pct + '%') + '</div>'
-          + '<div style="font-size:11px;color:var(--ink3)">' + vihje + '</div></div>';
+          + '<div style="font-size:11px;color:var(--ink3)">' + vihje + '</div>'
+          + (klikDim ? '<div style="font-size:10px;color:var(--teal);margin-top:6px">👥 Näytä pelaajat →</div>' : '') + '</div>';
       };
       pulseEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
         + metr('Kehittynyt (abs)', parani, mitattuKahdesti, mitattuKahdesti ? parani + '/' + mitattuKahdesti + ' kahdesti mitattua parani' : 'tarvitsee 2 mittausta/pelaaja', 'Osuus kahdesti mitatuista pelaajista, joiden taso nousi (absoluuttinen kehitys §30). Vaatii ≥2 mittausta/pelaaja — ei vertaa muihin, vaan pelaajan omaan lähtötasoon.')
-        + metr('Taso ≥3', taso3, onTaso.length, onTaso.length ? taso3 + '/' + onTaso.length + ' ikäluokan keskitaso+' : 'ei tasodataa', 'Osuus pelaajista, joiden paras dimensiotaso (D1/D2/H-H) on ≥3 = ikäluokan keskitaso tai parempi (1–5-asteikko).')
+        + metr('Taso ≥3', taso3, onTaso.length, onTaso.length ? taso3 + '/' + onTaso.length + ' ikäluokan keskitaso+' : 'ei tasodataa', 'Osuus pelaajista, joiden paras dimensiotaso (D1/D2/H-H) on ≥3 = ikäluokan keskitaso tai parempi (1–5-asteikko).', onTaso.length ? 'taso' : null)
         + '</div>';
     }
 
@@ -5572,7 +5636,11 @@ function renderSeason() {
       const nAdar = P.filter(p => (p.adar_havaintoja||0) >= 3).length;
       const nPhv = P.filter(p => p.phv_tila).length;
       const nFlei = P.filter(p => (p.flei_viimeisin||0) > 0).length;
-      const card = (t,inner) => '<div style="flex:1;min-width:208px;background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:14px 16px"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">' + t + '</div>' + inner + '</div>';
+      const card = (t,inner,klikDim) => {
+        const klik = klikDim ? ' class="kausi-klik" onclick="_avaaKausiPelaajat(\'' + klikDim + '\')"' : '';
+        const vihje = klikDim ? '<div style="font-size:10px;color:var(--teal);margin-top:8px">👥 Näytä pelaajat →</div>' : '';
+        return '<div' + klik + ' style="flex:1;min-width:208px;background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:14px 16px"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">' + t + '</div>' + inner + vihje + '</div>';
+      };
       // RAE-rakenne (syntymäkvartaali Q1–Q4 + ikäharha Q1>40% + underdog) — raeChip:llä, sama logiikka kuin VP:n _vpRaeRakenneHTML.
       let _raeCardHtml = '';
       if (typeof raeChip === 'function') {
@@ -5593,8 +5661,8 @@ function renderSeason() {
         }
       }
       histEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
-        + card('D1 Fyysinen — tasojakauma' + _mSelBtn('d1'), onD1 ? histBars(hist('d1_taso'),'var(--teal)') : tyhjaMs('Ei fyysistä mittausta (H-H) — tämä seura on TKI-pohjainen.'))
-        + card('D2 Tekninen — tasojakauma' + _mSelBtn('d2'), onD2 ? histBars(histF(d2Val),'var(--blue)') + d2Alaviite : tyhjaMs('Ei teknistä mittausta vielä.'))
+        + card('D1 Fyysinen — tasojakauma' + _mSelBtn('d1'), onD1 ? histBars(hist('d1_taso'),'var(--teal)') : tyhjaMs('Ei fyysistä mittausta (H-H) — tämä seura on TKI-pohjainen.'), onD1 ? 'd1' : null)
+        + card('D2 Tekninen — tasojakauma' + _mSelBtn('d2'), onD2 ? histBars(histF(d2Val),'var(--blue)') + d2Alaviite : tyhjaMs('Ei teknistä mittausta vielä.'), onD2 ? 'd2' : null)
         + card('PHV-vaiheet', '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + phvVaiheet.map(v => phvChip(v, phvLkm[v])).join('') + (phvTuntematon ? '<span style="font-size:10px;color:var(--ink3)">' + phvTuntematon + ' ei mittausta</span>' : '') + '</div>' + (phvLkm.PH ? '<div style="font-size:10px;color:var(--amber);margin-top:6px">⚠ ' + phvLkm.PH + ' kuormarajoitettua (PH)</div>' : ''))
         + card('Kattavuus (§26)', '<div style="display:flex;flex-direction:column;gap:4px">' + cov('Testattu', nTestattu) + cov('Peliäly ≥3', nAdar) + cov('PHV', nPhv) + cov('FLEI', nFlei) + '</div>')
         + _raeCardHtml
