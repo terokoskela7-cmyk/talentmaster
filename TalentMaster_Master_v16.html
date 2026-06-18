@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1781773706233';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1781778355449';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -5512,7 +5512,12 @@ function renderSeason() {
     const P = _pelaajatData || [];
     const now = new Date();
     const nimi = p => ((p.etunimi||'')+' '+(p.sukunimi||'')).trim() || p.id;
-    const lvl = p => { const a = [p.d1_taso, p.hh_taso, p.d2_taso].filter(v => v != null); return a.length ? Math.max(...a) : null; };
+    const lvl = p => {
+      const _is = _devIkaSp(p);
+      const d2j = (typeof laskeD2Joustava === 'function') ? laskeD2Joustava(p, _is.ika, _is.sp) : null;   // §26 D2-from-TKI (Sibbo TKI-only)
+      const a = [p.d1_taso, p.hh_taso, p.d2_taso, d2j ? d2j.taso : null].filter(v => v != null);
+      return a.length ? Math.max(...a) : null;
+    };
 
     const _bw = document.getElementById('seasonBarWrap'); if (_bw) _bw.style.display = 'none';
     const subEl = document.getElementById('seasonSub');
@@ -5550,6 +5555,14 @@ function renderSeason() {
     if (histEl) {
       const hist = key => { const h = [0,0,0,0,0]; P.forEach(p => { const v = p[key]; if (v != null) { const b = Math.max(1, Math.min(5, Math.round(v))); h[b-1]++; } }); return h; };
       const histBars = (h, vari) => { const mx = Math.max(1, ...h); return '<div style="display:flex;align-items:flex-end;gap:4px;height:48px">' + h.map((c,i) => '<div style="flex:1;text-align:center"><div style="height:' + (c/mx*34).toFixed(0) + 'px;background:' + vari + ';opacity:' + (0.4 + 0.5*(i/4)).toFixed(2) + ';border-radius:2px 2px 0 0;min-height:' + (c?2:0) + 'px"></div><div style="font-size:9px;color:var(--ink3);margin-top:2px">' + (i+1) + '</div><div style="font-size:9px;color:var(--ink2)">' + (c||'') + '</div></div>').join('') + '</div>'; };
+      // §26 TKI-tietoinen D2: funktiopohjainen histogrammi + D2-arvonpoimija (laskeD2Joustava: TKI→D2, sama kanoninen johto kuin VP-syvänäkymä).
+      const histF = getVal => { const h=[0,0,0,0,0]; P.forEach(p=>{ const v=getVal(p); if(v!=null){ const b=Math.max(1,Math.min(5,Math.round(v))); h[b-1]++; } }); return h; };
+      const d2Val = p => { const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')?laskeD2Joustava(p,_is.ika,_is.sp):null; return r?r.taso:(p.d2_taso!=null?p.d2_taso:null); };
+      // §29: D1 EI johdeta raakadatasta (jää tyhjäksi ilman H-H) → selkeä tyhjätila. D2-johto TKI:stä on sallittu.
+      const onD1 = P.some(p => p.d1_taso != null || p.hh_taso != null);
+      const onD2 = P.some(p => d2Val(p) != null);
+      const tyhjaMs = txt => '<div style="font-size:11px;color:var(--ink3);padding:6px 0">' + txt + '</div>';
+      const d2Alaviite = P.some(p => { const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')&&laskeD2Joustava(p,_is.ika,_is.sp); return r && r.lahde==='tki'; }) ? '<div style="font-size:9px;color:var(--ink3);margin-top:4px">¹ TKI-pohjainen</div>' : '';
       const phvVaiheet = ['PRE','LAH','PH','POST','AN'];
       const phvLkm = {}; phvVaiheet.forEach(v => phvLkm[v] = 0); let phvTuntematon = 0;
       P.forEach(p => { if (p.phv_tila && phvLkm[p.phv_tila] != null) phvLkm[p.phv_tila]++; else phvTuntematon++; });
@@ -5580,8 +5593,8 @@ function renderSeason() {
         }
       }
       histEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
-        + card('D1 Fyysinen — tasojakauma' + _mSelBtn('d1'), histBars(hist('d1_taso'),'var(--teal)'))
-        + card('D2 Tekninen — tasojakauma' + _mSelBtn('d2'), histBars(hist('d2_taso'),'var(--blue)'))
+        + card('D1 Fyysinen — tasojakauma' + _mSelBtn('d1'), onD1 ? histBars(hist('d1_taso'),'var(--teal)') : tyhjaMs('Ei fyysistä mittausta (H-H) — tämä seura on TKI-pohjainen.'))
+        + card('D2 Tekninen — tasojakauma' + _mSelBtn('d2'), onD2 ? histBars(histF(d2Val),'var(--blue)') + d2Alaviite : tyhjaMs('Ei teknistä mittausta vielä.'))
         + card('PHV-vaiheet', '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + phvVaiheet.map(v => phvChip(v, phvLkm[v])).join('') + (phvTuntematon ? '<span style="font-size:10px;color:var(--ink3)">' + phvTuntematon + ' ei mittausta</span>' : '') + '</div>' + (phvLkm.PH ? '<div style="font-size:10px;color:var(--amber);margin-top:6px">⚠ ' + phvLkm.PH + ' kuormarajoitettua (PH)</div>' : ''))
         + card('Kattavuus (§26)', '<div style="display:flex;flex-direction:column;gap:4px">' + cov('Testattu', nTestattu) + cov('Peliäly ≥3', nAdar) + cov('PHV', nPhv) + cov('FLEI', nFlei) + '</div>')
         + _raeCardHtml
