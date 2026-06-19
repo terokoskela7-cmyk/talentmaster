@@ -6879,26 +6879,77 @@ function renderPoikkeamat() {
   _pelaajat.forEach(function(p){ const j = p.joukkue || 'Tuntematon'; (joukkueet[j] = joukkueet[j] || []).push(p); });
   const nimet = Object.keys(joukkueet).sort(function(a,b){ return joukkueJarjestys(a) - joukkueJarjestys(b); });
   const SEV = { punainen:0, amber:1, info:2 }, VARI = { punainen:'var(--red)', amber:'var(--amber)', info:'var(--ink3)' };
-  let rivit = [];
+  const OSANIMI = { kiihdytys:'Kiihdytys', maksinopeus:'Maksiminopeus', voima:'Voima', ketteryys:'Ketteryys', aerobinen:'Aerobinen', tekniikka:'Tekniikka' };
+  const HARJ = { kiihdytys:'kiihdytysblokki', maksinopeus:'maksiminopeusblokki', voima:'voimablokki', ketteryys:'ketteryysblokki', aerobinen:'aerobinen blokki', tekniikka:'tekniikkateema' };
+
+  // Kerää litteäksi listaksi, kukin tägättynä joukkueellaan
+  let flat = [];
   nimet.forEach(function(nimi){
     const isp = _jsvJoukkueIkaSp(nimi);
-    const pk = laskeJoukkuePoikkeamat(joukkueet[nimi], isp.ika, (isp.sp === 'T') ? 'N' : 'M');
-    pk.forEach(function(x){ rivit.push({ joukkue:nimi, x:x }); });
+    laskeJoukkuePoikkeamat(joukkueet[nimi], isp.ika, (isp.sp === 'T') ? 'N' : 'M').forEach(function(x){
+      flat.push({ joukkue:nimi, tyyppi:x.tyyppi, osaAlue:x.osaAlue, vakavuus:x.vakavuus, arvo:x.arvo, teema:x.teema, ikavaiheOdotettu:x.ikavaiheOdotettu });
+    });
   });
-  rivit.sort(function(a,b){ if (SEV[a.x.vakavuus] !== SEV[b.x.vakavuus]) return SEV[a.x.vakavuus] - SEV[b.x.vakavuus]; const av=a.x.arvo==null?Infinity:a.x.arvo, bv=b.x.arvo==null?Infinity:b.x.arvo; return av-bv; });
-  if (!rivit.length) {
+  if (!flat.length) {
     el.innerHTML = '<div style="padding:14px 16px;color:var(--teal);font-size:13px;background:rgba(40,176,144,.06);border:.5px solid rgba(40,176,144,.2);border-radius:8px">✅ Ei poikkeamia — kaikki joukkueet odotetulla tasolla.</div>';
     return;
   }
-  el.innerHTML = rivit.map(function(r){
-    const x = r.x, col = VARI[x.vakavuus], safe = r.joukkue.replace(/['"]/g, '');
-    const cav = x.ikavaiheOdotettu ? ' <span style="font-size:10px;color:var(--ink3);border:.5px solid var(--ink3);border-radius:3px;padding:0 4px">ikävaihe-odotettu</span>' : '';
-    return '<div onclick="avaaJoukkueSyvanakyma(\'' + safe + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:.5px solid var(--border);cursor:pointer">'
-      + '<span style="flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:' + col + '"></span>'
-      + '<span style="flex:0 0 60px;font-size:12px;color:var(--ink2);font-weight:600">' + lyhennaNimi(r.joukkue) + '</span>'
-      + '<span style="flex:1;min-width:0;font-size:12px;color:var(--ink);line-height:1.4">' + x.teema + cav + '</span>'
-      + '<span style="color:' + col + ';font-size:14px;flex:0 0 auto">→</span></div>';
-  }).join('');
+
+  const _otsikko = function(tyyppi, osaAlue){
+    const on = OSANIMI[osaAlue] || '', hj = HARJ[osaAlue] ? ('→ ' + HARJ[osaAlue]) : '';
+    if (tyyppi === 'alle_normin')       return { nimi: on + ' alle normin', harj: hj };
+    if (tyyppi === 'profiilipoikkeama') return { nimi: on + ' jää jälkeen', harj: hj };
+    if (tyyppi === 'laskeva')           return { nimi: 'Taso laskussa', harj: '→ tarkista kuormitus/motivaatio' };
+    if (tyyppi === 'hajonta')           return { nimi: 'Sisäinen hajonta', harj: '→ jakautunut joukkue' };
+    if (tyyppi === 'talenttiydin')      return { nimi: 'Talenttiydin alle normin', harj: '→ talent-ID-huoli' };
+    if (tyyppi === 'kattavuus')         return { nimi: 'Datapuute', harj: '→ ei voi arvioida' };
+    return { nimi: tyyppi, harj: '' };
+  };
+  // Ryhmittele teemaan (tyyppi|osaAlue), lajittele: vakavuus → kattavuus(joukkuemäärä↓) → arvo
+  const _ryhmita = function(lista){
+    const g = {};
+    lista.forEach(function(x){ const k = x.tyyppi + '|' + (x.osaAlue || ''); (g[k] = g[k] || []).push(x); });
+    return Object.keys(g).map(function(k){
+      const arr = g[k];
+      const sev = Math.min.apply(null, arr.map(function(x){ return SEV[x.vakavuus]; }));
+      const arvo = Math.min.apply(null, arr.map(function(x){ return x.arvo == null ? Infinity : x.arvo; }));
+      return { tyyppi:arr[0].tyyppi, osaAlue:arr[0].osaAlue, jasenet:arr, sev:sev, arvo:arvo, n:arr.length };
+    }).sort(function(a,b){ return (a.sev - b.sev) || (b.n - a.n) || (a.arvo - b.arvo); });
+  };
+  const _chip = function(x){
+    const safe = x.joukkue.replace(/['"]/g, ''), av = (x.arvo != null) ? (' ' + x.arvo) : '';
+    return '<span onclick="event.stopPropagation();avaaJoukkueSyvanakyma(\'' + safe + '\')" style="display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px;border:.5px solid var(--border);color:var(--ink2);cursor:pointer">' + lyhennaNimi(x.joukkue) + av + '</span>';
+  };
+  const _ryhmaHtml = function(R){
+    const col = VARI[['punainen','amber','info'][R.sev]];
+    const dot = '<span style="flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:' + col + '"></span>';
+    if (R.n === 1) {   // yksittäisrivi nykyformaatissa
+      const x = R.jasenet[0], safe = x.joukkue.replace(/['"]/g, '');
+      return '<div onclick="avaaJoukkueSyvanakyma(\'' + safe + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:.5px solid var(--border);cursor:pointer">'
+        + dot + '<span style="flex:0 0 60px;font-size:12px;color:var(--ink2);font-weight:600">' + lyhennaNimi(x.joukkue) + '</span>'
+        + '<span style="flex:1;min-width:0;font-size:12px;color:var(--ink);line-height:1.4">' + x.teema + '</span>'
+        + '<span style="color:' + col + ';font-size:14px;flex:0 0 auto">→</span></div>';
+    }
+    const o = _otsikko(R.tyyppi, R.osaAlue);   // konsolidoitu: ≥2 joukkuetta samassa teemassa
+    const chips = R.jasenet.slice().sort(function(a,b){ return (a.arvo == null ? Infinity : a.arvo) - (b.arvo == null ? Infinity : b.arvo); }).map(_chip).join(' ');
+    return '<div style="padding:10px 14px;border-bottom:.5px solid var(--border)">'
+      + '<div style="display:flex;align-items:center;gap:10px">' + dot
+      + '<span style="flex:1;font-size:12px;color:var(--ink);font-weight:600">' + o.nimi
+      + ' <span style="color:var(--ink3);font-weight:400">· ' + R.n + '/' + nimet.length + ' joukkuetta</span>'
+      + (o.harj ? ' <span style="color:var(--ink2);font-weight:400">' + o.harj + '</span>' : '') + '</span></div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;padding-left:18px">' + chips + '</div></div>';
+  };
+
+  const paa = flat.filter(function(x){ return !x.ikavaiheOdotettu; });
+  const ika = flat.filter(function(x){ return x.ikavaiheOdotettu; });
+  let html = _ryhmita(paa).map(_ryhmaHtml).join('');
+  if (ika.length) {   // ikävaihe-odotetut omaan oletuksena suljettuun alaosioon (reuse _sigToggle)
+    html += (typeof _sigOsioHeader === 'function')
+      ? _sigOsioHeader('poikkeamatIka', 'Ikävaihe-odotetut (ei kiireellisiä)', 'var(--amber)', ika.length)
+      : '<div onclick="_sigToggle(\'poikkeamatIka\')" style="cursor:pointer;font-size:12px;font-weight:600;color:var(--amber);padding:9px 4px;border-top:.5px solid var(--border)">▸ Ikävaihe-odotetut (ei kiireellisiä) · ' + ika.length + '</div>';
+    html += '<div id="sig-osio-poikkeamatIka" style="display:none">' + _ryhmita(ika).map(_ryhmaHtml).join('') + '</div>';
+  }
+  el.innerHTML = html;
 }
 window.renderPoikkeamat = renderPoikkeamat;
 
