@@ -18,6 +18,7 @@ const {
   laskeD1Joustava,
   laskeD1Osaindeksit,
   laskeJoukkuePoikkeamat,
+  laskeValmentajaKalibraatio,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -315,6 +316,66 @@ describe('laskeJoukkuePoikkeamat (POIKKEUSKEHYS_SPEC)', () => {
     expect(laskeJoukkuePoikkeamat([], 14, 'M')).toEqual([]);
     const r = laskeJoukkuePoikkeamat([{ tki_viimeisin: 30 }, { tki_viimeisin: 30 }], 14, 'M');  // tekn 1.5 → punainen + talenttiydin
     if (r.length >= 2) expect(['punainen']).toContain(r[0].vakavuus);
+  });
+});
+
+describe('laskeValmentajaKalibraatio (mentorointi)', () => {
+  it('ei dataa → headline "Ei riittävästi dataa"', () => {
+    const r = laskeValmentajaKalibraatio([], null);
+    expect(r.headline).toBe('Ei riittävästi dataa');
+    expect(r.chips).toEqual([]);
+  });
+  it('RAE-bias: ydin Q1 ≥50% & +15pp yli joukkueen → amber-chip', () => {
+    const team = [
+      { talenttiOhjelma: true, rae_kvartaali: 'Q1' }, { talenttiOhjelma: true, rae_kvartaali: 'Q1' }, { talenttiOhjelma: true, rae_kvartaali: 'Q1' },
+      { rae_kvartaali: 'Q4' }, { rae_kvartaali: 'Q4' }, { rae_kvartaali: 'Q3' }, { rae_kvartaali: 'Q4' }
+    ];
+    const r = laskeValmentajaKalibraatio(team, null);
+    expect(r.rae.tila).toBe('bias');
+    expect(r.rae.ydinQ1).toBe(100);
+    expect(r.chips.some(c => c.key === 'rae')).toBe(true);
+  });
+  it('RAE: ydin = joukkue (ei eroa) → ei biasia', () => {
+    const team = [
+      { talenttiOhjelma: true, rae_kvartaali: 'Q1' }, { talenttiOhjelma: true, rae_kvartaali: 'Q2' }, { talenttiOhjelma: true, rae_kvartaali: 'Q3' },
+      { rae_kvartaali: 'Q1' }, { rae_kvartaali: 'Q2' }, { rae_kvartaali: 'Q3' }
+    ];
+    const r = laskeValmentajaKalibraatio(team, null);
+    expect(r.rae.tila).toBe('ok');
+    expect(r.chips.some(c => c.key === 'rae')).toBe(false);
+  });
+  it('D3-kuilu: ka |valm−vp| ≥1.5 → punainen-chip; ≥1.0 → amber', () => {
+    const red = laskeValmentajaKalibraatio([
+      { d3_viimeisin: { pisteet: { a: { valmentaja: 5, vp: 2 } } } },
+      { d3_viimeisin: { pisteet: { a: { valmentaja: 5, vp: 2 } } } }
+    ], null);
+    const c = red.chips.find(x => x.key === 'd3');
+    expect(c).toBeTruthy(); expect(c.vakavuus).toBe('punainen'); expect(red.d3.ka).toBe(3);
+    const amber = laskeValmentajaKalibraatio([
+      { d3_viimeisin: { pisteet: { a: { valmentaja: 4, vp: 3 } } } },
+      { d3_viimeisin: { pisteet: { a: { valmentaja: 3, vp: 2 } } } }
+    ], null);
+    expect(amber.chips.find(x => x.key === 'd3').vakavuus).toBe('amber');
+  });
+  it('D3: n<2 pelaajaa → ei chipiä', () => {
+    const r = laskeValmentajaKalibraatio([{ d3_viimeisin: { pisteet: { a: { valmentaja: 5, vp: 1 } } } }], null);
+    expect(r.chips.some(c => c.key === 'd3')).toBe(false);
+    expect(r.d3.tila).toBe('ei_dataa');
+  });
+  it('Leniency: |Δ| ≥1.5 vs klubiAdarKa → info-chip', () => {
+    const team = [{ adar_viimeisin: { yht: 9 } }, { adar_viimeisin: { yht: 9 } }, { adar_viimeisin: { yht: 9 } }];
+    const r = laskeValmentajaKalibraatio(team, 6);
+    const c = r.chips.find(x => x.key === 'leniency');
+    expect(c).toBeTruthy(); expect(c.vakavuus).toBe('info'); expect(r.leniency.delta).toBe(3);
+  });
+  it('headline = pahin chip (punainen ennen amber/info)', () => {
+    const team = [
+      { d3_viimeisin: { pisteet: { a: { valmentaja: 5, vp: 1 } } }, adar_viimeisin: { yht: 9 } },
+      { d3_viimeisin: { pisteet: { a: { valmentaja: 5, vp: 1 } } }, adar_viimeisin: { yht: 9 } },
+      { adar_viimeisin: { yht: 9 } }
+    ];
+    const r = laskeValmentajaKalibraatio(team, 6);
+    expect(r.headline).toContain('D3-arviot eroavat');   // punainen ohittaa info-leniencyn
   });
 });
 

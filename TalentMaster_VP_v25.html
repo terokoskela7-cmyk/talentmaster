@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=17"></script>
+<script src="lib/tm_eerikkila_normit.js?v=18"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -4769,9 +4769,23 @@ function renderValmentajat() {
     return;
   }
 
+  // Klubin pelihavainto-ka kerran (kalibraatio-leniencyä varten)
+  const _klubiY = (_pelaajat || []).map(p => p.adar_viimeisin && p.adar_viimeisin.yht).filter(x => x != null && !isNaN(x));
+  const _klubiAdar = _klubiY.length ? Math.round(_klubiY.reduce((a,b) => a+b, 0) / _klubiY.length * 10) / 10 : null;
   grid.innerHTML = _valmentajat.map(v => {
     // nimi on jo normalisoitu lataaValmentajat:ssa
     const nim = v.nimi || '?';
+    // Kalibraatiolippu — väri-chip kun headline ≠ Linjassa/Ei dataa
+    let _kalChip = '';
+    if (typeof laskeValmentajaKalibraatio === 'function') {
+      const _vj = (v.joukkue || '').toLowerCase();
+      const _cp = (_pelaajat || []).filter(p => (p.joukkue || '').toLowerCase() === _vj);
+      const _k = _cp.length ? laskeValmentajaKalibraatio(_cp, _klubiAdar) : null;
+      if (_k && _k.headline !== 'Linjassa' && _k.headline !== 'Ei riittävästi dataa') {
+        const _cv = { punainen:'var(--red)', amber:'var(--amber)', info:'var(--ink3)' }[(_k.chips[0] || {}).vakavuus] || 'var(--amber)';
+        _kalChip = '<div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:2px 8px;border-radius:20px;border:.5px solid ' + _cv + ';color:' + _cv + '">⚖️ Kalibrointia</div>';
+      }
+    }
     const initials = nim.split(' ').filter(Boolean).map(n=>n[0]).join('').substring(0,2).toUpperCase();
     const adarColor = (v.adar||0) >= 4 ? 'good' : (v.adar||0) < 3 && v.adar ? 'warn' : '';
     const trendIcon = (v.adarTrendi||0) > 0 ? '↑' : (v.adarTrendi||0) < 0 ? '↓' : '→';
@@ -4806,6 +4820,7 @@ function renderValmentajat() {
       <div class="coach-avatar">${initials}</div>
       <div class="coach-name">${nim}${lisBadge}</div>
       <div class="coach-team">${rooliLabel} · ${v.joukkue||'—'}</div>
+      ${_kalChip}
       <div class="coach-stats">
         <div class="cs-item">
           <div class="cs-val ${vaiClass}" style="color:${vaiVari}">${vai!=null?vai:'—'}</div>
@@ -4914,10 +4929,10 @@ function avaaCoachPanel(id) {
   var t2 = '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">' +
     '<div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase">VAI+ Aktiivisuusindeksi</div>' +
     '<div style="font-family:\'Cormorant Garamond\',serif;font-size:36px;color:' + vaiVari + ';line-height:1">' + (vd.vai!=null?vd.vai:'—') + '</div></div>' +
-    compRow('ADAR 30%', vd.adar) + compRow('Käynnit 20%', vd.kaynti) + compRow('Harjoittelu 20%', vd.harjoittelu) + compRow('Kontakti 15%', vd.kontakti) + compRow('Kehitys 15%', vd.kehitys||0) +
+    compRow('Pelihavainto 30%', vd.adar) + compRow('Käynnit 20%', vd.kaynti) + compRow('Harjoittelu 20%', vd.harjoittelu) + compRow('Kontakti 15%', vd.kontakti) + compRow('Kehitys 15%', vd.kehitys||0) +
     halHtml +
     '<div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' +
-      '<div class="psr-item"><div class="psr-val">' + (v.adar ? v.adar.toFixed(1) : '—') + '</div><div class="psr-lbl">ADAR ' + adarTrend + '</div></div>' +
+      '<div class="psr-item"><div class="psr-val">' + (v.adar ? v.adar.toFixed(1) : '—') + '</div><div class="psr-lbl">Pelihavainto ' + adarTrend + '</div></div>' +
       '<div class="psr-item"><div class="psr-val">' + (v.harjoituksia||0) + '</div><div class="psr-lbl">Harjoitusta/vko</div></div>' +
       '<div class="psr-item"><div class="psr-val" style="font-size:14px;margin-top:4px">' + (v.viimKirjaus||'—') + '</div><div class="psr-lbl">Viim. kirjaus</div></div></div>' +
     '<div style="margin-top:14px;padding:10px;background:rgba(242,239,230,.04);border:.5px solid var(--border)">' +
@@ -4948,6 +4963,39 @@ function avaaCoachPanel(id) {
     '<div class="mentor-label" style="margin-top:20px">Mentorointi-historia</div>' +
     '<div class="mentor-history" id="mentorHistoria"><div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px">Ladataan...</div></div>';
 
+  // ═══════════ TAB 5: KALIBRAATIO (mentorointi) ═══════════
+  var _vJ = (v.joukkue || '').toLowerCase();
+  var _coachPel = (_pelaajat || []).filter(function(p){ return (p.joukkue || '').toLowerCase() === _vJ; });
+  var _klubiY = (_pelaajat || []).map(function(p){ return p.adar_viimeisin && p.adar_viimeisin.yht; }).filter(function(x){ return x != null && !isNaN(x); });
+  var _klubiAdar = _klubiY.length ? Math.round(_klubiY.reduce(function(a,b){ return a+b; }, 0) / _klubiY.length * 10) / 10 : null;
+  var _kal = (typeof laskeValmentajaKalibraatio === 'function') ? laskeValmentajaKalibraatio(_coachPel, _klubiAdar) : null;
+  var t5;
+  if (!_coachPel.length || !_kal || _kal.headline === 'Ei riittävästi dataa') {
+    t5 = '<div style="padding:32px 16px;text-align:center;color:var(--ink3);font-size:13px">'
+      + '<div style="font-size:30px;margin-bottom:10px">📊</div>'
+      + 'Ei riittävästi dataa kalibraatioon.<br><span style="font-size:11px">Tarvitaan tämän joukkueen pelaajien RAE-, D3- tai pelihavaintodataa.</span></div>';
+  } else {
+    var _CV = { punainen:'var(--red)', amber:'var(--amber)', info:'var(--ink3)' };
+    var _hVari = _kal.chips.length ? _CV[_kal.chips[0].vakavuus] : 'var(--teal)';
+    var _kr = function(lbl, val, vari){ return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:.5px solid var(--border)"><span style="font-size:12px;color:var(--ink2)">' + lbl + '</span><span style="font-size:12px;font-weight:600;color:' + vari + ';text-align:right">' + val + '</span></div>'; };
+    var _raeVal = _kal.rae.tila === 'ei_dataa' ? '—' : (_kal.rae.tila === 'bias' ? ('⚠ Q1 ' + _kal.rae.ydinQ1 + '% vs ' + _kal.rae.joukkueQ1 + '%') : ('Linjassa · ' + _kal.rae.ydinQ1 + '% / ' + _kal.rae.joukkueQ1 + '%'));
+    var _d3Val = _kal.d3.tila === 'ei_dataa' ? '—' : (_kal.d3.tila === 'ok' ? ('Linjassa · ka ' + _kal.d3.ka) : ('⚠ ka ' + _kal.d3.ka + ' (' + _kal.d3.n + ' pel.)'));
+    var _lenVal = _kal.leniency.tila === 'ei_dataa' ? '—' : ('Δ ' + (_kal.leniency.delta > 0 ? '+' : '') + _kal.leniency.delta + (_kal.leniency.tila === 'poikkeaa' ? ' ⓘ' : ' · linjassa'));
+    var _chipHtml = _kal.chips.map(function(c){
+      var cv = _CV[c.vakavuus];
+      return '<div style="margin-top:8px;padding:9px 11px;border:.5px solid ' + cv + ';border-radius:8px;background:rgba(242,239,230,.03)">'
+        + '<div style="font-size:12px;color:' + cv + ';font-weight:600">' + c.teksti + '</div>'
+        + '<div style="font-size:11px;color:var(--ink2);margin-top:3px;line-height:1.45">💡 ' + c.vinkki + '</div></div>';
+    }).join('');
+    t5 = '<div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:8px">Valmentajan kalibraatio</div>'
+      + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;color:' + _hVari + ';line-height:1.3;margin-bottom:14px">' + _kal.headline + '</div>'
+      + _kr('RAE-valintabias', _raeVal, _kal.rae.tila === 'bias' ? 'var(--amber)' : 'var(--ink)')
+      + _kr('D3-kuilu vs VP', _d3Val, _kal.d3.tila === 'red' ? 'var(--red)' : (_kal.d3.tila === 'amber' ? 'var(--amber)' : 'var(--ink)'))
+      + _kr('Pelihavainto-leniency', _lenVal, _kal.leniency.tila === 'poikkeaa' ? 'var(--ink3)' : 'var(--ink)')
+      + _chipHtml
+      + '<button onclick="_cmTab(3)" style="width:100%;margin-top:16px;padding:9px;border-radius:6px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Vie mentorointiin →</button>';
+  }
+
   // ═══════════ MODAALI ═══════════
   var h = '<div id="coachModal">' +
     '<div class="cm-box" onclick="event.stopPropagation()">' +
@@ -4960,12 +5008,14 @@ function avaaCoachPanel(id) {
         '<button class="cm-tab" onclick="_cmTab(1)">VAI+</button>' +
         '<button class="cm-tab" onclick="_cmTab(2)">Harjoituslaatu</button>' +
         '<button class="cm-tab" onclick="_cmTab(3)">Mentorointi</button>' +
+        '<button class="cm-tab" onclick="_cmTab(4)">Kalibraatio</button>' +
       '</div>' +
       '<div class="cm-body">' +
         '<div class="cm-section active" id="cmSec0">' + t1 + '</div>' +
         '<div class="cm-section" id="cmSec1">' + t2 + '</div>' +
         '<div class="cm-section" id="cmSec2">' + t3 + '</div>' +
         '<div class="cm-section" id="cmSec3">' + t4 + '</div>' +
+        '<div class="cm-section" id="cmSec4">' + t5 + '</div>' +
       '</div>' +
     '</div></div>';
 
