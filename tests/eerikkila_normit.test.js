@@ -19,6 +19,7 @@ const {
   laskeD1Osaindeksit,
   laskeJoukkuePoikkeamat,
   laskeValmentajaKalibraatio,
+  vanhempiRaporttiTekstit,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -376,6 +377,36 @@ describe('laskeValmentajaKalibraatio (mentorointi)', () => {
     ];
     const r = laskeValmentajaKalibraatio(team, 6);
     expect(r.headline).toContain('D3-arviot eroavat');   // punainen ohittaa info-leniencyn
+  });
+});
+
+describe('vanhempiRaporttiTekstit (§7.22 SSOT)', () => {
+  it('palauttaa vahvuuden ennen kehityskohdetta (molemmat täytetty, eri kohde)', () => {
+    const r = vanhempiRaporttiTekstit({ etunimi: 'Aino', tki_vahvuus: 'syotto', tki_kehityskohde: 'pujottelu' }, 11, 'N');
+    expect(r.vahvuus.teksti).toContain('Syöttö');
+    expect(r.seuraavaAskel.teksti).toContain('Pujottelu');
+    expect(r.vahvuus.kohde).toBe('Syöttö');
+    expect(r.vahvuus.kohde).not.toBe(r.seuraavaAskel.kohde);
+    expect(Array.isArray(r.tukivinkit)).toBe(true);
+    expect(r.tukivinkit.length).toBeGreaterThanOrEqual(1);
+  });
+  it('ei numeerista tasoa stringeissä (vahvuus + seuraava askel)', () => {
+    const r = vanhempiRaporttiTekstit({ etunimi: 'Aino', tki_vahvuus: 'syotto', tki_kehityskohde: 'pujottelu', hh_taso: 2.4, tki_viimeisin: 55, d2_taso: 3 }, 11, 'N');
+    expect(/\d/.test(r.vahvuus.teksti)).toBe(false);
+    expect(/\d/.test(r.seuraavaAskel.teksti)).toBe(false);
+    // ei "taso"/percentiili/vertailusanastoa vahvuus/askel-teksteissä
+    expect(/taso|%|percentiili|parempi kuin/i.test(r.vahvuus.teksti + ' ' + r.seuraavaAskel.teksti)).toBe(false);
+  });
+  it('ei kaadu tyhjällä pelaajalla; palauttaa rakenteen + positiivisen vahvuuden', () => {
+    const r = vanhempiRaporttiTekstit({}, null, null);
+    expect(r.vahvuus && r.vahvuus.teksti).toBeTruthy();
+    expect(r.seuraavaAskel && r.seuraavaAskel.teksti).toBeTruthy();
+    expect(Array.isArray(r.tukivinkit)).toBe(true);
+    expect(r.prosessikehu).toBeNull();   // ei käynti-/kehitysdataa
+  });
+  it('prosessikehu vain kun kehitys-/käyntidataa', () => {
+    expect(vanhempiRaporttiTekstit({ etunimi: 'X', hh_taso: 3.0, hh_taso_edellinen: 2.5 }, 12, 'M').prosessikehu).toContain('kehittynyt');
+    expect(vanhempiRaporttiTekstit({ etunimi: 'X', streak: 4 }, 12, 'M').prosessikehu).toContain('säännöllisesti');
   });
 });
 

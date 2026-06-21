@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=18"></script>
+<script src="lib/tm_eerikkila_normit.js?v=19"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -6164,6 +6164,24 @@ function _mdtValmentajaPaneeli(p, ika, spMN) {
   if (typeof renderKehityskorttiHTML === 'function') { var k = renderKehityskorttiHTML(p, ika, spMN); if (k) h += '<div style="margin-top:10px;border-top:.5px solid var(--border);padding-top:8px">' + k + '</div>'; }
   return h + '</div>';
 }
+// VANHEMPI-RUNKO (§7.22) — SSOT vanhempiRaporttiTekstit. Ei tasolukuja/percentiilejä/vertailua/5D-palkkeja.
+function _mdtVanhempiRunko(p, ika, spMN) {
+  var V = (typeof vanhempiRaporttiTekstit === 'function') ? vanhempiRaporttiTekstit(p, ika, spMN) : null;
+  if (!V) return '<div class="mdt-card" style="color:var(--ink3)">Raporttia ei voi muodostaa.</div>';
+  var h = '<div class="mdt-card" style="margin-bottom:12px;border-left:3px solid var(--teal)">'
+    + '<div class="mdt-srchdr" style="color:var(--teal)">Vahvaa juuri nyt</div>'
+    + '<div style="font-size:14px;color:var(--ink);line-height:1.55">' + (V.vahvuus.kohde ? ('⭐ <b>' + V.vahvuus.kohde + '</b> — ') : '⭐ ') + V.vahvuus.teksti + '</div></div>';
+  h += '<div class="mdt-card" style="margin-bottom:12px;border-left:3px solid var(--blue)">'
+    + '<div class="mdt-srchdr" style="color:var(--blue)">Seuraava askel</div>'
+    + '<div style="font-size:14px;color:var(--ink);line-height:1.55">🎯 ' + V.seuraavaAskel.teksti + '</div></div>';
+  if (V.tukivinkit && V.tukivinkit.length) {
+    h += '<div class="mdt-card" style="margin-bottom:12px;background:rgba(184,134,11,.06);border:.5px solid rgba(184,134,11,.25)">'
+      + '<div class="mdt-srchdr" style="color:var(--gold,#B8860B)">💛 Miten tukea kotona</div>'
+      + V.tukivinkit.map(function(t){ return '<div style="font-size:13px;color:var(--ink2);line-height:1.6;margin-top:6px">' + t + '</div>'; }).join('') + '</div>';
+  }
+  if (V.prosessikehu) h += '<div class="mdt-card" style="margin-bottom:12px;text-align:center;font-size:13px;color:var(--teal);line-height:1.5">' + V.prosessikehu + '</div>';
+  return h;
+}
 
 function _renderMDTProfiili() {
   var el = document.getElementById('mdtProfiili');
@@ -6194,13 +6212,23 @@ function _renderMDTProfiili() {
   var h = '<div class="mdt-card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'
     + '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink)">' + nimi + '</div>'
     + '<div style="font-size:12px;color:var(--ink2);margin-top:2px">' + (p.joukkue||'—') + ' · ' + (ika!=null?ika+' v':'—') + (viimTesti?' · testattu '+viimTesti:'') + '</div></div>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' + phvChip + raeChipH + (talBadge||'') + '</div></div></div>';
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' + (_mdtSkin==='vanhempi' ? '' : (phvChip + raeChipH + (talBadge||''))) + '</div></div></div>';
 
   // SKIN-TOGGLE
   h += '<div class="mdt-no-print" style="display:flex;gap:8px;margin-bottom:12px">'
     + '<button class="mdt-skinbtn' + (_mdtSkin==='johtaja'?' on':'') + '" onclick="_mdtVaihdaSkin(\'johtaja\')">Johtaja</button>'
     + '<button class="mdt-skinbtn' + (_mdtSkin==='valmentaja'?' on':'') + '" onclick="_mdtVaihdaSkin(\'valmentaja\')">Valmentaja</button>'
-    + '<button class="mdt-skinbtn" disabled title="Tulossa (P0b-2)">Vanhempi</button></div>';
+    + '<button class="mdt-skinbtn' + (_mdtSkin==='vanhempi'?' on':'') + '" onclick="_mdtVaihdaSkin(\'vanhempi\')">Vanhempi</button></div>';
+
+  // VANHEMPI-SKINI (§7.22): piilota numeerinen runko + johtaja/valmentaja-paneelit → vain lapsen kielen runko.
+  if (_mdtSkin === 'vanhempi') {
+    h += _mdtVanhempiRunko(p, ika, spMN);
+    h += '<div class="mdt-no-print" style="display:flex;gap:8px;margin-top:14px">'
+      + '<button onclick="_mdtPrint()" style="padding:9px 16px;border:none;border-radius:6px;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Vie PDF vanhemmalle</button>'
+      + '<button onclick="_mdtPalaveritila()" style="padding:9px 16px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer">' + (_mdtPalaveri?'Sulje palaveritila':'MDT-palaveritila') + '</button></div>';
+    el.innerHTML = h;
+    return;
+  }
 
   // 3-LÄHDEKAISTA
   var signs = _mdtRivi('D1 Fyysinen', d1!=null?d1.toFixed(1):'—', V5(d1));

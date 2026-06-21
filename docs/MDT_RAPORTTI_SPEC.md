@@ -44,7 +44,26 @@ Olemassa olevista funktioista: `_onTalenttisuositus(p)`, `laskeHiddenGem(p)` (�
 Header + 3-lähdekaista + erimielisyys + 5D **jaettu kaikille**. Vaihtuu vain alapaneeli:
 - **Johtaja:** kalibraatio (3 näkökulmaa D3: valmentaja/VP/pelaaja + kuilu) · RAE/kypsyys-reiluus · **talenttisignaali (§3)** · päätös/muistiinpano-kenttä · MDT-palaveritila.
 - **Valmentaja:** vahvuus + kehityskohde (per-laji) · **resepti** (seuraava harjoitusteema, `valitsePaivanHarjoite`/`tki_kehityskohde`) · per-testi-detalji.
-- **Vanhempi (P0b-2):** §7.22-suojat — ei tasolukuja/percentiilejä, vahvuus ensin, prosessikehu, "miten tukea".
+- **Vanhempi (P0b-2):** §7.22-suojat — ks. §4b.
+
+## 4b. VANHEMPI-SKINI (P0b-2) — korvaa rungon, ei pelkkä alapaneeli
+
+**Kriittinen:** vanhempi-skini EI näytä numeerista Signs/Samples/SEO-kaistaa eikä 5D-tasopalkkeja (ne ovat tasolukuja → §7.22-rikkomus).
+Se **korvaa koko rungon** laadullisella, lapsiturvallisella näkymällä. Periaate: **positiivinen psykologia JA konkreettiset,
+selkeästi vahvistettavat asiat** — ei pelkkää lämmintä kannustusta, vaan aidot kehityskohteet myönteisesti kehystettyinä.
+
+Rakenne (hyväksytty mockup):
+- **Vahvaa juuri nyt** (vihreä) — 1–2 konkreettista vahvuutta lapsen/vanhemman kielellä (`tki_vahvuus` / vahvin osaindeksi/dimensio / merkki → fraasi).
+- **Seuraava askel** (sininen) — **yksi konkreettinen, nimetty kehityskohde** (esim. nopeus/räjähtävyys tai tietty taito, `tki_kehityskohde`/heikoin osaindeksi)
+  **positiivisesti + §28** ("kehittyy kasvun myötä, normaali vaihe"). EI koskaan "heikkous"/tasolukua/punaista deltaa.
+- **Miten tukea kotona** — **kehityskohteeseen kytketyt täsmätoimet** + autonomiaa tukevat vinkit (Deci & Ryan SDT): kehu yrittämistä
+  (Dweck prosessikehu), ilo ennen suoritusta, "mikä oli kivaa?". Konkreettisia, ei geneerisiä.
+- **Prosessikehu** (Dweck) — ahkeruus/kehitys, ei lopputulos (data-tietoinen: vain jos käynti-/kehitysdataa).
+- **Vie PDF vanhemmalle.**
+
+**INVARIANTIT (§7.22):** ei tasolukuja/percentiilejä · ei vertailua muihin · ei TKI-laskua/punaisia deltoja · ei PHV/RAE:ta paineena ·
+vahvuus ENNEN kehityskohdetta · kehityskohde aina saavutettavissa olevana askeleena.
+**Sanasto uusiokäyttää Vanhempi_v2:n `TUKIVINKIT` + `rVanhempiTekniikka` (§16)** — sama lapsiturvallinen kehys, ei uutta kieltä.
 
 ## 5. PDF
 
