@@ -109,3 +109,19 @@ ei tuota verdiktiä. **Ei yhtä "talenttipistettä".**
 
 > Lähteet (agentti-benchmark): kitmanlabs.com/platform/talent-development · hudl.com/blog/hudl-lens-individual-development-plans ·
 > frontiersin.org/.../fpsyg.2025.1636386 · premierleague.com/.../eppp · zone7.ai · scienceforsport.com/bio-banding.
+
+---
+
+## 7. AVOIMET KYSYMYKSET (muistiin)
+
+**Miten seuran VP:tä / valmennuspäällikköä itseään arvioidaan?** (2026-06-18) Kalibrointi (P0a) arvioi valmentajia — mutta
+kuka arvioi VP:n? Benchmark: urheilujohtajaa mitataan pääosin **viipeellisillä + prosessimittareilla**:
+1. **Pipeline-tulokset** — montako akatemiapelaajaa etenee seuraavaan vaiheeseen / edustukseen (longitudinaalinen, lagging).
+2. **Valmentajien kehitys** — VAI+ + kalibraation lähentyminen ajassa (paraniko valmentajakunta).
+3. **Prosessikuri** — MDT-reviewit 4×/kausi, IDP-/testikattavuus, suostumus/compliance.
+4. **Talent-ID-reiluus** — väheneekö ohjelman oma RAE-vinouma ajassa (seuran Q-jakauma paranee).
+5. **Kohorttien kehitysvauhti** — taso≥3-kasvu, kehitysvauhti-% (§30).
+
+Kuluttaja = liitto (Palloliitto) / seuran hallitus / super-admin → luonteva sijainti **super-admin-taso tai P2-governance-paketti**,
+ei VP:n oma näkymä (objektiivisuus). Vaatii pitkittäisdataa (gate: ≥useampi kausi/mittaus). Kytkeytyy: P2 governance · §30 longitudinaali-roadmap · §33 B-suunta.
+**Ei rakenneta nyt** — kirjattu kun datamäärä + kausihistoria riittää. Periaate säilyy: "data-informed, not data-driven" (myös VP:n arvioinnissa).
