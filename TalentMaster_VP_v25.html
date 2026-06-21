@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=19"></script>
+<script src="lib/tm_eerikkila_normit.js?v=20"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -6114,14 +6114,26 @@ function avaaTapahtumaV9(tapahtumaId) {
 /* ═══ MDT-RAPORTTI (P0b-1, docs/MDT_RAPORTTI_SPEC.md) — yhden sivun profiili: signs · samples · SEO ═══
    Vain pikakentät (§26), data-tietoinen (§29). Carbon §5, string concat §7.1. Termi: "pelihavainto". */
 var _mdtPid = null, _mdtSkin = 'johtaja', _mdtPalaveri = false;
+var _mdtVanhMuokkaus = {}, _mdtVanhEdit = false;   // sessio-paikallinen vanhempiviestin muokkaus (pid → teksti)
+function _mdtEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function _mdtVanhDraft(V) {
+  var s = (V.vahvuus.kohde ? ('Vahvaa juuri nyt: ' + V.vahvuus.kohde + ' — ') : 'Vahvaa juuri nyt: ') + V.vahvuus.teksti + '\n\n';
+  s += V.seuraavaAskel.teksti + '\n\n';
+  if (V.tukivinkit && V.tukivinkit.length) s += 'Miten tukea kotona:\n' + V.tukivinkit.map(function(t){ return '• ' + t; }).join('\n') + '\n';
+  if (V.prosessikehu) s += '\n' + V.prosessikehu;
+  return s;
+}
+window._mdtVanhMuokkaa = function(){ _mdtVanhEdit = true; _renderMDTProfiili(); };
+window._mdtVanhPeru = function(){ _mdtVanhEdit = false; _renderMDTProfiili(); };
+window._mdtVanhValmis = function(){ var ta = document.getElementById('mdtVanhTa'); if (ta && _mdtPid) _mdtVanhMuokkaus[_mdtPid] = ta.value; _mdtVanhEdit = false; _renderMDTProfiili(); };
 function _mdtTaytaPicker() {
   var sel = document.getElementById('mdtPelaajaSel');
   if (!sel) return;
   var P = (_pelaajat || []).slice().sort(function(a,b){ return ((a.sukunimi||'')+(a.etunimi||'')).localeCompare((b.sukunimi||'')+(b.etunimi||'')); });
   sel.innerHTML = '<option value="">— Valitse pelaaja —</option>' + P.map(function(p){ return '<option value="' + p.id + '"' + (p.id===_mdtPid?' selected':'') + '>' + (((p.etunimi||'')+' '+(p.sukunimi||'')).trim()||p.id) + ' · ' + (p.joukkue||'—') + '</option>'; }).join('');
 }
-window._mdtValitse = function(pid){ _mdtPid = pid || null; _mdtPalaveri = false; _renderMDTProfiili(); };
-window._mdtVaihdaSkin = function(skin){ _mdtSkin = skin; _renderMDTProfiili(); };
+window._mdtValitse = function(pid){ _mdtPid = pid || null; _mdtPalaveri = false; _mdtVanhEdit = false; _renderMDTProfiili(); };
+window._mdtVaihdaSkin = function(skin){ _mdtSkin = skin; _mdtVanhEdit = false; _renderMDTProfiili(); };
 window._mdtPrint = function(){ window.print(); };
 window._mdtPalaveritila = function(){ _mdtPalaveri = !_mdtPalaveri; var el = document.getElementById('mdtProfiili'); if (el) el.classList.toggle('mdt-palaveri', _mdtPalaveri); _renderMDTProfiili(); if (el && _mdtPalaveri) el.classList.add('mdt-palaveri'); };
 function _mdtRivi(lbl, val, vari){ return '<div class="mdt-rivi"><span style="color:var(--ink2)">' + lbl + '</span><span style="font-weight:600;color:' + (vari||'var(--ink)') + '">' + val + '</span></div>'; }
@@ -6165,10 +6177,35 @@ function _mdtValmentajaPaneeli(p, ika, spMN) {
   return h + '</div>';
 }
 // VANHEMPI-RUNKO (§7.22) — SSOT vanhempiRaporttiTekstit. Ei tasolukuja/percentiilejä/vertailua/5D-palkkeja.
+// Generoitu teksti = luonnos; VP voi muokata (sessio-paikallinen). PDF/palaveritila käyttävät muokattua.
 function _mdtVanhempiRunko(p, ika, spMN) {
   var V = (typeof vanhempiRaporttiTekstit === 'function') ? vanhempiRaporttiTekstit(p, ika, spMN) : null;
   if (!V) return '<div class="mdt-card" style="color:var(--ink3)">Raporttia ei voi muodostaa.</div>';
-  var h = '<div class="mdt-card" style="margin-bottom:12px;border-left:3px solid var(--teal)">'
+  var muokattu = _mdtVanhMuokkaus[_mdtPid];
+
+  // Muokkaustila — esitäytetty textarea (muokattu jos on, muuten luonnos)
+  if (_mdtVanhEdit) {
+    var esi = (muokattu != null) ? muokattu : _mdtVanhDraft(V);
+    return '<div class="mdt-card" style="margin-bottom:12px">'
+      + '<div class="mdt-srchdr" style="color:var(--teal)">Muokkaa vanhempiviestiä</div>'
+      + '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">Sinä vastaat sisällöstä — pidä sävy kannustavana, älä lisää tasolukuja/vertailuja.</div>'
+      + '<textarea id="mdtVanhTa" class="mentor-textarea" style="min-height:240px;font-size:13px;line-height:1.55">' + _mdtEsc(esi) + '</textarea>'
+      + '<div class="mdt-no-print" style="display:flex;gap:8px;margin-top:8px">'
+      + '<button onclick="_mdtVanhValmis()" style="padding:8px 16px;border:none;border-radius:6px;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Valmis</button>'
+      + '<button onclick="_mdtVanhPeru()" style="padding:8px 16px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer">Peruuta</button></div></div>';
+  }
+
+  // Muokattu viesti (säilytä rivinvaihdot) — PDF/palaveritila näyttävät tämän
+  if (muokattu != null) {
+    return '<div class="mdt-card" style="margin-bottom:12px;border-left:3px solid var(--teal)">'
+      + '<div class="mdt-no-print" style="font-size:10px;color:var(--ink3);margin-bottom:6px">Muokattu viesti</div>'
+      + '<div style="font-size:14px;color:var(--ink);line-height:1.6;white-space:pre-wrap">' + _mdtEsc(muokattu) + '</div>'
+      + '<button onclick="_mdtVanhMuokkaa()" class="mdt-no-print" style="margin-top:10px;padding:7px 14px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer">✎ Muokkaa viestiä</button></div>';
+  }
+
+  // Luonnos (generoitu kortit)
+  var h = '<div class="mdt-no-print" style="font-size:11px;color:var(--ink3);margin-bottom:8px">Luonnos — voit muokata ennen jakoa.</div>';
+  h += '<div class="mdt-card" style="margin-bottom:12px;border-left:3px solid var(--teal)">'
     + '<div class="mdt-srchdr" style="color:var(--teal)">Vahvaa juuri nyt</div>'
     + '<div style="font-size:14px;color:var(--ink);line-height:1.55">' + (V.vahvuus.kohde ? ('⭐ <b>' + V.vahvuus.kohde + '</b> — ') : '⭐ ') + V.vahvuus.teksti + '</div></div>';
   h += '<div class="mdt-card" style="margin-bottom:12px;border-left:3px solid var(--blue)">'
@@ -6180,6 +6217,7 @@ function _mdtVanhempiRunko(p, ika, spMN) {
       + V.tukivinkit.map(function(t){ return '<div style="font-size:13px;color:var(--ink2);line-height:1.6;margin-top:6px">' + t + '</div>'; }).join('') + '</div>';
   }
   if (V.prosessikehu) h += '<div class="mdt-card" style="margin-bottom:12px;text-align:center;font-size:13px;color:var(--teal);line-height:1.5">' + V.prosessikehu + '</div>';
+  h += '<button onclick="_mdtVanhMuokkaa()" class="mdt-no-print" style="padding:7px 14px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer">✎ Muokkaa viestiä</button>';
   return h;
 }
 

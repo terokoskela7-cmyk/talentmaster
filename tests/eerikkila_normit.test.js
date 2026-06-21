@@ -408,6 +408,24 @@ describe('vanhempiRaporttiTekstit (§7.22 SSOT)', () => {
     expect(vanhempiRaporttiTekstit({ etunimi: 'X', hh_taso: 3.0, hh_taso_edellinen: 2.5 }, 12, 'M').prosessikehu).toContain('kehittynyt');
     expect(vanhempiRaporttiTekstit({ etunimi: 'X', streak: 4 }, 12, 'M').prosessikehu).toContain('säännöllisesti');
   });
+  it('ikävaihe ≤12 → leikkirekisteri (leikki-/autonomiavinkit)', () => {
+    const r = vanhempiRaporttiTekstit({ etunimi: 'Eemeli', tki_kehityskohde: 'pujottelu' }, 10, 'M');
+    expect(r.ikavaihe).toBe('leikkija');
+    const t = r.tukivinkit.join(' ');
+    expect(/leik/i.test(t)).toBe(true);
+    expect(/uni ja lepo|ravinto|koulun ja urheilun/i.test(t)).toBe(false);
+  });
+  it('ikävaihe 13–15 → uni/lepo + ravinto + koulu, EI "pihalla"/"hippa"', () => {
+    const r = vanhempiRaporttiTekstit({ etunimi: 'Matias', tki_kehityskohde: 'pujottelu' }, 15, 'M');
+    expect(r.ikavaihe).toBe('rakentaja');
+    const t = r.tukivinkit.join(' ');
+    expect(/uni ja lepo/i.test(t)).toBe(true);
+    expect(/ravinto/i.test(t)).toBe(true);
+    expect(/koulun ja urheilun/i.test(t)).toBe(true);
+    expect(/pihalla|hippa/i.test(t)).toBe(false);
+    expect(/leikki/i.test(r.seuraavaAskel.teksti)).toBe(false);
+    expect(/\d/.test(r.vahvuus.teksti + ' ' + r.seuraavaAskel.teksti)).toBe(false);   // ei numeroita
+  });
 });
 
 describe('laskeD2Joustava (prioriteetti TKI → H-H → d2_taso)', () => {
