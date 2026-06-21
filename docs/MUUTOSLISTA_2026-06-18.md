@@ -28,7 +28,7 @@
 | B4 | **Tilanne-tason poikkeuskehys** — `laskeJoukkuePoikkeamat` (6 tyyppiä, PHV §28 -porrastus) + roll-up "Joukkueiden poikkeamat" + pulssikortti-liput | ✅ live |
 | B5 | **Poikkeama-roll-up teemakonsolidointi** (25 riviä → ~6 teemariviä "Aerobinen · 5/6 joukkuetta", drill-chipit) | ✅ live |
 | B6 | **Valmentajan kalibrointi (P0a)** — `laskeValmentajaKalibraatio` (RAE-valintabias + D3-kuilu vs VP + pelihavainto-leniency) → coach-modaalin 5. välilehti "Kalibraatio" + coach-kortti-chip | ✅ live (tyhjä-polku; populoitu RUNTIME) |
-| B7 | **MDT-raportti (P0b-1)** — Raportit-alanäkymä: pelaajavalitsin → yhden sivun profiili (Signs/Samples/SEO + erimielisyys + 5D) + johtaja/valmentaja-skinit + talenttisignaali (Hidden Gem/X-Factor) + PDF/MDT-palaveritila | ✅ live (rakenne; erimielisyys/talentti RUNTIME) |
+| B7 | **MDT-raportti (P0b TÄYSI)** — Raportit-alanäkymä: pelaajavalitsin → yhden sivun profiili (Signs/Samples/SEO + erimielisyys + 5D) + **johtaja/valmentaja/vanhempi-skinit** + talenttisignaali (Hidden Gem/X-Factor) + PDF/MDT-palaveritila. **Vanhempi-skini ikävaiheistettu** (≤12 leikkijä / 13–15 rakentaja: uni/lepo·ravinto·koulu / 16+) §7.22-suojin + **VP-muokattava luonnos** ("✎ Muokkaa viestiä", sessio-paikallinen) | ✅ live |
 
 ## C. DOKUMENTIT (docs/)
 
@@ -52,6 +52,8 @@
 | 🔴 | **P0b-2 — vanhempi-skini** (§7.22-suojat: ei tasolukuja/percentiilejä, vahvuus ensin, prosessikehu, "miten tukea") | MDT-raportin viimeinen skini |
 | ℹ️ | **`syntymaaika` täyttyy vanhempi-rekisteröinnistä** (suostumusflow), ei tuonnista — dry-run 2026-06-18: 500/530 ilman DOB:ta (tuonti tuo rosterin ilman syntymäaikaa). **RAE-näkyvyys (BQ, underdog, kalibraation RAE-bias) aktivoituu adoptionmyötä** kun huoltajat rekisteröivät. SJK-rekisteröinti käynnissä → RAE kasvaa siellä ensin. Ei erillistä korjausta — luonnollinen seuraus käyttöönotosta | adoptio-gate |
 | 🟢 | **RAE-backfill** (`rae_kvartaali` `syntymaaika`:sta) — `scripts/backfill_rae.js` idempotentti, dry-run tehty; vain 6 pelaajaa saisi (5 SJK + 1 KPV), loput ilman DOB:ta | apply suositeltu (6 dok) |
+| 🔴 | **FLEI → "Kehon valmius" -nimeämispassi** (julkinen kieli §14) — käyttäjä-UI:ssa raaka "FLEI" → "Kehon valmius"/"Valmius"; EN i18n "Readiness". Kenttänimet `flei_*` ennallaan. Vakiintunut urheilutieteen termi (readiness) | komento annettu |
+| 🟢 | **"FLEI null" -niki** (`renderRaportointi` talenttisuosituslista) → "—"/piiloon kun arvo puuttuu | pieni |
 | 🟡 | P1 — pituussuuntainen aikaikkuna (gate ≥2 mittausta) · "Arvioi harjoitus" un-stub | §30 |
 | 🟢 | P2 — governance-paketti · 5D→FA 4-corner -kartoitus · **VP:n oma arviointi** (benchmark §7) | longitudinaali |
 | 🟢 | Kalibrointi/MDT populoitu live-verifiointi kun monilähteistä dataa kertyy | data-gate |

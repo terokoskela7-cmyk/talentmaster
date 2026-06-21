@@ -131,6 +131,13 @@ const TM_LANG = {
       kaikki_joukkueet: 'Kaikki joukkueet',
     },
 
+    // Mittarit (julkiset termit, §14) — raaka "FLEI" → kontekstikohtainen
+    mittarit: {
+      kehon_valmius:        'Kehon valmius',
+      valmius:              'Valmius',
+      kehon_valmiusindeksi: 'kehon valmiusindeksi',
+    },
+
     // Rekisteröintikutsu
     rekisterointi: {
       otsikko:            'Lähetä rekisteröintikutsu',
@@ -320,6 +327,13 @@ const TM_LANG = {
       kaikki_joukkueet: 'Alla lag',
     },
 
+    // Mätare (publika termer, §14)
+    mittarit: {
+      kehon_valmius:        'Kroppslig beredskap',
+      valmius:              'Beredskap',
+      kehon_valmiusindeksi: 'kroppslig beredskapsindex',
+    },
+
     rekisterointi: {
       otsikko:            'Skicka registreringsinbjudan',
       kuvaus:             'Bjud in en spelare att gå med i TalentMaster. Vårdnadshavaren får ett e-postmeddelande med en länk till samtyckesformuläret.',
@@ -502,6 +516,13 @@ const TM_LANG = {
       kutsu_lahetetty:  'Invite sent',
       ei_pelaajia:      'No players in this team',
       kaikki_joukkueet: 'All teams',
+    },
+
+    // Metrics (public terms, §14)
+    mittarit: {
+      kehon_valmius:        'Readiness',
+      valmius:              'Readiness',
+      kehon_valmiusindeksi: 'physical readiness index',
     },
 
     rekisterointi: {
