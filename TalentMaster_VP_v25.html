@@ -6502,7 +6502,9 @@ window._reviewAvaaMDT = function(pid){
 window.vpAvaaHarjoitusarviointi = async function (valmentajaUid, valmentajaNimi) {
   if (typeof TM_HARJOITUS === 'undefined') { if (typeof toast === 'function') toast('Lomake ei latautunut — päivitä sivu', 'error'); return; }
   var cu = auth.currentUser;
-  if (!cu || !_seuraId || _seuraId === 'demo') { if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
+  // Kirjautumistila = todellinen auth + seura. EI estetä 'demo'-seuraa: SA voi valita FC Demon (autentikoitu,
+  // Firestore-fixture) — estetään vain aito demo-TMBus-tila (_isDemoMode) ja kirjautumaton/seuraton tila.
+  if (!cu || !_seuraId || _isDemoMode) { if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
   var config = null;
   try { var s = await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').get(); if (s.exists) config = s.data(); } catch (e) {}
   var coachRoolit = ['valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja', 'testivastaava', 'vp'];
