@@ -2184,6 +2184,11 @@ async function superAdminVaihdaSeura(uusiSeuraId) {
   // Nollaa data ja lataa uudelle seuralle
   _pelaajat = []; _valmentajat = []; _tapahtumat = []; _idpJono = [];
   await lataaKaikki();
+
+  // Harjoittelun laatu -dashboard: nollaa välimuisti seuravaihdossa + lataa uudelleen jos näkymä on auki
+  _hlLadattu = false; _hlArvioinnit = null; _hlConfig = null;
+  var _laatuEl = document.getElementById('rapSeg-laatu');
+  if (_laatuEl && _laatuEl.style.display !== 'none' && typeof _hlLataaJaRender === 'function') _hlLataaJaRender();
 }
 
 function naytaLogin() {
@@ -6656,13 +6661,16 @@ window._rapSeg = function (seg) {
 
 async function _hlLataaJaRender() {
   var sis = document.getElementById('hlSisalto');
-  if (!_seuraId || _seuraId === 'demo') { if (sis) sis.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px">Ei dataa demossa.</div>'; return; }
+  // Resolvoi seura sovelluksen elävästä, vaihdettavasta lähteestä (_seuraId — sama jota muu VP-data käyttää
+  // SA-seuravaihdon jälkeen), EI kaapatusta arvosta. Demo (FC Demo) on validi: sillä on fixture-data Firestoressa.
+  var sid = _seuraId;
+  if (!sid) { if (sis) sis.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px">Ei seuraa valittuna.</div>'; return; }
   if (sis) sis.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px">Ladataan…</div>';
   try {
-    var snap = await db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').orderBy('pvm', 'desc').limit(500).get();
+    var snap = await db.collection('seurat').doc(sid).collection('harjoitusarvioinnit').orderBy('pvm', 'desc').limit(500).get();
     _hlArvioinnit = snap.docs.map(function (d) { var o = d.data(); o._id = d.id; return o; });
   } catch (e) { _hlArvioinnit = []; if (sis) sis.innerHTML = '<div style="color:var(--red);font-size:13px;padding:20px">Lataus epäonnistui: ' + _hlEsc(e.message) + '</div>'; return; }
-  try { var cs = await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').get(); _hlConfig = cs.exists ? cs.data() : {}; } catch (e) { _hlConfig = {}; }
+  try { var cs = await db.collection('seurat').doc(sid).collection('konfiguraatio').doc('harjoitusarviointi').get(); _hlConfig = cs.exists ? cs.data() : {}; } catch (e) { _hlConfig = {}; }
   _hlLadattu = true;
   _hlRenderSuodattimet();
   _hlRender();

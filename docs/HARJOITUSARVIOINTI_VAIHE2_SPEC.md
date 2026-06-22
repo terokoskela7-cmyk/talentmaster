@@ -92,7 +92,29 @@ Dashboard/lista/tapahtumanäkymä kyselee `seurat/{sid}/harjoitusarvioinnit` (ra
 5. Master: valmentaja näkee jaetun palautteen.
 6. (2.2: malli B -dashboard + kalibraatiohistoria · 2.3: Master coach-oma-dashboard.)
 
-## 10. VERIFIOINTI
+## 10b. VAIHE 2.2 — Malli B -dashboard + kalibraatiohistoria (päätökset lukittu 2026-06-22)
+
+**Malli B -dashboard:** sama rakenne kuin A, `b1–b7` (1–5). **Ei Palloliiton kansallista benchmarkia** → vertailuviiva = **seuran oma tavoitetaso** `konfiguraatio/harjoitusarviointi.seura_tavoite_b {b1..b7}` (valinnainen; tyhjä → ei viivaa). Suodatin arviointitapa (itsearvio/havainnointi) aktivoituu B:ssä.
+
+**Kalibraatiohistoria (ydin):** itsearvio − havainnointi -kuilu per kriteeri samasta harjoituksesta.
+- **Paritus = auto-ehdotus + ihmisen vahvistus** (EI hiljaista automaattiparitusta):
+  1. Ankkuri = havainnointi. Tallennuksessa etsi saman `valmentajaUid` + `joukkue` itsearvio `pvm ± 2 pv` → ehdota paria.
+  2. VP vahvistaa tapahtumanäkymässä ("Vahvista pari" / "Ei sama harjoitus") → tallenna jaettu `pari_id` (sama molemmissa dokeissa) + `pari_vahvistettu:true`.
+  3. **Kalibraatio lasketaan VAIN `pari_vahvistettu`-pareista.**
+  4. Manuaalinen linkitys reunatapauksiin (valitsin saman valmentajan lähiarvioinneista).
+- **Näkyvyys:** VP näkee aina (kalibraationäkymä, kuilu/kriteeri + keskikuilu + trendi). **Valmentaja näkee oman kuilunsa myönteisesti kehystettynä** (Master) — ei "yliarvioit", vaan "havainnoija näki tämän hieman eri tavalla — hyvä keskustelunaihe". §7.22-henki: kehitys, ei tuomio.
+- **Lib:** `harjoitusKalibraatioHistoria(arvioinnit)` → per valmentaja: vahvistetut parit, kuilu/kriteeri (itsearvio − havainnointi), keskikuilu, trendi (kaventuminen = parempi itsetuntemus). Kytkeytyy `laskeValmentajaKalibraatio` (B6) + VP-tuloskortti III. Vitest: paritus (vain vahvistettu), kuilun etumerkki, pariton jää pois.
+- **Sijainti:** sama "Harjoittelun laatu" -alanäkymä, B-toggle + kalibraatio-osio.
+
+**Sisäänkäyntimalli (lukittu 2026-06-22):** havainnoinnin **ensisijainen reitti = coach-kortti / coach-paneeli** (VP valitsee valmentajan jonka harjoitusta menee katsomaan → "Arvioi harjoitus" esitäyttää valmentaja+joukkue+havainnointi; jo toiminnassa Fix 1). Työkalut→Arvioi harjoitus = toissijainen pikareitti. **Coach-paneeli = arviointikeskus:** välilehdet Harjoituslaatu + Kalibraatio lukevat valmentajan pikakentät (`harjoituslaatu_ka`/`valmennustaito_ka`/kalibraatio) + arviointihistoria (lista, drill tapahtumanäkymään) + "+ Arvioi harjoitus" -nappi. **Liitetään 2.2:een** (luonteva koti malli B:lle + kalibraatiolle).
+
+**Roadmap:** 2.3 = Master coach-oma-dashboard (omat trendit + saatu palaute koottuna) · Vaihe 3 = white-label (logo/väri) + cross-club-aggregaatti (TM:n oma kansallinen ka anonymisoidusti).
+
+## 10c. PARITUS — Rules/data-huomio
+
+`pari_id` + `pari_vahvistettu` ovat kenttiä `harjoitusarvioinnit`-dokissa (jo olemassa olevan write-säännön piirissä, §1 Vaihe 1). Ei uutta alikokoelmaa. Auto-ehdotus = client-kysely (`where valmentajaUid + joukkue + pvm-ikkuna`); ei uutta indeksiä jos single-field + client-suodatus.
+
+## 11. VERIFIOINTI
 
 new Function 0 virhettä · `npm test` vihreä (uudet lib-fn) · §17 grep=1/tiedosto · Carbon §5 · string concat ·
 RUNTIME + LIVE (?cb=, SA): Raportit → Harjoittelun laatu · KPI + kriteeripalkit + benchmark-viiva + trendi · suodattimet · benchmark-syöttö · tapahtumalista → tapahtumanäkymä · jaettu+yksityinen palaute tallentuu eri alikokoelmiin · **valmentaja näkee VAIN jaetun (Master), ei yksityistä** (Rules + Master-kysely) · datagate tyhjälle/pienelle otokselle.
