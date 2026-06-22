@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782148824271';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782153665816';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -577,6 +577,22 @@ a { color: inherit; text-decoration: none; }
 body.nav-drawer-open .nav-burger .nb1 { transform: translateY(7px) rotate(45deg); }
 body.nav-drawer-open .nav-burger .nb2 { opacity: 0; }
 body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45deg); }
+/* N1 notifikaatiokeskus (Carbon §5) — kellomerkki + lukematon-badge + paneeli */
+.notif-bell { position: fixed; top: 10px; right: 12px; z-index: 155; width: 44px; height: 44px; border-radius: 12px; background: var(--card2); border: .5px solid var(--line2); color: var(--ink2); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+.notif-bell:hover { color: var(--teal); border-color: var(--teal); }
+.notif-badge { display: none; position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--red); color: #fff; font-size: 10px; font-weight: 600; align-items: center; justify-content: center; box-sizing: border-box; }
+.notif-panel { display: none; position: fixed; top: 60px; right: 12px; width: min(340px, 92vw); max-height: 70vh; overflow-y: auto; background: var(--bg2); border: .5px solid var(--line2); border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5); z-index: 156; }
+.notif-panel.auki { display: block; }
+.notif-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: .5px solid var(--line); position: sticky; top: 0; background: var(--bg2); font-size: 12px; font-weight: 600; color: var(--ink2); text-transform: uppercase; letter-spacing: .04em; }
+.notif-merkkaa { background: none; border: none; color: var(--teal); font-size: 11px; cursor: pointer; text-transform: none; letter-spacing: 0; }
+.notif-item { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-bottom: .5px solid var(--line); cursor: pointer; }
+.notif-item.uusi { background: rgba(40,176,144,.06); }
+.notif-item:hover { background: var(--card); }
+.notif-ico { font-size: 16px; flex-shrink: 0; }
+.notif-body { flex: 1; min-width: 0; }
+.notif-teksti { font-size: 13px; color: var(--ink); line-height: 1.4; }
+.notif-aika { font-size: 10px; color: var(--ink3); margin-top: 3px; }
+.notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); flex-shrink: 0; margin-top: 5px; }
 .koti-otsikko { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 26px; color: var(--ink); margin-bottom: 14px; }
 .koti-strippi { display: flex; gap: 12px; background: var(--card); border: .5px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
 .koti-strippi > div { flex: 1; min-width: 70px; text-align: center; }
@@ -1219,6 +1235,11 @@ body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45de
 <!-- DASHBOARD -->
 <div id="sDash" class="hidden">
 <button id="navBurger" class="nav-burger" onclick="toggleTyokalut()" aria-label="Avaa valikko"><span class="nb-bar nb1"></span><span class="nb-bar nb2"></span><span class="nb-bar nb3"></span></button>
+<button id="notifBell" class="notif-bell" onclick="_notifToggle()" aria-label="Ilmoitukset">🔔<span id="notifBadge" class="notif-badge"></span></button>
+<div id="notifPanel" class="notif-panel">
+  <div class="notif-head"><span>Ilmoitukset</span><button class="notif-merkkaa" onclick="_notifKaikkiLuetuiksi()">Merkitse luetuiksi</button></div>
+  <div id="notifLista"></div>
+</div>
 <div class="layout">
 
   <!-- SIDEBAR -->
@@ -1925,6 +1946,7 @@ _auth.onAuthStateChanged(async user => {
     _user = user;
     _uid  = user.uid;   // VP-viestikuuntelu + perheviesti tarvitsevat tämän
     await _lataaValmentaja(user.uid);
+    if (typeof _notifInit === 'function') _notifInit();   // N1 notifikaatiokeskus (uid + _seuraId valmiit)
   } else if (user && user.isAnonymous) {
     _kaynnistaDemoTila();
   } else {
@@ -5939,6 +5961,64 @@ window._refPoista = async function (id) {   // GDPR: valmentaja poistaa oman mer
     avaaValmentajaKehitys();
   } catch (e) { if (typeof toast === 'function') toast('Poisto epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
 };
+
+/* ════ N1 NOTIFIKAATIOKESKUS (NOTIFIKAATIOT_JA_MOBIILI.md §B) — lukee VAIN omat notifit (onSnapshot) ════ */
+let _notifUnsub = null, _notifLista = [];
+function _notifInit() {
+  if (_notifUnsub) { try { _notifUnsub(); } catch (e) {} _notifUnsub = null; }
+  const uid = _auth.currentUser && _auth.currentUser.uid;
+  if (!uid || !_seuraId || _seuraId === 'demo') { _notifLista = []; _notifBadge(); return; }
+  _notifUnsub = _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(uid).collection('notifikaatiot')
+    .orderBy('luotu', 'desc').limit(50)
+    .onSnapshot(function (snap) {
+      _notifLista = snap.docs.map(function (d) { const o = d.data(); o._id = d.id; return o; });
+      _notifBadge();
+      const p = document.getElementById('notifPanel');
+      if (p && p.classList.contains('auki')) _notifRender();
+    }, function (e) { console.warn('[notif]', e.message); });
+}
+function _notifBadge() {
+  const b = document.getElementById('notifBadge'); if (!b) return;
+  const n = _notifLista.filter(x => !x.luettu).length;
+  b.textContent = n > 9 ? '9+' : String(n);
+  b.style.display = n > 0 ? 'flex' : 'none';
+}
+function _notifAikaSitten(luotu) {
+  try { const ms = (luotu && luotu.toDate) ? luotu.toDate().getTime() : Date.parse(luotu); if (!ms || isNaN(ms)) return ''; const d = Math.floor((Date.now() - ms) / 86400000); return d <= 0 ? 'tänään' : d === 1 ? 'eilen' : d + ' pv sitten'; } catch (e) { return ''; }
+}
+function _notifRender() {
+  const el = document.getElementById('notifLista'); if (!el) return;
+  if (!_notifLista.length) { el.innerHTML = '<div style="padding:18px;text-align:center;color:var(--ink3);font-size:13px">Ei ilmoituksia.</div>'; return; }
+  const ico = { palaute: '💬', review: '🔔' };
+  el.innerHTML = _notifLista.map(function (x) {
+    return '<div onclick="_notifAvaa(\'' + x._id + '\')" class="notif-item' + (x.luettu ? '' : ' uusi') + '">'
+      + '<span class="notif-ico">' + (ico[x.tyyppi] || '•') + '</span>'
+      + '<div class="notif-body"><div class="notif-teksti">' + _mEsc(x.teksti || '') + '</div><div class="notif-aika">' + _notifAikaSitten(x.luotu) + '</div></div>'
+      + (x.luettu ? '' : '<span class="notif-dot"></span>') + '</div>';
+  }).join('');
+}
+window._notifToggle = function () {
+  const p = document.getElementById('notifPanel'); if (!p) return;
+  if (p.classList.toggle('auki')) _notifRender();
+};
+window._notifAvaa = async function (id) {
+  const x = _notifLista.filter(n => n._id === id)[0]; if (!x) return;
+  const uid = _auth.currentUser && _auth.currentUser.uid;
+  if (!x.luettu && uid) { try { await _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(uid).collection('notifikaatiot').doc(id).update({ luettu: true }); } catch (e) {} }
+  const p = document.getElementById('notifPanel'); if (p) p.classList.remove('auki');
+  const lk = x.linkki || {};
+  if (lk.nakyma === 'palaute' && typeof avaaValmentajaKehitys === 'function') avaaValmentajaKehitys();   // valmentajan oma kehitys → saatu palaute
+};
+window._notifKaikkiLuetuiksi = async function () {
+  const uid = _auth.currentUser && _auth.currentUser.uid; if (!uid) return;
+  const lukemattomat = _notifLista.filter(x => !x.luettu);
+  try { await Promise.all(lukemattomat.map(x => _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(uid).collection('notifikaatiot').doc(x._id).update({ luettu: true }))); } catch (e) {}
+};
+// Sulje paneeli klikistä ulkopuolelle
+document.addEventListener('click', function (e) {
+  const p = document.getElementById('notifPanel');
+  if (p && p.classList.contains('auki') && !e.target.closest('#notifPanel') && !e.target.closest('#notifBell')) p.classList.remove('auki');
+});
 
 window._avaaKausiPelaajat = function(dim) {
   const P = _pelaajatData || [];

@@ -1775,3 +1775,97 @@ exports.haeLapsiHuoltajalle = functions
       throw new functions.https.HttpsError('internal', 'Lapsen haku epäonnistui.');
     }
   });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// N1 NOTIFIKAATIOT (docs/NOTIFIKAATIOT_JA_MOBIILI.md §B) — in-app notifit.
+// Kirjoitus admin-SDK:lla (ohittaa Rules); client lukee vain omat notifit (Rules §12).
+// §21-pattern: Firestore-trigger → CF (T1) + ajastettu CF (T2). Region europe-west1.
+// ═══════════════════════════════════════════════════════════════════════════
+function _notifPvmMs(d) {
+  if (d == null) return null;
+  if (typeof d === 'number') return d;
+  if (typeof d === 'object' && typeof d.toDate === 'function') { try { return d.toDate().getTime(); } catch (e) { return null; } }
+  const m = String(d).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+  const t = Date.parse(String(d));
+  return isNaN(t) ? null : t;
+}
+function _notifIka(p) {
+  const y = new Date().getFullYear();
+  if (p.syntymaVuosi != null) { const a = y - Number(p.syntymaVuosi); if (a >= 5 && a <= 25) return a; }
+  const mm = String(p.joukkue || '').match(/\b[PTU]\s?(\d{1,2})\b/i);
+  if (mm) { const a = Number(mm[1]); if (a >= 5 && a <= 25) return a; }
+  return null;
+}
+
+// T1 — uutta jaettua palautetta → notif valmentajalle (ohita jos tekijä == valmentaja itse)
+exports.notifPalauteJaettu = functions
+  .region('europe-west1')
+  .firestore.document('seurat/{sid}/harjoitusarvioinnit/{aid}/palaute_jaettu/{pid}')
+  .onCreate(async (snap, context) => {
+    const { sid, aid } = context.params;
+    const palaute = snap.data() || {};
+    try {
+      const arvSnap = await db.collection('seurat').doc(sid).collection('harjoitusarvioinnit').doc(aid).get();
+      if (!arvSnap.exists) return null;
+      const arv = arvSnap.data() || {};
+      const valmentajaUid = arv.valmentajaUid;
+      if (!valmentajaUid) return null;
+      if (palaute.tekija_uid && palaute.tekija_uid === valmentajaUid) return null;   // oma palaute → ei notifia
+      await db.collection('seurat').doc(sid).collection('kayttajat').doc(valmentajaUid).collection('notifikaatiot').add({
+        tyyppi: 'palaute',
+        teksti: 'Sait uutta palautetta harjoitusarvioinnistasi' + (arv.joukkue ? ' (' + arv.joukkue + ')' : '') + '.',
+        linkki: { nakyma: 'palaute', aid: aid },
+        luotu: admin.firestore.FieldValue.serverTimestamp(),
+        luettu: false
+      });
+    } catch (e) { console.error('[notifPalauteJaettu]', sid, aid, e.message); }
+    return null;
+  });
+
+// T2 — review erääntyy ≤7 pv tai myöhässä → notif seuran VP:lle. Ikäkaista 42 pv (≥12) / 84 pv (9–11).
+// Dedupe: ei uutta notifia jos samasta pelaajasta on jo lukematon review-notif.
+exports.notifReviewEraantyy = functions
+  .region('europe-west1')
+  .pubsub.schedule('every day 06:00')
+  .timeZone('Europe/Helsinki')
+  .onRun(async () => {
+    const nyt = Date.now(), PV = 86400000;
+    const seurat = await db.collection('seurat').get();
+    for (const seuraDoc of seurat.docs) {
+      const sid = seuraDoc.id;
+      try {
+        const pelaajatSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+        const eraantyvat = [];
+        pelaajatSnap.forEach((pd) => {
+          const p = pd.data();
+          const viim = _notifPvmMs(p.review_viimeisin_pvm);
+          if (viim == null) return;
+          const ika = _notifIka(p);
+          const kaista = (ika != null && ika >= 12) ? 42 : 84;   // §B: ≥12 → 42 pv · 9–11 → 84 pv
+          const paivia = Math.floor((viim + kaista * PV - nyt) / PV);
+          if (paivia <= 7) eraantyvat.push({ id: pd.id, nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || pd.id, joukkue: p.joukkue || '', paivia });
+        });
+        if (!eraantyvat.length) continue;
+        const vpSnap = await db.collection('seurat').doc(sid).collection('kayttajat').where('rooli', '==', 'vp').get();
+        if (vpSnap.empty) continue;
+        for (const vp of vpSnap.docs) {
+          const notifCol = db.collection('seurat').doc(sid).collection('kayttajat').doc(vp.id).collection('notifikaatiot');
+          const unreadSnap = await notifCol.where('tyyppi', '==', 'review').get();   // single eq → ei komposiitti-indeksiä; luettu suodatetaan clientissä
+          const jo = new Set(unreadSnap.docs.filter((d) => d.data().luettu === false).map((d) => d.data().pelaajaId));
+          for (const e of eraantyvat) {
+            if (jo.has(e.id)) continue;   // dedupe
+            await notifCol.add({
+              tyyppi: 'review',
+              pelaajaId: e.id,
+              teksti: (e.paivia < 0 ? 'Review myöhässä' : 'Review erääntyy ' + e.paivia + ' pv') + ': ' + e.nimi + (e.joukkue ? ' (' + e.joukkue + ')' : '') + '.',
+              linkki: { nakyma: 'reviewit', pelaajaId: e.id },
+              luotu: admin.firestore.FieldValue.serverTimestamp(),
+              luettu: false
+            });
+          }
+        }
+      } catch (e) { console.error('[notifReviewEraantyy]', sid, e.message); }
+    }
+    return null;
+  });

@@ -485,6 +485,15 @@ service cloud.firestore {
         match /reflektiot/{reflId} {
           allow read, write: if onSuperAdmin() || request.auth.uid == uid;
         }
+
+        // ── NOTIFIKAATIOT (N1, NOTIFIKAATIOT_JA_MOBIILI.md §B) — in-app notifit.
+        // Client lukee + merkitsee luetuksi VAIN omat; CREATE vain CF (admin-SDK ohittaa Rules) → client ei voi väärentää
+        // toisen notifia. Rules eivät periydy → oma blokki.
+        match /notifikaatiot/{notifId} {
+          allow read, update: if onSuperAdmin() || request.auth.uid == uid;
+          allow create:       if onSuperAdmin();   // vain CF/SA — normaali client ei luo
+          allow delete:       if onSuperAdmin();
+        }
       }
 
       // ── HAVAINNOT (seurataso — pelaajatasolle ks. pelaajat/{id}/havainnot) ──
