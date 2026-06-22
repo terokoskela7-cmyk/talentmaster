@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782141535709';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782143114301';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=26"></script>
+<script src="lib/tm_eerikkila_normit.js?v=27"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=2"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
@@ -1256,8 +1256,8 @@ a { color: inherit; text-decoration: none; }
       <div class="sb-item" onclick="avaaHarjoitusarviointi()">
         <svg width="16" height="16"><use href="#ic-drill"/></svg>Arvioi harjoitus
       </div>
-      <div class="sb-item" onclick="avaaSaatuPalaute()">
-        <svg width="16" height="16"><use href="#ic-home"/></svg>Saatu palaute
+      <div class="sb-item" onclick="avaaValmentajaKehitys()">
+        <svg width="16" height="16"><use href="#ic-home"/></svg>Valmentajana kehittyminen
       </div>
       <div class="sb-item" onclick="naytaOnboarding(true)" title="Avaa aloitusopastus uudelleen">
         <svg width="16" height="16"><use href="#ic-home"/></svg>Aloita tästä
@@ -5541,61 +5541,123 @@ window.avaaHarjoitusarviointi = async function () {
 // EI kysele palaute_yksityinen:ta (Rules-gate + tietoinen rajaus, HARJOITUSARVIOINTI_VAIHE2_SPEC §6).
 const _HA_KRIT_NIMI = { palloliitto: 'A · Harjoittelun laatu', valmennustaidot: 'B · Valmennustaidot' };
 const _HA_KRIT_B = { b1: 'organisointi', b2: 'tavoitteen selkeys', b3: 'palautteen määrä', b4: 'palautteen laatu', b5: 'pedagoginen ote', b6: 'eriyttäminen', b7: 'vuorovaikutus' };
-window.avaaSaatuPalaute = async function () {
+// ── Valmentajana kehittyminen (Vaihe 2.3a) — valmentajan OMA kehitysnäkymä, kasvua tukevasti (§7.22) ──
+// Vain oma data (valmentajaUid==oma uid). EI vertailua muihin valmentajiin. EI palaute_yksityinen-kyselyä.
+const _MK_VARI = { teal: '#1D9E75', blue: '#185FA5', amber: '#BA7517' };
+let _mkChartLoaded = false, _mkCharts = [];
+function _mkEnsureChart(cb) {
+  if (typeof Chart !== 'undefined') { _mkChartLoaded = true; cb(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+  s.onload = function () { _mkChartLoaded = true; cb(); };
+  s.onerror = function () { /* offline → kaaviot jää tyhjiksi, KPI:t silti näkyvät */ };
+  document.head.appendChild(s);
+}
+function _mkPiirraTrendi(canvasId, trend, maxY, color, label) {
+  const c = document.getElementById(canvasId); if (!c || typeof Chart === 'undefined') return;
+  const labels = trend.map(t => t.label), data = trend.map(t => t.ka);
+  _mkCharts.push(new Chart(c.getContext('2d'), {
+    type: 'line', data: { labels: labels, datasets: [{ label: label, data: data, borderColor: color, backgroundColor: 'rgba(29,158,117,.10)', tension: .25, fill: true, pointRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: maxY, ticks: { color: '#8A8A82' }, grid: { color: 'rgba(255,255,255,.06)' } }, x: { ticks: { color: '#8A8A82' }, grid: { display: false } } }, plugins: { legend: { display: false } } }
+  }));
+}
+window.avaaValmentajaKehitys = async function () {
   const cu = _auth.currentUser;
   if (!cu || !_seuraId) { if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
-  const vanha = document.getElementById('saatuPalauteModal'); if (vanha) vanha.remove();
-  const m = document.createElement('div'); m.id = 'saatuPalauteModal';
+  try { _mkCharts.forEach(ch => { try { ch.destroy(); } catch (e) {} }); } catch (e) {} _mkCharts = [];
+  const vanha = document.getElementById('mkModal'); if (vanha) vanha.remove();
+  const m = document.createElement('div'); m.id = 'mkModal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto';
   m.onclick = e => { if (e.target === m) m.remove(); };
-  m.innerHTML = '<div onclick="event.stopPropagation()" style="background:var(--card);border:.5px solid var(--line);border-radius:14px;width:min(560px,96vw);padding:20px 22px;margin:auto">'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">Saatu palaute</div><button onclick="document.getElementById(\'saatuPalauteModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer">×</button></div>'
-    + '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px">VP:n / mentorin jakama palaute harjoitusarvioinneistasi.</div>'
-    + '<div id="saatuPalauteSisalto"><div style="font-size:13px;color:var(--ink3);padding:10px 0">Ladataan…</div></div></div>';
+  m.innerHTML = '<div onclick="event.stopPropagation()" style="background:var(--card);border:.5px solid var(--line);border-radius:14px;width:min(680px,96vw);padding:20px 22px;margin:auto">'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink)">Valmentajana kehittyminen</div><button onclick="document.getElementById(\'mkModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer">×</button></div>'
+    + '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px">Oma ammatillinen kehityksesi yhdessä paikassa — kasvun työkalu, ei arvosana.</div>'
+    + '<div id="mkSisalto"><div style="font-size:13px;color:var(--ink3);padding:10px 0">Ladataan…</div></div></div>';
   document.body.appendChild(m);
-  const sis = document.getElementById('saatuPalauteSisalto');
+  const sis = document.getElementById('mkSisalto');
   try {
-    // Omat arvioinnit (ilman orderBy:tä → ei komposiitti-indeksiä; lajittelu clientissä)
-    const snap = await _db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').where('valmentajaUid', '==', cu.uid).limit(50).get();
+    // Omat arvioinnit (where valmentajaUid==self; ilman orderBy → ei komposiitti-indeksiä)
+    const snap = await _db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').where('valmentajaUid', '==', cu.uid).limit(100).get();
     const arvioinnitKaikki = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    let arvioinnit = arvioinnitKaikki.slice().sort((a, b) => String(b.pvm || '').localeCompare(String(a.pvm || ''))).slice(0, 20);
+    const k = (typeof omaKehitysKooste === 'function') ? omaKehitysKooste(arvioinnitKaikki, cu.uid) : { n_A: 0, n_B: 0, trendA: [], trendB: [], kalib: null, reflektiot: [], seuraavaAskel: null };
+    const vd = window._valmentajaData || {};
+    const hlKa = (vd.harjoituslaatu_ka != null) ? vd.harjoituslaatu_ka : k.viimA;
+    const vtKa = (vd.valmennustaito_ka != null) ? vd.valmennustaito_ka : k.viimB;
 
-    // Oma kalibraatiokuilu — MYÖNTEISESTI kehystettynä (§7.22; ei "yliarvioit", ei tasolukutuomioita).
-    // Lukee vain vahvistettujen parien oman kuilun. EI palaute_yksityinen-kyselyä.
-    let kalHtml = '';
-    if (typeof harjoitusKalibraatioHistoria === 'function') {
-      const kalib = harjoitusKalibraatioHistoria(arvioinnitKaikki);
-      const r = kalib[cu.uid];
-      if (r && r.n_paria) {
-        const krit = r.suurin_kuilu_kriteeri ? (_HA_KRIT_B[r.suurin_kuilu_kriteeri] || r.suurin_kuilu_kriteeri) : null;
-        const viesti = (r.suunta === 'linjassa')
-          ? 'Itsearviosi ja havainnoijan näkemys ovat hyvin linjassa — vahva itsetuntemus.'
-          : ('Havainnoija näki ' + (krit ? ('etenkin kohdan “' + krit + '”') : 'muutaman asian') + ' hieman eri tavalla kuin sinä — hyvä keskustelunaihe yhdessä.');
-        const kav = r.kaventuu === true ? ' Näkemyksenne ovat lähentyneet ajan myötä. 👏' : '';
-        kalHtml = '<div style="background:rgba(40,176,144,.08);border:.5px solid var(--teal);border-radius:10px;padding:12px 14px;margin-bottom:14px">'
-          + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">⚖️ Itsearvio &amp; havainnointi</div>'
-          + '<div style="font-size:12px;color:var(--ink2);line-height:1.5">' + viesti + kav + '</div>'
-          + '<div style="font-size:11px;color:var(--ink3);margin-top:6px">' + r.n_paria + ' yhteistä harjoitusta verrattu.</div></div>';
-      }
+    if (!k.n_A && !k.n_B) { sis.innerHTML = '<div style="font-size:13px;color:var(--ink3);padding:16px 0;text-align:center">Ei vielä harjoitusarviointeja. Kun arvioit harjoituksiasi (tai VP havainnoi niitä), oma kehityksesi näkyy täällä.</div>'; return; }
+
+    let h = '';
+    // 1) VAHVUUS ENSIN — sitoutuminen + nykytaso myönteisesti
+    h += '<div style="background:rgba(40,176,144,.08);border:.5px solid var(--teal);border-radius:12px;padding:14px 16px;margin-bottom:16px">'
+      + '<div style="font-size:13px;color:var(--ink2);line-height:1.5;margin-bottom:10px">Olet arvioinut harjoittelua <b>' + (k.n_A + k.n_B) + '</b> kertaa — hieno sitoutuminen oman valmennuksesi kehittämiseen. 🌱</div>'
+      + '<div style="display:flex;gap:18px;flex-wrap:wrap">'
+      + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Harjoituslaatu</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--teal)">' + (hlKa != null ? hlKa + '<span style="font-size:12px;color:var(--ink3)">/10</span>' : '—') + '</div></div>'
+      + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Valmennustaidot</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--teal)">' + (vtKa != null ? vtKa + '<span style="font-size:12px;color:var(--ink3)">/5</span>' : '—') + '</div></div>'
+      + '</div></div>';
+
+    // 2) SEURAAVA ASKEL — uusin sovittu kehityskohde nostettuna
+    if (k.seuraavaAskel) {
+      h += '<div style="background:var(--bg2);border:.5px solid var(--amber);border-radius:12px;padding:13px 16px;margin-bottom:16px">'
+        + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--amber);margin-bottom:4px">🎯 Seuraava askel</div>'
+        + '<div style="font-size:14px;color:var(--ink)">' + _mEsc(k.seuraavaAskel.teksti) + '</div>'
+        + '<div style="font-size:10px;color:var(--ink3);margin-top:3px">Omasta reflektiostasi · ' + _mEsc((k.seuraavaAskel.pvm || '').slice(0, 10)) + '</div></div>';
     }
 
-    if (!arvioinnit.length) { sis.innerHTML = kalHtml + '<div style="font-size:13px;color:var(--ink3);padding:10px 0">Ei vielä harjoitusarviointeja.</div>'; return; }
-    // Hae VAIN palaute_jaettu kullekin arvioinnille (EI palaute_yksityinen)
-    const blokit = await Promise.all(arvioinnit.map(async a => {
+    // 3) OMAT TRENDIT — A (/10) + B (/5), Chart.js lazy
+    h += '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:8px">Omat trendit</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:18px">';
+    h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:12px 14px"><div style="font-size:11px;color:var(--ink2);margin-bottom:6px">Harjoituslaatu (A) /10</div>' + (k.trendA.length ? '<div style="position:relative;height:160px"><canvas id="mkTrendA"></canvas></div>' : '<div style="font-size:11px;color:var(--ink3);padding:18px 0;text-align:center">Ei vielä A-arviointeja.</div>') + '</div>';
+    h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:12px 14px"><div style="font-size:11px;color:var(--ink2);margin-bottom:6px">Valmennustaidot (B) /5</div>' + (k.trendB.length ? '<div style="position:relative;height:160px"><canvas id="mkTrendB"></canvas></div>' : '<div style="font-size:11px;color:var(--ink3);padding:18px 0;text-align:center">Ei vielä B-arviointeja.</div>') + '</div>';
+    h += '</div>';
+
+    // 4) OMA KALIBRAATIO — myönteinen kehys (§7.22)
+    if (k.kalib && k.kalib.n_paria) {
+      const r = k.kalib;
+      const krit = r.suurin_kuilu_kriteeri ? (_HA_KRIT_B[r.suurin_kuilu_kriteeri] || r.suurin_kuilu_kriteeri) : null;
+      const viesti = (r.suunta === 'linjassa')
+        ? 'Itsearviosi ja havainnoijan näkemys ovat hyvin linjassa — vahva itsetuntemus.'
+        : ('Havainnoija näki ' + (krit ? ('etenkin kohdan “' + krit + '”') : 'muutaman asian') + ' hieman eri tavalla kuin sinä — hyvä keskustelunaihe yhdessä.');
+      const kav = r.kaventuu === true ? ' Näkemyksenne ovat lähentyneet ajan myötä — kasvava itsetuntemus. 👏' : '';
+      h += '<div style="background:rgba(40,176,144,.08);border:.5px solid var(--teal);border-radius:12px;padding:13px 16px;margin-bottom:16px">'
+        + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">⚖️ Itsearvio &amp; havainnointi</div>'
+        + '<div style="font-size:13px;color:var(--ink2);line-height:1.5">' + viesti + kav + '</div>'
+        + '<div style="font-size:11px;color:var(--ink3);margin-top:6px">' + r.n_paria + ' yhteistä harjoitusta verrattu — kalibraatio on kasvun työkalu, ei arvosana.</div></div>';
+    }
+
+    // 5) SAATU PALAUTE KOOTTUNA — vain palaute_jaettu, aikajärjestyksessä (uusin ensin)
+    const lista = arvioinnitKaikki.slice().sort((a, b) => String(b.pvm || '').localeCompare(String(a.pvm || ''))).slice(0, 25);
+    const blokit = await Promise.all(lista.map(async a => {
       let palaute = [];
       try { const ps = await _db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').doc(a.id).collection('palaute_jaettu').orderBy('pvm', 'asc').get(); palaute = ps.docs.map(d => d.data()); } catch (e) {}
       return { a, palaute };
     }));
     const withFb = blokit.filter(b => b.palaute.length);
-    let h = kalHtml;
-    if (!withFb.length) { h += '<div style="font-size:13px;color:var(--ink3);padding:10px 0">Ei jaettua palautetta vielä. VP voi lisätä palautteen tapahtumanäkymästä.</div>'; }
-    withFb.forEach(b => {
-      h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px">'
-        + '<div style="font-size:13px;color:var(--ink)">' + _mEsc(b.a.joukkue || '—') + ' <span style="color:var(--ink3);font-size:11px">· ' + _mEsc(b.a.pvm || '') + ' · ' + (_HA_KRIT_NIMI[b.a.malli] || b.a.malli) + '</span></div>'
-        + b.palaute.map(p => '<div style="font-size:12px;color:var(--ink2);padding:6px 0 0"><span style="color:var(--teal)">💬</span> ' + _mEsc(p.teksti) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _mEsc(p.tekija_rooli || '') + ' · ' + _mEsc((p.pvm || '').slice(0, 10)) + '</div></div>').join('')
+    h += '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:8px">Saatu palaute</div>';
+    if (!withFb.length) h += '<div style="font-size:12px;color:var(--ink3);padding:6px 0;margin-bottom:14px">Ei jaettua palautetta vielä. VP / mentori voi jakaa palautetta harjoitusarvioinneistasi.</div>';
+    else withFb.forEach(b => {
+      h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:11px 14px;margin-bottom:8px">'
+        + '<div style="font-size:12px;color:var(--ink)">' + _mEsc(b.a.joukkue || '—') + ' <span style="color:var(--ink3);font-size:11px">· ' + _mEsc(b.a.pvm || '') + ' · ' + (_HA_KRIT_NIMI[b.a.malli] || b.a.malli) + '</span></div>'
+        + b.palaute.map(p => '<div style="font-size:12px;color:var(--ink2);padding:5px 0 0"><span style="color:var(--teal)">💬</span> ' + _mEsc(p.teksti) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _mEsc(p.tekija_rooli || '') + ' · ' + _mEsc((p.pvm || '').slice(0, 10)) + '</div></div>').join('')
         + '</div>';
     });
+
+    // 6) REFLEKTIOPÄIVÄKIRJA — omat malli B -reflektiot aikajanana
+    h += '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin:16px 0 8px">Oma reflektiopäiväkirja</div>';
+    if (!k.reflektiot.length) h += '<div style="font-size:12px;color:var(--ink3);padding:6px 0">Ei reflektioita vielä. Malli B -arvioinnin “Mikä onnistui / Mitä tekisin toisin / Kehityskohde” kerääntyy tähän.</div>';
+    else k.reflektiot.forEach(rf => {
+      h += '<div style="border-left:2px solid var(--teal);padding:4px 0 8px 12px;margin-bottom:8px">'
+        + '<div style="font-size:10px;color:var(--ink3);margin-bottom:3px">' + _mEsc((rf.pvm || '').slice(0, 10)) + (rf.joukkue ? ' · ' + _mEsc(rf.joukkue) : '') + '</div>'
+        + (rf.onnistui ? '<div style="font-size:12px;color:var(--ink2)"><b style="color:var(--teal)">Onnistui:</b> ' + _mEsc(rf.onnistui) + '</div>' : '')
+        + (rf.toisin ? '<div style="font-size:12px;color:var(--ink2)"><b>Toisin:</b> ' + _mEsc(rf.toisin) + '</div>' : '')
+        + (rf.kehityskohde ? '<div style="font-size:12px;color:var(--ink2)"><b style="color:var(--amber)">Kehityskohde:</b> ' + _mEsc(rf.kehityskohde) + '</div>' : '')
+        + '</div>';
+    });
+
     sis.innerHTML = h;
+    // Trendikaaviot (lazy)
+    if (k.trendA.length || k.trendB.length) _mkEnsureChart(function () {
+      if (k.trendA.length) _mkPiirraTrendi('mkTrendA', k.trendA, 10, _MK_VARI.teal, 'Harjoituslaatu');
+      if (k.trendB.length) _mkPiirraTrendi('mkTrendB', k.trendB, 5, _MK_VARI.blue, 'Valmennustaidot');
+    });
   } catch (e) {
     sis.innerHTML = '<div style="font-size:13px;color:var(--red);padding:10px 0">Lataus epäonnistui: ' + _mEsc((e && e.message) || 'tuntematon') + '</div>';
   }

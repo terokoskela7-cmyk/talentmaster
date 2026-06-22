@@ -33,6 +33,7 @@ const {
   harjoitusTrendi,
   harjoitusBenchmarkDelta,
   harjoitusKalibraatioHistoria,
+  omaKehitysKooste,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -659,6 +660,47 @@ describe('Harjoitusarviointi Vaihe 2.2 — kalibraatiohistoria + arviointitapa-s
     expect(k.n).toBe(4);
     const ki = koostaHarjoitusarvioinnit(arvioinnit, { malli: 'valmennustaidot', arviointitapa: 'itsearvio' });
     expect(ki.n).toBe(3);
+  });
+});
+
+describe('Harjoitusarviointi Vaihe 2.3a — omaKehitysKooste (valmentajan oma data)', () => {
+  const data = [
+    // omat (c1)
+    { malli: 'palloliitto', valmentajaUid: 'c1', joukkue: 'SJK P15', pvm: '2026-04-10', vastaukset: { a1: 6, a2: 50, a3: 5, a4: 5, a5: 6, a6: 40, a7: 4 } },
+    { malli: 'palloliitto', valmentajaUid: 'c1', joukkue: 'SJK P15', pvm: '2026-05-10', vastaukset: { a1: 8, a2: 60, a3: 7, a4: 7, a5: 8, a6: 50, a7: 6 } },
+    { malli: 'valmennustaidot', valmentajaUid: 'c1', joukkue: 'SJK P15', arviointitapa: 'itsearvio', pvm: '2026-05-01', pari_id: 'p1', pari_vahvistettu: true, reflektio: { onnistui: 'Hyvä energia', toisin: 'Vähemmän jonotusta', kehityskohde: 'Eriyttäminen' }, vastaukset: { b1: 5, b2: 4, b3: 4, b4: 4, b5: 4, b6: 4, b7: 4 } },
+    { malli: 'valmennustaidot', valmentajaUid: 'c1', joukkue: 'SJK P15', arviointitapa: 'havainnointi', pvm: '2026-05-02', pari_id: 'p1', pari_vahvistettu: true, vastaukset: { b1: 3, b2: 4, b3: 4, b4: 4, b5: 4, b6: 4, b7: 4 } },
+    // toisen valmentajan data (c2) → EI saa näkyä c1:n koosteessa
+    { malli: 'palloliitto', valmentajaUid: 'c2', joukkue: 'SJK P09', pvm: '2026-05-15', vastaukset: { a1: 9, a2: 70, a3: 8, a4: 8, a5: 9, a6: 60, a7: 7 } },
+  ];
+  it('vain oman uid:n data (ei vertailua muihin)', () => {
+    const k = omaKehitysKooste(data, 'c1');
+    expect(k.n_A).toBe(2);   // c2 ei mukana
+    expect(k.n_B).toBe(2);
+  });
+  it('A/B-trendit kuukausibucketilla', () => {
+    const k = omaKehitysKooste(data, 'c1');
+    expect(k.trendA.map(t => t.label)).toEqual(['2026-04', '2026-05']);
+    expect(k.trendB.length).toBe(1);   // molemmat B samalla kk
+    expect(k.viimA).toBe(7.2);         // toukokuun A overall (8+7+7+8+6)/5
+  });
+  it('oma kalibraatio vahvistetusta parista', () => {
+    const k = omaKehitysKooste(data, 'c1');
+    expect(k.kalib).toBeTruthy();
+    expect(k.kalib.n_paria).toBe(1);
+    expect(k.kalib.per_kriteeri.b1).toBe(2);   // itse 5 − hav 3
+  });
+  it('reflektiopäiväkirja + seuraava askel uusimmasta kehityskohteesta', () => {
+    const k = omaKehitysKooste(data, 'c1');
+    expect(k.reflektiot.length).toBe(1);
+    expect(k.reflektiot[0].onnistui).toBe('Hyvä energia');
+    expect(k.seuraavaAskel.teksti).toBe('Eriyttäminen');
+  });
+  it('tyhjä / tuntematon uid → tyhjä kooste', () => {
+    const k = omaKehitysKooste(data, 'cX');
+    expect(k.n_A).toBe(0); expect(k.n_B).toBe(0);
+    expect(k.kalib).toBeNull(); expect(k.seuraavaAskel).toBeNull();
+    expect(k.reflektiot.length).toBe(0);
   });
 });
 
