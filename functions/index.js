@@ -7,7 +7,9 @@
  * API-avaimet (SENDGRID_API_KEY/OPENAI_API_KEY/ANTHROPIC_API_KEY): Secret Manager + runWith({secrets}) → process.env (2026-06-23 migraatio).
  * SENDGRID_FROM_EMAIL EI ole salainen → tavallinen env-var (functions/.env, committattu).
  */
-const functions = require('firebase-functions');
+// firebase-functions v6 breaking change: 1st-gen API (region/runWith/https.onCall/pubsub.schedule/
+// firestore.document) ei ole enää root-exportissa → tuotava /v1:stä. Pidetään 1st-gen (v2-migraatio = oma vaihe).
+const functions = require('firebase-functions/v1');
 const admin     = require('firebase-admin');
 const https     = require('https');
 if (!admin.apps.length) {
