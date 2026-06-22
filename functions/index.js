@@ -1910,3 +1910,61 @@ exports.notifTeeItsearvio = functions
     } catch (e) { console.error('[notifTeeItsearvio]', sid, e.message); }
     return null;
   });
+
+// N2 — sähköpostikooste (NOTIFIKAATIOT_JA_MOBIILI.md §B3). Ajastettu CF: kerää lukemattomat notifit
+// per käyttäjä (edellisen koosteen jälkeen) → yksi kooste-email LUKUMÄÄRINÄ (EI PII:tä §33 B2).
+// Transport: olemassa oleva lahetaSahkoposti (SendGrid, sama kuin kutsuissa). Opt-out: notif_asetukset.email.enabled===false.
+exports.notifKoosteEmail = functions
+  .region('europe-west1')
+  .pubsub.schedule('every day 07:00')
+  .timeZone('Europe/Helsinki')
+  .onRun(async () => {
+    const nyt = Date.now(), PV = 86400000, nowIso = new Date(nyt).toISOString();
+    const appUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/';
+    const seurat = await db.collection('seurat').get();
+    for (const seuraDoc of seurat.docs) {
+      const sid = seuraDoc.id, seuraNimi = (seuraDoc.data() || {}).nimi || sid;
+      try {
+        const kayttajat = await db.collection('seurat').doc(sid).collection('kayttajat').get();
+        for (const kd of kayttajat.docs) {
+          const u = kd.data() || {};
+          if (!u.email) continue;
+          const as = (u.notif_asetukset && u.notif_asetukset.email) || {};
+          if (as.enabled === false) continue;   // opt-out (oletus päällä)
+          const kadenssi = as.kadenssi || 'paivittain';
+          const viimDigest = _notifPvmMs(u.notif_digest_pvm);
+          if (kadenssi === 'viikoittain' && viimDigest != null && (nyt - viimDigest) < 6.5 * PV) continue;   // frekvenssikatto: ~1/vk
+          // Lukemattomat notifit edellisen koosteen jälkeen (single eq → ei komposiittia; luotu-suodatus clientissä)
+          const notifSnap = await db.collection('seurat').doc(sid).collection('kayttajat').doc(kd.id).collection('notifikaatiot').where('luettu', '==', false).get();
+          const uudet = notifSnap.docs.map((d) => d.data()).filter((n) => {
+            if (viimDigest == null) return true;
+            const m = (n.luotu && n.luotu.toDate) ? n.luotu.toDate().getTime() : null;
+            return m == null || m > viimDigest;
+          });
+          if (!uudet.length) continue;
+          // Kooste LUKUMÄÄRINÄ — EI pelaajien nimiä/sisältöä runkoon (PII-suoja)
+          const lkm = {};
+          uudet.forEach((n) => { lkm[n.tyyppi] = (lkm[n.tyyppi] || 0) + 1; });
+          const osat = [];
+          if (lkm.palaute) osat.push(lkm.palaute + (lkm.palaute === 1 ? ' uusi palaute' : ' uutta palautetta'));
+          if (lkm.review) osat.push(lkm.review + (lkm.review === 1 ? ' review erääntyy' : ' reviewiä erääntyy/myöhässä'));
+          if (lkm.tee_itsearvio) osat.push('tee itsearvio' + (lkm.tee_itsearvio > 1 ? ' (' + lkm.tee_itsearvio + ')' : ''));
+          const muut = Object.keys(lkm).filter((k) => ['palaute', 'review', 'tee_itsearvio'].indexOf(k) < 0).reduce((s, k) => s + lkm[k], 0);
+          if (muut) osat.push(muut + ' muuta ilmoitusta');
+          if (!osat.length) continue;
+          const kooste = osat.join(' · ');
+          const html = '<div style="font-family:Arial,Helvetica,sans-serif;color:#111;max-width:520px;margin:0 auto;padding:8px">'
+            + '<h2 style="color:#1D9E75;margin:0 0 4px">TalentMaster™</h2>'
+            + '<p style="color:#555;margin:0 0 16px">Uusia ilmoituksia · ' + seuraNimi + '</p>'
+            + '<p style="font-size:16px;font-weight:bold;color:#111">' + kooste + '</p>'
+            + '<p style="margin:18px 0"><a href="' + appUrl + '" style="background:#1D9E75;color:#fff;padding:11px 20px;border-radius:8px;text-decoration:none;display:inline-block">Avaa sovellus</a></p>'
+            + '<hr style="border:none;border-top:1px solid #ddd;margin:20px 0">'
+            + '<p style="font-size:12px;color:#888;line-height:1.5">Et halua koosteita? Kirjaudu sovellukseen → 🔔 → Ilmoitusasetukset → poista sähköposti käytöstä. Tämä on työhön liittyvä koonti omista ilmoituksistasi (ei pelaajatietoja).</p>'
+            + '</div>';
+          await lahetaSahkoposti({ to: u.email, subject: 'TalentMaster™ — uusia ilmoituksia (' + uudet.length + ')', html, fromName: 'TalentMaster™ · ' + seuraNimi });
+          await db.collection('seurat').doc(sid).collection('kayttajat').doc(kd.id).update({ notif_digest_pvm: nowIso });
+        }
+      } catch (e) { console.error('[notifKoosteEmail]', sid, e.message); }
+    }
+    return null;
+  });
