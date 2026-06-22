@@ -60,8 +60,18 @@ Suomalainen ikäluokka = kalenterivuosi (1.1.-katkaisu). `raeKvartaali(syntymaai
 
 ## 5. RAJAUKSET
 
-- **VP + valmentaja (Master).** Pelaajalle (§7.22): EI kvartaali-leimaa suorituksena. Mahdollinen kannustava BQ4-motivaatioviesti (§2) = erillinen, harkittu, EI tässä passissa.
+- **VP + valmentaja (Master).** Pelaajalle (§7.22): EI kvartaali-leimaa suorituksena, EI numeroita/vertailua.
 - Vain pikakentät (§26), ei uusia kyselyjä. Mobiili/teema-CSS-muuttujat.
+
+## 5b. RECONCILIOINTI — hyväksytty mockup 2026-06-23 (Tero)
+
+Hyväksytty mockup (4 pintaa) yhdistetään tähän speciin:
+- **Pinta 1 = §3C** (joukkue-BQ-jakauma + bias-signaali Q1>40 amber / Q4>25 teal). ✅
+- **Pinta 2 = §3A + §3B** (Q-chip + Underdog-badge). **Underdog = §3B:n lukittu määritelmä: `Q4 + jokin dimensio (D1/D2/TKI/H-H) ≥ 3`** (EI "FLEI≥60" — taso-pohjainen toimii nykydatalla). **POIS mockupista: "RAE-korjattu pisteluku (esim. 68/raaka 64)"** — §4:n mukaan kerrointa EI sovelleta yksittäisiin normitettuihin pisteisiin (vääristäisi normin); korjaus kuuluu komposiittiin/OVR:ään joka ei ole aktiivinen. Pelaajakortti näyttää chipin + Underdogin + **raa'an** valmius/pelihavainto-arvon (kuten ennenkin).
+- **Pinta 3 = §3D** (BQ4-suodatin, + Underdog-suodatin). ✅
+- **Pinta 4 = UUSI, nyt mukana (aiemmin §5 lykkäsi):** **Pelaaja_v7 myönteinen BQ4-viesti** (`rae_kvartaali==='Q4'`) — §7.22-turvallinen: "Olet ikäluokkasi nuorimpia — pelaat usein vanhempia vastaan, etu pitkällä tähtäimellä. Moni huippu samassa tilanteessa. Keho kasvaa vielä. Keskity tekemiseen, ei vertailuun." EI tasolukuja/numeroita/vertailua/RAE-kerrointa pelaajalle. Vanhempi-kehys = valinnainen, Vaihe 2.
+
+**Vaiheistus (päivitetty):** Vaihe 1 = §3A–D + Pinta 4 (pelaajaviesti) + lib (`raeJoukkueJakauma` + `isUnderdog(p)`=Q4+dimensio≥3). Vaihe 2 = §3E (HoT-raportti) + Kalibraatiopaja-skenaariot + RAE-korjauksen kytkentä komposiittiin/OVR:ään kun se aktivoituu + Vanhempi-kehys.
 
 ---
 

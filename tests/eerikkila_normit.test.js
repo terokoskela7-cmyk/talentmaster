@@ -41,6 +41,9 @@ const {
   normiIka,
   raeKvartaali,
   RAE_KERROIN,
+  raeChip,
+  isUnderdog,
+  raeJoukkueJakauma,
   d3Varmuus,
   d3VarmuusChip,
   D3_DIMS,
@@ -929,6 +932,57 @@ describe('normiIka (norminhaun ikäluokka)', () => {
     const a = laskeD1Joustava(hh, normiIka(2015, '2025-06-10'), 'M');
     const b = laskeD1Joustava(hh, normiIka(2015, '2025-06-10'), 'M');
     expect(a.taso).toBe(b.taso);
+  });
+});
+
+describe('RAE-näkyvyys Vaihe 1 — isUnderdog + raeJoukkueJakauma (RAE_NAKYVYYS_SPEC)', () => {
+  it('isUnderdog: Q4 + lvl≥3 (jokin dimensio) → true', () => {
+    expect(isUnderdog({ rae_kvartaali: 'Q4', d1_taso: 3 })).toBe(true);
+    expect(isUnderdog({ rae_kvartaali: 'Q4', hh_taso: 4 })).toBe(true);
+    expect(isUnderdog({ rae_kvartaali: 'Q4', tki_viimeisin: 65 })).toBe(true);   // laskeD2Joustava: 65/20→3.3 ≥3
+  });
+  it('isUnderdog: Q4 mutta lvl<3 → false; ei-Q4 → false', () => {
+    expect(isUnderdog({ rae_kvartaali: 'Q4', d1_taso: 2 })).toBe(false);
+    expect(isUnderdog({ rae_kvartaali: 'Q4' })).toBe(false);          // ei dataa → lvl null
+    expect(isUnderdog({ rae_kvartaali: 'Q1', d1_taso: 5 })).toBe(false);
+    expect(isUnderdog({ d1_taso: 5 })).toBe(false);                   // ei kvartaalia
+    expect(isUnderdog(null)).toBe(false);
+  });
+  it('isUnderdog: kvartaali syntymäajasta jos pikakenttä puuttuu', () => {
+    expect(isUnderdog({ syntymaaika: '2015-11-10', d2_taso: 3 })).toBe(true);   // marras → Q4
+  });
+  it('raeChip.underdog === isUnderdog (sama lähde)', () => {
+    const p = { rae_kvartaali: 'Q4', d1_taso: 3 };
+    expect(raeChip(p).underdog).toBe(isUnderdog(p));
+    expect(raeChip(p).q).toBe('Q4');
+  });
+  it('raeJoukkueJakauma: lkm + pct vain kvartaalillisista', () => {
+    const team = [
+      { rae_kvartaali: 'Q1' }, { rae_kvartaali: 'Q1' }, { rae_kvartaali: 'Q2' },
+      { rae_kvartaali: 'Q4' }, { /* ei kvartaalia */ },
+    ];
+    const j = raeJoukkueJakauma(team);
+    expect(j.n_kvartaalillisia).toBe(4);   // 5. ei lasketa
+    expect(j.Q1).toBe(2); expect(j.Q4).toBe(1);
+    expect(j.pct.Q1).toBe(50);
+  });
+  it('raeJoukkueJakauma: Q1>40% → valintaharha', () => {
+    const team = [{ rae_kvartaali: 'Q1' }, { rae_kvartaali: 'Q1' }, { rae_kvartaali: 'Q1' }, { rae_kvartaali: 'Q2' }];
+    expect(raeJoukkueJakauma(team).signaali).toBe('valintaharha');   // 75% Q1
+  });
+  it('raeJoukkueJakauma: Q4>25% (eikä Q1>40) → underdog_ok', () => {
+    const team = [{ rae_kvartaali: 'Q4' }, { rae_kvartaali: 'Q4' }, { rae_kvartaali: 'Q2' }, { rae_kvartaali: 'Q3' }];
+    expect(raeJoukkueJakauma(team).signaali).toBe('underdog_ok');    // 50% Q4
+  });
+  it('raeJoukkueJakauma: tasapaino + tyhjä → null', () => {
+    expect(raeJoukkueJakauma([{ rae_kvartaali: 'Q1' }, { rae_kvartaali: 'Q2' }, { rae_kvartaali: 'Q3' }, { rae_kvartaali: 'Q4' }]).signaali).toBe('tasapaino');
+    expect(raeJoukkueJakauma([{}, {}]).signaali).toBeNull();   // ei kvartaaleja
+    expect(raeJoukkueJakauma([]).n_kvartaalillisia).toBe(0);
+  });
+  it('Q1>40 voittaa Q4>25 (prioriteetti)', () => {
+    // Q1 3/6=50%, Q4 2/6=33% → valintaharha
+    const team = [{ rae_kvartaali: 'Q1' }, { rae_kvartaali: 'Q1' }, { rae_kvartaali: 'Q1' }, { rae_kvartaali: 'Q4' }, { rae_kvartaali: 'Q4' }, { rae_kvartaali: 'Q2' }];
+    expect(raeJoukkueJakauma(team).signaali).toBe('valintaharha');
   });
 });
 
