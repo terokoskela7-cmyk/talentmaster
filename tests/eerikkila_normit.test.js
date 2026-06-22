@@ -25,6 +25,10 @@ const {
   laskeVPTuloskortti,
   laskeTavoiteToteuma,
   laskeTaso3Osuus,
+  laskeHarjoituslaatuPalloliitto,
+  laskeValmennustaitoIndeksi,
+  laskeHarjoitusKalibraatio,
+  laskeValmentajaHarjoitusKooste,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -495,6 +499,60 @@ describe('laskeTaso3Osuus (kanoninen taso≥3)', () => {
     const k = laskeVPTuloskortti(team, [], null, Date.now());
     const r = laskeTaso3Osuus(team);
     expect(k.metriikat.taso3_pct).toBe(r.osuus_pct);
+  });
+});
+
+describe('Harjoitusarviointi (kaksimallinen, HARJOITUSARVIOINTI_SPEC)', () => {
+  it('laskeHarjoituslaatuPalloliitto: ka = a1,a3,a4,a5,a7 + %-erottelu', () => {
+    const r = laskeHarjoituslaatuPalloliitto({ a1: 8, a2: 60, a3: 6, a4: 7, a5: 9, a6: 50, a7: 5 });
+    expect(r.ka_0_10).toBe(7);          // (8+6+7+9+5)/5 = 7
+    expect(r.liike_pct).toBe(60);       // a2
+    expect(r.maali_pct).toBe(50);       // a6
+  });
+  it('laskeHarjoituslaatuPalloliitto: null-turva (osa puuttuu)', () => {
+    const r = laskeHarjoituslaatuPalloliitto({ a1: 8, a5: 6 });
+    expect(r.ka_0_10).toBe(7);          // vain a1,a5 → (8+6)/2
+    expect(r.liike_pct).toBeNull();
+    expect(r.maali_pct).toBeNull();
+  });
+  it('laskeValmennustaitoIndeksi: b1–b7 ka (1–5)', () => {
+    expect(laskeValmennustaitoIndeksi({ b1: 4, b2: 4, b3: 4, b4: 4, b5: 4, b6: 4, b7: 4 })).toBe(4);
+    expect(laskeValmennustaitoIndeksi({ b1: 5, b2: 3 })).toBe(4);
+  });
+  it('laskeValmennustaitoIndeksi: null jos 0 vastausta', () => {
+    expect(laskeValmennustaitoIndeksi({})).toBeNull();
+    expect(laskeValmennustaitoIndeksi(null)).toBeNull();
+  });
+  it('laskeHarjoitusKalibraatio: kuilun etumerkki (itsearvio − havainnointi)', () => {
+    const r = laskeHarjoitusKalibraatio({ b1: 5, b2: 3, b4: 2 }, { b1: 3, b2: 4 });
+    expect(r.per_kriteeri.b1).toBe(2);   // 5−3 yliarvio
+    expect(r.per_kriteeri.b2).toBe(-1);  // 3−4 aliarvio
+    expect(r.per_kriteeri.b4).toBeUndefined();   // ei havainnointia → ei paria
+    expect(r.ka_abs_kuilu).toBe(1.5);    // (|2|+|−1|)/2
+  });
+  it('laskeHarjoitusKalibraatio: tyhjä → null kuilu', () => {
+    expect(laskeHarjoitusKalibraatio({ b1: 4 }, {}).ka_abs_kuilu).toBeNull();
+  });
+  it('laskeValmentajaHarjoitusKooste: ka + n + pvm per malli', () => {
+    const arvioinnit = [
+      { malli: 'palloliitto', pvm: '2026-06-01', vastaukset: { a1: 8, a3: 8, a4: 8, a5: 8, a7: 8, a2: 70, a6: 40 } },
+      { malli: 'palloliitto', pvm: '2026-06-10', vastaukset: { a1: 6, a3: 6, a4: 6, a5: 6, a7: 6, a2: 50, a6: 30 } },
+      { malli: 'valmennustaidot', pvm: '2026-06-05', vastaukset: { b1: 4, b2: 4, b3: 4, b4: 4, b5: 4, b6: 4, b7: 4 } },
+    ];
+    const k = laskeValmentajaHarjoitusKooste(arvioinnit);
+    expect(k.harjoituslaatu_ka).toBe(7);          // (8+6)/2
+    expect(k.harjoituslaatu_n).toBe(2);
+    expect(k.harjoituslaatu_pvm).toBe('2026-06-10');
+    expect(k.harjoituslaatu_liike_pct).toBe(50);  // uusimmasta (06-10)
+    expect(k.harjoituslaatu_maali_pct).toBe(30);
+    expect(k.valmennustaito_ka).toBe(4);
+    expect(k.valmennustaito_n).toBe(1);
+  });
+  it('laskeValmentajaHarjoitusKooste: tyhjä → null-kentät', () => {
+    const k = laskeValmentajaHarjoitusKooste([]);
+    expect(k.harjoituslaatu_ka).toBeNull();
+    expect(k.harjoituslaatu_n).toBe(0);
+    expect(k.valmennustaito_ka).toBeNull();
   });
 });
 

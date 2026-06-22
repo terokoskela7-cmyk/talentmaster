@@ -15,7 +15,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=23"></script>
+<script src="lib/tm_eerikkila_normit.js?v=24"></script>
+<script src="lib/tm_harjoitusarviointi.js?v=1"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -1690,7 +1691,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
     <div class="sb-divider"></div>
     <div class="sb-section-label">Työkalut</div>
-    <div class="sb-item" onclick="toast('Harjoituksen arviointi — tulossa pilottiin','ok')">
+    <div class="sb-item" onclick="vpAvaaHarjoitusarviointi()">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
       </svg>
@@ -6400,6 +6401,27 @@ window._reviewAvaaMDT = function(pid){
 };
 
 /* ═══ VP-TULOSKORTTI (read-only oma seura + kausitavoitteet, VP_TULOSKORTTI_SPEC) ═══ */
+// Harjoitusarviointi (HARJOITUSARVIOINTI_SPEC) — VP havainnoi valmentajan harjoituksen
+window.vpAvaaHarjoitusarviointi = async function () {
+  if (typeof TM_HARJOITUS === 'undefined') { if (typeof toast === 'function') toast('Lomake ei latautunut — päivitä sivu', 'error'); return; }
+  var cu = auth.currentUser;
+  if (!cu || !_seuraId || _seuraId === 'demo') { if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
+  var config = null;
+  try { var s = await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').get(); if (s.exists) config = s.data(); } catch (e) {}
+  var coachRoolit = ['valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja', 'testivastaava', 'vp'];
+  var valmentajat = (_valmentajat || []).filter(function (c) { return coachRoolit.indexOf(c.rooli) >= 0; }).map(function (c) { return { uid: c.id, nimi: c.nimi, joukkue: (c.joukkue && c.joukkue !== '—') ? c.joukkue : '' }; });
+  var jset = {}; (_pelaajat || []).forEach(function (p) { if (p.joukkue && p.joukkue !== '—') jset[p.joukkue] = 1; });
+  var joukkueet = Object.keys(jset).sort();
+  var vpNimi = (window._vpNimi) || (cu.displayName) || 'VP';
+  TM_HARJOITUS.avaa({
+    db: db, firebase: firebase, seuraId: _seuraId, config: config,
+    joukkueet: joukkueet.length ? joukkueet : null,
+    valmentajat: valmentajat,
+    konteksti: { arvioija: vpNimi, arvioijaUid: cu.uid, arviointitapa: 'havainnointi' },
+    onTallennettu: function () { if (typeof renderVPTuloskortti === 'function') renderVPTuloskortti(); }
+  });
+};
+
 var _vpTavoitteet;
 var _vpSegmentit;        // {akatemia:[joukkuenimet]} konfiguraatio/segmentit:stä (§6b)
 var _vpKohortti;         // undefined=auto, 'akatemia'|'kaikki'|<joukkuenimi>

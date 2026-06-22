@@ -247,6 +247,16 @@ service cloud.firestore {
         allow delete: if onSuperAdmin();
       }
 
+      // ── HARJOITUSARVIOINNIT (HARJOITUSARVIOINTI_SPEC §9) ──────────────────
+      // Kaksimallinen harjoitusarviointi (A Palloliitto-laatu / B valmennustaidot).
+      // read: SA | oma seura (valmentaja näkee omat, johto kaikki). create/update: johto + oman seuran valmentaja + SA.
+      // delete: vain SA. Pikakentät (harjoituslaatu_/valmennustaito_) kirjoitetaan kayttajat-dokumenttiin (oma blokki alla).
+      match /harjoitusarvioinnit/{arvioId} {
+        allow read:           if onSuperAdmin() || onOmaSeura(seuraId);
+        allow create, update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli()) || onOmanSeuranValmentaja(seuraId);
+        allow delete:         if onSuperAdmin();
+      }
+
       // ── PELAAJAT ────────────────────────────────────────────────────────
       // read: super admin | oma seura | anonyymi PIN | huoltaja (v2.3)
       // Anonyymi PIN -lukuoikeus on pakollinen: Pelaaja-näkymä hakee oman
@@ -442,14 +452,16 @@ service cloud.firestore {
       }
 
       // ── KAYTTAJAT (seuran henkilöstö — Henkilöstö-näkymä) ─────────────
+      // Pikakentät (harjoituslaatu_/valmennustaito_, §26) kirjoitetaan tänne: oma UID (itsearvio) tai johto (havainnointi).
+      // Ei-SA-päivitys EI saa muuttaa rooli/seuraId-kenttiä (roolinvaihto vain vaihdaKayttajanRooli-CF:n kautta, §13).
       match /kayttajat/{uid} {
         allow read:   if onSuperAdmin()
                       || (onOmaSeura(seuraId) && onJohtoRooli())
                       || request.auth.uid == uid;
         allow create: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         allow update: if onSuperAdmin()
-                      || (onOmaSeura(seuraId) && onJohtoRooli())
-                      || request.auth.uid == uid;
+                      || (( (onOmaSeura(seuraId) && onJohtoRooli()) || request.auth.uid == uid )
+                          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rooli', 'seuraId']));
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
       }
 
