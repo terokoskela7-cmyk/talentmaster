@@ -2137,8 +2137,7 @@ auth.onAuthStateChanged(async user => {
     try {
       const sSnap = await db.collection('seurat').get();
       const seurat = sSnap.docs
-        .map(d => ({ id: d.id, nimi: d.data().nimi || d.id }))
-        .filter(s => s.id !== 'demo')   // demo = fixture, ei valittavissa kirjautuneelle SA:lle (estä demo-vuoto)
+        .map(d => ({ id: d.id, nimi: d.data().nimi || d.id }))   // demo mukana (FC Demo) — sama lähde kuin Masterissa
         .sort((a,b) => a.nimi.localeCompare(b.nimi));
 
       const sel = document.getElementById('sa-seura-sel');
@@ -2147,12 +2146,14 @@ auth.onAuthStateChanged(async user => {
       ).join('');
       sel.style.display = 'inline-block';
 
-      // Seura URL-parametrista (?seura=, avattu Seurahallinnasta) ohittaa muistetun
+      // Seura URL-parametrista (?seura=, avattu Seurahallinnasta) ohittaa muistetun.
+      // Demo on valittavissa eksplisiittisesti, mutta EI koskaan hiljainen oletus (demo-vuoto-vartija).
       const urlSeura = new URLSearchParams(location.search).get('seura');
       const muistettu = localStorage.getItem('tm-sa-seura');
+      const eiDemo = seurat.filter(s => s.id !== 'demo');
       _seuraId = (urlSeura && seurat.find(s => s.id === urlSeura)) ? urlSeura
                : (muistettu && seurat.find(s => s.id === muistettu)) ? muistettu
-               : (seurat[0] && seurat[0].id) || null;   // EI 'demo'-fallbackia kirjautuneelle SA:lle
+               : (eiDemo[0] && eiDemo[0].id) || null;   // EI 'demo'-fallbackia kirjautuneelle SA:lle
       if (_seuraId) sel.value = _seuraId;
     } catch(e) {
       console.warn('Seurojen lataus:', e.message);
