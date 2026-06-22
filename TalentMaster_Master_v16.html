@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782153665816';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782157260890';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_eerikkila_normit.js?v=28"></script>
-<script src="lib/tm_harjoitusarviointi.js?v=2"></script>
+<script src="lib/tm_harjoitusarviointi.js?v=3"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
@@ -1287,7 +1287,7 @@ body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45de
         <svg width="16" height="16"><use href="#ic-drill"/></svg>Kirjaa RPE
       </div>
       <div class="sb-item" onclick="avaaHarjoitusarviointi()">
-        <svg width="16" height="16"><use href="#ic-drill"/></svg>Arvioi harjoitus
+        <svg width="16" height="16"><use href="#ic-drill"/></svg>Itsearvio
       </div>
       <div class="sb-item" onclick="avaaValmentajaKehitys()">
         <svg width="16" height="16"><use href="#ic-home"/></svg>Valmentajana kehittyminen
@@ -5569,9 +5569,11 @@ window.avaaHarjoitusarviointi = async function () {
   const jset = {}; (_pelaajatData || []).forEach(p => { if (p.joukkue && p.joukkue !== '—') jset[p.joukkue] = 1; });
   if (_joukkue) jset[_joukkue] = 1;
   const joukkueet = Object.keys(jset).sort();
+  // ROOLIMALLI (SPEC §1): valmentaja → VAIN Malli B (itsearvio). Ei mallinvalitsinta, ei Malli A:ta, arviointitapa kiinteä.
   TM_HARJOITUS.avaa({
     db: _db, firebase: firebase, seuraId: _seuraId, config: config,
     joukkueet: joukkueet.length ? joukkueet : null,
+    malliLukko: 'valmennustaidot', tapaLukko: true, otsikko: 'Itsearvio',
     konteksti: { joukkue: _joukkue || '', valmentaja: nimi, valmentajaUid: cu.uid, arvioija: nimi, arvioijaUid: cu.uid, arviointitapa: 'itsearvio' }
   });
 };
@@ -5620,8 +5622,7 @@ window.avaaValmentajaKehitys = async function () {
     const arvioinnitKaikki = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     const k = (typeof omaKehitysKooste === 'function') ? omaKehitysKooste(arvioinnitKaikki, cu.uid) : { n_A: 0, n_B: 0, trendA: [], trendB: [], kalib: null, reflektiot: [], seuraavaAskel: null };
     const vd = window._valmentajaData || {};
-    const hlKa = (vd.harjoituslaatu_ka != null) ? vd.harjoituslaatu_ka : k.viimA;
-    const vtKa = (vd.valmennustaito_ka != null) ? vd.valmennustaito_ka : k.viimB;
+    const vtKa = (vd.valmennustaito_ka != null) ? vd.valmennustaito_ka : k.viimB;   // ROOLIMALLI: vain B-numero näytetään valmentajalle
     // Standalone-reflektiot (oma päiväkirja) + CPD-vaatimuskonfiguraatio — ladataan kerran, käytetään CPD-osiossa + päiväkirjassa
     let standalone = [];
     try { const rs = await _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(cu.uid).collection('reflektiot').limit(100).get(); standalone = rs.docs.map(d => ({ id: d.id, ...d.data() })); } catch (e) {}
@@ -5635,7 +5636,7 @@ window.avaaValmentajaKehitys = async function () {
     h += '<div style="background:rgba(40,176,144,.08);border:.5px solid var(--teal);border-radius:12px;padding:14px 16px;margin-bottom:16px">'
       + '<div style="font-size:13px;color:var(--ink2);line-height:1.5;margin-bottom:10px">Olet arvioinut harjoittelua <b>' + (k.n_A + k.n_B) + '</b> kertaa — hieno sitoutuminen oman valmennuksesi kehittämiseen. 🌱</div>'
       + '<div style="display:flex;gap:18px;flex-wrap:wrap">'
-      + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Harjoituslaatu</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--teal)">' + (hlKa != null ? hlKa + '<span style="font-size:12px;color:var(--ink3)">/10</span>' : '—') + '</div></div>'
+      // ROOLIMALLI (SPEC §1): valmentaja EI näe omaa Malli A -numeroaan (harjoituslaatu) — vain B + laadullinen palaute.
       + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Valmennustaidot</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--teal)">' + (vtKa != null ? vtKa + '<span style="font-size:12px;color:var(--ink3)">/5</span>' : '—') + '</div></div>'
       + '</div></div>';
 
@@ -5647,10 +5648,9 @@ window.avaaValmentajaKehitys = async function () {
         + '<div style="font-size:10px;color:var(--ink3);margin-top:3px">Omasta reflektiostasi · ' + _mEsc((k.seuraavaAskel.pvm || '').slice(0, 10)) + '</div></div>';
     }
 
-    // 3) OMAT TRENDIT — A (/10) + B (/5), Chart.js lazy
-    h += '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:8px">Omat trendit</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:18px">';
-    h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:12px 14px"><div style="font-size:11px;color:var(--ink2);margin-bottom:6px">Harjoituslaatu (A) /10</div>' + (k.trendA.length ? '<div style="position:relative;height:160px"><canvas id="mkTrendA"></canvas></div>' : '<div style="font-size:11px;color:var(--ink3);padding:18px 0;text-align:center">Ei vielä A-arviointeja.</div>') + '</div>';
-    h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:12px 14px"><div style="font-size:11px;color:var(--ink2);margin-bottom:6px">Valmennustaidot (B) /5</div>' + (k.trendB.length ? '<div style="position:relative;height:160px"><canvas id="mkTrendB"></canvas></div>' : '<div style="font-size:11px;color:var(--ink3);padding:18px 0;text-align:center">Ei vielä B-arviointeja.</div>') + '</div>';
+    // 3) OMAT TRENDIT — vain B (/5). ROOLIMALLI (SPEC §1): A-trendi ei näy valmentajalle.
+    h += '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:8px">Oma trendi — valmennustaidot</div><div style="margin-bottom:18px">';
+    h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:12px 14px"><div style="font-size:11px;color:var(--ink2);margin-bottom:6px">Valmennustaidot (B) /5</div>' + (k.trendB.length ? '<div style="position:relative;height:160px"><canvas id="mkTrendB"></canvas></div>' : '<div style="font-size:11px;color:var(--ink3);padding:18px 0;text-align:center">Ei vielä itsearvioita.</div>') + '</div>';
     h += '</div>';
 
     // 4) OMA KALIBRAATIO — myönteinen kehys (§7.22)
@@ -5731,9 +5731,8 @@ window.avaaValmentajaKehitys = async function () {
     });
 
     sis.innerHTML = h;
-    // Trendikaaviot (lazy)
-    if (k.trendA.length || k.trendB.length) _mkEnsureChart(function () {
-      if (k.trendA.length) _mkPiirraTrendi('mkTrendA', k.trendA, 10, _MK_VARI.teal, 'Harjoituslaatu');
+    // Trendikaavio (lazy) — vain B (ROOLIMALLI: ei A-trendiä valmentajalle)
+    if (k.trendB.length) _mkEnsureChart(function () {
       if (k.trendB.length) _mkPiirraTrendi('mkTrendB', k.trendB, 5, _MK_VARI.blue, 'Valmennustaidot');
     });
   } catch (e) {

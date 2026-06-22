@@ -22,6 +22,15 @@
 
 **Klubivalinta:** seura valitsee `mallit_kaytossa` = A, B tai molemmat + `oletusmalli`. Q7 (seuran oma kysymys) + seuran nimi headeriin.
 
+### ROOLIMALLI (lukittu 2026-06-22 — käyttäjätestin pohjalta)
+
+**Malli A ja B eivät ole klubivalinta vaan roolisidonnaisia:**
+- **Valmentaja → vain Malli B** (itsearvio/reflektio omasta valmennuksesta). Valmentaja **EI** arvioi harjoituksiaan numeraalisesti (Malli A). Master "Arvioi harjoitus" → nimi **"Itsearvio"**, avaa Malli B suoraan (ei mallinvalitsinta).
+- **VP → Malli A + Malli B.** Malli A = VP:n QA-/datankeruutyökalu (oman seuran harjoitusten laatu, vertailu tavoitelukuihin, palaute valmentajille, sisäiset valmentajakoulutukset). Malli B (havainnointi) = valmentajan taitojen havainnointi → kalibraatio (B-itsearvio vs B-havainnointi) → mentorointi/koulutus.
+- **Kalibraatio = vain Malli B** (valmentaja itsearvio ↔ VP havainnointi). Malli A:lla ei itsearvio-paria → ei kalibraatiota.
+- **Valmentaja EI näe omaa Malli A -numeroaan.** A on VP:n linssi (Harjoittelun laatu -dashboard §VAIHE2 + coach-paneeli). Valmentaja saa A:sta vain VP:n **laadullisen palautteen** (palaute_jaettu) — §7.22 (kasvu, ei numeroarvostelu itsestä). Coach-näkymä "Valmentajana kehittyminen" näyttää vain B-itsearviot + reflektiopäiväkirjan + saadun palautteen + kalibraation (ei A-trendiä).
+- **Peruste:** erottaa harjoituksen laadun QA (A, VP) valmentajan kehittämisestä (B, reflektio+kalibraatio) — vrt. EPPP/FA; poistaa itsearvostelun pätevyysongelman.
+
 ---
 
 ## 2. MALLI A — kriteerit (Palloliiton harjoitteluseuranta)
