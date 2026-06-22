@@ -29,6 +29,9 @@ const {
   laskeValmennustaitoIndeksi,
   laskeHarjoitusKalibraatio,
   laskeValmentajaHarjoitusKooste,
+  koostaHarjoitusarvioinnit,
+  harjoitusTrendi,
+  harjoitusBenchmarkDelta,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -553,6 +556,64 @@ describe('Harjoitusarviointi (kaksimallinen, HARJOITUSARVIOINTI_SPEC)', () => {
     expect(k.harjoituslaatu_ka).toBeNull();
     expect(k.harjoituslaatu_n).toBe(0);
     expect(k.valmennustaito_ka).toBeNull();
+  });
+});
+
+describe('Harjoitusarviointi Vaihe 2.1 — dashboard-koosteet (HARJOITUSARVIOINTI_VAIHE2_SPEC)', () => {
+  const arvioinnit = [
+    { malli: 'palloliitto', joukkue: 'SJK P15', ikavaihe: 'nuoruus', valmentajaUid: 'c1', pvm: '2026-04-10', vastaukset: { a1: 8, a2: 60, a3: 6, a4: 7, a5: 9, a6: 50, a7: 5 } },
+    { malli: 'palloliitto', joukkue: 'SJK P15', ikavaihe: 'nuoruus', valmentajaUid: 'c1', pvm: '2026-05-12', vastaukset: { a1: 6, a2: 40, a3: 4, a4: 5, a5: 7, a6: 30, a7: 3 } },
+    { malli: 'palloliitto', joukkue: 'SJK P09', ikavaihe: 'lapsuus', valmentajaUid: 'c2', pvm: '2026-05-20', vastaukset: { a1: 9, a2: 70, a3: 8, a4: 8, a5: 9, a6: 60, a7: 7 } },
+    { malli: 'valmennustaidot', joukkue: 'SJK P15', ikavaihe: 'nuoruus', valmentajaUid: 'c1', pvm: '2026-05-12', vastaukset: { b1: 4, b2: 4, b3: 4, b4: 4, b5: 4, b6: 4, b7: 4 } },
+  ];
+  it('koosta: suodatin malli=A oletus + per-kriteeri ka + %-erottelu (a2/a6)', () => {
+    const k = koostaHarjoitusarvioinnit(arvioinnit);   // malli palloliitto oletus → 3 A-arviointia
+    expect(k.n).toBe(3);
+    expect(k.per_kriteeri.a2.ka).toBeCloseTo((60 + 40 + 70) / 3, 1);   // %-asteikko erikseen
+    expect(k.per_kriteeri.a1.ka).toBeCloseTo((8 + 6 + 9) / 3, 1);
+    expect(k.viimeisin_pvm).toBe('2026-05-20');
+    expect(k.per_kriteeri.b1).toBeUndefined();         // ei B-avaimia A-koosteessa
+  });
+  it('koosta: joukkue- + valmentaja-suodatin', () => {
+    const k = koostaHarjoitusarvioinnit(arvioinnit, { joukkue: 'sjk p15', valmentaja: 'c1' });
+    expect(k.n).toBe(2);
+    expect(k.ka).toBe(6);        // overall per arviointi = 7 ja 5 (a1,a3,a4,a5,a7 ka) → ka 6
+  });
+  it('koosta: ikävaihe-suodatin + aikaväli', () => {
+    expect(koostaHarjoitusarvioinnit(arvioinnit, { ikavaihe: 'lapsuus' }).n).toBe(1);
+    expect(koostaHarjoitusarvioinnit(arvioinnit, { aikavali: { alku: '2026-05-01', loppu: '2026-05-31' } }).n).toBe(2);
+  });
+  it('koosta: malli B', () => {
+    const k = koostaHarjoitusarvioinnit(arvioinnit, { malli: 'valmennustaidot' });
+    expect(k.n).toBe(1);
+    expect(k.per_kriteeri.b1.ka).toBe(4);
+  });
+  it('koosta: tyhjä otos', () => {
+    const k = koostaHarjoitusarvioinnit([], {});
+    expect(k.n).toBe(0); expect(k.ka).toBeNull(); expect(k.viimeisin_pvm).toBeNull();
+    expect(k.per_kriteeri.a1.ka).toBeNull();
+  });
+  it('trendi: kuukausi-bucket (oletus) erottaa kk-rajat', () => {
+    const t = harjoitusTrendi(arvioinnit.filter(a => a.malli === 'palloliitto'));
+    expect(t.map(x => x.label)).toEqual(['2026-04', '2026-05']);
+    expect(t[0].n).toBe(1);   // huhtikuu 1
+    expect(t[1].n).toBe(2);   // toukokuu 2
+  });
+  it('trendi: viikko- ja kausi-bucket', () => {
+    const tv = harjoitusTrendi(arvioinnit.filter(a => a.malli === 'palloliitto'), { bucket: 'viikko' });
+    expect(tv.every(x => /^\d{4}-W\d{2}$/.test(x.label))).toBe(true);
+    const tk = harjoitusTrendi(arvioinnit.filter(a => a.malli === 'palloliitto'), { bucket: 'kausi' });
+    expect(tk.length).toBe(1);                 // kaikki samalla kaudella (kevät 2026 → 2025/26)
+    expect(tk[0].label).toBe('2025/26');
+  });
+  it('benchmark-delta: suunta + null-turva a7 (ei kansallista)', () => {
+    const k = koostaHarjoitusarvioinnit(arvioinnit, { joukkue: 'SJK P15', valmentaja: 'c1' });
+    const d = harjoitusBenchmarkDelta(k.per_kriteeri, { a1: 7, a2: 50, a3: 5, a4: 6, a5: 8, a6: 40, a7: null });
+    expect(d.a1.delta).toBeCloseTo(7 - 7, 1);        // oma a1 ka = 7
+    expect(d.a1.suunta).toBe('tasan');
+    expect(d.a3.suunta).toBe('tasan');               // (6+4)/2=5 vs 5
+    expect(d.a7.delta).toBeNull();                   // a7 ei kansallista
+    expect(d.a7.suunta).toBe('neutraali');
   });
 });
 

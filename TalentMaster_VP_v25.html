@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=24"></script>
+<script src="lib/tm_eerikkila_normit.js?v=25"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=2"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
@@ -1925,6 +1925,12 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
     <div class="ws-view" id="ws-raportointi">
       <div class="page-title">Raportointi</div>
       <div class="page-sub" id="rapport-sub">Q2 / 2026 · automaattikoosto · lähetä Head of Talentille</div>
+      <!-- Segmenttivalitsin: MDT-raportti / Harjoittelun laatu -->
+      <div class="rap-seg mdt-no-print" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <button id="rapSegBtn-mdt" onclick="_rapSeg('mdt')" style="padding:8px 16px;border-radius:8px;border:.5px solid var(--teal);background:rgba(40,176,144,.12);color:var(--teal);cursor:pointer;font-size:13px;font-weight:600">Pelaajaraportti (MDT)</button>
+        <button id="rapSegBtn-laatu" onclick="_rapSeg('laatu')" style="padding:8px 16px;border-radius:8px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);cursor:pointer;font-size:13px;font-weight:600">Harjoittelun laatu</button>
+      </div>
+      <div id="rapSeg-mdt">
       <div class="rapport-section mdt-no-print" id="mdtPickerSec" style="margin-bottom:14px">
         <h3>Pelaajaraportti (MDT)</h3>
         <select id="mdtPelaajaSel" onchange="_mdtValitse(this.value)" style="width:100%;max-width:380px;padding:8px 12px;background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-size:13px;cursor:pointer"></select>
@@ -1946,6 +1952,21 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
           placeholder="Kirjoita kaudella esille nousseet erityishuomiot..."></textarea>
       </div>
       <button class="send-btn" onclick="lahetaRaportti()">Lähetä Head of Talentille →</button>
+      </div><!-- /rapSeg-mdt -->
+
+      <!-- ── HARJOITTELUN LAATU (Vaihe 2.1) ── -->
+      <div id="rapSeg-laatu" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+          <div style="display:flex;gap:8px">
+            <button id="hlMalliA" onclick="_hlVaihdaMalli('palloliitto')" style="padding:7px 14px;border-radius:7px;border:.5px solid var(--teal);background:rgba(40,176,144,.12);color:var(--teal);cursor:pointer;font-size:12px;font-weight:600">A · Harjoittelun laatu</button>
+            <button id="hlMalliB" onclick="_hlVaihdaMalli('valmennustaidot')" style="padding:7px 14px;border-radius:7px;border:.5px solid var(--border);background:var(--surface);color:var(--ink3);cursor:pointer;font-size:12px;font-weight:600" title="Valmennustaidot-dashboard tulossa Vaihe 2.2">B · Valmennustaidot</button>
+          </div>
+          <button onclick="_hlAvaaBenchmark()" class="mdt-no-print" style="padding:7px 12px;border-radius:7px;border:.5px solid var(--blue);background:rgba(42,93,176,.1);color:var(--blue);cursor:pointer;font-size:12px">⚙ Aseta kansalliset vertailuarvot</button>
+        </div>
+        <div id="hlSuodattimet" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <div id="hlSisalto"></div>
+      </div>
+
     </div>
 
     <!-- ── REVIEWIT (MDT-tarkistusrytmi) ── -->
@@ -6611,6 +6632,293 @@ function renderReviewit() {
   }
 }
 window.renderReviewit = renderReviewit;
+
+/* ═══ HARJOITTELUN LAATU -DASHBOARD (Vaihe 2.1, HARJOITUSARVIOINTI_VAIHE2_SPEC) — raporttinäkymä, alikokoelmakysely sallittu (§26-poikkeus) ═══ */
+var _hlArvioinnit = null, _hlConfig = null, _hlMalli = 'palloliitto', _hlLadattu = false, _hlChartLoaded = false, _hlTrendChart = null;
+var _HL_KRIT_A = { a1: 'Innostavuus', a2: 'Liikkeessä %', a3: 'Pallokosketukset', a4: 'Teknis-takt. toistot', a5: 'Heittäytyminen', a6: 'Maalinteko %', a7: 'Seuran oma (Q7)' };
+var _HL_KRIT_B = { b1: 'Organisointi', b2: 'Tavoitteen selkeys', b3: 'Palaute (määrä)', b4: 'Palaute (laatu)', b5: 'Pedagogiikka', b6: 'Eriyttäminen', b7: 'Vuorovaikutus' };
+var _HL_PCT = { a2: 1, a6: 1 };
+var _HL_VARI = { teal: '#1D9E75', amber: '#BA7517', blue: '#185FA5' };
+function _hlEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function _hlKritLabel(k) { return (_hlMalli === 'valmennustaidot' ? _HL_KRIT_B : _HL_KRIT_A)[k] || k; }
+function _hlMax(k) { return _HL_PCT[k] ? 100 : (_hlMalli === 'valmennustaidot' ? 5 : 10); }
+function _hlOverallNat(kans) { var ks = ['a1', 'a3', 'a4', 'a5', 'a7'], vs = ks.map(function (k) { return kans[k]; }).filter(function (x) { return x != null && !isNaN(x); }); return vs.length ? Math.round(vs.reduce(function (s, x) { return s + x; }, 0) / vs.length * 10) / 10 : null; }
+
+window._rapSeg = function (seg) {
+  var mdt = document.getElementById('rapSeg-mdt'), laatu = document.getElementById('rapSeg-laatu');
+  var bM = document.getElementById('rapSegBtn-mdt'), bL = document.getElementById('rapSegBtn-laatu');
+  var on = function (b) { b.style.borderColor = 'var(--teal)'; b.style.background = 'rgba(40,176,144,.12)'; b.style.color = 'var(--teal)'; };
+  var off = function (b) { b.style.borderColor = 'var(--border)'; b.style.background = 'var(--surface)'; b.style.color = 'var(--ink2)'; };
+  if (seg === 'laatu') { mdt.style.display = 'none'; laatu.style.display = 'block'; on(bL); off(bM); if (!_hlLadattu) _hlLataaJaRender(); }
+  else { mdt.style.display = 'block'; laatu.style.display = 'none'; on(bM); off(bL); }
+};
+
+async function _hlLataaJaRender() {
+  var sis = document.getElementById('hlSisalto');
+  if (!_seuraId || _seuraId === 'demo') { if (sis) sis.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px">Ei dataa demossa.</div>'; return; }
+  if (sis) sis.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px">Ladataan…</div>';
+  try {
+    var snap = await db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').orderBy('pvm', 'desc').limit(500).get();
+    _hlArvioinnit = snap.docs.map(function (d) { var o = d.data(); o._id = d.id; return o; });
+  } catch (e) { _hlArvioinnit = []; if (sis) sis.innerHTML = '<div style="color:var(--red);font-size:13px;padding:20px">Lataus epäonnistui: ' + _hlEsc(e.message) + '</div>'; return; }
+  try { var cs = await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').get(); _hlConfig = cs.exists ? cs.data() : {}; } catch (e) { _hlConfig = {}; }
+  _hlLadattu = true;
+  _hlRenderSuodattimet();
+  _hlRender();
+}
+
+window._hlVaihdaMalli = function (m) {
+  _hlMalli = m;
+  var a = document.getElementById('hlMalliA'), b = document.getElementById('hlMalliB');
+  var on = function (x) { x.style.borderColor = 'var(--teal)'; x.style.background = 'rgba(40,176,144,.12)'; x.style.color = 'var(--teal)'; };
+  var off = function (x) { x.style.borderColor = 'var(--border)'; x.style.background = 'var(--surface)'; x.style.color = 'var(--ink3)'; };
+  if (m === 'palloliitto') { on(a); off(b); } else { off(a); on(b); }
+  _hlRender();
+};
+
+function _hlRenderSuodattimet() {
+  var el = document.getElementById('hlSuodattimet'); if (!el) return;
+  var A = _hlArvioinnit || [], jset = {}, vset = {};
+  A.forEach(function (a) { if (a.joukkue) jset[a.joukkue] = 1; if (a.valmentajaUid) vset[a.valmentajaUid] = a.valmentaja || a.valmentajaUid; });
+  var sel = function (id, label, opts) { return '<div><label style="font-size:10px;color:var(--ink3);text-transform:uppercase;display:block;margin-bottom:2px">' + label + '</label><select id="' + id + '" onchange="_hlRender()" style="padding:6px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:12px">' + opts + '</select></div>'; };
+  var jOpts = '<option value="">Kaikki</option>' + Object.keys(jset).sort().map(function (j) { return '<option value="' + _hlEsc(j) + '">' + _hlEsc(j) + '</option>'; }).join('');
+  var iOpts = '<option value="">Kaikki</option><option value="lapsuus">Lapsuus 5–11</option><option value="nuoruus">Nuoruus 12–15</option>';
+  var vOpts = '<option value="">Kaikki</option>' + Object.keys(vset).map(function (u) { return '<option value="' + _hlEsc(u) + '">' + _hlEsc(vset[u]) + '</option>'; }).join('');
+  var aOpts = '<option value="">Koko historia</option><option value="3kk">Viim. 3 kk</option><option value="6kk">Viim. 6 kk</option><option value="12kk">Viim. 12 kk</option>';
+  var bOpts = '<option value="kuukausi">Kuukausi</option><option value="viikko">Viikko</option><option value="kausi">Kausi</option>';
+  el.innerHTML = sel('hlJoukkue', 'Joukkue', jOpts) + sel('hlIka', 'Ikävaihe', iOpts) + sel('hlValm', 'Valmentaja', vOpts) + sel('hlAika', 'Aikaväli', aOpts) + sel('hlBucket', 'Trendi', bOpts);
+}
+
+function _hlOpts() {
+  var g = function (id) { var e = document.getElementById(id); return e ? e.value : ''; };
+  var opts = { malli: _hlMalli, joukkue: g('hlJoukkue') || null, ikavaihe: g('hlIka') || null, valmentaja: g('hlValm') || null };
+  var aika = g('hlAika');
+  if (aika) { var kk = aika === '3kk' ? 3 : aika === '6kk' ? 6 : 12; var d = new Date(); d.setMonth(d.getMonth() - kk); opts.aikavali = { alku: d.toISOString().slice(0, 10) }; }
+  return opts;
+}
+function _hlSuodata(A, opts) {
+  var lc = function (x) { return String(x == null ? '' : x).toLowerCase().trim(); };
+  return A.filter(function (a) {
+    if (a.malli !== opts.malli) return false;
+    if (opts.joukkue && lc(a.joukkue) !== lc(opts.joukkue)) return false;
+    if (opts.ikavaihe && a.ikavaihe !== opts.ikavaihe) return false;
+    if (opts.valmentaja && a.valmentajaUid !== opts.valmentaja) return false;
+    if (opts.aikavali && opts.aikavali.alku && String(a.pvm || '') < opts.aikavali.alku) return false;
+    return true;
+  });
+}
+
+function _hlRender() {
+  var sis = document.getElementById('hlSisalto'); if (!sis) return;
+  if (_hlMalli === 'valmennustaidot') { sis.innerHTML = '<div style="padding:34px;text-align:center;color:var(--ink3);font-size:13px;background:var(--card);border:.5px solid var(--border);border-radius:12px">Valmennustaidot-dashboard (malli B) tulossa <b>Vaihe 2.2</b> — kalibraatiohistoria (itsearvio vs havainnointi).</div>'; return; }
+  var A = _hlArvioinnit || [], opts = _hlOpts();
+  var kooste = koostaHarjoitusarvioinnit(A, opts), lista = _hlSuodata(A, opts);
+  if (kooste.n === 0) { sis.innerHTML = '<div style="padding:34px;text-align:center;color:var(--ink3);font-size:13px;background:var(--card);border:.5px solid var(--border);border-radius:12px">Ei vielä arviointeja tällä suodatuksella.</div>'; return; }
+  // Benchmark: oikea ikävaihe (suodatin tai yksiselitteinen data)
+  var ikSet = {}; lista.forEach(function (a) { if (a.ikavaihe) ikSet[a.ikavaihe] = 1; });
+  var ikKeys = Object.keys(ikSet);
+  var benchIka = opts.ikavaihe || (ikKeys.length === 1 ? ikKeys[0] : null);
+  var kansallinen = (benchIka && _hlConfig && _hlConfig.kansallinen_ka && _hlConfig.kansallinen_ka[benchIka]) ? _hlConfig.kansallinen_ka[benchIka] : {};
+  var delta = harjoitusBenchmarkDelta(kooste.per_kriteeri, kansallinen);
+  var natOverall = _hlOverallNat(kansallinen);
+  var vsNat = (kooste.ka != null && natOverall != null) ? Math.round((kooste.ka - natOverall) * 10) / 10 : null;
+
+  var h = '';
+  if (kooste.n < 10) h += '<div style="margin-bottom:12px;font-size:12px;color:var(--amber);background:rgba(224,160,64,.1);border-radius:8px;padding:8px 12px">⚠ Pilottiotos, n=' + kooste.n + ' — tulkitse varauksella.</div>';
+  if (!benchIka) h += '<div style="margin-bottom:12px;font-size:12px;color:var(--ink3)">Valitse ikävaihe nähdäksesi kansallisen vertailun.</div>';
+  else if (!Object.keys(kansallinen).length) h += '<div style="margin-bottom:12px;font-size:12px;color:var(--ink3)">Kansallisia vertailuarvoja (' + (benchIka === 'lapsuus' ? 'Lapsuus' : 'Nuoruus') + ') ei asetettu — “⚙ Aseta kansalliset vertailuarvot”.</div>';
+
+  // KPI-kortit
+  var dColor = function (d) { return d == null ? 'var(--ink3)' : d >= 0 ? 'var(--teal)' : 'var(--red)'; };
+  var dTxt = function (d) { return d == null ? '—' : (d > 0 ? '+' : '') + d; };
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:18px">'
+    + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Havaintomäärä</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:32px;color:var(--ink)">' + kooste.n + '</div></div>'
+    + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Keskiarvo</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:32px;color:var(--teal)">' + (kooste.ka != null ? kooste.ka : '—') + '<span style="font-size:14px;color:var(--ink3)">/10</span></div></div>'
+    + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">vs kansallinen</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:32px;color:' + dColor(vsNat) + '">' + dTxt(vsNat) + '</div></div>'
+    + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Viimeisin</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink);margin-top:8px">' + (kooste.viimeisin_pvm || '—') + '</div></div>'
+    + '</div>';
+
+  // Per-kriteeri palkit + benchmark-marker + delta
+  h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:12px">Kriteerit vs kansallinen taso</div>';
+  ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'].forEach(function (k) {
+    var pk = kooste.per_kriteeri[k], ka = pk ? pk.ka : null, max = _hlMax(k);
+    var d = delta[k], nat = d ? d.kansallinen : null;
+    var pctW = ka != null ? Math.max(0, Math.min(100, ka / max * 100)) : 0;
+    var natW = nat != null ? Math.max(0, Math.min(100, nat / max * 100)) : null;
+    var dc = (d && d.delta != null) ? (d.delta >= 0 ? 'var(--teal)' : 'var(--red)') : 'var(--ink3)';
+    var dl = (d && d.delta != null) ? ((d.delta > 0 ? '+' : '') + d.delta) : '—';
+    h += '<div style="margin-bottom:11px">'
+      + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:var(--ink2)">' + _hlEsc(_hlKritLabel(k)) + (_HL_PCT[k] ? ' <span style="color:var(--ink3)">(%)</span>' : '') + '</span><span style="color:var(--ink)">' + (ka != null ? ka : '—') + (_HL_PCT[k] ? '%' : '') + ' <span style="color:' + dc + ';font-size:11px">' + dl + '</span></span></div>'
+      + '<div style="position:relative;height:10px;background:var(--surface);border-radius:5px;overflow:visible">'
+      + '<div style="position:absolute;left:0;top:0;height:10px;border-radius:5px;width:' + pctW + '%;background:var(--teal)"></div>'
+      + (natW != null ? '<div title="Kansallinen ' + nat + '" style="position:absolute;top:-2px;height:14px;width:2px;background:' + _HL_VARI.amber + ';left:' + natW + '%"></div>' : '')
+      + '</div></div>';
+  });
+  h += '<div style="font-size:10px;color:var(--ink3);margin-top:8px"><span style="display:inline-block;width:10px;height:6px;background:var(--teal);border-radius:2px"></span> seura · <span style="display:inline-block;width:2px;height:10px;background:' + _HL_VARI.amber + ';vertical-align:middle"></span> kansallinen</div></div>';
+
+  // Trendi (canvas, Chart.js lazy)
+  h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:10px">Keskiarvon trendi</div><div style="position:relative;height:220px"><canvas id="hlTrendCanvas"></canvas></div></div>';
+
+  // Viimeisimmät arvioinnit -lista → drill
+  h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:16px 18px"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:10px">Viimeisimmät arvioinnit</div>';
+  lista.slice().sort(function (x, y) { return String(y.pvm || '').localeCompare(String(x.pvm || '')); }).slice(0, 15).forEach(function (a) {
+    var ov = laskeHarjoituslaatuPalloliitto(a.vastaukset).ka_0_10;
+    h += '<div onclick="_hlAvaaTapahtuma(\'' + _hlEsc(a._id) + '\')" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 4px;border-bottom:.5px solid var(--border);cursor:pointer">'
+      + '<div><div style="font-size:13px;color:var(--ink)">' + _hlEsc(a.joukkue || '—') + ' <span style="color:var(--ink3);font-size:11px">· ' + _hlEsc(a.valmentaja || '') + '</span></div><div style="font-size:11px;color:var(--ink3)">' + _hlEsc(a.pvm || '') + ' · ' + (a.ikavaihe === 'lapsuus' ? 'Lapsuus' : 'Nuoruus') + ' · ' + (a.arviointitapa === 'itsearvio' ? 'Itsearvio' : 'Havainnointi') + '</div></div>'
+      + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--teal)">' + (ov != null ? ov : '—') + '</div></div>';
+  });
+  h += '</div>';
+
+  sis.innerHTML = h;
+  // Trendi piirto
+  var bucket = (document.getElementById('hlBucket') || {}).value || 'kuukausi';
+  var trendi = harjoitusTrendi(lista, { bucket: bucket });
+  _hlEnsureChart(function () { _hlPiirraTrendi(trendi, natOverall); });
+}
+
+function _hlEnsureChart(cb) {
+  if (_hlChartLoaded && typeof Chart !== 'undefined') { cb(); return; }
+  if (typeof Chart !== 'undefined') { _hlChartLoaded = true; cb(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+  s.onload = function () { _hlChartLoaded = true; cb(); };
+  s.onerror = function () { var c = document.getElementById('hlTrendCanvas'); if (c && c.parentNode) c.parentNode.innerHTML = '<div style="font-size:12px;color:var(--ink3)">Kaaviokirjasto ei latautunut (offline).</div>'; };
+  document.head.appendChild(s);
+}
+
+function _hlPiirraTrendi(trendi, natOverall) {
+  var c = document.getElementById('hlTrendCanvas'); if (!c || typeof Chart === 'undefined') return;
+  if (_hlTrendChart) { try { _hlTrendChart.destroy(); } catch (e) {} _hlTrendChart = null; }
+  var labels = trendi.map(function (t) { return t.label; });
+  var data = trendi.map(function (t) { return t.ka; });
+  var ds = [{ label: 'Seura', data: data, borderColor: _HL_VARI.teal, backgroundColor: 'rgba(29,158,117,.12)', tension: .25, fill: true, pointRadius: 4 }];
+  if (natOverall != null) ds.push({ label: 'Kansallinen', data: labels.map(function () { return natOverall; }), borderColor: _HL_VARI.amber, borderDash: [6, 4], pointRadius: 0, fill: false });
+  _hlTrendChart = new Chart(c.getContext('2d'), {
+    type: 'line', data: { labels: labels, datasets: ds },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 10, ticks: { color: '#8A8A82' }, grid: { color: 'rgba(255,255,255,.06)' } }, x: { ticks: { color: '#8A8A82' }, grid: { display: false } } }, plugins: { legend: { labels: { color: '#C8C8C0', boxWidth: 12 } } } }
+  });
+}
+
+/* ── Kansalliset vertailuarvot -lomake (SA/johto → konfiguraatio/harjoitusarviointi.kansallinen_ka) ── */
+window._hlAvaaBenchmark = function () {
+  var kans = (_hlConfig && _hlConfig.kansallinen_ka) || {};
+  var vanha = document.getElementById('hlBmModal'); if (vanha) vanha.remove();
+  var m = document.createElement('div'); m.id = 'hlBmModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto'; m.onclick = function (e) { if (e.target === m) m.remove(); };
+  var rivi = function (k) {
+    if (k === 'a7') return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1;font-size:12px;color:var(--ink3)">' + _hlEsc(_HL_KRIT_A[k]) + ' — ei kansallista</span><span style="width:140px;text-align:center;color:var(--ink3);font-size:12px">—</span></div>';
+    var lap = (kans.lapsuus && kans.lapsuus[k] != null) ? kans.lapsuus[k] : '';
+    var nuo = (kans.nuoruus && kans.nuoruus[k] != null) ? kans.nuoruus[k] : '';
+    var mx = _HL_PCT[k] ? 100 : 10;
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1;font-size:12px;color:var(--ink2)">' + _hlEsc(_HL_KRIT_A[k]) + (_HL_PCT[k] ? ' (%)' : '') + '</span>'
+      + '<input type="number" id="hlbm_lapsuus_' + k + '" value="' + lap + '" min="0" max="' + mx + '" step="0.1" placeholder="—" style="width:68px;padding:5px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center">'
+      + '<input type="number" id="hlbm_nuoruus_' + k + '" value="' + nuo + '" min="0" max="' + mx + '" step="0.1" placeholder="—" style="width:68px;padding:5px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center"></div>';
+  };
+  var h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;width:min(480px,96vw);padding:20px 22px;margin:auto">'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">Kansalliset vertailuarvot</div><button onclick="document.getElementById(\'hlBmModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
+    + '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Palloliiton julkaisemat ka-arvot per ikävaihe (malli A). a7 = seuran oma, ei kansallista.</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:8px;font-size:10px;text-transform:uppercase;color:var(--ink3)"><span style="flex:1"></span><span style="width:68px;text-align:center">Lapsuus</span><span style="width:68px;text-align:center">Nuoruus</span></div>';
+  ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'].forEach(function (k) { h += rivi(k); });
+  h += '<button onclick="_hlTallennaBenchmark()" style="width:100%;margin-top:12px;padding:10px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Tallenna vertailuarvot</button></div>';
+  m.innerHTML = h; document.body.appendChild(m);
+};
+window._hlTallennaBenchmark = async function () {
+  try {
+    var u = auth.currentUser; if (u) await u.getIdToken(true);   // §7.2
+    var keraa = function (vaihe) { var o = {}; ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].forEach(function (k) { var e = document.getElementById('hlbm_' + vaihe + '_' + k); var v = e && e.value !== '' ? Number(e.value) : null; o[k] = (v != null && !isNaN(v)) ? v : null; }); o.a7 = null; return o; };
+    var kansallinen = { lapsuus: keraa('lapsuus'), nuoruus: keraa('nuoruus') };
+    await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').set({ kansallinen_ka: kansallinen, kansallinen_paivitetty: new Date().toISOString() }, { merge: true });
+    _hlConfig = _hlConfig || {}; _hlConfig.kansallinen_ka = kansallinen;
+    if (typeof toast === 'function') toast('✓ Vertailuarvot tallennettu', 'ok');
+    var mm = document.getElementById('hlBmModal'); if (mm) mm.remove();
+    _hlRender();
+  } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
+};
+
+/* ── Yksittäisen tapahtuman näkymä + palautekerros (jaettu / yksityinen eri alikokoelmiin) ── */
+var _hlAvoinId = null;
+window._hlAvaaTapahtuma = function (id) {
+  var a = (_hlArvioinnit || []).filter(function (x) { return x._id === id; })[0]; if (!a) return;
+  _hlAvoinId = id;
+  var vanha = document.getElementById('hlTapModal'); if (vanha) vanha.remove();
+  var m = document.createElement('div'); m.id = 'hlTapModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto'; m.onclick = function (e) { if (e.target === m) m.remove(); };
+  m.innerHTML = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;width:min(640px,96vw);padding:20px 22px;margin:auto"><div id="hlTapInner"></div></div>';
+  document.body.appendChild(m);
+  _hlRenderTapahtuma(a);
+  _hlLataaPalaute(id);
+};
+function _hlRenderTapahtuma(a) {
+  var inner = document.getElementById('hlTapInner'); if (!inner) return;
+  var malliA = a.malli !== 'valmennustaidot';
+  var kritMap = malliA ? _HL_KRIT_A : _HL_KRIT_B;
+  var avaimet = malliA ? ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'] : ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'];
+  var kans = (malliA && _hlConfig && _hlConfig.kansallinen_ka && _hlConfig.kansallinen_ka[a.ikavaihe]) ? _hlConfig.kansallinen_ka[a.ikavaihe] : {};
+  var h = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">'
+    + '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink);line-height:1.1">' + _hlEsc(a.joukkue || '—') + '</div>'
+    + '<div style="font-size:12px;color:var(--ink3);margin-top:4px">' + _hlEsc(a.pvm || '') + ' · ' + (a.ikavaihe === 'lapsuus' ? 'Lapsuus' : 'Nuoruus') + ' · ' + (malliA ? 'A · Harjoittelun laatu' : 'B · Valmennustaidot') + ' · ' + (a.arviointitapa === 'itsearvio' ? 'Itsearvio' : 'Havainnointi') + '</div>'
+    + '<div style="font-size:12px;color:var(--ink3)">Valmentaja: ' + _hlEsc(a.valmentaja || '—') + ' · Arvioija: ' + _hlEsc(a.arvioija || '—') + '</div></div>'
+    + '<button onclick="document.getElementById(\'hlTapModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer;line-height:1">×</button></div>';
+  // Kriteerit + vs kansallinen + täsmennys
+  h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">';
+  avaimet.forEach(function (k) {
+    var v = (a.vastaukset && a.vastaukset[k] != null) ? a.vastaukset[k] : null;
+    var pct = malliA && _HL_PCT[k];
+    var nat = (kans[k] != null) ? kans[k] : null;
+    var d = (v != null && nat != null) ? Math.round((v - nat) * 10) / 10 : null;
+    var dc = d == null ? 'var(--ink3)' : d >= 0 ? 'var(--teal)' : 'var(--red)';
+    h += '<div style="padding:5px 0;border-bottom:.5px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--ink2)">' + _hlEsc(kritMap[k] || k) + '</span><span style="color:var(--ink)">' + (v != null ? v + (pct ? '%' : '') : '—') + (nat != null ? ' <span style="color:var(--ink3);font-size:11px">(kans. ' + nat + ')</span> <span style="color:' + dc + ';font-size:11px">' + (d > 0 ? '+' : '') + d + '</span>' : '') + '</span></div>'
+      + ((a.tasmennykset && a.tasmennykset[k]) ? '<div style="font-size:11px;color:var(--ink3);margin-top:2px">“' + _hlEsc(a.tasmennykset[k]) + '”</div>' : '') + '</div>';
+  });
+  if (malliA && a.henk_palaute != null) h += '<div style="padding:6px 0;font-size:12px;color:var(--ink2)">Henkilökohtainen palaute annettu: <b>' + (a.henk_palaute ? 'Kyllä' : 'Ei') + '</b></div>';
+  h += '</div>';
+  // Reflektio (malli B)
+  if (!malliA && a.reflektio) {
+    var r = a.reflektio;
+    h += '<div style="background:var(--card);border:.5px solid var(--teal);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">Itsereflektio</div>'
+      + (r.onnistui ? '<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b>Onnistui:</b> ' + _hlEsc(r.onnistui) + '</div>' : '')
+      + (r.toisin ? '<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b>Toisin:</b> ' + _hlEsc(r.toisin) + '</div>' : '')
+      + (r.kehityskohde ? '<div style="font-size:12px;color:var(--ink2)"><b>Kehityskohde:</b> ' + _hlEsc(r.kehityskohde) + '</div>' : '') + '</div>';
+  }
+  // Palautekerros (täytetään async)
+  h += '<div id="hlPalauteAlue"><div style="font-size:12px;color:var(--ink3);padding:8px 0">Ladataan palautetta…</div></div>';
+  inner.innerHTML = h;
+}
+async function _hlLataaPalaute(id) {
+  var alue = document.getElementById('hlPalauteAlue'); if (!alue) return;
+  var base = db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').doc(id);
+  var jaettu = [], yksit = [];
+  try { var js = await base.collection('palaute_jaettu').orderBy('pvm', 'asc').get(); jaettu = js.docs.map(function (d) { return d.data(); }); } catch (e) {}
+  try { var ys = await base.collection('palaute_yksityinen').orderBy('pvm', 'asc').get(); yksit = ys.docs.map(function (d) { return d.data(); }); } catch (e) { /* johto-gate: ei oikeutta → ohita */ }
+  var listaHtml = function (arr, tyhjä) {
+    if (!arr.length) return '<div style="font-size:12px;color:var(--ink3)">' + tyhjä + '</div>';
+    return arr.map(function (p) { return '<div style="font-size:12px;color:var(--ink2);padding:6px 0;border-bottom:.5px solid var(--border)">' + _hlEsc(p.teksti) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _hlEsc(p.tekija_rooli || '') + ' · ' + _hlEsc((p.pvm || '').slice(0, 10)) + '</div></div>'; }).join('');
+  };
+  var h = '<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">💬 Jaettu palaute <span style="color:var(--ink3);font-weight:400;text-transform:none">(näkyy valmentajalle)</span></div>' + listaHtml(jaettu, 'Ei jaettua palautetta vielä.') + '</div>';
+  h += '<div style="background:var(--card);border:.5px solid var(--amber);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--amber);margin-bottom:6px">🔒 Yksityinen muistiinpano <span style="color:var(--ink3);font-weight:400;text-transform:none">(vain VP/mentori)</span></div>' + listaHtml(yksit, 'Ei yksityisiä muistiinpanoja.') + '</div>';
+  // Lisäyslomake (oletus = jaettu)
+  h += '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:12px 14px">'
+    + '<textarea id="hlPalauteTeksti" rows="2" placeholder="Kirjoita palaute…" style="width:100%;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical;margin-bottom:8px"></textarea>'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+    + '<label style="font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px"><input type="radio" name="hlPalauteTyyppi" value="jaettu" checked style="accent-color:var(--teal)"> Jaettu</label>'
+    + '<label style="font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px"><input type="radio" name="hlPalauteTyyppi" value="yksityinen" style="accent-color:var(--amber)"> Yksityinen</label>'
+    + '<button onclick="_hlLisaaPalaute()" style="margin-left:auto;padding:7px 16px;border:none;border-radius:7px;background:var(--teal);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Lisää palaute</button></div></div>';
+  alue.innerHTML = h;
+}
+window._hlLisaaPalaute = async function () {
+  var ta = document.getElementById('hlPalauteTeksti'); var teksti = (ta && ta.value || '').trim();
+  if (!teksti) { if (typeof toast === 'function') toast('Kirjoita palaute ensin', 'error'); return; }
+  if (!_hlAvoinId) return;
+  var tyyppiEl = document.querySelector('input[name="hlPalauteTyyppi"]:checked');
+  var tyyppi = tyyppiEl ? tyyppiEl.value : 'jaettu';
+  try {
+    var u = auth.currentUser; var rooli = 'vp';
+    if (u) { var tr = await u.getIdToken(true).then(function () { return u.getIdTokenResult(); }).catch(function () { return null; }); if (tr && tr.claims && tr.claims.rooli) rooli = tr.claims.rooli; }   // §7.2 tuore token + rooli
+    var col = tyyppi === 'yksityinen' ? 'palaute_yksityinen' : 'palaute_jaettu';
+    await db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').doc(_hlAvoinId).collection(col)
+      .add({ teksti: teksti, tekija_uid: (u ? u.uid : _uid), tekija_rooli: rooli, pvm: new Date().toISOString() });
+    if (typeof toast === 'function') toast('✓ Palaute tallennettu (' + (tyyppi === 'yksityinen' ? 'yksityinen' : 'jaettu') + ')', 'ok');
+    _hlLataaPalaute(_hlAvoinId);
+  } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
+};
 
 function renderRaportointi() {
   if (typeof _mdtTaytaPicker === 'function') _mdtTaytaPicker();   // P0b-1: MDT-pelaajavalitsin

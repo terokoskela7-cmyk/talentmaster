@@ -255,6 +255,21 @@ service cloud.firestore {
         allow read:           if onSuperAdmin() || onOmaSeura(seuraId);
         allow create, update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli()) || onOmanSeuranValmentaja(seuraId);
         allow delete:         if onSuperAdmin();
+
+        // ── Palautekerros (Vaihe 2.1, HARJOITUSARVIOINTI_VAIHE2_SPEC §5) — kaksi ERI alikokoelmaa,
+        // koska Firestore-luku on dokumenttitasolla (kenttää ei voi piilottaa lukijalta). Rules eivät periydy → omat blokit.
+        // JAETTU = näkyy valmentajalle (oma seura). YKSITYINEN = vain johto/SA (valmentaja EI saa lukea).
+        match /palaute_jaettu/{palauteId} {
+          allow read:   if onSuperAdmin() || onOmaSeura(seuraId);
+          allow create: if onSuperAdmin() || onJohtoRooli() || request.auth.uid == request.resource.data.tekija_uid;
+          allow update: if onSuperAdmin() || onJohtoRooli() || request.auth.uid == resource.data.tekija_uid;
+          allow delete: if onSuperAdmin();
+        }
+        match /palaute_yksityinen/{palauteId} {
+          allow read:   if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());   // KRIITTINEN: valmentaja ei saa lukea
+          allow create, update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow delete: if onSuperAdmin();
+        }
       }
 
       // ── PELAAJAT ────────────────────────────────────────────────────────
