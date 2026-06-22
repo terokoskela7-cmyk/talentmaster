@@ -61,6 +61,19 @@ Selain-print (`@media print`, Carbon→valkoinen) → governance-paketti hallitu
 4. **PDF** (hallitus/liitto).
 5. **Datagate-placeholderit** (kehitysvauhti/D · RAE-trendi · pipeline · peliminuutit · harjoituslaatu/P1) — ei blokkaa.
 
+## 6b. KOHORTTI / SEGMENTOINTI (2026-06-19) — akatemia/kilpa vs harraste
+
+**Ongelma:** taso≥3:n sokea aggregointi yli kaikkien joukkueiden on väärin — akatemia/kilpa ja harraste ovat eri tarkoitusta.
+Oikea mittatikku: **akatemia/kilpa → taso≥3** (kansallinen normi) · **harraste → kehitysvauhti + osallistuminen** (ei taso≥3-tuomiota).
+
+**Päätökset (lukitut):** segmentointi **klubikonfiguraatiosta** (valitse joukkueet) · oletus **akatemia→taso≥3, harraste→kehitysvauhti, valittavissa**.
+
+1. **Kanoninen `laskeTaso3Osuus(pelaajat, opts)`** lib:iin — yksi määritelmä **kaikkialle** (Master Kausi + VP-tuloskortti) → korjaa 26%/53%-ristiriidan. lvl(p) = max{`d1_taso`, `hh_taso`, `d2_taso`, TKI→d2 (`laskeD2Joustava`)} ≥3; nimittäjä = pelaajat joilla lvl≠null. `opts.joukkueet` (valinnainen) rajaa kohorttiin.
+2. **Segmentti-konfiguraatio:** `seurat/{sid}/konfiguraatio/segmentit` `{ akatemia: ['SJK P14', …] }` (akatemia/kilpa-joukkueiden lista; loput = harraste). VP asettaa **"Merkitse akatemia-/kilpajoukkueet"** -monivalinnasta. Rules: konfiguraatio-write (jo katettu).
+3. **Tuloskortti II — kohortti-valitsin + metriikka:** taso≥3-% **akatemia-kohortista** (oletus, label "akatemia: N joukkuetta") · kehitysvauhti-% **kaikista/harraste** (datagate). Valitsin: Akatemia/kilpa · Kaikki · (lista konfiguraatiosta). **Segmentit tyhjä → oletus "Kaikki" + vihje** "Merkitse akatemia-joukkueet tarkempaa arviota varten".
+4. **Master Kausi** käyttää samaa `laskeTaso3Osuus`:ia → sama luku samalla scopella.
+5. **Tavoitteet (V):** taso≥3-tavoite vertaa akatemia-kohortin taso≥3-%:iin. (Kohorttikohtaiset tavoitteet = mahdollinen jatko.)
+
 ## 7. VERIFIOINTI
 
 new Function 0 virhettä · npm test vihreä (uudet KPI-/tavoite-laskennat) · §17-grep=1 · RUNTIME+LIVE (SA: Admin Pilotin tila -laajennus + VP read-only · ylätason verdikti · alueet I–V datavalmiilta osin · tavoiteasetus · PDF · compliance-viite). Datagate näyttää "tulossa", ei kaadu. "ADAR"→"peliäly"-termi.

@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=22"></script>
+<script src="lib/tm_eerikkila_normit.js?v=23"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -6401,7 +6401,26 @@ window._reviewAvaaMDT = function(pid){
 
 /* ═══ VP-TULOSKORTTI (read-only oma seura + kausitavoitteet, VP_TULOSKORTTI_SPEC) ═══ */
 var _vpTavoitteet;
+var _vpSegmentit;        // {akatemia:[joukkuenimet]} konfiguraatio/segmentit:stä (§6b)
+var _vpKohortti;         // undefined=auto, 'akatemia'|'kaikki'|<joukkuenimi>
 function _vpTkKausi(){ var d=new Date(), y=d.getFullYear(); return (d.getMonth()>=6)?(y+'/'+String(y+1).slice(-2)):((y-1)+'/'+String(y).slice(-2)); }
+function _vpJoukkueLista(){ var s={}; (_pelaajat||[]).forEach(function(p){ if (p.joukkue && p.joukkue!=='—') s[p.joukkue]=1; }); return Object.keys(s).sort(); }
+function _vpAkatemia(){ return (_vpSegmentit && Array.isArray(_vpSegmentit.akatemia)) ? _vpSegmentit.akatemia : []; }
+// Kohortti → joukkuelista laskeTaso3Osuus:lle (null = kaikki). Oletus: akatemia jos merkitty, muuten kaikki.
+function _vpKohorttiJoukkueet(){
+  var k = _vpKohortti;
+  if (k === undefined) k = _vpAkatemia().length ? 'akatemia' : 'kaikki';
+  if (k === 'kaikki') return null;
+  if (k === 'akatemia') return _vpAkatemia().length ? _vpAkatemia() : null;
+  return [k];   // yksittäinen joukkue
+}
+function _vpKohorttiLabel(){
+  var k = _vpKohortti;
+  if (k === undefined) k = _vpAkatemia().length ? 'akatemia' : 'kaikki';
+  if (k === 'akatemia') return 'akatemia: ' + _vpAkatemia().length + ' joukkuetta';
+  if (k === 'kaikki') return 'kaikki joukkueet';
+  return k;
+}
 function _vpTkVari(s){ return s==='vihrea'?'var(--teal)':s==='amber'?'var(--amber)':s==='punainen'?'var(--red)':'var(--ink3)'; }
 function _vpTkMerkki(s){ return s==='vihrea'?'🟢':s==='amber'?'🟠':s==='punainen'?'🔴':'⚪'; }
 function _vpTkAlue(nimi, alue){
@@ -6418,17 +6437,67 @@ function renderVPTuloskortti(){
       .then(function(s){ _vpTavoitteet = (s.exists ? (s.data()||{})[_vpTkKausi()] : null) || null; renderVPTuloskortti(); })
       .catch(function(){ _vpTavoitteet = null; });
   }
-  var kortti = laskeVPTuloskortti(_pelaajat || [], _valmentajat || [], _vpTavoitteet || null, Date.now());
+  if (_vpSegmentit === undefined && _seuraId && _seuraId !== 'demo') {
+    _vpSegmentit = null;
+    db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('segmentit').get()
+      .then(function(s){ _vpSegmentit = (s.exists ? (s.data()||{}) : null) || null; renderVPTuloskortti(); })
+      .catch(function(){ _vpSegmentit = null; });
+  }
+  var _kohorttiJ = _vpKohorttiJoukkueet();   // §6b — taso≥3 akatemia-kohortista oletuksena
+  var kortti = laskeVPTuloskortti(_pelaajat || [], _valmentajat || [], _vpTavoitteet || null, Date.now(), { taso3Joukkueet: _kohorttiJ });
   var yl = kortti.ylataso, aVari = yl.auditValmius_x_per4>=3?'var(--teal)':yl.auditValmius_x_per4>=2?'var(--amber)':'var(--red)';
   var h = '<div class="rapport-section" style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px"><h3 style="margin:0">Tuloskortti ' + _vpTkKausi() + '</h3>'
     + '<button onclick="_vpAvaaTavoiteModal()" style="font-size:11px;padding:6px 12px;border:.5px solid var(--teal);background:rgba(40,176,144,.1);color:var(--teal);border-radius:6px;cursor:pointer">⚙ Aseta kausitavoitteet</button></div>'
     + '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:8px 0 10px"><div style="font-size:13px"><b>Audit-valmius</b> <span style="color:' + aVari + '">' + yl.auditValmius_x_per4 + '/4</span></div><div style="font-size:13px"><b>Tavoitteet</b> <span style="color:var(--ink)">' + yl.tavoitteetSaavutettu_per_n.saavutettu + '/' + yl.tavoitteetSaavutettu_per_n.n + '</span></div></div>'
+    + _vpKohorttiRivi(kortti)
     + '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _vpTkAlue('I · Prosessikuri', kortti.alueet.I) + _vpTkAlue('II · Pelaajakehitys', kortti.alueet.II) + _vpTkAlue('III · Valmentajavaikuttavuus', kortti.alueet.III) + _vpTkAlue('IV · Reiluus', kortti.alueet.IV) + '</div>';
   if (kortti.toteumat && kortti.toteumat.length) h += '<div style="margin-top:10px;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase">V · Strategiset tavoitteet</div>' + kortti.toteumat.map(function(t){ return '<div style="font-size:12px;padding:2px 0;color:' + (t.saavutettu?'var(--teal)':'var(--red)') + '">' + (t.saavutettu?'✓':'✗') + ' <span style="color:var(--ink3)">[' + (t.alue||'?') + ']</span> ' + t.nimi + ': tavoite ' + t.tavoite + ' · toteuma ' + (t.toteuma!=null?t.toteuma:'—') + '</div>'; }).join('');
   else h += '<div style="margin-top:10px;font-size:11px;color:var(--ink3)">V · Strategiset tavoitteet — ei asetettu.</div>';
   h += '<div style="margin-top:10px;font-size:11px;color:var(--ink3);line-height:1.6">Compliance (GDPR / suostumus / konversio): ks. Tilanne.<br>Output (kehitysvauhti per D · RAE-trendi · pipeline · peliminuutit · harjoituslaatu): <span style="opacity:.6">tulossa</span></div></div>';
   el.innerHTML = h;
 }
+// Kohortti-valitsin + label + segmentti-CTA (§6b). taso≥3 II-alueesta akatemia-kohortista oletuksena.
+function _vpKohorttiRivi(kortti){
+  var _akN = _vpAkatemia().length;
+  var _kohK = (_vpKohortti === undefined) ? (_akN ? 'akatemia' : 'kaikki') : _vpKohortti;
+  var _esc = function(s){ return String(s).replace(/"/g,'&quot;'); };
+  var _teamOpts = _vpJoukkueLista().map(function(j){ return '<option value="'+_esc(j)+'"'+(_kohK===j?' selected':'')+'>'+j+'</option>'; }).join('');
+  var _sel = '<select onchange="_vpVaihdaKohortti(this.value)" style="font-size:11px;padding:4px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink)">'
+    + '<option value="akatemia"'+(_kohK==='akatemia'?' selected':'')+(_akN?'':' disabled')+'>Akatemia/kilpa'+(_akN?' ('+_akN+')':'')+'</option>'
+    + '<option value="kaikki"'+(_kohK==='kaikki'?' selected':'')+'>Kaikki</option>'
+    + (_teamOpts ? '<optgroup label="Joukkue">'+_teamOpts+'</optgroup>' : '') + '</select>';
+  var _t3 = (kortti && kortti.metriikat) ? kortti.metriikat.taso3_pct : null;
+  var _t3n = (kortti && kortti.metriikat) ? (kortti.metriikat.taso3_n_arvioidut||0) : 0;
+  var h = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 10px;font-size:12px">'
+    + '<span style="color:var(--ink3)">Taso ≥3 -kohortti:</span>' + _sel
+    + '<span style="color:var(--ink2)">' + _vpKohorttiLabel() + (_t3!=null?' · <b style="color:var(--ink)">'+_t3+'%</b> ('+_t3n+' arvioitu)':'') + '</span>'
+    + '<button onclick="_vpAvaaSegmenttiModal()" style="font-size:11px;padding:4px 10px;border:.5px solid var(--teal);background:rgba(40,176,144,.1);color:var(--teal);border-radius:6px;cursor:pointer">🏅 Merkitse akatemia-joukkueet</button></div>';
+  if (!_akN) h += '<div style="margin:-4px 0 10px;font-size:11px;color:var(--amber)">Merkitse akatemia-/kilpajoukkueet tarkempaa taso≥3-arviota varten — nyt mukana kaikki joukkueet.</div>';
+  return h;
+}
+window._vpVaihdaKohortti = function(v){ _vpKohortti = v; renderVPTuloskortti(); };
+window._vpAvaaSegmenttiModal = function(){
+  var akat = _vpAkatemia(), teams = _vpJoukkueLista();
+  var vanha = document.getElementById('vpSegModal'); if (vanha) vanha.remove();
+  var m = document.createElement('div'); m.id = 'vpSegModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9300;display:flex;align-items:center;justify-content:center;padding:16px'; m.onclick = function(e){ if (e.target===m) m.remove(); };
+  var h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:12px;width:min(440px,94vw);max-height:90vh;overflow-y:auto;padding:20px 22px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">Akatemia-/kilpajoukkueet</div><button onclick="document.getElementById(\'vpSegModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div><div style="font-size:11px;color:var(--ink3);margin-bottom:14px">Merkitse joukkueet joita arvioidaan taso≥3-normilla (kansallinen mittatikku). Merkitsemättömät = harraste (kehitysvauhti).</div>';
+  if (!teams.length) h += '<div style="font-size:12px;color:var(--ink3)">Ei joukkueita ladattuna.</div>';
+  teams.forEach(function(j){ var on = akat.indexOf(j) >= 0; h += '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px;color:var(--ink2);cursor:pointer"><input type="checkbox" class="vpSegCb" value="'+String(j).replace(/"/g,'&quot;')+'"'+(on?' checked':'')+' style="width:16px;height:16px;accent-color:var(--teal)">'+j+'</label>'; });
+  h += '<button onclick="_vpTallennaSegmentit()" style="width:100%;margin-top:12px;padding:9px;border:none;border-radius:8px;background:var(--teal);color:#fff;font-size:13px;cursor:pointer">Tallenna</button></div>';
+  m.innerHTML = h; document.body.appendChild(m);
+};
+window._vpTallennaSegmentit = async function(){
+  try {
+    var u = firebase.auth().currentUser; if (u) await u.getIdToken(true);   // §7.2
+    var akat = Array.prototype.slice.call(document.querySelectorAll('.vpSegCb')).filter(function(c){ return c.checked; }).map(function(c){ return c.value; });
+    await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('segmentit').set({ akatemia: akat }, { merge: true });
+    _vpSegmentit = { akatemia: akat };
+    _vpKohortti = undefined;   // palaa auto-oletukseen (akatemia jos merkitty)
+    if (typeof toast === 'function') toast('✓ Akatemia-joukkueet tallennettu', 'ok');
+    var m = document.getElementById('vpSegModal'); if (m) m.remove();
+    renderVPTuloskortti();
+  } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
+};
 var _VP_TK_MITTARIT = [['taso3_pct','Taso ≥3 -osuus (%)','II'],['mdr_ontime_pct','MDR ajan tasalla (%)','I'],['peliaaly_kattavuus_pct','Peliäly-kattavuus (%)','II'],['rae_q1_max','RAE Q1 enintään (%)','IV'],['toimenpideaste_pct','Underdog-toimenpideaste (%)','IV']];
 window._vpAvaaTavoiteModal = function(){
   var nyk = _vpTavoitteet || {};

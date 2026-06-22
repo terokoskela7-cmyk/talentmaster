@@ -24,6 +24,7 @@ const {
   laskeJoukkueReviewKooste,
   laskeVPTuloskortti,
   laskeTavoiteToteuma,
+  laskeTaso3Osuus,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -460,6 +461,40 @@ describe('laskeReviewKadenssi + laskeJoukkueReviewKooste', () => {
     expect(k.myohassa_n).toBe(1);
     expect(k.ei_reviewia_n).toBe(1);
     expect(k.onTime_pct).toBe(67);   // 2 / (2+0+1)
+  });
+});
+
+describe('laskeTaso3Osuus (kanoninen taso≥3)', () => {
+  const team = [
+    { joukkue: 'SJK P15', d1_taso: 4 },                 // lvl 4 ≥3
+    { joukkue: 'SJK P15', tki_viimeisin: 65 },          // d2j tki→3.3 ≥3
+    { joukkue: 'SJK P14', hh_taso: 2 },                 // lvl 2 <3
+    { joukkue: 'SJK P14' },                             // ei dataa → ei arvioitu
+  ];
+  it('nimittäjä = lvl≠null; ≥3 lasketaan', () => {
+    const r = laskeTaso3Osuus(team);
+    expect(r.n_arvioidut).toBe(3);   // p4 ei dataa
+    expect(r.n_taso3).toBe(2);
+    expect(r.osuus_pct).toBe(67);    // 2/3
+  });
+  it('sama tulos eri kutsujille (kanoninen)', () => {
+    expect(laskeTaso3Osuus(team)).toEqual(laskeTaso3Osuus(team.slice()));
+  });
+  it('kohorttisuodatus (opts.joukkueet, case-insensitive)', () => {
+    const r = laskeTaso3Osuus(team, { joukkueet: ['sjk p15'] });
+    expect(r.n_arvioidut).toBe(2);
+    expect(r.n_taso3).toBe(2);
+    expect(r.osuus_pct).toBe(100);
+  });
+  it('tyhjä → null osuus', () => {
+    const r = laskeTaso3Osuus([]);
+    expect(r.osuus_pct).toBeNull();
+    expect(r.n_arvioidut).toBe(0);
+  });
+  it('VP-tuloskortti II käyttää samaa kanonista (sama % samalla scopella)', () => {
+    const k = laskeVPTuloskortti(team, [], null, Date.now());
+    const r = laskeTaso3Osuus(team);
+    expect(k.metriikat.taso3_pct).toBe(r.osuus_pct);
   });
 });
 

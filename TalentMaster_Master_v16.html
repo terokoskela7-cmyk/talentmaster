@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782126223929';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782128130188';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=22"></script>
+<script src="lib/tm_eerikkila_normit.js?v=23"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
@@ -5600,8 +5600,10 @@ function renderSeason() {
       if (p.tk_kokonaistulos_edellinen != null && p.tk_kokonaistulos_viimeisin != null) { onPari = true; if (p.tk_kokonaistulos_viimeisin < p.tk_kokonaistulos_edellinen) paraniTama = true; } // abs: nopeampi = parani
       if (onPari) { mitattuKahdesti++; if (paraniTama) parani++; }
     });
-    const onTaso = P.filter(p => lvl(p) != null);
-    const taso3 = onTaso.filter(p => lvl(p) >= 3).length;
+    // Taso ≥3 KANONISESTA laskeTaso3Osuus:sta (sama luku kuin VP-tuloskortti samalla scopella, §6b)
+    const _t3 = (typeof laskeTaso3Osuus === 'function') ? laskeTaso3Osuus(P) : null;
+    const onTasoN = _t3 ? _t3.n_arvioidut : P.filter(p => lvl(p) != null).length;
+    const taso3 = _t3 ? _t3.n_taso3 : P.filter(p => lvl(p) != null && lvl(p) >= 3).length;
     const pulseEl = document.getElementById('seasonPulse');
     if (pulseEl) {
       const metr = (lbl, n, d, vihje, selite, klikDim) => {
@@ -5618,7 +5620,7 @@ function renderSeason() {
       };
       pulseEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
         + metr('Kehittynyt (abs)', parani, mitattuKahdesti, mitattuKahdesti ? parani + '/' + mitattuKahdesti + ' kahdesti mitattua parani' : 'tarvitsee 2 mittausta/pelaaja', 'Osuus kahdesti mitatuista pelaajista, joiden taso nousi (absoluuttinen kehitys §30). Vaatii ≥2 mittausta/pelaaja — ei vertaa muihin, vaan pelaajan omaan lähtötasoon.')
-        + metr('Taso ≥3', taso3, onTaso.length, onTaso.length ? taso3 + '/' + onTaso.length + ' ikäluokan keskitaso+' : 'ei tasodataa', 'Osuus pelaajista, joiden paras dimensiotaso (D1/D2/H-H) on ≥3 = ikäluokan keskitaso tai parempi (1–5-asteikko).', onTaso.length ? 'taso' : null)
+        + metr('Taso ≥3', taso3, onTasoN, onTasoN ? taso3 + '/' + onTasoN + ' ikäluokan keskitaso+' : 'ei tasodataa', 'Osuus pelaajista, joiden paras dimensiotaso (D1/D2/H-H) on ≥3 = ikäluokan keskitaso tai parempi (1–5-asteikko).', onTasoN ? 'taso' : null)
         + '</div>';
     }
 
