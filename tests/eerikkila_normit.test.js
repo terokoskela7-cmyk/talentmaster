@@ -32,6 +32,7 @@ const {
   koostaHarjoitusarvioinnit,
   harjoitusTrendi,
   harjoitusBenchmarkDelta,
+  harjoitusKalibraatioHistoria,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -614,6 +615,50 @@ describe('Harjoitusarviointi Vaihe 2.1 — dashboard-koosteet (HARJOITUSARVIOINT
     expect(d.a3.suunta).toBe('tasan');               // (6+4)/2=5 vs 5
     expect(d.a7.delta).toBeNull();                   // a7 ei kansallista
     expect(d.a7.suunta).toBe('neutraali');
+  });
+});
+
+describe('Harjoitusarviointi Vaihe 2.2 — kalibraatiohistoria + arviointitapa-suodatin', () => {
+  // 2 vahvistettua paria valmentajalle c1 + 1 vahvistamaton + 1 pariton havainnointi
+  const arvioinnit = [
+    // Pari 1 (vahvistettu): itse yliarvioi (itse korkeampi useassa kriteerissä, b1 +2)
+    { malli: 'valmennustaidot', valmentajaUid: 'c1', valmentaja: 'Coach 1', joukkue: 'SJK P15', arviointitapa: 'itsearvio', pvm: '2026-04-01', pari_id: 'p1', pari_vahvistettu: true, vastaukset: { b1: 5, b2: 5, b3: 5, b4: 4, b5: 4, b6: 4, b7: 4 } },
+    { malli: 'valmennustaidot', valmentajaUid: 'c1', valmentaja: 'Coach 1', joukkue: 'SJK P15', arviointitapa: 'havainnointi', pvm: '2026-04-02', pari_id: 'p1', pari_vahvistettu: true, vastaukset: { b1: 3, b2: 3, b3: 3, b4: 4, b5: 4, b6: 4, b7: 4 } },
+    // Pari 2 (vahvistettu, myöhemmin): kuilu kaventunut (itse 4 vs hav 4 → 0)
+    { malli: 'valmennustaidot', valmentajaUid: 'c1', valmentaja: 'Coach 1', joukkue: 'SJK P15', arviointitapa: 'itsearvio', pvm: '2026-06-01', pari_id: 'p2', pari_vahvistettu: true, vastaukset: { b1: 4, b2: 4, b3: 4, b4: 4, b5: 4, b6: 4, b7: 4 } },
+    { malli: 'valmennustaidot', valmentajaUid: 'c1', valmentaja: 'Coach 1', joukkue: 'SJK P15', arviointitapa: 'havainnointi', pvm: '2026-06-02', pari_id: 'p2', pari_vahvistettu: true, vastaukset: { b1: 4, b2: 4, b3: 4, b4: 4, b5: 4, b6: 4, b7: 4 } },
+    // Vahvistamaton pari → ei lasketa
+    { malli: 'valmennustaidot', valmentajaUid: 'c1', arviointitapa: 'itsearvio', pvm: '2026-05-01', pari_id: 'p3', pari_vahvistettu: false, vastaukset: { b1: 5, b2: 5, b3: 5, b4: 5, b5: 5, b6: 5, b7: 5 } },
+    { malli: 'valmennustaidot', valmentajaUid: 'c1', arviointitapa: 'havainnointi', pvm: '2026-05-02', pari_id: 'p3', pari_vahvistettu: false, vastaukset: { b1: 1, b2: 1, b3: 1, b4: 1, b5: 1, b6: 1, b7: 1 } },
+    // Pariton havainnointi (pari_id mutta ei itsearvio-paria)
+    { malli: 'valmennustaidot', valmentajaUid: 'c1', arviointitapa: 'havainnointi', pvm: '2026-03-01', pari_id: 'p9', pari_vahvistettu: true, vastaukset: { b1: 2, b2: 2, b3: 2, b4: 2, b5: 2, b6: 2, b7: 2 } },
+  ];
+  it('vain vahvistetut TÄYDET parit lasketaan (vahvistamaton + pariton pois)', () => {
+    const h = harjoitusKalibraatioHistoria(arvioinnit);
+    expect(h.c1).toBeTruthy();
+    expect(h.c1.n_paria).toBe(2);     // p1 + p2; p3 vahvistamaton, p9 pariton → pois
+  });
+  it('kuilun etumerkki: itsearvio − havainnointi (b1 +2 ekassa parissa)', () => {
+    const h = harjoitusKalibraatioHistoria(arvioinnit);
+    expect(h.c1.parit[0].per_kriteeri.b1).toBe(2);   // itse 5 − hav 3
+    expect(h.c1.suunta).toBe('yliarvio');            // keskimäärin itse > hav
+    expect(h.c1.suurin_kuilu_kriteeri).toBe('b1');
+  });
+  it('keskikuilu + kaventuminen (eka kuilu > vika)', () => {
+    const h = harjoitusKalibraatioHistoria(arvioinnit);
+    expect(h.c1.parit[0].ka_abs_kuilu).toBeGreaterThan(h.c1.parit[1].ka_abs_kuilu);
+    expect(h.c1.kaventuu).toBe(true);
+    expect(h.c1.trendi.length).toBe(2);
+  });
+  it('tyhjä / ei pareja → tyhjä objekti', () => {
+    expect(Object.keys(harjoitusKalibraatioHistoria([])).length).toBe(0);
+  });
+  it('koostaHarjoitusarvioinnit: arviointitapa-suodatin (malli B)', () => {
+    const k = koostaHarjoitusarvioinnit(arvioinnit, { malli: 'valmennustaidot', arviointitapa: 'havainnointi' });
+    // havainnoinnit: p1-hav, p2-hav, p3-hav, p9-hav = 4
+    expect(k.n).toBe(4);
+    const ki = koostaHarjoitusarvioinnit(arvioinnit, { malli: 'valmennustaidot', arviointitapa: 'itsearvio' });
+    expect(ki.n).toBe(3);
   });
 });
 
