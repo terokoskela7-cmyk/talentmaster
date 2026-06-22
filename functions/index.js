@@ -4,7 +4,8 @@
  *
  * Päivitetty: 2026-06-04
  * Sähköpostiratkaisu: SendGrid HTTP API (ei Nodemailer, ei SMTP)
- * SendGrid-avaimet: GitHub-repo-Secretit → .env (CI) → process.env. EI Secret Manager runWith.
+ * API-avaimet (SENDGRID_API_KEY/OPENAI_API_KEY/ANTHROPIC_API_KEY): Secret Manager + runWith({secrets}) → process.env (2026-06-23 migraatio).
+ * SENDGRID_FROM_EMAIL EI ole salainen → tavallinen env-var (functions/.env, committattu).
  */
 const functions = require('firebase-functions');
 const admin     = require('firebase-admin');
@@ -300,7 +301,8 @@ function pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }) {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.lahetaRekisteriKutsu = functions
   .region('europe-west1')
-  // SENDGRID_API_KEY luetaan process.env:stä — CI injektoi sen .env:hen GitHub-repo-Secretistä
+  .runWith({ secrets: ['SENDGRID_API_KEY'] })
+  // SENDGRID_API_KEY: Secret Manager (runWith yllä) → process.env. SENDGRID_FROM_EMAIL committattu .env:hen.
   // (deploy_functions.yml), kuten ANTHROPIC/OPENAI. EI runWith({secrets}): GitHub Actions -SA:lta
   // puuttuu secretmanager.versions.get → deploy-aikainen Secret Manager -validointi kaatuu (403).
   .https.onCall(async (data, context) => {
@@ -343,6 +345,7 @@ const MUISTUTUS_MIN_DAYS = 5;
 const MUISTUTUS_MAX_KPL  = 3;
 exports.lahetaMuistutukset = functions
   .region('europe-west1')
+  .runWith({ secrets: ['SENDGRID_API_KEY'] })
   .https.onCall(async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
@@ -463,6 +466,7 @@ exports.lahetaHuoltajaKutsu = functions
 // ─────────────────────────────────────────────────────────────────────────────
 exports.luoKayttaja = functions
   .region('europe-west1')
+  .runWith({ secrets: ['SENDGRID_API_KEY'] })
   .https.onCall(async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu sisään.');
@@ -865,6 +869,7 @@ exports.deaktivioiKayttaja = functions
 // ─────────────────────────────────────────────────────────────────────────────
 exports.lahetaPelaajaSivuLinkki = functions
   .region('europe-west1')
+  .runWith({ secrets: ['SENDGRID_API_KEY'] })
   .https.onCall(async (data, context) => {
     const { hEmail, pelaajaId, seuraId, etunimi, sukunimi, seura, joukkue } = data;
     if (!hEmail || !pelaajaId || !seuraId) {
@@ -933,7 +938,7 @@ exports.lahetaPelaajaSivuLinkki = functions
 exports.vahvistaSuostumus = functions
   .region('europe-west1')
   // Ei sähköpostia vielä (ks. TODO) → ei SendGrid-riippuvuutta. Kun lähetys siirretään tänne,
-  // SENDGRID_API_KEY tulee process.env:stä .env:n kautta (CI-injektio), kuten lahetaRekisteriKutsu.
+  // SENDGRID_API_KEY: Secret Manager (runWith) → process.env, kun lähetys siirretään tänne.
   .https.onCall(async (data, context) => {
     // antaja/bioPituudet/kutsuId + syntyma/sukupuoli/suostumukset/suostumusMap/antajaRooli/aikaleima:
     // ei-arkaluonteiset kentät jotka lomake kirjoitti ennen suoraan client-puolelta — siirretty tänne,
@@ -1513,11 +1518,8 @@ exports.aiProxy = functions
   .runWith({
     timeoutSeconds: 30,
     memory:         '256MB',
-    // Firebase Secrets Manager — API-avaimet turvallisesti
-    // Vaatii: firebase functions:secrets:set ANTHROPIC_API_KEY
-    // ANTHROPIC_API_KEY luetaan process.env:stä .env-tiedoston kautta (kuten SENDGRID).
-    // secrets-lista poistettu — Firebase CLI:n sisäinen validointi vaati oikeuksia
-    // jotka eivät ole käytettävissä GitHub Actions -ympäristössä.
+    // API-avaimet Secret Managerissa (runWith) — process.env.X lukee ajonaikaisesti. Ei .env-plaintextia.
+    secrets:        ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY'],   // GEMINI_API_KEY pois: secret puuttuu + gemini-taskit ei käytössä
   })
   .https.onRequest(async (req, res) => {
 
@@ -1916,6 +1918,7 @@ exports.notifTeeItsearvio = functions
 // Transport: olemassa oleva lahetaSahkoposti (SendGrid, sama kuin kutsuissa). Opt-out: notif_asetukset.email.enabled===false.
 exports.notifKoosteEmail = functions
   .region('europe-west1')
+  .runWith({ secrets: ['SENDGRID_API_KEY'] })
   .pubsub.schedule('every day 07:00')
   .timeZone('Europe/Helsinki')
   .onRun(async () => {

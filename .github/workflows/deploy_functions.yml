@@ -25,13 +25,9 @@ jobs:
         working-directory: functions
         run: npm install
 
-      - name: Kirjoita .env
-        working-directory: functions
-        run: |
-          echo "SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }}" >> .env
-          # SENDGRID_FROM_EMAIL on ei-salainen ja committattu functions/.env:hen — ei injektoida (tyhjä Secret ylikirjoittaisi sen)
-          echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" >> .env
-          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+      # API-avaimet (SENDGRID_API_KEY/OPENAI_API_KEY/ANTHROPIC_API_KEY) MIGRATOITU Secret Manageriin (2026-06-23):
+      # ne tulevat ajonaikaiseen enviin runWith({secrets}):n kautta — EI enää .env-injektiota CI:ssä (ei plaintextia).
+      # SENDGRID_FROM_EMAIL (ei-salainen) on committattu functions/.env:hen.
 
       - name: Tunnistaudu Firebase
         run: |
