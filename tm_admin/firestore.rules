@@ -478,6 +478,13 @@ service cloud.firestore {
                       || (( (onOmaSeura(seuraId) && onJohtoRooli()) || request.auth.uid == uid )
                           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rooli', 'seuraId']));
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+
+        // ── REFLEKTIOT (Vaihe 2.3b-1) — valmentajan OMA yksityinen kasvupäiväkirja (standalone-merkinnät + ääni).
+        // VAIN oma uid + SA. Johto/VP EI lue (eroaa arviointiin sidotusta reflektiosta, joka näkyy harjoitusarvioinnit-dokissa).
+        // Rules eivät periydy → oma blokki. Ääni Storagessa (oma Storage-ruleset, polku peilaa tätä).
+        match /reflektiot/{reflId} {
+          allow read, write: if onSuperAdmin() || request.auth.uid == uid;
+        }
       }
 
       // ── HAVAINNOT (seurataso — pelaajatasolle ks. pelaajat/{id}/havainnot) ──

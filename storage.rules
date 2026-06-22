@@ -1,0 +1,51 @@
+rules_version = '2';
+
+// ════════════════════════════════════════════════════════════════════════════
+// TalentMaster™ — Firebase Storage Rules (Console-deploy: Firebase Console → Storage → Rules).
+//
+// ⚠️ TÄRKEÄ — RECONCILIOI ENNEN JULKAISUA:
+//   Live-Storage-ruleset EI ole aiemmin ollut repossa. Tämä tiedosto on KANONINEN LÄHTÖKOHTA, joka sisältää:
+//     (1) Reflektiopäiväkirja-äänet (Vaihe 2.3b-1, UUSI) ja
+//     (2) ADAR Vision -median (§15) REKONSTRUKTIO Console-säännöistä.
+//   VARMISTA että ADAR Vision -median (seurat/{sid}/havainnot/...) nykyinen sääntö säilyy
+//   ennen julkaisua — vertaa elävään rulesetiin äläkä korvaa sokeasti jos polut/ehdot eroavat.
+//
+// Region: europe-west1 (CLAUDE.md §2). SA-claim epäjohdonmukaisuus (§12): rooli voi olla
+// 'super_admin' TAI 'superadmin' → tarkistetaan molemmat.
+// ════════════════════════════════════════════════════════════════════════════
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function onSuperAdmin() {
+      return request.auth != null
+        && (request.auth.token.rooli == 'super_admin' || request.auth.token.rooli == 'superadmin');
+    }
+
+    // ── Reflektiopäiväkirja-ääni (Vaihe 2.3b-1) — valmentajan OMA yksityinen kasvupäiväkirja ──
+    // read/write/delete VAIN oma uid (+ SA). Kirjoitus rajattu audio/* + kokokatto ~12 MB.
+    // VP/johto EI pääse (yksityinen kasvupäiväkirja; arviointiin sidottu reflektio näkyy Firestore-puolella).
+    match /seurat/{sid}/kayttajat/{uid}/reflektiot/{file} {
+      allow read:   if request.auth != null && (request.auth.uid == uid || onSuperAdmin());
+      allow write:  if request.auth != null
+                    && (request.auth.uid == uid || onSuperAdmin())
+                    && request.resource.contentType.matches('audio/.*')
+                    && request.resource.size < 12 * 1024 * 1024;
+      allow delete: if request.auth != null && (request.auth.uid == uid || onSuperAdmin());
+    }
+
+    // ── ADAR Vision -media (§15) — REKONSTRUKTIO: seurat/{sid}/havainnot/{hid}/media_*.jpg ──
+    // Kirjoittaa oman seuran valmentaja (custom claim seuraId). Säilytä elävän rulesetin mukaisena.
+    match /seurat/{sid}/havainnot/{hid}/{file=**} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+                   && (onSuperAdmin() || request.auth.token.seuraId == sid)
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Oletus: estä kaikki muu (ei vaikuta yllä sallittuihin, dokumentoi default-deny -periaatteen).
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

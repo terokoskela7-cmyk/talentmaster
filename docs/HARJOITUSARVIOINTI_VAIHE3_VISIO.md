@@ -43,6 +43,27 @@ Sama data, kolme yleisöä (valmentaja/seura/verkosto) — kuten pelaajapuolella
 
 ---
 
+## 1b. VAIHE 2.3b — Reflektiopäiväkirja + äänireflektio (kv-benchmarkattu)
+
+**Kv-benchmark (2026-06-22):** [CoachLog](https://www.coachlog.app/) · [CoachReflection](https://coachreflection.com/football-reflection) · [England Football reflection tools](https://learn.englandfootball.com/) — yhteinen kaava: **ääninauhoitus → AI-litterointi → kaavojen tunnistus → CPD-todiste (FA/UEFA)**, ohjatut promptit ([Gibbs](https://www.simplypsychology.org/gibbs-reflective-cycle.html) / FA Plan-Do-Review). Tekninen ([MediaRecorder + iOS](https://www.buildwithmatija.com/blog/iphone-safari-mediarecorder-audio-recording-transcription)): `isTypeSupported`-formaattiketju (webm/opus → mp4/AAC), iOS user-gesture + `.webm`.
+
+**TM:n etu:** Whisper jo `aiProxy`-CF:ssä (§13) + `cpd_tunnit_kausi`/`lisenssitaso` (§11) → litterointi + CPD-todiste ilman uutta integraatiota.
+
+**Datamalli:** `seurat/{sid}/kayttajat/{uid}/reflektiot/{id}` `{ teksti?, audio_url?, transkriptio?, pvm, lahde:'oma'|'arviointi', cpd_minuutit?, prompt_tyyppi? }`. Ääni → Storage `seurat/{sid}/kayttajat/{uid}/reflektiot/{id}.{ext}`.
+
+**Alivaiheistus (suositus):**
+- **2.3b-1 (ydin):** standalone-päiväkirjamerkinnät (teksti) + **äänireflektio** (MediaRecorder formaattineuvottelu → Storage → `<audio>`-toisto) + Firestore + **Storage Rules**. Reflektiopäiväkirja (2.3a) näyttää nämä + arviointiin sidotut reflektiot yhdistettynä aikajanaksi.
+- **2.3b-2 (kv-erottuvat lisät):** **Whisper-litterointi** (`aiProxy` → `transkriptio`, hakukelpoinen) + **CPD-todiste** (reflektio → `cpd_minuutit` → kertyy `cpd_tunnit_kausi`:iin → PDF-vienti "CPD-todiste" UEFA/Palloliitto-lisenssiä varten) + ohjatut promptit (TM:n onnistui/toisin/kehityskohde ≈ Plan-Do-Review; valinnainen "ohjattu"-tila).
+- **2.3b-3 (myöhemmin, AI §21):** kaavojen tunnistus reflektioista (toistuvat teemat) — Behavioural Science -agentin yhteyteen.
+
+**Tekniset invariantit:**
+- Formaatti: `MediaRecorder.isTypeSupported` -ketju `['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus']`, tallenna oikealla päätteellä. iOS: `getUserMedia`/recorder vain käyttäjäeleestä; AudioContext `resume()` klikissä.
+- Koko/kesto: katkaisu esim. 3 min/merkintä (CPD-mittakaava) + tiedostokokokatto; näytä nauhoitusaika.
+- Storage: `europe-west1` (§2 stack). Rules (erillinen Storage-ruleset): read/write vain **oma uid -polkuun** + SA. Firestore `kayttajat/{uid}/reflektiot`: read/write oma uid + SA. **VP näkee arviointiin sidotun reflektion, EI standalone-päiväkirjaa** (valmentajan yksityinen kasvupäiväkirja).
+- §7.22: kasvun työkalu, ei valvonta. Litterointi opt-in (valmentaja päättää). GDPR: ääni on henkilödataa → poisto-oikeus (valmentaja voi poistaa oman merkintänsä; SA hallinta).
+
+**Päätökset (2.3b):** (a) alivaiheistus b-1 ensin? (b) litterointi + CPD b-2:ssa? (c) nauhoituksen maksimikesto (3 min?)? (d) ohjatut promptit (Plan-Do-Review) vai vapaa reflektio vai molemmat?
+
 ## 2. VAIHE 3A — White-label (logo + brändiväri)
 
 **Tavoite:** seura näkee järjestelmän omanaan. Carbon (§5) säilyy pohjana; vain **aksentti + logo** muokattavissa.
