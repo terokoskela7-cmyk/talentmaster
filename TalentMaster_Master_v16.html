@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782147308889';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782148824271';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -571,6 +571,12 @@ a { color: inherit; text-decoration: none; }
 /* §IA — KOTI-etusivu + mobiili tab-bar (desktop: tabbar piilossa) */
 .tabbar { display: none; }
 .sb-backdrop { display: none; }
+/* Mobiilihampurgeri (§6) — piilossa desktopilla, näkyy mobiilissa (≤768px). translateX-slide-in, EI display:none. */
+.nav-burger { display: none; position: fixed; top: 10px; left: 12px; z-index: 160; width: 44px; height: 44px; flex-direction: column; align-items: center; justify-content: center; gap: 5px; background: var(--card2); border: .5px solid var(--line2); border-radius: 10px; cursor: pointer; padding: 0; }
+.nav-burger .nb-bar { width: 20px; height: 2px; background: var(--ink); border-radius: 2px; transition: transform .2s ease, opacity .2s ease; }
+body.nav-drawer-open .nav-burger .nb1 { transform: translateY(7px) rotate(45deg); }
+body.nav-drawer-open .nav-burger .nb2 { opacity: 0; }
+body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45deg); }
 .koti-otsikko { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 26px; color: var(--ink); margin-bottom: 14px; }
 .koti-strippi { display: flex; gap: 12px; background: var(--card); border: .5px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; flex-wrap: wrap; }
 .koti-strippi > div { flex: 1; min-width: 70px; text-align: center; }
@@ -638,15 +644,19 @@ a { color: inherit; text-decoration: none; }
   .tabbar-item .tb-ic { font-size: 19px; line-height: 1; }
   .tabbar-item .tb-lbl { font-size: 10px; }
   .wsbar { display: none; }
-  .main { padding-bottom: 78px; }
+  .main { padding-top: 58px; padding-bottom: 78px; }   /* tilaa hampurgerille ylös + tabbarille alas */
   .koti-kortti { flex-wrap: wrap; }
   .koti-kortti .kk-cta { flex: 1 1 100%; }
   .koti-kortti-iso { flex-wrap: wrap; gap: 12px; }
   .koti-kortti-iso .kki-cta { flex: 1 1 100%; }
-  /* §IA mobiili nav: sidebar piiloon (voittaa base .sidebar lähdejärjestyksellä); Lisää-tabista drawer + backdrop */
-  .sidebar { display: none; }
-  body.nav-drawer-open .sidebar { display: flex; position: fixed; inset: 0 auto 0 0; width: 264px; max-width: 84vw; z-index: 200; box-shadow: 0 0 40px rgba(0,0,0,.4); }
+  /* §6 mobiili nav: hampurgeri + slide-in-sivupalkki (translateX, EI display:none). Hampurgeri + bottom-tab "Lisää" avaavat saman drawerin. */
+  .nav-burger { display: flex; }
+  .sidebar { display: flex; position: fixed; inset: 0 auto 0 0; width: 264px; max-width: 84vw; z-index: 200; transform: translateX(-100%); transition: transform .25s cubic-bezier(.4,0,.2,1); box-shadow: 0 0 40px rgba(0,0,0,.4); }
+  body.nav-drawer-open .sidebar { transform: translateX(0); }
   body.nav-drawer-open .sb-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 199; }
+  /* §A kosketuskohteet ≥44px (iOS HIG): primääri-/modaali-/sulje-/nauhoitus-napit. tabbar-item + hampurgeri omat säännöt. */
+  button:not(.tabbar-item):not(.nav-burger) { min-height: 44px; min-width: 44px; }
+  #refRecBtn, #refLitteroiBtn { min-height: 44px; padding-left: 16px; padding-right: 16px; }
 }
 /* Valmentajan profiili-modaali */
 .coach-profile-modal {
@@ -1208,6 +1218,7 @@ a { color: inherit; text-decoration: none; }
 
 <!-- DASHBOARD -->
 <div id="sDash" class="hidden">
+<button id="navBurger" class="nav-burger" onclick="toggleTyokalut()" aria-label="Avaa valikko"><span class="nb-bar nb1"></span><span class="nb-bar nb2"></span><span class="nb-bar nb3"></span></button>
 <div class="layout">
 
   <!-- SIDEBAR -->
@@ -4360,6 +4371,11 @@ function toggleTyokalut(force) {
   const open = (force != null) ? force : !document.body.classList.contains('nav-drawer-open');
   document.body.classList.toggle('nav-drawer-open', open);   // §IA mobiilin Työkalut-drawer (sidebar overlay)
 }
+// Mobiili: sulje slide-in-sivupalkki kun navigoidaan sen kohdasta (mirror Seura.html)
+document.addEventListener('click', function (e) {
+  const it = e.target && e.target.closest && e.target.closest('.sidebar .sb-item');
+  if (it && document.body.classList.contains('nav-drawer-open')) toggleTyokalut(false);
+});
 /* ════════════════════════════════════════════════════════════
    §IA slice 3 — ONBOARDING "Aloita tästä" (valmentaja-flow, Master)
    Strangler: napit kutsuvat olemassa olevia funktioita. Näytä kerran (localStorage), ohitettavissa,
