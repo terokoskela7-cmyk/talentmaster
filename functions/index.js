@@ -1869,3 +1869,44 @@ exports.notifReviewEraantyy = functions
     }
     return null;
   });
+
+// T3 / N1.5 — VP teki B-havainnoinnin valmentajalle, jolta puuttuu itsearvio → muistuta valmentajaa.
+// Sulkee kalibraatiosilmukan (2.2: itsearvio + havainnointi samasta harjoituksesta → pari). §B2.
+exports.notifTeeItsearvio = functions
+  .region('europe-west1')
+  .firestore.document('seurat/{sid}/harjoitusarvioinnit/{aid}')
+  .onCreate(async (snap, context) => {
+    const { sid } = context.params;
+    const arv = snap.data() || {};
+    try {
+      if (arv.malli !== 'valmennustaidot' || arv.arviointitapa !== 'havainnointi') return null;   // vain B-havainnointi
+      const valmentajaUid = arv.valmentajaUid;
+      if (!valmentajaUid) return null;
+      const joukkue = arv.joukkue || '', pvmMs = _notifPvmMs(arv.pvm), PV = 86400000;
+      if (pvmMs == null) return null;
+      const lc = (x) => String(x == null ? '' : x).toLowerCase().trim();
+      // Onko valmentajalla jo itsearvio samasta harjoituksesta (B, itsearvio, sama joukkue, ±2 pv)?
+      const omat = await db.collection('seurat').doc(sid).collection('harjoitusarvioinnit').where('valmentajaUid', '==', valmentajaUid).get();   // single eq → ei komposiittia
+      const onItsearvio = omat.docs.some((d) => {
+        const a = d.data();
+        if (a.malli !== 'valmennustaidot' || a.arviointitapa !== 'itsearvio' || lc(a.joukkue) !== lc(joukkue)) return false;
+        const m = _notifPvmMs(a.pvm);
+        return m != null && Math.abs(m - pvmMs) <= 2 * PV;
+      });
+      if (onItsearvio) return null;   // pari jo olemassa → ei muistutusta
+      const notifCol = db.collection('seurat').doc(sid).collection('kayttajat').doc(valmentajaUid).collection('notifikaatiot');
+      // Dedupe: lukematon tee_itsearvio samasta harjoituksesta (pvm/joukkue)?
+      const jo = await notifCol.where('tyyppi', '==', 'tee_itsearvio').get();
+      const dup = jo.docs.some((d) => { const n = d.data(); return n.luettu === false && lc(n.joukkue) === lc(joukkue) && _notifPvmMs(n.pvm) != null && Math.abs(_notifPvmMs(n.pvm) - pvmMs) <= 2 * PV; });
+      if (dup) return null;
+      await notifCol.add({
+        tyyppi: 'tee_itsearvio',
+        teksti: 'Tee itsearvio harjoituksesta' + (joukkue ? ' (' + joukkue + ')' : '') + ' — saatte kalibraation.',
+        joukkue: joukkue, pvm: arv.pvm || null,
+        linkki: { nakyma: 'itsearvio' },
+        luotu: admin.firestore.FieldValue.serverTimestamp(),
+        luettu: false
+      });
+    } catch (e) { console.error('[notifTeeItsearvio]', sid, e.message); }
+    return null;
+  });

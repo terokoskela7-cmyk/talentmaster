@@ -55,6 +55,38 @@ new Function 0 virhettä · npm test · §17 · Carbon · RUNTIME+LIVE: T1 (luo 
 
 ---
 
+## B2. N1.5 — "Tee itsearvio" -heräte (T3) — DETALJISUUNNITELMA (2026-06-22)
+
+**Tarkoitus:** sulkea kalibraatiosilmukka. Kalibraatio (§2.2) vaatii sekä valmentajan **B-itsearvion** että VP:n **B-havainnoinnin** samasta harjoituksesta. Jos VP havainnoi mutta valmentaja ei ole itsearvioinut → heräte muistuttaa valmentajaa → pari syntyy.
+
+- **Trigger (event-vetoinen, lukittu):** uusi Firestore-trigger-CF **`notifTeeItsearvio`** `onCreate seurat/{sid}/harjoitusarvioinnit/{id}` → ehto `malli=='valmennustaidot' && arviointitapa=='havainnointi'` → lue `valmentajaUid`, `joukkue`, `pvm` → kysele saman valmentajan **itsearvio** (`malli=='valmennustaidot' && arviointitapa=='itsearvio'`, sama joukkue, `pvm ±2 pv`) → **jos EI löydy** → kirjoita notif valmentajalle (`tyyppi:'tee_itsearvio'`, teksti, linkki → "Itsearvio").
+- **Dedupe:** ei uutta jos samasta harjoituksesta (sama pvm/joukkue) on jo lukematon `tee_itsearvio`-notif.
+- **Sulkeutuu luonnostaan:** kun valmentaja tekee itsearvion, 2.2:n auto-paritus yhdistää → (nice-to-have: merkitse `tee_itsearvio`-notif luetuksi automaattisesti).
+- **Kanava:** in-app (sama `notifikaatiot`-kokoelma + Rules, jo deployattu). Ei uutta UI:ta (notif-keskus on).
+- **Deploy:** `firebase deploy --only functions:notifTeeItsearvio` (Coden CLI authed; prerequisitet jo kunnossa).
+- **Vaihtoehto (ei nyt):** kadenssiheräte ("et ole itsearvioinut X viikkoon") — N-myöhempi.
+
+## B3. N2 — Sähköpostikooste — DETALJISUUNNITELMA (2026-06-22)
+
+**Tarkoitus:** herätteet tavoittavat myös ne jotka eivät ole aktiivisesti appissa. **Kooste, ei per-tapahtuma-postia.**
+
+- **Mekanismi:** ajastettu CF **`notifKoosteEmail`** (esim. joka aamu **07:00 Europe/Helsinki**) → iteroi käyttäjät joilla email + email-opt-in → kerää **lukemattomat notifit edellisen koosteen jälkeen** (`notif_digest_pvm`-merkki) → jos ≥1 → kokoa kooste → lähetä olemassa olevalla **Nodemailer-CF:llä** (§13) → päivitä `notif_digest_pvm`.
+- **Sisältö (lukumäärät, ei sisältöä):** *"Sinulla on: 2 uutta palautetta · 1 review erääntyy · tee itsearvio"* + linkki appiin + seuran nimi. VP:lle review-roll-up ("3 pelaajaa myöhässä reviewistä").
+- **Hallinta:**
+  - **Asetukset** `kayttajat/{uid}.notif_asetukset.email { enabled, kadenssi:'paivittain'|'viikoittain' }` + kevyt **"Ilmoitusasetukset"** -UI (Master + VP): email päälle/pois + kadenssi.
+  - **Frekvenssikatto:** max 1 kooste / kadenssi-ikkuna (päivä tai viikko). **Hiljaiset tunnit:** lähetys aamulla, ei yöllä.
+  - **Peruutuslinkki** sähköpostissa → kytkee `email.enabled=false` (in-app-asetuksen kautta / kevyt endpoint).
+  - **GDPR/PII:** vastaanottaja = henkilöstö (valmentaja/VP), kooste **omasta työstä** — ei pelaajan henkilötietoja runkoon (review = lukumäärät, palaute = "uutta palautetta", ei sisältöä/nimiä). §33 B2 -skrubin henki.
+- **Opt-in oletus (päätettävä):** suositus **päällä** (työhön liittyvä, oikeutettu etu) + helppo peruutus — vai pois oletuksena (eksplisiittinen opt-in)?
+- **Arkkitehtuuri:** scheduled CF + Nodemailer (jo konffattu §2). `notifikaatiot`-luku per käyttäjä (admin SDK). Ei uutta Rules-deployta (notifikaatiot-blokki on; asetukset `kayttajat`-dokin write-säännön piirissä — oma uid).
+- **Deploy:** `firebase deploy --only functions:notifKoosteEmail` (ajastettu → käyttää jo enabloituja Scheduler/PubSub-API:ja + App Enginea).
+
+### N1.5 + N2 — vaiheistus & verifiointi
+1. **N1.5 ensin** (in-app, sulkee silmukan, ei email-infraa): `notifTeeItsearvio`-CF + deploy → verify (VP havainnointi ilman itsearviota → valmentajan "tee itsearvio" -notif; dedupe).
+2. **N2** (email): `notifKoosteEmail`-CF + asetukset-UI + deploy → verify (kooste lähtee opt-in-käyttäjälle, frekvenssikatto, peruutus, ei PII:tä, opt-out estää).
+
+---
+
 ## C. SUOSITELTU JÄRJESTYS (valinta B)
 
 1. **Master-mobiilipassi** (§A) — adoption edellytys, nopea, ei riipu muusta.

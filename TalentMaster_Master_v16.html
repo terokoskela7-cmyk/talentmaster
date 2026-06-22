@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782158058410';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782159307872';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -5988,7 +5988,7 @@ function _notifAikaSitten(luotu) {
 function _notifRender() {
   const el = document.getElementById('notifLista'); if (!el) return;
   if (!_notifLista.length) { el.innerHTML = '<div style="padding:18px;text-align:center;color:var(--ink3);font-size:13px">Ei ilmoituksia.</div>'; return; }
-  const ico = { palaute: '💬', review: '🔔' };
+  const ico = { palaute: '💬', review: '🔔', tee_itsearvio: '✍' };
   el.innerHTML = _notifLista.map(function (x) {
     return '<div onclick="_notifAvaa(\'' + x._id + '\')" class="notif-item' + (x.luettu ? '' : ' uusi') + '">'
       + '<span class="notif-ico">' + (ico[x.tyyppi] || '•') + '</span>'
@@ -6007,6 +6007,7 @@ window._notifAvaa = async function (id) {
   const p = document.getElementById('notifPanel'); if (p) p.classList.remove('auki');
   const lk = x.linkki || {};
   if (lk.nakyma === 'palaute' && typeof avaaValmentajaKehitys === 'function') avaaValmentajaKehitys();   // valmentajan oma kehitys → saatu palaute
+  else if (lk.nakyma === 'itsearvio' && typeof avaaHarjoitusarviointi === 'function') avaaHarjoitusarviointi();   // N1.5: tee_itsearvio → Itsearvio-lomake
 };
 window._notifKaikkiLuetuiksi = async function () {
   const uid = _auth.currentUser && _auth.currentUser.uid; if (!uid) return;
