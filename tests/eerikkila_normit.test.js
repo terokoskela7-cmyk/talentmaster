@@ -34,6 +34,7 @@ const {
   harjoitusBenchmarkDelta,
   harjoitusKalibraatioHistoria,
   omaKehitysKooste,
+  cpdKooste,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -701,6 +702,34 @@ describe('Harjoitusarviointi Vaihe 2.3a — omaKehitysKooste (valmentajan oma da
     expect(k.n_A).toBe(0); expect(k.n_B).toBe(0);
     expect(k.kalib).toBeNull(); expect(k.seuraavaAskel).toBeNull();
     expect(k.reflektiot.length).toBe(0);
+  });
+});
+
+describe('Harjoitusarviointi Vaihe 2.3b-2 — cpdKooste (CPD-todiste)', () => {
+  const reflektiot = [{ cpd_minuutit: 30 }, { cpd_minuutit: 90 }, { cpd_minuutit: null }, {}, { cpd_minuutit: 'x' }];
+  it('reflektio-CPD = Σ cpd_minuutit → tunnit (null/virhe ohitetaan)', () => {
+    const c = cpdKooste(reflektiot, 0, null);
+    expect(c.reflektio_min).toBe(120);   // 30+90
+    expect(c.reflektio_h).toBe(2);
+  });
+  it('kertynyt = reflektio-CPD + koulutus-/kurssitunnit (cpd_tunnit_kausi)', () => {
+    const c = cpdKooste(reflektiot, 5, null);
+    expect(c.koulutus_h).toBe(5);
+    expect(c.kertynyt_h).toBe(7);        // 2 + 5
+  });
+  it('edistymä-% VAIN jos vaatimus asetettu (datagate)', () => {
+    expect(cpdKooste(reflektiot, 5, null).edistyma_pct).toBeNull();   // ei vaatimusta
+    expect(cpdKooste(reflektiot, 5, null).vaatimus_h).toBeNull();
+    const c = cpdKooste(reflektiot, 5, 10);   // vaatimus 10 h, kertynyt 7
+    expect(c.vaatimus_h).toBe(10);
+    expect(c.edistyma_pct).toBe(70);
+  });
+  it('edistymä cap 100 %', () => {
+    expect(cpdKooste([{ cpd_minuutit: 600 }], 5, 10).edistyma_pct).toBe(100);   // 10+5=15 > 10
+  });
+  it('tyhjä → 0 kertynyt, ei vaatimusta', () => {
+    const c = cpdKooste([], null, null);
+    expect(c.kertynyt_h).toBe(0); expect(c.edistyma_pct).toBeNull();
   });
 });
 

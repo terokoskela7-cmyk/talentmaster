@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782144991927';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782147308889';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=27"></script>
+<script src="lib/tm_eerikkila_normit.js?v=28"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=2"></script>
 <script src="docs/testit_indeksit.js?v=8"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
@@ -5584,8 +5584,13 @@ window.avaaValmentajaKehitys = async function () {
     const vd = window._valmentajaData || {};
     const hlKa = (vd.harjoituslaatu_ka != null) ? vd.harjoituslaatu_ka : k.viimA;
     const vtKa = (vd.valmennustaito_ka != null) ? vd.valmennustaito_ka : k.viimB;
+    // Standalone-reflektiot (oma päiväkirja) + CPD-vaatimuskonfiguraatio — ladataan kerran, käytetään CPD-osiossa + päiväkirjassa
+    let standalone = [];
+    try { const rs = await _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(cu.uid).collection('reflektiot').limit(100).get(); standalone = rs.docs.map(d => ({ id: d.id, ...d.data() })); } catch (e) {}
+    let cpdVaatimusKonf = null;
+    try { const cs = await _db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').get(); if (cs.exists) cpdVaatimusKonf = (cs.data() || {}).cpd_vaatimus_h || null; } catch (e) {}
 
-    if (!k.n_A && !k.n_B) { sis.innerHTML = '<div style="font-size:13px;color:var(--ink3);padding:16px 0;text-align:center">Ei vielä harjoitusarviointeja. Kun arvioit harjoituksiasi (tai VP havainnoi niitä), oma kehityksesi näkyy täällä.</div>'; return; }
+    if (!k.n_A && !k.n_B && !standalone.length) { sis.innerHTML = '<div style="font-size:13px;color:var(--ink3);padding:16px 0;text-align:center">Ei vielä harjoitusarviointeja tai reflektioita. Kun arvioit harjoituksiasi (tai VP havainnoi niitä) tai kirjoitat reflektion, oma kehityksesi näkyy täällä.</div>'; return; }
 
     let h = '';
     // 1) VAHVUUS ENSIN — sitoutuminen + nykytaso myönteisesti
@@ -5624,6 +5629,28 @@ window.avaaValmentajaKehitys = async function () {
         + '<div style="font-size:11px;color:var(--ink3);margin-top:6px">' + r.n_paria + ' yhteistä harjoitusta verrattu — kalibraatio on kasvun työkalu, ei arvosana.</div></div>';
     }
 
+    // 4.5) CPD-TODISTE — reflektio-CPD + koulutus/kurssi-CPD; edistymäpalkki vain jos vaatimus asetettu (datagate)
+    const _lis = vd.lisenssitaso || '';
+    const _vaatH = (cpdVaatimusKonf && _lis && cpdVaatimusKonf[_lis] != null) ? cpdVaatimusKonf[_lis] : null;
+    const cpd = (typeof cpdKooste === 'function') ? cpdKooste(standalone, vd.cpd_tunnit_kausi, _vaatH) : { reflektio_h: 0, koulutus_h: 0, kertynyt_h: 0, vaatimus_h: null, edistyma_pct: null };
+    window._mkCpdData = { cpd: cpd, lisenssitaso: _lis, koulutukset: (vd.koulutukset || []), nimi: ((vd.etunimi || '') + ' ' + (vd.sukunimi || '')).trim(), merkinnat: standalone.slice() };
+    window._mkCpdVaatimusKonf = cpdVaatimusKonf;
+    const _LIS_NIMI = { grassroots: 'Grassroots', c: 'UEFA C', b: 'UEFA B', a: 'UEFA A', pro: 'UEFA Pro' };
+    const _saaAsettaa = (typeof _superAdmin !== 'undefined' && _superAdmin) || ['vp', 'urheilutoimenjohtaja', 'seurasihteeri'].indexOf(_rooli) >= 0;
+    h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3)">CPD-kertymä' + (_lis ? ' · ' + (_LIS_NIMI[_lis] || _lis) : '') + '</div>'
+      + '<div style="display:flex;gap:6px">' + (_saaAsettaa ? '<button onclick="_cpdAsetaVaatimus()" style="font-size:11px;padding:4px 10px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);border-radius:6px;cursor:pointer">⚙ Vaatimukset</button>' : '') + '<button onclick="_cpdTodistePDF()" style="font-size:11px;padding:4px 10px;border:.5px solid var(--teal);background:rgba(40,176,144,.1);color:var(--teal);border-radius:6px;cursor:pointer">📄 CPD-todiste</button></div></div>'
+      + '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:' + (cpd.vaatimus_h ? '10' : '0') + 'px">'
+      + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Kertynyt</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--teal)">' + cpd.kertynyt_h + '<span style="font-size:12px;color:var(--ink3)"> h</span></div></div>'
+      + '<div style="align-self:center;font-size:11px;color:var(--ink3)">Reflektiot ' + cpd.reflektio_h + ' h · Koulutukset/kurssit ' + cpd.koulutus_h + ' h</div></div>';
+    if (cpd.vaatimus_h) {
+      h += '<div style="height:8px;background:var(--card);border-radius:4px;overflow:hidden;margin-bottom:4px"><div style="height:8px;width:' + cpd.edistyma_pct + '%;background:' + (cpd.edistyma_pct >= 100 ? 'var(--teal)' : 'var(--amber)') + '"></div></div>'
+        + '<div style="font-size:11px;color:var(--ink3)">' + cpd.edistyma_pct + ' % vaatimuksesta (' + cpd.vaatimus_h + ' h ' + (_LIS_NIMI[_lis] || _lis) + ')</div>';
+    } else {
+      h += '<div style="font-size:11px;color:var(--ink3);margin-top:6px">CPD-vaatimusta ei asetettu' + (_lis ? '' : ' (lisenssitaso puuttuu profiilista)') + ' — näytetään kertynyt ilman tavoitepalkkia.</div>';
+    }
+    h += '</div>';
+
     // 5) SAATU PALAUTE KOOTTUNA — vain palaute_jaettu, aikajärjestyksessä (uusin ensin)
     const lista = arvioinnitKaikki.slice().sort((a, b) => String(b.pvm || '').localeCompare(String(a.pvm || ''))).slice(0, 25);
     const blokit = await Promise.all(lista.map(async a => {
@@ -5641,11 +5668,9 @@ window.avaaValmentajaKehitys = async function () {
         + '</div>';
     });
 
-    // 6) REFLEKTIOPÄIVÄKIRJA — standalone-merkinnät (oma) + arviointiin sidotut B-reflektiot, yhtenä aikajanana
-    let standalone = [];
-    try { const rs = await _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(cu.uid).collection('reflektiot').limit(100).get(); standalone = rs.docs.map(d => ({ id: d.id, ...d.data() })); } catch (e) {}
+    // 6) REFLEKTIOPÄIVÄKIRJA — standalone-merkinnät (oma, ladattu yllä) + arviointiin sidotut B-reflektiot, yhtenä aikajanana
     const aikajana = [];
-    standalone.forEach(r => aikajana.push({ kind: 'oma', id: r.id, pvm: r.pvm, onnistui: r.onnistui, toisin: r.toisin, kehityskohde: r.kehityskohde, teksti: r.teksti, audio_url: r.audio_url, audio_kesto_s: r.audio_kesto_s, cpd_minuutit: r.cpd_minuutit, prompt_tyyppi: r.prompt_tyyppi }));
+    standalone.forEach(r => aikajana.push({ kind: 'oma', id: r.id, pvm: r.pvm, onnistui: r.onnistui, toisin: r.toisin, kehityskohde: r.kehityskohde, teksti: r.teksti, audio_url: r.audio_url, audio_kesto_s: r.audio_kesto_s, transkriptio: r.transkriptio, cpd_minuutit: r.cpd_minuutit, prompt_tyyppi: r.prompt_tyyppi }));
     k.reflektiot.forEach(rf => aikajana.push({ kind: 'arviointi', pvm: rf.pvm, joukkue: rf.joukkue, onnistui: rf.onnistui, toisin: rf.toisin, kehityskohde: rf.kehityskohde }));
     aikajana.sort((a, b) => String(b.pvm || '').localeCompare(String(a.pvm || '')));
 
@@ -5656,7 +5681,7 @@ window.avaaValmentajaKehitys = async function () {
       const oma = rf.kind === 'oma';
       const lahdeLbl = oma ? 'oma' : 'arvioinnista';
       const cpdChip = (rf.cpd_minuutit != null && rf.cpd_minuutit !== '') ? '<span style="font-size:9px;color:var(--amber);border:.5px solid var(--amber);padding:0 5px;border-radius:8px;margin-left:6px">CPD ' + _mEsc(String(rf.cpd_minuutit)) + ' min</span>' : '';
-      const audioHtml = rf.audio_url ? '<audio controls preload="none" src="' + _mEsc(rf.audio_url) + '" style="width:100%;margin-top:6px;height:36px"></audio>' + (rf.audio_kesto_s ? '<span style="font-size:10px;color:var(--ink3);margin-left:4px">🎙 ' + _refFmt(rf.audio_kesto_s) + '</span>' : '') : '';
+      const audioHtml = rf.audio_url ? '<audio controls preload="none" src="' + _mEsc(rf.audio_url) + '" style="width:100%;margin-top:6px;height:36px"></audio>' + (rf.audio_kesto_s ? '<span style="font-size:10px;color:var(--ink3);margin-left:4px">🎙 ' + _refFmt(rf.audio_kesto_s) + '</span>' : '') + (rf.transkriptio ? '<div style="font-size:12px;color:var(--ink2);margin-top:4px"><span style="color:var(--ink3)">📝</span> ' + _mEsc(rf.transkriptio) + '</div>' : '') : '';
       const delBtn = oma ? '<button onclick="_refPoista(\'' + rf.id + '\')" title="Poista merkintä" style="background:none;border:none;color:var(--ink3);font-size:11px;cursor:pointer">🗑</button>' : '';
       h += '<div style="border-left:2px solid ' + (oma ? 'var(--teal)' : 'var(--ink3)') + ';padding:4px 0 8px 12px;margin-bottom:8px">'
         + '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--ink3)">' + _mEsc((rf.pvm || '').slice(0, 10)) + (rf.joukkue ? ' · ' + _mEsc(rf.joukkue) : '') + ' · ' + lahdeLbl + cpdChip + '</div>' + delBtn + '</div>'
@@ -5684,6 +5709,8 @@ function _refFmt(s) { s = Math.round(s || 0); const m = Math.floor(s / 60), x = 
 const _REF_MAX_S = 180;                      // 3 min auto-stop
 const _REF_MAX_BYTES = 12 * 1024 * 1024;     // ~12 MB kokokatto
 let _refMime = null, _refExt = null, _refRecorder = null, _refStream = null, _refChunks = [], _refBlob = null, _refSeconds = 0, _refTimer = null, _refTila = 'idle'; // idle|recording|recorded
+let _refTranskriptio = null;   // opt-in Whisper-litterointi (aiProxy voice_transcribe)
+function _blobToBase64(blob) { return new Promise(function (resolve, reject) { const r = new FileReader(); r.onload = function () { const s = String(r.result || ''); const i = s.indexOf(','); resolve(i >= 0 ? s.slice(i + 1) : s); }; r.onerror = reject; r.readAsDataURL(blob); }); }
 function _refValitseMime() {
   const ketju = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'];
   if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return null;
@@ -5695,7 +5722,7 @@ function _refReset() {
   if (_refTimer) { clearInterval(_refTimer); _refTimer = null; }
   if (_refRecorder && _refRecorder.state !== 'inactive') { try { _refRecorder.stop(); } catch (e) {} }
   if (_refStream) { try { _refStream.getTracks().forEach(t => t.stop()); } catch (e) {} _refStream = null; }
-  _refRecorder = null; _refChunks = []; _refBlob = null; _refSeconds = 0; _refTila = 'idle';
+  _refRecorder = null; _refChunks = []; _refBlob = null; _refSeconds = 0; _refTila = 'idle'; _refTranskriptio = null;
 }
 function _refRenderRec() {
   const btn = document.getElementById('refRecBtn'), aika = document.getElementById('refRecAika'), prev = document.getElementById('refPreview');
@@ -5704,7 +5731,13 @@ function _refRenderRec() {
   else if (_refTila === 'recorded') {
     btn.textContent = '↻ Nauhoita uudelleen'; btn.style.background = 'var(--surface)'; btn.style.color = 'var(--ink2)'; btn.style.border = '.5px solid var(--border)';
     if (aika) aika.textContent = '🎙 ' + _refFmt(_refSeconds);
-    if (prev && _refBlob) { const url = URL.createObjectURL(_refBlob); prev.innerHTML = '<audio controls src="' + url + '" style="width:100%;height:36px"></audio><div style="font-size:10px;color:var(--ink3);margin-top:2px">Esikuuntele ennen tallennusta.</div>'; }
+    if (prev && _refBlob) {
+      const url = URL.createObjectURL(_refBlob);
+      let pv = '<audio controls src="' + url + '" style="width:100%;height:36px"></audio>';
+      if (_refTranskriptio) pv += '<div style="font-size:12px;color:var(--ink2);background:var(--card);border:.5px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:6px"><b style="color:var(--teal)">Litterointi:</b> ' + _mEsc(_refTranskriptio) + '</div>';
+      else pv += '<div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button type="button" onclick="_refLitteroi()" id="refLitteroiBtn" style="font-size:11px;padding:5px 12px;border:.5px solid var(--teal);background:rgba(40,176,144,.1);color:var(--teal);border-radius:7px;cursor:pointer">✍ Litteroi (valinnainen)</button><span style="font-size:10px;color:var(--ink3)">ääni lähetetään litteroitavaksi (opt-in)</span></div>';
+      prev.innerHTML = pv;
+    }
   } else { btn.textContent = '● Nauhoita'; btn.style.background = 'var(--teal)'; btn.style.color = '#fff'; btn.style.border = 'none'; if (aika) aika.textContent = ''; if (prev) prev.innerHTML = ''; }
 }
 function _refStop() {
@@ -5731,6 +5764,29 @@ window._refRecToggle = async function () {   // käyttäjäele (iOS-vaatimus): g
   _refTila = 'recording'; _refRenderRec();
   _refTimer = setInterval(() => { _refSeconds++; const a = document.getElementById('refRecAika'); if (a) a.textContent = '● ' + _refFmt(_refSeconds) + ' / 3:00'; if (_refSeconds >= _REF_MAX_S) _refStop(); }, 1000);
 };
+window._refLitteroi = async function () {   // opt-in Whisper-litterointi (aiProxy voice_transcribe — olemassa oleva CF §13)
+  if (!_refBlob) return;
+  const cu = _auth.currentUser; if (!cu) { if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
+  const btn = document.getElementById('refLitteroiBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Litteroidaan…'; }
+  try {
+    const base64 = await _blobToBase64(_refBlob);
+    const idToken = await cu.getIdToken();
+    const res = await fetch('https://europe-west1-' + _FB.projectId + '.cloudfunctions.net/aiProxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+      body: JSON.stringify({ task: 'voice_transcribe', data: { audio: base64, mimeType: _refMime || 'audio/webm', language: 'fi' } })
+    });
+    if (!res.ok) throw new Error('palvelinvirhe ' + res.status);
+    const j = await res.json();
+    _refTranskriptio = String((j && (j.text || j.transkriptio)) || '').trim();
+    if (!_refTranskriptio) throw new Error('tyhjä litterointi');
+    _refRenderRec();
+    if (typeof toast === 'function') toast('✓ Litteroitu', 'ok');
+  } catch (e) {
+    if (typeof toast === 'function') toast('Litterointi epäonnistui — äänireflektio toimii silti.', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✍ Litteroi (valinnainen)'; }
+  }
+};
 window._refUusi = function () {
   _refReset();
   const vanha = document.getElementById('refModal'); if (vanha) vanha.remove();
@@ -5744,6 +5800,7 @@ window._refUusi = function () {
     + '<div style="display:flex;gap:8px;margin-bottom:12px"><button type="button" id="refTyyppiOhjattu" onclick="_refTyyppi(\'ohjattu\')" style="flex:1;padding:8px;border-radius:7px;border:.5px solid var(--teal);background:rgba(40,176,144,.12);color:var(--teal);cursor:pointer;font-size:12px">Ohjattu (Plan-Do-Review)</button>'
     + '<button type="button" id="refTyyppiVapaa" onclick="_refTyyppi(\'vapaa\')" style="flex:1;padding:8px;border-radius:7px;border:.5px solid var(--border);background:var(--surface);color:var(--ink3);cursor:pointer;font-size:12px">Vapaa teksti</button></div>'
     + '<div id="refOhjattu">'
+    + '<div style="font-size:10px;color:var(--ink3);margin-bottom:6px">Plan-Do-Review — reflektoi harjoitus kolmessa vaiheessa.</div>'
     + '<label style="font-size:11px;color:var(--ink3)">Mikä onnistui?</label><textarea id="ref_onnistui" maxlength="600" rows="2" style="width:100%;margin:3px 0 8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical"></textarea>'
     + '<label style="font-size:11px;color:var(--ink3)">Mitä tekisin toisin?</label><textarea id="ref_toisin" maxlength="600" rows="2" style="width:100%;margin:3px 0 8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical"></textarea>'
     + '<label style="font-size:11px;color:var(--ink3)">Kehityskohde</label><textarea id="ref_kehityskohde" maxlength="400" rows="2" style="width:100%;margin:3px 0 8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical"></textarea></div>'
@@ -5787,6 +5844,7 @@ window._refTallenna = async function () {
       doc.audio_url = await sref.getDownloadURL();
       doc.audio_path = path;
       doc.audio_kesto_s = _refSeconds;
+      if (_refTranskriptio) doc.transkriptio = _refTranskriptio;   // litterointi audion rinnalle (hakukelpoinen)
     }
     await refDoc.set(doc);
     if (typeof toast === 'function') toast('✓ Reflektio tallennettu', 'ok');
@@ -5794,6 +5852,63 @@ window._refTallenna = async function () {
     const mm = document.getElementById('refModal'); if (mm) mm.remove();
     avaaValmentajaKehitys();   // päivitä näkymä
   } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Tallenna merkintä'; } }
+};
+// ── CPD-vaatimukset (SA/johto) → konfiguraatio/harjoitusarviointi.cpd_vaatimus_h { grassroots,c,b,a,pro } ──
+function _mkKausi() { const d = new Date(), y = d.getFullYear(); return (d.getMonth() >= 6) ? (y + '/' + String(y + 1).slice(-2)) : ((y - 1) + '/' + String(y).slice(-2)); }
+window._cpdAsetaVaatimus = function () {
+  const konf = window._mkCpdVaatimusKonf || {};
+  const vanha = document.getElementById('cpdVaatModal'); if (vanha) vanha.remove();
+  const m = document.createElement('div'); m.id = 'cpdVaatModal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto';
+  m.onclick = e => { if (e.target === m) m.remove(); };
+  const LIS = [['grassroots', 'Grassroots'], ['c', 'UEFA C'], ['b', 'UEFA B'], ['a', 'UEFA A'], ['pro', 'UEFA Pro']];
+  let h = '<div onclick="event.stopPropagation()" style="background:var(--card);border:.5px solid var(--line);border-radius:14px;width:min(420px,96vw);padding:20px 22px;margin:auto">'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">CPD-vuosivaatimukset (h)</div><button onclick="document.getElementById(\'cpdVaatModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
+    + '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Lisenssitasokohtainen CPD-tuntivaatimus. Tyhjä → ei tavoitepalkkia kyseiselle tasolle.</div>';
+  LIS.forEach(l => { const cur = (konf[l[0]] != null) ? konf[l[0]] : ''; h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1;font-size:12px;color:var(--ink2)">' + l[1] + '</span><input type="number" id="cpdv_' + l[0] + '" value="' + cur + '" min="0" max="200" placeholder="—" style="width:80px;padding:5px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;text-align:center"></div>'; });
+  h += '<button onclick="_cpdTallennaVaatimus()" style="width:100%;margin-top:12px;padding:10px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Tallenna vaatimukset</button></div>';
+  m.innerHTML = h; document.body.appendChild(m);
+};
+window._cpdTallennaVaatimus = async function () {
+  const cu = _auth.currentUser; if (!cu || !_seuraId) return;
+  try {
+    await cu.getIdToken(true);   // §7.2
+    const v = {}; ['grassroots', 'c', 'b', 'a', 'pro'].forEach(k => { const e = document.getElementById('cpdv_' + k); const n = e && e.value !== '' ? Number(e.value) : null; if (n != null && !isNaN(n)) v[k] = n; });
+    await _db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').set({ cpd_vaatimus_h: v }, { merge: true });
+    if (typeof toast === 'function') toast('✓ CPD-vaatimukset tallennettu', 'ok');
+    const m = document.getElementById('cpdVaatModal'); if (m) m.remove();
+    avaaValmentajaKehitys();
+  } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
+};
+// PDF "CPD-todiste" — selain-print, Carbon→valkoinen (oma ikkuna, ei kosketa päänäkymän tyyleihin)
+window._cpdTodistePDF = function () {
+  const D = window._mkCpdData; if (!D) { if (typeof toast === 'function') toast('CPD-data ei ladattu', 'error'); return; }
+  const LIS_NIMI = { grassroots: 'Grassroots', c: 'UEFA C', b: 'UEFA B', a: 'UEFA A', pro: 'UEFA Pro' };
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const c = D.cpd;
+  let rivit = (D.merkinnat || []).slice().sort((a, b) => String(b.pvm || '').localeCompare(String(a.pvm || ''))).map(r => {
+    const teksti = r.transkriptio || r.teksti || [r.onnistui, r.toisin, r.kehityskohde].filter(Boolean).join(' · ') || (r.audio_url ? '(äänireflektio)' : '');
+    return '<tr><td>' + esc((r.pvm || '').slice(0, 10)) + '</td><td>' + (r.cpd_minuutit != null ? esc(String(r.cpd_minuutit)) + ' min' : '—') + '</td><td>' + esc(teksti.slice(0, 120)) + '</td></tr>';
+  }).join('');
+  if (!rivit) rivit = '<tr><td colspan="3" style="color:#888">Ei reflektiomerkintöjä.</td></tr>';
+  let koul = (D.koulutukset || []).map(k => '<li>' + esc(k.nimi || '') + (k.vuosi ? ' (' + esc(String(k.vuosi)) + ')' : '') + '</li>').join('');
+  const tavoiteRivi = c.vaatimus_h ? ('<p><b>Vaatimus:</b> ' + c.vaatimus_h + ' h (' + (LIS_NIMI[D.lisenssitaso] || D.lisenssitaso) + ') · <b>Edistymä:</b> ' + c.edistyma_pct + ' %</p>') : '<p style="color:#666">CPD-vaatimusta ei asetettu — todiste näyttää kertyneen.</p>';
+  const html = '<!DOCTYPE html><html lang="fi"><head><meta charset="utf-8"><title>CPD-todiste</title>'
+    + '<style>body{font-family:Georgia,serif;color:#111;background:#fff;max-width:720px;margin:24px auto;padding:0 20px;line-height:1.5}'
+    + 'h1{font-size:24px;margin-bottom:2px}h2{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:#555;margin-top:24px}'
+    + 'table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}td,th{border-bottom:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}'
+    + '.kpi{font-size:30px;color:#1D9E75}@media print{button{display:none}}</style></head><body>'
+    + '<h1>CPD-todiste</h1><div style="color:#666;font-size:13px">Continuing Professional Development · TalentMaster™</div>'
+    + '<p style="margin-top:16px"><b>Valmentaja:</b> ' + esc(D.nimi || '—') + '<br><b>Lisenssitaso:</b> ' + esc(LIS_NIMI[D.lisenssitaso] || D.lisenssitaso || '—') + '<br><b>Kausi:</b> ' + _mkKausi() + '</p>'
+    + '<h2>Kertynyt CPD</h2><div class="kpi">' + c.kertynyt_h + ' h</div>'
+    + '<p>Reflektiot ' + c.reflektio_h + ' h · Koulutukset/kurssit ' + c.koulutus_h + ' h</p>' + tavoiteRivi
+    + (koul ? '<h2>Koulutukset</h2><ul>' + koul + '</ul>' : '')
+    + '<h2>Reflektiomerkinnät</h2><table><thead><tr><th>Päivä</th><th>CPD</th><th>Sisältö</th></tr></thead><tbody>' + rivit + '</tbody></table>'
+    + '<p style="margin-top:28px;font-size:11px;color:#888">Luotu ' + new Date().toISOString().slice(0, 10) + ' · reflektio-CPD ei korvaa virallista lisenssikirjanpitoa.</p>'
+    + '<button onclick="window.print()" style="margin-top:16px;padding:8px 16px;font-size:13px;cursor:pointer">Tulosta / Tallenna PDF</button>'
+    + '</body></html>';
+  const w = window.open('', '_blank'); if (!w) { if (typeof toast === 'function') toast('Salli ponnahdusikkunat tulostaaksesi', 'error'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 };
 window._refPoista = async function (id) {   // GDPR: valmentaja poistaa oman merkinnän (audio Storagesta + doc)
   if (typeof confirm === 'function' && !confirm('Poista tämä reflektiomerkintä pysyvästi? Tätä ei voi perua.')) return;

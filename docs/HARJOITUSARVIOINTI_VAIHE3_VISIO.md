@@ -56,6 +56,13 @@ Sama data, kolme yleisöä (valmentaja/seura/verkosto) — kuten pelaajapuolella
 - **2.3b-2 (kv-erottuvat lisät):** **Whisper-litterointi** (`aiProxy` → `transkriptio`, hakukelpoinen) + **CPD-todiste** (reflektio → `cpd_minuutit` → kertyy `cpd_tunnit_kausi`:iin → PDF-vienti "CPD-todiste" UEFA/Palloliitto-lisenssiä varten) + ohjatut promptit (TM:n onnistui/toisin/kehityskohde ≈ Plan-Do-Review; valinnainen "ohjattu"-tila).
 - **2.3b-3 (myöhemmin, AI §21):** kaavojen tunnistus reflektioista (toistuvat teemat) — Behavioural Science -agentin yhteyteen.
 
+**2.3b-2 toteutusdetaljit (lukittu 2026-06-22):**
+- **Litterointi:** `aiProxy` HTTP-CF varmistettu (`functions/index.js`): `task:'voice_transcribe'` → `_handleWhisper(data)`, `data = { audio: base64, mimeType:'audio/webm' }`, whisper-1, rate-limit per uid. Client: nauhoituksen jälkeen opt-in **"Litteroi"** → blob→base64 → aiProxy (kieli `fi`) → `transkriptio` tallennetaan reflektio-dokkiin (audion rinnalle, hakukelpoinen). Koko: 3 min audio mahtuu CF-request-rajaan; jos liian iso → siisti virhe. GDPR: opt-in + info ("ääni lähetetään litteroitavaksi").
+- **CPD:** reflektio-CPD = **summa `reflektiot.cpd_minuutit`** (EI ylikirjoiteta `cpd_tunnit_kausi`:ta — säilyy VP/kurssi-CPD:nä). CPD-todiste = reflektio-CPD + koulutukset (§11). **Vaatimus täysin konfiguraatiosta** `konfiguraatio/harjoitusarviointi.cpd_vaatimus_h { grassroots, c, b, a, pro }` (EI kovakoodattuja oletuksia — lisenssivaatimukset vaihtelevat; **vaatimus asettamatta → näytä kertynyt CPD ilman tavoitepalkkia**, datagate). Vaatimus valitaan valmentajan `lisenssitaso`:n mukaan. Jatkokehitys myöhemmin.
+- **PDF "CPD-todiste":** valmentaja + lisenssitaso + kausi + kertynyt (reflektiot+koulutukset) + (jos asetettu) vaatimus & edistymä + merkintälista. Selain-print (Carbon→valkoinen).
+- **Ohjatut promptit:** Plan-Do-Review -tila (toggle b-1:ssä) saa rakenteen (onnistui/toisin/kehityskohde ohjattuna).
+- **Yksityisyys:** ennallaan b-1 (oma uid + SA; VP ei näe standalonea). Litterointi/CPD samassa yksityisyyspiirissä.
+
 **Tekniset invariantit:**
 - Formaatti: `MediaRecorder.isTypeSupported` -ketju `['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus']`, tallenna oikealla päätteellä. iOS: `getUserMedia`/recorder vain käyttäjäeleestä; AudioContext `resume()` klikissä.
 - Koko/kesto: katkaisu esim. 3 min/merkintä (CPD-mittakaava) + tiedostokokokatto; näytä nauhoitusaika.
