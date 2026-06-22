@@ -22,6 +22,8 @@ const {
   vanhempiRaporttiTekstit,
   laskeReviewKadenssi,
   laskeJoukkueReviewKooste,
+  laskeVPTuloskortti,
+  laskeTavoiteToteuma,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -458,6 +460,42 @@ describe('laskeReviewKadenssi + laskeJoukkueReviewKooste', () => {
     expect(k.myohassa_n).toBe(1);
     expect(k.ei_reviewia_n).toBe(1);
     expect(k.onTime_pct).toBe(67);   // 2 / (2+0+1)
+  });
+});
+
+describe('laskeVPTuloskortti + laskeTavoiteToteuma (VP_TULOSKORTTI_SPEC)', () => {
+  const NYT = new Date(2026, 5, 22).getTime();
+  it('toimenpideaste = toimennetut underdogit / underdogit', () => {
+    const team = [
+      { rae_kvartaali: 'Q4', d2_taso: 3, talenttiOhjelma: true },   // underdog + toimennettu
+      { rae_kvartaali: 'Q4', d2_taso: 3 },                          // underdog, ei toimenpidettä
+    ];
+    const k = laskeVPTuloskortti(team, [], null, NYT);
+    expect(k.metriikat.underdog_n).toBe(2);
+    expect(k.metriikat.toimenpideaste_pct).toBe(50);
+  });
+  it('tavoite vs toteuma ✓/✗ (suunta yli/alle)', () => {
+    const kortti = { metriikat: { taso3_pct: 45, rae_q1_pct: 30 } };
+    const t = laskeTavoiteToteuma(kortti, { taso3_pct: { tavoite: 40, alue: 'II' }, rae_q1_max: { tavoite: 35, alue: 'IV' } });
+    expect(t.find(x => x.mittariId === 'taso3_pct').saavutettu).toBe(true);    // 45 ≥ 40
+    expect(t.find(x => x.mittariId === 'rae_q1_max').saavutettu).toBe(true);   // 30 ≤ 35
+    const t2 = laskeTavoiteToteuma({ metriikat: { taso3_pct: 30 } }, { taso3_pct: { tavoite: 40, alue: 'II' } });
+    expect(t2[0].saavutettu).toBe(false);
+    expect(t2[0].alue).toBe('II');
+  });
+  it('ylätaso: auditValmius /4 + tavoitteetSaavutettu /N', () => {
+    const k = laskeVPTuloskortti([], [], { taso3_pct: { tavoite: 40, alue: 'II' } }, NYT);
+    expect(typeof k.ylataso.auditValmius_x_per4).toBe('number');
+    expect(k.ylataso.auditValmius_x_per4).toBeGreaterThanOrEqual(0);
+    expect(k.ylataso.auditValmius_x_per4).toBeLessThanOrEqual(4);
+    expect(k.ylataso.tavoitteetSaavutettu_per_n.n).toBe(1);
+  });
+  it('tyhjä joukkue → datagate (status "tulossa"), ei kaadu', () => {
+    const k = laskeVPTuloskortti([], [], null, NYT);
+    expect(k.alueet.I.status).toBe('tulossa');
+    expect(k.alueet.II.status).toBe('tulossa');
+    expect(k.alueet.III.status).toBe('tulossa');
+    expect(k.toteumat).toEqual([]);
   });
 });
 

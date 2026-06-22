@@ -28,6 +28,7 @@
 | B4 | **Tilanne-tason poikkeuskehys** — `laskeJoukkuePoikkeamat` (6 tyyppiä, PHV §28 -porrastus) + roll-up "Joukkueiden poikkeamat" + pulssikortti-liput | ✅ live |
 | B5 | **Poikkeama-roll-up teemakonsolidointi** (25 riviä → ~6 teemariviä "Aerobinen · 5/6 joukkuetta", drill-chipit) | ✅ live |
 | B6 | **Valmentajan kalibrointi (P0a)** — `laskeValmentajaKalibraatio` (RAE-valintabias + D3-kuilu vs VP + pelihavainto-leniency) → coach-modaalin 5. välilehti "Kalibraatio" + coach-kortti-chip | ✅ live (tyhjä-polku; populoitu RUNTIME) |
+| B8 | **Review-kadenssimoottori (Vaihe 1, 2026-06-19)** — lib `laskeReviewKadenssi`/`laskeJoukkueReviewKooste` (6 vk U12+/12 vk U9–11) + MDT "✓ Merkitse review tehdyksi" -kirjoituspiste (`reviewit/{pvm}` + pikakentät) + uusi **Reviewit-VP-nav** (klubi-KPI + joukkue-roll-up on-time-% + pelaajalista myöhässä-ensin + suodattimet status/joukkue + drill MDT:hen) + Rules. Kylmäkäynnistys ⚪ neutraali. Lib ?v=21, +4 vitest (235/235). Rules deployattu Consolesta. **Live-verifioitu** (kirjoitus→status→roll-up, kadenssimat. 22.6.+6vk=3.8.) | ✅ live |
 | B7 | **MDT-raportti (P0b TÄYSI)** — Raportit-alanäkymä: pelaajavalitsin → yhden sivun profiili (Signs/Samples/SEO + erimielisyys + 5D) + **johtaja/valmentaja/vanhempi-skinit** + talenttisignaali (Hidden Gem/X-Factor) + PDF/MDT-palaveritila. **Vanhempi-skini ikävaiheistettu** (≤12 leikkijä / 13–15 rakentaja: uni/lepo·ravinto·koulu / 16+) §7.22-suojin + **VP-muokattava luonnos** ("✎ Muokkaa viestiä", sessio-paikallinen) | ✅ live |
 
 ## C. DOKUMENTIT (docs/)
