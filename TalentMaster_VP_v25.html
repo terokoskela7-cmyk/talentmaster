@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=20"></script>
+<script src="lib/tm_eerikkila_normit.js?v=21"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -1681,6 +1681,13 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       Raportointi
     </div>
 
+    <div class="sb-item" data-ws="reviewit" onclick="setWs('reviewit')">
+      <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M9 11l3 3L17 6"/><circle cx="10" cy="10" r="8"/>
+      </svg>
+      Reviewit
+    </div>
+
     <div class="sb-divider"></div>
     <div class="sb-section-label">Työkalut</div>
     <div class="sb-item" onclick="toast('Harjoituksen arviointi — tulossa pilottiin','ok')">
@@ -1725,6 +1732,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         <h1 class="greeting-text"><span id="greeting-tervehdys">Hyvää päivää</span>, <em id="greeting-name"></em>.</h1>
         <p class="greeting-summary" id="greeting-summary">Ladataan tilannetta...</p>
         <div class="hero-tilaindikaattorit" id="heroIndikaattorit"></div>
+        <div id="reviewLippu" style="margin-top:8px"></div>
         <div class="greeting-meta">
           <span id="greeting-kausi">—</span>
           <span class="meta-sep">·</span>
@@ -1937,6 +1945,21 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
           placeholder="Kirjoita kaudella esille nousseet erityishuomiot..."></textarea>
       </div>
       <button class="send-btn" onclick="lahetaRaportti()">Lähetä Head of Talentille →</button>
+    </div>
+
+    <!-- ── REVIEWIT (MDT-tarkistusrytmi) ── -->
+    <div class="ws-view" id="ws-reviewit">
+      <div class="page-title">Reviewit</div>
+      <div class="page-sub">MDT-tarkistusrytmi · ≥12 v 6 vk · 9–11 v 12 vk</div>
+      <div class="rapport-kpi" id="reviewKpis">
+        <div class="kpi-card"><div class="kpi-label">Myöhässä</div><div class="kpi-value" id="rev-myohassa">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Erääntymässä</div><div class="kpi-value" id="rev-eraantymassa">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Ajan tasalla</div><div class="kpi-value teal" id="rev-ajantasalla">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Ei reviewia</div><div class="kpi-value" id="rev-eireviewia">—</div></div>
+      </div>
+      <div id="reviewSuodattimet" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 14px"></div>
+      <div id="reviewJoukkueet"></div>
+      <div id="reviewLista"></div>
     </div>
 
     <!-- ── ASETUKSET ── -->
@@ -2462,6 +2485,17 @@ function renderTilanne() {
 
   // POIKKEUSKEHYS roll-up (suoritusprofiilin poikkeamat — eri kerros kuin tehtäväsignaalit)
   try { renderPoikkeamat(); } catch(e){ console.warn('[poikkeamat]', e.message); }
+
+  // Review-lippu (MDT-tarkistusrytmi) → Reviewit-näkymä
+  try {
+    var _rl = document.getElementById('reviewLippu');
+    if (_rl && typeof laskeJoukkueReviewKooste === 'function') {
+      var _rk = laskeJoukkueReviewKooste(_pelaajat || [], Date.now());
+      _rl.innerHTML = _rk.myohassa_n > 0
+        ? '<div onclick="setWs(\'reviewit\')" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:6px 12px;border-radius:20px;border:.5px solid var(--red);color:var(--red)">🕐 ' + _rk.myohassa_n + ' pelaajaa myöhässä reviewistä →</div>'
+        : '';
+    }
+  } catch(e){ console.warn('[reviewLippu]', e.message); }
 
   // IDP-jono tilanne-näkymässä
   renderIdpJono('tilanneIdpJono');
@@ -6135,6 +6169,30 @@ function _mdtTaytaPicker() {
 window._mdtValitse = function(pid){ _mdtPid = pid || null; _mdtPalaveri = false; _mdtVanhEdit = false; _renderMDTProfiili(); };
 window._mdtVaihdaSkin = function(skin){ _mdtSkin = skin; _mdtVanhEdit = false; _renderMDTProfiili(); };
 window._mdtPrint = function(){ window.print(); };
+// Kirjaa MDT-review (§7.2 tuore token) → reviewit/{pvm} + pikakentät. Tallentaa VP-muokatun päätöstekstin.
+window._mdtMerkitseReview = async function() {
+  if (!_mdtPid || !_seuraId) { if (typeof toast === 'function') toast('Ei pelaajaa/seuraa valittuna', 'error'); return; }
+  var p = (_pelaajat || []).find(function(x){ return x.id === _mdtPid; });
+  if (!p) return;
+  try {
+    var u = firebase.auth().currentUser, rooli = 'vp';
+    if (u) { var tr = await u.getIdTokenResult(true); rooli = (tr && tr.claims && tr.claims.rooli) || 'vp'; }   // §7.2 tuore token + rooli
+    var pvm = new Date().toISOString().slice(0, 10);
+    var isp = (typeof _jsvJoukkueIkaSp === 'function') ? _jsvJoukkueIkaSp(p.joukkue || '') : { ika: null, sp: 'P' };
+    var V = (typeof vanhempiRaporttiTekstit === 'function') ? vanhempiRaporttiTekstit(p, isp.ika, (isp.sp === 'T') ? 'N' : 'M') : null;
+    var paatosEl = document.getElementById('mdtPaatos');
+    var paatos = paatosEl ? paatosEl.value : '';
+    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(_mdtPid).collection('reviewit').doc(pvm)
+      .set({ tyyppi: 'mdr', pvm: pvm, tekija_uid: (u ? u.uid : (_uid || null)), tekija_rooli: rooli, paatos: paatos, idp_paivitetty: false, ikavaihe: (V ? V.ikavaihe : null) });
+    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(_mdtPid)
+      .set({ review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'mdr' }, { merge: true });
+    p.review_viimeisin_pvm = pvm; p.review_viimeisin_tyyppi = 'mdr';   // lokaali → status + listat päivittyvät
+    if (typeof toast === 'function') toast('✓ Review merkitty tehdyksi', 'ok');
+    _renderMDTProfiili();
+    if (typeof renderReviewit === 'function') renderReviewit();
+    if (typeof renderTilanne === 'function') renderTilanne();
+  } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); console.warn('[mdtReview]', e); }
+};
 window._mdtPalaveritila = function(){ _mdtPalaveri = !_mdtPalaveri; var el = document.getElementById('mdtProfiili'); if (el) el.classList.toggle('mdt-palaveri', _mdtPalaveri); _renderMDTProfiili(); if (el && _mdtPalaveri) el.classList.add('mdt-palaveri'); };
 function _mdtRivi(lbl, val, vari){ return '<div class="mdt-rivi"><span style="color:var(--ink2)">' + lbl + '</span><span style="font-weight:600;color:' + (vari||'var(--ink)') + '">' + val + '</span></div>'; }
 function _mdtOsaNimi(k){ return { kiihdytys:'Kiihdytys', maksinopeus:'Maksiminopeus', voima:'Voima', ketteryys:'Ketteryys', aerobinen:'Aerobinen' }[k] || k; }
@@ -6309,6 +6367,16 @@ function _renderMDTProfiili() {
   // SKINIKOHTAINEN PANEELI
   h += (_mdtSkin === 'valmentaja') ? _mdtValmentajaPaneeli(p, ika, spMN) : _mdtJohtajaPaneeli(p, ika, spMN, oi);
 
+  // Review-status + merkintä (johtaja/valmentaja-skini)
+  if (typeof laskeReviewKadenssi === 'function') {
+    var _rk = laskeReviewKadenssi(p, Date.now());
+    var _rkM = { ajantasalla:{v:'var(--teal)',t:'Review ajan tasalla'}, eraantymassa:{v:'var(--amber)',t:'Review erääntymässä'}, myohassa:{v:'var(--red)',t:'Review myöhässä'}, ei_reviewia:{v:'var(--ink3)',t:'Ei reviewia vielä'} }[_rk.status];
+    var _rkInfo = _rk.status==='myohassa' ? (' · ' + _rk.ylimaaraPv + ' pv yli') : ((_rk.status==='eraantymassa'||_rk.status==='ajantasalla') ? (' · erääntyy ' + _rk.eraantyyPvm) : '');
+    h += '<div class="mdt-card" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+      + '<span style="font-size:12px;color:' + _rkM.v + '">● ' + _rkM.t + _rkInfo + (_rk.viimeisinPvm ? (' · viim. ' + _rk.viimeisinPvm) : '') + '</span>'
+      + '<button onclick="_mdtMerkitseReview()" class="mdt-no-print" style="padding:8px 14px;border:none;border-radius:6px;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">✓ Merkitse review tehdyksi</button></div>';
+  }
+
   // PDF + palaveritila
   h += '<div class="mdt-no-print" style="display:flex;gap:8px;margin-top:14px">'
     + '<button onclick="_mdtPrint()" style="padding:9px 16px;border:none;border-radius:6px;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Vie PDF</button>'
@@ -6316,6 +6384,77 @@ function _renderMDTProfiili() {
 
   el.innerHTML = h;
 }
+
+/* ═══ REVIEWIT (MDT-tarkistusrytmi) — lukee pikakentät (review_viimeisin_pvm), ei alikokoelmakyselyjä ═══ */
+var _reviewStatusF = 'huomiota', _reviewJoukkueF = '';
+window._reviewSetStatus = function(s){ _reviewStatusF = s; renderReviewit(); };
+window._reviewSetJoukkue = function(j){ _reviewJoukkueF = j || ''; renderReviewit(); };
+window._reviewAvaaMDT = function(pid){
+  setWs('raportointi');
+  _mdtPid = pid; _mdtSkin = 'johtaja'; _mdtVanhEdit = false; _mdtPalaveri = false;
+  if (typeof _mdtTaytaPicker === 'function') _mdtTaytaPicker();
+  var sel = document.getElementById('mdtPelaajaSel'); if (sel) sel.value = pid;
+  if (typeof _renderMDTProfiili === 'function') _renderMDTProfiili();
+  var v = document.getElementById('mdtProfiili'); if (v && v.scrollIntoView) v.scrollIntoView({ behavior:'smooth', block:'start' });
+};
+function renderReviewit() {
+  if (typeof laskeReviewKadenssi !== 'function') return;
+  var P = _pelaajat || [], nyt = Date.now();
+  var ly = function(j){ return (typeof lyhennaNimi === 'function') ? lyhennaNimi(j || '') : (j || '—'); };
+  var set = function(id, v){ var e = document.getElementById(id); if (e) e.textContent = v; };
+  var kooste = laskeJoukkueReviewKooste(P, nyt);
+  set('rev-myohassa', kooste.myohassa_n); set('rev-eraantymassa', kooste.eraantymassa_n); set('rev-ajantasalla', kooste.ajantasalla_n); set('rev-eireviewia', kooste.ei_reviewia_n);
+
+  // Suodattimet
+  var sf = document.getElementById('reviewSuodattimet');
+  if (sf) {
+    var btn = function(key, label){ return '<button onclick="_reviewSetStatus(\'' + key + '\')" style="padding:6px 13px;font-size:11px;border:.5px solid var(--border);border-radius:20px;cursor:pointer;background:' + (_reviewStatusF===key?'var(--teal)':'transparent') + ';color:' + (_reviewStatusF===key?'#fff':'var(--ink2)') + '">' + label + '</button>'; };
+    var jset = {}; P.forEach(function(p){ jset[p.joukkue || '—'] = 1; });
+    var jOpts = '<option value="">Kaikki joukkueet</option>' + Object.keys(jset).sort().map(function(j){ return '<option value="' + j.replace(/"/g, '') + '"' + (_reviewJoukkueF===j?' selected':'') + '>' + ly(j) + '</option>'; }).join('');
+    sf.innerHTML = btn('huomiota', 'Vaatii huomiota') + btn('ajantasalla', 'Ajan tasalla') + btn('ei_reviewia', 'Ei reviewia') + btn('kaikki', 'Kaikki')
+      + '<select onchange="_reviewSetJoukkue(this.value)" style="padding:6px 10px;font-size:11px;border:.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer">' + jOpts + '</select>';
+  }
+
+  // Joukkue-roll-up (on-time-%)
+  var jEl = document.getElementById('reviewJoukkueet');
+  if (jEl) {
+    var jMap = {}; P.forEach(function(p){ var j = p.joukkue || '—'; (jMap[j] = jMap[j] || []).push(p); });
+    var nimet = Object.keys(jMap).sort(function(a, b){ return joukkueJarjestys(a) - joukkueJarjestys(b); });
+    jEl.innerHTML = '<div class="rapport-section"><h3>Joukkueet</h3><div style="display:flex;flex-direction:column;gap:7px">'
+      + nimet.map(function(j){ var k = laskeJoukkueReviewKooste(jMap[j], nyt), pct = k.onTime_pct;
+          var col = pct==null ? 'var(--ink3)' : pct>=80 ? 'var(--teal)' : pct>=50 ? 'var(--amber)' : 'var(--red)';
+          return '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="flex:0 0 64px;color:var(--ink2)">' + ly(j) + '</span>'
+            + '<span style="flex:1;height:7px;border-radius:4px;background:var(--ov-2,rgba(255,255,255,.06));overflow:hidden"><span style="display:block;height:7px;width:' + (pct||0) + '%;background:' + col + '"></span></span>'
+            + '<span style="flex:0 0 96px;text-align:right;color:' + col + '">' + (pct!=null ? (pct + '% ajan tasalla') : '—') + '</span>'
+            + (k.myohassa_n ? '<span style="flex:0 0 auto;color:var(--red);font-size:10px">' + k.myohassa_n + ' myöh.</span>' : '') + '</div>'; }).join('')
+      + '</div></div>';
+  }
+
+  // Pelaajalista (myöhässä-ensin), suodatettuna
+  var lEl = document.getElementById('reviewLista');
+  if (lEl) {
+    var rows = P.map(function(p){ return { p: p, r: laskeReviewKadenssi(p, nyt) }; });
+    if (_reviewJoukkueF) rows = rows.filter(function(x){ return (x.p.joukkue || '—') === _reviewJoukkueF; });
+    if (_reviewStatusF === 'huomiota') rows = rows.filter(function(x){ return x.r.status==='myohassa' || x.r.status==='eraantymassa'; });
+    else if (_reviewStatusF === 'ajantasalla') rows = rows.filter(function(x){ return x.r.status==='ajantasalla'; });
+    else if (_reviewStatusF === 'ei_reviewia') rows = rows.filter(function(x){ return x.r.status==='ei_reviewia'; });
+    var ord = { myohassa:0, eraantymassa:1, ajantasalla:2, ei_reviewia:3 };
+    rows.sort(function(a, b){ if (ord[a.r.status] !== ord[b.r.status]) return ord[a.r.status] - ord[b.r.status]; return (b.r.ylimaaraPv==null?-9999:b.r.ylimaaraPv) - (a.r.ylimaaraPv==null?-9999:a.r.ylimaaraPv); });
+    var SM = { myohassa:'var(--red)', eraantymassa:'var(--amber)', ajantasalla:'var(--teal)', ei_reviewia:'var(--ink3)' };
+    lEl.innerHTML = '<div class="rapport-section"><h3>Pelaajat (' + rows.length + ')</h3>' + (rows.length ? rows.map(function(x){
+        var p = x.p, r = x.r, c = SM[r.status];
+        var nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id;
+        var info = r.status==='ei_reviewia' ? 'aloita →' : (r.status==='myohassa' ? ('erääntyi ' + r.eraantyyPvm + ' · ' + r.ylimaaraPv + ' pv yli') : ('erääntyy ' + r.eraantyyPvm));
+        return '<div onclick="_reviewAvaaMDT(\'' + String(p.id||'').replace(/['\\]/g, '') + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:.5px solid var(--border);cursor:pointer">'
+          + '<span style="flex:0 0 9px;width:9px;height:9px;border-radius:50%;background:' + c + '">' + (r.status==='ei_reviewia' ? '' : '') + '</span>'
+          + '<span style="flex:1;min-width:0;font-size:13px;color:var(--ink)">' + nimi + ' <span style="color:var(--ink3);font-size:11px">· ' + ly(p.joukkue||'') + '</span></span>'
+          + '<span style="flex:0 0 auto;font-size:11px;color:' + c + '">' + info + '</span>'
+          + (r.viimeisinPvm ? '<span style="flex:0 0 auto;font-size:10px;color:var(--ink3)">viim. ' + r.viimeisinPvm + '</span>' : '')
+          + '<span style="color:var(--teal)">→</span></div>'; }).join('')
+      : '<div style="padding:16px;color:var(--ink3);font-size:13px;text-align:center">Ei pelaajia tässä suodattimessa.</div>') + '</div>';
+  }
+}
+window.renderReviewit = renderReviewit;
 
 function renderRaportointi() {
   if (typeof _mdtTaytaPicker === 'function') _mdtTaytaPicker();   // P0b-1: MDT-pelaajavalitsin
@@ -6538,6 +6677,7 @@ window._onbToiminto = _onbToiminto; window._onbSeuraava = _onbSeuraava; window._
 function setWs(ws) {
   _currentWs = ws;
   if (ws === 'koti') renderKotiVP();
+  if (ws === 'reviewit' && typeof renderReviewit === 'function') renderReviewit();
   document.querySelectorAll('.tabbar-item[data-ws]').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
   document.getElementById('sidebar')?.classList.remove('auki');
   document.getElementById('sivupalkkiOverlay')?.classList.remove('auki');

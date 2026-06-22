@@ -20,6 +20,8 @@ const {
   laskeJoukkuePoikkeamat,
   laskeValmentajaKalibraatio,
   vanhempiRaporttiTekstit,
+  laskeReviewKadenssi,
+  laskeJoukkueReviewKooste,
   laskeD2HH,
   laskeD2Joustava,
   perTestTasot,
@@ -425,6 +427,37 @@ describe('vanhempiRaporttiTekstit (§7.22 SSOT)', () => {
     expect(/pihalla|hippa/i.test(t)).toBe(false);
     expect(/leikki/i.test(r.seuraavaAskel.teksti)).toBe(false);
     expect(/\d/.test(r.vahvuus.teksti + ' ' + r.seuraavaAskel.teksti)).toBe(false);   // ei numeroita
+  });
+});
+
+describe('laskeReviewKadenssi + laskeJoukkueReviewKooste', () => {
+  const NYT = new Date(2026, 5, 22).getTime();   // 2026-06-22
+  const isoN = (ms, dpv) => { const d = new Date(ms + dpv * 86400000); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  it('kaistaraja 11↔12 v (84 vs 42 pv)', () => {
+    expect(laskeReviewKadenssi({ syntymaVuosi: 2015, review_viimeisin_pvm: '2026-01-01' }, NYT).ikakaista).toBe(84);   // ikä 11
+    expect(laskeReviewKadenssi({ syntymaVuosi: 2014, review_viimeisin_pvm: '2026-01-01' }, NYT).ikakaista).toBe(42);   // ikä 12
+  });
+  it('myöhässä / erääntymässä / ajantasalla (ikä≥12, 42 pv)', () => {
+    expect(laskeReviewKadenssi({ syntymaVuosi: 2010, review_viimeisin_pvm: '2026-01-01' }, NYT).status).toBe('myohassa');
+    expect(laskeReviewKadenssi({ syntymaVuosi: 2010, review_viimeisin_pvm: isoN(NYT, -32) }, NYT).status).toBe('eraantymassa');   // erääntyy ~10 pv päästä
+    expect(laskeReviewKadenssi({ syntymaVuosi: 2010, review_viimeisin_pvm: isoN(NYT, -5) }, NYT).status).toBe('ajantasalla');
+  });
+  it('ei review_viimeisin_pvm → ei_reviewia', () => {
+    const r = laskeReviewKadenssi({ syntymaVuosi: 2010 }, NYT);
+    expect(r.status).toBe('ei_reviewia');
+    expect(r.eraantyyPvm).toBeNull();
+  });
+  it('roll-up: on-time-% arvioiduista, ei_reviewia erikseen', () => {
+    const team = [
+      { syntymaVuosi: 2010, review_viimeisin_pvm: isoN(NYT, -5) },   // ajantasalla
+      { syntymaVuosi: 2010, review_viimeisin_pvm: isoN(NYT, -5) },   // ajantasalla
+      { syntymaVuosi: 2010, review_viimeisin_pvm: '2026-01-01' },    // myöhässä
+      { syntymaVuosi: 2010 },                                         // ei_reviewia
+    ];
+    const k = laskeJoukkueReviewKooste(team, NYT);
+    expect(k.myohassa_n).toBe(1);
+    expect(k.ei_reviewia_n).toBe(1);
+    expect(k.onTime_pct).toBe(67);   // 2 / (2+0+1)
   });
 });
 

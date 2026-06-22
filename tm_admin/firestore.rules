@@ -293,6 +293,15 @@ service cloud.firestore {
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
 
+        // ── Reviewit — MDT-tarkistuskirjaukset (MDT_RAPORTTI / review-kadenssi) ──
+        // create/update: johto (VP/UTJ/seurasihteeri) + oman seuran valmentaja + SA. delete: vain SA.
+        // Pikakentät (review_viimeisin_pvm/-tyyppi) kirjoitetaan pelaaja-dokumenttiin → pelaajat-update-säännön piirissä.
+        match /reviewit/{reviewId} {
+          allow read:           if onSuperAdmin() || onOmaSeura(seuraId);
+          allow create, update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli()) || onOmanSeuranValmentaja(seuraId);
+          allow delete:         if onSuperAdmin();
+        }
+
         // ── Päivittäiset kirjaukset (T/D/S/P) ─────────────────────────────
         // PÄÄTÖS 1: jokaisessa kirjauksessa lahde-kenttä (valmentaja|pelaaja|vanhempi|vp|talenttivalmentaja).
         // PÄÄTÖS 2: VP + talenttivalmentaja (oma seura) saavat kirjata eksplisiittisesti (sisältyvät jo

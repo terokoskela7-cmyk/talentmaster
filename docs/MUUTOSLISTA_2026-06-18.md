@@ -53,7 +53,8 @@
 | ℹ️ | **`syntymaaika` täyttyy vanhempi-rekisteröinnistä** (suostumusflow), ei tuonnista — dry-run 2026-06-18: 500/530 ilman DOB:ta (tuonti tuo rosterin ilman syntymäaikaa). **RAE-näkyvyys (BQ, underdog, kalibraation RAE-bias) aktivoituu adoptionmyötä** kun huoltajat rekisteröivät. SJK-rekisteröinti käynnissä → RAE kasvaa siellä ensin. Ei erillistä korjausta — luonnollinen seuraus käyttöönotosta | adoptio-gate |
 | 🟢 | **RAE-backfill** (`rae_kvartaali` `syntymaaika`:sta) — `scripts/backfill_rae.js` idempotentti, dry-run tehty; vain 6 pelaajaa saisi (5 SJK + 1 KPV), loput ilman DOB:ta | apply suositeltu (6 dok) |
 | 🔴 | **FLEI → "Kehon valmius" -nimeämispassi** (julkinen kieli §14) — käyttäjä-UI:ssa raaka "FLEI" → "Kehon valmius"/"Valmius"; EN i18n "Readiness". Kenttänimet `flei_*` ennallaan. Vakiintunut urheilutieteen termi (readiness) | komento annettu |
-| 🟢 | **"FLEI null" -niki** (`renderRaportointi` talenttisuosituslista) → "—"/piiloon kun arvo puuttuu | pieni |
+| 🟢 | **"FLEI null" -niki** (`renderRaportointi` talenttisuosituslista) → "—"/piiloon kun arvo puuttuu | ✅ korjattu |
+| 🟡 | **"Lähetä pelaajasivu-linkki huoltajalle" -nappi epäonnistuu rekisteröimättömälle** (Seura.html, `lahetaPelaajaLinkki`→CF `lahetaPelaajaSivuLinkki`). Juurisyy: ei suostumusta/PINiä/auth-tiliä → reset-linkkiä ei voi muodostaa (+ §13 continueUrl 500-riski). **Korjaus: CF/UI antaa selkeän virheen ("pelaaja ei rekisteröitynyt — lähetä rekisteröintikutsu") sen sijaan että "ei toimi"** + continueUrl-varmistus. Diagnosoitu live 2026-06-18 (Joose Lehtinen SJK P16) | komento Codelle |
 | 🟡 | P1 — pituussuuntainen aikaikkuna (gate ≥2 mittausta) · "Arvioi harjoitus" un-stub | §30 |
 | 🟢 | P2 — governance-paketti · 5D→FA 4-corner -kartoitus · **VP:n oma arviointi** (benchmark §7) | longitudinaali |
 | 🟢 | Kalibrointi/MDT populoitu live-verifiointi kun monilähteistä dataa kertyy | data-gate |
