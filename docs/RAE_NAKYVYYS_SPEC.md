@@ -73,6 +73,8 @@ Hyväksytty mockup (4 pintaa) yhdistetään tähän speciin:
 
 **Vaiheistus (päivitetty):** Vaihe 1 = §3A–D + Pinta 4 (pelaajaviesti) + lib (`raeJoukkueJakauma` + `isUnderdog(p)`=Q4+dimensio≥3). Vaihe 2 = §3E (HoT-raportti) + Kalibraatiopaja-skenaariot + RAE-korjauksen kytkentä komposiittiin/OVR:ään kun se aktivoituu + Vanhempi-kehys.
 
+**ADAR Pikakortti — RAE-chip RAJATTU POIS (päätös 2026-06-23):** Pinta 2:n chip toteutettiin vain VP + Master (lib + `rae_kvartaali`-pikakenttä valmiina). ADAR jätettiin tietoisesti pois: (1) auktoritatiivinen spec ei listaa ADARia, (2) ADAR = standalone-tuote (STRATEGIA §1, integraatiot additiivisia), (3) ADAR on §15-bundler-snapshot joka EI lataa libiä eikä kanna `syntymaaika`/`rae_kvartaali`:a (`_pelaajaMap` = tunniste/nimi/joukkue) → vaatisi lib-bundlauksen + Firestore-luvun laajennuksen + template-patchin = Vaihe-2-kokoinen, ei näkyvyyspass. **Metodinen arvo on aito** (kenttähavainnoija ei saa aliarvioida Q4:ää, §2/§28) → kuuluu **ADAR-standalone-scopingiin** (STRATEGIA §1 avoin #5 "mitä ADAR-data näyttää… RAE-korjaus") jossa datamalli + bundler + auth ratkaistaan kerralla. EI väkisin Vaihe 1:een.
+
 ---
 
 ## 6. SEKVENSSI
