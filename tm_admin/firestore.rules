@@ -318,6 +318,17 @@ service cloud.firestore {
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
 
+        // ── Tavoitteet (IDP-tavoitteet, Vaihe 2 — docs/MDT_RAPORTTI_SPEC §0) — valmentaja kirjaa omille pelaajilleen ──
+        // read: SA | oma seura (VP/johto näkee kaikki, valmentaja oman joukkueen UI:ssa). create/update: SA |
+        // oman seuran valmentaja (joukkuerajaus UI-tasolla kuten havainnot; Rules rajaa oman seuran valmentajaan).
+        // delete: SA | johto. luotu-vartija A5. Pikakenttä tavoite_aktiivinen_kpl → pelaaja-dokumenttiin (pelaajat-update).
+        match /tavoitteet/{tavoiteId} {
+          allow read:   if onSuperAdmin() || onOmaSeura(seuraId);
+          allow create: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)) && luotuLuontiKelpaa();    // A5
+          allow update: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)) && luotuPaivitysKelpaa();   // A5
+          allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        }
+
         // ── Reviewit — MDT-tarkistuskirjaukset (MDT_RAPORTTI / review-kadenssi) ──
         // create/update: johto (VP/UTJ/seurasihteeri) + oman seuran valmentaja + SA. delete: vain SA.
         // Pikakentät (review_viimeisin_pvm/-tyyppi) kirjoitetaan pelaaja-dokumenttiin → pelaajat-update-säännön piirissä.

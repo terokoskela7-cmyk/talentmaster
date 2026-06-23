@@ -931,3 +931,79 @@ describe('P6 anon havainnot LISTEN (bugi-diagnoosi)', () => {
     await assertSucceeds(getDocs(q));
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAVOITTEET (IDP-tavoitteet, Vaihe 2 — docs/MDT_RAPORTTI_SPEC §0)
+//   oman seuran valmentaja RW · toisen seuran ei · SA RW · anon ei · luotu A5
+// ═══════════════════════════════════════════════════════════════════════════
+describe('Tavoitteet (IDP, Vaihe 2)', () => {
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+    // Seed yksi olemassa oleva tavoite (read/update-testeille)
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(
+        doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1'),
+        { teksti: '1v1-puolustaminen', tavoitepvm: '2026-08-01', tila: 'kaynnissa', valmentajaUid: VALM_A_UID, valmentajaNimi: 'Valm A', luotu: new Date() }
+      );
+    });
+  });
+
+  it('Oman seuran valmentaja LUO tavoitteen (create + luotu A5)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-new'),
+      { teksti: 'uusi tavoite', tila: 'kaynnissa', valmentajaUid: VALM_A_UID, luotu: new Date() }
+    ));
+  });
+
+  it('Oman seuran valmentaja LUKEE tavoitteen', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1')));
+  });
+
+  it('Oman seuran valmentaja PÄIVITTÄÄ tilan (luotu muuttumaton, A5)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1'), { tila: 'saavutettu' }));
+  });
+
+  it('Toisen seuran valmentaja EI luo tavoitetta seura A:han', async () => {
+    const db = valmentajaContext(VALM_B_UID, SEURA_B).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-x'),
+      { teksti: 'ei saa', tila: 'kaynnissa', luotu: new Date() }
+    ));
+  });
+
+  it('Toisen seuran valmentaja EI lue seura A:n tavoitetta', async () => {
+    const db = valmentajaContext(VALM_B_UID, SEURA_B).firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1')));
+  });
+
+  it('SA luo + lukee tavoitteen', async () => {
+    const db = saContext().firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-sa'),
+      { teksti: 'SA tavoite', tila: 'kaynnissa', luotu: new Date() }
+    ));
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-sa')));
+  });
+
+  it('Create ILMAN luotu-kenttää hylätään (A5)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-noluotu'),
+      { teksti: 'ei luotu-kenttää', tila: 'kaynnissa' }
+    ));
+  });
+
+  it('Anonyymi EI luo eikä lue tavoitetta', async () => {
+    const db = anonContext().firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-anon'),
+      { teksti: 'anon', tila: 'kaynnissa', luotu: new Date() }
+    ));
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1')));
+  });
+});

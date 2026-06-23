@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782207440738';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782212157849';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -5314,6 +5314,7 @@ function _renderPinfoFirestore(p) {
     ${_identHtml}
     ${lisaHtml}
     ${_reseptiHtml}
+    ${(typeof _prVoiNahda==='function' && _prVoiNahda(p)) ? '<div style="grid-column:1/-1;margin:0 0 10px"><button onclick="_avaaPelaajaraportti(\'' + p.id + '\')" style="background:var(--surface);border:.5px solid var(--teal);color:var(--teal);border-radius:7px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer">📋 Pelaajaraportti + tavoitteet</button></div>' : ''}
     ${stats.map(s=>`
       <div${s.title ? ` title="${s.title}"` : ''}${s.detalji ? ` class="pstat-klik" onclick="_avaaDetail('${s.detalji}')"` : ''}>
         <div class="pstat-lbl">${s.lbl}${s.detalji ? ' <span style="color:var(--teal)">→</span>' : ''}</div>
@@ -5325,6 +5326,145 @@ function _renderPinfoFirestore(p) {
     ${_d3Html}
     ${_sekHtml}`;
 }
+
+// ════════ PELAAJARAPORTTI (Valmentaja-skin) + TAVOITTEET — Vaihe 2 (docs/MDT_RAPORTTI_SPEC §0) ════════
+// Player-scoped modaali. Sisältö pikakentistä (§26), string concat (§7.1). §7.22 EI koske (valmentaja-pinta) —
+// tasoluvut OK, mutta tätä ei pusketa pelaajan/vanhemman näkymään. onclick → window-globaalit (§7.17).
+function _prEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// UI-rajaus: valmentaja oman joukkueen pelaajiin; SA/talenttivalmentaja/johto näkevät kaikki (joukkuerajaus
+// UI-tasolla kuten havainnot-malli; Firestore Rules rajaa oman seuran valmentajaan).
+window._prVoiNahda = function (p) {
+  if (!p) return false;
+  if (_superAdmin || _rooli === 'talenttivalmentaja' || _rooli === 'vp' || _rooli === 'urheilutoimenjohtaja') return true;
+  return !_joukkue || (p.joukkue || '') === _joukkue;
+};
+function _prChip(txt, vari, title){ return '<span title="' + _prEsc(title || '') + '" style="font-size:10px;padding:2px 9px;border-radius:20px;border:.5px solid ' + vari + ';color:' + vari + '">' + _prEsc(txt) + '</span>'; }
+function _prRivi(lbl, val){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0"><span style="color:var(--ink2)">' + _prEsc(lbl) + '</span><span style="color:var(--ink);font-family:var(--font-m,monospace)">' + _prEsc(val) + '</span></div>'; }
+function _prLahde(otsikko, ala, vari, sisalto){
+  return '<div style="border-top:3px solid ' + vari + ';background:var(--card);border-radius:8px;padding:10px 12px;margin-bottom:10px">'
+    + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:' + vari + ';margin-bottom:6px">' + otsikko + ' <span style="color:var(--ink3);font-weight:400;text-transform:none">· ' + ala + '</span></div>'
+    + sisalto + '</div>';
+}
+function _prRaporttiHTML(p){
+  var isp = (typeof _devIkaSp === 'function') ? _devIkaSp(p) : { ika: null };
+  var ika = (isp && isp.ika != null) ? (isp.ika + ' v') : '—';
+  var chips = [];
+  if (p.phv_tila){ var pv = { PRE:'var(--ink3)', LAH:'var(--blue)', PH:'var(--amber)', POST:'var(--teal)', AN:'var(--teal)' }[p.phv_tila] || 'var(--ink3)'; chips.push(_prChip((p.phv_tila === 'PH' ? '⚠ ' : '') + 'PHV ' + p.phv_tila, pv)); }
+  if (typeof raeChip === 'function'){ var rc = raeChip(p); if (rc.q){ var qv = rc.q === 'Q1' ? 'var(--amber)' : rc.q === 'Q4' ? 'var(--teal)' : 'var(--ink3)'; chips.push(_prChip(rc.q + ' synt.', qv)); if (rc.underdog) chips.push(_prChip('⭐ Underdog', 'var(--teal)')); } }
+  var header = '<div style="margin-bottom:12px">'
+    + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink);line-height:1.1">' + _prEsc((p.etunimi || '') + ' ' + (p.sukunimi || '')) + '</div>'
+    + '<div style="font-size:12px;color:var(--ink2);margin:3px 0 6px">' + _prEsc(p.joukkue || _joukkue || '—') + ' · ' + ika + (p.pelipaikka ? (' · ' + _prEsc(p.pelipaikka)) : '') + '</div>'
+    + (chips.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap">' + chips.join('') + '</div>' : '')
+    + '</div>';
+  function nv(x){ return (x == null || x === '') ? '—' : x; }
+  var mittaus = _prRivi('Kehon valmius', nv(p.flei_viimeisin))
+    + _prRivi('Tekniikka (TKI)', nv(p.tki_viimeisin))
+    + _prRivi('Fyysinen (H-H)', p.hh_taso != null ? (p.hh_taso + '/5') : '—')
+    + _prRivi('D1 taso', p.d1_taso != null ? (p.d1_taso + '/5') : '—')
+    + _prRivi('D2 taso', p.d2_taso != null ? (p.d2_taso + '/5') : '—');
+  var ottelu = '<div style="font-size:12px;color:var(--ink3)">Ei dataa</div>';   // TASO-pelidata ei vielä integroitu Masteriin
+  var adar = p.adar_viimeisin;
+  var pelihav = (adar && adar.yht != null)
+    ? (_prRivi('ADAR-kokonaisuus', adar.yht) + _prRivi('Havaintoja', nv(p.adar_havaintoja)))
+    : '<div style="font-size:12px;color:var(--ink3)">Ei dataa</div>';
+  var lahteet = _prLahde('Mittaus', 'objektiivinen', 'var(--teal)', mittaus)
+    + _prLahde('Ottelu', 'pelisuoritus', 'var(--amber)', ottelu)
+    + _prLahde('Pelihavainto', 'subjektiivinen', 'var(--blue)', pelihav);
+  var resepti = p.tki_kehityskohde
+    ? ('Seuraavan harjoituksen painopiste: <b>' + _prEsc(p.tki_kehityskohde) + '</b>')
+    : 'Aseta kehityskohde nähdäksesi harjoitusreseptin.';
+  var vkr = '<div style="border:.5px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">'
+    + '<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b style="color:var(--teal)">Vahvuus:</b> ' + (p.tki_vahvuus ? _prEsc(p.tki_vahvuus) : '—') + '</div>'
+    + '<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b style="color:var(--amber)">Kehityskohde:</b> ' + (p.tki_kehityskohde ? _prEsc(p.tki_kehityskohde) : '—') + '</div>'
+    + '<div style="font-size:12px;color:var(--ink2)"><b>Resepti:</b> ' + resepti + '</div></div>';
+  return header + lahteet + vkr;
+}
+window._avaaPelaajaraportti = function (pid){
+  var p = (_pelaajatData || []).find(function (x){ return x.id === pid; });
+  if (!p){ if (typeof toast === 'function') toast('Pelaajaa ei löydy', 'error'); return; }
+  if (!window._prVoiNahda(p)){ if (typeof toast === 'function') toast('Ei oikeutta tähän pelaajaan', 'error'); return; }
+  var vanha = document.getElementById('prModal'); if (vanha) vanha.remove();
+  var m = document.createElement('div'); m.id = 'prModal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto';
+  m.onclick = function (e){ if (e.target === m) window._prSulje(); };
+  var goals = '<div style="margin-top:14px;border-top:.5px solid var(--border);padding-top:12px">'
+    + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2);margin-bottom:8px">Tavoitteet</div>'
+    + '<div id="prTavoitteet" style="margin-bottom:10px"><div style="font-size:12px;color:var(--ink3)">Ladataan…</div></div>'
+    + '<textarea id="prTavoiteTeksti" maxlength="300" rows="2" placeholder="Uusi tavoite pelaajalle…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:7px;background:var(--surface);color:var(--ink);font-size:13px;resize:vertical"></textarea>'
+    + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">'
+    + '<label style="font-size:11px;color:var(--ink3)">Tavoitepvm <input type="date" id="prTavoitePvm" style="padding:6px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:12px"></label>'
+    + '<button onclick="_prTallennaTavoite(\'' + pid + '\')" id="prTavoiteBtn" style="margin-left:auto;background:var(--teal);color:#fff;border:none;border-radius:7px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer">Tallenna tavoite</button>'
+    + '</div></div>';
+  m.innerHTML = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;width:min(640px,96vw);padding:20px 22px;margin:auto">'
+    + '<div style="display:flex;justify-content:flex-end"><button onclick="_prSulje()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer;line-height:1">×</button></div>'
+    + _prRaporttiHTML(p) + goals + '</div>';
+  document.body.appendChild(m);
+  window._prLataaTavoitteet(pid);
+};
+window._prSulje = function (){ var m = document.getElementById('prModal'); if (m) m.remove(); };
+function _prTilaBadge(tila){
+  var map = { kaynnissa:['Käynnissä','var(--amber)'], saavutettu:['Saavutettu','var(--teal)'], kesken:['Kesken','var(--ink3)'] };
+  var x = map[tila] || map.kaynnissa;
+  return '<span style="font-size:10px;padding:2px 8px;border-radius:20px;border:.5px solid ' + x[1] + ';color:' + x[1] + '">' + x[0] + '</span>';
+}
+window._prLataaTavoitteet = async function (pid){
+  var cont = document.getElementById('prTavoitteet'); if (!cont) return;
+  try {
+    var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).collection('tavoitteet').get();
+    var rows = []; snap.forEach(function (d){ rows.push(Object.assign({ id: d.id }, d.data())); });
+    rows.sort(function (a, b){ return ((b.luotu && b.luotu.seconds) || 0) - ((a.luotu && a.luotu.seconds) || 0); });
+    if (!rows.length){ cont.innerHTML = '<div style="font-size:12px;color:var(--ink3)">Ei tavoitteita vielä.</div>'; return; }
+    cont.innerHTML = rows.map(function (t){
+      var sel = ['kaynnissa', 'saavutettu', 'kesken'].map(function (s){ return '<option value="' + s + '"' + (t.tila === s ? ' selected' : '') + '>' + ({ kaynnissa:'Käynnissä', saavutettu:'Saavutettu', kesken:'Kesken' }[s]) + '</option>'; }).join('');
+      return '<div style="border:.5px solid var(--border);border-radius:7px;padding:8px 10px;margin-bottom:6px">'
+        + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:13px;color:var(--ink);flex:1">' + _prEsc(t.teksti || '') + '</span>' + _prTilaBadge(t.tila) + '</div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:5px">'
+        + '<span style="font-size:10px;color:var(--ink3)">' + (t.tavoitepvm ? ('Tavoite ' + _prEsc(t.tavoitepvm)) : '') + (t.valmentajaNimi ? (' · ' + _prEsc(t.valmentajaNimi)) : '') + '</span>'
+        + '<select onchange="_prVaihdaTila(\'' + pid + '\',\'' + t.id + '\',this.value)" style="font-size:11px;padding:3px 6px;border:.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--ink2)">' + sel + '</select>'
+        + '</div></div>';
+    }).join('');
+  } catch (e){ cont.innerHTML = '<div style="font-size:12px;color:var(--red)">Tavoitteiden lataus epäonnistui.</div>'; }
+};
+// Pikakenttä tavoite_aktiivinen_kpl = count(tila==='kaynnissa') → pelaajadokumenttiin (§26).
+async function _prPaivitaAktiiviset(pid){
+  var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).collection('tavoitteet').get();
+  var n = 0; snap.forEach(function (d){ if (((d.data() || {}).tila) === 'kaynnissa') n++; });
+  await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ tavoite_aktiivinen_kpl: n }, { merge: true });
+  var lp = (_pelaajatData || []).find(function (x){ return x.id === pid; }); if (lp) lp.tavoite_aktiivinen_kpl = n;
+  return n;
+}
+window._prTallennaTavoite = async function (pid){
+  var ta = document.getElementById('prTavoiteTeksti'), pe = document.getElementById('prTavoitePvm'), btn = document.getElementById('prTavoiteBtn');
+  var teksti = ((ta && ta.value) || '').trim();
+  if (!teksti){ if (typeof toast === 'function') toast('Kirjoita tavoite ensin', 'error'); return; }
+  if (!_seuraId){ if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
+  if (btn){ btn.disabled = true; btn.textContent = 'Tallennetaan…'; }
+  try {
+    var cu = _auth.currentUser; if (cu) await cu.getIdToken(true);   // §7.2
+    var vNimi = (window._valmentajaData ? (((_valmentajaData.etunimi || '') + ' ' + (_valmentajaData.sukunimi || '')).trim()) : '') || 'Valmentaja';
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).collection('tavoitteet').add({
+      teksti: teksti,
+      tavoitepvm: (pe && pe.value) || null,
+      tila: 'kaynnissa',
+      valmentajaUid: _uid || (cu ? cu.uid : null),
+      valmentajaNimi: vNimi,
+      luotu: firebase.firestore.FieldValue.serverTimestamp()   // §A5: serverTimestamp, ei array
+    });
+    await _prPaivitaAktiiviset(pid);
+    if (ta) ta.value = ''; if (pe) pe.value = '';
+    if (typeof toast === 'function') toast('✓ Tavoite tallennettu', 'ok');
+    window._prLataaTavoitteet(pid);
+  } catch (e){ if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
+  if (btn){ btn.disabled = false; btn.textContent = 'Tallenna tavoite'; }
+};
+window._prVaihdaTila = async function (pid, tid, tila){
+  try {
+    var cu = _auth.currentUser; if (cu) await cu.getIdToken(true);
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).collection('tavoitteet').doc(tid).update({ tila: tila });
+    await _prPaivitaAktiiviset(pid);
+    window._prLataaTavoitteet(pid);
+  } catch (e){ if (typeof toast === 'function') toast('Päivitys epäonnistui', 'error'); }
+};
 
 function _renderPlayerPicker() {
   const el = document.getElementById('playerPicker');
