@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Perhe v1</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782222686818';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782223934374';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'vanhempi'};</script>
@@ -91,6 +91,29 @@ body.demo-mode #devChrome{display:block}
 /* Live-tila */
 .live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#28B090;animation:heartbeat 2s ease infinite;margin-right:6px}
 .toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:9999;padding:11px 18px;background:rgba(26,122,94,.95);color:#fff;border-radius:22px;font-size:12px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:fadeUp .3s ease}
+
+/* ── Tervetulo-overlay (Aloita tästä, Vaihe 2) — slide-in transformilla (§6: ei display:none-bugia) ── */
+.vth-ov{position:fixed;inset:0;z-index:9500;background:rgba(6,9,15,.78);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .3s ease}
+.vth-ov.vth-auki{opacity:1}
+.vth-panel{background:var(--bg2);border:1px solid rgba(40,176,144,.35);border-radius:18px 18px 0 0;width:100%;max-width:480px;padding:22px 20px 26px;transform:translateY(100%);transition:transform .34s cubic-bezier(.34,1.4,.5,1);max-height:92vh;overflow-y:auto}
+.vth-ov.vth-auki .vth-panel{transform:translateY(0)}
+.vth-otsikko{font-family:'Cormorant Garamond',serif;font-size:25px;color:var(--text);margin-bottom:8px}
+.vth-johdanto{font-size:14px;color:var(--text);line-height:1.5;margin-bottom:14px}
+.vth-kultainen{background:rgba(224,160,64,.1);border:.5px solid rgba(224,160,64,.4);border-radius:12px;padding:13px 15px;font-size:13px;color:var(--text);line-height:1.5;margin-bottom:16px}
+.vth-kultainen b{color:#E0A040}
+.vth-listaots{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px}
+.vth-rivi{display:flex;align-items:center;gap:12px;width:100%;background:var(--surface);border:.5px solid var(--border2);border-radius:10px;padding:13px 14px;margin-bottom:8px;cursor:pointer;text-align:left;color:var(--text)}
+.vth-tick{flex-shrink:0;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ink3);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--ink3)}
+.vth-tick.vth-on{background:var(--teal-d);border-color:var(--teal-d);color:#fff}
+.vth-rivi-txt{flex:1;font-size:13.5px;line-height:1.35}
+.vth-arrow{color:var(--ink3);font-size:18px}
+.vth-napit{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.vth-selva{width:100%;background:var(--teal-d);color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;min-height:44px}
+.vth-ohita{width:100%;background:transparent;color:var(--ink2);border:none;padding:8px;font-size:13px;cursor:pointer;min-height:44px}
+@media(max-width:768px){
+  .vth-panel{max-width:100%;border-radius:16px 16px 0 0}
+  .vth-otsikko{font-size:23px}
+}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
@@ -460,6 +483,7 @@ function rKoti(){
 
   ${_age==='u12'?_kotiU12(d):_age==='u15'?_kotiU15(d):_kotiU19(d)}
 
+  <div style="text-align:center;margin:18px 0 4px"><button onclick="_naytaVanhOpasUudelleen()" style="background:none;border:none;color:var(--ink3);font-size:12px;cursor:pointer;text-decoration:underline;font-family:inherit">📘 Näytä opas uudelleen</button></div>
 </div>`;
 }
 
@@ -1271,6 +1295,60 @@ try {
   console.warn('[VanA Firebase]', e.message);
 }
 
+/* ══════════════════════════════════════════════════════════
+   Tervetulo-overlay (Aloita tästä, Vaihe 2/Vanhempi) — lämmin sävy (§7.22/§34).
+   Sisältö: johdanto + kultainen sääntö + kevyt "Näin olet mukana" -lista (klikattava → vie näkymään).
+   EI tasoja/lukuja/vertailua. Gating: localStorage tm_vanhempi_aloitettu_<pelaajaId>. String concat §7.1.
+══════════════════════════════════════════════════════════ */
+function _vthEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function _vthAvain(){
+  var L = window._lapsi || {};
+  var qs = new URLSearchParams(location.search);
+  var pid = L.uid || L.id || qs.get('pelaajaId') || qs.get('uid') || L.pin || '';
+  return pid ? ('tm_vanhempi_aloitettu_' + pid) : '';
+}
+function _naytaVanhTervetulo(){
+  var L = window._lapsi; if (!L) return;
+  var avain = _vthAvain(); if (!avain) return;
+  try { if (localStorage.getItem(avain)) return; } catch (e) { return; }
+  if (document.getElementById('vanhTervetuloOv')) return;
+  var nimi = _vthEsc(L.etunimi || '');
+  var gen = (nimi && typeof _genetiivi === 'function') ? _vthEsc(_genetiivi(L.etunimi)) : (nimi || 'lapsesi');
+  var alle13 = (_age === 'u12');   // Kirjaa-kohta vain alle 13-vuotiaan vanhemmalle
+  var kehuTehty = (typeof _kehuLahetetty !== 'undefined' && _kehuLahetetty === true);
+  var kirjausTehty = (typeof _viimeisinKirjaus !== 'undefined' && !!_viimeisinKirjaus);
+  function tick(done){ return done ? '<span class="vth-tick vth-on">✓</span>' : '<span class="vth-tick">○</span>'; }
+  function rivi(done, txt, nakyma){ return '<button class="vth-rivi" onclick="_vthMene(\'' + nakyma + '\')">' + tick(done) + '<span class="vth-rivi-txt">' + txt + '</span><span class="vth-arrow">›</span></button>'; }
+  var lista = rivi(kehuTehty, 'Lähetä ' + (nimi ? (nimi + 'lle') : 'lapsellesi') + ' ensimmäinen kehu', 'koti')
+    + rivi(false, 'Katso kortti + "miten tukea kotona"', 'kortti')
+    + rivi(false, 'Lue valmentajan viestit', 'valmentaja')
+    + (alle13 ? rivi(kirjausTehty, 'Kirjaa ' + gen + ' treeni', 'kirjaa') : '');
+  var ov = document.createElement('div');
+  ov.id = 'vanhTervetuloOv'; ov.className = 'vth-ov';
+  ov.onclick = function (e){ if (e.target === ov) window._suljeVanhTervetulo(); };
+  ov.innerHTML = '<div class="vth-panel" role="dialog" aria-label="Tervetuloa">'
+    + '<div class="vth-otsikko">Hei! 👋</div>'
+    + '<div class="vth-johdanto">Olet osa ' + gen + ' kehitystiimiä. Roolisi on tukea ja kannustaa — sovellus hoitaa mittaamisen.</div>'
+    + '<div class="vth-kultainen">⭐ <b>Kultainen sääntö:</b> Kehu yrittämistä, älä tulosta. Vertaa lasta vain häneen itseensä — ei kavereihin.</div>'
+    + '<div class="vth-listaots">Näin olet mukana</div>'
+    + lista
+    + '<div class="vth-napit"><button class="vth-selva" onclick="_suljeVanhTervetulo()">Selvä!</button><button class="vth-ohita" onclick="_suljeVanhTervetulo()">Ohita</button></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  requestAnimationFrame(function (){ ov.classList.add('vth-auki'); });   // slide-in (ei display:none-bugi §6)
+}
+window._vthMene = function (nakyma){ window._suljeVanhTervetulo(); if (typeof go === 'function') go(nakyma); };
+window._suljeVanhTervetulo = function (){
+  var avain = _vthAvain(); try { if (avain) localStorage.setItem(avain, '1'); } catch (e) {}
+  var ov = document.getElementById('vanhTervetuloOv');
+  if (ov){ ov.classList.remove('vth-auki'); setTimeout(function (){ if (ov.parentNode) ov.remove(); }, 320); }
+};
+window._naytaVanhOpasUudelleen = function (){
+  var avain = _vthAvain(); try { if (avain) localStorage.removeItem(avain); } catch (e) {}
+  var ov = document.getElementById('vanhTervetuloOv'); if (ov && ov.parentNode) ov.remove();
+  _naytaVanhTervetulo();
+};
+
 /* ── P3/Bug2: käsittele ladattu pelaajadokumentti (nimi/ryhmä/hero + synttäri) ──
    Ajetaan AINA kun lapsi on ladattu — sekä suoralla uid-reitillä että huoltajaEmail-haulla. */
 function _kasitteleLapsi(lapsi) {
@@ -1289,6 +1367,8 @@ function _kasitteleLapsi(lapsi) {
   };
   setAge(_age);
   draw();
+  // Vaihe 2 — tervetulo-overlay ensimmäisellä kirjautumisella (localStorage-gating, §7.22/§34-turvallinen).
+  setTimeout(function () { _naytaVanhTervetulo(); }, 500);
   // ── Syntymäpäiväviesti vanhemmalle — synttäri TÄLLÄ VIIKOLLA (ma–su) ──
   if (lapsi.syntymaaika) {
     const syn = lapsi.syntymaaika.toDate ? lapsi.syntymaaika.toDate() : new Date(lapsi.syntymaaika);
