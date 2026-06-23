@@ -3,12 +3,9 @@ rules_version = '2';
 // ════════════════════════════════════════════════════════════════════════════
 // TalentMaster™ — Firebase Storage Rules (Console-deploy: Firebase Console → Storage → Rules).
 //
-// ⚠️ TÄRKEÄ — RECONCILIOI ENNEN JULKAISUA:
-//   Live-Storage-ruleset EI ole aiemmin ollut repossa. Tämä tiedosto on KANONINEN LÄHTÖKOHTA, joka sisältää:
-//     (1) Reflektiopäiväkirja-äänet (Vaihe 2.3b-1, UUSI) ja
-//     (2) ADAR Vision -median (§15) REKONSTRUKTIO Console-säännöistä.
-//   VARMISTA että ADAR Vision -median (seurat/{sid}/havainnot/...) nykyinen sääntö säilyy
-//   ennen julkaisua — vertaa elävään rulesetiin äläkä korvaa sokeasti jos polut/ehdot eroavat.
+// ✅ REKONSILIOITU elävään rulesetiin 2026-06-23 — EI ENÄÄ rekonstruktio; repo = totuus.
+//   Sisältö: (1) Reflektiopäiväkirja-äänet (Vaihe 2.3b-1) · (2) ADAR Vision -media (§15, elävä sääntö)
+//   · (3) Brändi-logo (white-label Vaihe 3A). Muutokset deployataan Consolesta (ei automaattisesti).
 //
 // Region: europe-west1 (CLAUDE.md §2). SA-claim epäjohdonmukaisuus (§12): rooli voi olla
 // 'super_admin' TAI 'superadmin' → tarkistetaan molemmat.
@@ -34,13 +31,16 @@ service firebase.storage {
       allow delete: if request.auth != null && (request.auth.uid == uid || onSuperAdmin());
     }
 
-    // ── ADAR Vision -media (§15) — REKONSTRUKTIO: seurat/{sid}/havainnot/{hid}/media_*.jpg ──
-    // Kirjoittaa oman seuran valmentaja (custom claim seuraId). Säilytä elävän rulesetin mukaisena.
+    // ── ADAR Vision -media (§15) — elävä sääntö: seurat/{sid}/havainnot/{hid}/media_*.jpg ──
+    // read: oma seura (seuraId-claim) TAI SA. write: oman seuran valmentaja-roolit (valmentaja/vp/UTJ/
+    // talentti/fysiikka) TAI SA; image/(jpeg|jpg|png|webp) + kokokatto 10 MB.
     match /seurat/{sid}/havainnot/{hid}/{file=**} {
-      allow read:  if request.auth != null;
+      allow read:  if request.auth != null && (onSuperAdmin() || request.auth.token.seuraId == sid);
       allow write: if request.auth != null
-                   && (onSuperAdmin() || request.auth.token.seuraId == sid)
-                   && request.resource.contentType.matches('image/.*');
+                   && (onSuperAdmin() || (request.auth.token.seuraId == sid
+                       && request.auth.token.rooli in ['valmentaja', 'vp', 'urheilutoimenjohtaja', 'talenttivalmentaja', 'fysiikkavalmentaja']))
+                   && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)')
+                   && request.resource.size < 10 * 1024 * 1024;
     }
 
     // ── Brändi-logo (white-label Vaihe 3A) — seuran logo harjoitusarviointi-artefakteihin ──
