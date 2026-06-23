@@ -1199,13 +1199,7 @@ body {
 .data-puuttuu { color:var(--ink3); opacity:.4; font-size:13px; }
 .rivi-osittainen .data-puuttuu { opacity:.25; }
 .rivi-ei-dataa { opacity:.4; }
-.bq-palkki { display:flex; height:6px; border-radius:3px; overflow:hidden; width:80px; margin-bottom:3px; }
-.bq-palkki .bq-seg.q1 { background:#8A2B2B; }
-.bq-palkki .bq-seg.q2 { background:#7A5A10; }
-.bq-palkki .bq-seg.q3 { background:rgba(26,122,94,.35); }
-.bq-palkki .bq-seg.q4 { background:#1A7A5E; }
-.bq-teksti { font-size:10px; color:var(--ink3); font-family:var(--font-mono); }
-.rae-varoitus { font-size:10px; color:var(--amber); margin-left:6px; }
+/* .bq-palkki/.bq-seg/.bq-teksti/.rae-varoitus poistettu — renderBQPalkki (ainoa käyttäjä) poistettu kuolleena koodina. */
 .valmentaja-nimi { font-size:13px; color:var(--ink2); }
 /* TKI-benchmark: tasomerkit + selite */
 .taso-badge { font-size:10px; padding:2px 7px; border-radius:3px; font-weight:500; white-space:nowrap; font-family:var(--font-m); }
@@ -7611,44 +7605,10 @@ function toast(msg, type='ok', dur=3000) {
 }
 
 
-// ─── SPRINT 3: RAE/BQ-LASKENTA (Morganti 2025) ────────────
-// BQ = Birth Quartile pelaajan syntymäkuukaudesta:
-//   1-3=Q1, 4-6=Q2, 7-9=Q3, 10-12=Q4
-// Lähde: syntymaaika (Timestamp) → kuukausi
-// Fallback: syntymakuukausi (number) → suoraan kuukausi
-function laskeBQ(p) {
-  if (!p) return null;
-  let kk = null;
-  if (typeof p.syntymakuukausi === 'number') kk = p.syntymakuukausi;
-  else if (p.syntymaaika) {
-    try {
-      const d = p.syntymaaika.toDate ? p.syntymaaika.toDate() : new Date(p.syntymaaika);
-      if (!isNaN(d.getTime())) kk = d.getMonth() + 1;
-    } catch(e) { /* fallthrough */ }
-  }
-  if (kk === null || kk < 1 || kk > 12) return null;
-  if (kk <= 3)  return 1;
-  if (kk <= 6)  return 2;
-  if (kk <= 9)  return 3;
-  return 4;
-}
-
-function laskeBQJakauma(pelaajat) {
-  let q = [0, 0, 0, 0];
-  let n = 0;
-  pelaajat.forEach(p => {
-    const bq = laskeBQ(p);
-    if (bq) { q[bq-1]++; n++; }
-  });
-  if (n === 0) return { q1Pct:25, q2Pct:25, q3Pct:25, q4Pct:25, n:0 };
-  return {
-    q1Pct: Math.round(q[0] / n * 100),
-    q2Pct: Math.round(q[1] / n * 100),
-    q3Pct: Math.round(q[2] / n * 100),
-    q4Pct: Math.round(q[3] / n * 100),
-    n: n
-  };
-}
+// ─── RAE/BQ-LASKENTA — KONSOLIDOITU lib:n yhteen lähteeseen (2026-06-23) ────────────
+// Aiemmat laskeBQ/laskeBQJakauma (lukivat syntymakuukausi/syntymaaika suoraan, EIVÄT
+// rae_kvartaali-pikakenttää → toinen totuuslähde) poistettu kuolleena koodina — kumpaakaan
+// ei kutsuttu missään. Kanoninen lähde: raeChip(p) / raeJoukkueJakauma(pelaajat) (lib §26).
 
 // Per-mittari suunta joukkueelle flei_historiasta (kenttä 'flei' tai 'tki').
 // Vertaa joukkueen keskiarvon muutosta (viimeisin vs edellinen). ≥2 mittausta vaaditaan.
@@ -8594,20 +8554,8 @@ window._tallennaVpToimenpide = async function(id) {
   } catch (e) { console.warn('[muokkaa-tallenna]', e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'err'); }
 };
 
-// BQ-palkki taulukkoon — käyttää laskeBQJakauma-kenttiä (q1Pct..q4Pct + n). Piilotetaan jos <50 % syntymäaika.
-function renderBQPalkki(bq, kattavuus) {
-  if (!bq || kattavuus < 0.5) {
-    return '<span class="data-puuttuu" title="Syntymäaika puuttuu">—</span>';
-  }
-  const rae = bq.q1Pct > 40 ? '<span class="rae-varoitus">⚠ RAE</span>' : '';
-  return '<div class="bq-palkki" title="Q1 ' + bq.q1Pct + '% · Q2 ' + bq.q2Pct + '% · Q3 ' + bq.q3Pct + '% · Q4 ' + bq.q4Pct + '%">' +
-      '<div class="bq-seg q1" style="width:' + bq.q1Pct + '%"></div>' +
-      '<div class="bq-seg q2" style="width:' + bq.q2Pct + '%"></div>' +
-      '<div class="bq-seg q3" style="width:' + bq.q3Pct + '%"></div>' +
-      '<div class="bq-seg q4" style="width:' + bq.q4Pct + '%"></div>' +
-    '</div>' +
-    '<div class="bq-teksti">Q1 ' + bq.q1Pct + '% · Q4 ' + bq.q4Pct + '%' + rae + '</div>';
-}
+// renderBQPalkki poistettu (kuollutta koodia, kulutti poistettua laskeBQJakauma:aa).
+// BQ-näkyvyys hoituu lib-pohjaisesti: _vpRaeChip (chip) + _vpRaeRakenneHTML (joukkuejakauma).
 
 // ─── PELAAJASUODATTIMET ──────────────────────────────────
 let _activeFilter = 'kaikki';
