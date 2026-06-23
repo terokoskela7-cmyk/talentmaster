@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalentMaster™ — Admin</title>
 <script>/* §33 Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782243868048';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782245635897';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -2757,7 +2757,7 @@ async function lahetaAdminMassakutsu() {
   if (nappi) { nappi.disabled = true; nappi.textContent = 'Tallennetaan pelaajia...'; }
   if (progress) progress.style.display = '';
 
-  let onnistui = 0, ohitettu = 0, virheita = 0;
+  let onnistui = 0, ohitettu = 0, virheita = 0, suostumusSailytetty = 0;
 
   for (let i = 0; i < _adminMassaData.length; i++) {
     const p = _adminMassaData[i];
@@ -2798,8 +2798,15 @@ async function lahetaAdminMassakutsu() {
       };
 
       if (olemassaDoc) {
-        // Päivitä olemassa oleva pelaaja
-        await olemassaDoc.ref.update(pelaajaData);
+        // Päivitä olemassa oleva pelaaja — §33 onboarding-integriteetti: re-import EI saa nollata
+        // jo annettua suostumusta ('annettu' → 'odottaa'). Säilytä nykyinen status jos jo annettu.
+        const _ex = (olemassaDoc.data && olemassaDoc.data()) || {};
+        const _paivitys = Object.assign({}, pelaajaData);
+        if (_ex.suostumusTila === 'annettu' || (_ex.suostumus && _ex.suostumus.annettu)) {
+          delete _paivitys.suostumusTila;   // älä ylikirjoita annettua
+          suostumusSailytetty++;
+        }
+        await olemassaDoc.ref.update(_paivitys);
         if (tbody?.rows[i]) {
           tbody.rows[i].cells[4].innerHTML = '<span style="color:var(--teal)">✓ Päivitetty</span>';
         }
@@ -2825,6 +2832,7 @@ async function lahetaAdminMassakutsu() {
     `✅ Valmis! ${onnistui} pelaajaa tallennettu` +
     (ohitettu  ? `, ${ohitettu} ohitettu`  : '') +
     (virheita  ? `, ${virheita} virhettä`   : '') +
+    (suostumusSailytetty ? `, ${suostumusSailytetty} suostumus säilytetty` : '') +
     ` — Suostumuspyynnöt lähetetään erikseen myöhemmin.`;
 
   if (nappi) { nappi.textContent = `✅ ${onnistui} pelaajaa tallennettu`; }

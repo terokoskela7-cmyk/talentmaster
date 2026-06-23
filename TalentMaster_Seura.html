@@ -3169,14 +3169,15 @@ async function lahetaRekisteriSahkoposti() {
         naytaToast(`✅ Pelaaja luotu — PIN: ${pin}`, 'ok');
         console.log(`[TM] Pelaaja ${etunimi} ${sukunimi} luotu, PalloID: ${palloIdArvo}`);
       } else {
-        // Päivitetään olemassa oleva dokumentti
+        // Päivitetään olemassa oleva dokumentti — §33: EI saa alentaa jo annettua suostumusta.
+        const _exSnap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get();
+        const _ex = _exSnap.exists ? (_exSnap.data() || {}) : {};
+        const _joAnnettu = _ex.suostumusTila === 'annettu' || !!(_ex.suostumus && _ex.suostumus.annettu);
+        const _upd = { joukkue: joukkue || '', muokattu: firebase.firestore.FieldValue.serverTimestamp() };
+        if (!_joAnnettu) _upd.suostumusTila = 'odottaa';   // vain jos ei jo annettu — älä nollata
         await db.collection('seurat').doc(tila.seuraId)
           .collection('pelaajat').doc(pelaajaId)
-          .update({
-            joukkue:       joukkue || '',
-            suostumusTila: 'odottaa',
-            muokattu:      firebase.firestore.FieldValue.serverTimestamp(),
-          }).catch(() => {});
+          .update(_upd).catch(() => {});
       }
       // Päivitetään kutsulinkkiin pelaajaId
       const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
@@ -5050,6 +5051,7 @@ async function lahetaMassakutsu() {
   let epaonnistui = 0;
   let sahkopostiOk = 0;
   let sahkopostiVirhe = 0;
+  let ohitettuSuostumus = 0;   // §33 onboarding-integriteetti: jo 'annettu' → status säilytetään (ei nollata)
 
   for (let i = 0; i < _massakutsuData.length; i++) {
     const p = _massakutsuData[i];
@@ -5106,8 +5108,12 @@ async function lahetaMassakutsu() {
         mailOk = true;
         sahkopostiOk++;
         await kutsuRef.update({ tila: 'lahetetty', lahetetty: firebase.firestore.FieldValue.serverTimestamp() });
-        // Päivitetään pelaajan suostumusTila → 'odottaa' (kutsu lähetetty)
-        if (p.pelaajaId && p.suostumusTila !== 'odottaa') {
+        // §33 onboarding-integriteetti — ÄLÄ alenna jo annettua suostumusta (todettu tuotannossa:
+        // kutsu nollasi annetun). Warn-not-block: status säilytetään, operaattori näkee ohitetun yhteenvedosta.
+        const _joAnnettu = (p.suostumusTila === 'annettu') || !!(p.suostumus && p.suostumus.annettu);
+        if (_joAnnettu) {
+          ohitettuSuostumus++;
+        } else if (p.pelaajaId && p.suostumusTila !== 'odottaa') {
           try {
             await db.collection('seurat').doc(tila.seuraId)
               .collection('pelaajat').doc(p.pelaajaId)
@@ -5143,6 +5149,7 @@ async function lahetaMassakutsu() {
   if (sahkopostiOk > 0)    viestiOsat.push(sahkopostiOk + ' sähköpostia lähetetty');
   if (sahkopostiVirhe > 0) viestiOsat.push(sahkopostiVirhe + ' sähköpostia epäonnistui');
   if (epaonnistui > 0)     viestiOsat.push(epaonnistui + ' epäonnistui');
+  if (ohitettuSuostumus > 0) viestiOsat.push(ohitettuSuostumus + ' oli jo antanut suostumuksen — status säilytetty');
   var yhteenveto = viestiOsat.join(' · ') || 'Valmis';
 
   if (status) status.textContent = 'Valmis! ' + yhteenveto;
