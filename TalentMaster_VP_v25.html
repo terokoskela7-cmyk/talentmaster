@@ -1427,6 +1427,25 @@ body {
 .vkk-cta { flex: 0 0 auto; background: var(--teal); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; min-height: 40px; }
 .vkk-cta:hover { opacity: .9; }
 .vkk-link { color: var(--teal); cursor: pointer; font-size: 13px; }
+
+/* ── "Aloita tästä" -kortti (in-app-aloitusopas, Vaihe 3/VP) — pysyvä kortti, ei modaali ── */
+.vpa-kortti { background: var(--bg2); border: .5px solid rgba(40,176,144,.3); border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; }
+.vpa-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.vpa-head h3 { font-family: 'Cormorant Garamond', serif; font-size: 21px; color: var(--ink); font-weight: 400; margin: 0; }
+.vpa-piilota { background: none; border: none; color: var(--ink3); font-size: 12px; cursor: pointer; text-decoration: underline; font-family: inherit; }
+.vpa-edist { font-size: 11px; color: var(--ink3); margin: 0 0 12px; }
+.vpa-rivi { display: flex; align-items: center; gap: 12px; width: 100%; background: var(--surface); border: .5px solid var(--border); border-radius: 9px; padding: 11px 13px; margin-bottom: 7px; cursor: pointer; text-align: left; color: var(--ink); font-family: inherit; }
+.vpa-tick { flex-shrink: 0; width: 21px; height: 21px; border-radius: 50%; border: 1.5px solid var(--ink3); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--ink3); }
+.vpa-tick.on { background: var(--teal); border-color: var(--teal); color: #fff; }
+.vpa-rivi-txt { flex: 1; font-size: 13px; line-height: 1.35; }
+.vpa-arrow { color: var(--ink3); font-size: 17px; }
+.vpa-opasbtn { width: 100%; background: var(--surface); border: .5px solid var(--border); color: var(--teal); border-radius: 9px; padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 6px; font-family: inherit; }
+.vpa-opas { max-height: 0; overflow: hidden; transition: max-height .4s ease; }
+.vpa-opas.auki { max-height: 1400px; }
+.vpa-opas-sis { padding: 12px 2px 2px; font-size: 12.5px; color: var(--ink2); line-height: 1.6; }
+.vpa-opas-sis h4 { font-size: 13px; color: var(--ink); margin: 12px 0 4px; font-weight: 600; }
+.vpa-opas-sis b { color: var(--ink); }
+.vpa-opas-sis ul { margin: 0 0 6px 16px; padding: 0; }
 #onbSheet { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .onb-back { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
 .onb-card { position: relative; background: var(--bg3); border: .5px solid var(--border); border-radius: 16px; width: min(440px, 94vw); max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 12px 48px rgba(0,0,0,.4); }
@@ -1742,6 +1761,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
     <!-- ── TILANNE ── -->
     <div class="ws-view active" id="ws-koti">
+      <div id="vpAloitaKortti"></div>
       <div id="vpKotiView"></div>
     </div>
 
@@ -2026,6 +2046,10 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         <div class="settings-card" onclick="toast('Benchmark — tulossa','ok')">
           <h3>Benchmark</h3>
           <p>Palloliiton KORI-vertailu, kansainväliset vertailutasot.</p>
+        </div>
+        <div class="settings-card" onclick="_vpaNaytaUudelleen()">
+          <h3>📘 Aloitusopas</h3>
+          <p>Näytä "Aloita tästä" -opas uudelleen Koti-näkymässä.</p>
         </div>
       </div>
     </div>
@@ -5449,6 +5473,7 @@ function lahetaMentorointiViesti(coachId, coachNimi) {
   setTimeout(() => _lataaCoachHistoria(coachId), 500);
   const vPvt = _valmentajat.find(x=>x.id===coachId);
   if (vPvt) { vPvt.mentorointiPvt = 0; }
+  if (!onSisainen) { try { localStorage.setItem('tm_vp_mentori_sent', '1'); } catch (e) {} }   // Aloita tästä -checklist (mentorointiviesti lähetetty)
 }
 
 // ─── RENDER PELAAJAT ─────────────────────────────────────
@@ -6504,6 +6529,7 @@ window._reviewAvaaMDT = function(pid){
 // Harjoitusarviointi (HARJOITUSARVIOINTI_SPEC) — VP havainnoi valmentajan harjoituksen.
 // Valinnaiset paramit (coach-kortin "Arvioi" → esitäytä valmentaja + joukkue). Ilman = Työkalut-reitti.
 window.vpAvaaHarjoitusarviointi = async function (valmentajaUid, valmentajaNimi) {
+  try { localStorage.setItem('tm_vp_harjarvio', '1'); } catch (e) {}   // Aloita tästä -checklist (harjoitusarviointi avattu)
   if (typeof TM_HARJOITUS === 'undefined') { if (typeof toast === 'function') toast('Lomake ei latautunut — päivitä sivu', 'error'); return; }
   var cu = auth.currentUser;
   // Kirjautumistila = todellinen auth + seura. EI estetä 'demo'-seuraa: SA voi valita FC Demon (autentikoitu,
@@ -7421,6 +7447,7 @@ function renderKotiVP() {
   h += '<div style="margin-top:14px">' + strippi + '</div>';   // status (tuotu→suostumus) toimintojen ALLE
   { var _bq = _vpRaeRakenneHTML(P); if (_bq) h += '<div style="margin-top:20px">' + _bq + '</div>'; }   // §RAE VAIHE B — BQ-rakenne Kotiin
   el.innerHTML = h;
+  if (typeof renderVpAloitaKortti === 'function') renderVpAloitaKortti();   // Aloita tästä -kortti (Vaihe 3)
 }
 
 // "Muistuta odottavia" → lahetaMuistutukset-CF (kuivaAjo→confirm alaikäisvaroitus→lähetys→toast). Replikoi Adminin muistutaSeuraa-flow.
@@ -7446,6 +7473,72 @@ async function vpMuistutaOdottavia(){
 }
 window.vpMuistutaOdottavia = vpMuistutaOdottavia;
 window.renderKotiVP = renderKotiVP;
+
+/* ════════════════════════════════════════════════════════════
+   "Aloita tästä" -kortti (in-app-aloitusopas, Vaihe 3/VP) — pysyvä Koti-kortti.
+   Datavetoinen 5-askel checklist (pikakentät §26 + localStorage-visited, EI uusia kyselyjä).
+   Gating: localStorage tm_vp_aloitettu_<seuraId> (= piilotettu). String concat §7.1.
+════════════════════════════════════════════════════════════ */
+function _vpaFlag(k){ try { return !!localStorage.getItem(k); } catch (e) { return false; } }
+function _vpaVisited(ws){ return _vpaFlag('tm_vp_visited_' + ws); }
+function _vpaPiilotaAvain(){ return _seuraId ? ('tm_vp_aloitettu_' + _seuraId) : ''; }
+function renderVpAloitaKortti(){
+  var el = document.getElementById('vpAloitaKortti'); if (!el) return;
+  var avain = _vpaPiilotaAvain();
+  if (!avain || _vpaFlag(avain)) { el.innerHTML = ''; return; }   // piilotettu / ei seuraa → ei korttia
+  var P = _pelaajat || [], V = _valmentajat || [];
+  // §26 — kaikki tilat jo ladatusta datasta / localStorage-visitedistä, ei uusia Firestore-kyselyjä.
+  var s1 = P.some(function (p) { return p.flei_viimeisin != null || p.tki_viimeisin != null || p.hh_taso != null || p.hh_viimeisin != null; });
+  var s2 = _vpaVisited('koti');
+  var s3 = _vpaFlag('tm_vp_harjarvio');
+  var s4 = _vpaVisited('raportointi');
+  var s5 = _vpaFlag('tm_vp_mentori_sent') || V.some(function (v) { return v.mentorointiPvt === 0; });
+  var askeleet = [
+    { ok: s1, txt: 'Joukkueessa mitattuja pelaajia', fn: "setWs('pelaajat')" },
+    { ok: s2, txt: 'Lue joukkuepulssi + signaalit', fn: "setWs('koti')" },
+    { ok: s3, txt: 'Tee harjoitusarviointi (malli A)', fn: "vpAvaaHarjoitusarviointi()" },
+    { ok: s4, txt: 'Avaa Pelaajaraportti', fn: "setWs('raportointi')" },
+    { ok: s5, txt: 'Lähetä mentorointiviesti valmentajalle', fn: "setWs('valmentajat')" }
+  ];
+  var tehty = askeleet.filter(function (a) { return a.ok; }).length;
+  function tick(ok){ return '<span class="vpa-tick' + (ok ? ' on' : '') + '">' + (ok ? '✓' : '○') + '</span>'; }
+  var rivit = askeleet.map(function (a) {
+    return '<button class="vpa-rivi" onclick="' + a.fn + '">' + tick(a.ok) + '<span class="vpa-rivi-txt">' + _jsvEsc(a.txt) + '</span><span class="vpa-arrow">›</span></button>';
+  }).join('');
+  // Opasosio — OPAS_VP_JA_VALMENTAJA.md OSA 1 -tiivistys (seura/joukkueet/valmentajat/pelaajat/perheet).
+  var opas = '<div class="vpa-opas-sis">'
+    + '<div>Roolisi on <b>nähdä kokonaisuus ja ohjata</b> — et kirjaa yksittäisiä testituloksia, vaan johdat seuraa, joukkueita, valmentajia, pelaajia ja perheitä datan kautta.</div>'
+    + '<h4>1.1 Käynnistä datapolku</h4>'
+    + '<ul><li>Tuo pelaajat (Seurahallinta → Tuo Excel).</li><li>Kutsu huoltajat — <b>suostumus on portti</b>: ilman sitä syntymäaika, RAE-näkyvyys ja perheviestintä eivät aktivoidu.</li><li>Seuraa suostumussuppiloa (tuotu → kutsuttu → annettu), tavoite go-liveen yli 70 %.</li><li>Seuraa datakypsyyttä: montako mitattu/havainnoitu.</li></ul>'
+    + '<div><i>Johtamiskysymys: "Onko datapolkuni auki?"</i></div>'
+    + '<h4>1.2 Lue pulssi, tartu signaaleihin</h4>'
+    + '<ul><li>Joukkuepulssi: Kehon valmius · TKI · H-H · pelihavainto — kukin keskiarvo + kattavuus + suunta.</li><li>Signaalit nostavat sen mihin tarttua (hiljainen valmentaja, matala indeksi, vähän havaintoja).</li><li>Syntymäkvartaali-rakenne (RAE) — näe ikäharha; <i>muut mittaavat, me korjaamme</i>.</li><li>Klikkaa pulssikorttia → joukkueen syvänäkymä (ranking + kehityskohteet).</li></ul>'
+    + '<div><i>Johtamiskysymys: "Mikä joukkue tarvitsee huomiotani tällä viikolla?"</i></div>'
+    + '</div>';
+  var h = '<div class="vpa-kortti">'
+    + '<div class="vpa-head"><h3>Aloita tästä</h3><button class="vpa-piilota" onclick="_vpaPiilota()">Piilota opas</button></div>'
+    + '<div class="vpa-edist">' + tehty + '/5 askelta — klikkaa askelta siirtyäksesi.</div>'
+    + rivit
+    + '<button class="vpa-opasbtn" onclick="_vpaOpas(this)">📖 Näin johdat TalentMasterilla</button>'
+    + '<div class="vpa-opas" id="vpaOpasPaneeli">' + opas + '</div>'
+    + '</div>';
+  el.innerHTML = h;
+}
+window.renderVpAloitaKortti = renderVpAloitaKortti;
+window._vpaOpas = function (btn){
+  var pan = document.getElementById('vpaOpasPaneeli'); if (!pan) return;
+  pan.classList.toggle('auki');
+  if (btn) btn.textContent = pan.classList.contains('auki') ? '📖 Piilota ohje' : '📖 Näin johdat TalentMasterilla';
+};
+window._vpaPiilota = function (){
+  var avain = _vpaPiilotaAvain(); try { if (avain) localStorage.setItem(avain, '1'); } catch (e) {}
+  renderVpAloitaKortti();   // tyhjentää kortin
+  if (typeof toast === 'function') toast('Aloitusopas piilotettu — palautat sen Asetuksista', 'ok');
+};
+window._vpaNaytaUudelleen = function (){
+  var avain = _vpaPiilotaAvain(); try { if (avain) localStorage.removeItem(avain); } catch (e) {}
+  if (typeof setWs === 'function') setWs('koti'); else renderVpAloitaKortti();
+};
 
 /* ════════════════════════════════════════════════════════════
    §IA slice 3 — ONBOARDING "Aloita tästä" (VP-flow). Strangler: napit olemassa oleviin funktioihin.
@@ -7488,6 +7581,7 @@ window._onbToiminto = _onbToiminto; window._onbSeuraava = _onbSeuraava; window._
 
 function setWs(ws) {
   _currentWs = ws;
+  try { if (ws === 'koti' || ws === 'raportointi' || ws === 'valmentajat' || ws === 'pelaajat') localStorage.setItem('tm_vp_visited_' + ws, '1'); } catch (e) {}   // Aloita tästä -checklist (visited)
   if (ws === 'koti') renderKotiVP();
   if (ws === 'reviewit' && typeof renderReviewit === 'function') renderReviewit();
   document.querySelectorAll('.tabbar-item[data-ws]').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
