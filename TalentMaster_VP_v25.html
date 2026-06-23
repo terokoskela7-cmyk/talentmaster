@@ -6275,6 +6275,7 @@ function avaaTapahtumaV9(tapahtumaId) {
 /* ═══ MDT-RAPORTTI (P0b-1, docs/MDT_RAPORTTI_SPEC.md) — yhden sivun profiili: signs · samples · SEO ═══
    Vain pikakentät (§26), data-tietoinen (§29). Carbon §5, string concat §7.1. Termi: "pelihavainto". */
 var _mdtPid = null, _mdtSkin = 'johtaja', _mdtPalaveri = false;
+var _mdtTavoitteet = {};   // pid → array | 'loading' — per-pelaaja on-demand raporttiluku (§26)
 var _mdtVanhMuokkaus = {}, _mdtVanhEdit = false;   // sessio-paikallinen vanhempiviestin muokkaus (pid → teksti)
 function _mdtEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function _mdtVanhDraft(V) {
@@ -6293,7 +6294,7 @@ function _mdtTaytaPicker() {
   var P = (_pelaajat || []).slice().sort(function(a,b){ return ((a.sukunimi||'')+(a.etunimi||'')).localeCompare((b.sukunimi||'')+(b.etunimi||'')); });
   sel.innerHTML = '<option value="">— Valitse pelaaja —</option>' + P.map(function(p){ return '<option value="' + p.id + '"' + (p.id===_mdtPid?' selected':'') + '>' + (((p.etunimi||'')+' '+(p.sukunimi||'')).trim()||p.id) + ' · ' + (p.joukkue||'—') + '</option>'; }).join('');
 }
-window._mdtValitse = function(pid){ _mdtPid = pid || null; _mdtPalaveri = false; _mdtVanhEdit = false; _renderMDTProfiili(); };
+window._mdtValitse = function(pid){ _mdtPid = pid || null; _mdtPalaveri = false; _mdtVanhEdit = false; if (_mdtPid) _mdtLataaTavoitteet(_mdtPid); _renderMDTProfiili(); };
 window._mdtVaihdaSkin = function(skin){ _mdtSkin = skin; _mdtVanhEdit = false; _renderMDTProfiili(); };
 window._mdtPrint = function(){ window.print(); };
 // Kirjaa MDT-review (§7.2 tuore token) → reviewit/{pvm} + pikakentät. Tallentaa VP-muokatun päätöstekstin.
@@ -6325,6 +6326,40 @@ function _mdtRivi(lbl, val, vari){ return '<div class="mdt-rivi"><span style="co
 function _mdtOsaNimi(k){ return { kiihdytys:'Kiihdytys', maksinopeus:'Maksiminopeus', voima:'Voima', ketteryys:'Ketteryys', aerobinen:'Aerobinen' }[k] || k; }
 function _mdtVari5(v){ return v==null ? 'var(--ink3)' : v>=4 ? 'var(--teal)' : v>=3 ? 'var(--amber)' : 'var(--red)'; }
 
+// Vaihe 2.1 — VP näkee valmentajan tavoitteet (Johtaja-skin, vain luku). Tavoitteiden omistus = valmentaja.
+// §26: per-pelaaja on-demand raporttiluku (ei listanäkymän render) → sallittu, sama pattern kuin coachin lataus.
+function _mdtTilaBadge(tila){
+  var map = { kaynnissa:['Käynnissä','var(--amber)'], saavutettu:['Saavutettu','var(--teal)'], kesken:['Kesken','var(--ink3)'] };
+  var x = map[tila] || map.kaynnissa;
+  return '<span style="font-size:10px;padding:2px 8px;border-radius:20px;border:.5px solid ' + x[1] + ';color:' + x[1] + '">' + x[0] + '</span>';
+}
+function _mdtTavoitteetHTML(){
+  var t = _mdtTavoitteet[_mdtPid];
+  var sis;
+  if (t === 'loading' || t === undefined) {
+    sis = '<div style="font-size:11px;color:var(--ink3)">Ladataan tavoitteita…</div>';
+  } else if (!t.length) {
+    sis = '<div style="font-size:12px;color:var(--ink3)">Ei tavoitteita vielä — valmentaja kirjaa ne Masterissa.</div>';
+  } else {
+    sis = t.map(function(g){
+      return '<div style="border:.5px solid var(--border);border-radius:7px;padding:8px 10px;margin-bottom:6px">'
+        + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:13px;color:var(--ink);flex:1">' + _mdtEsc(g.teksti || '') + '</span>' + _mdtTilaBadge(g.tila) + '</div>'
+        + '<div style="font-size:10px;color:var(--ink3);margin-top:4px">' + (g.tavoitepvm ? ('Tavoite ' + _mdtEsc(g.tavoitepvm)) : '') + (g.valmentajaNimi ? (' · ' + _mdtEsc(g.valmentajaNimi)) : '') + '</div></div>';
+    }).join('')
+    + '<div style="font-size:10px;color:var(--ink3);margin-top:4px;font-style:italic">Vain luku — keskustele näistä valmentajan kanssa kehityspalaverissa.</div>';
+  }
+  return '<div style="font-size:11px;font-weight:600;color:var(--ink2);margin:10px 0 4px">🎯 Tavoitteet</div>' + sis;
+}
+window._mdtLataaTavoitteet = async function(pid){
+  if (!pid || !_seuraId) return;
+  if (_mdtTavoitteet[pid] !== undefined) return;   // jo ladattu / lataus kesken
+  _mdtTavoitteet[pid] = 'loading';
+  try {
+    var snap = await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).collection('tavoitteet').orderBy('luotu', 'desc').get();
+    _mdtTavoitteet[pid] = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
+  } catch (e) { _mdtTavoitteet[pid] = []; }
+  if (_mdtPid === pid && typeof _renderMDTProfiili === 'function') _renderMDTProfiili();   // re-render jos yhä valittuna
+};
 function _mdtJohtajaPaneeli(p, ika, spMN, oi) {
   var h = '<div class="mdt-card" style="margin-bottom:12px"><div class="mdt-srchdr" style="color:var(--teal)">Johtaja · päätöksenteko</div>';
   if (p.d3_viimeisin && p.d3_viimeisin.pisteet && typeof renderD3VertailuHTML === 'function') {
@@ -6346,6 +6381,7 @@ function _mdtJohtajaPaneeli(p, ika, spMN, oi) {
     if (hg.d1 != null && hg.d2 != null) tal += '<div style="font-size:11px;color:var(--ink3);margin-top:2px">§28: korkea D2 (' + hg.d2 + ') + matala D1 (' + hg.d1.toFixed(1) + ') pre-PHV → fysiikka tulee 2–4 v.</div>';
   } else if (hg && hg.fleiHG) tal += '<div style="font-size:12px;color:var(--ink2);margin-top:3px">💎 Hidden Gem (valmius ≥65)</div>';
   if (tal) h += '<div style="font-size:11px;font-weight:600;color:var(--ink2);margin:10px 0 2px">Talenttisignaali</div>' + tal;
+  h += _mdtTavoitteetHTML();
   h += '<div style="font-size:11px;font-weight:600;color:var(--ink2);margin:10px 0 4px">Päätös / muistiinpano</div>'
     + '<textarea id="mdtPaatos" class="mentor-textarea" style="min-height:70px" placeholder="Päätös tai seurantamuistiinpano..."></textarea>';
   return h + '</div>';
