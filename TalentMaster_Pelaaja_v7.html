@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782212157849';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782222686818';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -332,6 +332,24 @@ button{font-family:var(--font-b);cursor:pointer}
 .synttari-bonus-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);margin-bottom:5px}
 .synttari-bonus-nimi{font-size:14px;font-weight:700;color:var(--ink)}
 .synttari-bonus-ohje{font-size:12px;color:var(--ink3);margin-top:3px}
+
+/* ── Tervetulo-overlay (ensikäynnistys, Vaihe 1) — slide-in transformilla (§6: ei display:none-bugia) ── */
+.th-ov{position:fixed;inset:0;z-index:9500;background:rgba(6,9,15,.78);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .3s ease}
+.th-ov.th-auki{opacity:1}
+.th-panel{background:#161614;border:1px solid rgba(40,176,144,.35);border-radius:18px 18px 0 0;width:100%;max-width:460px;padding:22px 20px 26px;transform:translateY(100%);transition:transform .34s cubic-bezier(.34,1.4,.5,1);max-height:92vh;overflow-y:auto;font-family:'DM Sans',sans-serif}
+.th-ov.th-auki .th-panel{transform:translateY(0)}
+.th-otsikko{font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--text);margin-bottom:14px;text-align:center}
+.th-card{display:flex;align-items:flex-start;gap:13px;background:var(--bg3);border:.5px solid rgba(242,239,230,.08);border-radius:12px;padding:13px 15px;margin-bottom:10px}
+.th-emoji{font-size:26px;flex-shrink:0;line-height:1.1}
+.th-ots{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#28B090;margin-bottom:3px}
+.th-txt{font-size:13.5px;color:var(--text);line-height:1.45}
+.th-napit{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.th-aloita{width:100%;background:#28B090;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;min-height:44px}
+.th-ohita{width:100%;background:transparent;color:#8C8B86;border:none;padding:8px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;min-height:44px}
+@media(max-width:768px){
+  .th-panel{max-width:100%;border-radius:16px 16px 0 0}
+  .th-otsikko{font-size:22px}
+}
 
 /* ── P6: ADAR-HAVAINTONOTIFIKAATIO ─────────────────────────────── */
 .hav-card{background:linear-gradient(135deg,rgba(26,122,94,.12),rgba(0,47,108,.08));border:1px solid rgba(26,122,94,.25);border-radius:14px;padding:16px;margin:12px 0;cursor:pointer;transition:all .2s;position:relative}
@@ -1668,6 +1686,7 @@ function rMinaAsetukset() {
   let h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:6px;letter-spacing:.01em">Asetukset</div>';
   h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:#8C8B86;letter-spacing:.04em;margin-bottom:16px">Tulossa pian — kieli, ilmoitukset, jaa linkki vanhemmalle.</div>';
+  h += '<button onclick="_naytaOpasUudelleen()" style="width:100%;background:transparent;border:.5px solid rgba(40,176,144,.35);color:#28B090;border-radius:4px;padding:12px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.04em;font-family:\'DM Sans\',sans-serif;margin-bottom:10px">📘 Näytä opas uudelleen</button>';
   h += '<button onclick="kirjauduUlos()" style="width:100%;background:rgba(240,78,78,.08);border:.5px solid rgba(240,78,78,.3);color:#F04E4E;border-radius:4px;padding:12px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.1em;font-family:\'DM Sans\',sans-serif">KIRJAUDU ULOS</button>';
   h += '</div>';
   return h;
@@ -2943,8 +2962,72 @@ function _kaynnistaAppUI() {
   if (window._p7Pelaaja && window._p7Pelaaja.seuraId && window._p7Pelaaja.pelaajaId) {
     _p6KaynnistakuuntelIja(window._p7Pelaaja.seuraId, window._p7Pelaaja.pelaajaId);
   }
+
+  // Vaihe 1 — tervetulo-overlay ensimmäisellä kirjautumisella (localStorage-gating, §7.22-turvallinen).
+  setTimeout(function () { _naytaTervetulo(); }, 400);
 }
 
+
+/* ══════════════════════════════════════════════════════════
+   Tervetulo-overlay (ensikäynnistys, Vaihe 1) — 3 korttia (Tänään/Minä/Fiilis).
+   §7.22: ei tasoja/arvosanoja/vertailua. Sävy ikävaiheittain (_laskeStage); sisältö turvallista kaikissa.
+   Gating: localStorage tm_pelaaja_tervetullut_<pelaajaId>. String concat §7.1.
+══════════════════════════════════════════════════════════ */
+function _thEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function _thAvain(){ var p = _pelaaja; var pid = (p && p.id) || window._tmPlayerId || ''; return pid ? ('tm_pelaaja_tervetullut_' + pid) : ''; }
+function _naytaTervetulo(){
+  var p = _pelaaja; if (!p) return;
+  var avain = _thAvain(); if (!avain) return;
+  try { if (localStorage.getItem(avain)) return; } catch (e) { return; }
+  if (document.getElementById('tervetuloOv')) return;
+  var stage = (typeof _laskeStage === 'function') ? _laskeStage(p.syntymaVuosi, p.phv_tila) : '2_rakentaja';
+  var nimi = _thEsc(p.etunimi || '');
+  var otsikko, k1, k2, k3, alota;
+  if (stage === '1_leikkija') {            // U12 — leikinomaisin
+    otsikko = 'Moikka' + (nimi ? (' ' + nimi) : '') + '! 👋';
+    k1 = 'Yksi kiva juttu jonka voit tehdä tänään. Kokeile — 10 min riittää!';
+    k2 = 'Sinun oma korttisi ja juttusi. Se kasvaa kun treenaat ja pelaat.';
+    k3 = 'Paina kun haluat kertoa valmentajalle miltä tuntuu.';
+    alota = 'Aloitetaan! 🚀';
+  } else if (stage === '3_showcase') {     // U16+ — hieman aikuisempi
+    otsikko = 'Tervetuloa' + (nimi ? (', ' + nimi) : '') + '.';
+    k1 = 'Yksi juttu jonka voit tehdä tänään. Kokeile — 10 min riittää.';
+    k2 = 'Oma korttisi ja juttusi. Se kasvaa kun treenaat.';
+    k3 = 'Paina kun haluat kertoa valmentajalle miltä tuntuu.';
+    alota = 'Aloitetaan';
+  } else {                                 // 2_rakentaja — perus
+    otsikko = 'Hei' + (nimi ? (' ' + nimi) : '') + '! 👋';
+    k1 = 'Yksi juttu jonka voit tehdä tänään. Kokeile — 10 min riittää!';
+    k2 = 'Sinun oma korttisi ja juttusi. Se kasvaa kun treenaat.';
+    k3 = 'Paina kun haluat kertoa valmentajalle miltä tuntuu.';
+    alota = 'Aloitetaan!';
+  }
+  function kortti(emoji, ots, txt){ return '<div class="th-card"><span class="th-emoji">' + emoji + '</span><div><div class="th-ots">' + ots + '</div><div class="th-txt">' + txt + '</div></div></div>'; }
+  var ov = document.createElement('div');
+  ov.id = 'tervetuloOv'; ov.className = 'th-ov';
+  ov.onclick = function (e){ if (e.target === ov) window._suljeTervetulo(); };
+  ov.innerHTML = '<div class="th-panel" role="dialog" aria-label="Tervetuloa">'
+    + '<div class="th-otsikko">' + otsikko + '</div>'
+    + kortti('⚽', 'Tänään', k1)
+    + kortti('🌟', 'Minä', k2)
+    + kortti('💬', 'Fiilis-nappi', k3)
+    + '<div class="th-napit">'
+    + '<button class="th-aloita" onclick="_suljeTervetulo()">' + alota + '</button>'
+    + '<button class="th-ohita" onclick="_suljeTervetulo()">Ohita</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+  requestAnimationFrame(function (){ ov.classList.add('th-auki'); });   // slide-in (ei display:none-bugi §6)
+}
+window._suljeTervetulo = function (){
+  var avain = _thAvain(); try { if (avain) localStorage.setItem(avain, '1'); } catch (e) {}
+  var ov = document.getElementById('tervetuloOv');
+  if (ov){ ov.classList.remove('th-auki'); setTimeout(function (){ if (ov.parentNode) ov.remove(); }, 320); }
+};
+window._naytaOpasUudelleen = function (){
+  var avain = _thAvain(); try { if (avain) localStorage.removeItem(avain); } catch (e) {}
+  var ov = document.getElementById('tervetuloOv'); if (ov && ov.parentNode) ov.remove();
+  _naytaTervetulo();
+};
 
 /* ══════════════════════════════════════════════════════════
    _paivaIso — paikallinen aikavyöhyke YYYY-MM-DD
