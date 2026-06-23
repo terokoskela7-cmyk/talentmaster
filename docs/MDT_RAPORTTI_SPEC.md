@@ -7,6 +7,28 @@
 
 ---
 
+## 0. ROOLIPÄÄTÖS (2026-06-23, Tero) — valmentajan pääsy omiin pelaajiin
+
+Käyttäjänäkyvä nimi = **"Pelaajaraportti"** (ei "MDT"; MDT vain sisäinen koodinimi). Lähdekaistojen
+käyttäjänimet: **Mittaus** (signs) · **Ottelu** (samples) · **Pelihavainto** (SEO). Ei englanninkielisiä
+lyhenteitä käyttäjäpinnassa (§14).
+
+**Rooliperiaate ("pelaaja ensin, hallinto vahvistaa"):** valmentajalla on oikeus **omiin pelaajiinsa** —
+hän kirjaa heille tavoitteita + palautetta ja näkee oman joukkueensa pelaajaraportit (Valmentaja-skin).
+VP näkee kaikki, tuo kokonaiskuvan + reiluuden, ja VP ja valmentaja **keskustelevat näkökulmista**
+(kehityspalaveri). Erimielisyys = arvo, ei verdikti.
+
+- **Rakennettu (P0b-1 + Vaihe 2, 2026-06-23):** (a) raportti VP-näkymässä (VP_v25 Raportit), 3 skiniä.
+  (b) **Vaihe 2:** valmentajan **oma pääsy** Pelaajaraporttiin Master-näkymässä (📋 Pelaajaraportti +
+  tavoitteet), rajattu oman joukkueen pelaajiin (UI-rajaus `_prVoiNahda`; Rules `tavoitteet`-blokki
+  v3.5 = oman seuran valmentaja RW + A5-vartija). (c) **jäsennelty tavoitteiden kirjaus**
+  (`seurat/{sid}/pelaajat/{pid}/tavoitteet/{id}` + pikakenttä `tavoite_aktiivinen_kpl`).
+  Live-verifioitu 2026-06-23: render + persistointi + Rules + pikakenttä (SA-haara, tuotanto). Coach-haaran
+  joukkuerajaus (oman seuran valmentaja RW / toisen seuran estetty) + A5-vartija **verifioitu emulaattorilla
+  2026-06-23** (8/8 `tavoitteet` Rules-testiä vihreää, Java 21). Vaihe 2 täysin katettu.
+- **Vaihe 2.1 (tulossa):** VP-puolen tavoitenäyttö (johto näkee valmentajan tavoitteet Johtaja-skinissä;
+  Rules sallii jo VP-luvun → puhdas UI-lisäys). §7.22 jos tavoite joskus surfataan pelaajalle.
+
 ## 1. SIJAINTI & RAKENNE (A)
 
 Raportit-välilehteen **pelaajavalitsin** → koko ruudun **yhden sivun MDT-profiili**. Erillään syvänäkymästä (selaus) — tämä on
