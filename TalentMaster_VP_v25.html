@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_eerikkila_normit.js?v=29"></script>
-<script src="lib/tm_harjoitusarviointi.js?v=3"></script>
+<script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -1977,7 +1977,8 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <!-- ── HARJOITTELUN LAATU (Vaihe 2.1) ── -->
       <div id="rapSeg-laatu" style="display:none">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="hlLogo"></span>
             <button id="hlMalliA" onclick="_hlVaihdaMalli('palloliitto')" style="padding:7px 14px;border-radius:7px;border:.5px solid var(--teal);background:rgba(40,176,144,.12);color:var(--teal);cursor:pointer;font-size:12px;font-weight:600">A · Harjoittelun laatu</button>
             <button id="hlMalliB" onclick="_hlVaihdaMalli('valmennustaidot')" style="padding:7px 14px;border-radius:7px;border:.5px solid var(--border);background:var(--surface);color:var(--ink3);cursor:pointer;font-size:12px;font-weight:600" title="Valmennustaidot-dashboard tulossa Vaihe 2.2">B · Valmennustaidot</button>
           </div>
@@ -2206,7 +2207,8 @@ async function superAdminVaihdaSeura(uusiSeuraId) {
   await lataaKaikki();
 
   // Harjoittelun laatu -dashboard: nollaa välimuisti seuravaihdossa + lataa uudelleen jos näkymä on auki
-  _hlLadattu = false; _hlArvioinnit = null; _hlConfig = null;
+  _hlLadattu = false; _hlArvioinnit = null; _hlConfig = null; _hlBrandi = null;
+  var _hlLogoReset = document.getElementById('hlLogo'); if (_hlLogoReset) _hlLogoReset.innerHTML = '';
   var _laatuEl = document.getElementById('rapSeg-laatu');
   if (_laatuEl && _laatuEl.style.display !== 'none' && typeof _hlLataaJaRender === 'function') _hlLataaJaRender();
 
@@ -6509,6 +6511,8 @@ window.vpAvaaHarjoitusarviointi = async function (valmentajaUid, valmentajaNimi)
   if (!cu || !_seuraId || _isDemoMode) { if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
   var config = null;
   try { var s = await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').get(); if (s.exists) config = s.data(); } catch (e) {}
+  var brandi = null;
+  try { var sb = await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('brandi').get(); if (sb.exists) brandi = sb.data(); } catch (e) {}
   var coachRoolit = ['valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja', 'testivastaava', 'vp'];
   var valmentajat = (_valmentajat || []).filter(function (c) { return coachRoolit.indexOf(c.rooli) >= 0; }).map(function (c) { return { uid: c.id, nimi: c.nimi, joukkue: (c.joukkue && c.joukkue !== '—') ? c.joukkue : '' }; });
   var jset = {}; (_pelaajat || []).forEach(function (p) { if (p.joukkue && p.joukkue !== '—') jset[p.joukkue] = 1; });
@@ -6522,7 +6526,7 @@ window.vpAvaaHarjoitusarviointi = async function (valmentajaUid, valmentajaNimi)
     if (match && match.joukkue) konteksti.joukkue = match.joukkue;
   }
   TM_HARJOITUS.avaa({
-    db: db, firebase: firebase, seuraId: _seuraId, config: config,
+    db: db, firebase: firebase, seuraId: _seuraId, config: config, brandi: brandi,
     joukkueet: joukkueet.length ? joukkueet : null,
     valmentajat: valmentajat,
     konteksti: konteksti,
@@ -6798,7 +6802,7 @@ document.addEventListener('click', function (e) {
 });
 
 /* ═══ HARJOITTELUN LAATU -DASHBOARD (Vaihe 2.1, HARJOITUSARVIOINTI_VAIHE2_SPEC) — raporttinäkymä, alikokoelmakysely sallittu (§26-poikkeus) ═══ */
-var _hlArvioinnit = null, _hlConfig = null, _hlMalli = 'palloliitto', _hlLadattu = false, _hlChartLoaded = false, _hlTrendChart = null;
+var _hlArvioinnit = null, _hlConfig = null, _hlBrandi = null, _hlMalli = 'palloliitto', _hlLadattu = false, _hlChartLoaded = false, _hlTrendChart = null;
 var _HL_KRIT_A = { a1: 'Innostavuus', a2: 'Liikkeessä %', a3: 'Pallokosketukset', a4: 'Teknis-takt. toistot', a5: 'Heittäytyminen', a6: 'Maalinteko %', a7: 'Seuran oma (Q7)' };
 var _HL_KRIT_B = { b1: 'Organisointi', b2: 'Tavoitteen selkeys', b3: 'Palaute (määrä)', b4: 'Palaute (laatu)', b5: 'Pedagogiikka', b6: 'Eriyttäminen', b7: 'Vuorovaikutus' };
 var _HL_PCT = { a2: 1, a6: 1 };
@@ -6829,6 +6833,9 @@ async function _hlLataaJaRender() {
     _hlArvioinnit = snap.docs.map(function (d) { var o = d.data(); o._id = d.id; return o; });
   } catch (e) { _hlArvioinnit = []; if (sis) sis.innerHTML = '<div style="color:var(--red);font-size:13px;padding:20px">Lataus epäonnistui: ' + _hlEsc(e.message) + '</div>'; return; }
   try { var cs = await db.collection('seurat').doc(sid).collection('konfiguraatio').doc('harjoitusarviointi').get(); _hlConfig = cs.exists ? cs.data() : {}; } catch (e) { _hlConfig = {}; }
+  try { var bs = await db.collection('seurat').doc(sid).collection('konfiguraatio').doc('brandi').get(); _hlBrandi = bs.exists ? bs.data() : {}; } catch (e) { _hlBrandi = {}; }
+  var _hlLogoEl = document.getElementById('hlLogo');
+  if (_hlLogoEl) _hlLogoEl.innerHTML = (_hlBrandi && _hlBrandi.logo_url) ? '<img src="' + _hlEsc(_hlBrandi.logo_url) + '" alt="" style="height:24px;max-width:120px;object-fit:contain;vertical-align:middle;margin-right:8px">' : '';
   _hlLadattu = true;
   _hlRenderSuodattimet();
   _hlRender();

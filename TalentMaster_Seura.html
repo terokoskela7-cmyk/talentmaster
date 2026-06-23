@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 <!-- Excel-tuonti: SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
@@ -357,6 +358,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
   box-shadow: 0 4px 24px rgba(0,0,0,0.4); display:flex; align-items:center; gap:10px;
 }
 .toast.ok    { background:#0D2B22; border:1px solid rgba(40,176,144,.5); color:var(--teal); }
+.toast.varoitus { background:#2B2410; border:1px solid rgba(224,160,64,.5); color:var(--amber); }
 .toast.virhe { background:#2B0D0D; border:1px solid rgba(217,96,96,.5);  color:#e88080; }
 .toast.info  { background:#0D1A2B; border:1px solid rgba(42,93,176,.5); color:#7EB6FF; }
 
@@ -530,6 +532,11 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
          sisäänkäynti piilotettu. Palauta poistamalla style="display:none". -->
     <div class="navNappi" style="display:none" onclick="vaihdaNakyma('sopimukset',this)">
       <span class="navIkoni">📋</span>Sopimukset
+    </div>
+
+    <div class="navRyhma">ASETUKSET</div>
+    <div class="navNappi" onclick="vaihdaNakyma('brandi',this)">
+      <span class="navIkoni">🎨</span>Brändi
     </div>
 
     <div class="navRyhma">TOIMINNOT</div>
@@ -1424,6 +1431,7 @@ function renderoi(nakyma) {
     case 'tuoexcel':        avaaExcelTuontiModal();     break;
     case 'massakutsu':      avaaMassakutsuModal();      break;
     case 'henkilosto':  renderHenkilosto(alue);               break;
+    case 'brandi':      renderBrandi(alue);                   break;
     case 'sopimukset':  alue.innerHTML = renderSopimukset();  break;
   }
 }
@@ -2475,6 +2483,244 @@ async function renderHenkilosto(alue) {
       </div>`;
   }
 }
+
+// ─────────────────────────────────────────────────────────────────
+// NÄKYMÄ: BRÄNDI (white-label — logo + aksenttiväri)
+// Kirjoittaa: seurat/{sid}/konfiguraatio/brandi
+// HUOM: string concatenation (ei nested template literals — §7.1)
+// ─────────────────────────────────────────────────────────────────
+var _brandiLogoUrl = null;
+
+// WCAG suhteellinen luminanssi -kontrastisuhde
+function _brandiKontrasti(h1, h2) {
+  function hexToRgb(h) {
+    h = String(h || '').trim().replace('#', '');
+    if (h.length === 3) {
+      h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    }
+    var r = parseInt(h.substring(0, 2), 16);
+    var g = parseInt(h.substring(2, 4), 16);
+    var b = parseInt(h.substring(4, 6), 16);
+    return { r: r, g: g, b: b };
+  }
+  function lum(rgb) {
+    function ch(v) {
+      v = v / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }
+    var r = ch(rgb.r), g = ch(rgb.g), b = ch(rgb.b);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+  var l1 = lum(hexToRgb(h1));
+  var l2 = lum(hexToRgb(h2));
+  var hi = Math.max(l1, l2), lo = Math.min(l1, l2);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+async function renderBrandi(alue) {
+  alue.innerHTML =
+    '<div class="sivuOtsikko">' +
+      '<div class="sivuEyebrow">Asetukset</div>' +
+      '<div class="sivuH1">Brändi</div>' +
+    '</div>' +
+    '<div class="kortti"><div style="padding:20px;color:var(--ink3);font-size:13px;">' +
+      '<div style="display:flex;align-items:center;gap:10px;"><div class="spinner"></div> Ladataan...</div>' +
+    '</div></div>';
+
+  var b = {};
+  try {
+    var s = await db.collection('seurat').doc(tila.seuraId)
+      .collection('konfiguraatio').doc('brandi').get();
+    b = s.exists ? s.data() : {};
+  } catch (e) {
+    b = {};
+  }
+
+  _brandiLogoUrl = b.logo_url || null;
+  var accent = b.accent_hex || '#28B090';
+  var ink = b.accent_paalle_teksti_hex || '#FFFFFF';
+
+  var html = '';
+  html += '<div class="sivuOtsikko">';
+  html += '<div class="sivuEyebrow">Asetukset</div>';
+  html += '<div class="sivuH1">Brändi</div>';
+  html += '</div>';
+
+  // LOGO-kortti
+  html += '<div class="kortti">';
+  html += '<div class="korttiHeader"><span class="korttiOtsikko">Seuran logo</span></div>';
+  html += '<div style="padding:20px;">';
+  html += '<div id="brandiLogoPreview" style="margin-bottom:14px;">';
+  if (_brandiLogoUrl) {
+    html += '<img src="' + _brandiLogoUrl + '" alt="Seuran logo" style="max-height:80px;max-width:260px;border-radius:8px;background:var(--bg);padding:8px;border:1px solid var(--border);">';
+  } else {
+    html += '<div style="color:var(--ink3);font-size:13px;">Ei logoa ladattuna.</div>';
+  }
+  html += '</div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">';
+  html += '<input type="file" id="brandiLogo" accept="image/*" style="color:var(--ink2);font-size:13px;">';
+  html += '<button class="nappi teal" style="width:auto;margin-top:0;padding:9px 16px;" onclick="_brandiLataaLogo()">Lataa logo</button>';
+  if (_brandiLogoUrl) {
+    html += '<button class="nappi" style="width:auto;margin-top:0;padding:9px 16px;background:var(--bg);border:1px solid var(--bord2);color:var(--ink2);" onclick="_brandiPoistaLogo()">Poista logo</button>';
+  }
+  html += '</div>';
+  html += '<div style="color:var(--ink3);font-size:11px;margin-top:8px;">Max 5 MB. JPG, PNG, SVG tai WebP.</div>';
+  html += '</div></div>';
+
+  // VÄRI-kortti
+  html += '<div class="kortti">';
+  html += '<div class="korttiHeader"><span class="korttiOtsikko">Aksenttiväri</span></div>';
+  html += '<div style="padding:20px;">';
+
+  // Aksentti
+  html += '<div style="display:flex;flex-wrap:wrap;gap:18px;margin-bottom:16px;">';
+  html += '<div>';
+  html += '<div class="kenttaLabel" style="margin-bottom:6px;">Aksenttiväri</div>';
+  html += '<div style="display:flex;align-items:center;gap:8px;">';
+  html += '<input type="color" id="brandiAccent" value="' + accent + '" oninput="_brandiSyncAccent();_brandiPaivitaEsikatselu()" style="width:48px;height:36px;border:none;background:none;cursor:pointer;">';
+  html += '<input type="text" id="brandiAccentHex" value="' + accent + '" oninput="_brandiSyncAccentFromHex();_brandiPaivitaEsikatselu()" maxlength="7" style="width:90px;background:var(--bg);border:1px solid var(--bord2);color:var(--ink);border-radius:6px;padding:7px 9px;font-size:13px;font-family:monospace;">';
+  html += '</div></div>';
+
+  // Teksti aksentin päällä
+  html += '<div>';
+  html += '<div class="kenttaLabel" style="margin-bottom:6px;">Tekstin väri aksentin päällä</div>';
+  html += '<div style="display:flex;align-items:center;gap:8px;">';
+  html += '<input type="color" id="brandiInk" value="' + ink + '" oninput="_brandiSyncInk();_brandiPaivitaEsikatselu()" style="width:48px;height:36px;border:none;background:none;cursor:pointer;">';
+  html += '<input type="text" id="brandiInkHex" value="' + ink + '" oninput="_brandiSyncInkFromHex();_brandiPaivitaEsikatselu()" maxlength="7" style="width:90px;background:var(--bg);border:1px solid var(--bord2);color:var(--ink);border-radius:6px;padding:7px 9px;font-size:13px;font-family:monospace;">';
+  html += '</div></div>';
+  html += '</div>';
+
+  // Live esikatselu
+  html += '<div style="margin-top:8px;">';
+  html += '<div class="kenttaLabel" style="margin-bottom:8px;">Live-esikatselu</div>';
+  html += '<button id="brandiEsikatselu" style="border:none;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:600;cursor:default;background:' + accent + ';color:' + ink + ';">Tallenna arviointi</button>';
+  html += '<div id="brandiKontrasti" style="font-size:12px;color:var(--ink3);margin-top:8px;"></div>';
+  html += '</div>';
+
+  html += '<div style="margin-top:20px;">';
+  html += '<button class="nappi teal" style="width:auto;margin-top:0;padding:10px 22px;" onclick="_brandiTallenna()">Tallenna</button>';
+  html += '</div>';
+
+  html += '</div></div>';
+
+  alue.innerHTML = html;
+  _brandiPaivitaEsikatselu();
+}
+
+// Värivalitsin <-> hex-tekstikenttä synkronointi
+window._brandiSyncAccent = function () {
+  var c = document.getElementById('brandiAccent');
+  var t = document.getElementById('brandiAccentHex');
+  if (c && t) t.value = c.value.toUpperCase();
+};
+window._brandiSyncAccentFromHex = function () {
+  var c = document.getElementById('brandiAccent');
+  var t = document.getElementById('brandiAccentHex');
+  if (c && t && /^#[0-9a-fA-F]{6}$/.test(t.value)) c.value = t.value;
+};
+window._brandiSyncInk = function () {
+  var c = document.getElementById('brandiInk');
+  var t = document.getElementById('brandiInkHex');
+  if (c && t) t.value = c.value.toUpperCase();
+};
+window._brandiSyncInkFromHex = function () {
+  var c = document.getElementById('brandiInk');
+  var t = document.getElementById('brandiInkHex');
+  if (c && t && /^#[0-9a-fA-F]{6}$/.test(t.value)) c.value = t.value;
+};
+
+window._brandiPaivitaEsikatselu = function () {
+  var accentEl = document.getElementById('brandiAccent');
+  var inkEl = document.getElementById('brandiInk');
+  var btn = document.getElementById('brandiEsikatselu');
+  var info = document.getElementById('brandiKontrasti');
+  if (!accentEl || !inkEl) return;
+  var accent = accentEl.value;
+  var ink = inkEl.value;
+  if (btn) {
+    btn.style.background = accent;
+    btn.style.color = ink;
+  }
+  if (info) {
+    var teksti = _brandiKontrasti(accent, ink);
+    var tausta = _brandiKontrasti(accent, '#161614');
+    var ok = teksti >= 4.5 && tausta >= 3.0;
+    info.innerHTML =
+      'Kontrasti teksti/aksentti: <strong style="color:' + (teksti >= 4.5 ? 'var(--teal)' : 'var(--amber)') + ';">' + teksti.toFixed(2) + ':1</strong> · ' +
+      'aksentti/tausta: <strong style="color:' + (tausta >= 3.0 ? 'var(--teal)' : 'var(--amber)') + ';">' + tausta.toFixed(2) + ':1</strong>' +
+      (ok ? '' : ' — alle saavutettavuusvaatimuksen (4.5:1 / 3.0:1)');
+  }
+};
+
+window._brandiLataaLogo = async function () {
+  var inp = document.getElementById('brandiLogo');
+  var file = inp && inp.files && inp.files[0];
+  if (!file) { naytaToast('Valitse ensin kuvatiedosto.', 'varoitus'); return; }
+  if (!(file.type && file.type.indexOf('image/') === 0)) {
+    naytaToast('Tiedoston on oltava kuva.', 'varoitus'); return;
+  }
+  if (!(file.size < 5 * 1024 * 1024)) {
+    naytaToast('Kuva on liian suuri (max 5 MB).', 'varoitus'); return;
+  }
+  var ext = '';
+  var dot = file.name.lastIndexOf('.');
+  if (dot > -1) ext = file.name.substring(dot + 1).toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'svg', 'webp'].indexOf(ext) === -1) {
+    var tmap = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/svg+xml': 'svg', 'image/webp': 'webp' };
+    ext = tmap[file.type] || 'png';
+  }
+  try {
+    var ref = firebase.storage().ref('seurat/' + tila.seuraId + '/brandi/logo.' + ext);
+    await ref.put(file);
+    var url = await ref.getDownloadURL();
+    _brandiLogoUrl = url;
+    var prev = document.getElementById('brandiLogoPreview');
+    if (prev) {
+      prev.innerHTML = '<img src="' + url + '" alt="Seuran logo" style="max-height:80px;max-width:260px;border-radius:8px;background:var(--bg);padding:8px;border:1px solid var(--border);">';
+    }
+    naytaToast('Logo ladattu', 'ok');
+  } catch (e) {
+    naytaToast('Logon lataus epäonnistui: ' + (e && e.message ? e.message : e), 'virhe');
+  }
+};
+
+window._brandiPoistaLogo = function () {
+  _brandiLogoUrl = null;
+  var prev = document.getElementById('brandiLogoPreview');
+  if (prev) prev.innerHTML = '<div style="color:var(--ink3);font-size:13px;">Ei logoa ladattuna.</div>';
+  naytaToast('Logo poistettu — muista tallentaa.', 'varoitus');
+};
+
+window._brandiTallenna = async function () {
+  var accentEl = document.getElementById('brandiAccent');
+  var inkEl = document.getElementById('brandiInk');
+  var accent_hex = accentEl ? accentEl.value : '#28B090';
+  var accent_paalle = inkEl ? inkEl.value : '#FFFFFF';
+  var logoUrl = _brandiLogoUrl;
+
+  // Kontrastivalidointi (pakollinen) — saavutettavuus
+  if (_brandiKontrasti(accent_hex, accent_paalle) < 4.5 ||
+      _brandiKontrasti(accent_hex, '#161614') < 3.0) {
+    naytaToast('Väri ei täytä saavutettavuusvaatimusta (kontrasti < 4.5:1) — käytetään oletusväriä.', 'varoitus');
+    accent_hex = '#28B090';
+    accent_paalle = '#FFFFFF';
+  }
+
+  try {
+    await db.collection('seurat').doc(tila.seuraId)
+      .collection('konfiguraatio').doc('brandi')
+      .set({
+        logo_url: logoUrl || null,
+        accent_hex: accent_hex,
+        accent_paalle_teksti_hex: accent_paalle,
+        paivitetty: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    naytaToast('Brändi tallennettu', 'ok');
+    renderBrandi(document.getElementById('nakymaAlue'));
+  } catch (e) {
+    naytaToast('Tallennus epäonnistui: ' + (e && e.message ? e.message : e), 'virhe');
+  }
+};
 
 // ─────────────────────────────────────────────────────────────────
 // NÄKYMÄ: SOPIMUKSET

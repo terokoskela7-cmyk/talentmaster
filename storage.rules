@@ -43,6 +43,22 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // ── Brändi-logo (white-label Vaihe 3A) — seuran logo harjoitusarviointi-artefakteihin ──
+    // write/delete: oman seuran johto (vp/urheilutoimenjohtaja/seurasihteeri) TAI SA; image/* + kokokatto 5 MB.
+    // read: kuka tahansa kirjautunut (logo ei arkaluonteinen; näkyy lomake/dashboard/PDF -pinnoilla).
+    // §7.15: oma match-blokki — Storage-säännöt eivät periydy.
+    match /seurat/{sid}/brandi/{file} {
+      allow read:   if request.auth != null;
+      allow write:  if request.auth != null
+                    && (onSuperAdmin() || (request.auth.token.seuraId == sid
+                        && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja', 'seurasihteeri']))
+                    && request.resource.contentType.matches('image/.*')
+                    && request.resource.size < 5 * 1024 * 1024;
+      allow delete: if request.auth != null
+                    && (onSuperAdmin() || (request.auth.token.seuraId == sid
+                        && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja', 'seurasihteeri']));
+    }
+
     // Oletus: estä kaikki muu (ei vaikuta yllä sallittuihin, dokumentoi default-deny -periaatteen).
     match /{allPaths=**} {
       allow read, write: if false;
