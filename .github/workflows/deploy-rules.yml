@@ -1,0 +1,34 @@
+name: Deploy Firestore Rules
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - tm_admin/firestore.rules
+      - firebase.json
+
+jobs:
+  deploy-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Rules-testit (portti ennen deployta)
+        run: npx firebase emulators:exec --only firestore 'npx vitest run tests/rules'
+      - name: Kirjoita SA-avain
+        run: printf '%s' "$FIREBASE_SA_KEY" > "$RUNNER_TEMP/sa.json"
+        env:
+          FIREBASE_SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
+      - name: Deploy Firestore Rules
+        run: npx firebase deploy --only firestore:rules --project talentmaster-pilot --non-interactive
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
