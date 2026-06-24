@@ -17,6 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_eerikkila_normit.js?v=29"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
+<script src="lib/tm_kalenteri.js?v=1"></script>
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -5605,7 +5606,7 @@ function renderVpViikko(testit) {
     }).forEach(function(t) {
       var meta = KALENTERI_TYYPIT[t.tyyppi] || KALENTERI_TYYPIT.muu;
       var klo = t.alkaa && t.alkaa.toDate ? (String(t.alkaa.toDate().getHours()).padStart(2,'0') + ':' + String(t.alkaa.toDate().getMinutes()).padStart(2,'0')) : '';
-      evHtml += vpWeekEvt(meta.vari, meta.ikoni + ' ' + (t.nimi || meta.nimi), (t.joukkue_nimi || '') + _vpKoosteLbl(t), klo, "avaaKalenteriTapahtuma('" + t.id + "')");
+      evHtml += vpWeekEvt(meta.vari, meta.ikoni + ' ' + (t.nimi || meta.nimi), (t.joukkue_nimi || '') + _vpToistLbl(t) + _vpKoosteLbl(t), klo, "avaaKalenteriTapahtuma('" + t.id + "')");
     });
     html += '<div onclick="vpWeekSlotClick(\'' + ds + '\')" title="Klikkaa avataksesi päivän tapahtumat" style="min-height:120px;padding:4px;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);cursor:pointer;' + (isToday ? 'background:rgba(40,176,144,.06);' : '') + '">';
     html += '<div style="font-size:12px;font-weight:' + (isToday?'600':'400') + ';color:' + (isToday?'var(--teal)':'var(--ink2)') + ';margin-bottom:4px;">' + d.getDate() + '</div>';
@@ -5731,7 +5732,7 @@ function renderKalenteri() {
           ' style="font-size:10px;padding:2px 4px;border-radius:3px;margin-top:2px;' +
           'background:' + meta.vari + '1a;color:' + meta.vari + ';' +
           'border-left:2px solid ' + meta.vari + ';cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"' +
-          ' title="' + meta.ikoni + ' ' + kNimi + '">' + meta.ikoni + ' ' + kLyh + _vpKoosteLbl(kt) + '</div>';
+          ' title="' + meta.ikoni + ' ' + kNimi + '">' + meta.ikoni + ' ' + kLyh + _vpToistLbl(kt) + _vpKoosteLbl(kt) + '</div>';
       });
 
       html += `<div style="min-height:64px;padding:4px;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);
@@ -5920,6 +5921,32 @@ function avaaUusiTapahtuma(oletusPvm) {
   muistInp.style.cssText = 'padding:9px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;resize:vertical;';
   box.appendChild(_vpModalLbl('Muistiinpanot')); box.appendChild(muistInp);
 
+  // ── Toistuvuus (K3 §13) ──
+  var _toistCadence = 'kerran';
+  box.appendChild(_vpModalLbl('Toistuvuus'));
+  var toistChips = document.createElement('div'); toistChips.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
+  var paattyyWrap = document.createElement('div'); paattyyWrap.style.cssText = 'display:none;margin-top:8px;';
+  var toistPaattyyInp = document.createElement('input'); toistPaattyyInp.type = 'date'; toistPaattyyInp.value = _vpKaudenLoppuISO();
+  toistPaattyyInp.style.cssText = 'width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;box-sizing:border-box;';
+  var toistEsik = document.createElement('div'); toistEsik.style.cssText = 'font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.5;';
+  function _toistEsikatselu() {
+    if (_toistCadence === 'kerran' || !pvmInp.value || typeof TM_KALENTERI === 'undefined') { paattyyWrap.style.display = 'none'; toistEsik.textContent = ''; return; }
+    paattyyWrap.style.display = 'block';
+    var r = TM_KALENTERI.tmKalenteriOccurrences(pvmInp.value, _toistCadence, toistPaattyyInp.value || _vpKaudenLoppuISO(), 60);
+    toistEsik.innerHTML = 'Luodaan <b>' + r.pvmt.length + '</b> tapahtumaa' + (r.katkaistu ? ' <span style="color:var(--amber);">(katkaistu 60:een)</span>' : '') + '<br>' + r.pvmt.slice(0, 5).join(' · ') + (r.pvmt.length > 5 ? ' …' : '');
+  }
+  [['kerran','Kerran'],['viikoittain','Viikoittain'],['2_viikottain','Joka 2. vko'],['kuukausittain','Kuukausittain']].forEach(function(c) {
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = c[1]; b.setAttribute('data-cad', c[0]);
+    b.style.cssText = 'padding:6px 10px;border:0.5px solid var(--border);border-radius:6px;background:' + (c[0] === 'kerran' ? 'var(--teal)' : 'var(--surface)') + ';color:' + (c[0] === 'kerran' ? '#fff' : 'var(--ink2)') + ';cursor:pointer;font-size:12px;';
+    b.onclick = function() { _toistCadence = c[0]; toistChips.querySelectorAll('button').forEach(function(x) { var on = x.getAttribute('data-cad') === c[0]; x.style.background = on ? 'var(--teal)' : 'var(--surface)'; x.style.color = on ? '#fff' : 'var(--ink2)'; }); _toistEsikatselu(); };
+    toistChips.appendChild(b);
+  });
+  box.appendChild(toistChips);
+  paattyyWrap.appendChild(_vpModalLbl('Toistuu päivämäärään asti')); paattyyWrap.appendChild(toistPaattyyInp);
+  box.appendChild(paattyyWrap); box.appendChild(toistEsik);
+  pvmInp.addEventListener('change', _toistEsikatselu);
+  toistPaattyyInp.addEventListener('input', _toistEsikatselu);
+
   // Testitapahtuma-linkki (näytetään vain kun tyyppi = testitapahtuma)
   var testiInfo = document.createElement('div');
   testiInfo.id = 'vpTapTestiInfo';
@@ -5988,8 +6015,28 @@ function avaaUusiTapahtuma(oletusPvm) {
     };
 
     try {
-      await db.collection('seurat').doc(_seuraId).collection('kalenteri').add(doc);
-      toast('✓ ' + (KALENTERI_TYYPIT[tyyppi] || {}).nimi + ' lisätty', 'ok');
+      if (_toistCadence === 'kerran' || typeof TM_KALENTERI === 'undefined') {
+        await db.collection('seurat').doc(_seuraId).collection('kalenteri').add(doc);
+        toast('✓ ' + (KALENTERI_TYYPIT[tyyppi] || {}).nimi + ' lisätty', 'ok');
+      } else {
+        var _paattyyVal = toistPaattyyInp.value || _vpKaudenLoppuISO();
+        var _rr = TM_KALENTERI.tmKalenteriOccurrences(pvmStr, _toistCadence, _paattyyVal, 60);
+        var _sarjaId = TM_KALENTERI.tmSarjaId(Date.now(), Math.random().toString(36).slice(2, 8));
+        var _paivaNum = TM_KALENTERI.tmToistuvuusPaiva(pvmStr);
+        var _batch = db.batch();
+        var _col = db.collection('seurat').doc(_seuraId).collection('kalenteri');
+        _rr.pvmt.forEach(function(op) {
+          var d2 = Object.assign({}, doc, {
+            alkaa: firebase.firestore.Timestamp.fromDate(new Date(op + 'T' + alkaaStr + ':00')),
+            paattyy: firebase.firestore.Timestamp.fromDate(new Date(op + 'T' + paattyyStr + ':00')),
+            toistuvuus: { tyyppi: _toistCadence, paiva: _paivaNum, paattyy: _paattyyVal },
+            toistuvuus_sarja_id: _sarjaId
+          });
+          _batch.set(_col.doc(), d2);
+        });
+        await _batch.commit();
+        toast('✓ ' + _rr.pvmt.length + ' tapahtumaa lisätty' + (_rr.katkaistu ? ' (katkaistu 60:een)' : ''), 'ok');
+      }
       modal.remove();
       await lataaKalenteriTapahtumat();
       renderKalenteri();
@@ -6210,32 +6257,85 @@ function _vpMuokkaaTapahtuma(t) {
   var peru = document.createElement('button'); peru.textContent = 'Peruuta'; peru.style.cssText = 'flex:1;padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer;';
   peru.onclick = function() { modal.remove(); };
   var tall = document.createElement('button'); tall.textContent = 'Tallenna'; tall.style.cssText = 'flex:1;padding:10px;background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:500;';
-  tall.onclick = async function() {
-    tall.disabled = true; tall.textContent = 'Tallennetaan…';
-    try {
-      var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
-      var muid = _uid || (cu ? cu.uid : null);
-      var upd = {
-        nimi: nimiI.value.trim() || t.nimi || null,
-        paikka: paikkaI.value.trim() || null,
-        tila: tilaI.value,
-        muistiinpanot: muistI.value.trim().slice(0, 500) || null,
-        paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
-        muokkaaja_uid: muid
-      };
-      if (alkaaI.value) upd.alkaa = firebase.firestore.Timestamp.fromDate(new Date(pvmISO + 'T' + alkaaI.value + ':00'));
-      if (paattyyI.value) upd.paattyy = firebase.firestore.Timestamp.fromDate(new Date(pvmISO + 'T' + paattyyI.value + ':00'));
-      await db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(t.id).set(upd, { merge: true });
-      toast('✓ Tapahtuma päivitetty', 'ok');
-      modal.remove();
-      await lataaKalenteriTapahtumat();
-      renderKalenteri();
-    } catch (e) { toast('Päivitys epäonnistui: ' + e.message, 'error'); tall.disabled = false; tall.textContent = 'Tallenna'; }
+  tall.onclick = function() {
+    _vpSkooppiDialog(t, 'Tallenna muutokset', async function(scope) {
+      tall.disabled = true; tall.textContent = 'Tallennetaan…';
+      try {
+        var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+        var muid = _uid || (cu ? cu.uid : null);
+        var yhteiset = {
+          nimi: nimiI.value.trim() || t.nimi || null,
+          paikka: paikkaI.value.trim() || null,
+          tila: tilaI.value,
+          muistiinpanot: muistI.value.trim().slice(0, 500) || null,
+          paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
+          muokkaaja_uid: muid
+        };
+        var docit = await _vpSkooppiDocit(t, scope);
+        var batch = db.batch();
+        var col = db.collection('seurat').doc(_seuraId).collection('kalenteri');
+        docit.forEach(function(d) {
+          var upd = Object.assign({}, yhteiset);
+          var dDate = (d.alkaa && d.alkaa.toDate) ? d.alkaa.toDate() : null;
+          var dISO = dDate ? (dDate.getFullYear() + '-' + pad(dDate.getMonth() + 1) + '-' + pad(dDate.getDate())) : pvmISO;
+          if (alkaaI.value) upd.alkaa = firebase.firestore.Timestamp.fromDate(new Date(dISO + 'T' + alkaaI.value + ':00'));
+          if (paattyyI.value) upd.paattyy = firebase.firestore.Timestamp.fromDate(new Date(dISO + 'T' + paattyyI.value + ':00'));
+          if (scope === 'vain' && t.toistuvuus_sarja_id) upd.sarja_poikkeus = true;
+          batch.set(col.doc(d.id), upd, { merge: true });
+        });
+        await batch.commit();
+        toast('✓ Päivitetty (' + docit.length + ')', 'ok');
+        modal.remove();
+        await lataaKalenteriTapahtumat();
+        renderKalenteri();
+      } catch (e) { toast('Päivitys epäonnistui: ' + e.message, 'error'); tall.disabled = false; tall.textContent = 'Tallenna'; }
+    });
   };
   btnRivi.appendChild(peru); btnRivi.appendChild(tall); box.appendChild(btnRivi);
   modal.appendChild(box);
   modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
   document.body.appendChild(modal);
+}
+
+// ── K3 toistuvat: indikaattori + skooppidialogi (jaettu Master_v16:n kanssa, KALENTERI_ARKKITEHTUURI.md §13) ──
+function _vpToistLbl(t) { return (t && t.toistuvuus_sarja_id) ? ' ↻' : ''; }
+function _vpKaudenLoppuISO() {
+  try { var l = _laskeKausi(new Date()).loppu; var p = function(n){ return String(n).padStart(2,'0'); }; return l.getFullYear()+'-'+p(l.getMonth()+1)+'-'+p(l.getDate()); }
+  catch(e) { return new Date().toISOString().slice(0,10); }
+}
+// Toistuvan tapahtuman Muokkaa/Poista → 3 skooppia. Ei sarjaa → cb('vain') heti.
+function _vpSkooppiDialog(t, otsikko, cb) {
+  if (!t || !t.toistuvuus_sarja_id) { cb('vain'); return; }
+  document.getElementById('vpSkooppiModal')?.remove();
+  var modal = document.createElement('div'); modal.id = 'vpSkooppiModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(17,17,16,.9);z-index:9100;display:flex;align-items:center;justify-content:center;padding:16px;';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--surface,#161614);border:0.5px solid var(--border);border-radius:10px;padding:22px;width:380px;max-width:100%;display:flex;flex-direction:column;gap:8px;color:var(--ink,#f2efe6);';
+  box.innerHTML = '<div style="font-size:16px;font-weight:500;">' + otsikko + '</div><div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">↻ Toistuva tapahtuma — valitse kohde:</div>';
+  [['vain','Vain tämä'],['seuraavat','Tämä ja seuraavat'],['sarja','Koko sarja']].forEach(function(v) {
+    var b = document.createElement('button'); b.textContent = v[1];
+    b.style.cssText = 'padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink);cursor:pointer;font-size:13px;text-align:left;';
+    b.onclick = function() { modal.remove(); cb(v[0]); };
+    box.appendChild(b);
+  });
+  var peru = document.createElement('button'); peru.textContent = 'Peruuta';
+  peru.style.cssText = 'padding:8px;background:none;border:none;color:var(--ink3);cursor:pointer;font-size:12px;margin-top:4px;';
+  peru.onclick = function() { modal.remove(); };
+  box.appendChild(peru);
+  modal.appendChild(box);
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+// Skoopin dokit (id + alkaa). 'vain' → tämä; 'seuraavat' → sarja jossa alkaa>=tämä; 'sarja' → koko sarja.
+async function _vpSkooppiDocit(t, scope) {
+  if (scope === 'vain' || !t.toistuvuus_sarja_id) return [{ id: t.id, alkaa: t.alkaa }];
+  var snap = await db.collection('seurat').doc(_seuraId).collection('kalenteri').where('toistuvuus_sarja_id', '==', t.toistuvuus_sarja_id).get();
+  var arr = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+  if (scope === 'seuraavat') {
+    var tMs = (t.alkaa && t.alkaa.toMillis) ? t.alkaa.toMillis() : 0;
+    arr = arr.filter(function(x) { return x.alkaa && x.alkaa.toMillis && x.alkaa.toMillis() >= tMs; });
+  }
+  return arr;
 }
 
 function avaaKalenteriTapahtuma(tapahtumaId) {
@@ -6267,6 +6367,7 @@ function avaaKalenteriTapahtuma(tapahtumaId) {
     '<span style="color:var(--ink3);">Paikka</span><span>' + (t.paikka || '—') + '</span>' +
     (t.mentoroitava_nimi ? '<span style="color:var(--ink3);">Valmentaja</span><span>' + t.mentoroitava_nimi + '</span>' : '') +
     '<span style="color:var(--ink3);">Tila</span><span>' + (t.tila || '—') + '</span>' +
+    (t.toistuvuus ? '<span style="color:var(--ink3);">Toistuu</span><span>↻ ' + (typeof TM_KALENTERI !== 'undefined' ? (TM_KALENTERI.tmCadenceNimi(t.toistuvuus.tyyppi) || t.toistuvuus.tyyppi) : t.toistuvuus.tyyppi) + '</span>' : '') +
     '</div>';
   if (t.muistiinpanot) {
     html += '<div style="margin-top:6px;padding:8px 10px;background:var(--deep);border-radius:6px;font-size:12px;color:var(--ink2);">' + t.muistiinpanot + '</div>';
@@ -6294,23 +6395,27 @@ function avaaKalenteriTapahtuma(tapahtumaId) {
 
   var poista = document.createElement('button'); poista.textContent = 'Poista';
   poista.style.cssText = 'padding:10px 16px;background:rgba(201,64,64,.15);border:0.5px solid rgba(201,64,64,.3);border-radius:6px;color:#c94040;cursor:pointer;font-size:13px;';
-  poista.onclick = async function() {
-    if (!confirm('Poistetaanko tapahtuma "' + (t.nimi || '') + '"?')) return;
-    poista.disabled = true; poista.textContent = 'Poistetaan…';
-    try {
-      var uid = (_uid || (firebase.auth().currentUser && firebase.auth().currentUser.uid) || '');
-      await db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(tapahtumaId).update({
-        poistettu: true,
-        poistettu_uid: uid,
-        poistettu_pvm: firebase.firestore.FieldValue.serverTimestamp(),
-        paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
-        muokkaaja_uid: uid
-      });
-      toast('Tapahtuma poistettu', 'ok');
-      modal.remove();
-      await lataaKalenteriTapahtumat();
-      renderKalenteri();
-    } catch(e) { toast('Virhe: ' + e.message, 'error'); poista.disabled = false; poista.textContent = 'Poista'; }
+  poista.onclick = function() {
+    _vpSkooppiDialog(t, 'Poista tapahtuma', async function(scope) {
+      var lbl = scope === 'sarja' ? 'koko sarja' : (scope === 'seuraavat' ? 'tämä ja seuraavat' : 'tämä tapahtuma');
+      if (!confirm('Poistetaanko ' + lbl + '?')) return;
+      poista.disabled = true; poista.textContent = 'Poistetaan…';
+      try {
+        var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+        var uid = _uid || (cu ? cu.uid : null);
+        var docit = await _vpSkooppiDocit(t, scope);
+        var batch = db.batch();
+        var col = db.collection('seurat').doc(_seuraId).collection('kalenteri');
+        docit.forEach(function(d) {
+          batch.set(col.doc(d.id), { poistettu: true, poistettu_uid: uid, poistettu_pvm: firebase.firestore.FieldValue.serverTimestamp(), paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: uid }, { merge: true });
+        });
+        await batch.commit();
+        toast('Poistettu (' + docit.length + ')', 'ok');
+        modal.remove();
+        await lataaKalenteriTapahtumat();
+        renderKalenteri();
+      } catch(e) { toast('Virhe: ' + e.message, 'error'); poista.disabled = false; poista.textContent = 'Poista'; }
+    });
   };
 
   btnRivi.appendChild(muokkaa); btnRivi.appendChild(sulje); btnRivi.appendChild(poista);
@@ -6359,7 +6464,7 @@ function avaaKalenteriPaivaModal(dateStr) {
     var meta = KALENTERI_TYYPIT[t.tyyppi] || KALENTERI_TYYPIT.muu;
     var alkaaD = t.alkaa.toDate ? t.alkaa.toDate() : null;
     var klo = alkaaD ? (String(alkaaD.getHours()).padStart(2,'0') + ':' + String(alkaaD.getMinutes()).padStart(2,'0')) : '';
-    paiva.push({ lahde: 'kalenteri', id: t.id, nimi: (t.nimi || meta.nimi) + _vpKoosteLbl(t), joukkue: t.joukkue_nimi || '',
+    paiva.push({ lahde: 'kalenteri', id: t.id, nimi: (t.nimi || meta.nimi) + _vpToistLbl(t) + _vpKoosteLbl(t), joukkue: t.joukkue_nimi || '',
       klo: klo, vari: meta.vari, ikoni: meta.ikoni, onclick: "avaaKalenteriTapahtuma('" + t.id + "')" });
   });
 
