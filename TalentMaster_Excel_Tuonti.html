@@ -2653,6 +2653,46 @@ function laskeTKIPelaajalle(testit, ika, sukupuoli) {
   return (kt != null) ? tkLaskeTKI(kt, ika, sp) : null;
 }
 
+// ── Ennätykset (PB per testi, KORTTI 1c-A) — inline-kopio docs/testit_indeksit.js:stä (PIDÄ SYNKASSA).
+// Excelissä ei alusta-tietoa → alusta:'tuntematon' (alustaherkät bucketoituvat erikseen kenttätestien alustoista → ei valhe-PB §22).
+const ENNATYS_META = {
+  lin5m: { pieni:true, alusta:true }, lin10m: { pieni:true, alusta:true }, lin30m: { pieni:true, alusta:true },
+  cmj: { pieni:false, alusta:false }, mas: { pieni:false, alusta:true },
+  kasirata: { pieni:true, alusta:true }, sm_juoksu: { pieni:true, alusta:true }, sm_pallo: { pieni:true, alusta:true },
+  ponnauttelu: { pieni:true, alusta:false }, syotto: { pieni:true, alusta:true }, pujottelu: { pieni:true, alusta:true },
+  kuljetus_laukaus: { pieni:true, alusta:true }, pituuspotku_bonus: { pieni:false, alusta:false }, flei: { pieni:false, alusta:false }
+};
+function _ennatysKynnys(arvo) { return Math.max(0.03, Math.abs(Number(arvo) || 0) * 0.005); }
+function paivitaEnnatykset(nyky, tulokset) {
+  const ulos = {};
+  if (nyky && typeof nyky === 'object') { for (const k in nyky) { if (Object.prototype.hasOwnProperty.call(nyky, k)) ulos[k] = nyky[k]; } }
+  const uudet = [];
+  (tulokset || []).forEach(function (t) {
+    if (!t || !t.testi) return;
+    const meta = ENNATYS_META[t.testi]; if (!meta) return;
+    const arvo = Number(t.arvo); if (arvo == null || isNaN(arvo)) return;
+    const alusta = t.alusta || 'tuntematon';
+    const cur = ulos[t.testi];
+    if (!cur) { ulos[t.testi] = { paras: arvo, pvm: t.pvm || null, alusta: alusta }; return; }
+    if (meta.alusta && (cur.alusta || 'tuntematon') !== alusta) return;
+    const parannus = meta.pieni ? (cur.paras - arvo) : (arvo - cur.paras);
+    if (parannus > _ennatysKynnys(arvo)) { ulos[t.testi] = { paras: arvo, pvm: t.pvm || null, alusta: alusta }; uudet.push(t.testi); }
+  });
+  return { ennatykset: ulos, uudet: uudet };
+}
+// Kerää ennätys-kandidaatit varmoista pikakentistä (hhViimeisin + TK-lajit + FLEI). pituuspotku_bonus vain ≥12v (mukana _tkLajit:ssa jo).
+function _ennatysKandidaatit(hhViimeisin, tkLajit, fleiPct, pvmIso) {
+  const out = [];
+  const lisaa = function (testi, arvo) { if (arvo != null && !isNaN(Number(arvo))) out.push({ testi: testi, arvo: Number(arvo), alusta: 'tuntematon', pvm: pvmIso }); };
+  if (hhViimeisin) { lisaa('lin30m', hhViimeisin.lin30m); lisaa('cmj', hhViimeisin.cmj); lisaa('mas', hhViimeisin.mas); }
+  if (tkLajit) {
+    lisaa('ponnauttelu', tkLajit.ponnauttelu_s); lisaa('syotto', tkLajit.syotto_s); lisaa('pujottelu', tkLajit.pujottelu_s);
+    lisaa('kuljetus_laukaus', tkLajit.kuljetus_laukaus_s); lisaa('pituuspotku_bonus', tkLajit.pituuspotku_bonus_s);
+  }
+  lisaa('flei', fleiPct);
+  return out;
+}
+
 async function tallennaFirestoreen() {
   if (!tuontiData.valid) {
     toast('Korjaa validointivirheet ennen tallennusta', 'err'); return;
@@ -2996,6 +3036,14 @@ async function tallennaFirestoreen() {
             tallennettu: NYT_ISO  // ISO-string — EI serverTimestamp (kielletty array:n sisällä)
           });
         }
+        // KORTTI 1c-A — päivitä ennätykset (PB) pikakenttä varmoista pikakentistä (best-effort, ei kaada tuontia).
+        try {
+          const _ennatKand = _ennatysKandidaatit(hhViimeisin, _tkLajit, fleiPct, pvmIso);
+          if (_ennatKand.length) {
+            const _nykyEnn = (p._firestoreData && p._firestoreData.ennatykset) || null;
+            profiiliUpdate.ennatykset = paivitaEnnatykset(_nykyEnn, _ennatKand).ennatykset;
+          }
+        } catch (e) { console.warn('[ennatykset]', e && e.message); }
         if (Object.keys(profiiliUpdate).length > 0) {
           batch.set(pelaajaRef, profiiliUpdate, { merge: true });
         }

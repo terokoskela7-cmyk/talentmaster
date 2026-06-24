@@ -2866,6 +2866,64 @@ window._v6Synkronoi = async function _v6Synkronoi() {
   _toast('✓ Synkronointi valmis', 'ok');
 };
 
+/* ── Ennätykset (PB per testi, KORTTI 1c-A) — inline-kopio docs/testit_indeksit.js:stä (PIDÄ SYNKASSA).
+   Kirjoitetaan kirjoitushetkellä (merkitse valmiiksi). Suunta+alusta-tietoinen, kohina-kynnys, EI "huononi" (§22/§28). ── */
+var ENNATYS_META = {
+  lin5m: { pieni:true, alusta:true }, lin10m: { pieni:true, alusta:true }, lin30m: { pieni:true, alusta:true },
+  cmj: { pieni:false, alusta:false }, mas: { pieni:false, alusta:true },
+  kasirata: { pieni:true, alusta:true }, sm_juoksu: { pieni:true, alusta:true }, sm_pallo: { pieni:true, alusta:true },
+  ponnauttelu: { pieni:true, alusta:false }, syotto: { pieni:true, alusta:true }, pujottelu: { pieni:true, alusta:true },
+  kuljetus_laukaus: { pieni:true, alusta:true }, pituuspotku_bonus: { pieni:false, alusta:false }, flei: { pieni:false, alusta:false }
+};
+function _ennatysKynnys(arvo) { return Math.max(0.03, Math.abs(Number(arvo) || 0) * 0.005); }
+function paivitaEnnatykset(nyky, tulokset) {
+  var ulos = {};
+  if (nyky && typeof nyky === 'object') { for (var k in nyky) { if (Object.prototype.hasOwnProperty.call(nyky, k)) ulos[k] = nyky[k]; } }
+  var uudet = [];
+  (tulokset || []).forEach(function (t) {
+    if (!t || !t.testi) return;
+    var meta = ENNATYS_META[t.testi]; if (!meta) return;
+    var arvo = Number(t.arvo); if (arvo == null || isNaN(arvo)) return;
+    var alusta = t.alusta || 'tuntematon';
+    var cur = ulos[t.testi];
+    if (!cur) { ulos[t.testi] = { paras: arvo, pvm: t.pvm || null, alusta: alusta }; return; }
+    if (meta.alusta && (cur.alusta || 'tuntematon') !== alusta) return;
+    var parannus = meta.pieni ? (cur.paras - arvo) : (arvo - cur.paras);
+    if (parannus > _ennatysKynnys(arvo)) { ulos[t.testi] = { paras: arvo, pvm: t.pvm || null, alusta: alusta }; uudet.push(t.testi); }
+  });
+  return { ennatykset: ulos, uudet: uudet };
+}
+// Testaus_v9 testi-id → ENNATYS_META-avain (pituuspotku/505/sj jätetään: ei suoraa PB-mallia tässä passissa).
+var _ENNAT_TESTI_MAP = { lin_5m:'lin5m', lin_10m:'lin10m', lin_30m:'lin30m', hyppy_cj:'cmj', mas:'mas', kasirata:'kasirata', sm_juoksu:'sm_juoksu', sm_pallo:'sm_pallo', ponnauttelu:'ponnauttelu', syotto:'syotto', pujottelu:'pujottelu', kuljetus_laukaus:'kuljetus_laukaus' };
+function _ennatysTuloksetTestauksesta(tul, alusta, pvm) {
+  var out = [];
+  Object.keys(_ENNAT_TESTI_MAP).forEach(function (tid) {
+    var v = tul[tid];
+    var arvo = (v && typeof v === 'object') ? (v.paras != null ? v.paras : v.tulos) : v;
+    if (arvo != null && !isNaN(Number(arvo))) out.push({ testi: _ENNAT_TESTI_MAP[tid], arvo: Number(arvo), alusta: alusta, pvm: pvm });
+  });
+  return out;
+}
+// Päivitä ennatykset-pikakenttä jokaiselle tapahtuman pelaajalle (best-effort — ei kaada valmiiksi-merkintää).
+async function _v6TallennaEnnatykset() {
+  if (typeof paivitaEnnatykset !== 'function') return;
+  var alusta = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.alusta) || 'tuntematon';
+  var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) || new Date().toISOString().slice(0, 10);
+  var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
+  for (var i = 0; i < pelaajat.length; i++) {
+    var pl = pelaajat[i];
+    try {
+      var tulokset = _ennatysTuloksetTestauksesta(_tulokset[pl.id] || {}, alusta, pvm);
+      if (!tulokset.length) continue;
+      var ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pl.id);
+      var snap = await ref.get();
+      var nyky = (snap.exists && snap.data().ennatykset) || null;
+      var res = paivitaEnnatykset(nyky, tulokset);
+      await ref.update({ ennatykset: res.ennatykset });
+    } catch (e) { console.warn('[ennatykset]', pl.id, e && e.message); }
+  }
+}
+
 window._v6MerkitseValmiiksi = async function _v6MerkitseValmiiksi() {
   if (!_aktiivinenTapahtuma) return;
   // Varmuussynkronointi ensin
@@ -2884,6 +2942,9 @@ window._v6MerkitseValmiiksi = async function _v6MerkitseValmiiksi() {
     if (_aktiivinenTapahtuma.protokolla === 'kasvumittaus') {
       await _kasvuTallennaKaikkiPHV();
     }
+
+    // KORTTI 1c-A — päivitä ennätykset (PB) pikakenttä (best-effort, ei kaada valmiiksi-merkintää).
+    try { await _v6TallennaEnnatykset(); } catch (e) { console.warn('[ennatykset]', e && e.message); }
 
     _v6Renderoi();
     await _lataaTapahtumat();
