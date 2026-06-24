@@ -11,27 +11,21 @@
  * AJETAAN KERRAN:
  *   node tm_admin/backfill_claims.js
  *
- * VAATII:
- *   - Firebase Admin SDK palvelutilin avain JSON-tiedostona
- *   - Tallenna se: tm_admin/serviceAccountKey.json
- *   - ÄLÄ lisää serviceAccountKey.json:ia GitHubiin! (.gitignore)
- *
- * PALVELUTILIN AVAIN:
- *   Firebase Console → Projektiasetukset → Palvelutilit
- *   → "Luo uusi yksityinen avain" → Tallenna tm_admin/serviceAccountKey.json
+ * VAATII (Application Default Credentials — ei avaintiedostoa):
+ *   - Aja ensin:  gcloud auth application-default login
+ *     (kirjautuneella käyttäjällä oltava oikeudet asettaa Custom Claims +
+ *      kirjoittaa Firestoreen projektissa talentmaster-pilot)
+ *   - VAIHTOEHTO: aseta GOOGLE_APPLICATION_CREDENTIALS osoittamaan
+ *     palvelutiliavaimeen (esim. export GOOGLE_APPLICATION_CREDENTIALS=avain.json)
+ *   - EI enää tarvitse tm_admin/serviceAccountKey.json -tiedostoa.
  */
 
 const admin = require('firebase-admin');
-const path  = require('path');
 
-// Ladataan palvelutilin avain — tämä antaa Admin SDK:lle
-// oikeudet kirjoittaa Custom Claims ilman selainkontekstia
-const serviceAccount = require(
-  path.join(__dirname, 'serviceAccountKey.json')
-);
-
+// Autentikointi: Application Default Credentials (ADC). Kelvollinen lähde voi olla
+// gcloud-kirjautuminen TAI GOOGLE_APPLICATION_CREDENTIALS-palvelutiliavain.
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.applicationDefault(),
   projectId:  'talentmaster-pilot',
 });
 
@@ -143,6 +137,17 @@ async function ajaBbackfill() {
   console.log('  Projekti: talentmaster-pilot');
   console.log(`  Käyttäjiä: ${KAYTTAJAT.length}`);
   console.log('═══════════════════════════════════════════\n');
+
+  // Preflight: pakota ADC:n tunnistus → selkeä virhe ENNEN loopia jos tunnukset puuttuvat.
+  try {
+    await admin.credential.applicationDefault().getAccessToken();
+  } catch (e) {
+    console.error('❌ Admin SDK ei saanut tunnuksia (ADC puuttuu tai virheellinen).');
+    console.error('   Aja ensin:  gcloud auth application-default login');
+    console.error('   (tai aseta GOOGLE_APPLICATION_CREDENTIALS palvelutiliavaimeen.)');
+    console.error('   Virhe:', e.message);
+    process.exit(1);
+  }
 
   let onnistui = 0;
   let epaonnistui = 0;
