@@ -1324,6 +1324,39 @@ function laskeADARTrendi(arvioinnit) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ENNÄTYKSET (PB per testi) — KORTTI Vaihe 1c. Suunta+alusta-tietoinen, kohina-kynnys, EI "huononi"-tilaa (§22/§28).
+// Kanoninen lähde — Excel_Tuonti/Testaus_v9 pitävät inline-kopion (eivät lataa tätä libiä; PIDÄ SYNKASSA).
+// ─────────────────────────────────────────────────────────────────────────────
+// testi → { pieni: pienempi parempi · alusta: alustaherkkä (§22 ALUSTAHERKAT, vertaa vain saman alustan sisällä) }
+var ENNATYS_META = {
+  lin5m: { pieni:true, alusta:true }, lin10m: { pieni:true, alusta:true }, lin30m: { pieni:true, alusta:true },
+  cmj: { pieni:false, alusta:false }, mas: { pieni:false, alusta:true },
+  kasirata: { pieni:true, alusta:true }, sm_juoksu: { pieni:true, alusta:true }, sm_pallo: { pieni:true, alusta:true },
+  ponnauttelu: { pieni:true, alusta:false }, syotto: { pieni:true, alusta:true }, pujottelu: { pieni:true, alusta:true },
+  kuljetus_laukaus: { pieni:true, alusta:true }, pituuspotku_bonus: { pieni:false, alusta:false }, flei: { pieni:false, alusta:false }
+};
+function _ennatysKynnys(arvo) { return Math.max(0.03, Math.abs(Number(arvo) || 0) * 0.005); }   // kohina: mittausvirheen yli
+// nyky: { <testi>:{paras,pvm,alusta} } | null · tulokset: [{testi,arvo,pvm?,alusta?}] → { ennatykset, uudet:[testi] }
+function paivitaEnnatykset(nyky, tulokset) {
+  var ulos = {};
+  if (nyky && typeof nyky === "object") { for (var k in nyky) { if (Object.prototype.hasOwnProperty.call(nyky, k)) ulos[k] = nyky[k]; } }
+  var uudet = [];
+  (tulokset || []).forEach(function (t) {
+    if (!t || !t.testi) return;
+    var meta = ENNATYS_META[t.testi]; if (!meta) return;
+    var arvo = Number(t.arvo); if (arvo == null || isNaN(arvo)) return;
+    var alusta = t.alusta || "tuntematon";
+    var cur = ulos[t.testi];
+    if (!cur) { ulos[t.testi] = { paras: arvo, pvm: t.pvm || null, alusta: alusta }; return; }   // 1. tulos, ei "uusi ennätys"
+    if (meta.alusta && (cur.alusta || "tuntematon") !== alusta) return;                            // §22: eri alusta → ei lasketa
+    var parannus = meta.pieni ? (cur.paras - arvo) : (arvo - cur.paras);
+    if (parannus > _ennatysKynnys(arvo)) { ulos[t.testi] = { paras: arvo, pvm: t.pvm || null, alusta: alusta }; uudet.push(t.testi); }
+    // ei parannusta → säilytä entinen (EI "huononi" §28)
+  });
+  return { ennatykset: ulos, uudet: uudet };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // EKSPORTTI (käytä joko module.exports tai globaalina)
 // ─────────────────────────────────────────────────────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
@@ -1342,6 +1375,7 @@ if (typeof module !== 'undefined' && module.exports) {
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     // Räjähtävyysprofiili
     laskeEI, laskeFVP, laskeVNE,
+    ENNATYS_META, paivitaEnnatykset,
     // Game IQ / ADAR
     ADAR_DIMENSIOT, ADAR_SKENAARIOT, ADAR_IKATASOT,
     adarHaeIkaTaso, laskeADARPisteet, laskeADARTrendi,
@@ -1355,6 +1389,7 @@ if (typeof module !== 'undefined' && module.exports) {
     tkLajiViite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta, laskeD2Tekninen,
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     laskeEI, laskeFVP, laskeVNE,
+    ENNATYS_META, paivitaEnnatykset,
     ADAR_DIMENSIOT, ADAR_SKENAARIOT, ADAR_IKATASOT,
     adarHaeIkaTaso, laskeADARPisteet, laskeADARTrendi,
   };

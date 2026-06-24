@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782303756391';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782312770343';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -399,7 +399,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_eerikkila_normit.js?v=29"></script>
-<script src="docs/testit_indeksit.js?v=7"></script>
+<script src="docs/testit_indeksit.js?v=9"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=7"></script>
 <script src="lib/tm-microcycles.js?v=2"></script>
 <script src="tm-bus.js?v=3"></script>
@@ -1819,8 +1819,7 @@ var KORTTI_KATALOGI = {
     { id: 'ach_liekki7',    nimi: '7 päivän liekki',     tyyppi: 'saavutus', ikoni: '🔥', ansainta: function () { return _haeStreak() >= 7; },  lukittuTeksti: 'Treenaa 7 päivää putkeen.' },
     { id: 'ach_liekki14',   nimi: '14 päivän liekki',    tyyppi: 'saavutus', ikoni: '🔥', ansainta: function () { return _haeStreak() >= 14; }, lukittuTeksti: 'Jatka putkea 14 päivään.' },
     { id: 'ach_synttari',   nimi: 'Synttärisankari',     tyyppi: 'saavutus', ikoni: '🎂', ansainta: function (p) { return (typeof _onkoSynttari === 'function') && _onkoSynttari(p); }, lukittuTeksti: 'Avautuu synttäripäivänäsi.' },
-    { id: 'ach_ekamittaus', nimi: 'Ensimmäinen mittaus', tyyppi: 'saavutus', ikoni: '📏', ansainta: function (p) { return !!(p && (p.tki_viimeisin != null || p.hh_viimeisin != null || p.flei_viimeisin != null)); }, lukittuTeksti: 'Tulee kun ensimmäinen mittaus tehdään.' },
-    { id: 'ach_omaennatys', nimi: 'Oma ennätys',         tyyppi: 'saavutus', ikoni: '🏅', ansainta: function (p) { return !!(p && p.tk_kokonaistulos_edellinen != null && p.tk_kokonaistulos_viimeisin != null && p.tk_kokonaistulos_viimeisin < p.tk_kokonaistulos_edellinen); }, lukittuTeksti: 'Voita oma aiempi tuloksesi.' }
+    { id: 'ach_ekamittaus', nimi: 'Ensimmäinen mittaus', tyyppi: 'saavutus', ikoni: '📏', ansainta: function (p) { return !!(p && (p.tki_viimeisin != null || p.hh_viimeisin != null || p.flei_viimeisin != null)); }, lukittuTeksti: 'Tulee kun ensimmäinen mittaus tehdään.' }
   ],
   merkit: [   // Vaihe 1 — oma mestaruuspolku per laji (pronssi/hopea/kulta omalla matkalla)
     { id: 'merkki_kuljetus',    nimi: 'Kuljetus',  tyyppi: 'merkki', laji: 'kuljetus_laukaus', ikoni: '🏃', lukittuTeksti: 'Tee kuljetustesti.' },
@@ -1829,10 +1828,12 @@ var KORTTI_KATALOGI = {
     { id: 'merkki_ponnauttelu', nimi: 'Ponnautus', tyyppi: 'merkki', laji: 'ponnauttelu',      ikoni: '⚡', lukittuTeksti: 'Tee ponnautustesti.' }
   ]
 };
-function _kkLiekkiTila(streak) {
+function _kkLiekkiTila(streak, palannut) {
   if (streak >= 14) return { emoji: '🔥🔥', txt: 'Rovio palaa!',          vari: '#F04E4E' };
   if (streak >= 7)  return { emoji: '🔥',   txt: 'Liekki palaa',          vari: '#B85C38' };
   if (streak >= 1)  return { emoji: '✨',   txt: 'Liekki syttyy',         vari: '#E0A040' };
+  // §22/§25 — väliin jäänyt päivä = lepopäivä: liekki himmenee hiillokseksi, EI nollu. Paluu juhlitaan (ei "menetit putken").
+  if (palannut)     return { emoji: '🌱',   txt: 'Hienoa että palasit!',  vari: '#28B090' };
   return                   { emoji: '💤',   txt: 'Aloita putki tänään',   vari: 'var(--ink3)' };
 }
 function _kkMerkkiVari(t) { return t === 3 ? '#FFD700' : t === 2 ? '#C0C0C0' : t === 1 ? '#CD7F32' : 'var(--ink3)'; }
@@ -1850,11 +1851,46 @@ function _kkKorttiHTML(ikoni, nimi, ansaittu, alateksti, vari) {
     + '<div style="font-size:12px;font-weight:600;color:var(--ink3);margin-top:5px">' + _thEsc(nimi) + '</div>'
     + '<div style="font-size:10px;color:#8C8B86;margin-top:2px">' + _thEsc(alateksti) + '</div></div>';
 }
+// Ennätys-näyttönimet (lapsen kieli) + yksikkö. §7.22: PB = puhdas ITSEVERTAILU (oma kehitys), ei vertailu muihin.
+function _kkEnnatysTiedot(testi) {
+  var M = {
+    lin5m: ['5 m kiri', 's'], lin10m: ['10 m kiri', 's'], lin30m: ['30 m kiri', 's'],
+    cmj: ['Kevennyshyppy', 'cm'], mas: ['Maksiminopeus', 'km/h'], kasirata: ['Kasirata', 's'],
+    sm_juoksu: ['SM-juoksu', 's'], sm_pallo: ['SM-pallo', 's'], ponnauttelu: ['Ponnautus', 's'],
+    syotto: ['Syöttö', 's'], pujottelu: ['Pujottelu', 's'], kuljetus_laukaus: ['Kuljetus-laukaus', 's'],
+    pituuspotku_bonus: ['Pituuspotku', 's'], flei: ['Kehon valmius', '']
+  };
+  return M[testi] || [testi, ''];
+}
+// Ennätykset-kerros (KORTTI 1c) — renderöi pikakentästä p.ennatykset (§26). Data-tietoinen, ikävaihe-gating.
+function _kkEnnatyksetHTML(p, stage) {
+  var ennat = p && p.ennatykset;
+  var avaimet = (ennat && typeof ennat === 'object') ? Object.keys(ennat).filter(function (k) { return ennat[k] && ennat[k].paras != null; }) : [];
+  if (stage === '1_leikkija') avaimet = avaimet.slice(0, 4);
+  var sis;
+  if (!avaimet.length) {
+    sis = '<div style="font-size:12px;color:#8C8B86">Ei ennätyksiä vielä — tee testi, niin voitat itsesi!</div>';
+  } else {
+    sis = '<div style="display:flex;flex-wrap:wrap;gap:8px">' + avaimet.map(function (k) {
+      var t = _kkEnnatysTiedot(k), e = ennat[k];
+      var arvo = (typeof e.paras === 'number') ? (Math.round(e.paras * 100) / 100) : e.paras;
+      var alustaTxt = (e.alusta && e.alusta !== 'tuntematon') ? (' · ' + _thEsc(String(e.alusta))) : '';
+      return '<div style="flex:1 1 112px;min-width:112px;max-width:150px;text-align:center;padding:11px 8px;background:rgba(40,176,144,.06);border:1px solid #28B090;border-radius:12px">'
+        + '<div style="font-size:11px;color:var(--ink3);margin-bottom:3px">' + _thEsc(t[0]) + '</div>'
+        + '<div style="font-family:var(--font-m);font-size:20px;color:#28B090;font-weight:600">' + arvo + (t[1] ? (' ' + t[1]) : '') + '</div>'
+        + '<div style="font-size:9px;color:#8C8B86;margin-top:2px">Oma paras' + alustaTxt + '</div></div>';
+    }).join('') + '</div>';
+  }
+  return '<div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin:18px 0 6px">🏅 Ennätykset</div>'
+    + '<div style="font-size:11px;color:#8C8B86;margin-bottom:8px">Voita oma itsesi — jokainen parannus on voitto.</div>' + sis;
+}
+
 function rMinaKokoelma() {
   var p = _pelaaja; if (!p) return '';
   var stage = (typeof _laskeStage === 'function') ? _laskeStage(p.syntymaVuosi, p.phv_tila) : '2_rakentaja';
   var streak = _haeStreak();
-  var liekki = _kkLiekkiTila(streak);
+  var palannut = (streak === 0) && (((typeof window !== 'undefined' && window._kirjauksiaYhteensa) || 0) > 0 || (p.kirjaus_kpl || 0) > 0);
+  var liekki = _kkLiekkiTila(streak, palannut);
   var johdanto = (stage === '1_leikkija')
     ? 'Tähän kertyy juttuja kun treenaat ja pelaat. Ei kiire — kerää omaan tahtiin!'
     : 'Kokoelmasi kasvaa kun treenaat. Ei kiire, ei vertailua — vain sinun oma matkasi.';
@@ -1879,7 +1915,12 @@ function rMinaKokoelma() {
     var on = taso > 0;
     h += _kkKorttiHTML(k.ikoni, k.nimi, on, on ? (_kkMerkkiNimi(taso) + ' omalla matkallasi') : (k.lukittuTeksti || 'Treeni avaa'), _kkMerkkiVari(taso));
   });
-  h += '</div></div>';
+  h += '</div>';
+  if (palannut || (streak >= 1 && streak < 7)) {
+    h += '<div style="margin-top:14px;padding:10px 12px;background:rgba(40,176,144,.06);border:.5px solid rgba(40,176,144,.25);border-radius:10px;font-size:12px;color:var(--text);line-height:1.5">💚 <b>Lepopäivä kuuluu kasvuun</b> — lepo ja paluu ovat osa treeniä. Hyvä että pidät huolta itsestäsi.</div>';
+  }
+  h += _kkEnnatyksetHTML(p, stage);
+  h += '</div>';
   return h;
 }
 
