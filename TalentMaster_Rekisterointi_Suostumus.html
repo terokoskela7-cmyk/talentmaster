@@ -208,15 +208,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
     <div class="success-title">Rekisterointi onnistui!</div>
     <div class="success-sub">Tiedot on tallennettu TalentMaster-rekisteriin.</div>
     <div class="receipt" id="receipt"></div>
-    <div class="info" style="background:rgba(0,212,170,.08);border-color:rgba(0,212,170,.3);">
-      <div class="info-t" style="color:var(--teal);">&#128273; Aseta salasanasi</div>
-      <p style="color:#7ecfc0;line-height:1.8;">
-        Aseta TalentMaster-salasanasi yll&auml; n&auml;kyv&auml;st&auml; linkist&auml;:
-        <strong>lue QR-koodi puhelimella tai kopioi linkki</strong>.<br>
-        Salasanan asetettuasi p&auml;&auml;set vanhemman n&auml;kym&auml;&auml;n &mdash;
-        kirjaudu <strong id="conf_email" style="color:var(--teal);"></strong>-osoitteellasi ja uudella salasanalla.
-      </p>
-    </div>
+    <div class="info" id="salasanaInfo" style="background:rgba(0,212,170,.08);border-color:rgba(0,212,170,.3);"></div>
     <div class="info" style="margin-top:12px;">
       <div class="info-t">Seuraavat askeleet</div>
       <p>Valmentaja ottaa yhteytta ja sopii ensimmaisen testausajankohdan.</p>
@@ -487,6 +479,7 @@ function toStep3() {
           // CF palauttaa salasanan asetuslinkin → näytetään onnistumisnäytöllä (QR + kopioi)
           window._suostumusResetLinkki = (res && res.data && res.data.passwordResetLink) || null;
           window._suostumusPin = (res && res.data && res.data.pin) || null;
+          window._suostumusEmailLahetetty = !!(res && res.data && res.data.emailLahetetty === true);
         });
 
     } else {
@@ -597,10 +590,11 @@ function toStep3() {
       if (window._suostumusResetLinkki) {
         var _rl = window._suostumusResetLinkki;
         var _qr = 'https://api.qrserver.com/v1/create-qr-code/?size=170x170&margin=8&data=' + encodeURIComponent(_rl);
+        var _emailOk = window._suostumusEmailLahetetty === true;
         el('receipt').innerHTML +=
           '<div style="margin-top:14px;padding:14px;background:var(--ink3);border:1px solid var(--line2);border-radius:9px">'
-          + '<div style="font-size:13px;font-weight:700;color:var(--teal);margin-bottom:4px">&#128273; Aseta salasanasi</div>'
-          + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Lue QR-koodi puhelimella tai kopioi linkki — paaset asettamaan TalentMaster-salasanasi.</div>'
+          + '<div style="font-size:13px;font-weight:700;color:var(--teal);margin-bottom:4px">' + (_emailOk ? '&#128273; Tai aseta salasana QR-koodista' : '&#128273; Aseta salasanasi') + '</div>'
+          + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">' + (_emailOk ? 'Varapolku, jos s&auml;hk&ouml;posti ei tule perille — lue QR puhelimella tai kopioi linkki.' : 'Lue QR-koodi puhelimella tai kopioi linkki — paaset asettamaan TalentMaster-salasanasi.') + '</div>'
           + '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
           +   '<img src="' + _qr + '" alt="QR-koodi" width="120" height="120" style="background:#fff;border-radius:6px;padding:4px" onerror="this.style.display=\'none\'">'
           +   '<div style="flex:1;min-width:180px">'
@@ -610,9 +604,22 @@ function toStep3() {
           + '</div></div>';
       }
 
-      // Näytetään sähköpostiosoite vahvistusnäytöllä
-      var confEmail = document.getElementById('conf_email');
-      if (confEmail) confEmail.textContent = raporttiEmail || hEmail || '';
+      // Salasanaohje — todenmukainen viesti emailLahetetty-lipun mukaan (ei luvata sähköpostia ellei lähetetty).
+      var _siEl = document.getElementById('salasanaInfo');
+      if (_siEl) {
+        var _esE = function(x){ return String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+        var _em = _esE(raporttiEmail || hEmail || '');
+        var _emEl = _em ? ('<strong style="color:var(--teal)">' + _em + '</strong>') : '';
+        if (window._suostumusEmailLahetetty === true) {
+          _siEl.innerHTML = '<div class="info-t" style="color:var(--teal)">&#9989; L&auml;hetimme salasanalinkin s&auml;hk&ouml;postiisi</div>'
+            + '<p style="color:#7ecfc0;line-height:1.8;">L&auml;hetimme salasanalinkin' + (_em ? (' osoitteeseen ' + _emEl) : ' s&auml;hk&ouml;postiisi') + '. Avaa viesti ja aseta salasanasi (tai k&auml;yt&auml; alla n&auml;kyv&auml;&auml; QR-koodia).<br>'
+            + 'Salasanan asetettuasi p&auml;&auml;set vanhemman n&auml;kym&auml;&auml;n &mdash; kirjaudu samalla s&auml;hk&ouml;postiosoitteella ja uudella salasanalla.</p>';
+        } else {
+          _siEl.innerHTML = '<div class="info-t" style="color:var(--teal)">&#128273; Aseta salasanasi</div>'
+            + '<p style="color:#7ecfc0;line-height:1.8;">Aseta TalentMaster-salasanasi yll&auml; n&auml;kyv&auml;st&auml; linkist&auml;: <strong>lue QR-koodi puhelimella tai kopioi linkki</strong>.<br>'
+            + 'Salasanan asetettuasi p&auml;&auml;set vanhemman n&auml;kym&auml;&auml;n &mdash; kirjaudu ' + (_em ? (_emEl + '-osoitteella') : 's&auml;hk&ouml;postiosoitteellasi') + ' ja uudella salasanalla.</p>';
+        }
+      }
       setStep(3);
     })
     .catch(function(err) {
