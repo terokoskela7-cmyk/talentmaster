@@ -271,6 +271,39 @@ uusitaan pyynnöstä. Ei henkilökohtainen (joukkuekohtainen).
 Vaatii OAuth 2.0 per käyttäjä — merkittävästi monimutkaisempi kuin iCal.
 Ei pilottivaiheen prioriteetti. Ks. Teamworks-malli: iCal ensin, kaksisuuntainen myöhemmin.
 
+### 4.5 JOPOX-integraatio (toinen seuraohjausjärjestelmä) — lisätty 2026-06-24
+
+JOPOX = suomalainen urheiluseurojen toiminnanohjaus (kotisivut, jäsenrekisteri, **ryhmäkalenterit**,
+ilmoittautumiset, viestintä, laskutus, vuorojako). Kuten MyClub, joukkuekalenteri elää JOPOXissa.
+
+- JOPOXin julkiset API-integraatiot kohdistuvat **taloushallintoon** (Finago Procountor, Netvisor) — **ei
+  löytynyt avointa kalenterirajapintaa eikä iCal-feediä kolmansille.** Vahvistettava JOPOXilta/seuralta,
+  saako joukkuekalenterin iCal-tilauslinkkinä (monet järjestelmät tarjoavat sen vaikkei mainosta).
+- **JOPOX integroituu TASO-tulospalveluun** → tuo ottelut automaattisesti TASOSTA.
+- **STRATEGINEN OIVALLUS:** sekä JOPOX että MyClub hakevat ottelut **TASOSTA**. TM:llä on jo
+  `tasoHaeSeuranOttelut` → **TM saa ottelut suoraan TASOSTA riippumatta kumpaa seuraohjausta (JOPOX/MyClub)
+  seura käyttää.** Integraation aito aukko = **HARJOITUKSET** (elävät JOPOX/MyClubissa, eivät kulje TASOn kautta).
+- **Lähestymistapa:** (a) jos JOPOX/MyClub tarjoaa joukkuekalenterin **iCal-tilauslinkin** → TM tuo sen
+  (`lahde:'ical_tuonti'`, geneerinen ulkoinen feed — sama mekanismi kummallekin); (b) muuten manuaalinen
+  syöttö, kunnes avoin rajapinta varmistuu. **Tee JOPOX/MyClub optionaaliseksi:** TASO kattaa ottelut,
+  harjoitukset manuaalisesti / iCal-tilauksella. Älä rakenna seuraohjausspesifiä API-liimaa ennen kuin
+  seura sitä tarvitsee.
+
+### 4.6 Microsoft Outlook / Teams — lisätty 2026-06-24
+
+**Outlook ja Teams jakavat saman Microsoft 365 -kalenterin** (Teams näyttää Outlook-kalenterin) → yksi
+toteutus kattaa molemmat. Kaksi tasoa:
+
+- **Yksisuuntainen (SUOSITUS, pilotti): iCal-tilauslinkki** (§4.3) → Outlook "Lisää kalenteri internetistä"
+  → näkyy myös Teamsissa. Read-only, **ei OAuthia, yksinkertaisin** — kattaa "näytä TM-tapahtumat
+  Outlookissa/Teamsissa". **Sama `kalenteriIcal`-CF palvelee Google/Apple/Outlook/Teams.**
+- **Kaksisuuntainen (Sprint 8+): Microsoft Graph API** + Azure-sovellusrekisteröinti + OAuth per käyttäjä →
+  tapahtumien luonti/päivitys käyttäjän Outlook/Teams-kalenteriin + Teams-kokouslinkit (Graph
+  `onlineMeetings`). Raskaampi + GDPR (kuten §4.4 Google). Ei pilottiprioriteetti.
+
+**Pilottilinjaus:** iCal (§4.3) kattaa Outlookin JA Teamsin yhdellä CF:llä — **ei erillistä Teams-integraatiota
+tarvita** perusnäkyvyyteen. Graph-pohjainen kaksisuuntaisuus vasta jos seurat erikseen vaativat.
+
 ---
 
 ## 5. VP:N VUOSIKELLO — testaamisen ja johtamisen rytmi
@@ -545,3 +578,43 @@ Firestore-kenttä `token` on vain viite/hash, ei selväkielinen avain.
 
 *Kalenteriarkkitehtuuri · TalentMaster™ · 2026-06-07 (päivitetty KIMI-analyysin jälkeen)*
 *Tutkimuslähteet: Kitman Labs, Teamworks, 360Player, PlayMetrics, Catapult/Smartabase, MyClub API v2.8*
+
+---
+
+## 11. TILA 2026-06-24 — suunnitelman ja TOTEUTUKSEN täsmäytys (live-auditti)
+
+> §1–10 = suunnitelma (06-07). Tämä = mikä on TODELLA toteutettu (luettu VP_v25/Master_v16-koodista + livenä SJK).
+> Täydentää benchmark-kerrokseen: §1 kattaa elite/akatemia-alustat; grassroots-aikataulutuksen helppous
+> (Spond/TeamSnap: toistuvat + RSVP + iCal + automaattimuistutukset) on pilottiseurojen perhe-/valmentajapinnalle
+> relevantti yksinkertaisuus-benchmark — doc hylkäsi Spondin (C1) talent-dev-fokuksen takia, mutta sen UX-helppous
+> kannattaa pitää mielessä perhepinnalla. Lähteet alla.
+
+**✅ Toteutettu (Vaihe 1 osin):**
+- `seurat/{sid}/kalenteri/{tapahtumaId}` LIVE — sekä VP että valmentaja kirjoittavat (jaettu, cross-app todennettu).
+- **11 tapahtumatyyppiä** (`KALENTERI_TYYPIT`): testitapahtuma · ottelu · harjoitus · valmentajapalaveri ·
+  jaksopalaveri · tiimipalaveri · mentorointitapaaminen · kalibraatiopaja · idp_seuranta · talenttileiri · muu.
+- Luonti (`avaaUusiTapahtuma`): tyyppi · nimi · pvm + alkaa/päättyy · joukkue · valmentaja (mentorointi). Kuukausi + viikko.
+- **Soft-delete** (`poistettu:true`) + audit-kentät (`muokkaaja_uid`) toimivat (K2 ✅).
+- **Rules v3.4:** VP/johto CRUD · valmentaja field-level update · `lasnaolijat/{uid}`-blokki olemassa (K1 ✅).
+- `testitapahtuma` heijastuu kalenteriin · `_jsvLuoTapahtuma` (syvänäkymän treeniteema-CTA) esitäyttö.
+
+**⚠️ Kesken / riski:**
+- **Dual-read (K8 migraatio kesken):** VP lukee `kalenteri` + legacy `tapahtumat` (suodatin: vain mentorointi/kokous,
+  rivi 5576) + `vp_kalenteri`; Master lukee `kalenteri` + `tapahtumat`. → Legacy mentorointi/kokous voi **duplikoitua**
+  uuden `kalenteri`:n kanssa. (Roska `rekisteri_pohja_ladattu` EI näy — suodatin estää.)
+- Kuollut `_avaaUusiTapahtuma`-duplikaatti (Master, §A3) → siivouskomento annettu 2026-06-24.
+
+**❌ Ei vielä (suunnitelmasta):**
+- RSVP/läsnäolo-UI (`lasnaolijat`-blokki on, UI + kirjoitus puuttuu) · toistuvat tapahtumat (`toistuvuus`) ·
+  automaattimuistutukset · iCal-vienti-CF · MyClub-synkka · **kuorma/PHV-kytkentä + dropout-signaali (erottautuja)** ·
+  päivänäkymä · vuosikello-UI.
+
+**Suositeltu seuraava (täsmää §8:aan):**
+1. **K1 — Konsolidointi:** lopeta dual-read, migroi legacy `tapahtumat`(mentorointi/kokous)+`vp_kalenteri` → `kalenteri`,
+   poista duplikaattiriski (+ kuollut-fn siivous). **Datan eheys ennen lisäystä.**
+2. **K2 — RSVP/läsnäolo-UI** (`lasnaolijat`).
+3. Sitten toisto → muistutukset → **kuorma/dropout-erottautuja** → iCal (§8 K3–K6).
+
+> **Status 2026-06-24:** suunnitelma (§1–10) vahva ja kattava; kalenteri osin toteutettu (yhteinen `kalenteri`-kokoelma
+> + 11 tyyppiä + soft-delete + Rules). Pullonkaula = **konsolidointi (dual-read lopetus) + erottautuja-kerros
+> (kuorma/dropout)**, ei perusrakenne. Benchmark-lisä: Spond/TeamSnap (grassroots-aikataulutus) — Sources alla.
