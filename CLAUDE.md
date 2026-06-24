@@ -190,7 +190,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | fcl | FC Lahti Juniorit | vp.fcl@talentmaster.fi | |
 | kpv | KPV | **rasmus_broberg@icloud.com** | vp.kpv EI ole Authissa — oikea tili on rasmus_broberg |
 | palloiirot | Pallo-Iirot | vp.palloiirot@talentmaster.fi | |
-| yvies | Ylöjärven Ilves | vp.yvies@talentmaster.fi | |
+| yilves | Ylöjärven Ilves | lauri.veittikoski@ylojarvenilves.fi | **seuraId `yilves`** (EI `yvies` — vanha placeholder, älä käytä); VP Lauri Veittikoski |
 | sjk | SJK Juniorit | vp.sjk@talentmaster.fi | tyttöjoukkueet mukana |
 | grifk | GrIFK | vp.grifk@talentmaster.fi | kieliKartta: sv |
 | vifk | VIFK | vp.vifk@talentmaster.fi | kieliKartta: sv |
