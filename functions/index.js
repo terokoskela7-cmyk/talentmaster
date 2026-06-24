@@ -298,6 +298,27 @@ function pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }) {
       <p style="color:#999;font-size:12px;">Linkki on voimassa 1 tunnin.</p>
     </div>`;
 }
+// Suostumus-flow: huoltajan salasanalinkki perhepintaan (§16/§7.22 — ei tasoja/lukuja/vertailua).
+function pohjaSuostumusLinkki({ lapsiNimi, resetLinkki }) {
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+      <h2 style="color:#28B090;">Tervetuloa TalentMasteriin!</h2>
+      <p>Hei,</p>
+      <p>Kiitos suostumuksesta${lapsiNimi ? ` — ${lapsiNimi} on nyt mukana TalentMasterissa.` : '.'}</p>
+      <p>Aseta TalentMaster-salasanasi alla olevasta linkist&auml;:</p>
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${resetLinkki}"
+          style="background:#28B090;color:#000;padding:12px 28px;
+          border-radius:8px;text-decoration:none;font-weight:bold;">
+          Aseta salasana &rarr;
+        </a>
+      </div>
+      <p style="font-size:14px;color:#333;line-height:1.6;">
+        Salasanan asetettuasi p&auml;&auml;set vanhemman n&auml;kym&auml;&auml;n &mdash; kirjaudu t&auml;ll&auml; s&auml;hk&ouml;postiosoitteella ja uudella salasanalla.
+      </p>
+      <p style="color:#999;font-size:12px;">Jos painike ei toimi, kopioi t&auml;m&auml; osoite selaimeen:<br>${resetLinkki}</p>
+    </div>`;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaRekisteriKutsu
 // ─────────────────────────────────────────────────────────────────────────────
@@ -939,8 +960,7 @@ exports.lahetaPelaajaSivuLinkki = functions
 // ─────────────────────────────────────────────────────────────────────────────
 exports.vahvistaSuostumus = functions
   .region('europe-west1')
-  // Ei sähköpostia vielä (ks. TODO) → ei SendGrid-riippuvuutta. Kun lähetys siirretään tänne,
-  // SENDGRID_API_KEY: Secret Manager (runWith) → process.env, kun lähetys siirretään tänne.
+  .runWith({ secrets: ['SENDGRID_API_KEY'] })   // §13: salasanalinkki-email → SENDGRID_API_KEY Secret Managerista process.env:iin
   .https.onCall(async (data, context) => {
     // antaja/bioPituudet/kutsuId + syntyma/sukupuoli/suostumukset/suostumusMap/antajaRooli/aikaleima:
     // ei-arkaluonteiset kentät jotka lomake kirjoitti ennen suoraan client-puolelta — siirretty tänne,
@@ -1078,7 +1098,33 @@ exports.vahvistaSuostumus = functions
         url: continueUrl,
         handleCodeInApp: false,
       });
-      return { ok: true, passwordResetLink, pin };
+      // 6. Lähetä salasanalinkki sähköpostiin (best-effort §13). EI kaadeta suostumusta jos lähetys
+      //    epäonnistuu — passwordResetLink palautetaan yhä (QR-varapolku säilyy). Suostumus on jo tallennettu yllä.
+      let emailLahetetty = false, emailVirhe = null;
+      try {
+        const lapsiNimi = String(snap.get('etunimi') || '').trim();
+        await lahetaSahkoposti({
+          to: hEmailNorm,
+          subject: 'Aseta TalentMaster-salasanasi',
+          fromName: 'TalentMaster',
+          html: pohjaSuostumusLinkki({ lapsiNimi, resetLinkki: passwordResetLink }),
+        });
+        emailLahetetty = true;
+        db.collection('audit').add({
+          toiminto: 'suostumuslinkki_lahetetty', severity: 'info',
+          pelaajaId, seuraId, hEmail: hEmailNorm,
+          aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => {});
+      } catch (mailErr) {
+        emailVirhe = String((mailErr && mailErr.message) || mailErr || 'tuntematon');
+        console.warn('[vahvistaSuostumus] Salasanalinkki-email epäonnistui:', emailVirhe);
+        db.collection('audit').add({
+          toiminto: 'suostumuslinkki_epaonnistui', severity: 'warn',
+          pelaajaId, seuraId, hEmail: hEmailNorm, virhe: emailVirhe.slice(0, 200),
+          aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => {});
+      }
+      return { ok: true, passwordResetLink, pin, emailLahetetty, emailVirhe };
     } catch (e) {
       console.warn('[vahvistaSuostumus] Reset-linkki epäonnistui:', e.message);
       return { ok: true, passwordResetLink: null, linkkiVirhe: e.message, pin };
