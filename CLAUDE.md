@@ -3,7 +3,7 @@
 > Ensimmäinen tiedosto jonka liität uuteen Claude-sessioon. Keskittyy **teknisiin invariantteihin**.
 > Strategia, RAE-tiede, kansainvälistyminen, bisnesmalli, sprintit ja avoimet tehtävät: **`docs/STRATEGIA.md`**.
 > Operatiivinen roadmap-historia: `docs/ROADMAP.md`. Solo-tuotteen täysi kuvaus: `docs/ARKKITEHTUURI.md §11`.
-> Viimeksi päivitetty: 2026-06-15 (B2 Sentry deployattu + verifioitu §33 · ADAR kenttävalmis + pikakentät §26/§32 · live-tila §9 + §26 `d1_taso` VALMIS + §29/§30 seuradatakartta live-luvuilla · edellinen 06-11: §34 TKI-analyysimalli · §16/§19/§23/§24/§26/§27/§31 synkronointi · tehtäväarkisto)
+> Viimeksi päivitetty: 2026-06-24 (**kalenteri K1+K2+K3 valmis** `seurat/{sid}/kalenteri` — konsolidointi + läsnäolo (3 roolia, Rules v3.5) + toistuvat (jaettu `lib/tm_kalenteri.js`) §35 · **kortti-järjestelmä** Vaihe 0–1.5 rakennettu (saavutukset/tekniikkamerkit/liekki-lepo/Ennätykset-PB), pikakenttä `ennatykset` §36 · **termit julkisiksi** FLEI→"Kehon valmius", Pelaajaraportti (EI "MDT"), Mittaus/Ottelu/Pelihavainto (EI Signs/Samples/SEO) + in-app aloitusopas 4 roolille + OPAS_PERHE/OPAS_VP_JA_VALMENTAJA §37 · **suostumus-integriteetti** invariantti EI KOSKAAN annettu→odottaa + SendGrid-salasanalinkki + toast-z-index §13/§33 · edellinen 06-15: B2 Sentry §33 · §26 `d1_taso`)
 
 ---
 
@@ -166,6 +166,10 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `docs/TKI_ANALYYSIMALLI.md` | Kanoninen TKI-analyysimalli (3 viitekehystä + kehitysvauhti) | ✅ §34 |
 | `docs/tk_lajiviitteet.js` | Generoitu `TK_LAJIVIITTEET` (SSOT mergelle, älä poista) | ✅ §34 |
 | `docs/data/taitokisa_*.json` + `parse_taitokisa*.py` | TK-viitedatan raakadata + parserit (vuosipäivitys) | ✅ §34 |
+| `docs/KALENTERI_ARKKITEHTUURI.md` | Kanoninen kalenteri-arkkitehtuuri + K1–K6-suunnitelma + kv-benchmarkit | ✅ §35 (K1 valmis) |
+| `docs/KORTTI_VISIO.md` · `docs/KORTTI_KATALOGI.md` | Keräilykortti-visio + datavetoinen rekisteri (Vaihe 0–1.5 rakennettu) | ✅ §36 |
+| `docs/OPAS_VP_JA_VALMENTAJA.md` · `docs/OPAS_PERHE.md` | Käyttäjäoppaat (henkilöstö · perhe) | ✅ §37 |
+| `docs/INAPP_ALOITUSOPAS_SPEC.md` · `docs/MDT_RAPORTTI_SPEC.md` · `docs/SUOSTUMUS_INTEGRITEETTI_2026-06-23.md` | In-app-opas + Pelaajaraportti-roolit + suostumus-integriteetti | ✅ §37/§33 |
 | `tm_eerikkila_normit.js` (`lib/`-alla) | Eerikkilä-normitaulukot | ✅ |
 | `tm_lang.js` | fi/sv/en, 144 käännöstä | ✅ |
 | `harjoitelogiikka_v4.js` | **CANONICAL** harjoitegeneraattori (2803r) — Pelaaja_v7 lataa Pagesista `?v=6` | ✅ §A7 |
@@ -1119,3 +1123,60 @@ näytetään AINA erikseen. **TKI-laskua EI saa näyttää punaisena jos abs-del
 
 **Roolinäkymät (sama data, kolme kieltä):** VP_v25 joukkue-Yhteenveto + Tuki (§19) · valmentaja Master TKI-detail (§29/§30) ·
 pelaaja MINÄ-tavoiterivit + TÄNÄÄN-saate (§16). Kaikki pikakentistä (§26), ei alikokoelmakyselyjä.
+
+---
+
+## 35. KALENTERI — YKSILÄHTEINEN (2026-06-24, K1+K2+K3 valmis)
+
+> Täysi kanoninen doc: **[`docs/KALENTERI_ARKKITEHTUURI.md`](docs/KALENTERI_ARKKITEHTUURI.md)** (visio + K1–K6-suunnitelma + kv-benchmarkit + §12 K2/§13 K3). Ristiriidassa täysi doc voittaa. Tämä §35 = tislaus + invariantit.
+
+**Yksi totuuslähde:** `seurat/{seuraId}/kalenteri/{tapahtumaId}` (konsolidoitu, **Rules v3.5**). **K1 (commit `d1bc8c7`) poisti kaikki legacy-kalenterilähteet** — sekä VP_v25 (`lataaMuutTapahtumat`/`lataaVpKalenteri`/`_muutTapahtumat`/`_vpKalenteri`/`vpAvaaMentorointiModal`) että Master_v16 (legacy `tapahtumat`-concat) → ei enää duplikaattilähdettä, ei hiljaisia kirjoituksia kuolleeseen kokoelmaan. **Live-verifioitu** (grep 0 legacy-symbolia, `renderKalenteri` ehjä).
+
+**Invariantit:**
+1. **Kalenteri renderöityy VAIN kahdesta lähteestä:** `kalenteri` (poistettu==false) + `testitapahtumat` (§22-testityökalu) + TASO-ottelut (§20). EI muita.
+2. **Pehmeä poisto** (`poistettu:true`) — säilyttää audit-jäljen, ei hard-delete.
+3. **11 KALENTERI_TYYPIT** (VP_v25 ~5911). `avaaUusiTapahtuma()` kirjoittaa `kalenteri.add()` (~6082). `renderKalenteri()` yhdistää `_tapahtumat`(testitapahtumat) + `_kalenteriTapahtumat`.
+4. Master_v16 `_lataaKalenteriTapahtumat` lukee saman `kalenteri`-kokoelman; kuollut `_avaaUusiTapahtuma` (avasi arkistoidun Testaus_v8:n) poistettu (commit `e5f6944`) — ainoa määritelmä on ~6800.
+5. **Rules v3.5:** kalenteri-event: johto = täysi CRUD · valmentaja/talenttivalmentaja = täysi omiin (`luoja_uid==auth.uid`) + field-level muiden (muistiinpanot+lasnaolo_kooste) · create vaatii `luoja_uid==auth.uid`. `lasnaolijat`: johto + valmentajaroolit merkitsee, pelaaja self-RSVP (K2b). **Deployattu Consolesta 2026-06-24.**
+
+**✅ K2 LÄSNÄOLO VALMIS (2026-06-24, kolme merkitsijäroolia):** valmentaja merkitsee toteutuneen läsnäolon (paikalla/myöhässä/poissa+syy) tapahtumanäkymässä → `kalenteri/{tid}/lasnaolijat/{pelaajaId}` (`merkitsija_uid`, serverTimestamp) + denorm. `lasnaolo_kooste` event-dokkiin (kalenterikortti "X/N", §26 ei alikokoelmakyselyä). Roster 3 tapauksessa: `pelaajat_id[]` → joukkue/joukkueet[] (§18) → `talenttiOhjelma==true` (talenttien lisätreenit). **Master_v16** (valmentaja/talenttivalmentaja) + **VP_v25** (johto, tuplaroolit — VP myös valmentaa, ei roolinvaihtoa). Tapahtuman LUONTI nyt myös valmentajalle/talenttivalmentajalle (`luoja_uid`); täysi muokkaus omiin, field-level muiden. Spec KALENTERI §12.
+
+**✅ K3 TOISTUVAT VALMIS (2026-06-24):** jokainen toisto = aito `kalenteri`-dokki jaetulla `toistuvuus_sarja_id`:llä (EI virtuaali — K2-läsnäolo kiinnittyy per session). Jaettu `lib/tm_kalenteri.js` (`tmKalenteriOccurrences`/`tmToistuvuusPaiva`/`tmSarjaId`/`tmCadenceNimi`, 10 Vitest). Cadence viikoittain/2_viikottain/kuukausittain, cap 60, horisontti = kauden loppu. Muokkaus/poisto 3 skooppia (vain tämä `sarja_poikkeus` / tämä+seuraavat / koko sarja), poisto = soft-delete. Ei Rules-muutosta. Spec KALENTERI §13.
+
+**Suunnitelma (KALENTERI_ARKKITEHTUURI §8/§11):** ✅ K1 konsolidointi · ✅ K2 läsnäolo (3 roolia) · ✅ K3 toistuvat → **jäljellä:** K4 muistutukset → **K5 kuorma+dropout-erottautuja** (läsnäolo→kuorma, ainutlaatuinen arvo — nyt avattu, K2+K3 tuottavat raakadatan) → K6 iCal-vienti (yksi feed kattaa Outlook+Teams). JOPOX-rajapinta = vain kirjanpito-API:t + TASO-ottelut (ei avointa kalenteri-API:a) §4.5; Outlook/Teams = jaettu M365-kalenteri → yksi iCal-feed, kaksisuuntainen Graph Sprint 8+ §4.6.
+
+---
+
+## 36. KORTTI-JÄRJESTELMÄ — keräilykortit (2026-06-24, Vaihe 0–1.5 rakennettu)
+
+> Täydet docit: **[`docs/KORTTI_VISIO.md`](docs/KORTTI_VISIO.md)** (visio + SDT/Dweck-motivaatio + §10 3-kerros-arkkitehtuuri) + **[`docs/KORTTI_KATALOGI.md`](docs/KORTTI_KATALOGI.md)** (datavetoinen rekisteri, kaikki vaiheet). Ristiriidassa täydet docit voittavat.
+
+**Periaate:** datavetoinen (`KORTTI_KATALOGI`-dataobjekti, EI kovakoodattu UI), ansainta **pikakentistä/teoista** (§26), EI vertailusta muihin (§7.22) eikä numero-grindistä lapselle näkyvänä (§22). Renderöinti pikakentistä — ei alikokoelmakyselyjä.
+
+**Kolme keräilykerrosta (KORTTI_VISIO §10):**
+- **Matkamerkit** (Vaihe 1) — tiheät pienet voitot, ratkaisee "pitkän odotuksen ennen avausta": saavutukset (`ach_*`), tekniikkamerkit per laji (pronssi→hopea→kulta = oma suhde `tkLajiViite`-viitetasoon + oma parannus), liekki-lepo (`liekki_tila`, väliin jäänyt päivä = lepopäivä, EI nollu).
+- **Ennätykset (Vaihe 1.5)** — PB per testi, "voita oma itsesi". Uusi pikakenttä **`ennatykset: { <testi>: {paras, pvm, alusta} }`**, päivitetään kirjoitushetkellä (Excel_Tuonti/recalc/Testaus_v9). **Reunaehdot (pakolliset):** suunta per testi (`TK_LAJIT_META.kaanteinen`) · alustaherkkyys (§22, PB-vertailu vain saman alustan sisällä — tärkein vartija) · PHV-neutraalius (§28, ei "huononit"-kehystä) · kohina-kynnys.
+- **Legendat (Vaihe 2)** + **Tähtikokoelma (Vaihe 3)** — arkkityypit (§14), EI oikeita nimiä (IP). Arvostetuin = **Sisukas** (sinnikkyys > lahjakkuus, Dweck) = tuotteen filosofia korttina. Idoli = lapsen oma valinta.
+
+**Ikävaihe-gating (`_laskeStage`, §16):** leikkijä (U12) yksinkertaisin, **EI OVR-lukua**; rakentaja (U13–15); showcase (U16+). Saavutus-/merkki-/legendakortit toimivat KAIKISSA ikävaiheissa (positiivisia); vain pääkortin OVR-luku on ikägeitattu (gate ≥3 ulottuvuutta, OVR-lattia §28).
+
+**Tila:** Vaihe 0 tasokortti (`naytaFcOverlay`, v3) ✅ · Vaihe 1 saavutukset+tekniikkamerkit+liekki-lepo (`rMinaKokoelma` Pelaaja_v7) ✅ · Vaihe 1.5 Ennätykset ✅. **Jäljellä:** Vaihe 2 legendat · Vaihe 3 tähtikokoelma · Vaihe 4 paljastus+kausi (pack-opening).
+
+---
+
+## 37. JULKINEN KIELI + KÄYTTÄJÄOPPAAT (2026-06-24)
+
+**Termit julkisiksi (sisäinen jargon pois käyttöliittymästä):**
+- **FLEI → "Kehon valmius"** (kehon valmiusindeksi, §14). Sisäinen `flei_*`-kenttänimi säilyy koodissa; vain UI-teksti vaihtuu. IDP "Fascia Load Efficiency Index" -jargon siivottu.
+- **"Pelaajaraportti"** — EI "MDT" (termiä ei käytetä jalkapallossa). MDT = monialainen tiimi (terveydenhuollon termi), poistettu käyttäjäpinnasta. Spec: `docs/MDT_RAPORTTI_SPEC.md §0`.
+- **Mittaus / Ottelu / Pelihavainto** — EI englanninkielisiä "Signs / Samples / SEO". (SEO=Sport Event Observation jne. = sisäisiä lyhenteitä, poistettu.)
+- **ADAR ei ole enää käytössä** julkisena terminä (kenttähavainto-työkalu toimii silti §15/§26).
+
+**Pelaajaraportti — roolit (§32, `docs/MDT_RAPORTTI_SPEC.md`):** valmentajalla on oikeus **omiin pelaajiinsa** — kirjaa tavoitteita + palautetta (Master_v16 Vaihe 2). VP näkee tavoitteet **read-only** (VP_v25 Vaihe 2.1, `_mdtJohtajaPaneeli`). VP + valmentaja keskustelevat näkökulmista. **Harjoitusarviointi-rooli (korjattu):** VP täyttää sekä malli A:n että malli B:n; **kalibraatio = ero valmentajan B-itsearvion ja VP:n B-havainnon välillä.**
+
+**Käyttäjäoppaat (`docs/`):**
+- **OPAS_VP_JA_VALMENTAJA.md** — henkilöstön pelikirja (VP:n 5 johtamisaluetta · valmentaja · Pelaajaraportti+yhteistyö · data-herää-silmukka · in-app-suunnitelma).
+- **OPAS_PERHE.md** — vanhempi+pelaaja (profiili rakentuu progressiivisesti · ikävaiheittain syvenevä data · Tänään-tehtävien alkuperä harjoitegeneraattorista + miksi · §7.22-turvallinen).
+- **In-app aloitusopas** — 4 roolille (Pelaaja_v7 `_naytaTervetulo` · Vanhempi_v2 `_naytaVanhTervetulo` "kultainen sääntö: ei kavereihin" · VP/valmentaja "Aloita tästä" -kortit). Spec: `docs/INAPP_ALOITUSOPAS_SPEC.md`.
+
+**Tänään-tehtävät (pelaaja-app):** tulevat `harjoitelogiikka_v4.js`-generaattorista (§A7/§7.25) — S-harjoite kohdistuu heikoimpaan FLEI-ketjuun, T-harjoite joka päivä. Oppaissa selitetty miksi ne näkyvät, mistä tulevat, miksi kannattaa tehdä — §7.22-kehyksessä (ei numeroita/vertailua lapselle).
