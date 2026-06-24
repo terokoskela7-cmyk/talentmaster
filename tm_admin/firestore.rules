@@ -1,10 +1,18 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.4
+// TalentMaster™ — firestore.rules v3.5
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: Firebase Console → Firestore → Rules → liitä → Julkaise
 //         (EI GitHub Actionsilla — saa 403, CLAUDE.md §17 #10)
+//
+// Muutokset v3.4 → v3.5 (kalenteri-omistajuus + läsnäolo, KALENTERI_ARKKITEHTUURI.md §7):
+//   ~ seurat/{sid}/kalenteri/{tapahtumaId} update — valmentaja/talenttivalmentaja saa nyt
+//     TÄYDEN muokkauksen OMIIN tapahtumiinsa (resource.data.luoja_uid == auth.uid) JA
+//     field-level muokkauksen MUIDEN tapahtumiin (vain muistiinpanot + läsnäolo-kooste + audit).
+//   ~ create — valmentajaroolilta vaaditaan luoja_uid == auth.uid (omistajuus aina kirjautuu).
+//   ~ lasnaolijat/{osallistujaId} — valmentaja/johto saa merkitä läsnäolon kenelle tahansa
+//     pelaajalle (osallistujaId = pelaajaId); pelaaja vahvistaa edelleen OMAN (uid==osallistujaId).
 //
 // Muutokset v3.3 → v3.4 (kalenteri-kokoelma):
 //   + seurat/{sid}/kalenteri/{tapahtumaId} — seuran pääkalenteri (KALENTERI_ARKKITEHTUURI.md §3).
@@ -618,45 +626,54 @@ service cloud.firestore {
         allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
       }
 
-      // ── KALENTERI (v3.4) — seuran pääkalenteri (KALENTERI_ARKKITEHTUURI.md §3) ──
+      // ── KALENTERI (v3.5) — seuran pääkalenteri (KALENTERI_ARKKITEHTUURI.md §3/§7) ──
       // Korvaa legacy tapahtumat + vp_kalenteri + joukkueet/{jid}/kalenteri yhdellä
       // kokoelmalla. Kaikki tapahtumatyypit: testi, ottelu, harjoitus, palaveri,
       // mentorointi, kalibraatiopaja, IDP-seuranta, talenttileiri, muu.
       //
-      // Soft-delete: poistettu=true, EI oikeaa deletea (audit-jälki).
-      // Valmentajan field-level -rajoitus (KIMI K1): vain muistiinpanot + aikaleima.
+      // Omistajuus (v3.5): johto = täysi CRUD; valmentaja/talenttivalmentaja = täysi
+      // muokkaus OMIIN (luoja_uid == auth.uid), MUIDEN tapahtumiin vain field-level
+      // (muistiinpanot + läsnäolo-kooste + audit). Soft-delete: poistettu=true, EI hard-deletea.
       match /kalenteri/{tapahtumaId} {
         allow read:   if onSuperAdmin()
                       || (onKirjautunut() && onOmaSeura(seuraId));
 
-        // Luonti: VP/johto + valmentajaroolit (oma seura)
+        // Luonti: VP/johto (vapaa) TAI valmentajarooli joka asettaa luoja_uid == oma uid.
         allow create: if onSuperAdmin()
                       || (onOmaSeura(seuraId) && onJohtoRooli())
-                      || onOmanSeuranValmentaja(seuraId);
+                      || (onOmanSeuranValmentaja(seuraId)
+                          && request.resource.data.luoja_uid == request.auth.uid);
 
-        // Päivitys: VP/johto saa muokata kaikkea.
-        // Valmentaja saa muokata VAIN muistiinpanot + paivitetty + muokkaaja_uid
-        // (KALENTERI_ARKKITEHTUURI.md §7, KIMI K1).
+        // Päivitys:
+        //  · SA / johto → kaikki
+        //  · valmentaja OMAAN tapahtumaan (luoja_uid == uid) → kaikki
+        //  · valmentaja MUIDEN tapahtumaan → vain field-level
+        //    (muistiinpanot + läsnäolo-kooste + aikaleima; EI soft-deletea/nimeä/aikaa muille).
         allow update: if onSuperAdmin()
                       || (onOmaSeura(seuraId) && onJohtoRooli())
                       || (onOmanSeuranValmentaja(seuraId)
+                          && resource.data.luoja_uid == request.auth.uid)
+                      || (onOmanSeuranValmentaja(seuraId)
                           && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['muistiinpanot', 'paivitetty', 'muokkaaja_uid',
-                                       'tila', 'poistettu', 'poistettu_uid', 'poistettu_pvm']));
+                                       'lasnaolo_kooste']));
 
         // Ei hard-deletea — soft-delete (poistettu:true) update-kautta
         allow delete: if onSuperAdmin();
 
-        // ── Läsnäolijat (alikokoelma) ──
-        // Pelaaja/valmentajan läsnäolovahvistus per tapahtuma.
+        // ── Läsnäolijat (alikokoelma) — KALENTERI_ARKKITEHTUURI.md §7 ──
+        // Valmentaja/johto merkitsee läsnäolon per pelaaja (osallistujaId = pelaajaId).
+        // Pelaaja vahvistaa OMAN läsnäolonsa (uid == osallistujaId).
         match /lasnaolijat/{osallistujaId} {
           allow read:   if onSuperAdmin()
                         || (onKirjautunut() && onOmaSeura(seuraId));
           allow create: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && onJohtoRooli())
-                        || onOmanSeuranValmentaja(seuraId);
+                        || onOmanSeuranValmentaja(seuraId)
+                        || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId);
           allow update: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && onJohtoRooli())
+                        || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }

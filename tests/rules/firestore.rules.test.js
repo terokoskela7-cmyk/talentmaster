@@ -149,6 +149,12 @@ function valmentajaContext(uid, seuraId) {
   });
 }
 
+function talenttivalmentajaContext(uid, seuraId) {
+  return testEnv.authenticatedContext(uid, {
+    rooli: 'talenttivalmentaja', seuraId,
+  });
+}
+
 function sihteeriContext(seuraId) {
   return testEnv.authenticatedContext(SIHTEERI_UID, {
     rooli: 'seurasihteeri', seuraId,
@@ -705,19 +711,26 @@ describe('Kehut — perheen yksityisyys', () => {
 // 8. KALENTERI — field-level update rajoitus valmentajalle (v3.4)
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('Kalenteri (v3.4)', () => {
+describe('Kalenteri (v3.5 — omistajuus + läsnäolo)', () => {
+  // kal1 = MUIDEN tapahtuma (ei luoja_uid:tä VALM_A:lle) · kal_own = VALM_A:n OMA tapahtuma
   beforeEach(async () => {
     await seedSeuraAndPelaaja();
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       const db = ctx.firestore();
       await setDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1'), {
         tyyppi: 'testi', nimi: 'Syyskoe', pvm: '2026-09-15',
-        joukkue: 'FCL U12', muistiinpanot: '', tila: 'suunniteltu',
+        joukkue: 'FCL U12', muistiinpanot: '', tila: 'suunniteltu', poistettu: false,
+      });
+      await setDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal_own'), {
+        tyyppi: 'harjoitus', nimi: 'Oma treeni', pvm: '2026-09-16',
+        joukkue: 'FCL U12', muistiinpanot: '', tila: 'suunniteltu', poistettu: false,
+        luoja_uid: VALM_A_UID,
       });
     });
   });
 
-  it('Valmentaja päivittää muistiinpanot (sallittu)', async () => {
+  // ── Field-level MUIDEN tapahtumaan ──
+  it('Valmentaja päivittää muistiinpanot muiden tapahtumaan (field-level, sallittu)', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     await assertSucceeds(updateDoc(
       doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1'),
@@ -725,7 +738,15 @@ describe('Kalenteri (v3.4)', () => {
     ));
   });
 
-  it('Valmentaja EI päivitä tapahtuman nimeä (kielletty kenttä)', async () => {
+  it('Valmentaja päivittää läsnäolo-koosteen muiden tapahtumaan (field-level, sallittu)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1'),
+      { lasnaolo_kooste: { paikalla: 8, myohassa: 1, poissa: 2 }, paivitetty: new Date().toISOString(), muokkaaja_uid: VALM_A_UID }
+    ));
+  });
+
+  it('Valmentaja EI päivitä muiden tapahtuman nimeä (kielletty kenttä)', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     await assertFails(updateDoc(
       doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1'),
@@ -733,6 +754,40 @@ describe('Kalenteri (v3.4)', () => {
     ));
   });
 
+  it('Valmentaja EI soft-deletoi MUIDEN tapahtumaa', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1'),
+      { poistettu: true, poistettu_uid: VALM_A_UID, poistettu_pvm: new Date().toISOString() }
+    ));
+  });
+
+  // ── Täysi muokkaus OMAAN tapahtumaan ──
+  it('Valmentaja muokkaa OMAN tapahtuman nimen + ajan (täysi, sallittu)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal_own'),
+      { nimi: 'Päivitetty treeni', alkaa: '18:00', paikka: 'Halli 2' }
+    ));
+  });
+
+  it('Valmentaja soft-deletoi OMAN tapahtuman (poistettu=true)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal_own'),
+      { poistettu: true, poistettu_uid: VALM_A_UID, poistettu_pvm: new Date().toISOString() }
+    ));
+  });
+
+  it('Toinen valmentaja EI muokkaa muiden tapahtuman nimeä (vain field-level)', async () => {
+    const db = valmentajaContext('valm-fcl-002', SEURA_A).firestore();
+    await assertFails(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal_own'),
+      { nimi: 'Kaapattu' }
+    ));
+  });
+
+  // ── Johto ──
   it('VP päivittää minkä tahansa kentän', async () => {
     const db = vpContext(SEURA_A).firestore();
     await assertSucceeds(updateDoc(
@@ -741,11 +796,28 @@ describe('Kalenteri (v3.4)', () => {
     ));
   });
 
-  it('Valmentaja luo tapahtuman', async () => {
+  // ── Luonti (luoja_uid pakollinen valmentajalta) ──
+  it('Valmentaja luo tapahtuman luoja_uid == oma uid (sallittu)', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     await assertSucceeds(setDoc(
       doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal-new'),
-      { tyyppi: 'harjoitus', nimi: 'Aamu', pvm: '2026-09-16' }
+      { tyyppi: 'harjoitus', nimi: 'Aamu', pvm: '2026-09-16', luoja_uid: VALM_A_UID, poistettu: false }
+    ));
+  });
+
+  it('Valmentaja EI luo tapahtumaa toisen luoja_uid:llä', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal-bad'),
+      { tyyppi: 'harjoitus', nimi: 'Väärä', pvm: '2026-09-16', luoja_uid: 'joku-muu' }
+    ));
+  });
+
+  it('Talenttivalmentaja luo talenttileirin (luoja_uid == oma uid)', async () => {
+    const db = talenttivalmentajaContext('talentti-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal-tal'),
+      { tyyppi: 'talenttileiri', nimi: 'Talenttitreeni', pvm: '2026-09-20', luoja_uid: 'talentti-fcl-001', poistettu: false }
     ));
   });
 
@@ -754,11 +826,20 @@ describe('Kalenteri (v3.4)', () => {
     await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1')));
   });
 
-  it('Valmentaja soft-deletoi (poistettu=true update)', async () => {
+  // ── Läsnäolijat ──
+  it('Valmentaja merkitsee pelaajan läsnäolon (osallistujaId = pelaaja)', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
-    await assertSucceeds(updateDoc(
-      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1'),
-      { poistettu: true, poistettu_uid: VALM_A_UID, poistettu_pvm: new Date().toISOString() }
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
+      { tila: 'paikalla', merkitsija_uid: VALM_A_UID, merkitty: new Date().toISOString() }
+    ));
+  });
+
+  it('Toisen seuran valmentaja EI merkitse läsnäoloa', async () => {
+    const db = valmentajaContext(VALM_B_UID, 'kpv').firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
+      { tila: 'paikalla', merkitsija_uid: VALM_B_UID }
     ));
   });
 });

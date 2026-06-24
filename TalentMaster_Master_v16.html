@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782317276021';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782322008370';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -6547,11 +6547,14 @@ function _calChip(sty, t, lisaaJoukkue, onclick, aika) {
   const clickAttr = onclick ? ' onclick="' + onclick + '"' : '';
   const cursor = onclick ? 'cursor:pointer;' : 'cursor:default;';
   const metaHtml = aika ? '<div class="cal-evt-meta">' + aika + '</div>' : '';
+  const _k = t.lasnaolo_kooste;
+  const koosteHtml = (_k && (_k.paikalla != null || _k.myohassa != null || _k.poissa != null))
+    ? '<div class="cal-evt-meta">✓ ' + (_k.paikalla || 0) + '/' + ((_k.paikalla || 0) + (_k.myohassa || 0) + (_k.poissa || 0)) + '</div>' : '';
   return '<div class="cal-evt"' + clickAttr
     + ' style="background:' + sty.vari + '1f;border-left:2px solid ' + sty.vari + ';' + cursor + '"'
     + ' title="' + teksti + '">'
     + '<div class="cal-evt-title" style="color:' + sty.vari + ';">' + teksti + '</div>'
-    + metaHtml + '</div>';
+    + metaHtml + koosteHtml + '</div>';
 }
 
 function renderCal() {
@@ -6759,15 +6762,282 @@ function calEventClick(tapahtumaId) {
     box.appendChild(note);
   }
 
-  // Sulje-nappi
+  // ── Läsnäolo (Vaihe B) — johto + valmentaja + talenttivalmentaja ──
+  if (_saaMerkitaLasnaolo()) {
+    var laBox = document.createElement('div');
+    laBox.id = 'calLasnaoloBox';
+    laBox.style.cssText = 'margin-top:10px;border-top:0.5px solid var(--border);padding-top:10px';
+    laBox.innerHTML = '<div style="font-size:12px;color:var(--ink3)">Ladataan läsnäoloa…</div>';
+    box.appendChild(laBox);
+    _calRenderLasnaolo(t, laBox);
+  }
+
+  // ── Toiminnot (Vaihe C) — Muokkaa/Poista täysi jos oma/johto, muuten vain Sulje ──
   var btnRivi = document.createElement('div');
-  btnRivi.style.cssText = 'display:flex;gap:8px;margin-top:8px';
+  btnRivi.style.cssText = 'display:flex;gap:8px;margin-top:10px';
+  if (_calSaaMuokataTapahtuma(t) || _saaMerkitaLasnaolo()) {
+    var muokkaaBtn = document.createElement('button');
+    muokkaaBtn.textContent = '✏️ Muokkaa';
+    muokkaaBtn.style.cssText = 'flex:1;padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer';
+    muokkaaBtn.onclick = function() { modal.remove(); _calMuokkaaTapahtuma(t); };
+    btnRivi.appendChild(muokkaaBtn);
+  }
+  if (_calSaaMuokataTapahtuma(t)) {
+    var poistaBtn = document.createElement('button');
+    poistaBtn.textContent = '🗑 Poista';
+    poistaBtn.style.cssText = 'padding:10px 14px;background:rgba(240,78,78,.1);border:0.5px solid rgba(240,78,78,.4);border-radius:6px;color:#F04E4E;cursor:pointer';
+    poistaBtn.onclick = function() { _calPoistaTapahtuma(t, modal); };
+    btnRivi.appendChild(poistaBtn);
+  }
   var suljeBtn = document.createElement('button');
   suljeBtn.textContent = 'Sulje';
   suljeBtn.style.cssText = 'flex:1;padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer';
   suljeBtn.onclick = function() { modal.remove(); };
   btnRivi.appendChild(suljeBtn);
   box.appendChild(btnRivi);
+
+  modal.appendChild(box);
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+/* ════════════════════════════════════════════════════════════
+   LÄSNÄOLO + TAPAHTUMAN MUOKKAUS (Vaihe B + C, Rules v3.5)
+   onclick-kutsut: ei stringeinä — DOM-handlerit (closure), §17.
+════════════════════════════════════════════════════════════ */
+// Roolivartijat — vastaavat Rules v3.5:tä (johto = CRUD; valmentaja/talentti = oma + field-level + läsnäolo).
+function _calJohtoRooli() { return ['vp', 'urheilutoimenjohtaja', 'seurasihteeri'].indexOf(_rooli) >= 0; }
+function _calValmentajaRooli() { return ['valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja'].indexOf(_rooli) >= 0; }
+function _saaMerkitaLasnaolo() { return !_demo && !!_seuraId && (_superAdmin || _calJohtoRooli() || _calValmentajaRooli()); }
+function _calSaaMuokataTapahtuma(t) { return !_demo && !!_seuraId && (_superAdmin || _calJohtoRooli() || (_calValmentajaRooli() && t && t.luoja_uid && t.luoja_uid === _uid)); }
+function _calMerkUid() { try { return (_auth && _auth.currentUser && _auth.currentUser.uid) || _uid || null; } catch (e) { return _uid || null; } }
+
+// Roster 3 tapauksessa (§18-kaksoiskysely b-tapauksessa): pelaajat_id → joukkue/joukkueet[] → talenttiOhjelma.
+async function _calHaeOsallistujat(t) {
+  if (!_seuraId) return [];
+  var col = _db.collection('seurat').doc(_seuraId).collection('pelaajat');
+  var map = {};
+  var lisaa = function(d) { var x = d.data(); map[d.id] = { id: d.id, nimi: ((x.etunimi || '') + ' ' + (x.sukunimi || '')).trim() || x.nimi || d.id }; };
+  try {
+    if (Array.isArray(t.pelaajat_id) && t.pelaajat_id.length) {
+      var ids = t.pelaajat_id.slice(0, 300);
+      for (var i = 0; i < ids.length; i += 10) {
+        var chunk = ids.slice(i, i + 10);
+        var snap = await col.where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get();
+        snap.docs.forEach(lisaa);
+      }
+    } else if (t.joukkue || (t.joukkueet && t.joukkueet.length)) {
+      var jId = (t.joukkueet && t.joukkueet[0]) || '';
+      var qs = [];
+      if (t.joukkue) qs.push(col.where('joukkue', '==', t.joukkue).get());
+      if (jId) qs.push(col.where('joukkueet', 'array-contains', jId).get().catch(function() { return { docs: [] }; }));
+      var res = await Promise.all(qs);
+      res.forEach(function(snp) { snp.docs.forEach(lisaa); });
+    } else {
+      var snap2 = await col.where('talenttiOhjelma', '==', true).get();
+      snap2.docs.forEach(lisaa);
+    }
+  } catch (e) { console.warn('[lasnaolo-roster]', e.message); }
+  var arr = Object.keys(map).map(function(k) { return map[k]; });
+  arr.sort(function(a, b) { return a.nimi.localeCompare(b.nimi); });
+  return arr;
+}
+
+// Maalaa läsnäolopainikkeet + syy-kentät state:n mukaan (ei innerHTML-rebuildia → ei fokushukkaa).
+function _calLasnaoloPaint(container, state) {
+  var VARIT = { paikalla: '#3DA35D', myohassa: '#E0A040', poissa: '#F04E4E' };
+  container.querySelectorAll('.la-btn').forEach(function(b) {
+    var pid = b.getAttribute('data-pid'); var tila = b.getAttribute('data-tila');
+    var on = state[pid] && state[pid].tila === tila;
+    b.style.background = on ? (VARIT[tila] + '22') : 'var(--surface)';
+    b.style.borderColor = on ? VARIT[tila] : 'var(--border)';
+    b.style.color = on ? VARIT[tila] : 'var(--ink3)';
+    b.style.fontWeight = on ? '600' : '400';
+  });
+  container.querySelectorAll('.la-syy').forEach(function(inp) {
+    var pid = inp.getAttribute('data-pid');
+    var tila = state[pid] && state[pid].tila;
+    inp.style.display = (tila === 'myohassa' || tila === 'poissa') ? 'block' : 'none';
+  });
+  var sum = container.querySelector('.la-sum');
+  if (sum) {
+    var k = { paikalla: 0, myohassa: 0, poissa: 0, n: 0 };
+    Object.keys(state).forEach(function(pid) { k.n++; var st = state[pid].tila; if (st) k[st]++; });
+    sum.textContent = '✓ ' + k.paikalla + ' paikalla · ' + k.myohassa + ' myöhässä · ' + k.poissa + ' poissa / ' + k.n;
+  }
+}
+
+async function _calRenderLasnaolo(t, container) {
+  var roster = await _calHaeOsallistujat(t);
+  var existing = {};
+  try {
+    var snap = await _db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(t.id).collection('lasnaolijat').get();
+    snap.docs.forEach(function(d) { existing[d.id] = d.data(); });
+  } catch (e) { console.warn('[lasnaolo-read]', e.message); }
+  if (!roster.length) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--ink3)">Ei osallistujia — tapahtumalla ei ole joukkuetta/pelaajia.</div>';
+    return;
+  }
+  var state = {};
+  roster.forEach(function(pl) { var ex = existing[pl.id]; state[pl.id] = { tila: (ex && ex.tila) || null, syy: (ex && ex.syy) || '' }; });
+
+  container.innerHTML = '';
+  var otsikko = document.createElement('div');
+  otsikko.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px';
+  otsikko.innerHTML = '<span style="font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)">Läsnäolo</span>'
+    + '<span class="la-sum" style="font-size:11px;color:var(--ink3)"></span>';
+  container.appendChild(otsikko);
+
+  var kaikkiBtn = document.createElement('button');
+  kaikkiBtn.textContent = '✓ Merkitse kaikki paikalla';
+  kaikkiBtn.style.cssText = 'width:100%;padding:7px;margin-bottom:8px;background:rgba(61,163,93,.1);border:0.5px solid rgba(61,163,93,.4);border-radius:6px;color:#3DA35D;cursor:pointer;font-size:12px';
+  kaikkiBtn.onclick = function() { roster.forEach(function(pl) { state[pl.id].tila = 'paikalla'; }); _calLasnaoloPaint(rows, state); };
+  container.appendChild(kaikkiBtn);
+
+  var rows = document.createElement('div');
+  rows.style.cssText = 'max-height:230px;overflow-y:auto';
+  var rivBtn = function(pid, tila, lbl) {
+    return '<button class="la-btn" data-pid="' + pid + '" data-tila="' + tila + '" style="padding:4px 8px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--ink3);cursor:pointer;font-size:11px">' + lbl + '</button>';
+  };
+  rows.innerHTML = roster.map(function(pl) {
+    return '<div style="padding:5px 0;border-bottom:0.5px solid var(--border)">'
+      + '<div style="display:flex;align-items:center;gap:5px">'
+      + '<div style="flex:1;font-size:13px;color:var(--ink)">' + _mEsc(pl.nimi) + '</div>'
+      + rivBtn(pl.id, 'paikalla', 'Paikalla') + rivBtn(pl.id, 'myohassa', 'Myöhässä') + rivBtn(pl.id, 'poissa', 'Poissa')
+      + '</div>'
+      + '<input class="la-syy" data-pid="' + pl.id + '" placeholder="syy (vapaaehtoinen)…" value="' + _mEsc(state[pl.id].syy || '') + '" style="display:none;width:100%;margin-top:4px;padding:5px 8px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--ink);font-size:12px;box-sizing:border-box">'
+      + '</div>';
+  }).join('');
+  rows.addEventListener('click', function(e) {
+    var b = e.target.closest && e.target.closest('.la-btn'); if (!b) return;
+    var pid = b.getAttribute('data-pid'); var tila = b.getAttribute('data-tila');
+    state[pid].tila = (state[pid].tila === tila) ? null : tila;   // toggle
+    _calLasnaoloPaint(rows, state);
+  });
+  rows.addEventListener('input', function(e) {
+    if (!e.target.classList || !e.target.classList.contains('la-syy')) return;
+    state[e.target.getAttribute('data-pid')].syy = e.target.value;
+  });
+  container.appendChild(rows);
+
+  var tallBtn = document.createElement('button');
+  tallBtn.textContent = 'Tallenna läsnäolo';
+  tallBtn.style.cssText = 'width:100%;padding:9px;margin-top:8px;background:var(--teal);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer';
+  tallBtn.onclick = function() { _calTallennaLasnaolo(t, roster, state, tallBtn); };
+  container.appendChild(tallBtn);
+
+  _calLasnaoloPaint(rows, state);
+}
+
+async function _calTallennaLasnaolo(t, roster, state, btn) {
+  if (!_seuraId) return;
+  var cu = _auth.currentUser;
+  if (btn) { btn.disabled = true; btn.textContent = 'Tallennetaan…'; }
+  try {
+    if (cu) await cu.getIdToken(true);   // §7.2
+    var batch = _db.batch();
+    var base = _db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(t.id);
+    var kooste = { paikalla: 0, myohassa: 0, poissa: 0, merkitsematta: 0 };
+    var muid = _calMerkUid();
+    roster.forEach(function(pl) {
+      var st = state[pl.id] || {};
+      if (!st.tila) { kooste.merkitsematta++; return; }
+      kooste[st.tila] = (kooste[st.tila] || 0) + 1;
+      batch.set(base.collection('lasnaolijat').doc(pl.id), {
+        tila: st.tila,
+        syy: (st.tila === 'paikalla') ? null : ((st.syy || '').slice(0, 200) || null),
+        nimi: pl.nimi,
+        merkitsija_uid: muid,
+        merkitty: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    });
+    batch.set(base, { lasnaolo_kooste: kooste, paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid }, { merge: true });
+    await batch.commit();
+    t.lasnaolo_kooste = kooste;
+    var idx = (_kalenteriTapahtumat || []).findIndex(function(x) { return x.id === t.id; });
+    if (idx >= 0) _kalenteriTapahtumat[idx].lasnaolo_kooste = kooste;
+    toast('✓ Läsnäolo tallennettu (' + kooste.paikalla + '/' + roster.length + ')', 'ok');
+    renderCal();
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Tallennettu'; }
+  } catch (e) {
+    toast('Läsnäolon tallennus epäonnistui: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Tallenna läsnäolo'; }
+  }
+}
+
+async function _calPoistaTapahtuma(t, modal) {
+  if (!confirm('Poistetaanko tapahtuma "' + (t.nimi || '') + '"? Pehmeä poisto (palautettavissa).')) return;
+  try {
+    var cu = _auth.currentUser; if (cu) await cu.getIdToken(true);
+    var muid = _calMerkUid();
+    await _db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(t.id).set({
+      poistettu: true, poistettu_uid: muid, poistettu_pvm: new Date().toISOString(),
+      paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid
+    }, { merge: true });
+    toast('Tapahtuma poistettu', 'ok');
+    if (modal) modal.remove();
+    await _lataaKalenteriTapahtumat();
+  } catch (e) { toast('Poisto epäonnistui: ' + e.message, 'err'); }
+}
+
+// Muokkaus: täysi (nimi/aika/paikka/tila/muistiinpanot) jos oma/johto; muuten vain muistiinpanot (field-level §3.5).
+function _calMuokkaaTapahtuma(t) {
+  var full = _calSaaMuokataTapahtuma(t);
+  document.getElementById('calEditModal')?.remove();
+  var modal = document.createElement('div');
+  modal.id = 'calEditModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--card);border-radius:10px;padding:24px;width:420px;max-width:100%;display:flex;flex-direction:column;gap:10px';
+  box.innerHTML = '<div style="font-size:16px;font-weight:500">Muokkaa tapahtumaa</div>'
+    + (full ? '' : '<div style="font-size:11px;color:var(--ink3)">Et ole tapahtuman luoja — voit muokata vain muistiinpanoja.</div>');
+
+  var lbl = function(txt) { var l = document.createElement('label'); l.style.cssText = 'font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3)'; l.textContent = txt; return l; };
+  var inpCss = 'width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;box-sizing:border-box';
+
+  var nimiI, alkaaI, paattyyI, paikkaI, tilaI;
+  if (full) {
+    nimiI = document.createElement('input'); nimiI.type = 'text'; nimiI.value = t.nimi || ''; nimiI.style.cssText = inpCss;
+    box.appendChild(lbl('Nimi')); box.appendChild(nimiI);
+    var aikaR = document.createElement('div'); aikaR.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px';
+    alkaaI = document.createElement('input'); alkaaI.type = 'time'; alkaaI.value = (t.alkaa || '').slice(0, 5); alkaaI.style.cssText = inpCss;
+    paattyyI = document.createElement('input'); paattyyI.type = 'time'; paattyyI.value = (t.paattyy || '').slice(0, 5); paattyyI.style.cssText = inpCss;
+    var wA = document.createElement('div'); wA.appendChild(lbl('Alkaa')); wA.appendChild(alkaaI);
+    var wP = document.createElement('div'); wP.appendChild(lbl('Päättyy')); wP.appendChild(paattyyI);
+    aikaR.appendChild(wA); aikaR.appendChild(wP); box.appendChild(aikaR);
+    paikkaI = document.createElement('input'); paikkaI.type = 'text'; paikkaI.value = t.paikka || ''; paikkaI.style.cssText = inpCss;
+    box.appendChild(lbl('Paikka')); box.appendChild(paikkaI);
+    tilaI = document.createElement('select'); tilaI.style.cssText = inpCss;
+    ['suunniteltu', 'vahvistettu', 'valmis', 'peruttu'].forEach(function(v) { var o = document.createElement('option'); o.value = v; o.textContent = v; if ((t.tila || 'suunniteltu') === v) o.selected = true; tilaI.appendChild(o); });
+    box.appendChild(lbl('Tila')); box.appendChild(tilaI);
+  }
+  var muistI = document.createElement('textarea'); muistI.rows = 3; muistI.value = t.muistiinpanot || ''; muistI.style.cssText = inpCss + ';resize:vertical';
+  box.appendChild(lbl('Muistiinpanot')); box.appendChild(muistI);
+
+  var btnRivi = document.createElement('div'); btnRivi.style.cssText = 'display:flex;gap:8px;margin-top:6px';
+  var peru = document.createElement('button'); peru.textContent = 'Peruuta'; peru.style.cssText = 'flex:1;padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer';
+  peru.onclick = function() { modal.remove(); };
+  var tall = document.createElement('button'); tall.textContent = 'Tallenna'; tall.style.cssText = 'flex:1;padding:10px;background:var(--teal);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:500';
+  tall.onclick = async function() {
+    tall.disabled = true; tall.textContent = 'Tallennetaan…';
+    try {
+      var cu = _auth.currentUser; if (cu) await cu.getIdToken(true);
+      var muid = _calMerkUid();
+      var upd = { muistiinpanot: muistI.value.trim().slice(0, 500) || null, paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid };
+      if (full) {
+        upd.nimi = nimiI.value.trim() || t.nimi || null;
+        upd.paikka = paikkaI.value.trim() || null;
+        upd.tila = tilaI.value;
+        if (alkaaI.value) upd.alkaa = firebase.firestore.Timestamp.fromDate(new Date((t.pvm || new Date().toISOString().slice(0, 10)) + 'T' + alkaaI.value + ':00'));
+        if (paattyyI.value) upd.paattyy = firebase.firestore.Timestamp.fromDate(new Date((t.pvm || new Date().toISOString().slice(0, 10)) + 'T' + paattyyI.value + ':00'));
+      }
+      await _db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(t.id).set(upd, { merge: true });
+      toast('✓ Tapahtuma päivitetty', 'ok');
+      modal.remove();
+      await _lataaKalenteriTapahtumat();
+    } catch (e) { toast('Päivitys epäonnistui: ' + e.message, 'err'); tall.disabled = false; tall.textContent = 'Tallenna'; }
+  };
+  btnRivi.appendChild(peru); btnRivi.appendChild(tall); box.appendChild(btnRivi);
 
   modal.appendChild(box);
   modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
@@ -6787,6 +7057,8 @@ function calSlotClick(day, hour) {
 }
 
 function _avaaUusiTapahtuma(pvm, klo) {
+  // Vaihe C — luonti vain johto/valmentaja/talenttivalmentaja (Rules v3.5 create). Demo ohittaa (esikatselu).
+  if (!_demo && !_saaMerkitaLasnaolo()) { toast('Tapahtuman luonti ei ole sallittu roolillasi', 'err'); return; }
   // Poista vanha modaali jos auki
   document.getElementById('uusiTapahtumaModal')?.remove();
 
