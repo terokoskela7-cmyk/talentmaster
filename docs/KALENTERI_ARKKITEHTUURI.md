@@ -598,11 +598,12 @@ Firestore-kenttä `token` on vain viite/hash, ei selväkielinen avain.
 - **Rules v3.4:** VP/johto CRUD · valmentaja field-level update · `lasnaolijat/{uid}`-blokki olemassa (K1 ✅).
 - `testitapahtuma` heijastuu kalenteriin · `_jsvLuoTapahtuma` (syvänäkymän treeniteema-CTA) esitäyttö.
 
-**⚠️ Kesken / riski:**
-- **Dual-read (K8 migraatio kesken):** VP lukee `kalenteri` + legacy `tapahtumat` (suodatin: vain mentorointi/kokous,
-  rivi 5576) + `vp_kalenteri`; Master lukee `kalenteri` + `tapahtumat`. → Legacy mentorointi/kokous voi **duplikoitua**
-  uuden `kalenteri`:n kanssa. (Roska `rekisteri_pohja_ladattu` EI näy — suodatin estää.)
-- Kuollut `_avaaUusiTapahtuma`-duplikaatti (Master, §A3) → siivouskomento annettu 2026-06-24.
+**✅ K1 KONSOLIDOINTI VALMIS (2026-06-24, commit `d1bc8c7` + `e5f6944`):**
+- **Dual-read poistettu.** VP_v25 legacy-luvut (`lataaMuutTapahtumat`/`lataaVpKalenteri`/`_muutTapahtumat`/`_vpKalenteri`/`vpAvaaMentorointiModal`)
+  + Master_v16 legacy `tapahtumat`-concat poistettu → **kalenteri renderöityy VAIN `kalenteri`(poistettu==false) + `testitapahtumat` + TASO-otteluista.** Ei duplikaattiriskiä.
+- Kuollut `_avaaUusiTapahtuma`-duplikaatti (Master, avasi arkistoidun Testaus_v8:n) poistettu (`e5f6944`) — ainoa def ~6800.
+- **Live-verifioitu:** grep 0 legacy-symbolia molemmissa appeissa; `renderKalenteri` ehjä; npm test 286. Migraatiota EI tarvittu — live-auditti osoitti ettei legacy `tapahtumat`/`vp_kalenteri` sisältänyt aitoja kalenteritapahtumia.
+- **Avoin (erillinen, ei K1):** `rekisteri_pohja_ladattu`-roskalokitus `tapahtumat`-kokoelmaan → siirrä audit-sijaintiin.
 
 **❌ Ei vielä (suunnitelmasta):**
 - RSVP/läsnäolo-UI (`lasnaolijat`-blokki on, UI + kirjoitus puuttuu) · toistuvat tapahtumat (`toistuvuus`) ·
@@ -610,11 +611,167 @@ Firestore-kenttä `token` on vain viite/hash, ei selväkielinen avain.
   päivänäkymä · vuosikello-UI.
 
 **Suositeltu seuraava (täsmää §8:aan):**
-1. **K1 — Konsolidointi:** lopeta dual-read, migroi legacy `tapahtumat`(mentorointi/kokous)+`vp_kalenteri` → `kalenteri`,
-   poista duplikaattiriski (+ kuollut-fn siivous). **Datan eheys ennen lisäystä.**
-2. **K2 — RSVP/läsnäolo-UI** (`lasnaolijat`).
-3. Sitten toisto → muistutukset → **kuorma/dropout-erottautuja** → iCal (§8 K3–K6).
+1. ✅ **K1 — Konsolidointi VALMIS** (2026-06-24, dual-read poistettu, kalenteri yksilähteinen).
+2. **K2 — RSVP/läsnäolo-UI** (`lasnaolijat`) ← **SEURAAVA.** Benchmark-pariteetti (Spond/TeamSnap-ydin) + pohja erottautuja-kerrokselle (läsnäolo→kuorma).
+3. Sitten toisto/kausi (K3) → muistutukset (K4) → **kuorma/dropout-erottautuja (K5)** → iCal (K6, yksi feed kattaa Outlook+Teams).
 
-> **Status 2026-06-24:** suunnitelma (§1–10) vahva ja kattava; kalenteri osin toteutettu (yhteinen `kalenteri`-kokoelma
-> + 11 tyyppiä + soft-delete + Rules). Pullonkaula = **konsolidointi (dual-read lopetus) + erottautuja-kerros
-> (kuorma/dropout)**, ei perusrakenne. Benchmark-lisä: Spond/TeamSnap (grassroots-aikataulutus) — Sources alla.
+> **Status 2026-06-24:** suunnitelma (§1–10) vahva ja kattava; **kalenteri nyt yksilähteinen** (`kalenteri`-kokoelma
+> + 11 tyyppiä + soft-delete + Rules, K1 konsolidointi valmis). Seuraava pullonkaula = **erottautuja-kerros (kuorma/dropout, K5)**
+> + RSVP-pohja (K2), ei perusrakenne. Benchmark-lisä: Spond/TeamSnap (grassroots-aikataulutus) — Sources alla.
+
+---
+
+## 12. K2a — TOTEUTUNUT LÄSNÄOLO (valmentaja-merkintä) — RAKENNUKSESSA
+
+> K2:n ensimmäinen viipale (käyttäjäpäätös 2026-06-24): **valmentaja merkitsee toteutuneen läsnäolon** treenin/ottelun jälkeen.
+> Yksinkertaisin viipale (pieni Rules-lisä), tuottaa heti K5:n (kuorma/dropout) raakadatan, ei vaadi PIN/huoltaja-identiteettityötä.
+> Tietomalli suunniteltu niin että **RSVP-laajennus (K2b, perhe ilmoittautuu ennakkoon) istuu samaan `lasnaolijat`-dokkiin** myöhemmin.
+
+### Tietomalli — `lasnaolijat/{pelaajaId}` (doc-ID = pelaajan Firestore doc-ID = Firebase UID)
+```javascript
+seurat/{sid}/kalenteri/{tid}/lasnaolijat/{pelaajaId} {
+  // K2a — toteutunut läsnäolo (valmentaja merkitsee)
+  lasnaolo: 'paikalla'|'myohassa'|'poissa',   // EI dokumenttia = ei merkitty
+  syy: string|null,                            // vain 'poissa', valinnainen (sairaus/loukkaantuminen/koulu/muu)
+  rooli: 'pelaaja',
+  merkitsija_uid: string,                      // valmentaja/VP uid (AUDIT — kuka merkitsi)
+  merkitty_pvm: serverTimestamp,
+  paivitetty: serverTimestamp
+  // K2b (myöhemmin, sama dokki): tila:'kutsuttu'|'vahvistettu'|'peruttu'|'ei_vastausta' (ennakko-RSVP)
+}
+```
+- **Vain merkityille pelaajille kirjoitetaan dokki.** Avattaessa luetaan olemassa olevat `lasnaolijat`-dokit → palautetaan tila.
+- **Doc-ID = pelaajaId** (= `seurat/{sid}/pelaajat/{pelaajaId}` doc-ID, Firebase UID). Tämä sallii K2b:ssä self-RSVP:n Rules-ehdolla `request.auth.uid == osallistujaId` (kun huoltaja/PIN-identiteetti ratkaistu).
+
+### Event-doc denormalisoitu kooste (§26 — ei alikokoelmakyselyä kalenterilistassa)
+```javascript
+kalenteri/{tid}.lasnaolo_kooste = { paikalla, myohassa, poissa, yhteensa, merkitty_pvm: serverTimestamp }
+```
+Kirjoitetaan samassa batchissa kuin `lasnaolijat`-dokit → kalenterilistan tapahtumakortti näyttää "14/18 paikalla" **ilman alikokoelmakyselyä**.
+
+### Oikeusmalli — roolikohtainen (2026-06-24 käyttäjäpäätös)
+| Rooli | Luo | Muokkaa/poistaa | Läsnäolo | Laajuus |
+|---|---|---|---|---|
+| **VP** (+ urheilutoimenjohtaja/seurasihteeri = johto) | ✓ kaikki | ✓ täysi CRUD kaikkiin | ✓ | Koko seura |
+| **valmentaja** | ✓ omat (`luoja_uid`) | ✓ täysi omiin · field-level (muistiinpanot+läsnäolo) muiden | ✓ | Oma joukkue (UI-rajaus) |
+| **talenttivalmentaja** | ✓ omat | ✓ täysi omiin · field-level muiden | ✓ | Talenttiryhmä (UI-rajaus) |
+| pelaaja/vanhempi | ✗ | ✗ | ✗ | RSVP = K2b |
+
+> **Enforcement:** "omat" = `luoja_uid == auth.uid` (Rules-varmistettu). "Oma joukkue / talenttiryhmä" = **UI-tasolla** (token ei sisällä joukkue-/talenttitietoa → Rules ei voi varmistaa, sama tietoinen MVP-kompromissi kuin ADAR-kirjoitus §12). **Tapahtuman LUONTI nyt myös valmentajalle/talenttivalmentajalle** (ennen vain johto).
+
+> **VP_v25 UI-PARITEETTI (2026-06-24, tuplaroolit):** Seuroissa on tuplarooleja — **valmennuspäällikkö joka myös valmentaa**. VP:n ei pidä joutua vaihtamaan rooliaan merkitäkseen läsnäoloa tai muokatakseen tapahtumia. Siksi **VP_v25:ssä on oltava sama läsnäolo- + muokkaus/poisto-UI kuin Master_v16:ssa** (tapahtuman avaus → roster 3-tapauksella, Paikalla/Myöhässä/Poissa, `lasnaolijat`+`lasnaolo_kooste`-kirjoitus, edit/soft-delete). VP = johto → Rules sallii jo täyden CRUD:n + läsnäolomerkinnän → **ei Rules-muutosta, pelkkä VP_v25 UI-työ.** VP:llä ei `luoja_uid`-porttia (täysi muokkaus kaikkiin). Lisäksi VP-dashboardin tapahtumalistaan läsnäoloyhteenveto "X/N" `lasnaolo_kooste`-pikakentästä (oversight).
+
+### Rules (Console-deploy, v3.5) — kalenteri-event + lasnaolijat
+```javascript
+match /seurat/{seuraId}/kalenteri/{tapahtumaId} {
+  allow read: if onSuperAdmin() || onOmaSeura(seuraId);
+
+  // LUONTI: johto kaikki · valmentajaroolit omat (luoja_uid pakko olla oma uid)
+  allow create: if onSuperAdmin()
+    || (onOmaSeura(seuraId) && onJohtoRooli())
+    || (onOmaSeura(seuraId) && onValmentajaRooli()
+        && request.resource.data.luoja_uid == request.auth.uid);
+
+  // TÄYSI MUOKKAUS: johto kaikkiin · valmentajaroolit omiin luomiinsa (sis. soft-delete poistettu:true)
+  allow update: if onSuperAdmin()
+    || (onOmaSeura(seuraId) && onJohtoRooli())
+    || (onOmaSeura(seuraId) && onValmentajaRooli()
+        && resource.data.luoja_uid == request.auth.uid);
+
+  // FIELD-LEVEL: valmentajarooli muiden luomiin — vain muistiinpanot + läsnäolokooste
+  allow update: if onOmaSeura(seuraId) && onValmentajaRooli()
+    && request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['muistiinpanot','lasnaolo_kooste','paivitetty','muokkaaja_uid']);
+
+  // HARD-DELETE: vain johto/SA (normaali poisto = soft-delete updatella)
+  allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+
+  match /lasnaolijat/{osallistujaId} {
+    allow read: if onSuperAdmin() || onOmaSeura(seuraId);
+    allow write: if onSuperAdmin()
+      || (onOmaSeura(seuraId) && onJohtoRooli())
+      || (onOmaSeura(seuraId) && onValmentajaRooli())          // valmentaja + talenttivalmentaja
+      || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId);  // K2b self-RSVP (myöhemmin)
+  }
+}
+```
+> **Huom — `luoja_uid` pakollinen luonnissa.** UI:n `avaaUusiTapahtuma()` asettaa jo `luoja_uid` (§3.2 datamalli). Rules `create` vaatii sen == auth.uid valmentajarooleilta → varmista että kirjoitus asettaa sen aina. Johto voi luoda toisen nimiin (esim. VP luo valmentajalle), valmentaja vain omiin.
+> **Scope-huomio (säilyy):** mikä tahansa seuran valmentaja voi merkitä läsnäolon kenelle tahansa seuran pelaajalle (sama laajuus kuin ADAR §12) — pilotissa OK.
+
+### Merkitsijäroolit — KAIKKI ryhmänvetäjät (2026-06-24 lisäys)
+**Talenttipelaajilla on lisäharjoituksia, joita johtavat VP + talenttivalmentaja** → merkitsemisoikeus tarvitaan myös näille rooleille, ei vain joukkuevalmentajalle.
+- **VP** = `onJohtoRooli()` ✓ (kattaa myös urheilutoimenjohtaja/seurasihteeri) — Rules-blokki 1+2 kattaa jo.
+- **talenttivalmentaja** = `onValmentajaRooli()` ✓ (kuten valmentaja/fysiikkavalmentaja/fysioterapeutti/testivastaava §12) — Rules kattaa jo.
+- **UI-gate:** näytä Läsnäolo-osio + Tallenna-nappi rooleille `vp · urheilutoimenjohtaja · seurasihteeri · valmentaja · talenttivalmentaja` (= johto ∪ valmentajaroolit; sama joukko jonka Rules sallii kirjoittaa). EI pelaajalle/vanhemmalle.
+
+### Roster-lähde — kolme tapausta (talenttiryhmä ≠ joukkue)
+Talenttien lisätreeni kohdistuu **talenttiryhmään tai poimittuihin pelaajiin**, ei yhteen joukkueeseen. Roster ladataan prioriteettijärjestyksessä:
+1. **`event.pelaajat_id[]`** (eksplisiittinen lista, esim. talenttileiri/lisätreeni) → lataa juuri nämä pelaajat doc-ID:llä.
+2. muuten **`event.joukkue` / `event.joukkueet[]`** → §18-kaksoiskysely `where('joukkue','==',nimi)` + `where('joukkueet','array-contains',id)`, yhdistä Map:illa doc-ID:llä.
+3. muuten (seuratason talenttitapahtuma ilman joukkuetta/listaa) → **talenttiryhmä**: `where('talenttiOhjelma','==',true)` (valinnainen lisäsuodatin `talenttiTaso`). Tyhjä → "Ei osallistujia — lisää pelaajat tapahtumaan".
+
+### UI — Master_v16 tapahtumanäkymä
+Kun merkitsijäroolin käyttäjä avaa kalenteritapahtuman jonka **tyyppi ∈ {harjoitus, ottelu, talenttileiri}** (tai muu tapahtuma jolla on osallistujaroster):
+- **Läsnäolo-osio:** roster yllä olevalla kolmen tapauksen logiikalla.
+- Per pelaaja kolmiportainen merkintä **Paikalla (teal) · Myöhässä (amber) · Poissa (punainen)**; "Poissa" avaa valinnaisen syy-pudotuksen.
+- Pikatoiminto **"Merkitse kaikki paikalla"** (Spond-tyylinen nopea roll-call) → korjaa poikkeukset.
+- Elävä yhteenveto "X/N paikalla · Y merkkaamatta".
+- **Tallenna:** `getIdToken(true)` (§7.2) → WriteBatch: merkityt `lasnaolijat/{pelaajaId}` + event-doc `lasnaolo_kooste`. `serverTimestamp()` (ei array). Avattaessa lue olemassa olevat → palauta tila.
+
+### Tapahtuman luonti + muokkaus UI (oikeusmallin mukaan)
+- **"Uusi tapahtuma" -nappi** näkyy: johto + valmentaja + talenttivalmentaja. Luonti asettaa **`luoja_uid = auth.uid`** (Rules vaatii valmentajarooleilta).
+- **Kohde-/joukkuevalitsin roolin mukaan:**
+  - VP/johto → kaikki joukkueet + talenttiryhmä + seurataso.
+  - valmentaja → oma(t) joukkue(et) (suodata käyttäjän kayttaja-docin/valmennettavien joukkueiden mukaan jos tieto on; muuten kaikki seuran joukkueet, oletus omiin).
+  - talenttivalmentaja → talenttiryhmä-kohde (`pelaajat_id` talenttiOhjelma-pelaajista tai tyyppi `talenttileiri`/lisätreeni).
+- **Muokkaa/Poista-painikkeet tapahtumakortissa:** täydet (muokkaa aika/paikka/osallistujat + soft-delete) jos `event.luoja_uid == auth.uid` TAI johto; muuten vain Läsnäolo + Muistiinpanot (field-level). Hard-delete ei UI:ssa (soft-delete `poistettu:true`).
+
+### Pikakenttä-koukku K5:lle (EI K2a:ssa, vain suunniteltu)
+K5 (kuorma/dropout-erottautuja) aggregoi `lasnaolijat`-historiasta pelaajan pikakentän (esim. `lasnaolo_30pv: {paikalla, yhteensa, %}`) dropout-signaalia varten. K2a kirjoittaa raakadatan; aggregointi tulee K5:ssä.
+
+---
+
+## 13. K3 — TOISTUVAT TAPAHTUMAT (recurring) — SUUNNITTELU
+
+> K2 valmis (kaikki kolme merkitsijäroolia) → K3 = toistuvat tapahtumat, grassroots-aikataulutuksen suurin arjen ajansäästö (Spond/TeamSnap-ydin §1).
+> Datamalli oli jo varattu: `toistuvuus` + `toistuvuus_sarja_id` (§3.2). Tämä §13 lukitsee strategian.
+
+### Materialisointistrategia — KONKREETTISET occurrence-dokit (EI virtuaali)
+**Valinta: jokainen toisto = oma `kalenteri/{tapahtumaId}`-dokki**, jaettu `toistuvuus_sarja_id`. Peruste:
+- **K2-läsnäolo + muistiinpanot + `lasnaolo_kooste` kiinnittyvät event-dokkiin.** Virtuaalisella (yksi rule-dokki, laajennus renderissä) per-session-läsnäololla ei olisi dokkia → koko K2 hajoaisi. Konkreettiset dokit = jokainen treeni on aito tapahtuma johon läsnäolo/havainnot/TASO kiinnittyy.
+- Sama malli kuin Spond/TeamSnap käytännössä. Luku yksinkertaista (ei render-aikaista laajennusta). §26-pikakentät toimivat per occurrence.
+- Hinta: monta dokkia + sarjamuokkaus = batch. Hyväksyttävä (viikkotreeni/kausi ~20 dokkia).
+
+### Cadence + horisontti
+- **Cadence** (luontilomakkeessa): `viikoittain` · `2_viikottain` · `kuukausittain`. (Datamallin `kausittain` jää käyttämättä — sekava cadenceksi; "koko kausi" on HORISONTTI ei cadence.)
+- **Päättyy:** käyttäjän valitsema `paattyy`-pvm TAI oletus = kuluvan kauden loppu (`_laskeKausi` §19: kevät 30.6 / syksy 28.2).
+- **Cap:** max **60 toistoa** per luonti (turva runaway-batchia vastaan; 500/batch-raja). Yli → katkaise + ilmoita "luotiin 60 ensimmäistä, jatka uudella sarjalla".
+- Kellonaika + viikonpäivä periytyy ensimmäisestä; `toistuvuus.paiva` = viikonpäivä (0=su..6=la).
+
+### Luonti — batch-generointi
+1. Käyttäjä valitsee tyyppi/nimi/aika/joukkue + **Toistuvuus**: cadence + päättyy.
+2. UI laskee occurrence-pvm:t (alkupvm → +1/+2 vko tai +1 kk, ≤ päättyy, ≤ cap) ja näyttää **elävän esikatselun "luo N tapahtumaa"**.
+3. Tallenna → **WriteBatch**: N dokkia, kullakin:
+   - `toistuvuus_sarja_id` = generoitu id (esim. `srj_<ts>_<rand>`), sama kaikille.
+   - `toistuvuus` = `{tyyppi, paiva, paattyy}` (näyttöä + sarjamuokkausta varten).
+   - **`luoja_uid = auth.uid`** per dokki (Rules `create` vaatii valmentajarooleilta — §12).
+   - muut kentät (nimi/aika/joukkue/paikka/tyyppi) per occurrence (aika siirtyy päivämäärän mukaan).
+4. **Ei Rules-muutosta** — materialisoidut dokit ovat tavallisia `kalenteri`-dokkeja, v3.5 kattaa create/update/delete per rooli.
+
+### Muokkaus / poisto — KOLME SKOOPPIA (Spond/Google-Calendar -malli)
+Toistuvan tapahtuman Muokkaa/Poista avaa skooppivalinnan:
+- **Vain tämä** → yksi dokki (irtoaa sarjasta loogisesti; säilyttää `toistuvuus_sarja_id`-viitteen mutta merkitään `sarja_poikkeus:true`).
+- **Tämä ja seuraavat** → batch kaikki saman `toistuvuus_sarja_id` jossa `alkaa >= tämä.alkaa`.
+- **Koko sarja** → batch kaikki saman `toistuvuus_sarja_id`.
+Poisto = **soft-delete** (`poistettu:true`) per skooppi (ei hard-delete). Oikeudet: oma sarja (valmentaja `luoja_uid==uid`) tai johto (kaikki) — Rules v3.5 kattaa.
+
+### Indikaattori
+Toistuva tapahtuma kalenterissa: ↻-merkki + "Toistuu viikoittain" tapahtumanäkymässä. Sarjan jäsenet tunnistaa `toistuvuus_sarja_id`:stä.
+
+### UI-sijainti
+Sama luontilomake molemmissa: **VP_v25** (`avaaUusiTapahtuma`/`avaaKalenteriTapahtuma`) + **Master_v16** (valmentajan luonti). Skooppidialogi jaettu molemmissa. §17 (onclick→window-globaalit), §6 (yksi @media).
+
+### Avoimet (tietoiset rajaukset)
+- `kausittain`-cadence jää pois (horisontti hoitaa kauden).
+- "Vain tämä" -poikkeuksen täysi siivous sarjamuokkauksessa (poikkeukset ohitetaan "tämä ja seuraavat" -päivityksessä) — MVP: poikkeus jää ennalleen, merkitään `sarja_poikkeus`.
+- Toistuva talenttiryhmä-roster lasketaan per occurrence avattaessa (ei jäädytetä) → roster pysyy ajantasaisena koko sarjan.

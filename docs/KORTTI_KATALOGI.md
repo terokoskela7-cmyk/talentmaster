@@ -27,7 +27,7 @@
 
 ---
 
-## VAIHE 1 — Matkamerkit (oma matka; tiheät pienet voitot, ratkaisee pitkän odotuksen)
+## VAIHE 1 — Matkamerkit (oma matka; tiheät pienet voitot, ratkaisee pitkän odotuksen) — ✅ RAKENNETTU (`rMinaKokoelma`, Pelaaja_v7)
 
 ### Saavutuskortit
 | id | nimi | ansaintaehto | lähde-pikakenttä/data |
@@ -58,7 +58,7 @@
 
 ---
 
-## VAIHE 1.5 — Ennätykset (PB per testi) — "voita oma itsesi"
+## VAIHE 1.5 — Ennätykset (PB per testi) — "voita oma itsesi" — ✅ RAKENNETTU (pikakenttä `ennatykset`)
 
 **§7.22:n puhtain mekaniikka: nollavertailu muihin, vain oma kehitys.** Jokaisella tehdyllä testillä oma
 ennätyskortti, joka syttyy/päivittyy kun pelaaja ylittää OMAN aiemman tuloksensa. Suuri tasoittaja
@@ -126,3 +126,5 @@ Katalogi = **dataobjekti** (esim. `KORTTI_KATALOGI = [{id, nimi, tyyppi, vaihe, 
 jota kokoelmanäkymä renderöi. Ansaintafunktio lukee **pikakentät** (§26) → ei alikokoelmakyselyitä renderissä
 (paitsi mahdollinen kerran-luku kuten tavoitteet). Lukittu kortti = siisti "Treeni avaa" -tila. Uusi kortti = pack-open.
 **Vaihe 1 toteutetaan ensin** (saavutukset + tekniikkamerkit + liekki/lepo) — loput vaiheittain.
+
+> **Tila 2026-06-24:** ✅ Vaihe 0 (tasokortti) · ✅ Vaihe 1 (matkamerkit) · ✅ Vaihe 1.5 (Ennätykset). **Jäljellä:** Vaihe 2 legendat · Vaihe 3 tähtikokoelma · Vaihe 4 paljastus+kausi.
