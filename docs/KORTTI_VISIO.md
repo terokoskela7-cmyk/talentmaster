@@ -173,4 +173,41 @@ positiivisena pack-opening-hetkenä · lapsi voi kerätä **useita** (Maestro JA
 (sinnikkyys > lahjakkuus) = tuotteen filosofia keräilykorttina. Polku-legendat sidotaan §14-profiiliarkkityyppeihin
 (yhtenäinen kieli muun tuotteen kanssa).
 
-> **Status:** visio + idoli/legenda-linjaus lukittu. Toteutus vaiheittain mockup→komento→verify kun työjonoon valitaan.
+## 10. YHDISTETTY KERÄILYARKKITEHTUURI + KEHITYSSUUNNITELMA (2026-06-24)
+
+**Päätös (Tero): kaikki kolme elementtiä ovat tärkeitä** → yhdistetään YHDEKSI kolmikerroksiseksi
+kokoelmaksi **"Sinun kokoelmasi"**, ei valita yhtä pois. Lähteet: pääkortti `fifa_kortti_v3.html` ·
+oma matka (tämän doc §3–5) · aspiraatiokokoelma `TalentMaster_Kortit.html`.
+
+### Kerrokset
+- **Ydin — Sinun korttisi** (v3 pääkortti): aina läsnä päivästä 1, kasvaa 5D-datasta. *(rakennettu)*
+- **Kerros 1 — Matkamerkit (oma matka):** saavutukset + tekniikkamerkit + liekki/lepo-mekaniikka.
+  Ansaitaan **tekemisestä ja virstanpylväistä** → tiheät pienet voitot → **ratkaisee pitkän odotuksen**.
+  §22/§7.22-turvallisin kerros.
+- **Kerros 2 — Legendat (harvinainen, oma matka):** legenda-arkkityypit (§9). Sisukas harvinaisin.
+- **Kerros 3 — Tähtikokoelma (aspiraatio, `Kortit.html`):** teemasetit (maajoukkue / kauden tähdet),
+  MUTTA kahdella reframe-ehdolla: (a) **avaus = virstanpylväät/tekeminen, EI paljas numeerinen kynnys**
+  ("saavuta kynnysarvo" → "kun olet tehnyt X") → §22-yhteensopiva; (b) **kortit arkkityyppejä/rooleja,
+  EI nimettyjä oikeita urheilijoita** → IP-turvallinen. Syvä pitkän tähtäimen koukku.
+
+### Läpileikkaavat invariantit
+Avaus = tekeminen/virstanpylväät (ei lapselle näkyvää kynnysgrindiä) · ei vertailua muihin lapsiin ·
+arvostetuin = sinnikkyys (Sisukas) · paljastus positiivisena (pack-opening ilman gachaa) · **data-vetoinen
+(pikakentät, ei kovakoodattu)** · §16 ikävaihe (leikkijä yksinkertaisin) · Carbon §5 · §17.
+
+### Kehityssuunnitelma (vaiheet)
+1. **Vaihe 1 — Kokoelmanäkymä + Matkamerkit.** Kokoelma-shell (`Kortit.html`-grid-pohja + v3-tyyli) +
+   ensimmäiset saavutuskortit (1. treeni · 7pv liekki · synttäri · 1. mittaus) + tekniikkamerkit +
+   **liekki-lepo-mekaniikka + lepopäivä-merkki**. Olemassa olevasta datasta (streak / aktiivisuus /
+   tekniikkakisa / `tk_*`). **Ratkaisee pitkän odotuksen heti.**
+2. **Vaihe 2 — Legenda-arkkityypit.** Ansaitut legendat pikakentistä (`signaali` / `rae_kvartaali` /
+   `tekninen_varhaiskehitys`). Sisukas = sinnikkyys.
+3. **Vaihe 3 — Tähtikokoelma.** Teemasetit, virstanpylväs-avaus (reframattu kynnyksestä), arkkityyppikortit.
+4. **Vaihe 4 — Paljastushetket + kausilegendat.** Pack-opening-animaatiot + kausikortit (retentio/nostalgia).
+
+### Edellytys ennen Vaihe 1 -koodia
+**Kortti-katalogi** (mitä kortteja on, ansaintaehto, lähde-pikakenttä) — datavetoinen rekisteri, ei
+kovakoodattu UI:hin. Speksataan Vaihe 1:n osana (mockup + katalogitaulukko → Code-komento).
+
+> **Status:** visio + idoli/legenda-linjaus + yhdistetty 3-kerrosarkkitehtuuri & vaiheistus lukittu.
+> Seuraava: Vaihe 1 (kokoelmanäkymä + matkamerkit) — kortti-katalogi + mockup → komento → verify.
