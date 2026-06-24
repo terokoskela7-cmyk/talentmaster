@@ -585,6 +585,9 @@ exports.luoKayttaja = functions
         seuraId: seuraId,
       });
       console.log(`[luoKayttaja] Custom claims asetettu: ${email} → rooli=${rooli}, seuraId=${seuraId}`);
+      // Lippu kayttajat-dokumenttiin → UI näyttää ✓ heti (ei odota tokenin uusiutumista)
+      await db.collection('seurat').doc(seuraId).collection('kayttajat').doc(uid)
+        .set({ claimsAsetettu: true }, { merge: true });
     } catch (e) {
       // Claims-virhe ei estä käyttäjän luontia — lokitetaan mutta jatketaan
       console.warn('[luoKayttaja] Custom claims -asetus epäonnistui:', e.message);
@@ -694,6 +697,8 @@ exports.vaihdaKayttajanRooli = functions
 
     // 4. Custom claims — PUUTTUVA PALA: pitää tokenin ja Firestore-dokumentin synkrona
     await auth.setCustomUserClaims(uid, { rooli: uusiRooli, seuraId: seuraId });
+    // Lippu kayttajat-dokumenttiin → roolinvaihto näkyy ✓ heti (ei odota tokenin uusiutumista)
+    await kRef.set({ claimsAsetettu: true }, { merge: true });
 
     // 5. vp_uid-hallinta (hyväksytty kompromissi)
     const sRef = db.collection('seurat').doc(seuraId);

@@ -1,137 +1,80 @@
 /**
- * TalentMaster™ — Olemassa olevien käyttäjien Custom Claims -backfill
+ * TalentMaster™ — Custom Claims -backfill (DYNAAMINEN)
  *
  * TARKOITUS:
- *   Cloud Functions hoitaa automaattisesti UUDET käyttäjät jotka
- *   luodaan Admin-näkymän kautta. Mutta 7 olemassa olevaa käyttäjää
- *   (6 VP + 1 super-admin) on luotu manuaalisesti ennen Cloud
- *   Functions -integraatiota. Tämä skripti asettaa heille Custom
- *   Claims kertaluonteisesti.
+ *   Cloud Functions hoitaa UUDET käyttäjät automaattisesti (luoKayttaja +
+ *   vaihdaKayttajanRooli kirjoittavat claimsAsetettu:true). Tämä skripti
+ *   varmistaa + korjaa KAIKKI nykyiset käyttäjät joilta claims voi puuttua:
+ *   iteroi collectionGroup('kayttajat') (kaikki seurat) + admins-kokoelman,
+ *   rakentaa claimsit kunkin dokumentin OMASTA rooli/seuraId-kentästä ja
+ *   asettaa ne Authiin + kirjoittaa claimsAsetettu:true.
  *
- * AJETAAN KERRAN:
- *   node tm_admin/backfill_claims.js
+ *   Ei nojaa kovakoodattuun listaan → kattaa Laurin + kaikki nykyiset + tulevat.
  *
- * VAATII:
- *   - Firebase Admin SDK palvelutilin avain JSON-tiedostona
- *   - Tallenna se: tm_admin/serviceAccountKey.json
- *   - ÄLÄ lisää serviceAccountKey.json:ia GitHubiin! (.gitignore)
+ * AJETAAN:
+ *   node tm_admin/backfill_claims.js     (idempotentti — voi ajaa uudelleen)
  *
- * PALVELUTILIN AVAIN:
- *   Firebase Console → Projektiasetukset → Palvelutilit
- *   → "Luo uusi yksityinen avain" → Tallenna tm_admin/serviceAccountKey.json
+ * VAATII (Application Default Credentials — ei avaintiedostoa):
+ *   - Aja ensin:  gcloud auth application-default login
+ *     (kirjautuneella oltava oikeudet asettaa Custom Claims + kirjoittaa
+ *      Firestoreen projektissa talentmaster-pilot)
+ *   - VAIHTOEHTO: aseta GOOGLE_APPLICATION_CREDENTIALS palvelutiliavaimeen.
  */
 
 const admin = require('firebase-admin');
-const path  = require('path');
 
-// Ladataan palvelutilin avain — tämä antaa Admin SDK:lle
-// oikeudet kirjoittaa Custom Claims ilman selainkontekstia
-const serviceAccount = require(
-  path.join(__dirname, 'serviceAccountKey.json')
-);
-
+// Autentikointi: Application Default Credentials (ADC). Kelvollinen lähde voi olla
+// gcloud-kirjautuminen TAI GOOGLE_APPLICATION_CREDENTIALS-palvelutiliavain.
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.applicationDefault(),
   projectId:  'talentmaster-pilot',
 });
 
 const db = admin.firestore();
 
 // ─────────────────────────────────────────────────────────────────
-// OLEMASSA OLEVAT KÄYTTÄJÄT
-//
-// Nämä tiedot tulevat SESSION_SUMMARY.md:stä.
-// Rakenne vastaa Firestoren kayttajat-dokumentteja.
-//
-// TÄRKEÄ: Kun uusi VP lisätään jatkossa Admin-näkymästä,
-// hän EI tarvitse tätä skriptiä — Cloud Function hoitaa sen
-// automaattisesti. Tämä skripti on vain kertaluonteinen
-// retroaktiivinen korjaus.
+// CLAIMS-RAKENNE dokumentin OMASTA rooli/seuraId-kentästä.
+// Sama logiikka kuin functions/index.js — pidettävä synkassa.
+// onAdmin = admins/-kokoelman dokumentti (super-admin).
 // ─────────────────────────────────────────────────────────────────
-const KAYTTAJAT = [
-  // ── SUPER-ADMIN ──
-  // UID haetaan sähköpostista ajon aikana — ei kovakoodata
-  // jotta väärä UID ei voi aiheuttaa ongelmia
-  {
-    uid:     null,
-    email:   'talentmasterid@gmail.com',
-    rooli:   'superadmin',
-    seuraId: null,
-    joukkue: null,
-    superAdmin: true,
-    kuvaus:  'TalentMaster Super Admin',
-  },
-
-  // ── VALMENNUSPÄÄLLIKÖT ──
-  {
-    uid:     'dpYcfa154ZOHshZzHrVaTZ2iTHE3',
-    email:   'vp.fcl@talentmaster.fi',
-    rooli:   'vp',
-    seuraId: 'fcl',
-    joukkue: null,      // VP näkee koko seuran — ei joukkuerajausta
-    kuvaus:  'FC Lahti Juniorit',
-  },
-  {
-    uid:     'jIbW7q8nLggswTjefkYuSvtneH92',
-    email:   'vp.kpv@talentmaster.fi',
-    rooli:   'vp',
-    seuraId: 'kpv',
-    joukkue: null,
-    kuvaus:  'KPV',
-  },
-  {
-    uid:     'fBf1c60rjXTPxYlsV03EfrHZ2xM2',
-    email:   'vp.palloiirot@talentmaster.fi',
-    rooli:   'vp',
-    seuraId: 'palloiirot',
-    joukkue: null,
-    kuvaus:  'Pallo-Iirot',
-  },
-  {
-    uid:     'U21RwOm7OYdrAQB8wTXXlDQksEk2',
-    email:   'vp.yvies@talentmaster.fi',
-    rooli:   'vp',
-    seuraId: 'yvies',
-    joukkue: null,
-    kuvaus:  'Ylöjärven Ilves',
-  },
-  {
-    uid:     '1eHyfKsuTSRAAsPu9kRZ22E4hwo2',
-    email:   'vp.sjk@talentmaster.fi',
-    rooli:   'vp',
-    seuraId: 'sjk',
-    joukkue: null,
-    kuvaus:  'SJK Juniorit',
-  },
-  {
-    uid:     'lBCx0ivDYVWLmxD9TGKsvYrFrlo1',
-    email:   'vp.grifk@talentmaster.fi',
-    rooli:   'vp',
-    seuraId: 'grifk',
-    joukkue: null,
-    kuvaus:  'GrIFK',
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────
-// CLAIMS-RAKENNE roolin perusteella
-// Sama logiikka kuin functions/index.js:ssä — pidettävä synkassa!
-// ─────────────────────────────────────────────────────────────────
-function rakennaClaims(kayttaja) {
-  if (kayttaja.rooli === 'superadmin') {
-    return {
-      rooli:      'superadmin',
-      superAdmin: true,
-      seuraId:    null,
-      joukkue:    null,
-    };
+function rakennaClaims(data, seuraId, onAdmin) {
+  const rooli = data.rooli || null;
+  if (onAdmin || data.superAdmin === true || rooli === 'super_admin' || rooli === 'superadmin') {
+    return { rooli: 'superadmin', superAdmin: true, seuraId: null, joukkue: null };
   }
-
   return {
-    rooli:    kayttaja.rooli,
-    seuraId:  kayttaja.seuraId,
-    joukkue:  kayttaja.joukkue || null,
+    rooli:   rooli,
+    seuraId: seuraId || data.seuraId || null,
+    joukkue: data.joukkue || null,
   };
+}
+
+const LIPPU = function () {
+  return {
+    claimsAsetettu:   true,
+    claimsPaivitetty: admin.firestore.FieldValue.serverTimestamp(),
+    backfillAjettu:   true,
+  };
+};
+
+// Asettaa claimsit + kirjoittaa lipun yhdelle dokumentille. Palauttaa true/false.
+async function kasittele(ref, uid, data, seuraId, onAdmin, tila) {
+  const claims = rakennaClaims(data, seuraId, onAdmin);
+  const email = data.email || '(ei email-kenttää)';
+  const tunniste = `${email} | rooli=${claims.rooli} | seura=${seuraId || '(kaikki)'}`;
+  try {
+    await admin.auth().setCustomUserClaims(uid, claims);
+    await ref.set(LIPPU(), { merge: true });
+    console.log(`✅ ${tunniste}`);
+    console.log(`   uid=${uid} | claims=${JSON.stringify(claims)}\n`);
+    tila.onnistui++;
+    return true;
+  } catch (virhe) {
+    console.error(`✗ ${tunniste}`);
+    console.error(`   uid=${uid} | Virhe: ${virhe.message}\n`);
+    tila.epaonnistui++;
+    return false;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -139,81 +82,58 @@ function rakennaClaims(kayttaja) {
 // ─────────────────────────────────────────────────────────────────
 async function ajaBbackfill() {
   console.log('═══════════════════════════════════════════');
-  console.log('  TalentMaster — Custom Claims Backfill');
+  console.log('  TalentMaster — Custom Claims Backfill (dynaaminen)');
   console.log('  Projekti: talentmaster-pilot');
-  console.log(`  Käyttäjiä: ${KAYTTAJAT.length}`);
   console.log('═══════════════════════════════════════════\n');
 
-  let onnistui = 0;
-  let epaonnistui = 0;
+  // Preflight: pakota ADC:n tunnistus → selkeä virhe ENNEN kirjoituksia jos tunnukset puuttuvat.
+  try {
+    await admin.credential.applicationDefault().getAccessToken();
+  } catch (e) {
+    console.error('❌ Admin SDK ei saanut tunnuksia (ADC puuttuu tai virheellinen).');
+    console.error('   Aja ensin:  gcloud auth application-default login');
+    console.error('   (tai aseta GOOGLE_APPLICATION_CREDENTIALS palvelutiliavaimeen.)');
+    console.error('   Virhe:', e.message);
+    process.exit(1);
+  }
 
-  for (const kayttaja of KAYTTAJAT) {
-    const claims = rakennaClaims(kayttaja);
+  const tila = { onnistui: 0, epaonnistui: 0, ohitettu: 0 };
 
-    try {
-      // Jos UID puuttuu, haetaan se sähköpostiosoitteen perusteella.
-      // Tämä on turvallisempi tapa kuin kovakoodata UID joka voi vanhentua.
-      if (!kayttaja.uid) {
-        const authUser = await admin.auth().getUserByEmail(kayttaja.email);
-        kayttaja.uid = authUser.uid;
-        console.log(`   UID haettu sähköpostista: ${kayttaja.uid}`);
-      }
-
-      // Asetetaan Custom Claims Firebase Authiin
-      await admin.auth().setCustomUserClaims(kayttaja.uid, claims);
-
-      // Merkitään Firestoreen lokiin — noudattaa samaa rakennetta
-      // kuin Cloud Functions tekee automaattisesti jatkossa
-      if (kayttaja.rooli === 'superadmin') {
-        // Super-admin on admins/-kokoelmassa
-        await db.collection('admins').doc(kayttaja.uid).set(
-          {
-            claimsAsetettu:   true,
-            claimsPaivitetty: admin.firestore.FieldValue.serverTimestamp(),
-            backfillAjettu:   true,
-          },
-          { merge: true }   // merge: true säilyttää olemassa olevat kentät
-        );
-      } else {
-        // VP:t ovat seurat/{seuraId}/kayttajat/{uid}
-        await db
-          .collection('seurat').doc(kayttaja.seuraId)
-          .collection('kayttajat').doc(kayttaja.uid)
-          .set(
-            {
-              claimsAsetettu:   true,
-              claimsPaivitetty: admin.firestore.FieldValue.serverTimestamp(),
-              backfillAjettu:   true,
-            },
-            { merge: true }
-          );
-      }
-
-      console.log(`✅ ${kayttaja.email}`);
-      console.log(`   Rooli: ${kayttaja.rooli} | Seura: ${kayttaja.seuraId || '(kaikki)'}`);
-      console.log(`   Claims: ${JSON.stringify(claims)}\n`);
-      onnistui++;
-
-    } catch (virhe) {
-      console.error(`❌ ${kayttaja.email}`);
-      console.error(`   Virhe: ${virhe.message}\n`);
-      epaonnistui++;
+  // 1) Kaikkien seurojen kayttajat (collectionGroup) — seuraId polusta seurat/{sid}/kayttajat/{uid}
+  const kSnap = await db.collectionGroup('kayttajat').get();
+  console.log(`▸ kayttajat-dokumentteja: ${kSnap.size}\n`);
+  for (const doc of kSnap.docs) {
+    const data = doc.data() || {};
+    const uid  = doc.id || data.uid;     // doc-ID = Firebase Auth UID (CLAUDE.md §11), fallback data.uid
+    if (!data.rooli) {                   // vaatimus: uid + rooli
+      tila.ohitettu++;
+      console.log(`⏭  ${data.email || uid} — ei rooli-kenttää, ohitetaan\n`);
+      continue;
     }
+    const seuraId = (doc.ref.parent && doc.ref.parent.parent) ? doc.ref.parent.parent.id : (data.seuraId || null);
+    await kasittele(doc.ref, uid, data, seuraId, false, tila);
+  }
+
+  // 2) admins-kokoelma (super-adminit)
+  const aSnap = await db.collection('admins').get();
+  console.log(`▸ admins-dokumentteja: ${aSnap.size}\n`);
+  for (const doc of aSnap.docs) {
+    const data = doc.data() || {};
+    await kasittele(doc.ref, doc.id || data.uid, data, null, true, tila);
   }
 
   console.log('═══════════════════════════════════════════');
-  console.log(`  Valmis: ${onnistui} onnistui, ${epaonnistui} epäonnistui`);
+  console.log(`  Valmis: ${tila.onnistui} onnistui, ${tila.epaonnistui} epäonnistui, ${tila.ohitettu} ohitettu`);
   console.log('═══════════════════════════════════════════');
 
-  if (epaonnistui === 0) {
-    console.log('\n✅ Kaikki käyttäjät päivitetty. Jokainen käyttäjä tarvitsee');
-    console.log('   uuden kirjautumisen (tai token-refreshin) ennen kuin');
-    console.log('   uudet claims astuvat heidän selaimessaan voimaan.\n');
+  if (tila.epaonnistui === 0) {
+    console.log('\n✅ Käyttäjät päivitetty. Jokainen tarvitsee uuden kirjautumisen');
+    console.log('   (tai token-refreshin) ennen kuin uudet claims astuvat selaimessa voimaan.\n');
   } else {
-    console.log('\n⚠️  Osa käyttäjistä epäonnistui — tarkista UID:t yllä.\n');
+    console.log('\n⚠️  Osa epäonnistui — yleensä uid ≠ Auth-käyttäjä (poistettu/placeholder). Tarkista yllä.\n');
   }
 
-  process.exit(epaonnistui > 0 ? 1 : 0);
+  process.exit(tila.epaonnistui > 0 ? 1 : 0);
 }
 
 // Käynnistetään
