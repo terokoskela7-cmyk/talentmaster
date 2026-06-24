@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782314824751';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782317276021';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -3126,19 +3126,9 @@ function _renderInboxOhjaus(el) {
 /* ── KALENTERI TAPAHTUMAT FIRESTORESTA ── */
 async function _lataaKalenteriTapahtumat() {
   if (!_seuraId || _demo) return;
-  var legacy = [];
   var uudet = [];
-  // 1) Legacy tapahtumat-kokoelma (mentorointi/kokous/harjoitus/ottelu)
-  try {
-    var snap = await _db.collection('seurat').doc(_seuraId).collection('tapahtumat').get();
-    legacy = snap.docs.map(function(d) {
-      var data = d.data();
-      return Object.assign({ id: d.id, _lahde: 'legacy' }, data, {
-        joukkue: data.joukkue || data.joukkueNimi || ''
-      });
-    });
-  } catch(e) { console.warn('[kalenteri-legacy]', e.message); }
-  // 2) Uusi kalenteri-kokoelma (KALENTERI_ARKKITEHTUURI.md §3)
+  // Kalenteri-kokoelma — ainoa kalenterilähde (K1: legacy tapahtumat-luku poistettu, dual-read lopetettu). KALENTERI_ARKKITEHTUURI.md §3
+  // HUOM: testitapahtumat (§22) luetaan erikseen omaan workflowiinsa — ei tässä.
   try {
     var snap2 = await _db.collection('seurat').doc(_seuraId)
       .collection('kalenteri').where('poistettu', '==', false).get();
@@ -3156,9 +3146,8 @@ async function _lataaKalenteriTapahtumat() {
       });
     });
   } catch(e2) { console.warn('[kalenteri-uusi]', e2.message); }
-  // Yhdistä + suodata joukkueella
-  var kaikki = legacy.concat(uudet);
-  _kalenteriTapahtumat = kaikki.filter(function(t) {
+  // Suodata joukkueella (vain kalenteri-kokoelma)
+  _kalenteriTapahtumat = uudet.filter(function(t) {
     return !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue;
   }).sort(function(a,b) { return (a.pvm||'').localeCompare(b.pvm||''); });
   renderCal();

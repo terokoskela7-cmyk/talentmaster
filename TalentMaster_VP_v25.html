@@ -2286,7 +2286,7 @@ function getViikko() {
 
 // ─── DATA LOADING ────────────────────────────────────────
 async function lataaKaikki() {
-  await Promise.all([lataaPelaajat(), lataaValmentajat(), lataaTapahtumat(), lataaIdpJono(), lataaMuutTapahtumat(), lataaVpKalenteri(), lataaJoukkueNimet(), lataaKalenteriTapahtumat()]);
+  await Promise.all([lataaPelaajat(), lataaValmentajat(), lataaTapahtumat(), lataaIdpJono(), lataaJoukkueNimet(), lataaKalenteriTapahtumat()]);
   renderTilanne();
   renderTeamPulse();
   renderValmentajat();
@@ -5519,8 +5519,6 @@ function renderPelaajat_old() {
 let _vpCalOffset = 0;   // kuukausisiirtymä
 let _vpWeekOffset = 0;  // viikkosiirtymä
 let _vpCalView = 'viikko'; // 'kuukausi' | 'viikko' | 'paiva'
-let _muutTapahtumat = []; // tapahtumat-kokoelma (mentorointi/kokous)
-let _vpKalenteri = [];    // vp_kalenteri-kokoelma (deadlinet)
 let _joukkueNimet = {};   // joukkueId -> nimi (joukkueet-kokoelmasta — fallback kun joukkue_nimi puuttuu)
 
 // Joukkueen luettava nimi: tapahtuman oma joukkue_nimi → ID→nimi-kartta → raaka ID
@@ -5567,23 +5565,6 @@ function vpTapahtumaStatus(t) {
   return { key:'tuleva', label:'Tuleva', color:'#3DA35D', btn:'Avaa kenttänäkymä →' };
 }
 
-// ── Lisälataukset viikkonäkymää varten ──
-async function lataaMuutTapahtumat() {
-  if (!_seuraId) { _muutTapahtumat = []; return; }
-  try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('tapahtumat').limit(150).get();
-    _muutTapahtumat = snap.docs.map(d => ({ id:d.id, ...d.data() }))
-      .filter(t => t.tyyppi === 'mentorointi' || t.tyyppi === 'kokous');
-  } catch(e) { console.warn('lataaMuutTapahtumat:', e.message); _muutTapahtumat = []; }
-}
-async function lataaVpKalenteri() {
-  if (!_seuraId) { _vpKalenteri = []; return; }
-  try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('vp_kalenteri').limit(150).get();
-    _vpKalenteri = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-  } catch(e) { console.warn('lataaVpKalenteri:', e.message); _vpKalenteri = []; }
-}
-
 // ── Viikkonäkymän renderöinti ──
 function renderVpViikko(testit) {
   const wrap = document.getElementById('vpCalWeekGrid');
@@ -5606,7 +5587,7 @@ function renderVpViikko(testit) {
   var jf = document.getElementById('vpJoukkueFilter');
   if (jf) valittuJoukkue = jf.value;
 
-  let nTest=0, nMent=0, nDl=0;
+  let nTest=0;
   let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);">';
   for (let i=0;i<7;i++) html += '<div style="padding:8px 4px;text-align:center;font-size:11px;font-weight:500;color:var(--ink3);border-bottom:0.5px solid var(--border);background:var(--surface);">' + paivat[i] + ' ' + days[i].getDate() + '</div>';
   days.forEach(d => {
@@ -5614,9 +5595,7 @@ function renderVpViikko(testit) {
     const isToday = ds === todayStr;
     let evHtml = '';
     (testit||[]).filter(t => t.pvm === ds).forEach(t => { nTest++; evHtml += vpWeekEvt('var(--teal)', t.nimi || t.protokolla || 'Testi', jNimi(t), '', "avaaTapahtumaV9('" + t.id + "')"); });
-    (_muutTapahtumat||[]).filter(t => (t.pvm || t.paiva) === ds).forEach(t => { if (t.tyyppi==='mentorointi') nMent++; evHtml += vpWeekEvt('#2A5DB0', t.aihe || t.nimi || (t.tyyppi==='kokous'?'Kokous':'Mentorointi'), t.osallistujaNimi || t.osallistuja || '', t.aika || t.klo || '', ''); });
-    (_vpKalenteri||[]).filter(t => (t.pvm || t.paiva) === ds).forEach(t => { nDl++; evHtml += vpWeekEvt('var(--amber)', t.nimi || t.aihe || 'Deadline', t.kenelle || '', t.aika || '', ''); });
-    // Uusi kalenteri-kokoelma (joukkuesuodatus mukana)
+    // Kalenteri-kokoelma (joukkuesuodatus mukana)
     (_kalenteriTapahtumat||[]).filter(function(t) {
       if (!t.alkaa) return false;
       var tPvm = t.alkaa.toDate ? t.alkaa.toDate().toISOString().slice(0,10) : (typeof t.alkaa === 'string' ? t.alkaa.slice(0,10) : '');
@@ -5636,7 +5615,7 @@ function renderVpViikko(testit) {
   wrap.innerHTML = html;
 
   const sumEl = document.getElementById('vpWeekSummary');
-  if (sumEl) sumEl.textContent = 'Viikko ' + vkNum + ' · ' + nTest + ' testitapahtumaa · ' + nMent + ' mentorointia · ' + nDl + ' deadline';
+  if (sumEl) sumEl.textContent = 'Viikko ' + vkNum + ' · ' + nTest + ' testitapahtumaa';
 }
 
 function vpWeekEvt(color, nimi, kenelle, aika, onclick) {
@@ -5658,76 +5637,6 @@ function _vpModalLbl(txt) {
   l.style.cssText = 'font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);';
   l.textContent = txt;
   return l;
-}
-
-function vpAvaaMentorointiModal(pvm) {
-  const vanha = document.getElementById('vpMentModal'); if (vanha) vanha.remove();
-  const modal = document.createElement('div');
-  modal.id = 'vpMentModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(17,17,16,.9);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
-  const box = document.createElement('div');
-  box.style.cssText = 'background:var(--surface,#161614);border:0.5px solid var(--border);border-radius:10px;padding:22px;width:420px;max-width:100%;display:flex;flex-direction:column;gap:12px;color:var(--ink,#f2efe6)';
-
-  const h = document.createElement('div');
-  h.innerHTML = '<div style="font-size:16px;font-weight:500;">Uusi mentorointi</div><div style="font-size:12px;color:var(--ink3);">Ajoita valmentajatapaaminen</div>';
-  box.appendChild(h);
-
-  const vSel = document.createElement('select');
-  vSel.style.cssText = 'padding:9px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);font-size:14px;';
-  const o0 = document.createElement('option'); o0.value=''; o0.textContent='— Valitse valmentaja —'; vSel.appendChild(o0);
-  (_valmentajat||[]).filter(v => v.aktiivinen !== false).forEach(v => {
-    const o = document.createElement('option'); o.value = v.id;
-    o.textContent = v.nimi + (v.joukkue && v.joukkue !== '—' ? ' · ' + v.joukkue : '');
-    vSel.appendChild(o);
-  });
-  box.appendChild(_vpModalLbl('Valmentaja')); box.appendChild(vSel);
-
-  const rivi = document.createElement('div'); rivi.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px';
-  const dInp = document.createElement('input'); dInp.type='date'; dInp.value = pvm || '';
-  dInp.style.cssText = 'padding:9px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);font-size:14px;';
-  const tInp = document.createElement('input'); tInp.type='time'; tInp.value = '16:00'; tInp.style.cssText = dInp.style.cssText;
-  const wD = document.createElement('div'); wD.appendChild(_vpModalLbl('Päivä')); wD.appendChild(dInp);
-  const wT = document.createElement('div'); wT.appendChild(_vpModalLbl('Kellonaika')); wT.appendChild(tInp);
-  rivi.appendChild(wD); rivi.appendChild(wT); box.appendChild(rivi);
-
-  const aInp = document.createElement('input'); aInp.type='text'; aInp.maxLength = 100;
-  aInp.placeholder = 'Aihe (esim. kuormaseuranta, IDP-katsaus)';
-  aInp.style.cssText = 'padding:9px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;';
-  box.appendChild(_vpModalLbl('Aihe (max 100)')); box.appendChild(aInp);
-
-  const btnRivi = document.createElement('div'); btnRivi.style.cssText = 'display:flex;gap:8px;margin-top:6px;';
-  const peru = document.createElement('button'); peru.textContent='Peruuta';
-  peru.style.cssText = 'flex:1;padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer;';
-  peru.onclick = () => modal.remove();
-  const tall = document.createElement('button'); tall.textContent='Tallenna mentorointi';
-  tall.style.cssText = 'flex:2;padding:10px;background:var(--teal);color:#fff;border:none;border-radius:6px;font-weight:500;cursor:pointer;';
-  tall.onclick = async () => {
-    if (!vSel.value) { toast('Valitse valmentaja', 'error'); return; }
-    if (!dInp.value) { toast('Valitse päivä', 'error'); return; }
-    const vn = (_valmentajat.find(v => v.id === vSel.value) || {}).nimi || '';
-    tall.disabled = true; tall.textContent = 'Tallennetaan…';
-    try {
-      await db.collection('seurat').doc(_seuraId).collection('tapahtumat').add({
-        tyyppi: 'mentorointi',
-        osallistuja: vSel.value,
-        osallistujaNimi: vn,
-        pvm: dInp.value,
-        aika: tInp.value || '',
-        aihe: (aInp.value || '').slice(0, 100),
-        luotu: new Date().toISOString(),
-        luojaUid: _uid || (firebase.auth().currentUser && firebase.auth().currentUser.uid) || ''
-      });
-      toast('✓ Mentorointi ajoitettu: ' + vn, 'ok');
-      modal.remove();
-      await lataaMuutTapahtumat();
-      renderKalenteri();
-    } catch(e) { toast('Virhe: ' + e.message, 'error'); tall.disabled = false; tall.textContent = 'Tallenna mentorointi'; }
-  };
-  btnRivi.appendChild(peru); btnRivi.appendChild(tall); box.appendChild(btnRivi);
-
-  modal.appendChild(box);
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-  document.body.appendChild(modal);
 }
 
 function renderKalenteri() {
@@ -6196,13 +6105,7 @@ function avaaKalenteriPaivaModal(dateStr) {
       klo: '', vari: 'var(--teal)', ikoni: '🧪', onclick: "avaaTapahtumaV9('" + t.id + "')" });
   });
 
-  // Legacy mentorointi/kokous
-  (_muutTapahtumat||[]).filter(function(t) { return (t.pvm || t.paiva) === dateStr; }).forEach(function(t) {
-    paiva.push({ lahde: 'legacy', id: t.id, nimi: t.aihe || t.nimi || (t.tyyppi==='kokous'?'Kokous':'Mentorointi'),
-      joukkue: t.osallistujaNimi || '', klo: t.aika || t.klo || '', vari: '#2A5DB0', ikoni: t.tyyppi==='kokous'?'👥':'🎓', onclick: '' });
-  });
-
-  // Uusi kalenteri-kokoelma
+  // Kalenteri-kokoelma
   (_kalenteriTapahtumat||[]).filter(function(t) {
     if (!t.alkaa) return false;
     var tPvm = t.alkaa.toDate ? t.alkaa.toDate().toISOString().slice(0,10) : '';
