@@ -1,10 +1,14 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.5
+// TalentMaster™ — firestore.rules v3.6
 //
 // Lähde:  tm_admin/firestore.rules
-// Deploy: Firebase Console → Firestore → Rules → liitä → Julkaise
-//         (EI GitHub Actionsilla — saa 403, CLAUDE.md §17 #10)
+// Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.5 → v3.6 (V1 kuorma & fiilis, KUORMA_FIILIS_SPEC.md §5):
+//   ~ kalenteri/{id} update field-level (valmentaja, ei-omistaja) sallii nyt myös
+//     'valmentaja_rpe' + 'valmentaja_rpe_pvm' (valmentajan session-RPE -arvio).
+//     Johto/omistaja (luoja_uid==uid) saa jo täyden updaten → ei muutosta heille.
 //
 // Muutokset v3.4 → v3.5 (kalenteri-omistajuus + läsnäolo, KALENTERI_ARKKITEHTUURI.md §7):
 //   ~ seurat/{sid}/kalenteri/{tapahtumaId} update — valmentaja/talenttivalmentaja saa nyt
@@ -656,7 +660,7 @@ service cloud.firestore {
                       || (onOmanSeuranValmentaja(seuraId)
                           && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['muistiinpanot', 'paivitetty', 'muokkaaja_uid',
-                                       'lasnaolo_kooste']));
+                                       'lasnaolo_kooste', 'valmentaja_rpe', 'valmentaja_rpe_pvm']));
 
         // Ei hard-deletea — soft-delete (poistettu:true) update-kautta
         allow delete: if onSuperAdmin();

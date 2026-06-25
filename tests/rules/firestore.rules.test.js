@@ -746,6 +746,14 @@ describe('Kalenteri (v3.5 — omistajuus + läsnäolo)', () => {
     ));
   });
 
+  it('Valmentaja kirjaa session-RPE:n muiden tapahtumaan (field-level v3.6, sallittu)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1'),
+      { valmentaja_rpe: 7, valmentaja_rpe_pvm: new Date().toISOString(), paivitetty: new Date().toISOString(), muokkaaja_uid: VALM_A_UID }
+    ));
+  });
+
   it('Valmentaja EI päivitä muiden tapahtuman nimeä (kielletty kenttä)', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     await assertFails(updateDoc(
