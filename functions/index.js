@@ -2024,3 +2024,124 @@ exports.notifKoosteEmail = functions
     }
     return null;
   });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SOLO PLAYER™ Polku B — lupapyyntö-email + hyväksyntä (SOLO_P0_TIETOMALLI_SPEC §9)
+// Klubin vahvistaSuostumus-malli: hyväksyntä VAIN CF:ssä (Admin SDK). europe-west1.
+// ═══════════════════════════════════════════════════════════════════════════
+const SOLO_BASE_URL = 'https://terokoskela7-cmyk.github.io/talentmaster';
+const SOLO_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // pl. 0/O/1/I/L (sama kuin lib/tm_solo_data.js)
+function soloGeneroiPlayerCode() {
+  let s = '';
+  for (let i = 0; i < 6; i++) s += SOLO_ALPHABET[Math.floor(Math.random() * SOLO_ALPHABET.length)];
+  return 'TMP-' + s;
+}
+async function soloVaraaPlayerCode(parent_uid, playerId) {
+  for (let i = 0; i < 6; i++) {
+    const code = soloGeneroiPlayerCode();
+    const ref = db.collection('playerCodes').doc(code);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      await ref.set({ playerId, parent_uid, luotu: admin.firestore.FieldValue.serverTimestamp() });
+      return code;
+    }
+  }
+  throw new functions.https.HttpsError('internal', 'PlayerCode-varaus epäonnistui (5 törmäystä).');
+}
+function pohjaSoloLupa({ child_etunimi, linkki }) {
+  return '<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;color:#1a1a1a">'
+    + '<h2 style="color:#0a0f1e">TalentMaster Player™</h2>'
+    + '<p><b>' + (child_etunimi || 'Lapsesi') + '</b> haluaa aloittaa TalentMaster Playerin käytön ja pyytää sinulta lupaa.</p>'
+    + '<p>Olet lapsesi laillinen huoltaja. Lapsen harjoitusdatan käsittely vaatii suostumuksesi (GDPR Art. 8). '
+    + 'Avaa alla oleva linkki, niin näet lapsen tiedot ja voit antaa luvan.</p>'
+    + '<p style="text-align:center;margin:28px 0"><a href="' + linkki + '" style="background:#00d4aa;color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:bold">Tarkista ja anna lupa →</a></p>'
+    + '<p style="font-size:12px;color:#666">Jos et tunnista tätä pyyntöä, voit jättää viestin huomiotta — mitään ei tallenneta ilman lupaasi.</p>'
+    + '</div>';
+}
+
+// soloLupapyyntoEmail — lapsi (anon/kirjautumaton) loi lupapyynnon → CF lähettää vanhemmalle magic-linkin.
+exports.soloLupapyyntoEmail = functions
+  .region('europe-west1')
+  .runWith({ secrets: ['SENDGRID_API_KEY'] })
+  .https.onCall(async (data) => {
+    const { requestId } = data || {};
+    if (!requestId) throw new functions.https.HttpsError('invalid-argument', 'requestId on pakollinen.');
+    const ref = db.collection('lupapyynnot').doc(requestId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new functions.https.HttpsError('not-found', 'Lupapyyntöä ei löytynyt.');
+    const d = snap.data();
+    if (d.status !== 'odottaa') throw new functions.https.HttpsError('failed-precondition', 'Pyyntö on jo käsitelty.');
+    const email = String(d.parent_email || '').trim().toLowerCase();
+    if (!/.+@.+\..+/.test(email)) throw new functions.https.HttpsError('invalid-argument', 'Virheellinen sähköpostiosoite.');
+    // Rate-limit: ei uutta lähetystä jos viimeisestä < 2 min.
+    if (d.email_lahetetty_pvm && d.email_lahetetty_pvm.toMillis && (Date.now() - d.email_lahetetty_pvm.toMillis()) < 120000) {
+      return { ok: true, viesti: 'Linkki lähetettiin juuri — tarkista sähköpostisi.' };
+    }
+    const linkki = SOLO_BASE_URL + '/TalentMaster_Solo_Lupa.html?r=' + encodeURIComponent(requestId) + '&t=' + encodeURIComponent(d.token || '');
+    try {
+      await lahetaSahkoposti({
+        to: email,
+        subject: 'Lapsesi pyytää lupaa — TalentMaster Player™',
+        fromName: 'TalentMaster Player',
+        html: pohjaSoloLupa({ child_etunimi: d.child_etunimi, linkki }),
+      });
+      await ref.set({ email_lahetetty_pvm: admin.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
+      await db.collection('audit').add({
+        toiminto: 'solo_lupapyynto_email', requestId, parent_email: email,
+        aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => {});
+      return { ok: true };
+    } catch (e) {
+      console.error('[soloLupapyyntoEmail]', e.message);
+      throw new functions.https.HttpsError('internal', 'Lähetys epäonnistui: ' + e.message);
+    }
+  });
+
+// soloHyvaksyLupa — VANHEMPI (kirjautunut) hyväksyy magic-linkillä. Luo parents+players+suostumukset+
+// child_pin(4num)+playerCode (Admin SDK) + päivittää lupapyynnot. Hyväksyntä VAIN täällä (§9-invariantti).
+exports.soloHyvaksyLupa = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin vanhempana.');
+    const { requestId, token, benchmark } = data || {};
+    if (!requestId || !token) throw new functions.https.HttpsError('invalid-argument', 'requestId + token ovat pakollisia.');
+    const uid = context.auth.uid;
+    const email = String((context.auth.token && context.auth.token.email) || '').trim().toLowerCase();
+    const ref = db.collection('lupapyynnot').doc(requestId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new functions.https.HttpsError('not-found', 'Lupapyyntöä ei löytynyt.');
+    const d = snap.data();
+    if (d.token !== token) throw new functions.https.HttpsError('permission-denied', 'Virheellinen vahvistustunnus.');
+    // Idempotentti: jo hyväksytty → palauta olemassa olevat tiedot.
+    if (d.status === 'hyvaksytty' && d.playerId) {
+      const ex = await db.collection('players').doc(d.playerId).get();
+      return { playerId: d.playerId, child_pin: d.child_pin || null, playerCode: ex.exists ? (ex.data().playerCode || null) : null };
+    }
+    if (d.status !== 'odottaa') throw new functions.https.HttpsError('failed-precondition', 'Pyyntö on jo käsitelty.');
+
+    const TS = admin.firestore.FieldValue.serverTimestamp();
+    const playerRef = db.collection('players').doc();
+    const playerId = playerRef.id;
+    const code = await soloVaraaPlayerCode(uid, playerId);
+    const child_pin = String(Math.floor(1000 + Math.random() * 9000));
+
+    const batch = db.batch();
+    batch.set(db.collection('parents').doc(uid), {
+      email, nimi: null, luotu: TS, paivitetty: TS,
+      lapset: admin.firestore.FieldValue.arrayUnion(playerId),
+      entitlement: { status: 'free', stripe_customer_id: null, current_period_end: null },
+      suostumus_versio: 'v1', hyvaksytyt_ehdot: { tos: true, privacy: true, pvm: TS },
+    }, { merge: true });
+    batch.set(playerRef, {
+      playerId, parent_uid: uid, playerCode: code, seuraId: null,
+      nimi: d.child_etunimi || null, synVuosi: d.synVuosi || null, synKuukausi: d.synKuukausi || null,
+      kortti_taso: 'starter', child_pin, lahde: 'polku_b', luotu: TS, paivitetty: TS,
+    });
+    batch.set(playerRef.collection('suostumukset').doc('perus'), { ok: true, tyyppi: 'perus', antaja_uid: uid, antaja_email: email, versio: 'v1', pvm: TS });
+    if (benchmark === true) batch.set(playerRef.collection('suostumukset').doc('benchmark'), { ok: true, tyyppi: 'benchmark', antaja_uid: uid, antaja_email: email, versio: 'v1', pvm: TS });
+    batch.set(ref, { status: 'hyvaksytty', playerId, child_pin, hyvaksyja_uid: uid, hyvaksytty_pvm: TS }, { merge: true });
+    await batch.commit();
+
+    await db.collection('audit').add({ toiminto: 'solo_lupa_hyvaksytty', requestId, playerId, hyvaksyja_uid: uid, aikaleima: TS }).catch(() => {});
+    return { playerId, playerCode: code, child_pin };
+  });

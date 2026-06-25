@@ -1,9 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.7
+// TalentMaster™ — firestore.rules v3.8
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.7 → v3.8 (Solo Polku B, SOLO_P0_TIETOMALLI_SPEC.md §9):
+//   + lupapyynnot/{requestId} — lapsi luo (status 'odottaa'), get omalla requestId:llä, EI list;
+//     update/delete VAIN CF (Admin SDK hyväksynnässä).
+//   ~ players/{id} — read jaettu get/list; lapsi (anonymous + child_pin) saa single-doc GET +
+//     rajatun UPDATEn omaan dokkiin (ei muuta parent_uid/child_pin/playerCode/seuraId). EI list anonyymille.
 //
 // Muutokset v3.6 → v3.7 (Solo Player™ P0, SOLO_P0_TIETOMALLI_SPEC.md §4):
 //   + parents/{uid}      — vanhemman tili (vain oma uid).
@@ -816,10 +822,20 @@ service cloud.firestore {
     }
     // Solo-pelaaja (litteä) — vain omistava vanhempi (P0).
     match /players/{playerId} {
-      allow read, update, delete: if request.auth != null
-                                  && request.auth.uid == resource.data.parent_uid;
-      allow create:               if request.auth != null
-                                  && request.auth.uid == request.resource.data.parent_uid;
+      // Vanhempi: täysi omistus. Lapsi (anonymous, Polku B): single-doc GET + rajattu UPDATE omaan
+      // dokkiin (child_pin). PlayerCode/playerId resolvoidaan lupapyynnöstä → ei enumeraatiota.
+      // EI list anonyymille (estää koko players-kokoelman luvun). SOLO_P0_SPEC §9.
+      allow get:    if (request.auth != null && request.auth.uid == resource.data.parent_uid)
+                    || (onAnonymous() && resource.data.child_pin != null);
+      allow list:   if request.auth != null && request.auth.uid == resource.data.parent_uid;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.parent_uid;
+      allow update: if (request.auth != null && request.auth.uid == resource.data.parent_uid)
+                    || (onAnonymous() && resource.data.child_pin != null
+                        && request.resource.data.parent_uid == resource.data.parent_uid
+                        && request.resource.data.child_pin  == resource.data.child_pin
+                        && request.resource.data.playerCode == resource.data.playerCode
+                        && request.resource.data.seuraId    == resource.data.seuraId);
+      allow delete: if request.auth != null && request.auth.uid == resource.data.parent_uid;
       // Alikokoelmat (tkk_historia, suostumukset) — omistajuus pelaajadokin parent_uid:sta
       match /{sub=**} {
         allow read, write: if request.auth != null
@@ -831,6 +847,13 @@ service cloud.firestore {
       allow create:         if request.auth != null && request.auth.uid == request.resource.data.parent_uid;
       allow read:           if request.auth != null;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.parent_uid;
+    }
+    // Lupapyynnöt (Polku B) — lapsi luo, vanhempi hyväksyy VAIN CF:ssä (Admin SDK). SOLO_P0_SPEC §9.
+    match /lupapyynnot/{requestId} {
+      allow create:         if request.resource.data.status == 'odottaa';   // requestId arvaamaton (UUID); rate-limit CF:ssä
+      allow get:            if true;                                          // lapsen laite pollaa OMAA requestId:tä (token vain hakijalla)
+      allow list:           if false;                                        // ei enumeraatiota
+      allow update, delete: if false;                                        // VAIN CF (Admin SDK) hyväksynnässä/hylkäyksessä
     }
   }
 }
