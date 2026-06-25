@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TalentMaster Player™ — Profiili</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="lib/tm_solo_data.js?v=1"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -589,10 +593,57 @@ var TKK_HISTORIA = JSON.parse(localStorage.getItem('tm_tkk_historia') || '[]');
 var PLAYER_CODE = localStorage.getItem('tm_player_code') || _genCode();
 
 function _genCode(){
-  var c = 'TMP-' + Math.floor(1000+Math.random()*9000);
+  var c = (window.TM_SOLO ? window.TM_SOLO.tmGeneroiPlayerCode() : ('TMP-' + Math.floor(1000+Math.random()*9000)));
   localStorage.setItem('tm_player_code', c);
   return c;
 }
+
+// ═══ FIRESTORE (totuuslähde, kirjautunut vanhempi) ═══
+var _fbReady=false, _auth=null, _db=null, _uid=null;
+(function(){
+  try {
+    if (typeof firebase==='undefined') return;
+    firebase.initializeApp({
+      apiKey:"AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo", authDomain:"talentmaster-pilot.firebaseapp.com",
+      projectId:"talentmaster-pilot", storageBucket:"talentmaster-pilot.firebasestorage.app",
+      messagingSenderId:"872561784446", appId:"1:872561784446:web:05c4c7996dfd46ddd14a2f"
+    });
+    _auth=firebase.auth(); _db=firebase.firestore(); _fbReady=true;
+  } catch(e){ console.warn('[solo] init', e&&e.message); }
+})();
+var _SOLO_KENTAT = ['nimi','synVuosi','synKuukausi','pp','kokemus','treeni','ketju','tkkVuosi','tkkYht','tkkMerkki','fyysHyppy','fyysLoikka','fyysNaru','fyysSprintti','kotiPonn','kotiSeina','kotiDrip','kotiPvm','kortti_taso'];
+function _soloPoimiProfiili(doc){ var o={}; _SOLO_KENTAT.forEach(function(k){ if(doc[k]!=null) o[k]=doc[k]; }); return o; }
+function _soloLapsiValitsin(lapset, activeId){
+  if (document.getElementById('soloLapsiSel')) return;
+  var host=document.getElementById('topbarNimi'); if(!host||!host.parentNode) return;
+  var sel=document.createElement('select'); sel.id='soloLapsiSel';
+  sel.style.cssText='margin-left:8px;background:rgba(255,255,255,.06);color:#cdd6e8;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 8px;font:inherit;font-size:13px';
+  lapset.forEach(function(l){ var o=document.createElement('option'); o.value=l.id; o.textContent=l.nimi||'Lapsi'; if(l.id===activeId)o.selected=true; sel.appendChild(o); });
+  sel.onchange=function(){ localStorage.setItem('tm_active_player', sel.value); try{sessionStorage.removeItem('tm_solo_synced');}catch(e){} location.reload(); };
+  host.parentNode.appendChild(sel);
+}
+function _soloSyncFirestore(){
+  if (!_fbReady || !_auth) return;
+  _auth.onAuthStateChanged(async function(u){
+    if (!u) return; _uid=u.uid;
+    try {
+      var lapset = await window.TM_SOLO.tmHaeLapset(_db, u.uid);
+      if (!lapset.length) return;
+      var activeId = localStorage.getItem('tm_active_player');
+      var active = lapset.filter(function(x){return x.id===activeId;})[0] || lapset[0];
+      window._soloActiveId = active.id;
+      localStorage.setItem('tm_active_player', active.id);
+      if (lapset.length>1) _soloLapsiValitsin(lapset, active.id);
+      var fsProf = JSON.stringify(_soloPoimiProfiili(active));
+      var muuttui = (localStorage.getItem('tm_solo_profiili')!==fsProf) || (active.playerCode && localStorage.getItem('tm_player_code')!==active.playerCode);
+      localStorage.setItem('tm_solo_profiili', fsProf);
+      if (active.playerCode) localStorage.setItem('tm_player_code', active.playerCode);
+      if (active.tkk_historia) localStorage.setItem('tm_tkk_historia', JSON.stringify(active.tkk_historia));
+      if (muuttui && !sessionStorage.getItem('tm_solo_synced')) { try{sessionStorage.setItem('tm_solo_synced','1');}catch(e){} location.reload(); }
+    } catch(e){ console.warn('[solo] sync', e&&e.message); }
+  });
+}
+window.addEventListener('DOMContentLoaded', _soloSyncFirestore);
 
 // ═══ INIT ════════════════════════════════════
 window.addEventListener('DOMContentLoaded', function(){
@@ -888,7 +939,14 @@ function tallenna(){
     }
   }
 
-  localStorage.setItem('tm_solo_profiili', JSON.stringify(P));
+  localStorage.setItem('tm_solo_profiili', JSON.stringify(P));   // offline-cache
+  // Firestore = totuuslähde (kirjautunut vanhempi). localStorage on cache.
+  if (window._soloActiveId && _fbReady && _db) {
+    var _fs = {}; _SOLO_KENTAT.forEach(function(k){ _fs[k] = (P[k]!=null ? P[k] : null); });
+    _fs.tkk_historia = TKK_HISTORIA;
+    _fs.paivitetty = firebase.firestore.FieldValue.serverTimestamp();
+    _db.collection('players').doc(window._soloActiveId).set(_fs, { merge:true }).catch(function(e){ console.warn('[solo] save', e&&e.message); });
+  }
   toast('✅ Profiili tallennettu', 'ok');
 
   setTimeout(function(){ document.getElementById('btnTallenna').disabled = false; }, 1500);

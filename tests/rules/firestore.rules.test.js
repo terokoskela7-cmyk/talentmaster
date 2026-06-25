@@ -1096,3 +1096,57 @@ describe('Tavoitteet (IDP, Vaihe 2)', () => {
     await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-a1')));
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SOLO PLAYER™ P0 — parents / players / playerCodes (v3.7, erillinen seurat/:sta)
+// ═══════════════════════════════════════════════════════════════════════════
+describe('Solo Player (v3.7)', () => {
+  const P1 = 'parent-1', P2 = 'parent-2';
+  const pc = (uid) => testEnv.authenticatedContext(uid);
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'players', 'pl1'), { parent_uid: P1, nimi: 'Lapsi', playerCode: 'TMP-ABCDEF', seuraId: null });
+      await setDoc(doc(db, 'players', 'pl1', 'suostumukset', 'perus'), { ok: true, tyyppi: 'perus', antaja_uid: P1 });
+      await setDoc(doc(db, 'parents', P1), { email: 'p1@test.fi' });
+      await setDoc(doc(db, 'playerCodes', 'TMP-ABCDEF'), { playerId: 'pl1', parent_uid: P1 });
+    });
+  });
+
+  it('Vanhempi lukee + kirjoittaa OMAN parents-dokin', async () => {
+    const db = pc(P1).firestore();
+    await assertSucceeds(getDoc(doc(db, 'parents', P1)));
+    await assertSucceeds(setDoc(doc(db, 'parents', P1), { nimi: 'Äiti' }, { merge: true }));
+  });
+
+  it('Vanhempi EI lue toisen vanhemman dokia', async () => {
+    await assertFails(getDoc(doc(pc(P2).firestore(), 'parents', P1)));
+  });
+
+  it('Vanhempi lukee OMAN lapsen, EI toisen', async () => {
+    await assertSucceeds(getDoc(doc(pc(P1).firestore(), 'players', 'pl1')));
+    await assertFails(getDoc(doc(pc(P2).firestore(), 'players', 'pl1')));
+  });
+
+  it('Vanhempi luo lapsen OMALLA parent_uid:lla; EI toisen uid:lla', async () => {
+    await assertSucceeds(setDoc(doc(pc(P1).firestore(), 'players', 'pl-new'), { parent_uid: P1, nimi: 'Uusi' }));
+    await assertFails(setDoc(doc(pc(P2).firestore(), 'players', 'pl-bad'), { parent_uid: P1, nimi: 'Väärä' }));
+  });
+
+  it('Vanhempi pääsee oman lapsen alikokoelmaan (suostumukset); toinen ei', async () => {
+    await assertSucceeds(getDoc(doc(pc(P1).firestore(), 'players', 'pl1', 'suostumukset', 'perus')));
+    await assertFails(getDoc(doc(pc(P2).firestore(), 'players', 'pl1', 'suostumukset', 'perus')));
+  });
+
+  it('PlayerCode: luo omalla parent_uid:lla · luku kirjautuneelle · ei muokkaa toisen', async () => {
+    await assertSucceeds(setDoc(doc(pc(P1).firestore(), 'playerCodes', 'TMP-NEWXYZ'), { playerId: 'pl1', parent_uid: P1 }));
+    await assertSucceeds(getDoc(doc(pc(P2).firestore(), 'playerCodes', 'TMP-ABCDEF')));
+    await assertFails(updateDoc(doc(pc(P2).firestore(), 'playerCodes', 'TMP-ABCDEF'), { parent_uid: P2 }));
+  });
+
+  it('Kirjautumaton EI pääse Solo-dataan', async () => {
+    const db = unauthContext().firestore();
+    await assertFails(getDoc(doc(db, 'players', 'pl1')));
+    await assertFails(getDoc(doc(db, 'parents', P1)));
+  });
+});
