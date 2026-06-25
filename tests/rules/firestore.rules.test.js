@@ -1150,3 +1150,48 @@ describe('Solo Player (v3.7)', () => {
     await assertFails(getDoc(doc(db, 'parents', P1)));
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SOLO POLKU B — lupapyynnot + lapsi-PIN (v3.8)
+// ═══════════════════════════════════════════════════════════════════════════
+describe('Solo Polku B (v3.8)', () => {
+  const P1 = 'parent-1';
+  const pc = (uid) => testEnv.authenticatedContext(uid);
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'players', 'pl-pin'), { parent_uid: P1, nimi: 'Lapsi', playerCode: 'TMP-ABCDEF', seuraId: null, child_pin: '1234' });
+      await setDoc(doc(db, 'lupapyynnot', 'req-1'), { status: 'odottaa', parent_email: 'p@test.fi', token: 'tok', child_etunimi: 'Lapsi' });
+    });
+  });
+
+  it('Lupapyyntö: kuka tahansa (anon) luo statuksella odottaa', async () => {
+    await assertSucceeds(setDoc(doc(anonContext().firestore(), 'lupapyynnot', 'req-new'),
+      { status: 'odottaa', parent_email: 'x@test.fi', token: 't' }));
+  });
+  it('Lupapyyntö: create ilman status=odottaa hylätään', async () => {
+    await assertFails(setDoc(doc(anonContext().firestore(), 'lupapyynnot', 'req-bad'),
+      { status: 'hyvaksytty', parent_email: 'x@test.fi' }));
+  });
+  it('Lupapyyntö: get omalla requestId:llä sallittu', async () => {
+    await assertSucceeds(getDoc(doc(anonContext().firestore(), 'lupapyynnot', 'req-1')));
+  });
+  it('Lupapyyntö: client EI päivitä eikä poista (vain CF)', async () => {
+    await assertFails(updateDoc(doc(anonContext().firestore(), 'lupapyynnot', 'req-1'), { status: 'hyvaksytty' }));
+    await assertFails(updateDoc(doc(pc(P1).firestore(), 'lupapyynnot', 'req-1'), { status: 'hyvaksytty' }));
+    await assertFails(deleteDoc(doc(pc(P1).firestore(), 'lupapyynnot', 'req-1')));
+  });
+  it('Lapsi-PIN: anonyymi GET pelaajan jolla child_pin', async () => {
+    await assertSucceeds(getDoc(doc(anonContext().firestore(), 'players', 'pl-pin')));
+  });
+  it('Lapsi-PIN: anonyymi EI saa listata players-kokoelmaa', async () => {
+    const db = anonContext().firestore();
+    await assertFails(getDocs(query(collection(db, 'players'), where('child_pin', '==', '1234'))));
+  });
+  it('Lapsi-PIN: anonyymi päivittää profiilikentän, EI parent_uid/child_pin', async () => {
+    const db = anonContext().firestore();
+    await assertSucceeds(updateDoc(doc(db, 'players', 'pl-pin'), { nimi: 'Uusi nimi' }));
+    await assertFails(updateDoc(doc(db, 'players', 'pl-pin'), { parent_uid: 'hax' }));
+    await assertFails(updateDoc(doc(db, 'players', 'pl-pin'), { child_pin: '0000' }));
+  });
+});

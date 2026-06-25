@@ -476,6 +476,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <style>
 .cons-row{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5;color:#cdd6e8;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 14px;margin-top:10px;cursor:pointer;text-align:left}
 .cons-row input{margin-top:2px;width:18px;height:18px;accent-color:#00d4aa;flex:0 0 auto}
+.hidden{display:none}
 </style>
 <body>
 
@@ -495,6 +496,46 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   <div class="splash-sub">TalentMaster Player™</div>
   <button class="btn-gold" onclick="goReg()">⚽ &nbsp;Aloita — se on ilmainen</button>
   <button class="login-link" onclick="naytaKirjautuminen()">Minulla on jo tili</button>
+</div>
+
+<!-- ══ SAGE: NEUTRAALI IKÄPORTTI ══ -->
+<div class="screen reg-screen" id="sAge">
+  <div class="step-tag">Aloitus</div>
+  <div class="step-q">Milloin olet syntynyt?</div>
+  <div class="step-hint">Ikä määrittää miten jatkamme. Mitään ei tallenneta vielä.</div>
+  <input class="name-inp" id="ageYear" type="number" inputmode="numeric" placeholder="Syntymävuosi (esim. 2014)" min="2000" max="2025">
+  <div class="microfeed" id="feedAge"></div>
+  <div class="spacer"></div>
+  <button class="btn-primary" onclick="ikaPortti()">Jatka →</button>
+</div>
+
+<!-- ══ SREQ: POLKU B — PYYDÄ LUPA ══ -->
+<div class="screen reg-screen" id="sReq">
+  <div class="step-tag">Pyydä lupa</div>
+  <div class="step-q">Pyydä vanhemmalta lupa</div>
+  <div class="step-hint">Lähetämme vanhemmallesi linkin. Kun hän antaa luvan, saat oman PIN-koodin. Mitään ei tallenneta ennen lupaa.</div>
+  <input class="name-inp" id="reqEtu" type="text" placeholder="Oma etunimesi" autocomplete="off">
+  <input class="name-inp" id="reqEmail" type="email" placeholder="Vanhemman sähköposti" inputmode="email" style="margin-top:10px">
+  <div class="microfeed" id="feedReq"></div>
+  <div class="spacer"></div>
+  <button class="btn-primary" id="btnReq" onclick="lahetaLupapyynto()">Lähetä pyyntö →</button>
+</div>
+
+<!-- ══ SWAIT: ODOTUSTILA ══ -->
+<div class="screen reg-screen" id="sWait">
+  <div id="waitState">
+    <div class="step-tag">Odotetaan</div>
+    <div class="step-q">Pyyntö lähetetty! ⚽</div>
+    <div class="step-hint">Odotamme että vanhempasi antaa luvan sähköpostilinkistä. Tämä näkymä päivittyy itsestään, kun lupa tulee.</div>
+  </div>
+  <div id="waitDone" class="hidden">
+    <div class="step-tag">Valmis!</div>
+    <div class="step-q">Sait luvan 🎉</div>
+    <div class="step-hint">Tässä on PIN-koodisi — vanhempasi näkee sen myös sähköpostissaan.</div>
+    <div style="font-size:40px;letter-spacing:8px;text-align:center;color:#f5b700;font-weight:800;margin:16px 0" id="waitPin">—</div>
+    <div class="spacer"></div>
+    <button class="btn-primary" onclick="lapsiKirjaudu()">Aloita →</button>
+  </div>
 </div>
 
 <!-- ══ SP: VANHEMMAN TILI ══ -->
@@ -695,7 +736,65 @@ function checkSyn(){document.getElementById('btnSyn').disabled=!(P.vuosi&&P.kuuk
 function goReg(){
   document.getElementById('progBar').style.display='';
   if (_fbReady && _auth && _auth.currentUser) { _uid=_auth.currentUser.uid; _email=_auth.currentUser.email; goStep(1); }
-  else goStep('P');
+  else goStep('Age');
+}
+// ── Neutraali ikäportti → Polku A (≥13 / kirjautunut) tai Polku B (<13 ilman tiliä) ──
+function ikaPortti(){
+  var y=parseInt((document.getElementById('ageYear').value||'').trim(),10);
+  var nyt=new Date().getFullYear();
+  if(!(y>=2000 && y<=nyt)){ _feed('feedAge','Syötä syntymävuosi.', '#ff6b6b'); return; }
+  P.vuosi=y;
+  if ((nyt-y) < 13) goStep('Req');   // alle 13 ilman tiliä → vanhemman lupa
+  else goStep('P');                  // ≥13 → vanhemman tili (Polku A)
+}
+// ── Polku B: lupapyyntö + odotus + PIN ──
+function _uuid(){ try { if(window.crypto&&crypto.randomUUID) return crypto.randomUUID(); }catch(e){} return 'r-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2); }
+async function lahetaLupapyynto(){
+  var etu=(document.getElementById('reqEtu').value||'').trim();
+  var em=(document.getElementById('reqEmail').value||'').trim().toLowerCase();
+  if(etu.length<1 || !/.+@.+\..+/.test(em)){ _feed('feedReq','Tarkista nimi ja vanhemman sähköposti.', '#ff6b6b'); return; }
+  if(!_fbReady){ _feed('feedReq','Yhteyttä ei saatu — yritä hetken päästä.', '#ff6b6b'); return; }
+  var btn=document.getElementById('btnReq'); btn.disabled=true; btn.textContent='Lähetetään…';
+  try {
+    var rid=_uuid(), tok=_uuid();
+    await _db.collection('lupapyynnot').doc(rid).set({
+      status:'odottaa', child_etunimi:etu, synVuosi:P.vuosi||null, synKuukausi:P.kuukausi||null,
+      parent_email:em, token:tok, luotu: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    localStorage.setItem('tm_lupapyynto', rid);
+    try { await firebase.app().functions('europe-west1').httpsCallable('soloLupapyyntoEmail')({ requestId: rid }); }
+    catch(e){ console.warn('[solo] lupaemail', e&&e.message); }
+    _kuunteleLupa(rid);
+    goStep('Wait');
+  } catch(e){ _feed('feedReq',(e&&e.message)||'Virhe pyynnön lähetyksessä','#ff6b6b'); btn.disabled=false; btn.textContent='Lähetä pyyntö →'; }
+}
+function _kuunteleLupa(rid){
+  if(!_fbReady) return;
+  _db.collection('lupapyynnot').doc(rid).onSnapshot(function(snap){
+    if(!snap.exists) return;
+    var d=snap.data();
+    if(d.status==='hyvaksytty'){
+      document.getElementById('waitPin').textContent=d.child_pin||'—';
+      document.getElementById('waitState').classList.add('hidden');
+      document.getElementById('waitDone').classList.remove('hidden');
+      window._soloApproved={ playerId:d.playerId||null, pin:d.child_pin||null };
+    }
+  }, function(err){ console.warn('[solo] lupakuuntelu', err&&err.message); });
+}
+async function lapsiKirjaudu(){
+  try {
+    if(_fbReady && _auth && !_auth.currentUser) await _auth.signInAnonymously();
+    var ap=window._soloApproved;
+    if(_fbReady && ap && ap.playerId){
+      var pdoc=await _db.collection('players').doc(ap.playerId).get();
+      if(pdoc.exists){ var pl=pdoc.data();
+        localStorage.setItem('tm_active_player', ap.playerId);
+        if(pl.playerCode) localStorage.setItem('tm_player_code', pl.playerCode);
+        localStorage.setItem('tm_solo_profiili', JSON.stringify({ nimi:pl.nimi, synVuosi:pl.synVuosi, synKuukausi:pl.synKuukausi, pp:pl.pp||null, kortti_taso:pl.kortti_taso||'starter' }));
+      }
+    }
+  } catch(e){ console.warn('[solo] lapsiKirjaudu', e&&e.message); }
+  window.location.href='TalentMaster_Solo_Profiili.html';
 }
 // ── Vanhemman tili ──
 function tarkistaTili(){
@@ -746,7 +845,7 @@ function goStep(n){
   var el=document.getElementById('s'+n);
   if(!el)return;
   el.classList.add('active');
-  var PCT={P:10,1:40,2:70,G:90};
+  var PCT={Age:5,Req:15,Wait:50,P:10,1:40,2:70,G:90};
   document.getElementById('progFill').style.width=(PCT[n]!=null?PCT[n]:0)+'%';
   var nS2=document.getElementById('nS2');if(nS2)nS2.textContent=P.nimi||'—';
   if(n===1)setTimeout(function(){document.getElementById('nimiInput').focus()},320);

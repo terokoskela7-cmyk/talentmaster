@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vanhemman lupa — TalentMaster Player™</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',-apple-system,system-ui,sans-serif;background:#0a0f1e;color:#e8edf7;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:28px;max-width:440px;width:100%}
+h1{font-size:22px;margin-bottom:6px}
+.sub{color:#9fb0cc;font-size:14px;margin-bottom:18px}
+.row{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 14px;margin-top:10px;font-size:14px}
+.row b{color:#00d4aa}
+input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:13px 14px;color:#e8edf7;font-size:15px;margin-top:10px;font-family:inherit}
+.cons{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5;color:#cdd6e8;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 14px;margin-top:10px;cursor:pointer}
+.cons input{width:18px;height:18px;margin-top:2px;accent-color:#00d4aa;flex:0 0 auto}
+button{width:100%;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:16px;font-family:inherit}
+.primary{background:#00d4aa;color:#04221c}
+.primary:disabled{opacity:.4;cursor:default}
+.ghost{background:transparent;color:#9fb0cc;font-weight:500;margin-top:6px}
+.feed{font-size:13px;margin-top:10px;min-height:18px}
+.pin{font-size:40px;letter-spacing:8px;text-align:center;color:#f5b700;font-weight:800;margin:14px 0}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="vLataa">
+    <h1>Ladataan…</h1>
+  </div>
+
+  <div id="vAuth" class="hidden">
+    <h1>Vanhemman lupa</h1>
+    <div class="sub">Kirjaudu tai luo vanhemman tili antaaksesi luvan.</div>
+    <input id="aEmail" type="email" placeholder="Sähköposti" autocomplete="email">
+    <input id="aPw" type="password" placeholder="Salasana (väh. 6 merkkiä)" autocomplete="current-password">
+    <button class="primary" onclick="kirjaudu()">Kirjaudu / luo tili</button>
+    <button class="ghost" onclick="google()">Jatka Google-tilillä</button>
+    <button class="ghost" onclick="reset()">Unohtuiko salasana?</button>
+    <div class="feed" id="aFeed"></div>
+  </div>
+
+  <div id="vLupa" class="hidden">
+    <h1>Anna lupa lapsellesi</h1>
+    <div class="sub">Tarkista tiedot ja anna suostumuksesi (GDPR Art. 8).</div>
+    <div class="row">Lapsi: <b id="lNimi">—</b><span id="lSyn"></span></div>
+    <label class="cons"><input type="checkbox" id="cTos"> Hyväksyn käyttöehdot ja tietosuojaselosteen <span style="color:#f5b700">*</span></label>
+    <label class="cons"><input type="checkbox" id="cPerus"> Annan luvan lapseni harjoitusdatan käsittelyyn <span style="color:#f5b700">*</span></label>
+    <label class="cons"><input type="checkbox" id="cBench"> Anonyymi ikäluokkavertailu (vapaaehtoinen)</label>
+    <button class="primary" id="bHyvaksy" onclick="hyvaksy()" disabled>Anna lupa →</button>
+    <div class="feed" id="lFeed"></div>
+  </div>
+
+  <div id="vValmis" class="hidden">
+    <h1>✅ Lupa annettu</h1>
+    <div class="sub">Lapsesi voi nyt aloittaa. Anna hänelle tämä PIN-koodi kirjautumista varten:</div>
+    <div class="pin" id="vPin">—</div>
+    <div class="sub">PIN ja tili palautuvat aina sähköpostiisi. Lapsen laite päivittyy automaattisesti.</div>
+  </div>
+</div>
+
+<script>
+var _auth=null,_db=null,_fns=null,_req=null,_tok=null,_data=null;
+function $(id){return document.getElementById(id);}
+function show(id){['vLataa','vAuth','vLupa','vValmis'].forEach(function(v){$(v).classList.toggle('hidden',v!==id);});}
+function feed(id,t,c){var e=$(id);if(e){e.textContent=t||'';e.style.color=c||'#9fb0cc';}}
+
+(function init(){
+  var q=new URLSearchParams(location.search); _req=q.get('r'); _tok=q.get('t');
+  try {
+    firebase.initializeApp({ apiKey:"AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo", authDomain:"talentmaster-pilot.firebaseapp.com",
+      projectId:"talentmaster-pilot", storageBucket:"talentmaster-pilot.firebasestorage.app",
+      messagingSenderId:"872561784446", appId:"1:872561784446:web:05c4c7996dfd46ddd14a2f" });
+    _auth=firebase.auth(); _db=firebase.firestore(); _fns=firebase.app().functions('europe-west1');
+  } catch(e){ $('vLataa').innerHTML='<h1>Virhe alustuksessa</h1>'; return; }
+  if(!_req||!_tok){ $('vLataa').innerHTML='<h1>Virheellinen linkki</h1><div class="sub">Avaa sähköpostissa saamasi lupalinkki uudelleen.</div>'; return; }
+  _db.collection('lupapyynnot').doc(_req).get().then(function(s){
+    if(!s.exists){ $('vLataa').innerHTML='<h1>Pyyntöä ei löytynyt</h1>'; return; }
+    _data=s.data();
+    if(_data.status==='hyvaksytty'){ $('vPin').textContent=_data.child_pin||'—'; show('vValmis'); return; }
+    $('lNimi').textContent=_data.child_etunimi||'Lapsesi';
+    if(_data.synVuosi)$('lSyn').textContent=' (s. '+_data.synVuosi+')';
+    _auth.onAuthStateChanged(function(u){ show(u?'vLupa':'vAuth'); });
+  }).catch(function(e){ $('vLataa').innerHTML='<h1>Virhe</h1><div class="sub">'+(e&&e.message||'')+'</div>'; });
+  ['cTos','cPerus'].forEach(function(id){ var el=$(id); if(el)el.addEventListener('input',function(){ $('bHyvaksy').disabled=!($('cTos').checked&&$('cPerus').checked); }); });
+})();
+
+function kirjaudu(){
+  var em=($('aEmail').value||'').trim().toLowerCase(), pw=$('aPw').value||'';
+  if(!/.+@.+\..+/.test(em)||pw.length<6){ feed('aFeed','Tarkista sähköposti ja salasana (väh. 6).','#ff6b6b'); return; }
+  _auth.signInWithEmailAndPassword(em,pw).catch(function(e){
+    if(e&&e.code==='auth/user-not-found'){ _auth.createUserWithEmailAndPassword(em,pw).then(function(c){ try{c.user.sendEmailVerification();}catch(_){} }).catch(function(e2){ feed('aFeed',e2.message,'#ff6b6b'); }); }
+    else feed('aFeed',e.message,'#ff6b6b');
+  });
+}
+function google(){ _auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function(e){ feed('aFeed',e.message,'#ff6b6b'); }); }
+function reset(){ var em=($('aEmail').value||'').trim().toLowerCase(); if(!em){feed('aFeed','Syötä sähköposti ensin.','#f5b700');return;} _auth.sendPasswordResetEmail(em).then(function(){ feed('aFeed','Palautuslinkki lähetetty.','#00d4aa'); }).catch(function(e){ feed('aFeed',e.message,'#ff6b6b'); }); }
+
+async function hyvaksy(){
+  var b=$('bHyvaksy'); b.disabled=true; b.textContent='Annetaan…';
+  try {
+    var res=await _fns.httpsCallable('soloHyvaksyLupa')({ requestId:_req, token:_tok, benchmark:!!$('cBench').checked });
+    $('vPin').textContent=(res.data&&res.data.child_pin)||'—';
+    show('vValmis');
+  } catch(e){ feed('lFeed',(e&&e.message)||'Hyväksyntä epäonnistui','#ff6b6b'); b.disabled=false; b.textContent='Anna lupa →'; }
+}
+</script>
+</body>
+</html>
