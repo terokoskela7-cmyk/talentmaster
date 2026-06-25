@@ -283,6 +283,16 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'DM
         </div>
       </div>
       <div class="field">
+        <label class="field-label">Mikä on vahvuutesi?</label>
+        <div class="chips">
+          <div class="chip" onclick="valChip(this,'vahvuus','sbl')">⚡ Nopeus</div>
+          <div class="chip" onclick="valChip(this,'vahvuus','ll')">↔️ Suunnanmuutos</div>
+          <div class="chip" onclick="valChip(this,'vahvuus','dfl')">🏗️ Tasapaino</div>
+          <div class="chip" onclick="valChip(this,'vahvuus','sfl')">🦵 Räjähtävyys</div>
+          <div class="chip" onclick="valChip(this,'vahvuus','diag')">🔄 Syöttöteho</div>
+        </div>
+      </div>
+      <div class="field">
         <label class="field-label">Mikä on vaikein asia pelissä nyt?</label>
         <div class="chips">
           <div class="chip" onclick="valChip(this,'ketju','sbl')">⚡ Nopeus</div>
@@ -537,10 +547,10 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'DM
       <div class="kotimittari">
         <div class="kotimittari-icon">⏱️</div>
         <div class="kotimittari-info">
-          <div class="kotimittari-nimi">Driblausaika</div>
-          <div class="kotimittari-arvo">Sekunteja pallolla silmät ylhäällä 10×10 m alueella</div>
+          <div class="kotimittari-nimi">Kuljetus 10×10 alueen ympäri</div>
+          <div class="kotimittari-arvo">Aseta 4 kulmamerkkiä 10×10 m neliöön. Kuljeta pallolla neliön ympäri — lähtö ja maali samasta kulmasta. Merkitse paras aika kahdesta yrityksestä.</div>
         </div>
-        <input class="kotimittari-input" type="number" inputmode="numeric" id="koti-drip" placeholder="0" onchange="paivitaKoti()">
+        <input class="kotimittari-input" type="number" inputmode="decimal" step="0.1" id="koti-drip" placeholder="0" onchange="paivitaKoti()">
         <div class="kotimittari-yksikko">s</div>
       </div>
 
@@ -611,7 +621,7 @@ var _fbReady=false, _auth=null, _db=null, _uid=null;
     _auth=firebase.auth(); _db=firebase.firestore(); _fbReady=true;
   } catch(e){ console.warn('[solo] init', e&&e.message); }
 })();
-var _SOLO_KENTAT = ['nimi','synVuosi','synKuukausi','pp','kokemus','treeni','ketju','tkkVuosi','tkkYht','tkkMerkki','fyysHyppy','fyysLoikka','fyysNaru','fyysSprintti','kotiPonn','kotiSeina','kotiDrip','kotiPvm','kortti_taso'];
+var _SOLO_KENTAT = ['nimi','synVuosi','synKuukausi','pp','kokemus','treeni','ketju','vahvuus','tkkVuosi','tkkYht','tkkMerkki','fyysHyppy','fyysLoikka','fyysNaru','fyysSprintti','kotiPonn','kotiSeina','kotiDrip','kotiPvm','kortti_taso'];
 function _soloPoimiProfiili(doc){ var o={}; _SOLO_KENTAT.forEach(function(k){ if(doc[k]!=null) o[k]=doc[k]; }); return o; }
 function _soloLapsiValitsin(lapset, activeId){
   if (document.getElementById('soloLapsiSel')) return;
@@ -675,6 +685,7 @@ window.addEventListener('DOMContentLoaded', function(){
   _palautaChips('kokemus', P.kokemus);
   _palautaChips('treeni', P.treeni);
   _palautaChips('ketju', P.ketju);
+  _palautaChips('vahvuus', P.vahvuus);
   _palautaChips('ponnYritys', P.ponnYritys);
 
   if(P.tkkMerkki) valMerkki(null, P.tkkMerkki, true);
@@ -845,7 +856,7 @@ function paivitaFyys(){
 function paivitaKoti(){
   P.kotiPonn = parseInt(document.getElementById('koti-ponn').value) || null;
   P.kotiSeina = parseInt(document.getElementById('koti-seina').value) || null;
-  P.kotiDrip = parseInt(document.getElementById('koti-drip').value) || null;
+  P.kotiDrip = parseFloat(document.getElementById('koti-drip').value) || null;
 
   var kentat = [P.kotiPonn, P.kotiSeina, P.kotiDrip].filter(Boolean).length;
   var st = document.getElementById('status-koti');
