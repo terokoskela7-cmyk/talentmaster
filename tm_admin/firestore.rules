@@ -1,9 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.6
+// TalentMaster™ — firestore.rules v3.7
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.6 → v3.7 (Solo Player™ P0, SOLO_P0_TIETOMALLI_SPEC.md §4):
+//   + parents/{uid}      — vanhemman tili (vain oma uid).
+//   + players/{playerId} — Solo-pelaaja (litteä), omistus parent_uid == auth.uid + alikokoelmat.
+//   + playerCodes/{code} — club-bridge-indeksi (luo oma vanhempi; luku kirjautuneelle).
+//   ERILLINEN lohko klubin seurat/-puusta. Polku B (lupapyynnot + lapsi-PIN) = PR 2.
 //
 // Muutokset v3.5 → v3.6 (V1 kuorma & fiilis, KUORMA_FIILIS_SPEC.md §5):
 //   ~ kalenteri/{id} update field-level (valmentaja, ei-omistaja) sallii nyt myös
@@ -797,6 +803,34 @@ service cloud.firestore {
       allow read:           if onSuperAdmin();
       allow create:         if onKirjautunut();
       allow update, delete: if onSuperAdmin();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // SOLO PLAYER™ (P0) — ERILLINEN LOHKO klubin seurat/-puusta.
+    // Vanhempi omistaa (parent_uid == auth.uid). SOLO_P0_TIETOMALLI_SPEC.md §4.
+    // ÄLÄ sekoita klubin Rulesiin. (Polku B: lupapyynnot + lapsi-PIN = PR 2.)
+    // ══════════════════════════════════════════════════════════════════════
+    // Vanhemman tili (doc-id = Firebase Auth uid)
+    match /parents/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    // Solo-pelaaja (litteä) — vain omistava vanhempi (P0).
+    match /players/{playerId} {
+      allow read, update, delete: if request.auth != null
+                                  && request.auth.uid == resource.data.parent_uid;
+      allow create:               if request.auth != null
+                                  && request.auth.uid == request.resource.data.parent_uid;
+      // Alikokoelmat (tkk_historia, suostumukset) — omistajuus pelaajadokin parent_uid:sta
+      match /{sub=**} {
+        allow read, write: if request.auth != null
+                           && get(/databases/$(database)/documents/players/$(playerId)).data.parent_uid == request.auth.uid;
+      }
+    }
+    // PlayerCode-indeksi (club-bridge, P2-valmis) — luo oma vanhempi; luku kirjautuneelle.
+    match /playerCodes/{code} {
+      allow create:         if request.auth != null && request.auth.uid == request.resource.data.parent_uid;
+      allow read:           if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.parent_uid;
     }
   }
 }

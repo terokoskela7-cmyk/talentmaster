@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TalentMaster Player™</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<!-- Firebase (compat) + Solo-datakerros -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="lib/tm_solo_data.js?v=1"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -468,6 +473,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 @keyframes fu{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
+<style>
+.cons-row{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5;color:#cdd6e8;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 14px;margin-top:10px;cursor:pointer;text-align:left}
+.cons-row input{margin-top:2px;width:18px;height:18px;accent-color:#00d4aa;flex:0 0 auto}
+</style>
 <body>
 
 <canvas id="cv"></canvas>
@@ -485,7 +494,21 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   </div>
   <div class="splash-sub">TalentMaster Player™</div>
   <button class="btn-gold" onclick="goReg()">⚽ &nbsp;Aloita — se on ilmainen</button>
-  <button class="login-link" onclick="alert('Kirjautuminen — tulossa pian')">Minulla on jo tili</button>
+  <button class="login-link" onclick="naytaKirjautuminen()">Minulla on jo tili</button>
+</div>
+
+<!-- ══ SP: VANHEMMAN TILI ══ -->
+<div class="screen reg-screen" id="sP">
+  <div class="step-tag">Vanhemman tili</div>
+  <div class="step-q">Luo perheen tili</div>
+  <div class="step-hint">Vanhempi luo tilin ja antaa luvan. Sähköposti on tilin ankkuri (myös palautus).</div>
+  <input class="name-inp" id="pEmail" type="email" placeholder="Vanhemman sähköposti" autocomplete="email" inputmode="email" spellcheck="false" oninput="tarkistaTili()">
+  <input class="name-inp" id="pPw" type="password" placeholder="Salasana (väh. 6 merkkiä)" autocomplete="new-password" oninput="tarkistaTili()" style="margin-top:10px">
+  <div class="microfeed" id="feedP"></div>
+  <div class="spacer"></div>
+  <button class="btn-primary" id="btnP" onclick="luoTili()" disabled>Luo tili →</button>
+  <button class="login-link" onclick="kirjauduGoogle()" style="margin-top:6px">Jatka Google-tilillä</button>
+  <button class="login-link" id="pLoginToggle" onclick="naytaKirjautuminen()" style="margin-top:2px">Minulla on jo tili</button>
 </div>
 
 <!-- ══ S1: NIMI ══ -->
@@ -513,8 +536,23 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="year-wheel" id="yearWheel" onscroll="updateYear()"></div>
   </div>
   <div class="kk-grid" id="kkGrid"></div>
+  <div class="step-hint" style="margin-top:14px">Pelipaikka (valinnainen)</div>
+  <div class="kk-grid" id="ppGrid"></div>
   <div class="spacer"></div>
-  <button class="btn-primary" id="btnSyn" onclick="goReveal()" disabled>Luo korttini →</button>
+  <button class="btn-primary" id="btnSyn" onclick="goStep('G')" disabled>Jatka →</button>
+</div>
+
+<!-- ══ SG: SUOSTUMUS (GDPR Art. 8) ══ -->
+<div class="screen reg-screen" id="sG">
+  <div class="step-tag">Lupa & tietosuoja</div>
+  <div class="step-q">Vanhemman suostumus</div>
+  <div class="step-hint">Lapsen datan käsittely vaatii vanhemman luvan (GDPR Art. 8). Mitään ei tallenneta ennen tätä.</div>
+  <label class="cons-row"><input type="checkbox" id="consTos" oninput="tarkistaSuostumus()"> Hyväksyn <b>käyttöehdot</b> ja <b>tietosuojaselosteen</b> <span style="color:#f5b700">*</span></label>
+  <label class="cons-row"><input type="checkbox" id="consPerus" oninput="tarkistaSuostumus()"> Annan luvan lapseni harjoitusdatan käsittelyyn <span style="color:#f5b700">*</span></label>
+  <label class="cons-row"><input type="checkbox" id="consBench"> Lapsen anonyymi data saa olla mukana ikäluokkavertailussa <span style="opacity:.6">(vapaaehtoinen)</span></label>
+  <div class="microfeed" id="feedG"></div>
+  <div class="spacer"></div>
+  <button class="btn-primary" id="btnG" onclick="goReveal()" disabled>Luo lapsen kortti →</button>
 </div>
 
 <!-- ══ CARD REVEAL ══ -->
@@ -566,7 +604,24 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 <script>
 // ── STATE ──
-var P = { nimi:'', vuosi:null, kuukausi:null, code:'' };
+var P = { nimi:'', vuosi:null, kuukausi:null, code:'', pp:'', benchmark:false, ehdot:{tos:false,privacy:false} };
+var _fbReady = false, _auth = null, _db = null, _uid = null, _email = null;
+(function initFirebase(){
+  try {
+    if (typeof firebase === 'undefined') return;
+    firebase.initializeApp({
+      apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+      authDomain: "talentmaster-pilot.firebaseapp.com",
+      projectId: "talentmaster-pilot",
+      storageBucket: "talentmaster-pilot.firebasestorage.app",
+      messagingSenderId: "872561784446",
+      appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
+    });
+    _auth = firebase.auth(); _db = firebase.firestore(); _fbReady = true;
+    _auth.onAuthStateChanged(function(u){ if (u){ _uid = u.uid; _email = u.email || _email; } });
+  } catch(e){ console.warn('[solo] firebase init', e && e.message); }
+})();
+function _feed(id, txt, vari){ var el=document.getElementById(id); if(el){ el.textContent=txt||''; el.style.color=vari||''; } }
 
 // ── PARTICLES ──
 (function(){
@@ -609,6 +664,12 @@ var P = { nimi:'', vuosi:null, kuukausi:null, code:'' };
   // Months
   var kk=['Tammi','Helmi','Maalis','Huhti','Touko','Kesä','Heinä','Elo','Syys','Loka','Marras','Joulu'];
   var g=document.getElementById('kkGrid');
+  var ppG=document.getElementById('ppGrid');
+  if (ppG){ [['hyokkaaja','Hyökkääjä'],['keskikentta','Keskikenttä'],['puolustaja','Puolustaja'],['maalivahti','Maalivahti']].forEach(function(pp){
+    var b=document.createElement('div'); b.className='kk-btn'; b.textContent=pp[1];
+    b.onclick=function(){ document.querySelectorAll('#ppGrid .kk-btn').forEach(function(x){x.classList.remove('sel')}); b.classList.add('sel'); P.pp=pp[0]; };
+    ppG.appendChild(b);
+  }); }
   kk.forEach(function(k,i){
     var b=document.createElement('div');b.className='kk-btn';b.textContent=k;
     b.onclick=function(){
@@ -633,15 +694,60 @@ function checkSyn(){document.getElementById('btnSyn').disabled=!(P.vuosi&&P.kuuk
 // ── NAVIGATION ──
 function goReg(){
   document.getElementById('progBar').style.display='';
-  goStep(1);
+  if (_fbReady && _auth && _auth.currentUser) { _uid=_auth.currentUser.uid; _email=_auth.currentUser.email; goStep(1); }
+  else goStep('P');
+}
+// ── Vanhemman tili ──
+function tarkistaTili(){
+  var em=(document.getElementById('pEmail').value||'').trim();
+  var pw=document.getElementById('pPw').value||'';
+  document.getElementById('btnP').disabled = !(/.+@.+\..+/.test(em) && pw.length>=6);
+}
+async function luoTili(){
+  if (!_fbReady){ _feed('feedP','Yhteyttä ei saatu — yritä hetken päästä.', '#ff6b6b'); return; }
+  var em=(document.getElementById('pEmail').value||'').trim().toLowerCase();
+  var pw=document.getElementById('pPw').value||'';
+  var btn=document.getElementById('btnP'); btn.disabled=true; btn.textContent='Luodaan…';
+  try {
+    var cred = await _auth.createUserWithEmailAndPassword(em, pw);
+    _uid=cred.user.uid; _email=em;
+    try { await cred.user.sendEmailVerification(); } catch(e){}
+    _feed('feedP','Tili luotu. Lähetimme vahvistuslinkin sähköpostiisi.', '#00d4aa');
+    goStep(1);
+  } catch(e){
+    if (e && e.code==='auth/email-already-in-use') { _feed('feedP','Sähköposti on jo käytössä — kirjaudu sisään.', '#f5b700'); naytaKirjautuminen(); }
+    else _feed('feedP', (e&&e.message)||'Virhe tilin luonnissa', '#ff6b6b');
+    btn.disabled=false; btn.textContent='Luo tili →';
+  }
+}
+async function kirjauduGoogle(){
+  if (!_fbReady) return;
+  try {
+    var prov = new firebase.auth.GoogleAuthProvider();
+    var res = await _auth.signInWithPopup(prov);
+    _uid=res.user.uid; _email=res.user.email; goStep(1);
+  } catch(e){ _feed('feedP',(e&&e.message)||'Google-kirjautuminen epäonnistui','#ff6b6b'); }
+}
+function naytaKirjautuminen(){
+  goStep('P');
+  var em=prompt('Sähköposti:'); if(!em) return;
+  var pw=prompt('Salasana (tyhjä = lähetä palautuslinkki):');
+  if (!_fbReady) return;
+  if (!pw){ _auth.sendPasswordResetEmail(em.trim().toLowerCase()).then(function(){ _feed('feedP','Palautuslinkki lähetetty.', '#00d4aa'); }).catch(function(e){ _feed('feedP',(e&&e.message)||'Virhe','#ff6b6b'); }); return; }
+  _auth.signInWithEmailAndPassword(em.trim().toLowerCase(), pw).then(function(c){ _uid=c.user.uid; _email=c.user.email; goStep(1); }).catch(function(e){ _feed('feedP',(e&&e.message)||'Kirjautuminen epäonnistui','#ff6b6b'); });
+}
+// ── Suostumus ──
+function tarkistaSuostumus(){
+  var ok = document.getElementById('consTos').checked && document.getElementById('consPerus').checked;
+  document.getElementById('btnG').disabled = !ok;
 }
 function goStep(n){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
   var el=document.getElementById('s'+n);
   if(!el)return;
   el.classList.add('active');
-  var pct=Math.round(((n-1)/2)*100);
-  document.getElementById('progFill').style.width=pct+'%';
+  var PCT={P:10,1:40,2:70,G:90};
+  document.getElementById('progFill').style.width=(PCT[n]!=null?PCT[n]:0)+'%';
   var nS2=document.getElementById('nS2');if(nS2)nS2.textContent=P.nimi||'—';
   if(n===1)setTimeout(function(){document.getElementById('nimiInput').focus()},320);
 }
@@ -665,26 +771,50 @@ function goReveal(){
   var sc=document.getElementById('sCard');
   sc.classList.add('active');
 
-  // Täytä kortin data
-  var ika=new Date().getFullYear()-(P.vuosi||2013);
-  var ovr=Math.max(42,Math.min(62,42+Math.floor((ika-8)*1.5)));
-  var stars=ovr>=58?'⭐⭐⭐':ovr>=52?'⭐⭐':'⭐';
+  // Suostumus state
+  P.ehdot = { tos: !!document.getElementById('consTos').checked, privacy: !!document.getElementById('consTos').checked };
+  P.benchmark = !!(document.getElementById('consBench') && document.getElementById('consBench').checked);
 
+  // Rehellinen kortti — johdettu iästä + pelipaikasta DETERMINISTISESTI (EI satunnaislukuja).
+  var ika=new Date().getFullYear()-(P.vuosi||2013);
+  var ovr=Math.max(42,Math.min(62,Math.round(42+(ika-8)*1.5)));
+  var stars=ovr>=58?'⭐⭐⭐':ovr>=52?'⭐⭐':'⭐';
   document.getElementById('cOvr').textContent=ovr;
   document.getElementById('cName').textContent=P.nimi;
-  document.getElementById('cPos').textContent='—';
+  document.getElementById('cPos').textContent=({hyokkaaja:'HYÖ',keskikentta:'KK',puolustaja:'PUO',maalivahti:'MV'}[P.pp])||'—';
   document.getElementById('cStars').textContent=stars;
-
-  var labels=['NOP','TEK','SYÖ','1v1','LAU','FYS'];
-  document.getElementById('cStats').innerHTML=labels.map(function(l){
-    var v=Math.max(40,Math.min(70,ovr+Math.round((Math.random()-.5)*12)));
-    return '<div class="c-stat"><div class="cs-val">'+v+'</div><div class="cs-lbl">'+l+'</div></div>';
+  var STAT=['NOP','TEK','SYÖ','1v1','LAU','FYS'];
+  var v={}; STAT.forEach(function(l){ v[l]=ovr; });
+  var tilt=({hyokkaaja:{LAU:2,'1v1':1}, keskikentta:{'SYÖ':2,TEK:1}, puolustaja:{'1v1':2,FYS:1}, maalivahti:{FYS:2}}[P.pp])||{};
+  Object.keys(tilt).forEach(function(k){ v[k]+=tilt[k]; });
+  document.getElementById('cStats').innerHTML=STAT.map(function(l){
+    var val=Math.max(40,Math.min(70,v[l]));
+    return '<div class="c-stat"><div class="cs-val">'+val+'</div><div class="cs-lbl">'+l+'</div></div>';
   }).join('');
 
-  var code='TMP-'+Math.floor(1000+Math.random()*9000);
+  // Tallenna Firestoreen (totuuslähde) — migraatio jos vanhaa localStorage-dataa, muuten luonti.
+  var profiili={ nimi:P.nimi, synVuosi:P.vuosi, synKuukausi:P.kuukausi, pp:P.pp||null, kortti_taso:'starter' };
+  localStorage.setItem('tm_solo_profiili',JSON.stringify(profiili));   // offline-cache
+  (async function(){
+    try {
+      if (!_fbReady || !_uid) return;
+      var luotu = await window.TM_SOLO.tmMigroiLocalStorage(_db, firebase, localStorage,
+        { uid:_uid, email:_email, ehdot:{tos:P.ehdot.tos,privacy:P.ehdot.privacy}, benchmark:P.benchmark });
+      var pid, code;
+      if (luotu) { pid = luotu; var pdoc = await _db.collection('players').doc(pid).get(); code = pdoc.exists ? (pdoc.data().playerCode) : null; }
+      else {
+        var res = await window.TM_SOLO.tmLuoSoloProfiili(_db, firebase,
+          { uid:_uid, email:_email, ehdot:{tos:P.ehdot.tos,privacy:P.ehdot.privacy}, benchmark:P.benchmark, profiili:profiili });
+        pid = res.playerId; code = res.playerCode;
+      }
+      if (code) { P.code=code; localStorage.setItem('tm_player_code',code); localStorage.setItem('tm_migrated', pid);
+        document.getElementById('rl4').textContent=code; }
+      if (pid) localStorage.setItem('tm_active_player', pid);
+    } catch(e){ console.warn('[solo] tallennus', e && e.message); _feed('feedG', 'Tallennus epäonnistui — profiili säilyy laitteella.', '#f5b700'); }
+  })();
+
+  var code=P.code || (localStorage.getItem('tm_player_code')||'TMP-—');
   P.code=code;
-  localStorage.setItem('tm_player_code',code);
-  localStorage.setItem('tm_solo_profiili',JSON.stringify({nimi:P.nimi,synVuosi:P.vuosi,synKuukausi:P.kuukausi}));
 
   document.getElementById('rl1').textContent='Tämä on sinun korttisi, '+P.nimi+'.';
   document.getElementById('rl2').textContent='Se muuttuu sitä mukaa kun sinä muutut.';
