@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_solo_data.js?v=1"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -736,9 +737,21 @@ function updateYear(){
 function checkSyn(){document.getElementById('btnSyn').disabled=!(P.vuosi&&P.kuukausi)}
 
 // ── NAVIGATION ──
+// Olemassa oleva vanhempi (suostumus jo annettu) → koti/profiili, EI suostumusta uudelleen. Uusi → jatka onboarding.
+async function _tarkistaVanhempi(uid){
+  try {
+    if(_fbReady && _db && uid){
+      var doc=await _db.collection('parents').doc(uid).get();
+      if(doc.exists && doc.data() && doc.data().hyvaksytyt_ehdot && doc.data().hyvaksytyt_ehdot.tos){
+        window.location.href='TalentMaster_Solo_Profiili.html'; return;
+      }
+    }
+  } catch(e){ console.warn('[solo] vanhempi-tarkistus', e&&e.message); }
+  goStep(1);
+}
 function goReg(){
   document.getElementById('progBar').style.display='';
-  if (_fbReady && _auth && _auth.currentUser) { _uid=_auth.currentUser.uid; _email=_auth.currentUser.email; goStep(1); }
+  if (_fbReady && _auth && _auth.currentUser) { _uid=_auth.currentUser.uid; _email=_auth.currentUser.email; _tarkistaVanhempi(_uid); }
   else goStep('Age');
 }
 // ── Neutraali ikäportti → Polku A (≥13 / kirjautunut) tai Polku B (<13 ilman tiliä) ──
@@ -765,11 +778,11 @@ async function lahetaLupapyynto(){
       parent_email:em, token:tok, luotu: firebase.firestore.FieldValue.serverTimestamp()
     });
     localStorage.setItem('tm_lupapyynto', rid);
-    try { await firebase.app().functions('europe-west1').httpsCallable('soloLupapyyntoEmail')({ requestId: rid }); }
-    catch(e){ console.warn('[solo] lupaemail', e&&e.message); }
+    // CF-kutsu EI inner-catchiin: jos lähetys kaatuu → todellinen virhe, ei valheellista "Pyyntö lähetetty".
+    await firebase.app().functions('europe-west1').httpsCallable('soloLupapyyntoEmail')({ requestId: rid });
     _kuunteleLupa(rid);
     goStep('Wait');
-  } catch(e){ _feed('feedReq',(e&&e.message)||'Virhe pyynnön lähetyksessä','#ff6b6b'); btn.disabled=false; btn.textContent='Lähetä pyyntö →'; }
+  } catch(e){ console.warn('[solo] lupapyyntö', e&&e.message); _feed('feedReq','Emme saaneet lähetettyä — yritä uudelleen.','#ff6b6b'); btn.disabled=false; btn.textContent='Lähetä pyyntö →'; }
 }
 function _kuunteleLupa(rid){
   if(!_fbReady) return;
@@ -827,7 +840,7 @@ async function kirjauduGoogle(){
   try {
     var prov = new firebase.auth.GoogleAuthProvider();
     var res = await _auth.signInWithPopup(prov);
-    _uid=res.user.uid; _email=res.user.email; goStep(1);
+    _uid=res.user.uid; _email=res.user.email; _tarkistaVanhempi(_uid);
   } catch(e){ _feed('feedP',(e&&e.message)||'Google-kirjautuminen epäonnistui','#ff6b6b'); }
 }
 function naytaKirjautuminen(){
@@ -836,7 +849,7 @@ function naytaKirjautuminen(){
   var pw=prompt('Salasana (tyhjä = lähetä palautuslinkki):');
   if (!_fbReady) return;
   if (!pw){ _auth.sendPasswordResetEmail(em.trim().toLowerCase()).then(function(){ _feed('feedP','Palautuslinkki lähetetty.', '#00d4aa'); }).catch(function(e){ _feed('feedP',(e&&e.message)||'Virhe','#ff6b6b'); }); return; }
-  _auth.signInWithEmailAndPassword(em.trim().toLowerCase(), pw).then(function(c){ _uid=c.user.uid; _email=c.user.email; goStep(1); }).catch(function(e){ _feed('feedP',(e&&e.message)||'Kirjautuminen epäonnistui','#ff6b6b'); });
+  _auth.signInWithEmailAndPassword(em.trim().toLowerCase(), pw).then(function(c){ _uid=c.user.uid; _email=c.user.email; _tarkistaVanhempi(_uid); }).catch(function(e){ _feed('feedP',(e&&e.message)||'Kirjautuminen epäonnistui','#ff6b6b'); });
 }
 // ── Suostumus ──
 function tarkistaSuostumus(){
