@@ -456,5 +456,44 @@ function setPos(pos, icon, btn){
   btn.classList.add('on');
 }
 </script>
+<script>
+// ── Solo: näytä pelaajan OMA kortti (localStorage tm_solo_profiili, Solo_Profiili kirjoittaa save-hetkellä).
+// Johdettu OVR/statsit DETERMINISTISESTI (ikä + pelipaikka + vahvuus/kehityskohde) — EI satunnaislukuja,
+// EI vertailua muihin (§7.22): kortti on lapsen oma. Tyhjä data → jätetään demo (standalone-katselu).
+(function(){
+  function set(id,t){ var e=document.getElementById(id); if(e) e.textContent=t; }
+  function start(){
+    // Takaisin-linkki (lapsi voi palata muokkaamaan)
+    var back=document.createElement("a");
+    back.href="TalentMaster_Solo_Profiili.html"; back.textContent="\u2190 Takaisin";
+    back.style.cssText="position:fixed;top:14px;left:14px;z-index:300;color:#cdd6e8;background:rgba(0,0,0,.38);padding:8px 14px;border-radius:20px;text-decoration:none;font:600 14px/1 -apple-system,system-ui,sans-serif;backdrop-filter:blur(4px)";
+    document.body.appendChild(back);
+
+    var P; try { P=JSON.parse(localStorage.getItem("tm_solo_profiili")||"null"); } catch(e){ P=null; }
+    if(!P || !P.nimi) return;   // ei Solo-dataa → demo jää näkyviin
+    var nyt=new Date().getFullYear();
+    var ika = P.synVuosi ? (nyt - P.synVuosi) : 12;
+    var ovr = Math.max(42, Math.min(62, Math.round(42 + (ika-8)*1.5)));
+    var keys=["Nopeus","Tekniikka","Peliäly","Fysiikka","Hallinta","Räjähtävyys"];
+    var v={}; keys.forEach(function(kk){ v[kk]=ovr; });
+    var tilt=({ hyokkaaja:{Nopeus:2,"Räjähtävyys":1}, keskikentta:{Tekniikka:2,"Peliäly":1}, puolustaja:{Fysiikka:2,Hallinta:1}, maalivahti:{Fysiikka:2} })[P.pp]||{};
+    Object.keys(tilt).forEach(function(kk){ v[kk]+=tilt[kk]; });
+    var SKILL={ sbl:"Nopeus", sfl:"Räjähtävyys", dfl:"Fysiikka", ll:"Hallinta", diag:"Tekniikka" };
+    if(P.vahvuus && SKILL[P.vahvuus]) v[SKILL[P.vahvuus]]+=2;
+    if(P.ketju && SKILL[P.ketju]) v[SKILL[P.ketju]]-=1;
+    keys.forEach(function(kk){ v[kk]=Math.max(40, Math.min(70, v[kk])); });
+    var taso=P.kortti_taso||"starter";
+    var tasoTxt=({ starter:"\u2B50 Starter", sharp:"\u2B50\u2B50 Sharp", elite:"\u2B50\u2B50\u2B50 Elite" })[taso]||"\u2B50 Starter";
+    var posTxt=({ hyokkaaja:"HY\u00d6", keskikentta:"KK", puolustaja:"PUO", maalivahti:"MV" })[P.pp]||"\u2014";
+    var posIco=({ hyokkaaja:"\u26BD", keskikentta:"\uD83C\uDFAF", puolustaja:"\uD83D\uDEE1\uFE0F", maalivahti:"\uD83E\uDDE4" })[P.pp]||"\u26A1";
+    set("ovrNum", ovr); set("playerName", P.nimi); set("posText", posTxt); set("posIcon", posIco);
+    set("seuraText", localStorage.getItem("tm_player_code")||"Solo Player");
+    set("tasoBadge", tasoTxt);
+    ["s0","s1","s2","s3","s4","s5"].forEach(function(id,i){ var e=document.getElementById(id); if(e){ var sv=e.querySelector(".stat-v"); if(sv) sv.textContent=v[keys[i]]; } });
+    set("profileRow", P.nimi + " \u00b7 " + tasoTxt.replace(/^[\u2B50 ]+/,"") + "-taso");
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", start); else start();
+})();
+</script>
 </body>
 </html>
