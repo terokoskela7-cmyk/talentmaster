@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1782339533703';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1782376638083';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -1290,8 +1290,8 @@ body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45de
       <div class="sb-item" data-ws="testit" onclick="setWs('testit')">
         <svg width="16" height="16"><use href="#ic-test"/></svg>Testit
       </div>
-      <div class="sb-item" onclick="openDrill('rpe')">
-        <svg width="16" height="16"><use href="#ic-drill"/></svg>Kirjaa RPE
+      <div class="sb-item" data-ws="kuorma" onclick="setWs('kuorma')">
+        <svg width="16" height="16"><use href="#ic-drill"/></svg>Kuorma &amp; fiilis
       </div>
       <div class="sb-item" onclick="avaaHarjoitusarviointi()">
         <svg width="16" height="16"><use href="#ic-drill"/></svg>Itsearvio
@@ -1643,6 +1643,11 @@ body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45de
       </div>
       <div id="testitTulokset"></div>
     </div><!-- /testit -->
+
+    <div class="ws-view" data-view="kuorma">
+      <div style="margin-bottom:6px"><h2 class="serif" style="font-size:22px;margin:0">Kuorma &amp; fiilis</h2><div class="muted" style="font-size:13px">Valmentajan arvio vs pelaajien koettu rasitus · joukkueen fiilis (vain valmentajalle)</div></div>
+      <div id="kuormaView" style="margin-top:14px"></div>
+    </div><!-- /kuorma -->
 
   </main>
 
@@ -4473,6 +4478,7 @@ function setWs(ws) {
   if (ws === 'inbox') renderInbox();
   if (ws === 'pulse') renderPulse();
   if (ws === 'testit') renderTestit();
+  if (ws === 'kuorma') renderKuorma();
   // Scroll top
   document.querySelector('.main')?.scrollTo({ top:0, behavior:'smooth' });
 }
@@ -4555,7 +4561,7 @@ function _renderActions() {
 }
 
 function actionClick(key) {
-  if (key === 'rpe')     { openDrill('rpe'); return; }
+  if (key === 'rpe')     { setWs('kuorma'); return; }
   if (key === 'xfactor') { setWs('dev'); pickPlayer('teemu'); return; }
   if (key === 'ohjelma') { toast('Avattu: 70/30-ohjelma', 'ohjelma'); return; }
   toast('Avattu: ' + DEMO.actions.find(a=>a.key===key)?.title, key);
@@ -6558,6 +6564,152 @@ function _calChip(sty, t, lisaaJoukkue, onclick, aika) {
     + metaHtml + koosteHtml + '</div>';
 }
 
+// ════════════════════════════════════════════════════════════
+//  V1 — Kuorma & fiilis: session-RPE + kalibraatio (KUORMA_FIILIS_SPEC.md)
+//  Staff-only (§7.22). Laskenta jo ladatuista _kirjauksista + kalenterin valmentaja_rpe:stä.
+// ════════════════════════════════════════════════════════════
+function _fiilisEmoji(v) { return ['·','😞','🙁','😐','🙂','😄'][Math.max(0, Math.min(5, Math.round(v || 0)))] || '·'; }
+function _kuormaVari(a) { return a >= 1.5 ? '#F04E4E' : (a >= 0.8 ? '#E0A040' : '#3DA35D'); }
+function _kuormaTulkinta(kuilu) { var a = Math.abs(kuilu); if (a < 0.8) return 'Linjassa — arvio ja koettu vastaavat'; return kuilu > 0 ? 'Pelaajat kokivat kovemmaksi kuin arvioit' : 'Pelaajat kokivat kevyemmäksi kuin arvioit'; }
+
+// Valmentajan session-RPE -valitsin (1–10) tapahtumanäkymään.
+function _calSessioRpeHTML(t) {
+  var cur = (t && t.valmentaja_rpe != null) ? t.valmentaja_rpe : null;
+  var btns = '';
+  for (var i = 1; i <= 10; i++) {
+    var on = (cur === i);
+    btns += '<button class="srpe-btn" data-rpe="' + i + '" style="flex:1;min-width:24px;padding:6px 0;border:0.5px solid ' + (on ? 'var(--teal)' : 'var(--border)') + ';border-radius:5px;background:' + (on ? 'rgba(40,176,144,.18)' : 'var(--surface)') + ';color:' + (on ? 'var(--teal)' : 'var(--ink3)') + ';cursor:pointer;font-size:12px;font-weight:' + (on ? '600' : '400') + '">' + i + '</button>';
+  }
+  return '<div style="margin-top:10px;border-top:0.5px solid var(--border);padding-top:10px">'
+    + '<div style="font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">Arvioi harjoituksen rasitus (1–10)</div>'
+    + '<div style="display:flex;gap:3px">' + btns + '</div>'
+    + '<div style="font-size:11px;color:var(--ink3);margin-top:5px">' + (cur != null ? ('Arviosi: ' + cur + '/10 — pelaajien koettu RPE näkyy "Kuorma & fiilis" -näkymässä') : 'Ei vielä arvioitu') + '</div></div>';
+}
+
+async function _calTallennaSessioRPE(t, n, container) {
+  if (!_seuraId || !(n >= 1 && n <= 10)) return;
+  try {
+    var cu = _auth.currentUser; if (cu) await cu.getIdToken(true);   // §7.2
+    var muid = _calMerkUid();
+    await _db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(t.id).set({
+      valmentaja_rpe: n,
+      valmentaja_rpe_pvm: firebase.firestore.FieldValue.serverTimestamp(),
+      paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
+      muokkaaja_uid: muid
+    }, { merge: true });
+    t.valmentaja_rpe = n;
+    var idx = (_kalenteriTapahtumat || []).findIndex(function(x) { return x.id === t.id; });
+    if (idx >= 0) _kalenteriTapahtumat[idx].valmentaja_rpe = n;
+    toast('✓ Rasitus arvioitu: ' + n + '/10', 'ok');
+    if (container) container.innerHTML = _calSessioRpeHTML(t);   // delegoitu listener säilyy containerissa
+    if (typeof renderCal === 'function') renderCal();
+  } catch (e) { toast('Tallennus epäonnistui: ' + e.message, 'err'); }
+}
+
+// ── Kuorma & fiilis -näkymä (oma joukkue) ──
+function renderKuorma() {
+  var el = document.getElementById('kuormaView'); if (!el) return;
+  if (_demo) { el.innerHTML = '<div class="muted" style="padding:24px 4px">Kuorma & fiilis näkyy kirjautuneena oikealla joukkuedatalla.</div>'; return; }
+  if (!_seuraId) { el.innerHTML = '<div class="muted" style="padding:24px 4px">Valitse joukkue nähdäksesi kuorma & fiilis.</div>'; return; }
+  if (!_kirjauksetLadattu) { el.innerHTML = '<div class="muted" style="padding:24px 4px">Ladataan kirjauksia…</div>'; _lataaKirjaukset().then(function() { renderKuorma(); }); return; }
+
+  var now = Date.now(), d7 = now - 7 * 86400000, d14 = now - 14 * 86400000;
+  var HARJ = { harjoitus: 1, ottelu: 1, talenttileiri: 1 };
+  var rosterN = (_pelaajatData || []).length;
+  var sj = function(t) { return !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue; };
+  var fA = function(k) { return (k.fiilinki != null ? k.fiilinki : (k.fiilis != null ? k.fiilis : 0)); };
+  var avg = function(a) { return a.length ? (a.reduce(function(x, y) { return x + y; }, 0) / a.length) : null; };
+  var r1 = function(x) { return Math.round(x * 10) / 10; };
+
+  // Kalibraatio per harjoitus (viim. 5, joilla valmentaja_rpe)
+  var evts = (_kalenteriTapahtumat || []).filter(function(t) { return HARJ[t.tyyppi] && t.valmentaja_rpe != null && sj(t); });
+  evts.sort(function(a, b) { return (b.pvm || '').localeCompare(a.pvm || ''); });
+  evts = evts.slice(0, 5);
+  var NIMET = { harjoitus: 'Harjoitus', ottelu: 'Ottelu', talenttileiri: 'Talenttileiri' };
+  var rivit = evts.map(function(t) {
+    var ids = {};
+    (_kirjaukset || []).forEach(function(k) { if (k.joukkuetreeni === true && k.rpe != null && k._pv === t.pvm) ids[k._pelaajaId] = k.rpe; });
+    var arvot = Object.keys(ids).map(function(id) { return ids[id]; });
+    var ka = arvot.length ? avg(arvot) : null;
+    return { va: t.valmentaja_rpe, ka: ka, kuilu: ka != null ? (ka - t.valmentaja_rpe) : null, x: arvot.length, nimi: (t.nimi || NIMET[t.tyyppi] || 'Harjoitus'), pvm: t.pvm };
+  });
+
+  var h = '';
+  h += '<div class="caps" style="margin:6px 0 10px">Kuormakalibraatio — arviosi vs koettu</div>';
+  if (!rivit.length) {
+    h += '<div style="background:var(--card);border:.5px solid var(--line2);border-radius:10px;padding:18px;font-size:13px;color:var(--ink3)">Ei vielä arvioituja harjoituksia. Avaa kalenterista harjoitus → <b>Arvioi harjoituksen rasitus</b>, niin kalibraatio ilmestyy tähän.</div>';
+  } else {
+    rivit.forEach(function(r, i) {
+      var on = (r.kuilu != null);
+      var vari = on ? _kuormaVari(Math.abs(r.kuilu)) : 'var(--ink3)';
+      var pvmTxt = (r.pvm || '').slice(5);
+      if (i === 0) {
+        h += '<div style="background:var(--card);border:.5px solid var(--line2);border-left:3px solid ' + vari + ';border-radius:10px;padding:16px;margin-bottom:10px">'
+          + '<div style="display:flex;justify-content:space-between;align-items:baseline"><div class="serif" style="font-size:16px">' + _mEsc(r.nimi) + '</div><div class="muted" style="font-size:12px">' + pvmTxt + '</div></div>'
+          + '<div style="display:flex;gap:18px;margin-top:12px;align-items:flex-end">'
+          + '<div><div class="muted" style="font-size:10px">Arviosi</div><div class="serif" style="font-size:28px">' + r.va + '</div></div>'
+          + '<div style="font-size:16px;color:var(--ink3);padding-bottom:7px">vs</div>'
+          + '<div><div class="muted" style="font-size:10px">Pelaajat (ka)</div><div class="serif" style="font-size:28px;color:' + vari + '">' + (on ? r1(r.ka) : '—') + '</div></div>'
+          + (on ? ('<div style="margin-left:auto;text-align:right"><div style="font-size:18px;font-weight:600;color:' + vari + '">' + (r.kuilu > 0 ? '+' : '') + r1(r.kuilu) + '</div><div class="muted" style="font-size:11px;max-width:150px">' + _kuormaTulkinta(r.kuilu) + '</div></div>') : '')
+          + '</div>'
+          + '<div class="muted" style="font-size:11px;margin-top:10px">' + r.x + '/' + rosterN + ' kirjasi RPE:n</div></div>';
+      } else {
+        h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--card);border:.5px solid var(--line2);border-radius:8px;margin-bottom:6px">'
+          + '<div class="muted" style="font-size:12px;min-width:42px">' + pvmTxt + '</div>'
+          + '<div style="flex:1;font-size:13px">' + _mEsc(r.nimi) + '</div>'
+          + '<div class="muted" style="font-size:12px">' + r.va + ' → ' + (on ? r1(r.ka) : '—') + '</div>'
+          + (on ? ('<div style="min-width:46px;text-align:right;font-weight:600;color:' + _kuormaVari(Math.abs(r.kuilu)) + '">' + (r.kuilu > 0 ? '+' : '') + r1(r.kuilu) + '</div>') : ('<div class="muted" style="min-width:46px;text-align:right;font-size:11px">' + r.x + '/' + rosterN + '</div>'))
+          + '</div>';
+      }
+    });
+  }
+
+  // Joukkuefiilis (viim. 7 pv) + trendi + per pelaaja
+  var f7 = (_kirjaukset || []).filter(function(k) { return k.t >= d7 && fA(k) > 0; });
+  var fPrev = (_kirjaukset || []).filter(function(k) { return k.t >= d14 && k.t < d7 && fA(k) > 0; });
+  var ka7 = avg(f7.map(fA)), kaPrev = avg(fPrev.map(fA));
+  var trendi = (ka7 != null && kaPrev != null) ? (ka7 - kaPrev) : null;
+  var perP = {};
+  f7.forEach(function(k) { var id = k._pelaajaId; if (!perP[id]) perP[id] = { nimi: k._nimi, f: [], r: [], kpl: 0 }; perP[id].f.push(fA(k)); if (k.rpe != null) perP[id].r.push(k.rpe); perP[id].kpl++; });
+  var pIds = Object.keys(perP);
+
+  h += '<div class="caps" style="margin:22px 0 10px">Joukkuefiilis — viim. 7 pv</div>';
+  if (ka7 == null) {
+    h += '<div style="background:var(--card);border:.5px solid var(--line2);border-radius:10px;padding:18px;font-size:13px;color:var(--ink3)">Ei fiiliskirjauksia viimeiseltä 7 päivältä.</div>';
+  } else {
+    var trTxt = trendi == null ? '' : ((trendi >= 0 ? '▲ +' : '▼ ') + r1(trendi) + ' vs edell. vk');
+    var trCol = trendi == null ? 'var(--ink3)' : (trendi >= 0 ? '#3DA35D' : '#E0A040');
+    h += '<div style="background:var(--card);border:.5px solid var(--line2);border-radius:10px;padding:16px;margin-bottom:10px">'
+      + '<div style="display:flex;align-items:baseline;gap:8px"><div class="serif" style="font-size:32px">' + r1(ka7) + '</div><div class="muted" style="font-size:13px">/5 ka</div><div style="margin-left:auto;font-size:12px;color:' + trCol + '">' + trTxt + '</div></div>'
+      + '<div class="muted" style="font-size:11px;margin-top:4px">' + pIds.length + '/' + rosterN + ' kirjasi fiiliksen</div></div>';
+    h += '<div style="display:flex;flex-direction:column;gap:5px">';
+    pIds.map(function(id) { var pp = perP[id]; return { nimi: pp.nimi, fka: avg(pp.f), rka: avg(pp.r), kpl: pp.kpl }; })
+      .sort(function(a, b) { return a.fka - b.fka; })
+      .forEach(function(pp) {
+        var low = pp.fka <= 2;
+        h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:' + (low ? 'rgba(240,78,78,.07)' : 'var(--card)') + ';border:.5px solid ' + (low ? 'rgba(240,78,78,.3)' : 'var(--line2)') + ';border-radius:8px">'
+          + '<div style="font-size:18px">' + _fiilisEmoji(pp.fka) + '</div>'
+          + '<div style="flex:1;font-size:13px' + (low ? ';color:#F04E4E' : '') + '">' + _mEsc(pp.nimi) + '</div>'
+          + (pp.rka != null ? ('<div class="muted" style="font-size:11px">RPE ' + r1(pp.rka) + '</div>') : '')
+          + '<div class="muted" style="font-size:11px;min-width:60px;text-align:right">fiilis ' + r1(pp.fka) + '</div>'
+          + '<div class="muted" style="font-size:10px;min-width:42px;text-align:right">' + pp.kpl + ' kirj.</div></div>';
+      });
+    h += '</div>';
+  }
+
+  // Signaalit (lempeä, valmentajalle)
+  var kuormaLiput = rivit.filter(function(r) { return r.kuilu != null && Math.abs(r.kuilu) >= 1.5; }).length;
+  var lowDays = {};
+  (_kirjaukset || []).forEach(function(k) { if (k.t >= d14 && fA(k) > 0 && fA(k) <= 2) { var id = k._pelaajaId; if (!lowDays[id]) lowDays[id] = {}; lowDays[id][k._pv] = 1; } });
+  var wellness = Object.keys(lowDays).filter(function(id) { return Object.keys(lowDays[id]).length >= 2; }).map(function(id) { var kk = (_kirjaukset || []).find(function(x) { return x._pelaajaId === id; }); return kk ? kk._nimi : id; });
+  var sig = '';
+  if (kuormaLiput >= 2) sig += '<div style="display:flex;gap:10px;padding:11px 14px;background:rgba(240,78,78,.08);border:.5px solid rgba(240,78,78,.3);border-radius:8px;margin-bottom:6px"><span>⚖️</span><div style="font-size:13px"><b>Kuormakuilu toistuu</b> — ' + kuormaLiput + ' harjoituksessa koettu rasitus poikkesi arviostasi ≥1.5. Tarkista mitoitus tai viestintä pelaajien kanssa.</div></div>';
+  wellness.forEach(function(nimi) { sig += '<div style="display:flex;gap:10px;padding:11px 14px;background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.3);border-radius:8px;margin-bottom:6px"><span>💛</span><div style="font-size:13px"><b>' + _mEsc(nimi) + '</b> — matala fiilis kahtena päivänä. Hyvä hetki lyhyeen kuulumiskeskusteluun.</div></div>'; });
+  if (sig) h += '<div class="caps" style="margin:22px 0 10px">Signaalit</div>' + sig;
+
+  el.innerHTML = h;
+}
+
 function renderCal() {
   const today = new Date();
   const dayOfWeek = (today.getDay() + 6) % 7;
@@ -6772,6 +6924,17 @@ function calEventClick(tapahtumaId) {
     laBox.innerHTML = '<div style="font-size:12px;color:var(--ink3)">Ladataan läsnäoloa…</div>';
     box.appendChild(laBox);
     _calRenderLasnaolo(t, laBox);
+  }
+
+  // ── Session-RPE (V1) — valmentajan rasitusarvio (harjoitus/ottelu/talenttileiri) ──
+  if (_saaMerkitaLasnaolo() && ['harjoitus', 'ottelu', 'talenttileiri'].indexOf(t.tyyppi) >= 0) {
+    var srpeBox = document.createElement('div');
+    srpeBox.innerHTML = _calSessioRpeHTML(t);
+    srpeBox.addEventListener('click', function(e) {
+      var b = e.target.closest && e.target.closest('.srpe-btn'); if (!b) return;
+      _calTallennaSessioRPE(t, parseInt(b.getAttribute('data-rpe'), 10), srpeBox);
+    });
+    box.appendChild(srpeBox);
   }
 
   // ── Toiminnot (Vaihe C) — Muokkaa/Poista täysi jos oma/johto, muuten vain Sulje ──
@@ -7606,7 +7769,7 @@ const CP_BASE = [
   { section:'Työtilat', label:'Kausi-työtila', sub:'', ico:'ic-season', fn: ()=>setWs('season') },
   { section:'Työtilat', label:'Kalenteri — viikko', sub:'', ico:'ic-cal', fn: ()=>setWs('cal') },
   { section:'Työtilat', label:'Testit — tapahtumat', sub:'', ico:'ic-test', fn: ()=>setWs('testit') },
-  { section:'Kirjaukset', label:'Kirjaa RPE joukkueelle', sub:'', ico:'ic-drill', fn: ()=>openDrill('rpe') },
+  { section:'Kirjaukset', label:'Kuorma & fiilis', sub:'', ico:'ic-drill', fn: ()=>setWs('kuorma') },
   { section:'Kirjaukset', label:'Uusi peliälyhavainto', sub:'', ico:'ic-obs', fn: ()=>openDrill('adar') },
   { section:'Näkymä', label:'Vaihda: tumma / vaalea', sub:'', ico:'ic-sun', fn: toggleTheme },
   { section:'Näkymä', label:'Kirjaudu ulos', sub:'', ico:'ic-logout', fn: logout },
