@@ -43,3 +43,24 @@ describe('tm_solo_data — PlayerCode (SOLO_P0_SPEC §8)', () => {
     expect(nähty.size).toBe(31);
   });
 });
+
+describe('tm_solo_data — tmJohdaKortti (Solo-koti v1)', () => {
+  it('OVR + statsit + tier deterministinen (ika 12, hyökkääjä, nopeus-vahvuus)', () => {
+    const a = S.tmJohdaKortti({ synVuosi: 2014, pp: 'hyokkaaja', vahvuus: 'sbl', kortti_taso: 'starter' }, 2026);
+    expect(a.ovr).toBe(48);                 // round(42+(12-8)*1.5)
+    expect(a.stats.Nopeus).toBe(52);        // 48 +2 tiltti +2 vahvuus
+    expect(a.tier).toBe('starter');
+    expect(a.tavoite).toBeGreaterThan(a.ovr);
+    const b = S.tmJohdaKortti({ synVuosi: 2014, pp: 'hyokkaaja', vahvuus: 'sbl', kortti_taso: 'starter' }, 2026);
+    expect(b).toEqual(a);                    // deterministinen
+  });
+  it('nuorempi → suurempi tavoite-headroom (oma potentiaali, §7.22 ei vertailua)', () => {
+    const nuori = S.tmJohdaKortti({ synVuosi: 2018 }, 2026); // ika 8
+    const vanha = S.tmJohdaKortti({ synVuosi: 2010 }, 2026); // ika 16
+    expect(nuori.tavoite - nuori.ovr).toBeGreaterThan(vanha.tavoite - vanha.ovr);
+  });
+  it('statsit clampattu 40–70, ei satunnaislukuja', () => {
+    const r = S.tmJohdaKortti({ synVuosi: 2013, pp: 'maalivahti', ketju: 'sbl' }, 2026);
+    r.statKeys.forEach(k => { expect(r.stats[k]).toBeGreaterThanOrEqual(40); expect(r.stats[k]).toBeLessThanOrEqual(70); });
+  });
+});
