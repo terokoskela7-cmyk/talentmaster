@@ -1,0 +1,26 @@
+name: Bump version on main
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.BUMP_PAT }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run version:bump
+      - name: Commit + push bump
+        run: |
+          git config user.name "tm-bot"
+          git config user.email "bot@talentmaster.local"
+          git add version.json TalentMaster_*.html
+          git diff --cached --quiet || (git commit -m "chore: version bump [skip ci]" && git push)
