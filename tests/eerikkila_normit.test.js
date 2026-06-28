@@ -15,6 +15,7 @@ const {
   eerikkilaTaso,
   eerikkilaNormiarvo,
   laskeTSI,
+  normSukupuoliMN,
   laskeD1Joustava,
   laskeD1Osaindeksit,
   laskeJoukkuePoikkeamat,
@@ -1051,5 +1052,36 @@ describe('D3 kalibraatio (renderD3VertailuHTML + d3VpKuiluPelaajalla, malli A)',
   });
   it('vpKuilu EI laukea pelkästä pelaaja–vp erosta (malli A: vain valmentaja vs vp)', () => {
     expect(d3VpKuiluPelaajalla({ x: { pelaaja: 5, vp: 1 } })).toBe(false);
+  });
+});
+
+describe('Excel-tuonti sp-skooppi (regressio: 0/0 Pallo-Iirot P11)', () => {
+  it('normSukupuoliMN: Excel/Firestore/P-T → M/N, roska → null', () => {
+    expect(normSukupuoliMN('p')).toBe('M');   // Excel lowercase
+    expect(normSukupuoliMN('P')).toBe('M');
+    expect(normSukupuoliMN('M')).toBe('M');   // Firestore
+    expect(normSukupuoliMN('t')).toBe('N');
+    expect(normSukupuoliMN('N')).toBe('N');
+    expect(normSukupuoliMN('')).toBeNull();
+    expect(normSukupuoliMN(null)).toBeNull();
+    expect(normSukupuoliMN(undefined)).toBeNull();
+  });
+
+  it('Pallo-Iirot P11 osapatteri (10m+30m → D1, syöttö+pujottelu → D2) laskee tasot M/N:llä', () => {
+    const hh = { lin10m: 2.1, lin30m: 5.4, syotto: 49.8, pujottelu: 34.6 };
+    const sp = normSukupuoliMN('p');          // → 'M'
+    const d1 = laskeD1Joustava(hh, 10, sp);
+    expect(d1).not.toBeNull();
+    expect(d1.kattavuus).toBe(2);             // vain 10m + 30m mitattu
+    expect(d1.lahde).toBe('hh');
+    const d2 = laskeD2HH(hh, 10, sp);
+    expect(d2).not.toBeNull();
+    expect(d2.kattavuus).toBe(2);             // syöttö + pujottelu
+  });
+
+  it('sp=null → indeksifunktiot palauttavat null (ei heitä) → recalcHH backfillaa', () => {
+    const hh = { lin10m: 2.1, lin30m: 5.4 };
+    expect(laskeD1Joustava(hh, 10, null)).toBeNull();
+    expect(laskeD2HH({ syotto: 49.8, pujottelu: 34.6 }, 10, null)).toBeNull();
   });
 });
