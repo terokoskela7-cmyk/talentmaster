@@ -701,6 +701,17 @@ function valitseMoodi(moodi) {
 // EI käytä toISOString().slice(0,10) — UTC siirtää EET klo 22+ väärään päivään.
 function _paivaIso(d) {
   if (!d) return null;
+  // Excel-sarjanumero (date-solu ilman cellDates). Epookki 1899-12-30 (SheetJS day 0); 25569 = 1970-01-01.
+  if (typeof d === 'number' && isFinite(d) && d > 59 && d < 100000) {
+    if (typeof XLSX !== 'undefined' && XLSX.SSF && XLSX.SSF.parse_date_code) {
+      const o = XLSX.SSF.parse_date_code(d);
+      if (o && o.y) return o.y + '-' + String(o.m).padStart(2,'0') + '-' + String(o.d).padStart(2,'0');
+    }
+    const dt = new Date(Math.round((d - 25569) * 86400000));
+    if (!isNaN(dt.getTime())) return dt.getUTCFullYear() + '-' + String(dt.getUTCMonth()+1).padStart(2,'0') + '-' + String(dt.getUTCDate()).padStart(2,'0');
+  }
+  // pelkkä 4–6-numeroinen merkkijono joka näyttää Excel-sarjanumerolta → käsittele numerona (ei vuotena)
+  if (typeof d === 'string' && /^\d{4,6}$/.test(d.trim()) && Number(d) > 20000 && Number(d) < 100000) return _paivaIso(Number(d));
   if (typeof d === 'string') {
     // Yritä parsia — jos epäonnistuu, palauta merkkijono sellaisenaan jos ISO-formaatti
     const ymd = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -713,6 +724,14 @@ function _paivaIso(d) {
   }
   if (!(d instanceof Date) || isNaN(d.getTime())) return null;
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// Excel-päivämääräsolu palautuu SheetJS:ltä numerona (sarjanumero, esim. 45930) tai Date-oliona, ei tekstinä.
+// String(45930) → _paivaIso("45930") → new Date("45930")=vuosi 45930 → "45930-01-01" -bugi. Tämä normalisoi.
+function _solustaPvm(v) {
+  if (v == null || v === '') return '';
+  if (typeof v === 'number' || v instanceof Date) return _paivaIso(v) || '';
+  return String(v).trim();
 }
 
 // ════════════════════════════════════════
@@ -1796,7 +1815,7 @@ function prosessoiExcel(wb) {
       sukupuoli: colSukupuoli >= 0 ? String(rivi[colSukupuoli] || '').trim() : '',
       syntymaVuosi: colSyntymaVuosi >= 0 ? (parseInt(String(rivi[colSyntymaVuosi] || '').replace(/[^0-9]/g, ''), 10) || null) : null,
       joukkue: colJoukkue >= 0 ? String(rivi[colJoukkue] || '').trim() : '',
-      testauspvm: colTestauspvm >= 0 ? String(rivi[colTestauspvm] || '').trim() : '',
+      testauspvm: colTestauspvm >= 0 ? _solustaPvm(rivi[colTestauspvm]) : '',
       phv_tila: colPhv >= 0 ? String(rivi[colPhv] || '').trim().toUpperCase() : '',
       testit: {},        // skalaari (paras) per testId — validointi/esikatselu/TKI
       testitRakenne: {}  // rakenteinen objekti per testId — Firestore (vain monisuoritus)
