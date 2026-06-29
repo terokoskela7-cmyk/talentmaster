@@ -2087,7 +2087,8 @@ function toggleTheme() {
 }
 (function() {
   const saved = localStorage.getItem('tm-theme');
-  if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+  // #77: oletus Carbon-tumma (§5) kun ei tallennettua valintaa — ei vaalea. Vaalea jää ☀️-valitsimeen.
+  document.documentElement.dataset.theme = (saved === 'light' || saved === 'dark') ? saved : 'dark';
   const apply = () => { const btn = document.getElementById('vpThemeBtn'); if (btn) btn.textContent = document.documentElement.dataset.theme === 'dark' ? '☀️' : '🌙'; };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply); else apply();
 })();
@@ -3519,6 +3520,7 @@ function _jsvTkiVari(tki) {
   return '#5A5A5A';
 }
 function _jsvVaihda(n) {
+  window._jsvAktiiviTab = n;   // #77: muista aktiivinen välilehti (kohortin vaihto säilyttää sen)
   for (let i = 0; i < 4; i++) {
     const tab = document.getElementById('_jsvTab' + i);
     const btn = document.getElementById('_jsvBtn' + i);
@@ -4409,8 +4411,8 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
 
 function avaaJoukkueSyvanakyma(joukkueNimi) {
   const vanha = document.getElementById('_jsvModal'); if (vanha) vanha.remove();
-  // #76: uusi joukkue avattuna → nollaa kohortti "Koko joukkue" (kohortti-vaihto re-renderöi saman joukkueen → ei nollaa).
-  if (window._jsvJoukkue !== joukkueNimi) window._jsvKohortti = 'kaikki';
+  // #76: uusi joukkue avattuna → nollaa kohortti "Koko joukkue" + aktiivinen tab Pelaajat (kohortti-vaihto re-renderöi saman joukkueen → ei nollaa).
+  if (window._jsvJoukkue !== joukkueNimi) { window._jsvKohortti = 'kaikki'; window._jsvAktiiviTab = 0; }
   const pelaajat = _pelaajat.filter(p => (p.joukkue || 'Tuntematon') === joukkueNimi);
   const n = pelaajat.length;
   const jescNimi = String(joukkueNimi).replace(/['"\\]/g, '');
@@ -4634,7 +4636,12 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
 }
 window.avaaJoukkueSyvanakyma = avaaJoukkueSyvanakyma;
 // Kohortti-vaihto (#76): aseta tila + rakenna modaali uudelleen → kaikki aggregaatit valitulle kohortille.
-window._jsvVaihdaKohortti = function (k) { window._jsvKohortti = k; if (window._jsvJoukkue) avaaJoukkueSyvanakyma(window._jsvJoukkue); };
+// #77: säilytä aktiivinen välilehti (modaali rakentuu tab 0:lla → palauta tallennettu tab uudelleenrakennuksen jälkeen).
+window._jsvVaihdaKohortti = function (k) {
+  window._jsvKohortti = k;
+  const _tab = window._jsvAktiiviTab || 0;
+  if (window._jsvJoukkue) { avaaJoukkueSyvanakyma(window._jsvJoukkue); if (typeof _jsvVaihda === 'function' && _tab) _jsvVaihda(_tab); }
+};
 
 // #3 (B1) — joukkue-bulk "Korjaa testipäivä" → korjaaJoukkueenTestipvm-CF (palvelinauktorisointi + audit).
 function _avaaKorjaaTestipvm() {
@@ -4990,8 +4997,9 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
 
   // ── Modaali (_jspModal, z 320 → Kerros 1:n päälle) ──
   let h = '<div id="_jspModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:320;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:640px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px 24px 10px">';
+  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:640px;max-width:96vw;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column" onclick="event.stopPropagation()">';
+  // Otsikko + sulje-X sticky → pysyvät näkyvissä skrollatessa (sisältö voi olla pidempi kuin 90vh, #77).
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px 24px 10px;position:sticky;top:0;background:var(--bg2);z-index:3">';
   h += '<div><button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;padding:0;font-family:\'DM Sans\',sans-serif">← ' + _jsvEsc(joukkueNimi) + '</button>';
   h += '</div>';
   h += '<button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
