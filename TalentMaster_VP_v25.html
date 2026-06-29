@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=34"></script>
+<script src="lib/tm_eerikkila_normit.js?v=35"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <style>
@@ -4247,9 +4247,10 @@ function _jsvTkiBarit(b, nn) {
 // tk → tkLajiTaso (§34, P/T-avaimet). mas km/h → m/s (÷3.6). spMN = M/N eerikkilälle, spPT = P/T tkLajiTaso:lle.
 const _JSV_HH_EK = { lin5m: ['nopeus_5m', false], lin10m: ['nopeus_10m', false], lin30m: ['nopeus_30m', false],
   sm_juoksu: ['sm_juoksu', false], sm_pallo: ['sm_pallo', false], cmj: ['hyppy_cj', false], mas: ['mas', true], kasirata: ['kasirata', false] };
-function _jsvRadarTaso(tyyppi, kentta, raakaKa, ika, spMN, spPT) {
+function _jsvRadarTaso(tyyppi, kentta, laji, raakaKa, ika, spMN, spPT) {
   if (raakaKa == null || isNaN(raakaKa)) return null;
-  if (tyyppi === 'tk') return (typeof tkLajiTaso === 'function' && ika != null) ? tkLajiTaso(kentta, raakaKa, ika, spPT) : null;
+  // TK: tkLajiTaso laji-id:llä (ei _s-pikakenttäavaimella) → raaka sekunti → taso 1–5 (ei piirry raakasekunteina).
+  if (tyyppi === 'tk') return (typeof tkLajiTaso === 'function' && ika != null) ? tkLajiTaso(laji || kentta, raakaKa, ika, spPT) : null;
   if (typeof eerikkilaTaso !== 'function') return null;
   if (kentta === 'syotto' || kentta === 'pujottelu') { const t3 = eerikkilaTaso(raakaKa, kentta, ika, spMN); return t3 ? (t3 - 1) * 2 + 1 : null; }
   const ek = _JSV_HH_EK[kentta]; if (!ek) return null;
@@ -4311,7 +4312,7 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
   const _radarAks = (typeof tavoiteRadarAkselit === 'function') ? tavoiteRadarAkselit(pelaajat) : null;
   if (_radarAks && _radarAks.akselit.length >= 3) {
     const dims = _radarAks.akselit.map(function (a) {
-      const taso = _jsvRadarTaso(_radarAks.tyyppi, a.kentta, a.raakaKa, teamIka, teamSpMN, teamSp);
+      const taso = _jsvRadarTaso(_radarAks.tyyppi, a.kentta, a.laji, a.raakaKa, teamIka, teamSpMN, teamSp);
       return { key: a.key, label: '', arvo: (taso != null && taso > 0) ? Math.round(taso * 10) / 10 : null };
     });
     const toggle = '<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">'
