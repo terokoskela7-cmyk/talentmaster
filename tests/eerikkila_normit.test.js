@@ -17,6 +17,7 @@ const {
   laskeTSI,
   normSukupuoliMN,
   onNeutraaliPrePHV,
+  teknHeikoimmat20,
   laskeD1Joustava,
   laskeD1Osaindeksit,
   laskeJoukkuePoikkeamat,
@@ -1099,5 +1100,33 @@ describe('Kehitysvaihe-neutraalius (Vaihe B, §28 + Eerikkilä §8.1)', () => {
     const d1 = laskeD1Joustava(hh, 11, 'M');
     expect(d1).not.toBeNull();
     expect(d1.kattavuus).toBe(3);   // 10m + 30m + sm_juoksu
+  });
+});
+
+describe('teknHeikoimmat20 (Vaihe B′, §10 joukkuesuhteellinen Kehityskohde)', () => {
+  const mk = (id, d2, syotto, pujottelu) => ({ id, d2_taso: d2, hh_viimeisin: { syotto, pujottelu } });
+  it('palauttaa ceil(20%) heikointa; d2-klusterin sisällä raaka syöttö+pujottelu ratkaisee', () => {
+    const team = [
+      mk('a', 1, 30, 20),  // raaka 50
+      mk('b', 1, 35, 25),  // 60
+      mk('c', 1, 40, 30),  // 70  ← heikoin (suurin raaka)
+      mk('d', 1, 32, 22),  // 54
+      mk('e', 1, 38, 28),  // 66  ← toiseksi heikoin
+      mk('f', 1, 31, 21),  // 52
+      mk('g', 1, 33, 23),  // 56
+      mk('h', 1, 34, 24),  // 58
+      mk('i', 2, 50, 40),  // taso 2 → parempi taso, ei valita vaikka raaka iso
+      mk('j', 2, 10, 5),   // taso 2
+    ];
+    const set = teknHeikoimmat20(team);
+    expect(set.size).toBe(2);          // ceil(10 * 0.2)
+    expect(set.has('c')).toBe(true);   // suurin raaka taso-1-klusterissa
+    expect(set.has('e')).toBe(true);   // toiseksi suurin
+    expect(set.has('i')).toBe(false);  // taso 2 ei valita (parempi d2_taso)
+  });
+  it('tyhjä/d2-tonta lista → tyhjä Set (ei kaadu)', () => {
+    expect(teknHeikoimmat20([]).size).toBe(0);
+    expect(teknHeikoimmat20(null).size).toBe(0);
+    expect(teknHeikoimmat20([{ etunimi: 'A', sukunimi: 'B' }]).size).toBe(0);  // ei d2_taso → ei arvioitava
   });
 });

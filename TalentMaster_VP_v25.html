@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=30"></script>
+<script src="lib/tm_eerikkila_normit.js?v=31"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <style>
@@ -8984,17 +8984,23 @@ function _tkiSoluVP(p) {
   const merkkiHtml = m ? ' <span style="font-size:12px" title="' + m.nimi + '">' + m.emoji + '</span>' : '';
   return '<strong>' + tki + '</strong>' + merkkiHtml + _tkiDeltaBadgeVP(p);
 }
-// Kehityskohde = MITATTU heikko tulos, ei puuttuva data. Kehitysvaihe-tietoinen (§28): pre-PHV raaka fyysinen
-// EI tee pelaajasta kehityskohdetta (biologisesti odotettua), vain tekninen vaje (kriittisin ikkuna). Post-PHV: fyysinen sallittu.
-function _kehityskohde(p) {
+// Joukkueen teknisesti heikoin ~20% — kanoninen lib (testattava). Tyhjä Set jos lib puuttuu (graceful).
+function _teknHeikoimmat20(joukkueenPelaajat) {
+  return (typeof teknHeikoimmat20 === 'function') ? teknHeikoimmat20(joukkueenPelaajat) : new Set();
+}
+// Kehityskohde = MITATTU heikko tulos, ei puuttuva data. Kehitysvaihe-tietoinen (§28/§10): pre-PHV raaka fyysinen
+// EI tee pelaajasta kehityskohdetta — vain JOUKKUESUHTEELLINEN tekninen heikkous (heikoin ~20%, ei absoluuttinen d2<2,
+// joka klusteroituu U11:llä). Post-PHV: + raaka fyysinen. heikoimmatSet rakennetaan kerran per joukkue render-loopissa.
+function _kehityskohde(p, heikoimmatSet) {
   if (p == null) return false;
   if (p.flei_viimeisin != null && p.flei_viimeisin < 40) return true;   // klinikka §14
   if (p.erityistuki === true) return true;                              // manuaalinen lippu
-  const teknVaje = (p.d2_taso != null && p.d2_taso < 2);                // tekninen ikkuna §28 (kriittisin pre-PHV)
   const neutraali = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p)
                     : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
-  if (neutraali) return teknVaje;                                       // pre-PHV: vain tekninen, EI raaka fyysinen
-  return teknVaje || (p.hh_taso != null && p.hh_taso < 2.5);            // post-PHV: fyysinen sallittu
+  const avain = p.id || p._id || (p.etunimi + ' ' + p.sukunimi);
+  const teknHeikoin = heikoimmatSet && heikoimmatSet.has(avain);
+  if (neutraali) return teknHeikoin;                                    // pre-PHV: vain joukkueen heikoin ~20%
+  return teknHeikoin || (p.hh_taso != null && p.hh_taso < 2.5);         // post-PHV: + raaka fyysinen
 }
 // Yhtenäinen Tekninen-solu (sama kuin pikakatsaus): TKI > SM-pohjainen TSI/d2_taso, aina 1–5-taso. ¹ = SM-lähde.
 function _tekninenSoluVP(p) {
@@ -9035,8 +9041,14 @@ function renderPelaajatFiltered() {
   const tbody = document.getElementById('playerTableBody');
   let filtered = _pelaajat;
 
+  // Pre-PHV Kehityskohde on JOUKKUESUHTEELLINEN (§10): laske heikoin ~20% per joukkue → union-Set (avain = id).
+  const _byTeam = {};
+  _pelaajat.forEach(p => { const j = p.joukkue || '__'; (_byTeam[j] = _byTeam[j] || []).push(p); });
+  const heikoimmatSet = new Set();
+  Object.keys(_byTeam).forEach(j => { _teknHeikoimmat20(_byTeam[j]).forEach(k => heikoimmatSet.add(k)); });
+
   if (_activeFilter === 'erityistuki') {
-    filtered = _pelaajat.filter(p => _kehityskohde(p));
+    filtered = _pelaajat.filter(p => _kehityskohde(p, heikoimmatSet));
   } else if (_activeFilter === 'phv') {
     filtered = _pelaajat.filter(p => p.phv_tila === 'PH');
   } else if (_activeFilter === 'idppuuttuu') {
@@ -9064,7 +9076,7 @@ function renderPelaajatFiltered() {
     const flei = p.flei_viimeisin || 0;
     const pct  = Math.min(100, flei);
     const sig = p.signaali === 'xfactor' ? '<span class="tag xfactor">X-Factor</span>'
-              : (_hgBadge(p) || (_kehityskohde(p) ? '<span class="tag" style="background:rgba(201,64,64,.15);color:var(--red)">Kehityskohde</span>' : '—'));
+              : (_hgBadge(p) || (_kehityskohde(p, heikoimmatSet) ? '<span class="tag" style="background:rgba(201,64,64,.15);color:var(--red)">Kehityskohde</span>' : '—'));
     const phvColor = p.phv_tila === 'PH' ? 'color:var(--amber)' : '';
     return `
       <tr>

@@ -18,7 +18,7 @@
 <!-- pdf.js — Palloliiton PDF-tuonti (ei npm, Node.js ei käytettävissä) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
-<script src="lib/tm_eerikkila_normit.js?v=30"></script>
+<script src="lib/tm_eerikkila_normit.js?v=31"></script>
 
 <style>
 :root {
@@ -2840,6 +2840,15 @@ async function tallennaFirestoreen() {
         hhTaso = laskeHHTaso(testitSkalaari, ika, sp);   // hh_taso vain 30m/cmj/mas (avaintestit) — 10m/5m ei muuta sitä
       }
     }
+    // sm_juoksu (D1 ketteryys §10) + sm_pallo (D2/TSI) → hh_viimeisin, jotta laskeD1Joustava (sm_juoksu) ja TSI saavat ne.
+    // testitSkalaari (ei num(): num on onHH-skoopissa). hhViimeisin luodaan jos puuttuu (sm-only-tapahtuma).
+    const _smJ = (testitSkalaari.sm_juoksu != null && !isNaN(testitSkalaari.sm_juoksu)) ? parseFloat(testitSkalaari.sm_juoksu) : null;
+    const _smP = (testitSkalaari.sm_pallo  != null && !isNaN(testitSkalaari.sm_pallo))  ? parseFloat(testitSkalaari.sm_pallo)  : null;
+    if (_smJ != null || _smP != null) {
+      if (!hhViimeisin) hhViimeisin = {};
+      if (_smJ != null) hhViimeisin.sm_juoksu = _smJ;
+      if (_smP != null) hhViimeisin.sm_pallo  = _smP;
+    }
 
     // TEHTÄVÄ 3: pujottelu/syöttö protokollareititys. Valinta meta.protoValinta:sta (oletus tiedoston protokollasta).
     // H-H → hh_viimeisin.{pujottelu|syotto} (raaka aika; 3-portainen taso lasketaan näytöllä eerikkilaTaso:lla) +
@@ -4000,7 +4009,10 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
     }
     // JOUSTAVA INDEKSILASKENTA (§30, kanoninen lib) — d1_taso (fyysiset H-H-tasot) + d2_taso (H-H syöttö/pujottelu).
     // Backfillaa myös jo tuodun Pallo-Iirot-tyyppisen H-H-datan. + hh_kehityskohde/vahvuus (PHV-suodatettu §0/§28, EI UI:ssa).
-    const _d1o = (typeof laskeD1Joustava === 'function') ? laskeD1Joustava(hv, ika, sp) : null;
+    // sm_juoksu (D1 §10): erillinen pikakenttä → mergeä hv-kopioon ettei vaadi re-importtia.
+    const hvD1 = Object.assign({}, hv);
+    if (hvD1.sm_juoksu == null && p.sm_juoksu_viimeisin != null) hvD1.sm_juoksu = p.sm_juoksu_viimeisin;
+    const _d1o = (typeof laskeD1Joustava === 'function') ? laskeD1Joustava(hvD1, ika, sp) : null;
     const d1_taso = _d1o ? _d1o.taso : null;
     const d1_kattavuus = _d1o ? _d1o.kattavuus : null;
     // D2 H-H (syöttö/pujottelu) — vain jos ei parempaa lähdettä (TKI/SM/TK); älä ylikirjoita.
