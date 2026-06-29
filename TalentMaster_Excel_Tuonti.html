@@ -18,7 +18,7 @@
 <!-- pdf.js — Palloliiton PDF-tuonti (ei npm, Node.js ei käytettävissä) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
-<script src="lib/tm_eerikkila_normit.js?v=35"></script>
+<script src="lib/tm_eerikkila_normit.js?v=36"></script>
 
 <style>
 :root {
@@ -4025,10 +4025,14 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
     const hvK = Object.assign({}, hv);
     if (hvK.sm_pallo == null && p.sm_pallo_viimeisin != null) hvK.sm_pallo = p.sm_pallo_viimeisin;
     const kk = (typeof hhKehityskohde === 'function') ? hhKehityskohde(hvK, ikaDes, sp, p.phv_tila || null) : null;
+    // #69: persistoi sm_juoksu/sm_pallo hh_viimeisin:iin (ei vain transienttiin D1-kopioon) → Suunnanmuutos-rivi
+    // + per-testi-radar (SM-akselit) näkevät ne. Kanoninen lib-helper, null jos ei muutosta (ei turhaa kirjoitusta).
+    const _hvUusi = (typeof taydennaHvSm === 'function') ? taydennaHvSm(hv, p.sm_juoksu_viimeisin, p.sm_pallo_viimeisin) : null;
     muutokset.push({ ref: pd.ref, nimi: (p.sukunimi||'') + ', ' + (p.etunimi||''),
       joukkue: joukkue, ika: ika, sp: sp, taso: taso, vanha: p.hh_taso,
       d1_taso: d1_taso, d1_kattavuus: d1_kattavuus,
       d2_taso: _d2 ? _d2.taso : null, d2_kattavuus: _d2 ? _d2.kattavuus : null, d2_lahde: _d2 ? _d2.lahde : null,
+      hhViimeisinUusi: _hvUusi,
       hhPvm: p.hh_pvm || null,
       raeKvartaali: (typeof raeKvartaali === 'function') ? raeKvartaali(p.syntymaaika) : null,   // §14/§30 RAE-pikakenttä
       hh_kehityskohde: kk ? kk.kehityskohde : null, hh_vahvuus: kk ? kk.vahvuus : null });
@@ -4061,6 +4065,7 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
       if (m2.d1_taso != null) { _u.d1_lahde = 'hh'; _u.d1_kattavuus = m2.d1_kattavuus; if (m2.hhPvm) _u.d1_pvm = m2.hhPvm; }   // BUG-fix: pvm aikajanan laajennukselle
       if (m2.d2_taso != null) { _u.d2_taso = m2.d2_taso; _u.d2_lahde = m2.d2_lahde || 'hh'; _u.d2_kattavuus = m2.d2_kattavuus; _u.d2_taso_recalc = true; if (m2.hhPvm) _u.d2_pvm = m2.hhPvm; }   // §30 d2 backfill (H-H syöttö/pujottelu tai sm_pallo-fallback)
       if (m2.raeKvartaali) _u.rae_kvartaali = m2.raeKvartaali;   // §14/§30 RAE-pikakenttä (kerroin RAE_KERROIN, sovellus TODO)
+      if (m2.hhViimeisinUusi) _u.hh_viimeisin = m2.hhViimeisinUusi;   // #69: sm_juoksu/sm_pallo persistointi (täysi hv-objekti)
       batch.set(m2.ref, _u, { merge: true });
     });
     try { await batch.commit(); paivitetty += era.length; }
