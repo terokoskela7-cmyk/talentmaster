@@ -28,6 +28,8 @@ const {
   laskeVPTuloskortti,
   laskeTavoiteToteuma,
   laskeTaso3Osuus,
+  tasoJakauma,
+  tkiTavoiteJakauma,
   laskeHarjoituslaatuPalloliitto,
   laskeValmennustaitoIndeksi,
   laskeHarjoitusKalibraatio,
@@ -1155,5 +1157,38 @@ describe('d2SmPalloFallback (#68 SJK d2-vakautus, §14)', () => {
     const r = d2SmPalloFallback({ sm_pallo_viimeisin: 7.5, d2_taso: 2, d2_lahde: 'sm' }, 13, 'M', false);
     expect(r).not.toBeNull();
     expect(r.lahde).toBe('sm_pallo');
+  });
+});
+
+describe('tasoJakauma + tkiTavoiteJakauma (#67 Tavoitetaso-näkymä)', () => {
+  it('tasoJakauma: jakauma 1–5, ka, ≥3-osuus; null/NaN ohitetaan', () => {
+    const r = tasoJakauma([1, 2, 3, 4, 5, null, NaN, 3]);
+    expect(r.n).toBe(6);                    // 6 mitattua (null+NaN pois)
+    expect(r.jakauma).toEqual([1, 1, 2, 1, 1]);   // taso 3 kahdesti
+    expect(r.n_tavoite).toBe(4);            // tasot 3,4,5,3 ≥3
+    expect(r.osuus_pct).toBe(67);           // 4/6
+    expect(r.ka).toBeCloseTo(3.0, 1);       // (1+2+3+4+5+3)/6 = 3.0
+  });
+  it('tasoJakauma: tyhjä → n 0, osuus_pct null (ei fabrikoida)', () => {
+    const r = tasoJakauma([]);
+    expect(r.n).toBe(0);
+    expect(r.osuus_pct).toBeNull();
+    expect(r.ka).toBeNull();
+  });
+  it('tasoJakauma: desimaalitaso pyöristyy pylvääseen, clamp 1–5', () => {
+    const r = tasoJakauma([2.4, 2.6, 6, 0]);   // → pylväät 2,3,5,1
+    expect(r.jakauma).toEqual([1, 1, 1, 0, 1]);
+    expect(r.n).toBe(4);
+  });
+  it('tkiTavoiteJakauma: bändit + TKI≥60-osuus', () => {
+    const r = tkiTavoiteJakauma([35, 50, 62, 80, null]);
+    expect(r.n).toBe(4);
+    expect(r.bandit).toEqual({ alle40: 1, keski: 1, hyva: 2 });
+    expect(r.n_tavoite).toBe(2);            // 62, 80 ≥60
+    expect(r.osuus_pct).toBe(50);
+    expect(r.ka).toBe(57);                  // round((35+50+62+80)/4)=57
+  });
+  it('tkiTavoiteJakauma: tyhjä → osuus_pct null', () => {
+    expect(tkiTavoiteJakauma([]).osuus_pct).toBeNull();
   });
 });
