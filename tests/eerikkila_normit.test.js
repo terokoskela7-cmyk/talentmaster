@@ -39,6 +39,7 @@ const {
   omaKehitysKooste,
   cpdKooste,
   laskeD2HH,
+  d2SmPalloFallback,
   laskeD2Joustava,
   perTestTasot,
   normiIka,
@@ -1128,5 +1129,31 @@ describe('teknHeikoimmat20 (Vaihe B′, §10 joukkuesuhteellinen Kehityskohde)',
     expect(teknHeikoimmat20([]).size).toBe(0);
     expect(teknHeikoimmat20(null).size).toBe(0);
     expect(teknHeikoimmat20([{ etunimi: 'A', sukunimi: 'B' }]).size).toBe(0);  // ei d2_taso → ei arvioitava
+  });
+});
+
+describe('d2SmPalloFallback (#68 SJK d2-vakautus, §14)', () => {
+  it('antaa d2 lahde sm_pallo kun ei syöttö/pujottelua (laskeD2HH null) mutta sm_pallo mitattu', () => {
+    const r = d2SmPalloFallback({ sm_pallo_viimeisin: 7.5 }, 13, 'M', false);
+    expect(r).not.toBeNull();
+    expect(r.lahde).toBe('sm_pallo');
+    expect(r.kattavuus).toBe(1);
+    expect(r.taso).toBeGreaterThan(0);
+  });
+  it('EI ylikirjoita tki-lähdettä (Sibbo)', () => {
+    expect(d2SmPalloFallback({ sm_pallo_viimeisin: 7.5, tki_viimeisin: 55 }, 13, 'M', false)).toBeNull();
+  });
+  it('EI ylikirjoita H-H-lähdettä (d2_lahde hh)', () => {
+    expect(d2SmPalloFallback({ sm_pallo_viimeisin: 7.5, d2_taso: 3, d2_lahde: 'hh' }, 13, 'M', false)).toBeNull();
+  });
+  it('EI laukea kun H-H-d2 jo laskettu (onD2HH) tai sm_pallo puuttuu', () => {
+    expect(d2SmPalloFallback({ sm_pallo_viimeisin: 7.5 }, 13, 'M', true)).toBeNull();   // onD2HH
+    expect(d2SmPalloFallback({}, 13, 'M', false)).toBeNull();                            // ei sm_pallo
+    expect(d2SmPalloFallback({ sm_pallo_viimeisin: 7.5 }, null, 'M', false)).toBeNull(); // ei ikä
+  });
+  it('korvaa olemassa olevan sm/sm_pallo-lähteen (ei parempaa)', () => {
+    const r = d2SmPalloFallback({ sm_pallo_viimeisin: 7.5, d2_taso: 2, d2_lahde: 'sm' }, 13, 'M', false);
+    expect(r).not.toBeNull();
+    expect(r.lahde).toBe('sm_pallo');
   });
 });

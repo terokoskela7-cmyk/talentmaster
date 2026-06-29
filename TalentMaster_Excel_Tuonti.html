@@ -18,7 +18,7 @@
 <!-- pdf.js — Palloliiton PDF-tuonti (ei npm, Node.js ei käytettävissä) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
-<script src="lib/tm_eerikkila_normit.js?v=31"></script>
+<script src="lib/tm_eerikkila_normit.js?v=32"></script>
 
 <style>
 :root {
@@ -4018,13 +4018,17 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
     // D2 H-H (syöttö/pujottelu) — vain jos ei parempaa lähdettä (TKI/SM/TK); älä ylikirjoita.
     const d2_hh = (typeof laskeD2HH === 'function' && p.tki_viimeisin == null && (p.d2_taso == null || p.d2_lahde === 'hh' || p.d2_lahde === 'sm' || p.d2_lahde === 'sm_pallo'))
                 ? laskeD2HH(hv, ika, sp) : null;
+    // SJK-tyyppi: ei syöttö/pujottelua → laskeD2HH null. sm_pallo (lajitekniikka, §14) → d2, lahde 'sm_pallo'.
+    // Kanoninen lib-päätös (d2SmPalloFallback): sm_juoksu EI koskaan D2:een, ei ylikirjoita H-H/TKI/TK:ta.
+    const d2_smp = (typeof d2SmPalloFallback === 'function') ? d2SmPalloFallback(p, ika, sp, !!d2_hh) : null;
+    const _d2 = d2_hh || d2_smp;   // H-H ensisijainen, sm_pallo fallback
     const hvK = Object.assign({}, hv);
     if (hvK.sm_pallo == null && p.sm_pallo_viimeisin != null) hvK.sm_pallo = p.sm_pallo_viimeisin;
     const kk = (typeof hhKehityskohde === 'function') ? hhKehityskohde(hvK, ikaDes, sp, p.phv_tila || null) : null;
     muutokset.push({ ref: pd.ref, nimi: (p.sukunimi||'') + ', ' + (p.etunimi||''),
       joukkue: joukkue, ika: ika, sp: sp, taso: taso, vanha: p.hh_taso,
       d1_taso: d1_taso, d1_kattavuus: d1_kattavuus,
-      d2_taso: d2_hh ? d2_hh.taso : null, d2_kattavuus: d2_hh ? d2_hh.kattavuus : null,
+      d2_taso: _d2 ? _d2.taso : null, d2_kattavuus: _d2 ? _d2.kattavuus : null, d2_lahde: _d2 ? _d2.lahde : null,
       hhPvm: p.hh_pvm || null,
       raeKvartaali: (typeof raeKvartaali === 'function') ? raeKvartaali(p.syntymaaika) : null,   // §14/§30 RAE-pikakenttä
       hh_kehityskohde: kk ? kk.kehityskohde : null, hh_vahvuus: kk ? kk.vahvuus : null });
@@ -4035,7 +4039,7 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
       + ' · ' + m2.ika + ' · ' + m2.sp + ') → hh_taso = ' + m2.taso
       + (m2.vanha != null ? ' (oli ' + m2.vanha + ')' : '')
       + (m2.d1_taso != null ? ' · D1 ' + m2.d1_taso + ' (' + m2.d1_kattavuus + ' testiä)' : '')
-      + (m2.d2_taso != null ? ' · D2-HH ' + m2.d2_taso + ' (' + m2.d2_kattavuus + '/2)' : ''));
+      + (m2.d2_taso != null ? ' · D2 ' + m2.d2_taso + ' (' + (m2.d2_lahde || 'hh') + ', ' + m2.d2_kattavuus + ')' : ''));
   });
 
   if (dryRun) {
@@ -4055,7 +4059,7 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
     era.forEach(function(m2) {
       const _u = { hh_taso: m2.taso, hh_taso_recalc: true, d1_taso: m2.d1_taso, hh_kehityskohde: m2.hh_kehityskohde, hh_vahvuus: m2.hh_vahvuus };
       if (m2.d1_taso != null) { _u.d1_lahde = 'hh'; _u.d1_kattavuus = m2.d1_kattavuus; if (m2.hhPvm) _u.d1_pvm = m2.hhPvm; }   // BUG-fix: pvm aikajanan laajennukselle
-      if (m2.d2_taso != null) { _u.d2_taso = m2.d2_taso; _u.d2_lahde = 'hh'; _u.d2_kattavuus = m2.d2_kattavuus; _u.d2_taso_recalc = true; if (m2.hhPvm) _u.d2_pvm = m2.hhPvm; }   // §30 H-H-d2 backfill
+      if (m2.d2_taso != null) { _u.d2_taso = m2.d2_taso; _u.d2_lahde = m2.d2_lahde || 'hh'; _u.d2_kattavuus = m2.d2_kattavuus; _u.d2_taso_recalc = true; if (m2.hhPvm) _u.d2_pvm = m2.hhPvm; }   // §30 d2 backfill (H-H syöttö/pujottelu tai sm_pallo-fallback)
       if (m2.raeKvartaali) _u.rae_kvartaali = m2.raeKvartaali;   // §14/§30 RAE-pikakenttä (kerroin RAE_KERROIN, sovellus TODO)
       batch.set(m2.ref, _u, { merge: true });
     });
