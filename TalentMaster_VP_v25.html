@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=36"></script>
+<script src="lib/tm_eerikkila_normit.js?v=37"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <style>
@@ -3916,103 +3916,100 @@ function _jsvFyysinenHTML(pelaajat, joukkueNimi, n) {
   return h;
 }
 
+// YHTEENVETO = yhden silmäyksen tilannekuva (#75 kevennys): KPI-rivi + painopiste-kortti + datapolku-CTA + alalinkit.
+// Tasojakaumat (1–5) + per-testi-profiili asuvat nyt Tavoitetaso-välilehdellä → EI toisteta tässä (poistettu A1/A2/A2b).
+// Säilytetään uniikki syvennys (RAE-rakenne · lähellä merkkiä · kehitysvauhti) + window._jsvTreema footer-CTA:lle.
 function _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n) {
-  const tisp = _jsvJoukkueIkaSp(joukkueNimi);
-  const teamIka = tisp.ika, sp = tisp.sp;
+  if (!n) return '<div class="jsv-an-tyhja">Ei pelaajia</div>';
+  const F = _jsvFeatureKat(pelaajat, joukkueNimi);
+  const teamIka = F.teamIka, sp = F.teamSp;
   const onTkiIka = (teamIka != null && teamIka >= 8 && teamIka <= 13);
-  const onTK = pelaajat.some(function(p){ return p.tki_viimeisin != null || p.tk_lajit_viimeisin; });
-  let h = '';
+  const je = String(joukkueNimi || '').replace(/['"\\]/g, '');
+  const _ka = function (arr) { const v = arr.filter(function (x) { return x != null && !isNaN(x); }); return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null; };
 
-  // A1 — TKI-jakauma histogrammi + mitalilaskuri (vain kun TK-dataa — muuten Fyysinen-osio yksin, esim. SJK)
-  const buckets = [0,0,0,0,0]; let kulta=0,hopea=0,pronssi=0,eiM=0,testattu=0;
-  pelaajat.forEach(function(p){
-    if (p.tki_viimeisin != null) {
-      testattu++; const t = p.tki_viimeisin;
-      buckets[t>=80?4:t>=60?3:t>=40?2:t>=20?1:0]++;
-      if (t>=80) kulta++; else if (t>=60) hopea++; else if (t>=40) pronssi++; else eiM++;
-    }
-  });
-  if (onTK) {
-    h += '<div class="jsv-an-otsikko">TKI-jakauma</div>';
-    if (testattu > 0) {
-      const LBL = ['0–20','20–40','40–60','60–80','80+'];
-      const COL = ['var(--red)','var(--amber)','var(--amber)','#5B8FE0','var(--teal)'];
-      const maxB = Math.max.apply(null, buckets) || 1;
-      buckets.forEach(function(b,i){
-        h += '<div class="jsv-hist-rivi"><span class="jsv-hist-lbl">' + LBL[i] + '</span>'
-          + '<span class="jsv-hist-bar"><span class="jsv-hist-fill" style="width:' + Math.round((b/maxB)*100) + '%;background:' + COL[i] + '"></span></span>'
-          + '<span class="jsv-hist-n">' + b + ' · ' + Math.round(b/testattu*100) + '%</span></div>';
-      });
-      h += '<div class="jsv-medal">🥇 ' + kulta + ' · 🥈 ' + hopea + ' · 🥉 ' + pronssi + ' · — ' + eiM + '</div>';
-    } else {
-      h += '<div class="jsv-an-tyhja">Ei TKI-dataa tällä joukkueella.</div>';
-    }
-  }
-
-  // A1b — Syntymäkvartaali-rakenne (RAE §3C): joukkueen BQ-jakauma + bias-signaali + Q4-CTA. Pikakentät, ei kerrointa.
-  if (typeof _vpRaeRakenneHTML === 'function') h += _vpRaeRakenneHTML(pelaajat);
-
-  // A2 — per-laji joukkueprofiili (team-keskiarvot → yhteinen _jsvPerLajiHTML, sama renderöinti kuin per-pelaaja)
+  // treema (suurin per-laji-gap) — vain laskenta footer-CTA:lle (window._jsvTreema), EI A2-profiilin renderöintiä.
   const _avg = {};
-  _JSV_TKLAJIT.forEach(function(L){
+  if (typeof _JSV_TKLAJIT !== 'undefined') _JSV_TKLAJIT.forEach(function (L) {
     let s = 0, c = 0;
-    pelaajat.forEach(function(p){ const v = p.tk_lajit_viimeisin && p.tk_lajit_viimeisin[L.kentta]; if (v != null && !isNaN(v)) { s += Number(v); c++; } });
+    pelaajat.forEach(function (p) { const v = p.tk_lajit_viimeisin && p.tk_lajit_viimeisin[L.kentta]; if (v != null && !isNaN(v)) { s += Number(v); c++; } });
     if (c > 0) _avg[L.kentta] = s / c;
   });
-  const _a2 = _jsvPerLajiHTML(_avg, teamIka, sp, 'Joukkueprofiili lajeittain');
-  h += _a2.html;
-  // §IA VAIHE B — JOHDA VASTAUKSELLA: answer-first -banneri ylimmäs (heikoin laji + toimenpide-CTA)
-  if (_a2 && _a2.suurinGapLaji) {
-    const _hlNimi = (typeof _vpTkLaji === 'function') ? _vpTkLaji(_a2.suurinGapLaji) : _a2.suurinGapLaji;
-    const _hlN = pelaajat.filter(function(p){ return (p.tki_kehityskohde === _a2.suurinGapLaji) || (p.hh_kehityskohde === _a2.suurinGapLaji); }).length;
-    const _je = String(joukkueNimi || '').replace(/['"\\]/g, '');
-    const _le = String(_hlNimi).replace(/['"\\]/g, '');
-    h = '<div class="jsv-vastaus">'
-      + '<div class="jsv-vastaus-txt">🎯 Heikoin: <b>' + _hlNimi + '</b>' + (_hlN ? ' · ' + _hlN + ' pelaajalla kehityskohteena' : '') + '</div>'
-      + '<button class="jsv-vastaus-cta" onclick="_jsvLuoTapahtuma(\'' + _je + '\',\'' + _le + '\')">Luo treeniteema →</button>'
-      + '</div>' + h;
+  const _a2 = (typeof _jsvPerLajiHTML === 'function') ? _jsvPerLajiHTML(_avg, teamIka, sp, '') : { suurinGapLaji: null };
+  window._jsvTreema = (_a2 && _a2.suurinGapLaji) ? _a2.suurinGapLaji : null;
+
+  let h = '';
+
+  // 1) KPI-rivi — D1/D2 + suunta (edellinen-pikakentästä), D3–D5 kompakti "tulossa".
+  const d1 = _dimKa(pelaajat.map(function (p) { return p.hh_taso != null ? p.hh_taso : p.d1_taso; }));
+  const d1Ed = _ka(pelaajat.map(function (p) { return p.hh_taso_edellinen; }));
+  const d2 = _dimKa(pelaajat.map(function (p) { return laskeD2Taso(p); }));
+  const d2Nyt = _ka(pelaajat.map(function (p) { return p.tki_viimeisin; }));
+  const d2Ed = _ka(pelaajat.map(function (p) { return p.tki_edellinen; }));
+  const d4 = _dimKa(pelaajat.map(function (p) { return _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht); }));
+  const _kpi = function (lbl, arvo, suunta) {
+    const vari = (arvo != null) ? _jsvTasoVari5(arvo) : 'var(--ink3)';
+    return '<div style="flex:1;min-width:72px;text-align:center;padding:8px 4px;border:.5px solid var(--border);border-radius:8px">'
+      + '<div style="font-size:10px;letter-spacing:.06em;color:var(--ink3);text-transform:uppercase">' + lbl + '</div>'
+      + '<div style="font-family:var(--font-m);font-size:18px;font-weight:700;color:' + vari + '">' + (arvo != null ? arvo : '—') + (suunta || '') + '</div></div>';
+  };
+  const _kpiTulossa = function (lbl) {
+    return '<div style="flex:1;min-width:54px;text-align:center;padding:8px 4px;border:.5px dashed var(--border);border-radius:8px;opacity:.7">'
+      + '<div style="font-size:10px;letter-spacing:.06em;color:var(--ink3);text-transform:uppercase">' + lbl + '</div>'
+      + '<div style="font-size:11px;color:var(--ink3);margin-top:4px">tulossa</div></div>';
+  };
+  h += '<div class="jsv-an-otsikko" style="margin-top:2px">Tilannekuva</div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'
+    + _kpi('D1 Fyysinen', d1, (d1 != null && d1Ed != null) ? _jsvSuuntaArrow(d1, d1Ed) : '')
+    + _kpi('D2 Tekninen', d2, (d2Nyt != null && d2Ed != null) ? _jsvSuuntaArrow(d2Nyt, d2Ed) : '')
+    + _kpi('D4 Peliäly', d4, '')
+    + _kpiTulossa('D3') + _kpiTulossa('D5')
+    + '</div>';
+
+  // 2) Painopiste-kortti (jaettu logiikka F.painopiste / painopisteOminaisuus §75) + CTA:t.
+  const pp = F.painopiste;
+  if (pp) {
+    h += '<div style="border:.5px solid rgba(42,93,176,.4);background:rgba(42,93,176,.08);border-radius:10px;padding:12px;margin-bottom:14px">'
+      + '<div style="font-size:11px;color:var(--blue);letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px">Painopiste</div>'
+      + '<div style="font-size:15px;color:var(--ink);font-family:\'Cormorant Garamond\',serif">' + pp.nimi + ' <span style="color:var(--ink3);font-size:12px;font-family:var(--font-sans)">— ka ' + pp.ka + ', etäisyys tavoitteeseen ' + pp.gap + '</span></div>'
+      + '<div style="font-size:11px;color:var(--ink3);margin:4px 0 10px">§28: pre-PHV matala fyysinen on kehityskieli — huomioi PHV-vaihe ennen fyysistä painotusta.</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="jsv-vastaus-cta" onclick="_jsvLuoTapahtuma(\'' + je + '\', window._jsvTreema || \'\')">Luo tekniikkateema →</button>'
+      + '<button class="jsv-cta" style="padding:7px 13px" onclick="document.getElementById(\'_jsvBtn1\').click()">Avaa Tuki-ryhmät →</button>'
+      + '</div></div>';
+  } else if (F.omKat.length) {
+    h += '<div class="jsv-an-suositus" style="margin-top:0">✅ Kaikki mitatut ominaisuudet tavoitteessa (ka ≥3).</div>';
   }
 
-  // A2b — TK-lajitaso-jakauma per laji (populaatiotaso 1–5, tkLajiTaso lennossa per pelaaja, §8.7). Ei pituuspotku.
-  if (onTK) {
-    const _TLAJIT = [
-      { kentta:'ponnauttelu_s',      laji:'ponnauttelu',      nimi:'Ponnauttelu'  },
-      { kentta:'syotto_s',           laji:'syotto',           nimi:'Syöttö'       },
-      { kentta:'pujottelu_s',        laji:'pujottelu',        nimi:'Pujottelu'    },
-      { kentta:'kuljetus_laukaus_s', laji:'kuljetus_laukaus', nimi:'Kulj-laukaus' },
-    ];
-    let _tj = '';
-    _TLAJIT.forEach(function(L){
-      const bk = [0,0,0,0,0]; let summa = 0, nT = 0;
-      pelaajat.forEach(function(p){
-        const lajit = p.tk_lajit_viimeisin; if (!lajit) return;
-        const t = tkLajiTaso(L.laji, lajit[L.kentta], _jsvPelaajaIka(p, teamIka), sp);
-        if (t != null) { bk[t-1]++; summa += t; nT++; }
-      });
-      if (nT === 0) return;
-      const ka = Math.round(summa/nT*10)/10;
-      _tj += '<div class="jsv-an-lajirivi"><span class="jsv-an-laji">' + L.nimi + '</span>'
-        + '<span class="jsv-an-ka" style="color:' + _jsvTasoVari5(ka) + '">ka ' + ka.toFixed(1) + '</span>';
-      [1,2,3,4,5].forEach(function(lvl){
-        _tj += '<span class="jsv-taso-seg" style="background:' + _jsvTasoVari5(lvl) + ';opacity:' + (bk[lvl-1] ? 1 : 0.18) + '">' + bk[lvl-1] + '</span>';
-      });
-      _tj += '</div>';
+  // 3) Datapolku-CTA-rivi — kattavuusvajeet (< 100%) → toimenpide (kattavuusVajeet §75). Näytä vain vajeet.
+  const kAdar = pelaajat.filter(function (p) { return (p.adar_havaintoja || 0) >= 1; }).length;
+  const kSuost = pelaajat.filter(function (p) { return p.suostumusTila === 'annettu'; }).length;
+  const kPhv = pelaajat.filter(function (p) { return p.phv_tila; }).length;
+  const vajeet = (typeof kattavuusVajeet === 'function') ? kattavuusVajeet({ pelihavainto: kAdar, suostumus: kSuost, phv: kPhv }, n) : [];
+  if (vajeet.length) {
+    const META = {
+      pelihavainto: { lbl: 'Pelihavainto', cta: 'Avaa ADAR', fn: 'avaaAdarKenttatyokalu()' },
+      suostumus:    { lbl: 'Suostumus',    cta: 'Lähetä kutsut', fn: 'avaaKutsut()' },
+      phv:          { lbl: 'PHV',          cta: 'Kasvumittaus', fn: '_jsvLuoTapahtuma(\'' + je + '\',\'kasvumittaus\')' }
+    };
+    h += '<div class="jsv-an-otsikko">Datapolku</div>';
+    vajeet.forEach(function (v) {
+      const m = META[v.avain]; if (!m) return;
+      h += '<div class="jsv-an-rivi" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">'
+        + '<span>' + m.lbl + ' <strong>' + v.x + '/' + v.n + '</strong> <span style="color:var(--ink3)">(' + v.pct + '%)</span></span>'
+        + '<span class="jsv-near-toggle" onclick="' + m.fn + '">' + m.cta + ' →</span></div>';
     });
-    if (_tj) {
-      h += '<div class="jsv-an-otsikko"' + _vpSelTip('tk_lajitaso') + '>Tasojakauma lajeittain (1–5) ℹ️</div>'
-        + '<div class="jsv-an-lahde">' + ((typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET.tk_lajitaso) || '') + '</div>'
-        + _tj;
-    }
   }
 
-  // A3 — lähellä merkkiä (≤10 s), vain ika 8–13
+  // 4) Syvennä — uniikki, ei Tavoitetasolla: RAE-rakenne · lähellä merkkiä · kehitysvauhti.
+  if (typeof _vpRaeRakenneHTML === 'function') h += _vpRaeRakenneHTML(pelaajat);
+
   if (onTkiIka) {
-    const near = { pronssi:[], hopea:[], kulta:[] };
-    pelaajat.forEach(function(p){
+    const near = { pronssi: [], hopea: [], kulta: [] };
+    pelaajat.forEach(function (p) {
       const kok = p.tk_kokonaistulos_viimeisin; if (kok == null) return;
       const b = tkSekuntibudjetti(kok, _jsvPelaajaIka(p, teamIka), sp);
       if (!b || b.gap_s > 10) return;
-      near[b.tavoite].push((p.sukunimi||'') + ', ' + (p.etunimi||''));
+      near[b.tavoite].push((p.sukunimi || '') + ', ' + (p.etunimi || ''));
     });
     const osat = [];
     if (near.pronssi.length) osat.push(_jsvNearBlock('pronssista', near.pronssi, 'p'));
@@ -4021,12 +4018,10 @@ function _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n) {
     if (osat.length) h += '<div class="jsv-an-otsikko">Lähellä merkkiä</div>' + osat.join('');
   }
 
-  // A4 — kehitysvauhti (§3.2: ei punaista pelkästä TKI-laskusta; näytä myös abs-parannus)
-  let parani=0, ennallaan=0, laski=0, absParani=0, absTotal=0, vauhtiN=0;
-  pelaajat.forEach(function(p){
+  let parani = 0, absParani = 0, absTotal = 0, vauhtiN = 0;
+  pelaajat.forEach(function (p) {
     if (p.tki_edellinen == null || p.tki_viimeisin == null) return;
-    vauhtiN++; const d = p.tki_viimeisin - p.tki_edellinen;
-    if (d > 0) parani++; else if (d < 0) laski++; else ennallaan++;
+    vauhtiN++; if (p.tki_viimeisin - p.tki_edellinen > 0) parani++;
     if (p.tk_kokonaistulos_edellinen != null && p.tk_kokonaistulos_viimeisin != null) {
       absTotal++; if (p.tk_kokonaistulos_edellinen - p.tk_kokonaistulos_viimeisin > 0) absParani++;
     }
@@ -4034,23 +4029,15 @@ function _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n) {
   if (vauhtiN > 0) {
     const vauhti = (teamIka != null) ? tkVaadittuVuosivauhti(teamIka, sp, 'hopea') : null;
     h += '<div class="jsv-an-otsikko">Kehitysvauhti</div>';
-    h += '<div class="jsv-an-rivi">' + parani + '/' + vauhtiN + ' paransi TKI:tä'
-      + (vauhti != null ? ' · ikäluokkavaatimus kovenee ' + vauhti + ' s/v' : '') + '</div>';
+    h += '<div class="jsv-an-rivi">' + parani + '/' + vauhtiN + ' paransi TKI:tä' + (vauhti != null ? ' · ikäluokkavaatimus kovenee ' + vauhti + ' s/v' : '') + '</div>';
     if (absTotal > 0) h += '<div class="jsv-an-rivi" style="color:var(--ink3)">' + absParani + '/' + absTotal + ' paransi kokonaisaikaa</div>';
   }
 
-  // A5 — treeniteema-suositus + CTA-esitäyttö (window._jsvTreema)
-  if (_a2.suurinGapLaji) {
-    const _slNimi = _vpTkLaji(_a2.suurinGapLaji);
-    const kohdeN = pelaajat.filter(function(p){ return p.tki_kehityskohde === _a2.suurinGapLaji; }).length;
-    h += '<div class="jsv-an-suositus">💡 Suositus: ' + _slNimi.toLowerCase() + '-teema 2 vko'
-      + (kohdeN ? ' (' + kohdeN + '/' + n + ' kehityskohde)' : '') + '</div>';
-    window._jsvTreema = _a2.suurinGapLaji;
-  } else { window._jsvTreema = null; }
-
-  // VAIHE 2 — FYYSINEN (H-H) -osio TKI-lohkojen jälkeen (data-tietoinen: tyhjä jos ei H-H-dataa)
-  h += _jsvFyysinenHTML(pelaajat, joukkueNimi, n);
-  h += _vpRaeRakenneHTML(pelaajat);   // §RAE VAIHE B — joukkueen BQ-rakenne
+  // Alalinkit → Tavoitetaso (tasot & jakaumat) + Pelaajat.
+  h += '<div style="margin-top:16px;border-top:.5px solid var(--border);padding-top:10px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px">'
+    + '<span class="jsv-near-toggle" onclick="document.getElementById(\'_jsvBtn3\').click()">Tasot &amp; jakaumat (Tavoitetaso) →</span>'
+    + '<span class="jsv-near-toggle" onclick="document.getElementById(\'_jsvBtn0\').click()">Pelaajat →</span>'
+    + '</div>';
 
   return h;
 }
@@ -4256,34 +4243,37 @@ function _jsvRadarTaso(tyyppi, kentta, laji, raakaKa, ika, spMN, spPT) {
   const ek = _JSV_HH_EK[kentta]; if (!ek) return null;
   const t = eerikkilaTaso(ek[1] ? raakaKa / 3.6 : raakaKa, ek[0], ika, spMN); return t || null;
 }
-function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
-  if (!n) return '<div class="jsv-an-tyhja">Ei pelaajia</div>';
-  if (typeof tasoJakauma !== 'function') return '<div class="jsv-an-tyhja">Tavoitetaso-data ei käytettävissä (kirjasto lataamatta).</div>';
+// Jaettu ominaisuuslaskenta (#75) — joukkueen per-ominaisuus tasot (Nopeus/Suunnanmuutos/Tekniikka) + painopiste.
+// Vain pikakentät (§26). eerikkilaTaso/laskeD1Osaindeksit/laskeD2HH odottavat M/N (P/T → tytöt-taulukko); tkLajiTaso P/T.
+function _jsvFeatureKat(pelaajat, joukkueNimi) {
   const ts = _jsvJoukkueIkaSp(joukkueNimi), teamIka = ts.ika, teamSp = ts.sp;
-  // eerikkilaTaso/laskeD1Osaindeksit/laskeD2HH odottavat M/N (P/T → tytöt-taulukko = väärä). tkLajiTaso käyttää P/T.
-  const teamSpMN = (teamSp === 'T') ? 'N' : 'M';   // §73-korjaus: #67 välitti P/T → pojat arvioitiin tyttönormeilla
+  const teamSpMN = (teamSp === 'T') ? 'N' : 'M';
   const nopeus = [], ketteryys = [], teknTaso = [], teknTki = [];
   const teknLahteet = {};
   let viimPvm = '';
   pelaajat.forEach(function (p) {
     const ika = _jsvPelaajaIka(p, teamIka), sp = teamSpMN;
     const hv = p.hh_viimeisin || {};
-    if (hv.lin30m != null && typeof eerikkilaTaso === 'function' && ika != null) {
-      const t = eerikkilaTaso(hv.lin30m, 'nopeus_30m', ika, sp); if (t) nopeus.push(t);
-    }
-    if (typeof laskeD1Osaindeksit === 'function' && ika != null) {
-      const oi = laskeD1Osaindeksit(hv, ika, sp); if (oi && oi.ketteryys != null) ketteryys.push(oi.ketteryys);
-    }
-    if (typeof laskeD2Joustava === 'function') {
-      const d2 = laskeD2Joustava(p, ika, sp);
-      if (d2) {
-        teknLahteet[d2.lahde] = (teknLahteet[d2.lahde] || 0) + 1;
-        if (d2.lahde === 'tki' && p.tki_viimeisin != null) teknTki.push(p.tki_viimeisin);
-        else teknTaso.push(d2.taso);
-      }
-    }
+    if (hv.lin30m != null && typeof eerikkilaTaso === 'function' && ika != null) { const t = eerikkilaTaso(hv.lin30m, 'nopeus_30m', ika, sp); if (t) nopeus.push(t); }
+    if (typeof laskeD1Osaindeksit === 'function' && ika != null) { const oi = laskeD1Osaindeksit(hv, ika, sp); if (oi && oi.ketteryys != null) ketteryys.push(oi.ketteryys); }
+    if (typeof laskeD2Joustava === 'function') { const d2 = laskeD2Joustava(p, ika, sp); if (d2) { teknLahteet[d2.lahde] = (teknLahteet[d2.lahde] || 0) + 1; if (d2.lahde === 'tki' && p.tki_viimeisin != null) teknTki.push(p.tki_viimeisin); else teknTaso.push(d2.taso); } }
     [p.hh_pvm, p.tki_pvm, p.d1_pvm, p.d2_pvm].forEach(function (d) { if (d && String(d) > viimPvm) viimPvm = String(d); });
   });
+  const omKat = [
+    { nimi: 'Nopeus', ka: tasoJakauma(nopeus, 3).ka },
+    { nimi: 'Suunnanmuutos', ka: tasoJakauma(ketteryys, 3).ka },
+    { nimi: 'Tekniikka', ka: tasoJakauma(teknTaso, 3).ka }
+  ].filter(function (o) { return o.ka != null; });
+  const painopiste = (typeof painopisteOminaisuus === 'function') ? painopisteOminaisuus(omKat) : null;
+  return { teamIka: teamIka, teamSp: teamSp, teamSpMN: teamSpMN, nopeus: nopeus, ketteryys: ketteryys,
+    teknTaso: teknTaso, teknTki: teknTki, teknLahteet: teknLahteet, viimPvm: viimPvm, omKat: omKat, painopiste: painopiste };
+}
+function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
+  if (!n) return '<div class="jsv-an-tyhja">Ei pelaajia</div>';
+  if (typeof tasoJakauma !== 'function') return '<div class="jsv-an-tyhja">Tavoitetaso-data ei käytettävissä (kirjasto lataamatta).</div>';
+  const F = _jsvFeatureKat(pelaajat, joukkueNimi);
+  const teamIka = F.teamIka, teamSp = F.teamSp, teamSpMN = F.teamSpMN;
+  const nopeus = F.nopeus, ketteryys = F.ketteryys, teknTaso = F.teknTaso, teknTki = F.teknTki, teknLahteet = F.teknLahteet, viimPvm = F.viimPvm;
 
   // Kehityssuunta — VAIN edellinen-pikakentästä (ei fabrikoida): fyysiset hh_taso_edellinen, TKI tki_edellinen.
   const _ka = function (arr) { const v = arr.filter(function (x) { return x != null && !isNaN(x); }); return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null; };
@@ -4294,10 +4284,17 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
   const tkiEd = _ka(pelaajat.map(function (p) { return p.tki_edellinen; }));
   const tkiSuunta = (tkiEd != null) ? _jsvSuuntaArrow(tkiNyt, tkiEd) : '';
 
-  // Ominaisuusrivi (taso-pohjainen). Kattavuus 0 → himmennetty.
+  // Tyhjä tila = seuraava kerättävä, EI "tuote kesken" (#75 §28): CTA-muoto passiivisen "ei mitattu" sijaan.
+  const _aukkoCTA = function (label) {
+    return '<div class="jsv-an-otsikko">' + label + '</div>'
+      + '<div class="jsv-an-rivi" style="color:var(--ink3)">Aukko: 0/' + n + ' mitattu — '
+      + '<span class="jsv-near-toggle" onclick="document.getElementById(\'_jsvBtn0\').click()">Avaa pelaajat</span>'
+      + ' <span class="jsv-an-ctx">· seuraava kerättävä, ei puute (§28)</span></div>';
+  };
+  // Ominaisuusrivi (taso-pohjainen). Kattavuus 0 → CTA (ei passiivinen "ei mitattu").
   const _omRivi = function (label, tasot, lahdeLbl, suunta) {
     const jak = tasoJakauma(tasot, 3);
-    if (!jak.n) return '<div class="jsv-an-otsikko">' + label + '</div><div class="jsv-an-tyhja">ei mitattu (0/' + n + ')</div>';
+    if (!jak.n) return _aukkoCTA(label);
     return '<div class="jsv-an-otsikko">' + label + (lahdeLbl ? ' · <span style="text-transform:none;letter-spacing:0">' + lahdeLbl + '</span>' : '') + '</div>'
       + '<div class="jsv-an-rivi" style="margin-bottom:4px">ka. <strong style="color:var(--ink)">' + (jak.ka != null ? jak.ka : '—') + '</strong>'
       + ' · tasolla ≥3: <strong>' + jak.n_tavoite + '/' + jak.n + '</strong> (' + (jak.osuus_pct != null ? jak.osuus_pct : 0) + '%)' + suunta
@@ -4348,7 +4345,7 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
     h += _omRivi('Tekniikka' + (teknTki.length ? ' (muut)' : ''), teknTaso, lbl, '');
   }
   if (!teknTki.length && !_hhSm) {
-    h += '<div class="jsv-an-otsikko">Tekniikka</div><div class="jsv-an-tyhja">ei mitattu (0/' + n + ')</div>';
+    h += _aukkoCTA('Tekniikka');
   }
 
   // ── Kolme nostoa ──
@@ -4395,15 +4392,14 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
   const kAdar = pelaajat.filter(function (p) { return (p.adar_havaintoja || 0) >= 1; }).length;
   const vm = String(viimPvm).match(/^(\d{4})-(\d{2})-(\d{2})/);
   const viimFi = vm ? (parseInt(vm[3], 10) + '.' + parseInt(vm[2], 10) + '.' + vm[1]) : '—';
-  // Painopiste = ominaisuus jolla suurin etäisyys tavoitteeseen (3 − ka), vain mitatuista.
-  const _omKat = [{ nimi: 'Nopeus', ka: tasoJakauma(nopeus, 3).ka }, { nimi: 'Suunnanmuutos', ka: tasoJakauma(ketteryys, 3).ka }, { nimi: 'Tekniikka', ka: tasoJakauma(teknTaso, 3).ka }].filter(function (o) { return o.ka != null; });
-  let paino = '—';
-  if (_omKat.length) { _omKat.sort(function (a, b) { return a.ka - b.ka; }); if (_omKat[0].ka < 3) paino = _omKat[0].nimi + ' (ka ' + _omKat[0].ka + ', etäisyys tavoitteeseen ' + (Math.round((3 - _omKat[0].ka) * 10) / 10) + ')'; else paino = 'Kaikki ominaisuudet tavoitteessa (ka ≥3)'; }
+  // Painopiste = ominaisuus jolla suurin etäisyys tavoitteeseen — jaettu logiikka (F.painopiste, painopisteOminaisuus §75).
+  const _pp = F.painopiste;
+  const paino = F.omKat.length ? (_pp ? _pp.nimi + ' (ka ' + _pp.ka + ', etäisyys tavoitteeseen ' + _pp.gap + ')' : 'Kaikki ominaisuudet tavoitteessa (ka ≥3)') : '—';
   h += '<div style="margin-top:18px;border-top:.5px solid var(--border);padding-top:10px;font-size:11px;color:var(--ink3);line-height:1.8">'
     + '<div><strong style="color:var(--ink2)">RAE-kvartaali:</strong> ' + raeStr + '</div>'
     + '<div><strong style="color:var(--ink2)">Kattavuus:</strong> Nopeus ' + tasoJakauma(nopeus, 3).n + '/' + n + ' · Suunnanmuutos ' + tasoJakauma(ketteryys, 3).n + '/' + n + ' · Tekniikka ' + (teknTki.length + teknTaso.length) + '/' + n + ' · Valmius ' + kFlei + '/' + n + ' · PHV ' + kPhv + '/' + n + ' · Pelihavainto ' + kAdar + '/' + n + '</div>'
     + '<div><strong style="color:var(--ink2)">Viimeisin mittaus:</strong> ' + viimFi + '</div>'
-    + '<div style="color:var(--ink2);margin-top:4px"><strong>Painopiste:</strong> ' + paino + (paino !== '—' && _omKat.length && _omKat[0].ka < 3 ? ' <span class="jsv-an-ctx">— huomioi PHV-vaihe ennen fyysistä painotusta (§28)</span>' : '') + '</div>'
+    + '<div style="color:var(--ink2);margin-top:4px"><strong>Painopiste:</strong> ' + paino + (_pp ? ' <span class="jsv-an-ctx">— huomioi PHV-vaihe ennen fyysistä painotusta (§28)</span>' : '') + '</div>'
     + '</div>';
 
   // Per-pelaaja
@@ -8001,6 +7997,14 @@ function renderVpAloitaKortti(){
     { ok: s5, txt: 'Lähetä mentorointiviesti valmentajalle', fn: "setWs('valmentajat')" }
   ];
   var tehty = askeleet.filter(function (a) { return a.ok; }).length;
+  // #75: kun 4/5 tai 5/5 valmis → piilota opas oletuksena (slim-strip) → pulssi + signaalit nousevat kärkeen.
+  // "Näytä opas" -nappi (sivulla) palauttaa sen (window._vpaPakotaNaytto, istuntokohtainen). Topbarin "Aloita tästä" → modaali.
+  if (tehty >= 4 && !window._vpaPakotaNaytto) {
+    el.innerHTML = '<div class="vpa-kortti" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">'
+      + '<span style="font-size:12px;color:var(--ink3)">✓ Aloitusopas ' + tehty + '/5 — valmis</span>'
+      + '<button class="vpa-piilota" onclick="window._vpaPakotaNaytto=true;renderVpAloitaKortti()">Näytä opas</button></div>';
+    return;
+  }
   function tick(ok){ return '<span class="vpa-tick' + (ok ? ' on' : '') + '">' + (ok ? '✓' : '○') + '</span>'; }
   var rivit = askeleet.map(function (a) {
     return '<button class="vpa-rivi" onclick="' + a.fn + '">' + tick(a.ok) + '<span class="vpa-rivi-txt">' + _jsvEsc(a.txt) + '</span><span class="vpa-arrow">›</span></button>';
