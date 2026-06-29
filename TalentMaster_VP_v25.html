@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=32"></script>
+<script src="lib/tm_eerikkila_normit.js?v=33"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <style>
@@ -3519,7 +3519,7 @@ function _jsvTkiVari(tki) {
   return '#5A5A5A';
 }
 function _jsvVaihda(n) {
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const tab = document.getElementById('_jsvTab' + i);
     const btn = document.getElementById('_jsvBtn' + i);
     if (tab) tab.style.display = (i === n) ? 'block' : 'none';
@@ -4211,6 +4211,171 @@ const _JSV_TYYLIT = '<style>'
   + '#_jsvModal .jsv-dk-tulossa{font-size:11px;color:var(--ink3);margin-top:2px}'
   + '</style>';  // mobiilisäännöt (≤768px) head-lohkossa — §17: yksi @media/tiedosto
 
+// ── Välilehti 4: TAVOITETASO (#67) — data-adaptiivinen, ladatusta _pelaajat-listasta (§26, ei alikokoelmakyselyjä). §28-neutraali. ──
+// Ominaisuudet: Nopeus (lin30m→eerikkilaTaso), Suunnanmuutos (laskeD1Osaindeksit.ketteryys = kasirata+sm_juoksu),
+// Tekniikka (laskeD2Joustava; lähde 'tki' → TKI-asteikko ≥60, muu → taso 3 / 1–5). Kattavuus ≥1 → näytä, muuten himmennetty.
+function _jsvSuuntaArrow(cur, prev) {
+  if (cur == null || prev == null) return '';
+  const d = cur - prev;
+  if (Math.abs(d) < 0.05) return ' <span style="color:var(--ink3)">→</span>';
+  return d > 0 ? ' <span style="color:var(--teal)">↑</span>' : ' <span style="color:var(--red)">↓</span>';
+}
+// Tason 1–5 jakauma hist-riveinä: 1–2 neutraali (ink3), 3–5 teal, taso-3 sininen vasen-merkki (tavoiteraja).
+function _jsvTasoBarit(jak, nn) {
+  let h = '';
+  for (let t = 1; t <= 5; t++) {
+    const c = jak[t - 1], w = nn ? Math.round(c / nn * 100) : 0;
+    const vari = (t >= 3) ? 'var(--teal)' : 'var(--ink3)';
+    const raja = (t === 3) ? 'border-left:2px solid var(--blue);padding-left:4px;margin-left:-6px' : '';
+    h += '<div class="jsv-hist-rivi"><span class="jsv-hist-lbl" style="' + raja + '">Taso ' + t + '</span>'
+      + '<span class="jsv-hist-bar"><span class="jsv-hist-fill" style="width:' + w + '%;background:' + vari + '"></span></span>'
+      + '<span class="jsv-hist-n">' + c + '</span></div>';
+  }
+  return h;
+}
+// TKI-bändit (<40 prioriteetti · 40–59 kehitys · ≥60 hyvä) hist-riveinä.
+function _jsvTkiBarit(b, nn) {
+  const rivit = [['≥60 hyvä', b.hyva, 'var(--teal)'], ['40–59', b.keski, 'var(--amber)'], ['<40', b.alle40, 'var(--ink3)']];
+  return rivit.map(function (r) {
+    const w = nn ? Math.round(r[1] / nn * 100) : 0;
+    return '<div class="jsv-hist-rivi"><span class="jsv-hist-lbl" style="width:64px">' + r[0] + '</span>'
+      + '<span class="jsv-hist-bar"><span class="jsv-hist-fill" style="width:' + w + '%;background:' + r[2] + '"></span></span>'
+      + '<span class="jsv-hist-n">' + r[1] + '</span></div>';
+  }).join('');
+}
+function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
+  if (!n) return '<div class="jsv-an-tyhja">Ei pelaajia</div>';
+  if (typeof tasoJakauma !== 'function') return '<div class="jsv-an-tyhja">Tavoitetaso-data ei käytettävissä (kirjasto lataamatta).</div>';
+  const ts = _jsvJoukkueIkaSp(joukkueNimi), teamIka = ts.ika, teamSp = ts.sp;
+  const nopeus = [], ketteryys = [], teknTaso = [], teknTki = [];
+  const teknLahteet = {};
+  let viimPvm = '';
+  pelaajat.forEach(function (p) {
+    const ika = _jsvPelaajaIka(p, teamIka), sp = teamSp;
+    const hv = p.hh_viimeisin || {};
+    if (hv.lin30m != null && typeof eerikkilaTaso === 'function' && ika != null) {
+      const t = eerikkilaTaso(hv.lin30m, 'nopeus_30m', ika, sp); if (t) nopeus.push(t);
+    }
+    if (typeof laskeD1Osaindeksit === 'function' && ika != null) {
+      const oi = laskeD1Osaindeksit(hv, ika, sp); if (oi && oi.ketteryys != null) ketteryys.push(oi.ketteryys);
+    }
+    if (typeof laskeD2Joustava === 'function') {
+      const d2 = laskeD2Joustava(p, ika, sp);
+      if (d2) {
+        teknLahteet[d2.lahde] = (teknLahteet[d2.lahde] || 0) + 1;
+        if (d2.lahde === 'tki' && p.tki_viimeisin != null) teknTki.push(p.tki_viimeisin);
+        else teknTaso.push(d2.taso);
+      }
+    }
+    [p.hh_pvm, p.tki_pvm, p.d1_pvm, p.d2_pvm].forEach(function (d) { if (d && String(d) > viimPvm) viimPvm = String(d); });
+  });
+
+  // Kehityssuunta — VAIN edellinen-pikakentästä (ei fabrikoida): fyysiset hh_taso_edellinen, TKI tki_edellinen.
+  const _ka = function (arr) { const v = arr.filter(function (x) { return x != null && !isNaN(x); }); return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null; };
+  const hhNyt = _ka(pelaajat.map(function (p) { return p.hh_taso; }));
+  const hhEd = _ka(pelaajat.map(function (p) { return p.hh_taso_edellinen; }));
+  const fysSuunta = (hhEd != null) ? _jsvSuuntaArrow(hhNyt, hhEd) : '';
+  const tkiNyt = _ka(pelaajat.map(function (p) { return p.tki_viimeisin; }));
+  const tkiEd = _ka(pelaajat.map(function (p) { return p.tki_edellinen; }));
+  const tkiSuunta = (tkiEd != null) ? _jsvSuuntaArrow(tkiNyt, tkiEd) : '';
+
+  // Ominaisuusrivi (taso-pohjainen). Kattavuus 0 → himmennetty.
+  const _omRivi = function (label, tasot, lahdeLbl, suunta) {
+    const jak = tasoJakauma(tasot, 3);
+    if (!jak.n) return '<div class="jsv-an-otsikko">' + label + '</div><div class="jsv-an-tyhja">ei mitattu (0/' + n + ')</div>';
+    return '<div class="jsv-an-otsikko">' + label + (lahdeLbl ? ' · <span style="text-transform:none;letter-spacing:0">' + lahdeLbl + '</span>' : '') + '</div>'
+      + '<div class="jsv-an-rivi" style="margin-bottom:4px">ka. <strong style="color:var(--ink)">' + (jak.ka != null ? jak.ka : '—') + '</strong>'
+      + ' · tasolla ≥3: <strong>' + jak.n_tavoite + '/' + jak.n + '</strong> (' + (jak.osuus_pct != null ? jak.osuus_pct : 0) + '%)' + suunta
+      + ' <span class="jsv-an-ctx">· tavoite taso 3</span></div>'
+      + _jsvTasoBarit(jak.jakauma, jak.n);
+  };
+
+  let h = '<div class="jsv-an-huom" style="margin:0 0 10px">Tavoite = ikäluokan keskitaso (taso 3) tai TKI ≥60. §28: pre-PHV matala fyysinen on biologisesti odotettua — kehityskieli, ei puute.</div>';
+  h += _omRivi('Nopeus (30 m)', nopeus, '30 m juoksu', fysSuunta);
+  h += _omRivi('Suunnanmuutos', ketteryys, 'ketteryys (kasirata + sm-juoksu)', fysSuunta);
+
+  // Tekniikka — lähde-adaptiivinen. tki → TKI-asteikko (≥60), muu → taso 3.
+  const _hhSm = (teknLahteet.hh || 0) + (teknLahteet.sm_pallo || 0) + (teknLahteet.sm || 0) + (teknLahteet.tk || 0);
+  if (teknTki.length) {
+    const tj = tkiTavoiteJakauma(teknTki, 60);
+    let merkkiRivi = '';
+    const mJak = {};
+    pelaajat.forEach(function (p) { if (p.tki_merkki) mJak[p.tki_merkki] = (mJak[p.tki_merkki] || 0) + 1; });
+    const mk = Object.keys(mJak);
+    if (mk.length) merkkiRivi = '<div class="jsv-an-rivi" style="font-size:11px;color:var(--ink3)">Merkit: ' + mk.map(function (k) { return k + ' ' + mJak[k]; }).join(' · ') + '</div>';
+    h += '<div class="jsv-an-otsikko">Tekniikka · <span style="text-transform:none;letter-spacing:0">tekniikkakilpailu (TKI)</span></div>'
+      + '<div class="jsv-an-rivi" style="margin-bottom:4px">TKI-ka. <strong style="color:var(--ink)">' + (tj.ka != null ? tj.ka : '—') + '</strong>'
+      + ' · TKI ≥60: <strong>' + tj.n_tavoite + '/' + tj.n + '</strong> (' + (tj.osuus_pct != null ? tj.osuus_pct : 0) + '%)' + tkiSuunta + '</div>'
+      + _jsvTkiBarit(tj.bandit, tj.n) + merkkiRivi;
+  }
+  if (_hhSm) {
+    const lbl = (teknLahteet.hh ? 'syöttö/pujottelu' : teknLahteet.sm_pallo ? 'sm_pallo' : teknLahteet.tk ? 'TK-lajit' : 'SM');
+    h += _omRivi('Tekniikka' + (teknTki.length ? ' (muut)' : ''), teknTaso, lbl, '');
+  }
+  if (!teknTki.length && !_hhSm) {
+    h += '<div class="jsv-an-otsikko">Tekniikka</div><div class="jsv-an-tyhja">ei mitattu (0/' + n + ')</div>';
+  }
+
+  // ── Kolme nostoa ──
+  // 1) Lähimpänä tavoitetta: pelaajat joiden mitattujen ominaisuuksien ka < 3 mutta lähimpänä (pienin vaje), top 3.
+  const _pLvl = function (p) {
+    const ika = _jsvPelaajaIka(p, teamIka), sp = teamSp, hv = p.hh_viimeisin || {}, lvls = [];
+    if (hv.lin30m != null && typeof eerikkilaTaso === 'function' && ika != null) { const t = eerikkilaTaso(hv.lin30m, 'nopeus_30m', ika, sp); if (t) lvls.push(t); }
+    if (typeof laskeD1Osaindeksit === 'function' && ika != null) { const oi = laskeD1Osaindeksit(hv, ika, sp); if (oi && oi.ketteryys != null) lvls.push(oi.ketteryys); }
+    if (typeof laskeD2Joustava === 'function') { const d2 = laskeD2Joustava(p, ika, sp); if (d2) lvls.push(d2.lahde === 'tki' && p.tki_viimeisin != null ? (p.tki_viimeisin >= 60 ? 3.5 : p.tki_viimeisin / 20) : d2.taso); }
+    return lvls.length ? (lvls.reduce(function (a, b) { return a + b; }, 0) / lvls.length) : null;
+  };
+  const lahella = pelaajat.map(function (p) { return { p: p, lvl: _pLvl(p) }; })
+    .filter(function (x) { return x.lvl != null && x.lvl < 3; })
+    .sort(function (a, b) { return b.lvl - a.lvl; }).slice(0, 3);
+  h += '<div class="jsv-an-otsikko" style="margin-top:18px">Lähimpänä tavoitetta</div>';
+  h += lahella.length ? '<div class="jsv-an-rivi">' + lahella.map(function (x) { return _jsvEsc((x.p.etunimi || '') + ' ' + (x.p.sukunimi || '')) + ' (ka ' + (Math.round(x.lvl * 10) / 10) + ')'; }).join(' · ') + '</div>'
+    : '<div class="jsv-an-tyhja">Kaikki mitatut tavoitteessa tai data puuttuu.</div>';
+
+  // 2) Potentiaali: pre-PHV (§28) + tekninen etumatka fyysiseen (d2−d1 ≥ 1) → fysiikka tulee, tekniikka jo edellä.
+  const potentiaali = pelaajat.filter(function (p) {
+    const neutr = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+    return neutr && p.d2_taso != null && p.d1_taso != null && (p.d2_taso - p.d1_taso) >= 1;
+  });
+  h += '<div class="jsv-an-otsikko">Potentiaali</div>';
+  h += potentiaali.length ? '<div class="jsv-an-rivi">' + potentiaali.map(function (p) { return _jsvEsc((p.etunimi || '') + ' ' + (p.sukunimi || '')); }).join(' · ') + '</div>'
+    : '<div class="jsv-an-tyhja">D2 rakentuu — ei vielä teknistä etumatkaa fyysiseen (pre-PHV).</div>';
+
+  // 3) Kehityskohde: joukkueen teknisesti heikoin ~20% + FLEI<40 + manuaalinen (sama logiikka kuin _kehityskohde).
+  const heikoimmat = (typeof _teknHeikoimmat20 === 'function') ? _teknHeikoimmat20(pelaajat) : new Set();
+  const kohteet = pelaajat.filter(function (p) { return _kehityskohde(p, heikoimmat); });
+  h += '<div class="jsv-an-otsikko">Kehityskohde</div>';
+  h += kohteet.length ? '<div class="jsv-an-rivi">' + kohteet.map(function (p) { return _jsvEsc((p.etunimi || '') + ' ' + (p.sukunimi || '')); }).join(' · ') + '</div>'
+    : '<div class="jsv-an-tyhja">Ei akuutteja kehityskohteita.</div>';
+
+  // ── Footer ──
+  // RAE-kvartaali
+  const raeJak = {};
+  let raeN = 0;
+  pelaajat.forEach(function (p) { if (p.rae_kvartaali) { raeJak[p.rae_kvartaali] = (raeJak[p.rae_kvartaali] || 0) + 1; raeN++; } });
+  const raeStr = raeN ? Object.keys(raeJak).sort().map(function (q) { return q + ': ' + raeJak[q]; }).join(' · ') : 'täyttyy rekisteröinnistä (0/' + n + ')';
+  // Kattavuus per ominaisuus
+  const kFlei = pelaajat.filter(function (p) { return p.flei_viimeisin != null; }).length;
+  const kPhv = pelaajat.filter(function (p) { return p.phv_tila; }).length;
+  const kAdar = pelaajat.filter(function (p) { return (p.adar_havaintoja || 0) >= 1; }).length;
+  const vm = String(viimPvm).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const viimFi = vm ? (parseInt(vm[3], 10) + '.' + parseInt(vm[2], 10) + '.' + vm[1]) : '—';
+  // Painopiste = ominaisuus jolla suurin etäisyys tavoitteeseen (3 − ka), vain mitatuista.
+  const _omKat = [{ nimi: 'Nopeus', ka: tasoJakauma(nopeus, 3).ka }, { nimi: 'Suunnanmuutos', ka: tasoJakauma(ketteryys, 3).ka }, { nimi: 'Tekniikka', ka: tasoJakauma(teknTaso, 3).ka }].filter(function (o) { return o.ka != null; });
+  let paino = '—';
+  if (_omKat.length) { _omKat.sort(function (a, b) { return a.ka - b.ka; }); if (_omKat[0].ka < 3) paino = _omKat[0].nimi + ' (ka ' + _omKat[0].ka + ', etäisyys tavoitteeseen ' + (Math.round((3 - _omKat[0].ka) * 10) / 10) + ')'; else paino = 'Kaikki ominaisuudet tavoitteessa (ka ≥3)'; }
+  h += '<div style="margin-top:18px;border-top:.5px solid var(--border);padding-top:10px;font-size:11px;color:var(--ink3);line-height:1.8">'
+    + '<div><strong style="color:var(--ink2)">RAE-kvartaali:</strong> ' + raeStr + '</div>'
+    + '<div><strong style="color:var(--ink2)">Kattavuus:</strong> Nopeus ' + tasoJakauma(nopeus, 3).n + '/' + n + ' · Suunnanmuutos ' + tasoJakauma(ketteryys, 3).n + '/' + n + ' · Tekniikka ' + (teknTki.length + teknTaso.length) + '/' + n + ' · Valmius ' + kFlei + '/' + n + ' · PHV ' + kPhv + '/' + n + ' · Pelihavainto ' + kAdar + '/' + n + '</div>'
+    + '<div><strong style="color:var(--ink2)">Viimeisin mittaus:</strong> ' + viimFi + '</div>'
+    + '<div style="color:var(--ink2);margin-top:4px"><strong>Painopiste:</strong> ' + paino + (paino !== '—' && _omKat.length && _omKat[0].ka < 3 ? ' <span class="jsv-an-ctx">— huomioi PHV-vaihe ennen fyysistä painotusta (§28)</span>' : '') + '</div>'
+    + '</div>';
+
+  // Per-pelaaja
+  h += '<div class="jsv-an-rivi" style="margin-top:12px"><span class="jsv-near-toggle" onclick="document.getElementById(\'_jsvBtn0\').click()">→ Pelaajakohtainen näkymä (Pelaajat-välilehti)</span></div>';
+  return h;
+}
+
 function avaaJoukkueSyvanakyma(joukkueNimi) {
   const vanha = document.getElementById('_jsvModal'); if (vanha) vanha.remove();
   const pelaajat = _pelaajat.filter(p => (p.joukkue || 'Tuntematon') === joukkueNimi);
@@ -4297,6 +4462,9 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
 
   // ── Välilehti 3: YHTEENVETO (A1 jakauma · A2 lajiprofiili · A3 lähellä merkkiä · A4 vauhti · A5 teema) ──
   let t3 = _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n);
+
+  // ── Välilehti 4: TAVOITETASO (#67 — data-adaptiivinen, taso-3/TKI≥60-tavoite, §28-neutraali) ──
+  let t4 = _jsvTavoiteHTML(pelaajat, joukkueNimi, n);
 
   // ── KPI- ja radar-data (vasen kolumni) ──
   const teamRadarDims = [
@@ -4387,7 +4555,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   // OIKEA
   h += '<div class="jsv-oikea">';
   h += '<div class="jsv-tabs">';
-  ['Pelaajat','Tuki','Yhteenveto'].forEach(function(lbl,i){
+  ['Pelaajat','Tuki','Yhteenveto','Tavoitetaso'].forEach(function(lbl,i){
     h += '<button id="_jsvBtn' + i + '" class="jsv-tab dimpop-tab ' + (i===0?'on':'') + '" onclick="_jsvVaihda(' + i + ')">' + lbl + '</button>';
   });
   h += '</div>';
@@ -4395,6 +4563,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   h += '<div id="_jsvTab0">' + t1 + '</div>';
   h += '<div id="_jsvTab1" style="display:none;padding-top:14px">' + t2 + '</div>';
   h += '<div id="_jsvTab2" style="display:none;padding-top:14px">' + t3 + '</div>';
+  h += '<div id="_jsvTab3" style="display:none;padding-top:14px">' + t4 + '</div>';
   h += '</div></div>';   // /tabbody /oikea
   h += '</div>';         // /body
   // FOOTER (kiinteä)
