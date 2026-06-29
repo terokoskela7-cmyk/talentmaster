@@ -43,6 +43,7 @@ const {
   cpdKooste,
   laskeD2HH,
   d2SmPalloFallback,
+  taydennaHvSm,
   laskeD2Joustava,
   perTestTasot,
   normiIka,
@@ -1234,5 +1235,32 @@ describe('tavoiteRadarAkselit (#73 per-testi-radar — akselivalinta + ka + coll
     expect(tavoiteRadarAkselit([])).toBeNull();
     expect(tavoiteRadarAkselit([{ etunimi: 'A' }])).toBeNull();
     expect(tavoiteRadarAkselit(null)).toBeNull();
+  });
+});
+
+describe('taydennaHvSm (#69 sm_juoksu/sm_pallo persistointi hh_viimeisin:iin)', () => {
+  it('lisää sm_juoksun kun pikakenttä on mutta hh_viimeisin:istä puuttuu → täysi uusi hv', () => {
+    const r = taydennaHvSm({ lin30m: 5.4, lin10m: 2.1 }, 9.0, null);
+    expect(r).not.toBeNull();
+    expect(r.sm_juoksu).toBe(9.0);
+    expect(r.lin30m).toBe(5.4);   // olemassa olevat säilyvät (täysi objekti merge-settiä varten)
+    expect(r.lin10m).toBe(2.1);
+  });
+  it('lisää sm_pallon (rikastaa radarin SM-pallo-akselin H-H-seuroille)', () => {
+    const r = taydennaHvSm({ lin30m: 5.4 }, null, 7.2);
+    expect(r.sm_pallo).toBe(7.2);
+  });
+  it('lisää molemmat kun molemmat puuttuvat', () => {
+    const r = taydennaHvSm({ lin30m: 5.4 }, 9.0, 7.2);
+    expect(r.sm_juoksu).toBe(9.0);
+    expect(r.sm_pallo).toBe(7.2);
+  });
+  it('EI ylikirjoita jo olemassa olevaa hh_viimeisin.sm_juoksua', () => {
+    const r = taydennaHvSm({ sm_juoksu: 8.5 }, 9.0, null);
+    expect(r).toBeNull();   // ei muutosta → ei kirjoitusta
+  });
+  it('ei pikakenttiä → null (ei turhaa kirjoitusta)', () => {
+    expect(taydennaHvSm({ lin30m: 5.4 }, null, null)).toBeNull();
+    expect(taydennaHvSm(null, null, null)).toBeNull();
   });
 });
