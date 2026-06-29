@@ -31,6 +31,8 @@ const {
   tasoJakauma,
   tkiTavoiteJakauma,
   tavoiteRadarAkselit,
+  painopisteOminaisuus,
+  kattavuusVajeet,
   laskeHarjoituslaatuPalloliitto,
   laskeValmennustaitoIndeksi,
   laskeHarjoitusKalibraatio,
@@ -1262,5 +1264,31 @@ describe('taydennaHvSm (#69 sm_juoksu/sm_pallo persistointi hh_viimeisin:iin)', 
   it('ei pikakenttiä → null (ei turhaa kirjoitusta)', () => {
     expect(taydennaHvSm({ lin30m: 5.4 }, null, null)).toBeNull();
     expect(taydennaHvSm(null, null, null)).toBeNull();
+  });
+});
+
+describe('painopisteOminaisuus + kattavuusVajeet (#75 kevennetty Yhteenveto)', () => {
+  it('painopiste = ominaisuus jolla suurin gap tasoon 3 (pienin ka)', () => {
+    const r = painopisteOminaisuus([{ nimi: 'Nopeus', ka: 2.4 }, { nimi: 'Tekniikka', ka: 1.8 }, { nimi: 'Suunnanmuutos', ka: 3.2 }]);
+    expect(r.nimi).toBe('Tekniikka');
+    expect(r.ka).toBe(1.8);
+    expect(r.gap).toBe(1.2);   // 3 - 1.8
+  });
+  it('kaikki tavoitteessa (ka ≥3) → null (§28 ei punaista)', () => {
+    expect(painopisteOminaisuus([{ nimi: 'A', ka: 3.0 }, { nimi: 'B', ka: 4.1 }])).toBeNull();
+  });
+  it('tyhjä / ka null → null', () => {
+    expect(painopisteOminaisuus([])).toBeNull();
+    expect(painopisteOminaisuus([{ nimi: 'A', ka: null }])).toBeNull();
+  });
+  it('kattavuusVajeet: vain <100%, suurin vaje ensin, 100% pois', () => {
+    const r = kattavuusVajeet({ pelihavainto: 2, suostumus: 10, phv: 0 }, 10);
+    expect(r.map(v => v.avain)).toEqual(['phv', 'pelihavainto']);   // 0% ennen 20%; suostumus 100% pois
+    expect(r[0].pct).toBe(0);
+    expect(r[1].pct).toBe(20);
+  });
+  it('kattavuusVajeet: kaikki 100% → tyhjä; n=0 → tyhjä', () => {
+    expect(kattavuusVajeet({ pelihavainto: 5, suostumus: 5, phv: 5 }, 5)).toEqual([]);
+    expect(kattavuusVajeet({ pelihavainto: 0 }, 0)).toEqual([]);
   });
 });
