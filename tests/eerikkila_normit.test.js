@@ -1207,11 +1207,20 @@ describe('tavoiteRadarAkselit (#73 per-testi-radar — akselivalinta + ka + coll
     expect(lin30.raakaKa).toBe(5.3);   // (5.4+5.2)/2
     expect(lin30.n).toBe(2);
   });
-  it('TK-data (ei hh) → tk-lajiakselit', () => {
-    const team = [{ tk_lajit_viimeisin: { ponnauttelu: 20, syotto: 15, pujottelu: 18 } }];
+  it('TK-data (_s-avaimet, ei hh) → tk-lajiakselit + laji-id (#74 Sibbo-fix)', () => {
+    // tk_lajit_viimeisin tallennetaan _s-suffiksilla (§26) → ilman tätä Sibbo sai 0 akselia → null.
+    const team = [
+      { tk_lajit_viimeisin: { ponnauttelu_s: 20, syotto_s: 15, pujottelu_s: 18, kuljetus_laukaus_s: 12 } },
+      { tk_lajit_viimeisin: { ponnauttelu_s: 22, syotto_s: 17, pujottelu_s: 16, kuljetus_laukaus_s: 14 } },
+    ];
     const r = tavoiteRadarAkselit(team);
+    expect(r).not.toBeNull();
     expect(r.tyyppi).toBe('tk');
-    expect(r.akselit.map(a => a.kentta)).toEqual(['ponnauttelu', 'syotto', 'pujottelu']);
+    expect(r.akselit.length).toBeGreaterThanOrEqual(3);
+    expect(r.akselit.map(a => a.kentta)).toEqual(['ponnauttelu_s', 'syotto_s', 'pujottelu_s', 'kuljetus_laukaus_s']);
+    // laji-id (ilman _s) tkLajiTaso:a varten — muutoin TK-akselit piirtyisivät raakasekunteina.
+    expect(r.akselit.map(a => a.laji)).toEqual(['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus']);
+    expect(r.akselit.find(a => a.laji === 'ponnauttelu').raakaKa).toBe(21);   // (20+22)/2
   });
   it('hh voittaa tk:n kun molempia dataa (data-adaptiivinen prioriteetti)', () => {
     const team = [{ hh_viimeisin: { lin5m: 1.1, lin10m: 2.0, lin30m: 5.0 }, tk_lajit_viimeisin: { ponnauttelu: 20 } }];
