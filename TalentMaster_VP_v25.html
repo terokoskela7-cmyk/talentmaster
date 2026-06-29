@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=37"></script>
+<script src="lib/tm_eerikkila_normit.js?v=38"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <style>
@@ -4409,6 +4409,8 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
 
 function avaaJoukkueSyvanakyma(joukkueNimi) {
   const vanha = document.getElementById('_jsvModal'); if (vanha) vanha.remove();
+  // #76: uusi joukkue avattuna → nollaa kohortti "Koko joukkue" (kohortti-vaihto re-renderöi saman joukkueen → ei nollaa).
+  if (window._jsvJoukkue !== joukkueNimi) window._jsvKohortti = 'kaikki';
   const pelaajat = _pelaajat.filter(p => (p.joukkue || 'Tuntematon') === joukkueNimi);
   const n = pelaajat.length;
   const jescNimi = String(joukkueNimi).replace(/['"\\]/g, '');
@@ -4417,6 +4419,15 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   pelaajat.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
   window._jsvPelaajat = pelaajat;
   window._jsvJoukkue = joukkueNimi;
+
+  // ── Kohortti-valitsin (#76): aggregaatit (hero/radar/KPI/jakauma/nostot) lasketaan VALITULLE kohortille.
+  // Komposiitti kokonaistaso (valitseKohortti §76) → vakaa talenttiydin. Pelaajat-taulukko näyttää koko rosterin (ydin korostettuna).
+  if (!window._jsvKohortti) window._jsvKohortti = 'kaikki';
+  const _kohortti = window._jsvKohortti;
+  const KP = (typeof valitseKohortti === 'function') ? valitseKohortti(pelaajat, _kohortti) : pelaajat;   // aggregaattipooli
+  const kn = KP.length;
+  const _kohAvain = p => p.id || p._id || ((p.etunimi || '') + ' ' + (p.sukunimi || ''));
+  const _kohorttiIds = new Set(KP.map(_kohAvain));
 
   // ── Välilehti 1: PELAAJAT (monidimensiotaulukko — rivi klikattava → Kerros 2 pikakatsaus) ──
   let t1;
@@ -4466,7 +4477,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
       if ((p.adar_havaintoja||0) >= 3 && adarY != null) _ch.push('<span class="dpk-chip">ADAR ' + adarY + '/12</span>');
       var _kortti = (_ch.length ? _ch.join('') : '<span style="color:var(--ink3);font-size:11px">Ei mittauksia vielä</span>') + '<span class="dpk-arrow">→</span>';
       t1 += '<tr class="dimpop-prow" style="border-top:.5px solid var(--border);cursor:pointer" onclick="_avaaPerPelaajaPikakatsaus(' + idx + ',\'' + jescNimi + '\')">'
-        + '<td class="dimpop-pname" style="padding:7px 8px;color:var(--ink)">' + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + ' ' + _vpRaeChip(p) + '<div class="dimpop-pmeta">' + _kortti + '</div></td>'
+        + '<td class="dimpop-pname" style="padding:7px 8px;color:var(--ink)">' + ((_kohortti !== 'kaikki' && _kohorttiIds.has(_kohAvain(p))) ? '<span title="Talenttiydin" style="color:var(--teal);margin-right:3px">●</span>' : '') + _jsvEsc((p.sukunimi||'') + ', ' + (p.etunimi||'')) + ' ' + _vpRaeChip(p) + '<div class="dimpop-pmeta">' + _kortti + '</div></td>'
         + '<td class="dimpop-pcol" style="padding:7px 8px">' + (hh != null ? '<span style="color:' + hhTasoVari(hh) + ';font-family:var(--font-m)">' + hh + '</span>' : '<span style="color:var(--ink3)">—</span>') + '</td>'
         + '<td class="dimpop-pcol" style="padding:7px 8px">' + (p.d1_taso != null ? '<span style="color:' + hhTasoVari(p.d1_taso) + ';font-family:var(--font-m)">' + p.d1_taso + '</span>' : '<span style="color:var(--ink3)">—</span>') + '</td>'
         + '<td class="dimpop-pcol" style="padding:7px 8px;font-family:var(--font-m)">' + teknSolu + '</td>'
@@ -4478,35 +4489,31 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
     if (_tsiFootnote) t1 += '<div class="pop-footnote">¹ SM-testi (Eerikkilä) — TKI tulossa</div>';
   }
 
-  // ── Hero: joukkueen dimensiokeskiarvot D1/D2/D4 (1–5) ──
-  const _teamD2Lahde = pelaajat.some(function(p){ return p.tki_viimeisin != null; }) ? 'tki'
-                     : pelaajat.some(function(p){ return p.d2_taso != null; }) ? 'sm' : null;
+  // ── Hero: kohortin dimensiokeskiarvot D1/D2/D4 (1–5) — KP = valittu kohortti (#76) ──
+  const _teamD2Lahde = KP.some(function(p){ return p.tki_viimeisin != null; }) ? 'tki'
+                     : KP.some(function(p){ return p.d2_taso != null; }) ? 'sm' : null;
   const teamHero = _dimHero(
-    _dimKa(pelaajat.map(p => p.hh_taso)),
-    _dimKa(pelaajat.map(p => laskeD2Taso(p))),
-    _dimKa(pelaajat.map(p => _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht))),
+    _dimKa(KP.map(p => p.hh_taso)),
+    _dimKa(KP.map(p => laskeD2Taso(p))),
+    _dimKa(KP.map(p => _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht))),
     _teamD2Lahde
   );
 
-  // ── Välilehti 2: TUKI (gap-järjestys + harjoitusryhmäjako + aito taantuma -merkki, VAIHE 1 B) ──
-  let t2 = _jsvTukiHTML(pelaajat, joukkueNimi, n);
+  // ── Välilehti 2–4: aggregaatit lasketaan KOHORTILLE (KP/kn). Pelaajat-taulukko (t1) = koko roster. ──
+  let t2 = _jsvTukiHTML(KP, joukkueNimi, kn);
+  let t3 = _jsvYhteenvetoHTML(KP, joukkueNimi, kn);
+  let t4 = _jsvTavoiteHTML(KP, joukkueNimi, kn);
 
-  // ── Välilehti 3: YHTEENVETO (A1 jakauma · A2 lajiprofiili · A3 lähellä merkkiä · A4 vauhti · A5 teema) ──
-  let t3 = _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n);
-
-  // ── Välilehti 4: TAVOITETASO (#67 — data-adaptiivinen, taso-3/TKI≥60-tavoite, §28-neutraali) ──
-  let t4 = _jsvTavoiteHTML(pelaajat, joukkueNimi, n);
-
-  // ── KPI- ja radar-data (vasen kolumni) ──
+  // ── KPI- ja radar-data (vasen kolumni) — kohortille ──
   const teamRadarDims = [
-    { key: 'D1', label: 'Fyysinen',   arvo: _dimKa(pelaajat.map(p => p.hh_taso)) },
-    { key: 'D2', label: 'Tekninen',   arvo: _dimKa(pelaajat.map(p => laskeD2Taso(p))), lahde: _teamD2Lahde },
-    { key: 'D3', label: 'Psyykkinen', arvo: _dimKa(pelaajat.map(p => p.d3_taso)) },
-    { key: 'D4', label: 'Peliäly',    arvo: _dimKa(pelaajat.map(p => _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht))) },
-    { key: 'D5', label: 'Sosiaal.',   arvo: _dimKa(pelaajat.map(p => p.d5_taso)) }
+    { key: 'D1', label: 'Fyysinen',   arvo: _dimKa(KP.map(p => p.hh_taso)) },
+    { key: 'D2', label: 'Tekninen',   arvo: _dimKa(KP.map(p => laskeD2Taso(p))), lahde: _teamD2Lahde },
+    { key: 'D3', label: 'Psyykkinen', arvo: _dimKa(KP.map(p => p.d3_taso)) },
+    { key: 'D4', label: 'Peliäly',    arvo: _dimKa(KP.map(p => _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht))) },
+    { key: 'D5', label: 'Sosiaal.',   arvo: _dimKa(KP.map(p => p.d5_taso)) }
   ];
   const _hhKa = teamRadarDims[0].arvo, _teknKa = teamRadarDims[1].arvo;
-  const _hgN = pelaajat.filter(function(p){ return _onTalenttisuositus(p); }).length;
+  const _hgN = KP.filter(function(p){ return _onTalenttisuositus(p); }).length;
   const _tIka = (function(){ const m = String(joukkueNimi).match(/(\d{1,2})/); return m ? parseInt(m[1], 10) : null; })();
   const _kehysT = _ikavaiheBanneri(_tIka);
   const _kpiRivi = function(nimi, arvo) {
@@ -4528,6 +4535,21 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   // HEADER (kiinteä ~48px)
   h += '<div class="jsv-header"><div class="jsv-title">' + _jsvEsc(joukkueNimi) + ' · ' + n + ' pelaajaa</div>'
     + '<button class="jsv-close" onclick="document.getElementById(\'_jsvModal\').remove()">×</button></div>';
+  // ── Kohortti-valitsin (#76) — suodattaa aggregaatit talenttiytimeen (komposiitti kokonaistaso). ──
+  const _KOH = [['paras', 'Paras'], ['top5', 'Top-5'], ['top10', 'Top-10'], ['kaikki', 'Koko joukkue']];
+  const _kohPillit = _KOH.map(function (k) {
+    const on = (_kohortti === k[0]);
+    return '<button onclick="_jsvVaihdaKohortti(\'' + k[0] + '\')" style="padding:3px 10px;font-size:11px;border-radius:20px;cursor:pointer;font-family:var(--font-sans);border:.5px solid '
+      + (on ? 'rgba(40,176,144,.5)' : 'var(--border)') + ';background:' + (on ? 'rgba(40,176,144,.18)' : 'transparent') + ';color:' + (on ? '#28B090' : 'var(--ink2)') + '">' + k[1] + '</button>';
+  }).join('');
+  let _kohLabel = '';
+  if (_kohortti !== 'kaikki' && kn) {
+    const _nimet = KP.slice(0, 6).map(function (p) { return _jsvEsc((p.sukunimi || '') || (p.etunimi || '')); }).join(' · ');
+    _kohLabel = '<div style="font-size:11px;color:var(--ink3);margin-top:5px">Talenttiydin (' + kn + '): ' + _nimet + (kn > 6 ? ' …' : '') + '</div>';
+  }
+  h += '<div style="padding:8px 16px;border-bottom:1px solid rgba(242,239,230,.08)">'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Kohortti</span>' + _kohPillit + '</div>'
+    + _kohLabel + '</div>';
   // BODY (kaksi kolumnia)
   h += '<div class="jsv-body">';
   // VASEN
@@ -4611,6 +4633,8 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   document.body.appendChild(modal);
 }
 window.avaaJoukkueSyvanakyma = avaaJoukkueSyvanakyma;
+// Kohortti-vaihto (#76): aseta tila + rakenna modaali uudelleen → kaikki aggregaatit valitulle kohortille.
+window._jsvVaihdaKohortti = function (k) { window._jsvKohortti = k; if (window._jsvJoukkue) avaaJoukkueSyvanakyma(window._jsvJoukkue); };
 
 // #3 (B1) — joukkue-bulk "Korjaa testipäivä" → korjaaJoukkueenTestipvm-CF (palvelinauktorisointi + audit).
 function _avaaKorjaaTestipvm() {
