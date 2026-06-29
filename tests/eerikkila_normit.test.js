@@ -30,6 +30,7 @@ const {
   laskeTaso3Osuus,
   tasoJakauma,
   tkiTavoiteJakauma,
+  tavoiteRadarAkselit,
   laskeHarjoituslaatuPalloliitto,
   laskeValmennustaitoIndeksi,
   laskeHarjoitusKalibraatio,
@@ -1190,5 +1191,39 @@ describe('tasoJakauma + tkiTavoiteJakauma (#67 Tavoitetaso-näkymä)', () => {
   });
   it('tkiTavoiteJakauma: tyhjä → osuus_pct null', () => {
     expect(tkiTavoiteJakauma([]).osuus_pct).toBeNull();
+  });
+});
+
+describe('tavoiteRadarAkselit (#73 per-testi-radar — akselivalinta + ka + collapse)', () => {
+  it('H-H-data → hh-akselit, vain mitatut, joukkueen raaka-ka', () => {
+    const team = [
+      { hh_viimeisin: { lin10m: 2.1, lin30m: 5.4, syotto: 40 } },
+      { hh_viimeisin: { lin10m: 2.0, lin30m: 5.2, syotto: 38 } },
+    ];
+    const r = tavoiteRadarAkselit(team);
+    expect(r.tyyppi).toBe('hh');
+    expect(r.akselit.map(a => a.kentta)).toEqual(['lin10m', 'lin30m', 'syotto']);
+    const lin30 = r.akselit.find(a => a.kentta === 'lin30m');
+    expect(lin30.raakaKa).toBe(5.3);   // (5.4+5.2)/2
+    expect(lin30.n).toBe(2);
+  });
+  it('TK-data (ei hh) → tk-lajiakselit', () => {
+    const team = [{ tk_lajit_viimeisin: { ponnauttelu: 20, syotto: 15, pujottelu: 18 } }];
+    const r = tavoiteRadarAkselit(team);
+    expect(r.tyyppi).toBe('tk');
+    expect(r.akselit.map(a => a.kentta)).toEqual(['ponnauttelu', 'syotto', 'pujottelu']);
+  });
+  it('hh voittaa tk:n kun molempia dataa (data-adaptiivinen prioriteetti)', () => {
+    const team = [{ hh_viimeisin: { lin5m: 1.1, lin10m: 2.0, lin30m: 5.0 }, tk_lajit_viimeisin: { ponnauttelu: 20 } }];
+    expect(tavoiteRadarAkselit(team).tyyppi).toBe('hh');
+  });
+  it('<3 mitattua akselia → null (collapse, kuten 5D-radar)', () => {
+    expect(tavoiteRadarAkselit([{ hh_viimeisin: { lin30m: 5.0 } }])).toBeNull();
+    expect(tavoiteRadarAkselit([{ hh_viimeisin: { lin30m: 5.0, cmj: 30 } }])).toBeNull();   // 2 akselia
+  });
+  it('ei mittausdataa → null', () => {
+    expect(tavoiteRadarAkselit([])).toBeNull();
+    expect(tavoiteRadarAkselit([{ etunimi: 'A' }])).toBeNull();
+    expect(tavoiteRadarAkselit(null)).toBeNull();
   });
 });
