@@ -3696,10 +3696,12 @@ async function tallennaKutsu() {
     console.error('Kutsu epäonnistui:', e);
     const virheViesti = e.code === 'already-exists' || e.message?.includes('already exists')
       ? 'Sähköpostiosoite on jo käytössä.'
-      : e.message?.includes('permission')
+      : (e.code === 'permission-denied' || e.message?.includes('permission'))
       ? 'Ei oikeuksia — tarkista että olet kirjautunut VP:nä tai sihteerinä.'
       : `Virhe: ${e.message}`;
     naytaVirhe(virheViesti);
+    // Toast — varmistaa että virhe näkyy vaikka #kutsuVirhe olisi näkymän ulkopuolella (ei hiljaista failia, #71).
+    naytaToast('Kutsu epäonnistui: ' + virheViesti, 'virhe');
     if (nappi) { nappi.disabled = false; nappi.textContent = 'Luo käyttäjätunnus'; }
   }
 }

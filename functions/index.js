@@ -12,6 +12,7 @@
 const functions = require('firebase-functions/v1');
 const admin     = require('firebase-admin');
 const https     = require('https');
+const { kayttajaRooliSallittu } = require('./authz_paatos');   // pure authz-päätös (#71, testattava)
 if (!admin.apps.length) {
   admin.initializeApp();
 }
@@ -115,9 +116,12 @@ async function tarkistaOikeus(kutsujaUid, kohdeSeuraId) {
     .collection('seurat').doc(kohdeSeuraId)
     .collection('kayttajat').doc(kutsujaUid).get();
   if (kayttajaDoc.exists) {
-    const rooli = kayttajaDoc.data().rooli;
-    if (['seura_admin','urheilutoimenjohtaja','seurasihteeri'].includes(rooli)) {
-      return { sallittu: true, rooli };
+    // VP mukaan: seuralla voi olla useita VP:itä, mutta vp_uid osoittaa vain yhteen (rivi 111).
+    // Ilman tätä seuran 2. VP ei saa kutsu-/reset-/muistutusoikeuksia. (Sibbo-bugi 2026-06-29.)
+    // Pure päätös (testattava) eristetty → ./authz_paatos (deaktivoitu vp = ei oikeuksia).
+    const sallittuRooli = kayttajaRooliSallittu(kayttajaDoc.data());
+    if (sallittuRooli) {
+      return { sallittu: true, rooli: sallittuRooli };
     }
   }
   return { sallittu: false, rooli: null };
