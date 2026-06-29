@@ -16,6 +16,7 @@ const {
   eerikkilaNormiarvo,
   laskeTSI,
   normSukupuoliMN,
+  onNeutraaliPrePHV,
   laskeD1Joustava,
   laskeD1Osaindeksit,
   laskeJoukkuePoikkeamat,
@@ -229,7 +230,7 @@ describe('laskeD1Joustava (D1 fyysinen, ka saatavilla olevista)', () => {
     const r = laskeD1Joustava({ lin10m: 2.0, lin30m: 5.0 }, 10, 'M');
     expect(r.lahde).toBe('hh');
     expect(r.kattavuus).toBe(2);
-    expect(r.maxKattavuus).toBe(6);
+    expect(r.maxKattavuus).toBe(7);   // lin5m,lin10m,lin30m,cmj,mas,kasirata,sm_juoksu (sm_juoksu lisätty Vaihe B §8.4)
     expect(r.taso).toBeGreaterThan(0);
   });
   it('sm_pallo (tekniikka) EI lasketa D1:een', () => {
@@ -1083,5 +1084,20 @@ describe('Excel-tuonti sp-skooppi (regressio: 0/0 Pallo-Iirot P11)', () => {
     const hh = { lin10m: 2.1, lin30m: 5.4 };
     expect(laskeD1Joustava(hh, 10, null)).toBeNull();
     expect(laskeD2HH({ syotto: 49.8, pujottelu: 34.6 }, 10, null)).toBeNull();
+  });
+});
+
+describe('Kehitysvaihe-neutraalius (Vaihe B, §28 + Eerikkilä §8.1)', () => {
+  it('onNeutraaliPrePHV: P11 ilman PHV-dataa = pre-PHV (neutraali)', () => {
+    expect(onNeutraaliPrePHV({ joukkue:'Pallo-Iirot P11', syntymaVuosi:2015, hh_pvm:'2026-02-08' })).toBe(true);
+    expect(onNeutraaliPrePHV({ phv_tila:'PRE' })).toBe(true);
+    expect(onNeutraaliPrePHV({ phv_tila:'POST' })).toBe(false);
+    expect(onNeutraaliPrePHV({ joukkue:'SJK P15', syntymaVuosi:2011, hh_pvm:'2026-02-08' })).toBe(false); // 15v
+  });
+  it('laskeD1Joustava sisältää sm_juoksun (kattavuus kasvaa)', () => {
+    const hh = { lin10m:2.1, lin30m:5.4, sm_juoksu:9.0 };
+    const d1 = laskeD1Joustava(hh, 11, 'M');
+    expect(d1).not.toBeNull();
+    expect(d1.kattavuus).toBe(3);   // 10m + 30m + sm_juoksu
   });
 });

@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=29"></script>
+<script src="lib/tm_eerikkila_normit.js?v=30"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
@@ -4977,11 +4977,19 @@ function _buildTSIDetail(p) {
           : (juoksu != null && pallo != null) ? Math.round((pallo - juoksu) * 100) / 100 : null;
   let tulkinta = '—', vari = 'var(--ink3)', suositus = '';
   if (t != null) {
-    if (t <= 0)       { tulkinta = '🔥 Pallo nopeuttaa ' + Math.abs(t).toFixed(2) + 's'; vari = 'var(--teal)'; suositus = 'Ylläpidä — pallollinen nopeus on pallotonta parempi.'; }
-    else if (t <= 0.5){ tulkinta = '✅ Tekninen vapaus (' + t.toFixed(2) + 's)';         vari = 'var(--teal)'; suositus = 'Ylläpidä — pallo hidastaa alle tavoiterajan.'; }
-    else if (t <= 1.0){ tulkinta = 'Kehitettävä — pallo hidastaa ' + t.toFixed(2) + 's';  vari = 'var(--amber)'; suositus = 'Päivittäinen pallokuljetus vauhdissa — sama rata pallolla ja ilman.'; }
-    else if (t <= 1.5){ tulkinta = '⚠️ Pallo hidastaa ' + t.toFixed(2) + 's';             vari = 'var(--red)';   suositus = 'Prioriteetti: pallokuljetus täydessä vauhdissa joka päivä.'; }
-    else              { tulkinta = '🔴 Kriittinen — pallo hidastaa ' + t.toFixed(2) + 's, tekniikkatyö välttämätön'; vari = 'var(--red)'; suositus = 'Kriittinen: päivittäinen pallonkäsittely vauhdissa + tekninen perustyö joka päivä.'; }
+    // ≤12 / pre-PHV: nopeus + pallonkäsittely vauhdissa kehittyy → kehityskieli, EI punaista "Kriittinen" (§7.22, §8.3 Philippaerts).
+    if (typeof onNeutraaliPrePHV === 'function' && onNeutraaliPrePHV(p)) {
+      if      (t <= 1.5) { tulkinta = '🟢 Ikätasoa edellä (' + t.toFixed(2) + 's)'; vari = 'var(--teal)'; suositus = 'Ylläpidä — pallonkäsittely vauhdissa on ikätasoa edellä.'; }
+      else if (t <= 3.0) { tulkinta = '🟢 Ikätasoa (' + t.toFixed(2) + 's)';        vari = 'var(--teal)'; suositus = 'Jatka monipuolista pallokuljetusta vauhdissa — kehittyy luonnostaan tässä iässä.'; }
+      else               { tulkinta = '🔵 Kehityskohde — pallonkäsittely vauhdissa (' + t.toFixed(2) + 's)'; vari = 'var(--blue)'; suositus = 'Päivittäinen pallokuljetus vauhdissa — sama rata pallolla ja ilman.'; }
+    } else {
+      // post-PHV: nykyiset rajat 0.5 / 1.0 / 1.5 ennallaan
+      if (t <= 0)       { tulkinta = '🔥 Pallo nopeuttaa ' + Math.abs(t).toFixed(2) + 's'; vari = 'var(--teal)'; suositus = 'Ylläpidä — pallollinen nopeus on pallotonta parempi.'; }
+      else if (t <= 0.5){ tulkinta = '✅ Tekninen vapaus (' + t.toFixed(2) + 's)';         vari = 'var(--teal)'; suositus = 'Ylläpidä — pallo hidastaa alle tavoiterajan.'; }
+      else if (t <= 1.0){ tulkinta = 'Kehitettävä — pallo hidastaa ' + t.toFixed(2) + 's';  vari = 'var(--amber)'; suositus = 'Päivittäinen pallokuljetus vauhdissa — sama rata pallolla ja ilman.'; }
+      else if (t <= 1.5){ tulkinta = '⚠️ Pallo hidastaa ' + t.toFixed(2) + 's';             vari = 'var(--red)';   suositus = 'Prioriteetti: pallokuljetus täydessä vauhdissa joka päivä.'; }
+      else              { tulkinta = '🔴 Kriittinen — pallo hidastaa ' + t.toFixed(2) + 's, tekniikkatyö välttämätön'; vari = 'var(--red)'; suositus = 'Kriittinen: päivittäinen pallonkäsittely vauhdissa + tekninen perustyö joka päivä.'; }
+    }
   }
   // VAIHE 1 — TSI-delta (tsi_edellinen pikakenttä, pvm-vahti tuonnissa) + vyöhykesiirtymä. String concat (§7.1).
   let _tsiDelta = '';
