@@ -33,6 +33,7 @@ const {
   tavoiteRadarAkselit,
   painopisteOminaisuus,
   kattavuusVajeet,
+  valitseKohortti,
   laskeHarjoituslaatuPalloliitto,
   laskeValmennustaitoIndeksi,
   laskeHarjoitusKalibraatio,
@@ -1290,5 +1291,26 @@ describe('painopisteOminaisuus + kattavuusVajeet (#75 kevennetty Yhteenveto)', (
   it('kattavuusVajeet: kaikki 100% → tyhjä; n=0 → tyhjä', () => {
     expect(kattavuusVajeet({ pelihavainto: 5, suostumus: 5, phv: 5 }, 5)).toEqual([]);
     expect(kattavuusVajeet({ pelihavainto: 0 }, 0)).toEqual([]);
+  });
+});
+
+describe('valitseKohortti (#76 — kohortti-valitsin, komposiitti kokonaistaso)', () => {
+  const mk = (nimi, d1) => ({ sukunimi: nimi, d1_taso: d1 });
+  const team = [mk('A', 2), mk('B', 5), mk('C', 4), mk('D', 1), mk('E', 3), mk('F', null)];
+  it('järjestää komposiitti kokonaistasolla laskevasti; rankaamattomat (ei tasoa) pois', () => {
+    expect(valitseKohortti(team, 'top5').map(p => p.sukunimi)).toEqual(['B', 'C', 'E', 'A', 'D']);
+  });
+  it('paras → 1 (vakain talenttiydin)', () => {
+    expect(valitseKohortti(team, 'paras').map(p => p.sukunimi)).toEqual(['B']);
+  });
+  it('top10 / alle-N → kaikki rankatut (ei kaadu, F null pois)', () => {
+    expect(valitseKohortti(team, 'top10').length).toBe(5);
+  });
+  it('kaikki → koko roster (myös rankaamattomat)', () => {
+    expect(valitseKohortti(team, 'kaikki').length).toBe(6);
+  });
+  it('tyhjä/null → []', () => {
+    expect(valitseKohortti([], 'top5')).toEqual([]);
+    expect(valitseKohortti(null, 'paras')).toEqual([]);
   });
 });
