@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=33"></script>
+<script src="lib/tm_eerikkila_normit.js?v=34"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <style>
@@ -4243,15 +4243,29 @@ function _jsvTkiBarit(b, nn) {
       + '<span class="jsv-hist-n">' + r[1] + '</span></div>';
   }).join('');
 }
+// Per-testi-radarin taso 1–5 (#73): hh → eerikkilaTaso (syöttö/pujottelu 3-port → 1–5: (t-1)*2+1, kuten laskeD2HH);
+// tk → tkLajiTaso (§34, P/T-avaimet). mas km/h → m/s (÷3.6). spMN = M/N eerikkilälle, spPT = P/T tkLajiTaso:lle.
+const _JSV_HH_EK = { lin5m: ['nopeus_5m', false], lin10m: ['nopeus_10m', false], lin30m: ['nopeus_30m', false],
+  sm_juoksu: ['sm_juoksu', false], sm_pallo: ['sm_pallo', false], cmj: ['hyppy_cj', false], mas: ['mas', true], kasirata: ['kasirata', false] };
+function _jsvRadarTaso(tyyppi, kentta, raakaKa, ika, spMN, spPT) {
+  if (raakaKa == null || isNaN(raakaKa)) return null;
+  if (tyyppi === 'tk') return (typeof tkLajiTaso === 'function' && ika != null) ? tkLajiTaso(kentta, raakaKa, ika, spPT) : null;
+  if (typeof eerikkilaTaso !== 'function') return null;
+  if (kentta === 'syotto' || kentta === 'pujottelu') { const t3 = eerikkilaTaso(raakaKa, kentta, ika, spMN); return t3 ? (t3 - 1) * 2 + 1 : null; }
+  const ek = _JSV_HH_EK[kentta]; if (!ek) return null;
+  const t = eerikkilaTaso(ek[1] ? raakaKa / 3.6 : raakaKa, ek[0], ika, spMN); return t || null;
+}
 function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
   if (!n) return '<div class="jsv-an-tyhja">Ei pelaajia</div>';
   if (typeof tasoJakauma !== 'function') return '<div class="jsv-an-tyhja">Tavoitetaso-data ei käytettävissä (kirjasto lataamatta).</div>';
   const ts = _jsvJoukkueIkaSp(joukkueNimi), teamIka = ts.ika, teamSp = ts.sp;
+  // eerikkilaTaso/laskeD1Osaindeksit/laskeD2HH odottavat M/N (P/T → tytöt-taulukko = väärä). tkLajiTaso käyttää P/T.
+  const teamSpMN = (teamSp === 'T') ? 'N' : 'M';   // §73-korjaus: #67 välitti P/T → pojat arvioitiin tyttönormeilla
   const nopeus = [], ketteryys = [], teknTaso = [], teknTki = [];
   const teknLahteet = {};
   let viimPvm = '';
   pelaajat.forEach(function (p) {
-    const ika = _jsvPelaajaIka(p, teamIka), sp = teamSp;
+    const ika = _jsvPelaajaIka(p, teamIka), sp = teamSpMN;
     const hv = p.hh_viimeisin || {};
     if (hv.lin30m != null && typeof eerikkilaTaso === 'function' && ika != null) {
       const t = eerikkilaTaso(hv.lin30m, 'nopeus_30m', ika, sp); if (t) nopeus.push(t);
@@ -4290,7 +4304,27 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
       + _jsvTasoBarit(jak.jakauma, jak.n);
   };
 
-  let h = '<div class="jsv-an-huom" style="margin:0 0 10px">Tavoite = ikäluokan keskitaso (taso 3) tai TKI ≥60. §28: pre-PHV matala fyysinen on biologisesti odotettua — kehityskieli, ei puute.</div>';
+  // ── Per-testi-radar (#73, MyEWay-pariteetti) — joukkueen ka. per testi (taso 1–5) + tavoiterengas taso 3. ──
+  // Data-adaptiivinen akselijoukko (H-H vs TK) eristetty lib:iin (tavoiteRadarAkselit). <3 akselia → ohita (kuten 5D-radar).
+  // EI kosketa vasemman laidan 5D-dimensioradaria (_tmRadar5D KPI-kolumnissa) — tämä on per-testi-rakeisuus.
+  let radarHtml = '';
+  const _radarAks = (typeof tavoiteRadarAkselit === 'function') ? tavoiteRadarAkselit(pelaajat) : null;
+  if (_radarAks && _radarAks.akselit.length >= 3) {
+    const dims = _radarAks.akselit.map(function (a) {
+      const taso = _jsvRadarTaso(_radarAks.tyyppi, a.kentta, a.raakaKa, teamIka, teamSpMN, teamSp);
+      return { key: a.key, label: '', arvo: (taso != null && taso > 0) ? Math.round(taso * 10) / 10 : null };
+    });
+    const toggle = '<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">'
+      + '<button class="jsv-tav-toggle on" style="padding:4px 11px;font-size:11px;border:.5px solid rgba(40,176,144,.5);background:rgba(40,176,144,.18);color:#28B090;border-radius:5px;cursor:default;font-family:var(--font-sans)">Ikäluokka</button>'
+      + '<button class="jsv-tav-toggle" disabled title="Edellyttää PHV-mittausta" style="padding:4px 11px;font-size:11px;border:.5px solid var(--border);background:transparent;color:var(--ink3);border-radius:5px;cursor:not-allowed;font-family:var(--font-sans)">🔒 Kehitysvaihe</button>'
+      + '</div>';
+    radarHtml = '<div class="jsv-an-otsikko" style="margin-top:2px">Per-testi-profiili (joukkueen ka.)</div>'
+      + toggle
+      + '<div class="jsv-radar" style="max-height:300px">' + window._tmRadar5D(dims, { referenssi: 3, referenssiVari: 'var(--blue)' }) + '</div>'
+      + '<div class="jsv-an-rivi" style="font-size:11px;color:var(--ink3);margin:-2px 0 12px;text-align:center"><span style="color:var(--teal)">●</span> joukkueen ka. · <span style="color:var(--blue)">– –</span> tavoite (taso 3)</div>';
+  }
+
+  let h = radarHtml + '<div class="jsv-an-huom" style="margin:0 0 10px">Tavoite = ikäluokan keskitaso (taso 3) tai TKI ≥60. §28: pre-PHV matala fyysinen on biologisesti odotettua — kehityskieli, ei puute.</div>';
   h += _omRivi('Nopeus (30 m)', nopeus, '30 m juoksu', fysSuunta);
   h += _omRivi('Suunnanmuutos', ketteryys, 'ketteryys (kasirata + sm-juoksu)', fysSuunta);
 
@@ -4319,7 +4353,7 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
   // ── Kolme nostoa ──
   // 1) Lähimpänä tavoitetta: pelaajat joiden mitattujen ominaisuuksien ka < 3 mutta lähimpänä (pienin vaje), top 3.
   const _pLvl = function (p) {
-    const ika = _jsvPelaajaIka(p, teamIka), sp = teamSp, hv = p.hh_viimeisin || {}, lvls = [];
+    const ika = _jsvPelaajaIka(p, teamIka), sp = teamSpMN, hv = p.hh_viimeisin || {}, lvls = [];
     if (hv.lin30m != null && typeof eerikkilaTaso === 'function' && ika != null) { const t = eerikkilaTaso(hv.lin30m, 'nopeus_30m', ika, sp); if (t) lvls.push(t); }
     if (typeof laskeD1Osaindeksit === 'function' && ika != null) { const oi = laskeD1Osaindeksit(hv, ika, sp); if (oi && oi.ketteryys != null) lvls.push(oi.ketteryys); }
     if (typeof laskeD2Joustava === 'function') { const d2 = laskeD2Joustava(p, ika, sp); if (d2) lvls.push(d2.lahde === 'tki' && p.tki_viimeisin != null ? (p.tki_viimeisin >= 60 ? 3.5 : p.tki_viimeisin / 20) : d2.taso); }
@@ -4681,7 +4715,8 @@ window._tmInfo = function(avain) {
 
 // ── 5D-tutkakaavio (profiilikartta) — kevyt SVG, ei kirjastoja. dims=[{key,label,arvo(0–5|null),lahde?}] N=5.
 // Akselit: D1 ylhäällä, myötäpäivään. Puuttuvat ulottuvuudet → "tulossa", ei pistettä. Katkoviiva = profiili kesken.
-window._tmRadar5D = function(dims) {
+window._tmRadar5D = function(dims, opts) {
+  opts = opts || {};
   const N = dims.length;
   // Väljempi viewBox (360×300) + pienempi verkko (R=86) → dimensiolabelit + arvot mahtuvat
   // reunoille törmäämättä; svg skaalautuu containeriin (mobiilissa .jsv-radar max-width).
@@ -4694,6 +4729,12 @@ window._tmRadar5D = function(dims) {
     let pts = '';
     for (let i = 0; i < N; i++) { const xy = pt(i, L); pts += (i ? ' ' : '') + xy[0].toFixed(1) + ',' + xy[1].toFixed(1); }
     svg += '<polygon points="' + pts + '" fill="none" stroke="rgba(255,255,255,' + (L === 5 ? '.22' : '.09') + ')" stroke-width="' + (L === 5 ? 1 : 0.5) + '"/>';
+  }
+  // Valinnainen tavoiterengas (#73): katkoviiva annetulla tasolla (esim. taso 3) kaikilla akseleilla.
+  if (opts.referenssi != null) {
+    let rp = '';
+    for (let i = 0; i < N; i++) { const xy = pt(i, opts.referenssi); rp += (i ? ' ' : '') + xy[0].toFixed(1) + ',' + xy[1].toFixed(1); }
+    svg += '<polygon points="' + rp + '" fill="none" stroke="' + (opts.referenssiVari || 'var(--blue)') + '" stroke-width="1" stroke-dasharray="4 3"/>';
   }
   // Akselilinjat + skaalanumerot D1-akselille (ylös)
   for (let i = 0; i < N; i++) {
