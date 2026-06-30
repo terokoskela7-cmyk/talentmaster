@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { tmNormJoukkueAvain, tmKanonisoiJoukkue, tmPuhdistaJoukkueetIdt } = require('../lib/tm_joukkue.js');
+const { tmNormJoukkueAvain, tmKanonisoiJoukkue, tmPuhdistaJoukkueetIdt, lajitteleJoukkueetIkaluokittain } = require('../lib/tm_joukkue.js');
 
 const NBSP = ' ', ZWSP = '​', ZWNJ = '‌', BOM = '﻿';
 
@@ -86,5 +86,28 @@ describe('tmPuhdistaJoukkueetIdt (#92b — joukkueet[] vain kanoniset id:t)', ()
     expect(tmPuhdistaJoukkueetIdt(['sjk_p15', 'SJK P15'], new Set(validIdt), 'SJK P15', lista)).toEqual(['sjk_p15']);
     expect(tmPuhdistaJoukkueetIdt(null, validIdt, null, lista)).toEqual([]);
     expect(tmPuhdistaJoukkueetIdt(undefined, validIdt, '', lista)).toEqual([]);
+  });
+});
+
+describe('lajitteleJoukkueetIkaluokittain (#70 — kronologinen järjestys)', () => {
+  it('P ennen T, ikä nouseva (korjaa P10<P16<P8 -aakkosbugin)', () => {
+    const inp = [{ nimi: 'SJK T14' }, { nimi: 'SJK P8' }, { nimi: 'SJK P16' }, { nimi: 'SJK P10' }, { nimi: 'SJK T8' }, { nimi: 'SJK P14' }];
+    expect(lajitteleJoukkueetIkaluokittain(inp).map(j => j.nimi))
+      .toEqual(['SJK P8', 'SJK P10', 'SJK P14', 'SJK P16', 'SJK T8', 'SJK T14']);
+  });
+  it('U-joukkueet P/T:n jälkeen; tunnistamaton ikä loppuun', () => {
+    const inp = [{ nimi: 'Akatemia' }, { nimi: 'U15' }, { nimi: 'P12' }, { nimi: 'T12' }];
+    expect(lajitteleJoukkueetIkaluokittain(inp).map(j => j.nimi)).toEqual(['P12', 'T12', 'U15', 'Akatemia']);
+  });
+  it('vuosi-kenttä (ei ikää nimessä) → nuorin (suurin vuosi) ensin', () => {
+    const inp = [{ nimi: 'Ryhmä A', vuosi: 2012 }, { nimi: 'Ryhmä B', vuosi: 2015 }];
+    expect(lajitteleJoukkueetIkaluokittain(inp).map(j => j.nimi)).toEqual(['Ryhmä B', 'Ryhmä A']);
+  });
+  it('ei mutatoi alkuperäistä taulukkoa; tyhjä/null → []', () => {
+    const inp = [{ nimi: 'P14' }, { nimi: 'P8' }];
+    lajitteleJoukkueetIkaluokittain(inp);
+    expect(inp.map(j => j.nimi)).toEqual(['P14', 'P8']);   // alkuperäinen ennallaan
+    expect(lajitteleJoukkueetIkaluokittain([])).toEqual([]);
+    expect(lajitteleJoukkueetIkaluokittain(null)).toEqual([]);
   });
 });

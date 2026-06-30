@@ -10,13 +10,15 @@ describe('kayttajaRooliSallittu (#71 — seuran kaikki VP:t tunnistetaan)', () =
     expect(kayttajaRooliSallittu({ rooli: 'vp', aktiivinen: true })).toBe('vp');
   });
   it('johtoroolit → sallittu', () => {
-    expect(kayttajaRooliSallittu({ rooli: 'seura_admin' })).toBe('seura_admin');
     expect(kayttajaRooliSallittu({ rooli: 'urheilutoimenjohtaja' })).toBe('urheilutoimenjohtaja');
     expect(kayttajaRooliSallittu({ rooli: 'seurasihteeri' })).toBe('seurasihteeri');
   });
+  it('seura_admin → EI oikeuksia (#72: haamurooli poistettu)', () => {
+    expect(kayttajaRooliSallittu({ rooli: 'seura_admin' })).toBeNull();
+    expect(SALLITUT_KAYTTAJA_ROOLIT).not.toContain('seura_admin');
+  });
   it('deaktivoitu vp → ei oikeuksia (aktiivinen === false)', () => {
     expect(kayttajaRooliSallittu({ rooli: 'vp', aktiivinen: false })).toBeNull();
-    expect(kayttajaRooliSallittu({ rooli: 'seura_admin', aktiivinen: false })).toBeNull();
   });
   it('valmentaja / muu operatiivinen rooli → ei oikeuksia', () => {
     expect(kayttajaRooliSallittu({ rooli: 'valmentaja' })).toBeNull();

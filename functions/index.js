@@ -381,7 +381,7 @@ exports.lahetaMuistutukset = functions
     if (!seuraId) {
       throw new functions.https.HttpsError('invalid-argument', 'seuraId on pakollinen.');
     }
-    // authz — sama kuin lahetaHuoltajaKutsu (SA/VP/seurasihteeri/UTJ/seura_admin oma seura)
+    // authz — sama kuin lahetaHuoltajaKutsu (SA/VP/seurasihteeri/UTJ oma seura)
     const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
     if (!oikeus.sallittu) {
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
@@ -680,7 +680,7 @@ exports.vaihdaKayttajanRooli = functions
       throw new functions.https.HttpsError('invalid-argument', `Virheellinen rooli: ${uusiRooli}`);
     }
 
-    // 1. Oikeustarkistus — vain SA, VP tai seura_admin (sama tarkistaOikeus kuin muualla)
+    // 1. Oikeustarkistus — vain SA, VP, UTJ tai seurasihteeri (sama tarkistaOikeus kuin muualla)
     const oikeus = await tarkistaOikeus(kutsujaUid, seuraId);
     if (!oikeus.sallittu) {
       throw new functions.https.HttpsError('permission-denied', `Ei oikeuksia seuralle "${seuraId}".`);
@@ -732,7 +732,7 @@ exports.vaihdaKayttajanRooli = functions
 // korjaaJoukkueenTestipvm — bulk-korjaa joukkueen testipäivä (väärin tuotu historiadata).
 // Authz palvelimella (Admin SDK ohittaa client-Rulesin, joten toimii myös VP/seurasihteerille
 // joilla ei ole client-pelaajat-update-oikeutta): super-admin / vp / seurasihteeri / UTJ /
-// seura_admin (tarkistaOikeus) TAI testivastaava. Päivittää pvm-pikakentät joukkueen pelaajille,
+// johto (tarkistaOikeus) TAI testivastaava. Päivittää pvm-pikakentät joukkueen pelaajille,
 // VAIN kentät jotka pelaajalla jo on (ei luo uutta tsi_pvm:ää TSI-testaamattomalle). Audit-jälki.
 // data: { seuraId, joukkue, testityyppi: 'hh'|'tki'|'flei', uusiPvm: 'YYYY-MM-DD', vanhaPvm? }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -758,7 +758,7 @@ exports.korjaaJoukkueenTestipvm = functions
     }
 
     const kutsujaUid = context.auth.uid;
-    // 1. Auktorisointi — tarkistaOikeus (super-admin/vp/seurasihteeri/UTJ/seura_admin) + testivastaava.
+    // 1. Auktorisointi — tarkistaOikeus (super-admin/vp/seurasihteeri/UTJ) + testivastaava.
     const oikeus = await tarkistaOikeus(kutsujaUid, seuraId);
     let sallittu = oikeus.sallittu, rooli = oikeus.rooli;
     if (!sallittu) {

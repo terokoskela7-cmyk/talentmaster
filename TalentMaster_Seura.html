@@ -14,7 +14,7 @@
 <!-- Excel-tuonti: SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
-<script src="lib/tm_joukkue.js?v=2"></script>
+<script src="lib/tm_joukkue.js?v=3"></script>
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
 
 <style>
@@ -1344,10 +1344,11 @@ async function asetaAktiivinenSeura(seuraId) {
     .collection('joukkueet')
     // Järjestys client-puolella — ei vaadi Firestore-indeksiä
     .onSnapshot(snap => {
-      tila.joukkueet = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (a.jarjestys ?? 99) - (b.jarjestys ?? 99)
-          || (a.nimi || '').localeCompare(b.nimi || ''));
+      // #70: kronologinen järjestys (ikäluokka nuorimmasta vanhimpaan) — yhtenäinen kaikissa listoissa/dropdowneissa.
+      const _jt = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      tila.joukkueet = (typeof lajitteleJoukkueetIkaluokittain === 'function')
+        ? lajitteleJoukkueetIkaluokittain(_jt)
+        : _jt.sort((a, b) => (a.nimi || '').localeCompare(b.nimi || ''));
       // Päivitä joukkuevalitsin modalissa
       paivitaJoukkueValitsin();
       // Päivitä näkymä jos joukkueet-välilehti auki
@@ -3689,7 +3690,11 @@ async function tallennaKutsu() {
     document.getElementById('kutsuLomake').style.display = 'none';
     document.getElementById('kutsuTulos').style.display  = 'block';
 
-    naytaToast(`${etunimi} ${sukunimi} lisätty!`, 'ok');
+    // #70: selkeä "Kutsu lähetetty ✅" -vahvistus (pvm/klo) — heijastaa lähtikö sähköposti (data.emailSent).
+    const _kutsuKlo = new Date().toLocaleString('fi-FI', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+    naytaToast(data.emailSent
+      ? '✅ Kutsu lähetetty — ' + etunimi + ' ' + sukunimi + ' · ' + _kutsuKlo
+      : '✔ ' + etunimi + ' ' + sukunimi + ' lisätty · jaa linkki manuaalisesti', 'ok');
 
     // Päivitä henkilöstölista taustalla
     renderHenkilosto(document.getElementById('nakymaAlue'));
