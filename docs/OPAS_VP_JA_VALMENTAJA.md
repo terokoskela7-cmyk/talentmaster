@@ -1,8 +1,14 @@
 # TalentMaster™ — Pelikirja valmennuspäällikölle ja valmentajalle
 
 > Käyttöönotto-opas pilottiseuroille. Tavoite: että data alkaa **elää** ja hyödyttää arjen toimintaa.
-> Kohde: valmennuspäällikkö (VP) + valmentaja. Versio 2026-06-23. Sisältö = pohja sekä jaettavalle
+> Kohde: valmennuspäällikkö (VP) + valmentaja. Versio 2026-06-29. Sisältö = pohja sekä jaettavalle
 > onboarding-materiaalille että in-app-aloitusoppaalle (Vaihe 2).
+>
+> **Päivitys 2026-06-29 (verifioitu live):** joukkueen syvänäkymä on nyt nelivälilehtinen (Pelaajat ·
+> Tuki · Yhteenveto · **Tavoitetaso**), mukana **per-testi-radar + taso-3-tavoite** (MyEWay-tyylinen),
+> **kohortti-valitsin** (Paras / Top-5 / Top-10 / Koko joukkue) ja kevennetty Yhteenveto (yksi painopiste +
+> datapolku-CTA:t). "Erityistuki"-merkki on nyt **"Kehityskohde"** (§28-neutraali). Sovellus avautuu
+> Carbon-tummana oletuksena (vaalea teema valitsimessa). Ks. §1.2.
 >
 > **TILA-huomio (lue ennen jakelua):** tämä pelikirja kuvaa pilotin live-toiminnot CLAUDE.md §17–34:n
 > mukaisesti. Ennen jakelua oikeille valmentajille ominaisuusnimet kannattaa verifioida live-UI:ta vasten
@@ -69,10 +75,30 @@ Kun mittauksia alkaa kertyä, joukkuetason näkymät heräävät:
   taitoa vai ikää?) ja jäävätkö nuorimmat (Q4) lupaukset näkymättä. Tämä on TalentMasterin tieteellinen
   erottautuja — *"muut mittaavat, me korjaamme ikäharhan"*. Aktivoituu kun huoltajat ovat rekisteröineet
   (syntymäaika täyttyy).
-- **Joukkueen syvänäkymä:** klikkaa pulssikorttia → joukkueen sisäinen ranking, kehityskohteet ja
-  yhteenveto. Tästä näet kärjen ja kehitettävät yhdellä silmäyksellä.
+- **Joukkueen syvänäkymä:** klikkaa pulssikorttia → modaali jossa **neljä välilehteä**, kukin vastaa eri kysymykseen:
+  - **Yhteenveto** — *yhden silmäyksen tilannekuva.* KPI (D1 fyysinen / D2 tekninen + suunta), **yksi painopiste**
+    (suurin etäisyys tavoitteeseen → suora "Luo tekniikkateema" / "Avaa Tuki"), ja **datapolku-CTA:t** (esim.
+    "Pelihavainto 0/28 → Avaa työkalu") jotka kääntävät puuttuvan datan toimenpiteeksi. *Mistä aloitan?*
+  - **Tavoitetaso** — *missä olemme vs kansallinen taso 3.* Per ominaisuus (nopeus, suunnanmuutos, tekniikka)
+    tasojakauma 1–5 + "tasolla ≥3: X/N" + **per-testi-radar** (joukkueen profiili + taso-3-tavoiterengas, kuten
+    MyEWayssa). Tekniikkakilpailu-seuroilla (esim. Sibbo) tavoite on **TKI ≥ 60** taso-3:n sijaan — sama näkymä,
+    oikea asteikko. Etäisyys tasoon 3 ohjaa harjoittelun ohjelmointia. *Mitä kehitämme?*
+  - **Tuki** — *valmiit harjoitusryhmät.* Pelaajat ryhmitelty kehityskohteittain (esim. "syöttö-ryhmä (13)")
+    tarvejärjestyksessä + kopioi-leikepöydälle + **"Luo harjoitustapahtuma"**. *Miten — kenet treenaan yhdessä?*
+  - **Pelaajat** — *hakemisto.* Per-pelaaja-tasot (H-H, D1, tekninen lähdemerkinnällä, pelihavainto, PHV).
+    Klikkaa pelaaja → per-pelaaja-kortti (5D-profiili + per-testi-detalji, skrollaa loppuun). *Kuka?*
+- **Kohortti-valitsin (syvänäkymän yläosa):** Paras · Top-5 · Top-10 · **Koko joukkue**. Vaihtamalla näet
+  esim. **5 parhaan (talenttiytimen) tason ja kehityksen erikseen** koko joukkueesta — joukkueen keskiarvo
+  laahaa heikoimpien vetämänä, mutta ytimen kehityskaari kertoo onnistuuko talenttikehitys. Ydin valitaan
+  vakaalla kokonaistasolla (sama 5 pelaajaa kaikissa ominaisuuksissa).
+- **Kehityskohde-merkki:** korvaa aiemman "Erityistuki"-termin. Liputtaa vain aidon huolen — pre-PHV-iässä
+  matala *fyysinen* on biologisesti odotettua (neutraali), joten merkki perustuu tekniseen kehityskohteeseen
+  tai kehon valmiuteen, ei karkeaan fyysiseen tasoon. Liputtaa joukkueen heikoimman ~20 %:n (priorisointi),
+  ei kaikkia.
 
 **Johtamiskysymys:** *"Mikä joukkue tarvitsee huomiotani tällä viikolla?"* — anna signaalien ohjata.
+Periaate: **Tilanne** kertoo *missä* tarttua · **Tavoitetaso** *mitä* kehittää · **Tuki** *miten* (ryhmä +
+tapahtuma) · **Pelaajat** *kuka*.
 
 ## 1.3 Valmentajien johtaminen — havainnoi, kalibroi, mentoroi
 
