@@ -2,7 +2,8 @@
 
 > Lyhyt opas vanhemmalle ja pelaajalle. Tavoite: ymmärrät mitä TalentMaster näyttää, miten tuet lastasi
 > oikein, ja miksi sovellus on rakennettu niin kuin se on. Tämä opas on tarkoitettu **jaettavaksi perheille**.
-> Versio 2026-06-23. (Henkilöstön opas erikseen: `OPAS_VP_JA_VALMENTAJA.md`.)
+> Versio 2026-06-30 (mittaus-termistö yleistetty: ei oleteta tekniikkakisoja — seura päättää mitä mittaa).
+> (Henkilöstön opas erikseen: `OPAS_VP_JA_VALMENTAJA.md`.)
 >
 > **TILA-huomio:** kuvaa Vanhempi- ja Pelaaja-sovellusten live-toiminnot. Termit kannattaa täsmäyttää
 > live-UI:hin ennen laajaa jakelua. Sovellukset kehittyvät — osa kuvatusta voi näkyä hieman eri sanoin.
@@ -32,7 +33,7 @@ Sinulla on oma sovelluksesi (Vanhempi-näkymä). Se on tehty tueksi, ei seuranna
 
 - **Koti** — lapsesi viikon kuva ja nopeat kehut.
 - **Viikko** — miten omatoiminen harjoittelu on sujunut (lapseen itseensä verraten, ei muihin).
-- **Kortti** — lapsen kehityskortti + tekniikkaprofiili ja **"miten tukea kotona"**.
+- **Kortti** — lapsen kehityskortti, kehitysprofiili ja **"miten tukea kotona"**.
 - **Viestit** — valmentajan sinulle ja lapselle lähettämät havainnot ja kannustukset.
 - **Kirjaa** (alle 13-vuotiaat) — voit kirjata lapsen puolesta tehdyn harjoittelun.
 
@@ -43,14 +44,15 @@ ilmestyy lapsen omaan näkymään. **Tämä on vaikuttavin asia jonka voit tehd�
 yrittämistä ja sinnikkyyttä ("hienoa että jaksoit harjoitella"), ei lopputulosta tai vertailua. Lapsi,
 joka saa kehua tekemisestä, jatkaa todennäköisemmin innostuneena.
 
-## 1.3 Kortti ja tekniikkaprofiili — näin luet niitä
+## 1.3 Kortti ja kehitysprofiili — näin luet niitä
 
 Lapsen **kortti (0–99)** kuvaa kokonaiskehitystä. Se **ei ole arvosana** vaan matka — luku nousee
 luonnollisesti iän ja harjoittelun myötä. Älä tivaa lukua äläkä vertaa sitä muihin lapsiin.
 
-Tekniikkaprofiili näyttää lapsen **vahvuuden ensin** ja yhden **seuraavan askeleen** — aina myönteisesti
-ja saavutettavana. Sen vieressä on **"miten tukea kotona"** -vinkit, jotka on sidottu juuri siihen
-kehityskohteeseen. Lue ne, ja poimi yksi pieni asia jota voitte tehdä yhdessä pihalla.
+Kehitysprofiili kokoaa ne osa-alueet, joita **seurasi mittaa** — esimerkiksi tekniikkaa, fyysisiä
+ominaisuuksia, nopeutta ja ketteryyttä tai kasvuvauhtia. Se näyttää lapsen **vahvuuden ensin** ja yhden
+**seuraavan askeleen** — aina myönteisesti ja saavutettavana. Vieressä on **"miten tukea kotona"** -vinkit,
+jotka on sidottu juuri siihen kehityskohteeseen. Lue ne, ja poimi yksi pieni asia jota voitte tehdä yhdessä pihalla.
 
 > **Mitä EI kannata tehdä:** kysellä "miksi tasosi on tuo", verrata kaverin korttiin, tai tehdä
 > harjoittelusta suoritus. Se kääntyy lapsen innostusta vastaan.
@@ -84,14 +86,15 @@ näkee, jotta osaat auttaa.
 
 - **Tänään** — yksi selkeä tehtävä päivälle ("käytä 10 min pallolla, keksi 3 uutta tapaa kuljettaa").
   Yksi asia kerrallaan, ei listoja.
-- **Minä** — oma profiili, joka **laajenee sitä mukaa kun dataa kertyy**. Osioita ovat mm. kehitysvaihe,
-  tekniikkaprofiili, nopeus- ja fyysiset testit, **kehon valmius** (liikehallinta), tavoitteet ja itsearvio.
-  Ennen mittausta osio näyttää ystävällisen odotustilan ("⚽ Tekniikkakisa tulossa — silloin näet tuloksesi!")
-  — mikään ei ole "tyhjää" tai "puuttuu", vaan tulossa.
+- **Minä** — oma profiili, joka **laajenee sitä mukaa kun dataa kertyy** — sen mukaan mitä seurasi mittaa.
+  Osioita voivat olla mm. kehitysvaihe ja kasvuvauhti, tekniikka, nopeus ja ketteryys, fyysiset ominaisuudet,
+  **kehon valmius** (liikehallinta), tavoitteet ja itsearvio. Ennen mittausta osio näyttää ystävällisen
+  odotustilan ("⚽ Tulossa kun seura mittaa") — mikään ei ole "tyhjää" tai "puuttuu", vaan tulossa.
 - **Kortti** — oma pelaajakortti, joka kasvaa kehityksen myötä (nuorimmille korttinumeroa ei vielä näytetä,
   ks. 2.2).
-- **Tekniikkakisa** — kun seura järjestää tekniikkakilpailun, lapsi näkee omat suorituksensa täällä
-  (sekunteina, lapsen kielellä — ei tasoja).
+- **Mittaukset** — kun seura järjestää mittauksia (esim. tekniikka, fyysiset ominaisuudet, nopeus ja
+  ketteryys tai kasvuvauhdin seuranta), lapsi näkee omat suorituksensa täällä — lapsen kielellä, ei tasoja.
+  Seura päättää mitä mittauksia tehdään.
 - **Fiilis-nappi** — yksi painallus (1–5) kertoo valmentajalle miltä tuntuu. Ei pakollista, ei lomaketta.
 
 ## 2.2 Profiili syvenee iän myötä — tarkoituksella
@@ -115,8 +118,8 @@ lapsi kehittyy parhaiten kun keskittyy omaan tekemiseen ja iloon.
 Joka päivä sovellus ehdottaa lapselle **yhden** tehtävän (Tänään-kortti). Tärkein asia ymmärtää:
 **tehtävät eivät ole sattumanvaraisia.**
 
-- **Mistä ne tulevat:** tehtävä valitaan lapsen **oman datan** perusteella — mikä kehon liikehallinnan osa
-  kaipaa vahvistusta, mikä tekniikka on kehittymässä, lapsen ikävaihe ja pelipaikka. Sama harjoite
+- **Mistä ne tulevat:** tehtävä valitaan lapsen **oman datan** perusteella — mitä osa-aluetta kannattaa
+  juuri nyt vahvistaa, sekä lapsen ikävaihe ja pelipaikka. Sama harjoite
   kirjoitetaan eri tavoin eri-ikäisille (leikinomaisesti nuorimmille, tavoitteellisemmin vanhemmille).
   Sovellus myös kertoo lapselle lyhyesti **miksi** juuri tämä tehtävä — merkitys ennen suoritusta.
 - **Mitä ne ovat:** useimmiten **pallollinen omatoimiharjoite** ("pallo joka päivä" -periaate), jonka voi
