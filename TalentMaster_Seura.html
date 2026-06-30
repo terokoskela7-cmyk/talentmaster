@@ -13,6 +13,8 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 <!-- Excel-tuonti: SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
+<script src="lib/tm_joukkue.js?v=1"></script>
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
 
 <style>
@@ -5634,16 +5636,24 @@ function kasitteleExcelTuonti(event) {
       // Muutetaan datarivit objekteiksi
       rivit = kaikki.slice(otsikkoRiviIdx + 1)
         .filter(r => r.some(v => v !== '' && v !== null && v !== undefined))
-        .map((r, idx) => ({
-          etunimi:       iEtu     >= 0 ? String(r[iEtu]     || '').trim() : '',
-          sukunimi:      iSuku    >= 0 ? String(r[iSuku]    || '').trim() : '',
-          joukkue:       iJouk    >= 0 ? String(r[iJouk]    || '').trim() : '',
-          huoltajaEmail: iEmail   >= 0 ? String(r[iEmail]   || '').trim().toLowerCase() : '',
-          palloId:       iPalloId >= 0 ? String(r[iPalloId] || '').trim() : '',
-          talentti:      iTalentti >= 0 ? String(r[iTalentti] || '').trim().toLowerCase() : '',
-          talenttiTaso:  iTaso     >= 0 ? String(r[iTaso]    || '').trim().toLowerCase() : '',
-          _rivi: otsikkoRiviIdx + idx + 2,
-        }));
+        .map((r, idx) => {
+          // #92 TUONTI-VARTIJA: kanonisoi joukkue-string seuran joukkuet-doceihin (estää pirstoutumisen
+          // case/whitespace/NBSP-varianteista). Osuma → kanoninen nimi + id; ei osumaa → raw + orpolippu (warn).
+          const _rawJ = iJouk >= 0 ? String(r[iJouk] || '').trim() : '';
+          const _kanonJ = (_rawJ && typeof tmKanonisoiJoukkue === 'function') ? tmKanonisoiJoukkue(_rawJ, tila.joukkueet) : null;
+          return {
+            etunimi:       iEtu     >= 0 ? String(r[iEtu]     || '').trim() : '',
+            sukunimi:      iSuku    >= 0 ? String(r[iSuku]    || '').trim() : '',
+            joukkue:       _kanonJ ? _kanonJ.nimi : _rawJ,   // kanoninen nimi jos osuma (säilyvä muoto)
+            _joukkueId:    _kanonJ ? _kanonJ.id : null,       // kanoninen id → joukkueet[] (§18)
+            _joukkueOrpo:  !!(_rawJ && !_kanonJ),             // ei osumaa joukkuet-listaan → esikatselu varoittaa
+            huoltajaEmail: iEmail   >= 0 ? String(r[iEmail]   || '').trim().toLowerCase() : '',
+            palloId:       iPalloId >= 0 ? String(r[iPalloId] || '').trim() : '',
+            talentti:      iTalentti >= 0 ? String(r[iTalentti] || '').trim().toLowerCase() : '',
+            talenttiTaso:  iTaso     >= 0 ? String(r[iTaso]    || '').trim().toLowerCase() : '',
+            _rivi: otsikkoRiviIdx + idx + 2,
+          };
+        });
 
       // _excelData on jo oikeassa muodossa
       _excelData = rivit.filter(r => r.etunimi || r.sukunimi);
@@ -5666,6 +5676,7 @@ function kasitteleExcelTuonti(event) {
         const onTalentti = p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k';
         const status    = !nimiOk ? '⚠️ Nimi puuttuu'
           : !joukkueOk ? '⚠️ Joukkue?'
+          : p._joukkueOrpo ? '⚠️ Joukkue ei listassa'   // #92 warn-not-block: ei osu seuran joukkuet-doceihin
           : !emailOk   ? '⚠️ Email?'
           : '✓ Valmis';
         const statusVari = status.startsWith('⚠') ? 'var(--amber)' : 'var(--teal)';
@@ -5792,7 +5803,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         etunimi:       p.etunimi || '',
         sukunimi:      p.sukunimi || '',
         joukkue:       p.joukkue || '',
-        joukkueet:     p.joukkue ? [p.joukkue] : [],
+        joukkueet:     p._joukkueId ? [p._joukkueId] : (p.joukkue ? [p.joukkue] : []),   // #92: kanoninen id jos osuma (§18), muuten nimi-fallback (orpo)
         seuraId:       tila.seuraId,
         huoltajaEmail: p.huoltajaEmail ? String(p.huoltajaEmail).trim().toLowerCase() : null,
         palloID:       p.palloId || null,
