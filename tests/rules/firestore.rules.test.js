@@ -1195,3 +1195,51 @@ describe('Solo Polku B (v3.8)', () => {
     await assertFails(updateDoc(doc(db, 'players', 'pl-pin'), { child_pin: '0000' }));
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GDPR RTBF -poistoportti (#96) — pelaajan pääDocin client-delete VAIN SA.
+// Johto/valmentaja/anon EI saa poistaa clientillä → orpojen esto (poisto kulkee RTBF-CF:n kautta,
+// joka tekee täyden recursiveDelete-siivouksen Admin SDK:lla). Subcollections: SA||johto (valmentaja/anon ei).
+// ═══════════════════════════════════════════════════════════════════════════
+describe('GDPR RTBF delete-gate (#96)', () => {
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+    await seedHavainto();
+  });
+
+  it('SA poistaa pelaajan pääDocin (ainoa client-reitti)', async () => {
+    const db = saContext().firestore();
+    await assertSucceeds(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
+  });
+
+  it('VP (johto) EI POISTA pelaajan pääDocia clientillä — orpojen esto, käytä RTBF-CF:ää', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
+  });
+
+  it('Seurasihteeri (johto) EI POISTA pelaajan pääDocia clientillä', async () => {
+    const db = sihteeriContext(SEURA_A).firestore();
+    await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
+  });
+
+  it('Valmentaja EI POISTA pelaajan pääDocia clientillä', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
+  });
+
+  it('Anonyymi PIN EI POISTA pelaajan pääDocia', async () => {
+    const db = anonContext().firestore();
+    await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
+  });
+
+  it('Valmentaja EI POISTA havaintoa (alikokoelma)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')));
+  });
+
+  it('Anonyymi PIN EI POISTA havaintoa (alikokoelma)', async () => {
+    const db = anonContext().firestore();
+    await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')));
+  });
+});

@@ -13,6 +13,7 @@ const functions = require('firebase-functions/v1');
 const admin     = require('firebase-admin');
 const https     = require('https');
 const { kayttajaRooliSallittu } = require('./authz_paatos');   // pure authz-päätös (#71, testattava)
+const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 if (!admin.apps.length) {
   admin.initializeApp();
 }
@@ -2148,4 +2149,196 @@ exports.soloHyvaksyLupa = functions
 
     await db.collection('audit').add({ toiminto: 'solo_lupa_hyvaksytty', requestId, playerId, hyvaksyja_uid: uid, aikaleima: TS }).catch(() => {});
     return { playerId, playerCode: code, child_pin };
+  });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// GDPR (#96) — RTBF + datan export. Spec: docs/GDPR_TEKNIIKKA_SPEC.md.
+// Jaettu locator: ./gdpr_locator (enumeroi KAIKKI sijainnit §11). Authz: tarkistaOikeus → SA TAI seuran
+// johto (vp/seurasihteeri/UTJ) — EI valmentaja (tarkistaOikeus ei myönnä valmentajalle). Admin SDK ohittaa Rules.
+// Seura = rekisterinpitäjä, TalentMaster = käsittelijä → toimet ovat seuran (tai SA:n sen puolesta) käynnistämiä.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── RTBF: poistaPelaajaGDPR (GDPR Art. 17) — PERUUTTAMATON, kaksivaiheinen ───────
+// Params: { seuraId, pelaajaId, dryRun=true, vahvistus=false }
+// dryRun=true (OLETUS) → palauttaa manifestin lukumäärät (poistettaisiin), EI kirjoita.
+// dryRun=false JA vahvistus=true → kova poisto: recursiveDelete(pääDoc+alikokoelmat) + ristiviite-docit +
+//   Solo + Storage-media + Auth-tili. Audit gdpr_rtbf/alert (lukumäärät, EI henkilösisältöä). Idempotentti.
+exports.poistaPelaajaGDPR = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu sisään.');
+    }
+    const seuraId   = data && data.seuraId;
+    const pelaajaId = data && data.pelaajaId;
+    const dryRun    = !(data && data.dryRun === false);     // OLETUS true (turvallinen)
+    const vahvistus = !!(data && data.vahvistus === true);
+    if (!seuraId || !pelaajaId) {
+      throw new functions.https.HttpsError('invalid-argument', 'seuraId ja pelaajaId pakollisia.');
+    }
+    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
+    if (!oikeus.sallittu) {
+      throw new functions.https.HttpsError('permission-denied',
+        `Ei oikeuksia seuralle "${seuraId}". RTBF vaatii SA:n tai seuran johdon (vp/seurasihteeri/UTJ).`);
+    }
+
+    const FieldPath = admin.firestore.FieldPath;
+    const manifesti = await keraaPelaajanManifesti(db, seuraId, pelaajaId, { FieldPath });
+
+    // Idempotenssi: pääDoc poissa → ei mitään poistettavaa (no-op + audit kovassa ajossa).
+    if (!manifesti.loytyi) {
+      if (!dryRun && vahvistus) {
+        await db.collection('audit').add(Object.assign(
+          rakennaAuditPayload({ tyyppi: 'gdpr_rtbf_noop', severity: 'alert', seuraId, pelaajaId,
+            requesterUid: context.auth.uid, rooli: oikeus.rooli, lukumaarat: manifesti.lukumaarat, varoitukset: manifesti.varoitukset }),
+          { aikaleima: admin.firestore.FieldValue.serverTimestamp() },
+        )).catch(() => {});
+        console.log(`[poistaPelaajaGDPR] NO-OP (jo poistettu) ${seuraId}/${pelaajaId} requester=${context.auth.uid}`);
+      }
+      return { dryRun, loytyi: false, jo_poistettu: true, poistettaisiin: manifesti.lukumaarat };
+    }
+
+    // dryRun=true (oletus): esikatselu, EI kirjoita.
+    if (dryRun) {
+      return {
+        dryRun: true, loytyi: true, palloID: manifesti.palloID,
+        poistettaisiin: manifesti.lukumaarat,
+        varoituksia: manifesti.varoitukset.length, varoitukset: manifesti.varoitukset,
+      };
+    }
+    if (!vahvistus) {
+      throw new functions.https.HttpsError('failed-precondition',
+        'Kova poisto vaatii vahvistus:true. Aja ensin dryRun-esikatselu.');
+    }
+
+    console.log(`[poistaPelaajaGDPR] ALOITA ${seuraId}/${pelaajaId} requester=${context.auth.uid} rooli=${oikeus.rooli} lukumäärät=${JSON.stringify(manifesti.lukumaarat)}`);
+
+    // 1) pääDoc + KAIKKI alikokoelmat (recursiveDelete)
+    await db.recursiveDelete(manifesti.paaDoc.ref);
+    // 2) ristiviite-docit (eri puu, ei katoa recursiveDeletellä) — batcheina (max 400/erä)
+    const ristiRefit = [];
+    (manifesti.ristiviitteet.lasnaolo || []).forEach((x) => { if (x.ref) ristiRefit.push(x.ref); });
+    (manifesti.ristiviitteet.testitapahtuma_tulokset || []).forEach((x) => { if (x.ref) ristiRefit.push(x.ref); });
+    (manifesti.ristiviitteet.palloID_viitteet || []).forEach((x) => { if (x.ref) ristiRefit.push(x.ref); });
+    for (let i = 0; i < ristiRefit.length; i += 400) {
+      const era = ristiRefit.slice(i, i + 400);
+      const batch = db.batch();
+      era.forEach((r) => batch.delete(r));
+      await batch.commit();
+    }
+    // 3) Solo (litteä pelaajat/{palloID} + alikokoelmat)
+    if (manifesti.soloRef) await db.recursiveDelete(manifesti.soloRef);
+    // 4) Storage-media (per havainto -prefiksit; ei poista muiden pelaajien mediaa)
+    let mediaPoistettu = true;
+    try {
+      const bucket = admin.storage().bucket();
+      for (const prefix of (manifesti.storagePrefiksit || [])) {
+        await bucket.deleteFiles({ prefix }).catch((e) => {
+          mediaPoistettu = false;
+          console.warn('[poistaPelaajaGDPR] Storage prefix ' + prefix + ': ' + e.message);
+        });
+      }
+    } catch (e) {
+      mediaPoistettu = false;
+      console.warn('[poistaPelaajaGDPR] Storage: ' + e.message);
+    }
+    // 5) Auth (anonyymi PIN-tili uid==pelaajaId)
+    let authPoistettu = false;
+    try {
+      await admin.auth().deleteUser(pelaajaId);
+      authPoistettu = true;
+    } catch (e) {
+      if (!(e.errorInfo && e.errorInfo.code === 'auth/user-not-found')) {
+        console.warn('[poistaPelaajaGDPR] deleteUser: ' + e.message);
+      }
+    }
+    // 6) Audit (gdpr_rtbf / alert) — lukumäärät, EI henkilösisältöä
+    await db.collection('audit').add(Object.assign(
+      rakennaAuditPayload({ tyyppi: 'gdpr_rtbf', severity: 'alert', seuraId, pelaajaId,
+        requesterUid: context.auth.uid, rooli: oikeus.rooli, lukumaarat: manifesti.lukumaarat, varoitukset: manifesti.varoitukset }),
+      { media_poistettu: mediaPoistettu, auth_poistettu: authPoistettu, aikaleima: admin.firestore.FieldValue.serverTimestamp() },
+    )).catch(() => {});
+
+    console.log(`[poistaPelaajaGDPR] VALMIS ${seuraId}/${pelaajaId} media=${mediaPoistettu} auth=${authPoistettu}`);
+    return {
+      dryRun: false, poistettu: manifesti.lukumaarat,
+      media_poistettu: mediaPoistettu, auth_poistettu: authPoistettu,
+      varoituksia: manifesti.varoitukset.length,
+    };
+  });
+
+// ── EXPORT: viePelaajanDataGDPR (GDPR Art. 20, koneluettava) ─────────────────────
+// Params: { seuraId, pelaajaId, muoto='json' }. Kerää manifesti → lukee kaiken → JSON Storageen →
+// signed URL (24 h). Audit gdpr_export/info. Huoltajan oma-export = TODO (erillinen authz-haara).
+exports.viePelaajanDataGDPR = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu sisään.');
+    }
+    const seuraId   = data && data.seuraId;
+    const pelaajaId = data && data.pelaajaId;
+    const muoto     = (data && data.muoto) ? String(data.muoto) : 'json';   // TODO: csv myöhemmin
+    if (!seuraId || !pelaajaId) {
+      throw new functions.https.HttpsError('invalid-argument', 'seuraId ja pelaajaId pakollisia.');
+    }
+    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
+    if (!oikeus.sallittu) {
+      throw new functions.https.HttpsError('permission-denied', `Ei oikeuksia seuralle "${seuraId}".`);
+    }
+    // TODO: huoltajan oma-export (rekisteröidyn/edustajan pyyntö, Art. 15/20) — oma authz-haara, myöhempi laajennus.
+
+    const FieldPath = admin.firestore.FieldPath;
+    const manifesti = await keraaPelaajanManifesti(db, seuraId, pelaajaId, { FieldPath });
+    if (!manifesti.loytyi) {
+      throw new functions.https.HttpsError('not-found', 'Pelaajaa ei löydy.');
+    }
+
+    const dataMap = (arr) => (arr || []).map((x) => Object.assign({ _id: x.id }, x.data));
+    const soloAli = manifesti.solo
+      ? Object.keys(manifesti.solo.alikokoelmat).reduce((o, k) => { o[k] = dataMap(manifesti.solo.alikokoelmat[k]); return o; }, {})
+      : null;
+    const vienti = {
+      _meta: { standardi: 'GDPR Art. 20 (koneluettava)', luotu: new Date().toISOString(),
+        seuraId, pelaajaId, palloID: manifesti.palloID, viejaUid: context.auth.uid, lukumaarat: manifesti.lukumaarat },
+      pelaaja: Object.assign({ _id: manifesti.paaDoc.id }, manifesti.paaDoc.data),
+      havainnot: dataMap(manifesti.alikokoelmat.havainnot),
+      kirjaukset: dataMap(manifesti.alikokoelmat.kirjaukset),
+      testitulokset: dataMap(manifesti.alikokoelmat.testitulokset),
+      biologinen_ika: dataMap(manifesti.alikokoelmat.biologinen_ika),
+      pelidata: dataMap(manifesti.alikokoelmat.pelidata),
+      kehut: dataMap(manifesti.alikokoelmat.kehut),
+      lasnaolo: dataMap(manifesti.ristiviitteet.lasnaolo),
+      testitapahtuma_tulokset: dataMap(manifesti.ristiviitteet.testitapahtuma_tulokset),
+      palloID_viitteet: dataMap(manifesti.ristiviitteet.palloID_viitteet),
+      solo: manifesti.solo ? Object.assign({ _id: manifesti.solo.id }, manifesti.solo.data, { _alikokoelmat: soloAli }) : null,
+      media: manifesti.media,
+    };
+
+    // Toimitus: JSON Storageen + signed URL (24 h). Iso data → ei inline.
+    const ts    = new Date().toISOString().replace(/[:.]/g, '-');
+    const polku = `gdpr_exports/${seuraId}/${pelaajaId}_${ts}.json`;
+    let url = null;
+    let vanhenee = null;
+    try {
+      const bucket = admin.storage().bucket();
+      const file   = bucket.file(polku);
+      await file.save(JSON.stringify(vienti, null, 2), { contentType: 'application/json', resumable: false });
+      const expires = Date.now() + 24 * 60 * 60 * 1000;
+      const [signed] = await file.getSignedUrl({ action: 'read', expires });
+      url = signed;
+      vanhenee = new Date(expires).toISOString();
+    } catch (e) {
+      throw new functions.https.HttpsError('internal',
+        `Export-tiedoston kirjoitus/allekirjoitus epäonnistui: ${e.message}`);
+    }
+
+    await db.collection('audit').add(Object.assign(
+      rakennaAuditPayload({ tyyppi: 'gdpr_export', severity: 'info', seuraId, pelaajaId,
+        requesterUid: context.auth.uid, rooli: oikeus.rooli, lukumaarat: manifesti.lukumaarat, varoitukset: manifesti.varoitukset }),
+      { muoto, polku, aikaleima: admin.firestore.FieldValue.serverTimestamp() },
+    )).catch(() => {});
+
+    console.log(`[viePelaajanDataGDPR] ${seuraId}/${pelaajaId} → ${polku} (${muoto})`);
+    return { url, vanhenee, muoto, lukumaarat: manifesti.lukumaarat, varoituksia: manifesti.varoitukset.length };
   });

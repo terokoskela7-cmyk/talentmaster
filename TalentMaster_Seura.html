@@ -4631,8 +4631,9 @@ function vahvistaPelaajanPoisto(pelaajaId, pelaajanNimi) {
       <div class="modalOtsikko" style="color:rgba(255,120,120,.9);">Poistetaanko pelaaja?</div>
       <div style="font-size:15px;font-weight:600;color:var(--ink1);margin:8px 0;">${pelaajanNimi}</div>
       <div class="modalKuvaus" style="color:var(--ink3);margin-bottom:20px;">
-        Tämä poistaa pelaajan perustiedot <strong>pysyvästi</strong> Firestoresta.
-        Toimintoa ei voi peruuttaa. Havainnot ja kirjaukset säilyvät (alakokoelmat).
+        Tämä poistaa pelaajan <strong>kaikki tiedot pysyvästi</strong> (GDPR / oikeus tulla unohdetuksi):
+        perustiedot, havainnot, kirjaukset, testitulokset, läsnäolot, kuvat ja kirjautumistili.
+        Näet ensin tarkan esikatselun. Toimintoa ei voi peruuttaa.
       </div>
 
       <div style="display:flex;gap:10px;justify-content:center;">
@@ -4652,17 +4653,63 @@ function vahvistaPelaajanPoisto(pelaajaId, pelaajanNimi) {
   modal.classList.add('auki');
 }
 
+// GDPR RTBF (#96): poisto kulkee NYT palvelinpuolen CF:n (poistaPelaajaGDPR) kautta — EI client-deletellä
+// (joka jätti orvoiksi alikokoelmat + ristiviitteet + Storage + Auth). Kaksivaiheinen: dryRun-esikatselu →
+// vahvistus → kova poisto. CF tekee täyden recursiveDelete-siivouksen Admin SDK:lla.
 async function suoritaPelaajanPoisto(pelaajaId, pelaajanNimi) {
+  const nappi = document.querySelector('#poistoPelaajaModal .lisaaNappi');
+  const poistaFn = firebase.app().functions('europe-west1').httpsCallable('poistaPelaajaGDPR');
   try {
-    await db.collection('seurat').doc(tila.seuraId)
-      .collection('pelaajat').doc(pelaajaId).delete();
-
-    document.getElementById('poistoPelaajaModal').classList.remove('auki');
-    naytaToast(`${pelaajanNimi} poistettu ✓`, 'ok');
-    setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
+    if (nappi) { nappi.disabled = true; nappi.textContent = '⏳ Lasketaan…'; }
+    // VAIHE 1 — esikatselu (dryRun): mitä ja kuinka paljon poistettaisiin.
+    const esi = await poistaFn({ seuraId: tila.seuraId, pelaajaId: pelaajaId, dryRun: true });
+    const r = (esi && esi.data) || {};
+    if (r.loytyi === false) {
+      document.getElementById('poistoPelaajaModal').classList.remove('auki');
+      naytaToast(`${pelaajanNimi}: ei löytynyt (jo poistettu)`, 'ok');
+      setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
+      return;
+    }
+    const c = r.poistettaisiin || {};
+    const rivi = (lbl, n) => (n ? '<div>' + lbl + ': <strong>' + n + '</strong></div>' : '');
+    const yhteenveto =
+      rivi('Perustiedot', c.pelaaja) + rivi('Havainnot', c.havainnot) + rivi('Kirjaukset', c.kirjaukset) +
+      rivi('Testitulokset', c.testitulokset) + rivi('Biologinen ikä', c.biologinen_ika) +
+      rivi('Pelidata', c.pelidata) + rivi('Kehut', c.kehut) + rivi('Läsnäolot', c.lasnaolo) +
+      rivi('Testitapahtumat', c.testitapahtuma_tulokset) + rivi('PalloID-viitteet', c.palloID_viitteet) +
+      rivi('Solo-profiili', c.solo) + rivi('Kuvatiedostot', c.media_tiedostoja) + rivi('Kirjautumistili', c.auth);
+    // VAIHE 2 — näytä esikatselu samassa modaalissa + lopullinen vahvistus.
+    const modal = document.getElementById('poistoPelaajaModal');
+    modal.innerHTML =
+      '<div class="modalSisalto" style="max-width:420px;text-align:center;">' +
+      '<div style="font-size:40px;margin-bottom:12px;">🗑️</div>' +
+      '<div class="modalOtsikko" style="color:rgba(255,120,120,.9);">Poistetaan pysyvästi</div>' +
+      '<div style="font-size:15px;font-weight:600;color:var(--ink1);margin:8px 0;">' + pelaajanNimi + '</div>' +
+      '<div style="text-align:left;font-size:13px;color:var(--ink2);background:rgba(220,50,50,.08);border:1px solid rgba(220,50,50,.25);border-radius:10px;padding:12px 16px;margin:12px 0;line-height:1.7;">' +
+      (yhteenveto || '<div>Ei dataa</div>') + '</div>' +
+      '<div class="modalKuvaus" style="color:var(--ink3);margin-bottom:18px;">GDPR — oikeus tulla unohdetuksi. <strong>Tätä ei voi peruuttaa.</strong></div>' +
+      '<div style="display:flex;gap:10px;justify-content:center;">' +
+      '<button class="lisaaNappi" id="rtbfVahvista" style="background:rgba(220,50,50,.15);border:1px solid rgba(220,50,50,.4);color:rgba(255,120,120,.9);min-width:170px;">🗑️ Poista lopullisesti</button>' +
+      '<button class="lisaaNappi" style="background:var(--primary-dim);min-width:100px;" onclick="document.getElementById(\'poistoPelaajaModal\').classList.remove(\'auki\')">Peruuta</button>' +
+      '</div></div>';
+    document.getElementById('rtbfVahvista').onclick = async function() {
+      const vb = this;
+      vb.disabled = true; vb.textContent = '⏳ Poistetaan…';
+      try {
+        await poistaFn({ seuraId: tila.seuraId, pelaajaId: pelaajaId, dryRun: false, vahvistus: true });
+        modal.classList.remove('auki');
+        naytaToast(`${pelaajanNimi} poistettu pysyvästi ✓`, 'ok');
+        setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
+      } catch(e) {
+        vb.disabled = false; vb.textContent = '🗑️ Poista lopullisesti';
+        naytaToast('Poisto epäonnistui: ' + (e.message || e), 'virhe');
+        console.error('[RTBF poisto]', e);
+      }
+    };
   } catch(e) {
-    naytaToast('Poisto epäonnistui: ' + e.message, 'virhe');
-    console.error('[Poisto]', e);
+    if (nappi) { nappi.disabled = false; nappi.textContent = '🗑️ Kyllä, poista'; }
+    naytaToast('Esikatselu epäonnistui: ' + (e.message || e), 'virhe');
+    console.error('[RTBF esikatselu]', e);
   }
 }
 

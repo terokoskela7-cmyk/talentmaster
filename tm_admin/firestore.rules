@@ -324,7 +324,11 @@ service cloud.firestore {
                       // 'itsearvio'/'trianguloitu' lahteet[]:stä → kuuluu sallittuihin avaimiin.
                       || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus']));
-        allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        // GDPR (#96): pelaajan pääDocin poisto VAIN SA (client). Aiempi johto-client-delete poisti vain
+        // pääDocin → JÄTTI orvoiksi alikokoelmat + ristiviitteet + Storage-media + Auth (GDPR-rikkomus,
+        // spec §0.1/§0.5). Johto poistaa nyt RTBF-CF:n (poistaPelaajaGDPR) kautta, joka tekee TÄYDEN
+        // recursiveDelete-siivouksen Admin SDK:lla (ohittaa Rules). Asiakas/anon/valmentaja: ei delete.
+        allow delete: if onSuperAdmin();
 
         // ── Havainnot — pelaajan henkilökohtaiset ADAR-kortit ─────────────
         // read: + anonyymi PIN (Pelaaja-näkymä) + huoltaja (v2.3)
