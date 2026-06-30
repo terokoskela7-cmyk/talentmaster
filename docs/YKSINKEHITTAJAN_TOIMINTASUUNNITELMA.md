@@ -1,9 +1,10 @@
 # TalentMaster — Yksinkehittäjän toimintasuunnitelma
 
-> Laadittu 2026-06-24. Tausta: ellei toista kehittäjää saada heti, Tero jatkaa kehitystä yksin (+ AI-avustaja)
-> samalla kun ajaa 4–5 seuran kesäpilotteja ja kerää kokemuksia. Tämä dokumentti = **kriittinen analyysi KIMIn
-> suunnitelmasta + tarkennettu, pilotti-ehtoinen toimintasuunnitelma.**
-> Täydentää: `SKAALAUTUVUUS_JA_TEKNINEN_VELKA.md` (§33-velka), CLAUDE.md (invariantit + tehty työ).
+> Laadittu 2026-06-24. **Päivitetty 2026-06-30 (tilannekatsaus §0.1).** Tausta: ellei toista kehittäjää saada heti,
+> Tero jatkaa kehitystä yksin (+ AI-avustaja) samalla kun ajaa 4–5 seuran kesäpilotteja ja kerää kokemuksia.
+> Tämä dokumentti = **kriittinen analyysi KIMIn suunnitelmasta + tarkennettu, pilotti-ehtoinen toimintasuunnitelma.**
+> Täydentää: `SKAALAUTUVUUS_JA_TEKNINEN_VELKA.md` (§33-velka), `PILOTTI_KAYTTOONOTTO_2026.md` (seurakohtainen
+> aikataulu), CLAUDE.md (invariantit + tehty työ).
 
 ---
 
@@ -26,6 +27,30 @@ Playermaker, MACH Alliance) ovat relevantteja ja osoittavat oikeaan suuntaan.
 
 Tiivis ero: **KIMI antaa oikean pohjantähden; tämä plan korjaa sekvenssin niin ettet yli-rakenna** etkä
 horjuta tuotannossa olevaa pilottia jonka takia koko oppiminen tapahtuu.
+
+---
+
+## 0.1 TILANNEKATSAUS 2026-06-30 — turvaverkko on jo rakennettu
+
+> Lyhyt totuus: **yksinkehittämisen perusta on turvattu.** Suunnitelman tärkein investointi (turvaverkko ennen
+> featureita) on suurelta osin tehty kesän aikana. Voit jatkaa yksin vakaalta pohjalta.
+
+**✅ Tehty (NYT-listan turvaverkko):**
+- **Rules-deploy CI** (#47/N4) · **Off-site backup** viikoittain (#44/N1) · **Kustannushälytys** (#45/N2) ·
+  **Branch protection + CI-portit** (#46/N3) · **Sentry errors-only EU + PII-skrubi** (§33 B2) ·
+  **Vitest 348 + Rules-testit** (CI:ssä) · **version:bump-automaatio mainissa** (#53, lopetti stamp-konfliktit) ·
+  **CF Node 22 + firebase-functions 6** (§33) · **sähköpostin toimitettavuus** SPF/DKIM/DMARC korjattu (#54).
+- **`lib/`-modularisointi etenee** (eerikkila/kalenteri/indeksit/harjoitelogiikka kanonisina) — §2.3:n "halpa 80 %" jo käynnissä.
+- **In-app-aloituskerros** rakennettu (VP/valmentaja "Aloita tästä" datavetoinen checklist + pelaaja/vanhempi tervetulo) — QA tehty 06-30.
+
+**⏳ Jäljellä NYT-listalta (= solo-tien viimeiset turvaverkkokohdat):**
+1. **GDPR-tekniikka: RTBF (oikeus tulla unohdetuksi) + datan export.** Ainoa iso avoin turvaverkkokohta.
+   Yhtyy strategian Horisontti 2:een (myyntiportti ennen alaikäisdatan laskutusta) → **yksi rakennus, kaksi tarkoitusta.**
+2. **Kevyt staging-tenant** (testaa oikealla datalla ilman että pilottiseurat näkevät keskeneräistä).
+3. **Pilotin palautesilmukka** (kevyt käyttöinstrumentointi + palautekanava, §7.22-turvallinen) → priorisoi kaiken muun.
+
+**Suositeltu seuraava sprint:** GDPR-tekniikka (RTBF-CF + export-CF). Sulkee turvaverkon JA avaa syksyn maksavat sopimukset
+(SJK go-live syyskuu). Tämän jälkeen tarveohjattu kehitys pilotin oppimisen mukaan.
 
 ---
 
@@ -168,12 +193,20 @@ Nämä neljä = "avoin runko" käytännössä, ilman ettei mitään yli-rakennet
 
 ## 6. Ensimmäiset 30 päivää — konkreettinen
 
+> **Päivitetty 2026-06-30:** Alkuperäisen taulukon viikot 1–2 (Rules-CI, branch protection, CI-portit, backup,
+> Billing-alert) on **jo tehty** (§0.1). Alla uudelleenkohdistettu 30 päivää jäljellä oleviin solo-turvaverkkokohtiin
+> + pilotin oppimiseen. Huom: heinä–elokuu lomittuu pilotin käyttöönoton kanssa (`PILOTTI_KAYTTOONOTTO_2026.md`) —
+> säädä tahti sen mukaan.
+
 | Viikko | Ma (suunnittelu) | Ti–To (syvä työ) | Pe (puhdistus) |
 |---|---|---|---|
-| 1 | Rules-deploy CI: korjaa SA-oikeus | Automatisoi Rules-deploy + verifioi staging-tenant | Dokumentoi deploy-prosessi |
-| 2 | Branch protection + ESLint | CI-portit (Vitest+Rules+lint) + off-site backup -ajastus + Billing-alert | Review + siivous |
-| 3 | GDPR-tekniikka: RTBF + export | RTBF-CF (pelaaja + alikokoelmat) + export-CF | Testaa + dokumentoi (policy → DPO-lista) |
-| 4 | Pilotin palautesilmukka | Kevyt käyttöinstrumentointi + palautekanava + Sentry release tracking | Katsaus: mitä pilottidata kertoo → priorisoi SEURAAVAKSI-lista |
+| 1 | GDPR-tekniikka: RTBF + export -spec | RTBF-CF (pelaaja + alikokoelmien rekursio, europe-west1, Admin SDK) + export-CF | Testaa + dokumentoi (policy/DPIA → DPO-lista, portti säilyy) |
+| 2 | Staging-tenant: kevyin malli | Erillinen `seuraId` stagingille (tai oma Firebase-projekti) + verifioi | Dokumentoi staging-työnkulku |
+| 3 | Pilotin palautesilmukka | Kevyt käyttöinstrumentointi (§7.22-turvallinen) + palautekanava + Sentry release tracking | Katsaus: mitä pilottidata kertoo |
+| 4 | Priorisoi SEURAAVAKSI pilottidatan pohjalta | Tarveohjattu: KPV/Ylöjärven Ilves -datatuonnit (heinäkuu) TAI AI-insight-CF (matala hedelmä) | Review + `lib/`-eriytys jatkuu |
+
+**Tehty jo (ei enää 30 päivän listalla):** Rules-deploy CI · branch protection + CI-portit · off-site backup ·
+Billing-alert · Sentry (errors+PII-skrubi) · sähköposti SPF/DKIM/DMARC · version:bump-automaatio · CF Node 22.
 
 **Kriittisin oivallus (KIMIltä, allekirjoitan):** älä mieti "miten saan toisen kehittäjän" vaan "miten rakennan
 niin että kuka tahansa voi liittyä." Lisään: **ja niin että pilotti pysyy vakaana ja opettaa sinua** — sillä
