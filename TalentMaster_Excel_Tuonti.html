@@ -19,7 +19,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
 <script src="lib/tm_eerikkila_normit.js?v=38"></script>
-<script src="lib/tm_joukkue.js?v=1"></script>
+<script src="lib/tm_joukkue.js?v=2"></script>
 
 <style>
 :root {
@@ -4029,6 +4029,64 @@ window.normalisoiJoukkueet = async function(seuraIdArg, dryRun) {
   console.log('[normalisoiJoukkueet] valmis: ' + paivitetty + '/' + muutokset.length + ' päivitetty · orvot ' + orvot.length + ' (ei kosketu) · virheitä ' + virhe);
   if (typeof toast === 'function') toast('normalisoiJoukkueet: ' + paivitetty + ' päivitetty' + (virhe ? ' · ' + virhe + ' virhe' : ''), virhe ? 'err' : 'ok');
   return { dryRun: false, paivitetty: paivitetty, orvot: orvot.length, virhe: virhe };
+};
+
+// #92b — JOUKKUEET[]-TAULUKON SIIVOUS (SA-only, recalc-pattern, dry-run OLETUS).
+// Erätuonti tallensi osalle joukkueet[]:hin team-NIMEN id:n sijaan → #92-arrayUnion lisäsi kanon id:n mutta jätti
+// nimi-jäänteet → Seura-suodatin tekee sirun jokaisesta entrystä → tuplasirut. Siivoa: jätä VAIN kanoniset team-id:t.
+// EI poista pelaajia/joukkue-docceja, EI koske joukkue-stringiin eikä pikakenttiin (§26). Idempotentti. KORVAA (ei arrayUnion).
+window.normalisoiJoukkueetIdt = async function(seuraIdArg, dryRun) {
+  if (dryRun === undefined) dryRun = true;
+  if (!superAdmin) { console.warn('[normalisoiJoukkueetIdt] Vain Super Admin'); return; }
+  if (typeof tmPuhdistaJoukkueetIdt !== 'function') { console.warn('[normalisoiJoukkueetIdt] lib/tm_joukkue.js ei ladattu'); return; }
+  const sid = seuraIdArg || seuraId;
+  if (!sid) { console.warn('[normalisoiJoukkueetIdt] Käyttö: normalisoiJoukkueetIdt(seuraId, dryRun=true)'); return; }
+
+  const jSnap = await db.collection('seurat').doc(sid).collection('joukkueet').get();
+  const lista = jSnap.docs.map(function(d){ return { id: d.id, nimi: (d.data().nimi || d.id) }; });
+  const validIds = new Set(lista.map(function(d){ return d.id; }));
+  const idNimi = {}; lista.forEach(function(d){ idNimi[d.id] = d.nimi; });
+  if (!validIds.size) { console.warn('[normalisoiJoukkueetIdt] Seuralla ei joukkuet-docceja — keskeytetään.'); return; }
+
+  const pelSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+  const muutokset = [], poistetut = {}, tulos = {};
+  pelSnap.docs.forEach(function(pd){
+    const p = pd.data();
+    const orig = Array.isArray(p.joukkueet) ? p.joukkueet : [];
+    const puhdas = tmPuhdistaJoukkueetIdt(orig, validIds, p.joukkue, lista);
+    puhdas.forEach(function(id){ tulos[id] = (tulos[id]||0)+1; });   // lopputulos-jakauma (siivouksen jälkeen)
+    const muuttui = (orig.length !== puhdas.length) || orig.some(function(x,i){ return x !== puhdas[i]; });
+    if (muuttui) {
+      const poisto = orig.filter(function(x){ return puhdas.indexOf(x) < 0; });
+      muutokset.push({ ref: pd.ref, puhdas: puhdas });
+      poisto.forEach(function(x){ poistetut[JSON.stringify(x)] = (poistetut[JSON.stringify(x)]||0)+1; });
+    }
+  });
+
+  console.log('[normalisoiJoukkueetIdt] ' + sid + (dryRun ? ' (DRY-RUN)' : ' (LIVE)') + ' — ' + muutokset.length + ' pelaajalla joukkueet[]-jäänteitä.');
+  console.log('[normalisoiJoukkueetIdt] POISTETTAVAT entryt (ei valideja id:tä, JSON paljastaa nimi-stringit):');
+  Object.keys(poistetut).sort().forEach(function(k){ console.log('   ' + poistetut[k] + '× ' + k); });
+  console.log('[normalisoiJoukkueetIdt] LOPPUTULOS — id-jakauma siivouksen jälkeen (= Seura-sirut):');
+  Object.keys(tulos).sort().forEach(function(id){ console.log('   ' + id + ' (' + (idNimi[id]||'?') + '): ' + tulos[id]); });
+
+  if (dryRun) {
+    console.log('[normalisoiJoukkueetIdt] DRY-RUN — ei kirjoituksia. Aja oikeasti: normalisoiJoukkueetIdt(\'' + sid + '\', false)');
+    return { dryRun: true, muutoksia: muutokset.length, poistetut: poistetut, tulos: tulos };
+  }
+
+  if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true);
+  const ERA = Math.min(400, BATCH_KOKO); let paivitetty = 0, virhe = 0;
+  const eria = Math.ceil(muutokset.length / ERA);
+  for (let e = 0; e < eria; e++) {
+    const era = muutokset.slice(e*ERA, (e+1)*ERA);
+    const batch = db.batch();
+    era.forEach(function(m){ batch.set(m.ref, { joukkueet: m.puhdas }, { merge: true }); });   // KORVAA koko joukkueet[] (ei arrayUnion)
+    try { await batch.commit(); paivitetty += era.length; if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true); }
+    catch(err){ console.error('[normalisoiJoukkueetIdt batch '+(e+1)+']', err); virhe += era.length; }
+  }
+  console.log('[normalisoiJoukkueetIdt] valmis: ' + paivitetty + '/' + muutokset.length + ' päivitetty · virheitä ' + virhe);
+  if (typeof toast === 'function') toast('normalisoiJoukkueetIdt: ' + paivitetty + ' päivitetty' + (virhe ? ' · ' + virhe + ' virhe' : ''), virhe ? 'err' : 'ok');
+  return { dryRun: false, paivitetty: paivitetty, virhe: virhe };
 };
 
 window.recalcHH = async function(seuraIdArg, dryRun, force) {

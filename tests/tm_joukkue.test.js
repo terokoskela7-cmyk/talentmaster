@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { tmNormJoukkueAvain, tmKanonisoiJoukkue } = require('../lib/tm_joukkue.js');
+const { tmNormJoukkueAvain, tmKanonisoiJoukkue, tmPuhdistaJoukkueetIdt } = require('../lib/tm_joukkue.js');
 
 const NBSP = ' ', ZWSP = '​', ZWNJ = '‌', BOM = '﻿';
 
@@ -56,5 +56,35 @@ describe('tmKanonisoiJoukkue (osuma seuran joukkuet-listaan)', () => {
   it('usea doc → täsmää oikeaan', () => {
     expect(tmKanonisoiJoukkue('sjk p16', lista).id).toBe('sjk_p16');
     expect(tmKanonisoiJoukkue('sjk t14', lista).id).toBe('sjk_t14');
+  });
+});
+
+describe('tmPuhdistaJoukkueetIdt (#92b — joukkueet[] vain kanoniset id:t)', () => {
+  const validIdt = ['sjk_p15', 'sjk_t14', 'sjk_p16'];
+  const lista = [
+    { id: 'sjk_p15', nimi: 'SJK P15' },
+    { id: 'sjk_t14', nimi: 'SJK T14' },
+    { id: 'sjk_p16', nimi: 'SJK P16' },
+  ];
+  it('poistaa nimi-string-jäänteen, jättää validi id:n', () => {
+    expect(tmPuhdistaJoukkueetIdt(['sjk_p15', 'SJK P15'], validIdt, 'SJK P15', lista)).toEqual(['sjk_p15']);
+    expect(tmPuhdistaJoukkueetIdt(['SJK T14', 'sjk_t14'], validIdt, 'SJK T14', lista)).toEqual(['sjk_t14']);
+  });
+  it('jos vain nimi-string (ei valideja id:tä) → turvaverkko: kanonisoi joukkue-stringistä', () => {
+    expect(tmPuhdistaJoukkueetIdt(['SJK P15'], validIdt, 'SJK P15 ', lista)).toEqual(['sjk_p15']);
+    expect(tmPuhdistaJoukkueetIdt([], validIdt, 'sjk t14', lista)).toEqual(['sjk_t14']);
+  });
+  it('orpo (ei id:tä, joukkue-string ei matchaa) → tyhjä', () => {
+    expect(tmPuhdistaJoukkueetIdt(['SJK P17'], validIdt, 'SJK P17', lista)).toEqual([]);
+    expect(tmPuhdistaJoukkueetIdt(['SJK P17'], validIdt, '', lista)).toEqual([]);
+  });
+  it('jo puhdas → idempotentti (sama tulos)', () => {
+    expect(tmPuhdistaJoukkueetIdt(['sjk_p15'], validIdt, 'SJK P15', lista)).toEqual(['sjk_p15']);
+    expect(tmPuhdistaJoukkueetIdt(['sjk_p15', 'sjk_t14'], validIdt, 'SJK P15', lista)).toEqual(['sjk_p15', 'sjk_t14']);
+  });
+  it('Set tai Array validIdt kelpaa; tyhjä/puuttuva joukkueet → []', () => {
+    expect(tmPuhdistaJoukkueetIdt(['sjk_p15', 'SJK P15'], new Set(validIdt), 'SJK P15', lista)).toEqual(['sjk_p15']);
+    expect(tmPuhdistaJoukkueetIdt(null, validIdt, null, lista)).toEqual([]);
+    expect(tmPuhdistaJoukkueetIdt(undefined, validIdt, '', lista)).toEqual([]);
   });
 });
