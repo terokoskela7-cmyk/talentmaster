@@ -19,6 +19,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
 <script src="lib/tm_eerikkila_normit.js?v=38"></script>
+<script src="lib/tm_joukkue.js?v=1"></script>
 
 <style>
 :root {
@@ -3959,6 +3960,77 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
 // pelaajille joilta taso puuttuu (esim. SJK: syntymaVuosi puuttui tuonnista → laskeHHTaso palautti null).
 // Ikä + sukupuoli johdetaan joukkuenimestä (P14→14/M · T16→16/N · U13→13 + sp profiilista). SA-only konsolifunktio.
 // KRIITTINEN: laskeHHTaso lukee avaimen 'hyppy_cj', mutta hh_viimeisin käyttää 'cmj' → remap pakollinen.
+// #92 — KERTALUONTOINEN JOUKKUE-NORMALISOINTI (SA-only, recalc-pattern, dry-run OLETUS).
+// Kanonisoi pelaajien `joukkue`-string seuran joukkuet-doceihin (lib/tm_joukkue.js) → korjaa erätuonneista
+// pirstoutuneet variantit (whitespace/case/NBSP/zero-width). EI poista joukkue-docceja, EI muuta pikakenttiä (§26),
+// idempotentti. §18: joukkue (kanon. nimi) + joukkueet[] (kanon. id, arrayUnion) molemmat ajan tasalle.
+window.normalisoiJoukkueet = async function(seuraIdArg, dryRun) {
+  if (dryRun === undefined) dryRun = true;            // turvallinen oletus — ei kirjoituksia ilman false
+  if (!superAdmin) { console.warn('[normalisoiJoukkueet] Vain Super Admin'); return; }
+  if (typeof tmKanonisoiJoukkue !== 'function' || typeof tmNormJoukkueAvain !== 'function') {
+    console.warn('[normalisoiJoukkueet] lib/tm_joukkue.js ei ladattu'); return; }
+  const sid = seuraIdArg || seuraId;
+  if (!sid) { console.warn('[normalisoiJoukkueet] Käyttö: normalisoiJoukkueet(seuraId, dryRun=true)'); return; }
+
+  // 1. Kanoninen joukkuet-lista
+  const jSnap = await db.collection('seurat').doc(sid).collection('joukkueet').get();
+  const lista = jSnap.docs.map(function(d){ return { id: d.id, nimi: (d.data().nimi || d.id) }; });
+  if (!lista.length) { console.warn('[normalisoiJoukkueet] Seuralla ei joukkuet-docceja — ei kanonista lähdettä, keskeytetään.'); return; }
+
+  // Defensiivinen: kaksi DOCIA normalisoituu samaksi → flagaa (EI auto-yhdistä docceja). Ei SJK:n tilanne.
+  const avainMap = {};
+  lista.forEach(function(d){ const a = tmNormJoukkueAvain(d.nimi); (avainMap[a] = avainMap[a] || []).push(d.id); });
+  Object.keys(avainMap).forEach(function(a){ if (avainMap[a].length > 1) {
+    console.warn('[normalisoiJoukkueet] ⚠ KAKSI DOC-ID:tä normalisoituu samaksi ("' + a + '"): ' + avainMap[a].join(', ') + ' — korjaa käsin, EI auto-yhdistetä.');
+  }});
+
+  // 2. Pelaajat → muutokset + orvot
+  const pelSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+  const muutokset = [], orvot = [], ennen = {};
+  pelSnap.docs.forEach(function(pd){
+    const p = pd.data();
+    const raw = p.joukkue;
+    if (raw == null || String(raw).trim() === '') return;
+    ennen[JSON.stringify(raw)] = (ennen[JSON.stringify(raw)] || 0) + 1;   // raw-string (paljastaa whitespace-variantit)
+    const kanon = tmKanonisoiJoukkue(raw, lista);
+    if (!kanon) { orvot.push({ nimi: (p.sukunimi||'') + ', ' + (p.etunimi||''), joukkue: raw }); return; }
+    const nimiEri = (p.joukkue !== kanon.nimi);
+    const idPuuttuu = !(Array.isArray(p.joukkueet) && p.joukkueet.indexOf(kanon.id) >= 0);
+    if (nimiEri || idPuuttuu) muutokset.push({ ref: pd.ref, vanha: p.joukkue, uusi: kanon.nimi, id: kanon.id });
+  });
+
+  // 3. Raportti
+  console.log('[normalisoiJoukkueet] ' + sid + (dryRun ? ' (DRY-RUN)' : ' (LIVE)') + ' — ' + muutokset.length + ' pelaajaa normalisoituu, ' + orvot.length + ' orpoa.');
+  console.log('[normalisoiJoukkueet] ENNEN (raw joukkue-stringit, JSON paljastaa whitespacen):');
+  Object.keys(ennen).sort().forEach(function(k){ console.log('   ' + ennen[k] + '× ' + k); });
+  // Lopputulos per KANONINEN joukkue (montako kuuluu kuhunkin normalisoinnin jälkeen)
+  const tulos = {};
+  pelSnap.docs.forEach(function(pd){ const p = pd.data(); if (p.joukkue==null||String(p.joukkue).trim()==='') return; const kanon = tmKanonisoiJoukkue(p.joukkue, lista); const nimi = kanon ? kanon.nimi : ('ORPO: ' + p.joukkue); tulos[nimi] = (tulos[nimi]||0)+1; });
+  console.log('[normalisoiJoukkueet] LOPPUTULOS per kanoninen joukkue:');
+  Object.keys(tulos).sort().forEach(function(n){ console.log('   ' + n + ': ' + tulos[n]); });
+  if (orvot.length) { console.warn('[normalisoiJoukkueet] ORVOT (ei automuutosta — operaattori päättää luonti/valinta):'); orvot.forEach(function(o){ console.warn('   ' + JSON.stringify(o.joukkue) + ' · ' + o.nimi); }); }
+
+  if (dryRun) {
+    console.log('[normalisoiJoukkueet] DRY-RUN — ei kirjoituksia. Aja oikeasti: normalisoiJoukkueet(\'' + sid + '\', false)');
+    return { dryRun: true, muutoksia: muutokset.length, orvot: orvot.length, ennen: ennen, tulos: tulos };
+  }
+
+  // 4. Kirjoita batcheina (≤400/erä) — joukkue + joukkueet[] (arrayUnion). getIdToken ennen.
+  if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true);
+  const ERA = Math.min(400, BATCH_KOKO); let paivitetty = 0, virhe = 0;
+  const eria = Math.ceil(muutokset.length / ERA);
+  for (let e = 0; e < eria; e++) {
+    const era = muutokset.slice(e*ERA, (e+1)*ERA);
+    const batch = db.batch();
+    era.forEach(function(m){ batch.set(m.ref, { joukkue: m.uusi, joukkueet: firebase.firestore.FieldValue.arrayUnion(m.id) }, { merge: true }); });
+    try { await batch.commit(); paivitetty += era.length; if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true); }
+    catch(err){ console.error('[normalisoiJoukkueet batch '+(e+1)+']', err); virhe += era.length; }
+  }
+  console.log('[normalisoiJoukkueet] valmis: ' + paivitetty + '/' + muutokset.length + ' päivitetty · orvot ' + orvot.length + ' (ei kosketu) · virheitä ' + virhe);
+  if (typeof toast === 'function') toast('normalisoiJoukkueet: ' + paivitetty + ' päivitetty' + (virhe ? ' · ' + virhe + ' virhe' : ''), virhe ? 'err' : 'ok');
+  return { dryRun: false, paivitetty: paivitetty, orvot: orvot.length, virhe: virhe };
+};
+
 window.recalcHH = async function(seuraIdArg, dryRun, force) {
   if (dryRun === undefined) dryRun = true;            // turvallinen oletus
   // force=true → laskee hh_taso uudelleen MYÖS pelaajille joilla se jo on (normimigraatio).
