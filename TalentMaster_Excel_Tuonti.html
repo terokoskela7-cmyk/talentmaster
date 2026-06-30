@@ -20,6 +20,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
 <script src="lib/tm_eerikkila_normit.js?v=38"></script>
 <script src="lib/tm_joukkue.js?v=3"></script>
+<script src="lib/tm_pvm.js?v=1"></script>
 
 <style>
 :root {
@@ -698,42 +699,10 @@ function valitseMoodi(moodi) {
 // ════════════════════════════════════════
 // SPRINT 3.1 — APUFUNKTIOT
 // ════════════════════════════════════════
-// _paivaIso(d): timezone-safe ISO-päivä (CLAUDE.md §11 oppi #2).
-// EI käytä toISOString().slice(0,10) — UTC siirtää EET klo 22+ väärään päivään.
-function _paivaIso(d) {
-  if (!d) return null;
-  // Excel-sarjanumero (date-solu ilman cellDates). Epookki 1899-12-30 (SheetJS day 0); 25569 = 1970-01-01.
-  if (typeof d === 'number' && isFinite(d) && d > 59 && d < 100000) {
-    if (typeof XLSX !== 'undefined' && XLSX.SSF && XLSX.SSF.parse_date_code) {
-      const o = XLSX.SSF.parse_date_code(d);
-      if (o && o.y) return o.y + '-' + String(o.m).padStart(2,'0') + '-' + String(o.d).padStart(2,'0');
-    }
-    const dt = new Date(Math.round((d - 25569) * 86400000));
-    if (!isNaN(dt.getTime())) return dt.getUTCFullYear() + '-' + String(dt.getUTCMonth()+1).padStart(2,'0') + '-' + String(dt.getUTCDate()).padStart(2,'0');
-  }
-  // pelkkä 4–6-numeroinen merkkijono joka näyttää Excel-sarjanumerolta → käsittele numerona (ei vuotena)
-  if (typeof d === 'string' && /^\d{4,6}$/.test(d.trim()) && Number(d) > 20000 && Number(d) < 100000) return _paivaIso(Number(d));
-  if (typeof d === 'string') {
-    // Yritä parsia — jos epäonnistuu, palauta merkkijono sellaisenaan jos ISO-formaatti
-    const ymd = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (ymd) return ymd[1] + '-' + ymd[2] + '-' + ymd[3];
-    const fi = d.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
-    if (fi) return fi[3] + '-' + String(fi[2]).padStart(2,'0') + '-' + String(fi[1]).padStart(2,'0');
-    const parsed = new Date(d);
-    if (!isNaN(parsed.getTime())) d = parsed;
-    else return null;
-  }
-  if (!(d instanceof Date) || isNaN(d.getTime())) return null;
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-
-// Excel-päivämääräsolu palautuu SheetJS:ltä numerona (sarjanumero, esim. 45930) tai Date-oliona, ei tekstinä.
-// String(45930) → _paivaIso("45930") → new Date("45930")=vuosi 45930 → "45930-01-01" -bugi. Tämä normalisoi.
-function _solustaPvm(v) {
-  if (v == null || v === '') return '';
-  if (typeof v === 'number' || v instanceof Date) return _paivaIso(v) || '';
-  return String(v).trim();
-}
+// _paivaIso / _solustaPvm — kanoninen logiikka lib/tm_pvm.js:ssä (#61, testattava). Inline-nimet delegoivat,
+// jotta kaikki olemassa olevat kutsujat säilyvät. Jos lib ei lataudu (epätod.) → turvallinen degradoituminen.
+function _paivaIso(d) { return (typeof tmPaivaIso === 'function') ? tmPaivaIso(d) : null; }
+function _solustaPvm(v) { return (typeof tmSolustaPvm === 'function') ? tmSolustaPvm(v) : (v == null ? '' : String(v).trim()); }
 
 // ════════════════════════════════════════
 // SPRINT 3.1 — TKI-LASKENTA (inline kopio docs/testit_indeksit.js:stä)
