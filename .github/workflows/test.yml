@@ -23,10 +23,10 @@ jobs:
       - run: npm test
 
   # #60 — ESLint no-undef -portti (defektiluokan vartija, esim. 'sp is not defined' -luokka).
-  # VAIHE 1: EI estä mergeä (continue-on-error) — raportoi löydökset. Poista continue-on-error kun residuaali triagattu.
+  # VAIHE 1: EI estä mergeä — `lint`-step on continue-on-error (raportoi löydökset CI-lokiin, jobi vihreä).
+  # VAIHE 2: poista step-tason continue-on-error kun 5 residuaali-löydöstä triagattu → uudet undefined-viittaukset kaatavat buildin.
   lint:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,7 +34,9 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run lint
+      - name: ESLint no-undef (raportoiva, ei estävä — VAIHE 1)
+        continue-on-error: true
+        run: npm run lint
 
   # Firestore Security Rules -testit (vaatii emulaattorin)
   rules-tests:
