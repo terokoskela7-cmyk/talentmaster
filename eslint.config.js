@@ -6,20 +6,29 @@ const globals = require('globals');
 const fs = require('fs');
 const path = require('path');
 
-// Kerää window.X = -määrittelyt (= ajonaikaiset globaalit, jotka selain ratkaisee mutta no-undef ei näe) kaikista
-// app-tiedostoista → ei vääriä positiiveja window.X-patternista. TYYPIT silti kiinni: väärin kirjoitettu nimi
-// (joka EI ole window.X) flagataan. Itsestään ylläpityvä — skannaa lähteet ajonaikaisesti.
+// Kerää AJONAIKAISET globaalit (jotka selain ratkaisee mutta no-undef ei näe usean <script>-lohkon/tiedoston yli):
+//   (1) window.X = -määrittelyt · (2) SARAKKEEN 0 (top-level) function/async function -määrittelyt
+//   · (3) SARAKKEEN 0 let/const/var -määrittelyt.
+// → ei vääriä positiiveja window.X- eikä cross-<script>-block-patternista. TYYPIT SILTI KIINNI: väärin kirjoitettu
+// nimi (jota ei ole missään top-level-määrittelyssä) flagataan, samoin SISENNETYT paikalliset muuttujat skoopin
+// ulkopuolella (esim. 'sp is not defined' -luokka — paikallinen var on sisennetty → EI kerätä → jää kiinni).
+// Itsestään ylläpityvä — skannaa lähteet ajonaikaisesti.
 function keraaWindowGlobaalit() {
   const g = {};
   const dir = __dirname;
   const tiedostot = [];
   fs.readdirSync(dir).forEach((f) => { if (/\.(html|js)$/.test(f)) tiedostot.push(f); });
   try { fs.readdirSync(path.join(dir, 'lib')).forEach((f) => { if (/\.js$/.test(f)) tiedostot.push('lib/' + f); }); } catch (e) { /* ohita */ }
-  const re = /window\.([A-Za-z_][A-Za-z0-9_]*)\s*=/g;
+  const reWin = /window\.([A-Za-z_][A-Za-z0-9_]*)\s*=/g;                                  // window.X =
+  const reFn = /^(?:async\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/gm;                // top-level function NAME(
+  const reVar = /^(?:let|const|var)\s+([A-Za-z_][A-Za-z0-9_]*)/gm;                        // top-level let/const/var NAME
   tiedostot.forEach((f) => {
     try {
       const src = fs.readFileSync(path.join(dir, f), 'utf8');
-      let m; while ((m = re.exec(src))) g[m[1]] = 'readonly';
+      let m;
+      while ((m = reWin.exec(src))) g[m[1]] = 'readonly';
+      while ((m = reFn.exec(src))) g[m[1]] = 'readonly';
+      while ((m = reVar.exec(src))) g[m[1]] = 'readonly';
     } catch (e) { /* ohita */ }
   });
   return g;
@@ -82,6 +91,13 @@ const COMMON = {
 };
 
 module.exports = [
+  // Globaali ignore: legacy/viittaamattomat sivut joissa on jo ennestään parse-virhe.
+  // #60 VAIHE 2: Valmentajakortti.html sisältää aidon duplikaatti-constin (KETJU_NIMET riveillä 449 + 845
+  // → SyntaxError). Sivu on kuollut (ei linkitetty mistään, ei §8:n aktiivisessa setissä). Portti kohdistuu
+  // aktiiviseen koodiin; tämä jää erilliseen legacy-siivoukseen (älä lisää tähän aktiivisia tiedostoja).
+  {
+    ignores: ['TalentMaster_Valmentajakortti.html'],
+  },
   // Kirjastot (CommonJS — node + selain): module/require + browser + sovellusglobaalit.
   {
     files: ['lib/**/*.js', 'docs/testit_indeksit.js', 'docs/tk_lajiviitteet.js', 'harjoitelogiikka_v4.js'],
