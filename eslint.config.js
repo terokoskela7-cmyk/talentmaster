@@ -91,6 +91,13 @@ const COMMON = {
 };
 
 module.exports = [
+  // Globaali ignore: legacy/viittaamattomat sivut joissa on jo ennestään parse-virhe.
+  // #60 VAIHE 2: Valmentajakortti.html sisältää aidon duplikaatti-constin (KETJU_NIMET riveillä 449 + 845
+  // → SyntaxError). Sivu on kuollut (ei linkitetty mistään, ei §8:n aktiivisessa setissä). Portti kohdistuu
+  // aktiiviseen koodiin; tämä jää erilliseen legacy-siivoukseen (älä lisää tähän aktiivisia tiedostoja).
+  {
+    ignores: ['TalentMaster_Valmentajakortti.html'],
+  },
   // Kirjastot (CommonJS — node + selain): module/require + browser + sovellusglobaalit.
   {
     files: ['lib/**/*.js', 'docs/testit_indeksit.js', 'docs/tk_lajiviitteet.js', 'harjoitelogiikka_v4.js'],
