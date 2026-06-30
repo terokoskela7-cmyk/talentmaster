@@ -1,50 +1,35 @@
 // #96 — GDPR-locatorin koostamislogiikka (mockattu Firestore). Spec: docs/GDPR_TEKNIIKKA_SPEC.md §2/§5.
 // Varmistaa: KAIKKI §11-sijainnit enumeroidaan, molemmat avaimet (pelaajaId UID + palloID), lukumäärät,
-// seura-rajaus (ristiviitteet eivät vuoda toisesta seurasta), audit-payload ilman henkilösisältöä.
+// ristiviitteet löytyvät VANHEMPIA ITEROIMALLA (ei collectionGroup-documentId-kyselyä joka heittää),
+// seura-rajaus, audit-payload ilman henkilösisältöä.
 import { describe, it, expect } from 'vitest';
 const { keraaPelaajanManifesti, rakennaLukumaarat, rakennaAuditPayload, nollaLukumaarat } = require('../functions/gdpr_locator.js');
 
-const FieldPath = { documentId: () => '__name__' };
-
-// ── Minimaalinen Firestore-mock (polkupohjainen) ────────────────────────────────
-function makeSnap(id, data, path) {
-  return { id, exists: data != null, data: () => data, ref: { path } };
-}
+// ── Minimaalinen Firestore-mock (polkupohjainen, snapshot.ref tukee .collection().doc().get()) ──
 function makeDb(spec) {
   spec.docs = spec.docs || {};
   spec.cols = spec.cols || {};
-  spec.groups = spec.groups || {};
   function colRef(path) {
     return {
       doc(id) { return docRef(path + '/' + id); },
       async get() {
         const arr = spec.cols[path] || [];
-        return { docs: arr.map((d) => makeSnap(d.id, d.data, path + '/' + d.id)) };
+        return { docs: arr.map((d) => snapFromRef(docRef(path + '/' + d.id), d.data)) };
       },
     };
   }
   function docRef(path) {
-    return {
+    const ref = {
       path,
       collection(name) { return colRef(path + '/' + name); },
-      async get() { return makeSnap(path.split('/').pop(), spec.docs[path], path); },
+      async get() { return snapFromRef(ref, spec.docs[path]); },
     };
+    return ref;
   }
-  return {
-    collection(name) { return colRef(name); },
-    collectionGroup(name) {
-      const q = {
-        _val: null,
-        where(_fp, _op, val) { q._val = val; return q; },
-        async get() {
-          const arr = spec.groups[name] || [];
-          const filtered = q._val != null ? arr.filter((d) => d.id === q._val) : arr;
-          return { docs: filtered.map((d) => makeSnap(d.id, d.data, d.path)) };
-        },
-      };
-      return q;
-    },
-  };
+  function snapFromRef(ref, data) {
+    return { id: ref.path.split('/').pop(), exists: data != null, data: () => data, ref };
+  }
+  return { collection(name) { return colRef(name); } };
 }
 
 const SID = 'sjk';
@@ -59,6 +44,12 @@ function taysiSpec(extra = {}) {
       [`pelaajat/${PALLO}`]: { nimi: 'Topias', seuraId: null },                 // Solo litteä
       [`seurat/${SID}/rekisteri/${PALLO}`]: { viite: true },
       [`marketplace/${PALLO}`]: { scout_window: true },
+      // Ristiviitteet OIKEALLA täydellä doc-polulla (regressio: documentId-collectionGroup heitti näille):
+      [`seurat/${SID}/kalenteri/ev1/lasnaolijat/${PID}`]: { tila: 'paikalla' },
+      [`seurat/${SID}/kalenteri/ev2/lasnaolijat/${PID}`]: { tila: 'poissa' },
+      [`seurat/${SID}/testitapahtumat/tt1/tulokset/${PID}`]: { testit: { lin_30m: 5.1 } },
+      [`seurat/${SID}/testitapahtumat/tt2/tulokset/${PALLO}`]: { testit: {} },   // palloID-avaimella
+      [`seurat/${SID}/valmentajat/vUID/kontribuutio/${PALLO}`]: { pisteet: 3 },
       ...(extra.docs || {}),
     },
     cols: {
@@ -72,24 +63,11 @@ function taysiSpec(extra = {}) {
       [`${base}/pelidata`]: [],
       [`${base}/kehut`]: [{ id: 'k1', data: {} }],
       [`pelaajat/${PALLO}/kirjaukset`]: [{ id: 's1', data: {} }],
+      // Vanhemmat joita iteroidaan (ev3:lla EI tämän pelaajan läsnäoloa → ei pidä löytyä):
+      [`seurat/${SID}/kalenteri`]: [{ id: 'ev1', data: {} }, { id: 'ev2', data: {} }, { id: 'ev3', data: {} }],
+      [`seurat/${SID}/testitapahtumat`]: [{ id: 'tt1', data: {} }, { id: 'tt2', data: {} }],
+      [`seurat/${SID}/valmentajat`]: [{ id: 'vUID', data: {} }],
       ...(extra.cols || {}),
-    },
-    groups: {
-      lasnaolijat: [
-        { id: PID, data: { tila: 'paikalla' }, path: `seurat/${SID}/kalenteri/ev1/lasnaolijat/${PID}` },
-        { id: PID, data: { tila: 'poissa' }, path: `seurat/${SID}/kalenteri/ev2/lasnaolijat/${PID}` },
-        { id: PID, data: { tila: 'x' }, path: `seurat/TOINEN/kalenteri/ev9/lasnaolijat/${PID}` }, // TOINEN seura → pois
-      ],
-      tulokset: [
-        { id: PID, data: {}, path: `seurat/${SID}/testitapahtumat/tt1/tulokset/${PID}` },
-        { id: PALLO, data: {}, path: `seurat/${SID}/testitapahtumat/tt2/tulokset/${PALLO}` },
-      ],
-      kontribuutio: [
-        { id: PALLO, data: {}, path: `seurat/${SID}/valmentajat/vUID/kontribuutio/${PALLO}` },
-      ],
-      pelaajat: [],
-      palautteet: [],
-      ...(extra.groups || {}),
     },
   };
 }
@@ -97,7 +75,7 @@ function taysiSpec(extra = {}) {
 describe('GDPR-locator — kerääPelaajanManifesti', () => {
   it('enumeroi kaikki §11-sijainnit ja laskee lukumäärät (avain: tunniste)', async () => {
     const db = makeDb(taysiSpec());
-    const m = await keraaPelaajanManifesti(db, SID, PID, { FieldPath });
+    const m = await keraaPelaajanManifesti(db, SID, PID);
     expect(m.loytyi).toBe(true);
     expect(m.palloID).toBe(PALLO);
     const c = m.lukumaarat;
@@ -108,25 +86,63 @@ describe('GDPR-locator — kerääPelaajanManifesti', () => {
     expect(c.biologinen_ika).toBe(1);
     expect(c.pelidata).toBe(0);
     expect(c.kehut).toBe(1);
-    expect(c.lasnaolo).toBe(2);                  // TOINEN-seuran läsnäolo rajattu pois
-    expect(c.testitapahtuma_tulokset).toBe(2);   // PID + PALLO
+    expect(c.lasnaolo).toBe(2);                  // ev1+ev2 (ev3 ei tätä pelaajaa)
+    expect(c.testitapahtuma_tulokset).toBe(2);   // tt1 (pid) + tt2 (palloID)
     expect(c.palloID_viitteet).toBe(3);          // rekisteri + kontribuutio + marketplace
     expect(c.solo).toBe(1);
     expect(c.media_tiedostoja).toBe(1);
     expect(c.auth).toBe(1);
+    expect(m.varoitukset).toEqual([]);           // ei heittoja (documentId-bugi korjattu)
   });
 
-  it('rajaa ristiviitteet omaan seuraan (ei vuoda toisesta seurasta)', async () => {
+  it('REGRESSIO: ristiviitteet löytyvät vanhempia iteroimalla, OIKEILLA refeillä (ei collectionGroup-heitto)', async () => {
     const db = makeDb(taysiSpec());
-    const m = await keraaPelaajanManifesti(db, SID, PID, { FieldPath });
-    const polut = m.ristiviitteet.lasnaolo.map((x) => x.ref.path);
-    expect(polut.every((p) => p.startsWith(`seurat/${SID}/`))).toBe(true);
-    expect(polut.some((p) => p.includes('TOINEN'))).toBe(false);
+    const m = await keraaPelaajanManifesti(db, SID, PID);
+    // Läsnäolo — täydet doc-polut, vain tämän pelaajan, vain olemassa olevat tapahtumat
+    const lasnaPolut = m.ristiviitteet.lasnaolo.map((x) => x.ref.path).sort();
+    expect(lasnaPolut).toEqual([
+      `seurat/${SID}/kalenteri/ev1/lasnaolijat/${PID}`,
+      `seurat/${SID}/kalenteri/ev2/lasnaolijat/${PID}`,
+    ]);
+    // Testitapahtuma-tulokset — pid- JA palloID-avaimella
+    const ttPolut = m.ristiviitteet.testitapahtuma_tulokset.map((x) => x.ref.path).sort();
+    expect(ttPolut).toEqual([
+      `seurat/${SID}/testitapahtumat/tt1/tulokset/${PID}`,
+      `seurat/${SID}/testitapahtumat/tt2/tulokset/${PALLO}`,
+    ]);
+    // RTBF poistaisi TÄSMÄLLEEN nämä ristiviite-refit (sama logiikka kuin poistaPelaajaGDPR)
+    const rtbfRistiRefit = []
+      .concat(m.ristiviitteet.lasnaolo, m.ristiviitteet.testitapahtuma_tulokset, m.ristiviitteet.palloID_viitteet)
+      .map((x) => x.ref.path).sort();
+    expect(rtbfRistiRefit).toEqual([
+      `marketplace/${PALLO}`,
+      `seurat/${SID}/kalenteri/ev1/lasnaolijat/${PID}`,
+      `seurat/${SID}/kalenteri/ev2/lasnaolijat/${PID}`,
+      `seurat/${SID}/rekisteri/${PALLO}`,
+      `seurat/${SID}/testitapahtumat/tt1/tulokset/${PID}`,
+      `seurat/${SID}/testitapahtumat/tt2/tulokset/${PALLO}`,
+      `seurat/${SID}/valmentajat/vUID/kontribuutio/${PALLO}`,
+    ].sort());
+  });
+
+  it('ristiviite-iterointi ei kaadu eikä keksi dataa kun mitään ei löydy', async () => {
+    // Pelaaja olemassa, mutta EI ristiviitteitä (tyhjät vanhemmat-listat)
+    const spec = taysiSpec();
+    spec.cols[`seurat/${SID}/kalenteri`] = [];
+    spec.cols[`seurat/${SID}/testitapahtumat`] = [];
+    spec.cols[`seurat/${SID}/valmentajat`] = [];
+    const db = makeDb(spec);
+    const m = await keraaPelaajanManifesti(db, SID, PID);
+    expect(m.lukumaarat.lasnaolo).toBe(0);
+    expect(m.lukumaarat.testitapahtuma_tulokset).toBe(0);
+    // rekisteri + marketplace (suorat doc-getit) säilyvät — kontribuutio 0
+    expect(m.lukumaarat.palloID_viitteet).toBe(2);
+    expect(m.varoitukset).toEqual([]);
   });
 
   it('Storage-prefiksit ovat per havainto (ei koko havainnot/-prefix → ei poista muiden mediaa)', async () => {
     const db = makeDb(taysiSpec());
-    const m = await keraaPelaajanManifesti(db, SID, PID, { FieldPath });
+    const m = await keraaPelaajanManifesti(db, SID, PID);
     expect(m.storagePrefiksit).toEqual([
       `seurat/${SID}/havainnot/h1/`,
       `seurat/${SID}/havainnot/h2/`,
@@ -138,13 +154,13 @@ describe('GDPR-locator — kerääPelaajanManifesti', () => {
     const spec = taysiSpec();
     spec.docs[`seurat/${SID}/pelaajat/${PID}`] = { etunimi: 'X', palloID: PALLO };
     const db = makeDb(spec);
-    const m = await keraaPelaajanManifesti(db, SID, PID, { FieldPath });
+    const m = await keraaPelaajanManifesti(db, SID, PID);
     expect(m.palloID).toBe(PALLO);
   });
 
   it('idempotenssi: pääDoc poissa → loytyi:false, kaikki lukumäärät 0', async () => {
-    const db = makeDb({ docs: {}, cols: {}, groups: {} });
-    const m = await keraaPelaajanManifesti(db, SID, 'EI_OLE', { FieldPath });
+    const db = makeDb({ docs: {}, cols: {} });
+    const m = await keraaPelaajanManifesti(db, SID, 'EI_OLE');
     expect(m.loytyi).toBe(false);
     expect(m.lukumaarat).toEqual(nollaLukumaarat());
     expect(m.palloID).toBe(null);
@@ -155,14 +171,14 @@ describe('GDPR-locator — kerääPelaajanManifesti', () => {
     delete spec.docs[`pelaajat/${PALLO}`];
     delete spec.cols[`pelaajat/${PALLO}/kirjaukset`];
     const db = makeDb(spec);
-    const m = await keraaPelaajanManifesti(db, SID, PID, { FieldPath });
+    const m = await keraaPelaajanManifesti(db, SID, PID);
     expect(m.solo).toBe(null);
     expect(m.lukumaarat.solo).toBe(0);
   });
 
   it('heittää jos seuraId/pelaajaId puuttuu', async () => {
     const db = makeDb(taysiSpec());
-    await expect(keraaPelaajanManifesti(db, SID, null, { FieldPath })).rejects.toThrow();
+    await expect(keraaPelaajanManifesti(db, SID, null)).rejects.toThrow();
   });
 });
 
@@ -174,7 +190,7 @@ describe('GDPR-locator — audit-payload (EI henkilösisältöä)', () => {
 
   it('audit-payload sisältää vain turvalliset kentät — ei nimeä/emailia/sisältöä', async () => {
     const db = makeDb(taysiSpec());
-    const m = await keraaPelaajanManifesti(db, SID, PID, { FieldPath });
+    const m = await keraaPelaajanManifesti(db, SID, PID);
     const payload = rakennaAuditPayload({
       tyyppi: 'gdpr_rtbf', severity: 'alert', seuraId: SID, pelaajaId: PID,
       requesterUid: 'vpUID', rooli: 'vp', lukumaarat: m.lukumaarat, varoitukset: m.varoitukset,
