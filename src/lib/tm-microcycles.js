@@ -1,51 +1,55 @@
 /* ═══════════════════════════════════════════════════════════════════
    TalentMaster — Bola Sempre -mikrosyklit  v2.0
-   
-   Benfican Seixal-akatemian periaate: pelaaja koskettaa palloa joka päivä
+
+   Periaate (huippuakatemiat): pelaaja koskettaa palloa joka päivä
    useissa eri konteksteissa, ei vain yhdessä strukturoidussa sessiossa.
-   
+
+   #91 (Linjaus A): lapselle näkyvä sisältö anonymisoitu — ei oikeita pelaajien
+   tai seurojen nimiä. Tuotteen arkkityypit (§14: Railgun · Maestro · Shadowstep · Titan)
+   + geneeriset kehykset. Tarina + valmennusopetus säilytetty. Objektiavaimet säilyvät.
+
    4 mikrosykliä päivässä:
      🌅 AAMU       1 min   pallotuntuma + päivän herätys
      🎒 VÄLITUNTI  1 min   "salaliike" tai skannaus (1m² tilassa)
-     ⚽ TREENI     20 min  viikon teema (Bellingham/Pedri/Vinicius/...)
-     🌙 ILTA       2 min   1 klippi nykypelaajasta + 1 reflektiokysymys
-   
+     ⚽ TREENI     20 min  viikon teema (Maestro/Shadowstep/Railgun/...)
+     🌙 ILTA       2 min   1 tekniikkaklippi + 1 reflektiokysymys
+
    8 viikon makrosykli — synkronoituu tm-methodology.js:n JAKSOT-rakenteeseen:
-     vk1 Bellingham — Vastaanotto         (DIAG)   pohja
-     vk2 Pedri      — Dribbeli             (LL)     pohja
-     vk3 Vinicius   — 1v1 suora            (SBL)    pohja
-     vk4 Yamal      — 1v1 ahtaassa tilassa (LL)     kehitys
-     vk5 Haaland    — Liike ilman palloa   (SFL)    kehitys
-     vk6 Trent      — Syöttö               (DIAG)   kehitys
-     vk7 Kane       — Maalinteko           (SFL)    huipentuma
+     vk1 Maestro    — Vastaanotto         (DIAG)   pohja
+     vk2 Shadowstep — Dribbeli             (LL)     pohja
+     vk3 Railgun    — 1v1 suora            (SBL)    pohja
+     vk4 Shadowstep — 1v1 ahtaassa tilassa (LL)     kehitys
+     vk5 Titan      — Liike ilman palloa   (SFL)    kehitys
+     vk6 Maestro    — Syöttö               (DIAG)   kehitys
+     vk7 Titan      — Maalinteko           (SFL)    huipentuma
      vk8 OMA        — Pelaajan oma valinta (vapaa)  huipentuma
-   
+
    Suunnitteluperiaatteet (alle 12-vuotiaalle):
      - Yhdessä lauseessa, alle 10 sanaa
      - Ei valmentajan termejä — lapsen kieli
      - Voi tehdä kotona, 1m² tilassa, ilman valmentajaa
      - Aina valinta: pelaaja näkee 3 vaihtoehtoa per mikrosykli
      - Iltarituaali = ei palloa (mielikuva tai video)
-   
+
    Kortin skeema (kanoninen — _validoi tarkistaa):
      {
-       id: 'bel-aa-1',                      // <idoli>-<tyyppi>-<index>
-       otsikko: 'Bellinghamin herätys',
+       id: 'bel-aa-1',                      // <avain>-<tyyppi>-<index>
+       otsikko: 'Maestron herätys',
        ohje_leikkija:  '...',                // < 10 sanaa
        ohje_rakentaja: '...',                // 13–15v, lyhyt perustelu
        ohje_showcase:  '...',                // 16+, termit ok
        tavoite: { tyyppi: 'kosketukset', maara: 30 },
        kesto_s: 60,
        tiesitko: {
-         nyky:    'Bellingham harjoittelee tätä joka päivä Madridissa.',
-         legenda: 'Kaká pomputteli aina ennen ottelua.',
-         suomi:   'Pukki teki tämän jokaisena treeniaamuna HJK:lla.'
+         nyky:    'Maailman huiput harjoittelevat tätä joka päivä.',
+         legenda: 'Menneiden vuosikymmenten mestarit rakensivat uransa tästä.',
+         suomi:   'Moni suomalaishuippu aloitti samasta perusasiasta.'
        }
      }
-   
-   Media (videoklipit, pelaajakuvat) → lib/tm-media.js
+
+   Media (videoklipit, kuvat) → lib/tm-media.js
    Korttien koodi ei tiedä mediasta — UI hakee korttiId:llä TM.media:sta.
-   
+
    Käyttö:
      <script src="lib/tm-microcycles.js"></script>
      window.TM.microcycles.haeMikrosyklit(viikkoTeema)
@@ -58,84 +62,84 @@
   'use strict';
 
   // ═══════════════════════════════════════════════════════════════════
-  // IDOLIT — viikon teemat × 3 sukupolvea
-  // Lapsi näkee nykypelaajan, oppii legendan, samaistuu suomalaiseen
+  // IDOLIT — viikon teemat arkkityypeittäin (#91 anonymisoitu)
+  // Lapsi näkee arkkityypin, oppii periaatteen, samaistuu kehityspolkuun
   // ═══════════════════════════════════════════════════════════════════
   var IDOLIT = {
     bellingham: {
       koodi: 'bellingham',
-      etunimi: 'Jude', sukunimi: 'Bellingham',
-      seura: 'Real Madrid', numero: 5,
+      etunimi: 'Maestro', sukunimi: '(vastaanotto)',
+      seura: 'huippuakatemia', numero: 5,
       ydintaito: 'vastaanotto',
       tagline: 'Pallo tarttuu jalkaan kuin magneetti',
-      legenda: { nimi: 'Kaká', seura: 'AC Milan / Real', vuosi: '2003–2014' },
-      suomalainen: { nimi: 'Teemu Pukki', seura: 'Norwich / HJK' },
+      legenda: { nimi: 'Menneiden mestari', seura: 'klassikkoaikakausi', vuosi: 'aiempi sukupolvi' },
+      suomalainen: { nimi: 'Suomalainen huippu', seura: 'pääsarja / maajoukkue' },
       vari: '#FFFFFF', vastavari: '#000000'
     },
     pedri: {
       koodi: 'pedri',
-      etunimi: 'Pedri', sukunimi: 'González',
-      seura: 'Barcelona', numero: 8,
+      etunimi: 'Shadowstep', sukunimi: '(dribbeli)',
+      seura: 'huippuakatemia', numero: 8,
       ydintaito: 'dribbeli',
       tagline: 'Katse ylös, pallo ei katoa',
-      legenda: { nimi: 'Ibrahim Afellay', seura: 'PSV / Barcelona', vuosi: '2004–2018' },
-      suomalainen: { nimi: 'Tim Sparv', seura: 'HJK / Suomen kapteeni' },
+      legenda: { nimi: 'Dribblauksen klassikko', seura: 'klassikkoaikakausi', vuosi: 'aiempi sukupolvi' },
+      suomalainen: { nimi: 'Suomalainen tekniikkapelaaja', seura: 'maajoukkue' },
       vari: '#A50044', vastavari: '#FFFFFF'
     },
     vinicius: {
       koodi: 'vinicius',
-      etunimi: 'Vinicius', sukunimi: 'Jr.',
-      seura: 'Real Madrid', numero: 7,
+      etunimi: 'Railgun', sukunimi: '(1v1 suora)',
+      seura: 'huippuakatemia', numero: 7,
       ydintaito: '1v1_suora',
       tagline: 'Yksi liike — vastustaja jää taakse',
-      legenda: { nimi: 'Cristiano Ronaldo', seura: 'ManUtd / Real', vuosi: '2003–' },
-      suomalainen: { nimi: 'Joel Pohjanpalo', seura: 'Venezia / huuhkajat' },
+      legenda: { nimi: 'Räjähtävyyden mestari', seura: 'klassikkoaikakausi', vuosi: 'aiempi sukupolvi' },
+      suomalainen: { nimi: 'Suomalainen hyökkääjä', seura: 'maajoukkue' },
       vari: '#FFFFFF', vastavari: '#000000'
     },
     yamal: {
       koodi: 'yamal',
-      etunimi: 'Lamine', sukunimi: 'Yamal',
-      seura: 'Barcelona', numero: 19,
+      etunimi: 'Shadowstep', sukunimi: '(ahdas tila)',
+      seura: 'huippuakatemia', numero: 19,
       ydintaito: '1v1_ahdas',
       tagline: 'Pieni tila — iso pelaaja',
-      legenda: { nimi: 'Lionel Messi', seura: 'Barcelona / Inter Miami', vuosi: '2004–' },
-      suomalainen: { nimi: 'Jari Litmanen', seura: 'Ajax / Barcelona / Liverpool' },
+      legenda: { nimi: 'Ahtaan tilan taituri', seura: 'klassikkoaikakausi', vuosi: 'aiempi sukupolvi' },
+      suomalainen: { nimi: 'Suomalainen taituri', seura: 'maajoukkue' },
       vari: '#A50044', vastavari: '#FFFFFF'
     },
     haaland: {
       koodi: 'haaland',
-      etunimi: 'Erling', sukunimi: 'Haaland',
-      seura: 'Manchester City', numero: 9,
+      etunimi: 'Titan', sukunimi: '(liike ilman palloa)',
+      seura: 'huippuakatemia', numero: 9,
       ydintaito: 'liike_ilman_palloa',
       tagline: 'Ole valmiina ennen palloa',
-      legenda: { nimi: 'Wesley Sneijder', seura: 'Inter / Real', vuosi: '2003–2019' },
-      suomalainen: { nimi: 'Oliver Antman', seura: 'Go Ahead Eagles / huuhkajat' },
+      legenda: { nimi: 'Liikkeen mestari', seura: 'klassikkoaikakausi', vuosi: 'aiempi sukupolvi' },
+      suomalainen: { nimi: 'Suomalainen nopeushyökkääjä', seura: 'maajoukkue' },
       vari: '#6CABDD', vastavari: '#FFFFFF'
     },
     trent: {
       koodi: 'trent',
-      etunimi: 'Trent', sukunimi: 'Alexander-Arnold',
-      seura: 'Real Madrid', numero: 12,
+      etunimi: 'Maestro', sukunimi: '(syöttö)',
+      seura: 'huippuakatemia', numero: 12,
       ydintaito: 'syotto',
       tagline: 'Pallo lentää kaaressa minne haluat',
-      legenda: { nimi: 'David Beckham', seura: 'ManUtd / Real', vuosi: '1992–2013' },
-      suomalainen: { nimi: 'Robert Taylor', seura: 'Inter Miami / huuhkajat' },
+      legenda: { nimi: 'Syötön klassikko', seura: 'klassikkoaikakausi', vuosi: 'aiempi sukupolvi' },
+      suomalainen: { nimi: 'Suomalainen syöttäjä', seura: 'maajoukkue' },
       vari: '#FFFFFF', vastavari: '#000000'
     },
     kane: {
       koodi: 'kane',
-      etunimi: 'Harry', sukunimi: 'Kane',
-      seura: 'Bayern München', numero: 9,
+      etunimi: 'Titan', sukunimi: '(maalinteko)',
+      seura: 'huippuakatemia', numero: 9,
       ydintaito: 'maalinteko',
       tagline: 'Maalin edessä rauhallisesti',
-      legenda: { nimi: 'Ruud van Nistelrooy', seura: 'ManUtd / Real', vuosi: '1998–2012' },
-      suomalainen: { nimi: 'Benjamin Källman', seura: 'Cremonese / huuhkajat' },
+      legenda: { nimi: 'Maalinteon mestari', seura: 'klassikkoaikakausi', vuosi: 'aiempi sukupolvi' },
+      suomalainen: { nimi: 'Suomalainen maalintekijä', seura: 'maajoukkue' },
       vari: '#DC052D', vastavari: '#FFFFFF'
     }
   };
 
   // 8 vk rotaatio — synkronoituu JAKSOT-rakenteeseen.
-  // vk8 = pelaajan oma valinta — UI tarjoaa idolinvalitsijaa.
+  // vk8 = pelaajan oma valinta — UI tarjoaa teemavalitsijaa.
   // jakso-kentta on informatiivinen — varsinainen jakso lasketaan tm-methodology.js:ssä.
   var NIMIKKO_VIIKOT = [
     { vk: 1, idoli: 'bellingham', teema: 'Vastaanotto',           ketju: 'DIAG', jakso: 'pohja' },
@@ -146,8 +150,8 @@
     { vk: 6, idoli: 'trent',      teema: 'Syöttö',                ketju: 'DIAG', jakso: 'kehitys' },
     { vk: 7, idoli: 'kane',       teema: 'Maalinteko',            ketju: 'SFL',  jakso: 'huipentuma' },
     { vk: 8, idoli: 'OMA',        teema: 'Oma valinta',           ketju: null,   jakso: 'huipentuma',
-      kuvaus: 'Pelaaja valitsee maanantaina yhden 7 idolista — viikon ajan syvennytään siihen. ' +
-              'Stage 4–5: voi yhdistää 2 idolia (esim. Bellingham + Trent).' }
+      kuvaus: 'Pelaaja valitsee maanantaina yhden 7 teemasta — viikon ajan syvennytään siihen. ' +
+              'Stage 4–5: voi yhdistää 2 teemaa (esim. vastaanotto + syöttö).' }
   ];
 
   // ═══════════════════════════════════════════════════════════════════
@@ -189,7 +193,7 @@
   };
 
   // ═══════════════════════════════════════════════════════════════════
-  // KORTIT — 7 idolia × 3 mikrosykli-tyyppiä × 3 vaihtoehtoa = 63 korttia
+  // KORTIT — 7 teemaa × 3 mikrosykli-tyyppiä × 3 vaihtoehtoa = 63 korttia
   // Treeni hoidetaan tm-prescription.js:n PANKKI:sta — ei kortti tästä.
   //
   // Skeema:
@@ -201,21 +205,21 @@
   // ═══════════════════════════════════════════════════════════════════
   var KORTIT = {
 
-    // ───────── VK 1 — BELLINGHAM (vastaanotto) ─────────
+    // ───────── VK 1 — VASTAANOTTO (Maestro) ─────────
     bellingham: {
       aamu: [
         {
           id: 'bel-aa-1',
-          otsikko: 'Bellinghamin herätys',
+          otsikko: 'Maestron herätys',
           ohje_leikkija: 'Pomputtele 30 kertaa. Älä pudota!',
           ohje_rakentaja: 'Pomputtelu sisäjalalla 30, vuorojaloin.',
           ohje_showcase: 'Sisäteräjongleeraus 2×30 — vuoroin oikealla ja vasemmalla.',
           tavoite: { tyyppi: 'kosketukset', maara: 30 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Bellingham harjoittelee tätä 30 min joka päivä Madridissa.',
-            legenda: 'Kaká pomputteli aina ennen ottelua. Lähes 100 kosketusta.',
-            suomi:   'Pukki teki tämän jokaisena treeniaamuna HJK:lla.'
+            nyky:    'Maailman huiput pomputtelevat satoja kosketuksia joka päivä — pallotuntuma syntyy toistosta.',
+            legenda: 'Menneiden mestarit pomputtelivat aina ennen ottelua, kymmeniä kosketuksia putkeen.',
+            suomi:   'Moni suomalaishuippu teki tämän jokaisena treeniaamuna jo lapsena.'
           }
         },
         {
@@ -227,9 +231,9 @@
           tavoite: { tyyppi: 'toistot', maara: 10 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Bellingham kuolettaa pallon 30 cm säteellä jalastaan.',
-            legenda: 'Kaká: "1. kosketus on koko peli."',
-            suomi:   'Pukki: "Vastaanotto on perusasia, joka ratkaisee."'
+            nyky:    'Parhaat kuolettavat pallon alle puolen metrin säteelle jalastaan.',
+            legenda: 'Klassikkomestari opetti: "Ensimmäinen kosketus on koko peli."',
+            suomi:   'Suomalaisvalmentajat muistuttavat: vastaanotto on perusasia, joka ratkaisee.'
           }
         },
         {
@@ -241,9 +245,9 @@
           tavoite: { tyyppi: 'kosketukset', maara: 20 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Bellingham teki tätä 100× ennen koulua lapsuudessaan.',
-            legenda: 'Kaká aloitti tip-tapin 6-vuotiaana São Paulossa.',
-            suomi:   'Pukki harjoitteli tämän pakkasella kotipihassa.'
+            nyky:    'Huiput tekivät tätä satoja kertoja ennen koulua jo lapsuudessaan.',
+            legenda: 'Moni mestari aloitti tip-tapin alle kouluikäisenä.',
+            suomi:   'Suomalaishuippu harjoitteli tämän pakkasella kotipihassa.'
           }
         }
       ],
@@ -257,9 +261,9 @@
           tavoite: { tyyppi: 'toistot', maara: 5 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Real Madridissa tämä on perusliike ennen jokaista harjoitusta.',
-            legenda: 'Kaká teki tämän 200× viikossa Milanon akatemiassa.',
-            suomi:   'HJK:n akatemia harjoittelee tätä 4-vuotiaista alkaen.'
+            nyky:    'Huippuakatemioissa tämä on perusliike ennen jokaista harjoitusta.',
+            legenda: 'Klassikkoakatemiat toistivat tätä satoja kertoja viikossa.',
+            suomi:   'Suomalaisakatemiat harjoittelevat tätä jo aivan pienestä alkaen.'
           }
         },
         {
@@ -271,39 +275,39 @@
           tavoite: { tyyppi: 'havainnot', maara: 5 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Bellingham katsoo ympärilleen 0,6× sekunnissa pelin aikana.',
-            legenda: 'Xavi näki 5 syöttölinjaa joka kosketuksen aikana.',
-            suomi:   'Sparv: "Suomalaiset voittavat skannauksessa, jos opettelevat."'
+            nyky:    'Huiput katsovat ympärilleen jatkuvasti — useita kertoja sekunnissa pelin aikana.',
+            legenda: 'Pelinrakentajamestari näki vapaat syöttölinjat joka kosketuksen aikana.',
+            suomi:   'Suomalaisvalmentajat: "Skannauksen oppii kuka tahansa, joka harjoittelee sitä."'
           }
         },
         {
           id: 'bel-va-3',
-          otsikko: 'Mielessä — Bellingham',
+          otsikko: 'Mielessä — vastaanotto',
           ohje_leikkija: 'Sulje silmät. Kuvittele että otat hienon kosketuksen.',
           ohje_rakentaja: 'Visualisoi 1. kosketus — pallo, jalka, asento. 60s.',
           ohje_showcase: 'Mentaaliharjoitus 60s: 1. kosketus paineessa, pallo hallintaan.',
           tavoite: { tyyppi: 'mielikuva', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Bellingham: "Pelaan ottelun päässäni illalla ennen unta."',
-            legenda: 'Tutkijat: mielikuva = 60% liikkeen oppimisesta.',
-            suomi:   'Litmanen visualisoi syötöt aamulla ennen jokaista peliä.'
+            nyky:    'Moni huippu "pelaa ottelun päässään" illalla ennen unta.',
+            legenda: 'Tutkijat: mielikuva on iso osa liikkeen oppimista.',
+            suomi:   'Suomalaishuiput visualisoivat suorituksia aamulla ennen jokaista peliä.'
           }
         }
       ],
       ilta: [
         {
           id: 'bel-il-1',
-          otsikko: 'Bellinghamin paras kosketus',
-          ohje_leikkija: 'Katso 30 sekuntia Bellingham-klippiä. Mitä hän teki?',
+          otsikko: 'Paras kosketus',
+          ohje_leikkija: 'Katso 30 sekuntia tekniikkaklippiä. Mitä hän teki?',
           ohje_rakentaja: 'Katso klippi 30s, tunnista 1. kosketuksen tekniikka.',
           ohje_showcase: 'Analysoi klippi 30s — body shape ennen vastaanottoa.',
           tavoite: { tyyppi: 'video', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Tämä klippi on Madridin akatemian opetusvideo.',
-            legenda: 'Kaká:n 1. kosketus oli pohja koko AC Milanin pelitavalle 2003–07.',
-            suomi:   'HJK:n analyysitiimi katsoo Bellinghamia viikoittain.'
+            nyky:    'Tällaisia tekniikkaklippejä käytetään huippuakatemioiden opetuksessa.',
+            legenda: 'Klassikkomestarin ensikosketus oli pohja kokonaisen joukkueen pelitavalle.',
+            suomi:   'Suomalaisanalyytikot katsovat parhaiden vastaanottoja viikoittain oppiakseen.'
           }
         },
         {
@@ -315,9 +319,9 @@
           tavoite: { tyyppi: 'reflektio', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Bellingham pitää päiväkirjaa onnistumisista joka ilta.',
-            legenda: 'Benficassa pelaajat pitävät päiväkirjaa — 1 hyvä kosketus/päivä.',
-            suomi:   'HJK U17 ottaa käyttöön reflektiopäiväkirjan kaudesta 2024.'
+            nyky:    'Moni huippu pitää päiväkirjaa onnistumisistaan joka ilta.',
+            legenda: 'Huippuakatemioissa pelaajat kirjaavat yhden hyvän kosketuksen päivässä.',
+            suomi:   'Suomalaisseurat ovat ottaneet reflektiopäiväkirjan käyttöön nuorilla.'
           }
         },
         {
@@ -329,29 +333,29 @@
           tavoite: { tyyppi: 'tavoite', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Bellingham asettaa 3 mikrotavoitetta ennen jokaista peliä.',
-            legenda: 'La Masia: pelaajat asettavat tavoitteen joka iltaa varten.',
-            suomi:   'Pukki: "Yksi tavoite per päivä — silloin se onnistuu."'
+            nyky:    'Huiput asettavat muutaman mikrotavoitteen ennen jokaista peliä.',
+            legenda: 'Huippuakatemioissa pelaajat asettavat tavoitteen joka iltaa varten.',
+            suomi:   'Suomalaisvalmentajat: "Yksi tavoite per päivä — silloin se onnistuu."'
           }
         }
       ]
     },
 
-    // ───────── VK 2 — PEDRI (dribbeli) ─────────
+    // ───────── VK 2 — DRIBBELI (Shadowstep) ─────────
     pedri: {
       aamu: [
         {
           id: 'ped-aa-1',
-          otsikko: 'Pedrin tip-tap',
+          otsikko: 'Shadowstepin tip-tap',
           ohje_leikkija: 'Naputtele palloa 40 kertaa. Pidä se lähellä!',
           ohje_rakentaja: 'Tip-tap sisäjalalla 40× pieneen ympyrään.',
           ohje_showcase: 'High-frequency dribble 2×20 — pallo 30 cm säteellä.',
           tavoite: { tyyppi: 'kosketukset', maara: 40 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Pedri tekee tämän 200× ennen Barcan harjoitusta.',
-            legenda: 'Iniesta: "Pallo on koira — pidä se aina lähellä."',
-            suomi:   'Sparv aloitti tip-tapin 7-vuotiaana Vaasassa.'
+            nyky:    'Parhaat dribblaajat tekevät tätä satoja kertoja ennen harjoitusta.',
+            legenda: 'Klassikkotaituri opetti: "Pallo on koira — pidä se aina lähellä."',
+            suomi:   'Suomalaishuippu aloitti tip-tapin pienenä kotikaupungissaan.'
           }
         },
         {
@@ -363,9 +367,9 @@
           tavoite: { tyyppi: 'askeleet', maara: 20 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Pedri ei katso palloa lähes koskaan dribblauksen aikana.',
-            legenda: 'Iniesta sanoi: "Kun katsot palloa, peli loppuu."',
-            suomi:   'Sparv: "Pää pystyssä — siinä on koko Suomen jalkapallon ydin."'
+            nyky:    'Parhaat eivät katso palloa lähes lainkaan dribblauksen aikana.',
+            legenda: 'Klassikkotaituri sanoi: "Kun katsot palloa, peli loppuu."',
+            suomi:   'Suomalaisvalmentajat: "Pää pystyssä — siinä on pelin ydin."'
           }
         },
         {
@@ -377,9 +381,9 @@
           tavoite: { tyyppi: 'toistot', maara: 10 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Pedri harjoittelee tätä päivittäin La Masiassa.',
-            legenda: 'Affelay teki tämän PSV:n akatemiassa lapsena.',
-            suomi:   'Sparv: "Kahdeksikko opettaa molempia jalkoja yhtä aikaa."'
+            nyky:    'Huiput harjoittelevat tätä päivittäin perusharjoituksena.',
+            legenda: 'Moni klassikkotaituri teki tämän akatemiassaan jo lapsena.',
+            suomi:   'Suomalaisvalmentajat: "Kahdeksikko opettaa molempia jalkoja yhtä aikaa."'
           }
         }
       ],
@@ -393,9 +397,9 @@
           tavoite: { tyyppi: 'toistot', maara: 5 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Pedri käyttää saksia harvoin — siksi se yllättää.',
-            legenda: 'Cristiano Ronaldo teki saksin ensi kertaa 8-vuotiaana.',
-            suomi:   'Sparv: "Saksin merkitys on rytmi, ei pallon liikuttelu."'
+            nyky:    'Parhaat käyttävät saksia harvoin — siksi se yllättää.',
+            legenda: 'Moni klassikkotaituri opetteli saksin jo aivan nuorena.',
+            suomi:   'Suomalaisvalmentajat: "Saksin merkitys on rytmi, ei pallon liikuttelu."'
           }
         },
         {
@@ -407,39 +411,39 @@
           tavoite: { tyyppi: 'toistot', maara: 5 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Yamal käytti tätä El Clásicossa 2024.',
-            legenda: 'Iniesta: "Drag back on suomalaisen pelaajan paras ase."',
-            suomi:   'Sparv käyttää drag backia keskikentällä jokaisessa pelissä.'
+            nyky:    'Ahtaan tilan taiturit käyttävät tätä huippuotteluissa.',
+            legenda: 'Klassikkotaituri: "Drag back on keskikenttäpelaajan paras ase."',
+            suomi:   'Moni suomalaispelinrakentaja käyttää drag backia joka pelissä.'
           }
         },
         {
           id: 'ped-va-3',
-          otsikko: 'Mielessä — Pedri',
+          otsikko: 'Mielessä — dribbeli',
           ohje_leikkija: 'Kuvittele että dribblaat 3 vastustajan ohi.',
           ohje_rakentaja: 'Mielikuva 60s: 3 perättäistä 1v1-tilannetta.',
           ohje_showcase: 'Visualisointi: 3v1-skenario, pallo pysyy hallinnassa.',
           tavoite: { tyyppi: 'mielikuva', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Pedri sanoi: "Pelaan 100 peliä päässäni viikossa."',
-            legenda: 'Affelay aloitti mielikuvaharjoitukset 11-vuotiaana PSV:llä.',
-            suomi:   'Litmanen visualisoi koko ottelun kotimatkalla.'
+            nyky:    'Moni huippu sanoo "pelaavansa satoja pelejä päässään" viikossa.',
+            legenda: 'Klassikkotaiturit aloittivat mielikuvaharjoitukset jo nuorina.',
+            suomi:   'Suomalaishuiput visualisoivat koko ottelun kotimatkalla.'
           }
         }
       ],
       ilta: [
         {
           id: 'ped-il-1',
-          otsikko: 'Pedrin tunnusliike',
-          ohje_leikkija: 'Katso 30 sekuntia Pedrin dribblausta. Mitä huomasit?',
+          otsikko: 'Tunnusliike',
+          ohje_leikkija: 'Katso 30 sekuntia dribblausklippiä. Mitä huomasit?',
           ohje_rakentaja: 'Klippi 30s — tunnista 1 toistuva liike.',
-          ohje_showcase: 'Klippi-analyysi 30s — Pedrin signature-liike + konteksti.',
+          ohje_showcase: 'Klippi-analyysi 30s — toistuva tunnusliike + konteksti.',
           tavoite: { tyyppi: 'video', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Pedri ei katso palloa lähes koskaan dribblauksen aikana.',
-            legenda: 'Affelay PSV–Barca-siirron jälkeen oli "Iniestan oppilas".',
-            suomi:   'Sparv: "Katso Pedriä — sieltä saa Suomen pelitavan opit."'
+            nyky:    'Parhaat eivät katso palloa lähes lainkaan dribblauksen aikana.',
+            legenda: 'Klassikkotaiturit oppivat toisiltaan sukupolvelta toiselle.',
+            suomi:   'Suomalaisvalmentajat: "Katso parhaita — sieltä saa pelitavan opit."'
           }
         },
         {
@@ -451,9 +455,9 @@
           tavoite: { tyyppi: 'reflektio', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Pedri kirjoittaa parhaat 1v1-tilanteet vihkoonsa.',
-            legenda: 'La Masia: pelaaja arvioi joka päivä 1v1-tilastonsa.',
-            suomi:   'Sparv: "Suomalaisen pelaajan etu on rohkeus 1v1:ssä."'
+            nyky:    'Moni huippu kirjaa parhaat 1v1-tilanteet ylös oppiakseen niistä.',
+            legenda: 'Huippuakatemioissa pelaaja arvioi joka päivä omat 1v1-tilanteensa.',
+            suomi:   'Suomalaisvalmentajat: "Pelaajan etu on rohkeus 1v1:ssä."'
           }
         },
         {
@@ -465,43 +469,43 @@
           tavoite: { tyyppi: 'tavoite', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'De Bruyne: "Kokeilen 1 uutta liikettä joka harjoituksessa."',
-            legenda: 'Iniesta opetteli croquetan 11-vuotiaana — 1 liike viikossa.',
-            suomi:   'Sparv: "Yksi rohkea liike per peli — siinä on kehittyminen."'
+            nyky:    'Huiput kokeilevat yhtä uutta liikettä joka harjoituksessa.',
+            legenda: 'Klassikkotaituri opetteli tunnusliikkeensä yksi kerrallaan, viikko viikolta.',
+            suomi:   'Suomalaisvalmentajat: "Yksi rohkea liike per peli — siinä on kehittyminen."'
           }
         }
       ]
     },
 
-    // ───────── VK 3 — VINICIUS (1v1 suora) ─────────
+    // ───────── VK 3 — 1V1 SUORA (Railgun) ─────────
     vinicius: {
       aamu: [
         {
           id: 'vin-aa-1',
-          otsikko: 'Viniciuksen kiihdytys',
+          otsikko: 'Railgunin kiihdytys',
           ohje_leikkija: 'Juokse 5 askelta täydellä vauhdilla pallon kanssa.',
           ohje_rakentaja: 'Räjähtävä lähtö pallolla 5× — 5–10 m kiihdytys.',
           ohje_showcase: 'Explosive first 5 steps — pallo + sprint, palautus täysi.',
           tavoite: { tyyppi: 'toistot', maara: 5 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Vinicius juoksee 35 km/h täysivauhtia pallolla.',
-            legenda: 'Cristiano Ronaldo: "Räjähtävyys on synnynnäinen + treenattu."',
-            suomi:   'Pohjanpalo treenasi 5 askeleen lähtöä päivittäin nuorena.'
+            nyky:    'Nopeimmat hyökkääjät juoksevat pallon kanssa lähes huippuvauhtia.',
+            legenda: 'Räjähtävyyden mestari: "Vauhti on osin synnynnäistä, osin treenattua."',
+            suomi:   'Suomalaishyökkääjät treenaavat 5 askeleen lähtöä päivittäin jo nuorena.'
           }
         },
         {
           id: 'vin-aa-2',
           otsikko: 'Saksi + lähtö',
-          ohje_leikkija: 'Tee saksi ja juokse heti! Kuin Vinicius.',
+          ohje_leikkija: 'Tee saksi ja juokse heti, niin kovaa kuin pystyt!',
           ohje_rakentaja: 'Saksi + räjähtävä kiihdytys 5× — yhteensä yksi liike.',
           ohje_showcase: 'Step-over → 1st step explosive 5× — feint + acceleration.',
           tavoite: { tyyppi: 'toistot', maara: 5 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Vinicius käyttää saksin + kiihdytyksen 8× per peli.',
-            legenda: 'Cristiano: "Liike on turha jos sen jälkeen et juokse."',
-            suomi:   'Pohjanpalo: "Liike + lähtö on yksi asia, ei kaksi."'
+            nyky:    'Parhaat laitahyökkääjät yhdistävät saksin ja kiihdytyksen monta kertaa pelissä.',
+            legenda: 'Räjähtävyyden mestari: "Liike on turha, jos sen jälkeen et juokse."',
+            suomi:   'Suomalaisvalmentajat: "Liike + lähtö on yksi asia, ei kaksi."'
           }
         },
         {
@@ -513,25 +517,25 @@
           tavoite: { tyyppi: 'toistot', maara: 3 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Vinicius vaihtaa suuntaa 90× per peli — eniten La Ligassa.',
-            legenda: 'Cristiano: "Suunnanmuutos on enemmän kuin lihasta."',
-            suomi:   'Pohjanpalo treenasi tämän jokaisen aamulenkin yhteydessä.'
+            nyky:    'Terävimmät hyökkääjät vaihtavat suuntaa kymmeniä kertoja pelissä.',
+            legenda: 'Räjähtävyyden mestari: "Suunnanmuutos on enemmän kuin lihasta."',
+            suomi:   'Suomalaishyökkääjät treenaavat tämän aamulenkin yhteydessä.'
           }
         }
       ],
       valitunti: [
         {
           id: 'vin-va-1',
-          otsikko: 'Salaliike — Cruyff',
-          ohje_leikkija: 'Tee Cruyff-käännös 5 kertaa. Pallo vedetään takajalalle!',
-          ohje_rakentaja: 'Cruyff turn 5× per jalka — sisäterä pallon takaa.',
-          ohje_showcase: 'Cruyff turn 5× — körnerin valeurin uusi suunta.',
+          otsikko: 'Salaliike — vetokäännös',
+          ohje_leikkija: 'Tee vetokäännös 5 kertaa. Pallo vedetään takajalalle!',
+          ohje_rakentaja: 'Vetokäännös 5× per jalka — sisäterä pallon takaa.',
+          ohje_showcase: 'Vetokäännös 5× — valeliikkeellä uusi suunta.',
           tavoite: { tyyppi: 'toistot', maara: 5 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Vinicius käyttää Cruyff-käännöstä laitahyökkääjänä viikoittain.',
-            legenda: 'Johan Cruyff teki tämän liikkeen 1974 MM-kisoissa.',
-            suomi:   'Litmanen oli mestari Cruyff-käännöksessä Ajaxilla.'
+            nyky:    'Laitahyökkääjät käyttävät vetokäännöstä viikoittain päästäkseen irti.',
+            legenda: 'Klassikkomestari teki tämän käännöksen kuuluisaksi arvokisoissa.',
+            suomi:   'Moni suomalaistaituri on ollut vetokäännöksen mestari.'
           }
         },
         {
@@ -543,9 +547,9 @@
           tavoite: { tyyppi: 'havainnot', maara: 3 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Vinicius näkee vastustajan jalat ennen kuin tämä liikkuu.',
-            legenda: 'Cristiano: "Lue vastustaja ennen kuin pallo tulee."',
-            suomi:   'Pohjanpalo: "Ohitus alkaa skannauksesta, ei liikkeestä."'
+            nyky:    'Parhaat näkevät vastustajan jalat ennen kuin tämä liikkuu.',
+            legenda: 'Räjähtävyyden mestari: "Lue vastustaja ennen kuin pallo tulee."',
+            suomi:   'Suomalaisvalmentajat: "Ohitus alkaa skannauksesta, ei liikkeestä."'
           }
         },
         {
@@ -557,25 +561,25 @@
           tavoite: { tyyppi: 'mielikuva', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Vinicius visualisoi 5 1v1-tilannetta ennen ottelua.',
-            legenda: 'Brasilialaiset valmentajat: 30 min mielikuvaa päivässä.',
-            suomi:   'Pohjanpalo: "Mielikuva on ilmaista treeniä — joka iltaan."'
+            nyky:    'Huiput visualisoivat useita 1v1-tilanteita ennen ottelua.',
+            legenda: 'Valmennusperinteessä mielikuvaa harjoiteltiin kymmeniä minuutteja päivässä.',
+            suomi:   'Suomalaishyökkääjät: "Mielikuva on ilmaista treeniä — joka iltaan."'
           }
         }
       ],
       ilta: [
         {
           id: 'vin-il-1',
-          otsikko: 'Viniciuksen voitto-ohitus',
-          ohje_leikkija: 'Katso Viniciuksen ohitus-klippi 30 sekuntia.',
-          ohje_rakentaja: 'Klippi 30s — Vinicius 1v1, mitä hän tekee ennen liikettä?',
-          ohje_showcase: 'Analyysi 30s — Viniciuksen 1v1 trigger + decision.',
+          otsikko: 'Voitto-ohitus',
+          ohje_leikkija: 'Katso 1v1-ohitusklippi 30 sekuntia.',
+          ohje_rakentaja: 'Klippi 30s — 1v1-tilanne, mitä hän tekee ennen liikettä?',
+          ohje_showcase: 'Analyysi 30s — 1v1 trigger + decision.',
           tavoite: { tyyppi: 'video', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Vinicius onnistuu 4/10 kerrasta — paras Euroopassa.',
-            legenda: 'Cristiano teki 1v1 ohituksen 7000+ kertaa Real-urallaan.',
-            suomi:   'Veikkausliigan analyysi: Pohjanpalon 1v1 = 32% onnistumista.'
+            nyky:    'Parhaat onnistuvat 1v1:ssä useammin kuin kukaan muu sarjassaan.',
+            legenda: 'Klassikkomestari toisti 1v1-ohituksen tuhansia kertoja urallaan.',
+            suomi:   'Suomalaisanalyysi: rohkea 1v1 onnistuu, kun sitä uskaltaa yrittää.'
           }
         },
         {
@@ -587,9 +591,9 @@
           tavoite: { tyyppi: 'reflektio', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Vinicius: "Yksi rohkea liike per peli — silloin nautin."',
-            legenda: 'Cruyff: "Rohkeus on taito, ei luonteenpiirre."',
-            suomi:   'Pohjanpalo: "Suomalainen ei ole rohkea? — kokeile silti."'
+            nyky:    'Huiput: "Yksi rohkea liike per peli — silloin nautin."',
+            legenda: 'Klassikkomestari: "Rohkeus on taito, ei luonteenpiirre."',
+            suomi:   'Suomalaisvalmentajat: "Et ole rohkea? — kokeile silti."'
           }
         },
         {
@@ -601,29 +605,29 @@
           tavoite: { tyyppi: 'tavoite', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Mbappé asettaa 3 mikrotavoitetta ennen jokaista peliä.',
-            legenda: 'Cristiano kirjoittaa pelitavoitteet ennen ottelua.',
-            suomi:   'Pohjanpalo: "Yksi 1v1 per peli onnistuu — riittää aluksi."'
+            nyky:    'Huiput asettavat muutaman mikrotavoitteen ennen jokaista peliä.',
+            legenda: 'Klassikkomestari kirjoitti pelitavoitteet muistiin ennen ottelua.',
+            suomi:   'Suomalaisvalmentajat: "Yksi 1v1 per peli onnistuu — riittää aluksi."'
           }
         }
       ]
     },
 
-    // ───────── VK 4 — YAMAL (1v1 ahdas) ─────────
+    // ───────── VK 4 — 1V1 AHDAS (Shadowstep) ─────────
     yamal: {
       aamu: [
         {
           id: 'yam-aa-1',
-          otsikko: 'Yamalin pikkukuljetus',
+          otsikko: 'Shadowstepin pikkukuljetus',
           ohje_leikkija: 'Kuljeta palloa pieneen ympyrään 30 sekuntia.',
           ohje_rakentaja: 'Tight dribble 30s — pallo pysyy 50 cm säteellä.',
           ohje_showcase: 'Confined dribbling 30s — kosketukset 1× sekunnissa.',
           tavoite: { tyyppi: 'sekunnit', maara: 30 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Yamal harjoitteli tätä 4-vuotiaana keittiön lattialla.',
-            legenda: 'Messi pelasi koko lapsuuden 4×4 m alueella Rosariossa.',
-            suomi:   'Litmanen: "Pieni tila — pakottaa luovuuteen."'
+            nyky:    'Ahtaan tilan taiturit harjoittelivat tätä pienenä keittiön lattialla.',
+            legenda: 'Klassikkotaituri pelasi koko lapsuuden pienellä alueella ja kasvoi luovaksi.',
+            suomi:   'Suomalaisvalmentajat: "Pieni tila pakottaa luovuuteen."'
           }
         },
         {
@@ -631,13 +635,13 @@
           otsikko: 'La Croqueta',
           ohje_leikkija: 'Vie pallo sisäjalalta toiselle 10 kertaa nopeasti.',
           ohje_rakentaja: 'La Croqueta 10× — 1 askel, vaihto sisäjalalta sisäjalalle.',
-          ohje_showcase: 'La Croqueta 10× — Iniestan signature, 1 step transfer.',
+          ohje_showcase: 'La Croqueta 10× — klassikkoliike, 1 step transfer.',
           tavoite: { tyyppi: 'toistot', maara: 10 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Yamal käyttää croquetaa La Masian opetuksen mukaan.',
-            legenda: 'Iniesta voitti MM-finaalin tällä liikkeellä 2010.',
-            suomi:   'Litmanen oppi croquetan Ajaxilla 1992 — vei sen Suomeen.'
+            nyky:    'Ahtaan tilan taiturit käyttävät croquetaa päästäkseen ulos paineesta.',
+            legenda: 'Klassikkotaituri voitti arvokisafinaalin tällä liikkeellä.',
+            suomi:   'Moni suomalaistaituri oppi croquetan jo nuorena ja toi sen kotikentille.'
           }
         },
         {
@@ -645,13 +649,13 @@
           otsikko: 'Pull push',
           ohje_leikkija: 'Vedä pallo taakse, työnnä eteen. 10 kertaa.',
           ohje_rakentaja: 'Pull push 10× — jalkapohja taakse, sisäterä eteen.',
-          ohje_showcase: 'Pull–push combo 10× — Messi-signature, fast change of pace.',
+          ohje_showcase: 'Pull–push combo 10× — klassikkoliike, fast change of pace.',
           tavoite: { tyyppi: 'toistot', maara: 10 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Yamal teki tämän liikkeen El Clásicossa 2024.',
-            legenda: 'Messi käytti tätä 7000+ kertaa Barcelona-urallaan.',
-            suomi:   'Litmanen: "Pull push — yksinkertainen ja tehokas."'
+            nyky:    'Ahtaan tilan taiturit tekevät tämän liikkeen huippuotteluissa.',
+            legenda: 'Klassikkotaituri käytti tätä tuhansia kertoja urallaan.',
+            suomi:   'Suomalaisvalmentajat: "Pull push — yksinkertainen ja tehokas."'
           }
         }
       ],
@@ -665,9 +669,9 @@
           tavoite: { tyyppi: 'toistot', maara: 10 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Yamal harjoittelee footworkin ilman palloa joka aamu.',
-            legenda: 'Brasilian akatemiat: footwork ennen palloa.',
-            suomi:   'Litmanen: "Jalkojen rytmi on ennen pallon hallintaa."'
+            nyky:    'Taiturit harjoittelevat footworkin ilman palloa joka aamu.',
+            legenda: 'Klassikkoakatemiat opettivat footworkin ennen palloa.',
+            suomi:   'Suomalaisvalmentajat: "Jalkojen rytmi on ennen pallon hallintaa."'
           }
         },
         {
@@ -679,9 +683,9 @@
           tavoite: { tyyppi: 'havainnot', maara: 3 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Yamal pelaa parhaiten 5×5 m alueella.',
-            legenda: 'Messi: "Pieni tila on minulle iso tila."',
-            suomi:   'Litmanen: "Pelaa pieni tila, kasvat suureksi."'
+            nyky:    'Ahtaan tilan taiturit pelaavat parhaiten kaikkein pienimmässä tilassa.',
+            legenda: 'Klassikkotaituri: "Pieni tila on minulle iso tila."',
+            suomi:   'Suomalaisvalmentajat: "Pelaa pieni tila, kasvat suureksi."'
           }
         },
         {
@@ -693,25 +697,25 @@
           tavoite: { tyyppi: 'mielikuva', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Yamal visualisoi pressing-tilanteita iltaisin.',
-            legenda: 'Iniesta: "Painostuksesta ulos = yksi kosketus, ei kaksi."',
-            suomi:   'Litmanen: "Pakene aina eteenpäin — ei taaksepäin."'
+            nyky:    'Taiturit visualisoivat pressing-tilanteita iltaisin.',
+            legenda: 'Klassikkotaituri: "Painostuksesta ulos = yksi kosketus, ei kaksi."',
+            suomi:   'Suomalaisvalmentajat: "Pakene aina eteenpäin — ei taaksepäin."'
           }
         }
       ],
       ilta: [
         {
           id: 'yam-il-1',
-          otsikko: 'Yamalin liike Realia vastaan',
-          ohje_leikkija: 'Katso Yamal-klippi 30 s. Mitä jaloilla tapahtui?',
-          ohje_rakentaja: 'Klippi 30s — Yamal 1v1, identifioi liikesarja.',
-          ohje_showcase: 'Analyysi 30s — Yamalin sequence + body feints.',
+          otsikko: 'Liike ahtaassa tilassa',
+          ohje_leikkija: 'Katso tekniikkaklippi 30 s. Mitä jaloilla tapahtui?',
+          ohje_rakentaja: 'Klippi 30s — 1v1 ahtaassa, identifioi liikesarja.',
+          ohje_showcase: 'Analyysi 30s — liikesarja + body feints.',
           tavoite: { tyyppi: 'video', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Yamal teki El Clásicossa 2024 maalin 17-vuotiaana.',
-            legenda: 'Messin nuoruusvideoita on tutkittu 1000+ kertaa La Masiassa.',
-            suomi:   'Litmanen oli ensimmäinen suomalainen joka pelasi El Clásicossa.'
+            nyky:    'Parhaat tekevät ratkaisuja ahtaimmassakin tilassa rauhallisesti.',
+            legenda: 'Klassikkotaiturien nuoruusvideoita on tutkittu lukemattomia kertoja oppimateriaalina.',
+            suomi:   'Suomalaistaiturit ovat pärjänneet maailman kovimmilla kentillä.'
           }
         },
         {
@@ -723,9 +727,9 @@
           tavoite: { tyyppi: 'reflektio', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Yamal: "Pieni tila opettaa enemmän kuin iso kenttä."',
-            legenda: 'La Masia: 4×4 m on opetusalue alle 10-vuotiaille.',
-            suomi:   'Litmanen: "Suomalainen kasvaa pelin älyssä, ei koossa."'
+            nyky:    'Taiturit: "Pieni tila opettaa enemmän kuin iso kenttä."',
+            legenda: 'Huippuakatemioissa pienikenttäpeli on opetusmuoto pienille pelaajille.',
+            suomi:   'Suomalaisvalmentajat: "Pelaaja kasvaa pelin älyssä, ei koossa."'
           }
         },
         {
@@ -737,29 +741,29 @@
           tavoite: { tyyppi: 'tavoite', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Yamal kokeilee 1 uutta liikettä joka harjoituksessa.',
-            legenda: 'Messi: "Liike on vain väline — pelaa, älä esitä."',
-            suomi:   'Litmanen oppi pull push -liikkeen 11-vuotiaana Reipasissa.'
+            nyky:    'Taiturit kokeilevat yhtä uutta liikettä joka harjoituksessa.',
+            legenda: 'Klassikkotaituri: "Liike on vain väline — pelaa, älä esitä."',
+            suomi:   'Suomalaishuippu oppi pull push -liikkeen jo nuorena kotiseuransa kentällä.'
           }
         }
       ]
     },
 
-    // ───────── VK 5 — HAALAND (liike ilman palloa) ─────────
+    // ───────── VK 5 — LIIKE ILMAN PALLOA (Titan) ─────────
     haaland: {
       aamu: [
         {
           id: 'haa-aa-1',
-          otsikko: 'Haalandin starttisykäys',
+          otsikko: 'Titanin starttisykäys',
           ohje_leikkija: 'Seiso paikallaan. Lähde juoksuun 5 sekunnissa, 5 kertaa.',
           ohje_rakentaja: 'Seisova lähtö 5× — räjähtävä 5–8 m ilman palloa.',
           ohje_showcase: 'Standing start sprint 5× — ensimmäiset 3 askelta maksimi.',
           tavoite: { tyyppi: 'toistot', maara: 5 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Haaland sprintaa 36 km/h Premier Leaguessa.',
-            legenda: 'Sneijder: "Liike ilman palloa = 80% pelistä."',
-            suomi:   'Antman juoksee 60+ sprinttiä ottelussa Eredivisiessä.'
+            nyky:    'Huippuhyökkääjät sprinttaavat lähes huippuvauhtia myös ilman palloa.',
+            legenda: 'Liikkeen mestari: "Liike ilman palloa on suuri osa peliä."',
+            suomi:   'Suomalaishyökkääjät tekevät kymmeniä sprinttejä ottelun aikana.'
           }
         },
         {
@@ -771,9 +775,9 @@
           tavoite: { tyyppi: 'sekunnit', maara: 30 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Haaland tekee high kneesin ennen jokaista ottelua.',
-            legenda: 'Sneijder lämmitteli aina 5 min reaktiivisilla liikkeillä.',
-            suomi:   'Antman: "Räjähtävyys on aamulla, ei iltapäivällä."'
+            nyky:    'Huiput tekevät reaktiivisia liikkeitä ennen jokaista ottelua.',
+            legenda: 'Liikkeen mestari lämmitteli aina muutaman minuutin reaktiivisilla liikkeillä.',
+            suomi:   'Suomalaisvalmentajat: "Räjähtävyys on aamulla, ei iltapäivällä."'
           }
         },
         {
@@ -785,9 +789,9 @@
           tavoite: { tyyppi: 'toistot', maara: 3 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Haaland sprintaa 4× per minuutti ottelussa.',
-            legenda: 'Sneijder: "Älä koskaan kävele — juokse tai seiso."',
-            suomi:   'Antman: "Sprintti = päätös, ei lihaksen kunto."'
+            nyky:    'Huippuhyökkääjät sprinttaavat useita kertoja jokaisen minuutin aikana.',
+            legenda: 'Liikkeen mestari: "Älä koskaan kävele — juokse tai seiso."',
+            suomi:   'Suomalaisvalmentajat: "Sprintti = päätös, ei vain lihaksen kunto."'
           }
         }
       ],
@@ -801,9 +805,9 @@
           tavoite: { tyyppi: 'toistot', maara: 5 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Haaland väistää keskuspuolustajaa 8× per peli.',
-            legenda: 'Sneijder: "Hyökkääjän pelin ydin on irti pääseminen."',
-            suomi:   'Antman tekee tämän jokaisen ottelun lämmittelyssä.'
+            nyky:    'Hyökkääjät väistävät puolustajaa monta kertaa pelissä päästäkseen vapaaksi.',
+            legenda: 'Liikkeen mestari: "Hyökkääjän pelin ydin on irti pääseminen."',
+            suomi:   'Suomalaishyökkääjät tekevät tämän jokaisen ottelun lämmittelyssä.'
           }
         },
         {
@@ -815,39 +819,39 @@
           tavoite: { tyyppi: 'havainnot', maara: 3 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Haaland katsoo vapaata tilaa 0,8× sekunnissa pelin aikana.',
-            legenda: 'Sneijder: "Hyvä juoksu on 30% sitä, että näet sen ensin."',
-            suomi:   'Antman: "Tyhjä tila — siinä Suomen kavuun saa peliaikaa."'
+            nyky:    'Parhaat etsivät vapaata tilaa jatkuvasti pelin aikana.',
+            legenda: 'Liikkeen mestari: "Hyvä juoksu on suurelta osin sitä, että näet sen ensin."',
+            suomi:   'Suomalaisvalmentajat: "Tyhjä tila — siitä saa peliaikaa."'
           }
         },
         {
           id: 'haa-va-3',
-          otsikko: 'Mielessä — Haaland',
+          otsikko: 'Mielessä — liike',
           ohje_leikkija: 'Kuvittele että juokset tyhjään tilaan ja saat syötön.',
           ohje_rakentaja: 'Mielikuva: irrottautuva juoksu + maali yhdellä kosketuksella.',
           ohje_showcase: 'Visualisointi: off-ball run + 1-touch finish.',
           tavoite: { tyyppi: 'mielikuva', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Haaland visualisoi 10 maalia ennen jokaista peliä.',
-            legenda: 'Sneijder: "Maali alkaa juoksusta — ei laukauksesta."',
-            suomi:   'Antman: "Päässä tehty maali on jo puoleksi tehty."'
+            nyky:    'Huiput visualisoivat maaleja ennen jokaista peliä.',
+            legenda: 'Liikkeen mestari: "Maali alkaa juoksusta — ei laukauksesta."',
+            suomi:   'Suomalaisvalmentajat: "Päässä tehty maali on jo puoleksi tehty."'
           }
         }
       ],
       ilta: [
         {
           id: 'haa-il-1',
-          otsikko: 'Haalandin tyhjään juoksu',
-          ohje_leikkija: 'Katso 30 s Haaland-klippiä. Mihin hän juoksi?',
+          otsikko: 'Tyhjään juoksu',
+          ohje_leikkija: 'Katso 30 s liikeklippiä. Mihin hän juoksi?',
           ohje_rakentaja: 'Klippi 30s — tunnista juoksu ja sen ajoitus syöttöön.',
           ohje_showcase: 'Analyysi 30s — off-ball run timing + defensive line break.',
           tavoite: { tyyppi: 'video', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Haalandin juoksun ajoitus on opetusvideo joka akatemiassa.',
-            legenda: 'Sneijderin syöttö + juoksu = 2010 MM-finaalin pelitapa.',
-            suomi:   'Antmanin nopeus on Eredivisien top-5 hyökkääjä-tilastossa.'
+            nyky:    'Huippujuoksun ajoitus on opetusmateriaalia joka akatemiassa.',
+            legenda: 'Klassikkojen syöttö + juoksu määritti aikansa parhaiden joukkueiden pelitavan.',
+            suomi:   'Suomalaishyökkääjien nopeus on yltänyt Euroopan kärkitilastoihin.'
           }
         },
         {
@@ -859,9 +863,9 @@
           tavoite: { tyyppi: 'reflektio', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Haaland: "Yhdestäkään juoksusta ei ole turhaa, vaikka et saa palloa."',
-            legenda: 'Sneijder: "10 turhaa juoksua palkitsee 1 maalin."',
-            suomi:   'Antman: "Suomalainen pelaa puoli askelta liian myöhässä."'
+            nyky:    'Huiput: "Yksikään juoksu ei ole turha, vaikket saisi palloa."',
+            legenda: 'Liikkeen mestari: "Monta turhaa juoksua palkitsee yhden maalin."',
+            suomi:   'Suomalaisvalmentajat: "Älä jää puoli askelta myöhään — lähde ajoissa."'
           }
         },
         {
@@ -873,29 +877,29 @@
           tavoite: { tyyppi: 'tavoite', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Haaland kirjoittaa juoksutavoitteet vihkoonsa joka päivä.',
-            legenda: 'Sneijder asetti aina 5 juoksutavoitetta peliä kohden.',
-            suomi:   'Antman: "Kolme juoksua per puoliaika — silloin olen tyytyväinen."'
+            nyky:    'Huiput kirjaavat juoksutavoitteet muistiin joka päivä.',
+            legenda: 'Liikkeen mestari asetti aina muutaman juoksutavoitteen peliä kohden.',
+            suomi:   'Suomalaisvalmentajat: "Kolme juoksua per puoliaika — silloin olet tyytyväinen."'
           }
         }
       ]
     },
 
-    // ───────── VK 6 — TRENT (syöttö) ─────────
+    // ───────── VK 6 — SYÖTTÖ (Maestro) ─────────
     trent: {
       aamu: [
         {
           id: 'tre-aa-1',
-          otsikko: 'Trentin sisäterä',
+          otsikko: 'Maestron sisäterä',
           ohje_leikkija: 'Potkaise palloa seinään 20 kertaa sisäjalalla.',
           ohje_rakentaja: 'Sisäteräsyöttö seinään 20× — pallo palaa suoraan.',
           ohje_showcase: 'Inside foot pass 20× — tarkkuus + tukijalan asento.',
           tavoite: { tyyppi: 'toistot', maara: 20 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Trent harjoittelee 200 sisäteräpassia päivässä.',
-            legenda: 'Beckham potkaisi 500 sisäteräpassia päivässä lapsena.',
-            suomi:   'Taylor: "Sisäterä on syötön perusta — ei pikaratkaisu."'
+            nyky:    'Parhaat syöttäjät harjoittelevat satoja sisäteräpasseja päivässä.',
+            legenda: 'Syötön klassikko potkaisi satoja sisäteräpasseja päivässä jo lapsena.',
+            suomi:   'Suomalaisvalmentajat: "Sisäterä on syötön perusta — ei pikaratkaisu."'
           }
         },
         {
@@ -907,9 +911,9 @@
           tavoite: { tyyppi: 'toistot', maara: 20 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Trent: "Tukijalka tekee passin, ei potkujalka."',
-            legenda: 'Beckham: "90% syötöstä on jo ennen kosketusta."',
-            suomi:   'Taylor: "Tukijalan virhe = passin virhe."'
+            nyky:    'Huiput: "Tukijalka tekee passin, ei potkujalka."',
+            legenda: 'Syötön klassikko: "Suuri osa syötöstä on jo ennen kosketusta."',
+            suomi:   'Suomalaisvalmentajat: "Tukijalan virhe = passin virhe."'
           }
         },
         {
@@ -921,9 +925,9 @@
           tavoite: { tyyppi: 'toistot', maara: 5 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Trent syöttää 70m tarkasti — Beckham syötti 75m.',
-            legenda: 'Beckhamin allekirjoitus oli kaareva pitkä passi.',
-            suomi:   'Taylor: "Pitkä passi avaa peli — siksi treeni joka päivä."'
+            nyky:    'Parhaat syöttäjät yltävät tarkkaan pitkään passiin kymmenien metrien päähän.',
+            legenda: 'Syötön klassikon tavaramerkki oli kaareva pitkä passi.',
+            suomi:   'Suomalaisvalmentajat: "Pitkä passi avaa pelin — siksi treeni joka päivä."'
           }
         }
       ],
@@ -937,9 +941,9 @@
           tavoite: { tyyppi: 'mielikuva', maara: 5 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Trentillä on 18 assistia kaudessa — Premier League ME.',
-            legenda: 'Beckhamin allekirjoitus oli kaareva passi.',
-            suomi:   'Taylor: "Kierre lähtee tukijalasta, ei potkujalasta."'
+            nyky:    'Parhaat takapuolustajat keräävät kauden aikana syöttöpisteitä ennätystahtiin.',
+            legenda: 'Syötön klassikon tavaramerkki oli kaareva passi.',
+            suomi:   'Suomalaisvalmentajat: "Kierre lähtee tukijalasta, ei potkujalasta."'
           }
         },
         {
@@ -951,39 +955,39 @@
           tavoite: { tyyppi: 'havainnot', maara: 5 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Trent näkee 3+ syöttölinjaa joka kosketuksen aikana.',
-            legenda: 'Xavi näki 5 syöttölinjaa joka kosketuksen aikana.',
-            suomi:   'Taylor: "Syöttö alkaa pään kääntämisestä, ei potkusta."'
+            nyky:    'Parhaat näkevät useita syöttölinjoja joka kosketuksen aikana.',
+            legenda: 'Pelinrakentajamestari näki vapaat syöttölinjat joka kosketuksen aikana.',
+            suomi:   'Suomalaisvalmentajat: "Syöttö alkaa pään kääntämisestä, ei potkusta."'
           }
         },
         {
           id: 'tre-va-3',
-          otsikko: 'Mielessä — Trent',
-          ohje_leikkija: 'Kuvittele että teet maaliin syötön kuin Trent.',
+          otsikko: 'Mielessä — syöttö',
+          ohje_leikkija: 'Kuvittele että teet maaliin syötön kaverille.',
           ohje_rakentaja: 'Mielikuva: assist-syöttö 30 m matkalta — kohde + kaari.',
           ohje_showcase: 'Visualisointi: defense-splitting pass — vector + timing.',
           tavoite: { tyyppi: 'mielikuva', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Trent: "Mielessäni näen passin ennen kuin pallo tulee."',
-            legenda: 'Beckham harjoitteli mielikuvaa 10 min ennen jokaista peliä.',
-            suomi:   'Taylor: "Mielikuva on ilmainen treeni, joka iltaan."'
+            nyky:    'Huiput: "Mielessäni näen passin ennen kuin pallo tulee."',
+            legenda: 'Syötön klassikko harjoitteli mielikuvaa ennen jokaista peliä.',
+            suomi:   'Suomalaisvalmentajat: "Mielikuva on ilmainen treeni, joka iltaan."'
           }
         }
       ],
       ilta: [
         {
           id: 'tre-il-1',
-          otsikko: 'Trentin maagiset syötöt',
-          ohje_leikkija: 'Katso 30 s Trent-klippiä. Miltä syötöt näyttivät?',
+          otsikko: 'Maagiset syötöt',
+          ohje_leikkija: 'Katso 30 s syöttöklippiä. Miltä syötöt näyttivät?',
           ohje_rakentaja: 'Klippi 30s — tunnista 1 syöttötekniikka.',
-          ohje_showcase: 'Analyysi 30s — Trentin pass type + decision context.',
+          ohje_showcase: 'Analyysi 30s — pass type + decision context.',
           tavoite: { tyyppi: 'video', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Trent oppi tämän tekniikan 9-vuotiaana Liverpoolin akatemiassa.',
-            legenda: 'Beckhamin frikut ovat YouTuben katsotuimpia futisvideoita.',
-            suomi:   'Taylorin syöttötilastot ovat huuhkajien kärkeä.'
+            nyky:    'Parhaat oppivat avaussyötön tekniikan jo varhain akatemiassa.',
+            legenda: 'Syötön klassikon vapaapotkut ja kaaret ovat opetusmateriaalia yhä.',
+            suomi:   'Suomalaisten syöttäjien tilastot ovat olleet maajoukkueen kärkeä.'
           }
         },
         {
@@ -995,9 +999,9 @@
           tavoite: { tyyppi: 'reflektio', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Trent kirjoittaa parhaat syötöt vihkoonsa joka peli.',
-            legenda: 'Beckham: "Yksi hyvä syöttö per peli muistetaan vuosia."',
-            suomi:   'Taylor: "Suomalainen pelaaja syöttää liian varmasti."'
+            nyky:    'Huiput kirjaavat parhaat syötöt muistiin joka pelistä.',
+            legenda: 'Syötön klassikko: "Yksi hyvä syöttö per peli muistetaan vuosia."',
+            suomi:   'Suomalaisvalmentajat: "Uskalla yrittää myös vaikeampaa syöttöä."'
           }
         },
         {
@@ -1009,29 +1013,29 @@
           tavoite: { tyyppi: 'tavoite', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Bellingham: "Mieti syöttö ennen kuin saat pallon."',
-            legenda: 'Beckham: "Joka päivä yksi syöttö, jota ei vielä ole tehnyt."',
-            suomi:   'Taylor: "Yksi rohkea syöttö per peli — siinä kehittyminen."'
+            nyky:    'Huiput: "Mieti syöttö ennen kuin saat pallon."',
+            legenda: 'Syötön klassikko: "Joka päivä yksi syöttö, jota ei vielä ole tehnyt."',
+            suomi:   'Suomalaisvalmentajat: "Yksi rohkea syöttö per peli — siinä kehittyminen."'
           }
         }
       ]
     },
 
-    // ───────── VK 7 — KANE (maalinteko) ─────────
+    // ───────── VK 7 — MAALINTEKO (Titan) ─────────
     kane: {
       aamu: [
         {
           id: 'kan-aa-1',
-          otsikko: 'Kanen rauhallinen lopetus',
+          otsikko: 'Titanin rauhallinen lopetus',
           ohje_leikkija: 'Potkaise pallo seinään 10 kertaa rauhallisesti.',
           ohje_rakentaja: 'Hallittu maalipotku 10× seinään — sijoitus ennen vauhtia.',
           ohje_showcase: 'Composed finish 10× — accuracy edellä, low velocity.',
           tavoite: { tyyppi: 'toistot', maara: 10 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Kanen 1. liiga-maali tuli 5 sekunnissa peliin tultua.',
-            legenda: 'Van Nistelrooy: "Maali on rauhallisuuden, ei voiman ratkaisu."',
-            suomi:   'Källman: "Hallittu kosketus voittaa kovaan kaiverrettu."'
+            nyky:    'Parhaat maalintekijät osuvat usein heti kentälle tultuaan — valmius on huipussa.',
+            legenda: 'Maalinteon mestari: "Maali on rauhallisuuden, ei voiman ratkaisu."',
+            suomi:   'Suomalaisvalmentajat: "Hallittu kosketus voittaa kovaan kaiverretun."'
           }
         },
         {
@@ -1043,9 +1047,9 @@
           tavoite: { tyyppi: 'toistot', maara: 10 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Kane treenasi heikon jalan vuosi 17-vuotiaana — 2h/päivä.',
-            legenda: 'Van Nistelrooy treenasi vasemman jalan kahdesti viikossa.',
-            suomi:   'Källman: "Heikko jalka on kuin tukijalan apu — ei vihollinen."'
+            nyky:    'Moni huippumaalintekijä treenasi heikon jalan kuntoon teininä, tunteja viikossa.',
+            legenda: 'Maalinteon mestari treenasi heikomman jalan säännöllisesti omalla ajallaan.',
+            suomi:   'Suomalaisvalmentajat: "Heikko jalka on tukijalan apu — ei vihollinen."'
           }
         },
         {
@@ -1057,9 +1061,9 @@
           tavoite: { tyyppi: 'toistot', maara: 5 },
           kesto_s: 90,
           tiesitko: {
-            nyky:    'Kane tekee 80% maaleistaan kahdessa kosketuksessa.',
-            legenda: 'Van Nistelrooy: "Maalintekijä on tehokas, ei tyylikäs."',
-            suomi:   'Källman: "Maalintekijä päättää laukauksen ennen kosketusta."'
+            nyky:    'Parhaat maalintekijät tekevät useimmat maalinsa vain parilla kosketuksella.',
+            legenda: 'Maalinteon mestari: "Maalintekijä on tehokas, ei tyylikäs."',
+            suomi:   'Suomalaisvalmentajat: "Maalintekijä päättää laukauksen ennen kosketusta."'
           }
         }
       ],
@@ -1073,9 +1077,9 @@
           tavoite: { tyyppi: 'toistot', maara: 5 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Kanen on kokeillut varvaspotkua 16-vuotiaana akatemiassa.',
-            legenda: 'Ronaldo Brasilialainen voitti MM-finaalin varvaspotkulla 2002.',
-            suomi:   'Källman teki varvaspotkulla maalin Cremoneselle 2024.'
+            nyky:    'Maalintekijät kokeilevat varvaspotkua jo akatemiassa — se on nopein laukaus.',
+            legenda: 'Klassikkohyökkääjä ratkaisi arvokisafinaalin yllättävällä varvaspotkulla.',
+            suomi:   'Suomalaismaalintekijä on tehnyt varvaspotkulla maalin ulkomaisessa liigassa.'
           }
         },
         {
@@ -1087,9 +1091,9 @@
           tavoite: { tyyppi: 'havainnot', maara: 3 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Kane katsoo maalivahdin asentoa 0,3 s ennen laukausta.',
-            legenda: 'Van Nistelrooy: "Lue maalivahti — älä yritä yllättää."',
-            suomi:   'Källman: "Maalivahti tekee päätöksen ennen sinua."'
+            nyky:    'Parhaat vilkaisevat maalivahdin asentoa juuri ennen laukausta.',
+            legenda: 'Maalinteon mestari: "Lue maalivahti — älä yritä yllättää."',
+            suomi:   'Suomalaisvalmentajat: "Maalivahti tekee päätöksen ennen sinua."'
           }
         },
         {
@@ -1101,25 +1105,25 @@
           tavoite: { tyyppi: 'mielikuva', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Kane visualisoi 5 maalia ennen jokaista ottelua.',
-            legenda: 'Van Nistelrooy: "Olen tehnyt jokaisen maalini päässäni ensin."',
-            suomi:   'Källman: "Mielikuvitus on maalintekijän paras ase."'
+            nyky:    'Huiput visualisoivat maaleja ennen jokaista ottelua.',
+            legenda: 'Maalinteon mestari: "Olen tehnyt jokaisen maalini päässäni ensin."',
+            suomi:   'Suomalaisvalmentajat: "Mielikuvitus on maalintekijän paras ase."'
           }
         }
       ],
       ilta: [
         {
           id: 'kan-il-1',
-          otsikko: 'Kanen maalitähtihetket',
-          ohje_leikkija: 'Katso 30 s Kane-maaleja. Miten hän osuu?',
+          otsikko: 'Maalitähtihetket',
+          ohje_leikkija: 'Katso 30 s maaliklippiä. Miten hän osuu?',
           ohje_rakentaja: 'Klippi 30s — tunnista 1 toistuva maalintekotapa.',
-          ohje_showcase: 'Klippi-analyysi — Kanen finishing patterns + body shape.',
+          ohje_showcase: 'Klippi-analyysi — finishing patterns + body shape.',
           tavoite: { tyyppi: 'video', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Kanen 30+ maalia/kausi — yli 10 vuotta peräkkäin.',
-            legenda: 'Van Nistelrooy: 150 Premier League -maalia 219 ottelussa.',
-            suomi:   'Källmanin maalitilasto Veikkausliigassa on 0,5 maalia/peli.'
+            nyky:    'Parhaat maalintekijät tekevät kymmeniä maaleja kaudessa, vuodesta toiseen.',
+            legenda: 'Maalinteon mestari teki uransa aikana satoja sarjamaaleja.',
+            suomi:   'Suomalaismaalintekijöiden maalitahti on yltänyt maajoukkuetasolle.'
           }
         },
         {
@@ -1131,23 +1135,23 @@
           tavoite: { tyyppi: 'reflektio', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Kane: "Yksi hyvä laukaus opettaa enemmän kuin 10 huonoa."',
-            legenda: 'Van Nistelrooy kirjoitti laukaustilastot vihkoonsa joka peli.',
-            suomi:   'Källman: "Yksi maali muuttaa pelaajan urallaan."'
+            nyky:    'Huiput: "Yksi hyvä laukaus opettaa enemmän kuin kymmenen huonoa."',
+            legenda: 'Maalinteon mestari kirjasi laukauksensa muistiin joka pelistä.',
+            suomi:   'Suomalaisvalmentajat: "Yksi maali voi muuttaa pelaajan uran."'
           }
         },
         {
           id: 'kan-il-3',
           otsikko: 'Yksi maali huomiseksi',
-          ohje_leikkija: 'Tehkö huomenna maalin? Kuvittele se nyt.',
+          ohje_leikkija: 'Teetkö huomenna maalin? Kuvittele se nyt.',
           ohje_rakentaja: 'Aseta tavoite: 1 maali tai laukaus huomenna.',
           ohje_showcase: 'Tavoite huomiselle: 1 spesifi laukaustilanne + tekniikka.',
           tavoite: { tyyppi: 'tavoite', maara: 1 },
           kesto_s: 60,
           tiesitko: {
-            nyky:    'Haaland kirjoittaa maalitavoitteet vihkoonsa joka päivä.',
-            legenda: 'Van Nistelrooy: "Aamulla 3 maalia mielessä — illalla 1 lisää."',
-            suomi:   'Källman: "Yksi maali per peli — siinä on tavoite."'
+            nyky:    'Huiput kirjaavat maalitavoitteet muistiin joka päivä.',
+            legenda: 'Maalinteon mestari: "Aamulla muutama maali mielessä — illalla yksi lisää."',
+            suomi:   'Suomalaisvalmentajat: "Yksi maali per peli — siinä on tavoite."'
           }
         }
       ]
