@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TalentMaster™ — Valmennuspäällikkö v22</title>
+<title>TalentMaster™ — Valmennuspäällikkö v25</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
@@ -1735,7 +1735,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       </svg>
       Arvioi harjoitus
     </div>
-    <div class="sb-item" onclick="naytaOnboarding(true)" title="Avaa aloitusopastus uudelleen">
+    <div class="sb-item" onclick="_vpaNaytaUudelleen()" title="Avaa aloitusopastus uudelleen">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l7-6 7 6v8a1 1 0 0 1-1 1h-3v-5H7v5H4a1 1 0 0 1-1-1z"/></svg>
       Aloita tästä
     </div>
@@ -2297,8 +2297,8 @@ async function lataaKaikki() {
   renderPelaajat();
   renderKalenteri();
   renderRaportointi();
-  renderKotiVP();   // §IA
-  naytaOnboarding();   // §IA slice 3 — ensikäynnillä (gate)
+  renderKotiVP();   // §IA — sis. renderVpAloitaKortti (inline 5-kohdan checklist = ainoa onboarding-pinta, #89)
+  // #89: 3-vaiheinen modaali POISTETTU navin/ensikäynnin oletuksesta → inline-checklist (Master-pattern) on yksi totuuslähde.
   _alustaToimenpiteet();   // OSA 3 — generoi + lataa toimenpiteet (async, try/catch sisällä; demossa placeholder)
 }
 
@@ -3631,7 +3631,9 @@ function tkVaadittuVuosivauhti(ika, sp, taso) {
 // merkkijono → upotetaan onclickiin; selitetekstiä EI upoteta attribuuttiin (§7.1). Cursor: globaali CSS-sääntö.
 function _vpSelTip(k) {
   if (typeof TM_SELITTEET === 'undefined' || !TM_SELITTEET[k]) return '';
-  return ' title="' + TM_SELITTEET[k] + '" onclick="_vpSelInfo(\'' + k + '\')"';
+  // #89: escape title-teksti (lainausmerkki/&/<> rikkoisivat attribuutin → vuoto näkyväksi tekstiksi). Attribuutti, ei sisältö.
+  var t = String(TM_SELITTEET[k]).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return ' title="' + t + '" onclick="_vpSelInfo(\'' + k + '\')"';
 }
 // §7.17 IIFE-scope → onclick vaatii globaalin. Pitkä kesto (~6 s) jotta selite ehtii lukea.
 window._vpSelInfo = function(k) {
@@ -7970,7 +7972,7 @@ function renderKotiVP() {
     h += '<div style="margin-top:14px"><span class="vkk-link" onclick="setWs(\'tilanne\')">Kaikki signaalit yksityiskohtaisesti →</span></div>';
   } else {
     h += '<div class="vpkoti-tyhja">✅ <b>Ei kriittisiä signaaleja juuri nyt.</b><br>'
-      + '<span style="font-size:13px;color:var(--ink3)">Kun valmentaja hiljenee, nostoehdokas ilmaantuu tai kehityskohteita kasaantuu, näet ne täällä toimenpiteinä.</span><br><button class="vkk-cta" style="margin-top:12px" onclick="naytaOnboarding(true)">Aloita tästä →</button></div>';
+      + '<span style="font-size:13px;color:var(--ink3)">Kun valmentaja hiljenee, nostoehdokas ilmaantuu tai kehityskohteita kasaantuu, näet ne täällä toimenpiteinä.</span><br><button class="vkk-cta" style="margin-top:12px" onclick="_vpaNaytaUudelleen()">Aloita tästä →</button></div>';
   }
   h += '<div style="margin-top:14px">' + strippi + '</div>';   // status (tuotu→suostumus) toimintojen ALLE
   { var _bq = _vpRaeRakenneHTML(P); if (_bq) h += '<div style="margin-top:20px">' + _bq + '</div>'; }   // §RAE VAIHE B — BQ-rakenne Kotiin
@@ -8073,7 +8075,9 @@ window._vpaPiilota = function (){
 };
 window._vpaNaytaUudelleen = function (){
   var avain = _vpaPiilotaAvain(); try { if (avain) localStorage.removeItem(avain); } catch (e) {}
+  window._vpaPakotaNaytto = true;   // #89: näytä TÄYSI 5-kohdan datavetoinen checklist (ei slim-strip) — yksi totuuslähde, Master-pattern
   if (typeof setWs === 'function') setWs('koti'); else renderVpAloitaKortti();
+  var el = document.getElementById('vpAloitaKortti'); if (el && el.scrollIntoView) { try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }
 };
 
 /* ════════════════════════════════════════════════════════════
@@ -8085,7 +8089,7 @@ const _ONB_VP = [
       const jk = (typeof _pelaajat !== 'undefined' && _pelaajat[0] && _pelaajat[0].joukkue) || null;
       if (jk && typeof avaaJoukkueSyvanakyma === 'function') avaaJoukkueSyvanakyma(jk); else setWs('pelaajat');
     } },
-  { txt: 'Avaa yhden pelaajan syvänäkymä.', nappi: 'Avaa Joukkueet', fn: function(){ setWs('pelaajat'); } },
+  { txt: 'Avaa yhden pelaajan syvänäkymä.', nappi: 'Avaa pelaajan näkymä', fn: function(){ setWs('pelaajat'); } },
   { txt: 'Lähetä yksi mentorointiviesti valmentajalle.', nappi: 'Avaa Valmentajat', fn: function(){ setWs('valmentajat'); } },
 ];
 let _onbStep = 0;
@@ -8417,7 +8421,7 @@ function _vpRaeRakenneHTML(pelaajat) {
   var jk = raeJoukkueJakauma(pelaajat);   // §lib single source: {Q1..Q4, pct, n_kvartaalillisia, signaali}
   var n = jk.n_kvartaalillisia;
   // Datagate: 0 kvartaalia → hillitty ℹ-vihje (ei tyhjä), sama RAE-selite saatavilla.
-  if (!n) return '<div class="jsv-an-otsikko">Syntymäkvartaali-rakenne (RAE)' + _vpSelTip('rae') + '</div>'
+  if (!n) return '<div class="jsv-an-otsikko"' + _vpSelTip('rae') + '>Syntymäkvartaali-rakenne (RAE) ℹ️</div>'
     + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">ℹ Syntymäkvartaali-data täyttyy kun huoltajat rekisteröivät pelaajat.</div>';
   var karki = [];
   pelaajat.forEach(function (p) {
@@ -8432,7 +8436,7 @@ function _vpRaeRakenneHTML(pelaajat) {
       + '<span style="flex:1;height:8px;border-radius:4px;background:var(--ov-2);overflow:hidden"><span style="display:block;height:8px;width:' + jk.pct[q] + '%;background:' + COL[q] + '"></span></span>'
       + '<span style="flex:0 0 58px;font-size:11px;color:var(--ink2);text-align:right">' + jk[q] + ' · ' + jk.pct[q] + '%</span></div>';
   }).join('');
-  var h = '<div class="jsv-an-otsikko">Syntymäkvartaali-rakenne (RAE)' + _vpSelTip('rae') + '</div>' + palkit;
+  var h = '<div class="jsv-an-otsikko"' + _vpSelTip('rae') + '>Syntymäkvartaali-rakenne (RAE) ℹ️</div>' + palkit;
   // Datagate (§5): jos syntymäaikoja puuttuu, kerro montako — ei arvausta.
   var puuttuu = pelaajat.length - n;
   if (puuttuu > 0) h += '<div style="font-size:10px;color:var(--ink3);margin-top:3px">syntymäaikoja puuttuu (' + puuttuu + '/' + pelaajat.length + ')</div>';
