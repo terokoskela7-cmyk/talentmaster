@@ -8,7 +8,8 @@
 //   pelaajaId = doc-ID = Firebase UID  JA  palloID/tunniste = kenttä (ratkaistaan pääDocista).
 //
 // EI Firestore-/admin-importteja → testattava Vitestissä mockatulla db:llä (kuten authz_paatos.js).
-// FieldPath (collectionGroup documentId-kyselyihin) injektoidaan opts.FieldPath:lla.
+// Ristiviitteet enumeroidaan VANHEMPIA ITEROIMALLA (kalenteri/testitapahtumat/valmentajat) + per-pelaaja
+// doc .get() — EI collectionGroup-documentId-kyselyä (se heittää, ks. ristiviiteIteroi).
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Pelaajadokumentin alikokoelmat (recursiveDelete kattaa nämä RTBF:ssä; export lukee).
@@ -25,22 +26,40 @@ async function lueAlikokoelma(paaRef, nimi, varoitukset) {
   }
 }
 
-// collectionGroup + documentId == arvo, rajattu seuraan polkuprefiksillä. Index-vapaa (key-kysely).
-async function ristiviiteCG(db, FieldPath, ryhmanNimi, arvo, seuraPrefix, varoitukset) {
-  if (!arvo || !db.collectionGroup) return [];
+// Ristiviite-enumerointi VANHEMPIA ITEROIMALLA + per-pelaaja-doc .get() (LUOTETTAVA).
+// MIKSI EI collectionGroup('x').where(FieldPath.documentId()=='<id>'): collectionGroupin documentId-suodatin
+// vaatii TÄYDEN dokumenttipolun (parillinen segmenttimäärä) eikä paljasta doc-id:tä → heittää ajossa →
+// ristiviitteet jäisivät löytymättä → RTBF orpouttaisi lasnaolijat + testitapahtuma-tulokset. (Live-todennettu.)
+// Iterointi on seura-rajattu rakenteellisesti (vanhempi-collection on seuran alla) → ei vuoda toiseen seuraan.
+async function ristiviiteIteroi(vanhemmatColRef, alaNimi, docId, varoitukset, tag) {
+  if (!docId || !vanhemmatColRef) return [];
+  // listDocuments() (Admin SDK) palauttaa MYÖS phantom-vanhemmat (subcollection ilman parent-docia, esim.
+  // kontribuutio poistetun valmentajan alla) → ei jätä orpoja. Mock (Vitest) ei toteuta sitä → fallback .get().
+  let parentRefit = [];
   try {
-    const q = FieldPath
-      ? db.collectionGroup(ryhmanNimi).where(FieldPath.documentId(), '==', arvo)
-      : db.collectionGroup(ryhmanNimi);
-    const snap = await q.get();
-    return snap.docs
-      .filter((d) => (FieldPath ? true : d.id === arvo))
-      .filter((d) => d.ref && typeof d.ref.path === 'string' && d.ref.path.indexOf(seuraPrefix) === 0)
-      .map((d) => ({ id: d.id, data: d.data(), ref: d.ref, polku: d.ref.path }));
+    if (typeof vanhemmatColRef.listDocuments === 'function') {
+      parentRefit = await vanhemmatColRef.listDocuments();
+    } else {
+      const snap = await vanhemmatColRef.get();
+      parentRefit = (snap.docs || []).map((d) => d.ref);
+    }
   } catch (e) {
-    varoitukset.push('cg:' + ryhmanNimi + ':' + (e && e.message ? e.message : String(e)));
+    varoitukset.push(tag + ':vanhemmat:' + (e && e.message ? e.message : String(e)));
     return [];
   }
+  const out = [];
+  for (const pref of parentRefit) {
+    try {
+      const ref = pref.collection(alaNimi).doc(docId);
+      const ds  = await ref.get();
+      if (ds && ds.exists) {
+        out.push({ id: ds.id, data: ds.data(), ref, polku: (ref.path || (tag + '/' + docId)) });
+      }
+    } catch (e) {
+      varoitukset.push(tag + ':' + (pref.id || '?') + ':' + (e && e.message ? e.message : String(e)));
+    }
+  }
+  return out;
 }
 
 // Yksittäinen palloID-pohjainen doc (rekisteri/alumni/marketplace) — olemassaolo tarkistettuna.
@@ -73,15 +92,15 @@ function keraaMedia(havainnot, seuraId) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // kerääPelaajanManifesti — enumeroi KAIKKI pelaajan henkilödatan sijainnit (§11).
-// db: Firestore · seuraId/pelaajaId pakollisia · opts.FieldPath = admin.firestore.FieldPath (collectionGroup).
+// db: Firestore · seuraId/pelaajaId pakollisia. (opts varattu tulevaan; ristiviitteet enumeroidaan
+// vanhempia iteroimalla — ei collectionGroup-documentId-kyselyä, ks. ristiviiteIteroi.)
 // Palauttaa { loytyi, palloID, paaDoc, alikokoelmat, ristiviitteet, solo, soloRef, media, storagePrefiksit,
 //            authUid, lukumaarat, varoitukset }.
 // ─────────────────────────────────────────────────────────────────────────────
 async function keraaPelaajanManifesti(db, seuraId, pelaajaId, opts = {}) {
   if (!seuraId || !pelaajaId) throw new Error('seuraId ja pelaajaId pakollisia');
-  const FieldPath = opts.FieldPath || null;
+  void opts;   // collectionGroup-pohjainen FieldPath ei enää käytössä (iterointi korvasi)
   const varoitukset = [];
-  const seuraPrefix = 'seurat/' + seuraId + '/';
 
   const paaRef  = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId);
   const paaSnap = await paaRef.get();
@@ -104,27 +123,28 @@ async function keraaPelaajanManifesti(db, seuraId, pelaajaId, opts = {}) {
     alikokoelmat[nimi] = await lueAlikokoelma(paaRef, nimi, varoitukset);
   }
 
-  // 2) Ristiviitteet (EIVÄT katoa recursiveDeletellä — eri puu)
+  // 2) Ristiviitteet (EIVÄT katoa recursiveDeletellä — eri puu). Iterointi vanhempien yli (ks. ristiviiteIteroi).
+  const seuraRef = db.collection('seurat').doc(seuraId);
   const ristiviitteet = {};
-  // 2a) Läsnäolo: collectionGroup('lasnaolijat'), doc-id == pelaajaId, rajattu seuraan (§35)
-  ristiviitteet.lasnaolo = await ristiviiteCG(db, FieldPath, 'lasnaolijat', pelaajaId, seuraPrefix, varoitukset);
-  // 2b) Testitapahtuma-tulokset: doc-id == pelaajaId TAI palloID (§22), rajattu seuraan
-  const ttPid = await ristiviiteCG(db, FieldPath, 'tulokset', pelaajaId, seuraPrefix, varoitukset);
+  // 2a) Läsnäolo: seurat/{sid}/kalenteri/{tid}/lasnaolijat/{pelaajaId} — iteroi tapahtumat (§35)
+  ristiviitteet.lasnaolo = await ristiviiteIteroi(seuraRef.collection('kalenteri'), 'lasnaolijat', pelaajaId, varoitukset, 'lasnaolo');
+  // 2b) Testitapahtuma-tulokset: seurat/{sid}/testitapahtumat/{tid}/tulokset/{pelaajaId TAI palloID} (§22)
+  const ttRef = seuraRef.collection('testitapahtumat');
+  const ttPid = await ristiviiteIteroi(ttRef, 'tulokset', pelaajaId, varoitukset, 'tulokset');
   const ttPallo = palloID && palloID !== pelaajaId
-    ? await ristiviiteCG(db, FieldPath, 'tulokset', palloID, seuraPrefix, varoitukset) : [];
+    ? await ristiviiteIteroi(ttRef, 'tulokset', palloID, varoitukset, 'tulokset') : [];
   ristiviitteet.testitapahtuma_tulokset = yhdistaUniikit(ttPid, ttPallo);
   // 2c) palloID-pohjaiset viitteet (jos palloID + olemassa)
   const palloViitteet = [];
   if (palloID) {
-    const seuraRef = db.collection('seurat').doc(seuraId);
     palloViitteet.push(...await ristiviiteDoc(seuraRef.collection('rekisteri').doc(palloID), varoitukset, 'rekisteri/' + palloID));
     palloViitteet.push(...await ristiviiteDoc(seuraRef.collection('alumni').doc(palloID), varoitukset, 'alumni/' + palloID));
-    // valmentajat/{uid}/kontribuutio/{palloID} — collectionGroup (uid tuntematon)
-    palloViitteet.push(...await ristiviiteCG(db, FieldPath, 'kontribuutio', palloID, seuraPrefix, varoitukset));
-    // Globaalit (ei seurarajausta): marketplace/{palloID} + palloliitto/.../pelaajat|palautteet/{palloID}
+    // valmentajat/{uid}/kontribuutio/{palloID} — iteroi valmentajat (uid tuntematon)
+    palloViitteet.push(...await ristiviiteIteroi(seuraRef.collection('valmentajat'), 'kontribuutio', palloID, varoitukset, 'kontribuutio'));
+    // Globaali: marketplace/{palloID} (suora doc-get)
     palloViitteet.push(...await ristiviiteDoc(db.collection('marketplace').doc(palloID), varoitukset, 'marketplace/' + palloID));
-    palloViitteet.push(...await ristiviiteCG(db, FieldPath, 'pelaajat', palloID, 'palloliitto/', varoitukset));
-    palloViitteet.push(...await ristiviiteCG(db, FieldPath, 'palautteet', palloID, 'palloliitto/', varoitukset));
+    // HUOM: palloliitto/ohjelmat/.../{pelaajat|palautteet}/{palloID} — globaali rakenne (ohjelma-id:t tuntemattomia),
+    // ei pilottidatassa. Enumerointia ei toteutettu (vaatii ohjelmaluettelon) → erillinen laajennus jos käytössä.
   }
   ristiviitteet.palloID_viitteet = palloViitteet;
 

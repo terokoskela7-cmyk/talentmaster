@@ -2182,8 +2182,7 @@ exports.poistaPelaajaGDPR = functions
         `Ei oikeuksia seuralle "${seuraId}". RTBF vaatii SA:n tai seuran johdon (vp/seurasihteeri/UTJ).`);
     }
 
-    const FieldPath = admin.firestore.FieldPath;
-    const manifesti = await keraaPelaajanManifesti(db, seuraId, pelaajaId, { FieldPath });
+    const manifesti = await keraaPelaajanManifesti(db, seuraId, pelaajaId);
 
     // Idempotenssi: pääDoc poissa → ei mitään poistettavaa (no-op + audit kovassa ajossa).
     if (!manifesti.loytyi) {
@@ -2288,8 +2287,7 @@ exports.viePelaajanDataGDPR = functions
     }
     // TODO: huoltajan oma-export (rekisteröidyn/edustajan pyyntö, Art. 15/20) — oma authz-haara, myöhempi laajennus.
 
-    const FieldPath = admin.firestore.FieldPath;
-    const manifesti = await keraaPelaajanManifesti(db, seuraId, pelaajaId, { FieldPath });
+    const manifesti = await keraaPelaajanManifesti(db, seuraId, pelaajaId);
     if (!manifesti.loytyi) {
       throw new functions.https.HttpsError('not-found', 'Pelaajaa ei löydy.');
     }
