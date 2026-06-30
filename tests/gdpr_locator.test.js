@@ -10,13 +10,21 @@ function makeDb(spec) {
   spec.docs = spec.docs || {};
   spec.cols = spec.cols || {};
   function colRef(path) {
-    return {
+    const r = {
       doc(id) { return docRef(path + '/' + id); },
       async get() {
         const arr = spec.cols[path] || [];
         return { docs: arr.map((d) => snapFromRef(docRef(path + '/' + d.id), d.data)) };
       },
     };
+    // Valinnainen Admin-SDK listDocuments() (phantom-vanhemmat). spec._ld:lla päälle.
+    if (spec._ld) {
+      r.listDocuments = async () => {
+        const ids = (spec.cols[path] || []).map((d) => d.id).concat((spec.phantom || {})[path] || []);
+        return ids.map((id) => docRef(path + '/' + id));
+      };
+    }
+    return r;
   }
   function docRef(path) {
     const ref = {
@@ -123,6 +131,26 @@ describe('GDPR-locator — kerääPelaajanManifesti', () => {
       `seurat/${SID}/testitapahtumat/tt2/tulokset/${PALLO}`,
       `seurat/${SID}/valmentajat/vUID/kontribuutio/${PALLO}`,
     ].sort());
+  });
+
+  it('löytää ristiviitteen PHANTOM-vanhemman alta (listDocuments-haara, esim. poistettu valmentaja)', async () => {
+    // valmentajat/vUID = phantom (vain subcollection, ei parent-docia) → collection().get() ei palauta sitä;
+    // listDocuments() palauttaa → kontribuutio EI jää orvoksi.
+    const base = `seurat/${SID}/pelaajat/${PID}`;
+    const spec = {
+      _ld: true,
+      docs: {
+        [base]: { tunniste: PALLO },
+        [`seurat/${SID}/valmentajat/vUID/kontribuutio/${PALLO}`]: { pisteet: 3 },
+      },
+      cols: {},                                                    // valmentajat .get() → tyhjä (phantom)
+      phantom: { [`seurat/${SID}/valmentajat`]: ['vUID'] },        // listDocuments() palauttaa vUID:n
+    };
+    const db = makeDb(spec);
+    const m = await keraaPelaajanManifesti(db, SID, PID);
+    const polut = m.ristiviitteet.palloID_viitteet.map((x) => x.ref.path);
+    expect(polut).toContain(`seurat/${SID}/valmentajat/vUID/kontribuutio/${PALLO}`);
+    expect(m.lukumaarat.palloID_viitteet).toBe(1);
   });
 
   it('ristiviite-iterointi ei kaadu eikä keksi dataa kun mitään ei löydy', async () => {

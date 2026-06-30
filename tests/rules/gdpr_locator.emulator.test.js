@@ -40,6 +40,8 @@ async function seed() {
   await seura.collection('testitapahtumat').doc('tt1').collection('tulokset').doc(PID).set({ testit: { lin_30m: 5.0 } });
   await seura.collection('testitapahtumat').doc('tt2').set({ nimi: 'kevattesti' });
   await seura.collection('testitapahtumat').doc('tt2').collection('tulokset').doc(PALLO).set({ testit: {} }); // palloID-avain
+  // HUOM: valmentajat/vUID jätetään TAHALLAAN phantom-vanhemmaksi (vain subcollection, ei parent-docia)
+  // → testaa että locator löytää kontribuution listDocuments():lla (collection().get() ei palauta phantomia).
   await seura.collection('valmentajat').doc('vUID').collection('kontribuutio').doc(PALLO).set({ pisteet: 3 });
   await seura.collection('rekisteri').doc(PALLO).set({ viite: true });
   await db.collection('marketplace').doc(PALLO).set({ scout_window: true });

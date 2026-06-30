@@ -33,23 +33,30 @@ async function lueAlikokoelma(paaRef, nimi, varoitukset) {
 // Iterointi on seura-rajattu rakenteellisesti (vanhempi-collection on seuran alla) → ei vuoda toiseen seuraan.
 async function ristiviiteIteroi(vanhemmatColRef, alaNimi, docId, varoitukset, tag) {
   if (!docId || !vanhemmatColRef) return [];
-  let snap;
+  // listDocuments() (Admin SDK) palauttaa MYÖS phantom-vanhemmat (subcollection ilman parent-docia, esim.
+  // kontribuutio poistetun valmentajan alla) → ei jätä orpoja. Mock (Vitest) ei toteuta sitä → fallback .get().
+  let parentRefit = [];
   try {
-    snap = await vanhemmatColRef.get();
+    if (typeof vanhemmatColRef.listDocuments === 'function') {
+      parentRefit = await vanhemmatColRef.listDocuments();
+    } else {
+      const snap = await vanhemmatColRef.get();
+      parentRefit = (snap.docs || []).map((d) => d.ref);
+    }
   } catch (e) {
     varoitukset.push(tag + ':vanhemmat:' + (e && e.message ? e.message : String(e)));
     return [];
   }
   const out = [];
-  for (const parent of (snap.docs || [])) {
+  for (const pref of parentRefit) {
     try {
-      const ref = parent.ref.collection(alaNimi).doc(docId);
+      const ref = pref.collection(alaNimi).doc(docId);
       const ds  = await ref.get();
       if (ds && ds.exists) {
         out.push({ id: ds.id, data: ds.data(), ref, polku: (ref.path || (tag + '/' + docId)) });
       }
     } catch (e) {
-      varoitukset.push(tag + ':' + (parent.id || '?') + ':' + (e && e.message ? e.message : String(e)));
+      varoitukset.push(tag + ':' + (pref.id || '?') + ':' + (e && e.message ? e.message : String(e)));
     }
   }
   return out;
