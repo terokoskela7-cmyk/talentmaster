@@ -777,6 +777,14 @@ Sukupuoli normalisoidaan: `M`→`P`, `N`→`T` (`normSukupuoli()`).
 **EI** `pre_phv`/`circa_phv`/`huippu`/`PHV` (vanhat koodit vain backward-compat: Pelaaja_v7 `_laskeStage`/signaalit).
 **`phv_tila === 'PH'` → kuormarajoitin:** voimaharjoittelu max 80 % 1RM, hyppyvolyymi −20 %, juoksuvolyymi seurattava.
 
+### Bio-banding V1 (Mirwald-pohjainen — EI Khamis-Rochea) — `docs/BIOBANDING_ARKKITEHTUURI.md`
+Rakentuu vain olemassa olevaan Mirwald-PHV:hen (ei riippuvuuksia). **PÄÄTÖS 2026-07-01: V2 (Khamis-Roche %PAH + maturity z-score + dual-taso) LYKÄTTY** — Palloliitto vasta *kokeilee* KR-testejä → KR-data ei luotettavaa/laajaa. V1 tuottaa arvoa heti (SJK 8 PHV-pelaajaa).
+- **`kehitysvaiheKaista(phv_tila_koodi)` → `'pre'|'circa'|'post'`** (bio-banding circa = ±1v PHV:stä): PRE→pre · LAH+PH+POST→circa · AN→post. Pikakenttä `kehitysvaihe_kaista` (biologinen_ika-dok + pelaajadok).
+- **`laskeKasvutahti(pituus_nyt, pvm_nyt, pituus_edell, pvm_edell)` → `{cm_v, vyohyke}`**: vyöhykkeet **hidas <3,0 · kohtalainen 3,0–7,2 · nopea ≥7,2 cm/v**. **≥7,2 = loukkaantumisriskisignaali** (PMC6293374, PH-kuormarajoittimen rinnalle). Guard: `null` kun <2 kasvumittausta. Pikakentät `kasvutahti_cm_v`/`kasvutahti_vyohyke` (Testaus_v9 hakee edellisen `biologinen_ika`-dokin → `syote.edellinen`).
+- **Yli-ikäisyys −0,75 näkyviin:** `yli_ikaisyys.poikkeuslupa` (jo laskettu, `YLI_IKAISYYS_KYNNYS` + `phv_ika >= kynnys`, **Palloliitto-pariteetti verifioitu — ÄLÄ muuta**) surfacataan VP bio-banding-näkymässä + Pelaaja-kortissa (positiivinen mahdollisuus, §7.22-turvallinen).
+- **Bio-banding-ryhmittelynäkymä** `avaaBioBanding()` (VP_v25 Työkalut-sidebar): ryhmittelee `_pelaajat` kaistoittain pikakentistä (fallback `phv_tila` → toimii SJK:n olemassa olevalla datalla). **§7.22:** kaista + kasvutahti = valmentaja/VP-työkaluja, EI lapselle rankingina.
+- Regressio: `tests/biobanding_v1.test.js` (kaista · kasvutahti-rajat · yli-ikäisyys 4 kanonista esimerkkiä).
+
 ### Khamis-Roche — LUKITTU (kertoimet verifioitava ennen aktivointia)
 Alkuperäinen Khamis & Roche 1994 sisälsi **virheellisiä kertoimia** → käytettävä **Pediatrics 1995;95:457 erratum**
 (selittää miksi KR oli aiemmin poistettu). `KR_VERIFIOITU = false` → `laskeKR()` palauttaa `{error:'KR_KERTOIMET_PUUTTUU'}`.

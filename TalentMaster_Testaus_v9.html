@@ -12,7 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="src/lib/tm_bioika.js?v=2"></script>
+<script src="src/lib/tm_bioika.js?v=3"></script>
 
 <style>
 /* ═══════════════════════════════════════════════════════════════
@@ -2993,22 +2993,42 @@ async function _kasvuTallennaPHV(p) {
   if (!sukupuoli || !syntyma) return false;
   if (syntyma && typeof syntyma.toDate === 'function') syntyma = syntyma.toDate(); // Firestore Timestamp
 
+  const baseRef = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
+
+  // Bio-banding V1: hae EDELLINEN kasvumittaus → kasvutahti (cm/v). ≥2 mittausta vaaditaan; muuten null.
+  const mittPvmStr = new Date(_aktiivinenTapahtuma.pvm || new Date()).toISOString().split('T')[0];
+  let edellinen = null;
+  try {
+    const bioSnap = await baseRef.collection('biologinen_ika').get();
+    bioSnap.forEach(function(d){
+      const dd = d.data() || {};
+      const pvm = dd.mittauspaiva || d.id;
+      const pit = dd.mittaukset ? dd.mittaukset.pituus : null;
+      if (pvm < mittPvmStr && pit != null) {                    // vain aiemmat (ISO-pvm vertailu = kronologinen)
+        if (!edellinen || pvm > edellinen.mittauspaiva) edellinen = { mittauspaiva: pvm, pituus: pit };
+      }
+    });
+  } catch(e) { console.warn('[kasvu] edellinen-haku', e.message); }
+
   const ops = window.TM_BioIka.bioIkaTallennusOperaatiot({
     sukupuoli: sukupuoli,
     syntymapvm: syntyma,
     mittauspaiva: _aktiivinenTapahtuma.pvm || new Date(),
     pituus: pituus, paino: paino, istumapituus: istuma,
     konteksti: 'kasvumittaus',
-    mittaaja: _kayttaja ? _kayttaja.email : null
+    mittaaja: _kayttaja ? _kayttaja.email : null,
+    edellinen: edellinen                                        // { pituus, mittauspaiva } tai null
   });
   if (!ops) return false;
-
-  const baseRef = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
   try {
     await baseRef.collection('biologinen_ika').doc(ops.mittausPvmId).set(ops.dokumentti);
     await baseRef.update({
       biologinenIka_viimeisin: ops.dokumentti,
-      phv_tila: ops.dokumentti.phv_tila_koodi   // 'PRE'|'LAH'|'PH'|'POST'|'AN'
+      phv_tila: ops.dokumentti.phv_tila_koodi,   // 'PRE'|'LAH'|'PH'|'POST'|'AN'
+      // Bio-banding V1 -pikakentät (§26) — luetaan VP/valmentaja-näkymissä ilman alikokoelmakyselyä
+      kehitysvaihe_kaista: ops.dokumentti.kehitysvaihe_kaista || null,   // 'pre'|'circa'|'post'
+      kasvutahti_cm_v:     ops.dokumentti.kasvutahti_cm_v,               // null jos <2 mittausta
+      kasvutahti_vyohyke:  ops.dokumentti.kasvutahti_vyohyke || null     // 'hidas'|'kohtalainen'|'nopea'
     });
     return true;
   } catch(e) {
