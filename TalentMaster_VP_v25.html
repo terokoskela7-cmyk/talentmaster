@@ -1745,6 +1745,12 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       </svg>
       ADAR-kenttätyökalu
     </div>
+    <div class="sb-item" onclick="avaaBioBanding()" title="Ryhmittele pelaajat kehitysvaiheen mukaan (bio-banding)">
+      <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M3 17V9M9 17V4M15 17v-6"/><path d="M2 17h16"/>
+      </svg>
+      Bio-banding
+    </div>
 
     <div class="sb-bottom">
       <div class="sb-item" data-ws="asetukset" onclick="setWs('asetukset')">
@@ -3493,6 +3499,84 @@ async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {
   document.body.appendChild(modal);
 }
 window.avaaPelaajaMuistiinpanoModal = avaaPelaajaMuistiinpanoModal;
+
+// ── Bio-banding V1 (Mirwald) — ryhmittele pelaajat kehitysvaiheen mukaan (§26 pikakentät, ei alikokoelmakyselyjä).
+// docs/BIOBANDING_ARKKITEHTUURI.md §6/§8. EI Khamis-Rochea (V2). §7.22: valmentaja/VP-työkalu, ei lapselle.
+function avaaBioBanding() {
+  document.getElementById('_bbModal')?.remove();
+  // Kaista pikakentästä (kehitysvaihe_kaista); fallback: johda phv_tila-pikakentästä (synkassa
+  // tm_bioika.js kehitysvaiheKaista) → toimii jo SJK:n olemassa olevalla PHV-datalla.
+  const _kaista = function (p) {
+    if (p.kehitysvaihe_kaista) return p.kehitysvaihe_kaista;
+    const k = p.phv_tila;
+    if (k === 'PRE') return 'pre';
+    if (k === 'LAH' || k === 'PH' || k === 'POST') return 'circa';
+    if (k === 'AN') return 'post';
+    return null;
+  };
+  const KAISTAT = [
+    { id: 'pre',   nimi: 'Pre-PHV',   selite: 'Ennen kasvupyrähdystä',              vari: '#5B8FE0' },
+    { id: 'circa', nimi: 'Circa-PHV', selite: '±1 v huipusta (kasvupyrähdyksessä)', vari: '#E0A040' },
+    { id: 'post',  nimi: 'Post-PHV',  selite: 'Kasvupyrähdyksen jälkeen',           vari: '#28B090' },
+  ];
+  const ryhmat = { pre: [], circa: [], post: [], none: [] };
+  (_pelaajat || []).forEach(function (p) { ryhmat[_kaista(p) || 'none'].push(p); });
+  const phvNimi = { PRE: 'Pre-PHV', LAH: 'Lähestyy', PH: 'PHV-huippu ⚠️', POST: 'Post-PHV', AN: 'Jälki-PHV' };
+
+  let h = '<div id="_bbModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">';
+  h += '<div style="background:var(--bg2);border:.5px solid var(--border);padding:24px;width:720px;max-width:96vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">Bio-banding — kehitysvaihe</div>';
+  h += '<button onclick="document.getElementById(\'_bbModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
+  h += '</div>';
+  h += '<div style="font-size:11px;color:var(--ink3);letter-spacing:.05em;margin-bottom:18px">Ryhmittely biologisen kypsyyden (Mirwald-PHV) mukaan — treeni-/ottelu-bio-bandingiin. Ei syntymävuoden mukaan.</div>';
+
+  KAISTAT.forEach(function (K) {
+    const lista = ryhmat[K.id];
+    h += '<div style="margin-bottom:16px">';
+    h += '<div style="display:flex;align-items:baseline;gap:8px;border-left:3px solid ' + K.vari + ';padding-left:10px;margin-bottom:8px">';
+    h += '<div style="font-size:14px;font-weight:600;color:' + K.vari + '">' + K.nimi + '</div>';
+    h += '<div style="font-size:11px;color:var(--ink3)">' + K.selite + '</div>';
+    h += '<div style="font-size:11px;color:var(--ink3);margin-left:auto">' + lista.length + ' pelaajaa</div>';
+    h += '</div>';
+    if (!lista.length) {
+      h += '<div style="font-size:12px;color:var(--ink3);font-style:italic;padding:2px 0 6px 13px">—</div>';
+    } else {
+      lista.forEach(function (p) {
+        const nimi = ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id;
+        const bio = p.biologinenIka_viimeisin || {};
+        const poikkeus = !!(bio.yli_ikaisyys && bio.yli_ikaisyys.poikkeuslupa);
+        const vyoh = p.kasvutahti_vyohyke || bio.kasvutahti_vyohyke || null;
+        const cmv = (p.kasvutahti_cm_v != null) ? p.kasvutahti_cm_v : (bio.kasvutahti_cm_v != null ? bio.kasvutahti_cm_v : null);
+        h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px 6px 13px;font-size:12px;border-bottom:.5px solid rgba(242,239,230,.06)">';
+        h += '<div style="color:var(--ink);min-width:150px">' + nimi + '</div>';
+        h += '<div style="color:var(--ink3);min-width:88px;font-size:11px">' + (p.joukkue || '—') + '</div>';
+        h += '<div style="color:var(--ink2);min-width:92px;font-size:11px">' + (phvNimi[p.phv_tila] || '—') + '</div>';
+        if (poikkeus) h += '<span style="font-size:10px;color:#28B090;background:rgba(40,176,144,.14);padding:2px 7px;border-radius:3px" title="PHV-ikä ≥ Palloliiton kynnys (−0,75v)">✅ Poikkeuslupa</span>';
+        if (vyoh) {
+          const vv = vyoh === 'nopea' ? '#C94040' : (vyoh === 'hidas' ? '#5B8FE0' : '#8A8A8A');
+          const lbl = vyoh === 'nopea' ? ('⚠️ ' + cmv + ' cm/v (nopea)') : (cmv != null ? cmv + ' cm/v' : vyoh);
+          h += '<span style="font-size:10px;color:' + vv + ';margin-left:auto" title="Kasvutahti (≥7,2 cm/v = loukkaantumisriski)">' + lbl + '</span>';
+        }
+        h += '</div>';
+      });
+    }
+    h += '</div>';
+  });
+
+  if (ryhmat.none.length) {
+    h += '<div style="font-size:11px;color:var(--ink3);border-top:.5px solid var(--border);padding-top:10px;margin-top:6px">' + ryhmat.none.length + ' pelaajaa ilman PHV-dataa — tee kasvumittaus Testaus-työkalulla.</div>';
+  }
+  h += '<div style="font-size:10px;color:var(--ink3);margin-top:14px;font-style:italic">Bio-banding V1 (Mirwald). Kasvutahti ≥7,2 cm/v = loukkaantumisriskisignaali (PH-kuormarajoittimen rinnalle). Khamis-Roche %PAH + dual-taso = V2.</div>';
+
+  h += '</div></div>';
+  const wrap = document.createElement('div');
+  wrap.innerHTML = h;
+  const modal = wrap.firstChild;
+  modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+window.avaaBioBanding = avaaBioBanding;
 
 async function _tallennaPMP(pelaajaId, pelaajaNimi) {
   const teksti = document.getElementById('_pmpTeksti')?.value;

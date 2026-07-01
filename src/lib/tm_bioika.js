@@ -222,6 +222,17 @@ function laskeBioIkaDokumentti(syote) {
 
   const mittausPvmStr = mittauspaiva.toISOString().split('T')[0];
 
+  // Bio-banding V1: kehitysvaihe-kaista (aina) + kasvutahti (vain jos edellinen mittaus annettu).
+  // syote.edellinen = { pituus, mittauspaiva } edellisestä biologinen_ika-dokista (≥2 mittausta).
+  const kehitysvaihe_kaista = kehitysvaiheKaista(mirwTulos.phv_tila_koodi);
+  let kasvutahti = null;
+  if (syote.edellinen && syote.edellinen.pituus != null && syote.edellinen.mittauspaiva) {
+    kasvutahti = laskeKasvutahti(
+      parseFloat(syote.pituus), mittauspaiva,
+      syote.edellinen.pituus, syote.edellinen.mittauspaiva,
+    );
+  }
+
   return {
     // Dokumentin ID ja konteksti
     mittauspaiva:  mittausPvmStr,
@@ -245,6 +256,11 @@ function laskeBioIkaDokumentti(syote) {
     phv_ika:          mirwTulos.phv_ika,
     phv_tila:         mirwTulos.phv_tila,
     phv_tila_koodi:   mirwTulos.phv_tila_koodi, // harjoitusohjelma lukee tämän
+
+    // Bio-banding V1 (Mirwald-pohjainen) — pikakentiksi pelaajadokumenttiin (§26)
+    kehitysvaihe_kaista,                                  // 'pre'|'circa'|'post'
+    kasvutahti_cm_v:    kasvutahti ? kasvutahti.cm_v : null,      // null jos <2 mittausta
+    kasvutahti_vyohyke: kasvutahti ? kasvutahti.vyohyke : null,  // 'hidas'|'kohtalainen'|'nopea'
 
     // Palloliiton yli-ikäisyyssaanto
     yli_ikaisyys,
@@ -285,11 +301,17 @@ function laskeBioIkaDokumentti(syote) {
  *                .doc(ops.mittausPvmId)
  *                .set(ops.dokumentti);
  *
- *   // 2. Päivitä pikakenttä VP-näkymää varten
+ *   // 2. Päivitä pikakentät VP-/valmentajanäkymää varten (§26 + bio-banding V1)
  *   await baseRef.update({
  *     biologinenIka_viimeisin: ops.dokumentti,
- *     phv_tila: ops.dokumentti.phv_tila_koodi,
+ *     phv_tila:            ops.dokumentti.phv_tila_koodi,
+ *     kehitysvaihe_kaista: ops.dokumentti.kehitysvaihe_kaista,        // 'pre'|'circa'|'post'
+ *     kasvutahti_cm_v:     ops.dokumentti.kasvutahti_cm_v,            // null jos <2 mittausta
+ *     kasvutahti_vyohyke:  ops.dokumentti.kasvutahti_vyohyke,
  *   });
+ *
+ *   // Kasvutahtia varten anna syote.edellinen = { pituus, mittauspaiva } edellisestä
+ *   // biologinen_ika-dokista (Testaus_v9 hakee sen ennen tallennusta).
  *
  * @returns {{ mittausPvmId: string, dokumentti: Object }|null}
  */
@@ -342,6 +364,53 @@ function phvTilaVari(koodi) {
     POST: 'var(--color-text-success)',
     AN:   'var(--color-text-secondary)',
   })[koodi] ?? 'var(--color-text-secondary)';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// BIO-BANDING V1 (Mirwald-pohjainen — EI Khamis-Rochea, ks. BIOBANDING_ARKKITEHTUURI.md)
+// ════════════════════════════════════════════════════════════════════════
+
+/**
+ * Kehitysvaihe-kaista bio-bandingiin (karkeampi ±1v-luokka phv_tila:n päälle).
+ * Bio-banding circa = ±1v PHV:stä (tiede §2B). phv_tila (PRE/LAH/PH/POST/AN) on
+ * hienompi; tämä ryhmittelee treeni-/ottelu-bio-bandingiin kolmeen kaistaan.
+ *   PRE                → 'pre'   (offset < −1v)
+ *   LAH + PH + POST    → 'circa' (offset −1…+1v)
+ *   AN                 → 'post'  (offset > +1v)
+ * @param {string} phv_tila_koodi 'PRE'|'LAH'|'PH'|'POST'|'AN'
+ * @returns {'pre'|'circa'|'post'|null}
+ */
+function kehitysvaiheKaista(phv_tila_koodi) {
+  switch (phv_tila_koodi) {
+    case 'PRE':  return 'pre';
+    case 'LAH':
+    case 'PH':
+    case 'POST': return 'circa';
+    case 'AN':   return 'post';
+    default:     return null;
+  }
+}
+
+/**
+ * Kasvutahti (cm/v) kahdesta pituusmittauksesta + vyöhyke.
+ * Vyöhykkeet (tiede §2C + MyE.Way-pariteetti): hidas <3.0 · kohtalainen 3.0–7.2 · nopea ≥7.2.
+ * ≥7.2 cm/v = loukkaantumisriskisignaali (PMC6293374) → valmentajasignaali PH-kuormarajoittimen rinnalle.
+ * Vaatii ≥2 mittausta → palauttaa null jos edellistä ei ole (tai väli ≤0).
+ * @returns {{cm_v:number, vyohyke:'hidas'|'kohtalainen'|'nopea'}|null}
+ */
+function laskeKasvutahti(pituus_nyt, pvm_nyt, pituus_edell, pvm_edell) {
+  if (pituus_nyt == null || pituus_edell == null || pvm_nyt == null || pvm_edell == null) return null;
+  var pn = parseFloat(pituus_nyt);
+  var pe = parseFloat(pituus_edell);
+  if (isNaN(pn) || isNaN(pe)) return null;
+  var d2 = _bioToDate(pvm_nyt);
+  var d1 = _bioToDate(pvm_edell);
+  if (!d1 || !d2) return null;
+  var vuodet = (d2 - d1) / (365.25 * 24 * 3600 * 1000);
+  if (vuodet <= 0) return null;                    // sama/negatiivinen väli → ei mielekäs tahti
+  var cm_v = Math.round(((pn - pe) / vuodet) * 10) / 10;
+  var vyohyke = cm_v < 3.0 ? 'hidas' : (cm_v < 7.2 ? 'kohtalainen' : 'nopea');
+  return { cm_v: cm_v, vyohyke: vyohyke };
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -449,6 +518,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     laskeBioIkaDokumentti, bioIkaTallennusOperaatiot, laskeMirwald,
     bioIkaTiivistelma, yliIkaisyysMerkki, phvTilaVari,
+    kehitysvaiheKaista, laskeKasvutahti,
     laskeKR, laskeIkaDesimaalinen, estimoiPuuttuvaVanhempi, normSukupuoli,
     YLI_IKAISYYS_KYNNYS, BIOIKA_VAROITUKSET,
   };
@@ -456,6 +526,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.TM_BioIka = {
     laskeBioIkaDokumentti, bioIkaTallennusOperaatiot, laskeMirwald,
     bioIkaTiivistelma, yliIkaisyysMerkki, phvTilaVari,
+    kehitysvaiheKaista, laskeKasvutahti,
     laskeKR, laskeIkaDesimaalinen, estimoiPuuttuvaVanhempi, normSukupuoli,
     YLI_IKAISYYS_KYNNYS, BIOIKA_VAROITUKSET,
   };
