@@ -34,6 +34,7 @@ Vasen sarake = tiivis pysyvä vitals-kortti, sama kaikilla 3 välilehdellä:
 - **Hidden Gem** -merkki jos laukeaa (§28/§30-kynnys, ei muuteta laskentaa).
 - **PHV-note** jos joukkueella kehitysvaihedataa ("kehitysvaihe: X pre / Y circa / Z post").
 - **EI** toista radarin/painopisteen sisältöä.
+- **Suunnanmuutos (COD) + TSI näkyviin** per-pelaaja Tekninen-osiossa (Tero-pyyntö): `hh_viimeisin.sm_juoksu` (ilman palloa) · `hh_viimeisin.sm_pallo` (pallolla) · `tsi_viimeisin` (erotus, §21-väri ≤0.5 teal / 0.5–1.5 amber / >1.5 red). Olemassa oleva TSI-rivi (§19) laajennetaan näyttämään myös raa'at juoksu/pallo. Pikakentistä (§26), graceful "—".
 
 ### 5. Painopiste + collapse + datapolku (Tilanne-välilehden alaosa)
 - **Painopiste-lohko** radarin alla: heikoin ominaisuus + etäisyys tavoitteeseen + teal-CTA:t (`Luo tekniikkateema` esitäyttö + `Tuki-ryhmät`). §28-note kun pre-PHV.
