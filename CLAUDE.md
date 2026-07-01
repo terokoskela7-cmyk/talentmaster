@@ -604,6 +604,14 @@ testitapahtumat/{tapahtumaId} {
 **TSI (Tekninen suunnanmuutos-indeksi)** = `sm_pallo − sm_juoksu`. Positiivinen → fysiikka > tekniikka;
 lähellä nollaa → tekniikka vahva. Hyvä pelaaja häviää ~0.3–0.6 s pallon kanssa; selvästi enemmän → lajitekniikkavaje.
 
+**MAS-käännöskorjaus `−20.3 s`** (MyE.Way-pariteetti, 2026-07-01): `MAS m/s = 1200 / (kokonaissek − 20.3)`,
+`km/h = ms × 3.6`. Verifioitu 2 MyE.Way-referenssipisteellä. **Kolme kopiota** eri arvoilla ennen korjausta →
+yhtenäistetty: `Excel_Tuonti.html` (`MAS_KAANNOSKORJAUS_S`, ent. 20) · `tm_testipankki.js` (`TM_LASKE_MAS`, oli jo
+oikein) · `Testituonti_Master.html` (`masAikaKmh`, oli korjaamaton — elävä, Master_v16 `_avaaTuonti`). **Tekninen
+velka:** single-source + re-export (sama kuin PHV-vakio); lisäksi Excel_Tuonti pyöristää ms:n ENNEN ×3.6 (→ MyE.Way-tarkka),
+Testituonti_Master pyöristää vasta lopuksi (ero ≤0.01 km/h pyöristysrajalla, ei korjauksesta). **PÄÄTÖS 2026-07-01:
+vanhaa MAS-dataa EI lasketa uudelleen** (SJK poikien 04-01 MAS −20-perustalla, ero ≤0.05 km/h). Regressio: `tests/mas_myeway.test.js`.
+
 **Alustaherkkyys (`ALUSTAHERKAT_TESTIT`):** juoksu- ja ketteryystestit (`lin_*`, `505_*`, `kasirata`,
 `sm_*`, `kuljetus_laukaus`, `pujottelu*`, `syotto*`, `mas`) vaativat alusta-tiedon (tulokset eivät vertailukelpoisia
 eri alustoilla). Liikkuvuus-/harjoitettavuustestit (kyykky, lankku jne.) eivät ole alustaherkkiä.
