@@ -5137,7 +5137,13 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   f1 += '<div style="font-size:11px;color:var(--ink3);margin-top:10px">Suunta (↑↓→) vaatii testihistorian — Sprint 2. Ikä/sp: ' + (ika||'?') + ' · ' + (spMN||'?') + '</div>';
 
   // ── TAB 2: TEKNINEN (SM-tasot + TSI + TKI + FLEI) ──
-  const tsi = (p.tsi_viimeisin != null) ? p.tsi_viimeisin : null;   // pikakentästä (§19); recalcTSI/tuonti täyttää
+  // TSI: pikakenttä ensin, muuten laske lennossa raakadatasta (sm_pallo − sm_juoksu, §22). Ei kirjoiteta Firestoreen.
+  let tsi = (p.tsi_viimeisin != null) ? p.tsi_viimeisin : null;
+  if (tsi == null && p.hh_viimeisin) {
+    tsi = (typeof laskeTSI === 'function')
+      ? laskeTSI(p.hh_viimeisin.sm_juoksu, p.hh_viimeisin.sm_pallo)
+      : ((p.hh_viimeisin.sm_pallo != null && p.hh_viimeisin.sm_juoksu != null) ? Math.round((p.hh_viimeisin.sm_pallo - p.hh_viimeisin.sm_juoksu) * 100) / 100 : null);
+  }
   const tsiKtx = (tsi == null) ? null : (tsi < 1.2 ? 'Teknisesti vahva' : tsi < 1.6 ? 'Kansallinen taso' : tsi < 2.0 ? 'Kehitettävää' : 'Prioriteetti');
   const m2 = _tkiMerkkiVP(p.tki_viimeisin, p.tki_merkki);
   const tRiv = function(lbl, val) { return '<tr style="border-top:.5px solid var(--border)"><td style="padding:6px 8px;color:var(--ink2)">' + lbl + '</td><td style="padding:6px 8px;font-family:var(--font-m);color:var(--ink)">' + val + '</td></tr>'; };
@@ -5299,7 +5305,10 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     h += '<button id="_jspBtn' + i + '" class="dim-tab ' + (i===0?'on':'') + '" onclick="_jspVaihda(' + i + ')"><i class="ti ' + t[0] + '"></i>' + t[1] + '</button>';
   });
   h += '</div>';
-  h += '<div style="padding:18px 24px;overflow-y:auto;flex:1">';
+  // KORJAUS: EI flex:1/overflow-y:auto — tab-sisältökontti kasvaa sisällön korkuiseksi; ulompi modaali
+  // (max-height:90vh; overflow-y:auto) hoitaa skrollauksen. flex:1 litisti kontin 36px:iin (PR B lisäsi
+  // sisältöä tab-palkin yläpuolelle) → välilehtien sisältö leikkautui. Sticky-otsikko + footer ennallaan.
+  h += '<div style="padding:18px 24px">';
   h += '<div id="_jspTab0">' + f1 + '</div>';
   h += '<div id="_jspTab1" style="display:none">' + f2 + '</div>';
   h += '<div id="_jspTab2" style="display:none">' + f3 + '</div>';
@@ -8953,7 +8962,11 @@ function _talenttiHuomio(p, ikaTaso, kehTaso) {
 // TSI-väri (§21-kynnykset): ≤0.5 teal (tekniikka erittäin vahva) · ≤1.5 amber (normaali) · >1.5 red (fysiikka edellä).
 function _talenttiCod(p) {
   const hh = p.hh_viimeisin || {};
-  const smj = hh.sm_juoksu, smp = hh.sm_pallo, tsi = p.tsi_viimeisin;
+  const smj = hh.sm_juoksu, smp = hh.sm_pallo;
+  // TSI: pikakenttä ensin, muuten laske lennossa raakadatasta (§22). Ei kirjoiteta Firestoreen.
+  const tsi = (p.tsi_viimeisin != null) ? p.tsi_viimeisin
+    : ((typeof laskeTSI === 'function') ? laskeTSI(smj, smp)
+      : ((smj != null && smp != null) ? Math.round((smp - smj) * 100) / 100 : null));
   if (smj == null && smp == null && tsi == null) return '<span style="color:var(--ink3)">—</span>';
   let h = '';
   if (smj != null && smp != null) h += '<span style="color:var(--ink3);font-size:11px">' + smj + ' → ' + smp + '</span>';

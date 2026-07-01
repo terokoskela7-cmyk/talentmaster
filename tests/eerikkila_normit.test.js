@@ -200,6 +200,10 @@ describe('laskeTSI', () => {
     expect(laskeTSI(5.0, 5.0)).toBe(0);
   });
 
+  it('VP-fallback-tapaus (SJK P15): sm_juoksu 7.62, sm_pallo 8.67 → +1.05 (2 des)', () => {
+    expect(laskeTSI(7.62, 8.67)).toBe(1.05);
+  });
+
   it('palauttaa null kun parametrit puuttuvat', () => {
     expect(laskeTSI(null, 5.0)).toBeNull();
     expect(laskeTSI(5.0, null)).toBeNull();
