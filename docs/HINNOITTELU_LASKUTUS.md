@@ -35,11 +35,22 @@ arvonlisäverovelvolliseksi.**
 
 ---
 
-## 3. B2B-seurahinnoittelu (kaikki hinnat alv 0 %, ks. §1)
-| Vaihe | Seuralisenssi | Pelaajamaksu |
-|---|---|---|
-| **Pilotti** (n. 2–3 kk) | **50 €/kk** | **0 €** (ilmainen pilotin ajan) |
-| **Pilotin jälkeen** | **50 €/kk** | **2,5 €/kk / aktiivinen pelaaja** (koostettu seuralaskuun) |
+## 3. B2B-hinnoittelu — pakettitasot (kaikki hinnat alv 0 %, ks. §1)
+
+> **Kategoriaperiaate (BP4B):** TalentMaster ei kilpaile hallinnossa (Jopox/MyClub) — se tuottaa pelaajankehitys-/talenttiarvoa.
+> Value metric = **kehityssyvyys**, ei hallinto. Per-player = premium-vipu (Taso 2), ei grassroots-vero.
+
+| Taso | Kohde | Seuralisenssi/kk | Pelaajamaksu/kk | Ydinarvo |
+|---|---|---|---|---|
+| **1 Kehitys** | kilpa-/kehittävä seura | **50–90 €** | **2,5 €/aktiivipelaaja** | Testaus (H-H/TKI/FLEI) + kehitysvauhti + harjoitegeneraattori + kehityssilmukka |
+| **2 Talentti/Akatemia** | akatemia, talenttiohj., EPPP Cat 2–3/NLZ/RJO | **150–400 €** | **4–12 €/aktiivipelaaja** *(tai 500–2 000 €/v/joukkue)* | + bio-ikä (PHV) + RAE-korjaus + herkkyysikkunat + syvänäkymä + ADAR + VAI+ + passi |
+| **Enterprise** | liitto, moniseura, residenssi | custom | per-player-in-programme | + moniseura-aggregaatio + benchmark + API/white-label |
+
+**Adoptio-kerros:** ilmainen määräaikainen pilotti (1 ikäluokka) → land → Taso 1 → Taso 2 (land-and-expand). Solo B2C = §2 (perhe suoraan).
+
+**Kansainvälinen hinnoittelu (BP4 §8):** pääakseli = **segmentti** (taso yllä, kattaa 3–5× hajonnan); toissijainen = **maakerroin ±25 %** — Premium (DK, NO) · Standard (SE, NL, UK, DE, FR, FI) · Value (ES, IT). Lokalisoi per maa; **premium pitää instituutio-/akatemiasegmentissä, ei grassroots-volyymissä.**
+
+> **Nykyinen pilottimalli (Sibbo ym.) = Taso 1 -baseline:** pilotti 50 €/kk + 0 €/pelaaja → jatko 50 €/kk + 2,5 €/aktiivipelaaja. Akatemiapilotti (Taso 2) erikseen: `AKATEMIA_PILOTTITARJOUS.md`.
 
 ---
 
