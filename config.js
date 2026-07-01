@@ -31,9 +31,8 @@ const TM_CONFIG = {
     appId:             '1:872561784446:web:05c4c7996dfd46ddd14a2f',
   },
 
-  // Super Admin — haetaan Firestoresta, ei hardcoded tuotannossa
-  // Tämä on fallback-arvo kehitysympäristöä varten
-  superAdminUid: 'dqUzvJA61Wb9fgj5UiK0riSA4NI2',
+  // Super Admin tunnistetaan ajonaikaisesti Firestoresta (admins/{uid} exists) + custom claims —
+  // ei hardcoded UID:tä täällä (turvallisuushygienia 2026-07-01; grep-varmistettu 0 lukijaa).
 
   // Ympäristö
   env:    'production',

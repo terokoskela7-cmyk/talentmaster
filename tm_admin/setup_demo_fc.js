@@ -10,6 +10,8 @@ const admin = require('firebase-admin');
 // Alustetaan Firebase Admin SDK
 // Secret voi olla joko suora JSON-string tai base64-enkoodattu — kokeillaan molemmat
 let serviceAccount;
+// Demo-VP:n salasana luetaan ympäristömuuttujasta — EI plaintextinä versionhallintaan (turvallisuushygienia 2026-07-01).
+const DEMO_PW = process.env.TM_DEMO_PW;
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
 if (raw) {
   try {
@@ -57,9 +59,12 @@ async function setupDemoFC() {
     vpUser = await auth.getUserByEmail('vp.demo@talentmaster.fi');
     console.log('   → Käyttäjä löytyi jo:', vpUser.uid);
   } catch (e) {
+    if (!DEMO_PW) {
+      throw new Error('TM_DEMO_PW ympäristömuuttuja puuttuu — aseta demo-VP:n salasana ennen ajoa (esim. TM_DEMO_PW=... node setup_demo_fc.js).');
+    }
     vpUser = await auth.createUser({
       email:    'vp.demo@talentmaster.fi',
-      password: 'TM_Demo_2026!',
+      password: DEMO_PW,
       displayName: 'Demo VP'
     });
     console.log('   → Luotu:', vpUser.uid);
@@ -359,7 +364,7 @@ async function setupDemoFC() {
   console.log('═══════════════════════════════════════════');
   console.log('\nKirjautumistiedot:');
   console.log('  Email:    vp.demo@talentmaster.fi');
-  console.log('  Salasana: TM_Demo_2026!');
+  console.log('  Salasana: (asetettu TM_DEMO_PW-ympäristömuuttujasta)');
   console.log('\nIDP-kortti suoraan URL:lla:');
   console.log('  Aleksi: ?seuraId=demo-fc&pelaajaId=demo-p001');
   console.log('  Eeli:   ?seuraId=demo-fc&pelaajaId=demo-p002');

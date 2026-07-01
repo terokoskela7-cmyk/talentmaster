@@ -35,6 +35,22 @@ jobs:
       - run: npm ci
       - run: npm run lint
 
+  # Riippuvuuksien haavoittuvuusnäkyvyys (turvallisuushygienia 2026-07-01).
+  # EI-BLOKKAAVA aluksi (continue-on-error) — tavoite = näkyvyys high/critical-CVE:ihin, ei portti.
+  # Kiristetään estäväksi erikseen kun tunnetut löydökset on triagattu.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: npm audit (high+)
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
   # Firestore Security Rules -testit (vaatii emulaattorin)
   rules-tests:
     runs-on: ubuntu-latest
