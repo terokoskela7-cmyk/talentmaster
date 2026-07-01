@@ -1373,14 +1373,19 @@ body {
 .jk-badge { font-size: 10px; color: var(--ink3); background: var(--ov-1); border: 1px solid var(--ov-2); border-radius: 4px; padding: 2px 5px; margin-top: 6px; display: inline-flex; align-items: center; gap: 3px; }
 .jk-badge i { font-size: 10px; }
 .jk-suunta { font-size: 13px; font-weight: 600; margin-top: 4px; }
-/* Joukkuekortin dimensiorivit (D1/D2 rinnakkain) */
-.jk-dim-rivi { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+/* Joukkuekortin dimensiorivit (D1/D2 rinnakkain) — §28-kalibroitu: teal-palkki + tavoite-tikki (taso 3),
+   luku ei väritetä arvolla (matala pre-PHV-fyysinen EI ole punainen). Ks. renderTeamPulse. */
+.jk-dim-rivi { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
 .jk-dim-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--ink3); width: 18px; flex-shrink: 0; }
-.jk-palkki-wrap { flex: 1; height: 5px; background: var(--ov-3); border-radius: 2px; overflow: hidden; }
-.jk-palkki-fill { height: 100%; border-radius: 2px; }
-.jk-dim-arvo { font-size: 16px; font-weight: 700; font-family: var(--font-mono); min-width: 30px; text-align: right; }
+.jk-palkki-wrap { flex: 1; height: 9px; background: var(--ov-3); border-radius: 3px; overflow: hidden; position: relative; }  /* teema-turvallinen ura (tumma+vaalea) */
+.jk-palkki-fill { height: 100%; border-radius: 3px; position: relative; z-index: 1; }
+.jk-palkki-tick { position: absolute; top: 0; bottom: 0; left: 60%; width: 1.5px; background: var(--ink3); z-index: 2; }  /* tavoite = taso 3 (60% max); --ink3 hillitty, teema-turvallinen */
+.jk-dim-arvo { font-size: 19px; font-weight: 600; font-family: var(--font-mono); min-width: 32px; text-align: right; color: var(--ink); }
 .jk-dim-ctx { font-size: 10px; color: var(--ink3); min-width: 44px; }
 .jk-dim-puuttuu { opacity: .35; }
+.jk-mikro { font-size: 10px; color: var(--ink3); font-style: italic; line-height: 1.3; margin: -3px 0 7px 26px; }
+.jk-status { font-size: 11.5px; font-weight: 600; margin-top: 8px; display: inline-flex; align-items: center; gap: 5px; }
+.jk-status-sek { font-size: 10px; color: var(--ink3); margin-top: 5px; display: inline-flex; align-items: center; gap: 4px; opacity: .8; }
 
 /* Toimenpiteet (TalentMaster ehdottaa → VP päättää) */
 .tp-kortti { border: 1px solid var(--ov-2); border-radius: 10px; overflow: hidden; margin-bottom: 6px; }
@@ -8887,8 +8892,14 @@ function renderTeamPulse() {
   const nimet = Object.keys(joukkueet).sort(function(a,b){ return joukkueJarjestys(a) - joukkueJarjestys(b); });
   if (nimet.length === 0) { cont.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:16px">Ei joukkuetietoja saatavilla</div>'; return; }
   const ka = function(vals){ return vals.length ? (vals.reduce(function(a,b){ return a+b; }, 0) / vals.length) : null; };
-  // väri 1–5: ≥3.5 teal · 2.5–3.4 amber · <2.5 red
-  const vari5 = function(t){ return (t == null) ? 'var(--ink3)' : t >= 3.5 ? 'var(--teal)' : t >= 2.5 ? 'var(--amber)' : 'var(--red)'; };
+  // §28-kalibrointi: dimensiopalkki AINA rauhallinen teal, leveys = arvo/5. Luku ei väritetä arvolla
+  // (matala pre-PHV-fyysinen ei näytä "punaiselta"). Tavoite-tikki = taso 3 (60% max, .jk-palkki-tick).
+  const _tpDimRivi = function(label, arvoTxt, pct, ctx){
+    return '<div class="jk-dim-rivi"><span class="jk-dim-label">' + label + '</span>'
+      + '<div class="jk-palkki-wrap"><div class="jk-palkki-tick"></div><div class="jk-palkki-fill" style="width:' + pct + '%;background:var(--teal)"></div></div>'
+      + '<span class="jk-dim-arvo">' + (arvoTxt != null && arvoTxt !== '' ? arvoTxt : '—') + '</span>'
+      + '<span class="jk-dim-ctx">' + ctx + '</span></div>';
+  };
 
   cont.innerHTML = '<div class="jk-grid">' + nimet.map(function(nimi){
     const pelaajat = joukkueet[nimi];
@@ -8898,67 +8909,85 @@ function renderTeamPulse() {
     const hhVals = pelaajat.filter(function(p){ return p.hh_taso != null; }).map(function(p){ return p.hh_taso; });
     const hhAvg = ka(hhVals);
     const hhKa = (hhAvg != null) ? Math.round(hhAvg * 10) / 10 : null;
-    const pct = (hhKa != null) ? Math.round((hhKa / 5) * 100) : 0;
-    const vari = vari5(hhKa);
+    const pct = (hhKa != null) ? Math.min(100, Math.round((hhKa / 5) * 100)) : 0;
     const suunta = laskeJoukkueSuunta(pelaajat);
+
+    // §28: onko joukkue kehitysvaiheeltaan pre-PHV → matala D1 = biologisesti odotettua (ei kehityskohde).
+    const _tilalliset = pelaajat.filter(function(p){ return p.phv_tila; });
+    const _prePHV = _tilalliset.length
+      ? (pelaajat.filter(function(p){ return (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH'); }).length / _tilalliset.length) >= 0.5
+      : false;
 
     let h = '<div class="jk" onclick="avaaJoukkueSyvanakyma(\'' + safeNimi + '\')">';
     h += '<div class="jk-top"><div class="jk-nimi">' + ikaluokka + '</div><div class="jk-pel">' + koko + ' pel.</div></div>';
-    // D1 Fyysinen (H-H)
-    h += '<div class="jk-dim-rivi"><span class="jk-dim-label">D1</span>'
-      + '<div class="jk-palkki-wrap"><div class="jk-palkki-fill" style="width:' + pct + '%;background:' + vari + '"></div></div>'
-      + '<span class="jk-dim-arvo" style="color:' + vari + '">' + (hhKa != null ? hhKa : '—') + '</span>'
-      + '<span class="jk-dim-ctx">Eerikkilä</span></div>';
+    // D1 Fyysinen (H-H) — teal-palkki + tavoite-tikki, luku ei väritetä (§28)
+    h += _tpDimRivi('D1', (hhKa != null ? hhKa : ''), pct, 'Eerikkilä');
+    // §28-mikrokopio: pre-PHV + matala D1 → ei kehityskohde (ei punaista)
+    if (_prePHV && hhKa != null && hhKa < 3.0) {
+      h += '<div class="jk-mikro">pre-PHV — biologisesti odotettua, ei kehityskohde</div>';
+    }
     // D2 Tekninen (TKI > SM) — rivi vain jos dataa ≥3 pelaajalla
     const d2 = laskeJoukkueD2(pelaajat);
     if (d2 != null) {
-      const d2Vari = d2.arvo >= 3.5 ? 'var(--teal)' : d2.arvo >= 2.5 ? 'var(--amber)' : 'var(--red)';
       // §30 joustava: D2-lähde voi olla tki/sm/hh/tk. ¹ = ei-TKI-pohjainen (sm/hh/tk).
       const _d2Lbl = { tki:'TKI', sm:'SM-testi', hh:'H-H', tk:'TK' }[d2.lahde] || 'TKI';
-      h += '<div class="jk-dim-rivi"><span class="jk-dim-label">D2</span>'
-        + '<div class="jk-palkki-wrap"><div class="jk-palkki-fill" style="width:' + Math.round(d2.arvo/5*100) + '%;background:' + d2Vari + '"></div></div>'
-        + '<span class="jk-dim-arvo" style="color:' + d2Vari + '">' + d2.arvo + (d2.lahde !== 'tki' ? '¹' : '') + '</span>'
-        + '<span class="jk-dim-ctx">' + _d2Lbl + '</span></div>';
+      h += _tpDimRivi('D2', d2.arvo + (d2.lahde !== 'tki' ? '¹' : ''), Math.min(100, Math.round(d2.arvo/5*100)), _d2Lbl);
     } else {
       h += '<div class="jk-dim-rivi jk-dim-puuttuu"><span class="jk-dim-label">D2</span><span class="jk-dim-ctx" style="min-width:auto">— Tekninen mittaus puuttuu</span></div>';
     }
-    // POIKKEUSKEHYS-lippu (pahin) — exception-kerros D1/D2-palkkien päälle. Normaali joukkue → ei lippua.
+
+    // PÄÄSIGNAALI — kalibroitu status (§28): arvo ja hälytys eriytetty. ikävaiheodotetut (pre-PHV neutraalit)
+    // EIVÄT ole hälytys → suodatetaan pois. Punainen VAIN aidosti kriittiseen. Muuten 🟢 Vakaa.
+    let _statusHtml = '';
     if (typeof laskeJoukkuePoikkeamat === 'function') {
       const _isp = _jsvJoukkueIkaSp(nimi);
       const _pk = laskeJoukkuePoikkeamat(pelaajat, _isp.ika, (_isp.sp === 'T') ? 'N' : 'M');
-      if (_pk.length) {
-        const _w = _pk[0];
-        const _vc = { punainen:'var(--red)', amber:'var(--amber)', info:'var(--ink3)' }[_w.vakavuus];
-        const _ik = { alle_normin:'⚠', profiilipoikkeama:'◑', laskeva:'↘', hajonta:'◑', talenttiydin:'★', kattavuus:'ⓘ' }[_w.tyyppi] || '⚠';
+      const _aito = _pk.filter(function(w){ return !w.ikavaiheOdotettu; });   // §28: odotettu ≠ hälytys
+      if (_aito.length) {
+        const _w = _aito[0];
+        const _crit = _w.vakavuus === 'punainen';
+        const _piste = _crit ? '🔴' : (_w.vakavuus === 'amber' ? '🟡' : '🟢');
+        const _vari = _crit ? 'var(--red)' : (_w.vakavuus === 'amber' ? 'var(--amber)' : 'var(--ink3)');
         const _lbl = _w.osaAlue ? (_w.osaAlue.charAt(0).toUpperCase() + _w.osaAlue.slice(1)) : '';
-        const _txt = _w.tyyppi === 'alle_normin' ? (_lbl + ' alle normin')
-                   : _w.tyyppi === 'laskeva' ? 'Taso laskussa'
-                   : _w.tyyppi === 'hajonta' ? 'Sisäinen hajonta'
-                   : _w.tyyppi === 'profiilipoikkeama' ? (_lbl + ' jää jälkeen')
-                   : _w.tyyppi === 'talenttiydin' ? 'Talenttiydin alle normin' : 'Datapuute';
-        h += '<div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:2px 8px;border-radius:20px;border:.5px solid ' + _vc + ';color:' + _vc + (_w.ikavaiheOdotettu ? ';opacity:.6' : '') + '">' + _ik + ' ' + _txt + '</div>';
+        const _sana = _w.tyyppi === 'alle_normin' ? (_lbl + ' alle normin')
+                    : _w.tyyppi === 'laskeva' ? 'Taso laskussa'
+                    : _w.tyyppi === 'hajonta' ? 'Sisäinen hajonta'
+                    : _w.tyyppi === 'profiilipoikkeama' ? (_lbl + ' jää jälkeen')
+                    : _w.tyyppi === 'talenttiydin' ? 'Talenttiydin alle normin' : 'Huomio';
+        _statusHtml = '<div class="jk-status" style="color:' + _vari + '">' + _piste + ' <span>' + _sana + '</span></div>';
       }
     }
-    if (suunta.tila === 'ensimmainen_mittaus') {
-      h += '<div class="jk-badge"><i class="ti ti-refresh" aria-hidden="true"></i> 2. mittaus puuttuu</div>';
-    } else if (suunta.symboli) {
+    if (!_statusHtml && hhKa != null) {
+      _statusHtml = '<div class="jk-status" style="color:var(--teal)">🟢 <span>Vakaa</span></div>';
+    }
+    h += _statusHtml;
+
+    // SUUNTA (§29) — pidä; ↓ hillittynä (ei punainen-hälytys pienelle/odotetulle laskulle)
+    if (suunta.symboli && suunta.tila !== 'ensimmainen_mittaus') {
       const _dlt = (suunta.tila === 'tasainen') ? '' : (suunta.delta + ' ');
       const _lhd = (suunta.lahde === 'tki') ? 'TKI' : 'H-H';
       const _ttl = (suunta.lahde === 'tki')
         ? 'Joukkueen keskimääräinen TKI-muutos edellisestä tekniikkakilpailusta'
         : 'Joukkueen keskimääräinen H-H-muutos edellisestä testistä';
-      h += '<div class="jk-suunta" style="color:' + suunta.vari + '" title="' + _ttl + '">'
+      const _sv = (suunta.symboli === '↓') ? 'var(--ink2)' : suunta.vari;   // ↓ hillitty
+      h += '<div class="jk-suunta" style="color:' + _sv + '" title="' + _ttl + '">'
         + suunta.symboli + ' ' + _dlt + _lhd + ' <span style="color:var(--ink3);font-weight:400;font-size:.88em">('
         + suunta.parantunut + '/' + suunta.n + ' parantunut)</span></div>';
     }
-    // §RAE — joukkueen BQ-vinouma yhdellä silmäyksellä (pelkkä signaali; täysi jakauma syvänäkymässä).
-    if (typeof raeJoukkueJakauma === 'function') {
+
+    // MAX 1 SEKUNDÄÄRIMERKKI (hiljainen) — prioriteetti: 2. mittaus puuttuu → RAE-ikäharha. Loput syvänäkymään.
+    let _sek = '';
+    if (suunta.tila === 'ensimmainen_mittaus') {
+      _sek = '<div class="jk-status-sek"><i class="ti ti-refresh" aria-hidden="true"></i> 2. mittaus puuttuu</div>';
+    } else if (typeof raeJoukkueJakauma === 'function') {
       const _bq = raeJoukkueJakauma(pelaajat);
       if (_bq.n_kvartaalillisia >= 4 && _bq.signaali === 'valintaharha')
-        h += '<div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:2px 8px;border-radius:20px;border:.5px solid var(--amber);color:var(--amber)" title="Q1 (ikäluokan vanhimmat) yliedustettu — valitaanko taitoa vai ikää? Avaa syvänäkymä.">⚠ Ikäharha Q1 ' + _bq.pct.Q1 + '%</div>';
+        _sek = '<div class="jk-status-sek" style="color:var(--amber)" title="Q1 (ikäluokan vanhimmat) yliedustettu — valitaanko taitoa vai ikää? Avaa syvänäkymä.">⚠ Ikäharha Q1 ' + _bq.pct.Q1 + '%</div>';
       else if (_bq.n_kvartaalillisia >= 4 && _bq.signaali === 'underdog_ok')
-        h += '<div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:2px 8px;border-radius:20px;border:.5px solid var(--teal);color:var(--teal)" title="Q4 (ikäluokan nuorimmat) hyvin edustettu — myöhäissyntyneet saavat tilaa.">✓ Q4 ' + _bq.pct.Q4 + '%</div>';
+        _sek = '<div class="jk-status-sek" style="color:var(--teal)" title="Q4 (ikäluokan nuorimmat) hyvin edustettu — myöhäissyntyneet saavat tilaa.">✓ Q4 ' + _bq.pct.Q4 + '%</div>';
     }
+    h += _sek;
+
     h += '</div>';
     return h;
   }).join('') + '</div>';
