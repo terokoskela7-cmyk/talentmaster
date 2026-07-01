@@ -34,7 +34,7 @@ Vasen sarake = tiivis pysyvä vitals-kortti, sama kaikilla 3 välilehdellä:
 - **Hidden Gem** -merkki jos laukeaa (§28/§30-kynnys, ei muuteta laskentaa).
 - **PHV-note** jos joukkueella kehitysvaihedataa ("kehitysvaihe: X pre / Y circa / Z post").
 - **EI** toista radarin/painopisteen sisältöä.
-- **Suunnanmuutos (COD) + TSI näkyviin** per-pelaaja Tekninen-osiossa (Tero-pyyntö): `hh_viimeisin.sm_juoksu` (ilman palloa) · `hh_viimeisin.sm_pallo` (pallolla) · `tsi_viimeisin` (erotus, §21-väri ≤0.5 teal / 0.5–1.5 amber / >1.5 red). Olemassa oleva TSI-rivi (§19) laajennetaan näyttämään myös raa'at juoksu/pallo. Pikakentistä (§26), graceful "—".
+- **TSI-erotusarvo per-pelaaja Tekninen-osioon (PR A -aukon korjaus, live-verifioitu 2026-07-01):** PR A jätti tämän tekemättä. Nykytila: TEKNIIKKA (D2) -osio näyttää `SM-juoksu` (ilman palloa) ja `SM-pallo` (pallolla) raakoina Eerikkilä-tasolla — **mutta EI eksplisiittistä TSI-erotusarvoa** (esim. +1.05 s), joka on juuri se mittari jota Tero halusi näkyviin (talenttilistassa se on, per-pelaaja-modaalista puuttuu). **Lisää TSI-rivi** SM-rivien viereen/alle: `tsi_viimeisin` (= `sm_pallo − sm_juoksu`), **§21-väri** ≤0.5 s teal · 0.5–1.5 s amber · >1.5 s red, otsikko "TSI (pallon hidastus)". Pikakentästä (§26), graceful "—" kun SM-dataa ei ole. Raakoja SM-rivejä ei tarvitse muuttaa (ne ovat jo paikallaan).
 
 ### 5. Painopiste + collapse + datapolku (Tilanne-välilehden alaosa)
 - **Painopiste-lohko** radarin alla: heikoin ominaisuus + etäisyys tavoitteeseen + teal-CTA:t (`Luo tekniikkateema` esitäyttö + `Tuki-ryhmät`). §28-note kun pre-PHV.
