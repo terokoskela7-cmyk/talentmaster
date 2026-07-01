@@ -106,6 +106,9 @@ var BIOIKA_VAROITUKSET = {
 /**
  * Laskee Mirwald 2002 -kaavan mukaisen maturity offsetin.
  * Kaava on identtinen BioIkä-Excelin sarakkeen P kanssa.
+ * HUOM: poikien vakio linjattu MyE.Way'hin (−9.3236) 2026-07-01 → PHV täsmää MyE.Way'hin (Palloliiton
+ * live-tuote, SJK-ekosysteemi) bitilleen. Eroaa julkaistusta Mirwald 2002 -arvosta (−9.236) 0.088 v (~1 kk).
+ * Verifioitu 2 MyE.Way-referenssipisteellä. Tyttöjen vakio (−9.376) on jo identtinen MyE.Way'n kanssa → ennallaan.
  *
  * @param {Object} m
  * @param {number} m.ika           Kronologinen ikä vuosina (esim. 13.42)
@@ -123,8 +126,8 @@ function laskeMirwald(m) {
 
   let offset;
   if (sukupuoli === 'P') {
-    // Poikien kaava — Mirwald 2002 Table 1
-    offset = -9.236
+    // Poikien kaava — Mirwald 2002 Table 1 (vakio −9.3236 = MyE.Way-pariteetti, ks. funktion docstring)
+    offset = -9.3236
       + 0.0002708 * (jalat * istumapituus)
       - 0.001663  * (ika  * jalat)
       + 0.007216  * (ika  * istumapituus)
