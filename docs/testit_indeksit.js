@@ -437,7 +437,7 @@ function hhLaskeMetrikat(tulokset) {
                          fvp <= 1.10 ? 'tasapainoinen' : 'voimaprofiili';
   }
 
-  // TSI = SM-juoksu − SM-pallo (tekniikka-nopeus-indeksi)
+  // TSI = SM-pallo − SM-juoksu (pallon hidastus; pieni = vahva lajitekniikka). §21/§22. Koodi alla = totuus.
   if (tulokset.sm_juoksu != null && tulokset.sm_pallo != null) {
     result.tsi = parseFloat((tulokset.sm_pallo - tulokset.sm_juoksu).toFixed(2));
     result.tsiTulkinta = result.tsi <= 0.5 ? 'erinomainen' :

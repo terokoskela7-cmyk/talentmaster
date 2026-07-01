@@ -8823,6 +8823,21 @@ function _talenttiHuomio(p, ikaTaso, kehTaso) {
   return { teksti:'—', vari:'var(--ink3)' };
 }
 
+// Suunnanmuutos (COD) + TSI pikakentistä (§21/§22, EI uutta laskentaa). Graceful "—".
+// TSI-väri (§21-kynnykset): ≤0.5 teal (tekniikka erittäin vahva) · ≤1.5 amber (normaali) · >1.5 red (fysiikka edellä).
+function _talenttiCod(p) {
+  const hh = p.hh_viimeisin || {};
+  const smj = hh.sm_juoksu, smp = hh.sm_pallo, tsi = p.tsi_viimeisin;
+  if (smj == null && smp == null && tsi == null) return '<span style="color:var(--ink3)">—</span>';
+  let h = '';
+  if (smj != null && smp != null) h += '<span style="color:var(--ink3);font-size:11px">' + smj + ' → ' + smp + '</span>';
+  if (tsi != null) {
+    const v = tsi <= 0.5 ? 'var(--teal)' : tsi <= 1.5 ? 'var(--amber)' : 'var(--red)';
+    h += (h ? '<br>' : '') + '<span style="color:' + v + '" title="TSI = pallon hidastus (pieni = vahva lajitekniikka)">TSI ' + (tsi > 0 ? '+' : '') + tsi + '</span>';
+  }
+  return h || '<span style="color:var(--ink3)">—</span>';
+}
+
 const _talVari5 = function(t){ return (t == null) ? 'var(--ink3)' : t >= 3.5 ? 'var(--teal)' : t >= 2.5 ? 'var(--amber)' : 'var(--red)'; };
 function _talNimi(p) { return (((p.sukunimi || '') + ', ' + (p.etunimi || '')).replace(/^, |, $/g, '') || p.id || '?'); }
 function _talSeuraLinkki() { return 'TalentMaster_Seura.html' + (_seuraId ? ('?seura=' + encodeURIComponent(_seuraId)) : ''); }
@@ -8844,7 +8859,7 @@ function renderTalentitLohko() {
   let h = '<div class="tal-lohko"><div class="tal-otsikko">Talentit — extra-valmennuksen kohteet</div>'
     + '<div class="tal-selite">' + talentit.length + ' pelaajaa · ikäluokka → kehitysvaihe (kypsyyskorjattu, §28)</div>'
     + '<div class="tal-wrap"><table class="tal-taulu"><thead><tr>'
-    + '<th>Pelaaja</th><th>Jkl</th><th>Taso</th><th>D1</th><th>D2</th><th>TKI</th><th>Ikäluokka → Kehitysvaihe</th><th>Vauhti</th><th>Huomio</th>'
+    + '<th>Pelaaja</th><th>Jkl</th><th>Taso</th><th>D1</th><th>D2</th><th>TKI</th><th title="Suunnanmuutos ilman palloa → pallolla · TSI = pallon hidastus (pieni = vahva tekniikka)">Suunnanmuutos</th><th>Ikäluokka → Kehitysvaihe</th><th>Vauhti</th><th>Huomio</th>'
     + '</tr></thead><tbody>';
 
   talentit.forEach(function(p){
@@ -8866,6 +8881,7 @@ function renderTalentitLohko() {
       + '<td>' + (d1 != null ? '<span style="color:' + _talVari5(d1) + '">' + (Math.round(d1 * 10) / 10) + '</span>' : '—') + '</td>'
       + '<td>' + (p.d2_taso != null ? '<span style="color:' + _talVari5(p.d2_taso) + '">' + p.d2_taso + '</span>' : '—') + '</td>'
       + '<td>' + (p.tki_viimeisin != null ? Math.round(p.tki_viimeisin) : '—') + '</td>'
+      + '<td>' + _talenttiCod(p) + '</td>'
       + '<td>' + dual + '</td>'
       + '<td>' + _talenttiVauhti(p) + '</td>'
       + '<td style="color:' + huomio.vari + '">' + huomio.teksti + '</td>'
