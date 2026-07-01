@@ -73,17 +73,24 @@ hintoihin lain edellyttämän suuruisena, jos/kun Palveluntarjoaja tulee arvonli
 ### 8. Tietosuoja ja henkilötietojen käsittely
 - Palvelussa käsitellään **alaikäisten pelaajien henkilötietoja**. Osapuolet sitoutuvat noudattamaan
   EU:n yleistä tietosuoja-asetusta (GDPR) ja Suomen tietosuojalakia.
-- **Seura toimii rekisterinpitäjänä** ja Palveluntarjoaja **henkilötietojen käsittelijänä.** Osapuolet laativat
-  erillisen henkilötietojen käsittelysopimuksen (DPA) tämän sopimuksen liitteeksi.
-- Pelaajien tietojen käsittely edellyttää **huoltajan suostumusta.** Palvelu kerää suostumukset osana käyttöönottoa.
+- **Palveluntarjoaja (TalentMasterID Oy) toimii rekisterinpitäjänä** ja vastaa henkilötietojen käsittelystä,
+  tietosuojaselosteesta, huoltajien suostumusten keräämisestä sekä rekisteröityjen oikeuksien (mm. tarkastus,
+  siirto, poisto) toteuttamisesta. **Seura ei toimi rekisterinpitäjänä eikä käsittelijänä**, vaan saa käyttöoikeuden
+  omien pelaajiensa dataan sinä aikana kun pelaaja edustaa seuraa. Erillistä henkilötietojen käsittelysopimusta (DPA)
+  ei tämän mallin vuoksi tarvita. *(Malli vahvistetaan juristilla ennen laajempaa käyttöönottoa.)*
+- Pelaajien tietojen käsittely perustuu **huoltajan suostumukseen**, jonka Palveluntarjoaja kerää osana käyttöönottoa
+  tietosuojaselosteensa mukaisesti.
 - Palveluntarjoaja toteuttaa asianmukaiset tekniset ja organisatoriset turvatoimet (mm. pääsynhallinta, salaus,
-  EU-alueen palvelininfrastruktuuri).
-- Pilotin tai sopimuksen päättyessä pelaajatiedot palautetaan ja/tai poistetaan Seuran ohjeen mukaisesti.
+  EU-alueen palvelininfrastruktuuri) sekä tekniset välineet rekisteröityjen oikeuksien toteuttamiseksi (datan vienti + poisto).
+- Pelaajan kehitysdata muodostaa pelaajan oman **"urheilijan digitaalisen passin"**, joka säilyy Palveluntarjoajalla
+  rekisterinpitäjänä. Sopimuksen tai edustusajan päättyessä **Seuran käyttöoikeus pelaajien dataan päättyy**; pelaajan
+  ja huoltajan oikeus omiin tietoihinsa (tarkastus, siirto, poisto) säilyy suostumuksen mukaisesti.
 
 ### 9. Käyttöoikeus ja immateriaalioikeudet
 - Palveluntarjoaja myöntää Seuralle sopimuskauden ajaksi rajoitetun, ei-yksinomaisen käyttöoikeuden Palveluun.
-- Palvelun ja sen menetelmien immateriaalioikeudet kuuluvat Palveluntarjoajalle. Seuralle tai pelaajille kertyvä
-  oma data on Seuran/pelaajien, ja se palautetaan/poistetaan kohdan 8 mukaisesti.
+- Palvelun ja sen menetelmien immateriaalioikeudet kuuluvat Palveluntarjoajalle. Pelaajan henkilötietoihin liittyvät
+  rekisteröidyn oikeudet (tarkastus, siirto, poisto) kuuluvat pelaajalle ja hänen huoltajalleen GDPR:n mukaisesti
+  (kohta 8). Seuran käyttöoikeus dataan on voimassa pelaajan edustusajan.
 
 ### 10. Osapuolten vastuut
 - **Seura:** nimeää yhteyshenkilön, vastaa joukkueiden ja käyttäjien organisoinnista, huoltajaviestinnästä ja
@@ -124,4 +131,4 @@ Nimi ja asema: _______________________________
 
 ---
 
-*Liitteet: (1) Henkilötietojen käsittelysopimus (DPA), (2) Palvelun kuvaus.*
+*Liitteet: (1) Tietosuojaseloste (TalentMasterID Oy, rekisterinpitäjä), (2) Palvelun kuvaus.*
