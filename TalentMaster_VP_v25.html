@@ -18,6 +18,8 @@
 <script src="lib/tm_eerikkila_normit.js?v=38"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
+<script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
+
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
 :root[data-theme="dark"] {
@@ -1386,6 +1388,26 @@ body {
 .jk-mikro { font-size: 10px; color: var(--ink3); font-style: italic; line-height: 1.3; margin: -3px 0 7px 26px; }
 .jk-status { font-size: 11.5px; font-weight: 600; margin-top: 8px; display: inline-flex; align-items: center; gap: 5px; }
 .jk-status-sek { font-size: 10px; color: var(--ink3); margin-top: 5px; display: inline-flex; align-items: center; gap: 4px; opacity: .8; }
+/* Tilanne-skooppivalitsin + Talentit-lista (teema-turvalliset tokenit) */
+.tsk-pillit { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 16px 10px; }
+.tsk-pilli { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--ov-2); background: var(--ov-1); color: var(--ink2); cursor: pointer; transition: background .15s; }
+.tsk-pilli:hover { background: var(--ov-2); }
+.tsk-pilli.on { background: rgba(40,176,144,.16); border-color: rgba(40,176,144,.5); color: var(--teal); }
+.tal-lohko { margin: 0 16px; }
+.tal-otsikko { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: var(--ink); margin: 14px 0 2px; }
+.tal-selite { font-size: 11px; color: var(--ink3); margin-bottom: 10px; }
+.tal-wrap { overflow-x: auto; }
+.tal-taulu { width: 100%; border-collapse: collapse; font-size: 12px; }
+.tal-taulu th { text-align: left; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--ov-2); white-space: nowrap; }
+.tal-taulu td { padding: 7px 8px; border-bottom: .5px solid var(--ov-1); color: var(--ink2); white-space: nowrap; }
+.tal-taulu tr[data-pid] { cursor: pointer; }
+.tal-taulu tr[data-pid]:hover { background: var(--ov-1); }
+.tal-pnimi { color: var(--ink); font-weight: 500; }
+.tal-star { color: var(--amber); }
+.tal-empty { margin: 4px 16px 0; padding: 20px; border: 1px dashed var(--ov-3); border-radius: 10px; text-align: center; }
+.tal-gem { margin-top: 14px; }
+.tal-gem-rivi { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 7px 8px; border-bottom: .5px solid var(--ov-1); cursor: pointer; }
+.tal-gem-rivi:hover { background: var(--ov-1); }
 
 /* Toimenpiteet (TalentMaster ehdottaa → VP päättää) */
 .tp-kortti { border: 1px solid var(--ov-2); border-radius: 10px; overflow: hidden; margin-bottom: 6px; }
@@ -1842,6 +1864,8 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
       <div id="kehitysKortti"></div>
 
+      <div id="talentitLohko" style="margin-top:8px"></div>
+
       <section style="margin-top:8px">
         <div class="section-header">
           <span class="section-num">05</span>
@@ -2120,6 +2144,7 @@ const db   = firebase.firestore();
 // ─── STATE ───────────────────────────────────────────────
 let _seuraId = null, _uid = null, _isDemoMode = false;
 let _pelaajat = [], _valmentajat = [], _tapahtumat = [], _idpJono = [];
+let _tilanneSkooppi = 'seura';   // Tilanne-KPI-skooppi: 'seura'|'talentit'|'top10'|'top5' (client-side suodatus, ei uutta hakua)
 let _currentWs = 'koti';   // §IA oletusnäkymä = Koti
 const SUPER_ADMIN_UID = 'dqUzvJA61Wb9fgj5UiK0riSA4NI2';
 
@@ -2530,9 +2555,10 @@ function renderTilanne() {
   // KORJAUS 1 — dynaaminen kausipalkki
   _renderKausipalkki();
 
-  // Feature B — adaptiivinen kehityskortti (näyttää vain saatavilla olevat mittarit)
-  const _kkEl = document.getElementById('kehitysKortti');
-  if (_kkEl) _kkEl.innerHTML = renderKehitysKortti(_pelaajat);
+  // Feature B — adaptiivinen kehityskortti + skooppivalitsin (Koko seura / Talentit / Top-10 / Top-5)
+  renderKehitysLohko();
+  // Talentit-lista + Hidden Gem -ehdokkaat (extra-valmennuksen kohteet, §26 pikakentät)
+  renderTalentitLohko();
 
   // OSA 1 — sääntöpohjainen hero-insight + tilaindikaattorit (väripiste per joukkue + toimenpidelaskuri)
   const _hsEl = document.getElementById('greeting-summary');
@@ -8641,64 +8667,243 @@ function renderFleiKortti(p) {
 // Adaptiivinen seuratason kehityskortti — näyttää H-H/TKI/FLEI-keskiarvot (puuttuvat himmennettyinä)
 // + seuraava suositeltu mittaus. flei = 0–100, tki = 0–100, hh = 1–5 (§14).
 // Pelaajien kehitys — 2×2 KPI-grid (Fyysinen/Tekninen/FLEI/Peli). Tyhjä kortti → seuraava askel.
-function renderKehitysKortti(pelaajat) {
-  const ka = function(kentta){ const a = pelaajat.filter(function(p){ return p[kentta] != null; });
-    return a.length ? (a.reduce(function(s,p){ return s + p[kentta]; }, 0) / a.length) : null; };
-  const adA = pelaajat.filter(function(p){ return p.adar_viimeisin && p.adar_viimeisin.yht != null; });
-  const adKa = adA.length ? (adA.reduce(function(s,p){ return s + p.adar_viimeisin.yht; }, 0) / adA.length) : null;
-  const hhKa = ka('hh_taso'), fleiKa = ka('flei_viimeisin');
-
+function renderKehitysKortti(pelaajat, vertailuPelaajat) {
   // väri 1–5-normalisoidusta arvosta: ≥3.5 teal · 2.5–3.4 amber · <2.5 red
   const vari = function(t5){ return (t5 == null) ? 'var(--ink3)' : t5 >= 3.5 ? 'var(--teal)' : t5 >= 2.5 ? 'var(--amber)' : 'var(--red)'; };
 
-  // Tekninen-kortti — prioriteetti: TKI (≥3) → TSI/D2 (≥3) → tyhjä. TSI sekunteina (väri <1.3 teal · <1.7 amber · muu red).
-  const tekn = (function(){
-    const tkiP = pelaajat.filter(function(p){ return p.tki_viimeisin != null; });
-    if (tkiP.length >= 3) {
-      const tkiKa = tkiP.reduce(function(s,p){ return s + p.tki_viimeisin; }, 0) / tkiP.length;
-      return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:String(Math.round(tkiKa)), sub:'/100 · TKI', t5:_dimNorm5Tki(tkiKa), pct:Math.max(0,Math.min(100,Math.round(tkiKa))), next:null };
-    }
-    const tsiP = pelaajat.filter(function(p){ return p.tsi_viimeisin != null; });
-    if (tsiP.length >= 3) {
-      const tsiKa = tsiP.reduce(function(s,p){ return s + p.tsi_viimeisin; }, 0) / tsiP.length;
-      const d2P = pelaajat.filter(function(p){ return p.d2_taso != null; });
-      const d2Ka = d2P.length >= 3 ? (d2P.reduce(function(s,p){ return s + p.d2_taso; }, 0) / d2P.length) : null;
-      const tsiVari = tsiKa < 1.3 ? 'var(--teal)' : tsiKa < 1.7 ? 'var(--amber)' : 'var(--red)';
-      if (d2Ka != null) {
-        return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:d2Ka.toFixed(1), sub:'/5 · Eerikkilä',
-          vari:(d2Ka>=3.5?'var(--teal)':d2Ka>=2.5?'var(--amber)':'var(--red)'), pct:Math.round(d2Ka/5*100),
-          konteksti:'TSI ka. '+tsiKa.toFixed(2)+' s · '+tsiP.length+' pel.', next:'Suunnittele TKK' };
-      }
-      return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:tsiKa.toFixed(1), sub:'s · TSI',
-        vari:tsiVari, pct:Math.min(100,Math.round((1/tsiKa)*80)), konteksti:tsiP.length+' pelaajaa', next:'Suunnittele TKK' };
-    }
-    return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:'—', sub:'TKI', t5:null, pct:0, next:'Suunnittele TKK' };
-  })();
+  // Metriikat yhdestä poolista → 4 korttiobjektia. Käytetään sekä valitulle skoopille että vertailulle (koko seura).
+  const build = function(pool){
+    const ka = function(kentta){ const a = pool.filter(function(p){ return p[kentta] != null; });
+      return a.length ? (a.reduce(function(s,p){ return s + p[kentta]; }, 0) / a.length) : null; };
+    const adA = pool.filter(function(p){ return p.adar_viimeisin && p.adar_viimeisin.yht != null; });
+    const adKa = adA.length ? (adA.reduce(function(s,p){ return s + p.adar_viimeisin.yht; }, 0) / adA.length) : null;
+    const hhKa = ka('hh_taso'), fleiKa = ka('flei_viimeisin');
 
-  const kortit = [
-    { ikoni:'ti-bolt',          nimi:'Fyysinen', arvo: hhKa  != null ? hhKa.toFixed(1) : '—', sub:'/5 · H-H', t5: hhKa,
-      pct: hhKa  != null ? Math.round(hhKa/5*100) : 0, next: null },
-    tekn,
-    { ikoni:'ti-run',           nimi:'Valmius', arvo: fleiKa != null ? String(Math.round(fleiKa)) : '—', sub:'/100', t5: _dimNorm5Tki(fleiKa),
-      pct: fleiKa != null ? Math.max(0,Math.min(100,Math.round(fleiKa))) : 0, next: fleiKa == null ? 'Aloita kartoitus' : null },
-    { ikoni:'ti-compass',       nimi:'Peli', arvo: adKa  != null ? (Math.round(adKa*10)/10 + '/12') : '—', sub:'ADAR', t5: _dimNorm5Adar(adKa),
-      pct: adKa  != null ? Math.round(adKa/12*100) : 0, next: null }
-  ];
+    // Tekninen-kortti — prioriteetti: TKI (≥3) → TSI/D2 (≥3) → tyhjä. TSI sekunteina (väri <1.3 teal · <1.7 amber · muu red).
+    const tekn = (function(){
+      const tkiP = pool.filter(function(p){ return p.tki_viimeisin != null; });
+      if (tkiP.length >= 3) {
+        const tkiKa = tkiP.reduce(function(s,p){ return s + p.tki_viimeisin; }, 0) / tkiP.length;
+        return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:String(Math.round(tkiKa)), sub:'/100 · TKI', t5:_dimNorm5Tki(tkiKa), pct:Math.max(0,Math.min(100,Math.round(tkiKa))), next:null };
+      }
+      const tsiP = pool.filter(function(p){ return p.tsi_viimeisin != null; });
+      if (tsiP.length >= 3) {
+        const tsiKa = tsiP.reduce(function(s,p){ return s + p.tsi_viimeisin; }, 0) / tsiP.length;
+        const d2P = pool.filter(function(p){ return p.d2_taso != null; });
+        const d2Ka = d2P.length >= 3 ? (d2P.reduce(function(s,p){ return s + p.d2_taso; }, 0) / d2P.length) : null;
+        const tsiVari = tsiKa < 1.3 ? 'var(--teal)' : tsiKa < 1.7 ? 'var(--amber)' : 'var(--red)';
+        if (d2Ka != null) {
+          return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:d2Ka.toFixed(1), sub:'/5 · Eerikkilä',
+            vari:(d2Ka>=3.5?'var(--teal)':d2Ka>=2.5?'var(--amber)':'var(--red)'), pct:Math.round(d2Ka/5*100),
+            konteksti:'TSI ka. '+tsiKa.toFixed(2)+' s · '+tsiP.length+' pel.', next:'Suunnittele TKK' };
+        }
+        return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:tsiKa.toFixed(1), sub:'s · TSI',
+          vari:tsiVari, pct:Math.min(100,Math.round((1/tsiKa)*80)), konteksti:tsiP.length+' pelaajaa', next:'Suunnittele TKK' };
+      }
+      return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:'—', sub:'TKI', t5:null, pct:0, next:'Suunnittele TKK' };
+    })();
+
+    return [
+      { ikoni:'ti-bolt',          nimi:'Fyysinen', arvo: hhKa  != null ? hhKa.toFixed(1) : '—', sub:'/5 · H-H', t5: hhKa,
+        pct: hhKa  != null ? Math.round(hhKa/5*100) : 0, next: null },
+      tekn,
+      { ikoni:'ti-run',           nimi:'Valmius', arvo: fleiKa != null ? String(Math.round(fleiKa)) : '—', sub:'/100', t5: _dimNorm5Tki(fleiKa),
+        pct: fleiKa != null ? Math.max(0,Math.min(100,Math.round(fleiKa))) : 0, next: fleiKa == null ? 'Aloita kartoitus' : null },
+      { ikoni:'ti-compass',       nimi:'Peli', arvo: adKa  != null ? (Math.round(adKa*10)/10 + '/12') : '—', sub:'ADAR', t5: _dimNorm5Adar(adKa),
+        pct: adKa  != null ? Math.round(adKa/12*100) : 0, next: null }
+    ];
+  };
+
+  const kortit = build(pelaajat);
+  // Skoopin nosto näkyviin: kun vertailupooli annettu (skooppi ≠ koko seura), näytä "· koko seura X" per kortti.
+  const vertailuKortit = (vertailuPelaajat && vertailuPelaajat.length) ? build(vertailuPelaajat) : null;
 
   let html = '<div class="keh-grid">';
-  kortit.forEach(function(k){
+  kortit.forEach(function(k, i){
     const v = k.vari || vari(k.t5);   // k.vari = override (esim. TSI-väri sekunneista)
     const tyhja = (k.arvo === '—');
+    let sub = k.sub;
+    if (vertailuKortit && vertailuKortit[i] && vertailuKortit[i].arvo !== '—') sub += ' · koko seura ' + vertailuKortit[i].arvo;
     html += '<div class="keh-card">'
       + '<div class="keh-label"><i class="ti ' + k.ikoni + '" aria-hidden="true"></i> ' + k.nimi + '</div>'
       + '<div class="keh-value" style="color:' + (tyhja ? 'var(--ink3)' : v) + '">' + k.arvo + '</div>'
-      + '<div class="keh-sub">' + k.sub + '</div>'
+      + '<div class="keh-sub">' + sub + '</div>'
       + '<div class="keh-bar"><div class="keh-bar-fill" style="width:' + k.pct + '%;background:' + v + '"></div></div>'
       + (k.konteksti ? '<div class="keh-sub" style="margin-top:6px">' + k.konteksti + '</div>' : '')
       + (k.next ? '<div class="keh-next"><i class="ti ti-arrow-right" aria-hidden="true"></i> ' + k.next + '</div>' : '')
       + '</div>';
   });
   return html + '</div>';
+}
+
+// Skooppipooli Tilanne-KPI:lle (client-side, ei uutta hakua). valitseKohortti (#76) top-rankingiin.
+function _tilanneSkooppiPool() {
+  const P = _pelaajat || [];
+  if (_tilanneSkooppi === 'talentit') return P.filter(function(p){ return p.talenttiOhjelma === true; });
+  if (_tilanneSkooppi === 'top10') return (typeof valitseKohortti === 'function') ? valitseKohortti(P, 'top10') : P;
+  if (_tilanneSkooppi === 'top5')  return (typeof valitseKohortti === 'function') ? valitseKohortti(P, 'top5')  : P;
+  return P;
+}
+
+// Pillit + KPI-kortit. Skoopin vaihto suodattaa saman _pelaajat-poolin (ei uutta datahakua).
+function renderKehitysLohko() {
+  const el = document.getElementById('kehitysKortti');
+  if (!el) return;
+  const P = _pelaajat || [];
+  const talN = P.filter(function(p){ return p.talenttiOhjelma === true; }).length;
+  const pillit = [
+    { id:'seura',    lbl:'Koko seura' },
+    { id:'talentit', lbl:'Talentit · ' + talN },
+    { id:'top10',    lbl:'Top-10' },
+    { id:'top5',     lbl:'Top-5' }
+  ];
+  let h = '<div class="tsk-pillit">';
+  pillit.forEach(function(pl){
+    const on = (_tilanneSkooppi === pl.id);
+    h += '<button class="tsk-pilli' + (on ? ' on' : '') + '" onclick="_setTilanneSkooppi(\'' + pl.id + '\')">' + pl.lbl + '</button>';
+  });
+  h += '</div>';
+  const valitut = _tilanneSkooppiPool();
+  h += renderKehitysKortti(valitut, (_tilanneSkooppi === 'seura') ? null : P);
+  el.innerHTML = h;
+}
+function _setTilanneSkooppi(s) { _tilanneSkooppi = s; renderKehitysLohko(); }
+window._setTilanneSkooppi = _setTilanneSkooppi;
+
+// ── Talentit-lista (OSA B) + Hidden Gem -ehdokkaat (OSA C) — VAIN pikakentistä (§26), ei alikokoelmakyselyjä ──
+const _TAL_LAJINIMI = { ponnauttelu:'Ponnauttelu', syotto:'Syöttö', pujottelu:'Pujottelu', kuljetus_laukaus:'Kuljetus-laukaus', pituuspotku:'Pituuspotku' };
+
+// Kehitysvaihe-taso (kypsyyskorjattu) VAIN fyysisistä testeistä (lin10m/lin30m/cmj/mas; §30). MAS km/h → /3.6.
+// Vaatii PHV-offsetin (biologinenIka_viimeisin.maturity_offset). Ei PHV / ei libiä / ei testejä → null (graceful "—").
+function _kehitysvaiheTasoPelaaja(p) {
+  const KV = window.TM_KEHITYSVAIHE;
+  if (!KV || typeof KV.kehitysvaiheTaso !== 'function') return null;
+  const bio = p.biologinenIka_viimeisin;
+  const off = bio ? bio.maturity_offset : null;
+  if (off == null) return null;
+  const hh = p.hh_viimeisin;
+  if (!hh) return null;
+  const sp = p.sukupuoli;
+  const tulokset = [];
+  [['lin10m', hh.lin10m], ['lin30m', hh.lin30m], ['cmj', hh.cmj]].forEach(function(t){
+    if (t[1] != null) { const L = KV.kehitysvaiheTaso(t[1], t[0], off, sp); if (L != null) tulokset.push(L); }
+  });
+  if (hh.mas != null) { const L = KV.kehitysvaiheTaso(hh.mas / 3.6, 'mas', off, sp); if (L != null) tulokset.push(L); }   // MAS km/h → m/s
+  if (!tulokset.length) return null;
+  return Math.round((tulokset.reduce(function(a,b){ return a+b; }, 0) / tulokset.length) * 10) / 10;
+}
+
+// Kehitysvauhti (§29/§3.2) — TKI-delta ensisijainen, muuten H-H/D1-delta. ↓ HILLITTY (--ink2), EI hälytyspunainen.
+function _talenttiVauhti(p) {
+  if (p.tki_viimeisin != null && p.tki_edellinen != null) {
+    const d = p.tki_viimeisin - p.tki_edellinen;
+    const nuoli = d > 1 ? '↑' : d < -1 ? '↓' : '→';
+    const v = d > 1 ? 'var(--teal)' : d < -1 ? 'var(--ink2)' : 'var(--ink3)';   // §3.2: lasku ei punainen
+    return '<span style="color:' + v + '" title="Edellinen TKI ' + p.tki_edellinen + (p.tki_edellinen_pvm ? ' (' + p.tki_edellinen_pvm + ')' : '') + '">' + nuoli + (d > 0 ? '+' : '') + Math.round(d) + '</span>';
+  }
+  const nyt = (p.hh_taso != null) ? p.hh_taso : p.d1_taso;
+  if (nyt != null && p.hh_taso_edellinen != null) {
+    const d = nyt - p.hh_taso_edellinen;
+    const nuoli = d > 0.05 ? '↑' : d < -0.05 ? '↓' : '→';
+    const v = d > 0.05 ? 'var(--teal)' : d < -0.05 ? 'var(--ink2)' : 'var(--ink3)';
+    return '<span style="color:' + v + '" title="Edellinen H-H ' + p.hh_taso_edellinen + '">' + nuoli + (d > 0 ? '+' : '') + d.toFixed(1) + '</span>';
+  }
+  return '<span style="color:var(--ink3)">—</span>';
+}
+
+// Huomio johdettu ikäluokka vs kehitysvaihe -erotuksesta (§28). Ei PHV → kehityskohde.
+function _talenttiHuomio(p, ikaTaso, kehTaso) {
+  if (kehTaso != null && ikaTaso != null) {
+    if (kehTaso >= ikaTaso + 1) return { teksti:'Myöhäiskypsyjä — älä leikkaa', vari:'var(--teal)' };
+    if (kehTaso <= ikaTaso - 1) return { teksti:'Varhaiskypsyjä — seuraa taitoa', vari:'var(--amber)' };
+    return { teksti:'Tasapainoinen', vari:'var(--ink3)' };
+  }
+  const kk = p.tki_kehityskohde;
+  if (kk) return { teksti:'Kehitä: ' + (_TAL_LAJINIMI[kk] || kk), vari:'var(--ink3)' };
+  return { teksti:'—', vari:'var(--ink3)' };
+}
+
+const _talVari5 = function(t){ return (t == null) ? 'var(--ink3)' : t >= 3.5 ? 'var(--teal)' : t >= 2.5 ? 'var(--amber)' : 'var(--red)'; };
+function _talNimi(p) { return (((p.sukunimi || '') + ', ' + (p.etunimi || '')).replace(/^, |, $/g, '') || p.id || '?'); }
+function _talSeuraLinkki() { return 'TalentMaster_Seura.html' + (_seuraId ? ('?seura=' + encodeURIComponent(_seuraId)) : ''); }
+
+function renderTalentitLohko() {
+  const el = document.getElementById('talentitLohko');
+  if (!el) return;
+  const talentit = (_pelaajat || []).filter(function(p){ return p.talenttiOhjelma === true; });
+
+  if (!talentit.length) {
+    // Tyhjä tila (§75) — CTA Seurahallintaan, ei tyhjää taulukkoa. Gem-lohko silti alle jos ehdokkaita.
+    const tyhja = '<div class="tal-empty"><div style="font-size:13px;color:var(--ink);margin-bottom:6px">Ei talentteja merkitty</div>'
+      + '<div style="font-size:12px;color:var(--ink3);margin-bottom:12px">Merkitse talenttipelaajat Seurahallinnassa — extra-valmennuksen kohdennus näkyy täällä.</div>'
+      + '<a href="' + _talSeuraLinkki() + '" style="font-size:12px;color:var(--teal);text-decoration:none">Avaa Seurahallinta → Talentit →</a></div>';
+    el.innerHTML = tyhja + _talentitGemLohko();
+    return;
+  }
+
+  let h = '<div class="tal-lohko"><div class="tal-otsikko">Talentit — extra-valmennuksen kohteet</div>'
+    + '<div class="tal-selite">' + talentit.length + ' pelaajaa · ikäluokka → kehitysvaihe (kypsyyskorjattu, §28)</div>'
+    + '<div class="tal-wrap"><table class="tal-taulu"><thead><tr>'
+    + '<th>Pelaaja</th><th>Jkl</th><th>Taso</th><th>D1</th><th>D2</th><th>TKI</th><th>Ikäluokka → Kehitysvaihe</th><th>Vauhti</th><th>Huomio</th>'
+    + '</tr></thead><tbody>';
+
+  talentit.forEach(function(p){
+    const d1 = (p.d1_taso != null) ? p.d1_taso : p.hh_taso;
+    const ikaTaso = (d1 != null) ? Math.round(d1 * 10) / 10 : null;
+    const kehTaso = _kehitysvaiheTasoPelaaja(p);
+    const star = (kehTaso != null && ikaTaso != null && kehTaso >= ikaTaso + 1) ? ' <span class="tal-star" title="Myöhäiskypsyjä — kehitysvaihe ≥ ikäluokka+1">⭐</span>' : '';
+    const dual = (ikaTaso != null)
+      ? (ikaTaso.toFixed(1) + ' → ' + (kehTaso != null ? '<span style="color:' + _talVari5(kehTaso) + '">' + kehTaso.toFixed(1) + '</span>' + star : '<span style="color:var(--ink3)">—</span>'))
+      : '<span style="color:var(--ink3)">—</span>';
+    const huomio = _talenttiHuomio(p, ikaTaso, kehTaso);
+    const taso = (p.talenttiTaso === 'laajennettu') ? 'Laajennettu' : 'Perus';
+    const rae = (typeof _vpRaeChip === 'function') ? _vpRaeChip(p) : '';
+    const pid = String(p.id || '').replace(/['"\\]/g, '');
+    h += '<tr data-pid="' + pid + '" onclick="avaaPelaaja(\'' + pid + '\')">'
+      + '<td class="tal-pnimi">' + _talNimi(p) + ' ' + rae + '</td>'
+      + '<td>' + (p.joukkue || '—') + '</td>'
+      + '<td>' + taso + '</td>'
+      + '<td>' + (d1 != null ? '<span style="color:' + _talVari5(d1) + '">' + (Math.round(d1 * 10) / 10) + '</span>' : '—') + '</td>'
+      + '<td>' + (p.d2_taso != null ? '<span style="color:' + _talVari5(p.d2_taso) + '">' + p.d2_taso + '</span>' : '—') + '</td>'
+      + '<td>' + (p.tki_viimeisin != null ? Math.round(p.tki_viimeisin) : '—') + '</td>'
+      + '<td>' + dual + '</td>'
+      + '<td>' + _talenttiVauhti(p) + '</td>'
+      + '<td style="color:' + huomio.vari + '">' + huomio.teksti + '</td>'
+      + '</tr>';
+  });
+  h += '</tbody></table></div></div>';
+  h += _talentitGemLohko();
+  el.innerHTML = h;
+}
+
+// OSA C — Hidden Gem -ehdokkaat (aliarvioidut, ei vielä talenttiohjelmassa). Piilotettu jos 0. Ei muokkaa statusta.
+function _talentitGemLohko() {
+  if (typeof laskeHiddenGem !== 'function') return '';
+  const ehdokkaat = (_pelaajat || []).filter(function(p){
+    if (p.talenttiOhjelma === true) return false;
+    const hg = laskeHiddenGem(p);
+    if (!hg.dHG) return false;
+    if (p.phv_tila === 'POST' || p.phv_tila === 'AN') return false;   // §28 #1: post-PHV ei gem (nousuvara ei tule autom.)
+    return true;
+  });
+  if (!ehdokkaat.length) return '';
+  let h = '<div class="tal-lohko tal-gem"><div class="tal-otsikko">Harkitse talenttiohjelmaan</div>'
+    + '<div class="tal-selite">Korkea tekniikka + matala fysiikka (Hidden Gem, §28) — ei vielä talenttiohjelmassa</div>';
+  ehdokkaat.forEach(function(p){
+    const hg = laskeHiddenGem(p);
+    const statusLbl = (hg.taso === 'vahvistettu') ? '<span style="color:var(--teal)">vahvistettu</span>'
+      : (hg.taso === 'eliitti') ? '<span style="color:var(--teal)">eliitti</span>'
+      : '<span style="color:var(--ink3)">ehdokas</span>';
+    const pid = String(p.id || '').replace(/['"\\]/g, '');
+    h += '<div class="tal-gem-rivi" onclick="avaaPelaaja(\'' + pid + '\')">'
+      + '<span class="tal-pnimi" style="min-width:150px">' + _talNimi(p) + '</span>'
+      + '<span style="color:var(--ink3);min-width:80px">' + (p.joukkue || '—') + '</span>'
+      + '<span style="min-width:96px">D1 ' + (hg.d1 != null ? hg.d1 : '—') + ' · D2 ' + (hg.d2 != null ? hg.d2 : '—') + '</span>'
+      + '<span style="margin-left:auto">' + statusLbl + '</span>'
+      + '</div>';
+  });
+  h += '<div style="margin-top:8px"><a href="' + _talSeuraLinkki() + '" style="font-size:11px;color:var(--teal);text-decoration:none">Merkitse talentiksi Seurahallinnassa →</a></div>';
+  return h + '</div>';
 }
 // SUHDE KANSALLISEEN — prioriteetti: TKI-benchmark (≥3 TKI-pelaajaa), muuten H-H Eerikkilä-% (≥3 H-H), muuten —
 function _suhdeKansalliseen(pelaajat, ikaluokka, tkiKa) {
