@@ -193,7 +193,8 @@ function tmMirwaldOffset(m) {
   if (!m || !m.pituus || !m.istumapituus || !m.paino || !m.ika || !m.sukupuoli) return null;
   var jalka = m.pituus - m.istumapituus; // seisomapituus - istumapituus = jalkojen pituus
   if (m.sukupuoli === 'P') {
-    return -9.236
+    // vakio −9.3236 = MyE.Way-pariteetti 2026-07-01 (ks. tm_bioika.js laskeMirwald)
+    return -9.3236
       + 0.0002708 * (jalka * m.istumapituus)
       - 0.001663  * (m.ika * jalka)
       + 0.007216  * (m.ika * m.istumapituus)

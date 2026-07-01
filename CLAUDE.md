@@ -746,6 +746,11 @@ github.io-hostilla) → amber-banneri jos vanha. Raw-linkki näyttää lähdekoo
 **Lähde:** Mirwald RL et al. Med Sci Sports Exerc 2002;34(4):689-694.
 **Toteutus:** `laskeMirwald()` + `laskeBioIkaDokumentti()` + `bioIkaTallennusOperaatiot()`.
 Verifioitu `TalentMaster_BioIka.xlsx`:stä ZIP-XML-tasolla (11 kerrointa identtiset, PHV-kynnykset, yli-ikäisyystaulukko).
+**Poikien Mirwald-vakio `−9.3236`** (MyE.Way-pariteetti, 2026-07-01, verifioitu 2 referenssipisteellä — eroaa
+julkaistusta Mirwald 2002 -arvosta `−9.236` 0.088 v/~1 kk, koska Palloliiton live-tuote MyE.Way käyttää tätä →
+täsmäävät PHV-luvut SJK-ekosysteemissä); **tytöt `−9.376`** (jo identtinen MyE.Way'n kanssa, ennallaan).
+**Kolme kopiota:** `tm_bioika.js` (kanoninen) · `tm_testipankki.js` · `tm_ylaikaisyys.js` — **päivitettävä yhdessä**
+(tekninen velka: → single-source + re-export). Regressio: `tests/bioika_myeway.test.js` lukitsee pariteetin.
 
 **Pakolliset muuttujat:** `ika` (desimaali, `syntymapaiva` → `Date.UTC()`) · `pituus` (cm, 2× ka) ·
 `paino` (kg, 2× ka) · `istumapituus` (cm, 1×, kriittinen) · `sukupuoli` `'P'`/`'T'` (erilliset kaavat).

@@ -1579,8 +1579,8 @@ function TM_LASKE_BIOIKA(params) {
   var offset;
 
   if (suku === 'P') {
-    // Mirwald 2002 — pojat
-    offset = -9.236
+    // Mirwald 2002 — pojat (vakio −9.3236 = MyE.Way-pariteetti 2026-07-01; ks. tm_bioika.js laskeMirwald)
+    offset = -9.3236
       + (0.0002708  * jalat * ist)
       + (-0.001663  * kronoIka * jalat)
       + (0.007216   * kronoIka * ist)
