@@ -115,7 +115,7 @@ async function checkDemo() {
     console.log('');
     console.log('  Kirjaudu sisään:');
     console.log('  Email:    vp.demo@talentmaster.fi');
-    console.log('  Salasana: TM_Demo_2026!');
+    console.log('  Salasana: (TM_DEMO_PW-ympäristömuuttujasta, ei versionhallinnassa)');
     console.log('');
     console.log('  HUOM: Jos selain on auki, kirjaudu ulos ja');
     console.log('  uudelleen sisään jotta uudet claims aktivoituvat.');

@@ -4,7 +4,7 @@
 > ⚠️ **Console-toimet EIVÄT kuulu Codelle** (tekee Tero): (a) `vp.demo@talentmaster.fi` disablointi/rotatointi Firebase Consolessa, (b) API-avaimen domain-rajoitus Google Cloud Consolessa, (c) Sentry allowed origins, (d) App Check -aktivointi. Nämä listattu vain kontekstiksi §5.
 
 ## P0 — Demo-salasana pois reposta (5 tiedostoa)
-`TM_Demo_2026!` esiintyy: `docs/demo_setup_ohjeet.md`, `tm_admin/setup_demo_fc.js`, `tm_admin/check_demo.js`, `tm_admin/check_all_users.js`, `tm_admin/firestore_rules_check.js`.
+Demo-VP:n plaintext-salasana `[redacted]` esiintyi: `docs/demo_setup_ohjeet.md`, `tm_admin/setup_demo_fc.js`, `tm_admin/check_demo.js` (arvioijan mainitsemat `check_all_users.js`/`firestore_rules_check.js` eivät todellisuudessa sisältäneet sitä).
 - **Poista plaintext-salasana kaikista 5:stä.** Skripteissä lue ympäristömuuttujasta: `const DEMO_PW = process.env.TM_DEMO_PW;` (+ guard jos puuttuu). Dokumentissa korvaa placeholderilla `[SALASANA — ei versionhallintaan]`.
 - **⚠️ KRIITTINEN HUOMIO briefiin:** tiedostoista poisto EI riitä — salasana jää **git-historiaan**. Todellinen korjaus = **tilin disablointi/rotatointi Consolessa** (Tero, erikseen). Kirjaa tämä PR-kuvaukseen ettei kukaan luule file-editiä riittäväksi.
 - Älä koske skriptien muuhun logiikkaan.

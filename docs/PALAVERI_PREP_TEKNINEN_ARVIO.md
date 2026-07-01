@@ -31,7 +31,7 @@
 ## 2. AIDOT & KIIREELLISET — omista, tee (osa jo tänään)
 
 ### 🔴 KRIITTINEN — demo-salasana julkisessa reposssa (heidän I1) — TOSI
-`TM_Demo_2026!` löytyy **5 tiedostosta**: `docs/demo_setup_ohjeet.md`, `tm_admin/setup_demo_fc.js`, `tm_admin/check_demo.js`, `tm_admin/check_all_users.js`, `tm_admin/firestore_rules_check.js`. **Tämä on arvioijan paras löytö — ota täysi vastuu.**
+Demo-VP:n plaintext-salasana `[redacted]` löytyi versionhallinnasta (3 tiedostoa: `docs/demo_setup_ohjeet.md`, `tm_admin/setup_demo_fc.js`, `tm_admin/check_demo.js` — arvioijan mainitsemat `check_all_users.js`/`firestore_rules_check.js` eivät sisältäneet sitä). **Tämä on arvioijan paras löytö — ota täysi vastuu.** Poistettu tiedostoista 2026-07-01; tili rotatoitava Consolessa (historia).
 **Toimet (sinä, tänään, ennen palaveria jos ehdit):**
 1. **Firebase Console → poista/disabloi `vp.demo@talentmaster.fi`** (tai vaihda salasana + rajaa demo-seuraan jossa ei oikeaa dataa).
 2. Poista salasana kaikista 5 tiedostosta (→ Code-tehtävä).
@@ -88,7 +88,7 @@ Demo-salasana (paras katch), API-rajoitus/App Check, selainnavigaatio, TS-arvo, 
 2. 🟠 Varmista/aseta API-avaimen domain-rajoitus Google Cloud Consolessa.
 
 **Code-tehtävät (anna Codelle, ei kiire palaveriin):**
-3. Poista `TM_Demo_2026!` 5 tiedostosta + `functions/.env` → .gitignore + `.env.example`.
+3. Poista demo-VP:n plaintext-salasana `[redacted]` tiedostoista + `functions/.env` → .gitignore + `.env.example`.
 4. Poista henkilökohtainen gmail CLAUDE.md/config.js:stä.
 5. `npm audit` CI:hin.
 

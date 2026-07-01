@@ -6,7 +6,7 @@
 1. Mene https://console.firebase.google.com → talentmaster-pilot → Authentication → Users
 2. Klikkaa "Add user"
 3. Email: vp.demo@talentmaster.fi
-4. Password: TM_Demo_2026!
+4. Password: [SALASANA — ei versionhallintaan]
 5. Kopioi luotu UID talteen — tarvitset sen seuraavassa vaiheessa
 
 ## VAIHE 2: Luo seura-dokumentti Firestoreen
@@ -175,7 +175,7 @@ TAI: Lisää demo-fc:n VP-käyttäjälle custom claim GitHub Actionsin kautta.
 
 ## VAIHE 6: Testaa
 
-VP-dashboard: vp.demo@talentmaster.fi / TM_Demo_2026!
+VP-dashboard: vp.demo@talentmaster.fi / [SALASANA — ei versionhallintaan]
 → Pitäisi näyttää Demo FC:n kartoitukset ja pelaajat
 
 IDP-kortti suoraan: 
