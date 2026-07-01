@@ -4,9 +4,11 @@
 > GDPR Art. 17) ja (2) datan siirrettävyydelle / export (Art. 20). Täydentää: `SKAALAUTUVUUS_JA_TEKNINEN_VELKA.md`
 > §33 B4, `YKSINKEHITTAJAN_TOIMINTASUUNNITELMA.md` §0.1 (viimeinen turvaverkkokohta), CLAUDE.md §11 (tietomalli) + §13 (CF).
 >
-> **EI juridinen neuvonta.** Tämä on tekninen toteutus. **Policy odottaa DPO:ta:** muodollinen retention-*politiikka*,
-> DPIA ja DPA:t seurojen kanssa eivät kuulu tähän sprinttiin (portti säilyy §33:n mukaisesti). Seura = **rekisterinpitäjä**,
-> TalentMasterID Oy = **käsittelijä** → RTBF/export ovat seuran (tai SA:n sen puolesta) käynnistämiä toimia.
+> **EI juridinen neuvonta.** Tämä on tekninen toteutus. **Policy odottaa juristia/DPO:ta:** muodollinen
+> retention-*politiikka*, DPIA ja tietosuojaseloste eivät kuulu tähän sprinttiin (ks. `GDPR_POLICY_PLAN.md`).
+> **Rekisterinpitäjä-malli (päätös 2026-06-30, Malli A):** TalentMasterID Oy = **rekisterinpitäjä**; seura saa
+> käyttöoikeuden pelaajiinsa edustusajaksi (ei käsittelijä, ei seuratason DPA). RTBF/export ovat rekisterinpitäjän
+> (SA/johto) käynnistämiä toimia. Ks. `GDPR_POLICY_PLAN.md`.
 
 ---
 
