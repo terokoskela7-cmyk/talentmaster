@@ -84,7 +84,7 @@ Demo-salasana (paras katch), API-rajoitus/App Check, selainnavigaatio, TS-arvo, 
 
 ## 6. Palaverin toimintalista (priorisoitu)
 **Tänään ennen palaveria (jos ehdit):**
-1. 🔴 Disabloi/rotatoi `vp.demo@talentmaster.fi` Firebase Consolessa + tarkista audit.
+1. ✅ **TEHTY: `vp.demo@talentmaster.fi` poistettu kokonaan** (2026-07-01). → tarkista vielä audit-loki (pääsikö oikeaan dataan) + siivoa mahd. orpo `admins/{uid}` / `kayttajat/{uid}`. Turvallisuuslöydös **kiinni**.
 2. 🟠 Varmista/aseta API-avaimen domain-rajoitus Google Cloud Consolessa.
 
 **Code-tehtävät (anna Codelle, ei kiire palaveriin):**
@@ -103,4 +103,46 @@ Vahva turvallisuus + arkkitehtuurinäkemys, perusteellinen, Azure→Firebase-kä
 
 ---
 
-*Faktat varmistettu reposta 2026-07-01: GDPR-funktiot (index.js 2166/2272 + gdpr_locator.js), PWA (sw_pelaaja/vanhempi.js + manifestit + assets/pwa/ikonit + SW-rekisteröinti), demo-salasana (5 tiedostoa), config.js (superAdminUid + API-rajoitus-kommentti ristiriitainen).*
+## 7. Sanasto aloittelijalle (mitä termit tarkoittavat)
+> Iso kuva: sovellus = talo. Firebase = tontti + vesi/sähkö (Googlen palvelut). Koodi = talon rakenne. "Repo" = rakennuspiirustukset pilvessä (julkiset — kuka tahansa voi lukea). Sinun ei tarvitse osata *tehdä* näitä — riittää että ymmärrät mistä puhutaan ja tiedät kummassa korissa asia on.
+
+**Turvallisuustermit (hoidettu / hoidat):**
+- **Repo / git-historia** — koodivarasto pilvessä; muistaa jokaisen vanhan version (myös poistetut). Siksi demo-salasanan poisto tiedostosta ei riittänyt → poistit koko tilin.
+- **API-avain** — sovelluksen "katuosoite" Google-projektiin. Tarkoituksella julkinen, ei salaisuus.
+- **Domain-rajoitus** — ovimies: sallii avaimen käytön vain omalta sivustoltasi.
+- **App Check** — henkilöllisyystodistus ovella: pyyntö tulee aidosta sovelluksestasi, ei kopiosta.
+- **Security Rules** — tietokannan säännöt kuka näkee mitäkin. **Tämä on oikea turva** (ei avain). Teillä kunnossa + testattu.
+
+**"Jo tehty" -termit (näytät livenä):**
+- **RTBF + data export** — GDPR-oikeus: perhe voi pyytää lapsen datan poiston tai kopion. Rakennettu + testattu.
+- **PWA / Service Worker** — tekee nettisovelluksesta puhelinsovelluksen kaltaisen (asennettava, toimii osin ilman nettiä). Teillä on pelaaja/vanhempi-apissa.
+- **GDPR policy / DPIA / DPA** — tietosuojapaperit (seloste, riskiarvio, sopimus Googlen kanssa). Juristiputkessa.
+
+**Roadmap-termit ("joskus myöhemmin", ei hätä):**
+- **Monoliitti / komponentit** — nyt näkymä = yksi iso tiedosto (koko kirja pötkönä); "komponentit" = pilkkoisi pieniin uudelleenkäytettäviin palasiin.
+- **TypeScript** — oikoluku koodille: nappaa kirjoitusvirheet ennen kuin ne rikkovat mitään.
+- **GitHub Pages → Firebase Hosting** — mihin talo on pystytetty; jälkimmäinen tehty oikeille sovelluksille.
+- **History API / deep-link** — selaimen "takaisin" ei toimi sovelluksen sisällä + ei voi linkata suoraan pelaajaan. Korjattavissa.
+- **Cloud Functions v1 → v2** — palvelinkoodin uudempi, nopeampi versio.
+- **PIN + rate-limiting** — lapsen kirjautuminen; "rate-limiting" estää arvausrynnäkön.
+- **BigQuery** — iso data-analyysityökalu; tarpeen vasta liittotasolla.
+
+## 8. Tekninen velka — mitä se on + miksi valmis 2. kehittäjälle
+**Mitä tekninen velka on:** kuin oikoteitä talon rakennuksessa ("pinta-asennus nyt, seinän sisään myöhemmin") — säästää aikaa nyt, jää "velaksi" siivota myöhemmin. **Kaikilla nopeasti rakennetuilla tuotteilla on sitä** — tietoinen vaihtokauppa, ei virhe. Vaarallista vain jos piilossa ja kasautuu.
+
+**Miksi koodi on valmis toiselle kehittäjälle (4 syytä):**
+1. **Vaikein ja arvokkain osa on jo eristetty** — domain-logiikka (PHV, RAE, indeksit) omissa `lib/`-moduuleissa, testattuna + frameworkista riippumattomana. Uusi dev käyttää heti.
+2. **Turvaverkko: 348+ testiä + CI** — uusi dev ei voi rikkoa asioita hiljaa; testit huutavat heti. Onboardingin tärkein asia.
+3. **Kirjoitettu kartta** — `TEKNINEN_YLEISKUVA.md` + `CLAUDE.md` §7 (kalliit opitut bugit). Arvioija itse: dokumentaatio "genuinely good".
+4. **Velka on näkyvissä ja kirjattu** (§33), ei piilossa → hallinnassa. Uuden devin **ensimmäiset tehtävät voivat OLLA velan maksua** (TS-migraatio, tiedostojen pilkkominen) — täydellinen perehdytysprojekti, pakottaa oppimaan koodin.
+
+**Rehellinen vivahde:** ensimmäiset viikot ovat osin oppimista + siivousta, ei pelkkää uutta ominaisuutta. Normaalia.
+
+**💬 Valmis lause palaveriin:**
+> *"Tuote on rakennettu nopeasti solo-kehittäjänä, joten teknistä velkaa on — ja se on tietoisesti kirjattu ja tunnistettu, ei piilossa. Mutta perusta on kunnossa: kriittinen logiikka on eristetty ja testattu, meillä on 348 automaattitestiä turvaverkkona, ja dokumentaatio on tehty juuri toista kehittäjää varten. Ensimmäiset tehtäväsi voisivat itse asiassa olla velan maksamista — se on paras tapa oppia koodi."*
+
+Tämä on sekä rehellinen että vahva: et kiellä velkaa (mikä näyttäisi naiivilta), vaan osoitat että **hallitset sen ja olet miettinyt perehdytyksen valmiiksi.**
+
+---
+
+*Faktat varmistettu reposta 2026-07-01: GDPR-funktiot (index.js 2166/2272 + gdpr_locator.js), PWA (sw_pelaaja/vanhempi.js + manifestit + assets/pwa/ikonit + SW-rekisteröinti), demo-salasana (poistettu tiedostoista + tili poistettu Consolesta), config.js (superAdminUid poistettu).*
