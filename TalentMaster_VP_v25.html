@@ -4431,14 +4431,49 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
       const taso = _jsvRadarTaso(_radarAks.tyyppi, a.kentta, a.laji, a.raakaKa, teamIka, teamSpMN, teamSp);
       return { key: a.key, label: '', arvo: (taso != null && taso > 0) ? Math.round(taso * 10) / 10 : null };
     });
-    const toggle = '<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">'
-      + '<button class="jsv-tav-toggle on" style="padding:4px 11px;font-size:11px;border:.5px solid rgba(40,176,144,.5);background:rgba(40,176,144,.18);color:#28B090;border-radius:5px;cursor:default;font-family:var(--font-sans)">Ikäluokka</button>'
-      + '<button class="jsv-tav-toggle" disabled title="Edellyttää PHV-mittausta" style="padding:4px 11px;font-size:11px;border:.5px solid var(--border);background:transparent;color:var(--ink3);border-radius:5px;cursor:not-allowed;font-family:var(--font-sans)">🔒 Kehitysvaihe</button>'
-      + '</div>';
+    // ── Dual-taso (§28/§30): kehitysvaihe-taso per FYYSINEN akseli (lin10m/lin30m/cmj/mas; MAS ÷3.6),
+    //    per-pelaaja kehitysvaiheTaso (offset = biologinenIka_viimeisin.maturity_offset) → joukkueen ka.
+    //    SM-akselit (ei kypsyysnormia) → ikäluokka-arvo (osittaisuus). Ei PHV/lib → toggle piiloon (graceful).
+    const _KV = window.TM_KEHITYSVAIHE;
+    const _kehAxisTaso = function (kentta) {
+      if (!_KV || typeof _KV.kehitysvaiheTaso !== 'function') return null;
+      if (kentta !== 'lin10m' && kentta !== 'lin30m' && kentta !== 'cmj' && kentta !== 'mas') return null;
+      const tasot = [];
+      pelaajat.forEach(function (p) {
+        const bio = p.biologinenIka_viimeisin; const off = bio ? bio.maturity_offset : null;
+        const hv = p.hh_viimeisin || {}; let val = hv[kentta];
+        if (off == null || val == null) return;
+        if (kentta === 'mas') val = val / 3.6;
+        const L = _KV.kehitysvaiheTaso(val, kentta, off, p.sukupuoli);
+        if (L != null) tasot.push(L);
+      });
+      return tasot.length ? Math.round((tasot.reduce(function (a, b) { return a + b; }, 0) / tasot.length) * 10) / 10 : null;
+    };
+    let _kehSaatavilla = false;
+    const kehDims = _radarAks.akselit.map(function (a, i) {
+      const kt = _kehAxisTaso(a.kentta);
+      if (kt != null) _kehSaatavilla = true;
+      return { key: a.key, label: '', arvo: (kt != null) ? kt : dims[i].arvo, _keh: (kt != null) };   // SM → ikäluokka-arvo (osittaisuus)
+    });
+    // Tila + data talteen re-renderiä varten (toggle vaihtaa vain radar-slotin, ei koko modaalia)
+    window._jsvRadarData = { ika: dims, keh: kehDims, kehSaatavilla: _kehSaatavilla };
+    if (!window._jsvRadarTila || !_kehSaatavilla) window._jsvRadarTila = 'ika';
+
+    const _tglBtn = function (tila, lbl, aktiivi) {
+      const on = (window._jsvRadarTila === tila);
+      return '<button class="jsv-tav-toggle' + (on ? ' on' : '') + '" onclick="_jsvRadarNayta(\'' + tila + '\')" style="padding:4px 11px;font-size:11px;border:.5px solid '
+        + (on ? 'rgba(40,176,144,.5)' : 'var(--border)') + ';background:' + (on ? 'rgba(40,176,144,.18)' : 'transparent') + ';color:' + (on ? '#28B090' : 'var(--ink2)') + ';border-radius:5px;cursor:pointer;font-family:var(--font-sans)">' + lbl + '</button>';
+    };
+    const toggle = _kehSaatavilla
+      ? ('<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap">'
+          + _tglBtn('ika', 'Ikäluokka') + _tglBtn('keh', 'Kehitysvaihe') + _tglBtn('molemmat', 'Molemmat')
+          + '<span style="font-size:10px;color:var(--ink3);margin-left:auto" title="Kehitysvaihe vain nopeus/CMJ/MAS-akseleille; SM = ikäluokka">kehitysvaihe: nopeus/CMJ/MAS</span></div>')
+      : ('<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">'
+          + '<button class="jsv-tav-toggle on" style="padding:4px 11px;font-size:11px;border:.5px solid rgba(40,176,144,.5);background:rgba(40,176,144,.18);color:#28B090;border-radius:5px;cursor:default;font-family:var(--font-sans)">Ikäluokka</button>'
+          + '<button class="jsv-tav-toggle" disabled title="Edellyttää PHV-mittausta" style="padding:4px 11px;font-size:11px;border:.5px solid var(--border);background:transparent;color:var(--ink3);border-radius:5px;cursor:not-allowed;font-family:var(--font-sans)">🔒 Kehitysvaihe</button></div>');
     radarHtml = '<div class="jsv-an-otsikko" style="margin-top:2px">Per-testi-profiili (joukkueen ka.)</div>'
       + toggle
-      + '<div class="jsv-radar" style="max-height:300px">' + window._tmRadar5D(dims, { referenssi: 3, referenssiVari: 'var(--blue)' }) + '</div>'
-      + '<div class="jsv-an-rivi" style="font-size:11px;color:var(--ink3);margin:-2px 0 12px;text-align:center"><span style="color:var(--teal)">●</span> joukkueen ka. · <span style="color:var(--blue)">– –</span> tavoite (taso 3)</div>';
+      + '<div id="_jsvRadarSlot">' + _jsvRadarSisalto(window._jsvRadarTila) + '</div>';
   }
 
   let h = radarHtml + '<div class="jsv-an-huom" style="margin:0 0 10px">Tavoite = ikäluokan keskitaso (taso 3) tai TKI ≥60. §28: pre-PHV matala fyysinen on biologisesti odotettua — kehityskieli, ei puute.</div>';
@@ -4525,6 +4560,43 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
   h += '<div class="jsv-an-rivi" style="margin-top:12px"><span class="jsv-near-toggle" onclick="document.getElementById(\'_jsvBtn0\').click()">→ Pelaajakohtainen näkymä (Pelaajat-välilehti)</span></div>';
   return h;
 }
+
+// Dual-taso-radarin sisältö annetulle tilalle (ika|keh|molemmat). Lukee window._jsvRadarData. §28-mikrokopio kehitysvaihe-tiloissa.
+function _jsvRadarSisalto(tila) {
+  const D = window._jsvRadarData || null;
+  if (!D) return '';
+  let svg, leg;
+  if (tila === 'keh' && D.kehSaatavilla) {
+    svg = window._tmRadar5D(D.keh, { referenssi: 3, referenssiVari: 'var(--blue)' });
+    leg = '<span style="color:var(--teal)">●</span> kehitysvaihe (kypsyyskorjattu) · <span style="color:var(--blue)">– –</span> tavoite (taso 3)';
+  } else if (tila === 'molemmat' && D.kehSaatavilla) {
+    svg = window._tmRadar5D(D.keh, { referenssi: 3, referenssiVari: 'var(--ink3)', overlay: D.ika, overlayVari: 'var(--blue)' });
+    leg = '<span style="color:var(--blue)">●</span> ikäluokka · <span style="color:var(--teal)">●</span> kehitysvaihe · <span style="color:var(--ink3)">– –</span> tavoite';
+  } else {
+    svg = window._tmRadar5D(D.ika, { referenssi: 3, referenssiVari: 'var(--blue)' });
+    leg = '<span style="color:var(--teal)">●</span> joukkueen ka. · <span style="color:var(--blue)">– –</span> tavoite (taso 3)';
+  }
+  const note = (tila !== 'ika' && D.kehSaatavilla)
+    ? '<div class="jsv-an-huom" style="margin:4px 0 10px;font-size:11px">§28: kehitysvaihe-linssi näyttää myöhäiskypsyjän oikeudenmukaisesti — ei "heikko", vaan ajallaan omalle kehitysvaiheelleen.</div>'
+    : '';
+  return '<div class="jsv-radar" style="max-height:320px">' + svg + '</div>'
+    + '<div class="jsv-an-rivi" style="font-size:11px;color:var(--ink3);margin:-2px 0 6px;text-align:center">' + leg + '</div>'
+    + note;
+}
+// Toggle: vaihda vain radar-slotin sisältö (ei koko modaalia). Päivitä nappien aktiivitila.
+window._jsvRadarNayta = function (tila) {
+  window._jsvRadarTila = tila;
+  const slot = document.getElementById('_jsvRadarSlot');
+  if (slot) slot.innerHTML = _jsvRadarSisalto(tila);
+  document.querySelectorAll('.jsv-tav-toggle').forEach(function (b) {
+    const oc = b.getAttribute('onclick') || '';
+    const isOn = oc.indexOf("'" + tila + "'") >= 0;
+    b.classList.toggle('on', isOn);
+    b.style.border = '.5px solid ' + (isOn ? 'rgba(40,176,144,.5)' : 'var(--border)');
+    b.style.background = isOn ? 'rgba(40,176,144,.18)' : 'transparent';
+    b.style.color = isOn ? '#28B090' : 'var(--ink2)';
+  });
+};
 
 function avaaJoukkueSyvanakyma(joukkueNimi) {
   const vanha = document.getElementById('_jsvModal'); if (vanha) vanha.remove();
@@ -4907,6 +4979,19 @@ window._tmRadar5D = function(dims, opts) {
     svg += '<line x1="' + av[0][0].toFixed(1) + '" y1="' + av[0][1].toFixed(1) + '" x2="' + av[1][0].toFixed(1) + '" y2="' + av[1][1].toFixed(1) + '" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="' + dash + '"/>';
   }
   for (let i = 0; i < N; i++) { if (dims[i].arvo != null) { const xy = pt(i, dims[i].arvo); svg += '<circle cx="' + xy[0].toFixed(1) + '" cy="' + xy[1].toFixed(1) + '" r="4" fill="var(--teal)"/>'; } }
+  // Valinnainen overlay-sarja (dual-taso: esim. ikäluokka --blue viiva kehitysvaihe-täytön päälle). Additiivinen,
+  // taaksepäin-yhteensopiva: ilman opts.overlay:ta käytös ennallaan.
+  if (opts.overlay && Array.isArray(opts.overlay)) {
+    const ovv = opts.overlayVari || 'var(--blue)';
+    const ov = [];
+    for (let i = 0; i < N; i++) { const a = opts.overlay[i]; if (a && a.arvo != null) ov.push(pt(i, a.arvo)); }
+    if (ov.length >= 3) {
+      let op = '';
+      for (let k = 0; k < ov.length; k++) { op += (k ? ' ' : '') + ov[k][0].toFixed(1) + ',' + ov[k][1].toFixed(1); }
+      svg += '<polygon points="' + op + '" fill="none" stroke="' + ovv + '" stroke-width="1.5" stroke-linejoin="round"/>';
+    }
+    for (let i = 0; i < N; i++) { const a = opts.overlay[i]; if (a && a.arvo != null) { const xy = pt(i, a.arvo); svg += '<circle cx="' + xy[0].toFixed(1) + '" cy="' + xy[1].toFixed(1) + '" r="3" fill="' + ovv + '"/>'; } }
+  }
   svg += '</svg>';
   return svg;
 };
@@ -5028,8 +5113,14 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   if (p.sm_pallo_taso != null || p.sm_pallo_viimeisin != null)
     f2 += friv('Tekniikka (SM-pallo)', (p.sm_pallo_taso != null ? p.sm_pallo_taso : null), (p.sm_pallo_viimeisin != null ? p.sm_pallo_viimeisin : null), 's', false, 'sm_pallo');
   // TSI-rivi VAIN kun SM-dataa on (§26 näytä mitä on, piilota mitä ei — ei turhaa "—")
+  // COD raakadata (Tero-pyyntö): suunnanmuutos ilman palloa → pallolla (hh_viimeisin, fallback pikakentät §26).
+  // TSI-väri §21 (yhtenäinen Talentit-listan kanssa): ≤0.5 teal · ≤1.5 amber · >1.5 red.
+  const _codJ = (hv && hv.sm_juoksu != null) ? hv.sm_juoksu : (p.sm_juoksu_viimeisin != null ? p.sm_juoksu_viimeisin : null);
+  const _codP = (hv && hv.sm_pallo != null) ? hv.sm_pallo : (p.sm_pallo_viimeisin != null ? p.sm_pallo_viimeisin : null);
+  const _tsiVari = (tsi == null) ? 'var(--ink)' : tsi <= 0.5 ? 'var(--teal)' : tsi <= 1.5 ? 'var(--amber)' : 'var(--red)';
   f2 += '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px"><tbody>'
-    + (tsi != null ? tRiv('TSI (SM-pallo − SM-juoksu)' + window._tmIBtn('tsi'), tsi + ' s' + (tsiKtx ? ' · ' + tsiKtx : '')) : '')
+    + ((_codJ != null && _codP != null) ? tRiv('Suunnanmuutos (ilman → pallolla)', '<span style="color:var(--ink3)">' + _codJ + ' → ' + _codP + ' s</span>') : '')
+    + (tsi != null ? tRiv('TSI (SM-pallo − SM-juoksu)' + window._tmIBtn('tsi'), '<span style="color:' + _tsiVari + '">' + tsi + ' s</span>' + (tsiKtx ? ' · ' + tsiKtx : '')) : '')
     + tRiv('TKI' + window._tmIBtn('tki'), p.tki_viimeisin != null ? p.tki_viimeisin : '—')
     + tRiv('Merkki', m2 ? (m2.emoji + ' ' + m2.nimi) : '—')
     + '</tbody></table>';
