@@ -820,9 +820,11 @@ suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 > (+ `recalcHH` sm-persistointi) päivittivät `hh_viimeisin`-ARVOT muttei `hh_pvm`:ää → SJK:lla ~76 % pelaajista väärä
 > "viimeisin testi" -pvm (arvot tuoreita, pvm jäi 1.4.). Väärä `hh_pvm` rikkoo §29-kehitysvauhdin pvm-vahdin +
 > "vanhin testi X pv" -signaalit (§17/§18). **Korjattu:** `recalcHHsplits` kirjoittaa nyt `hh_pvm`:n lähde-testistä;
-> **`korjaaHhPvm(seuraId, dryRun=true)`** (Excel_Tuonti admin, `recalcHH`-perheen vieressä) reconciloi `hh_pvm`:n
-> viimeisimpään/arvo-täsmäävään H-H-testitulokseen (idempotentti, EI koske arvoihin). Backfill ajettu käsin 46
-> pelaajalle (SJK 45 + palloiirot 1), 0 ristiriitaa. Aja `korjaaHhPvm` kaikille pilottiseuroille + uusien seurojen tuonnin jälkeen.
+> **`korjaaHhPvm(seuraId, dryRun=true)`** (Excel_Tuonti admin, `recalcHH`-perheen vieressä) reconciloi `hh_pvm` =
+> **VIIMEISIN (max) vaikuttanut H-H-testipäivä** (A-semantiikka: "milloin viimeksi testattiin"; fyysinen TAI
+> H-H-tekniikka syöttö/pujottelu, EI TKI). **EI backdate** — merge-pelaaja (fys 5.6. + tekn 9.6.) → `hh_pvm` 9.6.
+> Idempotentti, EI koske arvoihin. Backfill ajettu käsin 46 pelaajalle (SJK 45 + palloiirot 1), 0 ristiriitaa.
+> Aja `korjaaHhPvm` kaikille pilottiseuroille + uusien seurojen tuonnin jälkeen. **Per-patteristo-pvm:t** (fyysinen/tekniikka/TKI/PHV erikseen) = pikakenttä `testipaivat` (§ per-pelaaja-detalji).
 
 | Datasetti | Pikakentät | Tila |
 |---|---|---|

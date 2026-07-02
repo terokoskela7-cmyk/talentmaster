@@ -20,7 +20,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
 <script src="lib/tm_eerikkila_normit.js?v=38"></script>
 <script src="lib/tm_joukkue.js?v=3"></script>
-<script src="lib/tm_pvm.js?v=1"></script>
+<script src="lib/tm_pvm.js?v=2"></script>
 
 <style>
 :root {
@@ -4416,10 +4416,11 @@ window.recalcHHsplits = async function(seuraIdArg, dryRun) {
   return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, virhe: virhe };
 };
 
-// korjaaHhPvm(seuraId, dryRun=true) — reconciloi hh_pvm-pikakenttä viimeisimpään H-H-testitulokseen (§26 pari-invariantti).
-// JUURISYY: recalcHHsplits/recalcHH päivittivät hh_viimeisin-ARVOT muttei hh_pvm:ää → kortin "viimeisin testi" -pvm
-// vanheni (SJK ~76 % väärällä pvm:llä, backfillattu käsin 2026-07-02). Tämä on PYSYVÄ työkalu tulevia driftejä +
-// uusia seuroja varten. Idempotentti, dry-run oletus, EI koske hh_viimeisin-ARVOIHIN (vain hh_pvm-kenttä). SA-only.
+// korjaaHhPvm(seuraId, dryRun=true) — reconciloi hh_pvm = VIIMEISIN (max) vaikuttanut H-H-testipäivä (A-semantiikka,
+// §26 pari-invariantti). EI arvo-täsmää vanhempaan osajoukkoon (backdate) — merge-pelaaja (fys 5.6. + tekn 9.6.)
+// → hh_pvm 9.6. JUURISYY: recalcHHsplits/recalcHH päivittivät hh_viimeisin-ARVOT muttei hh_pvm:ää → kortin
+// "viimeisin testi" -pvm vanheni (SJK backfillattu käsin 2026-07-02). PYSYVÄ työkalu drifteihin + uusiin seuroihin.
+// Idempotentti, dry-run oletus, EI koske hh_viimeisin-ARVOIHIN (vain hh_pvm-kenttä). SA-only.
 window.korjaaHhPvm = async function(seuraIdArg, dryRun) {
   if (dryRun === undefined) dryRun = true;
   if (!superAdmin) { console.warn('[korjaaHhPvm] Vain Super Admin'); return; }
@@ -4430,35 +4431,21 @@ window.korjaaHhPvm = async function(seuraIdArg, dryRun) {
   const muutokset = [];
   let ohitettu = 0, eiTuloksia = 0;
   const _pvmOf = function(d, id) { return _paivaIso(d.testauspvm || d.pvm || String(id || '').split('_')[0] || '') || null; };
-  // Täsmääkö testin arvot pikakentän hh_viimeisin:iin (lin30m/cmj/mas ~yhtä suuret) → oikea lähde-doc.
-  const _hvTaysma = function(hv, tt) {
-    const lahella = function(a, b) { return a != null && b != null && Math.abs(parseFloat(a) - parseFloat(b)) < 0.01; };
-    let osumia = 0, verrattu = 0;
-    ['lin30m', 'cmj', 'mas'].forEach(function(k) {
-      if (hv[k] != null && tt[k] != null) { verrattu++; if (lahella(hv[k], tt[k])) osumia++; }
-    });
-    return verrattu > 0 && osumia === verrattu;
-  };
+  // A-SEMANTIIKKA (tuotepäätös): hh_pvm = VIIMEISIN (max) vaikuttanut H-H-testipäivä (fyysinen/sm TAI syöttö/pujottelu;
+  // EI TKI). Kanoninen valinta lib/tm_pvm.js:ssä (tmValitseHhPvm, Vitest-testattu) — EI arvo-täsmää/backdate.
   for (const pelDoc of pelSnap.docs) {
     const p = pelDoc.data();
     if (p.hh_viimeisin == null) { ohitettu++; continue; }
     const tulSnap = await db.collection('seurat').doc(sid).collection('pelaajat').doc(pelDoc.id)
       .collection('testitulokset').get().catch(function(){ return { docs: [] }; });
-    const hhDocs = tulSnap.docs
-      .map(function(t){ return { id: t.id, d: t.data() }; })
-      .filter(function(x){ const tt = x.d.testit || {}; return tt.lin30m != null || tt.cmj != null || tt.mas != null || tt.lin10m != null; })
-      .map(function(x){ return { tt: x.d.testit || {}, pvm: _pvmOf(x.d, x.id) }; })
-      .filter(function(x){ return x.pvm; })
-      .sort(function(a, b){ return String(b.pvm).localeCompare(String(a.pvm)); });   // uusin ensin
-    if (!hhDocs.length) { eiTuloksia++; continue; }
-    // Edge case (§spec): kohdista arvo-täsmäävään dokkiin; jos ei täsmää → viimeisin testauspvm.
-    const match = hhDocs.find(function(x){ return _hvTaysma(p.hh_viimeisin, x.tt); });
-    const uusiPvm = (match || hhDocs[0]).pvm;
+    const testDocs = tulSnap.docs.map(function(t){ const dd = t.data(); return { protokolla: dd.protokolla, testit: dd.testit, pvm: _pvmOf(dd, t.id) }; });
+    if (!testDocs.some(function(x){ return x.pvm && tmOnHHtesti(x); })) { eiTuloksia++; continue; }
     const nykyPvm = p.hh_pvm ? _paivaIso(p.hh_pvm) : null;
-    if (nykyPvm === uusiPvm) { ohitettu++; continue; }
-    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''), vanha: nykyPvm, uusi: uusiPvm, tapa: match ? 'arvo-täsmä' : 'viimeisin' });
+    const uusiPvm = tmValitseHhPvm(testDocs, nykyPvm);   // null = jo OK / ei backdate
+    if (uusiPvm == null) { ohitettu++; continue; }
+    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''), vanha: nykyPvm, uusi: uusiPvm });
   }
-  muutokset.forEach(function(m){ console.log((dryRun?'[DRY-RUN] ':'[korjaaHhPvm] OK ')+m.nimi+': hh_pvm '+(m.vanha||'—')+' → '+m.uusi+' ('+m.tapa+')'); });
+  muutokset.forEach(function(m){ console.log((dryRun?'[DRY-RUN] ':'[korjaaHhPvm] OK ')+m.nimi+': hh_pvm '+(m.vanha||'—')+' → '+m.uusi); });
   if (dryRun) {
     console.log('[DRY-RUN] korjaaHhPvm: '+muutokset.length+' korjattaisiin · '+ohitettu+' jo OK · '+eiTuloksia+' ei H-H-testituloksia.');
     console.log('[DRY-RUN] Aja oikeasti: korjaaHhPvm(\''+sid+'\', false)');
