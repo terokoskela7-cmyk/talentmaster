@@ -4377,12 +4377,16 @@ window.recalcHHsplits = async function(seuraIdArg, dryRun) {
       .sort(function(a,b){ return String(b.testauspvm||b.pvm||'').localeCompare(String(a.testauspvm||a.pvm||'')); });
     if (!docs.length) { ohitettu++; continue; }
     const tt = docs[0].testit;
+    const _srcPvm = _paivaIso(docs[0].testauspvm || docs[0].pvm || '') || null;   // lähde-H-H-testin pvm (§26 pari-invariantti)
+    const _vanhaPvm = p.hh_pvm ? _paivaIso(p.hh_pvm) : null;
     const lin10m = (tt.lin10m != null && !isNaN(parseFloat(tt.lin10m))) ? parseFloat(tt.lin10m) : null;
     const lin5m  = (tt.lin5m  != null && !isNaN(parseFloat(tt.lin5m)))  ? parseFloat(tt.lin5m)  : null;
     const hv = p.hh_viimeisin || {};
-    // ohita jos kaikki saatavilla oleva on jo pikakentässä
-    if ((lin10m == null || hv.lin10m != null) && (lin5m == null || hv.lin5m != null)) { ohitettu++; continue; }
-    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''), lin10m: lin10m, lin5m: lin5m });
+    // ohita jos kaikki saatavilla oleva on jo pikakentässä JA hh_pvm ei ole vanhentunut
+    const pvmVanhentunut = (_srcPvm && (!_vanhaPvm || _srcPvm > _vanhaPvm));
+    if ((lin10m == null || hv.lin10m != null) && (lin5m == null || hv.lin5m != null) && !pvmVanhentunut) { ohitettu++; continue; }
+    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''), lin10m: lin10m, lin5m: lin5m,
+      hhPvm: pvmVanhentunut ? _srcPvm : null });   // §26: kirjoita hh_pvm samasta testistä (pari-invariantti)
   }
   muutokset.forEach(function(m){ console.log((dryRun?'[DRY-RUN] ':'[recalcHHsplits] OK ')+m.nimi+(m.lin10m!=null?' · 10m '+m.lin10m+'s':'')+(m.lin5m!=null?' · 5m '+m.lin5m+'s':'')); });
   if (dryRun) {
@@ -4400,7 +4404,9 @@ window.recalcHHsplits = async function(seuraIdArg, dryRun) {
       const hv = {};
       if (m.lin10m != null) hv.lin10m = m.lin10m;
       if (m.lin5m != null) hv.lin5m = m.lin5m;
-      batch.set(m.ref, { hh_viimeisin: hv }, { merge: true });   // deep-merge → lisää lin10m/lin5m poistamatta muita
+      const _u = { hh_viimeisin: hv };   // deep-merge → lisää lin10m/lin5m poistamatta muita
+      if (m.hhPvm) _u.hh_pvm = m.hhPvm;   // §26-invariantti: hh_viimeisin + hh_pvm samasta testistä (juurisyy-korjaus)
+      batch.set(m.ref, _u, { merge: true });
     });
     try { await batch.commit(); paivitetty += era.length; if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true); }
     catch (err) { console.error('[recalcHHsplits batch '+(e+1)+']', err); virhe += era.length; }
@@ -4408,6 +4414,68 @@ window.recalcHHsplits = async function(seuraIdArg, dryRun) {
   console.log('[recalcHHsplits] valmis: ' + paivitetty + ' / ' + pelSnap.docs.length + ' · ohitettu: ' + ohitettu + ' · virheitä: ' + virhe);
   if (typeof toast === 'function') toast('recalcHHsplits: ' + paivitetty + ' päivitetty' + (virhe ? ' · '+virhe+' virhe' : ''), virhe ? 'err' : 'ok');
   return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, virhe: virhe };
+};
+
+// korjaaHhPvm(seuraId, dryRun=true) — reconciloi hh_pvm-pikakenttä viimeisimpään H-H-testitulokseen (§26 pari-invariantti).
+// JUURISYY: recalcHHsplits/recalcHH päivittivät hh_viimeisin-ARVOT muttei hh_pvm:ää → kortin "viimeisin testi" -pvm
+// vanheni (SJK ~76 % väärällä pvm:llä, backfillattu käsin 2026-07-02). Tämä on PYSYVÄ työkalu tulevia driftejä +
+// uusia seuroja varten. Idempotentti, dry-run oletus, EI koske hh_viimeisin-ARVOIHIN (vain hh_pvm-kenttä). SA-only.
+window.korjaaHhPvm = async function(seuraIdArg, dryRun) {
+  if (dryRun === undefined) dryRun = true;
+  if (!superAdmin) { console.warn('[korjaaHhPvm] Vain Super Admin'); return; }
+  const sid = seuraIdArg || seuraId;
+  if (!sid) { console.warn('[korjaaHhPvm] Käyttö: korjaaHhPvm(seuraId, dryRun=true)'); return; }
+  if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true);
+  const pelSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+  const muutokset = [];
+  let ohitettu = 0, eiTuloksia = 0;
+  const _pvmOf = function(d, id) { return _paivaIso(d.testauspvm || d.pvm || String(id || '').split('_')[0] || '') || null; };
+  // Täsmääkö testin arvot pikakentän hh_viimeisin:iin (lin30m/cmj/mas ~yhtä suuret) → oikea lähde-doc.
+  const _hvTaysma = function(hv, tt) {
+    const lahella = function(a, b) { return a != null && b != null && Math.abs(parseFloat(a) - parseFloat(b)) < 0.01; };
+    let osumia = 0, verrattu = 0;
+    ['lin30m', 'cmj', 'mas'].forEach(function(k) {
+      if (hv[k] != null && tt[k] != null) { verrattu++; if (lahella(hv[k], tt[k])) osumia++; }
+    });
+    return verrattu > 0 && osumia === verrattu;
+  };
+  for (const pelDoc of pelSnap.docs) {
+    const p = pelDoc.data();
+    if (p.hh_viimeisin == null) { ohitettu++; continue; }
+    const tulSnap = await db.collection('seurat').doc(sid).collection('pelaajat').doc(pelDoc.id)
+      .collection('testitulokset').get().catch(function(){ return { docs: [] }; });
+    const hhDocs = tulSnap.docs
+      .map(function(t){ return { id: t.id, d: t.data() }; })
+      .filter(function(x){ const tt = x.d.testit || {}; return tt.lin30m != null || tt.cmj != null || tt.mas != null || tt.lin10m != null; })
+      .map(function(x){ return { tt: x.d.testit || {}, pvm: _pvmOf(x.d, x.id) }; })
+      .filter(function(x){ return x.pvm; })
+      .sort(function(a, b){ return String(b.pvm).localeCompare(String(a.pvm)); });   // uusin ensin
+    if (!hhDocs.length) { eiTuloksia++; continue; }
+    // Edge case (§spec): kohdista arvo-täsmäävään dokkiin; jos ei täsmää → viimeisin testauspvm.
+    const match = hhDocs.find(function(x){ return _hvTaysma(p.hh_viimeisin, x.tt); });
+    const uusiPvm = (match || hhDocs[0]).pvm;
+    const nykyPvm = p.hh_pvm ? _paivaIso(p.hh_pvm) : null;
+    if (nykyPvm === uusiPvm) { ohitettu++; continue; }
+    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''), vanha: nykyPvm, uusi: uusiPvm, tapa: match ? 'arvo-täsmä' : 'viimeisin' });
+  }
+  muutokset.forEach(function(m){ console.log((dryRun?'[DRY-RUN] ':'[korjaaHhPvm] OK ')+m.nimi+': hh_pvm '+(m.vanha||'—')+' → '+m.uusi+' ('+m.tapa+')'); });
+  if (dryRun) {
+    console.log('[DRY-RUN] korjaaHhPvm: '+muutokset.length+' korjattaisiin · '+ohitettu+' jo OK · '+eiTuloksia+' ei H-H-testituloksia.');
+    console.log('[DRY-RUN] Aja oikeasti: korjaaHhPvm(\''+sid+'\', false)');
+    return { dryRun: true, kpl: muutokset.length, ohitettu: ohitettu, eiTuloksia: eiTuloksia };
+  }
+  const ERA = Math.min(400, BATCH_KOKO);
+  let paivitetty = 0, virhe = 0;
+  for (let e = 0; e < Math.ceil(muutokset.length / ERA); e++) {
+    const era = muutokset.slice(e*ERA, (e+1)*ERA);
+    const batch = db.batch();
+    era.forEach(function(m){ batch.set(m.ref, { hh_pvm: m.uusi }, { merge: true }); });   // VAIN hh_pvm; hh_viimeisin-arvot ennallaan
+    try { await batch.commit(); paivitetty += era.length; if (firebase.auth().currentUser) await firebase.auth().currentUser.getIdToken(true); }
+    catch (err) { console.error('[korjaaHhPvm batch '+(e+1)+']', err); virhe += era.length; }
+  }
+  console.log('[korjaaHhPvm] valmis: '+paivitetty+' / '+muutokset.length+' · jo OK: '+ohitettu+' · ei tuloksia: '+eiTuloksia+' · virheitä: '+virhe);
+  if (typeof toast === 'function') toast('korjaaHhPvm: '+paivitetty+' korjattu'+(virhe?' · '+virhe+' virhe':''), virhe?'err':'ok');
+  return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, eiTuloksia: eiTuloksia, virhe: virhe };
 };
 
 // recalcVarhaiskehitys(seuraId, dryRun=true) — backfill Hidden Gem -eliittiportaalle (CLAUDE.md §28).
