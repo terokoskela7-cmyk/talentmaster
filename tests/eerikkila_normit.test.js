@@ -1230,13 +1230,44 @@ describe('tavoiteRadarAkselit (#73 per-testi-radar — akselivalinta + ka + coll
     expect(r.akselit.map(a => a.laji)).toEqual(['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus']);
     expect(r.akselit.find(a => a.laji === 'ponnauttelu').raakaKa).toBe(21);   // (20+22)/2
   });
-  it('hh voittaa tk:n kun molempia dataa (data-adaptiivinen prioriteetti)', () => {
-    const team = [{ hh_viimeisin: { lin5m: 1.1, lin10m: 2.0, lin30m: 5.0 }, tk_lajit_viimeisin: { ponnauttelu: 20 } }];
+  // SEKADATA (fix/vp-sekadata): rikkain patteristo voittaa (eniten akseleita ≥3), tasan → hh. Aiemmin 'hh' voitti
+  // jos yksikin pelaaja oli H-H-testattu → harva H-H (2 akselia) ohitti rikkaan TK:n → Sibbon T-joukkueiden radar collapse.
+  const TK4 = { ponnauttelu_s: 20, syotto_s: 15, pujottelu_s: 18, kuljetus_laukaus_s: 12 };
+  it('SJK: H-H 5 akselia + TK 0 → hh (fyysinen radar, ennallaan)', () => {
+    const team = [{ hh_viimeisin: { lin5m: 1.1, lin10m: 2.0, lin30m: 5.0, cmj: 30, mas: 15 } }];
     expect(tavoiteRadarAkselit(team).tyyppi).toBe('hh');
   });
-  it('<3 mitattua akselia → null (collapse, kuten 5D-radar)', () => {
+  it('Sibbo nyt: H-H 2 akselia + TK 4 → tk (harva H-H ei enää ohita rikasta TK:ta)', () => {
+    const team = [{ hh_viimeisin: { lin10m: 2.0, lin30m: 5.0 }, tk_lajit_viimeisin: TK4 }];
+    expect(tavoiteRadarAkselit(team).tyyppi).toBe('tk');
+  });
+  it('Sibbo kasirata-backfillin jälkeen: H-H 3 + TK 4 → tk (rikkain voittaa, TK 4 > HH 3)', () => {
+    const team = [{ hh_viimeisin: { lin10m: 2.0, lin30m: 5.0, kasirata: 7.8 }, tk_lajit_viimeisin: TK4 }];
+    expect(tavoiteRadarAkselit(team).tyyppi).toBe('tk');
+  });
+  it('H-H 4 + TK 3 → hh (rikkain)', () => {
+    const team = [{ hh_viimeisin: { lin10m: 2.0, lin30m: 5.0, kasirata: 7.8, cmj: 30 },
+      tk_lajit_viimeisin: { ponnauttelu_s: 20, syotto_s: 15, pujottelu_s: 18 } }];
+    expect(tavoiteRadarAkselit(team).tyyppi).toBe('hh');
+  });
+  it('tasapeli H-H 3 + TK 3 → hh (fyysinen primaari)', () => {
+    const team = [{ hh_viimeisin: { lin10m: 2.0, lin30m: 5.0, kasirata: 7.8 },
+      tk_lajit_viimeisin: { ponnauttelu_s: 20, syotto_s: 15, pujottelu_s: 18 } }];
+    expect(tavoiteRadarAkselit(team).tyyppi).toBe('hh');
+  });
+  it('H-H 0 + TK 4 → tk', () => {
+    expect(tavoiteRadarAkselit([{ tk_lajit_viimeisin: TK4 }]).tyyppi).toBe('tk');
+  });
+  it('regressio T13: yksi H-H-pelaaja (HH=2) + muut TKI (TK=4) → tk (ei collapse)', () => {
+    const team = [{ hh_viimeisin: { lin10m: 2.0, lin30m: 5.0 } }];
+    for (let i = 0; i < 5; i++) team.push({ tk_lajit_viimeisin: TK4 });
+    expect(tavoiteRadarAkselit(team).tyyppi).toBe('tk');
+  });
+  it('<3 akselia kummallakaan → null (collapse, kuten 5D-radar)', () => {
     expect(tavoiteRadarAkselit([{ hh_viimeisin: { lin30m: 5.0 } }])).toBeNull();
-    expect(tavoiteRadarAkselit([{ hh_viimeisin: { lin30m: 5.0, cmj: 30 } }])).toBeNull();   // 2 akselia
+    expect(tavoiteRadarAkselit([{ hh_viimeisin: { lin30m: 5.0, cmj: 30 } }])).toBeNull();   // H-H 2 + TK 0
+    expect(tavoiteRadarAkselit([{ hh_viimeisin: { lin30m: 5.0, cmj: 30 },
+      tk_lajit_viimeisin: { syotto_s: 15, pujottelu_s: 18 } }])).toBeNull();   // H-H 2 + TK 2
   });
   it('ei mittausdataa → null', () => {
     expect(tavoiteRadarAkselit([])).toBeNull();

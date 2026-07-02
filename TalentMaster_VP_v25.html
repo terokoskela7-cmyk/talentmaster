@@ -4192,12 +4192,19 @@ function _jsvTukiHTML(pelaajat, joukkueNimi, n) {
   let h = '';
   // TKI-kehityskohderyhmät — vain kun TK-dataa (SJK:lla ei → vain H-H-ryhmät alla, ei "Ei tietoa (61)")
   const ryhmat = {};
-  pelaajat.forEach(function(p){ const k = onTK ? (p.tki_kehityskohde || '__ei') : null; if (k) (ryhmat[k] = ryhmat[k] || []).push(p); });
+  pelaajat.forEach(function(p){
+    if (!onTK) return;
+    if (p.tki_kehityskohde) { (ryhmat[p.tki_kehityskohde] = ryhmat[p.tki_kehityskohde] || []).push(p); return; }
+    // Ei TKI-kehityskohdetta → '__ei' VAIN jos pelaaja EI näy VAIHE 2:n H-H-osiossa (hh_taso/d1_taso) → ei tuplanäyttöä.
+    // Sekadata (Sibbo T12: 21/24 H-H) täytti aiemmin "Ei tietoa (15)" -ämpärin vaikka pelaajat olivat H-H-ryhmissä.
+    const nakyyHH = (p.hh_taso != null || p.d1_taso != null);
+    if (!nakyyHH) (ryhmat['__ei'] = ryhmat['__ei'] || []).push(p);
+  });
   const avaimet = Object.keys(ryhmat).filter(function(k){ return k !== '__ei'; }).sort(function(a,b){ return ryhmat[b].length - ryhmat[a].length; });
   if (ryhmat['__ei']) avaimet.push('__ei');
   avaimet.forEach(function(k){
     const lista = ryhmat[k].slice();
-    const otsikko = (k === '__ei') ? 'Ei tietoa' : _vpTkLaji(k);
+    const otsikko = (k === '__ei') ? 'Ei TKI-tulosta' : _vpTkLaji(k);
     const kentta = (k === '__ei') ? null : (k + '_s');
     const viite = (k !== '__ei' && teamIka != null) ? tkLajiViite(k, teamIka, sp) : null;
     lista.forEach(function(p){

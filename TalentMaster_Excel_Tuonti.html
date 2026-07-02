@@ -2803,11 +2803,18 @@ async function tallennaFirestoreen() {
       const num = (id) => { const v = testitSkalaari[id]; return (v != null && !isNaN(v)) ? v : null; };
       const lin30m = num('lin30m'), cmj = num('hyppy_cj'), mas = num('mas');
       const lin10m = num('lin10m'), lin5m = num('lin5m');   // split-ajat (kiihdytys) → FVP + 10m-näkymä
-      if (lin30m != null || cmj != null || mas != null) {
-        hhViimeisin = { lin30m: lin30m, cmj: cmj, mas: mas };
+      const kasirata = num('kasirata');                     // ketteryys (LL/D1) — puuttui aiemmin → katosi radarista/d1_tasosta
+      if (lin30m != null || cmj != null || mas != null || lin10m != null || lin5m != null || kasirata != null) {
+        // §26 "näytä mitä on": kirjoita VAIN mitatut avaimet — ei fabrikoituja null-avaimia (aiemmin cmj/mas AINA mukana
+        // null:ina vaikka mittaamatta → esim. Sibbo T2014 sai {cmj:null,mas:null} mutta pudotti mitatun kasiratan).
+        hhViimeisin = {};
+        if (lin30m != null) hhViimeisin.lin30m = lin30m;
+        if (cmj != null)    hhViimeisin.cmj = cmj;
+        if (mas != null)    hhViimeisin.mas = mas;
         if (lin10m != null) hhViimeisin.lin10m = lin10m;
-        if (lin5m != null) hhViimeisin.lin5m = lin5m;
-        hhTaso = laskeHHTaso(testitSkalaari, ika, sp);   // hh_taso vain 30m/cmj/mas (avaintestit) — 10m/5m ei muuta sitä
+        if (lin5m != null)  hhViimeisin.lin5m = lin5m;
+        if (kasirata != null) hhViimeisin.kasirata = kasirata;
+        hhTaso = laskeHHTaso(testitSkalaari, ika, sp);   // hh_taso vain 30m/cmj/mas (avaintestit) — 10m/5m/kasirata ei muuta sitä
       }
     }
     // sm_juoksu (D1 ketteryys §10) + sm_pallo (D2/TSI) → hh_viimeisin, jotta laskeD1Joustava (sm_juoksu) ja TSI saavat ne.
@@ -4369,8 +4376,14 @@ window.recalcSMtasot = async function(seuraIdArg, dryRun) {
   return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, virhe: virhe };
 };
 
-// recalcHHsplits(seuraId, dryRun=true) — backfill: lisää lin10m/lin5m hh_viimeisin-pikakenttään tuoreimmasta
-// testituloksesta (deep-merge → ei poista lin30m/cmj/mas). Korjaa jo tuodut (esim. SJK 10m näkyviin). SA-only.
+// recalcHHsplits(seuraId, dryRun=true) — backfill: lisää lin10m/lin5m/kasirata hh_viimeisin-pikakenttään tuoreimmasta
+// testituloksesta (deep-merge → ei poista lin30m/cmj/mas). Korjaa jo tuodut (esim. SJK 10m näkyviin; Sibbo T2014 kasirata
+// joka katosi vanhassa writerissa → radar sai vain 2 akselia). kasirata testitulokset:issa voi olla {paras:X} tai skalaari. SA-only.
+function _hvKasiArvo(raw){
+  if (raw == null) return null;
+  if (typeof raw === 'object') { const v = raw.paras; return (v != null && !isNaN(parseFloat(v))) ? parseFloat(v) : null; }
+  return (!isNaN(parseFloat(raw))) ? parseFloat(raw) : null;
+}
 window.recalcHHsplits = async function(seuraIdArg, dryRun) {
   if (dryRun === undefined) dryRun = true;
   if (!superAdmin) { console.warn('[recalcHHsplits] Vain Super Admin'); return; }
@@ -4385,7 +4398,7 @@ window.recalcHHsplits = async function(seuraIdArg, dryRun) {
     const tulSnap = await db.collection('seurat').doc(sid).collection('pelaajat').doc(pelDoc.id)
       .collection('testitulokset').get().catch(function(){ return { docs: [] }; });
     const docs = tulSnap.docs.map(function(t){ return t.data(); })
-      .filter(function(d){ const tt = d.testit || {}; return tt.lin10m != null || tt.lin5m != null; })
+      .filter(function(d){ const tt = d.testit || {}; return tt.lin10m != null || tt.lin5m != null || tt.kasirata != null; })
       .sort(function(a,b){ return String(b.testauspvm||b.pvm||'').localeCompare(String(a.testauspvm||a.pvm||'')); });
     if (!docs.length) { ohitettu++; continue; }
     const tt = docs[0].testit;
@@ -4393,14 +4406,15 @@ window.recalcHHsplits = async function(seuraIdArg, dryRun) {
     const _vanhaPvm = p.hh_pvm ? _paivaIso(p.hh_pvm) : null;
     const lin10m = (tt.lin10m != null && !isNaN(parseFloat(tt.lin10m))) ? parseFloat(tt.lin10m) : null;
     const lin5m  = (tt.lin5m  != null && !isNaN(parseFloat(tt.lin5m)))  ? parseFloat(tt.lin5m)  : null;
+    const kasirata = _hvKasiArvo(tt.kasirata);   // {paras:X} tai skalaari → luku (tuontibugin korjaus, §3.3)
     const hv = p.hh_viimeisin || {};
     // ohita jos kaikki saatavilla oleva on jo pikakentässä JA hh_pvm ei ole vanhentunut
     const pvmVanhentunut = (_srcPvm && (!_vanhaPvm || _srcPvm > _vanhaPvm));
-    if ((lin10m == null || hv.lin10m != null) && (lin5m == null || hv.lin5m != null) && !pvmVanhentunut) { ohitettu++; continue; }
-    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''), lin10m: lin10m, lin5m: lin5m,
+    if ((lin10m == null || hv.lin10m != null) && (lin5m == null || hv.lin5m != null) && (kasirata == null || hv.kasirata != null) && !pvmVanhentunut) { ohitettu++; continue; }
+    muutokset.push({ ref: pelDoc.ref, nimi: (p.sukunimi||'')+', '+(p.etunimi||''), lin10m: lin10m, lin5m: lin5m, kasirata: kasirata,
       hhPvm: pvmVanhentunut ? _srcPvm : null });   // §26: kirjoita hh_pvm samasta testistä (pari-invariantti)
   }
-  muutokset.forEach(function(m){ console.log((dryRun?'[DRY-RUN] ':'[recalcHHsplits] OK ')+m.nimi+(m.lin10m!=null?' · 10m '+m.lin10m+'s':'')+(m.lin5m!=null?' · 5m '+m.lin5m+'s':'')); });
+  muutokset.forEach(function(m){ console.log((dryRun?'[DRY-RUN] ':'[recalcHHsplits] OK ')+m.nimi+(m.lin10m!=null?' · 10m '+m.lin10m+'s':'')+(m.lin5m!=null?' · 5m '+m.lin5m+'s':'')+(m.kasirata!=null?' · kasirata '+m.kasirata+'s':'')); });
   if (dryRun) {
     console.log('[DRY-RUN] recalcHHsplits: '+muutokset.length+' päivitettäisiin · '+ohitettu+' ohitettu.');
     console.log('[DRY-RUN] Aja oikeasti: recalcHHsplits(\''+sid+'\', false)');
@@ -4416,7 +4430,8 @@ window.recalcHHsplits = async function(seuraIdArg, dryRun) {
       const hv = {};
       if (m.lin10m != null) hv.lin10m = m.lin10m;
       if (m.lin5m != null) hv.lin5m = m.lin5m;
-      const _u = { hh_viimeisin: hv };   // deep-merge → lisää lin10m/lin5m poistamatta muita
+      if (m.kasirata != null) hv.kasirata = m.kasirata;
+      const _u = { hh_viimeisin: hv };   // deep-merge → lisää lin10m/lin5m/kasirata poistamatta muita
       if (m.hhPvm) _u.hh_pvm = m.hhPvm;   // §26-invariantti: hh_viimeisin + hh_pvm samasta testistä (juurisyy-korjaus)
       batch.set(m.ref, _u, { merge: true });
     });
