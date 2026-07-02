@@ -17,11 +17,14 @@ Nykyinen `korjaaHhPvm` (arvo-täsmä) ehdottaa merge-pelaajille `hh_pvm 06-09 �
 ## Osa 2 — Per-patteristo-päivämäärät (uusi pikakenttä + detaljinäkymä)
 
 ### 2a. Pikakenttä `testipaivat` (§26-clean, kirjoitetaan tuonnissa)
-Uusi pikakenttä pelaajadokumenttiin: `testipaivat: { fyysinen_hh, tekniikka_hh, tki, phv }` (kukin ISO-pvm tai puuttuu). Kirjoitetaan **tuonnissa/recalcissa** kunkin testin `testauspvm`:stä protokollan mukaan:
-- `hh_suppea`/`hh_laaja` fyysiset kentät (lin/cmj/mas/sm) → `fyysinen_hh`
-- `syotto`/`pujottelu` (H-H-tekniikka) → `tekniikka_hh`
-- `tekniikkakilpailu` → `tki` (= olemassa oleva `tki_pvm`, voi peilata tähän)
-- kasvumittaus/PHV → `phv` (= `biologinenIka_viimeisin.pvm`)
+Uusi pikakenttä pelaajadokumenttiin: `testipaivat: { fyysinen_hh, tekniikka_hh, tki, phv }` (kukin ISO-pvm tai puuttuu). Kirjoitetaan **tuonnissa/recalcissa** kunkin testin `testauspvm`:stä.
+
+> **⚠️ KORJAUS (live-havainto 2026-07-02): mäppäys kenttäpohjaiseksi, EI protokollanimen mukaan.** Deployattu `backfillTestipaivat` sai `fyysinen_hh`:n + `phv`:n mutta **`tekniikka_hh` jäi tyhjäksi kaikilla** — koska se mäppäsi protokollanimen (`hh_suppea`/`hh_laaja`) mukaan eikä tunnistanut `hh_laaja`n syöttö/pujottelu-sisältöä tekniikaksi (esim. Dinga: `2026-06-09_hh_laaja` = syotto_hh/pujottelu_hh → `tekniikka_hh 06-09` puuttui). Mäppää **testidokin KENTTIEN mukaan** (dokki voi tuottaa yhtä aikaa fyysisen JA tekniikan):
+
+- Dokissa mikä tahansa `lin*`/`cmj`/`hyppy_cj`/`mas`/`sm_juoksu`/`sm_pallo` → päivitä `fyysinen_hh` = max(nykyinen, tämän dokin pvm)
+- Dokissa mikä tahansa `syotto*`/`pujottelu*` → päivitä `tekniikka_hh` = max(...) **(tämä puuttui — pakollinen)**
+- `tekniikkakilpailu`-dokki (TK-lajit) → `tki` (= olemassa oleva `tki_pvm`, voi peilata)
+- `biologinen_ika`-alikokoelman uusin dokki → `phv` (aito kasvumittaus, EI hh_laaja)
 - **Pari-invariantti (§26):** kirjoitetaan atomisesti arvojen kanssa, kuten `hh_pvm`/`hh_viimeisin` (juuri korjattu #61). Merge (`set{merge:true}`) → uusi patteristo päivittää vain oman kenttänsä.
 - **Backfill:** `korjaaHhPvm`-perheen viereen (tai osaksi) pieni backfill joka täyttää `testipaivat`:n olemassa olevista `testitulokset`-dokeista. Claude voi ajaa sen käsin kuten hh_pvm-backfillin (dry-run ensin).
 
