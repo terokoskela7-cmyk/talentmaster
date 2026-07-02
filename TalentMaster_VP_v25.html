@@ -5248,10 +5248,19 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     ? dRiv('Kasvutahti', '<span style="color:' + (_bbVyoh === 'nopea' ? 'var(--red)' : _bbVyoh === 'hidas' ? 'var(--blue)' : 'var(--ink2)') + '">'
         + (_bbCmv != null ? _bbCmv + ' cm/v · ' : '') + _bbVyoh + (_bbVyoh === 'nopea' ? ' ⚠ loukkaantumisriski' : '') + '</span>')
     : '';
+  // Testipäivät per patteristo (§26 testipaivat-pikakenttä; fallback tki_pvm / biologinenIka pvm). "Milloin kukin
+  // ominaisuus mitattiin" — merge-pelaajilla fyysinen ja tekniikka voivat olla eri päivinä (esim. 5.6. / 9.6.).
+  const _tpv = p.testipaivat || {};
+  const _tpFi = function(iso) { if (!iso) return '—'; const mm = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return mm ? (parseInt(mm[3], 10) + '.' + parseInt(mm[2], 10) + '.') : '—'; };
+  const _tpFys = _tpv.fyysinen_hh || null, _tpTek = _tpv.tekniikka_hh || null, _tpTki = _tpv.tki || p.tki_pvm || null, _tpPhv = _tpv.phv || _bbBio.mittauspaiva || null;
+  const _testipaivatRivi = (_tpFys || _tpTek || _tpTki || _tpPhv)
+    ? dRiv('Testipäivät', '<span style="color:var(--ink2);font-size:11px">Fyysinen ' + _tpFi(_tpFys) + ' · Tekniikka ' + _tpFi(_tpTek) + ' · TKI ' + _tpFi(_tpTki) + ' · PHV ' + _tpFi(_tpPhv) + '</span>')
+    : '';
   let f4 = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
     + dRiv('PHV-vaihe' + window._tmIBtn('phv'), phvTxt)
     + (_bbKaistaLbl ? dRiv('Kehitysvaihe', '<span style="color:var(--teal)">' + _bbKaistaLbl + '</span>') : dRiv('Bio-ikä', '<span style="color:var(--ink3)">Tulossa (KR-kertoimet)</span>'))
     + _bbKasvuRivi
+    + _testipaivatRivi
     + dRiv('Viimeisin H-H', p.hh_pvm ? _jsvEsc(p.hh_pvm) : '—')
     + dRiv('Viimeisin TKI', p.tki_pvm ? _jsvEsc(p.tki_pvm) : '—')
     + '</tbody></table>';

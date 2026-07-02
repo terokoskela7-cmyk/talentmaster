@@ -2,7 +2,26 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { tmPaivaIso, tmSolustaPvm, tmOnHHtesti, tmValitseHhPvm } = require('../lib/tm_pvm.js');
+const { tmPaivaIso, tmSolustaPvm, tmOnHHtesti, tmValitseHhPvm, tmTestipaivaPatteristot } = require('../lib/tm_pvm.js');
+
+// testipaivat protokolla→patteristo-mäppäys (CODE_TASK_TESTIPAIVAT Osa 2a).
+describe('tmTestipaivaPatteristot — testi → patteristo(t)', () => {
+  it('fyysinen H-H → fyysinen_hh', () => {
+    expect(tmTestipaivaPatteristot({ protokolla: 'hh_suppea', testit: { lin30m: 4.2, cmj: 40 } })).toEqual(['fyysinen_hh']);
+  });
+  it('H-H-tekniikka (syöttö/pujottelu) → tekniikka_hh', () => {
+    expect(tmTestipaivaPatteristot({ protokolla: 'hh_suppea', testit: { syotto: 38, pujottelu: 12 } })).toEqual(['tekniikka_hh']);
+  });
+  it('hh_laaja (fyysinen + tekniikka) → molemmat', () => {
+    expect(tmTestipaivaPatteristot({ protokolla: 'hh_laaja', testit: { lin30m: 4.2, syotto: 38 } })).toEqual(['fyysinen_hh', 'tekniikka_hh']);
+  });
+  it('tekniikkakilpailu → tki (EI tekniikka_hh vaikka syotto)', () => {
+    expect(tmTestipaivaPatteristot({ protokolla: 'tekniikkakilpailu', testit: { syotto: 40, ponnauttelu: 48 } })).toEqual(['tki']);
+  });
+  it('tyhjä testit → []', () => {
+    expect(tmTestipaivaPatteristot({ protokolla: 'hh_suppea', testit: {} })).toEqual([]);
+  });
+});
 
 // hh_pvm A-semantiikka (CODE_TASK_TESTIPAIVAT Osa 1): max vaikuttanut H-H-testipäivä, ei backdate.
 describe('tmValitseHhPvm — hh_pvm A-semantiikka', () => {
