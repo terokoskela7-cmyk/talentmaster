@@ -18,6 +18,7 @@
 <script src="lib/tm_eerikkila_normit.js?v=38"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
+<script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
 
 <style>
@@ -1388,6 +1389,14 @@ body {
 .jk-mikro { font-size: 10px; color: var(--ink3); font-style: italic; line-height: 1.3; margin: -3px 0 7px 26px; }
 .jk-status { font-size: 11.5px; font-weight: 600; margin-top: 8px; display: inline-flex; align-items: center; gap: 5px; }
 .jk-status-sek { font-size: 10px; color: var(--ink3); margin-top: 5px; display: inline-flex; align-items: center; gap: 4px; opacity: .8; }
+/* Datan tuoreus — "Päivitä mittaus" = toiminta (teal/amber), EI hälytys (§5: ei uutta punaista) */
+.jk-tuoreus { font-size: 10.5px; color: var(--ink3); margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; }
+.jk-tuoreus .ti { font-size: 12px; opacity: .85; }
+.jk-tuoreus--vanha { font-weight: 600; color: var(--amber); background: rgba(224,160,64,.12); border: 1px solid rgba(224,160,64,.28); border-radius: 999px; padding: 3px 9px; flex-wrap: wrap; }
+.jk-tuoreus--vanha .ti { color: var(--teal); opacity: 1; }
+.jk-tuoreus-sub { font-weight: 400; color: var(--ink3); font-size: .92em; }
+.jk-risti-note { margin: 0 16px 8px; padding: 7px 11px; font-size: 11px; color: var(--ink2); background: rgba(40,176,144,.08); border: .5px solid rgba(40,176,144,.22); border-radius: 6px; display: flex; align-items: center; gap: 6px; }
+.jk-risti-note .ti { color: var(--teal); font-size: 13px; }
 /* Tilanne-skooppivalitsin + Talentit-lista (teema-turvalliset tokenit) */
 .tsk-pillit { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 16px 10px; }
 .tsk-pilli { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--ov-2); background: var(--ov-1); color: var(--ink2); cursor: pointer; transition: background .15s; }
@@ -2717,6 +2726,18 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
     joukkueMap[jk].push(p);
   });
   const sj = function(s){ return String(s || '').replace(/['"]/g, ''); };   // turvallinen onclick-arg
+  // Datan tuoreus (esityskerros §26): viimeisin mittauspvm joukkueelle annetusta patteristokentästä (hh_pvm/tki_pvm).
+  // Palauttaa {vanha, fi, kk} tai null — käytetään kriittisten signaalien kehystämiseen (vanha ≠ kiireellinen nyt).
+  const _sigTuoreus = function(pp, pvmKentta){
+    let mx = null;
+    pp.forEach(function(p){ if (p[pvmKentta]) { const s = String(p[pvmKentta]); if (!mx || s > mx) mx = s; } });
+    if (!mx || typeof tmOnVanhaMittaus !== 'function') return null;
+    return { vanha: tmOnVanhaMittaus(mx), fi: (typeof tmPvmFi === 'function' ? tmPvmFi(mx) : mx),
+             kk: (typeof tmKuukausiaMittauksesta === 'function' ? tmKuukausiaMittauksesta(mx) : null) };
+  };
+  const _sigTuoreusMerkki = function(t){
+    return (t && t.vanha) ? ' 📍 Mitattu ' + t.fi + (t.kk != null ? ' (' + t.kk + ' kk sitten)' : '') + ' — päivitä mittaus ennen johtopäätöksiä.' : '';
+  };
 
   // 🔴 KRIITTISET
   // S1: FLEI — yksi seuratason signaali (ei per joukkue)
@@ -2738,9 +2759,10 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
     if (tkiArvot.length < 3) return;
     const tkiKa = tkiArvot.reduce(function(a,b){ return a+b; }, 0) / tkiArvot.length;
     if (tkiKa < 20) {
+      const _tkiT = _sigTuoreus(pelaajat, 'tki_pvm');
       signaalit.push({ tyyppi:'kriittinen', ikooni:'!',
         otsikko: lyhennaNimi(jkNimi) + ' — tekniikkataso tarvitsee tukea',
-        kuvaus:'TKI-keskiarvo ' + Math.round(tkiKa) + '/100. Suositus: omatoimiharjoittelu-ohjelma valmentajalle.',
+        kuvaus:'TKI-keskiarvo ' + Math.round(tkiKa) + '/100. Suositus: omatoimiharjoittelu-ohjelma valmentajalle.' + _sigTuoreusMerkki(_tkiT),
         cta:'Katso harjoitussuositukset →', ctaFn:"avaaHarjoitussuositukset('" + sj(jkNimi) + "')", prioriteetti:2,
         ryhma:'tekniikka_tuki', ryhmaNimi:'Tekniikkataso tarvitsee tukea · {j} joukkuetta', ryhmaKuvaus:'omatoimiharjoittelu-ohjelma valmentajille', joukkue:jkNimi, detalji:'TKI '+Math.round(tkiKa), maara:1 });
     }
@@ -5251,18 +5273,24 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // Testipäivät per patteristo (§26 testipaivat-pikakenttä; fallback tki_pvm / biologinenIka pvm). "Milloin kukin
   // ominaisuus mitattiin" — merge-pelaajilla fyysinen ja tekniikka voivat olla eri päivinä (esim. 5.6. / 9.6.).
   const _tpv = p.testipaivat || {};
-  const _tpFi = function(iso) { if (!iso) return '—'; const mm = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return mm ? (parseInt(mm[3], 10) + '.' + parseInt(mm[2], 10) + '.') : '—'; };
+  // pp.kk.vvvv (Osa 5: ei ISO/kk-pp näytöllä). Vanha mittaus (§26 tuoreus) → "📍 päivitä" per patteristo.
+  const _tpFi = function(iso) { if (!iso) return '—'; return (typeof tmPvmFi === 'function' ? tmPvmFi(iso) : String(iso)) || '—'; };
+  const _tpOsa = function(nimi, iso) {
+    if (!iso) return nimi + ' —';
+    const vanha = (typeof tmOnVanhaMittaus === 'function') && tmOnVanhaMittaus(iso);
+    return nimi + ' ' + _tpFi(iso) + (vanha ? ' <span style="color:var(--amber);font-weight:600" title="Yli 6 kk — päivitä mittaus">📍</span>' : '');
+  };
   const _tpFys = _tpv.fyysinen_hh || null, _tpTek = _tpv.tekniikka_hh || null, _tpTki = _tpv.tki || p.tki_pvm || null, _tpPhv = _tpv.phv || _bbBio.mittauspaiva || null;
   const _testipaivatRivi = (_tpFys || _tpTek || _tpTki || _tpPhv)
-    ? dRiv('Testipäivät', '<span style="color:var(--ink2);font-size:11px">Fyysinen ' + _tpFi(_tpFys) + ' · Tekniikka ' + _tpFi(_tpTek) + ' · TKI ' + _tpFi(_tpTki) + ' · PHV ' + _tpFi(_tpPhv) + '</span>')
+    ? dRiv('Testipäivät', '<span style="color:var(--ink2);font-size:11px">' + _tpOsa('Fyysinen', _tpFys) + ' · ' + _tpOsa('Tekniikka', _tpTek) + ' · ' + _tpOsa('TKI', _tpTki) + ' · ' + _tpOsa('PHV', _tpPhv) + '</span>')
     : '';
   let f4 = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
     + dRiv('PHV-vaihe' + window._tmIBtn('phv'), phvTxt)
     + (_bbKaistaLbl ? dRiv('Kehitysvaihe', '<span style="color:var(--teal)">' + _bbKaistaLbl + '</span>') : dRiv('Bio-ikä', '<span style="color:var(--ink3)">Tulossa (KR-kertoimet)</span>'))
     + _bbKasvuRivi
     + _testipaivatRivi
-    + dRiv('Viimeisin H-H', p.hh_pvm ? _jsvEsc(p.hh_pvm) : '—')
-    + dRiv('Viimeisin TKI', p.tki_pvm ? _jsvEsc(p.tki_pvm) : '—')
+    + dRiv('Viimeisin H-H', p.hh_pvm ? _tpOsa('', p.hh_pvm).trim() : '—')
+    + dRiv('Viimeisin TKI', p.tki_pvm ? _tpOsa('', p.tki_pvm).trim() : '—')
     + '</tbody></table>';
   // VAIHE 1 — TK-kokonaisajan kehitys (2 viimeisen mittauksen vertailu + pvm:t)
   if (p.tk_kokonaistulos_viimeisin != null && p.tk_kokonaistulos_edellinen != null) {
@@ -7227,7 +7255,9 @@ function _renderMDTProfiili() {
   var isp = (typeof _jsvJoukkueIkaSp === 'function') ? _jsvJoukkueIkaSp(p.joukkue||'') : { ika:null, sp:'P' };
   var ika = isp.ika, spMN = (isp.sp === 'T') ? 'N' : 'M';
   var nimi = ((p.etunimi||'')+' '+(p.sukunimi||'')).trim() || p.id;
-  var viimTesti = p.hh_pvm || p.tki_pvm || null;
+  var _viimTestiIso = p.hh_pvm || p.tki_pvm || null;
+  var viimTesti = _viimTestiIso ? (typeof tmPvmFi === 'function' ? (tmPvmFi(_viimTestiIso) || _viimTestiIso) : _viimTestiIso) : null;
+  var _viimTestiVanha = _viimTestiIso && typeof tmOnVanhaMittaus === 'function' && tmOnVanhaMittaus(_viimTestiIso);
   var d1 = (p.hh_taso != null) ? p.hh_taso : (p.d1_taso != null ? p.d1_taso : null);
   var oi = (typeof laskeD1Osaindeksit === 'function') ? laskeD1Osaindeksit(p.hh_viimeisin, ika, spMN) : null;
   var d2 = (typeof laskeD2Taso === 'function') ? laskeD2Taso(p) : (p.d2_taso != null ? p.d2_taso : null);
@@ -7246,7 +7276,7 @@ function _renderMDTProfiili() {
   var raeChipH = (typeof _vpRaeChip === 'function') ? _vpRaeChip(p, 'iso') : '';
   var h = '<div class="mdt-card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'
     + '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink)">' + nimi + '</div>'
-    + '<div style="font-size:12px;color:var(--ink2);margin-top:2px">' + (p.joukkue||'—') + ' · ' + (ika!=null?ika+' v':'—') + (viimTesti?' · testattu '+viimTesti:'') + '</div></div>'
+    + '<div style="font-size:12px;color:var(--ink2);margin-top:2px">' + (p.joukkue||'—') + ' · ' + (ika!=null?ika+' v':'—') + (viimTesti?' · testattu '+viimTesti+(_viimTestiVanha?' <span style="color:var(--amber);font-weight:600" title="Yli 6 kk — päivitä mittaus">📍 päivitä</span>':''):'') + '</div></div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' + (_mdtSkin==='vanhempi' ? '' : (phvChip + raeChipH + (talBadge||''))) + '</div></div></div>';
 
   // SKIN-TOGGLE
@@ -8076,7 +8106,7 @@ async function _hlLataaPalaute(id) {
   try { var ys = await base.collection('palaute_yksityinen').orderBy('pvm', 'asc').get(); yksit = ys.docs.map(function (d) { return d.data(); }); } catch (e) { /* johto-gate: ei oikeutta → ohita */ }
   var listaHtml = function (arr, tyhjä) {
     if (!arr.length) return '<div style="font-size:12px;color:var(--ink3)">' + tyhjä + '</div>';
-    return arr.map(function (p) { return '<div style="font-size:12px;color:var(--ink2);padding:6px 0;border-bottom:.5px solid var(--border)">' + _hlEsc(p.teksti) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _hlEsc(p.tekija_rooli || '') + ' · ' + _hlEsc((p.pvm || '').slice(0, 10)) + '</div></div>'; }).join('');
+    return arr.map(function (p) { return '<div style="font-size:12px;color:var(--ink2);padding:6px 0;border-bottom:.5px solid var(--border)">' + _hlEsc(p.teksti) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _hlEsc(p.tekija_rooli || '') + ' · ' + _hlEsc(typeof tmPvmFi === 'function' ? (tmPvmFi(p.pvm) || (p.pvm || '').slice(0, 10)) : (p.pvm || '').slice(0, 10)) + '</div></div>'; }).join('');
   };
   var h = '<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">💬 Jaettu palaute <span style="color:var(--ink3);font-weight:400;text-transform:none">(näkyy valmentajalle)</span></div>' + listaHtml(jaettu, 'Ei jaettua palautetta vielä.') + '</div>';
   h += '<div style="background:var(--card);border:.5px solid var(--amber);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--amber);margin-bottom:6px">🔒 Yksityinen muistiinpano <span style="color:var(--ink3);font-weight:400;text-transform:none">(vain VP/mentori)</span></div>' + listaHtml(yksit, 'Ei yksityisiä muistiinpanoja.') + '</div>';
@@ -8811,7 +8841,7 @@ function renderFleiKortti(p) {
       + '<div class="flei-header"><span class="flei-label">Kehon valmius -profiili</span><span class="flei-meta">' + ketjut + '/5 ketjua</span></div>'
       + '<div class="flei-palkki-iso"><div style="width:' + fleiPct + '%"></div></div>'
       + '<span class="flei-arvo">' + fleiPct + ' / 100</span>'
-      + (p.flei_pvm ? '<span class="flei-pvm">Viimeisin: ' + _jsvEsc(p.flei_pvm) + '</span>' : '')
+      + (p.flei_pvm ? '<span class="flei-pvm">Viimeisin: ' + (typeof tmPvmFi === 'function' ? (tmPvmFi(p.flei_pvm) || _jsvEsc(p.flei_pvm)) : _jsvEsc(p.flei_pvm)) + ((typeof tmOnVanhaMittaus === 'function' && tmOnVanhaMittaus(p.flei_pvm)) ? ' · 📍 päivitä' : '') + '</span>' : '')
       + '<button class="flei-cta" onclick="' + cta + '"><i class="ti ti-plus"></i> Täydennä profiili →</button>'
       + '</div>';
   }
@@ -8827,7 +8857,7 @@ function renderFleiKortti(p) {
   return '<div class="flei-kortti tila-taysi">'
     + '<div class="flei-header"><span class="flei-label">Kehon valmius -profiili</span><span class="flei-kokonais">' + fleiPct + ' / 100</span></div>'
     + '<div class="flei-ketjut">' + ketjuHtml + '</div>'
-    + (p.flei_pvm ? '<span class="flei-pvm">Päivitetty: ' + _jsvEsc(p.flei_pvm) + '</span>' : '')
+    + (p.flei_pvm ? '<span class="flei-pvm">Päivitetty: ' + (typeof tmPvmFi === 'function' ? (tmPvmFi(p.flei_pvm) || _jsvEsc(p.flei_pvm)) : _jsvEsc(p.flei_pvm)) + ((typeof tmOnVanhaMittaus === 'function' && tmOnVanhaMittaus(p.flei_pvm)) ? ' · 📍 päivitä' : '') + '</span>' : '')
     + '</div>';
 }
 
@@ -9292,8 +9322,21 @@ function renderTeamPulse() {
       + '<span class="jk-dim-arvo">' + (arvoTxt != null && arvoTxt !== '' ? arvoTxt : '—') + '</span>'
       + '<span class="jk-dim-ctx">' + ctx + '</span></div>';
   };
+  // Joukkueen viimeisin mittauspäivä (max pikakentistä §26: hh_pvm/tki_pvm/flei_pvm — ISO-stringit vertailukelpoisia).
+  const _joukkuePvm = function(pl){
+    let mx = null;
+    pl.forEach(function(p){ [p.hh_pvm, p.tki_pvm, p.flei_pvm].forEach(function(dv){ if (dv) { const s = String(dv); if (!mx || s > mx) mx = s; } }); });
+    return mx;
+  };
 
-  cont.innerHTML = '<div class="jk-grid">' + nimet.map(function(nimi){
+  // Ristivertailun tuoreusvaroitus (Osa 3): jos joukkueiden mittaukset ovat eri-ikäisiä (osa tuore, osa vanha),
+  // kortteja ei voi rinnastaa suoraan. Näytetään huomautus grid:n yläpuolelle (teal/amber, ei hälytys).
+  let _ristiVanhoja = 0, _ristiTuoreita = 0;
+  nimet.forEach(function(nm){ const pv = _joukkuePvm(joukkueet[nm]); if (pv && typeof tmOnVanhaMittaus === 'function') { if (tmOnVanhaMittaus(pv)) _ristiVanhoja++; else _ristiTuoreita++; } });
+  const _ristiNote = (_ristiVanhoja > 0 && _ristiTuoreita > 0)
+    ? '<div class="jk-risti-note"><i class="ti ti-info-circle" aria-hidden="true"></i> Joukkueilla on eri mittausajankohdat — vertaa varoen. ' + _ristiVanhoja + '/' + (_ristiVanhoja + _ristiTuoreita) + ' joukkueen mittaus on yli 6 kk vanha.</div>'
+    : '';
+  cont.innerHTML = _ristiNote + '<div class="jk-grid">' + nimet.map(function(nimi){
     const pelaajat = joukkueet[nimi];
     const koko = pelaajat.length;
     const safeNimi = nimi.replace(/['"]/g, '');
@@ -9326,6 +9369,21 @@ function renderTeamPulse() {
       h += _tpDimRivi('D2', d2.arvo + (d2.lahde !== 'tki' ? '¹' : ''), Math.min(100, Math.round(d2.arvo/5*100)), _d2Lbl);
     } else {
       h += '<div class="jk-dim-rivi jk-dim-puuttuu"><span class="jk-dim-label">D2</span><span class="jk-dim-ctx" style="min-width:auto">— Tekninen mittaus puuttuu</span></div>';
+    }
+
+    // DATAN TUOREUS (esityskerros, ei arviointimuutosta §26) — viimeisin mittauspvm + "Päivitä mittaus" jos vanha.
+    const _tpVpvm = _joukkuePvm(pelaajat);
+    if (_tpVpvm && typeof tmPvmFi === 'function') {
+      const _tpVanha = (typeof tmOnVanhaMittaus === 'function') && tmOnVanhaMittaus(_tpVpvm);
+      const _tpFi = tmPvmFi(_tpVpvm) || '—';
+      if (_tpVanha) {
+        const _tpKk = (typeof tmKuukausiaMittauksesta === 'function') ? tmKuukausiaMittauksesta(_tpVpvm) : null;
+        h += '<div class="jk-tuoreus jk-tuoreus--vanha" title="Nuorten testisykli 2–3×/v — yli 6 kk vanha mittaus = väliin jäänyt kierros. Taso on tilannekuva testihetkestä, ei nykyhetkestä.">'
+          + '<i class="ti ti-map-pin" aria-hidden="true"></i> Päivitä mittaus'
+          + '<span class="jk-tuoreus-sub">viimeksi ' + _tpFi + (_tpKk != null ? ' · ' + _tpKk + ' kk' : '') + '</span></div>';
+      } else {
+        h += '<div class="jk-tuoreus"><i class="ti ti-calendar-check" aria-hidden="true"></i> mitattu ' + _tpFi + '</div>';
+      }
     }
 
     // PÄÄSIGNAALI — kalibroitu status (§28): arvo ja hälytys eriytetty. ikävaiheodotetut (pre-PHV neutraalit)
@@ -9399,10 +9457,23 @@ function laskeHeroInsight(pelaajat) {
   const DEFAULT = 'Ensimmäiset mittaukset kirjattu. Jatka mittauksia — suunta selviää seuraavalla kerralla.';
   if (hhP.length === 0) return DEFAULT;
 
+  // Datan tuoreus (esityskerros §26): viimeisin H-H-mittauspvm hero-arviolle. Jos vanha → kehystä toiminnaksi,
+  // ei kiireelliseksi tilannekuvaksi (taso on totta testihetkellä, mutta ei välttämättä nyt).
+  let _heroHhPvm = null;
+  hhP.forEach(function(p){ if (p.hh_pvm) { const s = String(p.hh_pvm); if (!_heroHhPvm || s > _heroHhPvm) _heroHhPvm = s; } });
+  const _heroVanha = _heroHhPvm && typeof tmOnVanhaMittaus === 'function' && tmOnVanhaMittaus(_heroHhPvm);
+  const _heroFi = (_heroHhPvm && typeof tmPvmFi === 'function') ? tmPvmFi(_heroHhPvm) : '';
+  const _heroKk = (_heroHhPvm && typeof tmKuukausiaMittauksesta === 'function') ? tmKuukausiaMittauksesta(_heroHhPvm) : null;
+
   // 1: ≥50 % pelaajista hh_taso < 2.5
   const alle = hhP.filter(function(p){ return p.hh_taso < 2.5; }).length;
   if (alle / hhP.length >= 0.5) {
     const alleJ = joukkueKa.filter(function(j){ return j.ka < 2.5; }).length;
+    if (_heroVanha) {
+      // Vanha data → EI "pikahuomiota"-hälytystä. Toimenpide: päivitä mittaus ennen johtopäätöksiä.
+      return 'Fyysinen perustaso jäi alle kansallisen ' + alleJ + ' joukkueella — mutta viimeisin mittaus on ' + _heroFi
+        + (_heroKk != null ? ' (' + _heroKk + ' kk sitten)' : '') + '. 📍 Päivitä mittaus ennen johtopäätöksiä.';
+    }
     return 'Fyysinen taso vaatii pikahuomiota. ' + alleJ + ' joukkuetta alle kansallisen tason.';
   }
   // 2: H-H saatavilla mutta TKI puuttuu kaikilta
