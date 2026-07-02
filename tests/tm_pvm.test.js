@@ -12,6 +12,10 @@ describe('tmTestipaivaPatteristot — testi → patteristo(t)', () => {
   it('H-H-tekniikka (syöttö/pujottelu) → tekniikka_hh', () => {
     expect(tmTestipaivaPatteristot({ protokolla: 'hh_suppea', testit: { syotto: 38, pujottelu: 12 } })).toEqual(['tekniikka_hh']);
   });
+  it('test-ID-variantit syotto_hh/pujottelu_hh (testitulokset-doc) → tekniikka_hh', () => {
+    expect(tmTestipaivaPatteristot({ protokolla: 'hh_suppea', testit: { syotto_hh: 38.4, pujottelu_hh: 12.1 } })).toEqual(['tekniikka_hh']);
+    expect(tmTestipaivaPatteristot({ protokolla: 'hh_laaja', testit: { lin_30m: 5.1, hyppy_cj: 40, syotto_hh: 38 } })).toEqual(['fyysinen_hh', 'tekniikka_hh']);
+  });
   it('hh_laaja (fyysinen + tekniikka) → molemmat', () => {
     expect(tmTestipaivaPatteristot({ protokolla: 'hh_laaja', testit: { lin30m: 4.2, syotto: 38 } })).toEqual(['fyysinen_hh', 'tekniikka_hh']);
   });

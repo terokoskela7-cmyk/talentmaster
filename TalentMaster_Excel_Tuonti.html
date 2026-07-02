@@ -20,7 +20,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
 <script src="lib/tm_eerikkila_normit.js?v=38"></script>
 <script src="lib/tm_joukkue.js?v=3"></script>
-<script src="lib/tm_pvm.js?v=2"></script>
+<script src="lib/tm_pvm.js?v=3"></script>
 
 <style>
 :root {
@@ -2934,10 +2934,11 @@ async function tallennaFirestoreen() {
         // testipaivat (§26 per-patteristo-pvm) — deep-merge (set merge:true) → vain oma patteristo päivittyy.
         // hhViimeisin = H-H (ei TKI) → fyysinen_hh / tekniikka_hh; tki erikseen. Pari-invariantti (arvo+pvm yhdessä).
         {
+          // KENTTÄPOHJAINEN mäppäys (kanoninen tmTestipaivaPatteristot lib/tm_pvm.js) hhViimeisin:istä (H-H, ei TKI;
+          // normalisoidut nimet syotto/pujottelu/lin30m/cmj/mas). tekniikka_hh syntyy syöttö/pujottelu-kentistä.
           const _tp = {};
-          if (hhViimeisin) {
-            if (hhViimeisin.lin30m != null || hhViimeisin.lin10m != null || hhViimeisin.cmj != null || hhViimeisin.mas != null || hhViimeisin.sm_juoksu != null || hhViimeisin.sm_pallo != null) _tp.fyysinen_hh = pvmIso;
-            if (hhViimeisin.syotto != null || hhViimeisin.pujottelu != null) _tp.tekniikka_hh = pvmIso;
+          if (hhViimeisin && typeof tmTestipaivaPatteristot === 'function') {
+            tmTestipaivaPatteristot({ protokolla: 'hh', testit: hhViimeisin }).forEach(function(k){ _tp[k] = pvmIso; });
           }
           if (tki !== null) _tp.tki = pvmIso;
           if (Object.keys(_tp).length) profiiliUpdate.testipaivat = _tp;
