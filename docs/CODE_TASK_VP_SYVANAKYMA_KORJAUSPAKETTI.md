@@ -7,14 +7,18 @@
 
 ## P0 — `hh_pvm`-päivämäärä vanhentunut (datakorjaus + juurisyy)
 
-**Havainto:** pelaajakortin "viimeisin mittaus" -päivämäärä on väärä 10/20 SJK P15 -pelaajalla. Esim. Runo Ebah: kortti näyttää `hh_pvm = 2026-04-01`, mutta hänen ainoa testituloksensa on `2026-06-02_hh_suppea`.
+**Havainto:** pelaajakortin "viimeisin mittaus" -päivämäärä on väärä. **Skoopin tarkistus 2026-07-02: 45/59 SJK:n H-H-datallista pelaajaa väärällä `hh_pvm`:llä** (~76 % — systeeminen, ei reunatapaus). Kortit näyttävät maalis-/huhtikuuta (24.3./27.3./1.4.), todelliset testit kesäkuussa (2.6./5.6./7.6.). Esim. Runo Ebah: kortti `hh_pvm = 2026-04-01`, ainoa testitulos `2026-06-02_hh_suppea`.
+**⚠️ GO-LIVE-BLOKKERI:** korjattava ennen SJK:n valmentajakoulutusta (elokuu) — väärä "viimeisin testi" -pvm syö luottamusta työkaluun adoptiohetkellä.
 **Tarkennus (ei kosmetiikkaa, mutta ei myöskään väärää dataa):** `hh_viimeisin`-**arvot** (lin10m 1.72, lin30m 4.19, mas 14.9, cmj 41.1, sm_juoksu 7.62, sm_pallo 8.67) ovat **identtiset** 2.6.2026-testituloksen kanssa → **data on oikein ja tuore, vain `hh_pvm`-päivämääräkenttä jäi 1.4.2026:een.** Kesäkuun tuonti päivitti arvot mutta ei päivämäärää näille pelaajille (ne joilla 2 testiä / 9.6-tuonti ovat oikein).
 **Miksi korjattava (ei pelkkä label):**
 - `hh_pvm` ohjaa **§29 kehitysvauhdin vangitsemista** (pvm-vahti `vanhaPvm !== uusiPvm`) → väärä pvm voi rikkoa "edellisen" tallennuksen / tuottaa nolladeltan.
 - "Vanhin testi X pv sitten" -signaalit (§17/§18) näyttävät väärää ikää.
 - Liittyy tunnettuun SJK-päivämääräongelmaan (CLAUDE.md §26 IKAKONVENTIO / §6: "korjaa testipäivä ✎-napilla ensin").
 
-### P0a — Kertaluontoinen backfill (data)
+### P0a — Kertaluontoinen backfill (data) — ✅ TEHTY KÄSIN 2026-07-02
+**Claude ajoi backfillin selaimesta (SA):** 46 pelaajaa korjattu (SJK 45 + Pallo-Iirot 1), `hh_pvm` = viimeisin H-H-testitulos-pvm. Verifioitu: 0 ristiriitaa jää. **Code EI tarvitse ajaa tätä uudelleen** — mutta rakenna silti `korjaaHhPvm(seuraId, dryRun)` pysyväksi työkaluksi tulevia driftejä + uusia seuroja varten (idempotentti, dry-run oletus). Alla oleva logiikka = referenssi.
+
+**Alkuperäinen logiikka (referenssi + pysyvä funktio):**
 Uusi konsoli-/admin-funktio `korjaaHhPvm(seuraId, dryRun=true)` (tai lisää olemassa olevaan recalc-perheeseen, esim. Excel_Tuonti.html:n admin-työkaluihin `recalcHH`:n viereen):
 - Per pelaaja jolla `hh_viimeisin` != null: lue `testitulokset`-alikokoelma, ota **viimeisin `testauspvm`** (max, doc-ID-prefiksi `{pvm}_` fallback). Jos `hh_pvm !== viimeisin_testauspvm` → **aseta `hh_pvm = viimeisin_testauspvm`** (merge). ÄLÄ koske `hh_viimeisin`-arvoihin.
 - **Edge case:** jos pelaajalla useita testituloksia ja `hh_viimeisin` vastaa vanhempaa (harvinaista) — turvallisin on kohdistaa `hh_pvm` siihen `testitulokset`-dokkiin jonka arvot täsmäävät `hh_viimeisin`:iin; jos ei match, käytä viimeisintä testauspvm:ää. Dokumentoi valinta.
