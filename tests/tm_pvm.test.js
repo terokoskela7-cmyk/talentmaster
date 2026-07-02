@@ -2,7 +2,36 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { tmPaivaIso, tmSolustaPvm } = require('../lib/tm_pvm.js');
+const { tmPaivaIso, tmSolustaPvm, tmOnHHtesti, tmValitseHhPvm } = require('../lib/tm_pvm.js');
+
+// hh_pvm A-semantiikka (CODE_TASK_TESTIPAIVAT Osa 1): max vaikuttanut H-H-testipäivä, ei backdate.
+describe('tmValitseHhPvm — hh_pvm A-semantiikka', () => {
+  const fys6_05 = { protokolla: 'hh_suppea', testit: { lin30m: 4.19, cmj: 41, mas: 14.9 }, pvm: '2026-06-05' };
+  const tekn6_09 = { protokolla: 'hh_suppea', testit: { syotto: 38.4, pujottelu: 12.1 }, pvm: '2026-06-09' };
+  const tki = { protokolla: 'tekniikkakilpailu', testit: { syotto: 40, ponnauttelu: 48 }, pvm: '2026-06-20' };
+
+  it('merge-pelaaja (fys 5.6. + tekn 9.6.) → 9.6. (max), EI backdate 5.6.:een', () => {
+    expect(tmValitseHhPvm([fys6_05, tekn6_09], '2026-06-09')).toBe(null);   // jo 9.6. → ei muutosta
+    expect(tmValitseHhPvm([fys6_05, tekn6_09], '2026-04-01')).toBe('2026-06-09');   // stale → korjaa max:iin
+  });
+  it('yksittäistesti: nykyPvm === testipäivä → null (jo OK)', () => {
+    expect(tmValitseHhPvm([fys6_05], '2026-06-05')).toBe(null);
+    expect(tmValitseHhPvm([fys6_05], '2026-04-01')).toBe('2026-06-05');
+  });
+  it('EI koskaan backdate: nykyPvm uudempi kuin max → null', () => {
+    expect(tmValitseHhPvm([fys6_05], '2026-07-01')).toBe(null);
+  });
+  it('TKI (tekniikkakilpailu) EI vaikuta hh_pvm:ään', () => {
+    expect(tmValitseHhPvm([tki], '2026-04-01')).toBe(null);            // ei H-H-testejä → null
+    expect(tmValitseHhPvm([fys6_05, tki], '2026-04-01')).toBe('2026-06-05');   // tki (6.20) ohitetaan
+  });
+  it('tmOnHHtesti: fyysinen/tekniikka=true, tekniikkakilpailu=false', () => {
+    expect(tmOnHHtesti(fys6_05)).toBe(true);
+    expect(tmOnHHtesti(tekn6_09)).toBe(true);
+    expect(tmOnHHtesti(tki)).toBe(false);
+    expect(tmOnHHtesti({ testit: {} })).toBe(false);
+  });
+});
 
 describe('tmPaivaIso — Excel-sarjanumero (#61 regressio: 45930 ei 45930-01-01)', () => {
   it('sarjanumero numerona → oikea vuosi (EI 45930-01-01)', () => {
