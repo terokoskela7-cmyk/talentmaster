@@ -2,7 +2,38 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { tmPaivaIso, tmSolustaPvm, tmOnHHtesti, tmValitseHhPvm, tmTestipaivaPatteristot } = require('../lib/tm_pvm.js');
+const { tmPaivaIso, tmSolustaPvm, tmOnHHtesti, tmValitseHhPvm, tmTestipaivaPatteristot,
+  TUOREUS_KK, tmKuukausiaMittauksesta, tmOnVanhaMittaus, tmPvmFi } = require('../lib/tm_pvm.js');
+
+// Datan tuoreus (CODE_TASK: Päivitä mittaus -kehys). Raja 6 kk. refIso deterministinen.
+describe('tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi', () => {
+  const REF = '2026-07-02';
+  it('TUOREUS_KK = 6', () => expect(TUOREUS_KK).toBe(6));
+  it('kuukausiaMittauksesta: Sibbo 3.10.2025 → 9 kk', () => {
+    expect(tmKuukausiaMittauksesta('2025-10-03', REF)).toBe(9);
+  });
+  it('onVanhaMittaus: >6 kk → true (Sibbo 9 kk)', () => {
+    expect(tmOnVanhaMittaus('2025-10-03', REF)).toBe(true);
+  });
+  it('onVanhaMittaus: tasan 6 kk → false, 7 kk → true (raja >6)', () => {
+    expect(tmOnVanhaMittaus('2026-01-02', REF)).toBe(false);   // 6 kk
+    expect(tmOnVanhaMittaus('2025-12-02', REF)).toBe(true);    // 7 kk
+  });
+  it('onVanhaMittaus: tuore (2 kk) → false', () => {
+    expect(tmOnVanhaMittaus('2026-05-02', REF)).toBe(false);
+  });
+  it('null/puuttuva pvm → ei vanha (false), kk null', () => {
+    expect(tmOnVanhaMittaus(null, REF)).toBe(false);
+    expect(tmOnVanhaMittaus('', REF)).toBe(false);
+    expect(tmKuukausiaMittauksesta(null, REF)).toBe(null);
+  });
+  it('tmPvmFi: ISO → pp.kk.vvvv (ei ISO/kk-pp näytöllä)', () => {
+    expect(tmPvmFi('2025-10-03')).toBe('3.10.2025');
+    expect(tmPvmFi('2026-06-09')).toBe('9.6.2026');
+    expect(tmPvmFi(null)).toBe('');
+    expect(tmPvmFi('Kevät 2026')).toBe('');
+  });
+});
 
 // testipaivat protokolla→patteristo-mäppäys (CODE_TASK_TESTIPAIVAT Osa 2a).
 describe('tmTestipaivaPatteristot — testi → patteristo(t)', () => {
