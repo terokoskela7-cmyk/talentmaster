@@ -4670,7 +4670,13 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
     pelaajat.forEach((p, idx) => {
       const hh = (p.hh_taso != null) ? p.hh_taso : null;
       const tki = (p.tki_viimeisin != null) ? p.tki_viimeisin : null;
-      const tsi = (p.tsi_viimeisin != null) ? p.tsi_viimeisin : null;
+      // TSI: pikakenttä ensin, muuten laske raakadatasta (§22) — sama fallback kuin _jspModal/_talenttiCod (#60/P1).
+      let tsi = (p.tsi_viimeisin != null) ? p.tsi_viimeisin : null;
+      if (tsi == null && p.hh_viimeisin) {
+        tsi = (typeof laskeTSI === 'function')
+          ? laskeTSI(p.hh_viimeisin.sm_juoksu, p.hh_viimeisin.sm_pallo)
+          : ((p.hh_viimeisin.sm_pallo != null && p.hh_viimeisin.sm_juoksu != null) ? Math.round((p.hh_viimeisin.sm_pallo - p.hh_viimeisin.sm_juoksu) * 100) / 100 : null);
+      }
       const adarY = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht : null;
       const m = _tkiMerkkiVP(tki, p.tki_merkki);
       // Tekninen-solu = sama 1–5-TASO kuin hero (laskeD2Taso: TKI÷20 > d2_taso). TSI/TKI raaka = diagnostinen
@@ -5209,7 +5215,13 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // ── TAB 3: PELI (ADAR) ──
   let f3;
   const av = p.adar_viimeisin;
-  if (!av) { f3 = '<div style="color:var(--ink3);font-style:italic;padding:12px">Ei havaintoja vielä</div>'; }
+  if (!av) {
+    // §75 tyhjätila-CTA (ei bare "ei havaintoja"): ohjaa ADAR-kenttätyökaluun (§26 launcher-malli).
+    f3 = '<div style="padding:16px 12px;text-align:center">'
+      + '<div style="font-size:13px;color:var(--ink3);margin-bottom:10px">Ei pelihavaintoja vielä</div>'
+      + '<a href="TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(_seuraId || '') + '" style="font-size:12px;color:var(--teal);text-decoration:none;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;display:inline-block">Avaa ADAR-kenttätyökalu →</a>'
+      + '</div>';
+  }
   else {
     const ar = function(lbl, val) {
       return '<tr style="border-top:.5px solid var(--border)"><td style="padding:7px 8px;color:var(--ink2)">' + lbl + '</td>'
@@ -5226,9 +5238,20 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // ── TAB 4: KEHITYS ──
   const dRiv = function(lbl, val) { return '<tr style="border-top:.5px solid var(--border)"><td style="padding:7px 8px;color:var(--ink2)">' + lbl + '</td><td style="padding:7px 8px;color:var(--ink)">' + val + '</td></tr>'; };
   const phvTxt = p.phv_tila ? ('<span style="color:' + _phvVari(p.phv_tila) + '">' + _jsvEsc(p.phv_tila) + ' · ' + (_PHV_LABEL[p.phv_tila] || '') + '</span>') : 'Ei mittausta';
+  // Bio-banding V1 (§25/§28): kehitysvaihe-kaista + kasvutahti pikakentistä (KR/%PAH = V2, lukossa). Graceful.
+  const _bbBio = p.biologinenIka_viimeisin || {};
+  const _bbKaista = p.kehitysvaihe_kaista || _bbBio.kehitysvaihe_kaista || null;
+  const _bbKaistaLbl = { pre: 'Pre-PHV (ennen kasvupyrähdystä)', circa: 'Circa-PHV (±1v huipusta)', post: 'Post-PHV (jälkeen)' }[_bbKaista] || null;
+  const _bbVyoh = p.kasvutahti_vyohyke || _bbBio.kasvutahti_vyohyke || null;
+  const _bbCmv = (p.kasvutahti_cm_v != null) ? p.kasvutahti_cm_v : (_bbBio.kasvutahti_cm_v != null ? _bbBio.kasvutahti_cm_v : null);
+  const _bbKasvuRivi = _bbVyoh
+    ? dRiv('Kasvutahti', '<span style="color:' + (_bbVyoh === 'nopea' ? 'var(--red)' : _bbVyoh === 'hidas' ? 'var(--blue)' : 'var(--ink2)') + '">'
+        + (_bbCmv != null ? _bbCmv + ' cm/v · ' : '') + _bbVyoh + (_bbVyoh === 'nopea' ? ' ⚠ loukkaantumisriski' : '') + '</span>')
+    : '';
   let f4 = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
     + dRiv('PHV-vaihe' + window._tmIBtn('phv'), phvTxt)
-    + dRiv('Bio-ikä', '<span style="color:var(--ink3)">Tulossa (KR-kertoimet)</span>')
+    + (_bbKaistaLbl ? dRiv('Kehitysvaihe', '<span style="color:var(--teal)">' + _bbKaistaLbl + '</span>') : dRiv('Bio-ikä', '<span style="color:var(--ink3)">Tulossa (KR-kertoimet)</span>'))
+    + _bbKasvuRivi
     + dRiv('Viimeisin H-H', p.hh_pvm ? _jsvEsc(p.hh_pvm) : '—')
     + dRiv('Viimeisin TKI', p.tki_pvm ? _jsvEsc(p.tki_pvm) : '—')
     + '</tbody></table>';
