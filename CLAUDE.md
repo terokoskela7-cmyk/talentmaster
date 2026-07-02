@@ -814,6 +814,16 @@ pelaajadokumenttiin, **(2) joukkuetason KPI:t** VP-dashboardiin (ka + kattavuus 
 (↑/→/↓ kun ≥2 mittausta), **(4) kattavuussignaalin** kun kattavuus heikko. Pikakentät luetaan dashboardissa
 suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
 
+> **⚠️ PARI-INVARIANTTI — arvo + pvm päivitetään AINA atomisesti samasta testituloksesta (2026-07-02):**
+> pikakenttä-pari `hh_viimeisin` + `hh_pvm` (samoin `tki_viimeisin`/`tki_pvm`, `tk_lajit_viimeisin`/`tk_lajit_pvm`,
+> `flei_viimeisin`/`flei_pvm`) kirjoitetaan **yhdessä**, samasta test-docin pvm:stä. **Juurisyy-bugi:** `recalcHHsplits`
+> (+ `recalcHH` sm-persistointi) päivittivät `hh_viimeisin`-ARVOT muttei `hh_pvm`:ää → SJK:lla ~76 % pelaajista väärä
+> "viimeisin testi" -pvm (arvot tuoreita, pvm jäi 1.4.). Väärä `hh_pvm` rikkoo §29-kehitysvauhdin pvm-vahdin +
+> "vanhin testi X pv" -signaalit (§17/§18). **Korjattu:** `recalcHHsplits` kirjoittaa nyt `hh_pvm`:n lähde-testistä;
+> **`korjaaHhPvm(seuraId, dryRun=true)`** (Excel_Tuonti admin, `recalcHH`-perheen vieressä) reconciloi `hh_pvm`:n
+> viimeisimpään/arvo-täsmäävään H-H-testitulokseen (idempotentti, EI koske arvoihin). Backfill ajettu käsin 46
+> pelaajalle (SJK 45 + palloiirot 1), 0 ristiriitaa. Aja `korjaaHhPvm` kaikille pilottiseuroille + uusien seurojen tuonnin jälkeen.
+
 | Datasetti | Pikakentät | Tila |
 |---|---|---|
 | **TKI** | `tki_viimeisin` · `tki_pvm` · `tki_merkki` (kulta/hopea/pronssi) · `tki_vahvuus` · `tki_kehityskohde` (laji-id) · `tki_edellinen`(+`_pvm`) | ✅ Excel/PDF |
