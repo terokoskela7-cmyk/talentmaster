@@ -1310,6 +1310,13 @@ body {
 .hh-palkki-wrap { height: 8px; background: var(--ov-3); flex: 1; }
 .hh-palkki-taytto { height: 100%; background: var(--teal); }
 .hh-arvo { font-family: var(--font-mono); font-weight: 600; font-size: 16px; color: var(--ink); min-width: 62px; text-align: right; }
+/* Per-pelaaja Pikakatsaus (_jspModal) — kaksisarakkeinen dashboard (Vaihtoehto B): profiili vasemmalla pysyy
+   näkyvissä kun testejä selaa oikealla. Mobiilissa pinoutuu yhteen sarakkeeseen (§6, sama @media-lohko). */
+.jsp-box { background: var(--bg2); border: .5px solid var(--border); border-radius: 8px; width: min(1040px, 96vw); max-width: 96vw; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
+.jsp-grid { display: grid; grid-template-columns: 290px 1fr; gap: 22px; padding: 10px 24px 4px; align-items: start; }
+.jsp-left { min-width: 0; }
+.jsp-right { min-width: 0; }
+.jsp-radar { width: 290px; max-width: 100%; margin: 6px auto 10px; }
 .dim-kortit { display: flex; gap: 8px; padding: 12px 0; border-top: .5px solid var(--border); border-bottom: .5px solid var(--border); margin-bottom: 14px; }
 .dim-kortti { flex: 1; padding: 12px 8px; border: 1px solid var(--border); text-align: center; }
 .dim-label { display: block; font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); margin-bottom: 6px; }
@@ -1582,6 +1589,11 @@ body {
   #_jsvModal .jsv-body { flex-direction: column; }
   #_jsvModal .jsv-oikea { order: -1; }   /* pelaajataulukko + välilehdet ENSIN mobiilissa (varsinainen työ ylhäällä) */
   #_jsvModal .jsv-vasen { width: 100%; min-width: unset; border-right: none; border-top: 1px solid rgba(242,239,230,.12); max-height: 200px; order: 0; }   /* radar/KPI alle; separaattori yläreunaan */
+
+  /* Per-pelaaja Pikakatsaus (_jspModal) — kaksisarake → yksi sarake, täysleveä modaali (§6: sama @media-lohko) */
+  #_jspModal .jsp-box { width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; }
+  #_jspModal .jsp-grid { grid-template-columns: 1fr; gap: 14px; padding: 8px 14px 4px; }
+  #_jspModal .jsp-radar { width: 230px; margin: 4px auto 8px; }
 
   /* Signaalit — luettava teksti mobiilissa (sig-sisalto min-width:0 + sig-toiminto flex-shrink:0 jo perus-CSS:ssä) */
   .signaali-rivi { padding: 12px 14px; gap: 12px; }
@@ -5371,14 +5383,15 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
 
   // ── Modaali (_jspModal, z 320 → Kerros 1:n päälle) ──
   let h = '<div id="_jspModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:320;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:640px;max-width:96vw;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column" onclick="event.stopPropagation()">';
+  h += '<div class="jsp-box" onclick="event.stopPropagation()">';
   // Otsikko + sulje-X sticky → pysyvät näkyvissä skrollatessa (sisältö voi olla pidempi kuin 90vh, #77).
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px 24px 10px;position:sticky;top:0;background:var(--bg2);z-index:3">';
   h += '<div><button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;padding:0;font-family:\'DM Sans\',sans-serif">← ' + _jsvEsc(joukkueNimi) + '</button>';
   h += '</div>';
   h += '<button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
   h += '</div>';
-  // Hero-rivi: nimi + badge vasemmalla, radar oikealla — säästää pystytilan tuloksille
+  // Vaihtoehto B (kaksisarakkeinen): VASEN = profiili (nimi+badget+5D-radar+ikävaihe-banneri+D1/D2-kortit),
+  // OIKEA = per-testi-välilehdet + palkit + Kiihdytysprofiili + D3-kalibraatio. Puhdas uudelleenasettelu — samat kentät/arvot.
   const radarDims = [
     { key: 'D1', label: 'Fyysinen',    arvo: (d1 != null ? d1 : null) },
     { key: 'D2', label: 'Tekninen',    arvo: (d2 != null ? d2 : null), lahde: _d2Lahde(p) },
@@ -5386,59 +5399,59 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     { key: 'D4', label: 'Peliäly',     arvo: (d4 != null ? d4 : null) },
     { key: 'D5', label: 'Sosiaal.', arvo: (p.d5_taso != null ? p.d5_taso : null) }
   ];
-  h += '<div style="display:flex;align-items:center;gap:16px;padding:0 24px 6px">';
-  // Vasen: nimi + badge
-  h += '<div style="flex:1;min-width:0">';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">' + _jsvEsc(nimi) + '</div>';
-  if (hgBadge) h += '<div style="margin-top:5px">' + hgBadge + '</div>';
-  { var _rcM = _vpRaeChip(p, 'iso'); if (_rcM) h += '<div style="margin-top:5px;display:flex;gap:4px;align-items:center">' + _rcM + '</div>'; }
-  h += '<div style="font-size:10px;color:var(--ink3);margin-top:8px">5D-profiili (1–5)' + (_d2Lahde(p) && _d2Lahde(p) !== 'tki' ? ' · ¹ ' + _d2LahdeLbl(_d2Lahde(p)) : '') + '</div>';
+  // ── VASEN sarake: nimi + badget + iso 5D-radar + ikävaihe-banneri + D1/D2-kehityskortti ──
+  let hL = '';
+  hL += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">' + _jsvEsc(nimi) + '</div>';
+  if (hgBadge) hL += '<div style="margin-top:5px">' + hgBadge + '</div>';
+  { var _rcM = _vpRaeChip(p, 'iso'); if (_rcM) hL += '<div style="margin-top:5px;display:flex;gap:4px;align-items:center">' + _rcM + '</div>'; }
+  hL += '<div style="font-size:10px;color:var(--ink3);margin-top:8px">5D-profiili (1–5)' + (_d2Lahde(p) && _d2Lahde(p) !== 'tki' ? ' · ¹ ' + _d2LahdeLbl(_d2Lahde(p)) : '') + '</div>';
   // D3-varmuusmerkki (sama kuin Master): estää pelaajan itsearvion lukemisen kovana talenttiarviona (§7.22-henki aikuispuolella)
-  if (p.d3_taso != null && p.d3_varmuus && typeof d3VarmuusChip === 'function') h += '<div style="margin-top:6px;font-size:10px;color:var(--ink3)">D3 ' + d3VarmuusChip(p.d3_varmuus) + '</div>';
-  h += '</div>';
-  // Oikea: radar (kompakti, max 220px)
-  h += '<div style="flex-shrink:0;width:220px">' + window._tmRadar5D(radarDims) + '</div>';
-  h += '</div>';
+  if (p.d3_taso != null && p.d3_varmuus && typeof d3VarmuusChip === 'function') hL += '<div style="margin-top:6px;font-size:10px;color:var(--ink3)">D3 ' + d3VarmuusChip(p.d3_varmuus) + '</div>';
+  // Iso 5D-radar (290px) — akselinimet hengittävät verrattuna aiempaan 220px:iin
+  hL += '<div class="jsp-radar">' + window._tmRadar5D(radarDims, { maxW: 290 }) + '</div>';
   const _kehysP = _ikavaiheBanneri(ika);
-  if (_kehysP) h += '<div style="padding:8px 24px 0">' + _kehysP + '</div>';
-  // §8 KEHITYSKORTTI — D1/D2-mittarikortit + per-test-rivit (Sibbon malli) modaalin yläosaan ENNEN välilehtiä (näkyy ilman tab-vaihtoa).
-  // Kanoninen renderKehityskorttiHTML (SAMA kuin Master, ei kopioitua UI-logiikkaa). perTestTasot normalisoi sp 'P'/'T'→'M'/'N'.
+  if (_kehysP) hL += '<div style="margin-bottom:8px">' + _kehysP + '</div>';
+  // §8 KEHITYSKORTTI — D1/D2-mittarikortit + per-test-rivit (Sibbon malli). Kanoninen renderKehityskorttiHTML
+  // (SAMA kuin Master, ei kopioitua UI-logiikkaa). perTestTasot normalisoi sp 'P'/'T'→'M'/'N'.
   const _fiPvm = s => { const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : String(s); };
   const _testPvm = p.hh_pvm ? _fiPvm(p.hh_pvm) : (p.tki_pvm ? _fiPvm(p.tki_pvm) : null);
   if (typeof renderKehityskorttiHTML === 'function') {
     const _keh = renderKehityskorttiHTML(p, ika, sp);
     if (_keh) {
-      h += '<div style="padding:6px 24px 12px;border-top:.5px solid var(--border)">'
+      hL += '<div style="padding-top:10px;margin-top:6px;border-top:.5px solid var(--border)">'
         + (_testPvm ? '<div style="font-size:10px;color:var(--ink3);margin-bottom:6px">testattu ' + _testPvm + '</div>' : '')
         + _keh + '</div>';
     }
   }
-  // §D3 VP-kalibraatio (malli A): kolmen näkökulman vertailu + VP-arviointinappi. VP-arvio EI muuta d3_taso:a.
+  // ── OIKEA sarake: per-testi-välilehdet (Fyysinen/Tekninen/Peli/Kehitys) + palkit + Kiihdytysprofiili ──
+  let hR = '';
+  hR += '<div style="display:flex;gap:6px;padding-bottom:4px;border-bottom:.5px solid var(--border)">';
+  [['ti-bolt','Fyysinen'],['ti-ball-football','Tekninen'],['ti-compass','Peli'],['ti-trending-up','Kehitys']].forEach(function(t,i) {
+    hR += '<button id="_jspBtn' + i + '" class="dim-tab ' + (i===0?'on':'') + '" onclick="_jspVaihda(' + i + ')"><i class="ti ' + t[0] + '"></i>' + t[1] + '</button>';
+  });
+  hR += '</div>';
+  // Tab-sisältö kasvaa sisällön korkuiseksi; ulompi .jsp-box (max-height:90vh; overflow-y:auto) hoitaa skrollauksen.
+  hR += '<div style="padding:16px 0">';
+  hR += '<div id="_jspTab0">' + f1 + '</div>';
+  hR += '<div id="_jspTab1" style="display:none">' + f2 + '</div>';
+  hR += '<div id="_jspTab2" style="display:none">' + f3 + '</div>';
+  hR += '<div id="_jspTab3" style="display:none">' + f4 + '</div>';
+  hR += '</div>';
+  // §D3 VP-kalibraatio (malli A) — oikean sarakkeen loppuun (leveä vertailupaneeli; Coden sijaintivalinta, §spec).
+  // VP-arvio EI muuta d3_taso:a — kolmen näkökulman vertailu + VP-arviointinappi.
   {
     const _d3pt = (p.d3_viimeisin && p.d3_viimeisin.pisteet) || null;
     const _onVp = _d3pt && Object.keys(_d3pt).some(function(k){ return _d3pt[k] && _d3pt[k].vp != null; });
-    h += '<div style="padding:8px 24px 12px;border-top:.5px solid var(--border)">';
-    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+    hR += '<div style="padding-top:12px;margin-top:4px;border-top:.5px solid var(--border)">';
+    hR += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
       + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">D3 Psyykkinen — kalibraatio'
       + (p.d3_taso != null && p.d3_varmuus && typeof d3VarmuusChip === 'function' ? ' ' + d3VarmuusChip(p.d3_varmuus) : '') + '</span>'
       + '<button onclick="_avaaVpD3Arvio(\'' + p.id + '\')" style="background:var(--blue);color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + (_onVp ? 'Päivitä VP-arvio' : 'Arvioi (VP)') + '</button></div>';
-    h += '<div id="_jspD3Vertailu">' + (_d3pt && typeof renderD3VertailuHTML === 'function' ? renderD3VertailuHTML(_d3pt) : '<div style="font-size:11px;color:var(--ink3)">Ei vielä D3-arvioita. VP-arvio aloittaa kalibraation.</div>') + '</div>';
-    h += '</div>';
+    hR += '<div id="_jspD3Vertailu">' + (_d3pt && typeof renderD3VertailuHTML === 'function' ? renderD3VertailuHTML(_d3pt) : '<div style="font-size:11px;color:var(--ink3)">Ei vielä D3-arvioita. VP-arvio aloittaa kalibraation.</div>') + '</div>';
+    hR += '</div>';
   }
-  h += '<div style="display:flex;gap:6px;padding:0 24px 4px;border-bottom:.5px solid var(--border)">';
-  [['ti-bolt','Fyysinen'],['ti-ball-football','Tekninen'],['ti-compass','Peli'],['ti-trending-up','Kehitys']].forEach(function(t,i) {
-    h += '<button id="_jspBtn' + i + '" class="dim-tab ' + (i===0?'on':'') + '" onclick="_jspVaihda(' + i + ')"><i class="ti ' + t[0] + '"></i>' + t[1] + '</button>';
-  });
-  h += '</div>';
-  // KORJAUS: EI flex:1/overflow-y:auto — tab-sisältökontti kasvaa sisällön korkuiseksi; ulompi modaali
-  // (max-height:90vh; overflow-y:auto) hoitaa skrollauksen. flex:1 litisti kontin 36px:iin (PR B lisäsi
-  // sisältöä tab-palkin yläpuolelle) → välilehtien sisältö leikkautui. Sticky-otsikko + footer ennallaan.
-  h += '<div style="padding:18px 24px">';
-  h += '<div id="_jspTab0">' + f1 + '</div>';
-  h += '<div id="_jspTab1" style="display:none">' + f2 + '</div>';
-  h += '<div id="_jspTab2" style="display:none">' + f3 + '</div>';
-  h += '<div id="_jspTab3" style="display:none">' + f4 + '</div>';
-  h += '</div>';
+  // Kaksisarakkeinen runko (header ja nav täysleveinä sen ulkopuolella; mobiilissa pinoutuu §6)
+  h += '<div class="jsp-grid"><div class="jsp-left">' + hL + '</div><div class="jsp-right">' + hR + '</div></div>';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:.5px solid var(--border)">';
   h += '<button onclick="_avaaPerPelaajaPikakatsaus(' + (idx-1) + ',\'' + jesc + '\')" style="padding:8px 14px;background:transparent;color:var(--ink);border:.5px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:\'DM Sans\',sans-serif">← Edellinen</button>';
   h += '<span style="font-size:11px;color:var(--ink3);font-family:var(--font-m)">' + (idx+1) + ' / ' + nP + '</span>';
