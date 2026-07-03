@@ -6,7 +6,8 @@ const {
   ARVIOINTI_TAKSONOMIA, TM_ARVIOINTI_ASTEIKKO, TM_DIMENSIOT,
   tmTaksonomiaDim, tmTaksonomiaByAvain, tmTaksonomiaMitattavat, tmTaksonomiaHavaittavat, tmMitattuMappaus,
   tmTeemat, tmTeemaKohteet, tmKategoriaNimi,
-  ARVIOINTI_KEHYKSET, ARVIOINTI_KEHYS_OLETUS, tmKehys, tmKehysTaksonomia
+  ARVIOINTI_KEHYKSET, ARVIOINTI_KEHYS_OLETUS, tmKehys, tmKehysTaksonomia,
+  ADAR_HAVAITTU_MAP, tmAdarHavaittu
 } = require('../lib/tm_arviointi_taksonomia.js');
 
 describe('ARVIOINTI_TAKSONOMIA — rakenteen eheys', () => {
@@ -116,5 +117,45 @@ describe('Arviointikehykset (kv-avoimuus)', () => {
     expect(tmKehys('palloliitto').avain).toBe('palloliitto');
     expect(tmKehys('ei_ole').avain).toBe('palloliitto');       // fallback oletukseen
     expect(tmKehysTaksonomia('palloliitto')).toBe(ARVIOINTI_TAKSONOMIA);
+  });
+  it('adarMap Palloliitto-kehyksen sisällä (kv-kehykset voivat määritellä oman)', () => {
+    expect(tmKehys('palloliitto').adarMap).toBe(ADAR_HAVAITTU_MAP);
+  });
+});
+
+describe('2c — tmAdarHavaittu (ADAR → havaittu peliäly D4)', () => {
+  it('normalisointi 1→1, 2→3, 3→5 (kokonaisluku)', () => {
+    expect(tmAdarHavaittu({ a: 1, d: 2, ac: 3, r: 2 }).decision_making.arvo).toBe(3);
+    expect(tmAdarHavaittu({ a: 1 }).vision.arvo).toBe(1);
+    expect(tmAdarHavaittu({ ac: 3 }).play_under_pressure.arvo).toBe(5);
+  });
+  it('assess (a) → 2 kohdetta: anticipation + vision', () => {
+    const r = tmAdarHavaittu({ a: 3 });
+    expect(r.anticipation.arvo).toBe(5);
+    expect(r.vision.arvo).toBe(5);
+    expect(Object.keys(r).sort()).toEqual(['anticipation', 'vision']);
+  });
+  it('ac-avain (ei act) → play_under_pressure; d → decision_making; r → positioning', () => {
+    const r = tmAdarHavaittu({ a: 2, d: 2, ac: 2, r: 2 });
+    expect(r.play_under_pressure).toBeTruthy();
+    expect(r.act).toBeUndefined();                 // avain on 'ac', ei 'act'
+    expect(r.decision_making.arvo).toBe(3);
+    expect(r.positioning.arvo).toBe(3);
+    expect(Object.keys(r).length).toBe(5);         // anticipation+vision+decision_making+play_under_pressure+positioning
+  });
+  it('lähde aina "adar" + pvm välittyy', () => {
+    const r = tmAdarHavaittu({ a: 2, pvm: '2026-06-01' });
+    expect(r.vision.lahde).toBe('adar');
+    expect(r.vision.pvm).toBe('2026-06-01');
+  });
+  it('null kun ei ADAR-dataa / tyhjä / vain null-komponentit', () => {
+    expect(tmAdarHavaittu(null)).toBeNull();
+    expect(tmAdarHavaittu(undefined)).toBeNull();
+    expect(tmAdarHavaittu({})).toBeNull();
+    expect(tmAdarHavaittu({ a: null, d: null })).toBeNull();
+  });
+  it('mäppäys osuu vain olemassa oleviin D4 football_sense -avaimiin', () => {
+    const kohteet = new Set(ARVIOINTI_TAKSONOMIA.filter(i => i.dim === 'D4').map(i => i.avain));
+    Object.values(ADAR_HAVAITTU_MAP).flat().forEach(avain => expect(kohteet.has(avain)).toBe(true));
   });
 });

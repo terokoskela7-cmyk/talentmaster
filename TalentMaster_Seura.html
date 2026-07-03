@@ -4329,6 +4329,36 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
         </div>
       </div>
 
+      <!-- Perustiedot (2d): vahvempi jalka + toissijainen pelipaikka (Palloliiton Player Development Card §2) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="kenttaRyhma">
+          <label class="kenttaLabel">Vahvempi jalka</label>
+          <select id="mp_vahvempiJalka" class="kenttaInput">
+            ${(function(){
+              var VJ=[['','—'],['oikea','Oikea'],['vasen','Vasen'],['molemmat','Molemmat']];
+              var nyk=String(p.vahvempi_jalka||'').trim().toLowerCase();
+              return VJ.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===nyk?' selected':'')+'>'+x[1]+'</option>';}).join('');
+            })()}
+          </select>
+        </div>
+        <div class="kenttaRyhma">
+          <label class="kenttaLabel">Toissijainen pelipaikka</label>
+          <select id="mp_positio2" class="kenttaInput">
+            ${(function(){
+              // Sama optiolista kuin ensisijainen pelipaikka (yhtenäinen data).
+              var PP=[['MV','Maalivahti'],['KP','Keskuspuolustaja'],['LP','Laitapuolustaja'],['KK','Keskikenttä'],['HM','Hyökkäävä keskik.'],['LH','Laitahyökkääjä'],['KH','Keskushyökkääjä']];
+              var nyk=String(p.positio_2||'').trim();
+              var match=PP.find(function(x){return x[0].toLowerCase()===nyk.toLowerCase()||x[1].toLowerCase()===nyk.toLowerCase();});
+              var sel=match?match[0]:nyk;
+              var opts='<option value=""'+(sel?'':' selected')+'>— Ei toissijaista —</option>';
+              opts+=PP.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===sel?' selected':'')+'>'+x[1]+'</option>';}).join('');
+              if(nyk && !match) opts+='<option value="'+nyk+'" selected>'+nyk+' (nykyinen)</option>';
+              return opts;
+            })()}
+          </select>
+        </div>
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
         <div class="kenttaRyhma">
           <label class="kenttaLabel">PalloID</label>
@@ -4402,6 +4432,8 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
   const palloId    = document.getElementById('mp_palloId')?.value.trim() || '';
   const sukupuoli  = document.getElementById('mp_sukupuoli')?.value || '';
   const pelipaikka = document.getElementById('mp_pelipaikka')?.value.trim() || '';
+  const vahvempiJalka = document.getElementById('mp_vahvempiJalka')?.value || '';   // 2d: oikea/vasen/molemmat/''
+  const positio2 = document.getElementById('mp_positio2')?.value.trim() || '';       // 2d: toissijainen pelipaikka
   const syntymaaika_str = document.getElementById('mp_syntymaaika')?.value || '';
 
   // Joukkueet — kerää checkboxeista (uusi malli)
@@ -4433,6 +4465,8 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
     huoltajaEmail: hEmail ? hEmail.trim().toLowerCase() : null,   // lowercase: email-login exact-match + CF haeLapsiHuoltajalle
     pelipaikka:  pelipaikka || null,
     positio:     pelipaikka || null,
+    vahvempi_jalka: vahvempiJalka || null,   // 2d perustieto (dominanssi; eri kuin weaker_foot-pelikäyttö)
+    positio_2:      positio2 || null,         // 2d toissijainen pelipaikka
     ...(palloId && { palloID: palloId }),
     // Talenttistatus
     talenttiOhjelma: onTalentti,
