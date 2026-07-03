@@ -19,7 +19,7 @@
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
-<script src="lib/tm_arviointi_taksonomia.js?v=1"></script>   <!-- Vaihe 2: Palloliitto-arviointitaksonomia (mitattu + havaittu 1–5) -->
+<script src="lib/tm_arviointi_taksonomia.js?v=2"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
 
 <style>
@@ -1319,6 +1319,12 @@ body {
 .jsp-right { min-width: 0; }
 .jsp-radar { width: 290px; max-width: 100%; margin: 6px auto 10px; }
 /* Vaihe 2 — Arviointi-välilehti (Palloliitto-taksonomia): mitattu 🟢 + havaittu 🔵 1–5. §7.22 aikuisnäkymä. */
+.jsp-arv-topbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.jsp-arv-lbl { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); }
+.jsp-arv-select { background: var(--bg2); color: var(--ink); border: .5px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 12px; font-family: var(--font-sans); cursor: pointer; max-width: 100%; }
+.jsp-arv-select:focus { outline: none; border-color: rgba(40,176,144,.5); }
+.jsp-arv-kooste { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.jsp-arv-kchip { font-size: 11px; color: var(--ink3); background: var(--ov-1); border: .5px solid var(--border); border-radius: 999px; padding: 2px 9px; }
 .jsp-arv-dim { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); font-weight: 600; margin: 14px 0 4px; border-top: .5px solid var(--border); padding-top: 10px; }
 .jsp-arv-rivi { display: flex; align-items: center; gap: 8px; padding: 5px 0; flex-wrap: wrap; }
 .jsp-arv-nimi { flex: 1 1 150px; min-width: 0; font-size: 12.5px; color: var(--ink2); }
@@ -3692,7 +3698,16 @@ function _jsvEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').re
 // §26 pikakentät (arviointi_havaittu), §5 tokenit, §7.22 aikuisnäkymä (VP-facing → 1–5 + värit sallittu). Taksonomia lib = standardi.
 // Mitattu 1–5: d1osa → laskeD1Osaindeksit, tklaji → tkLajiTaso. Mitattu voittaa havaitun (lukittu testiin). ika/sp johdetaan p:stä.
 function _vpArviointiHTML(p) {
-  if (!p || typeof ARVIOINTI_TAKSONOMIA === 'undefined') return '';
+  if (!p || typeof ARVIOINTI_KEHYKSET === 'undefined') return '';
+  window._vpArvPelaaja = p;   // dropdown-handlerit re-renderöivät tämän
+  // Aktiivinen arviointikehys (kv-avoimuus): oletus palloliitto; seurakonfiguraatio/SA-esikatselu voi vaihtaa.
+  const kehysAvain = window._vpArvKehys || (typeof ARVIOINTI_KEHYS_OLETUS !== 'undefined' ? ARVIOINTI_KEHYS_OLETUS : 'palloliitto');
+  const kehys = (typeof tmKehys === 'function') ? tmKehys(kehysAvain) : { nimi: 'Palloliitto', taksonomia: ARVIOINTI_TAKSONOMIA, asteikko: TM_ARVIOINTI_ASTEIKKO };
+  const taks = kehys.taksonomia, A = kehys.asteikko;
+  const teemat = (typeof tmTeemat === 'function') ? tmTeemat(taks) : [];
+  let teema = window._vpArvTeema;
+  if (!teema || !teemat.some(function(t){ return t.avain === teema; })) { teema = teemat.length ? teemat[0].avain : null; window._vpArvTeema = teema; }
+
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null, sp: 'P' };
   const ika = isp.ika, spPT = isp.sp, spMN = (spPT === 'T') ? 'N' : 'M';
   const oi = (typeof laskeD1Osaindeksit === 'function' && p.hh_viimeisin && ika != null) ? laskeD1Osaindeksit(p.hh_viimeisin, ika, spMN) : null;
@@ -3708,40 +3723,78 @@ function _vpArviointiHTML(p) {
     }
     return null;
   };
+  const _arvo = function(item){ const m = _mitattu(item); if (m != null) return { arvo: m, lahde: 'mitattu' }; const hv = havaittu[item.avain]; return (hv != null) ? { arvo: hv, lahde: 'havaittu' } : { arvo: null, lahde: null }; };
   const V5 = function(v){ return v >= 4 ? 'var(--teal)' : v >= 2.5 ? 'var(--amber)' : 'var(--red)'; };
-  const A = TM_ARVIOINTI_ASTEIKKO;
-  let h = '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px;line-height:1.5">Palloliiton arviointitaksonomia · <span style="color:var(--teal)">🟢 mitattu</span> (TM-testi, lukittu) · <span style="color:var(--blue)">🔵 havaittu</span> (VP/valmentaja klikkaa 1–5). <span style="opacity:.8">§7.22: aikuisten työkalu — pelaajalle kehystetään positiivisesti.</span></div>';
+
+  // Kehys- + pääteema-dropdownit (natiivi <select>, §5). Kehys-dropdown vain jos >1 kehys tai SA (esikatselu).
+  const kehysAvaimet = Object.keys(ARVIOINTI_KEHYKSET);
+  let h = '<div class="jsp-arv-topbar">';
+  if (kehysAvaimet.length > 1 || (typeof superAdmin !== 'undefined' && superAdmin)) {
+    h += '<label class="jsp-arv-lbl">Kehys</label><select class="jsp-arv-select" onchange="_vpArvValitseKehys(this.value)">'
+      + kehysAvaimet.map(function(k){ return '<option value="' + k + '"' + (k === kehysAvain ? ' selected' : '') + '>' + _jsvEsc(ARVIOINTI_KEHYKSET[k].nimi) + '</option>'; }).join('') + '</select>';
+  } else {
+    h += '<span class="jsp-arv-lbl" style="opacity:.8">' + _jsvEsc(kehys.nimi) + '</span>';
+  }
+  h += '<label class="jsp-arv-lbl">Pääteema</label><select class="jsp-arv-select" onchange="_vpArvValitseTeema(this.value)">'
+    + teemat.map(function(t){ return '<option value="' + t.avain + '"' + (t.avain === teema ? ' selected' : '') + '>' + _jsvEsc(t.nimi) + ' (' + t.n + ')</option>'; }).join('') + '</select>';
+  h += '</div>';
+
+  // 5D-kattavuuskooste (yhteenveto koko taksonomiasta) — säilyy teemavalinnasta riippumatta.
+  h += '<div class="jsp-arv-kooste">';
   ['D1','D2','D3','D4','D5'].forEach(function(dim){
-    const items = ARVIOINTI_TAKSONOMIA.filter(function(i){ return i.dim === dim; });
-    let arvioituja = 0;
-    const rows = items.map(function(item){
-      const mit = _mitattu(item);
-      const hav = havaittu[item.avain];
-      const arvo = (mit != null) ? mit : (hav != null ? hav : null);
-      const lahde = (mit != null) ? 'mitattu' : (hav != null ? 'havaittu' : null);
-      if (arvo != null) arvioituja++;
-      const ast = (arvo != null && A[Math.round(arvo)]) ? A[Math.round(arvo)] : null;
-      const badge = (arvo != null)
-        ? '<span title="' + (ast ? ast.koodi + ' · ' + ast.fi : '') + '" style="display:inline-block;min-width:30px;text-align:center;font-weight:600;color:' + V5(arvo) + '">' + (Math.round(arvo*10)/10) + '</span>'
-        : '<span style="min-width:30px;text-align:center;color:var(--ink3)">—</span>';
-      const mark = (lahde === 'mitattu') ? '<span title="Mitattu (TM-testi, lukittu)">🟢</span>'
-                 : (lahde === 'havaittu') ? '<span title="Havaittu (VP/valmentaja)">🔵</span>'
-                 : '<span style="opacity:.35">○</span>';
-      // Havaittu-selektori (2b) — VAIN havaittaville (mitattavat lukittu testiin). "N/A" sallittu (ei pakoteta).
-      let sel = '';
-      if (!item.mitattavissa) {
-        let btns = '';
-        for (let v = 1; v <= 5; v++) {
-          btns += '<button class="jsp-arv-btn' + (hav === v ? ' on' : '') + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + p.id + '\',\'' + item.avain + '\',' + v + ')" title="' + A[v].koodi + ' · ' + A[v].fi + '">' + v + '</button>';
-        }
-        btns += '<button class="jsp-arv-btn jsp-arv-na' + (hav == null ? ' on' : '') + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + p.id + '\',\'' + item.avain + '\',null)" title="En nähnyt / ei arviota (validi)">N/A</button>';
-        sel = '<span class="jsp-arv-sel">' + btns + '</span>';
-      }
-      return '<div class="jsp-arv-rivi"><span class="jsp-arv-nimi">' + mark + ' ' + item.nimi_fi + '</span>' + badge + sel + '</div>';
-    }).join('');
-    h += '<div class="jsp-arv-dim">' + (TM_DIMENSIOT[dim] ? TM_DIMENSIOT[dim].nimi_fi : dim) + ' <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">· ' + arvioituja + '/' + items.length + ' arvioitu</span></div>' + rows;
+    const its = taks.filter(function(i){ return i.dim === dim; });
+    let a = 0; its.forEach(function(it){ if (_arvo(it).arvo != null) a++; });
+    h += '<span class="jsp-arv-kchip" title="' + (TM_DIMENSIOT[dim] ? _jsvEsc(TM_DIMENSIOT[dim].nimi_fi) : dim) + '">' + dim + ' <b style="color:' + (a ? 'var(--ink)' : 'var(--ink3)') + '">' + a + '</b>/' + its.length + '</span>';
   });
+  h += '</div>';
+  h += '<div style="font-size:10.5px;color:var(--ink3);margin:4px 0 8px;line-height:1.5"><span style="color:var(--teal)">🟢 mitattu</span> (TM-testi, lukittu) · <span style="color:var(--blue)">🔵 havaittu</span> (klikkaa 1–5). §7.22: aikuisten työkalu.</div>';
+
+  // Valitun teeman kohteet
+  const items = teema ? taks.filter(function(i){ return (i.dim + '_' + i.kategoria) === teema; }) : [];
+  const teemaObj = teemat.find(function(t){ return t.avain === teema; });
+  let arvioituja = 0;
+  const rows = items.map(function(item){
+    const av = _arvo(item);
+    const arvo = av.arvo, lahde = av.lahde, hav = havaittu[item.avain];
+    if (arvo != null) arvioituja++;
+    const ast = (arvo != null && A[Math.round(arvo)]) ? A[Math.round(arvo)] : null;
+    const badge = (arvo != null)
+      ? '<span title="' + (ast ? ast.koodi + ' · ' + ast.fi : '') + '" style="display:inline-block;min-width:30px;text-align:center;font-weight:600;color:' + V5(arvo) + '">' + (Math.round(arvo*10)/10) + '</span>'
+      : '<span style="min-width:30px;text-align:center;color:var(--ink3)">—</span>';
+    const mark = (lahde === 'mitattu') ? '<span title="Mitattu (TM-testi, lukittu)">🟢</span>'
+               : (lahde === 'havaittu') ? '<span title="Havaittu (VP/valmentaja)">🔵</span>'
+               : '<span style="opacity:.35">○</span>';
+    let sel = '';
+    if (!item.mitattavissa) {
+      let btns = '';
+      for (let v = 1; v <= 5; v++) {
+        btns += '<button class="jsp-arv-btn' + (hav === v ? ' on' : '') + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + p.id + '\',\'' + item.avain + '\',' + v + ')" title="' + A[v].koodi + ' · ' + A[v].fi + '">' + v + '</button>';
+      }
+      btns += '<button class="jsp-arv-btn jsp-arv-na' + (hav == null ? ' on' : '') + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + p.id + '\',\'' + item.avain + '\',null)" title="En nähnyt / ei arviota (validi)">N/A</button>';
+      sel = '<span class="jsp-arv-sel">' + btns + '</span>';
+    }
+    return '<div class="jsp-arv-rivi"><span class="jsp-arv-nimi">' + mark + ' ' + item.nimi_fi + '</span>' + badge + sel + '</div>';
+  }).join('');
+  h += '<div class="jsp-arv-dim">' + (teemaObj ? _jsvEsc(teemaObj.nimi) : '—') + ' <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">· ' + arvioituja + '/' + items.length + ' arvioitu</span></div>' + (rows || '<div style="font-size:12px;color:var(--ink3);padding:8px 0">Ei kohteita.</div>');
   return h;
+}
+// Re-renderöi Arviointi-välilehti paikallaan (dropdown-vaihto tai tallennus). Säilyttää valitun teeman/kehyksen.
+function _vpArvReRender() {
+  const slot = document.getElementById('_jspTab4'); const p = window._vpArvPelaaja;
+  if (slot && p && typeof _vpArviointiHTML === 'function') slot.innerHTML = _vpArviointiHTML(p);
+}
+window._vpArvValitseTeema = function(v) { window._vpArvTeema = v; _vpArvReRender(); };
+window._vpArvValitseKehys = function(v) { window._vpArvKehys = v; window._vpArvTeema = null; _vpArvReRender(); };
+// Aktiivinen kehys seurakonfiguraatiosta (seurat/{sid}/konfiguraatio/arviointi.kehys). Kertaluku, best-effort, oletus palloliitto.
+async function _vpLataaArviointiKehys() {
+  if (window._vpArvKehysLadattu || typeof ARVIOINTI_KEHYKSET === 'undefined') return;
+  window._vpArvKehysLadattu = true;
+  if (_isDemoMode || !_seuraId) return;
+  try {
+    const s = await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('arviointi').get();
+    const k = s.exists ? (s.data() || {}).kehys : null;
+    if (k && ARVIOINTI_KEHYKSET[k] && k !== window._vpArvKehys) { window._vpArvKehys = k; window._vpArvTeema = null; _vpArvReRender(); }
+  } catch (e) { /* best-effort — oletus palloliitto */ }
 }
 // 2b — tallenna havaittu arvio (1–5 tai N/A). §26 pikakenttä arviointi_havaittu + alikokoelma arviointi/{kausi} (audit: arvioija+pvm).
 window._vpTallennaHavaittu = async function(pid, avain, arvo) {
@@ -3758,13 +3811,17 @@ window._vpTallennaHavaittu = async function(pid, avain, arvo) {
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     const kausi = (typeof _vpTkKausi === 'function') ? _vpTkKausi() : String(new Date().getFullYear());
+    // §11-invariantti: doc-ID EI saa sisältää "/" (Firestore tulkitsee polkuerottimeksi → pariton segmentti → virhe).
+    // Kausi on muotoa "2026/27" → sanitoi "2026-27".
+    const kausiId = String(kausi).replace(/[\/\\]/g, '-');
+    const kehysAvain = window._vpArvKehys || (typeof ARVIOINTI_KEHYS_OLETUS !== 'undefined' ? ARVIOINTI_KEHYS_OLETUS : 'palloliitto');
     const ref = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid);
     const DEL = firebase.firestore.FieldValue.delete();
     const havVal = (arvo == null) ? DEL : { arvo: arvo, pvm: pvm, arvioija_uid: _uid || null, lahde: 'silma' };
     const havObj = {}; havObj[avain] = havVal;
-    await ref.collection('arviointi').doc(kausi).set({ havaittu: havObj, paivitetty: pvm }, { merge: true });
+    await ref.collection('arviointi').doc(kausiId).set({ kehys: kehysAvain, havaittu: havObj, paivitetty: pvm }, { merge: true });
     const pikaObj = {}; pikaObj[avain] = (arvo == null) ? DEL : arvo;
-    await ref.set({ arviointi_havaittu: pikaObj, arviointi_pvm: pvm }, { merge: true });
+    await ref.set({ arviointi_havaittu: pikaObj, arviointi_pvm: pvm, arviointi_kehys: kehysAvain }, { merge: true });
     if (typeof toast === 'function') toast('Arvio tallennettu ✓', 'ok');
   } catch (e) { console.warn('[_vpTallennaHavaittu]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
@@ -5531,7 +5588,8 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     }
   }
   // ── OIKEA sarake: per-testi-välilehdet (Fyysinen/Tekninen/Peli/Kehitys) + palkit + Kiihdytysprofiili ──
-  // Vaihe 2 — Arviointi-välilehti (Palloliitto-taksonomia: mitattu + havaittu 1–5). Vain kun lib ladattu.
+  // Vaihe 2 — Arviointi-välilehti (arviointitaksonomia: mitattu + havaittu 1–5). Vain kun lib ladattu.
+  if (typeof _vpLataaArviointiKehys === 'function') _vpLataaArviointiKehys();   // best-effort: aktiivinen kehys seurakonfiguraatiosta
   const f5 = (typeof _vpArviointiHTML === 'function') ? _vpArviointiHTML(p) : '';
   let hR = '';
   hR += '<div style="display:flex;gap:6px;padding-bottom:4px;border-bottom:.5px solid var(--border);flex-wrap:wrap">';

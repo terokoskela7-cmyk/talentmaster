@@ -4,7 +4,9 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   ARVIOINTI_TAKSONOMIA, TM_ARVIOINTI_ASTEIKKO, TM_DIMENSIOT,
-  tmTaksonomiaDim, tmTaksonomiaByAvain, tmTaksonomiaMitattavat, tmTaksonomiaHavaittavat, tmMitattuMappaus
+  tmTaksonomiaDim, tmTaksonomiaByAvain, tmTaksonomiaMitattavat, tmTaksonomiaHavaittavat, tmMitattuMappaus,
+  tmTeemat, tmTeemaKohteet, tmKategoriaNimi,
+  ARVIOINTI_KEHYKSET, ARVIOINTI_KEHYS_OLETUS, tmKehys, tmKehysTaksonomia
 } = require('../lib/tm_arviointi_taksonomia.js');
 
 describe('ARVIOINTI_TAKSONOMIA — rakenteen eheys', () => {
@@ -74,5 +76,45 @@ describe('Helperit', () => {
     expect(tmTaksonomiaByAvain('speed').dim).toBe('D1');
     expect(tmTaksonomiaByAvain('vision').mitattavissa).toBe(false);
     expect(tmTaksonomiaByAvain('ei_ole')).toBeNull();
+  });
+});
+
+describe('Pääteemat (dim + kategoria) — dropdown-ryhmittely', () => {
+  it('teema-avain = dim_kategoria, uniikit, taksonomian järjestyksessä', () => {
+    const teemat = tmTeemat();
+    const avaimet = teemat.map(t => t.avain);
+    expect(new Set(avaimet).size).toBe(avaimet.length);           // uniikit
+    expect(teemat[0].avain).toBe('D1_liike');                     // ensimmäinen taksonomiassa
+    expect(avaimet).toContain('D2_syotto');
+    expect(avaimet).toContain('D4_football_sense');
+    // n summautuu koko taksonomiaan
+    expect(teemat.reduce((s, t) => s + t.n, 0)).toBe(ARVIOINTI_TAKSONOMIA.length);
+  });
+  it('teeman nimi "D1 · Liike"; tmTeemaKohteet palauttaa vain teeman kohteet', () => {
+    const teemat = tmTeemat();
+    const liike = teemat.find(t => t.avain === 'D1_liike');
+    expect(liike.nimi).toBe('D1 · Liike');
+    const kohteet = tmTeemaKohteet('D1_liike');
+    expect(kohteet.length).toBe(liike.n);
+    expect(kohteet.every(i => i.dim === 'D1' && i.kategoria === 'liike')).toBe(true);
+  });
+  it('tmKategoriaNimi tunnetuille + fallback', () => {
+    expect(tmKategoriaNimi('football_sense')).toBe('Peliäly');
+    expect(tmKategoriaNimi('outo')).toBe('Outo');
+  });
+});
+
+describe('Arviointikehykset (kv-avoimuus)', () => {
+  it('oletus = palloliitto; kehys sisältää nimi/asteikko/taksonomia', () => {
+    expect(ARVIOINTI_KEHYS_OLETUS).toBe('palloliitto');
+    const k = ARVIOINTI_KEHYKSET.palloliitto;
+    expect(k.nimi).toBe('Palloliitto');
+    expect(k.asteikko).toBe(TM_ARVIOINTI_ASTEIKKO);
+    expect(k.taksonomia).toBe(ARVIOINTI_TAKSONOMIA);
+  });
+  it('tmKehys: tunnettu → oma, tuntematon → oletus (palloliitto)', () => {
+    expect(tmKehys('palloliitto').avain).toBe('palloliitto');
+    expect(tmKehys('ei_ole').avain).toBe('palloliitto');       // fallback oletukseen
+    expect(tmKehysTaksonomia('palloliitto')).toBe(ARVIOINTI_TAKSONOMIA);
   });
 });
