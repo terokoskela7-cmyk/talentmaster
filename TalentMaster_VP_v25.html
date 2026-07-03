@@ -3920,6 +3920,10 @@ const _JSV_OSAINDEKSIT = [
   { laatu:'maksinopeus', nimi:'Maksiminopeus' },
   { laatu:'voima',       nimi:'Voima' },
   { laatu:'ketteryys',   nimi:'Ketteryys' },
+  // Suunnanmuutos (sm_juoksu, DIAG) eriytetty ketteryydestä (§30). Ryhmätason ka-palkki tässä; PER-TESTI-rivit
+  // EIVÄT tuplaannu koska _JSV_FYYS_TESTIT ei sisällä SM-testejä → rivit näytetään alempana "Suunnanmuutos
+  // (D1→D2 silta)" -osiossa (~3982). ka luetaan oi.suunnanmuutos:ista (iteraatio 3973, oi[G.laatu]).
+  { laatu:'suunnanmuutos', nimi:'Suunnanmuutos' },
   { laatu:'aerobinen',   nimi:'Aerobinen' },
 ];
 const _JSV_HH_TEEMA = { lin10m:'nopeus', lin30m:'nopeus', cmj:'nopeusvoima', mas:'kestävyys', kasirata:'ketteryys', sm_pallo:'pallollinen nopeus' };
@@ -4347,7 +4351,7 @@ const _JSV_TYYLIT = '<style>'
   + '</style>';  // mobiilisäännöt (≤768px) head-lohkossa — §17: yksi @media/tiedosto
 
 // ── Välilehti 4: TAVOITETASO (#67) — data-adaptiivinen, ladatusta _pelaajat-listasta (§26, ei alikokoelmakyselyjä). §28-neutraali. ──
-// Ominaisuudet: Nopeus (lin30m→eerikkilaTaso), Suunnanmuutos (laskeD1Osaindeksit.ketteryys = kasirata+sm_juoksu),
+// Ominaisuudet: Nopeus (lin30m→eerikkilaTaso), Suunnanmuutos (laskeD1Osaindeksit.suunnanmuutos = sm_juoksu, DIAG),
 // Tekniikka (laskeD2Joustava; lähde 'tki' → TKI-asteikko ≥60, muu → taso 3 / 1–5). Kattavuus ≥1 → näytä, muuten himmennetty.
 function _jsvSuuntaArrow(cur, prev) {
   if (cur == null || prev == null) return '';
@@ -4396,24 +4400,25 @@ function _jsvRadarTaso(tyyppi, kentta, laji, raakaKa, ika, spMN, spPT) {
 function _jsvFeatureKat(pelaajat, joukkueNimi) {
   const ts = _jsvJoukkueIkaSp(joukkueNimi), teamIka = ts.ika, teamSp = ts.sp;
   const teamSpMN = (teamSp === 'T') ? 'N' : 'M';
-  const nopeus = [], ketteryys = [], teknTaso = [], teknTki = [];
+  const nopeus = [], suunnanmuutos = [], teknTaso = [], teknTki = [];
   const teknLahteet = {};
   let viimPvm = '';
   pelaajat.forEach(function (p) {
     const ika = _jsvPelaajaIka(p, teamIka), sp = teamSpMN;
     const hv = p.hh_viimeisin || {};
     if (hv.lin30m != null && typeof eerikkilaTaso === 'function' && ika != null) { const t = eerikkilaTaso(hv.lin30m, 'nopeus_30m', ika, sp); if (t) nopeus.push(t); }
-    if (typeof laskeD1Osaindeksit === 'function' && ika != null) { const oi = laskeD1Osaindeksit(hv, ika, sp); if (oi && oi.ketteryys != null) ketteryys.push(oi.ketteryys); }
+    // Suunnanmuutos = sm_juoksu (DIAG), EI ketteryys (kasirata, LL) — mislabeling-korjaus §30.
+    if (typeof laskeD1Osaindeksit === 'function' && ika != null) { const oi = laskeD1Osaindeksit(hv, ika, sp); if (oi && oi.suunnanmuutos != null) suunnanmuutos.push(oi.suunnanmuutos); }
     if (typeof laskeD2Joustava === 'function') { const d2 = laskeD2Joustava(p, ika, sp); if (d2) { teknLahteet[d2.lahde] = (teknLahteet[d2.lahde] || 0) + 1; if (d2.lahde === 'tki' && p.tki_viimeisin != null) teknTki.push(p.tki_viimeisin); else teknTaso.push(d2.taso); } }
     [p.hh_pvm, p.tki_pvm, p.d1_pvm, p.d2_pvm].forEach(function (d) { if (d && String(d) > viimPvm) viimPvm = String(d); });
   });
   const omKat = [
     { nimi: 'Nopeus', ka: tasoJakauma(nopeus, 3).ka },
-    { nimi: 'Suunnanmuutos', ka: tasoJakauma(ketteryys, 3).ka },
+    { nimi: 'Suunnanmuutos', ka: tasoJakauma(suunnanmuutos, 3).ka },
     { nimi: 'Tekniikka', ka: tasoJakauma(teknTaso, 3).ka }
   ].filter(function (o) { return o.ka != null; });
   const painopiste = (typeof painopisteOminaisuus === 'function') ? painopisteOminaisuus(omKat) : null;
-  return { teamIka: teamIka, teamSp: teamSp, teamSpMN: teamSpMN, nopeus: nopeus, ketteryys: ketteryys,
+  return { teamIka: teamIka, teamSp: teamSp, teamSpMN: teamSpMN, nopeus: nopeus, suunnanmuutos: suunnanmuutos,
     teknTaso: teknTaso, teknTki: teknTki, teknLahteet: teknLahteet, viimPvm: viimPvm, omKat: omKat, painopiste: painopiste };
 }
 // Per-testi-radar-blokki (toggle + slot) — Tilanne-välilehden hero (PR B). Dual-taso (§28/§30) + graceful.
@@ -4548,7 +4553,7 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
   if (typeof tasoJakauma !== 'function') return '<div class="jsv-an-tyhja">Tavoitetaso-data ei käytettävissä (kirjasto lataamatta).</div>';
   const F = _jsvFeatureKat(pelaajat, joukkueNimi);
   const teamIka = F.teamIka, teamSp = F.teamSp, teamSpMN = F.teamSpMN;
-  const nopeus = F.nopeus, ketteryys = F.ketteryys, teknTaso = F.teknTaso, teknTki = F.teknTki, teknLahteet = F.teknLahteet, viimPvm = F.viimPvm;
+  const nopeus = F.nopeus, suunnanmuutos = F.suunnanmuutos, teknTaso = F.teknTaso, teknTki = F.teknTki, teknLahteet = F.teknLahteet, viimPvm = F.viimPvm;
 
   // Kehityssuunta — VAIN edellinen-pikakentästä (ei fabrikoida): fyysiset hh_taso_edellinen, TKI tki_edellinen.
   const _ka = function (arr) { const v = arr.filter(function (x) { return x != null && !isNaN(x); }); return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null; };
@@ -4585,7 +4590,7 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
 
   let h = radarHtml + '<div class="jsv-an-huom" style="margin:0 0 10px">Tavoite = ikäluokan keskitaso (taso 3) tai TKI ≥60. §28: pre-PHV matala fyysinen on biologisesti odotettua — kehityskieli, ei puute.</div>';
   h += _omRivi('Nopeus (30 m)', nopeus, '30 m juoksu', fysSuunta);
-  h += _omRivi('Suunnanmuutos', ketteryys, 'ketteryys (kasirata + sm-juoksu)', fysSuunta);
+  h += _omRivi('Suunnanmuutos', suunnanmuutos, 'suunnanmuutos (sm-juoksu)', fysSuunta);
 
   // Tekniikka — lähde-adaptiivinen. tki → TKI-asteikko (≥60), muu → taso 3.
   const _hhSm = (teknLahteet.hh || 0) + (teknLahteet.sm_pallo || 0) + (teknLahteet.sm || 0) + (teknLahteet.tk || 0);
@@ -4614,7 +4619,7 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
   const _pLvl = function (p) {
     const ika = _jsvPelaajaIka(p, teamIka), sp = teamSpMN, hv = p.hh_viimeisin || {}, lvls = [];
     if (hv.lin30m != null && typeof eerikkilaTaso === 'function' && ika != null) { const t = eerikkilaTaso(hv.lin30m, 'nopeus_30m', ika, sp); if (t) lvls.push(t); }
-    if (typeof laskeD1Osaindeksit === 'function' && ika != null) { const oi = laskeD1Osaindeksit(hv, ika, sp); if (oi && oi.ketteryys != null) lvls.push(oi.ketteryys); }
+    if (typeof laskeD1Osaindeksit === 'function' && ika != null) { const oi = laskeD1Osaindeksit(hv, ika, sp); if (oi && oi.suunnanmuutos != null) lvls.push(oi.suunnanmuutos); }
     if (typeof laskeD2Joustava === 'function') { const d2 = laskeD2Joustava(p, ika, sp); if (d2) lvls.push(d2.lahde === 'tki' && p.tki_viimeisin != null ? (p.tki_viimeisin >= 60 ? 3.5 : p.tki_viimeisin / 20) : d2.taso); }
     return lvls.length ? (lvls.reduce(function (a, b) { return a + b; }, 0) / lvls.length) : null;
   };
@@ -4658,7 +4663,7 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
   const paino = F.omKat.length ? (_pp ? _pp.nimi + ' (ka ' + _pp.ka + ', etäisyys tavoitteeseen ' + _pp.gap + ')' : 'Kaikki ominaisuudet tavoitteessa (ka ≥3)') : '—';
   h += '<div style="margin-top:18px;border-top:.5px solid var(--border);padding-top:10px;font-size:11px;color:var(--ink3);line-height:1.8">'
     + '<div><strong style="color:var(--ink2)">RAE-kvartaali:</strong> ' + raeStr + '</div>'
-    + '<div><strong style="color:var(--ink2)">Kattavuus:</strong> Nopeus ' + tasoJakauma(nopeus, 3).n + '/' + n + ' · Suunnanmuutos ' + tasoJakauma(ketteryys, 3).n + '/' + n + ' · Tekniikka ' + (teknTki.length + teknTaso.length) + '/' + n + ' · Valmius ' + kFlei + '/' + n + ' · PHV ' + kPhv + '/' + n + ' · Pelihavainto ' + kAdar + '/' + n + '</div>'
+    + '<div><strong style="color:var(--ink2)">Kattavuus:</strong> Nopeus ' + tasoJakauma(nopeus, 3).n + '/' + n + ' · Suunnanmuutos ' + tasoJakauma(suunnanmuutos, 3).n + '/' + n + ' · Tekniikka ' + (teknTki.length + teknTaso.length) + '/' + n + ' · Valmius ' + kFlei + '/' + n + ' · PHV ' + kPhv + '/' + n + ' · Pelihavainto ' + kAdar + '/' + n + '</div>'
     + '<div><strong style="color:var(--ink2)">Viimeisin mittaus:</strong> ' + viimFi + '</div>'
     + '<div style="color:var(--ink2);margin-top:4px"><strong>Painopiste:</strong> ' + paino + (_pp ? ' <span class="jsv-an-ctx">— huomioi PHV-vaihe ennen fyysistä painotusta (§28)</span>' : '') + '</div>'
     + '</div>';
@@ -7187,7 +7192,7 @@ window._mdtMerkitseReview = async function() {
 };
 window._mdtPalaveritila = function(){ _mdtPalaveri = !_mdtPalaveri; var el = document.getElementById('mdtProfiili'); if (el) el.classList.toggle('mdt-palaveri', _mdtPalaveri); _renderMDTProfiili(); if (el && _mdtPalaveri) el.classList.add('mdt-palaveri'); };
 function _mdtRivi(lbl, val, vari){ return '<div class="mdt-rivi"><span style="color:var(--ink2)">' + lbl + '</span><span style="font-weight:600;color:' + (vari||'var(--ink)') + '">' + val + '</span></div>'; }
-function _mdtOsaNimi(k){ return { kiihdytys:'Kiihdytys', maksinopeus:'Maksiminopeus', voima:'Voima', ketteryys:'Ketteryys', aerobinen:'Aerobinen' }[k] || k; }
+function _mdtOsaNimi(k){ return { kiihdytys:'Kiihdytys', maksinopeus:'Maksiminopeus', voima:'Voima', ketteryys:'Ketteryys', suunnanmuutos:'Suunnanmuutos', aerobinen:'Aerobinen' }[k] || k; }
 function _mdtVari5(v){ return v==null ? 'var(--ink3)' : v>=4 ? 'var(--teal)' : v>=3 ? 'var(--amber)' : 'var(--red)'; }
 
 // Vaihe 2.1 — VP näkee valmentajan tavoitteet (Johtaja-skin, vain luku). Tavoitteiden omistus = valmentaja.
@@ -7236,7 +7241,7 @@ function _mdtJohtajaPaneeli(p, ika, spMN, oi) {
   var tal = '';
   if (p.signaali === 'xfactor') {
     var t5 = []; if (p.d1_taso===5 || p.hh_taso===5) t5.push('D1'); if (p.d2_taso===5) t5.push('D2');
-    if (oi) ['kiihdytys','maksinopeus','voima','ketteryys','aerobinen'].forEach(function(k){ if (oi[k]===5) t5.push(_mdtOsaNimi(k)); });
+    if (oi) ['kiihdytys','maksinopeus','voima','ketteryys','suunnanmuutos','aerobinen'].forEach(function(k){ if (oi[k]===5) t5.push(_mdtOsaNimi(k)); });
     tal += '<div style="font-size:12px;color:var(--teal)">✦ X-Factor' + (t5.length?(' — taso 5: '+t5.join(', ')):'') + '</div>';
   }
   if (hg && hg.taso) {
@@ -7357,7 +7362,7 @@ function _renderMDTProfiili() {
 
   // 3-LÄHDEKAISTA
   var signs = _mdtRivi('D1 Fyysinen', d1!=null?d1.toFixed(1):'—', V5(d1));
-  if (oi) ['kiihdytys','maksinopeus','voima','ketteryys','aerobinen'].forEach(function(k){ if (oi[k]!=null) signs += _mdtRivi('· '+_mdtOsaNimi(k), oi[k], V5(oi[k])); });
+  if (oi) ['kiihdytys','maksinopeus','voima','ketteryys','suunnanmuutos','aerobinen'].forEach(function(k){ if (oi[k]!=null) signs += _mdtRivi('· '+_mdtOsaNimi(k), oi[k], V5(oi[k])); });
   signs += _mdtRivi('D2 Tekninen', d2!=null?(d2+(d2lahde&&d2lahde!=='tki'?'¹':'')):'—', V5(d2));
   signs += _mdtRivi('Kehon valmius', p.flei_viimeisin!=null?p.flei_viimeisin:'—', (p.flei_viimeisin>=65?'var(--teal)':p.flei_viimeisin>=50?'var(--amber)':'var(--ink)'));
   signs += _mdtRivi('PHV', p.phv_tila||'—', 'var(--ink2)');
