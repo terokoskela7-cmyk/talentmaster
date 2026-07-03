@@ -31,6 +31,8 @@ const {
   tasoJakauma,
   tkiTavoiteJakauma,
   tavoiteRadarAkselit,
+  radarPatteristotSaatavilla,
+  _fmtTestiArvo,
   painopisteOminaisuus,
   kattavuusVajeet,
   valitseKohortti,
@@ -1273,6 +1275,64 @@ describe('tavoiteRadarAkselit (#73 per-testi-radar — akselivalinta + ka + coll
     expect(tavoiteRadarAkselit([])).toBeNull();
     expect(tavoiteRadarAkselit([{ etunimi: 'A' }])).toBeNull();
     expect(tavoiteRadarAkselit(null)).toBeNull();
+  });
+  // Osa A — tyyppivalinta erotettu datasta (kohortti-vakautus).
+  it('tavoiteRadarAkselit(team, "tk"): pakottaa TK vaikka HH rikkaampi (kohortti-vakaus)', () => {
+    const team = [{ hh_viimeisin: { lin5m: 1.1, lin10m: 2.0, lin30m: 5.0, cmj: 30, mas: 15 }, tk_lajit_viimeisin: TK4 }];
+    expect(tavoiteRadarAkselit(team, 'tk').tyyppi).toBe('tk');   // auto valitsisi 'hh' (5>4)
+    expect(tavoiteRadarAkselit(team, 'tk').akselit.length).toBe(4);
+  });
+  it('tavoiteRadarAkselit(team, "hh"): pakottaa HH vaikka TK rikkaampi', () => {
+    const team = [{ hh_viimeisin: { lin10m: 2.0, lin30m: 5.0 }, tk_lajit_viimeisin: TK4 }];
+    expect(tavoiteRadarAkselit(team, 'hh').tyyppi).toBe('hh');   // auto valitsisi 'tk' (4>2)
+    expect(tavoiteRadarAkselit(team, 'hh').akselit.length).toBe(2);   // pakotus palauttaa myös <3 (VP-gate erikseen)
+  });
+  it('tavoiteRadarAkselit(team, "tk"): kohortilla ei TK-dataa → null (siisti tyhjä)', () => {
+    expect(tavoiteRadarAkselit([{ hh_viimeisin: { lin10m: 2.0, lin30m: 5.0, cmj: 30 } }], 'tk')).toBeNull();
+  });
+});
+
+describe('radarPatteristotSaatavilla (Osa A — saatavuus koko joukkueesta, ≥3 akselia)', () => {
+  const TK4b = { ponnauttelu_s: 20, syotto_s: 15, pujottelu_s: 18, kuljetus_laukaus_s: 12 };
+  it('HH5 / TK0 → {hh:true, tk:false}', () => {
+    expect(radarPatteristotSaatavilla([{ hh_viimeisin: { lin5m: 1.1, lin10m: 2, lin30m: 5, cmj: 30, mas: 15 } }]))
+      .toEqual({ hh: true, tk: false });
+  });
+  it('HH3 / TK4 → {hh:true, tk:true} (molemmat → toggle)', () => {
+    expect(radarPatteristotSaatavilla([{ hh_viimeisin: { lin10m: 2, lin30m: 5, kasirata: 7.8 }, tk_lajit_viimeisin: TK4b }]))
+      .toEqual({ hh: true, tk: true });
+  });
+  it('HH2 / TK4 → {hh:false, tk:true}', () => {
+    expect(radarPatteristotSaatavilla([{ hh_viimeisin: { lin10m: 2, lin30m: 5 }, tk_lajit_viimeisin: TK4b }]))
+      .toEqual({ hh: false, tk: true });
+  });
+  it('tyhjä → {hh:false, tk:false}', () => {
+    expect(radarPatteristotSaatavilla([])).toEqual({ hh: false, tk: false });
+    expect(radarPatteristotSaatavilla(null)).toEqual({ hh: false, tk: false });
+  });
+});
+
+describe('_fmtTestiArvo (Osa F — näyttöpyöristys, ei muuta tallennettua dataa)', () => {
+  it('sekunnit → 2 desimaalia (5.227 → "5.23")', () => {
+    expect(_fmtTestiArvo(5.227, 's')).toBe('5.23');
+    expect(_fmtTestiArvo(7.825, 's')).toBe('7.83');
+    expect(_fmtTestiArvo(5.2, 's')).toBe('5.2');     // perännolla pois
+    expect(_fmtTestiArvo(5, 's')).toBe('5');
+  });
+  it('cm → 0–1 des (30 → "30", 32.4 → "32.4")', () => {
+    expect(_fmtTestiArvo(30, 'cm')).toBe('30');
+    expect(_fmtTestiArvo(32.4, 'cm')).toBe('32.4');
+  });
+  it('km/h → 1 des (18.4 → "18.4")', () => {
+    expect(_fmtTestiArvo(18.4, 'km/h')).toBe('18.4');
+    expect(_fmtTestiArvo(18, 'km/h')).toBe('18');
+  });
+  it('m → 0 des; tuntematon yks → 2 des; null/NaN → ""', () => {
+    expect(_fmtTestiArvo(23.6, 'm')).toBe('24');
+    expect(_fmtTestiArvo(3.219, '/5')).toBe('3.22');
+    expect(_fmtTestiArvo(null, 's')).toBe('');
+    expect(_fmtTestiArvo('', 's')).toBe('');
+    expect(_fmtTestiArvo('abc', 's')).toBe('');
   });
 });
 
