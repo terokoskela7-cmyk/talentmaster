@@ -3693,6 +3693,9 @@ function _vpFokusNimi(p) {
 // V1 IDP-elinkaari: idp_tila-pikakenttää EI vielä ole (V3) → JOHDETAAN ladatusta datasta: idpAktiivinen-lippu →
 // 'aktiivinen'; _idpJono:ssa (odottava ehdotus, pelaajaId) → 'ehdotettu'; muuten 'puuttuu'. §26: ei uutta kyselyä.
 function _vpIdpTila(p, jonoIds) { if (!p) return 'puuttuu'; if (p.idpAktiivinen) return 'aktiivinen'; if (jonoIds && jonoIds.has(p.id)) return 'ehdotettu'; return 'puuttuu'; }
+// 2d — pelipaikkalyhenteen näyttönimi (sama lista kuin Seura.html muokkausmodaali). Tuntematon vapaateksti → sellaisenaan.
+const _VP_POS_NIMI = { MV:'Maalivahti', KP:'Keskuspuolustaja', LP:'Laitapuolustaja', KK:'Keskikenttä', HM:'Hyökkäävä keskik.', LH:'Laitahyökkääjä', KH:'Keskushyökkääjä' };
+function _vpPosNimi(v) { if (!v) return ''; const k = String(v).trim().toUpperCase(); return _VP_POS_NIMI[k] || String(v).trim(); }
 function _jsvEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ─── VAIHE 2 — Ominaisuusarviointi (Palloliitto-taksonomia): mitattu 🟢 (TM-testi) + havaittu 🔵 (VP/valmentaja 1–5) ───
@@ -5582,6 +5585,15 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   if (hgBadge) hL += '<div style="margin-top:5px">' + hgBadge + '</div>';
   { var _rcM = _vpRaeChip(p, 'iso'); if (_rcM) hL += '<div style="margin-top:5px;display:flex;gap:4px;align-items:center">' + _rcM + '</div>'; }
   hL += '<div style="font-size:10px;color:var(--ink3);margin-top:8px">5D-profiili (1–5)' + (_d2Lahde(p) && _d2Lahde(p) !== 'tki' ? ' · ¹ ' + _d2LahdeLbl(_d2Lahde(p)) : '') + '</div>';
+  // 2d perustiedot (read-only): pelipaikka + toissijainen + vahvempi jalka — vain kun asetettu ("näytä mitä on").
+  { const _pp = _vpPosNimi(p.pelipaikka || p.positio), _p2 = _vpPosNimi(p.positio_2),
+        _vj = p.vahvempi_jalka ? String(p.vahvempi_jalka).toLowerCase() : '';
+    const _pt = [];
+    if (_pp) _pt.push('Pelipaikka: ' + _jsvEsc(_pp) + (_p2 ? ' · 2. ' + _jsvEsc(_p2) : ''));
+    else if (_p2) _pt.push('2. pelipaikka: ' + _jsvEsc(_p2));
+    if (_vj) _pt.push('Vahvempi jalka: ' + _jsvEsc(_vj));
+    if (_pt.length) hL += '<div style="font-size:10.5px;color:var(--ink3);margin-top:5px">' + _pt.join(' · ') + '</div>';
+  }
   // D3-varmuusmerkki (sama kuin Master): estää pelaajan itsearvion lukemisen kovana talenttiarviona (§7.22-henki aikuispuolella)
   if (p.d3_taso != null && p.d3_varmuus && typeof d3VarmuusChip === 'function') hL += '<div style="margin-top:6px;font-size:10px;color:var(--ink3)">D3 ' + d3VarmuusChip(p.d3_varmuus) + '</div>';
   // Iso 5D-radar (290px) — akselinimet hengittävät verrattuna aiempaan 220px:iin
