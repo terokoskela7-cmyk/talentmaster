@@ -269,6 +269,7 @@ describe('laskeD1Osaindeksit (D1 osaindeksit, additiivinen §29)', () => {
     expect(r.kiihdytys).toBeNull();   // ei lin5m/lin10m
     expect(r.voima).toBeNull();       // ei cmj/sj
     expect(r.ketteryys).toBeNull();   // ei kasirata
+    expect(r.suunnanmuutos).toBeNull(); // ei sm_juoksu
     expect(r.aerobinen).toBeNull();   // ei mas
     expect(r.maksinopeus).toBe(eerikkilaTaso(5.0, 'nopeus_30m', 10, 'M') || null);
     expect(r.maksinopeus).toBeGreaterThan(0);
@@ -283,6 +284,31 @@ describe('laskeD1Osaindeksit (D1 osaindeksit, additiivinen §29)', () => {
     const odotus = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10 : null;
     const r = laskeD1Osaindeksit({ lin5m: 1.1, lin10m: 2.0 }, 12, 'M');
     expect(r.kiihdytys).toBe(odotus);
+  });
+  // §30 — Ketteryys (kasirata, LL) ja Suunnanmuutos (sm_juoksu, DIAG) eriytetty (ei enää keskiarvo).
+  it('ketteryys = pelkkä kasirata-taso (ei enää ka(kasirata, sm_juoksu))', () => {
+    const r = laskeD1Osaindeksit({ kasirata: 8.0 }, 12, 'M');
+    expect(r.ketteryys).toBe(eerikkilaTaso(8.0, 'kasirata', 12, 'M') || null);
+    expect(r.ketteryys).toBeGreaterThan(0);
+    expect(r.suunnanmuutos).toBeNull();   // ei sm_juoksu
+  });
+  it('suunnanmuutos = pelkkä sm_juoksu-taso (DIAG), erillinen ketteryydestä', () => {
+    const r = laskeD1Osaindeksit({ sm_juoksu: 7.0 }, 12, 'M');
+    expect(r.suunnanmuutos).toBe(eerikkilaTaso(7.0, 'sm_juoksu', 12, 'M') || null);
+    expect(r.suunnanmuutos).toBeGreaterThan(0);
+    expect(r.ketteryys).toBeNull();   // ei kasirata
+  });
+  it('kasirata + sm_juoksu → EI keskiarvoa: ketteryys=kasirata, suunnanmuutos=sm_juoksu erikseen', () => {
+    const kt = eerikkilaTaso(8.0, 'kasirata', 12, 'M') || null;
+    const st = eerikkilaTaso(7.0, 'sm_juoksu', 12, 'M') || null;
+    const r = laskeD1Osaindeksit({ kasirata: 8.0, sm_juoksu: 7.0 }, 12, 'M');
+    expect(r.ketteryys).toBe(kt);
+    expect(r.suunnanmuutos).toBe(st);
+  });
+  it('Sibbo-tapaus (kasirata, ei sm_juoksu) → ketteryys=arvo, suunnanmuutos=null (rehellistä)', () => {
+    const r = laskeD1Osaindeksit({ kasirata: 7.5, lin30m: 5.4 }, 12, 'N');
+    expect(r.ketteryys).toBe(eerikkilaTaso(7.5, 'kasirata', 12, 'N') || null);
+    expect(r.suunnanmuutos).toBeNull();
   });
 });
 
