@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=38"></script>
+<script src="lib/tm_eerikkila_normit.js?v=39"></script>
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
@@ -3906,7 +3906,7 @@ const _JSV_FYYS_TESTIT = [
   { label:'10m',      avain:'lin10m',   src:'hv', eerikkila:'nopeus_10m', yks:'s',    pienempi:true,  kmh:false, laatu:'kiihdytys' },
   { label:'30m',      avain:'lin30m',   src:'hv', eerikkila:'nopeus_30m', yks:'s',    pienempi:true,  kmh:false, laatu:'maksinopeus' },
   { label:'CMJ',      avain:'cmj',      src:'hv', eerikkila:'hyppy_cj',   yks:'cm',   pienempi:false, kmh:false, laatu:'voima' },
-  { label:'Käsirata', avain:'kasirata', src:'hv', eerikkila:'kasirata',   yks:'s',    pienempi:true,  kmh:false, laatu:'ketteryys' },
+  { label:'Ketteryys', avain:'kasirata', src:'hv', eerikkila:'kasirata',   yks:'s',    pienempi:true,  kmh:false, laatu:'ketteryys' },
   { label:'MAS',      avain:'mas',      src:'hv', eerikkila:'mas',        yks:'km/h', pienempi:false, kmh:true,  laatu:'aerobinen' },
 ];
 // SM-testit (suunnanmuutos) — siirretty pois fyysisestä; SM-pallo on tekninen. Syöttävät TSI-jakaumaa (A4).
@@ -4417,15 +4417,50 @@ function _jsvFeatureKat(pelaajat, joukkueNimi) {
     teknTaso: teknTaso, teknTki: teknTki, teknLahteet: teknLahteet, viimPvm: viimPvm, omKat: omKat, painopiste: painopiste };
 }
 // Per-testi-radar-blokki (toggle + slot) — Tilanne-välilehden hero (PR B). Dual-taso (§28/§30) + graceful.
+// Radar-hero (Osa A): tyyppivalinta EROTETTU datasta → vakaa kohortista riippumatta.
+// Saatavuus (`window._jsvRadarSaatavilla`) lasketaan KOKO joukkueesta (avaaJoukkueSyvanakyma); tämä blokki
+// piirtää valitun patteriston (`window._jsvRadarBattery`) akselit KOHORTISTA. Fyysinen|Tekninen-toggle kun molemmat.
 function _jsvRadarBlokki(pelaajat, teamIka, teamSp, teamSpMN) {
-  let radarHtml = '';
-  const _radarAks = (typeof tavoiteRadarAkselit === 'function') ? tavoiteRadarAkselit(pelaajat) : null;
-  if (_radarAks && _radarAks.akselit.length >= 3) {
-    const dims = _radarAks.akselit.map(function (a) {
-      const taso = _jsvRadarTaso(_radarAks.tyyppi, a.kentta, a.laji, a.raakaKa, teamIka, teamSpMN, teamSp);
-      return { key: a.key, label: '', arvo: (taso != null && taso > 0) ? Math.round(taso * 10) / 10 : null };
-    });
-    // Dual-taso: kehitysvaihe-taso per FYYSINEN akseli (lin10m/lin30m/cmj/mas; MAS ÷3.6). SM → ikäluokka (osittaisuus).
+  // Tallenna renderöintikonteksti → battery-toggle re-renderöi koko wrapin (ika/keh-toggle vaihtuu hh↔tk mukana).
+  window._jsvRadarCtx = { pelaajat: pelaajat, teamIka: teamIka, teamSp: teamSp, teamSpMN: teamSpMN };
+  const sa = window._jsvRadarSaatavilla || { hh: false, tk: false };
+  if (!sa.hh && !sa.tk) return '';   // kumpikaan patteristo ei yllä ≥3:een KOKO joukkueella → caller näyttää fallbackin
+  // Varmista voimassa oleva battery (esim. jos vain toinen saatavilla)
+  if (window._jsvRadarBattery !== 'hh' && window._jsvRadarBattery !== 'tk') window._jsvRadarBattery = sa.tk ? 'tk' : 'hh';
+  if (window._jsvRadarBattery === 'tk' && !sa.tk) window._jsvRadarBattery = 'hh';
+  if (window._jsvRadarBattery === 'hh' && !sa.hh) window._jsvRadarBattery = 'tk';
+  return '<div id="_jsvRadarWrap">' + _jsvRadarWrapSisalto() + '</div>';
+}
+
+// Radar-wrapin sisältö: battery-toggle (kun molemmat) + valitun patteriston radar KOHORTISTA + ika/keh-toggle vain hh:lle.
+function _jsvRadarWrapSisalto() {
+  const ctx = window._jsvRadarCtx; if (!ctx) return '';
+  const pelaajat = ctx.pelaajat, teamIka = ctx.teamIka, teamSp = ctx.teamSp, teamSpMN = ctx.teamSpMN;
+  const sa = window._jsvRadarSaatavilla || { hh: false, tk: false };
+  const battery = window._jsvRadarBattery;
+  let h = '<div class="jsv-an-otsikko" style="margin-top:2px">Per-testi-profiili (joukkueen ka.)</div>';
+  // Fyysinen | Tekninen -toggle VAIN kun molemmat patteristot saatavilla (KOKO joukkueella). §5 teal-aktiivi/harmaa.
+  if (sa.hh && sa.tk) {
+    const bBtn = function (b, lbl) {
+      const on = (battery === b);
+      return '<button class="jsv-bat-toggle' + (on ? ' on' : '') + '" onclick="_jsvRadarBatteryNayta(\'' + b + '\')" style="padding:4px 11px;font-size:11px;border:.5px solid '
+        + (on ? 'rgba(40,176,144,.5)' : 'var(--border)') + ';background:' + (on ? 'rgba(40,176,144,.18)' : 'transparent') + ';color:' + (on ? '#28B090' : 'var(--ink2)') + ';border-radius:5px;cursor:pointer;font-family:var(--font-sans)">' + lbl + '</button>';
+    };
+    h += '<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap">'
+      + bBtn('hh', 'Fyysinen') + bBtn('tk', 'Tekninen') + '</div>';
+  }
+  // Radar valitulle patteristolle KOHORTISTA (arvot kohortista, tyyppi vakaa). <3 akselia → siisti tyhjä (EI tyyppivaihtoa).
+  const _radarAks = (typeof tavoiteRadarAkselit === 'function') ? tavoiteRadarAkselit(pelaajat, battery) : null;
+  if (!_radarAks || _radarAks.akselit.length < 3) {
+    return h + '<div class="jsv-an-tyhja">Ei ' + (battery === 'tk' ? 'teknistä' : 'fyysistä') + ' radaria tässä kohortissa (näkyy kun ≥3 akselia mitattu).</div>';
+  }
+  const dims = _radarAks.akselit.map(function (a) {
+    const taso = _jsvRadarTaso(_radarAks.tyyppi, a.kentta, a.laji, a.raakaKa, teamIka, teamSpMN, teamSp);
+    return { key: a.key, label: '', arvo: (taso != null && taso > 0) ? Math.round(taso * 10) / 10 : null };
+  });
+  // Dual-taso (ika/keh) VAIN fyysiselle patteristolle: kehitysvaihe-taso per FYYSINEN akseli (lin10m/lin30m/cmj/mas; MAS ÷3.6).
+  let _kehSaatavilla = false, kehDims = dims;
+  if (battery === 'hh') {
     const _KV = window.TM_KEHITYSVAIHE;
     const _kehAxisTaso = function (kentta) {
       if (!_KV || typeof _KV.kehitysvaiheTaso !== 'function') return null;
@@ -4441,32 +4476,41 @@ function _jsvRadarBlokki(pelaajat, teamIka, teamSp, teamSpMN) {
       });
       return tasot.length ? Math.round((tasot.reduce(function (a, b) { return a + b; }, 0) / tasot.length) * 10) / 10 : null;
     };
-    let _kehSaatavilla = false;
-    const kehDims = _radarAks.akselit.map(function (a, i) {
+    kehDims = _radarAks.akselit.map(function (a, i) {
       const kt = _kehAxisTaso(a.kentta);
       if (kt != null) _kehSaatavilla = true;
       return { key: a.key, label: '', arvo: (kt != null) ? kt : dims[i].arvo, _keh: (kt != null) };
     });
-    window._jsvRadarData = { ika: dims, keh: kehDims, kehSaatavilla: _kehSaatavilla };
-    if (!window._jsvRadarTila || !_kehSaatavilla) window._jsvRadarTila = 'ika';
+  }
+  window._jsvRadarData = { ika: dims, keh: kehDims, kehSaatavilla: _kehSaatavilla };
+  if (!window._jsvRadarTila || !_kehSaatavilla) window._jsvRadarTila = 'ika';
+  // Ika/keh-toggle VAIN kun battery==='hh' (kehitysvaihe koskee fyysisiä akseleita).
+  let toggle = '';
+  if (battery === 'hh') {
     const _tglBtn = function (tila, lbl) {
       const on = (window._jsvRadarTila === tila);
       return '<button class="jsv-tav-toggle' + (on ? ' on' : '') + '" onclick="_jsvRadarNayta(\'' + tila + '\')" style="padding:4px 11px;font-size:11px;border:.5px solid '
         + (on ? 'rgba(40,176,144,.5)' : 'var(--border)') + ';background:' + (on ? 'rgba(40,176,144,.18)' : 'transparent') + ';color:' + (on ? '#28B090' : 'var(--ink2)') + ';border-radius:5px;cursor:pointer;font-family:var(--font-sans)">' + lbl + '</button>';
     };
-    const toggle = _kehSaatavilla
+    toggle = _kehSaatavilla
       ? ('<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap">'
           + _tglBtn('ika', 'Ikäluokka') + _tglBtn('keh', 'Kehitysvaihe') + _tglBtn('molemmat', 'Molemmat')
           + '<span style="font-size:10px;color:var(--ink3);margin-left:auto" title="Kehitysvaihe vain nopeus/CMJ/MAS-akseleille; SM = ikäluokka">kehitysvaihe: nopeus/CMJ/MAS</span></div>')
       : ('<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">'
           + '<button class="jsv-tav-toggle on" style="padding:4px 11px;font-size:11px;border:.5px solid rgba(40,176,144,.5);background:rgba(40,176,144,.18);color:#28B090;border-radius:5px;cursor:default;font-family:var(--font-sans)">Ikäluokka</button>'
           + '<button class="jsv-tav-toggle" disabled title="Edellyttää PHV-mittausta" style="padding:4px 11px;font-size:11px;border:.5px solid var(--border);background:transparent;color:var(--ink3);border-radius:5px;cursor:not-allowed;font-family:var(--font-sans)">🔒 Kehitysvaihe</button></div>');
-    radarHtml = '<div class="jsv-an-otsikko" style="margin-top:2px">Per-testi-profiili (joukkueen ka.)</div>'
-      + toggle
-      + '<div id="_jsvRadarSlot">' + _jsvRadarSisalto(window._jsvRadarTila) + '</div>';
   }
-  return radarHtml;
+  return h + toggle + '<div id="_jsvRadarSlot">' + _jsvRadarSisalto(window._jsvRadarTila) + '</div>';
 }
+
+// Patteriston vaihto (Fyysinen↔Tekninen) → re-renderöi koko wrap (ika/keh-toggle vaihtuu mukana). Arvot pysyvät kohortista.
+window._jsvRadarBatteryNayta = function (b) {
+  if (b !== 'hh' && b !== 'tk') return;
+  window._jsvRadarBattery = b;
+  window._jsvRadarTila = 'ika';   // patteriston vaihto → dual-taso takaisin ikäluokkaan
+  const wrap = document.getElementById('_jsvRadarWrap');
+  if (wrap) wrap.innerHTML = _jsvRadarWrapSisalto();
+};
 
 // TILANNE-välilehti (PR B) — yhdistää Yhteenveto + Tavoitetaso: radar-hero + painopiste + collapse(jakaumat) + datapolku.
 function _jsvTilanneHTML(pelaajat, joukkueNimi, n) {
@@ -4673,6 +4717,13 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   // Tallenna joukkueen pelaajalista (sukunimen mukaan) Kerros 2:n navigointia varten (idx-viittaus)
   pelaajat.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
   window._jsvPelaajat = pelaajat;
+  // Osa A — radar-patteristojen saatavuus KOKO joukkueesta (EI kohortista) → radar-tyyppi vakaa kohorttivalinnasta riippumatta.
+  // Oletuspatteristo 'tk' jos saatavilla (SPL-primääri, D2 kriittisin pre-PHV), muuten 'hh'. Nollaus vain joukkueen vaihtuessa.
+  if (window._jsvJoukkue !== joukkueNimi) {
+    window._jsvRadarSaatavilla = (typeof radarPatteristotSaatavilla === 'function') ? radarPatteristotSaatavilla(pelaajat) : { hh: false, tk: false };
+    window._jsvRadarBattery = window._jsvRadarSaatavilla.tk ? 'tk' : 'hh';
+    window._jsvRadarTila = 'ika';
+  }
   window._jsvJoukkue = joukkueNimi;
 
   // ── Kohortti-valitsin (#76): aggregaatit (hero/radar/KPI/jakauma/nostot) lasketaan VALITULLE kohortille.
@@ -5099,7 +5150,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
       + '<span class="hh-label"' + (korostus ? ' style="color:var(--ink);font-weight:600"' : '') + '>' + lbl + ib + '</span>'
       + '<div class="hh-taso-badge" style="background:' + vari + '">' + (taso != null ? taso : '–') + '</div></div>'
       + '<div class="hh-testirivi-body"><div class="hh-palkki-wrap"><div class="hh-palkki-taytto" style="width:' + w + '%"></div></div>'
-      + '<span class="hh-arvo">' + (arvo != null ? arvo + ' ' + yks : '—') + '</span></div></div>';
+      + '<span class="hh-arvo">' + (arvo != null ? (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(arvo, yks) : arvo) + ' ' + yks : '—') + '</span></div></div>';
   };
   const tasoOf = function(key, arvo) { return (arvo != null && ika && sp) ? hhLaskeTaso(key, arvo, ika, sp) : null; };
   // 5m/10m eivät ole HH_NORMIT_PIKA:ssa → lib:n eerikkilaTaso (nopeus_5m/10m). sp 'P'/'T' → 'M'/'N'.
@@ -5159,6 +5210,8 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     + friv('Räjähtävyys (CMJ)', tasoOf('cmj', hv.cmj), hv.cmj, 'cm', false, 'cmj')
     + friv('Kestävyys (MAS)', tasoOf('mas', hv.mas), hv.mas, 'km/h', false, 'mas')
     + _masSyva()
+    // Ketteryys (kasirata, D1-fyysinen §30 FYS) — taso eerikkilaTaso-libistä (HH_NORMIT_PIKA ei sisällä kasirataa)
+    + (hv.kasirata != null ? friv('Ketteryys', tasoEk('kasirata', hv.kasirata), hv.kasirata, 's', false, 'kasirata') : '')
     + friv('H-H kokonais', d1, (d1 != null ? d1 : null), '/5', true, 'hh_taso');
   // Kiihdytysprofiili — valmennusvipu. Ensisijaisesti 5m-FVP; fallback 10m+30m (lentävä väliaika) datalla joka useimmilla on.
   const fvp = (typeof laskeFVP === 'function' && hv.lin5m != null && hv.lin30m != null) ? laskeFVP(hv.lin5m, hv.lin30m) : null;
