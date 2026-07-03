@@ -1243,3 +1243,34 @@ describe('GDPR RTBF delete-gate (#96)', () => {
     await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')));
   });
 });
+
+describe('IDP-kausitavoite (idp_kausi) — Vaihe 3a', () => {
+  const KAUSITAVOITE = {
+    tavoitteet: [{ fokus: { alue: 'short_passing', dim: 'D2', nimi: 'Lyhyt syöttö' }, status: 'aktiivinen',
+      lahto: { arvo: 20, pvm: '2026-04-05' }, tavoitearvo: 18, luotu: '2026-07-04T00:00:00.000Z', arviot: [] }],
+    paivitetty: '2026-07-04T00:00:00.000Z'
+  };
+  const idpRef = (db, seura) => doc(db, 'seurat', seura, 'pelaajat', PELAAJA_UID, 'idp_kausi', '2026');
+
+  it('Johto (VP) kirjoittaa oman seuran pelaajan kausitavoitteen', async () => {
+    await assertSucceeds(setDoc(idpRef(vpContext(SEURA_A).firestore(), SEURA_A), KAUSITAVOITE));
+  });
+  it('Oman seuran valmentaja kirjoittaa kausitavoitteen (§15-pattern)', async () => {
+    await assertSucceeds(setDoc(idpRef(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), SEURA_A), KAUSITAVOITE));
+  });
+  it('Toisen seuran valmentaja EI kirjoita (tenant-eristys)', async () => {
+    await assertFails(setDoc(idpRef(randomContext().firestore(), SEURA_A), KAUSITAVOITE));
+  });
+  it('Pelaaja (PIN/anon) LUKEE oman kausitavoitteen (3c-peili)', async () => {
+    await assertSucceeds(getDoc(idpRef(anonContext().firestore(), SEURA_A)));
+  });
+  it('Pelaaja (PIN/anon) EI kirjoita kausitavoitetta', async () => {
+    await assertFails(setDoc(idpRef(anonContext().firestore(), SEURA_A), KAUSITAVOITE));
+  });
+  it('Huoltaja EI lue kausitavoitetta (VP-työkalu; §7.22-peili erikseen)', async () => {
+    await assertFails(getDoc(idpRef(huoltajaContext().firestore(), SEURA_A)));
+  });
+  it('Pelaaja/valmentaja EI POISTA (vain SA)', async () => {
+    await assertFails(deleteDoc(idpRef(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), SEURA_A)));
+  });
+});

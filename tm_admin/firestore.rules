@@ -1,9 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.9
+// TalentMaster™ — firestore.rules v3.10
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.9 → v3.10 (Vaihe 3a — IDP-kausitavoite):
+//   + seurat/{sid}/pelaajat/{pid}/idp_kausi/{vuosi} — kausitavoite (IDP-ydin,
+//     IDP_YDIN_SPEC §2). Kirjoitus johto + oman seuran valmentaja (§15-pattern).
+//     LUKU myös pelaajalle (PIN/anon) — kausitavoite jaetaan 3c-peilissä
+//     (§7.22-turvallinen render); ERI kuin raaka arviointi (jota anon ei lue).
+//     Pikakentät idp_tila/idp_edistyma/idp_fokus pelaajadokumenttiin (jo sallittu).
+//     doc-ID = vuosi ilman "/" (§11).
 //
 // Muutokset v3.8 → v3.9 (Vaihe 2b — ominaisuusarviointi, Palloliitto-taksonomia):
 //   + seurat/{sid}/pelaajat/{pid}/arviointi/{kausiId} — havaittu 1–5 -arvio
@@ -493,6 +501,25 @@ service cloud.firestore {
           allow update: if onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow delete: if onSuperAdmin();
+        }
+
+        // ── IDP-kausitavoite (Vaihe 3a, IDP-ydin) ────────────────────────
+        // seurat/{sid}/pelaajat/{pid}/idp_kausi/{vuosi} → { tavoitteet: [tavoite-objekti] } (IDP_YDIN_SPEC §2).
+        // Kirjoitus: johto + oman seuran valmentaja (§15-pattern, kuten arviointi). LUKU myös pelaajalle (PIN/anon):
+        // kausitavoite JAETAAN pelaajalle 3c-peilissä (§7.22-turvallinen render) — eri kuin raaka arviointi (ei anon).
+        // Pikakentät (idp_tila/idp_edistyma/idp_fokus) pelaajadokumenttiin (jo sallittu). doc-ID = vuosi ilman "/" (§11).
+        match /idp_kausi/{vuosi} {
+          allow read:   if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()))
+                        || onAnonymous();   // pelaaja lukee oman kausitavoitteensa (3c-peili)
+          allow create: if onSuperAdmin()
+                        || onOmanSeuranValmentaja(seuraId)
+                        || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow update: if onSuperAdmin()
+                        || onOmanSeuranValmentaja(seuraId)
+                        || (onOmaSeura(seuraId) && onJohtoRooli());
+          // (3b: pelaajan self-arvio arviot[]-osaan lisätään omana field-level-sääntönä.)
           allow delete: if onSuperAdmin();
         }
 
