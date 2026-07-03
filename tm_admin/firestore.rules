@@ -1,9 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.8
+// TalentMaster™ — firestore.rules v3.9
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.8 → v3.9 (Vaihe 2b — ominaisuusarviointi, Palloliitto-taksonomia):
+//   + seurat/{sid}/pelaajat/{pid}/arviointi/{kausiId} — havaittu 1–5 -arvio
+//     (Palloliitto Player Development Card). Aikuisten työkalu (§7.22): luku VAIN
+//     SA + oman seuran henkilöstö (EI anon/pelaaja eikä huoltaja — raaka "Poor"
+//     ei näy lapselle/perheelle). Kirjoitus valmentaja/johto. doc-ID = kausi ilman
+//     "/" (esim. 2026-27, §11 — "2026/27" tulkittui polkuerottimeksi → korjattu).
+//     Ilman tätä blokkia tallennus kaatui "Missing or insufficient permissions".
 //
 // Muutokset v3.7 → v3.8 (Solo Polku B, SOLO_P0_TIETOMALLI_SPEC.md §9):
 //   + lupapyynnot/{requestId} — lapsi luo (status 'odottaa'), get omalla requestId:llä, EI list;
@@ -467,6 +475,24 @@ service cloud.firestore {
                         || onLapsenHuoltaja(seuraId, pelaajaId);
           allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
           allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow delete: if onSuperAdmin();
+        }
+
+        // ── Arviointi — Palloliitto-taksonomia, havaittu 1–5 (Vaihe 2b) ───
+        // VP/valmentajan asiantuntija-arvio (aikuisten työkalu, §7.22): luku VAIN
+        // SA + oman seuran henkilöstö — EI anon (pelaaja) eikä huoltaja (raaka
+        // "Poor"-arvio ei näy lapselle/perheelle). Kirjoitus valmentaja/johto.
+        // doc-ID = kausi ilman "/" (esim. 2026-27, §11). Pikakentät
+        // (arviointi_havaittu/_pvm/_kehys) menevät pelaajadokumenttiin (jo sallittu).
+        match /arviointi/{kausiId} {
+          allow read:   if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()));
+          allow create: if onSuperAdmin()
+                        || onOmanSeuranValmentaja(seuraId)
+                        || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow update: if onSuperAdmin()
+                        || onOmanSeuranValmentaja(seuraId)
+                        || (onOmaSeura(seuraId) && onJohtoRooli());
           allow delete: if onSuperAdmin();
         }
 
