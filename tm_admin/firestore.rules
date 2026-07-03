@@ -470,6 +470,24 @@ service cloud.firestore {
           allow delete: if onSuperAdmin();
         }
 
+        // ── Arviointi — Palloliitto-taksonomia, havaittu 1–5 (Vaihe 2b) ───
+        // VP/valmentajan asiantuntija-arvio (aikuisten työkalu, §7.22): luku VAIN
+        // SA + oman seuran henkilöstö — EI anon (pelaaja) eikä huoltaja (raaka
+        // "Poor"-arvio ei näy lapselle/perheelle). Kirjoitus valmentaja/johto.
+        // doc-ID = kausi ilman "/" (esim. 2026-27, §11). Pikakentät
+        // (arviointi_havaittu/_pvm/_kehys) menevät pelaajadokumenttiin (jo sallittu).
+        match /arviointi/{kausiId} {
+          allow read:   if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()));
+          allow create: if onSuperAdmin()
+                        || onOmanSeuranValmentaja(seuraId)
+                        || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow update: if onSuperAdmin()
+                        || onOmanSeuranValmentaja(seuraId)
+                        || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow delete: if onSuperAdmin();
+        }
+
         // ── Kehut — vanhemman lähettämä kehu pelaajalle (v2.3) ────────────
         // Yksityinen vanhempi → pelaaja -kanava. Valmentajalla EI lukuoikeutta:
         // pedagoginen suoja, kehu on perheen sisäinen viestintä.
