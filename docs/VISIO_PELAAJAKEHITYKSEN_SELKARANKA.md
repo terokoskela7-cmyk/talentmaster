@@ -2,6 +2,19 @@
 
 > Lähde: co-design 2026-07-03 (Claude + Tero), pelaaja-modaalin redesignin (PR #76) jälkeen. Tämä on **north-star / arkkitehtuurivisio**, ei toteutusbrief — vaihe-briefit johdetaan tästä. Rajaus: VP_v25 (staff-facing → §7.22 ei koske). §26 pikakentät.
 
+## 0. Strateginen konteksti — Palloliiton talenttiohjelma (2026-07-03)
+**IDP-kortti on esitelty Palloliiton Head of Talentille, joka piti siitä.** Tavoite: kehittää IDP-kortti osaksi **Palloliiton kansallista talenttiohjelmaa** (Tero = Palloliiton kansallisen ohjelman johtaja, §1). Tämä nostaa IDP-kortin pilottityökalusta **kansalliseksi standardiehdokkaaksi** ja ohjaa suunnittelupäätöksiä:
+
+- **Metodologia-credibiliteetti = ei-neuvoteltava.** IDP nojaa jo Palloliitto-yhteensopivaan pohjaan (MyE.Way PHV-pariteetti §25, Eerikkilä-normit FINAL2024 §26, tekniikkakilpailu/TKI §23, RAE-korjaus §28). **Älä poikkea näistä** — kansallinen uskottavuus rakentuu tälle.
+- **Standardointi + skaalautuvuus.** Jos IDP:stä tulee kansallinen, sen on toimittava **kaikilla seuroilla** (ei vain 8 pilottia) yhtenäisellä rakenteella → IDP-tavoiterakenne, fokus-taksonomia ja mittarit standardoituina (ei seurakohtaisia poikkeamia).
+- **Palloliitto-tason koonti (§11 `palloliitto/ohjelmat`).** IDP-data koostettavissa kansallisen ohjelman näkyviin (suostumus + GDPR §33 B4, alaikäiset). Rakenne on jo datamallissa.
+- **Reiluus kansallisen ohjelman arvona.** RAE (Q1–Q4), underdog, late-developer (§28) — IDP nostaa nämä esiin (suojattavat/myöhäiskehittäjät). Tämä resonoi kansallisen ohjelman tasa-arvotavoitteiden kanssa → **pidä RAE/underdog näkyvinä IDP:ssä.**
+- **Rajainvarianti säilyy (§5.5).** "Kenttäharjoitus on valmentajan — TM diagnosoi + ohjaa + seuraa." Kansallinen työkalu ei korvaa valmentajaa vaan yhtenäistää kehityksen kielen ja seurannan.
+- **Demo-valmius.** IDP-kortti on **pitch-artefakti** — pidä se esittelykelpoisena (selkeä, metodologisesti perusteltu, ei keskeneräisiä placeholdereita näkyvissä demossa). V4–V5 vahvistavat tarinaa (raportti + pelidata).
+- **Pitkä tähtäin — API/MCP (§21).** Palloliitolla on jo MCP-server; TM rakentaa oman. IDP voi olla **kansallisen ohjelman rajapinta** (IDP-data virtaa seura ↔ Palloliitto). Suunnittele IDP-datamalli tämä mielessä (viety/koostettava rakenne, ei UI-lukittu).
+
+> Käytännön ohje briefeille: jokainen IDP-vaihe (V1–V5) tehdään niin että se **kestää kansallisen ohjelman tarkastelun** — metodologia perusteltu, rakenne standardoitu, RAE/reiluus näkyvissä, demo-siisti. Isot päätökset (fokus-taksonomia, IDP-tavoiterakenne) kannattaa validoida Palloliitto-linjaa vasten ennen lukitusta.
+
 ## 1. Periaate
 Nykyään VP:n Pelaajat-lista on **passiivinen tuloslista** ja per-pelaaja-modaali erillinen. Tavoite: **yksi ohjaava selkäranka**, jossa jokainen kerros porautuu seuraavaan ja **ohjaa toimintaan** (IDP), ei vain näytä lukuja. Data on jo suurelta osin pikakentissä (§26) — sitä ei hyödynnetä.
 
@@ -35,6 +48,8 @@ IDP-prosessin **ulostulo on raportti**. Kortin/listan IDP-fokus + tavoitteet + s
 - **V3 — IDP-elinkaari:** luo/hyväksy/seuraa (`idp_kausi`), kytkös pelaajakorttiin.
 - **V4 — Raporttilinkitys (§3.1):** IDP/kortti → Pelaajaraportti; yksi IDP-totuus kolmessa näkymässä.
 - **V5 — Pelipaikka-gate + pelidata (§3.2):** pelipaikka aktivoi TASO-tuonnin → position-KPI → kortti/IDP.
+- **V6 — Palloliitto-tason koonti (kansallinen):** kansallinen IDP/talentti-aggregaatti (`palloliitto/ohjelmat` §11), suostumus + GDPR §33 B4 (alaikäiset). Aktivoituu kun IDP-kortti on kansallisessa käytössä (§0). Data seura ↔ Palloliitto (API/MCP §21).
+- **IDP-KORTTI MAAILMANLUOKKAAN (läpileikkaava laatutavoite):** IDP-kortista tehdään **kansainvälisesti korkealaatuinen** (§0 Palloliitto-ohjelma + kv-vertailukelpoinen). Oma kanoninen doc: **`docs/IDP_KORTTI_MAAILMANLUOKKA.md`** — laatupilarit, kv-benchmark, kortin rakenne, i18n/vienti. Tämä ei ole yksi vaihe vaan **laaturima kaikille IDP-vaiheille** (V2–V6).
 
 ## 5. Reuse / invariantit
 - ♻️ Pikakentät §26 (kehityskohde/signaali/phv/rae/delta/idp_tila) · FC-kortti §36 · §29-detailit · TASO §20 (`pelidata`) · Pelaajaraportti §37 · kohortti/suodattimet.

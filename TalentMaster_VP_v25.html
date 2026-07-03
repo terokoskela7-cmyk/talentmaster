@@ -1951,6 +1951,8 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         <button class="filter-btn f-erityistuki" data-filter="erityistuki" onclick="filterPlayers('erityistuki')">⚠ Kehityskohde</button>
         <button class="filter-btn f-phv" data-filter="phv" onclick="filterPlayers('phv')">◉ PHV-vaihe</button>
         <button class="filter-btn f-idppuuttuu" data-filter="idppuuttuu" onclick="filterPlayers('idppuuttuu')">○ IDP puuttuu</button>
+        <button class="filter-btn f-idpehdotettu" data-filter="idp_ehdotettu" onclick="filterPlayers('idp_ehdotettu')" title="IDP ehdotettu — odottaa VP:n hyväksyntää (idp_jono)">◔ IDP ehdotettu</button>
+        <button class="filter-btn f-idpaktiivinen" data-filter="idp_aktiivinen" onclick="filterPlayers('idp_aktiivinen')" title="IDP aktiivinen — kehityssuunnitelma käynnissä">● IDP aktiivinen</button>
         <button class="filter-btn f-talenttisuositus" data-filter="talenttisuositus" onclick="filterPlayers('talenttisuositus')">★ Talenttisuositus</button>
         <button class="filter-btn f-siirtopaatos" data-filter="siirtopaatos" onclick="filterPlayers('siirtopaatos')">→ Siirtopäätös</button>
         <button class="filter-btn f-bq1" data-filter="bq1" onclick="filterPlayers('bq1')" title="Q1 = ikäluokan vanhimmat (tammi–maalis) — ikäetu">Q1 vanhimmat</button>
@@ -1962,11 +1964,11 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <table class="player-table">
         <thead>
           <tr>
-            <th>Pelaaja</th><th>Joukkue</th><th>Valmius</th><th>Tekninen</th><th>H-H</th><th>Signaali</th><th>PHV</th><th></th>
+            <th>Pelaaja</th><th>Joukkue</th><th>Valmius</th><th>Tekninen</th><th>H-H</th><th>Signaali</th><th>Kehitysfokus</th><th>IDP</th><th>PHV</th><th></th>
           </tr>
         </thead>
         <tbody id="playerTableBody">
-          <tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:40px">Ladataan...</td></tr>
+          <tr><td colspan="10" style="text-align:center;color:var(--ink3);padding:40px">Ladataan...</td></tr>
         </tbody>
       </table>
       <div style="font-size:11px;color:var(--ink3);margin-top:8px">Tekninen-taso 1–5 · ensisijaisesti TKI (🥇🥈🥉), muuten <sup>1</sup> muu lähde (SM/TSI, H-H syöttö/pujottelu tai TK-lajit). Kehon valmius ja H-H samalla 1–5-asteikolla.</div>
@@ -3660,6 +3662,19 @@ window._tallennaPMP = _tallennaPMP;
 // ─── JOUKKUEEN SYVÄNÄKYMÄ (pulssikortin klikkaus) — 3 välilehteä, vain ladatusta _pelaajat-datasta ───
 const TK_LAJI_NIMET = { ponnauttelu:'Ponnauttelu', syotto:'Syöttö', pujottelu:'Pujottelu', kuljetus_laukaus:'Kuljetus-laukaus', pituuspotku:'Pituuspotku' };
 function _vpTkLaji(id) { return TK_LAJI_NIMET[id] || id || 'Ei tietoa'; }
+// V1 Kehitysfokus-sarake: tarkka kehityskohde pikakentästä (§26). Prioriteetti tki_kehityskohde (D2, TK-laji) →
+// hh_kehityskohde (fyysinen D1 / H-H-tekniikka D2). Palauttaa {nimi, dim} | null. Näyttönimet §30-taksonomialla.
+const _VP_HH_FOKUS_NIMI = { lin5m:'Nopeus (5m)', lin10m:'Nopeus (10m)', lin30m:'Nopeus (30m)', cmj:'Räjähtävyys', sj:'Räjähtävyys (SJ)', mas:'Kestävyys', kasirata:'Ketteryys', sm_juoksu:'Suunnanmuutos', syotto:'Syöttö', pujottelu:'Pujottelu' };
+const _VP_D1_TESTIT = { lin5m:1, lin10m:1, lin30m:1, cmj:1, sj:1, mas:1, kasirata:1, sm_juoksu:1 };   // dim D1; syotto/pujottelu → D2 (tekniikka)
+function _vpFokusNimi(p) {
+  if (!p) return null;
+  if (p.tki_kehityskohde) return { nimi: _vpTkLaji(p.tki_kehityskohde), dim: 'D2' };
+  if (p.hh_kehityskohde) { const k = p.hh_kehityskohde; return { nimi: _VP_HH_FOKUS_NIMI[k] || _vpTkLaji(k), dim: _VP_D1_TESTIT[k] ? 'D1' : 'D2' }; }
+  return null;
+}
+// V1 IDP-elinkaari: idp_tila-pikakenttää EI vielä ole (V3) → JOHDETAAN ladatusta datasta: idpAktiivinen-lippu →
+// 'aktiivinen'; _idpJono:ssa (odottava ehdotus, pelaajaId) → 'ehdotettu'; muuten 'puuttuu'. §26: ei uutta kyselyä.
+function _vpIdpTila(p, jonoIds) { if (!p) return 'puuttuu'; if (p.idpAktiivinen) return 'aktiivinen'; if (jonoIds && jonoIds.has(p.id)) return 'ehdotettu'; return 'puuttuu'; }
 function _jsvEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function _jsvTkiVari(tki) {
   if (tki == null) return '#5A5A5A';
@@ -9959,6 +9974,11 @@ function renderPelaajatFiltered() {
   } else if (_activeFilter === 'idppuuttuu') {
     const idpIds = new Set(_idpJono.map(i => i.pelaajaId));
     filtered = _pelaajat.filter(p => !idpIds.has(p.id) && !p.idpAktiivinen);
+  } else if (_activeFilter === 'idp_ehdotettu') {
+    const jonoIds = new Set(_idpJono.map(i => i.pelaajaId));   // V1: elinkaari johdettu _idpJono:sta (ei idp_tila-kenttää, V3)
+    filtered = _pelaajat.filter(p => jonoIds.has(p.id));
+  } else if (_activeFilter === 'idp_aktiivinen') {
+    filtered = _pelaajat.filter(p => p.idpAktiivinen);
   } else if (_activeFilter === 'talenttisuositus') {
     filtered = _pelaajat.filter(p => _onTalenttisuositus(p));
   } else if (_activeFilter === 'siirtopaatos') {
@@ -9972,19 +9992,37 @@ function renderPelaajatFiltered() {
   }
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:32px">
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--ink3);padding:32px">
       Ei pelaajia tässä kategoriassa</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = filtered.map(p => {
+  // Rivi → pelaajakortti (_avaaPerPelaajaPikakatsaus lukee window._jsvPelaajat + idx; nav cyclaa saman listan).
+  window._jsvPelaajat = filtered;
+  const jonoIds = new Set(_idpJono.map(i => i.pelaajaId));   // V1 IDP-elinkaari johdettu _idpJono:sta (§26)
+
+  tbody.innerHTML = filtered.map((p, idx) => {
     const flei = p.flei_viimeisin || 0;
     const pct  = Math.min(100, flei);
+    const jesc = String(p.joukkue||'').replace(/['"\\]/g,'');
+    const hg = _hgBadge(p);
+    // Signaali-sarake: VAIN talenttisignaalit (X-Factor / Hidden Gem / Underdog). Geneerinen "Kehityskohde" siirtyi
+    // Kehitysfokus-sarakkeeseen tarkkana kohteena.
+    const _ud = (typeof isUnderdog === 'function') ? isUnderdog(p) : (typeof raeChip === 'function' && raeChip(p).underdog);
     const sig = p.signaali === 'xfactor' ? '<span class="tag xfactor">X-Factor</span>'
-              : (_hgBadge(p) || (_kehityskohde(p, heikoimmatSet) ? '<span class="tag" style="background:rgba(201,64,64,.15);color:var(--red)">Kehityskohde</span>' : '—'));
+              : (hg || (_ud ? '<span class="tag" style="background:rgba(40,176,144,.15);color:var(--teal)" title="Underdog — Q4 (ikäluokan nuorin) + jokin taso ≥3, pitkän tähtäimen lupaus">⭐ Underdog</span>' : '<span style="color:var(--ink3)">—</span>'));
+    // Kehitysfokus-sarake: tarkka kohde pikakentästä (tki_kehityskohde → hh_kehityskohde), näyttönimi + dimensio.
+    const _fokus = _vpFokusNimi(p);
+    const fokusCell = _fokus ? `<span style="color:var(--ink)">${_jsvEsc(_fokus.nimi)}</span> <span style="font-size:10px;color:var(--ink3)">· ${_fokus.dim}</span>` : '<span style="color:var(--ink3)">—</span>';
+    // IDP-sarake: elinkaaritila + reititys olemassa oleviin näkymiin (EI ehdotusmoottoria — V2).
+    const idpTila = _vpIdpTila(p, jonoIds);
+    let idpCell;
+    if (idpTila === 'aktiivinen') idpCell = '<span class="tag" style="background:rgba(40,176,144,.15);color:var(--teal)" title="IDP aktiivinen — kehityssuunnitelma käynnissä">Aktiivinen</span>';
+    else if (idpTila === 'ehdotettu') idpCell = `<button class="btn-sm" style="border-color:var(--amber);color:var(--amber)" onclick="event.stopPropagation();document.getElementById('pelIdpJono').scrollIntoView({behavior:'smooth',block:'center'})" title="Odottaa hyväksyntää — avaa IDP-jono">Hyväksy →</button>`;
+    else idpCell = `<button class="btn-sm" style="${hg ? 'border-color:var(--teal);color:var(--teal)' : ''}" onclick="event.stopPropagation();_avaaPerPelaajaPikakatsaus(${idx},'${jesc}')" title="${hg ? 'Talentti — käynnistä talentti-IDP pelaajakortista' : 'Käynnistä IDP pelaajakortista'}">${hg ? 'Talentti-IDP' : 'Ehdota'}</button>`;
     const phvColor = p.phv_tila === 'PH' ? 'color:var(--amber)' : '';
     return `
-      <tr>
+      <tr onclick="_avaaPerPelaajaPikakatsaus(${idx},'${jesc}')" style="cursor:pointer">
         <td><strong>${p.sukunimi||''}, ${p.etunimi||''}</strong> ${_vpRaeChip(p)}
           <div style="font-size:11px;color:var(--ink3);font-family:monospace">${p.palloID||''}</div>
         </td>
@@ -9998,10 +10036,12 @@ function renderPelaajatFiltered() {
         <td>${_tekninenSoluVP(p)}</td>
         <td>${_hhSoluVP(p)}</td>
         <td>${sig}</td>
+        <td style="font-size:12px">${fokusCell}</td>
+        <td>${idpCell}</td>
         <td style="font-size:12px;${phvColor}">${p.phv_tila||'—'}</td>
         <td>
-          <button class="btn-sm" onclick="avaaPelaajaMuistiinpanoModal('${p.id}','${(p.sukunimi||'').replace(/['"\\\\]/g,'') + ' ' + (p.etunimi||'').replace(/['"\\\\]/g,'')}')" title="VP-muistiinpanot" style="margin-right:4px">📝</button>
-          <button class="btn-sm" onclick="toast('IDP-kortti — tulossa','ok')">→</button>
+          <button class="btn-sm" onclick="event.stopPropagation();avaaPelaajaMuistiinpanoModal('${p.id}','${(p.sukunimi||'').replace(/['"\\\\]/g,'') + ' ' + (p.etunimi||'').replace(/['"\\\\]/g,'')}')" title="VP-muistiinpanot" style="margin-right:4px">📝</button>
+          <button class="btn-sm" onclick="event.stopPropagation();_avaaPerPelaajaPikakatsaus(${idx},'${jesc}')" title="Avaa pelaajakortti">→</button>
         </td>
       </tr>`;
   }).join('');
