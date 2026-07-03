@@ -20,6 +20,7 @@
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=3"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
+<script src="lib/tm_idp.js?v=1"></script>   <!-- Vaihe 3a: IDP-kausitavoite ehdotusmoottori + pikakentät -->
 <script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
 
 <style>
@@ -1335,6 +1336,35 @@ body {
 .jsp-arv-btn.on { background: rgba(42,93,176,.22); border-color: rgba(42,93,176,.5); color: var(--ink); font-weight: 600; }
 .jsp-arv-na { width: auto; padding: 0 6px; }
 .jsp-arv-na.on { background: var(--ov-1); border-color: var(--border); color: var(--ink3); }
+/* Vaihe 3a — Kausitavoite-kortti (IDP-ydin). §5 tokenit, §7.22 aikuisnäkymä. */
+.jsp-kt { margin-top: 16px; padding-top: 12px; border-top: .5px solid var(--border); }
+.jsp-kt-hd { margin-bottom: 8px; }
+.jsp-kt-t { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); font-weight: 600; }
+.jsp-kt-empty { font-size: 12px; color: var(--ink3); background: var(--ov-1); border: .5px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.jsp-kt-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.jsp-kt-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.jsp-kt-kausi { font-size: 11px; color: var(--ink3); }
+.jsp-kt-pill { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: .04em; border-radius: 999px; padding: 2px 9px; }
+.jsp-kt-pill.akt { color: var(--teal); background: rgba(40,176,144,.13); border: .5px solid rgba(40,176,144,.35); }
+.jsp-kt-pill.ehd { color: var(--amber); background: rgba(224,160,64,.12); border: .5px solid rgba(224,160,64,.3); }
+.jsp-kt-edist { font-size: 11px; color: var(--ink2); }
+.jsp-kt-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.jsp-kt-sec { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); margin: 10px 0 5px; }
+.jsp-kt-prow { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink3); margin-bottom: 4px; }
+.jsp-kt-track { position: relative; height: 22px; background: var(--ov-1); border: .5px solid var(--border); border-radius: 7px; overflow: hidden; }
+.jsp-kt-zone { position: absolute; top: 0; bottom: 0; right: 0; width: 22%; background: rgba(40,176,144,.12); border-left: 1px dashed rgba(40,176,144,.5); }
+.jsp-kt-now { position: absolute; top: 0; bottom: 0; left: 0; background: linear-gradient(90deg,rgba(42,93,176,.35),rgba(40,176,144,.45)); border-right: 2px solid var(--teal); }
+.jsp-kt-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.jsp-kt-box { background: var(--ov-1); border: .5px solid var(--border); border-radius: 9px; padding: 10px 12px; }
+.jsp-kt-bt { font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); margin-bottom: 4px; }
+.jsp-kt-bl { font-size: 12px; color: var(--ink2); line-height: 1.4; }
+.jsp-kt-edit { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+.jsp-kt-edit label { font-size: 11px; color: var(--ink3); }
+.jsp-kt-edit input { width: 90px; background: var(--bg2); color: var(--ink); border: .5px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 12px; font-family: var(--font-sans); }
+.jsp-kt-aani { width: 100%; min-height: 44px; margin-top: 5px; background: var(--bg2); color: var(--ink); border: .5px solid var(--border); border-radius: 6px; padding: 7px 9px; font-size: 12.5px; font-family: var(--font-sans); resize: vertical; }
+.jsp-kt-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.jsp-kt-btn { font-size: 12px; font-weight: 600; border-radius: 8px; padding: 7px 12px; border: .5px solid var(--border); background: var(--ov-1); color: var(--ink2); cursor: pointer; font-family: var(--font-sans); }
+.jsp-kt-btn.primary { background: rgba(40,176,144,.14); border-color: rgba(40,176,144,.4); color: var(--teal); }
 .dim-kortit { display: flex; gap: 8px; padding: 12px 0; border-top: .5px solid var(--border); border-bottom: .5px solid var(--border); margin-bottom: 14px; }
 .dim-kortti { flex: 1; padding: 12px 8px; border: 1px solid var(--border); text-align: center; }
 .dim-label { display: block; font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); margin-bottom: 6px; }
@@ -3812,6 +3842,139 @@ async function _vpLataaArviointiKehys() {
     if (k && ARVIOINTI_KEHYKSET[k] && k !== window._vpArvKehys) { window._vpArvKehys = k; window._vpArvTeema = null; _vpArvReRender(); }
   } catch (e) { /* best-effort — oletus palloliitto */ }
 }
+
+// ═══════════ VAIHE 3a — IDP-KAUSITAVOITE (ehdotusmoottori + kortti + Firestore) ═══════════
+// Datamalli IDP_YDIN_SPEC §2. Moottori (lib/tm_idp.js) johtaa heikoimman Vaihe 2 -pikakentistä §28-kypsyysvahdilla.
+// §26: lista/kortin summary lukee pikakentät (idp_tila/idp_fokus/idp_edistyma); TÄYSI tavoite ladataan idp_kausi-dokista
+// VAIN detail-modaalissa kerran (ei per-rivi-kysely). §7.22: aikuisnäkymä (luvut); pelaajapeili tulee 3c:ssä.
+function _vpLoytaPelaaja(pid) {
+  return ((typeof _pelaajat !== 'undefined' && _pelaajat) || []).find(function (x) { return x.id === pid; })
+      || ((window._jsvPelaajat || []).find(function (x) { return x.id === pid; })) || null;
+}
+function _vpKausitavoiteReRender() {
+  const slot = document.getElementById('_jspKausitavoite'); const p = window._vpArvPelaaja;
+  if (slot && p && typeof _vpKausitavoiteHTML === 'function') slot.innerHTML = _vpKausitavoiteHTML(p);
+}
+// "↻ Ehdota tavoite datasta" — moottori luo luonnoksen pikakentistä (globaalit norm-helperit injektoituna).
+window._vpEhdotaTavoite = function (pid) {
+  const p = _vpLoytaPelaaja(pid); if (!p || typeof idpEhdotaTavoite !== 'function') return;
+  const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null, sp: 'P' };
+  const spPT = isp.sp, spMN = (spPT === 'T') ? 'N' : 'M';
+  const g = function (n) { return (typeof window[n] === 'function') ? window[n] : undefined; };
+  const opts = {
+    tmTaksonomiaByAvain: g('tmTaksonomiaByAvain'), tmAdarHavaittu: g('tmAdarHavaittu'),
+    laskeD1Osaindeksit: g('laskeD1Osaindeksit'), eerikkilaNormiarvo: g('eerikkilaNormiarvo'),
+    hhSeuraavaTaso: g('hhSeuraavaTaso'), tkSekuntibudjetti: g('tkSekuntibudjetti'),
+    tkLajiViite: g('tkLajiViite'), tkLajiTaso: g('tkLajiTaso'),
+    tklajiAvain: (typeof tmMitattuMappaus === 'function') ? tmMitattuMappaus().tklaji : null,
+    ika: isp.ika, sp: spMN, spTk: spPT, nyt: new Date()
+  };
+  const t = idpEhdotaTavoite(p, opts);
+  if (!t) { if (typeof toast === 'function') toast('Ei kelvollista kehityskohdetta ehdotukseen (§28)', 'ok'); return; }
+  p._idpTavoite = t; p._idpMuokkaus = true;   // luonnos → muokattavissa
+  _vpKausitavoiteReRender();
+};
+// Hyväksy/tallenna: lukee pelaajan äänen + tavoitearvon kentistä → status → Firestore (idp_kausi + pikakentät §26).
+window._vpTallennaTavoite = async function (pid, uusiStatus) {
+  const p = _vpLoytaPelaaja(pid); const t = p && p._idpTavoite; if (!t) return;
+  const aani = document.getElementById('_jspTavAani'); if (aani) t.pelaajan_tavoite = aani.value.trim();
+  const tavIn = document.getElementById('_jspTavArvo'); if (tavIn && tavIn.value !== '' && !isNaN(tavIn.value)) t.tavoitearvo = Number(tavIn.value);
+  if (uusiStatus) t.status = uusiStatus;
+  if (uusiStatus === 'aktiivinen') { t.hyvaksytty = new Date().toISOString(); t.omistaja = 'yhdessa'; }
+  p._idpMuokkaus = false;
+  // §26 pikakentät pelaajadokkiin
+  const pk = (typeof idpPikakentat === 'function') ? idpPikakentat(t) : { idp_tila: t.status, idp_edistyma: null, idp_fokus: t.fokus };
+  p.idp_tila = pk.idp_tila; p.idp_edistyma = pk.idp_edistyma; p.idp_fokus = pk.idp_fokus;
+  _vpKausitavoiteReRender();
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast('Tavoite ' + (uusiStatus === 'aktiivinen' ? 'aktivoitu' : 'tallennettu') + ' (demo — ei kirjoitettu)', 'ok'); return; }
+  try {
+    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
+    const ref = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid);
+    // §7.6: EI serverTimestampia arrayssa → tavoite/arviot pvm = ISO-string (jo asetettu). Yksi tavoite 3a:ssa.
+    await ref.collection('idp_kausi').doc(vuosi).set({ tavoitteet: [t], paivitetty: new Date().toISOString() }, { merge: true });
+    await ref.set({ idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null }, { merge: true });
+    if (typeof toast === 'function') toast('Tavoite ' + (uusiStatus === 'aktiivinen' ? 'aktivoitu ✓' : 'tallennettu ✓'), 'ok');
+  } catch (e) { console.warn('[_vpTallennaTavoite]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+};
+// Best-effort: lataa TÄYSI aktiivinen tavoite idp_kausi-dokista modaalin auetessa (kerran/pelaaja; ei per-rivi-kysely).
+async function _vpLataaTavoite(p) {
+  if (!p || p._idpTavoite || p._idpLadattu) return; p._idpLadattu = true;
+  if (_isDemoMode || !_seuraId || !p.idp_tila) return;   // pikakenttä kertoo onko tavoitetta
+  try {
+    const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
+    const s = await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('idp_kausi').doc(vuosi).get();
+    const arr = s.exists ? (s.data() || {}).tavoitteet : null;
+    if (arr && arr.length) { p._idpTavoite = arr[arr.length - 1]; _vpKausitavoiteReRender(); }
+  } catch (e) { /* best-effort */ }
+}
+// Kausitavoite-kortti (mockup: fokus-chipit · lähtö→tavoite-palkki · 70/30 · perustelu · pelaajan ääni · status-pill).
+function _vpKausitavoiteHTML(p) {
+  if (!p) return '';
+  window._vpArvPelaaja = p;
+  const t = p._idpTavoite;
+  const pid = _jsvEsc(p.id);
+  const fmt = function (v, yks) { return (v == null) ? '—' : ((typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(v, yks) : v) + (yks && yks !== 'taso' ? ' ' + yks : '')); };
+  let h = '<div class="jsp-kt-hd"><span class="jsp-kt-t">Kausitavoite <span style="text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:400">· IDP-ydin</span></span></div>';
+  if (!t && !p.idp_tila) {
+    // Tyhjä tila → ehdotus-CTA (johdetaan Vaihe 2 -arvioinnista)
+    h += '<div class="jsp-kt-empty">Ei kausitavoitetta. Johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).'
+      + '<div style="margin-top:10px"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\')">↻ Ehdota tavoite datasta</button></div></div>';
+    return h;
+  }
+  if (!t && p.idp_tila) {
+    // Pikakenttä-summary (täysi tavoite latautuu taustalla) — §26 ei pakota alikokoelmakyselyä listaan
+    const f = p.idp_fokus || {};
+    h += '<div class="jsp-kt-summary"><span class="jsp-kt-pill ' + (p.idp_tila === 'aktiivinen' ? 'akt' : 'ehd') + '">' + _jsvEsc(p.idp_tila) + '</span> '
+      + '<span class="chip" style="margin-left:6px">🎯 ' + _jsvEsc(f.nimi || f.alue || '—') + (f.dim ? ' · ' + f.dim : '') + '</span>'
+      + (p.idp_edistyma ? ' <span class="jsp-kt-edist">' + _jsvEsc(p.idp_edistyma) + '</span>' : '') + '</div>';
+    return h;
+  }
+  // Täysi tavoite
+  const st = t.status || 'ehdotettu';
+  const pillCls = st === 'aktiivinen' ? 'akt' : (st === 'saavutettu' ? 'akt' : 'ehd');
+  const mit = t.mittari || {}, yks = mit.yksikko || '';
+  const la = t.lahto ? t.lahto.arvo : null, tv = t.tavoitearvo;
+  h += '<div class="jsp-kt-row"><span class="jsp-kt-pill ' + pillCls + '">' + (st === 'aktiivinen' ? '● Aktiivinen' : st === 'ehdotettu' ? '○ Ehdotettu' : _jsvEsc(st)) + '</span>'
+    + '<span class="jsp-kt-kausi">' + _jsvEsc((t.aikaraami && t.aikaraami.kausi) || '') + (t.aikaraami && t.aikaraami.kesto_vk ? ' · ' + t.aikaraami.kesto_vk + ' vk' : '') + '</span></div>';
+  // fokus-chipit
+  const f = t.fokus || {};
+  h += '<div class="jsp-kt-chips"><span class="chip">🎯 Fokus: <b>' + _jsvEsc(f.nimi || f.alue || '—') + '</b></span>'
+    + (f.dim ? '<span class="chip">' + f.dim + '</span>' : '')
+    + (t.perustelu && t.perustelu.kultaikkuna ? '<span class="chip" style="color:var(--teal)">🔥 Kultaikkuna auki</span>' : '') + '</div>';
+  // lähtö → tavoite -palkki (vain mitattavalle)
+  if (la != null && tv != null && yks !== 'taso') {
+    const pienempi = mit.suunta === 'pienempi';
+    const lo = Math.min(la, tv), hi = Math.max(la, tv), span = (hi - lo) || 1;
+    const nyk = (t.arviot && t.arviot.length) ? t.arviot[t.arviot.length - 1].arvo : la;
+    const pct = Math.max(4, Math.min(100, Math.round(((pienempi ? (la - nyk) : (nyk - la)) / (Math.abs(tv - la) || 1)) * 100)));
+    h += '<div class="jsp-kt-sec">Mitattava tavoite — lähtö → tavoite</div>'
+      + '<div class="jsp-kt-prow"><span>Lähtö ' + fmt(la, yks) + (t.lahto.pvm ? ' · ' + _jsvEsc(t.lahto.pvm) : '') + '</span><span>Tavoite ' + (pienempi ? '≤ ' : '≥ ') + fmt(tv, yks) + '</span></div>'
+      + '<div class="jsp-kt-track"><div class="jsp-kt-zone"></div><div class="jsp-kt-now" style="width:' + pct + '%"></div></div>';
+  } else if (la != null && tv != null) {
+    h += '<div class="jsp-kt-sec">Tavoite (havaittu 1–5)</div><div class="jsp-kt-prow"><span>Lähtö taso ' + la + '/5</span><span>Tavoite ' + tv + '/5</span></div>';
+  }
+  // 70/30 + perustelu
+  h += '<div class="jsp-kt-grid2">';
+  if (t.ankkuri_7030) h += '<div class="jsp-kt-box"><div class="jsp-kt-bt">70/30 — vahvuusperusta</div><div class="jsp-kt-bl">' + _jsvEsc(t.ankkuri_7030.teksti) + '</div></div>';
+  if (t.perustelu && t.perustelu.teksti) h += '<div class="jsp-kt-box"><div class="jsp-kt-bt">Perustelu (näyttö)</div><div class="jsp-kt-bl">' + _jsvEsc(t.perustelu.teksti) + '</div></div>';
+  h += '</div>';
+  // muokattava tavoitearvo (luonnos)
+  if (p._idpMuokkaus && yks !== 'taso') {
+    h += '<div class="jsp-kt-edit"><label>Tavoitearvo (' + _jsvEsc(yks) + ')</label><input id="_jspTavArvo" type="number" step="0.01" value="' + (tv != null ? tv : '') + '"></div>';
+  }
+  // pelaajan ääni (omistajuus)
+  h += '<div class="jsp-kt-box" style="border-color:rgba(40,176,144,.3);margin-top:10px"><div class="jsp-kt-bt">Pelaajan ääni (omistajuus)</div>'
+    + '<textarea id="_jspTavAani" class="jsp-kt-aani" placeholder="Pelaajan oma tavoite omin sanoin…" onclick="event.stopPropagation()">' + _jsvEsc(t.pelaajan_tavoite || '') + '</textarea></div>';
+  // napit
+  h += '<div class="jsp-kt-btns">';
+  h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\')">↻ Ehdota uudelleen</button>';
+  if (st === 'ehdotettu') h += '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',\'aktiivinen\')">✓ Hyväksy (aktiivinen)</button>';
+  else { h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();window._vpArvPelaaja._idpMuokkaus=true;_vpKausitavoiteReRender()">✎ Muokkaa</button>'
+    + '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',null)">💾 Tallenna</button>'; }
+  h += '</div>';
+  return h;
+}
 // 2b — tallenna havaittu arvio (1–5 tai N/A). §26 pikakenttä arviointi_havaittu + alikokoelma arviointi/{kausi} (audit: arvioija+pvm).
 window._vpTallennaHavaittu = async function(pid, avain, arvo) {
   const p = ((typeof _pelaajat !== 'undefined' && _pelaajat) || []).find(function(x){ return x.id === pid; })
@@ -5644,6 +5807,11 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
       + '<button onclick="_avaaVpD3Arvio(\'' + p.id + '\')" style="background:var(--blue);color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + (_onVp ? 'Päivitä VP-arvio' : 'Arvioi (VP)') + '</button></div>';
     hR += '<div id="_jspD3Vertailu">' + (_d3pt && typeof renderD3VertailuHTML === 'function' ? renderD3VertailuHTML(_d3pt) : '<div style="font-size:11px;color:var(--ink3)">Ei vielä D3-arvioita. VP-arvio aloittaa kalibraation.</div>') + '</div>';
     hR += '</div>';
+  }
+  // Vaihe 3a — Kausitavoite-osio (arviointi-osion jälkeen; heikoin johdetaan samasta arviointidatasta). §26/§7.22.
+  if (typeof _vpLataaTavoite === 'function') _vpLataaTavoite(p);   // best-effort: lataa täysi tavoite jos idp_tila asetettu
+  if (typeof _vpKausitavoiteHTML === 'function') {
+    hR += '<div class="jsp-kt" id="_jspKausitavoite">' + _vpKausitavoiteHTML(p) + '</div>';
   }
   // Kaksisarakkeinen runko (header ja nav täysleveinä sen ulkopuolella; mobiilissa pinoutuu §6)
   h += '<div class="jsp-grid"><div class="jsp-left">' + hL + '</div><div class="jsp-right">' + hR + '</div></div>';
