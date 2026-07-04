@@ -1349,6 +1349,7 @@ body {
 .jsp-kt-pill.ehd { color: var(--amber); background: rgba(224,160,64,.12); border: .5px solid rgba(224,160,64,.3); }
 .jsp-kt-edist { font-size: 11px; color: var(--ink2); }
 .jsp-kt-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.jsp-kt-peli { font-size: 12px; color: var(--ink2); background: rgba(40,176,144,.07); border: .5px solid rgba(40,176,144,.22); border-radius: 8px; padding: 7px 11px; margin-bottom: 8px; }
 .jsp-kt-sec { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); margin: 10px 0 5px; }
 .jsp-kt-prow { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink3); margin-bottom: 4px; }
 .jsp-kt-track { position: relative; height: 22px; background: var(--ov-1); border: .5px solid var(--border); border-radius: 7px; overflow: hidden; }
@@ -3857,7 +3858,10 @@ function _vpKausitavoiteReRender() {
 }
 // "↻ Ehdota tavoite datasta" — moottori luo luonnoksen pikakentistä (globaalit norm-helperit injektoituna).
 window._vpEhdotaTavoite = function (pid) {
-  const p = _vpLoytaPelaaja(pid); if (!p || typeof idpEhdotaTavoite !== 'function') return;
+  // §33: operoi SAMAAN objektiin jonka kortti renderöi (_vpArvPelaaja) — muuten mutaatio osuu eri _idpTavoite-refiin
+  // kuin _vpKausitavoiteReRender lukee (live: onSnapshot korvaa _pelaajat-refit) → hiljainen fail "Ehdota uudelleen".
+  const p = (window._vpArvPelaaja && window._vpArvPelaaja.id === pid) ? window._vpArvPelaaja : _vpLoytaPelaaja(pid);
+  if (!p || typeof idpEhdotaTavoite !== 'function') return;
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null, sp: 'P' };
   const spPT = isp.sp, spMN = (spPT === 'T') ? 'N' : 'M';
   const g = function (n) { return (typeof window[n] === 'function') ? window[n] : undefined; };
@@ -3876,7 +3880,9 @@ window._vpEhdotaTavoite = function (pid) {
 };
 // Hyväksy/tallenna: lukee pelaajan äänen + tavoitearvon kentistä → status → Firestore (idp_kausi + pikakentät §26).
 window._vpTallennaTavoite = async function (pid, uusiStatus) {
-  const p = _vpLoytaPelaaja(pid); const t = p && p._idpTavoite; if (!t) return;
+  // §33: sama objekti kuin kortti renderöi (_vpArvPelaaja) → tallennus + re-render osuvat yhteen _idpTavoiteen.
+  const p = (window._vpArvPelaaja && window._vpArvPelaaja.id === pid) ? window._vpArvPelaaja : _vpLoytaPelaaja(pid);
+  const t = p && p._idpTavoite; if (!t) return;
   const aani = document.getElementById('_jspTavAani'); if (aani) t.pelaajan_tavoite = aani.value.trim();
   const tavIn = document.getElementById('_jspTavArvo'); if (tavIn && tavIn.value !== '' && !isNaN(tavIn.value)) t.tavoitearvo = Number(tavIn.value);
   if (uusiStatus) t.status = uusiStatus;
@@ -3905,7 +3911,12 @@ async function _vpLataaTavoite(p) {
     const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
     const s = await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('idp_kausi').doc(vuosi).get();
     const arr = s.exists ? (s.data() || {}).tavoitteet : null;
-    if (arr && arr.length) { p._idpTavoite = arr[arr.length - 1]; _vpKausitavoiteReRender(); }
+    if (arr && arr.length) {
+      // §33: aseta SAMAAN objektiin jonka kortti renderöi (voi vaihtua await:n aikana); re-render vain jos vielä auki.
+      const tgt = (window._vpArvPelaaja && window._vpArvPelaaja.id === p.id) ? window._vpArvPelaaja : p;
+      tgt._idpTavoite = arr[arr.length - 1]; tgt._idpLadattu = true;
+      if (window._vpArvPelaaja === tgt) _vpKausitavoiteReRender();
+    }
   } catch (e) { /* best-effort */ }
 }
 // Kausitavoite-kortti (mockup: fokus-chipit · lähtö→tavoite-palkki · 70/30 · perustelu · pelaajan ääni · status-pill).
@@ -3942,6 +3953,8 @@ function _vpKausitavoiteHTML(p) {
   h += '<div class="jsp-kt-chips"><span class="chip">🎯 Fokus: <b>' + _jsvEsc(f.nimi || f.alue || '—') + '</b></span>'
     + (f.dim ? '<span class="chip">' + f.dim + '</span>' : '')
     + (t.perustelu && t.perustelu.kultaikkuna ? '<span class="chip" style="color:var(--teal)">🔥 Kultaikkuna auki</span>' : '') + '</div>';
+  // §7b — pelaaminen-linkitys: pelisovelluslause fokus-chippien alle (aikuisnäkymä; ei irrallinen testisuoritus)
+  if (t.perustelu && t.perustelu.pelilause) h += '<div class="jsp-kt-peli">⚽ Pelillinen sovellus: ' + _jsvEsc(t.perustelu.pelilause) + '</div>';
   // lähtö → tavoite -palkki (vain mitattavalle)
   if (la != null && tv != null && yks !== 'taso') {
     const pienempi = mit.suunta === 'pienempi';
@@ -3957,7 +3970,11 @@ function _vpKausitavoiteHTML(p) {
   // 70/30 + perustelu
   h += '<div class="jsp-kt-grid2">';
   if (t.ankkuri_7030) h += '<div class="jsp-kt-box"><div class="jsp-kt-bt">70/30 — vahvuusperusta</div><div class="jsp-kt-bl">' + _jsvEsc(t.ankkuri_7030.teksti) + '</div></div>';
-  if (t.perustelu && t.perustelu.teksti) h += '<div class="jsp-kt-box"><div class="jsp-kt-bt">Perustelu (näyttö)</div><div class="jsp-kt-bl">' + _jsvEsc(t.perustelu.teksti) + '</div></div>';
+  if (t.perustelu && t.perustelu.teksti) {
+    // Perustelu-boksi näyttää näytön (normigap/kultaikkuna); pelilause on jo omalla ⚽-rivillään → ei toisteta.
+    const _pTeksti = (t.perustelu.pelilause) ? t.perustelu.teksti.replace(t.perustelu.pelilause, '').replace(/\s+$/, '').replace(/\s+/g, ' ') : t.perustelu.teksti;
+    if (_pTeksti) h += '<div class="jsp-kt-box"><div class="jsp-kt-bt">Perustelu (näyttö)</div><div class="jsp-kt-bl">' + _jsvEsc(_pTeksti) + '</div></div>';
+  }
   h += '</div>';
   // muokattava tavoitearvo (luonnos)
   if (p._idpMuokkaus && yks !== 'taso') {

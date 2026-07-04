@@ -130,6 +130,27 @@ describe('idpEhdotaTavoite — kokonaisluonnos', () => {
     const t = idpEhdotaTavoite(p, baseOpts);
     expect(t.fokus.dim).toBe('D2');   // §28: heikko 30m/MAS/CMJ pre-PHV ei kelpaa → tekniikka
   });
+  it('§7b — perustelu.teksti + perustelu.pelilause sisältää pelisovelluslauseen (mitattu D2)', () => {
+    const p = { tki_kehityskohde: 'syotto', tk_lajit_viimeisin: { syotto_s: 18 }, tk_lajit_pvm: '2026-03-10', d1_taso: 3.5, d2_taso: 2.1, phv_tila: 'LAH' };
+    const t = idpEhdotaTavoite(p, baseOpts);
+    expect(t.perustelu.pelilause).toBe('Näkyy ottelussa: uskallus avata peli eteenpäin paineessa.');   // short_passing
+    expect(t.perustelu.teksti).toContain('Näkyy ottelussa');
+    expect(t.perustelu.teksti).toMatch(/pelissä|ottelussa/i);
+  });
+  it('§7b — pelilause myös havaitulle (peliäly), ei jää irralliseksi testisuoritukseksi', () => {
+    const p = { arviointi_havaittu: { vision: 2 }, phv_tila: 'PH' };
+    const t = idpEhdotaTavoite(p, baseOpts);
+    expect(t.fokus.alue).toBe('vision');
+    expect(t.perustelu.pelilause).toBe('Näkyy pelissä: syöttöikkunan näkeminen ennen palloa.');
+    expect(t.perustelu.teksti).toContain(t.perustelu.pelilause);
+  });
+  it('§7b — geneerinen fallback kun avaimelle ei mäppäystä', () => {
+    // physical_presence: ei IDP_PELILAUSE-avainta → dim-fallback (D1)
+    const p = { arviointi_havaittu: { physical_presence: 1 }, phv_tila: 'PH' };
+    const t = idpEhdotaTavoite(p, baseOpts);
+    expect(t.perustelu.pelilause).toMatch(/Näkyy pelissä|näkyy pelissä/i);
+    expect(t.perustelu.teksti).toContain(t.perustelu.pelilause);
+  });
   it('ei dataa → null', () => {
     expect(idpEhdotaTavoite({}, baseOpts)).toBeNull();
     expect(idpEhdotaTavoite(null, baseOpts)).toBeNull();
