@@ -46,5 +46,12 @@ Kirjoituspolut olemassa olevilla patterneilla: tavoite/arvio Firestoreen (§6), 
 - **3b — Review-sykli + kehityskaari:** arviot[]-lisäys (pelaaja-arvio → mittaus-DVI → valmentaja-kommentti), timeline-UI, saavutettu/jatkuu-elinkaari.
 - **3c — Pelaaja-/perhe-peili + muistutukset:** §7.22-turvallinen näkymä Pelaaja_v7/Vanhempi_v2 + review-rytmimuistutus (`lahetaMuistutukset`-pattern). Erillinen.
 
+## 7b. PELAAMINEN-LINKITYS (EHDOTON invariantti — Teron linjaus)
+**Kehittyminen ja tavoitteet linkittyvät AINA pelaamiseen** — tavoite ei ole irrallinen testinumero vaan pelillinen sovellus.
+- **Teknis-taktiset kohteet nousevat fokukseksi** kun ne on arvioitu: moottori kerää `arviointi_havaittu ≤2` KAIKISTA dimensioista (vahvistettu `idpKeraaKandidaatit`) — D2 tekninen havaittu + D4 peliäly (päätöksenteko, sijoittuminen, näkemys, link-up, peli paineessa) + pelihavainto-johdettu. Nämä ovat luonnostaan pelikontekstisia.
+- **Fokus + perustelu kehystetään pelilliseksi:** fokus-nimi = pelisovellus ("Syöttö paineessa", ei "syöttötesti"); perustelu sisältää **"pelillinen sovellus" -rivin** (miten kohde näkyy ottelussa/harjoituspelissä). Mitattu testi = näyttö, mutta tavoite kuvataan pelin kautta.
+- **70/30-ankkuri = pelillinen integrointi** ("integroi syöttö nopeuteen liikkeessä"), ei eristetty tekninen toisto.
+- **Silta myöhempiin vaiheisiin:** teknis-taktinen kehitys syvenee **Vaihe 4:ssä** (Palloliitto teknis-taktinen corner + harjoitecue) ja tavoitteen toteutuma näkyy **Vaihe 6:ssa** (pelipaikkakohtaiset pelihavainto-/ottelu-KPI:t). 3a valmistelee: fokus/mittari/perustelu ovat pelilähtöisiä jo nyt.
+
 ## 8. Invariantit
 Metodologia ennallaan (mittari = normitettu testi/arvio) · §28 kypsyysvahti fokusvalinnassa · §7.22 (aikuisnäkymä luvut; pelaaja-peili prosessikehu, ei vertailua) · valmentaja omistaa kentän · §26 pikakentät (ei alikokoelmakyselyä listassa/kortissa) · §32 olemassa olevat viestipolut · standardoitu kenttärakenne (kansallinen koonti V6, ei seurakohtaisia poikkeamia) · GDPR §33 B4 · §5 tokenit. Testit: ehdotusmoottori (heikoin-valinta + §28-kypsyysvahti + tavoitearvo-johto) · pikakenttä-kirjoitus · Rules `idp_kausi`. `npm test` + lint.
