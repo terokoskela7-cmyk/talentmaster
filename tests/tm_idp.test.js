@@ -4,7 +4,8 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   idpKypsyysEstetty, idpKeraaKandidaatit, idpValitseHeikoin, idpTavoitearvo,
-  idpVahvinDim, idpEhdotaTavoite, idpPikakentat
+  idpVahvinDim, idpEhdotaTavoite, idpPikakentat,
+  idpJarjestaKandidaatit, idpKandidaatitJarjestetty, idpKohdeKandidaatti, idpRakennaTavoite
 } = require('../lib/tm_idp.js');
 const tax = require('../lib/tm_arviointi_taksonomia.js');
 const eer = require('../lib/tm_eerikkila_normit.js');
@@ -173,5 +174,95 @@ describe('idpPikakentat (§26 lista+kortti)', () => {
   });
   it('null tavoite → null-kentät', () => {
     expect(idpPikakentat(null)).toEqual({ idp_tila: null, idp_edistyma: null, idp_fokus: null });
+  });
+});
+
+describe('Kandidaattikierto (idpValitseHeikoin idx + idpEhdotaTavoite ehdotusIdx)', () => {
+  // 3 havaittu-kandidaattia eri tasoilla → kierto käy kaikki läpi ja palaa alkuun.
+  const p = { arviointi_havaittu: { balance: 1, vision: 2, ball_control: 2 }, phv_tila: 'PH' };
+  it('idx kiertää järjestettyä listaa (heikoin = idx 0)', () => {
+    const kand = idpKeraaKandidaatit(p, baseOpts);
+    const lista = idpJarjestaKandidaatit(kand, p);
+    expect(lista.length).toBe(3);
+    expect(idpValitseHeikoin(kand, p, 0).avain).toBe(lista[0].avain);   // heikoin (balance=1)
+    expect(idpValitseHeikoin(kand, p, 1).avain).toBe(lista[1].avain);
+    expect(idpValitseHeikoin(kand, p, 3).avain).toBe(lista[0].avain);   // kiertää ympäri (3 % 3 = 0)
+    expect(idpValitseHeikoin(kand, p, -1).avain).toBe(lista[2].avain);  // negatiivinen wrap
+  });
+  it('idpEhdotaTavoite eri ehdotusIdx → eri fokus', () => {
+    const t0 = idpEhdotaTavoite(p, Object.assign({}, baseOpts, { ehdotusIdx: 0 }));
+    const t1 = idpEhdotaTavoite(p, Object.assign({}, baseOpts, { ehdotusIdx: 1 }));
+    expect(t0.fokus.alue).not.toBe(t1.fokus.alue);
+  });
+  it('idpKandidaatitJarjestetty = kerää+järjestä pelaajasta (VP kierto/määrä)', () => {
+    expect(idpKandidaatitJarjestetty(p, baseOpts).length).toBe(3);
+  });
+  it('1 kandidaatti → lista pituus 1 (VP näyttää vihjeen)', () => {
+    const p1 = { arviointi_havaittu: { vision: 2 }, phv_tila: 'PH' };
+    expect(idpKandidaatitJarjestetty(p1, baseOpts).length).toBe(1);
+  });
+});
+
+describe('VP:n oma fokus-valinta (idpKohdeKandidaatti + idpRakennaTavoite)', () => {
+  it('havaittu-avain → candidate lahde valmentaja, mittari yksikko taso', () => {
+    const p = { arviointi_havaittu: { vision: 3 } };
+    const k = idpKohdeKandidaatti(p, 'vision', baseOpts);
+    expect(k.lahde).toBe('valmentaja');
+    expect(k.dim).toBe('D4');
+    expect(k.mittariYks).toBe('taso');
+    expect(k.taso).toBe(3);   // olemassa oleva arvo lähtönä
+  });
+  it('mitattu-avain (short_passing) → tklaji-candidate mittari sekunneissa', () => {
+    const p = { tk_lajit_viimeisin: { syotto_s: 18 } };
+    const k = idpKohdeKandidaatti(p, 'short_passing', baseOpts);
+    expect(k.tyyppi).toBe('mitattu_d2');
+    expect(k.mittariTestId).toBe('syotto');
+    expect(k.mittariYks).toBe('s');
+    expect(k.raaka).toBe(18);
+  });
+  it('rakennettu tavoite VP-valinnasta → fokus.lahde valmentaja, status ehdotettu', () => {
+    const p = { arviointi_havaittu: { positioning: 2 } };
+    const t = idpRakennaTavoite(p, idpKohdeKandidaatti(p, 'positioning', baseOpts), baseOpts);
+    expect(t.fokus.lahde).toBe('valmentaja');
+    expect(t.lahde).toBe('valmentaja');
+    expect(t.status).toBe('ehdotettu');
+    expect(t.fokus.nimi).toBe('Sijoittuminen');
+    expect(t.perustelu.pelilause).toContain('Näkyy pelissä');
+  });
+});
+
+describe('Vapaa fokus (yksikko:vapaa → ei kaada palkkia)', () => {
+  it('vapaa candidate → tavoite yksikko vapaa, lähtö/tavoitearvo null, fokus.vapaa true', () => {
+    const p = {};
+    const kVapaa = { avain: 'vapaa', dim: 'D2', nimi: 'Laitahyökkääjän 1v1 laidalla', lahde: 'valmentaja',
+      tyyppi: 'vapaa', vapaa: true, mittariTestId: null, mittariYks: 'vapaa', mittariSuunta: null };
+    const t = idpRakennaTavoite(p, kVapaa, baseOpts);
+    expect(t.fokus.vapaa).toBe(true);
+    expect(t.mittari.yksikko).toBe('vapaa');
+    expect(t.lahto.arvo).toBeNull();     // ei mitattavaa palkkia (kortti ohittaa)
+    expect(t.tavoitearvo).toBeNull();
+    expect(t.perustelu.pelilause).toMatch(/pelissä|ottelussa/i);   // §7b myös vapaalle
+  });
+});
+
+describe('§4 — §28 kypsyysvaroitus ilman PHV-dataa', () => {
+  it('fyysinen fokus ilman PHV → perustelu.kypsyysvaroitus asetettu', () => {
+    const p = { hh_viimeisin: { mas: 9 } };   // heikko MAS (endurance), EI phv_tila
+    const k = idpKohdeKandidaatti(p, 'endurance', baseOpts);
+    const t = idpRakennaTavoite(p, k, baseOpts);
+    expect(t.fokus.dim).toBe('D1');
+    expect(t.perustelu.kypsyysvaroitus).toMatch(/[Kk]ypsyysdataa/);
+    expect(t.perustelu.teksti).toMatch(/[Kk]ypsyysdataa/);
+  });
+  it('fyysinen fokus PHV:n kanssa → EI varoitusta', () => {
+    const p = { hh_viimeisin: { mas: 9 }, phv_tila: 'PH' };
+    const t = idpRakennaTavoite(p, idpKohdeKandidaatti(p, 'endurance', baseOpts), baseOpts);
+    expect(t.perustelu.kypsyysvaroitus).toBeNull();
+  });
+  it('ilman PHV: ei-fyysiset kandidaatit priorisoidaan (§4)', () => {
+    // heikko fyysinen (D1) + havaittu D4 vision=2 → moottori valitsee ei-fyysisen (vision) ilman PHV:tä
+    const p = { hh_viimeisin: { lin30m: 6.5, cmj: 20, mas: 9 }, arviointi_havaittu: { vision: 2 } };
+    const t = idpEhdotaTavoite(p, baseOpts);
+    expect(t.fokus.dim).not.toBe('D1');   // ei-fyysinen etusijalla ilman kypsyysdataa
   });
 });

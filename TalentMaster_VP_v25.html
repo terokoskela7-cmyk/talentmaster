@@ -20,7 +20,7 @@
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=3"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
-<script src="lib/tm_idp.js?v=1"></script>   <!-- Vaihe 3a: IDP-kausitavoite ehdotusmoottori + pikakentät -->
+<script src="lib/tm_idp.js?v=2"></script>   <!-- Vaihe 3a: IDP-kausitavoite ehdotusmoottori + pikakentät + VP-fokusvalinta/vapaa sana -->
 <script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
 
 <style>
@@ -1366,6 +1366,14 @@ body {
 .jsp-kt-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .jsp-kt-btn { font-size: 12px; font-weight: 600; border-radius: 8px; padding: 7px 12px; border: .5px solid var(--border); background: var(--ov-1); color: var(--ink2); cursor: pointer; font-family: var(--font-sans); }
 .jsp-kt-btn.primary { background: rgba(40,176,144,.14); border-color: rgba(40,176,144,.4); color: var(--teal); }
+.jsp-kt-varo { font-size: 12px; color: var(--amber); background: rgba(224,160,64,.09); border: .5px solid rgba(224,160,64,.3); border-radius: 8px; padding: 7px 11px; margin-bottom: 8px; }
+.jsp-kt-fokval { margin-top: 10px; padding: 10px 12px; background: var(--ov-1); border: .5px solid var(--border); border-radius: 9px; }
+.jsp-kt-fokval.korosta { border-color: rgba(40,176,144,.5); box-shadow: 0 0 0 2px rgba(40,176,144,.14); }
+.jsp-kt-fokrow { display: flex; gap: 8px; margin-top: 7px; flex-wrap: wrap; }
+.jsp-kt-fokrow .jsp-arv-select { flex: 1; min-width: 130px; }
+.jsp-kt-vihje { font-size: 11.5px; color: var(--teal); margin-top: 4px; }
+.jsp-kt-vapaainp { flex: 1; min-width: 150px; background: var(--bg2); color: var(--ink); border: .5px solid var(--border); border-radius: 6px; padding: 6px 9px; font-size: 12.5px; font-family: var(--font-sans); }
+.jsp-kt-edit { flex-wrap: wrap; }
 .dim-kortit { display: flex; gap: 8px; padding: 12px 0; border-top: .5px solid var(--border); border-bottom: .5px solid var(--border); margin-bottom: 14px; }
 .dim-kortti { flex: 1; padding: 12px 8px; border: 1px solid var(--border); text-align: center; }
 .dim-label { display: block; font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); margin-bottom: 6px; }
@@ -3856,34 +3864,78 @@ function _vpKausitavoiteReRender() {
   const slot = document.getElementById('_jspKausitavoite'); const p = window._vpArvPelaaja;
   if (slot && p && typeof _vpKausitavoiteHTML === 'function') slot.innerHTML = _vpKausitavoiteHTML(p);
 }
-// "↻ Ehdota tavoite datasta" — moottori luo luonnoksen pikakentistä (globaalit norm-helperit injektoituna).
-window._vpEhdotaTavoite = function (pid) {
-  // §33: operoi SAMAAN objektiin jonka kortti renderöi (_vpArvPelaaja) — muuten mutaatio osuu eri _idpTavoite-refiin
-  // kuin _vpKausitavoiteReRender lukee (live: onSnapshot korvaa _pelaajat-refit) → hiljainen fail "Ehdota uudelleen".
-  const p = (window._vpArvPelaaja && window._vpArvPelaaja.id === pid) ? window._vpArvPelaaja : _vpLoytaPelaaja(pid);
-  if (!p || typeof idpEhdotaTavoite !== 'function') return;
+// §33: operoi SAMAAN objektiin jonka kortti renderöi (_vpArvPelaaja) — muuten mutaatio osuu eri _idpTavoite-refiin.
+function _vpIdpPelaaja(pid) {
+  return (window._vpArvPelaaja && window._vpArvPelaaja.id === pid) ? window._vpArvPelaaja : _vpLoytaPelaaja(pid);
+}
+// Yksi opts-lähde moottorille + VP:n fokus-valinnalle (norm-helperit + ika/sp johdettu pelaajasta). ehdotusIdx = kierto.
+function _vpIdpOpts(p, ehdotusIdx) {
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null, sp: 'P' };
   const spPT = isp.sp, spMN = (spPT === 'T') ? 'N' : 'M';
   const g = function (n) { return (typeof window[n] === 'function') ? window[n] : undefined; };
-  const opts = {
+  return {
     tmTaksonomiaByAvain: g('tmTaksonomiaByAvain'), tmAdarHavaittu: g('tmAdarHavaittu'),
     laskeD1Osaindeksit: g('laskeD1Osaindeksit'), eerikkilaNormiarvo: g('eerikkilaNormiarvo'),
     hhSeuraavaTaso: g('hhSeuraavaTaso'), tkSekuntibudjetti: g('tkSekuntibudjetti'),
     tkLajiViite: g('tkLajiViite'), tkLajiTaso: g('tkLajiTaso'),
     tklajiAvain: (typeof tmMitattuMappaus === 'function') ? tmMitattuMappaus().tklaji : null,
-    ika: isp.ika, sp: spMN, spTk: spPT, nyt: new Date()
+    ika: isp.ika, sp: spMN, spTk: spPT, nyt: new Date(), ehdotusIdx: (ehdotusIdx || 0)
   };
-  const t = idpEhdotaTavoite(p, opts);
+}
+// "↻ Ehdota (moottori)" — moottori luo luonnoksen pikakentistä. >1 kandidaatti → kierrä seuraavaan (p._idpEhdotusIdx).
+window._vpEhdotaTavoite = function (pid) {
+  const p = _vpIdpPelaaja(pid);
+  if (!p || typeof idpEhdotaTavoite !== 'function') return;
+  // Kandidaattimäärä kierrolle + 1-kandidaatin vihjeelle (§3).
+  const n = (typeof idpKandidaatitJarjestetty === 'function') ? idpKandidaatitJarjestetty(p, _vpIdpOpts(p)).length : 1;
+  // Kierto vain jos tavoite jo olemassa (ei ensiehdotuksessa); rajaa indeksi kandidaattimäärään.
+  if (p._idpTavoite && n > 1) p._idpEhdotusIdx = ((p._idpEhdotusIdx || 0) + 1) % n;
+  else if (!p._idpTavoite) p._idpEhdotusIdx = 0;
+  const t = idpEhdotaTavoite(p, _vpIdpOpts(p, p._idpEhdotusIdx || 0));
   if (!t) { if (typeof toast === 'function') toast('Ei kelvollista kehityskohdetta ehdotukseen (§28)', 'ok'); return; }
-  p._idpTavoite = t; p._idpMuokkaus = true;   // luonnos → muokattavissa
+  p._idpTavoite = t; p._idpMuokkaus = true; p._idpKandN = n;   // luonnos → muokattavissa; N vihjettä varten
+  if (n <= 1) p._idpValitseFokus = true;   // 1 kandidaatti → korosta fokus-dropdown (§3)
   _vpKausitavoiteReRender();
 };
+// VP vaihtaa pääteeman (fokus-dropdown) — vain päivittää kohde-listan (ei vielä aseta fokusta).
+window._vpArvFokusTeema = function (pid, teemaAvain) {
+  const p = _vpIdpPelaaja(pid); if (!p) return;
+  p._idpFokusTeema = teemaAvain; _vpKausitavoiteReRender();
+};
+// VP asettaa fokuksen taksonomia-kohteesta → rakentaa tavoitteen (lahde:'valmentaja', §4 kypsyysvaroitus fyysiselle ilman PHV:tä).
+window._vpAsetaFokus = function (pid, avain) {
+  const p = _vpIdpPelaaja(pid); if (!p || !avain || typeof idpKohdeKandidaatti !== 'function') return;
+  const opts = _vpIdpOpts(p);
+  const kuvaus = _vpLueKuvaus();   // säilytä VP:n jo kirjoittama kuvaus fokus-vaihdossa
+  const t = idpRakennaTavoite(p, idpKohdeKandidaatti(p, avain, opts), opts);
+  if (!t) return;
+  if (kuvaus) t.kuvaus = kuvaus;
+  p._idpTavoite = t; p._idpMuokkaus = true; p._idpValitseFokus = false;
+  _vpKausitavoiteReRender();
+};
+// VP kirjoittaa fokuksen vapaana tekstinä (taksonomia ei riitä) → yksikko:'vapaa' (ei mitattavaa palkkia, §2.2).
+window._vpVapaaFokus = function (pid) {
+  const p = _vpIdpPelaaja(pid); if (!p) return;
+  const inp = document.getElementById('_jspVapaaFokus'); const nimi = inp ? inp.value.trim() : '';
+  if (!nimi) { if (typeof toast === 'function') toast('Kirjoita fokus-nimi', 'ok'); return; }
+  const opts = _vpIdpOpts(p);
+  const kuvaus = _vpLueKuvaus();
+  const t = idpRakennaTavoite(p, { avain: 'vapaa', dim: (p._idpTavoite && p._idpTavoite.fokus && p._idpTavoite.fokus.dim) || null,
+    nimi: nimi, lahde: 'valmentaja', tyyppi: 'vapaa', vapaa: true, mittariTestId: null, mittariYks: 'vapaa', mittariSuunta: null }, opts);
+  if (!t) return;
+  if (kuvaus) t.kuvaus = kuvaus;
+  p._idpTavoite = t; p._idpMuokkaus = true; p._idpValitseFokus = false;
+  _vpKausitavoiteReRender();
+};
+// Lue kuvaus-textarea (säilytä VP:n teksti re-renderin yli).
+function _vpLueKuvaus() { const el = document.getElementById('_jspTavKuvaus'); return el ? el.value.trim() : ''; }
 // Hyväksy/tallenna: lukee pelaajan äänen + tavoitearvon kentistä → status → Firestore (idp_kausi + pikakentät §26).
 window._vpTallennaTavoite = async function (pid, uusiStatus) {
   // §33: sama objekti kuin kortti renderöi (_vpArvPelaaja) → tallennus + re-render osuvat yhteen _idpTavoiteen.
   const p = (window._vpArvPelaaja && window._vpArvPelaaja.id === pid) ? window._vpArvPelaaja : _vpLoytaPelaaja(pid);
   const t = p && p._idpTavoite; if (!t) return;
   const aani = document.getElementById('_jspTavAani'); if (aani) t.pelaajan_tavoite = aani.value.trim();
+  const kuvausEl = document.getElementById('_jspTavKuvaus'); if (kuvausEl) t.kuvaus = kuvausEl.value.trim();   // §2.3 vapaa tavoitekuvaus
   const tavIn = document.getElementById('_jspTavArvo'); if (tavIn && tavIn.value !== '' && !isNaN(tavIn.value)) t.tavoitearvo = Number(tavIn.value);
   if (uusiStatus) t.status = uusiStatus;
   if (uusiStatus === 'aktiivinen') { t.hyvaksytty = new Date().toISOString(); t.omistaja = 'yhdessa'; }
@@ -3955,6 +4007,8 @@ function _vpKausitavoiteHTML(p) {
     + (t.perustelu && t.perustelu.kultaikkuna ? '<span class="chip" style="color:var(--teal)">🔥 Kultaikkuna auki</span>' : '') + '</div>';
   // §7b — pelaaminen-linkitys: pelisovelluslause fokus-chippien alle (aikuisnäkymä; ei irrallinen testisuoritus)
   if (t.perustelu && t.perustelu.pelilause) h += '<div class="jsp-kt-peli">⚽ Pelillinen sovellus: ' + _jsvEsc(t.perustelu.pelilause) + '</div>';
+  // §4/§28 — kypsyysvahti: fyysinen fokus ilman PHV-dataa on epävarma (pre-PHV heikko fysiikka = neutraali)
+  if (t.perustelu && t.perustelu.kypsyysvaroitus) h += '<div class="jsp-kt-varo">⚠️ ' + _jsvEsc(t.perustelu.kypsyysvaroitus) + '</div>';
   // lähtö → tavoite -palkki (vain mitattavalle)
   if (la != null && tv != null && yks !== 'taso') {
     const pienempi = mit.suunta === 'pienempi';
@@ -3976,19 +4030,63 @@ function _vpKausitavoiteHTML(p) {
     if (_pTeksti) h += '<div class="jsp-kt-box"><div class="jsp-kt-bt">Perustelu (näyttö)</div><div class="jsp-kt-bl">' + _jsvEsc(_pTeksti) + '</div></div>';
   }
   h += '</div>';
-  // muokattava tavoitearvo (luonnos)
-  if (p._idpMuokkaus && yks !== 'taso') {
-    h += '<div class="jsp-kt-edit"><label>Tavoitearvo (' + _jsvEsc(yks) + ')</label><input id="_jspTavArvo" type="number" step="0.01" value="' + (tv != null ? tv : '') + '"></div>';
+  // §2.3 vapaa tavoitekuvaus (näkyy kortilla; muokkaustilassa textarea)
+  if (t.kuvaus && !p._idpMuokkaus) h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt">Tavoite pelissä</div><div class="jsp-kt-bl">' + _jsvEsc(t.kuvaus) + '</div></div>';
+  // ── Muokkaustila: fokus-valinta (VP omistaa) + vapaa fokus + tavoitekuvaus ──
+  if (p._idpMuokkaus) {
+    h += _vpFokusValintaHTML(p, pid, f);
+    // muokattava tavoitearvo (mitattavalle; vapaa/taso → ei palkkia, ei arvoa)
+    if (yks !== 'taso' && yks !== 'vapaa') {
+      h += '<div class="jsp-kt-edit"><label>Tavoitearvo (' + _jsvEsc(yks) + ')</label><input id="_jspTavArvo" type="number" step="0.01" value="' + (tv != null ? tv : '') + '"></div>';
+    }
+    // §2.3 vapaa tavoitekuvaus — mitä konkreettisesti tavoitellaan pelissä (§7b)
+    h += '<div class="jsp-kt-edit"><label>Tavoite pelissä (vapaa teksti)</label>'
+      + '<textarea id="_jspTavKuvaus" class="jsp-kt-aani" placeholder="Mitä konkreettisesti tavoitellaan ottelussa…" onclick="event.stopPropagation()">' + _jsvEsc(t.kuvaus || '') + '</textarea></div>';
   }
   // pelaajan ääni (omistajuus)
   h += '<div class="jsp-kt-box" style="border-color:rgba(40,176,144,.3);margin-top:10px"><div class="jsp-kt-bt">Pelaajan ääni (omistajuus)</div>'
     + '<textarea id="_jspTavAani" class="jsp-kt-aani" placeholder="Pelaajan oma tavoite omin sanoin…" onclick="event.stopPropagation()">' + _jsvEsc(t.pelaajan_tavoite || '') + '</textarea></div>';
   // napit
   h += '<div class="jsp-kt-btns">';
-  h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\')">↻ Ehdota uudelleen</button>';
+  const kn = (p._idpKandN != null) ? p._idpKandN : null;
+  const ehdLbl = (kn != null && kn > 1) ? '↻ Ehdota (moottori · ' + kn + ')' : '↻ Ehdota (moottori)';
+  h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\')">' + ehdLbl + '</button>';
   if (st === 'ehdotettu') h += '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',\'aktiivinen\')">✓ Hyväksy (aktiivinen)</button>';
   else { h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();window._vpArvPelaaja._idpMuokkaus=true;_vpKausitavoiteReRender()">✎ Muokkaa</button>'
     + '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',null)">💾 Tallenna</button>'; }
+  h += '</div>';
+  return h;
+}
+// Fokus-valintapaneeli (§2.1/§2.2): pääteema→kohde-dropdown (taksonomia tmTeemat/tmTeemaKohteet) + vapaa fokus -kenttä.
+// VP omistaa: moottori antaa lähtöehdotuksen, tästä VP voi vaihtaa fokuksen mihin tahansa arvioituun/mitattuun kohteeseen.
+function _vpFokusValintaHTML(p, pid, f) {
+  if (typeof tmTeemat !== 'function' || typeof tmTeemaKohteet !== 'function') return '';
+  const taks = (typeof ARVIOINTI_TAKSONOMIA !== 'undefined') ? ARVIOINTI_TAKSONOMIA : null;
+  const teemat = tmTeemat(taks); if (!teemat.length) return '';
+  // Aktiivinen pääteema: VP:n valinta, muuten nykyisen fokuksen dim+kategoria, muuten ensimmäinen.
+  let teema = p._idpFokusTeema;
+  if (!teema && f && f.alue) { const it = (typeof tmTaksonomiaByAvain === 'function') ? tmTaksonomiaByAvain(f.alue) : null; if (it) teema = it.dim + '_' + it.kategoria; }
+  if (!teema || !teemat.some(function (x) { return x.avain === teema; })) teema = teemat[0].avain;
+  const kohteet = tmTeemaKohteet(teema, taks);
+  const hav = p.arviointi_havaittu || {};
+  let h = '<div class="jsp-kt-fokval' + (p._idpValitseFokus ? ' korosta' : '') + '">';
+  h += '<div class="jsp-kt-bt">Vaihda fokus (VP omistaa tavoitteen)</div>';
+  if (p._idpValitseFokus) h += '<div class="jsp-kt-vihje">Vain yksi datapohjainen kohde — valitse fokus itse alta.</div>';
+  h += '<div class="jsp-kt-fokrow">';
+  h += '<select class="jsp-arv-select" onclick="event.stopPropagation()" onchange="_vpArvFokusTeema(\'' + pid + '\',this.value)">'
+    + teemat.map(function (x) { return '<option value="' + x.avain + '"' + (x.avain === teema ? ' selected' : '') + '>' + _jsvEsc(x.nimi) + '</option>'; }).join('') + '</select>';
+  h += '<select class="jsp-arv-select" onclick="event.stopPropagation()" onchange="if(this.value)_vpAsetaFokus(\'' + pid + '\',this.value)">'
+    + '<option value="">Valitse kohde…</option>'
+    + kohteet.map(function (it) {
+        const merkki = it.mitattavissa ? '🟢' : ((hav[it.avain] != null) ? '🔵' : '○');
+        const sel = (f && f.alue === it.avain) ? ' selected' : '';
+        return '<option value="' + it.avain + '"' + sel + '>' + merkki + ' ' + _jsvEsc(it.nimi_fi) + '</option>';
+      }).join('') + '</select>';
+  h += '</div>';
+  // §2.2 vapaa fokus (taksonomia ei riitä — pelipaikka/joukkuekohtainen). yksikko:'vapaa' → ei mitattavaa palkkia.
+  h += '<div class="jsp-kt-fokrow" style="margin-top:6px">'
+    + '<input id="_jspVapaaFokus" class="jsp-kt-vapaainp" placeholder="…tai kirjoita fokus vapaana" onclick="event.stopPropagation()" value="' + _jsvEsc((f && f.vapaa) ? (f.nimi || '') : '') + '">'
+    + '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpVapaaFokus(\'' + pid + '\')">Aseta vapaa</button></div>';
   h += '</div>';
   return h;
 }
