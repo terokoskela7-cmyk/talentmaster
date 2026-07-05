@@ -13,6 +13,23 @@
 - **Pelaaja (ymmärtää + omistaa, §7.22):** konsepti omalla kielellä — *mikä tämä on* + *miksi se auttaa pelissä* + yksi cue-kysymys `Kysymyspankista`. **EI kriteeritasoa 1 ("ei näy"), ei arvosanaa, ei vertailua** — pelaaja oivaltaa kysymyksen kautta ("kysymys tekee älykkään, käsky tottelevaisen"). SDT-autonomia + Dweck-prosessi.
 Lib-tuki: jokaisella item-objektilla `ydinkonsepti` + `perustelu` + `kysymykset` (jo mallissa); render valitsee kerroksen roolin mukaan. Tyhjä ymmärrys-kenttä = laatupuute (parseri varoittaa).
 
+## 0c. PELI-LINKITYS -INVARIANTTI (Excelin avainperiaate — EHDOTON)
+**Konsepti opetetaan, havainnoidaan ja arvioidaan AINA pelitilanteen kautta joukkuekontekstissa — ei koskaan irrallisena harjoitteena.** Tämä on Excelin Polku-välilehden avainperiaate ja koskee kaikkia vaiheita.
+- Jokaisella konseptilla **`pelitilanne`** (mikä pelin tilanne se on, esim. "kuljetanko vai syötänkö", "tiloihin hyökkääminen") + **`pelimuoto`**. **Viralliset pelimuodot: `3v3 · 5v5 · 8v8 · 11v11`** (`TM_TT_PELIMUODOT`), skaalautuu iän mukaan (3v3 nuorimmat → 11v11 U13+).
+- **KIELI: vain suomi, selkokieli — ei vieraskielisiä termejä.** Excelin pelitilanteissa on englanninkielisiä sulkeita ("Get the ball", "Attacking spaces", "In charge of my space") → parseri **poistaa englannin**, lib käyttää vain suomea.
+- **Näkemyksen laajeneminen — pelimuoto = havaintopiirin koko** (`TM_TT_NAKEMYS`, 4 porrasta, suomeksi):
+
+  | Vaihe | Pelimuoto | Ikä |
+  |---|---|---|
+  | **Minä ja pallo** | 3v3 | ~6–7 |
+  | **Minä ja kaveri/vastustaja** | 5v5 | ~8–9 |
+  | **Minä ja ryhmä** | 8v8 | ~10–12 |
+  | **Minä ja joukkue** | 11v11 | ~13–14 |
+
+  Lapsi aloittaa itsestään ja pallosta → suhde kaveriin/vastustajaan → ryhmä → koko joukkue. Kaveri-/vastustaja-erottelu + hyökkäys/puolustus tarkentuvat **konsepteissa**, ei vaihetasolla. Pelimuoto ei ole vain kentän koko vaan havaintopiirin koko. **Vain suomi — ei "egosentrinen"/"summatiivinen".**
+- **Vahvistaa §7b:tä** (pelaaminen-linkitys) konkreettisella datalla: fokus/tavoite/harjoite viittaavat aina `pelitilanteeseen` + `pelimuotoon`, ei abstraktiin taitoon. UI näyttää konseptin AINA pelitilanteen kautta.
+- **Rajaus:** järjestelmä kattaa teknis-taktisen (pelikäsitys + tekniikka pelissä). Fyysis-motorinen ja psyykkinen ovat omat polkunsa (kytkeytyvät 5D-profiiliin erikseen).
+
 ## 1. Periaatteet (mihin malli nojaa)
 - **SSOT-lib** `lib/tm_teknistaktiset.js`, **generoitu** Excelistä parserilla (kuten `tk_lajiviitteet.js` §34). Ei käsin ylläpidettävä; Excel = lähde, lib = totuus koodissa.
 - **Kehys-rekisteri:** curriculum on **oma kehys** `tm_teknistaktinen` `ARVIOINTI_KEHYKSET`:ssä (TM-oletus teknis-taktiselle; korvattavissa per seura — identiteetti-invariantti).
@@ -35,7 +52,9 @@ TM_TT_ASTEIKKO = {
 TM_TT_YOUTH = [
   { avain:'y_h0', koodi:'Y-H0', nimi:'Havainnointi (tiedon kerääminen)',
     dim:'D4', faasi:'hyokkays', lapileikkaava:true,
-    ika:{min:6,max:14}, pelimuoto:'5v5→11v11',
+    ika:{min:6,max:14},
+    pelitilanne:'Kuljetanko vai syötänkö / pelaaminen omalta pelipaikalta',  // PELI-LINKITYS (Sisältö-sarake, vain suomi)
+    pelimuoto:['3v3','5v5','8v8','11v11'],   // TM_TT_PELIMUODOT — viralliset muodot, skaalautuu iän mukaan
     alakonseptit:[ { koodi:'Y-H0a', nimi:'Diagonaalinen sijoittuminen', ika:{…} }, … ],
     kriteerit:{ 1:'…', 2:'…', 3:'…' },              // §7 avoin: onko youthilla kriteerit?
     kysymykset:['Mitä näit ennen kuin pallo tuli?', …]   // Kysymyspankista
@@ -86,8 +105,8 @@ TM_TT_HARJOITTEET = { 'CB-P1':{ pelipaikka:'CB', teema:'Puolustustasapaino',
 ARVIOINTI_KEHYKSET['tm_teknistaktinen'] = { avain:'tm_teknistaktinen', nimi:'Teknis-taktinen (talon metodi)',
   asteikko:TM_TT_ASTEIKKO, taksonomia: /* youth + fundamentit itemeiksi */ }
 
-tmTtItems(pelaaja)      // → aktiiviset itemit: youth aina; fundamentit jos vaihe=Master & positio → CB[…]
-tmTtVaihe(pelaaja)      // 'yksilo'|'silta'|'master' iästä/PHV:stä (§28) + Silta-tarkistuslistan tila
+tmTtItems(pelaaja)      // → aktiiviset itemit: youth AINA (pelipaikaton); fundamentit VAIN jos vaihe=pelipaikka & positio → T[…]
+tmTtVaihe(pelaaja)      // 'perus'|'yhteispeli'|'silta'|'pelipaikka' iästä/PHV:stä (§28) + Silta-tarkistuslistan tila
 tmTtKriteeri(avain, taso)   // rubriikki-ankkuri arvioijalle
 tmTtKysymykset(avain)  // cue-kysymykset (§7.22-turvallinen valmentaja/pelaaja)
 tmTtNorm5(avain, taso) // youth 1–3 → 1–5 IDP/5D-laskentaan
@@ -100,8 +119,14 @@ seurat/{sid}/pelaajat/{pid}/arviointi/{kausiId}
   kehys:'tm_teknistaktinen'
   tt_havaittu: { <avain>: { valm:1–5, itse:1–5, ero:(valm−itse), arvioija_uid, pvm, huomiot } }
 ```
+**Vaihemalli (pelipaikaton → pelipaikallinen):**
+- **Perusvaihe (6–9)** + **Yhteispelivaihe (10–14)** = yksilövaihe, **EI pelipaikkoja** — vain 14 youth-konseptia (ikäpaino ohjaa mitä painotetaan milloinkin, esim. Y-H1 haltuunotto 6–9, Y-H2 syöttäminen 10–13).
+- **Silta (U14–15)** = tarkistuslista + ensisijainen + ≥1 toissijainen pelipaikka valitaan (ei vielä lukita).
+- **Pelipaikkavaihe (U15→)** = pelipaikkafundamentit aktivoituvat. **Vasta tässä `positio` ohjaa arviointia.**
+- U13-pelaajalla `tt_positio_aktiivinen` = null → IDP-fokus + jaksot tulevat youth-konsepteista (+ fyysinen), EI pelipaikasta.
+
 **Pikakentät pelaajadokkiin (§26):**
-- `tt_vaihe` ('yksilo'|'silta'|'master') · `tt_positio_aktiivinen` (Master-fundamenttien pelipaikka)
+- `tt_vaihe` ('perus'|'yhteispeli'|'silta'|'pelipaikka') · `tt_positio_aktiivinen` (pelipaikkafundamenttien pelipaikka, null ennen U15)
 - `tt_arviointi_pvm` · `tt_kattavuus` (arvioitu/aktiiviset)
 - `tt_heikoin` `{avain, nimi, valm, faasi}` → **IDP-fokuskandidaatti** (kytkös 3a)
 - `tt_silta_valmis` (bool — 14 youth-konseptia tasolla 3 → erikoistumislupa)
