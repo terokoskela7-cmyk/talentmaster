@@ -5915,8 +5915,12 @@ window._tmRadar5D = function(dims, opts) {
     const d = dims[i]; const has = d.arvo != null;
     const anchor = (Math.abs(lp[0] - cx) < 12) ? 'middle' : (lp[0] > cx ? 'start' : 'end');
     const ydy = (lp[1] < cy - 20) ? -2 : (lp[1] > cy + 20 ? 12 : 4);
+    // §28 (per-testi-radar): epavarma-akseli → himmennetty arvorivi ("🌱 epävarma") ink3, ei teal-lukua. Additiivinen.
+    const _epv = d.epavarma === true;
+    const _valTxt = _epv ? (d.sub || '🌱 epävarma') : (has ? (d.arvo + (d.lahde && d.lahde !== 'tki' ? '¹' : '')) : 'tulossa');
+    const _valFill = (_epv || !has) ? 'var(--ink3)' : 'var(--teal)';
     svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" font-weight="500" font-family="DM Sans,sans-serif" fill="' + (has ? 'var(--ink)' : 'var(--ink3)') + '">' + d.key + ' ' + d.label + '</text>';
-    svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy + 13).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" font-weight="600" font-family="DM Mono,monospace" fill="' + (has ? 'var(--teal)' : 'var(--ink3)') + '">' + (has ? (d.arvo + (d.lahde && d.lahde !== 'tki' ? '¹' : '')) : 'tulossa') + '</text>';
+    svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy + 13).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" font-weight="600" font-family="DM Mono,monospace" fill="' + _valFill + '">' + _valTxt + '</text>';
   }
   // Datapisteet — monikulmio
   const av = [];
@@ -5929,7 +5933,8 @@ window._tmRadar5D = function(dims, opts) {
   } else if (av.length === 2) {
     svg += '<line x1="' + av[0][0].toFixed(1) + '" y1="' + av[0][1].toFixed(1) + '" x2="' + av[1][0].toFixed(1) + '" y2="' + av[1][1].toFixed(1) + '" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="' + dash + '"/>';
   }
-  for (let i = 0; i < N; i++) { if (dims[i].arvo != null) { const xy = pt(i, dims[i].arvo); svg += '<circle cx="' + xy[0].toFixed(1) + '" cy="' + xy[1].toFixed(1) + '" r="4" fill="var(--teal)"/>'; } }
+  // Datapiste-ympyrät (epavarma-akseli → ink3 himmennetty, muuten teal). §28-neutraali per-akseli.
+  for (let i = 0; i < N; i++) { if (dims[i].arvo != null) { const xy = pt(i, dims[i].arvo); svg += '<circle cx="' + xy[0].toFixed(1) + '" cy="' + xy[1].toFixed(1) + '" r="4" fill="' + (dims[i].epavarma === true ? 'var(--ink3)' : 'var(--teal)') + '"/>'; } }
   // Valinnainen overlay-sarja (dual-taso: esim. ikäluokka --blue viiva kehitysvaihe-täytön päälle). Additiivinen,
   // taaksepäin-yhteensopiva: ilman opts.overlay:ta käytös ennallaan.
   if (opts.overlay && Array.isArray(opts.overlay)) {
@@ -6058,7 +6063,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   f1 += friv('Nopeus (30m)', tasoOf('30m', hv.lin30m), hv.lin30m, 's', false, 'nopeus_30m', true)
     + friv('Räjähtävyys (CMJ)', tasoOf('cmj', hv.cmj), hv.cmj, 'cm', false, 'cmj', true)
     + friv('Kestävyys (MAS)', tasoOf('mas', hv.mas), hv.mas, 'km/h', false, 'mas', true)
-    + _masSyva()
+    // (MAS-vyöhykeanalyysi siirtyy ▸ Syväanalyysiin, ei enää inline)
     // Ketteryys (kasirata, D1-fyysinen §30 FYS) — taso eerikkilaTaso-libistä (HH_NORMIT_PIKA ei sisällä kasirataa)
     + (hv.kasirata != null ? friv('Ketteryys', tasoEk('kasirata', hv.kasirata), hv.kasirata, 's', false, 'kasirata') : '')
     + friv('H-H kokonais', d1, (d1 != null ? d1 : null), '/5', true, 'hh_taso', true);   // D1-aggregaatti = gated (sama kypsyystila kuin snapshot D1 → ei ristiriitaa)
@@ -6072,6 +6077,76 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     if (kp != null) f1 += '<div style="font-size:11px;color:var(--ink3);margin-top:8px">Kiihdytysprofiili (10–30m) ' + kp.suhde.toFixed(2) + ' · ' + kp.tyyppi + window._tmIBtn('kiihdytysprofiili') + '</div>';
   }
   f1 += '<div style="font-size:11px;color:var(--ink3);margin-top:10px">Suunta (↑↓→) vaatii testihistorian — Sprint 2. Ikä/sp: ' + (ika||'?') + ' · ' + (spMN||'?') + '</div>';
+
+  // ── (A) PER-TESTI-RADAR (Fyysinen) — 10m/30m/CMJ/MAS/kasirata, tavoiteviiva taso 3, §28 epavarma himmennetty ──
+  const _mkFysAks = function(key, taso, gated) {
+    const ep = (gated && typeof kypsyysTila === 'function' && kypsyysTila(p.phv_tila, taso, true, _preP) === 'epavarma');
+    return { key: key, label: '', arvo: taso, epavarma: ep };
+  };
+  const _fysAks = [
+    _mkFysAks('10m', tasoEk('nopeus_10m', hv.lin10m), false),
+    _mkFysAks('30m', tasoOf('30m', hv.lin30m), true),
+    _mkFysAks('CMJ', tasoOf('cmj', hv.cmj), true),
+    _mkFysAks('MAS', tasoOf('mas', hv.mas), true),
+    _mkFysAks('Kasi', tasoEk('kasirata', hv.kasirata), false)
+  ].filter(function(a){ return a.arvo != null; });
+  const _fysEpav = _fysAks.some(function(a){ return a.epavarma; });
+  let _fysRadar = '';
+  if (_fysAks.length >= 3 && typeof window._tmRadar5D === 'function') {
+    _fysRadar = '<div style="margin-bottom:8px">' + window._tmRadar5D(_fysAks, { referenssi: 3, referenssiVari: 'var(--blue)', maxW: 320 })
+      + '<div style="font-size:11px;color:var(--ink3);text-align:center;margin-top:2px">● <b style="color:var(--teal)">pelaaja</b> · – – tavoite (ikäluokan keskitaso, taso 3)</div>'
+      + (_fysEpav ? '<div style="font-size:10.5px;color:var(--ink3);text-align:center;font-style:italic;margin-top:3px">§28: kypsyysdataa puuttuu → 🌱 epävarma, ei punainen.</div>' : '') + '</div>';
+  }
+  // ── (B) ▸ SYVÄANALYYSI — normivertailu + sub-indeksit + kehitysvauhti + MAS-vyöhyke (progressiivinen paljastus) ──
+  let _fysSyva = '';
+  // Normivertailu (Eerikkilä taso-3 kynnys, §29). Gated+epavarma → "kypsyysdataa puuttuu", ei kehityskohde-leima.
+  const _fysNormit = [
+    { lbl: 'Nopeus 10m', ek: 'nopeus_10m', arvo: hv.lin10m, yks: 's', pien: true, gated: false },
+    { lbl: 'Nopeus 30m', ek: 'nopeus_30m', arvo: hv.lin30m, yks: 's', pien: true, gated: true },
+    { lbl: 'CMJ', ek: 'hyppy_cj', arvo: hv.cmj, yks: 'cm', pien: false, gated: true },
+    { lbl: 'MAS', ek: 'mas', arvo: hv.mas, yks: 'km/h', pien: false, gated: true },
+    { lbl: 'Kasirata', ek: 'kasirata', arvo: hv.kasirata, yks: 's', pien: false, gated: false }
+  ];
+  let _nrows = '';
+  _fysNormit.forEach(function(t){
+    if (t.arvo == null || typeof eerikkilaNormiarvo !== 'function' || ika == null || !spMN) return;
+    const normi = eerikkilaNormiarvo(t.ek, ika, spMN);
+    if (normi == null) return;
+    const taso = t.ek === 'kasirata' ? tasoEk('kasirata', t.arvo) : (t.ek === 'nopeus_10m' ? tasoEk('nopeus_10m', t.arvo) : tasoOf(t.ek === 'hyppy_cj' ? 'cmj' : t.ek === 'nopeus_30m' ? '30m' : t.ek, t.arvo));
+    const epav = (t.gated && typeof kypsyysTila === 'function' && kypsyysTila(p.phv_tila, taso, true, _preP) === 'epavarma');
+    const edella = t.pien ? (t.arvo < normi) : (t.arvo > normi);
+    const arvio = epav ? '<span style="color:var(--ink3)">kypsyysdataa puuttuu</span>' : (edella ? '<span style="color:var(--teal)">olet edellä</span>' : '<span style="color:var(--ink3)">kehityskohde</span>');
+    _nrows += '<tr style="border-top:.5px solid var(--border)"><td style="padding:5px 6px;color:var(--ink2)">' + t.lbl + '</td>'
+      + '<td style="padding:5px 6px;color:var(--ink)">' + (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(t.arvo, t.yks) : t.arvo) + ' ' + t.yks + '</td>'
+      + '<td style="padding:5px 6px;color:var(--ink3)">' + (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(normi, t.yks) : normi) + ' ' + t.yks + '</td>'
+      + '<td style="padding:5px 6px">' + arvio + '</td></tr>';
+  });
+  if (_nrows) _fysSyva += '<div style="font-size:11px;color:var(--ink2);font-weight:600;margin-bottom:4px">Normivertailu (Eerikkilä, taso-3 = ikäluokan keskitaso)</div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead><tr style="color:var(--ink3);font-size:10px;text-transform:uppercase"><td style="padding:2px 6px">Testi</td><td style="padding:2px 6px">Arvo</td><td style="padding:2px 6px">Normi</td><td style="padding:2px 6px"></td></tr></thead><tbody>' + _nrows + '</tbody></table>';
+  // Sub-indeksit (§30): EI (CMJ−SJ) · FVP (5m/30m) · Profiili (VNE tai FVP-tyyppi). Näytä kun data riittää, muuten "vaatii SJ/5m".
+  const _ei = (hv.cmj != null && hv.sj != null) ? Math.round((hv.cmj - hv.sj) * 10) / 10 : null;
+  const _fvpProfiili = (fvp != null) ? (fvp < 0.90 ? 'Nopeus' : fvp <= 1.10 ? 'Tasapaino' : 'Voima') : null;
+  const _vne = (typeof laskeVNE === 'function' && hv.cmj != null && hv.sj != null && hv.lin5m != null && hv.lin30m != null)
+    ? (function(){ try { const v = laskeVNE({ cmj: hv.cmj, sj: hv.sj, m5: hv.lin5m, m30: hv.lin30m, ika: ika }); return v && (v.profiili || v.tyyppi || v.nimi) ? (v.profiili || v.tyyppi || v.nimi) : null; } catch(e){ return null; } })()
+    : null;
+  const _siCard = function(l, v, d){ return '<div style="background:var(--ov-1);border:.5px solid var(--border);border-radius:9px;padding:9px 10px"><div style="font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3)">' + l + '</div><div style="font-size:15px;font-weight:600;margin:2px 0;color:var(--ink)">' + v + '</div><div style="font-size:10px;color:var(--ink3)">' + d + '</div></div>'; };
+  _fysSyva += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">'
+    + _siCard('EI (kimmo)', _ei != null ? (_ei > 0 ? '+' : '') + _ei + ' cm' : '—', _ei != null ? 'CMJ − SJ' : 'vaatii SJ')
+    + _siCard('FVP', fvp != null ? fvp.toFixed(2) : '—', fvp != null ? (_fvpProfiili + '-painotteinen') : 'vaatii 5m')
+    + _siCard('Profiili', _vne || _fvpProfiili || '—', _vne ? 'VNE (§30)' : _fvpProfiili ? 'FVP-tyyppi' : 'vaatii SJ/5m')
+    + '</div>';
+  // Kehitysvauhti (§29): H-H-taso delta 2. mittauksesta. Abs-parannus kypsyysneutraali (positiivinen ei punainen).
+  if (p.hh_taso_edellinen != null && d1 != null) {
+    const _hd = Math.round((d1 - p.hh_taso_edellinen) * 10) / 10;
+    const _vari = _hd >= 0 ? 'var(--teal)' : 'var(--amber)';
+    _fysSyva += '<div style="font-size:12px;color:var(--ink2);background:var(--ov-1);border:.5px solid var(--border);border-radius:9px;padding:9px 11px;margin-top:10px">📈 Kehitysvauhti: H-H-taso <b style="color:' + _vari + '">' + (_hd > 0 ? '↑ +' : _hd < 0 ? '↓ ' : '→ ') + _hd + '</b> (2. mittaus)</div>';
+  }
+  _fysSyva += _masSyva();   // MAS-vyöhykeanalyysi (siirretty tänne "Näytä lisää"-tilalta)
+  // Kokoa: radar (heti näkyvä) + summapalkit (jo f1:ssä) + ▸ Syväanalyysi-reveal.
+  const _fysReveal = '<div style="margin-top:14px;border-top:.5px solid var(--border);padding-top:10px">'
+    + '<span onclick="var b=document.getElementById(\'_jspSyvaFys\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Syväanalyysi\'" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600">▸ Syväanalyysi</span>'
+    + '<div id="_jspSyvaFys" style="display:none;margin-top:12px">' + _fysSyva + '</div></div>';
+  f1 = _fysRadar + f1 + _fysReveal;
 
   // ── TAB 2: TEKNINEN (SM-tasot + TSI + TKI + FLEI) ──
   // TSI: pikakenttä ensin, muuten laske lennossa raakadatasta (sm_pallo − sm_juoksu, §22). Ei kirjoiteta Firestoreen.
@@ -6113,12 +6188,27 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
         + (t3>0 ? ' · <span style="color:' + tvari + '">taso ' + t3 + '/3</span>' : '') + '</div>'; });
     if (_tr) f2 += '<div class="jsv-an-otsikko" style="margin-top:10px">Lajitekniikka (H-H, taso 1–3)</div>' + _tr;
   }
-  // VAIHE 1 — per-pelaaja Tekninen-analyysi (pikakentät §26): per-laji + budjetti + delta/vauhti + kultaikkuna.
-  // Yhteinen renderöinti joukkueen Yhteenveto A2:n kanssa (_jsvPerLajiHTML / _jsvBudjettiRivi).
+  // ── (A) PER-TESTI-RADAR (Tekninen) — SM-juoksu/SM-pallo (1–5) + syöttö/pujottelu (3-port → 5-skaala). Tavoite taso 3.
+  const _n5 = function(t3){ return (t3 != null && t3 > 0) ? (t3 - 1) * 2 + 1 : null; };   // 1–3 → 1/3/5
+  const _syT = (hv && hv.syotto != null && ika != null && spMN && typeof eerikkilaTaso === 'function') ? _n5(eerikkilaTaso(Number(hv.syotto), 'syotto', ika, spMN)) : null;
+  const _puT = (hv && hv.pujottelu != null && ika != null && spMN && typeof eerikkilaTaso === 'function') ? _n5(eerikkilaTaso(Number(hv.pujottelu), 'pujottelu', ika, spMN)) : null;
+  const _tekAks = [
+    { key: 'SM-juoksu', label: '', arvo: (p.sm_juoksu_taso != null ? p.sm_juoksu_taso : null) },
+    { key: 'SM-pallo', label: '', arvo: (p.sm_pallo_taso != null ? p.sm_pallo_taso : null) },
+    { key: 'Syöttö', label: '', arvo: _syT },
+    { key: 'Pujottelu', label: '', arvo: _puT }
+  ].filter(function(a){ return a.arvo != null; });
+  let _tekRadar = '';
+  if (_tekAks.length >= 3 && typeof window._tmRadar5D === 'function') {
+    _tekRadar = '<div style="margin-bottom:8px">' + window._tmRadar5D(_tekAks, { referenssi: 3, referenssiVari: 'var(--blue)', maxW: 320 })
+      + '<div style="font-size:11px;color:var(--ink3);text-align:center;margin-top:2px">● <b style="color:var(--teal)">pelaaja</b> · – – tavoite (taso 3)</div></div>';
+  }
+  // ── (B) ▸ SYVÄANALYYSI (Tekninen) — per-laji-sekuntibudjetti + eliittiviite (§34) + TKI-kehitysvauhti (abs erillään, §3.2) + FLEI.
+  let _tekSyva = '';
   if (p.tk_lajit_viimeisin) {
     const _pl = _jsvPerLajiHTML(p.tk_lajit_viimeisin, ika, sp, 'Tekniikka lajeittain');
-    f2 += '<div style="margin-top:8px">' + _pl.html;
-    f2 += _jsvBudjettiRivi(p.tk_kokonaistulos_viimeisin, p.tk_lajit_viimeisin, ika, sp);
+    _tekSyva += '<div style="margin-top:8px">' + _pl.html;
+    _tekSyva += _jsvBudjettiRivi(p.tk_kokonaistulos_viimeisin, p.tk_lajit_viimeisin, ika, sp);
     if (p.tki_edellinen != null && p.tki_viimeisin != null) {
       const tkiD = Math.round(p.tki_viimeisin - p.tki_edellinen);
       const nuoli = tkiD > 0 ? '↑+' + tkiD : tkiD < 0 ? '↓' + tkiD : '→0';
@@ -6130,18 +6220,23 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
       }
       const vauhti = tkVaadittuVuosivauhti(ika, sp, 'hopea');
       const vari = (tkiD >= 0 || absParani) ? 'var(--ink2)' : 'var(--amber)';   // §3.2: ei punaista jos abs parani
-      f2 += '<div class="jsv-an-rivi" style="color:' + vari + '">TKI ' + p.tki_viimeisin + ' (' + nuoli + ')' + absTxt
+      _tekSyva += '<div class="jsv-an-rivi" style="color:' + vari + '">TKI ' + p.tki_viimeisin + ' (' + nuoli + ')' + absTxt
         + (vauhti != null ? ' · vaatimus kovenee ' + vauhti + ' s/v' : '') + '</div>';
     }
     if (ika != null) {
       const ikk = (ika <= 12) ? '🔥 Motorinen kultaikkuna (≤12v) — tehokkain aika kehittää tekniikkaa.'
                 : (ika <= 14) ? '⚡ Kultaikkuna sulkeutumassa (13–14v).'
                 : '📊 Toistovaihe (≥15v) — ylläpito ja terävöitys.';
-      f2 += '<div class="jsv-an-rivi" style="color:var(--ink3)">' + ikk + '</div>';
+      _tekSyva += '<div class="jsv-an-rivi" style="color:var(--ink3)">' + ikk + '</div>';
     }
-    f2 += '</div>';
+    _tekSyva += '</div>';
   }
-  f2 += renderFleiKortti(p);   // KORJAUS 4: dynaaminen FLEI-kortti (3 tilaa), korvaa staattisen taulukon
+  _tekSyva += renderFleiKortti(p);   // dynaaminen FLEI-kortti (3 tilaa)
+  // Kokoa Tekninen: radar (heti näkyvä) + SM-tasot/TSI/TKI (default, jo f2:ssa) + ▸ Syväanalyysi.
+  const _tekReveal = _tekSyva ? ('<div style="margin-top:14px;border-top:.5px solid var(--border);padding-top:10px">'
+    + '<span onclick="var b=document.getElementById(\'_jspSyvaTek\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Syväanalyysi\'" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600">▸ Syväanalyysi</span>'
+    + '<div id="_jspSyvaTek" style="display:none;margin-top:12px">' + _tekSyva + '</div></div>') : '';
+  f2 = _tekRadar + f2 + _tekReveal;
 
   // ── TAB 3: PELI (ADAR) ──
   let f3;
