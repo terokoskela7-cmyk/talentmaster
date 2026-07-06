@@ -39,5 +39,16 @@ Player Potential (1–5★ liigakatto) + maajoukkuepolku + Palloliitto-tason agg
 - **NYT–SEURAAVAT:** Vaihe 1 (Code) → Vaihe 2 (ominaisuusarviointi) → Vaihe 3 (kausitavoite) → Vaihe 4 (teknis-taktinen kehitys) → Vaihe 5 (2–5 v polku).
 - **TAUSTALLA (ei vielä):** Vaihe 6 (pelihavainto-KPI/ottelu), Vaihe 7 (potentiaali/kansallinen).
 
+## Syväanalyysi + aukot — VP/valmentaja-näkymän täydellisyys (kirjattu 2026-07-05)
+> Kysymys: "onko syvä data-analyysi riittävää VP:lle ja valmentajalle?" → data-read riittää, mutta *riittävyys* vaatii muutakin kuin lisää dataa. Viisi aukkoa vipuvoiman mukaan:
+
+1. **Toiminnan kerros (SUURIN VIPU — valmentaja).** Data → tulkinta → **konsepti → cue → harjoite**. Nyt diagnoosi ilman reseptiä. = **Vaihe 4** (teknis-taktinen curriculum, datamalli jo suunniteltu `DATAMALLI_TEKNISTAKTINEN.md`). Tekee datasta toimintaa.
+2. **Pitkittäistrendi.** Nyt kehitysvauhti = 2 pisteen delta. Talentille monen mittauksen trendi ajassa (testitason kehityskaari, kaudet). Rakennuspalikat §30-longitudinaalikoonti; ei vielä yksilönäkymässä.
+3. **5D-tasapaino.** Syväanalyysi D1/D2-painotteinen. **D4 peliäly** (pelihavainto lepotilassa) + **D3 psyyke** (itsearvio, ks. §D3-ilmoitus alla) tarvitsevat saman syvyyden. Muuten kokonaiskuva vino.
+4. **Kuorma + kasvu (valmentaja, biologinen).** `kasvutahti ≥7,2 cm/v` = loukkaantumisriski (§25) · kuorma/dropout (§35 K5). §28-kytketty, ei vielä pinnalla.
+5. **Talent-signaalit (VP).** Hidden Gem · X-Factor · kultaikkuna (§28/§30) — VP:n päätöksenteon ydin; osin signaalichippeinä, ei syväanalyysiin integroituna.
+
+**Rakennusjärjestys:** (a) **fys/tek syväanalyysi + per-testi-radar** (`CODE_TASK_FYS_TEK_SYVAANALYYSI.md`, selkeä voitto — Code seuraavaksi kypsyyskorjauksen mergen jälkeen) → (b) **D3-itsearvio-ilmoitus** (pieni, korjaa löydetyn aukon: Selina teki D3-itsearvion, valmentaja/VP eivät saa ilmoitusta → VP-signaali + Master-inbox "D3-itsearvio odottaa kalibrointia" kun `d3_varmuus='itsearvio'`, §26-johdettu) → (c) **Vaihe 4** (toiminnan kerros #1). Aukot 2/4/5 kytkeytyvät Vaihe 4/5/6-työhön; pidetään mukana.
+
 ## Invariantit (kaikki vaiheet)
 Metodologia ennallaan (Eerikkilä/MyE.Way/TKI/PHV) · Palloliitto-taksonomia = standardi (ei omaa) · §7.22 (lapsi/perhe turvallinen; havaittu arvio aikuisten työkalu) · valmentaja omistaa kentän · §26 pikakentät · §5 tokenit · GDPR §33.
