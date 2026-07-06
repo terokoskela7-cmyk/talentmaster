@@ -5915,9 +5915,10 @@ window._tmRadar5D = function(dims, opts) {
     const d = dims[i]; const has = d.arvo != null;
     const anchor = (Math.abs(lp[0] - cx) < 12) ? 'middle' : (lp[0] > cx ? 'start' : 'end');
     const ydy = (lp[1] < cy - 20) ? -2 : (lp[1] > cy + 20 ? 12 : 4);
-    // §28 (per-testi-radar): epavarma-akseli → himmennetty arvorivi ("🌱 epävarma") ink3, ei teal-lukua. Additiivinen.
+    // §28 (per-testi-radar): epavarma-akseli → SEN HETKINEN taso-luku himmennettynä (ink3) + pieni 🌱-vihje, EI "epävarma"-teksti
+    // lukun tilalla (Tero 2026-07-05). Luku näkyy aina; harmaa = kypsyysvarmentamaton. Additiivinen.
     const _epv = d.epavarma === true;
-    const _valTxt = _epv ? (d.sub || '🌱 epävarma') : (has ? (d.arvo + (d.lahde && d.lahde !== 'tki' ? '¹' : '')) : 'tulossa');
+    const _valTxt = _epv ? (has ? (d.arvo + ' 🌱') : (d.sub || '🌱')) : (has ? (d.arvo + (d.lahde && d.lahde !== 'tki' ? '¹' : '')) : 'tulossa');
     const _valFill = (_epv || !has) ? 'var(--ink3)' : 'var(--teal)';
     svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" font-weight="500" font-family="DM Sans,sans-serif" fill="' + (has ? 'var(--ink)' : 'var(--ink3)') + '">' + d.key + ' ' + d.label + '</text>';
     svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy + 13).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" font-weight="600" font-family="DM Mono,monospace" fill="' + _valFill + '">' + _valTxt + '</text>';
@@ -5989,7 +5990,8 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     const neutraali = (kt === 'kasvu' || kt === 'epavarma');
     const vari = neutraali ? 'var(--ov-3)' : (taso == null) ? 'var(--ink3)' : hhTasoVari(taso);
     const palkkiVari = neutraali ? 'var(--ink3)' : 'var(--teal)';
-    const badgeSisalto = (kt === 'kasvu') ? '🌱' : (kt === 'epavarma') ? '·' : (taso != null ? taso : '–');
+    // epavarma → näytä SEN HETKINEN taso-luku himmennettynä (badgeVari harmaa), EI "·"/piiloa (Tero 2026-07-05). kasvu säilyy 🌱.
+    const badgeSisalto = (kt === 'kasvu') ? '🌱' : (taso != null ? taso : '–');
     const badgeVari = neutraali ? 'color:var(--ink3);background:' + vari : 'background:' + vari;
     const w = (taso != null) ? Math.max(0, Math.min(100, (taso / 5) * 100)) : 0;
     const ib = infoKey ? window._tmIBtn(infoKey) : '';
@@ -6361,7 +6363,8 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     const _isD1 = rd.key === 'D1';
     const _dkt = _isD1 ? _d1kt : 'normaali';
     const _neut = (_dkt === 'kasvu' || _dkt === 'epavarma');
-    const _val = (rd.arvo != null) ? (_dkt === 'kasvu' ? '🌱' : _dkt === 'epavarma' ? '·' : rd.arvo) : '–';
+    // epavarma → näytä taso-luku himmennettynä (yhtenäinen friv-badgen + radarin kanssa, Tero 2026-07-05); kasvu 🌱.
+    const _val = (rd.arvo != null) ? (_dkt === 'kasvu' ? '🌱' : rd.arvo) : '–';
     hL += '<div style="flex:1;text-align:center;background:var(--ov-1);border:.5px solid var(--border);border-radius:8px;padding:6px 2px">'
       + '<div style="font-size:9px;color:var(--ink3)">' + rd.key + '</div>'
       + '<div style="font-size:15px;font-weight:600;color:' + _d5col(rd.arvo, _neut) + '">' + _val + '</div></div>';
