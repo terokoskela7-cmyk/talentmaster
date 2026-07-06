@@ -2,6 +2,13 @@
 
 > Lähde: `Master_kokonaisuus.xlsx` (Ekkono-pohjainen talon metodi, yksityinen §ANALYYSI). Tämä on **datamallin suunnitelma** — miten curriculum mallinnetaan dataksi + kytketään `ARVIOINTI_KEHYKSET`-rekisteriin ja §26-pikakenttiin. **Ei koodia vielä.** Noudattaa `tm_arviointi_taksonomia.js`-patternia + §30 (raakadata → indeksit koodissa) + §34 (generoitu lib + parseri, vuosipäivitys).
 
+## 0a. KEHYS LUKITTU (2026-07-05) — OMA_VERSIO kanoninen
+**`tm_teknistaktinen` (OMA_VERSIO) = TalentMasterin oletuskehys teknis-taktiselle.** 9 OMA_VERSIO-md-dokumenttia (7 pelipaikkaa + yksilövaihe/silta + cue-pankki) = kanoninen curriculum. Analysoitu täydelliseksi + itsekonsistentiksi (79 teemaa, 244 KPI-riviä, cue 1:1, 0 orpoa). Lähde I1-parserille.
+- **Rakenne:** teema (`X-P1…`/`X-H0…`) → pelitilanne → **KPI-konseptit** (a/b/c… "käskyverbi+perustelu") → cue:t (Kysymyspankki, 1:1) + youth "Painotus/Pelimuoto/Jatkuu:[pelipaikkakoodit]" -linkitys.
+- **Arviointi = per-KPI, 3-portainen (1–3):** ei näy / ohjatusti / itsenäisesti. **EI Excelin 1/3/5** — KPI = kriteeri (tietoinen päätös). Normalisointi 1–3 → 1–5 vain 5D/IDP-koontiin (§26-pattern).
+- **Harjoitteet:** youth → OMA_VERSIO konseptipelit (14) + §A7; pelipaikka → **Excel Harjoitepankki (92) alias-sillan kautta** (CB→T…). Excel jää *legacy-lähteeksi* vain harjoitteille; kriteerit 1/3/5 ei käytetä.
+- **`palloliitto` = erillinen arviointipaketti** `ARVIOINTI_KEHYKSET`-rekisterissä — **rakennetaan vasta tarpeeseen** (Head of Talent / kansallinen talent-ID + Player Potential 1–5★). EI oletus. Interoperoi 5D:n kautta (identiteetti-invariantti). Oma model = kehitysmoottori (operatiivinen); Palloliitto = talent-ID-/uskottavuuskerros.
+
 ## 0. Päätökset (2026-07-05) + Excel-status
 - **Pelipaikkakoodit = suomalaiset (talon standardi):** `T` (toppari) · `LP` (laitapuolustaja) · `KK` (keskikenttä) · `KY` (kymppi) · `KH` (keskushyökkääjä) · `LA` (laituri) · `MV` (maalivahti). Lib + parseri käyttävät näitä (EI CB/FB/MID/AMID/ST/WI/GK). Koodimuoto: pelipaikka + vaihe(P/H) + numero (+ alakirjain), esim. `LA-H6b`, `T-P4a`.
 - **Excelin gap-tarkistus tehty:** nykyinen `Master_kokonaisuus.xlsx` on jo ~rakenteellisesti sääntöjen mukainen (16 välilehteä, sarakkeet, Valitsin 1–5-asteikko selitteineen, YHTEENSÄ + kehityssopimus). **Excel-päivitys LYKÄTTY** (erillinen tehtävä): koodinvaihto CB→T ym. + kaavat (Ero=Valm−Itse, Harjoitesuositus=VLOOKUP kun ≤2) + vaihenimet (Perusvaihe 6–9 / Yhteispelivaihe 10–14 / Pelipaikkavaihe U15→) + termi-/tyylinormalisointi. Ei estä parseria (parseri lukee sisällön, ei kaavoja).
