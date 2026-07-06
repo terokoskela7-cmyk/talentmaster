@@ -18,6 +18,7 @@ const {
   normSukupuoliMN,
   onNeutraaliPrePHV,
   kypsyysTila,
+  d3OdottaaKalibrointia,
   teknHeikoimmat20,
   laskeD1Joustava,
   laskeD1Osaindeksit,
@@ -245,6 +246,26 @@ describe('kypsyysTila (§28 kolmiportainen)', () => {
   it('preOverride (ikäpohjainen pre-päättely ilman phv_tila:aa) → kasvu', () => {
     expect(kypsyysTila(null, 2, true, true)).toBe('kasvu');   // onNeutraaliPrePHV johti pre-PHV:hen iän perusteella
     expect(kypsyysTila(null, 2, true, false)).toBe('epavarma');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// §26 d3OdottaaKalibrointia — D3-itsearvio odottaa valmentajan kalibrointia
+describe('d3OdottaaKalibrointia (§26 D3-kalibrointisignaali)', () => {
+  it('itsearvio → true (pelaaja arvioi, valmentaja ei vielä)', () => {
+    expect(d3OdottaaKalibrointia({ d3_varmuus: 'itsearvio' })).toBe(true);
+  });
+  it('trianguloitu → false (molemmat arvioineet → signaali poistuu)', () => {
+    expect(d3OdottaaKalibrointia({ d3_varmuus: 'trianguloitu' })).toBe(false);
+  });
+  it('valmentaja → false (vain valmentaja, ei pelaajan itsearviota)', () => {
+    expect(d3OdottaaKalibrointia({ d3_varmuus: 'valmentaja' })).toBe(false);
+  });
+  it('ei d3-dataa / null / undefined → false', () => {
+    expect(d3OdottaaKalibrointia({})).toBe(false);
+    expect(d3OdottaaKalibrointia(null)).toBe(false);
+    expect(d3OdottaaKalibrointia(undefined)).toBe(false);
+    expect(d3OdottaaKalibrointia({ d3_varmuus: null })).toBe(false);
   });
 });
 

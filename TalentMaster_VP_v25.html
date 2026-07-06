@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=41"></script>   <!-- v41: kypsyysTila (§28 kolmiportainen) -->
+<script src="lib/tm_eerikkila_normit.js?v=42"></script>   <!-- v42: + d3OdottaaKalibrointia (kypsyysTila (§28 kolmiportainen) -->
 
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -3188,6 +3188,22 @@ async function renderSignals(seuraId) {
       }
     }
   });
+
+  // S10 — D3-itsearvio odottaa kalibrointia (§26 pikakenttä d3_varmuus; ei uutta kyselyä/kirjoitusta).
+  // Pelaaja arvioi itsensä, valmentaja ei vielä → kalibrointi kesken. Poistuu kun d3_varmuus='trianguloitu'. §7.22: aikuisnäkymä.
+  const _d3Odottaa = _pelaajat.filter(p => (typeof d3OdottaaKalibrointia === 'function') ? d3OdottaaKalibrointia(p) : (p && p.d3_varmuus === 'itsearvio'));
+  if (_d3Odottaa.length) {
+    const _yksi = _d3Odottaa.length === 1;
+    signaalit.push({
+      prio: 'warn', icon: '🧠',
+      title: 'D3-itsearvio odottaa kalibrointia — ' + _d3Odottaa.length + ' pelaaja' + (_yksi ? '' : 'a') + ' arvioi itsensä',
+      sub: 'Lisää valmentajan arvio → trianguloitu D3 (avaa pelaajakortti · "Arvioi (VP)")',
+      cta: 'Avaa pelaajat →', ctaClass: 'amber-cta',
+      action: "setWs('pelaajat')",
+      playerId: _yksi ? _d3Odottaa[0].id : undefined,
+      sortKey: -_d3Odottaa.length
+    });
+  }
 
   // Promise.all rinnakkaiskyselyt: PHV-snapshot + 14pv-cross-join
   let phvCount = 0;

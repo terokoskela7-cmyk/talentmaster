@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=40"></script>
+<script src="lib/tm_eerikkila_normit.js?v=41"></script>   <!-- v41: + d3OdottaaKalibrointia -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
@@ -4301,8 +4301,17 @@ function renderKoti() {
   const klinikka = P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40);
   if (klinikka.length) kortit.push({ prio:1, ikoni:'🏥', txt: klinikka.length + ' pelaajaa kehon valmius alle 40 (klinikkalähetys)', cta:'Lähetä klinikkaan', fn:"setWs('dev')", vari:'var(--red)' });
   // D3-flag: pelaaja teki itsearvion mutta valmentaja ei ole vielä vahvistanut → trianguloi (d3_varmuus elää 'trianguloitu':ksi).
-  const d3Itse = P.filter(p => p.d3_varmuus === 'itsearvio');
-  if (d3Itse.length) kortit.push({ prio:4, ikoni:'🧠', txt: d3Itse.length + ' pelaajaa teki psyykkisen itsearvion — vahvista valmentajan näkemys', cta:'Arvioi', fn:"_avaaD3Arvio('" + d3Itse[0].id + "')", vari:'var(--blue)' });
+  // §26 pikakenttä d3_varmuus/d3_pvm (ei alikokoelmakyselyä); omat pelaajat P (§18). Poistuu kun 'trianguloitu'. §7.22 aikuisnäkymä.
+  const d3Itse = P.filter(p => (typeof d3OdottaaKalibrointia === 'function') ? d3OdottaaKalibrointia(p) : (p && p.d3_varmuus === 'itsearvio'));
+  if (d3Itse.length) {
+    const _d3p = d3Itse[0];
+    const _d3nimi = ((_d3p.etunimi||'') + ' ' + (_d3p.sukunimi||'')).trim() || 'Pelaaja';
+    const _d3pvm = _d3p.d3_pvm ? (function(s){ const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[3])+'.'+(+m[2])+'.'+m[1] : String(s); })(_d3p.d3_pvm) : null;
+    const _d3txt = (d3Itse.length === 1)
+      ? ('🧠 ' + _d3nimi + ' teki D3-itsearvion' + (_d3pvm ? ' (' + _d3pvm + ')' : '') + ' → lisää oma arviosi')
+      : (d3Itse.length + ' pelaajaa teki psyykkisen itsearvion — vahvista valmentajan näkemys');
+    kortit.push({ prio:4, ikoni:'🧠', txt: _d3txt, cta:'Arvioi', fn:"_avaaD3Arvio('" + _d3p.id + "')", vari:'var(--blue)' });
+  }
   kortit.sort((a,b) => a.prio - b.prio);   // severity nouseva → kortit[0] = kriittisin
 
   const aktiivisia = P.filter(p => kirjVko[p.id]).length;
