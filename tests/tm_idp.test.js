@@ -5,7 +5,8 @@ const require = createRequire(import.meta.url);
 const {
   idpKypsyysEstetty, idpKeraaKandidaatit, idpValitseHeikoin, idpTavoitearvo,
   idpVahvinDim, idpEhdotaTavoite, idpPikakentat,
-  idpJarjestaKandidaatit, idpKandidaatitJarjestetty, idpKohdeKandidaatti, idpRakennaTavoite
+  idpJarjestaKandidaatit, idpKandidaatitJarjestetty, idpKohdeKandidaatti, idpRakennaTavoite,
+  idpDviSuunta, idpLisaaArvio, idpElinkaari, idpEdistyma
 } = require('../lib/tm_idp.js');
 const tax = require('../lib/tm_arviointi_taksonomia.js');
 const eer = require('../lib/tm_eerikkila_normit.js');
@@ -173,7 +174,109 @@ describe('idpPikakentat (§26 lista+kortti)', () => {
     expect(idpPikakentat(t).idp_edistyma).toBe('50 %');
   });
   it('null tavoite → null-kentät', () => {
-    expect(idpPikakentat(null)).toEqual({ idp_tila: null, idp_edistyma: null, idp_fokus: null });
+    expect(idpPikakentat(null)).toEqual({ idp_tila: null, idp_edistyma: null, idp_fokus: null, idp_viim_review: null });
+  });
+});
+
+// ─── Vaihe 3b — review-sykli + kehityskaari ───
+
+describe('idpDviSuunta (§29 kaksi deltaa · abs+ ei down-väri)', () => {
+  // Mitattava pienempi=parempi (sekunnit): lähtö 46, tavoite ≤44.
+  const t = () => ({ mittari: { yksikko: 's', suunta: 'pienempi' }, lahto: { arvo: 46 }, tavoitearvo: 44, arviot: [{ arvo: 45 }] });
+  it('up — parani edellisestä', () => {
+    const d = idpDviSuunta(t(), 44.5);
+    expect(d.suunta).toBe('up');
+    expect(d.stepDelta).toBeCloseTo(0.5);   // 45 → 44.5
+    expect(d.absDelta).toBeCloseTo(1.5);    // 46 → 44.5
+  });
+  it('flat — sama kuin edellinen', () => {
+    expect(idpDviSuunta(t(), 45).suunta).toBe('flat');
+  });
+  it('down — notkahti JA alle lähdön (abs-parannus negatiivinen)', () => {
+    const d = idpDviSuunta(t(), 46.5);   // edell 45 → 46.5 (huononi), lähtö 46 → 46.5 (myös alle)
+    expect(d.suunta).toBe('down');
+    expect(d.absPositiivinen).toBe(false);
+  });
+  it('INVARIANTTI abs+ ei down: notkahti edellisestä mutta yhä parempi kuin lähtö → flat, EI down', () => {
+    const d = idpDviSuunta(t(), 45.5);   // edell 45 → 45.5 (step huononi) mutta lähtö 46 → 45.5 (abs+)
+    expect(d.stepDelta).toBeLessThan(0);
+    expect(d.absPositiivinen).toBe(true);
+    expect(d.suunta).toBe('flat');       // ei 'down'
+  });
+  it('suurempi=parempi (havaittu taso): nousu → up', () => {
+    const tt = { mittari: { yksikko: 'taso', suunta: 'suurempi' }, lahto: { arvo: 2 }, tavoitearvo: 4, arviot: [{ arvo: 3 }] };
+    expect(idpDviSuunta(tt, 4).suunta).toBe('up');
+  });
+  it('fiilis-review (arvo null) → flat, deltat null', () => {
+    const d = idpDviSuunta(t(), null);
+    expect(d.suunta).toBe('flat');
+    expect(d.absDelta).toBeNull();
+    expect(d.stepDelta).toBeNull();
+  });
+});
+
+describe('idpEdistyma (§26)', () => {
+  it('mitattava → X % lähtö→tavoite', () => {
+    const t = { mittari: { yksikko: 's', suunta: 'pienempi' }, lahto: { arvo: 20 }, tavoitearvo: 18, arviot: [{ arvo: 19 }] };
+    expect(idpEdistyma(t)).toBe('50 %');   // 20→19 / matka 2
+  });
+  it('mitattava ilman arvioita → 0 %', () => {
+    const t = { mittari: { yksikko: 's', suunta: 'pienempi' }, lahto: { arvo: 20 }, tavoitearvo: 18, arviot: [] };
+    expect(idpEdistyma(t)).toBe('0 %');
+  });
+  it('havaittu (taso) → review N', () => {
+    const t = { mittari: { yksikko: 'taso', suunta: 'suurempi' }, lahto: { arvo: 2 }, tavoitearvo: 4, arviot: [{ arvo: 3 }, { arvo: 3 }] };
+    expect(idpEdistyma(t)).toBe('review 2');
+  });
+  it('vapaa-yksikkö → review N (kvalitatiivinen)', () => {
+    const t = { mittari: { yksikko: 'vapaa' }, lahto: { arvo: null }, tavoitearvo: null, arviot: [{ pelaajan_arvio: 4 }] };
+    expect(idpEdistyma(t)).toBe('review 1');
+  });
+  it('vapaa ilman arvioita → null', () => {
+    expect(idpEdistyma({ mittari: { yksikko: 'vapaa' }, arviot: [] })).toBeNull();
+  });
+});
+
+describe('idpLisaaArvio (arviot[] + pvm ISO §7.6)', () => {
+  const opts = { nyt: new Date(2026, 5, 20) };
+  it('pushaa täyden arvion + johtaa dvi_suunta', () => {
+    const t = { mittari: { yksikko: 's', suunta: 'pienempi' }, lahto: { arvo: 46 }, tavoitearvo: 44, arviot: [{ arvo: 45 }] };
+    idpLisaaArvio(t, { arvo: 44.5, pelaajan_arvio: 4, pelaajan_note: 'näen paikat', valmentajan_kommentti: 'hyvä' }, opts);
+    expect(t.arviot.length).toBe(2);
+    const a = t.arviot[1];
+    expect(a.arvo).toBe(44.5);
+    expect(a.pelaajan_arvio).toBe(4);
+    expect(a.dvi_suunta).toBe('up');
+    expect(typeof a.pvm).toBe('string');   // ISO-string, ei serverTimestamp arrayssa
+  });
+  it('fiilis-review (tyhjä arvo) → arvo null, ei kaadu', () => {
+    const t = { mittari: { yksikko: 's', suunta: 'pienempi' }, lahto: { arvo: 46 }, tavoitearvo: 44, arviot: [] };
+    idpLisaaArvio(t, { arvo: '', pelaajan_arvio: 3, pelaajan_note: 'ok' }, opts);
+    expect(t.arviot[0].arvo).toBeNull();
+    expect(t.arviot[0].dvi_suunta).toBe('flat');
+  });
+});
+
+describe('idpElinkaari (§4)', () => {
+  const opts = { nyt: new Date(2026, 5, 20) };
+  it('saavutettu → status + pvm', () => {
+    const t = { status: 'aktiivinen', arviot: [{ arvo: 44 }] };
+    idpElinkaari(t, 'saavutettu', opts);
+    expect(t.status).toBe('saavutettu');
+    expect(typeof t.saavutettu_pvm).toBe('string');
+  });
+  it('jatkuu → uusi tavoitearvo, status aktiivinen, arviot SÄILYY, sama fokus', () => {
+    const t = { status: 'aktiivinen', fokus: { alue: 'short_passing', dim: 'D2' }, tavoitearvo: 44, arviot: [{ arvo: 45 }, { arvo: 44 }] };
+    idpElinkaari(t, 'jatkuu', { nyt: opts.nyt, uusiTavoitearvo: 43 });
+    expect(t.status).toBe('aktiivinen');
+    expect(t.tavoitearvo).toBe(43);        // rima nostettu
+    expect(t.arviot.length).toBe(2);       // kaari säilyy
+    expect(t.fokus.alue).toBe('short_passing');
+  });
+  it('hylatty → status hylatty', () => {
+    const t = { status: 'aktiivinen', arviot: [] };
+    idpElinkaari(t, 'hylatty', opts);
+    expect(t.status).toBe('hylatty');
   });
 });
 
