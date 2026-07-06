@@ -20,7 +20,7 @@
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=3"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
-<script src="lib/tm_idp.js?v=2"></script>   <!-- Vaihe 3a: IDP-kausitavoite ehdotusmoottori + pikakentät + VP-fokusvalinta/vapaa sana -->
+<script src="lib/tm_idp.js?v=3"></script>   <!-- Vaihe 3a+3b: IDP ehdotusmoottori + VP-fokusvalinta + review-sykli/kehityskaari/elinkaari -->
 <script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
 
 <style>
@@ -1374,6 +1374,44 @@ body {
 .jsp-kt-vihje { font-size: 11.5px; color: var(--teal); margin-top: 4px; }
 .jsp-kt-vapaainp { flex: 1; min-width: 150px; background: var(--bg2); color: var(--ink); border: .5px solid var(--border); border-radius: 6px; padding: 6px 9px; font-size: 12.5px; font-family: var(--font-sans); }
 .jsp-kt-edit { flex-wrap: wrap; }
+/* 3b — kehityskaari-timeline */
+.jsp-kt-muted { color: var(--ink3); font-weight: 400; }
+.jsp-kt-dvi { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; margin-left: 4px; }
+.jsp-kt-dvi.up { color: var(--teal); background: rgba(40,176,144,.12); }
+.jsp-kt-dvi.flat { color: var(--ink3); background: var(--ov-1); }
+.jsp-kt-dvi.down { color: var(--amber); background: rgba(224,160,64,.12); }
+.jsp-kt-tl { position: relative; padding-left: 4px; margin-top: 6px; }
+.jsp-kt-tlline { position: absolute; left: 13px; top: 10px; bottom: 10px; width: 2px; background: var(--ov-3); }
+.jsp-kt-tlitem { position: relative; padding: 0 0 16px 38px; }
+.jsp-kt-tldot { position: absolute; left: 6px; top: 3px; width: 14px; height: 14px; border-radius: 50%; border: 3px solid var(--bg); background: var(--ink3); }
+.jsp-kt-tldot.rev { background: var(--blue); }
+.jsp-kt-tldot.now { background: var(--teal); box-shadow: 0 0 0 4px rgba(40,176,144,.15); }
+.jsp-kt-tltop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.jsp-kt-tlval { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.jsp-kt-tldate { font-size: 11px; color: var(--ink3); white-space: nowrap; }
+.jsp-kt-self { display: inline-flex; gap: 3px; align-items: center; margin: 5px 0 2px; font-size: 11px; color: var(--ink3); }
+.jsp-kt-self i { width: 9px; height: 9px; border-radius: 50%; background: var(--ov-3); display: inline-block; }
+.jsp-kt-self i.on { background: var(--amber); }
+.jsp-kt-cmt { font-size: 12px; color: var(--ink2); margin-top: 2px; }
+.jsp-kt-cmt.player { color: var(--ink); }
+.jsp-kt-twodelta { font-size: 11px; color: var(--ink3); margin-top: 5px; padding: 6px 9px; background: var(--ov-1); border-radius: 8px; border: .5px solid var(--border); }
+/* 3b — review-modaali */
+.jsp-rv-box { background: var(--bg2); border: .5px solid var(--border); border-radius: 14px; padding: 18px 20px; width: min(560px, 94vw); max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.jsp-rv-hd { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.jsp-rv-title { font-size: 18px; font-family: var(--font-serif, 'Cormorant Garamond'); color: var(--ink); }
+.jsp-rv-x { background: none; border: none; color: var(--ink3); font-size: 22px; cursor: pointer; padding: 0 4px; }
+.jsp-rv-step { border-left: 2px solid var(--ov-3); padding: 0 0 4px 14px; margin-bottom: 15px; position: relative; }
+.jsp-rv-step::before { content: attr(data-n); position: absolute; left: -11px; top: -2px; width: 20px; height: 20px; border-radius: 50%; background: var(--card, var(--bg1)); border: 1px solid var(--border); font-size: 11px; display: flex; align-items: center; justify-content: center; color: var(--ink2); }
+.jsp-rv-step.first { border-left-color: rgba(40,176,144,.5); }
+.jsp-rv-st { font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
+.jsp-rv-sub { font-size: 11px; color: var(--ink3); margin-bottom: 7px; }
+.jsp-rv-scale { display: flex; gap: 6px; margin-bottom: 6px; }
+.jsp-rv-scale b { width: 30px; height: 30px; border-radius: 7px; border: .5px solid var(--border); background: var(--ov-1); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--ink2); font-weight: 600; cursor: pointer; }
+.jsp-rv-scale b.on { background: rgba(224,160,64,.18); border-color: var(--amber); color: var(--amber); }
+.jsp-rv-inp { width: 100%; background: var(--ov-1); border: .5px solid var(--border); border-radius: 8px; padding: 7px 10px; color: var(--ink); font-family: var(--font-sans); font-size: 12.5px; margin-top: 2px; }
+textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
+.jsp-rv-auto { font-size: 11.5px; color: var(--ink2); background: var(--ov-1); border: .5px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-top: 2px; }
+.jsp-rv-note { font-size: 10.5px; color: var(--ink3); border-top: .5px solid var(--border); margin-top: 12px; padding-top: 9px; line-height: 1.6; }
 .dim-kortit { display: flex; gap: 8px; padding: 12px 0; border-top: .5px solid var(--border); border-bottom: .5px solid var(--border); margin-bottom: 14px; }
 .dim-kortti { flex: 1; padding: 12px 8px; border: 1px solid var(--border); text-align: center; }
 .dim-label { display: block; font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); margin-bottom: 6px; }
@@ -3940,21 +3978,25 @@ window._vpTallennaTavoite = async function (pid, uusiStatus) {
   if (uusiStatus) t.status = uusiStatus;
   if (uusiStatus === 'aktiivinen') { t.hyvaksytty = new Date().toISOString(); t.omistaja = 'yhdessa'; }
   p._idpMuokkaus = false;
-  // §26 pikakentät pelaajadokkiin
-  const pk = (typeof idpPikakentat === 'function') ? idpPikakentat(t) : { idp_tila: t.status, idp_edistyma: null, idp_fokus: t.fokus };
-  p.idp_tila = pk.idp_tila; p.idp_edistyma = pk.idp_edistyma; p.idp_fokus = pk.idp_fokus;
   _vpKausitavoiteReRender();
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast('Tavoite ' + (uusiStatus === 'aktiivinen' ? 'aktivoitu' : 'tallennettu') + ' (demo — ei kirjoitettu)', 'ok'); return; }
+  await _vpTallennaIdpDok(p, 'Tavoite ' + (uusiStatus === 'aktiivinen' ? 'aktivoitu' : 'tallennettu'));
+};
+// Jaettu persistointi (§26 pikakentät + idp_kausi/{vuosi}.tavoitteet[]). Käytetään tavoite-, review- ja elinkaari-tallennuksessa.
+// §7.6: pvm:t arrayssa ISO-stringinä (jo asetettu). Päivittää myös in-memory pikakentät ennen re-renderiä.
+async function _vpTallennaIdpDok(p, viesti) {
+  const t = p && p._idpTavoite; if (!t) return;
+  const pk = (typeof idpPikakentat === 'function') ? idpPikakentat(t) : { idp_tila: t.status, idp_edistyma: null, idp_fokus: t.fokus, idp_viim_review: null };
+  p.idp_tila = pk.idp_tila; p.idp_edistyma = pk.idp_edistyma; p.idp_fokus = pk.idp_fokus; p.idp_viim_review = pk.idp_viim_review;
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + ' (demo — ei kirjoitettu)', 'ok'); return; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
-    const ref = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid);
-    // §7.6: EI serverTimestampia arrayssa → tavoite/arviot pvm = ISO-string (jo asetettu). Yksi tavoite 3a:ssa.
+    const ref = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
     await ref.collection('idp_kausi').doc(vuosi).set({ tavoitteet: [t], paivitetty: new Date().toISOString() }, { merge: true });
-    await ref.set({ idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null }, { merge: true });
-    if (typeof toast === 'function') toast('Tavoite ' + (uusiStatus === 'aktiivinen' ? 'aktivoitu ✓' : 'tallennettu ✓'), 'ok');
-  } catch (e) { console.warn('[_vpTallennaTavoite]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
-};
+    await ref.set({ idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null }, { merge: true });
+    if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
+  } catch (e) { console.warn('[_vpTallennaIdpDok]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+}
 // Best-effort: lataa TÄYSI aktiivinen tavoite idp_kausi-dokista modaalin auetessa (kerran/pelaaja; ei per-rivi-kysely).
 async function _vpLataaTavoite(p) {
   if (!p || p._idpTavoite || p._idpLadattu) return; p._idpLadattu = true;
@@ -4046,14 +4088,32 @@ function _vpKausitavoiteHTML(p) {
   // pelaajan ääni (omistajuus)
   h += '<div class="jsp-kt-box" style="border-color:rgba(40,176,144,.3);margin-top:10px"><div class="jsp-kt-bt">Pelaajan ääni (omistajuus)</div>'
     + '<textarea id="_jspTavAani" class="jsp-kt-aani" placeholder="Pelaajan oma tavoite omin sanoin…" onclick="event.stopPropagation()">' + _jsvEsc(t.pelaajan_tavoite || '') + '</textarea></div>';
+  // ── 3b: kehityskaari-timeline (katselutila; muokkaustilassa piilossa) ──
+  if (!p._idpMuokkaus) h += _vpKehityskaariHTML(t, pid);
   // napit
   h += '<div class="jsp-kt-btns">';
   const kn = (p._idpKandN != null) ? p._idpKandN : null;
   const ehdLbl = (kn != null && kn > 1) ? '↻ Ehdota (moottori · ' + kn + ')' : '↻ Ehdota (moottori)';
-  h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\')">' + ehdLbl + '</button>';
-  if (st === 'ehdotettu') h += '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',\'aktiivinen\')">✓ Hyväksy (aktiivinen)</button>';
-  else { h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();window._vpArvPelaaja._idpMuokkaus=true;_vpKausitavoiteReRender()">✎ Muokkaa</button>'
-    + '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',null)">💾 Tallenna</button>'; }
+  if (p._idpMuokkaus) {
+    // muokkaustila: re-suggest + tallenna/hyväksy
+    h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\')">' + ehdLbl + '</button>';
+    if (st === 'ehdotettu') h += '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',\'aktiivinen\')">✓ Hyväksy (aktiivinen)</button>';
+    else h += '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',null)">💾 Tallenna</button>';
+  } else if (st === 'ehdotettu') {
+    // 3a-flow ennallaan
+    h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\')">' + ehdLbl + '</button>'
+      + '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',\'aktiivinen\')">✓ Hyväksy (aktiivinen)</button>';
+  } else {
+    // 3b elinkaari: aktiivinen → review + saavutettu/jatkuu; saavutettu → jatkuu; kaikki → muokkaa
+    if (st === 'aktiivinen') {
+      h += '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpKirjaaReview(\'' + pid + '\')">＋ Kirjaa review</button>'
+        + '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpElinkaari(\'' + pid + '\',\'saavutettu\')">✓ Saavutettu</button>'
+        + '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpJatkuuAvaa(\'' + pid + '\')">↗ Jatkuu</button>';
+    } else if (st === 'saavutettu') {
+      h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpJatkuuAvaa(\'' + pid + '\')">↗ Jatkuu (nosta rima)</button>';
+    }
+    h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();window._vpArvPelaaja._idpMuokkaus=true;_vpKausitavoiteReRender()">✎ Muokkaa</button>';
+  }
   h += '</div>';
   return h;
 }
@@ -4090,6 +4150,185 @@ function _vpFokusValintaHTML(p, pid, f) {
   h += '</div>';
   return h;
 }
+
+// ─── Vaihe 3b — kehityskaari-timeline + review-modaali + elinkaari ───
+
+// DVI-pilli (§29-väri): up teal ↑ · flat harmaa → · down amber ↓ (abs+ ei koskaan down, hoidettu idpDviSuunta:ssa).
+function _vpDviPilli(suunta, teksti) {
+  const cls = suunta === 'up' ? 'up' : suunta === 'down' ? 'down' : 'flat';
+  const nuoli = suunta === 'up' ? '↑' : suunta === 'down' ? '↓' : '→';
+  return '<span class="jsp-kt-dvi ' + cls + '">' + nuoli + (teksti ? ' ' + _jsvEsc(teksti) : '') + '</span>';
+}
+// Pelaajan itsearvio 1–5 pisteinä (§4 mockup .self).
+function _vpItsearvioDotit(n) {
+  let s = '<span class="jsp-kt-self">Pelaajan itsearvio: ';
+  for (let i = 1; i <= 5; i++) s += '<i class="' + (n && i <= n ? 'on' : '') + '"></i>';
+  return s + ' ' + (n || '–') + '/5</span>';
+}
+// Kehityskaari-timeline (§4 mockup): lähtö → per review piste (arvo + DVI + itsearvio + note + kommentti + kaksi deltaa).
+// Vapaa-yksikkö-tavoite (3a) → kvalitatiivinen kaari (ei mitattua arvoa, vain itsearvio + kommentit).
+function _vpKehityskaariHTML(t, pid) {
+  if (!t) return '';
+  const mit = t.mittari || {}, yks = mit.yksikko || '', pienempi = mit.suunta === 'pienempi';
+  const mitattava = (yks !== 'taso' && yks !== 'vapaa');
+  const arviot = t.arviot || [];
+  const fmt = function (v) { return (v == null) ? '—' : ((typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(v, yks) : v) + (mitattava && yks ? ' ' + yks : (yks === 'taso' ? '/5' : ''))); };
+  // Otsikko + kokonais-DVI (viimeisin arvio)
+  const viim = arviot.length ? arviot[arviot.length - 1] : null;
+  let dviYht = '';
+  if (viim) dviYht = _vpDviPilli(viim.dvi_suunta, viim.dvi_suunta === 'up' ? 'kehittyy' : viim.dvi_suunta === 'down' ? 'seuraa' : 'vakaa');
+  let h = '<div class="jsp-kt-sec" style="margin-top:16px"><span>Kehityskaari — review-sykli</span>' + dviYht + '</div>';
+  h += '<div class="jsp-kt-tl"><div class="jsp-kt-tlline"></div>';
+  // Lähtöpiste
+  const la = t.lahto ? t.lahto.arvo : null;
+  h += '<div class="jsp-kt-tlitem"><span class="jsp-kt-tldot start"></span>'
+    + '<div class="jsp-kt-tltop"><span class="jsp-kt-tlval">' + (la != null ? fmt(la) + ' <span class="jsp-kt-muted">· lähtö</span>' : 'Lähtö asetettu') + '</span>'
+    + '<span class="jsp-kt-tldate">' + _jsvEsc((t.lahto && t.lahto.pvm) ? _pvmLyhyt(t.lahto.pvm) : '') + '</span></div>';
+  if (t.pelaajan_tavoite) h += '<div class="jsp-kt-cmt">Pelaajan ääni: <i>' + _jsvEsc(t.pelaajan_tavoite) + '</i></div>';
+  h += '</div>';
+  // Review-pisteet
+  let edell = la;
+  for (let i = 0; i < arviot.length; i++) {
+    const a = arviot[i];
+    const viimeinen = (i === arviot.length - 1);
+    let dviTxt = '';
+    if (a.arvo != null && edell != null) {
+      const step = pienempi ? (edell - a.arvo) : (a.arvo - edell);
+      dviTxt = (step > 0 ? '−' : step < 0 ? '+' : '±') + fmtDelta(Math.abs(step), yks);
+    }
+    h += '<div class="jsp-kt-tlitem"><span class="jsp-kt-tldot ' + (viimeinen ? 'now' : 'rev') + '"></span>'
+      + '<div class="jsp-kt-tltop"><span class="jsp-kt-tlval">'
+      + (a.arvo != null ? fmt(a.arvo) + ' ' + _vpDviPilli(a.dvi_suunta, dviTxt) : '<span class="jsp-kt-muted">fiilis-review</span>')
+      + '</span><span class="jsp-kt-tldate">' + _jsvEsc(_pvmLyhyt(a.pvm)) + ' · review ' + (i + 1) + '</span></div>';
+    if (a.pelaajan_arvio != null) h += _vpItsearvioDotit(a.pelaajan_arvio);
+    if (a.pelaajan_note) h += '<div class="jsp-kt-cmt player">💬 ' + _jsvEsc(a.pelaajan_note) + '</div>';
+    if (a.valmentajan_kommentti) h += '<div class="jsp-kt-cmt">🎓 ' + _jsvEsc(a.valmentajan_kommentti) + '</div>';
+    // §29 kaksi deltaa viimeiselle pisteelle (abs-parannus lähdöstä + tavoitejäämä)
+    if (viimeinen && mitattava && a.arvo != null && la != null && t.tavoitearvo != null) {
+      const abs = pienempi ? (la - a.arvo) : (a.arvo - la);
+      const jaljella = pienempi ? (a.arvo - t.tavoitearvo) : (t.tavoitearvo - a.arvo);
+      const absCol = abs >= 0 ? 'var(--teal)' : 'var(--amber)';
+      h += '<div class="jsp-kt-twodelta">Kaksi deltaa (§29): abs-parannus <b style="color:' + absCol + '">' + (abs >= 0 ? '−' : '+') + fmtDelta(Math.abs(abs), yks) + '</b> lähdöstä'
+        + (jaljella > 0 ? ' · <b>' + fmtDelta(jaljella, yks) + ' tavoitteeseen (' + (pienempi ? '≤' : '≥') + fmt(t.tavoitearvo) + ')</b>' : ' · <b style="color:var(--teal)">tavoite saavutettu ✓</b>') + '</div>';
+    }
+    h += '</div>';
+    if (a.arvo != null) edell = a.arvo;
+  }
+  h += '</div>';
+  return h;
+}
+// Delta-muotoilu: mitattaville abs-arvo + yksikkö; havaituille pelkkä luku.
+function fmtDelta(v, yks) {
+  const num = (typeof _fmtTestiArvo === 'function') ? _fmtTestiArvo(v, yks) : (Math.round(v * 100) / 100);
+  return num + (yks && yks !== 'taso' && yks !== 'vapaa' ? ' ' + yks : '');
+}
+// Lyhyt pvm (pp.kk.) ISO-stringistä; fallback alkuperäinen.
+function _pvmLyhyt(iso) {
+  if (!iso) return '';
+  const d = new Date(iso); if (isNaN(d.getTime())) return String(iso);
+  return d.getDate() + '.' + (d.getMonth() + 1) + '.';
+}
+
+// "＋ Kirjaa review" → 4-vaiheinen modaali (§3 flow: pelaaja arvioi ensin → mittaus → DVI → valmentaja vastaa).
+window._vpKirjaaReview = function (pid) {
+  const p = _vpIdpPelaaja(pid); const t = p && p._idpTavoite; if (!t) return;
+  const mit = t.mittari || {}, yks = mit.yksikko || '', mitattava = (yks !== 'taso' && yks !== 'vapaa');
+  const vanha = document.getElementById('_vpReviewModal'); if (vanha) vanha.remove();
+  let h = '<div id="_vpReviewModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:340;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
+  h += '<div class="jsp-rv-box">';
+  h += '<div class="jsp-rv-hd"><div><div class="jsp-rv-title">＋ Kirjaa review</div><div class="jsp-kt-muted">' + _jsvEsc((t.fokus && t.fokus.nimi) || '') + ' · pelaaja johtaa, kaksisuuntainen</div></div>'
+    + '<button class="jsp-rv-x" onclick="document.getElementById(\'_vpReviewModal\').remove()">×</button></div>';
+  // Vaihe 1 — pelaaja arvioi ensin
+  h += '<div class="jsp-rv-step first" data-n="1"><div class="jsp-rv-st">Pelaaja arvioi ensin</div>'
+    + '<div class="jsp-rv-sub">Miten koet edistymän? (pelaaja johtaa — VP kirjaa palaverissa, 3c:ssä pelaaja itse)</div>'
+    + '<div class="jsp-rv-scale" id="_rvScale">';
+  for (let i = 1; i <= 5; i++) h += '<b onclick="_vpRvSetArvio(' + i + ')" data-v="' + i + '">' + i + '</b>';
+  h += '</div><textarea id="_rvNote" class="jsp-rv-inp" placeholder="Pelaajan sana…" onclick="event.stopPropagation()"></textarea></div>';
+  // Vaihe 2 — mittaus / arvo
+  h += '<div class="jsp-rv-step" data-n="2"><div class="jsp-rv-st">Mittaus / uusittu arvo</div>'
+    + '<div class="jsp-rv-sub">' + (mitattava ? ('Uusi testitulos (' + _jsvEsc(yks) + ')') : (yks === 'taso' ? 'Havaittu 1–5' : 'Ei mitattavaa — kvalitatiivinen review')) + ' — voi jäädä tyhjäksi (fiilis-review)</div>'
+    + (yks === 'vapaa' ? '<div class="jsp-kt-muted" style="font-size:11px">Vapaa fokus → kaari seuraa itsearviota + kommentteja.</div>'
+        : '<input id="_rvArvo" class="jsp-rv-inp" type="number" step="0.01" placeholder="' + (mitattava ? 's / cm / km/h' : '1–5') + '" oninput="_vpRvDvi(\'' + pid + '\')" onclick="event.stopPropagation()">') + '</div>';
+  // Vaihe 3 — DVI (auto)
+  h += '<div class="jsp-rv-step" data-n="3"><div class="jsp-rv-st">DVI — kehitysvauhti (automaattinen)</div>'
+    + '<div class="jsp-rv-auto" id="_rvDvi">Syötä arvo → DVI lasketaan (§29 kaksi deltaa; abs+ ei koskaan punainen).</div></div>';
+  // Vaihe 4 — valmentaja vastaa
+  h += '<div class="jsp-rv-step" data-n="4"><div class="jsp-rv-st">Valmentaja vastaa</div>'
+    + '<div class="jsp-rv-sub">Kaksisuuntainen — vahvista + seuraava sysäys</div>'
+    + '<textarea id="_rvKomm" class="jsp-rv-inp" placeholder="Valmentajan kommentti…" onclick="event.stopPropagation()"></textarea></div>';
+  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpTallennaReview(\'' + pid + '\')">Tallenna review</button>'
+    + '<button class="jsp-kt-btn" onclick="document.getElementById(\'_vpReviewModal\').remove()">Peruuta</button></div>';
+  h += '<div class="jsp-rv-note">Review → <b>arviot[]</b> → kehityskaari kasvaa · pikakenttä <b>idp_edistyma</b> päivittyy. §7.22: pelaajapeili (3c) näyttää vain oman kaaren positiivisena.</div>';
+  h += '</div></div>';
+  const wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+};
+// Vaihe 1 — pelaajan itsearvio valinta (korosta valittu).
+window._vpRvSetArvio = function (n) {
+  window._rvArvioVal = n;
+  const sc = document.getElementById('_rvScale'); if (!sc) return;
+  Array.prototype.forEach.call(sc.querySelectorAll('b'), function (b) { b.classList.toggle('on', Number(b.getAttribute('data-v')) === n); });
+};
+// Vaihe 3 — laske DVI-preview arvokentästä (§29 kaksi deltaa).
+window._vpRvDvi = function (pid) {
+  const p = _vpIdpPelaaja(pid); const t = p && p._idpTavoite; const box = document.getElementById('_rvDvi'); if (!t || !box) return;
+  const inp = document.getElementById('_rvArvo'); const v = inp ? inp.value : '';
+  if (v === '' || isNaN(Number(v)) || typeof idpDviSuunta !== 'function') { box.innerHTML = 'Syötä arvo → DVI lasketaan (§29 kaksi deltaa; abs+ ei koskaan punainen).'; return; }
+  const d = idpDviSuunta(t, Number(v));
+  const yks = (t.mittari || {}).yksikko || '';
+  const nuoli = d.suunta === 'up' ? '↑' : d.suunta === 'down' ? '↓' : '→';
+  const col = d.suunta === 'up' ? 'var(--teal)' : d.suunta === 'down' ? 'var(--amber)' : 'var(--ink3)';
+  let s = '<b style="color:' + col + '">' + nuoli + ' ' + (d.stepDelta != null ? (d.stepDelta >= 0 ? '−' : '+') + fmtDelta(Math.abs(d.stepDelta), yks) : '—') + '</b> edellisestä';
+  if (d.absDelta != null) s += ' · abs-parannus lähdöstä <b style="color:' + (d.absPositiivinen ? 'var(--teal)' : 'var(--amber)') + '">' + (d.absDelta >= 0 ? '−' : '+') + fmtDelta(Math.abs(d.absDelta), yks) + '</b>';
+  s += ' <span class="jsp-kt-muted">(abs+ ei koskaan punainen — §29)</span>';
+  box.innerHTML = s;
+};
+// Tallenna review → idpLisaaArvio + pikakentät + Firestore + re-render + sulje modaali.
+window._vpTallennaReview = async function (pid) {
+  const p = _vpIdpPelaaja(pid); const t = p && p._idpTavoite; if (!t) return;
+  const arvoEl = document.getElementById('_rvArvo');
+  const arvio = {
+    arvo: arvoEl ? arvoEl.value : '',
+    pelaajan_arvio: window._rvArvioVal || null,
+    pelaajan_note: (document.getElementById('_rvNote') || {}).value || '',
+    valmentajan_kommentti: (document.getElementById('_rvKomm') || {}).value || '',
+    kirjaaja_uid: (firebase.auth().currentUser || {}).uid || null
+  };
+  if (typeof idpLisaaArvio === 'function') idpLisaaArvio(t, arvio, { nyt: new Date() });
+  window._rvArvioVal = null;
+  const m = document.getElementById('_vpReviewModal'); if (m) m.remove();
+  _vpKausitavoiteReRender();
+  await _vpTallennaIdpDok(p, 'Review kirjattu');
+};
+// Elinkaari: saavutettu / hylatty (suora); jatkuu käyttää _vpJatkuuAvaa-modaalia (uusi tavoitearvo).
+window._vpElinkaari = async function (pid, toiminto, uusiTavoitearvo) {
+  const p = _vpIdpPelaaja(pid); const t = p && p._idpTavoite; if (!t || typeof idpElinkaari !== 'function') return;
+  idpElinkaari(t, toiminto, { nyt: new Date(), uusiTavoitearvo: uusiTavoitearvo });
+  _vpKausitavoiteReRender();
+  const viesti = toiminto === 'saavutettu' ? 'Tavoite saavutettu' : toiminto === 'jatkuu' ? 'Tavoite jatkuu (rima nostettu)' : 'Tavoite hylätty';
+  await _vpTallennaIdpDok(p, viesti);
+};
+// "↗ Jatkuu" → pieni modaali uudelle tavoitearvolle (nosta rima); vapaa/havaittu → suora jatko ilman arvoa.
+window._vpJatkuuAvaa = function (pid) {
+  const p = _vpIdpPelaaja(pid); const t = p && p._idpTavoite; if (!t) return;
+  const mit = t.mittari || {}, yks = mit.yksikko || '', mitattava = (yks !== 'taso' && yks !== 'vapaa');
+  if (!mitattava && yks === 'vapaa') { _vpElinkaari(pid, 'jatkuu'); return; }   // vapaa → ei uutta arvoa
+  const vanha = document.getElementById('_vpJatkuuModal'); if (vanha) vanha.remove();
+  const suunta = mit.suunta === 'pienempi' ? '≤' : '≥';
+  let h = '<div id="_vpJatkuuModal" style="position:fixed;inset:0;background:rgba(17,17,16,.9);z-index:345;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
+  h += '<div class="jsp-rv-box" style="max-width:420px"><div class="jsp-rv-title">↗ Jatkuu — nosta rima</div>'
+    + '<div class="jsp-kt-muted" style="margin-bottom:12px">Sama fokus (' + _jsvEsc((t.fokus && t.fokus.nimi) || '') + '), kaari säilyy. Aseta uusi tavoitearvo.</div>'
+    + '<div class="jsp-kt-edit"><label>Uusi tavoitearvo (' + suunta + ' ' + _jsvEsc(yks) + ')</label>'
+    + '<input id="_rvJatkuuArvo" class="jsp-rv-inp" style="width:120px" type="number" step="0.01" value="' + (t.tavoitearvo != null ? t.tavoitearvo : '') + '" onclick="event.stopPropagation()"></div>'
+    + '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpJatkuuVahvista(\'' + pid + '\')">Vahvista</button>'
+    + '<button class="jsp-kt-btn" onclick="document.getElementById(\'_vpJatkuuModal\').remove()">Peruuta</button></div></div></div>';
+  const wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+};
+window._vpJatkuuVahvista = function (pid) {
+  const el = document.getElementById('_rvJatkuuArvo'); const v = el ? el.value : '';
+  const m = document.getElementById('_vpJatkuuModal'); if (m) m.remove();
+  _vpElinkaari(pid, 'jatkuu', (v !== '' && !isNaN(Number(v))) ? Number(v) : undefined);
+};
+
 // 2b — tallenna havaittu arvio (1–5 tai N/A). §26 pikakenttä arviointi_havaittu + alikokoelma arviointi/{kausi} (audit: arvioija+pvm).
 window._vpTallennaHavaittu = async function(pid, avain, arvo) {
   const p = ((typeof _pelaajat !== 'undefined' && _pelaajat) || []).find(function(x){ return x.id === pid; })
