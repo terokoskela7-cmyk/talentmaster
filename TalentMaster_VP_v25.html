@@ -15,7 +15,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=40"></script>
+<script src="lib/tm_eerikkila_normit.js?v=41"></script>   <!-- v41: kypsyysTila (§28 kolmiportainen) -->
+
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
@@ -5969,19 +5970,26 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
 
   // ── TAB 1: FYYSINEN (H-H osatasot) ──
   const hv = p.hh_viimeisin || {};
-  // §28-KYPSYYSNEUTRAALI (A): pre-PHV / PHV-varmentamaton heikko fyysinen EI severity-punainen vaan 🌱 neutraali.
-  const _neutr = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+  // §28-KYPSYYSNEUTRAALI (A + korjaus): gated-fyysinen (30m/CMJ/MAS) heikkona (taso<3) → KOLME tilaa (kypsyysTila).
+  // _preP = onNeutraaliPrePHV:n ikä/PHV-pohjainen pre-päättely; kypsyysTila erottaa kasvu/epavarma/normaali.
+  const _preP = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+  const _kt = function(taso, gated) {
+    return (typeof kypsyysTila === 'function') ? kypsyysTila(p.phv_tila, taso, gated, _preP)
+      : ((gated && _preP && taso != null && taso < 3) ? 'kasvu' : 'normaali');
+  };
   // Yksi Fyysinen-testirivi (kortti): label + tasoympyrä-badge + 100%-palkki + arvo. taso 1–5 → palkki taso/5.
-  // gated=true (30m/CMJ/MAS §28) + _neutr + heikko (taso<3, olisi punainen) → 🌱 harmaa neutraali, ei hälytys.
+  // 'kasvu' → 🌱 "kehittyy PHV:n jälkeen" · 'epavarma' → himmennetty "kypsyysdataa puuttuu" (ei punainen, ei 🌱) · 'normaali' → hhTasoVari.
   const friv = function(lbl, taso, arvo, yks, korostus, infoKey, gated) {
-    const kypsyysNeutraali = (gated && _neutr && taso != null && taso < 3);
-    const vari = kypsyysNeutraali ? 'var(--ov-3)' : (taso == null) ? 'var(--ink3)' : hhTasoVari(taso);
-    const palkkiVari = kypsyysNeutraali ? 'var(--ink3)' : 'var(--teal)';
-    const badgeSisalto = kypsyysNeutraali ? '🌱' : (taso != null ? taso : '–');
-    const badgeVari = kypsyysNeutraali ? 'color:var(--ink3);background:' + vari : 'background:' + vari;
+    const kt = _kt(taso, gated);
+    const neutraali = (kt === 'kasvu' || kt === 'epavarma');
+    const vari = neutraali ? 'var(--ov-3)' : (taso == null) ? 'var(--ink3)' : hhTasoVari(taso);
+    const palkkiVari = neutraali ? 'var(--ink3)' : 'var(--teal)';
+    const badgeSisalto = (kt === 'kasvu') ? '🌱' : (kt === 'epavarma') ? '·' : (taso != null ? taso : '–');
+    const badgeVari = neutraali ? 'color:var(--ink3);background:' + vari : 'background:' + vari;
     const w = (taso != null) ? Math.max(0, Math.min(100, (taso / 5) * 100)) : 0;
     const ib = infoKey ? window._tmIBtn(infoKey) : '';
-    const grow = kypsyysNeutraali ? ' <span style="font-size:10.5px;color:var(--ink3);font-style:italic">· 🌱 kehittyy PHV:n jälkeen</span>' : '';
+    const grow = (kt === 'kasvu') ? ' <span style="font-size:10.5px;color:var(--ink3);font-style:italic">· 🌱 kehittyy PHV:n jälkeen</span>'
+      : (kt === 'epavarma') ? ' <span style="font-size:10.5px;color:var(--ink3);font-style:italic">· kypsyysdataa puuttuu — epävarma</span>' : '';
     return '<div class="hh-testirivi"' + (korostus ? ' style="border-bottom:none"' : '') + '>'
       + '<div class="hh-testirivi-header">'
       + '<span class="hh-label"' + (korostus ? ' style="color:var(--ink);font-weight:600"' : '') + '>' + lbl + ib + grow + '</span>'
@@ -6053,7 +6061,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     + _masSyva()
     // Ketteryys (kasirata, D1-fyysinen §30 FYS) — taso eerikkilaTaso-libistä (HH_NORMIT_PIKA ei sisällä kasirataa)
     + (hv.kasirata != null ? friv('Ketteryys', tasoEk('kasirata', hv.kasirata), hv.kasirata, 's', false, 'kasirata') : '')
-    + friv('H-H kokonais', d1, (d1 != null ? d1 : null), '/5', true, 'hh_taso');
+    + friv('H-H kokonais', d1, (d1 != null ? d1 : null), '/5', true, 'hh_taso', true);   // D1-aggregaatti = gated (sama kypsyystila kuin snapshot D1 → ei ristiriitaa)
   // Kiihdytysprofiili — valmennusvipu. Ensisijaisesti 5m-FVP; fallback 10m+30m (lentävä väliaika) datalla joka useimmilla on.
   const fvp = (typeof laskeFVP === 'function' && hv.lin5m != null && hv.lin30m != null) ? laskeFVP(hv.lin5m, hv.lin30m) : null;
   if (fvp != null) {
@@ -6252,22 +6260,27 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   hL += '<div style="padding-top:10px;margin-top:6px;border-top:.5px solid var(--border)">'
     + (_testPvm ? '<div style="font-size:10px;color:var(--ink3);margin-bottom:6px">testattu ' + _testPvm + '</div>' : '')
     + '<div style="display:flex;gap:4px">';
+  // D1-snapshot: sama kolmiportainen kypsyystila (kasvu 🌱 · epavarma · · normaali väri). Muut dimit normaali.
+  const _d1kt = _kt(d1, true);
   radarDims.forEach(function(rd){
     const _isD1 = rd.key === 'D1';
-    const _neut = _isD1 && _neutr && rd.arvo != null && rd.arvo < 3;
-    const _val = (rd.arvo != null) ? (_neut ? '🌱' : rd.arvo) : '–';
+    const _dkt = _isD1 ? _d1kt : 'normaali';
+    const _neut = (_dkt === 'kasvu' || _dkt === 'epavarma');
+    const _val = (rd.arvo != null) ? (_dkt === 'kasvu' ? '🌱' : _dkt === 'epavarma' ? '·' : rd.arvo) : '–';
     hL += '<div style="flex:1;text-align:center;background:var(--ov-1);border:.5px solid var(--border);border-radius:8px;padding:6px 2px">'
       + '<div style="font-size:9px;color:var(--ink3)">' + rd.key + '</div>'
       + '<div style="font-size:15px;font-weight:600;color:' + _d5col(rd.arvo, _neut) + '">' + _val + '</div></div>';
   });
   hL += '</div>';
-  // Signaalit (X-Factor / late developer). Hidden Gem -badge on jo nimen alla (hgBadge).
+  // Signaalit (X-Factor / late developer). "late developer 🌱" vain kun pelaaja on TODENNETTU/pääteltävä pre-PHV (_preP) —
+  // EI epävarma-tilassa (se väittäisi pre-PHV:tä ilman dataa). Hidden Gem -badge on jo nimen alla (hgBadge).
   let _sigChips = '';
   if (p.signaali === 'xfactor') _sigChips += '<span class="sigc star" style="font-size:10.5px;border-radius:999px;padding:2px 9px;background:var(--ov-1);border:.5px solid rgba(40,176,144,.35);color:var(--teal)">★ X-Factor</span>';
-  if (_neutr) _sigChips += '<span style="font-size:10.5px;border-radius:999px;padding:2px 9px;background:var(--ov-1);border:.5px solid var(--border);color:var(--ink2)">🌱 late developer</span>';
+  if (_preP) _sigChips += '<span style="font-size:10.5px;border-radius:999px;padding:2px 9px;background:var(--ov-1);border:.5px solid var(--border);color:var(--ink2)">🌱 late developer</span>';
   if (_sigChips) hL += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px">' + _sigChips + '</div>';
-  // §28-note: pre-PHV heikko fysiikka on odotettua, ei kehityskohde.
-  if (_neutr) hL += '<div style="font-size:11px;color:var(--ink2);background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.25);border-radius:9px;padding:9px 11px;margin-top:10px;line-height:1.5">🌱 Pre-PHV heikko fysiikka on <b>odotettua</b>, ei kehityskohde — fyysinen kehitys kiihtyy PHV:n myötä.</div>';
+  // §28-note: pre-PHV → "odotettua". Kypsyys tuntematon (epavarma) → EI 🌱-lupaus vaan "kypsyysdataa puuttuu".
+  if (_preP) hL += '<div style="font-size:11px;color:var(--ink2);background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.25);border-radius:9px;padding:9px 11px;margin-top:10px;line-height:1.5">🌱 Pre-PHV heikko fysiikka on <b>odotettua</b>, ei kehityskohde — fyysinen kehitys kiihtyy PHV:n myötä.</div>';
+  else if (_d1kt === 'epavarma') hL += '<div style="font-size:11px;color:var(--ink2);background:var(--ov-1);border:.5px solid var(--border);border-radius:9px;padding:9px 11px;margin-top:10px;line-height:1.5">Kypsyysdataa (PHV) ei ole — heikkoa fysiikkaa ei tulkita kehityskohteeksi ennen kypsyysmittausta.</div>';
   hL += '</div>';
   // ── OIKEA sarake: per-testi-välilehdet (Fyysinen/Tekninen/Peli/Kehitys) + palkit + Kiihdytysprofiili ──
   // Vaihe 2 — Arviointi-välilehti (arviointitaksonomia: mitattu + havaittu 1–5). Vain kun lib ladattu.

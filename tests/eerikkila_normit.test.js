@@ -17,6 +17,7 @@ const {
   laskeTSI,
   normSukupuoliMN,
   onNeutraaliPrePHV,
+  kypsyysTila,
   teknHeikoimmat20,
   laskeD1Joustava,
   laskeD1Osaindeksit,
@@ -209,6 +210,41 @@ describe('laskeTSI', () => {
   it('palauttaa null kun parametrit puuttuvat', () => {
     expect(laskeTSI(null, 5.0)).toBeNull();
     expect(laskeTSI(5.0, null)).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// §28 kypsyysTila — kolmiportainen gated-fyysisen kypsyystila (kasvu/epavarma/normaali)
+describe('kypsyysTila (§28 kolmiportainen)', () => {
+  it('PRE-PHV heikko gated → kasvu', () => {
+    expect(kypsyysTila('PRE', 2, true)).toBe('kasvu');
+    expect(kypsyysTila('LAH', 1, true)).toBe('kasvu');
+  });
+  it('kypsyys tuntematon (phv_tila null) heikko gated → epavarma', () => {
+    expect(kypsyysTila(null, 2, true)).toBe('epavarma');
+    expect(kypsyysTila(undefined, 1, true)).toBe('epavarma');
+    expect(kypsyysTila('', 2, true)).toBe('epavarma');
+  });
+  it('post-PHV (PH/POST/AN) heikko gated → normaali (aito signaali)', () => {
+    expect(kypsyysTila('PH', 2, true)).toBe('normaali');
+    expect(kypsyysTila('POST', 1, true)).toBe('normaali');
+    expect(kypsyysTila('AN', 2, true)).toBe('normaali');
+  });
+  it('ei-gated (esim. 10m kiihdytys) → aina normaali riippumatta kypsyydestä', () => {
+    expect(kypsyysTila(null, 1, false)).toBe('normaali');
+    expect(kypsyysTila('PRE', 1, false)).toBe('normaali');
+  });
+  it('taso ≥ 3 (ei heikko) → aina normaali', () => {
+    expect(kypsyysTila('PRE', 3, true)).toBe('normaali');
+    expect(kypsyysTila(null, 4, true)).toBe('normaali');
+    expect(kypsyysTila('POST', 5, true)).toBe('normaali');
+  });
+  it('taso null → normaali (ei heikko-luokitusta)', () => {
+    expect(kypsyysTila(null, null, true)).toBe('normaali');
+  });
+  it('preOverride (ikäpohjainen pre-päättely ilman phv_tila:aa) → kasvu', () => {
+    expect(kypsyysTila(null, 2, true, true)).toBe('kasvu');   // onNeutraaliPrePHV johti pre-PHV:hen iän perusteella
+    expect(kypsyysTila(null, 2, true, false)).toBe('epavarma');
   });
 });
 
