@@ -405,6 +405,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 <script src="tm_why_lauseet.js?v=3"></script>
+<script src="lib/tm_idp.js?v=1"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 </head>
 <body>
 <div class="wrap">
@@ -1710,6 +1711,91 @@ var _MINA_D3_KYS = [
 ];
 var _MINA_D3_VAIHT = ['Harvoin', 'Joskus', 'Aika usein', 'Usein', 'Melkein aina']; // mapataan 1–5, numeroa EI näytetä
 var _minaD3 = {};
+// ── Vaihe 3c-a: Pelaajan tavoite-aikajana (§7.22-turvallinen luku 3a/3b-datasta) ──
+// Lataa aktiivisen tavoitteen idp_kausi:sta (pelaaja lukee omansa, Rules v3.10); demossa _p7Tavoite injektoidaan.
+var _p7Tavoite = window._p7Tavoite || null;
+async function _p7LataaTavoite() {
+  if (_ladattu.idp) return; _ladattu.idp = true;
+  if (!_pelaaja || !_pelaaja.id || !_pelaaja.seuraId || !window._db || typeof idpKausivuosi !== 'function') return;
+  try {
+    var vuosi = idpKausivuosi(new Date());
+    var snap = await window._db.collection('seurat').doc(_pelaaja.seuraId)
+      .collection('pelaajat').doc(_pelaaja.id).collection('idp_kausi').doc(vuosi).get();
+    var arr = snap.exists ? (snap.data() || {}).tavoitteet : null;
+    if (arr && arr.length) {
+      // Aktiivinen (aktiivinen/jatkuu/saavutettu) etusijalla, muuten viimeisin. Hylätty ohitetaan (§3).
+      var akt = arr.filter(function (t) { return t && t.status !== 'hylatty'; });
+      _p7Tavoite = window._p7Tavoite = akt.length ? akt[akt.length - 1] : null;
+    }
+  } catch (e) { /* best-effort — tyhjä tila jos ei saada */ }
+  if (_tab === 'mina' && _sc === 'main') draw();
+}
+// §7.22 EHDOTON: ei tasolukuja/arvosanoja/percentiilejä/vertailua/deltoja/uhkaa. Positiivinen matka + konsepti + kehu.
+function rMinaTavoite() {
+  var d = _pelaaja; if (!d) return '';
+  var t = _p7Tavoite;
+  var kaari = (t && typeof idpPelaajaKaari === 'function') ? idpPelaajaKaari(t) : null;
+  var pikaFokus = (d.idp_fokus && d.idp_fokus.nimi) || null;
+  // Ei tavoitetta lainkaan → lempeä tyhjä tila.
+  if (!kaari && !d.idp_tila && !pikaFokus) {
+    return '<div style="background:linear-gradient(155deg,#18211e,#161614);border:.5px solid rgba(40,176,144,.22);border-radius:16px;padding:18px;margin:14px 20px 0">'
+      + '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#28B090;font-weight:600">🎯 Sinun tavoite</div>'
+      + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:19px;color:var(--text);margin-top:4px">Kausitavoite tulossa</div>'
+      + '<div style="font-size:12.5px;color:#8C8B86;margin-top:5px;line-height:1.5">Sinä ja valmentajasi asetatte pian yhteisen tavoitteen — sitten näet oman matkasi tästä.</div></div>';
+  }
+  // Tavoite on olemassa mutta täysi data ei vielä ladattu → header pikakentästä + lataa taustalla.
+  if (!kaari) {
+    if (!_ladattu.idp) _p7LataaTavoite();
+    return '<div style="background:linear-gradient(155deg,#18211e,#161614);border:.5px solid rgba(40,176,144,.3);border-radius:16px;padding:16px;margin:14px 20px 0">'
+      + '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#28B090;font-weight:600">🎯 Sinun tavoite</div>'
+      + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:21px;color:var(--text);margin:3px 0 6px;line-height:1.2">' + _thEsc(pikaFokus || 'Tavoitteesi') + '</div>'
+      + '<div style="font-size:12px;color:#8C8B86">Matkasi latautuu…</div></div>';
+  }
+  var konsepti = (typeof idpPelaajaKonsepti === 'function') ? idpPelaajaKonsepti(t) : null;
+  var h = '<div style="margin:14px 20px 0">';
+  // Tavoite-kortti (otsikko + pelaajan oma ääni)
+  h += '<div style="background:linear-gradient(155deg,#18211e,#161614);border:.5px solid rgba(40,176,144,.3);border-radius:16px;padding:16px">'
+    + '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#28B090;font-weight:600">🎯 Sinun tavoite</div>'
+    + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:21px;color:var(--text);margin:3px 0 6px;line-height:1.2">' + _thEsc(kaari.otsikko) + '</div>';
+  if (kaari.aani) h += '<div style="font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:15px;color:#C9C7BE">”' + _thEsc(kaari.aani) + '”</div>';
+  h += '</div>';
+  // Matka (aikajana)
+  h += '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#C9C7BE;font-weight:600;margin:16px 0 10px">Sinun matkasi</div>';
+  h += '<div style="position:relative;padding-left:4px"><div style="position:absolute;left:11px;top:8px;bottom:20px;width:2px;background:linear-gradient(rgba(255,255,255,.08),#28B090)"></div>';
+  for (var i = 0; i < kaari.pisteet.length; i++) {
+    var pt = kaari.pisteet[i];
+    var dotBg = pt.luokka === 'lahto' ? '#8A887F' : '#28B090';
+    var dotShadow = pt.luokka === 'nyt' ? ';box-shadow:0 0 0 4px rgba(40,176,144,.18)' : '';
+    h += '<div style="position:relative;padding:0 0 16px 34px">'
+      + '<span style="position:absolute;left:4px;top:1px;width:16px;height:16px;border-radius:50%;border:3px solid var(--bg);background:' + dotBg + dotShadow + '"></span>'
+      + '<div style="font-size:13.5px;font-weight:600;color:var(--text)">' + _thEsc(pt.otsikko) + '</div>'
+      + '<div style="font-size:12.5px;color:' + (pt.win ? '#28B090' : '#C9C7BE') + ';margin-top:2px">' + _thEsc(pt.teksti) + '</div></div>';
+  }
+  // Seuraava askel (positiivinen prosessitavoite)
+  if (kaari.seuraavaAskel) {
+    h += '<div style="position:relative;padding:0 0 4px 34px">'
+      + '<span style="position:absolute;left:4px;top:1px;width:16px;height:16px;border-radius:50%;border:2px solid #E0A040;background:transparent"></span>'
+      + '<div style="background:rgba(224,160,64,.1);border:.5px solid rgba(224,160,64,.3);border-radius:12px;padding:12px 14px">'
+      + '<div style="font-size:12.5px;font-weight:600;color:#E0A040">🎯 ' + _thEsc(kaari.seuraavaAskel.otsikko) + '</div>'
+      + '<div style="font-size:12.5px;color:var(--text);margin-top:3px">' + _thEsc(kaari.seuraavaAskel.teksti) + '</div></div></div>';
+  }
+  h += '</div>';
+  // Konseptin ymmärrys (mikä / miksi / mieti)
+  if (konsepti) {
+    h += '<div style="background:var(--bg3);border:.5px solid rgba(242,239,230,.08);border-radius:14px;padding:15px 16px;margin-top:18px">'
+      + '<div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#8C8B86;margin-bottom:5px">Mitä tämä on</div>'
+      + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:17px;color:var(--text);font-style:italic;line-height:1.35">”' + _thEsc(konsepti.mika) + '”</div>'
+      + '<div style="font-size:12.5px;color:#C9C7BE;margin-top:8px">Miksi se auttaa: ' + _thEsc(konsepti.miksi) + '</div>'
+      + '<div style="background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.25);border-radius:10px;padding:9px 12px;margin-top:10px;font-size:13px;color:var(--text)">💭 <b style="color:#28B090">Mieti:</b> ' + _thEsc(konsepti.mietiKysymys) + '</div>'
+      + '</div>';
+  }
+  // Prosessikehu (Dweck) + turvalauseke
+  h += '<div style="text-align:center;font-size:13px;color:#28B090;margin-top:16px;font-weight:500">💪 ' + _thEsc(kaari.kehu) + '</div>';
+  h += '<div style="font-size:9.5px;color:#8A887F;text-align:center;margin-top:8px">Ei tasolukuja, ei arvosanoja, ei vertailua — vain sinun matkasi.</div>';
+  h += '</div>';
+  return h;
+}
+
 function rMinaItsearvio() {
   var d = _pelaaja;
   if (d && d.d3_viimeisin && d.d3_viimeisin.pisteet) {
@@ -1936,6 +2022,7 @@ function rMina() {
   return '<div class="scroll" style="background:var(--bg)">'
     + hdr('Minä')
     + rMinaProfiili()
+    + rMinaTavoite()
     + rMinaKokoelma()
     + rMinaKehitysvaihe()
     + rMinaTekniikkaprofiili()

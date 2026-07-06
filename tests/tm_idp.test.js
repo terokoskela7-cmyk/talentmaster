@@ -6,7 +6,8 @@ const {
   idpKypsyysEstetty, idpKeraaKandidaatit, idpValitseHeikoin, idpTavoitearvo,
   idpVahvinDim, idpEhdotaTavoite, idpPikakentat,
   idpJarjestaKandidaatit, idpKandidaatitJarjestetty, idpKohdeKandidaatti, idpRakennaTavoite,
-  idpDviSuunta, idpLisaaArvio, idpElinkaari, idpEdistyma
+  idpDviSuunta, idpLisaaArvio, idpElinkaari, idpEdistyma,
+  idpPelaajaKaari, idpPelaajaKonsepti
 } = require('../lib/tm_idp.js');
 const tax = require('../lib/tm_arviointi_taksonomia.js');
 const eer = require('../lib/tm_eerikkila_normit.js');
@@ -277,6 +278,87 @@ describe('idpElinkaari (§4)', () => {
     const t = { status: 'aktiivinen', arviot: [] };
     idpElinkaari(t, 'hylatty', opts);
     expect(t.status).toBe('hylatty');
+  });
+});
+
+// ─── Vaihe 3c-a — pelaajan aikajana (§7.22 EHDOTON) ───
+
+describe('idpPelaajaKaari (§7.22-turvallinen pelaajanäkymä)', () => {
+  // Mitattava: lähtö 46.1, tavoite 44.0, kaksi reviewiä (45.5 paremp, 44.8 paremp).
+  const mitattava = () => ({
+    fokus: { alue: 'short_passing', dim: 'D2', nimi: 'Syöttö eteenpäin' },
+    mittari: { yksikko: 's', suunta: 'pienempi' }, lahto: { arvo: 46.1 }, tavoitearvo: 44.0,
+    pelaajan_tavoite: 'Haluan uskaltaa syöttää eteenpäin.', status: 'aktiivinen',
+    arviot: [
+      { arvo: 45.5, pelaajan_arvio: 3, pelaajan_note: 'Menee eteenpäin.', dvi_suunta: 'up' },
+      { arvo: 44.8, pelaajan_arvio: 4, pelaajan_note: 'Näen syöttöpaikat aikaisemmin.', dvi_suunta: 'up' }
+    ]
+  });
+  it('rakentaa matkan: lähtö + per review + seuraava askel + kehu', () => {
+    const k = idpPelaajaKaari(mitattava());
+    expect(k.otsikko).toBe('Syöttö eteenpäin');
+    expect(k.aani).toBe('Haluan uskaltaa syöttää eteenpäin.');
+    expect(k.pisteet[0].luokka).toBe('lahto');
+    expect(k.pisteet.length).toBe(3);                 // lähtö + 2 reviewiä
+    expect(k.pisteet[2].luokka).toBe('nyt');
+    expect(k.seuraavaAskel.teksti).toContain('Syöttö eteenpäin');
+    expect(k.kehu).toMatch(/[Hh]ienoa/);
+  });
+  it('§7.22 EHDOTON: ulostulossa EI numeroarvoja/deltoja (mittausluvut piilossa)', () => {
+    const k = idpPelaajaKaari(mitattava());
+    const kaikkiTeksti = JSON.stringify(k.pisteet) + JSON.stringify(k.seuraavaAskel) + k.kehu;
+    ['46.1', '45.5', '44.8', '44.0', '46,1', '45,5', '0.6', '1.3'].forEach(function (n) {
+      expect(kaikkiTeksti).not.toContain(n);
+    });
+  });
+  it('§7.22: regressoinut review EI näytä negatiivista (positiivinen kehys aina)', () => {
+    const t = mitattava();
+    t.arviot = [{ arvo: 47.0, pelaajan_arvio: 2, pelaajan_note: '' }];   // huononi lähdöstä (46.1→47.0)
+    const k = idpPelaajaKaari(t);
+    const nyt = k.pisteet[1];
+    expect(nyt.win).toBe(false);
+    expect(nyt.teksti).toMatch(/matkalla|eteenpäin/i);           // positiivinen
+    expect(nyt.teksti).not.toMatch(/huono|laski|pudon|alle|miinus|hitaampi/i);
+    expect(nyt.teksti).not.toContain('47');
+  });
+  it('mitattava paraneva review → win true', () => {
+    const k = idpPelaajaKaari(mitattava());
+    expect(k.pisteet[1].win).toBe(true);   // 45.5 < 46.1 → edistyi
+  });
+  it('vapaa-yksikkö → kvalitatiivinen (mitattava false, käyttää pelaajan omia sanoja)', () => {
+    const t = { fokus: { alue: 'vapaa', dim: 'D2', nimi: '1v1 laidalla', vapaa: true },
+      mittari: { yksikko: 'vapaa' }, lahto: { arvo: null }, tavoitearvo: null,
+      pelaajan_tavoite: 'Uskallan viedä 1v1.', status: 'aktiivinen',
+      arviot: [{ arvo: null, pelaajan_arvio: 4, pelaajan_note: 'Menee paremmin' }] };
+    const k = idpPelaajaKaari(t);
+    expect(k.mitattava).toBe(false);
+    expect(k.pisteet.length).toBe(2);
+    expect(k.pisteet[1].teksti).toContain('Menee paremmin');
+  });
+  it('ei tavoitetta / hylätty → null (tyhjä tila)', () => {
+    expect(idpPelaajaKaari(null)).toBeNull();
+    expect(idpPelaajaKaari({ fokus: { nimi: 'X' }, status: 'hylatty', arviot: [] })).toBeNull();
+  });
+  it('ei arvioita → vain lähtö + seuraava askel (positiivinen tyhjä matka)', () => {
+    const t = { fokus: { nimi: 'Syöttö' }, mittari: { yksikko: 's', suunta: 'pienempi' }, lahto: { arvo: 46 }, tavoitearvo: 44, status: 'aktiivinen', arviot: [] };
+    const k = idpPelaajaKaari(t);
+    expect(k.pisteet.length).toBe(1);
+    expect(k.seuraavaAskel).toBeTruthy();
+  });
+});
+
+describe('idpPelaajaKonsepti (mikä/miksi/mieti)', () => {
+  it('kuvaus + pelilause → mikä/miksi; mieti aina', () => {
+    const t = { fokus: { nimi: 'Syöttö' }, kuvaus: 'Avaa peli eteenpäin.', perustelu: { pelilause: 'Vie joukkueen lähemmäs maalia.' } };
+    const c = idpPelaajaKonsepti(t);
+    expect(c.mika).toBe('Avaa peli eteenpäin.');
+    expect(c.miksi).toBe('Vie joukkueen lähemmäs maalia.');
+    expect(c.mietiKysymys).toMatch(/\?$/);
+  });
+  it('fallbackit kun kuvaus/pelilause puuttuu', () => {
+    const c = idpPelaajaKonsepti({ fokus: { nimi: 'Syöttö' } });
+    expect(c.mika).toContain('Syöttö');
+    expect(c.miksi.length).toBeGreaterThan(0);
   });
 });
 
