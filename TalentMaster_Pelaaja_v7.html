@@ -406,6 +406,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="tm-demo.js?v=3"></script>
 <script src="tm_why_lauseet.js?v=3"></script>
 <script src="lib/tm_idp.js?v=1"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
+<script src="lib/tm_teknistaktiset.js?v=3"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) -->
 </head>
 <body>
 <div class="wrap">
@@ -1601,6 +1602,38 @@ function rMinaFyysinenTavoite() {
   return box(h);
 }
 
+// ── Vaihe 4b: pelaajan cue-kerros (§0b jaettu ymmärrys · §7.22). Valmentaja valitsi jaksofokuksen (4a) →
+// pelaaja näkee SAMAN konseptin omalla kielellään: otsikko + milloin näkyy + miksi auttaa + YKSI cue-kysymys.
+// EI tasolukuja/arvosanoja/vertailua/KPI-listaa (tmTtPelaaja-helperi vahtii §7.22). Data pikakentistä (§26).
+function _konseptiFokusAvain(d) {
+  if (d.jaksofokus && d.jaksofokus.konsepti_avain) return d.jaksofokus.konsepti_avain;   // ensisijainen (4a)
+  // Fallback (ei jaksofokusta) → aina jotain rakentavaa: kehityskohde-laji → konsepti, muuten universaali oletus.
+  const map = { syotto: 'y_h2', pujottelu: 'y_h4', ponnauttelu: 'y_h1', kuljetus_laukaus: 'y_h9', pituuspotku: 'y_h2' };
+  if (d.tki_kehityskohde && map[d.tki_kehityskohde]) return map[d.tki_kehityskohde];
+  return 'y_h1';   // Haltuunotto — universaali, rakentava perusta (§28-neutraali)
+}
+function _konseptiVaiheVihje(d) {
+  const vaihe = (typeof tmTtVaihe === 'function') ? tmTtVaihe({ joukkue: d.joukkue, syntymaVuosi: d.syntymaVuosi, positio: d.positio || d.pelipaikka, tt_positio_aktiivinen: d.tt_positio_aktiivinen }) : null;
+  return vaihe === 'perus' ? '🌱 Leikkijän vaihe' : vaihe === 'pelipaikka' ? '⚽ Pelipaikan vaihe' : '🌱 Rakentajan vaihe';
+}
+function rMinaKonseptiFokus() {
+  const d = _pelaaja; if (!d || typeof tmTtPelaaja !== 'function') return '';
+  const k = tmTtPelaaja(_konseptiFokusAvain(d));
+  if (!k) return '';
+  const esc = (typeof _thEsc === 'function') ? _thEsc : function (s) { return String(s == null ? '' : s); };
+  let h = '<div style="background:var(--bg3);padding:18px 20px;margin:14px 20px 0;border:.5px solid rgba(40,176,144,.22)">';
+  h += '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#28B090;font-weight:600">⚽ Minä ja pallo · tämän hetken fokus</div>';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--text);margin:3px 0 2px;line-height:1.15">' + esc(k.otsikko) + '</div>';
+  h += '<div style="font-size:11px;color:#8C8B86;margin-bottom:12px">' + esc(_konseptiVaiheVihje(d)) + '</div>';
+  if (k.mika) h += '<div style="margin-top:8px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8C8B86">Milloin tämä näkyy</div><div style="font-size:13px;color:var(--text);margin-top:2px;line-height:1.5">' + esc(k.mika) + '</div></div>';
+  if (k.miksi) h += '<div style="margin-top:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8C8B86">Miksi se auttaa</div><div style="font-size:13px;color:var(--text);margin-top:2px;line-height:1.5">' + esc(k.miksi) + '</div></div>';
+  if (k.cue) h += '<div style="margin-top:12px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.25);padding:11px 13px"><div style="font-size:11px;color:#28B090;font-weight:600;margin-bottom:3px">💭 Mieti tätä pelissä</div><div style="font-size:14px;color:var(--text);font-style:italic;line-height:1.4">' + esc(k.cue) + '</div></div>';
+  if (k.koe) h += '<div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(255,255,255,.03);border:.5px solid rgba(242,239,230,.08);padding:10px 13px"><div><div style="font-size:11px;color:#28B090;font-weight:600">Kokeile tätä</div><div style="font-size:13px;color:var(--text)">' + esc(k.koe) + '</div></div><div style="color:#28B090;font-size:18px">→</div></div>';
+  h += '<div style="font-size:11px;color:#8C8B86;margin-top:12px;display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:#28B090;display:inline-block"></span> Valmentajasi katsoo samaa juttua.</div>';
+  h += '</div>';
+  return h;
+}
+
 function rMinaTekniikkaprofiili() {
   const d = _tekniikkaData;
   if (!d) return ''; // ei vielä ladattu → tyhjä (latauksen aikana)
@@ -2025,6 +2058,7 @@ function rMina() {
     + rMinaTavoite()
     + rMinaKokoelma()
     + rMinaKehitysvaihe()
+    + rMinaKonseptiFokus()
     + rMinaTekniikkaprofiili()
     + rMinaFyysinenTavoite()
     + rMinaMAS()

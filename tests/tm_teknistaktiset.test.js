@@ -161,3 +161,45 @@ describe('§0c suomalaiskoodit + pelimuodot', () => {
     kaikki.forEach(k => expect(k).not.toMatch(kielletyt));
   });
 });
+
+describe('tmTtPelaaja (Vaihe 4b §0b/§7.22 — pelaajaturvallinen)', () => {
+  it('palauttaa {otsikko, mika, miksi, cue, koe} youth-konseptille', () => {
+    const p = TT.tmTtPelaaja('y_h2');
+    expect(p.otsikko).toBeTruthy();
+    expect(p.mika).toBeTruthy();
+    expect(p.miksi).toBeTruthy();
+    expect(typeof p.cue).toBe('string');
+    expect('koe' in p).toBe(true);
+  });
+  it('§7.22: EI KOSKAAN kriteerejä/kpi/tasolukua pelaajapinnalle', () => {
+    const p = TT.tmTtPelaaja('y_h0');
+    expect('kpi' in p).toBe(false);
+    expect('kriteerit' in p).toBe(false);
+    expect('taso' in p).toBe(false);
+    expect('kysymykset' in p).toBe(false);   // vain YKSI cue, ei koko listaa
+    expect(Object.keys(p).sort()).toEqual(['cue', 'koe', 'mika', 'miksi', 'otsikko']);
+  });
+  it('cue = tmTtKysymykset(avain)[0] (yksi kysymys)', () => {
+    const p = TT.tmTtPelaaja('y_h0');
+    expect(p.cue).toBe(TT.tmTtKysymykset('y_h0')[0]);
+  });
+  it('miksi youth-konseptille = pelaaja_miksi (lapsen kieli, ei tyhjä)', () => {
+    TT.TM_TT_YOUTH.forEach(y => {
+      const p = TT.tmTtPelaaja(y.avain);
+      expect(p.miksi.length).toBeGreaterThan(0);
+    });
+  });
+  it('pelipaikkateema → graceful fallback (miksi johdettu, ei kaadu)', () => {
+    const p = TT.tmTtPelaaja('t_p1');
+    expect(p.otsikko).toBeTruthy();
+    expect(p.miksi.length).toBeGreaterThan(0);
+  });
+  it('tuntematon avain → null; toimii koodilla JA avaimella', () => {
+    expect(TT.tmTtPelaaja('ei-ole')).toBeNull();
+    expect(TT.tmTtPelaaja('Y-H0')).toEqual(TT.tmTtPelaaja('y_h0'));
+  });
+  it('koe = harjoitteen lyhyt nimi (ei ohjeteksti-tulva)', () => {
+    const p = TT.tmTtPelaaja('y_h0');
+    expect(p.koe.length).toBeLessThanOrEqual(45);
+  });
+});
