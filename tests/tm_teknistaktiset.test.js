@@ -55,6 +55,9 @@ describe('cue 1:1 — ei orpoja (§0b)', () => {
   it('jokaisella joukkueteemalla on inline-cue', () => {
     TT.TM_TT_JOUKKUE.forEach(j => expect(j.kysymykset.length).toBeGreaterThan(0));
   });
+  it('jokaisella youth-konseptilla on cue (Excel Kysymyspankki §0b)', () => {
+    TT.TM_TT_YOUTH.forEach(y => expect(y.kysymykset.length).toBeGreaterThan(0));
+  });
   it('tmTtKysymykset palauttaa cuet avaimella JA koodilla', () => {
     const t0 = TT.TM_TT_FUNDAMENTIT.T[0];
     expect(TT.tmTtKysymykset(t0.avain).length).toBeGreaterThan(0);
@@ -110,6 +113,25 @@ describe('tmTtVaihe + tmTtItems (vaihe-gating)', () => {
   });
   it('pelipaikkavaihe ilman positiota → vain youth', () => {
     expect(TT.tmTtItems({ ika: 16 }).length).toBe(14);
+  });
+});
+
+describe('TM_TT_HARJOITTEET (youth konseptipelit + pelipaikka Excel-harjoitteet)', () => {
+  it('youth-konseptipelit (Y-koodit) mukana', () => {
+    const h = TT.tmTtHarjoitteet('Y-H0');
+    expect(h.length).toBeGreaterThan(0);
+    expect(h[0].konseptipeli).toBeTruthy();
+  });
+  it('pelipaikkaharjoitteet (Excel-alias CB→T…) mukana {pelipaikka, teema, painopisteet}', () => {
+    const h = TT.tmTtHarjoitteet('T-P1');
+    expect(h.length).toBeGreaterThan(0);
+    expect(h[0].pelipaikka).toBeTruthy();
+    expect(h[0].painopisteet.length).toBeGreaterThan(0);
+    // suomalaiskoodi-avain (ei englanti-alias CB)
+    expect(Object.keys(TT.TM_TT_HARJOITTEET).some(k => /^CB-/.test(k))).toBe(false);
+  });
+  it('tmTtHarjoitteet toimii avaimella JA koodilla', () => {
+    expect(TT.tmTtHarjoitteet('t_p1').length).toBe(TT.tmTtHarjoitteet('T-P1').length);
   });
 });
 
