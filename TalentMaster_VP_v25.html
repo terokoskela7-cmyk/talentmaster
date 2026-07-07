@@ -22,6 +22,7 @@
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=3"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_idp.js?v=3"></script>   <!-- Vaihe 3a+3b: IDP ehdotusmoottori + VP-fokusvalinta + review-sykli/kehityskaari/elinkaari -->
+<script src="lib/tm_teknistaktiset.js?v=2"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) -->
 <script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
 
 <style>
@@ -4379,6 +4380,140 @@ window._vpJatkuuVahvista = function (pid) {
   _vpElinkaari(pid, 'jatkuu', (v !== '' && !isNaN(Number(v))) ? Number(v) : undefined);
 };
 
+// ══════════ VAIHE 4a — VP:n toimintakortti talenttipelaajille (§4 roolimalli: VP hallinnoi talentteja) ══════════
+// Replikoi Master_v16:n toimintakortti-logiikan (jaettu lib tm_teknistaktiset.js). VP näkee kaikki, kirjoittaa
+// jaksofokus/tt_positio_aktiivinen-pikakentät (§26) talenteille. Custom-dropdown (avaa alas, §5, klaviatuuri+aria).
+window._vpTtValinta = window._vpTtValinta || {};
+const _VPTT_VAIHE_LBL = { perus: 'Perusvaihe', yhteispeli: 'Yhteispelivaihe', silta: 'Silta', pelipaikka: 'Pelipaikkavaihe' };
+
+function _vpTtPelaaja(pid) { return (window._vpArvPelaaja && window._vpArvPelaaja.id === pid) ? window._vpArvPelaaja : ((window._jsvPelaajat || _pelaajat || []).find(function (x) { return x.id === pid; })); }
+function _vpTtNormPositio(val) {
+  if (!val || typeof TM_TT_PELIPAIKAT === 'undefined') return null;
+  const s = String(val).trim(); if (!s) return null;
+  if (TM_TT_PELIPAIKAT[s.toUpperCase()]) return s.toUpperCase();
+  const low = s.toLowerCase();
+  for (const k in TM_TT_PELIPAIKAT) { const nimi = (TM_TT_PELIPAIKAT[k].nimi || '').toLowerCase(); if (nimi && (low === nimi || nimi.indexOf(low) === 0 || low.indexOf(nimi) === 0)) return k; }
+  const alias = { 'keskikenttä': 'KK', 'hyökkääjä': 'KH', 'kärki': 'KH', 'laita': 'LA', 'puolustaja': 'T', 'maalivahti': 'MV' };
+  return alias[low] || null;
+}
+// Custom-dropdown (identtinen Master_v16:n kanssa; erillinen sivu → oma kopio). pickFn = globaali(uid, avain).
+function _ttDropdownHTML(uid, groups, valittu, esc, pickFn) {
+  const ddId = 'ttdd-' + uid; let opts = '';
+  groups.forEach(function (g) {
+    if (g.label) opts += '<div style="font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);padding:7px 10px 2px">' + esc(g.label) + '</div>';
+    g.items.forEach(function (it) {
+      const sel = it.avain === valittu.avain;
+      opts += '<div role="option" aria-selected="' + sel + '" tabindex="-1" data-a="' + it.avain + '"'
+        + ' onclick="_ttDdPick(\'' + uid + '\',\'' + it.avain + '\',\'' + pickFn + '\')" onkeydown="_ttDdOptKey(event,\'' + uid + '\',\'' + pickFn + '\')"'
+        + ' onmouseenter="this.style.background=\'var(--ov-1)\'" onfocus="this.style.background=\'var(--ov-1)\'" onmouseleave="if(this.getAttribute(\'aria-selected\')!==\'true\')this.style.background=\'transparent\'" onblur="if(this.getAttribute(\'aria-selected\')!==\'true\')this.style.background=\'transparent\'"'
+        + ' style="padding:8px 10px;font-size:12px;color:' + (sel ? 'var(--teal)' : 'var(--ink)') + ';cursor:pointer;background:' + (sel ? 'var(--ov-1)' : 'transparent') + ';outline:none">'
+        + esc(it.koodi + ' · ' + it.nimi) + (sel ? ' <span style="color:var(--teal)">✓</span>' : '') + '</div>';
+    });
+  });
+  return '<div class="tt-dd" id="' + ddId + '" style="position:relative;margin-top:8px">'
+    + '<button type="button" class="tt-dd-btn" aria-haspopup="listbox" aria-expanded="false" onclick="_ttDdToggle(\'' + uid + '\')" onkeydown="_ttDdBtnKey(event,\'' + uid + '\')"'
+    + ' style="width:100%;text-align:left;background:var(--ov-1);color:var(--ink);border:.5px solid var(--border);border-radius:7px;padding:8px 10px;font-size:12px;font-family:var(--font-sans);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px">'
+    + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(valittu.koodi + ' · ' + valittu.nimi) + '</span><span aria-hidden="true" style="color:var(--ink3)">▾</span></button>'
+    + '<div class="tt-dd-list" role="listbox" style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;max-height:280px;overflow-y:auto;background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.55);z-index:340">' + opts + '</div></div>';
+}
+function _ttDdClose(dd) { const l = dd.querySelector('.tt-dd-list'); if (l) l.style.display = 'none'; const b = dd.querySelector('.tt-dd-btn'); if (b) b.setAttribute('aria-expanded', 'false'); }
+function _ttDdDoc(e) { if (!e.target.closest || !e.target.closest('.tt-dd')) { document.querySelectorAll('.tt-dd').forEach(_ttDdClose); document.removeEventListener('mousedown', _ttDdDoc, true); document.removeEventListener('keydown', _ttDdEsc, true); } }
+function _ttDdEsc(e) { if (e.key === 'Escape') { document.querySelectorAll('.tt-dd').forEach(_ttDdClose); document.removeEventListener('mousedown', _ttDdDoc, true); document.removeEventListener('keydown', _ttDdEsc, true); } }
+window._ttDdToggle = function (uid) {
+  const dd = document.getElementById('ttdd-' + uid); if (!dd) return;
+  const list = dd.querySelector('.tt-dd-list'), btn = dd.querySelector('.tt-dd-btn');
+  const open = list.style.display !== 'none';
+  document.querySelectorAll('.tt-dd').forEach(function (o) { if (o !== dd) _ttDdClose(o); });
+  if (open) { _ttDdClose(dd); return; }
+  list.style.display = 'block'; btn.setAttribute('aria-expanded', 'true');
+  const sel = list.querySelector('[aria-selected="true"]') || list.querySelector('[role=option]'); if (sel) sel.focus();
+  setTimeout(function () { document.addEventListener('mousedown', _ttDdDoc, true); document.addEventListener('keydown', _ttDdEsc, true); }, 0);
+};
+window._ttDdPick = function (uid, avain, pickFn) {
+  const dd = document.getElementById('ttdd-' + uid); if (dd) _ttDdClose(dd);
+  document.removeEventListener('mousedown', _ttDdDoc, true); document.removeEventListener('keydown', _ttDdEsc, true);
+  if (typeof window[pickFn] === 'function') window[pickFn](uid, avain);
+};
+window._ttDdBtnKey = function (e, uid) { if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _ttDdToggle(uid); } };
+window._ttDdOptKey = function (e, uid, pickFn) {
+  const dd = document.getElementById('ttdd-' + uid); if (!dd) return;
+  const opts = Array.prototype.slice.call(dd.querySelectorAll('[role=option]'));
+  const i = opts.indexOf(document.activeElement);
+  if (e.key === 'ArrowDown') { e.preventDefault(); (opts[i + 1] || opts[0]).focus(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); (opts[i - 1] || opts[opts.length - 1]).focus(); }
+  else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _ttDdPick(uid, document.activeElement.getAttribute('data-a'), pickFn); }
+  else if (e.key === 'Escape') { e.preventDefault(); _ttDdClose(dd); const b = dd.querySelector('.tt-dd-btn'); if (b) b.focus(); }
+};
+
+// VP-toimintakortti (talenttipelaajat). Sisältö libistä; konsepti→cue→harjoite + custom-dropdown + "Tallenna jaksofokus".
+function _vpTtKorttiHTML(p) {
+  if (!p || typeof tmTtItems !== 'function' || typeof tmTtVaihe !== 'function') return '';
+  const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
+  const posCode = p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka);
+  const pp = { ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi };
+  const vaihe = tmTtVaihe(pp);
+  const items = tmTtItems(pp);
+  if (!items.length) return '';
+  const pid = _jsvEsc(p.id);
+  const valittu = _vpTtValinta[p.id] || (p.jaksofokus && p.jaksofokus.konsepti_avain) || items[0].avain;
+  const item = items.find(function (it) { return it.avain === valittu; }) || items[0];
+  const esc = _jsvEsc;
+  const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(item.avain) : [];
+  const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(item.avain) : [];
+  const pelimuoto = (item.pelimuoto && item.pelimuoto.length) ? item.pelimuoto.join(' → ') : '';
+  const dimLbl = item.faasi === 'hyokkays' ? 'hyökkäys' : item.faasi === 'puolustus' ? 'puolustus' : (item.ryhma || '');
+  let h = '';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:4px">' + esc(_VPTT_VAIHE_LBL[vaihe] || vaihe) + (vaihe === 'pelipaikka' ? (posCode ? ' · ' + esc((TM_TT_PELIPAIKAT[posCode] || {}).nimi || posCode) : ' · pelipaikka asettamatta') : ' · yksilökonsepti') + '</div>';
+  // Aseta pelipaikka (pelipaikkavaihe ilman positiota)
+  if (vaihe === 'pelipaikka' && !posCode) {
+    h += '<div style="background:rgba(224,160,64,.1);border:.5px solid rgba(224,160,64,.35);border-radius:9px;padding:9px 11px;margin-bottom:8px">'
+      + '<div style="font-size:11.5px;color:var(--ink);font-weight:600;margin-bottom:6px">🎯 Aseta pelipaikka aktivoidaksesi pelipaikkakonseptit</div>'
+      + '<select onchange="if(this.value)_vpTtAsetaPositio(\'' + pid + '\',this.value)" class="jsp-kt-vapaainp" onclick="event.stopPropagation()"><option value="">Valitse pelipaikka…</option>'
+      + Object.keys(TM_TT_PELIPAIKAT).map(function (k) { return '<option value="' + k + '">' + esc(TM_TT_PELIPAIKAT[k].nimi) + ' (' + k + ')</option>'; }).join('') + '</select></div>';
+  }
+  // Konseptivalinta (custom-dropdown, ryhmitelty)
+  const youthI = items.filter(function (it) { return it.koodi.charAt(0) === 'Y'; });
+  const fundI = items.filter(function (it) { return it.koodi.charAt(0) !== 'Y'; });
+  const groups = fundI.length ? [{ label: 'Pelipaikka: ' + ((TM_TT_PELIPAIKAT[posCode] || {}).nimi || posCode), items: fundI }, { label: 'Youth (kertaus)', items: youthI }] : [{ label: null, items: items }];
+  h += _ttDropdownHTML('vp' + pid, groups, item, esc, '_vpTtPick');
+  // Konsepti + cue + harjoite (kompakti)
+  h += '<div class="jsp-kt-box" style="margin-top:10px"><div class="jsp-kt-bt">Konsepti</div>'
+    + '<div style="font-size:13.5px;font-weight:600;color:var(--ink)">' + esc(item.nimi) + '</div>'
+    + (item.pelitilanne ? '<div style="font-family:var(--font-serif,\'Cormorant Garamond\');font-style:italic;font-size:13.5px;color:var(--ink2);margin-top:3px">”' + esc(item.pelitilanne) + '”</div>' : '')
+    + '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">' + (pelimuoto ? '<span class="chip">' + esc(pelimuoto) + '</span>' : '') + (dimLbl ? '<span class="chip" style="color:var(--teal)">⚽ ' + esc(dimLbl) + '</span>' : '') + '</div>'
+    + (item.kpi && item.kpi.length ? '<div style="margin-top:6px;font-size:11.5px;color:var(--ink2);line-height:1.55">' + item.kpi.map(function (k) { return '<div><b style="color:var(--ink3)">' + k.koodi + '</b> ' + esc(k.teksti) + '</div>'; }).join('') + '</div>' : '') + '</div>';
+  if (kys.length) h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt" style="color:var(--blue)">Cue (kysymys, ei käsky)</div>' + kys.map(function (q) { return '<div style="font-size:12.5px;color:var(--ink2);padding:2px 0 2px 14px;position:relative"><span style="position:absolute;left:0;color:var(--blue);font-weight:700">?</span>' + esc(q) + '</div>'; }).join('') + '</div>';
+  if (harj.length) { const hh = harj[0]; const ht = hh.painopisteet || hh.konseptipeli || ''; h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt" style="color:var(--amber)">Harjoite</div><div style="font-size:12.5px;color:var(--ink)">' + esc(ht) + '</div></div>'; }
+  // Tallenna
+  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpTtVieTreeniin(\'' + pid + '\',\'' + item.avain + '\')">＋ Tallenna jaksofokus</button></div>';
+  return h;
+}
+window._vpTtPick = function (uid, avain) { const pid = uid.replace(/^vp/, ''); window._vpTtValinta[pid] = avain; if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender(); };
+window._vpTtAsetaPositio = async function (pid, code) {
+  const p = _vpTtPelaaja(pid); if (!p || !code) return;
+  p.tt_positio_aktiivinen = code; delete window._vpTtValinta[pid];
+  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+  await _vpTtKirjoita(pid, { tt_positio_aktiivinen: code }, 'Pelipaikka aktivoitu');
+};
+window._vpTtVieTreeniin = async function (pid, avain) {
+  const p = _vpTtPelaaja(pid); if (!p) return;
+  const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
+  const posCode = p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka);
+  const item = (typeof tmTtItems === 'function' ? tmTtItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }) : []).find(function (it) { return it.avain === avain; });
+  const jaksofokus = { konsepti_avain: avain, konsepti_nimi: item ? item.nimi : avain, konsepti_koodi: item ? item.koodi : null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'vp' };
+  p.jaksofokus = jaksofokus;
+  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+  await _vpTtKirjoita(pid, { jaksofokus: jaksofokus }, 'Jaksofokus tallennettu');
+};
+async function _vpTtKirjoita(pid, data, viesti) {
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + ' (demo — ei kirjoitettu)', 'ok'); return; }
+  try {
+    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set(data, { merge: true });
+    if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
+  } catch (e) { console.warn('[vpTt]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+}
+
 // ── (B) ALOITUS-VÄLILEHTI — fokus johtaa. Kaikki §26-pikakentistä (idp_fokus/idp_tila/idp_edistyma/phv_tila/hh_pvm/arviot[]).
 // Read-only fokus + status + CTA:t (editointi = Kehitys-välilehti). Kausi laddaa isoon tavoitteeseen; jakso = placeholder (Vaihe 4).
 function _vpAloitusHTML(p) {
@@ -4418,6 +4553,12 @@ function _vpAloitusHTML(p) {
   }
   h += '</div>';
   h += '<div class="vpal-ladder">⬆ jakso laddaa kausifokukseen · kausi laddaa isoon tavoitteeseen</div>';
+  // Vaihe 4a — VP asettaa jaksofokuksen TALENTTIPELAAJILLE (§4: VP hallinnoi talentteja). Muille = valmentaja (Master).
+  if (p.talenttiOhjelma === true && typeof _vpTtKorttiHTML === 'function') {
+    h += '<div style="margin-top:12px;border-top:.5px solid var(--border);padding-top:10px">'
+      + '<span onclick="var b=document.getElementById(\'_vpTtSlot\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Aseta / muokkaa jaksofokus (talentti)\'" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600">▸ Aseta / muokkaa jaksofokus (talentti)</span>'
+      + '<div id="_vpTtSlot" style="display:none;margin-top:10px">' + _vpTtKorttiHTML(p) + '</div></div>';
+  }
   // Status-nauha
   const _viimMit = [p.hh_pvm, p.tki_pvm].filter(Boolean).sort().pop();
   const _edist = p.idp_edistyma || (t && typeof idpEdistyma === 'function' ? idpEdistyma(t) : null) || 'alkuvaihe';

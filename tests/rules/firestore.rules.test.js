@@ -518,6 +518,51 @@ describe('Roolipohjainen kirjoitus', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 4b. VAIHE 4a — jaksofokus + tt_positio_aktiivinen (roolimalli §4, operatiivinen pelitavoite)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Vaihe 4a — jaksofokus / tt_positio_aktiivinen (§4 roolimalli)', () => {
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+  });
+  const JF = { konsepti_avain: 'y_h2', konsepti_nimi: 'SYÖTTÄMINEN', kesto_vk: 4, lahde: 'valmentaja', alkoi: '2026-07-07' };
+
+  it('Valmentaja (oma seura) asettaa jaksofokuksen', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF }));
+  });
+  it('Talenttivalmentaja (oma seura) asettaa jaksofokuksen', async () => {
+    const db = talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF }));
+  });
+  it('VP (oma seura) asettaa jaksofokuksen + tt_positio_aktiivinen (talenttihallinta)', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, tt_positio_aktiivinen: 'T' }));
+  });
+  it('Seurasihteeri (johto) asettaa VAIN jaksofokus/tt_positio (field-level-klausuuli)', async () => {
+    const db = sihteeriContext(SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { tt_positio_aktiivinen: 'KK' }));
+  });
+  it('Seurasihteeri EI pääse muihin kenttiin jaksofokuksen ohella (hasOnly-rajaus)', async () => {
+    const db = sihteeriContext(SEURA_A).firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, flei_viimeisin: 99 }));
+  });
+  it('Toisen seuran valmentaja EI aseta jaksofokusta (tenant-eristys)', async () => {
+    const db = randomContext().firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF }));
+  });
+  it('Anon PIN -pelaaja EI aseta jaksofokusta (ei sallituissa avaimissa)', async () => {
+    const db = anonContext().firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF }));
+  });
+  it('Huoltaja EI aseta jaksofokusta', async () => {
+    const db = huoltajaContext().firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF }));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 5. HUOLTAJA — lukee lapsen datan huoltajaEmail-matchilla
 // ═══════════════════════════════════════════════════════════════════════════
 

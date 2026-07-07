@@ -339,7 +339,16 @@ service cloud.firestore {
                       // d3_varmuus = johdettu pikakenttä (D3_KALIBRAATIO_SPEC malli A): pelaaja kirjoittaa
                       // 'itsearvio'/'trianguloitu' lahteet[]:stä → kuuluu sallittuihin avaimiin.
                       || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
-                          .hasOnly(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus']));
+                          .hasOnly(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus']))
+                      // Vaihe 4a — jaksofokus + tt_positio_aktiivinen (operatiivinen teknis-taktinen pelitavoite, §4
+                      // roolimalli). Kenttäomistajuus: valmentaja/talenttivalmentaja/VP (onValmentajaRooli) saavat
+                      // jo koko-dokin updaten (yllä); tämä tekee EKSPLISIITTISEKSI että myös johto (onJohtoRooli =
+                      // vp/utj/seurasihteeri) saa tarkan field-level-writen näihin kahteen pikakenttään (§26 talent-
+                      // hallinta, §37). Ei vaadi hyväksyntää (ei byrokratisoida jaksoja); talenttirajaus = UI-taso
+                      // (kuten muut valmentaja-writet). Kausitavoite (IDP §3a/idp_kausi) pysyy VP-hyväksyttynä erikseen.
+                      || (onOmaSeura(seuraId) && (onValmentajaRooli() || onJohtoRooli())
+                          && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['jaksofokus', 'tt_positio_aktiivinen']));
         // GDPR (#96): pelaajan pääDocin poisto VAIN SA (client). Aiempi johto-client-delete poisti vain
         // pääDocin → JÄTTI orvoiksi alikokoelmat + ristiviitteet + Storage-media + Auth (GDPR-rikkomus,
         // spec §0.1/§0.5). Johto poistaa nyt RTBF-CF:n (poistaPelaajaGDPR) kautta, joka tekee TÄYDEN
