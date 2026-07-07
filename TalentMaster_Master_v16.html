@@ -5202,6 +5202,61 @@ window._ttAsetaPositio = async function (pid, code) {
   } catch (e) { console.warn('[ttPositio]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
 
+// ── Custom-dropdown (avaa AINA alas: position:absolute; top:100%; §5-tokenit; klaviatuuri + aria). ──
+// Itsenäinen (ei app-riippuvuuksia); pickFn = globaali funktionimi(uid, avain). Jaettu Master/VP-toimintakortin kanssa.
+// (Natiivi <select> avaa selaimen päättämään suuntaan → modaalin pohjalla ylös; tämä pakottaa alas.)
+function _ttDropdownHTML(uid, groups, valittu, esc, pickFn) {
+  const ddId = 'ttdd-' + uid;
+  let opts = '';
+  groups.forEach(function (g) {
+    if (g.label) opts += '<div style="font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);padding:7px 10px 2px">' + esc(g.label) + '</div>';
+    g.items.forEach(function (it) {
+      const sel = it.avain === valittu.avain;
+      opts += '<div role="option" aria-selected="' + sel + '" tabindex="-1" data-a="' + it.avain + '"'
+        + ' onclick="_ttDdPick(\'' + uid + '\',\'' + it.avain + '\',\'' + pickFn + '\')"'
+        + ' onkeydown="_ttDdOptKey(event,\'' + uid + '\',\'' + pickFn + '\')"'
+        + ' onmouseenter="this.style.background=\'var(--ov-1)\'" onfocus="this.style.background=\'var(--ov-1)\'"'
+        + ' onmouseleave="if(this.getAttribute(\'aria-selected\')!==\'true\')this.style.background=\'transparent\'" onblur="if(this.getAttribute(\'aria-selected\')!==\'true\')this.style.background=\'transparent\'"'
+        + ' style="padding:8px 10px;font-size:12px;color:' + (sel ? 'var(--teal)' : 'var(--ink)') + ';cursor:pointer;background:' + (sel ? 'var(--ov-1)' : 'transparent') + ';outline:none">'
+        + esc(it.koodi + ' · ' + it.nimi) + (sel ? ' <span style="color:var(--teal)">✓</span>' : '') + '</div>';
+    });
+  });
+  return '<div class="tt-dd" id="' + ddId + '" style="position:relative;margin-top:8px">'
+    + '<button type="button" class="tt-dd-btn" aria-haspopup="listbox" aria-expanded="false" onclick="_ttDdToggle(\'' + uid + '\')" onkeydown="_ttDdBtnKey(event,\'' + uid + '\')"'
+    + ' style="width:100%;text-align:left;background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink);border:.5px solid var(--border);border-radius:7px;padding:8px 10px;font-size:12px;font-family:\'DM Sans\',sans-serif;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px">'
+    + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(valittu.koodi + ' · ' + valittu.nimi) + '</span><span aria-hidden="true" style="color:var(--ink3)">▾</span></button>'
+    + '<div class="tt-dd-list" role="listbox" style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;max-height:280px;overflow-y:auto;background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.55);z-index:60">'
+    + opts + '</div></div>';
+}
+function _ttDdClose(dd) { const l = dd.querySelector('.tt-dd-list'); if (l) l.style.display = 'none'; const b = dd.querySelector('.tt-dd-btn'); if (b) b.setAttribute('aria-expanded', 'false'); }
+function _ttDdDoc(e) { if (!e.target.closest || !e.target.closest('.tt-dd')) { document.querySelectorAll('.tt-dd').forEach(_ttDdClose); document.removeEventListener('mousedown', _ttDdDoc, true); document.removeEventListener('keydown', _ttDdEsc, true); } }
+function _ttDdEsc(e) { if (e.key === 'Escape') { document.querySelectorAll('.tt-dd').forEach(_ttDdClose); document.removeEventListener('mousedown', _ttDdDoc, true); document.removeEventListener('keydown', _ttDdEsc, true); } }
+window._ttDdToggle = function (uid) {
+  const dd = document.getElementById('ttdd-' + uid); if (!dd) return;
+  const list = dd.querySelector('.tt-dd-list'), btn = dd.querySelector('.tt-dd-btn');
+  const open = list.style.display !== 'none';
+  document.querySelectorAll('.tt-dd').forEach(function (o) { if (o !== dd) _ttDdClose(o); });
+  if (open) { _ttDdClose(dd); return; }
+  list.style.display = 'block'; btn.setAttribute('aria-expanded', 'true');
+  const sel = list.querySelector('[aria-selected="true"]') || list.querySelector('[role=option]'); if (sel) sel.focus();
+  setTimeout(function () { document.addEventListener('mousedown', _ttDdDoc, true); document.addEventListener('keydown', _ttDdEsc, true); }, 0);
+};
+window._ttDdPick = function (uid, avain, pickFn) {
+  const dd = document.getElementById('ttdd-' + uid); if (dd) _ttDdClose(dd);
+  document.removeEventListener('mousedown', _ttDdDoc, true); document.removeEventListener('keydown', _ttDdEsc, true);
+  if (typeof window[pickFn] === 'function') window[pickFn](uid, avain);
+};
+window._ttDdBtnKey = function (e, uid) { if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _ttDdToggle(uid); } };
+window._ttDdOptKey = function (e, uid, pickFn) {
+  const dd = document.getElementById('ttdd-' + uid); if (!dd) return;
+  const opts = Array.prototype.slice.call(dd.querySelectorAll('[role=option]'));
+  const i = opts.indexOf(document.activeElement);
+  if (e.key === 'ArrowDown') { e.preventDefault(); (opts[i + 1] || opts[0]).focus(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); (opts[i - 1] || opts[opts.length - 1]).focus(); }
+  else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _ttDdPick(uid, document.activeElement.getAttribute('data-a'), pickFn); }
+  else if (e.key === 'Escape') { e.preventDefault(); _ttDdClose(dd); const b = dd.querySelector('.tt-dd-btn'); if (b) b.focus(); }
+};
+
 function _ttKorttiHTML(p) {
   if (!p || typeof tmTtItems !== 'function' || typeof tmTtVaihe !== 'function') return '';
   const isp = (typeof _devIkaSp === 'function') ? _devIkaSp(p) : { ika: null };
@@ -5245,19 +5300,17 @@ function _ttKorttiHTML(p) {
       + (typeof TM_TT_PELIPAIKAT !== 'undefined' ? Object.keys(TM_TT_PELIPAIKAT).map(function (k) { return '<option value="' + k + '">' + esc(TM_TT_PELIPAIKAT[k].nimi) + ' (' + k + ')</option>'; }).join('') : '')
       + '</select></div>';
   }
-  // Konseptivalinta-dropdown (ryhmitelty kun pelipaikkafundamentit mukana: Pelipaikka + Youth-kertaus).
+  // Konseptivalinta — custom-dropdown (avaa alas, klaviatuuri+aria). Ryhmitelty kun pelipaikkafundamentit mukana.
   const _youthItems = items.filter(function (it) { return it.koodi.charAt(0) === 'Y'; });
   const _fundItems = items.filter(function (it) { return it.koodi.charAt(0) !== 'Y'; });
-  const _opt = function (it) { return '<option value="' + it.avain + '"' + (it.avain === item.avain ? ' selected' : '') + '>' + esc(it.koodi + ' · ' + it.nimi) + '</option>'; };
-  let _optHtml;
+  let _ddGroups;
   if (_fundItems.length) {
     const _posNimi = (typeof TM_TT_PELIPAIKAT !== 'undefined' && TM_TT_PELIPAIKAT[_posCode]) ? TM_TT_PELIPAIKAT[_posCode].nimi : (_posCode || '');
-    _optHtml = '<optgroup label="Pelipaikka: ' + esc(_posNimi) + '">' + _fundItems.map(_opt).join('') + '</optgroup>'
-      + '<optgroup label="Youth (kertaus)">' + _youthItems.map(_opt).join('') + '</optgroup>';
+    _ddGroups = [{ label: 'Pelipaikka: ' + _posNimi, items: _fundItems }, { label: 'Youth (kertaus)', items: _youthItems }];
   } else {
-    _optHtml = items.map(_opt).join('');
+    _ddGroups = [{ label: null, items: items }];
   }
-  h += '<div style="margin-top:8px"><select onchange="_ttPickKonsepti(\'' + pid + '\',this.value)" style="' + _selStyle + '">' + _optHtml + '</select></div>';
+  h += _ttDropdownHTML(pid, _ddGroups, item, esc, '_ttPickKonsepti');
   h += '</div>';
   // 1 KONSEPTI
   h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 15px;margin-top:10px">'
