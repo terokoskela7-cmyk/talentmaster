@@ -114,6 +114,20 @@ describe('tmTtVaihe + tmTtItems (vaihe-gating)', () => {
   it('pelipaikkavaihe ilman positiota → vain youth', () => {
     expect(TT.tmTtItems({ ika: 16 }).length).toBe(14);
   });
+  it('§26 joukkuenimi-fallback kun syntymaVuosi puuttuu (P15→pelipaikka, P13→yhteispeli)', () => {
+    expect(TT.tmTtVaihe({ joukkue: 'SJK P15' })).toBe('pelipaikka');
+    expect(TT.tmTtVaihe({ joukkue: 'SJK P13' })).toBe('yhteispeli');
+    expect(TT.tmTtVaihe({ joukkue: 'Sibbo T14' })).toBe('silta');
+    expect(TT.tmTtVaihe({ joukkue: 'FC U9' })).toBe('perus');
+  });
+  it('syntymaVuosi voittaa joukkuenimen (kronologinen ikäluokka)', () => {
+    // joukkue P15 mutta synt 2013 → 13v → yhteispeli (syntymaVuosi etusijalla)
+    expect(TT.tmTtVaihe({ joukkue: 'SJK P15', syntymaVuosi: 2013, nyt_vuosi: 2026 })).toBe('yhteispeli');
+  });
+  it('P15 + positio → tmTtItems sisältää pelipaikkafundamentit (ei vain youth)', () => {
+    const items = TT.tmTtItems({ joukkue: 'SJK P15', tt_positio_aktiivinen: 'T' });
+    expect(items.length).toBe(14 + TT.TM_TT_FUNDAMENTIT.T.length);
+  });
 });
 
 describe('TM_TT_HARJOITTEET (youth konseptipelit + pelipaikka Excel-harjoitteet)', () => {

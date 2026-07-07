@@ -440,12 +440,17 @@ function tmTtVaihe(p) {
   p = p || {};
   if (p.tt_vaihe) return p.tt_vaihe;
   var ika = p.ika;
-  if (ika == null && p.syntymaVuosi) {
+  if (ika == null && p.syntymaVuosi != null) {   // syntymaVuosi voittaa (kronologinen ikäluokka)
     var v = (p.nyt_vuosi || new Date().getFullYear());
     ika = v - p.syntymaVuosi;
   }
+  // §26 joukkuenimi-fallback (sama regex kuin normiIka): 'SJK P15' → 15. Bio-ikä (PHV) pidetään erillään.
+  if (ika == null && p.joukkue) {
+    var jm = String(p.joukkue).match(/\b([PTU])\s?(\d{1,2})\b/i);
+    if (jm) ika = parseInt(jm[2], 10);
+  }
   if (ika == null) return 'yhteispeli';
-  if (ika <= 9) return 'perus';
+  if (ika <= 9) return 'perus';        // §0a: ≤9 perus · 10–13 yhteispeli · 14 silta · ≥15 pelipaikka
   if (ika <= 13) return 'yhteispeli';
   if (ika <= 14) return 'silta';
   return 'pelipaikka';
