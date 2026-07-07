@@ -208,13 +208,22 @@ def parse_youth(teksti):
             continue
         i += 1
 
-    # KONSEPTIPELIT-taulukko (youth harjoitepankki): | Y-H0 | peli | pelimuoto | (3 saraketta)
-    for m in re.finditer(r"^\|\s*(Y-[HP]\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$", teksti, re.M):
+    # PELAAJAN KIELI -taulukko (Vaihe 4b §7.22) ERISTETÄÄN TÄYSIN omaan passiin: sen 2-sarakkeiset rivit
+    # (| Y-H0 | miksi |) EIVÄT saa valua konseptipeli/pelimuoto-poimintaan. Juurisyy: 3-sarakeregexin
+    # `\s*` matchaa myös rivinvaihdon → 2-sarakerivit parittuvat (Y-H0+Y-H1 → konseptipeli=miksi,
+    # pelimuoto="| Y-H1 |") ja ylikirjoittavat oikean arvon. Rajaus: "## PELAAJAN KIELI" → seuraava ##.
+    pk_m = re.search(r"^##\s*PELAAJAN KIELI.*?(?=^##\s|\Z)", teksti, re.M | re.S)
+    pk_teksti = pk_m.group(0) if pk_m else ""
+    teksti_ilman_pk = teksti.replace(pk_teksti, "\n") if pk_teksti else teksti
+
+    # KONSEPTIPELIT-taulukko (youth harjoitepankki): | Y-H0 | peli | pelimuoto | (3 saraketta) —
+    # VAIN alkuperäisistä konseptilohkoista (ilman PELAAJAN KIELI -taulukkoa).
+    for m in re.finditer(r"^\|\s*(Y-[HP]\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$", teksti_ilman_pk, re.M):
         koodi, peli, pm = m.group(1), m.group(2).strip(), m.group(3).strip()
         konseptipelit[koodi] = {"konseptipeli": peli, "pelimuoto": pm}
-    # PELAAJAN KIELI -taulukko (Vaihe 4b §7.22): | Y-H0 | miksi auttaa | (2 saraketta) → pelaaja_miksi
+    # PELAAJAN KIELI -taulukko: | Y-H0 | miksi auttaa | (2 saraketta) → pelaaja_miksi (vain eristetystä osiosta)
     pmiksi = {}
-    for m in re.finditer(r"^\|\s*(Y-[HP]\d+)\s*\|\s*(.+?)\s*\|\s*$", teksti, re.M):
+    for m in re.finditer(r"^\|\s*(Y-[HP]\d+)\s*\|\s*(.+?)\s*\|\s*$", pk_teksti, re.M):
         pmiksi[m.group(1)] = re.sub(r"\s+", " ", m.group(2).strip())
     for y in youth:
         y["pelaaja_miksi"] = pmiksi.get(y["koodi"], "")

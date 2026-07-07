@@ -203,3 +203,42 @@ describe('tmTtPelaaja (Vaihe 4b §0b/§7.22 — pelaajaturvallinen)', () => {
     expect(p.koe.length).toBeLessThanOrEqual(45);
   });
 });
+
+describe('4b parseri-regressio — PELAAJAN KIELI ei saastuta konseptipeli/pelimuotoa', () => {
+  // Juurisyy (fix/4b-parseri-pelimuoto): 3-sarakeregexin `\s*` matchasi rivinvaihdon → PELAAJAN KIELI
+  // -taulukon 2-sarakerivit parittuivat konseptipeliin/pelimuotoon (7/14 youth). Eristetty omaan passiin.
+  const YOUTH = ['Y-H0', 'Y-H1', 'Y-H2', 'Y-H3', 'Y-H4', 'Y-H5', 'Y-H6', 'Y-H7', 'Y-H8', 'Y-H9', 'Y-P1', 'Y-P2', 'Y-P3', 'Y-P4'];
+  const H = (k) => { const h = TT.TM_TT_HARJOITTEET[k]; return Array.isArray(h) ? h[0] : h; };
+
+  it('14/14 youth: pelimuoto ei ala | eikä sisällä "| Y-" (taulukkorivi-saaste)', () => {
+    YOUTH.forEach((k) => {
+      const pm = (H(k) || {}).pelimuoto || '';
+      expect(pm.startsWith('|')).toBe(false);
+      expect(/\|\s*Y-/.test(pm)).toBe(false);
+      expect(pm.length).toBeGreaterThan(0);   // pelimuoto tosiasiassa poimittu
+    });
+  });
+
+  it('14/14 youth: konseptipeli ≠ pelaaja_miksi (ei "Kun …"-lause konseptipelinä)', () => {
+    TT.TM_TT_YOUTH.forEach((y) => {
+      const kp = (H(y.koodi) || {}).konseptipeli || '';
+      expect(kp.length).toBeGreaterThan(0);
+      expect(kp).not.toBe(y.pelaaja_miksi);
+      expect(kp.startsWith('Kun ')).toBe(false);
+    });
+  });
+
+  it('14/14 youth: tmTtPelaaja(avain).koe = siisti konseptinimi (ei pelaaja_miksi-lause)', () => {
+    TT.TM_TT_YOUTH.forEach((y) => {
+      const p = TT.tmTtPelaaja(y.avain);
+      expect(p.koe.length).toBeGreaterThan(0);
+      expect(p.koe).not.toBe(y.pelaaja_miksi);
+      expect(p.koe.startsWith('Kun ')).toBe(false);
+      expect(p.koe.includes('|')).toBe(false);
+    });
+  });
+
+  it('pelaaja_miksi säilyy 14/14 (4b cue-kerros ehjä)', () => {
+    TT.TM_TT_YOUTH.forEach((y) => expect((y.pelaaja_miksi || '').length).toBeGreaterThan(0));
+  });
+});
