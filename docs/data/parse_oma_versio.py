@@ -563,54 +563,103 @@ def main():
     for koodi, hp in konseptipelit.items():
         harjoitteet[koodi] = hp
     xlsx = [f for f in os.listdir(DATA) if f.lower().endswith(".xlsx")]
+    excel_n = 0
     if not xlsx:
         warn("Master_kokonaisuus.xlsx puuttuu → pelipaikkaharjoitteet tyhjät (youth-konseptipelit mukana). Aja uudelleen Excelin kanssa.")
     else:
-        _liita_excel_harjoitteet(os.path.join(DATA, xlsx[0]), harjoitteet)
+        excel_n = _liita_excel_harjoitteet(os.path.join(DATA, xlsx[0]), harjoitteet)
+        # Youth-cue:t Excelin Kysymyspankki-välilehdeltä (§0b jaettu ymmärrys) → TM_TT_YOUTH.kysymykset
+        ycue_n = _liita_excel_youth_cues(os.path.join(DATA, xlsx[0]), youth)
+        if ycue_n < 14:
+            warn("Youth-cueja täytetty %d/14 (loput ilman cueta §0b)" % ycue_n)
 
     out = build_js(youth, fundamentit, joukkue, harjoitteet, kytkenta)
     with open(OUT, "w", encoding="utf-8") as f:
         f.write(out)
 
     sys.stderr.write("✔ Kirjoitettu %s\n" % os.path.relpath(OUT, ROOT))
-    sys.stderr.write("  youth=%d · pelipaikat=%d · joukkue=%d · harjoitteet=%d · varoituksia=%d\n" % (
-        len(youth), sum(1 for k in fundamentit if fundamentit[k]), len(joukkue), len(harjoitteet), len(WARN)))
+    sys.stderr.write("  youth=%d · pelipaikat=%d · joukkue=%d · harjoiteavaimia=%d (Excel-riviä=%d) · varoituksia=%d\n" % (
+        len(youth), sum(1 for k in fundamentit if fundamentit[k]), len(joukkue), len(harjoitteet), excel_n, len(WARN)))
 
 
 # ── Excel-alias-silta (CB→T, FB→LP, MID→KK, AMID→KY, ST→KH, WI→LA, GK→MV). Vain jos openpyxl + tiedosto. ──
 EXCEL_ALIAS = {"CB": "T", "FB": "LP", "MID": "KK", "AMID": "KY", "ST": "KH", "WI": "LA", "GK": "MV"}
 
 
-def _liita_excel_harjoitteet(path, harjoitteet):
+def _liita_excel_youth_cues(path, youth):
+    """Excel Kysymyspankki-välilehti: Koodi(Y-H0) | Teema | Ohjaava kysymys (yksi/rivi, koodi vain 1. rivillä).
+    → täydentää TM_TT_YOUTH[*].kysymykset (yksilövaiheen cue, §0b). Palauttaa täytettyjen konseptien määrän."""
     try:
         import openpyxl  # type: ignore
     except ImportError:
-        warn("openpyxl puuttuu → Excel-harjoitteita ei luettu (pip install openpyxl)")
-        return
+        return 0
+    try:
+        wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    except Exception:  # noqa
+        return 0
+    cues = {}
+    cur = None
+    for ws in wb.worksheets:
+        if ws.title.lower().replace(" ", "") != "kysymyspankki":
+            continue
+        for row in ws.iter_rows(values_only=True):
+            cols = list(row)
+            koodi_raaka = ("" if (not cols or cols[0] is None) else str(cols[0])).strip()
+            kysymys = ("" if len(cols) < 3 or cols[2] is None else str(cols[2])).strip()
+            m = re.match(r"^(Y-[HP]\d+)$", koodi_raaka)
+            if m:
+                cur = m.group(1)
+                cues.setdefault(cur, [])
+            if cur and kysymys and "?" in kysymys:
+                cues[cur].append(re.sub(r"\s+", " ", kysymys))
+    wb.close()
+    n = 0
+    for y in youth:
+        if y["koodi"] in cues and cues[y["koodi"]]:
+            y["kysymykset"] = cues[y["koodi"]]
+            n += 1
+    return n
+
+
+def _liita_excel_harjoitteet(path, harjoitteet):
+    """Harjoitepankki-välilehti: sarakkeet Koodi | Pelipaikka | Kehityskohde(teema) | Painopisteet.
+    Alias-silta CB→T… → TM_TT_HARJOITTEET[suomalaiskoodi] = {pelipaikka, teema, painopisteet} (DATAMALLI §3).
+    HUOM (§0a-reconciliation): Excel-teemanumerointi (P1–P8) eroaa OMA_VERSIO:sta (P1–P6) → osa aliaskoodeista
+    (esim. T-P7/T-P8) ei vastaa fundamenttiteemaa; ne säilyvät superset-avaimina (tmTtHarjoitteet löytää koodilla)."""
+    try:
+        import openpyxl  # type: ignore
+    except ImportError:
+        warn("openpyxl puuttuu → Excel-harjoitteita ei luettu (pip install openpyxl --break-system-packages)")
+        return 0
     try:
         wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
     except Exception as e:  # noqa
         warn("Excelin luku epäonnistui: %s" % e)
-        return
-    # Harjoitepankki-välilehti; rivit joilla teemakoodi (englanti-alias) → suomalaiskoodi
+        return 0
+    n = 0
     for ws in wb.worksheets:
-        if "harjoite" not in ws.title.lower() and "pankki" not in ws.title.lower():
+        if "harjoitepankki" not in ws.title.lower().replace(" ", ""):
             continue
         for row in ws.iter_rows(values_only=True):
-            solut = [str(c).strip() for c in row if c not in (None, "")]
-            if not solut:
+            cols = list(row)
+            koodi_raaka = ("" if (not cols or cols[0] is None) else str(cols[0])).strip()
+            m = re.match(r"^([A-Z]{2,4})-([PH]\d+)$", koodi_raaka)
+            if not m or m.group(1) not in EXCEL_ALIAS:
                 continue
-            koodi = None
-            for s in solut:
-                m = re.match(r"^([A-Z]{2,4})-([PH]\d+)", s)
-                if m and m.group(1) in EXCEL_ALIAS:
-                    koodi = EXCEL_ALIAS[m.group(1)] + "-" + m.group(2)
-                    break
-            if koodi:
-                harjoitteet.setdefault(koodi, [])
-                if isinstance(harjoitteet[koodi], list):
-                    harjoitteet[koodi].append({"teema": koodi, "kuvaus": " · ".join(solut)})
+            koodi = EXCEL_ALIAS[m.group(1)] + "-" + m.group(2)
+            pelipaikka = ("" if len(cols) < 2 or cols[1] is None else str(cols[1])).strip()
+            teema = ("" if len(cols) < 3 or cols[2] is None else str(cols[2])).strip()
+            painopisteet = ("" if len(cols) < 4 or cols[3] is None else str(cols[3])).strip()
+            harjoitteet.setdefault(koodi, [])
+            if not isinstance(harjoitteet[koodi], list):
+                harjoitteet[koodi] = [harjoitteet[koodi]]
+            harjoitteet[koodi].append({
+                "pelipaikka": pelipaikka, "teema": teema,
+                "painopisteet": re.sub(r"\s+", " ", painopisteet),
+            })
+            n += 1
     wb.close()
+    return n
 
 
 if __name__ == "__main__":
