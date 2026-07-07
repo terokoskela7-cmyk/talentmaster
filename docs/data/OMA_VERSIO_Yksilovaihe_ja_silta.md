@@ -283,6 +283,29 @@
 
 ---
 
+## PELAAJAN KIELI – MIKSI TÄMÄ AUTTAA (Vaihe 4b, §7.22)
+
+*Yksi lause per konsepti lapsen kielellä: miksi tästä on hyötyä pelissä. EI tasoja, arvosanoja tai vertailua – konsepti = mahdollisuus. Parseri lukee → `pelaaja_miksi`-kenttä → pelaajan cue-kortti (Pelaaja_v7 MINÄ).*
+
+| Koodi | Miksi tämä auttaa (pelaajalle) |
+|---|---|
+| Y-H0 | Kun katsot ympärille ennen kuin pallo tulee, tiedät jo mihin pelaat – ehdit ennen muita. |
+| Y-H1 | Kun ensimmäinen kosketus menee oikeaan suuntaan, olet askeleen edellä puolustajaa. |
+| Y-H2 | Hyvä syöttö vie joukkueen eteenpäin ja yllättää vastustajan. |
+| Y-H3 | Kun kuljetat pää ylhäällä, näet milloin viedä palloa ja milloin syöttää kaverille. |
+| Y-H4 | Kun harhautat, pääset puolustajan ohi ja saat tilaa tehdä maali tai syöttö. |
+| Y-H5 | Kun suojaat pallon kehollasi, se pysyy joukkueella vaikka vastustaja painaa. |
+| Y-H6 | Kun näyttäydyt vapaana, kaverisi saa aina pelattavan eikä menetä palloa. |
+| Y-H7 | Kun irtaudut vartijastasi, saat tilaa ja pääset pelaamaan vapaana. |
+| Y-H8 | Kun teet kentästä ison, vastustajan on vaikea puolustaa ja tilaa syntyy kavereille. |
+| Y-H9 | Kun uskallat laukoa nähdessäsi maalin, teet maaleja – yritys on aina oikea. |
+| Y-P1 | Kun et anna ohittaa itseäsi, pysäytät hyökkäyksen ja voit riistää pallon. |
+| Y-P2 | Kun näet pallon ja vartioitavasi samaan aikaan, ehdit väliin ennen kuin vaara syntyy. |
+| Y-P3 | Kun olet kaverisi tukena, yksi ohitus ei riitä vastustajalle – autatte toisianne. |
+| Y-P4 | Kun puolustat tilaa etkä vain pelaajaa, vaarallisin paikka pysyy tukossa. |
+
+---
+
 ## MUUTOSLOKI SUHTEESSA AIEMPAAN VERSIOON
 
 | Muutos | Peruste |

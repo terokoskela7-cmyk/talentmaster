@@ -208,10 +208,16 @@ def parse_youth(teksti):
             continue
         i += 1
 
-    # KONSEPTIPELIT-taulukko (youth harjoitepankki): | Y-H0 | peli | pelimuoto |
+    # KONSEPTIPELIT-taulukko (youth harjoitepankki): | Y-H0 | peli | pelimuoto | (3 saraketta)
     for m in re.finditer(r"^\|\s*(Y-[HP]\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$", teksti, re.M):
         koodi, peli, pm = m.group(1), m.group(2).strip(), m.group(3).strip()
         konseptipelit[koodi] = {"konseptipeli": peli, "pelimuoto": pm}
+    # PELAAJAN KIELI -taulukko (Vaihe 4b §7.22): | Y-H0 | miksi auttaa | (2 saraketta) → pelaaja_miksi
+    pmiksi = {}
+    for m in re.finditer(r"^\|\s*(Y-[HP]\d+)\s*\|\s*(.+?)\s*\|\s*$", teksti, re.M):
+        pmiksi[m.group(1)] = re.sub(r"\s+", " ", m.group(2).strip())
+    for y in youth:
+        y["pelaaja_miksi"] = pmiksi.get(y["koodi"], "")
     return youth, konseptipelit
 
 
@@ -484,6 +490,28 @@ function tmTtHarjoitteet(avainTaiKoodi) {
   if (!h) return [];
   return Array.isArray(h) ? h : [h];
 }
+
+// tmTtPelaaja (Vaihe 4b §0b/§7.22): PELAAJATURVALLINEN konsepti — { otsikko, mika, miksi, cue, koe }.
+// EI KOSKAAN kriteerejä/KPI-listaa/tasolukuja pelaajapinnalle. cue = 1 kysymys; koe = 1 harjoitteen lyhyt nimi.
+function _ttKonseptipeliNimi(teksti) {
+  if (!teksti) return '';
+  var s = String(teksti).split(':')[0].split('–')[0].split('(')[0].trim();
+  return s.length > 42 ? s.slice(0, 42).trim() : s;   // vain nimi, ei ohjeteksti-tulvaa
+}
+function tmTtPelaaja(avainTaiKoodi) {
+  var a = String(avainTaiKoodi || '').toLowerCase().replace(/-/g, '_');
+  var item = null, i, pos, arr, j;
+  for (i = 0; i < TM_TT_YOUTH.length; i++) { if (TM_TT_YOUTH[i].avain === a) { item = TM_TT_YOUTH[i]; break; } }
+  if (!item) { for (pos in TM_TT_FUNDAMENTIT) { arr = TM_TT_FUNDAMENTIT[pos]; for (j = 0; j < arr.length; j++) { if (arr[j].avain === a) { item = arr[j]; break; } } if (item) break; } }
+  if (!item) return null;
+  var cue = (item.kysymykset && item.kysymykset.length) ? item.kysymykset[0] : '';
+  var koe = '';
+  var h = TM_TT_HARJOITTEET[item.koodi];
+  if (h) { var hh = Array.isArray(h) ? h[0] : h; koe = hh.konseptipeli ? _ttKonseptipeliNimi(hh.konseptipeli) : (hh.teema || ''); }
+  var miksi = item.pelaaja_miksi || '';
+  if (!miksi) miksi = item.pelitilanne ? ('Kun opit tämän, pelaat paremmin juuri tässä tilanteessa.') : '';   // graceful fallback (pelipaikkateemat)
+  return { otsikko: item.nimi, mika: item.pelitilanne || '', miksi: miksi, cue: cue, koe: koe };
+}
 """)
     L.append("")
     L.append("// ── Vienti: selain-globaalit + module.exports (Vitest) ──")
@@ -492,7 +520,7 @@ function tmTtHarjoitteet(avainTaiKoodi) {
     L.append("  TM_TT_YOUTH: TM_TT_YOUTH, TM_TT_FUNDAMENTIT: TM_TT_FUNDAMENTIT, TM_TT_JOUKKUE: TM_TT_JOUKKUE,")
     L.append("  TM_TT_HARJOITTEET: TM_TT_HARJOITTEET, TM_TT_KYTKENTA: TM_TT_KYTKENTA,")
     L.append("  tmTtNorm5: tmTtNorm5, tmTtVaihe: tmTtVaihe, tmTtItems: tmTtItems,")
-    L.append("  tmTtKysymykset: tmTtKysymykset, tmTtHarjoitteet: tmTtHarjoitteet")
+    L.append("  tmTtKysymykset: tmTtKysymykset, tmTtHarjoitteet: tmTtHarjoitteet, tmTtPelaaja: tmTtPelaaja")
     L.append("};")
     L.append("if (typeof module !== 'undefined' && module.exports) module.exports = TM_TT_API;")
     L.append("if (typeof window !== 'undefined') { for (var _k in TM_TT_API) { try { window[_k] = TM_TT_API[_k]; } catch (e) {} } }")
