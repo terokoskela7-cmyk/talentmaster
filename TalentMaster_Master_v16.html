@@ -6801,6 +6801,7 @@ function _calChip(sty, t, lisaaJoukkue, onclick, aika) {
     const jn = t.joukkue_nimi || t.joukkue || '';
     if (jn) teksti += ' · ' + jn;
   }
+  const teemaMerkki = (t.treeniteema && t.treeniteema.nimi) ? ' ⚽' : '';   // Vaihe 4d — treeniteema (luku)
   const clickAttr = onclick ? ' onclick="' + onclick + '"' : '';
   const cursor = onclick ? 'cursor:pointer;' : 'cursor:default;';
   const metaHtml = aika ? '<div class="cal-evt-meta">' + aika + '</div>' : '';
@@ -6810,7 +6811,7 @@ function _calChip(sty, t, lisaaJoukkue, onclick, aika) {
   return '<div class="cal-evt"' + clickAttr
     + ' style="background:' + sty.vari + '1f;border-left:2px solid ' + sty.vari + ';' + cursor + '"'
     + ' title="' + teksti + '">'
-    + '<div class="cal-evt-title" style="color:' + sty.vari + ';">' + teksti + _calToistLbl(t) + '</div>'
+    + '<div class="cal-evt-title" style="color:' + sty.vari + ';">' + teksti + teemaMerkki + _calToistLbl(t) + '</div>'
     + metaHtml + koosteHtml + '</div>';
 }
 
@@ -7164,6 +7165,29 @@ function calEventClick(tapahtumaId) {
     note.style.cssText = 'margin-top:6px;padding:8px 10px;background:var(--surface);border-radius:6px;font-size:12px;color:var(--ink2)';
     note.textContent = t.muistiinpanot;
     box.appendChild(note);
+  }
+
+  // ── Vaihe 4d — treeniteema (luku): harjoitussuunnitelma = teema + cue + harjoite libistä (§7b/§34) ──
+  if (t.treeniteema && t.treeniteema.nimi) {
+    var _tt = t.treeniteema;
+    var _lLbl = { teemakeskittyma: 'teemakeskittymä (4c)', jaksofokus: 'jaksofokus', tki_gap: 'TKI-gap', manuaalinen: 'manuaalinen' }[_tt.lahde] || _tt.lahde || '';
+    var _teemaBox = document.createElement('div');
+    _teemaBox.style.cssText = 'margin-top:8px;border-top:0.5px solid var(--border);padding-top:10px';
+    var _th = '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;background:rgba(40,176,144,.13);color:var(--teal);border:.5px solid rgba(40,176,144,.3);border-radius:999px;padding:2px 9px" title="Treeniteema · lähde: ' + _mEsc(_lLbl) + '">⚽ ' + _mEsc(_tt.nimi) + '</span>';
+    if (_tt.avain) {
+      var _fnd = null;
+      try {
+        var _all = (typeof TM_TT_YOUTH !== 'undefined' ? TM_TT_YOUTH : []).concat(typeof TM_TT_JOUKKUE !== 'undefined' ? TM_TT_JOUKKUE : []);
+        for (var _i = 0; _i < _all.length; _i++) { if (_all[_i].avain === _tt.avain) { _fnd = _all[_i]; break; } }
+      } catch (e) {}
+      var _kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(_tt.avain) : [];
+      var _harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(_tt.avain) : [];
+      if (_fnd && _fnd.pelitilanne) _th += '<div style="font-style:italic;font-size:12.5px;color:var(--ink2);margin-top:6px">”' + _mEsc(_fnd.pelitilanne) + '”</div>';
+      if (_kys.length) _th += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-top:6px">Cue</div><div style="font-size:12.5px;color:var(--teal);margin-top:2px">' + _mEsc(_kys[0]) + '</div>';
+      if (_harj.length) { var _h0 = _harj[0]; var _ht = _h0.konseptipeli || _h0.painopisteet || _h0.teema || ''; var _pm = _h0.pelimuoto || ''; _th += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-top:6px">Harjoite</div><div style="font-size:12.5px;color:var(--ink2);margin-top:2px">' + _mEsc(_ht) + (_pm ? ' · ' + _mEsc(_pm) : '') + '</div>'; }
+    }
+    _teemaBox.innerHTML = _th;
+    box.appendChild(_teemaBox);
   }
 
   // ── Läsnäolo (Vaihe B) — johto + valmentaja + talenttivalmentaja ──
