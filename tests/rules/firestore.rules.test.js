@@ -879,6 +879,40 @@ describe('Kalenteri (v3.5 — omistajuus + läsnäolo)', () => {
     await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1')));
   });
 
+  // ── Vaihe 4d — treeniteema (additiivinen kenttä harjoitustapahtumassa) ──
+  it('Valmentaja luo harjoituksen treeniteemalla (luonti, luoja_uid == oma uid)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal-teema'),
+      { tyyppi: 'harjoitus', nimi: 'Kuljetusteema', pvm: '2026-09-18', luoja_uid: VALM_A_UID, poistettu: false,
+        treeniteema: { tyyppi: 'yksilo_konsepti', avain: 'y_h0', nimi: 'Kuljetus ahtaassa', koodi: 'Y-H0', lahde: 'teemakeskittyma', pelaajat_id: [PELAAJA_UID] } }
+    ));
+  });
+
+  it('Valmentaja muokkaa OMAN tapahtuman treeniteeman (täysi, sallittu)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal_own'),
+      { treeniteema: { tyyppi: 'joukkue_teema', avain: 'j_h1', nimi: 'Rakentaminen', koodi: 'J-H1', lahde: 'manuaalinen', pelaajat_id: [] } }
+    ));
+  });
+
+  it('Valmentaja EI aseta treeniteemaa MUIDEN tapahtumaan (field-level ei salli)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1'),
+      { treeniteema: { tyyppi: 'yksilo_konsepti', avain: 'y_h0', nimi: 'X', koodi: 'Y-H0', lahde: 'manuaalinen', pelaajat_id: [] } }
+    ));
+  });
+
+  it('VP asettaa treeniteeman mihin tahansa tapahtumaan (oversight)', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1'),
+      { treeniteema: { tyyppi: 'yksilo_konsepti', avain: 'y_h1', nimi: 'Syöttö', koodi: 'Y-H1', lahde: 'jaksofokus', pelaajat_id: [] } }
+    ));
+  });
+
   // ── Läsnäolijat ──
   it('Valmentaja merkitsee pelaajan läsnäolon (osallistujaId = pelaaja)', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();

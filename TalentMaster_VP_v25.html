@@ -24,6 +24,7 @@
 <script src="lib/tm_idp.js?v=3"></script>   <!-- Vaihe 3a+3b: IDP ehdotusmoottori + VP-fokusvalinta + review-sykli/kehityskaari/elinkaari -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v4 = parseri-korjaus (pelimuoto-saaste) -->
 <script src="lib/tm_jaksofokus.js?v=1"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
+<script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
 
 <style>
@@ -2115,6 +2116,9 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
     <div class="ws-view" id="ws-kalenteri">
       <div class="page-title">Kalenteri</div>
       <div class="page-sub" id="vpCalSub">Testitapahtumat · kaikki joukkueet · protokollat</div>
+
+      <!-- Vaihe 4d — teemakattavuus (jaksofokus vs suunnitellut teemaharjoitukset tällä jaksolla) -->
+      <div id="vpTeemakatePaneeli"></div>
 
       <!-- Kalenteri-navigaatio -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
@@ -4725,12 +4729,17 @@ window._jfOhjaa = function (pid) {
   document.body.appendChild(wrap.firstChild);
 };
 
-// ≥3 samaa konseptia → ryhmäharjoite-CTA (kytkös 4d-kalenteriin; nyt placeholder).
+// ≥3 samaa konseptia → ryhmäharjoite-CTA → 4d-silta: esitäytetty harjoitus (teema + klusterin pelaajat_id).
 window._jfRyhmaharjoite = function (avain) {
-  const JF = window.TM_JAKSOFOKUS; if (!JF) return;
-  const t = JF.tmJfTeemakeskittyma(_jfPelaajatValitussa()).find(function (x) { return x.avain === avain; });
-  const nimi = t ? t.nimi : avain, n = t ? t.count : 0;
-  if (typeof toast === 'function') toast('Ryhmäharjoite “' + nimi + '” (' + n + ' pelaajaa) — kalenteri-integraatio tulossa (4d)', 'ok');
+  if (typeof _jsvLuoHarjoitus !== 'function') { if (typeof toast === 'function') toast('Kalenteri-työkalu ei latautunut', 'error'); return; }
+  const pel = _jfPelaajatValitussa();
+  const klusteri = pel.filter(function (p) { return p.jaksofokus && p.jaksofokus.konsepti_avain === avain; });
+  const pelaajat_id = klusteri.map(function (p) { return p.id; });
+  // Yhtenäinen joukkuenimi jos klusteri samasta joukkueesta (muuten valittu joukkue tai tyhjä = koko seura).
+  const jset = {}; klusteri.forEach(function (p) { if (p.joukkue && p.joukkue !== '—') jset[p.joukkue] = 1; });
+  const jnimet = Object.keys(jset);
+  const joukkueNimi = (jnimet.length === 1) ? jnimet[0] : (window._jfJoukkue || '');
+  _jsvLuoHarjoitus(joukkueNimi, avain, { lahde: 'teemakeskittyma', pelaajat_id: pelaajat_id });
 };
 
 // ── (B) ALOITUS-VÄLILEHTI — fokus johtaa. Kaikki §26-pikakentistä (idp_fokus/idp_tila/idp_edistyma/phv_tila/hh_pvm/arviot[]).
@@ -4878,13 +4887,90 @@ function _jsvVaihda(n) {
   }
 }
 window._jsvVaihda = _jsvVaihda;
-function _jsvLuoTapahtuma(joukkue, teema) {
-  // A5: esitäytä teema (suurin per-laji-gap) tapahtumalomakkeeseen. Jos lomake ei tue → URL-param + nimen oletus.
+// §2.0: MITTAUS (kasvumittaus / testiprotokolla) → Testaus_v9. Harjoitusteema → _jsvLuoHarjoitus (kalenteri).
+function _jsvLuoMittaus(joukkue, protokolla) {
   let url = 'TalentMaster_Testaus_v9.html?seura=' + encodeURIComponent(_seuraId || '') + '&joukkue=' + encodeURIComponent(joukkue || '');
-  if (teema) url += '&teema=' + encodeURIComponent(teema);
+  if (protokolla) url += '&teema=' + encodeURIComponent(protokolla);
   window.open(url, '_blank');
 }
-window._jsvLuoTapahtuma = _jsvLuoTapahtuma;
+window._jsvLuoMittaus = _jsvLuoMittaus;
+// Backward-compat alias — VAIN mittauskutsuille (phv → 'kasvumittaus'). Treeniteema-CTA:t käyttävät _jsvLuoHarjoitus.
+window._jsvLuoTapahtuma = _jsvLuoMittaus;
+
+// ══════════ VAIHE 4d — TREENITEEMA: harjoitusteema → kalenterin harjoitus-tapahtuma (EI Testaus_v9) ══════════
+// Curriculum kalenteriin (§35 yksi lähde, additiivinen kenttä §26). Sisältö libistä (§34).
+// TK-laji (tki_gap) → yksilökonsepti-avain: sama kohde kuin jaksofokus (4a) / teemakeskittymä (4c).
+const _JSV_LAJI_KONSEPTI = { syotto: 'y_h2', pujottelu: 'y_h4', ponnauttelu: 'y_h1', kuljetus_laukaus: 'y_h9', pituuspotku: 'y_h2', sm_pallo: 'y_h4', kuljetus: 'y_h4' };
+
+// Etsi teema-avain libistä (youth / joukkuetaktinen / pelipaikkafundamentti) → {tyyppi, avain, nimi, koodi, item}.
+function _ttLoytaTeema(avain) {
+  if (!avain || typeof TM_TT_YOUTH === 'undefined') return null;
+  const a = String(avain).toLowerCase().replace(/-/g, '_');
+  const mk = function (it, tyyppi) { return { tyyppi: tyyppi, avain: it.avain, nimi: it.nimi, koodi: it.koodi, item: it }; };
+  for (let i = 0; i < TM_TT_YOUTH.length; i++) if (TM_TT_YOUTH[i].avain === a) return mk(TM_TT_YOUTH[i], 'yksilo_konsepti');
+  if (typeof TM_TT_JOUKKUE !== 'undefined') for (let i = 0; i < TM_TT_JOUKKUE.length; i++) if (TM_TT_JOUKKUE[i].avain === a) return mk(TM_TT_JOUKKUE[i], 'joukkue_teema');
+  if (typeof TM_TT_FUNDAMENTIT !== 'undefined') for (const pos in TM_TT_FUNDAMENTIT) { const arr = TM_TT_FUNDAMENTIT[pos]; for (let j = 0; j < arr.length; j++) if (arr[j].avain === a) return mk(arr[j], 'yksilo_konsepti'); }
+  return null;
+}
+
+// Harjoitusteema-CTA:iden yhteinen sisääntulo → avaaUusiTapahtuma esitäytettynä (tyyppi 'harjoitus' + treeniteema).
+// teema = lib-avain (y_*/j_*/fundamentti) TAI TK-laji/kehityskohde (tki_gap) TAI löyhä nimi. opts:{lahde, pelaajat_id}.
+function _jsvLuoHarjoitus(joukkueNimi, teema, opts) {
+  opts = opts || {};
+  let meta = _ttLoytaTeema(teema);
+  if (!meta && teema) {
+    const la = String(teema).toLowerCase().replace(/-/g, '_').replace(/\s+/g, '_');
+    if (_JSV_LAJI_KONSEPTI[la]) meta = _ttLoytaTeema(_JSV_LAJI_KONSEPTI[la]);
+  }
+  const pelaajat_id = opts.pelaajat_id || [];
+  const treeniteema = meta
+    ? { tyyppi: meta.tyyppi, avain: meta.avain, nimi: meta.nimi, koodi: meta.koodi, lahde: opts.lahde || 'tki_gap', pelaajat_id: pelaajat_id }
+    : (teema ? { tyyppi: 'yksilo_konsepti', avain: null, nimi: String(teema), koodi: null, lahde: opts.lahde || 'manuaalinen', pelaajat_id: pelaajat_id } : null);
+  avaaUusiTapahtuma(null, { tyyppi: 'harjoitus', joukkueNimi: joukkueNimi || '', treeniteema: treeniteema, pelaajat_id: pelaajat_id });
+}
+window._jsvLuoHarjoitus = _jsvLuoHarjoitus;
+
+// ── Treeniteema-valitsin (custom-dropdown, aukeaa alas §37) + konsepti→cue→harjoite-esikatselu ──
+window._jsvUusiTeema = null;           // valittu {tyyppi, avain, nimi, koodi} | null
+window._jsvUusiPelaajatId = [];        // klusteri/roster (4c-silta) → doc.pelaajat_id
+window._jsvUusiJoukkueNimi = '';       // vaihe-gating (ikä joukkueesta)
+
+function _jsvTeemaWidgetHTML() {
+  const esc = _jsvEsc;
+  const isp = (window._jsvUusiJoukkueNimi && typeof _jsvJoukkueIkaSp === 'function') ? _jsvJoukkueIkaSp(window._jsvUusiJoukkueNimi) : { ika: null };
+  const yksilo = (typeof tmTtItems === 'function') ? tmTtItems({ ika: isp.ika, joukkue: window._jsvUusiJoukkueNimi }) : [];
+  const joukkue = (typeof TM_TT_JOUKKUE !== 'undefined') ? TM_TT_JOUKKUE : [];
+  const NONE = { avain: '__none__', koodi: '—', nimi: 'Ei teemaa (teematon harjoitus)' };
+  const groups = [{ label: null, items: [NONE] }, { label: 'Yksilökonseptit', items: yksilo }, { label: 'Joukkuetaktiset teemat', items: joukkue }];
+  const cur = window._jsvUusiTeema && window._jsvUusiTeema.avain ? window._jsvUusiTeema : NONE;
+  let h = _ttDropdownHTML('uusiteema', groups, cur, esc, '_jsvTeemaPick');
+  h += '<div id="vpTeemaPreview" style="margin-top:10px">' + _jsvTeemaPreviewHTML(cur.avain) + '</div>';
+  return h;
+}
+function _jsvTeemaPreviewHTML(avain) {
+  const esc = _jsvEsc;
+  if (!avain || avain === '__none__') return '<div style="font-size:11px;color:var(--ink3);padding:2px">Teematon harjoitus — valitse teema yllä nähdäksesi konsepti + ohjaava kysymys + harjoite.</div>';
+  const m = _ttLoytaTeema(avain); if (!m) return '';
+  const it = m.item;
+  const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(avain) : [];
+  const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(avain) : [];
+  const pelimuoto = (it.pelimuoto && it.pelimuoto.length) ? it.pelimuoto.join(' → ') : '';
+  const lbl = m.tyyppi === 'joukkue_teema' ? 'Joukkuetaktinen teema' : 'Yksilökonsepti';
+  let h = '<div style="background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;padding:13px">';
+  h += '<div style="font-size:11px;color:var(--ink3)">' + esc(lbl) + (pelimuoto ? ' · ' + esc(pelimuoto) : '') + '</div>';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;margin:2px 0 6px">' + esc(it.nimi) + '</div>';
+  if (it.pelitilanne) h += '<div style="font-style:italic;font-size:13px;color:var(--ink2);margin-bottom:4px">”' + esc(it.pelitilanne) + '”</div>';
+  if (kys.length) h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-top:8px">Ohjaava kysymys (cue)</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:15px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.28);border-radius:8px;padding:8px 10px;margin-top:3px">' + esc(kys[0]) + '</div>';
+  if (harj.length) { const hh = harj[0]; const ht = hh.konseptipeli || hh.painopisteet || hh.teema || ''; const pm = hh.pelimuoto || ''; h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-top:9px">Harjoite</div><div style="font-size:12.5px;color:var(--ink2);margin-top:3px">' + esc(ht) + (pm ? ' · ' + esc(pm) : '') + '</div>'; }
+  h += '</div>';
+  return h;
+}
+window._jsvTeemaPick = function (uid, avain) {
+  if (avain === '__none__') window._jsvUusiTeema = null;
+  else { const m = _ttLoytaTeema(avain); window._jsvUusiTeema = m ? { tyyppi: m.tyyppi, avain: m.avain, nimi: m.nimi, koodi: m.koodi } : null; }
+  const wrap = document.getElementById('vpTeemaDd');
+  if (wrap) wrap.innerHTML = _jsvTeemaWidgetHTML();
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TKI-analyysimalli VAIHE 1 — inline-kopio docs/testit_indeksit.js:stä (VP ei lataa sitä).
@@ -5330,7 +5416,7 @@ function _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n) {
       + '<div style="font-size:15px;color:var(--ink);font-family:\'Cormorant Garamond\',serif">' + pp.nimi + ' <span style="color:var(--ink3);font-size:12px;font-family:var(--font-sans)">— ka ' + pp.ka + ', etäisyys tavoitteeseen ' + pp.gap + '</span></div>'
       + '<div style="font-size:11px;color:var(--ink3);margin:4px 0 10px">§28: pre-PHV matala fyysinen on kehityskieli — huomioi PHV-vaihe ennen fyysistä painotusta.</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + '<button class="jsv-vastaus-cta" onclick="_jsvLuoTapahtuma(\'' + je + '\', window._jsvTreema || \'\')">Luo tekniikkateema →</button>'
+      + '<button class="jsv-vastaus-cta" onclick="_jsvLuoHarjoitus(\'' + je + '\', window._jsvTreema || \'\', {lahde:\'tki_gap\'})">Luo tekniikkateema →</button>'
       + '<button class="jsv-cta" style="padding:7px 13px" onclick="document.getElementById(\'_jsvBtn1\').click()">Avaa Tuki-ryhmät →</button>'
       + '</div></div>';
   } else if (F.omKat.length) {
@@ -5747,7 +5833,7 @@ function _jsvTilanneHTML(pelaajat, joukkueNimi, n) {
       + '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Painopiste</div>'
       + '<div style="font-size:13px;color:var(--ink);margin-top:2px">' + _pp.nimi + ' <span style="color:var(--ink3);font-size:11px">(ka ' + _pp.ka + ', etäisyys tavoitteeseen ' + _pp.gap + ')</span></div>'
       + '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'
-      + '<button class="jsv-cta jsv-cta-primary" style="font-size:11px;padding:5px 10px" onclick="document.getElementById(\'_jsvModal\').remove();_jsvLuoTapahtuma(\'' + jesc + '\', window._jsvTreema)">📋 Luo tekniikkateema</button>'
+      + '<button class="jsv-cta jsv-cta-primary" style="font-size:11px;padding:5px 10px" onclick="document.getElementById(\'_jsvModal\').remove();_jsvLuoHarjoitus(\'' + jesc + '\', window._jsvTreema, {lahde:\'tki_gap\'})">📋 Luo tekniikkateema</button>'
       + '<button class="jsv-cta" style="font-size:11px;padding:5px 10px" onclick="_jsvVaihda(1)">→ Tuki-ryhmät</button>'
       + '</div>'
       + '<div class="jsv-an-ctx" style="margin-top:6px">§28: huomioi PHV-vaihe ennen fyysistä painotusta.</div>'
@@ -6150,7 +6236,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   h += '</div>';         // /body
   // FOOTER (kiinteä)
   h += '<div class="jsv-footer">';
-  h += '<button class="jsv-cta jsv-cta-primary" onclick="document.getElementById(\'_jsvModal\').remove();_jsvLuoTapahtuma(\'' + jescNimi + '\', window._jsvTreema)">📋 Luo harjoitustapahtuma →</button>';
+  h += '<button class="jsv-cta jsv-cta-primary" onclick="document.getElementById(\'_jsvModal\').remove();_jsvLuoHarjoitus(\'' + jescNimi + '\', window._jsvTreema, {lahde:\'tki_gap\'})">📋 Luo harjoitustapahtuma →</button>';
   h += '<button class="jsv-cta" onclick="document.getElementById(\'_jsvModal\').remove();setWs(\'pelaajat\')">📊 Avaa pelaajat →</button>';
   h += '</div>';
   h += '</div></div>';
@@ -7592,7 +7678,8 @@ function renderVpViikko(testit) {
     }).forEach(function(t) {
       var meta = KALENTERI_TYYPIT[t.tyyppi] || KALENTERI_TYYPIT.muu;
       var klo = t.alkaa && t.alkaa.toDate ? (String(t.alkaa.toDate().getHours()).padStart(2,'0') + ':' + String(t.alkaa.toDate().getMinutes()).padStart(2,'0')) : '';
-      evHtml += vpWeekEvt(meta.vari, meta.ikoni + ' ' + (t.nimi || meta.nimi), (t.joukkue_nimi || '') + _vpToistLbl(t) + _vpKoosteLbl(t), klo, "avaaKalenteriTapahtuma('" + t.id + "')");
+      var _wkTeema = (t.treeniteema && t.treeniteema.nimi) ? (' · ⚽ ' + t.treeniteema.nimi) : '';
+      evHtml += vpWeekEvt(meta.vari, meta.ikoni + ' ' + (t.nimi || meta.nimi), (t.joukkue_nimi || '') + _wkTeema + _vpToistLbl(t) + _vpKoosteLbl(t), klo, "avaaKalenteriTapahtuma('" + t.id + "')");
     });
     html += '<div onclick="vpWeekSlotClick(\'' + ds + '\')" title="Klikkaa avataksesi päivän tapahtumat" style="min-height:120px;padding:4px;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);cursor:pointer;' + (isToday ? 'background:rgba(40,176,144,.06);' : '') + '">';
     html += '<div style="font-size:12px;font-weight:' + (isToday?'600':'400') + ';color:' + (isToday?'var(--teal)':'var(--ink2)') + ';margin-bottom:4px;">' + d.getDate() + '</div>';
@@ -7656,6 +7743,12 @@ function renderKalenteri() {
     .filter(_onTestitapahtuma)
     .filter(t => !valittuJoukkue || t.joukkue === valittuJoukkue);
 
+  // Vaihe 4d — teemakattavuus tälle jaksolle (näkyvä kuukausi = jakso).
+  const _jaksoAlku = target.getFullYear() + '-' + String(target.getMonth() + 1).padStart(2, '0') + '-01';
+  const _jaksoLoppuD = new Date(target.getFullYear(), target.getMonth() + 1, 0);
+  const _jaksoLoppu = _jaksoLoppuD.getFullYear() + '-' + String(_jaksoLoppuD.getMonth() + 1).padStart(2, '0') + '-' + String(_jaksoLoppuD.getDate()).padStart(2, '0');
+  if (typeof _vpRenderTeemakate === 'function') _vpRenderTeemakate(valittuJoukkue, _jaksoAlku, _jaksoLoppu, kkNimet[target.getMonth()] + ' ' + target.getFullYear());
+
   // Näkymänvaihto: viikko vs kuukausi
   const _monthGridEl = document.getElementById('vpCalGrid');
   const _weekGridEl  = document.getElementById('vpCalWeekGrid');
@@ -7714,11 +7807,12 @@ function renderKalenteri() {
         var meta = KALENTERI_TYYPIT[kt.tyyppi] || KALENTERI_TYYPIT.muu;
         var kNimi = (kt.nimi || meta.nimi);
         var kLyh = kNimi.length > 12 ? kNimi.slice(0,12) + '…' : kNimi;
+        var _ktTeema = (kt.treeniteema && kt.treeniteema.nimi) ? (' · ⚽ ' + kt.treeniteema.nimi) : '';
         tapEvts += '<div onclick="event.stopPropagation();avaaKalenteriTapahtuma(\'' + kt.id + '\')"' +
           ' style="font-size:10px;padding:2px 4px;border-radius:3px;margin-top:2px;' +
           'background:' + meta.vari + '1a;color:' + meta.vari + ';' +
           'border-left:2px solid ' + meta.vari + ';cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"' +
-          ' title="' + meta.ikoni + ' ' + kNimi + '">' + meta.ikoni + ' ' + kLyh + _vpToistLbl(kt) + _vpKoosteLbl(kt) + '</div>';
+          ' title="' + meta.ikoni + ' ' + kNimi + _ktTeema + '">' + meta.ikoni + ' ' + kLyh + _vpTeemaSiruLbl(kt) + _vpToistLbl(kt) + _vpKoosteLbl(kt) + '</div>';
       });
 
       html += `<div style="min-height:64px;padding:4px;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);
@@ -7818,7 +7912,13 @@ var KALENTERI_TYYPIT = {
   muu:                    { nimi: 'Muu',                    vari: 'var(--ink3)',   ikoni: '📌' }
 };
 
-function avaaUusiTapahtuma(oletusPvm) {
+function avaaUusiTapahtuma(oletusPvm, prefill) {
+  prefill = prefill || {};
+  // Vaihe 4d: treeniteema-tila (esitäyttö 4c-sillasta / tki_gap-CTA:sta) modaalin elinajaksi.
+  window._jsvUusiTeema = prefill.treeniteema && prefill.treeniteema.avain ? { tyyppi: prefill.treeniteema.tyyppi, avain: prefill.treeniteema.avain, nimi: prefill.treeniteema.nimi, koodi: prefill.treeniteema.koodi } : null;
+  window._jsvUusiPelaajatId = prefill.pelaajat_id || (prefill.treeniteema && prefill.treeniteema.pelaajat_id) || [];
+  window._jsvUusiTeemaLahde = (prefill.treeniteema && prefill.treeniteema.lahde) || 'manuaalinen';
+  window._jsvUusiJoukkueNimi = prefill.joukkueNimi || '';
   var vanha = document.getElementById('vpTapModal'); if (vanha) vanha.remove();
   var modal = document.createElement('div');
   modal.id = 'vpTapModal';
@@ -7844,6 +7944,7 @@ function avaaUusiTapahtuma(oletusPvm) {
     o.textContent = KALENTERI_TYYPIT[tyyppiKeys[i]].ikoni + ' ' + KALENTERI_TYYPIT[tyyppiKeys[i]].nimi;
     tyyppiSel.appendChild(o);
   }
+  if (prefill.tyyppi && KALENTERI_TYYPIT[prefill.tyyppi]) tyyppiSel.value = prefill.tyyppi;
   box.appendChild(_vpModalLbl('Tyyppi')); box.appendChild(tyyppiSel);
 
   // Nimi
@@ -7876,7 +7977,28 @@ function avaaUusiTapahtuma(oletusPvm) {
     var oj = document.createElement('option'); oj.value = jIds[j]; oj.textContent = _joukkueNimet[jIds[j]];
     joukkueSel.appendChild(oj);
   }
+  // Esitäyttö: joukkuenimi (4c-silta / tki_gap-CTA välittää nimen, valitsin id-pohjainen).
+  if (prefill.joukkueNimi) {
+    var _pjLow = String(prefill.joukkueNimi).toLowerCase();
+    for (var pj = 0; pj < joukkueSel.options.length; pj++) { if (String(joukkueSel.options[pj].textContent || '').toLowerCase() === _pjLow) { joukkueSel.selectedIndex = pj; break; } }
+  }
   box.appendChild(_vpModalLbl('Joukkue')); box.appendChild(joukkueSel);
+
+  // ── Treeniteema (Vaihe 4d §2.2) — vain harjoitus-tyypille. Custom-dropdown (aukeaa alas §37) + esikatselu. ──
+  var teemaWrap = document.createElement('div');
+  teemaWrap.id = 'vpTapTeemaWrap';
+  teemaWrap.style.display = (tyyppiSel.value === 'harjoitus') ? 'block' : 'none';
+  teemaWrap.appendChild(_vpModalLbl('Treeniteema (valinnainen)'));
+  if (window._jsvUusiPelaajatId && window._jsvUusiPelaajatId.length) {
+    var _klu = document.createElement('div');
+    _klu.style.cssText = 'font-size:11px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.28);border-radius:8px;padding:7px 10px;margin-bottom:6px';
+    _klu.textContent = '👥 ' + window._jsvUusiPelaajatId.length + ' kohdepelaajaa esitäytetty' + (window._jsvUusiTeemaLahde === 'teemakeskittyma' ? ' (teemakeskittymä, 4c)' : '') + ' → K2-läsnäolo kohdistuu heihin.';
+    teemaWrap.appendChild(_klu);
+  }
+  var teemaDd = document.createElement('div'); teemaDd.id = 'vpTeemaDd';
+  teemaDd.innerHTML = _jsvTeemaWidgetHTML();
+  teemaWrap.appendChild(teemaDd);
+  box.appendChild(teemaWrap);
 
   // Valmentaja (näytetään vain mentorointitapaaminen-tyypille)
   var valmentajaWrap = document.createElement('div');
@@ -7942,7 +8064,12 @@ function avaaUusiTapahtuma(oletusPvm) {
   tyyppiSel.onchange = function() {
     testiInfo.style.display = tyyppiSel.value === 'testitapahtuma' ? 'block' : 'none';
     valmentajaWrap.style.display = tyyppiSel.value === 'mentorointitapaaminen' ? 'block' : 'none';
+    teemaWrap.style.display = tyyppiSel.value === 'harjoitus' ? 'block' : 'none';
   };
+  // Esitäyttö: harjoituksen nimi = teeman nimi (jos esitäytetty), muuten "Harjoitus".
+  if (prefill.tyyppi === 'harjoitus' && !nimiInp.value) {
+    nimiInp.value = (window._jsvUusiTeema && window._jsvUusiTeema.nimi) ? ('Harjoitus — ' + window._jsvUusiTeema.nimi) : 'Harjoitus';
+  }
 
   // Napit
   var btnRivi = document.createElement('div'); btnRivi.style.cssText = 'display:flex;gap:8px;margin-top:6px;';
@@ -7976,7 +8103,8 @@ function avaaUusiTapahtuma(oletusPvm) {
       joukkue_nimi: joukkueSel.value ? (_joukkueNimet[joukkueSel.value] || joukkueSel.value) : null,
       joukkueet: joukkueSel.value ? [joukkueSel.value] : [],
       osallistujat_uid: uid ? [uid] : [],
-      pelaajat_id: [],
+      // Vaihe 4d: kohdepelaajat (4c-klusteri / roster) → K2-läsnäolo kohdistuu heihin.
+      pelaajat_id: (tyyppi === 'harjoitus' && Array.isArray(window._jsvUusiPelaajatId)) ? window._jsvUusiPelaajatId.slice() : [],
       paikka: paikkaInp.value.trim() || null,
       paikka_id: null,
       testitapahtuma_id: null,
@@ -7999,6 +8127,17 @@ function avaaUusiTapahtuma(oletusPvm) {
       mentoroitava_uid: (tyyppi === 'mentorointitapaaminen' && valmentajaSel.value) ? valmentajaSel.value : null,
       mentoroitava_nimi: (tyyppi === 'mentorointitapaaminen' && valmentajaSel.value) ? ((_valmentajat||[]).find(function(v) { return v.id === valmentajaSel.value; }) || {}).nimi || null : null
     };
+    // Vaihe 4d: treeniteema (additiivinen kenttä, vain harjoitus + valittu teema). Luoja asettaa luonnissa → Rules-luoja-CRUD.
+    if (tyyppi === 'harjoitus' && window._jsvUusiTeema && window._jsvUusiTeema.avain) {
+      doc.treeniteema = {
+        tyyppi: window._jsvUusiTeema.tyyppi || 'yksilo_konsepti',
+        avain: window._jsvUusiTeema.avain,
+        nimi: window._jsvUusiTeema.nimi || window._jsvUusiTeema.avain,
+        koodi: window._jsvUusiTeema.koodi || null,
+        lahde: window._jsvUusiTeemaLahde || 'manuaalinen',
+        pelaajat_id: Array.isArray(window._jsvUusiPelaajatId) ? window._jsvUusiPelaajatId.slice() : []
+      };
+    }
 
     try {
       if (_toistCadence === 'kerran' || typeof TM_KALENTERI === 'undefined') {
@@ -8046,6 +8185,75 @@ function avaaUusiTapahtuma(oletusPvm) {
 ════════════════════════════════════════════════════════════ */
 function _vpEsc(x) { return String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function _vpSaaMerkitaLasnaolo() { return !_isDemoMode && !!_seuraId; }   // VP-konteksti = johto/SA
+// Vaihe 4d — treeniteema-siru. Kompakti (kalenterisolu) + chip (detail/viikko).
+function _vpTeemaSiruLbl(t) {
+  var tt = t && t.treeniteema; if (!tt || !tt.nimi) return '';
+  return ' ⚽';   // solussa vain merkki (nimi title-attribuutissa)
+}
+function _vpTeemaSiruHTML(t) {
+  var tt = t && t.treeniteema; if (!tt || !tt.nimi) return '';
+  var lahde = { teemakeskittyma: 'teemakeskittymä (4c)', jaksofokus: 'jaksofokus', tki_gap: 'TKI-gap', manuaalinen: 'manuaalinen' }[tt.lahde] || tt.lahde || '';
+  return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;background:rgba(40,176,144,.13);color:var(--teal);border:.5px solid rgba(40,176,144,.3);border-radius:999px;padding:2px 9px" title="Treeniteema · lähde: ' + _vpEsc(lahde) + '">⚽ ' + _vpEsc(tt.nimi) + '</span>';
+}
+// Vaihe 4d §3 — teemakattavuus-paneeli: jaksofokukset (4c) vs suunnitellut teemaharjoitukset (4d) tällä jaksolla.
+// Kaikki pikakentistä (§26): _pelaajat.jaksofokus + _kalenteriTapahtumat.treeniteema (poistetut pois).
+function _vpRenderTeemakate(valittuJoukkueId, jaksoAlku, jaksoLoppu, jaksoLbl) {
+  var host = document.getElementById('vpTeemakatePaneeli'); if (!host) return;
+  var LIB = window.TM_TREENITEEMA; if (!LIB) { host.innerHTML = ''; return; }
+  // Joukkuesuodatus (valitsin = joukkue-ID) → nimi §29 case-insensitive.
+  var jNimi = valittuJoukkueId ? (_joukkueNimet[valittuJoukkueId] || valittuJoukkueId) : '';
+  var jLow = jNimi.toLowerCase();
+  var pelaajat = (_pelaajat || []).filter(function (p) {
+    if (!valittuJoukkueId) return true;
+    if (String(p.joukkue || '').toLowerCase() === jLow) return true;
+    if (Array.isArray(p.joukkueet) && p.joukkueet.indexOf(valittuJoukkueId) >= 0) return true;
+    return false;
+  });
+  // Treeniteema-harjoitukset → {treeniteema, pvm} (poistetut pois, joukkuesuodatus).
+  var tapahtumat = (_kalenteriTapahtumat || []).filter(function (t) {
+    if (t.poistettu) return false;
+    if (!t.treeniteema || !t.treeniteema.avain) return false;
+    if (valittuJoukkueId && t.joukkue !== valittuJoukkueId && (!t.joukkueet || t.joukkueet.indexOf(valittuJoukkueId) < 0)) return false;
+    return true;
+  }).map(function (t) {
+    var pvm = (t.alkaa && t.alkaa.toDate) ? t.alkaa.toDate().toISOString().slice(0, 10) : (t.pvm || '');
+    return { treeniteema: t.treeniteema, pvm: pvm };
+  });
+  var rivit = LIB.tmTtKate(pelaajat, tapahtumat, jaksoAlku, jaksoLoppu);
+  if (!rivit.length) { host.innerHTML = ''; return; }   // ei fokusteemoja → ei paneelia
+  var esc = _vpEsc;
+  var h = '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:16px;margin:14px 0">';
+  h += '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><h3 style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:16px;margin:0">Teemakattavuus</h3>'
+    + '<span style="font-size:11px;color:var(--ink3)">· ' + esc(jaksoLbl || '') + (jNimi ? ' · ' + esc(jNimi) : ' · kaikki joukkueet') + '</span></div>';
+  h += '<div style="font-size:11px;color:var(--ink3);margin:2px 0 12px">Onko joukkueen fokusteemat katettu tämän jakson harjoituksissa?</div>';
+  rivit.forEach(function (r) {
+    var vari = r.gap ? 'var(--amber)' : (r.kate ? '#3DA35D' : 'var(--ink3)');
+    var metaTxt = r.fokus_n + ' pelaajan fokus · ' + (r.harjoitus_n ? (r.harjoitus_n + ' harjoitus' + (r.harjoitus_n > 1 ? 'ta' : '') + ' suunniteltu') : '<b style="color:var(--amber)">0 harjoitusta</b> tällä jaksolla');
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;margin-bottom:7px;background:' + (r.gap ? 'linear-gradient(150deg,rgba(224,160,64,.07),var(--ov-1))' : 'var(--ov-1)') + ';border:.5px solid ' + (r.gap ? 'rgba(224,160,64,.35)' : 'var(--border)') + '">';
+    h += '<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:' + vari + '"></span>';
+    h += '<span style="font-size:13px;color:var(--ink);width:180px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.nimi) + '</span>';
+    h += '<span style="font-size:11.5px;color:var(--ink3);flex:1">' + metaTxt + '</span>';
+    if (r.gap) h += '<span onclick="_vpTeemakateSuunnittele(\'' + esc(r.avain) + '\',\'' + esc(valittuJoukkueId || '') + '\')" style="font-size:11px;color:var(--amber);border:.5px solid rgba(224,160,64,.4);border-radius:999px;padding:3px 11px;cursor:pointer;white-space:nowrap">▸ Suunnittele harjoitus</span>';
+    else if (r.kate) h += '<span style="font-size:11px;color:#3DA35D;white-space:nowrap">🟢 katettu</span>';
+    else h += '<span style="font-size:11px;color:var(--ink3);white-space:nowrap">fokus alle kynnyksen</span>';
+    h += '</div>';
+  });
+  h += '</div>';
+  host.innerHTML = h;
+}
+// Gap-CTA → 4d-silta: esitäytä harjoitus teemalla + klusterin pelaajat_id.
+window._vpTeemakateSuunnittele = function (avain, joukkueId) {
+  var jNimi = joukkueId ? (_joukkueNimet[joukkueId] || '') : '';
+  var jLow = jNimi.toLowerCase();
+  var klusteri = (_pelaajat || []).filter(function (p) {
+    if (!(p.jaksofokus && p.jaksofokus.konsepti_avain === avain)) return false;
+    if (!joukkueId) return true;
+    if (String(p.joukkue || '').toLowerCase() === jLow) return true;
+    if (Array.isArray(p.joukkueet) && p.joukkueet.indexOf(joukkueId) >= 0) return true;
+    return false;
+  });
+  _jsvLuoHarjoitus(jNimi, avain, { lahde: 'teemakeskittyma', pelaajat_id: klusteri.map(function (p) { return p.id; }) });
+};
 // Läsnäoloyhteenveto pikakentästä (oversight) — "✓X/N" tai ''.
 function _vpKoosteLbl(t) {
   var k = t && t.lasnaolo_kooste;
@@ -8357,6 +8565,21 @@ function avaaKalenteriTapahtuma(tapahtumaId) {
     '</div>';
   if (t.muistiinpanot) {
     html += '<div style="margin-top:6px;padding:8px 10px;background:var(--deep);border-radius:6px;font-size:12px;color:var(--ink2);">' + t.muistiinpanot + '</div>';
+  }
+  // Vaihe 4d §2.3 — harjoitussuunnitelma: teemasiru + konsepti→cue→harjoite libistä (§7b/§34).
+  var _tt = t.treeniteema;
+  if (_tt && _tt.nimi) {
+    html += '<div style="margin-top:8px;border-top:0.5px solid var(--border);padding-top:10px">';
+    html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">' + _vpTeemaSiruHTML(t) + '</div>';
+    if (_tt.avain && typeof _ttLoytaTeema === 'function') {
+      var _m = _ttLoytaTeema(_tt.avain);
+      var _kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(_tt.avain) : [];
+      var _harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(_tt.avain) : [];
+      if (_m && _m.item && _m.item.pelitilanne) html += '<div style="font-style:italic;font-size:12.5px;color:var(--ink2);margin-bottom:5px">”' + _vpEsc(_m.item.pelitilanne) + '”</div>';
+      if (_kys.length) html += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3)">Cue</div><div style="font-size:12.5px;color:var(--teal);margin:2px 0 6px">' + _vpEsc(_kys[0]) + '</div>';
+      if (_harj.length) { var _h0 = _harj[0]; var _ht = _h0.konseptipeli || _h0.painopisteet || _h0.teema || ''; var _pm = _h0.pelimuoto || ''; html += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3)">Harjoite</div><div style="font-size:12.5px;color:var(--ink2)">' + _vpEsc(_ht) + (_pm ? ' · ' + _vpEsc(_pm) : '') + '</div>'; }
+    }
+    html += '</div>';
   }
   box.innerHTML = html;
 
@@ -9685,7 +9908,7 @@ function renderKotiVP() {
   if (heikoin) {
     const jk = Object.keys(kohdeJoukkue[heikoin] || {}).sort((a, b) => kohdeJoukkue[heikoin][b] - kohdeJoukkue[heikoin][a])[0] || '';
     const kn = (typeof _vpTkLaji === 'function' ? _vpTkLaji(heikoin) : heikoin);
-    kortit.push({ ik:'🎯', sev:T.teal, txt: kn + ' heikoin kehityskohde (' + kohdeLkm[heikoin] + ' pelaajalla' + (jk ? ', mm. ' + jk : '') + ')', cta:'Luo treeniteema', fn:"_jsvLuoTapahtuma('" + esc(jk) + "','" + esc(kn) + "')" });
+    kortit.push({ ik:'🎯', sev:T.teal, txt: kn + ' heikoin kehityskohde (' + kohdeLkm[heikoin] + ' pelaajalla' + (jk ? ', mm. ' + jk : '') + ')', cta:'Luo treeniteema', fn:"_jsvLuoHarjoitus('" + esc(jk) + "','" + esc(kn) + "',{lahde:'tki_gap'})" });
   }
   // 4. FLEI < 40 → klinikka
   const klinikka = P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40);
