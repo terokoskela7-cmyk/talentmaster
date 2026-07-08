@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vaihe 4d — Kalenteri ohjausjärjestelmänä (treeniteema)</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#111110;--card:#161614;--deep:#1C1C1A;--ov-1:rgba(255,255,255,.03);--ov-3:rgba(255,255,255,.08);
+--border:rgba(255,255,255,.10);--ink:#F2F1EC;--ink2:#C9C7BE;--ink3:#8A887F;--teal:#28B090;--blue:#2A5DB0;--amber:#E0A040;--red:#C94040;--green:#3DA35D}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0d0c;color:var(--ink);font-family:'DM Sans',sans-serif;padding:22px 16px;line-height:1.45}
+.wrap{max-width:1080px;margin:0 auto}
+h1,h2,h3{font-family:'Cormorant Garamond',serif;font-weight:400}
+.tag{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:6px;padding:2px 8px}
+h1{font-size:24px;margin:12px 0 3px}
+.lead{color:var(--ink2);font-size:13px;max-width:780px;margin-bottom:14px}
+.flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--ink3);margin-bottom:18px}
+.flow b{color:var(--teal);font-weight:600}.flow .now{color:var(--amber);font-weight:600}.flow .ar{opacity:.5}
+/* teemakattavuus */
+.panel{background:var(--card);border:.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px}
+.panel h3{font-size:16px}.panel .sub{font-size:11px;color:var(--ink3);margin-bottom:12px}
+.cov{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;background:var(--ov-1);margin-bottom:7px;border:.5px solid var(--border)}
+.cov .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cov.ok .dot{background:var(--green)}.cov.gap .dot{background:var(--amber)}
+.cov .nm{font-size:13px;color:var(--ink);width:170px;flex-shrink:0}
+.cov .meta{font-size:11.5px;color:var(--ink3);flex:1}
+.cov.gap{border-color:rgba(224,160,64,.35);background:linear-gradient(150deg,rgba(224,160,64,.07),var(--ov-1))}
+.cov .cta{font-size:11px;color:var(--amber);border:.5px solid rgba(224,160,64,.4);border-radius:999px;padding:3px 11px;cursor:pointer;white-space:nowrap}
+.cov.ok .st{font-size:11px;color:var(--green)}
+/* kalenteri viikko */
+.wkhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.wk{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day{background:var(--deep);border:.5px solid var(--border);border-radius:10px;padding:8px 7px;min-height:118px}
+.day .dl{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.day.today{border-color:rgba(40,176,144,.4)}
+.ev{border-radius:7px;padding:6px 7px;margin-bottom:5px;font-size:10.5px;line-height:1.3}
+.ev.harj{background:rgba(61,163,93,.13);border-left:2px solid var(--green)}
+.ev.ottelu{background:rgba(42,93,176,.15);border-left:2px solid var(--blue)}
+.ev.test{background:rgba(40,176,144,.13);border-left:2px solid var(--teal)}
+.ev .t{color:var(--ink);font-weight:600}
+.ev .chip{display:inline-flex;align-items:center;gap:3px;margin-top:4px;font-size:9px;background:rgba(40,176,144,.14);color:var(--teal);border:.5px solid rgba(40,176,144,.3);border-radius:999px;padding:1px 6px}
+.ev .att{font-size:9px;color:var(--ink3);margin-top:3px}
+/* alarivi: valitsin-esikatselu + tapahtumakortti */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.mini-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px}
+.ddbtn{background:var(--deep);border:.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;display:flex;justify-content:space-between;color:var(--ink)}
+.ddbtn .car{color:var(--ink3)}
+.preview{margin-top:10px;background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;padding:13px}
+.preview .kt{font-size:11px;color:var(--ink3)}
+.preview .kn{font-family:'Cormorant Garamond',serif;font-size:18px;margin:2px 0 8px}
+.preview .rowl{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-top:9px}
+.preview .cue{font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.28);border-radius:8px;padding:8px 10px;margin-top:3px}
+.preview .drill{font-size:12.5px;color:var(--ink2);margin-top:3px}
+.card{background:var(--deep);border:.5px solid var(--border);border-radius:10px;padding:14px}
+.card .ct{font-family:'Cormorant Garamond',serif;font-size:17px}
+.card .cmeta{font-size:11px;color:var(--ink3);margin:2px 0 8px}
+.card .att-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.av{width:24px;height:24px;border-radius:50%;background:var(--ov-3);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ink2)}
+.av.p{background:rgba(61,163,93,.25);color:#bfe6cd}
+.legend{font-size:12px;color:var(--ink3);line-height:1.7;margin-top:18px}.legend b{color:var(--ink2)}
+@media(max-width:760px){.wk{grid-template-columns:repeat(3,1fr)}.two{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="wrap">
+  <span class="tag">Ehdotus · Vaihe 4d — Kalenteri ohjausjärjestelmänä</span>
+  <h1>Treeniteema — aikomuksesta tekemiseen</h1>
+  <div class="lead">Kalenteri ei ole kirjanpito vaan valmennuksen ohjain. Harjoitus kantaa <b>teemaa</b> (konsepti curriculumista), ja kalenteri vastaa: harjoittelemmeko sitä mihin sovimme keskittyvämme?</div>
+  <div class="flow"><span>Arviointi</span><span class="ar">→</span><span>jaksofokus (4a)</span><span class="ar">→</span><span>teemakeskittymä (4c)</span><span class="ar">→</span><span class="now">teemaharjoitus (4d)</span><span class="ar">→</span><span>läsnäolo (K2)</span><span class="ar">→</span><span>vaikutus (K5)</span></div>
+
+  <!-- Teemakattavuus = ohjaussignaali -->
+  <div class="panel">
+    <h3>Teemakattavuus <span style="font-size:11px;color:var(--ink3)">· jakso vk 2/4 · SJK P15</span></h3>
+    <div class="sub">Onko joukkueen fokusteemat katettu tämän jakson harjoituksissa?</div>
+    <div class="cov gap"><span class="dot"></span><span class="nm">Kuljetus ahtaassa</span><span class="meta">4 pelaajan fokus · <b style="color:var(--amber)">0 harjoitusta</b> tällä jaksolla</span><span class="cta">▸ Suunnittele harjoitus</span></div>
+    <div class="cov ok"><span class="dot"></span><span class="nm">Puolustuksen 1v1</span><span class="meta">3 pelaajan fokus · 2 harjoitusta suunniteltu</span><span class="st">🟢 katettu</span></div>
+    <div class="cov ok"><span class="dot"></span><span class="nm">Syöttö eteenpäin</span><span class="meta">2 pelaajan fokus · 1 harjoitus</span><span class="st">🟢 katettu</span></div>
+  </div>
+
+  <!-- Viikkokalenteri -->
+  <div class="panel">
+    <div class="wkhead"><h3>Viikko 15 · 6.–12.7.</h3><span class="tag">+ Uusi harjoitus</span></div>
+    <div class="wk">
+      <div class="day"><div class="dl">Ma 6</div>
+        <div class="ev harj"><div class="t">🏃 Harjoitus 18:00</div><div class="chip">⚽ Puolustuksen 1v1</div><div class="att">läsnä 12/14</div></div></div>
+      <div class="day"><div class="dl">Ti 7</div></div>
+      <div class="day"><div class="dl">Ke 8</div>
+        <div class="ev harj"><div class="t">🏃 Harjoitus 18:00</div><div class="chip">⚽ Syöttö eteenpäin</div><div class="att">läsnä 13/14</div></div></div>
+      <div class="day today"><div class="dl">To 9 · tänään</div>
+        <div class="ev harj"><div class="t">🏃 Harjoitus 18:00</div><div class="chip">⚽ Puolustuksen 1v1</div><div class="att">RSVP 11</div></div></div>
+      <div class="day"><div class="dl">Pe 10</div></div>
+      <div class="day"><div class="dl">La 11</div>
+        <div class="ev ottelu"><div class="t">⚽ Ottelu 12:00</div><div class="att">vs. VPS</div></div></div>
+      <div class="day"><div class="dl">Su 12</div>
+        <div class="ev test"><div class="t">🧪 Testi 10:00</div><div class="att">hh_laaja</div></div></div>
+    </div>
+  </div>
+
+  <div class="two">
+    <!-- Treeniteema-valitsin esikatselu -->
+    <div class="panel" style="margin:0">
+      <div class="mini-lbl">Uusi harjoitus · treeniteema</div>
+      <div class="ddbtn">⚽ Kuljetus ahtaassa <span class="car">▾</span></div>
+      <div class="preview">
+        <div class="kt">Yksilökonsepti · U15 · pelitilanne</div>
+        <div class="kn">Kuljetus ahtaassa</div>
+        <div class="rowl">Ohjaava kysymys (cue)</div>
+        <div class="cue">Mihin suuntaan on eniten tilaa ennen ensimmäistä kosketusta?</div>
+        <div class="rowl">Harjoite</div>
+        <div class="drill">Possessiopeli skannaussäännöllä · 4v4+3</div>
+      </div>
+      <div style="font-size:10.5px;color:var(--ink3);margin-top:8px">Valitsin ryhmittelee: <b style="color:var(--ink2)">Yksilökonseptit</b> (vaihe-gating) + <b style="color:var(--ink2)">Joukkuetaktiset teemat</b>. Aukeaa alas (§37).</div>
+    </div>
+
+    <!-- Tapahtumakortti = suunnitelma -->
+    <div class="panel" style="margin:0">
+      <div class="mini-lbl">Tapahtuma · harjoitussuunnitelma</div>
+      <div class="card">
+        <div class="ct">🏃 Harjoitus · To 9.7. 18:00</div>
+        <div class="cmeta">SJK P15 · Teema: ⚽ Puolustuksen 1v1 · lähde: teemakeskittymä (4c)</div>
+        <div style="font-size:12px;color:var(--ink2)">Cue: <span style="color:var(--teal)">Milloin astut sisään, milloin viivytät?</span></div>
+        <div style="font-size:12px;color:var(--ink2);margin-top:3px">Harjoite: Viivytyspeli · 1v1</div>
+        <div class="rowl" style="font-size:10px;text-transform:uppercase;color:var(--ink3);margin-top:10px">Kohdepelaajat (klusteri) · läsnäolo</div>
+        <div class="att-row"><span class="av p">ME</span><span class="av p">ER</span><span class="av p">AN</span><span class="av">VL</span><span class="av p">+8</span></div>
+      </div>
+      <div style="font-size:10.5px;color:var(--ink3);margin-top:8px">Kortti = harjoitussuunnitelma (konsepti→cue→harjoite libistä). K2-läsnäolo per kerta → syöttää K5-vaikutusanalyysin.</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <b>Kalenteri sulkee ketjun.</b><br>
+    · <b>Teemakattavuus</b> — vertaa jaksofokukset (4c) vs suunnitellut teemaharjoitukset. Gap (fokus mutta ei harjoitusta) → 🟠 "Suunnittele".<br>
+    · <b>4c → 4d silta</b> — Ryhmäharjoite-CTA esitäyttää harjoituksen (teema + klusterin pelaajat) yhdellä klikillä.<br>
+    · <b>Teemasiru + suunnitelmakortti</b> — harjoitus kantaa konseptia; avattaessa cue + harjoite libistä (§7b).<br>
+    · Yksi <b>kalenteri</b>-lähde (§35), additiivinen `treeniteema`-kenttä (§26), K2/K3 komposioituvat. K5-kuorma + iCal (K6) = erikseen.
+  </div>
+</div>
+</body></html>
