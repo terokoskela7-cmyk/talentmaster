@@ -23,6 +23,7 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=3"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_idp.js?v=3"></script>   <!-- Vaihe 3a+3b: IDP ehdotusmoottori + VP-fokusvalinta + review-sykli/kehityskaari/elinkaari -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v4 = parseri-korjaus (pelimuoto-saaste) -->
+<script src="lib/tm_jaksofokus.js?v=1"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
 
 <style>
@@ -1929,6 +1930,12 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       </svg>
       Bio-banding
     </div>
+    <div class="sb-item" data-ws="jaksofokus" onclick="setWs('jaksofokus')" title="Joukkueen jaksofokukset yhdellä silmäyksellä (kattavuus, teemat, talentit)">
+      <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="10" cy="10" r="7"/><path d="M10 10l4-2M10 10v4"/>
+      </svg>
+      Jaksofokus
+    </div>
 
     <div class="sb-bottom">
       <div class="sb-item" data-ws="asetukset" onclick="setWs('asetukset')">
@@ -2148,6 +2155,17 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <!-- Tapahtumalista -->
       <div class="section-hd" style="margin-top:24px;">Tapahtumat</div>
       <div class="event-list" id="eventList"></div>
+    </div>
+
+    <!-- ── JAKSOFOKUS (Vaihe 4c — VP-oversight) ── -->
+    <div class="ws-view" id="ws-jaksofokus">
+      <div class="page-title">Jaksofokus — joukkueen toiminta</div>
+      <div class="page-sub">VP näkee koko joukkueen jaksofokukset yhdellä silmäyksellä: onko suunta (kattavuus), painottuuko teema (keskittymä → ryhmäharjoite), ovatko talentit ohjattu. Valmentaja omistaa kentän — VP näkee kaiken, ohjaa kun tarpeen.</div>
+      <div style="display:flex;gap:8px;align-items:center;margin:14px 0 4px;flex-wrap:wrap">
+        <select id="jfJoukkueSel" onchange="renderJaksofokus()" style="background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);padding:7px 12px;font-size:13px;font-family:inherit"></select>
+        <span id="jfKausiInfo" style="font-size:11px;color:var(--ink3)"></span>
+      </div>
+      <div id="jfSisalto"></div>
     </div>
 
     <!-- ── RAPORTOINTI ── -->
@@ -4503,6 +4521,9 @@ window._vpTtVieTreeniin = async function (pid, avain) {
   const jaksofokus = { konsepti_avain: avain, konsepti_nimi: item ? item.nimi : avain, konsepti_koodi: item ? item.koodi : null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'vp' };
   p.jaksofokus = jaksofokus;
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+  // Vaihe 4c: jos ohjaus tapahtui jaksofokus-oversight-modaalista → sulje + päivitä taulukko.
+  const _jfM = document.getElementById('_jfModal');
+  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; if (typeof renderJaksofokus === 'function') renderJaksofokus(); }
   await _vpTtKirjoita(pid, { jaksofokus: jaksofokus }, 'Jaksofokus tallennettu');
 };
 async function _vpTtKirjoita(pid, data, viesti) {
@@ -4513,6 +4534,204 @@ async function _vpTtKirjoita(pid, data, viesti) {
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
   } catch (e) { console.warn('[vpTt]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Vaihe 4c — VP:n JAKSOFOKUS-OVERSIGHT (ws-jaksofokus). §4 (VP näkee kaikki, override
+// talenteille + oversight muille) · §26 (vain jaksofokus-pikakenttä, EI alikokoelmakyselyjä) ·
+// §37 (talentit VP-vastuu ensin) · §7.22 EI koske (VP-aikuisnäkymä). PURE-ydin: lib/tm_jaksofokus.js.
+// ═══════════════════════════════════════════════════════════════════════════
+window._jfJoukkue = window._jfJoukkue || '';   // valittu joukkue ('' = kaikki)
+
+// §29 case-insensitive joukkue/joukkueet[]-suodatus (Firestore where on case-sensitive → suodata clientissa).
+function _jfPelaajatValitussa() {
+  const jk = window._jfJoukkue;
+  const kaikki = (typeof _pelaajat !== 'undefined' && _pelaajat) ? _pelaajat : [];
+  if (!jk) return kaikki.slice();
+  const jkl = String(jk).toLowerCase();
+  return kaikki.filter(function (p) {
+    if (String(p.joukkue || '').toLowerCase() === jkl) return true;
+    if (Array.isArray(p.joukkueet) && p.joukkueet.some(function (x) { return String(x).toLowerCase() === jkl; })) return true;
+    return false;
+  });
+}
+
+function _jfTaytaJoukkuevalitsin() {
+  const sel = document.getElementById('jfJoukkueSel'); if (!sel) return;
+  const kaikki = (typeof _pelaajat !== 'undefined' && _pelaajat) ? _pelaajat : [];
+  const set = {};
+  kaikki.forEach(function (p) { const j = p.joukkue; if (j && j !== '—' && j !== 'Tuntematon') set[j] = (set[j] || 0) + 1; });
+  const nimet = Object.keys(set).sort(function (a, b) {
+    const jj = (typeof joukkueJarjestys === 'function') ? (joukkueJarjestys(a) - joukkueJarjestys(b)) : 0;
+    return jj || a.localeCompare(b);
+  });
+  const cur = window._jfJoukkue;
+  let opts = '<option value="">Kaikki joukkueet (' + kaikki.length + ')</option>';
+  nimet.forEach(function (n) { opts += '<option value="' + _jsvEsc(n) + '"' + (n === cur ? ' selected' : '') + '>' + _jsvEsc(n) + ' (' + set[n] + ')</option>'; });
+  sel.innerHTML = opts;
+}
+
+function _jfNimi(p) { return ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id; }
+const _JF_LAHDE_BADGE = {
+  valmentaja: { lbl: 'valmentaja', cls: 'val' }, vp: { lbl: 'VP', cls: 'vp' },
+  talenttivalmentaja: { lbl: 'talenttivalm.', cls: 'tal' }
+};
+function _jfLahdeBadge(lahde) {
+  const b = _JF_LAHDE_BADGE[lahde];
+  const vari = b ? (b.cls === 'vp' ? 'var(--blue)' : b.cls === 'tal' ? 'var(--amber)' : 'var(--teal)') : 'var(--ink3)';
+  const bord = b ? (b.cls === 'vp' ? 'rgba(42,93,176,.4)' : b.cls === 'tal' ? 'rgba(224,160,64,.4)' : 'rgba(40,176,144,.35)') : 'var(--border)';
+  return '<span style="font-size:9.5px;border-radius:999px;padding:2px 8px;border:.5px solid ' + bord + ';color:' + vari + ';background:var(--ov-1)">' + (b ? b.lbl : (lahde || '—')) + '</span>';
+}
+
+function renderJaksofokus() {
+  const host = document.getElementById('jfSisalto'); if (!host) return;
+  const sel = document.getElementById('jfJoukkueSel');
+  const kaikki = (typeof _pelaajat !== 'undefined' && _pelaajat) ? _pelaajat : [];
+  if (sel) {
+    // Täytä/päivitä valitsin kun pelaajamäärä muuttuu; lue nykyinen valinta.
+    if (sel.dataset.n !== String(kaikki.length)) { _jfTaytaJoukkuevalitsin(); sel.dataset.n = String(kaikki.length); }
+    window._jfJoukkue = sel.value || '';
+  }
+  const JF = window.TM_JAKSOFOKUS;
+  const pel = _jfPelaajatValitussa();
+  const kausiEl = document.getElementById('jfKausiInfo');
+  if (kausiEl) kausiEl.textContent = pel.length + ' pelaajaa' + (window._jfJoukkue ? '' : ' · kaikki joukkueet');
+
+  if (!kaikki.length) { host.innerHTML = '<div style="padding:30px;text-align:center;color:var(--ink3)">Ladataan pelaajia…</div>'; return; }
+  if (!JF) { host.innerHTML = '<div style="padding:20px;color:var(--amber)">Jaksofokus-kirjasto ei latautunut.</div>'; return; }
+
+  const k = JF.tmJfKooste(pel);
+  let h = '';
+
+  // ── KPI-nauha ──
+  const kattWarn = k.kattavuus.pct < 50;
+  const talWarn = k.talentit.ilman > 0;
+  h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0">';
+  h += _jfKpi('Kattavuus', k.kattavuus.katettu + '/' + k.kattavuus.yht, k.kattavuus.pct + ' % — ' + k.kattavuus.ilman + ' ilman fokusta', kattWarn, k.kattavuus.pct);
+  h += _jfKpi('Jaksot', k.jaksot.aktiiviset + ' <span style="font-size:13px;color:var(--ink3)">akt.</span>', (k.jaksot.umpeutuneet ? '🟠 ' + k.jaksot.umpeutuneet + ' umpeutunut' : 'kaikki ajan tasalla'), false, null);
+  h += _jfKpi('Talentit katettu', k.talentit.katettu + '/' + k.talentit.yht, (k.talentit.ilman ? k.talentit.ilman + ' talentti ilman fokusta' : 'kaikki ohjattu'), talWarn && k.talentit.yht > 0, null);
+  h += _jfKpi('Kuka asetti', (k.lahde.valmentaja + ' valm · ' + (k.lahde.vp + k.lahde.talenttivalmentaja) + ' VP'), 'delegointi näkyvissä', false, null, true);
+  h += '</div>';
+
+  // ── Teemakeskittymä ──
+  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px">';
+  h += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:16px;margin-bottom:2px">Teemakeskittymä</h3>';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Mihin joukkueen fokukset painottuvat — ≥' + JF.RYHMA_KYNNYS + ' samaa → ryhmäharjoite kannattaa.</div>';
+  if (!k.teemat.length) {
+    h += '<div style="font-size:12.5px;color:var(--ink3);font-style:italic">Ei jaksofokuksia vielä — aseta pelaajille alla.</div>';
+  } else {
+    const maxC = k.teemat[0].count || 1;
+    k.teemat.forEach(function (t) {
+      const w = Math.round(t.count / maxC * 100);
+      h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">'
+        + '<div style="width:190px;font-size:12.5px;color:var(--ink2);flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _jsvEsc(t.nimi) + '</div>'
+        + '<div style="flex:1;height:20px;background:var(--ov-1);border-radius:5px;overflow:hidden"><div style="height:100%;border-radius:5px;width:' + w + '%;background:' + (t.ryhma ? 'linear-gradient(90deg,rgba(224,160,64,.6),rgba(224,160,64,.3))' : 'linear-gradient(90deg,rgba(40,176,144,.5),rgba(40,176,144,.28))') + '"></div></div>'
+        + '<div style="width:26px;text-align:right;font-size:12px;font-weight:600;color:var(--ink2)">' + t.count + '</div>'
+        + (t.ryhma ? '<span onclick="_jfRyhmaharjoite(\'' + _jsvEsc(t.avain) + '\')" style="font-size:10.5px;color:var(--amber);border:.5px solid rgba(224,160,64,.4);border-radius:999px;padding:2px 9px;cursor:pointer;white-space:nowrap">▸ Ryhmäharjoite</span>' : '<span style="width:92px"></span>')
+        + '</div>';
+    });
+  }
+  h += '</div>';
+
+  // ── Oversight-taulukko ──
+  const talentit = pel.filter(function (p) { return p.talenttiOhjelma === true; });
+  const muut = pel.filter(function (p) { return p.talenttiOhjelma !== true; });
+  const _sort = function (a, b) { return String(a.sukunimi || '').localeCompare(String(b.sukunimi || '')); };
+  talentit.sort(_sort); muut.sort(_sort);
+
+  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px">';
+  h += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:16px;margin-bottom:2px">Pelaajakohtainen ohjaus</h3>';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">Talentit ensin (VP-vastuu §37). Ohjaa = aseta/muokkaa jaksofokus (konsepti→cue→harjoite).</div>';
+  if (talentit.length) {
+    h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:14px 2px 5px">⭐ Talentit (' + talentit.length + ')</div>';
+    h += _jfTaulukko(talentit, JF, true);
+  }
+  if (muut.length) {
+    h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:16px 2px 5px">Muut pelaajat (' + muut.length + ')</div>';
+    h += _jfTaulukko(muut, JF, false);
+  }
+  if (!pel.length) h += '<div style="padding:14px;color:var(--ink3);font-size:13px">Ei pelaajia valitussa joukkueessa.</div>';
+  h += '</div>';
+
+  h += '<div style="font-size:11px;color:var(--ink3);line-height:1.7;padding:0 2px"><b style="color:var(--ink2)">Kolme kysymystä, yksi näkymä.</b> Kattavuus (onko suunta) · Teemakeskittymä (≥' + JF.RYHMA_KYNNYS + ' samaa → ryhmäharjoite) · Talentit ohjattu (VP-vastuu §37). Kaikki jaksofokus-pikakentästä (§26). Ohjaa/Aseta → konsepti→cue→harjoite (VP-lähde).</div>';
+
+  host.innerHTML = h;
+}
+
+function _jfKpi(l, v, s, warn, pct, pieni) {
+  let h = '<div style="background:var(--bg2);border:.5px solid ' + (warn ? 'rgba(224,160,64,.4)' : 'var(--border)') + ';border-radius:12px;padding:13px 14px' + (warn ? ';background:linear-gradient(150deg,rgba(224,160,64,.08),var(--bg2))' : '') + '">';
+  h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3)">' + l + '</div>';
+  h += '<div style="font-size:' + (pieni ? '15px' : '22px') + ';font-weight:600;margin-top:3px;font-family:\'Cormorant Garamond\',serif' + (warn ? ';color:var(--amber)' : '') + '">' + v + '</div>';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-top:2px">' + s + '</div>';
+  if (pct != null) h += '<div style="height:5px;border-radius:3px;background:var(--ov-3);margin-top:8px;overflow:hidden"><div style="height:100%;background:var(--teal);border-radius:3px;width:' + pct + '%"></div></div>';
+  return h + '</div>';
+}
+
+function _jfTaulukko(lista, JF, talentti) {
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">';
+  h += '<tr><th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Pelaaja</th>'
+    + '<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Konsepti</th>'
+    + '<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Lähde</th>'
+    + '<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Jakso</th>'
+    + '<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Tila</th><th style="border-bottom:.5px solid var(--border)"></th></tr>';
+  lista.forEach(function (p) {
+    const jf = p.jaksofokus;
+    const on = !!(jf && jf.konsepti_avain);
+    const pid = _jsvEsc(p.id);
+    const nimi = (talentti ? '<span style="color:var(--amber)">⭐</span> ' : '') + _jsvEsc(_jfNimi(p));
+    h += '<tr><td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink);font-weight:500;vertical-align:middle">' + nimi + '</td>';
+    if (!on) {
+      h += '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">—</td>'
+        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">—</td>'
+        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">—</td>'
+        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3);font-size:11.5px">ei fokusta</td>'
+        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);text-align:right"><button onclick="_jfOhjaa(\'' + pid + '\')" style="font-size:11px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.4);border-radius:7px;padding:5px 11px;cursor:pointer">Aseta</button></td></tr>';
+      return;
+    }
+    const umpeutunut = JF.tmJfUmpeutunut(jf);
+    const vk = jf.kesto_vk || 4;
+    // Kulunut vk (progress) — pvm-pohjainen; cap kesto_vk:hon näyttöä varten.
+    let kulunut = 0;
+    if (jf.alkoi) { const d = (Date.now() - new Date(jf.alkoi).getTime()) / (7 * 86400000); if (!isNaN(d)) kulunut = Math.max(0, Math.min(vk, Math.round(d))); }
+    const prog = Math.round(kulunut / vk * 100);
+    h += '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink2)">' + _jsvEsc(jf.konsepti_nimi || jf.konsepti_avain) + '</td>'
+      + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3)">' + _jfLahdeBadge(jf.lahde) + '</td>'
+      + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink2)"><div style="display:flex;align-items:center;gap:7px"><span style="width:60px;height:5px;border-radius:3px;background:var(--ov-3);overflow:hidden;display:inline-block"><i style="display:block;height:100%;background:' + (umpeutunut ? 'var(--amber)' : 'var(--teal)') + ';width:' + prog + '%"></i></span> vk ' + kulunut + '/' + vk + '</div></td>'
+      + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);font-size:11.5px;color:' + (umpeutunut ? 'var(--amber)' : 'var(--teal)') + '">' + (umpeutunut ? '🟠 umpeutunut' : '🟢 aktiivinen') + '</td>'
+      + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);text-align:right"><button onclick="_jfOhjaa(\'' + pid + '\')" style="font-size:11px;color:' + (umpeutunut ? 'var(--teal)' : 'var(--ink)') + ';background:' + (umpeutunut ? 'rgba(40,176,144,.08)' : 'var(--ov-1)') + ';border:.5px solid ' + (umpeutunut ? 'rgba(40,176,144,.4)' : 'var(--border)') + ';border-radius:7px;padding:5px 11px;cursor:pointer">' + (umpeutunut ? 'Päivitä' : 'Ohjaa') + '</button></td></tr>';
+  });
+  return h + '</table>';
+}
+
+// [Ohjaa]/[Aseta] → modaali jossa _vpTtKorttiHTML (konsepti→cue→harjoite, lahde 'vp').
+// §4: talenteille aina; ei-talenteille override (ei estä valmentajan omaa jaksofokusta).
+window._jfOhjaa = function (pid) {
+  const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : ((typeof _pelaajat !== 'undefined' && _pelaajat) || []).find(function (x) { return x.id === pid; });
+  if (!p) { if (typeof toast === 'function') toast('Pelaajaa ei löytynyt', 'error'); return; }
+  if (typeof _vpTtKorttiHTML !== 'function') return;
+  window._vpArvPelaaja = p;      // sama objekti jonka _vpTtVieTreeniin mutatoi + dropdown re-renderöi
+  window._jfOhjausP = p;
+  delete window._vpTtValinta[p.id];
+  document.getElementById('_jfModal')?.remove();
+  const kortti = _vpTtKorttiHTML(p);
+  const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).</div>' : '';
+  let h = '<div id="_jfModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
+  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:22px;width:520px;max-width:96vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + (p.talenttiOhjelma === true ? '⭐ ' : '') + _jsvEsc(_jfNimi(p)) + ' — jaksofokus</div>'
+    + '<button onclick="document.getElementById(\'_jfModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
+  h += yli;
+  h += '<div id="_jfOhjausSlot">' + (kortti || '<div style="color:var(--ink3);font-size:13px">Konseptivalikko ei saatavilla tälle pelaajalle (ikä/pelipaikka).</div>') + '</div>';
+  h += '</div></div>';
+  const wrap = document.createElement('div'); wrap.innerHTML = h;
+  document.body.appendChild(wrap.firstChild);
+};
+
+// ≥3 samaa konseptia → ryhmäharjoite-CTA (kytkös 4d-kalenteriin; nyt placeholder).
+window._jfRyhmaharjoite = function (avain) {
+  const JF = window.TM_JAKSOFOKUS; if (!JF) return;
+  const t = JF.tmJfTeemakeskittyma(_jfPelaajatValitussa()).find(function (x) { return x.avain === avain; });
+  const nimi = t ? t.nimi : avain, n = t ? t.count : 0;
+  if (typeof toast === 'function') toast('Ryhmäharjoite “' + nimi + '” (' + n + ' pelaajaa) — kalenteri-integraatio tulossa (4d)', 'ok');
+};
 
 // ── (B) ALOITUS-VÄLILEHTI — fokus johtaa. Kaikki §26-pikakentistä (idp_fokus/idp_tila/idp_edistyma/phv_tila/hh_pvm/arviot[]).
 // Read-only fokus + status + CTA:t (editointi = Kehitys-välilehti). Kausi laddaa isoon tavoitteeseen; jakso = placeholder (Vaihe 4).
@@ -4608,6 +4827,9 @@ function _vpMiniKaariHTML(t) {
 function _vpAloitusReRender() {
   const slot = document.getElementById('_jspAloitus'); const p = window._vpArvPelaaja;
   if (slot && p && typeof _vpAloitusHTML === 'function') slot.innerHTML = _vpAloitusHTML(p);
+  // Vaihe 4c — jos jaksofokus-ohjausmodaali on auki, re-renderöi sen konseptikortti (dropdown-valinta elää).
+  const jfSlot = document.getElementById('_jfOhjausSlot');
+  if (jfSlot && window._jfOhjausP && typeof _vpTtKorttiHTML === 'function') jfSlot.innerHTML = _vpTtKorttiHTML(window._jfOhjausP);
 }
 
 // 2b — tallenna havaittu arvio (1–5 tai N/A). §26 pikakenttä arviointi_havaittu + alikokoelma arviointi/{kausi} (audit: arvioija+pvm).
@@ -9649,6 +9871,7 @@ function setWs(ws) {
   try { if (ws === 'koti' || ws === 'raportointi' || ws === 'valmentajat' || ws === 'pelaajat') localStorage.setItem('tm_vp_visited_' + ws, '1'); } catch (e) {}   // Aloita tästä -checklist (visited)
   if (ws === 'koti') renderKotiVP();
   if (ws === 'reviewit' && typeof renderReviewit === 'function') renderReviewit();
+  if (ws === 'jaksofokus' && typeof renderJaksofokus === 'function') renderJaksofokus();
   document.querySelectorAll('.tabbar-item[data-ws]').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
   document.getElementById('sidebar')?.classList.remove('auki');
   document.getElementById('sivupalkkiOverlay')?.classList.remove('auki');
