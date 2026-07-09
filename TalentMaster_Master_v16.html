@@ -22,6 +22,7 @@
 <script src="lib/tm_jaksofokus.js?v=1"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
 <script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
+<script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (validoi/versioi/templaatista, deterministinen) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
@@ -5507,10 +5508,12 @@ window._msFyysFokusModal = function (pid, teemaAvain) {
   h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">🏃 Fysiikkajakso · ' + esc(teema ? teema.nimi : teemaAvain) + '</div>'
     + '<button onclick="document.getElementById(\'_msFyysModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
   h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">4 vk · evidenssi mittauksesta jakson lopussa (§29)</div>';
-  h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:5px">Henkilökohtainen ohjelma (valinnainen)</div>';
+  h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:5px">Henkilökohtainen ohjelma (valinnainen) · kevyt polku</div>';
   h += '<select id="_msFyysOhjelma" onchange="_msFyysOhjelmaPreview()" style="width:100%;background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);padding:8px 10px;font-size:13px;font-family:inherit"><option value="">— Ei ohjelmaa (pelkkä fokus) —</option>';
   TYYPIT.forEach(function (t) { var tpl = LIB.TM_OHJELMA_TEMPLAATIT[t]; h += '<option value="' + t + '">' + esc(tpl.nimi) + '</option>'; });
   h += '</select><div id="_msFyysOhjelmaPrev" style="margin-top:8px"></div>';
+  // Vaihe 7.2a — rakentaja-polku: kirjaston tallennettu ohjelma (kevyt polku yllä ennallaan).
+  if (typeof _ohjValitseModal === 'function') h += '<div style="margin-top:8px"><button onclick="_ohjValitseModal(\'' + esc(pid) + '\',\'' + esc(teemaAvain) + '\')" style="width:100%;font-size:12px;border-radius:8px;padding:8px 10px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">📚 Käytä kirjaston ohjelmaa / rakenna uusi</button></div>';
   h += '<div style="margin-top:14px"><button onclick="_msAsetaFyysFokus(\'' + esc(pid) + '\',\'' + esc(teemaAvain) + '\')" style="width:100%;font-size:12.5px;font-weight:600;border-radius:9px;padding:10px;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal);cursor:pointer">✓ Aseta fysiikkajakso</button></div>';
   h += '</div></div>';
   var wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
@@ -5551,6 +5554,210 @@ window._msFyysSuunnitteleMittaus = function (pid) {
   var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; });
   var url = 'TalentMaster_Testaus_v9.html?seura=' + encodeURIComponent(_seuraId || '') + '&joukkue=' + encodeURIComponent((p && p.joukkue) || '') + '&teema=hh_laaja';
   window.open(url, '_blank');
+};
+
+// ══════════════════════════════════════════════════════════════════════════
+// VAIHE 7.2a — FYSIIKKAOHJELMAKIRJASTO (Master rakentaa; deterministinen). §26 N-laskuri on-demand.
+// String-konkatenaatio (§7.1) · ISO-aika (§7.6) · window._-globaalit (§7.17) · getIdToken(true).
+// ══════════════════════════════════════════════════════════════════════════
+window._ohjKirjasto = null;    // cache: [{id, ...}]
+window._ohjKirjastoN = null;   // { ohjelma_id: N (eri pelaajat) }
+
+async function _ohjLataaKirjasto(force) {
+  if (!force && window._ohjKirjasto) return window._ohjKirjasto;
+  window._ohjKirjasto = [];
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) return window._ohjKirjasto;
+  try {
+    var snap = await _db.collection('seurat').doc(_seuraId).collection('ohjelmat').get();
+    window._ohjKirjasto = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+  } catch (e) { console.warn('[ohjKirjasto]', e && e.message); }
+  await _ohjLaskeN();
+  return window._ohjKirjasto;
+}
+// N-laskuri: eri pelaajat joilla ohjelma käytössä (jaksofokus.ohjelma.ohjelma_id TAI historia-rivi). Lukee pelaajat KERRAN (§26).
+async function _ohjLaskeN() {
+  window._ohjKirjastoN = {};
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) return;
+  try {
+    var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
+    snap.docs.forEach(function (d) {
+      var p = d.data(); var ids = {};
+      if (p.jaksofokus && p.jaksofokus.ohjelma && p.jaksofokus.ohjelma.ohjelma_id) ids[p.jaksofokus.ohjelma.ohjelma_id] = 1;
+      (p.jaksofokus_historia || []).forEach(function (h) { if (h && h.ohjelma && h.ohjelma.ohjelma_id) ids[h.ohjelma.ohjelma_id] = 1; });
+      Object.keys(ids).forEach(function (oid) { window._ohjKirjastoN[oid] = (window._ohjKirjastoN[oid] || 0) + 1; });
+    });
+  } catch (e) {}
+}
+function _ohjSaaKirjoittaa() { return _superAdmin || ['fysiikkavalmentaja', 'fysioterapeutti', 'valmentaja', 'talenttivalmentaja', 'vp', 'urheilutoimenjohtaja'].indexOf(_rooli) >= 0; }
+
+// ── Kirjasto-/valintamodaali: listaa ohjelmat + N + [Käytä]/[Muokkaa]/[Arkistoi]/[＋ Uusi] ──
+window._ohjValitseModal = async function (pid, teemaAvain) {
+  document.getElementById('_ohjValitseModal')?.remove();
+  await _ohjLataaKirjasto(true);
+  _ohjValitseRender(pid, teemaAvain, false);
+};
+function _ohjValitseRender(pid, teemaAvain, naytaArkisto) {
+  var esc = _prEsc;
+  var lista = (window._ohjKirjasto || []).filter(function (o) { return naytaArkisto ? o.arkistoitu : !o.arkistoitu; });
+  var h = '<div id="_ohjValitseModal" style="position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9400;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)this.remove()">';
+  h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:22px;width:640px;max-width:100%;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink)">📚 Ohjelmakirjasto</div>'
+    + '<button onclick="document.getElementById(\'_ohjValitseModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Tallennetut fyysiset ohjelmat · uudelleenkäytä/versioi · liitä jaksoon</div>';
+  h += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
+  if (_ohjSaaKirjoittaa() && pid) h += '<button onclick="_ohjEditori(\'\',\'' + esc(pid) + '\',\'' + esc(teemaAvain || '') + '\')" style="font-size:12px;font-weight:600;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">＋ Uusi ohjelma</button>';
+  else if (_ohjSaaKirjoittaa()) h += '<button onclick="_ohjEditori(\'\',\'\',\'\')" style="font-size:12px;font-weight:600;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">＋ Uusi ohjelma</button>';
+  h += '<button onclick="_ohjValitseRender(\'' + esc(pid || '') + '\',\'' + esc(teemaAvain || '') + '\',' + (!naytaArkisto) + ')" style="font-size:12px;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">' + (naytaArkisto ? '↩ Aktiiviset' : '🗄 Arkistoidut') + '</button>';
+  h += '</div>';
+  if (!lista.length) h += '<div style="padding:18px;text-align:center;color:var(--ink3);font-size:13px">' + (naytaArkisto ? 'Ei arkistoituja ohjelmia.' : 'Ei ohjelmia vielä — luo ensimmäinen.') + '</div>';
+  lista.sort(function (a, b) { return String(a.nimi || '').localeCompare(String(b.nimi || '')); }).forEach(function (o) {
+    var N = (window._ohjKirjastoN && window._ohjKirjastoN[o.id]) || 0;
+    h += '<div style="border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:9px;background:var(--ov-1,rgba(255,255,255,.03))">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font-size:14px;font-weight:600;color:var(--ink)">' + esc(o.nimi || '(nimetön)') + ' <span style="font-size:10px;color:var(--ink3);font-weight:400">v' + (o.versio || 1) + '</span></div>'
+      + '<span style="font-size:10px;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:999px;padding:2px 8px">' + esc(o.tyyppi || '—') + '</span></div>';
+    if (o.kuvaus) h += '<div style="font-size:11.5px;color:var(--ink2);margin-top:3px">' + esc(String(o.kuvaus).slice(0, 120)) + '</div>';
+    h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:4px">' + ((o.vaiheet || []).length) + ' vaihetta · ' + (o.kesto_vk || '?') + ' vk · <b style="color:var(--ink2)">ajettu ' + N + ' pelaajalla</b></div>';
+    h += '<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">';
+    if (pid && !o.arkistoitu) h += '<button onclick="_ohjKaytaOhjelma(\'' + esc(pid) + '\',\'' + esc(teemaAvain || '') + '\',\'' + esc(o.id) + '\')" style="font-size:11.5px;font-weight:600;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">✓ Käytä jaksossa</button>';
+    if (_ohjSaaKirjoittaa()) h += '<button onclick="_ohjEditori(\'' + esc(o.id) + '\',\'' + esc(pid || '') + '\',\'' + esc(teemaAvain || '') + '\')" style="font-size:11.5px;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">✏️ Muokkaa (uusi versio)</button>';
+    if (_ohjSaaKirjoittaa() && !o.arkistoitu) h += '<button onclick="_ohjArkistoi(\'' + esc(o.id) + '\',\'' + esc(pid || '') + '\',\'' + esc(teemaAvain || '') + '\')" style="font-size:11.5px;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink3)">🗄 Arkistoi</button>';
+    h += '</div></div>';
+  });
+  h += '</div></div>';
+  document.getElementById('_ohjValitseModal')?.remove();
+  var wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+}
+
+// Liitä kirjasto-ohjelma jaksoon: jaksofokus.ohjelma = {ohjelma_id + denormalisoitu kopio + baseline}. §1.
+window._ohjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
+  var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; });
+  var FL = window.TM_FYYSTEEMAT_LIB;
+  var lib = (window._ohjKirjasto || []).find(function (o) { return o.id === ohjelmaId; });
+  if (!p || !FL || !lib) { if (typeof toast === 'function') toast('Ohjelmaa ei löytynyt', 'error'); return; }
+  var teema = FL.tmFyysTeema(teemaAvain) || (p.jaksofokus && FL.tmFyysTeema(p.jaksofokus.konsepti_avain));
+  var tAvain = teema ? teema.avain : (teemaAvain || (p.jaksofokus && p.jaksofokus.konsepti_avain));
+  var fokusTesti = (teema && teema.testit.length) ? teema.testit[teema.testit.length - 1] : null;
+  var ohjelma = { tyyppi: lib.tyyppi, nimi: lib.nimi, kuvaus: lib.kuvaus || '',
+    laatija_uid: lib.laatija_uid || null, laatija_rooli: lib.laatija_rooli || null,
+    phv_tila_alussa: p.phv_tila || null,
+    lahtotaso: { hh_taso: (p.hh_taso != null ? p.hh_taso : null), fokustesti_arvo: (fokusTesti && p.hh_viimeisin) ? (p.hh_viimeisin[fokusTesti] != null ? p.hh_viimeisin[fokusTesti] : null) : null },
+    ohjelma_id: ohjelmaId, ohjelma_versio: (lib.versio || 1), luotu: new Date().toISOString() };
+  // Säilytä olemassa oleva fyysinen jakso jos on; muuten uusi.
+  var jf = (p.jaksofokus && p.jaksofokus.domeeni === 'fyysinen')
+    ? Object.assign({}, p.jaksofokus, { ohjelma: ohjelma })
+    : { konsepti_avain: tAvain, konsepti_nimi: teema ? teema.nimi : tAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
+  p.jaksofokus = jf;
+  document.getElementById('_ohjValitseModal')?.remove(); document.getElementById('_msFyysModal')?.remove();
+  if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Fysiikkajakso + kirjasto-ohjelma asetettu (demo)', 'ok'); return; }
+  try { var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ jaksofokus: jf }, { merge: true });
+    if (typeof toast === 'function') toast('Fysiikkajakso + kirjasto-ohjelma asetettu ✓', 'ok');
+  } catch (e) { console.warn('[ohjKayta]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+};
+window._ohjArkistoi = async function (ohjelmaId, pid, teemaAvain) {
+  if (!confirm('Arkistoi ohjelma? (Pehmeä poisto — historia + käynnissä olevat jaksot säilyvät)')) return;
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { var o = (window._ohjKirjasto || []).find(function (x) { return x.id === ohjelmaId; }); if (o) o.arkistoitu = true; _ohjValitseRender(pid, teemaAvain, false); return; }
+  try { var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    await _db.collection('seurat').doc(_seuraId).collection('ohjelmat').doc(ohjelmaId).set({ arkistoitu: true, paivitetty: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    await _ohjLataaKirjasto(true); _ohjValitseRender(pid, teemaAvain, false);
+    if (typeof toast === 'function') toast('Ohjelma arkistoitu', 'ok');
+  } catch (e) { if (typeof toast === 'function') toast('Arkistointi epäonnistui', 'error'); }
+};
+
+// ── Editori (state window._ohjEdit; strukturaaliset opit synkkaavat DOM:ista, tekstikentät luetaan tallennettaessa) ──
+window._ohjEdit = null;
+window._ohjEditori = function (ohjelmaId, pid, teemaAvain) {
+  var lib = ohjelmaId ? (window._ohjKirjasto || []).find(function (o) { return o.id === ohjelmaId; }) : null;
+  window._ohjEdit = lib
+    ? { id: lib.id, versio: lib.versio || 1, edellinen_versio_id: lib.edellinen_versio_id || null, nimi: lib.nimi || '', tyyppi: lib.tyyppi || 'nopeus_voima', kuvaus: lib.kuvaus || '', kesto_vk: lib.kesto_vk || 4, vaiheet: (lib.vaiheet || []).map(function (v) { return Object.assign({ harjoitteet: [] }, v); }), pid: pid, teemaAvain: teemaAvain, virheet: [] }
+    : { id: null, versio: 1, edellinen_versio_id: null, nimi: '', tyyppi: 'nopeus_voima', kuvaus: '', kesto_vk: 4, vaiheet: [], pid: pid, teemaAvain: teemaAvain, virheet: [] };
+  _ohjEditRender();
+};
+function _ohjEditSyncFromDom() {
+  var E = window._ohjEdit; if (!E) return;
+  var g = function (id) { var el = document.getElementById(id); return el ? el.value : undefined; };
+  if (g('ohjNimi') !== undefined) E.nimi = g('ohjNimi');
+  if (g('ohjTyyppi') !== undefined) E.tyyppi = g('ohjTyyppi');
+  if (g('ohjKuvaus') !== undefined) E.kuvaus = g('ohjKuvaus');
+  if (g('ohjKesto') !== undefined) E.kesto_vk = parseInt(g('ohjKesto'), 10) || 0;
+  E.vaiheet.forEach(function (v, i) {
+    ['vaihe', 'viikot', 'intensiteetti', 'nimi', 'ohje', 'mittari'].forEach(function (f) { var val = g('ohjV' + i + '_' + f); if (val !== undefined) v[f] = val; });
+    var hval = g('ohjV' + i + '_harj'); if (hval !== undefined) v.harjoitteet = String(hval).split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+  });
+}
+window._ohjEditTyyppiVaihto = function () { _ohjEditSyncFromDom(); _ohjEditRender(); };
+window._ohjEditTemplaatti = function () {
+  _ohjEditSyncFromDom(); var E = window._ohjEdit;
+  var LIB = window.TM_OHJELMA_LIB; if (!LIB) return;
+  var t = LIB.tmOhjelmaTemplaatista(E.tyyppi); if (!t) return;
+  if (!E.nimi) E.nimi = t.nimi; if (!E.kuvaus) E.kuvaus = t.kuvaus; E.kesto_vk = E.kesto_vk || t.kesto_vk;
+  E.vaiheet = t.vaiheet; _ohjEditRender();
+};
+window._ohjEditVaiheAdd = function () { _ohjEditSyncFromDom(); window._ohjEdit.vaiheet.push({ vaihe: '', viikot: '', intensiteetti: '', nimi: '', ohje: '', mittari: '', harjoitteet: [] }); _ohjEditRender(); };
+window._ohjEditVaiheDel = function (i) { _ohjEditSyncFromDom(); window._ohjEdit.vaiheet.splice(i, 1); _ohjEditRender(); };
+function _ohjEditRender() {
+  var E = window._ohjEdit; if (!E) return; var esc = _prEsc;
+  var LIB = window.TM_OHJELMA_LIB;
+  var TYYPIT = LIB ? Object.keys(LIB.TYYPIT) : ['nopeus_voima', 'perusvoima', 'kuntoutus', 'nopeus', 'liikkuvuus', 'muu'];
+  var inp = 'width:100%;background:var(--surface);border:.5px solid var(--border);border-radius:7px;color:var(--ink);padding:7px 9px;font-size:13px;font-family:inherit;box-sizing:border-box';
+  var lbl = 'font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin:8px 0 3px';
+  var h = '<div id="_ohjEditModal" style="position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)this.remove()">';
+  h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:22px;width:640px;max-width:100%;max-height:94vh;overflow-y:auto" onclick="event.stopPropagation()">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + (E.id ? ('✏️ Muokkaa: ' + esc(E.nimi) + ' (v' + E.versio + ' → v' + (E.versio + 1) + ')') : '＋ Uusi ohjelma') + '</div>'
+    + '<button onclick="document.getElementById(\'_ohjEditModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
+  h += '<div style="' + lbl + '">Nimi</div><input id="ohjNimi" value="' + esc(E.nimi) + '" style="' + inp + '">';
+  h += '<div style="display:flex;gap:10px"><div style="flex:1"><div style="' + lbl + '">Tyyppi</div><select id="ohjTyyppi" onchange="_ohjEditTyyppiVaihto()" style="' + inp + '">' + TYYPIT.map(function (t) { return '<option value="' + t + '"' + (t === E.tyyppi ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></div>'
+    + '<div style="width:90px"><div style="' + lbl + '">Kesto vk</div><input id="ohjKesto" type="number" min="1" value="' + (E.kesto_vk || '') + '" style="' + inp + '"></div></div>';
+  h += '<div style="margin-top:6px"><button onclick="_ohjEditTemplaatti()" style="font-size:11px;border-radius:7px;padding:6px 10px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">✨ Aloita valmiista (templaatti)</button></div>';
+  h += '<div style="' + lbl + '">Kuvaus <span style="text-transform:none;color:var(--amber)">· vain harjoitussisältö, EI diagnooseja (GDPR Art. 9)</span></div><textarea id="ohjKuvaus" rows="2" style="' + inp + ';resize:vertical">' + esc(E.kuvaus) + '</textarea>';
+  h += '<div style="' + lbl + ';margin-top:12px">Viikko-ohjelma (vaiheet)</div>';
+  E.vaiheet.forEach(function (v, i) {
+    h += '<div style="border:.5px solid var(--border);border-radius:9px;padding:10px;margin-bottom:8px;background:var(--ov-1,rgba(255,255,255,.03))">';
+    h += '<div style="display:flex;gap:6px;margin-bottom:5px"><input id="ohjV' + i + '_vaihe" value="' + esc(v.vaihe || '') + '" placeholder="Vaihe" style="' + inp + ';flex:2"><input id="ohjV' + i + '_viikot" value="' + esc(v.viikot || '') + '" placeholder="Viikot (1–2)" style="' + inp + ';flex:1"><input id="ohjV' + i + '_intensiteetti" value="' + esc(v.intensiteetti || '') + '" placeholder="Int. (60–70 %)" style="' + inp + ';flex:1"></div>';
+    h += '<input id="ohjV' + i + '_nimi" value="' + esc(v.nimi || '') + '" placeholder="Harjoituksen nimi" style="' + inp + ';margin-bottom:5px">';
+    h += '<textarea id="ohjV' + i + '_ohje" rows="1" placeholder="Ohje" style="' + inp + ';resize:vertical;margin-bottom:5px">' + esc(v.ohje || '') + '</textarea>';
+    h += '<input id="ohjV' + i + '_mittari" value="' + esc(v.mittari || '') + '" placeholder="Mittari" style="' + inp + ';margin-bottom:5px">';
+    h += '<textarea id="ohjV' + i + '_harj" rows="2" placeholder="Harjoitteet (yksi per rivi — HPP-viite tai vapaateksti)" style="' + inp + ';resize:vertical">' + esc((v.harjoitteet || []).join('\n')) + '</textarea>';
+    h += '<div style="text-align:right;margin-top:4px"><button onclick="_ohjEditVaiheDel(' + i + ')" style="font-size:11px;color:var(--red,#c94040);background:none;border:none;cursor:pointer">✕ Poista vaihe</button></div>';
+    h += '</div>';
+  });
+  h += '<button onclick="_ohjEditVaiheAdd()" style="font-size:12px;border-radius:7px;padding:7px 12px;cursor:pointer;border:.5px dashed var(--border);background:none;color:var(--ink2);width:100%">＋ Lisää vaihe</button>';
+  if (E.virheet && E.virheet.length) h += '<div style="margin-top:10px;background:rgba(201,64,64,.1);border:.5px solid rgba(201,64,64,.35);border-radius:8px;padding:9px 11px;font-size:12px;color:#c94040">' + E.virheet.map(function (x) { return '⚠ ' + esc(x); }).join('<br>') + '</div>';
+  h += '<div style="display:flex;gap:8px;margin-top:14px"><button onclick="_ohjEditTallenna()" style="flex:1;font-size:13px;font-weight:600;border-radius:9px;padding:10px;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal);cursor:pointer">' + (E.id ? '💾 Tallenna uutena versiona' : '💾 Tallenna kirjastoon') + '</button>'
+    + '<button onclick="document.getElementById(\'_ohjEditModal\').remove()" style="font-size:12px;border-radius:8px;padding:10px 14px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">Peruuta</button></div>';
+  h += '</div></div>';
+  document.getElementById('_ohjEditModal')?.remove();
+  var wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+}
+window._ohjEditTallenna = async function () {
+  _ohjEditSyncFromDom(); var E = window._ohjEdit; var LIB = window.TM_OHJELMA_LIB; if (!E || !LIB) return;
+  var kentat = { nimi: E.nimi, tyyppi: E.tyyppi, kuvaus: E.kuvaus, kesto_vk: E.kesto_vk, vaiheet: E.vaiheet };
+  var v = LIB.tmOhjelmaValidoi(kentat);
+  if (!v.ok) { E.virheet = v.virheet; _ohjEditRender(); return; }
+  E.virheet = [];
+  var uid = _uid || (firebase.auth().currentUser && firebase.auth().currentUser.uid) || null;
+  var doc;
+  if (E.id) {
+    // Muokkaus → UUSI versio (uusi doc-id, ei ylikirjoita).
+    var vanha = (window._ohjKirjasto || []).find(function (o) { return o.id === E.id; }) || { id: E.id, versio: E.versio };
+    doc = LIB.tmOhjelmaVersioi(vanha, kentat);
+    doc.laatija_uid = vanha.laatija_uid || uid; doc.laatija_rooli = vanha.laatija_rooli || _rooli || 'valmentaja';
+  } else {
+    doc = Object.assign({ versio: 1, edellinen_versio_id: null, arkistoitu: false, laatija_uid: uid, laatija_rooli: _rooli || 'valmentaja' }, kentat);
+  }
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Ohjelma tallennettu (demo)', 'ok'); document.getElementById('_ohjEditModal')?.remove(); return; }
+  try {
+    var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    doc.luotu = doc.luotu || firebase.firestore.FieldValue.serverTimestamp();
+    doc.paivitetty = firebase.firestore.FieldValue.serverTimestamp();
+    var ref = await _db.collection('seurat').doc(_seuraId).collection('ohjelmat').add(doc);
+    if (typeof toast === 'function') toast(E.id ? ('Uusi versio tallennettu (v' + doc.versio + ')') : 'Ohjelma tallennettu kirjastoon ✓', 'ok');
+    document.getElementById('_ohjEditModal')?.remove();
+    await _ohjLataaKirjasto(true);
+    if (document.getElementById('_ohjValitseModal')) _ohjValitseRender(E.pid || '', E.teemaAvain || '', false);
+    else if (E.pid) _ohjKaytaOhjelma(E.pid, E.teemaAvain, ref.id);   // uusi + pid → liitä heti
+  } catch (e) { console.warn('[ohjTallenna]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + (e && e.message), 'error'); }
 };
 
 function _msSeuraava(p, nykyAvain, tulos) {

@@ -1,9 +1,14 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.11
+// TalentMaster™ — firestore.rules v3.12
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.11 → v3.12 (Vaihe 7.2a — fysiikkaohjelmakirjasto):
+//   + seurat/{sid}/ohjelmat/{id} — deterministinen ohjelmakirjasto. read: oma seura.
+//     create/update: oman seuran valmentajaroolit (sis. fysiikkavalmentaja) + fysioterapeutti
+//     + johto. KOVA DELETE ESTETTY (vain SA) — arkistointi = update (arkistoitu:true). §6.
 //
 // Muutokset v3.10 → v3.11 (Vaihe 7 — fysiikkajakso, fysioterapeutti-klausuuli):
 //   + seurat/{sid}/pelaajat/{pid} update — fysioterapeutti saa field-level-writen
@@ -799,6 +804,23 @@ service cloud.firestore {
       match /meta/{metaKey} {
         allow read:  if onSuperAdmin() || onOmaSeura(seuraId);
         allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+      }
+
+      // ── OHJELMAT — fysiikkaohjelmakirjasto (Vaihe 7.2a, v3.12) ─────────
+      // Deterministinen kirjasto: tallenna/versioi/arkistoi fyysiset ohjelmat, liitä jaksoon.
+      // Kirjoitus: oman seuran valmentajaroolit (sis. fysiikkavalmentaja) + fysioterapeutti + johto.
+      // Luku: oma seura. KOVA DELETE ESTETTY — arkistointi = update (arkistoitu:true). §6.
+      match /ohjelmat/{ohjelmaId} {
+        allow read:   if onSuperAdmin() || onOmaSeura(seuraId);
+        allow create: if onSuperAdmin()
+                      || onOmanSeuranValmentaja(seuraId)
+                      || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti')
+                      || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow update: if onSuperAdmin()
+                      || onOmanSeuranValmentaja(seuraId)
+                      || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti')
+                      || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow delete: if onSuperAdmin();
       }
 
       // ── VALMENTAJAT — valmentajan oma datatila (CLAUDE.md §10) ────────

@@ -161,6 +161,12 @@ function fysioterapeuttiContext(uid, seuraId) {
   });
 }
 
+function fysiikkavalmentajaContext(uid, seuraId) {
+  return testEnv.authenticatedContext(uid, {
+    rooli: 'fysiikkavalmentaja', seuraId,
+  });
+}
+
 function sihteeriContext(seuraId) {
   return testEnv.authenticatedContext(SIHTEERI_UID, {
     rooli: 'seurasihteeri', seuraId,
@@ -1407,5 +1413,49 @@ describe('IDP-kausitavoite (idp_kausi) — Vaihe 3a', () => {
   });
   it('Pelaaja/valmentaja EI POISTA (vain SA)', async () => {
     await assertFails(deleteDoc(idpRef(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), SEURA_A)));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Vaihe 7.2a (v3.12) — ohjelmakirjasto seurat/{sid}/ohjelmat/{id}
+// ═══════════════════════════════════════════════════════════════════════════
+describe('Ohjelmakirjasto (v3.12 — seurat/{sid}/ohjelmat)', () => {
+  const OHJ = { nimi: 'Nopeus-voima A', tyyppi: 'nopeus_voima', kuvaus: 'plyo', kesto_vk: 6, vaiheet: [{ vaihe: 'V1', nimi: 'Loikat', intensiteetti: '60–70 %' }], versio: 1, arkistoitu: false, laatija_uid: 'fys-fcl-001', laatija_rooli: 'fysiikkavalmentaja' };
+  const ohjRef = (db, seuraId, id) => doc(db, 'seurat', seuraId, 'ohjelmat', id);
+
+  beforeEach(async () => {
+    await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(ohjRef(ctx.firestore(), SEURA_A, 'ohj1'), OHJ);
+    });
+  });
+
+  it('Fysiikkavalmentaja (oma seura) luo ohjelman', async () => {
+    const db = fysiikkavalmentajaContext('fys-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(setDoc(ohjRef(db, SEURA_A, 'ohj-uusi'), OHJ));
+  });
+  it('Fysioterapeutti (oma seura) luo ohjelman', async () => {
+    const db = fysioterapeuttiContext('fysio-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(setDoc(ohjRef(db, SEURA_A, 'ohj-fysio'), OHJ));
+  });
+  it('Johto (VP) päivittää ohjelman (arkistoi)', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(updateDoc(ohjRef(db, SEURA_A, 'ohj1'), { arkistoitu: true }));
+  });
+  it('Toisen seuran valmentaja EI kirjoita (tenant-eristys)', async () => {
+    const db = fysiikkavalmentajaContext('fys-kpv-001', 'kpv').firestore();
+    await assertFails(setDoc(ohjRef(db, SEURA_A, 'ohj-bad'), OHJ));
+  });
+  it('Pelaaja (anon PIN) EI kirjoita', async () => {
+    const db = anonContext().firestore();
+    await assertFails(setDoc(ohjRef(db, SEURA_A, 'ohj-anon'), OHJ));
+  });
+  it('Oman seuran jäsen lukee kirjaston', async () => {
+    const db = fysiikkavalmentajaContext('fys-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(getDoc(ohjRef(db, SEURA_A, 'ohj1')));
+  });
+  it('KOVA DELETE estetty valmentajalta (vain arkistointi update)', async () => {
+    const db = fysiikkavalmentajaContext('fys-fcl-001', SEURA_A).firestore();
+    await assertFails(deleteDoc(ohjRef(db, SEURA_A, 'ohj1')));
   });
 });
