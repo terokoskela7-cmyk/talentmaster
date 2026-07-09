@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vaihe 6 — Silmukan sulku (jakson vaikutus → seuraava fokus)</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#111110;--card:#161614;--deep:#1C1C1A;--ov-1:rgba(255,255,255,.03);--ov-3:rgba(255,255,255,.08);
+--border:rgba(255,255,255,.10);--ink:#F2F1EC;--ink2:#C9C7BE;--ink3:#8A887F;--teal:#28B090;--blue:#2A5DB0;--amber:#E0A040;--green:#3DA35D}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0d0c;color:var(--ink);font-family:'DM Sans',sans-serif;padding:22px 16px;line-height:1.45}
+.wrap{max-width:960px;margin:0 auto}
+h1,h2,h3{font-family:'Cormorant Garamond',serif;font-weight:400}
+.tag{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:6px;padding:2px 8px}
+h1{font-size:23px;margin:12px 0 3px}
+.lead{color:var(--ink2);font-size:13px;max-width:760px;margin-bottom:14px}
+.cycle{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:11px;color:var(--ink3);margin-bottom:18px}
+.cycle b{color:var(--teal)}.cycle .now{color:var(--amber);font-weight:600}.cycle .ar{opacity:.5}
+.panel{background:var(--card);border:.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px}
+.panel h3{font-size:16px;margin-bottom:2px}.panel .sub{font-size:11px;color:var(--ink3);margin-bottom:12px}
+/* trigger */
+.trig{display:flex;align-items:center;gap:10px;background:linear-gradient(150deg,rgba(224,160,64,.09),var(--deep));border:.5px solid rgba(224,160,64,.32);border-radius:10px;padding:11px 13px;margin-bottom:16px}
+.trig .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0}
+.trig .t{font-size:13px;color:var(--ink);flex:1}.trig .t b{color:var(--amber)}
+.trig .cta{font-size:12px;color:var(--amber);border:.5px solid rgba(224,160,64,.4);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600}
+/* close card */
+.close{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.blk{background:var(--deep);border:.5px solid var(--border);border-radius:10px;padding:13px}
+.blk .l{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:7px}
+.proc{display:flex;gap:8px;align-items:baseline}
+.proc .big{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--teal)}
+.proc .u{font-size:11px;color:var(--ink3)}
+.att{display:flex;gap:4px;margin-top:8px}
+.att i{width:20px;height:20px;border-radius:5px;background:rgba(61,163,93,.25);display:flex;align-items:center;justify-content:center;font-size:9px;color:#bfe6cd}
+.att i.miss{background:var(--ov-3);color:var(--ink3)}
+.rate{display:flex;align-items:center;gap:8px;margin-top:6px}
+.rate .arrow{color:var(--ink3)}
+.dots{display:flex;gap:3px}.d{width:13px;height:13px;border-radius:50%;background:var(--ov-3)}.d.on{background:var(--teal)}.d.was{outline:1px solid var(--ink3)}
+.res{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
+.rb{flex:1;min-width:110px;text-align:center;font-size:11.5px;border-radius:8px;padding:8px 6px;border:.5px solid var(--border);background:var(--ov-1);cursor:pointer;color:var(--ink2)}
+.rb.sel{border-color:rgba(61,163,93,.5);background:rgba(61,163,93,.12);color:var(--green);font-weight:600}
+.honest{font-size:10.5px;color:var(--ink3);margin-top:10px;font-style:italic}
+/* next focus */
+.next{background:linear-gradient(150deg,rgba(40,176,144,.1),var(--deep));border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:13px;margin-top:14px}
+.next .why{font-size:11px;color:var(--amber);margin-bottom:5px}
+.next .kn{font-family:'Cormorant Garamond',serif;font-size:18px}
+.next .cue{font-size:12px;color:var(--teal);margin-top:3px}
+.next .btns{display:flex;gap:8px;margin-top:11px}
+.next .btn{flex:1;text-align:center;font-size:12px;border-radius:8px;padding:8px;cursor:pointer;border:.5px solid var(--border)}
+.next .btn.prim{background:rgba(40,176,144,.14);border-color:rgba(40,176,144,.4);color:var(--teal);font-weight:600}
+/* meso kaari */
+.kaari{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:6px 0}
+.jak{min-width:130px;flex:1;background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;padding:10px 11px;margin-right:8px;position:relative}
+.jak .kn{font-size:13px;color:var(--ink);font-weight:600}
+.jak .dt{font-size:9.5px;color:var(--ink3);margin-top:1px}
+.jak .pm{font-size:10.5px;color:var(--ink2);margin-top:7px}
+.jak .ic{position:absolute;top:9px;right:10px;font-size:13px}
+.jak.done{border-color:rgba(61,163,93,.3)}
+.jak.now{border-color:rgba(224,160,64,.4);background:linear-gradient(150deg,rgba(224,160,64,.07),var(--ov-1))}
+.arrowc{display:flex;align-items:center;color:var(--ink3);margin-right:8px}
+.legend{font-size:12px;color:var(--ink3);line-height:1.7;margin-top:16px}.legend b{color:var(--ink2)}
+@media(max-width:720px){.close{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="wrap">
+  <span class="tag">Ehdotus · Vaihe 6 — Silmukan sulku (meso-sykli)</span>
+  <h1>Jakson vaikutus → seuraava fokus</h1>
+  <div class="lead">Putki muuttuu sykliksi. Kun jakso umpeutuu, se suljetaan: tehtiinkö suunnitelma (harjoitukset + läsnäolo), valmentajan luku edistymästä, ja silta ehdottaa seuraavan fokuksen.</div>
+  <div class="cycle"><span>fokus</span><span class="ar">→</span><span>teemaharjoitukset</span><span class="ar">→</span><span class="now">sulje jakso</span><span class="ar">→</span><span>vaikutus</span><span class="ar">↻</span><span><b>seuraava fokus</b></span></div>
+
+  <!-- Trigger -->
+  <div class="trig"><span class="dot"></span><span class="t"><b>Jakso umpeutunut</b> · Miko Alho · Kuljetus ahtaassa (vk 4/4 täynnä)</span><span class="cta">Sulje jakso →</span></div>
+
+  <!-- Close card -->
+  <div class="panel">
+    <h3>Sulje jakso · Kuljetus ahtaassa</h3>
+    <div class="sub">1.6.–29.6.2026 · 4 vk</div>
+    <div class="close">
+      <div class="blk">
+        <div class="l">Tehtiinkö suunnitelma (prosessi)</div>
+        <div class="proc"><span class="big">3</span><span class="u">teemaharjoitusta jaksolla</span></div>
+        <div class="att"><i>✓</i><i>✓</i><i class="miss">–</i><span style="font-size:11px;color:var(--ink3);align-self:center;margin-left:4px">läsnä 2/3</span></div>
+        <div style="font-size:10.5px;color:var(--ink3);margin-top:8px">Toteutuma näkyy — vaikutusta ei voi lukea ilman harjoittelua.</div>
+      </div>
+      <div class="blk">
+        <div class="l">Miten meni — kaksi näkökulmaa</div>
+        <div class="rate"><span style="font-size:11px;color:var(--ink3);width:82px">🧒 Pelaaja</span><div class="dots"><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d"></span></div><span style="font-size:11px;color:var(--teal)">4/5</span></div>
+        <div class="rate" style="margin-top:5px"><span style="font-size:11px;color:var(--ink3);width:82px">🎓 Talenttivalm.</span><div class="dots"><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d"></span><span class="d"></span></div><span style="font-size:11px;color:var(--blue)">3/5</span></div>
+        <div style="display:flex;align-items:center;gap:7px;margin-top:9px;background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.28);border-radius:7px;padding:6px 9px">
+          <span style="font-size:11px;color:var(--amber);font-weight:600">Kalibraatio: ero 1</span><span style="font-size:10.5px;color:var(--ink3)">— hyvä hetki keskustella (VP-työkalu, ei pelaajalle syyllistävänä)</span></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:9px;border:.5px dashed var(--ov-3);border-radius:7px;padding:8px 10px;cursor:pointer;color:var(--ink3)">
+          <span style="font-size:14px">📹</span><span style="font-size:11.5px">Liitä video <b style="color:var(--ink2)">(tulossa)</b> — taidon näyte ennen/jälkeen</span></div>
+      </div>
+    </div>
+    <div class="res">
+      <div class="rb sel">↑ Parani</div>
+      <div class="rb">→ Ennallaan — jatka samaa</div>
+      <div class="rb">⟳ Vaihda fokus</div>
+    </div>
+    <div class="honest">§28: tekniikka kehittyy hitaasti — 4 vk harvoin näyttää mitattavaa muutosta. "Ennallaan" ei ole epäonnistuminen.</div>
+
+    <!-- next focus via silta -->
+    <div class="next">
+      <div class="why">↻ Seuraava fokus (silta: seuraavaksi heikoin)</div>
+      <div class="kn">Lyhyt syöttö → Syöttö eteenpäin</div>
+      <div class="cue">Cue: Kenelle syötät ennen kuin saat pallon?</div>
+      <div class="btns"><div class="btn prim">✓ Aseta seuraava jakso</div><div class="btn">Valitse toinen</div></div>
+    </div>
+  </div>
+
+  <!-- Meso-kehityskaari -->
+  <div class="panel">
+    <h3>Kehityskaari · jaksot</h3>
+    <div class="sub">Fokusten rytmi ajan yli — pelaajan elävä kehitystarina (meso).</div>
+    <div class="kaari">
+      <div class="jak done"><span class="ic">↑</span><div class="kn">Havainnointi</div><div class="dt">huhti · 4 vk</div><div class="pm">4 harj · läsnä 100%</div></div>
+      <div class="arrowc">→</div>
+      <div class="jak done"><span class="ic">→</span><div class="kn">Pallonhallinta</div><div class="dt">touko · 4 vk</div><div class="pm">3 harj · läsnä 75%</div></div>
+      <div class="arrowc">→</div>
+      <div class="jak done"><span class="ic">↑</span><div class="kn">Kuljetus ahtaassa</div><div class="dt">kesä · 4 vk</div><div class="pm">3 harj · läsnä 67%</div></div>
+      <div class="arrowc">↻</div>
+      <div class="jak now"><span class="ic">◷</span><div class="kn">Syöttö eteenpäin</div><div class="dt">heinä · alkaa</div><div class="pm">seuraava jakso</div></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <b>Silmukka sulkeutuu — putkesta tulee sykli.</b><br>
+    · <b>Laukaisin</b> — jakso umpeutuu (4c `tmJfUmpeutunut`) → "Sulje jakso".<br>
+    · <b>Prosessi ensin</b> — tehtiinkö harjoitukset + läsnäolo (4d/K2). Vaikutusta ei väitetä ilman toteumaa.<br>
+    · <b>Kaksi näkökulmaa</b> — pelaajan itsearvio + aikuisarvio → <b>kalibraatio</b> (näkeekö pelaaja itsensä osuvasti; VP-työkalu, ei pelaajalle syyllistävänä). Video ennen/jälkeen tulossa (§15 media[]).<br>
+    · <b>Aikuisarvion antaja = pelaajan oma valmentaja</b> (§4/§37): joukkuevalmentaja omat joukkueen pelaajat (Master), talenttivalmentaja talentit, VP oversight + kaikki.<br>
+    · <b>Tulos pehmeä</b> — parani / ennallaan–jatka / vaihda. §28: hidas kehitys = normaali, ei moite.<br>
+    · <b>Seuraava fokus</b> — silta (Vaihe 5) ehdottaa → uusi jakso. Kaari kasvaa → elävä kehitystarina.<br>
+    · Kaikki <b>pikakentistä</b> (`jaksofokus_historia[]`, §26). VP/valmentaja-näkymä (§7.22 ei koske).
+  </div>
+</div>
+</body></html>
