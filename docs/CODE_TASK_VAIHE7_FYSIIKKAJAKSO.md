@@ -90,3 +90,36 @@ V6-sulkukortti (`_vpSulkuRender`/`_msRender`) saa evidenssilohkon `jf.domeeni`-t
 
 ## 8. Verifiointi
 Vitest `tm_fyysteemat.js`: ehdotus-mapping (hh_kehityskohde→teema, FLEI<40-prioriteetti, D2-avaimet ei mäppäydy, null-fallback) · delta-pvm-vahti (vanha mittaus → null; tuore → arvot+pvm:t) · PHV-portti (PRE/LAH → neutraali). **Rules emulaattoriajolla** (§5 — 4 uutta testiä, aja `firebase emulators:exec`). Live VP_v25 + Master_v16: D1-siltakortti → fyysinen fokus → fyysinen teemaharjoitus kalenteriin → sulku (a) tuoreella mittauksella: delta näkyy + `delta_mitattu` tallentuu historiaan, (b) ilman mittausta: subjektiivinen polku + "suunnittele mittaus" -CTA, (c) pre-PHV-pelaajalla: §28-banneri → historia-entry + kaari domeeni-ikonilla → silta ehdottaa seuraavan D1-teeman. Ohjelma-slot: aseta fokus ohjelmalla (tyyppi+phv_tila_alussa+lahtotaso tallentuvat) → sulku kopioi ohjelman historia-entryyn (annos–vaste-rivi). §28-kieli tarkistettu (ei "epäonnistui", ei moitetta). `npm test` + lint + selain-tarkistus deployatusta mainista. Rules v3.11 Console-deploy kirjattu. **Merge vasta kun Tero sanoo "live".**
+
+## 9. Olemassa olevan sisällön uudelleenkäyttö (SSOT — Code EI kirjoita fys-sisältöä uudelleen)
+
+> Repo sisältää jo laajan fyysisen harjoittelu- ja testikannan (Everton-liikehallintamatriisi, HPP ELITE -kuntoutus, 6 vk plyo-progressio, ~64 testin pankki + normit). V7 **kytkee** näihin — ei luo uutta harjoitesisältöä. Alla V7-slotti → lähde. Kaikki rivinumerot `harjoitelogiikka_v4.js` ROOTISSA (§A7: root = totuus).
+
+### 9.1 Fokus-ehdotus (`tmFyysEhdota`) — lainaa olemassa oleva päätöspuu
+- **`laskeKetjuProfiili(pelaaja)`** (`harjoitelogiikka_v4.js:992`) → `{heikoin, jarjestys, arvot}` FLEI-ketjuista → `fy_liikehallinta`-teema + FLEI<40-prioriteetti.
+- **`_laskeSKetju`-päätöspuu** (`harjoitelogiikka_v4.js:~1154`) = valmis MALLI D1-testi→teema-mäppäykselle (hyvää_huomenta→SBL, thomas→SFL, valakyykky→DFL). `tmFyysEhdota` lainaa tämän logiikan hh_kehityskohde→fy_*-mäppäykseen.
+- Testi→teema-avaimet: `TM_TESTIPANKKI[testi].alikategoria` + `.dimensio` (`src/lib/tm_testipankki.js`): lineaarinopeus→`fy_nopeus`, nopeusvoima→`fy_rajahtavyys`, kestavyys→`fy_kestavyys`, suunnanmuutos→`fy_ketteryys`. **`dimensio:'D2'`-testit (pujottelu/syöttö) EI mäpäydy** — kenttä erottaa jo.
+
+### 9.2 Ohjelma-slot templaatit (§2c) — valmiit rakenteet
+| `ohjelma.tyyppi` | Lähde (tiedosto:rakenne) | Mitä tarjoaa |
+|---|---|---|
+| `nopeus_voima` | `EVERTON_LISAYKSET.loikat.ll.P_lisays` (`harjoitelogiikka_v4.js:~2203`) | **6 vk plyo-progressio intensiteettiportailla** (Valmistava 60–70% → Kehittävä 75–85% → Huipentava 90–100%), `{vaihe,viikot,intensiteetti,nimi,ohje,mittari,kesto,phv}` — täsmää tutkimuksen annostelusuositukseen |
+| `perusvoima` | `PANKKI.S[ketju].stage_tasot` (`harjoitelogiikka_v4.js:520`) Stage 1→3→5 + `TM_TESTIPANKKI` alikat. `voima` | Progressiivinen voimaharjoite ketjuittain |
+| `kuntoutus` | `HPP_REHAB_PROTOKOLLAT` + `HPP_EXERCISES` (`src/lib/hpp_rehab_protokollat.js:614, 47`) | Vaiherakenne akuutti→subakuutti↊krooninen + **`paluu_kriteerit` (RTP-portti)** + `phv_ok`/`phv_huomio`. ⚠ vain harjoitussisältö; terveysdata `terveys/`-alikokoelmaan (§2c GDPR Art. 9) |
+| `liikkuvuus` | `PANKKI.D[sfl/dfl]` (`harjoitelogiikka_v4.js:359`) + `TM_TESTIPANKKI` liikkuvuustestit | Liikkuvuusaktivoinnit + thomas/valakyykky-baseline |
+| `lahtotaso` baseline | `TM_PROTOKOLLAT.hh_laaja/suppea` (`src/lib/tm_testipankki.js:1165`) + normit `src/lib/tm_normit.js` (`TM_PALLOLIITTO[...][ikäluokka]{t5..t2}`) | Mittausikkuna + tasokynnykset (taso 3 = kansallinen tavoite) |
+
+### 9.3 Treeniteema-harjoitteet (`treeniteema.tyyppi:'fyysinen'`)
+- D-aktivointi + S-kohdennettu + Everton-lisäykset (`harjoitelogiikka_v4.js:359, 520, 2203`), haku `generoimTehtavat` / `_haeD(ketju, stage)`. Kukin harjoite tuo valmiin `ohje_leikkija/_rakentaja/_showcase` (3 ikävaihetta), `cue`, `yt`, `phv`, `phv_xp` → suoraan teemakortin sisällöksi (rajaus §7: harjoitesisältöä EI kirjoiteta uusiksi).
+- Ketju↔pallotekniikka-cue: `TM_KETJU_MATRIISI[ketju].pallotekniikka` (`src/lib/tm_ketju_matriisi.js:57+`).
+
+### 9.4 Delta-tulkinta (`tmFyysDelta` + PHV-portti)
+- Taso-delta: `hh_taso_edellinen → hh_taso`, normit `src/lib/tm_normit.js` (ikänormitettu → kasvu huomioitu automaattisesti, §0).
+- Suunta (parani/heikkeni): `TM_TESTIPANKKI[testi].parempi` ('pienempi'/'suurempi') — älä oleta, lue kentästä.
+- PHV-portti: `src/lib/tm_bioika.js` (Mirwald 2002) + harjoitteiden `phv`/`phv_ok`/`phv_huomio`-kentät (D/S/Everton/HPP kaikissa) → §28-neutraali kehys.
+
+### 9.5 Ratkaistava mäppäys (Code huomioi)
+FLEI-ketjut (SBL/SFL/LL/DIAG/DFL) vs. testipohjaiset fy_*-teemat (fy_nopeus/…): **`fy_liikehallinta` mäppää ketjuihin** (`laskeKetjuProfiili`), muut fy_*-teemat testeihin (`TM_TESTIPANKKI.alikategoria`). Ei datamigraatiota — molemmat rinnakkain (kuten joukkueet/joukkue-invariantti §7.18).
+
+### 9.6 Nimi-/lähdetarkennus
+"Nevanlinna 2014" (`tm_ketju_matriisi.js:20`, kultaikkuna 7–12 v) on **tutkimuslähde**, ei fysiikkavalmentaja. Everton = Stage-progression + liikehallintamatriisin lähde. Tutkimusbenchmark-tausta: erillinen tutkimusraportti (Tero, deep-research 2026-07-09) (YPD-malli, ei trainability-ikkunoita, annostelu- ja delta-haarukat).
