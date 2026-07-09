@@ -27,6 +27,7 @@
 <script src="lib/tm_jaksofokus.js?v=1"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
+<script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
 <script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
 
 <style>
@@ -3913,6 +3914,97 @@ function _vpSiltaPaneeliHTML(p) {
   return h;
 }
 
+// ══════════ VAIHE 7 — D1-SILTA (fyysinen fokuslähde) + kevyt ohjelma-slot ══════════
+// Geneerinen V6-moottori saa domeeni:'fyysinen'. Sisältö libistä (tm_fyysteemat). §28/§29/§4.
+function _vpFyysEhdotus(p, ohitaGuard) {
+  const LIB = window.TM_FYYSTEEMAT_LIB; if (!LIB || !p) return null;
+  if (!ohitaGuard && p.jaksofokus) return null;   // passiivinen (§4b.5); sulku-seuraava ohittaa (jf vielä kiinni)
+  const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null, sp: 'P' };
+  const spMN = (isp.sp === 'T') ? 'N' : 'M';
+  let osaindeksit = null;
+  if (typeof laskeD1Osaindeksit === 'function' && p.hh_viimeisin && isp.ika != null) osaindeksit = laskeD1Osaindeksit(p.hh_viimeisin, isp.ika, spMN);
+  const neutraali = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+  const e = LIB.tmFyysEhdota(p, { osaindeksit: osaindeksit });
+  if (!e) return null;
+  return Object.assign({}, e, { neutraali: neutraali });
+}
+// D1-siltakortti arviointi-välisivulle (rinnakkain V5 D2-sillan kanssa, §2). '' kun ei sovellu.
+function _vpD1SiltaPaneeliHTML(p) {
+  const e = _vpFyysEhdotus(p); if (!e) return '';
+  const esc = _jsvEsc;
+  const _pvmFi = function (iso) { if (!iso) return null; const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : iso; };
+  const mitPvm = _pvmFi(p.hh_pvm) || _pvmFi(p.flei_pvm);
+  const vari = e.prioriteetti ? 'var(--amber)' : 'var(--blue)';
+  const bord = e.prioriteetti ? 'rgba(224,160,64,.35)' : 'rgba(42,93,176,.35)';
+  let h = '<div style="background:linear-gradient(150deg,rgba(42,93,176,.10),var(--bg2));border:.5px solid ' + bord + ';border-radius:12px;padding:15px;margin-bottom:14px">';
+  h += '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:' + vari + ';font-weight:600;margin-bottom:6px">🏃 ' + (e.prioriteetti ? 'FLEI-prioriteetti — fysiikkajakso' : 'Heikoin D1 — fysiikkajakso') + '</div>';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:19px;color:var(--ink)">' + esc(e.nimi) + '</div>';
+  h += '<div style="font-size:11.5px;color:var(--ink2);margin-top:3px">' + esc(e.peruste) + '</div>';
+  if (mitPvm) h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:2px">mittaus ' + mitPvm + '</div>';
+  if (e.neutraali) h += '<div style="font-size:10.5px;color:var(--amber);margin-top:4px">🌱 pre-PHV: fyysinen kehitys rajallista — teema OK, tulos §28-neutraali</div>';
+  h += '<div style="margin-top:12px"><button class="jsp-kt-btn primary" style="width:100%" onclick="_vpFyysFokusModal(\'' + esc(p.id) + '\',\'' + esc(e.avain) + '\')">✓ Aseta fysiikkajakso · 4 vk</button></div>';
+  h += '</div>';
+  return h;
+}
+// Fyysisen fokuksen asetusmodaali — kevyt polku (§10.1): valinnainen ohjelma-tyyppi esitäyttää ohjelma-slotin templaatilla.
+window._vpFyysFokusModal = function (pid, teemaAvain) {
+  const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : (_pelaajat || []).find(function (x) { return x.id === pid; });
+  const LIB = window.TM_FYYSTEEMAT_LIB; if (!p || !LIB) return;
+  const teema = LIB.tmFyysTeema(teemaAvain); const esc = _jsvEsc;
+  document.getElementById('_vpFyysModal')?.remove();
+  const TYYPIT = Object.keys(LIB.TM_OHJELMA_TEMPLAATIT);
+  let h = '<div id="_vpFyysModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:340;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
+  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:22px;width:480px;max-width:96vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">🏃 Fysiikkajakso · ' + esc(teema ? teema.nimi : teemaAvain) + '</div>'
+    + '<button onclick="document.getElementById(\'_vpFyysModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">' + esc(_jfNimi(p)) + ' · 4 vk · evidenssi mittauksesta jakson lopussa (§29)</div>';
+  h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:5px">Henkilökohtainen ohjelma (valinnainen)</div>';
+  h += '<select id="_vpFyysOhjelma" onchange="_vpFyysOhjelmaPreview()" style="width:100%;background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);padding:8px 10px;font-size:13px;font-family:inherit"><option value="">— Ei ohjelmaa (pelkkä fokus) —</option>';
+  TYYPIT.forEach(function (t) { const tpl = LIB.TM_OHJELMA_TEMPLAATIT[t]; h += '<option value="' + t + '">' + esc(tpl.nimi) + '</option>'; });
+  h += '</select>';
+  h += '<div id="_vpFyysOhjelmaPrev" style="margin-top:8px"></div>';
+  h += '<div style="margin-top:14px"><button class="jsp-kt-btn primary" style="width:100%" onclick="_vpAsetaFyysFokus(\'' + esc(pid) + '\',\'' + esc(teemaAvain) + '\')">✓ Aseta fysiikkajakso</button></div>';
+  h += '</div></div>';
+  const wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+};
+window._vpFyysOhjelmaPreview = function () {
+  const sel = document.getElementById('_vpFyysOhjelma'); const box = document.getElementById('_vpFyysOhjelmaPrev'); if (!sel || !box) return;
+  const LIB = window.TM_FYYSTEEMAT_LIB; const tpl = LIB && sel.value ? LIB.tmOhjelmaTemplaatti(sel.value) : null;
+  if (!tpl) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div style="background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;padding:11px;font-size:12px;color:var(--ink2)"><div style="color:var(--teal);font-weight:600;margin-bottom:3px">' + _jsvEsc(tpl.nimi) + ' · ' + tpl.kesto_vk + ' vk</div>' + _jsvEsc(tpl.kuvaus) + '<div style="font-size:10px;color:var(--ink3);margin-top:5px">Lähtötaso + kasvuvaihe (PHV) tallentuvat → annos–vaste-analytiikka (§2c)</div></div>';
+};
+window._vpAsetaFyysFokus = async function (pid, teemaAvain) {
+  const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : (_pelaajat || []).find(function (x) { return x.id === pid; });
+  const LIB = window.TM_FYYSTEEMAT_LIB; if (!p || !LIB) return;
+  const teema = LIB.tmFyysTeema(teemaAvain);
+  const sel = document.getElementById('_vpFyysOhjelma'); const tyyppi = sel ? sel.value : '';
+  let ohjelma = null;
+  if (tyyppi) {
+    const tpl = LIB.tmOhjelmaTemplaatti(tyyppi);
+    const fokusTesti = (teema && teema.testit.length) ? teema.testit[teema.testit.length - 1] : null;
+    // §2c GDPR Art. 9: kuvaus = harjoitussisältöä, EI terveys-/vammadiagnooseja (ne → terveys/-alikokoelma).
+    ohjelma = { tyyppi: tyyppi, nimi: tpl ? tpl.nimi : tyyppi, kuvaus: tpl ? tpl.kuvaus : '',
+      laatija_uid: _uid || (firebase.auth().currentUser && firebase.auth().currentUser.uid) || null, laatija_rooli: 'vp',
+      phv_tila_alussa: p.phv_tila || null,
+      lahtotaso: { hh_taso: (p.hh_taso != null ? p.hh_taso : null), fokustesti_arvo: (fokusTesti && p.hh_viimeisin) ? (p.hh_viimeisin[fokusTesti] != null ? p.hh_viimeisin[fokusTesti] : null) : null },
+      ohjelma_id: null,   // 7.2-varaus (ohjelmakirjasto), additiivinen
+      luotu: new Date().toISOString() };
+  }
+  const jf = { konsepti_avain: teemaAvain, konsepti_nimi: teema ? teema.nimi : teemaAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
+  p.jaksofokus = jf;
+  document.getElementById('_vpFyysModal')?.remove();
+  if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
+  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+  if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
+  await _vpTtKirjoita(pid, { jaksofokus: jf }, 'Fysiikkajakso asetettu' + (ohjelma ? ' + ohjelma' : ''));
+};
+// Sulkukortin "Suunnittele mittaus" → Testaus_v9 (mittaus, EI harjoitus — 4d §2.0-jako). Ei sekoiteta.
+window._vpFyysSuunnitteleMittaus = function (pid) {
+  const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : (_pelaajat || []).find(function (x) { return x.id === pid; });
+  if (typeof _jsvLuoMittaus === 'function') _jsvLuoMittaus(p ? (p.joukkue || '') : '', 'hh_laaja');
+  else if (typeof toast === 'function') toast('Avaa Testaus-työkalu H-H-mittaukselle', 'ok');
+};
+
 // §26 pikakentät (arviointi_havaittu), §5 tokenit, §7.22 aikuisnäkymä (VP-facing → 1–5 + värit sallittu). Taksonomia lib = standardi.
 // Mitattu 1–5: d1osa → laskeD1Osaindeksit, tklaji → tkLajiTaso. Mitattu voittaa havaitun (lukittu testiin). ika/sp johdetaan p:stä.
 function _vpArviointiHTML(p) {
@@ -3954,8 +4046,12 @@ function _vpArviointiHTML(p) {
 
   // Kehys- + pääteema-dropdownit (natiivi <select>, §5). Kehys-dropdown vain jos >1 kehys tai SA (esikatselu).
   const kehysAvaimet = Object.keys(ARVIOINTI_KEHYKSET);
-  // Vaihe 5 — silta-ehdotus ylimpänä (vain kun jaksofokus puuttuu + D2-arviointi olemassa). Passiivinen, ei nalkuta.
-  let h = (typeof _vpSiltaPaneeliHTML === 'function') ? _vpSiltaPaneeliHTML(p) : '';
+  // Vaihe 5 (D2) + Vaihe 7 (D1) sillat ylimpänä — kahden sillan yhteiselo (§2): molemmat samaan tyhjään
+  // jaksofokus-slottiin, aikuinen valitsee. FLEI<40 (D1-prioriteetti) → D1 ensin; muuten D2 ensin.
+  const _d2Silta = (typeof _vpSiltaPaneeliHTML === 'function') ? _vpSiltaPaneeliHTML(p) : '';
+  const _d1Silta = (typeof _vpD1SiltaPaneeliHTML === 'function') ? _vpD1SiltaPaneeliHTML(p) : '';
+  const _d1Prio = (typeof _vpFyysEhdotus === 'function') && (function () { const e = _vpFyysEhdotus(p); return e && e.prioriteetti; })();
+  let h = _d1Prio ? (_d1Silta + _d2Silta) : (_d2Silta + _d1Silta);
   h += '<div class="jsp-arv-topbar">';
   if (kehysAvaimet.length > 1 || (typeof superAdmin !== 'undefined' && superAdmin)) {
     h += '<label class="jsp-arv-lbl">Kehys</label><select class="jsp-arv-select" onchange="_vpArvValitseKehys(this.value)">'
@@ -4880,6 +4976,16 @@ function _vpSulkuDots(current, fn) {
 }
 // Seuraava fokus: 'ennallaan'→sama; muuten silta seuraavaksi heikoin (≠ nykyinen). null jos ei arviointia.
 function _vpSulkuSeuraava(p, nykyAvain, tulos) {
+  const jf = p.jaksofokus || {};
+  // Vaihe 7: fyysinen domeeni → seuraava SAMAN domeenin sisällä (tmFyysEhdota, EI D2-silta). §2.
+  if (jf.domeeni === 'fyysinen') {
+    const FL = window.TM_FYYSTEEMAT_LIB;
+    if (tulos === 'ennallaan') { const t = FL ? FL.tmFyysTeema(nykyAvain) : null; return { konsepti_avain: nykyAvain, konsepti_nimi: t ? t.nimi : nykyAvain, jatka: true, fyysinen: true }; }
+    const e = (typeof _vpFyysEhdotus === 'function') ? _vpFyysEhdotus(p, true) : null;
+    // Heikoin D1 saman domeenin sisällä; jos yhä sama teema (taso ei päivity ennen uutta mittausta) → jatka samaa.
+    if (e) return { konsepti_avain: e.avain, konsepti_nimi: e.nimi, fyysinen: true, jatka: e.avain === nykyAvain };
+    return null;
+  }
   if (tulos === 'ennallaan') { const k = _vpSiltaKonsepti(nykyAvain); return { konsepti_avain: nykyAvain, konsepti_nimi: k ? k.nimi : nykyAvain, jatka: true }; }
   const LIB = window.TM_ARVIOINTI_SILTA; if (!LIB || !p.arviointi_havaittu) return null;
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
@@ -4896,6 +5002,12 @@ function _vpSulkuRender() {
   const knimi = jf.konsepti_nimi || (function () { const k = _vpSiltaKonsepti(jf.konsepti_avain); return k ? k.nimi : jf.konsepti_avain; })();
   const _pvmFi = function (iso) { if (!iso) return '—'; const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : iso; };
   const kal = window.TM_JAKSOKOOSTE ? window.TM_JAKSOKOOSTE.tmKalibraatio(S.arvioItse, S.arvioAikuis) : null;
+  // Vaihe 7: fyysinen domeeni → mitattu delta (§29) + PHV-portti (§28). Stash delta → tallenna kytkee delta_mitattu (V6-aukko).
+  const _fyys = (jf.domeeni === 'fyysinen');
+  const _FLIB = window.TM_FYYSTEEMAT_LIB;
+  const _delta = (_fyys && _FLIB) ? _FLIB.tmFyysDelta(p, S.alkoi, jf.konsepti_avain) : null;
+  const _phvPortti = (_fyys && _FLIB) ? _FLIB.tmFyysPHVPortti(p, (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : false) : { neutraali: false };
+  S.deltaMitattu = _delta;
   let h = '<div id="_vpSulkuModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:320;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:22px;width:560px;max-width:96vw;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">';
   h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink)">Sulje jakso · ' + esc(knimi) + '</div>'
@@ -4911,6 +5023,23 @@ function _vpSulkuRender() {
     h += '<div style="font-size:11.5px;color:var(--ink2);margin-top:4px">' + (S.lasnaolo.tiedossa ? ('läsnä ' + S.lasnaolo.paikalla + '/' + S.harjoituksia) : 'läsnäoloa ei kirjattu') + '</div>';
   }
   h += '</div>';
+  // Vaihe 7 — mitattu vaikutus (fyysinen domeeni, §29) + PHV-portti (§28)
+  if (_fyys && !S.lataa) {
+    h += '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px">';
+    h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">Mitattu vaikutus (§29)</div>';
+    if (_delta) {
+      const _sv = _delta.muutos > 0 ? '#3DA35D' : (_delta.muutos < 0 ? 'var(--amber)' : 'var(--ink3)');
+      const _su = _delta.muutos > 0 ? '↑' : (_delta.muutos < 0 ? '↓' : '→');
+      const _lbl = _delta.lahde === 'flei' ? 'Kehon valmius' : 'H-H-taso';
+      h += '<div style="display:flex;align-items:center;gap:10px"><span style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink3)">' + _delta.ennen + '</span><span style="color:var(--ink3)">→</span><span style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:' + _sv + '">' + _delta.jalkeen + '</span><span style="font-size:12px;color:' + _sv + ';font-weight:600">' + _su + ' ' + _lbl + '</span></div>';
+      h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:3px">mittaukset ' + (_delta.pvm_ennen ? _pvmFi(_delta.pvm_ennen) : '—') + ' → ' + _pvmFi(_delta.pvm_jalkeen) + (_delta.testi ? (' · ' + esc(_delta.testi) + ' ' + esc(String(_delta.raaka_jalkeen))) : '') + '</div>';
+    } else {
+      h += '<div style="font-size:12.5px;color:var(--ink2)">Ei uutta mittausta jaksolla — <b>subjektiivinen arvio riittää</b> (§29). Deltaa ei väitetä ilman mittausta.</div>';
+      h += '<div style="margin-top:8px"><button onclick="_vpFyysSuunnitteleMittaus(\'' + esc(p.id) + '\')" style="font-size:11.5px;border-radius:8px;padding:7px 12px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2)">📏 Suunnittele mittaus → Testaus</button></div>';
+    }
+    if (_phvPortti.neutraali) h += '<div style="display:flex;gap:9px;align-items:flex-start;background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.3);border-radius:8px;padding:9px 11px;margin-top:10px"><span style="font-size:15px">🌱</span><span style="font-size:11.5px;color:var(--ink2)"><b style="color:var(--amber)">PHV-vaihe (§28):</b> nopeus-/voimakehitys ennen kasvupyrähdystä on rajallista — <b>”ennallaan” on biologisesti odotettua</b>, ei epäonnistuminen.</span></div>';
+    h += '</div>';
+  }
   // Kaksi näkökulmaa (itsearvio + aikuisarvio)
   h += '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px">';
   h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:8px">Miten meni — kaksi näkökulmaa (valinnaisia)</div>';
@@ -4925,13 +5054,13 @@ function _vpSulkuRender() {
   h += '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">';
   TULOKSET.forEach(function (t) { const sel = S.tulos === t[0]; h += '<button onclick="_vpSulkuSetTulos(\'' + t[0] + '\')" style="flex:1;min-width:120px;font-size:11.5px;border-radius:8px;padding:8px 6px;cursor:pointer;border:.5px solid ' + (sel ? 'rgba(61,163,93,.5)' : 'var(--border)') + ';background:' + (sel ? 'rgba(61,163,93,.12)' : 'var(--ov-1)') + ';color:' + (sel ? '#3DA35D' : 'var(--ink2)') + ';font-weight:' + (sel ? '600' : '400') + '">' + t[1] + '</button>'; });
   h += '</div>';
-  h += '<div style="font-size:10.5px;color:var(--ink3);font-style:italic;margin-bottom:12px">§28: tekniikka kehittyy hitaasti — 4 vk harvoin näyttää mitattavaa muutosta. ”Ennallaan” ei ole epäonnistuminen.</div>';
+  h += '<div style="font-size:10.5px;color:var(--ink3);font-style:italic;margin-bottom:12px">' + (_fyys ? 'Tulos-kehys: parani / ennallaan — jatka / vaihda. §28: kypsyysvaihe huomioitu — pre-PHV ”ennallaan” on odotettua, ei ”epäonnistui”.' : '§28: tekniikka kehittyy hitaasti — 4 vk harvoin näyttää mitattavaa muutosta. ”Ennallaan” ei ole epäonnistuminen.') + '</div>';
   // Seuraava fokus (silta)
   const seur = S.tulos ? _vpSulkuSeuraava(p, jf.konsepti_avain, S.tulos) : null;
   if (S.tulos) {
     h += '<div style="background:linear-gradient(150deg,rgba(40,176,144,.1),var(--deep,#1C1C1A));border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:13px">';
     if (seur) {
-      const cue = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(seur.konsepti_avain) : [];
+      const cue = (!seur.fyysinen && typeof tmTtKysymykset === 'function') ? tmTtKysymykset(seur.konsepti_avain) : [];
       h += '<div style="font-size:11px;color:var(--amber);margin-bottom:4px">↻ Seuraava fokus (' + (seur.jatka ? 'jatka samaa' : 'silta: seuraavaksi heikoin') + ')</div>';
       h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink)">' + esc(seur.konsepti_nimi) + '</div>';
       if (cue.length) h += '<div style="font-size:12px;color:var(--teal);margin-top:3px">Cue: ' + esc(cue[0]) + '</div>';
@@ -4955,21 +5084,29 @@ window._vpSulkuSetTulos = function (t) { if (window._vpSulkuTila) { window._vpSu
 window._vpSulkuTallenna = async function (uusiAvain) {
   const S = window._vpSulkuTila; if (!S) return;
   const p = S.p, jf = S.jf;
+  const _fyys = (jf.domeeni === 'fyysinen');
   const kal = window.TM_JAKSOKOOSTE ? window.TM_JAKSOKOOSTE.tmKalibraatio(S.arvioItse, S.arvioAikuis) : null;
   const entry = window.TM_JAKSOKOOSTE.tmHistoriaEntry({
     domeeni: jf.domeeni || 'teknis_taktinen',
     konsepti_avain: jf.konsepti_avain, konsepti_nimi: jf.konsepti_nimi,
     alkoi: S.alkoi, paattyi: S.loppu, harjoituksia: S.harjoituksia, lasnaolo: S.lasnaolo,
-    arvio_itse: S.arvioItse, arvio_vp: S.arvioAikuis, kalibraatio_ero: kal,
-    tulos: S.tulos, lahde_seuraava: uusiAvain ? 'silta' : null, suljettu: new Date().toISOString()
+    arvio_itse: S.arvioItse, arvio_vp: S.arvioAikuis, arvioija_rooli: 'vp', kalibraatio_ero: kal,
+    delta_mitattu: S.deltaMitattu || null,   // Vaihe 7: kytkee mitatun deltan (V6-aukko korjautuu)
+    ohjelma: jf.ohjelma || null,             // §2c: kopioi ohjelma-objekti → annos–vaste-rivi (AI-analyysi)
+    tulos: S.tulos, lahde_seuraava: uusiAvain ? (_fyys ? 'silta_d1' : 'silta') : null, suljettu: new Date().toISOString()
   });
   const hist = Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia.slice() : [];
   hist.push(entry);
   p.jaksofokus_historia = hist;
   let uusiJf = null;
   if (uusiAvain) {
-    const k = _vpSiltaKonsepti(uusiAvain);
-    uusiJf = { konsepti_avain: uusiAvain, konsepti_nimi: k ? k.nimi : uusiAvain, konsepti_koodi: k ? k.koodi : null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'silta', domeeni: jf.domeeni || 'teknis_taktinen' };
+    if (_fyys) {
+      const ft = window.TM_FYYSTEEMAT_LIB ? window.TM_FYYSTEEMAT_LIB.tmFyysTeema(uusiAvain) : null;
+      uusiJf = { konsepti_avain: uusiAvain, konsepti_nimi: ft ? ft.nimi : uusiAvain, konsepti_koodi: null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'silta_d1', domeeni: 'fyysinen' };
+    } else {
+      const k = _vpSiltaKonsepti(uusiAvain);
+      uusiJf = { konsepti_avain: uusiAvain, konsepti_nimi: k ? k.nimi : uusiAvain, konsepti_koodi: k ? k.koodi : null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'silta', domeeni: 'teknis_taktinen' };
+    }
   }
   p.jaksofokus = uusiJf;
   document.getElementById('_vpSulkuModal')?.remove();
@@ -4985,22 +5122,24 @@ function _vpMesoKaariHTML(p) {
   if (!hist.length && !(p && p.jaksofokus)) return '';
   const esc = _jsvEsc;
   const TIC = { parani: '↑', ennallaan: '→', vaihda: '⟳' };
+  const _dIc = function (dom) { return dom === 'fyysinen' ? '🏃' : '⚽'; };   // Vaihe 6/7: domeeni-ikoni
   let h = '<div style="margin-top:12px;border-top:.5px solid var(--border);padding-top:10px">';
   h += '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Kehityskaari · jaksot (meso)</div>';
   h += '<div style="display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:4px 0">';
   hist.forEach(function (e, i) {
     const lasnaPct = (e.lasnaolo && e.lasnaolo.yhteensa) ? Math.round(e.lasnaolo.paikalla / e.lasnaolo.yhteensa * 100) : null;
+    const dBadge = (e.delta_mitattu && typeof e.delta_mitattu.muutos === 'number') ? (' · Δ ' + (e.delta_mitattu.muutos > 0 ? '+' : '') + e.delta_mitattu.muutos) : '';
     h += '<div style="min-width:128px;flex:0 0 auto;background:var(--ov-1);border:.5px solid rgba(61,163,93,.3);border-radius:10px;padding:9px 11px;margin-right:8px;position:relative">'
-      + '<span style="position:absolute;top:8px;right:9px;font-size:13px;color:var(--teal)">' + (TIC[e.tulos] || '·') + '</span>'
-      + '<div style="font-size:12.5px;color:var(--ink);font-weight:600;padding-right:14px">' + esc(e.konsepti_nimi || e.konsepti_avain) + '</div>'
-      + '<div style="font-size:9.5px;color:var(--ink3);margin-top:1px">' + (e.harjoituksia || 0) + ' harj' + (lasnaPct != null ? ' · läsnä ' + lasnaPct + '%' : '') + '</div>'
+      + '<span style="position:absolute;top:8px;right:9px;font-size:12px;color:var(--teal)">' + _dIc(e.domeeni) + ' ' + (TIC[e.tulos] || '·') + '</span>'
+      + '<div style="font-size:12.5px;color:var(--ink);font-weight:600;padding-right:26px">' + esc(e.konsepti_nimi || e.konsepti_avain) + '</div>'
+      + '<div style="font-size:9.5px;color:var(--ink3);margin-top:1px">' + (e.harjoituksia || 0) + ' harj' + (lasnaPct != null ? ' · läsnä ' + lasnaPct + '%' : '') + dBadge + '</div>'
       + '</div>';
     if (i < hist.length - 1 || (p && p.jaksofokus)) h += '<div style="display:flex;align-items:center;color:var(--ink3);margin-right:8px">→</div>';
   });
   if (p && p.jaksofokus) {
     h += '<div style="min-width:128px;flex:0 0 auto;background:linear-gradient(150deg,rgba(224,160,64,.07),var(--ov-1));border:.5px solid rgba(224,160,64,.4);border-radius:10px;padding:9px 11px;position:relative">'
-      + '<span style="position:absolute;top:8px;right:9px;font-size:13px">◷</span>'
-      + '<div style="font-size:12.5px;color:var(--ink);font-weight:600;padding-right:14px">' + esc(p.jaksofokus.konsepti_nimi || p.jaksofokus.konsepti_avain) + '</div>'
+      + '<span style="position:absolute;top:8px;right:9px;font-size:12px">' + _dIc(p.jaksofokus.domeeni) + ' ◷</span>'
+      + '<div style="font-size:12.5px;color:var(--ink);font-weight:600;padding-right:26px">' + esc(p.jaksofokus.konsepti_nimi || p.jaksofokus.konsepti_avain) + '</div>'
       + '<div style="font-size:9.5px;color:var(--ink3);margin-top:1px">nykyinen jakso</div></div>';
   }
   h += '</div></div>';
@@ -5211,8 +5350,10 @@ function _jsvTeemaWidgetHTML() {
   const isp = (window._jsvUusiJoukkueNimi && typeof _jsvJoukkueIkaSp === 'function') ? _jsvJoukkueIkaSp(window._jsvUusiJoukkueNimi) : { ika: null };
   const yksilo = (typeof tmTtItems === 'function') ? tmTtItems({ ika: isp.ika, joukkue: window._jsvUusiJoukkueNimi }) : [];
   const joukkue = (typeof TM_TT_JOUKKUE !== 'undefined') ? TM_TT_JOUKKUE : [];
+  // Vaihe 7 — Fyysinen-ryhmä (4d:n D1-polku). Sisältö TM_FYYSTEEMAT-katalogista (§34, EI kovakoodattu).
+  const fyys = (window.TM_FYYSTEEMAT_LIB ? window.TM_FYYSTEEMAT_LIB.TM_FYYSTEEMAT : []).map(function (t) { return { avain: t.avain, nimi: t.nimi, koodi: t.ikoni || 'FY' }; });
   const NONE = { avain: '__none__', koodi: '—', nimi: 'Ei teemaa (teematon harjoitus)' };
-  const groups = [{ label: null, items: [NONE] }, { label: 'Yksilökonseptit', items: yksilo }, { label: 'Joukkuetaktiset teemat', items: joukkue }];
+  const groups = [{ label: null, items: [NONE] }, { label: 'Yksilökonseptit', items: yksilo }, { label: 'Joukkuetaktiset teemat', items: joukkue }, { label: 'Fyysinen', items: fyys }];
   const cur = window._jsvUusiTeema && window._jsvUusiTeema.avain ? window._jsvUusiTeema : NONE;
   let h = _ttDropdownHTML('uusiteema', groups, cur, esc, '_jsvTeemaPick');
   h += '<div id="vpTeemaPreview" style="margin-top:10px">' + _jsvTeemaPreviewHTML(cur.avain) + '</div>';
@@ -5221,6 +5362,17 @@ function _jsvTeemaWidgetHTML() {
 function _jsvTeemaPreviewHTML(avain) {
   const esc = _jsvEsc;
   if (!avain || avain === '__none__') return '<div style="font-size:11px;color:var(--ink3);padding:2px">Teematon harjoitus — valitse teema yllä nähdäksesi konsepti + ohjaava kysymys + harjoite.</div>';
+  // Vaihe 7 — fyysinen teema (evidenssi = H-H-testit / FLEI, ei tt-cue)
+  if (String(avain).indexOf('fy_') === 0) {
+    const ft = window.TM_FYYSTEEMAT_LIB ? window.TM_FYYSTEEMAT_LIB.tmFyysTeema(avain) : null; if (!ft) return '';
+    let hf = '<div style="background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;padding:13px">';
+    hf += '<div style="font-size:11px;color:var(--ink3)">Fyysinen teema</div>';
+    hf += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;margin:2px 0 6px">' + esc(ft.ikoni + ' ' + ft.nimi) + '</div>';
+    hf += '<div style="font-size:12px;color:var(--ink2)">Evidenssi: ' + (ft.flei ? 'kehon valmius (FLEI-ketjut)' : 'H-H — ' + esc(ft.testit.join(', '))) + '</div>';
+    hf += '<div style="font-size:10.5px;color:var(--ink3);margin-top:5px">Harjoitesisältö: fysiikkavalmentajan ohjelma (Everton/HPP-pankki). Vaikutus mitataan jakson sulussa (§29).</div>';
+    hf += '</div>';
+    return hf;
+  }
   const m = _ttLoytaTeema(avain); if (!m) return '';
   const it = m.item;
   const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(avain) : [];
@@ -5238,7 +5390,10 @@ function _jsvTeemaPreviewHTML(avain) {
 }
 window._jsvTeemaPick = function (uid, avain) {
   if (avain === '__none__') window._jsvUusiTeema = null;
-  else { const m = _ttLoytaTeema(avain); window._jsvUusiTeema = m ? { tyyppi: m.tyyppi, avain: m.avain, nimi: m.nimi, koodi: m.koodi } : null; }
+  else if (String(avain).indexOf('fy_') === 0) {
+    const ft = window.TM_FYYSTEEMAT_LIB ? window.TM_FYYSTEEMAT_LIB.tmFyysTeema(avain) : null;
+    window._jsvUusiTeema = ft ? { tyyppi: 'fyysinen', avain: ft.avain, nimi: ft.nimi, koodi: ft.ikoni || null } : null;
+  } else { const m = _ttLoytaTeema(avain); window._jsvUusiTeema = m ? { tyyppi: m.tyyppi, avain: m.avain, nimi: m.nimi, koodi: m.koodi } : null; }
   const wrap = document.getElementById('vpTeemaDd');
   if (wrap) wrap.innerHTML = _jsvTeemaWidgetHTML();
 };

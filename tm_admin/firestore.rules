@@ -1,9 +1,16 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.10
+// TalentMaster™ — firestore.rules v3.11
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.10 → v3.11 (Vaihe 7 — fysiikkajakso, fysioterapeutti-klausuuli):
+//   + seurat/{sid}/pelaajat/{pid} update — fysioterapeutti saa field-level-writen
+//     VAIN ['jaksofokus', 'jaksofokus_historia'] (fyysisen jakson sulku/arvio, §4/§37).
+//     EI tt_positio_aktiivinen (ei kuulu fysioterapeutille). fysiikkavalmentaja kuuluu jo
+//     onValmentajaRooli → toimii ilman muutosta. Fysioterapeutti EI onValmentajaRooli-listassa
+//     (ei luo kalenteritapahtumia) — TIETOINEN RAJAUS, ei "korjata".
 //
 // Muutokset v3.9 → v3.10 (Vaihe 3a — IDP-kausitavoite):
 //   + seurat/{sid}/pelaajat/{pid}/idp_kausi/{vuosi} — kausitavoite (IDP-ydin,
@@ -351,7 +358,12 @@ service cloud.firestore {
                       // pelaajansa). Sulku kirjoittaa jaksofokus (korvaa/nollaa) + jaksofokus_historia (append) yhdessä.
                       || (onOmaSeura(seuraId) && (onValmentajaRooli() || onJohtoRooli())
                           && request.resource.data.diff(resource.data).affectedKeys()
-                             .hasOnly(['jaksofokus', 'tt_positio_aktiivinen', 'jaksofokus_historia']));
+                             .hasOnly(['jaksofokus', 'tt_positio_aktiivinen', 'jaksofokus_historia']))
+                      // Vaihe 7 (v3.11) — fysioterapeutti: fyysisen jakson sulku/arvio. VAIN jaksofokus +
+                      // jaksofokus_historia (EI tt_positio_aktiivinen — ei kuulu fysioterapeutille). §4/§37.
+                      || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'
+                          && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['jaksofokus', 'jaksofokus_historia']));
         // GDPR (#96): pelaajan pääDocin poisto VAIN SA (client). Aiempi johto-client-delete poisti vain
         // pääDocin → JÄTTI orvoiksi alikokoelmat + ristiviitteet + Storage-media + Auth (GDPR-rikkomus,
         // spec §0.1/§0.5). Johto poistaa nyt RTBF-CF:n (poistaPelaajaGDPR) kautta, joka tekee TÄYDEN

@@ -155,6 +155,12 @@ function talenttivalmentajaContext(uid, seuraId) {
   });
 }
 
+function fysioterapeuttiContext(uid, seuraId) {
+  return testEnv.authenticatedContext(uid, {
+    rooli: 'fysioterapeutti', seuraId,
+  });
+}
+
 function sihteeriContext(seuraId) {
   return testEnv.authenticatedContext(SIHTEERI_UID, {
     rooli: 'seurasihteeri', seuraId,
@@ -590,6 +596,25 @@ describe('Vaihe 4a — jaksofokus / tt_positio_aktiivinen (§4 roolimalli)', () 
   it('Toisen seuran valmentaja EI kirjoita jaksofokus_historiaa (tenant-eristys)', async () => {
     const db = randomContext().firestore();
     await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus_historia: HIST }));
+  });
+
+  // ── Vaihe 7 (v3.11) — fysioterapeutti: fyysisen jakson sulku (jaksofokus + jaksofokus_historia, EI tt_positio) ──
+  const JF_FYYS = { konsepti_avain: 'fy_nopeus', konsepti_nimi: 'Nopeus', domeeni: 'fyysinen', lahde: 'silta_d1', kesto_vk: 4, alkoi: '2026-07-09' };
+  it('Fysioterapeutti (oma seura) sulkee fyysisen jakson: jaksofokus + jaksofokus_historia', async () => {
+    const db = fysioterapeuttiContext('fysio-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF_FYYS, jaksofokus_historia: HIST }));
+  });
+  it('Fysioterapeutti + kielletty kenttä (flei_viimeisin) yhdessä → estetty (hasOnly)', async () => {
+    const db = fysioterapeuttiContext('fysio-fcl-001', SEURA_A).firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF_FYYS, flei_viimeisin: 42 }));
+  });
+  it('Fysioterapeutti EI kirjoita tt_positio_aktiivinen (ei kuulu roolille)', async () => {
+    const db = fysioterapeuttiContext('fysio-fcl-001', SEURA_A).firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { tt_positio_aktiivinen: 'T' }));
+  });
+  it('Toisen seuran fysioterapeutti EI kirjoita jaksofokusta (tenant-eristys)', async () => {
+    const db = fysioterapeuttiContext('fysio-kpv-001', 'kpv').firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF_FYYS, jaksofokus_historia: HIST }));
   });
 });
 
