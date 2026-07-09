@@ -21,6 +21,7 @@
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=3"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
+<script src="lib/tm_arviointi_silta.js?v=1"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) -->
 <script src="lib/tm_idp.js?v=3"></script>   <!-- Vaihe 3a+3b: IDP ehdotusmoottori + VP-fokusvalinta + review-sykli/kehityskaari/elinkaari -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v4 = parseri-korjaus (pelimuoto-saaste) -->
 <script src="lib/tm_jaksofokus.js?v=1"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
@@ -3849,6 +3850,68 @@ function _vpPosNimi(v) { if (!v) return ''; const k = String(v).trim().toUpperCa
 function _jsvEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ─── VAIHE 2 — Ominaisuusarviointi (Palloliitto-taksonomia): mitattu 🟢 (TM-testi) + havaittu 🔵 (VP/valmentaja 1–5) ───
+// ══════════ VAIHE 5 — arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) ══════════
+// Sisältö libistä (§34, tm_teknistaktiset). Ehdotus ≠ pakko (§4). Passiivinen: vain kun jaksofokus puuttuu (§4b.5).
+function _vpSiltaKonsepti(avain) {
+  if (!avain || typeof TM_TT_YOUTH === 'undefined') return null;
+  for (let i = 0; i < TM_TT_YOUTH.length; i++) if (TM_TT_YOUTH[i].avain === avain) return TM_TT_YOUTH[i];
+  return null;
+}
+// Silta-ehdotukset pelaajalle (top-3). Tyhjä kun: ei libiä / ei arviointia / jaksofokus jo asetettu.
+function _vpSiltaEhdotukset(p) {
+  if (!p || p.jaksofokus) return [];
+  const LIB = window.TM_ARVIOINTI_SILTA; if (!LIB) return [];
+  const hav = p.arviointi_havaittu; if (!hav) return [];
+  const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
+  const posCode = (typeof _vpTtNormPositio === 'function') ? (p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka)) : null;
+  const sallitut = (typeof tmTtItems === 'function') ? tmTtItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }) : null;
+  return LIB.tmSiltaEhdota(hav, { sallitutKonseptit: sallitut, konseptiNimi: function (a) { const k = _vpSiltaKonsepti(a); return k ? k.nimi : a; } });
+}
+// §4b.4 mitattu vs havaittu — läpinäkyvyys: näytä mitattu TKI-taso jos ristiriitainen (mitattavat D2-lajit).
+const _VP_SILTA_MITTA = { dribbling: 'pujottelu', short_passing: 'syotto', finishing: 'kuljetus_laukaus' };
+function _vpSiltaMitattuLbl(p, pk) {
+  const laji = _VP_SILTA_MITTA[pk]; if (!laji || !p.tk_lajit_viimeisin) return '';
+  const raw = p.tk_lajit_viimeisin[laji + '_s']; if (raw == null || typeof tkLajiTaso !== 'function') return '';
+  const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null, sp: 'P' };
+  if (isp.ika == null) return '';
+  const t = tkLajiTaso(laji, +raw, Math.round(isp.ika), isp.sp);
+  return (t != null && t > 0) ? ' <span style="color:var(--ink3)">· mitattu ' + t + '/5</span>' : '';
+}
+function _vpSiltaPreviewHTML(avain) {
+  const esc = _jsvEsc; const it = _vpSiltaKonsepti(avain); if (!it) return '';
+  const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(avain) : [];
+  const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(avain) : [];
+  let h = '';
+  if (it.pelitilanne) h += '<div style="font-style:italic;font-size:12.5px;color:var(--ink2);margin-bottom:4px">”' + esc(it.pelitilanne) + '”</div>';
+  if (kys.length) h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-top:6px">Ohjaava kysymys</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:15px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.26);border-radius:8px;padding:8px 10px;margin-top:3px">' + esc(kys[0]) + '</div>';
+  if (harj.length) { const hh = harj[0]; const ht = hh.konseptipeli || hh.painopisteet || hh.teema || ''; const pm = hh.pelimuoto || ''; h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-top:8px">Harjoite</div><div style="font-size:12px;color:var(--ink2);margin-top:2px">' + esc(ht) + (pm ? ' · ' + esc(pm) : '') + '</div>'; }
+  return h;
+}
+// Silta-paneeli arviointi-välisivulle (heikoin kortti + top-3). '' kun ei sovellu.
+function _vpSiltaPaneeliHTML(p) {
+  const ehd = _vpSiltaEhdotukset(p); if (!ehd.length) return '';
+  const esc = _jsvEsc; const top = ehd[0];
+  const preP = (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+  let h = '<div style="background:linear-gradient(150deg,rgba(40,176,144,.1),var(--bg2));border:.5px solid rgba(40,176,144,.3);border-radius:12px;padding:15px;margin-bottom:14px">';
+  h += '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);font-weight:600;margin-bottom:6px">🎯 Ehdota jaksofokus</div>';
+  h += '<div style="font-size:11px;color:var(--amber);margin-bottom:6px">▸ ' + esc(top.syy) + _vpSiltaMitattuLbl(p, top.palloliitto_avain) + '</div>';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:19px;color:var(--ink)">' + esc(top.konsepti_nimi) + '</div>';
+  h += '<div style="font-size:11px;color:var(--ink3)">Yksilökonsepti' + (preP ? ' · pre-PHV = tekninen ikkuna auki 🌱' : '') + '</div>';
+  h += '<div style="margin-top:8px">' + _vpSiltaPreviewHTML(top.konsepti_avain) + '</div>';
+  h += '<div style="margin-top:12px"><button class="jsp-kt-btn primary" style="width:100%" onclick="_jfOhjaa(\'' + esc(p.id) + '\',\'' + esc(top.konsepti_avain) + '\',\'arviointi\')">✓ Aseta jaksofokukseksi</button></div>';
+  if (ehd.length > 1) {
+    h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin:12px 0 5px">Muut ehdotukset (klik = aseta)</div>';
+    ehd.slice(1).forEach(function (e) {
+      h += '<div onclick="_jfOhjaa(\'' + esc(p.id) + '\',\'' + esc(e.konsepti_avain) + '\',\'arviointi\')" style="display:flex;align-items:center;gap:8px;background:var(--ov-1);border:.5px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;margin-top:5px">'
+        + '<span style="font-size:11px;color:var(--amber);min-width:120px">' + esc(e.palloliitto_nimi) + ' ' + e.arvo + '/5</span>'
+        + '<span style="color:var(--ink3)">→</span><span style="font-size:12.5px;color:var(--ink2);flex:1">' + esc(e.konsepti_nimi) + '</span>'
+        + '<span style="color:var(--teal);font-size:14px">＋</span></div>';
+    });
+  }
+  h += '</div>';
+  return h;
+}
+
 // §26 pikakentät (arviointi_havaittu), §5 tokenit, §7.22 aikuisnäkymä (VP-facing → 1–5 + värit sallittu). Taksonomia lib = standardi.
 // Mitattu 1–5: d1osa → laskeD1Osaindeksit, tklaji → tkLajiTaso. Mitattu voittaa havaitun (lukittu testiin). ika/sp johdetaan p:stä.
 function _vpArviointiHTML(p) {
@@ -3890,7 +3953,9 @@ function _vpArviointiHTML(p) {
 
   // Kehys- + pääteema-dropdownit (natiivi <select>, §5). Kehys-dropdown vain jos >1 kehys tai SA (esikatselu).
   const kehysAvaimet = Object.keys(ARVIOINTI_KEHYKSET);
-  let h = '<div class="jsp-arv-topbar">';
+  // Vaihe 5 — silta-ehdotus ylimpänä (vain kun jaksofokus puuttuu + D2-arviointi olemassa). Passiivinen, ei nalkuta.
+  let h = (typeof _vpSiltaPaneeliHTML === 'function') ? _vpSiltaPaneeliHTML(p) : '';
+  h += '<div class="jsp-arv-topbar">';
   if (kehysAvaimet.length > 1 || (typeof superAdmin !== 'undefined' && superAdmin)) {
     h += '<label class="jsp-arv-lbl">Kehys</label><select class="jsp-arv-select" onchange="_vpArvValitseKehys(this.value)">'
       + kehysAvaimet.map(function(k){ return '<option value="' + k + '"' + (k === kehysAvain ? ' selected' : '') + '>' + _jsvEsc(ARVIOINTI_KEHYKSET[k].nimi) + '</option>'; }).join('') + '</select>';
@@ -4522,12 +4587,17 @@ window._vpTtVieTreeniin = async function (pid, avain) {
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
   const posCode = p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka);
   const item = (typeof tmTtItems === 'function' ? tmTtItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }) : []).find(function (it) { return it.avain === avain; });
-  const jaksofokus = { konsepti_avain: avain, konsepti_nimi: item ? item.nimi : avain, konsepti_koodi: item ? item.koodi : null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'vp' };
+  // Vaihe 5: lähde voi olla 'arviointi' (silta) — muuten 'vp'. Kertakäyttöinen lippu, nollataan tallennuksen jälkeen.
+  const lahde = window._vpTtLahde || 'vp';
+  const jaksofokus = { konsepti_avain: avain, konsepti_nimi: item ? item.nimi : avain, konsepti_koodi: item ? item.koodi : null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: lahde };
+  window._vpTtLahde = 'vp';
   p.jaksofokus = jaksofokus;
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   // Vaihe 4c: jos ohjaus tapahtui jaksofokus-oversight-modaalista → sulje + päivitä taulukko.
   const _jfM = document.getElementById('_jfModal');
   if (_jfM) { _jfM.remove(); window._jfOhjausP = null; if (typeof renderJaksofokus === 'function') renderJaksofokus(); }
+  // Vaihe 5: jos ohjaus tapahtui arviointi-välisivulta → re-renderöi arviointi (silta katoaa kun fokus asetettu).
+  if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
   await _vpTtKirjoita(pid, { jaksofokus: jaksofokus }, 'Jaksofokus tallennettu');
 };
 async function _vpTtKirjoita(pid, data, viesti) {
@@ -4684,11 +4754,20 @@ function _jfTaulukko(lista, JF, talentti) {
     const nimi = (talentti ? '<span style="color:var(--amber)">⭐</span> ' : '') + _jsvEsc(_jfNimi(p));
     h += '<tr><td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink);font-weight:500;vertical-align:middle">' + nimi + '</td>';
     if (!on) {
-      h += '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">—</td>'
-        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">—</td>'
+      // Vaihe 5: arviointi olemassa → silta-ehdotus rivillä (yksi klik → _jfOhjaa esivalittuna, lahde 'arviointi').
+      const _sEhd = (typeof _vpSiltaEhdotukset === 'function') ? _vpSiltaEhdotukset(p) : [];
+      const _s1 = _sEhd.length ? _sEhd[0] : null;
+      const _konseptiSol = _s1
+        ? '<span style="color:var(--teal)" title="' + _jsvEsc(_s1.syy) + '">Ehdota: ' + _jsvEsc(_s1.konsepti_nimi) + '</span>'
+        : '—';
+      const _asetaBtn = _s1
+        ? '<button onclick="_jfOhjaa(\'' + pid + '\',\'' + _jsvEsc(_s1.konsepti_avain) + '\',\'arviointi\')" style="font-size:11px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.4);border-radius:7px;padding:5px 11px;cursor:pointer" title="' + _jsvEsc(_s1.syy) + '">Aseta ehdotus</button>'
+        : '<button onclick="_jfOhjaa(\'' + pid + '\')" style="font-size:11px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.4);border-radius:7px;padding:5px 11px;cursor:pointer">Aseta</button>';
+      h += '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">' + _konseptiSol + '</td>'
+        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">' + (_s1 ? '<span style="font-size:9.5px;border-radius:999px;padding:2px 8px;border:.5px solid rgba(40,176,144,.35);color:var(--teal);background:var(--ov-1)">arviointi</span>' : '—') + '</td>'
         + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">—</td>'
         + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3);font-size:11.5px">ei fokusta</td>'
-        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);text-align:right"><button onclick="_jfOhjaa(\'' + pid + '\')" style="font-size:11px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.4);border-radius:7px;padding:5px 11px;cursor:pointer">Aseta</button></td></tr>';
+        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);text-align:right">' + _asetaBtn + '</td></tr>';
       return;
     }
     const umpeutunut = JF.tmJfUmpeutunut(jf);
@@ -4708,13 +4787,15 @@ function _jfTaulukko(lista, JF, talentti) {
 
 // [Ohjaa]/[Aseta] → modaali jossa _vpTtKorttiHTML (konsepti→cue→harjoite, lahde 'vp').
 // §4: talenteille aina; ei-talenteille override (ei estä valmentajan omaa jaksofokusta).
-window._jfOhjaa = function (pid) {
+// Vaihe 5: valinnaiset esiValinta (konsepti-avain) + lahde ('arviointi' sillasta) — muuten 'vp'.
+window._jfOhjaa = function (pid, esiValinta, lahde) {
   const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : ((typeof _pelaajat !== 'undefined' && _pelaajat) || []).find(function (x) { return x.id === pid; });
   if (!p) { if (typeof toast === 'function') toast('Pelaajaa ei löytynyt', 'error'); return; }
   if (typeof _vpTtKorttiHTML !== 'function') return;
   window._vpArvPelaaja = p;      // sama objekti jonka _vpTtVieTreeniin mutatoi + dropdown re-renderöi
   window._jfOhjausP = p;
-  delete window._vpTtValinta[p.id];
+  window._vpTtLahde = lahde || 'vp';
+  if (esiValinta) window._vpTtValinta[p.id] = esiValinta; else delete window._vpTtValinta[p.id];
   document.getElementById('_jfModal')?.remove();
   const kortti = _vpTtKorttiHTML(p);
   const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).</div>' : '';

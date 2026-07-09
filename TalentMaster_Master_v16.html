@@ -18,6 +18,7 @@
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (konsepti→cue→harjoite), generoitu I1-parserilla · v4 = parseri-korjaus (pelimuoto-saaste) -->
+<script src="lib/tm_arviointi_silta.js?v=1"></script>   <!-- Vaihe 5: arviointi→resepti-silta (4a lähde-vihje: arvioinnin heikoin havaittu) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
@@ -5289,6 +5290,17 @@ function _ttKorttiHTML(p) {
          : (_posCode ? (' · ' + esc(((typeof TM_TT_PELIPAIKAT !== 'undefined' && TM_TT_PELIPAIKAT[_posCode]) ? TM_TT_PELIPAIKAT[_posCode].nimi : _posCode)))
                      : ' · pelipaikka asettamatta'))
       + ' · ⬆ laddaa kausifokukseen</div>';
+  // Vaihe 5 — lähde-vihje: kun jaksofokus puuttuu, näytä arvioinnin heikoin havaittu (silta) konseptin lähteenä.
+  if (!jf && window.TM_ARVIOINTI_SILTA && p.arviointi_havaittu) {
+    const _sEhd = window.TM_ARVIOINTI_SILTA.tmSiltaEhdota(p.arviointi_havaittu, {
+      sallitutKonseptit: items,
+      konseptiNimi: function (a) { const it = items.find(function (x) { return x.avain === a; }); return it ? it.nimi : a; }
+    });
+    if (_sEhd.length) {
+      const _s1 = _sEhd[0];
+      h += '<div style="margin-top:6px;font-size:11px;color:var(--teal)">🎯 Arvioinnin heikoin: ' + esc(_s1.palloliitto_nimi) + ' (' + _s1.arvo + '/5) → ehdotettu <b>' + esc(_s1.konsepti_nimi) + '</b></div>';
+    }
+  }
   // Konseptivalinta (valmentaja omistaa). Pelipaikkavaiheessa ilman positiota → "Aseta pelipaikka" -CTA (Silta-siirtymä).
   const _selStyle = 'width:100%;background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink);border:.5px solid var(--border);border-radius:7px;padding:7px 9px;font-size:12px;font-family:\'DM Sans\',sans-serif';
   if (vaihe === 'pelipaikka' && !_posCode) {
