@@ -36,6 +36,21 @@ Funktiot (PURE, dual-export `module.exports || window.TM_FYYSTEEMAT_LIB`, Vitest
 - **Kahden sillan yhteiselo (D2 vs D1 — täsmennys 2026-07-09):** V5-silta (heikoin D2 → tt-konsepti) ja D1-silta ehdottavat samaan tyhjään `jaksofokus`-slottiin. Kun fokus puuttuu ja MOLEMMAT kandidaatit ovat olemassa → näytetään **rinnakkain** ja aikuinen valitsee (ei automaattista prioriteettia; poikkeus: FLEI<40 nostetaan ensimmäiseksi). Roolipainotus järjestyksessä: fysiikkavalmentaja-kontekstissa D1 ensin, joukkuevalmentajalla D2 ensin, VP näkee molemmat. Ehdotus ≠ pakko (§4b.5).
 - Sulun jälkeen silta ehdottaa seuraavaa SAMAN domeenin sisällä: fyysisen jakson sulku → `tmFyysEhdota` (ei `tmSiltaEhdota`/D2). `_vpSulkuSeuraava`/`_msSeuraava` haarautuvat `jf.domeeni`-tagilla.
 
+## 2c. Henkilökohtainen fysiikkaohjelma — ohjelma-slot (Teron vaatimus 2026-07-09, TÄRKEÄ)
+Pelaaja voi saada **henkilökohtaisen fyysisen ohjelman** (nopeus-voima, perusvoima, kuntoutus, liikkuvuus, ...). Järjestelmän on tallennettava ohjelma niin, että sen **vaikutus näkyy** (ohjelma → toteuma → delta) ja että AI voi myöhemmin analysoida: mitä harjoiteltiin, kuinka paljon, sopiiko ohjelma pelaajan kasvuvaiheeseen. Malli: **ohjelma = annos · jakso = mittausikkuna · delta = vaste.**
+- **V7-minimi — `jaksofokus.ohjelma`-objekti (additiivinen, valinnainen):**
+```
+ohjelma: { tyyppi: 'nopeus_voima'|'perusvoima'|'kuntoutus'|'nopeus'|'liikkuvuus'|'muu',
+           nimi, kuvaus,                        // vapaa harjoitussisältö (EI terveysyksityiskohtia, ks. alla)
+           laatija_uid, laatija_rooli,          // fysiikkavalmentaja/fysioterapeutti/valmentaja/vp
+           phv_tila_alussa,                     // kasvuvaihe-snapshot ohjelman alussa (§28 — AI-analyysin avain)
+           lahtotaso: { hh_taso, fokustesti_arvo },   // baseline pikakentistä asetushetkellä
+           luotu }                              // ISO
+```
+  Asetetaan fyysisen jaksofokuksen yhteydessä (D1-siltakortti / manuaalinen). **Sulku kopioi `ohjelma`-objektin historia-entryyn** → jokainen suljettu jakso = yksi annos–vaste-rivi: *(ohjelmatyyppi + toteuma [harjoituksia/läsnäolo, myöh. K5-kuorma] + biologinen tila [phv_tila_alussa]) → (delta_mitattu + arviot)*. Tämä on täsmälleen rakenne jonka AI-analyysi tarvitsee — datasetti alkaa kertyä heti V7:stä.
+- **7.2 (EI V7:ssä):** ohjelmakirjasto/editori (`ohjelmat/{id}`-alikokoelma — VARATTU jo §11 pääkokoelmassa: sisältörakenne, viikko-ohjelmat, harjoitteet) + **AI-ohjelma-analyysi** (`aiProxy` CF on jo olemassa §13): "onko ohjelma oikeanlainen tälle pelaajalle tässä kasvuvaiheessa" — lukee historia-entryjen annos–vaste-rivit + phv/bio-ikä. V7:n ohjelma-slot suunnitellaan niin että 7.2 EI vaadi migraatiota (ohjelma_id-viittaus lisättävissä additiivisesti).
+- **⚠ GDPR Art. 9 -raja:** tyyppi `'kuntoutus'` on OK neutraalina harjoitusohjelmana, mutta **vamma-/terveysyksityiskohdat EIVÄT kuulu `ohjelma`-kenttään** — ne kuuluvat `terveys/`-alikokoelmaan (oma suostumus, §11). `kuvaus` pidetään harjoitussisältönä (esim. "eksentrinen takareisi 2×/vk"), ei diagnooseina. Kirjaa tämä Code-toteutukseen kommenttina.
+
 ## 3. Treeniteema — 4d:n D1-polku auki
 - `treeniteema.tyyppi` laajenee: **`'fyysinen'`** (additiivinen; nykyiset `'yksilo_konsepti'|'joukkue_teema'` ennallaan). `avain:'fy_*'`, `nimi`, `lahde:'jaksofokus'|'manuaalinen'`, `pelaajat_id[]` kuten 4d.
 - `avaaUusiTapahtuma`-teemavalitsimeen kolmas ryhmä **"Fyysinen"** (sisältö `TM_FYYSTEEMAT`-katalogista, EI kovakoodattu §34). Custom-dropdown §37.
@@ -68,10 +83,10 @@ V6-sulkukortti (`_vpSulkuRender`/`_msRender`) saa evidenssilohkon `jf.domeeni`-t
 - **K5 kuorma/dropout** — eri kerros (4d/K2 tuottaa raakadatan).
 - **Fyysisten teemojen harjoitepankki/cue-sisältö** — teemakortti näyttää nimen + testikytköksen; varsinainen harjoitesisältö (vrt. tt-curriculum) omana sisältötyönä.
 - **Pelaajan oma itsearvio-portti Pelaaja_v7:ssä** — edelleen 6.1 (valmentaja-proxy riittää).
-- **Fysioterapeutin terveys-workflow** (GDPR Art. 9 `terveys/`-alikokoelma) — täysin erillään; V7 antaa vain jaksofokus/historia-kirjoituksen.
+- **Fysioterapeutin terveys-workflow** (GDPR Art. 9 `terveys/`-alikokoelma) — täysin erillään; V7 antaa vain jaksofokus/historia-kirjoituksen. Ohjelma-slotin Art. 9 -raja ks. §2c.
 - **GPS/Catapult/Polar-kuormadata jakson evidenssinä (Teron kirjaus 2026-07-09)** — datamalli tukee jo (`kirjaukset.lahde 'catapult'|'polar'` §11); jakson ulkoinen kuorma (matka, high-speed running, kuormakertymä) = K5-kerroksen prosessi-evidenssi. Tulevaisuudessa historia-entryyn additiivinen `kuorma_kooste`-kenttä (dose ≠ response: kuorma täydentää prosessia, EI korvaa mitattua deltaa). EI V7:ssä.
 - **Pelaajan 4b-cue-kerros fyysiselle fokukselle** — 4b on tt-spesifi (`tmTtPelaaja`); pelaaja ei vielä näe fyysistä fokustaan. 4b-laajennos omana vaiheena.
 - **Automaattinen mittaus→sulku** — EI; aina ihminen vahvistaa (V6-invariantti).
 
 ## 8. Verifiointi
-Vitest `tm_fyysteemat.js`: ehdotus-mapping (hh_kehityskohde→teema, FLEI<40-prioriteetti, D2-avaimet ei mäppäydy, null-fallback) · delta-pvm-vahti (vanha mittaus → null; tuore → arvot+pvm:t) · PHV-portti (PRE/LAH → neutraali). **Rules emulaattoriajolla** (§5 — 4 uutta testiä, aja `firebase emulators:exec`). Live VP_v25 + Master_v16: D1-siltakortti → fyysinen fokus → fyysinen teemaharjoitus kalenteriin → sulku (a) tuoreella mittauksella: delta näkyy + `delta_mitattu` tallentuu historiaan, (b) ilman mittausta: subjektiivinen polku + "suunnittele mittaus" -CTA, (c) pre-PHV-pelaajalla: §28-banneri → historia-entry + kaari domeeni-ikonilla → silta ehdottaa seuraavan D1-teeman. §28-kieli tarkistettu (ei "epäonnistui", ei moitetta). `npm test` + lint + selain-tarkistus deployatusta mainista. Rules v3.11 Console-deploy kirjattu. **Merge vasta kun Tero sanoo "live".**
+Vitest `tm_fyysteemat.js`: ehdotus-mapping (hh_kehityskohde→teema, FLEI<40-prioriteetti, D2-avaimet ei mäppäydy, null-fallback) · delta-pvm-vahti (vanha mittaus → null; tuore → arvot+pvm:t) · PHV-portti (PRE/LAH → neutraali). **Rules emulaattoriajolla** (§5 — 4 uutta testiä, aja `firebase emulators:exec`). Live VP_v25 + Master_v16: D1-siltakortti → fyysinen fokus → fyysinen teemaharjoitus kalenteriin → sulku (a) tuoreella mittauksella: delta näkyy + `delta_mitattu` tallentuu historiaan, (b) ilman mittausta: subjektiivinen polku + "suunnittele mittaus" -CTA, (c) pre-PHV-pelaajalla: §28-banneri → historia-entry + kaari domeeni-ikonilla → silta ehdottaa seuraavan D1-teeman. Ohjelma-slot: aseta fokus ohjelmalla (tyyppi+phv_tila_alussa+lahtotaso tallentuvat) → sulku kopioi ohjelman historia-entryyn (annos–vaste-rivi). §28-kieli tarkistettu (ei "epäonnistui", ei moitetta). `npm test` + lint + selain-tarkistus deployatusta mainista. Rules v3.11 Console-deploy kirjattu. **Merge vasta kun Tero sanoo "live".**
