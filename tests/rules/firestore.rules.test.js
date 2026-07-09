@@ -575,8 +575,16 @@ describe('Vaihe 4a — jaksofokus / tt_positio_aktiivinen (§4 roolimalli)', () 
     const db = vpContext(SEURA_A).firestore();
     await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, jaksofokus_historia: HIST }));
   });
-  it('jaksofokus_historia + kielletty kenttä yhdessä → estetty (hasOnly)', async () => {
-    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+  // HUOM: valmentajalla on jo koko-dokin update (onOmanSeuranValmentaja) → hasOnly-rajaus ei
+  // koske häntä; yhdistelmäkirjoitus onnistuu designin mukaan. Field-level-klausuulin lisäarvo
+  // on seurasihteerille (johtorooli ILMAN broad valmennusdata-writeä) — sama kuvio kuin
+  // PR #115:n "Seurasihteeri EI pääse muihin kenttiin jaksofokuksen ohella" -testissä.
+  it('Seurasihteeri kirjoittaa jaksofokus_historian field-level (hasOnly sallii)', async () => {
+    const db = sihteeriContext(SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, jaksofokus_historia: HIST }));
+  });
+  it('Seurasihteeri EI kirjoita jaksofokus_historiaa + kiellettyä kenttää yhdessä (hasOnly)', async () => {
+    const db = sihteeriContext(SEURA_A).firestore();
     await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus_historia: HIST, flei_viimeisin: 88 }));
   });
   it('Toisen seuran valmentaja EI kirjoita jaksofokus_historiaa (tenant-eristys)', async () => {
