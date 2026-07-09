@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vaihe 7 — Fysiikkajakso (sama moottori, D1 + mitattu delta + PHV-portti)</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#111110;--card:#161614;--deep:#1C1C1A;--ov-1:rgba(255,255,255,.03);--ov-3:rgba(255,255,255,.08);
+--border:rgba(255,255,255,.10);--ink:#F2F1EC;--ink2:#C9C7BE;--ink3:#8A887F;--teal:#28B090;--blue:#2A5DB0;--amber:#E0A040;--green:#3DA35D}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0d0c;color:var(--ink);font-family:'DM Sans',sans-serif;padding:22px 16px;line-height:1.45}
+.wrap{max-width:960px;margin:0 auto}
+h1,h2,h3{font-family:'Cormorant Garamond',serif;font-weight:400}
+.tag{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:6px;padding:2px 8px}
+h1{font-size:23px;margin:12px 0 3px}
+.lead{color:var(--ink2);font-size:13px;max-width:780px;margin-bottom:14px}
+.cycle{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:11px;color:var(--ink3);margin-bottom:18px}
+.cycle b{color:var(--teal)}.cycle .now{color:var(--amber);font-weight:600}.cycle .ar{opacity:.5}
+.panel{background:var(--card);border:.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px}
+.panel h3{font-size:16px;margin-bottom:2px}.panel .sub{font-size:11px;color:var(--ink3);margin-bottom:12px}
+.blk{background:var(--deep);border:.5px solid var(--border);border-radius:10px;padding:13px}
+.blk .l{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:7px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+/* silta D1 */
+.silta{background:linear-gradient(150deg,rgba(42,93,176,.10),var(--deep));border:.5px solid rgba(42,93,176,.35);border-radius:10px;padding:13px}
+.silta .k{font-size:11px;color:var(--blue);margin-bottom:4px;filter:brightness(1.5)}
+.silta .n{font-family:'Cormorant Garamond',serif;font-size:20px}
+.silta .why{font-size:11.5px;color:var(--ink2);margin-top:3px}
+.silta .pvm{font-size:10.5px;color:var(--ink3);margin-top:2px}
+.cta{display:inline-block;font-size:12px;font-weight:600;color:var(--teal);background:rgba(40,176,144,.12);border:.5px solid rgba(40,176,144,.4);border-radius:8px;padding:7px 13px;margin-top:10px;cursor:pointer}
+.cta.dim{color:var(--ink2);background:var(--ov-1);border-color:var(--border);font-weight:400}
+.hint{font-size:10.5px;color:var(--ink3);font-style:italic;margin-top:8px}
+/* teemavalitsin */
+.teemat{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px}
+.tm{font-size:11.5px;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2);border-radius:8px;padding:7px 11px;cursor:pointer}
+.tm.sel{border-color:rgba(40,176,144,.5);background:rgba(40,176,144,.12);color:var(--teal);font-weight:600}
+.tm small{display:block;font-size:9px;color:var(--ink3);margin-top:1px}
+/* sulkukortti */
+.proc{display:flex;gap:8px;align-items:baseline}
+.proc .big{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--teal)}
+.proc .u{font-size:11px;color:var(--ink3)}
+.delta{display:flex;align-items:center;gap:10px;margin-top:8px}
+.delta .arr{color:var(--ink3)}
+.delta .v{font-family:'Cormorant Garamond',serif;font-size:24px}
+.delta .v.old{color:var(--ink3)}.delta .v.new{color:var(--teal)}
+.delta .up{font-size:12px;color:var(--green);font-weight:600}
+.pvmr{font-size:10px;color:var(--ink3);margin-top:3px}
+.phv{display:flex;gap:9px;align-items:flex-start;background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.3);border-radius:8px;padding:9px 11px;margin-top:10px}
+.phv .i{font-size:15px}.phv .t{font-size:11.5px;color:var(--ink2)}.phv .t b{color:var(--amber)}
+.nom{border:.5px dashed var(--ov-3);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:11.5px;color:var(--ink3)}
+.nom b{color:var(--ink2)}
+.dots{display:inline-flex;gap:3px;vertical-align:middle}.d{width:13px;height:13px;border-radius:50%;background:var(--ov-3)}.d.on{background:var(--teal)}
+.rrow{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11px;color:var(--ink3)}
+.rrow .lbl{width:150px}
+.res{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
+.rb{flex:1;min-width:110px;text-align:center;font-size:11.5px;border-radius:8px;padding:8px 6px;border:.5px solid var(--border);background:var(--ov-1);cursor:pointer;color:var(--ink2)}
+.rb.sel{border-color:rgba(61,163,93,.5);background:rgba(61,163,93,.12);color:var(--green);font-weight:600}
+/* kaari */
+.kaari{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:4px 0}
+.kj{min-width:132px;flex:0 0 auto;background:var(--ov-1);border:.5px solid rgba(61,163,93,.3);border-radius:10px;padding:9px 11px;margin-right:8px;position:relative}
+.kj .ic{position:absolute;top:7px;right:8px;font-size:12px}
+.kj .n{font-size:12.5px;font-weight:600;padding-right:16px}
+.kj .m{font-size:9.5px;color:var(--ink3);margin-top:1px}
+.kj.now{background:linear-gradient(150deg,rgba(224,160,64,.07),var(--ov-1));border-color:rgba(224,160,64,.4)}
+.kar{display:flex;align-items:center;color:var(--ink3);margin-right:8px}
+.note{font-size:11px;color:var(--ink3);border-left:2px solid var(--teal);padding:2px 0 2px 10px;margin-top:12px}
+</style></head>
+<body><div class="wrap">
+<span class="tag">Vaihe 7 · mockup · VP_v25 + Master_v16</span>
+<h1>Fysiikkajakso — sama moottori, D1-fokus + mitattu delta + PHV-portti</h1>
+<p class="lead">Vaihe 6:n jaksosykli-moottori saa toisen ilmentymän: <b style="color:var(--teal)">domeeni 'fyysinen'</b>. Uutta on vain fokuksen lähde (heikoin D1) ja vaikutuksen evidenssi (mitattu delta §29 + PHV-portti §28) — sulku, historia ja kaari toimivat jo.</p>
+<div class="cycle"><b>heikoin D1</b> <span class="ar">→</span> <b>silta ehdottaa</b> <span class="ar">→</span> fyysinen jaksofokus <span class="ar">→</span> <b>fyysinen treeniteema (4d)</b> <span class="ar">→</span> läsnäolo (K2) <span class="ar">→</span> <span class="now">sulku: prosessi + delta/subjektiivinen + PHV-portti</span> <span class="ar">→</span> seuraava D1-fokus</div>
+
+<!-- 1. D1-SILTA -->
+<div class="panel">
+  <h3>1 · D1-silta — fokuksen asetus (kun jaksofokusta ei ole)</h3>
+  <div class="sub">tmFyysEhdota: FLEI&lt;40 → Liikehallinta (prioriteetti) · muuten hh_kehityskohde → teema. Passiivinen ehdotus (§4b.5) — ei pakko.</div>
+  <div class="grid2">
+    <div class="silta">
+      <div class="k">↗ Heikoin D1 (silta ehdottaa)</div>
+      <div class="n">Nopeus</div>
+      <div class="why">30m: taso 2 ikäisekseen · hh_kehityskohde lin30m</div>
+      <div class="pvm">mittaus 12.4.2026 · Testaus H-H laaja</div>
+      <span class="cta">✓ Aseta fysiikkajakso · 4 vk</span>
+      <div class="hint">Jos tekninen jakso on käynnissä: "Tekninen jakso käynnissä — fysiikkajakso sen jälkeen" (yksi fokus kerrallaan, §2).</div>
+    </div>
+    <div class="silta" style="border-color:rgba(224,160,64,.35);background:linear-gradient(150deg,rgba(224,160,64,.08),var(--deep))">
+      <div class="k" style="color:var(--amber)">↗ FLEI-prioriteetti</div>
+      <div class="n">Liikehallinta (kehon valmius)</div>
+      <div class="why">FLEI 36 &lt; 40 → klinikkajatkumo (§14) ohittaa muut teemat</div>
+      <div class="pvm">FLEI-mittaus 2.5.2026 · heikoin ketju ↔️ LL</div>
+      <span class="cta">✓ Aseta fysiikkajakso · 4 vk</span>
+    </div>
+  </div>
+</div>
+
+<!-- 2. TEEMAVALITSIN -->
+<div class="panel">
+  <h3>2 · Fyysinen treeniteema — kalenterin teemavalitsin (4d:n D1-polku)</h3>
+  <div class="sub">avaaUusiTapahtuma → treeniteema.tyyppi 'fyysinen' (additiivinen). Katalogi lib/tm_fyysteemat.js — EI kovakoodattu (§34).</div>
+  <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">Teema — Fyysinen</div>
+  <div class="teemat">
+    <span class="tm sel">🏃 Nopeus<small>lin 5/10/30m</small></span>
+    <span class="tm">⚡ Räjähtävyys<small>CMJ · SJ</small></span>
+    <span class="tm">🫁 Kestävyys<small>MAS</small></span>
+    <span class="tm">🔄 Ketteryys &amp; suunnanmuutos<small>käsirata · sm</small></span>
+    <span class="tm">🧘 Liikehallinta<small>FLEI-ketjut</small></span>
+  </div>
+  <div class="note">tmJaksonHarjoitukset ja tmTtKate matchaavat avain-pohjaisesti → fy_*-avaimet toimivat sulussa ja kattavuudessa ilman moottorimuutosta.</div>
+</div>
+
+<!-- 3. SULKUKORTTI -->
+<div class="panel">
+  <h3>3 · Jakson sulku — evidenssi-slot domeenin mukaan</h3>
+  <div class="sub">Sama V6-kortti; fyysinen domeeni lisää delta-lohkon (§29) + PHV-portin (§28). Kytkee delta_mitattu-kentän historiaan (V6-aukko korjautuu).</div>
+  <div class="grid2">
+    <div class="blk">
+      <div class="l">A · Tuore mittaus osui jaksolle → mitattu delta</div>
+      <div class="proc"><span class="big">6</span><span class="u">fyysistä teemaharjoitusta · läsnä 5/6</span></div>
+      <div class="delta"><span class="v old">2.7</span><span class="arr">→</span><span class="v new">3.1</span><span class="up">↑ H-H-taso</span></div>
+      <div class="pvmr">mittaukset 1.4.2026 → 12.10.2026 · 30m 5.42 s → 5.18 s</div>
+      <div class="rrow"><span class="lbl">🧒 Pelaajan itsearvio</span><span class="dots"><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d"></span></span></div>
+      <div class="rrow"><span class="lbl">🏋️ Fysiikkavalmentaja-arvio</span><span class="dots"><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d"></span><span class="d"></span></span></div>
+      <div class="res"><span class="rb sel">↑ Parani</span><span class="rb">→ Ennallaan — jatka</span><span class="rb">⟳ Vaihda fokus</span></div>
+    </div>
+    <div class="blk">
+      <div class="l">B · Ei uutta mittausta → subjektiivinen riittää (§29)</div>
+      <div class="proc"><span class="big">4</span><span class="u">fyysistä teemaharjoitusta · läsnä 4/4</span></div>
+      <div class="nom">Ei uutta mittausta jaksolla — <b>subjektiivinen arvio riittää</b>. Deltaa ei väitetä ilman mittausta.</div>
+      <span class="cta dim">📏 Suunnittele mittaus → Testaus</span>
+      <div class="phv"><span class="i">🌱</span><span class="t"><b>PHV-vaihe (§28):</b> nopeus- ja voimakehitys ennen kasvupyrähdystä on rajallista — <b>"ennallaan" on biologisesti odotettua</b>, ei epäonnistuminen.</span></div>
+      <div class="res"><span class="rb">↑ Parani</span><span class="rb sel">→ Ennallaan — jatka</span><span class="rb">⟳ Vaihda fokus</span></div>
+    </div>
+  </div>
+  <div class="note">Tulos-kehys sama kuin V6: parani / ennallaan — jatka / vaihda. EI "epäonnistui". Kalibraatio + video-placeholder kuten V6.</div>
+</div>
+
+<!-- 4. MESO-KAARI -->
+<div class="panel">
+  <h3>4 · Meso-kehityskaari — domeenit rinnakkain</h3>
+  <div class="sub">Sama kaari (jaksofokus_historia[]); kortti saa domeeni-ikonin. Pelaajan kehitystarina yli domeenien.</div>
+  <div class="kaari">
+    <div class="kj"><span class="ic">⚽ ↑</span><div class="n">Kuljettaminen</div><div class="m">3 harj · läsnä 100%</div></div>
+    <div class="kar">→</div>
+    <div class="kj"><span class="ic">⚽ →</span><div class="n">Syöttäminen</div><div class="m">2 harj · läsnä 50%</div></div>
+    <div class="kar">→</div>
+    <div class="kj"><span class="ic">🏃 ↑</span><div class="n">Nopeus</div><div class="m">6 harj · läsnä 83% · Δ +0.4</div></div>
+    <div class="kar">→</div>
+    <div class="kj now"><span class="ic">🏃 ◷</span><div class="n">Kestävyys</div><div class="m">nykyinen jakso</div></div>
+  </div>
+</div>
+
+<div class="note" style="margin-top:4px">Roolit: fysiikkavalmentaja = onValmentajaRooli (toimii jo) · <b style="color:var(--ink2)">fysioterapeutti lisätään field-level-rulesiin</b> (jaksofokus + jaksofokus_historia, EI tt_positio) → rules v3.11 + Console-deploy + emulaattoritestit. VP oversight kuten V6.</div>
+</div></body></html>
