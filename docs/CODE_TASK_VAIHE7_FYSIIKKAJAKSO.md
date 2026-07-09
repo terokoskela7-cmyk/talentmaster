@@ -8,6 +8,7 @@ Fyysinen vaikutus **on** objektiivisesti mitattavissa (H-H: lin30m/CMJ/MAS; FLEI
 - **§28 PHV-portti (KRIITTINEN):** pre-PHV (`phv_tila 'PRE'|'LAH'` tai `onNeutraaliPrePHV(p)`) → nopeus/voima-adaptaatio ennen kasvupyrähdystä on biologisesti rajallista → *"ei parantunut 30m"* = **odotettua, EI epäonnistunut jakso.** Delta esitetään kehityskielellä; tulos-kehys sama `parani / ennallaan — jatka / vaihda` (EI "epäonnistui"). Sama älä-syyllistä-kehys kuin V6:ssa, eri biologinen syy (tekniikka = hidas adaptaatio · fysiikka = kypsyysvaihe).
 - **V6 §0 prosessirehellisyys pätee:** ensisijainen signaali = tehtiinkö suunnitellut fyysiset teemaharjoitukset + läsnäolo. 0 harjoitusta → "jakso ei toteutunut treeneissä", ei vaikutusväitettä.
 - **Datan ikä esitettävä** (CODE_TASK_DATA_TUOREUS-linjaus): delta-lohkossa molempien mittausten pvm **pp.kk.vvvv**.
+- **Taso-delta huomioi kasvun automaattisesti:** H-H-taso on ikänormitettu tilannekuva → raaka-ajan paraneminen kasvun tahdissa pitää tason ennallaan; taso-nousu = kehitys YLI ikäkäyrän. Tämä tukee PHV-porttia: pre-PHV "taso ennallaan" on täsmälleen odotettu tulos.
 - **METODOLOGIA-INVARIANTTI (CLAUDE.md header):** H-H-taso on tilannekuva testihetken iästä — delta kahden mittauksen välillä on validi vertailu, mutta vanhaa mittausta EI kehystetä nykytilaksi.
 
 ## 1. Fyysinen teemaluettelo — uusi PURE-lib `lib/tm_fyysteemat.js` (§34: sisältö libistä)
@@ -32,6 +33,7 @@ Funktiot (PURE, dual-export `module.exports || window.TM_FYYSTEEMAT_LIB`, Vitest
 - Kun pelaajalla **ei ole jaksofokusta** ja `tmFyysEhdota(p)` palauttaa teeman → ehdotuskortti (V5-siltakuvio): *"Heikoin D1: Nopeus — 30m taso 2 (mittaus 12.4.2026)"* → **[Aseta fysiikkajakso · 4 vk]**. Passiivinen kuten V5 (§4b.5): ehdotus ≠ pakko.
 - `jaksofokus`-objekti = **sama rakenne**, `domeeni:'fyysinen'`, `konsepti_avain:'fy_*'`, `konsepti_nimi`, `lahde:'silta_d1'`, `alkoi` ISO, `kesto_vk:4`. Sulku perii domeenin uuteen jaksoon (V6 tekee jo).
 - **PÄÄTÖS — yksi aktiivinen jaksofokus kerrallaan:** pelaajalla on YKSI `jaksofokus`-pikakenttä; fyysinen ja teknis-taktinen jakso EIVÄT ole rinnakkain. Peruste: meso-filosofian ydin = yksi fokus kerrallaan (4a); moottori (sulku/historia/kaari) lukee yhtä kenttää — rinnakkaisuus vaatisi moottorimuutoksen jota §8 nimenomaan välttää. Jos pilotti osoittaa aidon tarpeen rinnakkaisille (joukkuevalmentajan tt-fokus + fysiikkavalmentajan D1-fokus samaan aikaan) → **7.1: `jaksofokus_fyysinen`-rinnakkaiskenttä** (sulkufunktiot saavat jf:n jo parametrina-tyylisesti tilasta, laajennos additiivinen). UI:ssa: jos aktiivinen tt-jakso on käynnissä, D1-siltakortti näyttää passiivisen vihjeen *"Tekninen jakso käynnissä — fysiikkajakso sen jälkeen"* (ei blokkaavaa virhettä).
+- **Kahden sillan yhteiselo (D2 vs D1 — täsmennys 2026-07-09):** V5-silta (heikoin D2 → tt-konsepti) ja D1-silta ehdottavat samaan tyhjään `jaksofokus`-slottiin. Kun fokus puuttuu ja MOLEMMAT kandidaatit ovat olemassa → näytetään **rinnakkain** ja aikuinen valitsee (ei automaattista prioriteettia; poikkeus: FLEI<40 nostetaan ensimmäiseksi). Roolipainotus järjestyksessä: fysiikkavalmentaja-kontekstissa D1 ensin, joukkuevalmentajalla D2 ensin, VP näkee molemmat. Ehdotus ≠ pakko (§4b.5).
 - Sulun jälkeen silta ehdottaa seuraavaa SAMAN domeenin sisällä: fyysisen jakson sulku → `tmFyysEhdota` (ei `tmSiltaEhdota`/D2). `_vpSulkuSeuraava`/`_msSeuraava` haarautuvat `jf.domeeni`-tagilla.
 
 ## 3. Treeniteema — 4d:n D1-polku auki
@@ -55,6 +57,7 @@ V6-sulkukortti (`_vpSulkuRender`/`_msRender`) saa evidenssilohkon `jf.domeeni`-t
   `|| (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['jaksofokus', 'jaksofokus_historia']))`
   — EI `tt_positio_aktiivinen` (ei kuulu fysioterapeutille). Rules-header bump **v3.11** + **Console-deploy** (§12, manuaalinen — kirjaa verifiointiin).
 - **Rules-testit (emulaattorilla — V6-opetus: testit skippautuvat ilman emulaattoria, AJA OIKEASTI ennen "valmista"):** fysioterapeutti kirjoittaa jaksofokus+historia ✓ · fysioterapeutti + kielletty kenttä (esim. flei_viimeisin) → estetty ✓ · fysioterapeutti EI kirjoita tt_positio_aktiivinen ✓ · toisen seuran fysioterapeutti → estetty ✓. (Sihteeri-kuvio ennallaan, PR #130.)
+- **Fysioterapeutin UI-pääsy VERIFIOITAVA:** Master_v16:n kirjautumis-/roolisallinta tarkistettava toteutuksessa (oikeus ilman näkymää on kuollut kirjain). TIETOINEN RAJAUS: fysioterapeutti EI kuulu `onValmentajaRooli`-listaan → ei luo kalenteritapahtumia — tämä on OIKEIN (fysioterapeutti arvioi + sulkee; fysiikkavalmentaja suunnittelee treenit). Codelle: ÄLÄ "korjaa" tätä lisäämällä fysioterapeuttia valmentajaroolilistaan.
 - VP → `arvio_vp` (oversight + kaikki), kuten V6.
 
 ## 6. Meso-kaari — domeeni näkyviin
@@ -66,6 +69,8 @@ V6-sulkukortti (`_vpSulkuRender`/`_msRender`) saa evidenssilohkon `jf.domeeni`-t
 - **Fyysisten teemojen harjoitepankki/cue-sisältö** — teemakortti näyttää nimen + testikytköksen; varsinainen harjoitesisältö (vrt. tt-curriculum) omana sisältötyönä.
 - **Pelaajan oma itsearvio-portti Pelaaja_v7:ssä** — edelleen 6.1 (valmentaja-proxy riittää).
 - **Fysioterapeutin terveys-workflow** (GDPR Art. 9 `terveys/`-alikokoelma) — täysin erillään; V7 antaa vain jaksofokus/historia-kirjoituksen.
+- **GPS/Catapult/Polar-kuormadata jakson evidenssinä (Teron kirjaus 2026-07-09)** — datamalli tukee jo (`kirjaukset.lahde 'catapult'|'polar'` §11); jakson ulkoinen kuorma (matka, high-speed running, kuormakertymä) = K5-kerroksen prosessi-evidenssi. Tulevaisuudessa historia-entryyn additiivinen `kuorma_kooste`-kenttä (dose ≠ response: kuorma täydentää prosessia, EI korvaa mitattua deltaa). EI V7:ssä.
+- **Pelaajan 4b-cue-kerros fyysiselle fokukselle** — 4b on tt-spesifi (`tmTtPelaaja`); pelaaja ei vielä näe fyysistä fokustaan. 4b-laajennos omana vaiheena.
 - **Automaattinen mittaus→sulku** — EI; aina ihminen vahvistaa (V6-invariantti).
 
 ## 8. Verifiointi
