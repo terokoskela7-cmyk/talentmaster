@@ -19,6 +19,8 @@
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (konsepti→cue→harjoite), generoitu I1-parserilla · v4 = parseri-korjaus (pelimuoto-saaste) -->
 <script src="lib/tm_arviointi_silta.js?v=1"></script>   <!-- Vaihe 5: arviointi→resepti-silta (4a lähde-vihje: arvioinnin heikoin havaittu) -->
+<script src="lib/tm_jaksofokus.js?v=1"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
+<script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
@@ -5290,6 +5292,10 @@ function _ttKorttiHTML(p) {
          : (_posCode ? (' · ' + esc(((typeof TM_TT_PELIPAIKAT !== 'undefined' && TM_TT_PELIPAIKAT[_posCode]) ? TM_TT_PELIPAIKAT[_posCode].nimi : _posCode)))
                      : ' · pelipaikka asettamatta'))
       + ' · ⬆ laddaa kausifokukseen</div>';
+  // Vaihe 6 — umpeutunut jakso → "Sulje jakso" (valmentaja sulkee omat pelaajansa, §4/§37).
+  const _msJfLib = window.TM_JAKSOFOKUS;
+  const _msUmp = (jf && _msJfLib && typeof _msJfLib.tmJfUmpeutunut === 'function') ? _msJfLib.tmJfUmpeutunut(jf) : false;
+  if (_msUmp) h += '<div style="margin-top:8px"><button onclick="_msSuljeJakso(\'' + esc(pid) + '\')" style="font-size:12px;font-weight:600;border-radius:9px;padding:9px 12px;border:.5px solid rgba(224,160,64,.4);background:rgba(224,160,64,.12);color:var(--amber);cursor:pointer">🟠 Jakso umpeutunut · Sulje jakso → seuraava fokus</button></div>';
   // Vaihe 5 — lähde-vihje: kun jaksofokus puuttuu, näytä arvioinnin heikoin havaittu (silta) konseptin lähteenä.
   if (!jf && window.TM_ARVIOINTI_SILTA && p.arviointi_havaittu) {
     const _sEhd = window.TM_ARVIOINTI_SILTA.tmSiltaEhdota(p.arviointi_havaittu, {
@@ -5324,6 +5330,8 @@ function _ttKorttiHTML(p) {
   }
   h += _ttDropdownHTML(pid, _ddGroups, item, esc, '_ttPickKonsepti');
   h += '</div>';
+  // Vaihe 6 — meso-kehityskaari (suljetut jaksot, jaksofokus_historia §26). Headerin ulkopuolella.
+  if (typeof _msMesoKaariHTML === 'function') h += _msMesoKaariHTML(p);
   // 1 KONSEPTI
   h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 15px;margin-top:10px">'
     + '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);font-weight:600;margin-bottom:5px">1 · Konsepti — mitä kehitetään</div>'
@@ -5402,6 +5410,169 @@ window._ttVieTreeniin = async function (pid, avain) {
     if (typeof toast === 'function') toast('Jaksofokus viety treeniin ✓ (näkyy VP-aloitusnäkymässä)', 'ok');
   } catch (e) { console.warn('[ttVieTreeniin]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
+
+// ══════════════════════════════════════════════════════════════════════════
+// VAIHE 6 — JAKSON SULKU (Master: valmentaja sulkee/arvioi OMAT joukkueen pelaajansa, §4/§37).
+// Peilaa VP_v25 _vpSulku*-logiikan; aikuisarvio = arvio_valmentaja. PURE-ydin lib/tm_jaksokooste.js.
+// ══════════════════════════════════════════════════════════════════════════
+window._msSulkuTila = null;
+
+function _msSiltaKonsepti(avain) {
+  if (!avain || typeof TM_TT_YOUTH === 'undefined') return null;
+  for (var i = 0; i < TM_TT_YOUTH.length; i++) if (TM_TT_YOUTH[i].avain === avain) return TM_TT_YOUTH[i];
+  return null;
+}
+function _msJaksovali(jf) {
+  var alkoi = jf && jf.alkoi ? String(jf.alkoi).slice(0, 10) : null;
+  var vk = (jf && jf.kesto_vk) || 4;
+  var loppuD = alkoi ? new Date(new Date(alkoi).getTime() + vk * 7 * 86400000) : new Date();
+  return { alkoi: alkoi, loppu: loppuD.toISOString().slice(0, 10) };
+}
+function _msSessiot(jf, alkoi, loppu) {
+  return (_kalenteriTapahtumat || []).filter(function (t) {
+    if (t.poistettu || !t.treeniteema || t.treeniteema.avain !== jf.konsepti_avain) return false;
+    var pvm = t.pvm || '';
+    if (alkoi && pvm < alkoi) return false;
+    if (pvm > loppu) return false;
+    return true;
+  }).map(function (t) { return { id: t.id, treeniteema: t.treeniteema, pelaajat_id: t.pelaajat_id || [], pvm: t.pvm || '' }; });
+}
+
+window._msSuljeJakso = async function (pid) {
+  var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; });
+  if (!p || !p.jaksofokus) { if (typeof toast === 'function') toast('Ei suljettavaa jaksoa', 'error'); return; }
+  var jf = p.jaksofokus;
+  var vali = _msJaksovali(jf);
+  var sessiot = _msSessiot(jf, vali.alkoi, vali.loppu);
+  window._msSulkuTila = { pid: pid, p: p, jf: jf, alkoi: vali.alkoi, loppu: vali.loppu, harjoituksia: sessiot.length, lasnaolo: { paikalla: 0, yhteensa: sessiot.length, tiedossa: 0 }, arvioItse: null, arvioAikuis: null, tulos: null, lataa: true };
+  _msRender();
+  var lasnaolo = {};
+  if (!_demo && _seuraId && _db) {
+    await Promise.all(sessiot.map(async function (s) {
+      try { var d = await _db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(s.id).collection('lasnaolijat').doc(pid).get(); if (d.exists) { var dd = d.data(); lasnaolo[s.id] = dd.tila || dd.status; } } catch (e) {}
+    }));
+  }
+  var tap = sessiot.map(function (s) { var m = {}; if (lasnaolo[s.id] != null) m[pid] = lasnaolo[s.id]; return { treeniteema: s.treeniteema, pvm: s.pvm, pelaajat_id: s.pelaajat_id, lasnaolo: m }; });
+  var kooste = window.TM_JAKSOKOOSTE ? window.TM_JAKSOKOOSTE.tmJaksonHarjoitukset(tap, jf.konsepti_avain, vali.alkoi, vali.loppu, pid) : { harjoituksia: sessiot.length, lasnaolo: { paikalla: 0, yhteensa: sessiot.length, tiedossa: 0 } };
+  if (window._msSulkuTila && window._msSulkuTila.pid === pid) { window._msSulkuTila.harjoituksia = kooste.harjoituksia; window._msSulkuTila.lasnaolo = kooste.lasnaolo; window._msSulkuTila.lataa = false; _msRender(); }
+};
+
+function _msDots(current, fn) {
+  var h = '<span style="display:inline-flex;gap:4px">';
+  for (var v = 1; v <= 5; v++) h += '<span onclick="' + fn + '(' + v + ')" title="' + v + '/5" style="width:15px;height:15px;border-radius:50%;cursor:pointer;background:' + (current != null && v <= current ? 'var(--teal)' : 'var(--ov-3,rgba(255,255,255,.08))') + '"></span>';
+  h += '</span>' + (current != null ? '<span style="font-size:11px;color:var(--teal);margin-left:7px">' + current + '/5</span>' : '');
+  return h;
+}
+function _msSeuraava(p, nykyAvain, tulos) {
+  if (tulos === 'ennallaan') { var k = _msSiltaKonsepti(nykyAvain); return { konsepti_avain: nykyAvain, konsepti_nimi: k ? k.nimi : nykyAvain, jatka: true }; }
+  var LIB = window.TM_ARVIOINTI_SILTA; if (!LIB || !p.arviointi_havaittu) return null;
+  var _pc = p.tt_positio_aktiivinen || (typeof _ttNormPositio === 'function' ? _ttNormPositio(p.positio || p.pelipaikka) : null);
+  var sallitut = (typeof tmTtItems === 'function') ? tmTtItems({ ika: (_devIkaSp ? _devIkaSp(p).ika : null), joukkue: p.joukkue, positio: _pc, tt_positio_aktiivinen: _pc, syntymaVuosi: p.syntymaVuosi }) : null;
+  var ehd = LIB.tmSiltaEhdota(p.arviointi_havaittu, { sallitutKonseptit: sallitut, konseptiNimi: function (a) { var kk = _msSiltaKonsepti(a); return kk ? kk.nimi : a; } });
+  var eri = ehd.filter(function (e) { return e.konsepti_avain !== nykyAvain; });
+  return eri.length ? eri[0] : (ehd.length ? ehd[0] : null);
+}
+function _msRender() {
+  var S = window._msSulkuTila; if (!S) return;
+  var esc = _prEsc, p = S.p, jf = S.jf;
+  var knimi = jf.konsepti_nimi || (function () { var k = _msSiltaKonsepti(jf.konsepti_avain); return k ? k.nimi : jf.konsepti_avain; })();
+  var _pvmFi = function (iso) { if (!iso) return '—'; var m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : iso; };
+  var kal = window.TM_JAKSOKOOSTE ? window.TM_JAKSOKOOSTE.tmKalibraatio(S.arvioItse, S.arvioAikuis) : null;
+  var nimi = ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id;
+  var h = '<div id="_msSulkuModal" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9200;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)this.remove()">';
+  h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:22px;width:560px;max-width:100%;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink)">Sulje jakso · ' + esc(knimi) + '</div>'
+    + '<button onclick="document.getElementById(\'_msSulkuModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">' + esc(nimi) + ' · ' + _pvmFi(S.alkoi) + '–' + _pvmFi(S.loppu) + '</div>';
+  h += '<div style="background:var(--surface,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px">';
+  h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">Tehtiinkö suunnitelma (prosessi)</div>';
+  if (S.lataa) h += '<div style="font-size:12px;color:var(--ink3)">Lasketaan harjoituksia + läsnäoloa…</div>';
+  else if (S.harjoituksia === 0) h += '<div style="font-size:13px;color:var(--amber)">Jakso ei toteutunut treeneissä — vaikutusta ei voi lukea ilman harjoittelua.</div>';
+  else { h += '<div style="display:flex;gap:8px;align-items:baseline"><span style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--teal)">' + S.harjoituksia + '</span><span style="font-size:11px;color:var(--ink3)">teemaharjoitusta jaksolla</span></div>'
+    + '<div style="font-size:11.5px;color:var(--ink2);margin-top:4px">' + (S.lasnaolo.tiedossa ? ('läsnä ' + S.lasnaolo.paikalla + '/' + S.harjoituksia) : 'läsnäoloa ei kirjattu') + '</div>'; }
+  h += '</div>';
+  h += '<div style="background:var(--surface,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px">';
+  h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:8px">Miten meni — kaksi näkökulmaa (valinnaisia)</div>';
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:11px;color:var(--ink3);width:130px">🧒 Pelaajan itsearvio</span>' + _msDots(S.arvioItse, '_msSetItse') + '</div>';
+  h += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--ink3);width:130px">🎓 Valmentaja-arvio</span>' + _msDots(S.arvioAikuis, '_msSetAikuis') + '</div>';
+  if (kal != null) h += '<div style="display:flex;align-items:center;gap:7px;margin-top:9px;background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.28);border-radius:7px;padding:6px 9px"><span style="font-size:11px;color:var(--amber);font-weight:600">Kalibraatio: ero ' + kal + '</span><span style="font-size:10.5px;color:var(--ink3)">— hyvä hetki keskustella (ei pelaajalle syyllistävänä)</span></div>';
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-top:9px;border:.5px dashed var(--ov-3,rgba(255,255,255,.08));border-radius:7px;padding:8px 10px;color:var(--ink3)"><span style="font-size:14px">📹</span><span style="font-size:11.5px">Liitä video <b style="color:var(--ink2)">(tulossa)</b> — taidon näyte ennen/jälkeen</span></div>';
+  h += '</div>';
+  var TUL = [['parani', '↑ Parani'], ['ennallaan', '→ Ennallaan — jatka samaa'], ['vaihda', '⟳ Vaihda fokus']];
+  h += '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">';
+  TUL.forEach(function (t) { var sel = S.tulos === t[0]; h += '<button onclick="_msSetTulos(\'' + t[0] + '\')" style="flex:1;min-width:120px;font-size:11.5px;border-radius:8px;padding:8px 6px;cursor:pointer;border:.5px solid ' + (sel ? 'rgba(61,163,93,.5)' : 'var(--border)') + ';background:' + (sel ? 'rgba(61,163,93,.12)' : 'var(--ov-1,rgba(255,255,255,.04))') + ';color:' + (sel ? '#3DA35D' : 'var(--ink2)') + ';font-weight:' + (sel ? '600' : '400') + '">' + t[1] + '</button>'; });
+  h += '</div>';
+  h += '<div style="font-size:10.5px;color:var(--ink3);font-style:italic;margin-bottom:12px">§28: tekniikka kehittyy hitaasti — 4 vk harvoin näyttää mitattavaa muutosta. ”Ennallaan” ei ole epäonnistuminen.</div>';
+  var seur = S.tulos ? _msSeuraava(p, jf.konsepti_avain, S.tulos) : null;
+  if (S.tulos) {
+    h += '<div style="background:linear-gradient(150deg,rgba(40,176,144,.1),var(--surface,#1C1C1A));border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:13px">';
+    if (seur) {
+      var cue = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(seur.konsepti_avain) : [];
+      h += '<div style="font-size:11px;color:var(--amber);margin-bottom:4px">↻ Seuraava fokus (' + (seur.jatka ? 'jatka samaa' : 'silta: seuraavaksi heikoin') + ')</div>'
+        + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink)">' + esc(seur.konsepti_nimi) + '</div>'
+        + (cue.length ? '<div style="font-size:12px;color:var(--teal);margin-top:3px">Cue: ' + esc(cue[0]) + '</div>' : '')
+        + '<div style="display:flex;gap:8px;margin-top:11px"><button style="flex:1;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal);cursor:pointer" onclick="_msTallenna(\'' + esc(seur.konsepti_avain) + '\')">✓ Aseta seuraava jakso</button>'
+        + '<button style="flex:0 0 auto;font-size:12px;border-radius:8px;padding:9px 12px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)" onclick="_msTallenna(\'\')">Sulje ilman uutta</button></div>';
+    } else {
+      h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:9px">Ei silta-ehdotusta (ei D2-arviointia) — voit sulkea jakson ilman uutta fokusta.</div>'
+        + '<button style="width:100%;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal);cursor:pointer" onclick="_msTallenna(\'\')">Sulje jakso</button>';
+    }
+    h += '</div>';
+  }
+  h += '</div></div>';
+  var vanha = document.getElementById('_msSulkuModal'); if (vanha) vanha.remove();
+  var wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+}
+window._msSetItse = function (v) { if (window._msSulkuTila) { window._msSulkuTila.arvioItse = (window._msSulkuTila.arvioItse === v ? null : v); _msRender(); } };
+window._msSetAikuis = function (v) { if (window._msSulkuTila) { window._msSulkuTila.arvioAikuis = (window._msSulkuTila.arvioAikuis === v ? null : v); _msRender(); } };
+window._msSetTulos = function (t) { if (window._msSulkuTila) { window._msSulkuTila.tulos = t; _msRender(); } };
+window._msTallenna = async function (uusiAvain) {
+  var S = window._msSulkuTila; if (!S) return;
+  var p = S.p, jf = S.jf;
+  var kal = window.TM_JAKSOKOOSTE ? window.TM_JAKSOKOOSTE.tmKalibraatio(S.arvioItse, S.arvioAikuis) : null;
+  var entry = window.TM_JAKSOKOOSTE.tmHistoriaEntry({
+    domeeni: jf.domeeni || 'teknis_taktinen', konsepti_avain: jf.konsepti_avain, konsepti_nimi: jf.konsepti_nimi,
+    alkoi: S.alkoi, paattyi: S.loppu, harjoituksia: S.harjoituksia, lasnaolo: S.lasnaolo,
+    arvio_itse: S.arvioItse, arvio_valmentaja: S.arvioAikuis, kalibraatio_ero: kal,
+    tulos: S.tulos, lahde_seuraava: uusiAvain ? 'silta' : null, suljettu: new Date().toISOString()
+  });
+  var hist = Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia.slice() : [];
+  hist.push(entry); p.jaksofokus_historia = hist;
+  var uusiJf = null;
+  if (uusiAvain) { var k = _msSiltaKonsepti(uusiAvain); uusiJf = { konsepti_avain: uusiAvain, konsepti_nimi: k ? k.nimi : uusiAvain, konsepti_koodi: k ? k.koodi : null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'silta', domeeni: jf.domeeni || 'teknis_taktinen' }; }
+  p.jaksofokus = uusiJf;
+  document.getElementById('_msSulkuModal')?.remove(); window._msSulkuTila = null;
+  if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Jakso suljettu (demo — ei kirjoitettu)', 'ok'); return; }
+  try {
+    var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).set({ jaksofokus: uusiJf, jaksofokus_historia: hist }, { merge: true });
+    if (typeof toast === 'function') toast(uusiAvain ? 'Jakso suljettu · uusi fokus asetettu ✓' : 'Jakso suljettu ✓', 'ok');
+  } catch (e) { console.warn('[msTallenna]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+};
+// Meso-kehityskaari (jaksofokus_historia §26). Valmentaja-näkymä (§7.22 ei koske).
+function _msMesoKaariHTML(p) {
+  var hist = (p && Array.isArray(p.jaksofokus_historia)) ? p.jaksofokus_historia : [];
+  if (!hist.length && !(p && p.jaksofokus)) return '';
+  var esc = _prEsc, TIC = { parani: '↑', ennallaan: '→', vaihda: '⟳' };
+  var h = '<div style="margin-top:12px;border-top:.5px solid var(--border);padding-top:10px">';
+  h += '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Kehityskaari · jaksot (meso)</div>';
+  h += '<div style="display:flex;align-items:stretch;overflow-x:auto;padding:4px 0">';
+  hist.forEach(function (e, i) {
+    var lasnaPct = (e.lasnaolo && e.lasnaolo.yhteensa) ? Math.round(e.lasnaolo.paikalla / e.lasnaolo.yhteensa * 100) : null;
+    h += '<div style="min-width:128px;flex:0 0 auto;background:var(--ov-1,rgba(255,255,255,.04));border:.5px solid rgba(61,163,93,.3);border-radius:10px;padding:9px 11px;margin-right:8px;position:relative">'
+      + '<span style="position:absolute;top:8px;right:9px;font-size:13px;color:var(--teal)">' + (TIC[e.tulos] || '·') + '</span>'
+      + '<div style="font-size:12.5px;color:var(--ink);font-weight:600;padding-right:14px">' + esc(e.konsepti_nimi || e.konsepti_avain) + '</div>'
+      + '<div style="font-size:9.5px;color:var(--ink3);margin-top:1px">' + (e.harjoituksia || 0) + ' harj' + (lasnaPct != null ? ' · läsnä ' + lasnaPct + '%' : '') + '</div></div>';
+    if (i < hist.length - 1 || (p && p.jaksofokus)) h += '<div style="display:flex;align-items:center;color:var(--ink3);margin-right:8px">→</div>';
+  });
+  if (p && p.jaksofokus) h += '<div style="min-width:128px;flex:0 0 auto;background:linear-gradient(150deg,rgba(224,160,64,.07),var(--ov-1,rgba(255,255,255,.04)));border:.5px solid rgba(224,160,64,.4);border-radius:10px;padding:9px 11px;position:relative">'
+    + '<span style="position:absolute;top:8px;right:9px;font-size:13px">◷</span>'
+    + '<div style="font-size:12.5px;color:var(--ink);font-weight:600;padding-right:14px">' + esc(p.jaksofokus.konsepti_nimi || p.jaksofokus.konsepti_avain) + '</div>'
+    + '<div style="font-size:9.5px;color:var(--ink3);margin-top:1px">nykyinen jakso</div></div>';
+  h += '</div></div>';
+  return h;
+}
 
 function _renderPinfoFirestore(p) {
   const el = document.getElementById('pinfoCard');
