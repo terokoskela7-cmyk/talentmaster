@@ -560,6 +560,29 @@ describe('Vaihe 4a — jaksofokus / tt_positio_aktiivinen (§4 roolimalli)', () 
     const db = huoltajaContext().firestore();
     await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF }));
   });
+
+  // ── Vaihe 6 — jakson sulku: jaksofokus_historia append (sama kenttäomistajuus) ──
+  const HIST = [{ domeeni: 'teknis_taktinen', konsepti_avain: 'y_h2', konsepti_nimi: 'SYÖTTÄMINEN', harjoituksia: 3, tulos: 'parani', media: [] }];
+  it('Valmentaja sulkee jakson: jaksofokus + jaksofokus_historia yhdessä (field-level)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, jaksofokus_historia: HIST }));
+  });
+  it('Talenttivalmentaja kirjoittaa jaksofokus_historian', async () => {
+    const db = talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus_historia: HIST }));
+  });
+  it('VP sulkee jakson (oversight)', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, jaksofokus_historia: HIST }));
+  });
+  it('jaksofokus_historia + kielletty kenttä yhdessä → estetty (hasOnly)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus_historia: HIST, flei_viimeisin: 88 }));
+  });
+  it('Toisen seuran valmentaja EI kirjoita jaksofokus_historiaa (tenant-eristys)', async () => {
+    const db = randomContext().firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus_historia: HIST }));
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
