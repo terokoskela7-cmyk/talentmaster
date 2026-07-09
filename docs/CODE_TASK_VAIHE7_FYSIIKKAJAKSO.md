@@ -123,3 +123,40 @@ FLEI-ketjut (SBL/SFL/LL/DIAG/DFL) vs. testipohjaiset fy_*-teemat (fy_nopeus/…)
 
 ### 9.6 Nimi-/lähdetarkennus
 "Nevanlinna 2014" (`tm_ketju_matriisi.js:20`, kultaikkuna 7–12 v) on **tutkimuslähde**, ei fysiikkavalmentaja. Everton = Stage-progression + liikehallintamatriisin lähde. Tutkimusbenchmark-tausta: erillinen tutkimusraportti (Tero, deep-research 2026-07-09) (YPD-malli, ei trainability-ikkunoita, annostelu- ja delta-haarukat).
+
+## 10. Kaksi käyttäjätasoa — kevyt (OTO-valmentaja) vs rakentaja (fysiikkavalmentaja) (Teron vaatimus 2026-07-09)
+
+> **EI koodihaara.** Sama `ohjelma`-slot (§2c), sama seuranta, sama annos–vaste-datasetti — **kaksi syöttöpolkua** jotka valitaan roolin/seuran mukaan. Kevyt on oletus (skaalautuu ruohonjuureen); rakentaja aukeaa kun seuralla on fysiikkavalmentaja/fysioterapeutti. Molemmat kirjoittavat SAMAN historia-entryn → sama meso-kaari + AI-analyysi.
+
+### 10.1 Kevyt polku — OTO/joukkuevalmentaja (OLETUS, V7)
+Nollakuormaperiaate: vapaaehtoinen valmentaja (~20 min/vk) EI rakenna ohjelmaa.
+- D1-silta ehdottaa (`tmFyysEhdota`) → **"Aseta fysiikkajakso"** → `ohjelma`-slot **esitäytetään valmiilla templaatilla** (§9.2 reuse-map + §2 tutkimusannokset). Yksi klik → jakso käynnissä.
+- Valmentaja näkee valmiiksi: teema (esim. Nopeus) · **valmis annos** (esim. "2–3×/vk · 20–40 min · 6 vk", NSCA/konsensus §2) · 2–3 harjoite-esimerkkiä (Everton D/S, `harjoitelogiikka_v4.js`) · PHV-turvahuomio jos pre-PHV.
+- EI ohjelmakirjastoa, EI editoria. `ohjelma`-objekti täyttyy templaatista (tyyppi + oletusannos + phv_tila_alussa + lahtotaso). `laatija_rooli` = valmentaja.
+- Sulku = kevyt V6-kortti: prosessi + tulos + (delta jos mittaus osui). Sama moottori.
+- **Templaattikatalogi** `TM_FYYSTEEMAT`-viereen `lib/tm_fyysteemat.js`:iin (§34, sisältö libistä): `{tyyppi → oletusannos {sarjat, toistot, kuorma, frekvenssi, kesto_vk, harjoite_lahde}}`. Näyttöpohjainen (§2), fysiikkavalmentaja voi silti korvata.
+
+### 10.2 Rakentaja-polku — fysiikkavalmentaja/fysioterapeutti (seurat joilla on) → 7.2
+Kun seuralla on fysiikkaosaaja, hän rakentaa yksilölliset ohjelmat ja **ohjelmien tallennus + seuranta on ydin**.
+- **Ohjelmaeditori:** nimi, kuvaus, tyyppi, **viikko-ohjelma** (vaiheet/intensiteetti/harjoitteet — vrt. Everton `P_lisays` 6 vk -rakenne pohjana), kesto. Voi lähteä valmiista kevyt-templaatista ja muokata.
+- **Ohjelmakirjasto** `seurat/{sid}/ohjelmat/{id}` (VARATTU §11): tallenna kerran → **uudelleenkäytä monelle pelaajalle**. Ohjelma = seuran omaisuus, ei per-pelaaja-kertakäyttö.
+- Ohjelma liitetään pelaajan jaksofokukseen: `jaksofokus.ohjelma.ohjelma_id`-**viittaus** (kevyt polku = upotettu objekti ilman id:tä). Additiivinen — kevyt ei riko.
+- **Versiointi:** ohjelman muokkaus → uusi versio; vanhat suljetut jaksot säilyttävät ajetun version (historia-entryn `ohjelma`-kopio on jo snapshot §2c → toimii automaattisesti).
+
+### 10.3 Tason valinta — ei pakoteta
+- **Oletus kevyt.** Rakentaja-työkalut (editori + kirjasto) näkyvät jos: seuralla on `fysiikkavalmentaja`/`fysioterapeutti`-rooli TAI seura-konfiguraatio (`konfiguraatio/paketti` §11) päällä. Sama seura voi käyttää molempia (fysiikkavalmentaja rakentaa talenteille, OTO-valmentaja käyttää templaatteja muille).
+- Roolipainotus jo §2/§5: fysiikkavalmentaja/fysioterapeutti → arvio + ohjelma; VP oversight.
+
+### 10.4 Datamalli — YKSI totuus (molemmat polut → sama seuranta)
+- **Kevyt:** `jaksofokus.ohjelma` = upotettu objekti (V7-minimi §2c). Ei alikokoelmaa.
+- **Rakentaja:** `seurat/{sid}/ohjelmat/{id}` kirjasto + `jaksofokus.ohjelma.ohjelma_id`-viittaus (7.2). `ohjelma`-objekti silti kopioidaan jaksofokukseen (denormalisointi → jakso itsenäinen vaikka kirjasto-ohjelmaa muokataan).
+- **MOLEMMAT** → sulku kopioi `ohjelma`-objektin historia-entryyn (§2c) → **sama annos–vaste-rivi, sama meso-kaari, sama AI-analyysi.** Kevyt polku alkaa kerätä dataa heti; rakentaja rikastaa sitä.
+
+### 10.5 Seuranta — rakentaja korostaa (7.2)
+- **Per-pelaaja** (jo V7): meso-kaari (`jaksofokus_historia[]`), delta per jakso, PHV-konteksti.
+- **Per-ohjelma** (7.2, kirjasto): "tämä ohjelma ajettu N pelaajalla · keskimääräinen delta X · toteuma-% Y" → fysiikkavalmentaja näkee **mikä ohjelma toimii kenelle** (annos–vaste-aggregaatti). Lukee `jaksofokus_historia`-rivit joilla `ohjelma.ohjelma_id === id`.
+- **AI-ohjelma-analyysi** (7.2, `aiProxy`): "sopiiko ohjelma pelaajan kasvuvaiheeseen" — vertaa toteumaa näyttöpohjaiseen suositukseen (`tm_fyysteemat` oletusannos) + deltaa kasvuvaihe-odotukseen (benchmark-haarukat, tutkimusraportti).
+
+### 10.6 Rakennusjärjestys
+- **V7:** kevyt polku KOKONAAN (D1-silta + templaattikatalogi + esitäytetty ohjelma-slot + sulku + kaari) + `ohjelma`-objekti rakentaja-valmiina (`ohjelma_id` kenttä varattu, ei vielä käytössä).
+- **7.2 (oma spec):** ohjelmaeditori + `ohjelmat/{id}`-kirjasto + per-ohjelma-analytiikka + AI-analyysi. EI vaadi migraatiota (ohjelma_id additiivinen).
