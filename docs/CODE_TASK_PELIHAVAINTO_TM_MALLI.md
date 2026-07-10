@@ -30,23 +30,39 @@ TM:n peliäly-infra on yllättävän valmis; tämä suunnitelma **kytkee palaset
 
 **Yksi pelihavainto → koko peliälyn tarina.** Valmentaja tekee yhden havainnon (ADAR + tilanne + vapaa teksti); TM
 kääntää sen **jaetun taksonomian** kautta kehitystoimenpiteiksi kolmella tasolla: yksilön teema, pelipaikan fundamentti
-(14+), ja joukkueen teema. Periaate kuten V5: **ehdotus, ei pakko (§4)** — valmentaja valitsee. Ei rakenneta Palloliitto-
-esittelytyökalua uudelleen; tehdään **TM:n oma "Pelihavainto"-työkalu** (TM-malli ADAR, TM-brändäys, ei "ADAR"-nimeä UI:ssa).
+(14+), ja joukkueen teema. Ei rakenneta Palloliitto-esittelytyökalua uudelleen; tehdään **TM:n oma "Pelihavainto"-
+työkalu** (TM-malli ADAR, TM-brändäys, ei "ADAR"-nimeä UI:ssa; asteikko 1–5 kuten muu arviointi).
+
+### 1.1 YDINPERIAATE — asiantuntijan valta (human-in-the-loop, ehdoton)
+**Järjestelmä ehdottaa ja järjestää; valta on aina asiantuntijalla.** Tämä läpäisee koko työkalun eikä ole neuvoteltavissa:
+- **Ehdotus ei ole pakko (§4).** Silta antaa top-3, mutta valmentaja voi (a) valita ehdotuksista, (b) **valita koko
+  konseptilistasta** ehdotuksen ohi (dropdown → kaikki TM_TT_YOUTH / fundamentit / TM_TT_JOUKKUE), (c) muokata cue/koe,
+  (d) olla asettamatta mitään.
+- **Ei mitään automaattista.** Järjestelmä ei koskaan aseta jaksofokusta, sulje jaksoa eikä muuta arviota ilman
+  asiantuntijan nimenomaista valintaa. Ehdotus on päätöstuki, ei määräys.
+- **Läpinäkyvä perustelu.** Jokainen ehdotus näyttää *miksi* (mistä havainnosta/taksonomia-avaimesta se tulee), jotta
+  asiantuntija voi arvioida ja ohittaa sen tietoon perustuen.
+- **Ihminen voittaa numeron.** Kuten V5:ssä: subjektiivinen asiantuntija-arvio menee laskennallisen ehdotuksen edelle.
+
+Tämä koskee kaikkia kolmea linkkiä (§5/§6/§7) ja capture-UI:ta (§9).
 
 ## 2. Datamalli — `havainnot/{id}` laajennettuna (additiivinen, ei migraatiota)
 
 ```
 havainnot/{id}
-  pisteet: { A, D, Act, R },          // ADAR 1–10 (nyk. malli, säilyy)
-  tilanne: 'peli'|'harjoitus'|'turnaus'|'muu',   // UUSI §3 (konteksti)
+  pisteet: { A, D, Act, R },          // ADAR 1–5 (LUKITTU §13); UI-nimet: Havainnointi/Päätöksenteko/Toteutus/Reagointi
+  tilanne: 'peli'|'harjoitus'|'turnaus'|'muu',   // §3 (konteksti), pakollinen
   tilanne_pvm, vastustaja?,           // valinnainen konteksti (peli)
   vapaa_havainto,                     // teksti (nyk.)
+  taksonomia_valittu?: 'anticipation'|…,   // §13 Q4: valmentajan dropdown-valinta (peliäly-avain), valinnainen tarkennus
   // — linkit (denormalisoitu, valmentajan valinnasta; ei pakollinen) —
   linkki_yksilo?: { teema_avain, teema_nimi },        // §5 TM_TT_YOUTH
   linkki_pelipaikka?: { koodi, nimi, pelipaikka },    // §6 TM_TT_FUNDAMENTIT (14+)
   taksonomia?: [ 'anticipation','positioning', … ],   // §4 tmAdarHavaittu(pisteet) tulos (jaettu sanasto)
   luotu, valmentajaUid, pelaajaId, seuraId
 ```
+**Asteikkomigraatio (§13):** nyk. 1–10-data on harvaa → kertamigraatio `pisteet ÷2` (pyöristä) tai normalisointi
+lukuvaiheessa; `paivitaAdarPikakentat` + kynnykset päivitetään 1–5:een. Tehdään ennen kuin 1–5-dataa kertyy.
 - Pikakentät säilyvät (`adar_viimeisin={yht,…}`, `adar_havaintoja`, `adar_pvm`); lisää **`adar_tilanne_jakauma`**
   (peli vs harjoitus -lkm) jotta analytiikka/silta voi painottaa (§3). §26: pikakenttä, ei render-kysely.
 - **Joukkuelinkki (§7) ei tallennu havaintoon** vaan syntyy jaksofokuksena (Silta 5.1) — havainto on lähde, ei kohde.
@@ -143,15 +159,19 @@ ei tukkoa. Valmentaja voi asettaa 0–3 fokusta. §13: pelaajalla voi olla rinna
   sulku → delta. Nuorella (<14) pelipaikkaa ei tarjota. 0 konsolivirhettä. `npm test` + lint + selain.
 - **Merge vasta kun Tero sanoo "live".** Oma branch per vaihe (P1/P2/P3).
 
-## 13. Avoimet kysymykset — TERO VALIDOI
+## 13. Päätökset — LUKITTU (Tero 2026-07-10)
 
-1. **ADAR-malli:** pidetäänkö ADAR (A/D/Act/R) TM:n omana mallina (suositus: kyllä — se on jo mapattu taksonomiaan),
-   vai halutaanko dimensioihin muutos/lisäys? UI-nimet (havainnointi/päätöksenteko/toiminta/reagointi) ok?
-2. **Tilanne-arvot:** peli / harjoitus / turnaus / muu — riittääkö? (Esim. "sarjapeli vs harjoituspeli"?)
-3. **14+ portti:** ika ≥ 14 pelipaikkafundamenteille — kronologinen vai biologinen ikä? Ja onko fundamentti yksilöteeman
-   **lisäksi** (suositus) vai sen **sijaan** vanhemmilla?
-4. **Kartat (kuten D2-parit V5:ssä):** (a) taksonomia-avain → TM_TT_YOUTH-teema, (b) taksonomia-avain × pelipaikka →
-   TM_TT_FUNDAMENTIT, (c) ADAR-dim → TM_TT_JOUKKUE (Silta 5.1 §12). Luonnostelen kaikki, sinä lukitset.
-5. **Taksonomia-tarkkuus:** riittääkö nyk. `ADAR_HAVAITTU_MAP` (a/d/ac/r → 5 avainta), vai halutaanko pelihavaintoon
-   valittava **tarkempi taksonomia-kohde** (esim. per-tilanne "positioning" vs "anticipation")? (Liittyy 5.1b pelivaihe-tagiin.)
-6. **UX kolmelle domeenille:** montako ehdotusta kerrallaan, ja miten estetään tukkoisuus.
+1. **Asteikko: 1–5** (ei 1–10). Yhdenmukainen taksonomian + D1/D2-tason + H-H-tason kanssa; parempi arvioijaluotettavuus.
+   Vanha 1–10-data migratoidaan ÷2 (§2). Kynnykset uudelleen 1–5:een (esim. ≤2/5 laukaisee sillan).
+2. **ADAR-malli säilyy, UI vain suomeksi:** Havainnointi (A) · Päätöksenteko (D) · **Toteutus** (Act) · Reagointi (R).
+   Työkalun nimi "Pelihavainto" (ei "ADAR"). Datakoodit A/D/Act/R säilyvät koodissa.
+3. **Tilanne-arvot:** Peli · Harjoitus · Turnaus · Muu (pakollinen). Peli-havainto painottuu taktisessa analyysissä.
+4. **Pelipaikkafundamentti (14+):** yksilöteeman **lisäksi** (molemmat näkyvät, valmentaja valitsee). **Kronologinen**
+   ikäportti (≥14 v). <14 v: vain yksilöteema.
+5. **Taksonomian tarkkuus:** **dropdown P1:ssä** — valmentaja voi valita tarkemman peliäly-taksonomia-kohteen
+   (Ennakointi/Näkemys/Päätöksenteko/Sijoittuminen/Peli paineessa/Ajoitus + puolustus-avaimet). Valinnainen tarkennus
+   automaattisen `tmAdarHavaittu`-johdon päälle. Lista tulee taksonomiasta (jo suomeksi).
+6. **Kartat A/B/C hyväksytty** (ks. `docs/mockups`/kartat + P1-brief). A = taksonomia→TM_TT_YOUTH, B = taksonomia×
+   pelipaikka→TM_TT_FUNDAMENTIT (sääntö + T/KK/KY/LA täytetty; MV/LP/KH samalla säännöllä), C = taksonomia→TM_TT_JOUKKUE.
+7. **Asiantuntijan valta (§1.1):** ehdoton — silta ehdottaa, valmentaja valitsee ehdotuksista TAI koko listasta TAI ei
+   mitään; ei mitään automaattista. Koskee kaikkia kolmea linkkiä ja capture-UI:ta.
