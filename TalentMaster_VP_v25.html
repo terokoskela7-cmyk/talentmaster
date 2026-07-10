@@ -20,7 +20,8 @@
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
-<script src="lib/tm_arviointi_taksonomia.js?v=3"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
+<script src="lib/tm_arviointi_taksonomia.js?v=4"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
+<script src="lib/tm_pelialy_yksilo.js?v=1"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (oversight tilanne-jakauma) -->
 <script src="lib/tm_arviointi_silta.js?v=1"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) -->
 <script src="lib/tm_idp.js?v=3"></script>   <!-- Vaihe 3a+3b: IDP ehdotusmoottori + VP-fokusvalinta + review-sykli/kehityskaari/elinkaari -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v4 = parseri-korjaus (pelimuoto-saaste) -->
@@ -2549,6 +2550,7 @@ async function lataaPelaajat() {
         hh_viimeisin: data.hh_viimeisin ?? null,
         adar_viimeisin: data.adar_viimeisin ?? null,
         adar_havaintoja: data.adar_havaintoja ?? 0,
+        adar_tilanne_jakauma: data.adar_tilanne_jakauma ?? null,   // P1: pelihavainto tilanne-jakauma (oversight)
         adar_pvm: data.adar_pvm ?? null,
         phv_tila: data.phv_tila || null,
         signaali: data.signaali || null,
@@ -4113,6 +4115,13 @@ function _vpArviointiHTML(p) {
   };
   // 2c — ADAR-johdettu havaittu peliäly (render-ajassa pikakentästä adar_viimeisin; ei uutta kirjoitusta §26).
   const adarHav = (typeof tmAdarHavaittu === 'function') ? tmAdarHavaittu(p.adar_viimeisin) : null;
+  // P1 oversight (§6): pelihavaintojen tilanne-jakauma (n ottelusta, m harjoituksesta) pikakentästä.
+  const _phTilLbl = (function () {
+    const tj = p.adar_tilanne_jakauma; if (!tj) return '';
+    const _n = { peli: 'ottelusta', harjoitus: 'harjoituksesta', turnaus: 'turnauksesta', muu: 'muusta' };
+    const osat = Object.keys(tj).filter(function (k) { return tj[k]; }).map(function (k) { return tj[k] + ' ' + (_n[k] || k); });
+    return osat.length ? ('<div style="font-size:10.5px;color:var(--ink3);margin:2px 0 6px">👁 Pelihavainnot: ' + osat.join(' · ') + '</div>') : '';
+  })();
   // Prioriteetti: mitattu (testi) > tallennettu havaittu ('silma') > ADAR-johdettu. ADAR-johdettu lasketaan mukaan kattavuuteen.
   const _arvo = function(item){
     const m = _mitattu(item); if (m != null) return { arvo: m, lahde: 'mitattu' };
@@ -4150,6 +4159,7 @@ function _vpArviointiHTML(p) {
   });
   h += '</div>';
   h += '<div style="font-size:10.5px;color:var(--ink3);margin:4px 0 8px;line-height:1.5"><span style="color:var(--teal)">🟢 mitattu</span> (TM-testi, lukittu) · <span style="color:var(--blue)">🔵 havaittu</span> (klikkaa 1–5) · <span style="color:var(--teal)">Pelihavainto</span> = kenttähavainnosta johdettu (klikkaa yliajaaksesi). §7.22: aikuisten työkalu.</div>';
+  h += _phTilLbl;
 
   // Valitun teeman kohteet
   const items = teema ? taks.filter(function(i){ return (i.dim + '_' + i.kategoria) === teema; }) : [];
