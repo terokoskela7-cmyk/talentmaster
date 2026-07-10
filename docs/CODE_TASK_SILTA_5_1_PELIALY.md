@@ -11,11 +11,14 @@
 
 ## 0. Nykytila — auditointi (mitä D4:stä on jo olemassa)
 
-- **Talteenotto:** pelihavainto tehdään Master **Havainnot**-välilehdellä → `seurat/{sid}/havainnot` (+ per-pelaaja
-  `pelaajat/{id}/havainnot`). Malli **TIPS 1–10**: **T** tekninen suoritus paineessa · **I** pelikuva / Game IQ ·
-  **P** persoona (asenne, intensiteetti) · **S** suorituksen nopeus (päätökset). Lisäksi **IDP-kytkös**
-  (näkyikö kauden tavoite ottelussa: kyllä / osittain / ei) + **vapaa havainto**. (Demo/esittely:
-  `TalentMaster_Pelihavainto_Palloliitto.html`.)
+- **Talteenotto (VERIFIOITU tuotantokoodista):** pelihavainto tehdään Master **Havainnot**-välilehdellä →
+  `seurat/{sid}/pelaajat/{id}/havainnot`, kenttä `pisteet: {A, D, Act, R}` = **ADAR-malli** (neljän hetken
+  havainto–toiminta): **A** havainnointi (Assess/lukeminen) · **D** päätöksenteko (Decide) · **Act** toiminta
+  (suoritus) · **R** reagointi (Reassess/uudelleenluku). Lisäksi vapaa havainto. `paivitaAdarPikakentat()` laskee
+  jo viim. 10 havainnon **vahvimman ja heikoimman dimension** + päivittää pikakentät.
+  **HUOM:** TIPS (T/I/P/S) on VAIN esittelytiedoston (`TalentMaster_Pelihavainto_Palloliitto.html`) malli — EI
+  tuotannon skeema. Silta lukee **ADAR:ia**, ei TIPS:iä. (IDP-kytkös kuuluu esittelymalliin; tuotannossa varmista
+  onko se `havainnot`-dokissa vai vain vapaa havainto — §13.)
 - **Pikakentät:** `adar_viimeisin` (arvo), `adar_havaintoja` (lkm), `adar_pvm` (pvm). *(Vanha "adar"-nimi = D4.)*
 - **Näkyvyys:** 5D-profiili (D1–D5), joukkuepulssin pelihavainto-kortti (ka + kattavuus + suunta), pelaajaraportin
   kolmas lähde ("pelihavainto, subjektiivinen").
@@ -36,31 +39,34 @@ yksilötason **jaksofokus** (`domeeni:'joukkuetaktinen'`) pitää **pelaajan tar
 kun **≥3 pelaajalla** on sama joukkuetaktinen teema, VP:n **teemakeskittymä** nostaa sen **ryhmäteemaksi** automaattisesti
 (olemassa oleva mekanismi). Ei erillistä joukkuejakso-objektia (päätös 2026-07-09). Ei moottorin muutosta.
 
-## 2. Lähde — pelihavainto (TIPS) ja laukaisukynnykset
+## 2. Lähde — pelihavainto (ADAR) ja laukaisukynnykset
 
-5.1a lukee **olemassa olevaa** pelihavaintodataa (ei muuta talteenottoa). Silta laukeaa yksilölle kun tuoreessa
-pelihavainnossa on **joukkuetaktinen heikkoussignaali**:
+5.1a lukee **olemassa olevaa** ADAR-pelihavaintodataa (ei muuta talteenottoa). Hyödynnä valmista laskentaa:
+`paivitaAdarPikakentat()` antaa jo **heikoimman ADAR-dimension** (viim. 10 havainnon ka). Silta laukeaa yksilölle
+kun tuoreessa pelihavainnossa on **joukkuetaktinen heikkoussignaali**:
 
-- **I (pelikuva) ≤ kynnys** → pelin lukeminen / ryhmitys heikkoa.
-- **S (suorituksen nopeus / päätökset) ≤ kynnys** → päätöksenteko / tilanteenvaihto hidasta.
-- **tai IDP-kytkös = "ei" / "osittain"** → kauden (usein joukkuetaktinen) tavoite ei toteudu pelissä.
+- **A (havainnointi) ≤ kynnys** → pelin lukeminen / tilan & ryhmityksen hahmottaminen heikkoa.
+- **D (päätöksenteko) ≤ kynnys** → valinnat pelitilanteessa heikkoja.
+- **R (reagointi) ≤ kynnys** → tilanteenvaihdon / menetyshetken reaktio hidas.
 
-**T** ja **P** eivät laukaise joukkuetaktista siltaa (T ≈ D2-tekninen → V5:n silta; P ≈ asenne/D3). **§29-tuoreus:**
-signaali huomioidaan vain jos pelihavainto on tuore (`adar_pvm` / havainnon pvm riittävän uusi); vanhentunut → "päivitä
-havainto". Kynnys (esim. ≤5/10) parametrina — **Tero validoi §12**.
+**Act (toiminta/suoritus)** ei laukaise joukkuetaktista siltaa (≈ D2-tekninen suoritus → V5:n silta). Peliäly =
+**A + D + R** (lukeminen, päätös, reagointi). **§29-tuoreus:** signaali huomioidaan vain jos pelihavainto on tuore
+(`adar_pvm` / havainnon pvm riittävän uusi); vanhentunut → "päivitä havainto". Kynnys (esim. ≤ka tai kiinteä raja)
+parametrina — **Tero validoi §12**.
 
 ## 3. PURE-lib `lib/tm_pelialy_silta.js` (§34 — dual-export, Vitest, EI window/DOM/Firestore)
 
-- `tmPelialySiltaEhdota(tips, ctx)` → top-3 joukkuetaktista ehdotusta (ehdotus, ei pakko §4).
-  - `tips`: `{ T, I, P, S, idp_kytkos }` (1–10 | null; idp_kytkos: 'kylla'|'osittain'|'ei'|null).
+- `tmPelialySiltaEhdota(adar, ctx)` → top-3 joukkuetaktista ehdotusta (ehdotus, ei pakko §4).
+  - `adar`: `{ A, D, Act, R }` (1–10 | null) — suoraan `havainnot`-dokin `pisteet`-kentästä tai
+    `paivitaAdarPikakentat`-koosteesta (heikoin-dimensio valmiina).
   - `ctx` (valinnaiset): `sallitutKonseptit` (ika/vaihe-gating, j_*-avaimet) · `ryhmaVihje`
-    ('hyokkays'|'puolustus'|'siirtyma' esim. IDP-tavoitteesta / pelipaikasta) · `konseptiNimi(avain)→nimi`
+    ('hyokkays'|'puolustus'|'siirtyma' esim. pelipaikasta / IDP-tavoitteesta) · `konseptiNimi(avain)→nimi`
     (oletus `TM_TT_JOUKKUE`-nimi) · `kynnys` (oletus 5).
-  - Logiikka: laske heikkoussignaalit (I, S, idp) → valitse **ryhmä-painotus** (heikko I → lukeminen/ryhmitys;
-    heikko S → nopea päätös / siirtymä; ryhmaVihje suodattaa ensin) → järjestä `PELIALY_SILTA_PRIORITEETTI`
-    mukaan → suodata `sallitutKonseptit` → palauta top-3 `{ konsepti_avain, konsepti_nimi, ryhma, syy, arvo }`.
-    Tyhjä = graceful (ei heikkoutta / ei tuoretta havaintoa).
-- Kartta `PELIALY_SILTA_MAP` (I/S/idp → j_*-shortlist) + `PELIALY_SILTA_PRIORITEETTI` = **§12 draft, Tero lukitsee.**
+  - Logiikka: tunnista heikot dimensiot (A, D, R ≤ kynnys) → valitse **ryhmä-painotus** (heikko A → lukeminen/
+    ryhmitys; heikko D → päätös-painotteiset; heikko R → tilanteenvaihto/siirtymä; ryhmaVihje suodattaa ensin) →
+    järjestä `PELIALY_SILTA_PRIORITEETTI` → suodata `sallitutKonseptit` → palauta top-3
+    `{ konsepti_avain, konsepti_nimi, ryhma, syy, arvo }`. Tyhjä = graceful (ei heikkoutta / ei tuoretta havaintoa).
+- Kartta `PELIALY_SILTA_MAP` (A/D/R → j_*-shortlist) + `PELIALY_SILTA_PRIORITEETTI` = **§12 draft, Tero lukitsee.**
 - **cue + koe** joukkuetaktiseen jaksofokukseen otetaan **suoraan `TM_TT_JOUKKUE`-konseptista** (`kysymykset[0]` = cue,
   `konseptipeli`/harjoite = koe) — ei uutta sisältöä. Pelaajaturvallinen kääntö `tmTtPelaaja` on jo olemassa.
 - Dual-export CommonJS + `window.TM_PELIALY_SILTA`. EI yhdistä asteikkoja (TIPS 1–10 ≠ Palloliitto 1–5) — vain kääntää.
@@ -115,7 +121,14 @@ ennen erikoistilanteita (j_e*) — `ctx.sallitutKonseptit` kutsujan puolelta (ku
 ## 9. Rajaus (EI 5.1a:ssa)
 
 - **5.1b — pelivaihe-tagi talteenottoon:** pelihavaintoon lisättävä hyökkäys/puolustus/siirtymä + alateema → **tarkka**
-  silta (ei enää coarse I/S). Oma vaihe (muuttaa Havainnot-työkalua). 5.1a:n `ryhmaVihje` on tämän kevyt esiaste.
+  silta (ei enää coarse A/D/R). Oma vaihe (muuttaa Havainnot-työkalua). 5.1a:n `ryhmaVihje` on tämän kevyt esiaste.
+- **Videoklippi-evidenssi (Teron idea) — oma kerros, EI 5.1a/b:ssä.** Pelihavaintoon liitettävä lyhyt klippi (se
+  hetki jota arvioidaan) nostaa D4-arvion subjektiivisesta **tarkistettavaksi** ja on täydellinen IDP-kytkökselle
+  ("tässä hetki jossa tavoite näkyi/ei"). **KRIITTINEN reunaehto — alaikäisten video = raskas GDPR:** oma
+  `storage.rules` (vain oman seuran valmentaja, yksityinen; EI pelaaja-/perhepintaan ilman erillistä suostumusta),
+  **suostumuksen laajennus** (nykysuostumus tuskin kattaa videokuvaa), **säilytys-/poistopolitiikka** (retention),
+  ja **kustannus** (Storage + kaista). Suositus: lyhyet klipit (5–15 s), liitetään `havainnot/{id}`-dokkiin
+  viittauksena, tenant-eristetty. → **oma mini-spec "pelihavainto-evidenssi" myöhemmin.**
 - **AI-tulkinta** (vapaa havainto → NLP → teema) — EI; 5.1a on deterministinen sääntösilta.
 - **Joukkuejakso-objekti** (yksi teema koko ryhmälle omana dokumenttinaan) — EI; ryhmäteema syntyy aggregoinnista.
 - **Cross-club-vertailu** — tenant-eristys pysyy.
@@ -144,17 +157,21 @@ ennen erikoistilanteita (j_e*) — `ctx.sallitutKonseptit` kutsujan puolelta (ku
 Alla luonnos. Lukitse parit + kynnys + prioriteetti ennen koodausta. (Ei mekaaninen 1:1 kuten D2 — coarse I/S antaa
 **ryhmä-painotuksen**, konsepti valitaan shortlististä; ika/vaihe suodattaa.)
 
-**Laukaisukynnys:** I ≤ 5 tai S ≤ 5 (1–10) **tai** IDP-kytkös ∈ {ei, osittain}. *(Validoi kynnysluku.)*
+**Laukaisukynnys:** heikoin ADAR-dimensio (A/D/R) ≤ 5 (1–10). *(Validoi kynnysluku / vai suhteessa pelaajan omaan ka:hon.)*
 
-**I (pelikuva/Game IQ) heikko → lukeminen & ryhmitys:**
+**A (havainnointi / pelin lukeminen) heikko → lukeminen & ryhmitys:**
 - ensisijaisesti: **j_h2** (hyökkäysryhmitys ja tilan tasapaino), **j_p2** (pelikeskustan tasapaino),
   **j_p3** (varmistuslinja), **j_h6** (rest defence / valppaus hyökätessä).
 
-**S (suorituksen nopeus/päätökset) heikko → nopea päätös & tilanteenvaihto:**
-- ensisijaisesti: **j_s1** (vastaprässi menetyshetkellä), **j_s2** (puolustus→hyökkäys), **j_h1** (rakentaminen
-  paineessa), **j_h4** (ylivoima / linjan ohittaminen).
+**D (päätöksenteko) heikko → valinta & rakentaminen paineessa:**
+- ensisijaisesti: **j_h1** (rakentaminen ja avaus paineessa), **j_h4** (ylivoima / linjan ohittaminen),
+  **j_h3** (yhdessä eteneminen), **j_p1** (yhdessä puolustaminen / vastuunjako).
 
-**IDP-kytkös = ei/osittain → suodata IDP-tavoitteen ryhmä ensin** (jos tavoite puolustuksellinen → j_p*, hyökkäävä → j_h*).
+**R (reagointi / uudelleenluku) heikko → tilanteenvaihto & menetyshetki:**
+- ensisijaisesti: **j_s1** (vastaprässi menetyshetkellä), **j_s2** (puolustus→hyökkäys), **j_p6** (joukkueprässi
+  ja prässäystriggerit), **j_h6** (rest defence).
+
+**Ryhmä-vihje ohittaa/suodattaa** (ctx.ryhmaVihje pelipaikasta tai IDP-tavoitteesta): puolustava rooli → j_p*, hyökkäävä → j_h*.
 
 **Ryhmä-vihje (ctx.ryhmaVihje):** IDP-tavoitteesta tai pelipaikasta (esim. topparille j_p*/j_h1, laidalle j_h3/j_h4).
 
@@ -163,3 +180,26 @@ erikoistilanteita j_e1/j_e2 ja monimutkaista j_p5 (paitsiolinja). *(Validoi ikä
 
 **Prioriteetti tasapelissä:** perusrakenne (ryhmitys, yhdessä puolustaminen) ennen viimeistelyä/erikoistilanteita
 — sama filosofia kuin V5 (perustaito ensin).
+
+## 13. Avoimet huomiot + reunaehdot (rehellinen arvio ennen briefiä)
+
+- **Datan olemassaolo on portti (suurin).** Silta lukee tuoreita pelihavaintoja. D4-data on harvinaisempaa kuin
+  fyysinen/tekninen — jos valmentaja ei tee pelihavaintoja, silta ei laukea eikä ryhmäteema synny (≥3 samaa). 5.1
+  antaa koneiston; **arvo edellyttää pelihavaintojen tekemistä** (Raide B). Tämä on ok (graceful), mutta se on syytä
+  sanoa: 5.1 ei "tuota dataa", se hyödyntää sitä.
+- **D4-delta on pehmein signaali.** Pelihavainto on subjektiivinen valmentaja-arvio (1–10), kohinaisempi kuin
+  fyysinen testi. Peliälyn "vaste" on siksi laadullisempi — nojaa vähintään yhtä paljon **IDP-kytkökseen** ("näkyikö
+  tavoite pelissä") kuin numeeriseen deltaan. Älä lupaa tarkkaa delta-lukua kuten fyysisessä.
+- **Yksilöhavainto → joukkuepäätelmä on mallinnusoletus.** Joukkueen ryhmitysvirhe voi näkyä monen pelaajan matalana
+  A:na; aggregointi (≥3 samaa) hallitsee tämän, mutta oletus on hyvä tiedostaa.
+- **Kolme rinnakkaista teemaa — UX-riski.** Pelaajalla voi olla samaan aikaan teknis-taktinen (V6), fyysinen (V7) JA
+  joukkuetaktinen (5.1) jaksofokus. Master + VP tarvitsevat selkeän **domeeni-erottelun** (merkintä/suodatin) ettei
+  valmentaja huku. Tämä on briefin konkreettinen UX-vaatimus, ei jälkiajatus.
+- **Pelaajapinta — päätä skooppi.** `tmTtPelaaja` osaa jo kääntää `TM_TT_JOUKKUE`-konseptin lapsiturvalliseksi
+  (otsikko/mika/miksi/cue/koe). Päätä: näkyykö joukkuetaktinen teema pelaajalle (V4b-tyyliin "minun tehtäväni
+  prässissä") jo 5.1a:ssa vai vasta myöhemmin. Suositus: kevyt pelaaja-cue mukaan (arvo pelaajalle), mutta erikseen
+  merkittynä scopeksi.
+- **Nimeämisvelka.** Pikakentät `adar_*` (vanha nimi). ÄLÄ nimeä uudelleen 5.1:ssä (A7-tyylistä riskiä) — dokumentoi
+  vain että `adar_*` = D4/pelihavainto. Mahdollinen siivous osana A7:ää.
+- **Verifioitava ennen koodausta:** lue yksi oikea `havainnot`-doc tuotannosta ja vahvista `pisteet:{A,D,Act,R}`-skeema
+  + onko IDP-kytkös tallessa (§0). Brief nojaa tähän skeemaan.
