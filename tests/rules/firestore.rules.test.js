@@ -453,6 +453,31 @@ describe('Roolipohjainen kirjoitus', () => {
     ));
   });
 
+  // ── P1 — Pelihavainto: uudet kentät (tilanne/taksonomia/linkki_yksilo) hyväksytään (ei hasOnly-estoa) ──
+  it('Valmentaja luo pelihavainnon P1-kentillä (tilanne/taksonomia/pisteet 1–5)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'ph1'),
+      { tyyppi: 'adar', malli: 'tm_pelihavainto', tila: 'valmis', pisteet: { A: 2, D: 3, Act: 4, R: 2 },
+        tilanne: 'peli', vastustaja: 'VPS', taksonomia_valittu: 'anticipation', taksonomia: ['anticipation', 'vision'],
+        vapaa_havainto: 'luki pelin hyvin', linkki_yksilo: null, pelaajaId: PELAAJA_UID, seuraId: SEURA_A, valmentajaUid: VALM_A_UID, luotu: new Date() }
+    ));
+  });
+  it('Valmentaja asettaa yksilö-jaksofokuksen pelihavainnosta (domeeni teknis_taktinen)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
+      { jaksofokus: { konsepti_avain: 'y_h0', konsepti_nimi: 'Havainnointi', domeeni: 'teknis_taktinen', lahde: 'pelihavainto', kesto_vk: 4, alkoi: '2026-07-10' } }
+    ));
+  });
+  it('Toisen seuran valmentaja EI luo pelihavaintoa (tenant-eristys)', async () => {
+    const db = randomContext().firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'ph-bad'),
+      { tyyppi: 'adar', tila: 'valmis', pisteet: { A: 3 }, tilanne: 'peli', luotu: new Date() }
+    ));
+  });
+
   it('Valmentaja EI kirjoita seuradokumenttia', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     await assertFails(updateDoc(doc(db, 'seurat', SEURA_A), { nimi: 'Hakkeroitu' }));

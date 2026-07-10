@@ -124,19 +124,20 @@ describe('Arviointikehykset (kv-avoimuus)', () => {
 });
 
 describe('2c — tmAdarHavaittu (ADAR → havaittu peliäly D4)', () => {
-  it('normalisointi 1→1, 2→3, 3→5 (kokonaisluku)', () => {
-    expect(tmAdarHavaittu({ a: 1, d: 2, ac: 3, r: 2 }).decision_making.arvo).toBe(3);
+  it('P1 (§13): ADAR 1–5 suoraan (ei enää spread); vanha 1–10 → ÷2', () => {
+    expect(tmAdarHavaittu({ a: 1, d: 3, ac: 5, r: 2 }).decision_making.arvo).toBe(3);
     expect(tmAdarHavaittu({ a: 1 }).vision.arvo).toBe(1);
-    expect(tmAdarHavaittu({ ac: 3 }).play_under_pressure.arvo).toBe(5);
+    expect(tmAdarHavaittu({ ac: 5 }).play_under_pressure.arvo).toBe(5);
+    expect(tmAdarHavaittu({ d: 8 }).decision_making.arvo).toBe(4);   // legacy 1–10 → ÷2
   });
   it('assess (a) → 2 kohdetta: anticipation + vision', () => {
-    const r = tmAdarHavaittu({ a: 3 });
+    const r = tmAdarHavaittu({ a: 5 });
     expect(r.anticipation.arvo).toBe(5);
     expect(r.vision.arvo).toBe(5);
     expect(Object.keys(r).sort()).toEqual(['anticipation', 'vision']);
   });
   it('ac-avain (ei act) → play_under_pressure; d → decision_making; r → positioning', () => {
-    const r = tmAdarHavaittu({ a: 2, d: 2, ac: 2, r: 2 });
+    const r = tmAdarHavaittu({ a: 3, d: 3, ac: 3, r: 3 });
     expect(r.play_under_pressure).toBeTruthy();
     expect(r.act).toBeUndefined();                 // avain on 'ac', ei 'act'
     expect(r.decision_making.arvo).toBe(3);

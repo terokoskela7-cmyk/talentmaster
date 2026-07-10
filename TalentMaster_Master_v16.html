@@ -18,6 +18,8 @@
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (konsepti→cue→harjoite), generoitu I1-parserilla · v4 = parseri-korjaus (pelimuoto-saaste) -->
+<script src="lib/tm_arviointi_taksonomia.js?v=4"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
+<script src="lib/tm_pelialy_yksilo.js?v=1"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) -->
 <script src="lib/tm_arviointi_silta.js?v=1"></script>   <!-- Vaihe 5: arviointi→resepti-silta (4a lähde-vihje: arvioinnin heikoin havaittu) -->
 <script src="lib/tm_jaksofokus.js?v=1"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
@@ -8457,8 +8459,8 @@ function openDrill(type) {
   } else if (type === 'd3') {
     _avaaD3Arvio(_activePelaaja); return;
   } else if (type === 'adar') {
-    // Ohjataan ADAR_Pikakortti.html:ään — se on ainoa kenttätyökalu joka persistoi Firestoreen.
-    // Tämä Master-drilli oli UI-mockup (drillDo() = vain toast, ei tallennusta) — §ADAR_JATKOKEHITYS.
+    // P1: TM "Pelihavainto" -talteenotto Masterissa (1–5, tilanne, yksilölinkki) — korvaa Pikakortti-launcherin.
+    if (typeof _pelihavaintoModal === 'function') { _pelihavaintoModal(_activePelaaja || ''); return; }
     window.open('TalentMaster_ADAR_Pikakortti.html?seuraId=' + (_seuraId || ''), '_blank');
     return; // Ei avata drill-paneelia
   }
@@ -8502,7 +8504,12 @@ async function paivitaAdarPikakentat(pelaajaId) {
     const KENTAT = { assess: 'A', decide: 'D', act: 'Act', reassess: 'R' };
     const summat = { assess: 0, decide: 0, act: 0, reassess: 0 };
     const lkmt   = { assess: 0, decide: 0, act: 0, reassess: 0 };
-    const dim = (h, avain) => { const p = h.pisteet || {}; return (p[avain] != null && !isNaN(p[avain])) ? p[avain] : null; };
+    // P1 (§13): pisteet 1–5. Vanha 1–10 → ÷2 lukuvaiheessa (>5); 1–5/1–3 = suoraan. adar_viimeisin 1–5.
+    const _n15 = (v) => (v == null || isNaN(v)) ? null : Math.max(1, Math.min(5, (v > 5) ? Math.round(v / 2) : Math.round(v)));
+    const dim = (h, avain) => { const p = h.pisteet || {}; return _n15(p[avain]); };
+    // adar_tilanne_jakauma (§3): peli vs harjoitus -lkm kaikista havainnoista.
+    const tilJak = {};
+    havainnot.forEach(h => { const t = h.tilanne || 'muu'; tilJak[t] = (tilJak[t] || 0) + 1; });
     viim10.forEach(h => {
       Object.keys(KENTAT).forEach(nimi => { const v = dim(h, KENTAT[nimi]); if (v != null) { summat[nimi] += v; lkmt[nimi]++; } });
     });
@@ -8526,11 +8533,187 @@ async function paivitaAdarPikakentat(pelaajaId) {
       adar_pvm: v0pvm,
       adar_havaintoja: havainnot.length,
       adar_vahvin: vahvin,
-      adar_heikoin: heikoin
+      adar_heikoin: heikoin,
+      adar_tilanne_jakauma: tilJak
     }, { merge: true });
   } catch (e) { console.warn('[paivitaAdarPikakentat]', e.message); }
 }
 window.paivitaAdarPikakentat = paivitaAdarPikakentat;
+
+// ══════════════════════════════════════════════════════════════════════════
+// P1 — PELIHAVAINTO (TM-malli, korvaa ADAR-esittelymallin). Talteenotto 1–5 + yksilölinkki (Kartta A).
+// §1.1 asiantuntijan valta: ehdotus, ei pakko; "Näytä kaikki teemat" aina. String-konkat (§7.1).
+// ══════════════════════════════════════════════════════════════════════════
+window._phTila = null;
+var _PH_TILANTEET = [['peli', 'Peli'], ['harjoitus', 'Harjoitus'], ['turnaus', 'Turnaus'], ['muu', 'Muu']];
+var _PH_ADAR = [['A', 'Havainnointi'], ['D', 'Päätöksenteko'], ['Act', 'Toteutus'], ['R', 'Reagointi']];
+var _PH_ADAR_TAK = { A: 'a', D: 'd', Act: 'ac', R: 'r' };
+
+window._pelihavaintoModal = function (pid) {
+  window._phTila = { pid: pid || '', tilanne: '', vastustaja: '', tilanne_pvm: '', pisteet: { A: null, D: null, Act: null, R: null }, vapaa: '', taksonomia_valittu: '', vaihe: 'capture', ehdotukset: [], naytaKaikki: false, havaintoRef: null, virheet: [] };
+  _phRender();
+};
+function _phSyncFromDom() {
+  var S = window._phTila; if (!S) return; var g = function (id) { var e = document.getElementById(id); return e ? e.value : undefined; };
+  if (g('phPelaaja') !== undefined) S.pid = g('phPelaaja');
+  if (g('phVastustaja') !== undefined) S.vastustaja = g('phVastustaja');
+  if (g('phPvm') !== undefined) S.tilanne_pvm = g('phPvm');
+  if (g('phVapaa') !== undefined) S.vapaa = g('phVapaa');
+  if (g('phTaksonomia') !== undefined) S.taksonomia_valittu = g('phTaksonomia');
+}
+window._phSetTilanne = function (t) { _phSyncFromDom(); window._phTila.tilanne = t; _phRender(); };
+window._phSetPiste = function (dim, v) { _phSyncFromDom(); var S = window._phTila; S.pisteet[dim] = (S.pisteet[dim] === v ? null : v); _phRender(); };
+window._phNaytaKaikki = function () { _phSyncFromDom(); window._phTila.naytaKaikki = true; _phRender(); };
+
+function _phDots(dim, current) {
+  var A = (typeof TM_ARVIOINTI_ASTEIKKO !== 'undefined') ? TM_ARVIOINTI_ASTEIKKO : {};
+  var h = '<span style="display:inline-flex;gap:4px">';
+  for (var v = 1; v <= 5; v++) { var t = A[v] ? (v + ' · ' + A[v].fi) : String(v); h += '<span onclick="_phSetPiste(\'' + dim + '\',' + v + ')" title="' + t + '" style="width:16px;height:16px;border-radius:50%;cursor:pointer;background:' + (current != null && v <= current ? 'var(--teal)' : 'var(--ov-3,rgba(255,255,255,.08))') + '"></span>'; }
+  h += '</span>' + (current != null ? '<span style="font-size:11px;color:var(--teal);margin-left:7px">' + current + '/5' + (A[current] ? ' · ' + A[current].fi : '') + '</span>' : '');
+  return h;
+}
+function _phPelaajaNimi(pid) { var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : null; return p ? (((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || pid) : pid; }
+
+function _phRender() {
+  var S = window._phTila; if (!S) return; var esc = _prEsc;
+  var inp = 'width:100%;background:var(--surface);border:.5px solid var(--border);border-radius:7px;color:var(--ink);padding:8px 10px;font-size:13px;font-family:inherit;box-sizing:border-box';
+  var lbl = 'font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin:10px 0 4px';
+  var h = '<div id="_phModal" style="position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9600;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)this.remove()">';
+  h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:22px;width:560px;max-width:100%;max-height:94vh;overflow-y:auto" onclick="event.stopPropagation()">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink)">👁 Pelihavainto</div>'
+    + '<button onclick="document.getElementById(\'_phModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
+
+  if (S.vaihe === 'capture') {
+    // Pelaaja (picker jos ei annettu)
+    if (!S.pid) {
+      var pel = (_pelaajatData || []).slice().sort(function (a, b) { return String(a.sukunimi || '').localeCompare(String(b.sukunimi || '')); });
+      h += '<div style="' + lbl + '">Pelaaja</div><select id="phPelaaja" onchange="_phSyncDomSoft()" style="' + inp + '"><option value="">— Valitse pelaaja —</option>'
+        + pel.map(function (p) { return '<option value="' + p.id + '"' + (p.id === S.pid ? ' selected' : '') + '>' + esc(((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id) + '</option>'; }).join('') + '</select>';
+    } else {
+      h += '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px">Pelaaja: <b>' + esc(_phPelaajaNimi(S.pid)) + '</b></div>';
+    }
+    // Tilanne (pakollinen)
+    h += '<div style="' + lbl + '">Tilanne <span style="color:var(--amber);text-transform:none">· pakollinen</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">';
+    _PH_TILANTEET.forEach(function (t) { var sel = S.tilanne === t[0]; h += '<button onclick="_phSetTilanne(\'' + t[0] + '\')" style="flex:1;min-width:80px;font-size:12px;border-radius:7px;padding:7px 6px;cursor:pointer;border:.5px solid ' + (sel ? 'rgba(40,176,144,.5)' : 'var(--border)') + ';background:' + (sel ? 'rgba(40,176,144,.14)' : 'var(--ov-1,rgba(255,255,255,.04))') + ';color:' + (sel ? 'var(--teal)' : 'var(--ink2)') + ';font-weight:' + (sel ? '600' : '400') + '">' + t[1] + '</button>'; });
+    h += '</div>';
+    if (S.tilanne === 'peli') {
+      h += '<div style="display:flex;gap:8px;margin-top:8px"><div style="flex:2"><div style="' + lbl + ';margin-top:0">Vastustaja (valinn.)</div><input id="phVastustaja" value="' + esc(S.vastustaja) + '" style="' + inp + '"></div>'
+        + '<div style="flex:1"><div style="' + lbl + ';margin-top:0">Pvm</div><input id="phPvm" type="date" value="' + esc(S.tilanne_pvm) + '" style="' + inp + '"></div></div>';
+    }
+    // ADAR 1–5 (suomeksi)
+    h += '<div style="' + lbl + '">Pelihavainto (1–5)</div>';
+    _PH_ADAR.forEach(function (d) { h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:12px;color:var(--ink2);width:130px">' + d[1] + '</span>' + _phDots(d[0], S.pisteet[d[0]]) + '</div>'; });
+    // Tarkenna kohde (D4-taksonomia dropdown, valinnainen)
+    var d4 = (typeof ARVIOINTI_TAKSONOMIA !== 'undefined') ? ARVIOINTI_TAKSONOMIA.filter(function (i) { return i.dim === 'D4'; }) : [];
+    h += '<div style="' + lbl + '">Tarkenna kohde (valinnainen — muuten johdetaan automaattisesti)</div>';
+    h += '<select id="phTaksonomia" style="' + inp + '"><option value="">— Automaattinen (havainnosta) —</option>'
+      + d4.map(function (i) { return '<option value="' + i.avain + '"' + (i.avain === S.taksonomia_valittu ? ' selected' : '') + '>' + esc(i.nimi_fi) + '</option>'; }).join('') + '</select>';
+    // Vapaa havainto
+    h += '<div style="' + lbl + '">Vapaa havainto <span style="text-transform:none;color:var(--amber)">· EI terveys-/vammatietoa (→ terveys)</span></div>';
+    h += '<textarea id="phVapaa" rows="2" style="' + inp + ';resize:vertical">' + esc(S.vapaa) + '</textarea>';
+    if (S.virheet && S.virheet.length) h += '<div style="margin-top:9px;background:rgba(201,64,64,.1);border:.5px solid rgba(201,64,64,.35);border-radius:8px;padding:8px 11px;font-size:12px;color:#c94040">' + S.virheet.map(function (x) { return '⚠ ' + esc(x); }).join('<br>') + '</div>';
+    h += '<div style="margin-top:14px"><button onclick="_phTallenna()" style="width:100%;font-size:13px;font-weight:600;border-radius:9px;padding:11px;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal);cursor:pointer">💾 Tallenna havainto</button></div>';
+  } else {
+    // Yksilölinkki-vaihe (§1.1 asiantuntijan valta)
+    h += '<div style="font-size:12px;color:var(--teal);margin-bottom:2px">✓ Havainto tallennettu · ' + esc(_phPelaajaNimi(S.pid)) + '</div>';
+    var taks = _phTaksonomia();
+    h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:10px">Havaittu peliäly: ' + (taks.length ? taks.map(function (t) { var _L = window.TM_PELIALY_YKSILO; return esc((_L && _L.TAK_NIMI[t]) || t); }).join(', ') : '—') + '</div>';
+    h += '<div style="' + lbl + ';margin-top:0">Ehdota yksilöteema (jaksofokus) — valmentaja valitsee</div>';
+    if (!S.ehdotukset.length) h += '<div style="font-size:12px;color:var(--ink3);padding:4px 0">Ei automaattiehdotusta (ei riittävää havaintoa/ikä) — valitse alta.</div>';
+    S.ehdotukset.forEach(function (e) {
+      h += '<div onclick="_phAsetaYksiloTeema(\'' + esc(e.konsepti_avain) + '\')" style="border:.5px solid rgba(40,176,144,.3);border-radius:9px;padding:10px 12px;margin-bottom:7px;cursor:pointer;background:var(--ov-1,rgba(255,255,255,.03))">'
+        + '<div style="font-size:14px;font-weight:600;color:var(--ink)">' + esc(e.konsepti_nimi) + ' <span style="float:right;color:var(--teal);font-size:16px">＋</span></div>'
+        + '<div style="font-size:11px;color:var(--amber);margin-top:2px">' + esc(e.syy) + '</div></div>';
+    });
+    // Näytä kaikki teemat (asiantuntijan valta — koko lista)
+    if (!S.naytaKaikki) h += '<div style="text-align:center;margin-top:4px"><button onclick="_phNaytaKaikki()" style="font-size:12px;border-radius:7px;padding:7px 12px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">Näytä kaikki teemat →</button></div>';
+    else {
+      var kaikki = _phKaikkiTeemat();
+      h += '<div style="' + lbl + '">Kaikki teemat (ehdotuksen ohi)</div><div style="display:flex;gap:6px;flex-wrap:wrap">';
+      kaikki.forEach(function (it) { h += '<button onclick="_phAsetaYksiloTeema(\'' + esc(it.avain) + '\')" style="font-size:11.5px;border-radius:7px;padding:6px 10px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">' + esc(it.nimi) + '</button>'; });
+      h += '</div>';
+    }
+    h += '<div style="margin-top:14px"><button onclick="document.getElementById(\'_phModal\').remove()" style="width:100%;font-size:12px;border-radius:8px;padding:9px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">Valmis — ei yksilöteemaa (voi asettaa myöhemmin)</button></div>';
+  }
+  h += '</div></div>';
+  document.getElementById('_phModal')?.remove();
+  var wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+}
+window._phSyncDomSoft = function () { _phSyncFromDom(); };
+// Havainnon taksonomia-avaimet: valittu tarkennus TAI tmAdarHavaittu(pisteet).
+function _phTaksonomia() {
+  var S = window._phTila; if (!S) return [];
+  if (S.taksonomia_valittu) return [S.taksonomia_valittu];
+  if (typeof tmAdarHavaittu !== 'function') return [];
+  var av = tmAdarHavaittu({ a: S.pisteet.A, d: S.pisteet.D, ac: S.pisteet.Act, r: S.pisteet.R });
+  return av ? Object.keys(av) : [];
+}
+function _phKaikkiTeemat() {
+  var S = window._phTila; var p = _ttPelaaja(S.pid) || {};
+  var items = (typeof tmTtItems === 'function') ? tmTtItems({ ika: (_devIkaSp ? _devIkaSp(p).ika : null), joukkue: p.joukkue, syntymaVuosi: p.syntymaVuosi }) : [];
+  return items;
+}
+window._phTallenna = async function () {
+  _phSyncFromDom(); var S = window._phTila; if (!S) return; var esc = _prEsc;
+  S.virheet = [];
+  if (!S.pid) S.virheet.push('Valitse pelaaja');
+  if (!S.tilanne) S.virheet.push('Tilanne on pakollinen');
+  var pisteita = ['A', 'D', 'Act', 'R'].filter(function (k) { return S.pisteet[k] != null; }).length;
+  if (!pisteita) S.virheet.push('Anna vähintään yksi 1–5 -arvio');
+  if (S.virheet.length) { _phRender(); return; }
+  var taks = _phTaksonomia();
+  var uid = _uid || (firebase.auth().currentUser && firebase.auth().currentUser.uid) || null;
+  var p = _ttPelaaja(S.pid) || {};
+  var doc = {
+    tyyppi: 'adar', malli: 'tm_pelihavainto',
+    pisteet: { A: S.pisteet.A, D: S.pisteet.D, Act: S.pisteet.Act, R: S.pisteet.R },
+    tilanne: S.tilanne, vastustaja: (S.tilanne === 'peli' ? (S.vastustaja || null) : null), tilanne_pvm: (S.tilanne === 'peli' ? (S.tilanne_pvm || null) : null),
+    vapaa_havainto: S.vapaa || null, taksonomia_valittu: S.taksonomia_valittu || null, taksonomia: taks,
+    tila: 'valmis', pelaaja_lukenut: false, pelaajaId: S.pid, seuraId: _seuraId || null, valmentajaUid: uid,
+    linkki_yksilo: null
+  };
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) {
+    if (typeof toast === 'function') toast('Havainto tallennettu (demo)', 'ok');
+    S.vaihe = 'link'; S.ehdotukset = _phEhdota(); _phRender(); return;
+  }
+  try {
+    var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    doc.luotu = firebase.firestore.FieldValue.serverTimestamp();
+    var ref = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(S.pid).collection('havainnot').add(doc);
+    S.havaintoRef = ref.id;
+    if (typeof paivitaAdarPikakentat === 'function') await paivitaAdarPikakentat(S.pid);
+    if (typeof toast === 'function') toast('Pelihavainto tallennettu ✓', 'ok');
+    S.vaihe = 'link'; S.ehdotukset = _phEhdota(); _phRender();
+  } catch (e) { console.warn('[phTallenna]', e && e.message); S.virheet = ['Tallennus epäonnistui: ' + (e && e.message)]; _phRender(); }
+};
+function _phEhdota() {
+  var S = window._phTila; var LIB = window.TM_PELIALY_YKSILO; if (!LIB) return [];
+  var p = _ttPelaaja(S.pid) || {};
+  var items = (typeof tmTtItems === 'function') ? tmTtItems({ ika: (_devIkaSp ? _devIkaSp(p).ika : null), joukkue: p.joukkue, syntymaVuosi: p.syntymaVuosi }) : null;
+  var nimiFn = function (a) { var it = (items || []).find(function (x) { return x.avain === a; }); return it ? it.nimi : a; };
+  return LIB.tmPelialyYksiloEhdota(_phTaksonomia(), { sallitutKonseptit: items, konseptiNimi: nimiFn });
+}
+window._phAsetaYksiloTeema = async function (avain) {
+  var S = window._phTila; if (!S) return; var p = _ttPelaaja(S.pid) || {};
+  var pel = (typeof tmTtPelaaja === 'function') ? tmTtPelaaja(avain) : null;
+  var items = (typeof tmTtItems === 'function') ? tmTtItems({ ika: (_devIkaSp ? _devIkaSp(p).ika : null), joukkue: p.joukkue, syntymaVuosi: p.syntymaVuosi }) : [];
+  var it = (items || []).find(function (x) { return x.avain === avain; });
+  var heikoin = null, min = Infinity; ['A', 'D', 'Act', 'R'].forEach(function (k) { if (S.pisteet[k] != null && S.pisteet[k] < min) { min = S.pisteet[k]; heikoin = k; } });
+  var jf = { konsepti_avain: avain, konsepti_nimi: it ? it.nimi : (pel ? pel.otsikko : avain), konsepti_koodi: it ? it.koodi : null,
+    domeeni: 'teknis_taktinen', lahde: 'pelihavainto', alkoi: new Date().toISOString(), kesto_vk: 4,
+    cue: pel ? pel.cue : null, koe: pel ? pel.koe : null,
+    lahtotaso: { pisteet: S.pisteet, heikoin_dim: heikoin, taksonomia: _phTaksonomia() } };
+  p.jaksofokus = jf;
+  if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
+  document.getElementById('_phModal')?.remove(); window._phTila = null;
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Yksilöteema asetettu (demo)', 'ok'); return; }
+  try {
+    var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).set({ jaksofokus: jf }, { merge: true });
+    if (S.havaintoRef) await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('havainnot').doc(S.havaintoRef).set({ linkki_yksilo: { teema_avain: avain, teema_nimi: jf.konsepti_nimi } }, { merge: true });
+    if (typeof toast === 'function') toast('Yksilöteema asetettu jaksofokukseksi ✓', 'ok');
+  } catch (e) { console.warn('[phAseta]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+};
 
 /* ════════════════════════════════════════════════════════════
    COMMAND PALETTE (⌘K)
