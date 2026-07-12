@@ -20,7 +20,7 @@
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
-<script src="lib/tm_arviointi_taksonomia.js?v=4"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
+<script src="lib/tm_arviointi_taksonomia.js?v=5"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=1"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (oversight tilanne-jakauma) -->
 <script src="lib/tm_arviointi_silta.js?v=1"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) -->
 <script src="lib/tm_idp.js?v=3"></script>   <!-- Vaihe 3a+3b: IDP ehdotusmoottori + VP-fokusvalinta + review-sykli/kehityskaari/elinkaari -->
@@ -7238,15 +7238,30 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
       + '</div>';
   }
   else {
-    const ar = function(lbl, val) {
+    // I1 (§4): ADAR 1–3-kaanon. Näytä vain ikätason osat (U8–U12 → Assess /3 · U13–U15 → A·D·Act /9 ·
+    // U16+ → täysi /12). Arvo capataan 1–3 (ei "4/3"); kokonais = summa / (osamäärä×3) (ei "3/12"-bugi).
+    const _c13 = function (v) { return (v == null || isNaN(v)) ? null : Math.max(1, Math.min(3, Math.round(v))); };
+    const _isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
+    const _ika = _isp ? _isp.ika : null;
+    const DIMS_ALL = [['a', 'Awareness'], ['d', 'Decision'], ['ac', 'Action'], ['r', 'Reaction']];
+    let _naytettavat;
+    if (_ika != null && _ika <= 12) _naytettavat = DIMS_ALL.slice(0, 1);
+    else if (_ika != null && _ika <= 15) _naytettavat = DIMS_ALL.slice(0, 3);
+    else if (_ika != null) _naytettavat = DIMS_ALL;
+    else _naytettavat = DIMS_ALL.filter(function (d) { return av[d[0]] != null; });   // ikä tuntematon → olemassa olevat
+    if (!_naytettavat.length) _naytettavat = DIMS_ALL.slice(0, 1);
+    const ar = function (lbl, val) {
+      const cv = _c13(val);
       return '<tr style="border-top:.5px solid var(--border)"><td style="padding:7px 8px;color:var(--ink2)">' + lbl + '</td>'
-        + '<td style="padding:7px 8px;font-family:var(--font-m);color:var(--ink)">' + (val != null ? val + '/3' : '—') + '</td>'
-        + '<td style="padding:7px 8px">' + _dimBar(val, 3, 'var(--teal)') + '</td></tr>';
+        + '<td style="padding:7px 8px;font-family:var(--font-m);color:var(--ink)">' + (cv != null ? cv + '/3' : '—') + '</td>'
+        + '<td style="padding:7px 8px">' + _dimBar(cv, 3, 'var(--teal)') + '</td></tr>';
     };
+    const _summa = _naytettavat.reduce(function (s, d) { const cv = _c13(av[d[0]]); return s + (cv != null ? cv : 0); }, 0);
+    const _max = _naytettavat.length * 3;
     f3 = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
-      + ar('Awareness', av.a) + ar('Decision', av.d) + ar('Action', av.ac) + ar('Reaction', av.r)
+      + _naytettavat.map(function (d) { return ar(d[1], av[d[0]]); }).join('')
       + '<tr style="border-top:1px solid var(--border)"><td style="padding:8px;color:var(--ink);font-weight:600">Pelihavainto kokonais' + window._tmIBtn('adar') + '</td>'
-      + '<td style="padding:8px;font-family:var(--font-m);color:var(--ink)">' + (av.yht != null ? av.yht + '/12' : '—') + '</td><td></td></tr>'
+      + '<td style="padding:8px;font-family:var(--font-m);color:var(--ink)">' + _summa + '/' + _max + '</td><td></td></tr>'
       + '</tbody></table>';
   }
 
@@ -10856,7 +10871,9 @@ function _dimIkaSp(joukkue, p) {
 }
 // Normalisoinnit 1–5-asteikolle (hero-dimensiot)
 function _dimNorm5Tki(tki)  { return (tki == null)  ? null : Math.round((tki / 20) * 10) / 10; }       // TKI 0–100 → 0–5
-function _dimNorm5Adar(yht) { return (yht == null)  ? null : Math.round((yht / 12 * 5) * 10) / 10; }    // ADAR yht 4–12 → ~1.7–5
+// I1 (§3): adar_viimeisin.yht = 1–3-keskiarvo (paivitaAdarPikakentat). Normalisoi D4 per dimensio 5D-radarille:
+// yht/3*5 (max 3 → max 5) ettei peliäly näytä matalalta muihin 1–5-dimensioihin verrattuna. Arvo säilyy 1–3 datassa.
+function _dimNorm5Adar(yht) { return (yht == null) ? null : Math.round((yht / 3 * 5) * 10) / 10; }    // ADAR yht 1–3 → 1.7–5
 // Vaaka-arvopalkki (0–max), teal-täyttö himmeällä pohjalla — FLEI/ketjut/ADAR-osat
 function _dimBar(arvo, max, vari) {
   const pct = (arvo == null || max <= 0) ? 0 : Math.max(0, Math.min(100, (arvo / max) * 100));

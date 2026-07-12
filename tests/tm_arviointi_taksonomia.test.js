@@ -124,16 +124,17 @@ describe('Arviointikehykset (kv-avoimuus)', () => {
 });
 
 describe('2c — tmAdarHavaittu (ADAR → havaittu peliäly D4)', () => {
-  it('P1 (§13): ADAR 1–5 suoraan (ei enää spread); vanha 1–10 → ÷2', () => {
-    expect(tmAdarHavaittu({ a: 1, d: 3, ac: 5, r: 2 }).decision_making.arvo).toBe(3);
+  it('I1 (§7): ADAR 1–3 suoraan (ei muunnosta 1–5:een); >3 (vanha 1–5/1–10) capataan 3:een', () => {
+    expect(tmAdarHavaittu({ a: 1, d: 2, ac: 3, r: 2 }).decision_making.arvo).toBe(2);
     expect(tmAdarHavaittu({ a: 1 }).vision.arvo).toBe(1);
-    expect(tmAdarHavaittu({ ac: 5 }).play_under_pressure.arvo).toBe(5);
-    expect(tmAdarHavaittu({ d: 8 }).decision_making.arvo).toBe(4);   // legacy 1–10 → ÷2
+    expect(tmAdarHavaittu({ ac: 3 }).play_under_pressure.arvo).toBe(3);
+    expect(tmAdarHavaittu({ d: 8 }).decision_making.arvo).toBe(3);   // vanha 1–10 → cap 3
+    expect(tmAdarHavaittu({ a: 5 }).vision.arvo).toBe(3);            // vanha 1–5 → cap 3
   });
   it('assess (a) → 2 kohdetta: anticipation + vision', () => {
-    const r = tmAdarHavaittu({ a: 5 });
-    expect(r.anticipation.arvo).toBe(5);
-    expect(r.vision.arvo).toBe(5);
+    const r = tmAdarHavaittu({ a: 3 });
+    expect(r.anticipation.arvo).toBe(3);
+    expect(r.vision.arvo).toBe(3);
     expect(Object.keys(r).sort()).toEqual(['anticipation', 'vision']);
   });
   it('ac-avain (ei act) → play_under_pressure; d → decision_making; r → positioning', () => {
