@@ -13,6 +13,18 @@
 P1:n 1–5 rikkoo sen (Reaction 4/3). Master `openDrill('adar')` (n. rivi 8462) kutsuu nyt P1:n `_pelihavaintoModal`ia;
 kommentti "korvaa Pikakortti-launcherin". **I1 palauttaa pikakortin kaanoniksi.**
 
+## 0.1 VERIFIOITU (de-riskaus 2026-07-10) — muoto + upotus todettu koodista
+- **`adar_viimeisin`-muoto täsmää kaikki lukijat.** Pikakortti kirjoittaa `adar_viimeisin: { a, d, ac, r, yht, pvm }`
+  (+ `adar_pvm, adar_havaintoja, adar_vahvin, adar_heikoin`). Lukijat: **`tmAdarHavaittu`** lukee `a/d/ac/r` (pienet) →
+  arviointi + IDP; **Peli-välilehti/raportti** lukevat `adar_viimeisin.yht`. **Kaikki rakennettu pikakortin muodolle** →
+  P1:n `pisteet:{A,D,Act,R}` (isot, 1–5) oli poikkeama. **⇒ Kaanon-suunta vahvistettu koodista, ei oletus.**
+- **Upotus toimii.** Pikakortti sisältää sekä oman `initializeApp`/`apiKey`in ETTÄ lukee `window._tmDB/_tmAuth/_tmSeuraId`
+  → toimii sekä standalone että upotettuna. Iframe + kontekstin välitys Masterista on tuettu.
+- **Arviointi jo himmentää ADAR-lähteen** (`onAdar` → ei V5-väriä vaan ink3 + badge) → 1–3-arvo EI näy väärin
+  värikoodattuna arviointiriveillä. **Ainoa 1–5-skaalan näyttökorjaus jää 5D-radariin** (§3).
+- **Jäljellä Coden vahvistettavaksi (matala riski):** iframe-auth-jako (oma init vs jaettu), P1:n isokirjain-datan migraatio (§5),
+  Peli-välilehden ikävaihe-tietoisuus (§4, oikeaa työtä ei riski).
+
 ## 1. Pikakortti kaanoniksi + upotus Masteriin
 - **`openDrill('adar')`** (Master ~8462): reititä **ADAR-pikakorttiin**, EI `_pelihavaintoModal`iin.
 - **Mekanismi (pikakortti on jo tähän suunniteltu):** upota `TalentMaster_ADAR_Pikakortti.html` **iframeen** Havainnot-
