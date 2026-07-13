@@ -1439,6 +1439,21 @@ describe('IDP-kausitavoite (idp_kausi) — Vaihe 3a', () => {
   it('Pelaaja/valmentaja EI POISTA (vain SA)', async () => {
     await assertFails(deleteDoc(idpRef(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), SEURA_A)));
   });
+  // IDP-kortti v2 §4 — pelaajan sitoumus (field-level anon-write)
+  const SIT = { pelaaja_sitoumus: { itsearvio: { q1: 'a', q2: 'b', q3: 'c' }, rekisteri: 'showcase', sitoumus_pvm: '2026-07-09T10:00:00.000Z', vahvistettu_pvm: null } };
+  it('Pelaaja (anon) LUO oman sitoumuksensa (vain pelaaja_sitoumus)', async () => {
+    await assertSucceeds(setDoc(idpRef(anonContext().firestore(), SEURA_A), SIT));
+  });
+  it('Pelaaja (anon) PÄIVITTÄÄ sitoumuksen olemassa olevaan dokkiin (merge, ei koske tavoitteita)', async () => {
+    await setDoc(idpRef(vpContext(SEURA_A).firestore(), SEURA_A), KAUSITAVOITE);
+    await assertSucceeds(setDoc(idpRef(anonContext().firestore(), SEURA_A), SIT, { merge: true }));
+  });
+  it('Pelaaja (anon) EI voi asettaa vahvistettu_pvm (vain VP vahvistaa)', async () => {
+    await assertFails(setDoc(idpRef(anonContext().firestore(), SEURA_A), { pelaaja_sitoumus: { itsearvio: {}, sitoumus_pvm: 'x', vahvistettu_pvm: '2026-07-09T00:00:00.000Z' } }));
+  });
+  it('Pelaaja (anon) EI voi lisätä tavoitteita sitoumuksen ohella', async () => {
+    await assertFails(setDoc(idpRef(anonContext().firestore(), SEURA_A), Object.assign({ tavoitteet: [] }, SIT)));
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

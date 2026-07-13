@@ -239,6 +239,63 @@ describe('I3a §C.1 — kesto valmentajan asetettavaksi (idpRakennaTavoite opts.
   });
 });
 
+describe('IDP-kortti v2 §1 — vahvuus-moodi (modus/tyyppi/idpValitseVahvin)', () => {
+  const { idpKeraaVahvuudet, idpValitseVahvin } = require('../lib/tm_idp.js');
+  it('idpRakennaTavoite: tyyppi oletus heikkous; opts.tyyppi/kandidaatin tavoiteTyyppi voittaa', () => {
+    const p = { arviointi_havaittu: { vision: 2 } };
+    expect(idpRakennaTavoite(p, idpKohdeKandidaatti(p, 'vision', baseOpts), baseOpts).tyyppi).toBe('heikkous');
+    const k = idpKohdeKandidaatti(p, 'vision', baseOpts); k.tavoiteTyyppi = 'vahvuus';
+    expect(idpRakennaTavoite(p, k, baseOpts).tyyppi).toBe('vahvuus');
+    expect(idpRakennaTavoite(p, idpKohdeKandidaatti(p, 'vision', baseOpts), Object.assign({}, baseOpts, { tyyppi: 'pelipaikka' })).tyyppi).toBe('pelipaikka');
+  });
+  it('idpKeraaVahvuudet: havaittu ≥4 → vahvuus-kandidaatti (tavoiteTyyppi vahvuus)', () => {
+    const p = { arviointi_havaittu: { vision: 5, dribbling: 2, ball_control: 4 } };
+    const v = idpKeraaVahvuudet(p, baseOpts).map(c => c.avain).sort();
+    expect(v).toEqual(['ball_control', 'vision']);   // ≥4 vain
+    expect(idpKeraaVahvuudet(p, baseOpts).every(c => c.tavoiteTyyppi === 'vahvuus')).toBe(true);
+  });
+  it('idpValitseVahvin valitsee korkeimman tason', () => {
+    const kand = [{ avain: 'a', taso: 4 }, { avain: 'b', taso: 5 }, { avain: 'c', taso: 4 }];
+    expect(idpValitseVahvin(kand, {}, 0).avain).toBe('b');
+    expect(idpValitseVahvin([], {}, 0)).toBeNull();
+  });
+  it('idpEhdotaTavoite modus vahvuus → vahvin osa-alue + tyyppi vahvuus', () => {
+    const p = { arviointi_havaittu: { vision: 5, ball_control: 4 } };
+    const t = idpEhdotaTavoite(p, Object.assign({}, baseOpts, { modus: 'vahvuus' }));
+    expect(t.tyyppi).toBe('vahvuus');
+    expect(t.fokus.alue).toBe('vision');   // korkein (5)
+  });
+  it('idpEhdotaTavoite modus heikkous (oletus) → heikoin + tyyppi heikkous; pelipaikka → tyyppi pelipaikka', () => {
+    const p = { arviointi_havaittu: { vision: 2 } };
+    expect(idpEhdotaTavoite(p, baseOpts).tyyppi).toBe('heikkous');
+    expect(idpEhdotaTavoite(p, Object.assign({}, baseOpts, { modus: 'pelipaikka' })).tyyppi).toBe('pelipaikka');
+  });
+});
+
+describe('IDP-kortti v2 §3 — idpJumissa (8 viikon sääntö)', () => {
+  const { idpJumissa } = require('../lib/tm_idp.js');
+  const now = new Date('2026-09-01T00:00:00Z');
+  it('tuore tavoite (≤56 vrk) → ei jumissa', () => {
+    expect(idpJumissa({ luotu: '2026-08-15T00:00:00Z', lahto: { arvo: 3 }, mittari: { yksikko: 'taso' }, arviot: [] }, now)).toBe(false);
+  });
+  it('>56 vrk eikä edistystä (taso) → jumissa', () => {
+    const t = { luotu: '2026-06-01T00:00:00Z', lahto: { arvo: 3 }, tavoitearvo: 4, mittari: { yksikko: 'taso', suunta: 'suurempi' }, arviot: [{ arvo: 3 }] };
+    expect(idpJumissa(t, now)).toBe(true);
+  });
+  it('>56 vrk mutta edistystä (≥0.5 taso) → ei jumissa', () => {
+    const t = { luotu: '2026-06-01T00:00:00Z', lahto: { arvo: 3 }, mittari: { yksikko: 'taso', suunta: 'suurempi' }, arviot: [{ arvo: 3.6 }] };
+    expect(idpJumissa(t, now)).toBe(false);
+  });
+  it('mitattava (sekunnit, pienempi parempi): >56 vrk & <3 % parannus → jumissa', () => {
+    const t = { luotu: '2026-06-01T00:00:00Z', lahto: { arvo: 16 }, mittari: { yksikko: 's', suunta: 'pienempi' }, arviot: [{ arvo: 15.9 }] };
+    expect(idpJumissa(t, now)).toBe(true);   // 0.1 s < 0.48 (3% * 16)
+  });
+  it('saavutettu/hylätty → ei jumissa; ei luotua → ei jumissa', () => {
+    expect(idpJumissa({ status: 'saavutettu', luotu: '2026-06-01T00:00:00Z' }, now)).toBe(false);
+    expect(idpJumissa({ luotu: null }, now)).toBe(false);
+  });
+});
+
 describe('B2 — idpVahvinDim ADAR 1–3-kaanon (I1)', () => {
   it('adar_viimeisin.yht 1–3 skaalataan /3*5 (ei /12)', () => {
     const p = { d1_taso: 2, adar_viimeisin: { yht: 3 } };   // yht=3 (max) → 5.0, voittaa d1_taso 2
