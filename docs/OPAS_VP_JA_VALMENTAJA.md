@@ -411,6 +411,20 @@ Se on kehotus: *"vahvista pelitilanteessa."* Suora vastalääke silmämääräis
 > kalibrointia"*), ei portinvartija. Toisen joukkueen pelaajan IDP näkyy valmentajalle **vain luku** -muodossa.
 > Strateginen kausisuunta sovitaan yhdessä kehityspalaverissa; operatiivinen jaksofokus on valmentajan arkea.
 
+## 4.4 Pelaajan KPI-kortti — yhden silmäyksen mittaristo
+
+Pelaajakortin **Arviointi-välilehti** on pelaajan **KPI-kortti**: viisi ulottuvuutta yhtenä näkymänä —
+**D1 fyysinen · D2 tekninen · D3 psyykkinen · D4 peliäly · D5 sosiaalinen** — kolmesta lähteestä värikoodattuna
+(🟢 mitattu testeistä · 🔵 havaittu 1–5 · 👁 pelihavainto). Kehys on **Palloliiton Player Development Card**;
+TalentMaster tuo sen päälle mittauksen, pelihavainnon ja kehityssuunnitelman.
+
+- **VP** näkee kaikkien pelaajien KPI-kortit (kokonaiskuva + reiluus). **Valmentaja** näkee oman joukkueensa.
+- Kortista asetetaan kehitystavoite suoraan: heikko kohta (arvo ≤ 2) → **＋ IDP-tavoite** → järjestelmä ehdottaa
+  oikean konseptin ja harjoitteen.
+
+Yhdellä silmäyksellä: *missä pelaaja on vahva ja mihin asetetaan seuraava tavoite.* Kolme pintaa täydentävät
+toisiaan: **KPI-kortti = nykytila · IDP-kortti = mitä tehdään · pelaajaraportti = esitettävä kooste.**
+
 ---
 
 # OSA 5 — "Näin data herää ja tarina elää" -looppi (yhteinen muistikortti)
