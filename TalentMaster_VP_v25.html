@@ -31,6 +31,7 @@
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (oversight: lue kirjasto + N-laskuri) -->
+<script src="lib/tm_ohjelma_analytiikka.js?v=1"></script>   <!-- Vaihe 7.2b: per-ohjelma-analytiikka (oversight: mikä ohjelma toimii kenelle) -->
 <script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
 
 <style>
@@ -4106,6 +4107,37 @@ async function _vpOhjLaskeN() {
     Object.keys(ids).forEach(function (oid) { window._vpOhjKirjastoN[oid] = (window._vpOhjKirjastoN[oid] || 0) + 1; });
   });
 }
+// Vaihe 7.2b — VP oversight -analytiikka. §26: käyttää jo ladattua _pelaajat-dataa (phv_tila + jaksofokus_historia); on-demand (klik).
+var _VP_OHJ_PHV_NIMI = { PRE: 'Ennen PHV', LAH: 'Lähestyy', PH: 'Kasvupyrähdys', POST: 'Jälkeen', AN: 'Jälki-PHV', tuntematon: 'PHV tuntematon' };
+function _vpOhjAnalKoosteHTML(k) {
+  if (!k || !k.n) return '<div style="font-size:11.5px;color:var(--ink3);padding:6px 0">Ei suljettuja jaksoja tällä ohjelmalla vielä.</div>';
+  const esc = _jsvEsc;
+  const deltaTxt = (k.ka_delta != null) ? ((k.ka_delta > 0 ? '+' : '') + k.ka_delta) : '—';
+  const mitattuTxt = (k.mitattu_n < k.yhteensa_n) ? (' <span style="color:var(--amber)" title="Kaikkia jaksoja ei ole mitattu — delta vain mitatuista (§29)">(' + k.mitattu_n + '/' + k.yhteensa_n + ' mitattu)</span>') : '';
+  let h = '<div style="margin-top:8px;padding:9px 11px;background:var(--ov-1);border:.5px solid var(--border);border-radius:9px;font-size:11.5px;color:var(--ink2);line-height:1.6">';
+  h += '<div><b style="color:var(--ink)">' + k.n + '</b> suljettua jaksoa · ka delta <b style="color:var(--teal)">' + deltaTxt + '</b>' + mitattuTxt
+    + (k.toteuma_pct != null ? ' · toteuma <b>' + k.toteuma_pct + ' %</b>' : '') + '</div>';
+  const tj = k.tulosjakauma || {};
+  h += '<div style="margin-top:3px">tulos: <span style="color:var(--teal)">🟢 parani ' + (tj.parani || 0) + '</span> · <span style="color:var(--ink3)">→ ennallaan ' + (tj.ennallaan || 0) + '</span> · <span style="color:var(--amber)">🔄 vaihda ' + (tj.vaihda || 0) + '</span></div>';
+  const pe = k.phv_erittely || {};
+  if (Object.keys(pe).length) {
+    h += '<div style="margin-top:5px;padding-top:5px;border-top:.5px solid var(--border)"><span style="font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink3)">PHV-erittely · mikä toimii kenelle</span>';
+    ['PRE', 'LAH', 'PH', 'POST', 'AN', 'tuntematon'].forEach(function (kv) {
+      if (!pe[kv]) return; const e = pe[kv];
+      const d = (e.ka_delta != null) ? ((e.ka_delta > 0 ? '+' : '') + e.ka_delta) : '—';
+      h += '<div style="font-size:11px;margin-top:2px">' + esc(_VP_OHJ_PHV_NIMI[kv] || kv) + ': <b>n=' + e.n + '</b> · Δ ' + d + (e.mitattu_n < e.n ? ' <span style="color:var(--ink3)">(' + e.mitattu_n + '/' + e.n + ' mitattu)</span>' : '') + '</div>';
+    });
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+window._vpOhjNaytaAnalytiikka = function (ohjelmaId) {
+  const cont = document.getElementById('_vpOhjAnal_' + ohjelmaId); if (!cont) return;
+  const LIB = window.TM_OHJELMA_ANAL;
+  if (!LIB) { cont.innerHTML = '<div style="font-size:11px;color:var(--ink3)">Analytiikkakirjasto ei latautunut.</div>'; return; }
+  cont.innerHTML = _vpOhjAnalKoosteHTML(LIB.tmOhjelmaKooste(ohjelmaId, (typeof _pelaajat !== 'undefined' && _pelaajat) || []));
+};
 window._vpOhjKirjastoModal = async function (pid, teemaAvain) {
   document.getElementById('_vpOhjModal')?.remove();
   await _vpOhjLataaKirjasto(true);
@@ -4124,7 +4156,11 @@ window._vpOhjKirjastoModal = async function (pid, teemaAvain) {
       + '<span style="font-size:10px;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:999px;padding:2px 8px">' + esc(o.tyyppi || '—') + '</span></div>';
     if (o.kuvaus) h += '<div style="font-size:11.5px;color:var(--ink2);margin-top:3px">' + esc(String(o.kuvaus).slice(0, 120)) + '</div>';
     h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:4px">' + ((o.vaiheet || []).length) + ' vaihetta · ' + (o.kesto_vk || '?') + ' vk · <b style="color:var(--ink2)">ajettu ' + N + ' pelaajalla</b></div>';
-    if (pid) h += '<div style="margin-top:8px"><button onclick="_vpOhjKaytaOhjelma(\'' + esc(pid) + '\',\'' + esc(teemaAvain || '') + '\',\'' + esc(o.id) + '\')" style="font-size:11.5px;font-weight:600;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">✓ Käytä jaksossa</button></div>';
+    h += '<div style="margin-top:8px;display:flex;gap:7px;flex-wrap:wrap">';
+    if (pid) h += '<button onclick="_vpOhjKaytaOhjelma(\'' + esc(pid) + '\',\'' + esc(teemaAvain || '') + '\',\'' + esc(o.id) + '\')" style="font-size:11.5px;font-weight:600;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">✓ Käytä jaksossa</button>';
+    // 7.2b — per-ohjelma-analytiikka on-demand (§26: _pelaajat jo muistissa; laske vasta klikattaessa).
+    h += '<button onclick="_vpOhjNaytaAnalytiikka(\'' + esc(o.id) + '\')" style="font-size:11.5px;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid rgba(42,93,176,.4);background:rgba(42,93,176,.12);color:var(--blue)">📊 Näytä analytiikka</button>';
+    h += '</div><div id="_vpOhjAnal_' + esc(o.id) + '"></div>';
     h += '</div>';
   });
   h += '</div></div>';

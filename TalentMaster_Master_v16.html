@@ -27,6 +27,7 @@
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
 <script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (validoi/versioi/templaatista, deterministinen) -->
+<script src="lib/tm_ohjelma_analytiikka.js?v=1"></script>   <!-- Vaihe 7.2b: per-ohjelma-analytiikka (tmOhjelmaKooste — mikä ohjelma toimii kenelle) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
@@ -5738,6 +5739,52 @@ async function _ohjLaskeN() {
 }
 function _ohjSaaKirjoittaa() { return _superAdmin || ['fysiikkavalmentaja', 'fysioterapeutti', 'valmentaja', 'talenttivalmentaja', 'vp', 'urheilutoimenjohtaja'].indexOf(_rooli) >= 0; }
 
+// ── Vaihe 7.2b: per-ohjelma-analytiikka. §26-vahti: on-demand (EI render-polulla) — pelaajat ladataan KERRAN kun avataan. ──
+window._ohjPelaajatCache = null;   // [{ jaksofokus_historia, phv_tila }]
+async function _ohjLataaPelaajatCache(force) {
+  if (!force && window._ohjPelaajatCache) return window._ohjPelaajatCache;
+  window._ohjPelaajatCache = [];
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) return window._ohjPelaajatCache;
+  try {
+    var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').get();
+    window._ohjPelaajatCache = snap.docs.map(function (d) { var p = d.data(); return { jaksofokus_historia: p.jaksofokus_historia || [], phv_tila: p.phv_tila || null }; });
+  } catch (e) { /* best-effort */ }
+  return window._ohjPelaajatCache;
+}
+var _OHJ_PHV_NIMI = { PRE: 'Ennen PHV', LAH: 'Lähestyy', PH: 'Kasvupyrähdys', POST: 'Jälkeen', AN: 'Jälki-PHV', tuntematon: 'PHV tuntematon' };
+// Kooste → HTML (rehellisyysmerkki jos mitattu_n < yhteensa_n §29 · PHV-erittely = "mikä ohjelma toimii kenelle").
+function _ohjAnalKoosteHTML(k) {
+  if (!k || !k.n) return '<div style="font-size:11.5px;color:var(--ink3);padding:6px 0">Ei suljettuja jaksoja tällä ohjelmalla vielä.</div>';
+  var esc = (typeof _prEsc === 'function') ? _prEsc : function (x) { return x; };
+  var deltaTxt = (k.ka_delta != null) ? ((k.ka_delta > 0 ? '+' : '') + k.ka_delta) : '—';
+  var mitattuTxt = (k.mitattu_n < k.yhteensa_n) ? (' <span style="color:var(--amber)" title="Kaikkia jaksoja ei ole mitattu — delta vain mitatuista (§29)">(' + k.mitattu_n + '/' + k.yhteensa_n + ' mitattu)</span>') : '';
+  var h = '<div style="margin-top:8px;padding:9px 11px;background:var(--ov-1,rgba(255,255,255,.03));border:.5px solid var(--border);border-radius:9px;font-size:11.5px;color:var(--ink2);line-height:1.6">';
+  h += '<div><b style="color:var(--ink)">' + k.n + '</b> suljettua jaksoa · ka delta <b style="color:var(--teal)">' + deltaTxt + '</b>' + mitattuTxt
+    + (k.toteuma_pct != null ? ' · toteuma <b>' + k.toteuma_pct + ' %</b>' : '') + '</div>';
+  var tj = k.tulosjakauma || {};
+  h += '<div style="margin-top:3px">tulos: <span style="color:var(--teal)">🟢 parani ' + (tj.parani || 0) + '</span> · <span style="color:var(--ink3)">→ ennallaan ' + (tj.ennallaan || 0) + '</span> · <span style="color:var(--amber)">🔄 vaihda ' + (tj.vaihda || 0) + '</span></div>';
+  var pe = k.phv_erittely || {};
+  if (Object.keys(pe).length) {
+    h += '<div style="margin-top:5px;padding-top:5px;border-top:.5px solid var(--border)"><span style="font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink3)">PHV-erittely · mikä toimii kenelle</span>';
+    ['PRE', 'LAH', 'PH', 'POST', 'AN', 'tuntematon'].forEach(function (kv) {
+      if (!pe[kv]) return; var e = pe[kv];
+      var d = (e.ka_delta != null) ? ((e.ka_delta > 0 ? '+' : '') + e.ka_delta) : '—';
+      h += '<div style="font-size:11px;margin-top:2px">' + esc(_OHJ_PHV_NIMI[kv] || kv) + ': <b>n=' + e.n + '</b> · Δ ' + d + (e.mitattu_n < e.n ? ' <span style="color:var(--ink3)">(' + e.mitattu_n + '/' + e.n + ' mitattu)</span>' : '') + '</div>';
+    });
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+window._ohjNaytaAnalytiikka = async function (ohjelmaId) {
+  var cont = document.getElementById('_ohjAnal_' + ohjelmaId); if (!cont) return;
+  cont.innerHTML = '<div style="font-size:11px;color:var(--ink3);padding:6px 0">Ladataan analytiikkaa…</div>';
+  var pelaajat = await _ohjLataaPelaajatCache(false);
+  var LIB = window.TM_OHJELMA_ANAL;
+  if (!LIB) { cont.innerHTML = '<div style="font-size:11px;color:var(--ink3)">Analytiikkakirjasto ei latautunut.</div>'; return; }
+  cont.innerHTML = _ohjAnalKoosteHTML(LIB.tmOhjelmaKooste(ohjelmaId, pelaajat));
+};
+
 // ── Kirjasto-/valintamodaali: listaa ohjelmat + N + [Käytä]/[Muokkaa]/[Arkistoi]/[＋ Uusi] ──
 window._ohjValitseModal = async function (pid, teemaAvain) {
   document.getElementById('_ohjValitseModal')?.remove();
@@ -5769,7 +5816,9 @@ function _ohjValitseRender(pid, teemaAvain, naytaArkisto) {
     if (pid && !o.arkistoitu) h += '<button onclick="_ohjKaytaOhjelma(\'' + esc(pid) + '\',\'' + esc(teemaAvain || '') + '\',\'' + esc(o.id) + '\')" style="font-size:11.5px;font-weight:600;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">✓ Käytä jaksossa</button>';
     if (_ohjSaaKirjoittaa()) h += '<button onclick="_ohjEditori(\'' + esc(o.id) + '\',\'' + esc(pid || '') + '\',\'' + esc(teemaAvain || '') + '\')" style="font-size:11.5px;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">✏️ Muokkaa (uusi versio)</button>';
     if (_ohjSaaKirjoittaa() && !o.arkistoitu) h += '<button onclick="_ohjArkistoi(\'' + esc(o.id) + '\',\'' + esc(pid || '') + '\',\'' + esc(teemaAvain || '') + '\')" style="font-size:11.5px;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink3)">🗄 Arkistoi</button>';
-    h += '</div></div>';
+    // 7.2b — per-ohjelma-analytiikka on-demand (§26: lataa pelaajat vasta klikattaessa, ei render-polulla).
+    h += '<button onclick="_ohjNaytaAnalytiikka(\'' + esc(o.id) + '\')" style="font-size:11.5px;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid rgba(42,93,176,.4);background:rgba(42,93,176,.12);color:var(--blue)">📊 Näytä analytiikka</button>';
+    h += '</div><div id="_ohjAnal_' + esc(o.id) + '"></div></div>';
   });
   h += '</div></div>';
   document.getElementById('_ohjValitseModal')?.remove();
