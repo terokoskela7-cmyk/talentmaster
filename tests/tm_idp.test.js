@@ -222,6 +222,23 @@ describe('B2 — lahde+pvm säilyy moottorissa (IDP-silta lähdemerkintä)', () 
   });
 });
 
+describe('I3a §C.1 — kesto valmentajan asetettavaksi (idpRakennaTavoite opts.kestoVk)', () => {
+  it('oletus kesto_vk 6 kun opts.kestoVk puuttuu; arvio_pvm = nyt + 6 vk', () => {
+    const p = { arviointi_havaittu: { vision: 2 } };
+    const nyt = new Date('2026-03-01T00:00:00Z');
+    const t = idpRakennaTavoite(p, idpKohdeKandidaatti(p, 'vision', baseOpts), Object.assign({}, baseOpts, { nyt }));
+    expect(t.aikaraami.kesto_vk).toBe(6);
+    expect(t.aikaraami.arvio_pvm).toBe('2026-04-12');   // 42 pv
+  });
+  it('opts.kestoVk asettaa keston + johtaa arvio_pvm:n (8 vk = 56 pv)', () => {
+    const p = { arviointi_havaittu: { vision: 2 } };
+    const nyt = new Date('2026-03-01T00:00:00Z');
+    const t = idpRakennaTavoite(p, idpKohdeKandidaatti(p, 'vision', baseOpts), Object.assign({}, baseOpts, { nyt, kestoVk: 8 }));
+    expect(t.aikaraami.kesto_vk).toBe(8);
+    expect(t.aikaraami.arvio_pvm).toBe('2026-04-26');   // 56 pv
+  });
+});
+
 describe('B2 — idpVahvinDim ADAR 1–3-kaanon (I1)', () => {
   it('adar_viimeisin.yht 1–3 skaalataan /3*5 (ei /12)', () => {
     const p = { d1_taso: 2, adar_viimeisin: { yht: 3 } };   // yht=3 (max) → 5.0, voittaa d1_taso 2
