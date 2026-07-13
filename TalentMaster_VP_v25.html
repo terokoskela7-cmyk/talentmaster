@@ -1393,6 +1393,23 @@ body {
 .jsp-arv-save { font-size: 10.5px; color: var(--ink3); margin-top: 10px; padding-top: 8px; border-top: .5px solid var(--border); }
 .jsp-arv-save b { color: var(--teal); }
 .jsp-arv-gempty { font-size: 11.5px; color: var(--ink3); padding: 6px 0; }
+/* Brändijako — Palloliitto Player Development Card × TalentMaster Analytics (havaintopsykologinen, pilottipalaute ennen lukitsemista). */
+.jsp-arv-brand { flex: 1 1 auto; min-width: 0; }
+.jsp-arv-kpill .jsp-arv-plname { color: var(--ink); font-weight: 600; }
+.jsp-arv-ksub { font-size: 10px; color: var(--ink3); margin-top: 3px; letter-spacing: .02em; }
+.jsp-arv-tmbadge { flex: 0 0 auto; text-align: right; font-size: 9px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); line-height: 1.35; }
+.jsp-arv-tmbadge b { display: block; font-size: 12px; letter-spacing: 0; text-transform: none; color: var(--teal); }
+.jsp-arv-attrib { font-size: 10px; color: var(--ink3); margin: 6px 0 2px; line-height: 1.5; }
+.jsp-arv-attrib b { font-weight: 600; }
+.jsp-arv-prov { margin-left: auto; flex: 0 0 auto; font-size: 8px; font-weight: 700; letter-spacing: .06em; border-radius: 4px; padding: 1px 5px; }
+.jsp-arv-prov.tm { color: var(--teal); background: rgba(40,176,144,.12); border: .5px solid rgba(40,176,144,.3); }
+.jsp-arv-prov.pl { color: var(--blue); background: rgba(42,93,176,.12); border: .5px solid rgba(42,93,176,.3); }
+.jsp-arv-kerros { margin-top: 14px; padding: 11px 13px; background: linear-gradient(150deg,rgba(40,176,144,.06),rgba(42,93,176,.05)); border: .5px solid rgba(40,176,144,.25); border-radius: 11px; }
+.jsp-arv-kerros-hd { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--teal); }
+.jsp-arv-kerros-body { font-size: 11px; color: var(--ink2); margin-top: 4px; line-height: 1.55; }
+.jsp-arv-kerros-body .k { color: var(--ink); font-weight: 500; }
+.jsp-arv-palaute { display: inline-flex; align-items: center; gap: 4px; margin-top: 9px; font-size: 10.5px; font-weight: 600; color: var(--ink2); background: var(--ov-1); border: .5px solid var(--border); border-radius: 999px; padding: 4px 11px; cursor: pointer; }
+.jsp-arv-palaute:hover { border-color: rgba(40,176,144,.4); color: var(--ink); }
 /* Vaihe 3a — Kausitavoite-kortti (IDP-ydin). §5 tokenit, §7.22 aikuisnäkymä. */
 .jsp-kt { margin-top: 16px; padding-top: 12px; border-top: .5px solid var(--border); }
 .jsp-kt-hd { margin-bottom: 8px; }
@@ -4209,15 +4226,20 @@ function _vpArviointiHTML(p) {
     return '<span class="jsp-arv-idp" onclick="event.stopPropagation();_vpTeeIdpTavoiteHavainnosta(\'' + pid + '\',\'' + avain + '\')" title="Luo IDP-kehitystavoite tästä havainnosta (arvo ≤ 2)">＋ IDP-tavoite</span>';
   };
 
-  // A1 — Otsikkorivi: arviointikehys-pilleri + meta (kohdemäärä · dimensiot). Kehys-select vain jos >1 kehys tai SA.
-  h += '<div class="jsp-arv-hdr">';
+  // §1 Kaksois-brändäys: Palloliitto Player Development Card (arviointikehys) × TalentMaster Analytics (älykerros).
+  // Sama data, selkeä alkuperä. Havaintopsykologinen muutos → pilottipalaute ennen lukitsemista (§4).
+  const _kortinNimi = (kehysAvain === 'palloliitto') ? 'Palloliitto Player Development Card' : _jsvEsc(kehys.nimi);
+  h += '<div class="jsp-arv-hdr"><div class="jsp-arv-brand">';
   if (kehysAvaimet.length > 1 || (typeof superAdmin !== 'undefined' && superAdmin)) {
-    h += '<div class="jsp-arv-kpill">Arviointikehys · <select class="jsp-arv-select" style="padding:1px 6px;font-size:11px" onchange="_vpArvValitseKehys(this.value)">'
+    h += '<div class="jsp-arv-kpill">📋 <select class="jsp-arv-select" style="padding:1px 6px;font-size:11px" onchange="_vpArvValitseKehys(this.value)">'
       + kehysAvaimet.map(function(k){ return '<option value="' + k + '"' + (k === kehysAvain ? ' selected' : '') + '>' + _jsvEsc(ARVIOINTI_KEHYKSET[k].nimi) + '</option>'; }).join('') + '</select></div>';
   } else {
-    h += '<div class="jsp-arv-kpill">Arviointikehys · <b>' + _jsvEsc(kehys.nimi) + '</b></div>';
+    h += '<div class="jsp-arv-kpill">📋 <span class="jsp-arv-plname">' + _kortinNimi + '</span></div>';
   }
-  h += '<span class="jsp-arv-hmeta">' + taks.length + ' kohdetta · 5 dimensiota' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('arviointi_lahderyhmat') : '') + '</span></div>';
+  h += '<div class="jsp-arv-ksub">Arviointikehys · D1–D5 · ' + taks.length + ' kohdetta</div></div>';
+  h += '<div class="jsp-arv-tmbadge">analytiikka<b>◆ TalentMaster</b></div></div>';
+  // §1 Attribuutio-selite (kerran): kumpi brändi omistaa minkä lähteen.
+  h += '<div class="jsp-arv-attrib"><span style="color:var(--blue)">🔵 <b>Palloliitto</b></span>: havaittu-arvio 1–5 · <span style="color:var(--teal)">🟢◆ <b>TalentMaster</b></span>: mittaus · pelihavainto · kehityssuunnitelma' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('brandijako') : '') + '</div>';
 
   // A1 — Teema-valikko erikseen (label "Teema"; optioteksti dim · kategoria + "N kohdetta").
   h += '<div class="jsp-arv-topbar"><label class="jsp-arv-lbl">Teema</label><select class="jsp-arv-select" onchange="_vpArvValitseTeema(this.value)">'
@@ -4253,7 +4275,7 @@ function _vpArviointiHTML(p) {
 
   // 🟢 MITATTU · TESTEISTÄ — lukittu numero + 🔒 + testiviite + mittaripalkki (ei 1–5-nappeja).
   if (gMit.length) {
-    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd mit">🟢 Mitattu <span class="sub">· testeistä (lukittu)</span></div>';
+    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd mit">🟢 Mitattu <span class="sub">· testeistä (lukittu)</span><span class="jsp-arv-prov tm" title="TalentMaster-testimoottori">TM ANALYTICS</span></div>';
     gMit.forEach(function(g){
       const item = g.item, arvo = g.av.arvo;
       const ref = (item.mitta && (item.mitta.laji || item.mitta.avain)) ? '<span class="ref">· ' + _jsvEsc(item.mitta.laji || item.mitta.avain) + '</span>' : '';
@@ -4269,7 +4291,7 @@ function _vpArviointiHTML(p) {
   }
   // 🔵 HAVAITTU · ARVIOI 1–5 — mittaripalkki + numero + segmentoitu 1–5 (klik = autosave). IDP-silta jos ≤2.
   if (gHav.length) {
-    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd hav">🔵 Havaittu <span class="sub">· arvioi 1–5</span></div>';
+    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd hav">🔵 Havaittu <span class="sub">· arvioi 1–5</span><span class="jsp-arv-prov pl" title="Palloliitto Player Development Card — kortin oma arviomuoto">PALLOLIITTO-ARVIO</span></div>';
     gHav.forEach(function(g){
       const item = g.item, arvo = g.av.arvo, hav = havaittu[item.avain];
       const num = (arvo != null) ? '<span class="jsp-arv-num" style="color:' + V5(arvo) + '">' + round1(arvo) + '</span>' : '<span class="jsp-arv-num mut">—</span>';
@@ -4283,7 +4305,7 @@ function _vpArviointiHTML(p) {
   // 👁 PELIHAVAINNOSTA · JOHDETTU ADAR:STA — himmeä PELIH. + havaintopvm + pinkki palkki + segmentoitu 1–5 yliajoon. IDP-silta jos ≤2.
   if (gPeli.length) {
     const havPvm = (p.adar_viimeisin && p.adar_viimeisin.pvm) ? _pvmLyhyt(p.adar_viimeisin.pvm) : '';
-    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd peli">👁 Pelihavainnosta <span class="sub">· johdettu ADAR:sta (1–3) — klikkaa 1–5 yliajaaksesi</span></div>';
+    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd peli">👁 Pelihavainnosta <span class="sub">· johdettu ADAR:sta (1–3) — klikkaa 1–5 yliajaaksesi</span><span class="jsp-arv-prov tm" title="TalentMaster-havaintomalli (ADAR)">TM ANALYTICS</span></div>';
     gPeli.forEach(function(g){
       const item = g.item, arvo = g.av.arvo;
       h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + '<span class="jsp-arv-pelih" title="Pelihavainnosta johdettu (kenttähavainto) — klikkaa 1–5 antaaksesi oman arvion (yliajaa)">PELIH.</span></span>'
@@ -4299,6 +4321,10 @@ function _vpArviointiHTML(p) {
   if (!items.length) h += '<div class="jsp-arv-gempty">Ei kohteita tässä teemassa.</div>';
   // Autosave-indikaattori (§A3).
   h += '<div class="jsp-arv-save">✓ Arviot tallentuvat <b>automaattisesti</b> klikatessa · teema ' + arvioituja + '/' + items.length + ' arvioitu.</div>';
+  // §3 — "TalentMaster Analytics — kehityskerros" -vyöhyke: merkitsee TM:n oman älyn kortin päällä (näkyväksi vs. Palloliiton kortti).
+  h += '<div class="jsp-arv-kerros"><div class="jsp-arv-kerros-hd">◆ TalentMaster Analytics — kehityskerros</div>'
+    + '<div class="jsp-arv-kerros-body"><span class="k">IDP-tavoite</span> (kausifokus) · <span class="k">Jaksofokus</span> + konseptit · <span class="k">5D-radar</span> · <span class="k">Peliäly/ADAR</span> · <span class="k">Kehityspolku</span></div>'
+    + '<div><span class="jsp-arv-palaute" onclick="event.stopPropagation();_vpBrandiPalaute(\'' + p.id + '\')">💬 Palaute brändijaosta</span></div></div>';
   return h;
 }
 // A1 — Coverage-solun klikkaus: hyppää dimensioon (valitse sen ensimmäinen teema).
@@ -4307,6 +4333,47 @@ window._vpArvHyppaaDim = function (dim) {
   const teemat = tmTeemat((typeof ARVIOINTI_TAKSONOMIA !== 'undefined') ? ARVIOINTI_TAKSONOMIA : null);
   const t = teemat.find(function (x) { return x.avain.indexOf(dim + '_') === 0; });
   if (t) { window._vpArvTeema = t.avain; _vpArvReRender(); }
+};
+// §4 Brändijako-palaute (havaintopsykologinen muutos → validoi pilotissa ennen lukitsemista, Teron ehto).
+// 3 pikakysymystä + vapaa teksti → localStorage-varmuus + best-effort Firestore (EI rules-muutosta; epäonnistuu hiljaa jos sääntö puuttuu).
+window._vpBrandiPalaute = function (pid) {
+  const vanha = document.getElementById('_vpBrandiModal'); if (vanha) vanha.remove();
+  const q = function (id, teksti) {
+    return '<div style="margin-bottom:12px"><div style="font-size:12.5px;color:var(--ink);margin-bottom:5px">' + teksti + '</div>'
+      + '<div class="jsp-arv-seg" id="' + id + '">'
+      + ['Kyllä', 'Osittain', 'Ei'].map(function (v) { return '<button type="button" class="jsp-arv-segbtn hav" style="min-width:66px" onclick="_vpBrandiSet(\'' + id + '\',this)">' + v + '</button>'; }).join('') + '</div></div>';
+  };
+  let h = '<div id="_vpBrandiModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:360;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
+  h += '<div class="jsp-rv-box" style="max-width:460px">';
+  h += '<div class="jsp-rv-hd"><div><div class="jsp-rv-title">Palaute — brändijako</div><div class="jsp-kt-muted">📋 Palloliitto-kortti × ◆ TalentMaster-analytiikka</div></div><button class="jsp-rv-x" onclick="document.getElementById(\'_vpBrandiModal\').remove()">×</button></div>';
+  h += q('_bpSelkea', 'Onko jako Palloliiton kortin ja TalentMasterin analytiikan välillä selkeä?');
+  h += q('_bpLuottamus', 'Vahvistaako jako luottamustasi järjestelmään?');
+  h += q('_bpSekoita', 'Sekoittaako jako jotakin (epäselvyys)?');
+  h += '<textarea id="_bpVapaa" class="jsp-kt-aani" placeholder="Vapaa palaute (valinnainen)…" onclick="event.stopPropagation()"></textarea>';
+  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpBrandiPalauteTallenna(\'' + _jsvEsc(pid) + '\')">Lähetä palaute</button>'
+    + '<button class="jsp-kt-btn" onclick="document.getElementById(\'_vpBrandiModal\').remove()">Peruuta</button></div>';
+  h += '</div></div>';
+  const wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+};
+window._vpBrandiSet = function (groupId, btn) {
+  const g = document.getElementById(groupId); if (!g) return;
+  Array.prototype.forEach.call(g.querySelectorAll('button'), function (b) { b.classList.toggle('on', b === btn); });
+  g.setAttribute('data-val', btn.textContent);
+};
+window._vpBrandiPalauteTallenna = async function (pid) {
+  const val = function (id) { const g = document.getElementById(id); return g ? (g.getAttribute('data-val') || null) : null; };
+  const vapaaEl = document.getElementById('_bpVapaa');
+  const palaute = { aihe: 'brandijako', selkea: val('_bpSelkea'), luottamus: val('_bpLuottamus'), sekoittaa: val('_bpSekoita'),
+    vapaa: vapaaEl ? vapaaEl.value.trim() : '', pelaajaId: pid || null, rooli: (typeof _rooli !== 'undefined' ? _rooli : null), aika: new Date().toISOString() };
+  try { const key = 'tm_brandijako_palaute'; const arr = JSON.parse(localStorage.getItem(key) || '[]'); arr.push(palaute); localStorage.setItem(key, JSON.stringify(arr)); } catch (e) { /* localStorage estetty */ }
+  if (!_isDemoMode && _seuraId && typeof db !== 'undefined') {
+    try {
+      const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+      await db.collection('seurat').doc(_seuraId).collection('palaute').add(Object.assign({ luotu: new Date().toISOString() }, palaute));
+    } catch (e) { /* best-effort — palaute jää localStorageen jos säännöt eivät salli (ei rules-muutosta tässä) */ }
+  }
+  const m = document.getElementById('_vpBrandiModal'); if (m) m.remove();
+  if (typeof toast === 'function') toast('Kiitos palautteesta! 🙏', 'ok');
 };
 // Re-renderöi Arviointi-välilehti paikallaan (dropdown-vaihto tai tallennus). Säilyttää valitun teeman/kehyksen.
 function _vpArvReRender() {
@@ -7156,6 +7223,7 @@ window.TM_TESTI_OHJEET = {
   tki: { otsikko: 'TKI · Tekniikkakilpailuindeksi', mita: 'Palloliiton 5-lajisen tekniikkakilpailun (ponnauttelu, syöttö, pujottelu, kuljetus-laukaus, pituuspotku) kokonaistuloksesta laskettu indeksi 0–99. Vain ikä 8–13.', tulkinta: 'Kulta 80–99 · Hopea 60–80 · Pronssi 40–60 · alle 40 kehityskohde. Merkki (🥇🥈🥉) tulee kokonaistuloksen aikarajasta, ei lajeittain.' },
   flei: { otsikko: 'Kehon valmiusindeksi', mita: 'Viiden liikehallintaketjun (SBL, SFL, LL, DIAG, DFL) liikkuvuus ja hallinta, 0–100. Liikevalmiuden ja loukkaantumisriskin mittari.', tulkinta: 'Alle 40 → automaattinen klinikkalähetys. Heikoin ketju ohjaa yksilöllistä S-harjoitetta.' },
   adar: { otsikko: 'Pelihavainto · Peliäly', mita: 'Valmentajan kenttähavainto: Awareness (havainnointi), Decision (päätöksenteko), Action (toteutus), Reaction (reagointi), kukin 1–3. Ei testilaboratorio vaan jatkuva havainnointi.', tulkinta: 'Kokonaistaso = arvioitujen osa-alueiden keskiarvo (1–3, I1-kaanon). Vaatii ≥3 havaintoa luotettavuuteen. Vahvin/heikoin osa-alue ohjaa peliharjoittelun painotusta.' },
+  brandijako: { otsikko: 'Brändijako · Palloliitto × TalentMaster', mita: 'Arviointi-välilehti yhdistää kaksi brändiä, joilla on eri rooli.', tulkinta: '<strong>📋 Palloliitto Player Development Card</strong> = virallinen <strong>arviointikehys</strong> (D1–D5-taksonomia + havaittu-arvio 1–5).<br><strong>◆ TalentMaster Analytics</strong> = älykerros kortin päällä: <strong>mittaus</strong> (TM-testit 🟢), <strong>pelihavainto</strong> (👁 ADAR), IDP-kehityssuunnitelma, jaksofokus/konseptit, 5D-radar, kehityspolku.', vinkki: 'Sama data, selkeä alkuperä → molemmat brändit vahvistuvat, virallinen kortti ei sekoitu TM:n omaan älyyn. Anna palautetta “💬 Palaute brändijaosta” -napista.' },
   arviointi_lahderyhmat: { otsikko: 'Arviointi · lähderyhmät', mita: 'Arviointirivit on jaettu kolmeen lähteeseen sen mukaan MISTÄ tieto tulee.', tulkinta: '<strong style="color:var(--teal)">🟢 Mitattu</strong> = TM-testistä laskettu — lukittu (🔒), et voi muuttaa käsin.<br><strong style="color:var(--blue)">🔵 Havaittu</strong> = sinun 1–5-arviosi (klikkaa → tallentuu automaattisesti).<br><strong style="color:#c060a8">👁 Pelihavainnosta</strong> = kenttähavainnosta (ADAR 1–3) johdettu; klikkaa 1–5 antaaksesi oman arvion (yliajaa johdetun).', vinkki: 'Mitattu on faktaa testistä; havaittu ja pelihavainto ovat asiantuntija-arvioita. §7.22: nämä ovat aikuisten työkaluja — pelaajalle ei näytetä tasolukuja.' },
   idp_silta: { otsikko: 'IDP-silta · ＋IDP-tavoite', mita: 'Kun arvioitu arvo on ≤ 2 (havaittu tai pelihavainto), rivin viereen ilmestyy oranssi ＋ IDP-tavoite -pilleri.', tulkinta: 'Klikkaus luo kausitavoite-ehdotuksen suoraan tästä havainnosta ja avaa Kehitys-välilehden, jossa tarkistat ja hyväksyt. Tavoite säilyttää alkuperän — lähdesiru näyttää esim. "◎ Lähde: pelihavainto · pvm".', vinkki: 'Silta yhdistää havainnon ja kehityssuunnitelman yhdellä klikkauksella — ei tarvitse aloittaa tavoitetta tyhjästä.' },
   idp_roolit: { otsikko: 'IDP · roolit (valmentaja / VP)', mita: 'Kuka omistaa kehityssuunnitelman (IDP)?', tulkinta: '<strong>Valmentaja</strong> omistaa oman joukkueensa pelaajien IDP:t — luo, muokkaa ja aktivoi tavoitteet itse, ja käy kehityskeskustelut.<br><strong>VP</strong> ei ole portinvartija vaan <strong>vahvistaja</strong>: näkee tavoitteet, kalibroi ja kommentoi näkemyksiä. Valmentajan aktivointi ei odota VP:n hyväksyntää.', vinkki: 'Strateginen kausitavoite (IDP-makro) sovitaan yhdessä; operatiivinen jaksofokus on valmentajan päivittäistä työtä.' },
